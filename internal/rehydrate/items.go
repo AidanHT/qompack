@@ -434,7 +434,7 @@ func buildUserIntent(ctx context.Context, r Request, d Deps) built {
 	// Each unit's drop ID is still the delta's TRUE index into Checkpoint.UserIntent.Evolution —
 	// not its position in this reversed build order — so provenance (T11-AUTH-01) and any
 	// consumer correlating by that index are unaffected by the display/truncation order.
-	for _, ev := range evolutionOf(ctx, r, d, fork, origin) {
+	for _, ev := range evolutionOf(ctx, r, d, fork, origin, text) {
 		b.seen++
 		body := quoteLines(ev.text)
 		if len(b.units) == 0 || isFixedUnit(b.units[len(b.units)-1]) {
@@ -461,17 +461,25 @@ type evolutionDelta struct {
 }
 
 // evolutionOf returns the checkpoint's evolution deltas NEWEST FIRST (see buildUserIntent), each
-// with its true index as its id and the checkpoint field that holds it as its pointer.
+// with its true index as its id and the checkpoint field that holds it as its pointer. original is
+// the text item 2 shows as the original.
 //
 // A fork's own first prompt is one of them: the checkpointer records it after the parent's history
-// (checkpoint/intent.go). A checkpoint that does not carry it — one sealed before this build — gets
-// it from L0 as the newest delta, pointing at its own capture, so the fork's first statement is
-// never lost with its misplaced role.
-func evolutionOf(ctx context.Context, r Request, d Deps, fork *checkpoint.Lineage, origin core.SessionID) []evolutionDelta {
+// (checkpoint/intent.go). A checkpoint that cannot be carrying it — its prompt record was unreadable
+// or not yet published when the checkpoint was sealed — gets it from L0 as the newest delta,
+// pointing at its own capture, so the fork's first statement is never lost with its misplaced role.
+// Two absences are not that, and adding it back would misrepresent it: the checkpoint's evolution
+// bounds left it out as one of the OLDEST restatements (checkpoint.EvolutionElided), which on top
+// of "most recent first" would present a superseded statement as the current authority; or it is
+// word for word the original, which the checkpointer lists once, as the original.
+func evolutionOf(ctx context.Context, r Request, d Deps, fork *checkpoint.Lineage, origin core.SessionID,
+	original string,
+) []evolutionDelta {
 	evo := r.Checkpoint.UserIntent.Evolution
 	out := make([]evolutionDelta, 0, len(evo)+1)
-	if fork != nil && origin != r.Session {
-		if own := readL0First(ctx, d, r.Session); own.state == l0Whole && !listedIn(evo, own.text) {
+	if fork != nil && origin != r.Session && !checkpoint.EvolutionElided(r.Checkpoint) {
+		own := readL0First(ctx, d, r.Session)
+		if own.state == l0Whole && own.text != strings.TrimSpace(original) && !listedIn(evo, own.text) {
 			id := string(firstPromptID(r.Session))
 			out = append(out, evolutionDelta{text: own.text, id: id, pointer: "expand(tool_use_id=" + id + ")"})
 		}
@@ -532,15 +540,19 @@ func forkNotice(r Request, fork *checkpoint.Lineage) checkpoint.DropEntry {
 		return checkpoint.DropEntry{
 			Kind: dropKindUserIntentSource, ID: forkDropID,
 			Detail: "this session was forked from another, but its parent is unknown to Qompack (no " +
-				"verifying checkpoint existed when it started), so its own first prompt is shown as its " +
+				"other session had been prompted when it started), so its own first prompt is shown as its " +
 				"original request",
 		}
 	}
+	parent := "session " + string(fork.ParentSession)
+	if fork.ParentSeq != 0 {
+		parent += " (its newest checkpoint then: " + fmt.Sprintf("%04d", int(fork.ParentSeq)) + ")"
+	}
 	return checkpoint.DropEntry{
 		Kind: dropKindUserIntentSource, ID: forkDropID,
-		Detail: "this session is a fork of session " + string(fork.ParentSession) + " (checkpoint " +
-			fmt.Sprintf("%04d", int(fork.ParentSeq)) + "); its original request is session " +
-			string(fork.OriginSession) + "'s first prompt, and its own first prompt is an evolution entry" +
+		Detail: "this session is a fork of " + parent + ", which Qompack inferred because the host names " +
+			"no parent; its original request is session " + string(fork.OriginSession) +
+			"'s first prompt, and its own first prompt is an evolution entry" +
 			restoreClause("expand(tool_use_id="+string(firstPromptID(fork.OriginSession))+")"),
 	}
 }
