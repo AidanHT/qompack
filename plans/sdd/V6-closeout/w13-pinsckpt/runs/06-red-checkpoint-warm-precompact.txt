@@ -1,0 +1,22 @@
+--- FAIL: TestWarmPreCompactEncodesTheSegmentClosedAtCompaction (0.14s)
+    precompact_test.go:431: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-pinsckpt/internal/checkpoint/precompact_test.go:431
+        	Error:      	Not equal: 
+        	            	expected: []core.SegmentID{1, 2}
+        	            	actual  : []core.SegmentID{1}
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,4 +1,3 @@
+        	            	-([]core.SegmentID) (len=2) {
+        	            	- (core.SegmentID) 1,
+        	            	- (core.SegmentID) 2
+        	            	+([]core.SegmentID) (len=1) {
+        	            	+ (core.SegmentID) 1
+        	            	 }
+        	Test:       	TestWarmPreCompactEncodesTheSegmentClosedAtCompaction
+        	Messages:   	the segment closed at the compaction is encoded into the checkpoint sealed for it
+FAIL
+FAIL	github.com/qompack/qompack/internal/checkpoint	0.383s
+FAIL
