@@ -326,7 +326,7 @@ macOS, and B-A's gated sample contains B-B by construction (the ACK follows the 
 B-B budget was therefore a B-A breach: isolated V6 close-out Phase 3 runs on Windows measured B-A
 p50 15.4–16.4 ms and p99 22.5–26.6 ms against B-B p99 12.3 ms, and the §8.1 detector below moved
 every run to spool submode after exactly 3 × 512 samples, so any real Windows session past ~1.5k
-tool uses ran degraded with a WARN and a LOUD.log entry. Owner decision D41
+tool uses ran degraded with a WARN and a LOUD.log entry. Coordinator decision D41, taken under D33
 (`plans/V6-CLOSEOUT-CHECKLIST.md`) makes the default `max(15, the platform's l0IngestMs default)` —
 15 on Linux, 50 on Windows, 40 on macOS — composed from the two approved numbers by
 `HotPathBudgetMsFor` in `internal/config/deadlines.go`, which therefore follows B-B wherever B-B is

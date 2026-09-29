@@ -2,8 +2,10 @@ package config_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -538,13 +540,18 @@ func TestLoad_UnrepresentableLeafWarnsWithoutResettingEverything(t *testing.T) {
 // 15 in a project file, and 7 from the environment — is applied exactly as written on every
 // platform, including one whose l0IngestMs default is higher, and is never raised to the derived
 // floor. An operator who wants the old tighter gate can still have it.
+//
+// Since D43 a value below the effective l0IngestMs also draws the budget WARN (see
+// TestLoad_HotPathBudgetBelowIngestBudgetWarns); that WARN is the only warning allowed here, and
+// only when the value really is below. The value itself is still applied as written either way.
 func TestLoad_UserSetHotPathBudgetIsKept(t *testing.T) {
 	env := baseEnv(t)
 	writeConfigFile(t, env.ProjectRoot, `{"runtime":{"hotPath":{"budgetMs":15}}}`)
+	ingest := config.Defaults().Runtime.Budgets.L0IngestMs
 
 	cfg, prov, warns, err := config.Load(env)
 	require.NoError(t, err)
-	require.Empty(t, warns)
+	requireOnlyBudgetWarnWhenBelow(t, warns, 15, ingest)
 	require.Equal(t, 15, cfg.Runtime.HotPath.BudgetMs, "a project-file budgetMs is applied as written")
 	require.Equal(t, config.OriginProjectFile, prov["runtime.hotPath.budgetMs"].Origin)
 
@@ -556,7 +563,97 @@ func TestLoad_UserSetHotPathBudgetIsKept(t *testing.T) {
 	}
 	cfg, prov, warns, err = config.Load(env)
 	require.NoError(t, err)
-	require.Empty(t, warns)
+	requireOnlyBudgetWarnWhenBelow(t, warns, 7, ingest)
 	require.Equal(t, 7, cfg.Runtime.HotPath.BudgetMs, "an environment budgetMs is applied as written")
 	require.Equal(t, config.OriginEnv, prov["runtime.hotPath.budgetMs"].Origin)
+}
+
+// hotPathBudgetKey is the leaf D43's WARN names.
+const hotPathBudgetKey = "runtime.hotPath.budgetMs"
+
+// requireOnlyBudgetWarnWhenBelow asserts warns is exactly D43's budget WARN when budgetMs is below
+// ingestMs, and empty otherwise.
+func requireOnlyBudgetWarnWhenBelow(t *testing.T, warns []config.Warning, budgetMs, ingestMs int) {
+	t.Helper()
+	if budgetMs >= ingestMs {
+		require.Empty(t, warns, "budgetMs %d is not below l0IngestMs %d: nothing to warn about", budgetMs, ingestMs)
+		return
+	}
+	require.Equal(t, []string{hotPathBudgetKey}, warningKeys(warns),
+		"budgetMs %d is below l0IngestMs %d: exactly the D43 WARN, nothing else", budgetMs, ingestMs)
+}
+
+// TestLoad_HotPathBudgetBelowIngestBudgetWarns pins D43 (plans/V6-CLOSEOUT-CHECKLIST.md,
+// 2026-09-29): Load WARNs, and never clamps, when the effective runtime.hotPath.budgetMs (the B-A
+// limit) is below the effective runtime.budgets.l0IngestMs (the B-B limit). Every B-A sample the
+// daemon records contains B-B's durable ingest (config.HotPathBudgetMsFor's doc comment), so such
+// a setting makes deliveries that meet their own B-B budget into B-A breaches, and three breached
+// 512-sample windows move the session to spool submode. The WARN names the budget key, so the CLI
+// reports it at Warn (cli.LoadConfigAndReport), not as a §11.3 violation: nothing was replaced.
+//
+// The numbers are derived from this platform's defaults, so every subtest means the same thing on
+// linux (15/15), Windows (50/50) and macOS (40/40).
+func TestLoad_HotPathBudgetBelowIngestBudgetWarns(t *testing.T) {
+	def := config.Defaults().Runtime
+	ingest := def.Budgets.L0IngestMs
+
+	t.Run("defaults do not warn", func(t *testing.T) {
+		cfg, _, warns, err := config.Load(baseEnv(t))
+		require.NoError(t, err)
+		require.Empty(t, warns, "the shipped defaults never trip the budget WARN (D41: budgetMs >= l0IngestMs)")
+		require.Equal(t, config.Defaults(), cfg)
+	})
+
+	t.Run("budgetMs set below l0IngestMs warns and is kept", func(t *testing.T) {
+		env := baseEnv(t)
+		below := ingest - 1
+		writeConfigFile(t, env.ProjectRoot, fmt.Sprintf(`{"runtime":{"hotPath":{"budgetMs":%d}}}`, below))
+
+		cfg, prov, warns, err := config.Load(env)
+		require.NoError(t, err)
+		require.Equal(t, below, cfg.Runtime.HotPath.BudgetMs, "the WARN never clamps: the value is applied as set")
+		require.Equal(t, ingest, cfg.Runtime.Budgets.L0IngestMs, "l0IngestMs is untouched")
+		require.Equal(t, config.OriginProjectFile, prov[hotPathBudgetKey].Origin, "provenance still says who set it")
+		require.Len(t, warns, 1, "exactly one WARN: %+v", warns)
+		w := warns[0]
+		require.Equal(t, hotPathBudgetKey, w.Key, "a keyed warning, so it is reported at Warn, not Loud")
+		require.False(t, w.Deprecated)
+		require.Contains(t, w.Message, fmt.Sprintf("%d ms", below), "the WARN states the budget")
+		require.Contains(t, w.Message, fmt.Sprintf("%d ms", ingest), "the WARN states the ingest budget")
+		require.Contains(t, w.Message, "runtime.budgets.l0IngestMs")
+		require.Contains(t, w.Message, "spool", "the WARN says what the setting does to a session")
+		require.Equal(t, prov[hotPathBudgetKey].Location, w.Location, "the WARN points where provenance does")
+		require.True(t, strings.HasPrefix(w.Location, config.ProjectConfigPath(env.ProjectRoot)),
+			"the WARN points at the file that set it: %q", w.Location)
+		require.Empty(t, config.ViolationsFromWarnings(warns), "it is not a §11.3 violation: nothing was replaced")
+	})
+
+	t.Run("l0IngestMs set above the default budgetMs warns and both are kept", func(t *testing.T) {
+		env := baseEnv(t)
+		above := def.HotPath.BudgetMs + 1
+		env.Getenv = func(k string) string {
+			if k == "QOMPACK_RUNTIME__BUDGETS__L0INGESTMS" {
+				return strconv.Itoa(above)
+			}
+			return ""
+		}
+
+		cfg, _, warns, err := config.Load(env)
+		require.NoError(t, err)
+		require.Equal(t, above, cfg.Runtime.Budgets.L0IngestMs)
+		require.Equal(t, def.HotPath.BudgetMs, cfg.Runtime.HotPath.BudgetMs,
+			"a user-set l0IngestMs does not move budgetMs (HotPathBudgetMsFor's doc comment); D43 only warns")
+		require.Equal(t, []string{hotPathBudgetKey}, warningKeys(warns))
+		require.Contains(t, warns[0].Message, fmt.Sprintf("%d ms", above))
+	})
+
+	t.Run("equal is not below", func(t *testing.T) {
+		env := baseEnv(t)
+		writeConfigFile(t, env.ProjectRoot, fmt.Sprintf(`{"runtime":{"hotPath":{"budgetMs":%d}}}`, ingest))
+
+		cfg, _, warns, err := config.Load(env)
+		require.NoError(t, err)
+		require.Equal(t, ingest, cfg.Runtime.HotPath.BudgetMs)
+		require.Empty(t, warns, "a B-A budget equal to B-B's is not tighter than it")
+	})
 }

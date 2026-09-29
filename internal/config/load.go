@@ -119,8 +119,40 @@ func Load(env Env) (Config, Provenance, []Warning, error) {
 		return c, true
 	})
 	warns = append(warns, clampWarns...)
+	warns = append(warns, hotPathBudgetWarnings(cfg, prov)...)
 
 	return cfg, prov, warns, nil
+}
+
+// hotPathBudgetKey and l0IngestKey are the two leaves hotPathBudgetWarnings compares.
+const (
+	hotPathBudgetKey = "runtime.hotPath.budgetMs"
+	l0IngestKey      = "runtime.budgets.l0IngestMs"
+)
+
+// hotPathBudgetWarnings is D43 (plans/V6-CLOSEOUT-CHECKLIST.md, 2026-09-29): a WARN, never a
+// clamp, when the effective runtime.hotPath.budgetMs (the B-A limit) is below the effective
+// runtime.budgets.l0IngestMs (the B-B limit). The B-A sample contains B-B's durable ingest
+// (HotPathBudgetMsFor's doc comment), so with such a setting a delivery that meets its own B-B
+// budget can still be a B-A breach, and three breached windows move the session to spool submode.
+// The defaults never trip it on any platform (D41 derives budgetMs as at least l0IngestMs); a user
+// who sets budgetMs low, or l0IngestMs high without budgetMs, does. Both values stay as set. The
+// Warning is keyed, so cli.LoadConfigAndReport logs it at Warn, and its message does not carry
+// ViolationsFromWarnings' prefix, so it is never persisted as a §11.3 violation: nothing was
+// replaced.
+func hotPathBudgetWarnings(cfg Config, prov Provenance) []Warning {
+	budget, ingest := cfg.Runtime.HotPath.BudgetMs, cfg.Runtime.Budgets.L0IngestMs
+	if budget >= ingest {
+		return nil
+	}
+	return []Warning{{
+		Key: hotPathBudgetKey,
+		Message: fmt.Sprintf("B-A budget %d ms is below the effective %s (%d ms, from %s): every B-A "+
+			"sample includes the durable ingest that budget covers, so deliveries within it can still "+
+			"breach B-A and move sessions to spool submode; the value is applied as set",
+			budget, l0IngestKey, ingest, prov[l0IngestKey].Location),
+		Location: prov[hotPathBudgetKey].Location,
+	}}
 }
 
 // clampInvalidLeaves is §11.3's fallback: every leaf a Violation names is restored from Defaults(),

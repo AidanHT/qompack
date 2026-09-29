@@ -1,9 +1,10 @@
 // Package daemon is the resident per-project process of 00-ARCHITECTURE.md §5.4: the thing that
 // holds the store, the sketches and the scheduler in memory so a hook does not have to.
 //
-// The whole reason it exists is budget B-A (§2.4): a hook has 15 ms at p99, and opening a store,
-// loading sketches and reconstructing scheduler state cannot be done in that time on every tool
-// call. The daemon pays those costs once and the hook pays only a connect-write-ack.
+// The whole reason it exists is budget B-A (§2.4): a hook has runtime.hotPath.budgetMs at p99 —
+// by default 15 ms on Linux, 50 on Windows and 40 on macOS (D41, config.HotPathBudgetMsFor) — and
+// opening a store, loading sketches and reconstructing scheduler state cannot be done in that time
+// on every tool call. The daemon pays those costs once and the hook pays only a connect-write-ack.
 //
 // daemon is a composition root (§3.2): it may import anything, and nothing may import it. It is
 // also one of the four packages permitted to use os/exec, because §5.4 has it re-spawn itself

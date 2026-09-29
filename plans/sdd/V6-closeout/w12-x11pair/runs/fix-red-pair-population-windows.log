@@ -1,0 +1,37 @@
+--- FAIL: TestV3_X11LedgerPairVerdict (0.00s)
+    --- FAIL: TestV3_X11LedgerPairVerdict/unequal_populations (0.00s)
+        --- FAIL: TestV3_X11LedgerPairVerdict/unequal_populations/a_shorter_ledger_run_with_an_equal_p50 (0.00s)
+            v3_x11_pair_test.go:324: 
+                	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w12-x11pair/test/e2e/v3_x11_pair_test.go:324
+                	Error:      	Target error should be in err chain:
+                	            	expected: "X11: the two runs' hook_controlled_observed populations differ in size"
+                	            	in chain: 
+                	Test:       	TestV3_X11LedgerPairVerdict/unequal_populations/a_shorter_ledger_run_with_an_equal_p50
+                	Messages:   	n=2064 against n=1500
+        --- FAIL: TestV3_X11LedgerPairVerdict/unequal_populations/a_shorter_no-ledger_run_with_an_equal_p50 (0.00s)
+            v3_x11_pair_test.go:324: 
+                	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w12-x11pair/test/e2e/v3_x11_pair_test.go:324
+                	Error:      	Target error should be in err chain:
+                	            	expected: "X11: the two runs' hook_controlled_observed populations differ in size"
+                	            	in chain: 
+                	Test:       	TestV3_X11LedgerPairVerdict/unequal_populations/a_shorter_no-ledger_run_with_an_equal_p50
+                	Messages:   	n=2063 against n=2064
+        --- FAIL: TestV3_X11LedgerPairVerdict/unequal_populations/a_shorter_ledger_run_over_the_ceiling (0.00s)
+            v3_x11_pair_test.go:324: 
+                	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w12-x11pair/test/e2e/v3_x11_pair_test.go:324
+                	Error:      	Target error should be in err chain:
+                	            	expected: "X11: the two runs' hook_controlled_observed populations differ in size"
+                	            	in chain: "X11: the resident ledger moved the hot path: hook_controlled_observed p50 30.720ms with the 5 000-entry ledger resident is over 5.120ms, the ceiling from the paired no-ledger run's 4.096ms (x1.25, and never less than one 1.024ms tick above it)"
+                	            		"X11: the resident ledger moved the hot path"
+                	Test:       	TestV3_X11LedgerPairVerdict/unequal_populations/a_shorter_ledger_run_over_the_ceiling
+                	Messages:   	n=2064 against n=1500
+--- FAIL: TestV3_X11DeferralNoteIsFound (0.00s)
+    v3_x11_pair_test.go:338: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w12-x11pair/test/e2e/v3_x11_pair_test.go:338
+        	Error:      	Should be true
+        	Test:       	TestV3_X11DeferralNoteIsFound
+        	Messages:   	a run whose artifact carries the delivery ledger deferred to the spool
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	0.160s
+FAIL
+exit=1

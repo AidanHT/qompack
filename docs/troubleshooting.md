@@ -834,6 +834,33 @@ Copies of versions no daemon is running are removed automatically when a new ver
 
 ---
 
+**Symptom.** `/qompack:status` (or `qompack status`) shows `hot path:    spool` for the rest of the
+session, with `daemon: hot path degraded to spool submode` among its recent loud lines.
+
+**Diagnose.** The loud line (also in `.qompack/logs/LOUD.log`) names the budget the daemon gated on
+(`budget_ms`) and how many consecutive over-budget windows it saw (`windows`); the counter
+`hotpath_degraded` counts the switches. `spool files:` on the same page counts what is waiting in
+`.qompack/spool/`.
+
+**Meaning.** Hook deliveries were over the B-A budget (`runtime.hotPath.budgetMs`) for several
+sample windows in a row, usually because the machine was heavily loaded, so the daemon told hooks
+to stop waiting for it. Capture continues: each hook writes its event to the spool instead, and the
+daemon replays the spool into the store, so nothing is lost, although recent tool uses can reach
+the store a little later than usual. The switch lasts until a new session starts in this project or
+the daemon restarts; it does not switch back on its own during the session, and compacting the
+current session does not reset it while the same daemon is running.
+
+**Action.** Nothing is required. To leave spool mode, start a new session: that is the reliable way
+out. Otherwise wait for the daemon's idle exit (below); the next daemon starts in sync mode. Do not
+end the daemon's process to get out of it: a killed daemon leaves the spool setting in place, hooks
+in spool mode do not start a daemon, and so nothing is replayed from the spool and spool mode lasts
+until the session is compacted or a new one starts. If it happens in every session, check the
+machine's load, and check that `runtime.hotPath.budgetMs` is not set below
+`runtime.budgets.l0IngestMs` (`qompack config print --provenance` shows both; when it is, the
+daemon's day log in `.qompack/logs/` has a `configuration warning` for `runtime.hotPath.budgetMs`).
+
+---
+
 **Symptom.** A daemon is running and you want it to stop.
 
 **Meaning.** It stops on its own when idle: `runtime.daemon.idleExitSeconds`
