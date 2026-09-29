@@ -116,6 +116,84 @@ func TestEventsAfterAScheduledRollEnrolInTheSuccessor(t *testing.T) {
 	require.Equal(t, int64(1), h.counter(counterSegmentFollowed), "one roll followed")
 }
 
+// TestAMidTurnRollEnrolsTheRestOfTheTurnInTheSuccessor pins where a turn's later tool uses go when
+// a roll lands in the middle of the turn (w14-observer review finding 1). A todo, test or commit
+// signal, or a changepoint, on one tool use of turn t closes the segment at t and opens the
+// successor at t+1; the next tool use of the same turn is captured after the roll. Membership
+// follows capture order: that read is enrolled in the successor and counted in its node, as the
+// scheduler's open-segment account counts it in the successor's Segment.Tokens. The log's turn
+// ranges still put turn t in the rolled segment, and this row pins that known disagreement too.
+func TestAMidTurnRollEnrolsTheRestOfTheTurnInTheSuccessor(t *testing.T) {
+	h, ss := newSessionHarness(t)
+	ss.DefaultTokens = rollReadTokens
+	ctx := context.Background()
+	_, err := h.obs.OnSessionStart(ctx, startEvent("startup"))
+	require.NoError(t, err)
+
+	h.drive(readOf("toolu_mid_1", "src/a.ts", "alpha\n")) // turn 0, pos 0..40
+	succ := ss.seg.roll(t, 1, 0, rollReadTokens)          // closes 1 at turn 0, opens 2 at turn 1
+	h.drive(readOf("toolu_mid_2", "src/b.ts", "beta\n"))  // still turn 0, pos 40..80
+	h.stop(stopOf(false), false)                          // turn 0 ends
+	_, err = h.obs.OnSessionEnd(ctx, endEvent())
+	require.NoError(t, err)
+
+	second, ok := h.Graph.Node(dag.ToolUseNode("toolu_mid_2"))
+	require.True(t, ok)
+	require.Equal(t, core.TurnIndex(0), second.Turn, "the second read is turn 0's, as the first one is")
+	for _, n := range []dag.NodeID{dag.ToolUseNode("toolu_mid_2"), dag.ToolResultNode("toolu_mid_2")} {
+		_, ok = findEdge(h.Graph.edges(), n, dag.SegmentNode(succ), dag.EdgeSequence)
+		require.True(t, ok, "%s is enrolled in the successor: it was captured after the roll", n)
+		_, ok = findEdge(h.Graph.edges(), n, dag.SegmentNode(1), dag.EdgeSequence)
+		require.False(t, ok, "%s is not enrolled against the rolled segment", n)
+	}
+
+	rolled, ok := h.Graph.Node(dag.SegmentNode(1))
+	require.True(t, ok)
+	require.Equal(t, rollReadTokens, rolled.Tokens, "the rolled node counts only the read captured before the roll")
+	require.Equal(t, "0-0", rolled.Ref, "while its turn range, the log's, still holds all of turn 0")
+	next, ok := h.Graph.Node(dag.SegmentNode(succ))
+	require.True(t, ok)
+	require.Equal(t, int(rollReadTokens), next.Pos, "the successor starts at the roll's position, inside turn 0")
+	require.Equal(t, rollReadTokens, next.Tokens, "and counts the second read")
+	require.Equal(t, "1-1", next.Ref)
+}
+
+// TestARollBehindAnEnrolledPromptLeavesItInTheRolledSegment is the same rule the other way round.
+// A close at the highest tool-use turn (a compaction, or a changepoint declared at a Stop) can end
+// the segment at a turn before a prompt the observer has already enrolled in it: the prompt was
+// captured before the roll, so it stays a member of the rolled segment although the log's turn
+// ranges put its turn in the successor. Enrolment cannot be moved after the fact, so capture order
+// is the one rule every roll satisfies.
+func TestARollBehindAnEnrolledPromptLeavesItInTheRolledSegment(t *testing.T) {
+	h, ss := newSessionHarness(t)
+	ss.DefaultTokens = rollReadTokens
+	ctx := context.Background()
+	_, err := h.obs.OnSessionStart(ctx, startEvent("startup"))
+	require.NoError(t, err)
+
+	h.drive(readOf("toolu_behind_1", "src/a.ts", "alpha\n")) // turn 0, pos 0..40
+	h.stop(stopOf(false), false)                             // turn 1
+	h.submit("answer without a tool")                        // prompt at turn 1, pos 40..80
+	succ := ss.seg.roll(t, 1, 0, rollReadTokens)             // at the highest tool turn: 0
+	h.stop(stopOf(false), false)                             // the first event after the roll
+	_, err = h.obs.OnSessionEnd(ctx, endEvent())
+	require.NoError(t, err)
+
+	_, ok := findEdge(h.Graph.edges(), dag.UserPromptNode(1), dag.SegmentNode(1), dag.EdgeSequence)
+	require.True(t, ok, "the prompt was captured before the roll, so it is a member of the rolled segment")
+	_, ok = findEdge(h.Graph.edges(), dag.UserPromptNode(1), dag.SegmentNode(succ), dag.EdgeSequence)
+	require.False(t, ok, "and not of the successor")
+
+	rolled, ok := h.Graph.Node(dag.SegmentNode(1))
+	require.True(t, ok)
+	require.Equal(t, 2*rollReadTokens, rolled.Tokens, "the read and the prompt")
+	require.Equal(t, "0-0", rolled.Ref, "while the log's turn range ends before the prompt's turn")
+	next, ok := h.Graph.Node(dag.SegmentNode(succ))
+	require.True(t, ok)
+	require.Equal(t, int(2*rollReadTokens), next.Pos)
+	require.Equal(t, "1-3", next.Ref, "the successor's turn range holds the prompt's turn 1")
+}
+
 // TestSessionStartAfterACompactionRollEmitsTheRolledSegment: the scheduler closes the compacting
 // session's segment at PreCompact and the host then sends SessionStart(compact). The observer must
 // not simply adopt the successor as its current segment: the segment the compaction closed still

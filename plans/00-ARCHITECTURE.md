@@ -2463,8 +2463,10 @@ to it; SP-12 closes segments on a changepoint, todo completion, passing test, gi
 compaction (PreCompact), opens each one's successor, and advances the frontier (O5). No
 SessionStart need follow an SP-12 roll, so SP-08 follows it itself: before an event moves the
 prefix position it checks whether its segment was closed, gives the closed segment its DAG node and
-enrols from then on in the successor; SessionEnd closes the session's open segment. `SegmentLog`
-itself is SP-06's.
+enrols from then on in the successor; SessionEnd closes the session's open segment. DAG
+membership follows capture order, so after a roll in the middle of a turn that turn's later tool
+uses are members of the successor, although the log's turn ranges (which the checkpoint encoder
+partitions by) put them in the rolled segment. `SegmentLog` itself is SP-06's.
 
 ### 5.22a `internal/redact` (§13 invariant 7, `runtime.redact`)
 
