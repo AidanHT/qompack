@@ -1008,6 +1008,11 @@ func (d *Draft) mergeEliminationsLocked(ctx context.Context, src SourceSet) erro
 //     Advance that encoded that segment has already considered it; a record whose node the graph
 //     does not hold takes the frontier, as Advance's takes its from-turn.
 //
+// Each decision it keeps is emitted into the DAG exactly as ExtractDecisions emits its own — a
+// KindDecision node and an explains edge from the elimination node (emitDecisions) — so slice
+// scoring can rank it. The node and edge carry the same values an Advance extracting the same
+// record later emits (the record's node turn, its evidence), which makes that emission a no-op.
+//
 // It is a no-op on a sealed draft, and a ledger that cannot be read leaves the draft's own copy
 // standing: the caller seals what the draft has, as the PreCompact failure rows require.
 func (d *Draft) refreshNegativeKnowledge(ctx context.Context) error {
@@ -1035,6 +1040,13 @@ func (d *Draft) refreshNegativeKnowledge(ctx context.Context) error {
 		}
 	}
 	d.mergeDecisionsLocked(cands)
+	// Emit only what the draft kept: ExtractDecisions emits its capped set, not every candidate.
+	kept := make(map[core.DecisionID]bool, len(d.cp.Decisions))
+	for _, dec := range d.cp.Decisions {
+		kept[dec.ID] = true
+	}
+	cands = slices.DeleteFunc(cands, func(c decisionCandidate) bool { return !kept[c.d.ID] })
+	emitDecisions(src, cands)
 	d.dirty = true
 	return nil
 }

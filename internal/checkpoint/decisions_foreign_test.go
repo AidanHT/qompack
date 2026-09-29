@@ -4,6 +4,8 @@ package checkpoint_test
 // before the ones derived from OTHER sessions' project-scoped eliminations, and the foreign ones
 // fill whatever room the cap (maxDraftDecisions, 64) leaves, newest recorded first. A foreign
 // record's DAG node turn is in that session's turn numbering, so it is no measure of recency here.
+// And the seal-time decisions (Draft.refreshNegativeKnowledge) emit the same KindDecision node and
+// explains edge ExtractDecisions emits, so slice scoring can rank them.
 
 import (
 	"fmt"
@@ -13,6 +15,7 @@ import (
 
 	"github.com/qompack/qompack/internal/checkpoint"
 	"github.com/qompack/qompack/internal/core"
+	"github.com/qompack/qompack/internal/dag"
 	"github.com/qompack/qompack/internal/negknow"
 	"github.com/qompack/qompack/internal/pins"
 )
@@ -140,4 +143,67 @@ func TestPreCompactKeepsOwnDecisionsAheadOfForeignOnes(t *testing.T) {
 	require.NoError(t, err)
 	requireOwnFirstThenForeignByRecordedTime(t, f.sealed(t, res.Ref.Seq),
 		[]string{"widen pool timeout", "inline the helper"})
+}
+
+// decisionNodes returns every KindDecision node in the graph whose Ref is id.
+func decisionNodes(g dag.Graph, id core.DecisionID) []dag.Node {
+	var out []dag.Node
+	for _, n := range g.NodesAfter(0) {
+		if n.Kind == dag.KindDecision && n.Ref == string(id) {
+			out = append(out, n)
+		}
+	}
+	return out
+}
+
+// explainsInto returns the explains edges entering node id.
+func explainsInto(g dag.Graph, id dag.NodeID) []dag.Edge {
+	var out []dag.Edge
+	for _, e := range g.In(id) {
+		if e.Kind == dag.EdgeExplains {
+			out = append(out, e)
+		}
+	}
+	return out
+}
+
+// TestPreCompactSealTimeDecisionEmitsItsDAGNode: a decision minted at the seal gets the same
+// KindDecision node, and the same explains edge from its elimination node, that ExtractDecisions
+// gives the decisions it mints; and when a later Advance extracts the same decision, the graph
+// still holds that one node and that one edge, unchanged.
+func TestPreCompactSealTimeDecisionEmitsItsDAGNode(t *testing.T) {
+	f := newFx(t)
+	seedForPreCompact(t, f) // the live draft's frontier is turn 9
+	recID := recordOwn(t, f, 12, "widen pool timeout")
+
+	res, err := f.w.PreCompact(f.ctx(), f.precompactInput())
+	require.NoError(t, err)
+	decs := rejected(f.sealed(t, res.Ref.Seq), "widen pool timeout")
+	require.Len(t, decs, 1)
+	dec := decs[0]
+
+	nodes := decisionNodes(f.graph, dec.ID)
+	require.Len(t, nodes, 1, "the seal-time decision is in the DAG, so slice scoring can rank it")
+	n := nodes[0]
+	require.Equal(t, dag.DecisionNode(dec.ID), n.ID)
+	require.Equal(t, core.TurnIndex(12), n.Turn)
+	require.Equal(t, dec.Evidence, n.Root)
+	require.NotZero(t, n.Tokens)
+	edges := explainsInto(f.graph, n.ID)
+	require.Len(t, edges, 1)
+	require.Equal(t, dag.EliminationNode(recID), edges[0].From, "explained by its elimination node")
+	require.Equal(t, core.TurnIndex(12), edges[0].Turn)
+
+	// The successor draft's Advance over the segment holding turn 12 extracts the same decision.
+	succ := f.w.DraftFor(f.sess)
+	require.NotNil(t, succ)
+	f.tool("tu_d46_c", 11, "Read", "src/own.go", "package own", false)
+	f.closedSeg(3, 10, 14)
+	f.advance(succ, 3)
+	_, cp := f.persisted()
+	require.Len(t, rejected(cp, "widen pool timeout"), 1, "Advance extracted the same decision")
+
+	again := decisionNodes(f.graph, dec.ID)
+	require.Equal(t, []dag.Node{n}, again, "one node, unchanged by the re-extraction")
+	require.Equal(t, edges, explainsInto(f.graph, n.ID), "one explains edge, unchanged")
 }
