@@ -1,0 +1,34 @@
+--- FAIL: TestFinalizeSealsAPinMadeAfterBegin (0.11s)
+    finalize_test.go:306: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-pinsckpt/internal/checkpoint/finalize_test.go:306
+        	Error:      	Not equal: 
+        	            	expected: []pins.Invariant{pins.Invariant{ID:"inv_before000000", Text:"pinned before the draft", Source:"user", Pinned:1}, pins.Invariant{ID:"inv_after0000000", Text:"pinned while the draft was open", Source:"user", Pinned:2}}
+        	            	actual  : []pins.Invariant{pins.Invariant{ID:"inv_before000000", Text:"pinned before the draft", Source:"user", Pinned:1}}
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,2 +1,2 @@
+        	            	-([]pins.Invariant) (len=2) {
+        	            	+([]pins.Invariant) (len=1) {
+        	            	  (pins.Invariant) {
+        	            	@@ -6,8 +6,2 @@
+        	            	   Pinned: (core.UnixMilli) 1
+        	            	- },
+        	            	- (pins.Invariant) {
+        	            	-  ID: (string) (len=16) "inv_after0000000",
+        	            	-  Text: (string) (len=31) "pinned while the draft was open",
+        	            	-  Source: (string) (len=4) "user",
+        	            	-  Pinned: (core.UnixMilli) 2
+        	            	  }
+        	Test:       	TestFinalizeSealsAPinMadeAfterBegin
+        	Messages:   	the sealed tier 1 is the pin set at the seal, verbatim
+--- FAIL: TestFinalizeNamesPinsItCouldNotReread (0.09s)
+    finalize_test.go:335: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-pinsckpt/internal/checkpoint/finalize_test.go:335
+        	Error:      	"[]" should have 1 item(s), but has 0
+        	Test:       	TestFinalizeNamesPinsItCouldNotReread
+        	Messages:   	exactly one drop names the unread pin set: [{Kind:pointer_missing ID:src/auth.ts Detail:file no longer exists in the working tree} {Kind:pointer_git_unavailable ID: Detail:checkpoint: no .git at the project root}]
+FAIL
+FAIL	github.com/qompack/qompack/internal/checkpoint	0.473s
+FAIL

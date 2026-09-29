@@ -77,6 +77,7 @@ func (w *FileWriter) Finalize(ctx context.Context, d *Draft, budget core.Tokens)
 
 	cp.Created = CreatedNow(w.clk)
 	cp.Version = SchemaVersion
+	cp.Invariants, cp.Dropped = w.sealInvariants(ctx, src, cp.Session, cp.Invariants, cp.Dropped)
 	cp.ensureNonNil()
 
 	// 2. Ground truth (G2.5). ValidatePointers errors only on ctx cancellation, and a cancelled
@@ -178,6 +179,41 @@ func (w *FileWriter) Finalize(ctx context.Context, d *Draft, budget core.Tokens)
 
 	w.afterSeal(ctx, d, src, seq)
 	return ref, nil
+}
+
+// dropKindInvariants and dropIDPins name the one tier-1 drop a seal can record: the pin set could
+// not be re-read, so pins made since the draft was begun may be missing from the artifact.
+const (
+	dropKindInvariants = "invariants"
+	dropIDPins         = "pins"
+)
+
+// sealInvariants answers tier 1's invariants as they stand at the SEAL.
+//
+// Begin seeds a draft's invariants, and a seal begins its successor at once, so the draft a
+// compaction seals was usually begun long before it: seeded from Begin alone, a pin made in between
+// — `qompack pin` in the middle of a session, the UAT-05 case — was missing from the next
+// checkpoint and from the rehydration built on it, with nothing in dropped to say so (F-UAT05-2).
+// The set is read again here, verbatim and in pins.All's own order (§8).
+//
+// The read ignores the caller's cancellation: §12's PreCompact-timeout row says finalize as-is, and
+// a deadline must not be what empties tier 1. When the set cannot be read at all, the invariants the
+// draft was begun with are kept — they were pinned, and nothing says otherwise — and the gap is a
+// named drop, because a pin made since may be absent and an absence nobody names is the failure.
+func (w *FileWriter) sealInvariants(ctx context.Context, src SourceSet, session core.SessionID,
+	begun []Invariant, drops []DropEntry,
+) ([]Invariant, []DropEntry) {
+	invs, err := src.Pins.All(context.WithoutCancel(ctx))
+	if err == nil {
+		return invs, drops
+	}
+	w.log.Loud("checkpoint: the pin set could not be re-read at the seal; sealing the invariants the draft began with",
+		"session", string(session), "err", err.Error())
+	return begun, append(drops, DropEntry{
+		Kind: dropKindInvariants, ID: dropIDPins,
+		Detail: "pins could not be re-read at the seal, so pins made after the draft began may be missing; " +
+			"run /qompack:pin --list: " + err.Error(),
+	})
 }
 
 // metricSealNotDurable counts seals whose MANIFEST line was written but whose barriers after the
