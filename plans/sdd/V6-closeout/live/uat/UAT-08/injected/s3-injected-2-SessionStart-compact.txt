@@ -1,0 +1,11 @@
+# stream line 71, hook SessionStart:compact, exit 0, 584 chars
+<!-- qompack:injected seq=1 ver=1 -->
+# Qompack rehydration — checkpoint 0001, session 7b2ccf44
+
+## 2. Original user intent (verbatim from L0 capture — never summarized)
+> Use the Read tool to read src/pool.go and then config/pool.yaml. Reply only 'done'.
+
+## 8. Retrieval
+Qompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().
+<!-- /qompack:injected -->
+<!-- qompack-contract-probe qompack-contract-09fa47f39e2e -->

@@ -1,0 +1,161 @@
+{
+ "args": [
+  "-p",
+  "--input-format",
+  "stream-json",
+  "--output-format",
+  "stream-json",
+  "--verbose",
+  "--include-hook-events",
+  "--model",
+  "claude-haiku-4-5-20251001",
+  "--max-turns",
+  "20",
+  "--setting-sources",
+  "project,local",
+  "--permission-mode",
+  "dontAsk",
+  "--plugin-dir",
+  "C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c3/qompack-plugin-0.3.0-windows-amd64",
+  "--resume",
+  "7b2ccf44-d406-422f-a051-b03a65475a28",
+  "--allowedTools",
+  "Read,Edit,mcp__plugin_qompack_qompack__recall,mcp__plugin_qompack_qompack__expand,mcp__plugin_qompack_qompack__re_read,mcp__plugin_qompack_qompack__already_tried,mcp__plugin_qompack_qompack__record_eliminated,mcp__plugin_qompack_qompack__timeline,mcp__plugin_qompack_qompack__why,mcp__plugin_qompack_qompack__dropped,Bash(qompack status:*),Bash(qompack recall:*),Bash(qompack pin:*),Bash(qompack why:*),Bash(qompack dropped:*),Bash(qompack eval:*)"
+ ],
+ "turns": [
+  {
+   "msg": "/compact",
+   "ok": true,
+   "wall_s": 26.247,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 26452,
+    "WorkingSet64": 31764480,
+    "PeakWorkingSet64": 31764480,
+    "CPU": 0.140625,
+    "StartTime": "/Date(1790707849193)/"
+   },
+   "store_bytes": 518928
+  },
+  {
+   "msg": "Call mcp__plugin_qompack_qompack__already_tried with {\"target\": \"src/pool.go:DialPool\", \"approach\": \"widen pool timeout\"}. Reply with the tool result's text verbatim, then say in one sentence whether anything in it forbids trying the approach.",
+   "ok": true,
+   "wall_s": 8.817,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 26452,
+    "WorkingSet64": 35368960,
+    "PeakWorkingSet64": 35368960,
+    "CPU": 0.171875,
+    "StartTime": "/Date(1790707849193)/"
+   },
+   "store_bytes": 562020
+  },
+  {
+   "msg": "Use the Read tool to read config/pool.yaml and reply only with its max_idle line.",
+   "ok": true,
+   "wall_s": 2.806,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 26452,
+    "WorkingSet64": 35823616,
+    "PeakWorkingSet64": 35823616,
+    "CPU": 0.234375,
+    "StartTime": "/Date(1790707849193)/"
+   },
+   "store_bytes": 586008
+  },
+  {
+   "msg": "Call mcp__plugin_qompack_qompack__already_tried with {\"target\": \"src/pool.go:DialPool\", \"approach\": \"widen pool timeout\"}. Reply with the tool result's text verbatim, then say in one sentence whether anything in it forbids trying the approach.",
+   "ok": true,
+   "wall_s": 4.608,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 26452,
+    "WorkingSet64": 36532224,
+    "PeakWorkingSet64": 36532224,
+    "CPU": 0.25,
+    "StartTime": "/Date(1790707849193)/"
+   },
+   "store_bytes": 613771
+  },
+  {
+   "before": {
+    "argv": [
+     "python",
+     "-c",
+     "import time; time.sleep(150); print('slept 150 s')"
+    ],
+    "error": "Command '['python', '-c', \"import time; time.sleep(150); print('slept 150 s')\"]' timed out after 120 seconds"
+   },
+   "msg": "Call mcp__plugin_qompack_qompack__already_tried with {\"target\": \"src/pool.go:DialPool\", \"approach\": \"widen pool timeout\"}. Reply with the tool result's text verbatim, then say in one sentence whether anything in it forbids trying the approach.",
+   "ok": true,
+   "wall_s": 4.208,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 15484,
+    "WorkingSet64": 28434432,
+    "PeakWorkingSet64": 28434432,
+    "CPU": 0.1875,
+    "StartTime": "/Date(1790708013678)/"
+   },
+   "store_bytes": 598981
+  },
+  {
+   "before": {
+    "argv": [
+     "python",
+     "<scratch>/retrieval/writecfg.py",
+     "<scratch>/retrieval/uat0809/proj",
+     "{\"eliminations\":{\"staleResponse\":\"drop\"}}\n",
+     "<scratch>/retrieval/uat0809/snap/config.drop.s4.json"
+    ],
+    "exit": 0,
+    "stdout": "writecfg.py: wrote 42 bytes to <project>/.qompack/config.json: {\"eliminations\":{\"staleResponse\":\"drop\"}}\n\n",
+    "stderr": ""
+   },
+   "msg": "Call mcp__plugin_qompack_qompack__already_tried with {\"target\": \"src/pool.go:DialPool\", \"approach\": \"widen pool timeout\"}. Reply with the tool result's text verbatim, then say in one sentence whether anything in it forbids trying the approach.",
+   "ok": true,
+   "wall_s": 2.604,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 15484,
+    "WorkingSet64": 28905472,
+    "PeakWorkingSet64": 28905472,
+    "CPU": 0.1875,
+    "StartTime": "/Date(1790708013678)/"
+   },
+   "store_bytes": 622406
+  },
+  {
+   "before": {
+    "argv": [
+     "python",
+     "-c",
+     "import time; time.sleep(45); print('slept 45 s')"
+    ],
+    "exit": 0,
+    "stdout": "slept 45 s\n",
+    "stderr": ""
+   },
+   "msg": "Call mcp__plugin_qompack_qompack__already_tried with {\"target\": \"src/pool.go:DialPool\", \"approach\": \"widen pool timeout\"}. Reply with the tool result's text verbatim, then say in one sentence whether anything in it forbids trying the approach.",
+   "ok": true,
+   "wall_s": 2.403,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 15484,
+    "WorkingSet64": 29106176,
+    "PeakWorkingSet64": 29106176,
+    "CPU": 0.203125,
+    "StartTime": "/Date(1790708013678)/"
+   },
+   "store_bytes": 645792
+  }
+ ],
+ "store_bytes_before": 406891,
+ "started_ms": 1790707848528,
+ "pid": 73844,
+ "exit": 0,
+ "wall_s": 221.81,
+ "store_bytes_after": 631270
+}

@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "command": "recall",
+  "ok": true,
+  "data": {
+    "tool": "recall",
+    "is_error": false,
+    "ephemeral": true,
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"hits\":[{\"hash\":\"sha256:bb67301b74cd7b7b56bd16c57f1125127c0ce2c8bd4e3789f4faa307ea223063\",\"path\":\"src/ledger.go\",\"tool\":\"mcp__plugin_qompack_qompack__re_read\",\"summary\":\"\",\"ts\":\"2026-09-29T18:39:24Z\",\"score\":1.12,\"tool_use_id\":\"toolu_014NAysKbyLihVoi7amLukrm\",\"span\":[0,1317]},{\"hash\":\"sha256:e9ec40e4f420ee683b0ea2805863ea7791f4e3c593c4877597090261ae9c5ea4\",\"path\":\"src/ledger.go\",\"tool\":\"mcp__qompack__re_read\",\"summary\":\"\",\"ts\":\"2026-09-29T18:39:24Z\",\"score\":1.105,\"tool_use_id\":\"qompack-mcp:3f7d7980d6ca\",\"span\":[0,1148]},{\"hash\":\"sha256:a1bf0e9d00ac05fa4be327118c2a0e1419ce56df964d46970f92b9222dabadc5\",\"path\":\"src/ledger.go\",\"tool\":\"mcp__plugin_qompack_qompack__re_read\",\"summary\":\"\",\"ts\":\"2026-09-29T18:39:19Z\",\"score\":1.09,\"tool_use_id\":\"toolu_01XRPJbuusJ1etcMUKfqA5Ev\",\"span\":[0,1335]},{\"hash\":\"sha256:316e2d6a6197dc0737e383d54c36ba38bc91b803a2ee0ef26bf62edf1a088799\",\"path\":\"src/ledger.go\",\"tool\":\"mcp__qompack__re_read\",\"summary\":\"\",\"ts\":\"2026-09-29T18:39:19Z\",\"score\":1.075,\"tool_use_id\":\"qompack-mcp:871c477178ce\",\"span\":[0,1162]},{\"hash\":\"sha256:0f6cc24715e445da7f78825e644da2598e17bd4348262e3703520abeff47c4e9\",\"path\":\"src/ledger.go\",\"tool\":\"mcp__plugin_qompack_qompack__re_read\",\"summary\":\"\",\"ts\":\"2026-09-29T18:39:19Z\",\"score\":1.06,\"tool_use_id\":\"toolu_01Qvxr152L63AEQhDUveUtCG\",\"span\":[0,1317]}],\"count\":5,\"found\":true,\"query\":{\"text\":\"\",\"path\":\"src/ledger.go\",\"symbol\":\"\",\"tool\":\"\"}}"
+      }
+    ],
+    "meta": {
+      "elapsed_ms": 6,
+      "hash": "sha256:f56c8c724b4a403bb6d48a264af459283f2b1b14529ccf00da1bc3d6dd772a89",
+      "tool_use_id": "qompack-mcp:e8b9dab1263e",
+      "untrusted": true
+    }
+  }
+}

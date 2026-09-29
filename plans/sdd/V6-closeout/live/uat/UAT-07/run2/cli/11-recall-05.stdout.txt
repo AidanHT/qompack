@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "command": "recall",
+  "ok": true,
+  "data": {
+    "tool": "recall",
+    "is_error": false,
+    "ephemeral": true,
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"hits\":[{\"hash\":\"sha256:800cf27b3d28f24420053a66c887984da6fa859a938a4b293d58ab2c90812544\",\"path\":\"src/ledger.go\",\"tool\":\"FileRead\",\"summary\":\"\",\"ts\":\"2026-09-29T18:41:23Z\",\"score\":0.32,\"tool_use_id\":\"toolu_01UK5PjKBWGzfsYnfxShbJ1F\",\"span\":[0,838]},{\"hash\":\"sha256:125153754afca5f623b4b7dc03edf6a54a60bb961e9a4d46a80ba61769b6c2f4\",\"path\":\"src/ledger.go\",\"tool\":\"FileRead\",\"summary\":\"\",\"ts\":\"2026-09-29T18:41:08Z\",\"score\":0.26,\"tool_use_id\":\"toolu_01P8koszP915CmvCxajmUfd5\",\"span\":[0,838]}],\"count\":2,\"found\":true,\"query\":{\"text\":\"\",\"path\":\"\",\"symbol\":\"\",\"tool\":\"FileRead\"}}"
+      }
+    ],
+    "meta": {
+      "elapsed_ms": 3,
+      "hash": "sha256:b7449590faa4c70dd2179ea3747a6dfe8581945579cd0a65b1890662b453d7c8",
+      "tool_use_id": "qompack-mcp:176af4a136ec",
+      "untrusted": true
+    }
+  }
+}

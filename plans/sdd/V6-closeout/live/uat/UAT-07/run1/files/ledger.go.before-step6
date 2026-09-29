@@ -1,0 +1,21 @@
+package ledger
+
+// Package ledger reconciles account balances for the Kestrel acceptance run.
+// Sentinel phrase for retrieval: cobalt heron threshold.
+
+import "errors"
+
+const driftLimit = 25
+
+// ErrDrift is returned when two balances differ by more than driftLimit cents.
+var ErrDrift = errors.New("ledger: balance drift over limit")
+
+// ReconcileBalances compares the booked and the settled balance of one account, in cents,
+// and returns the signed difference, or ErrDrift when it exceeds driftLimit in either direction.
+func ReconcileBalances(booked, settled int64) (int64, error) {
+	diff := settled - booked
+	if diff > driftLimit || diff < -driftLimit {
+		return diff, ErrDrift
+	}
+	return diff, nil
+}

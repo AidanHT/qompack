@@ -1,0 +1,87 @@
+{
+ "args": [
+  "-p",
+  "--input-format",
+  "stream-json",
+  "--output-format",
+  "stream-json",
+  "--verbose",
+  "--include-hook-events",
+  "--model",
+  "claude-haiku-4-5-20251001",
+  "--max-turns",
+  "20",
+  "--setting-sources",
+  "project,local",
+  "--permission-mode",
+  "dontAsk",
+  "--plugin-dir",
+  "C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c3/qompack-plugin-0.3.0-windows-amd64",
+  "--allowedTools",
+  "Read,Edit,mcp__plugin_qompack_qompack__recall,mcp__plugin_qompack_qompack__expand,mcp__plugin_qompack_qompack__re_read,mcp__plugin_qompack_qompack__already_tried,mcp__plugin_qompack_qompack__record_eliminated,mcp__plugin_qompack_qompack__timeline,mcp__plugin_qompack_qompack__why,mcp__plugin_qompack_qompack__dropped,Bash(qompack status:*),Bash(qompack recall:*),Bash(qompack pin:*),Bash(qompack why:*),Bash(qompack dropped:*),Bash(qompack eval:*)"
+ ],
+ "turns": [
+  {
+   "msg": "Call mcp__plugin_qompack_qompack__already_tried with {\"target\": \"src/pool.go:DialPool\", \"approach\": \"widen pool timeout\"}. Reply with the tool result's text verbatim, then say in one sentence whether anything in it forbids trying the approach.",
+   "ok": true,
+   "wall_s": 6.413,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 63832,
+    "WorkingSet64": 28647424,
+    "PeakWorkingSet64": 28647424,
+    "CPU": 0.140625,
+    "StartTime": "/Date(1790708109907)/"
+   },
+   "store_bytes": 665635
+  },
+  {
+   "msg": "/compact",
+   "ok": true,
+   "wall_s": 16.426,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 63832,
+    "WorkingSet64": 31809536,
+    "PeakWorkingSet64": 31809536,
+    "CPU": 0.171875,
+    "StartTime": "/Date(1790708109907)/"
+   },
+   "store_bytes": 693737
+  },
+  {
+   "msg": "Call mcp__plugin_qompack_qompack__already_tried with {\"target\": \"src/pool.go:DialPool\", \"approach\": \"widen pool timeout\"}. Reply with the tool result's text verbatim, then say in one sentence whether anything in it forbids trying the approach.",
+   "ok": true,
+   "wall_s": 6.81,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 63832,
+    "WorkingSet64": 33996800,
+    "PeakWorkingSet64": 33996800,
+    "CPU": 0.21875,
+    "StartTime": "/Date(1790708109907)/"
+   },
+   "store_bytes": 732073
+  },
+  {
+   "msg": "Call mcp__plugin_qompack_qompack__already_tried with {\"target\": \"src/pool.go:DialPool\", \"approach\": \"add a connection retry loop\"}. Reply with the tool result's text verbatim, then say in one sentence whether anything in it forbids trying the approach.",
+   "ok": true,
+   "wall_s": 3.005,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 63832,
+    "WorkingSet64": 34316288,
+    "PeakWorkingSet64": 34316288,
+    "CPU": 0.234375,
+    "StartTime": "/Date(1790708109907)/"
+   },
+   "store_bytes": 754892
+  }
+ ],
+ "store_bytes_before": 562595,
+ "started_ms": 1790708109267,
+ "pid": 74016,
+ "exit": 0,
+ "wall_s": 35.772,
+ "store_bytes_after": 723791
+}

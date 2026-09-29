@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "command": "recall",
+  "ok": true,
+  "data": {
+    "tool": "recall",
+    "is_error": false,
+    "ephemeral": true,
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"hits\":[],\"count\":0,\"found\":false,\"query\":{\"text\":\"\",\"path\":\"\",\"symbol\":\"\",\"tool\":\"FileEdit\"}}"
+      }
+    ],
+    "meta": {
+      "elapsed_ms": 0,
+      "hash": "sha256:299174b9e213176b6b7c9b2f8fa921e8aebe4172951aa2f4768957fba55d6a4f",
+      "tool_use_id": "qompack-mcp:bd411d20f6de",
+      "untrusted": true
+    }
+  }
+}

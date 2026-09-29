@@ -1,0 +1,25 @@
+ts=2026-09-29T18:44:42.9665817Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-09-29T18:44:43.0129334Z level=info msg="observer: session registered" session=7b2ccf44-d406-422f-a051-b03a65475a28 source=startup turn=0 segment=1
+ts=2026-09-29T18:44:43.0135453Z level=info msg="scheduler: session bound" session=7b2ccf44-d406-422f-a051-b03a65475a28 effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+ts=2026-09-29T18:46:00.9852614Z level=info msg="daemon: config reloaded" changed=[eliminations.staleResponse]
+ts=2026-09-29T18:49:03.5670145Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-09-29T18:49:03.8711683Z level=info msg="scheduler: session bound" session=7b2ccf44-d406-422f-a051-b03a65475a28 effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+ts=2026-09-29T18:49:04.0751647Z level=warn msg="store: segment closed without a tokens feature; Segment.Tokens stays zero permanently" segment=1 session=7b2ccf44-d406-422f-a051-b03a65475a28
+ts=2026-09-29T18:49:04.1709956Z level=info msg="observer: gc" scanned=25 deleted=0 freed=0 truncated=false
+ts=2026-09-29T18:50:49.2411255Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-09-29T18:50:49.6378356Z level=info msg="observer: session registered" session=7b2ccf44-d406-422f-a051-b03a65475a28 source=resume turn=0 segment=2
+ts=2026-09-29T18:50:49.6383639Z level=info msg="scheduler: session bound" session=7b2ccf44-d406-422f-a051-b03a65475a28 effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+ts=2026-09-29T18:52:04.2997502Z level=warn msg="daemon: ending abandoned session; no SessionEnd arrived and it has been silent past the idle-exit window" session=7b2ccf44-d406-422f-a051-b03a65475a28 silentMs=31464
+ts=2026-09-29T18:53:33.7211272Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-09-29T18:53:39.900982Z level=info msg="daemon: config reloaded" changed=[eliminations.staleResponse]
+ts=2026-09-29T18:54:12.9002829Z level=warn msg="daemon: ending abandoned session; no SessionEnd arrived and it has been silent past the idle-exit window" session=7b2ccf44-d406-422f-a051-b03a65475a28 silentMs=31823
+ts=2026-09-29T18:54:30.0075208Z level=warn msg="store: segment closed without a tokens feature; Segment.Tokens stays zero permanently" segment=2 session=7b2ccf44-d406-422f-a051-b03a65475a28
+ts=2026-09-29T18:54:30.0942333Z level=info msg="observer: gc" scanned=32 deleted=0 freed=0 truncated=false
+ts=2026-09-29T18:55:09.9581975Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-09-29T18:55:10.0584719Z level=info msg="observer: session registered" session=85d2f679-b09b-4d39-9265-8e9dbc9d652a source=startup turn=0 segment=3
+ts=2026-09-29T18:55:10.0590025Z level=info msg="scheduler: state from another session discarded" path=<scratch>\retrieval\uat0809\proj\.qompack\state\bocd.json file_session=7b2ccf44-d406-422f-a051-b03a65475a28 session=85d2f679-b09b-4d39-9265-8e9dbc9d652a
+ts=2026-09-29T18:55:10.0590025Z level=info msg="scheduler: state from another session discarded" path=<scratch>\retrieval\uat0809\proj\.qompack\state\scheduler.json file_session=7b2ccf44-d406-422f-a051-b03a65475a28 session=85d2f679-b09b-4d39-9265-8e9dbc9d652a
+ts=2026-09-29T18:55:10.0590025Z level=info msg="scheduler: session bound" session=85d2f679-b09b-4d39-9265-8e9dbc9d652a effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+ts=2026-09-29T18:55:32.6601575Z level=loud msg="rehydrate: checkpoint user_intent.original differs from the L0 capture" session=85d2f679-b09b-4d39-9265-8e9dbc9d652a
+ts=2026-09-29T18:55:44.5916519Z level=warn msg="store: segment closed without a tokens feature; Segment.Tokens stays zero permanently" segment=3 session=85d2f679-b09b-4d39-9265-8e9dbc9d652a
+ts=2026-09-29T18:55:44.6842147Z level=info msg="observer: gc" scanned=35 deleted=0 freed=0 truncated=false

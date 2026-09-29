@@ -1,0 +1,17 @@
+{
+ "files": {
+  "README.md": {
+   "bytes": 64,
+   "sha256": "6e958f83de48deaa9b9df9155d5cff7b0e1b2b7d40806d1632dd95d54e4f0ce1"
+  },
+  "config/pool.yaml": {
+   "bytes": 48,
+   "sha256": "535caa5df059b65334d4a9864ca99457c969208c4c7bd9341e900931e5ecda89"
+  },
+  "src/pool.go": {
+   "bytes": 261,
+   "sha256": "1af9fdeeafdcad77a0fb50758b5569936dbc90d61997397ebef08bca49311135"
+  }
+ },
+ "config": "defaults (no config file) until the UAT-09 step-4 drop file; eliminations.requireEvidence true, defaultScope session, staleResponse flag, rebuildOnStale nextIdle, runtime.phase7.reuse.scopedCandidates false are all defaults; session and CLI env QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS=30"
+}
