@@ -13,6 +13,7 @@ import (
 
 	"github.com/qompack/qompack/internal/daemon"
 	"github.com/qompack/qompack/internal/ipc"
+	"github.com/qompack/qompack/internal/logging"
 	"github.com/qompack/qompack/internal/paths"
 )
 
@@ -69,6 +70,40 @@ func TestDaemon_LockHeldExitNamesTheHolder(t *testing.T) {
 		require.Contains(t, log, "was written for another project path")
 		require.Contains(t, stderr, "was written for another project path")
 	})
+}
+
+// TestFsck_ALockCopiedFromAnotherPathIsNotARunningDaemon: fsck's daemon row dialled the address the
+// lock recorded, so a store copied from another path — while that path's daemon ran — reported
+// "daemon running" for a project no daemon served (F-UAT03-4's diagnostic half). The dial must be
+// to this project's own address, and the row must say whose lock it is.
+func TestFsck_ALockCopiedFromAnotherPathIsNotARunningDaemon(t *testing.T) {
+	isolateUserGlobal(t)
+	p := seedFsckProject(t)
+
+	originalAddr, err := ipc.Resolve(t.TempDir())
+	require.NoError(t, err)
+	srv, err := ipc.NewServer(originalAddr, logging.Nop(), nil, 0)
+	require.NoError(t, err)
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(func() {
+		cancel()
+		_ = srv.Close()
+	})
+	go func() {
+		_ = srv.Serve(ctx, func(context.Context, ipc.Request) ipc.Response { return ipc.Response{OK: true} })
+	}()
+
+	run := paths.Of(p.Root).Run
+	require.NoError(t, os.MkdirAll(paths.Long(run), 0o700))
+	body, err := json.Marshal(daemon.LockInfo{
+		PID: os.Getpid(), Started: time.Now().UnixMilli(), Addr: originalAddr.Path, Version: "0.0.0-test",
+	})
+	require.NoError(t, err)
+	require.NoError(t, paths.CreateNew(filepath.Join(run, "daemon.lock"), body))
+
+	_, doc, _ := fsckJSON(t, p.Root)
+	require.Equal(t, false, doc["daemon_running"], "no daemon answers at this project's own address")
+	require.Contains(t, fsckDetail(fsckRequireRow(t, doc, "daemon")), "written for another project path")
 }
 
 func itoa(n int) string {

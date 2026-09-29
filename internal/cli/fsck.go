@@ -486,6 +486,12 @@ func fsckScanProject(ctx context.Context, root string, repairing, sealCheck bool
 	default:
 		daemonRow.note("no daemon holds the lock; this project is quiet")
 	}
+	if own, rerr := ipc.Resolve(root); held && rerr == nil && fsckLockForeign(info, own) {
+		daemonRow.note("the lock was written for another project path (%s): this store was copied or "+
+			"moved with its run/ directory, so that address's daemon does not serve it; the lock "+
+			"rules treat it as stale once this store's own heartbeat is older than %s",
+			info.Addr, daemon.StaleAfter())
+	}
 
 	storeRow := newFsckRow("store", contract.SevInfo)
 	if !projectEstablished(l) {
@@ -2590,10 +2596,18 @@ func fsckDaemonLiveness(root string) (info daemon.LockInfo, held, alive bool) {
 	if err != nil {
 		return info, true, false
 	}
-	if info.Addr != "" {
+	// A lock that records ANOTHER project's address was copied or moved in with this store's run/
+	// directory (F-UAT03-4): the listener at that address serves the other path, so only this
+	// project's own address can say a daemon serves this store. fsckLockForeign names it in the row.
+	if info.Addr != "" && !fsckLockForeign(info, addr) {
 		addr = ipc.Addr{Kind: addr.Kind, Path: info.Addr}
 	}
 	return info, true, ipc.Probe(addr, selfTestProbeTimeout)
+}
+
+// fsckLockForeign reports whether a lock records an IPC address other than the one root resolves to.
+func fsckLockForeign(info daemon.LockInfo, own ipc.Addr) bool {
+	return info.Addr != "" && own.Path != "" && info.Addr != own.Path
 }
 
 // fsckLivePinIDs replays pins/invariants.jsonl into the set of live invariant ids, applying the
