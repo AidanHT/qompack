@@ -715,9 +715,9 @@ func (l *ledger) inView(r Record) bool {
 //
 // For the daemon's multi-session ledger that is every active record of every session. The filter
 // is a cache over the records (§13 invariant 3), so a key another session's record contributes
-// costs a query from this session one record lookup that visible() then refuses — reported as a
-// BloomOnly absence, the safe direction — while leaving a session's own records out of the filter
-// would make them unanswerable after the next rebuild.
+// costs a query from this session one record lookup that visible() then refuses — a plain absence
+// (Query), since the hit is true and only out of this session's scope — while leaving a session's
+// own records out of the filter would make them unanswerable after the next rebuild.
 func (l *ledger) visibleActive() iter.Seq[int] {
 	return func(yield func(int) bool) {
 		for i := range l.recs {
@@ -946,13 +946,26 @@ func (l *ledger) Query(ctx context.Context, target, approach string, scope Scope
 
 	idx := l.byMatch[mh]
 	cands := make([]Record, 0, len(idx))
+	backed := false
 	for _, i := range idx {
+		backed = backed || l.inView(l.recs[i])
 		if l.visible(l.recs[i], scope, sess) {
 			cands = append(cands, l.recs[i])
 		}
 	}
 	if len(cands) == 0 {
-		// The bloom said yes and the records say no: a false positive, reported as one.
+		if backed {
+			// The filter was right: a record in this ledger's view holds the key, and the record
+			// lookup scoped it out — another session's session-scoped record in the daemon's
+			// ledger, or a session-scoped one under a project-scope query. That is a plain,
+			// record-backed absence, counted as one. Flagging it BloomOnly would tell the caller no
+			// backing record exists when one does, would reveal that some session tried the
+			// approach, and would count a true hit as a filter false positive.
+			l.count(queryStateAbsent)
+			return Answer{State: AnswerAbsent}, nil
+		}
+		// The bloom said yes and no record in this ledger's view backs it: a false positive — or
+		// a filter not yet rebuilt since the key left the view — reported as one.
 		l.count(queryStateBloomOnly)
 		return Answer{State: AnswerAbsent, BloomOnly: true}, nil
 	}
