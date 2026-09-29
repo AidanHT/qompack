@@ -78,9 +78,10 @@ type schemaPlatformLeaf struct {
 //   - runtime.daemon.connectDeadlineMs — the Windows value is derived from the named-pipe dial's
 //     ERROR_PIPE_BUSY retry quantum;
 //   - runtime.budgets.l0IngestMs and runtime.daemon.ackDeadlineMs — SP20-D1's measured B-B
-//     re-budget, three platforms each (Windows measured; linux and darwin provisional).
+//     re-budget, three platforms each (Windows measured; linux and darwin provisional);
+//   - runtime.hotPath.budgetMs — D41's B-A default, max(15, that platform's l0IngestMs).
 //
-// Adding a fourth platform-specific leaf to config without adding it here shows up immediately:
+// Adding a fifth platform-specific leaf to config without adding it here shows up immediately:
 // the golden would then carry that leaf's portable value while the running platform emits its own,
 // and TestJSONSchema_Golden's byte comparison fails on it.
 func schemaPlatformLeaves(cfg config.Config) []schemaPlatformLeaf {
@@ -88,6 +89,7 @@ func schemaPlatformLeaves(cfg config.Config) []schemaPlatformLeaf {
 		{"connectDeadlineMs", config.ConnectDeadlineMsPortable, cfg.Runtime.Daemon.ConnectDeadlineMs},
 		{"l0IngestMs", config.L0IngestMsPortable, cfg.Runtime.Budgets.L0IngestMs},
 		{"ackDeadlineMs", config.AckDeadlineMsPortable, cfg.Runtime.Daemon.AckDeadlineMs},
+		{"budgetMs", config.HotPathBudgetMsFor(config.L0IngestMsPortable), cfg.Runtime.HotPath.BudgetMs},
 	}
 }
 
@@ -95,7 +97,7 @@ func schemaPlatformLeaves(cfg config.Config) []schemaPlatformLeaf {
 // checked-in golden.
 //
 // testdata/golden/config/schema.json is one file and a JSON Schema "default" is one number, but
-// three leaves have platform-specific defaults (schemaPlatformLeaves). The golden is checked in as
+// four leaves have platform-specific defaults (schemaPlatformLeaves). The golden is checked in as
 // rendered on a portable-default host — which is also where CI regenerates it — so on Windows or
 // macOS the expectation is that same document with exactly those leaves rewritten.
 //
@@ -130,7 +132,7 @@ func schemaLeafDefaultSnippet(key, indent string, ms int) []byte {
 }
 
 // schemaLeafDefaultIndent reads key's "default" indentation out of the golden itself rather than
-// hard-coding a run of spaces per leaf. The three leaves do not have to sit at the same depth, and
+// hard-coding a run of spaces per leaf. The leaves do not have to sit at the same depth, and
 // a hand-copied indentation that stopped matching would make schemaGoldenWant's count assertion
 // fail for a reason that has nothing to do with the default it is guarding. Reading it here means
 // the count assertion can only ever be reporting the thing it is about: whether the golden carries

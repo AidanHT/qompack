@@ -354,6 +354,11 @@ var platformDefaultCells = map[string]string{
 		config.L0IngestMsPortable, config.L0IngestMsWindows, config.L0IngestMsDarwin),
 	"runtime.daemon.ackDeadlineMs": fmt.Sprintf("`%d` (`%d` on Windows, `%d` on macOS)",
 		config.AckDeadlineMsPortable, config.AckDeadlineMsWindows, config.AckDeadlineMsDarwin),
+	// D41: B-A's default is derived from the same platform's B-B default, never spelled here.
+	"runtime.hotPath.budgetMs": fmt.Sprintf("`%d` (`%d` on Windows, `%d` on macOS)",
+		config.HotPathBudgetMsFor(config.L0IngestMsPortable),
+		config.HotPathBudgetMsFor(config.L0IngestMsWindows),
+		config.HotPathBudgetMsFor(config.L0IngestMsDarwin)),
 }
 
 // defaultCell renders r's Default column: its own value in code span, unless the key is one of

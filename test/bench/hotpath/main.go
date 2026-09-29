@@ -44,7 +44,7 @@ const (
 // req.Op.HotPath() request the daemon dispatches (internal/daemon/handlers.go's dispatchOp), with
 // no way to filter it by session or by "came from a real process" through the status op. Sending
 // all warmIterations observe.tool requests as hot-path traffic (FIX ROUND 1's shape) therefore put
-// 2000 in-process, sub-millisecond samples into the very population the 15ms gate reads — at
+// 2000 in-process, sub-millisecond samples into the very population the B-A gate reads — at
 // n=2000 they can outnumber the real hook-spawn population from the B-A/B-D loop outright,
 // pulling the gated p99 down to roughly the real population's own p98 (worse at smaller
 // --iterations) and its p50 to a warm-up number, not a hook number. Optimistic bias in a hard
@@ -168,11 +168,11 @@ func parseFlags(args []string, errw io.Writer) (flags, error) {
 	//
 	// The evidence for B-A is CI's own, on windows-latest, one commit: the B-A row measured p99
 	// 3.072 ms in bench-gate (harness alone on its runner) and 11.264 ms then 18.432 ms in two
-	// whole-tree `test` job runs minutes apart (limit 15 ms), while the spawn floor's p50 went
-	// 12.954 → 24.431 / 23.143 ms. B-A is the daemon-observed hook_controlled estimate (recvTS −
-	// reqTS + tail allowance): reqTS is stamped inside the spawned hook process, so the interval
-	// contains the child's scheduling wait under co-load, and there is no CPU-time analogue of a
-	// cross-process latency.
+	// whole-tree `test` job runs minutes apart (limit then 15 ms on every platform, before D41),
+	// while the spawn floor's p50 went 12.954 → 24.431 / 23.143 ms. B-A is the daemon-observed
+	// hook_controlled estimate (recvTS − reqTS + tail allowance): reqTS is stamped inside the
+	// spawned hook process, so the interval contains the child's scheduling wait under co-load,
+	// and there is no CPU-time analogue of a cross-process latency.
 	//
 	// B-B is REPORTED under this flag too, by the owner's Q3 ruling of 2026-09-13, and the reason
 	// is the rule ADR 0010 already carries rather than a new exception to it.
