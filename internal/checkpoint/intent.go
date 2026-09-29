@@ -105,6 +105,9 @@ func readRootText(ctx context.Context, src SourceSet, root core.Hash, what strin
 // The Original the draft was seeded with (the session's own checkpoint chain, seedTierOne) stands
 // when the first record's bytes are gone — G2.3's promise that the user's own words survive
 // arbitrarily many generations does not depend on the object store keeping every prompt forever.
+//
+// A forked session (d.fork) is the other shape: its original and earlier history are the parent's,
+// and EVERY one of its own prompts, its first included, is an evolution entry after them.
 func (d *Draft) refreshIntentLocked(ctx context.Context) {
 	recs, ok := sessionPromptRecords(ctx, d.src.Store, d.session)
 	if !ok {
@@ -112,12 +115,16 @@ func (d *Draft) refreshIntentLocked(ctx context.Context) {
 	}
 	original := d.cp.UserIntent.Original
 	var later []string
+	if d.fork != nil {
+		original = d.fork.original
+		later = slices.Clone(d.fork.evolution)
+	}
 	for i, rec := range recs {
 		text, readable := d.promptTextLocked(ctx, rec)
 		if !readable {
 			continue
 		}
-		if i == 0 {
+		if i == 0 && d.fork == nil {
 			if text != "" {
 				original = text
 			}
@@ -164,7 +171,7 @@ func (d *Draft) setElidedLocked(n int) bool {
 		want = DropEntry{
 			Kind: dropIntentEvolution, ID: evolutionElidedID,
 			Detail: fmt.Sprintf("%d earlier restatements were left out to hold the %d-entry evolution cap; "+
-				"each is still captured as prompt_%s_<turn> (timeline, expand)", n, maxIntentEvolution, d.session),
+				"each is still a verbatim prompt capture in the store (timeline, recall, expand)", n, maxIntentEvolution),
 		}
 	}
 	kept := d.cp.Dropped[:0:0]
@@ -215,7 +222,12 @@ func (d *Draft) RefreshIntent(ctx context.Context) {
 // A store that cannot enumerate a session's prompts keeps the earlier behaviour: the graph's
 // earliest userprompt node.
 func (w *FileWriter) seedIntent(ctx context.Context, d *Draft, own *Checkpoint) {
-	if own != nil {
+	d.fork = w.forkIntentFor(ctx, d.session, own)
+	switch {
+	case d.fork != nil:
+		d.cp.UserIntent.Original = d.fork.original
+		d.cp.UserIntent.Evolution = slices.Clone(d.fork.evolution)
+	case own != nil:
 		d.cp.UserIntent.Original = own.UserIntent.Original
 	}
 	if _, capable := d.src.Store.(store.SessionPrompts); !capable {
@@ -229,7 +241,7 @@ func (w *FileWriter) seedIntent(ctx context.Context, d *Draft, own *Checkpoint) 
 		return
 	}
 	d.refreshIntentLocked(ctx)
-	if d.cp.UserIntent.Original != "" || own != nil {
+	if d.cp.UserIntent.Original != "" || own != nil || d.fork != nil {
 		return
 	}
 	if latest, ok := w.ownLatest(ctx, d.session); ok {

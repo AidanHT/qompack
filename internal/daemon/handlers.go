@@ -802,6 +802,11 @@ func (d *daemon) handleSessionStart(ctx context.Context, req ipc.Request) ipc.Re
 	// When the host fired this start, which for a replay is long before now: the checkpoint route
 	// asks it whether a PreCompact it replays was already followed by a start (handleCheckpoint).
 	d.registry.NoteStart(ev.SessionID, hookTime(req, now))
+	// A fork's lineage is recorded while the checkpoint it continues is still the project's newest
+	// (session_lineage.go, F-UAT06-1).
+	if ev.Source == sessionSourceFork {
+		d.noteFork(ctx, ev.SessionID)
+	}
 	if !existedBefore {
 		d.breach.Reset()
 	}

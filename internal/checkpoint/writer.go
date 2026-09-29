@@ -385,7 +385,16 @@ func (w *FileWriter) Begin(ctx context.Context, s core.SessionID, parent core.Ch
 	if d, ok := w.resumeDraft(s, p, parent, src); ok {
 		// A draft written by an earlier process — possibly an earlier build — carries whatever intent
 		// that process computed; it is recomputed from the session's own prompt records now.
+		// A fork's resumed draft inherited its intent from the checkpoint the fork continues, so
+		// it is forkIntentFor's fallback when that checkpoint no longer verifies.
 		d.mu.Lock()
+		prior := Checkpoint{UserIntent: UserIntent{
+			Original: d.cp.UserIntent.Original, Evolution: slices.Clone(d.cp.UserIntent.Evolution),
+		}}
+		d.mu.Unlock()
+		fork := w.forkIntentFor(ctx, s, &prior)
+		d.mu.Lock()
+		d.fork = fork
 		d.refreshIntentLocked(ctx)
 		d.persistOrLogLocked()
 		d.mu.Unlock()

@@ -162,6 +162,7 @@ func (s *rehydrateService) OnCompact(ctx context.Context, e observer.Event) (out
 		Checkpoint:  cp,
 		Ref:         ref,
 		Cfg:         s.o.Cfg,
+		Lineage:     s.lineage(e.SessionID),
 	}
 
 	var res rehydrate.Result
