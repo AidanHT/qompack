@@ -1006,12 +1006,14 @@ func TestIntegration_HotPathWarmWithRealResidentState(t *testing.T) {
 	// deferring, whether the re-point swapped the row (no shortfall note) or the snapshot (a
 	// harness-written one); see that function for which check catches which shape. It no longer
 	// reads "n above B-D's": a run that defers more than the warm-up tranche's worth of hook events
-	// (§8.1/§12.2's degrade-rather-than-block path, the ACK deadline expiring) has a daemon-side
-	// population smaller than the spawn loop and failed that check with nothing wrong with the
-	// row's sourcing. A genuine run still fails here in one case: when its B-A shortfall is exactly
-	// the warm-up tranche, the counts cannot tell it from a re-point, and the test refuses to guess. Whether such a run can pass B-A is the certification rule's business,
-	// and it is unchanged: the deferred samples are counted as over budget (tailAdjustedP99), so a
-	// gated run certifies only when its p99 still lands among delivered samples under the limit.
+	// (§8.1/§12.2's degrade-rather-than-block path: the breach detector moving the daemon to spool
+	// submode, or an ACK deadline expiring) has a daemon-side population smaller than the spawn loop
+	// and failed that check with nothing wrong with the row's sourcing. A genuine run still fails
+	// here in one case: when its B-A shortfall is exactly the warm-up tranche, the counts cannot tell
+	// it from a re-point, and the test refuses to guess. Whether such a run can pass B-A is the
+	// certification rule's business, and it is unchanged: the deferred samples are counted as over
+	// budget (tailAdjustedP99), so a gated run certifies only when its p99 still lands among
+	// delivered samples under the limit.
 	bd := hotpathRow(t, rep, string(obs.BD))
 	require.Nil(t, bd.LimitMs, "B-D must never be gated — it is the host's cost")
 	require.Nil(t, bd.Pass)
