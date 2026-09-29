@@ -440,8 +440,10 @@ this revision-log entry. This record belongs to wave 11 (`w11-babudget`).
 
 ### What changed
 
-- `Qompack.md` §8.1: one sentence stating that the hook budget is never tighter than the durable
-  capture it waits on. The declared version is v1.8 and the Revision log carries the entry.
+- `Qompack.md` §8.1: two sentences stating that the hook budget's default is never tighter than
+  the durable-ingest default it waits on, and that a configured value is applied as set (the first
+  draft stated it as an unconditional invariant the code does not enforce; corrected in review
+  before merge). The declared version is v1.8 and the Revision log carries the entry.
 - `plans/00-ARCHITECTURE.md` §2.4's B-A row, a D41 note beside the SP20-D1 B-B note, and §7's
   bench-gate sentence; `docs/architecture.md`, `docs/cannot-do.md` and the generated
   `docs/config-reference.md`.

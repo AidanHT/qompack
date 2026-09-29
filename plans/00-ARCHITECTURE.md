@@ -278,7 +278,7 @@ allows it.
 
 | ID | Clock | Budget | Enforced |
 |---|---|---|---|
-| **B-A** | `hook_controlled` — client `main()` entry → `exit` (connect + write + ACK) | **p99 < 15 ms** (§11.3 L0) (**50** on Windows, **40** on macOS: never tighter than B-B — see the D41 note below) | CI on linux/macos/windows, 5 000 iterations |
+| **B-A** | `hook_controlled` — client `main()` entry → `exit` (connect + write + ACK) | **p99 < 15 ms** (§11.3 L0) (default **50** on Windows, **40** on macOS: the default is never tighter than B-B's — see the D41 note below) | CI on linux/macos/windows, 5 000 iterations |
 | **B-B** | `l0_ingest` — the daemon's whole `ingest.Accept`: durable WAL append, delivery lease, seal | p99 < 15 ms (**50** on Windows, **40** on macOS) — see the B-B note below | daemon self-metrics + CI, except under `QOMPACK_UNDER_COLOAD`, where it is reported and not gated |
 | **B-C** | `l0_process` — WAL → fully chunked, stored, DAG/sketches updated (async) | p99 < 50 ms | soft; overrun → sampling + backpressure, never blocking |
 | **B-D** | `hook_wall` — includes host process creation | reported, not gated; tracked in `/qompack:status` and the bench artifact | — |
