@@ -1025,9 +1025,10 @@ records remain historical evidence; neither certifies an installed older release
 candidate's data. Human UAT, cross-version readers and supported-platform rehearsals must record
 the actual candidate and backup identities. Missing or failed checks remain unverified.
 
-`backup verify` restores the backup into a scratch destination and runs the same reader proof and
-integrity checks as `backup restore`. A backup that verifies therefore restores. A failing scratch
-restore is kept, and the error names where.
+`backup verify` restores the backup into a scratch destination under the source's
+`.qompack/tmp/` and runs the same reader proof and integrity checks as `backup restore`. A backup
+that verifies therefore restores. A failing scratch restore is kept, and the error names where;
+delete it once inspected.
 
 **Symptom.** `fsck`'s `index.segments` row carries a note that begins `unsealed-draft claim`.
 
