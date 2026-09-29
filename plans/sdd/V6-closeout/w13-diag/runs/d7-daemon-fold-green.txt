@@ -1,0 +1,5 @@
+=== RUN   TestSessionStart_AHandshakeThisDaemonSawCountsForTheContract
+--- PASS: TestSessionStart_AHandshakeThisDaemonSawCountsForTheContract (0.09s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	0.349s
+EXIT=0

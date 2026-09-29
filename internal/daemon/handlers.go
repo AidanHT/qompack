@@ -831,6 +831,13 @@ func (d *daemon) handleSessionStart(ctx context.Context, req ipc.Request) ipc.Re
 	contractStart := time.Now()
 	d.historyMu.Lock()
 	h := contract.LoadHistory(contract.HistoryPath(d.root))
+	// A handshake this daemon saw counts whether or not its own history write survived: the stdio
+	// server connects beside a session's first start, and a write that lands between this load and
+	// the save below, or that the disk refused, would otherwise leave mcp.server_registered failing
+	// in a healthy project (V6 close-out install D4).
+	if d.svc.MCPInitialized != nil && !h.MCPInitialized && d.svc.MCPInitialized(ctx) {
+		h.MCPInitialized = true
+	}
 	env := contract.Env{
 		ProjectRoot: d.root,
 		Event:       *ev,
