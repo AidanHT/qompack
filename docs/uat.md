@@ -269,9 +269,14 @@ redacted or opaque says so rather than appearing as nothing.
   `disk`, or `none` ([docs/user-guide.md](user-guide.md#qompackstatus)). Per-hook latency rows that
   have no instrument read `unavailable` **with a reason**, never `0`
   ([docs/troubleshooting.md](troubleshooting.md#2-unknown-capability-or-telemetry)).
-- Step 6's `expand` response carries `_meta.qompack` fields and a `Fidelity`. The small file's
-  capture should be `exact` — which means *the captured host delivery*, not the completeness of the
-  file ([docs/user-guide.md](user-guide.md#fidelity-coverage-and-error-states)).
+- Step 6's `expand` response carries `_meta.qompack` fields and reports the read itself — `span`,
+  `total_bytes`, `truncated` and, when there is more, `next_span` — with anything today's privacy
+  policy removes shown as a `«redacted:…»` placeholder. It carries no fidelity or coverage field:
+  the small file's capture fidelity, which should be `exact` — *the captured host delivery*, not the
+  completeness of the file — is recorded on its capture sidecar under `.qompack/records/captures/`,
+  which no tool surfaces ([docs/user-guide.md](user-guide.md#fidelity-coverage-and-error-states),
+  [docs/mcp-tools.md](mcp-tools.md#expand)).
+- Step 6 expectation revised under D46 (2026-09-29).
 - The oversized and binary captures are the point of the row: each must come back with a
   **non-`exact`** fidelity — one of `prefix`, `partial`, `truncated`, `redacted`, `binary`,
   `failure` or `unknown` — and must come back, rather than being silently absent. Which value each
@@ -1116,8 +1121,12 @@ and keeps its uncertainty visible instead of rounding it into a verdict.
   paths it looked in — and exits `1`. Recording that message and exit status is the pass; a report
   appearing here means the project holds evaluation artifacts, and the evidence must then record
   which run it read and whether it says `confirmatory: yes`.
-- Steps 3 and 5: the drop report is Qompack's recorded omissions with coverage attached, and it does
-  not establish what remains in native context ([docs/mcp-tools.md](mcp-tools.md#dropped)).
+- Steps 3 and 5: the drop report is Qompack's recorded omissions — each entry a `kind`, an `id` and
+  an optional `detail`, qualified on the report as a whole by `available`/`reason` or
+  `denied`/`host_policy`, with no coverage value — and it does not establish what remains in native
+  context ([docs/mcp-tools.md](mcp-tools.md#dropped),
+  [docs/user-guide.md](user-guide.md#qompackdropped)).
+- Steps 3 and 5 expectation revised under D46 (2026-09-29).
 - Step 6 is the uncertainty check, and it carries a **known gap, not a pass**:
   `plans/V5-report.md` §24 records the uncertainty gate as **partial** — it "does not survive the
   digest surface under a blind ledger" — and §29 item 11 records pin records stamped `mcp` because
@@ -1341,10 +1350,13 @@ restored afterwards, with the restore verified — across an upgrade and an unin
   never a bypass for a denied read ([docs/cannot-do.md](cannot-do.md#5-trust-boundary)).
 - Steps 3–5: every response is within `runtime.mcp.maxResponseBytes`. A minimal span is
   chunk-aligned and widened to a symbol boundary where one is known; `full: true` returns the whole
-  *available* object, still qualified by fidelity and coverage; more to read is paged through
-  `next_span` ([docs/mcp-tools.md](mcp-tools.md#expand)). The binary capture's fidelity is `binary`:
-  opaque, not to be searched or quoted as text
+  *available* object; more to read is paged through `next_span`, and a cut response says so with
+  `truncated: true` ([docs/mcp-tools.md](mcp-tools.md#expand)). Each response reports the read —
+  `span`, `total_bytes`, `truncated`, `next_span` — and carries no fidelity or coverage field. A
+  binary capture's fidelity is recorded on its capture sidecar, not in the response; its content
+  is opaque, not to be searched or quoted as text
   ([docs/troubleshooting.md](troubleshooting.md#3-capture-gaps)).
+- Steps 3–4 expectation revised under D46 (2026-09-29).
 - Step 7: after an upgrade, a config file written by a newer build has its versioned block reset to
   defaults; a gated switch that was `true` in a build whose gate had passed is refused in one where
   it has not; a retired-meaning key is still applied with a deprecation warning naming the file and
