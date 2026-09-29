@@ -1,0 +1,6 @@
+cwd: <scratch>/recovery/c17/d1
+argv: ["C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c3/qompack-plugin-0.3.0-windows-amd64/bin/qompack.exe", "fsck", "--project", "<scratch>/recovery/c17/d1", "--seal-check", "--json"]
+env+: {}
+qompack_home: <scratch>/recovery/qhome
+wall_s: 0.06
+at: 2026-09-29T15:33:30-04:00

@@ -1,0 +1,93 @@
+{
+ "backup_id": "before",
+ "manifest_taken_at_ms": 1790710375793,
+ "manifest_consistent": true,
+ "manifest_frontier_field": 0,
+ "manifest_snapshot_id": "",
+ "manifest_files": 48,
+ "D2_equals_manifest_exactly": true,
+ "D2_missing_or_different_from_manifest": [],
+ "D2_extra_vs_manifest": [],
+ "source_at_backup_equals_manifest": true,
+ "counts": {
+  "objects": {
+   "manifest": 9,
+   "D2": 9,
+   "source_now": 15
+  },
+  "capture_sidecars": {
+   "manifest": 9,
+   "D2": 9,
+   "source_now": 15
+  },
+  "index/roots.jsonl lines": {
+   "D2": 9,
+   "source_now": 15
+  },
+  "index/tool_use.jsonl lines": {
+   "D2": 6,
+   "source_now": 10
+  },
+  "state/delivery-leases.jsonl lines": {
+   "D2": 10,
+   "source_now": 17
+  },
+  "state/delivery-acks.jsonl lines": {
+   "D2": 10,
+   "source_now": 17
+  },
+  "index/sessions.jsonl lines": {
+   "D2": 1,
+   "source_now": 2
+  },
+  "state/delivery-lease-position.json": {
+   "D2": "{\"v\":1,\"bytes\":3221,\"count\":10,\"chain\":\"sha256:337f5bba093d3f78a77d257b9aa5bb64bde8fbac04ee614b3a87a4594010590c\"}",
+   "source_now": "{\"v\":1,\"bytes\":5475,\"count\":17,\"chain\":\"sha256:b861befe264b5d13dd347c1fb96f8bd3158c6c47bb4e3441cfd27eabb1502d50\"}"
+  },
+  "state/delivery-ack-position.json": {
+   "D2": "{\"v\":1,\"bytes\":2580,\"count\":10,\"chain\":\"sha256:ebb345c66321fd23fe18263164ca16894f1b47b61440ffd6bffa1a8e644bba77\"}",
+   "source_now": "{\"v\":1,\"bytes\":4386,\"count\":17,\"chain\":\"sha256:403a4fc4ef2be684531102d374f9ad552c8dbddea37ca706719a079054ac5424\"}"
+  }
+ },
+ "objects_in_source_not_in_D2": [
+  "objects/13/02/1302e71d0830b11dac303a1c5187c7c83ce7c5b8c4587b139086668992e59b5b.zst",
+  "objects/44/c1/44c1a45f8b1d29e7f566e3512cdb92f9279f4eaf23c6b54624d5a6ee3f94e7ca.zst",
+  "objects/5c/85/5c859192efc4b836d713f647fe3163c1e449a33ad1fc1672e3c0b1913f8f28e2.zst",
+  "objects/6c/da/6cdafe4ff9c03b5647cccfa2f35c892a02663f2dcfc15c5d10e215ba638b438b.zst",
+  "objects/71/54/7154c878eda4e564e5e1f5a325639b49f5143162e5da9440c1e5a0b6e5987cf4.zst",
+  "objects/cc/b1/ccb1739264cc7966e4e336fe04538c21871de423031141c41613964a072d368b.zst"
+ ],
+ "sidecars_in_source_not_in_D2": [
+  "records/captures/14/14acfce4ae73d317ebc299b0c604baec53524fdbf5e1e2ed71dacc9321405b01.json",
+  "records/captures/28/28cb65bb87f9080c14efe78756415d67b88e4e87330a33a42df742f5a8c6f612.json",
+  "records/captures/28/28d6b6f46521ac5b0c764005fe570be7402b82475db23509c27b1bcd79fd388a.json",
+  "records/captures/2d/2dc83a9da6228ab72d62f35f1c0e26d2ff30fc5ab6ef58bf11211ccde9351544.json",
+  "records/captures/67/6770bb1c96504c42dc493cb84c58884228a339b651daac676b80f78807c2ade5.json",
+  "records/captures/a2/a200ce9ce87a8722e8355c494773f7b3d9144fb5a0b5bb78b9f84230abac1406.json"
+ ],
+ "manifest_files_changed_in_source_since_backup": [
+  "dag/deps.jsonl",
+  "index/files.json",
+  "index/files.jsonl",
+  "index/observations.jsonl",
+  "index/roots.jsonl",
+  "index/segments.jsonl",
+  "index/sessions.jsonl",
+  "index/tool_use.jsonl",
+  "sketches/explore.hll",
+  "sketches/touch.cms",
+  "state/bocd.json",
+  "state/chunktokens.bin",
+  "state/delivery-ack-position.json",
+  "state/delivery-acks.jsonl",
+  "state/delivery-lease-position.json",
+  "state/delivery-leases.jsonl",
+  "state/gc-live.bin",
+  "state/history.json",
+  "state/mcp.json",
+  "state/observations.json",
+  "state/retention-roots.jsonl",
+  "state/scheduler.json",
+  "state/store.json"
+ ]
+}

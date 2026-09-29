@@ -1,0 +1,41 @@
+C1.6 (V6-RECOVERY-1) - automatic startup accounting + fsck detection of publication gaps, packaged bundle
+Executed by: Claude Code workflow subagent (Opus 5.5), agent-executed on the owner's real host per owner
+decision D3 - not human UAT. Date 2026-09-29 (America/Toronto). Host Windows 11 Home 10.0.26200 build 26200,
+Claude Code 2.1.280, bundle qompack-plugin-0.3.0-windows-amd64 (BUNDLE.json sha256 32600778ae64...,
+bin sha256 c7b2b120a6ef..., commit d5598eb4), `qompack version` = 0.3.0 (../snapshot.txt).
+Sessions used: 1 (sessions.tsv recovery n=1). Model claude-haiku-4-5-20251001.
+
+Steps (every CLI step: cli/<name>.cmd.txt / .stdout.txt / .stderr.txt / .exit.txt):
+ 1. session/ - one real session (--plugin-dir the frozen bundle, idleExitSeconds=30 via env) in a disposable
+    project: 4 Read turns; every hook success. The daemon idle-exited (lock removed) before any cut.
+ 2. 00-listing-after-seed.txt, cli/00-fsck-before-cut (exit 0, every check ok), cli/00-doctor-before-cut.
+ 3. Cuts (store/cuts.json), mirroring test/fault:
+    A object_written_index_line_absent: the LAST index/roots.jsonl line (12 -> 11 lines) removed; it named
+      chunk object c6a707a0..., which exists on disk (checked before the cut).
+    B v6UnpublishToolCapture: the first observe.tool/ok/published sidecar with durable bytes (observation
+      sha256:550a87e2...) returned to stage one (published false, root zero, tool_use_id removed).
+    store/diff-seed-to-cut.txt: exactly those two files changed; objects/ unchanged.
+ 4. Restart the way TestV6_StartupAccountingReportsUnpublishedCaptureViaStatus does: a bare
+    `qompack session-start` hook entry point through the bundle CLI (cli/01-restart-session-start-hook,
+    exit 0); the daemon came up.
+ 5. cli/02-status-json-daemon-up (exit 0): counters daemon.publication.unindexed_object_candidates=1 and
+    daemon.publication.unpublished_captures=1; loud_tail carries
+    `daemon: unpublished captures or unindexed objects found at startup unpublished_captures=1
+    unindexed_object_candidates=1 pending_objects=0 captures_scanned=12 objects_scanned=12 incomplete=false
+    truncated=false notes=none`. The same line is in store/LOUD.log (created by this startup; none before).
+ 6. fsck --project <root> --json: exit 1 with the daemon up (cli/03) and after its idle exit (cli/04, and the
+    table form): index.roots FAIL (root 8c423b23's base pointer f2e3973e does not resolve), index.tool_use
+    FAIL (toolu_01Kyv... points at root f2e3973e), captures FAIL (sidecar sha256:550a87e2... "at stage 1
+    only", and the published sidecar naming f2e3973e), publication FAIL ("1 unlinked captures and 1
+    unindexed object candidates"). read_only true.
+ 7. Re-fingerprint: store/diff-cut-to-daemonup.txt and store/diff-cut-to-after.txt - objects/ and all 12
+    capture sidecars byte-identical to the post-cut state; index/roots.jsonl unchanged (still 11 lines);
+    store/post-state.json: the removed root is not back and the sidecar is still published:false.
+
+Result: automatic startup accounting EXISTS and fired with no operator command (counters + loud tail +
+LOUD.log); fsck detection EXISTS (exit 1, names both gaps). Automatic RECOVERY does NOT exist: nothing was
+reconstructed (the compared-set fingerprint is unchanged, the roots line was not re-added, the sidecar was not
+re-joined), as docs/backup.md says ("discovers incomplete state; it does not reconstruct").
+Observations (not defects): the startup line gives counts only - it does not name the observation id or the
+object hash (fsck does); `status` after a bare session-start restart reports contract assertion
+mcp.server_registered FAILING (info) because no MCP host initialised, which is expected for this restart form.

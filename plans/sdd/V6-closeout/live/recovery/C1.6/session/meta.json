@@ -1,0 +1,87 @@
+{
+ "args": [
+  "-p",
+  "--input-format",
+  "stream-json",
+  "--output-format",
+  "stream-json",
+  "--verbose",
+  "--include-hook-events",
+  "--model",
+  "claude-haiku-4-5-20251001",
+  "--max-turns",
+  "10",
+  "--setting-sources",
+  "project,local",
+  "--permission-mode",
+  "dontAsk",
+  "--plugin-dir",
+  "C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c3/qompack-plugin-0.3.0-windows-amd64",
+  "--allowedTools",
+  "Read,mcp__plugin_qompack_qompack__recall,mcp__plugin_qompack_qompack__expand,mcp__plugin_qompack_qompack__re_read,mcp__plugin_qompack_qompack__already_tried,mcp__plugin_qompack_qompack__record_eliminated,mcp__plugin_qompack_qompack__timeline,mcp__plugin_qompack_qompack__why,mcp__plugin_qompack_qompack__dropped,Bash(qompack status:*),Bash(qompack recall:*),Bash(qompack pin:*),Bash(qompack why:*),Bash(qompack dropped:*),Bash(qompack eval:*)"
+ ],
+ "turns": [
+  {
+   "msg": "Use the Read tool to read notes.md and tell me the project codename in one sentence.",
+   "ok": true,
+   "wall_s": 5.211,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 22060,
+    "WorkingSet64": 28205056,
+    "PeakWorkingSet64": 28205056,
+    "CPU": 0.15625,
+    "StartTime": "/Date(1790710104217)/"
+   },
+   "store_bytes": 94834
+  },
+  {
+   "msg": "Use the Read tool to read data.txt and tell me how many rows it has.",
+   "ok": true,
+   "wall_s": 2.604,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 22060,
+    "WorkingSet64": 31227904,
+    "PeakWorkingSet64": 31227904,
+    "CPU": 0.203125,
+    "StartTime": "/Date(1790710104217)/"
+   },
+   "store_bytes": 122435
+  },
+  {
+   "msg": "Use the Read tool to read app.py and tell me what run() returns.",
+   "ok": true,
+   "wall_s": 2.204,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 22060,
+    "WorkingSet64": 33026048,
+    "PeakWorkingSet64": 33026048,
+    "CPU": 0.25,
+    "StartTime": "/Date(1790710104217)/"
+   },
+   "store_bytes": 146180
+  },
+  {
+   "msg": "Use the Read tool to read README.md and summarize it in one sentence.",
+   "ok": true,
+   "wall_s": 2.404,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 22060,
+    "WorkingSet64": 34418688,
+    "PeakWorkingSet64": 34418688,
+    "CPU": 0.3125,
+    "StartTime": "/Date(1790710104217)/"
+   },
+   "store_bytes": 169991
+  }
+ ],
+ "store_bytes_before": 0,
+ "started_ms": 1790710102130,
+ "pid": 32516,
+ "exit": 0,
+ "wall_s": 15.715,
+ "store_bytes_after": 206764
+}

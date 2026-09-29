@@ -25,3 +25,6 @@ retrieval	9	UAT-11 steps 5-6 (large/unusual results, commit, /compact, pointer r
 retrieval	10	C4.7 off ({"runtime":{"mode":"off"}})	plans/sdd/V6-closeout/live/c4/C4.7/off/session	claude-haiku-4-5-20251001	0	26.464
 retrieval	11	C4.7 reinj ({"runtime":{"migration":{"reinjection":{"sessionStartCompact":false}}}})	plans/sdd/V6-closeout/live/c4/C4.7/reinj/session	claude-haiku-4-5-20251001	0	38.027
 retrieval	12	UAT-11 diagnostic rerun: small first prompts, then large/unusual results, commit, /compact, pointers	plans/sdd/V6-closeout/live/uat/UAT-11/diag-rerun/session	claude-haiku-4-5-20251001	0	86.403
+recovery	1	C1.6 seed (real session; publication gaps injected after daemon exit)	plans/sdd/V6-closeout/live/recovery/C1.6/session	claude-haiku-4-5-20251001	0	15.715
+recovery	2	C1.7 session 1 (seed before the backup)	plans/sdd/V6-closeout/live/recovery/C1.7/session1	claude-haiku-4-5-20251001	0	10.812
+recovery	3	C1.7 session 2 (new writes after the before backup)	plans/sdd/V6-closeout/live/recovery/C1.7/session2	claude-haiku-4-5-20251001	0	8.527

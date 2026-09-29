@@ -1,0 +1,31 @@
+{
+ "cutA": {
+  "file": "index/roots.jsonl",
+  "lines_before": 12,
+  "removed_line_root": "sha256:f2e3973e4831bfa4aaca9ee9eb45472a06a018f6cc9cf7966dbe930bfaf574b7",
+  "removed_line_tool": "FileRead",
+  "removed_line_path": "readme.md",
+  "objects_named_by_removed_line": {
+   "sha256:c6a707a030c511a7eec8438277501d5611259701738eea259d1a92d5c5b401a8": true,
+   "sha256:8c423b23b60c81bf21a3c8a6c2dcd90eacd17795ba3acde004814a59c5eba304": false
+  },
+  "root_object_file_exists": false,
+  "lines_after": 11
+ },
+ "cutB": {
+  "sidecar": "records/captures/55/550a87e2ec1b552574cce78cd1e21782d165116d2733e6ab6d1c39ca9d4210e9.json",
+  "observation_id": "sha256:550a87e2ec1b552574cce78cd1e21782d165116d2733e6ab6d1c39ca9d4210e9",
+  "op": "observe.tool",
+  "outcome": "ok",
+  "was_root": "sha256:e81c90a4b1f0c671d7a8d0026d0d74180814988b48bf7bd28db813ccfed7d5b7",
+  "was_tool_use_id": "toolu_01E3Zbw4iQw9kCAfnMJ5udb5",
+  "bytes_hash": "sha256:fbdeaf9d2408d33503d81c1110c03ff6fb29bb454cce4ec6602e0ec8a7d77bcb",
+  "edits": {
+   "published": 1,
+   "root": 1,
+   "tool_use_id": 1
+  },
+  "bytes_before": 2102,
+  "bytes_after": 2056
+ }
+}

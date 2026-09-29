@@ -1,0 +1,9 @@
+fingerprint diff: fp-D1-before-refusal.json -> fp-D1-after-refusal.json
+[objects/] before 10 files, after 10; unchanged 10; changed 0; added 0; removed 0
+[records/captures/ (capture sidecars)] before 9 files, after 9; unchanged 9; changed 0; added 0; removed 0
+[records/ (all)] before 9 files, after 9; unchanged 9; changed 0; added 0; removed 0
+[index/] before 7 files, after 7; unchanged 7; changed 0; added 0; removed 0
+[state/] before 19 files, after 19; unchanged 19; changed 0; added 0; removed 0
+[checkpoints/] before 0 files, after 0; unchanged 0; changed 0; added 0; removed 0
+[logs/ run/ spool/ (runtime)] before 1 files, after 1; unchanged 1; changed 0; added 0; removed 0
+COMPARED SET (objects/ + capture sidecars) UNCHANGED
