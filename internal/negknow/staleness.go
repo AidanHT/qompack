@@ -179,16 +179,7 @@ func (l *ledger) RefreshStaleness(ctx context.Context, s store.Store) ([]string,
 		return nil, err
 	}
 
-	reasons := map[string][]string{}
-	for _, d := range changed {
-		// d.Hash is the hash the record was recorded AGAINST — the value it changed FROM —
-		// because ChangedSince returns the INPUT deps, not the current ones (§5.8). Short()
-		// carries no prefix (§4), so the "sha256:" here is written by this format string.
-		because := fmt.Sprintf("%s: dependency hash changed from sha256:%s", d.Path, d.Hash.Short())
-		for _, id := range owners[depKey(d)] {
-			reasons[id] = append(reasons[id], because)
-		}
-	}
+	reasons := staleReasons(changed, owners)
 	if len(reasons) == 0 {
 		// The comparison succeeded — even over zero deps — so coverage is current again.
 		l.mu.Lock()
@@ -211,6 +202,103 @@ func (l *ledger) RefreshStaleness(ctx context.Context, s store.Store) ([]string,
 	}
 	sort.Strings(flipped)
 	return flipped, nil
+}
+
+// staleReasons maps every record owning a changed dependency to the per-dependency reasons it goes
+// stale for.
+func staleReasons(changed []core.Dep, owners map[string][]string) map[string][]string {
+	reasons := map[string][]string{}
+	for _, d := range changed {
+		// d.Hash is the hash the record was recorded AGAINST — the value it changed FROM —
+		// because ChangedSince returns the INPUT deps, not the current ones (§5.8). Short()
+		// carries no prefix (§4), so the "sha256:" here is written by this format string.
+		because := fmt.Sprintf("%s: dependency hash changed from sha256:%s", d.Path, d.Hash.Short())
+		for _, id := range owners[depKey(d)] {
+			reasons[id] = append(reasons[id], because)
+		}
+	}
+	return reasons
+}
+
+// refreshMatches is the in-session half of §8.3's staleness guard. Before Query answers from a
+// record, the dependencies of the ACTIVE records that could answer it — the ones sharing its match
+// key and visible to its caller — are compared against the store's current file versions, and any
+// that changed are flipped stale first, exactly as RefreshStaleness would flip them.
+//
+// RefreshStaleness alone runs only at Open, at a startup or resume, and in idle work, so a record
+// whose dependency changed earlier in the SAME session kept answering active until the daemon next
+// idled or restarted (retrieval D3 of the V6 live lane): the most direct form of the §12 High risk,
+// a stale elimination blocking a now-viable approach. Refreshing on read is the cheaper of the two
+// correct fixes: it costs one store.ChangedSince over the handful of records sharing this query's
+// match key — made outside the ledger lock, as RefreshStaleness makes its own — where refreshing on
+// capture would put a ledger scan on the observer's hot path for every new file version.
+//
+// verified reports that the dependencies of every active record this query could answer from were
+// compared successfully just now, and every flip that proved was recorded: those records' freshness
+// is confirmed, whatever the ledger-wide depCoverage watermark says about the last full refresh.
+// cov is non-zero when their freshness could NOT be confirmed — the comparison failed, or a flip it
+// proved could not be written — and Query then declines to back an ACTIVE answer from a record with
+// dependencies (§11.3 invariant 8), without setting the ledger-wide watermark: a failure on a few
+// records says nothing about the rest. Both are zero when there was nothing to compare.
+func (l *ledger) refreshMatches(ctx context.Context, mh core.Hash, scope Scope, sess core.SessionID) (
+	verified bool, cov core.Omission,
+) {
+	s := l.deps.Store
+	if s == nil {
+		return false, core.Omission{}
+	}
+
+	l.mu.RLock()
+	if l.closed || l.blind {
+		l.mu.RUnlock()
+		return false, core.Omission{}
+	}
+	var (
+		deps   []core.Dep
+		owners = map[string][]string{}
+		seen   = map[string]struct{}{}
+	)
+	for _, i := range l.byMatch[mh] {
+		r := &l.recs[i]
+		if r.Status != StatusActive || !l.visible(*r, scope, sess) {
+			continue
+		}
+		for _, d := range r.DependsOn {
+			k := depKey(d)
+			owners[k] = append(owners[k], r.ID)
+			if _, dup := seen[k]; dup {
+				continue
+			}
+			seen[k] = struct{}{}
+			deps = append(deps, d)
+		}
+	}
+	l.mu.RUnlock()
+	if len(deps) == 0 {
+		return false, core.Omission{}
+	}
+
+	changed, err := s.ChangedSince(ctx, deps)
+	if err != nil {
+		l.log.Warn("negknow: could not compare a queried record's dependency hashes", "err", err)
+		return false, core.Omission{Reason: reasonDepCoverage, Recovery: recoveryDepCoverage}
+	}
+	if len(changed) == 0 {
+		return true, core.Omission{}
+	}
+
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	for _, g := range groupStaleReasons(staleReasons(changed, owners)) {
+		if _, merr := l.markStaleLocked(ctx, g.IDs, g.Because); merr != nil {
+			// markStaleLocked updates memory only for a flip it appended, so a record whose flip
+			// failed is still active in memory although its dependency is known to have changed.
+			l.log.Warn("negknow: a queried record's dependency changed but its stale flip was not recorded",
+				"err", merr)
+			return false, core.Omission{Reason: reasonFlipUnrecorded, Recovery: recoveryFlipUnrecorded}
+		}
+	}
+	return true, core.Omission{}
 }
 
 // staleGroup is one MarkStale call: the records that share a because, and the because itself.

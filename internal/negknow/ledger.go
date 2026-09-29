@@ -237,6 +237,12 @@ const (
 	// (staleness.go).
 	reasonDepCoverage   = "the last dependency-hash comparison against the file store failed, so this record's freshness cannot be confirmed"
 	recoveryDepCoverage = "retry after the store recovers; a successful staleness refresh resolves this"
+
+	// reasonFlipUnrecorded and recoveryFlipUnrecorded explain an AnswerUncertain produced when a
+	// query's own dependency comparison (refreshMatches) proved a matching record stale but the
+	// flip could not be appended to the log, so the record still reads active in memory.
+	reasonFlipUnrecorded   = "a dependency of this record has changed, but its stale flip could not be recorded"
+	recoveryFlipUnrecorded = "re-verify the approach directly; this is not evidence the approach is untried"
 )
 
 var (
@@ -668,31 +674,54 @@ func (l *ledger) refreshAtOpen() {
 	}
 }
 
-// visible reports whether r is answerable under the requested query scope (§8.3 item 5).
+// visible reports whether r is answerable to session sess under the requested query scope (§8.3
+// item 5).
 //
 //	ScopeProject       -> project-scoped records only, which is the cross-session carry-over
-//	ScopeSession or "" -> project-scoped records, plus session-scoped records of THIS session
+//	ScopeSession or "" -> project-scoped records, plus session-scoped records of sess
+//
+// sess is the caller's session (sessionFor), never assumed to be the one the ledger was opened
+// for: the daemon's ledger serves every session of the project.
 //
 // The caller holds mu.
-func (l *ledger) visible(r Record, q Scope) bool {
+func (l *ledger) visible(r Record, q Scope, sess core.SessionID) bool {
 	if r.Scope == ScopeProject {
 		return true
 	}
 	if q == ScopeProject {
 		return false
 	}
-	return r.Session == l.deps.Session
+	return r.Session == sess
 }
 
-// visibleActive yields the position in recs of every active record visible to this session, in
-// log order. It is the ONE source the bloom rebuild draws its keys from. It yields positions
+// inView reports whether r belongs to what this ledger can be asked about at all. A ledger opened
+// for one session (Deps.Session set) answers for that session alone, so it is that session's view.
+// A ledger opened with no session is the daemon's multi-session ledger: any session may ask, each
+// sees its own session-scoped records, so every record is in view and visible() decides per call.
+//
+// The caller holds mu.
+func (l *ledger) inView(r Record) bool {
+	if l.deps.Session == "" {
+		return true
+	}
+	return l.visible(r, ScopeSession, l.deps.Session)
+}
+
+// visibleActive yields the position in recs of every active record in this ledger's view (inView),
+// in log order. It is the ONE source the bloom rebuild draws its keys from. It yields positions
 // rather than copies because every caller reads the records in place: a copy of the whole visible
 // set is 5.9 MB at 20 000 records, and Open used to make three of them. The caller holds mu, for
 // as long as it is iterating.
+//
+// For the daemon's multi-session ledger that is every active record of every session. The filter
+// is a cache over the records (§13 invariant 3), so a key another session's record contributes
+// costs a query from this session one record lookup that visible() then refuses — reported as a
+// BloomOnly absence, the safe direction — while leaving a session's own records out of the filter
+// would make them unanswerable after the next rebuild.
 func (l *ledger) visibleActive() iter.Seq[int] {
 	return func(yield func(int) bool) {
 		for i := range l.recs {
-			if l.recs[i].Status == StatusActive && l.visible(l.recs[i], ScopeSession) && !yield(i) {
+			if l.recs[i].Status == StatusActive && l.inView(l.recs[i]) && !yield(i) {
 				return
 			}
 		}
@@ -777,7 +806,7 @@ func (l *ledger) Record(ctx context.Context, r Record) (string, error) {
 	r.Desc = Canonicalize(r.Target, r.Approach, r.Reason)
 
 	if r.Session == "" {
-		r.Session = l.deps.Session
+		r.Session = l.sessionFor(ctx)
 	}
 	if r.TS == 0 {
 		r.TS = core.UnixMilli(l.clk.Now().UnixMilli())
@@ -861,7 +890,7 @@ func (l *ledger) Record(ctx context.Context, r Record) (string, error) {
 		l.pending = true
 	}
 
-	l.emitDAG(r)
+	l.emitDAG(r, turnFor(ctx))
 	l.m.Counter(counterRecordsAppended).Add(1)
 	return r.ID, nil
 }
@@ -889,6 +918,12 @@ func (l *ledger) Query(ctx context.Context, target, approach string, scope Scope
 	d := Canonicalize(target, approach, "")
 	mh := d.matchHash()
 	mk := mh[:] // d.MatchKey(), whose array is this call's own
+	sess := l.sessionFor(ctx)
+
+	// The records this question could be answered from are brought up to date with the store
+	// BEFORE the answer is read, so a dependency change captured earlier in this very session is
+	// reflected now rather than at the next idle refresh (refreshMatches).
+	verified, cov := l.refreshMatches(ctx, mh, scope, sess)
 
 	l.mu.RLock()
 	defer l.mu.RUnlock()
@@ -912,7 +947,7 @@ func (l *ledger) Query(ctx context.Context, target, approach string, scope Scope
 	idx := l.byMatch[mh]
 	cands := make([]Record, 0, len(idx))
 	for _, i := range idx {
-		if l.visible(l.recs[i], scope) {
+		if l.visible(l.recs[i], scope, sess) {
 			cands = append(cands, l.recs[i])
 		}
 	}
@@ -923,13 +958,17 @@ func (l *ledger) Query(ctx context.Context, target, approach string, scope Scope
 	}
 
 	if act := pick(cands, StatusActive); act != nil {
-		if l.depCoverage != (core.Omission{}) && len(act.DependsOn) > 0 {
-			// The last dependency-hash comparison failed, and THIS record has a dependency that
-			// comparison would have covered: its freshness cannot currently be confirmed, so it is
-			// not backed as active (§11.3 invariant 8). A record with no dependency at all is
+		if cov == (core.Omission{}) && !verified {
+			cov = l.depCoverage
+		}
+		if cov != (core.Omission{}) && len(act.DependsOn) > 0 {
+			// A dependency-hash comparison failed — this query's own, or the last full refresh
+			// when this query could not re-check the record itself — and THIS record has a
+			// dependency it would have covered: its freshness cannot currently be confirmed, so it
+			// is not backed as active (§11.3 invariant 8). A record with no dependency at all is
 			// unaffected — there was nothing for the failed comparison to have told it anyway.
 			l.count(queryStateUncertain)
-			return Answer{State: AnswerUncertain, Record: act, Coverage: l.depCoverage}, nil
+			return Answer{State: AnswerUncertain, Record: act, Coverage: cov}, nil
 		}
 		l.count(queryStateActive)
 		return Answer{State: AnswerActive, Record: act}, nil
@@ -1035,9 +1074,10 @@ func (l *ledger) Get(ctx context.Context, id string) (Record, error) {
 func (l *ledger) Active(ctx context.Context, scope Scope) ([]Record, error) {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
+	sess := l.sessionFor(ctx)
 	out := make([]Record, 0, len(l.recs))
 	for _, r := range l.recs {
-		if r.Status == StatusActive && l.visible(r, scope) {
+		if r.Status == StatusActive && l.visible(r, scope, sess) {
 			out = append(out, r)
 		}
 	}
