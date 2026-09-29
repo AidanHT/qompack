@@ -1,0 +1,6 @@
+cwd: <scratch>/retrieval/uat11/b
+argv: ["C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c3/qompack-plugin-0.3.0-windows-amd64/bin/qompack.exe", "self-test", "--json"]
+env+: {}
+qompack_home: <scratch>/retrieval/qhome
+wall_s: 0.026
+at: 2026-09-29T15:11:36-04:00

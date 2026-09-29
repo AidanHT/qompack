@@ -1,0 +1,101 @@
+{
+ "args": [
+  "-p",
+  "--input-format",
+  "stream-json",
+  "--output-format",
+  "stream-json",
+  "--verbose",
+  "--include-hook-events",
+  "--model",
+  "claude-haiku-4-5-20251001",
+  "--max-turns",
+  "60",
+  "--setting-sources",
+  "project,local",
+  "--permission-mode",
+  "dontAsk",
+  "--plugin-dir",
+  "C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c3/qompack-plugin-0.3.0-windows-amd64",
+  "--allowedTools",
+  "Read,Bash(git add:*),Bash(git commit:*),Bash(git log:*),mcp__plugin_qompack_qompack__recall,mcp__plugin_qompack_qompack__expand,mcp__plugin_qompack_qompack__re_read,mcp__plugin_qompack_qompack__already_tried,mcp__plugin_qompack_qompack__record_eliminated,mcp__plugin_qompack_qompack__timeline,mcp__plugin_qompack_qompack__why,mcp__plugin_qompack_qompack__dropped,Bash(qompack status:*),Bash(qompack recall:*),Bash(qompack pin:*),Bash(qompack why:*),Bash(qompack dropped:*),Bash(qompack eval:*)"
+ ],
+ "turns": [
+  {
+   "msg": "Use the Read tool to read notes.md, then big.log with offset 1 and limit 3000. Reply with the codename in notes.md and the label of the last line you received (it looks like ROW-NNNNN).",
+   "ok": true,
+   "wall_s": 8.415,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 71228,
+    "WorkingSet64": 51499008,
+    "PeakWorkingSet64": 51499008,
+    "CPU": 0.28125,
+    "StartTime": "/Date(1790709172097)/"
+   },
+   "store_bytes": 1468853
+  },
+  {
+   "msg": "Use the Read tool to read odd.txt and then creds.env. Tell me only the names of the settings in creds.env, never their values, and describe odd.txt in one sentence.",
+   "ok": true,
+   "wall_s": 4.807,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 71228,
+    "WorkingSet64": 52068352,
+    "PeakWorkingSet64": 52068352,
+    "CPU": 0.28125,
+    "StartTime": "/Date(1790709172097)/"
+   },
+   "store_bytes": 1514864
+  },
+  {
+   "msg": "Run the Bash command `git add -A`, then `git commit -m \"uat-11 work\"`, then `git log --oneline -1`. Reply with the commit line.",
+   "ok": true,
+   "wall_s": 4.61,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 71228,
+    "WorkingSet64": 52240384,
+    "PeakWorkingSet64": 52240384,
+    "CPU": 0.328125,
+    "StartTime": "/Date(1790709172097)/"
+   },
+   "store_bytes": 1540371
+  },
+  {
+   "msg": "/compact",
+   "ok": true,
+   "wall_s": 20.836,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 71228,
+    "WorkingSet64": 52670464,
+    "PeakWorkingSet64": 52670464,
+    "CPU": 0.375,
+    "StartTime": "/Date(1790709172097)/"
+   },
+   "store_bytes": 1586711
+  },
+  {
+   "msg": "Your context contains a Qompack block. If it has a section '## 6. Pointers', then for EVERY pointer line in it call mcp__plugin_qompack_qompack__expand with {\"hash\": <the line's sha256:... value>}, and when the line starts with a file path (not with 'tool_use'), also call mcp__plugin_qompack_qompack__re_read with {\"path\": <that path>}. Then reply with one line per pointer: the pointer's first 60 characters, expand found yes/no (add 'truncated' or 'redacted' when the response or content says so), re_read found yes/no or n/a. If there is no section 6, say so and quote the block's section headings.",
+   "ok": true,
+   "wall_s": 16.228,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 71228,
+    "WorkingSet64": 52740096,
+    "PeakWorkingSet64": 52740096,
+    "CPU": 0.390625,
+    "StartTime": "/Date(1790709172097)/"
+   },
+   "store_bytes": 1600202
+  }
+ ],
+ "store_bytes_before": 0,
+ "started_ms": 1790709171417,
+ "pid": 27620,
+ "exit": 0,
+ "wall_s": 58.366,
+ "store_bytes_after": 1670194
+}

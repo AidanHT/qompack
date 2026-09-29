@@ -1,0 +1,6 @@
+cwd: <scratch>/retrieval/uat10/proj
+argv: ["C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c3/qompack-plugin-0.3.0-windows-amd64/bin/qompack.exe", "eval", "--corpus", "C:/Users/Quant/Documents/Programming/Projects/qompack-cx-live/plans/sdd/V6-closeout/eval/runs/pilot1-plugin-dir", "--json"]
+env+: {}
+qompack_home: <scratch>/retrieval/qhome
+wall_s: 0.033
+at: 2026-09-29T15:09:45-04:00

@@ -20,3 +20,7 @@ retrieval	4	UAT-09 --resume of session 3 (flag: stale after Read + idle; drop on
 retrieval	5	UAT-09 new session in the UAT-08 project with drop from the start	plans/sdd/V6-closeout/live/uat/UAT-09/session-s5-new	claude-haiku-4-5-20251001	0	35.772
 retrieval	6	C4.4 all eight MCP tools, success and error calls (+UAT-09 step 5 in a fresh project)	plans/sdd/V6-closeout/live/c4/C4.4/session	claude-haiku-4-5-20251001	0	201.863
 retrieval	7	C4.5 six /qompack: commands (+C4.4 why success) in the UAT-08 project	plans/sdd/V6-closeout/live/c4/C4.5/session	claude-haiku-4-5-20251001	0	83.81
+retrieval	8	UAT-10 status/dropped/eval surfaces (defaults)	plans/sdd/V6-closeout/live/uat/UAT-10/session	claude-haiku-4-5-20251001	0	107.376
+retrieval	9	UAT-11 steps 5-6 (large/unusual results, commit, /compact, pointer resolution)	plans/sdd/V6-closeout/live/uat/UAT-11/session	claude-haiku-4-5-20251001	0	58.366
+retrieval	10	C4.7 off ({"runtime":{"mode":"off"}})	plans/sdd/V6-closeout/live/c4/C4.7/off/session	claude-haiku-4-5-20251001	0	26.464
+retrieval	11	C4.7 reinj ({"runtime":{"migration":{"reinjection":{"sessionStartCompact":false}}}})	plans/sdd/V6-closeout/live/c4/C4.7/reinj/session	claude-haiku-4-5-20251001	0	38.027

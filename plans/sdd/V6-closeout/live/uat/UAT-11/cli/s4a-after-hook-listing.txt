@@ -1,0 +1,3 @@
+project listing (.git omitted), 2 files
+        18  README.md
+        11  .qompack/config.json
