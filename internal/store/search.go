@@ -3,7 +3,10 @@ package store
 import (
 	"bytes"
 	"context"
+	"errors"
+	"fmt"
 	"math"
+	"path"
 	"sort"
 	"strings"
 	"sync"
@@ -44,6 +47,11 @@ const (
 	defaultK = 5
 )
 
+// ErrBadPathGlob reports a Query.Path that carries glob metacharacters but is not a pattern
+// path.Match can parse. It is the caller's mistake, so it is an error rather than an empty result:
+// "no hits" would read as "nothing was ever captured there".
+var ErrBadPathGlob = errors.New("qompack: store: the path selector is not a valid glob")
+
 // Search ranks stored tool results against q, backing the `recall` retrieval tool.
 //
 // Hit.Span is the minimum sufficient span (§8.7): the symbol's own extent for a symbol hit, the
@@ -66,12 +74,15 @@ func (s *FSStore) Search(ctx context.Context, q Query) ([]Hit, error) {
 		k = maxK
 	}
 
-	cands := s.candidates(q)
+	sel, err := compilePathSelector(q.Path)
+	if err != nil {
+		return nil, err
+	}
+	cands := s.candidatesFor(q, sel)
 	if len(cands) == 0 {
 		return nil, nil
 	}
 
-	qp := storeKey(q.Path)
 	needContent := q.Text != "" || q.Symbol != ""
 
 	// Bound the work BEFORE doing any of it. Both limits are computed from the in-memory index —
@@ -93,7 +104,7 @@ func (s *FSStore) Search(ctx context.Context, q Query) ([]Hit, error) {
 		if needContent && body.err != nil {
 			continue // a quarantined or missing object simply cannot be ranked
 		}
-		hit, ok := s.score(q, qp, cands[i], body.content, body.bounds, recencyRank(i, len(cands)))
+		hit, ok := s.score(q, sel, cands[i], body.content, body.bounds, recencyRank(i, len(cands)))
 		if !ok {
 			continue
 		}
@@ -194,15 +205,23 @@ type searchCand struct {
 	root *rootEntry
 }
 
-// candidates returns the tool-use records q could match, newest first.
-//
-// The path filter applies exactly the three predicates the scoring block grades — equality, a
-// path-segment suffix, and containment — so no candidate can survive the filter and then score
-// zero on the path term, which would let an unrelated record ride into the results on its recency
-// bonus alone.
+// candidates returns the tool-use records q could match, newest first, or none when q's path
+// selector is a malformed glob (Search reports that as ErrBadPathGlob before it gets here).
 func (s *FSStore) candidates(q Query) []searchCand {
-	qp := storeKey(q.Path)
-	tool := strings.ToLower(q.Tool)
+	sel, err := compilePathSelector(q.Path)
+	if err != nil {
+		return nil
+	}
+	return s.candidatesFor(q, sel)
+}
+
+// candidatesFor is candidates with the path selector already compiled.
+//
+// The path filter applies exactly the predicates the scoring block grades — pathSelector.weight is
+// both — so no candidate can survive the filter and then score zero on the path term, which would
+// let an unrelated record ride into the results on its recency bonus alone.
+func (s *FSStore) candidatesFor(q Query, sel pathSelector) []searchCand {
+	tool := toolSelector(q.Tool)
 	var since core.UnixMilli
 	if !q.Since.IsZero() {
 		since = core.UnixMilli(q.Since.UnixMilli())
@@ -213,14 +232,14 @@ func (s *FSStore) candidates(q Query) []searchCand {
 
 	out := make([]searchCand, 0, len(s.toolUse))
 	for _, rec := range s.toolUse {
-		if tool != "" && strings.ToLower(rec.Tool) != tool {
+		if !tool.matches(rec.Tool) {
 			continue
 		}
 		if since != 0 && rec.TS < since {
 			continue
 		}
 		key := storeKey(rec.Path)
-		if qp != "" && !pathMatches(key, qp) {
+		if sel.key != "" && sel.weight(key) == 0 {
 			continue
 		}
 		entry, ok := s.rootIndex[rec.Root]
@@ -239,27 +258,94 @@ func (s *FSStore) candidates(q Query) []searchCand {
 	return out
 }
 
-// pathMatches reports whether key satisfies any of the three path predicates for query key qp.
-func pathMatches(key, qp string) bool {
-	return key == qp || strings.HasSuffix(key, "/"+qp) || strings.Contains(key, qp)
+// globMeta is the set of characters that make a path selector a path.Match pattern rather than a
+// plain path. A backslash is not in it: on Windows the selector is converted to slash form before
+// it is examined, so a backslash never survives to be an escape.
+const globMeta = "*?["
+
+// pathSelector is a compiled Query.Path: the paths.Key form of the selector and whether it is a glob.
+type pathSelector struct {
+	key  string
+	glob bool
+}
+
+// compilePathSelector turns Query.Path into a pathSelector. A selector with no glob metacharacter is
+// a plain path and matches exactly as it always has; one with a metacharacter must be a pattern
+// path.Match accepts, or the query is refused with ErrBadPathGlob. path.Match checks the WHOLE
+// pattern's syntax even when it does not match, so matching the empty string is a complete
+// validation.
+func compilePathSelector(p string) (pathSelector, error) {
+	key := storeKey(p)
+	if key == "" || !strings.ContainsAny(key, globMeta) {
+		return pathSelector{key: key}, nil
+	}
+	if _, err := path.Match(key, ""); err != nil {
+		return pathSelector{}, fmt.Errorf("%w: %q", ErrBadPathGlob, p)
+	}
+	return pathSelector{key: key, glob: true}, nil
+}
+
+// weight grades a record's path key against the selector, 0 when it does not match at all.
+//
+// A plain selector keeps the three predicates it always had: equality, a path-segment suffix, and
+// containment. A glob is path.Match on slash paths (a `*` never crosses a `/`), applied to the whole
+// key and then to every path-segment suffix of it — the glob counterpart of the plain suffix rule,
+// which is what lets `*.go` find `src/ledger.go` the way `ledger.go` does. A whole-key match is an
+// exact statement of intent and weighs as one; a suffix match weighs as a suffix. A glob selector
+// also still matches its own literal spelling, so a file whose name really contains `[` or `*` stays
+// reachable by name.
+func (sel pathSelector) weight(key string) float64 {
+	switch {
+	case sel.key == "":
+		return 0
+	case key == sel.key:
+		return wPathExact
+	case strings.HasSuffix(key, "/"+sel.key):
+		return wPathSuffix
+	case !sel.glob:
+		if strings.Contains(key, sel.key) {
+			return wPathContains
+		}
+		return 0
+	}
+	if ok, _ := path.Match(sel.key, key); ok {
+		return wPathExact
+	}
+	for i := 0; i < len(key); i++ {
+		if key[i] != '/' {
+			continue
+		}
+		if ok, _ := path.Match(sel.key, key[i+1:]); ok {
+			return wPathSuffix
+		}
+	}
+	return 0
+}
+
+// toolSelector is a compiled Query.Tool: the name as given and the display name it stands for.
+//
+// The index records a host tool under Qompack's display name (core.DisplayToolName: Read is
+// FileRead), so a selector spelled the host's way would otherwise match nothing — which is what the
+// V6 live lane met with `tool:Read`. Both sides are therefore compared as display names, case-
+// insensitively, which also keeps a record some older writer stored under the host's spelling
+// reachable by either name; a name the table does not claim matches only itself.
+type toolSelector string
+
+// matches reports whether a record produced by tool satisfies the selector.
+func (sel toolSelector) matches(tool string) bool {
+	if sel == "" {
+		return true
+	}
+	return strings.EqualFold(tool, string(sel)) ||
+		strings.EqualFold(core.DisplayToolNameFold(tool), core.DisplayToolNameFold(string(sel)))
 }
 
 // score grades one candidate, reporting false when it does not match at all.
-func (s *FSStore) score(q Query, qp string, c searchCand, content []byte, bounds []int64, rank float64) (Hit, bool) {
+func (s *FSStore) score(q Query, sel pathSelector, c searchCand, content []byte, bounds []int64, rank float64) (Hit, bool) {
 	total := c.root.Root.CanonBytes
 	span := [2]int64{0, total}
-	score := 0.0
-
-	switch {
-	case qp == "":
-		// A query with no path term contributes nothing here.
-	case c.key == qp:
-		score += wPathExact
-	case strings.HasSuffix(c.key, "/"+qp):
-		score += wPathSuffix
-	case strings.Contains(c.key, qp):
-		score += wPathContains
-	}
+	// A query with no path term contributes nothing here.
+	score := sel.weight(c.key)
 	if q.Tool != "" {
 		score += wTool
 	}

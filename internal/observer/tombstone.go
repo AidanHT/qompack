@@ -6,6 +6,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/store"
 )
 
@@ -157,33 +158,12 @@ const tombstoneNoteText = "Cleared tool results above are re-expandable: call th
 // line, always: it is injected into structured output whose shape a second line would break.
 func TombstoneNote() string { return tombstoneNoteText }
 
-// hostToDisplay maps Claude Code's own tool names onto the display names Qompack.md §2.2 and §8.1
-// are written in terms of. The indirection exists because the host's vocabulary is not stable and
-// is not ours: Read/NotebookRead are one kind of thing to this system, Edit/MultiEdit/NotebookEdit
-// another, and Task is the agent tool §2.2 preserves rather than compacts. Collapsing them here
-// means the rest of the package — supersession classes, the compactable predicate, the tombstone,
-// the action grammar — reasons about four file operations and a handful of searches instead of
-// fifteen host spellings.
-//
-// A name that misses this table passes through unchanged, which is what keeps qompack's own
-// mcp__qompack__* retrieval results recognizable to the §8.7 ephemeral rule.
-var hostToDisplay = map[string]string{
-	"Read": "FileRead", "NotebookRead": "FileRead", "Edit": "FileEdit",
-	"MultiEdit": "FileEdit", "NotebookEdit": "FileEdit", "Write": "FileWrite",
-	"Bash": "Bash", "BashOutput": "Bash", "PowerShell": "PowerShell",
-	"Grep": "Grep", "Glob": "Glob", "WebSearch": "WebSearch", "WebFetch": "WebFetch",
-	"Task": "AgentTool", "TodoWrite": "TodoWrite",
-}
-
 // NormalizeToolName returns the display name for a host tool name — "Read" becomes "FileRead" —
 // and returns hostName unchanged when the table does not claim it, so a tool Claude Code adds
-// tomorrow is still recorded under a name rather than lost.
-func NormalizeToolName(hostName string) string {
-	if display, ok := hostToDisplay[hostName]; ok {
-		return display
-	}
-	return hostName
-}
+// tomorrow is still recorded under a name rather than lost. The table is core.DisplayToolName's:
+// the store's recall `tool:` selector reads the same one, so a host name and the display name it is
+// indexed under can never disagree between recording and retrieval.
+func NormalizeToolName(hostName string) string { return core.DisplayToolName(hostName) }
 
 // compactableTools is the §2.2 set: the high-volume, reproducible results a tombstone may replace.
 // Everything else — AgentTool and MCP results, in the design's own words — is preserved, because a
