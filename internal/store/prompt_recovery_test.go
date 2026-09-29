@@ -83,3 +83,38 @@ func TestEarliestPrompt_PicksTheEarliestHostStampedPromptOfTheSession(t *testing
 	_, err = p.Store.EarliestPrompt(cancelled, "s")
 	require.ErrorIs(t, err, context.Canceled)
 }
+
+// TestSessionPrompts_IsOneSessionsPromptsInTurnOrder: internal/checkpoint reads a session's intent
+// from these records, so they must be that session's prompts only, oldest turn first — never
+// another session's, never a tool record, whatever order they were indexed in.
+func TestSessionPrompts_IsOneSessionsPromptsInTurnOrder(t *testing.T) {
+	p := newTestStore(t)
+	ctx := context.Background()
+
+	got, err := p.Store.SessionPrompts(ctx, "s")
+	require.NoError(t, err)
+	require.Empty(t, got, "a session with no prompt has none")
+
+	for _, rec := range []ToolUseRecord{
+		{ID: "prompt_s_7", Session: "s", Turn: 7, TS: 300, Tool: "UserPromptSubmit"},
+		{ID: "prompt_s_0", Session: "s", Turn: 0, TS: 200, Tool: "UserPromptSubmit"},
+		{ID: "tool", Session: "s", Turn: 1, TS: 50, Tool: "Read"},
+		{ID: "stop", Session: "s", Turn: 3, TS: 10, Tool: "SubagentStop"},
+		{ID: "prompt_s_2", Session: "s", Turn: 2, TS: 100, Tool: "UserPromptSubmit"},
+		{ID: "prompt_other_1", Session: "other", Turn: 1, TS: 1, Tool: "UserPromptSubmit"},
+	} {
+		require.NoError(t, p.Store.RecordToolUse(ctx, rec))
+	}
+	got, err = p.Store.SessionPrompts(ctx, "s")
+	require.NoError(t, err)
+	ids := make([]core.ToolUseID, 0, len(got))
+	for _, rec := range got {
+		ids = append(ids, rec.ID)
+	}
+	require.Equal(t, []core.ToolUseID{"prompt_s_0", "prompt_s_2", "prompt_s_7"}, ids)
+
+	cancelled, cancel := context.WithCancel(ctx)
+	cancel()
+	_, err = p.Store.SessionPrompts(cancelled, "s")
+	require.ErrorIs(t, err, context.Canceled)
+}
