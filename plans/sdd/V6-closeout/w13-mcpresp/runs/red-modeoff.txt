@@ -1,0 +1,32 @@
+--- FAIL: TestCmdMCPModeOffWritesNothingAndSaysSo (0.11s)
+    cmd_mcp_modeoff_test.go:88: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-mcpresp/internal/cli/cmd_mcp_modeoff_test.go:88
+        	Error:      	Not equal: 
+        	            	expected: "qompack is switched off for this project: runtime.mode is \"off\", so nothing is recorded and there is nothing to retrieve. Retrying will not help; the user can set runtime.mode to \"auto\" (for example in .qompack/config.json) to use qompack's tools."
+        	            	actual  : "the qompack daemon returned an empty result"
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-qompack is switched off for this project: runtime.mode is "off", so nothing is recorded and there is nothing to retrieve. Retrying will not help; the user can set runtime.mode to "auto" (for example in .qompack/config.json) to use qompack's tools.
+        	            	+the qompack daemon returned an empty result
+        	Test:       	TestCmdMCPModeOffWritesNothingAndSaysSo
+        	Messages:   	id=3: the stable mode-off answer, verbatim
+--- FAIL: TestForwardMCPCallModeOffSaysSo (0.00s)
+    cmd_mcp_modeoff_test.go:113: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-mcpresp/internal/cli/cmd_mcp_modeoff_test.go:113
+        	Error:      	Not equal: 
+        	            	expected: "qompack is switched off for this project: runtime.mode is \"off\", so nothing is recorded and there is nothing to retrieve. Retrying will not help; the user can set runtime.mode to \"auto\" (for example in .qompack/config.json) to use qompack's tools."
+        	            	actual  : "the qompack daemon returned an empty result"
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-qompack is switched off for this project: runtime.mode is "off", so nothing is recorded and there is nothing to retrieve. Retrying will not help; the user can set runtime.mode to "auto" (for example in .qompack/config.json) to use qompack's tools.
+        	            	+the qompack daemon returned an empty result
+        	Test:       	TestForwardMCPCallModeOffSaysSo
+FAIL
+FAIL	github.com/qompack/qompack/internal/cli	0.795s
+FAIL
