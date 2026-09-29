@@ -130,6 +130,11 @@ func (h *handlers) recall(ctx context.Context, _ Request, raw json.RawMessage) (
 	}
 
 	q := parseRecallQuery(a.Query)
+	if q == (recallQuery{}) {
+		// Nothing to search for: an empty or blank query, or selectors with no value. Answering it
+		// returned a confident, meaningless hit list; `qompack recall` refuses it as a usage error.
+		return errResponse(recallEmptyQueryMsg), nil
+	}
 	hits, err := h.store.Search(ctx, store.Query{
 		Text: q.Text, Path: q.Path, Symbol: q.Symbol, Tool: q.Tool, K: a.K,
 	})
@@ -221,6 +226,10 @@ func (h *handlers) alreadyTried(ctx context.Context, _ Request, raw json.RawMess
 	var a AlreadyTriedArgs
 	if err := json.Unmarshal(raw, &a); err != nil {
 		return errResponse("invalid arguments for " + ToolAlreadyTried + ": " + err.Error()), nil
+	}
+	if strings.TrimSpace(a.Target) == "" || strings.TrimSpace(a.Approach) == "" {
+		// `absent` would assert that nothing was tried for a question that was never asked.
+		return errResponse(alreadyTriedEmptyArgsMsg), nil
 	}
 	l := h.ledger()
 	if l == nil {

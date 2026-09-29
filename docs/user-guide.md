@@ -86,10 +86,15 @@ Exit `2` on an unknown flag; otherwise `0`.
 
 Searches captured tool output and file versions by content: `<query> [--k N]`, plus `--json`. The
 query is free text or the prefixed selectors `path:<glob>`, `symbol:<name>` and `tool:<ToolName>`
-combined with spaces ([schema](commands.md#qompackrecall)). It returns references and summaries,
-not bytes — use the `expand` tool to materialize one. Capture and coverage may be partial, and the
-response says which. Exit `2` on a missing or malformed query, `0` otherwise — including for a
-search that matched nothing, which is an answer and not a failure.
+combined with spaces ([schema](commands.md#qompackrecall)). `path:` is a glob on slash paths
+(`path:src/*.go`, `path:*.go`; `*` does not cross `/`), matched against the whole project-relative
+path and against every trailing part of it; a path with no `*`, `?` or `[` matches by equality, by
+trailing path segments, or as a substring. `tool:` takes the host's tool name (`Read`, `Edit`,
+`Bash`) or Qompack's display name (`FileRead`, `FileEdit`), in any case
+([selectors](mcp-tools.md#recall)). It returns references and summaries, not bytes — use the
+`expand` tool to materialize one. Capture may be partial: a hit the current policy withholds is
+counted in `denied`, never shown. Exit `2` on a missing or malformed query, `0` otherwise —
+including for a search that matched nothing, which is an answer and not a failure.
 
 ### `/qompack:pin`
 
@@ -137,11 +142,14 @@ without a decision id, `1` if the decision could not be read, `0` otherwise.
 Reports what the last compaction dropped and how to get it back: `[--json]`
 ([schema](commands.md#qompackdropped)).
 
-`dropped` is the command's name; what it reports is **qualified coverage**. Each entry carries a
-`Coverage` value (see [Fidelity, coverage and error states](#fidelity-coverage-and-error-states)),
-so "dropped" means *Qompack did not carry this forward in the injected payload, and here is what it
-does hold instead*. It does not mean the host removed anything, and it is not a statement about
-native context at all: `docs/mcp-tools.md` puts the boundary in one line — "This report does not
+`dropped` is the command's name; what it reports is **qualified coverage**. Each entry names its
+`kind`, its `id` and an optional `detail`; the qualification is on the report as a whole —
+`available` and `reason` when there is no report to give, `denied` and `host_policy` when entries
+were withheld — and no entry carries a coverage value (see
+[Fidelity, coverage and error states](#fidelity-coverage-and-error-states)). So "dropped" means
+*Qompack did not carry this forward in the injected payload, and here is what it does hold
+instead*. It does not mean the host removed anything, and it is not a statement about native
+context at all: `docs/mcp-tools.md` puts the boundary in one line — "This report does not
 establish what remains in native context."
 
 The complete drop report is persisted whether or not the rendered section fit in the budget
@@ -226,7 +234,7 @@ threshold is printed and explicitly **not judged**, and cost never contributes t
 Qompack exposes eight tools over MCP, on stdio, from `qompack mcp`. The inventory and every
 argument schema are in [docs/mcp-tools.md](mcp-tools.md).
 
-Four behaviours apply across the set, from that page and from `internal/mcp`:
+Five behaviours apply across the set, from that page and from `internal/mcp`:
 
 **Ephemeral metadata.** Every retrieval response carries `_meta.qompack.ephemeral`.
 An ephemeral tag describes a Qompack record; it does not mean the host evicted anything.
@@ -237,6 +245,13 @@ It is not an eviction control and not proof of native retention.
 **Minimal spans.** A tool that returns file content returns the smallest chunk-aligned span
 covering the request, widened to a symbol boundary where one is known. Pass `full: true` for the
 whole object; a response with more to read carries `next_span`, which you pass back as `span`.
+
+**Bounded responses.** `runtime.mcp.maxResponseBytes` bounds the result text `expand` and
+`re_read` return — the JSON body with its content escaped, not only the content. A response that
+had to be cut says `truncated: true` and carries `next_span`, which continues exactly where it
+stopped; an explicit `span` takes precedence over `full`, and no page ends inside a multi-byte
+character. `re_read` takes no `span`: continue a `re_read` page with `expand`, its `hash` and the
+`next_span`. The other tools' results are not measured against this key.
 
 **Misses are not errors.** A thing that was looked for and is not there comes back as
 `found: false` with what was searched, not as a tool error (`internal/mcp/handlers_span.go`).
@@ -251,9 +266,11 @@ It returns pointers rather than content, so it never counts as demand for promot
 
 Materializes archived content by `hash` or `tool_use_id` — the identifiers a tombstone or a
 `recall` hit gives you. Call it when a reference is not enough. Minimal span by default; `full:
-true` or an explicit `span` when it is not; `next_span` to page. Fidelity and coverage may be
-incomplete, and a query that fails to reach the store reports `unavailable`, which is not a
-statement that the content is gone.
+true` or an explicit `span` when it is not; `next_span` to page. The response describes this read
+— `span`, `total_bytes`, `truncated`, `next_span` — and carries no fidelity or coverage field: what
+you hold may be a partial capture, so treat it as the archive's copy, not as the whole original.
+A query that fails to reach the store reports `unavailable`, which is not a statement that the
+content is gone.
 
 ### `re_read`
 
@@ -297,9 +314,9 @@ reasoning does not prove model compliance.
 
 ### `dropped`
 
-Retrieves Qompack's recorded omissions for the session, with coverage attached. Call it when
-something you expected to be present is not. As with the slash command, it does not establish what
-remains in native context.
+Retrieves Qompack's recorded omissions for the session, qualified by whether a report was available
+and how many entries were withheld. Call it when something you expected to be present is not. As
+with the slash command, it does not establish what remains in native context.
 
 ## Current vs historical reads
 
@@ -314,7 +331,9 @@ redaction, size bounds, host-denied paths — that a real capture went through, 
 current disk contents for a missing historical original is the defect the contract forbids. A
 current-file read remains the host's own, separately authorized operation.
 
-`recall` and `expand` return archive material in the same way, qualified by fidelity and coverage.
+`recall` and `expand` return archive material in the same way. Neither response carries a
+fidelity or coverage field (see [Fidelity, coverage and error states](#fidelity-coverage-and-error-states)
+for where those values do appear).
 
 **How to tell what you are holding.** A `re_read` response names where the bytes came from:
 `source`, whose only value is ever `store`, because there is deliberately no worktree counterpart
@@ -339,6 +358,20 @@ So the discriminator is not one field on every response: it is that **no** respo
 Three enumerations travel with retrieval evidence (`internal/core/evidence.go`). Read them
 together: fidelity is about the bytes, coverage is about where the thing was found, and the outcome
 is about whether the question could be answered at all.
+
+Where each one appears matters, because neither fidelity nor coverage is a field of any retrieval
+response. Capture fidelity (the first table below) is recorded on each capture's sidecar record
+under `.qompack/records/captures/` when it is stored, and no command or tool surfaces it today. The
+`fidelity:` line `qompack fsck` prints is a different enumeration: store-level restore fidelity
+(`exact`, `full`, `canonical`, `unavailable`, `corrupt`), which says whether a root's original
+bytes can be reproduced, not how they were captured. A retrieval shows only what it did to the
+bytes itself — `truncated` and `span` for a cut, and a `«redacted:…»` placeholder where today's
+privacy policy removed content. Coverage values (the second table) are assigned today only on
+admission records (`internal/admission`), which no tool surfaces; an `already_tried` answer that
+lacks coverage says so in its `reason` and `note` rather than with a coverage value. The outcome
+states are the vocabulary of the answers themselves: `already_tried`'s states, and the
+`found: false`, `available: false` and `denied` forms the content tools answer when they cannot
+return content.
 
 **Fidelity — what happened to the retained bytes.** "Exact" means the captured host delivery, not
 completeness of the underlying file, process or native conversation.

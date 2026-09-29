@@ -1,0 +1,18 @@
+# fix seat: devtool lint --only=golangci-lint,nomagic,importgraph,testdeps,bindeps,sleepcheck,docmarkers,runpatterns
+== devtool lint: golangci-lint ==
+PASS golangci-lint
+== devtool lint: nomagic ==
+PASS nomagic
+== devtool lint: importgraph ==
+PASS importgraph
+== devtool lint: testdeps ==
+PASS testdeps
+== devtool lint: bindeps ==
+PASS bindeps
+== devtool lint: sleepcheck ==
+PASS sleepcheck
+== devtool lint: runpatterns ==
+PASS runpatterns
+== devtool lint: docmarkers ==
+PASS docmarkers
+exit=0

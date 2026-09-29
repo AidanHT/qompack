@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/qompack/qompack/internal/config"
+	"github.com/qompack/qompack/internal/contract"
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/daemon"
 	"github.com/qompack/qompack/internal/ipc"
@@ -67,6 +68,13 @@ func runMCP(ctx context.Context, env Env, _ []string, out, errw io.Writer) error
 	}
 	if refused := refuseHomeRoot(env, root); refused != nil {
 		return serveRefusedMCP(ctx, env, refused, out, errw)
+	}
+	// runtime.mode "off" is decided before anything touches the project: no layout, no log file,
+	// no handshake record and no client, so a project that switched Qompack off gets nothing
+	// written into it (V6 close-out, live report C4.7 F2), and every call says why (F1).
+	if projectModeOff(env, root) {
+		fmt.Fprintln(errw, `qompack mcp: runtime.mode is "off" for this project; every tool answers that`)
+		return serveInactiveMCP(ctx, env, mcp.ModeOffText, out)
 	}
 
 	l := paths.Of(root)
@@ -134,15 +142,38 @@ func runMCP(ctx context.Context, env Env, _ []string, out, errw io.Writer) error
 // stream, says why once.
 func serveRefusedMCP(ctx context.Context, env Env, refused error, out, errw io.Writer) error {
 	fmt.Fprintf(errw, "qompack mcp: %v\n", refused)
+	if err := serveInactiveMCP(ctx, env, mcp.HomeRootRefusedText, out); err != nil {
+		fmt.Fprintf(errw, "qompack mcp: %v\n", err)
+		return err
+	}
+	return nil
+}
+
+// projectModeOff reports whether the configuration in effect for root sets runtime.mode to "off".
+// config.Load only reads, which is the point: this runs before anything is written. A
+// configuration that does not load is not "off" — the ordinary path loads it again and reports
+// why, exactly as before.
+func projectModeOff(env Env, root string) bool {
+	cfg, _, _, err := config.Load(config.Env{
+		ProjectRoot: root, HomeDir: homeDir(env), Getenv: env.Getenv, Flags: env.Set,
+	})
+	return err == nil && cfg.Runtime.Mode == configModeOff
+}
+
+// serveInactiveMCP serves a session in which Qompack does nothing — a refused home-directory root
+// (D18) or a project with runtime.mode "off". The server still speaks JSON-RPC and lists the same
+// eight tools, so the host's view of the plugin never changes between directories or settings, and
+// every tools/call answers text as a tool error. It writes nothing, logs nothing and starts no
+// daemon.
+func serveInactiveMCP(ctx context.Context, env Env, text string, out io.Writer) error {
 	srv := mcp.NewServerWithOptions(mcp.ServerOptions{
 		Name:    mcp.ServerName,
 		Version: core.Version,
 		Log:     logging.Nop(),
 		MaxLine: config.Defaults().Runtime.HotPath.MaxPayloadBytes,
 	})
-	if err := mcp.RegisterProxy(srv, refusedMCPCall); err != nil {
-		fmt.Fprintf(errw, "qompack mcp: could not build the tool set: %v\n", err)
-		return err
+	if err := mcp.RegisterProxy(srv, inactiveMCPCall(text)); err != nil {
+		return fmt.Errorf("could not build the tool set: %w", err)
 	}
 	serveCtx, cancel := signalContext(ctx)
 	defer cancel()
@@ -152,12 +183,16 @@ func serveRefusedMCP(ctx context.Context, env Env, refused error, out, errw io.W
 	return nil
 }
 
-// refusedMCPCall is the handler every tool is bound to in a refused session.
-func refusedMCPCall(context.Context, mcp.Request) (mcp.Response, error) {
-	return mcp.Response{
-		IsError: true,
-		Content: []mcp.Content{{Type: "text", Text: mcp.HomeRootRefusedText}},
-	}, nil
+// inactiveMCPCall returns the handler every tool is bound to in an inactive session.
+func inactiveMCPCall(text string) mcp.Handler {
+	return func(context.Context, mcp.Request) (mcp.Response, error) {
+		return inactiveResponse(text), nil
+	}
+}
+
+// inactiveResponse is the tool error an inactive session answers every call with.
+func inactiveResponse(text string) mcp.Response {
+	return mcp.Response{IsError: true, Content: []mcp.Content{{Type: "text", Text: text}}}
 }
 
 // newMCPClient builds the transport `qompack mcp` forwards over, using SP-05's own lazy-spawn seam
@@ -305,6 +340,11 @@ func forwardMCPCall(client ipc.Client, log logging.Logger) mcp.Handler {
 			resp, serr := client.Send(ctx, req, mcpCallDeadline)
 			if serr != nil || !resp.OK {
 				continue
+			}
+			if resp.Mode == contract.ModeOff && len(resp.Data) == 0 {
+				// The client answered without dialing because the session's mode is off. That is
+				// not an empty result from a daemon, and saying so is the whole answer.
+				return inactiveResponse(mcp.ModeOffText), nil
 			}
 			return decodeMCPOpResponse(resp.Data, log)
 		}

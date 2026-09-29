@@ -7,6 +7,7 @@ import (
 	"io"
 	"regexp"
 	"strconv"
+	"unicode/utf8"
 
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/store"
@@ -25,14 +26,16 @@ import (
 //
 // Four properties are normative and property-tested:
 //
-//   - [Off, End) begins and ends on a chunk boundary, or on the object's end;
+//   - [Off, End) begins and ends on a chunk boundary, or on the object's end (an ExactStart
+//     explicit byte window begins at the offset it names instead);
 //   - End > Off for any non-empty object;
 //   - End-Off never exceeds MaxResponse;
 //   - following NextSpan from offset 0 concatenates to the whole object exactly once, with no
 //     gaps and no overlaps.
 //
 // The last one is why alignment is not cosmetic: a next-span that started mid-chunk would be
-// aligned BACKWARDS by the next call and hand the model the same bytes twice.
+// aligned BACKWARDS by the next call and hand the model the same bytes twice. The one window that
+// cannot end on a boundary — a single chunk larger than MaxResponse — is why ExactStart exists.
 
 // spanByteRe and spanLineRe are the two explicit-span spellings: "<off>:<len>" in bytes, and
 // "L<start>-L<end>" in 1-based inclusive lines.
@@ -48,6 +51,18 @@ type SpanOpts struct {
 	Full bool
 	// Explicit is a caller-supplied span: "" | "<off>:<len>" | "L<a>-L<b>".
 	Explicit string
+	// RuneSafe keeps a window that stops short of the object's end from ending inside a multi-byte
+	// UTF-8 sequence (readWindow). The retrieval tools set it, together with ExactStart, which is
+	// what lets the shifted end be followed: the next page starts exactly where this one stopped.
+	RuneSafe bool
+	// ExactStart starts an explicit "<off>:<len>" window at <off> itself instead of aligning it
+	// back to the start of the chunk holding it. The retrieval tools set it, because the next_span
+	// they publish is not always a chunk start: a cut inside one chunk larger than the response
+	// bound, or inside a chunk whose JSON escaping does not fit beside the envelope, is a byte
+	// offset, and aligning that cursor backwards re-serves the bytes before it — and, when the chunk
+	// still does not fit, the same page with the same cursor for ever. The end is chosen as for any
+	// other window.
+	ExactStart bool
 	// Path is the paths.Key-form path the content belongs to, or "" when it is not a file. The
 	// widener needs it to pick a language dialect.
 	Path string
@@ -213,16 +228,14 @@ func resolveSpan(read byteReader, root store.Root, w Widener, o SpanOpts) (SpanR
 	// Step 1 — full. A full read is a byte window by definition, not a chunk window: the caller
 	// asked for the object, and aligning outward would hand back more than the object.
 	if o.Full {
-		end := minInt64(total, maxResp)
-		res := SpanResult{Off: 0, End: end, Total: total, Truncated: end < total}
-		if end < total {
-			res.NextSpan = spanStr(end, minInt64(maxResp, total-end))
-		}
-		body, err := read(0, end)
+		body, end, err := readWindow(read, 0, minInt64(total, maxResp), total, maxResp, o.RuneSafe)
 		if err != nil {
 			return SpanResult{}, err
 		}
-		res.Body = body
+		res := SpanResult{Off: 0, End: end, Total: total, Truncated: end < total, Body: body}
+		if end < total {
+			res.NextSpan = spanStr(end, minInt64(maxResp, total-end))
+		}
 		return res, nil
 	}
 
@@ -254,16 +267,67 @@ func resolveSpan(read byteReader, root store.Root, w Widener, o SpanOpts) (SpanR
 		res.End = end
 	}
 
-	body, err := read(off, end-off)
+	body, end, err := readWindow(read, off, end, total, maxResp, o.RuneSafe)
 	if err != nil {
 		return SpanResult{}, err
 	}
-	res.Body = body
+	res.Body, res.End = body, end
 	res.Truncated = off > 0 || end < total
 	if end < total {
 		res.NextSpan = spanStr(end, minInt64(int64(o.MaxSpan), total-end))
 	}
 	return res, nil
+}
+
+// readWindow reads [off, end) and, when runeSafe is set and the window stops short of the object's
+// end, moves that end off a split UTF-8 sequence.
+//
+// A chunk boundary is content-defined at the byte level and a hard cut is a byte count, so either
+// can fall inside a multi-byte rune; the page would then end, and the next one begin, with a
+// fragment that reaches the model as U+FFFD — a character the object does not contain, on both
+// sides of the cut. The end is extended to finish the rune when that stays inside maxResp, and is
+// otherwise moved back to the rune's start, never to the window's own start. Only a tail that
+// really is an incomplete sequence moves, and only then are the at most utf8.UTFMax-1 bytes past
+// end read: binary content keeps its window unless its last bytes happen to look like a lead byte.
+func readWindow(read byteReader, off, end, total, maxResp int64, runeSafe bool) ([]byte, int64, error) {
+	b, err := read(off, end-off)
+	if err != nil {
+		return nil, 0, err
+	}
+	n := end - off
+	if !runeSafe || end >= total || n <= 0 || int64(len(b)) < n {
+		return b, end, nil
+	}
+	lead := n - 1
+	for lead > 0 && n-lead < utf8.UTFMax && !utf8.RuneStart(b[lead]) {
+		lead--
+	}
+	if !utf8.RuneStart(b[lead]) || utf8.FullRune(b[lead:n]) {
+		return b, end, nil
+	}
+	// The window ends inside a rune. Only now read the few bytes past it that could finish it, so
+	// the common case — an ASCII or rune-aligned end — costs no read beyond the window itself.
+	if more, merr := read(end, minInt64(utf8.UTFMax-1, total-end)); merr == nil {
+		tail := append(append(make([]byte, 0, int64(len(more))+n-lead), b[lead:n]...), more...)
+		if full := int64(firstFullRune(tail)); full > 0 && lead+full <= maxResp {
+			out := append(append(make([]byte, 0, lead+full), b[:lead]...), tail[:full]...)
+			return out, off + lead + full, nil
+		}
+	}
+	if lead > 0 {
+		return b[:lead], off + lead, nil
+	}
+	return b, end, nil
+}
+
+// firstFullRune returns the width of the complete rune b starts with, or 0 when b holds only part
+// of one.
+func firstFullRune(b []byte) int {
+	if !utf8.FullRune(b) {
+		return 0
+	}
+	_, size := utf8.DecodeRune(b)
+	return size
 }
 
 // resolveWindow runs steps 2 through 5: the explicit spans, the anchor probe, and the
@@ -279,6 +343,9 @@ func resolveWindow(read byteReader, starts []int64, total, maxResp int64,
 		off0 := clamp64(parseInt64(m[1]), 0, total)
 		want := off0 + parseInt64(m[2])
 		off = chunkStartAtOrBefore(starts, off0)
+		if o.ExactStart && off0 < total {
+			off = off0
+		}
 		end = chunkEndAtOrAfter(starts, total, clamp64(want, off+1, total))
 		return off, end, nil
 	}

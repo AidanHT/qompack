@@ -1,0 +1,32 @@
+--- FAIL: TestRecallEmptyQueryIsAToolError (0.07s)
+    argument_refusal_test.go:20: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-mcpresp/internal/mcp/fixture_test.go:352
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-mcpresp/internal/mcp/argument_refusal_test.go:20
+        	Error:      	Should be true
+        	Test:       	TestRecallEmptyQueryIsAToolError
+        	Messages:   	recall was expected to report a tool error, got: {"hits":[],"count":0,"found":false,"query":{"text":"","path":"","symbol":"","tool":""}}
+--- FAIL: TestAlreadyTriedEmptyTargetOrApproachIsAToolError (0.06s)
+    argument_refusal_test.go:35: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-mcpresp/internal/mcp/fixture_test.go:352
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-mcpresp/internal/mcp/argument_refusal_test.go:35
+        	Error:      	Should be true
+        	Test:       	TestAlreadyTriedEmptyTargetOrApproachIsAToolError
+        	Messages:   	already_tried was expected to report a tool error, got: {"state":"absent"}
+--- FAIL: TestExpandNeverStoredHashNamesWhatWasSearched (0.06s)
+    argument_refusal_test.go:52: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-mcpresp/internal/mcp/argument_refusal_test.go:52
+        	Error:      	Not equal: 
+        	            	expected: "the root index, including every indexed root's chunk list"
+        	            	actual  : ""
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-the root index, including every indexed root's chunk list
+        	            	+
+        	Test:       	TestExpandNeverStoredHashNamesWhatWasSearched
+        	Messages:   	the miss must name what was searched
+FAIL
+FAIL	github.com/qompack/qompack/internal/mcp	0.533s
+FAIL

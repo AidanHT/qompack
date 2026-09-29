@@ -14,6 +14,15 @@ Every command accepts `--json`, which emits a versioned envelope instead of text
 and `--help`. Exit codes follow 00-ARCHITECTURE.md §2.3: `0` success, `2` a
 malformed invocation, `1` anything else.
 
+**A non-zero exit reaches you as the host's own error line.** A slash command runs
+`qompack` through Claude Code's `!` shell expansion. When it exits non-zero, Claude
+Code does not pass the command's output to the model: it shows only its own
+``Shell command failed for pattern "!`qompack …`": [stderr] …`` line, with stdout
+and stderr together under that label, and the turn ends without an answer
+(observed on Claude Code 2.1.280). `/qompack:eval` in a project with no evaluation
+artifacts, and `/qompack:recall` with no query, look like that. Run the same
+`qompack` command in a terminal to see its full message and exit code.
+
 | Command | Subcommand | Arguments | Description |
 |---|---|---|---|
 | `/qompack:status` | `qompack status` | `[--json]` | Qompack status — mode, contracts, store, latency, last decision |

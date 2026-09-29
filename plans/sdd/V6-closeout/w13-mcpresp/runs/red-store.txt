@@ -1,0 +1,75 @@
+--- FAIL: TestSearch_PathSelectorIsAGlob (0.12s)
+    search_selectors_test.go:50: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-mcpresp/internal/store/search_selectors_test.go:50
+        	Error:      	elements differ
+        	            	
+        	            	extra elements in list A:
+        	            	([]interface {}) (len=1) {
+        	            	 (core.ToolUseID) (len=9) "tu-ledger"
+        	            	}
+        	            	
+        	            	
+        	            	listA:
+        	            	([]core.ToolUseID) (len=1) {
+        	            	 (core.ToolUseID) (len=9) "tu-ledger"
+        	            	}
+        	            	
+        	            	
+        	            	listB:
+        	            	([]core.ToolUseID) {
+        	            	}
+        	Test:       	TestSearch_PathSelectorIsAGlob
+        	Messages:   	glob "src/*.go"
+--- FAIL: TestSearch_PathGlobWholeKeyOutranksSuffix (0.07s)
+    search_selectors_test.go:66: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-mcpresp/internal/store/search_selectors_test.go:66
+        	Error:      	Not equal: 
+        	            	expected: []core.ToolUseID{"tu-top", "tu-deep"}
+        	            	actual  : []core.ToolUseID{}
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,4 +1,2 @@
+        	            	-([]core.ToolUseID) (len=2) {
+        	            	- (core.ToolUseID) (len=6) "tu-top",
+        	            	- (core.ToolUseID) (len=7) "tu-deep"
+        	            	+([]core.ToolUseID) {
+        	            	 }
+        	Test:       	TestSearch_PathGlobWholeKeyOutranksSuffix
+--- FAIL: TestSearch_MalformedPathGlobIsAnError (0.12s)
+    search_selectors_test.go:98: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-mcpresp/internal/store/search_selectors_test.go:98
+        	Error:      	Target error should be in err chain:
+        	            	expected: "qompack: store: the path selector is not a valid glob"
+        	            	in chain: 
+        	Test:       	TestSearch_MalformedPathGlobIsAnError
+--- FAIL: TestSearch_ToolSelectorAcceptsHostNames (0.12s)
+    search_selectors_test.go:125: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-mcpresp/internal/store/search_selectors_test.go:125
+        	Error:      	elements differ
+        	            	
+        	            	extra elements in list A:
+        	            	([]interface {}) (len=3) {
+        	            	 (core.ToolUseID) (len=9) "tu-ledger",
+        	            	 (core.ToolUseID) (len=7) "tu-pool",
+        	            	 (core.ToolUseID) (len=9) "tu-readme"
+        	            	}
+        	            	
+        	            	
+        	            	listA:
+        	            	([]core.ToolUseID) (len=3) {
+        	            	 (core.ToolUseID) (len=9) "tu-ledger",
+        	            	 (core.ToolUseID) (len=7) "tu-pool",
+        	            	 (core.ToolUseID) (len=9) "tu-readme"
+        	            	}
+        	            	
+        	            	
+        	            	listB:
+        	            	([]core.ToolUseID) {
+        	            	}
+        	Test:       	TestSearch_ToolSelectorAcceptsHostNames
+        	Messages:   	tool "Read"
+FAIL
+FAIL	github.com/qompack/qompack/internal/store	0.935s
+FAIL
