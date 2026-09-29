@@ -76,7 +76,9 @@ var truncateCutOrder = []cutStage{
 //
 // Slices are cut tail-first because that is lowest-value-first: the writer keeps pointer and
 // decision slices in DESCENDING turn order (§8, "Pointer ordering" and "Decisions"), so index 0
-// is the newest and the tail is the oldest. Truncate does not sort — recency is the only
+// is the newest and the tail is the oldest. Decisions minted from other sessions' project-scoped
+// eliminations follow the session's own, newest recorded first (D46, mergeDecisionsLocked), so
+// they are cut before any of the session's own. Truncate does not sort — recency is the only
 // ordering signal available here that does not require re-running a slice, and
 // TestTruncateDropsPointersTailFirst / TestAdvanceKeepsPointersNewestFirst pin the two halves of
 // that contract together.
