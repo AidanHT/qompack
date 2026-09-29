@@ -1,0 +1,75 @@
+# TEMPORARY DIAGNOSTIC (not committed): the FIXED harness (this branch's working tree) copied to an untracked _w10diag/hotpath2 with the same spool sampler.
+# Same forced breach config. Command: timeout 1200 w10diag2-hotpath.exe --iterations 1000 --warm-daemon --under-coload --project <scratch>/proj2
+
+hotpath: building C:\Users\Quant\AppData\Local\Temp\qompack-bench-build-1604180212\qompack.exe...
+hotpath: starting daemon (\\.\pipe\qompack-bench-14928-d00f3bf0189a13f0)...
+hotpath: daemon is reachable
+W10DIAG t=0.0s phase=warm
+hotpath: warming daemon (64 hot-path observe.tool + 1936 admin.ping)...
+W10DIAG t=0.3s phase=warm clientFiles=0 harnessLinesNow=0 everSeen=0
+hotpath: warm-up sent ~1.1 MB across 64 hot-path requests (plus 1936 admin.ping round trips)
+hotpath: measuring spawn floor (200 x qompack version)...
+W10DIAG t=2.5s phase=warm clientFiles=0 harnessLinesNow=0 everSeen=0
+W10DIAG t=4.5s phase=warm clientFiles=0 harnessLinesNow=0 everSeen=0
+W10DIAG t=5.8s phase=ba-bd
+hotpath: measuring B-A/B-D (1000 x qompack [observe tool])...
+W10DIAG t=6.5s phase=ba-bd clientFiles=1 harnessLinesNow=1 everSeen=1
+W10DIAG t=8.5s phase=ba-bd clientFiles=1 harnessLinesNow=1 everSeen=1
+W10DIAG t=10.8s phase=ba-bd clientFiles=0 harnessLinesNow=0 everSeen=1
+W10DIAG t=13.0s phase=ba-bd clientFiles=0 harnessLinesNow=0 everSeen=1
+W10DIAG t=15.3s phase=ba-bd clientFiles=0 harnessLinesNow=0 everSeen=1
+W10DIAG t=17.5s phase=ba-bd clientFiles=0 harnessLinesNow=0 everSeen=1
+W10DIAG t=19.5s phase=ba-bd clientFiles=0 harnessLinesNow=0 everSeen=1
+W10DIAG t=21.5s phase=ba-bd clientFiles=0 harnessLinesNow=0 everSeen=1
+W10DIAG t=23.7s phase=ba-bd clientFiles=15 harnessLinesNow=15 everSeen=16
+W10DIAG t=25.9s phase=ba-bd clientFiles=100 harnessLinesNow=100 everSeen=101
+W10DIAG t=28.1s phase=ba-bd clientFiles=177 harnessLinesNow=177 everSeen=178
+W10DIAG t=30.2s phase=ba-bd clientFiles=253 harnessLinesNow=253 everSeen=254
+W10DIAG t=32.2s phase=ba-bd clientFiles=321 harnessLinesNow=324 everSeen=325
+W10DIAG t=34.5s phase=ba-bd clientFiles=387 harnessLinesNow=405 everSeen=406
+W10DIAG t=36.6s phase=ba-bd clientFiles=439 harnessLinesNow=476 everSeen=477
+W10DIAG t=38.7s phase=ba-bd clientFiles=474 harnessLinesNow=513 everSeen=531
+W10DIAG t=39.2s phase=be
+hotpath: measuring B-E (50 x qompack checkpoint)...
+W10DIAG t=40.8s phase=be clientFiles=493 harnessLinesNow=534 everSeen=553
+W10DIAG t=43.1s phase=be clientFiles=475 harnessLinesNow=516 everSeen=553
+W10DIAG t=45.3s phase=be clientFiles=471 harnessLinesNow=512 everSeen=553
+hotpath: measuring hook ACK round trip (64 x in-process observe.tool)...
+W10DIAG t=45.7s phase=census
+W10DIAG final snapshot: hot=spool spool_files=465 drain_file_error=1 hotpath_degraded=1 l0_delivery_unleased=64 l0_drain_ordering_deferred=363 l0_spool_watch_drains=6
+W10DIAG identity census: found=1130 unreadable=0 clientFiles=467 walSegments=3; client-spool lines of this run at census=568; sent=1130 delivered(l0_ingest)=513
+W10DIAG the pre-fix count guard would have reported LOST=49 (sent - delivered - client-spool lines)
+W10DIAG reconcileDelivery: OK {Sent:1130 Delivered:513 Deferred:617 Lost:0}
+W10DIAG after stop: storeIDs=588 spoolAfterStop(client+wal)=1069 census=568 everSeen=619
+W10DIAG b-a session: first seq seen in a client spool=0; seen in the spool during the run but absent from the census=51, of which captured in the store=51
+W10DIAG b-a session ids in NEITHER the store NOR any spool file after stop: 0 []
+W10DIAG gone-mid-run ids (first 40): [toolu_ba_0 toolu_ba_448 toolu_ba_449 toolu_ba_450 toolu_ba_451 toolu_ba_452 toolu_ba_453 toolu_ba_454 toolu_ba_455 toolu_ba_456 toolu_ba_457 toolu_ba_458 toolu_ba_459 toolu_ba_460 toolu_ba_461 toolu_ba_462 toolu_ba_463 toolu_ba_464 toolu_ba_466 toolu_ba_469 toolu_ba_470 toolu_ba_471 toolu_ba_472 toolu_ba_473 toolu_ba_474 toolu_ba_475 toolu_ba_476 toolu_ba_477 toolu_ba_478 toolu_ba_479 toolu_ba_480 toolu_ba_481 toolu_ba_482 toolu_ba_483 toolu_ba_484 toolu_ba_485 toolu_ba_486 toolu_ba_491 toolu_ba_492 toolu_ba_493]
+W10DIAG non-b-a identities ever spooled=66, in neither census/store/spool=0
+W10DIAG log qompack-20260929.log: ts=2026-09-29T01:37:22.3961184Z level=warn msg="daemon: drain: file error" path=C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w10\lostev\proj2\.qompack\spool\client-14928.ndjson err="remove C:\\Users\\Quant\\AppData\\Local\\Temp\\claude\\C--Users-Quant-Documents-Programming-Projects-qompack\\9c57653d-e
+W10DIAG log files: [LOUD.log qompack-20260929.log]
+
+hotpath bench summary (windows/amd64, n=1000)
+  spawn floor: p50=22.800ms p99=29.779ms (n=200)
+  b_a_method: daemon status hook_controlled (observed + hotPathTailAllowance), p99 gated against obs.Budgets() B-A's limit (reported, not gated, under --under-coload — see the notes); see the B-A_spawn_estimate row for the wall-clock, floor-subtracted diagnostic (unbiased at p50, dispersion-contaminated at p99 — spec step 6 amended by controller ruling #29)
+
+  B-A                 n=512   p50=  20.480ms p95=  28.672ms p99=  36.864ms p999= 131.072ms max=  130.000ms limit=n/a        [reported]
+  B-B                 n=512   p50=   7.168ms p95=  10.240ms p99=  11.264ms p999=  98.304ms max=   96.666ms limit=n/a        [reported]
+  B-D                 n=1000  p50=  33.236ms p95=  46.734ms p99=  57.670ms p999=  80.435ms max=  125.926ms limit=n/a        [reported]
+  B-E                 n=50    p50= 127.162ms p95= 153.612ms p99= 289.145ms p999= 289.145ms max=  289.145ms limit=n/a        [reported]
+  B-E_cpu             n=50    p50=  15.625ms p95=  31.250ms p99=  46.875ms p999=  46.875ms max=   46.875ms limit=2000.000ms [PASS]
+  B-A_spawn_estimate  n=1000  p50=  10.436ms p95=  23.934ms p99=  34.870ms p999=  57.635ms max=  103.126ms limit=n/a        [reported]
+  hook_ack_rtt        n=64    p50=   0.000ms p95=   0.000ms p99=   0.553ms p999=   0.553ms max=    0.553ms limit=n/a        [reported]
+
+  note: B-C not measured in wave 1: the processing seams are stubs
+  note: delivery ledger: 1130 hot-path requests sent, 513 delivered live to the daemon, 617 DEFERRED to the client spool and 0 lost. A deferral is §8.1/§12.2's documented degrade-rather-than-block path (internal/ipc/client.go's Send spools and returns instead of waiting), so the event is durable and the daemon replays it — its client-spool watcher does so while the run is still going — and every one of the 1130 requests was found by its own identity (session and tool_use_id) in a client spool, the daemon's WAL or the store's tool_use index. A deferral is still a sample missing from the top of every gated daemon-side population, so it is counted back in as an over-budget sample rather than dropped
+  note: B-A's p99 CANNOT be certified and its gate is failed on that ground: 552 of the 1064 planned samples never reached the daemon's histogram and are counted as over-budget samples, which puts the full population's nearest-rank p99 at rank 1054 of 1064 — inside the un-delivered block, since only 512 samples were observed. The p99 field reports the DELIVERED set's own p99 for diagnosis only; it is a lower bound on the real one, never the gated number
+  note: B-A's row is REPORTED, not gated, for this run: --under-coload declares that the harness shares its host with unrelated concurrent work, and B-A is the daemon-observed hook_controlled estimate (recvTS - reqTS + tail allowance) whose reqTS is stamped inside the spawned hook process, so under co-load the interval contains the child's scheduling wait — a cross-process latency with no CPU-time analogue to gate instead (on windows-latest, one commit: bench-gate, harness alone on its runner, measured this row's p99 at 3.072ms; two whole-tree test-job runs minutes apart measured 11.264ms then 18.432ms against the 15ms limit, while the spawn floor's p50 went 12.954 → 24.431 / 23.143ms). B-B moved only 0.576 → 0.768 / 0.704ms in those same runs and was read then as the co-load-robust control; it is not one any more — since f6a8691 its region carries three fsyncs — and it is REPORTED in this run too, under its own note. The 15ms limit is still enforced on B-A by every run that does NOT pass --under-coload — bench-gate, nightly bench-deep, ci.yml's timing job, and its test-e2e job, where X-11 runs alone
+  note: B-B's p99 CANNOT be certified and its gate is failed on that ground: 552 of the 1064 planned samples never reached the daemon's histogram and are counted as over-budget samples, which puts the full population's nearest-rank p99 at rank 1054 of 1064 — inside the un-delivered block, since only 512 samples were observed. The p99 field reports the DELIVERED set's own p99 for diagnosis only; it is a lower bound on the real one, never the gated number
+  note: B-B's row is REPORTED, not gated, for this run: --under-coload declares that the harness shares its host with unrelated concurrent work, and B-B times the daemon's own ingest.Accept in full — a region that has carried three fsyncs (the WAL Sync, the lease journal's Sync and the seal) since f6a8691 made the delivery path durable, so co-load moves it like any other wall-clock cost (the last full parallel pass measured this row's p99 at 14.3 / 28.7 / 53.2ms against the 50ms limit, while three runs of the same build inside an attested quiet window measured 20.480 / 12.288 / 20.480ms). There is no CPU-time analogue to gate instead: B-B has no child process, so the user+system time of a spawned child cannot be read for it; obs.ProcessCPU is a cumulative whole-process counter summed over every thread, quantised to Windows's 15.625ms scheduler tick (internal/obs/cpu_windows.go), so a single-request bracket against a limit in the low tens of milliseconds reads exact zero, which that file requires be treated as a FAILED measurement; and what inflates this row is fsync — blocked time that costs no CPU at all. The 50ms limit is still enforced on B-B by every run that does NOT pass --under-coload — bench-gate, nightly bench-deep, ci.yml's timing job (which runs test/integration's hot-path test alone by name) and its test-e2e job, where X-11 runs alone — and the co-load-immune structural gates T9, T10 and T14 (one sync per batch, check-then-append order, zero releases before the seal; internal/daemon's delivery group-commit tests) run in every lane regardless. This is ADR 0010's fallback branch applied to a row its enumeration misclassified, per SP20-D1 design section 7.6's Q3; internal/obs/budgets.go still marks B-B Gated, and only this RUN reports it
+  note: B-E's wall-clock row is REPORTED, not gated, for this run: --under-coload declares that the harness shares its host with unrelated concurrent work, and a wall-clock sample taken under co-load measures the host's spare capacity rather than the checkpoint (bench-gate measured this same row at 67.2ms on windows-latest in isolation and the whole-tree job at 4302ms on the same runner class minutes later, product unchanged). The 2000ms limit is still enforced on that wall-clock row by every run that does NOT pass --under-coload — bench-gate and nightly — and the B-E_cpu row below enforces the same 2000ms limit on these children's own CPU time, which co-load does not move; see budgetIDBECPU (report.go)
+  note: hook_ack_rtt is REPORTED, never gated: it is the client-side ACK round trip of 64 in-process observe.tool deliveries, each with a fresh nonce and a real lease, timed through the same ipc.Client a hook uses. Design §7.5 sizes the ACK deadline from it as AckDeadlineMs = L0IngestMs + ceil(slack99), where slack99 = p99(hook_ack_rtt) - p99(B-B) over this same run. The timed samples are preceded by 2 DISCARDED warm-up requests on the same session: without them sample #0 paid a session-registry insertion and a WAL segment create on top of the round trip, and at 64 samples with nearest-rank percentiles p99 IS the maximum sample, so that one sample became the number the deadline was sized from. Its traffic IS real hot-path traffic, so all 66 requests do reach the daemon's l0_ingest and hook_controlled histograms — but this run reads both of those for the gated B-A and B-B rows BEFORE any of the tranche is sent, warm-ups included, so none of it is inside either gated population, and the B-B this row is differenced against contains none of its own deliveries. They are reconciled rather than ignored: a second status read after the tranche counts every one of them, warm-ups included, into the delivery ledger, so a deferral of this tranche's own cannot pass unnoticed. The in-process traffic that does sit inside the gated populations is the warm-up's, disclosed with its own computed proportion. A p99 over 64 samples is still that set's own top sample, which is why §7.5 takes the maximum across three runs rather than trusting one
+  note: daemon-observed hook_controlled_observed (recvTS-reqTS, strict lower bound, no hotPathTailAllowance): p50=7.168ms p99=14.336ms n=512 — informational cross-check against the gated B-A row above, which adds the tail allowance
+  note: B-A's gated n=1064 includes 64 in-process warm-up observe.tool requests (Send-time TS, not a spawned process's main() entry) alongside 1000 real hook spawns from the B-A/B-D loop — the warm-up hot-path tranche (warmHotTranche=64, a small, fixed constant) is 6.0% of the gated population for this run; see B-A_spawn_estimate for the wall-clock diagnostic derived purely from real spawns
+  note: B-B's n includes the 64 warm-up hot-path (observe.tool) requests, not just the B-A/B-D measurement loop — the daemon's own l0_ingest count, reported verbatim (conservative for B-B: warm-up payloads run 4KB-256KB, larger than B-A/B-D's fixed representative payload). The other 1936 warm-up requests are admin.ping round trips and never reach l0_ingest at all (FIX ROUND 2, N-1)
+
+exit=0

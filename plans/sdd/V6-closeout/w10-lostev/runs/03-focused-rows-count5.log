@@ -1,0 +1,255 @@
+# Windows, machine loaded by Phase 3. Command: go test -p 2 -count=5 -v -run '^(TestSentIdentities_AreExactlyTheRequestsTheHarnessSends|TestCensusDeliveries_FindsThisRunsRequestsInEveryDurablePlace|TestCensusDeliveries_FindsWhatTheRealStoreRecorded|TestCensusDeliveries_EmptyProjectFindsNothing|TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt|TestCensusDeliveries_AReplayDuringTheCensusIsStillFound|TestCensusAndReconcile_TheW9PhaseThreeRun|TestRefuseInheritedIdentities_TheProjectMustNotAlreadyHoldThisRunsRequests|TestReconcileDelivery_ARequestThisRunNeverSentIsRefused|TestCensusAndReconcile_Run32296920486|TestReconcileDelivery_ADuplicateCannotStandInForALoss|TestReconcileDelivery_KeepsEveryFailureTheOldGuardHad|TestReconcileDelivery_DeferredIsNotLost|TestReconcileDelivery_PartialEvidenceStillFails|TestReconcileDelivery_UnreadableSpoolLineRefusesToClassify|TestReconcileDelivery_SpooledDuplicateIsNotAMissingSample|TestGatedLedger_TheAckRTTWarmUpsAreOutsideTheGatedWindowToo|TestAckRTTTranche_SendsTheWarmUpsAndTimesOnlyTheSamples)$' ./test/bench/hotpath/
+
+=== RUN   TestSentIdentities_AreExactlyTheRequestsTheHarnessSends
+--- PASS: TestSentIdentities_AreExactlyTheRequestsTheHarnessSends (0.48s)
+=== RUN   TestCensusDeliveries_FindsThisRunsRequestsInEveryDurablePlace
+--- PASS: TestCensusDeliveries_FindsThisRunsRequestsInEveryDurablePlace (0.47s)
+=== RUN   TestCensusDeliveries_FindsWhatTheRealStoreRecorded
+--- PASS: TestCensusDeliveries_FindsWhatTheRealStoreRecorded (1.57s)
+=== RUN   TestCensusDeliveries_EmptyProjectFindsNothing
+--- PASS: TestCensusDeliveries_EmptyProjectFindsNothing (0.04s)
+=== RUN   TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt
+=== RUN   TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt/client_spool
+=== RUN   TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt/a_client_spool's_torn_tail
+=== RUN   TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt/this_harness's_own_request_with_no_tool_use_to_match
+=== RUN   TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt/WAL
+=== RUN   TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt/store_index
+--- PASS: TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt (0.73s)
+    --- PASS: TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt/client_spool (0.10s)
+    --- PASS: TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt/a_client_spool's_torn_tail (0.10s)
+    --- PASS: TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt/this_harness's_own_request_with_no_tool_use_to_match (0.11s)
+    --- PASS: TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt/WAL (0.20s)
+    --- PASS: TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt/store_index (0.20s)
+=== RUN   TestCensusDeliveries_AReplayDuringTheCensusIsStillFound
+=== RUN   TestCensusDeliveries_AReplayDuringTheCensusIsStillFound/replayed_into_the_store
+=== RUN   TestCensusDeliveries_AReplayDuringTheCensusIsStillFound/removed_without_a_capture
+--- PASS: TestCensusDeliveries_AReplayDuringTheCensusIsStillFound (0.35s)
+    --- PASS: TestCensusDeliveries_AReplayDuringTheCensusIsStillFound/replayed_into_the_store (0.26s)
+    --- PASS: TestCensusDeliveries_AReplayDuringTheCensusIsStillFound/removed_without_a_capture (0.09s)
+=== RUN   TestCensusAndReconcile_TheW9PhaseThreeRun
+--- PASS: TestCensusAndReconcile_TheW9PhaseThreeRun (44.81s)
+=== RUN   TestRefuseInheritedIdentities_TheProjectMustNotAlreadyHoldThisRunsRequests
+--- PASS: TestRefuseInheritedIdentities_TheProjectMustNotAlreadyHoldThisRunsRequests (0.33s)
+=== RUN   TestReconcileDelivery_ARequestThisRunNeverSentIsRefused
+--- PASS: TestReconcileDelivery_ARequestThisRunNeverSentIsRefused (0.00s)
+=== RUN   TestCensusAndReconcile_Run32296920486
+--- PASS: TestCensusAndReconcile_Run32296920486 (0.10s)
+=== RUN   TestAckRTTTranche_SendsTheWarmUpsAndTimesOnlyTheSamples
+--- PASS: TestAckRTTTranche_SendsTheWarmUpsAndTimesOnlyTheSamples (0.00s)
+=== RUN   TestReconcileDelivery_KeepsEveryFailureTheOldGuardHad
+--- PASS: TestReconcileDelivery_KeepsEveryFailureTheOldGuardHad (0.00s)
+=== RUN   TestReconcileDelivery_DeferredIsNotLost
+--- PASS: TestReconcileDelivery_DeferredIsNotLost (0.00s)
+=== RUN   TestReconcileDelivery_PartialEvidenceStillFails
+--- PASS: TestReconcileDelivery_PartialEvidenceStillFails (0.00s)
+=== RUN   TestReconcileDelivery_UnreadableSpoolLineRefusesToClassify
+--- PASS: TestReconcileDelivery_UnreadableSpoolLineRefusesToClassify (0.00s)
+=== RUN   TestReconcileDelivery_SpooledDuplicateIsNotAMissingSample
+--- PASS: TestReconcileDelivery_SpooledDuplicateIsNotAMissingSample (0.00s)
+=== RUN   TestReconcileDelivery_ADuplicateCannotStandInForALoss
+--- PASS: TestReconcileDelivery_ADuplicateCannotStandInForALoss (0.09s)
+=== RUN   TestGatedLedger_TheAckRTTWarmUpsAreOutsideTheGatedWindowToo
+--- PASS: TestGatedLedger_TheAckRTTWarmUpsAreOutsideTheGatedWindowToo (0.01s)
+=== RUN   TestSentIdentities_AreExactlyTheRequestsTheHarnessSends
+--- PASS: TestSentIdentities_AreExactlyTheRequestsTheHarnessSends (0.03s)
+=== RUN   TestCensusDeliveries_FindsThisRunsRequestsInEveryDurablePlace
+--- PASS: TestCensusDeliveries_FindsThisRunsRequestsInEveryDurablePlace (0.56s)
+=== RUN   TestCensusDeliveries_FindsWhatTheRealStoreRecorded
+--- PASS: TestCensusDeliveries_FindsWhatTheRealStoreRecorded (0.34s)
+=== RUN   TestCensusDeliveries_EmptyProjectFindsNothing
+--- PASS: TestCensusDeliveries_EmptyProjectFindsNothing (0.05s)
+=== RUN   TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt
+=== RUN   TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt/client_spool
+=== RUN   TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt/a_client_spool's_torn_tail
+=== RUN   TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt/this_harness's_own_request_with_no_tool_use_to_match
+=== RUN   TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt/WAL
+=== RUN   TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt/store_index
+--- PASS: TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt (1.10s)
+    --- PASS: TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt/client_spool (0.06s)
+    --- PASS: TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt/a_client_spool's_torn_tail (0.09s)
+    --- PASS: TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt/this_harness's_own_request_with_no_tool_use_to_match (0.07s)
+    --- PASS: TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt/WAL (0.35s)
+    --- PASS: TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt/store_index (0.54s)
+=== RUN   TestCensusDeliveries_AReplayDuringTheCensusIsStillFound
+=== RUN   TestCensusDeliveries_AReplayDuringTheCensusIsStillFound/replayed_into_the_store
+=== RUN   TestCensusDeliveries_AReplayDuringTheCensusIsStillFound/removed_without_a_capture
+--- PASS: TestCensusDeliveries_AReplayDuringTheCensusIsStillFound (1.13s)
+    --- PASS: TestCensusDeliveries_AReplayDuringTheCensusIsStillFound/replayed_into_the_store (1.06s)
+    --- PASS: TestCensusDeliveries_AReplayDuringTheCensusIsStillFound/removed_without_a_capture (0.07s)
+=== RUN   TestCensusAndReconcile_TheW9PhaseThreeRun
+--- PASS: TestCensusAndReconcile_TheW9PhaseThreeRun (58.86s)
+=== RUN   TestRefuseInheritedIdentities_TheProjectMustNotAlreadyHoldThisRunsRequests
+--- PASS: TestRefuseInheritedIdentities_TheProjectMustNotAlreadyHoldThisRunsRequests (0.19s)
+=== RUN   TestReconcileDelivery_ARequestThisRunNeverSentIsRefused
+--- PASS: TestReconcileDelivery_ARequestThisRunNeverSentIsRefused (0.00s)
+=== RUN   TestCensusAndReconcile_Run32296920486
+--- PASS: TestCensusAndReconcile_Run32296920486 (0.09s)
+=== RUN   TestAckRTTTranche_SendsTheWarmUpsAndTimesOnlyTheSamples
+--- PASS: TestAckRTTTranche_SendsTheWarmUpsAndTimesOnlyTheSamples (0.00s)
+=== RUN   TestReconcileDelivery_KeepsEveryFailureTheOldGuardHad
+--- PASS: TestReconcileDelivery_KeepsEveryFailureTheOldGuardHad (0.00s)
+=== RUN   TestReconcileDelivery_DeferredIsNotLost
+--- PASS: TestReconcileDelivery_DeferredIsNotLost (0.00s)
+=== RUN   TestReconcileDelivery_PartialEvidenceStillFails
+--- PASS: TestReconcileDelivery_PartialEvidenceStillFails (0.00s)
+=== RUN   TestReconcileDelivery_UnreadableSpoolLineRefusesToClassify
+--- PASS: TestReconcileDelivery_UnreadableSpoolLineRefusesToClassify (0.00s)
+=== RUN   TestReconcileDelivery_SpooledDuplicateIsNotAMissingSample
+--- PASS: TestReconcileDelivery_SpooledDuplicateIsNotAMissingSample (0.00s)
+=== RUN   TestReconcileDelivery_ADuplicateCannotStandInForALoss
+--- PASS: TestReconcileDelivery_ADuplicateCannotStandInForALoss (0.03s)
+=== RUN   TestGatedLedger_TheAckRTTWarmUpsAreOutsideTheGatedWindowToo
+--- PASS: TestGatedLedger_TheAckRTTWarmUpsAreOutsideTheGatedWindowToo (0.00s)
+=== RUN   TestSentIdentities_AreExactlyTheRequestsTheHarnessSends
+--- PASS: TestSentIdentities_AreExactlyTheRequestsTheHarnessSends (0.02s)
+=== RUN   TestCensusDeliveries_FindsThisRunsRequestsInEveryDurablePlace
+--- PASS: TestCensusDeliveries_FindsThisRunsRequestsInEveryDurablePlace (0.13s)
+=== RUN   TestCensusDeliveries_FindsWhatTheRealStoreRecorded
+--- PASS: TestCensusDeliveries_FindsWhatTheRealStoreRecorded (0.12s)
+=== RUN   TestCensusDeliveries_EmptyProjectFindsNothing
+--- PASS: TestCensusDeliveries_EmptyProjectFindsNothing (0.06s)
+=== RUN   TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt
+=== RUN   TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt/client_spool
+=== RUN   TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt/a_client_spool's_torn_tail
+=== RUN   TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt/this_harness's_own_request_with_no_tool_use_to_match
+=== RUN   TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt/WAL
+=== RUN   TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt/store_index
+--- PASS: TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt (0.28s)
+    --- PASS: TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt/client_spool (0.04s)
+    --- PASS: TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt/a_client_spool's_torn_tail (0.05s)
+    --- PASS: TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt/this_harness's_own_request_with_no_tool_use_to_match (0.04s)
+    --- PASS: TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt/WAL (0.04s)
+    --- PASS: TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt/store_index (0.11s)
+=== RUN   TestCensusDeliveries_AReplayDuringTheCensusIsStillFound
+=== RUN   TestCensusDeliveries_AReplayDuringTheCensusIsStillFound/replayed_into_the_store
+=== RUN   TestCensusDeliveries_AReplayDuringTheCensusIsStillFound/removed_without_a_capture
+--- PASS: TestCensusDeliveries_AReplayDuringTheCensusIsStillFound (0.19s)
+    --- PASS: TestCensusDeliveries_AReplayDuringTheCensusIsStillFound/replayed_into_the_store (0.17s)
+    --- PASS: TestCensusDeliveries_AReplayDuringTheCensusIsStillFound/removed_without_a_capture (0.03s)
+=== RUN   TestCensusAndReconcile_TheW9PhaseThreeRun
+--- PASS: TestCensusAndReconcile_TheW9PhaseThreeRun (45.07s)
+=== RUN   TestRefuseInheritedIdentities_TheProjectMustNotAlreadyHoldThisRunsRequests
+--- PASS: TestRefuseInheritedIdentities_TheProjectMustNotAlreadyHoldThisRunsRequests (1.76s)
+=== RUN   TestReconcileDelivery_ARequestThisRunNeverSentIsRefused
+--- PASS: TestReconcileDelivery_ARequestThisRunNeverSentIsRefused (0.00s)
+=== RUN   TestCensusAndReconcile_Run32296920486
+--- PASS: TestCensusAndReconcile_Run32296920486 (0.59s)
+=== RUN   TestAckRTTTranche_SendsTheWarmUpsAndTimesOnlyTheSamples
+--- PASS: TestAckRTTTranche_SendsTheWarmUpsAndTimesOnlyTheSamples (0.00s)
+=== RUN   TestReconcileDelivery_KeepsEveryFailureTheOldGuardHad
+--- PASS: TestReconcileDelivery_KeepsEveryFailureTheOldGuardHad (0.03s)
+=== RUN   TestReconcileDelivery_DeferredIsNotLost
+--- PASS: TestReconcileDelivery_DeferredIsNotLost (0.04s)
+=== RUN   TestReconcileDelivery_PartialEvidenceStillFails
+--- PASS: TestReconcileDelivery_PartialEvidenceStillFails (0.00s)
+=== RUN   TestReconcileDelivery_UnreadableSpoolLineRefusesToClassify
+--- PASS: TestReconcileDelivery_UnreadableSpoolLineRefusesToClassify (0.00s)
+=== RUN   TestReconcileDelivery_SpooledDuplicateIsNotAMissingSample
+--- PASS: TestReconcileDelivery_SpooledDuplicateIsNotAMissingSample (0.00s)
+=== RUN   TestReconcileDelivery_ADuplicateCannotStandInForALoss
+--- PASS: TestReconcileDelivery_ADuplicateCannotStandInForALoss (0.09s)
+=== RUN   TestGatedLedger_TheAckRTTWarmUpsAreOutsideTheGatedWindowToo
+--- PASS: TestGatedLedger_TheAckRTTWarmUpsAreOutsideTheGatedWindowToo (0.02s)
+=== RUN   TestSentIdentities_AreExactlyTheRequestsTheHarnessSends
+--- PASS: TestSentIdentities_AreExactlyTheRequestsTheHarnessSends (0.16s)
+=== RUN   TestCensusDeliveries_FindsThisRunsRequestsInEveryDurablePlace
+--- PASS: TestCensusDeliveries_FindsThisRunsRequestsInEveryDurablePlace (0.88s)
+=== RUN   TestCensusDeliveries_FindsWhatTheRealStoreRecorded
+--- PASS: TestCensusDeliveries_FindsWhatTheRealStoreRecorded (0.38s)
+=== RUN   TestCensusDeliveries_EmptyProjectFindsNothing
+--- PASS: TestCensusDeliveries_EmptyProjectFindsNothing (0.13s)
+=== RUN   TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt
+=== RUN   TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt/client_spool
+=== RUN   TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt/a_client_spool's_torn_tail
+=== RUN   TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt/this_harness's_own_request_with_no_tool_use_to_match
+=== RUN   TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt/WAL
+=== RUN   TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt/store_index
+--- PASS: TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt (0.74s)
+    --- PASS: TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt/client_spool (0.16s)
+    --- PASS: TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt/a_client_spool's_torn_tail (0.11s)
+    --- PASS: TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt/this_harness's_own_request_with_no_tool_use_to_match (0.14s)
+    --- PASS: TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt/WAL (0.15s)
+    --- PASS: TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt/store_index (0.18s)
+=== RUN   TestCensusDeliveries_AReplayDuringTheCensusIsStillFound
+=== RUN   TestCensusDeliveries_AReplayDuringTheCensusIsStillFound/replayed_into_the_store
+=== RUN   TestCensusDeliveries_AReplayDuringTheCensusIsStillFound/removed_without_a_capture
+--- PASS: TestCensusDeliveries_AReplayDuringTheCensusIsStillFound (0.33s)
+    --- PASS: TestCensusDeliveries_AReplayDuringTheCensusIsStillFound/replayed_into_the_store (0.23s)
+    --- PASS: TestCensusDeliveries_AReplayDuringTheCensusIsStillFound/removed_without_a_capture (0.10s)
+=== RUN   TestCensusAndReconcile_TheW9PhaseThreeRun
+--- PASS: TestCensusAndReconcile_TheW9PhaseThreeRun (23.01s)
+=== RUN   TestRefuseInheritedIdentities_TheProjectMustNotAlreadyHoldThisRunsRequests
+--- PASS: TestRefuseInheritedIdentities_TheProjectMustNotAlreadyHoldThisRunsRequests (0.60s)
+=== RUN   TestReconcileDelivery_ARequestThisRunNeverSentIsRefused
+--- PASS: TestReconcileDelivery_ARequestThisRunNeverSentIsRefused (0.00s)
+=== RUN   TestCensusAndReconcile_Run32296920486
+--- PASS: TestCensusAndReconcile_Run32296920486 (0.15s)
+=== RUN   TestAckRTTTranche_SendsTheWarmUpsAndTimesOnlyTheSamples
+--- PASS: TestAckRTTTranche_SendsTheWarmUpsAndTimesOnlyTheSamples (0.00s)
+=== RUN   TestReconcileDelivery_KeepsEveryFailureTheOldGuardHad
+--- PASS: TestReconcileDelivery_KeepsEveryFailureTheOldGuardHad (0.01s)
+=== RUN   TestReconcileDelivery_DeferredIsNotLost
+--- PASS: TestReconcileDelivery_DeferredIsNotLost (0.00s)
+=== RUN   TestReconcileDelivery_PartialEvidenceStillFails
+--- PASS: TestReconcileDelivery_PartialEvidenceStillFails (0.00s)
+=== RUN   TestReconcileDelivery_UnreadableSpoolLineRefusesToClassify
+--- PASS: TestReconcileDelivery_UnreadableSpoolLineRefusesToClassify (0.07s)
+=== RUN   TestReconcileDelivery_SpooledDuplicateIsNotAMissingSample
+--- PASS: TestReconcileDelivery_SpooledDuplicateIsNotAMissingSample (0.00s)
+=== RUN   TestReconcileDelivery_ADuplicateCannotStandInForALoss
+--- PASS: TestReconcileDelivery_ADuplicateCannotStandInForALoss (0.03s)
+=== RUN   TestGatedLedger_TheAckRTTWarmUpsAreOutsideTheGatedWindowToo
+--- PASS: TestGatedLedger_TheAckRTTWarmUpsAreOutsideTheGatedWindowToo (0.00s)
+=== RUN   TestSentIdentities_AreExactlyTheRequestsTheHarnessSends
+--- PASS: TestSentIdentities_AreExactlyTheRequestsTheHarnessSends (0.03s)
+=== RUN   TestCensusDeliveries_FindsThisRunsRequestsInEveryDurablePlace
+--- PASS: TestCensusDeliveries_FindsThisRunsRequestsInEveryDurablePlace (0.31s)
+=== RUN   TestCensusDeliveries_FindsWhatTheRealStoreRecorded
+--- PASS: TestCensusDeliveries_FindsWhatTheRealStoreRecorded (0.29s)
+=== RUN   TestCensusDeliveries_EmptyProjectFindsNothing
+--- PASS: TestCensusDeliveries_EmptyProjectFindsNothing (0.07s)
+=== RUN   TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt
+=== RUN   TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt/client_spool
+=== RUN   TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt/a_client_spool's_torn_tail
+=== RUN   TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt/this_harness's_own_request_with_no_tool_use_to_match
+=== RUN   TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt/WAL
+=== RUN   TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt/store_index
+--- PASS: TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt (0.31s)
+    --- PASS: TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt/client_spool (0.03s)
+    --- PASS: TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt/a_client_spool's_torn_tail (0.04s)
+    --- PASS: TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt/this_harness's_own_request_with_no_tool_use_to_match (0.03s)
+    --- PASS: TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt/WAL (0.07s)
+    --- PASS: TestCensusDeliveries_CorruptLineIsCountedNotGuessedAt/store_index (0.13s)
+=== RUN   TestCensusDeliveries_AReplayDuringTheCensusIsStillFound
+=== RUN   TestCensusDeliveries_AReplayDuringTheCensusIsStillFound/replayed_into_the_store
+=== RUN   TestCensusDeliveries_AReplayDuringTheCensusIsStillFound/removed_without_a_capture
+--- PASS: TestCensusDeliveries_AReplayDuringTheCensusIsStillFound (0.20s)
+    --- PASS: TestCensusDeliveries_AReplayDuringTheCensusIsStillFound/replayed_into_the_store (0.17s)
+    --- PASS: TestCensusDeliveries_AReplayDuringTheCensusIsStillFound/removed_without_a_capture (0.03s)
+=== RUN   TestCensusAndReconcile_TheW9PhaseThreeRun
+--- PASS: TestCensusAndReconcile_TheW9PhaseThreeRun (24.07s)
+=== RUN   TestRefuseInheritedIdentities_TheProjectMustNotAlreadyHoldThisRunsRequests
+--- PASS: TestRefuseInheritedIdentities_TheProjectMustNotAlreadyHoldThisRunsRequests (0.21s)
+=== RUN   TestReconcileDelivery_ARequestThisRunNeverSentIsRefused
+--- PASS: TestReconcileDelivery_ARequestThisRunNeverSentIsRefused (0.00s)
+=== RUN   TestCensusAndReconcile_Run32296920486
+--- PASS: TestCensusAndReconcile_Run32296920486 (0.13s)
+=== RUN   TestAckRTTTranche_SendsTheWarmUpsAndTimesOnlyTheSamples
+--- PASS: TestAckRTTTranche_SendsTheWarmUpsAndTimesOnlyTheSamples (0.00s)
+=== RUN   TestReconcileDelivery_KeepsEveryFailureTheOldGuardHad
+--- PASS: TestReconcileDelivery_KeepsEveryFailureTheOldGuardHad (0.00s)
+=== RUN   TestReconcileDelivery_DeferredIsNotLost
+--- PASS: TestReconcileDelivery_DeferredIsNotLost (0.00s)
+=== RUN   TestReconcileDelivery_PartialEvidenceStillFails
+--- PASS: TestReconcileDelivery_PartialEvidenceStillFails (0.00s)
+=== RUN   TestReconcileDelivery_UnreadableSpoolLineRefusesToClassify
+--- PASS: TestReconcileDelivery_UnreadableSpoolLineRefusesToClassify (0.00s)
+=== RUN   TestReconcileDelivery_SpooledDuplicateIsNotAMissingSample
+--- PASS: TestReconcileDelivery_SpooledDuplicateIsNotAMissingSample (0.00s)
+=== RUN   TestReconcileDelivery_ADuplicateCannotStandInForALoss
+--- PASS: TestReconcileDelivery_ADuplicateCannotStandInForALoss (0.11s)
+=== RUN   TestGatedLedger_TheAckRTTWarmUpsAreOutsideTheGatedWindowToo
+--- PASS: TestGatedLedger_TheAckRTTWarmUpsAreOutsideTheGatedWindowToo (0.00s)
+PASS
+ok  	github.com/qompack/qompack/test/bench/hotpath	216.099s
+exit=0

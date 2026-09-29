@@ -1,0 +1,57 @@
+# TEMPORARY DIAGNOSTIC (not committed): the UNMODIFIED harness (HEAD 8245d4e) copied to an untracked _w10diag/hotpath with a spool sampler added.
+# Project config forces the breach: {"runtime":{"hotPath":{"budgetMs":1,"breachWindows":1}}}. Windows, machine loaded by Phase 3.
+# Command: timeout 1200 w10diag-hotpath.exe --iterations 1000 --warm-daemon --under-coload --project <scratch>/proj1
+
+hotpath: building C:\Users\Quant\AppData\Local\Temp\qompack-bench-build-1401150648\qompack.exe...
+hotpath: starting daemon (\\.\pipe\qompack-bench-29404-bdb9f9797b67c5c7)...
+hotpath: daemon is reachable
+W10DIAG t=0.0s phase=warm
+hotpath: warming daemon (64 hot-path observe.tool + 1936 admin.ping)...
+W10DIAG t=0.3s phase=warm clientFiles=0 harnessLinesNow=0 everSeen=0
+hotpath: warm-up sent ~1.1 MB across 64 hot-path requests (plus 1936 admin.ping round trips)
+hotpath: measuring spawn floor (200 x qompack version)...
+W10DIAG t=2.3s phase=warm clientFiles=0 harnessLinesNow=0 everSeen=0
+W10DIAG t=4.5s phase=warm clientFiles=0 harnessLinesNow=0 everSeen=0
+W10DIAG t=6.5s phase=warm clientFiles=0 harnessLinesNow=0 everSeen=0
+W10DIAG t=6.9s phase=ba-bd
+hotpath: measuring B-A/B-D (1000 x qompack [observe tool])...
+W10DIAG t=8.5s phase=ba-bd clientFiles=2 harnessLinesNow=2 everSeen=2
+W10DIAG t=10.5s phase=ba-bd clientFiles=4 harnessLinesNow=4 everSeen=4
+W10DIAG t=12.8s phase=ba-bd clientFiles=1 harnessLinesNow=1 everSeen=4
+W10DIAG t=15.0s phase=ba-bd clientFiles=0 harnessLinesNow=0 everSeen=4
+W10DIAG t=17.0s phase=ba-bd clientFiles=0 harnessLinesNow=0 everSeen=4
+W10DIAG t=19.0s phase=ba-bd clientFiles=0 harnessLinesNow=0 everSeen=4
+W10DIAG t=21.3s phase=ba-bd clientFiles=0 harnessLinesNow=0 everSeen=4
+W10DIAG t=23.5s phase=ba-bd clientFiles=0 harnessLinesNow=0 everSeen=4
+W10DIAG t=25.5s phase=ba-bd clientFiles=0 harnessLinesNow=0 everSeen=4
+W10DIAG t=27.8s phase=ba-bd clientFiles=0 harnessLinesNow=0 everSeen=4
+W10DIAG t=29.9s phase=ba-bd clientFiles=27 harnessLinesNow=27 everSeen=31
+W10DIAG t=31.9s phase=ba-bd clientFiles=90 harnessLinesNow=90 everSeen=94
+W10DIAG t=34.2s phase=ba-bd clientFiles=164 harnessLinesNow=165 everSeen=169
+W10DIAG t=36.4s phase=ba-bd clientFiles=224 harnessLinesNow=229 everSeen=233
+W10DIAG t=38.5s phase=ba-bd clientFiles=290 harnessLinesNow=301 everSeen=305
+W10DIAG t=40.7s phase=ba-bd clientFiles=358 harnessLinesNow=376 everSeen=380
+W10DIAG t=42.7s phase=ba-bd clientFiles=418 harnessLinesNow=445 everSeen=449
+W10DIAG t=44.9s phase=ba-bd clientFiles=465 harnessLinesNow=507 everSeen=511
+W10DIAG t=46.3s phase=be
+hotpath: measuring B-E (50 x qompack checkpoint)...
+W10DIAG t=47.1s phase=be clientFiles=502 harnessLinesNow=552 everSeen=557
+W10DIAG t=49.3s phase=be clientFiles=501 harnessLinesNow=550 everSeen=557
+W10DIAG t=51.3s phase=be clientFiles=492 harnessLinesNow=542 everSeen=557
+W10DIAG t=53.6s phase=be clientFiles=489 harnessLinesNow=538 everSeen=557
+W10DIAG t=54.9s phase=ackrtt
+W10DIAG gated snapshot: hot=spool spool_files=483 drain_file_error=1 hotpath_degraded=1 l0_delivery_unleased=64 l0_drain_ordering_deferred=386 l0_spool_watch_drains=7
+hotpath: measuring hook ACK round trip (64 x in-process observe.tool)...
+W10DIAG t=54.9s phase=census
+W10DIAG final snapshot: hot=spool spool_files=485 drain_file_error=1 hotpath_degraded=1 l0_delivery_unleased=64 l0_drain_ordering_deferred=386 l0_spool_watch_drains=7
+W10DIAG census: deferred=597 unreadable=0 files=482 censusIDs=597 sent=1130 delivered(l0_ingest)=513
+W10DIAG reconcileDelivery: hotpath: delivery integrity check failed: of the 1130 hot-path requests this harness sent, the daemon's own l0_ingest histogram observed 513 and only 597 are accounted for by a deferred request line in the client spool — 20 are LOST (in neither place, so the spool append itself was refused: see internal/ipc/client.go's appendToSpool drop path). A lost event biases every derived number and cannot be replayed; refusing to report a Report rather than silently passing a gate on partial data
+W10DIAG after stop: storeIDs=545 spoolAfterStop(client+wal)=1108 census=597 everSeen=623
+W10DIAG b-a session: first seq seen in a client spool=0; seen in the spool during the run but absent from the census=26, of which captured in the store=26
+W10DIAG b-a session ids in NEITHER the store NOR any spool file after stop: 0 []
+W10DIAG gone-mid-run ids (first 40): [toolu_ba_0 toolu_ba_16 toolu_ba_37 toolu_ba_56 toolu_ba_429 toolu_ba_449 toolu_ba_450 toolu_ba_451 toolu_ba_453 toolu_ba_454 toolu_ba_455 toolu_ba_456 toolu_ba_457 toolu_ba_458 toolu_ba_459 toolu_ba_462 toolu_ba_463 toolu_ba_464 toolu_ba_465 toolu_ba_466 toolu_ba_469 toolu_ba_470 toolu_ba_471 toolu_ba_472 toolu_ba_473 toolu_ba_475]
+W10DIAG non-b-a identities ever spooled=66, in neither census/store/spool=0
+W10DIAG log qompack-20260929.log: ts=2026-09-29T01:20:13.6016001Z level=warn msg="daemon: drain: file error" path=C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w10\lostev\proj1\.qompack\spool\client-29404.ndjson err="remove C:\\Users\\Quant\\AppData\\Local\\Temp\\claude\\C--Users-Quant-Documents-Programming-Projects-qompack\\9c57653d-e
+W10DIAG log files: [LOUD.log qompack-20260929.log]
+hotpath: hotpath: delivery integrity check failed: of the 1130 hot-path requests this harness sent, the daemon's own l0_ingest histogram observed 513 and only 597 are accounted for by a deferred request line in the client spool — 20 are LOST (in neither place, so the spool append itself was refused: see internal/ipc/client.go's appendToSpool drop path). A lost event biases every derived number and cannot be replayed; refusing to report a Report rather than silently passing a gate on partial data
+exit=1

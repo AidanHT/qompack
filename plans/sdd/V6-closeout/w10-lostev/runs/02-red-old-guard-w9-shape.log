@@ -1,0 +1,16 @@
+# TEMPORARY DIAGNOSTIC (not committed): the w9 Phase 3 shape (2130 sent, 1537 delivered, 575 in hook client spools, 18 replayed into the store)
+# driven through the UNMODIFIED census and guard of HEAD 8245d4e, copied to an untracked _w10diag/red. Command: go test -count=1 -v ./_w10diag/red/
+# HEAD:
+8245d4ea
+=== RUN   TestW10Red_OldGuardCallsAReplayedDeferralLost
+    zz_w10red_test.go:61: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w10-lostev/_w10diag/red/zz_w10red_test.go:61
+        	Error:      	Received unexpected error:
+        	            	hotpath: delivery integrity check failed: of the 2130 hot-path requests this harness sent, the daemon's own l0_ingest histogram observed 1537 and only 575 are accounted for by a deferred request line in the client spool — 18 are LOST (in neither place, so the spool append itself was refused: see internal/ipc/client.go's appendToSpool drop path). A lost event biases every derived number and cannot be replayed; refusing to report a Report rather than silently passing a gate on partial data
+        	Test:       	TestW10Red_OldGuardCallsAReplayedDeferralLost
+        	Messages:   	no request was lost: 575 are in client spools and 18 are in the store
+--- FAIL: TestW10Red_OldGuardCallsAReplayedDeferralLost (2.88s)
+FAIL
+FAIL	github.com/qompack/qompack/_w10diag/red	4.135s
+FAIL
+exit=1
