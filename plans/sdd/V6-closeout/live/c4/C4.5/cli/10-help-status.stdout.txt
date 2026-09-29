@@ -1,0 +1,7 @@
+qompack status — Qompack status — mode, contracts, store, latency, last decision
+
+usage: qompack status [--json]
+       /qompack:status [--json]
+
+flags:
+  --json                 emit the stable JSON envelope instead of text

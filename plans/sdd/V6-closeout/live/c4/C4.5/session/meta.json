@@ -1,0 +1,255 @@
+{
+ "args": [
+  "-p",
+  "--input-format",
+  "stream-json",
+  "--output-format",
+  "stream-json",
+  "--verbose",
+  "--include-hook-events",
+  "--model",
+  "claude-haiku-4-5-20251001",
+  "--max-turns",
+  "12",
+  "--setting-sources",
+  "project,local",
+  "--permission-mode",
+  "dontAsk",
+  "--plugin-dir",
+  "C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c3/qompack-plugin-0.3.0-windows-amd64",
+  "--allowedTools",
+  "Read,Bash(where qompack:*),mcp__plugin_qompack_qompack__recall,mcp__plugin_qompack_qompack__expand,mcp__plugin_qompack_qompack__re_read,mcp__plugin_qompack_qompack__already_tried,mcp__plugin_qompack_qompack__record_eliminated,mcp__plugin_qompack_qompack__timeline,mcp__plugin_qompack_qompack__why,mcp__plugin_qompack_qompack__dropped,Bash(qompack status:*),Bash(qompack recall:*),Bash(qompack pin:*),Bash(qompack why:*),Bash(qompack dropped:*),Bash(qompack eval:*)"
+ ],
+ "turns": [
+  {
+   "msg": "Run the Bash command `where qompack` and reply with its output verbatim.",
+   "ok": true,
+   "wall_s": 5.41,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 2696,
+    "WorkingSet64": 31465472,
+    "PeakWorkingSet64": 31465472,
+    "CPU": 0.171875,
+    "StartTime": "/Date(1790708546430)/"
+   },
+   "store_bytes": 1517742
+  },
+  {
+   "msg": "/qompack:status",
+   "ok": true,
+   "wall_s": 8.617,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 2696,
+    "WorkingSet64": 31641600,
+    "PeakWorkingSet64": 31641600,
+    "CPU": 0.203125,
+    "StartTime": "/Date(1790708546430)/"
+   },
+   "store_bytes": 1539246
+  },
+  {
+   "msg": "/qompack:status --json",
+   "ok": true,
+   "wall_s": 25.847,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 2696,
+    "WorkingSet64": 32202752,
+    "PeakWorkingSet64": 32202752,
+    "CPU": 0.21875,
+    "StartTime": "/Date(1790708546430)/"
+   },
+   "store_bytes": 1581556
+  },
+  {
+   "msg": "/qompack:recall widen pool timeout --json",
+   "ok": true,
+   "wall_s": 7.815,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 2696,
+    "WorkingSet64": 34770944,
+    "PeakWorkingSet64": 34770944,
+    "CPU": 0.21875,
+    "StartTime": "/Date(1790708546430)/"
+   },
+   "store_bytes": 1602741
+  },
+  {
+   "msg": "/qompack:recall max_idle --k 2",
+   "ok": true,
+   "wall_s": 4.408,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 2696,
+    "WorkingSet64": 36790272,
+    "PeakWorkingSet64": 36790272,
+    "CPU": 0.25,
+    "StartTime": "/Date(1790708546430)/"
+   },
+   "store_bytes": 1619902
+  },
+  {
+   "msg": "/qompack:pin The pool size must stay at 8 connections.",
+   "ok": true,
+   "wall_s": 1.804,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 2696,
+    "WorkingSet64": 36900864,
+    "PeakWorkingSet64": 36900864,
+    "CPU": 0.265625,
+    "StartTime": "/Date(1790708546430)/"
+   },
+   "store_bytes": 1630295
+  },
+  {
+   "msg": "/qompack:pin --list",
+   "ok": true,
+   "wall_s": 1.402,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 2696,
+    "WorkingSet64": 36933632,
+    "PeakWorkingSet64": 36933632,
+    "CPU": 0.265625,
+    "StartTime": "/Date(1790708546430)/"
+   },
+   "store_bytes": 1640222
+  },
+  {
+   "msg": "/qompack:why dec_e760c8bbf50a",
+   "ok": true,
+   "wall_s": 2.806,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 2696,
+    "WorkingSet64": 37003264,
+    "PeakWorkingSet64": 37019648,
+    "CPU": 0.28125,
+    "StartTime": "/Date(1790708546430)/"
+   },
+   "store_bytes": 1653984
+  },
+  {
+   "msg": "/qompack:why dec_000000000000",
+   "ok": true,
+   "wall_s": 2.004,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 2696,
+    "WorkingSet64": 37400576,
+    "PeakWorkingSet64": 37400576,
+    "CPU": 0.3125,
+    "StartTime": "/Date(1790708546430)/"
+   },
+   "store_bytes": 1668309
+  },
+  {
+   "msg": "/qompack:dropped",
+   "ok": true,
+   "wall_s": 2.003,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 2696,
+    "WorkingSet64": 37597184,
+    "PeakWorkingSet64": 37597184,
+    "CPU": 0.3125,
+    "StartTime": "/Date(1790708546430)/"
+   },
+   "store_bytes": 1682107
+  },
+  {
+   "msg": "/qompack:dropped --json",
+   "ok": true,
+   "wall_s": 2.205,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 2696,
+    "WorkingSet64": 37785600,
+    "PeakWorkingSet64": 37785600,
+    "CPU": 0.3125,
+    "StartTime": "/Date(1790708546430)/"
+   },
+   "store_bytes": 1695003
+  },
+  {
+   "msg": "/qompack:eval",
+   "ok": true,
+   "wall_s": 0.201,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 2696,
+    "WorkingSet64": 37785600,
+    "PeakWorkingSet64": 37785600,
+    "CPU": 0.3125,
+    "StartTime": "/Date(1790708546430)/"
+   },
+   "store_bytes": 1695003
+  },
+  {
+   "msg": "/qompack:eval --json",
+   "ok": true,
+   "wall_s": 0.2,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 2696,
+    "WorkingSet64": 37785600,
+    "PeakWorkingSet64": 37785600,
+    "CPU": 0.3125,
+    "StartTime": "/Date(1790708546430)/"
+   },
+   "store_bytes": 1695003
+  },
+  {
+   "msg": "/qompack:recall --help",
+   "ok": true,
+   "wall_s": 2.204,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 2696,
+    "WorkingSet64": 37965824,
+    "PeakWorkingSet64": 37965824,
+    "CPU": 0.328125,
+    "StartTime": "/Date(1790708546430)/"
+   },
+   "store_bytes": 1705356
+  },
+  {
+   "msg": "/qompack:recall",
+   "ok": true,
+   "wall_s": 0.2,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 2696,
+    "WorkingSet64": 37965824,
+    "PeakWorkingSet64": 37965824,
+    "CPU": 0.328125,
+    "StartTime": "/Date(1790708546430)/"
+   },
+   "store_bytes": 1705356
+  },
+  {
+   "msg": "Call mcp__plugin_qompack_qompack__why with {\"decision_id\": \"dec_e760c8bbf50a\"}. Reply with the tool result's text verbatim and whether the host marked it as an error.",
+   "ok": true,
+   "wall_s": 5.81,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 2696,
+    "WorkingSet64": 39489536,
+    "PeakWorkingSet64": 39489536,
+    "CPU": 0.375,
+    "StartTime": "/Date(1790708546430)/"
+   },
+   "store_bytes": 1744794
+  }
+ ],
+ "store_bytes_before": 1490697,
+ "started_ms": 1790708545742,
+ "pid": 68536,
+ "exit": 0,
+ "wall_s": 83.81,
+ "store_bytes_after": 1666759
+}

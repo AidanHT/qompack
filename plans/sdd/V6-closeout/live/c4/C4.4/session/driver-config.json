@@ -1,0 +1,48 @@
+{
+ "args": [
+  "-p",
+  "--input-format",
+  "stream-json",
+  "--output-format",
+  "stream-json",
+  "--verbose",
+  "--include-hook-events",
+  "--model",
+  "claude-haiku-4-5-20251001",
+  "--max-turns",
+  "30",
+  "--setting-sources",
+  "project,local",
+  "--permission-mode",
+  "dontAsk",
+  "--plugin-dir",
+  "C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c3/qompack-plugin-0.3.0-windows-amd64",
+  "--allowedTools",
+  "Read,mcp__plugin_qompack_qompack__recall,mcp__plugin_qompack_qompack__expand,mcp__plugin_qompack_qompack__re_read,mcp__plugin_qompack_qompack__already_tried,mcp__plugin_qompack_qompack__record_eliminated,mcp__plugin_qompack_qompack__timeline,mcp__plugin_qompack_qompack__why,mcp__plugin_qompack_qompack__dropped,Bash(qompack status:*),Bash(qompack recall:*),Bash(qompack pin:*),Bash(qompack why:*),Bash(qompack dropped:*),Bash(qompack eval:*)"
+ ],
+ "cwd": "<scratch>/retrieval/c44/proj",
+ "out": "<scratch>/retrieval/c44/s1",
+ "env": {
+  "ENABLE_CLAUDEAI_MCP_SERVERS": "false",
+  "QOMPACK_HOME": "<scratch>/retrieval/qhome",
+  "QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS": "120"
+ },
+ "timeout_s": 1800,
+ "messages": [
+  "Make these three MCP calls in order: mcp__plugin_qompack_qompack__already_tried with {\"target\": \"src/cache.go:Evict\", \"approach\": \"shrink the ttl\"}; mcp__plugin_qompack_qompack__dropped with {}; mcp__plugin_qompack_qompack__timeline with {}. Reply with one line per call: the arguments you passed, whether the host marked the result as an error (yes/no), and the first 200 characters of the result text.",
+  "Use the Read tool to read notes.md and then src/cache.go. Reply only 'done'.",
+  "/compact",
+  "Call mcp__plugin_qompack_qompack__already_tried with {\"target\": \"src/cache.go:Evict\", \"approach\": \"shrink the ttl\"}. Reply with one line per call: the arguments you passed, whether the host marked the result as an error (yes/no), and the first 200 characters of the result text.",
+  "Make these recall calls in order: mcp__plugin_qompack_qompack__recall with {\"query\": \"violet anchor lattice\"}; then with {\"query\": \"violet anchor lattice\", \"k\": 0}; then with {\"query\": \"\"}; then with {\"query\": \"path:src/cache.go\", \"k\": 2}. Reply with one line per call: the arguments you passed, whether the host marked the result as an error (yes/no), and the first 200 characters of the result text.",
+  "Make these expand calls in order: mcp__plugin_qompack_qompack__expand with {\"tool_use_id\": <the tool_use_id of the recall hit whose path is src/cache.go and whose tool is FileRead>}; then with {\"hash\": \"sha256:zz\"}; then with {\"tool_use_id\": \"toolu_doesnotexist000\"}; then with {} (no arguments); then with both {\"hash\": \"sha256:0000000000000000000000000000000000000000000000000000000000000000\", \"tool_use_id\": \"toolu_doesnotexist000\"}. Reply with one line per call: the arguments you passed, whether the host marked the result as an error (yes/no), and the first 200 characters of the result text.",
+  "Make these re_read calls in order: mcp__plugin_qompack_qompack__re_read with {\"path\": \"src/cache.go\"}; then {\"path\": \"src/nope.go\"}; then {\"path\": \"../outside.txt\"}; then {\"path\": \"src/cache.go\", \"at\": \"yesterday\"}; then {\"path\": \"src/cache.go:Evict\"}. Reply with one line per call: the arguments you passed, whether the host marked the result as an error (yes/no), and the first 200 characters of the result text.",
+  "Make these record_eliminated calls in order: mcp__plugin_qompack_qompack__record_eliminated with {\"target\": \"src/cache.go:Evict\", \"approach\": \"shrink the ttl\", \"reason\": \"entries are re-fetched faster than a shorter ttl can evict them, so memory does not drop\", \"scope\": \"session\", \"depends_on\": [\"src/cache.go\", \"src/missing.go\"]}; then with {\"target\": \"src/cache.go:Evict\", \"approach\": \"double the sweep rate\", \"reason\": \"x\", \"scope\": \"global\"}; then with {\"target\": \"\", \"approach\": \"\", \"reason\": \"\"}. Reply with one line per call: the arguments you passed, whether the host marked the result as an error (yes/no), and the first 200 characters of the result text.",
+  "Call mcp__plugin_qompack_qompack__already_tried with {\"target\": \"src/cache.go:Evict\", \"approach\": \"shrink the ttl\"}, then with {\"target\": \"\", \"approach\": \"\"}. Reply with one line per call: the arguments you passed, whether the host marked the result as an error (yes/no), and the first 200 characters of the result text.",
+  "/compact",
+  "Make these timeline calls in order: mcp__plugin_qompack_qompack__timeline with {}; then {\"from\": \"0\", \"to\": \"6\"}; then {\"from\": \"not-a-turn\"}; then {\"from\": \"20\", \"to\": \"2\"}. Reply with one line per call: the arguments you passed, whether the host marked the result as an error (yes/no), and the first 200 characters of the result text.",
+  "Find a decision id of the form dec_ followed by 12 hex characters: look in your context first; if there is none, use the Read tool on .qompack/checkpoints/0002.json and take decisions[0].id. Then call mcp__plugin_qompack_qompack__why with that id; then with {\"decision_id\": \"dec_000000000000\"}; then with {\"decision_id\": \"not-a-decision\"}. Reply with one line per call: the arguments you passed, whether the host marked the result as an error (yes/no), and the first 200 characters of the result text.",
+  "Call mcp__plugin_qompack_qompack__dropped with {}; then call it with {\"session\": \"x\"}. Reply with one line per call: the arguments you passed, whether the host marked the result as an error (yes/no), and the first 200 characters of the result text."
+ ],
+ "bin": "C:/Users/Quant/AppData/Roaming/npm/node_modules/@anthropic-ai/claude-code/bin/claude.exe",
+ "scrub": "<scratch>"
+}

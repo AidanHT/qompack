@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "session": "0cfcb558-4c25-4b5d-ad53-f29feab51a6f",
+  "seq": 1,
+  "created": "2026-09-29T18:57:43.551Z",
+  "encoded_segments": [],
+  "invariants": [],
+  "user_intent": {
+    "original": "Make these three MCP calls in order: mcp__plugin_qompack_qompack__already_tried with {\"target\": \"src/cache.go:Evict\", \"approach\": \"shrink the ttl\"}; mcp__plugin_qompack_qompack__dropped with {}; mcp__plugin_qompack_qompack__timeline with {}. Reply with one line per call: the arguments you passed, whether the host marked the result as an error (yes/no), and the first 200 characters of the result text.",
+    "evolution": []
+  },
+  "eliminated": [],
+  "decisions": [],
+  "open_questions": [],
+  "current_work": {
+    "goal": "",
+    "next_step": "",
+    "blocked_on": null
+  },
+  "pointers": {
+    "files": [],
+    "tools": []
+  },
+  "narrative": "",
+  "sketch_refs": {
+    "touch": "touch.cms",
+    "tried": "tried.bloom"
+  },
+  "dropped": [],
+  "cache": {
+    "p_chosen": 0,
+    "rewrite_tokens": 0,
+    "ttl_state": "unknown"
+  }
+}

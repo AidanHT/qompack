@@ -1,0 +1,7 @@
+qompack dropped — Report what the last compaction dropped and how to get it back
+
+usage: qompack dropped [--json]
+       /qompack:dropped [--json]
+
+flags:
+  --json                 emit the stable JSON envelope instead of text

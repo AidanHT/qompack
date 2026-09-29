@@ -1,0 +1,213 @@
+{
+ "args": [
+  "-p",
+  "--input-format",
+  "stream-json",
+  "--output-format",
+  "stream-json",
+  "--verbose",
+  "--include-hook-events",
+  "--model",
+  "claude-haiku-4-5-20251001",
+  "--max-turns",
+  "30",
+  "--setting-sources",
+  "project,local",
+  "--permission-mode",
+  "dontAsk",
+  "--plugin-dir",
+  "C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c3/qompack-plugin-0.3.0-windows-amd64",
+  "--allowedTools",
+  "Read,mcp__plugin_qompack_qompack__recall,mcp__plugin_qompack_qompack__expand,mcp__plugin_qompack_qompack__re_read,mcp__plugin_qompack_qompack__already_tried,mcp__plugin_qompack_qompack__record_eliminated,mcp__plugin_qompack_qompack__timeline,mcp__plugin_qompack_qompack__why,mcp__plugin_qompack_qompack__dropped,Bash(qompack status:*),Bash(qompack recall:*),Bash(qompack pin:*),Bash(qompack why:*),Bash(qompack dropped:*),Bash(qompack eval:*)"
+ ],
+ "turns": [
+  {
+   "msg": "Make these three MCP calls in order: mcp__plugin_qompack_qompack__already_tried with {\"target\": \"src/cache.go:Evict\", \"approach\": \"shrink the ttl\"}; mcp__plugin_qompack_qompack__dropped with {}; mcp__plugin_qompack_qompack__timeline with {}. Reply with one line per call: the arguments you passed, whether the host marked the result as an error (yes/no), and the first 200 characters of the result text.",
+   "ok": true,
+   "wall_s": 13.622,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 28140,
+    "WorkingSet64": 30904320,
+    "PeakWorkingSet64": 30904320,
+    "CPU": 0.078125,
+    "StartTime": "/Date(1790708245754)/"
+   },
+   "store_bytes": 143951
+  },
+  {
+   "msg": "Use the Read tool to read notes.md and then src/cache.go. Reply only 'done'.",
+   "ok": true,
+   "wall_s": 3.405,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 28140,
+    "WorkingSet64": 33742848,
+    "PeakWorkingSet64": 33742848,
+    "CPU": 0.15625,
+    "StartTime": "/Date(1790708245754)/"
+   },
+   "store_bytes": 182117
+  },
+  {
+   "msg": "/compact",
+   "ok": true,
+   "wall_s": 21.636,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 28140,
+    "WorkingSet64": 36462592,
+    "PeakWorkingSet64": 36462592,
+    "CPU": 0.203125,
+    "StartTime": "/Date(1790708245754)/"
+   },
+   "store_bytes": 218931
+  },
+  {
+   "msg": "Call mcp__plugin_qompack_qompack__already_tried with {\"target\": \"src/cache.go:Evict\", \"approach\": \"shrink the ttl\"}. Reply with one line per call: the arguments you passed, whether the host marked the result as an error (yes/no), and the first 200 characters of the result text.",
+   "ok": true,
+   "wall_s": 6.41,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 28140,
+    "WorkingSet64": 37543936,
+    "PeakWorkingSet64": 37543936,
+    "CPU": 0.234375,
+    "StartTime": "/Date(1790708245754)/"
+   },
+   "store_bytes": 257421
+  },
+  {
+   "msg": "Make these recall calls in order: mcp__plugin_qompack_qompack__recall with {\"query\": \"violet anchor lattice\"}; then with {\"query\": \"violet anchor lattice\", \"k\": 0}; then with {\"query\": \"\"}; then with {\"query\": \"path:src/cache.go\", \"k\": 2}. Reply with one line per call: the arguments you passed, whether the host marked the result as an error (yes/no), and the first 200 characters of the result text.",
+   "ok": true,
+   "wall_s": 13.024,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 28140,
+    "WorkingSet64": 40845312,
+    "PeakWorkingSet64": 40845312,
+    "CPU": 0.359375,
+    "StartTime": "/Date(1790708245754)/"
+   },
+   "store_bytes": 338449
+  },
+  {
+   "msg": "Make these expand calls in order: mcp__plugin_qompack_qompack__expand with {\"tool_use_id\": <the tool_use_id of the recall hit whose path is src/cache.go and whose tool is FileRead>}; then with {\"hash\": \"sha256:zz\"}; then with {\"tool_use_id\": \"toolu_doesnotexist000\"}; then with {} (no arguments); then with both {\"hash\": \"sha256:0000000000000000000000000000000000000000000000000000000000000000\", \"tool_use_id\": \"toolu_doesnotexist000\"}. Reply with one line per call: the arguments you passed, whether the host marked the result as an error (yes/no), and the first 200 characters of the result text.",
+   "ok": true,
+   "wall_s": 17.629,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 28140,
+    "WorkingSet64": 42643456,
+    "PeakWorkingSet64": 42643456,
+    "CPU": 0.375,
+    "StartTime": "/Date(1790708245754)/"
+   },
+   "store_bytes": 399284
+  },
+  {
+   "msg": "Make these re_read calls in order: mcp__plugin_qompack_qompack__re_read with {\"path\": \"src/cache.go\"}; then {\"path\": \"src/nope.go\"}; then {\"path\": \"../outside.txt\"}; then {\"path\": \"src/cache.go\", \"at\": \"yesterday\"}; then {\"path\": \"src/cache.go:Evict\"}. Reply with one line per call: the arguments you passed, whether the host marked the result as an error (yes/no), and the first 200 characters of the result text.",
+   "ok": true,
+   "wall_s": 12.823,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 28140,
+    "WorkingSet64": 43286528,
+    "PeakWorkingSet64": 43286528,
+    "CPU": 0.578125,
+    "StartTime": "/Date(1790708245754)/"
+   },
+   "store_bytes": 479610
+  },
+  {
+   "msg": "Make these record_eliminated calls in order: mcp__plugin_qompack_qompack__record_eliminated with {\"target\": \"src/cache.go:Evict\", \"approach\": \"shrink the ttl\", \"reason\": \"entries are re-fetched faster than a shorter ttl can evict them, so memory does not drop\", \"scope\": \"session\", \"depends_on\": [\"src/cache.go\", \"src/missing.go\"]}; then with {\"target\": \"src/cache.go:Evict\", \"approach\": \"double the sweep rate\", \"reason\": \"x\", \"scope\": \"global\"}; then with {\"target\": \"\", \"approach\": \"\", \"reason\": \"\"}. Reply with one line per call: the arguments you passed, whether the host marked the result as an error (yes/no), and the first 200 characters of the result text.",
+   "ok": true,
+   "wall_s": 11.22,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 28140,
+    "WorkingSet64": 43630592,
+    "PeakWorkingSet64": 43630592,
+    "CPU": 0.640625,
+    "StartTime": "/Date(1790708245754)/"
+   },
+   "store_bytes": 524967
+  },
+  {
+   "msg": "Call mcp__plugin_qompack_qompack__already_tried with {\"target\": \"src/cache.go:Evict\", \"approach\": \"shrink the ttl\"}, then with {\"target\": \"\", \"approach\": \"\"}. Reply with one line per call: the arguments you passed, whether the host marked the result as an error (yes/no), and the first 200 characters of the result text.",
+   "ok": true,
+   "wall_s": 7.013,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 28140,
+    "WorkingSet64": 43794432,
+    "PeakWorkingSet64": 43794432,
+    "CPU": 0.703125,
+    "StartTime": "/Date(1790708245754)/"
+   },
+   "store_bytes": 566884
+  },
+  {
+   "msg": "/compact",
+   "ok": true,
+   "wall_s": 33.859,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 28140,
+    "WorkingSet64": 44883968,
+    "PeakWorkingSet64": 44883968,
+    "CPU": 0.75,
+    "StartTime": "/Date(1790708245754)/"
+   },
+   "store_bytes": 605955
+  },
+  {
+   "msg": "Make these timeline calls in order: mcp__plugin_qompack_qompack__timeline with {}; then {\"from\": \"0\", \"to\": \"6\"}; then {\"from\": \"not-a-turn\"}; then {\"from\": \"20\", \"to\": \"2\"}. Reply with one line per call: the arguments you passed, whether the host marked the result as an error (yes/no), and the first 200 characters of the result text.",
+   "ok": true,
+   "wall_s": 15.028,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 28140,
+    "WorkingSet64": 45232128,
+    "PeakWorkingSet64": 45232128,
+    "CPU": 0.8125,
+    "StartTime": "/Date(1790708245754)/"
+   },
+   "store_bytes": 677686
+  },
+  {
+   "msg": "Find a decision id of the form dec_ followed by 12 hex characters: look in your context first; if there is none, use the Read tool on .qompack/checkpoints/0002.json and take decisions[0].id. Then call mcp__plugin_qompack_qompack__why with that id; then with {\"decision_id\": \"dec_000000000000\"}; then with {\"decision_id\": \"not-a-decision\"}. Reply with one line per call: the arguments you passed, whether the host marked the result as an error (yes/no), and the first 200 characters of the result text.",
+   "ok": true,
+   "wall_s": 32.053,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 28140,
+    "WorkingSet64": 47292416,
+    "PeakWorkingSet64": 47292416,
+    "CPU": 1.03125,
+    "StartTime": "/Date(1790708245754)/"
+   },
+   "store_bytes": 769890
+  },
+  {
+   "msg": "Call mcp__plugin_qompack_qompack__dropped with {}; then call it with {\"session\": \"x\"}. Reply with one line per call: the arguments you passed, whether the host marked the result as an error (yes/no), and the first 200 characters of the result text.",
+   "ok": true,
+   "wall_s": 5.009,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 28140,
+    "WorkingSet64": 47898624,
+    "PeakWorkingSet64": 47898624,
+    "CPU": 1.078125,
+    "StartTime": "/Date(1790708245754)/"
+   },
+   "store_bytes": 804366
+  }
+ ],
+ "store_bytes_before": 0,
+ "started_ms": 1790708245101,
+ "pid": 50824,
+ "exit": 0,
+ "wall_s": 201.863,
+ "store_bytes_after": 709993
+}
