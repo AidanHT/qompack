@@ -22,9 +22,12 @@
 #       first 512-sample window, the way w9's Phase 3 load did after three), and runs the harness
 #       from the worktree root:
 #           timeout 1200 <exe> --iterations 1000 --warm-daemon --under-coload --project <proj>
-#       prefix is expected to exit 1 on the old guard's "N are LOST" while its own W10DIAG lines
-#       show every identity that left a client spool mid-run in the store and no B-A request in
-#       neither the store nor a spool file; postfix is expected to exit 0 with "0 lost".
+#       prefix reproduces the MECHANISM: its W10DIAG lines show identities leaving a client spool
+#       mid-run that are in the store, and no B-A request in neither the store nor a spool file.
+#       Whether the old guard then exits 1 on "N are LOST" depends on how many requests the
+#       watcher replays mid-run, which is timing-dependent: runs/01 and runs/05 did (26 and 51
+#       replayed), the rebuilt runs/11 and runs/11b did not (1-3 replayed) and exited 0. postfix is
+#       expected to exit 0 with "0 lost" in every case.
 #       The harness gives every child a fake HOME/USERPROFILE and its own pipe; it never touches
 #       ~/.qompack. It spawns one hook process at a time; do not run it while an isolated timing
 #       gate is running on the same machine.
