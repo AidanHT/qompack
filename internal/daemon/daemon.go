@@ -635,6 +635,12 @@ func (d *daemon) Run(ctx context.Context) error {
 		return fmt.Errorf("daemon: run: acquire lock: %w", err)
 	}
 	d.setLock(lock)
+	if prev, took := lock.TookOver(); took {
+		// The day log's only record that a daemon ended without its own shutdown (V6 close-out
+		// F-C49-1): its lock stayed behind until this start judged it stale.
+		d.log.Info("daemon: took over the project from a daemon that ended without releasing its lock",
+			"pid", prev.PID, "version", prev.Version, "started", time.UnixMilli(prev.Started).UTC().Format(time.RFC3339))
+	}
 
 	// Publishing runCancel above lets a concurrent Stop cancel this startup, but a cancellation is
 	// a request, not a rollback. A Stop that ran to completion before d.lock existed read nil and
@@ -726,8 +732,14 @@ func (d *daemon) Run(ctx context.Context) error {
 			"exe", exe)
 	}
 
-	if _, err := d.Drain(runCtx); err != nil && !errors.Is(err, context.Canceled) {
+	replayed, err := d.Drain(runCtx)
+	if err != nil && !errors.Is(err, context.Canceled) {
 		d.log.Warn("daemon: startup drain failed", "err", err)
+	}
+	if replayed > 0 {
+		// Deliveries hooks spooled while no daemon answered them, published now: the day log's
+		// record that captures of that window came from a replay (V6 close-out F-C49-1).
+		d.log.Info("daemon: replayed spooled deliveries at start", "deliveries", replayed)
 	}
 	// The startup drain replays a flush inside its own pass, before the daemon serves anything. From
 	// here on a drain hands a leased flush to a session end of its own (endDrainedFlush), as the flush

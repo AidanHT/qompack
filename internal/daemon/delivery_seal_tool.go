@@ -31,8 +31,8 @@ import (
 //     be the very corruption it exists to undo.
 //
 //     That refusal has a ceiling, and it is worth naming rather than implying. On Windows pidAlive
-//     has no opinion (lock_windows.go), so a starting daemon judges this lock by daemon.hb's mtime
-//     alone, and staleAfter is 90 seconds. This run refreshes that mtime only at its three holdsLock
+//     has no opinion about a running process such as this tool (lock_windows.go), so a starting
+//     daemon judges this lock by daemon.hb's mtime alone, and staleAfter is 90 seconds. This run refreshes that mtime only at its three holdsLock
 //     calls — after both scans, and before each of the two writes — and never DURING a scan. Two
 //     journals of up to 64 MiB each, or a machine that sleeps mid-run, can therefore outlive the
 //     window and let a daemon reclaim the lock under the tool. The outcome is fail-closed: the next
@@ -565,10 +565,10 @@ func halfConverted(err error, done []deliverySealSide, next string) error {
 // holdsLock refuses the run unless this process still owns the daemon lock.
 //
 // AcquireLock's refusal is the front door, and it is not the only door that matters: a daemon may
-// start while the tool is running. On Windows pidAlive has no opinion at all (lock_windows.go), so
-// the staleness protocol falls through to daemon.hb's mtime, and a run that outlives staleAfter — a
-// suspended process, a machine that slept — lets a starting daemon judge this lock stale, remove it
-// and take the project over. Without this the tool would go on to write both seals over a project
+// start while the tool is running. On Windows pidAlive has no opinion about a running process such
+// as this tool (lock_windows.go), so the staleness protocol falls through to daemon.hb's mtime, and
+// a run that outlives staleAfter — a suspended process, a machine that slept — lets a starting
+// daemon judge this lock stale, remove it and take the project over. Without this the tool would go on to write both seals over a project
 // that daemon is now serving, which is exactly what this file's doc comment promises it never does.
 //
 // Every other writer in this package re-checks the same way: a lease batch and an acknowledgement

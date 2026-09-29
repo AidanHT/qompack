@@ -963,29 +963,50 @@ func (s *doctorState) negknowRow() doctorRow {
 	}
 }
 
-// unpublishedCapturesRow counts the capture sidecars that are a real gap: a tool delivery whose
-// bytes are durable and whose reference was never joined.
+// unpublishedCapturesRow counts the capture sidecars that are a real gap: a delivery whose outcome
+// is ok and whose bytes are durable with no reference joined (store.CaptureRequiresReference).
+//
+// It asks the one definition fsck's publication row and the daemon's startup accounting both use,
+// store.PublicationAuditor, through the same read-only open. It used to run fsck's captures walk on
+// a scan that had loaded no index, so every published sidecar's root looked unresolvable and counted
+// as a gap: the Phase 4 live lane read "5 gap(s) across 7 sidecar(s)" on a store fsck certified
+// (install D5). Whether a published sidecar's root still resolves is fsck's captures row's question,
+// which needs the whole index; this row reports the unpublished ones only, as its name says.
 func (s *doctorState) unpublishedCapturesRow() doctorRow {
-	scan := &fsckScan{
-		ctx: s.ctx, root: s.root, l: s.l, report: &fsckReport{Fidelity: map[string]int{}},
-		roots: map[string]fsckRootLine{}, tombstoned: map[string]bool{},
-		sidecarBytes: map[string]bool{}, manifestSeqs: map[core.CheckpointSeq]bool{},
+	const id = "captures.unpublished"
+	detail := "a sidecar is a gap only for a delivery whose outcome is ok and whose bytes are durable " +
+		"with no reference joined; sidecars are evidence and are never swept. The count is the " +
+		"publication audit's, which `qompack fsck`'s publication row reports too"
+	opened, err := store.OpenReadOnly(s.root, config.Defaults(), store.Deps{Log: logging.Nop()})
+	if err != nil {
+		return doctorRow{
+			ID: id, Status: doctorUnknown, Observed: "publication evidence could not be opened read-only",
+			Detail: detail + ": " + err.Error(),
+		}
 	}
-	check := scan.checkCaptures()
-	status := doctorOK
-	if !check.OK {
-		status = doctorDegraded
+	defer func() { _ = opened.Close() }()
+	auditor, ok := opened.(store.PublicationAuditor)
+	if !ok {
+		return doctorRow{ID: id, Status: doctorUnknown, Observed: "publication audit is unavailable", Detail: detail}
 	}
-	scanned := 0
-	if check.Scanned != nil {
-		scanned = *check.Scanned
+	audit, err := auditor.AuditPublication(s.ctx, store.DefaultPublicationScanCap())
+	observed := fmt.Sprintf("%d gap(s) across %d sidecar(s)", audit.UnpublishedCaptures, audit.CapturesScanned)
+	switch {
+	case audit.UnpublishedCaptures > 0:
+		return doctorRow{ID: id, Status: doctorDegraded, Observed: observed, Detail: detail}
+	case err != nil || (audit.Incomplete && !audit.IncompleteOnlyForNewerSchemas()):
+		return doctorRow{
+			ID: id, Status: doctorUnknown, Observed: observed,
+			Detail: detail + "; the audit is incomplete, so zero observed gaps cannot certify completeness",
+		}
+	case audit.Incomplete:
+		return doctorRow{
+			ID: id, Status: doctorOK, Observed: observed,
+			Detail: fmt.Sprintf("%s; %d sidecar(s) written by a newer build are not classified by this one, "+
+				"a support gap rather than damage", detail, audit.NewerSchemaCaptures),
+		}
 	}
-	return doctorRow{
-		ID: "captures.unpublished", Status: status,
-		Observed: fmt.Sprintf("%d gap(s) across %d sidecar(s)", check.Count, scanned),
-		Detail: "a sidecar is a gap only for a tool delivery whose outcome is ok and whose bytes " +
-			"are durable with no reference joined; sidecars are evidence and are never swept",
-	}
+	return doctorRow{ID: id, Status: doctorOK, Observed: observed, Detail: detail}
 }
 
 // deliveryRolloverRow reports segmented rollover (owner decision D6, 2026-09-23). Two things about it

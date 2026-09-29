@@ -448,13 +448,26 @@ func measureOf(id obs.BudgetID) Measure {
 }
 
 // latencyOf converts a histogram snapshot into its displayable form.
+//
+// A percentile is clamped to the snapshot's max. obs reports a percentile as its containing
+// bucket's upper bound, up to ~9% above every sample in that bucket, so that no latency gate passes
+// by rounding; Max is the largest sample itself. The two disagreed on the page — "p95 106.50ms ...
+// max 99.00ms" in the Phase 4 live lane — although no percentile of the samples can exceed their
+// maximum. The clamped value is still an upper bound on the true percentile. A zero Max is an
+// unknown one (a snapshot that did not carry it), and leaves the percentiles as reported.
 func latencyOf(name string, s obs.HistSnapshot, m Measure) *Latency {
+	clamp := func(p time.Duration) int64 {
+		if s.Max > 0 && p > s.Max {
+			p = s.Max
+		}
+		return p.Microseconds()
+	}
 	return &Latency{
 		Hist:    name,
 		N:       s.N,
-		P50US:   s.P50.Microseconds(),
-		P95US:   s.P95.Microseconds(),
-		P99US:   s.P99.Microseconds(),
+		P50US:   clamp(s.P50),
+		P95US:   clamp(s.P95),
+		P99US:   clamp(s.P99),
 		MaxUS:   s.Max.Microseconds(),
 		Measure: m,
 	}

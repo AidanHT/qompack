@@ -34,6 +34,20 @@ const promptReplyDeadline = 250 * time.Millisecond
 // reads (task-5-spec.md handlers.go).
 const sentinelScanTailBytes = 256 << 10
 
+// sentinelScanFromMintBytes bounds the scan's other window: the bytes the host appended after the
+// point its transcript had reached when the probe was minted (SentinelState.ScanFrom).
+//
+// Derivation: the host records a SessionStart answer's additionalContext as it takes the answer,
+// before the turn the start opens, so the probe lands within the few records written first after
+// the mint — 798 bytes in, on a transcript the host created after SessionStart:startup, in the
+// Phase 4 live lane (plans/sdd/V6-closeout/live/uat/UAT-11/sentinel-offsets.json). The window is
+// the tail window's size, so a scan reads at most 2 × 256 KiB, and only until the project's probe
+// is first observed. If it is too small, a host that writes more than 256 KiB between answering
+// the start and recording its context (a compaction summary that long) hides the probe again and
+// the session degrades to passive; too large only costs read I/O on each prompt before the first
+// observation.
+const sentinelScanFromMintBytes = 256 << 10
+
 // hookEventNameSessionStart is the exact SessionStart HSO.HookEventName spelling
 // hookio.SessionStartOutput uses internally (unexported there); respelled here because the
 // session.start route must set it on an Output a Services seam already partially built, which
@@ -697,9 +711,10 @@ func (d *daemon) stopPromptRecordings(grace context.Context) {
 }
 
 // scanSentinelForPrompt is the §12.1 hook.additional_context_delivered probe's other half: a
-// worker (never the reply path) scans the transcript tail for the sentinel SessionStart minted,
-// and records what it found. It is a no-op once the sentinel has already been observed, or when
-// none is current: none was ever minted (every start so far was act.-suppressed or replayed, or the
+// worker (never the reply path) scans the transcript for the sentinel SessionStart minted — in a
+// bounded window from where the transcript ended at the mint, and in its tail
+// (contract.ScanTranscriptForProbe) — and records what it found. The scan is skipped once the
+// sentinel has already been observed, or when none is current: none was ever minted (every start so far was act.-suppressed or replayed, or the
 // project predates this mechanism), or the replay of the start whose answer lost it withdrew it
 // (withdrawLostStartAnswer).
 //
@@ -712,19 +727,29 @@ func (d *daemon) stopPromptRecordings(grace context.Context) {
 // nonce (ipc.Request.Nonce): the same for every copy of one delivery, so a delivery the daemon handles
 // more than once — a retry after a capture that failed, a redelivery after a restart — is one chance
 // (contract.SessionHistory.RecordSentinelScanOf), not one per attempt.
+//
+// The same history load also records that the prompt's session has had a prompt
+// (contract.SessionHistory.NotePrompt): the MCP handshake and the transcript a session start left
+// pending become due only then, so a later start may fail mcp.server_registered or
+// transcript.readable for that session once it has ended. The history is saved only when either
+// record changed.
 func (d *daemon) scanSentinelForPrompt(ev *hookio.Event, promptTS core.UnixMilli, nonce string) {
 	d.historyMu.Lock()
 	defer d.historyMu.Unlock()
 
 	h := contract.LoadHistory(contract.HistoryPath(d.root))
-	if h.Sentinel.Token == "" || h.Sentinel.Observed {
+	changed := h.NotePrompt(ev.SessionID)
+	if h.Sentinel.Token != "" && !h.Sentinel.Observed {
+		found, _ := contract.ScanTranscriptForProbe(ev.TranscriptPath, h.Sentinel.Token,
+			h.Sentinel.ScanFrom, sentinelScanFromMintBytes)
+		if found || sentinelMissCounts(h.Sentinel, ev.SessionID, promptTS) {
+			h.RecordSentinelScanOf(found, nonce)
+			changed = true
+		}
+	}
+	if !changed {
 		return
 	}
-	found, _ := contract.ScanTranscriptTail(ev.TranscriptPath, h.Sentinel.Token, sentinelScanTailBytes)
-	if !found && !sentinelMissCounts(h.Sentinel, ev.SessionID, promptTS) {
-		return
-	}
-	h.RecordSentinelScanOf(found, nonce)
 	if err := contract.SaveHistory(contract.HistoryPath(d.root), h); err != nil {
 		d.log.Warn("daemon: failed to save history after sentinel scan", "err", err)
 	}
@@ -821,6 +846,13 @@ func (d *daemon) handleSessionStart(ctx context.Context, req ipc.Request) ipc.Re
 	contractStart := time.Now()
 	d.historyMu.Lock()
 	h := contract.LoadHistory(contract.HistoryPath(d.root))
+	// A handshake this daemon saw counts whether or not its own history write survived: the stdio
+	// server connects beside a session's first start, and a write that lands between this load and
+	// the save below, or that the disk refused, would otherwise leave mcp.server_registered failing
+	// in a healthy project (V6 close-out install D4).
+	if d.svc.MCPInitialized != nil && !h.MCPInitialized && d.svc.MCPInitialized(ctx) {
+		h.MCPInitialized = true
+	}
 	env := contract.Env{
 		ProjectRoot: d.root,
 		Event:       *ev,
@@ -829,6 +861,7 @@ func (d *daemon) handleSessionStart(ctx context.Context, req ipc.Request) ipc.Re
 		Log:         d.log,
 		Clock:       d.clk,
 		History:     h,
+		SessionLive: d.registry.IsLive,
 	}
 	// A replayed start the host fired BEFORE the pending PreCompact is not the start that PreCompact
 	// announced: its hook had already run when the PreCompact did, and only its replay comes after.
@@ -911,6 +944,10 @@ func (d *daemon) handleSessionStart(ctx context.Context, req ipc.Request) ipc.Re
 			h.Sentinel.Token = s.Token
 			h.Sentinel.Session = ev.SessionID
 			h.Sentinel.MintedAt = now
+			// Where the transcript ends now, before the host has this answer: the probe it carries
+			// is appended after this offset, which the prompt scan reads however far a large tool
+			// result later pushes the probe from the transcript's end (V6 close-out retrieval D4).
+			h.Sentinel.ScanFrom = contract.TranscriptSize(ev.TranscriptPath)
 			h.Sentinel.Chances = 0
 			h.Sentinel.MissedBy = nil
 			if out.HookSpecificOutput == nil {

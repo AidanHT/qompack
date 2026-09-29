@@ -108,6 +108,13 @@ func handleMCPOp(ctx context.Context, o *Options, srv mcp.Server,
 	switch m.Kind {
 	case MCPKindInitialized:
 		initialized.Store(true)
+		// The history read-modify-write is serialized with every other route that loads and saves
+		// state/history.json — above all the session.start route, which the host runs beside this
+		// handshake — through the daemon's historyMu, so neither save drops the other's change.
+		if d, ok := DaemonFrom(ctx).(*daemon); ok && d != nil {
+			d.historyMu.Lock()
+			defer d.historyMu.Unlock()
+		}
 		recordMCPHandshake(o, m.Observ)
 		return ipc.Response{OK: true}
 	case MCPKindCall, "":
