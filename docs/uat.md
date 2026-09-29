@@ -128,8 +128,8 @@ build does not support is disabled, and can be seen to be disabled.
 3. Record the bundle's git SHA, the host OS and its version, and the Claude Code version.
 4. Record the declared plugin version from `.claude-plugin/plugin.json` at the installed bundle's
    root.
-5. Record the hook entry points the host registered, from `plugin/hooks/hooks.json` in the installed
-   bundle, and compare them with what the host reports it loaded. `[requires SP-17 artifact]`
+5. Record the hook entry points the host registered, from `hooks/hooks.json` at the installed
+   bundle's root, and compare them with what the host reports it loaded. `[requires SP-17 artifact]`
 6. Record the MCP tool inventory the host lists for the `qompack` server, and compare it with
    [docs/mcp-tools.md](mcp-tools.md).
 7. `qompack config print --provenance`, captured to a file.
