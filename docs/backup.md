@@ -49,8 +49,11 @@ A store written by an earlier build reads as follows:
   writes no capture sidecars, checkpoints or drafts.
 - Development builds before the prompt link (up to 0.2.99-prev) published every prompt as its
   `prompt_<session>_<turn>` record but left its capture sidecar unlinked. Such a sidecar is read as
-  published when a prompt record in its session matches its prompt, one record per sidecar. `fsck`'s
-  `captures` and `publication` rows name how many there were. Nothing is rewritten.
+  published when a prompt record in its session matches its prompt, one record per sidecar, and
+  that record comes before the first prompt this build published in the session (this build's own
+  prompts carry an observation record in `index/observations.jsonl`; a record from then on is this
+  build's and accounts for no earlier sidecar). `fsck`'s `captures` and `publication` rows name how
+  many there were. Nothing is rewritten.
 - Builds before the V6 close-out recorded an idle-time segment encode before any checkpoint sealed
   it. After an idle exit, `index/segments.jsonl` could then name a checkpoint that was never written.
   `fsck`'s `index.segments` row names such a record as an `unsealed-draft claim` when the draft's

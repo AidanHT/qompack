@@ -91,6 +91,15 @@ func (r readOnlyStore) AuditPublication(ctx context.Context, cap PublicationScan
 	return r.fs.AuditPublication(ctx, cap)
 }
 
+// LegacyPromptRecords is an optional read capability, like AuditPublication: the prompt records an
+// earlier build's unlinked prompt sidecars may claim (legacy_prompt.go), for `qompack fsck`'s
+// captures row to claim from under the same rule the audit applies.
+func (r readOnlyStore) LegacyPromptRecords() map[LegacyPromptKey]int {
+	return r.fs.LegacyPromptRecords()
+}
+
+var _ LegacyPromptCounter = readOnlyStore{}
+
 // GetRoot resolves root against the loaded index.
 func (r readOnlyStore) GetRoot(ctx context.Context, root core.Hash) (Root, error) {
 	return r.fs.GetRoot(ctx, root)
