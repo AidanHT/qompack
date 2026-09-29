@@ -142,7 +142,8 @@ type checkpointWiring struct {
 //
 // The three collaborators that have no instance anywhere else on the daemon path are constructed
 // here and are safe to construct here, for the reason installMCPTools states about its own three:
-// pins.OpenWith holds no handle open beyond its constructor and replays the pin log once,
+// pins.OpenWith holds no handle open beyond its constructor and replays the pin log (later calls
+// fold in only the tail another process appended, such as a `qompack pin` beside this daemon),
 // grammar.New is a fresh compressor over no shared state, and tokens.NewForProject reads the
 // calibration file per project. None of them is a second handle on a single-writer resource, which
 // is what makes a second store.Open or a second negknow.Open illegitimate and these legitimate.

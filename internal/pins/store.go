@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -99,11 +100,16 @@ type record struct {
 // pinStore is the real Store: an append-only log on disk plus the replayed set of live
 // invariants in memory (00-ARCHITECTURE.md §5.14).
 //
-// The log is read exactly once, by OpenWith, and every later mutation updates both the file and
-// the in-memory set. All therefore answers from memory: pins are read on the L0 hot path, on
-// every checkpoint write, and by the MCP server, and re-reading and re-parsing the whole log for
-// each of those would put a file scan inside budget B-A for no gain — the log is append-only, so
-// this process's own appends are the only way its content can change under us.
+// The log is replayed in full once, by OpenWith, and every later mutation updates both the file and
+// the in-memory set. This store is NOT the log's only writer, though, and that is the correction
+// F-UAT05-2 made: `qompack pin` runs in its own process and appends to the same log while the
+// resident daemon holds a store it opened long before. A store that answered from its open-time
+// replay alone sealed the next checkpoint without that pin and — through the checkpoint's and the
+// idle task's Materialize — rewrote invariants.json without it too. So every read and every
+// mutation first folds in whatever the log gained since this store last read it (catchUpLocked):
+// one stat when nothing changed, and only the appended tail when something did. The log is
+// append-only, so a tail is all another writer can add; a log that got SHORTER was replaced (a
+// restore) and is replayed from the start.
 //
 // order is the insertion-order half of the ordered map §2 specifies. All sorts its output by
 // (Pinned, ID), so order does not decide the answer; it exists so the pre-sort sequence is
@@ -120,6 +126,11 @@ type pinStore struct {
 	live  map[string]Invariant
 	seen  map[string]bool
 
+	// cur is how much of the log memory already reflects, and warnedGone whether a log that was
+	// read and has since gone has been reported. See catchUpLocked.
+	cur        logCursor
+	warnedGone bool
+
 	// viewDirty records that the last attempt to regenerate invariants.json failed, so the view on
 	// disk is behind both the log and the live set. See materializeLocked for why it is needed and
 	// Add and Remove for what acts on it.
@@ -132,6 +143,19 @@ type pinStore struct {
 
 // pinStore is the implementation behind the seam every caller holds.
 var _ Store = (*pinStore)(nil)
+
+// logCursor records how far the in-memory set has folded the log.
+//
+// offset stops at the end of the last NEWLINE-TERMINATED line, never inside a line: a record another
+// process is appending at this instant may be visible only in part, and the next fold must start at
+// the beginning of that record, not in its middle. size is the file size the last fold saw, and is
+// what a later read compares against — an unterminated final line keeps size ahead of offset without
+// meaning the log grew again. exists says whether the log was there at all when it was last read.
+type logCursor struct {
+	offset int64
+	size   int64
+	exists bool
+}
 
 // logPath is <root>/.qompack/pins/invariants.jsonl.
 func (s *pinStore) logPath() string { return filepath.Join(s.l.Pins, logFileName) }
@@ -172,6 +196,11 @@ func (s *pinStore) Add(ctx context.Context, inv Invariant) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	// Another process may have pinned or removed this very id since this store last read the log;
+	// deciding "already live" from a stale set would skip an append the log needs, or duplicate one.
+	if err := s.catchUpLocked(); err != nil {
+		return err
+	}
 	if _, live := s.live[inv.ID]; live {
 		// Idempotent by id, but not blindly. If an earlier view write failed, the log and memory
 		// already carry this invariant while invariants.json does not, and a caller that read that
@@ -208,6 +237,9 @@ func (s *pinStore) Remove(ctx context.Context, id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	if err := s.catchUpLocked(); err != nil {
+		return err
+	}
 	if _, live := s.live[id]; !live {
 		if s.seen[id] {
 			// Already tombstoned. The same repair as Add's, in the direction that does real damage:
@@ -240,6 +272,9 @@ func (s *pinStore) All(ctx context.Context) ([]Invariant, error) {
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if err := s.catchUpLocked(); err != nil {
+		return nil, err
+	}
 	return s.snapshotLocked(), nil
 }
 
@@ -247,6 +282,12 @@ func (s *pinStore) All(ctx context.Context) ([]Invariant, error) {
 // a caller only needs it directly to repair a view that was deleted or corrupted out from under
 // the store — and checkpoint.FileWriter.Finalize calls it to guarantee the view a rehydrating
 // session reads matches the checkpoint that session is restoring.
+//
+// The live set is brought up to the log first. This is the call that made F-UAT05-2 visible: the
+// daemon's idle materialize_pins task and every seal regenerated the view from the set the daemon
+// replayed at open, overwriting the view `qompack pin` had just written with one that omitted its
+// pin. A log that cannot be read now is an error and the view is left as it is, rather than being
+// rewritten from a set nothing vouches for.
 func (s *pinStore) Materialize(ctx context.Context) error {
 	if err := ctx.Err(); err != nil {
 		return err
@@ -254,6 +295,9 @@ func (s *pinStore) Materialize(ctx context.Context) error {
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if err := s.catchUpLocked(); err != nil {
+		return err
+	}
 	return s.materializeLocked()
 }
 
@@ -409,7 +453,7 @@ func (s *pinStore) replaceView(b []byte) error {
 }
 
 // replay reads the whole log start to end and folds it into the in-memory ordered map. It runs
-// once, from OpenWith.
+// once, from OpenWith; every later read folds only what the log gained (catchUpLocked).
 //
 // A line that cannot be used is SKIPPED, counted on the registry, and reported once per open at
 // Warn — never fatal. That asymmetry is the point: a single corrupt record must not cost a
@@ -424,8 +468,63 @@ func (s *pinStore) replaceView(b []byte) error {
 // maxLineBytes. A line past the cap is simply one more shape of corruption, skipped and counted
 // like every other one.
 func (s *pinStore) replay() error {
+	return s.foldFrom(0, true)
+}
+
+// catchUpLocked folds into memory whatever the log gained since this store last read it.
+//
+// Nothing changed is the common case and costs one stat. A log that GREW is read from the cursor:
+// the log is append-only (§3.3, §7.4), so the bytes before the cursor are the bytes already folded
+// and only the tail can be new. A log SHORTER than the cursor cannot have been appended to — it was
+// replaced, which only a restore does — so the set is rebuilt from a full replay rather than read
+// past the end of a file that no longer holds what memory says it held. A replacement of equal or
+// greater length is indistinguishable from growth by size alone; restore stops the daemon first,
+// and a store opened afterwards replays from the start.
+//
+// A log that is ABSENT, or is no longer a regular file, holds nothing to fold, and the set already
+// held is kept rather than emptied: "no pins" would let the next checkpoint drop tier-1 content
+// silently, which is the one outcome this seam exists to prevent, and nothing another writer could
+// have appended is lost by keeping it — there is no tail to read. A log that WAS read and is now
+// gone is abnormal, so it is named once at Warn. A regular log that cannot be read is an error.
+func (s *pinStore) catchUpLocked() error {
+	fi, err := os.Stat(paths.Long(s.logPath()))
+	switch {
+	case errors.Is(err, fs.ErrNotExist) || (err == nil && !fi.Mode().IsRegular()):
+		if s.cur.exists && !s.warnedGone {
+			s.warnedGone = true
+			s.log.Warn("pins: the invariant log is gone or not a regular file; keeping the invariants already read",
+				"path", s.logPath(), "held", len(s.live))
+		}
+		return nil
+	case err != nil:
+		return fmt.Errorf("pins: checking %s: %w", s.logPath(), err)
+	}
+	s.warnedGone = false
+	size := fi.Size()
+	if s.cur.exists && size == s.cur.size {
+		return nil
+	}
+	if size < s.cur.offset {
+		s.log.Warn("pins: the invariant log is shorter than what was already read; replaying it from the start",
+			"path", s.logPath(), "size", size, "read", s.cur.offset)
+		s.order, s.live, s.seen = nil, make(map[string]Invariant), make(map[string]bool)
+		return s.foldFrom(0, true)
+	}
+	return s.foldFrom(s.cur.offset, false)
+}
+
+// foldFrom reads the log from byte start to its end, folds every usable record into memory, and
+// moves the cursor to the end of the last newline-terminated line.
+//
+// countTail says whether an unusable UNTERMINATED final line counts as damage. The open-time replay
+// counts it, as it always has: at open nothing else is writing, so an unterminated tail is what a
+// crashed writer left. A catch-up does not, because there it is as likely to be a record another
+// process is appending right now; it is read again, from its first byte, by the next fold that
+// finds the log changed. A usable unterminated line is applied either way — the replay has always
+// kept a record a crashed writer left without its newline — and applying it again later is a no-op.
+func (s *pinStore) foldFrom(start int64, countTail bool) error {
 	f, err := paths.OpenShared(s.logPath())
-	if errors.Is(err, fs.ErrNotExist) {
+	if errors.Is(err, fs.ErrNotExist) && !s.cur.exists {
 		return nil
 	}
 	if err != nil {
@@ -433,13 +532,31 @@ func (s *pinStore) replay() error {
 	}
 	defer func() { _ = f.Close() }()
 
+	fi, err := f.Stat()
+	if err != nil {
+		return fmt.Errorf("pins: reading %s: %w", s.logPath(), err)
+	}
+	if start > 0 {
+		if _, err := f.Seek(start, io.SeekStart); err != nil {
+			return fmt.Errorf("pins: reading %s: %w", s.logPath(), err)
+		}
+	}
+
 	r := bufio.NewReader(f)
+	pos := start
 	skipped := 0
 	for {
-		line, oversize, readErr := readCappedLine(r)
-		if oversize || (len(bytes.TrimSpace(line)) > 0 && !s.applyLine(line)) {
+		line, n, oversize, readErr := readCappedLine(r)
+		// ReadSlice reports no error exactly when it found the newline, so a nil error is a
+		// terminated line and anything else is the file's unterminated tail (or a read failure).
+		terminated := readErr == nil
+		usable := !oversize && (len(bytes.TrimSpace(line)) == 0 || s.applyLine(line))
+		if !usable && (terminated || countTail) {
 			skipped++
 			s.m.Counter(badLineCounter).Add(1)
+		}
+		if terminated {
+			pos += int64(n)
 		}
 		if readErr != nil {
 			if errors.Is(readErr, io.EOF) {
@@ -452,6 +569,7 @@ func (s *pinStore) replay() error {
 		s.log.Warn("pins: skipped malformed records while replaying the invariant log",
 			"path", s.logPath(), "skipped", skipped)
 	}
+	s.cur = logCursor{offset: pos, size: max(fi.Size(), pos), exists: true}
 	return nil
 }
 
@@ -482,8 +600,8 @@ func (s *pinStore) applyLine(line []byte) bool {
 	}
 }
 
-// readCappedLine reads one line, up to and including its terminating '\n', and reports whether
-// that line ran past maxLineBytes.
+// readCappedLine reads one line, up to and including its terminating '\n', and reports how many
+// bytes it consumed, the discarded ones included, and whether that line ran past maxLineBytes.
 //
 // An oversize line is DISCARDED as it is read rather than returned: the bytes past the cap are
 // never accumulated, the bytes before it are released, and the reader is left positioned at the
@@ -495,9 +613,10 @@ func (s *pinStore) applyLine(line []byte) bool {
 // whatever fits in the reader's fixed buffer and reports bufio.ErrBufferFull when the delimiter
 // was not among it. ReadBytes decides instead of asking, allocating however many bytes the file
 // claims to want.
-func readCappedLine(r *bufio.Reader) (line []byte, oversize bool, err error) {
+func readCappedLine(r *bufio.Reader) (line []byte, n int, oversize bool, err error) {
 	for {
 		chunk, readErr := r.ReadSlice('\n')
+		n += len(chunk)
 		if !oversize && len(line)+len(chunk) > maxLineBytes {
 			// Past the ceiling. Release what was accumulated so a damaged log cannot pin it in
 			// memory, and keep reading only to find the newline this line is missing.
@@ -509,7 +628,7 @@ func readCappedLine(r *bufio.Reader) (line []byte, oversize bool, err error) {
 			line = append(line, chunk...)
 		}
 		if !errors.Is(readErr, bufio.ErrBufferFull) {
-			return line, oversize, readErr
+			return line, n, oversize, readErr
 		}
 	}
 }
