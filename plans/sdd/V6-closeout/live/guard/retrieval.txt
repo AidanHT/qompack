@@ -129,3 +129,38 @@ same  plugins/data/ (2 entries)
 INFO  .qompack/ gained ['bin/', 'bin/c7b2b120a6efcfc1def58bd55dd29df51ec1bc0bc35a164258d5e0bc9c12803d/'] (run-created; record, remove only if yours)
 real home fingerprint unchanged
 check exit 0
+== session 12 UAT-11 diagnostic rerun (plugin-dir) — 2026-09-29 15:19:02 Eastern Daylight Time
+removed run-created empty plugins/data/qompack-inline/
+same  settings.json e15855d7e46a
+same  plugins/installed_plugins.json 728f75591291
+same  plugins/known_marketplaces.json 1b1eda7e17f0
+same  plugins/cache/ (10 entries)
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+INFO  .qompack/ gained ['bin/', 'bin/c7b2b120a6efcfc1def58bd55dd29df51ec1bc0bc35a164258d5e0bc9c12803d/'] (run-created; record, remove only if yours)
+real home fingerprint unchanged
+check exit 0
+== end-of-part check before staged-copy decision — 2026-09-29 15:19:29 Eastern Daylight Time
+same  settings.json e15855d7e46a
+same  plugins/installed_plugins.json 728f75591291
+same  plugins/known_marketplaces.json 1b1eda7e17f0
+same  plugins/cache/ (10 entries)
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+INFO  .qompack/ gained ['bin/', 'bin/c7b2b120a6efcfc1def58bd55dd29df51ec1bc0bc35a164258d5e0bc9c12803d/'] (run-created; record, remove only if yours)
+real home fingerprint unchanged
+check exit 0
+== staged-copy cleanup (retrieval part end): no qompack.exe running; ~/.qompack/bin/c7b2b120.../qompack.exe sha256 = the frozen bundle bin/qompack.exe
+(c7b2b120a6efcfc1def58bd55dd29df51ec1bc0bc35a164258d5e0bc9c12803d); homeguard listed it as gained (created 14:38:33 by session 1); no install in this part
+(--plugin-dir only), so install.md section 6 host uninstall is not applicable; removed with section 6 Remove-Item -Recurse -Force $HOME\.qompackin,
+then the empty run-created ~/.qompack (absent at snap).
+== END of retrieval part (after staged-copy cleanup) — 2026-09-29 15:19:52 Eastern Daylight Time
+same  settings.json e15855d7e46a
+same  plugins/installed_plugins.json 728f75591291
+same  plugins/known_marketplaces.json 1b1eda7e17f0
+same  plugins/cache/ (10 entries)
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+same  .qompack/ (0 entries)
+real home fingerprint unchanged
+check exit 0

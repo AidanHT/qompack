@@ -24,3 +24,4 @@ retrieval	8	UAT-10 status/dropped/eval surfaces (defaults)	plans/sdd/V6-closeout
 retrieval	9	UAT-11 steps 5-6 (large/unusual results, commit, /compact, pointer resolution)	plans/sdd/V6-closeout/live/uat/UAT-11/session	claude-haiku-4-5-20251001	0	58.366
 retrieval	10	C4.7 off ({"runtime":{"mode":"off"}})	plans/sdd/V6-closeout/live/c4/C4.7/off/session	claude-haiku-4-5-20251001	0	26.464
 retrieval	11	C4.7 reinj ({"runtime":{"migration":{"reinjection":{"sessionStartCompact":false}}}})	plans/sdd/V6-closeout/live/c4/C4.7/reinj/session	claude-haiku-4-5-20251001	0	38.027
+retrieval	12	UAT-11 diagnostic rerun: small first prompts, then large/unusual results, commit, /compact, pointers	plans/sdd/V6-closeout/live/uat/UAT-11/diag-rerun/session	claude-haiku-4-5-20251001	0	86.403

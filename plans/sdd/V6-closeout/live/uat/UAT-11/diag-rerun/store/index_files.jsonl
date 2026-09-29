@@ -1,0 +1,5 @@
+{"v":1,"path":"notes.md","ts":1790709458829,"turn":1,"root":"sha256:5e54f4d9ded9308921833be164d3d27b83a730539c2bef43090c72fe29b4adba","bytes":235}
+{"v":1,"path":"readme.md","ts":1790709461867,"turn":3,"root":"sha256:6cb4fc092ce1561911f4b0b97d571e39b983ae10a5aa8759e6d6d86ddb1efcd2","bytes":247}
+{"v":1,"path":"big.log","ts":1790709465386,"turn":5,"root":"sha256:ecc579c935763faa7e12629a2bf7e4f870a46e3fda9513e5f5526eeb68e3067c","bytes":366187}
+{"v":1,"path":"odd.txt","ts":1790709470532,"turn":7,"root":"sha256:e564dcc948ddba5f4679bd81cbd7bdfcac79170a1f84e23e6f0ed1a77fe2fcc4","bytes":2305}
+{"v":1,"path":"creds.env","ts":1790709470916,"turn":7,"root":"sha256:884ddc0710e9e5e94c06fd03424588f9401d4eb3b61f29bbd90ec4587dc98c3d","bytes":285}
