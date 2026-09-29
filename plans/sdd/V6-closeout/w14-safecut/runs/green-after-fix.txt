@@ -1,0 +1,10 @@
+=== RUN   TestExpandBoundCutNeverSplitsARedactedRegion
+--- PASS: TestExpandBoundCutNeverSplitsARedactedRegion (6.45s)
+=== RUN   TestSafeCutFindsTheSafeCutBelowARedactedRegion
+--- PASS: TestSafeCutFindsTheSafeCutBelowARedactedRegion (0.00s)
+=== RUN   TestSafeCutReportsFalseOnlyWhenNoCutIsSafe
+--- PASS: TestSafeCutReportsFalseOnlyWhenNoCutIsSafe (0.09s)
+=== RUN   TestExpandBoundPagesPastARedactedRegionLongerThanHalfThePage
+--- PASS: TestExpandBoundPagesPastARedactedRegionLongerThanHalfThePage (0.12s)
+PASS
+ok  	github.com/qompack/qompack/internal/mcp	6.987s
