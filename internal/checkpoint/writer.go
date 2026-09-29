@@ -903,7 +903,10 @@ func (d *Draft) appendNarrativeLocked(id core.SegmentID, line string) {
 // Abort deletes state/draft-<session>.json, drops the in-memory draft, and returns nil —
 // idempotent, a missing file included. It never un-marks encoded segments: those segments are
 // legitimately encoded into a draft that will be re-Begin-ned with the same seq, and MarkEncoded
-// is idempotent for the same seq (§8). The DPI guard is one-way.
+// is idempotent for the same seq (§8). The DPI guard is one-way. With a reserving segment log
+// (store.SegmentReservation) the marks an aborted draft made are reservations no seal will commit:
+// they hold for the rest of this log's life and are gone after a restart, which frees segments
+// that no checkpoint ever carried.
 //
 // The aborted draft is sealed and stays sealed, so a caller still holding the pointer can neither
 // Advance it nor Finalize it into an artifact. A discarded draft that could still be sealed would
