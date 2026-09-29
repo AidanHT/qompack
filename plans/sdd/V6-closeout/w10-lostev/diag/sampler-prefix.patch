@@ -1,0 +1,70 @@
+diff --git a/main.go b/main.go
+--- a/main.go
++++ b/main.go
+@@ -381,6 +381,9 @@ func runHarness(ctx context.Context, f flags, stdout, stderr io.Writer) (Report,
+ 		return Report{}, fmt.Errorf("%w (daemon stderr:\n%s)", err, dp.stderrString())
+ 	}
+ 	fmt.Fprintln(stdout, "hotpath: daemon is reachable")
++	diag := newDiagSampler(paths.Of(projectRoot).Spool, stdout)
++	go diag.run()
++	diag.setPhase("warm")
+ 
+ 	if f.warmDaemon {
+ 		fmt.Fprintf(stdout, "hotpath: warming daemon (%d hot-path observe.tool + %d admin.ping)...\n",
+@@ -404,6 +407,7 @@ func runHarness(ctx context.Context, f flags, stdout, stderr io.Writer) (Report,
+ 	if err != nil {
+ 		return Report{}, err
+ 	}
++	diag.setPhase("ba-bd")
+ 	fmt.Fprintf(stdout, "hotpath: measuring B-A/B-D (%d x qompack %v)...\n", f.iterations, hArgs)
+ 	bdSamples, err := measureSpawns(ctx, binPath, hArgs, f.iterations, childEnv, func(seq int) []byte {
+ 		return representativeObservePayload(baSessionID, projectRoot, seq)
+@@ -413,6 +417,7 @@ func runHarness(ctx context.Context, f flags, stdout, stderr io.Writer) (Report,
+ 	}
+ 	baSamples := subtractFloor(bdSamples.Wall, floorP50)
+ 
++	diag.setPhase("be")
+ 	fmt.Fprintf(stdout, "hotpath: measuring B-E (%d x qompack checkpoint)...\n", checkpointIterations)
+ 	beSamples, err := measureSpawns(ctx, binPath, []string{"checkpoint"}, checkpointIterations, childEnv, func(seq int) []byte {
+ 		return checkpointPayload(beSessionID, projectRoot, seq)
+@@ -442,6 +447,8 @@ func runHarness(ctx context.Context, f flags, stdout, stderr io.Writer) (Report,
+ 	if err != nil {
+ 		return Report{}, fmt.Errorf("hotpath: reading B-A/B-B off the daemon's status op: %w", err)
+ 	}
++	diag.setPhase("ackrtt")
++	diagCounters(stdout, "gated snapshot", gatedSnap.Counters, gatedSnap.SpoolFiles, gatedSnap.Hot)
+ 
+ 	fmt.Fprintf(stdout, "hotpath: measuring hook ACK round trip (%d x in-process observe.tool)...\n", ackRTTSamples)
+ 	ackRTT, err := measureAckRTT(ctx, addr, spool, projectRoot, ackRTTSamples)
+@@ -490,10 +497,12 @@ func runHarness(ctx context.Context, f flags, stdout, stderr io.Writer) (Report,
+ 	// tranche: the ledger's is the whole run, and the gated rows' is what the earlier snapshot saw.
+ 	// gatedLedger (delivery.go) scopes the missing-sample accounting to the second.
+ 	sent := expectedHotPathSends(f.iterations, f.warmDaemon) + ackRTTTrancheSends(len(ackRTT))
++	diag.setPhase("census")
+ 	census, err := censusClientSpool(paths.Of(projectRoot).Spool, spool.Path(), harnessHotPathSessions())
+ 	if err != nil {
+ 		return Report{}, err
+ 	}
++	censusIDs, _ := readSpoolIDs(paths.Of(projectRoot).Spool, true)
+ 
+ 	// The ledger's own status read, taken AFTER the tranche, because the gated snapshot above was
+ 	// taken before it and so cannot account for it. Only the delivered COUNT is read from here;
+@@ -503,7 +512,18 @@ func runHarness(ctx context.Context, f flags, stdout, stderr io.Writer) (Report,
+ 		return Report{}, fmt.Errorf("hotpath: reading the delivered count off the daemon's status op: %w", err)
+ 	}
+ 
++	diagCounters(stdout, "final snapshot", finalSnap.Counters, finalSnap.SpoolFiles, finalSnap.Hot)
++	fmt.Fprintf(stdout, "W10DIAG census: deferred=%d unreadable=%d files=%d censusIDs=%d sent=%d delivered(l0_ingest)=%d\n",
++		census.Deferred, census.Unreadable, census.Files, len(censusIDs), sent, finalSnap.Latency[budgetHistName(obs.BB)].N)
+ 	ledger, err := reconcileDelivery(sent, finalSnap.Latency[budgetHistName(obs.BB)].N, census)
++	if err != nil {
++		fmt.Fprintf(stdout, "W10DIAG reconcileDelivery: %v\n", err)
++	} else {
++		fmt.Fprintf(stdout, "W10DIAG reconcileDelivery: OK %+v\n", ledger)
++	}
++	ever := diag.finish()
++	stopDaemon(dp, addr, spool, stderr)
++	diagReport(stdout, projectRoot, f.iterations, censusIDs, ever)
+ 	if err != nil {
+ 		return Report{}, err
+ 	}

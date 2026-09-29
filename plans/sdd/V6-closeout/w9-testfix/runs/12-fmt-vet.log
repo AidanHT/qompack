@@ -1,0 +1,3 @@
+fmt-check exit=0
+vet windows exit=0
+vet linux exit=0

@@ -1,0 +1,11 @@
+=== RUN   TestIsolateHome_RedirectsEveryHomeLookupAndPutsItBack
+--- PASS: TestIsolateHome_RedirectsEveryHomeLookupAndPutsItBack (0.07s)
+=== RUN   TestIsolateHome_RunsNoGoCommandWhenTheToolchainIsPinned
+--- PASS: TestIsolateHome_RunsNoGoCommandWhenTheToolchainIsPinned (0.08s)
+=== RUN   TestIsolateHome_GoEnvLeavesNoTelemetryInTheHomeItRunsUnder
+--- PASS: TestIsolateHome_GoEnvLeavesNoTelemetryInTheHomeItRunsUnder (0.06s)
+=== RUN   TestIsolateHome_GoCommandsUnderTheIsolatedHomeLeaveNoTelemetry
+--- PASS: TestIsolateHome_GoCommandsUnderTheIsolatedHomeLeaveNoTelemetry (0.11s)
+PASS
+ok  	github.com/qompack/qompack/internal/paths/pathstest	1.076s
+exit=0

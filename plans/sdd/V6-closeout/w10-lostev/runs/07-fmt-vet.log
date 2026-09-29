@@ -1,0 +1,6 @@
+# go run ./tools/devtool fmt-check
+exit=0
+# go vet ./test/bench/hotpath/ (windows)
+exit=0
+# GOOS=linux go vet ./test/bench/hotpath/
+exit=0

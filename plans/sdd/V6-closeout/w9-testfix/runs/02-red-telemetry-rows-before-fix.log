@@ -1,0 +1,12 @@
+=== RUN   TestIsolateHome_GoEnvLeavesNoTelemetryInTheHomeItRunsUnder
+    home_test.go:155: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w9-testfix/internal/paths/pathstest/home_test.go:155
+        	Error:      	directory "C:\\Users\\Quant\\AppData\\Local\\Temp\\TestIsolateHome_GoEnvLeavesNoTelemetryInTheHomeItRunsUnder3144208973\\001\\AppData\\Roaming\\go\\telemetry" exists
+        	Test:       	TestIsolateHome_GoEnvLeavesNoTelemetryInTheHomeItRunsUnder
+        	Messages:   	the `go env` IsolateHome runs wrote Go telemetry into the home it ran under
+--- FAIL: TestIsolateHome_GoEnvLeavesNoTelemetryInTheHomeItRunsUnder (0.43s)
+=== RUN   TestIsolateHome_GoCommandsUnderTheIsolatedHomeLeaveNoTelemetry
+--- PASS: TestIsolateHome_GoCommandsUnderTheIsolatedHomeLeaveNoTelemetry (0.22s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/paths/pathstest	1.385s
+FAIL

@@ -1,0 +1,1 @@
+go run ./tools/devtool fmt-check: exit=0, no offenders (gofumpt -l printed nothing); content identical to 023025b1

@@ -1,0 +1,17 @@
+pass TestIntegration_AppendOnlyHoldsUnderConcurrentDaemonWrites 19.62
+pass TestIntegration_GCNeverCollectsALiveRootUnderIngest 38.99
+pass TestIntegration_ContractMonitorRunsAgainstRealStore 0.17
+pass TestIntegration_DegradedPassiveStillWritesToTheRealStore 2.06
+pass TestIntegration_BeladyPMinLandsAtLowCoupling 0.92
+pass TestIntegration_DAGSliceRanksStoreRootsWithoutDroppingAnything 0.36
+pass TestIntegration_SymbolNodesUseTheRealExtractor 0.32
+pass TestIntegration_HookEventThroughDaemonToStore 7.89
+pass TestIntegration_TombstoneRoundTripThroughStore 0.13
+pass TestIntegration_SupersessionMarksEarlierReadThroughDAG 0.14
+pass TestIntegration_SpooledEventsSurviveToTheStore 10.56
+pass TestRigs_TheMachinesHostRulesDoNotReachThem/x9v4 0.15
+pass TestRigs_TheMachinesHostRulesDoNotReachThem/x8v5 0.16
+pass TestRigs_TheMachinesHostRulesDoNotReachThem 0.31
+fail TestIntegration_HotPathWarmWithRealResidentState 247.14
+fail (package) 7673.051
+exit=1

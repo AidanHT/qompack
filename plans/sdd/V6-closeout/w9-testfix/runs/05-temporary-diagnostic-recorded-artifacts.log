@@ -1,0 +1,8 @@
+=== RUN   TestW9Diag_RecordedArtifacts
+    zz_w9diag_test.go:22: C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w9/testfix/linux-artifact.json: pop={planned:2064 baMissing:525 bbMissing:525 ledger:0xd3fff3baaf8} ledger=&{sent:2130 delivered:1540 deferred:590} err=<nil>
+    zz_w9diag_test.go:37: re-pointed: err=the gated B-A row's n=2000 plus the 0 samples the harness disclosed as never reaching the daemon's histogram is 2000, not the 2064 planned hot-path sends (2000 spawns + 64 warm-up hot tranche): the row is not the daemon-side histogram over this run's sends — a row re-pointed at the 2000 wall-clock spawn samples has exactly that n and no shortfall disclosure
+    zz_w9diag_test.go:22: C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w9/testfix/win-artifact.json: pop={planned:2064 baMissing:528 bbMissing:528 ledger:0xd3fff3babb8} ledger=&{sent:2130 delivered:1537 deferred:593} err=<nil>
+    zz_w9diag_test.go:37: re-pointed: err=the gated B-A row's n=2000 plus the 0 samples the harness disclosed as never reaching the daemon's histogram is 2000, not the 2064 planned hot-path sends (2000 spawns + 64 warm-up hot tranche): the row is not the daemon-side histogram over this run's sends — a row re-pointed at the 2000 wall-clock spawn samples has exactly that n and no shortfall disclosure
+--- PASS: TestW9Diag_RecordedArtifacts (0.04s)
+PASS
+ok  	github.com/qompack/qompack/test/integration	0.513s
