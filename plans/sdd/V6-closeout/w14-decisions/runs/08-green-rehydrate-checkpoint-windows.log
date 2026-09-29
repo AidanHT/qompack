@@ -1,0 +1,17 @@
+# fix seat: focused item-4 rows, then internal/rehydrate and internal/checkpoint in full, with the fix
+=== RUN   TestDecisions_OwnRankBeforeOtherSessionsDecisions
+--- PASS: TestDecisions_OwnRankBeforeOtherSessionsDecisions (0.00s)
+=== RUN   TestBuild_OwnDecisionsSurviveTheBudgetOverForeignOnes
+--- PASS: TestBuild_OwnDecisionsSurviveTheBudgetOverForeignOnes (0.00s)
+=== RUN   TestDecisions_RenderWhatWhyRejectedEvidence
+--- PASS: TestDecisions_RenderWhatWhyRejectedEvidence (0.00s)
+=== RUN   TestDecisions_OmitsEmptyLines
+--- PASS: TestDecisions_OmitsEmptyLines (0.00s)
+=== RUN   TestDecisions_OrderedBySliceScoreThenTurnThenID
+--- PASS: TestDecisions_OrderedBySliceScoreThenTurnThenID (0.00s)
+=== RUN   TestDecisions_GuardRejectsAFencedUnit
+--- PASS: TestDecisions_GuardRejectsAFencedUnit (0.00s)
+PASS
+ok  	github.com/qompack/qompack/internal/rehydrate	0.241s
+ok  	github.com/qompack/qompack/internal/rehydrate	1.067s
+ok  	github.com/qompack/qompack/internal/checkpoint	54.402s
