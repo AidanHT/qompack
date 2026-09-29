@@ -395,7 +395,7 @@
           "properties": {
             "maxResponseBytes": {
               "default": 262144,
-              "description": "maximum bytes an MCP tool response may return",
+              "description": "maximum bytes of result text the expand and re_read tools return (content JSON-escaped, with its envelope); other tools are not measured against it",
               "type": "integer",
               "x-qompack-range": "[4096,∞)",
               "x-qompack-section": "§8.7"

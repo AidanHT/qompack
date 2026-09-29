@@ -76,7 +76,7 @@ type RehydrateCfg struct {
 // MCPCfg controls the L6 retrieval tools' span-widening and response-size limits (§8.7).
 type MCPCfg struct {
 	SpanWidenLines   int `json:"spanWidenLines"   doc:"lines to widen a minimal span by when the caller requests more context" rng:"[0,∞)" sec:"§8.7"`
-	MaxResponseBytes int `json:"maxResponseBytes" doc:"maximum bytes an MCP tool response may return" rng:"[4096,∞)" sec:"§8.7"`
+	MaxResponseBytes int `json:"maxResponseBytes" doc:"maximum bytes of result text the expand and re_read tools return (content JSON-escaped, with its envelope); other tools are not measured against it" rng:"[4096,∞)" sec:"§8.7"`
 }
 
 // RSchedulerCfg is the §11.5 cache-regime namespace: scheduler knobs that describe the PROMPT
