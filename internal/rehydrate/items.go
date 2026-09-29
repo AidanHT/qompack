@@ -112,10 +112,24 @@ var (
 
 // ── bounds ──
 
+// maxUTF8BytesPerHostChar is the most UTF-8 one host character (a UTF-16 code unit, hostChars) can
+// take: three bytes for a Basic Multilingual Plane rune, while a four-byte rune is two units and an
+// invalid byte one. It is a property of the two encodings, not a tunable.
+const maxUTF8BytesPerHostChar = 3
+
+// intentReadLimit is how much of one L0 prompt capture item 2 reads. It is NOT a cut: a capture
+// longer than this is never quoted in part, it is named as an explicit overflow with the expand call
+// that returns it whole (buildUserIntent). It is derived, not chosen: a text of more than
+// maxUTF8BytesPerHostChar x PayloadCeilingChars bytes is more than PayloadCeilingChars host
+// characters, so it cannot be emitted whole inside the D5 ceiling, and reading further buys nothing
+// item 2 could inject.
+//
+// It replaces an 8,192-byte cap ("the tail of a paste is not the statement of intent") that item 2
+// then quoted as if it were the whole prompt, mid-word, under the heading that calls it verbatim
+// (F-UAT04-1): D5 admits a record whole or names it, and never presents a prefix as the record.
+const intentReadLimit int64 = maxUTF8BytesPerHostChar * PayloadCeilingChars
+
 const (
-	// maxIntentBytes caps how much of the L0 verbatim prompt item 2 reads. A prompt longer than
-	// this is a paste, and the tail of a paste is not the statement of intent.
-	maxIntentBytes = 8192
 	// maxReasonRunes bounds an elimination's reason line.
 	maxReasonRunes = 240
 	// maxDecisionWhatRunes and maxDecisionWhyRunes bound item 4's two prose lines.
@@ -336,14 +350,25 @@ func buildUserIntent(ctx context.Context, r Request, d Deps) built {
 	log := loggerOf(d)
 	fallback := strings.TrimSpace(r.Checkpoint.UserIntent.Original)
 
-	text, rec0, ok := readL0Intent(ctx, r, d)
-	if ok {
-		if drop, substituted := hostOrderNotice(ctx, r, d, rec0); substituted {
+	l0 := readL0First(ctx, d, r.Session)
+	if l0.state == l0Whole {
+		if drop, substituted := hostOrderNotice(ctx, r, d, l0.rec); substituted {
 			b.drops = append(b.drops, drop)
 		}
 	}
+	text := l0.text
 	switch {
-	case !ok:
+	case l0.state == l0TooLarge:
+		// The capture is longer than any payload the ceiling allows (intentReadLimit), so it is
+		// named whole rather than quoted in part (D5, F-UAT04-1), with the call that returns it. It
+		// was read only in part, so it is compared with nothing: no mismatch is claimed either way.
+		b.seen++
+		b.drops = append(b.drops, tier1Overflow(ItemUserIntent, "the verbatim original user intent",
+			"expand(tool_use_id="+string(firstPromptID(r.Session))+")"))
+		log.Info("rehydrate: the L0 original is longer than the ceiling can carry; named as an overflow",
+			"session", string(r.Session), "read_limit_bytes", intentReadLimit)
+		text = ""
+	case l0.state == l0Unavailable:
 		// Degraded but correct: §8.5 guarantees the checkpoint's copy is itself verbatim-from-L0
 		// and never regenerated, so this is a weaker provenance chain, not a wrong one. Info, not
 		// Loud — it is the ordinary case for a session whose first prompt predates the store.
@@ -371,7 +396,7 @@ func buildUserIntent(ctx context.Context, r Request, d Deps) built {
 		b.seen++
 		// L0 is the source of record when it answered; otherwise the checkpoint's own copy is.
 		pointer := "expand(tool_use_id=" + string(firstPromptID(r.Session)) + ")"
-		if !ok {
+		if l0.state == l0Unavailable {
 			pointer = checkpointPointer(r, "user_intent.original")
 		}
 		b.units = append(b.units, unit{
@@ -418,50 +443,77 @@ func buildUserIntent(ctx context.Context, r Request, d Deps) built {
 	return b
 }
 
-// readL0Intent resolves this session's verbatim first prompt from L0, reporting ok=false for every
-// reason the caller must fall back to the checkpoint's own copy.
+// l0State is how one L0 first-prompt lookup ended.
+type l0State uint8
+
+const (
+	// l0Unavailable: no usable capture — no store, no record, a record that fails its sanity check,
+	// unreadable or empty bytes. The caller falls back to the checkpoint's own copy.
+	l0Unavailable l0State = iota
+	// l0Whole: the capture was read in full; text is its verbatim, injection-stripped content.
+	l0Whole
+	// l0TooLarge: the capture exists and is longer than intentReadLimit. text is empty: a prefix is
+	// never handed back, because nothing may present one as the record (D5).
+	l0TooLarge
+)
+
+// l0Prompt is one resolved L0 first prompt.
+type l0Prompt struct {
+	text  string
+	rec   store.ToolUseRecord
+	state l0State
+}
+
+// readL0First resolves session s's verbatim first prompt, prompt_<s>_0, from L0.
 //
 // The record is sanity-checked BEFORE it is trusted: a record whose session or turn disagrees with
 // the derived id means SP-08's id scheme drifted, and injecting a record this slice cannot vouch
 // for is worse than injecting the checkpoint copy. That case is a Warn, because it is a contract
 // drift rather than an ordinary absence.
-func readL0Intent(ctx context.Context, r Request, d Deps) (string, store.ToolUseRecord, bool) {
+//
+// The capture is read whole, up to intentReadLimit; one longer than that is reported as l0TooLarge
+// with no text. It used to be read to 8,192 bytes and the prefix returned as if it were the prompt.
+func readL0First(ctx context.Context, d Deps, s core.SessionID) l0Prompt {
 	if d.Store == nil {
-		return "", store.ToolUseRecord{}, false
+		return l0Prompt{}
 	}
 	log := loggerOf(d)
 
-	rec, err := d.Store.ToolUse(ctx, firstPromptID(r.Session))
+	rec, err := d.Store.ToolUse(ctx, firstPromptID(s))
 	if err != nil || rec.Root == (core.Hash{}) {
-		return "", store.ToolUseRecord{}, false
+		return l0Prompt{}
 	}
-	if rec.Session != r.Session || rec.Turn != 0 {
+	if rec.Session != s || rec.Turn != 0 {
 		log.Warn("rehydrate: L0 prompt record does not match its derived id; using the checkpoint copy",
-			"session", string(r.Session), "got_session", string(rec.Session), "turn", int(rec.Turn))
-		return "", store.ToolUseRecord{}, false
+			"session", string(s), "got_session", string(rec.Session), "turn", int(rec.Turn))
+		return l0Prompt{}
 	}
 
 	rc, err := d.Store.Open(ctx, rec.Root)
 	if err != nil || rc == nil {
-		return "", store.ToolUseRecord{}, false
+		return l0Prompt{}
 	}
-	raw, readErr := io.ReadAll(io.LimitReader(rc, maxIntentBytes))
+	// One byte past the limit is what tells "exactly the limit" from "longer than it".
+	raw, readErr := io.ReadAll(io.LimitReader(rc, intentReadLimit+1))
 	closeErr := rc.Close()
 	if readErr != nil {
 		log.Debug("rehydrate: L0 prompt read failed", "err", readErr.Error())
-		return "", store.ToolUseRecord{}, false
+		return l0Prompt{}
 	}
 	if closeErr != nil {
 		log.Debug("rehydrate: L0 prompt close failed", "err", closeErr.Error())
+	}
+	if int64(len(raw)) > intentReadLimit {
+		return l0Prompt{rec: rec, state: l0TooLarge}
 	}
 
 	// A prior rehydration's payload could, in a pathological transcript, have been captured as a
 	// prompt; §8.5's tagging exists precisely so that material is identifiable and ignorable.
 	text := strings.TrimSpace(checkpoint.StripInjections(string(trimToRuneBoundary(raw))))
 	if text == "" {
-		return "", store.ToolUseRecord{}, false
+		return l0Prompt{}
 	}
-	return text, rec, true
+	return l0Prompt{text: text, rec: rec, state: l0Whole}
 }
 
 // hostOrderDropID is the drop ID of the notice hostOrderNotice writes, under
