@@ -1,0 +1,3 @@
+# Fix seat: go test -p 2 -count=1 -timeout=30m ./internal/daemon/ (at 9e3a61d8)
+ok  	github.com/qompack/qompack/internal/daemon	253.720s
+exit=0
