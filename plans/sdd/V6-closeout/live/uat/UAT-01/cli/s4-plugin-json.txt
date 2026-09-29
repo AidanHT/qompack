@@ -1,0 +1,30 @@
+installed cache copy: ~/.claude/plugins/cache/qompack-live/qompack/0.3.0 (plugin list installPath)
+--- .claude-plugin/plugin.json
+{
+  "name": "qompack",
+  "version": "0.3.0",
+  "description": "Cache-aware, retrieval-backed context compaction",
+  "author": {
+    "name": "Qompack"
+  },
+  "homepage": "https://github.com/AidanHT/qompack",
+  "keywords": [
+    "compaction",
+    "context",
+    "memory",
+    "cache"
+  ]
+}
+
+--- BUNDLE.json cmp frozen: identical
+--- checksums in cache:
+.claude-plugin/plugin.json: OK
+.mcp.json: OK
+bin/qompack.exe: OK
+commands/dropped.md: OK
+commands/eval.md: OK
+commands/pin.md: OK
+commands/recall.md: OK
+commands/status.md: OK
+commands/why.md: OK
+hooks/hooks.json: OK

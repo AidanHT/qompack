@@ -1,0 +1,2 @@
+$ claude plugin install qompack@qompack-live -s local --json
+cwd: <scratch>/install/uat01/proj

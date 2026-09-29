@@ -1,0 +1,106 @@
+UAT-01 — install, then record what is installed (agent-executed on the owner's real host per owner
+decision D3 by a Claude Code workflow subagent (Opus 5.5) — not human UAT)
+
+Date 2026-09-29 13:14-13:18 America/Toronto. Snapshot in snapshot.txt. Sessions used: 1.
+
+Preconditions (cli/00-preconditions.txt): fresh disposable project <scratch>/install/uat01/proj
+(git init, README.md + calc.py); no <project>/.qompack/; `test -e ~/.qompack/config.json` exit 1
+(absent; the file was never read); zero QOMPACK_* variables in the environment of every step and
+of the session; no --set. The driver was launched without the parent Claude Code session's
+linkage variables (see the tools note below), as a user's terminal would be.
+
+Step 1 install (real profile, LOCAL scope, disposable marketplace qompack-live around a copy of
+the frozen bundle): cli/01 marketplace add --scope local, exit 0 "(declared in local settings)";
+cli/02 install -s local --json exit 0; cli/03 plugin list --json (qompack entry only kept; the
+operator's other plugins are not committed): scope local, projectPath = the disposable project,
+installPath ~/.claude/plugins/cache/qompack-live/qompack/0.3.0.
+
+Session (session/): claude -p stream-json, haiku-4-5, --setting-sources project,local,
+--permission-mode dontAsk, two user turns (Read README.md; call the recall MCP tool). exit 0,
+15.4 s. Init event: mcp_servers [plugin:qompack:qompack connected, source plugin]; 8 tools
+mcp__plugin_qompack_qompack__{already_tried,dropped,expand,re_read,recall,record_eliminated,
+timeline,why}; slash_commands qompack:{dropped,eval,pin,recall,status,why} (no qompack:checkpoint,
+as D36 intends); plugins qompack 0.3.0 source qompack@qompack-live. Hooks seen (hook_started /
+hook_response success, exit 0): SessionStart:startup, UserPromptSubmit x2, PostToolUse (Read,
+ToolSearch, mcp recall), Stop x2. recall returned count 2, found true (the prompt and README.md).
+SessionEnd: no hook event in the host stream and nothing on stderr (no "Hook cancelled"); the
+project day log closed the segment at 17:15:04Z and index/sessions.jsonl carries the session's end,
+so the flush ran.
+
+Steps 2-8 (bundle CLI, cwd = project, no QOMPACK_*):
+ 2 version.txt: "0.3.0", exit 0
+ 3 snapshot.txt
+ 4 cli/s4-plugin-json.txt: installed cache copy .claude-plugin/plugin.json version "0.3.0";
+   checksums.txt verifies in the cache; BUNDLE.json identical to the frozen bundle
+ 5 cli/s5-s6-host-discovery.txt: 7 events declared (exec form ${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe
+   + args); host fired SessionStart, UserPromptSubmit, PostToolUse, Stop; PreCompact, SubagentStop
+   and SessionEnd were not exercised by this two-turn session (SessionEnd ran per the store, but the
+   host stream shows no event for it)
+ 6 same file: the 8 tools equal docs/mcp-tools.md's eight (match True)
+ 7 config-provenance.txt: all 108 leaves "// default config.Defaults()"; the ten gated switches,
+   runtime.telemetry.enabled and runtime.migration.compaction.blockManualCompact all false
+ 8 self-test.txt / self-test.json: exit 0, mode full, every row ok/info. OBSERVED values
+   ("to be confirmed at execution"): hook.additional_context_delivered not-yet-implemented;
+   precompact.has_time_to_write not-yet-implemented; precompact.custom_instructions_accepted
+   not-yet-implemented; mcp.server_registered not-yet-implemented; session_start.fires
+   marker-found (a real observation); session_start.source_compact no-precompact-pending;
+   hook.payload_shape "payload shape valid"; transcript.readable no-transcript-path;
+   plugin.root_resolves unset (the CLI runs outside a hook, so CLAUDE_PLUGIN_ROOT is unset).
+Extra diagnostics: cli/x-status (daemon live), cli/x-doctor-json, cli/x-fsck-json (daemon live),
+cli/y-* (after the daemon was stopped). Host transcript facts (no bodies): cli/transcript-facts.json.
+
+Daemon: pid 19612 ran from the D10 staged copy ~/.qompack/bin/c7b2b120.../qompack.exe with
+"daemon --project <project>". Defaults only (idle exit 1800 s), so after the CLI steps it was
+terminated by cli/x-stop-daemon.txt, which checked daemon.lock pid + image qompack.exe + a command
+line naming this project first. The lock was left for the staleness protocol (fsck: STALE).
+
+Cleanup: uninstall -s local --json exit 0 ("keptData": false); marketplace remove exit 0;
+the host left plugins/cache/qompack-live/qompack/0.3.0/ with .orphaned_at; this run created it
+(guard: gained), its only version's BUNDLE.json equals the frozen bundle, so it was removed
+(cli/z3). An empty plugins/data/qompack-qompack-live/ the host created during the session was
+removed by homeguard clean. Guard after cleanup: fingerprint unchanged; ~/.qompack gained bin/ and
+bin/c7b2b120.../ (the staged copy; removed at the end of the install part, after the UAT-12 runs
+that use the same binary). The project's .claude/settings.local.json was left with empty
+enabledPlugins/extraKnownMarketplaces (project file, disposable).
+
+Findings:
+ F-UAT01-1 (product, contract monitor) `qompack status` with the session's daemon live reports
+   "host contract: 2 of 9 assertion(s) FAILING": mcp.server_registered observed
+   "initialize-not-received" although the host's init showed plugin:qompack:qompack connected and
+   the model's recall call was answered by that server; and transcript.readable (warn)
+   "transcript_path does not exist" although the host wrote ~/.claude/projects/<slug>/<id>.jsonl
+   (the file appears to be created after SessionStart:startup in -p mode). Evidence
+   cli/x-status.stdout.txt, session/stream.jsonl, cli/transcript-facts.json.
+ F-UAT01-2 (product defect, fsck) after this ordinary two-turn session `qompack fsck --json` exits 1:
+   index.tool_use severity 2 "tool_use qompack-mcp:93dd88341192 reports turn 0 after turn 3 in
+   session 1b4bf1d7-...; turns are monotone". The MCP server's own ephemeral record
+   (tool "mcp__qompack__recall", tool_use_id qompack-mcp:...) is indexed with turn 0 after the hook
+   records at turn 3 (store/index_tool_use.jsonl). Reproduced with the daemon live and stopped
+   (cli/x-fsck-json, cli/y-fsck-json-stopped). Any real session that calls an MCP tool after the
+   first turn is expected to make fsck fail, which blocks C4.2's "fsck clean".
+ F-UAT01-3 (product, diagnostics disagreement) `qompack doctor --json` recording gaps:
+   captures.unpublished "degraded", "5 gap(s) across 7 sidecar(s)", while fsck's captures and
+   publication rows pass and status counts daemon.publication.unpublished_captures 0 (cli/x-doctor,
+   cli/y-doctor). Either doctor over-counts gaps for a normal session or fsck under-reports.
+ F-UAT01-4 (doc, stale expectation) Step 4 expects plugin.json version "0.1.0" at
+   `plugin/.claude-plugin/plugin.json`; the installed bundle has `.claude-plugin/plugin.json` at its
+   root with version 0.3.0 (step 2's text allows "a later build prints its own", step 4's does not).
+   Expectation not edited.
+ F-UAT01-5 (doc vs observation) Step 8 says precompact.custom_instructions_accepted reads `retired`
+   wherever its producer is declared; the installed CLI self-test reads not-yet-implemented (no
+   producer declared in a CLI self-test run); the daemon's own value was not listed by status (it
+   prints failing rows only).
+ F-UAT01-6 (host observation) the init event reports the plugin's path as the marketplace SOURCE
+   directory (<scratch>/install/uat01/marketplace/qompack-plugin-0.3.0-windows-amd64), while
+   `plugin list` reports installPath in ~/.claude/plugins/cache/...; for a directory-source
+   marketplace the host appears to load the plugin from the source directory. Which root the hooks
+   received as CLAUDE_PLUGIN_ROOT was not observable from the stream (the daemon ran from the D10
+   staged copy either way).
+
+Tools note: the driver's bin is claude.exe inside the npm package (the "claude" name on PATH is a
+.cmd shim CreateProcess cannot start; the first launch attempt failed with WinError 2 before any
+process started, so it is not a session). Parent-session variables removed for every session:
+CLAUDECODE, CLAUDE_CODE_SESSION_ID, CLAUDE_CODE_CHILD_SESSION, CLAUDE_CODE_MESSAGING_SOCKET,
+CLAUDE_CODE_MESSAGING_TOKEN, CLAUDE_CODE_BRIDGE_SESSION_ID, CLAUDE_CODE_SSE_PORT,
+CLAUDE_CODE_ENTRYPOINT, CLAUDE_CODE_EXECPATH, CLAUDE_PID, CLAUDE_CODE_SESSION_ATTENDED, AI_AGENT,
+CLAUDE_EFFORT.

@@ -1,0 +1,2 @@
+part	n	scenario	evidence_dir	model	exit	wall_s
+install	1	UAT-01	plans/sdd/V6-closeout/live/uat/UAT-01/session	claude-haiku-4-5-20251001	0	15.38
