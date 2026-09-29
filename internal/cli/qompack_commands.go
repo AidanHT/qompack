@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -226,6 +227,10 @@ func commandStatusSources(_ context.Context, root string, client ipc.Client) com
 	}
 }
 
+// statusNoDaemonReason is why status has no live answer when no daemon received its request.
+const statusNoDaemonReason = "no daemon answered: none is listening for this project yet. This command " +
+	"asked one to start unless runtime.daemon.enabled is false; run status again once it is up"
+
 // fetchDaemonStatus round-trips ipc.OpStatus and decodes the payload into the frontend's mirror.
 //
 // The decode goes through daemon.StatusSnapshot and is then copied member by member, rather than
@@ -238,6 +243,13 @@ func fetchDaemonStatus(ctx context.Context, client ipc.Client) (commands.DaemonS
 	}, commandCallDeadline)
 	if err != nil {
 		return commands.DaemonStatus{}, time.Time{}, fmt.Errorf("status round trip: %w", err)
+	}
+	if !resp.OK && resp.Err == "" {
+		// The client's answer for a request no daemon received: nothing listened at the project's
+		// address, or runtime.daemon.enabled is false. It carries no text of its own, and quoting it
+		// as a refusal printed "status refused: " with nothing after the colon (V6 close-out
+		// F-UAT03-3, F-C49-1).
+		return commands.DaemonStatus{}, time.Time{}, errors.New(statusNoDaemonReason)
 	}
 	if !resp.OK {
 		return commands.DaemonStatus{}, time.Time{}, fmt.Errorf("status refused: %s", resp.Err)
