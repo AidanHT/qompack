@@ -500,8 +500,7 @@ func TestV3_HotPathUnchangedWithLedgerResident(t *testing.T) {
 	// own note — the like-for-like, non-ingest share of B-A (see v3_x11_pair_test.go). Judged where
 	// every wall-clock row is judged; co-loaded, the same comparison is REPORTED and left to
 	// `test-e2e`, and only an unreadable artifact still fails. ──
-	tick := x11ObservedTickUS()
-	pair, pairErr := x11LedgerPairVerdict(baseRep, ledRep, tick)
+	pair, pairErr := x11LedgerPairVerdict(baseRep, ledRep)
 	pairVerdict := "gated: PASS"
 	switch {
 	case pairErr == nil && underCoload:
@@ -529,10 +528,10 @@ func TestV3_HotPathUnchangedWithLedgerResident(t *testing.T) {
 	// was not durable, so today's B-A, which contains B-B's fsync-before-ACK ingest (SP20-D1, SP20-D6),
 	// is a different quantity and is gated only against its obs.Budgets() limit above.
 	t.Logf("X11 pair (%s): hook_controlled_observed p50 no-ledger=%.3fms (p99 %.3fms, n=%d) | ledger=%.3fms "+
-		"(p99 %.3fms, n=%d) | ceiling %.3fms (x%.2f, floor one %.3fms tick)",
+		"(p99 %.3fms, n=%d) | ceiling %.3fms (x%.2f)",
 		pairVerdict, x11MsOf(pair.base.p50us), x11MsOf(pair.base.p99us), pair.base.n,
 		x11MsOf(pair.ledger.p50us), x11MsOf(pair.ledger.p99us), pair.ledger.n,
-		x11MsOf(int64(pair.ceilingUS)), x11RegressionFactor, x11MsOf(tick))
+		x11MsOf(int64(pair.ceilingUS)), x11RegressionFactor)
 	t.Logf("X11 B-A p99, REPORTED not gated against V2: no-ledger=%.3fms, ledger=%.3fms, V2 recorded %.3fms — "+
 		"V2's B-A excluded the handler and its ingest was not durable, so the figures measure different "+
 		"quantities (D42); B-A is gated only against its obs.Budgets() limit (%.0fms)",
