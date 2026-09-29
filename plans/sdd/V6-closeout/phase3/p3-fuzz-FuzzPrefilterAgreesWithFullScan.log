@@ -1,0 +1,25 @@
+fuzz: elapsed: 2s, gathering baseline coverage: 0/176 completed
+fuzz: elapsed: 4s, gathering baseline coverage: 176/176 completed, now fuzzing with 22 workers
+fuzz: elapsed: 5s, execs: 5162 (1713/sec), new interesting: 2 (total: 178)
+fuzz: elapsed: 8s, execs: 22791 (5867/sec), new interesting: 17 (total: 193)
+fuzz: elapsed: 11s, execs: 28452 (1890/sec), new interesting: 22 (total: 198)
+fuzz: elapsed: 14s, execs: 29641 (398/sec), new interesting: 23 (total: 199)
+fuzz: elapsed: 17s, execs: 29641 (0/sec), new interesting: 23 (total: 199)
+fuzz: elapsed: 20s, execs: 33225 (1192/sec), new interesting: 24 (total: 200)
+fuzz: elapsed: 23s, execs: 35473 (750/sec), new interesting: 24 (total: 200)
+fuzz: elapsed: 26s, execs: 40627 (1710/sec), new interesting: 26 (total: 202)
+fuzz: elapsed: 29s, execs: 41288 (221/sec), new interesting: 27 (total: 203)
+fuzz: elapsed: 32s, execs: 41374 (29/sec), new interesting: 27 (total: 203)
+fuzz: elapsed: 35s, execs: 42575 (401/sec), new interesting: 28 (total: 204)
+fuzz: elapsed: 38s, execs: 43904 (444/sec), new interesting: 30 (total: 206)
+fuzz: elapsed: 41s, execs: 43905 (0/sec), new interesting: 30 (total: 206)
+fuzz: elapsed: 44s, execs: 43906 (0/sec), new interesting: 30 (total: 206)
+fuzz: elapsed: 47s, execs: 47338 (1148/sec), new interesting: 30 (total: 206)
+fuzz: elapsed: 50s, execs: 47340 (1/sec), new interesting: 30 (total: 206)
+fuzz: elapsed: 53s, execs: 47341 (0/sec), new interesting: 30 (total: 206)
+fuzz: elapsed: 56s, execs: 47341 (0/sec), new interesting: 30 (total: 206)
+fuzz: elapsed: 59s, execs: 47341 (0/sec), new interesting: 30 (total: 206)
+fuzz: elapsed: 1m2s, execs: 47341 (0/sec), new interesting: 30 (total: 206)
+fuzz: elapsed: 1m3s, execs: 47341 (0/sec), new interesting: 30 (total: 206)
+PASS
+ok  	github.com/qompack/qompack/internal/canon	63.274s

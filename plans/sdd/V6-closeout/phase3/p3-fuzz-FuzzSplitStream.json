@@ -1,0 +1,26 @@
+{
+  "id": "p3-fuzz-FuzzSplitStream",
+  "cwd": "C:/Users/Quant/Documents/Programming/Projects/qompack-cx-cand",
+  "argv": [
+    "go",
+    "test",
+    "-run",
+    "^$",
+    "-fuzz",
+    "^FuzzSplitStream$",
+    "-fuzztime",
+    "60s",
+    "./internal/chunk"
+  ],
+  "source_head": "a94a3fb97cdd18633b6b6670446fab2cb98c304c",
+  "source_dirty": "",
+  "environment": {
+    "GOFLAGS": "-p=4",
+    "GOPATH": "C:\\Users\\Quant\\go"
+  },
+  "started_at": "2026-09-28T21:52:04-04:00",
+  "ended_at": "2026-09-28T21:53:07-04:00",
+  "exit_code": 0,
+  "log": "p3-fuzz-FuzzSplitStream.log",
+  "log_sha256": "cb05b3812b94879b9c7c109fd1f73f87872ffa2b6745ec5000b86c505a7d47d9"
+}

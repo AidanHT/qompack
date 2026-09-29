@@ -1,0 +1,26 @@
+{
+  "id": "p3-fuzz-FuzzCanonicalize",
+  "cwd": "C:/Users/Quant/Documents/Programming/Projects/qompack-cx-cand",
+  "argv": [
+    "go",
+    "test",
+    "-run",
+    "^$",
+    "-fuzz",
+    "^FuzzCanonicalize$",
+    "-fuzztime",
+    "60s",
+    "./internal/canon"
+  ],
+  "source_head": "a94a3fb97cdd18633b6b6670446fab2cb98c304c",
+  "source_dirty": "",
+  "environment": {
+    "GOFLAGS": "-p=4",
+    "GOPATH": "C:\\Users\\Quant\\go"
+  },
+  "started_at": "2026-09-28T21:42:06-04:00",
+  "ended_at": "2026-09-28T21:43:41-04:00",
+  "exit_code": 0,
+  "log": "p3-fuzz-FuzzCanonicalize.log",
+  "log_sha256": "d0dcbbd4fec772cff8cee8ee2de8e8d61bc0529fbf36ba5b2988bfb0cc62725c"
+}

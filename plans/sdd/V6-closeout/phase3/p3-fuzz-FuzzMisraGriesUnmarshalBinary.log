@@ -1,0 +1,25 @@
+fuzz: elapsed: 1s, gathering baseline coverage: 0/85 completed
+fuzz: elapsed: 1s, gathering baseline coverage: 85/85 completed, now fuzzing with 22 workers
+fuzz: elapsed: 4s, execs: 174297 (57996/sec), new interesting: 0 (total: 85)
+fuzz: elapsed: 7s, execs: 256298 (27334/sec), new interesting: 0 (total: 85)
+fuzz: elapsed: 10s, execs: 286058 (9918/sec), new interesting: 0 (total: 85)
+fuzz: elapsed: 13s, execs: 301803 (5255/sec), new interesting: 0 (total: 85)
+fuzz: elapsed: 16s, execs: 321801 (6654/sec), new interesting: 0 (total: 85)
+fuzz: elapsed: 19s, execs: 335391 (4530/sec), new interesting: 0 (total: 85)
+fuzz: elapsed: 22s, execs: 340321 (1644/sec), new interesting: 0 (total: 85)
+fuzz: elapsed: 25s, execs: 340321 (0/sec), new interesting: 0 (total: 85)
+fuzz: elapsed: 28s, execs: 340321 (0/sec), new interesting: 0 (total: 85)
+fuzz: elapsed: 31s, execs: 340321 (0/sec), new interesting: 0 (total: 85)
+fuzz: elapsed: 34s, execs: 340321 (0/sec), new interesting: 0 (total: 85)
+fuzz: elapsed: 37s, execs: 340321 (0/sec), new interesting: 0 (total: 85)
+fuzz: elapsed: 40s, execs: 340321 (0/sec), new interesting: 0 (total: 85)
+fuzz: elapsed: 43s, execs: 340321 (0/sec), new interesting: 0 (total: 85)
+fuzz: elapsed: 46s, execs: 340321 (0/sec), new interesting: 0 (total: 85)
+fuzz: elapsed: 49s, execs: 340321 (0/sec), new interesting: 0 (total: 85)
+fuzz: elapsed: 52s, execs: 340321 (0/sec), new interesting: 0 (total: 85)
+fuzz: elapsed: 55s, execs: 340321 (0/sec), new interesting: 0 (total: 85)
+fuzz: elapsed: 58s, execs: 340321 (0/sec), new interesting: 0 (total: 85)
+fuzz: elapsed: 1m1s, execs: 340321 (0/sec), new interesting: 0 (total: 85)
+fuzz: elapsed: 1m2s, execs: 340321 (0/sec), new interesting: 0 (total: 85)
+PASS
+ok  	github.com/qompack/qompack/internal/sketch	62.169s

@@ -1,0 +1,21 @@
+{
+  "id": "p3-plugin-validate",
+  "cwd": "C:/Users/Quant/Documents/Programming/Projects/qompack-cx-cand",
+  "argv": [
+    "go",
+    "run",
+    "./tools/devtool",
+    "plugin-validate"
+  ],
+  "source_head": "a94a3fb97cdd18633b6b6670446fab2cb98c304c",
+  "source_dirty": "",
+  "environment": {
+    "GOFLAGS": "-p=4",
+    "GOPATH": "C:\\Users\\Quant\\go"
+  },
+  "started_at": "2026-09-28T21:42:00-04:00",
+  "ended_at": "2026-09-28T21:42:01-04:00",
+  "exit_code": 0,
+  "log": "p3-plugin-validate.log",
+  "log_sha256": "54dc349dd07987ac71fabab242f42b78c49de7ece1107ca25f3783807a12d6fd"
+}

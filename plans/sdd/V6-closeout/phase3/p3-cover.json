@@ -1,0 +1,23 @@
+{
+  "id": "p3-cover",
+  "cwd": "C:/Users/Quant/Documents/Programming/Projects/qompack-cx-cand",
+  "argv": [
+    "env",
+    "QOMPACK_UNDER_COLOAD=1",
+    "go",
+    "run",
+    "./tools/devtool",
+    "cover"
+  ],
+  "source_head": "a94a3fb97cdd18633b6b6670446fab2cb98c304c",
+  "source_dirty": "",
+  "environment": {
+    "GOFLAGS": "-p=4",
+    "GOPATH": "C:\\Users\\Quant\\go"
+  },
+  "started_at": "2026-09-28T21:09:32-04:00",
+  "ended_at": "2026-09-28T21:40:55-04:00",
+  "exit_code": 1,
+  "log": "p3-cover.log",
+  "log_sha256": "bc176de6a4bc4115bb62865b2fe406187b449bdc6048a0bab277e36d82a83e8d"
+}

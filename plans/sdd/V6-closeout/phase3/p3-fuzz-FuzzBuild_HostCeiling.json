@@ -1,0 +1,26 @@
+{
+  "id": "p3-fuzz-FuzzBuild_HostCeiling",
+  "cwd": "C:/Users/Quant/Documents/Programming/Projects/qompack-cx-cand",
+  "argv": [
+    "go",
+    "test",
+    "-run",
+    "^$",
+    "-fuzz",
+    "^FuzzBuild_HostCeiling$",
+    "-fuzztime",
+    "60s",
+    "./internal/rehydrate"
+  ],
+  "source_head": "a94a3fb97cdd18633b6b6670446fab2cb98c304c",
+  "source_dirty": "",
+  "environment": {
+    "GOFLAGS": "-p=4",
+    "GOPATH": "C:\\Users\\Quant\\go"
+  },
+  "started_at": "2026-09-28T22:04:43-04:00",
+  "ended_at": "2026-09-28T22:05:48-04:00",
+  "exit_code": 0,
+  "log": "p3-fuzz-FuzzBuild_HostCeiling.log",
+  "log_sha256": "6b42bf0496afeb579d4aacf064bea831b947ef17d6d7e31f6773863c4073fc31"
+}

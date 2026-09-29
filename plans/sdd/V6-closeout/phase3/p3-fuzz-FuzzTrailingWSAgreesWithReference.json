@@ -1,0 +1,26 @@
+{
+  "id": "p3-fuzz-FuzzTrailingWSAgreesWithReference",
+  "cwd": "C:/Users/Quant/Documents/Programming/Projects/qompack-cx-cand",
+  "argv": [
+    "go",
+    "test",
+    "-run",
+    "^$",
+    "-fuzz",
+    "^FuzzTrailingWSAgreesWithReference$",
+    "-fuzztime",
+    "60s",
+    "./internal/canon"
+  ],
+  "source_head": "a94a3fb97cdd18633b6b6670446fab2cb98c304c",
+  "source_dirty": "",
+  "environment": {
+    "GOFLAGS": "-p=4",
+    "GOPATH": "C:\\Users\\Quant\\go"
+  },
+  "started_at": "2026-09-28T21:47:04-04:00",
+  "ended_at": "2026-09-28T21:48:08-04:00",
+  "exit_code": 0,
+  "log": "p3-fuzz-FuzzTrailingWSAgreesWithReference.log",
+  "log_sha256": "aefc18e4811e18f00f1c571e59560ad25c12855e223787e6aa2a2cbf7333f828"
+}

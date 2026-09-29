@@ -1,0 +1,21 @@
+{
+  "id": "p3-test-docs",
+  "cwd": "C:/Users/Quant/Documents/Programming/Projects/qompack-cx-cand",
+  "argv": [
+    "go",
+    "test",
+    "-count=1",
+    "./test/docs/..."
+  ],
+  "source_head": "a94a3fb97cdd18633b6b6670446fab2cb98c304c",
+  "source_dirty": "",
+  "environment": {
+    "GOFLAGS": "-p=4",
+    "GOPATH": "C:\\Users\\Quant\\go"
+  },
+  "started_at": "2026-09-28T21:40:59-04:00",
+  "ended_at": "2026-09-28T21:41:03-04:00",
+  "exit_code": 0,
+  "log": "p3-test-docs.log",
+  "log_sha256": "4a41cbe1dae0484aebec4a5f7c0001bf144a88104520a9309801d766e44455a3"
+}

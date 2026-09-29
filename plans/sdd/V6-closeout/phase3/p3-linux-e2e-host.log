@@ -1,0 +1,34 @@
+run_id=cx-p3-p3-linux-e2e-a94a3fb-20260928T173911Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-cand
+rev=a94a3fb9
+commit=a94a3fb97cdd18633b6b6670446fab2cb98c304c
+bundle_sha256=624fc8a4669c664635e3f5aaa8b01790c73391bfe1031579de7dbbd4a8f1aaed
+host_started_utc=2026-09-28T17:39:17Z
+inner_args=--coload --timeout 150m -- ./test/e2e
+/work/cx-p3-p3-linux-e2e-a94a3fb-20260928T173911Z.bundle: OK
+run_id=cx-p3-p3-linux-e2e-a94a3fb-20260928T173911Z
+commit=a94a3fb97cdd18633b6b6670446fab2cb98c304c
+tree=dda6a1166c053b856d9a635edc106e25ee0f2295
+bundle_sha256=624fc8a4669c664635e3f5aaa8b01790c73391bfe1031579de7dbbd4a8f1aaed
+started_utc=2026-09-28T17:39:20Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=1 timeout=150m gomaxprocs=4 coload=1
+run=
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+PASS      github.com/qompack/qompack/test/e2e  (pass=308 fail=0 skip=3)
+go_test_exit=0
+exit=0
+artifacts: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/linux/cx-p3-p3-linux-e2e-a94a3fb-20260928T173911Z-artifacts
+exit=0

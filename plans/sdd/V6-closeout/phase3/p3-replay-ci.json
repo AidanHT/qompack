@@ -1,0 +1,22 @@
+{
+  "id": "p3-replay-ci",
+  "cwd": "C:/Users/Quant/Documents/Programming/Projects/qompack-cx-cand",
+  "argv": [
+    "go",
+    "run",
+    "./tools/devtool",
+    "replay",
+    "--ci"
+  ],
+  "source_head": "a94a3fb97cdd18633b6b6670446fab2cb98c304c",
+  "source_dirty": "",
+  "environment": {
+    "GOFLAGS": "-p=4",
+    "GOPATH": "C:\\Users\\Quant\\go"
+  },
+  "started_at": "2026-09-28T21:42:01-04:00",
+  "ended_at": "2026-09-28T21:42:05-04:00",
+  "exit_code": 0,
+  "log": "p3-replay-ci.log",
+  "log_sha256": "1d6f6d7f39413435fdb2b6cc6d9932dcbbbb0cb12d684f8da68a6b9ae6f33f81"
+}
