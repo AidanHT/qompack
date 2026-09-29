@@ -126,3 +126,35 @@ func TestSegment_CommitEncodedWritesTheSealedSequence(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, seg.EncodedOnce, "segment %d was only ever reserved", c)
 }
+
+// TestSegment_DurableEncodeFloorIsTheHighestRecordedSeq pins the O(1) answer checkpoint.Begin reads
+// instead of copying the whole segment log (Range) on every fresh draft: the highest sequence a
+// DURABLE encode record names, from the replayed file and from every record appended since. A
+// reservation is not a record and does not raise it.
+func TestSegment_DurableEncodeFloorIsTheHighestRecordedSeq(t *testing.T) {
+	f := newIdxStore(t)
+	ctx := context.Background()
+	sl := f.s.Segments()
+	floorOf := func(sl SegmentLog) core.CheckpointSeq {
+		t.Helper()
+		fl, ok := sl.(SegmentEncodeFloor)
+		require.True(t, ok, "the store's own segment log reports its durable encode floor")
+		return fl.DurableEncodeFloor()
+	}
+	require.Zero(t, floorOf(sl), "an empty log names no checkpoint")
+
+	a := openClosed(t, sl, segSession, 0, 3)
+	b := openClosed(t, sl, segSession, 4, 7)
+	c := openClosed(t, sl, segSession, 8, 11)
+	r := sl.(SegmentReservation)
+	require.NoError(t, r.ReserveEncoded(ctx, []core.SegmentID{a}, 9))
+	require.Zero(t, floorOf(sl), "a reservation names nothing durably")
+	require.NoError(t, r.CommitEncoded(ctx, []core.SegmentID{a}, 4))
+	require.Equal(t, core.CheckpointSeq(4), floorOf(sl), "the seal's record")
+	require.NoError(t, sl.MarkEncoded(ctx, []core.SegmentID{b}, 6))
+	require.Equal(t, core.CheckpointSeq(6), floorOf(sl), "a single-phase mark's record")
+	require.NoError(t, r.ReserveEncoded(ctx, []core.SegmentID{c}, 12))
+	require.Equal(t, core.CheckpointSeq(6), floorOf(sl))
+
+	require.Equal(t, core.CheckpointSeq(6), floorOf(f.reopen(t).Segments()), "replayed from the file")
+}

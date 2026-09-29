@@ -101,6 +101,15 @@ type FileWriter struct {
 	// concurrent calls for one session both observe no live draft, both publish, and the loser's
 	// draft is displaced while still holding the same file path.
 	begins map[core.SessionID]*sessionGate
+	// claimFloorMu serializes loadClaimFloor and guards claimFloorLoaded and draftScans.
+	// claimFloorLoaded is set once persistedClaimFloor has run to completion for this writer; its
+	// answer is then part of issuedSeq, and no later Begin scans again. The lock order is a
+	// session's begin gate, then claimFloorMu, then mu.
+	claimFloorMu     sync.Mutex
+	claimFloorLoaded bool
+	// draftScans counts persistedClaimFloor's state/ scans, so a test can pin that a writer makes
+	// one (export_test.go).
+	draftScans int
 }
 
 // sessionGate is one session's Begin admission gate, reference-counted so the map does not grow
@@ -189,18 +198,15 @@ func (w *FileWriter) releaseBeginGate(s core.SessionID, g *sessionGate) {
 // "encoded-once flag, and checkpoint reference"). Choosing a free number up front is the cheap
 // half of avoiding that; Finalize enforces the other half.
 //
-// floor is persistedClaimFloor's answer: numbers another daemon lifetime already gave a draft that
-// is still unsealed, or that a durable encode record names. They are skipped too, because issuedSeq
-// only remembers this writer's own lifetime.
-func (w *FileWriter) claimSeq(floor core.CheckpointSeq) core.CheckpointSeq {
+// Numbers another daemon lifetime already gave a draft that is still unsealed, or that a durable
+// encode record names, are skipped too: loadClaimFloor folds them into issuedSeq before the first
+// fresh draft of this writer's lifetime claims a number.
+func (w *FileWriter) claimSeq() core.CheckpointSeq {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
 	seq := maxSeq(w.l) + 1
 	if next := w.issuedSeq + 1; next > seq {
-		seq = next
-	}
-	if next := floor + 1; next > seq {
 		seq = next
 	}
 	for range maxSeqCollisionRetries {
@@ -395,9 +401,10 @@ func (w *FileWriter) Begin(ctx context.Context, s core.SessionID, parent core.Ch
 		return d, nil
 	}
 
+	w.loadClaimFloor(ctx, src)
 	d := &Draft{
 		session:  s,
-		seq:      w.claimSeq(w.persistedClaimFloor(ctx, src)),
+		seq:      w.claimSeq(),
 		parent:   parent,
 		encoded:  map[core.SegmentID]bool{},
 		src:      src,
@@ -1067,10 +1074,29 @@ func seqClaimed(l paths.Layout, seq core.CheckpointSeq) bool {
 	return false
 }
 
+// loadClaimFloor folds persistedClaimFloor into issuedSeq the first time this writer begins a fresh
+// draft, and never again. The numbers it finds are fixed by the time the writer opens: only the
+// daemon holding the project's lock creates drafts or seals checkpoints, and every number this
+// writer hands out afterwards is issuedSeq's already. So the state/ scan is paid once per writer,
+// not on every Begin — Finalize's afterSeal Begins a successor inside the PreCompact budget (B-E),
+// and the drafts of ended sessions accumulate with the project's history. A scan that could not
+// finish (an unreadable state/ directory, a segment log whose Range failed) is retried next time.
+func (w *FileWriter) loadClaimFloor(ctx context.Context, src SourceSet) {
+	w.claimFloorMu.Lock()
+	defer w.claimFloorMu.Unlock()
+	if w.claimFloorLoaded {
+		return
+	}
+	floor, complete := w.persistedClaimFloor(ctx, src)
+	w.noteSeq(floor)
+	w.claimFloorLoaded = complete
+}
+
 // persistedClaimFloor is the highest checkpoint sequence number the project already holds for
 // something that is not sealed: a persisted draft of any session (state/draft-*.json, set-aside
 // .stale.json ones included) and any encode record in the segment log. A fresh draft must not take
-// such a number, and issuedSeq cannot say so, because it only remembers this writer's lifetime.
+// such a number, and issuedSeq cannot say so on its own, because it only remembers this writer's
+// lifetime. complete is false when a source could not be read, so the caller asks again.
 //
 // The case it closes is a store an earlier daemon left behind (F-UAT03-2): session A's draft 0002
 // persisted with segments marked into it — durably, by builds before the two-phase encode — and a
@@ -1078,38 +1104,84 @@ func seqClaimed(l paths.Layout, seq core.CheckpointSeq) bool {
 // seal then made A's claim look valid while 0002 held none of A's turns, and A's own draft, resumed
 // later, found 0002 taken and was set aside with its segments encoded into nothing.
 //
-// Unreadable entries are skipped: this only ever raises the number claimed, and a gap in the
-// sequence is harmless where a collision is not.
-func (w *FileWriter) persistedClaimFloor(ctx context.Context, src SourceSet) core.CheckpointSeq {
+// Its cost is one directory listing and, per draft file, the few hundred bytes up to its "seq"
+// (draftSeqOf); the segment log answers from SegmentEncodeFloor in O(1), and only a log without that
+// capability (a test double) is copied through Range. Unreadable drafts are skipped: this only ever
+// raises the number claimed, and a gap in the sequence is harmless where a collision is not.
+// The caller holds claimFloorMu.
+func (w *FileWriter) persistedClaimFloor(ctx context.Context, src SourceSet) (core.CheckpointSeq, bool) {
+	w.draftScans++
 	var floor core.CheckpointSeq
-	if entries, err := os.ReadDir(paths.Long(w.l.State)); err == nil {
+	complete := true
+	entries, err := os.ReadDir(paths.Long(w.l.State))
+	switch {
+	case err == nil:
 		for _, e := range entries {
 			name := e.Name()
 			if e.IsDir() || !strings.HasPrefix(name, "draft-") || !strings.HasSuffix(name, ".json") {
 				continue
 			}
-			b, rerr := os.ReadFile(paths.Long(filepath.Join(w.l.State, name)))
-			if rerr != nil {
-				continue
+			if seq, ok := draftSeqOf(filepath.Join(w.l.State, name)); ok && seq > floor {
+				floor = seq
 			}
-			var df struct {
-				Seq core.CheckpointSeq `json:"seq"`
-			}
-			if json.Unmarshal(b, &df) == nil && df.Seq > floor {
-				floor = df.Seq
+		}
+	case !os.IsNotExist(err):
+		complete = false
+	}
+	switch segs := src.Segments.(type) {
+	case store.SegmentEncodeFloor:
+		if f := segs.DurableEncodeFloor(); f > floor {
+			floor = f
+		}
+	case nil:
+		complete = false
+	default:
+		all, rerr := segs.Range(ctx, 0, core.TurnIndex(math.MaxInt))
+		if rerr != nil {
+			complete = false
+		}
+		for _, seg := range all {
+			if seg.EncodedOnce && seg.CheckpointSeq > floor {
+				floor = seg.CheckpointSeq
 			}
 		}
 	}
-	if src.Segments != nil {
-		if segs, err := src.Segments.Range(ctx, 0, core.TurnIndex(math.MaxInt)); err == nil {
-			for _, seg := range segs {
-				if seg.EncodedOnce && seg.CheckpointSeq > floor {
-					floor = seg.CheckpointSeq
-				}
+	return floor, complete
+}
+
+// draftSeqOf reads a persisted draft's top-level "seq" and nothing after it. draftFile writes the
+// field second, after the session id, so the decoder stops within its first buffer however large
+// the draft's checkpoint body has grown. The file is opened shared (paths.OpenShared): another
+// session's draft may be replaced by its own persist while this reads it, and on Windows an ordinary
+// handle would make that replace fail.
+func draftSeqOf(p string) (core.CheckpointSeq, bool) {
+	f, err := paths.OpenShared(p)
+	if err != nil {
+		return 0, false
+	}
+	defer func() { _ = f.Close() }()
+	dec := json.NewDecoder(f)
+	if tok, terr := dec.Token(); terr != nil || tok != json.Delim('{') {
+		return 0, false
+	}
+	for dec.More() {
+		tok, terr := dec.Token()
+		if terr != nil {
+			return 0, false
+		}
+		if key, _ := tok.(string); key == "seq" {
+			var seq core.CheckpointSeq
+			if dec.Decode(&seq) != nil {
+				return 0, false
 			}
+			return seq, true
+		}
+		var skip json.RawMessage
+		if dec.Decode(&skip) != nil {
+			return 0, false
 		}
 	}
-	return floor
+	return 0, false
 }
 
 // draftPathFor names session s's draft file: state/draft-<session>.json (§7). Callers must have

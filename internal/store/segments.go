@@ -105,6 +105,9 @@ type segLog struct {
 	// durable, so the log never names a checkpoint that has not been sealed (F-UAT03-2); a draft
 	// that outlives this log re-reserves from its own state file.
 	reserved map[core.SegmentID]bool
+	// durableFloor is the highest sequence any durable encode record names: replayed in load, raised
+	// in appendEncodesLocked. It is SegmentEncodeFloor's O(1) answer.
+	durableFloor core.CheckpointSeq
 
 	// dir is the directory holding the log (index/), and dirSynced records that Sync has made the
 	// log's own name durable in it once this log lifetime. syncDir is that directory barrier:
@@ -198,6 +201,9 @@ func (l *segLog) load(p string) error {
 			}
 			if seg, ok := l.byID[r.ID]; ok {
 				seg.EncodedOnce, seg.CheckpointSeq = true, r.Seq
+			}
+			if r.Seq > l.durableFloor {
+				l.durableFloor = r.Seq
 			}
 			return true, nil
 		case segOpBloom:
@@ -569,8 +575,18 @@ func (l *segLog) appendEncodesLocked(ids []core.SegmentID, seq core.CheckpointSe
 		}
 		l.byID[id].EncodedOnce, l.byID[id].CheckpointSeq = true, seq
 		delete(l.reserved, id)
+		if seq > l.durableFloor {
+			l.durableFloor = seq
+		}
 	}
 	return nil
+}
+
+// DurableEncodeFloor is SegmentEncodeFloor: the highest sequence a durable encode record names.
+func (l *segLog) DurableEncodeFloor() core.CheckpointSeq {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.durableFloor
 }
 
 // ReserveEncoded is the first half of SegmentReservation: MarkEncoded's validation and in-memory
@@ -664,8 +680,12 @@ func (l *segLog) CommitEncoded(ctx context.Context, ids []core.SegmentID, seq co
 	return l.appendEncodesLocked(pending, seq)
 }
 
-// The store's own segment log offers the two-phase encode checkpoint.Advance and Finalize use.
-var _ SegmentReservation = (*segLog)(nil)
+// The store's own segment log offers the two-phase encode checkpoint.Advance and Finalize use, and
+// the durable encode floor checkpoint.Begin reads.
+var (
+	_ SegmentReservation = (*segLog)(nil)
+	_ SegmentEncodeFloor = (*segLog)(nil)
+)
 
 // Frontier returns the checkpoint frontier: the turn up to which s has been encoded.
 //
