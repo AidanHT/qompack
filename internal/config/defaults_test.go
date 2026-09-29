@@ -172,15 +172,17 @@ func TestDefaults_HotPathBudgetPerPlatform(t *testing.T) {
 		ingest int
 		want   int
 	}{
-		{"linux (portable)", config.L0IngestMsPortable, 15},
+		{"linux_portable", config.L0IngestMsPortable, 15},
 		{"windows", config.L0IngestMsWindows, 50},
 		{"darwin", config.L0IngestMsDarwin, 40},
 	} {
-		got := config.HotPathBudgetMsFor(c.ingest)
-		require.Equal(t, c.want, got, "%s: default runtime.hotPath.budgetMs", c.goos)
-		require.GreaterOrEqual(t, got, c.ingest,
-			"%s: the B-A default (%d) must not be tighter than the B-B default (%d) it contains (D41)",
-			c.goos, got, c.ingest)
+		t.Run(c.goos, func(t *testing.T) {
+			got := config.HotPathBudgetMsFor(c.ingest)
+			require.Equal(t, c.want, got, "%s: default runtime.hotPath.budgetMs", c.goos)
+			require.GreaterOrEqual(t, got, c.ingest,
+				"%s: the B-A default (%d) must not be tighter than the B-B default (%d) it contains (D41)",
+				c.goos, got, c.ingest)
+		})
 	}
 
 	// The derivation never goes below the §8.1 figure, whatever B-B is priced at.
