@@ -130,31 +130,39 @@ func measureAckRTT(ctx context.Context, addr ipc.Addr, spool ipc.SpoolWriter, pr
 // Without it the warm-up loop could stop sending and every test in this package would stay green,
 // while the run itself failed reconciliation with Sent over-counting by ackRTTWarmups.
 func ackRTTTranche(ctx context.Context, c ipc.Client, projectRoot string, n int) ([]time.Duration, error) {
-	for i := 0; i < ackRTTWarmups; i++ {
-		if err := ctx.Err(); err != nil {
-			return nil, err
-		}
-		req, err := ackRTTRequest(projectRoot, -1-i)
-		if err != nil {
-			return nil, fmt.Errorf("hotpath: hook_ack_rtt warm-up #%d: %w", i, err)
-		}
-		_, _ = c.Send(ctx, req, probeAckDeadline) // discarded: never timed, never reported
-	}
-
 	out := make([]time.Duration, 0, n)
-	for i := 0; i < n; i++ {
+	for _, seq := range ackRTTTrancheSeqs(n) {
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		req, err := ackRTTRequest(projectRoot, i)
+		req, err := ackRTTRequest(projectRoot, seq)
 		if err != nil {
-			return nil, fmt.Errorf("hotpath: hook_ack_rtt sample #%d: %w", i, err)
+			return nil, fmt.Errorf("hotpath: hook_ack_rtt request %d: %w", seq, err)
+		}
+		if seq < 0 {
+			_, _ = c.Send(ctx, req, probeAckDeadline) // a warm-up: discarded, never timed, never reported
+			continue
 		}
 		start := time.Now()
 		_, _ = c.Send(ctx, req, probeAckDeadline)
 		out = append(out, time.Since(start))
 	}
 	return out, nil
+}
+
+// ackRTTTrancheSeqs is the order ackRTTTranche sends its requests in, by the sequence number each
+// one carries: the ackRTTWarmups discarded warm-ups first, numbered -1, -2, ..., then the n timed
+// samples, numbered 0..n-1. sentIdentities (delivery.go) reads the same list, so the ledger's
+// identities of this tranche are the ones it actually sent, not a second spelling of them.
+func ackRTTTrancheSeqs(n int) []int {
+	seqs := make([]int, 0, ackRTTWarmups+n)
+	for i := 0; i < ackRTTWarmups; i++ {
+		seqs = append(seqs, -1-i)
+	}
+	for i := 0; i < n; i++ {
+		seqs = append(seqs, i)
+	}
+	return seqs
 }
 
 // ackRTTRequest is one hook_ack_rtt delivery: the same fixed event B-A's spawns carry, on the row's
@@ -166,7 +174,7 @@ func ackRTTRequest(projectRoot string, seq int) (ipc.Request, error) {
 	if err != nil {
 		return ipc.Request{}, err
 	}
-	ev := observeRTTEvent(ackRTTSessionID, projectRoot, seq)
+	ev := observeRTTEvent(ackRTTSessionID, projectRoot, ackRTTToolUseID(seq))
 	return ipc.Request{
 		Op: ipc.OpObserveTool, Session: ackRTTSessionID, TS: core.NowMilli(core.SystemClock()),
 		Nonce: nonce, Event: &ev,
@@ -234,8 +242,8 @@ func buildNotes(snap daemon.StatusSnapshot, warmDaemonRan bool, iterations int, 
 	notes := []string{"B-C not measured in wave 1: the processing seams are stubs"}
 	if ledger.Deferred > 0 {
 		notes = append(notes, fmt.Sprintf(
-			"delivery ledger: %d hot-path requests sent, %d delivered live to the daemon, %d DEFERRED to the client spool and 0 lost. A deferral is §8.1/§12.2's documented degrade-rather-than-block path (internal/ipc/client.go's Send spools and returns instead of waiting), so the event is durable and the daemon replays it on its next drain — but it is still a sample missing from the top of every gated daemon-side population, so it is counted back in as an over-budget sample rather than dropped",
-			ledger.Sent, ledger.Delivered, ledger.Deferred))
+			"delivery ledger: %d hot-path requests sent, %d delivered live to the daemon, %d DEFERRED to the client spool and 0 lost. A deferral is §8.1/§12.2's documented degrade-rather-than-block path (internal/ipc/client.go's Send spools and returns instead of waiting), so the event is durable and the daemon replays it — its client-spool watcher does so while the run is still going — and every one of the %d requests was found by its own identity (session and tool_use_id) in a client spool, the daemon's WAL or the store's tool_use index. A deferral is still a sample missing from the top of every gated daemon-side population, so it is counted back in as an over-budget sample rather than dropped",
+			ledger.Sent, ledger.Delivered, ledger.Deferred, ledger.Sent))
 	}
 	for _, n := range rowNotes {
 		if n != "" {

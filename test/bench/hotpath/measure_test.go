@@ -9,7 +9,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/daemon"
 	"github.com/qompack/qompack/internal/ipc"
 )
@@ -117,8 +116,16 @@ func TestAckRTTTranche_SendsTheWarmUpsAndTimesOnlyTheSamples(t *testing.T) {
 		if i < ackRTTWarmups {
 			wantSeq = -1 - i // ackRTTRequest's own numbering for a warm-up
 		}
-		require.Equal(t, core.ToolUseID(fmt.Sprintf("toolu_ba_%d", wantSeq)), req.Event.ToolUseID,
+		require.Equal(t, ackRTTToolUseID(wantSeq), req.Event.ToolUseID,
 			"request %d is not the one the tranche sends in that position", i)
+	}
+
+	// The delivery ledger lists this tranche by identity, in the order it goes out (sentIdentities).
+	ids := sentIdentities(0, false, samples)
+	require.Len(t, ids, len(c.sent))
+	for i, req := range c.sent {
+		require.Equal(t, deliveryIdentity{Session: req.Session, ToolUse: req.Event.ToolUseID}, ids[i],
+			"request %d is not the identity the ledger looks for", i)
 	}
 
 	// The client belongs to measureAckRTT, which closes it; the tranche must not.
