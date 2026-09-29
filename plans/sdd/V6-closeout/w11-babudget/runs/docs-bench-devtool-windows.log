@@ -1,0 +1,4 @@
+ok  	github.com/qompack/qompack/test/docs	1.717s
+ok  	github.com/qompack/qompack/test/bench/hotpath	11.803s
+ok  	github.com/qompack/qompack/tools/devtool	65.526s
+exit=0

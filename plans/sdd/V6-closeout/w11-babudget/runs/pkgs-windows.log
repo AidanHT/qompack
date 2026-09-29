@@ -1,0 +1,6 @@
+ok  	github.com/qompack/qompack/internal/config	11.528s
+ok  	github.com/qompack/qompack/internal/obs	1.238s
+ok  	github.com/qompack/qompack/internal/daemon	201.698s
+ok  	github.com/qompack/qompack/internal/commands	1.579s
+ok  	github.com/qompack/qompack/internal/ipc	18.351s
+exit=0

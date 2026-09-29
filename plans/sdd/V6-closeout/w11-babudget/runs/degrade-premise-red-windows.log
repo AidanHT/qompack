@@ -1,0 +1,10 @@
+--- FAIL: TestIntegration_HotPathDegradesRatherThanBlocks (0.91s)
+    hotpath_test.go:1338: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget/test/integration/hotpath_test.go:1338
+        	Error:      	"25ms" is not greater than "50ms"
+        	Test:       	TestIntegration_HotPathDegradesRatherThanBlocks
+        	Messages:   	the injected stall must exceed the budget or no window can breach
+FAIL
+FAIL	github.com/qompack/qompack/test/integration	1.156s
+FAIL
+exit=1

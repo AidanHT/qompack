@@ -20,6 +20,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/qompack/qompack/internal/config"
 	"github.com/qompack/qompack/internal/contract"
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/daemon"
@@ -53,11 +54,12 @@ import (
 //     daemon over a project pre-populated with real state"; when SP-08 lands a production
 //     ObserveTool, the same harness run exercises it with no change here.
 //
-//  2. Test 2's 25ms stall is a CLOCK stall, not a wall-clock sleep. §6.1 bans time.Sleep outside
-//     test/bench (sleepcheck), and internal/daemon's own tests simulate a slow hot path exactly
-//     this way: a controllable clock whose recvTS−reqTS gap the breach detector reads
-//     (daemon_test.go's feedBreachingWindow constructs the same relationship by hand). Here the
-//     bound ObserveTool consumes 25ms of the daemon's own clock per event while the stall is
+//  2. Test 2's stall (hotpathStallFor: 25ms at the linux budget) is a CLOCK stall, not a
+//     wall-clock sleep. §6.1 bans time.Sleep outside test/bench (sleepcheck), and
+//     internal/daemon's own tests simulate a slow hot path exactly this way: a controllable clock
+//     whose recvTS−reqTS gap the breach detector reads (daemon_test.go's feedBreachingWindow
+//     constructs the same relationship by hand). Here the
+//     bound ObserveTool consumes the stall from the daemon's own clock per event while it is
 //     switched on, and the driver stamps each request before the previous event's stall has been
 //     consumed — so the daemon's TS-anchored estimate for the next sample is the stall, measured
 //     by the same recordHotPathSample path production uses. A wall sleep would have measured the
@@ -173,8 +175,12 @@ const (
 	// internal names: the window arithmetic below is meaningless without it.
 	hotpathSampleWindow = 512
 
-	// hotpathStallLatency is §4.6's "artificial 25 ms stall".
-	hotpathStallLatency = 25 * time.Millisecond
+	// hotpathStallOverBudget is how far §4.6's "artificial 25 ms stall" sits above the B-A budget
+	// it was written against: 25 ms against the 15 ms that budgetMs defaulted to everywhere before
+	// D41. The stall is that margin over the configured budget (hotpathStallFor), so it stays 25 ms
+	// on linux and still breaches on Windows (50 ms budget) and macOS (40 ms), where a fixed 25 ms
+	// would sit inside the budget and no window could breach.
+	hotpathStallOverBudget = 10 * time.Millisecond
 
 	// hotpathStallWarmEvents is the clean wire tranche sent before the stall switches on, proving
 	// the daemon serves in sync submode first. Deliberately far below one sample window, so the
@@ -940,10 +946,11 @@ func hotpathBuildBenchBinary(t *testing.T) string {
 // on every run; b_a_method must name the TS-anchored hook_controlled estimate (ruling #29);
 // spawn_floor_ms must be present; and the daemon must never transition to spool during an
 // isolated run, while a co-loaded one reports a transition that is loud, named and fully
-// accounted for (D39, hotpathJudgeSpool). B-A p99 < 15ms and B-E's wall-clock p99 < 2000ms are
-// judged here only when the invoking job has not declared the run co-loaded (obs.UnderCoload —
-// ci.yml's `timing` job runs this test alone for exactly that), and asserted REPORTED-and-disclosed
-// when it has; see the comment above the harness invocation.
+// accounted for (D39, hotpathJudgeSpool). B-A p99 < runtime.hotPath.budgetMs (15ms on linux, 50 on
+// Windows and 40 on macOS since D41) and B-E's wall-clock p99 < 2000ms are judged here only when
+// the invoking job has not declared the run co-loaded (obs.UnderCoload — ci.yml's `timing` job
+// runs this test alone for exactly that), and asserted REPORTED-and-disclosed when it has; see the
+// comment above the harness invocation.
 func TestIntegration_HotPathWarmWithRealResidentState(t *testing.T) {
 	ctx := context.Background()
 	p := testutil.NewProject(t)
@@ -1296,30 +1303,38 @@ func TestIntegration_HotPathWarmWithRealResidentState(t *testing.T) {
 // §4.6 test 2 — TestIntegration_HotPathDegradesRatherThanBlocks
 // ─────────────────────────────────────────────────────────────────────────────────────────────
 
-// hotpathStallBinding wraps the §4.2 ObserveTool with a switchable 25ms stall. The stall consumes
+// hotpathStallFor is test 2's stall for cfg: hotpathStallOverBudget above the B-A budget the daemon
+// will gate on (runtime.hotPath.budgetMs), so every stalled sample breaches on every platform.
+func hotpathStallFor(cfg config.Config) time.Duration {
+	return time.Duration(cfg.Runtime.HotPath.BudgetMs)*time.Millisecond + hotpathStallOverBudget
+}
+
+// hotpathStallBinding wraps the §4.2 ObserveTool with a switchable stall. The stall consumes
 // the daemon's own clock rather than wall time — see the file comment's decision 2: sleepcheck
 // bans wall sleeps, and internal/daemon's own tests simulate a slow hot path through exactly this
 // recvTS−reqTS relationship (fakeClock/feedBreachingWindow). Because the daemon, the driver's
-// request stamps and this binding share one testutil.FakeClock, each stalled event's 25ms lands
+// request stamps and this binding share one testutil.FakeClock, each stalled event's stall lands
 // in the stamp→receive window of the NEXT request the driver has already stamped, and the breach
 // detector reads it off the same recordHotPathSample path production uses.
 type hotpathStallBinding struct {
 	hp      *hookflowPipeline
 	clk     *testutil.FakeClock
+	latency time.Duration // hotpathStallFor(cfg)
 	stalled atomic.Bool
 }
 
 // ObserveTool is the bound Services.ObserveTool for test 2.
 func (b *hotpathStallBinding) ObserveTool(ctx context.Context, e hookio.Event) error {
 	if b.stalled.Load() {
-		b.clk.Advance(hotpathStallLatency)
+		b.clk.Advance(b.latency)
 	}
 	return b.hp.ObserveTool(ctx, e)
 }
 
 // TestIntegration_HotPathDegradesRatherThanBlocks is §4.6's second test: the same warm daemon
-// (same §4.2 binding, same resident-state construction), a 25ms stall injected into the bound
-// ObserveTool for three consecutive 512-sample windows, and §8.1's promise held against a real
+// (same §4.2 binding, same resident-state construction), a stall of budget + 10ms (25ms at the
+// linux budget, hotpathStallFor) injected into the bound ObserveTool for three consecutive
+// 512-sample windows, and §8.1's promise held against a real
 // L1: the daemon flips to spool, clients stop connecting, every hook still exits 0, no event is
 // lost after the next drain, and one WARN line plus the status payload record the transition.
 func TestIntegration_HotPathDegradesRatherThanBlocks(t *testing.T) {
@@ -1327,15 +1342,15 @@ func TestIntegration_HotPathDegradesRatherThanBlocks(t *testing.T) {
 	bin := buildQompackBinary(t)
 	p := testutil.NewProject(t, testutil.WithEnv(testutil.E2EBinaryEnv, bin))
 
-	// The transition arithmetic below is §2.4's: p99 over 512-sample windows against the 15ms
-	// budget, three consecutive breaching windows to flip. Pin the premises to the configuration
-	// the daemon will actually gate on, so a changed default fails loudly here instead of
-	// silently bending the window count.
+	// The transition arithmetic below is §2.4's: p99 over 512-sample windows against the configured
+	// B-A budget (15ms on linux, 50 on Windows, 40 on macOS since D41), three consecutive breaching
+	// windows to flip. Pin the premises to the configuration the daemon will actually gate on, so a
+	// changed default fails loudly here instead of silently bending the window count.
 	require.Equal(t, 3, p.Cfg.Runtime.HotPath.BreachWindows,
 		"§4.6's 'three consecutive windows' is cfg.Runtime.HotPath.BreachWindows' default")
 	require.True(t, p.Cfg.Runtime.HotPath.SpoolOnBreach,
 		"the spool fallback must be enabled for §8.1's degrade to be reachable")
-	require.Greater(t, hotpathStallLatency,
+	require.Greater(t, hotpathStallFor(p.Cfg),
 		time.Duration(p.Cfg.Runtime.HotPath.BudgetMs)*time.Millisecond,
 		"the injected stall must exceed the budget or no window can breach")
 
@@ -1347,7 +1362,7 @@ func TestIntegration_HotPathDegradesRatherThanBlocks(t *testing.T) {
 	hotpathEnrichSymbols(t, hp)
 	hotpathAssertResidentState(t, ctx, p, hp)
 
-	stall := &hotpathStallBinding{hp: hp, clk: p.Clock}
+	stall := &hotpathStallBinding{hp: hp, clk: p.Clock, latency: hotpathStallFor(p.Cfg)}
 
 	// The daemon over the resident state, with the stall-capable binding bound through the same
 	// §4.2 seam, and — unlike startHookflowDaemon — the project's FakeClock as the daemon's own
@@ -1424,7 +1439,7 @@ func TestIntegration_HotPathDegradesRatherThanBlocks(t *testing.T) {
 	//
 	// Each request's TS is stamped BEFORE the previous request is even sent — i.e. strictly
 	// before that request's stalled processing can consume the clock — and the request is
-	// delivered only after that processing has completed. Exactly one 25ms stall therefore lands
+	// delivered only after that processing has completed. Exactly one stall therefore lands
 	// inside every sample's stamp→receive window, deterministically: the driver never fakes a
 	// latency itself; it only overlaps each request with the stall the way a real hook that
 	// started while the daemon was mid-stall overlaps it. (Stamping AFTER the previous ACK does
@@ -1452,7 +1467,7 @@ func TestIntegration_HotPathDegradesRatherThanBlocks(t *testing.T) {
 			nakSeen = true
 			break
 		}
-		hotpathWaitPipeline(t, hp, base+sent) // this event's stall has now consumed its 25ms
+		hotpathWaitPipeline(t, hp, base+sent) // this event's stall has now consumed its clock
 		tsCur = tsNext
 	}
 	require.True(t, nakSeen,

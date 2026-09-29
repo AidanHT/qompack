@@ -170,7 +170,10 @@ func TestBudgets_AllSixPresentAndConfigDriven(t *testing.T) {
 	require.True(t, ids[obs.BF].Gated)
 
 	cfg := config.Defaults()
-	require.Equal(t, 15*time.Millisecond, ids[obs.BA].Limit(cfg), "B-A reads runtime.hotPath.budgetMs")
+	// B-A's default is platform-derived since D41 (15 / 50 on Windows / 40 on macOS); internal/config's
+	// defaults tests pin those numbers, and this pins only that B-A reads the key.
+	require.Equal(t, time.Duration(cfg.Runtime.HotPath.BudgetMs)*time.Millisecond, ids[obs.BA].Limit(cfg),
+		"B-A reads runtime.hotPath.budgetMs")
 	require.Equal(t, time.Duration(0), ids[obs.BD].Limit(cfg), "B-D always reports 0, never a config key")
 
 	// Changing configuration must change every config-driven limit (all but B-D and B-G).
@@ -221,8 +224,9 @@ func TestBudgets_BGCoversTheDegradedSpoolAppend(t *testing.T) {
 	// degraded path substitutes a filesystem create-and-append for a daemon round trip and can
 	// never meet the budget for one.
 	cfg := config.Defaults()
-	ba := 15 * time.Millisecond
-	require.Equal(t, ba, budgetByID(t, obs.BA).Limit(cfg), "premise: B-A's default is 15 ms")
+	ba := time.Duration(cfg.Runtime.HotPath.BudgetMs) * time.Millisecond
+	require.Equal(t, ba, budgetByID(t, obs.BA).Limit(cfg),
+		"premise: B-A's limit is runtime.hotPath.budgetMs (15 ms, or 50 on Windows and 40 on macOS, D41)")
 	require.Greater(t, bg.Limit(cfg), ba, "B-G must be looser than B-A, not tighter")
 	require.Equal(t, time.Second, bg.Limit(cfg), "B-G's default is runtime.budgets.hookDegradedMs")
 
@@ -267,6 +271,14 @@ func TestCheckBudgets_NeverReportsBG(t *testing.T) {
 	}
 }
 
+// baWellOverDefault is a B-A observation well over cfg's B-A limit on every platform: twice the
+// limit. These tests used a fixed 50 ms when the limit was 15 ms everywhere; since D41 Windows'
+// default limit is 50 ms itself, so a fixed figure would sit exactly on it there.
+func baWellOverDefault(t *testing.T, cfg config.Config) time.Duration {
+	t.Helper()
+	return 2 * budgetByID(t, obs.BA).Limit(cfg)
+}
+
 // budgetByID returns the Budget obs.Budgets() declares for id, failing the test if there is none.
 func budgetByID(t *testing.T, id obs.BudgetID) obs.Budget {
 	t.Helper()
@@ -281,11 +293,12 @@ func budgetByID(t *testing.T, id obs.BudgetID) obs.Budget {
 
 func TestCheckBudgets_CountsConsecutiveWindows(t *testing.T) {
 	reg := obs.New(core.SystemClock())
-	cfg := config.Defaults() // B-A budget: 15ms p99
+	cfg := config.Defaults()
 
-	// Push B-A's histogram over budget: every observation well above 15ms.
+	// Push B-A's histogram over budget: every observation well above the platform's default limit
+	// (15 ms, or 50 on Windows and 40 on macOS since D41), so the sample is over budget everywhere.
 	over := func() {
-		reg.Hist("hook_controlled").Observe(50 * time.Millisecond)
+		reg.Hist("hook_controlled").Observe(baWellOverDefault(t, cfg))
 	}
 
 	over()
@@ -307,7 +320,7 @@ func TestCheckBudgets_ResetsStreakWhenBackUnderBudget(t *testing.T) {
 	reg := obs.New(core.SystemClock())
 	cfg := config.Defaults()
 
-	reg.Hist("hook_controlled").Observe(50 * time.Millisecond)
+	reg.Hist("hook_controlled").Observe(baWellOverDefault(t, cfg))
 	breaches := reg.CheckBudgets(cfg)
 	require.Len(t, breaches, 1)
 

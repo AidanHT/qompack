@@ -1,0 +1,62 @@
+=== RUN   TestHotPathBudgetWarnings_NoneForAnyPlatformDefault
+=== RUN   TestHotPathBudgetWarnings_NoneForAnyPlatformDefault/linux_portable
+=== RUN   TestHotPathBudgetWarnings_NoneForAnyPlatformDefault/windows
+=== RUN   TestHotPathBudgetWarnings_NoneForAnyPlatformDefault/darwin
+--- PASS: TestHotPathBudgetWarnings_NoneForAnyPlatformDefault (0.00s)
+    --- PASS: TestHotPathBudgetWarnings_NoneForAnyPlatformDefault/linux_portable (0.00s)
+    --- PASS: TestHotPathBudgetWarnings_NoneForAnyPlatformDefault/windows (0.00s)
+    --- PASS: TestHotPathBudgetWarnings_NoneForAnyPlatformDefault/darwin (0.00s)
+=== RUN   TestLoad_UserSetHotPathBudgetIsKept
+--- PASS: TestLoad_UserSetHotPathBudgetIsKept (0.01s)
+=== RUN   TestLoad_HotPathBudgetBelowIngestBudgetWarns
+=== RUN   TestLoad_HotPathBudgetBelowIngestBudgetWarns/defaults_do_not_warn
+=== RUN   TestLoad_HotPathBudgetBelowIngestBudgetWarns/budgetMs_set_below_l0IngestMs_warns_and_is_kept
+=== RUN   TestLoad_HotPathBudgetBelowIngestBudgetWarns/l0IngestMs_set_above_the_default_budgetMs_warns_and_both_are_kept
+=== RUN   TestLoad_HotPathBudgetBelowIngestBudgetWarns/equal_is_not_below
+--- PASS: TestLoad_HotPathBudgetBelowIngestBudgetWarns (0.02s)
+    --- PASS: TestLoad_HotPathBudgetBelowIngestBudgetWarns/defaults_do_not_warn (0.00s)
+    --- PASS: TestLoad_HotPathBudgetBelowIngestBudgetWarns/budgetMs_set_below_l0IngestMs_warns_and_is_kept (0.01s)
+    --- PASS: TestLoad_HotPathBudgetBelowIngestBudgetWarns/l0IngestMs_set_above_the_default_budgetMs_warns_and_both_are_kept (0.00s)
+    --- PASS: TestLoad_HotPathBudgetBelowIngestBudgetWarns/equal_is_not_below (0.01s)
+=== RUN   TestHotPathBudgetWarnings_NoneForAnyPlatformDefault
+=== RUN   TestHotPathBudgetWarnings_NoneForAnyPlatformDefault/linux_portable
+=== RUN   TestHotPathBudgetWarnings_NoneForAnyPlatformDefault/windows
+=== RUN   TestHotPathBudgetWarnings_NoneForAnyPlatformDefault/darwin
+--- PASS: TestHotPathBudgetWarnings_NoneForAnyPlatformDefault (0.00s)
+    --- PASS: TestHotPathBudgetWarnings_NoneForAnyPlatformDefault/linux_portable (0.00s)
+    --- PASS: TestHotPathBudgetWarnings_NoneForAnyPlatformDefault/windows (0.00s)
+    --- PASS: TestHotPathBudgetWarnings_NoneForAnyPlatformDefault/darwin (0.00s)
+=== RUN   TestLoad_UserSetHotPathBudgetIsKept
+--- PASS: TestLoad_UserSetHotPathBudgetIsKept (0.01s)
+=== RUN   TestLoad_HotPathBudgetBelowIngestBudgetWarns
+=== RUN   TestLoad_HotPathBudgetBelowIngestBudgetWarns/defaults_do_not_warn
+=== RUN   TestLoad_HotPathBudgetBelowIngestBudgetWarns/budgetMs_set_below_l0IngestMs_warns_and_is_kept
+=== RUN   TestLoad_HotPathBudgetBelowIngestBudgetWarns/l0IngestMs_set_above_the_default_budgetMs_warns_and_both_are_kept
+=== RUN   TestLoad_HotPathBudgetBelowIngestBudgetWarns/equal_is_not_below
+--- PASS: TestLoad_HotPathBudgetBelowIngestBudgetWarns (0.02s)
+    --- PASS: TestLoad_HotPathBudgetBelowIngestBudgetWarns/defaults_do_not_warn (0.00s)
+    --- PASS: TestLoad_HotPathBudgetBelowIngestBudgetWarns/budgetMs_set_below_l0IngestMs_warns_and_is_kept (0.01s)
+    --- PASS: TestLoad_HotPathBudgetBelowIngestBudgetWarns/l0IngestMs_set_above_the_default_budgetMs_warns_and_both_are_kept (0.00s)
+    --- PASS: TestLoad_HotPathBudgetBelowIngestBudgetWarns/equal_is_not_below (0.01s)
+=== RUN   TestHotPathBudgetWarnings_NoneForAnyPlatformDefault
+=== RUN   TestHotPathBudgetWarnings_NoneForAnyPlatformDefault/linux_portable
+=== RUN   TestHotPathBudgetWarnings_NoneForAnyPlatformDefault/windows
+=== RUN   TestHotPathBudgetWarnings_NoneForAnyPlatformDefault/darwin
+--- PASS: TestHotPathBudgetWarnings_NoneForAnyPlatformDefault (0.00s)
+    --- PASS: TestHotPathBudgetWarnings_NoneForAnyPlatformDefault/linux_portable (0.00s)
+    --- PASS: TestHotPathBudgetWarnings_NoneForAnyPlatformDefault/windows (0.00s)
+    --- PASS: TestHotPathBudgetWarnings_NoneForAnyPlatformDefault/darwin (0.00s)
+=== RUN   TestLoad_UserSetHotPathBudgetIsKept
+--- PASS: TestLoad_UserSetHotPathBudgetIsKept (0.01s)
+=== RUN   TestLoad_HotPathBudgetBelowIngestBudgetWarns
+=== RUN   TestLoad_HotPathBudgetBelowIngestBudgetWarns/defaults_do_not_warn
+=== RUN   TestLoad_HotPathBudgetBelowIngestBudgetWarns/budgetMs_set_below_l0IngestMs_warns_and_is_kept
+=== RUN   TestLoad_HotPathBudgetBelowIngestBudgetWarns/l0IngestMs_set_above_the_default_budgetMs_warns_and_both_are_kept
+=== RUN   TestLoad_HotPathBudgetBelowIngestBudgetWarns/equal_is_not_below
+--- PASS: TestLoad_HotPathBudgetBelowIngestBudgetWarns (0.02s)
+    --- PASS: TestLoad_HotPathBudgetBelowIngestBudgetWarns/defaults_do_not_warn (0.00s)
+    --- PASS: TestLoad_HotPathBudgetBelowIngestBudgetWarns/budgetMs_set_below_l0IngestMs_warns_and_is_kept (0.01s)
+    --- PASS: TestLoad_HotPathBudgetBelowIngestBudgetWarns/l0IngestMs_set_above_the_default_budgetMs_warns_and_both_are_kept (0.00s)
+    --- PASS: TestLoad_HotPathBudgetBelowIngestBudgetWarns/equal_is_not_below (0.01s)
+PASS
+ok  	github.com/qompack/qompack/internal/config	1.310s

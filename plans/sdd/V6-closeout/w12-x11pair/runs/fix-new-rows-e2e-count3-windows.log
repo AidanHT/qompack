@@ -1,0 +1,147 @@
+=== RUN   TestV3_X11LedgerPairVerdict
+=== RUN   TestV3_X11LedgerPairVerdict/equal_p50_is_green
+=== RUN   TestV3_X11LedgerPairVerdict/ledger_faster_is_green
+=== RUN   TestV3_X11LedgerPairVerdict/exactly_1.25x_is_green
+=== RUN   TestV3_X11LedgerPairVerdict/over_1.25x_is_red
+=== RUN   TestV3_X11LedgerPairVerdict/well_over_is_red
+=== RUN   TestV3_X11LedgerPairVerdict/one_tick_above_a_one-tick_p50_is_green_(the_floor)
+=== RUN   TestV3_X11LedgerPairVerdict/two_ticks_above_a_one-tick_p50_is_red
+=== RUN   TestV3_X11LedgerPairVerdict/one_tick_above_a_three-tick_p50_is_green_(the_floor)
+=== RUN   TestV3_X11LedgerPairVerdict/a_zero-millisecond_p50_still_leaves_one_tick
+=== RUN   TestV3_X11LedgerPairVerdict/above_sixteen_ticks_the_factor_decides
+=== RUN   TestV3_X11LedgerPairVerdict/above_sixteen_ticks_over_the_factor_is_red
+=== RUN   TestV3_X11LedgerPairVerdict/refusals
+=== RUN   TestV3_X11LedgerPairVerdict/refusals/no_note_in_the_no-ledger_run
+=== RUN   TestV3_X11LedgerPairVerdict/refusals/no_note_in_the_ledger_run
+=== RUN   TestV3_X11LedgerPairVerdict/refusals/the_note_twice
+=== RUN   TestV3_X11LedgerPairVerdict/refusals/a_note_in_a_drifted_format
+=== RUN   TestV3_X11LedgerPairVerdict/refusals/a_p99_below_its_p50
+=== RUN   TestV3_X11LedgerPairVerdict/unequal_populations
+=== RUN   TestV3_X11LedgerPairVerdict/unequal_populations/a_shorter_ledger_run_with_an_equal_p50
+=== RUN   TestV3_X11LedgerPairVerdict/unequal_populations/a_shorter_no-ledger_run_with_an_equal_p50
+=== RUN   TestV3_X11LedgerPairVerdict/unequal_populations/a_shorter_ledger_run_over_the_ceiling
+--- PASS: TestV3_X11LedgerPairVerdict (0.00s)
+    --- PASS: TestV3_X11LedgerPairVerdict/equal_p50_is_green (0.00s)
+    --- PASS: TestV3_X11LedgerPairVerdict/ledger_faster_is_green (0.00s)
+    --- PASS: TestV3_X11LedgerPairVerdict/exactly_1.25x_is_green (0.00s)
+    --- PASS: TestV3_X11LedgerPairVerdict/over_1.25x_is_red (0.00s)
+    --- PASS: TestV3_X11LedgerPairVerdict/well_over_is_red (0.00s)
+    --- PASS: TestV3_X11LedgerPairVerdict/one_tick_above_a_one-tick_p50_is_green_(the_floor) (0.00s)
+    --- PASS: TestV3_X11LedgerPairVerdict/two_ticks_above_a_one-tick_p50_is_red (0.00s)
+    --- PASS: TestV3_X11LedgerPairVerdict/one_tick_above_a_three-tick_p50_is_green_(the_floor) (0.00s)
+    --- PASS: TestV3_X11LedgerPairVerdict/a_zero-millisecond_p50_still_leaves_one_tick (0.00s)
+    --- PASS: TestV3_X11LedgerPairVerdict/above_sixteen_ticks_the_factor_decides (0.00s)
+    --- PASS: TestV3_X11LedgerPairVerdict/above_sixteen_ticks_over_the_factor_is_red (0.00s)
+    --- PASS: TestV3_X11LedgerPairVerdict/refusals (0.00s)
+        --- PASS: TestV3_X11LedgerPairVerdict/refusals/no_note_in_the_no-ledger_run (0.00s)
+        --- PASS: TestV3_X11LedgerPairVerdict/refusals/no_note_in_the_ledger_run (0.00s)
+        --- PASS: TestV3_X11LedgerPairVerdict/refusals/the_note_twice (0.00s)
+        --- PASS: TestV3_X11LedgerPairVerdict/refusals/a_note_in_a_drifted_format (0.00s)
+        --- PASS: TestV3_X11LedgerPairVerdict/refusals/a_p99_below_its_p50 (0.00s)
+    --- PASS: TestV3_X11LedgerPairVerdict/unequal_populations (0.00s)
+        --- PASS: TestV3_X11LedgerPairVerdict/unequal_populations/a_shorter_ledger_run_with_an_equal_p50 (0.00s)
+        --- PASS: TestV3_X11LedgerPairVerdict/unequal_populations/a_shorter_no-ledger_run_with_an_equal_p50 (0.00s)
+        --- PASS: TestV3_X11LedgerPairVerdict/unequal_populations/a_shorter_ledger_run_over_the_ceiling (0.00s)
+=== RUN   TestV3_X11DeferralNoteIsFound
+--- PASS: TestV3_X11DeferralNoteIsFound (0.00s)
+=== RUN   TestV3_X11CopyProjectIsExactButForLogs
+--- PASS: TestV3_X11CopyProjectIsExactButForLogs (0.04s)
+=== RUN   TestV3_X11LedgerPairVerdict
+=== RUN   TestV3_X11LedgerPairVerdict/equal_p50_is_green
+=== RUN   TestV3_X11LedgerPairVerdict/ledger_faster_is_green
+=== RUN   TestV3_X11LedgerPairVerdict/exactly_1.25x_is_green
+=== RUN   TestV3_X11LedgerPairVerdict/over_1.25x_is_red
+=== RUN   TestV3_X11LedgerPairVerdict/well_over_is_red
+=== RUN   TestV3_X11LedgerPairVerdict/one_tick_above_a_one-tick_p50_is_green_(the_floor)
+=== RUN   TestV3_X11LedgerPairVerdict/two_ticks_above_a_one-tick_p50_is_red
+=== RUN   TestV3_X11LedgerPairVerdict/one_tick_above_a_three-tick_p50_is_green_(the_floor)
+=== RUN   TestV3_X11LedgerPairVerdict/a_zero-millisecond_p50_still_leaves_one_tick
+=== RUN   TestV3_X11LedgerPairVerdict/above_sixteen_ticks_the_factor_decides
+=== RUN   TestV3_X11LedgerPairVerdict/above_sixteen_ticks_over_the_factor_is_red
+=== RUN   TestV3_X11LedgerPairVerdict/refusals
+=== RUN   TestV3_X11LedgerPairVerdict/refusals/no_note_in_the_no-ledger_run
+=== RUN   TestV3_X11LedgerPairVerdict/refusals/no_note_in_the_ledger_run
+=== RUN   TestV3_X11LedgerPairVerdict/refusals/the_note_twice
+=== RUN   TestV3_X11LedgerPairVerdict/refusals/a_note_in_a_drifted_format
+=== RUN   TestV3_X11LedgerPairVerdict/refusals/a_p99_below_its_p50
+=== RUN   TestV3_X11LedgerPairVerdict/unequal_populations
+=== RUN   TestV3_X11LedgerPairVerdict/unequal_populations/a_shorter_ledger_run_with_an_equal_p50
+=== RUN   TestV3_X11LedgerPairVerdict/unequal_populations/a_shorter_no-ledger_run_with_an_equal_p50
+=== RUN   TestV3_X11LedgerPairVerdict/unequal_populations/a_shorter_ledger_run_over_the_ceiling
+--- PASS: TestV3_X11LedgerPairVerdict (0.00s)
+    --- PASS: TestV3_X11LedgerPairVerdict/equal_p50_is_green (0.00s)
+    --- PASS: TestV3_X11LedgerPairVerdict/ledger_faster_is_green (0.00s)
+    --- PASS: TestV3_X11LedgerPairVerdict/exactly_1.25x_is_green (0.00s)
+    --- PASS: TestV3_X11LedgerPairVerdict/over_1.25x_is_red (0.00s)
+    --- PASS: TestV3_X11LedgerPairVerdict/well_over_is_red (0.00s)
+    --- PASS: TestV3_X11LedgerPairVerdict/one_tick_above_a_one-tick_p50_is_green_(the_floor) (0.00s)
+    --- PASS: TestV3_X11LedgerPairVerdict/two_ticks_above_a_one-tick_p50_is_red (0.00s)
+    --- PASS: TestV3_X11LedgerPairVerdict/one_tick_above_a_three-tick_p50_is_green_(the_floor) (0.00s)
+    --- PASS: TestV3_X11LedgerPairVerdict/a_zero-millisecond_p50_still_leaves_one_tick (0.00s)
+    --- PASS: TestV3_X11LedgerPairVerdict/above_sixteen_ticks_the_factor_decides (0.00s)
+    --- PASS: TestV3_X11LedgerPairVerdict/above_sixteen_ticks_over_the_factor_is_red (0.00s)
+    --- PASS: TestV3_X11LedgerPairVerdict/refusals (0.00s)
+        --- PASS: TestV3_X11LedgerPairVerdict/refusals/no_note_in_the_no-ledger_run (0.00s)
+        --- PASS: TestV3_X11LedgerPairVerdict/refusals/no_note_in_the_ledger_run (0.00s)
+        --- PASS: TestV3_X11LedgerPairVerdict/refusals/the_note_twice (0.00s)
+        --- PASS: TestV3_X11LedgerPairVerdict/refusals/a_note_in_a_drifted_format (0.00s)
+        --- PASS: TestV3_X11LedgerPairVerdict/refusals/a_p99_below_its_p50 (0.00s)
+    --- PASS: TestV3_X11LedgerPairVerdict/unequal_populations (0.00s)
+        --- PASS: TestV3_X11LedgerPairVerdict/unequal_populations/a_shorter_ledger_run_with_an_equal_p50 (0.00s)
+        --- PASS: TestV3_X11LedgerPairVerdict/unequal_populations/a_shorter_no-ledger_run_with_an_equal_p50 (0.00s)
+        --- PASS: TestV3_X11LedgerPairVerdict/unequal_populations/a_shorter_ledger_run_over_the_ceiling (0.00s)
+=== RUN   TestV3_X11DeferralNoteIsFound
+--- PASS: TestV3_X11DeferralNoteIsFound (0.00s)
+=== RUN   TestV3_X11CopyProjectIsExactButForLogs
+--- PASS: TestV3_X11CopyProjectIsExactButForLogs (0.04s)
+=== RUN   TestV3_X11LedgerPairVerdict
+=== RUN   TestV3_X11LedgerPairVerdict/equal_p50_is_green
+=== RUN   TestV3_X11LedgerPairVerdict/ledger_faster_is_green
+=== RUN   TestV3_X11LedgerPairVerdict/exactly_1.25x_is_green
+=== RUN   TestV3_X11LedgerPairVerdict/over_1.25x_is_red
+=== RUN   TestV3_X11LedgerPairVerdict/well_over_is_red
+=== RUN   TestV3_X11LedgerPairVerdict/one_tick_above_a_one-tick_p50_is_green_(the_floor)
+=== RUN   TestV3_X11LedgerPairVerdict/two_ticks_above_a_one-tick_p50_is_red
+=== RUN   TestV3_X11LedgerPairVerdict/one_tick_above_a_three-tick_p50_is_green_(the_floor)
+=== RUN   TestV3_X11LedgerPairVerdict/a_zero-millisecond_p50_still_leaves_one_tick
+=== RUN   TestV3_X11LedgerPairVerdict/above_sixteen_ticks_the_factor_decides
+=== RUN   TestV3_X11LedgerPairVerdict/above_sixteen_ticks_over_the_factor_is_red
+=== RUN   TestV3_X11LedgerPairVerdict/refusals
+=== RUN   TestV3_X11LedgerPairVerdict/refusals/no_note_in_the_no-ledger_run
+=== RUN   TestV3_X11LedgerPairVerdict/refusals/no_note_in_the_ledger_run
+=== RUN   TestV3_X11LedgerPairVerdict/refusals/the_note_twice
+=== RUN   TestV3_X11LedgerPairVerdict/refusals/a_note_in_a_drifted_format
+=== RUN   TestV3_X11LedgerPairVerdict/refusals/a_p99_below_its_p50
+=== RUN   TestV3_X11LedgerPairVerdict/unequal_populations
+=== RUN   TestV3_X11LedgerPairVerdict/unequal_populations/a_shorter_ledger_run_with_an_equal_p50
+=== RUN   TestV3_X11LedgerPairVerdict/unequal_populations/a_shorter_no-ledger_run_with_an_equal_p50
+=== RUN   TestV3_X11LedgerPairVerdict/unequal_populations/a_shorter_ledger_run_over_the_ceiling
+--- PASS: TestV3_X11LedgerPairVerdict (0.00s)
+    --- PASS: TestV3_X11LedgerPairVerdict/equal_p50_is_green (0.00s)
+    --- PASS: TestV3_X11LedgerPairVerdict/ledger_faster_is_green (0.00s)
+    --- PASS: TestV3_X11LedgerPairVerdict/exactly_1.25x_is_green (0.00s)
+    --- PASS: TestV3_X11LedgerPairVerdict/over_1.25x_is_red (0.00s)
+    --- PASS: TestV3_X11LedgerPairVerdict/well_over_is_red (0.00s)
+    --- PASS: TestV3_X11LedgerPairVerdict/one_tick_above_a_one-tick_p50_is_green_(the_floor) (0.00s)
+    --- PASS: TestV3_X11LedgerPairVerdict/two_ticks_above_a_one-tick_p50_is_red (0.00s)
+    --- PASS: TestV3_X11LedgerPairVerdict/one_tick_above_a_three-tick_p50_is_green_(the_floor) (0.00s)
+    --- PASS: TestV3_X11LedgerPairVerdict/a_zero-millisecond_p50_still_leaves_one_tick (0.00s)
+    --- PASS: TestV3_X11LedgerPairVerdict/above_sixteen_ticks_the_factor_decides (0.00s)
+    --- PASS: TestV3_X11LedgerPairVerdict/above_sixteen_ticks_over_the_factor_is_red (0.00s)
+    --- PASS: TestV3_X11LedgerPairVerdict/refusals (0.00s)
+        --- PASS: TestV3_X11LedgerPairVerdict/refusals/no_note_in_the_no-ledger_run (0.00s)
+        --- PASS: TestV3_X11LedgerPairVerdict/refusals/no_note_in_the_ledger_run (0.00s)
+        --- PASS: TestV3_X11LedgerPairVerdict/refusals/the_note_twice (0.00s)
+        --- PASS: TestV3_X11LedgerPairVerdict/refusals/a_note_in_a_drifted_format (0.00s)
+        --- PASS: TestV3_X11LedgerPairVerdict/refusals/a_p99_below_its_p50 (0.00s)
+    --- PASS: TestV3_X11LedgerPairVerdict/unequal_populations (0.00s)
+        --- PASS: TestV3_X11LedgerPairVerdict/unequal_populations/a_shorter_ledger_run_with_an_equal_p50 (0.00s)
+        --- PASS: TestV3_X11LedgerPairVerdict/unequal_populations/a_shorter_no-ledger_run_with_an_equal_p50 (0.00s)
+        --- PASS: TestV3_X11LedgerPairVerdict/unequal_populations/a_shorter_ledger_run_over_the_ceiling (0.00s)
+=== RUN   TestV3_X11DeferralNoteIsFound
+--- PASS: TestV3_X11DeferralNoteIsFound (0.00s)
+=== RUN   TestV3_X11CopyProjectIsExactButForLogs
+--- PASS: TestV3_X11CopyProjectIsExactButForLogs (0.03s)
+PASS
+ok  	github.com/qompack/qompack/test/e2e	0.470s
+exit=0
