@@ -1,0 +1,7 @@
+=== RUN   TestStatus_APercentileNeverReadsAboveTheMax
+=== PAUSE TestStatus_APercentileNeverReadsAboveTheMax
+=== CONT  TestStatus_APercentileNeverReadsAboveTheMax
+--- PASS: TestStatus_APercentileNeverReadsAboveTheMax (0.00s)
+PASS
+ok  	github.com/qompack/qompack/internal/commands	1.206s
+EXIT=0

@@ -11,10 +11,11 @@ import (
 // running" means its process object has been SIGNALED, not merely that it has an exit code.
 //
 // internal/daemon asks the same question as step 3 of its staleness protocol and, on Windows,
-// declines to answer: lock_windows.go's pidAlive returns known=false. That is the right call
-// there, because AcquireLock has a heartbeat-mtime fallback to reach for when the pid probe has
-// no opinion. A test's shutdown helper has no such fallback — its only alternative would be
-// daemon.staleAfter, 90 seconds, per subtest — so it asks Windows directly instead.
+// answers only "dead": lock_windows.go's pidAlive returns known=false for a running process,
+// because a pid Windows reused is no proof the lock's owner lives, and AcquireLock has a
+// heartbeat-mtime fallback to reach for then. A test's shutdown helper has no such fallback — its
+// only alternative would be daemon.staleAfter, 90 seconds, per subtest — and needs "alive" as
+// well, so it asks Windows directly instead.
 //
 // Every caller returns on "not alive" and hands a project directory to t.TempDir's RemoveAll, so
 // the answer has to mean the process can no longer hold anything open there. An exit code does not

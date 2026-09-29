@@ -1,0 +1,26 @@
+--- FAIL: TestMCPServerRegistered_TheFirstSessionIsPending (0.00s)
+    late_observation_test.go:42: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-diag/internal/contract/late_observation_test.go:42
+        	Error:      	Should be true
+        	Test:       	TestMCPServerRegistered_TheFirstSessionIsPending
+        	Messages:   	the first session's start cannot have seen a handshake yet: {ID:mcp.server_registered OK:false Severity:0 Expected:MCP server received initialize Observed:initialize-not-received TS:1767225600000 Detail:}
+--- FAIL: TestMCPServerRegistered_ASessionWithoutAHandshakeFailsTheNext (0.00s)
+    late_observation_test.go:58: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-diag/internal/contract/late_observation_test.go:58
+        	Error:      	Should be true
+        	Test:       	TestMCPServerRegistered_ASessionWithoutAHandshakeFailsTheNext
+--- FAIL: TestTranscriptReadable_NotYetWrittenAtStartupIsPending (0.00s)
+    late_observation_test.go:79: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-diag/internal/contract/late_observation_test.go:79
+        	Error:      	Should be true
+        	Test:       	TestTranscriptReadable_NotYetWrittenAtStartupIsPending
+        	Messages:   	a transcript the host has not created yet is pending: {ID:transcript.readable OK:false Severity:1 Expected:transcript_path exists and parses Observed:transcript_path does not exist TS:1767225600000 Detail:}
+--- FAIL: TestTranscriptReadable_ATranscriptThatNeverAppearedFails (0.00s)
+    late_observation_test.go:99: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-diag/internal/contract/late_observation_test.go:99
+        	Error:      	Should be true
+        	Test:       	TestTranscriptReadable_ATranscriptThatNeverAppearedFails
+FAIL
+FAIL	github.com/qompack/qompack/internal/contract	1.180s
+FAIL
+EXIT=1

@@ -137,12 +137,12 @@ func x10IndexIDs(t *testing.T, root string) []string {
 }
 
 // x10KillDaemon SIGKILLs (Process.Kill) the daemon holding root's lock and waits for the process
-// to be gone, then backdates its heartbeat past daemon's 90s staleness window. The backdating is
-// what makes the crash recoverable PROMPTLY on Windows: lock_windows.go's pidAlive answers
-// known=false there, so the restart's AcquireLock falls through to the heartbeat-mtime check
-// (staleness step 4) — against a heartbeat the killed daemon refreshed seconds ago, the lock
-// would read as held for up to 90 wall-clock seconds. On POSIX the kill(0) probe already answers
-// "dead" and the backdated mtime is simply never consulted.
+// to be gone, then backdates its heartbeat past daemon's 90s staleness window. Since the V6
+// close-out (F-UAT05-4) lock_windows.go's pidAlive proves an exited owner dead, as kill(0) does on
+// POSIX, so the restart's AcquireLock reclaims the lock without consulting the heartbeat at all.
+// The backdating stays so that this row's recovery never depends on that probe: were the probe to
+// abstain (a pid Windows reused at once), the heartbeat-mtime check (staleness step 4) would read a
+// heartbeat the killed daemon refreshed seconds ago as live for up to 90 wall-clock seconds.
 func x10KillDaemon(t *testing.T, root string) {
 	t.Helper()
 	info, ok := daemon.ReadLock(root)

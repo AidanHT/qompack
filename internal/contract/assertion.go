@@ -61,6 +61,16 @@ type Env struct {
 	// The assertions §12.1 phrases across sessions ("absence across two sessions", "evaluated on
 	// the FOLLOWING start") read it.
 	History History
+	// SessionLive reports whether the caller still tracks a session as live: the daemon binds its
+	// session registry. mcp.server_registered and transcript.readable read it to keep an earlier
+	// session's late observable pending while that session is still running. Nil, and a session the
+	// caller does not know (a restarted daemon forgets its sessions), read as not live.
+	SessionLive func(core.SessionID) bool
+}
+
+// sessionLive is e.SessionLive's reading of sess, false when the caller bound none.
+func sessionLive(e Env, sess core.SessionID) bool {
+	return e.SessionLive != nil && e.SessionLive(sess)
 }
 
 // History is the observed-hook-firing record an Env carries (SP-01's decided spelling for the type

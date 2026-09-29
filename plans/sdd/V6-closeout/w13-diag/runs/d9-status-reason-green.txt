@@ -1,0 +1,5 @@
+=== RUN   TestStatusSource_NoDaemonNamesTheReason
+--- PASS: TestStatusSource_NoDaemonNamesTheReason (0.02s)
+PASS
+ok  	github.com/qompack/qompack/internal/cli	0.266s
+EXIT=0

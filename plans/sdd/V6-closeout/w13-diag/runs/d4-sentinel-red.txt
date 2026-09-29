@@ -1,0 +1,20 @@
+=== RUN   TestSentinelScan_ALargeFirstResultDoesNotHideTheProbe
+    sentinel_scan_window_test.go:72: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-diag/internal/daemon/sentinel_scan_window_test.go:72
+        	Error:      	Should be true
+        	Test:       	TestSentinelScan_ALargeFirstResultDoesNotHideTheProbe
+        	Messages:   	a probe the host delivered before one large tool result must still be found
+--- FAIL: TestSentinelScan_ALargeFirstResultDoesNotHideTheProbe (0.14s)
+=== RUN   TestSentinelScan_AProbeMintedMidTranscriptIsFoundPastALargeResult
+    sentinel_scan_window_test.go:97: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-diag/internal/daemon/sentinel_scan_window_test.go:97
+        	Error:      	Should be true
+        	Test:       	TestSentinelScan_AProbeMintedMidTranscriptIsFoundPastALargeResult
+        	Messages:   	a probe written after a long history and followed by a large result must still be found
+--- FAIL: TestSentinelScan_AProbeMintedMidTranscriptIsFoundPastALargeResult (0.09s)
+=== RUN   TestSentinelScan_AnAbsentProbeStillSpendsAChance
+--- PASS: TestSentinelScan_AnAbsentProbeStillSpendsAChance (0.10s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	0.691s
+FAIL
+EXIT=1

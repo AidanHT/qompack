@@ -130,3 +130,54 @@ func TestRecordSentinelScanOf_TheRecordIsBounded(t *testing.T) {
 	require.NoError(t, os.WriteFile(path, []byte(raw), 0o600))
 	require.Len(t, contract.LoadHistory(path).Sentinel.MissedBy, 8, "a hand-edited record is capped on load")
 }
+
+// TestScanTranscriptForProbe_ReadsTwoBoundedWindows pins what the prompt scan looks at: the window
+// bytes from the mint offset and the last window bytes, and nothing between them, so a probe is
+// found however far a large tool result pushed it from the end while the read stays bounded.
+func TestScanTranscriptForProbe_ReadsTwoBoundedWindows(t *testing.T) {
+	const window = 64
+	const token = "qompack-contract-0123456789ab"
+	p := filepath.Join(t.TempDir(), "transcript.jsonl")
+	filler := strings.Repeat("f", 4*window)
+	write := func(content string) {
+		t.Helper()
+		require.NoError(t, os.WriteFile(p, []byte(content), 0o600))
+	}
+	scan := func(from int64) bool {
+		t.Helper()
+		found, err := contract.ScanTranscriptForProbe(p, token, from, window)
+		require.NoError(t, err)
+		return found
+	}
+
+	before := strings.Repeat("h", 3*window)
+	write(before + token + filler)
+	require.True(t, scan(int64(len(before))), "a probe right after the mint offset is in the first window")
+	require.False(t, scan(0), "from 0 the probe sits past the first window and before the tail window")
+
+	write(before + filler + token)
+	require.True(t, scan(int64(len(before))), "a probe at the end is in the tail window")
+
+	write(before + filler + token + filler)
+	require.False(t, scan(int64(len(before))),
+		"a probe beyond the first window and before the tail window is not read: the scan is bounded")
+
+	write(token + filler)
+	require.True(t, scan(int64(10*window)), "a mint offset past the end (a replaced transcript) scans from 0")
+
+	found, err := contract.ScanTranscriptForProbe(filepath.Join(t.TempDir(), "absent.jsonl"), token, 0, window)
+	require.Error(t, err, "an unreadable transcript proves nothing")
+	require.False(t, found)
+}
+
+// TestTranscriptSize_AnAbsentTranscriptIsZero: the host creates the transcript after
+// SessionStart:startup in -p mode, so the mint offset of a transcript that does not exist yet is 0.
+func TestTranscriptSize_AnAbsentTranscriptIsZero(t *testing.T) {
+	dir := t.TempDir()
+	require.Zero(t, contract.TranscriptSize(filepath.Join(dir, "not-yet.jsonl")))
+	require.Zero(t, contract.TranscriptSize(""))
+	require.Zero(t, contract.TranscriptSize(dir), "a directory is not a transcript")
+	p := filepath.Join(dir, "t.jsonl")
+	require.NoError(t, os.WriteFile(p, []byte("12345"), 0o600))
+	require.Equal(t, int64(5), contract.TranscriptSize(p))
+}

@@ -42,6 +42,11 @@ type SentinelState struct {
 	Session core.SessionID `json:"session,omitempty"`
 	// MintedAt is when Token was minted.
 	MintedAt core.UnixMilli `json:"minted_at,omitempty"`
+	// ScanFrom is the size the minting session's transcript had when Token was minted (0 when it
+	// did not exist yet): the host appends the SessionStart answer carrying Token after that
+	// offset, so the prompt scan reads a bounded window from there as well as the transcript's tail
+	// (ScanTranscriptForProbe). A history written before this field existed decodes it as 0.
+	ScanFrom int64 `json:"scan_from,omitempty"`
 	// Observed is true once a scan has ever found Token (or a predecessor) in a transcript tail.
 	// It never resets to false: once §12.1's mechanism is proven to work, it stays proven.
 	Observed bool `json:"observed"`
@@ -133,6 +138,26 @@ type SessionHistory struct {
 	Sentinel SentinelState `json:"sentinel"`
 
 	MCPInitialized bool `json:"mcp_initialized"`
+
+	// MCPAwaitSession is the session whose start first found no MCP handshake on record: the host
+	// connects the MCP server beside a session's first start, not before it, so that start reports
+	// mcp.server_registered pending. MCPAwaitTurned records that the session has since had a prompt
+	// (NotePrompt). A start of another session fails the assertion only once the awaited session
+	// has had a prompt and is no longer live (Env.SessionLive), so a whole session passed without a
+	// handshake. Owned by checkMCPServerRegistered.
+	MCPAwaitSession core.SessionID `json:"mcp_await_session,omitempty"`
+	MCPAwaitTurned  bool           `json:"mcp_await_turned,omitempty"`
+
+	// TranscriptAwaitPath is a transcript_path a start found not yet written, and
+	// TranscriptAwaitSession the session it belongs to: the host creates a session's transcript with
+	// its first prompt, after SessionStart:startup, so transcript.readable reported it pending.
+	// TranscriptAwaitTurned records that the session has since had a prompt (NotePrompt). A start of
+	// another transcript fails the assertion if the path still does not exist once its session has
+	// had a prompt and is no longer live; a session that ended with no prompt had no transcript due.
+	// Owned by checkTranscriptReadable.
+	TranscriptAwaitPath    string         `json:"transcript_await_path,omitempty"`
+	TranscriptAwaitSession core.SessionID `json:"transcript_await_session,omitempty"`
+	TranscriptAwaitTurned  bool           `json:"transcript_await_turned,omitempty"`
 
 	// CleanRuns mirrors the monitor's own clean-run streak into the cross-session record so a
 	// caller inspecting History alone (e.g. self-test synthesizing an Env, per task-4-spec.md's
@@ -229,6 +254,23 @@ func (h *SessionHistory) RecordLast(results []Result) {
 		last = last[len(last)-maxLastResults:]
 	}
 	h.Last = last
+}
+
+// NotePrompt records that sess has had a prompt, which is what makes its awaited MCP handshake and
+// transcript due (MCPAwaitTurned, TranscriptAwaitTurned). It reports whether it changed anything, so
+// a caller saves the history only when it did.
+func (h *SessionHistory) NotePrompt(sess core.SessionID) bool {
+	if h == nil || sess == "" {
+		return false
+	}
+	changed := false
+	if h.MCPAwaitSession == sess && !h.MCPAwaitTurned {
+		h.MCPAwaitTurned, changed = true, true
+	}
+	if h.TranscriptAwaitSession == sess && h.TranscriptAwaitPath != "" && !h.TranscriptAwaitTurned {
+		h.TranscriptAwaitTurned, changed = true, true
+	}
+	return changed
 }
 
 // RecordSentinelScan updates h.Sentinel after a transcript scan for the current sentinel token:
@@ -351,4 +393,9 @@ func SaveHistory(path string, h *SessionHistory) error {
 		return fmt.Errorf("contract: writing %s: %w", path, err)
 	}
 	return nil
+}
+
+// forgetTranscriptAwait clears the awaited transcript record checkTranscriptReadable keeps.
+func (h *SessionHistory) forgetTranscriptAwait() {
+	h.TranscriptAwaitPath, h.TranscriptAwaitSession, h.TranscriptAwaitTurned = "", "", false
 }

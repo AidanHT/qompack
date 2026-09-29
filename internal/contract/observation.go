@@ -103,6 +103,8 @@ const (
 //	timeout-unknown                           — checkPreCompactTiming: no manifest timeout recorded
 //	no-samples                                — checkPreCompactTiming: no wall-time samples yet
 //	no-transcript-path                        — checkTranscriptReadable
+//	transcript-pending                        — checkTranscriptReadable: not yet written by the host
+//	initialize-pending                        — checkMCPServerRegistered: no session has passed yet
 //	retired                                   — checkPreCompactCustomInstr: the mechanism is retired (C1.18)
 //	unset                                     — checkPluginRootResolves: CLAUDE_PLUGIN_ROOT not set
 //
@@ -122,6 +124,8 @@ var noObservationSpellings = map[string]bool{
 	"retired":                                   true,
 	"no-instructions-emitted":                   true,
 	"no-transcript-path":                        true,
+	"transcript-pending":                        true,
+	"initialize-pending":                        true,
 	"no probe phrase long enough":               true,
 	"transcript unreadable, no observation yet": true,
 	"unset": true,
@@ -153,6 +157,7 @@ var observedSpellings = map[string]bool{
 	"missing both cwd and transcript_path":                                 true,
 	"initialize-not-received":                                              true,
 	"transcript_path does not exist":                                       true,
+	"an earlier session's transcript_path never appeared":                  true,
 	"transcript_path has no readable content":                              true,
 	"last transcript line is not valid JSON":                               true,
 	"CLAUDE_PLUGIN_ROOT set but no plugin binary found beneath it":         true,
