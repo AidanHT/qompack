@@ -21,11 +21,14 @@ then runs the packaged integrity checks, including the delivery-seal check. An u
 integrity check returns failure and retains the destination for inspection.
 
 Verify judges a backup the way restore does. It re-hashes every file the manifest names, then
-restores the backup into a scratch destination under the system temporary directory, makes the same
-reader proof and runs the same integrity checks, and reports both. A scratch restore that passes is
-removed; one that fails is kept, and the error names where. A backup that verifies therefore
-restores, and one that restore would refuse does not verify. Verify never writes to the source or
-to the backup.
+restores the backup into a scratch destination, `.qompack/tmp/verify-<id>-<random>/project` inside
+the source project, makes the same reader proof and runs the same integrity checks, and reports
+both. A scratch restore that passes is removed; one that fails is kept, and the error names where.
+A backup that verifies therefore restores, and one that restore would refuse does not verify. The
+scratch copy stays inside the source's `.qompack/`, on the same filesystem as the store and outside
+every backup; verify writes nothing to the system temporary directory, changes nothing in the
+backup, and changes nothing in the source store outside `tmp/` and the daemon lock it holds while it
+runs. Delete a kept scratch restore once you have inspected it.
 
 The reader proof reads every content root and every tool reference back. A tool reference whose
 root a garbage-collection tombstone retired (typically the MCP server's own ephemeral answer, which

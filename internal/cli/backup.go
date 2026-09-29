@@ -2,6 +2,8 @@ package cli
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -138,7 +140,7 @@ func runBackup(ctx context.Context, env Env, action string, args []string, out, 
 		if err == nil {
 			report.Manifest = &manifest
 			if action == "verify" {
-				err = proveBackupByScratchRestore(ctx, maintenance, *id, &report)
+				err = proveBackupByScratchRestore(ctx, maintenance, root, *id, &report)
 			}
 		}
 	case "restore":
@@ -194,12 +196,18 @@ func restoreAndCheck(ctx context.Context, maintenance *store.Maintenance, id, de
 // proveBackupByScratchRestore makes `backup verify` judge what `backup restore` judges (F-C49-2).
 // Verification used to stop at re-hashing the backup's files, so a backup whose bytes were intact
 // but whose store no reader could fully serve verified cleanly and then failed its restore. Verify
-// now restores the backup into a scratch destination under the system temporary directory, makes
-// the same reader proof and runs the same integrity scan, and reports both. A scratch restore that
-// passes is removed; one that fails is kept, like a failed restore's destination, and the error
-// names it. The source and the backup are only read.
-func proveBackupByScratchRestore(ctx context.Context, maintenance *store.Maintenance, id string, report *backupReport) error {
-	scratch, err := os.MkdirTemp("", "qompack-verify-")
+// now restores the backup into a scratch destination, makes the same reader proof and runs the same
+// integrity scan, and reports both. A scratch restore that passes is removed; one that fails is
+// kept, like a failed restore's destination, and the error names it. The backup is only read.
+//
+// The scratch destination is <root>/.qompack/tmp/verify-<id>-<random>/project (verifyScratchDir),
+// never the system temporary directory: 00-ARCHITECTURE.md §13 invariant 7 keeps `$TMPDIR` at large
+// out of the product write set, a scratch restore is a full copy of the project's captured prompts
+// and tool output, and on Linux /tmp is often tmpfs. The source's tmp/ is inside the write set, on
+// the store's own filesystem, left out of every backup (backupSkipDirs), and this command holds the
+// source's writer lease while it writes there.
+func proveBackupByScratchRestore(ctx context.Context, maintenance *store.Maintenance, root, id string, report *backupReport) error {
+	scratch, err := verifyScratchDir(root, id)
 	if err != nil {
 		return fmt.Errorf("backup: verify: the backup's files verify, but no scratch destination was available "+
 			"for the restore proof: %w", err)
@@ -222,4 +230,28 @@ func proveBackupByScratchRestore(ctx context.Context, maintenance *store.Mainten
 			"delete it by hand.", scratch, err)
 	}
 	return nil
+}
+
+// verifyScratchRandBytes is how many random bytes name a verify scratch directory (16 hex digits), the
+// same width a restore's staging tree uses (store's maintStagingRoot): two verifies of one backup id
+// never share a directory.
+const verifyScratchRandBytes = 8
+
+// verifyScratchDir creates backup verify's scratch directory, <root>/.qompack/tmp/verify-<id>-<16
+// hex>, and returns it in the ordinary spelling (not paths.Long's) so the reports and errors that
+// name it read as a normal path. id is already validated: VerifyBackupContext refused anything else.
+func verifyScratchDir(root, id string) (string, error) {
+	var b [verifyScratchRandBytes]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		return "", err
+	}
+	tmp := paths.Of(root).Tmp
+	if err := os.MkdirAll(paths.Long(tmp), 0o700); err != nil {
+		return "", err
+	}
+	scratch := filepath.Join(tmp, "verify-"+id+"-"+hex.EncodeToString(b[:]))
+	if err := os.Mkdir(paths.Long(scratch), 0o700); err != nil {
+		return "", err
+	}
+	return scratch, nil
 }

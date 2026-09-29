@@ -26,16 +26,23 @@ func seedDanglingToolRef(t *testing.T, p seededProject) {
 // while restore also proved a reader and ran fsck. Verify now restores into a scratch destination,
 // runs the same proof and the same integrity scan, and removes the scratch copy, so a backup verify
 // certifies is one restore accepts, and one restore refuses is one verify refuses.
+//
+// The scratch destination is inside the source store's own tmp/, never the system temporary
+// directory: 00-ARCHITECTURE.md §13 invariant 7 keeps `$TMPDIR` at large out of the product write
+// set, and a scratch restore is a full copy of captured prompts and tool output.
 func TestBackupCLI_VerifyJudgesWhatRestoreJudges(t *testing.T) {
 	isolateUserGlobal(t)
 
 	t.Run("a healthy backup: verify proves it the way restore does", func(t *testing.T) {
+		sysTmp := redirectSystemTemp(t)
 		p := seedFsckProject(t)
 		code, out, stderr := fsckDispatch(t, "backup", "create", "--project", p.Root, "--id", "ok", "--json")
 		require.Equal(t, ExitOK, code, "%s %s", out, stderr)
 
+		before := dirNames(t, sysTmp)
 		code, out, stderr = fsckDispatch(t, "backup", "verify", "--project", p.Root, "--id", "ok", "--json")
 		require.Equal(t, ExitOK, code, "%s %s", out, stderr)
+		require.Equal(t, before, dirNames(t, sysTmp), "verify writes nothing to the system temporary directory")
 		var verified backupReport
 		require.NoError(t, json.Unmarshal([]byte(out), &verified))
 		require.NotNil(t, verified.Manifest)
@@ -44,27 +51,32 @@ func TestBackupCLI_VerifyJudgesWhatRestoreJudges(t *testing.T) {
 		require.NotNil(t, verified.Integrity, "verify reports the integrity scan restore would run")
 		require.Equal(t, ExitOK, verified.Integrity.Exit)
 		require.Contains(t, verified.Restore.Note, "scratch destination")
-		_, err := os.Stat(paths.Long(verified.Restore.Destination))
-		require.True(t, os.IsNotExist(err), "the scratch restore is removed: %s", verified.Restore.Destination)
+		requireUnder(t, p.Layot.Tmp, verified.Restore.Destination)
+		scratch := filepath.Dir(verified.Restore.Destination)
+		_, err := os.Stat(paths.Long(scratch))
+		require.True(t, os.IsNotExist(err), "the scratch restore is removed: %s", scratch)
 	})
 
 	t.Run("a backup no reader can serve: both refuse", func(t *testing.T) {
-		// The failed scratch restore is kept for inspection; keep it inside this test's own tree.
-		tmp := t.TempDir()
-		for _, k := range []string{"TMP", "TEMP", "TMPDIR"} {
-			t.Setenv(k, tmp)
-		}
+		sysTmp := redirectSystemTemp(t)
 		p := seedFsckProject(t)
 		seedDanglingToolRef(t, p)
 		code, out, stderr := fsckDispatch(t, "backup", "create", "--project", p.Root, "--id", "bad", "--json")
 		require.Equal(t, ExitOK, code, "create copies the bytes it finds: %s %s", out, stderr)
 
+		before := dirNames(t, sysTmp)
 		code, out, _ = fsckDispatch(t, "backup", "verify", "--project", p.Root, "--id", "bad", "--json")
 		require.Equal(t, ExitError, code, "verify must refuse what restore refuses: %s", out)
+		require.Equal(t, before, dirNames(t, sysTmp), "a failed verify keeps nothing in the system temporary directory")
 		var refused backupReport
 		require.NoError(t, json.Unmarshal([]byte(out), &refused))
 		require.Contains(t, refused.Error, "does not resolve")
-		require.Contains(t, refused.Error, "scratch restore is kept at "+tmp, "the kept scratch restore is named")
+		require.NotNil(t, refused.Restore)
+		scratch := filepath.Dir(refused.Restore.Destination)
+		requireUnder(t, p.Layot.Tmp, scratch)
+		require.Contains(t, refused.Error, "scratch restore is kept at "+scratch, "the kept scratch restore is named")
+		_, err := os.Stat(paths.Long(scratch))
+		require.NoError(t, err, "the failed scratch restore is kept for inspection")
 
 		dest := filepath.Join(t.TempDir(), "restored")
 		code, out, _ = fsckDispatch(t, "backup", "restore", "--project", p.Root, "--id", "bad",
@@ -72,6 +84,39 @@ func TestBackupCLI_VerifyJudgesWhatRestoreJudges(t *testing.T) {
 		require.Equal(t, ExitError, code, "%s", out)
 		require.Contains(t, out, "does not resolve")
 	})
+}
+
+// redirectSystemTemp points the process's temporary directory at a fresh directory for the rest of
+// the test, so what a command writes there can be seen, and returns it.
+func redirectSystemTemp(t *testing.T) string {
+	t.Helper()
+	tmp := t.TempDir()
+	for _, k := range []string{"TMP", "TEMP", "TMPDIR"} {
+		t.Setenv(k, tmp)
+	}
+	require.Equal(t, filepath.Clean(tmp), filepath.Clean(os.TempDir()), "fixture: the redirect took effect")
+	return tmp
+}
+
+// dirNames lists dir's entries by name.
+func dirNames(t *testing.T, dir string) []string {
+	t.Helper()
+	entries, err := os.ReadDir(paths.Long(dir))
+	require.NoError(t, err)
+	names := make([]string, 0, len(entries))
+	for _, e := range entries {
+		names = append(names, e.Name())
+	}
+	return names
+}
+
+// requireUnder fails unless p lies strictly inside dir.
+func requireUnder(t *testing.T, dir, p string) {
+	t.Helper()
+	rel, err := filepath.Rel(dir, p)
+	require.NoError(t, err)
+	require.False(t, rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)),
+		"%s must lie inside %s", p, dir)
 }
 
 // TestBackupCLI_RestoreNoteMatchesItsIntegrityReport is F-UAT/C1.7's low finding: every restore
