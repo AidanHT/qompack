@@ -70,6 +70,7 @@ var ordinaryReads = []ordinaryRead{
 		"that session is live; the daemon lock keeps every other writer out, and backup copies it shared"},
 	{"internal/cli/doctor.go", "bundleRow", "a file the plugin bundle ships, which no Qompack process writes"},
 	{"internal/commands/evalartifacts.go", "readEvalJSON", whyEvalInput},
+	{"internal/contract/sentinel.go", "ScanTranscriptForProbe", whyHostTranscript},
 	{"internal/contract/sentinel.go", "readTail", whyHostTranscript},
 	{"internal/daemon/delivery_lease.go", "loadAcksFrom", whyDeliveryJournal},
 	{"internal/daemon/delivery_lease.go", "loadDeliveryPosition", whyDeliveryJournal},

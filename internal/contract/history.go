@@ -42,6 +42,11 @@ type SentinelState struct {
 	Session core.SessionID `json:"session,omitempty"`
 	// MintedAt is when Token was minted.
 	MintedAt core.UnixMilli `json:"minted_at,omitempty"`
+	// ScanFrom is the size the minting session's transcript had when Token was minted (0 when it
+	// did not exist yet): the host appends the SessionStart answer carrying Token after that
+	// offset, so the prompt scan reads a bounded window from there as well as the transcript's tail
+	// (ScanTranscriptForProbe). A history written before this field existed decodes it as 0.
+	ScanFrom int64 `json:"scan_from,omitempty"`
 	// Observed is true once a scan has ever found Token (or a predecessor) in a transcript tail.
 	// It never resets to false: once §12.1's mechanism is proven to work, it stays proven.
 	Observed bool `json:"observed"`

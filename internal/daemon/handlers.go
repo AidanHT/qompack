@@ -34,6 +34,20 @@ const promptReplyDeadline = 250 * time.Millisecond
 // reads (task-5-spec.md handlers.go).
 const sentinelScanTailBytes = 256 << 10
 
+// sentinelScanFromMintBytes bounds the scan's other window: the bytes the host appended after the
+// point its transcript had reached when the probe was minted (SentinelState.ScanFrom).
+//
+// Derivation: the host records a SessionStart answer's additionalContext as it takes the answer,
+// before the turn the start opens, so the probe lands within the few records written first after
+// the mint — 798 bytes in, on a transcript the host created after SessionStart:startup, in the
+// Phase 4 live lane (plans/sdd/V6-closeout/live/uat/UAT-11/sentinel-offsets.json). The window is
+// the tail window's size, so a scan reads at most 2 × 256 KiB, and only until the project's probe
+// is first observed. If it is too small, a host that writes more than 256 KiB between answering
+// the start and recording its context (a compaction summary that long) hides the probe again and
+// the session degrades to passive; too large only costs read I/O on each prompt before the first
+// observation.
+const sentinelScanFromMintBytes = 256 << 10
+
 // hookEventNameSessionStart is the exact SessionStart HSO.HookEventName spelling
 // hookio.SessionStartOutput uses internally (unexported there); respelled here because the
 // session.start route must set it on an Output a Services seam already partially built, which
@@ -697,8 +711,9 @@ func (d *daemon) stopPromptRecordings(grace context.Context) {
 }
 
 // scanSentinelForPrompt is the §12.1 hook.additional_context_delivered probe's other half: a
-// worker (never the reply path) scans the transcript tail for the sentinel SessionStart minted,
-// and records what it found. It is a no-op once the sentinel has already been observed, or when
+// worker (never the reply path) scans the transcript for the sentinel SessionStart minted — in a
+// bounded window from where the transcript ended at the mint, and in its tail
+// (contract.ScanTranscriptForProbe) — and records what it found. It is a no-op once the sentinel has already been observed, or when
 // none is current: none was ever minted (every start so far was act.-suppressed or replayed, or the
 // project predates this mechanism), or the replay of the start whose answer lost it withdrew it
 // (withdrawLostStartAnswer).
@@ -720,7 +735,8 @@ func (d *daemon) scanSentinelForPrompt(ev *hookio.Event, promptTS core.UnixMilli
 	if h.Sentinel.Token == "" || h.Sentinel.Observed {
 		return
 	}
-	found, _ := contract.ScanTranscriptTail(ev.TranscriptPath, h.Sentinel.Token, sentinelScanTailBytes)
+	found, _ := contract.ScanTranscriptForProbe(ev.TranscriptPath, h.Sentinel.Token,
+		h.Sentinel.ScanFrom, sentinelScanFromMintBytes)
 	if !found && !sentinelMissCounts(h.Sentinel, ev.SessionID, promptTS) {
 		return
 	}
@@ -905,6 +921,10 @@ func (d *daemon) handleSessionStart(ctx context.Context, req ipc.Request) ipc.Re
 			h.Sentinel.Token = s.Token
 			h.Sentinel.Session = ev.SessionID
 			h.Sentinel.MintedAt = now
+			// Where the transcript ends now, before the host has this answer: the probe it carries
+			// is appended after this offset, which the prompt scan reads however far a large tool
+			// result later pushes the probe from the transcript's end (V6 close-out retrieval D4).
+			h.Sentinel.ScanFrom = contract.TranscriptSize(ev.TranscriptPath)
 			h.Sentinel.Chances = 0
 			h.Sentinel.MissedBy = nil
 			if out.HookSpecificOutput == nil {
