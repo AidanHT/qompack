@@ -1,0 +1,23 @@
+C4.2 — real headless sessions: every hook event captured; .qompack/ index counts match the host
+transcript; status, doctor, fsck clean. Agent-executed on the owner's real host per owner decision
+D3 by a Claude Code workflow subagent (Opus 5.5) — not human UAT. 2026-09-29 America/Toronto.
+
+Evidence: plans/sdd/V6-closeout/live/uat/UAT-02/ (session n=1; notes.txt section "C4.2",
+c42-counts.json, cli/07-transcript-facts.json, cli/05-*, cli/09-*). Supporting: UAT-03 (fsck clean
+with the daemon live in a session without MCP calls), C4.9 session1 (fsck clean).
+
+Result: FAIL on the clean-diagnostics clause; PASS on capture and counts.
+ - Every event fired and was captured: SessionStart (startup, compact), UserPromptSubmit 9,
+   PostToolUse 15, Stop 9, SubagentStop 2 (the Agent task + one during /compact), PreCompact
+   (checkpoint 0001; the /compact turn's "Compacted PreCompact [...] completed successfully: {}"),
+   SessionEnd (sessions.jsonl end line; no host stream event; stderr empty, no "Hook cancelled").
+   All 37 hook responses success/exit 0.
+ - Counts: host prompts 9 = store prompt records 9; host tool uses 16 minus the refused binary Read
+   (no PostToolUse) = 15 = store capture records; sessions 1 = 1. The store also holds 8
+   qompack-mcp:* self-records and 2 SubagentStop records with no host tool_use.
+ - status clean ("9 assertion(s), all holding"; latency rows `unavailable` with reasons).
+ - doctor: captures.unpublished "degraded" (26 gaps / 35 sidecars) while fsck and status count none
+   (F-UAT01-3).
+ - fsck exit 1: index.tool_use (8 MCP self-records at turn 0, F-UAT01-2) and, after the daemon's
+   idle work, index.segments naming an unwritten checkpoint 0002 (F-UAT02-4 / F-UAT03-2).
+Sessions used for C4.2: 1 (shared with UAT-02).

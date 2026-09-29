@@ -293,12 +293,32 @@ stored records to reconcile a failure.
 **Result**
 
 ```text
-Result: not executed — capability unverified
-Snapshot: develop 9c84e31 / branch feat/sp18-documentation-and-uat
-Date: 2026-09-14
-Executed by: —
-Evidence: —
-Rollback verified: —
+Result: pass — none of the row's three fail criteria occurred (every capture came back; no cut
+  capture read exact; latency cells without an instrument read `unavailable` with a reason).
+  Two expected-result fields were NOT observed (findings): expand responses carry `_meta.qompack`
+  on the result but no Fidelity anywhere (fidelity lives only in the capture sidecars: 34 exact,
+  1 redacted); the oversized big.log (310,800 B) was delivered whole by the host and stored whole,
+  so its sidecar reads `exact`, and no `binary` fidelity is reachable on this host (Read refuses a
+  .bin file and fires no PostToolUse, a PNG arrives as an image block, `cat` arrives as
+  host-decoded text; all stored `exact`). Step 1 OBSERVED (to be confirmed at execution, before any
+  session): session_start.fires first-session, session_start.source_compact
+  no-precompact-pending, hook.additional_context_delivered / precompact.has_time_to_write /
+  precompact.custom_instructions_accepted / mcp.server_registered not-yet-implemented,
+  hook.payload_shape "payload shape valid", transcript.readable no-transcript-path,
+  plugin.root_resolves unset; after the session the daemon's snapshot read sentinel-observed,
+  compact, "p99=101ms timeout=20000ms", retired, initialize-received, "transcript readable",
+  unset. Other findings: fsck exits 1 (turn-0 MCP records; after the daemon's idle work a segment
+  claims an unwritten checkpoint 0002), doctor over-counts capture gaps.
+Snapshot: qompack version 0.3.0; bundle BUNDLE.json sha256
+  32600778ae6463cd47736fc6b0a8614ad782e5bbd0ef0440f4e2c3937ccf4505; commit
+  d5598eb4445954120ee795560c2ea46640772f43; Windows 11 Home 25H2 build 10.0.26200.9457;
+  Claude Code 2.1.280
+Date: 2026-09-29 (America/Toronto)
+Executed by: Claude Code workflow subagent (Opus 5.5), agent-executed on the owner's real host
+  per owner decision D3 — not human UAT
+Evidence: plans/sdd/V6-closeout/live/uat/UAT-02/ (notes.txt indexes it; also C4.2)
+Rollback verified: not applicable — initial state absent (recorded: `backup create` exit 1 "no
+  existing store"); per the row's rule the run is retained as evidence; no restore was run
 ```
 
 ---
@@ -379,12 +399,32 @@ stored records to reconcile a failure.
 **Result**
 
 ```text
-Result: not executed — capability unverified
-Snapshot: develop 9c84e31 / branch feat/sp18-documentation-and-uat
-Date: 2026-09-14
-Executed by: —
-Evidence: —
-Rollback verified: —
+Result: pass — after a real "/compact" checkpoint 0001 exists and the manifest's last line names
+  it with a matching sha256; after the idle exit and `qompack status` bringing a daemon back, the
+  artifact and manifest are byte-identical. Findings: the artifact's encoded_segments,
+  pointers.files and pointers.tools are EMPTY although two Reads were captured before the
+  compaction (step 3's "carries its frontier and its references" not observed); after the clean
+  idle exit fsck fails index.segments ("segment 1 ... encoded into checkpoint 0002, which
+  MANIFEST.jsonl does not record"), so a backup taken then restores with integrity FAILED; `qompack
+  status` starting the daemon prints "daemon: status refused: " with an empty reason. Incomplete
+  outcome (to be confirmed at execution): with 0001.json corrupted in a restored copy, the
+  rehydration answered "checkpoint 0000" built from the verbatim L0 prompt; only the LOUD log names
+  the refusal ("checkpoint artifact does not match its MANIFEST digest; the checkpoint is
+  refused", "rehydrate: no checkpoint for session; building from L0"); no older checkpoint was
+  presented as current. The gated durable frontier is unverified by this row.
+Snapshot: qompack version 0.3.0; bundle BUNDLE.json sha256
+  32600778ae6463cd47736fc6b0a8614ad782e5bbd0ef0440f4e2c3937ccf4505; commit
+  d5598eb4445954120ee795560c2ea46640772f43; Windows 11 Home 25H2 build 10.0.26200.9457;
+  Claude Code 2.1.280
+Date: 2026-09-29 (America/Toronto)
+Executed by: Claude Code workflow subagent (Opus 5.5), agent-executed on the owner's real host
+  per owner decision D3 — not human UAT
+Evidence: plans/sdd/V6-closeout/live/uat/UAT-03/ (notes.txt indexes it; also C4.3)
+Rollback verified: not applicable — initial state absent (recorded); the run is retained as
+  evidence. For the probe, backup uat03-probe-src was created and verified (exit 0) and restored
+  into a fresh destination: exit 1, same-build reader proof OK (8 content roots, 6 tool refs) but
+  integrity FAILED on index.segments; the destination was kept, not activated; cross-version and
+  activation checks unverified
 ```
 
 ---
@@ -469,12 +509,28 @@ stored records to reconcile a failure.
 **Result**
 
 ```text
-Result: not executed — capability unverified
-Snapshot: develop 9c84e31 / branch feat/sp18-documentation-and-uat
-Date: 2026-09-14
-Executed by: —
-Evidence: —
-Rollback verified: —
+Result: pass — every compaction proceeded: 2 manual "/compact" and 11 automatic (forced with
+  CLAUDE_CODE_AUTO_COMPACT_WINDOW=100000 and CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=30), one host-failed
+  automatic compaction (compact_error too_few_groups, retried successfully), and one with the
+  PreCompact hook failing on an unparseable project config (`{"runtime":`): that hook printed {}
+  and exited 0, the compaction proceeded, no checkpoint was written, and MANIFEST.jsonl kept its 14
+  lines with every artifact re-hashing (newest 0014 from the last automatic compaction). The step-6
+  search over 97 Qompack outputs found no native-shrink claim. Findings: with a 17,774-character
+  first prompt every injection carried its first 8,192 bytes cut mid-word under the "verbatim"
+  heading, with no overflow entry or restore pointer and a spurious intent_mismatch (a UAT-05/D5
+  whole-record failure; injections 9,009-9,010 UTF-16 units, under the cap); the forced threshold
+  made the host thrash ("Autocompact is thrashing") and the in-session recovery of a Bash-delivered
+  fact failed (recall "Q23 data/keys.txt" returned 0 hits although expand of the capture holds it).
+Snapshot: qompack version 0.3.0; bundle BUNDLE.json sha256
+  32600778ae6463cd47736fc6b0a8614ad782e5bbd0ef0440f4e2c3937ccf4505; commit
+  d5598eb4445954120ee795560c2ea46640772f43; Windows 11 Home 25H2 build 10.0.26200.9457;
+  Claude Code 2.1.280
+Date: 2026-09-29 (America/Toronto)
+Executed by: Claude Code workflow subagent (Opus 5.5), agent-executed on the owner's real host
+  per owner decision D3 — not human UAT
+Evidence: plans/sdd/V6-closeout/live/uat/UAT-04/ (notes.txt indexes it; also C4.3)
+Rollback verified: not applicable — initial state absent (recorded); the run is retained as
+  evidence; no backup or restore was run in this row
 ```
 
 ---
@@ -572,12 +628,31 @@ stored records to reconcile a failure.
 **Result**
 
 ```text
-Result: not executed — capability unverified
-Snapshot: develop 9c84e31 / branch feat/sp18-documentation-and-uat
-Date: 2026-09-14
-Executed by: —
-Evidence: —
-Rollback verified: —
+Result: fail — current authority: an explicit correction ("the delimiter must be a TAB ... the
+  semicolon requirement is superseded") never reached the checkpoint (user_intent.evolution []) or
+  the block, and run 1's block re-injected only the superseded semicolon requirement; run 1's
+  block also omitted an invariant pinned before the compaction (pins/invariants.json view stale)
+  with dropped [] and degraded false (content missing, no overflow named); and in UAT-04 a first
+  prompt over 8 KiB was injected cut mid-record. Passing fields: delimiters and section order;
+  size within budget (run 1 221/12000 tokens, 725 UTF-16 units; run 2 109/150 tokens, 361 units;
+  inline, no persisted-output); run 2's tiny budget (min=max=150 by project config, proved by
+  config print and self-test) named the overflow explicitly: tier1 "OVERFLOW: the verbatim original
+  user intent did not fit ... emitted whole or not at all; restore:
+  expand(tool_use_id=prompt_..._0)" first, degraded true, section 7 cut to "… and 2 more; call
+  dropped()"; no native-shrink claim. MCP record_eliminated answered "elimination ledger not
+  present in this build".
+Snapshot: qompack version 0.3.0; bundle BUNDLE.json sha256
+  32600778ae6463cd47736fc6b0a8614ad782e5bbd0ef0440f4e2c3937ccf4505; commit
+  d5598eb4445954120ee795560c2ea46640772f43; Windows 11 Home 25H2 build 10.0.26200.9457;
+  Claude Code 2.1.280
+Date: 2026-09-29 (America/Toronto)
+Executed by: Claude Code workflow subagent (Opus 5.5), agent-executed on the owner's real host
+  per owner decision D3 — not human UAT
+Evidence: plans/sdd/V6-closeout/live/uat/UAT-05/ (notes.txt indexes it; also C4.3)
+Rollback verified: run 1 initial state absent (recorded); before run 2 backup uat05-before-run2
+  was created and verified (exit 0/0, consistent) after two refusals ("daemon lock already held"
+  for ~90 s after a terminated daemon); no restore was run; the post-run store is retained;
+  cross-version and activation checks unverified
 ```
 
 ---
@@ -649,12 +724,29 @@ stored records to reconcile a failure.
 **Result**
 
 ```text
-Result: not executed — capability unverified
-Snapshot: develop 9c84e31 / branch feat/sp18-documentation-and-uat
-Date: 2026-09-14
-Executed by: —
-Evidence: —
-Rollback verified: —
+Result: fail — after `--resume <id> --fork-session` the block's "Original user intent (verbatim
+  from L0 capture — never summarized)" is the FORK's own first prompt, with a section-7
+  "intent_mismatch ... injecting the L0 text", although the fork's checkpoints keep the true
+  original; and no correction (two were stated) ever reached a checkpoint or a block, so the
+  "newest correction stays above the older ones" field could not be observed — blocks 1-2 carry
+  only the superseded 100-per-minute requirement. Steps run: original intent + correction + compact
+  (block 1); --resume (SessionStart:resume injected only the contract probe) + second compaction
+  (block 2); fork + compact (block 3); second correction + compact (block 4); none skipped.
+  /qompack:why: no block lists a decision id, not run. Step 7: no log line waits on or reports a
+  post-compaction event. Fork diff (to be confirmed at execution): besides seq, checkpoint number,
+  session id and probe id, section 2's content changes and a section 7 entry appears. After the
+  second compaction the model recovered a value only a subagent had read (M17) through recall +
+  expand, answering "Source: Qompack archive (expand)".
+Snapshot: qompack version 0.3.0; bundle BUNDLE.json sha256
+  32600778ae6463cd47736fc6b0a8614ad782e5bbd0ef0440f4e2c3937ccf4505; commit
+  d5598eb4445954120ee795560c2ea46640772f43; Windows 11 Home 25H2 build 10.0.26200.9457;
+  Claude Code 2.1.280
+Date: 2026-09-29 (America/Toronto)
+Executed by: Claude Code workflow subagent (Opus 5.5), agent-executed on the owner's real host
+  per owner decision D3 — not human UAT
+Evidence: plans/sdd/V6-closeout/live/uat/UAT-06/ (notes.txt indexes it; also C4.3)
+Rollback verified: not applicable — initial state absent (recorded); the run is retained as
+  evidence; no backup or restore was run in this row
 ```
 
 ---
