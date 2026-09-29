@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"strings"
 	"testing"
@@ -263,4 +264,133 @@ func TestResolveSpanRuneSafeNeverEndsInsideARune(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int64(99), res.End, "past the budget the cut moves back to the rune's start")
 	require.True(t, utf8.Valid(res.Body))
+}
+
+// boundPEMHeader and boundPEMFooter are the private-key block delimiters the pem_private_key rule
+// matches. They are split across + so no contiguous credential shape exists in the repository (the
+// secret-fixture convention); the body between them is not a key.
+const (
+	boundPEMHeader = "-----BEGIN PRIV" + "ATE KEY-----\n"
+	boundPEMFooter = "-----END PRIV" + "ATE KEY-----\n"
+	// boundPEMLeak opens every line of the block's body (boundPEMBlock): it is what a page would
+	// carry if any part of the body were served in the clear.
+	boundPEMLeak = "Zm9vYmFy"
+	// boundPEMLines is how many body lines the block carries: about 250 bytes with its delimiters,
+	// so the whole block fits in a window even when most of the window's text is spent before it.
+	boundPEMLines = 3
+	// boundPEMAt is where the block starts in the object, after that much prose.
+	boundPEMAt = 8000
+	// boundPEMTail is the escape-heavy content after the block.
+	boundPEMTail = 4000
+	// boundPEMLeadFrom and boundPEMLeadTo bound how much prose each window carries before the
+	// block. Across that range the text spent before the block reaches the bound, which is where
+	// the cut is forced back into the block: pre + envelope + the redaction placeholder is over the
+	// bound, but pre + envelope + a few raw bytes of the block is not. Before the fix, leads
+	// 3,660-3,684 served the block's delimiter and body in the clear; the range keeps a margin on
+	// both sides of that window, since the envelope's width moves it.
+	boundPEMLeadFrom = 3600
+	boundPEMLeadTo   = 3760
+	// boundPEMChunkMin, boundPEMChunkTarget and boundPEMChunkMax make the object one chunk, so no
+	// chunk start lies inside a window and the cut stays where the escape charge put it.
+	boundPEMChunkMin    = 16 * 1024
+	boundPEMChunkTarget = 32 * 1024
+	boundPEMChunkMax    = 64 * 1024
+)
+
+// boundProse returns n bytes of plain prose lines, which the store keeps byte for byte (log lines
+// are not: their timestamps are canonicalized, which moves every offset after them).
+func boundProse(n int) string {
+	var b strings.Builder
+	for i := 0; b.Len() < n; i++ {
+		fmt.Fprintf(&b, "line %d of the notes: the build \"passed\" on the second attempt\n", i)
+	}
+	return b.String()[:n]
+}
+
+// boundPEMBlock returns a private-key-shaped block whose body lines differ.
+func boundPEMBlock() string {
+	const lineMix = 0x9e3779b97f4a7c15 // a 64-bit odd constant that spreads i across the hex digits
+	var b strings.Builder
+	b.WriteString(boundPEMHeader)
+	for i := range boundPEMLines {
+		fmt.Fprintf(&b, "%s%056x\n", boundPEMLeak, uint64(i+1)*lineMix)
+	}
+	b.WriteString(boundPEMFooter)
+	return b.String()
+}
+
+// TestExpandBoundCutNeverSplitsARedactedRegion pins that the response bound's cut never lands
+// inside a region the retrieval redactor replaced (V6 close-out, w13-mcpresp review). Re-redacting
+// the kept part alone does not see the whole secret: a cut inside a private-key block leaves BEGIN
+// with no END, the rule no longer matches, and the start of the block is served; the next page,
+// which starts exactly at the cut, has END with no BEGIN, and serves the rest of the block.
+//
+// The store is written with capture-time redaction off (a record that predates the rule), so the
+// key is in the archive in the clear and only retrieval redaction stands between it and the model.
+// Each window starts boundPEMLeadFrom..boundPEMLeadTo bytes before the block (an explicit span,
+// which starts exactly at its offset) and is followed with next_span until it is past the block.
+func TestExpandBoundCutNeverSplitsARedactedRegion(t *testing.T) {
+	f := newFixture(t, withCaptureRedactionDisabled(), withConfig(func(c *config.Config) {
+		c.Runtime.MCP.MaxResponseBytes = boundTinyResponse
+		c.Store.Chunk.Min, c.Store.Chunk.Target, c.Store.Chunk.Max = boundPEMChunkMin, boundPEMChunkTarget, boundPEMChunkMax
+	}))
+	block := boundPEMBlock()
+	body := boundProse(boundPEMAt) + block + boundEscapeHeavy(boundPEMTail)
+	h, _ := f.putAndRecord(t, "Read", "keys/notes.txt", body, 1)
+	require.Equal(t, body, storedBytes(t, f, h), "the store must keep the object byte for byte")
+	require.Len(t, spanRootOf(t, f, h).Chunks, 1, "the object must be one chunk")
+	blockEnd := int64(boundPEMAt + len(block))
+
+	for lead := boundPEMLeadFrom; lead < boundPEMLeadTo; lead++ {
+		start := int64(boundPEMAt - lead)
+		args := map[string]any{"hash": h.String(), "span": fmt.Sprintf("%d:%d", start, boundTinyResponse)}
+		for page := 0; ; page++ {
+			resp := f.call(t, ToolExpand, args)
+			require.False(t, resp.IsError, "lead %d page %d: %s", lead, page, responseText(resp))
+			text := responseText(resp)
+			require.LessOrEqual(t, len(text), boundTinyResponse, "lead %d page %d", lead, page)
+			var got contentBody
+			decodeInto(t, text, &got)
+			require.Equal(t, start, got.Span[0], "lead %d page %d: pages must be contiguous", lead, page)
+			require.Greater(t, got.Span[1], got.Span[0], "lead %d page %d: every page must make progress", lead, page)
+			require.NotContains(t, got.Content, "PRIV"+"ATE KEY-----",
+				"lead %d page %d %v: a private-key delimiter was served in the clear", lead, page, got.Span)
+			require.NotContains(t, got.Content, "-----BEGIN",
+				"lead %d page %d %v: part of a private-key delimiter was served in the clear", lead, page, got.Span)
+			require.NotContains(t, got.Content, boundPEMLeak,
+				"lead %d page %d %v: part of the private-key body was served in the clear", lead, page, got.Span)
+			if got.Span[1] > blockEnd || got.Span[1] == got.TotalBytes {
+				break
+			}
+			require.NotEmpty(t, got.NextSpan, "lead %d page %d", lead, page)
+			start = got.Span[1]
+			args = map[string]any{"hash": h.String(), "span": got.NextSpan}
+		}
+	}
+}
+
+// TestShrinkSpanChargeDoublesEachRound pins the convergence rule of the bound's cut loop: the
+// escape charge is exact for raw content but not for redacted content, so each further round
+// doubles it, and a charge that would consume the window keeps its first rune instead. A response
+// therefore needs a logarithmic number of rounds however much of it the redactor compresses.
+func TestShrinkSpanChargeDoublesEachRound(t *testing.T) {
+	const size, excess = 1000, 10
+	s := SpanResult{Off: 0, End: size, Total: size, Body: []byte(strings.Repeat("a", size))}
+	o := SpanOpts{Full: true, MaxSpan: size, MaxResponse: size}
+
+	for round, want := range map[int]int64{0: size - excess, 1: size - 2*excess, 3: size - 8*excess} {
+		got, ok := shrinkSpan(s, []int64{0}, excess, round, o)
+		require.True(t, ok, "round %d", round)
+		require.Equal(t, want, got.End, "round %d", round)
+	}
+
+	got, ok := shrinkSpan(s, []int64{0}, excess, 20, o)
+	require.True(t, ok)
+	require.Equal(t, int64(1), got.End, "a charge past the whole window keeps the first rune")
+
+	one := SpanResult{Off: 0, End: 3, Total: 3, Body: []byte("日")}
+	_, ok = shrinkSpan(one, []int64{0}, excess, 5, o)
+	require.False(t, ok, "a window already one rune long has nothing left to cut")
+	_, ok = shrinkSpan(s, []int64{0}, size+1, 0, o)
+	require.False(t, ok, "a first-round excess past the whole window leaves nothing")
 }
