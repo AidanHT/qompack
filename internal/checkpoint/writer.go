@@ -2,6 +2,7 @@ package checkpoint
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -187,12 +188,19 @@ func (w *FileWriter) releaseBeginGate(s core.SessionID, g *sessionGate) {
 // number would leave every encoded segment naming a checkpoint that does not contain it (§8.2's
 // "encoded-once flag, and checkpoint reference"). Choosing a free number up front is the cheap
 // half of avoiding that; Finalize enforces the other half.
-func (w *FileWriter) claimSeq() core.CheckpointSeq {
+//
+// floor is persistedClaimFloor's answer: numbers another daemon lifetime already gave a draft that
+// is still unsealed, or that a durable encode record names. They are skipped too, because issuedSeq
+// only remembers this writer's own lifetime.
+func (w *FileWriter) claimSeq(floor core.CheckpointSeq) core.CheckpointSeq {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
 	seq := maxSeq(w.l) + 1
 	if next := w.issuedSeq + 1; next > seq {
+		seq = next
+	}
+	if next := floor + 1; next > seq {
 		seq = next
 	}
 	for range maxSeqCollisionRetries {
@@ -389,7 +397,7 @@ func (w *FileWriter) Begin(ctx context.Context, s core.SessionID, parent core.Ch
 
 	d := &Draft{
 		session:  s,
-		seq:      w.claimSeq(),
+		seq:      w.claimSeq(w.persistedClaimFloor(ctx, src)),
 		parent:   parent,
 		encoded:  map[core.SegmentID]bool{},
 		src:      src,
@@ -597,6 +605,11 @@ func (w *FileWriter) seedTierOne(ctx context.Context, d *Draft, parent core.Chec
 //   - MarkEncoded's own batch validation catches the race where another writer encoded a segment
 //     between Get and the mark, and its error propagates unchanged.
 //
+// With the store's own segment log the mark is a RESERVATION (store.SegmentReservation): the DPI
+// guard and the in-memory effect of MarkEncoded, with no record appended. Finalize writes the
+// records when it seals, so index/segments.jsonl never names this draft's sequence while the draft
+// is unsealed — an idle exit before any compaction left it naming one (F-UAT03-2).
+//
 // A segment already encoded into THIS draft (d.encoded) is skipped silently, which is what makes
 // Advance idempotent for the same seq; a re-Begin-after-Abort re-encodes legitimately, because
 // MarkEncoded is idempotent for the same seq.
@@ -616,11 +629,28 @@ func (w *FileWriter) Advance(ctx context.Context, d *Draft, segs []core.SegmentI
 	slices.Sort(ids)
 	ids = slices.Compact(ids)
 
+	// mark is how this batch's encodes reach the segment log: a RESERVATION where the log offers
+	// one, so index/segments.jsonl never names this draft's sequence before Finalize seals it
+	// (F-UAT03-2), and MarkEncoded's single phase for a log that does not (a test double).
+	mark := src.Segments.MarkEncoded
+	reserver, reserves := src.Segments.(store.SegmentReservation)
+	if reserves {
+		mark = reserver.ReserveEncoded
+	}
+
 	var cands []store.Segment
 	var skipped []core.SegmentID
+	// relost are segments this draft already holds that the caller offered again. With a
+	// reserving log that happens after a restart: a reservation is not durable, so the resumed
+	// draft remembers the segment and the reopened log reports it unencoded. Reserving it again
+	// keeps the scheduler's residual and the frontier seeing it as encoded, as they did before.
+	var relost []core.SegmentID
 	for _, id := range ids {
 		if d.encoded[id] {
 			w.log.Debug("checkpoint: segment already encoded into this draft; skipped", "segment", int(id))
+			if reserves {
+				relost = append(relost, id)
+			}
 			continue
 		}
 		seg, err := src.Segments.Get(ctx, id)
@@ -677,10 +707,10 @@ func (w *FileWriter) Advance(ctx context.Context, d *Draft, segs []core.SegmentI
 		for i, seg := range cands {
 			encodable[i] = seg.ID
 		}
-		if err := src.Segments.MarkEncoded(ctx, encodable, d.seq); err != nil {
+		if err := mark(ctx, encodable, d.seq); err != nil {
 			// ErrAlreadyEncoded propagates unchanged (§8 step 4); the caller logs Loud and drops
-			// those ids. MarkEncoded validates the whole batch before writing, so nothing was
-			// marked, and the frontier stays put.
+			// those ids. MarkEncoded and ReserveEncoded validate the whole batch before touching
+			// anything, so nothing was marked, and the frontier stays put.
 			d.persistOrLogLocked()
 			return d.frontier, err
 		}
@@ -710,6 +740,16 @@ func (w *FileWriter) Advance(ctx context.Context, d *Draft, segs []core.SegmentI
 				"session", string(d.session), "err", ferr.Error())
 		} else if fr > d.frontier {
 			d.frontier = fr
+		}
+	}
+
+	if len(relost) > 0 {
+		// Best effort, and only the in-memory view is at stake: Finalize commits every segment the
+		// draft holds whether or not it is reserved. A refusal here is a segment another sequence
+		// now owns durably, which the seal reports as drift.
+		if err := reserver.ReserveEncoded(ctx, relost, d.seq); err != nil {
+			w.log.Debug("checkpoint: advance: segments this draft holds could not be reserved again",
+				"segments", len(relost), "err", err.Error())
 		}
 	}
 
@@ -1022,6 +1062,51 @@ func seqClaimed(l paths.Layout, seq core.CheckpointSeq) bool {
 		}
 	}
 	return false
+}
+
+// persistedClaimFloor is the highest checkpoint sequence number the project already holds for
+// something that is not sealed: a persisted draft of any session (state/draft-*.json, set-aside
+// .stale.json ones included) and any encode record in the segment log. A fresh draft must not take
+// such a number, and issuedSeq cannot say so, because it only remembers this writer's lifetime.
+//
+// The case it closes is a store an earlier daemon left behind (F-UAT03-2): session A's draft 0002
+// persisted with segments marked into it — durably, by builds before the two-phase encode — and a
+// new daemon beginning session B's first draft. With only the manifest to go on B took 0002 too, B's
+// seal then made A's claim look valid while 0002 held none of A's turns, and A's own draft, resumed
+// later, found 0002 taken and was set aside with its segments encoded into nothing.
+//
+// Unreadable entries are skipped: this only ever raises the number claimed, and a gap in the
+// sequence is harmless where a collision is not.
+func (w *FileWriter) persistedClaimFloor(ctx context.Context, src SourceSet) core.CheckpointSeq {
+	var floor core.CheckpointSeq
+	if entries, err := os.ReadDir(paths.Long(w.l.State)); err == nil {
+		for _, e := range entries {
+			name := e.Name()
+			if e.IsDir() || !strings.HasPrefix(name, "draft-") || !strings.HasSuffix(name, ".json") {
+				continue
+			}
+			b, rerr := os.ReadFile(paths.Long(filepath.Join(w.l.State, name)))
+			if rerr != nil {
+				continue
+			}
+			var df struct {
+				Seq core.CheckpointSeq `json:"seq"`
+			}
+			if json.Unmarshal(b, &df) == nil && df.Seq > floor {
+				floor = df.Seq
+			}
+		}
+	}
+	if src.Segments != nil {
+		if segs, err := src.Segments.Range(ctx, 0, core.TurnIndex(math.MaxInt)); err == nil {
+			for _, seg := range segs {
+				if seg.EncodedOnce && seg.CheckpointSeq > floor {
+					floor = seg.CheckpointSeq
+				}
+			}
+		}
+	}
+	return floor
 }
 
 // draftPathFor names session s's draft file: state/draft-<session>.json (§7). Callers must have

@@ -59,8 +59,8 @@ type SegmentLog interface {
 // SegmentSync is SegmentLog's optional durability half. Sync makes every record the log has
 // appended durable — each MarkEncoded among them — before it returns.
 //
-// MarkEncoded itself does not sync: the scheduler's idle Advance marks segments into an unsealed
-// draft, and nothing depends on those marks until the draft is sealed. What does depend on them is
+// MarkEncoded itself does not sync: nothing depends on an encode record until the checkpoint it
+// names is sealed (the idle Advance only reserves — see SegmentReservation). What does depend on them is
 // the seal. A checkpoint whose MANIFEST line survives a power cut while the marks naming it do not
 // leaves its segments unencoded in the log, and the next draft encodes them again — the §4.6 DPI
 // guard broken by a lost tail. checkpoint.Finalize therefore re-marks the draft's segments and calls
@@ -68,4 +68,22 @@ type SegmentLog interface {
 // offer it (a test double). *segLog, the store's own log, does.
 type SegmentSync interface {
 	Sync(ctx context.Context) error
+}
+
+// SegmentReservation is SegmentLog's optional two-phase encode, so that index/segments.jsonl only
+// ever names a checkpoint that has been sealed (F-UAT03-2).
+//
+// ReserveEncoded is MarkEncoded's DPI guard and in-memory effect with nothing appended: the
+// scheduler, Frontier and Unencoded see a reserved segment as encoded, and a reservation into a
+// different sequence is core.ErrAlreadyEncoded like any mark. CommitEncoded is the seal's half: it
+// appends the encode record for every id at the sequence the artifact was actually written at,
+// refusing only an id already DURABLY encoded elsewhere. A reservation is not durable: a log
+// reopened after a crash or an idle exit has none, and the draft that made it reserves again from
+// its own state file.
+//
+// checkpoint.Advance reserves and checkpoint.Finalize commits before the MANIFEST line. A
+// SegmentLog without this capability (a test double) keeps MarkEncoded's single-phase behaviour.
+type SegmentReservation interface {
+	ReserveEncoded(ctx context.Context, ids []core.SegmentID, seq core.CheckpointSeq) error
+	CommitEncoded(ctx context.Context, ids []core.SegmentID, seq core.CheckpointSeq) error
 }
