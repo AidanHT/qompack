@@ -11,3 +11,5 @@ sessions	5	UAT-04/C4.3 (manual + automatic + failed compaction)	plans/sdd/V6-clo
 sessions	6	UAT-06 A / C4.3 (intent, correction, /compact, Qompack-sourced fact recovery)	plans/sdd/V6-closeout/live/uat/UAT-06/sessionA	claude-haiku-4-5-20251001	0	46.81
 sessions	7	UAT-06 B --resume A / C4.3 (second compaction, subagent-held fact via Qompack)	plans/sdd/V6-closeout/live/uat/UAT-06/sessionB-resume	claude-haiku-4-5-20251001	0	41.661
 sessions	8	UAT-06 C --resume A --fork-session (compact in fork, second correction, compact)	plans/sdd/V6-closeout/live/uat/UAT-06/sessionC-fork	claude-haiku-4-5-20251001	0	60.144
+sessions	9	C4.9 (a) daemon ended mid-session, (b) newer settingsVersion	plans/sdd/V6-closeout/live/c4/C4.9/session1	claude-haiku-4-5-20251001	0	154.752
+sessions	10	C4.9 (c) unavailable object in a disposable copy, (b) newer settingsVersion	plans/sdd/V6-closeout/live/c4/C4.9/session2-copy	claude-haiku-4-5-20251001	0	41.563

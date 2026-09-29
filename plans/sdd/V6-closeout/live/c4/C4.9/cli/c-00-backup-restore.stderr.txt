@@ -1,0 +1,1 @@
+qompack backup restore: store: restored tool reference root f77b00a45902 does not resolve: qompack: not found: root f77b00a45902; the incomplete staging tree is preserved as evidence at <scratch>\sessions\c49\copy\proj\.qompack.restore-c49-copy-src-35271d3ae194df5a
