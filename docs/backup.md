@@ -61,10 +61,11 @@ A store written by an earlier build reads as follows:
 
 Copy a project to another path with `backup` and `restore`, not by hand. A backup leaves out
 `.qompack/run/`. A hand copy carries the original's `run/daemon.lock`, which records the original
-project's address. This build judges such a lock by the copied store's own heartbeat. It is
-reclaimed once that heartbeat is older than the 90-second staleness window. Until then each daemon
-start logs `this project's lock was written for another project path` and exits, and `fsck`'s
-`daemon` row names the lock.
+project's root (or, from an earlier build, an address named for the original project). This build
+judges such a lock by the copied store's own heartbeat. It is reclaimed once that heartbeat is older
+than the 90-second staleness window; a copy that gave `run/daemon.hb` a fresh modification time
+waits that long. Until then each daemon start logs `this project's lock was written for another
+project path` and exits, and `fsck`'s `daemon` row names the lock.
 
 The source remains the source. Restore does not switch the active project, delete later writes or
 automatically downgrade a schema. Preserve later writes in the original tree. Before activating a

@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strconv"
 	"testing"
 	"time"
 
@@ -104,6 +106,54 @@ func TestFsck_ALockCopiedFromAnotherPathIsNotARunningDaemon(t *testing.T) {
 	_, doc, _ := fsckJSON(t, p.Root)
 	require.Equal(t, false, doc["daemon_running"], "no daemon answers at this project's own address")
 	require.Contains(t, fsckDetail(fsckRequireRow(t, doc, "daemon")), "written for another project path")
+}
+
+// TestFsck_ALockThisProjectWroteAtAnotherAddressIsItsDaemon is the other side of the test above: a
+// lock is foreign when it was written for another PROJECT, not whenever its recorded address is one
+// this process would not resolve. A daemon of this project started under another environment (on
+// POSIX, XDG_RUNTIME_DIR or TMPDIR; anywhere, QOMPACK_IPC_ADDR) records such an address, and fsck
+// must dial it and report the daemon running, not call the lock another path's.
+func TestFsck_ALockThisProjectWroteAtAnotherAddressIsItsDaemon(t *testing.T) {
+	isolateUserGlobal(t)
+	p := seedFsckProject(t)
+
+	recorded := ipc.Addr{Kind: ipc.UnixSocket, Path: shortSocketPath(t)}
+	if runtime.GOOS == "windows" {
+		recorded = ipc.Addr{Kind: ipc.NamedPipe,
+			Path: `\\.\pipe\qompack-fsck-lockid-` + strconv.FormatInt(time.Now().UnixNano(), 36)}
+	}
+	srv, err := ipc.NewServer(recorded, logging.Nop(), nil, 0)
+	require.NoError(t, err)
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(func() {
+		cancel()
+		_ = srv.Close()
+	})
+	go func() {
+		_ = srv.Serve(ctx, func(context.Context, ipc.Request) ipc.Response { return ipc.Response{OK: true} })
+	}()
+
+	run := paths.Of(p.Root).Run
+	require.NoError(t, os.MkdirAll(paths.Long(run), 0o700))
+	body, err := json.Marshal(daemon.LockInfo{
+		PID: os.Getpid(), Started: time.Now().UnixMilli(), Addr: recorded.Path, Version: "0.0.0-test",
+	})
+	require.NoError(t, err)
+	require.NoError(t, paths.CreateNew(filepath.Join(run, "daemon.lock"), body))
+
+	_, doc, _ := fsckJSON(t, p.Root)
+	require.Equal(t, true, doc["daemon_running"], "the recorded address answers")
+	require.NotContains(t, fsckDetail(fsckRequireRow(t, doc, "daemon")), "another project path")
+}
+
+// shortSocketPath is a Unix socket path private to this test and inside sun_path's 100 bytes, which
+// a test-named t.TempDir can outgrow.
+func shortSocketPath(t *testing.T) string {
+	t.Helper()
+	dir, err := os.MkdirTemp("", "qfl")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	return filepath.ToSlash(filepath.Join(dir, "o.sock"))
 }
 
 func itoa(n int) string {
