@@ -224,7 +224,11 @@ func (h *handlers) alreadyTried(ctx context.Context, _ Request, raw json.RawMess
 	}
 	l := h.ledger()
 	if l == nil {
-		return h.jsonResponse(ToolAlreadyTried, unavailable("elimination ledger not present in this build"), nil), nil
+		// No ledger could be opened. This is the documented `unavailable` state, never a body of
+		// another shape: a caller holding the tool's five states must be able to read it, and it
+		// must not read as absence (§11.3 invariant 8).
+		h.log.Loud("mcp: elimination ledger unavailable; already_tried cannot determine prior attempts")
+		return h.jsonResponse(ToolAlreadyTried, ledgerUnavailableResult(), nil), nil
 	}
 
 	scope := negknow.Scope(h.cfg.Eliminations.DefaultScope)
@@ -233,12 +237,21 @@ func (h *handlers) alreadyTried(ctx context.Context, _ Request, raw json.RawMess
 		// A failed query is not evidence of absence. Do not expose a backend error that may
 		// contain private paths, query text or stored evidence in the response or diagnostic.
 		h.log.Loud("mcp: elimination ledger unavailable; already_tried cannot determine prior attempts")
-		return h.jsonResponse(ToolAlreadyTried, AlreadyTriedResult{
-			State: stateUnavailable, Degraded: true, Reason: "elimination ledger unavailable",
-			Note: "Prior attempts are unknown. Retry after ledger recovery; this is not evidence against the approach.",
-		}, nil), nil
+		return h.jsonResponse(ToolAlreadyTried, ledgerUnavailableResult(), nil), nil
 	}
 	return h.jsonResponse(ToolAlreadyTried, h.renderAnswer(ans), answerMeta(ans)), nil
+}
+
+// ledgerUnavailableReason is the one sentence both ledger tools use when no ledger can back them.
+const ledgerUnavailableReason = "elimination ledger unavailable"
+
+// ledgerUnavailableResult is already_tried's answer when the ledger cannot be consulted at all —
+// none could be opened, or the query failed.
+func ledgerUnavailableResult() AlreadyTriedResult {
+	return AlreadyTriedResult{
+		State: stateUnavailable, Degraded: true, Reason: ledgerUnavailableReason,
+		Note: "Prior attempts are unknown. Retry after ledger recovery; this is not evidence against the approach.",
+	}
 }
 
 // renderAnswer maps a negknow.Answer onto the wire result.
@@ -358,7 +371,12 @@ func (h *handlers) recordEliminated(ctx context.Context, r Request, raw json.Raw
 		return errResponse("invalid arguments for " + ToolRecordEliminated + ": " + err.Error()), nil
 	}
 	if h.ledger() == nil {
-		return h.jsonResponse(ToolRecordEliminated, unavailable("elimination ledger not present in this build"), nil), nil
+		// Nothing was recorded, and the acknowledgement is the only signal the model has that a
+		// durable write happened, so this is the tool error every other failed write here is —
+		// not a success-shaped body a caller could mistake for a recorded elimination.
+		h.log.Loud("mcp: elimination ledger unavailable; record_eliminated recorded nothing")
+		return errResponse("cannot record elimination: " + ledgerUnavailableReason +
+			", so nothing was recorded; retry later"), nil
 	}
 	if msg := validateElimination(a); msg != "" {
 		return errResponse(msg), nil
@@ -450,8 +468,11 @@ func (h *handlers) ingestEliminationFallback(ctx context.Context, a RecordElimin
 	}
 
 	deps, warnings := h.resolveFallbackDeps(ctx, a.DependsOn)
+	// The session is the caller's (invoke attaches it), set explicitly rather than left for the
+	// ledger to default: a Ledger that is only a Ledger need not read the caller off the context.
+	caller, _ := negknow.CallerFrom(ctx)
 	rec := negknow.Record{
-		Session: "", TS: h.nowMilli(),
+		Session: caller.Session, TS: h.nowMilli(),
 		Target: a.Target, Approach: a.Approach, Reason: a.Reason,
 		Desc:     negknow.Canonicalize(a.Target, a.Approach, a.Reason),
 		Evidence: evidence, DependsOn: deps,
@@ -603,6 +624,7 @@ func (h *handlers) timeline(ctx context.Context, r Request, raw json.RawMessage)
 	if err != nil && !errors.Is(err, core.ErrNotFound) {
 		return errResponse("timeline failed: " + err.Error()), nil
 	}
+	liveProgress(ctx, all)
 
 	from, ok := resolveBound(a.From, all, true)
 	if !ok {
@@ -612,11 +634,18 @@ func (h *handlers) timeline(ctx context.Context, r Request, raw json.RawMessage)
 	if !ok {
 		return errResponse("timeline: to must be a turn index, an RFC3339 timestamp, or empty"), nil
 	}
+	if strings.TrimSpace(a.From) != "" && strings.TrimSpace(a.To) != "" && from > to {
+		// Both bounds were the caller's own and they are inverted. Answering would be a lie either
+		// way: the open-segment rule below matches a segment on its start alone, so an inverted
+		// range still returned the live segment, dressed as the answer to a question no range asks.
+		return errResponse("timeline: from is after to; pass from at or before to"), nil
+	}
 
 	window, err := segs.Range(ctx, from, to)
 	if err != nil && !errors.Is(err, core.ErrNotFound) {
 		return errResponse("timeline failed: " + err.Error()), nil
 	}
+	liveProgress(ctx, window)
 
 	var frontier core.TurnIndex
 	if f, ferr := segs.Frontier(ctx, r.Session); ferr == nil {
@@ -637,6 +666,36 @@ func (h *handlers) timeline(ctx context.Context, r Request, raw json.RawMessage)
 		Segments: out, Count: len(out), Found: len(out) > 0,
 	}
 	return h.jsonResponse(ToolTimeline, body, nil), nil
+}
+
+// liveProgress brings each OPEN segment in segs up to where its session actually is, when the
+// daemon attached a live view that holds that session.
+//
+// The segment log records a segment's end turn and token count only when the segment closes; until
+// then it holds StartTurn as the end and 0 tokens. A session whose single segment stays open for its
+// whole life — the common case, since only a changepoint or the session's end closes one — was
+// therefore reported as "turns 0-0, 0 tokens" after any number of turns (retrieval D8). The end is
+// raised to the session's current turn. The running token count is taken only for the segment the
+// observer is itself enrolling events into: a segment the scheduler rolled open since has no
+// running count the observer holds, and keeps the log's value rather than borrowing another
+// segment's.
+func liveProgress(ctx context.Context, segs []store.Segment) {
+	for i := range segs {
+		s := &segs[i]
+		if s.Closed {
+			continue
+		}
+		p, ok := progressOf(ctx, s.Session)
+		if !ok {
+			continue
+		}
+		if p.Turn > s.EndTurn {
+			s.EndTurn = p.Turn
+		}
+		if p.Segment == s.ID && p.SegmentTokens > s.Tokens {
+			s.Tokens = p.SegmentTokens
+		}
+	}
 }
 
 // resolveBound turns one timeline bound into a turn index.

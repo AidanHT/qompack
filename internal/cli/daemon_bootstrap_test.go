@@ -416,7 +416,15 @@ func TestBootstrapDAGOpenFailureDegrades(t *testing.T) {
 }
 
 // TestBootstrapLedgerSkippedWhenStoreIsNil pins what negative knowledge does when the bootstrap
-// hands it nothing: `already_tried` reports available:false and never state:"active".
+// hands it nothing: `already_tried` reports the documented `unavailable` state with degraded set,
+// and never state:"active".
+//
+// Criterion change (V6 close-out wave 13, retrieval D1): this row used to require the body
+// {"available":false,"reason":"elimination ledger not present in this build"} — a shape outside
+// already_tried's documented states, which the live lane recorded as a defect (C44-3). The
+// invariant the row exists for is unchanged and still asserted: with no ledger the answer is never
+// a positive. What changed is only which body says "this cannot be answered": now the tool's own
+// `unavailable` state, which no client can mistake for an absence.
 //
 // The assertion is stronger than its name and weaker than it will be. installMCPTools passes
 // opts.Ledger straight through, and at that point nothing has opened a ledger: SP-11's
@@ -435,14 +443,17 @@ func TestBootstrapLedgerSkippedWhenStoreIsNil(t *testing.T) {
 	stop := bootstrapDaemon(t, root)
 	defer stop()
 
-	body := bootstrapAvailability{}
+	var body struct {
+		bootstrapAvailability
+		Degraded bool `json:"degraded"`
+	}
 	bootstrapBody(t, bootstrapCall(t, root, mcp.ToolAlreadyTried, map[string]any{
 		"target": "src/pool.ts:connect", "approach": "widen pool timeout",
 	}), &body)
 
-	require.NotNil(t, body.Available, "a build with no ledger must state its availability")
-	require.False(t, *body.Available)
-	require.Contains(t, body.Reason, "elimination ledger not present")
+	require.Equal(t, "unavailable", body.State, "a daemon with no ledger must answer the unavailable state")
+	require.True(t, body.Degraded, "and mark the answer degraded")
+	require.Contains(t, body.Reason, "elimination ledger unavailable")
 	require.NotEqual(t, "active", body.State,
 		"§12.3: with no ledger the answer is never a positive; a wrongly refused approach is the "+
 			"failure this subsystem exists to avoid")
