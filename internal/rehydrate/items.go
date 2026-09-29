@@ -611,6 +611,10 @@ func eliminationCandidates(ctx context.Context, r Request, d Deps) ([]negknow.Re
 	var drops []checkpoint.DropEntry
 	var fromLedger []negknow.Record
 
+	// The daemon's ledger serves every session of the project, so the session whose
+	// session-scoped eliminations this rehydration may carry is named on the call: this one.
+	ctx = negknow.WithCaller(ctx, negknow.Caller{Session: r.Session})
+
 	if d.Ledger == nil {
 		drops = append(drops, checkpoint.DropEntry{
 			Kind: dropKindEliminationSource, ID: "ledger",
