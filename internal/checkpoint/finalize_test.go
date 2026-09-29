@@ -25,6 +25,7 @@ import (
 	"github.com/qompack/qompack/internal/negknow"
 	"github.com/qompack/qompack/internal/obs"
 	"github.com/qompack/qompack/internal/paths"
+	"github.com/qompack/qompack/internal/pins"
 	"github.com/qompack/qompack/internal/store"
 	"github.com/qompack/qompack/internal/testutil"
 	"github.com/qompack/qompack/internal/tokens"
@@ -283,6 +284,57 @@ func TestFinalizeMaterializesPins(t *testing.T) {
 	require.NoError(t, err)
 	require.Greater(t, f.pins.materialized, before,
 		"Finalize refreshes the materialized pins view, so invariants.json never lags a sealed checkpoint")
+}
+
+// TestFinalizeSealsAPinMadeAfterBegin is F-UAT05-2's second half. A draft seeds its invariants when
+// it is begun, and a seal begins its successor at once, so the draft a compaction seals was usually
+// begun long before: a pin made in between must still be in the checkpoint, because tier 1 is the
+// set pinned when the checkpoint is SEALED, not when its draft happened to open.
+func TestFinalizeSealsAPinMadeAfterBegin(t *testing.T) {
+	f := newFx(t)
+	f.pins.invs = []pins.Invariant{{ID: "inv_before000000", Text: "pinned before the draft", Source: "user", Pinned: 1}}
+	d := seedDraft(t, f)
+	f.pins.invs = append(f.pins.invs,
+		pins.Invariant{ID: "inv_after0000000", Text: "pinned while the draft was open", Source: "user", Pinned: 2})
+
+	ref, err := f.w.Finalize(f.ctx(), d, finalizeBudget)
+	require.NoError(t, err)
+	raw, err := os.ReadFile(paths.Long(ref.Path))
+	require.NoError(t, err)
+	cp, err := checkpoint.Unmarshal(raw)
+	require.NoError(t, err)
+	require.Equal(t, f.pins.invs, cp.Invariants, "the sealed tier 1 is the pin set at the seal, verbatim")
+	for _, dr := range cp.Dropped {
+		require.NotEqual(t, "invariants", dr.Kind, "a seal that read its pins names no pin drop: %+v", dr)
+	}
+}
+
+// TestFinalizeNamesPinsItCouldNotReread: when the pin set cannot be read at the seal, the artifact
+// keeps the invariants its draft was begun with — they were pinned and nothing says otherwise — and
+// names the gap, so a pin made since is a named drop rather than a silent absence.
+func TestFinalizeNamesPinsItCouldNotReread(t *testing.T) {
+	f := newFx(t)
+	begun := []pins.Invariant{{ID: "inv_before000000", Text: "pinned before the draft", Source: "user", Pinned: 1}}
+	f.pins.invs = begun
+	d := seedDraft(t, f)
+	f.pins.allErr = fmt.Errorf("pins: reading the invariant log: %w", os.ErrPermission)
+
+	ref, err := f.w.Finalize(f.ctx(), d, finalizeBudget)
+	require.NoError(t, err, "an unreadable pin set must not cost the checkpoint")
+	raw, err := os.ReadFile(paths.Long(ref.Path))
+	require.NoError(t, err)
+	cp, err := checkpoint.Unmarshal(raw)
+	require.NoError(t, err)
+	require.Equal(t, begun, cp.Invariants, "the draft's invariants are kept, never emptied")
+	var named []checkpoint.DropEntry
+	for _, dr := range cp.Dropped {
+		if dr.Kind == "invariants" {
+			named = append(named, dr)
+		}
+	}
+	require.Len(t, named, 1, "exactly one drop names the unread pin set: %+v", cp.Dropped)
+	require.Equal(t, "pins", named[0].ID)
+	require.Contains(t, named[0].Detail, "permission denied")
 }
 
 func TestFinalizeArtifactIsCanonicalJSON(t *testing.T) {
