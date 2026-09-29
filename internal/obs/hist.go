@@ -89,8 +89,11 @@ func (h *histogram) Observe(d time.Duration) {
 		d = 0
 	}
 	u := uint64(d / time.Microsecond)
-	atomic.AddUint32(&h.counts[bucketFor(u)], 1)
+	// The max is raised BEFORE the count, and Snapshot loads the counts before the max, so a
+	// snapshot that counts this sample also sees a max at least as large: a reader that clamps a
+	// percentile to Max (the status page does) can never clamp it below a sample it counted.
 	casMaxAtLeast(&h.maxMicros, int64(u))
+	atomic.AddUint32(&h.counts[bucketFor(u)], 1)
 }
 
 // casMaxAtLeast atomically raises *addr to v if v is larger, via a compare-and-swap retry loop —

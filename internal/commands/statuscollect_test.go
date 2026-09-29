@@ -465,3 +465,36 @@ func TestStatus_ReportSchemaIsVersioned(t *testing.T) {
 	require.Equal(t, commands.StatusSchema, rep.Schema)
 	require.Equal(t, collectedAt.UnixMilli(), rep.CollectedAtMS)
 }
+
+// TestStatus_APercentileNeverReadsAboveTheMax is the Phase 4 live lane's D9 row: status printed
+// "p95 106.50ms p99 106.50ms max 99.00ms". The histogram's percentiles are its containing bucket's
+// upper bound (up to ~9% above any sample in it, obs.histogram.Snapshot), while Max is the largest
+// sample itself, so a percentile whose bucket holds the max read above it. No percentile of the
+// samples can exceed their maximum, so the display clamps to it: the value stays an upper bound on
+// the true percentile, and the page stops contradicting itself.
+func TestStatus_APercentileNeverReadsAboveTheMax(t *testing.T) {
+	t.Parallel()
+
+	snap := obs.HistSnapshot{
+		N: 7, P50: 22530 * time.Microsecond, P95: 106500 * time.Microsecond, P99: 106500 * time.Microsecond,
+		Max: 99 * time.Millisecond,
+	}
+	rep := commands.CollectStatus(context.Background(), commands.StatusSources{
+		Daemon: func(context.Context) (commands.DaemonStatus, time.Time, error) {
+			return commands.DaemonStatus{Mode: "full", Latency: map[string]obs.HistSnapshot{"hook_controlled": snap}},
+				collectedAt, nil
+		},
+	}, collectedAt)
+
+	var ba *commands.Latency
+	for _, b := range rep.Budgets {
+		if b.ID == obs.BA {
+			ba = b.Latency
+		}
+	}
+	require.NotNil(t, ba)
+	require.Equal(t, int64(99_000), ba.MaxUS)
+	require.Equal(t, int64(99_000), ba.P95US, "p95 may not read above the max")
+	require.Equal(t, int64(99_000), ba.P99US, "p99 may not read above the max")
+	require.Equal(t, int64(22_530), ba.P50US, "a percentile below the max is left as measured")
+}
