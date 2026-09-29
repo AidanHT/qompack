@@ -1,0 +1,1 @@
+step 4: waited for the idle exit (idleExitSeconds=120 from the session env). Before step 5: <project>/.qompack/run/daemon.lock absent; the day log's last line is the 17:52:02Z observer gc after SessionEnd; no qompack.exe for this project (the only one running was UAT-05's, pid 11556).

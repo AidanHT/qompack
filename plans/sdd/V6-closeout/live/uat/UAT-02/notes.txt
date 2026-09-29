@@ -128,10 +128,14 @@ Findings:
    file (no PostToolUse, so nothing to capture), Read of a PNG delivers an image block (stored
    exact), and `cat` delivers host-decoded text (stored exact). No `binary` fidelity is reachable on
    this host (cf. F-UAT12-3).
- F-UAT02-4 (product defect, crash ordering) terminating the daemon during idle frontier work left
-   index/segments.jsonl claiming an encode into checkpoint 0002 that was never published; fsck
-   index.segments fails (severity 1). The segment record is written before the checkpoint it names.
-   Troubleshooting §7 names terminating the process as a supported way to end a daemon.
+ F-UAT02-4 (product defect) after the daemon's idle frontier work index/segments.jsonl claims an
+   encode into checkpoint 0002 that was never published; fsck index.segments fails (severity 1).
+   Here the termination landed at that moment, but UAT-03 (steps/, cli/s5-fsck-json) reproduces the
+   same record after a CLEAN idle exit with no termination, so it is not a crash artifact: every
+   idle frontier advance leaves it. See F-UAT03-2.
+ cli/10-restart-after-kill.txt: nine minutes after the termination `qompack status` restarted a
+   daemon from the stale lock (and printed "daemon: status refused: " with an empty reason); that
+   daemon was stopped by the same verified procedure.
  F-UAT02-5 (known, C4.2 blocker) fsck index.tool_use turn-0 MCP records (F-UAT01-2) and doctor
    captures.unpublished over-count (F-UAT01-3) reproduce, so C4.2's "status, doctor, fsck clean"
    does not hold.

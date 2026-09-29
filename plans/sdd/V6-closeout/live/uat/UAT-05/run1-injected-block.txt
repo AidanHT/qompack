@@ -1,0 +1,10 @@
+<!-- qompack:injected seq=1 ver=1 -->
+# Qompack rehydration — checkpoint 0001, session 5e3a5fb2
+
+## 2. Original user intent (verbatim from L0 capture — never summarized)
+> We are adding a CSV export to the reports module. Requirement: the export must use a semicolon (;) as the field delimiter. Use the Read tool to read reports.py and tell me in one sentence where the export function should go.
+
+## 8. Retrieval
+Qompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().
+<!-- /qompack:injected -->
+<!-- qompack-contract-probe qompack-contract-a488a24bf568 -->

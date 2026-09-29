@@ -1,0 +1,3 @@
+probe 2: the destination restored from backup uat03-probe-src (12-), then checkpoints/0001.json one byte changed
+('Tern' -> 'Tarn', same length, sha256 2dfa0dd4e4810d91a1c7d9d76b7a04a86bf960fd9d9f2b9ebe0cc17e50df933d vs MANIFEST 8d4c26dc...).
+Then the hook entry point `qompack session-start` with a SessionStart source=compact payload for session 8c5b739f.

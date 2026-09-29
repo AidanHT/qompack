@@ -1,0 +1,26 @@
+/qompack:dropped --json in the session after the compaction. The host does not put a command's expanded body in the
+stream; this is the model's verbatim reproduction of the envelope (assistant text, run's stream.jsonl), last turn:
+
+```json
+{
+  "schema": 1,
+  "command": "dropped",
+  "ok": true,
+  "data": {
+    "tool": "dropped",
+    "is_error": false,
+    "ephemeral": true,
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"count\":2,\"drops\":[{\"detail\":\"OVERFLOW: the verbatim original user intent did not fit the rehydration payload and is emitted whole or not at all; restore: expand(tool_use_id=prompt_8ac0f6c5-21c8-49e3-84d1-be016cb68153_0)\",\"id\":\"tier1\",\"kind\":\"user_intent\"},{\"detail\":\"OVERFLOW: tier-1 material did not fit the rehydration budget and is emitted whole or not at all — call dropped() for the full accounting\",\"id\":\"tier1\",\"kind\":\"affordance\"}]}"
+      }
+    ],
+    "meta": {
+      "elapsed_ms": 6,
+      "hash": "sha256:f948f740ecb0c19c60184657cff9076c9e5b5f95db574f39b156b5790b429cfa",
+      "tool_use_id": "qompack-mcp:2b75b2702f4c"
+    }
+  }
+}
+```

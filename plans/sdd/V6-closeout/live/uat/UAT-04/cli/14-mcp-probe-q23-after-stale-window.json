@@ -1,0 +1,352 @@
+{
+ "initialize": {
+  "serverInfo": {
+   "name": "qompack",
+   "version": "0.3.0"
+  },
+  "protocolVersion": "2025-06-18"
+ },
+ "calls": [
+  {
+   "tool": "recall",
+   "args": {
+    "query": "Q23"
+   },
+   "jsonrpc_line_bytes": 1720,
+   "isError": false,
+   "error": null,
+   "text_bytes": 1267,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 4,
+     "ephemeral": true,
+     "hash": "sha256:1232a2c5bb17860fa70a901dea53958fbfc50277136da8420ae22f3596de2271",
+     "tool_use_id": "qompack-mcp:7a0cbb8b44b3",
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "hits": [
+      {
+       "hash": "sha256:333149c579eb5c01a10e2f1ba949883d3e594292b78d9bbc4821b0c4ab246913",
+       "path": "",
+       "tool": "SubagentStop",
+       "summary": "{\"session\":\"5fe7f497-1c23-414e-8fcc-933363180fd0\",\"agent\":\"subagent\",\"turn\":25,\"ts\":1790705433108,\"summary\":\"I need t…",
+       "ts": "2026-09-29T18:10:33Z",
+       "score": 0.37,
+       "tool_use_id": "subagent_5fe7f497-1c23-414e-8fcc-933363180fd0_25",
+       "span": [
+        0,
+        444
+       ]
+      },
+      {
+       "hash": "sha256:56f9cadc3bbb11ef5cde7b1caeeee0bac24ee7e10b79b8513090ab57f1ff83b6",
+       "path": "",
+       "tool": "SubagentStop",
+       "summary": "{\"session\":\"5fe7f497-1c23-414e-8fcc-933363180fd0\",\"agent\":\"subagent\",\"turn\":24,\"ts\":1790705398732,\"summary\":\"I need t…",
+       "ts": "2026-09-29T18:09:58Z",
+       "score": 0.35758620689655174,
+       "tool_use_id": "subagent_5fe7f497-1c23-414e-8fcc-933363180fd0_24",
+       "span": [
+        0,
+        419
+       ]
+      },
+      {
+       "hash": "sha256:2c8f6c89c8749d94827d864f97c6987d4ce9dc98fdc78d8a0501f75f3bae0d93",
+       "path": "",
+       "tool": "UserPromptSubmit",
+       "summary": "data/keys.txt has now been deleted, so you cannot run cat on it again. What is the exact value of key Q23 from data/k…",
+       "ts": "2026-09-29T18:08:52Z",
+       "score": 0.3451724137931035,
+       "tool_use_id": "prompt_5fe7f497-1c23-414e-8fcc-933363180fd0_22",
+       "span": [
+        0,
+        342
+       ]
+      }
+     ],
+     "count": 3,
+     "found": true,
+     "query": {
+      "text": "Q23",
+      "path": "",
+      "symbol": "",
+      "tool": ""
+     },
+     "denied": 2
+    }
+   ]
+  },
+  {
+   "tool": "recall",
+   "args": {
+    "query": "Q23 data/keys.txt",
+    "k": 5
+   },
+   "jsonrpc_line_bytes": 425,
+   "isError": false,
+   "error": null,
+   "text_bytes": 115,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 10,
+     "ephemeral": true,
+     "hash": "sha256:603b0044defa9d3e74c6ecacb3394beacba23bf9265327c01e89491b93b3c940",
+     "tool_use_id": "qompack-mcp:eaab4190a967",
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "hits": [],
+     "count": 0,
+     "found": false,
+     "query": {
+      "text": "Q23 data/keys.txt",
+      "path": "",
+      "symbol": "",
+      "tool": ""
+     },
+     "denied": 2
+    }
+   ]
+  },
+  {
+   "tool": "recall",
+   "args": {
+    "query": "WALNUT-2889-OAK"
+   },
+   "jsonrpc_line_bytes": 692,
+   "isError": false,
+   "error": null,
+   "text_bytes": 357,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 9,
+     "ephemeral": true,
+     "hash": "sha256:df9a24f6addca4628f52754c9ecad4ba985c6c05675e0ae5d9f8fab8bb418325",
+     "tool_use_id": "qompack-mcp:5f7d527fc31b",
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "hits": [
+      {
+       "hash": "sha256:2ba97791dd263151c74d08365946b537fc3432a7c76eb4e9499b652fb3a22e3a",
+       "path": "",
+       "tool": "Bash",
+       "summary": "Q01=BIRCH-5388-SPRUCE",
+       "ts": "2026-09-29T18:03:44Z",
+       "score": 0.257741935483871,
+       "tool_use_id": "toolu_018f6iMcqfRLUqDdRv2NxVTu",
+       "span": [
+        0,
+        857
+       ]
+      }
+     ],
+     "count": 1,
+     "found": true,
+     "query": {
+      "text": "WALNUT-2889-OAK",
+      "path": "",
+      "symbol": "",
+      "tool": ""
+     }
+    }
+   ]
+  },
+  {
+   "tool": "recall",
+   "args": {
+    "query": "keys"
+   },
+   "jsonrpc_line_bytes": 1670,
+   "isError": false,
+   "error": null,
+   "text_bytes": 1246,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 12,
+     "ephemeral": true,
+     "hash": "sha256:0376bfe56ec5aa7844dc07e23f7af6dfe034e44c259a118aa8a34a58f0f7ec3d",
+     "tool_use_id": "qompack-mcp:665b1ee6f22f",
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "hits": [
+      {
+       "hash": "sha256:2c8f6c89c8749d94827d864f97c6987d4ce9dc98fdc78d8a0501f75f3bae0d93",
+       "path": "",
+       "tool": "UserPromptSubmit",
+       "summary": "data/keys.txt has now been deleted, so you cannot run cat on it again. What is the exact value of key Q23 from data/k…",
+       "ts": "2026-09-29T18:08:52Z",
+       "score": 0.48249062518028907,
+       "tool_use_id": "prompt_5fe7f497-1c23-414e-8fcc-933363180fd0_22",
+       "span": [
+        0,
+        342
+       ]
+      },
+      {
+       "hash": "sha256:4cf6bb41893ac62dea7fd6c9d07f7bb1e6d1e9b990698046d76669adc6917e9a",
+       "path": "",
+       "tool": "UserPromptSubmit",
+       "summary": "the ledger must validate the poplar batch field before hourly reconciliation, and log the oak outcome.",
+       "ts": "2026-09-29T18:03:39Z",
+       "score": 0.39999062518028905,
+       "tool_use_id": "prompt_5fe7f497-1c23-414e-8fcc-933363180fd0_0",
+       "span": [
+        16248,
+        17774
+       ]
+      },
+      {
+       "hash": "sha256:333149c579eb5c01a10e2f1ba949883d3e594292b78d9bbc4821b0c4ab246913",
+       "path": "",
+       "tool": "SubagentStop",
+       "summary": "{\"session\":\"5fe7f497-1c23-414e-8fcc-933363180fd0\",\"agent\":\"subagent\",\"turn\":25,\"ts\":1790705433108,\"summary\":\"I need t…",
+       "ts": "2026-09-29T18:10:33Z",
+       "score": 0.35875,
+       "tool_use_id": "subagent_5fe7f497-1c23-414e-8fcc-933363180fd0_25",
+       "span": [
+        0,
+        444
+       ]
+      }
+     ],
+     "count": 3,
+     "found": true,
+     "query": {
+      "text": "keys",
+      "path": "",
+      "symbol": "",
+      "tool": ""
+     },
+     "denied": 2
+    }
+   ]
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "tool_use_id": "toolu_018f6iMcqfRLUqDdRv2NxVTu"
+   },
+   "jsonrpc_line_bytes": 1548,
+   "isError": false,
+   "error": null,
+   "text_bytes": 1117,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 6,
+     "ephemeral": true,
+     "expansions": 1,
+     "hash": "sha256:da123df178efb7c6b0603bb88d78a3b56f2ebe390339f0afa627f692aedfdad4",
+     "promoted": false,
+     "span": [
+      0,
+      857
+     ],
+     "tool_use_id": "qompack-mcp:c0d33212bf38",
+     "total_bytes": 857,
+     "truncated": false,
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "found": true,
+     "hash": "sha256:2ba97791dd263151c74d08365946b537fc3432a7c76eb4e9499b652fb3a22e3a",
+     "tool": "Bash",
+     "span": [
+      0,
+      857
+     ],
+     "total_bytes": 857,
+     "truncated": false,
+     "widened": false,
+     "expansions": 1,
+     "promoted": false,
+     "content": "Q01=BIRCH-5388-SPRUCE\nQ02=WALNUT-5108-BIRCH\nQ03=BIRCH-3899-NUTMEG\nQ04=TEAK-6162-NUTMEG\nQ05=GINKGO-9726-OAK\nQ06=NUTMEG-6426-ELM\nQ07=BIRCH-9905-SPRUCE\nQ08=WALNUT-9976-SPRUCE\nQ09=QUINCE-5013-ALDER\nQ10=WALNUT-2622-DOGWOOD\nQ11=LARCH-8825-ALDER\nQ12=ROWAN-5846-JACARANDA\nQ13=GINKGO-3310-ELM\nQ14=TEAK-5664-RO...[857 chars total]"
+    }
+   ]
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "tool_use_id": "prompt_5fe7f497-1c23-414e-8fcc-933363180fd0_0"
+   },
+   "jsonrpc_line_bytes": 17229,
+   "isError": false,
+   "error": null,
+   "text_bytes": 16657,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 6,
+     "ephemeral": true,
+     "expansions": 1,
+     "hash": "sha256:5801a79478b9dc0b189563ba5eb971fe446dc443770ccaa697551163af5b315c",
+     "next_span": "16248:1526",
+     "promoted": false,
+     "span": [
+      0,
+      16248
+     ],
+     "tool_use_id": "qompack-mcp:448a2ee036ff",
+     "total_bytes": 17774,
+     "truncated": true,
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "found": true,
+     "hash": "sha256:4cf6bb41893ac62dea7fd6c9d07f7bb1e6d1e9b990698046d76669adc6917e9a",
+     "tool": "UserPromptSubmit",
+     "span": [
+      0,
+      16248
+     ],
+     "total_bytes": 17774,
+     "truncated": true,
+     "next_span": "16248:1526",
+     "widened": false,
+     "expansions": 1,
+     "promoted": false,
+     "content": "Project brief for the Osprey ledger service. This first message is deliberately long: it carries the full requirement appendix so that it cannot fit whole inside a rehydration block. Appendix:\nR001: the ledger must validate the poplar batch field before manual reconciliation, and log the fir outcome...[16248 chars total]"
+    }
+   ]
+  },
+  {
+   "tool": "dropped",
+   "args": {},
+   "jsonrpc_line_bytes": 343,
+   "isError": false,
+   "error": null,
+   "text_bytes": 67,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 0,
+     "ephemeral": true,
+     "hash": "sha256:f4a54ce0eecff068110d8a39052beebfe6f83299e437b935ac4e5b8f29f03b2b",
+     "tool_use_id": "qompack-mcp:f59bc62931ab"
+    }
+   },
+   "json": [
+    {
+     "available": false,
+     "count": 0,
+     "drops": [],
+     "reason": "no live session"
+    }
+   ]
+  }
+ ],
+ "stderr_tail": ""
+}

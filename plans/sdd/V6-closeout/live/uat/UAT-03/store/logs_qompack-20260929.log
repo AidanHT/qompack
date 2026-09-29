@@ -1,0 +1,6 @@
+ts=2026-09-29T17:51:32.1222611Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-09-29T17:51:32.1884957Z level=info msg="observer: session registered" session=8c5b739f-e30e-4a8e-b449-d4fd675f979b source=startup turn=0 segment=1
+ts=2026-09-29T17:51:32.1890685Z level=info msg="scheduler: session bound" session=8c5b739f-e30e-4a8e-b449-d4fd675f979b effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+ts=2026-09-29T17:52:01.9908089Z level=warn msg="store: segment closed without a tokens feature; Segment.Tokens stays zero permanently" segment=1 session=8c5b739f-e30e-4a8e-b449-d4fd675f979b
+ts=2026-09-29T17:52:02.1338974Z level=info msg="observer: gc" scanned=8 deleted=0 freed=0 truncated=false
+ts=2026-09-29T17:55:06.8558587Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false

@@ -1,0 +1,7 @@
+cwd: <scratch>/sessions/uat04/proj
+argv: ["C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c3/qompack-plugin-0.3.0-windows-amd64/bin/qompack.exe", "checkpoint"]
+env+: {}
+qompack_home: <scratch>/sessions/qhome
+wall_s: 0.017
+at: 2026-09-29T14:12:38-04:00
+stdin: {"session_id": "5fe7f497-1c23-414e-8fcc-933363180fd0", "transcript_path": "<scratch>/sessions/uat04/proj/none.jsonl", "cwd": "<scratch>/sessions/uat04/proj", "hook_event_name": "PreCompact", "trigger": "manual", "custom_instructions": ""}

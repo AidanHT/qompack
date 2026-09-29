@@ -1,0 +1,7 @@
+UAT-03 preconditions
+project: <scratch>/sessions/uat03/proj (git init + git add -A; no commit): README.md, src/app.py,
+handoff.md (24 generated keys; sha256 f6e5d886437573933b5343af0615c6860f95e9a29141468b8d34544371b6aa42; K17 = INDIGO-JUNIPER-985 is the pre-compaction fact)
+<project>/.qompack exists: False (initial absence)
+config: defaults (checkpoint.budgetTokens 12000, frontier.advanceOnSegmentClose true,
+runtime.daemon.enabled true, durableFrontier false) except QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS=120 in the session
+environment so step 4 can wait for the idle exit (30 s abandons a session inside a /compact, F-UAT12-6)

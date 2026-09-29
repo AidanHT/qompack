@@ -1,0 +1,6 @@
+cwd: <scratch>/sessions/uat03/probe/proj
+argv: ["C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c3/qompack-plugin-0.3.0-windows-amd64/bin/qompack.exe", "self-test"]
+env+: {}
+qompack_home: <scratch>/sessions/qhome
+wall_s: 1.584
+at: 2026-09-29T13:56:45-04:00

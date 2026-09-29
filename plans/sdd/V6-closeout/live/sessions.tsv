@@ -4,3 +4,7 @@ install	2	UAT-12/C4.8/C4.6 session A (old build 0.2.99-prev)	plans/sdd/V6-closeo
 install	3	UAT-12/C4.8/C4.6 session B (frozen 0.3.0 after upgrade)	plans/sdd/V6-closeout/live/uat/UAT-12/sessionB	claude-haiku-4-5-20251001	0	115.533
 install	4	UAT-12/C4.8 session C (reinstalled 0.3.0)	plans/sdd/V6-closeout/live/uat/UAT-12/sessionC	claude-haiku-4-5-20251001	0	17.865
 sessions	1	UAT-02/C4.2 (ordinary work, every hook event)	plans/sdd/V6-closeout/live/uat/UAT-02/session	claude-haiku-4-5-20251001	0	102.139
+sessions	2	UAT-03/C4.3 (/compact round trip, fact recovery)	plans/sdd/V6-closeout/live/uat/UAT-03/session	claude-haiku-4-5-20251001	0	32.184
+sessions	3	UAT-05/C4.3 run 1 (default budget, correction, /compact)	plans/sdd/V6-closeout/live/uat/UAT-05/run1-session	claude-haiku-4-5-20251001	0	71.343
+sessions	4	UAT-05/C4.3 run 2 (tiny budget 150/150, correction, /compact)	plans/sdd/V6-closeout/live/uat/UAT-05/run2-session	claude-haiku-4-5-20251001	0	68.535
+sessions	5	UAT-04/C4.3 (manual + automatic + failed compaction)	plans/sdd/V6-closeout/live/uat/UAT-04/session	claude-haiku-4-5-20251001	0	469.87

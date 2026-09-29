@@ -1,0 +1,107 @@
+UAT-04 — compaction belongs to the host: manual and automatic compactions proceed, a failed one
+leaves the last usable checkpoint intact, no veto, no native-shrink claim (part of C4.3, and the D5
+cap under a long first prompt). Agent-executed on the owner's real host per owner decision D3 by a
+Claude Code workflow subagent (Opus 5.5) — not human UAT.
+
+Date 2026-09-29 14:03-14:18 America/Toronto. Sessions used: 1 (session/, n=5, 470 s). Model
+claude-haiku-4-5-20251001, Claude Code 2.1.280, Windows 11 Home 25H2 build 10.0.26200.9457, frozen
+bundle 0.3.0 (BUNDLE.json sha256 32600778...ccf4505, commit d5598eb4) via --plugin-dir.
+
+Preconditions (cli/00-preconditions.txt): disposable project (git init + add, no commit) with
+data/keys.txt (40 generated keys; Q23 = WALNUT-2889-OAK, delivered to the model only through Bash
+`cat`), notes.md, src/ledger.py, filler/{a,b,c}.txt (60 KB each). First prompt 17,774 characters
+(a requirement appendix), longer than the 9,500-character ceiling. No .qompack (initial absence;
+00-backup-create-absent exit 1). Config defaults (automaticVeto false, blockManualCompact false
+hardwired, scheduler defaults). Session env: QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS=120; host env
+CLAUDE_CODE_AUTO_COMPACT_WINDOW=100000 + CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=30 (forces automatic
+compaction) and CLAUDE_CODE_FILE_READ_MAX_OUTPUT_TOKENS=120000.
+
+What the session did (session/stream.jsonl; steps/s5-manifest-check.txt maps host events to
+checkpoints). The forced threshold (30% of a 100k window) sat close to the post-compaction floor
+(~4.5-5.8k tokens plus reads), so the host compacted far more often than planned:
+ - T1 (long brief + `cat data/keys.txt`): the host's FIRST automatic compaction FAILED
+   (status compact_result "failed", compact_error "too_few_groups"); PreCompact had already written
+   checkpoint 0001; the host retried and succeeded (checkpoint 0002). A real host-failed compaction.
+ - T2, T3: automatic compactions (0003-0005) — the host compacted mid-turn around the reads.
+ - T4 "/compact": MANUAL compaction proceeded (trigger manual, pre 30,508 -> post 5,562), checkpoint
+   0006; the turn carries "Compacted PreCompact [${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe checkpoint]
+   completed successfully: {}" (no PreCompact output rejection, C1.12).
+ - T5-T7 filler reads: automatic compactions 0007-0012 (every one proceeded).
+ - T8 (before: data/keys.txt deleted, meta.json turn 7): the model found Q23 not in context and went
+   to Qompack: recall "Q23 data/keys.txt" returned 0 hits (and "denied":2 in the direct probe), then
+   expand with an invalid "query" argument (tool error "invalid arguments for expand: /query:
+   unknown property"); the host then ended the turn with is_error "Autocompact is thrashing: the
+   context refilled to the limit within 3 turns of the previous compact, 3 times in a row" —
+   a host condition produced by this run's forced threshold, not by Qompack. Checkpoints 0013-0014.
+   The fact was NOT recovered in-session. The direct MCP probe (cli/14, frozen `qompack mcp`)
+   shows the store holds it: recall "WALNUT-2889-OAK" -> the Bash capture toolu_018f6iMc...; expand
+   of that tool_use_id returns "Q01=...Q23=WALNUT-2889-OAK..." exact, 857 B. (cli/13 is the same
+   probe run first, answered "qompack daemon unavailable; retrieval is temporarily offline" for ~90 s
+   after the session daemon was terminated: the stale-lock window, see C4.9.)
+ - T9 (before: <project>/.qompack/config.json = `{"runtime":`, meta.json turn 8): "/compact" —
+   step 4's induced failure. The compaction PROCEEDED (manual boundary pre 30,635 -> post 3,699);
+   the PreCompact line still reads "completed successfully: {}"; SessionStart:compact answered "{}"
+   (no injection). No checkpoint 0015 was written. .qompack/logs/hook-quiet-20260929.jsonl records
+   "running in degraded mode: capture configuration unavailable: the project config file is not a
+   single strict JSONC object" for each refused hook; LOUD.log "daemon: config reload warning ...
+   unparseable config". cli/11: the PreCompact hook run by hand against the same file printed {} and
+   exited 0 (the row's "the hook prints {} and exits 0").
+ - T10 "Reply with only the word done." -> "done": the session continued.
+ stderr.txt empty (no "Hook cancelled"). 52 hook responses, all success/exit 0; arrival deltas
+ PostToolUse 51-130 ms, SessionStart:compact n14 50-144 ms (hooks.json, approximate).
+
+Step 2 (host compacted; checkpoint appeared): yes, 14 PreCompact checkpoints for 15 compaction
+attempts (13 host successes incl. 2 manual, 1 host failure, 1 config-refused): steps/s5-*.
+Step 5 (steps/s5-manifest-check.txt): after the failed compaction MANIFEST.jsonl has 14 lines,
+0001..0014; the newest is 0014 from the last successful automatic compaction (created 18:10:01Z);
+EVERY artifact re-hashes to its manifest line; nothing was rewritten. After the host-failed
+compaction at T1, checkpoint 0001 likewise stayed intact and verifying.
+Step 6 (steps/s6-native-shrink-search.txt): regex over 97 Qompack outputs (hook outputs, every CLI
+output, logs, rehydrate state, checkpoints): 0 matches. Qompack claimed no native reduction.
+
+D5 / additionalContext: every compact injection was 9,009-9,010 UTF-16 units (injected-block-
+sizes.txt), under 9,500 and under the host's 10,000 cap; the transcript shows 15
+hook_additional_context attachments and no persisted-output note (cli/16-transcript-facts.json).
+BUT the block's section 2 is the first 8,192 BYTES of the 17,774-character original intent, cut
+mid-word ("...R074: the ledger must audit the cedar batch field before nightly reconciliat"), under
+the heading "Original user intent (verbatim from L0 capture — never summarized)"
+(injected-block-first.txt). No OVERFLOW/tier1 drop names it and no restore pointer is given; the
+state file says user_intent "truncated": false, "degraded": false; section 7 instead carries a
+spurious "intent_mismatch ... checkpoint user_intent.original differs from the L0 capture; injecting
+the L0 text" (logged LOUD 14 times). The checkpoint holds the full 17,774 characters, and the L0
+capture is exact (sidecar source_bytes 18,385, fidelity exact; index bytes 17,774). The rehydrator
+apparently compares against an 8 KiB read of L0 and injects that prefix (F-UAT04-1).
+
+After the run: cli/10-self-test exit 1, config.capture FAIL critical "refused: every hook admits
+nothing" (the planted file); doctor config.capture degraded, spool.pending "1 file(s), 681800
+byte(s)", captures.unpublished degraded "28 gap(s) across 34 sidecar(s)"; fsck exit 1:
+index.tool_use (the MCP self-record turn 0, F-UAT01-2) and index.files "index/files.json is absent
+while its log carries 5 path(s)". status: "1 of 9 assertion(s) FAILING mcp.server_registered
+initialize-not-received" with counter contract_fail_mcp_server_registered 14 although the model used
+the MCP server in this session (cf. F-UAT01-1). The session's SessionEnd was refused by the broken
+config, so the daemon never saw the session end; it was stopped by the verified procedure (cli/12)
+and the planted config moved out of the project. No record was admitted after the config broke (the
+T10 prompt is absent from the index); the spool file was drained by the next daemon.
+
+Findings:
+ F-UAT04-1 (product defect; D5 / UAT-05 fail criterion "a record cut mid-record") a first prompt
+   longer than 8 KiB is injected as its first 8,192 bytes, cut mid-word, labelled verbatim, with no
+   overflow entry or pointer, "truncated": false, and a spurious intent_mismatch drop + LOUD line
+   every compaction. Expected: the tier-1 "OVERFLOW: the verbatim original user intent ... restore:
+   expand(tool_use_id=prompt_..._0)" form (which UAT-05 run 2 shows at a small budget).
+ F-UAT04-2 (retrieval) recall "Q23 data/keys.txt" returns 0 hits ("denied": 2 in a project with no
+   deny rules) although the Bash capture holds "Q23=..."; recall by the value finds it. The model
+   could not recover the fact without the tool_use_id. Routed to the retrieval lane (C4.4).
+ F-UAT04-3 (host, run configuration) the 30%/100k override made the host compact 13 times and end
+   T8 with "Autocompact is thrashing"; each Qompack injection (~9k characters, ~2.4k tokens of the
+   ~5k post-compaction floor) adds to the refill. Not a Qompack veto: every compaction proceeded.
+ F-UAT04-4 (known) fsck index.tool_use turn-0 MCP records; doctor gap over-count; status
+   mcp.server_registered initialize-not-received despite a connected, used server.
+ F-UAT04-5 (observation) a host-side failed compaction (too_few_groups) happens after PreCompact
+   wrote its checkpoint; that checkpoint stays in the manifest and verifies, and the retry writes
+   the next one — the "last usable checkpoint intact" property holds for host failures too.
+
+Result basis: steps 1, 3 and 4 proceeded, step 5 intact, step 6 found nothing -> the row's fail
+criteria are not met. F-UAT04-1 is a fail of UAT-05's criteria and D5's whole-record rule and is
+reported there as well.
+Rollback: not applicable — initial state absent (recorded); the run is retained as evidence.

@@ -1,0 +1,5 @@
+daemon lazily started by the MCP probe (14-, default idle exit) stopped by the verified procedure:
+{"lock": {"pid": 60232, "started": 1790705699799, "addr": "\\\\.\\pipe\\qompack.0fe9e58c63a0", "version": "0.3.0", "owner": "a8b6440b92b5dc324bd4099fbce791bf6ce1c7afaa4d224697ffba7a5d1f9eaa"}, "pid": 60232, "proc": {"Name": "qompack.exe", "Path": "C:\\Users\\Quant\\.qompack\\bin\\c7b2b120a6efcfc1def58bd55dd29df51ec1bc0bc35a164258d5e0bc9c12803d\\qompack.exe", "Cmd": "C:\\Users\\Quant\\.qompack\\bin\\c7b2b120a6efcfc1def58bd55dd29df51ec1bc0bc35a164258d5e0bc9c12803d\\qompack.exe daemon --project <scratch>\\sessions\\uat04\\proj"}}
+check image qompack.exe: True | check cmdline daemon+project: True
+Stop-Process exit 0  | still alive: False
+RESULT: stopped pid 60232

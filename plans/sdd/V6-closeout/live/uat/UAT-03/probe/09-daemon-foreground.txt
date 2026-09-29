@@ -1,0 +1,6 @@
+argv: qompack.exe daemon --project <copy> (foreground, own process, 8 s cap)
+exit: 0
+stdout:
+
+stderr:
+
