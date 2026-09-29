@@ -77,32 +77,82 @@ func (h *handlers) boundedContent(tool string, root store.Root, span SpanResult,
 	}
 }
 
-// safeCut returns the longest cut at or before keep that splits no redacted region of window,
-// together with the redacted bytes it keeps, and false when none leaves any content.
+// safeCut returns a cut at or before keep that splits no redacted region of window, together with
+// the redacted bytes it keeps, and false only when the search reached the window's first rune
+// boundary and found that unsafe too.
 //
 // whole is the redaction of all of window. A cut is safe when redacting the kept part and the rest
 // separately gives whole again, byte for byte: a match that straddled the cut would come out as
 // one placeholder in whole but as raw bytes, or as different placeholders, on the two sides. The
 // check is conservative in the other direction too — a rule whose match depends on what precedes
-// or follows it may make a harmless cut look unsafe, which only moves the cut back further.
+// or follows it may make a harmless cut look unsafe, which only moves the cut back further. Every
+// cut it returns has passed that check; how it picks the next cut to try only decides how soon it
+// finds one.
 //
-// An unsafe cut moves back by a distance that doubles on each try (a rune, two, four, …), so it
-// lands within a factor of two of the redacted region's start in a logarithmic number of tries.
+// From an unsafe cut the search moves back in one of two ways.
+//
+//   - When the kept side's redaction parts from whole's, the region the cut split starts at or
+//     before where they part. Everything the kept side renders after that point came from raw bytes
+//     at the end of the kept part, and a placeholder is never longer than its match (the Redactor
+//     contract), so the region starts no later than cut minus that many bytes. The search jumps
+//     there: it skips only cuts inside the region, so under that contract it finds the largest safe
+//     cut, which is the region's start, in a probe or two.
+//   - When the kept side renders exactly as whole's prefix — a rule whose first part alone still
+//     matches, such as a token with an unbounded run — the kept side does not say where the region
+//     starts. The cut then backs off by a distance that doubles on each try (a rune, two, four, …).
+//     A back-off that would pass the window's first rune restarts from the last unsafe cut with a
+//     distance of one rune instead of giving up, so the search ends only at the first rune
+//     boundary. The doubling can step over a safe cut between two regions, which only moves the cut
+//     back further; the restarts keep it to a logarithmic number of tries per halving.
+//
+// Before the restart (V6 close-out, w14-safecut) the back-off gave up as soon as keep-back reached
+// the window's start, so a region that began before keep/2 made it skip every safe cut before the
+// region and refuse a page that fits.
 func (h *handlers) safeCut(window, whole []byte, keep int) (int, []byte, bool) {
-	cut, back := keep, 0
-	for cut > 0 {
+	if len(window) == 0 || keep <= 0 {
+		return 0, nil, false
+	}
+	_, first := utf8.DecodeRune(window)
+	// floor moves a cut back to a rune boundary, never below the first one.
+	floor := func(c int) int {
+		for c > first && c < len(window) && !utf8.RuneStart(window[c]) {
+			c--
+		}
+		return max(c, first)
+	}
+	cut := floor(min(keep, len(window)))
+	base, back := cut, 0
+	for {
 		kept, _ := h.redactor.Redact(window[:cut])
 		rest, _ := h.redactor.Redact(window[cut:])
 		if len(kept)+len(rest) == len(whole) && bytes.HasPrefix(whole, kept) && bytes.HasSuffix(whole, rest) {
 			return cut, kept, true
 		}
+		if cut <= first {
+			return 0, nil, false
+		}
+		if p := commonPrefixLen(kept, whole); p < len(kept) {
+			cut = floor(cut - (len(kept) - p))
+			base, back = cut, 0
+			continue
+		}
 		back = max(back<<1, 1)
-		cut = keep - back
-		for cut > 0 && !utf8.RuneStart(window[cut]) {
-			cut--
+		if base-back < first {
+			base, back = cut, 1
+		}
+		cut = floor(base - back)
+	}
+}
+
+// commonPrefixLen is the length of the longest common prefix of a and b.
+func commonPrefixLen(a, b []byte) int {
+	n := min(len(a), len(b))
+	for i := range n {
+		if a[i] != b[i] {
+			return i
 		}
 	}
-	return 0, nil, false
+	return n
 }
 
 // shrinkSpan cuts s back far enough that its rendered text loses at least excess bytes, and

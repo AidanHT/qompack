@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"regexp"
 	"strings"
 	"testing"
 	"unicode/utf8"
@@ -393,4 +394,189 @@ func TestShrinkSpanChargeDoublesEachRound(t *testing.T) {
 	require.False(t, ok, "a window already one rune long has nothing left to cut")
 	_, ok = shrinkSpan(s, []int64{0}, size+1, 0, o)
 	require.False(t, ok, "a first-round excess past the whole window leaves nothing")
+}
+
+// regionRedactor is a stand-in retrieval redactor for safeCut's unit rows: each rule replaces
+// every match with its fixed placeholder, the shape the Redactor contract promises. It is a
+// hand-written double on purpose — the rows need redacted regions of exact, arbitrary sizes, which
+// the production rules only give through shapes this file may not spell out contiguously.
+type regionRedactor []struct {
+	re          *regexp.Regexp
+	placeholder string
+}
+
+// Redact replaces each rule's matches in turn.
+func (r regionRedactor) Redact(in []byte) ([]byte, []string) {
+	out := in
+	var rules []string
+	for _, rule := range r {
+		for range rule.re.FindAllIndex(out, -1) {
+			rules = append(rules, rule.placeholder)
+		}
+		out = rule.re.ReplaceAllLiteral(out, []byte(rule.placeholder))
+	}
+	return out, rules
+}
+
+// blockRedactor redacts BEGIN...END blocks: a half of one (BEGIN with no END, END with no BEGIN)
+// does not match, so a cut inside a block serves both halves raw — the private-key shape.
+var blockRedactor = regionRedactor{{regexp.MustCompile(`(?s)BEGIN.*?END`), "<r>"}}
+
+// runRedactor adds a token rule with an unbounded run, whose first part alone still matches — the
+// sk-/bearer/assignment shape. A cut inside such a token leaves a kept side that renders exactly
+// like the whole window's prefix, so the kept side alone does not say where the token starts.
+var runRedactor = regionRedactor{
+	{regexp.MustCompile(`(?s)BEGIN.*?END`), "<r>"},
+	{regexp.MustCompile(`tok-[a-z]{4,}`), "<t>"},
+}
+
+// cutIsSafe is the oracle: redacting the two sides of cut separately gives the whole window's
+// redaction back, byte for byte.
+func cutIsSafe(r Redactor, window []byte, cut int) bool {
+	whole, _ := r.Redact(window)
+	kept, _ := r.Redact(window[:cut])
+	rest, _ := r.Redact(window[cut:])
+	return string(kept)+string(rest) == string(whole)
+}
+
+// TestSafeCutFindsTheSafeCutBelowARedactedRegion pins safeCut's search (V6 close-out, w13-mcpresp
+// verify finding; w14-safecut). Its back-off doubled and gave up once keep-back reached 0, so a
+// redacted region that starts before keep/2 made it skip every safe cut before the region and
+// report that no page fits — the probe: 630 bytes, a 2,108-byte block, 300 bytes, keep 2,730
+// returned false although a cut at 630 is safe.
+func TestSafeCutFindsTheSafeCutBelowARedactedRegion(t *testing.T) {
+	a, b := strings.Repeat("a", 630), strings.Repeat("b", 300)
+	probe := a + "BEGIN" + strings.Repeat("x", 2100) + "END" + b
+	run := strings.Repeat(".", 630) + "tok-" + strings.Repeat("q", 2100) + strings.Repeat(".", 300)
+	rows := []struct {
+		name   string
+		r      Redactor
+		window string
+		keep   int
+		want   int // the cut safeCut must return; 0 means it must report false
+	}{
+		{"probe: block starts before keep/2", blockRedactor, probe, 2730, 630},
+		{"probe: keep at the block's start", blockRedactor, probe, 630, 630},
+		{"probe: keep past the block", blockRedactor, probe, len(probe) - 100, len(probe) - 100},
+		{"block starts at the first byte", blockRedactor, "BEGIN" + strings.Repeat("x", 2100) + "END" + b, 1000, 0},
+		{"block after one byte", blockRedactor, "a" + "BEGIN" + strings.Repeat("x", 2100) + "END" + b, 2000, 1},
+		{
+			"two blocks, a safe cut only between them", blockRedactor,
+			a + "BEGIN" + strings.Repeat("x", 900) + "END" + "BEGIN" + strings.Repeat("y", 1200) + "END" + b,
+			630 + 908 + 600, 630 + 908,
+		},
+		{
+			"multi-byte runes before the block", blockRedactor,
+			strings.Repeat("日", 210) + "BEGIN" + strings.Repeat("x", 2100) + "END" + b, 2730, 630,
+		},
+	}
+	for _, row := range rows {
+		h := &handlers{redactor: row.r}
+		window := []byte(row.window)
+		whole, _ := row.r.Redact(window)
+		cut, kept, ok := h.safeCut(window, whole, row.keep)
+		if row.want == 0 {
+			require.False(t, ok, "%s: got cut %d", row.name, cut)
+			continue
+		}
+		require.True(t, ok, "%s: a safe cut exists", row.name)
+		require.Equal(t, row.want, cut, row.name)
+		wantKept, _ := row.r.Redact(window[:cut])
+		require.Equal(t, string(wantKept), string(kept), row.name)
+	}
+
+	// A token whose first part alone still matches: the kept side does not locate the token's
+	// start, so the search falls back to backing off — and must still find a safe cut below it
+	// rather than give up.
+	h := &handlers{redactor: runRedactor}
+	window := []byte(run)
+	whole, _ := runRedactor.Redact(window)
+	for _, keep := range []int{700, 1000, 2000, 2733} {
+		cut, _, ok := h.safeCut(window, whole, keep)
+		require.True(t, ok, "run token, keep %d: a safe cut exists", keep)
+		require.LessOrEqual(t, cut, keep)
+		require.Positive(t, cut)
+		require.True(t, cutIsSafe(runRedactor, window, cut), "run token, keep %d: cut %d", keep, cut)
+	}
+}
+
+// TestSafeCutReportsFalseOnlyWhenNoCutIsSafe sweeps every keep over windows of blocks against the
+// oracle: safeCut returns a safe cut, the largest one at or before keep, and reports false only
+// when no rune boundary after the first byte and at or before keep is safe.
+func TestSafeCutReportsFalseOnlyWhenNoCutIsSafe(t *testing.T) {
+	windows := []string{
+		strings.Repeat("a", 30) + "BEGIN" + strings.Repeat("x", 90) + "END" + strings.Repeat("b", 20),
+		"BEGIN" + strings.Repeat("x", 40) + "END" + "ccBEGIN" + strings.Repeat("y", 70) + "END" + "d",
+		"é" + "BEGIN" + strings.Repeat("日", 30) + "END" + "BEGIN" + "zz" + "END" + strings.Repeat("ü", 9),
+	}
+	for wi, w := range windows {
+		window := []byte(w)
+		whole, _ := blockRedactor.Redact(window)
+		h := &handlers{redactor: blockRedactor}
+		for keep := 1; keep <= len(window); keep++ {
+			if !utf8.RuneStart(window[keep%len(window)]) && keep < len(window) {
+				continue
+			}
+			want := 0
+			for c := keep; c > 0; c-- {
+				if (c == len(window) || utf8.RuneStart(window[c])) && cutIsSafe(blockRedactor, window, c) {
+					want = c
+					break
+				}
+			}
+			cut, _, ok := h.safeCut(window, whole, keep)
+			require.Equal(t, want > 0, ok, "window %d keep %d: got cut %d, largest safe %d", wi, keep, cut, want)
+			if ok {
+				require.Equal(t, want, cut, "window %d keep %d", wi, keep)
+			}
+		}
+	}
+}
+
+// TestExpandBoundPagesPastARedactedRegionLongerThanHalfThePage is the end-to-end form of the probe
+// (V6 close-out, w14-safecut): escape-heavy content before a private-key block that covers more
+// than half of the page. The whole page is over the bound, the escape charge cuts inside the block,
+// and backing off from there used to overshoot the window's start and refuse the call with "no page
+// of this content fits", although the text before the block fits on its own.
+func TestExpandBoundPagesPastARedactedRegionLongerThanHalfThePage(t *testing.T) {
+	const (
+		lead      = 650 // control bytes before the block: six bytes of text each
+		pemLines  = 34  // about 2,300 bytes of block with its delimiters
+		tailBytes = 100 // plain prose after the block
+	)
+	f := newFixture(t, withCaptureRedactionDisabled(), withConfig(func(c *config.Config) {
+		c.Runtime.MCP.MaxResponseBytes = boundTinyResponse
+		c.Store.Chunk.Min, c.Store.Chunk.Target, c.Store.Chunk.Max = boundPEMChunkMin, boundPEMChunkTarget, boundPEMChunkMax
+	}))
+	var block strings.Builder
+	block.WriteString(boundPEMHeader)
+	for i := range pemLines {
+		fmt.Fprintf(&block, "%s%056x\n", boundPEMLeak, uint64(i+1)*0x9e3779b97f4a7c15)
+	}
+	block.WriteString(boundPEMFooter)
+	body := strings.Repeat("\x01", lead) + block.String() + boundProse(tailBytes)
+	h, _ := f.putAndRecord(t, "Read", "keys/escaped.txt", body, 1)
+	require.Equal(t, body, storedBytes(t, f, h), "the store must keep the object byte for byte")
+	blockEnd := int64(lead + block.Len())
+
+	args := map[string]any{"hash": h.String(), "span": fmt.Sprintf("0:%d", boundTinyResponse)}
+	start := int64(0)
+	for page := 0; ; page++ {
+		resp := f.call(t, ToolExpand, args)
+		text := responseText(resp)
+		require.False(t, resp.IsError, "page %d: %s", page, text)
+		require.LessOrEqual(t, len(text), boundTinyResponse, "page %d", page)
+		var got contentBody
+		decodeInto(t, text, &got)
+		require.Equal(t, start, got.Span[0], "page %d: pages must be contiguous", page)
+		require.Greater(t, got.Span[1], got.Span[0], "page %d: every page must make progress", page)
+		require.NotContains(t, got.Content, boundPEMLeak, "page %d %v: key body served in the clear", page, got.Span)
+		require.NotContains(t, got.Content, "-----BEGIN", "page %d %v: key delimiter served in the clear", page, got.Span)
+		if got.Span[1] > blockEnd || got.Span[1] == got.TotalBytes {
+			break
+		}
+		require.NotEmpty(t, got.NextSpan, "page %d", page)
+		start = got.Span[1]
+		args = map[string]any{"hash": h.String(), "span": got.NextSpan}
+	}
 }
