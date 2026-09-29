@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "session": "2cb3e3c1-fcbd-4f02-a8ab-6185c10e2051",
+  "seq": 1,
+  "created": "2026-09-29T17:27:19.241Z",
+  "encoded_segments": [],
+  "invariants": [],
+  "user_intent": {
+    "original": "Use the Read tool to read private/deny.txt. Then tell me exactly what the Read tool returned, quoting any error message word for word.",
+    "evolution": []
+  },
+  "eliminated": [],
+  "decisions": [],
+  "open_questions": [],
+  "current_work": {
+    "goal": "",
+    "next_step": "",
+    "blocked_on": null
+  },
+  "pointers": {
+    "files": [],
+    "tools": []
+  },
+  "narrative": "",
+  "sketch_refs": {
+    "touch": "touch.cms",
+    "tried": "tried.bloom"
+  },
+  "dropped": [
+    {
+      "kind": "pointer_git_unavailable",
+      "id": "",
+      "detail": "checkpoint: git index unsupported: reading index: GetFileAttributesEx <scratch>\\install\\uat12\\proj\\.git\\index: The system cannot find the file specified."
+    }
+  ],
+  "cache": {
+    "p_chosen": 0,
+    "rewrite_tokens": 0,
+    "ttl_state": "unknown"
+  }
+}

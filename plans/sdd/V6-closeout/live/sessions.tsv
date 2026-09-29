@@ -1,2 +1,5 @@
 part	n	scenario	evidence_dir	model	exit	wall_s
 install	1	UAT-01	plans/sdd/V6-closeout/live/uat/UAT-01/session	claude-haiku-4-5-20251001	0	15.38
+install	2	UAT-12/C4.8/C4.6 session A (old build 0.2.99-prev)	plans/sdd/V6-closeout/live/uat/UAT-12/sessionA	claude-haiku-4-5-20251001	0	40.38
+install	3	UAT-12/C4.8/C4.6 session B (frozen 0.3.0 after upgrade)	plans/sdd/V6-closeout/live/uat/UAT-12/sessionB	claude-haiku-4-5-20251001	0	115.533
+install	4	UAT-12/C4.8 session C (reinstalled 0.3.0)	plans/sdd/V6-closeout/live/uat/UAT-12/sessionC	claude-haiku-4-5-20251001	0	17.865

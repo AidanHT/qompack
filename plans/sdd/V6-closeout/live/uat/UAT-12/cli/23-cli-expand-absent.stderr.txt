@@ -1,0 +1,37 @@
+qompack: unknown subcommand "expand --tool-use-id toolu_015xN8WiMCC4hNiKdCATrFQq"
+
+qompack 0.3.0 — cache-aware, retrieval-backed context compaction
+
+usage: qompack <subcommand> [flags]
+
+commands:
+  admin delivery-seal check or convert the delivery journals' position seals (the daemon must be stopped)
+  backup create    create a consistent backup with the daemon stopped
+  backup restore   restore a named backup into a fresh destination
+  backup verify    verify a named backup with the daemon stopped
+  bench            run the hot-path latency harness (SP-05)
+  config print     print the effective configuration
+  config schema    print the configuration JSON Schema
+  daemon           run the resident per-project daemon
+  doctor           report version, scope, per-capability evidence, disabled controls and gaps
+  dropped          Report what the last compaction dropped and how to get it back
+  eval             Report the latest replay and live evaluation results
+  eval import      import recorded Claude Code transcripts as a redacted replay corpus (SP-02)
+  fsck             verify store, index, checkpoint and backup integrity; repair only what is explicit
+  mcp              run the MCP server over stdio
+  pin              Pin an invariant so it is never summarized away
+  recall           Search stored tool output and file versions by content
+  self-test        report host-contract and subsystem checks; exit non-zero on a critical failure
+  status           Qompack status — mode, contracts, store, latency, last decision
+  version          print the plugin version
+  why              Explain a recorded decision and the evidence behind it
+
+hook entry points (invoked by Claude Code, always exit 0):
+  checkpoint       PreCompact — write an immutable checkpoint (thin ipc client)
+  flush            SessionEnd — flush, compact, write the session index (thin ipc client)
+  observe prompt   UserPromptSubmit — capture user intent verbatim (thin ipc client)
+  observe stop     Stop/SubagentStop — capture subagent detail (thin ipc client)
+  observe tool     PostToolUse — chunk and store tool results (thin ipc client)
+  session-start    SessionStart — daemon start + contract monitor before any other work
+
+any subcommand accepts --set <dotted.key>=<value> to override configuration.

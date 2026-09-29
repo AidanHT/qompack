@@ -1,0 +1,47 @@
+C4.8 — upgrade from the previous build, uninstall, reinstall; project work preserved;
+backup -> restore -> fsck certified. Agent-executed on the owner's real host per owner decision D3
+(Claude Code workflow subagent, Opus 5.5) — not human UAT. Run 2026-09-29 13:20-13:35
+America/Toronto, together with UAT-12; all evidence is in plans/sdd/V6-closeout/live/uat/UAT-12/
+(file names below are relative to it). Sessions: 3 (UAT-12 A, B, C).
+
+Previous build: local develop 301a8e9 (pre-close-out V6 integration), bundled with its own
+`go run ./tools/devtool bundle --target windows/amd64 --version 0.2.99-prev` from a detached
+worktree (removed afterwards). 301a8e9 has no `qompack backup`, so every backup/verify/restore used
+the frozen candidate CLI against the store the old build wrote, with that store's daemon stopped.
+
+Result per part:
+ upgrade            PASS  old 0.2.99-prev installed at local scope through the qompack-live
+                          marketplace; session A captured through all old hooks; marketplace
+                          re-pointed at the frozen bundle, `marketplace update` + `plugin update
+                          -s local --json` -> "updated from 0.2.99-prev to 0.3.0" (cli/09, cli/10,
+                          cli/11); .qompack/ byte-identical across the upgrade (cli/07 vs cli/12);
+                          session B ran on 0.3.0 (init: plugin version 0.3.0, 6 commands) and the
+                          candidate read the old build's captures (expand/recall answered from them)
+ uninstall          PASS  `plugin uninstall -s local --json` without --keep-data: .qompack/
+                          byte-identical after (368 files, cli/40 vs cli/42)
+ reinstall          PASS  `plugin install -s local --json` (cli/43); session C: recall "HERON-42"
+                          returned session A's old-build capture toolu_014oyJd7iV4JUayN5u1LjiAv,
+                          re_read README.md answered from the store
+ backup             PASS  frozen CLI backup create + verify of the old-build store: exit 0/0,
+                          consistent, 94 files, frontier 0 (cli/05, cli/06); source unchanged
+ restore            FAIL  (certification) `backup restore` into a fresh destination: reader proof
+                          OK (16 content roots, 10 tool refs, same build), delivery seal check
+                          passes, but the packaged integrity checks fail -> exit 1 (cli/30); fsck
+                          and fsck --seal-check on the destination exit 1 (cli/32, cli/33): the
+                          candidate counts the previous build's four prompt capture sidecars as
+                          "stage 1 only, no reference joined" (captures + publication rows)
+ fsck clean         FAIL  source store after session C: fsck exit 1 (cli/51, cli/52): the same
+                          two rows plus index.tool_use (14 MCP records at turn 0; the defect also
+                          seen on a candidate-only store in UAT-01)
+ later writes       PASS  restore changed nothing in the source (cli/29 vs cli/31, 0 files differ)
+
+Overall: FAIL — "backup -> restore -> fsck certified" is not met. Defects to route:
+ D-a (cross-version) the candidate's publication accounting flags a 301a8e9 store's
+     UserPromptSubmit capture sidecars as unpublished, so a pre-upgrade backup is never certifiable
+     and the first post-upgrade daemon start logs LOUD unpublished_captures=4.
+ D-b (index) MCP tool records are indexed with turn 0 after hook records of later turns;
+     fsck index.tool_use then fails on any store that served an MCP call (UAT-01 F-UAT01-2).
+Not covered: a 301a8e9 reader against the candidate's post-upgrade store (downgrade) was not run;
+the recovered project was not activated.
+Guard: plans/sdd/V6-closeout/live/guard/install.txt (diffs only inside the open local-scope install
+window; unchanged after the final cleanup).

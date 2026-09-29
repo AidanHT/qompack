@@ -1,0 +1,57 @@
+{
+ "args": [
+  "-p",
+  "--input-format",
+  "stream-json",
+  "--output-format",
+  "stream-json",
+  "--verbose",
+  "--include-hook-events",
+  "--model",
+  "claude-haiku-4-5-20251001",
+  "--max-turns",
+  "10",
+  "--setting-sources",
+  "project,local",
+  "--permission-mode",
+  "dontAsk",
+  "--allowedTools",
+  "Read,mcp__plugin_qompack_qompack__recall,mcp__plugin_qompack_qompack__expand,mcp__plugin_qompack_qompack__re_read,mcp__plugin_qompack_qompack__already_tried,mcp__plugin_qompack_qompack__record_eliminated,mcp__plugin_qompack_qompack__timeline,mcp__plugin_qompack_qompack__why,mcp__plugin_qompack_qompack__dropped,Bash(qompack status:*),Bash(qompack recall:*),Bash(qompack pin:*),Bash(qompack why:*),Bash(qompack dropped:*),Bash(qompack eval:*)"
+ ],
+ "turns": [
+  {
+   "msg": "Call the MCP tool mcp__plugin_qompack_qompack__recall with query \"HERON-42\". Report the tool, path and tool_use_id of every hit.",
+   "ok": true,
+   "wall_s": 10.031,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 16480,
+    "WorkingSet64": 37691392,
+    "PeakWorkingSet64": 37691392,
+    "CPU": 0.703125,
+    "StartTime": "/Date(1790703149397)/"
+   },
+   "store_bytes": 2145775
+  },
+  {
+   "msg": "Call the MCP tool mcp__plugin_qompack_qompack__re_read with path \"README.md\" and reply with only the code word it contains.",
+   "ok": true,
+   "wall_s": 4.42,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 16480,
+    "WorkingSet64": 39129088,
+    "PeakWorkingSet64": 39129088,
+    "CPU": 0.890625,
+    "StartTime": "/Date(1790703149397)/"
+   },
+   "store_bytes": 2184147
+  }
+ ],
+ "store_bytes_before": 2031745,
+ "started_ms": 1790703147627,
+ "pid": 35352,
+ "exit": 0,
+ "wall_s": 17.865,
+ "store_bytes_after": 2158726
+}

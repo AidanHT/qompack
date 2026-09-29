@@ -1,0 +1,2 @@
+Updating marketplace: qompack-live...Validating local marketplace
+✔ Successfully updated marketplace: qompack-live

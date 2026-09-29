@@ -1,0 +1,226 @@
+{
+  "schema": 1,
+  "project": "<scratch>/install/uat12/proj",
+  "daemon_running": false,
+  "read_only": false,
+  "repairing": false,
+  "attempts_daemon_lock": true,
+  "checks": [
+    {
+      "id": "store",
+      "ok": true,
+      "severity": 0,
+      "count": 0,
+      "detail": [
+        "store present at <scratch>\\install\\uat12\\proj\\.qompack"
+      ]
+    },
+    {
+      "id": "daemon",
+      "ok": true,
+      "severity": 0,
+      "count": 0,
+      "detail": [
+        "no daemon holds the lock; this project is quiet"
+      ]
+    },
+    {
+      "id": "objects",
+      "ok": true,
+      "severity": 0,
+      "scanned": 167,
+      "count": 0
+    },
+    {
+      "id": "index.roots",
+      "ok": true,
+      "severity": 0,
+      "scanned": 72,
+      "count": 0,
+      "detail": [
+        "root a90ddb38693f names chunk 09755adc1a15, which a gc tombstone accounts for",
+        "root a90ddb38693f names chunk 35b193e1e570, which a gc tombstone accounts for",
+        "root a90ddb38693f names chunk b8627689413b, which a gc tombstone accounts for",
+        "root a90ddb38693f names chunk 33f8a0f71b2f, which a gc tombstone accounts for",
+        "root a90ddb38693f names chunk e56bb219b4fc, which a gc tombstone accounts for",
+        "root a90ddb38693f names chunk b5c96fa7c8a3, which a gc tombstone accounts for",
+        "root a90ddb38693f names chunk 01fbbdcb97a0, which a gc tombstone accounts for",
+        "root a5f3cb1c12ef names chunk 64429cc60686, which a gc tombstone accounts for",
+        "root e7007db6ed6c names chunk e2618e25fa0d, which a gc tombstone accounts for",
+        "root 4c8732e39c53 names chunk 79205b813d2f, which a gc tombstone accounts for",
+        "root d946c9c6cc46 names chunk 1f90f773aa34, which a gc tombstone accounts for",
+        "root 16d49f736788 names chunk 59f715157ec5, which a gc tombstone accounts for",
+        "root bd9b7178b567 names chunk 168082efc933, which a gc tombstone accounts for",
+        "root f26e7c4d3914 names chunk 2ec18abbbb19, which a gc tombstone accounts for",
+        "root 85c79cf7e32a names chunk 43ac559c92a5, which a gc tombstone accounts for"
+      ]
+    },
+    {
+      "id": "index.tool_use",
+      "ok": false,
+      "severity": 2,
+      "scanned": 79,
+      "count": 14,
+      "detail": [
+        "tool_use qompack-mcp:9d36cc52d750 reports turn 0 after turn 3 in session 2cb3e3c1-fcbd-4f02-a8ab-6185c10e2051; turns are monotone",
+        "tool_use qompack-mcp:ea08986dca6b reports turn 0 after turn 3 in session 2cb3e3c1-fcbd-4f02-a8ab-6185c10e2051; turns are monotone",
+        "tool_use qompack-mcp:f27a2bbbceb5 reports turn 0 after turn 5 in session 2cb3e3c1-fcbd-4f02-a8ab-6185c10e2051; turns are monotone",
+        "tool_use qompack-mcp:b3060bb97ccc reports turn 0 after turn 5 in session 2cb3e3c1-fcbd-4f02-a8ab-6185c10e2051; turns are monotone",
+        "tool_use qompack-mcp:4a8bde3040d8 reports turn 0 after turn 7 in session 2cb3e3c1-fcbd-4f02-a8ab-6185c10e2051; turns are monotone",
+        "tool_use qompack-mcp:d80d533a58b1 reports turn 0 after turn 7 in session 2cb3e3c1-fcbd-4f02-a8ab-6185c10e2051; turns are monotone",
+        "tool_use qompack-mcp:a5b447ce3d19 reports turn 0 after turn 10 in session 2cb3e3c1-fcbd-4f02-a8ab-6185c10e2051; turns are monotone",
+        "tool_use qompack-mcp:deff550e4d33 reports turn 0 after turn 14 in session 2cb3e3c1-fcbd-4f02-a8ab-6185c10e2051; turns are monotone",
+        "tool_use qompack-mcp:448d687be76a reports turn 0 after turn 16 in session 2cb3e3c1-fcbd-4f02-a8ab-6185c10e2051; turns are monotone",
+        "tool_use qompack-mcp:02459db7e740 reports turn 0 after turn 18 in session 2cb3e3c1-fcbd-4f02-a8ab-6185c10e2051; turns are monotone",
+        "tool_use qompack-mcp:26858c230a97 reports turn 0 after turn 22 in session 2cb3e3c1-fcbd-4f02-a8ab-6185c10e2051; turns are monotone",
+        "tool_use qompack-mcp:d586cf251290 reports turn 0 after turn 22 in session 2cb3e3c1-fcbd-4f02-a8ab-6185c10e2051; turns are monotone",
+        "tool_use qompack-mcp:c64e3ac52b97 reports turn 0 after turn 1 in session 85a29186-3555-4560-83e8-71b83fde2268; turns are monotone",
+        "tool_use qompack-mcp:c38aadff67e7 reports turn 0 after turn 3 in session 85a29186-3555-4560-83e8-71b83fde2268; turns are monotone",
+        "tool_use qompack-mcp:96bf15c9e186 points at root a90ddb38693f, which a gc tombstone accounts for",
+        "tool_use qompack-mcp:322fae96086a points at root a5f3cb1c12ef, which a gc tombstone accounts for",
+        "tool_use qompack-mcp:9cc764204901 points at root e7007db6ed6c, which a gc tombstone accounts for",
+        "tool_use qompack-mcp:e070dbcfc23f points at root 4c8732e39c53, which a gc tombstone accounts for",
+        "tool_use qompack-mcp:fa8621eafada points at root d946c9c6cc46, which a gc tombstone accounts for",
+        "tool_use qompack-mcp:8db87c893a51 points at root 16d49f736788, which a gc tombstone accounts for",
+        "tool_use qompack-mcp:d1bafc0cc196 points at root bd9b7178b567, which a gc tombstone accounts for",
+        "tool_use qompack-mcp:43b77d2a366e points at root f26e7c4d3914, which a gc tombstone accounts for",
+        "tool_use qompack-mcp:e3f362f36fb7 points at root 85c79cf7e32a, which a gc tombstone accounts for",
+        "tool_use qompack-mcp:cc12c4404538 points at root d946c9c6cc46, which a gc tombstone accounts for"
+      ]
+    },
+    {
+      "id": "index.files",
+      "ok": true,
+      "severity": 0,
+      "scanned": 4,
+      "count": 0
+    },
+    {
+      "id": "index.segments",
+      "ok": true,
+      "severity": 0,
+      "scanned": 0,
+      "count": 0
+    },
+    {
+      "id": "captures",
+      "ok": false,
+      "severity": 1,
+      "scanned": 63,
+      "count": 4,
+      "detail": [
+        "capture sidecar sha256:a0742a9e79faf2197937b2246dde15bf3adabaa5e16a36688d7efc9c31442a57 for a observe.prompt delivery is at stage 1 only: outcome \"ok\" with bytes ee65d08b146c durable and no reference joined to it",
+        "capture sidecar sha256:b9647f8fc4894b12ec1e18696e929d07f0010bb62f560605a058ecb74abf646e for a observe.prompt delivery is at stage 1 only: outcome \"ok\" with bytes 77e84697cc7c durable and no reference joined to it",
+        "capture sidecar sha256:cbf5a05e69ba8eb4c4d8175df8e8db4f8ef40725e3f97a46d3256da461c1be97 for a observe.prompt delivery is at stage 1 only: outcome \"ok\" with bytes 1c42598e56e5 durable and no reference joined to it",
+        "capture sidecar sha256:f25ae69005404006c9104964066fe2b849be0edc457ebbf9af2a044b42908eab for a observe.prompt delivery is at stage 1 only: outcome \"ok\" with bytes fa07efa1470d durable and no reference joined to it"
+      ]
+    },
+    {
+      "id": "publication",
+      "ok": false,
+      "severity": 1,
+      "scanned": 230,
+      "count": 1,
+      "detail": [
+        "publication evidence includes 4 unlinked captures and 0 unindexed object candidates"
+      ]
+    },
+    {
+      "id": "checkpoints",
+      "ok": true,
+      "severity": 0,
+      "scanned": 1,
+      "count": 0,
+      "detail": [
+        "the chain from 0001 verifies across 1 checkpoint(s)"
+      ]
+    },
+    {
+      "id": "pins",
+      "ok": true,
+      "severity": 0,
+      "scanned": 0,
+      "count": 0,
+      "detail": [
+        "pins/invariants.jsonl does not exist yet"
+      ]
+    },
+    {
+      "id": "negknow",
+      "ok": true,
+      "severity": 0,
+      "scanned": 0,
+      "count": 0,
+      "detail": [
+        "eliminations: 0 record(s), 0 active, 0 stale",
+        "tried.bloom loads: 95872 bit(s), k=7, fill 0.0000, estimated fp 0.0000, saturated=false"
+      ]
+    },
+    {
+      "id": "delivery",
+      "ok": true,
+      "severity": 0,
+      "scanned": 130,
+      "count": 0,
+      "detail": [
+        "state/delivery-lease-position.json is a v1 position document",
+        "state/delivery-ack-position.json is a v1 position document",
+        "the full dual-reader seal check passed"
+      ]
+    },
+    {
+      "id": "spool",
+      "ok": true,
+      "severity": 0,
+      "scanned": 0,
+      "count": 0
+    },
+    {
+      "id": "retention",
+      "ok": true,
+      "severity": 0,
+      "scanned": 63,
+      "count": 0
+    },
+    {
+      "id": "migrate",
+      "ok": true,
+      "severity": 0,
+      "scanned": 1,
+      "count": 0,
+      "detail": [
+        "backups are checked by the read-only maintenance verifier; legacy import/cutover is separate"
+      ]
+    },
+    {
+      "id": "fidelity",
+      "ok": true,
+      "severity": 0,
+      "scanned": 63,
+      "count": 0,
+      "detail": [
+        "fidelity is counted as the store reports it; a canonical or unavailable root is never promoted to exact"
+      ]
+    },
+    {
+      "id": "quarantine",
+      "ok": true,
+      "severity": 0,
+      "scanned": 0,
+      "count": 0,
+      "detail": [
+        "0 quarantined file(s), 0 byte(s), preserved as evidence and never swept"
+      ]
+    }
+  ],
+  "repairs": [],
+  "fidelity": {
+    "canonical": 23,
+    "exact": 40
+  },
+  "quarantine": {
+    "files": 0,
+    "bytes": 0
+  },
+  "exit": 1
+}
