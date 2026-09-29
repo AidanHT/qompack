@@ -156,7 +156,15 @@ func MintDecisionID(what, why string, evidence core.Hash) core.DecisionID {
 // with a Warn, and a failed emission is logged and ignored. Only a SourceSet.Validate failure or
 // a ctx cancellation returns an error.
 func ExtractDecisions(ctx context.Context, src SourceSet, from core.TurnIndex) ([]Decision, error) {
-	return extractDecisions(ctx, src, from, "")
+	cands, err := extractDecisions(ctx, src, from, "")
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Decision, len(cands))
+	for i, c := range cands {
+		out[i] = c.d
+	}
+	return out, nil
 }
 
 // extractDecisions is ExtractDecisions for one session's draft: source (b) considers only the
@@ -164,7 +172,14 @@ func ExtractDecisions(ctx context.Context, src SourceSet, from core.TurnIndex) (
 // because another session's session-scoped elimination is not this session's negative knowledge
 // and must not surface as this session's decision. An empty session keeps ExtractDecisions' own
 // rule of every record the ledger holds.
-func extractDecisions(ctx context.Context, src SourceSet, from core.TurnIndex, s core.SessionID) ([]Decision, error) {
+//
+// With a session, the project-scoped records OTHER sessions made are foreign (coordinator
+// decision D46 of the V6 close-out): their decisions rank after every decision of this session's
+// own, newest recorded first, and fill only the room the cap leaves. They are admitted without the
+// from-turn cut, because a foreign record's node turn is in that session's numbering and says
+// nothing about where this session's segments start. The candidates come back with that
+// classification so the draft's merge can keep the same order across passes.
+func extractDecisions(ctx context.Context, src SourceSet, from core.TurnIndex, s core.SessionID) ([]decisionCandidate, error) {
 	if err := src.Validate(); err != nil {
 		return nil, err
 	}
@@ -185,6 +200,11 @@ func carriedBy(r negknow.Record, s core.SessionID) bool {
 type decisionCandidate struct {
 	d        Decision
 	evidence dag.NodeID
+	// foreign marks a source (b) candidate minted from another session's project-scoped
+	// elimination, and recorded is that record's TS: D46 ranks foreign candidates after every one
+	// of the extracting session's own, by recorded, newest first.
+	foreign  bool
+	recorded core.UnixMilli
 	// score is the candidate's backward-slice relevance, filled by rank. It is precomputed once
 	// per candidate rather than looked up inside the sort comparator, because the lookup key is
 	// dag.DecisionNode(id) — a constructor that allocates and sanitizes — and a comparator runs
@@ -197,13 +217,14 @@ type decisionCandidate struct {
 type decisionExtractor struct {
 	src  SourceSet
 	from core.TurnIndex
-	// session, when set, restricts source (b) to the records carriedBy it.
+	// session, when set, restricts source (b) to the records carriedBy it and marks the ones
+	// another session made foreign (D46).
 	session core.SessionID
 	texts   map[core.Hash]string
 }
 
 // run is the §9 pipeline: scan, derive from the three sources, merge, rank, cap, emit.
-func (x *decisionExtractor) run(ctx context.Context) ([]Decision, error) {
+func (x *decisionExtractor) run(ctx context.Context) ([]decisionCandidate, error) {
 	// ONE full node scan, through the package's nodesInRange seam. dag.Graph exposes no kind-,
 	// turn- or edge-level accessor — edges are reachable only per node — and the underlying
 	// NodesAfter(0) allocates every live node per call, so the seam is called exactly once, with
@@ -234,12 +255,7 @@ func (x *decisionExtractor) run(ctx context.Context) ([]Decision, error) {
 		merged = merged[:maxDraftDecisions]
 	}
 	x.emit(merged)
-
-	out := make([]Decision, len(merged))
-	for i, c := range merged {
-		out[i] = c.d
-	}
-	return out, nil
+	return merged, nil
 }
 
 // fromExplains derives source (a): one decision per EdgeExplains edge at or after the from-turn,
@@ -328,8 +344,10 @@ func (x *decisionExtractor) explainCandidate(ctx context.Context, e dag.Edge) (d
 
 // fromEliminations derives source (b): every ledger record with a non-empty Approach whose turn —
 // the elimination node's Turn when the graph has one, the from-turn otherwise — is at or after
-// the cut becomes a rejected-alternative decision. An unavailable ledger skips the source with a
-// Warn: §9 allows only Validate and cancellation to fail the extraction.
+// the cut becomes a rejected-alternative decision. For a session's extraction, another session's
+// project-scoped record is foreign: it skips the cut (its turn is in that session's numbering) and
+// is marked for D46's ranking. An unavailable ledger skips the source with a Warn: §9 allows only
+// Validate and cancellation to fail the extraction.
 func (x *decisionExtractor) fromEliminations(ctx context.Context, cands []decisionCandidate) ([]decisionCandidate, error) {
 	recs, err := x.src.Ledger.All(ctx)
 	if err != nil {
@@ -346,12 +364,15 @@ func (x *decisionExtractor) fromEliminations(ctx context.Context, cands []decisi
 		if x.session != "" && !carriedBy(r, x.session) {
 			continue
 		}
+		foreign := x.session != "" && r.Session != x.session
 		turn := eliminationTurn(x.src.Graph, r, x.from)
-		if turn < x.from {
+		if turn < x.from && !foreign {
 			continue
 		}
 		if d, ok := eliminationDecision(r, turn); ok {
-			cands = append(cands, decisionCandidate{d: d, evidence: dag.EliminationNode(r.ID)})
+			cands = append(cands, decisionCandidate{
+				d: d, evidence: dag.EliminationNode(r.ID), foreign: foreign, recorded: r.TS,
+			})
 		}
 	}
 	return cands, nil
@@ -463,7 +484,9 @@ func mergeByID(cands []decisionCandidate) []decisionCandidate {
 }
 
 // rank orders cands by the §9 total order: backward-slice score descending (absent scores are 0),
-// then Turn descending (recent first), then ID ascending for total determinism.
+// then Turn descending (recent first), then ID ascending for total determinism. Foreign candidates
+// (D46) come after every other one, ordered by recorded time descending, then ID ascending: their
+// slice scores and turns come from another session's numbering, so neither ranks them here.
 func (x *decisionExtractor) rank(ctx context.Context, cands []decisionCandidate, latest core.TurnIndex) {
 	scores := x.sliceScores(ctx, latest)
 	for i := range cands {
@@ -472,6 +495,15 @@ func (x *decisionExtractor) rank(ctx context.Context, cands []decisionCandidate,
 	// The comparator is a total order (ID ascending is the final tiebreak), so the plain sort is
 	// already deterministic and stability buys nothing.
 	sort.Slice(cands, func(i, j int) bool {
+		if cands[i].foreign != cands[j].foreign {
+			return !cands[i].foreign
+		}
+		if cands[i].foreign {
+			if cands[i].recorded != cands[j].recorded {
+				return cands[i].recorded > cands[j].recorded
+			}
+			return cands[i].d.ID < cands[j].d.ID
+		}
 		if cands[i].score != cands[j].score {
 			return cands[i].score > cands[j].score
 		}
