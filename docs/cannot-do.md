@@ -294,6 +294,26 @@ host change could lift — as prepared proposals, none of which has been filed.
 - **Recorded at.** `plans/V2-SP-08-carried-defects.md` (SP08-D3, with the D35 close-out note);
   `plans/CARRIED-DEFECTS.tsv`; [docs/architecture.md §7](architecture.md#7-checkpoint-and-rehydration).
 
+### A forked session's parent is inferred, not reported by the host
+
+- **Limit.** `claude --resume <id> --fork-session` starts a new session that continues the parent's
+  task, so Qompack keeps the parent's original request as the fork's original intent and treats the
+  fork's own prompts, its first one included, as later statements of that task. No hook names the
+  parent, though. Qompack takes the project's newest checkpoint when the fork starts as the one it
+  continues. If you fork an older session after a newer one has compacted in the same project, the
+  fork inherits the newer session's intent. If the project has no checkpoint yet, the fork's parent
+  is unknown and its own first prompt stands as its original request.
+- **Why.** Claude Code reports a fork only as `SessionStart` with `source` `fork` and the new
+  session id. Nothing in any hook payload identifies the session it was forked from.
+- **What Qompack does instead.** It records the inference once, when the fork starts, in
+  `.qompack/state/lineage-<session>.json`, and never re-points it. The rehydration labels the
+  inherited original with the session it came from (`(forked session: the original request of session
+  …)`), checks it against that session's own verbatim capture, and adds a `user_intent_source` entry
+  with id `fork` to section 7, naming the parent and the `expand(tool_use_id=…)` call for its first
+  prompt. A fork with no known parent gets the same entry, saying its parent is unknown.
+- **Recorded at.** `plans/sdd/V6-closeout/live/report.md` (F-UAT06-1);
+  `internal/checkpoint/lineage.go`; [docs/architecture.md §7](architecture.md#7-checkpoint-and-rehydration).
+
 ### No recording in a session whose project root is the home directory
 
 - **Limit.** A session whose project root resolves to your home directory records nothing, and every
