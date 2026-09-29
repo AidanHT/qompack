@@ -1037,6 +1037,7 @@ func (s *fsckScan) checkSegments() fsckCheck {
 
 	known := map[string]bool{"open": true, "close": true, "encode": true, "bloom": true}
 	seqs := s.manifestSeqSet()
+	var unsealed *fsckUnsealedClaims // loaded on the first claim the manifest does not account for
 	encodes := 0
 	for i, raw := range lines {
 		var rec fsckSegmentLine
@@ -1057,13 +1058,114 @@ func (s *fsckScan) checkSegments() fsckCheck {
 			continue
 		}
 		encodes++
-		if !seqs[core.CheckpointSeq(rec.Seq)] {
+		seq := core.CheckpointSeq(rec.Seq)
+		if seqs[seq] {
+			continue
+		}
+		if unsealed == nil {
+			unsealed = s.loadUnsealedClaims()
+		}
+		switch draft, stale := unsealed.draftHolding(seq, core.SegmentID(rec.ID)); {
+		case unsealed.orphans[seq]:
+			row.note("segment %d names checkpoint %04d, whose artifact is on disk with no "+
+				"checkpoints/MANIFEST.jsonl line: the checkpoints row reports that orphan, and --repair "+
+				"appends its line", rec.ID, rec.Seq)
+		case draft != "" && !stale:
+			row.note("%s: segment %d names checkpoint %04d, which session %s's draft (state/%s) holds "+
+				"unsealed; an earlier build recorded the encode before the seal. The session's next "+
+				"compaction seals it at that number, and the segment's turns stay readable from the "+
+				"capture log meanwhile", fsckUnsealedDraftClaim, rec.ID, rec.Seq,
+				unsealed.sessions[draft], draft)
+		case draft != "":
+			row.note("%s: segment %d names checkpoint %04d, which a draft set aside unsealed "+
+				"(state/%s) holds; an earlier build recorded the encode before the seal. No checkpoint "+
+				"will carry this segment, and its turns stay readable from the capture log",
+				fsckUnsealedDraftClaim, rec.ID, rec.Seq, draft)
+		default:
 			row.defect("segment %d records that it was encoded into checkpoint %04d, which "+
 				"checkpoints/MANIFEST.jsonl does not record", rec.ID, rec.Seq)
 		}
 	}
 	row.scan(encodes)
 	return row.build()
+}
+
+// fsckUnsealedDraftClaim names the condition a store written before the two-phase encode can carry
+// (F-UAT03-2): an encode record naming the sequence number of a draft no seal ever reached. It is
+// explained by the draft's own state file, it is readable (the checkpoint chain verifies, and the
+// segment's turns are in the capture log), and no tool can rewrite the append-only log to remove
+// it, so it is reported by name rather than as a failure that would refuse every later restore.
+const fsckUnsealedDraftClaim = "unsealed-draft claim"
+
+// fsckUnsealedClaims is what index.segments needs to explain an encode record the manifest does not
+// account for: the checkpoint artifacts on disk with no manifest line, and every persisted draft's
+// (sequence, segment) holdings.
+type fsckUnsealedClaims struct {
+	orphans map[core.CheckpointSeq]bool
+	// holders maps a (seq, segment) pair to the draft file that holds it; stale marks a set-aside
+	// (.stale.json) draft, which will never be sealed.
+	holders  map[fsckDraftHolding]string
+	stale    map[string]bool
+	sessions map[string]core.SessionID
+}
+
+type fsckDraftHolding struct {
+	seq core.CheckpointSeq
+	seg core.SegmentID
+}
+
+// draftHolding returns the draft file that holds segment seg for checkpoint seq, and whether that
+// draft was set aside.
+func (u *fsckUnsealedClaims) draftHolding(seq core.CheckpointSeq, seg core.SegmentID) (string, bool) {
+	name := u.holders[fsckDraftHolding{seq: seq, seg: seg}]
+	return name, u.stale[name]
+}
+
+// loadUnsealedClaims reads the checkpoint artifacts and the persisted drafts once. It only reads:
+// a draft or artifact that cannot be read or parsed explains nothing, and the claim it would have
+// explained stays a defect.
+func (s *fsckScan) loadUnsealedClaims() *fsckUnsealedClaims {
+	u := &fsckUnsealedClaims{
+		orphans:  map[core.CheckpointSeq]bool{},
+		holders:  map[fsckDraftHolding]string{},
+		stale:    map[string]bool{},
+		sessions: map[string]core.SessionID{},
+	}
+	if arts, err := fsckCheckpointArtifactsOnDisk(s.l); err == nil {
+		for _, a := range arts {
+			if a.ParseErr == "" && a.Seq > 0 && !s.manifestSeqs[a.Seq] {
+				u.orphans[a.Seq] = true
+			}
+		}
+	}
+	entries, err := fsckReadDir(s.l.State)
+	if err != nil {
+		return u
+	}
+	for _, e := range entries {
+		name := e.Name()
+		if e.IsDir() || !strings.HasPrefix(name, "draft-") || !strings.HasSuffix(name, ".json") {
+			continue
+		}
+		raw, readErr := paths.ReadFileShared(filepath.Join(s.l.State, name))
+		if readErr != nil {
+			continue
+		}
+		var d struct {
+			Session core.SessionID     `json:"session"`
+			Seq     core.CheckpointSeq `json:"seq"`
+			Encoded []core.SegmentID   `json:"encoded"`
+		}
+		if json.Unmarshal(raw, &d) != nil || d.Seq <= 0 {
+			continue
+		}
+		u.stale[name] = strings.HasSuffix(name, ".stale.json")
+		u.sessions[name] = d.Session
+		for _, id := range d.Encoded {
+			u.holders[fsckDraftHolding{seq: d.Seq, seg: id}] = name
+		}
+	}
+	return u
 }
 
 // manifestSeqSet is the set of checkpoint sequence numbers the manifest records, loaded once.
