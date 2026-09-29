@@ -198,6 +198,16 @@ func (o *observer) ensureSegment(ctx context.Context, st *sessionState, s core.S
 // roll the tap makes follows the event it was made for. So the rolled segment's node spans exactly
 // what was enrolled in it, StartPos to the boundary, and the successor starts at the boundary.
 //
+// Membership therefore follows capture order: a node belongs to the segment that was open when it
+// was captured. The log's turn ranges can disagree with that in both directions. A roll in the
+// middle of a turn (a todo, test or commit signal, or a changepoint, on one of turn t's tool uses)
+// closes the segment at t and opens the successor at t+1; the turn's later tool uses are enrolled
+// in the successor, which is also where the scheduler's open-segment account counts their tokens.
+// A close at the highest tool-use turn (a compaction, or a changepoint declared at a Stop) can end
+// the segment before a prompt already enrolled in it, and the prompt stays there. Enrolment cannot
+// be moved after the fact, so capture order is the one rule every roll satisfies. A reader that
+// partitions by turn, as the checkpoint's segment encoder does, sees the log's ranges instead.
+//
 // Two rolls may land between two events this observer sees (a daemon resuming from an observer
 // state persisted before its predecessor's last rolls). Every segment rolled open and closed again
 // in between gets its node too, empty and at the boundary, so the chain runs through it. When the
