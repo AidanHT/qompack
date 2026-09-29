@@ -433,8 +433,10 @@ this revision-log entry. This record belongs to wave 11 (`w11-babudget`).
 - **Every platform, from one host.** `TestDefaults_HotPathBudgetPerPlatform` pins 15 / 50 / 40 and
   B-A >= B-B for linux, Windows and darwin; `TestDefaults_HotPathBudgetCoversTheIngestBudget` and
   `TestDefaults_RuntimeNamespace` pin the running platform; `TestLoad_UserSetHotPathBudgetIsKept`
-  pins that a user-set value is applied as written. The first two were red on Windows before the
-  change (`plans/sdd/V6-closeout/w11-babudget/runs/red-windows.log`).
+  pins that a user-set value is applied as written. Before the change, `TestDefaults_RuntimeNamespace`
+  and `TestDefaults_HotPathBudgetCoversTheIngestBudget` were red on Windows and
+  `TestDefaults_HotPathBudgetPerPlatform` did not compile, since `HotPathBudgetMsFor` did not exist yet
+  (`plans/sdd/V6-closeout/w11-babudget/runs/red-windows.log`).
 - **The generated configuration reference** renders the key's Default cell as
   "`15` (`50` on Windows, `40` on macOS)", read from the same function.
 
