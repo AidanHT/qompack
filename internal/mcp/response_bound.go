@@ -115,18 +115,34 @@ func (h *handlers) boundedContent(tool string, root store.Root, span SpanResult,
 //     credentialed URI's scheme and user, a dotenv line's key, the bearer keyword and the blank
 //     after it: the kept side holds that raw text as whole does, and the rest, having lost the
 //     text the rule needs in front of the group, leaves the secret raw. The kept side then says
-//     nothing about where the region starts, so the search backs off from the cut by a doubling
-//     distance while the kept side is still whole's prefix and the cut unsafe, and binary-searches
-//     between the first probe where that fails and the last where it held for the largest cut
-//     where it fails. That cut is safe — before the token or the raw text — or parts from whole,
-//     which the first case resolves. Stepping back a rune at a time instead costs a full-prefix
-//     Redact per rune of raw text, about L x log2(n) calls for L raw bytes: seconds for one long
-//     URI user in a 256 KB page, minutes for a longer one (w14-safecut verify finding).
+//     nothing about where the region starts, but the rest does. Let s be how many bytes of
+//     whole's end the rest reproduces: what follows the region, and whatever of the placeholder
+//     the raw secret happens to end with. Every cut deeper in the same region is unsafe the same
+//     way: its kept side is whole's prefix, and its rest, still missing what the rule needs,
+//     reproduces at most s bytes. A cut at or before the region's start is not: it is safe, or
+//     its rest holds the whole match and reproduces the placeholder too, more than s bytes, or its
+//     kept side parts from whole inside an earlier region. So "unsafe the same way" holds from the
+//     region's start to the cut and fails below it, and the search gallops back from the cut by a
+//     doubling distance to the first probe where it fails, then binary-searches between that probe
+//     and the last one where it held for the largest cut where it fails. That cut is safe, or
+//     parts from whole, which the first case resolves. A probe in a safe gap or in an earlier
+//     region fails, so the gallop stops there and never carries the search past the gap. (A first
+//     cut at this, in w14-safecut round two, asked only whether each probe was unsafe with a
+//     whole-prefix kept side, which also holds in an earlier region of the same kind: the gallop
+//     jumped a short gap into it, and refused the page or settled far below the largest safe
+//     cut.) Stepping back a rune at a time instead costs a full-prefix Redact per rune of raw text,
+//     about L x log2(n) calls for L raw bytes: seconds for one long URI user in a 256 KB page,
+//     minutes for a longer one (w14-safecut verify finding).
 //
 // Each step moves the cut strictly back, and the search stops only at a safe cut or after the
-// first rune boundary was tried. For a rule set outside that model (matches that overlap, or that
-// depend on context the cut removes) the search can pass a safe cut, which moves the cut back
-// further or, in the limit, refuses a page; it never returns an unsafe cut.
+// first rune boundary was tried. That the result is the largest safe cut rests on the model above.
+// Outside it — matches that overlap, or a rest-side match that depends on the byte at the cut (a
+// URI scheme must start with a letter, a dotenv key with a capital, so inside a run of word
+// characters safe and unsafe cuts can alternate) — the cuts that are unsafe the same way need not
+// be contiguous, and the gallop can step over a safe one: the search then returns a smaller safe
+// cut or, when every probe down to the first rune boundary fell in such a region, refuses the
+// page. It never returns an unsafe cut. TestSafeCutMatchesTheOracleOnRandomProductionCompositions
+// pins the largest safe cut on separated compositions and a safe cut on fused ones.
 //
 // Before w14-safecut the search backed off by a doubling distance and gave up as soon as keep-back
 // reached the window's start, so a region that began before keep/2 made it skip every safe cut
@@ -145,23 +161,24 @@ func (h *handlers) safeCut(window, whole []byte, keep int) (int, []byte, bool) {
 	}
 	// split redacts the kept side of a cut at c and, when that is whole's prefix, the rest too,
 	// and reports whether the two give whole back.
-	split := func(c int) ([]byte, bool) {
-		kept, _ := h.redactor.Redact(window[:c])
+	split := func(c int) (kept, rest []byte, safe bool) {
+		kept, _ = h.redactor.Redact(window[:c])
 		if !bytes.HasPrefix(whole, kept) {
-			return kept, false
+			return kept, nil, false
 		}
-		rest, _ := h.redactor.Redact(window[c:])
-		return kept, len(kept)+len(rest) == len(whole) && bytes.HasSuffix(whole, rest)
+		rest, _ = h.redactor.Redact(window[c:])
+		return kept, rest, len(kept)+len(rest) == len(whole) && bytes.HasSuffix(whole, rest)
 	}
 	// reproduces reports whether the kept side of a cut at c agrees with whole for p bytes.
 	reproduces := func(c, p int) bool {
 		kept, _ := h.redactor.Redact(window[:c])
 		return commonPrefixLen(kept, whole) >= p
 	}
-	// prefixUnsafe reports whether a cut at c is unsafe with a kept side that is whole's prefix.
-	prefixUnsafe := func(c int) bool {
-		kept, safe := split(c)
-		return !safe && bytes.HasPrefix(whole, kept)
+	// sameRegion reports whether a cut at c is unsafe the way a cut in a raw prefix or run is: its
+	// kept side is whole's prefix and its rest agrees with whole's end for at most s bytes.
+	sameRegion := func(c, s int) bool {
+		kept, rest, safe := split(c)
+		return !safe && bytes.HasPrefix(whole, kept) && commonSuffixLen(rest, whole) <= s
 	}
 	// halve binary-searches the rune boundaries between lo and hi, where holds(lo) is false and
 	// holds(hi) true, and returns the adjacent pair it narrows them to.
@@ -184,7 +201,7 @@ func (h *handlers) safeCut(window, whole []byte, keep int) (int, []byte, bool) {
 	}
 	cut := floor(min(keep, len(window)))
 	for {
-		kept, safe := split(cut)
+		kept, rest, safe := split(cut)
 		if safe {
 			return cut, kept, true
 		}
@@ -200,25 +217,30 @@ func (h *handlers) safeCut(window, whole []byte, keep int) (int, []byte, bool) {
 				_, next = halve(first, cut, func(c int) bool { return reproduces(c, p) })
 			}
 		} else {
-			// Back off by a doubling distance while the cut is prefixUnsafe, then take the largest
-			// cut below the last such probe that is not: hi always is, lo never is.
+			// The largest rune boundary below cut that is not in cut's region: gallop back from cut
+			// by a doubling distance to the first probe outside it (lo), then halve between that
+			// probe and the last one inside it (hi). When first is inside it too, then in the model
+			// above so is every cut between, first is next, and the split check there decides.
+			s := commonSuffixLen(rest, whole)
+			inside := func(c int) bool { return sameRegion(c, s) }
 			lo, hi := -1, cut
 			for d := 1; lo < 0; d <<= 1 {
 				c := floor(cut - d)
 				switch {
 				case c >= hi:
 					// cut-d is still inside the rune the last probe floored to.
-				case !prefixUnsafe(c):
+				case !inside(c):
 					lo = c
 				case c <= first:
-					// The window's first rune boundary is unsafe too, and so, in the model above, is
-					// every cut between it and this one: no page fits.
-					return 0, nil, false
+					lo, hi = first, first
 				default:
 					hi = c
 				}
 			}
-			next, _ = halve(lo, hi, prefixUnsafe)
+			next = lo
+			if lo < hi {
+				next, _ = halve(lo, hi, inside)
+			}
 		}
 		if next >= cut {
 			next = floor(cut - 1)
@@ -232,6 +254,17 @@ func commonPrefixLen(a, b []byte) int {
 	n := min(len(a), len(b))
 	for i := range n {
 		if a[i] != b[i] {
+			return i
+		}
+	}
+	return n
+}
+
+// commonSuffixLen is the length of the longest common suffix of a and b.
+func commonSuffixLen(a, b []byte) int {
+	n := min(len(a), len(b))
+	for i := range n {
+		if a[len(a)-1-i] != b[len(b)-1-i] {
 			return i
 		}
 	}

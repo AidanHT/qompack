@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"math/bits"
+	"math/rand/v2"
 	"regexp"
 	"strings"
 	"testing"
@@ -820,6 +821,17 @@ func TestSafeCutIsTheLargestSafeCutOnProductionShapes(t *testing.T) {
 		"Bea" + "rer Bea" + "rer abcdefghij0123456789" + "ABCDEFGHIJ q",
 		"é日 https://" + "日本:" + "pass日本語@host x",
 		"-----BEGIN RSA PRIV" + "ATE KEY-----\nhttp://u:" + "abc@h Q\n-----END RSA PRIV" + "ATE KEY-----\nzz",
+		// Two regions close together, the second with a longer raw prefix or run than the gap
+		// before it (w14-safecut round-two review): a back-off that only asks whether each probe is
+		// still unsafe with a whole-prefix kept side jumps the gap into the earlier region, and
+		// refuses the page or settles far below the largest safe cut. Each also starts at offset 0.
+		"pass" + "word=hunter2hunter   pass" + "word=hunter2hunter ",
+		"sk-" + strings.Repeat("a", 30) + " y https://" + strings.Repeat("u", 40) + ":" + "pw123@h z",
+		"x sk-" + strings.Repeat("a", 30) + " y https://" + strings.Repeat("u", 40) + ":" + "pw123@h z",
+		"ab https://u1:" + "pw1@h https://" + strings.Repeat("u", 40) + ":" + "pw123@h z",
+		"https://u1:" + "pw1@h https://" + strings.Repeat("u", 40) + ":" + "pw123@h z",
+		"ab\nAPP_" + "KEY=s3cr3t-v4lue-0123\nAPP_" + "KEY" + strings.Repeat("A", 40) + "=" + "s3cr3t-v4lue-0123\nzz",
+		"APP_" + "KEY=s3cr3t-v4lue-0123\nAPP_" + "KEY" + strings.Repeat("A", 40) + "=" + "s3cr3t-v4lue-0123\nzz",
 	}
 	for wi, w := range windows {
 		window := []byte(w)
@@ -835,6 +847,104 @@ func TestSafeCutIsTheLargestSafeCutOnProductionShapes(t *testing.T) {
 			require.Equal(t, want > 0, ok, "window %d keep %d: got cut %d, largest safe %d", wi, keep, cut, want)
 			if ok {
 				require.Equal(t, want, cut, "window %d keep %d", wi, keep)
+			}
+		}
+	}
+}
+
+// largestSafeCutsByKeep is largestSafeCut for every keep of window at once: element keep is the
+// largest safe rune boundary after the first byte and at or before keep, or 0 when there is none.
+// It checks each cut once, where calling largestSafeCut per keep checks each cut once per keep.
+func largestSafeCutsByKeep(r Redactor, window []byte) []int {
+	out := make([]int, len(window)+1)
+	for c := 1; c <= len(window); c++ {
+		out[c] = out[c-1]
+		if (c == len(window) || utf8.RuneStart(window[c])) && cutIsSafe(r, window, c) {
+			out[c] = c
+		}
+	}
+	return out
+}
+
+// TestSafeCutMatchesTheOracleOnRandomProductionCompositions sweeps every keep over seeded random
+// compositions of the production rules' shapes (V6 close-out, w14-safecut round-two review): two
+// or three pieces — sk- runs, credentialed URIs, dotenv lines, bearer tokens, password
+// assignments, some too short to match — so a region often starts at offset 0 and a short safe gap
+// often sits just before a longer raw prefix or run. The seeds are fixed, so a failure reproduces;
+// the failing window is in the message.
+//
+//   - Separated: the gaps are blanks, newlines or punctuation, so each piece is its own region,
+//     the model safeCut's search is exact in. safeCut must return the oracle's largest safe cut,
+//     and report false only when none is safe.
+//   - Fused: gaps may also be empty or a letter, so pieces run into each other ("hunter2https://"
+//     makes the password's value part of the URI's scheme, "…ABChttps://" makes a bearer token and
+//     a URI overlap). There a rest-side match can depend on the byte at the cut, which is outside
+//     the model, and a smaller safe cut is allowed; safeCut must still return only safe cuts, and
+//     on this seeded set it reports false only when no cut is safe.
+func TestSafeCutMatchesTheOracleOnRandomProductionCompositions(t *testing.T) {
+	const compositions = 300
+	cfg := config.Defaults()
+	cfg.Runtime.Redact.Enabled = true
+	prod := testRedactor{r: redact.New(cfg)}
+	sweeps := []struct {
+		name  string
+		seed  uint64
+		gaps  []string
+		exact bool
+		count int
+	}{
+		{"separated", 0x5afec07, []string{" ", "   ", "\n", " y ", "; "}, true, compositions},
+		{"fused", 0x5afec08, []string{"", " ", "   ", "\n", " y ", "x"}, false, compositions},
+	}
+	for _, sw := range sweeps {
+		rng := rand.New(rand.NewPCG(sw.seed, sw.seed))
+		between := func(lo, hi int) int { return lo + rng.IntN(hi-lo+1) }
+		pieces := []func() string{
+			func() string { return "sk-" + strings.Repeat("a", between(15, 35)) },
+			func() string {
+				return "https://" + strings.Repeat("u", between(1, 30)) + ":" + "pw" + strings.Repeat("9", between(1, 5)) + "@h"
+			},
+			func() string {
+				return strings.Repeat("\n", rng.IntN(2)) + "APP_" + "KEY" + strings.Repeat("A", between(0, 20)) + "=" +
+					"s3cr3t-v4lue-0123\n"
+			},
+			func() string {
+				return "Bea" + "rer" + strings.Repeat(" ", between(1, 6)) + "abcdefghij0123456789" + "ABC"
+			},
+			func() string { return "pass" + "word=" + strings.Repeat("hunter2", between(1, 3)) },
+			func() string { return "ab" },
+		}
+		for i := range sw.count {
+			var b strings.Builder
+			if rng.IntN(2) == 0 {
+				b.WriteString(sw.gaps[rng.IntN(len(sw.gaps))])
+			}
+			for p := range between(2, 3) {
+				if p > 0 {
+					b.WriteString(sw.gaps[rng.IntN(len(sw.gaps))])
+				}
+				b.WriteString(pieces[rng.IntN(len(pieces))]())
+			}
+			b.WriteString(sw.gaps[rng.IntN(len(sw.gaps))])
+			window := []byte(b.String())
+			whole, _ := prod.Redact(window)
+			want := largestSafeCutsByKeep(prod, window)
+			h := &handlers{redactor: prod}
+			for keep := 1; keep <= len(window); keep++ {
+				if keep < len(window) && !utf8.RuneStart(window[keep]) {
+					continue
+				}
+				cut, _, ok := h.safeCut(window, whole, keep)
+				require.Equal(t, want[keep] > 0, ok, "%s %d %q keep %d: got cut %d, largest safe %d",
+					sw.name, i, window, keep, cut, want[keep])
+				if !ok {
+					continue
+				}
+				require.LessOrEqual(t, cut, keep, "%s %d %q keep %d", sw.name, i, window, keep)
+				require.True(t, cutIsSafe(prod, window, cut), "%s %d %q keep %d: cut %d", sw.name, i, window, keep, cut)
+				if sw.exact {
+					require.Equal(t, want[keep], cut, "%s %d %q keep %d", sw.name, i, window, keep)
+				}
 			}
 		}
 	}
