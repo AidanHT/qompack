@@ -1,0 +1,80 @@
+=== RUN   TestAdvanceOwnDecisionsRankBeforeOtherSessionsProjectEliminations
+    decisions_foreign_test.go:105: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w14-decisions/internal/checkpoint/decisions_foreign_test.go:76
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w14-decisions/internal/checkpoint/decisions_foreign_test.go:105
+        	Error:      	elements differ
+        	            	
+        	            	extra elements in list A:
+        	            	([]interface {}) (len=2) {
+        	            	 (string) (len=17) "inline the helper",
+        	            	 (string) (len=13) "keep the pool"
+        	            	}
+        	            	
+        	            	
+        	            	extra elements in list B:
+        	            	([]interface {}) (len=2) {
+        	            	 (string) (len=19) "foreign approach 00",
+        	            	 (string) (len=19) "foreign approach 01"
+        	            	}
+        	            	
+        	            	
+        	            	listA:
+        	            	([]string) (len=2) {
+        	            	 (string) (len=17) "inline the helper",
+        	            	 (string) (len=13) "keep the pool"
+        	            	}
+        	            	
+        	            	
+        	            	listB:
+        	            	([]string) (len=2) {
+        	            	 (string) (len=19) "foreign approach 00",
+        	            	 (string) (len=19) "foreign approach 01"
+        	            	}
+        	Test:       	TestAdvanceOwnDecisionsRankBeforeOtherSessionsProjectEliminations
+        	Messages:   	the session's own decisions rank first, all of them
+--- FAIL: TestAdvanceOwnDecisionsRankBeforeOtherSessionsProjectEliminations (0.11s)
+=== RUN   TestPreCompactKeepsOwnDecisionsAheadOfForeignOnes
+    decisions_foreign_test.go:144: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w14-decisions/internal/checkpoint/decisions_foreign_test.go:76
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w14-decisions/internal/checkpoint/decisions_foreign_test.go:144
+        	Error:      	elements differ
+        	            	
+        	            	extra elements in list A:
+        	            	([]interface {}) (len=2) {
+        	            	 (string) (len=18) "widen pool timeout",
+        	            	 (string) (len=17) "inline the helper"
+        	            	}
+        	            	
+        	            	
+        	            	extra elements in list B:
+        	            	([]interface {}) (len=2) {
+        	            	 (string) (len=19) "foreign approach 00",
+        	            	 (string) (len=19) "foreign approach 01"
+        	            	}
+        	            	
+        	            	
+        	            	listA:
+        	            	([]string) (len=2) {
+        	            	 (string) (len=18) "widen pool timeout",
+        	            	 (string) (len=17) "inline the helper"
+        	            	}
+        	            	
+        	            	
+        	            	listB:
+        	            	([]string) (len=2) {
+        	            	 (string) (len=19) "foreign approach 00",
+        	            	 (string) (len=19) "foreign approach 01"
+        	            	}
+        	Test:       	TestPreCompactKeepsOwnDecisionsAheadOfForeignOnes
+        	Messages:   	the session's own decisions rank first, all of them
+--- FAIL: TestPreCompactKeepsOwnDecisionsAheadOfForeignOnes (0.16s)
+=== RUN   TestPreCompactSealTimeDecisionEmitsItsDAGNode
+    decisions_foreign_test.go:186: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w14-decisions/internal/checkpoint/decisions_foreign_test.go:186
+        	Error:      	"[]" should have 1 item(s), but has 0
+        	Test:       	TestPreCompactSealTimeDecisionEmitsItsDAGNode
+        	Messages:   	the seal-time decision is in the DAG, so slice scoring can rank it
+--- FAIL: TestPreCompactSealTimeDecisionEmitsItsDAGNode (0.17s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/checkpoint	0.752s
+FAIL

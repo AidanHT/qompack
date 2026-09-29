@@ -1,0 +1,6 @@
+=== RUN   TestE2E_EliminationLifecycle
+--- PASS: TestE2E_EliminationLifecycle (0.16s)
+=== RUN   TestV4_WhyAndDroppedAnswerFromRealProducers
+--- PASS: TestV4_WhyAndDroppedAnswerFromRealProducers (3.94s)
+PASS
+ok  	github.com/qompack/qompack/test/e2e	4.334s
