@@ -147,3 +147,34 @@ func TestBeginSkipsASequenceADurableEncodeRecordNames(t *testing.T) {
 	d := f.begin()
 	require.Equal(t, core.CheckpointSeq(4), d.Seq(), "sequence 3 is named by a durable encode record")
 }
+
+// TestBeginScansPersistedDraftsOncePerWriter: the claim floor — every draft another daemon lifetime
+// left unsealed, and every durable encode record — is fixed when a writer opens, because only this
+// writer creates drafts or seals checkpoints afterwards (the daemon lock), and every number it hands
+// out is tracked by issuedSeq. So the state/ scan runs on the first fresh Begin, not on every one:
+// Finalize's afterSeal Begins a successor inside the PreCompact budget (B-E), and idle-exit drafts of
+// ended sessions accumulate with the project's history.
+func TestBeginScansPersistedDraftsOncePerWriter(t *testing.T) {
+	f := newFx(t)
+	other := core.SessionID("sess_sp10_other")
+	raw := fmt.Sprintf(`{"session":%q,"seq":3,"parent":0,"frontier":7,"encoded":[1],`+
+		`"started":1767225600000,"checkpoint":{"version":1,"session":%q,"seq":3,"created":"",`+
+		`"encoded_segments":[1]}}`, other, other)
+	require.NoError(t, os.WriteFile(paths.Long(filepath.Join(paths.Of(f.p.Root).State,
+		"draft-"+string(other)+".json")), []byte(raw), 0o600))
+
+	d := f.begin()
+	require.Equal(t, core.CheckpointSeq(4), d.Seq(), "sequence 3 belongs to the other session's unsealed draft")
+	require.Equal(t, 1, checkpoint.DraftScansForTest(f.w))
+
+	f.tool("tu_a", 11, "Read", "src/a.ts", "alpha body", false)
+	f.closedSeg(12, 10, 19)
+	f.advance(d, 12)
+	ref, err := f.w.Finalize(f.ctx(), d, finalizeBudget)
+	require.NoError(t, err)
+	require.Equal(t, core.CheckpointSeq(4), ref.Seq)
+	next := f.w.DraftFor(f.sess)
+	require.NotNil(t, next, "the seal opened a successor draft")
+	require.Equal(t, core.CheckpointSeq(5), next.Seq())
+	require.Equal(t, 1, checkpoint.DraftScansForTest(f.w), "the successor's Begin did not scan state/ again")
+}

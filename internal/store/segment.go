@@ -87,3 +87,13 @@ type SegmentReservation interface {
 	ReserveEncoded(ctx context.Context, ids []core.SegmentID, seq core.CheckpointSeq) error
 	CommitEncoded(ctx context.Context, ids []core.SegmentID, seq core.CheckpointSeq) error
 }
+
+// SegmentEncodeFloor is SegmentLog's optional O(1) answer to one question: the highest checkpoint
+// sequence a DURABLE encode record names — every one replayed from index/segments.jsonl, and every
+// one appended since. A reservation (SegmentReservation) is not a record and does not count.
+//
+// checkpoint.Begin reads it so that a fresh draft never takes a number an earlier build's encode
+// record already claims (F-UAT03-2), without copying the whole log through Range to find out.
+type SegmentEncodeFloor interface {
+	DurableEncodeFloor() core.CheckpointSeq
+}
