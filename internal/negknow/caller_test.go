@@ -54,7 +54,8 @@ func TestLedger_CallerSessionStampsRecordAndScopesQuery(t *testing.T) {
 	other, err := l.Query(asCaller("sess-b", 1), "src/pool.go:DialPool", "widen pool timeout", ScopeSession)
 	require.NoError(t, err)
 	require.Equal(t, AnswerAbsent, other.State, "another session must not see a session-scoped record")
-	require.True(t, other.BloomOnly, "the filter holds its key; the record lookup is what refuses it")
+	require.False(t, other.BloomOnly,
+		"the filter holding another session's key is not a false positive (TestLedger_OtherSessionsRecordIsAPlainAbsence)")
 
 	active, err := l.Active(asCaller("sess-b", 1), ScopeSession)
 	require.NoError(t, err)
@@ -62,6 +63,38 @@ func TestLedger_CallerSessionStampsRecordAndScopesQuery(t *testing.T) {
 	active, err = l.Active(asCaller("sess-a", 1), ScopeSession)
 	require.NoError(t, err)
 	require.Len(t, active, 1)
+}
+
+// TestLedger_OtherSessionsRecordIsAPlainAbsence: the daemon's ledger keeps every session's keys in
+// one filter, so a query from session B that matches only session A's session-scoped record is a
+// TRUE filter hit that the record lookup then scopes out. That is a plain absence, as it is for a
+// ledger bound to B whose filter never held A's key: BloomOnly means the filter claimed a key no
+// record in the ledger's view backs — a possible false positive, counted under
+// negknow.query.bloom_only — and flagging a real hit so would state a falsehood to the caller
+// ("no backing record exists"), tell session B that some session tried the approach, and inflate the
+// false-positive count by every cross-session match. The same holds for a project-scope query that
+// matches only the caller's own session-scoped record.
+func TestLedger_OtherSessionsRecordIsAPlainAbsence(t *testing.T) {
+	root, cfg := newProject(t)
+	m := newMetrics()
+	l := openLedger(t, root, cfg, nil, testDeps("", m))
+	_, err := l.Record(asCaller("sess-a", 3), newRecord("xsess", "src/pool.go:DialPool", "widen pool timeout", "max_idle"))
+	require.NoError(t, err)
+
+	other, err := l.Query(asCaller("sess-b", 1), "src/pool.go:DialPool", "widen pool timeout", ScopeSession)
+	require.NoError(t, err)
+	require.Equal(t, AnswerAbsent, other.State)
+	require.Nil(t, other.Record)
+	require.False(t, other.BloomOnly, "a record in the ledger backs the filter's hit; it is only out of this session's scope")
+
+	own, err := l.Query(asCaller("sess-a", 4), "src/pool.go:DialPool", "widen pool timeout", ScopeProject)
+	require.NoError(t, err)
+	require.Equal(t, AnswerAbsent, own.State, "a project-scope query never sees a session-scoped record")
+	require.False(t, own.BloomOnly)
+
+	require.Equal(t, int64(0), counterValue(t, m, "negknow.query.bloom_only"),
+		"no filter false positive happened")
+	require.Equal(t, int64(2), counterValue(t, m, "negknow.query.absent"))
 }
 
 // TestLedger_ProjectScopeIsVisibleToEverySession: project scope is the cross-session carry-over.
