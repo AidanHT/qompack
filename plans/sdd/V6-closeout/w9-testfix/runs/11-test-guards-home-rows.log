@@ -1,0 +1,8 @@
+=== RUN   TestGuard_EveryHomeReachingTestPackageIsolatesHome
+--- PASS: TestGuard_EveryHomeReachingTestPackageIsolatesHome (14.49s)
+=== RUN   TestGuard_HomeIsolationScannersSeeEveryShape
+--- PASS: TestGuard_HomeIsolationScannersSeeEveryShape (0.06s)
+=== RUN   TestGuard_IsolatedTestsNeverReadAPoisonedRealHome
+--- PASS: TestGuard_IsolatedTestsNeverReadAPoisonedRealHome (0.45s)
+PASS
+ok  	github.com/qompack/qompack/test/guards	15.494s

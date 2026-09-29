@@ -1,0 +1,24 @@
+# w9-testfix telemetry probe, go version go1.26.6 windows/amd64, Windows host
+## 1. go env under a config dir with no mode file (APPDATA=appdata1)
+local
+C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w9\testfix\probe\appdata1\go\telemetry
+appdata1
+appdata1/go
+appdata1/go/telemetry
+appdata1/go/telemetry/local
+appdata1/go/telemetry/local/go@go1.26.4-go1.26.4-windows-amd64-2026-09-28.v1.count
+appdata1/go/telemetry/local/go@go1.26.6-go1.26.6-windows-amd64-2026-09-28.v1.count
+appdata1/go/telemetry/local/upload.token
+appdata1/go/telemetry/local/weekends
+appdata1/go/telemetry/upload
+## 2. TEST_TELEMETRY_DIR=tdir holding mode 'off' (APPDATA=appdata1 again, after clearing it)
+off
+appdata1
+tdir
+tdir/mode
+## 3. documented mode file appdata3/go/telemetry/mode = off
+off
+appdata3
+appdata3/go
+appdata3/go/telemetry
+appdata3/go/telemetry/mode
