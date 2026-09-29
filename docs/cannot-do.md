@@ -323,9 +323,9 @@ host change could lift — as prepared proposals, none of which has been filed.
   measurement. The tails a shared machine adds are large enough to invert a verdict: the same
   commit, on a single hosted CI runner class, minutes apart, product byte-identical, read a B-A
   p99 of 3.072 ms in the isolated lane and 18.432 ms in the whole-tree job — a failure against the
-  15 ms limit that applied then (ADR 0010, Context table; B-A's Windows default is now 50 ms). Reference-platform rows remain open in
-  `plans/V5-report.md` §29 item 2, which also records two known in-scope regressions awaiting a
-  budget-versus-guarantee decision.
+  15 ms limit that applied then (ADR 0010, Context table; B-A's Windows default is now 50 ms).
+  Reference-platform rows remain open in `plans/V5-report.md` §29 item 2, which also records two
+  known in-scope regressions awaiting a budget-versus-guarantee decision.
 - **What Qompack does instead.** It measures what it can attribute and prints the availability word
   where it cannot — see the `unavailable` per-hook rows in
   [docs/troubleshooting.md §2](troubleshooting.md#2-unknown-capability-or-telemetry).
