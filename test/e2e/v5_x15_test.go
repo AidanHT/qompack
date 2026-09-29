@@ -373,9 +373,8 @@ func TestV5_DegradedPassiveIsStillCorrectWithEverySubsystemPresent(t *testing.T)
 		human, stderr, code := x15v5Command(t, bin, p, "status")
 		require.Equal(t, commands.ExitOK, code, "stderr:\n%s", stderr)
 		require.Contains(t, string(human), "mode:        "+contract.ModeFull.String())
-		// The banner lists EVERY non-OK result, an info one included (mcp.server_registered is
-		// "initialize-not-received" until an MCP client handshakes), and that is correct: what
-		// distinguishes a full-mode session is that none of them carries the critical spelling.
+		// The banner lists EVERY non-OK result, an info or warn one included, and that is correct:
+		// what distinguishes a full-mode session is that none of them carries the critical spelling.
 		require.NotContains(t, string(human), "critical — degrades the session when observed",
 			"a full-mode session must not render any failure as one that degrades it")
 	})
