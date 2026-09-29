@@ -1,0 +1,31 @@
+--- FAIL: TestAdvanceRecordsNoEncodeUntilTheSeal (0.13s)
+    encode_ordering_test.go:64: 
+        	Error Trace:	<worktree>/internal/checkpoint/encode_ordering_test.go:64
+        	Error:      	Should be empty, but was map[12:1]
+        	Test:       	TestAdvanceRecordsNoEncodeUntilTheSeal
+        	Messages:   	no encode record may name draft 0001 before a seal publishes it
+--- FAIL: TestFinalizeSealsTheSegmentsAResumedDraftHolds (0.19s)
+    encode_ordering_test.go:98: 
+        	Error Trace:	<worktree>/internal/checkpoint/encode_ordering_test.go:98
+        	Error:      	Should be false
+        	Test:       	TestFinalizeSealsTheSegmentsAResumedDraftHolds
+        	Messages:   	the reservation was not durable
+--- FAIL: TestBeginSkipsASequenceAnotherSessionsPersistedDraftHolds (0.04s)
+    encode_ordering_test.go:135: 
+        	Error Trace:	<worktree>/internal/checkpoint/encode_ordering_test.go:135
+        	Error:      	Not equal: 
+        	            	expected: 2
+        	            	actual  : 1
+        	Test:       	TestBeginSkipsASequenceAnotherSessionsPersistedDraftHolds
+        	Messages:   	sequence 1 belongs to the other session's unsealed draft
+--- FAIL: TestBeginSkipsASequenceADurableEncodeRecordNames (0.04s)
+    encode_ordering_test.go:146: 
+        	Error Trace:	<worktree>/internal/checkpoint/encode_ordering_test.go:146
+        	Error:      	Not equal: 
+        	            	expected: 4
+        	            	actual  : 1
+        	Test:       	TestBeginSkipsASequenceADurableEncodeRecordNames
+        	Messages:   	sequence 3 is named by a durable encode record
+FAIL
+FAIL	github.com/qompack/qompack/internal/checkpoint	0.869s
+FAIL

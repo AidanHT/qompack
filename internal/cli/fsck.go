@@ -432,6 +432,11 @@ type fsckScan struct {
 	sidecarBytes map[string]bool
 	// manifestSeqs is every checkpoint seq checkpoints/MANIFEST.jsonl records.
 	manifestSeqs map[core.CheckpointSeq]bool
+	// legacyPrompts counts the prompt records an earlier build's unlinked prompt sidecars may claim,
+	// by (session, args digest): an earlier build's prompt sidecar its record accounts for is
+	// published, not a stage-one gap (D3, cross-version). legacyPromptClaims loads it from the store
+	// the first time checkCaptures needs it; nil until then.
+	legacyPrompts map[store.LegacyPromptKey]int
 	// sealCheck is --seal-check: the one opt-in that lets this scan acquire the daemon lock.
 	sealCheck bool
 }
@@ -486,6 +491,12 @@ func fsckScanProject(ctx context.Context, root string, repairing, sealCheck bool
 			"and the staleness protocol reclaims such a lock rather than blocking forever", info.PID)
 	default:
 		daemonRow.note("no daemon holds the lock; this project is quiet")
+	}
+	if held && daemon.LockIsForeign(info, root) {
+		daemonRow.note("the lock was written for another project path (%s): this store was copied or "+
+			"moved with its run/ directory, so that project's daemon does not serve it; the lock "+
+			"rules treat it as stale once this store's own heartbeat is older than %s",
+			lockOrigin(info.Root, info.Addr), daemon.StaleAfter())
 	}
 
 	storeRow := newFsckRow("store", contract.SevInfo)
@@ -1123,6 +1134,7 @@ func (s *fsckScan) checkSegments() fsckCheck {
 
 	known := map[string]bool{"open": true, "close": true, "encode": true, "bloom": true}
 	seqs := s.manifestSeqSet()
+	var unsealed *fsckUnsealedClaims // loaded on the first claim the manifest does not account for
 	encodes := 0
 	for i, raw := range lines {
 		var rec fsckSegmentLine
@@ -1143,13 +1155,114 @@ func (s *fsckScan) checkSegments() fsckCheck {
 			continue
 		}
 		encodes++
-		if !seqs[core.CheckpointSeq(rec.Seq)] {
+		seq := core.CheckpointSeq(rec.Seq)
+		if seqs[seq] {
+			continue
+		}
+		if unsealed == nil {
+			unsealed = s.loadUnsealedClaims()
+		}
+		switch draft, stale := unsealed.draftHolding(seq, core.SegmentID(rec.ID)); {
+		case unsealed.orphans[seq]:
+			row.note("segment %d names checkpoint %04d, whose artifact is on disk with no "+
+				"checkpoints/MANIFEST.jsonl line: the checkpoints row reports that orphan, and --repair "+
+				"appends its line", rec.ID, rec.Seq)
+		case draft != "" && !stale:
+			row.note("%s: segment %d names checkpoint %04d, which session %s's draft (state/%s) holds "+
+				"unsealed; an earlier build recorded the encode before the seal. The session's next "+
+				"compaction seals it at that number, and the segment's turns stay readable from the "+
+				"capture log meanwhile", fsckUnsealedDraftClaim, rec.ID, rec.Seq,
+				unsealed.sessions[draft], draft)
+		case draft != "":
+			row.note("%s: segment %d names checkpoint %04d, which a draft set aside unsealed "+
+				"(state/%s) holds; an earlier build recorded the encode before the seal. No checkpoint "+
+				"will carry this segment, and its turns stay readable from the capture log",
+				fsckUnsealedDraftClaim, rec.ID, rec.Seq, draft)
+		default:
 			row.defect("segment %d records that it was encoded into checkpoint %04d, which "+
 				"checkpoints/MANIFEST.jsonl does not record", rec.ID, rec.Seq)
 		}
 	}
 	row.scan(encodes)
 	return row.build()
+}
+
+// fsckUnsealedDraftClaim names the condition a store written before the two-phase encode can carry
+// (F-UAT03-2): an encode record naming the sequence number of a draft no seal ever reached. It is
+// explained by the draft's own state file, it is readable (the checkpoint chain verifies, and the
+// segment's turns are in the capture log), and no tool can rewrite the append-only log to remove
+// it, so it is reported by name rather than as a failure that would refuse every later restore.
+const fsckUnsealedDraftClaim = "unsealed-draft claim"
+
+// fsckUnsealedClaims is what index.segments needs to explain an encode record the manifest does not
+// account for: the checkpoint artifacts on disk with no manifest line, and every persisted draft's
+// (sequence, segment) holdings.
+type fsckUnsealedClaims struct {
+	orphans map[core.CheckpointSeq]bool
+	// holders maps a (seq, segment) pair to the draft file that holds it; stale marks a set-aside
+	// (.stale.json) draft, which will never be sealed.
+	holders  map[fsckDraftHolding]string
+	stale    map[string]bool
+	sessions map[string]core.SessionID
+}
+
+type fsckDraftHolding struct {
+	seq core.CheckpointSeq
+	seg core.SegmentID
+}
+
+// draftHolding returns the draft file that holds segment seg for checkpoint seq, and whether that
+// draft was set aside.
+func (u *fsckUnsealedClaims) draftHolding(seq core.CheckpointSeq, seg core.SegmentID) (string, bool) {
+	name := u.holders[fsckDraftHolding{seq: seq, seg: seg}]
+	return name, u.stale[name]
+}
+
+// loadUnsealedClaims reads the checkpoint artifacts and the persisted drafts once. It only reads:
+// a draft or artifact that cannot be read or parsed explains nothing, and the claim it would have
+// explained stays a defect.
+func (s *fsckScan) loadUnsealedClaims() *fsckUnsealedClaims {
+	u := &fsckUnsealedClaims{
+		orphans:  map[core.CheckpointSeq]bool{},
+		holders:  map[fsckDraftHolding]string{},
+		stale:    map[string]bool{},
+		sessions: map[string]core.SessionID{},
+	}
+	if arts, err := fsckCheckpointArtifactsOnDisk(s.l); err == nil {
+		for _, a := range arts {
+			if a.ParseErr == "" && a.Seq > 0 && !s.manifestSeqs[a.Seq] {
+				u.orphans[a.Seq] = true
+			}
+		}
+	}
+	entries, err := fsckReadDir(s.l.State)
+	if err != nil {
+		return u
+	}
+	for _, e := range entries {
+		name := e.Name()
+		if e.IsDir() || !strings.HasPrefix(name, "draft-") || !strings.HasSuffix(name, ".json") {
+			continue
+		}
+		raw, readErr := paths.ReadFileShared(filepath.Join(s.l.State, name))
+		if readErr != nil {
+			continue
+		}
+		var d struct {
+			Session core.SessionID     `json:"session"`
+			Seq     core.CheckpointSeq `json:"seq"`
+			Encoded []core.SegmentID   `json:"encoded"`
+		}
+		if json.Unmarshal(raw, &d) != nil || d.Seq <= 0 {
+			continue
+		}
+		u.stale[name] = strings.HasSuffix(name, ".stale.json")
+		u.sessions[name] = d.Session
+		for _, id := range d.Encoded {
+			u.holders[fsckDraftHolding{seq: d.Seq, seg: id}] = name
+		}
+	}
+	return u
 }
 
 // manifestSeqSet is the set of checkpoint sequence numbers the manifest records, loaded once.
@@ -1174,6 +1287,7 @@ func (s *fsckScan) manifestSeqSet() map[core.CheckpointSeq]bool {
 type fsckSidecarLine struct {
 	Version       int    `json:"v"`
 	ObservationID string `json:"observation_id"`
+	Session       string `json:"session"`
 	Op            string `json:"op"`
 	ToolUseID     string `json:"tool_use_id"`
 	Root          string `json:"root"`
@@ -1197,6 +1311,7 @@ func (s *fsckScan) checkCaptures() fsckCheck {
 	dir := filepath.Join(s.l.Records, "captures")
 	seen := 0
 	control := 0 // legacy sidecars of drained control lines (store.IsControlCaptureOp)
+	linked := 0  // earlier builds' prompt sidecars their records account for (store.ClaimLegacyPrompt)
 
 	err := filepath.WalkDir(paths.Long(dir), func(p string, d fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
@@ -1240,6 +1355,11 @@ func (s *fsckScan) checkCaptures() fsckCheck {
 			}
 			if required && sc.Outcome == string(core.OutcomeOK) &&
 				sc.BytesHash != "" && !fsckIsZeroHash(sc.BytesHash) {
+				if sc.Op == fsckOpObservePrompt &&
+					store.ClaimLegacyPrompt(s.legacyPromptClaims(), core.SessionID(sc.Session), sc.Bytes) {
+					linked++
+					return nil
+				}
 				row.defect("capture sidecar %s for a %s delivery is at stage 1 only: outcome %q with "+
 					"bytes %s durable and no reference joined to it",
 					fsckFirstNonEmpty(sc.ObservationID, d.Name()), sc.Op, sc.Outcome,
@@ -1259,8 +1379,43 @@ func (s *fsckScan) checkCaptures() fsckCheck {
 	if control > 0 {
 		row.note("%s", fsckLegacyControlCapturesNote(control))
 	}
+	if linked > 0 {
+		row.note("%s", fsckLegacyLinkedPromptsNote(linked))
+	}
 	row.scan(seen)
 	return row.build()
+}
+
+// legacyPromptClaims returns the prompt records an earlier build's unlinked prompt sidecars may
+// claim, loading them on first use from a read-only open of the store: the same records, under the
+// same rule (store.LegacyPromptCounter), that the publication audit claims from, so the captures and
+// publication rows cannot disagree. It is reached only for an unpublished prompt sidecar. A store
+// that will not open, or cannot count, claims nothing, and every such sidecar stays a gap.
+func (s *fsckScan) legacyPromptClaims() map[store.LegacyPromptKey]int {
+	if s.legacyPrompts != nil {
+		return s.legacyPrompts
+	}
+	s.legacyPrompts = map[store.LegacyPromptKey]int{}
+	opened, err := store.OpenReadOnly(s.root, config.Defaults(), store.Deps{Log: logging.Nop()})
+	if err != nil {
+		return s.legacyPrompts
+	}
+	defer func() { _ = opened.Close() }()
+	if c, ok := opened.(store.LegacyPromptCounter); ok {
+		s.legacyPrompts = c.LegacyPromptRecords()
+	}
+	return s.legacyPrompts
+}
+
+// fsckOpObservePrompt is ipc.OpObservePrompt's wire form, the Op a prompt capture sidecar carries.
+const fsckOpObservePrompt = "observe.prompt"
+
+// fsckLegacyLinkedPromptsNote is the one sentence the captures and publication rows both use for
+// the prompt sidecars an earlier build wrote and never joined to the record that published them.
+func fsckLegacyLinkedPromptsNote(n int) string {
+	return fmt.Sprintf("%d prompt capture sidecar(s) were written by a build before the prompt link: each "+
+		"prompt was published as its prompt_<session>_<turn> record, which that build never joined to the "+
+		"sidecar; read as published, kept as written, and not a gap", n)
 }
 
 // fsckLegacyControlCapturesNote is the one sentence the captures and publication rows both use for
@@ -2574,7 +2729,12 @@ func fsckDaemonLiveness(root string) (info daemon.LockInfo, held, alive bool) {
 	if err != nil {
 		return info, true, false
 	}
-	if info.Addr != "" {
+	// A lock written for ANOTHER project was copied or moved in with this store's run/ directory
+	// (F-UAT03-4): the listener at its address serves that other store, so only this project's own
+	// address can say a daemon serves this one. daemon.LockIsForeign judges project identity, not
+	// the whole address, so a lock this project's daemon wrote under another environment (another
+	// XDG_RUNTIME_DIR, TMPDIR or QOMPACK_IPC_ADDR) is still dialled where it says it listens.
+	if info.Addr != "" && !daemon.LockIsForeign(info, root) {
 		addr = ipc.Addr{Kind: addr.Kind, Path: info.Addr}
 	}
 	return info, true, ipc.Probe(addr, selfTestProbeTimeout)

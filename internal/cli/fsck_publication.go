@@ -38,6 +38,9 @@ func (s *fsckScan) checkPublication() fsckCheck {
 	if audit.LegacyControlCaptures > 0 {
 		row.note("%s", fsckLegacyControlCapturesNote(audit.LegacyControlCaptures))
 	}
+	if audit.LegacyLinkedPrompts > 0 {
+		row.note("%s", fsckLegacyLinkedPromptsNote(audit.LegacyLinkedPrompts))
+	}
 	if audit.HasGaps() {
 		row.defect("publication evidence includes %d unlinked captures and %d unindexed object candidates",
 			audit.UnpublishedCaptures, audit.UnindexedObjectCandidates)

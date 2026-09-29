@@ -1,0 +1,28 @@
+--- FAIL: TestFsck_AnUnsealedDraftClaimIsNamedNotFailed (0.00s)
+    --- FAIL: TestFsck_AnUnsealedDraftClaimIsNamedNotFailed/a_live_draft (0.22s)
+        fsck_segments_test.go:49: 
+            	Error Trace:	<worktree>/internal/cli/fsck_segments_test.go:49
+            	Error:      	Not equal: 
+            	            	expected: true
+            	            	actual  : false
+            	Test:       	TestFsck_AnUnsealedDraftClaimIsNamedNotFailed/a_live_draft
+            	Messages:   	an unsealed-draft claim is not a defect: segment 7 records that it was encoded into checkpoint 0002, which checkpoints/MANIFEST.jsonl does not record
+    --- FAIL: TestFsck_AnUnsealedDraftClaimIsNamedNotFailed/a_set-aside_draft (0.22s)
+        fsck_segments_test.go:49: 
+            	Error Trace:	<worktree>/internal/cli/fsck_segments_test.go:49
+            	Error:      	Not equal: 
+            	            	expected: true
+            	            	actual  : false
+            	Test:       	TestFsck_AnUnsealedDraftClaimIsNamedNotFailed/a_set-aside_draft
+            	Messages:   	an unsealed-draft claim is not a defect: segment 7 records that it was encoded into checkpoint 0002, which checkpoints/MANIFEST.jsonl does not record
+--- FAIL: TestFsck_AClaimOnAnOrphanArtifactIsTheOrphansFinding (0.22s)
+    fsck_segments_test.go:92: 
+        	Error Trace:	<worktree>/internal/cli/fsck_segments_test.go:92
+        	Error:      	Not equal: 
+        	            	expected: true
+        	            	actual  : false
+        	Test:       	TestFsck_AClaimOnAnOrphanArtifactIsTheOrphansFinding
+        	Messages:   	segment 7 records that it was encoded into checkpoint 0009, which checkpoints/MANIFEST.jsonl does not record
+FAIL
+FAIL	github.com/qompack/qompack/internal/cli	0.479s
+FAIL

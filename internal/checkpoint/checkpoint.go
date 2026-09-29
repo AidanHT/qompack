@@ -16,9 +16,10 @@ type Writer interface {
 	// exclusively from src.
 	Begin(ctx context.Context, s core.SessionID, parent core.CheckpointSeq, src SourceSet) (*Draft, error)
 	// Advance encodes CLOSED, UNENCODED segments into the draft and returns the turn index the
-	// frontier reached. It is called during idle time (O5). It calls SegmentLog.MarkEncoded and
-	// therefore returns core.ErrAlreadyEncoded on a §4.6 DPI violation — a segment's original
-	// content may be encoded into a checkpoint exactly once.
+	// frontier reached. It is called during idle time (O5). It calls SegmentLog.MarkEncoded (or,
+	// where the log offers it, store.SegmentReservation's ReserveEncoded, whose records Finalize
+	// writes at the seal) and therefore returns core.ErrAlreadyEncoded on a §4.6 DPI violation — a
+	// segment's original content may be encoded into a checkpoint exactly once.
 	Advance(ctx context.Context, d *Draft, segs []core.SegmentID) (core.TurnIndex, error)
 	// Finalize writes the immutable artifact via paths.CreateNew plus a MANIFEST append, honouring
 	// budget through Truncate's tier order. It must complete inside budget B-E, which it can

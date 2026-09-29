@@ -369,3 +369,66 @@ func ProjectHash8(projectRoot string) string {
 	_, h := projectHashFor(runtime.GOOS, projectRoot)
 	return h
 }
+
+// EndpointNamesProject reports whether addr — an endpoint path some process resolved, such as the
+// one a daemon.lock records — is named for projectRoot. §2.4 names every resolved endpoint after
+// its project's hash, whatever directory or environment it was resolved in:
+// \\.\pipe\qompack.<hash12>, <any dir>/<hash12>.sock, or the short <any dir>/qp-<hash8>.sock. known
+// is false for any other shape, which is what a QOMPACK_IPC_ADDR override produces: an address that
+// names no project says nothing about which project it serves.
+//
+// It is how a reader tells a lock written for ANOTHER project (a store copied or moved with its
+// run/ directory) from one this project's daemon wrote under another environment, whose address
+// differs only in its directory (XDG_RUNTIME_DIR, TMPDIR, the uid) and still carries this hash.
+func EndpointNamesProject(addr, projectRoot string) (names, known bool) {
+	return endpointNamesProjectFor(runtime.GOOS, addr, projectRoot)
+}
+
+// endpointNamesProjectFor is EndpointNamesProject with goos injected, as resolveFor has it, so every
+// shape is testable on any host.
+func endpointNamesProjectFor(goos, addr, projectRoot string) (names, known bool) {
+	h, ok := endpointProjectHash(addr)
+	if !ok {
+		return false, false
+	}
+	h12, h8 := projectHashFor(goos, projectRoot)
+	if len(h) == hash8Len {
+		return h == h8, true
+	}
+	return h == h12, true
+}
+
+// endpointProjectHash extracts the project hash from an endpoint path of one of §2.4's three shapes
+// (see EndpointNamesProject); ok is false for anything else.
+func endpointProjectHash(addr string) (string, bool) {
+	name := addr
+	if i := strings.LastIndexAny(addr, `/\`); i >= 0 {
+		name = addr[i+1:]
+	}
+	var h string
+	switch {
+	case strings.HasPrefix(addr, windowsPipePrefix) && strings.HasPrefix(name, pipeName):
+		h = strings.TrimPrefix(name, pipeName)
+		if len(h) != hash12Len {
+			return "", false
+		}
+	case strings.HasPrefix(name, shortSockPrefix) && strings.HasSuffix(name, sockExt):
+		h = strings.TrimSuffix(strings.TrimPrefix(name, shortSockPrefix), sockExt)
+		if len(h) != hash8Len {
+			return "", false
+		}
+	case strings.HasSuffix(name, sockExt):
+		h = strings.TrimSuffix(name, sockExt)
+		if len(h) != hash12Len {
+			return "", false
+		}
+	default:
+		return "", false
+	}
+	for i := 0; i < len(h); i++ {
+		if c := h[i]; (c < '0' || c > '9') && (c < 'a' || c > 'f') {
+			return "", false
+		}
+	}
+	return h, true
+}

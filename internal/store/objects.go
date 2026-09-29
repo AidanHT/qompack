@@ -338,10 +338,38 @@ func (s *FSStore) readObjectFile(h core.Hash) (raw []byte, path string, compress
 	_, indexed := s.chunkSet[h]
 	s.mu.RUnlock()
 	if indexed {
+		if !s.quarantineHolds(h) {
+			return nil, "", false, fmt.Errorf(
+				"%w: object %s is indexed but absent from objects/ and from tmp/quarantine/", ErrObjectMissing, h.Short())
+		}
 		return nil, "", false, fmt.Errorf(
 			"%w: object %s is indexed but absent from objects/", ErrDamaged, h.Short())
 	}
 	return nil, "", false, fmt.Errorf("%w: object %s", core.ErrNotFound, h.Short())
+}
+
+// quarantineHolds reports whether tmp/quarantine/ holds evidence for h under either of its object
+// file names — quarantine moves a rejected file into tmp/quarantine/object-*/ keeping its base name.
+// It runs only on a read that has already failed, so the directory listing is off every served path.
+// A listing that fails answers true: "refused and preserved" is the weaker claim to fall back on.
+func (s *FSStore) quarantineHolds(h core.Hash) bool {
+	root := filepath.Join(s.l.Tmp, quarantineDir)
+	attempts, err := os.ReadDir(paths.Long(root))
+	if err != nil {
+		return !os.IsNotExist(err)
+	}
+	cands := s.objectCandidates(h)
+	for _, a := range attempts {
+		if !a.IsDir() {
+			continue
+		}
+		for _, c := range cands {
+			if _, serr := os.Stat(paths.Long(filepath.Join(root, a.Name(), filepath.Base(c)))); serr == nil {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 var errObjectTooLarge = errors.New("store: physical object exceeds size limit")
@@ -466,6 +494,15 @@ func requireEOF(r io.Reader) error {
 // the stronger fact tests errors.Is(err, store.ErrDamaged) BEFORE core.ErrNotFound; one that does
 // not keeps the behaviour it had.
 var ErrDamaged = fmt.Errorf("%w: object refused as damaged", core.ErrNotFound)
+
+// ErrObjectMissing narrows ErrDamaged to the one shape of it in which nothing was damaged and nothing
+// was preserved: the index records the object, objects/ has no file for it, and tmp/quarantine/
+// holds none either — the bytes are simply gone (moved or deleted from outside the store). It wraps
+// ErrDamaged, so every caller that answers a refused object as `unavailable` keeps doing so; a caller
+// that words the answer tests it first, so a model is not told a damaged object was preserved as
+// evidence when there is none (F-C49-3). `qompack fsck` names the same object "which the object
+// store does not hold".
+var ErrObjectMissing = fmt.Errorf("%w: indexed object missing from the store", ErrDamaged)
 
 // Quarantiner is the §12.3 single-object quarantine, as a capability a caller can ask a Store for.
 //

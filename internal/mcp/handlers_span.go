@@ -95,7 +95,7 @@ func unavailable(reason string) missBody {
 // order to stop retrying.
 func (h *handlers) spanFailure(tool, verb string, err error) Response {
 	if errors.Is(err, store.ErrDamaged) {
-		return h.jsonResponse(tool, damaged(), nil)
+		return h.jsonResponse(tool, refusedObject(err), nil)
 	}
 	return errResponse(verb + " failed: " + err.Error())
 }
@@ -120,6 +120,24 @@ func (h *handlers) spanFailure(tool, verb string, err error) Response {
 func damaged() missBody {
 	return unavailable("the stored object was refused rather than served: its bytes could not be " +
 		"read intact; a damaged object is preserved as evidence and `qompack fsck` reports it")
+}
+
+// missingObject is what every retrieval tool reports for an object the index records and the store
+// no longer holds anywhere — not in objects/, not in tmp/quarantine/ (store.ErrObjectMissing). It is
+// still `unavailable`, never a miss: the content was captured. But nothing was damaged and nothing
+// was preserved, so damaged()'s wording would send an operator looking for evidence that does not
+// exist (F-C49-3); fsck names the same object "which the object store does not hold".
+func missingObject() missBody {
+	return unavailable("the stored object is missing: the index records it, but its bytes are no " +
+		"longer in the store, so it cannot be served; `qompack fsck` reports it")
+}
+
+// refusedObject words a store.ErrDamaged refusal by what actually happened: missing, or refused.
+func refusedObject(err error) missBody {
+	if errors.Is(err, store.ErrObjectMissing) {
+		return missingObject()
+	}
+	return damaged()
 }
 
 // noCapturedHistory is what `re_read` with an empty `at` reports when nothing has ever been
@@ -218,7 +236,7 @@ func (h *handlers) resolveExpandTarget(ctx context.Context, a ExpandArgs) (
 		}
 		rt, gerr := h.store.GetRoot(ctx, rec.Root)
 		if errors.Is(gerr, store.ErrDamaged) {
-			return store.Root{}, "", "", nil, damaged(), nil
+			return store.Root{}, "", "", nil, refusedObject(gerr), nil
 		}
 		if errors.Is(gerr, core.ErrNotFound) {
 			return store.Root{}, "", "", nil, miss("tool_use index, object store"), nil
@@ -250,7 +268,7 @@ func (h *handlers) resolveExpandTarget(ctx context.Context, a ExpandArgs) (
 		// Finding S-3's second address form. This branch used to map EVERY failure here to miss(),
 		// which renders as ABSENT — the one answer §12.3 forbids for a quarantined object, because
 		// it tells a model the content was never there when in fact it was refused and preserved.
-		return store.Root{}, "", "", nil, damaged(), nil
+		return store.Root{}, "", "", nil, refusedObject(cerr), nil
 	}
 	if cerr != nil {
 		return store.Root{}, "", "", nil, miss("object store (root and chunk index)"), nil
