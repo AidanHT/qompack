@@ -119,6 +119,29 @@ type Persister interface {
 	Persist(ctx context.Context) error
 }
 
+// Progress is where one session stands, as the observer holds it in memory: the turn its next
+// event will be filed at, the segment its events are being enrolled into, and what that segment
+// has accumulated so far.
+type Progress struct {
+	Turn          core.TurnIndex
+	Segment       core.SegmentID
+	SegmentTokens core.Tokens
+}
+
+// ProgressReporter is the read-only view of a session's in-memory position. The value New returns
+// ALWAYS satisfies it; like Persister it is a separate interface, so the §5.21 Observer interface is
+// unchanged and a caller asserts for it.
+//
+// It exists for the two answers only this state can give (V6 live lane, F-UAT01-2 and retrieval
+// D8). The daemon's MCP handlers file a record for every retrieval they answer and must place it at
+// the session's CURRENT turn, and `timeline` must report an open segment's live end: the store's
+// segment log learns a segment's end turn and tokens only when the segment closes, and the tool_use
+// index lags this state by whatever the workers have not yet published.
+type ProgressReporter interface {
+	// Progress reports s's position, or false when this observer holds no state for s.
+	Progress(s core.SessionID) (Progress, bool)
+}
+
 // Options is the collaborator set New assembles an Observer from.
 //
 // 00-ARCHITECTURE.md §5.21 declares the Observer interface without a constructor, so Options is
@@ -354,8 +377,9 @@ type observer struct {
 
 // The value New returns satisfies both seams.
 var (
-	_ Observer  = (*observer)(nil)
-	_ Persister = (*observer)(nil)
+	_ Observer         = (*observer)(nil)
+	_ Persister        = (*observer)(nil)
+	_ ProgressReporter = (*observer)(nil)
 )
 
 // New returns an Observer built from o.
@@ -477,6 +501,26 @@ func (o *observer) session(s core.SessionID) *sessionState {
 	}
 	o.sess[s] = st
 	return st
+}
+
+// Progress reports s's in-memory position without creating state for a session it has never seen.
+//
+// It takes the session's own lock, briefly, the same one every hook for that session serializes on,
+// so the turn it reports is one an event for the session could actually have been filed at. It never
+// holds o.mu while waiting for it (decision 9's lock order).
+func (o *observer) Progress(s core.SessionID) (Progress, bool) {
+	o.once.Do(o.loadState)
+
+	o.mu.Lock()
+	st, ok := o.sess[s]
+	o.mu.Unlock()
+	if !ok {
+		return Progress{}, false
+	}
+
+	st.mu.Lock()
+	defer st.mu.Unlock()
+	return Progress{Turn: st.Turn, Segment: st.Segment, SegmentTokens: core.Tokens(segmentTokens(st))}, true
 }
 
 // OnSessionStart and OnSessionEnd live in session.go.
