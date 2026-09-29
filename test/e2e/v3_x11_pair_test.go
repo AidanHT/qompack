@@ -26,6 +26,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/qompack/qompack/internal/core"
+	"github.com/qompack/qompack/internal/obs"
 	"github.com/qompack/qompack/internal/paths"
 )
 
@@ -135,15 +137,18 @@ type x11Pair struct {
 
 // x11LedgerPairVerdict is D42's judgement: the ledger run's hook_controlled_observed p50 may be at
 // most x11RegressionFactor times the paired no-ledger run's, taken on the same host in the same
-// test. The factor is the whole rule, exactly as D42 records it ("no new number"). The quantity is
-// quantized: recvTS and req.TS are whole milliseconds, so every p50 is a whole number of the obs
-// histogram's 1.024 ms buckets, and below four of them 25% is less than one bucket, so there a
-// one-bucket move fails the pair (Linux's p50 is one bucket on every recorded run).
+// test. The ceiling never drops below the no-ledger p50 plus tickUS, one tick of the quantity's
+// clock as the harness reports it (x11ObservedTickUS): recvTS and req.TS are whole milliseconds, so
+// every sample, and therefore every p50, is a whole number of ticks, and a comparison finer than
+// one tick judges rounding. That floor only acts below four ticks, where 25% of the p50 is less
+// than one tick (Linux's p50 is one tick on every recorded run); from four ticks up, the factor
+// alone decides. The floor is an amendment to D42 proposed to the owner, not a ratified bound:
+// D42 as written has the factor alone decide at every scale (see x11ObservedTickUS).
 //
 // It returns an error wrapping errX11PairIncomparable when the two notes' sample counts differ,
 // one wrapping errX11LedgerRegressed when the ledger p50 is over the ceiling, and a plain error
 // when either artifact's note is missing or unreadable.
-func x11LedgerPairVerdict(base, ledger x11BenchReport) (x11Pair, error) {
+func x11LedgerPairVerdict(base, ledger x11BenchReport, tickUS int64) (x11Pair, error) {
 	var out x11Pair
 	b, err := x11ReadObserved(base)
 	if err != nil {
@@ -153,7 +158,10 @@ func x11LedgerPairVerdict(base, ledger x11BenchReport) (x11Pair, error) {
 	if err != nil {
 		return out, fmt.Errorf("the ledger-resident run: %w", err)
 	}
-	out = x11Pair{base: b, ledger: l, ceilingUS: x11RegressionFactor * float64(b.p50us)}
+	out = x11Pair{
+		base: b, ledger: l,
+		ceilingUS: math.Max(x11RegressionFactor*float64(b.p50us), float64(b.p50us+tickUS)),
+	}
 	if b.n != l.n {
 		return out, fmt.Errorf("%w: n=%d without the ledger, n=%d with it — a p50 over fewer samples is a p50 "+
 			"over part of the run (a spool deferral or rejected samples), so the two are not compared",
@@ -161,8 +169,9 @@ func x11LedgerPairVerdict(base, ledger x11BenchReport) (x11Pair, error) {
 	}
 	if float64(l.p50us) > out.ceilingUS {
 		return out, fmt.Errorf("%w: hook_controlled_observed p50 %.3fms with the 5 000-entry ledger resident "+
-			"is over %.3fms, the ceiling from the paired no-ledger run's %.3fms (x%.2f)", errX11LedgerRegressed,
-			x11MsOf(l.p50us), x11MsOf(int64(out.ceilingUS)), x11MsOf(b.p50us), x11RegressionFactor)
+			"is over %.3fms, the ceiling from the paired no-ledger run's %.3fms (x%.2f, and never less than "+
+			"one %.3fms tick above it)", errX11LedgerRegressed, x11MsOf(l.p50us), x11MsOf(int64(out.ceilingUS)),
+			x11MsOf(b.p50us), x11RegressionFactor, x11MsOf(tickUS))
 	}
 	return out, nil
 }
@@ -170,6 +179,17 @@ func x11LedgerPairVerdict(base, ledger x11BenchReport) (x11Pair, error) {
 // x11MsOf renders whole microseconds as milliseconds.
 func x11MsOf(us int64) float64 {
 	return float64(us) / float64(time.Millisecond/time.Microsecond)
+}
+
+// x11ObservedTickUS is one tick of hook_controlled_observed's clock as the harness reports it:
+// the daemon records recvTS - req.TS from two core.UnixMilli stamps (internal/daemon/handlers.go,
+// recordHotPathSample), so a sample is a whole number of milliseconds, and the harness prints the
+// obs histogram's conservative bucket bound for it. That bound is taken from the product's own
+// histogram here rather than spelled: one millisecond observed, read back as the p50 (1.024 ms).
+func x11ObservedTickUS() int64 {
+	h := obs.New(core.SystemClock()).Hist("x11-observed-tick")
+	h.Observe(time.Millisecond)
+	return h.Snapshot().P50.Microseconds()
 }
 
 // x11CopyProject copies the project tree src to dst, which must not exist yet, so the no-ledger
@@ -242,9 +262,13 @@ func x11ReportWithNotes(notes ...string) x11BenchReport {
 }
 
 // TestV3_X11LedgerPairVerdict pins x11LedgerPairVerdict on fixtures: RED when the ledger run's p50
-// is over the paired ceiling, GREEN at or under it, the factor alone deciding at every scale, and a
-// refusal, never a pass, when either artifact lacks a readable note.
+// is over the paired ceiling, GREEN at or under it, the one-tick floor acting only where 25% is
+// under a tick, and a refusal, never a pass, when either artifact lacks a readable note.
 func TestV3_X11LedgerPairVerdict(t *testing.T) {
+	tick := x11ObservedTickUS()
+	require.Equal(t, int64(1024), tick,
+		"premise: one millisecond reads back from the obs histogram as its 1.024 ms bucket bound")
+
 	const n = 2064
 	note := func(p50, p99 float64) x11BenchReport { return x11ReportWithNotes(x11ObservedNoteFixture(p50, p99, n)) }
 
@@ -258,15 +282,15 @@ func TestV3_X11LedgerPairVerdict(t *testing.T) {
 		{"exactly 1.25x is green", 4.096, 5.120, false},
 		{"over 1.25x is red", 4.096, 6.144, true},
 		{"well over is red", 6.144, 30.720, true},
-		{"one bucket above a one-bucket p50 is red", 1.024, 2.048, true},
-		{"two buckets above a one-bucket p50 is red", 1.024, 3.072, true},
-		{"one bucket above a three-bucket p50 is red", 3.072, 4.096, true},
-		{"a zero-millisecond p50 leaves no room for one bucket", 0.001, 1.024, true},
-		{"above sixteen buckets within the factor is green", 18.432, 22.528, false},
-		{"above sixteen buckets over the factor is red", 18.432, 24.576, true},
+		{"one tick above a one-tick p50 is green (the floor)", 1.024, 2.048, false},
+		{"two ticks above a one-tick p50 is red", 1.024, 3.072, true},
+		{"one tick above a three-tick p50 is green (the floor)", 3.072, 4.096, false},
+		{"a zero-millisecond p50 still leaves one tick", 0.001, 1.024, false},
+		{"above sixteen ticks the factor decides", 18.432, 22.528, false},
+		{"above sixteen ticks over the factor is red", 18.432, 24.576, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			pair, err := x11LedgerPairVerdict(note(tc.base, 2*tc.base), note(tc.ledger, 2*tc.ledger))
+			pair, err := x11LedgerPairVerdict(note(tc.base, 2*tc.base), note(tc.ledger, 2*tc.ledger), tick)
 			if tc.regressed {
 				require.ErrorIs(t, err, errX11LedgerRegressed, "ledger p50 %.3f vs base %.3f", tc.ledger, tc.base)
 				return
@@ -292,7 +316,7 @@ func TestV3_X11LedgerPairVerdict(t *testing.T) {
 			{"a p99 below its p50", good, note(4.096, 1.024)},
 		} {
 			t.Run(rc.name, func(t *testing.T) {
-				_, err := x11LedgerPairVerdict(rc.base, rc.ledger)
+				_, err := x11LedgerPairVerdict(rc.base, rc.ledger, tick)
 				require.Error(t, err, "an artifact without a readable note must be refused, not passed")
 				require.NotErrorIs(t, err, errX11LedgerRegressed,
 					"a refusal is not a verdict: co-loaded runs report verdicts but must still fail refusals")
@@ -319,7 +343,7 @@ func TestV3_X11LedgerPairVerdict(t *testing.T) {
 			t.Run(uc.name, func(t *testing.T) {
 				_, err := x11LedgerPairVerdict(
 					x11ReportWithNotes(x11ObservedNoteFixture(uc.basePs, 2*uc.basePs, uc.baseN)),
-					x11ReportWithNotes(x11ObservedNoteFixture(uc.ledgerPs, 2*uc.ledgerPs, uc.ledgerN)))
+					x11ReportWithNotes(x11ObservedNoteFixture(uc.ledgerPs, 2*uc.ledgerPs, uc.ledgerN)), tick)
 				require.ErrorIs(t, err, errX11PairIncomparable, "n=%d against n=%d", uc.baseN, uc.ledgerN)
 				require.NotErrorIs(t, err, errX11LedgerRegressed, "an incomparable pair has no verdict")
 			})
