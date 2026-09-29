@@ -58,12 +58,12 @@ import (
 // .gitattributes declares `*.md text eol=lf`, so the working tree is LF everywhere. Normalizing
 // line endings here instead would be worse: it would hide a checkout that had silently rewritten
 // them, which is a real corruption and not something a guard should paper over.
-const qompackDigest = "726e44892573889749c9b0762ea29dbceb421d6383198c09882ff3fdfc47886b"
+const qompackDigest = "99c1229819e6fc6d2c1c396851eff3a4d63cca0d2542980d21799a1acae4f772"
 
 // qompackPinnedVersion is the version qompackDigest was taken at. Keeping it beside the digest is
 // what makes a stale pin legible: a mismatch here names the revision that was skipped, rather than
 // reporting two hex strings and leaving the reader to work out which one is current.
-const qompackPinnedVersion = "1.7"
+const qompackPinnedVersion = "1.8"
 
 var (
 	// qompackVersionLine matches the document's own version declaration:
