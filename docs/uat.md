@@ -1176,12 +1176,37 @@ stored records to reconcile a failure.
 **Result**
 
 ```text
-Result: not executed — capability unverified
-Snapshot: develop 9c84e31 / branch feat/sp18-documentation-and-uat
-Date: 2026-09-14
-Executed by: —
-Evidence: —
-Rollback verified: —
+Result: fail — (a) expand and re_read with full: true on the 324,902-byte capture return 263,559
+  and 263,567 bytes of result text (266,291 / 266,318-byte JSON-RPC lines) against
+  runtime.mcp.maxResponseBytes 262,144: the bound caps the content span, not the response;
+  (b) the restore of the pre-upgrade backup proved its reader (16 roots, 10 tool refs, same build)
+  but its packaged integrity checks failed (captures/publication: the previous build's four prompt
+  capture sidecars read as unpublished), exit 1. Passed: step 2 — the host refused the direct Read
+  ("File is in a directory that is denied by your permission settings." — observed string) and
+  recall, expand (tool_use_id and root hash), re_read, /qompack:recall and the bundle CLI all
+  answered denied with no preview; out-of-project re_read/expand refused without echoing the path;
+  step 3 minimal span 5,777 bytes with next_span; .qompack/ byte-identical across the upgrade and
+  the uninstall; reinstall found the old build's captures. Not as expected: responses carry no
+  fidelity or coverage field, and the binary file reached Qompack only as host-decoded text (Bash
+  cat), returned as text. Step 7 (to be confirmed at execution): no version-block or
+  retired-meaning warning (no config file); the first post-upgrade daemon start logged LOUD
+  unpublished_captures=4; config.capture ok. ORDER: steps 2-5 ran after step 6, on the candidate,
+  because the previous build (301a8e9) predates the C1.9 deny-rule support; the baseline was
+  taken after the old build's permitted captures (initial state absent).
+Snapshot: qompack version 0.3.0; bundle BUNDLE.json sha256
+  32600778ae6463cd47736fc6b0a8614ad782e5bbd0ef0440f4e2c3937ccf4505; commit
+  d5598eb4445954120ee795560c2ea46640772f43 (upgraded from 0.2.99-prev built from 301a8e9);
+  Windows 11 Home 25H2 build 10.0.26200.9457; Claude Code 2.1.280
+Date: 2026-09-29 (America/Toronto)
+Executed by: Claude Code workflow subagent (Opus 5.5), agent-executed on the owner's real host
+  per owner decision D3 — not human UAT
+Evidence: plans/sdd/V6-closeout/live/uat/UAT-12/ (notes.txt indexes it; C4.6 and C4.8 notes
+  under plans/sdd/V6-closeout/live/c4/)
+Rollback verified: unverified — backup uat12-baseline (94 files, consistent, frontier 0) created
+  and verified by the candidate CLI with the source daemon stopped; same-build restore into a
+  fresh destination proved its reader, the delivery seal check passed, but the integrity checks
+  failed (fsck exit 1); the source's later writes were preserved (0 files changed); no
+  previous-build reader was run against the upgraded store and the recovery was not activated
 ```
 
 ---
