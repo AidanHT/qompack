@@ -1,0 +1,4 @@
+# go test -p 2 -count=1 ./internal/observer/...
+ok  	github.com/qompack/qompack/internal/observer	91.986s
+ok  	github.com/qompack/qompack/internal/observer/observertest	3.023s
+exit=0

@@ -1,0 +1,50 @@
+# RED on the base a8c7433 (tests present, observer fix absent)
+# go test -p 2 -count=1 -run 'TestSessionEndClosesTheSuccessorOfAScheduledRoll|TestEventsAfterAScheduledRollEnrolInTheSuccessor|TestSessionStartAfterACompactionRollEmitsTheRolledSegment|TestSessionStartKeepsTheHeldSegmentsStart|TestTwoRollsBetweenEventsChainEverySegment|TestARollWithoutASuccessorKeepsTheChain|TestSessionEndClosesAnEmptySuccessorOnTheRealLog' ./internal/observer/
+--- FAIL: TestSessionEndClosesTheSuccessorOfAScheduledRoll (0.03s)
+    segment_roll_test.go:53: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w14-observer/internal/observer/segment_roll_test.go:53
+        	Error:      	"[{1 9 map[]}]" should have 2 item(s), but has 1
+        	Test:       	TestSessionEndClosesTheSuccessorOfAScheduledRoll
+--- FAIL: TestEventsAfterAScheduledRollEnrolInTheSuccessor (0.02s)
+    segment_roll_test.go:86: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w14-observer/internal/observer/segment_roll_test.go:86
+        	Error:      	Not equal: 
+        	            	expected: 80
+        	            	actual  : 160
+        	Test:       	TestEventsAfterAScheduledRollEnrolInTheSuccessor
+        	Messages:   	and spans exactly the two reads enrolled in it
+--- FAIL: TestSessionStartAfterACompactionRollEmitsTheRolledSegment (0.00s)
+    segment_roll_test.go:137: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w14-observer/internal/observer/segment_roll_test.go:137
+        	Error:      	Should be true
+        	Test:       	TestSessionStartAfterACompactionRollEmitsTheRolledSegment
+        	Messages:   	the compacted segment gets its DAG segment node
+--- FAIL: TestSessionStartKeepsTheHeldSegmentsStart (0.00s)
+    segment_roll_test.go:171: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w14-observer/internal/observer/segment_roll_test.go:171
+        	Error:      	Not equal: 
+        	            	expected: 0
+        	            	actual  : 80
+        	Test:       	TestSessionStartKeepsTheHeldSegmentsStart
+        	Messages:   	the held segment still starts where it opened
+--- FAIL: TestTwoRollsBetweenEventsChainEverySegment (0.00s)
+    segment_roll_test.go:199: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w14-observer/internal/observer/segment_roll_test.go:199
+        	Error:      	Should be true
+        	Test:       	TestTwoRollsBetweenEventsChainEverySegment
+--- FAIL: TestARollWithoutASuccessorKeepsTheChain (0.00s)
+    segment_roll_test.go:232: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w14-observer/internal/observer/segment_roll_test.go:232
+        	Error:      	Should be true
+        	Test:       	TestARollWithoutASuccessorKeepsTheChain
+        	Messages:   	the closed segment gets its node
+--- FAIL: TestSessionEndClosesAnEmptySuccessorOnTheRealLog (0.13s)
+    segment_roll_test.go:278: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w14-observer/internal/observer/segment_roll_test.go:278
+        	Error:      	Should be true
+        	Test:       	TestSessionEndClosesAnEmptySuccessorOnTheRealLog
+        	Messages:   	SessionEnd closes the session's last segment
+FAIL
+FAIL	github.com/qompack/qompack/internal/observer	0.432s
+FAIL
+exit=1

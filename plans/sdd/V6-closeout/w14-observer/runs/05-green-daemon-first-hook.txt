@@ -1,0 +1,45 @@
+# GREEN after the fix, with the three w13 PreCompact restart rows alongside
+# go test -p 2 -count=1 -v -run 'TestWrapServices_FirstToolAfterARestartBindsTheLiveSession|TestWrapServices_FirstStopOrCapturedPromptAfterARestartBinds|TestWrapServices_ReplyOnlyPromptDoesNotBind|TestWrapServices_AReplayOfASessionNoHookTouchedDoesNotBind|TestWrapServices_AHookOfAnotherSessionLeavesTheBoundOneAlone|TestWrapServices_PreCompactAfterARestartClosesWithThePersistedAccount|TestWrapServices_PreCompactAfterARestartMergesWhatItObservedSince|TestWrapServices_PreCompactWithNothingObservedLeavesTheSegmentOpen' ./internal/daemon/
+=== RUN   TestWrapServices_FirstToolAfterARestartBindsTheLiveSession
+=== PAUSE TestWrapServices_FirstToolAfterARestartBindsTheLiveSession
+=== RUN   TestWrapServices_FirstStopOrCapturedPromptAfterARestartBinds
+=== PAUSE TestWrapServices_FirstStopOrCapturedPromptAfterARestartBinds
+=== RUN   TestWrapServices_ReplyOnlyPromptDoesNotBind
+=== PAUSE TestWrapServices_ReplyOnlyPromptDoesNotBind
+=== RUN   TestWrapServices_AReplayOfASessionNoHookTouchedDoesNotBind
+=== PAUSE TestWrapServices_AReplayOfASessionNoHookTouchedDoesNotBind
+=== RUN   TestWrapServices_AHookOfAnotherSessionLeavesTheBoundOneAlone
+=== PAUSE TestWrapServices_AHookOfAnotherSessionLeavesTheBoundOneAlone
+=== RUN   TestWrapServices_PreCompactAfterARestartClosesWithThePersistedAccount
+=== PAUSE TestWrapServices_PreCompactAfterARestartClosesWithThePersistedAccount
+=== RUN   TestWrapServices_PreCompactAfterARestartMergesWhatItObservedSince
+=== PAUSE TestWrapServices_PreCompactAfterARestartMergesWhatItObservedSince
+=== RUN   TestWrapServices_PreCompactWithNothingObservedLeavesTheSegmentOpen
+=== PAUSE TestWrapServices_PreCompactWithNothingObservedLeavesTheSegmentOpen
+=== CONT  TestWrapServices_FirstToolAfterARestartBindsTheLiveSession
+=== CONT  TestWrapServices_ReplyOnlyPromptDoesNotBind
+=== CONT  TestWrapServices_PreCompactWithNothingObservedLeavesTheSegmentOpen
+=== CONT  TestWrapServices_PreCompactAfterARestartMergesWhatItObservedSince
+=== CONT  TestWrapServices_PreCompactAfterARestartClosesWithThePersistedAccount
+=== CONT  TestWrapServices_FirstStopOrCapturedPromptAfterARestartBinds
+=== CONT  TestWrapServices_AHookOfAnotherSessionLeavesTheBoundOneAlone
+=== CONT  TestWrapServices_AReplayOfASessionNoHookTouchedDoesNotBind
+=== RUN   TestWrapServices_FirstStopOrCapturedPromptAfterARestartBinds/stop
+=== PAUSE TestWrapServices_FirstStopOrCapturedPromptAfterARestartBinds/stop
+=== RUN   TestWrapServices_FirstStopOrCapturedPromptAfterARestartBinds/captured_prompt
+=== PAUSE TestWrapServices_FirstStopOrCapturedPromptAfterARestartBinds/captured_prompt
+=== CONT  TestWrapServices_FirstStopOrCapturedPromptAfterARestartBinds/stop
+=== CONT  TestWrapServices_FirstStopOrCapturedPromptAfterARestartBinds/captured_prompt
+--- PASS: TestWrapServices_PreCompactWithNothingObservedLeavesTheSegmentOpen (0.01s)
+--- PASS: TestWrapServices_AHookOfAnotherSessionLeavesTheBoundOneAlone (0.01s)
+--- PASS: TestWrapServices_ReplyOnlyPromptDoesNotBind (0.03s)
+--- PASS: TestWrapServices_AReplayOfASessionNoHookTouchedDoesNotBind (0.04s)
+--- PASS: TestWrapServices_FirstStopOrCapturedPromptAfterARestartBinds (0.00s)
+    --- PASS: TestWrapServices_FirstStopOrCapturedPromptAfterARestartBinds/captured_prompt (0.04s)
+    --- PASS: TestWrapServices_FirstStopOrCapturedPromptAfterARestartBinds/stop (0.04s)
+--- PASS: TestWrapServices_PreCompactAfterARestartMergesWhatItObservedSince (0.05s)
+--- PASS: TestWrapServices_PreCompactAfterARestartClosesWithThePersistedAccount (0.05s)
+--- PASS: TestWrapServices_FirstToolAfterARestartBindsTheLiveSession (0.07s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	0.389s
+exit=0
