@@ -1,0 +1,24 @@
+# RED evidence: 'git archive 18b07806' (the reviewed safeCut) with this commit's response_bound_test.go copied in,
+# run from a scratch copy: go test -p 2 -count=1 -run '^(TestSafeCutIsTheLargestSafeCutOnProductionShapes|TestSafeCutMatchesTheOracleOnRandomProductionCompositions)$' -v ./internal/mcp/
+# Same command on 'git archive f2941913' (the linear round-1 search): both PASS (ok, 7.5s).
+=== RUN   TestSafeCutIsTheLargestSafeCutOnProductionShapes
+    response_bound_test.go:847: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w14/safecut/h18b/internal/mcp/response_bound_test.go:847
+        	Error:      	Not equal: 
+        	            	expected: true
+        	            	actual  : false
+        	Test:       	TestSafeCutIsTheLargestSafeCutOnProductionShapes
+        	Messages:   	window 15 keep 34: got cut 0, largest safe 25
+--- FAIL: TestSafeCutIsTheLargestSafeCutOnProductionShapes (0.11s)
+=== RUN   TestSafeCutMatchesTheOracleOnRandomProductionCompositions
+    response_bound_test.go:946: 
+        	Error Trace:	C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w14/safecut/h18b/internal/mcp/response_bound_test.go:946
+        	Error:      	Not equal: 
+        	            	expected: 40
+        	            	actual  : 4
+        	Test:       	TestSafeCutMatchesTheOracleOnRandomProductionCompositions
+        	Messages:   	separated 2 "https://uuuuuuuuuuuuuuuuuuuuu:pw9@h\nhttps://uuuuuuuuuuuuuuuuuuu:pw99@h y " keep 57
+--- FAIL: TestSafeCutMatchesTheOracleOnRandomProductionCompositions (0.01s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/mcp	0.365s
+FAIL

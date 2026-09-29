@@ -1,0 +1,29 @@
+# RED: the new rows against safeCut as of f2941913 (response_bound.go from HEAD, new test file)
+# go test -p 2 -count=1 -timeout=10m -run '^(TestSafeCutRedactCallsAreLogarithmicInARawPrefix|TestSafeCutIsTheLargestSafeCutOnProductionShapes)$' -v ./internal/mcp  -> exit 1
+# TestSafeCutIsTheLargestSafeCutOnProductionShapes is a maximality guard, green on both versions
+        	Messages:   	credentialed URI, keep in the user, 1000 raw bytes: 12636 Redact calls over 17033 bytes (cut 8009)
+        	Messages:   	credentialed URI, keep in the user, 40 raw bytes: 546 Redact calls over 16073 bytes (cut 8009)
+        	Messages:   	credentialed URI, keep in the password, 1000 raw bytes: 16919 Redact calls over 17033 bytes (cut 8009)
+        	Messages:   	credentialed URI, keep in the password, 40 raw bytes: 738 Redact calls over 16073 bytes (cut 8009)
+        	Messages:   	dotenv key, keep in the key, 1000 raw bytes: 8397 Redact calls over 17027 bytes (cut 8003)
+        	Messages:   	dotenv key, keep in the key, 40 raw bytes: 402 Redact calls over 16067 bytes (cut 8003)
+        	Messages:   	dotenv key, keep in the value, 1000 raw bytes: 16946 Redact calls over 17027 bytes (cut 8003)
+        	Messages:   	dotenv key, keep in the value, 40 raw bytes: 770 Redact calls over 16067 bytes (cut 8003)
+        	Messages:   	bearer keyword, keep in the blank, 1000 raw bytes: 16876 Redact calls over 17053 bytes (cut 8016)
+        	Messages:   	bearer keyword, keep in the blank, 40 raw bytes: 690 Redact calls over 16093 bytes (cut 8016)
+        	Messages:   	verifier probe: 716 Redact calls
+--- FAIL: TestSafeCutRedactCallsAreLogarithmicInARawPrefix (28.18s)
+    --- FAIL: TestSafeCutRedactCallsAreLogarithmicInARawPrefix/credentialed_URI,_keep_in_the_user/1000 (2.27s)
+    --- FAIL: TestSafeCutRedactCallsAreLogarithmicInARawPrefix/credentialed_URI,_keep_in_the_user/40 (0.05s)
+    --- FAIL: TestSafeCutRedactCallsAreLogarithmicInARawPrefix/credentialed_URI,_keep_in_the_password/1000 (3.23s)
+    --- FAIL: TestSafeCutRedactCallsAreLogarithmicInARawPrefix/credentialed_URI,_keep_in_the_password/40 (0.08s)
+    --- FAIL: TestSafeCutRedactCallsAreLogarithmicInARawPrefix/dotenv_key,_keep_in_the_key/1000 (3.64s)
+    --- FAIL: TestSafeCutRedactCallsAreLogarithmicInARawPrefix/dotenv_key,_keep_in_the_key/40 (0.09s)
+    --- FAIL: TestSafeCutRedactCallsAreLogarithmicInARawPrefix/dotenv_key,_keep_in_the_value/1000 (8.44s)
+    --- FAIL: TestSafeCutRedactCallsAreLogarithmicInARawPrefix/dotenv_key,_keep_in_the_value/40 (0.18s)
+    --- FAIL: TestSafeCutRedactCallsAreLogarithmicInARawPrefix/bearer_keyword,_keep_in_the_blank/1000 (8.65s)
+    --- FAIL: TestSafeCutRedactCallsAreLogarithmicInARawPrefix/bearer_keyword,_keep_in_the_blank/40 (0.22s)
+--- PASS: TestSafeCutIsTheLargestSafeCutOnProductionShapes (0.12s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/mcp	28.577s
+FAIL

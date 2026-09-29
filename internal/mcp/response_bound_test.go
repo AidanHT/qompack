@@ -4,12 +4,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math/bits"
+	"math/rand/v2"
+	"regexp"
 	"strings"
 	"testing"
 	"unicode/utf8"
 
 	"github.com/qompack/qompack/internal/config"
 	"github.com/qompack/qompack/internal/core"
+	"github.com/qompack/qompack/internal/redact"
 	"github.com/qompack/qompack/internal/store"
 	"github.com/stretchr/testify/require"
 )
@@ -393,4 +397,555 @@ func TestShrinkSpanChargeDoublesEachRound(t *testing.T) {
 	require.False(t, ok, "a window already one rune long has nothing left to cut")
 	_, ok = shrinkSpan(s, []int64{0}, size+1, 0, o)
 	require.False(t, ok, "a first-round excess past the whole window leaves nothing")
+}
+
+// regionRedactor is a stand-in retrieval redactor for safeCut's unit rows: each rule replaces
+// every match with its fixed placeholder, the shape the Redactor contract promises. It is a
+// hand-written double on purpose — the rows need redacted regions of exact, arbitrary sizes, which
+// the production rules only give through shapes this file may not spell out contiguously.
+type regionRedactor []struct {
+	re          *regexp.Regexp
+	placeholder string
+}
+
+// Redact replaces each rule's matches in turn.
+func (r regionRedactor) Redact(in []byte) ([]byte, []string) {
+	out := in
+	var rules []string
+	for _, rule := range r {
+		for range rule.re.FindAllIndex(out, -1) {
+			rules = append(rules, rule.placeholder)
+		}
+		out = rule.re.ReplaceAllLiteral(out, []byte(rule.placeholder))
+	}
+	return out, rules
+}
+
+// blockRedactor redacts BEGIN...END blocks: a half of one (BEGIN with no END, END with no BEGIN)
+// does not match, so a cut inside a block serves both halves raw — the private-key shape.
+var blockRedactor = regionRedactor{{regexp.MustCompile(`(?s)BEGIN.*?END`), "<r>"}}
+
+// runRedactor adds a token rule with an unbounded run, whose first part alone still matches — the
+// sk-/bearer/assignment shape. A cut inside such a token leaves a kept side that renders exactly
+// like the whole window's prefix, so the kept side alone does not say where the token starts.
+var runRedactor = regionRedactor{
+	{regexp.MustCompile(`(?s)BEGIN.*?END`), "<r>"},
+	{regexp.MustCompile(`tok-[a-z]{4,}`), "<t>"},
+}
+
+// nestedRedactor adds, inside the blocks, a short match whose placeholder is far longer than it —
+// the shape of the production rules, whose placeholders reach maxPlaceholderBytes (37) while a
+// match can be minMatchBytes (3) and a replaced group one byte. The block rule runs first, so the
+// whole window redacts each block as one placeholder; a kept side that holds half a block renders
+// every short match inside it as a long placeholder, and grows past the raw bytes it came from.
+var nestedRedactor = regionRedactor{
+	{regexp.MustCompile(`(?s)BEGIN.*?END`), "<r>"},
+	{regexp.MustCompile(`zz`), "<" + strings.Repeat("=", 40) + ">"},
+}
+
+// largestSafeCut is the oracle's answer for keep: the largest rune boundary after the first byte
+// and at or before keep whose split is safe, or 0 when there is none.
+func largestSafeCut(r Redactor, window []byte, keep int) int {
+	for c := min(keep, len(window)); c > 0; c-- {
+		if (c == len(window) || utf8.RuneStart(window[c])) && cutIsSafe(r, window, c) {
+			return c
+		}
+	}
+	return 0
+}
+
+// cutIsSafe is the oracle: redacting the two sides of cut separately gives the whole window's
+// redaction back, byte for byte.
+func cutIsSafe(r Redactor, window []byte, cut int) bool {
+	whole, _ := r.Redact(window)
+	kept, _ := r.Redact(window[:cut])
+	rest, _ := r.Redact(window[cut:])
+	return string(kept)+string(rest) == string(whole)
+}
+
+// TestSafeCutFindsTheSafeCutBelowARedactedRegion pins safeCut's search (V6 close-out, w13-mcpresp
+// verify finding; w14-safecut). Its back-off doubled and gave up once keep-back reached 0, so a
+// redacted region that starts before keep/2 made it skip every safe cut before the region and
+// report that no page fits — the probe: 630 bytes, a 2,108-byte block, 300 bytes, keep 2,730
+// returned false although a cut at 630 is safe.
+func TestSafeCutFindsTheSafeCutBelowARedactedRegion(t *testing.T) {
+	a, b := strings.Repeat("a", 630), strings.Repeat("b", 300)
+	probe := a + "BEGIN" + strings.Repeat("x", 2100) + "END" + b
+	run := strings.Repeat(".", 630) + "tok-" + strings.Repeat("q", 2100) + strings.Repeat(".", 300)
+	rows := []struct {
+		name   string
+		r      Redactor
+		window string
+		keep   int
+		want   int // the cut safeCut must return; 0 means it must report false
+	}{
+		{"probe: block starts before keep/2", blockRedactor, probe, 2730, 630},
+		{"probe: keep at the block's start", blockRedactor, probe, 630, 630},
+		{"probe: keep past the block", blockRedactor, probe, len(probe) - 100, len(probe) - 100},
+		{"block starts at the first byte", blockRedactor, "BEGIN" + strings.Repeat("x", 2100) + "END" + b, 1000, 0},
+		{"block after one byte", blockRedactor, "a" + "BEGIN" + strings.Repeat("x", 2100) + "END" + b, 2000, 1},
+		{
+			"two blocks, a safe cut only between them", blockRedactor,
+			a + "BEGIN" + strings.Repeat("x", 900) + "END" + "BEGIN" + strings.Repeat("y", 1200) + "END" + b,
+			630 + 908 + 600, 630 + 908,
+		},
+		{
+			"multi-byte runes before the block", blockRedactor,
+			strings.Repeat("日", 210) + "BEGIN" + strings.Repeat("x", 2100) + "END" + b, 2730, 630,
+		},
+	}
+	for _, row := range rows {
+		h := &handlers{redactor: row.r}
+		window := []byte(row.window)
+		whole, _ := row.r.Redact(window)
+		cut, kept, ok := h.safeCut(window, whole, row.keep)
+		if row.want == 0 {
+			require.False(t, ok, "%s: got cut %d", row.name, cut)
+			continue
+		}
+		require.True(t, ok, "%s: a safe cut exists", row.name)
+		require.Equal(t, row.want, cut, row.name)
+		wantKept, _ := row.r.Redact(window[:cut])
+		require.Equal(t, string(wantKept), string(kept), row.name)
+	}
+
+	// A short match nested inside a block renders on the kept side as a placeholder longer than
+	// the match (w14-safecut review): the kept side then outgrows the raw bytes it came from, and a
+	// search that trusts its length to locate the block's start jumps below it.
+	nested := strings.Repeat("zz ", 40)
+	nestedLead := "BEGIN zz END" + strings.Repeat("c", 300)
+	nestedRows := []struct {
+		name   string
+		window string
+		keep   int
+		want   int
+	}{
+		{
+			"nested long placeholders inside a block",
+			strings.Repeat("a", 200) + "BEGIN" + nested + strings.Repeat("Q", 600) + "END" + strings.Repeat("b", 50),
+			200 + 5 + len(nested) + 400, 200,
+		},
+		{
+			"nested long placeholders, a safe cut only after an earlier block",
+			nestedLead + "BEGIN" + nested + strings.Repeat("Q", 600) + "END" + "d",
+			len(nestedLead) + 5 + len(nested) + 400, len(nestedLead),
+		},
+	}
+	for _, row := range nestedRows {
+		h := &handlers{redactor: nestedRedactor}
+		window := []byte(row.window)
+		whole, _ := nestedRedactor.Redact(window)
+		require.Equal(t, row.want, largestSafeCut(nestedRedactor, window, row.keep), "%s: oracle", row.name)
+		cut, _, ok := h.safeCut(window, whole, row.keep)
+		require.True(t, ok, "%s: a safe cut exists (got %d)", row.name, cut)
+		require.Equal(t, row.want, cut, row.name)
+	}
+
+	// A token whose first part alone still matches: the kept side does not locate the token's
+	// start, so the search falls back to backing off — and must still find a safe cut below it
+	// rather than give up.
+	h := &handlers{redactor: runRedactor}
+	window := []byte(run)
+	whole, _ := runRedactor.Redact(window)
+	for _, keep := range []int{700, 1000, 2000, 2733} {
+		cut, _, ok := h.safeCut(window, whole, keep)
+		require.True(t, ok, "run token, keep %d: a safe cut exists", keep)
+		require.LessOrEqual(t, cut, keep)
+		require.Positive(t, cut)
+		require.True(t, cutIsSafe(runRedactor, window, cut), "run token, keep %d: cut %d", keep, cut)
+	}
+}
+
+// TestSafeCutReportsFalseOnlyWhenNoCutIsSafe sweeps every keep over windows of blocks against the
+// oracle: safeCut returns a safe cut, the largest one at or before keep, and reports false only
+// when no rune boundary after the first byte and at or before keep is safe.
+func TestSafeCutReportsFalseOnlyWhenNoCutIsSafe(t *testing.T) {
+	windows := []struct {
+		r Redactor
+		w string
+	}{
+		{blockRedactor, strings.Repeat("a", 30) + "BEGIN" + strings.Repeat("x", 90) + "END" + strings.Repeat("b", 20)},
+		{blockRedactor, "BEGIN" + strings.Repeat("x", 40) + "END" + "ccBEGIN" + strings.Repeat("y", 70) + "END" + "d"},
+		{blockRedactor, "é" + "BEGIN" + strings.Repeat("日", 30) + "END" + "BEGIN" + "zz" + "END" + strings.Repeat("ü", 9)},
+		// Short matches with long placeholders nested inside blocks (w14-safecut review).
+		{nestedRedactor, strings.Repeat("a", 30) + "BEGIN zz zz zz zz" + strings.Repeat("x", 60) + "END" + strings.Repeat("b", 20)},
+		{nestedRedactor, "BEGIN zz END" + "cc" + "BEGIN" + strings.Repeat("zz ", 12) + strings.Repeat("y", 30) + "END" + "d"},
+		{nestedRedactor, "é" + "zz" + "BEGIN" + strings.Repeat("日zz", 10) + "END" + "zz" + strings.Repeat("ü", 9)},
+	}
+	for wi, ww := range windows {
+		window := []byte(ww.w)
+		whole, _ := ww.r.Redact(window)
+		h := &handlers{redactor: ww.r}
+		for keep := 1; keep <= len(window); keep++ {
+			if !utf8.RuneStart(window[keep%len(window)]) && keep < len(window) {
+				continue
+			}
+			want := largestSafeCut(ww.r, window, keep)
+			cut, _, ok := h.safeCut(window, whole, keep)
+			require.Equal(t, want > 0, ok, "window %d keep %d: got cut %d, largest safe %d", wi, keep, cut, want)
+			if ok {
+				require.Equal(t, want, cut, "window %d keep %d", wi, keep)
+			}
+		}
+	}
+}
+
+// TestExpandBoundPagesPastARedactedRegionLongerThanHalfThePage is the end-to-end form of the probe
+// (V6 close-out, w14-safecut): escape-heavy content before a private-key block that covers more
+// than half of the page. The whole page is over the bound, the escape charge cuts inside the block,
+// and backing off from there used to overshoot the window's start and refuse the call with "no page
+// of this content fits", although the text before the block fits on its own.
+func TestExpandBoundPagesPastARedactedRegionLongerThanHalfThePage(t *testing.T) {
+	const (
+		lead      = 650 // control bytes before the block: six bytes of text each
+		pemLines  = 34  // about 2,300 bytes of block with its delimiters
+		tailBytes = 100 // plain prose after the block
+	)
+	f := newFixture(t, withCaptureRedactionDisabled(), withConfig(func(c *config.Config) {
+		c.Runtime.MCP.MaxResponseBytes = boundTinyResponse
+		c.Store.Chunk.Min, c.Store.Chunk.Target, c.Store.Chunk.Max = boundPEMChunkMin, boundPEMChunkTarget, boundPEMChunkMax
+	}))
+	var block strings.Builder
+	block.WriteString(boundPEMHeader)
+	for i := range pemLines {
+		fmt.Fprintf(&block, "%s%056x\n", boundPEMLeak, uint64(i+1)*0x9e3779b97f4a7c15)
+	}
+	block.WriteString(boundPEMFooter)
+	body := strings.Repeat("\x01", lead) + block.String() + boundProse(tailBytes)
+	h, _ := f.putAndRecord(t, "Read", "keys/escaped.txt", body, 1)
+	require.Equal(t, body, storedBytes(t, f, h), "the store must keep the object byte for byte")
+	blockEnd := int64(lead + block.Len())
+
+	args := map[string]any{"hash": h.String(), "span": fmt.Sprintf("0:%d", boundTinyResponse)}
+	start := int64(0)
+	for page := 0; ; page++ {
+		resp := f.call(t, ToolExpand, args)
+		text := responseText(resp)
+		require.False(t, resp.IsError, "page %d: %s", page, text)
+		require.LessOrEqual(t, len(text), boundTinyResponse, "page %d", page)
+		var got contentBody
+		decodeInto(t, text, &got)
+		require.Equal(t, start, got.Span[0], "page %d: pages must be contiguous", page)
+		require.Greater(t, got.Span[1], got.Span[0], "page %d: every page must make progress", page)
+		require.NotContains(t, got.Content, boundPEMLeak, "page %d %v: key body served in the clear", page, got.Span)
+		require.NotContains(t, got.Content, "-----BEGIN", "page %d %v: key delimiter served in the clear", page, got.Span)
+		if got.Span[1] > blockEnd || got.Span[1] == got.TotalBytes {
+			break
+		}
+		require.NotEmpty(t, got.NextSpan, "page %d", page)
+		start = got.Span[1]
+		args = map[string]any{"hash": h.String(), "span": got.NextSpan}
+	}
+}
+
+// TestSafeCutFindsTheLargestSafeCutWithTheProductionRedactor pins safeCut against the production
+// rules (V6 close-out, w14-safecut review): credentialed URIs inside a private-key block redact, on
+// a kept side that holds half the block, a 3-byte password as a 29-byte placeholder, so the kept
+// side is longer than the raw bytes behind it. The search must still land on the block's start,
+// and must not refuse a page when the only safe cut is after an earlier block.
+func TestSafeCutFindsTheLargestSafeCutWithTheProductionRedactor(t *testing.T) {
+	cfg := config.Defaults()
+	cfg.Runtime.Redact.Enabled = true
+	r := testRedactor{r: redact.New(cfg)}
+	const (
+		header = "-----BEGIN RSA PRIV" + "ATE KEY-----\n"
+		footer = "\n-----END RSA PRIV" + "ATE KEY-----\n"
+	)
+	uris := strings.Repeat("http://u:"+"abc@h ", 40)
+	pem := header + uris + strings.Repeat("Q", 600) + footer
+	short := header + "Zm9v" + footer
+	rows := []struct {
+		name   string
+		window string
+		keep   int
+		want   int
+	}{
+		{"block after 200 bytes", strings.Repeat("a", 200) + pem + strings.Repeat("b", 50), 200 + len(pem) - 150, 200},
+		{
+			"a safe cut only after an earlier block", short + strings.Repeat("c", 300) + pem + "d",
+			len(short) + 300 + len(pem) - 200, len(short) + 300,
+		},
+	}
+	for _, row := range rows {
+		window := []byte(row.window)
+		whole, rules := r.Redact(window)
+		require.NotEmpty(t, rules, "%s: the production rules must fire on the window", row.name)
+		require.Equal(t, row.want, largestSafeCut(r, window, row.keep), "%s: oracle", row.name)
+		h := &handlers{redactor: r}
+		cut, kept, ok := h.safeCut(window, whole, row.keep)
+		require.True(t, ok, "%s: a safe cut exists (got %d)", row.name, cut)
+		require.Equal(t, row.want, cut, row.name)
+		wantKept, _ := r.Redact(window[:cut])
+		require.Equal(t, string(wantKept), string(kept), row.name)
+	}
+}
+
+// countingRedactor counts the Redact calls safeCut makes, which is what its latency is made of:
+// every call redacts a prefix or a suffix of a window up to runtime.mcp.maxResponseBytes long.
+type countingRedactor struct {
+	r     Redactor
+	calls *int
+}
+
+// Redact counts the call and delegates it.
+func (c countingRedactor) Redact(in []byte) ([]byte, []string) {
+	*c.calls++
+	return c.r.Redact(in)
+}
+
+// safeCutStepRedacts bounds the Redact calls of one step of safeCut's search over a window of n
+// bytes, from the algorithm (B is bits.Len(n), at least the number of halvings of any interval of
+// the window, and one more than the number of doublings that reach its start from any cut):
+//
+//   - checking the cut: 2 calls, the kept side and the rest;
+//   - locating the start of the region the kept side parts from whole in: one probe of the first
+//     rune boundary and at most B halvings, 1 call each — B+1;
+//   - backing off below a cut whose kept side is whole's prefix: at most B+1 doublings and then at
+//     most B halvings of the last doubling's interval, each probe 2 calls — 4B+2.
+//
+// A step does one of the two searches, so it takes at most 2 + 4B+2 = 4B+4 calls.
+func safeCutStepRedacts(n int) int {
+	b := bits.Len(uint(n))
+	return 4*b + 4
+}
+
+// TestSafeCutRedactCallsAreLogarithmicInARawPrefix pins safeCut's cost (V6 close-out, w14-safecut
+// verify finding). A group-replaced rule leaves the raw text before its group identical in whole —
+// a credentialed URI's scheme and user, a dotenv line's key, the bearer keyword and the blank after
+// it — so a cut there has a kept side that is exactly whole's prefix. The search then found no
+// shorter cut that reproduces as much of whole, and stepped back one rune per step: about
+// L x (log2(n)+2) calls for a raw prefix of L bytes. A 1,000-byte URI user in a 17 KB window took
+// 17,930 calls and 9.1 s; a 256 KB page would take minutes per tool call.
+//
+// steps is how many cuts the search checks, from the algorithm: from a raw prefix it backs off
+// once, to a cut before the prefix that is safe (2); from a URI password it first locates where the
+// kept side parts from whole, the end of the raw prefix, then backs off (3); from inside a dotenv
+// value long enough to match on its own it backs off to where the value no longer matches, then
+// locates the prefix's end, then backs off (4).
+func TestSafeCutRedactCallsAreLogarithmicInARawPrefix(t *testing.T) {
+	cfg := config.Defaults()
+	cfg.Runtime.Redact.Enabled = true
+	prod := testRedactor{r: redact.New(cfg)}
+	const lead = 8000
+	uri := func(user int) (string, int) {
+		pre := boundProse(lead) + "\nsee https://"
+		return pre + strings.Repeat("u", user) + ":" + "pass1234567@host/x\n" + boundProse(lead), len(pre)
+	}
+	dotenv := func(key int) (string, int) {
+		pre := boundProse(lead) + "\nAPP_" + "KEY"
+		return pre + strings.Repeat("A", key) + "=" + "s3cr3t-v4lue-0123\n" + boundProse(lead), len(pre)
+	}
+	bearer := func(blank int) (string, int) {
+		pre := boundProse(lead) + "\nAuthorization: Bea" + "rer"
+		return pre + strings.Repeat(" ", blank) + "abcdefghij0123456789" + "ABCDEFGHIJ\n" + boundProse(lead), len(pre)
+	}
+	rows := []struct {
+		name  string
+		shape func(int) (string, int)
+		keep  func(pre, raw int) int // keep, from where the long raw run starts and its length
+		steps int
+	}{
+		{"credentialed URI, keep in the user", uri, func(pre, raw int) int { return pre + raw*3/4 }, 2},
+		{"credentialed URI, keep in the password", uri, func(pre, raw int) int { return pre + raw + 1 + 6 }, 3},
+		{"dotenv key, keep in the key", dotenv, func(pre, raw int) int { return pre + raw/2 }, 2},
+		{"dotenv key, keep in the value", dotenv, func(pre, raw int) int { return pre + raw + 1 + 12 }, 4},
+		{"bearer keyword, keep in the blank", bearer, func(pre, raw int) int { return pre + raw - 3 }, 2},
+	}
+	for _, row := range rows {
+		// The long form bounds the calls; the short form, where the oracle is cheap, pins that the
+		// cut is still the largest safe one.
+		for _, raw := range []int{1000, 40} {
+			t.Run(fmt.Sprintf("%s/%d", row.name, raw), func(t *testing.T) {
+				w, pre := row.shape(raw)
+				window := []byte(w)
+				whole, rules := prod.Redact(window)
+				require.NotEmpty(t, rules, "%s: the production rules must fire on the window", row.name)
+				calls := 0
+				h := &handlers{redactor: countingRedactor{r: prod, calls: &calls}}
+				keep := row.keep(pre, raw)
+				cut, kept, ok := h.safeCut(window, whole, keep)
+				require.True(t, ok, "%s, %d raw bytes: a safe cut exists", row.name, raw)
+				require.True(t, cutIsSafe(prod, window, cut), "%s, %d raw bytes: cut %d", row.name, raw, cut)
+				wantKept, _ := prod.Redact(window[:cut])
+				require.Equal(t, string(wantKept), string(kept), "%s, %d raw bytes", row.name, raw)
+				bound := row.steps * safeCutStepRedacts(len(window))
+				require.LessOrEqual(t, calls, bound, "%s, %d raw bytes: %d Redact calls over %d bytes (cut %d)",
+					row.name, raw, calls, len(window), cut)
+				t.Logf("%d Redact calls, bound %d, window %d bytes, keep %d, cut %d", calls, bound, len(window), keep, cut)
+				if raw < 100 {
+					require.Equal(t, largestSafeCut(prod, window, keep), cut, "%s, %d raw bytes", row.name, raw)
+				}
+			})
+		}
+	}
+
+	// The verifier's probe: a 60-byte URI user in a page-sized window, where the search took 1,014
+	// calls and 3.96 s. The cut's safety and its place before the scheme's last letter are what the
+	// short rows above pin against the oracle.
+	half := boundProse(132 * 1024)
+	window := []byte(half + " https://" + strings.Repeat("u", 60) + ":" + "pass123@host " + half)
+	whole, _ := prod.Redact(window)
+	calls := 0
+	h := &handlers{redactor: countingRedactor{r: prod, calls: &calls}}
+	keep := len(half) + len(" https://") + 30
+	cut, _, ok := h.safeCut(window, whole, keep)
+	require.True(t, ok, "verifier probe: a safe cut exists")
+	require.True(t, cutIsSafe(prod, window, cut), "verifier probe: cut %d", cut)
+	require.Equal(t, len(half)+len(" http"), cut, "verifier probe: the largest safe cut")
+	require.LessOrEqual(t, calls, 2*safeCutStepRedacts(len(window)), "verifier probe: %d Redact calls", calls)
+}
+
+// TestSafeCutIsTheLargestSafeCutOnProductionShapes sweeps every keep over small windows of the
+// production rules' shapes against the oracle (V6 close-out, w14-safecut): group-replaced rules
+// whose raw prefix the kept side shares with whole (credentialed URI, dotenv, bearer, assignment),
+// runs that match on their first part (sk-, JWT), matches that depend on a word boundary before
+// them, a secret nested in another rule's match, and multi-byte runes. safeCut returns a safe cut,
+// the largest one at or before keep, and reports false only when none is safe.
+func TestSafeCutIsTheLargestSafeCutOnProductionShapes(t *testing.T) {
+	cfg := config.Defaults()
+	cfg.Runtime.Redact.Enabled = true
+	prod := testRedactor{r: redact.New(cfg)}
+	windows := []string{
+		"ab see https://" + strings.Repeat("u", 12) + ":" + "pass1234567@host/x\nzz",
+		"xhttps://" + strings.Repeat("u", 12) + ":" + "pass1234567@host/x\nzz",
+		"ab\nAPP_" + "KEY" + strings.Repeat("A", 12) + "=" + "s3cr3t-v4lue-0123\nzz",
+		"ab\nexport APP_" + "KEY=" + "s3cr3t-v4lue-0123\nzz",
+		"Authorization: Bea" + "rer" + strings.Repeat(" ", 5) + "abcdefghij0123456789" + "ABCDEFGHIJ\nzz",
+		"x pass" + "word = hunter2hunter2 ;y",
+		"x sk-" + strings.Repeat("a", 30) + " y",
+		"x sk-" + strings.Repeat("a", 30) + " y https://" + "u:" + "pw123@h z",
+		"a eyJ" + "hbGciOiJI.eyJzdWIiOiIx.SflKxwRJSM zz",
+		"xsk-" + strings.Repeat("a", 25) + " sk-" + strings.Repeat("b", 25) + " y",
+		"u https://" + "user:" + "sk-" + strings.Repeat("c", 22) + "@h y",
+		"MY_TOKEN_A=" + "abcdefgh12\nPASS" + "WORD_B=" + "zyxwvuts98\nq",
+		"Bea" + "rer Bea" + "rer abcdefghij0123456789" + "ABCDEFGHIJ q",
+		"é日 https://" + "日本:" + "pass日本語@host x",
+		"-----BEGIN RSA PRIV" + "ATE KEY-----\nhttp://u:" + "abc@h Q\n-----END RSA PRIV" + "ATE KEY-----\nzz",
+		// Two regions close together, the second with a longer raw prefix or run than the gap
+		// before it (w14-safecut round-two review): a back-off that only asks whether each probe is
+		// still unsafe with a whole-prefix kept side jumps the gap into the earlier region, and
+		// refuses the page or settles far below the largest safe cut. Each also starts at offset 0.
+		"pass" + "word=hunter2hunter   pass" + "word=hunter2hunter ",
+		"sk-" + strings.Repeat("a", 30) + " y https://" + strings.Repeat("u", 40) + ":" + "pw123@h z",
+		"x sk-" + strings.Repeat("a", 30) + " y https://" + strings.Repeat("u", 40) + ":" + "pw123@h z",
+		"ab https://u1:" + "pw1@h https://" + strings.Repeat("u", 40) + ":" + "pw123@h z",
+		"https://u1:" + "pw1@h https://" + strings.Repeat("u", 40) + ":" + "pw123@h z",
+		"ab\nAPP_" + "KEY=s3cr3t-v4lue-0123\nAPP_" + "KEY" + strings.Repeat("A", 40) + "=" + "s3cr3t-v4lue-0123\nzz",
+		"APP_" + "KEY=s3cr3t-v4lue-0123\nAPP_" + "KEY" + strings.Repeat("A", 40) + "=" + "s3cr3t-v4lue-0123\nzz",
+	}
+	for wi, w := range windows {
+		window := []byte(w)
+		whole, rules := prod.Redact(window)
+		require.NotEmpty(t, rules, "window %d: the production rules must fire", wi)
+		h := &handlers{redactor: prod}
+		for keep := 1; keep <= len(window); keep++ {
+			if keep < len(window) && !utf8.RuneStart(window[keep]) {
+				continue
+			}
+			want := largestSafeCut(prod, window, keep)
+			cut, _, ok := h.safeCut(window, whole, keep)
+			require.Equal(t, want > 0, ok, "window %d keep %d: got cut %d, largest safe %d", wi, keep, cut, want)
+			if ok {
+				require.Equal(t, want, cut, "window %d keep %d", wi, keep)
+			}
+		}
+	}
+}
+
+// largestSafeCutsByKeep is largestSafeCut for every keep of window at once: element keep is the
+// largest safe rune boundary after the first byte and at or before keep, or 0 when there is none.
+// It checks each cut once, where calling largestSafeCut per keep checks each cut once per keep.
+func largestSafeCutsByKeep(r Redactor, window []byte) []int {
+	out := make([]int, len(window)+1)
+	for c := 1; c <= len(window); c++ {
+		out[c] = out[c-1]
+		if (c == len(window) || utf8.RuneStart(window[c])) && cutIsSafe(r, window, c) {
+			out[c] = c
+		}
+	}
+	return out
+}
+
+// TestSafeCutMatchesTheOracleOnRandomProductionCompositions sweeps every keep over seeded random
+// compositions of the production rules' shapes (V6 close-out, w14-safecut round-two review): two
+// or three pieces — sk- runs, credentialed URIs, dotenv lines, bearer tokens, password
+// assignments, some too short to match — so a region often starts at offset 0 and a short safe gap
+// often sits just before a longer raw prefix or run. The seeds are fixed, so a failure reproduces;
+// the failing window is in the message.
+//
+//   - Separated: the gaps are blanks, newlines or punctuation, so each piece is its own region,
+//     the model safeCut's search is exact in. safeCut must return the oracle's largest safe cut,
+//     and report false only when none is safe.
+//   - Fused: gaps may also be empty or a letter, so pieces run into each other ("hunter2https://"
+//     makes the password's value part of the URI's scheme, "…ABChttps://" makes a bearer token and
+//     a URI overlap). There a rest-side match can depend on the byte at the cut, which is outside
+//     the model, and a smaller safe cut is allowed; safeCut must still return only safe cuts, and
+//     on this seeded set it reports false only when no cut is safe.
+func TestSafeCutMatchesTheOracleOnRandomProductionCompositions(t *testing.T) {
+	const compositions = 300
+	cfg := config.Defaults()
+	cfg.Runtime.Redact.Enabled = true
+	prod := testRedactor{r: redact.New(cfg)}
+	sweeps := []struct {
+		name  string
+		seed  uint64
+		gaps  []string
+		exact bool
+		count int
+	}{
+		{"separated", 0x5afec07, []string{" ", "   ", "\n", " y ", "; "}, true, compositions},
+		{"fused", 0x5afec08, []string{"", " ", "   ", "\n", " y ", "x"}, false, compositions},
+	}
+	for _, sw := range sweeps {
+		rng := rand.New(rand.NewPCG(sw.seed, sw.seed))
+		between := func(lo, hi int) int { return lo + rng.IntN(hi-lo+1) }
+		pieces := []func() string{
+			func() string { return "sk-" + strings.Repeat("a", between(15, 35)) },
+			func() string {
+				return "https://" + strings.Repeat("u", between(1, 30)) + ":" + "pw" + strings.Repeat("9", between(1, 5)) + "@h"
+			},
+			func() string {
+				return strings.Repeat("\n", rng.IntN(2)) + "APP_" + "KEY" + strings.Repeat("A", between(0, 20)) + "=" +
+					"s3cr3t-v4lue-0123\n"
+			},
+			func() string {
+				return "Bea" + "rer" + strings.Repeat(" ", between(1, 6)) + "abcdefghij0123456789" + "ABC"
+			},
+			func() string { return "pass" + "word=" + strings.Repeat("hunter2", between(1, 3)) },
+			func() string { return "ab" },
+		}
+		for i := range sw.count {
+			var b strings.Builder
+			if rng.IntN(2) == 0 {
+				b.WriteString(sw.gaps[rng.IntN(len(sw.gaps))])
+			}
+			for p := range between(2, 3) {
+				if p > 0 {
+					b.WriteString(sw.gaps[rng.IntN(len(sw.gaps))])
+				}
+				b.WriteString(pieces[rng.IntN(len(pieces))]())
+			}
+			b.WriteString(sw.gaps[rng.IntN(len(sw.gaps))])
+			window := []byte(b.String())
+			whole, _ := prod.Redact(window)
+			want := largestSafeCutsByKeep(prod, window)
+			h := &handlers{redactor: prod}
+			for keep := 1; keep <= len(window); keep++ {
+				if keep < len(window) && !utf8.RuneStart(window[keep]) {
+					continue
+				}
+				cut, _, ok := h.safeCut(window, whole, keep)
+				require.Equal(t, want[keep] > 0, ok, "%s %d %q keep %d: got cut %d, largest safe %d",
+					sw.name, i, window, keep, cut, want[keep])
+				if !ok {
+					continue
+				}
+				require.LessOrEqual(t, cut, keep, "%s %d %q keep %d", sw.name, i, window, keep)
+				require.True(t, cutIsSafe(prod, window, cut), "%s %d %q keep %d: cut %d", sw.name, i, window, keep, cut)
+				if sw.exact {
+					require.Equal(t, want[keep], cut, "%s %d %q keep %d", sw.name, i, window, keep)
+				}
+			}
+		}
+	}
 }
