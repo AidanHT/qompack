@@ -1,0 +1,14 @@
+{
+  "name": "qompack-live",
+  "description": "Disposable local marketplace for the Qompack V6 close-out live lane",
+  "owner": {
+    "name": "Qompack"
+  },
+  "plugins": [
+    {
+      "name": "qompack",
+      "source": "./qompack-plugin-0.2.99-prev-windows-amd64",
+      "description": "Cache-aware, retrieval-backed context compaction"
+    }
+  ]
+}

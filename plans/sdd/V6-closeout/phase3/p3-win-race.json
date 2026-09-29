@@ -1,0 +1,23 @@
+{
+  "id": "p3-win-race",
+  "cwd": "C:/Users/Quant/Documents/Programming/Projects/qompack-cx-cand",
+  "argv": [
+    "env",
+    "QOMPACK_UNDER_COLOAD=1",
+    "go",
+    "run",
+    "./tools/devtool",
+    "test-race"
+  ],
+  "source_head": "a94a3fb97cdd18633b6b6670446fab2cb98c304c",
+  "source_dirty": "",
+  "environment": {
+    "GOFLAGS": "-p=4",
+    "GOPATH": "C:\\Users\\Quant\\go"
+  },
+  "started_at": "2026-09-28T17:21:03-04:00",
+  "ended_at": "2026-09-28T19:58:43-04:00",
+  "exit_code": 1,
+  "log": "p3-win-race.log",
+  "log_sha256": "0687d1cd7a6947301e6545247bd4c6ff5ecdd9207c4c5f842e53b73a11152a38"
+}

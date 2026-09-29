@@ -1,0 +1,26 @@
+{
+  "id": "p3-fuzz-FuzzCMSUnmarshalBinary",
+  "cwd": "C:/Users/Quant/Documents/Programming/Projects/qompack-cx-cand",
+  "argv": [
+    "go",
+    "test",
+    "-run",
+    "^$",
+    "-fuzz",
+    "^FuzzCMSUnmarshalBinary$",
+    "-fuzztime",
+    "60s",
+    "./internal/sketch"
+  ],
+  "source_head": "a94a3fb97cdd18633b6b6670446fab2cb98c304c",
+  "source_dirty": "",
+  "environment": {
+    "GOFLAGS": "-p=4",
+    "GOPATH": "C:\\Users\\Quant\\go"
+  },
+  "started_at": "2026-09-28T22:07:01-04:00",
+  "ended_at": "2026-09-28T22:08:05-04:00",
+  "exit_code": 0,
+  "log": "p3-fuzz-FuzzCMSUnmarshalBinary.log",
+  "log_sha256": "bb9e3799035b7b488e9c5f1e999b6814b85df3f97ff70a43034d77b8e4ac13c9"
+}

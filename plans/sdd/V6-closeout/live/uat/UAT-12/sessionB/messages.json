@@ -1,0 +1,14 @@
+[
+ "Use the Read tool to read private/deny.txt. Then tell me exactly what the Read tool returned, quoting any error message word for word.",
+ "Call the MCP tool mcp__plugin_qompack_qompack__recall with query \"ORCHID-DENY-7731\". Then call it again with query \"path:private/deny.txt\". Report both raw results word for word.",
+ "Call the MCP tool mcp__plugin_qompack_qompack__expand with tool_use_id \"toolu_015xN8WiMCC4hNiKdCATrFQq\". Then call expand again with hash \"sha256:024a48d020181f0281060c137af6ceac4828477627a3e74e6f4333f55ff7f898\". Report both raw results word for word.",
+ "Call the MCP tool mcp__plugin_qompack_qompack__re_read with path \"private/deny.txt\". Report the raw result word for word.",
+ "/qompack:recall ORCHID-DENY-7731",
+ "Call the MCP tool mcp__plugin_qompack_qompack__re_read with path \"<scratch>/install/uat12/outside/outside.txt\". Then call re_read with path \"../outside/outside.txt\". Then call mcp__plugin_qompack_qompack__expand with tool_use_id \"toolu_01HaK18Y7xYeWKZTNmx37Wi2\". Report the three raw results word for word.",
+ "Use the Read tool to read deploy_notes.md and reply with only the recall marker it contains.",
+ "Call the MCP tool mcp__plugin_qompack_qompack__expand with tool_use_id \"toolu_01PTmSHvxRovjT5AYZiJQ5Z5\" and no other arguments. Reply with only the response's fidelity, its coverage and its next_span value.",
+ "Call the MCP tool mcp__plugin_qompack_qompack__expand with tool_use_id \"toolu_01PTmSHvxRovjT5AYZiJQ5Z5\" and full set to true. Reply with only the response's fidelity, its coverage and its next_span value.",
+ "Call the MCP tool mcp__plugin_qompack_qompack__expand with tool_use_id \"toolu_0162Bwq3VMWchx54kaD19Kos\". Reply with only the response's fidelity and coverage.",
+ "/compact",
+ "What is this project's code word? If it is not in your context, call mcp__plugin_qompack_qompack__recall with query \"code word\". Then call mcp__plugin_qompack_qompack__dropped and mcp__plugin_qompack_qompack__timeline, each with no arguments, and reply in one sentence."
+]

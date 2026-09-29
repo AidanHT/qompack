@@ -1,0 +1,3 @@
+verified pid 19612 image qompack.exe cmdline C:\Users\Quant\.qompack\bin\c7b2b120a6efcfc1def58bd55dd29df51ec1bc0bc35a164258d5e0bc9c12803d\qompack.exe daemon --project <scratch>\install\uat01\proj
+terminated pid 19612
+daemon.lock still present after termination (stale lock left for the staleness protocol)

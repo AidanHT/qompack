@@ -1,0 +1,5 @@
+{"v":1,"path":"notes.md","ts":1790703842588,"turn":1,"root":"sha256:0b1d5454bc14896a1b9b5d68047998863d4647d7d94b5a4df849fb82ba850e79","bytes":340}
+{"v":1,"path":"big.log","ts":1790703847839,"turn":3,"root":"sha256:38b71119c76a348a1b5879477c3b454ae946ff7304b59abec96ce85b907b1027","bytes":312389}
+{"v":1,"path":"logo.png","ts":1790703854142,"turn":5,"root":"sha256:8b618bac1e795bd1de0446af955014c6632988e17fb58dd9246582bd0bd39462","bytes":297}
+{"v":1,"path":"creds.txt","ts":1790703864665,"turn":7,"root":"sha256:bcb017e830d60dbd712fba343ff0ee31b6e0772a0d9dd3534b3c40f413bb70d1","bytes":332}
+{"v":1,"path":"config.ini","ts":1790703901020,"turn":15,"root":"sha256:f04c98874878ce536011d1cf115b41af78614e25ee7159c2b6377b02ec4eca0e","bytes":225}

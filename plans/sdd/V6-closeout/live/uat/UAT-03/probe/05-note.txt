@@ -1,0 +1,3 @@
+attempt 1 (02-) answered the deferred note after 8.3 s without starting a daemon: the copy carried run/spawn.lock with a
+fresh mtime (cp does not preserve it), which the hook honours as a spawn in flight (D17), and a stale daemon.lock (pid 64668,
+terminated). Attempt 2 (06-) ran 20 s after the copy, past the 10 s spawn-lock freshness window; nothing was edited.

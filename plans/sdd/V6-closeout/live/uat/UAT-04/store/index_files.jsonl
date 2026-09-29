@@ -1,0 +1,5 @@
+{"v":1,"path":"notes.md","ts":1790705041190,"turn":4,"root":"sha256:04e3b1aab3181282beb8f238f41afe349f1a1ced17e9a164c10df4dd9cfa0f16","bytes":253}
+{"v":1,"path":"src/ledger.py","ts":1790705086283,"turn":8,"root":"sha256:7f15964523d3caad81cd50c9bf7a6ce402a25b8ee8cc13c0dccd9bb1338d7e70","bytes":288}
+{"v":1,"path":"filler/a.txt","ts":1790705170520,"turn":12,"root":"sha256:a74833317ebcb954a8ec41c5c356a0f7f68c6b14ddc694a9abc5ad0b8b6e1f59","bytes":60350}
+{"v":1,"path":"filler/b.txt","ts":1790705233114,"turn":16,"root":"sha256:260c758c6273b160663e51a4aa928bdb339f917e954093fbb78caca833913ea5","bytes":60462}
+{"v":1,"path":"filler/c.txt","ts":1790705302595,"turn":20,"root":"sha256:9105091e01a2e3e132979e6a3c0a11d8b8bf51425d476bbae32e07c41256cd43","bytes":60278}

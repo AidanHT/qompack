@@ -1,0 +1,176 @@
+[2026-09-29T02:34:09] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && git status --short | head; git log --oneline -3; mkdir -p C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w11/babudget/; grep -n "D41\|D40\|D39" C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/V6-CLOSEOUT-CHECKLIST
+[2026-09-29T02:34:11] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && cat internal/config/deadlines.go; grep -n "BudgetMs\|HotPath" internal/config/defaults.go internal/config/*.go | grep -v _test | head -40
+[2026-09-29T02:34:13] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && ls internal/config/; grep -rn "L0IngestMs\|ackDeadlineMsDefault" --include=*.go . | grep -v "^./internal/config/deadlines.go" | head -40
+[2026-09-29T02:34:35] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && sed -n 1,160p internal/config/defaults_test.go; sed -n 60,110p internal/config/schema_test.go; sed -n 300,400p tools/devtool/genconfigdocs.go
+[2026-09-29T02:34:50] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && sed -n 110,200p internal/config/schema_test.go; grep -n "budgetMs\|l0IngestMs" testdata/golden/config/schema.json | head; grep -rn "budgetMs" --include=*.go . | grep -v "_test.go" | head -20
+[2026-09-29T02:34:53] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && sed -n 1,50p internal/config/runtime.go; sed -n 205,235p internal/config/runtime.go; sed -n 100,130p internal/config/defaults.go; sed -n 60,160p internal/obs/budgets.go
+[2026-09-29T02:34:57] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && grep -rnE "15 ?ms|p99 ?< ?15|<15|budgetMs" --include=*.go --include=*.md --include=*.jsonc --include=*.json . 2>/dev/null | grep -v "^./plans/sdd/" | grep -v "^./plans/research" | grep -viE "1[0-9]5 ?ms|[0-9]15 ?ms|\.15 ?ms" | cut -c1-220
+[2026-09-29T02:35:32] Bash: cat "C:\Users\Quant\.claude\projects\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\tool-results\b7dkjia4s.txt" | awk -F: '{print $1}' | sort | uniq -c | sort -rn
+[2026-09-29T02:35:39] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && grep -E "^\./(docs|test/integration/hotpath|test/e2e|plans/00-ARCH|internal/config|internal/obs|internal/daemon|test/guards|test/bench|cmd)" "C:\Users\Quant\.claude\projects\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\tool-results\b7dkjia4s.txt" | cut -c1-260; grep -n "15" Qom
+[2026-09-29T02:35:44] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && grep -n "15\|BudgetMs\|budgetMs" test/e2e/v3_x11_test.go | head -40; echo ----; grep -n "p99<15\|p99 < 15\|15ms\|15 ms" test/integration/hotpath_test.go
+[2026-09-29T02:35:46] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && grep -rn "B-A p99" test/ internal/ tools/ | cut -c1-250 | head -40
+[2026-09-29T02:35:50] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && sed -n 480,500p test/e2e/v3_x11_test.go; echo ----; sed -n 935,950p test/integration/hotpath_test.go; sed -n 1025,1040p test/integration/hotpath_test.go; sed -n 1085,1105p test/integration/hotpath_test.go; sed -n 1320,1345p test/integration/hotpath_test.go
+[2026-09-29T02:35:53] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && grep -n "hotpathStallLatency" -r test/ | head; grep -rn "hotpathStallLatency\s*=" -A12 test/integration/ | head -30
+[2026-09-29T02:35:55] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && sed -n 1290,1320p test/integration/hotpath_test.go; sed -n 1345,1420p test/integration/hotpath_test.go
+[2026-09-29T02:36:05] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && sed -n 835,870p internal/daemon/daemon_test.go; sed -n 1,60p internal/daemon/budget_test.go; grep -rn "HotPath.BudgetMs" --include=*.go . | grep -v "^./internal/config" | cut -c1-200
+[2026-09-29T02:36:09] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && grep -rln "HotSpool\|breach\|Breach" --include=*_test.go . | grep -v "^./internal/daemon/budget_test"; 
+[2026-09-29T02:36:13] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && grep -n -i "breach\|BudgetMs\|budget" test/e2e/daemon_e2e_test.go test/integration/hookflow_test.go test/e2e/v3_x05_test.go test/e2e/v3_x10_test.go test/e2e/v4_x13_test.go test/e2e/v5_x03_test.go internal/cli/capture_admission_test.go internal/commands/render_test.go internal/ipc/client_test.go test/platform/paths_test.go 
+[2026-09-29T02:36:17] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && sed -n 405,460p test/bench/hotpath/report_test.go; sed -n 240,260p test/bench/hotpath/report_test.go; sed -n 760,785p test/bench/hotpath/report_test.go
+[2026-09-29T02:36:32] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && ls docs; grep -rn "B-A\|budgetMs\|hot-path budget\|hot path budget" docs --include=*.md | grep -v "^docs/adr" | cut -c1-240
+[2026-09-29T02:36:34] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && sed -n 55,70p docs/architecture.md; sed -n 318,330p docs/cannot-do.md; grep -n -i "spool submode\|degraded\|breach" docs/troubleshooting.md docs/user-guide.md | head -20
+[2026-09-29T02:36:39] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && grep -n "Revision log\|^## \|^### 8\|15 ?ms\|15ms\|p99" Qompack.md | head -80; grep -rn "func TestQompackChangesOnlyThroughAnAuthorizedRevision" test/
+[2026-09-29T02:36:42] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && sed -n 1,6p Qompack.md; sed -n 321,327p Qompack.md; sed -n 408,426p Qompack.md; sed -n 487,600p Qompack.md; sed -n 1,200p test/guards/qompackrevision_test.go
+[2026-09-29T02:36:47] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && grep -n -i "hotPath\|budgetMs\|latency budget\|B-A\|15 ms\|15ms\|< 15" Qompack.md | cut -c1-200; grep -n "^## v1" plans/QOMPACK-ERRATA.md; sed -n "$(grep -n '^## v1.7' plans/QOMPACK-ERRATA.md | cut -d: -f1),\$p" plans/QOMPACK-ERRATA.md | head -40
+[2026-09-29T02:36:57] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && sed -n 270,330p plans/00-ARCHITECTURE.md; sed -n 2630,2650p plans/00-ARCHITECTURE.md; grep -n "^## \|^### 8\|Revision\|revision log\|Change log\|Changelog" plans/00-ARCHITECTURE.md | head -60
+[2026-09-29T02:37:00] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && grep -n "hotPath\|budgetMs\|15ms\|15 ms" plans/00-ARCHITECTURE.md | cut -c1-220; sed -n 140,160p plans/00-ARCHITECTURE.md
+[2026-09-29T02:37:04] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && cat internal/daemon/budget.go; grep -n "recordHotPathSample\|applyHotPathTransition\|HotSpool\|HotSync\|hotPathWorker" -r internal/daemon/*.go | grep -v _test
+[2026-09-29T02:37:07] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && sed -n 250,470p internal/daemon/handlers.go; sed -n 160,200p internal/daemon/registry.go; sed -n 780,810p internal/daemon/handlers.go
+[2026-09-29T02:37:11] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && grep -n "HotSpool\|HotSync\|Hot ==\|\.Hot\b\|st.Hot\|state.Hot" -r internal/ipc/*.go internal/cli/*.go | grep -v _test | cut -c1-220; grep -n "func (o Op) HotPath" -A15 internal/ipc/*.go
+[2026-09-29T02:37:13] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && sed -n 130,320p internal/ipc/client.go
+[2026-09-29T02:37:20] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && grep -n "func (d \*daemon) dispatchOp\|dispatchOp(" -r internal/daemon/*.go | grep -v _test; grep -n "spoolReplay\|withSpoolReplay" -r internal/daemon/*.go | grep -v _test | head -20; sed -n 200,250p internal/daemon/handlers.go
+[2026-09-29T02:37:24] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && grep -n "persistHotMode\|WriteState\|stateWithHot" -r internal/daemon/*.go | grep -v _test; grep -n "Hot\b\|hot " internal/ipc/state.go | head -30
+[2026-09-29T02:37:27] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && sed -n 835,855p internal/daemon/handlers.go; sed -n 700,725p internal/daemon/daemon.go; sed -n 95,110p internal/daemon/reload.go; grep -n "IdleExitSeconds\|idleExit" -r internal/daemon/*.go | grep -v _test | head
+[2026-09-29T02:37:42] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && grep -n "^func Test\|func write\|func load\|LoadOptions\|config.Load(" internal/config/load_test.go | head -40
+[2026-09-29T02:37:45] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && sed -n 1,70p internal/config/load_test.go; sed -n 100,135p internal/config/load_test.go
+[2026-09-29T02:38:00] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && cat > C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w11/babudget/edit1.py <<'EOF'
+import re,io
+p='C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget/internal/config/defaults_test.go'
+s=open(p,encoding='utf-8'
+[2026-09-29T02:38:07] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && cat >> internal/config/load_test.go <<'EOF'
+
+// TestLoad_UserSetHotPathBudgetIsKept pins D41's second clause: the platform-derived default of
+// runtime.hotPath.budgetMs is only a default. A value the user sets — here the pre-D41 universal
+// 15 in a project file, and 7 from the environment — is applied exactly as written 
+[2026-09-29T02:38:21] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && cat > C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w11/babudget/edit2.py <<'EOF'
+p='C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget/internal/config/defaults_test.go'
+s=open(p,encoding='utf-8',newline='').
+[2026-09-29T02:38:39] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && cat >> internal/config/deadlines.go <<'EOF'
+
+// HotPathBudgetMsFloor is the least runtime.hotPath.budgetMs ever defaults to: 15 ms, the §8.1 /
+// §11.3 L0 figure B-A was written against (00-ARCHITECTURE.md §2.4's B-A row), and the value it
+// shipped on every platform until D41. It is not a new number; it is that one, name
+[2026-09-29T02:38:44] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && sed -n 47,52p internal/config/deadlines.go; sed -n 224,228p internal/config/deadlines.go
+[2026-09-29T02:38:49] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && python - <<'EOF'
+p='C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget/internal/config/deadlines.go'
+s=open(p,encoding='utf-8',newline='').read()
+a='''// Raising it does not move the B-A hot-path budget (§8.1, 15 ms) and is not meant to. A'''
+b='''// Raising it does not move the B-A hot-path budget (§8.1
+[2026-09-29T02:39:09] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && python - <<'EOF'
+p='C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget/internal/config/schema_test.go'
+s=open(p,encoding='utf-8',newline='').read()
+a='''//   - runtime.budgets.l0IngestMs and runtime.daemon.ackDeadlineMs — SP20-D1's measured B-B
+//     re-budget, three platforms each (Windows measured; li
+[2026-09-29T02:39:12] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && sed -i '100s/three leaves have platform-specific/four leaves have platform-specific/; 135s/The three leaves do not/The leaves do not/' internal/config/schema_test.go && sed -n 98,102p internal/config/schema_test.go && sed -n 133,137p internal/config/schema_test.go && sed -n 100,110p internal/config/schema_test.go | grep -n
+[2026-09-29T02:39:15] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && go run ./tools/devtool gen-config-docs 2>&1 | tail -3; git diff --stat; git diff docs/config-reference.md
+[2026-09-29T02:39:23] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && sed -n 160,300p internal/obs/obs_test.go
+[2026-09-29T02:39:31] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && sed -n 300,340p internal/obs/obs_test.go; grep -n "p99 >\|>= lim\|> lim\|Limit(cfg)" internal/obs/*.go | grep -v _test
+[2026-09-29T02:39:44] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && python - <<'EOF'
+p='C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget/internal/obs/obs_test.go'
+s=open(p,encoding='utf-8',newline='').read()
+rep=[
+('''	require.Equal(t, 15*time.Millisecond, ids[obs.BA].Limit(cfg), "B-A reads runtime.hotPath.budgetMs")''',
+'''	// B-A's default is platform-derived since D
+[2026-09-29T02:39:59] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && git stash push -q internal/obs/obs_test.go && go test -count=1 ./internal/obs 2>&1 | grep -E "^(--- FAIL|ok|FAIL)"; git stash pop -q && git diff --stat internal/obs
+[2026-09-29T02:40:05] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && sed -n 470,525p test/guards/v1_integration_test.go
+[2026-09-29T02:40:12] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && python - <<'EOF'
+p='C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget/test/guards/v1_integration_test.go'
+s=open(p,encoding='utf-8',newline='').read()
+rep=[('''	require.Equal(t, 15, defaults.Runtime.HotPath.BudgetMs, "B-A's default limit is 15 ms")''',
+'''	// B-A's default limit is platform-derived sinc
+[2026-09-29T02:40:14] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && grep -n "func baWallWaivedNote" -A25 test/bench/hotpath/*.go; sed -n 40,50p test/bench/hotpath/main.go; sed -n 165,175p test/bench/hotpath/main.go
+[2026-09-29T02:40:30] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && python - <<'EOF'
+root='C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget/'
+p=root+'test/bench/hotpath/report.go'
+s=open(p,encoding='utf-8',newline='').read()
+a='''measured 11.264ms then 18.432ms against the %.0fms limit, while the spawn floor's p50 went 12.954 → 24.431 / 23.143ms)'''
+b='''measured 11.26
+[2026-09-29T02:40:33] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && grep -n "15ms\|15 ms" test/bench/hotpath/*.go
+[2026-09-29T02:40:36] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && sed -i '47s/into the very population the 15ms gate reads/into the very population the B-A gate reads/; 171s/(limit 15 ms)/(limit then 15 ms, on every platform before D41)/' test/bench/hotpath/main.go && sed -n 46,48p test/bench/hotpath/main.go && sed -n 170,172p test/bench/hotpath/main.go && go run ./tools/devtool fmt >/de
+[2026-09-29T02:41:00] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && python - <<'EOF'
+p='C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget/test/bench/hotpath/main.go'
+s=open(p,encoding='utf-8',newline='').read()
+a='''	// 3.072 ms in bench-gate (harness alone on its runner) and 11.264 ms then 18.432 ms in two
+	// whole-tree `test` job runs minutes apart (limit then 15 ms,
+[2026-09-29T02:41:04] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && python - <<'EOF'
+p='C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget/test/bench/hotpath/main.go'
+s=open(p,encoding='utf-8',newline='').read()
+a='''	// while the spawn floor's p50 went 12.954 → 24.431 / 23.143 ms. B-A is the daemon-observed hook_controlled estimate (recvTS −
+	// reqTS + tail allowance):
+[2026-09-29T02:41:09] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && sed -n 170,178p test/integration/hotpath_test.go; grep -n "25ms\|25 ms" test/integration/hotpath_test.go
+[2026-09-29T02:41:14] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && go test -count=1 -timeout=10m -run '^TestIntegration_HotPathDegradesRatherThanBlocks$' ./test/integration > plans/sdd/V6-closeout/w11-babudget/runs/degrade-premise-red-windows.log 2>&1; echo "exit=$?" >> plans/sdd/V6-closeout/w11-babudget/runs/degrade-premise-red-windows.log; grep -E "^(---|ok|FAIL|exit)|Error:|Messages|ex
+[2026-09-29T02:41:20] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && sed -n 50,66p test/integration/hotpath_test.go; sed -n 1420,1460p test/integration/hotpath_test.go
+[2026-09-29T02:41:22] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && sed -n 1460,1560p test/integration/hotpath_test.go | grep -n "budget\|Stall\|stall" 
+[2026-09-29T02:41:23] TEXT: Now edit the stall to derive from the configured budget.
+[2026-09-29T02:41:36] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && python - <<'EOF'
+p='C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget/test/integration/hotpath_test.go'
+s=open(p,encoding='utf-8',newline='').read()
+rep=[
+('''	// hotpathStallLatency is §4.6's "artificial 25 ms stall".
+	hotpathStallLatency = 25 * time.Millisecond
+''',
+'''	// hotpathStallOverBudget is ho
+[2026-09-29T02:41:46] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && sed -n 1,45p test/integration/hotpath_test.go | grep -n "qompack/internal" ; grep -ln "internal/config\"" test/integration/*.go | head -3
+[2026-09-29T02:41:49] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && sed -i '23i\	"github.com/qompack/qompack/internal/config"' test/integration/hotpath_test.go && go run ./tools/devtool fmt >/dev/null 2>&1; go vet ./test/integration && GOOS=linux go vet ./test/integration && GOOS=darwin go vet ./test/integration && echo vet-ok
+[2026-09-29T02:42:08] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && go test -count=1 -timeout=15m -v -run '^TestIntegration_HotPathDegradesRatherThanBlocks$' ./test/integration > plans/sdd/V6-closeout/w11-babudget/runs/degrade-green-windows.log 2>&1; echo "exit=$?" >> plans/sdd/V6-closeout/w11-babudget/runs/degrade-green-windows.log; grep -E "^(---|ok|FAIL|exit)|§4.6 degrade|Error:" plans/
+[2026-09-29T02:43:55] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && sed -n 15,24p test/e2e/v5_x01_test.go; grep -rn "15ms\|15 ms" test/e2e/v3_x11_test.go test/e2e/*.go | grep -v "v5_x01" | head
+[2026-09-29T02:43:59] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && grep -rn -i "spool submode\|hot path degraded\|hotPath\b\|hot-path budget" docs/*.md | cut -c1-200
+[2026-09-29T02:44:06] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && python - <<'EOF'
+root='C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget/'
+p=root+'docs/architecture.md'
+s=open(p,encoding='utf-8',newline='').read()
+a='''existing is a budget: a hook has a 15 ms p99 budget (B-A) and cannot open a store, load sketches and
+reconstruct scheduler state on every tool call, 
+[2026-09-29T02:44:09] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && grep -rn "p99 < 15\|B-A p99 ≥\|§11.3 L0" test/ tools/ internal/ --include=*.go | head
+[2026-09-29T02:44:19] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && python - <<'EOF'
+root='C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget/'
+p=root+'plans/00-ARCHITECTURE.md'
+s=open(p,encoding='utf-8',newline='').read()
+a='''| **B-A** | `hook_controlled` — client `main()` entry → `exit` (connect + write + ACK) | **p99 < 15 ms** (§11.3 L0) | CI on linux/macos/windows, 
+[2026-09-29T02:44:23] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && grep -rn "v1\.7" docs/ tools/ test/ internal/ --include=* | grep -v "^docs/adr" | head -20
+[2026-09-29T02:44:26] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && grep -n "Qompack.md\|Design document" tools/devtool/genconfigdocs.go | head; head -12 docs/config-reference.md
+[2026-09-29T02:44:36] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && python - <<'EOF'
+root='C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget/'
+p=root+'Qompack.md'
+s=open(p,encoding='utf-8',newline='').read()
+a='''*Design document v1.7 — six-command revision, 2026-09-27.*'''
+b='''*Design document v1.8 — hot-path budget follows the durable ingest, 2026-09-28.*'''
+assert a
+[2026-09-29T02:44:50] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && tail -c 200 plans/QOMPACK-ERRATA.md | od -c | tail -3; cat >> plans/QOMPACK-ERRATA.md <<'EOF'
+
+## v1.8 — §8.1 the hot-path budget follows the durable ingest it contains (2026-09-28)
+
+### Origin
+
+The V6 close-out's Phase 3 runs on the frozen candidate found every isolated Windows hot-path run
+moving the daemon to spool subm
+[2026-09-29T02:44:55] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && sed -i 's/^const qompackDigest = "726e44892573889749c9b0762ea29dbceb421d6383198c09882ff3fdfc47886b"/const qompackDigest = "99c1229819e6fc6d2c1c396851eff3a4d63cca0d2542980d21799a1acae4f772"/; s/^const qompackPinnedVersion = "1.7"/const qompackPinnedVersion = "1.8"/' test/guards/qompackrevision_test.go && git diff --stat tes
+[2026-09-29T02:44:59] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && ls plans/V6-CLOSEOUT-CHECKLIST.md plans/sdd/V6-closeout/phase3/ 2>&1 | head
+[2026-09-29T02:45:04] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && python - <<'EOF'
+p='C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget/plans/QOMPACK-ERRATA.md'
+s=open(p,encoding='utf-8',newline='').read()
+a='''LOUD.log entry (`plans/sdd/V6-closeout/phase3/p3-win-timing.log`, `p3-win-e2e-timing.log`). B-A's'''
+b='''LOUD.log entry (the coordinator's Phase 3 logs p3-win
+[2026-09-29T02:45:10] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && git status --short; PKGS="./internal/config ./internal/obs ./test/guards ./test/bench/hotpath ./test/integration ./tools/devtool"; go run ./tools/devtool fmt-check 2>&1 | tail -2; for os in windows linux darwin; do GOOS=$os go vet $PKGS && echo "vet $os ok"; done
+[2026-09-29T02:45:20] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && go run ./tools/devtool fmt-check; echo "fmt-check exit=$?"; for g in gen-config-docs gen-mcp-docs gen-command-docs; do go run ./tools/devtool $g --check; echo "$g exit=$?"; done
+[2026-09-29T02:45:32] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && go run ./tools/devtool lint --only=golangci-lint,nomagic,importgraph,testdeps,bindeps,sleepcheck,docmarkers,runpatterns > C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w11/babudget/lint.log 2>&1; echo "exit=$?"; tail -20 C:/Use
+[2026-09-29T02:47:24] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && go test -count=1 -p 4 -timeout=30m ./internal/config ./internal/obs ./internal/daemon ./internal/commands ./internal/ipc > plans/sdd/V6-closeout/w11-babudget/runs/pkgs-windows.log 2>&1; echo "exit=$?" >> plans/sdd/V6-closeout/w11-babudget/runs/pkgs-windows.log; grep -E "^(ok|FAIL|---|exit)" plans/sdd/V6-closeout/w11-babudg
+[2026-09-29T02:50:50] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && go test -count=1 -p 4 -timeout=30m ./test/docs ./test/bench/hotpath ./tools/devtool > plans/sdd/V6-closeout/w11-babudget/runs/docs-bench-devtool-windows.log 2>&1; echo "exit=$?" >> plans/sdd/V6-closeout/w11-babudget/runs/docs-bench-devtool-windows.log; grep -E "^(ok|FAIL|---|exit)" plans/sdd/V6-closeout/w11-babudget/runs/d
+[2026-09-29T02:52:01] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && go test -count=1 -p 4 -timeout=30m ./test/guards > plans/sdd/V6-closeout/w11-babudget/runs/guards-windows.log 2>&1; echo "exit=$?" >> plans/sdd/V6-closeout/w11-babudget/runs/guards-windows.log; grep -E "^(ok|FAIL|--- FAIL|exit)" plans/sdd/V6-closeout/w11-babudget/runs/guards-windows.log; grep -E "^    --- FAIL" plans/sdd/V
+[2026-09-29T02:53:54] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && L=plans/sdd/V6-closeout/w11-babudget/runs/new-rows-count3-windows.log; : > $L; for r in TestDefaults_HotPathBudgetPerPlatform TestDefaults_HotPathBudgetCoversTheIngestBudget TestDefaults_RuntimeNamespace TestLoad_UserSetHotPathBudgetIsKept TestJSONSchema_Golden; do echo "== go test -count=3 -run '^$r\$' ./internal/config" 
+[2026-09-29T02:54:46] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && git add internal/config tools/devtool/genconfigdocs.go docs/config-reference.md internal/obs/obs_test.go test/guards/v1_integration_test.go test/bench/hotpath test/integration/hotpath_test.go && cat > C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49
+[2026-09-29T02:54:53] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && git add docs/architecture.md docs/cannot-do.md plans/00-ARCHITECTURE.md && git commit -q -F - <<'EOF' && git add Qompack.md plans/QOMPACK-ERRATA.md test/guards/qompackrevision_test.go && git commit -q -F - <<'EOF2' && git log --oneline -3
+docs(arch): state B-A's per-platform default and its D41 origin
+
+00-ARCHITECTURE.md s
+[2026-09-29T02:55:00] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && echo "QOMPACK_UNDER_COLOAD=[${QOMPACK_UNDER_COLOAD-unset}]"; L=plans/sdd/V6-closeout/w11-babudget/runs/integration-hotpath-isolated-windows.log; echo "head=$(git rev-parse --short HEAD) cmd: go test -p 1 -count=1 -timeout=30m -v -run '^TestIntegration_HotPathWarmWithRealResidentState\$' ./test/integration" > $L; env -u QOM
+[2026-09-29T02:57:11] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && L=plans/sdd/V6-closeout/w11-babudget/runs/integration-hotpath-isolated-windows.log; grep -n -i "spool\|degraded\|transition\|hook_controlled_observed\|B-A\b" $L | cut -c1-300 | head -30; grep -o '"budget_id": *"B-A"[^}]*' $L | head -2; grep -o '"hook_controlled_observed"[^}]*' $L | head -2
+[2026-09-29T02:57:18] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && L=plans/sdd/V6-closeout/w11-babudget/runs/e2e-x11-isolated-windows.log; echo "head=$(git rev-parse --short HEAD) cmd: go test -p 1 -count=1 -timeout=30m -v -run '^TestV3_HotPathUnchangedWithLedgerResident\$' ./test/e2e" > $L; env -u QOMPACK_UNDER_COLOAD go test -p 1 -count=1 -timeout=30m -v -run '^TestV3_HotPathUnchangedWi
+[2026-09-29T03:01:59] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3 && ls; grep -n -E "Messages|X11: |--- FAIL|B-A  |regressed|REPORTED, not" p3-win-e2e-timing.log | cut -c1-300 | head -20
+[2026-09-29T03:02:04] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && sed -n 96,130p test/e2e/v3_x11_test.go; sed -n 580,630p test/e2e/v3_x11_test.go
+[2026-09-29T03:02:11] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && grep -rln "regressed more than 25\|x11V2BAp99Ms\|3.840\|V2's recorded" plans/ docs/ test/ | head; grep -rn "x11V2BAp99Ms\|ceiling 3.84\|regression ceiling\|X11.*V2" plans/sdd/V6-closeout/*/report.md plans/V6-CLOSEOUT-CHECKLIST.md plans/CARRIED-DEFECTS.tsv 2>/dev/null | cut -c1-300 | head -20
+[2026-09-29T03:02:32] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && grep -rl "regressed more than 25" plans/ | grep -v eval/ ; grep -rn "TestV3_HotPathUnchangedWithLedgerResident" plans/sdd/V6-closeout/*/report.md plans/V6-CLOSEOUT-CHECKLIST.md plans/V5-report.md plans/CARRIED-DEFECTS.tsv 2>/dev/null | cut -c1-260 | head -20
+[2026-09-29T03:02:52] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && for f in plans/sdd/V6-closeout/integration/runs/run4/cx-int4-int4-hotpath-alone-898bb8b-20260928T022919Z-artifacts/test.jsonl plans/sdd/V6-closeout/linux/runs/review/windows-six-c34acb4.jsonl; do echo "== $f"; grep -o 'X11: B-A p99 regressed[^"]*' $f | head -2 | cut -c1-250; grep -o 'X11 measured[^"]*' $f | head -2 | cut -
+[2026-09-29T03:02:56] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && f=plans/sdd/V6-closeout/integration/runs/run4/cx-int4-int4-hotpath-alone-898bb8b-20260928T022919Z-artifacts/test.jsonl; grep -o 'regressed more than 25[^\\]*' $f | head -3 | cut -c1-250; grep -o 'X11[^\\]\{0,200\}' $f | head -5; grep -rl "X11 measured" plans/sdd/ 2>/dev/null | head
+[2026-09-29T03:03:02] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && for f in $(grep -rl "X11 measured" plans/sdd/ 2>/dev/null); do echo "== $f"; grep -o 'X11 measured (platform [^|]*|' $f | head -2 | cut -c1-220; grep -o 'X11 under QOMPACK_UNDER_COLOAD: B-A p99=[^—]*' $f | head -1 | cut -c1-200; done 2>/dev/null | head -40
+[2026-09-29T03:03:12] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && L=plans/sdd/V6-closeout/w11-babudget/runs/e2e-x11-isolated-windows-rerun.log; echo "head=$(git rev-parse --short HEAD) cmd: go test -p 1 -count=1 -timeout=30m -v -run '^TestV3_HotPathUnchangedWithLedgerResident\$' ./test/e2e (re-run alone)" > $L; env -u QOMPACK_UNDER_COLOAD go test -p 1 -count=1 -timeout=30m -v -run '^Test
+[2026-09-29T03:07:33] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w11-babudget && L=plans/sdd/V6-closeout/w11-babudget/runs/integration-hotpath-isolated-windows-rerun.log; echo "head=$(git rev-parse --short HEAD) cmd: go test -p 1 -count=1 -timeout=30m -v -run '^TestIntegration_HotPathWarmWithRealResidentState\$' ./test/integration (re-run alone)" > $L; env -u QOMPACK_UNDER_COLOAD go test -p 1 -count=1 

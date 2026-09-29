@@ -1,0 +1,12 @@
+UAT-12 step 1 — initial state 2026-09-29 13:22:52 EDT
+$ test -e <project>/.qompack
+exit 1 (1 = absent: no store exists, initial absence recorded; the non-vacuous baseline backup is taken after session A's permitted captures, before the upgrade, per the row's precondition)
+$ test -e ~/.qompack/config.json
+exit 1
+$ ls -A <project>
+.git
+big.log
+blob.bin
+deploy_notes.md
+private
+README.md

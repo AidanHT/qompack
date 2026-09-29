@@ -1,0 +1,13 @@
+{
+ "roots_jsonl_lines_now": 11,
+ "removed_root_back_in_roots_jsonl": false,
+ "cut_sidecar_now": {
+  "published": false,
+  "root": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "tool_use_id": null
+ },
+ "stage_one_observe_tool_sidecars_now": [
+  "sha256:550a87e2ec1b552574cce78cd1e21782d165116d2733e6ab6d1c39ca9d4210e9"
+ ],
+ "note": "read after the restarted daemon idle-exited; nothing re-added the roots line or re-joined the sidecar"
+}

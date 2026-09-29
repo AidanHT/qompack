@@ -1,0 +1,2 @@
+{"v":1,"op":"open","id":1,"s":"bc8623fe-ef2c-4195-8ccc-df66d7cb64ef","st":0,"sts":1790707265385}
+{"v":1,"op":"close","id":1,"et":26,"ets":1790707329092,"tok":0,"feat":{"gap_seconds":0.753,"lexical_cohesion":0.9161838840655324,"path_jaccard":0,"todo_transition":0,"tool_shift":0.375}}

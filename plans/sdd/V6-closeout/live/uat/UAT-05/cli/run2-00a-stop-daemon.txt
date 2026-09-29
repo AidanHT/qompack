@@ -1,0 +1,8 @@
+The first backup attempt (run2-00-backup-create/verify) was refused: a daemon was running — started after run 1's idle exit by
+the CLI `qompack dropped --json` (run1-dropped-json), with the default idle exit. It was stopped by the verified procedure:
+{"lock": {"pid": 31692, "started": 1790704747878, "addr": "\\\\.\\pipe\\qompack.12d1f38c73d7", "version": "0.3.0", "owner": "f049ad7f522662ef3ee3ced336c6b7cfb652e395404ad73605f69550addb5148"}, "pid": 31692, "proc": {"Name": "qompack.exe", "Path": "C:\\Users\\Quant\\.qompack\\bin\\c7b2b120a6efcfc1def58bd55dd29df51ec1bc0bc35a164258d5e0bc9c12803d\\qompack.exe", "Cmd": "C:\\Users\\Quant\\.qompack\\bin\\c7b2b120a6efcfc1def58bd55dd29df51ec1bc0bc35a164258d5e0bc9c12803d\\qompack.exe daemon --project <scratch>\\sessions\\uat05\\proj"}}
+check image qompack.exe: True | check cmdline daemon+project: True
+Stop-Process exit 0  | still alive: False
+RESULT: stopped pid 31692
+Then the run-2 config file this run had just written was moved aside, the backup taken and verified, and the file put back
+(the backup is the pre-run-2 state without it).

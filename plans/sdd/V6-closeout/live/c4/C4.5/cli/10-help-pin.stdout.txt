@@ -1,0 +1,16 @@
+qompack pin — Pin an invariant so it is never summarized away
+
+usage: qompack pin <text>
+       /qompack:pin <text>
+
+flags:
+  --json                 emit the stable JSON envelope instead of text
+  --list                 list the pins in scope instead of adding one
+  --remove <id>          remove the pin with this id
+  --source <who>         record the pin as user or agent authority (default user)
+  --eliminated           record an eliminated approach instead of an invariant
+  --target <text>        with --eliminated: what the approach was applied to
+  --approach <text>      with --eliminated: what was tried
+  --reason <text>        with --eliminated: why it did not work
+  --depends-on <paths>   with --eliminated: comma-separated paths the finding rests on
+  --scope <scope>        with --eliminated: session or project

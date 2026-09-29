@@ -1,0 +1,29 @@
+project: <scratch>/recovery/c16/proj
+CHECK                OK    SEVERITY  SCANNED   DEFECTS   DETAIL
+store                ok    info      -         0         store present at <scratch>\recovery\c16\proj\.qompack
+daemon               ok    info      -         0         no daemon holds the lock; this project is quiet
+objects              ok    info      12        0         
+index.roots          FAIL  critical  11        1         root 8c423b23b60c's base pointer f2e3973e4831 does not resolve
+index.tool_use       FAIL  critical  8         1         tool_use toolu_01KyvEyuvyA2c3YyyN9KGAa7 points at root f2e3973e4831, which cannot be materialized
+index.files          ok    info      4         0         
+index.segments       ok    info      0         0         
+captures             FAIL  warn      12        2         capture sidecar sha256:550a87e2ec1b552574cce78cd1e21782d165116d2733e6ab6d1c39ca9d4210e9 for a observe.tool delivery is at stage 1 only: outcome "ok" with bytes fbdeaf9d2408 durable and no reference joined to it
+                                                         published capture sidecar toolu_01KyvEyuvyA2c3YyyN9KGAa7 names root f2e3973e4831, which does not resolve
+publication          FAIL  warn      24        1         publication evidence includes 1 unlinked captures and 1 unindexed object candidates
+checkpoints          ok    info      0         0         no checkpoint has been written yet
+pins                 ok    info      0         0         pins/invariants.jsonl does not exist yet
+negknow              ok    info      0         0         records/eliminations.jsonl does not exist yet: nothing has been eliminated
+                                                         eliminations: 0 record(s), 0 active, 0 stale
+                                                         sketches/tried.bloom is absent, which is an ordinary cold start
+delivery             ok    info      26        0         state/delivery-lease-position.json is a v1 position document
+                                                         state/delivery-ack-position.json is a v1 position document
+                                                         the full dual-reader seal check was NOT run: it acquires the daemon lock, which the default run never does; pass --seal-check, or run `qompack admin delivery-seal --check` on a stopped project
+spool                ok    info      0         0         
+retention            ok    info      12        0         
+migrate              ok    info      0         0         backups are checked by the read-only maintenance verifier; legacy import/cutover is separate
+fidelity             ok    info      11        0         fidelity is counted as the store reports it; a canonical or unavailable root is never promoted to exact
+quarantine           ok    info      0         0         0 quarantined file(s), 0 byte(s), preserved as evidence and never swept
+
+fidelity: canonical=4 exact=7
+quarantine: 0 file(s), 0 byte(s) preserved as evidence
+exit: 1

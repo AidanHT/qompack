@@ -1,0 +1,11 @@
+at: 2026-09-29T15:37:53-04:00
+$ docker exec qompack-v6-linux-verification true
+Error response from daemon: container e09d55cfc09b4f6c6e6b209dd0414ac41e5843414e70681e9e5d8f01368d1518 is not running
+exit 1
+
+linux/amd64 sibling bundle (static check only; nothing executed):
+path: qompack-bundles/c3/qompack-plugin-0.3.0-linux-amd64
+BUNDLE.json sha256: 14b4086b0cfbab67fb7abe1518c298cd407d693ed96cfa7ad414041072a40b5c
+target: {'os': 'linux', 'arch': 'amd64'} | source: {'commit': 'd5598eb4445954120ee795560c2ea46640772f43', 'dirty': False}
+bin/qompack BUNDLE.json entry: 96d770e3bee454d98b1dc7d93d89a1b483fa5ac362fdea72c08df9c9a8df796c | actual: 96d770e3bee454d98b1dc7d93d89a1b483fa5ac362fdea72c08df9c9a8df796c
+acceptance (target linux/amd64, commit d5598eb4, bin sha256 matches): ACCEPTED

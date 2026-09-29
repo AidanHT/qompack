@@ -1,0 +1,6 @@
+cwd: <scratch>/retrieval/c44/proj
+argv: ["C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c3/qompack-plugin-0.3.0-windows-amd64/bin/qompack.exe", "status"]
+env+: {"QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS": "30"}
+qompack_home: <scratch>/retrieval/qhome
+wall_s: 0.025
+at: 2026-09-29T15:01:55-04:00

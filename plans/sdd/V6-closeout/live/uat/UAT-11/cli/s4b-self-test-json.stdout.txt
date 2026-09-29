@@ -1,0 +1,126 @@
+{
+  "checks": [
+    {
+      "id": "config.load",
+      "ok": true,
+      "severity": 0,
+      "expected": "configuration loads",
+      "observed": "loaded"
+    },
+    {
+      "id": "config.capture",
+      "ok": false,
+      "severity": 1,
+      "expected": "hooks load the configuration as written",
+      "observed": "capture continues: 0 setting(s) fell back to the default, 1 key(s) not applied",
+      "detail": "runtime.notAKey: unknown key"
+    },
+    {
+      "id": "qompack.writable",
+      "ok": true,
+      "severity": 0,
+      "expected": ".qompack/ is writable",
+      "observed": "writable"
+    },
+    {
+      "id": "paths.guard",
+      "ok": true,
+      "severity": 0,
+      "expected": "the append-only guard refuses a truncating rewrite",
+      "observed": "refused"
+    },
+    {
+      "id": "ipc.resolve",
+      "ok": true,
+      "severity": 0,
+      "expected": "a local transport endpoint resolves",
+      "observed": "\\\\.\\pipe\\qompack.d7a8ea4d51bb"
+    },
+    {
+      "id": "daemon.reachable",
+      "ok": true,
+      "severity": 0,
+      "expected": "the daemon is reachable or spawnable",
+      "observed": "reachable"
+    },
+    {
+      "id": "admin.ping",
+      "ok": true,
+      "severity": 0,
+      "expected": "admin.ping round trips OK:true",
+      "observed": "OK"
+    },
+    {
+      "id": "ops.coverage",
+      "ok": true,
+      "severity": 0,
+      "expected": "every known op has a route",
+      "observed": "13 known ops"
+    },
+    {
+      "id": "session_start.fires",
+      "ok": true,
+      "severity": 0,
+      "expected": "SessionStart hook fires",
+      "observed": "first-session"
+    },
+    {
+      "id": "session_start.source_compact",
+      "ok": true,
+      "severity": 0,
+      "expected": "SessionStart arrives with source=compact after PreCompact",
+      "observed": "no-precompact-pending"
+    },
+    {
+      "id": "hook.additional_context_delivered",
+      "ok": true,
+      "severity": 0,
+      "expected": "additionalContext reaches the transcript",
+      "observed": "not-yet-implemented"
+    },
+    {
+      "id": "precompact.has_time_to_write",
+      "ok": true,
+      "severity": 0,
+      "expected": "PreCompact has time to write",
+      "observed": "not-yet-implemented"
+    },
+    {
+      "id": "precompact.custom_instructions_accepted",
+      "ok": true,
+      "severity": 0,
+      "expected": "custom_instructions accepted",
+      "observed": "not-yet-implemented"
+    },
+    {
+      "id": "hook.payload_shape",
+      "ok": true,
+      "severity": 0,
+      "expected": "hook payload shape matches hookio.Event",
+      "observed": "payload shape valid"
+    },
+    {
+      "id": "mcp.server_registered",
+      "ok": true,
+      "severity": 0,
+      "expected": "MCP server received initialize",
+      "observed": "not-yet-implemented"
+    },
+    {
+      "id": "transcript.readable",
+      "ok": true,
+      "severity": 0,
+      "expected": "transcript_path exists and parses",
+      "observed": "no-transcript-path"
+    },
+    {
+      "id": "plugin.root_resolves",
+      "ok": true,
+      "severity": 0,
+      "expected": "CLAUDE_PLUGIN_ROOT expands to an existing binary",
+      "observed": "unset"
+    }
+  ],
+  "mode": "full",
+  "exit": 0
+}

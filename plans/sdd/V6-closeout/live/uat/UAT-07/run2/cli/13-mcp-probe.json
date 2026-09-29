@@ -1,0 +1,224 @@
+{
+ "initialize": {
+  "serverInfo": {
+   "name": "qompack",
+   "version": "0.3.0"
+  },
+  "protocolVersion": "2025-06-18"
+ },
+ "calls": [
+  {
+   "tool": "expand",
+   "args": {
+    "hash": "sha256:800cf27b3d28f24420053a66c887984da6fa859a938a4b293d58ab2c90812544"
+   },
+   "jsonrpc_line_bytes": 1596,
+   "isError": false,
+   "error": null,
+   "text_bytes": 1099,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 8,
+     "ephemeral": true,
+     "expansions": 5,
+     "hash": "sha256:27141d756a6766928b81072d50a0ac6a5a87ef3326f522c0b37d604362f4f289",
+     "promoted": true,
+     "span": [
+      0,
+      838
+     ],
+     "tool_use_id": "qompack-mcp:31c3ec0c0cfc",
+     "total_bytes": 838,
+     "truncated": false,
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "found": true,
+     "hash": "sha256:800cf27b3d28f24420053a66c887984da6fa859a938a4b293d58ab2c90812544",
+     "span": [
+      0,
+      838
+     ],
+     "total_bytes": 838,
+     "truncated": false,
+     "widened": false,
+     "expansions": 5,
+     "promoted": true,
+     "content": "{\"type\":\"text\",\"file\":{\"filePath\":\"<tmp>\",\"content\":\"package ledger\\n\\n// Package ledger reconciles account balances for the Kestrel acceptance run.\\n// Sentinel phrase for retrieval: cobalt heron threshold.\\n\\nimport \\\"errors\\\"\\n\\nconst driftLimit = 40\\n\\n// ErrDrift is returned when two balances d...[838 chars total]"
+    }
+   ]
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "tool_use_id": "toolu_01UK5PjKBWGzfsYnfxShbJ1F"
+   },
+   "jsonrpc_line_bytes": 1668,
+   "isError": false,
+   "error": null,
+   "text_bytes": 1140,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 7,
+     "ephemeral": true,
+     "expansions": 6,
+     "hash": "sha256:dffb61ac2ad838fa9eb1b58c7ec98c87e83a8380a322fbd2b3597df7f5539faa",
+     "path": "src/ledger.go",
+     "promoted": true,
+     "span": [
+      0,
+      838
+     ],
+     "tool_use_id": "qompack-mcp:f4c185dcbb7e",
+     "total_bytes": 838,
+     "truncated": false,
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "found": true,
+     "hash": "sha256:800cf27b3d28f24420053a66c887984da6fa859a938a4b293d58ab2c90812544",
+     "path": "src/ledger.go",
+     "tool": "FileRead",
+     "span": [
+      0,
+      838
+     ],
+     "total_bytes": 838,
+     "truncated": false,
+     "widened": false,
+     "expansions": 6,
+     "promoted": true,
+     "content": "{\"type\":\"text\",\"file\":{\"filePath\":\"<tmp>\",\"content\":\"package ledger\\n\\n// Package ledger reconciles account balances for the Kestrel acceptance run.\\n// Sentinel phrase for retrieval: cobalt heron threshold.\\n\\nimport \\\"errors\\\"\\n\\nconst driftLimit = 40\\n\\n// ErrDrift is returned when two balances d...[838 chars total]"
+    }
+   ]
+  },
+  {
+   "tool": "re_read",
+   "args": {
+    "path": "src/ledger.go"
+   },
+   "jsonrpc_line_bytes": 1695,
+   "isError": false,
+   "error": null,
+   "text_bytes": 1148,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 8,
+     "ephemeral": true,
+     "expansions": 7,
+     "hash": "sha256:04396c042a109f247b54d43e7870bff3ed294fec12615ff3bce8a2c906dbc40d",
+     "path": "src/ledger.go",
+     "promoted": true,
+     "source": "store",
+     "span": [
+      0,
+      838
+     ],
+     "tool_use_id": "qompack-mcp:4f31bc7d2f20",
+     "total_bytes": 838,
+     "truncated": false,
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "found": true,
+     "hash": "sha256:800cf27b3d28f24420053a66c887984da6fa859a938a4b293d58ab2c90812544",
+     "path": "src/ledger.go",
+     "source": "store",
+     "turn": 7,
+     "span": [
+      0,
+      838
+     ],
+     "total_bytes": 838,
+     "truncated": false,
+     "widened": false,
+     "expansions": 7,
+     "promoted": true,
+     "content": "{\"type\":\"text\",\"file\":{\"filePath\":\"<tmp>\",\"content\":\"package ledger\\n\\n// Package ledger reconciles account balances for the Kestrel acceptance run.\\n// Sentinel phrase for retrieval: cobalt heron threshold.\\n\\nimport \\\"errors\\\"\\n\\nconst driftLimit = 40\\n\\n// ErrDrift is returned when two balances d...[838 chars total]"
+    }
+   ]
+  },
+  {
+   "tool": "re_read",
+   "args": {
+    "path": "src/ledger.go",
+    "at": "turn:1"
+   },
+   "jsonrpc_line_bytes": 1713,
+   "isError": false,
+   "error": null,
+   "text_bytes": 1162,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 8,
+     "ephemeral": true,
+     "expansions": 2,
+     "hash": "sha256:2622e7212fcd1baa3e0da0347065505d4ebb6367ff5a97dc9d71bccbcf8a48e8",
+     "path": "src/ledger.go",
+     "promoted": true,
+     "source": "store",
+     "span": [
+      0,
+      838
+     ],
+     "tool_use_id": "qompack-mcp:c8225989cdac",
+     "total_bytes": 838,
+     "truncated": false,
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "found": true,
+     "hash": "sha256:125153754afca5f623b4b7dc03edf6a54a60bb961e9a4d46a80ba61769b6c2f4",
+     "path": "src/ledger.go",
+     "at": "turn:1",
+     "source": "store",
+     "turn": 1,
+     "span": [
+      0,
+      838
+     ],
+     "total_bytes": 838,
+     "truncated": false,
+     "widened": false,
+     "expansions": 2,
+     "promoted": true,
+     "content": "{\"type\":\"text\",\"file\":{\"filePath\":\"<tmp>\",\"content\":\"package ledger\\n\\n// Package ledger reconciles account balances for the Kestrel acceptance run.\\n// Sentinel phrase for retrieval: cobalt heron threshold.\\n\\nimport \\\"errors\\\"\\n\\nconst driftLimit = 25\\n\\n// ErrDrift is returned when two balances d...[838 chars total]"
+    }
+   ]
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "hash": "sha256:8b625a24b8184a713eca0c9ddaee8131cd186df3816019b230db2907298b3224"
+   },
+   "jsonrpc_line_bytes": 371,
+   "isError": false,
+   "error": null,
+   "text_bytes": 97,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 0,
+     "ephemeral": true,
+     "hash": "sha256:b8e436df0ec18ff58f99bc42b9f52061de2e39d0a58a59778483796967e1d412",
+     "tool_use_id": "qompack-mcp:e77e735dc5c7"
+    }
+   },
+   "json": [
+    {
+     "found": false,
+     "available": false,
+     "reason": "complete content provenance could not be established"
+    }
+   ]
+  }
+ ],
+ "stderr_tail": ""
+}

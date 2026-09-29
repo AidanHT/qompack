@@ -1,0 +1,129 @@
+{
+ "args": [
+  "-p",
+  "--input-format",
+  "stream-json",
+  "--output-format",
+  "stream-json",
+  "--verbose",
+  "--include-hook-events",
+  "--model",
+  "claude-haiku-4-5-20251001",
+  "--max-turns",
+  "60",
+  "--setting-sources",
+  "project,local",
+  "--permission-mode",
+  "dontAsk",
+  "--plugin-dir",
+  "C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c3/qompack-plugin-0.3.0-windows-amd64",
+  "--allowedTools",
+  "Read,Bash(git add:*),Bash(git commit:*),Bash(git log:*),mcp__plugin_qompack_qompack__recall,mcp__plugin_qompack_qompack__expand,mcp__plugin_qompack_qompack__re_read,mcp__plugin_qompack_qompack__already_tried,mcp__plugin_qompack_qompack__record_eliminated,mcp__plugin_qompack_qompack__timeline,mcp__plugin_qompack_qompack__why,mcp__plugin_qompack_qompack__dropped,Bash(qompack status:*),Bash(qompack recall:*),Bash(qompack pin:*),Bash(qompack why:*),Bash(qompack dropped:*),Bash(qompack eval:*)"
+ ],
+ "turns": [
+  {
+   "msg": "Use the Read tool to read notes.md. Reply with the codename in one sentence.",
+   "ok": true,
+   "wall_s": 4.006,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 2112,
+    "WorkingSet64": 28413952,
+    "PeakWorkingSet64": 28413952,
+    "CPU": 0.140625,
+    "StartTime": "/Date(1790709456695)/"
+   },
+   "store_bytes": 94553
+  },
+  {
+   "msg": "Use the Read tool to read README.md. Reply with its title only.",
+   "ok": true,
+   "wall_s": 2.203,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 2112,
+    "WorkingSet64": 30900224,
+    "PeakWorkingSet64": 30900224,
+    "CPU": 0.171875,
+    "StartTime": "/Date(1790709456695)/"
+   },
+   "store_bytes": 118027
+  },
+  {
+   "msg": "Use the Read tool to read big.log with offset 1 and limit 3000. Reply with the label of the last line you received (it looks like ROW-NNNNN).",
+   "ok": true,
+   "wall_s": 4.609,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 2112,
+    "WorkingSet64": 51068928,
+    "PeakWorkingSet64": 51068928,
+    "CPU": 0.359375,
+    "StartTime": "/Date(1790709456695)/"
+   },
+   "store_bytes": 1502187
+  },
+  {
+   "msg": "Use the Read tool to read odd.txt and then creds.env. Tell me only the names of the settings in creds.env, never their values, and describe odd.txt in one sentence.",
+   "ok": true,
+   "wall_s": 4.408,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 2112,
+    "WorkingSet64": 51507200,
+    "PeakWorkingSet64": 51507200,
+    "CPU": 0.4375,
+    "StartTime": "/Date(1790709456695)/"
+   },
+   "store_bytes": 1548115
+  },
+  {
+   "msg": "Run the Bash command `git add -A`, then `git commit -m \"uat-11 work\"`, then `git log --oneline -1`. Reply with the commit line.",
+   "ok": true,
+   "wall_s": 4.808,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 2112,
+    "WorkingSet64": 51810304,
+    "PeakWorkingSet64": 51810304,
+    "CPU": 0.453125,
+    "StartTime": "/Date(1790709456695)/"
+   },
+   "store_bytes": 1573557
+  },
+  {
+   "msg": "/compact",
+   "ok": true,
+   "wall_s": 24.452,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 2112,
+    "WorkingSet64": 52539392,
+    "PeakWorkingSet64": 52539392,
+    "CPU": 0.46875,
+    "StartTime": "/Date(1790709456695)/"
+   },
+   "store_bytes": 1620574
+  },
+  {
+   "msg": "Your context contains a Qompack block. If it has a section '## 6. Pointers', then for EVERY pointer line in it call mcp__plugin_qompack_qompack__expand with {\"hash\": <the line's sha256:... value>}, and when the line starts with a file path (not with 'tool_use'), also call mcp__plugin_qompack_qompack__re_read with {\"path\": <that path>}. Then reply with one line per pointer: the pointer's first 60 characters, expand found yes/no (add 'truncated' or 'redacted' when the response or content says so), re_read found yes/no or n/a. If there is no section 6, say so and quote the block's section headings.",
+   "ok": true,
+   "wall_s": 37.072,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 2112,
+    "WorkingSet64": 56094720,
+    "PeakWorkingSet64": 56094720,
+    "CPU": 1.015625,
+    "StartTime": "/Date(1790709456695)/"
+   },
+   "store_bytes": 2132808
+  }
+ ],
+ "store_bytes_before": 0,
+ "started_ms": 1790709456036,
+ "pid": 22888,
+ "exit": 0,
+ "wall_s": 86.403,
+ "store_bytes_after": 1119778
+}

@@ -1,0 +1,69 @@
+UAT-09 — a changed dependency, or a broken query, makes the answer stop being confident; stale or
+unknown never prohibits the approach. Agent-executed on the owner's real host per owner decision D3
+by a Claude Code workflow subagent (Opus 5.5) — not human UAT.
+
+Date 2026-09-29 14:45-14:56 America/Toronto (step 5 at 14:57-15:00 in the C4.4 project). Sessions
+used for this row: 2 of its own (retrieval part n=4 session-s4-resume/ = `--resume` of UAT-08's
+session 7b2ccf44, n=5 session-s5-new/) plus UAT-08's session (n=3, turns T8-T14, evidence in
+../UAT-08/session/) and C4.4's (n=6) turns T1 and T4 for step 5. Model claude-haiku-4-5-20251001,
+Claude Code 2.1.280, Windows 11 Home 25H2 build 10.0.26200.9457, frozen bundle 0.3.0 via
+--plugin-dir (BUNDLE.json sha256 32600778...ccf4505, commit d5598eb4). Precondition: the UAT-08
+project with record elim_508b9ca0f584 (depends_on src/pool.go, config/pool.yaml) — recorded AFTER a
+compaction because UAT-08 failed at its step 2 (see ../UAT-08/notes.txt). Pre-run backup: taken
+before UAT-08, initial absence. Config files used: files/config.flag.json
+({"eliminations":{"staleResponse":"flag"}}, s4), files/config.drop.json / config.drop.s4.json /
+config.drop.s5.json ({"eliminations":{"staleResponse":"drop"}}); rebuildOnStale nextIdle (default).
+Edited file: files/pool.yaml.before-edit (max_idle 4) and files/pool.yaml.after-edit (max_idle 16).
+
+Step 1: UAT-08 session T8, the model's Edit of config/pool.yaml (max_idle 4 -> 16). The store
+ appended a new file version for it (index/files.jsonl: config/pool.yaml turn 14, root 259204dd...).
+Step 2 (flag): UAT-08 session T9, seconds after the edit (../UAT-08 stream L157->L160): state
+ "active", full record, no stale_because. After a /compact (T10) T11 (L192->L195): still "active".
+ The recording session's daemon never flipped it. FAIL condition: "a changed dependency that leaves
+ the state active". Mechanism (code-read, consistent with the log): RefreshStaleness runs when the
+ ledger is opened, at SessionStart startup/resume when the ledger is already open, and in idle work
+ after scheduler.idle.detectAfterSeconds (120 s of inactivity); already_tried and compaction do not
+ refresh. The flip happened at 18:49:03.7Z (eliminations.jsonl {"op":"stale"}, files/
+ eliminations.after-s5.jsonl), written by the daemon a post-run `qompack status` started, when it
+ opened the ledger. DEFECT F1 (within a live session the answer stays "active" after its dependency
+ changed until an idle gap or a restart).
+Step 3: s4 (resume, flag) T2 after its /compact (L26->L29): state "stale", reason, note "previously
+ eliminated, but the evidence has changed since — re-verification may be warranted", evidence,
+ scope, recorded_at, depends_on, stale_because ["config/pool.yaml: dependency hash changed from
+ sha256:9f2751eac830"] — names the changed file. PASS. T4 after the model re-Read the file: stale.
+ The s4 attempts at step 4 (T5-T7) are void: with the lane's non-default idle exit (30 s) the daemon
+ ended the silent session during a 150 s wait ("ending abandoned session; no SessionEnd arrived and
+ it has been silent past the idle-exit window", store/logs_qompack-20260929.log), a new daemon
+ started, and every later call answered "elimination ledger not present in this build" (UAT-08 F1).
+Step 4 (drop): s5, a NEW session with drop from the start. T1 before compaction: not present (F1 of
+ UAT-08). T3 after /compact (L50->L53), OBSERVED (to be confirmed at execution):
+ {"state":"uncertain","reason":"a matching elimination is stale and eliminations.staleResponse is
+ \"drop\", so its current applicability is not disclosed","note":"set eliminations.staleResponse
+ to \"flag\" to see the staleness detail, or re-verify the approach directly"} — the handlers.go
+ constants; no reason/evidence/stale_because; not absent. PASS. (s5 is a different session from
+ the one that recorded the session-scoped record; it sees it only because of UAT-08 F2.)
+ Note: MCP handlers copy the configuration when the daemon starts (mcp.newHandlers
+ normalizeCfg(d.Cfg)); the daemon's config reload (logged "config reloaded changed=[eliminations.
+ staleResponse]") updates the daemon's copy only, so a staleResponse change reaches already_tried
+ only in a new daemon. Not exercised to a conclusion here (the s4 daemon restarted).
+Step 5 (unavailable): run in the C4.4 disposable project, which had no elimination ledger
+ (../../c4/C4.4/session/stream.jsonl): T1 before any compaction (L17->L20)
+ {"found":false,"available":false,"reason":"elimination ledger not present in this build"} — no
+ `state`, no `degraded`; T4 after the first compaction, ledger open with no records file (L83->L86)
+ {"state":"absent"}. Neither is `state:"unavailable"` with `degraded:true`. FAIL condition "an
+ unavailable without degraded". The documented unavailable form (handlers.go, "elimination ledger
+ unavailable", degraded true) is produced only when the ledger's Query returns an error, which no
+ reachable step produced.
+Step 6: no response text prohibits the approach: stale says re-verification may be warranted,
+ uncertain says re-verify, the not-present form says nothing. The MODEL (Haiku) nevertheless
+ answered "Yes" (forbidden) for the stale answer (s4 T2, T4), reading the attached reason as a
+ prohibition, and "No" for every not-present/uncertain answer. Observation for the coordinator:
+ a stale answer that repeats the full original reason reads to a model as a live prohibition.
+Known gap check: s4's injected block (checkpoint 0004) and s5's (0005) carry no section 3 at all,
+ so no "[active]" digest line contradicted the stale answer; not reproduced.
+
+Post-run: cli/s5-post-* (status, doctor, fsck exit 1 on the turn-0 MCP index records), store/.
+Result: FAIL — step 2 (the dependency changed and the answer stayed active for the rest of the
+recording session) and step 5 (no-ledger answer without state/degraded). Steps 3 and 4 pass when
+reached; no response forbade the approach. Rollback: initial state absent before UAT-08; run
+retained as evidence; no restore was run.

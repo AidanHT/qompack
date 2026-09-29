@@ -1,0 +1,23 @@
+{
+  "id": "p3-win-tree",
+  "cwd": "C:/Users/Quant/Documents/Programming/Projects/qompack-cx-cand",
+  "argv": [
+    "env",
+    "QOMPACK_UNDER_COLOAD=1",
+    "go",
+    "run",
+    "./tools/devtool",
+    "test"
+  ],
+  "source_head": "a94a3fb97cdd18633b6b6670446fab2cb98c304c",
+  "source_dirty": "",
+  "environment": {
+    "GOFLAGS": "-p=6",
+    "GOPATH": "C:\\Users\\Quant\\go"
+  },
+  "started_at": "2026-09-28T14:24:59-04:00",
+  "ended_at": "2026-09-28T14:53:16-04:00",
+  "exit_code": 1,
+  "log": "p3-win-tree.log",
+  "log_sha256": "ccf724367bd393feec99658af4f3bbc27ade7f665da365a0725c99b590d2dda5"
+}

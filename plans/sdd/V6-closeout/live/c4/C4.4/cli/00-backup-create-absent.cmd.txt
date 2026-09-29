@@ -1,0 +1,6 @@
+cwd: <scratch>/retrieval/c44/proj
+argv: ["C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c3/qompack-plugin-0.3.0-windows-amd64/bin/qompack.exe", "backup", "create", "--project", "<scratch>/retrieval/c44/proj", "--id", "c44-before", "--json"]
+env+: {}
+qompack_home: <scratch>/retrieval/qhome
+wall_s: 0.034
+at: 2026-09-29T14:57:24-04:00

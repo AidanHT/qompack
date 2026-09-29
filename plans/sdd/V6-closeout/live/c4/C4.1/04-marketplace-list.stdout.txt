@@ -1,0 +1,8 @@
+[
+  {
+    "name": "qompack-live",
+    "source": "directory",
+    "path": "<scratch>\\install\\c41\\marketplace",
+    "installLocation": "<scratch>\\install\\c41\\marketplace"
+  }
+]

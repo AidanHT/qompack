@@ -1,0 +1,25 @@
+fuzz: elapsed: 2s, gathering baseline coverage: 0/254 completed
+fuzz: elapsed: 4s, gathering baseline coverage: 254/254 completed, now fuzzing with 22 workers
+fuzz: elapsed: 5s, execs: 46475 (15457/sec), new interesting: 10 (total: 264)
+fuzz: elapsed: 8s, execs: 82088 (11882/sec), new interesting: 13 (total: 267)
+fuzz: elapsed: 11s, execs: 92204 (3373/sec), new interesting: 14 (total: 268)
+fuzz: elapsed: 14s, execs: 95138 (976/sec), new interesting: 15 (total: 269)
+fuzz: elapsed: 17s, execs: 97461 (775/sec), new interesting: 16 (total: 270)
+fuzz: elapsed: 20s, execs: 97461 (0/sec), new interesting: 16 (total: 270)
+fuzz: elapsed: 23s, execs: 97461 (0/sec), new interesting: 16 (total: 270)
+fuzz: elapsed: 26s, execs: 97461 (0/sec), new interesting: 16 (total: 270)
+fuzz: elapsed: 29s, execs: 97461 (0/sec), new interesting: 16 (total: 270)
+fuzz: elapsed: 32s, execs: 97461 (0/sec), new interesting: 16 (total: 270)
+fuzz: elapsed: 35s, execs: 132603 (11763/sec), new interesting: 17 (total: 271)
+fuzz: elapsed: 38s, execs: 170594 (12649/sec), new interesting: 17 (total: 271)
+fuzz: elapsed: 41s, execs: 172042 (483/sec), new interesting: 17 (total: 271)
+fuzz: elapsed: 44s, execs: 205185 (11039/sec), new interesting: 17 (total: 271)
+fuzz: elapsed: 47s, execs: 208526 (1113/sec), new interesting: 17 (total: 271)
+fuzz: elapsed: 50s, execs: 211393 (956/sec), new interesting: 17 (total: 271)
+fuzz: elapsed: 53s, execs: 211393 (0/sec), new interesting: 17 (total: 271)
+fuzz: elapsed: 56s, execs: 211393 (0/sec), new interesting: 17 (total: 271)
+fuzz: elapsed: 59s, execs: 211393 (0/sec), new interesting: 17 (total: 271)
+fuzz: elapsed: 1m2s, execs: 211393 (0/sec), new interesting: 17 (total: 271)
+fuzz: elapsed: 1m3s, execs: 211393 (0/sec), new interesting: 17 (total: 271)
+PASS
+ok  	github.com/qompack/qompack/internal/redact	63.874s

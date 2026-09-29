@@ -1,0 +1,5 @@
+{"v":1,"path":"src/limiter.py","ts":1790705869773,"turn":5,"root":"sha256:f7c261f102561004da3990425a15a648e6085371da806421bc46dc5f37a3dcc4","bytes":614}
+{"v":1,"path":"docs/notes.md","ts":1790705873322,"turn":7,"root":"sha256:8ac5e95732c05ffc4f4fbe4609cd2ae5ed1e8841c5153542ee42ef765a9517a7","bytes":265}
+{"v":1,"path":"docs/design.md","ts":1790705876973,"turn":9,"root":"sha256:e1a1de0bea13e97db02014da3f803c6d54b449cf83072d25dc64bcc114a7e329","bytes":251}
+{"v":1,"path":"readme.md","ts":1790705880064,"turn":11,"root":"sha256:e91eec40c93f51b5aa88ad57bfd7ac7434e4a9be878f61f70bf82629958f678c","bytes":237}
+{"v":1,"path":"config/quota.txt","ts":1790705951816,"turn":20,"root":"sha256:36e1243aadd8f52049acc97aff02ba2ca585bdd939127e1d784d51063c0e32d5","bytes":876}

@@ -1,0 +1,26 @@
+{
+  "id": "p3-fuzz-FuzzParseGitIndex",
+  "cwd": "C:/Users/Quant/Documents/Programming/Projects/qompack-cx-cand",
+  "argv": [
+    "go",
+    "test",
+    "-run",
+    "^$",
+    "-fuzz",
+    "^FuzzParseGitIndex$",
+    "-fuzztime",
+    "60s",
+    "./internal/checkpoint"
+  ],
+  "source_head": "a94a3fb97cdd18633b6b6670446fab2cb98c304c",
+  "source_dirty": "",
+  "environment": {
+    "GOFLAGS": "-p=4",
+    "GOPATH": "C:\\Users\\Quant\\go"
+  },
+  "started_at": "2026-09-28T21:48:09-04:00",
+  "ended_at": "2026-09-28T21:49:33-04:00",
+  "exit_code": 0,
+  "log": "p3-fuzz-FuzzParseGitIndex.log",
+  "log_sha256": "472d27af23efc4b4c3505d35a6b0daa27b5c7196a1448037e903ddfe0882a0f1"
+}

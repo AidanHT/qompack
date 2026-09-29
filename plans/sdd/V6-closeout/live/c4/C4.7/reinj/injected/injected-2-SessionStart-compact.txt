@@ -1,0 +1,2 @@
+# stream line 27, hook SessionStart:compact, exit 0, 61 chars
+<!-- qompack-contract-probe qompack-contract-23de3e276fb7 -->

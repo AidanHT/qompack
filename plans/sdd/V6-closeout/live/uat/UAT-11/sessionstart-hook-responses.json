@@ -1,0 +1,16 @@
+[
+ {
+  "stream_line": 2,
+  "hook_name": "SessionStart:startup",
+  "exit_code": 0,
+  "outcome": "success",
+  "stdout": "{\"hookSpecificOutput\":{\"hookEventName\":\"SessionStart\",\"additionalContext\":\"<!-- qompack-contract-probe qompack-contract-a1da9019e331 -->\"}}\n"
+ },
+ {
+  "stream_line": 69,
+  "hook_name": "SessionStart:compact",
+  "exit_code": 0,
+  "outcome": "success",
+  "stdout": "{\"systemMessage\":\"Qompack: degraded to passive recording — hook.additional_context_delivered expected \\\"additionalContext reaches the transcript\\\", observed \\\"sentinel not found after two chances\\\". See /qompack:status.\"}\n"
+ }
+]

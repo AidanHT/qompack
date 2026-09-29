@@ -1,0 +1,5 @@
+UAT-02 daemon stop (defaults: idleExitSeconds 1800, so the verified process was terminated)
+{"lock": {"pid": 9008, "started": 1790703816538, "addr": "\\\\.\\pipe\\qompack.7f50a34362b0", "version": "0.3.0", "owner": "c7608ae1b25224e7bdfe2c537d2d93ef33f84619fb20c7c7b89a4df1285ef3a9"}, "pid": 9008, "proc": {"Name": "qompack.exe", "Path": "C:\\Users\\Quant\\.qompack\\bin\\c7b2b120a6efcfc1def58bd55dd29df51ec1bc0bc35a164258d5e0bc9c12803d\\qompack.exe", "Cmd": "C:\\Users\\Quant\\.qompack\\bin\\c7b2b120a6efcfc1def58bd55dd29df51ec1bc0bc35a164258d5e0bc9c12803d\\qompack.exe daemon --project <scratch>\\sessions\\uat02\\proj"}}
+check image qompack.exe: True | check cmdline daemon+project: True
+Stop-Process exit 0  | still alive: False
+RESULT: stopped pid 9008

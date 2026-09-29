@@ -1,0 +1,21 @@
+{
+  "id": "p3-fmt-check",
+  "cwd": "C:/Users/Quant/Documents/Programming/Projects/qompack-cx-cand",
+  "argv": [
+    "go",
+    "run",
+    "./tools/devtool",
+    "fmt-check"
+  ],
+  "source_head": "a94a3fb97cdd18633b6b6670446fab2cb98c304c",
+  "source_dirty": "",
+  "environment": {
+    "GOFLAGS": "-p=4",
+    "GOPATH": "C:\\Users\\Quant\\go"
+  },
+  "started_at": "2026-09-28T19:58:44-04:00",
+  "ended_at": "2026-09-28T19:59:00-04:00",
+  "exit_code": 0,
+  "log": "p3-fmt-check.log",
+  "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

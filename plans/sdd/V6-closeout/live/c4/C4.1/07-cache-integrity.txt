@@ -1,0 +1,29 @@
+$ sha256sum -c checksums.txt (in installed cache copy)
+.claude-plugin/plugin.json: OK
+.mcp.json: OK
+bin/qompack.exe: OK
+commands/dropped.md: OK
+commands/eval.md: OK
+commands/pin.md: OK
+commands/recall.md: OK
+commands/status.md: OK
+commands/why.md: OK
+hooks/hooks.json: OK
+exit 0
+$ cmp cache bin vs frozen bundle bin
+exit 0
+$ cmp BUNDLE.json
+exit 0
+$ find (installed cache copy)
+./.claude-plugin/plugin.json
+./.mcp.json
+./bin/qompack.exe
+./BUNDLE.json
+./checksums.txt
+./commands/dropped.md
+./commands/eval.md
+./commands/pin.md
+./commands/recall.md
+./commands/status.md
+./commands/why.md
+./hooks/hooks.json

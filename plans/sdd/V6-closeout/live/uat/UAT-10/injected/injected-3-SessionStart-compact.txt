@@ -1,0 +1,15 @@
+# stream line 60, hook SessionStart:compact, exit 0, 933 chars
+<!-- qompack:injected seq=2 ver=1 -->
+# Qompack rehydration — checkpoint 0002, session 25983fe8
+
+## 2. Original user intent (verbatim from L0 capture — never summarized)
+> Use the Read tool to read src/batch.go and then worker.log. In one sentence, what does Flush do?
+
+## 3. Approaches already eliminated (top 1 of 1 by slice relevance)
+- src/batch.go:Flush — "raise the batch limit" — a larger batch overruns the downstream 64 KiB frame, so the flush fails [active] [evidence sha256:4a05efa1a94f903e6f04ddb48f65b0e6c0d7ea79800a94a3a7ac25439c2f3110]
+Before committing to an approach, call already_tried.
+
+## 8. Retrieval
+Qompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().
+<!-- /qompack:injected -->
+<!-- qompack-contract-probe qompack-contract-214ae1aef331 -->

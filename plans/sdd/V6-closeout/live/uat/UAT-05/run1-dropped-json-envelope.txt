@@ -1,0 +1,28 @@
+/qompack:dropped --json in the session after the compaction. The host does not put a command's expanded body in the
+stream; this is the model's verbatim reproduction of the envelope (assistant text, run's stream.jsonl), last turn:
+
+```json
+{
+  "schema": 1,
+  "command": "dropped",
+  "ok": true,
+  "data": {
+    "tool": "dropped",
+    "is_error": false,
+    "ephemeral": true,
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"count\":0,\"drops\":[]}"
+      }
+    ],
+    "meta": {
+      "elapsed_ms": 0,
+      "hash": "sha256:2cb20f2bc17fa600fba08ca7a50a3d358255731776f97bdaf720cd4f82a35bc1",
+      "tool_use_id": "qompack-mcp:a4a97c6773a5"
+    }
+  }
+}
+```
+
+No omissions—all material is accounted for.

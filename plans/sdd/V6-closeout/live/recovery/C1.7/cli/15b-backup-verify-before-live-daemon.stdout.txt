@@ -1,0 +1,1 @@
+{"schema":1,"action":"verify","id":"before","error":"backup: stop the source daemon before maintenance: qompack: daemon lock already held"}

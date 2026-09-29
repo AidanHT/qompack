@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "command": "recall",
+  "ok": true,
+  "data": {
+    "tool": "recall",
+    "is_error": false,
+    "ephemeral": true,
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"hits\":[],\"count\":0,\"found\":false,\"query\":{\"text\":\"vermilion osprey omega\",\"path\":\"\",\"symbol\":\"\",\"tool\":\"\"}}"
+      }
+    ],
+    "meta": {
+      "elapsed_ms": 0,
+      "hash": "sha256:09e289728d09d1345b6e41b1c20996c463215370948d11407471fa00b49f6df2",
+      "tool_use_id": "qompack-mcp:f8f4a94b8d16",
+      "untrusted": true
+    }
+  }
+}

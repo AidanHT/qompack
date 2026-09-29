@@ -1,0 +1,73 @@
+{
+ "args": [
+  "-p",
+  "--input-format",
+  "stream-json",
+  "--output-format",
+  "stream-json",
+  "--verbose",
+  "--include-hook-events",
+  "--model",
+  "claude-haiku-4-5-20251001",
+  "--max-turns",
+  "10",
+  "--setting-sources",
+  "project,local",
+  "--permission-mode",
+  "dontAsk",
+  "--plugin-dir",
+  "C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c3/qompack-plugin-0.3.0-windows-amd64",
+  "--allowedTools",
+  "Read,mcp__plugin_qompack_qompack__recall,mcp__plugin_qompack_qompack__expand,mcp__plugin_qompack_qompack__re_read,mcp__plugin_qompack_qompack__already_tried,mcp__plugin_qompack_qompack__record_eliminated,mcp__plugin_qompack_qompack__timeline,mcp__plugin_qompack_qompack__why,mcp__plugin_qompack_qompack__dropped,Bash(qompack status:*),Bash(qompack recall:*),Bash(qompack pin:*),Bash(qompack why:*),Bash(qompack dropped:*),Bash(qompack eval:*)"
+ ],
+ "turns": [
+  {
+   "msg": "Use the Read tool to read notes.md and tell me the pre-backup marker phrase in one sentence.",
+   "ok": true,
+   "wall_s": 4.007,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 57772,
+    "WorkingSet64": 28610560,
+    "PeakWorkingSet64": 28610560,
+    "CPU": 0.203125,
+    "StartTime": "/Date(1790710326470)/"
+   },
+   "store_bytes": 94942
+  },
+  {
+   "msg": "Use the Read tool to read data.txt and tell me the amount on entry-030.",
+   "ok": true,
+   "wall_s": 2.204,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 57772,
+    "WorkingSet64": 31543296,
+    "PeakWorkingSet64": 31543296,
+    "CPU": 0.28125,
+    "StartTime": "/Date(1790710326470)/"
+   },
+   "store_bytes": 122413
+  },
+  {
+   "msg": "Use the Read tool to read app.py and tell me what total() returns.",
+   "ok": true,
+   "wall_s": 2.205,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 57772,
+    "WorkingSet64": 33083392,
+    "PeakWorkingSet64": 33083392,
+    "CPU": 0.375,
+    "StartTime": "/Date(1790710326470)/"
+   },
+   "store_bytes": 145860
+  }
+ ],
+ "store_bytes_before": 0,
+ "started_ms": 1790710325816,
+ "pid": 2316,
+ "exit": 0,
+ "wall_s": 10.812,
+ "store_bytes_after": 187986
+}

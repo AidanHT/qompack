@@ -1,0 +1,132 @@
+[2026-09-27T15:52:04] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && git log --oneline f6095e2..HEAD && git status && git diff --stat
+[2026-09-27T15:52:06] Bash: mkdir -p C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config/ && wc -l C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/coordinator/digests/w6-config.txt
+[2026-09-27T15:52:09] Bash: sed -n 380,582p C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/coordinator/digests/w6-config.txt
+[2026-09-27T15:52:10] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && find plans/sdd/V6-closeout/w6-config -type f | head -50 && ls -la plans/sdd/V6-closeout/w6-config
+[2026-09-27T15:52:15] Bash: sed -n 1,200p C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/coordinator/digests/w6-config.txt | cut -c1-400
+[2026-09-27T15:52:18] Bash: sed -n 200,380p C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/coordinator/digests/w6-config.txt | cut -c1-600
+[2026-09-27T15:52:22] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && cat plans/sdd/V6-closeout/w5-winfiles/report.md
+[2026-09-27T15:52:23] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-v6 && grep -n "D22\|D23\|D8\b" plans/V6-CLOSEOUT-CHECKLIST.md | head -40
+[2026-09-27T15:52:28] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && grep -n "3.2\|needs_owner\|config\|Open issues\|open_issues\|HOME\|home\|seedFsck" plans/sdd/V6-closeout/w5-winfiles/report.md | head -80
+[2026-09-27T15:52:29] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-v6 && sed -n 1,76p plans/V6-CLOSEOUT-CHECKLIST.md
+[2026-09-27T15:52:33] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && git log --stat f6095e2..HEAD | cat
+[2026-09-27T15:52:37] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && git show 5ac1d76 | cat
+[2026-09-27T15:52:42] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && git show 98cab75 | cat
+[2026-09-27T15:53:02] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && grep -n "func openShared" -B5 -A40 internal/paths/replace_windows.go; cat internal/paths/shared.go | head -80
+[2026-09-27T15:53:06] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && git show 8af2df2 -- internal/config/load.go internal/config/capture_load.go internal/config/doc.go internal/config/validate.go internal/cli | cat
+[2026-09-27T15:53:17] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && cat internal/config/atomic_save_test.go
+[2026-09-27T15:53:23] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config/plans/sdd/V6-closeout/w6-config/runs && for f in 0*.log; do echo "=== $f"; grep -E "^#|loads,|--- |^ok|^FAIL|exit=" $f | cut -c1-300 | head -30; done
+[2026-09-27T15:53:29] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config/plans/sdd/V6-closeout/w6-config/runs && tail -15 11-config-paths-full-windows.log; echo; tail -30 10-lint-windows.log; echo; head -30 20-proof-base-poisoned-home-windows.log; wc -l 20-proof-base-poisoned-home-windows.log
+[2026-09-27T15:53:39] Bash: grep -n "TEXT:" C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/coordinator/digests/w6-config.txt | cut -c1-1500
+[2026-09-27T15:53:44] Bash: S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config; ls -la $S; for f in $S/diag*.log; do echo "=== $f"; tail -25 $f | cut -c1-300; done
+[2026-09-27T15:54:21] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && go version && GR=$(go env GOROOT) && grep -n "func rename" -A12 $GR/src/os/file_windows.go; grep -n "func Rename" -A30 $GR/src/internal/syscall/windows/syscall_windows.go | head -50
+[2026-09-27T15:54:45] Write: C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config/internal/paths/zz_diag_vanish_windows_test.go
+[2026-09-27T15:54:50] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config && go test -c -o $S/paths-diag.test.exe ./internal/paths; echo build=$?; rm -f internal/paths/zz_diag_vanish_windows_test.go; git status --short
+[2026-09-27T15:55:12] Bash: S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config && cd $S && (DIAG_READER=shared DIAG_ROUNDS=40 DIAG_SAVES=500 ./paths-diag.test.exe -test.run '^TestZZDiagVanishUnderLegacyRename$' -test.v -test.timeout=60m > $S/diag-legacy-shared.log 2>&1; echo "exit=$?" >> $S/diag-legacy-shared.log; DIAG_REA
+[2026-09-27T15:55:14] TEXT: Meanwhile, let me review the pathstest commit.
+[2026-09-27T15:55:15] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && cat internal/paths/pathstest/home.go && cat internal/paths/pathstest/home_test.go && git show 54a7bd0 -- plans/00-ARCHITECTURE.md | cat
+[2026-09-27T15:55:26] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && grep -rn "\"HOME\"\|\"USERPROFILE\"\|\"QOMPACK_HOME\"\|\"CLAUDE_CONFIG_DIR\"\|UserHomeDir\|UserConfigDir\|UserCacheDir\|\"APPDATA\"\|\"LOCALAPPDATA\"\|XDG_" --include=*.go internal cmd | grep -v "_test.go" | grep -v "internal/paths/pathstest"
+[2026-09-27T15:55:27] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && cat test/guards/homeisolation_test.go
+[2026-09-27T15:55:43] Bash: S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config && grep -v "=== RUN" $S/diag-legacy-shared.log | cut -c1-250; echo; grep -v "=== RUN" $S/diag-legacy-ordinary.log | cut -c1-250
+[2026-09-27T15:56:23] Write: C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config/internal/paths/zz_diag_vanish_windows_test.go
+[2026-09-27T15:56:37] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config && cp internal/paths/zz_diag_vanish_windows_test.go $S/zz_diag_vanish_windows_test.go.txt && go test -c -o $S/paths-diag.test.exe ./internal/paths; echo build=$?; rm -f int
+[2026-09-27T15:56:43] Bash: S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config && cd $S && for i in 1 2; do for m in ordinary shared; do DIAG_READER=$m DIAG_ROUNDS=100 DIAG_SAVES=500 ./paths-diag.test.exe -test.run '^TestZZDiagVanishUnderLegacyRename$' -test.v -test.timeout=60m > $S/diag2-legacy-$m-$i.log 2>&1; echo "exit=
+[2026-09-27T15:56:58] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && sed -n 1,80p internal/paths/home.go; grep -rn "homeEnvKeys" internal/paths/*.go
+[2026-09-27T15:57:03] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && grep -rn "HomeDirs(\|config.UserConfigPath\|UserConfigPath(\|DefaultCalibPath()\|paths.Global(" --include=*.go internal cmd | grep -v "_test.go"
+[2026-09-27T15:57:12] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && cat internal/cli/main_test.go && git show 96b7e32 -- internal/mcp/benchfixture_test.go test/canary/host_test.go test/e2e/hooks_test.go test/fault/main_test.go test/platform/main_test.go test/release/main_test.go test/security/main_test.go | cat
+[2026-09-27T15:57:21] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && git show 96b7e32 -- test/e2e/v3_x05_test.go test/e2e/v3_x11_test.go test/integration/hotpath_test.go test/integration/replaygrowth_test.go test/integration/v4_x09_test.go | cat
+[2026-09-27T15:57:31] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && sed -n 1,60p plans/sdd/V6-closeout/linux/linux-nonroot-gate.sh; grep -n "HOME\|GOPATH\|GOCACHE\|GOMODCACHE\|safe\|buildvcs\|GOFLAGS\|chown\|useradd\|su \|runuser" plans/sdd/V6-closeout/linux/linux-nonroot-inner.sh | head -40
+[2026-09-27T15:57:37] Bash: S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config && ls $S/diag2-legacy-* 2>/dev/null; for f in $S/diag2-legacy-*.log; do echo "=== $f"; grep -v "=== RUN" $f | cut -c1-400; done
+[2026-09-27T15:57:41] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && git show 8af2df2 -- docs/architecture.md plans/00-ARCHITECTURE.md test/guards | cat
+[2026-09-27T15:58:00] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config/plans/sdd/V6-closeout/w6-config/runs && grep -n "Messages\|first:" 02-red-shared-reads-no-retry-windows.log | cut -c1-600 | head; echo; grep -n "Messages" 03-red-atomic-save-final-test-at-base-windows.log | cut -c1-500
+[2026-09-27T15:58:09] Bash: sleep 45; S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config && for f in $S/diag2-legacy-*.log; do echo "=== $f"; grep -v "=== RUN" $f | cut -c1-400; done
+[2026-09-27T15:58:14] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && ls docs; grep -rln "pathstest\|TestMain\|invariant 7\|real home\|HOME isolation\|isolat" docs/ CONTRIBUTING.md README.md 2>/dev/null; grep -rn "t.Setenv(\"HOME\"\|isolat.*home\|home.*isolat" docs/*.md CONTRIBUTING.md 2>/dev/null | head
+[2026-09-27T15:58:18] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && grep -n "pathstest\|TestMain\|invariant 7\|real home\|isolat" docs/cannot-do.md docs/uat.md | head -20; ls CONTRIBUTING* 2>/dev/null; grep -n "§13\|invariant 7" plans/00-ARCHITECTURE.md | head; 
+[2026-09-27T15:58:22] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && grep -n "^## 13\|^### 13\|invariant" plans/00-ARCHITECTURE.md | head -30
+[2026-09-27T15:58:25] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && sed -n 2930,2990p plans/00-ARCHITECTURE.md
+[2026-09-27T15:58:30] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && grep -n "hermetic\|real home\|t.TempDir\|user's home\|developer's" plans/00-ARCHITECTURE.md | head -20
+[2026-09-27T15:58:34] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && sed -n 2515,2560p plans/00-ARCHITECTURE.md; grep -n "^## 6\|^### 6\." plans/00-ARCHITECTURE.md | head
+[2026-09-27T15:58:38] Bash: S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config && for f in $S/diag2-legacy-*.log; do echo "=== $f"; grep -v "=== RUN" $f | cut -c1-500; done
+[2026-09-27T15:59:07] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && L=plans/sdd/V6-closeout/w6-config/runs/30-flake-measure-atomic-save-windows.log; (echo "# HEAD $(git rev-parse --short HEAD) (unchanged product code), Windows, co-loaded host: both atomic-save tests x12"; go test ./internal/config -run '^(TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves|TestLoad_ReadsThroughAnEditorsAtomic
+[2026-09-27T15:59:14] Bash: GR=$(cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && go env GOROOT); grep -n "func openFileNolog" -A40 $GR/src/os/file_unix.go | head -50; grep -n "func newFile(" -A60 $GR/src/os/file_unix.go | grep -n "nonBlocking\|pollable\|kindOpenFile\|S_IFREG" | head -20
+[2026-09-27T15:59:19] Bash: GR=$(cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && go env GOROOT); sed -n 190,225p $GR/src/os/file_unix.go
+[2026-09-27T15:59:24] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && grep -rn "\"unsafe\"" tools/devtool/*.go test/guards/*.go | head; grep -rln "\"unsafe\"" internal --include=*.go | head
+[2026-09-27T15:59:37] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && grep -n "foundation\|import graph\|importgraph\|may import\|allow-set\|§3.2\|3\.2" docs/architecture.md | head -20
+[2026-09-27T15:59:47] Bash: S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config && cat $S/linux-touched.out; cat $S/proofrun.sh; cat $S/snaphome.sh; ls $S/poisonhome; cat $S/poisonhome/main.go | head -80
+[2026-09-27T15:59:56] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && grep -rl "writing stat cache" plans/sdd/V6-closeout/*/runs/ 2>/dev/null | head -5
+[2026-09-27T16:00:12] Bash: cat C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config/plans/sdd/V6-closeout/w6-config/runs/30-flake-measure-atomic-save-windows.log | cut -c1-300
+[2026-09-27T16:00:37] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && git diff f6095e2..HEAD | grep -n "^+.*invariant 7" | cut -c1-250
+[2026-09-27T16:00:44] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && grep -n "invariant 7" internal/paths/pathstest/home.go plans/00-ARCHITECTURE.md test/guards/homeisolation_test.go
+[2026-09-27T16:00:46] TEXT: Let me fix the pathstest doc comment first.
+[2026-09-27T16:00:49] Edit: C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config/internal/paths/pathstest/home.go
+[2026-09-27T16:00:51] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && sed -n 612,622p plans/00-ARCHITECTURE.md; sed -n 30,40p test/guards/homeisolation_test.go
+[2026-09-27T16:00:57] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && sed -n 60,97p tools/devtool/importrules.go; grep -n "rule (c)\|(c)" tools/devtool/importgraph.go | head
+[2026-09-27T16:01:01] Bash: cat C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config/plans/sdd/V6-closeout/w6-config/runs/30-flake-measure-atomic-save-windows.log | cut -c1-260
+[2026-09-27T16:01:25] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && grep -n "func baseEnv\|func captureConfigPath" -A14 internal/config/*_test.go | head -40
+[2026-09-27T16:01:43] Write: C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config/internal/config/zz_diag_vanish_windows_test.go
+[2026-09-27T16:01:48] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config && cp internal/config/zz_diag_vanish_windows_test.go $S/zz_diag_config_vanish_windows_test.go.txt && go test -c -o $S/config-diag3.test.exe ./internal/config; echo build=$?
+[2026-09-27T16:02:48] Bash: S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config && cd $S && for m in load shared ordinary; do DIAG_READER=$m DIAG_ROUNDS=20 ./config-diag3.test.exe -test.run '^TestZZDiagConfigVanish$' -test.v -test.timeout=30m > $S/diag3-$m.log 2>&1; echo "exit=$?" >> $S/diag3-$m.log; done; for m in load sha
+[2026-09-27T16:12:59] Bash: S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config && for m in load shared ordinary; do echo "== $m"; grep -v "=== RUN" $S/diag3-$m.log 2>/dev/null | cut -c1-700; done
+[2026-09-27T16:13:11] Bash: S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config && ls -la $S/diag3-*.log; cat $S/diag3-load.log | head; powershell -NoProfile -Command "Get-Process config-diag3.test -ErrorAction SilentlyContinue | Select-Object Id,CPU,StartTime | Format-Table -AutoSize | Out-String"
+[2026-09-27T16:13:27] Bash: date; S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config && ls -la $S/diag3-*.log
+[2026-09-27T16:13:42] PowerShell: Get-CimInstance Win32_Process -Filter "Name='config-diag3.test.exe'" | Select-Object ProcessId,ExecutablePath,CommandLine | Format-List | Out-String -Width 300
+[2026-09-27T16:14:07] PowerShell: Get-CimInstance Win32_Process -Filter "Name='config-diag3.test.exe'" | Where-Object { $_.ExecutablePath -like '*scratchpad\w6\config\*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -Confirm:$false; "stopped $($_.ProcessId)" }
+[2026-09-27T16:14:27] Bash: S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config && for m in load shared ordinary; do echo "== $m"; cat $S/diag3-$m.log 2>/dev/null | grep -v "=== RUN" | cut -c1-900; done
+[2026-09-27T16:15:50] Write: C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config/internal/config/zz_diag_vanish_windows_test.go
+[2026-09-27T16:15:57] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config && cp internal/config/zz_diag_vanish_windows_test.go $S/zz_diag_refused_save_vanish_windows_test.go.txt && go test -c -o $S/config-diag4.test.exe ./internal/config; echo bu
+[2026-09-27T16:17:45] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config && sed '/"sync\/atomic"/d' $S/zz_diag_refused_save_vanish_windows_test.go.txt > internal/config/zz_diag_vanish_windows_test.go && cp internal/config/zz_diag_vanish_windows_
+[2026-09-27T16:18:57] Bash: S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config && cd $S && for m in shared none ordinary capture load; do DIAG_READER=$m DIAG_ROUNDS=10 DIAG_SAVES=300 ./config-diag4.test.exe -test.run '^TestZZDiagRefusedSaveVanish$' -test.v -test.timeout=20m > $S/diag4-$m.log 2>&1; echo "exit=$?" >> $S/diag
+[2026-09-27T16:19:07] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && python3 - <<'EOF'
+def rep(p, old, new):
+    s=open(p,encoding='utf-8').read()
+    assert s.count(old)==1, (p, s.count(old))
+    s=s.replace(old,new)
+    open(p,'w',encoding='utf-8',newline='\n').write(s)
+
+rep('plans/00-ARCHITECTURE.md',
+'''`CLAUDE_CONFIG_DIR` for the whole test process, so no test reads or writes the real `~/
+[2026-09-27T16:19:25] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && sed -n 100,150p tools/devtool/importgraph.go
+[2026-09-27T16:19:36] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && grep -n "paths and core\|but paths and\|except \`paths\`" internal/paths/pathstest/home.go plans/00-ARCHITECTURE.md test/guards/homeisolation_test.go
+[2026-09-27T16:19:43] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && grep -n "in-package tests" internal/paths/pathstest/home.go plans/00-ARCHITECTURE.md; git log -1 --format=%B 54a7bd0 | grep -n "in-package"
+[2026-09-27T16:19:53] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && sed -n 19,24p internal/paths/pathstest/home.go; sed -n 612,626p plans/00-ARCHITECTURE.md
+[2026-09-27T16:20:03] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && python3 - <<'EOF'
+def rep(p, old, new):
+    s=open(p,encoding='utf-8').read()
+    assert s.count(old)==1, (p, s.count(old))
+    s=s.replace(old,new)
+    open(p,'w',encoding='utf-8',newline='\n').write(s)
+rep('internal/paths/pathstest/home.go',
+'''// The package imports nothing from this module, so the in-package tests of ever
+[2026-09-27T16:20:14] Bash: S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config && for m in shared none ordinary capture load; do echo "== $m"; grep -v "=== RUN" $S/diag4-$m.log 2>/dev/null | cut -c1-500; done
+[2026-09-27T16:20:21] ToolSearch: {"query": "select:Monitor", "max_results": 1}
+[2026-09-27T16:20:27] Monitor: S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config; seen=""; while true; do for m in shared none ordinary capture load; do f=$S/diag4-$m.log; if [ -f "$f" ] && grep -q "^exit=" "$f" && ! echo "$seen" | grep -qw "$m"; then seen="$seen $m"; echo "$m done: $(grep -c VANISHED $f) vanish lines; $(gre
+[2026-09-27T16:20:34] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && gofmt -l internal/paths/pathstest test/guards; git diff plans/00-ARCHITECTURE.md | cat
+[2026-09-27T16:20:41] TEXT: Let me reflow that paragraph to 100 columns.
+[2026-09-27T16:20:44] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && python3 - <<'EOF'
+p='plans/00-ARCHITECTURE.md'
+s=open(p,encoding='utf-8').read()
+start=s.index('**`paths/pathstest` isolates')
+end=s.index('\n\n', start)
+para=s[start:end]
+import textwrap
+words=para.replace('\n',' ').split(' ')
+lines=[];cur=''
+for w in words:
+    if not w: continue
+    if cur and len(cur)+1+len(w)>100:
+      
+[2026-09-27T16:20:52] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && ls test/docs; grep -ln "architecture.md" test/docs/*.go
+[2026-09-27T16:20:59] Bash: S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config && grep -v "=== RUN" $S/diag4-shared.log 2>/dev/null | cut -c1-400
+[2026-09-27T16:21:07] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && ls tools/devtool | grep -i stub; grep -n "func \|return early\|vacuous" tools/devtool/stubskips.go 2>/dev/null | head -30
+[2026-09-27T16:21:12] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && grep -rn "os.Getenv(\"GO_WANT_HELPER\|helper process\|HELPER_PROCESS\|if os.Getenv(.*) == \"\" {" --include=*_test.go internal test | head -8
+[2026-09-27T16:21:33] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && git diff --stat; git status --short
+[2026-09-27T16:21:46] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config && mkdir -p $S/msgs2 && cat > $S/msgs2/d1.txt <<'EOF'
+docs(paths): say why a test must not touch the real home
+
+The pathstest note, its package comment and the home-isolati
+[2026-09-27T16:22:38] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && sed -n 40,75p internal/config/load.go
+[2026-09-27T16:22:43] Bash: S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config && grep -v "=== RUN" $S/diag4-shared.log | cut -c1-400
+[2026-09-27T16:23:11] Write: C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config/internal/paths/zz_diag_window_windows_test.go
+[2026-09-27T16:23:13] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config && cp internal/paths/zz_diag_window_windows_test.go $S/zz_diag_replace_window_windows_test.go.txt && go test -c -o $S/paths-diag5.test.exe ./internal/paths; echo build=$?; 
+[2026-09-27T16:25:45] Bash: until grep -q "build=" "C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\ea3a1827-1c45-45bd-b710-a411ddbeda7f\tasks\be9iy1ltg.output"; do sleep 3; done; cat "C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\ea3a1827-1c45-45bd-b710-a411ddbeda7f\tasks\be9iy1ltg.output"; cd C:/Users/Quant/Documents/Programming
+[2026-09-27T16:26:24] Bash: S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config && grep -v "=== RUN" $S/diag4-none.log | cut -c1-300; grep -v "=== RUN" $S/diag4-ordinary.log 2>/dev/null | cut -c1-300
+[2026-09-27T16:26:40] Bash: S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config && until grep -q "^exit=" $S/diag4-ordinary.log 2>/dev/null; do sleep 5; done; grep -v "=== RUN" $S/diag4-ordinary.log | cut -c1-300; powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \"Name='config-diag4.test.exe'\" | Where-

@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "session": "25983fe8-f020-46f5-ae7e-b576618d8562",
+  "seq": 2,
+  "created": "2026-09-29T19:08:15.996Z",
+  "parent": "0001.json",
+  "encoded_segments": [],
+  "invariants": [],
+  "user_intent": {
+    "original": "Use the Read tool to read src/batch.go and then worker.log. In one sentence, what does Flush do?",
+    "evolution": []
+  },
+  "eliminated": [],
+  "decisions": [],
+  "open_questions": [],
+  "current_work": {
+    "goal": "",
+    "next_step": "",
+    "blocked_on": null
+  },
+  "pointers": {
+    "files": [],
+    "tools": []
+  },
+  "narrative": "",
+  "sketch_refs": {
+    "touch": "touch.cms",
+    "tried": "tried.bloom"
+  },
+  "dropped": [],
+  "cache": {
+    "p_chosen": 0,
+    "rewrite_tokens": 0,
+    "ttl_state": "unknown"
+  }
+}

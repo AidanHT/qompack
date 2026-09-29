@@ -1,0 +1,6 @@
+cwd: <scratch>/recovery/c17/proj
+argv: ["C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c3/qompack-plugin-0.3.0-windows-amd64/bin/qompack.exe", "recall", "vermilion osprey omega", "--json"]
+env+: {"QOMPACK_PROJECT_ROOT": "<scratch>/recovery/c17/proj", "QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS": "30"}
+qompack_home: <scratch>/recovery/qhome
+wall_s: 0.221
+at: 2026-09-29T15:35:37-04:00

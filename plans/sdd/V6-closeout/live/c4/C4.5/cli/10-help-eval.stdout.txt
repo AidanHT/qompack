@@ -1,0 +1,8 @@
+qompack eval — Report the latest replay and live evaluation results
+
+usage: qompack eval [--corpus <path>]
+       /qompack:eval [--corpus <path>]
+
+flags:
+  --json                 emit the stable JSON envelope instead of text
+  --corpus <path>        read a live-eval run, a directory of runs, or a replay report

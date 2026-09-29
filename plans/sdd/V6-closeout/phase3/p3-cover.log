@@ -1,0 +1,279 @@
+	github.com/qompack/qompack/cmd/qompack		coverage: 0.0% of statements
+ok  	github.com/qompack/qompack/internal/admission	1.079s	coverage: 100.0% of statements
+ok  	github.com/qompack/qompack/internal/analyzer	4.035s	coverage: 88.2% of statements
+ok  	github.com/qompack/qompack/internal/analyzer/analyzertest	1.297s	coverage: 60.3% of statements
+ok  	github.com/qompack/qompack/internal/canon	8.704s	coverage: 98.0% of statements
+ok  	github.com/qompack/qompack/internal/canon/canontest	1.062s	coverage: 96.1% of statements
+ok  	github.com/qompack/qompack/internal/checkpoint	66.695s	coverage: 91.1% of statements
+ok  	github.com/qompack/qompack/internal/checkpoint/checkpointtest	1.217s	coverage: 18.1% of statements
+ok  	github.com/qompack/qompack/internal/chunk	9.953s	coverage: 100.0% of statements
+ok  	github.com/qompack/qompack/internal/chunk/chunktest	0.969s	coverage: 99.0% of statements
+ok  	github.com/qompack/qompack/internal/cli	56.193s	coverage: 81.8% of statements
+ok  	github.com/qompack/qompack/internal/commands	1.387s	coverage: 89.8% of statements
+ok  	github.com/qompack/qompack/internal/config	15.705s	coverage: 91.7% of statements
+ok  	github.com/qompack/qompack/internal/contract	3.313s	coverage: 87.9% of statements
+ok  	github.com/qompack/qompack/internal/contract/contracttest	1.169s	coverage: 97.3% of statements
+ok  	github.com/qompack/qompack/internal/core	0.891s	coverage: 94.0% of statements
+ok  	github.com/qompack/qompack/internal/daemon	250.577s	coverage: 86.0% of statements
+ok  	github.com/qompack/qompack/internal/dag	13.089s	coverage: 90.9% of statements
+ok  	github.com/qompack/qompack/internal/dag/dagtest	1.326s	coverage: 97.6% of statements
+ok  	github.com/qompack/qompack/internal/eval	2.728s	coverage: 88.3% of statements
+ok  	github.com/qompack/qompack/internal/eval/evaltest	1.241s	coverage: 93.4% of statements
+ok  	github.com/qompack/qompack/internal/grammar	2.564s	coverage: 91.4% of statements
+ok  	github.com/qompack/qompack/internal/grammar/grammartest	0.904s	coverage: 97.1% of statements
+ok  	github.com/qompack/qompack/internal/hookio	1.172s	coverage: 90.0% of statements
+ok  	github.com/qompack/qompack/internal/hostperm	2.143s	coverage: 94.3% of statements
+ok  	github.com/qompack/qompack/internal/ipc	15.084s	coverage: 85.0% of statements
+ok  	github.com/qompack/qompack/internal/ipc/ipctest	1.152s	coverage: 96.9% of statements
+ok  	github.com/qompack/qompack/internal/logging	1.067s	coverage: 91.9% of statements
+ok  	github.com/qompack/qompack/internal/mcp	97.867s	coverage: 88.1% of statements
+ok  	github.com/qompack/qompack/internal/mcp/mcptest	1.085s	coverage: 97.9% of statements
+ok  	github.com/qompack/qompack/internal/negknow	22.242s	coverage: 93.0% of statements
+ok  	github.com/qompack/qompack/internal/negknow/negknowtest	1.389s	coverage: 96.0% of statements
+ok  	github.com/qompack/qompack/internal/obs	1.242s	coverage: 95.7% of statements
+ok  	github.com/qompack/qompack/internal/observer	72.714s	coverage: 91.8% of statements
+ok  	github.com/qompack/qompack/internal/observer/observertest	2.968s	coverage: 96.0% of statements
+ok  	github.com/qompack/qompack/internal/paths	7.088s	coverage: 89.5% of statements
+ok  	github.com/qompack/qompack/internal/paths/pathstest	1.112s	coverage: 52.3% of statements
+ok  	github.com/qompack/qompack/internal/pins	2.987s	coverage: 98.7% of statements
+ok  	github.com/qompack/qompack/internal/pins/pinstest	0.905s	coverage: 36.5% of statements
+ok  	github.com/qompack/qompack/internal/pluginmanifest	1.580s	coverage: 90.4% of statements
+ok  	github.com/qompack/qompack/internal/redact	2.927s	coverage: 92.4% of statements
+ok  	github.com/qompack/qompack/internal/redact/redacttest	0.855s	coverage: 98.2% of statements
+ok  	github.com/qompack/qompack/internal/rehydrate	1.342s	coverage: 95.0% of statements
+ok  	github.com/qompack/qompack/internal/rehydrate/rehydratetest	1.469s	coverage: 97.4% of statements
+ok  	github.com/qompack/qompack/internal/rules	1.142s	coverage: 86.6% of statements
+ok  	github.com/qompack/qompack/internal/rules/rulestest	0.921s	coverage: 92.3% of statements
+ok  	github.com/qompack/qompack/internal/scheduler	9.965s	coverage: 97.1% of statements
+ok  	github.com/qompack/qompack/internal/scheduler/schedulertest	0.786s	coverage: 97.9% of statements
+ok  	github.com/qompack/qompack/internal/sketch	21.415s	coverage: 96.6% of statements
+ok  	github.com/qompack/qompack/internal/sketch/sketchtest	1.153s	coverage: 99.5% of statements
+ok  	github.com/qompack/qompack/internal/skills	1.579s	coverage: 82.6% of statements
+ok  	github.com/qompack/qompack/internal/skills/skillstest	0.893s	coverage: 91.5% of statements
+ok  	github.com/qompack/qompack/internal/state	0.910s	coverage: 89.5% of statements
+ok  	github.com/qompack/qompack/internal/store	218.174s	coverage: 86.6% of statements
+ok  	github.com/qompack/qompack/internal/store/storetest	1.553s	coverage: 99.0% of statements
+ok  	github.com/qompack/qompack/internal/symbols	1.699s	coverage: 93.7% of statements
+ok  	github.com/qompack/qompack/internal/symbols/symbolstest	0.785s	coverage: 97.9% of statements
+ok  	github.com/qompack/qompack/internal/testutil	5.153s	coverage: 82.1% of statements
+ok  	github.com/qompack/qompack/internal/tokens	4.369s	coverage: 93.6% of statements
+ok  	github.com/qompack/qompack/internal/tokens/tokenstest	0.914s	coverage: 10.3% of statements
+ok  	github.com/qompack/qompack/test/bench/hotpath	1.124s	coverage: 33.6% of statements
+ok  	github.com/qompack/qompack/test/canary	4.021s	coverage: 78.7% of statements
+ok  	github.com/qompack/qompack/test/dedup	1.115s	coverage: 84.7% of statements
+ok  	github.com/qompack/qompack/test/docs	2.762s	coverage: [no statements]
+ok  	github.com/qompack/qompack/test/e2e	995.087s	coverage: 78.8% of statements
+ok  	github.com/qompack/qompack/test/fault	534.557s	coverage: 78.4% of statements
+--- FAIL: TestCarriedDefects_WaveReportRequiresResolution (0.29s)
+    --- FAIL: TestCarriedDefects_WaveReportRequiresResolution/SP06-D2 (0.00s)
+        carrieddefects_test.go:293: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-cand/test/guards/carrieddefects_test.go:293
+            	Error:      	carried defect left unresolved at wave sign-off
+            	Test:       	TestCarriedDefects_WaveReportRequiresResolution/SP06-D2
+            	Messages:   	SP06-D2 is still `deferred:V6-VERIFY` in plans/CARRIED-DEFECTS.tsv, but plans/V6-report.md exists — V6-VERIFY has been signed off with a defect it was responsible for resolving.
+            	            	
+            	            	  the PutBytes cold and warm budgets (3 ms / 400 us) are 5.2x and 14.1x over on Windows at V5 (15.74 / 5.65 ms, cold allocations up 28 % since the wave-3 baseline) and have never been measured on the reference platform
+            	            	
+            	            	Resolve it one of two ways: fix it and set the status to `fixed`, or set the status to `deferred:<a later checkpoint>` and add the reason to plans/V2-WAVE1-carried-defects.md. Both are fine; leaving it for this checkpoint is not.
+    --- FAIL: TestCarriedDefects_WaveReportRequiresResolution/SP08-D1 (0.00s)
+        carrieddefects_test.go:293: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-cand/test/guards/carrieddefects_test.go:293
+            	Error:      	carried defect left unresolved at wave sign-off
+            	Test:       	TestCarriedDefects_WaveReportRequiresResolution/SP08-D1
+            	Messages:   	SP08-D1 is still `deferred:V6-VERIFY` in plans/CARRIED-DEFECTS.tsv, but plans/V6-report.md exists — V6-VERIFY has been signed off with a defect it was responsible for resolving.
+            	            	
+            	            	  OnToolUse over a 256 KB tool result breaches budget B-C (l0_process, p99 < 50 ms): 53-115 ms on Qompack.md 8.1's own one-changed-line case and 262-655 ms when every chunk is novel, dominated by store.PutBytes's per-novel-chunk object-write path
+            	            	
+            	            	Resolve it one of two ways: fix it and set the status to `fixed`, or set the status to `deferred:<a later checkpoint>` and add the reason to plans/V2-SP-08-carried-defects.md. Both are fine; leaving it for this checkpoint is not.
+    --- FAIL: TestCarriedDefects_WaveReportRequiresResolution/SP10-D1 (0.00s)
+        carrieddefects_test.go:293: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-cand/test/guards/carrieddefects_test.go:293
+            	Error:      	carried defect left unresolved at wave sign-off
+            	Test:       	TestCarriedDefects_WaveReportRequiresResolution/SP10-D1
+            	Messages:   	SP10-D1 is still `deferred:V6-VERIFY` in plans/CARRIED-DEFECTS.tsv, but plans/V6-report.md exists — V6-VERIFY has been signed off with a defect it was responsible for resolving.
+            	            	
+            	            	  Finalize measures 42.8-43.8 ms/op at 170-208 % processor performance but 64-73 ms/op at 128 % and at base clock on Windows against exit criterion 1570's 50 ms after perf(checkpoint) 72f3226 removed the paths.Norm share (264-284 ms before), and the reference platform has never been measured
+            	            	
+            	            	Resolve it one of two ways: fix it and set the status to `fixed`, or set the status to `deferred:<a later checkpoint>` and add the reason to plans/V2-SP-10-carried-defects.md. Both are fine; leaving it for this checkpoint is not.
+    --- FAIL: TestCarriedDefects_WaveReportRequiresResolution/SP09-D1 (0.00s)
+        carrieddefects_test.go:293: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-cand/test/guards/carrieddefects_test.go:293
+            	Error:      	carried defect left unresolved at wave sign-off
+            	Test:       	TestCarriedDefects_WaveReportRequiresResolution/SP09-D1
+            	Messages:   	SP09-D1 is still `deferred:V6-VERIFY` in plans/CARRIED-DEFECTS.tsv, but plans/V6-report.md exists — V6-VERIFY has been signed off with a defect it was responsible for resolving.
+            	            	
+            	            	  negknow Open measures 258-273 ms CPU/op at 120 % processor performance but 586-633 ms at 55 % on Windows against its 300 ms budget, so the budget holds on this host only at turbo clocks, and the reference platform has never been measured
+            	            	
+            	            	Resolve it one of two ways: fix it and set the status to `fixed`, or set the status to `deferred:<a later checkpoint>` and add the reason to plans/V2-WAVE1-carried-defects.md. Both are fine; leaving it for this checkpoint is not.
+    --- FAIL: TestCarriedDefects_WaveReportRequiresResolution/SP20-D2 (0.00s)
+        carrieddefects_test.go:293: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-cand/test/guards/carrieddefects_test.go:293
+            	Error:      	carried defect left unresolved at wave sign-off
+            	Test:       	TestCarriedDefects_WaveReportRequiresResolution/SP20-D2
+            	Messages:   	SP20-D2 is still `deferred:V6-VERIFY` in plans/CARRIED-DEFECTS.tsv, but plans/V6-report.md exists — V6-VERIFY has been signed off with a defect it was responsible for resolving.
+            	            	
+            	            	  verify-on-read (16ecc77) adds an Lstat, an fstat and a content hash of the plaintext to every object read, so GetChunk measures 85-88 us/op (26 allocs) against the 60 us budget where the wave-3 baseline read 45 us (18 allocs), and Search_1000Roots, which reads every candidate chunk through the same path, 82 ms against 25 ms where the baseline read 45-52 ms; OpenSpan_4KB_of_4MB (19 -> 27 allocs) stays inside its 150 us at turbo but reads 316-333 us at base clock
+            	            	
+            	            	Resolve it one of two ways: fix it and set the status to `fixed`, or set the status to `deferred:<a later checkpoint>` and add the reason to plans/V2-WAVE1-carried-defects.md. Both are fine; leaving it for this checkpoint is not.
+FAIL
+coverage: 87.2% of statements
+FAIL	github.com/qompack/qompack/test/guards	191.264s
+--- FAIL: TestIntegration_HotPathWarmWithRealResidentState (128.53s)
+    hotpath_test.go:654: §4.6 resident state: ToolUses=2000 RawBytes=43020000 (41.0 MB) StoredBytes=3781969 DedupRatio=11.38 Objects=9555 Files=40; DAG Nodes=6240 Edges=16000 LogBytes=8056239
+    hotpath_test.go:664: §4.6 resident sketch set on disk: tried.bloom=12072B touch.cms=54474B explore.hll=2102B
+    hotpath_test.go:768: bench harness stdout:
+        hotpath: building C:\Users\Quant\AppData\Local\Temp\qompack-bench-build-4291358814\qompack.exe...
+        hotpath: starting daemon (\\.\pipe\qompack-bench-14900-6d4155af29604433)...
+        hotpath: daemon is reachable
+        hotpath: warming daemon (64 hot-path observe.tool + 1936 admin.ping)...
+        hotpath: warm-up sent ~1.1 MB across 64 hot-path requests (plus 1936 admin.ping round trips)
+        hotpath: measuring spawn floor (200 x qompack version)...
+        hotpath: measuring B-A/B-D (2000 x qompack [observe tool])...
+        hotpath: measuring B-E (50 x qompack checkpoint)...
+        hotpath: measuring hook ACK round trip (64 x in-process observe.tool)...
+        
+        hotpath bench summary (windows/amd64, n=2000)
+          spawn floor: p50=15.151ms p99=33.806ms (n=200)
+          b_a_method: daemon status hook_controlled (observed + hotPathTailAllowance), p99 gated against obs.Budgets() B-A's limit (reported, not gated, under --under-coload — see the notes); see the B-A_spawn_estimate row for the wall-clock, floor-subtracted diagnostic (unbiased at p50, dispersion-contaminated at p99 — spec step 6 amended by controller ruling #29)
+        
+          B-A                 n=1536  p50=  18.432ms p95=  22.528ms p99=  28.672ms p999=  90.112ms max=   98.000ms limit=n/a        [reported]
+          B-B                 n=1536  p50=   8.192ms p95=  11.264ms p99=  13.312ms p999=  81.920ms max=   90.465ms limit=n/a        [reported]
+          B-D                 n=2000  p50=  30.602ms p95=  48.754ms p99=  80.073ms p999= 131.569ms max=  145.908ms limit=n/a        [reported]
+          B-E                 n=50    p50= 139.500ms p95= 260.787ms p99= 283.673ms p999= 283.673ms max=  283.673ms limit=n/a        [reported]
+          B-E_cpu             n=50    p50=  15.625ms p95=  46.875ms p99=  46.875ms p999=  46.875ms max=   46.875ms limit=2000.000ms [PASS]
+          B-A_spawn_estimate  n=2000  p50=  15.450ms p95=  33.602ms p99=  64.921ms p999= 116.418ms max=  130.757ms limit=n/a        [reported]
+          hook_ack_rtt        n=64    p50=   0.000ms p95=   0.000ms p99=   0.525ms p999=   0.525ms max=    0.525ms limit=n/a        [reported]
+        
+          note: B-C not measured in wave 1: the processing seams are stubs
+          note: delivery ledger: 2130 hot-path requests sent, 1537 delivered live to the daemon, 593 DEFERRED to the client spool and 0 lost. A deferral is §8.1/§12.2's documented degrade-rather-than-block path (internal/ipc/client.go's Send spools and returns instead of waiting), so the event is durable and the daemon replays it on its next drain — but it is still a sample missing from the top of every gated daemon-side population, so it is counted back in as an over-budget sample rather than dropped
+          note: B-A's p99 CANNOT be certified and its gate is failed on that ground: 528 of the 2064 planned samples never reached the daemon's histogram and are counted as over-budget samples, which puts the full population's nearest-rank p99 at rank 2044 of 2064 — inside the un-delivered block, since only 1536 samples were observed. The p99 field reports the DELIVERED set's own p99 for diagnosis only; it is a lower bound on the real one, never the gated number
+          note: B-A's row is REPORTED, not gated, for this run: --under-coload declares that the harness shares its host with unrelated concurrent work, and B-A is the daemon-observed hook_controlled estimate (recvTS - reqTS + tail allowance) whose reqTS is stamped inside the spawned hook process, so under co-load the interval contains the child's scheduling wait — a cross-process latency with no CPU-time analogue to gate instead (on windows-latest, one commit: bench-gate, harness alone on its runner, measured this row's p99 at 3.072ms; two whole-tree test-job runs minutes apart measured 11.264ms then 18.432ms against the 15ms limit, while the spawn floor's p50 went 12.954 → 24.431 / 23.143ms). B-B moved only 0.576 → 0.768 / 0.704ms in those same runs and was read then as the co-load-robust control; it is not one any more — since f6a8691 its region carries three fsyncs — and it is REPORTED in this run too, under its own note. The 15ms limit is still enforced on B-A by every run that does NOT pass --under-coload — bench-gate, nightly bench-deep, ci.yml's timing job, and its test-e2e job, where X-11 runs alone
+          note: B-B's p99 CANNOT be certified and its gate is failed on that ground: 528 of the 2064 planned samples never reached the daemon's histogram and are counted as over-budget samples, which puts the full population's nearest-rank p99 at rank 2044 of 2064 — inside the un-delivered block, since only 1536 samples were observed. The p99 field reports the DELIVERED set's own p99 for diagnosis only; it is a lower bound on the real one, never the gated number
+          note: B-B's row is REPORTED, not gated, for this run: --under-coload declares that the harness shares its host with unrelated concurrent work, and B-B times the daemon's own ingest.Accept in full — a region that has carried three fsyncs (the WAL Sync, the lease journal's Sync and the seal) since f6a8691 made the delivery path durable, so co-load moves it like any other wall-clock cost (the last full parallel pass measured this row's p99 at 14.3 / 28.7 / 53.2ms against the 50ms limit, while three runs of the same build inside an attested quiet window measured 20.480 / 12.288 / 20.480ms). There is no CPU-time analogue to gate instead: B-B has no child process, so the user+system time of a spawned child cannot be read for it; obs.ProcessCPU is a cumulative whole-process counter summed over every thread, quantised to Windows's 15.625ms scheduler tick (internal/obs/cpu_windows.go), so a single-request bracket against a limit in the low tens of milliseconds reads exact zero, which that file requires be treated as a FAILED measurement; and what inflates this row is fsync — blocked time that costs no CPU at all. The 50ms limit is still enforced on B-B by every run that does NOT pass --under-coload — bench-gate, nightly bench-deep, ci.yml's timing job (which runs test/integration's hot-path test alone by name) and its test-e2e job, where X-11 runs alone — and the co-load-immune structural gates T9, T10 and T14 (one sync per batch, check-then-append order, zero releases before the seal; internal/daemon's delivery group-commit tests) run in every lane regardless. This is ADR 0010's fallback branch applied to a row its enumeration misclassified, per SP20-D1 design section 7.6's Q3; internal/obs/budgets.go still marks B-B Gated, and only this RUN reports it
+          note: B-E's wall-clock row is REPORTED, not gated, for this run: --under-coload declares that the harness shares its host with unrelated concurrent work, and a wall-clock sample taken under co-load measures the host's spare capacity rather than the checkpoint (bench-gate measured this same row at 67.2ms on windows-latest in isolation and the whole-tree job at 4302ms on the same runner class minutes later, product unchanged). The 2000ms limit is still enforced on that wall-clock row by every run that does NOT pass --under-coload — bench-gate and nightly — and the B-E_cpu row below enforces the same 2000ms limit on these children's own CPU time, which co-load does not move; see budgetIDBECPU (report.go)
+          note: hook_ack_rtt is REPORTED, never gated: it is the client-side ACK round trip of 64 in-process observe.tool deliveries, each with a fresh nonce and a real lease, timed through the same ipc.Client a hook uses. Design §7.5 sizes the ACK deadline from it as AckDeadlineMs = L0IngestMs + ceil(slack99), where slack99 = p99(hook_ack_rtt) - p99(B-B) over this same run. The timed samples are preceded by 2 DISCARDED warm-up requests on the same session: without them sample #0 paid a session-registry insertion and a WAL segment create on top of the round trip, and at 64 samples with nearest-rank percentiles p99 IS the maximum sample, so that one sample became the number the deadline was sized from. Its traffic IS real hot-path traffic, so all 66 requests do reach the daemon's l0_ingest and hook_controlled histograms — but this run reads both of those for the gated B-A and B-B rows BEFORE any of the tranche is sent, warm-ups included, so none of it is inside either gated population, and the B-B this row is differenced against contains none of its own deliveries. They are reconciled rather than ignored: a second status read after the tranche counts every one of them, warm-ups included, into the delivery ledger, so a deferral of this tranche's own cannot pass unnoticed. The in-process traffic that does sit inside the gated populations is the warm-up's, disclosed with its own computed proportion. A p99 over 64 samples is still that set's own top sample, which is why §7.5 takes the maximum across three runs rather than trusting one
+          note: daemon-observed hook_controlled_observed (recvTS-reqTS, strict lower bound, no hotPathTailAllowance): p50=4.096ms p99=8.192ms n=1536 — informational cross-check against the gated B-A row above, which adds the tail allowance
+          note: B-A's gated n=2064 includes 64 in-process warm-up observe.tool requests (Send-time TS, not a spawned process's main() entry) alongside 2000 real hook spawns from the B-A/B-D loop — the warm-up hot-path tranche (warmHotTranche=64, a small, fixed constant) is 3.1% of the gated population for this run; see B-A_spawn_estimate for the wall-clock diagnostic derived purely from real spawns
+          note: B-B's n includes the 64 warm-up hot-path (observe.tool) requests, not just the B-A/B-D measurement loop — the daemon's own l0_ingest count, reported verbatim (conservative for B-B: warm-up payloads run 4KB-256KB, larger than B-A/B-D's fixed representative payload). The other 1936 warm-up requests are admin.ping round trips and never reach l0_ingest at all (FIX ROUND 2, N-1)
+        
+    hotpath_test.go:770: bench artifact C:\Users\Quant\AppData\Local\Temp\TestIntegration_HotPathWarmWithRealResidentState4018581385\003\v2-bench-hotpath.json:
+        {
+          "platform": "windows/amd64",
+          "n": 2000,
+          "b_a_method": "daemon status hook_controlled (observed + hotPathTailAllowance), p99 gated against obs.Budgets() B-A's limit (reported, not gated, under --under-coload — see the notes); see the B-A_spawn_estimate row for the wall-clock, floor-subtracted diagnostic (unbiased at p50, dispersion-contaminated at p99 — spec step 6 amended by controller ruling #29)",
+          "spawn_floor_ms": {
+            "n": 200,
+            "p50": 15.151,
+            "p99": 33.806
+          },
+          "notes": [
+            "B-C not measured in wave 1: the processing seams are stubs",
+            "delivery ledger: 2130 hot-path requests sent, 1537 delivered live to the daemon, 593 DEFERRED to the client spool and 0 lost. A deferral is §8.1/§12.2's documented degrade-rather-than-block path (internal/ipc/client.go's Send spools and returns instead of waiting), so the event is durable and the daemon replays it on its next drain — but it is still a sample missing from the top of every gated daemon-side population, so it is counted back in as an over-budget sample rather than dropped",
+            "B-A's p99 CANNOT be certified and its gate is failed on that ground: 528 of the 2064 planned samples never reached the daemon's histogram and are counted as over-budget samples, which puts the full population's nearest-rank p99 at rank 2044 of 2064 — inside the un-delivered block, since only 1536 samples were observed. The p99 field reports the DELIVERED set's own p99 for diagnosis only; it is a lower bound on the real one, never the gated number",
+            "B-A's row is REPORTED, not gated, for this run: --under-coload declares that the harness shares its host with unrelated concurrent work, and B-A is the daemon-observed hook_controlled estimate (recvTS - reqTS + tail allowance) whose reqTS is stamped inside the spawned hook process, so under co-load the interval contains the child's scheduling wait — a cross-process latency with no CPU-time analogue to gate instead (on windows-latest, one commit: bench-gate, harness alone on its runner, measured this row's p99 at 3.072ms; two whole-tree test-job runs minutes apart measured 11.264ms then 18.432ms against the 15ms limit, while the spawn floor's p50 went 12.954 → 24.431 / 23.143ms). B-B moved only 0.576 → 0.768 / 0.704ms in those same runs and was read then as the co-load-robust control; it is not one any more — since f6a8691 its region carries three fsyncs — and it is REPORTED in this run too, under its own note. The 15ms limit is still enforced on B-A by every run that does NOT pass --under-coload — bench-gate, nightly bench-deep, ci.yml's timing job, and its test-e2e job, where X-11 runs alone",
+            "B-B's p99 CANNOT be certified and its gate is failed on that ground: 528 of the 2064 planned samples never reached the daemon's histogram and are counted as over-budget samples, which puts the full population's nearest-rank p99 at rank 2044 of 2064 — inside the un-delivered block, since only 1536 samples were observed. The p99 field reports the DELIVERED set's own p99 for diagnosis only; it is a lower bound on the real one, never the gated number",
+            "B-B's row is REPORTED, not gated, for this run: --under-coload declares that the harness shares its host with unrelated concurrent work, and B-B times the daemon's own ingest.Accept in full — a region that has carried three fsyncs (the WAL Sync, the lease journal's Sync and the seal) since f6a8691 made the delivery path durable, so co-load moves it like any other wall-clock cost (the last full parallel pass measured this row's p99 at 14.3 / 28.7 / 53.2ms against the 50ms limit, while three runs of the same build inside an attested quiet window measured 20.480 / 12.288 / 20.480ms). There is no CPU-time analogue to gate instead: B-B has no child process, so the user+system time of a spawned child cannot be read for it; obs.ProcessCPU is a cumulative whole-process counter summed over every thread, quantised to Windows's 15.625ms scheduler tick (internal/obs/cpu_windows.go), so a single-request bracket against a limit in the low tens of milliseconds reads exact zero, which that file requires be treated as a FAILED measurement; and what inflates this row is fsync — blocked time that costs no CPU at all. The 50ms limit is still enforced on B-B by every run that does NOT pass --under-coload — bench-gate, nightly bench-deep, ci.yml's timing job (which runs test/integration's hot-path test alone by name) and its test-e2e job, where X-11 runs alone — and the co-load-immune structural gates T9, T10 and T14 (one sync per batch, check-then-append order, zero releases before the seal; internal/daemon's delivery group-commit tests) run in every lane regardless. This is ADR 0010's fallback branch applied to a row its enumeration misclassified, per SP20-D1 design section 7.6's Q3; internal/obs/budgets.go still marks B-B Gated, and only this RUN reports it",
+            "B-E's wall-clock row is REPORTED, not gated, for this run: --under-coload declares that the harness shares its host with unrelated concurrent work, and a wall-clock sample taken under co-load measures the host's spare capacity rather than the checkpoint (bench-gate measured this same row at 67.2ms on windows-latest in isolation and the whole-tree job at 4302ms on the same runner class minutes later, product unchanged). The 2000ms limit is still enforced on that wall-clock row by every run that does NOT pass --under-coload — bench-gate and nightly — and the B-E_cpu row below enforces the same 2000ms limit on these children's own CPU time, which co-load does not move; see budgetIDBECPU (report.go)",
+            "hook_ack_rtt is REPORTED, never gated: it is the client-side ACK round trip of 64 in-process observe.tool deliveries, each with a fresh nonce and a real lease, timed through the same ipc.Client a hook uses. Design §7.5 sizes the ACK deadline from it as AckDeadlineMs = L0IngestMs + ceil(slack99), where slack99 = p99(hook_ack_rtt) - p99(B-B) over this same run. The timed samples are preceded by 2 DISCARDED warm-up requests on the same session: without them sample #0 paid a session-registry insertion and a WAL segment create on top of the round trip, and at 64 samples with nearest-rank percentiles p99 IS the maximum sample, so that one sample became the number the deadline was sized from. Its traffic IS real hot-path traffic, so all 66 requests do reach the daemon's l0_ingest and hook_controlled histograms — but this run reads both of those for the gated B-A and B-B rows BEFORE any of the tranche is sent, warm-ups included, so none of it is inside either gated population, and the B-B this row is differenced against contains none of its own deliveries. They are reconciled rather than ignored: a second status read after the tranche counts every one of them, warm-ups included, into the delivery ledger, so a deferral of this tranche's own cannot pass unnoticed. The in-process traffic that does sit inside the gated populations is the warm-up's, disclosed with its own computed proportion. A p99 over 64 samples is still that set's own top sample, which is why §7.5 takes the maximum across three runs rather than trusting one",
+            "daemon-observed hook_controlled_observed (recvTS-reqTS, strict lower bound, no hotPathTailAllowance): p50=4.096ms p99=8.192ms n=1536 — informational cross-check against the gated B-A row above, which adds the tail allowance",
+            "B-A's gated n=2064 includes 64 in-process warm-up observe.tool requests (Send-time TS, not a spawned process's main() entry) alongside 2000 real hook spawns from the B-A/B-D loop — the warm-up hot-path tranche (warmHotTranche=64, a small, fixed constant) is 3.1% of the gated population for this run; see B-A_spawn_estimate for the wall-clock diagnostic derived purely from real spawns",
+            "B-B's n includes the 64 warm-up hot-path (observe.tool) requests, not just the B-A/B-D measurement loop — the daemon's own l0_ingest count, reported verbatim (conservative for B-B: warm-up payloads run 4KB-256KB, larger than B-A/B-D's fixed representative payload). The other 1936 warm-up requests are admin.ping round trips and never reach l0_ingest at all (FIX ROUND 2, N-1)"
+          ],
+          "budgets": [
+            {
+              "budget_id": "B-A",
+              "n": 1536,
+              "p50": 18.432,
+              "p95": 22.528,
+              "p99": 28.672,
+              "p999": 90.112,
+              "max": 98,
+              "limit_ms": null,
+              "pass": null
+            },
+            {
+              "budget_id": "B-B",
+              "n": 1536,
+              "p50": 8.192,
+              "p95": 11.264,
+              "p99": 13.312,
+              "p999": 81.92,
+              "max": 90.465,
+              "limit_ms": null,
+              "pass": null
+            },
+            {
+              "budget_id": "B-D",
+              "n": 2000,
+              "p50": 30.602,
+              "p95": 48.754,
+              "p99": 80.073,
+              "p999": 131.569,
+              "max": 145.908,
+              "limit_ms": null,
+              "pass": null
+            },
+            {
+              "budget_id": "B-E",
+              "n": 50,
+              "p50": 139.5,
+              "p95": 260.787,
+              "p99": 283.673,
+              "p999": 283.673,
+              "max": 283.673,
+              "limit_ms": null,
+              "pass": null
+            },
+            {
+              "budget_id": "B-E_cpu",
+              "n": 50,
+              "p50": 15.625,
+              "p95": 46.875,
+              "p99": 46.875,
+              "p999": 46.875,
+              "max": 46.875,
+              "limit_ms": 2000,
+              "pass": true
+            },
+            {
+              "budget_id": "B-A_spawn_estimate",
+              "n": 2000,
+              "p50": 15.45,
+              "p95": 33.602,
+              "p99": 64.921,
+              "p999": 116.418,
+              "max": 130.757,
+              "limit_ms": null,
+              "pass": null
+            },
+            {
+              "budget_id": "hook_ack_rtt",
+              "n": 64,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0.525,
+              "p999": 0.525,
+              "max": 0.525,
+              "limit_ms": null,
+              "pass": null
+            }
+          ]
+        }
+    hotpath_test.go:815: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-cand/test/integration/hotpath_test.go:815
+        	Error:      	"1536" is not greater than "2000"
+        	Test:       	TestIntegration_HotPathWarmWithRealResidentState
+        	Messages:   	the gated B-A row must be sourced from the daemon's hook_controlled histogram (spawn loop plus warm-up hot tranche), not from the 2000 wall-clock spawn samples
+FAIL
+coverage: [no statements]
+FAIL	github.com/qompack/qompack/test/integration	285.777s
+ok  	github.com/qompack/qompack/test/platform	28.349s	coverage: 68.3% of statements
+ok  	github.com/qompack/qompack/test/release	10.776s	coverage: 70.2% of statements
+ok  	github.com/qompack/qompack/test/replay	11.628s	coverage: 85.7% of statements
+ok  	github.com/qompack/qompack/test/replay/l3policy	1.210s	coverage: 91.5% of statements
+ok  	github.com/qompack/qompack/test/security	45.299s	coverage: 69.9% of statements
+ok  	github.com/qompack/qompack/tools/devtool	71.285s	coverage: 62.0% of statements
+ok  	github.com/qompack/qompack/tools/lint/nomagic	1.742s	coverage: 76.2% of statements
+FAIL
+devtool: cover: cover: go test -coverprofile: exit status 1
+exit status 1

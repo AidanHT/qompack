@@ -1,0 +1,26 @@
+{
+  "id": "p3-bundleA",
+  "cwd": "C:/Users/Quant/Documents/Programming/Projects/qompack-cx-cand",
+  "argv": [
+    "go",
+    "run",
+    "./tools/devtool",
+    "bundle",
+    "--archive",
+    "--version",
+    "0.3.0",
+    "--out",
+    "C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/bundleA"
+  ],
+  "source_head": "a94a3fb97cdd18633b6b6670446fab2cb98c304c",
+  "source_dirty": "",
+  "environment": {
+    "GOFLAGS": "-p=4",
+    "GOPATH": "C:\\Users\\Quant\\go"
+  },
+  "started_at": "2026-09-28T22:12:25-04:00",
+  "ended_at": "2026-09-28T22:12:46-04:00",
+  "exit_code": 0,
+  "log": "p3-bundleA.log",
+  "log_sha256": "984cdab7211c5c6c2e51b55a8fc0404194e36861d83524c64990bfb2a6414e93"
+}

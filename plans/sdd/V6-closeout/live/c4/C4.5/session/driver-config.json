@@ -1,0 +1,51 @@
+{
+ "args": [
+  "-p",
+  "--input-format",
+  "stream-json",
+  "--output-format",
+  "stream-json",
+  "--verbose",
+  "--include-hook-events",
+  "--model",
+  "claude-haiku-4-5-20251001",
+  "--max-turns",
+  "12",
+  "--setting-sources",
+  "project,local",
+  "--permission-mode",
+  "dontAsk",
+  "--plugin-dir",
+  "C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c3/qompack-plugin-0.3.0-windows-amd64",
+  "--allowedTools",
+  "Read,Bash(where qompack:*),mcp__plugin_qompack_qompack__recall,mcp__plugin_qompack_qompack__expand,mcp__plugin_qompack_qompack__re_read,mcp__plugin_qompack_qompack__already_tried,mcp__plugin_qompack_qompack__record_eliminated,mcp__plugin_qompack_qompack__timeline,mcp__plugin_qompack_qompack__why,mcp__plugin_qompack_qompack__dropped,Bash(qompack status:*),Bash(qompack recall:*),Bash(qompack pin:*),Bash(qompack why:*),Bash(qompack dropped:*),Bash(qompack eval:*)"
+ ],
+ "cwd": "<scratch>/retrieval/uat0809/proj",
+ "out": "<scratch>/retrieval/uat0809/s7",
+ "env": {
+  "ENABLE_CLAUDEAI_MCP_SERVERS": "false",
+  "QOMPACK_HOME": "<scratch>/retrieval/qhome",
+  "QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS": "120"
+ },
+ "timeout_s": 1800,
+ "messages": [
+  "Run the Bash command `where qompack` and reply with its output verbatim.",
+  "/qompack:status",
+  "/qompack:status --json",
+  "/qompack:recall widen pool timeout --json",
+  "/qompack:recall max_idle --k 2",
+  "/qompack:pin The pool size must stay at 8 connections.",
+  "/qompack:pin --list",
+  "/qompack:why dec_e760c8bbf50a",
+  "/qompack:why dec_000000000000",
+  "/qompack:dropped",
+  "/qompack:dropped --json",
+  "/qompack:eval",
+  "/qompack:eval --json",
+  "/qompack:recall --help",
+  "/qompack:recall",
+  "Call mcp__plugin_qompack_qompack__why with {\"decision_id\": \"dec_e760c8bbf50a\"}. Reply with the tool result's text verbatim and whether the host marked it as an error."
+ ],
+ "bin": "C:/Users/Quant/AppData/Roaming/npm/node_modules/@anthropic-ai/claude-code/bin/claude.exe",
+ "scrub": "<scratch>"
+}

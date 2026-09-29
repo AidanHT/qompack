@@ -1,0 +1,4 @@
+{"lock": {"pid": 71808, "started": 1790709083137, "addr": "\\\\.\\pipe\\qompack.befcb4d3dc2c", "version": "0.3.0", "owner": "395cba98200433dd3adcb6be3f5256979d17fd90a58b0d9d9528b50c0329862b"}, "pid": 71808, "proc": {"Name": "qompack.exe", "Path": "C:\\Users\\Quant\\.qompack\\bin\\c7b2b120a6efcfc1def58bd55dd29df51ec1bc0bc35a164258d5e0bc9c12803d\\qompack.exe", "Cmd": "C:\\Users\\Quant\\.qompack\\bin\\c7b2b120a6efcfc1def58bd55dd29df51ec1bc0bc35a164258d5e0bc9c12803d\\qompack.exe daemon --project <scratch>\\retrieval\\uat11\\a"}}
+check image qompack.exe: True | check cmdline daemon+project: True
+Stop-Process exit 0  | still alive: False
+RESULT: stopped pid 71808

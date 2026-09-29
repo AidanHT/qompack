@@ -1,0 +1,7 @@
+qompack why — Explain a recorded decision and the evidence behind it
+
+usage: qompack why <decision-id>
+       /qompack:why <decision-id>
+
+flags:
+  --json                 emit the stable JSON envelope instead of text

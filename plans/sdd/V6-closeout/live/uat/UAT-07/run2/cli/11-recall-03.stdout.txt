@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "command": "recall",
+  "ok": true,
+  "data": {
+    "tool": "recall",
+    "is_error": false,
+    "ephemeral": true,
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"hits\":[],\"count\":0,\"found\":false,\"query\":{\"text\":\"\",\"path\":\"*.go\",\"symbol\":\"\",\"tool\":\"\"}}"
+      }
+    ],
+    "meta": {
+      "elapsed_ms": 0,
+      "hash": "sha256:d372993c68475cf583a3ad71379a6d68211712c92cf5f5dc678de4e789235e6b",
+      "tool_use_id": "qompack-mcp:bf643672df18",
+      "untrusted": true
+    }
+  }
+}

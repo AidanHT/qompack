@@ -1,0 +1,151 @@
+{
+ "args": [
+  "-p",
+  "--input-format",
+  "stream-json",
+  "--output-format",
+  "stream-json",
+  "--verbose",
+  "--include-hook-events",
+  "--model",
+  "claude-haiku-4-5-20251001",
+  "--max-turns",
+  "10",
+  "--setting-sources",
+  "project,local",
+  "--permission-mode",
+  "dontAsk",
+  "--plugin-dir",
+  "C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c3/qompack-plugin-0.3.0-windows-amd64",
+  "--allowedTools",
+  "Read,mcp__plugin_qompack_qompack__recall,mcp__plugin_qompack_qompack__expand,mcp__plugin_qompack_qompack__re_read,mcp__plugin_qompack_qompack__already_tried,mcp__plugin_qompack_qompack__record_eliminated,mcp__plugin_qompack_qompack__timeline,mcp__plugin_qompack_qompack__why,mcp__plugin_qompack_qompack__dropped,Bash(qompack status:*),Bash(qompack recall:*),Bash(qompack pin:*),Bash(qompack why:*),Bash(qompack dropped:*),Bash(qompack eval:*)"
+ ],
+ "turns": [
+  {
+   "msg": "Use the Read tool to read data.txt and tell me its first row.",
+   "ok": true,
+   "wall_s": 4.007,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 26524,
+    "WorkingSet64": 27348992,
+    "PeakWorkingSet64": 27348992,
+    "CPU": 0.203125,
+    "StartTime": "/Date(1790706517634)/"
+   },
+   "store_bytes": 506585
+  },
+  {
+   "before": {
+    "argv": [
+     "python",
+     "<scratch>/sessions/c49/unavail.py",
+     "<scratch>/sessions/c49/copy/proj",
+     "toolu_01RKKkH6XYGrsEPrkHUUo6Rn",
+     "<scratch>/sessions/c49/aside"
+    ],
+    "exit": 0,
+    "stdout": "capture toolu_01RKKkH6XYGrsEPrkHUUo6Rn root sha256:8f7e3816d740e64b270a7cd6b082167f845e019ec8f1554b391d146d7123d799\nmoved object sha256:eca8789a33448268977fd4e4ce13ef0d343af3d38db28acd77b362e61418c6b6 -> aside/eca8789a33448268977fd4e4ce13ef0d343af3d38db28acd77b362e61418c6b6.zst\nchunks 1\n",
+    "stderr": ""
+   },
+   "msg": "Call mcp__plugin_qompack_qompack__expand with tool_use_id \"toolu_01RKKkH6XYGrsEPrkHUUo6Rn\" and report the raw result in one line.",
+   "ok": true,
+   "wall_s": 4.209,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 26524,
+    "WorkingSet64": 30937088,
+    "PeakWorkingSet64": 30937088,
+    "CPU": 0.265625,
+    "StartTime": "/Date(1790706517634)/"
+   },
+   "store_bytes": 545247
+  },
+  {
+   "msg": "Call mcp__plugin_qompack_qompack__re_read with path \"notes.md\" and report the raw result in one line.",
+   "ok": true,
+   "wall_s": 4.209,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 26524,
+    "WorkingSet64": 32178176,
+    "PeakWorkingSet64": 32178176,
+    "CPU": 0.359375,
+    "StartTime": "/Date(1790706517634)/"
+   },
+   "store_bytes": 580382
+  },
+  {
+   "msg": "Call mcp__plugin_qompack_qompack__recall with query \"violet anchor lattice\" and report the raw result in one line.",
+   "ok": true,
+   "wall_s": 6.612,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 26524,
+    "WorkingSet64": 35672064,
+    "PeakWorkingSet64": 35672064,
+    "CPU": 0.390625,
+    "StartTime": "/Date(1790706517634)/"
+   },
+   "store_bytes": 626074
+  },
+  {
+   "before": {
+    "argv": [
+     "python",
+     "<scratch>/sessions/c49/writecfg.py",
+     "<scratch>/sessions/c49/copy/proj"
+    ],
+    "exit": 0,
+    "stdout": "wrote c49/copy/proj/.qompack/config.json = {\"runtime\":{\"migration\":{\"settingsVersion\":99}}}\n",
+    "stderr": ""
+   },
+   "msg": "Use the Read tool to read README.md and summarize it in one sentence.",
+   "ok": true,
+   "wall_s": 2.806,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 26524,
+    "WorkingSet64": 36659200,
+    "PeakWorkingSet64": 36659200,
+    "CPU": 0.4375,
+    "StartTime": "/Date(1790706517634)/"
+   },
+   "store_bytes": 650265
+  },
+  {
+   "msg": "/qompack:status",
+   "ok": true,
+   "wall_s": 11.826,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 26524,
+    "WorkingSet64": 37384192,
+    "PeakWorkingSet64": 37384192,
+    "CPU": 0.515625,
+    "StartTime": "/Date(1790706517634)/"
+   },
+   "store_bytes": 674619
+  },
+  {
+   "msg": "Use the Read tool to read app.py and tell me what run() returns.",
+   "ok": true,
+   "wall_s": 2.404,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 26524,
+    "WorkingSet64": 38100992,
+    "PeakWorkingSet64": 38100992,
+    "CPU": 0.546875,
+    "StartTime": "/Date(1790706517634)/"
+   },
+   "store_bytes": 697613
+  }
+ ],
+ "store_bytes_before": 415648,
+ "started_ms": 1790706516799,
+ "pid": 75752,
+ "exit": 0,
+ "wall_s": 41.563,
+ "store_bytes_after": 649006
+}

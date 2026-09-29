@@ -1,0 +1,2 @@
+$ claude plugin marketplace add <scratch>/install/c41/marketplace --scope user
+cwd: <scratch>/install/c41/proj

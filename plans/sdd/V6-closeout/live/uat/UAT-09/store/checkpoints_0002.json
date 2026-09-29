@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "session": "7b2ccf44-d406-422f-a051-b03a65475a28",
+  "seq": 2,
+  "created": "2026-09-29T18:45:58.676Z",
+  "parent": "0001.json",
+  "encoded_segments": [],
+  "invariants": [],
+  "user_intent": {
+    "original": "Use the Read tool to read src/pool.go and then config/pool.yaml. Reply only 'done'.",
+    "evolution": []
+  },
+  "eliminated": [],
+  "decisions": [],
+  "open_questions": [],
+  "current_work": {
+    "goal": "",
+    "next_step": "",
+    "blocked_on": null
+  },
+  "pointers": {
+    "files": [],
+    "tools": []
+  },
+  "narrative": "",
+  "sketch_refs": {
+    "touch": "touch.cms",
+    "tried": "tried.bloom"
+  },
+  "dropped": [],
+  "cache": {
+    "p_chosen": 0,
+    "rewrite_tokens": 0,
+    "ttl_state": "unknown"
+  }
+}

@@ -1,0 +1,147 @@
+{
+ "initialize": {
+  "serverInfo": {
+   "name": "qompack",
+   "version": "0.3.0"
+  },
+  "protocolVersion": "2025-06-18"
+ },
+ "calls": [
+  {
+   "tool": "re_read",
+   "args": {
+    "path": "readme.md"
+   },
+   "jsonrpc_line_bytes": 913,
+   "isError": false,
+   "error": null,
+   "text_bytes": 434,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 7,
+     "ephemeral": true,
+     "expansions": 4,
+     "hash": "sha256:2623df621cbfcc3a699c77055201c16e61d51dd0d702343b50f586c125b923a8",
+     "path": "readme.md",
+     "promoted": true,
+     "source": "store",
+     "span": [
+      0,
+      160
+     ],
+     "tool_use_id": "qompack-mcp:762640538da0",
+     "total_bytes": 160,
+     "truncated": false,
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "found": true,
+     "hash": "sha256:6cb4fc092ce1561911f4b0b97d571e39b983ae10a5aa8759e6d6d86ddb1efcd2",
+     "path": "README.md",
+     "source": "store",
+     "turn": 3,
+     "span": [
+      0,
+      160
+     ],
+     "total_bytes": 160,
+     "truncated": false,
+     "widened": false,
+     "expansions": 4,
+     "promoted": true,
+     "content": "{\"type\":\"text\",\"file\":{\"filePath\":\"<tmp>\",\"content\":\"# Kestrel export\\n\\nA disposable project for Qompack UAT-11.\\n\",\"numLines\":4,\"startLine\":1,\"totalLines\":4}}"
+    }
+   ]
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "hash": "sha256:a82202a098a8d912bde8876c31a37b507372ae4b450ec83bf1a904909dad7c86"
+   },
+   "jsonrpc_line_bytes": 1264,
+   "isError": false,
+   "error": null,
+   "text_bytes": 866,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 3,
+     "ephemeral": true,
+     "expansions": 2,
+     "hash": "sha256:808f0069af47de61a95d90f0af849dc914d99c30e1229ef3eed03d7087e649b6",
+     "promoted": true,
+     "span": [
+      0,
+      649
+     ],
+     "tool_use_id": "qompack-mcp:2d6cfb141ccf",
+     "total_bytes": 649,
+     "truncated": false,
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "found": true,
+     "hash": "sha256:a82202a098a8d912bde8876c31a37b507372ae4b450ec83bf1a904909dad7c86",
+     "span": [
+      0,
+      649
+     ],
+     "total_bytes": 649,
+     "truncated": false,
+     "widened": false,
+     "expansions": 2,
+     "promoted": true,
+     "content": "warning: in the working copy of 'README.md', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'big.log', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'creds.env', LF will be replaced by CRLF the next time Git touches...[649 chars total]"
+    }
+   ]
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "hash": "sha256:884ddc0710e9e5e94c06fd03424588f9401d4eb3b61f29bbd90ec4587dc98c3d",
+    "full": true
+   },
+   "jsonrpc_line_bytes": 860,
+   "isError": false,
+   "error": null,
+   "text_bytes": 427,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 6,
+     "ephemeral": true,
+     "expansions": 4,
+     "hash": "sha256:4a18d64d202b903a372ec385b5f3c4de6375742e66cb60fc71078a2c420a07dd",
+     "promoted": true,
+     "span": [
+      0,
+      198
+     ],
+     "tool_use_id": "qompack-mcp:00e1d29285ed",
+     "total_bytes": 198,
+     "truncated": false,
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "found": true,
+     "hash": "sha256:884ddc0710e9e5e94c06fd03424588f9401d4eb3b61f29bbd90ec4587dc98c3d",
+     "span": [
+      0,
+      198
+     ],
+     "total_bytes": 198,
+     "truncated": false,
+     "widened": false,
+     "expansions": 4,
+     "promoted": true,
+     "content": "{\"file\":{\"content\":\"# fake, planted for the run\\nAWS_ACCESS_KEY_ID=«redacted:aws_access_key_id»\\nREGION=ca-central-1\\n\",\"filePath\":\"<tmp>\",\"numLines\":4,\"startLine\":1,\"totalLines\":4},\"type\":\"text\"}"
+    }
+   ]
+  }
+ ],
+ "stderr_tail": ""
+}

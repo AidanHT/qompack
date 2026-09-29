@@ -1,0 +1,12 @@
+fingerprint diff: fp0-after-seed.json -> fp1-after-cut.json
+[objects/] before 12 files, after 12; unchanged 12; changed 0; added 0; removed 0
+[records/captures/ (capture sidecars)] before 12 files, after 12; unchanged 11; changed 1; added 0; removed 0
+  changed records/captures/55/550a87e2ec1b552574cce78cd1e21782d165116d2733e6ab6d1c39ca9d4210e9.json  c15e076c7cb8(2102) -> 0929efb5261e(2056)
+[records/ (all)] before 12 files, after 12; unchanged 11; changed 1; added 0; removed 0
+  changed records/captures/55/550a87e2ec1b552574cce78cd1e21782d165116d2733e6ab6d1c39ca9d4210e9.json  c15e076c7cb8(2102) -> 0929efb5261e(2056)
+[index/] before 7 files, after 7; unchanged 6; changed 1; added 0; removed 0
+  changed index/roots.jsonl  11809bbd5a86(9696) -> c18d0757c458(7934)
+[state/] before 19 files, after 19; unchanged 19; changed 0; added 0; removed 0
+[checkpoints/] before 0 files, after 0; unchanged 0; changed 0; added 0; removed 0
+[logs/ run/ spool/ (runtime)] before 2 files, after 2; unchanged 2; changed 0; added 0; removed 0
+COMPARED SET (objects/ + capture sidecars) CHANGED

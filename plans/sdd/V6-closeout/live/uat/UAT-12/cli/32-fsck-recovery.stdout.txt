@@ -1,0 +1,184 @@
+{
+  "schema": 1,
+  "project": "<scratch>/install/uat12/recovery",
+  "daemon_running": false,
+  "read_only": true,
+  "repairing": false,
+  "attempts_daemon_lock": false,
+  "checks": [
+    {
+      "id": "store",
+      "ok": true,
+      "severity": 0,
+      "count": 0,
+      "detail": [
+        "store present at <scratch>\\install\\uat12\\recovery\\.qompack"
+      ]
+    },
+    {
+      "id": "daemon",
+      "ok": true,
+      "severity": 0,
+      "count": 0,
+      "detail": [
+        "no daemon holds the lock; this project is quiet"
+      ]
+    },
+    {
+      "id": "objects",
+      "ok": true,
+      "severity": 0,
+      "scanned": 54,
+      "count": 0
+    },
+    {
+      "id": "index.roots",
+      "ok": true,
+      "severity": 0,
+      "scanned": 16,
+      "count": 0
+    },
+    {
+      "id": "index.tool_use",
+      "ok": true,
+      "severity": 0,
+      "scanned": 10,
+      "count": 0
+    },
+    {
+      "id": "index.files",
+      "ok": true,
+      "severity": 0,
+      "scanned": 4,
+      "count": 0
+    },
+    {
+      "id": "index.segments",
+      "ok": true,
+      "severity": 0,
+      "scanned": 0,
+      "count": 0
+    },
+    {
+      "id": "captures",
+      "ok": false,
+      "severity": 1,
+      "scanned": 14,
+      "count": 4,
+      "detail": [
+        "capture sidecar sha256:a0742a9e79faf2197937b2246dde15bf3adabaa5e16a36688d7efc9c31442a57 for a observe.prompt delivery is at stage 1 only: outcome \"ok\" with bytes ee65d08b146c durable and no reference joined to it",
+        "capture sidecar sha256:b9647f8fc4894b12ec1e18696e929d07f0010bb62f560605a058ecb74abf646e for a observe.prompt delivery is at stage 1 only: outcome \"ok\" with bytes 77e84697cc7c durable and no reference joined to it",
+        "capture sidecar sha256:cbf5a05e69ba8eb4c4d8175df8e8db4f8ef40725e3f97a46d3256da461c1be97 for a observe.prompt delivery is at stage 1 only: outcome \"ok\" with bytes 1c42598e56e5 durable and no reference joined to it",
+        "capture sidecar sha256:f25ae69005404006c9104964066fe2b849be0edc457ebbf9af2a044b42908eab for a observe.prompt delivery is at stage 1 only: outcome \"ok\" with bytes fa07efa1470d durable and no reference joined to it"
+      ]
+    },
+    {
+      "id": "publication",
+      "ok": false,
+      "severity": 1,
+      "scanned": 68,
+      "count": 1,
+      "detail": [
+        "publication evidence includes 4 unlinked captures and 0 unindexed object candidates"
+      ]
+    },
+    {
+      "id": "checkpoints",
+      "ok": true,
+      "severity": 0,
+      "scanned": 0,
+      "count": 0,
+      "detail": [
+        "no checkpoint has been written yet"
+      ]
+    },
+    {
+      "id": "pins",
+      "ok": true,
+      "severity": 0,
+      "scanned": 0,
+      "count": 0,
+      "detail": [
+        "pins/invariants.jsonl does not exist yet"
+      ]
+    },
+    {
+      "id": "negknow",
+      "ok": true,
+      "severity": 0,
+      "scanned": 0,
+      "count": 0,
+      "detail": [
+        "records/eliminations.jsonl does not exist yet: nothing has been eliminated",
+        "eliminations: 0 record(s), 0 active, 0 stale",
+        "sketches/tried.bloom is absent, which is an ordinary cold start"
+      ]
+    },
+    {
+      "id": "delivery",
+      "ok": true,
+      "severity": 0,
+      "scanned": 28,
+      "count": 0,
+      "detail": [
+        "state/delivery-lease-position.json is a v1 position document",
+        "state/delivery-ack-position.json is a v1 position document",
+        "the full dual-reader seal check was NOT run: it acquires the daemon lock, which the default run never does; pass --seal-check, or run `qompack admin delivery-seal --check` on a stopped project"
+      ]
+    },
+    {
+      "id": "spool",
+      "ok": true,
+      "severity": 0,
+      "scanned": 0,
+      "count": 0
+    },
+    {
+      "id": "retention",
+      "ok": true,
+      "severity": 0,
+      "scanned": 14,
+      "count": 0
+    },
+    {
+      "id": "migrate",
+      "ok": true,
+      "severity": 0,
+      "scanned": 0,
+      "count": 0,
+      "detail": [
+        "backups are checked by the read-only maintenance verifier; legacy import/cutover is separate"
+      ]
+    },
+    {
+      "id": "fidelity",
+      "ok": true,
+      "severity": 0,
+      "scanned": 16,
+      "count": 0,
+      "detail": [
+        "fidelity is counted as the store reports it; a canonical or unavailable root is never promoted to exact"
+      ]
+    },
+    {
+      "id": "quarantine",
+      "ok": true,
+      "severity": 0,
+      "scanned": 0,
+      "count": 0,
+      "detail": [
+        "0 quarantined file(s), 0 byte(s), preserved as evidence and never swept"
+      ]
+    }
+  ],
+  "repairs": [],
+  "fidelity": {
+    "canonical": 6,
+    "exact": 10
+  },
+  "quarantine": {
+    "files": 0,
+    "bytes": 0
+  },
+  "exit": 1
+}

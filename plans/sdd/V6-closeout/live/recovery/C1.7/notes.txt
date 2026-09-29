@@ -1,0 +1,43 @@
+C1.7 (V6-RECOVERY-2) - operator backup / verify / restore through the shipped CLI, packaged bundle
+Executed by: Claude Code workflow subagent (Opus 5.5), agent-executed on the owner's real host per owner
+decision D3 - not human UAT. Date 2026-09-29 (America/Toronto). Snapshot as ../snapshot.txt (0.3.0,
+commit d5598eb4, Windows 11 build 26200, Claude Code 2.1.280). Sessions used: 2 (recovery n=2, n=3).
+
+Every CLI step: cli/<name>.cmd.txt / .stdout.txt / .stderr.txt / .exit.txt. Destinations D1 and D2 got the
+project-file snapshot taken at backup time (store/files-before.sha256) before the restore.
+ session1/  seed session (3 Read turns; pre-backup marker "saffron kestrel alpha" in notes.md); daemon idle-exited.
+ 01 backup create --id before --json            exit 0; manifest consistent:true, 48 files (frontier 0 and
+                                                snapshot_id "" are the legacy-import cursor fields: no import)
+ 02 backup verify --id before --json            exit 0
+ Pre-new-write rollback:
+ 03 backup restore --id before --destination D1 exit 0; restore.OpenedOK true, ContentRootsProven 9,
+                                                ToolRefsProven 6, SameBuildOnly true; integrity exit 0,
+                                                including "the full dual-reader seal check passed"
+ 04 fsck D1 --json / --seal-check --json        exit 0 / exit 0; D1 equals the backup manifest file for file
+                                                (store/fp-D1-after-restore.json)
+ 05 reader: recall "saffron kestrel alpha" in D1 found notes.md (FileRead). The reader started a daemon in D1
+    and stored its own result (D1 objects 9 -> 10); 06 fsck D1 afterwards exit 0.
+ Post-new-write rollback:
+ session2/  later.md ("vermilion osprey omega") read in the source after the backup; daemon idle-exited.
+ 07 fsck source --json                          exit 0
+ 08 backup restore --id before --destination D2 exit 0 (same proofs as 03)
+ 09 fsck D2 --json                              exit 0
+ 10-D2-vs-backup-vs-source.json: D2 == manifest exactly (48 files); objects 9 vs source 15, sidecars 9 vs 15,
+    roots.jsonl 9 vs 15 lines, delivery leases/acks 10 vs 17; the 6 later objects and 6 later sidecars exist
+    only in the source.
+ 11 recall in D2: "vermilion osprey omega" found false (count 0); "saffron kestrel alpha" found (notes.md)
+ 12 recall in source: "vermilion osprey omega" found (later.md) - the source keeps the later writes
+ 13 restore into existing D1                    exit 1, "restore destination .qompack already exists";
+                                                D1 unchanged (store/diff-D1-refusal.txt)
+ 14 a bare session-start hook entry point started the source daemon (14-daemon-up-check.txt)
+ 15 backup create --id live-attempt (daemon up) exit 1, "stop the source daemon before maintenance: qompack:
+                                                daemon lock already held"; 15b verify also refused (exit 1);
+                                                no backup/live-attempt directory was left; daemon idle-exited
+ 16 fsck source final exit 0; 17 backup verify before (daemon stopped) exit 0.
+
+Observation (message wording, not a behaviour defect): every restore response, the refused one included,
+carries the Note "checkpoint-chain and delivery-seal integrity are NOT covered - run packaged
+`fsck --seal-check` on the destination", while the same response's integrity report says "the full
+dual-reader seal check passed" and docs/backup.md says restore runs the delivery-seal check.
+Not established here (per docs/backup.md and docs/uat.md): older-release compatibility, activation of a
+recovered project, cross-version readers; these remain unverified.

@@ -1,0 +1,87 @@
+<!-- qompack:injected seq=2 ver=1 -->
+# Qompack rehydration — checkpoint 0002, session 5fe7f497
+
+## 2. Original user intent (verbatim from L0 capture — never summarized)
+> Project brief for the Osprey ledger service. This first message is deliberately long: it carries the full requirement appendix so that it cannot fit whole inside a rehydration block. Appendix:
+> R001: the ledger must validate the poplar batch field before manual reconciliation, and log the fir outcome.
+> R002: the ledger must normalise the walnut batch field before nightly reconciliation, and log the oak outcome.
+> R003: the ledger must hash the elm batch field before nightly reconciliation, and log the ginkgo outcome.
+> R004: the ledger must hash the cedar batch field before manual reconciliation, and log the walnut outcome.
+> R005: the ledger must hash the larch batch field before nightly reconciliation, and log the hazel outcome.
+> R006: the ledger must validate the quince batch field before manual reconciliation, and log the hazel outcome.
+> R007: the ledger must validate the hazel batch field before manual reconciliation, and log the upas outcome.
+> R008: the ledger must audit the fir batch field before manual reconciliation, and log the jacaranda outcome.
+> R009: the ledger must hash the hazel batch field before nightly reconciliation, and log the birch outcome.
+> R010: the ledger must hash the spruce batch field before nightly reconciliation, and log the alder outcome.
+> R011: the ledger must hash the nutmeg batch field before manual reconciliation, and log the rowan outcome.
+> R012: the ledger must audit the jacaranda batch field before hourly reconciliation, and log the teak outcome.
+> R013: the ledger must hash the rowan batch field before hourly reconciliation, and log the cedar outcome.
+> R014: the ledger must normalise the cedar batch field before nightly reconciliation, and log the upas outcome.
+> R015: the ledger must audit the hazel batch field before nightly reconciliation, and log the nutmeg outcome.
+> R016: the ledger must validate the dogwood batch field before hourly reconciliation, and log the larch outcome.
+> R017: the ledger must validate the teak batch field before manual reconciliation, and log the elm outcome.
+> R018: the ledger must normalise the yew batch field before manual reconciliation, and log the upas outcome.
+> R019: the ledger must hash the cedar batch field before hourly reconciliation, and log the spruce outcome.
+> R020: the ledger must hash the poplar batch field before manual reconciliation, and log the birch outcome.
+> R021: the ledger must normalise the ironwood batch field before nightly reconciliation, and log the quince outcome.
+> R022: the ledger must audit the cedar batch field before hourly reconciliation, and log the fir outcome.
+> R023: the ledger must audit the birch batch field before hourly reconciliation, and log the poplar outcome.
+> R024: the ledger must normalise the upas batch field before hourly reconciliation, and log the alder outcome.
+> R025: the ledger must hash the birch batch field before manual reconciliation, and log the nutmeg outcome.
+> R026: the ledger must audit the elm batch field before manual reconciliation, and log the oak outcome.
+> R027: the ledger must hash the oak batch field before hourly reconciliation, and log the walnut outcome.
+> R028: the ledger must audit the ginkgo batch field before hourly reconciliation, and log the rowan outcome.
+> R029: the ledger must normalise the birch batch field before nightly reconciliation, and log the rowan outcome.
+> R030: the ledger must validate the oak batch field before manual reconciliation, and log the nutmeg outcome.
+> R031: the ledger must validate the oak batch field before hourly reconciliation, and log the nutmeg outcome.
+> R032: the ledger must normalise the dogwood batch field before hourly reconciliation, and log the upas outcome.
+> R033: the ledger must normalise the spruce batch field before nightly reconciliation, and log the larch outcome.
+> R034: the ledger must validate the oak batch field before manual reconciliation, and log the larch outcome.
+> R035: the ledger must audit the teak batch field before manual reconciliation, and log the cedar outcome.
+> R036: the ledger must validate the nutmeg batch field before hourly reconciliation, and log the ginkgo outcome.
+> R037: the ledger must audit the poplar batch field before hourly reconciliation, and log the fir outcome.
+> R038: the ledger must audit the alder batch field before manual reconciliation, and log the ironwood outcome.
+> R039: the ledger must audit the yew batch field before hourly reconciliation, and log the walnut outcome.
+> R040: the ledger must validate the spruce batch field before nightly reconciliation, and log the poplar outcome.
+> R041: the ledger must audit the poplar batch field before hourly reconciliation, and log the rowan outcome.
+> R042: the ledger must normalise the yew batch field before hourly reconciliation, and log the walnut outcome.
+> R043: the ledger must hash the yew batch field before nightly reconciliation, and log the nutmeg outcome.
+> R044: the ledger must audit the fir batch field before nightly reconciliation, and log the elm outcome.
+> R045: the ledger must audit the ironwood batch field before nightly reconciliation, and log the elm outcome.
+> R046: the ledger must audit the birch batch field before nightly reconciliation, and log the ginkgo outcome.
+> R047: the ledger must normalise the poplar batch field before hourly reconciliation, and log the yew outcome.
+> R048: the ledger must audit the cedar batch field before hourly reconciliation, and log the nutmeg outcome.
+> R049: the ledger must hash the cedar batch field before manual reconciliation, and log the poplar outcome.
+> R050: the ledger must audit the rowan batch field before manual reconciliation, and log the ironwood outcome.
+> R051: the ledger must audit the dogwood batch field before manual reconciliation, and log the walnut outcome.
+> R052: the ledger must hash the elm batch field before hourly reconciliation, and log the hazel outcome.
+> R053: the ledger must validate the poplar batch field before hourly reconciliation, and log the poplar outcome.
+> R054: the ledger must validate the maple batch field before hourly reconciliation, and log the upas outcome.
+> R055: the ledger must hash the yew batch field before manual reconciliation, and log the dogwood outcome.
+> R056: the ledger must hash the quince batch field before hourly reconciliation, and log the teak outcome.
+> R057: the ledger must validate the poplar batch field before hourly reconciliation, and log the spruce outcome.
+> R058: the ledger must hash the yew batch field before hourly reconciliation, and log the larch outcome.
+> R059: the ledger must hash the ginkgo batch field before nightly reconciliation, and log the oak outcome.
+> R060: the ledger must validate the rowan batch field before manual reconciliation, and log the walnut outcome.
+> R061: the ledger must validate the jacaranda batch field before nightly reconciliation, and log the oak outcome.
+> R062: the ledger must audit the rowan batch field before nightly reconciliation, and log the fir outcome.
+> R063: the ledger must hash the poplar batch field before hourly reconciliation, and log the alder outcome.
+> R064: the ledger must audit the upas batch field before nightly reconciliation, and log the alder outcome.
+> R065: the ledger must normalise the poplar batch field before manual reconciliation, and log the ginkgo outcome.
+> R066: the ledger must hash the ironwood batch field before nightly reconciliation, and log the upas outcome.
+> R067: the ledger must audit the rowan batch field before manual reconciliation, and log the walnut outcome.
+> R068: the ledger must audit the birch batch field before nightly reconciliation, and log the poplar outcome.
+> R069: the ledger must hash the rowan batch field before manual reconciliation, and log the maple outcome.
+> R070: the ledger must hash the jacaranda batch field before manual reconciliation, and log the teak outcome.
+> R071: the ledger must audit the nutmeg batch field before nightly reconciliation, and log the rowan outcome.
+> R072: the ledger must validate the alder batch field before manual reconciliation, and log the fir outcome.
+> R073: the ledger must normalise the ironwood batch field before manual reconciliation, and log the yew outcome.
+> R074: the ledger must audit the cedar batch field before nightly reconciliat
+
+## 7. No longer in context
+- intent_mismatch 5fe7f497-1c23-414e-8fcc-933363180fd0 — checkpoint user_intent.original differs from the L0 capture; injecting the L0 text
+
+## 8. Retrieval
+Qompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().
+<!-- /qompack:injected -->
+<!-- qompack-contract-probe qompack-contract-0761af601a47 -->

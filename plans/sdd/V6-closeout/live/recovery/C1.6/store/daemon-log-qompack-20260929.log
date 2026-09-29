@@ -1,0 +1,12 @@
+ts=2026-09-29T19:28:24.2679147Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-09-29T19:28:24.2984983Z level=info msg="observer: session registered" session=825b395b-f9f0-42b8-976a-f504b8161b27 source=startup turn=0 segment=1
+ts=2026-09-29T19:28:24.2984983Z level=info msg="scheduler: session bound" session=825b395b-f9f0-42b8-976a-f504b8161b27 effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+ts=2026-09-29T19:28:37.4974748Z level=warn msg="store: segment closed without a tokens feature; Segment.Tokens stays zero permanently" segment=1 session=825b395b-f9f0-42b8-976a-f504b8161b27
+ts=2026-09-29T19:28:37.5940725Z level=info msg="observer: gc" scanned=12 deleted=0 freed=0 truncated=false
+ts=2026-09-29T19:29:55.9802305Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-09-29T19:29:56.0103634Z level=loud msg="daemon: unpublished captures or unindexed objects found at startup" unpublished_captures=1 unindexed_object_candidates=1 pending_objects=0 captures_scanned=12 objects_scanned=12 incomplete=false truncated=false notes=none
+ts=2026-09-29T19:29:56.0283839Z level=info msg="observer: session registered" session=c16-restart-bare-session-start source=startup turn=0 segment=2
+ts=2026-09-29T19:29:56.0289124Z level=info msg="scheduler: state from another session discarded" path=<scratch>\recovery\c16\proj\.qompack\state\bocd.json file_session=825b395b-f9f0-42b8-976a-f504b8161b27 session=c16-restart-bare-session-start
+ts=2026-09-29T19:29:56.0289124Z level=info msg="scheduler: state from another session discarded" path=<scratch>\recovery\c16\proj\.qompack\state\scheduler.json file_session=825b395b-f9f0-42b8-976a-f504b8161b27 session=c16-restart-bare-session-start
+ts=2026-09-29T19:29:56.0289124Z level=info msg="scheduler: session bound" session=c16-restart-bare-session-start effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+ts=2026-09-29T19:30:26.0106723Z level=warn msg="daemon: ending abandoned session; no SessionEnd arrived and it has been silent past the idle-exit window" session=c16-restart-bare-session-start silentMs=30000

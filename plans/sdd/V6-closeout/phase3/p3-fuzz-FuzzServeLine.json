@@ -1,0 +1,26 @@
+{
+  "id": "p3-fuzz-FuzzServeLine",
+  "cwd": "C:/Users/Quant/Documents/Programming/Projects/qompack-cx-cand",
+  "argv": [
+    "go",
+    "test",
+    "-run",
+    "^$",
+    "-fuzz",
+    "^FuzzServeLine$",
+    "-fuzztime",
+    "60s",
+    "./internal/mcp"
+  ],
+  "source_head": "a94a3fb97cdd18633b6b6670446fab2cb98c304c",
+  "source_dirty": "",
+  "environment": {
+    "GOFLAGS": "-p=4",
+    "GOPATH": "C:\\Users\\Quant\\go"
+  },
+  "started_at": "2026-09-28T22:00:03-04:00",
+  "ended_at": "2026-09-28T22:01:12-04:00",
+  "exit_code": 0,
+  "log": "p3-fuzz-FuzzServeLine.log",
+  "log_sha256": "8f830ff0e17f7571b87a78e21428aa009846765ede7823f8ab88d1e26555dff9"
+}

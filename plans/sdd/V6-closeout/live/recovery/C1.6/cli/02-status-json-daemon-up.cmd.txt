@@ -1,0 +1,6 @@
+cwd: <scratch>/recovery/c16/proj
+argv: ["C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c3/qompack-plugin-0.3.0-windows-amd64/bin/qompack.exe", "status", "--json"]
+env+: {}
+qompack_home: <scratch>/recovery/qhome
+wall_s: 0.021
+at: 2026-09-29T15:29:56-04:00

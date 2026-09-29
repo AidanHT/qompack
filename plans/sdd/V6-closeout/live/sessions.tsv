@@ -1,0 +1,30 @@
+part	n	scenario	evidence_dir	model	exit	wall_s
+install	1	UAT-01	plans/sdd/V6-closeout/live/uat/UAT-01/session	claude-haiku-4-5-20251001	0	15.38
+install	2	UAT-12/C4.8/C4.6 session A (old build 0.2.99-prev)	plans/sdd/V6-closeout/live/uat/UAT-12/sessionA	claude-haiku-4-5-20251001	0	40.38
+install	3	UAT-12/C4.8/C4.6 session B (frozen 0.3.0 after upgrade)	plans/sdd/V6-closeout/live/uat/UAT-12/sessionB	claude-haiku-4-5-20251001	0	115.533
+install	4	UAT-12/C4.8 session C (reinstalled 0.3.0)	plans/sdd/V6-closeout/live/uat/UAT-12/sessionC	claude-haiku-4-5-20251001	0	17.865
+sessions	1	UAT-02/C4.2 (ordinary work, every hook event)	plans/sdd/V6-closeout/live/uat/UAT-02/session	claude-haiku-4-5-20251001	0	102.139
+sessions	2	UAT-03/C4.3 (/compact round trip, fact recovery)	plans/sdd/V6-closeout/live/uat/UAT-03/session	claude-haiku-4-5-20251001	0	32.184
+sessions	3	UAT-05/C4.3 run 1 (default budget, correction, /compact)	plans/sdd/V6-closeout/live/uat/UAT-05/run1-session	claude-haiku-4-5-20251001	0	71.343
+sessions	4	UAT-05/C4.3 run 2 (tiny budget 150/150, correction, /compact)	plans/sdd/V6-closeout/live/uat/UAT-05/run2-session	claude-haiku-4-5-20251001	0	68.535
+sessions	5	UAT-04/C4.3 (manual + automatic + failed compaction)	plans/sdd/V6-closeout/live/uat/UAT-04/session	claude-haiku-4-5-20251001	0	469.87
+sessions	6	UAT-06 A / C4.3 (intent, correction, /compact, Qompack-sourced fact recovery)	plans/sdd/V6-closeout/live/uat/UAT-06/sessionA	claude-haiku-4-5-20251001	0	46.81
+sessions	7	UAT-06 B --resume A / C4.3 (second compaction, subagent-held fact via Qompack)	plans/sdd/V6-closeout/live/uat/UAT-06/sessionB-resume	claude-haiku-4-5-20251001	0	41.661
+sessions	8	UAT-06 C --resume A --fork-session (compact in fork, second correction, compact)	plans/sdd/V6-closeout/live/uat/UAT-06/sessionC-fork	claude-haiku-4-5-20251001	0	60.144
+sessions	9	C4.9 (a) daemon ended mid-session, (b) newer settingsVersion	plans/sdd/V6-closeout/live/c4/C4.9/session1	claude-haiku-4-5-20251001	0	154.752
+sessions	10	C4.9 (c) unavailable object in a disposable copy, (b) newer settingsVersion	plans/sdd/V6-closeout/live/c4/C4.9/session2-copy	claude-haiku-4-5-20251001	0	41.563
+retrieval	1	UAT-07 (recall 4 ways, expand by hash and id, re_read, disk edit, unknown hash)	plans/sdd/V6-closeout/live/uat/UAT-07/run1/session	claude-haiku-4-5-20251001	0	60.893
+retrieval	2	UAT-07 run2 (recall 4 ways, expand by hash and id, re_read, disk edit, unknown hash)	plans/sdd/V6-closeout/live/uat/UAT-07/run2/session	claude-haiku-4-5-20251001	0	64.655
+retrieval	3	UAT-08 + UAT-09 steps 1-4 (record, confirm, stale, drop)	plans/sdd/V6-closeout/live/uat/UAT-08/session	claude-haiku-4-5-20251001	0	167.397
+retrieval	4	UAT-09 --resume of session 3 (flag: stale after Read + idle; drop on running daemon)	plans/sdd/V6-closeout/live/uat/UAT-09/session-s4-resume	claude-haiku-4-5-20251001	0	221.81
+retrieval	5	UAT-09 new session in the UAT-08 project with drop from the start	plans/sdd/V6-closeout/live/uat/UAT-09/session-s5-new	claude-haiku-4-5-20251001	0	35.772
+retrieval	6	C4.4 all eight MCP tools, success and error calls (+UAT-09 step 5 in a fresh project)	plans/sdd/V6-closeout/live/c4/C4.4/session	claude-haiku-4-5-20251001	0	201.863
+retrieval	7	C4.5 six /qompack: commands (+C4.4 why success) in the UAT-08 project	plans/sdd/V6-closeout/live/c4/C4.5/session	claude-haiku-4-5-20251001	0	83.81
+retrieval	8	UAT-10 status/dropped/eval surfaces (defaults)	plans/sdd/V6-closeout/live/uat/UAT-10/session	claude-haiku-4-5-20251001	0	107.376
+retrieval	9	UAT-11 steps 5-6 (large/unusual results, commit, /compact, pointer resolution)	plans/sdd/V6-closeout/live/uat/UAT-11/session	claude-haiku-4-5-20251001	0	58.366
+retrieval	10	C4.7 off ({"runtime":{"mode":"off"}})	plans/sdd/V6-closeout/live/c4/C4.7/off/session	claude-haiku-4-5-20251001	0	26.464
+retrieval	11	C4.7 reinj ({"runtime":{"migration":{"reinjection":{"sessionStartCompact":false}}}})	plans/sdd/V6-closeout/live/c4/C4.7/reinj/session	claude-haiku-4-5-20251001	0	38.027
+retrieval	12	UAT-11 diagnostic rerun: small first prompts, then large/unusual results, commit, /compact, pointers	plans/sdd/V6-closeout/live/uat/UAT-11/diag-rerun/session	claude-haiku-4-5-20251001	0	86.403
+recovery	1	C1.6 seed (real session; publication gaps injected after daemon exit)	plans/sdd/V6-closeout/live/recovery/C1.6/session	claude-haiku-4-5-20251001	0	15.715
+recovery	2	C1.7 session 1 (seed before the backup)	plans/sdd/V6-closeout/live/recovery/C1.7/session1	claude-haiku-4-5-20251001	0	10.812
+recovery	3	C1.7 session 2 (new writes after the before backup)	plans/sdd/V6-closeout/live/recovery/C1.7/session2	claude-haiku-4-5-20251001	0	8.527

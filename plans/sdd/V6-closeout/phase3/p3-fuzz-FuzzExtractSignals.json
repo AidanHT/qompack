@@ -1,0 +1,26 @@
+{
+  "id": "p3-fuzz-FuzzExtractSignals",
+  "cwd": "C:/Users/Quant/Documents/Programming/Projects/qompack-cx-cand",
+  "argv": [
+    "go",
+    "test",
+    "-run",
+    "^$",
+    "-fuzz",
+    "^FuzzExtractSignals$",
+    "-fuzztime",
+    "60s",
+    "./internal/observer"
+  ],
+  "source_head": "a94a3fb97cdd18633b6b6670446fab2cb98c304c",
+  "source_dirty": "",
+  "environment": {
+    "GOFLAGS": "-p=4",
+    "GOPATH": "C:\\Users\\Quant\\go"
+  },
+  "started_at": "2026-09-28T22:01:12-04:00",
+  "ended_at": "2026-09-28T22:02:22-04:00",
+  "exit_code": 0,
+  "log": "p3-fuzz-FuzzExtractSignals.log",
+  "log_sha256": "077afdd6edec7c10f0570baa0804a39546acfaf612faf048bcb786ef6d2df7dc"
+}

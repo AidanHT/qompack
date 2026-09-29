@@ -1,0 +1,191 @@
+{
+  "schema": 1,
+  "project": "<scratch>\\sessions\\c49\\copy\\proj",
+  "daemon_running": true,
+  "read_only": true,
+  "repairing": false,
+  "attempts_daemon_lock": false,
+  "checks": [
+    {
+      "id": "store",
+      "ok": true,
+      "severity": 0,
+      "count": 0,
+      "detail": [
+        "store present at <scratch>\\sessions\\c49\\copy\\proj\\.qompack"
+      ]
+    },
+    {
+      "id": "daemon",
+      "ok": true,
+      "severity": 0,
+      "count": 0,
+      "detail": [
+        "daemon running: results are a snapshot of a moving target (pid 26524, since 1790706517679)"
+      ]
+    },
+    {
+      "id": "objects",
+      "ok": true,
+      "severity": 0,
+      "scanned": 28,
+      "count": 0
+    },
+    {
+      "id": "index.roots",
+      "ok": false,
+      "severity": 2,
+      "scanned": 30,
+      "count": 2,
+      "detail": [
+        "root 34ecea22c5e9's base pointer 8f7e3816d740 does not resolve",
+        "root 8f7e3816d740 names chunk eca8789a3344, which the object store does not hold",
+        "root f77b00a45902 names chunk af2c197b4f20, which a gc tombstone accounts for"
+      ]
+    },
+    {
+      "id": "index.tool_use",
+      "ok": false,
+      "severity": 2,
+      "scanned": 34,
+      "count": 4,
+      "detail": [
+        "tool_use toolu_01RKKkH6XYGrsEPrkHUUo6Rn points at root 8f7e3816d740, which cannot be materialized",
+        "tool_use qompack-mcp:114b3fc15c9d reports turn 0 after turn 3 in session e11de402-b7ab-40b1-9bf7-a3a06ece4298; turns are monotone",
+        "tool_use qompack-mcp:19adea8a5282 reports turn 0 after turn 5 in session e11de402-b7ab-40b1-9bf7-a3a06ece4298; turns are monotone",
+        "tool_use qompack-mcp:678f4096976a reports turn 0 after turn 7 in session e11de402-b7ab-40b1-9bf7-a3a06ece4298; turns are monotone",
+        "tool_use qompack-mcp:d2300736b8c7 points at root f77b00a45902, which a gc tombstone accounts for"
+      ]
+    },
+    {
+      "id": "index.files",
+      "ok": true,
+      "severity": 0,
+      "scanned": 4,
+      "count": 0
+    },
+    {
+      "id": "index.segments",
+      "ok": true,
+      "severity": 0,
+      "scanned": 0,
+      "count": 0
+    },
+    {
+      "id": "captures",
+      "ok": false,
+      "severity": 1,
+      "scanned": 45,
+      "count": 1,
+      "detail": [
+        "published capture sidecar toolu_01RKKkH6XYGrsEPrkHUUo6Rn names root 8f7e3816d740, which does not resolve"
+      ]
+    },
+    {
+      "id": "publication",
+      "ok": true,
+      "severity": 0,
+      "scanned": 73,
+      "count": 0
+    },
+    {
+      "id": "checkpoints",
+      "ok": true,
+      "severity": 0,
+      "scanned": 0,
+      "count": 0,
+      "detail": [
+        "no checkpoint has been written yet"
+      ]
+    },
+    {
+      "id": "pins",
+      "ok": true,
+      "severity": 0,
+      "scanned": 0,
+      "count": 0,
+      "detail": [
+        "pins/invariants.jsonl does not exist yet"
+      ]
+    },
+    {
+      "id": "negknow",
+      "ok": true,
+      "severity": 0,
+      "scanned": 0,
+      "count": 0,
+      "detail": [
+        "records/eliminations.jsonl does not exist yet: nothing has been eliminated",
+        "eliminations: 0 record(s), 0 active, 0 stale",
+        "sketches/tried.bloom is absent, which is an ordinary cold start"
+      ]
+    },
+    {
+      "id": "delivery",
+      "ok": true,
+      "severity": 0,
+      "scanned": 94,
+      "count": 0,
+      "detail": [
+        "state/delivery-lease-position.json is a v2 position document",
+        "state/delivery-ack-position.json is a v2 position document",
+        "the full dual-reader seal check was NOT run: it acquires the daemon lock, which the default run never does; pass --seal-check, or run `qompack admin delivery-seal --check` on a stopped project"
+      ]
+    },
+    {
+      "id": "spool",
+      "ok": true,
+      "severity": 0,
+      "scanned": 0,
+      "count": 0
+    },
+    {
+      "id": "retention",
+      "ok": true,
+      "severity": 0,
+      "scanned": 45,
+      "count": 0
+    },
+    {
+      "id": "migrate",
+      "ok": true,
+      "severity": 0,
+      "scanned": 1,
+      "count": 0,
+      "detail": [
+        "backups are checked by the read-only maintenance verifier; legacy import/cutover is separate"
+      ]
+    },
+    {
+      "id": "fidelity",
+      "ok": true,
+      "severity": 0,
+      "scanned": 29,
+      "count": 0,
+      "detail": [
+        "fidelity is counted as the store reports it; a canonical or unavailable root is never promoted to exact"
+      ]
+    },
+    {
+      "id": "quarantine",
+      "ok": true,
+      "severity": 0,
+      "scanned": 0,
+      "count": 0,
+      "detail": [
+        "0 quarantined file(s), 0 byte(s), preserved as evidence and never swept"
+      ]
+    }
+  ],
+  "repairs": [],
+  "fidelity": {
+    "canonical": 8,
+    "exact": 20,
+    "unavailable": 1
+  },
+  "quarantine": {
+    "files": 0,
+    "bytes": 0
+  },
+  "exit": 1
+}

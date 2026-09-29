@@ -1,0 +1,1 @@
+ts=2026-09-29T19:13:31.8905544Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="critical host-contract failure: hook.additional_context_delivered (expected \"additionalContext reaches the transcript\", observed \"sentinel not found after two chances\")" failed=hook.additional_context_delivered/critical,mcp.server_registered/info

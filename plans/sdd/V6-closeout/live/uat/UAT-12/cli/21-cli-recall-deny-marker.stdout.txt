@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "command": "recall",
+  "ok": true,
+  "data": {
+    "tool": "recall",
+    "is_error": false,
+    "ephemeral": true,
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"hits\":[{\"hash\":\"sha256:050893c9b6874e9d8181bf22e37ed862600bddf864668086defe798ea43b6553\",\"path\":\"\",\"tool\":\"UserPromptSubmit\",\"summary\":\"/qompack:recall ORCHID-DENY-7731\",\"ts\":\"2026-09-29T17:26:43Z\",\"score\":0.30043478260869566,\"tool_use_id\":\"prompt_2cb3e3c1-fcbd-4f02-a8ab-6185c10e2051_8\",\"span\":[0,32]}],\"count\":1,\"found\":true,\"query\":{\"text\":\"ORCHID-DENY-7731\",\"path\":\"\",\"symbol\":\"\",\"tool\":\"\"},\"denied\":4}"
+      }
+    ],
+    "meta": {
+      "elapsed_ms": 15,
+      "hash": "sha256:85c79cf7e32aff114008d176e1740b1a38956f2fc4dcd87ad81ffa0d54728e65",
+      "tool_use_id": "qompack-mcp:e3f362f36fb7",
+      "untrusted": true
+    }
+  }
+}

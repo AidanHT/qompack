@@ -1,0 +1,47 @@
+{
+ "files": {
+  "README.md": {
+   "bytes": 71,
+   "sha256": "f1d8657dc162cdba836060818578da69280e8ca2bbf5cdc0fe71d7a964607829"
+  },
+  "big.log": {
+   "bytes": 310800,
+   "sha256": "82d09adaadb41486c1825ae8a59b2d7184051af3fb8c6598e20c7db47d56c55e"
+  },
+  "blob.bin": {
+   "bytes": 3064,
+   "sha256": "7edaba96dcaea05619b586885067da78570cc6d99f631ebae1a681692486f01d"
+  },
+  "config.ini": {
+   "bytes": 37,
+   "sha256": "0dfd71810700211f405ece638580233e5aa2e0531cc7618353ab397dccff3999"
+  },
+  "creds.txt": {
+   "bytes": 150,
+   "sha256": "15e8566253a34da966ba5e7169aefe1564ec94db4f8a7eff6d45f578efb595ed"
+  },
+  "logo.png": {
+   "bytes": 98,
+   "sha256": "ef4d5115847f997f29dde644fd7c6a40b4b1ea690ec37f8af743119210a27f25"
+  },
+  "notes.md": {
+   "bytes": 154,
+   "sha256": "1a3587c740fe1e9a8a5ed72af46a81bd1086ca8f7935c4140ca8a7e570954573"
+  }
+ },
+ "secrets": [
+  {
+   "placeholder": "@@SEC_PLANTED_1@@",
+   "shape": "aws_access_key_id (AKIA+16)",
+   "chars": 20,
+   "sha256": "936459d21c167cc096ded9a89467afd75a9e3d0afdc973fa72d3648c33483fde"
+  },
+  {
+   "placeholder": "@@SEC_PLANTED_2@@",
+   "shape": "github_token (ghp_+36)",
+   "chars": 40,
+   "sha256": "3ea50df5637cb8fe98e05605d9d850852c1931009a008fc483a964b523358c32"
+  }
+ ],
+ "note": "creds.txt sha256 covers the planted literals; the literals live only in <scratch>/sessions/secrets.json"
+}

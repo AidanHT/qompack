@@ -1,0 +1,7 @@
+qompack version: 0.3.0 (exit 0)
+BUNDLE.json sha256: 32600778ae6463cd47736fc6b0a8614ad782e5bbd0ef0440f4e2c3937ccf4505
+bin/qompack.exe sha256: c7b2b120a6efcfc1def58bd55dd29df51ec1bc0bc35a164258d5e0bc9c12803d
+source.commit: d5598eb4445954120ee795560c2ea46640772f43
+claude --version: 2.1.280 (Claude Code)
+windows: Microsoft Windows 11 Home 10.0.26200 build 26200
+taken: 2026-09-29T15:27:43-04:00

@@ -1,0 +1,583 @@
+[2026-09-27T02:29:20] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && git status --short | head -20 && git log --oneline -5 && mkdir -p C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config/ && ls plans/sdd/V6-closeout/
+[2026-09-27T02:29:23] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && cat plans/sdd/V6-closeout/w5-winfiles/report.md
+[2026-09-27T02:29:24] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && cat plans/sdd/V6-closeout/config/report.md
+[2026-09-27T02:29:26] Read: C:\Users\Quant\.claude\projects\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\tool-results\bzztla86r.txt
+[2026-09-27T02:29:30] Read: C:\Users\Quant\.claude\projects\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\tool-results\bz4wyobaj.txt
+[2026-09-27T02:29:34] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-v6 && grep -n "D22\|D23\|D8\b\|D8 \|D8:" plans/V6-CLOSEOUT-CHECKLIST.md | head -50; wc -l plans/V6-CLOSEOUT-CHECKLIST.md
+[2026-09-27T02:29:36] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-v6 && sed -n 1,80p plans/V6-CLOSEOUT-CHECKLIST.md
+[2026-09-27T02:29:40] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && ls internal/config internal/paths && grep -rn "os.ReadFile\|os.Open\|os.Lstat\|os.Stat\|UserHomeDir\|\.qompack" internal/config/*.go | grep -v _test.go
+[2026-09-27T02:29:44] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && sed -n 1,140p internal/config/load.go
+[2026-09-27T02:29:45] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && sed -n 1,340p internal/config/capture_load.go
+[2026-09-27T02:29:48] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && cat internal/paths/shared.go && sed -n 1,80p internal/paths/home.go && grep -n "^import\|^	\"" internal/paths/*.go | grep -v _test | sort -u -t: -k3 | head -40
+[2026-09-27T02:29:52] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && grep -n "func Global\|func Of\b\|func Of(" -A30 internal/paths/layout.go | head -90
+[2026-09-27T02:29:55] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && grep -rn "func Global" internal/paths/ && grep -rn "func Global" -A25 internal/paths/*.go | head -40
+[2026-09-27T02:29:58] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && sed -n 40,62p internal/paths/resolve.go && grep -n "3\.2" plans/00-ARCHITECTURE.md | head -20
+[2026-09-27T02:30:01] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && sed -n 536,640p plans/00-ARCHITECTURE.md
+[2026-09-27T02:30:04] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && sed -n 1,120p tools/devtool/importrules.go
+[2026-09-27T02:30:08] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && grep -rn "allow-set\|\`config\` .*\`core\`\|config.*may import\|paths\`, \`config\`" docs/*.md | head -20; grep -rln "importrules\|\"config\": *{\"core\"}\|allow\[\"config\"\]" tools/ test/ internal/ | head
+[2026-09-27T02:30:31] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && grep -n "import\|foundation\|§3.2\|3\.2" docs/architecture.md | head -40
+[2026-09-27T02:30:35] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && sed -n 235,275p docs/architecture.md; grep -rn "config.*core\b\|allow-set\|{core}" docs/ README.md CONTRIBUTING.md 2>/dev/null | head -20
+[2026-09-27T02:30:39] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && grep -n "config" docs/architecture.md | head -40; grep -rn "import" docs/*.md | grep -i "config\|paths\|foundation\|graph" | head -20
+[2026-09-27T02:30:45] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && ls docs; grep -rn "allow-set {core}\|allow-set\b\|imports only\|import only \`core\`\|only core\|cannot import paths\|may import only\|import paths" --include=*.go --include=*.md . 2>/dev/null | grep -v "^./plans/sdd\|^./plans/V[0-9]" | head -40
+[2026-09-27T02:30:56] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && sed -n 1,40p internal/config/doc.go; sed -n 5,30p internal/config/validate.go; sed -n 15,40p internal/cli/config.go; sed -n 268,290p internal/cli/capture_admission_test.go; sed -n 130,145p internal/cli/config_test.go
+[2026-09-27T02:31:03] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && ls test/guards | head -100; grep -rn "config" test/guards/productreads_test.go test/guards/sharedreaders_test.go | head -30
+[2026-09-27T02:31:06] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && cat test/guards/productreads_test.go
+[2026-09-27T02:31:07] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && cat test/guards/sharedreaders_test.go test/guards/configpaths_test.go
+[2026-09-27T02:31:12] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && grep -n "internal/\|^## \|^### " docs/architecture.md | head -80
+[2026-09-27T02:31:16] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && sed -n 181,235p docs/architecture.md; sed -n 505,600p docs/architecture.md
+[2026-09-27T02:31:24] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && grep -rn "00-ARCHITECTURE\|allow\[" tools/devtool/*.go | grep -v "^tools/devtool/importrules.go" | head -20; grep -rln "\"config\"" tools/devtool/*_test.go | head
+[2026-09-27T02:31:27] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && ls tools/devtool | grep -i import; grep -n "func \|foundation" tools/devtool/importgraph.go | head -40; ls tools/devtool/*import*test* 2>/dev/null
+[2026-09-27T02:31:31] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && grep -n "config\|paths" tools/devtool/importgraph_test.go | head -40
+[2026-09-27T02:31:35] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && grep -rn "internal/paths\|allow-set\|go/build\|go list\|Imports" internal/config/*_test.go | head; grep -rn "\"config\"" test/guards/*.go | head
+[2026-09-27T02:31:40] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && grep -rn "UserHomeDir\|Getenv(\"HOME\")\|Getenv(\"USERPROFILE\")\|LookupEnv(\"HOME\|\"HOME\"\|\"USERPROFILE\"" --include=*.go internal cmd | grep -v _test.go
+[2026-09-27T02:31:43] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && sed -n 140,175p internal/cli/config.go; sed -n 520,545p internal/daemon/daemon.go; sed -n 350,380p internal/tokens/exact.go; sed -n 85,100p internal/eval/importer.go; sed -n 490,505p internal/hostperm/policy.go
+[2026-09-27T02:31:50] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && sed -n 150,230p internal/testutil/project.go; grep -rn "func.*TestMain" --include=*_test.go -l . | grep -v "/plans/" | head -50
+[2026-09-27T02:31:55] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && for f in internal/hostperm/policy_test.go internal/mcp/benchfixture_test.go internal/negknow/staleness_test.go internal/scheduler/gate_test.go internal/store/maintenance_longpath_test.go internal/store/maintenance_test.go test/canary/host_test.go test/e2e/hooks_test.go test/fault/main_test.go test/platform/main_test.go test/r
+[2026-09-27T02:32:48] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && go version && GR=$(go env GOROOT) && grep -n "func stat\|func lstat\|func statNolog\|func lstatNolog\|loadFileId\|CreateFile" $GR/src/os/stat_windows.go $GR/src/os/types_windows.go | head -40
+[2026-09-27T02:32:52] Bash: GR=$(go env GOROOT) && sed -n 25,70p $GR/src/os/stat_windows.go && sed -n 280,370p $GR/src/os/types_windows.go
+[2026-09-27T02:34:46] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && go list -f '{{.ImportPath}}: {{join .Imports " "}}' ./internal/testutil | tr ' ' '\n' | grep qompack; echo ---; go list -deps ./internal/testutil | grep qompack
+[2026-09-27T02:34:57] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && ls tools/devtool/ | head -100; grep -ln "testdeps" tools/devtool/*.go
+[2026-09-27T02:35:01] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && sed -n 1,80p tools/devtool/testdeps.go; sed -n 240,280p tools/devtool/importgraph.go
+[2026-09-27T02:35:14] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && grep -rn "paths.Global(\|DefaultCalibPath\|UserConfigPath\|ProjectConfigPath\|\.claude\b\|\"\.claude\"" --include=*.go internal cmd | grep -v "_test.go" | head -40
+[2026-09-27T02:35:25] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && grep -rn "DefaultCalibPath\|CalibPath" --include=*.go internal cmd test | grep -v "^internal/tokens/exact.go" | head -40; env | grep -i "QOMPACK\|CLAUDE" | sed 's/=.*/=.../'
+[2026-09-27T02:35:31] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && sed -n 30,60p internal/cli/backup_longpath_test.go; sed -n 320,350p internal/store/testdouble_test.go; sed -n 185,200p test/e2e/v5_x16_test.go; sed -n 125,145p internal/store/open.go
+[2026-09-27T02:35:39] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && go list -f '{{if or .TestGoFiles .XTestGoFiles}}{{.ImportPath}}{{end}}' ./... 2>/dev/null | sed 's#github.com/qompack/qompack/##' > C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config/testpkgs.txt; wc -l < C:/Users/Quant/AppDa
+[2026-09-27T02:35:52] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config; for p in $(cat $S/testpkgs.txt); do deps=$(go list -test -deps ./$p 2>/dev/null | sed 's#github.com/qompack/qompack/##' | sed 's/ .*//' | sort -u); hit=""; for h in intern
+[2026-09-27T02:38:06] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && sed -n 75,240p tools/devtool/importgraph.go
+[2026-09-27T02:38:13] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config; grep -v ":$" $S/reach.txt | cut -d: -f1 | while read p; do n_in=$(go list -f '{{len .TestGoFiles}}' ./$p); n_x=$(go list -f '{{len .XTestGoFiles}}' ./$p); tm=$(grep -l "^f
+[2026-09-27T02:41:34] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && grep -rn "GOCACHE\|GOPATH\|GOMODCACHE\|GOENV\|GOFLAGS\|XDG_" --include=*.go internal test tools | grep -v "^tools/pinned" | head -30
+[2026-09-27T02:41:39] Bash: cat "C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\ea3a1827-1c45-45bd-b710-a411ddbeda7f\tasks\bb9ex04tx.output"; cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && sed -n 95,125p test/integration/replaygrowth_test.go
+[2026-09-27T02:41:46] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && grep -rn "exec.Command(\"go\"\|exec.CommandContext(ctx, \"go\"\|\"go\", \"build\"\|goTool\|initialEnv" --include=*.go internal test tools | grep -v "^tools/pinned" | head -30
+[2026-09-27T02:41:50] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && sed -n 110,140p test/e2e/v3_x11_test.go; sed -n 55,95p test/e2e/harness.go; sed -n 400,450p test/integration/replaygrowth_test.go; sed -n 585,610p test/integration/hotpath_test.go; sed -n 750,765p test/integration/hotpath_test.go
+[2026-09-27T02:42:20] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && grep -rn "func gitInit" -A30 internal/testutil/*.go | head -45; grep -rn "GIT_CONFIG\|safe.directory\|GIT_AUTHOR" --include=*.go --include=*.sh . | grep -v "^./plans/sdd/V6-closeout/\(w[0-9]\|linux\)/runs" | head -20
+[2026-09-27T02:42:25] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && sed -n 1,80p plans/sdd/V6-closeout/linux/linux-nonroot-gate.sh; grep -n "HOME\|GOPATH\|GOCACHE\|GOMODCACHE\|git\b\|buildvcs\|GOFLAGS" plans/sdd/V6-closeout/linux/linux-nonroot-inner.sh | head -40
+[2026-09-27T02:42:28] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && sed -n 100,200p plans/sdd/V6-closeout/linux/linux-nonroot-inner.sh
+[2026-09-27T02:42:38] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && which go; go env GOPATH GOMODCACHE GOCACHE GOENV GOTOOLCHAIN GOROOT; grep -n "^go \|^toolchain" go.mod; env | grep -E "^(GOPATH|GOCACHE|GOMODCACHE|GOENV|GOROOT|GOTOOLCHAIN|HOME|USERPROFILE)=" 
+[2026-09-27T02:43:10] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && grep -rn "^func init()" --include=*.go internal cmd | grep -v _test.go; echo ---; grep -rln "^func init()" --include=*_test.go internal test | head
+[2026-09-27T02:43:56] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && grep -rn "\"HOME\"\|\"USERPROFILE\"\|\"QOMPACK_HOME\"\|\"CLAUDE_CONFIG_DIR\"\|UserHomeDir\|UserConfigDir\|UserCacheDir" --include=*.go internal cmd | grep -v "_test.go" 
+[2026-09-27T02:44:41] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && sed -n 1,200p internal/tokens/calibrate.go
+[2026-09-27T02:44:45] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && sed -n 200,260p internal/tokens/calibrate.go; grep -n "func calibKey" -A15 internal/tokens/*.go
+[2026-09-27T02:45:26] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && grep -rn "\"commit\"" --include=*_test.go internal test tools | head -20; grep -rn "\"commit\"" --include=*.go internal/testutil test/*/*.go | grep -v _test.go | head
+[2026-09-27T02:45:32] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && time (go list -test -f '{{.ImportPath}}	{{len .Deps}}' ./... | grep '\.test	' | wc -l)
+[2026-09-27T02:46:07] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && grep -rn "^var.*os\.Environ()\|^var.*UserHomeDir\|^\s*[a-zA-Z_]* *= os\.Environ()" --include=*.go internal test tools | grep -v "^tools/pinned" | head; grep -rn "os.Environ()" --include=*.go test internal/testutil | grep -v "append(os.Environ()\|:= os.Environ()\|= append(\[\]string{}, os.Environ()" | head -20
+[2026-09-27T02:46:25] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && grep -ln "WalkDir\|go\", \"list" test/guards/*.go tools/devtool/*_test.go | head -20; grep -rn "test\" *+\|+ *\"test\"\|HasSuffix(.*\"test\")" test/guards/*.go tools/devtool/*.go | head
+[2026-09-27T02:46:30] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && grep -n "func Test\|WalkDir" test/guards/stubs_test.go test/guards/coload_test.go test/guards/faultenv_test.go test/guards/selectorbypass_test.go test/guards/sketchload_test.go | head -30
+[2026-09-27T02:46:33] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && sed -n 420,520p test/guards/stubs_test.go
+[2026-09-27T02:46:39] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && head -20 plans/OWNERS.tsv; grep -n "test" plans/OWNERS.tsv | head -40; grep -n "OWNERS.tsv" -B3 -A30 test/guards/v1_integration_test.go | grep -n "func\|subpackage\|test\"" | head
+[2026-09-27T02:46:43] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && sed -n 20,80p plans/OWNERS.tsv; sed -n 300,360p test/guards/v1_integration_test.go
+[2026-09-27T02:46:49] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && grep -n "storetest\|<pkg>test\|pkgtest\|dagtest" plans/00-ARCHITECTURE.md | head; grep -n "invariant 7\|§13" plans/00-ARCHITECTURE.md | head; grep -n "### 13\|## 13" plans/00-ARCHITECTURE.md
+[2026-09-27T02:46:54] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && sed -n 2445,2475p plans/00-ARCHITECTURE.md; sed -n 2904,2945p plans/00-ARCHITECTURE.md
+[2026-09-27T02:47:13] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && grep -rn "config.json\|ProjectConfigPath\|UserConfigPath" --include=*.go internal cmd | grep -v _test.go | grep -v "^internal/config/" | head
+[2026-09-27T02:47:23] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && sed -n 1,80p internal/config/capture_load_test.go; grep -n "^func " internal/config/capture_load_test.go | head -30
+[2026-09-27T02:47:29] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && sed -n 71,112p internal/config/capture_load_test.go; sed -n 441,480p internal/config/capture_load_test.go; grep -rn "func baseEnv\|func writeConfigFile" -A12 internal/config/*_test.go
+[2026-09-27T02:48:04] Write: C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config/internal/config/atomic_save_test.go
+[2026-09-27T02:48:09] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && mkdir -p plans/sdd/V6-closeout/w6-config/runs && (go test ./internal/config -run '^(TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves|TestLoad_ReadsThroughAnEditorsAtomicSaves)$' -count=1 -v -timeout=10m > plans/sdd/V6-closeout/w6-config/runs/01-red-atomic-save-windows.log 2>&1; echo "exit=$?" >> plans/sdd/V6-closeout/w6-co
+[2026-09-27T02:48:54] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && python3 - <<'EOF'
+import re
+p='internal/config/load.go'
+s=open(p,encoding='utf-8').read()
+s=s.replace('''	"strconv"
+	"strings"
+)
+
+// storeDirName and configFileName spell the two config files' locations: the store directory
+// paths.Global(home) and paths.Of(root).Dot name, and the file inside it. §3.2 gives config the
+// all
+[2026-09-27T02:48:59] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && sed -i '/^\t"os"$/d' internal/config/load.go && sed -n 1,20p internal/config/load.go
+[2026-09-27T02:49:06] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && python3 - <<'EOF'
+p='internal/config/capture_load.go'
+s=open(p,encoding='utf-8').read()
+s=s.replace('''	f, err := os.Open(path)
+	if err != nil {
+		return nil, false, false
+	}''','''	f, err := paths.OpenShared(path)
+	if err != nil {
+		return nil, false, false
+	}''')
+s=s.replace('''	"github.com/qompack/qompack/internal/core"
+)'
+[2026-09-27T02:49:50] Bash: GR=$(go env GOROOT); grep -n "func rename" -A20 $GR/src/os/file_windows.go; grep -rn "func Rename" -A25 $GR/src/internal/syscall/windows/syscall_windows.go | head -40
+[2026-09-27T02:50:23] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && cat > internal/config/zz_diag_writer_test.go <<'EOF'
+package config_test
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/qompack/qompack/internal/paths"
+)
+
+// TestDiagWriterAlone is a TEMPORARY diagnostic (not committed): the atomic-save writer with no
+// reader at all, to see whether its refusals come from t
+[2026-09-27T02:51:32] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && python3 - <<'EOF'
+p='internal/config/atomic_save_test.go'
+s=open(p,encoding='utf-8').read()
+old_start=s.index('// atomicSaveWriter is an editor')
+old_end=s.index('// loadUnderAtomicSaves runs load')
+s=s[:old_start]+'''// atomicSave is one way of replacing config.json atomically: write the whole new file, then rename it
+// ove
+[2026-09-27T02:52:23] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && cat > internal/config/zz_diag_writer_test.go <<'EOF'
+package config_test
+
+import (
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"sync/atomic"
+	"syscall"
+	"testing"
+
+	"github.com/qompack/qompack/internal/paths"
+)
+
+// TestDiagReadErrorsUnderRenames is a TEMPORARY diagnostic (not committed): which errors a shared
+// read and an Lsta
+[2026-09-27T02:54:12] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && cat > internal/config/zz_diag_writer_test.go <<'EOF'
+package config_test
+
+import (
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"sync/atomic"
+	"syscall"
+	"testing"
+
+	"github.com/qompack/qompack/internal/paths"
+)
+
+// TestDiagReadErrorsUnderRenames is a TEMPORARY diagnostic (not committed): what a shared read
+// returns while a leg
+[2026-09-27T02:54:29] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && go test ./internal/config -run '^TestLoad_ReadsThroughAnEditorsAtomicSaves$' -count=3 -v -timeout=10m 2>&1 | grep -E "loads,|--- " 
+[2026-09-27T02:56:43] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && rm internal/config/zz_diag_writer_test.go && grep -n "readCaptureConfig" internal/config/*.go
+[2026-09-27T02:56:53] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && L=plans/sdd/V6-closeout/w6-config/runs/02-red-shared-reads-no-retry-windows.log; (echo "# state: config reads switched to paths.ReadFileShared/OpenShared, no retry (uncommitted intermediate on f6095e2)"; go test ./internal/config -run '^(TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves|TestLoad_ReadsThroughAnEditorsAtomicS
+[2026-09-27T02:59:05] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && python3 - <<'EOF'
+p='plans/00-ARCHITECTURE.md'
+s=open(p,encoding='utf-8').read()
+old='''| `core` | — (nothing in `internal/`) |
+| `paths`, `config` | `core` |
+| `logging`, `obs` | `core` `paths` `config` |'''
+new='''| `core` | — (nothing in `internal/`) |
+| `paths` | `core` |
+| `config` | `core` `paths` *(amended by owner dec
+[2026-09-27T02:59:10] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && git diff --stat && git config core.autocrlf; file plans/00-ARCHITECTURE.md internal/config/load.go
+[2026-09-27T02:59:16] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && grep -E "loads,|--- |exit=|first: refused|first: budget" plans/sdd/V6-closeout/w6-config/runs/02-red-shared-reads-no-retry-windows.log | cut -c1-260
+[2026-09-27T02:59:34] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && cat > internal/config/zz_diag_writer_test.go <<'EOF'
+package config_test
+
+import (
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync/atomic"
+	"syscall"
+	"testing"
+
+	"github.com/qompack/qompack/internal/paths"
+)
+
+// TestDiagReadErrorsUnderMoveFileEx is a TEMPORARY diagnostic (not committed): what a shared read
+// retur
+[2026-09-27T03:00:20] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && cat > internal/config/zz_diag_writer_test.go <<'EOF'
+package config_test
+
+import (
+	"testing"
+
+	"github.com/qompack/qompack/internal/config"
+)
+
+// TestDiagLoadUnderMoveFileEx is a TEMPORARY diagnostic (not committed): config.Load under the
+// legacy writer, recording the warnings of every wrong answer.
+func TestDiagLoadUnderM
+[2026-09-27T03:02:05] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && cat > internal/config/zz_diag_writer_test.go <<'EOF'
+package config_test
+
+import (
+	"errors"
+	"fmt"
+	"os"
+	"syscall"
+	"testing"
+
+	"github.com/qompack/qompack/internal/paths"
+)
+
+// TestDiagReadUnderMoveFileEx is a TEMPORARY diagnostic (not committed): the error a shared read
+// returns under the legacy writer, over rounds, wit
+[2026-09-27T03:03:01] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && cat > internal/config/zz_diag_writer_test.go <<'EOF'
+package config_test
+
+import (
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/qompack/qompack/internal/paths"
+)
+
+// TestDiagMoveFileExUnderAHeldHandle is a TEMPORARY diagnostic (not committed): does a refused
+// MoveFileEx replace leave the target in place, under a shared h
+[2026-09-27T03:03:30] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && cat > internal/config/zz_diag_writer_test.go <<'EOF'
+package config_test
+
+import (
+	"errors"
+	"fmt"
+	"io/fs"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/qompack/qompack/internal/paths"
+)
+
+// TestDiagVanishUnderMoveFileEx is a TEMPORARY diagnostic (not committed): does config.json vanish
+// under the legacy writ
+[2026-09-27T03:05:31] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && cat > internal/config/zz_diag_writer_test.go <<'EOF'
+package config_test
+
+import (
+	"os"
+	"path/filepath"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	"github.com/qompack/qompack/internal/paths"
+)
+
+// TestDiagVanishAfterRefusedRename is a TEMPORARY diagnostic (not committed): after each refused
+// MoveFileEx replace, is the target sti
+[2026-09-27T03:07:04] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && cat > internal/config/zz_diag_writer_test.go <<'EOF'
+package config_test
+
+import (
+	"errors"
+	"io/fs"
+	"os"
+	"testing"
+
+	"github.com/qompack/qompack/internal/paths"
+)
+
+// TestDiagVanishWithTestWriter is a TEMPORARY diagnostic (not committed): the regression test's own
+// legacy writer against ordinary and shared readers, alte
+[2026-09-27T03:07:10] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && grep -n "x5InitialEnv\|x11InitialEnv" test/e2e/*.go | head; grep -n "initialEnv" test/integration/*.go
+[2026-09-27T03:07:18] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && sed -n 60,80p test/e2e/v3_x05_test.go; sed -n 165,215p test/e2e/v3_x05_test.go; sed -n 465,485p test/e2e/v3_x11_test.go
+[2026-09-27T03:08:07] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && grep -n "^func Run\|^func Main\|^type Env struct" -A25 internal/cli/*.go | grep -v _test | head -60
+[2026-09-27T03:08:15] Bash: cat "C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\ea3a1827-1c45-45bd-b710-a411ddbeda7f\tasks\bh1vwtl9j.output"; tail -5 C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config/diag-vanish.log
+[2026-09-27T03:08:34] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && cat > internal/config/zz_diag_writer_test.go <<'EOF'
+package config_test
+
+import (
+	"errors"
+	"fmt"
+	"io/fs"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"testing"
+
+	"github.com/qompack/qompack/internal/paths"
+)
+
+func dirNames(dir string) string {
+	ents, err := os.ReadDir(dir)
+	if err != nil {
+		return err.Error(
+[2026-09-27T03:10:05] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && cat > internal/config/zz_diag_writer_test.go <<'EOF'
+package config_test
+
+import (
+	"errors"
+	"io/fs"
+	"os"
+	"testing"
+
+	"github.com/qompack/qompack/internal/paths"
+)
+
+// TestDiagVanishWithTestWriter is a TEMPORARY diagnostic (not committed): the regression test's own
+// legacy writer against ordinary and shared readers, alte
+[2026-09-27T03:10:13] Bash: S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config; cd $S && ./config-diag.test.exe -test.run '^TestDiagVanishWithTestWriter$' -test.v -test.timeout=60m > $S/diag-vanish-200.log 2>&1; grep -E "shared=" $S/diag-vanish-200.log | tail -30
+[2026-09-27T03:10:25] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && rm internal/config/zz_diag_writer_test.go && sed -n 255,290p internal/config/capture_load.go
+[2026-09-27T03:11:41] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && python3 - <<'EOF'
+p='internal/config/capture_load.go'
+s=open(p,encoding='utf-8').read()
+old=s[s.index('func readCaptureConfig(path string) ([]byte, bool, bool) {'):s.index('func decodeCaptureConfig(raw []byte)')]
+new='''// readCaptureConfig reads one config layer for the hook path: the file's bytes, or missing when there
+// i
+[2026-09-27T03:13:11] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && go test ./internal/config -run '^TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves$/^posix-rename$' -count=4 -v -timeout=10m 2>&1 | grep -E "loads,|Messages|--- " | cut -c1-300
+[2026-09-27T03:14:15] Bash: cat "C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\ea3a1827-1c45-45bd-b710-a411ddbeda7f\tasks\b51ike3wx.output"
+[2026-09-27T03:14:26] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && grep -n "func openShared" -A30 internal/paths/replace_windows.go | head -45
+[2026-09-27T03:14:54] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && cp internal/config/capture_load.go C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config/capture_load.go.bak && python3 - <<'EOF'
+p='internal/config/capture_load.go'
+s=open(p,encoding='utf-8').read()
+s=s.replace('''	info, err :=
+[2026-09-27T03:15:23] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && go test ./internal/config -run '^TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves$/^posix-rename$' -count=10 -v -timeout=20m 2>&1 | grep -E "DIAG|loads," | grep -v " 0 wrong" | cut -c1-400
+[2026-09-27T03:16:41] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config; go test -c -o $S/config-diag2.test.exe ./internal/config && echo built
+[2026-09-27T03:16:53] Bash: S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config; cd $S && ./config-diag2.test.exe -test.run '^TestLoadForCapture_ReadsThroughAnEditorsAtomicSaves$/^posix-rename$' -test.count=30 -test.v -test.timeout=60m > $S/diag2.log 2>&1; grep -E "Messages" $S/diag2.log | cut -c1-400; grep -c -- "--- PASS:
+[2026-09-27T03:17:04] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && cp C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config/capture_load.go.bak internal/config/capture_load.go && python3 - <<'EOF'
+p='internal/config/atomic_save_test.go'
+s=open(p,encoding='utf-8').read()
+s=s.replace(' + " DIAG "
+[2026-09-27T03:17:41] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && grep -rn "filepath.Glob(filepath.Join(os.TempDir()\|Glob(.*TempDir\|ReadDir(os.TempDir())" --include=*.go internal test tools cmd | head
+[2026-09-27T03:19:05] Write: C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config/internal/paths/pathstest/home.go
+[2026-09-27T03:19:37] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && grep -n "BudgetTokens\|CalibrationMax\|CalibrationMin\|CalibrationAlpha" internal/config/runtime.go internal/config/defaults.go internal/config/config.go | head; grep -n "func NewExact\|func NewForProject" -A12 internal/tokens/exact.go | head -40
+[2026-09-27T03:19:50] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && grep -n "^func Dispatch" -A10 internal/cli/dispatch.go; grep -rn "func runConfigPrint\|\"config print\"\|func configPrint" internal/cli/*.go | grep -v _test | head; grep -n "Factor()" internal/tokens/*.go | grep -v _test | head -3
+[2026-09-27T03:19:56] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && sed -n 100,175p internal/cli/commands.go; grep -n "func Commands\|func AllCommands\|func Default" internal/cli/commands.go | head
+[2026-09-27T03:20:01] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && grep -rn "cli.Dispatch\|cli.Env{" test/guards/*.go | head -5; grep -rn "func Builtin\|func Registry\|\[\]Cmd{" internal/cli/*.go | grep -v _test | head
+[2026-09-27T03:20:06] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && sed -n 60,130p test/guards/writeset_test.go; grep -n "func loadForCommand" -A30 internal/cli/*.go | head -40
+[2026-09-27T03:20:16] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && sed -n 55,130p internal/hostperm/policy.go; grep -n "^func " internal/hostperm/policy.go | head -20; sed -n 176,195p internal/hostperm/sources.go
+[2026-09-27T03:20:22] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && grep -n "type ManagedSources\|type Decision\|type Effect\|Deny\b\|EffectDeny\|Allow\b" -A6 internal/hostperm/*.go | grep -v _test | head -50
+[2026-09-27T03:20:28] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && grep -rn "type ManagedSources" -A15 internal/hostperm/ | head -25; grep -n "Managed: \|ManagedSources{" internal/hostperm/*_test.go | head -3
+[2026-09-27T03:20:36] Bash: cat "C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\ea3a1827-1c45-45bd-b710-a411ddbeda7f\tasks\bqqppbim4.output" 2>/dev/null; S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config; grep -c "loads," $S/diag2.log; grep -E "Messages|FAIL" $S/diag2.log | 
+[2026-09-27T03:20:59] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && sed -n 1,160p internal/paths/replace_windows.go | grep -n "CreateFile\|FILE_SHARE\|func \|DELETE\|RenameInfo\|POSIX" | head -30
+[2026-09-27T03:21:18] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && python3 - <<'EOF'
+p='internal/config/capture_load.go'
+s=open(p,encoding='utf-8').read()
+s=s.replace('''	if !os.SameFile(info, opened) {
+		if now''','''	if !os.SameFile(info, opened) {
+		if DiagMismatch != nil {
+			DiagMismatch(path, f, info)
+		}
+		if now''')
+s=s.replace('''func readCaptureConfigOnce(''','''// DiagMismatch is 
+[2026-09-27T03:24:03] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && grep -n "golang.org/x/sys" go.mod && D=$(go list -m -f '{{.Dir}}' golang.org/x/sys) && grep -rn "FileAttributeTagInfo\|type FILE_ATTRIBUTE_TAG_INFO\|IO_REPARSE_TAG_MOUNT_POINT\b\|func GetFileInformationByHandleEx" $D/windows/*.go | head; grep -rln "mklink\|junction\|Junction" internal/paths/*_test.go internal/hostperm/*_test.
+[2026-09-27T03:24:13] Bash: D="C:/Users/Quant/go/pkg/mod/golang.org/x/sys@v0.47.0"; ls "$D" | head; grep -rn "FileAttributeTagInfo\|type FILE_ATTRIBUTE_TAG_INFO\|func GetFileInformationByHandleEx" "$D/windows/" | head; cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && grep -n "junction\|mklink" internal/paths/home_test.go | head -5
+[2026-09-27T03:24:19] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && sed -n 85,140p internal/paths/home_test.go; grep -rn "func linkDir\|func makeJunction\|func mklink" internal/paths/*_test.go
+[2026-09-27T03:24:26] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && grep -rn "func makeDirLink" -A25 internal/paths/ | head -40; grep -n "FILE_ATTRIBUTE_TAG_INFO\|FileAttributeTagInfo" -r internal/ | head
+[2026-09-27T03:25:17] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && ls -a | grep -i golangci; sed -n 1,80p .golangci.yml 2>/dev/null | head -80
+[2026-09-27T03:25:46] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && head -12 internal/paths/replace_other.go internal/paths/rename_noreplace_other.go internal/paths/long_other.go | grep -n "build\|==>" ; D="C:/Users/Quant/go/pkg/mod/golang.org/x/sys@v0.47.0"; grep -n "FILE_ATTRIBUTE_TAG_INFO\|type FileAttributeTagInfo\|ReparseTag" $D/windows/types_windows.go | head; grep -n "IO_REPARSE_TAG_MO
+[2026-09-27T03:25:53] Bash: D="C:/Users/Quant/go/pkg/mod/golang.org/x/sys@v0.47.0"; sed -n 1925,1940p $D/windows/types_windows.go
+[2026-09-27T03:26:00] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && grep -rn "unsafe" internal/ --include=*.go | grep -v _test | head; grep -rn "GetFileInformationByHandleEx\|GetFileInformationByHandle\b" internal --include=*.go | grep -v _test | head
+[2026-09-27T03:26:11] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && sed -n 1,40p internal/paths/replace_other.go && sed -n 1,20p internal/paths/replace_windows.go && sed -n 36,68p internal/paths/replace_windows.go
+[2026-09-27T03:26:16] TEXT: Now let me write the paths leaf-open helper.
+[2026-09-27T03:26:25] Write: C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config/internal/paths/leaf.go
+[2026-09-27T03:26:29] Write: C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config/internal/paths/leaf_unix.go
+[2026-09-27T03:26:32] Write: C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config/internal/paths/leaf_other.go
+[2026-09-27T03:26:44] Write: C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config/internal/paths/leaf_windows.go
+[2026-09-27T03:27:06] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && python3 - <<'EOF'
+p='internal/paths/leaf_windows.go'
+s=open(p,encoding='utf-8').read()
+s=s.replace('''import (
+	"encoding/binary"
+	"os"
+
+	"golang.org/x/sys/windows"
+)
+
+// fileAttributeTagInfoSize is sizeof(FILE_ATTRIBUTE_TAG_INFO): FileAttributes then ReparseTag, two
+// ULONGs. It is read by hand from a byte buffer, as replac
+[2026-09-27T03:28:51] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && rm -f internal/config/zz_diag_windows_test.go && python3 - <<'EOF'
+p='internal/config/capture_load.go'
+s=open(p,encoding='utf-8').read()
+a=s.index('// readCaptureConfig reads one config layer')
+b=s.index('func decodeCaptureConfig(raw []byte)')
+s=s[:a]+'''// readCaptureConfig reads one config layer for the hook path: the file'
+[2026-09-27T03:29:03] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && python3 - <<'EOF'
+p='internal/config/capture_load.go'
+s=open(p,encoding='utf-8').read()
+s=s.replace('''	captureConfigMaxRules = 256
+)
+
+
+//''','''	captureConfigMaxRules = 256
+)
+
+//''')
+open(p,'w',encoding='utf-8',newline='\n').write(s)
+EOF
+grep -n "swapped" internal/config/*.go docs/*.md | head
+[2026-09-27T03:29:08] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && sed -n 82,88p internal/config/capture_load.go; grep -rn "between stat and open\|swapped between" docs/ README.md 2>/dev/null | head
+[2026-09-27T03:29:14] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && sed -n 165,190p docs/security.md
+[2026-09-27T03:29:24] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && python3 - <<'EOF'
+p='internal/config/capture_load.go'
+s=open(p,encoding='utf-8').read()
+old='''//   - a config file that is not a bounded regular leaf: a directory, a link, over 1 MiB, or swapped
+//     between stat and open (refuseFileLeaf);'''
+new='''//   - a config file that is not a bounded regular leaf: a directory, a li
+[2026-09-27T03:31:31] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && head -20 internal/paths/resolvesinside_test.go | grep -n package; grep -ln "^package paths$" internal/paths/*_test.go | head; grep -n "func TestOpenSharedLetsWriteAtomicLandUnderAnOpenReader" -A30 internal/paths/shared_test.go | head -40
+[2026-09-27T03:31:51] Write: C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config/internal/paths/leaf_test.go
+[2026-09-27T03:31:55] Write: C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config/internal/paths/leaf_unix_test.go
+[2026-09-27T03:32:01] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && go test ./internal/paths -run '^TestOpenSharedLeaf_' -count=1 -v 2>&1 | grep -E "^(=== RUN|--- |ok|FAIL|\s+leaf)" | head -20; GOOS=linux go vet ./internal/paths && echo vet-linux-ok
+[2026-09-27T03:32:52] Bash: cat "C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\ea3a1827-1c45-45bd-b710-a411ddbeda7f\tasks\bm4ax83z3.output" | cut -c1-220
+[2026-09-27T03:33:29] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && python3 - <<'EOF'
+p='test/guards/productreads_test.go'
+s=open(p,encoding='utf-8').read()
+old='''	whyConfigFile = "config.json, which only the user or their editor writes: no Qompack process replaces " +
+		"it. §3.2 gives config the allow-set {core}, so it cannot reach paths.ReadFileShared either; an " +
+		"editor's atomic sav
+[2026-09-27T03:34:52] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && python3 - <<'EOF'
+import io
+def rep(p, old, new):
+    s=open(p,encoding='utf-8').read()
+    assert old in s, (p, old[:60])
+    s=s.replace(old,new)
+    open(p,'w',encoding='utf-8',newline='\n').write(s)
+
+rep('internal/config/doc.go','''// schema.go and by the docs generator. config's own allow-set (00-ARCHITECTURE.md §3.2) is
+[2026-09-27T03:35:28] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && git diff -U0 | grep "^+" | grep -v "^+++" | awk '{ if (length($0) > 101) print length($0)": "$0 }' | cut -c1-160
+[2026-09-27T03:35:36] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && git diff -U0 | python3 -c "
+import sys
+for line in sys.stdin.read().splitlines():
+    if line.startswith('+') and not line.startswith('+++'):
+        l=line[1:].replace('\t','    ')
+        if len(l)>100: print(len(l), l[:140])
+"; for f in internal/paths/leaf.go internal/paths/leaf_windows.go internal/paths/leaf_unix.go inter
+[2026-09-27T03:35:55] Write: C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config/internal/paths/pathstest/home_test.go
+[2026-09-27T03:35:56] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && go vet ./internal/paths/pathstest && go test ./internal/paths/pathstest -count=1 -v 2>&1 | tail -5 && GOOS=linux go vet ./internal/paths/pathstest && echo linux-vet-ok
+[2026-09-27T03:37:36] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config; grep -v ":$" $S/reach.txt | cut -d: -f1 > $S/atrisk.txt; for p in $(cat $S/atrisk.txt); do n=$(go list -f '{{.Name}}' ./$p); nin=$(go list -f '{{len .TestGoFiles}}' ./$p);
+[2026-09-27T03:40:17] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && grep -n '"deny"\|Read(' internal/hostperm/policy_test.go | head -12; sed -n 40,70p internal/hostperm/policy_test.go
+[2026-09-27T03:40:25] Bash: cat "C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\ea3a1827-1c45-45bd-b710-a411ddbeda7f\tasks\bf8jr88cu.output"
+[2026-09-27T03:40:33] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config; for p in $(cat $S/atrisk.txt); do pk=$(grep -h "^package " $p/*_test.go | sort | uniq -c | tr '\n' ';'); tm=$(grep -l "^func TestMain(" $p/*_test.go 2>/dev/null | tr '\n' 
+[2026-09-27T03:41:53] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && python3 - <<'EOF'
+import os
+pkgs = {
+ # dir: package clause
+ 'internal/analyzer':'analyzer_test','internal/analyzer/analyzertest':'analyzertest_test',
+ 'internal/canon':'canon','internal/checkpoint':'checkpoint','internal/checkpoint/checkpointtest':'checkpointtest_test',
+ 'internal/chunk':'chunk','internal/cli':'cli','interna
+[2026-09-27T03:42:00] TEXT: Now edit the existing TestMains.
+[2026-09-27T03:42:02] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && sed -n 1,30p internal/mcp/benchfixture_test.go; sed -n 1,20p test/canary/host_test.go; sed -n 1,35p test/e2e/hooks_test.go; cat test/fault/main_test.go test/platform/main_test.go test/release/main_test.go test/security/main_test.go
+[2026-09-27T03:42:13] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && python3 - <<'EOF'
+def rep(p, old, new, count=1):
+    s=open(p,encoding='utf-8').read()
+    assert s.count(old)==count, (p, s.count(old), old[:70])
+    s=s.replace(old,new)
+    open(p,'w',encoding='utf-8',newline='\n').write(s)
+
+IMP='\t"github.com/qompack/qompack/internal/paths/pathstest"\n'
+ISO=('// Every test here runs with 
+[2026-09-27T03:42:40] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && python3 - <<'EOF'
+def rep(p, old, new, count=1):
+    s=open(p,encoding='utf-8').read()
+    assert s.count(old)==count, (p, s.count(old), old[:70])
+    s=s.replace(old,new)
+    open(p,'w',encoding='utf-8',newline='\n').write(s)
+
+rep('internal/mcp/benchfixture_test.go','''// TestMain exists solely to take the shared corpus away
+[2026-09-27T03:43:12] Write: C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config/edit_testmains.py
+[2026-09-27T03:43:14] Bash: python3 C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config/edit_testmains.py
+[2026-09-27T03:43:26] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && sed -n 155,170p test/integration/replaygrowth_test.go; sed -n 385,395p test/integration/replaygrowth_test.go; sed -n 222,232p test/integration/v4_x09_test.go; sed -n 325,336p test/e2e/v3_x11_test.go; grep -n "^import\|^	\"" test/e2e/v3_x05_test.go test/e2e/v3_x11_test.go test/integration/replaygrowth_test.go test/integration/
+[2026-09-27T03:43:47] Write: C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config/edit_envsnap.py
+[2026-09-27T03:43:49] Bash: python3 C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config/edit_envsnap.py && cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && sed -n 585,600p test/integration/hotpath_test.go; sed -n 396,410p test/integration/replaygrowth_test.go; grep -n "pathstest\"" test/integration/hot
+[2026-09-27T03:44:01] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && python3 - <<'PYEOF'
+import os
+def rep(p, old, new, count=1):
+    s=open(p,encoding='utf-8').read()
+    assert s.count(old)==count, (p, s.count(old), old[:80])
+    s=s.replace(old,new)
+    open(p,'w',encoding='utf-8',newline='\n').write(s)
+rep('test/integration/hotpath_test.go','''// CI drives, flags and exit codes included; i
+[2026-09-27T03:44:09] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && sed -n 18,35p test/integration/hotpath_test.go
+[2026-09-27T03:44:16] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && sed -i 's#^\t"github.com/qompack/qompack/internal/paths"$#\t"github.com/qompack/qompack/internal/paths"\n\t"github.com/qompack/qompack/internal/paths/pathstest"#' test/integration/hotpath_test.go && grep -c "pathstest\"" test/integration/hotpath_test.go && go vet ./test/integration ./test/e2e ./test/canary ./test/fault ./test
+[2026-09-27T03:45:37] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config; go vet $(sed 's#^#./#' $S/atrisk.txt) ./internal/paths/... ./internal/config 2>&1 | tail -20; echo "exit=$?"
+[2026-09-27T03:47:24] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && grep -n "modulePrefix\s*=\|modulePrefix =\|const modulePrefix\|modulePath" test/guards/*.go | head -5; sed -n 75,100p test/guards/network_test.go
+[2026-09-27T03:47:59] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && sed -n 1,40p internal/tokens/estimate.go; grep -n "Tokens " internal/core/*.go | grep "type" | head -3
+[2026-09-27T03:48:05] TEXT: Now the guard file.
+[2026-09-27T03:49:26] Write: C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config/test/guards/homeisolation_test.go
+[2026-09-27T03:49:51] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && python3 - <<'PYEOF'
+p='test/guards/homeisolation_test.go'
+s=open(p,encoding='utf-8').read()
+old='''	// poisonCalibrationRatio is observed/estimated for every poisoned calibration sample, well past
+	// the default calibrationMax of 1.6, so the persisted factor is that clamp and not the identity.
+	poisonCalibrationObserved, poi
+[2026-09-27T03:52:19] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && python3 - <<'PYEOF'
+p='test/guards/homeisolation_test.go'
+s=open(p,encoding='utf-8').read()
+old='''	require.Equal(t, []string{"env (os.Environ)", "home (os.UserHomeDir)"}, envSnapshotsInFile(f),'''
+new='''	require.Equal(t, []string{"env (os.Environ)", "home, _ (os.UserHomeDir)"}, envSnapshotsInFile(f),'''
+assert old in s; s=s
+[2026-09-27T03:53:41] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && ls test/docs; grep -ln "architecture.md" test/docs/*.go | head; grep -n "architecture.md" test/docs/*.go | head -20
+[2026-09-27T03:53:50] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && sed -n 1,80p test/docs/owned_test.go; grep -n "func Test" test/docs/pointers_test.go test/docs/limits_test.go | head
+[2026-09-27T03:54:04] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && sed -n 470,535p plans/00-ARCHITECTURE.md
+[2026-09-27T03:54:09] TEXT: Let me add the pathstest note to §3.2 and the docs paragraph.
+[2026-09-27T03:54:18] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && python3 - <<'PYEOF'
+def rep(p, old, new, count=1):
+    s=open(p,encoding='utf-8').read()
+    assert s.count(old)==count, (p, s.count(old), old[:80])
+    s=s.replace(old,new)
+    open(p,'w',encoding='utf-8',newline='\n').write(s)
+
+rep('plans/00-ARCHITECTURE.md','''stays out is unchanged: `config` still may not import `logging`
+[2026-09-27T03:54:26] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && python3 - <<'PYEOF'
+p='tools/devtool/importrules.go'
+s=open(p,encoding='utf-8').read()
+old='''	"core":   {},
+	"paths":  {"core"},
+	"config": {"core", "paths"},
+'''
+new='''	"core":  {},
+	"paths": {"core"},
+	// config -> paths is owner decision D22 (2026-09-26): the config loaders name the user-global
+	// root through paths.Glo
+[2026-09-27T03:56:17] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && go run ./tools/devtool fmt-check; echo "fmt-check exit=$?"; git diff tools/devtool/importrules.go
+[2026-09-27T03:58:25] Bash: S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config; mkdir -p $S/base && cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && git archive f6095e2 | tar -x -C $S/base && cp internal/config/atomic_save_test.go $S/base/internal/config/ && ls $S/base | head -5
+[2026-09-27T03:59:36] Bash: cat "C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\ea3a1827-1c45-45bd-b710-a411ddbeda7f\tasks\bka235sa3.output"
+[2026-09-27T03:59:45] Bash: S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config; W=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config; L=$W/plans/sdd/V6-closeout/w6-config/runs/03-red-atomic-save-final-test-at-base-windows.log; cd $S/base && (echo "# git archive f6095e2 + the committed internal/config/atomic
+[2026-09-27T04:01:27] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && L=plans/sdd/V6-closeout/w6-config/runs/10-lint-windows.log; (go run ./tools/devtool lint --only=golangci-lint,nomagic,importgraph,testdeps,bindeps,sleepcheck,docmarkers,runpatterns 2>&1; echo "exit=$?") > $L; tail -40 $L
+[2026-09-27T04:01:37] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && sed -n 1,80p tools/devtool/checkcommitmsg.go | head -100; git log -8 --format='%s%n%b---' | head -60
+[2026-09-27T04:01:38] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && sed -n 80,200p tools/devtool/checkcommitmsg.go | grep -n "scope\|Refs\|footer\|allowed\|types" | head -30; git log --format='%s' -40 | grep -E "^(fix|feat|test|docs|refactor)\(" | head -20
+[2026-09-27T04:02:12] Bash: cat "C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\ea3a1827-1c45-45bd-b710-a411ddbeda7f\tasks\b83hiduur.output" 2>/dev/null | tail -30
+[2026-09-27T04:02:25] Write: C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config/poisonhome/main.go
+[2026-09-27T04:02:29] Write: C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config/snaphome.sh
+[2026-09-27T04:02:37] Write: C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config/proofrun.sh
+[2026-09-27T04:02:51] Bash: sleep 60; cat "C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\ea3a1827-1c45-45bd-b710-a411ddbeda7f\tasks\b83hiduur.output" 2>/dev/null | tail -30; tail -5 C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config/plans/sdd/V6-closeout/w6-config/runs/10-lint-windows.log
+[2026-09-27T04:03:00] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && git show HEAD:test/guards/sharedreaders_test.go | python3 -c "
+import sys
+m1=m4=0
+for l in sys.stdin.read().splitlines():
+    if l.lstrip().startswith('//'):
+        m1=max(m1,len(l)); m4=max(m4,len(l.replace('\t','    ')))
+print('tab=1 max',m1,'tab=4 max',m4)"; git show HEAD:internal/config/capture_load.go | python3 -c "
+imp
+[2026-09-27T04:03:11] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && python3 - <<'PYEOF'
+def rep(p, old, new, count=1):
+    s=open(p,encoding='utf-8').read()
+    assert s.count(old)==count, (p, s.count(old), old[:80])
+    s=s.replace(old,new)
+    open(p,'w',encoding='utf-8',newline='\n').write(s)
+rep('internal/config/atomic_save_test.go','''func loadUnderAtomicSaves(t *testing.T, how atomicSav
+[2026-09-27T04:03:20] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && until grep -q "^exit=" plans/sdd/V6-closeout/w6-config/runs/10-lint-windows.log 2>/dev/null; do sleep 5; done; tail -30 plans/sdd/V6-closeout/w6-config/runs/10-lint-windows.log
+[2026-09-27T04:13:45] Bash: tail -40 C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config/plans/sdd/V6-closeout/w6-config/runs/10-lint-windows.log
+[2026-09-27T04:13:52] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && grep -n "golangci\|^[a-z].*\.go:[0-9]" plans/sdd/V6-closeout/w6-config/runs/10-lint-windows.log | head -30; grep -n "PASS \|FAIL " plans/sdd/V6-closeout/w6-config/runs/10-lint-windows.log
+[2026-09-27T04:14:06] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && python3 - <<'PYEOF'
+p='internal/paths/pathstest/home.go'
+s=open(p,encoding='utf-8').read()
+old='''// goEnv asks the go command on PATH for toolchainVars.
+func goEnv() (map[string]string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), goEnvTimeout)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "go",
+[2026-09-27T04:15:48] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && L=plans/sdd/V6-closeout/w6-config/runs/11-config-paths-full-windows.log; (go test ./internal/config ./internal/paths/... -count=1 -timeout=30m 2>&1; echo "exit=$?") > $L; tail -8 $L
+[2026-09-27T04:26:32] Bash: mkdir -p C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config/msgs && cd C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config/msgs && cat > c1.txt <<'EOF'
+docs(arch,devtool): let config import paths u
+[2026-09-27T04:26:57] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && until grep -q "^exit=" plans/sdd/V6-closeout/w6-config/runs/11-config-paths-full-windows.log 2>/dev/null; do sleep 5; done; cat plans/sdd/V6-closeout/w6-config/runs/11-config-paths-full-windows.log | tail -12
+[2026-09-27T04:31:47] PowerShell: Get-Process | Where-Object { $_.ProcessName -match '\.test$|^go$|qompack|compile|link' } | Group-Object ProcessName | Select-Object Name,Count | Sort-Object Count -Descending | Select-Object -First 15 | Format-Table -AutoSize | Out-String -Width 120
+[2026-09-27T04:32:09] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config; cp plans/00-ARCHITECTURE.md $S/arch-final.md && python3 - <<'PYEOF'
+S='C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c576
+[2026-09-27T04:32:21] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config; git add plans/00-ARCHITECTURE.md tools/devtool/importrules.go && git commit -q -F $S/msgs/c1.txt && git log --oneline -1
+[2026-09-27T04:33:15] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config; git add internal/paths/leaf.go internal/paths/leaf_other.go internal/paths/leaf_unix.go internal/paths/leaf_windows.go internal/paths/leaf_test.go internal/paths/leaf_unix
+[2026-09-27T04:34:33] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config; cp $S/arch-final.md plans/00-ARCHITECTURE.md && git add plans/00-ARCHITECTURE.md internal/paths/pathstest && git commit -q -F $S/msgs/c4.txt && git log --oneline -1 && git
+[2026-09-27T04:34:44] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config; git commit -q -F $S/msgs/c5.txt && git log --oneline -1 && git add test/guards/homeisolation_test.go && git commit -q -F $S/msgs/c6.txt && git log --oneline -1 && git stat
+[2026-09-27T04:35:30] Bash: S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config; rm -rf $S/head && mkdir -p $S/head && cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && git archive 89574c4 | tar -x -C $S/head && rm -f $S/base/internal/config/atomic_save_test.go && ls $S/head/internal/paths/pathstest &
+[2026-09-27T04:36:11] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && sed -n 1,60p plans/sdd/V6-closeout/linux/linux-nonroot-inner.sh | grep -n "\-\-timeout\|\-\-count\|\-\-run\|default" | head
+[2026-09-27T04:36:21] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && mkdir -p plans/sdd/V6-closeout/w6-config/runs/linux && (sh plans/sdd/V6-closeout/linux/linux-nonroot-gate.sh --prefix cx-w6-config --repo C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config --out C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config/plans/sdd/V6-closeout/w6-config/runs/linux 89574c
+[2026-09-27T04:36:29] Bash: S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config; W=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config; sh $S/proofrun.sh $S/base base-cli-mcp-hostperm-tokens $W/plans/sdd/V6-closeout/w6-config/runs/20-proof-base-poisoned-home-windows.log -- ./internal/cli ./internal/mcp ./inte
+[2026-09-27T04:36:40] Bash: S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config; rm -rf $S/base-guard && mkdir -p $S/base-guard && cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w6-config && git archive f6095e2 | tar -x -C $S/base-guard && mkdir -p $S/base-guard/internal/paths/pathstest && cp internal/paths/pat
+[2026-09-27T04:44:20] Bash: S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w6/config; cd $S/base-guard && python3 - <<'PYEOF'
+p='test/guards/homeisolation_test.go'
+s=open(p,encoding='utf-8').read()
+old='''	require.Empty(t, missing,'''
+new='''	t.Logf("DIAGNOSTIC VARIANT: the missing-TestMain assertion is disabled here to reach th

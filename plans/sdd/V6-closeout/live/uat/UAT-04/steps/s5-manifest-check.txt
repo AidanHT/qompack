@@ -1,0 +1,68 @@
+UAT-04 step 5: MANIFEST.jsonl after the failed compaction (every line re-hashed)
+0001.json created 18:03:44.445 bytes 18575 rehash-match True session 5fe7f497
+0002.json created 18:03:47.451 bytes 18600 rehash-match True session 5fe7f497
+0003.json created 18:04:01.354 bytes 18600 rehash-match True session 5fe7f497
+0004.json created 18:04:24.733 bytes 18600 rehash-match True session 5fe7f497
+0005.json created 18:04:46.457 bytes 18600 rehash-match True session 5fe7f497
+0006.json created 18:05:34.765 bytes 18600 rehash-match True session 5fe7f497
+0007.json created 18:06:10.642 bytes 18600 rehash-match True session 5fe7f497
+0008.json created 18:06:39.866 bytes 18600 rehash-match True session 5fe7f497
+0009.json created 18:07:13.220 bytes 18600 rehash-match True session 5fe7f497
+0010.json created 18:07:44.950 bytes 18601 rehash-match True session 5fe7f497
+0011.json created 18:08:22.663 bytes 18601 rehash-match True session 5fe7f497
+0012.json created 18:08:52.657 bytes 18601 rehash-match True session 5fe7f497
+0013.json created 18:09:27.844 bytes 18601 rehash-match True session 5fe7f497
+0014.json created 18:10:01.795 bytes 18601 rehash-match True session 5fe7f497
+
+host compaction events in stream order:
+status compacting
+compact_result failed too_few_groups
+status compacting
+compact_result success 
+compact_boundary trigger=auto pre=30535 post=4532
+status compacting
+compact_result success 
+compact_boundary trigger=auto pre=27733 post=4587
+status compacting
+compact_result success 
+compact_boundary trigger=auto pre=27863 post=4812
+status compacting
+compact_result success 
+compact_boundary trigger=auto pre=28097 post=5151
+status compacting
+status compacting
+compact_result success 
+compact_boundary trigger=manual pre=30508 post=5562
+status compacting
+compact_result success 
+compact_boundary trigger=auto pre=46985 post=21684
+status compacting
+status compacting
+compact_result success 
+compact_boundary trigger=auto pre=61442 post=5471
+status compacting
+compact_result success 
+compact_boundary trigger=auto pre=45597 post=22149
+status compacting
+status compacting
+compact_result success 
+compact_boundary trigger=auto pre=61731 post=5889
+status compacting
+compact_result success 
+compact_boundary trigger=auto pre=45802 post=22305
+status compacting
+status compacting
+compact_result success 
+compact_boundary trigger=auto pre=61864 post=5852
+status compacting
+status compacting
+compact_result success 
+compact_boundary trigger=auto pre=29026 post=5766
+status compacting
+status compacting
+compact_result success 
+compact_boundary trigger=auto pre=29349 post=5827
+status compacting
+status compacting
+compact_result success 
+compact_boundary trigger=manual pre=30635 post=3699

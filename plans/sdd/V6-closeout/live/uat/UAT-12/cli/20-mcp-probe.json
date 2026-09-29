@@ -1,0 +1,790 @@
+{
+ "server": {
+  "name": "qompack",
+  "version": "0.3.0"
+ },
+ "tools": [
+  "recall",
+  "expand",
+  "re_read",
+  "already_tried",
+  "record_eliminated",
+  "timeline",
+  "why",
+  "dropped"
+ ],
+ "calls": [
+  {
+   "tool": "expand",
+   "args": {
+    "tool_use_id": "toolu_01PTmSHvxRovjT5AYZiJQ5Z5"
+   },
+   "jsonrpc_line_bytes": 6294,
+   "isError": false,
+   "error": null,
+   "text_bytes": [
+    5777
+   ],
+   "result_bytes_without_meta": 5938,
+   "meta": {
+    "qompack": {
+     "elapsed_ms": 18,
+     "ephemeral": true,
+     "expansions": 1,
+     "hash": "sha256:9787ae25b773f3772144cb2e48cb312ee240ed26a786e071ea58c27a483e4af8",
+     "next_span": "5471:16384",
+     "path": "big.log",
+     "promoted": false,
+     "span": [
+      0,
+      5471
+     ],
+     "tool_use_id": "qompack-mcp:8827e33c7336",
+     "total_bytes": 324902,
+     "truncated": true,
+     "untrusted": true
+    }
+   },
+   "fields": {
+    "found": true,
+    "hash": "sha256:b1c50fcd0cc16fdf062eb0801b3fe9eab49412b19397cf596a2179b3afc19329",
+    "path": "big.log",
+    "tool": "FileRead",
+    "span": [
+     0,
+     5471
+    ],
+    "total_bytes": 324902,
+    "truncated": true,
+    "next_span": "5471:16384",
+    "widened": false,
+    "expansions": 1,
+    "promoted": false
+   },
+   "content_bytes": 5471,
+   "content_has_nul_or_fffd": false,
+   "contains_planted_secret": [
+    false,
+    false
+   ]
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "tool_use_id": "toolu_01PTmSHvxRovjT5AYZiJQ5Z5",
+    "full": true
+   },
+   "jsonrpc_line_bytes": 266291,
+   "isError": false,
+   "error": null,
+   "text_bytes": [
+    263559
+   ],
+   "result_bytes_without_meta": 265932,
+   "meta": {
+    "qompack": {
+     "elapsed_ms": 31,
+     "ephemeral": true,
+     "expansions": 2,
+     "hash": "sha256:efad47a7ae1a415d52c83e95cbac2db66a4ea309bfd1a964eb2a6625c322d632",
+     "next_span": "262144:62758",
+     "path": "big.log",
+     "promoted": true,
+     "span": [
+      0,
+      262144
+     ],
+     "tool_use_id": "qompack-mcp:3d0eb8b9a2d6",
+     "total_bytes": 324902,
+     "truncated": true,
+     "untrusted": true
+    }
+   },
+   "fields": {
+    "found": true,
+    "hash": "sha256:b1c50fcd0cc16fdf062eb0801b3fe9eab49412b19397cf596a2179b3afc19329",
+    "path": "big.log",
+    "tool": "FileRead",
+    "span": [
+     0,
+     262144
+    ],
+    "total_bytes": 324902,
+    "truncated": true,
+    "next_span": "262144:62758",
+    "widened": false,
+    "expansions": 2,
+    "promoted": true
+   },
+   "content_bytes": 262144,
+   "content_has_nul_or_fffd": false,
+   "contains_planted_secret": [
+    false,
+    false
+   ]
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "tool_use_id": "toolu_01PTmSHvxRovjT5AYZiJQ5Z5",
+    "span": "262144:62758"
+   },
+   "jsonrpc_line_bytes": 66928,
+   "isError": false,
+   "error": null,
+   "text_bytes": [
+    65930
+   ],
+   "result_bytes_without_meta": 66591,
+   "meta": {
+    "qompack": {
+     "elapsed_ms": 23,
+     "ephemeral": true,
+     "expansions": 3,
+     "hash": "sha256:a90ddb38693ffaa6a8d56fca52b4bc1b23c6fafcfd4f2a4872945022a799e66e",
+     "path": "big.log",
+     "promoted": true,
+     "span": [
+      259511,
+      324902
+     ],
+     "tool_use_id": "qompack-mcp:96bf15c9e186",
+     "total_bytes": 324902,
+     "truncated": true,
+     "untrusted": true
+    }
+   },
+   "fields": {
+    "found": true,
+    "hash": "sha256:b1c50fcd0cc16fdf062eb0801b3fe9eab49412b19397cf596a2179b3afc19329",
+    "path": "big.log",
+    "tool": "FileRead",
+    "span": [
+     259511,
+     324902
+    ],
+    "total_bytes": 324902,
+    "truncated": true,
+    "widened": false,
+    "expansions": 3,
+    "promoted": true
+   },
+   "content_bytes": 65391,
+   "content_has_nul_or_fffd": false,
+   "contains_planted_secret": [
+    false,
+    false
+   ]
+  },
+  {
+   "tool": "re_read",
+   "args": {
+    "path": "big.log",
+    "full": true
+   },
+   "jsonrpc_line_bytes": 266318,
+   "isError": false,
+   "error": null,
+   "text_bytes": [
+    263567
+   ],
+   "result_bytes_without_meta": 265942,
+   "meta": {
+    "qompack": {
+     "elapsed_ms": 31,
+     "ephemeral": true,
+     "expansions": 4,
+     "hash": "sha256:a5f3cb1c12ef555b21e6e2873db7cbfad9388b0c75eba68b84b7ae482f84d5ea",
+     "next_span": "262144:62758",
+     "path": "big.log",
+     "promoted": true,
+     "source": "store",
+     "span": [
+      0,
+      262144
+     ],
+     "tool_use_id": "qompack-mcp:322fae96086a",
+     "total_bytes": 324902,
+     "truncated": true,
+     "untrusted": true
+    }
+   },
+   "fields": {
+    "found": true,
+    "hash": "sha256:b1c50fcd0cc16fdf062eb0801b3fe9eab49412b19397cf596a2179b3afc19329",
+    "path": "big.log",
+    "source": "store",
+    "turn": 3,
+    "span": [
+     0,
+     262144
+    ],
+    "total_bytes": 324902,
+    "truncated": true,
+    "next_span": "262144:62758",
+    "widened": false,
+    "expansions": 4,
+    "promoted": true
+   },
+   "content_bytes": 262144,
+   "content_has_nul_or_fffd": false,
+   "contains_planted_secret": [
+    false,
+    false
+   ]
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "tool_use_id": "toolu_0162Bwq3VMWchx54kaD19Kos"
+   },
+   "jsonrpc_line_bytes": 3502,
+   "isError": false,
+   "error": null,
+   "text_bytes": [
+    2948
+   ],
+   "result_bytes_without_meta": 3190,
+   "meta": {
+    "qompack": {
+     "elapsed_ms": 6,
+     "ephemeral": true,
+     "expansions": 1,
+     "hash": "sha256:ebda827efe6abc7636c39ab21c098c4ada64ded391a96aee63fc245a92ec1380",
+     "promoted": false,
+     "span": [
+      0,
+      2134
+     ],
+     "tool_use_id": "qompack-mcp:cee929683007",
+     "total_bytes": 2134,
+     "truncated": false,
+     "untrusted": true
+    }
+   },
+   "fields": {
+    "found": true,
+    "hash": "sha256:eb87e0339b807a494dd9149ddc24d218c81f4b6decab123a3d4f0f8bb2b2b803",
+    "tool": "Bash",
+    "span": [
+     0,
+     2134
+    ],
+    "total_bytes": 2134,
+    "truncated": false,
+    "widened": false,
+    "expansions": 1,
+    "promoted": false
+   },
+   "content_bytes": 2134,
+   "content_has_nul_or_fffd": true,
+   "contains_planted_secret": [
+    false,
+    false
+   ]
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "tool_use_id": "toolu_0162Bwq3VMWchx54kaD19Kos",
+    "full": true
+   },
+   "jsonrpc_line_bytes": 3500,
+   "isError": false,
+   "error": null,
+   "text_bytes": [
+    2947
+   ],
+   "result_bytes_without_meta": 3189,
+   "meta": {
+    "qompack": {
+     "elapsed_ms": 7,
+     "ephemeral": true,
+     "expansions": 2,
+     "hash": "sha256:e7007db6ed6c601b280a19c71cbf13e62cbf8a2072f9a85fc4170ea6f062df90",
+     "promoted": true,
+     "span": [
+      0,
+      2134
+     ],
+     "tool_use_id": "qompack-mcp:9cc764204901",
+     "total_bytes": 2134,
+     "truncated": false,
+     "untrusted": true
+    }
+   },
+   "fields": {
+    "found": true,
+    "hash": "sha256:eb87e0339b807a494dd9149ddc24d218c81f4b6decab123a3d4f0f8bb2b2b803",
+    "tool": "Bash",
+    "span": [
+     0,
+     2134
+    ],
+    "total_bytes": 2134,
+    "truncated": false,
+    "widened": false,
+    "expansions": 2,
+    "promoted": true
+   },
+   "content_bytes": 2134,
+   "content_has_nul_or_fffd": true,
+   "contains_planted_secret": [
+    false,
+    false
+   ]
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "tool_use_id": "toolu_015xN8WiMCC4hNiKdCATrFQq"
+   },
+   "jsonrpc_line_bytes": 404,
+   "isError": false,
+   "error": null,
+   "text_bytes": [
+    131
+   ],
+   "result_bytes_without_meta": 194,
+   "meta": {
+    "qompack": {
+     "elapsed_ms": 7,
+     "ephemeral": true,
+     "hash": "sha256:2e12e2e801d571a772112ffdbd9ed654856c3282d5176bd6ef2b728d7ae57945",
+     "tool_use_id": "qompack-mcp:c7002d2036fc"
+    }
+   },
+   "fields": {
+    "found": false,
+    "denied": true,
+    "reason": "authorization denied: the host's current permission rules deny reading the associated path"
+   },
+   "contains_planted_secret": [
+    false,
+    false
+   ]
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "hash": "sha256:024a48d020181f0281060c137af6ceac4828477627a3e74e6f4333f55ff7f898"
+   },
+   "jsonrpc_line_bytes": 405,
+   "isError": false,
+   "error": null,
+   "text_bytes": [
+    131
+   ],
+   "result_bytes_without_meta": 194,
+   "meta": {
+    "qompack": {
+     "elapsed_ms": 12,
+     "ephemeral": true,
+     "hash": "sha256:2e12e2e801d571a772112ffdbd9ed654856c3282d5176bd6ef2b728d7ae57945",
+     "tool_use_id": "qompack-mcp:781e2b9ff39e"
+    }
+   },
+   "fields": {
+    "found": false,
+    "denied": true,
+    "reason": "authorization denied: the host's current permission rules deny reading the associated path"
+   },
+   "contains_planted_secret": [
+    false,
+    false
+   ]
+  },
+  {
+   "tool": "re_read",
+   "args": {
+    "path": "private/deny.txt"
+   },
+   "jsonrpc_line_bytes": 406,
+   "isError": false,
+   "error": null,
+   "text_bytes": [
+    131
+   ],
+   "result_bytes_without_meta": 194,
+   "meta": {
+    "qompack": {
+     "elapsed_ms": 15,
+     "ephemeral": true,
+     "hash": "sha256:2e12e2e801d571a772112ffdbd9ed654856c3282d5176bd6ef2b728d7ae57945",
+     "tool_use_id": "qompack-mcp:3fef2ba7805c"
+    }
+   },
+   "fields": {
+    "found": false,
+    "denied": true,
+    "reason": "authorization denied: the host's current permission rules deny reading the associated path"
+   },
+   "contains_planted_secret": [
+    false,
+    false
+   ]
+  },
+  {
+   "tool": "recall",
+   "args": {
+    "query": "ORCHID-DENY-7731"
+   },
+   "jsonrpc_line_bytes": 1168,
+   "isError": false,
+   "error": null,
+   "text_bytes": [
+    796
+   ],
+   "result_bytes_without_meta": 939,
+   "meta": {
+    "qompack": {
+     "elapsed_ms": 23,
+     "ephemeral": true,
+     "hash": "sha256:4c8732e39c533dbbf8febd773f39e9674ac16d7c25eda0e8e2432e8cff6fe908",
+     "tool_use_id": "qompack-mcp:e070dbcfc23f",
+     "untrusted": true
+    }
+   },
+   "fields": {
+    "count": 2,
+    "found": true,
+    "query": {
+     "text": "ORCHID-DENY-7731",
+     "path": "",
+     "symbol": "",
+     "tool": ""
+    },
+    "denied": 3
+   },
+   "hits": [
+    {
+     "path": "",
+     "tool": "UserPromptSubmit",
+     "tool_use_id": "prompt_2cb3e3c1-fcbd-4f02-a8ab-6185c10e2051_8"
+    },
+    {
+     "path": "",
+     "tool": "UserPromptSubmit",
+     "tool_use_id": "prompt_2cb3e3c1-fcbd-4f02-a8ab-6185c10e2051_2"
+    }
+   ],
+   "contains_planted_secret": [
+    false,
+    false
+   ]
+  },
+  {
+   "tool": "recall",
+   "args": {
+    "query": "path:private/deny.txt"
+   },
+   "jsonrpc_line_bytes": 424,
+   "isError": false,
+   "error": null,
+   "text_bytes": [
+    114
+   ],
+   "result_bytes_without_meta": 195,
+   "meta": {
+    "qompack": {
+     "elapsed_ms": 13,
+     "ephemeral": true,
+     "hash": "sha256:d946c9c6cc4679811795eacde6686c538c429f8fc5838253784c5b8131573187",
+     "tool_use_id": "qompack-mcp:fa8621eafada",
+     "untrusted": true
+    }
+   },
+   "fields": {
+    "count": 0,
+    "found": false,
+    "query": {
+     "text": "",
+     "path": "private/deny.txt",
+     "symbol": "",
+     "tool": ""
+    },
+    "denied": 2
+   },
+   "hits": [],
+   "contains_planted_secret": [
+    false,
+    false
+   ]
+  },
+  {
+   "tool": "re_read",
+   "args": {
+    "path": "<scratch>/install/uat12/outside/outside.txt"
+   },
+   "jsonrpc_line_bytes": 172,
+   "isError": true,
+   "error": null,
+   "text_bytes": [
+    29
+   ],
+   "result_bytes_without_meta": 83,
+   "meta": {
+    "qompack": {
+     "elapsed_ms": 2,
+     "ephemeral": true
+    }
+   },
+   "text_head": "path escapes the project root",
+   "contains_planted_secret": [
+    false,
+    false
+   ]
+  },
+  {
+   "tool": "re_read",
+   "args": {
+    "path": "../outside/outside.txt"
+   },
+   "jsonrpc_line_bytes": 172,
+   "isError": true,
+   "error": null,
+   "text_bytes": [
+    29
+   ],
+   "result_bytes_without_meta": 83,
+   "meta": {
+    "qompack": {
+     "elapsed_ms": 2,
+     "ephemeral": true
+    }
+   },
+   "text_head": "path escapes the project root",
+   "contains_planted_secret": [
+    false,
+    false
+   ]
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "tool_use_id": "toolu_01HaK18Y7xYeWKZTNmx37Wi2"
+   },
+   "jsonrpc_line_bytes": 378,
+   "isError": false,
+   "error": null,
+   "text_bytes": [
+    104
+   ],
+   "result_bytes_without_meta": 167,
+   "meta": {
+    "qompack": {
+     "elapsed_ms": 0,
+     "ephemeral": true,
+     "hash": "sha256:ca2ea67bda57f0702ad90569aa17ce893b2856165120a1aad2f8c6f2094043ca",
+     "tool_use_id": "qompack-mcp:0af26656c635"
+    }
+   },
+   "fields": {
+    "found": false,
+    "denied": true,
+    "reason": "authorization denied: the capture has no usable path provenance"
+   },
+   "contains_planted_secret": [
+    false,
+    false
+   ]
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "hash": "sha256:953e2b217c39142389a65b51843258df0b036dc22f76ffd7972dc19e5d5c2a04"
+   },
+   "jsonrpc_line_bytes": 378,
+   "isError": false,
+   "error": null,
+   "text_bytes": [
+    104
+   ],
+   "result_bytes_without_meta": 167,
+   "meta": {
+    "qompack": {
+     "elapsed_ms": 0,
+     "ephemeral": true,
+     "hash": "sha256:ca2ea67bda57f0702ad90569aa17ce893b2856165120a1aad2f8c6f2094043ca",
+     "tool_use_id": "qompack-mcp:8bd829f64c11"
+    }
+   },
+   "fields": {
+    "found": false,
+    "denied": true,
+    "reason": "authorization denied: the capture has no usable path provenance"
+   },
+   "contains_planted_secret": [
+    false,
+    false
+   ]
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "tool_use_id": "toolu_01GjBcce7aPW7yhsEcykFB1Y",
+    "full": true
+   },
+   "jsonrpc_line_bytes": 1107,
+   "isError": false,
+   "error": null,
+   "text_bytes": [
+    635
+   ],
+   "result_bytes_without_meta": 770,
+   "meta": {
+    "qompack": {
+     "elapsed_ms": 14,
+     "ephemeral": true,
+     "expansions": 1,
+     "hash": "sha256:16d49f736788071aa84e39c1cc0ebf0e952ffe31801ecd47388e926167b7aa6c",
+     "path": "deploy_notes.md",
+     "promoted": false,
+     "span": [
+      0,
+      360
+     ],
+     "tool_use_id": "qompack-mcp:8db87c893a51",
+     "total_bytes": 360,
+     "truncated": false,
+     "untrusted": true
+    }
+   },
+   "fields": {
+    "found": true,
+    "hash": "sha256:4ea9efab403a052e005dfb9c4278bb5e41edaa384d20a52a1492e9e204c3e91e",
+    "path": "deploy_notes.md",
+    "tool": "FileRead",
+    "span": [
+     0,
+     360
+    ],
+    "total_bytes": 360,
+    "truncated": false,
+    "widened": false,
+    "expansions": 1,
+    "promoted": false
+   },
+   "content_bytes": 360,
+   "content_has_nul_or_fffd": false,
+   "contains_planted_secret": [
+    false,
+    false
+   ]
+  },
+  {
+   "tool": "re_read",
+   "args": {
+    "path": "deploy_notes.md",
+    "full": true
+   },
+   "jsonrpc_line_bytes": 1133,
+   "isError": false,
+   "error": null,
+   "text_bytes": [
+    643
+   ],
+   "result_bytes_without_meta": 780,
+   "meta": {
+    "qompack": {
+     "elapsed_ms": 21,
+     "ephemeral": true,
+     "expansions": 2,
+     "hash": "sha256:bd9b7178b56748a311d427b72c0b1fb13cebccc5971649c0421bd98476b65fa5",
+     "path": "deploy_notes.md",
+     "promoted": true,
+     "source": "store",
+     "span": [
+      0,
+      360
+     ],
+     "tool_use_id": "qompack-mcp:d1bafc0cc196",
+     "total_bytes": 360,
+     "truncated": false,
+     "untrusted": true
+    }
+   },
+   "fields": {
+    "found": true,
+    "hash": "sha256:4ea9efab403a052e005dfb9c4278bb5e41edaa384d20a52a1492e9e204c3e91e",
+    "path": "deploy_notes.md",
+    "source": "store",
+    "turn": 13,
+    "span": [
+     0,
+     360
+    ],
+    "total_bytes": 360,
+    "truncated": false,
+    "widened": false,
+    "expansions": 2,
+    "promoted": true
+   },
+   "content_bytes": 360,
+   "content_has_nul_or_fffd": false,
+   "contains_planted_secret": [
+    false,
+    false
+   ]
+  },
+  {
+   "tool": "recall",
+   "args": {
+    "query": "NOTES-WREN-19"
+   },
+   "jsonrpc_line_bytes": 2105,
+   "isError": false,
+   "error": null,
+   "text_bytes": [
+    1621
+   ],
+   "result_bytes_without_meta": 1876,
+   "meta": {
+    "qompack": {
+     "elapsed_ms": 56,
+     "ephemeral": true,
+     "hash": "sha256:f26e7c4d39147104e70f3d3cbc1435499ee235a981ce905bca6fb79f092d64d5",
+     "tool_use_id": "qompack-mcp:43b77d2a366e",
+     "untrusted": true
+    }
+   },
+   "fields": {
+    "count": 4,
+    "found": true,
+    "query": {
+     "text": "NOTES-WREN-19",
+     "path": "",
+     "symbol": "",
+     "tool": ""
+    }
+   },
+   "hits": [
+    {
+     "path": "deploy_notes.md",
+     "tool": "mcp__qompack__re_read",
+     "tool_use_id": "qompack-mcp:d1bafc0cc196"
+    },
+    {
+     "path": "deploy_notes.md",
+     "tool": "mcp__qompack__expand",
+     "tool_use_id": "qompack-mcp:8db87c893a51"
+    },
+    {
+     "path": "deploy_notes.md",
+     "tool": "FileRead",
+     "tool_use_id": "toolu_018fHsDDsipya59FThk89gWN"
+    },
+    {
+     "path": "deploy_notes.md",
+     "tool": "FileRead",
+     "tool_use_id": "toolu_01GjBcce7aPW7yhsEcykFB1Y"
+    }
+   ],
+   "contains_planted_secret": [
+    false,
+    false
+   ]
+  }
+ ],
+ "stderr_tail": ""
+}

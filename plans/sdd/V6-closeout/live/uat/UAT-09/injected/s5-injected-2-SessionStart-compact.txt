@@ -1,0 +1,14 @@
+# stream line 30, hook SessionStart:compact, exit 0, 912 chars
+<!-- qompack:injected seq=5 ver=1 -->
+# Qompack rehydration — checkpoint 0005, session 85d2f679
+
+## 2. Original user intent (verbatim from L0 capture — never summarized)
+> Call mcp__plugin_qompack_qompack__already_tried with {"target": "src/pool.go:DialPool", "approach": "widen pool timeout"}. Reply with the tool result's text verbatim, then say in one sentence whether anything in it forbids trying the approach.
+
+## 7. No longer in context
+- intent_mismatch 85d2f679-b09b-4d39-9265-8e9dbc9d652a — checkpoint user_intent.original differs from the L0 capture; injecting the L0 text
+
+## 8. Retrieval
+Qompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().
+<!-- /qompack:injected -->
+<!-- qompack-contract-probe qompack-contract-98a0190fec83 -->

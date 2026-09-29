@@ -1,0 +1,130 @@
+UAT-12 — privacy and lifecycle edges across an upgrade and an uninstall (also the evidence for C4.8
+and C4.6). Agent-executed on the owner's real host per owner decision D3 by a Claude Code workflow
+subagent (Opus 5.5) — not human UAT.
+
+Date 2026-09-29 13:22-13:35 America/Toronto. Host Windows 11 Home 25H2 build 10.0.26200.9457,
+Claude Code 2.1.280. Sessions used: 3 (A, B, C), model claude-haiku-4-5-20251001.
+Candidate: frozen bundle qompack-plugin-0.3.0-windows-amd64 (commit d5598eb4, BUNDLE.json sha256
+32600778ae6463cd47736fc6b0a8614ad782e5bbd0ef0440f4e2c3937ccf4505). Previous build: local develop
+301a8e9 bundled as 0.2.99-prev (cli/old-bundle-build.log, cli/old-bundle-BUNDLE.json; bin sha256
+b72892ba0d0848353a357eae73698b1cd2a02915aa48174e84ea0c5e745ad7ca) from a detached worktree that was
+removed afterwards.
+
+ORDERING (deliberate, and why): the row's steps 2-5 were run AFTER step 6 (the upgrade), on the
+candidate. 301a8e9 predates the C1.9 host deny-rule support, so steps 2-5 on the old build would
+characterize the old build, not the candidate whose privacy has to be proved. Session A (old build)
+only made the permitted captures; the deny rule was added after the baseline backup; session B ran
+steps 2-5 on the candidate. The optional old-build characterization of step 2 was not run.
+
+Setup (setup-facts.json): disposable project <scratch>/install/uat12/proj (git init; no commit):
+README.md (code word HERON-42), deploy_notes.md (two credential-shaped fake secrets, built at run
+time from split parts: @@SEC_PLANTED_1@@ aws_access_key_id shape, sha256 3b87f8aa...5a5f04;
+@@SEC_PLANTED_2@@ github_token shape, sha256 f9ccc6ab...d9f130; the literals live only in scratch
+secrets.json), private/deny.txt (marker ORCHID-DENY-7731), big.log 323,400 B (> 262,144),
+blob.bin 3,000 random bytes with NULs, and an out-of-project file <scratch>/install/uat12/outside/
+outside.txt. Session env: QOMPACK_HOME=<scratch>/qhome, QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS=30,
+ENABLE_CLAUDEAI_MCP_SERVERS=false, CLAUDE_CODE_FILE_READ_MAX_OUTPUT_TOKENS=120000,
+MAX_MCP_OUTPUT_TOKENS=150000, BASH_MAX_OUTPUT_LENGTH=150000; redact.enabled, mcp.maxResponseBytes and
+retention at their defaults (no config file anywhere).
+
+Step 1: cli/00-step1-initial-absence.txt — no <project>/.qompack/ (initial absence recorded).
+Install OLD at local scope: cli/01, cli/02 (marketplace qompack-live, source ./qompack-plugin-0.2.99-prev...).
+Session A (sessionA/, old build 0.2.99-prev, 7 commands incl. /qompack:checkpoint, MCP connected):
+ Read README.md (toolu_014oyJd7...), deploy_notes.md (toolu_01GjBcce...), private/deny.txt
+ (toolu_015xN8Wi..., root sha256:024a48d0...), big.log offset 1 limit 1400 (toolu_01PTmSHv..., the
+ host delivered 329,292 chars), Bash `cat blob.bin` (toolu_0162Bwq3...), Read of the outside file
+ (toolu_01HaK18Y..., stored with an empty path). All hooks success; daemon (running from the
+ marketplace SOURCE directory's bin/qompack.exe) exited on idle (cli/03).
+Baseline (cli/05, cli/06): frozen CLI `backup create/verify --id uat12-baseline --json`, exit 0/0,
+ consistent true, frontier 0, 94 files. cli/04 vs cli/07: the source outside backup/ unchanged.
+Deny rule: PROJECT .claude/settings.json {"permissions":{"deny":["Read(./private/deny.txt)"]}}
+ (cli/08); the operator's user settings were not touched.
+Step 6 upgrade (install.md §5): marketplace re-pointed at the frozen bundle (cli/marketplace-new.json),
+ `marketplace update` exit 0 "Validating local marketplace"; `plugin update qompack@qompack-live -s
+ local --json` exit 0 "updated from 0.2.99-prev to 0.3.0 ... Restart to apply changes."; cli/12:
+ .qompack/ byte-identical across the upgrade.
+Session B (sessionB/, candidate 0.3.0, 6 commands, MCP connected). Steps 2-5 (+ out-of-project):
+ - host Read of private/deny.txt: is_error "File is in a directory that is denied by your permission
+   settings." (proves the project settings took effect; string recorded as observed)
+ - recall "ORCHID-DENY-7731": 1 hit, the user's own prompt only, "denied":1; recall
+   "path:private/deny.txt": 0 hits, "denied":1
+ - expand tool_use_id toolu_015xN8Wi... and expand root hash: {"found":false,"denied":true,"reason":
+   "authorization denied: the host's current permission rules deny reading the associated path"}
+ - re_read private/deny.txt: same denied answer
+ - /qompack:recall ORCHID-DENY-7731: the command's `!qompack recall` ran (the host resolved
+   `qompack` through the plugin's bin/ on PATH), output denied:3, no deny.txt content
+ - re_read of the absolute outside path and of ../outside/outside.txt: tool error "path escapes the
+   project root" (no path echoed); expand toolu_01HaK18Y...: denied "the capture has no usable path
+   provenance"
+ - expand big.log capture (no full): 5,777 B text, span [0,5471], total_bytes 324,902,
+   truncated true, next_span 5471:16384
+ - expand big.log full:true: content span [0,262144], next_span 262144:62758, but the tool result
+   text is 263,559 B (the host persisted it as 259.7KB and gave the model a 2 KB preview)
+ - expand blob capture: content returned as text (U+FFFD / control characters), 2,134 B, no
+   fidelity field
+ - Read deploy_notes.md again (candidate capture of the secrets), /compact (PreCompact ran:
+   "Compacted PreCompact [...] completed successfully: {}"; SessionStart:compact injected 889 chars
+   of rehydration, checkpoint 0001), then recall/dropped/timeline
+ No response shown the deny.txt content, a preview of it, or an out-of-project path.
+Direct MCP probe (cli/20-mcp-probe.json, frozen `qompack mcp` over stdio, sizes and metadata only):
+ same answers; exact sizes: expand full:true text 263,559 B / JSON-RPC line 266,291 B; re_read
+ big.log full:true text 263,567 B / line 266,318 B; minimal expand 5,777 / 6,294; page 262144:62758
+ returned span [259511,324902] (chunk-aligned) text 65,930; blob expand content 2,134 B -> text
+ 2,948 B. Bundle CLI: cli/21, cli/22 (`qompack recall` denied counts, no content); `qompack expand`
+ does not exist (cli/23, exit 2 unknown subcommand).
+Step 7: day log and LOUD.log (store/logs_*): no version-block and no retired-meaning warning (no
+ config file exists, so none is expected); first post-upgrade daemon start logged LOUD "daemon:
+ unpublished captures or unindexed objects found at startup unpublished_captures=4"; self-test
+ config.capture "applied as written" (cli/24); the layout reappeared and grew after session B's hooks.
+Step 8: daemon stopped by idle exit (cli/26); `backup restore --id uat12-baseline --destination
+ <scratch>/install/uat12/recovery --json` (cli/30): exit 1 — OpenedOK true, ContentRootsProven 16,
+ ToolRefsProven 10, SameBuildOnly true, CheckpointSealCovered false, but integrity FAILED:
+ captures (4 observe.prompt sidecars "at stage 1 only ... no reference joined") and publication
+ ("4 unlinked captures"); destination retained. fsck and fsck --seal-check on the destination
+ (cli/32, cli/33): exit 1, same two rows; the delivery dual-reader seal check passed. Source later
+ writes preserved: cli/29 vs cli/31, 0 differing files. The recovery was not activated; no
+ 301a8e9 reader was run against the candidate's post-upgrade store.
+Steps 9-10: cli/40 vs cli/42 — `plugin uninstall -s local --json` (no --keep-data, "keptData":
+ false) left .qompack/ byte-identical (368 files). Reinstall (cli/43) and session C (sessionC/):
+ recall "HERON-42" returned session A's capture toolu_014oyJd7iV4JUayN5u1LjiAv (FileRead readme.md)
+ and re_read README.md answered from the store (turn 22) — project work preserved.
+ fsck on the source after C (cli/51, cli/52 --seal-check): exit 1 — index.tool_use (14 MCP records
+ "turn 0 after turn N"), captures and publication (the same 4 old-build prompt sidecars); seal ok.
+Cleanup: final uninstall (cli/70), marketplace remove (cli/71); cache versions 0.2.99-prev and
+ 0.3.0 were both this run's bundles (BUNDLE.json cmp) and marked .orphaned_at, removed (cli/72);
+ the D10 staged copy ~/.qompack/bin/c7b2b120.../ (sha256 = the frozen bin) removed after the
+ uninstall with no qompack.exe running, then the empty run-created ~/.qompack; guard unchanged.
+
+Findings:
+ F-UAT12-1 (product defect; row fail criterion) runtime.mcp.maxResponseBytes bounds the content
+   span, not the response: expand and re_read with full:true on the 324,902 B capture return
+   263,559 / 263,567 B of result text (266,291 / 266,318 B JSON-RPC lines) against a 262,144 B bound.
+   The overshoot is JSON escaping plus the envelope and grows with escape-heavy content (the blob
+   capture: 2,134 content bytes became 2,948 text bytes, +38%).
+ F-UAT12-2 (product vs docs) expand and re_read responses carry no fidelity and no coverage field
+   (sessionB stream, cli/20); user-guide.md and the row's step 3-4 expectation say fidelity and
+   coverage qualify the response and the binary capture reads `binary`.
+ F-UAT12-3 (binary path) the host never hands a binary file to a hook as bytes: `cat blob.bin`
+   arrived as host-decoded text (3,000 B file -> 2,134 B stored, U+FFFD and control characters);
+   Qompack stores and returns it as text. The row's step-4 `binary` expectation was not observed.
+ F-UAT12-4 (cross-version) the candidate flags the previous build's four UserPromptSubmit capture
+   sidecars as unpublished (fsck captures/publication, exit 1; LOUD at the first post-upgrade daemon
+   start; doctor captures.unpublished degraded 40 gaps across 55 sidecars). A pre-upgrade backup
+   therefore restores with its integrity checks failing: not certifiable.
+ F-UAT12-5 (product defect, known) F-UAT01-2 again: every MCP call's own record is indexed at turn 0,
+   so fsck index.tool_use fails (14 records here).
+ F-UAT12-6 (lifecycle, non-default config) with idleExitSeconds=30 the daemon logged "ending abandoned
+   session; no SessionEnd arrived and it has been silent past the idle-exit window silentMs=31607"
+   while session B was live inside a 32 s manual /compact; capture continued afterwards (the next
+   prompt was recalled in the same turn). The abandonment threshold is the idle-exit window.
+ F-UAT12-7 (edge) on a freshly `git init`-ed repository with no index, the checkpoint records
+   drop "pointer_git_unavailable — git index unsupported: ... .git\index: The system cannot find the
+   file specified." and the rehydration's section 7 echoes that absolute path.
+ F-UAT12-8 (host) a directory-source marketplace plugin runs from the marketplace SOURCE directory:
+   the old build's daemon command line was <scratch>/.../marketplace/qompack-plugin-0.2.99-prev-
+   windows-amd64/bin/qompack.exe, not the plugins/cache copy `plugin list` reports.
+ F-UAT12-9 (host) `plugin update` marks the replaced cache version .orphaned_at at once; the
+   persisted-output limit (259.7KB -> 2 KB preview) applied despite MAX_MCP_OUTPUT_TOKENS=150000;
+   host transcripts carry hook_success attachments with durationMs (e.g. Stop 115 ms), a host-side
+   hook duration the stream lacks.
+ Privacy result: see plans/sdd/V6-closeout/live/c4/C4.6/.

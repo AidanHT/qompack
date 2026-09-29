@@ -1,0 +1,47 @@
+C4.1 — install the frozen bundle through the marketplace flow into an isolated Claude Code profile
+Agent-executed on the owner's real host per owner decision D3 (Claude Code workflow subagent,
+Opus 5.5) — not human UAT. No model session was used (plugin CLI only).
+
+Date: 2026-09-29 13:11-13:13 America/Toronto (EDT)
+Host: Windows 11 Home 25H2, build 10.0.26200.9457; Claude Code 2.1.280
+Bundle: qompack-plugin-0.3.0-windows-amd64 (frozen, c3), BUNDLE.json source.commit
+  d5598eb4445954120ee795560c2ea46640772f43, dirty false; bin/qompack.exe sha256
+  c7b2b120a6efcfc1def58bd55dd29df51ec1bc0bc35a164258d5e0bc9c12803d
+Environment for every step: CLAUDE_CONFIG_DIR=<scratch>/install/profile (fresh, created empty,
+  no login, no credentials copied); cwd <scratch>/install/c41/proj.
+Marketplace: <scratch>/install/c41/marketplace = marketplace.json (in this folder; the
+  marketplaceInstall shape, name qompack-live) + a copy of the frozen bundle directory.
+
+Steps (NN-*.cmd/stdout/stderr/exit.txt):
+ 01 marketplace add --scope user          exit 0 "(declared in user settings)"
+ 02 install qompack@qompack-live -s user --json   exit 0, one JSON line outcome ok
+ 03 plugin list --json                    exit 0: qompack@qompack-live 0.3.0, scope user, enabled,
+                                          installPath = profile cache .../qompack-live/qompack/0.3.0,
+                                          mcpServers.qompack = ${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe mcp
+ 04 marketplace list --json               exit 0: qompack-live, source directory
+ 05 plugin details qompack                exit 0: Skills (6) dropped, eval, pin, recall, status, why;
+                                          Hooks (7) PostToolUse, PreCompact, SessionEnd,
+                                          SessionStart, Stop, SubagentStop, UserPromptSubmit;
+                                          MCP servers (1) qompack; Agents 0; LSP 0
+ 06 validate <installed cache copy> --strict --json   exit 0, success true, no errors/warnings
+ 07 installed cache copy: every checksums.txt line OK; bin/qompack.exe and BUNDLE.json
+    byte-identical (cmp) to the frozen bundle
+ 08 isolated profile tree after install
+ 09 validate <marketplace> --strict --json  exit 0, success true
+ 10-12 the isolated profile's settings.json, installed_plugins.json, known_marketplaces.json
+ 13 isolated profile deleted afterwards
+
+What the host lists: 7 hooks, 1 MCP server "qompack" (the server's eight tools are resolved at
+runtime, so the tool inventory is observed in UAT-01's session init, not here), 6 commands (the
+host's details view files the commands/*.md under "Skills"). /qompack:checkpoint is absent, as
+expected under D36.
+Real-home guard: unchanged after every step (plans/sdd/V6-closeout/live/guard/install.txt).
+
+Findings:
+ F-C4.1-1 (checklist wording) V6-CLOSEOUT-CHECKLIST C4.1 still says "the seven commands"; D36
+   ships six and the host lists six.
+ F-C4.1-2 (doc, informational) the brief said install.md §3 claims install/update/uninstall take
+   no --json; the committed install.md §3 already records that 2.1.280 accepts --json on all three
+   (and that 2.1.263 did not). Observed: install --json printed one JSON line. No doc change needed.
+ F-C4.1-3 (host vocabulary) `claude plugin details` reports the six slash commands as "Skills (6)",
+   not as commands; the session init lists them as slash_commands (see UAT-01).

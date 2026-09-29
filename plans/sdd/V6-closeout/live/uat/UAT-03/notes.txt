@@ -1,0 +1,108 @@
+UAT-03 — a checkpoint written at compaction survives the daemon going away and coming back; the
+incomplete outcome (part of C4.3). Agent-executed on the owner's real host per owner decision D3 by a
+Claude Code workflow subagent (Opus 5.5) — not human UAT.
+
+Date 2026-09-29 13:50-13:58 America/Toronto. Sessions used: 1 (session/, n=2). Model
+claude-haiku-4-5-20251001, Claude Code 2.1.280, Windows 11 Home 25H2 build 10.0.26200.9457, frozen
+bundle 0.3.0 (BUNDLE.json sha256 32600778...ccf4505, commit d5598eb4) via --plugin-dir.
+
+Preconditions (cli/00-preconditions.txt): disposable project <scratch>/sessions/uat03/proj (git init
++ add, no commit): README.md, src/app.py, handoff.md (24 generated keys; K17 = INDIGO-JUNIPER-985 is
+the pre-compaction fact). No .qompack (initial absence; cli/00-backup-create-absent exit 1 "no
+existing store"). Config defaults; the session env set QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS=120
+(so step 4 can wait for the idle exit; 30 s would abandon a session inside a /compact, F-UAT12-6).
+durableFrontier is false and stays false: the gated durable frontier is unverified by this row.
+
+Session (session/stream.jsonl, 4 turns, exit 0, 32 s): T1 Read handoff.md (24 keys), T2 Read
+src/app.py, T3 "/compact" (compact_boundary trigger manual, pre 26,420 -> post 2,350 tokens, 13.4 s;
+the /compact turn's transcript line "Compacted PreCompact [${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe
+checkpoint] completed successfully: {}" — no PreCompact output rejection, C1.12; SessionStart:compact
+success exit 0, additionalContext 644 UTF-16 units, well under 9,500 (D5)), T4 with a "before" step
+that deleted handoff.md (meta.json turn 3: "deleted handoff.md; exists now: False") asking for K17.
+The model answered INDIGO-JUNIPER-985 (correct) and attributed it to "the Read tool result shown in
+the system reminder": Claude Code 2.1.280 re-attached the file it had read (transcript attachment
+type "file" x2, cli/transcript-facts-s2.json) and keeps a preserved message segment across
+compaction, so this recovery came from the HOST's own post-compaction context, not from Qompack's
+rehydration. stderr.txt empty: no "Hook cancelled" for SessionEnd (C1.15/D13).
+Injected block (hook_response output): "<!-- qompack:injected seq=1 ver=1 -->", "# Qompack
+rehydration — checkpoint 0001, session 8c5b739f", section 2 (verbatim first prompt), section 8
+(retrieval), "<!-- /qompack:injected -->", then the contract probe line.
+
+Step 2 (steps/s2-pre-checkpoints.txt, s2-pre-MANIFEST.jsonl): checkpoints/ holds 0001.json and
+MANIFEST.jsonl; the manifest's last line {"seq":1,"sha256":"sha256:8d4c26dc...de37d64","bytes":782}
+names it, and the artifact re-hashes to it (match True).
+Step 3 (steps/s2-pre-0001.json): the artifact carries every field the row lists — encoded_segments,
+pointers.files, pointers.tools, invariants, user_intent (original = the verbatim first prompt,
+evolution), eliminated, decisions, open_questions, current_work, sketch_refs, dropped — but
+encoded_segments, pointers.files and pointers.tools are EMPTY although two Reads were captured
+before the compaction (F-UAT03-1). No pointer hash exists to check.
+Step 4 (steps/s4-*): waited for the idle exit; daemon.lock gone, no daemon for this project.
+Step 5: cli/s5-status-brings-daemon-back: `qompack status` started a daemon (pid 64668) and itself
+printed "source: disk (available, 58.45s old)" and "daemon: status refused: " with an EMPTY reason
+(F-UAT03-3); cli/s5-status-second: source: daemon. Steps 2-3 repeated (steps/s5-post-*): the
+artifact and the manifest are byte-identical to the pre-restart reads (cmp: BOTH-IDENTICAL). The
+restart re-read the checkpoint on disk; nothing was regenerated.
+fsck: cli/s2-fsck-json-pre-restart exit 0 (clean, daemon live); cli/s5-fsck-json after the idle exit
+and restart exit 1: index.segments "segment 1 records that it was encoded into checkpoint 0002, which
+checkpoints/MANIFEST.jsonl does not record" — index/segments.jsonl gained {"op":"encode","id":1,
+"seq":2,"ts":1790704448187} (17:54:08Z, the daemon's idle work before its clean exit) and no 0002 was
+ever published (F-UAT03-2). status pre-restart: "host contract: 1 of 9 assertion(s) FAILING
+mcp.server_registered (info) initialize-not-received" although init showed plugin:qompack:qompack
+connected (no MCP tool was called in this session; cf. F-UAT01-1). doctor: captures.unpublished
+degraded "6 gap(s) across 9 sidecar(s)" (cf. F-UAT01-3).
+The restarted daemon (default idle exit, started by status) was stopped after checks (lock pid,
+image qompack.exe, command line naming this project).
+
+The explicit incomplete outcome (probe/): a corrupted newest checkpoint, then a rehydration.
+ Attempt 1 (probe/00-09): a hand copy of the post-run project (daemon stopped). 0001.json changed by
+ one byte ('Tern' -> 'Tarn', same length). The hook `qompack session-start` with a SessionStart
+ source=compact payload answered after 8.3 s with the D9/D11 "<!-- qompack:rehydration-deferred -->"
+ note ("the Qompack daemon did not answer in time", with expand(tool_use_id=prompt_..._0), recall
+ and dropped pointers); no daemon ever came up in the copy: self-test daemon.reachable "spawn
+ attempted but the daemon did not come up in time"; `qompack daemon --project <copy>` in the
+ foreground exited 0 at once with nothing on stdout/stderr and no log line (F-UAT03-4). The copy
+ carried the original's stale run/daemon.lock (pid 64668, another project's owner hash). Nothing in
+ the copy was edited to get past it; the probe moved to the supported path instead.
+ Attempt 2 (probe/10-17): `backup create/verify --id uat03-probe-src` on the stopped original (exit
+ 0/0, consistent true, frontier 0), `backup restore --destination <scratch>/sessions/uat03/probe2/
+ proj`: exit 1 — OpenedOK true, ContentRootsProven 8, ToolRefsProven 6, SameBuildOnly true,
+ CheckpointSealCovered false, integrity FAILED only on index.segments (F-UAT03-2: any backup taken
+ after an idle exit restores "integrity failed"). In the restored destination 0001.json was changed
+ the same way, then the same session-start payload: exit 0 in 0.3 s, additionalContext
+ "<!-- qompack:injected seq=0 ver=1 -->", "# Qompack rehydration — checkpoint 0000, session
+ 8c5b739f", section 2 = the verbatim L0 first prompt (with 'Tern', i.e. from capture, not from the
+ corrupted artifact), section 8. The day log and LOUD.log (probe/probe2-logs_*) name the refusal:
+ loud "checkpoint artifact does not match its MANIFEST digest; the checkpoint is refused
+ artifact=0001.json seq=1 expected=... observed=...", loud "checkpoint manifest mismatch", info
+ "rehydrate: no checkpoint for session; building from L0 and the ledger ... no verifiable
+ checkpoint". fsck (15-): checkpoints "checkpoint 0001: the artifact is missing or does not re-hash
+ ... no checkpoint verifies". No older checkpoint was presented as current (none existed); the
+ user-visible form of the incomplete outcome is "checkpoint 0000" in the payload header with no
+ sentence about the refusal, while the logs state it (F-UAT03-5). The resolver's
+ "checkpoint NNNN does not verify; rolled back to NNNN" string never appeared (no older checkpoint
+ to roll back to). The probe daemon was stopped by the verified procedure (17-).
+
+Findings:
+ F-UAT03-1 (product vs expected result) the PreCompact checkpoint carries empty encoded_segments,
+   pointers.files and pointers.tools after two captured Reads (also UAT-02's and UAT-05's
+   checkpoints: pinned invariant and the user's correction absent too, see UAT-05). The row's step-3
+   "carries its frontier and its references" is not observed.
+ F-UAT03-2 (product defect) after a clean idle exit, index/segments.jsonl records segment 1 as
+   encoded into checkpoint 0002, which is never written; fsck index.segments fails (exit 1) and a
+   backup taken afterwards restores with integrity FAILED. Same record as F-UAT02-4.
+ F-UAT03-3 (product, diagnostics) `qompack status` run when no daemon is up starts one but prints
+   "daemon: status refused: " with an empty reason and falls back to the disk metrics.
+ F-UAT03-4 (product, recovery edge) a store copied to another path with its run/ files (stale
+   daemon.lock from the source path) never starts a daemon: the spawned daemon exits 0 silently, no
+   log line, self-test says only "did not come up in time", hooks answer the deferred note after
+   8.3 s. backup/restore does not carry run/, so the supported path is unaffected.
+ F-UAT03-5 (observation, "to settle it") the user-visible incomplete outcome is the payload header
+   "checkpoint 0000" plus a rehydration built from L0; only .qompack/logs (LOUD) names the refused
+   checkpoint.
+ F-UAT03-6 (host) the model recovered the pre-compaction fact from the host's own post-compaction
+   context (file re-attachment / preserved segment), not from Qompack; see UAT-04 for a recovery
+   the host could not supply.
+
+Rollback: not applicable — initial state absent (recorded); the run is retained as evidence. The
+same-build backup/restore above was run for the probe (restore exit 1, integrity failed on
+index.segments; destination retained, not activated); no cross-version or activation check was run.

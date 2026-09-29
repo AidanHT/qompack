@@ -1,0 +1,7 @@
+cwd: <scratch>/recovery/c16/proj
+argv: ["C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c3/qompack-plugin-0.3.0-windows-amd64/bin/qompack.exe", "session-start"]
+env+: {"QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS": "30"}
+qompack_home: <scratch>/recovery/qhome
+wall_s: 0.162
+at: 2026-09-29T15:29:56-04:00
+stdin: {"hook_event_name": "SessionStart", "session_id": "c16-restart-bare-session-start", "cwd": "<scratch>/recovery/c16/proj", "source": "startup"}

@@ -1,0 +1,13 @@
+bundle: qompack-plugin-0.3.0-linux-amd64 (10 file(s), version 0.3.0)
+bundle: qompack-plugin-0.3.0-linux-arm64 (10 file(s), version 0.3.0)
+bundle: qompack-plugin-0.3.0-darwin-amd64 (10 file(s), version 0.3.0)
+bundle: qompack-plugin-0.3.0-darwin-arm64 (10 file(s), version 0.3.0)
+bundle: qompack-plugin-0.3.0-windows-amd64 (10 file(s), version 0.3.0)
+bundle: qompack-plugin-0.3.0-windows-arm64 (10 file(s), version 0.3.0)
+bundle: packed qompack-plugin-0.3.0-linux-amd64.zip
+bundle: packed qompack-plugin-0.3.0-linux-arm64.zip
+bundle: packed qompack-plugin-0.3.0-darwin-amd64.zip
+bundle: packed qompack-plugin-0.3.0-darwin-arm64.zip
+bundle: packed qompack-plugin-0.3.0-windows-amd64.zip
+bundle: packed qompack-plugin-0.3.0-windows-arm64.zip
+bundle: checksums.txt covers 6 archive(s)

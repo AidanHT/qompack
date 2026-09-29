@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "command": "recall",
+  "ok": true,
+  "data": {
+    "tool": "recall",
+    "is_error": false,
+    "ephemeral": true,
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"hits\":[],\"count\":0,\"found\":false,\"query\":{\"text\":\"\",\"path\":\"private/deny.txt\",\"symbol\":\"\",\"tool\":\"\"},\"denied\":2}"
+      }
+    ],
+    "meta": {
+      "elapsed_ms": 20,
+      "hash": "sha256:d946c9c6cc4679811795eacde6686c538c429f8fc5838253784c5b8131573187",
+      "tool_use_id": "qompack-mcp:cc12c4404538",
+      "untrusted": true
+    }
+  }
+}

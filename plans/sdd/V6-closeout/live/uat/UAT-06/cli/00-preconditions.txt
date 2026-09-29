@@ -1,0 +1,5 @@
+UAT-06 preconditions
+project: <scratch>/sessions/uat06/proj (git init + git add -A; no commit): README.md, src/limiter.py, docs/notes.md,
+docs/design.md, config/limits.txt (30 generated entries, sha256 189018914b46307b4dee7ab8028f62104f30563977168e7cc601913273b0fe36; L17 = PLOVER-5043-RAVEN is the C4.3 pre-compaction fact, delivered through Bash `cat`)
+<project>/.qompack exists: False (initial absence)
+config: defaults (reinjection.sessionStartCompact true); session env QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS=120

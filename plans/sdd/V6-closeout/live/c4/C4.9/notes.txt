@@ -1,0 +1,104 @@
+C4.9 — degraded paths in a real session: (a) the scenario's own daemon ended mid-session, (b) an
+artifact with an unknown (newer) schema version, (c) a referenced object made unavailable in a
+disposable copy. The host session must never break. Agent-executed on the owner's real host per
+owner decision D3 by a Claude Code workflow subagent (Opus 5.5) — not human UAT.
+
+Date 2026-09-29 14:22-14:31 America/Toronto. Sessions used: 2 (session1 n=9 in the project,
+session2-copy n=10 in the disposable copy). Model claude-haiku-4-5-20251001, Claude Code 2.1.280,
+Windows 11 Home 25H2 build 10.0.26200.9457, frozen bundle 0.3.0 (BUNDLE.json sha256
+32600778...ccf4505, commit d5598eb4) via --plugin-dir. Preconditions: cli/00-preconditions.txt
+(fresh project, initial absence, defaults, session env idle exit 120 s).
+
+(a) Daemon ended mid-session (session1/). Turn 2's "before" step ran `lane.py kill-daemon
+<project>` (meta.json turns[1].before): it read <project>/.qompack/run/daemon.lock (pid 69552),
+checked the image (qompack.exe, the D10 staged copy ~/.qompack/bin/c7b2b120.../qompack.exe) and the
+command line ("daemon --project <this project>"), then Stop-Process: "RESULT: stopped pid 69552".
+ - turn 2 (Read data.txt) succeeded; every hook of the session answered success/exit 0 (hooks.json:
+   SessionStart 1, UserPromptSubmit 8, PostToolUse 6, Stop 8).
+ - turn 3 /qompack:status (the command's `qompack status` inside the session): "source: none
+   (error, age unknown)", "daemon: status refused: " (EMPTY reason), "disk: reading
+   ...metrics\latency.json: The system cannot find the file specified." — the only explanation is
+   that nothing is available; nothing says the daemon is gone or why (F-C49-1).
+ - turn 4 MCP recall: tool error "qompack daemon unavailable; retrieval is temporarily offline — the
+   store is intact and the same call will succeed once the daemon is running". Clear and true; the
+   session continued.
+ - turn 5 (before: 100 s wait, past the ~90 s stale-lock window): the hooks had started a new daemon
+   (pid 26384, meta.json turn 4) and the same recall answered 3 hits, including prompts captured
+   WHILE the daemon was down (prompt _5 at 18:23:41Z) and the notes.md capture. The index
+   (store-s1/index_tool_use.jsonl) holds every delivery of the outage (data.txt Read, prompts 3 and
+   5, ToolSearch) with their hook-time stamps: replayed from the spool, nothing lost.
+ - after the session (cli/s1-post-*): status "source: daemon", "host contract: no assertions
+   reported" (the restarted daemon never saw this session's SessionStart); doctor captures.unpublished
+   degraded "14 gap(s) across 22 sidecar(s)" (F-UAT01-3); fsck exit 0. The day log has no line about
+   the termination, the stale lock or the spool replay (F-C49-1). The daemon then exited on idle; fsck
+   after it exit 0 (cli/s1-post-fsck-json-after-idle-exit).
+ Result (a): PASS — the session continued, hooks exited 0, retrieval degraded honestly and recovered,
+ no capture was lost; status's explanation is poor (finding).
+
+Disposable copy for (c). `backup create/verify --id c49-copy-src` on the stopped project: exit 0/0.
+`backup restore --destination <scratch>/sessions/c49/copy/proj`: exit 1 — "store: restored tool
+reference root f77b00a45902 does not resolve: qompack: not found" (cli/c-00-backup-restore); the
+staging tree is kept. That root is the MCP server's own EPHEMERAL recall record from turn 5 (roots
+eph true), deleted by the daemon's GC at 18:25:49Z ({"op":"gc"} in index/roots.jsonl) while
+index/tool_use.jsonl still references it (qompack-mcp:d2300736b8c7, session ""). fsck on the source
+reports the same reference only as an ok-row note ("points at root f77b00a45902, which a gc
+tombstone accounts for", count 0, exit 0), but restore's same-build reader refuses it (F-C49-2). The
+copy was therefore made by hand: `cp -rp` of <project>/.qompack after the clean idle exit (no
+daemon.lock), plus the project files and a fresh git init/add (cli/c-01-copy-note.txt).
+
+(c) Unavailable object (session2-copy/). Turn 2's before step `unavail.py <copy>
+toolu_01RKKkH6XYGrsEPrkHUUo6Rn <scratch>/c49/aside` (refuses any path but the copy) moved the one
+chunk object (eca8789a...) of the notes.md capture's root 8f7e3816... out of the copy's objects/
+(cli/c-02-aside-listing.txt). Then:
+ - expand(tool_use_id) and re_read(notes.md): {"found":false,"available":false,"reason":"the stored
+   object was refused rather than served: its bytes could not be read intact; a damaged object is
+   preserved as evidence and `qompack fsck` reports it"} — an `unavailable` answer, not `absent`;
+   the session continued. (The object is missing, not damaged; the reason's "a damaged object is
+   preserved as evidence" is not what happened here — F-C49-3.)
+ - recall still answered (hits from the index).
+ - fsck (cli/s2-post-fsck-json) exit 1 names it exactly: index.roots "root 8f7e3816d740 names chunk
+   eca8789a3344, which the object store does not hold" and "root 34ecea22c5e9's base pointer
+   8f7e3816d740 does not resolve"; index.tool_use "tool_use toolu_01RKKkH6XYGrsEPrkHUUo6Rn points at
+   root 8f7e3816d740, which cannot be materialized"; captures "published capture sidecar
+   toolu_01RKKkH6XYGrsEPrkHUUo6Rn names root 8f7e3816d740, which does not resolve".
+ Result (c): PASS.
+
+(b) Newer schema version (session2-copy/, turn 5's before step `writecfg.py <copy>`): project config
+{"runtime":{"migration":{"settingsVersion":99}}}, the case docs/troubleshooting.md §1/§6 describe.
+(Session 1's attempt at this step failed in the harness — a quoting error in the inline command
+gave "SyntaxError: unterminated string literal", meta.json turns[5].before exit 1 — so nothing was
+written there; the step was repeated in session 2 with a script file.)
+ - turn 5 (Read README.md) and the later turns succeeded; hooks success/exit 0; captures continued
+   (the README.md and app.py reads are in the index).
+ - .qompack/state/config-violations.json: one entry, Key "runtime.migration", Message
+   "settingsVersion 99 is newer than this build understands (1); the whole runtime.migration block is
+   reset to defaults so unknown switches stay off", Got null, Want null — the exact text the page
+   quotes. Day log: warn "configuration warning" and LOUD "invalid configuration value, using default"
+   / "daemon: config reload warning" with the same message and the file:line.
+ - self-test config.capture "FAIL warn capture continues: 1 setting(s) fell back to the default, 0
+   key(s) not applied"; doctor config.violations degraded and config.capture degraded with the
+   message; config print --provenance marks every runtime.migration leaf "default reset: newer
+   settingsVersion".
+ Result (b): PASS (troubleshooting §6's table row "warn, names the runtime.migration reset" matches).
+
+Also observed: status in session 2 lists mcp.server_registered initialize-not-received and
+transcript.readable "transcript_path does not exist" as FAILING although the MCP server served
+calls and the host wrote the transcript (F-UAT01-1 again). fsck index.tool_use turn-0 MCP records
+(F-UAT01-2).
+
+Findings:
+ F-C49-1 (diagnostics) with the daemon gone mid-session, `qompack status` says "status refused: "
+   with an empty reason and a missing metrics file; the day log records nothing about the ended
+   daemon, the stale lock or the replay; only the MCP tools' message explains the outage.
+ F-C49-2 (product defect, backup/restore) a store whose MCP ephemeral record was garbage-collected
+   (every real session that calls an MCP tool and then idles) backs up and verifies but does not
+   restore: "restored tool reference root ... does not resolve". fsck treats the same reference as a
+   benign note. See also F-UAT03-2 (restore integrity fails after any idle frontier advance).
+ F-C49-3 (wording) a missing object is reported as "its bytes could not be read intact; a damaged
+   object is preserved as evidence" — fsck says "the object store does not hold" it.
+ F-C49-4 (stale-lock window) after the daemon is terminated, MCP retrieval answers "temporarily
+   offline" and maintenance commands refuse "daemon lock already held" for about 90 s (UAT-04 cli/13,
+   UAT-05 run2-00c) until hooks or the next command reclaim the lock.
+
+Overall C4.9: PASS for "the host session is never broken" in all three cases; findings above.
+Rollback: not applicable (initial absence); the copy is a disposable probe, not activated.

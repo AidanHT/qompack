@@ -1,0 +1,1 @@
+<project>/.qompack/config.json as the failed-compaction step left it: '{"runtime":'

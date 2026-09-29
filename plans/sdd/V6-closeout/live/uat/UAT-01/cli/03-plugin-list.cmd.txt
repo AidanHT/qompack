@@ -1,0 +1,2 @@
+$ claude plugin list --json
+cwd: <scratch>/install/uat01/proj

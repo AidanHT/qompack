@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "session": "8ac0f6c5-21c8-49e3-84d1-be016cb68153",
+  "seq": 2,
+  "created": "2026-09-29T18:01:22.328Z",
+  "parent": "0001.json",
+  "encoded_segments": [],
+  "invariants": [
+    {
+      "id": "inv_8382970dffd4",
+      "text": "Never write to prod.db from the export code.",
+      "source": "user",
+      "pinned": 1790704396146
+    }
+  ],
+  "user_intent": {
+    "original": "We are adding a CSV export to the reports module. Requirement: the export must use a semicolon (;) as the field delimiter. Use the Read tool to read reports.py and tell me in one sentence where the export function should go.",
+    "evolution": []
+  },
+  "eliminated": [],
+  "decisions": [],
+  "open_questions": [],
+  "current_work": {
+    "goal": "",
+    "next_step": "",
+    "blocked_on": null
+  },
+  "pointers": {
+    "files": [],
+    "tools": []
+  },
+  "narrative": "",
+  "sketch_refs": {
+    "touch": "touch.cms",
+    "tried": "tried.bloom"
+  },
+  "dropped": [],
+  "cache": {
+    "p_chosen": 0,
+    "rewrite_tokens": 0,
+    "ttl_state": "unknown"
+  }
+}

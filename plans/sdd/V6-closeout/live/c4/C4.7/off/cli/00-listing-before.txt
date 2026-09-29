@@ -1,0 +1,2 @@
+listing of <project>/.qompack (1 files)
+        27  config.json

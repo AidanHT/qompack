@@ -1,0 +1,133 @@
+{
+ "session_id": "cde2e273-e47f-4d84-8840-ad79487c5b56",
+ "store": {
+  "tool_use_records": 34,
+  "by_tool": {
+   "UserPromptSubmit": 9,
+   "FileRead": 5,
+   "Bash": 1,
+   "mcp__qompack__recall": 5,
+   "ToolSearch": 1,
+   "mcp__plugin_qompack_qompack__recall": 4,
+   "mcp__qompack__expand": 3,
+   "mcp__plugin_qompack_qompack__expand": 3,
+   "SubagentStop": 2,
+   "Agent": 1
+  },
+  "prompt_records": 9,
+  "capture_records(non-prompt)": 25,
+  "subagent_tagged": 2,
+  "mcp_self_records(qompack-mcp:*)": 8,
+  "sessions_records": 1,
+  "sessions_line": [
+   {
+    "v": 1,
+    "s": "cde2e273-e47f-4d84-8840-ad79487c5b56",
+    "start": 1790703839755,
+    "end": 1790703934613,
+    "turns": 18,
+    "tooluses": 34,
+    "roots": 34,
+    "objects": 76,
+    "bytes": 345522,
+    "rawbytes": 349408,
+    "dedup": 1.0112467512922476
+   }
+  ],
+  "observation_records": 26,
+  "turn_order_violations": [
+   {
+    "id": "qompack-mcp:37a6a85731bf",
+    "turn": 0,
+    "after_turn": 7
+   },
+   {
+    "id": "qompack-mcp:1daaa8324292",
+    "turn": 0,
+    "after_turn": 11
+   },
+   {
+    "id": "qompack-mcp:e9e9ae97622c",
+    "turn": 0,
+    "after_turn": 11
+   },
+   {
+    "id": "qompack-mcp:e5c707046de2",
+    "turn": 0,
+    "after_turn": 12
+   },
+   {
+    "id": "qompack-mcp:091f2bd7fb7f",
+    "turn": 0,
+    "after_turn": 13
+   },
+   {
+    "id": "qompack-mcp:aa60f6b5ded8",
+    "turn": 0,
+    "after_turn": 13
+   },
+   {
+    "id": "qompack-mcp:7a46c326b914",
+    "turn": 0,
+    "after_turn": 13
+   },
+   {
+    "id": "qompack-mcp:77b3641ad25c",
+    "turn": 0,
+    "after_turn": 13
+   }
+  ]
+ },
+ "host_stream": {
+  "hook_responses_by_name": {
+   "SessionStart:startup": 1,
+   "UserPromptSubmit": 9,
+   "PostToolUse:Read": 5,
+   "Stop": 9,
+   "PostToolUse:Bash": 1,
+   "PostToolUse:ToolSearch": 1,
+   "PostToolUse:mcp__plugin_qompack_qompack__recall": 4,
+   "PostToolUse:mcp__plugin_qompack_qompack__expand": 3,
+   "SubagentStop": 2,
+   "PostToolUse:Agent": 1,
+   "SessionStart:compact": 1
+  },
+  "tool_uses": {
+   "Read": 5,
+   "Bash": 1,
+   "ToolSearch": 1,
+   "mcp__plugin_qompack_qompack__recall": 4,
+   "mcp__plugin_qompack_qompack__expand": 3,
+   "Agent": 1,
+   "Read (subagent)": 1
+  },
+  "UserPromptSubmit_hooks": 9,
+  "PostToolUse_hooks": 15,
+  "tool_use_ids_main": 15,
+  "tool_use_ids_subagent": 1,
+  "host_tool_use_ids_missing_from_store": [
+   "toolu_01JQc32QJ9SQTeqDMbP6B7zp"
+  ],
+  "store_ids_not_host_tool_uses": [
+   "prompt_cde2e273-e47f-4d84-8840-ad79487c5b56_0",
+   "prompt_cde2e273-e47f-4d84-8840-ad79487c5b56_10",
+   "prompt_cde2e273-e47f-4d84-8840-ad79487c5b56_12",
+   "prompt_cde2e273-e47f-4d84-8840-ad79487c5b56_14",
+   "prompt_cde2e273-e47f-4d84-8840-ad79487c5b56_18",
+   "prompt_cde2e273-e47f-4d84-8840-ad79487c5b56_2",
+   "prompt_cde2e273-e47f-4d84-8840-ad79487c5b56_4",
+   "prompt_cde2e273-e47f-4d84-8840-ad79487c5b56_6",
+   "prompt_cde2e273-e47f-4d84-8840-ad79487c5b56_8",
+   "qompack-mcp:091f2bd7fb7f",
+   "qompack-mcp:1daaa8324292",
+   "qompack-mcp:37a6a85731bf",
+   "qompack-mcp:77b3641ad25c",
+   "qompack-mcp:7a46c326b914",
+   "qompack-mcp:aa60f6b5ded8",
+   "qompack-mcp:e5c707046de2",
+   "qompack-mcp:e9e9ae97622c",
+   "subagent_cde2e273-e47f-4d84-8840-ad79487c5b56_15",
+   "subagent_cde2e273-e47f-4d84-8840-ad79487c5b56_17"
+  ]
+ }
+}

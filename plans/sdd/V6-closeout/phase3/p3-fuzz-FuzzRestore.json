@@ -1,0 +1,26 @@
+{
+  "id": "p3-fuzz-FuzzRestore",
+  "cwd": "C:/Users/Quant/Documents/Programming/Projects/qompack-cx-cand",
+  "argv": [
+    "go",
+    "test",
+    "-run",
+    "^$",
+    "-fuzz",
+    "^FuzzRestore$",
+    "-fuzztime",
+    "60s",
+    "./internal/canon"
+  ],
+  "source_head": "a94a3fb97cdd18633b6b6670446fab2cb98c304c",
+  "source_dirty": "",
+  "environment": {
+    "GOFLAGS": "-p=4",
+    "GOPATH": "C:\\Users\\Quant\\go"
+  },
+  "started_at": "2026-09-28T21:46:01-04:00",
+  "ended_at": "2026-09-28T21:47:03-04:00",
+  "exit_code": 0,
+  "log": "p3-fuzz-FuzzRestore.log",
+  "log_sha256": "91d4847cc55e27c49e18472ad816a7601ba4b97afee4b172b8742fe006389759"
+}

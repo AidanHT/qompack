@@ -1,0 +1,2 @@
+ts=2026-09-29T18:20:39.9822398Z level=loud msg="rehydrate: checkpoint user_intent.original differs from the L0 capture" session=30a4a927-b4e7-416a-bfc8-1fc9a9ab930b
+ts=2026-09-29T18:21:07.896002Z level=loud msg="rehydrate: checkpoint user_intent.original differs from the L0 capture" session=30a4a927-b4e7-416a-bfc8-1fc9a9ab930b

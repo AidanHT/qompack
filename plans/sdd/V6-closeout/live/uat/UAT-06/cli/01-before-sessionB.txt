@@ -1,0 +1,4 @@
+before session B: config/quota.txt created (30 generated entries, sha256 8fa3d58b62fd9676c2f750e855dc3ca25f4971be13a2002979fde5eac4fd6709; M17 = SILVER-3466-JADE). The
+session A fact L17 was answered from the HOST's own context: Claude Code re-attached config/limits.txt (read with `cat`) after the
+compaction from its file cache although the file was deleted (transcript attachment type file, displayPath config\limits.txt).
+Session B therefore has a SUBAGENT read quota.txt and return only a count, so the parent never holds the values.

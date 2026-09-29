@@ -1,0 +1,173 @@
+[2026-09-28T02:53:37] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && git status --short | head && git log --oneline -3 && mkdir -p C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w8/stagerace && ls internal/daemon | grep -i -E "stage|spawn"
+[2026-09-28T02:53:41] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && cat internal/daemon/spawn_stage.go
+[2026-09-28T02:53:42] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && cat internal/daemon/spawn_stage_test.go
+[2026-09-28T02:54:16] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && ls plans/sdd/V6-closeout/ && grep -rn -i "sharing.violation\|ERROR_SHARING\|ERROR_ACCESS_DENIED\|robustio\|isTransient\|sharingViolation" --include=*.go . | grep -v _test | head -40
+[2026-09-28T02:54:50] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && cat internal/paths/shared.go; ls internal/paths; sed -n 1,80p internal/paths/replace_windows.go
+[2026-09-28T02:55:30] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && cat plans/sdd/V6-closeout/w7-spawnclaim/report.md
+[2026-09-28T02:55:35] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && grep -n -i "stag\|D10\|D32\|defender" plans/sdd/V6-closeout/w2-lifetime/report.md | head -60; echo ----; grep -n -i "stag\|defender\|budget\|coldstart" plans/sdd/V6-closeout/w5-coldstart/report.md | head -60
+[2026-09-28T02:55:40] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && grep -n -i "stag" plans/sdd/V6-closeout/w5-coldstart/report.md | head -30; echo; grep -n -i "D32\|D10\b\|D10 " plans/V6-CLOSEOUT-CHECKLIST.md 2>/dev/null | head; ls C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/V6-CLOSEOUT-CHECKLIST.md
+[2026-09-28T02:55:45] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-v6 && grep -n "D10\|D32\|D35\|D33\|D34" plans/V6-CLOSEOUT-CHECKLIST.md | head -30
+[2026-09-28T02:55:51] PowerShell: $s = Get-MpComputerStatus; $s | Select-Object RealTimeProtectionEnabled,OnAccessProtectionEnabled,BehaviorMonitorEnabled,IsTamperProtected,AMRunningMode | Format-List; (Get-MpPreference).ExclusionPath; go version; go env GOTMPDIR TEMP; $env:TEMP
+[2026-09-28T02:56:11] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && grep -n "daemonProgram\|stageBinary\|func spawnDetached\|func SpawnDetached" -r internal --include=*.go | grep -v _test; cat internal/paths/rename_noreplace_windows.go | head -60; grep -n "^func" internal/paths/rename_noreplace_*.go
+[2026-09-28T02:56:15] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && sed -n 320,420p internal/daemon/spawn.go
+[2026-09-28T02:56:47] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && grep -rn "NtQueryInformationFile\|FileProcessIdsUsingFileInformation" $(go env GOMODCACHE)/golang.org/x/sys@*/windows/*.go 2>/dev/null | head -5; grep "golang.org/x/sys" go.mod
+[2026-09-28T02:56:53] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && M=$(go env GOMODCACHE); ls "$M/golang.org/x/sys@v0.47.0/windows/" | head -3; grep -n "func NtQueryInformationFile\|FileProcessIdsUsingFileInformation\|func NtQueryInformation" "$M/golang.org/x/sys@v0.47.0/windows/"*.go | head
+[2026-09-28T02:57:00] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w8/stagerace && go test -c -o $S/daemon.test.exe ./internal/daemon && echo built && (time $S/daemon.test.exe -test.run '^TestStageBinary_ConcurrentSpawnersAgree$' -test.count=300 
+[2026-09-28T02:58:06] Bash: mkdir -p C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace/internal/daemon && cat > C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace/internal/daemon/zz_diag_stagerace_windows_test.go <<'EOF'
+//go:build windows
+
+package daemon
+
+// TEMPORARY DIAGNOSTIC (w8-stagerace) — never committed. Replicates copyStaged's install step and,
+// the moment verifying the exis
+[2026-09-28T02:59:32] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace/internal/daemon && python - <<'EOF'
+p='zz_diag_stagerace_windows_test.go'
+s=open(p).read()
+s=s.replace('func diagCopyStaged(t *testing.T, self, dir, target, sum string, serialize bool, rec func(string)) error {',
+'''var diagShared bool
+
+func diagVerify(target, sum string) error {
+	if !diagShared {
+		return verifyStaged(target
+[2026-09-28T03:01:30] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && grep -rn "Errno(32)\|ERROR_SHARING_VIOLATION\b" internal/daemon/*.go | head; sed -n 140,172p internal/ipc/state.go
+[2026-09-28T03:01:56] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && sed -n 1,60p internal/daemon/delivery_seal_windows_test.go
+[2026-09-28T03:02:02] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && grep -rln "golang.org/x/sys/windows" internal/ | head; grep -rn "x/sys" tools/devtool/*.go | grep -i "testdeps\|allow" | head
+[2026-09-28T03:02:22] Write: C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace/internal/daemon/spawn_stage_windows_test.go
+[2026-09-28T03:02:29] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && mkdir -p plans/sdd/V6-closeout/w8-stagerace/runs && go test -count=1 -v -run '^(TestStageBinary_VerifiesACopyItsRenamerStillHolds|TestStageBinary_NeverRemovesACopyItCannotRead)$' ./internal/daemon > plans/sdd/V6-closeout/w8-stagerace/runs/01-red-windows.log 2>&1; echo exit=$?; grep -E "^(---|ok|FAIL)|Error:|being used|remo
+[2026-09-28T03:02:38] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && grep -o "Access is denied.*" plans/sdd/V6-closeout/w8-stagerace/runs/01-red-windows.log | head -3
+[2026-09-28T03:02:58] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && python - <<'EOF'
+p='internal/daemon/spawn_stage.go'
+s=open(p).read()
+old='''	switch verr := verifyStaged(target, sum); {
+	case verr == nil:
+		return target, nil
+	case !errors.Is(verr, fs.ErrNotExist):
+		// Something is filed under this version's name that is not this version — altered bytes,
+		// or a link standing where t
+[2026-09-28T03:03:02] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && file internal/daemon/spawn_stage.go; sed -n 98,104p internal/daemon/spawn_stage.go | cat -A | cut -c1-120
+[2026-09-28T03:03:17] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && git diff --stat; python - <<'EOF'
+import io
+p='internal/daemon/spawn_stage.go'
+s=io.open(p,encoding='utf-8',newline='').read()
+reps=[('''	switch verr := verifyStaged(target, sum); {
+	case verr == nil:
+		return target, nil
+	case !errors.Is(verr, fs.ErrNotExist):
+''','''	switch verr := verifyStaged(target, sum); {
+	case verr
+[2026-09-28T03:03:26] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && python - <<'EOF'
+import io
+p='internal/daemon/spawn_stage.go'
+s=io.open(p,encoding='utf-8',newline='').read()
+a='''// anything executes it; a copy that fails verification is replaced, never run. The plugin
+'''
+assert a in s
+s=s.replace(a,'''// anything executes it; a copy shown to hold other bytes is replaced, never run, a
+[2026-09-28T03:03:30] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && grep -rn -i "staged cop\|staged binary\|\.qompack.bin\|qompack/bin" docs/*.md | cut -c1-220 | head -30
+[2026-09-28T03:03:35] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && sed -n 76,92p docs/security.md; echo ----; sed -n 78,92p docs/architecture.md; echo ----; sed -n 785,812p docs/troubleshooting.md
+[2026-09-28T03:03:45] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && python - <<'EOF'
+import io
+def rep(p,a,b):
+    s=io.open(p,encoding='utf-8',newline='').read()
+    assert a in s,(p,a[:50]); s=s.replace(a,b)
+    io.open(p,'w',encoding='utf-8',newline='').write(s)
+rep('docs/security.md','''its directory name and the spawning process's own executable. A file that fails any of that is
+remov
+[2026-09-28T03:04:01] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w8/stagerace && mv internal/daemon/zz_diag_stagerace_windows_test.go $S/ && go test -c -o $S/fixed.test.exe ./internal/daemon && R=plans/sdd/V6-closeout/w8-stagerace/runs && git r
+[2026-09-28T03:05:52] Bash: S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w8/stagerace; cd $S && for i in 1 2 3 4 5 6 7 8; do (timeout 900 yes > /dev/null &) ; done; sleep 0; ps -W | grep -c "yes.exe"; ( ./daemon.test.exe -test.run '^TestStageBinary_ConcurrentSpawnersAgree$' -test.count=1500 > ab-base-load.log 2>&1; echo base-e
+[2026-09-28T03:08:53] PowerShell: Get-Process -Name timeout,yes -ErrorAction SilentlyContinue | Select-Object Id,Name,Path,StartTime | Format-Table -AutoSize
+[2026-09-28T03:08:56] Bash: S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w8/stagerace; cd $S && grep -h -o "spawner [0-9]*\|existing file: open [^:]*:[^:]*: [A-Za-z ]*" ab-base-load.log | sed 's/open .*qompack.exe/open <target>/' | sort | uniq -c
+[2026-09-28T03:09:03] Bash: S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w8/stagerace; cd $S && grep -A3 "Received unexpected error" ab-base-load.log | grep -v "being used by another process" | grep -v "Received\|^--$\|Test:\|Messages" | cut -c1-300 | head; grep -c "Error Trace" ab-base-load.log
+[2026-09-28T03:09:08] Bash: S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w8/stagerace; cd $S && grep -B8 -A8 "The system cannot find the file specified" ab-base-load.log | cut -c1-200
+[2026-09-28T03:09:20] Bash: S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w8/stagerace; R=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace/plans/sdd/V6-closeout/w8-stagerace/runs; wc -c $S/*.log; cp $S/repro-idle.log $R/00-base-row-count300.log; cp $S/ab-base-idle.log $R/03-base-row-count1000.log; cp $S/ab-
+[2026-09-28T03:09:33] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w8/stagerace && cp $S/zz_diag_stagerace_windows_test.go plans/sdd/V6-closeout/w8-stagerace/runs/diag-stagerace-windows_test.go.txt && python - <<'EOF'
+import io
+p='internal/daemon
+[2026-09-28T03:10:40] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && grep -n "^func Test\|Chmod\|0o000" internal/daemon/spawn_stage_unix_test.go
+[2026-09-28T03:10:58] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && sed -n 45,140p test/guards/sharedreaders_test.go
+[2026-09-28T03:11:04] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && sed -n 1,44p test/guards/sharedreaders_test.go; sed -n 140,400p test/guards/sharedreaders_test.go | grep -n "func \|OpenShared\|ReadFileShared\|t.Errorf\|require" | head -40
+[2026-09-28T03:11:09] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && grep -n -B2 -A8 "spawn_stage" test/guards/*.go | head -60
+[2026-09-28T03:11:16] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && go test -count=1 -run '^(TestGuard_EveryProductReadIsClassified|TestGuard_HotFilesAreReadWithDeleteSharing)$' ./test/guards 2>&1 | tail -20; grep -n "func TestGuard_EveryProductReadIsClassified" -A40 test/guards/productreads_test.go | grep -n "stale\|no longer\|require" | head
+[2026-09-28T03:11:34] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && python - <<'EOF'
+import io
+def rep(p,a,b):
+    s=io.open(p,encoding='utf-8',newline='').read()
+    assert s.count(a)==1,(p,a[:60]); s=s.replace(a,b)
+    io.open(p,'w',encoding='utf-8',newline='').write(s)
+g='test/guards/productreads_test.go'
+rep(g,'''	{"internal/daemon/spawn_stage.go", "fileSHA256", "the plugin binary, or 
+[2026-09-28T03:11:45] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && grep -n "qompack daemon\|exits at once\|exit at once\|immediately" docs/troubleshooting.md | head -20; ls docs; grep -n "^## \|^### " docs/cannot-do.md 2>/dev/null | head -40
+[2026-09-28T03:11:49] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && sed -n 755,784p docs/troubleshooting.md; echo -----; sed -n 252,305p docs/cannot-do.md; grep -n -i "sessionend\|spool" docs/cannot-do.md | head; grep -n -i "flush.*spool\|SessionEnd" docs/troubleshooting.md | head -20
+[2026-09-28T03:11:56] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && grep -n -i "session.end\|flush\|SessionEnd" docs/troubleshooting.md docs/cannot-do.md docs/architecture.md | cut -c1-200 | head -30
+[2026-09-28T03:12:00] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && sed -n 24,40p docs/architecture.md; echo ----; sed -n 810,830p docs/troubleshooting.md; grep -n "^## \|^\*\*Symptom" docs/troubleshooting.md | sed -n 1,200p | grep -n -i "spool\|daemon\|^.*## " | head -40
+[2026-09-28T03:12:16] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && sed -n 327,372p docs/cannot-do.md; ls test/docs; grep -ln "cannot-do" test/docs/*.go
+[2026-09-28T03:12:22] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && grep -n "func Test\|cannot-do\|Limit\.\|Recorded at\|count\|want" test/docs/limits_test.go | head -40
+[2026-09-28T03:12:27] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && ls plans/V6-CLOSEOUT-CHECKLIST.md && grep -n "D35" plans/V6-CLOSEOUT-CHECKLIST.md | head -3; grep -n -i "client spool\|client-\*\|spool watcher\|replays its spool\|next start" docs/architecture.md | head
+[2026-09-28T03:12:33] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && sed -n 160,172p docs/architecture.md; grep -n "lazySpawn\|func (c \*Client) lazy" internal/ipc/*.go | grep -v _test | head -5
+[2026-09-28T03:12:36] TEXT: Now write the docs changes.
+[2026-09-28T03:12:47] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && python - <<'EOF'
+import io
+def rep(p,a,b):
+    s=io.open(p,encoding='utf-8',newline='').read()
+    assert s.count(a)==1,(p,a[:60]); s=s.replace(a,b)
+    io.open(p,'w',encoding='utf-8',newline='').write(s)
+rep('docs/troubleshooting.md','''once, because it cannot take the project's singleton lock, means a spawner found neith
+[2026-09-28T03:13:03] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && python - <<'EOF'
+import io
+p='docs/cannot-do.md'
+s=io.open(p,encoding='utf-8',newline='').read()
+a='''  exits, so it is replayed, not lost: the next daemon's startup drain ends the session then, exactly
+  as a flush it had received live. Until then the session is still recorded as needing recovery.
+'''
+assert a in s
+s=s.re
+[2026-09-28T03:13:12] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && python - <<'EOF'
+import io
+p='docs/cannot-do.md'
+s=io.open(p,encoding='utf-8',newline='').read()
+a='''  ([architecture §1](architecture.md#1-process-model)). The idle exit comes after
+  `runtime.daemon.idleExitSeconds` with no live session, so this needs a session that was silent that
+  long and then ended just as the daem
+[2026-09-28T03:13:18] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && grep -rn "func.*[Ff]lush" internal/cli/*.go | grep -v _test | head; grep -n "Spawn\b\|Spawn:" internal/cli/flush*.go internal/cli/client*.go 2>/dev/null | head
+[2026-09-28T03:13:22] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && grep -rln "\"flush\"" internal/cli | head; grep -rn "OpFlush\|OpSessionEnd" internal/cli/*.go | grep -v _test | head -5; grep -rn "Spawn:" internal/cli/*.go | grep -v _test | head -5
+[2026-09-28T03:13:25] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && sed -n 480,510p internal/cli/hookclient.go
+[2026-09-28T03:13:38] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && go run ./tools/devtool fmt-check; echo fmt=$?; go vet ./internal/daemon ./test/guards; echo vet=$?; GOOS=linux go vet ./internal/daemon ./test/guards; echo vetl=$?; go run ./tools/devtool lint --only=golangci-lint,nomagic,importgraph,testdeps,bindeps,sleepcheck,docmarkers,runpatterns > C:/Users/Quant/AppData/Local/Temp/cla
+[2026-09-28T03:14:52] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w8/stagerace && cp internal/daemon/spawn_stage.go $S/spawn_stage.full.go && cp internal/daemon/spawn_stage_windows_test.go $S/spawn_stage_windows_test.full.go && git diff internal
+[2026-09-28T03:15:03] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w8/stagerace && git show HEAD:internal/daemon/spawn_stage.go > internal/daemon/spawn_stage.go && python - <<'EOF'
+import io
+p='internal/daemon/spawn_stage.go'
+s=io.open(p,encoding
+[2026-09-28T03:15:19] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w8/stagerace && cp test/guards/sharedreaders_test.go $S/sharedreaders.full.go && python - <<'EOF'
+import io,subprocess
+full=io.open('test/guards/sharedreaders_test.go',encoding='u
+[2026-09-28T03:15:44] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && git add internal/daemon/spawn_stage.go internal/daemon/spawn_stage_windows_test.go test/guards/productreads_test.go test/guards/sharedreaders_test.go && git commit -q -F - <<'EOF'
+fix(daemon): verify staged copies through delete-sharing reads
+
+Two spawners racing to stage one version on Windows: the one whose
+os.Rename ins
+[2026-09-28T03:15:51] TEXT: Now commit 2: keep an unreadable copy.
+[2026-09-28T03:15:54] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w8/stagerace && cp $S/spawn_stage.full.go internal/daemon/spawn_stage.go && cp $S/spawn_stage_windows_test.full.go internal/daemon/spawn_stage_windows_test.go && go vet ./internal
+[2026-09-28T03:16:09] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w8/stagerace && cp docs/troubleshooting.md $S/troubleshooting.full.md && git show HEAD:docs/troubleshooting.md > docs/troubleshooting.md && python - <<'EOF'
+import io
+p='docs/trou
+[2026-09-28T03:16:18] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && S=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w8/stagerace && cp $S/sharedreaders.full.go test/guards/sharedreaders_test.go && git diff test/guards/sharedreaders_test.go && go run ./tools/devtool fmt-check && go vet ./test/gu
+[2026-09-28T03:16:37] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && git add test/guards/sharedreaders_test.go && git commit -q -F - <<'EOF'
+test(guards): name Lock.Release among spawn.lock's deleters
+
+Since D27, Lock.Release deletes run/spawn.lock through removeSpawnClaim
+from daemon.lock's holder's process: the winning daemon, the daemon
+command's writer lease, fsck and delivery-seal. The
+[2026-09-28T03:16:46] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && go test -count=1 -timeout=60m ./internal/daemon > plans/sdd/V6-closeout/w8-stagerace/runs/10-daemon-full-windows.log 2>&1; echo "exit=$?" >> plans/sdd/V6-closeout/w8-stagerace/runs/10-daemon-full-windows.log
+[2026-09-28T03:16:48] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && R=plans/sdd/V6-closeout/w8-stagerace/runs; go test -count=1 -timeout=30m ./test/guards > $R/11-guards-full-windows.log 2>&1; echo guards=$?; grep -E "^(--- FAIL|ok|FAIL)" $R/11-guards-full-windows.log | head -20
+[2026-09-28T03:19:08] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && grep -E "^    --- FAIL" plans/sdd/V6-closeout/w8-stagerace/runs/11-guards-full-windows.log
+[2026-09-28T03:19:13] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && R=plans/sdd/V6-closeout/w8-stagerace/runs; go test -count=1 -timeout=20m ./internal/ipc > $R/12-ipc-full-windows.log 2>&1; echo ipc=$?; tail -3 $R/12-ipc-full-windows.log
+[2026-09-28T03:19:34] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && R=plans/sdd/V6-closeout/w8-stagerace/runs; go test -count=1 -timeout=30m ./internal/cli > $R/13-cli-full-windows.log 2>&1; echo cli=$?; grep -E "^(--- FAIL|ok|FAIL)" $R/13-cli-full-windows.log | head
+[2026-09-28T03:20:30] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && sed -n 1,60p plans/sdd/V6-closeout/linux/linux-nonroot-gate.sh
+[2026-09-28T03:20:39] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && mkdir -p plans/sdd/V6-closeout/w8-stagerace/runs/linux && sh plans/sdd/V6-closeout/linux/linux-nonroot-gate.sh --prefix cx-w8-stagerace --repo C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace --out C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace/plans/sdd/V6-closeout/w8-stagerace/
+[2026-09-28T03:20:45] ToolSearch: {"query": "select:Monitor", "max_results": 1}
+[2026-09-28T03:20:51] Monitor: L=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace/plans/sdd/V6-closeout/w8-stagerace/runs/10-daemon-full-windows.log; G=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w8/stagerace/linux-gate.out; d=0; g=0; while [ $d = 0 ] || [ $g = 0 ]; do if [ $d = 0 ] && grep -q "^exit=" $L 2>/d
+[2026-09-28T03:20:56] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && grep -E "^(--- FAIL|ok|FAIL|exit=)" plans/sdd/V6-closeout/w8-stagerace/runs/10-daemon-full-windows.log
+[2026-09-28T03:21:02] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w8-stagerace && git rev-parse --short HEAD && go test -count=1000 -timeout=20m -run '^TestStageBinary_ConcurrentSpawnersAgree$' ./internal/daemon > plans/sdd/V6-closeout/w8-stagerace/runs/07-head-row-count1000.log 2>&1; echo exit=$?; tail -2 plans/sdd/V6-closeout/w8-stagerace/runs/07-head-row-count1000.log; go test -count=50 -run '^TestSt
+[2026-09-28T03:22:13] TEXT: Now waiting for the Linux gate.
+[2026-09-28T03:22:15] Bash: tail -5 C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w8/stagerace/linux-gate.out
+[2026-09-28T03:22:20] Bash: G=C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w8/stagerace/linux-gate.out; until grep -q "gate-exit=" $G; do sleep 15; done; tail -25 $G

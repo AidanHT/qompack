@@ -1,0 +1,6 @@
+UAT-05 preconditions
+project: <scratch>/sessions/uat05/proj (git init + git add -A; no commit): README.md, reports.py,
+data/sample.csv, data/meta.txt ('release ticket: TCK-58213', the pre-compaction fact delivered through Bash)
+<project>/.qompack exists: False (initial absence)
+config run 1: defaults (rehydrate minTokens 8000, maxTokens 12000, eliminationsTopN 8,
+reinjection.sessionStartCompact true); session env QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS=120 only

@@ -1,0 +1,21 @@
+{
+  "id": "p3-lint",
+  "cwd": "C:/Users/Quant/Documents/Programming/Projects/qompack-cx-cand",
+  "argv": [
+    "go",
+    "run",
+    "./tools/devtool",
+    "lint"
+  ],
+  "source_head": "a94a3fb97cdd18633b6b6670446fab2cb98c304c",
+  "source_dirty": "",
+  "environment": {
+    "GOFLAGS": "-p=4",
+    "GOPATH": "C:\\Users\\Quant\\go"
+  },
+  "started_at": "2026-09-28T19:59:00-04:00",
+  "ended_at": "2026-09-28T21:09:21-04:00",
+  "exit_code": 0,
+  "log": "p3-lint.log",
+  "log_sha256": "acdcf1fcc1b0414f117923d84bce9c4aff9e5a8bb487f54fdd8342fb1d8a61a0"
+}

@@ -1,0 +1,15 @@
+ts=2026-09-29T18:03:59.4210047Z level=loud msg="rehydrate: checkpoint user_intent.original differs from the L0 capture" session=5fe7f497-1c23-414e-8fcc-933363180fd0
+ts=2026-09-29T18:04:20.9109405Z level=loud msg="rehydrate: checkpoint user_intent.original differs from the L0 capture" session=5fe7f497-1c23-414e-8fcc-933363180fd0
+ts=2026-09-29T18:04:44.5906516Z level=loud msg="rehydrate: checkpoint user_intent.original differs from the L0 capture" session=5fe7f497-1c23-414e-8fcc-933363180fd0
+ts=2026-09-29T18:05:16.2799839Z level=loud msg="rehydrate: checkpoint user_intent.original differs from the L0 capture" session=5fe7f497-1c23-414e-8fcc-933363180fd0
+ts=2026-09-29T18:06:06.988685Z level=loud msg="rehydrate: checkpoint user_intent.original differs from the L0 capture" session=5fe7f497-1c23-414e-8fcc-933363180fd0
+ts=2026-09-29T18:06:34.6794792Z level=loud msg="rehydrate: checkpoint user_intent.original differs from the L0 capture" session=5fe7f497-1c23-414e-8fcc-933363180fd0
+ts=2026-09-29T18:07:11.1357876Z level=loud msg="rehydrate: checkpoint user_intent.original differs from the L0 capture" session=5fe7f497-1c23-414e-8fcc-933363180fd0
+ts=2026-09-29T18:07:41.0021689Z level=loud msg="rehydrate: checkpoint user_intent.original differs from the L0 capture" session=5fe7f497-1c23-414e-8fcc-933363180fd0
+ts=2026-09-29T18:08:20.7257515Z level=loud msg="rehydrate: checkpoint user_intent.original differs from the L0 capture" session=5fe7f497-1c23-414e-8fcc-933363180fd0
+ts=2026-09-29T18:08:49.1466116Z level=loud msg="rehydrate: checkpoint user_intent.original differs from the L0 capture" session=5fe7f497-1c23-414e-8fcc-933363180fd0
+ts=2026-09-29T18:09:23.4899421Z level=loud msg="rehydrate: checkpoint user_intent.original differs from the L0 capture" session=5fe7f497-1c23-414e-8fcc-933363180fd0
+ts=2026-09-29T18:09:58.8193862Z level=loud msg="rehydrate: checkpoint user_intent.original differs from the L0 capture" session=5fe7f497-1c23-414e-8fcc-933363180fd0
+ts=2026-09-29T18:10:33.1525442Z level=loud msg="rehydrate: checkpoint user_intent.original differs from the L0 capture" session=5fe7f497-1c23-414e-8fcc-933363180fd0
+ts=2026-09-29T18:11:02.5669716Z level=loud msg="daemon: config reload warning" key="" message="unparseable config: unexpected end of JSON input" location=<scratch>\sessions\uat04\proj\.qompack\config.json
+ts=2026-09-29T18:12:38.700766Z level=loud msg="configuration unusable, using defaults" message="unparseable config: unexpected end of JSON input" location=<scratch>\sessions\uat04\proj\.qompack\config.json

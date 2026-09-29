@@ -1,0 +1,17 @@
+{
+ "files": {
+  "README.md": {
+   "bytes": 56,
+   "sha256": "a002accc7f51d696143479bdbb89c1e63e642fe453f96a57a700b73a22a56c42"
+  },
+  "notes.md": {
+   "bytes": 87,
+   "sha256": "44f03bde7413c1afb7b90ce82bd33a9896cffd85b7640f72a4f2b0f6e3d9f39c"
+  },
+  "src/cache.go": {
+   "bytes": 258,
+   "sha256": "e7799114773bcc0a914cff408b15790d5e7955a71436c9102fc37b814c948888"
+  }
+ },
+ "config": "defaults (no config file); session and CLI env QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS=120"
+}

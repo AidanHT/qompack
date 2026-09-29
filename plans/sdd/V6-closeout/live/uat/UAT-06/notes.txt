@@ -1,0 +1,87 @@
+UAT-06 — compact, resume, fork and correct repeatedly; no superseded intent promoted; no
+PostCompact dependency (also C4.3's Qompack-sourced fact recovery). Agent-executed on the owner's
+real host per owner decision D3 by a Claude Code workflow subagent (Opus 5.5) — not human UAT.
+
+Date 2026-09-29 14:17-14:22 America/Toronto. Sessions used: 3 (sessionA n=6, sessionB-resume n=7,
+sessionC-fork n=8). Model claude-haiku-4-5-20251001, Claude Code 2.1.280, Windows 11 Home 25H2
+build 10.0.26200.9457, frozen bundle 0.3.0 (BUNDLE.json sha256 32600778...ccf4505, commit
+d5598eb4) via --plugin-dir. No step was skipped.
+
+Preconditions (cli/00-preconditions.txt): disposable project (git init + add): src/limiter.py,
+docs/notes.md, docs/design.md, README.md, config/limits.txt (30 generated entries). No .qompack
+(initial absence; 00-backup-create-absent exit 1). Config defaults (reinjection.sessionStartCompact
+true); session env idle exit 120 s.
+
+Session A (sessionA/, id c8f504cc): T1 ORIGINAL INTENT "We are building a rate limiter for the Kite
+API gateway. Requirement: allow 100 requests per minute per client." + `cat config/limits.txt`; T2
+CORRECTION 1 "the limit must be 60 requests per minute per client, not 100. The 100 figure is
+superseded."; four small reads; T7 "/compact" -> block 1 (block1-A-compact.txt, 729 units); T8
+(before: limits.txt deleted) L17 answered correctly but from the HOST's context: Claude Code
+re-attached config/limits.txt after compaction from its file cache although the file was deleted
+(transcript "file" attachment, displayPath config\limits.txt; cli/01-before-sessionB.txt); T9 the
+model named 60 current / 100 original (from the host summary).
+Session B (sessionB-resume/, `--resume c8f504cc`, same session id): SessionStart:resume injected
+only the contract probe line (sessionB-resume-SessionStart-resume-output.txt) — no block on resume.
+T1 "current limit" -> 60. T2 a general-purpose SUBAGENT read config/quota.txt (30 entries, created
+before B) and returned only "30" (the host ran it as a background agent). T3 "/compact" (the second
+compaction) -> block 2 (729 units). T4 (before: quota.txt deleted) "M17?": the model called recall
+"M17" k 10 (hits: its own prompt, then the subagent's FileRead of config/quota.txt,
+toolu_018nUMcs...), expand of that tool_use_id, and answered "M17=SILVER-3466-JADE — Source: Qompack
+archive (expand)". Correct (scratch facts.json). The parent never held the values; the file was
+gone; the capture was made before the compaction. This is C4.3's "model recovers a pre-compaction
+fact it cannot re-read", sourced from Qompack. (The async agent's completion produced an extra
+result line, so the driver's per-turn accounting in meta.json is shifted by one; every message was
+delivered and answered — stream.jsonl.)
+Session C (sessionC-fork/, `--resume c8f504cc --fork-session`, new id 30a4a927): SessionStart:fork
+injected only the probe line. T1 "current limit" -> 60. T2 "/compact" -> block 3 (779 units). T3
+CORRECTION 2 "the limit must now be 75 ... The 60 figure is superseded as well." T4 "/compact" ->
+block 4 (779 units). T5 -> "75, superseding 100 and 60" (host context).
+All hooks success/exit 0; stderr.txt empty in all three sessions (no "Hook cancelled").
+
+Step 6 — section 2 in order (section2-in-order.txt):
+ block 1 (A compact)        "> We are building a rate limiter ... allow 100 requests per minute ..."
+ block 2 (B resume+compact) identical to block 1
+ block 3 (C fork compact)   "> We are continuing in a forked session. In one sentence: what is the
+                            current per-client rate limit requirement?" + section 7 "intent_mismatch
+                            30a4a927 — checkpoint user_intent.original differs from the L0 capture;
+                            injecting the L0 text"
+ block 4 (C after corr. 2)  identical to block 3 apart from seq/checkpoint/probe
+ No block carries correction 1 or correction 2: every checkpoint (0001, 0002, 0004, 0005) has
+ user_intent.evolution [] and decisions []. The checkpoints of the fork keep the TRUE original
+ ("We are building a rate limiter...") but the rehydrator replaces it with the fork's own first
+ prompt, calling that the "verbatim original" from L0.
+ /qompack:why: no block lists a decision id -> not run (step6-why.txt); unverified.
+Diff block 2 vs fork block 3 (diff-block2-vs-fork-block3.txt, "to be confirmed at execution"):
+ besides seq (2 -> 4), checkpoint number, session id and the probe id, section 2's content changes
+ and a section 7 intent_mismatch entry appears.
+Step 7 (step7-postcompact-search.txt): regex over every line of .qompack/logs/*: 0 matches. Nothing
+waits on or reports the absence of a post-compaction event. PASS.
+Other: checkpoints/MANIFEST.jsonl numbers 1, 2, 4, 5 (no 0003 exists; fsck checkpoints row passes).
+status (cli/10-status): "host contract: 9 assertion(s), all holding"; fsck exit 1 only on
+index.tool_use (the MCP self-records at turn 0, F-UAT01-2).
+
+Expected result, field by field:
+ - section 2's first unit is the verbatim original intent from L0: TRUE for blocks 1-2; FALSE for
+   blocks 3-4 (the fork's first prompt shown as the original).
+ - the newest correction stays above the older ones across steps 2-5: NOT OBSERVABLE — no correction
+   ever reached a checkpoint or a block; blocks 1-2 carry only the superseded 100-per-minute
+   requirement.
+ - /qompack:why returns an attributed record: not run (no decision id).
+ - no PostCompact dependency: holds.
+ - fork diff: recorded above.
+
+Findings:
+ F-UAT06-1 (product defect) after `--fork-session` the rehydration's "Original user intent (verbatim
+   from L0 capture — never summarized)" is the forked session's own first prompt; the checkpoint's
+   true original is overridden as an "intent_mismatch". The original intent is lost from every
+   block of the fork.
+ F-UAT06-2 (product defect, same as F-UAT05-1) explicit user corrections (two here) are never
+   recorded as intent evolution across compact, resume and fork.
+ F-UAT06-3 (observation) resume and fork SessionStart inject only the contract probe; the block
+   comes back only at the next compaction.
+ F-UAT06-4 (host) Claude Code 2.1.280 re-attaches files read with Bash `cat` after compaction from
+   its file cache even when the file is gone; a fact read by the main thread survives compaction
+   without Qompack. Facts only a subagent read do not, and Qompack recovered one.
+ F-UAT06-5 (observation) checkpoint sequence 3 was skipped in MANIFEST.jsonl.
+
+Rollback: not applicable — initial state absent (recorded); the run is retained as evidence.

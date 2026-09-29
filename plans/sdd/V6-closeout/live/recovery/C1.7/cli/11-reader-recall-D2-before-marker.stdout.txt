@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "command": "recall",
+  "ok": true,
+  "data": {
+    "tool": "recall",
+    "is_error": false,
+    "ephemeral": true,
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"hits\":[{\"hash\":\"sha256:21a51c0840eba30061504c3f0f8420f7baa3c30ee90d36c3c9819e5593eae066\",\"path\":\"notes.md\",\"tool\":\"FileRead\",\"summary\":\"{\\\"type\\\":\\\"text\\\",\\\"file\\\":{\\\"filePath\\\":\\\"\u003ctmp\u003e\\\",\\\"content\\\":\\\"# Notes\\\\n\\\\nThe pre-backup marker is saffron kestrel alpha.\\\\nThe …\",\"ts\":\"2026-09-29T19:32:08Z\",\"score\":0.28428571428571425,\"tool_use_id\":\"toolu_01USRz17jexjsCtzbe9pd1tP\",\"span\":[0,199]}],\"count\":1,\"found\":true,\"query\":{\"text\":\"saffron kestrel alpha\",\"path\":\"\",\"symbol\":\"\",\"tool\":\"\"}}"
+      }
+    ],
+    "meta": {
+      "elapsed_ms": 2,
+      "hash": "sha256:0a47629f0ee1cb2be0ec9cc0e3b2f3e5d6a12634376df7923df72be306ec67fd",
+      "tool_use_id": "qompack-mcp:2f70dfac8be1",
+      "untrusted": true
+    }
+  }
+}

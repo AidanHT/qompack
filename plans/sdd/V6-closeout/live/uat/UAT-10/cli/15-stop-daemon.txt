@@ -1,0 +1,2 @@
+{"lock": {"pid": 4208, "started": 1790708859933, "addr": "\\\\.\\pipe\\qompack.57d2bd95e0c9", "version": "0.3.0", "owner": "3421e47175141b101345fcd443865e18093d227aaf6ff6396a9b1d92053e3ce0"}, "pid": 4208, "proc": null}
+RESULT: no live process for the lock pid; nothing stopped

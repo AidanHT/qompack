@@ -1,0 +1,38 @@
+{
+  "session": "8ac0f6c5-21c8-49e3-84d1-be016cb68153",
+  "seq": 2,
+  "emitted": 1790704905598,
+  "tokens": 109,
+  "budget": 150,
+  "items": [
+    {
+      "kind": "invariants",
+      "rank": 0,
+      "tokens": 87,
+      "truncated": false,
+      "units": 1,
+      "units_seen": 1
+    },
+    {
+      "kind": "drop_report",
+      "rank": 1,
+      "tokens": 22,
+      "truncated": true,
+      "units": 1,
+      "units_seen": 2
+    }
+  ],
+  "dropped": [
+    {
+      "kind": "user_intent",
+      "id": "tier1",
+      "detail": "OVERFLOW: the verbatim original user intent did not fit the rehydration payload and is emitted whole or not at all; restore: expand(tool_use_id=prompt_8ac0f6c5-21c8-49e3-84d1-be016cb68153_0)"
+    },
+    {
+      "kind": "affordance",
+      "id": "tier1",
+      "detail": "OVERFLOW: tier-1 material did not fit the rehydration budget and is emitted whole or not at all — call dropped() for the full accounting"
+    }
+  ],
+  "degraded": true
+}

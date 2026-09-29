@@ -1,0 +1,25 @@
+fuzz: elapsed: 3s, gathering baseline coverage: 0/296 completed
+fuzz: elapsed: 4s, gathering baseline coverage: 296/296 completed, now fuzzing with 22 workers
+fuzz: elapsed: 6s, execs: 311728 (103745/sec), new interesting: 13 (total: 309)
+fuzz: elapsed: 9s, execs: 762136 (150222/sec), new interesting: 23 (total: 319)
+fuzz: elapsed: 12s, execs: 1111648 (116382/sec), new interesting: 30 (total: 326)
+fuzz: elapsed: 15s, execs: 1349253 (79323/sec), new interesting: 32 (total: 328)
+fuzz: elapsed: 18s, execs: 1497245 (49351/sec), new interesting: 33 (total: 329)
+fuzz: elapsed: 21s, execs: 1688966 (63819/sec), new interesting: 35 (total: 331)
+fuzz: elapsed: 24s, execs: 1824524 (45104/sec), new interesting: 36 (total: 332)
+fuzz: elapsed: 27s, execs: 1965523 (47147/sec), new interesting: 37 (total: 333)
+fuzz: elapsed: 30s, execs: 2115087 (49851/sec), new interesting: 39 (total: 335)
+fuzz: elapsed: 33s, execs: 2218015 (34281/sec), new interesting: 43 (total: 339)
+fuzz: elapsed: 36s, execs: 2292325 (24793/sec), new interesting: 43 (total: 339)
+fuzz: elapsed: 39s, execs: 2395869 (34378/sec), new interesting: 43 (total: 339)
+fuzz: elapsed: 42s, execs: 2480846 (28440/sec), new interesting: 43 (total: 339)
+fuzz: elapsed: 45s, execs: 2521447 (13473/sec), new interesting: 43 (total: 339)
+fuzz: elapsed: 48s, execs: 2545153 (7938/sec), new interesting: 43 (total: 339)
+fuzz: elapsed: 51s, execs: 2573333 (9376/sec), new interesting: 44 (total: 340)
+fuzz: elapsed: 54s, execs: 2601413 (9369/sec), new interesting: 44 (total: 340)
+fuzz: elapsed: 57s, execs: 2611453 (3350/sec), new interesting: 44 (total: 340)
+fuzz: elapsed: 1m0s, execs: 2611453 (0/sec), new interesting: 44 (total: 340)
+fuzz: elapsed: 1m3s, execs: 2611453 (0/sec), new interesting: 44 (total: 340)
+fuzz: elapsed: 1m4s, execs: 2611453 (0/sec), new interesting: 44 (total: 340)
+PASS
+ok  	github.com/qompack/qompack/internal/hookio	65.318s

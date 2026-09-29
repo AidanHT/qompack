@@ -1,0 +1,26 @@
+{
+  "id": "p3-fuzz-FuzzRedactPrefilterEquivalence",
+  "cwd": "C:/Users/Quant/Documents/Programming/Projects/qompack-cx-cand",
+  "argv": [
+    "go",
+    "test",
+    "-run",
+    "^$",
+    "-fuzz",
+    "^FuzzRedactPrefilterEquivalence$",
+    "-fuzztime",
+    "60s",
+    "./internal/redact"
+  ],
+  "source_head": "a94a3fb97cdd18633b6b6670446fab2cb98c304c",
+  "source_dirty": "",
+  "environment": {
+    "GOFLAGS": "-p=4",
+    "GOPATH": "C:\\Users\\Quant\\go"
+  },
+  "started_at": "2026-09-28T22:03:37-04:00",
+  "ended_at": "2026-09-28T22:04:43-04:00",
+  "exit_code": 0,
+  "log": "p3-fuzz-FuzzRedactPrefilterEquivalence.log",
+  "log_sha256": "683a8eff57ff9d01eec9b35a5f767254f76ee1e1fd15b2de9c1557422a05222d"
+}

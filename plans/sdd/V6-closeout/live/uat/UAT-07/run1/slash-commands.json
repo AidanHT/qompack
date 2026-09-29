@@ -1,0 +1,46 @@
+{
+ "session_id": "3fa0e7ea-e7cf-4e92-b2da-8f4affb83374",
+ "source": "host transcript, extracted by slashx.py",
+ "commands": [
+  {
+   "command": "/qompack:recall",
+   "args": "cobalt heron threshold --json",
+   "timestamp": "2026-09-29T18:38:44.686Z",
+   "expanded_body": "Run the Qompack recall command and report its output verbatim to the user.\n\n{\n  \"schema\": 1,\n  \"command\": \"recall\",\n  \"ok\": true,\n  \"data\": {\n    \"tool\": \"recall\",\n    \"is_error\": false,\n    \"ephemeral\": true,\n    \"content\": [\n      {\n        \"type\": \"text\",\n        \"text\": \"{\\\"hits\\\":[{\\\"hash\\\":\\\"sha256:125153754afca5f623b4b7dc03edf6a54a60bb961e9a4d46a80ba61769b6c2f4\\\",\\\"path\\\":\\\"src/ledger.go\\\",\\\"tool\\\":\\\"FileRead\\\",\\\"summary\\\":\\\"{\\\\\\\"type\\\\\\\":\\\\\\\"text\\\\\\\",\\\\\\\"file\\\\\\\":{\\\\\\\"filePath\\\\\\\":\\\\\\\"\\u003ctmp\\u003e\\\\\\\",\\\\\\\"content\\\\\\\":\\\\\\\"package ledger\\\\\\\\n\\\\\\\\n// Package ledger reconciles account balances …\\\",\\\"ts\\\":\\\"2026-09-29T18:38:36Z\\\",\\\"score\\\":0.33,\\\"tool_use_id\\\":\\\"toolu_01TQdGh2YwyvoagYMfGK2J4M\\\",\\\"span\\\":[0,838]}],\\\"count\\\":1,\\\"found\\\":true,\\\"query\\\":{\\\"text\\\":\\\"cobalt heron threshold\\\",\\\"path\\\":\\\"\\\",\\\"symbol\\\":\\\"\\\",\\\"tool\\\":\\\"\\\"}}\"\n      }\n    ],\n    \"meta\": {\n      \"elapsed_ms\": 2,\n      \"hash\": \"sha256:7fd69e8082262ded8e316cb96b1a547a9cf67619a11cc52df3aabb960ecc09f4\",\n      \"tool_use_id\": \"qompack-mcp:71efe425780f\",\n      \"untrusted\": true\n    }\n  }\n}\n",
+   "permissions": [
+    "Bash(qompack recall:*)"
+   ],
+   "is_meta": true
+  },
+  {
+   "command": "/qompack:recall",
+   "args": "path:src/*.go --json",
+   "timestamp": "2026-09-29T18:38:50.205Z",
+   "expanded_body": "Run the Qompack recall command and report its output verbatim to the user.\n\n{\n  \"schema\": 1,\n  \"command\": \"recall\",\n  \"ok\": true,\n  \"data\": {\n    \"tool\": \"recall\",\n    \"is_error\": false,\n    \"ephemeral\": true,\n    \"content\": [\n      {\n        \"type\": \"text\",\n        \"text\": \"{\\\"hits\\\":[],\\\"count\\\":0,\\\"found\\\":false,\\\"query\\\":{\\\"text\\\":\\\"\\\",\\\"path\\\":\\\"src/*.go\\\",\\\"symbol\\\":\\\"\\\",\\\"tool\\\":\\\"\\\"}}\"\n      }\n    ],\n    \"meta\": {\n      \"elapsed_ms\": 0,\n      \"hash\": \"sha256:2661404a0d33b36e6b3da4609c44c0425dc9611b9930f85e5858522c8acb374b\",\n      \"tool_use_id\": \"qompack-mcp:b61ceaee8001\",\n      \"untrusted\": true\n    }\n  }\n}\n",
+   "permissions": [
+    "Bash(qompack recall:*)"
+   ],
+   "is_meta": true
+  },
+  {
+   "command": "/qompack:recall",
+   "args": "symbol:ReconcileBalances --json",
+   "timestamp": "2026-09-29T18:38:54.385Z",
+   "expanded_body": "Run the Qompack recall command and report its output verbatim to the user.\n\n{\n  \"schema\": 1,\n  \"command\": \"recall\",\n  \"ok\": true,\n  \"data\": {\n    \"tool\": \"recall\",\n    \"is_error\": false,\n    \"ephemeral\": true,\n    \"content\": [\n      {\n        \"type\": \"text\",\n        \"text\": \"{\\\"hits\\\":[{\\\"hash\\\":\\\"sha256:125153754afca5f623b4b7dc03edf6a54a60bb961e9a4d46a80ba61769b6c2f4\\\",\\\"path\\\":\\\"src/ledger.go\\\",\\\"tool\\\":\\\"FileRead\\\",\\\"summary\\\":\\\"{\\\\\\\"type\\\\\\\":\\\\\\\"text\\\\\\\",\\\\\\\"file\\\\\\\":{\\\\\\\"filePath\\\\\\\":\\\\\\\"\\u003ctmp\\u003e\\\\\\\",\\\\\\\"content\\\\\\\":\\\\\\\"package ledger\\\\\\\\n\\\\\\\\n// Package ledger reconciles account balances …\\\",\\\"ts\\\":\\\"2026-09-29T18:38:36Z\\\",\\\"score\\\":0.4342857142857143,\\\"tool_use_id\\\":\\\"toolu_01TQdGh2YwyvoagYMfGK2J4M\\\",\\\"span\\\":[0,838]},{\\\"hash\\\":\\\"sha256:792b2c84842aa480b3dc261b7d43bb594a26264ee12da4f034de722fd9123658\\\",\\\"path\\\":\\\"\\\",\\\"tool\\\":\\\"UserPromptSubmit\\\",\\\"summary\\\":\\\"Use the Read tool to read src/ledger.go. In one sentence, what does the function ReconcileBalances do?\\\",\\\"ts\\\":\\\"2026-09-29T18:38:34Z\\\",\\\"score\\\":0.21714285714285717,\\\"tool_use_id\\\":\\\"prompt_3fa0e7ea-e7cf-4e92-b2da-8f4affb83374_0\\\",\\\"span\\\":[0,102]}],\\\"count\\\":2,\\\"found\\\":true,\\\"query\\\":{\\\"text\\\":\\\"\\\",\\\"path\\\":\\\"\\\",\\\"symbol\\\":\\\"ReconcileBalances\\\",\\\"tool\\\":\\\"\\\"}}\"\n      }\n    ],\n    \"meta\": {\n      \"elapsed_ms\": 3,\n      \"hash\": \"sha256:49cf8f9b91d82af5c16fdd897c98b3be09f64574e61a7e435c04cbd1a515394c\",\n      \"tool_use_id\": \"qompack-mcp:f8dad02c7bea\",\n      \"untrusted\": true\n    }\n  }\n}\n",
+   "permissions": [
+    "Bash(qompack recall:*)"
+   ],
+   "is_meta": true
+  },
+  {
+   "command": "/qompack:recall",
+   "args": "tool:Read --json",
+   "timestamp": "2026-09-29T18:39:00.456Z",
+   "expanded_body": "Run the Qompack recall command and report its output verbatim to the user.\n\n{\n  \"schema\": 1,\n  \"command\": \"recall\",\n  \"ok\": true,\n  \"data\": {\n    \"tool\": \"recall\",\n    \"is_error\": false,\n    \"ephemeral\": true,\n    \"content\": [\n      {\n        \"type\": \"text\",\n        \"text\": \"{\\\"hits\\\":[],\\\"count\\\":0,\\\"found\\\":false,\\\"query\\\":{\\\"text\\\":\\\"\\\",\\\"path\\\":\\\"\\\",\\\"symbol\\\":\\\"\\\",\\\"tool\\\":\\\"Read\\\"}}\"\n      }\n    ],\n    \"meta\": {\n      \"elapsed_ms\": 0,\n      \"hash\": \"sha256:a6bc83d065334ff593458bf0799cc4b5f1012a59fd59ac8435019d254b263f9e\",\n      \"tool_use_id\": \"qompack-mcp:78bb58c58032\",\n      \"untrusted\": true\n    }\n  }\n}\n",
+   "permissions": [
+    "Bash(qompack recall:*)"
+   ],
+   "is_meta": true
+  }
+ ]
+}

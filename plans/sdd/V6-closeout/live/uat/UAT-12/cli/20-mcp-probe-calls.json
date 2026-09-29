@@ -1,0 +1,20 @@
+[
+ ["expand", {"tool_use_id": "toolu_01PTmSHvxRovjT5AYZiJQ5Z5"}],
+ ["expand", {"tool_use_id": "toolu_01PTmSHvxRovjT5AYZiJQ5Z5", "full": true}],
+ ["expand", {"tool_use_id": "toolu_01PTmSHvxRovjT5AYZiJQ5Z5", "span": "262144:62758"}],
+ ["re_read", {"path": "big.log", "full": true}],
+ ["expand", {"tool_use_id": "toolu_0162Bwq3VMWchx54kaD19Kos"}],
+ ["expand", {"tool_use_id": "toolu_0162Bwq3VMWchx54kaD19Kos", "full": true}],
+ ["expand", {"tool_use_id": "toolu_015xN8WiMCC4hNiKdCATrFQq"}],
+ ["expand", {"hash": "sha256:024a48d020181f0281060c137af6ceac4828477627a3e74e6f4333f55ff7f898"}],
+ ["re_read", {"path": "private/deny.txt"}],
+ ["recall", {"query": "ORCHID-DENY-7731"}],
+ ["recall", {"query": "path:private/deny.txt"}],
+ ["re_read", {"path": "<scratch>/install/uat12/outside/outside.txt"}],
+ ["re_read", {"path": "../outside/outside.txt"}],
+ ["expand", {"tool_use_id": "toolu_01HaK18Y7xYeWKZTNmx37Wi2"}],
+ ["expand", {"hash": "sha256:953e2b217c39142389a65b51843258df0b036dc22f76ffd7972dc19e5d5c2a04"}],
+ ["expand", {"tool_use_id": "toolu_01GjBcce7aPW7yhsEcykFB1Y", "full": true}],
+ ["re_read", {"path": "deploy_notes.md", "full": true}],
+ ["recall", {"query": "NOTES-WREN-19"}]
+]

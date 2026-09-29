@@ -1,0 +1,79 @@
+UAT-11 — admission off (as shipped): an unrecognized input or a failed capture leaves the original
+untouched; every pointer that reaches the injected block resolves. Agent-executed on the owner's
+real host per owner decision D3 by a Claude Code workflow subagent (Opus 5.5) — not human UAT.
+
+Date 2026-09-29 15:11-15:19 America/Toronto. Frozen bundle 0.3.0 (BUNDLE.json sha256
+32600778...ccf4505, commit d5598eb4), every CLI step with its bin/qompack.exe (`qompack version`
+0.3.0); Claude Code 2.1.280, Windows 11 Home 25H2 build 10.0.26200.9457, model
+claude-haiku-4-5-20251001. Shipped configuration: runtime.migration.replacement.newResult false,
+runtime.redact.enabled true, runtime.migration.settingsVersion 1 (all defaults), no QOMPACK_* but
+QOMPACK_HOME. Sessions used: 2 (retrieval part n=9 session/ — the row's run; n=12
+diag-rerun/session/ — a diagnostic rerun, see below). Pre-run `backup create` exit 1 "no existing
+store" in every project (a, b, c, d: initial absence). Daemons started by hooks/self-test were
+stopped by verified kills (cli/s4-stop-daemon-*, cli/s5-stop-daemon.txt).
+
+Steps 1-4 (no model; cli/, projects uat11/a for 1-3 and a fresh uat11/b for 4; a hook = `qompack
+observe prompt` with a UserPromptSubmit payload on stdin):
+ 1 `config print --provenance`: `"newResult": false  // default config.Defaults()`. PASS.
+ 2 project config {"runtime":{"migration":{"replacement":{"newResult":true}}}} + hook (exit 0,
+   stdout {}): leaf `"newResult": false  // default fallback after violation`;
+   state/config-violations.json gained {"Key":"runtime.migration.replacement.newResult",
+   "Message":"invalid value, using default: true not in false","Got":"true","Want":"false"} —
+   exactly the row's message. PASS. (This hook also started the project's daemon: run/daemon.lock,
+   run/spawn.lock in s2-listing.)
+ 3 config {} then {"runtime":{"migration":{"settingsVersion":2}}} + hook (exit 0): every
+   runtime.migration leaf reads "// default reset: newer settingsVersion" (s3-config-print);
+   config-violations.json records {"Key":"runtime.migration","Message":"settingsVersion 2 is newer
+   than this build understands (1); the whole runtime.migration block is reset to defaults so unknown
+   switches stay off"}; the day log and LOUD.log carry the same line (s3-_qompack_logs_*); capture
+   continued (index/tool_use.jsonl holds prompt_uat11-cli-s2_0 and prompt_uat11-cli-s3_0). PASS.
+ 4a fresh b, config `{"runtime":` + hook: stdout {} exit 0; the project holds README.md and
+   .qompack/config.json only (s4a-after-hook-listing). `qompack self-test`: exit 1, `config.capture
+   FAIL critical refused: every hook admits nothing`; --json detail "qompack: running in degraded
+   mode: capture configuration unavailable: the project config file is not a single strict JSONC
+   object" (s4a-self-test-json-rerun, run after the first self-test had laid the store out). The
+   self-test itself then created the layout and started a daemon (s4a-after-self-test-listing), as
+   troubleshooting §1 says read commands do. PASS.
+ 4b {"runtime":{"notAKey":1}} + hook (exit 0, delivery spooled and delivered, s4b-after-hook-listing):
+   self-test exit 0, `config.capture FAIL warn capture continues: 0 setting(s) fell back to the
+   default, 1 key(s) not applied`, --json detail "runtime.notAKey: unknown key". PASS.
+Step 5 (session/, project uat11/c): T1 Read notes.md and big.log (363,000 B; the host delivered a
+ 376,892-char result with CLAUDE_CODE_FILE_READ_MAX_OUTPUT_TOKENS=120000), T2 Read odd.txt (tabs,
+ ANSI escapes, emoji, RTL override, CJK, zero-width) and creds.env (one planted credential-shaped
+ secret, @@SEC_PLANTED_1@@, sha256 in setup-facts.json; literal only in scratch secrets.json), T3
+ git commit, T4 /compact. SessionStart:compact returned NO additionalContext, only
+ {"systemMessage":"Qompack: degraded to passive recording — hook.additional_context_delivered
+ expected \"additionalContext reaches the transcript\", observed \"sentinel not found after two
+ chances\". See /qompack:status."} (sessionstart-hook-responses.json; LOUD.log "contract: degrading
+ to passive recording"). No block was injected, so there is no section 6: T5's model answered that
+ its context has no Qompack block. DEFECT F1, blocks step 5: the §12.1 probe scans only the last
+ 256 KiB of the transcript (internal/daemon/handlers.go sentinelScanTailBytes = 256 << 10) on each
+ prompt; the probe marker sits at byte ~800 of the transcript and the second prompt began at byte
+ 954,253 after the big read (sentinel-offsets.json), so both chances missed, the monitor declared the
+ host contract broken and switched the session to passive: rehydration silently off for the rest of
+ the session after one ordinary large read in the first turn. status after the run:
+ "hook.additional_context_delivered (critical — degrades the session when observed)".
+ The row stops here. Step 6 was not reached in the row's run.
+Privacy: the whole post-run store (133 files, 75 zstd objects decompressed, 107 base64 fields
+ decoded) holds no form of the planted secret (secret-scan-store.json); the creds.env capture is
+ fidelity redacted.
+
+Diagnostic rerun (diag-rerun/, retrieval part n=12, project uat11/d, same files and the same planted
+literal; NOT the row's run and it does not change this result): two small prompts first (notes.md,
+README.md), then big.log, odd.txt + creds.env, the commit, /compact. The sentinel was found, the block
+was injected (diag-rerun/injected/injected-2-SessionStart-compact.txt) with "## 6. Pointers (paths
+and hashes — contents are NOT restored; use expand/re_read)": 5 path pointers (big.log, creds.env,
+notes.md, odd.txt, readme.md) and 6 tool_use pointers. The model called expand for all 11 (the
+5 path pointers by hash, the 6 tool_use pointers by tool_use_id — five of their hashes are the path
+pointers' own, and the git one's hash resolves too, cli/13-mcp-probe.json) and re_read for the 5
+paths (stream L118-L181): every one found. big.log: truncated true, span
+[0,15452] of 366,102, next_span (a recorded fidelity, not a fail); creds.env: content
+"«redacted:aws_access_key_id»" (recorded fidelity); re_read carries source "store". The pointer
+prints README.md as "readme.md"; re_read "readme.md" resolves to README.md (cli/13-mcp-probe.json).
+Its store also holds no form of the secret (diag-rerun/secret-scan-store.json).
+
+Result: FAIL — step 5 blocked by F1 (a large first-turn result makes the contract monitor degrade the
+session to passive; no injected block, so pointer resolution was not reachable in the row's run).
+Steps 1-4 pass exactly as written. The diagnostic rerun shows every pointer resolving when the
+sentinel survives. Rollback: initial state absent in every project; runs retained as evidence; no
+restore was run.

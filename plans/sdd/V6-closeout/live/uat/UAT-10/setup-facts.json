@@ -1,0 +1,17 @@
+{
+ "files": {
+  "README.md": {
+   "bytes": 58,
+   "sha256": "3d8b5be73b945beb324df030f61fddb51c8fed4999e03627de27e8ae381dde53"
+  },
+  "worker.log": {
+   "bytes": 17592,
+   "sha256": "eba4881aff1343b0a8d87c8da662aaf067ed4e46e1f1e43021befe68452c9af2"
+  },
+  "src/batch.go": {
+   "bytes": 216,
+   "sha256": "ee4ed5edf301c652c0b9e6e486eb961727b8dd6228c92315c5f9cc937a0e19d3"
+  }
+ },
+ "config": "defaults: no config file, no QOMPACK_* variable except QOMPACK_HOME (moves calibration.json only); runtime.telemetry.enabled false (default)"
+}
