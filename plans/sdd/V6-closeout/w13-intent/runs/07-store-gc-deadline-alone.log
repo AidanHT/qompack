@@ -1,0 +1,8 @@
+=== RUN   TestGC_DeadlineTruncatesAndResumes
+--- PASS: TestGC_DeadlineTruncatesAndResumes (16.27s)
+=== RUN   TestGC_DeadlineTruncatesAndResumes
+--- PASS: TestGC_DeadlineTruncatesAndResumes (25.56s)
+=== RUN   TestGC_DeadlineTruncatesAndResumes
+--- PASS: TestGC_DeadlineTruncatesAndResumes (18.30s)
+PASS
+ok  	github.com/qompack/qompack/internal/store	60.368s
