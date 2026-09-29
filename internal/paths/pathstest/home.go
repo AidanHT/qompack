@@ -32,6 +32,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -60,6 +61,27 @@ var toolchainVars = []string{"GOPATH", "GOMODCACHE", "GOCACHE", "GOENV"}
 // toolchain, and a minute leaves room for a toolchain switch on a loaded host. When it is exceeded
 // or fails, the defaults the go command documents are used instead.
 const goEnvTimeout = time.Minute
+
+// Go telemetry. The go command keeps telemetry under os.UserConfigDir()/go/telemetry, and its mode is
+// the mode file there (`go help telemetry`; golang.org/x/telemetry/internal/telemetry.Dir.Mode in
+// the go1.26.6 toolchain). With no mode file the mode is "local": every go command opens a counter
+// file under local/ and, holding no upload token fresh within the day, starts a detached telemetry
+// sidecar that keeps writing local/ after the go command has returned. A go command run under a home
+// the test process later removes, the isolated home or a test's fake real home, therefore races
+// that removal ("unlinkat .../.config/go/telemetry/local: directory not empty" in the Linux gate).
+// With the mode "off" the go command opens no counter file and starts no sidecar.
+const (
+	// telemetryModeOff is the mode file content that turns Go telemetry off, as `go telemetry off`
+	// writes it less the date it appends, which the go command does not need to read the mode.
+	telemetryModeOff = "off"
+	// testTelemetryDirVar is the go command's own override of its telemetry directory
+	// (cmd/internal/telemetry and cmd/internal/telemetry/counter read it, go1.23 onward). goEnv
+	// points it at a directory holding an "off" mode file: the only way to turn telemetry off for one
+	// go command without writing into the caller's own config dir. It is a hook of the go command's
+	// tests, not a documented setting, so TestIsolateHome_GoEnvLeavesNoTelemetryInTheHomeItRunsUnder
+	// fails if a toolchain stops honouring it.
+	testTelemetryDirVar = "TEST_TELEMETRY_DIR"
+)
 
 // exitIsolationFailed is Main's exit code when the home cannot be isolated: the tests are not run
 // at all rather than run against the real home. It is the code `go test` uses for a build or setup
@@ -104,7 +126,9 @@ func Main(m *testing.M, after ...func()) int {
 
 // IsolateHome points HOME and USERPROFILE at a new, empty temporary directory, unsets QOMPACK_HOME
 // and CLAUDE_CONFIG_DIR, and pins the Go toolchain's locations first (toolchainVars), all for the
-// whole process. It returns a function that puts every variable back and removes the directory.
+// whole process. Where the user config dir then lies in the isolated home it turns Go telemetry off
+// there (turnOffGoTelemetry), so no go command a test runs can race the directory's removal. It
+// returns a function that puts every variable back and removes the directory.
 //
 // It changes the process environment, so it belongs in TestMain before m.Run, never in a test that
 // may run in parallel with another.
@@ -162,6 +186,11 @@ func IsolateHome() (func(), error) {
 		_ = os.RemoveAll(dir)
 		return nil, fmt.Errorf("os.UserHomeDir answers %q (%v) after isolation, not %q", got, err, dir)
 	}
+	if err := turnOffGoTelemetry(dir); err != nil {
+		restoreEnv()
+		_ = os.RemoveAll(dir)
+		return nil, err
+	}
 
 	home, environ, restored = dir, os.Environ(), false
 	return func() {
@@ -215,10 +244,10 @@ func stillIsolated() error {
 //
 // When all of them are already set there is nothing to pin, and the go command is not run at all.
 // That is the case for a test binary started by another isolated test process, which inherits them
-// pinned, and it matters because the go command writes to the home it runs under: on Linux its
-// telemetry counters go to os.UserConfigDir, $HOME/.config/go/telemetry. test/guards' sentinel
-// starts such a child with the home pointing at a fake real home and fails on any write there
-// (TestIsolateHome_RunsNoGoCommandWhenTheToolchainIsPinned).
+// pinned, and it matters because a go command is not a passive reader of the home it runs under:
+// test/guards' sentinel starts such a child with the home pointing at a fake real home and fails on
+// any write there (TestIsolateHome_RunsNoGoCommandWhenTheToolchainIsPinned). When it does run, goEnv
+// turns its Go telemetry off, the write it would otherwise make there.
 func pinToolchain() error {
 	if !slices.ContainsFunc(toolchainVars, func(k string) bool { _, set := os.LookupEnv(k); return !set }) {
 		return nil
@@ -243,10 +272,25 @@ func pinToolchain() error {
 
 // goEnv asks the go command on PATH for toolchainVars. The names are spelled out as constants in
 // the argument list, in toolchainVars' order, so the command line carries no variable input.
+//
+// It runs under the caller's home, before the home moves, and must not write Go telemetry there:
+// that home may be one the test process removes. Its telemetry directory is a throwaway one holding
+// an "off" mode file (testTelemetryDirVar), so it opens no counter file and starts no sidecar, and
+// nothing can still be writing the throwaway directory when it is removed.
 func goEnv() (map[string]string, error) {
+	telemetryDir, err := os.MkdirTemp("", "qompack-go-telemetry-off-")
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = os.RemoveAll(telemetryDir) }()
+	if err := writeTelemetryModeOff(telemetryDir); err != nil {
+		return nil, err
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), goEnvTimeout)
 	defer cancel()
-	out, err := exec.CommandContext(ctx, "go", "env", "-json", "GOPATH", "GOMODCACHE", "GOCACHE", "GOENV").Output()
+	cmd := exec.CommandContext(ctx, "go", "env", "-json", "GOPATH", "GOMODCACHE", "GOCACHE", "GOENV")
+	cmd.Env = append(os.Environ(), testTelemetryDirVar+"="+telemetryDir)
+	out, err := cmd.Output()
 	if err != nil {
 		return nil, err
 	}
@@ -279,4 +323,34 @@ func toolchainDefaults() (map[string]string, error) {
 		resolved["GOENV"] = filepath.Join(d, "go", "env")
 	}
 	return resolved, nil
+}
+
+// turnOffGoTelemetry writes an "off" Go telemetry mode file where a go command run in the isolated
+// environment reads it, os.UserConfigDir()/go/telemetry/mode, when that lies in the isolated home:
+// on Linux with no XDG_CONFIG_HOME ($HOME/.config) and on macOS ($HOME/Library/Application Support).
+// Where the config dir lies outside it (APPDATA on Windows, a set XDG_CONFIG_HOME) it is the user's
+// own directory, which the helper must not write and no test removes, so nothing is done there; with
+// no config dir at all the go command treats telemetry as off already.
+func turnOffGoTelemetry(isolated string) error {
+	if cfg, err := os.UserConfigDir(); err == nil && within(isolated, cfg) {
+		return writeTelemetryModeOff(filepath.Join(cfg, "go", "telemetry"))
+	}
+	return nil
+}
+
+// within reports whether path is dir or lies under it.
+func within(dir, path string) bool {
+	rel, err := filepath.Rel(dir, path)
+	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) && !filepath.IsAbs(rel)
+}
+
+// writeTelemetryModeOff writes the "off" mode file into the Go telemetry directory dir.
+func writeTelemetryModeOff(dir string) error {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return fmt.Errorf("turning Go telemetry off: %w", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "mode"), []byte(telemetryModeOff), 0o600); err != nil {
+		return fmt.Errorf("turning Go telemetry off: %w", err)
+	}
+	return nil
 }

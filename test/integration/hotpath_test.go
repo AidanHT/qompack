@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -499,6 +500,200 @@ const hotpathBECPURowID = "B-E_cpu"
 // samples: the two rows must cover the same 50 children, in two clocks.
 const hotpathCheckpointSamples = 50
 
+// hotpathWarmHotTranche mirrors the harness's own warmHotTranche (test/bench/hotpath/main.go): the
+// in-process observe.tool requests its --warm-daemon warm-up sends as genuine hot-path traffic
+// ahead of the spawn loop. With hotpathBenchIterations it makes the harness's planned gated
+// population, expectedHotPathSends (test/bench/hotpath/delivery.go): the hot-path sends the
+// daemon-side B-A and B-B rows are built over, and the one population the wall-clock spawn samples
+// (hotpathBenchIterations of them) can never match in size.
+const hotpathWarmHotTranche = 64
+
+// The two disclosures a daemon-side row's population is accounted from, mirrored from the harness
+// the way hotpathBAWaiverMark mirrors its waiver notes. hotpathLedgerNote is buildNotes' delivery
+// ledger (test/bench/hotpath/measure.go), written whenever the run deferred anything: sent,
+// delivered live, DEFERRED, and a loss count the harness refuses to report as anything but 0.
+// hotpathShortfallNote and hotpathBoundedNote are tailAdjustmentNote's (report.go) three shapes
+// of "this row's population came up short", keyed by the row id they open with: the first two carry
+// "<missing> of the <planned> planned samples", the third "<planned> ... <observed> ... <missing>".
+// A harness whose prose drifted from these would leave a shortfall undisclosed here, and
+// hotpathDaemonPopulations then FAILS on the unaccounted samples rather than passing without them.
+var (
+	hotpathLedgerNote = regexp.MustCompile(`^delivery ledger: (\d+) hot-path requests sent, (\d+) delivered live ` +
+		`to the daemon, (\d+) DEFERRED to the client spool and 0 lost\.`)
+	hotpathShortfallNote = regexp.MustCompile(`^(B-[AB])(?:'s p99 CANNOT be certified and its gate is failed on ` +
+		`that ground)?: (\d+) of the (\d+) planned samples never reached the daemon's histogram`)
+	hotpathBoundedNote = regexp.MustCompile(`^(B-[AB])'s p99 is reported over the full planned population of ` +
+		`(\d+), not the (\d+) samples the daemon actually observed: the (\d+) missing sample\(s\)`)
+)
+
+// hotpathShortfall is what the harness's notes disclose about one daemon-side row's population.
+type hotpathShortfall struct {
+	missing, planned int
+	observed         int // -1 when the note does not restate the observed count
+}
+
+// hotpathDeliveryLedger is the harness's whole-run delivery ledger, read off its note.
+type hotpathDeliveryLedger struct{ sent, delivered, deferred int }
+
+// hotpathPopulations is what hotpathDaemonPopulations proved, for the test's log.
+type hotpathPopulations struct {
+	planned, baMissing, bbMissing int
+	ledger                        *hotpathDeliveryLedger
+}
+
+// hotpathAtoiAll converts a regexp's digit groups; they match only \d+, so the one failure left is
+// an overflow, which is an unreadable artifact.
+func hotpathAtoiAll(groups []string) ([]int, error) {
+	out := make([]int, 0, len(groups))
+	for _, g := range groups {
+		n, err := strconv.Atoi(g)
+		if err != nil {
+			return nil, fmt.Errorf("the bench artifact carries an unreadable count %q: %w", g, err)
+		}
+		out = append(out, n)
+	}
+	return out, nil
+}
+
+// hotpathReadShortfalls returns every row shortfall and the delivery ledger the artifact's notes
+// disclose, refusing a row disclosed twice or a ledger stated twice.
+func hotpathReadShortfalls(rep hotpathBenchReport) (map[string]hotpathShortfall, *hotpathDeliveryLedger, error) {
+	short := map[string]hotpathShortfall{}
+	var ledger *hotpathDeliveryLedger
+	for _, note := range rep.Notes {
+		if m := hotpathLedgerNote.FindStringSubmatch(note); m != nil {
+			n, err := hotpathAtoiAll(m[1:])
+			if err != nil {
+				return nil, nil, err
+			}
+			if ledger != nil {
+				return nil, nil, fmt.Errorf("the bench artifact states the delivery ledger twice: %q", rep.Notes)
+			}
+			ledger = &hotpathDeliveryLedger{sent: n[0], delivered: n[1], deferred: n[2]}
+			continue
+		}
+		var id string
+		var sh hotpathShortfall
+		if m := hotpathShortfallNote.FindStringSubmatch(note); m != nil {
+			n, err := hotpathAtoiAll(m[2:])
+			if err != nil {
+				return nil, nil, err
+			}
+			id, sh = m[1], hotpathShortfall{missing: n[0], planned: n[1], observed: -1}
+		} else if m := hotpathBoundedNote.FindStringSubmatch(note); m != nil {
+			n, err := hotpathAtoiAll(m[2:])
+			if err != nil {
+				return nil, nil, err
+			}
+			id, sh = m[1], hotpathShortfall{missing: n[2], planned: n[0], observed: n[1]}
+		} else {
+			continue
+		}
+		if _, dup := short[id]; dup {
+			return nil, nil, fmt.Errorf("the bench artifact discloses %s's shortfall twice: %q", id, rep.Notes)
+		}
+		short[id] = sh
+	}
+	return short, ledger, nil
+}
+
+// hotpathDaemonPopulations proves, from the harness's own delivery accounting, that the B-A and B-B
+// rows are the daemon-side histograms over the harness's planned hot-path sends, and not the
+// hotpathBenchIterations wall-clock spawn samples. It returns an error naming the first check that
+// does not hold:
+//
+//	(a) each row's observed n plus the shortfall the harness disclosed for it is exactly the
+//	    planned population, hotpathBenchIterations spawns plus hotpathWarmHotTranche warm-up
+//	    requests. The harness derives every disclosed shortfall as planned minus observed
+//	    (gatedLedger.Undelivered, hookControlledShortfall), so any row built by
+//	    buildBudgetRowFromSnapshot satisfies this by construction; what it catches is a row with
+//	    NO disclosure short of the plan, which is the shape a ROW-level re-point (buildBudgetRow
+//	    over the raw spawn samples: n = hotpathBenchIterations, no note) takes in every run.
+//	(b) B-A's n is at most B-B's: a hook_controlled sample is recorded only for a request the
+//	    daemon received, and l0_ingest (B-B) counts every received one; the difference is the
+//	    daemon's hotpath_sample_invalid count.
+//	(c) B-A's n is not exactly hotpathBenchIterations. Any re-point at the wall-clock samples
+//	    has that n, however it was done. A SNAPSHOT-level re-point (a snapshot of the spawn
+//	    samples fed to buildBudgetRowFromSnapshot) gets a harness-written "64 of the 2064 planned"
+//	    disclosure and passes (a); the harness's own hookControlledShortfall refuses it only when
+//	    deferrals plus hotpath_sample_invalid fall short of the tranche, and (b) refuses it only
+//	    when B-B's shortfall exceeds the tranche. What neither sees is B-B's shortfall exactly
+//	    equal to the tranche, or short of it with hotpath_sample_invalid (which the artifact does
+//	    not carry) covering the rest: there a genuine B-A row of n = hotpathBenchIterations and a
+//	    re-pointed one have identical counts. (c) refuses that coincidence rather than passing it,
+//	    as the pre-ledger "B-A's n above B-D's" check did; it is the only case in which a genuine
+//	    run fails here, and it needs the run's B-A shortfall to land on exactly the tranche.
+//	(d) B-B's shortfall (the gated window's undelivered requests) is covered by the delivery
+//	    ledger's DEFERRED count, with 0 lost: every sample missing from the daemon's population is
+//	    a request the client spooled, never one that vanished. No shortfall and no ledger note is
+//	    the clean run.
+func hotpathDaemonPopulations(rep hotpathBenchReport) (hotpathPopulations, error) {
+	planned := hotpathBenchIterations + hotpathWarmHotTranche
+	out := hotpathPopulations{planned: planned}
+	rows := map[string]int{}
+	for _, row := range rep.Budgets {
+		rows[row.BudgetID] = row.N
+	}
+	short, ledger, err := hotpathReadShortfalls(rep)
+	if err != nil {
+		return out, err
+	}
+	out.ledger = ledger
+	missing := map[string]int{}
+	for _, id := range []string{string(obs.BA), string(obs.BB)} {
+		n, ok := rows[id]
+		if !ok {
+			return out, fmt.Errorf("the bench artifact carries no %s row", id)
+		}
+		sh := short[id]
+		if sh.planned != 0 && sh.planned != planned {
+			return out, fmt.Errorf("the harness disclosed %s's planned population as %d, not the %d this test "+
+				"plans (%d spawns + %d warm-up hot tranche)", id, sh.planned, planned, hotpathBenchIterations,
+				hotpathWarmHotTranche)
+		}
+		if sh.observed >= 0 && sh.planned != 0 && sh.observed != n {
+			return out, fmt.Errorf("the harness disclosed %s's observed population as %d but the row carries n=%d",
+				id, sh.observed, n)
+		}
+		if n+sh.missing != planned {
+			return out, fmt.Errorf("the gated %s row's n=%d plus the %d samples the harness disclosed as never "+
+				"reaching the daemon's histogram is %d, not the %d planned hot-path sends (%d spawns + %d warm-up "+
+				"hot tranche): the row is not the daemon-side histogram over this run's sends — a row re-pointed "+
+				"at the %d wall-clock spawn samples has exactly that n and no shortfall disclosure",
+				id, n, sh.missing, n+sh.missing, planned, hotpathBenchIterations, hotpathWarmHotTranche,
+				hotpathBenchIterations)
+		}
+		missing[id] = sh.missing
+	}
+	out.baMissing, out.bbMissing = missing[string(obs.BA)], missing[string(obs.BB)]
+	if baN, bbN := rows[string(obs.BA)], rows[string(obs.BB)]; baN > bbN {
+		return out, fmt.Errorf("the B-A row has %d samples, more samples than the %d requests the daemon "+
+			"received (B-B, l0_ingest): hook_controlled records only received requests", baN, bbN)
+	}
+	if baN := rows[string(obs.BA)]; baN == hotpathBenchIterations {
+		return out, fmt.Errorf("the B-A row has n=%d, exactly the %d wall-clock spawn samples: with %d of the "+
+			"planned sends disclosed as missing from it, a daemon-side row and one re-pointed at the spawn "+
+			"samples have the same counts and cannot be told apart, so this run cannot prove B-A's sourcing",
+			baN, hotpathBenchIterations, out.baMissing)
+	}
+	if out.bbMissing == 0 {
+		return out, nil
+	}
+	if ledger == nil {
+		return out, fmt.Errorf("%d of the planned hot-path sends never reached the daemon but the artifact "+
+			"carries no delivery ledger note accounting for them as deferred; notes: %q", out.bbMissing, rep.Notes)
+	}
+	if out.bbMissing > ledger.deferred {
+		return out, fmt.Errorf("the %d gated sends missing from the daemon's population exceeds the %d the "+
+			"delivery ledger deferred to the client spool: the rest are unaccounted for", out.bbMissing, ledger.deferred)
+	}
+	if ledger.delivered+ledger.deferred != ledger.sent || ledger.sent < planned {
+		return out, fmt.Errorf("the delivery ledger does not add up: %d sent, %d delivered, %d deferred, against "+
+			"%d planned gated sends", ledger.sent, ledger.delivered, ledger.deferred, planned)
+	}
+	return out, nil
+}
+
 // hotpathUnderColoadFlag is the harness's --under-coload flag (test/bench/hotpath/main.go,
 // parseFlags), passed iff obs.UnderCoload() — the job's declaration, forwarded, never this test's
 // own guess about who is running it. Both waiver notes the harness writes name the flag verbatim,
@@ -802,9 +997,21 @@ func TestIntegration_HotPathWarmWithRealResidentState(t *testing.T) {
 
 	// B-D is reported, never gated; the wall-clock survives ONLY as the spawn-estimate
 	// diagnostic. The structural cross-check below is the teeth behind the b_a_method assertion:
-	// the gated row's population is the daemon-side histogram (spawn loop plus warm-up hot
-	// tranche), so a B-A row whose n collapsed to the spawn loop's would mean the gate had been
-	// re-pointed at wall-clock samples.
+	// the gated row's population is the daemon-side histogram over the harness's planned hot-path
+	// sends (spawn loop plus warm-up hot tranche), proven from the harness's own delivery accounting
+	// (hotpathDaemonPopulations): n plus the disclosed shortfall is the planned population, B-A's
+	// n is at most B-B's and is not exactly the spawn loop's, and the shortfall is requests the
+	// delivery ledger deferred to the client spool with 0 lost. A B-A row re-pointed at the
+	// wall-clock spawn samples has n equal to the spawn loop's, so it fails in every run, clean or
+	// deferring, whether the re-point swapped the row (no shortfall note) or the snapshot (a
+	// harness-written one); see that function for which check catches which shape. It no longer
+	// reads "n above B-D's": a run that defers more than the warm-up tranche's worth of hook events
+	// (§8.1/§12.2's degrade-rather-than-block path, the ACK deadline expiring) has a daemon-side
+	// population smaller than the spawn loop and failed that check with nothing wrong with the
+	// row's sourcing. A genuine run still fails here in one case: when its B-A shortfall is exactly
+	// the warm-up tranche, the counts cannot tell it from a re-point, and the test refuses to guess. Whether such a run can pass B-A is the certification rule's business,
+	// and it is unchanged: the deferred samples are counted as over budget (tailAdjustedP99), so a
+	// gated run certifies only when its p99 still lands among delivered samples under the limit.
 	bd := hotpathRow(t, rep, string(obs.BD))
 	require.Nil(t, bd.LimitMs, "B-D must never be gated — it is the host's cost")
 	require.Nil(t, bd.Pass)
@@ -812,9 +1019,13 @@ func TestIntegration_HotPathWarmWithRealResidentState(t *testing.T) {
 	spawnEst := hotpathRow(t, rep, hotpathSpawnEstimateID)
 	require.Nil(t, spawnEst.LimitMs, "the wall-clock floor-subtracted estimate must stay informational")
 	require.Nil(t, spawnEst.Pass)
-	require.Greater(t, ba.N, bd.N,
+	pop, popErr := hotpathDaemonPopulations(rep)
+	require.NoError(t, popErr,
 		"the gated B-A row must be sourced from the daemon's hook_controlled histogram (spawn loop "+
 			"plus warm-up hot tranche), not from the %d wall-clock spawn samples", bd.N)
+	t.Logf("§4.6 populations: planned %d hot-path sends; B-A n=%d (%d never reached hook_controlled), "+
+		"B-B n=%d (%d never reached l0_ingest); delivery ledger %+v",
+		pop.planned, ba.N, pop.baMissing, bb.N, pop.bbMissing, pop.ledger)
 
 	// §4.6's B-E, asserted in every mode on the clock that survives co-load. B-E is the one
 	// budget the harness can only observe from OUTSIDE a whole real process, so its wall-clock
@@ -1198,4 +1409,145 @@ func TestIntegration_HotPathDegradesRatherThanBlocks(t *testing.T) {
 	t.Logf("§4.6 degrade: warm=%d stalled sends=%d (NAK after %d, three windows of %d), degraded "+
 		"hooks=%d (all exit 0, spooled), drained=%d, store ToolUses=%d, WARN lines=1",
 		hotpathStallWarmEvents, sent, sent, hotpathSampleWindow, degraded, applied, stats.ToolUses)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// The B-A population check, pinned without a daemon.
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+
+// TestIntegration_HotPathBAPopulationIsTheDaemonHistogram pins hotpathDaemonPopulations, the check
+// TestIntegration_HotPathWarmWithRealResidentState uses to prove that the B-A row is the daemon's
+// hook_controlled histogram rather than the harness's wall-clock spawn samples, against artifacts
+// shaped the way the harness writes them. It exists because the check it replaced, B-A's n above
+// B-D's, failed every run in which the documented degrade-rather-than-block path deferred more than
+// the warm-up tranche's worth of hook events to the client spool: the Phase 3 Linux gate's artifact
+// (1539 of 2064 observed, 525 deferred, 0 lost) is the second case below, verbatim in its numbers.
+func TestIntegration_HotPathBAPopulationIsTheDaemonHistogram(t *testing.T) {
+	planned := hotpathBenchIterations + hotpathWarmHotTranche
+	uncertifiable := func(id string, missing, observed int) string {
+		return fmt.Sprintf("%s's p99 CANNOT be certified and its gate is failed on that ground: %d of the %d "+
+			"planned samples never reached the daemon's histogram and are counted as over-budget samples, "+
+			"which puts the full population's nearest-rank p99 at rank 2044 of %d — inside the un-delivered "+
+			"block, since only %d samples were observed.", id, missing, planned, planned, observed)
+	}
+	exact := func(id string, missing int) string {
+		return fmt.Sprintf("%s: %d of the %d planned samples never reached the daemon's histogram and are "+
+			"counted back in as over-budget samples, but the full population's nearest-rank p99 still lands "+
+			"at rank 2044", id, missing, planned)
+	}
+	bounded := func(id string, missing int) string {
+		return fmt.Sprintf("%s's p99 is reported over the full planned population of %d, not the %d samples the "+
+			"daemon actually observed: the %d missing sample(s) are counted back in as over-budget samples",
+			id, planned, planned-missing, missing)
+	}
+	ledger := func(sent, delivered, deferred int) string {
+		return fmt.Sprintf("delivery ledger: %d hot-path requests sent, %d delivered live to the daemon, %d "+
+			"DEFERRED to the client spool and 0 lost. A deferral is the documented path", sent, delivered, deferred)
+	}
+	report := func(baN, bbN int, notes ...string) hotpathBenchReport {
+		return hotpathBenchReport{N: hotpathBenchIterations, Notes: notes, Budgets: []hotpathBudgetRow{
+			{BudgetID: string(obs.BA), N: baN},
+			{BudgetID: string(obs.BB), N: bbN},
+			{BudgetID: string(obs.BD), N: hotpathBenchIterations},
+		}}
+	}
+
+	for _, tc := range []struct {
+		name    string
+		rep     hotpathBenchReport
+		wantErr string // "" means the populations must be accepted
+	}{
+		{name: "every request delivered", rep: report(planned, planned)},
+		{
+			name: "Phase 3 Linux deferral: 525 of 2064 deferred, 0 lost",
+			rep: report(1539, 1539, ledger(2130, 1540, 590),
+				uncertifiable(string(obs.BA), 525, 1539), uncertifiable(string(obs.BB), 525, 1539)),
+		},
+		{
+			name: "a few deferred plus one invalid B-A timestamp",
+			rep: report(planned-4, planned-3, ledger(planned+66, planned+63, 3),
+				bounded(string(obs.BA), 4), exact(string(obs.BB), 3)),
+		},
+		// Two ways to re-point the gated B-A row at the wall-clock spawn samples. The ROW-level one
+		// builds it with buildBudgetRow over the raw samples, which writes no shortfall note: identity
+		// (a) refuses it. The SNAPSHOT-level one feeds a snapshot of those samples to
+		// buildBudgetRowFromSnapshot, and the harness then discloses "64 of the 2064 planned" as it
+		// would for any daemon-side row, so identity (a) holds by construction and the other checks
+		// have to catch it; those fixtures carry the B-A note exactly as tailAdjustmentNote writes it.
+		{
+			name:    "B-A row-level re-point at the wall-clock spawn samples in a clean run",
+			rep:     report(hotpathBenchIterations, planned),
+			wantErr: "B-A row's n=2000",
+		},
+		{
+			name: "B-A row-level re-point at the wall-clock spawn samples in a deferring run",
+			rep: report(hotpathBenchIterations, 1539, ledger(2130, 1540, 590),
+				uncertifiable(string(obs.BB), 525, 1539)),
+			wantErr: "B-A row's n=2000",
+		},
+		{
+			name: "B-A snapshot-level re-point in a run deferring more than the warm-up tranche",
+			rep: report(hotpathBenchIterations, 1539, ledger(2130, 1540, 590),
+				uncertifiable(string(obs.BA), hotpathWarmHotTranche, hotpathBenchIterations),
+				uncertifiable(string(obs.BB), 525, 1539)),
+			wantErr: "more samples than the",
+		},
+		{
+			// A genuine run whose B-B shortfall is exactly the warm-up tranche has these very counts
+			// too: the two populations are the same size, and counts alone cannot tell them apart.
+			name: "B-A snapshot-level re-point in a run deferring exactly the warm-up tranche",
+			rep: report(hotpathBenchIterations, hotpathBenchIterations, ledger(2130, 2066, 64),
+				uncertifiable(string(obs.BA), hotpathWarmHotTranche, hotpathBenchIterations),
+				uncertifiable(string(obs.BB), hotpathWarmHotTranche, hotpathBenchIterations)),
+			wantErr: "cannot be told apart",
+		},
+		{
+			// 54 deferred, and the daemon's hotpath_sample_invalid count (which the harness reads and
+			// the artifact does not carry) covering the other 10 of B-A's 64-sample shortfall.
+			name: "B-A snapshot-level re-point with a shortfall covered by invalid timestamps",
+			rep: report(hotpathBenchIterations, planned-54, ledger(2130, 2076, 54),
+				uncertifiable(string(obs.BA), hotpathWarmHotTranche, hotpathBenchIterations),
+				uncertifiable(string(obs.BB), 54, planned-54)),
+			wantErr: "cannot be told apart",
+		},
+		{
+			name: "B-A snapshot-level re-point in a clean run with 64 invalid timestamps",
+			rep: report(hotpathBenchIterations, planned,
+				uncertifiable(string(obs.BA), hotpathWarmHotTranche, hotpathBenchIterations)),
+			wantErr: "cannot be told apart",
+		},
+		{
+			// The refusal above is of exact equality only: one sample either side is provable.
+			name: "a genuine run one sample short of the coincidence",
+			rep: report(hotpathBenchIterations+1, hotpathBenchIterations+1, ledger(2130, 2067, 63),
+				uncertifiable(string(obs.BA), 63, hotpathBenchIterations+1),
+				uncertifiable(string(obs.BB), 63, hotpathBenchIterations+1)),
+		},
+		{
+			name: "a shortfall the delivery ledger does not account for",
+			rep: report(1539, 1539,
+				uncertifiable(string(obs.BA), 525, 1539), uncertifiable(string(obs.BB), 525, 1539)),
+			wantErr: "no delivery ledger note",
+		},
+		{
+			name: "more B-B samples missing than the ledger deferred",
+			rep: report(1539, 1539, ledger(2130, 1620, 510),
+				uncertifiable(string(obs.BA), 525, 1539), uncertifiable(string(obs.BB), 525, 1539)),
+			wantErr: "exceeds the 510 the delivery ledger deferred",
+		},
+		{
+			name:    "more B-A samples than the daemon delivered",
+			rep:     report(planned, planned-3, ledger(planned+66, planned+63, 3), exact(string(obs.BB), 3)),
+			wantErr: "more samples than the",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := hotpathDaemonPopulations(tc.rep)
+			if tc.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorContains(t, err, tc.wantErr)
+		})
+	}
 }
