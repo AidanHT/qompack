@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "session": "cde2e273-e47f-4d84-8840-ad79487c5b56",
+  "seq": 1,
+  "created": "2026-09-29T17:45:05.222Z",
+  "encoded_segments": [],
+  "invariants": [],
+  "user_intent": {
+    "original": "Use the Read tool to read notes.md, then tell me the project codename in one sentence.",
+    "evolution": []
+  },
+  "eliminated": [],
+  "decisions": [],
+  "open_questions": [],
+  "current_work": {
+    "goal": "",
+    "next_step": "",
+    "blocked_on": null
+  },
+  "pointers": {
+    "files": [],
+    "tools": []
+  },
+  "narrative": "",
+  "sketch_refs": {
+    "touch": "touch.cms",
+    "tried": "tried.bloom"
+  },
+  "dropped": [],
+  "cache": {
+    "p_chosen": 0,
+    "rewrite_tokens": 0,
+    "ttl_state": "unknown"
+  }
+}

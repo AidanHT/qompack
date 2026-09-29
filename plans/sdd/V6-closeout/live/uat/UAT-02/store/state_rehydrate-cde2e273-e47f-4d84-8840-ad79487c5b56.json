@@ -1,0 +1,27 @@
+{
+  "session": "cde2e273-e47f-4d84-8840-ad79487c5b56",
+  "seq": 1,
+  "emitted": 1790703932975,
+  "tokens": 181,
+  "budget": 12000,
+  "items": [
+    {
+      "kind": "user_intent",
+      "rank": 0,
+      "tokens": 95,
+      "truncated": false,
+      "units": 1,
+      "units_seen": 1
+    },
+    {
+      "kind": "affordance",
+      "rank": 1,
+      "tokens": 86,
+      "truncated": false,
+      "units": 1,
+      "units_seen": 1
+    }
+  ],
+  "dropped": [],
+  "degraded": false
+}

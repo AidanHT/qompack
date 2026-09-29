@@ -1,0 +1,146 @@
+UAT-02 — ordinary work in a real session; permitted capture and fidelity (also C4.2: every hook
+event captured, index counts vs the host transcript, status/doctor/fsck). Agent-executed on the
+owner's real host per owner decision D3 by a Claude Code workflow subagent (Opus 5.5) — not human UAT.
+
+Date 2026-09-29 13:43-13:49 America/Toronto. Sessions used: 1 (session/, sessions.tsv part
+"sessions" n=1). Model claude-haiku-4-5-20251001. Host Claude Code 2.1.280, Windows 11 Home 25H2
+build 10.0.26200.9457. Bundle: frozen qompack-plugin-0.3.0-windows-amd64 (BUNDLE.json sha256
+32600778ae6463cd47736fc6b0a8614ad782e5bbd0ef0440f4e2c3937ccf4505, bin sha256 c7b2b120...c12803d,
+commit d5598eb4), loaded with --plugin-dir (no install; init: plugin qompack 0.3.0 source
+qompack@inline, server plugin:qompack:qompack connected, 8 tools, the six /qompack: commands, no
+qompack:checkpoint). Every CLI step used the bundle's bin/qompack.exe.
+
+Setup (setup-facts.json): disposable project <scratch>/sessions/uat02/proj, `git init` + `git add -A`
+(so .git/index exists; no commit): README.md, notes.md (codename AMBER-FALCON-58, phrase "quartz
+lantern meridian"), config.ini, creds.txt with two credential-shaped fake secrets built at run time
+from split parts (@@SEC_PLANTED_1@@ aws_access_key_id shape sha256 936459d2...33483fde;
+@@SEC_PLANTED_2@@ github_token shape sha256 3ea50df5...523358c32; literals only in scratch
+secrets.json, every driver output and CLI capture filtered, commit gated by scan-staged), big.log
+310,800 B (> runtime.mcp.maxResponseBytes 262,144), blob.bin 3,064 random bytes with NULs, logo.png
+(a 98 B PNG). Configuration: defaults (no config file anywhere; QOMPACK_HOME=<scratch>/sessions/qhome
+only moves calibration.json). Host env for the session only: CLAUDE_CODE_FILE_READ_MAX_OUTPUT_TOKENS=
+120000 and BASH_MAX_OUTPUT_LENGTH=150000 so the host delivers the oversized read whole.
+
+Pre-run backup: cli/00-preconditions.txt — no <project>/.qompack (initial absence);
+cli/00-backup-create-absent: `backup create --id uat02-before --json` exit 1 "source project has
+no existing store" (the recorded absence).
+
+Step 1 cli/01-self-test(.json): exit 0, mode full; the eight self-checks then the nine assertions,
+as the row lists. OBSERVED (to be confirmed at execution; this ran before any session):
+session_start.fires first-session, session_start.source_compact no-precompact-pending,
+hook.additional_context_delivered / precompact.has_time_to_write /
+precompact.custom_instructions_accepted / mcp.server_registered not-yet-implemented,
+hook.payload_shape "payload shape valid", transcript.readable no-transcript-path,
+plugin.root_resolves unset. daemon.reachable "was not running; spawned and reachable now" (the
+daemon ran from the D10 staged copy ~/.qompack/bin/c7b2b120.../qompack.exe).
+After the session the daemon's own assertion snapshot (cli/05-status-json.stdout.txt,
+data.snapshot.contract) read real observations: session_start.fires marker-absent-once,
+session_start.source_compact compact, hook.additional_context_delivered sentinel-observed,
+precompact.has_time_to_write "p99=101ms timeout=20000ms", precompact.custom_instructions_accepted
+retired, hook.payload_shape valid, mcp.server_registered initialize-received, transcript.readable
+"transcript readable", plugin.root_resolves unset.
+
+Steps 2-4, 6 (session/stream.jsonl; ten user messages):
+ T1 Read notes.md -> AMBER-FALCON-58. T2 Read big.log offset 1 limit 1400 (tool result 316,692
+ chars, the whole file) -> LINE-1400. T3 Read logo.png (host returned an image block); Read
+ blob.bin REFUSED by the host ("This tool cannot read binary files...", is_error, no PostToolUse
+ fired), then Bash `cat blob.bin` (host-decoded text, 2,911 chars in the stream). T4 Read creds.txt
+ (the model named the two settings only). T5 /qompack:recall quartz lantern meridian: the command's
+ `qompack recall` ran through the host (qompack resolved on PATH via --plugin-dir) and returned the
+ notes.md capture. T6 MCP recall + expand (the model expanded the first hit, which was its own
+ prompt). T7 recall path:big.log / path:logo.png / path:blob.bin and expand of each hit (blob.bin: 0
+ hits, the Bash capture has no path). T8 subagent via the Agent tool (init lists the tool as
+ "Task"; the model's tool_use name is "Agent"; the subagent's Read of config.ini -> 8421).
+ T9 /compact. T10 codename after compaction -> AMBER-FALCON-58.
+ Direct MCP probe (cli/06-mcp-probe.json, frozen `qompack mcp` over stdio, contents trimmed):
+ expand of each capture and recall/timeline/dropped.
+
+Step 5 cli/05-status: first line "source: daemon (available, 0µs old)"; banner "host contract: 9
+assertion(s), all holding"; every per-hook row except PreCompact reads `unavailable` with its reason
+(never 0); PreCompact B-E observed n=1 p50 81.92 ms; B-D and B-G unavailable with reasons.
+counters include contract_fail_transcript_readable 1 (a transient failure recorded while the banner
+says all holding — cf. F-UAT01-1).
+
+Fidelity (the point of the row). expand/re_read responses carry `_meta.qompack` on the RESULT
+(cli/06: elapsed_ms, ephemeral, expansions, hash, path, promoted, span, tool_use_id, total_bytes,
+truncated, untrusted) — the host does not show result-level _meta to the model (T7: the model saw
+none) — and NO fidelity field anywhere in the response. The fidelity is recorded in the capture
+sidecars (.qompack/records/captures/*.json "fidelity"; index/tool_use.jsonl): 34 exact, 1 redacted.
+ capture                         host delivery                          sidecar fidelity  expand
+ notes.md (Read)                 whole file                             exact             252 B, truncated false
+ big.log (Read, 310,800 B file)  whole file (source_bytes 313,068)      exact             span [0,9909] of 312,302,
+                                                                                          truncated true, next_span 9909:16384
+ logo.png (Read)                 image block (base64 JSON)              exact             297 B JSON incl. base64
+ blob.bin (Read)                 host refused, no PostToolUse           (no capture)      expand: found false
+ blob.bin (Bash cat)             host-decoded text (3,064 B -> 2,068 B  exact             2,068 B of text with U+FFFD
+                                 stored, U+FFFD/control chars)                            and control characters
+ creds.txt (Read)                whole file                             redacted          «redacted:aws_access_key_id»,
+                                                                                          «redacted:github_token»
+Planted-secret scan of the whole post-run store (literal forms, base64-decoded sidecar bytes and
+decompressed .zst objects, 173 files): 0 hits.
+
+C4.2 — every hook event, from hooks.json and the store (c42-counts.json, cli/07-transcript-facts.json):
+ event              host stream (hook_response, all success/exit 0)   store evidence
+ SessionStart       startup 1, compact 1                              sessions.jsonl; rehydrate state; contract snapshot
+ UserPromptSubmit   9                                                  9 UserPromptSubmit records
+ PostToolUse        15 (Read 5 incl. the subagent's, Bash, ToolSearch, 15 capture records (FileRead 5, Bash 1, ToolSearch 1,
+                    recall 4, expand 3, Agent 1)                       recall 4, expand 3, Agent 1)
+ Stop               9                                                  (turn boundaries; no record kind of its own)
+ SubagentStop       2 (the Agent task; one during /compact)           2 SubagentStop records (observer.subagent_capture 2)
+ PreCompact         no stream event; the /compact turn's transcript   checkpoints/0001.json + MANIFEST line; B-E n=1;
+                    carries "Compacted PreCompact [...] completed      counter checkpoint.cold_precompact 1
+                    successfully: {}" (no output rejection, C1.12)
+ SessionEnd         no stream event; stderr.txt EMPTY (no "Hook       index/sessions.jsonl: 1 line, end 1790703934613,
+                    cancelled", C1.15/D13)                             turns 18, tooluses 34
+ Counts: host transcript main-chain prompts 9 (10 messages; /compact is a local command) = store
+ prompt records 9; host tool uses 16 (15 main + 1 subagent) minus the refused blob.bin Read (no
+ PostToolUse) = 15 = store capture records; sessions 1 = 1. The store additionally holds 8
+ `qompack-mcp:*` records (the MCP server's and the /qompack:recall CLI's own ephemeral records)
+ and 2 SubagentStop records, which have no host tool_use.
+ Arrival deltas (hooks.json; approximate, host-seen): PostToolUse n15 100-202 ms (median 120), Stop
+ n9 90-113, UserPromptSubmit n8 95-138, SubagentStop n2 105-122, SessionStart:compact 134 ms;
+ SessionStart:startup and the first UserPromptSubmit arrived before init: not measured.
+ status: clean (all assertions holding). doctor --json (cli/05, cli/09): exit 0 but
+ captures.unpublished "degraded" "26 gap(s) across 35 sidecar(s)" while fsck captures/publication
+ pass and status counts unpublished_captures 0 (F-UAT01-3 again). fsck --json (cli/05): exit 1,
+ index.tool_use: 8 `qompack-mcp:*` records "report turn 0 after turn N" (F-UAT01-2 again).
+
+Daemon end: defaults (idle exit 1800 s), so cli/08-stop-daemon.txt terminated pid 9008 after checking
+the lock pid, image qompack.exe and a command line "daemon --project <this project>". After it
+(cli/09): fsck exit 1 with a SECOND defect, index.segments "segment 1 records that it was encoded
+into checkpoint 0002, which checkpoints/MANIFEST.jsonl does not record". The day log
+(store/logs_qompack-20260929.log) shows the daemon's idle work at 17:48:06.63Z ("scheduler:
+residual span over budget; O5 is not keeping up residual=98925"); index/segments.jsonl gained
+{"op":"encode","id":1,"seq":2} at 17:48:06.60Z and tmp/ was touched at 17:48:06.646Z, i.e. the
+termination landed inside an idle frontier-advance checkpoint whose segment "encode" record was
+written before checkpoint 0002 was published. doctor stopped: scope.daemon degraded "held by pid
+9008, not reachable" (stale lock, as expected after termination).
+
+Findings:
+ F-UAT02-1 (product vs doc; expected-result field) expand responses carry no Fidelity (neither in
+   the JSON text nor in result._meta.qompack); fidelity exists only in the capture sidecars and
+   index. Same as F-UAT12-2. user-guide/the row say expand returns it.
+ F-UAT02-2 (expected-result field not met) the oversized capture is `exact`: the host delivered
+   big.log whole and Qompack stored the whole delivery (312,302 B root); it was not cut, so `exact`
+   is accurate under the enumeration's definition, but the row expects a non-exact value. The
+   262,144 B bound applies to expand's response (truncated true + next_span), not to the capture.
+ F-UAT02-3 (host; binary path) the host never delivers binary bytes to a hook: Read refuses a .bin
+   file (no PostToolUse, so nothing to capture), Read of a PNG delivers an image block (stored
+   exact), and `cat` delivers host-decoded text (stored exact). No `binary` fidelity is reachable on
+   this host (cf. F-UAT12-3).
+ F-UAT02-4 (product defect, crash ordering) terminating the daemon during idle frontier work left
+   index/segments.jsonl claiming an encode into checkpoint 0002 that was never published; fsck
+   index.segments fails (severity 1). The segment record is written before the checkpoint it names.
+   Troubleshooting §7 names terminating the process as a supported way to end a daemon.
+ F-UAT02-5 (known, C4.2 blocker) fsck index.tool_use turn-0 MCP records (F-UAT01-2) and doctor
+   captures.unpublished over-count (F-UAT01-3) reproduce, so C4.2's "status, doctor, fsck clean"
+   does not hold.
+ F-UAT02-6 (host observation) init lists the subagent tool as "Task" while the model's tool_use is
+   named "Agent" (PostToolUse:Agent); --allowedTools "Task" permitted it.
+ F-UAT02-7 (observation) plugin.root_resolves reads `unset` in the daemon's snapshot although the
+   hooks ran from ${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe: the exec-form hook process does not appear
+   to receive CLAUDE_PLUGIN_ROOT in its environment (or the assertion does not read it).
+
+Rollback: not applicable — initial state absent (recorded); per the row's rule this run is retained
+as evidence; no restore was run. Guard: plans/sdd/V6-closeout/live/guard/sessions.txt (unchanged
+fingerprint; ~/.qompack gained bin/c7b2b120.../, the staged daemon copy).
