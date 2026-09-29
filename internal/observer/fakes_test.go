@@ -123,9 +123,20 @@ type fakeStore struct {
 	// GetRoots records every root GetRoot was asked for, so a test can assert that a candidate
 	// was skipped BEFORE the lookup rather than after it.
 	GetRoots []core.Hash
+
+	// segs is the segment log Segments answers with. It holds nothing unless a row opens a
+	// segment through it, so a row that sets st.Segment directly holds a segment the log has no
+	// record of, which the observer's roll check (session.go followSegmentRoll) reads as "not
+	// rolled". sessionStore overrides Segments with the log the session rows drive.
+	segs *fakeSegLog
 }
 
-func newFakeStore() *fakeStore { return &fakeStore{Roots: make(map[core.Hash]store.Root)} }
+func newFakeStore() *fakeStore {
+	return &fakeStore{Roots: make(map[core.Hash]store.Root), segs: newFakeSegLog()}
+}
+
+// Segments returns the store's segment log.
+func (s *fakeStore) Segments() store.SegmentLog { return s.segs }
 
 func (s *fakeStore) PutBytes(_ context.Context, b []byte, o store.PutOptions) (store.PutResult, error) {
 	s.mu.Lock()

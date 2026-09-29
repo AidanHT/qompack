@@ -235,6 +235,10 @@ const (
 	counterSignalTest      = "observer.signal.test"
 	counterSignalGit       = "observer.signal.git"
 
+	// counterSegmentFollowed counts the segment rolls the observer did not make and caught up
+	// with (session.go followSegmentRoll): one per catch-up, however many segments it covered.
+	counterSegmentFollowed = "observer.segment.followed"
+
 	// counterErrPrefix is prepended to a stage name by soft.
 	counterErrPrefix = "observer.err."
 )

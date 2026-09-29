@@ -1,0 +1,61 @@
+# RED on the base a8c7433 (tests and the two counter names present, bind fix absent)
+# go test -p 2 -count=1 -run 'TestWrapServices_FirstToolAfterARestartBindsTheLiveSession|TestWrapServices_FirstStopOrCapturedPromptAfterARestartBinds|TestWrapServices_ReplyOnlyPromptDoesNotBind|TestWrapServices_AReplayOfASessionNoHookTouchedDoesNotBind|TestWrapServices_AHookOfAnotherSessionLeavesTheBoundOneAlone' ./internal/daemon/
+# ReplyOnlyPromptDoesNotBind and AHookOfAnotherSessionLeavesTheBoundOneAlone are guards: green on the base by design
+--- FAIL: TestWrapServices_AReplayOfASessionNoHookTouchedDoesNotBind (0.03s)
+    scheduler_tap_restart_test.go:167: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w14-observer/internal/daemon/scheduler_tap_restart_test.go:167
+        	Error:      	Not equal: 
+        	            	expected: 1
+        	            	actual  : 0
+        	Test:       	TestWrapServices_AReplayOfASessionNoHookTouchedDoesNotBind
+--- FAIL: TestWrapServices_FirstToolAfterARestartBindsTheLiveSession (0.03s)
+    scheduler_tap_restart_test.go:86: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w14-observer/internal/daemon/scheduler_tap_restart_test.go:86
+        	Error:      	Not equal: 
+        	            	expected: "sess-c1"
+        	            	actual  : ""
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,2 +1,2 @@
+        	            	-(core.SessionID) (len=7) "sess-c1"
+        	            	+(core.SessionID) ""
+        	            	 
+        	Test:       	TestWrapServices_FirstToolAfterARestartBindsTheLiveSession
+        	Messages:   	the first hook of the live session binds it
+--- FAIL: TestWrapServices_FirstStopOrCapturedPromptAfterARestartBinds (0.00s)
+    --- FAIL: TestWrapServices_FirstStopOrCapturedPromptAfterARestartBinds/captured_prompt (0.03s)
+        scheduler_tap_restart_test.go:120: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w14-observer/internal/daemon/scheduler_tap_restart_test.go:120
+            	Error:      	Not equal: 
+            	            	expected: "sess-c1"
+            	            	actual  : ""
+            	            	
+            	            	Diff:
+            	            	--- Expected
+            	            	+++ Actual
+            	            	@@ -1,2 +1,2 @@
+            	            	-(core.SessionID) (len=7) "sess-c1"
+            	            	+(core.SessionID) ""
+            	            	 
+            	Test:       	TestWrapServices_FirstStopOrCapturedPromptAfterARestartBinds/captured_prompt
+    --- FAIL: TestWrapServices_FirstStopOrCapturedPromptAfterARestartBinds/stop (0.03s)
+        scheduler_tap_restart_test.go:120: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w14-observer/internal/daemon/scheduler_tap_restart_test.go:120
+            	Error:      	Not equal: 
+            	            	expected: "sess-c1"
+            	            	actual  : ""
+            	            	
+            	            	Diff:
+            	            	--- Expected
+            	            	+++ Actual
+            	            	@@ -1,2 +1,2 @@
+            	            	-(core.SessionID) (len=7) "sess-c1"
+            	            	+(core.SessionID) ""
+            	            	 
+            	Test:       	TestWrapServices_FirstStopOrCapturedPromptAfterARestartBinds/stop
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	0.304s
+FAIL
+exit=1

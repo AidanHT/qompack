@@ -522,6 +522,11 @@ func TestWrapServices_PreCompactAfterARestartClosesWithThePersistedAccount(t *te
 // TestWrapServices_PreCompactAfterARestartMergesWhatItObservedSince: the restarted daemon has
 // observed tool uses of its own before the compaction. They belong to the same open segment as the
 // persisted account, so the close records both: the later turn and the sum of the tokens.
+//
+// Since a session's first hook binds the runtime (bindOnFirstHook), the observation reaches the tap
+// unbound only when the daemon's registry does not hold the session live, as for a replayed
+// delivery. The fixture's registry holds nothing, so the merge this row checks is still the
+// compaction path's (CloseSegmentForCompaction), not the first hook's.
 func TestWrapServices_PreCompactAfterARestartMergesWhatItObservedSince(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -536,6 +541,9 @@ func TestWrapServices_PreCompactAfterARestartMergesWhatItObservedSince(t *testin
 	require.NoError(t, prev.rt.Persist(ctx))
 
 	fx := newRTFixture(t, withRoot(prev))
+	fx.rt.mu.Lock()
+	fx.rt.d = &registryDaemon{reg: NewSessionRegistry()} // no hook of rtSession has touched it
+	fx.rt.mu.Unlock()
 	const later core.ToolUseID = "toolu_tap_after_restart"
 	fx.store.put(store.ToolUseRecord{
 		ID: later, Session: rtSession, Turn: tapToolUseTurn + 3, TS: fx.now() + 9_000, Tool: "Read",
@@ -547,6 +555,9 @@ func TestWrapServices_PreCompactAfterARestartMergesWhatItObservedSince(t *testin
 	}
 	WrapServicesForScheduler(s, fx.rt, fx.options())
 	require.NoError(t, s.ObserveTool(ctx, tapToolEvent(later, "Read", "", "")))
+	require.Empty(t, fx.rt.session, "fixture sanity: the runtime is still unbound when the compaction arrives")
+	require.Equal(t, core.Tokens(300), fx.rt.openSegTokens, "holding only what it observed since the restart")
+	require.Equal(t, int64(1), fx.counter(counterTapBindNotLive))
 	_, err = s.PreCompact(ctx, tapEvent("PreCompact", rtSession))
 	require.NoError(t, err)
 
@@ -555,6 +566,8 @@ func TestWrapServices_PreCompactAfterARestartMergesWhatItObservedSince(t *testin
 	require.True(t, seg.Closed)
 	require.Equal(t, tapToolUseTurn+3, seg.EndTurn, "the latest turn either daemon observed")
 	require.Equal(t, core.Tokens(1_000), seg.Tokens, "the persisted 700 plus the 300 observed since the restart")
+	require.Equal(t, rtSession, fx.rt.session, "the compaction bound the session")
+	require.Zero(t, fx.counter(counterTapBindFirstHook), "the compaction's bind, not a first hook's")
 }
 
 // TestWrapServices_PreCompactWithNothingObservedLeavesTheSegmentOpen: a compaction of a segment the

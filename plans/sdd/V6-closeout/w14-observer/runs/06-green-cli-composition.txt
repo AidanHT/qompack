@@ -1,0 +1,9 @@
+# GREEN after the fix
+# go test -p 2 -count=1 -v -run 'TestAHostFailedCompactionsSuccessorClosesAtSessionEnd|TestARestartedDaemonBindsTheLiveSessionOnItsFirstHook' ./internal/cli/
+=== RUN   TestAHostFailedCompactionsSuccessorClosesAtSessionEnd
+--- PASS: TestAHostFailedCompactionsSuccessorClosesAtSessionEnd (1.49s)
+=== RUN   TestARestartedDaemonBindsTheLiveSessionOnItsFirstHook
+--- PASS: TestARestartedDaemonBindsTheLiveSessionOnItsFirstHook (1.86s)
+PASS
+ok  	github.com/qompack/qompack/internal/cli	3.638s
+exit=0

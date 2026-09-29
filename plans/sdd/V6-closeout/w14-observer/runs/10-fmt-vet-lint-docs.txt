@@ -1,0 +1,16 @@
+# go run ./tools/devtool fmt-check; go vet (windows, GOOS=linux) ./internal/observer/... ./internal/daemon/ ./internal/cli/;
+# go run ./tools/devtool lint --only=golangci-lint,nomagic,importgraph,testdeps,bindeps,sleepcheck,docmarkers,runpatterns; go test -p 2 -count=1 ./test/docs
+fmt-check exit=0
+vet windows exit=0
+vet linux exit=0
+lint exit=0
+PASS golangci-lint
+PASS nomagic
+PASS importgraph
+PASS testdeps
+PASS bindeps
+PASS sleepcheck
+PASS runpatterns
+PASS docmarkers
+ok  	github.com/qompack/qompack/test/docs	2.150s
+exit=0

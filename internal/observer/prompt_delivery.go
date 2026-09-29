@@ -174,6 +174,11 @@ func promptReplyOnly(ctx context.Context) bool {
 	return v
 }
 
+// PromptReplyOnly reports whether ctx is the reply-only prompt path WithPromptReplyOnly marked. The
+// daemon's scheduler tap reads it so the work it keeps off the reply deadline (binding a session on
+// its first hook) waits for the worker's capture of the same prompt.
+func PromptReplyOnly(ctx context.Context) bool { return promptReplyOnly(ctx) }
+
 // promptReplyOutput is the reply-only path's whole job: the queued thrash warning, and only in
 // ModeFull (§12 forbids injection while the contract is degraded). It drains the queue — a warning is
 // shown once — and does not touch the store, the DAG, the grammar or the turn: those belong to the

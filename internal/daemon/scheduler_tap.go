@@ -41,6 +41,13 @@ const (
 	// the runtime holds no token account for it: closed, it would record zero tokens for good.
 	counterTapCompactUnobserved = "sched.tap.compact_unobserved"
 
+	// counterTapBindFirstHook counts binds made by a session's first hook on a runtime bound to no
+	// session: a daemon restarted in the middle of the session, which gets no SessionStart for it.
+	counterTapBindFirstHook = "sched.tap.bind.first_hook"
+	// counterTapBindNotLive counts hooks that found the runtime unbound but named a session the
+	// daemon's registry does not hold live (a replayed delivery), which therefore did not bind.
+	counterTapBindNotLive = "sched.tap.bind.not_live"
+
 	msgTapPanic = "scheduler tap panicked; inner seam result returned unchanged"
 )
 
@@ -123,7 +130,7 @@ func WrapServicesForScheduler(s *Services, rt scheduler.Runtime, o SchedulerRunt
 		if innerPrompt != nil {
 			out, err = innerPrompt(ctx, e)
 		}
-		t.guard("ObservePrompt", func() { t.observePrompt() })
+		t.guard("ObservePrompt", func() { t.observePrompt(ctx, e) })
 		return out, err
 	}
 	s.SessionEnd = func(ctx context.Context, e hookio.Event) error {
@@ -172,6 +179,7 @@ func (t *schedTap) sessionStart(e hookio.Event) {
 // task-boundary signal. A missing record (core.ErrNotFound) is counted and skips the BOCD update;
 // the timestamp work still happens, anchored on the clock instead of the record.
 func (t *schedTap) observeTool(ctx context.Context, e hookio.Event) {
+	t.r.bindOnFirstHook(e.SessionID)
 	sig := observer.ExtractSignals(e)
 	now := t.r.nowMS()
 	rec, err := t.r.st.ToolUse(ctx, e.ToolUseID)
@@ -199,6 +207,7 @@ func (t *schedTap) observeTool(ctx context.Context, e hookio.Event) {
 // fires once per assistant turn. It never anchors the request start: Stop fires after
 // generation. A subagent's Stop is activity but not a main-agent round or observation.
 func (t *schedTap) observeStop(ctx context.Context, e hookio.Event, subagent bool) {
+	t.r.bindOnFirstHook(e.SessionID)
 	now := t.r.nowMS()
 	t.r.NotifyActivity(now)
 	t.r.NoteEffort(e)
@@ -211,9 +220,14 @@ func (t *schedTap) observeStop(ctx context.Context, e hookio.Event, subagent boo
 	t.closeOnBoundary(ctx, turn, f, sig)
 }
 
-// observePrompt runs synchronously inside SP-05's 250 ms reply deadline: activity and the
-// request-start anchor only — no store I/O, no BOCD update.
-func (t *schedTap) observePrompt() {
+// observePrompt runs twice per prompt: synchronously inside SP-05's 250 ms reply deadline, and on
+// the ingest worker that captures the prompt. Both record activity and the request-start anchor
+// only — no store I/O, no BOCD update. The worker's call also binds a session on its first hook
+// (bindOnFirstHook), which reads the session's state files; the reply path never does.
+func (t *schedTap) observePrompt(ctx context.Context, e hookio.Event) {
+	if !observer.PromptReplyOnly(ctx) {
+		t.r.bindOnFirstHook(e.SessionID)
+	}
 	now := t.r.nowMS()
 	t.r.NotifyActivity(now)
 	t.r.NoteRequestStart(now)

@@ -128,6 +128,9 @@ func (o *observer) onStop(ctx context.Context, e Event, subagent bool) (Output, 
 	st := o.session(e.SessionID)
 	st.mu.Lock()
 	defer st.mu.Unlock()
+	// A subagent capture moves the prefix position and enrols its node, and a main-agent Stop
+	// flushes the graph, so a roll made after the previous event is caught up with first.
+	o.followSegmentRoll(ctx, st, e.SessionID, now)
 
 	if subagent {
 		if err := o.captureSubagent(ctx, st, e, now); err != nil {
