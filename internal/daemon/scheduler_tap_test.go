@@ -156,7 +156,6 @@ func TestWrapServices_UndecoratedSeamsUntouched(t *testing.T) {
 	}
 	WrapServicesForScheduler(s, fx.rt, fx.options())
 
-	require.Equal(t, fnPtr(preCompact), fnPtr(s.PreCompact))
 	require.Equal(t, fnPtr(rehydrate), fnPtr(s.Rehydrate))
 	require.Equal(t, fnPtr(mcp), fnPtr(s.MCPInitialized))
 	require.Equal(t, fnPtr(statusExtra), fnPtr(s.StatusExtra))
@@ -167,6 +166,12 @@ func TestWrapServices_UndecoratedSeamsUntouched(t *testing.T) {
 	require.NotEqual(t, fnPtr(stop), fnPtr(s.ObserveStop))
 	require.NotEqual(t, fnPtr(prompt), fnPtr(s.ObservePrompt))
 	require.NotEqual(t, fnPtr(end), fnPtr(s.SessionEnd))
+	// PreCompact is decorated for the compaction boundary (F-UAT03-1), and only when it is set: a
+	// daemon with no checkpointer has no seal to close a segment for, and no seam is invented.
+	require.NotEqual(t, fnPtr(preCompact), fnPtr(s.PreCompact), "the compaction boundary closes the open segment")
+	bare := &Services{}
+	WrapServicesForScheduler(bare, fx.rt, fx.options())
+	require.Nil(t, bare.PreCompact, "an unset PreCompact stays unset")
 }
 
 func TestWrapServices_NilInnerSeamsTolerated(t *testing.T) {
@@ -414,4 +419,167 @@ func mustRead(t *testing.T, p string) []byte {
 	b, err := os.ReadFile(p)
 	require.NoError(t, err)
 	return b
+}
+
+// TestWrapServices_PreCompactClosesTheCompactedSegmentFirst is F-UAT03-1 at the tap. A compaction
+// is the one boundary every session has: the host is about to replace the whole conversation so
+// far with its summary. The segment holding that span must be closed BEFORE the checkpointer seals,
+// because only a closed segment is ever encoded — left open, the checkpoint sealed for the
+// compaction carried no encoded segment and no pointer to anything the session had read.
+func TestWrapServices_PreCompactClosesTheCompactedSegmentFirst(t *testing.T) {
+	t.Parallel()
+	fx := newRTFixture(t)
+	fx.bind(rtSession)
+	ctx := context.Background()
+	segs := fx.store.segs
+	open, err := segs.Open(ctx, store.Segment{Session: rtSession, StartTurn: 0})
+	require.NoError(t, err)
+	tapRecord(fx, tapToolUseID, "Read", 700)
+
+	errInner := errors.New("inner: precompact")
+	var sawClosed, sawSuccessor bool
+	s := &Services{
+		PreCompact: func(ctx context.Context, e hookio.Event) (hookio.Output, error) {
+			seg, err := segs.Get(ctx, open)
+			require.NoError(t, err)
+			sawClosed = seg.Closed && seg.EndTurn == tapToolUseTurn && seg.Tokens == 700
+			cur, err := segs.Current(ctx, rtSession)
+			sawSuccessor = err == nil && !cur.Closed && cur.StartTurn == tapToolUseTurn+1
+			return hookio.Output{SystemMessage: "inner-precompact"}, errInner
+		},
+	}
+	WrapServicesForScheduler(s, fx.rt, fx.options())
+	require.NoError(t, s.ObserveTool(ctx, tapToolEvent(tapToolUseID, "Read", "", "")))
+
+	out, err := s.PreCompact(ctx, tapEvent("PreCompact", rtSession))
+	require.Equal(t, hookio.Output{SystemMessage: "inner-precompact"}, out, "the inner result passes through unchanged")
+	require.ErrorIs(t, err, errInner)
+	require.True(t, sawClosed, "the open segment is closed at the highest observed turn, with its tokens, before the seal")
+	require.True(t, sawSuccessor, "and its successor is open for what follows the compaction")
+	require.Equal(t, int64(1), fx.counter(counterSegmentClosedPrefix+causeCompact))
+	require.Zero(t, fx.rt.openSegTokens, "the successor starts empty")
+}
+
+// TestWrapServices_PreCompactLeavesAnotherSessionsSegment: the runtime is bound to one session, and
+// its turn and token accumulators describe that session alone. A compaction of a different session
+// must not close this one's segment with them, nor that session's with this one's numbers.
+func TestWrapServices_PreCompactLeavesAnotherSessionsSegment(t *testing.T) {
+	t.Parallel()
+	fx := newRTFixture(t)
+	fx.bind(rtSession)
+	ctx := context.Background()
+	other := core.SessionID("sess-other-compacting")
+	_, err := fx.store.segs.Open(ctx, store.Segment{Session: other, StartTurn: 0})
+	require.NoError(t, err)
+	called := false
+	s := &Services{PreCompact: func(context.Context, hookio.Event) (hookio.Output, error) {
+		called = true
+		return hookio.Empty(), nil
+	}}
+	WrapServicesForScheduler(s, fx.rt, fx.options())
+
+	_, err = s.PreCompact(ctx, tapEvent("PreCompact", other))
+	require.NoError(t, err)
+	require.True(t, called, "the checkpointer still seals")
+	require.Empty(t, fx.store.segs.closeCalls, "no segment is closed with another session's numbers")
+	require.Equal(t, int64(1), fx.counter(counterTapCompactForeign))
+}
+
+// TestWrapServices_PreCompactAfterARestartClosesWithThePersistedAccount: a daemon restarted in the
+// middle of a session gets no SessionStart, so its runtime is bound to nothing when the host
+// compacts, and its turn and token accumulators hold only what it observed since it started —
+// nothing at all when the compaction comes first. The close must record the session's own account,
+// restored from state/scheduler.json the way a SessionStart bind restores it, not [0,0] with zero
+// tokens: that would move everything the previous daemon saw into the successor and leave the
+// closed segment's Tokens at zero for good.
+func TestWrapServices_PreCompactAfterARestartClosesWithThePersistedAccount(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	prev := newRTFixture(t)
+	prev.bind(rtSession)
+	open, err := prev.store.segs.Open(ctx, store.Segment{Session: rtSession, StartTurn: 0})
+	require.NoError(t, err)
+	tapRecord(prev, tapToolUseID, "Read", 700)
+	ps := &Services{ObserveTool: func(context.Context, hookio.Event) error { return nil }}
+	WrapServicesForScheduler(ps, prev.rt, prev.options())
+	require.NoError(t, ps.ObserveTool(ctx, tapToolEvent(tapToolUseID, "Read", "", "")))
+	require.NoError(t, prev.rt.Persist(ctx))
+
+	fx := newRTFixture(t, withRoot(prev)) // the restarted daemon: same project, nothing bound
+	s := &Services{PreCompact: func(context.Context, hookio.Event) (hookio.Output, error) { return hookio.Empty(), nil }}
+	WrapServicesForScheduler(s, fx.rt, fx.options())
+	_, err = s.PreCompact(ctx, tapEvent("PreCompact", rtSession))
+	require.NoError(t, err)
+
+	seg, err := fx.store.segs.Get(ctx, open)
+	require.NoError(t, err)
+	require.True(t, seg.Closed)
+	require.Equal(t, tapToolUseTurn, seg.EndTurn, "closed at the session's highest observed turn, not at 0")
+	require.Equal(t, core.Tokens(700), seg.Tokens, "with the session's own token account, not zero")
+	require.Equal(t, rtSession, fx.rt.session, "the compacting session is now the bound one")
+}
+
+// TestWrapServices_PreCompactAfterARestartMergesWhatItObservedSince: the restarted daemon has
+// observed tool uses of its own before the compaction. They belong to the same open segment as the
+// persisted account, so the close records both: the later turn and the sum of the tokens.
+func TestWrapServices_PreCompactAfterARestartMergesWhatItObservedSince(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	prev := newRTFixture(t)
+	prev.bind(rtSession)
+	open, err := prev.store.segs.Open(ctx, store.Segment{Session: rtSession, StartTurn: 0})
+	require.NoError(t, err)
+	tapRecord(prev, tapToolUseID, "Read", 700)
+	ps := &Services{ObserveTool: func(context.Context, hookio.Event) error { return nil }}
+	WrapServicesForScheduler(ps, prev.rt, prev.options())
+	require.NoError(t, ps.ObserveTool(ctx, tapToolEvent(tapToolUseID, "Read", "", "")))
+	require.NoError(t, prev.rt.Persist(ctx))
+
+	fx := newRTFixture(t, withRoot(prev))
+	const later core.ToolUseID = "toolu_tap_after_restart"
+	fx.store.put(store.ToolUseRecord{
+		ID: later, Session: rtSession, Turn: tapToolUseTurn + 3, TS: fx.now() + 9_000, Tool: "Read",
+		ArgsPreview: "read src/b.go", Path: "src/b.go", Tokens: 300,
+	})
+	s := &Services{
+		ObserveTool: func(context.Context, hookio.Event) error { return nil },
+		PreCompact:  func(context.Context, hookio.Event) (hookio.Output, error) { return hookio.Empty(), nil },
+	}
+	WrapServicesForScheduler(s, fx.rt, fx.options())
+	require.NoError(t, s.ObserveTool(ctx, tapToolEvent(later, "Read", "", "")))
+	_, err = s.PreCompact(ctx, tapEvent("PreCompact", rtSession))
+	require.NoError(t, err)
+
+	seg, err := fx.store.segs.Get(ctx, open)
+	require.NoError(t, err)
+	require.True(t, seg.Closed)
+	require.Equal(t, tapToolUseTurn+3, seg.EndTurn, "the latest turn either daemon observed")
+	require.Equal(t, core.Tokens(1_000), seg.Tokens, "the persisted 700 plus the 300 observed since the restart")
+}
+
+// TestWrapServices_PreCompactWithNothingObservedLeavesTheSegmentOpen: a compaction of a segment the
+// runtime has no account of at all — no persisted state for the session and nothing observed —
+// would close it at turn 0 with zero tokens. It is left open, for a later close that knows what it
+// holds, and counted.
+func TestWrapServices_PreCompactWithNothingObservedLeavesTheSegmentOpen(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	fx := newRTFixture(t)
+	open, err := fx.store.segs.Open(ctx, store.Segment{Session: rtSession, StartTurn: 0})
+	require.NoError(t, err)
+	called := false
+	s := &Services{PreCompact: func(context.Context, hookio.Event) (hookio.Output, error) {
+		called = true
+		return hookio.Empty(), nil
+	}}
+	WrapServicesForScheduler(s, fx.rt, fx.options())
+
+	_, err = s.PreCompact(ctx, tapEvent("PreCompact", rtSession))
+	require.NoError(t, err)
+	require.True(t, called, "the checkpointer still seals")
+	seg, err := fx.store.segs.Get(ctx, open)
+	require.NoError(t, err)
+	require.False(t, seg.Closed, "no close is recorded with an account the runtime does not have")
+	require.Empty(t, fx.store.segs.closeCalls)
+	require.Equal(t, int64(1), fx.counter(counterTapCompactUnobserved))
 }

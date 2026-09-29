@@ -1,0 +1,28 @@
+# review finding 1 RED: PreCompact on a runtime bound to no session (daemon restarted mid-session)
+$ go test -p 2 -count=1 -run 'TestWrapServices_PreCompact' ./internal/daemon/
+--- FAIL: TestWrapServices_PreCompactWithNothingObservedLeavesTheSegmentOpen (0.01s)
+    scheduler_tap_test.go:582: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-pinsckpt/internal/daemon/scheduler_tap_test.go:582
+        	Error:      	Should be false
+        	Test:       	TestWrapServices_PreCompactWithNothingObservedLeavesTheSegmentOpen
+        	Messages:   	no close is recorded with an account the runtime does not have
+--- FAIL: TestWrapServices_PreCompactAfterARestartMergesWhatItObservedSince (0.24s)
+    scheduler_tap_test.go:557: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-pinsckpt/internal/daemon/scheduler_tap_test.go:557
+        	Error:      	Not equal: 
+        	            	expected: 1000
+        	            	actual  : 300
+        	Test:       	TestWrapServices_PreCompactAfterARestartMergesWhatItObservedSince
+        	Messages:   	the persisted 700 plus the 300 observed since the restart
+--- FAIL: TestWrapServices_PreCompactAfterARestartClosesWithThePersistedAccount (0.24s)
+    scheduler_tap_test.go:517: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-pinsckpt/internal/daemon/scheduler_tap_test.go:517
+        	Error:      	Not equal: 
+        	            	expected: 9
+        	            	actual  : 0
+        	Test:       	TestWrapServices_PreCompactAfterARestartClosesWithThePersistedAccount
+        	Messages:   	closed at the session's highest observed turn, not at 0
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	0.552s
+FAIL
+exit=1

@@ -1,0 +1,9 @@
+--- FAIL: TestPreCompactCheckpointCarriesTheCompactedReads (0.66s)
+    precompact_pointers_live_test.go:110: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-pinsckpt/internal/cli/precompact_pointers_live_test.go:110
+        	Error:      	Should NOT be empty, but was []
+        	Test:       	TestPreCompactCheckpointCarriesTheCompactedReads
+        	Messages:   	the span the host compacted must be encoded into the checkpoint sealed for it (F-UAT03-1)
+FAIL
+FAIL	github.com/qompack/qompack/internal/cli	0.925s
+FAIL

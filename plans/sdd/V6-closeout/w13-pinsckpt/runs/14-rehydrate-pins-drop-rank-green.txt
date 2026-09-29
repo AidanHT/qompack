@@ -1,0 +1,7 @@
+# review finding 3 GREEN + rehydrate package in full
+$ go test -p 2 -count=1 -run TestDropReport_UnreadPinSetSurvivesATightReport ./internal/rehydrate/
+ok  	github.com/qompack/qompack/internal/rehydrate	1.771s
+exit=0
+$ go test -p 2 -count=1 ./internal/rehydrate/
+ok  	github.com/qompack/qompack/internal/rehydrate	2.446s
+exit=0

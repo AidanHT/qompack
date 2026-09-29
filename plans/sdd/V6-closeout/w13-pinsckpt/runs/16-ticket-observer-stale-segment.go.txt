@@ -1,0 +1,39 @@
+package observer
+
+import (
+	"context"
+	"testing"
+
+	"github.com/qompack/qompack/internal/core"
+	"github.com/qompack/qompack/internal/store"
+	"github.com/stretchr/testify/require"
+)
+
+// TEMPORARY DIAGNOSTIC (w13-pinsckpt review finding 2; not committed as a test): the scheduler rolls
+// the session's segment (a PreCompact close, or a todo/test/commit/changepoint close) and the host
+// sends no SessionStart afterwards (a host-failed compaction, or simply the rest of a session after a
+// todo roll). SessionEnd must close the session's OPEN segment — the successor — not the closed one
+// the observer adopted at the last SessionStart.
+func TestTicketSessionEndClosesTheSuccessorOfAScheduledRoll(t *testing.T) {
+	h, ss := newSessionHarness(t)
+	ctx := context.Background()
+	_, err := h.obs.OnSessionStart(ctx, startEvent("startup"))
+	require.NoError(t, err)
+	st := h.state(testSession)
+	st.mu.Lock()
+	adopted := st.Segment
+	st.Turn = 12
+	st.mu.Unlock()
+	require.Equal(t, core.SegmentID(1), adopted)
+
+	// The scheduler closes segment 1 at turn 9 and opens its successor 2 at turn 10 (what
+	// daemon.closeSessionSegmentLocked does); the observer is not told.
+	require.NoError(t, ss.seg.Close(ctx, adopted, 9, map[string]float64{}))
+	ss.seg.setCurrent(store.Segment{ID: 2, Session: testSession, StartTurn: 10, Closed: false})
+
+	_, err = h.obs.OnSessionEnd(ctx, endEvent())
+	require.NoError(t, err)
+	closes := ss.seg.closesList()
+	require.Len(t, closes, 2)
+	require.Equal(t, core.SegmentID(2), closes[1].ID, "SessionEnd closes the open successor, not the rolled segment")
+}

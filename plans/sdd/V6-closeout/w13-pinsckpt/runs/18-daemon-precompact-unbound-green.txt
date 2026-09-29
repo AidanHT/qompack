@@ -1,0 +1,19 @@
+# review finding 1 GREEN + focused cli rows + daemon package in full
+$ go test -p 2 -count=1 -run 'TestWrapServices_PreCompact' ./internal/daemon/
+--- PASS: TestWrapServices_PreCompactClosesTheCompactedSegmentFirst (0.01s)
+--- PASS: TestWrapServices_PreCompactWithNothingObservedLeavesTheSegmentOpen (0.01s)
+--- PASS: TestWrapServices_PreCompactLeavesAnotherSessionsSegment (0.01s)
+--- PASS: TestWrapServices_PreCompactAfterARestartClosesWithThePersistedAccount (0.09s)
+--- PASS: TestWrapServices_PreCompactAfterARestartMergesWhatItObservedSince (0.10s)
+ok  	github.com/qompack/qompack/internal/daemon	0.465s
+exit=0
+$ go test -p 2 -count=1 -run 'TestPreCompactCheckpointCarriesTheCompactedReads|TestSecondPreCompactCarriesItsOwnSpan|TestLivePinReachesTheNextCheckpointAndBlock|TestLivePinAfterACompactionReachesTheNextOne' ./internal/cli/
+ok  	github.com/qompack/qompack/internal/cli	5.453s
+exit=0
+$ go test -p 2 -count=1 ./internal/daemon/   (first attempt, default 10m timeout: package total exceeded 10m on the loaded machine, no test hung; the running test had been going 1s)
+panic: test timed out after 10m0s
+FAIL	github.com/qompack/qompack/internal/daemon	600.360s
+FAIL
+$ go test -p 2 -count=1 -timeout=30m ./internal/daemon/
+ok  	github.com/qompack/qompack/internal/daemon	454.223s
+exit=0
