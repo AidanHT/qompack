@@ -167,6 +167,10 @@ type Draft struct {
 	// across a resume costs nothing but this safety net.
 	fileTurn map[string]core.TurnIndex
 	toolTurn map[core.ToolUseID]core.TurnIndex
+	// promptText caches each prompt record's verbatim text by record id, so refreshIntentLocked
+	// reads a prompt's bytes once per draft rather than at every refresh. In-memory only: a
+	// resumed draft reads them again once.
+	promptText map[core.ToolUseID]string
 }
 
 // Ref is the durable reference to one finalized checkpoint artifact (00-ARCHITECTURE.md §5.14):
