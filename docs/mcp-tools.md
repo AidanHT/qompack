@@ -32,14 +32,17 @@ only the content. When the content does not fit, the response is cut, `truncated
 `true`, and `next_span` continues exactly where it stopped; pass it back as `span`, which
 takes precedence over `full` (`re_read` takes no `span`: continue a `re_read` page
 with `expand` and the response's `hash`). A page never ends inside a multi-byte
-character. The
-JSON-RPC line that carries a result adds the transport's own framing.
+character. The JSON-RPC line that carries a result adds the transport's own framing.
+Only `expand` and `re_read` are measured against this key: `recall`, `already_tried`,
+`record_eliminated`, `timeline`, `why` and `dropped` results are not.
 
-**No fidelity or coverage field.** `expand` and `re_read` responses do not carry a
-per-capture fidelity or coverage value. What they report is this read: `span`,
-`total_bytes`, `truncated` and `next_span`, and content the current privacy policy
-removed appears as a `«redacted:…»` placeholder. The fidelity recorded at capture
-time stays with the capture record; `qompack fsck` reports the store's fidelity tally.
+**No fidelity or coverage field.** No retrieval response carries a capture fidelity
+or coverage value. `expand` and `re_read` report this read: `span`, `total_bytes`,
+`truncated` and `next_span`, and content the current privacy policy removed appears
+as a `«redacted:…»` placeholder. Capture fidelity is recorded on the capture's
+sidecar record, which no tool surfaces; the `fidelity:` line `qompack fsck` prints is
+store-level restore fidelity (`exact`, `full`, `canonical`, `unavailable`,
+`corrupt`), a different enumeration.
 
 **`recall` selectors.** `path:<glob>` is a `path.Match` pattern on slash paths (`*`
 does not cross `/`), matched against the whole project-relative path and against every

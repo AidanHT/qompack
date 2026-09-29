@@ -142,11 +142,14 @@ without a decision id, `1` if the decision could not be read, `0` otherwise.
 Reports what the last compaction dropped and how to get it back: `[--json]`
 ([schema](commands.md#qompackdropped)).
 
-`dropped` is the command's name; what it reports is **qualified coverage**. Each entry carries a
-`Coverage` value (see [Fidelity, coverage and error states](#fidelity-coverage-and-error-states)),
-so "dropped" means *Qompack did not carry this forward in the injected payload, and here is what it
-does hold instead*. It does not mean the host removed anything, and it is not a statement about
-native context at all: `docs/mcp-tools.md` puts the boundary in one line — "This report does not
+`dropped` is the command's name; what it reports is **qualified coverage**. Each entry names its
+`kind`, its `id` and an optional `detail`; the qualification is on the report as a whole —
+`available` and `reason` when there is no report to give, `denied` and `host_policy` when entries
+were withheld — and no entry carries a coverage value (see
+[Fidelity, coverage and error states](#fidelity-coverage-and-error-states)). So "dropped" means
+*Qompack did not carry this forward in the injected payload, and here is what it does hold
+instead*. It does not mean the host removed anything, and it is not a statement about native
+context at all: `docs/mcp-tools.md` puts the boundary in one line — "This report does not
 establish what remains in native context."
 
 The complete drop report is persisted whether or not the rendered section fit in the budget
@@ -248,7 +251,7 @@ whole object; a response with more to read carries `next_span`, which you pass b
 had to be cut says `truncated: true` and carries `next_span`, which continues exactly where it
 stopped; an explicit `span` takes precedence over `full`, and no page ends inside a multi-byte
 character. `re_read` takes no `span`: continue a `re_read` page with `expand`, its `hash` and the
-`next_span`.
+`next_span`. The other tools' results are not measured against this key.
 
 **Misses are not errors.** A thing that was looked for and is not there comes back as
 `found: false` with what was searched, not as a tool error (`internal/mcp/handlers_span.go`).
@@ -303,9 +306,9 @@ reasoning does not prove model compliance.
 
 ### `dropped`
 
-Retrieves Qompack's recorded omissions for the session, with coverage attached. Call it when
-something you expected to be present is not. As with the slash command, it does not establish what
-remains in native context.
+Retrieves Qompack's recorded omissions for the session, qualified by whether a report was available
+and how many entries were withheld. Call it when something you expected to be present is not. As
+with the slash command, it does not establish what remains in native context.
 
 ## Current vs historical reads
 
@@ -348,13 +351,19 @@ Three enumerations travel with retrieval evidence (`internal/core/evidence.go`).
 together: fidelity is about the bytes, coverage is about where the thing was found, and the outcome
 is about whether the question could be answered at all.
 
-Where each one appears matters, because none of them is a field of an `expand` or `re_read`
-response. Fidelity is recorded on each capture when it is stored, and `qompack fsck` reports the
-store's fidelity tally; a retrieval shows only what it did to the bytes itself — `truncated` and
-`span` for a cut, and a `«redacted:…»` placeholder where today's privacy policy removed content.
-Coverage is what `dropped` entries carry. The outcome states are the vocabulary of the answers
-themselves: `already_tried`'s states, and the `found: false`, `available: false` and `denied` forms
-the content tools answer when they cannot return content.
+Where each one appears matters, because neither fidelity nor coverage is a field of any retrieval
+response. Capture fidelity (the first table below) is recorded on each capture's sidecar record
+under `.qompack/records/captures/` when it is stored, and no command or tool surfaces it today. The
+`fidelity:` line `qompack fsck` prints is a different enumeration: store-level restore fidelity
+(`exact`, `full`, `canonical`, `unavailable`, `corrupt`), which says whether a root's original
+bytes can be reproduced, not how they were captured. A retrieval shows only what it did to the
+bytes itself — `truncated` and `span` for a cut, and a `«redacted:…»` placeholder where today's
+privacy policy removed content. Coverage values (the second table) are assigned today only on
+admission records (`internal/admission`), which no tool surfaces; an `already_tried` answer that
+lacks coverage says so in its `reason` and `note` rather than with a coverage value. The outcome
+states are the vocabulary of the answers themselves: `already_tried`'s states, and the
+`found: false`, `available: false` and `denied` forms the content tools answer when they cannot
+return content.
 
 **Fidelity — what happened to the retained bytes.** "Exact" means the captured host delivery, not
 completeness of the underlying file, process or native conversation.
