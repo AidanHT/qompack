@@ -1,3 +1,6 @@
+# SOURCES (added in the review round): the untracked _w10diag/ copy this header names was deleted before anything was committed.
+# Its reconstruction is committed under plans/sdd/V6-closeout/w10-lostev/diag/ and re-runs with diag/reproduce.sh; this log is the ORIGINAL run's output, unchanged.
+# This run = diag/reproduce.sh prefix (w10diag.go.txt + sampler-prefix.patch on 8245d4e's harness, forced-breach-config.json); the reconstruction's own runs are runs/11 and runs/11b.
 # TEMPORARY DIAGNOSTIC (not committed): the UNMODIFIED harness (HEAD 8245d4e) copied to an untracked _w10diag/hotpath with a spool sampler added.
 # Project config forces the breach: {"runtime":{"hotPath":{"budgetMs":1,"breachWindows":1}}}. Windows, machine loaded by Phase 3.
 # Command: timeout 1200 w10diag-hotpath.exe --iterations 1000 --warm-daemon --under-coload --project <scratch>/proj1

@@ -1,0 +1,136 @@
+package main
+
+// TEMPORARY DIAGNOSTIC for the V6 close-out's w10-lostev workstream (.go.txt: never built by the
+// repository). reproduce.sh red copies it, with zz_w10dup_test.go.txt, into an untracked _w10diag/red
+// beside the NON-test files of test/bench/hotpath at 8245d4e — the harness BEFORE the fix — and
+// runs `go test -count=1 -v` there. Both tests are expected to FAIL: they are the RED half of the
+// fix, driven through the unmodified count-based census (censusClientSpool) and guard
+// (reconcileDelivery). The committed GREEN counterparts, on the fixed identity census, are
+// TestCensusAndReconcile_TheW9PhaseThreeRun and TestReconcileDelivery_ADuplicateCannotStandInForALoss
+// in test/bench/hotpath.
+//
+// It is a RECONSTRUCTION: the copy that produced runs/02 lived only in the untracked _w10diag/ and
+// was deleted before anything was committed. runs/09 is this file's own run.
+
+import (
+	"bufio"
+	"context"
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"strconv"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/qompack/qompack/internal/config"
+	"github.com/qompack/qompack/internal/core"
+	"github.com/qompack/qompack/internal/hookio"
+	"github.com/qompack/qompack/internal/ipc"
+	"github.com/qompack/qompack/internal/logging"
+	"github.com/qompack/qompack/internal/paths"
+	"github.com/qompack/qompack/internal/store"
+)
+
+// w10Request is one hot-path request shaped as internal/cli/hookclient.go builds it.
+func w10Request(sess core.SessionID, id core.ToolUseID) ipc.Request {
+	ev := hookio.Event{HookEventName: "PostToolUse", SessionID: sess, ToolName: "Read", ToolUseID: id}
+	return ipc.Request{Op: ipc.OpObserveTool, Session: sess, TS: 1, Event: &ev}
+}
+
+// w10Project is a real project layout with the harness's own real spool writer under it.
+func w10Project(t *testing.T) (root, ownSpoolPath string) {
+	t.Helper()
+	root = t.TempDir()
+	require.NoError(t, paths.EnsureLayout(paths.Of(root)))
+	sp, err := ipc.NewSpool(paths.Of(root).Spool)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		if cl, ok := sp.(interface{ Close() error }); ok {
+			_ = cl.Close()
+		}
+	})
+	return root, sp.Path()
+}
+
+// w10HookSpool leaves what one spawned hook leaves when it defers: its own client-<pid>.ndjson.
+func w10HookSpool(t *testing.T, root string, pid int, req ipc.Request) {
+	t.Helper()
+	line, err := ipc.EncodeRequest(req)
+	require.NoError(t, err)
+	p := filepath.Join(paths.Of(root).Spool, "client-"+strconv.Itoa(pid)+".ndjson")
+	require.NoError(t, os.WriteFile(paths.Long(p), line, 0o600))
+}
+
+// w10RecordInStore captures ids through the real store, as the daemon's runIngested leaves a
+// request its client-spool watcher replayed: the content object, then the tool_use record.
+func w10RecordInStore(t *testing.T, root string, sess core.SessionID, ids ...core.ToolUseID) {
+	t.Helper()
+	ctx := context.Background()
+	st, err := store.Open(root, config.Defaults(), store.Deps{Log: logging.Nop()})
+	require.NoError(t, err)
+	defer func() { require.NoError(t, st.Close()) }()
+	for _, id := range ids {
+		body := "package main // " + string(id) + "\n"
+		res, err := st.PutBytes(ctx, []byte(body), store.PutOptions{Tool: "Read", Path: "src/main.go"})
+		require.NoError(t, err)
+		require.NoError(t, st.RecordToolUse(ctx, store.ToolUseRecord{
+			ID: id, Session: sess, Tool: "Read", Path: "src/main.go",
+			Root: res.Root.Hash, Bytes: int64(len(body)), Status: store.StatusOK,
+		}))
+	}
+}
+
+// w10StoreCount counts the tool_use records of sess in the store's index.
+func w10StoreCount(t *testing.T, root string, sess core.SessionID) int {
+	t.Helper()
+	f, err := os.Open(paths.Long(filepath.Join(paths.Of(root).Index, "tool_use.jsonl")))
+	require.NoError(t, err)
+	defer func() { _ = f.Close() }()
+	n := 0
+	sc := bufio.NewScanner(f)
+	for sc.Scan() {
+		var rec struct {
+			Op      string         `json:"op"`
+			Session core.SessionID `json:"s"`
+		}
+		if json.Unmarshal(sc.Bytes(), &rec) == nil && rec.Op == "" && rec.Session == sess {
+			n++
+		}
+	}
+	require.NoError(t, sc.Err())
+	return n
+}
+
+// TestW10Red_OldGuardCallsAReplayedDeferralLost puts w9's Phase 3 shape on disk — 2130 sent, 1537
+// counted by l0_ingest, 575 deferrals still in hook client spools, and 18 more deferrals the
+// daemon's client-spool watcher has already replayed (their spool files removed, their tool uses
+// recorded in the store). Where w9's own 18 were is not recorded by its artifacts; this places them
+// where the forced-breach reproduction (runs/01) found its missing ones. Nothing is lost, and the
+// old guard still says 18 are LOST: it counts client-spool lines, and a replayed request is neither
+// a spool line nor an l0_ingest sample.
+func TestW10Red_OldGuardCallsAReplayedDeferralLost(t *testing.T) {
+	const sent, delivered, stillSpooled, replayed = 2130, 1537, 575, 18
+	root, own := w10Project(t)
+
+	// The B-A loop's requests from seq 1000 on are the deferred ones; their order is immaterial to
+	// a guard that only counts.
+	for i := 0; i < stillSpooled; i++ {
+		id := core.ToolUseID("toolu_ba_" + strconv.Itoa(1000+i))
+		w10HookSpool(t, root, 930000+i, w10Request(baSessionID, id))
+	}
+	var replayedIDs []core.ToolUseID
+	for i := 0; i < replayed; i++ {
+		replayedIDs = append(replayedIDs, core.ToolUseID("toolu_ba_"+strconv.Itoa(1000+stillSpooled+i)))
+	}
+	w10RecordInStore(t, root, baSessionID, replayedIDs...)
+	require.Equal(t, replayed, w10StoreCount(t, root, baSessionID), "precondition: the 18 replayed requests are in the store")
+
+	census, err := censusClientSpool(paths.Of(root).Spool, own, harnessHotPathSessions())
+	require.NoError(t, err)
+	require.Equal(t, int64(stillSpooled), census.Deferred, "precondition: the census sees the 575 spooled requests")
+
+	_, err = reconcileDelivery(sent, delivered, census)
+	require.NoError(t, err, "no request was lost: %d are in client spools and %d are in the store",
+		stillSpooled, replayed)
+}
