@@ -1,0 +1,18 @@
+# review finding 4: coverage for the catch-up partial-record path
+# 1. mutation check (temporary, reverted): catchUpLocked passing countTail=true
+$ go test -p 2 -count=1 -run TestPinsCatchUpWaitsForAnotherWritersPartialRecord ./internal/pins/
+--- FAIL: TestPinsCatchUpWaitsForAnotherWritersPartialRecord (1.94s)
+    store_test.go:853: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-pinsckpt/internal/pins/store_test.go:853
+        	Error:      	Should be zero, but was 1
+        	Test:       	TestPinsCatchUpWaitsForAnotherWritersPartialRecord
+        	Messages:   	another writer's unfinished line is not damage
+    testing.go:1464: TempDir RemoveAll cleanup: unlinkat C:\Users\Quant\AppData\Local\Temp\TestPinsCatchUpWaitsForAnotherWritersPartialRecord1986020996\001\.qompack\pins\invariants.jsonl: The process cannot access the file because it is being used by another process.
+FAIL
+FAIL	github.com/qompack/qompack/internal/pins	3.844s
+FAIL
+exit=1
+# 2. shipped code
+$ go test -p 2 -count=1 -run TestPinsCatchUpWaitsForAnotherWritersPartialRecord ./internal/pins/
+ok  	github.com/qompack/qompack/internal/pins	1.790s
+exit=0

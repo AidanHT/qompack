@@ -825,3 +825,45 @@ func TestPinsKeepsItsSetWhenTheLogVanishes(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, string(view), inv.Text)
 }
+
+// TestPinsCatchUpWaitsForAnotherWritersPartialRecord: the catch-up reads a log another process may
+// be appending to at that very moment, so the tail it finds can be half a record. That partial is
+// not damage — it is not counted in pins.badline and not folded — and once its writer finishes the
+// line, the next read folds the whole record from its first byte, exactly once, agreeing with a
+// fresh replay of the same log.
+func TestPinsCatchUpWaitsForAnotherWritersPartialRecord(t *testing.T) {
+	ctx := context.Background()
+	first := `{"op":"add","ts":1,"invariant":{"id":"inv_alreadyfolded","text":"first","source":"user","pinned":1700000000000}}` + "\n"
+	root := seedLog(t, first)
+	s, m := openSeeded(t, root)
+	before, err := s.All(ctx)
+	require.NoError(t, err)
+	require.Len(t, before, 1)
+
+	record := `{"op":"add","ts":2,"invariant":{"id":"inv_halfwrittenyet","text":"second","source":"user","pinned":1700000000001}}`
+	cut := len(record) / 2
+	w, err := paths.AppendOnly(filepath.Join(paths.Of(root).Pins, "invariants.jsonl"))
+	require.NoError(t, err)
+	_, err = io.WriteString(w, record[:cut])
+	require.NoError(t, err)
+
+	during, err := s.All(ctx)
+	require.NoError(t, err)
+	require.Equal(t, before, during, "half a record is not folded")
+	require.Zero(t, m.Snapshot().Counters["pins.badline"], "another writer's unfinished line is not damage")
+
+	_, err = io.WriteString(w, record[cut:]+"\n")
+	require.NoError(t, err)
+	require.NoError(t, w.Close())
+
+	after, err := s.All(ctx)
+	require.NoError(t, err)
+	require.Len(t, after, 2, "the finished record is folded from its first byte")
+	require.Equal(t, "inv_halfwrittenyet", after[1].ID)
+	require.Zero(t, m.Snapshot().Counters["pins.badline"], "the finished record is not counted as damage either")
+
+	fresh, _ := openSeeded(t, root)
+	replayed, err := fresh.All(ctx)
+	require.NoError(t, err)
+	require.Equal(t, replayed, after, "the long-lived store and a fresh replay agree on the finished log")
+}
