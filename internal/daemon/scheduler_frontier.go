@@ -77,18 +77,51 @@ func (r *schedRuntime) CloseSegmentOn(ctx context.Context, at core.TurnIndex, f 
 //
 // The turn and the open-segment token count the close records are this runtime's, and they belong
 // to the session it is bound to. A compaction of ANOTHER session is therefore left alone and
-// counted; a runtime bound to no session yet — a daemon that restarted mid-session, before the next
-// SessionStart — has accumulated exactly the compacting session's observations since, and closes
-// with them. The turn is the highest tool-use turn observed, so a final prompt answered without a
-// tool lands in the successor and is encoded by a later checkpoint rather than this one.
+// counted. A runtime bound to no session yet — a daemon that restarted mid-session, which gets no
+// SessionStart — holds only what it observed since it started, so it first binds sess exactly as a
+// SessionStart would, restoring the session's persisted account from state/scheduler.json, and
+// then folds in what it observed since the restart (bindForCompactionLocked). A segment the
+// runtime still has no token account for is left open and counted rather than closed with zero
+// tokens, which Segment.Tokens would keep for good. The turn is the highest tool-use turn
+// observed, so a final prompt answered without a tool lands in the successor and is encoded by a
+// later checkpoint rather than this one.
 func (r *schedRuntime) CloseSegmentForCompaction(ctx context.Context, sess core.SessionID) error {
+	if sess == "" {
+		return nil
+	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if r.session != "" && r.session != sess {
+	switch r.session {
+	case sess:
+	case "":
+		r.bindForCompactionLocked(sess)
+	default:
 		r.count(counterTapCompactForeign)
 		return nil
 	}
+	if r.openSegTokens == 0 {
+		r.count(counterTapCompactUnobserved)
+		return nil
+	}
 	return r.closeSessionSegmentLocked(ctx, sess, r.maxTurn, scheduler.Features{}, causeCompact)
+}
+
+// bindForCompactionLocked binds sess on a runtime bound to nothing, keeping the two accumulators
+// the compaction close records. The bind resets them and restores the session's persisted values;
+// what this daemon observed before the bind came after that persist (an unbound runtime never
+// persists), so the turn is the later of the two and the open segment's tokens are their sum.
+func (r *schedRuntime) bindForCompactionLocked(sess core.SessionID) {
+	seenTurn, seenTokens := r.maxTurn, r.openSegTokens
+	r.bindSessionLocked(sess, nil)
+	if seenTurn <= r.maxTurn && seenTokens == 0 {
+		return
+	}
+	r.maxTurn = max(r.maxTurn, seenTurn)
+	r.openSegTokens += seenTokens
+	// The live context and the burn baseline follow, as BindSession sets them: the merge is a
+	// recount, never a burn sample.
+	r.lastTokens = r.recomputeContextTokensLocked(context.Background())
+	r.dirty = true
 }
 
 // closeSegmentLocked closes the bound session's current segment and opens its successor.
