@@ -1,6 +1,7 @@
 package checkpoint
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -1000,11 +1001,17 @@ func (d *Draft) mergeEliminationsLocked(ctx context.Context, src SourceSet) erro
 //     negative knowledge, but its node turn is in THAT session's numbering, so minting every one
 //     of them at every seal let a project's older eliminations at high turns fill the
 //     Turn-descending maxDraftDecisions cap and push this session's own decisions out of the
-//     sealed checkpoint. Advance still mints the ones its from-turn cut admits, as it always has;
+//     sealed checkpoint. Advance mints them as foreign decisions, which rank after every own one
+//     (D46, mergeDecisionsLocked), so the seal has no room to make for them that Advance did not;
 //   - only turns at or after the draft's frontier, the first turn no encoded segment covers. An
 //     earlier record of this session was recorded before the segment holding it closed, so the
 //     Advance that encoded that segment has already considered it; a record whose node the graph
 //     does not hold takes the frontier, as Advance's takes its from-turn.
+//
+// Each decision it keeps is emitted into the DAG exactly as ExtractDecisions emits its own — a
+// KindDecision node and an explains edge from the elimination node (emitDecisions) — so slice
+// scoring can rank it. The node and edge carry the same values an Advance extracting the same
+// record later emits (the record's node turn, its evidence), which makes that emission a no-op.
 //
 // It is a no-op on a sealed draft, and a ledger that cannot be read leaves the draft's own copy
 // standing: the caller seals what the draft has, as the PreCompact failure rows require.
@@ -1019,7 +1026,7 @@ func (d *Draft) refreshNegativeKnowledge(ctx context.Context) error {
 		return err
 	}
 	d.deriveOpenQuestionsLocked()
-	var decs []Decision
+	var cands []decisionCandidate
 	for _, r := range d.cp.Eliminated {
 		if r.Session != d.session {
 			continue
@@ -1029,10 +1036,17 @@ func (d *Draft) refreshNegativeKnowledge(ctx context.Context) error {
 			continue
 		}
 		if dec, ok := eliminationDecision(r, turn); ok {
-			decs = append(decs, dec)
+			cands = append(cands, decisionCandidate{d: dec, evidence: dag.EliminationNode(r.ID)})
 		}
 	}
-	d.mergeDecisionsLocked(decs)
+	d.mergeDecisionsLocked(cands)
+	// Emit only what the draft kept: ExtractDecisions emits its capped set, not every candidate.
+	kept := make(map[core.DecisionID]bool, len(d.cp.Decisions))
+	for _, dec := range d.cp.Decisions {
+		kept[dec.ID] = true
+	}
+	cands = slices.DeleteFunc(cands, func(c decisionCandidate) bool { return !kept[c.d.ID] })
+	emitDecisions(src, cands)
 	d.dirty = true
 	return nil
 }
@@ -1053,15 +1067,25 @@ func (d *Draft) deriveOpenQuestionsLocked() {
 
 // mergeDecisionsLocked merges one extraction pass into cp.Decisions by Decision.ID — first
 // occurrence wins, and existing entries came from earlier (lower-turn) passes — then restores the
-// serialized order §8 fixes: Turn descending, tiebreak ID ascending, capped at maxDraftDecisions
-// keeping the head. Newest-first is the tail-first cut order Truncate relies on; the slice-score
-// ranking inside ExtractDecisions decides which decisions survive a single pass, not this order.
-func (d *Draft) mergeDecisionsLocked(decs []Decision) {
+// serialized order §8 fixes, capped at maxDraftDecisions keeping the head:
+//
+//   - this session's own decisions first, Turn descending, tiebreak ID ascending;
+//   - then the foreign ones — minted from another session's project-scoped elimination — by that
+//     record's recorded time descending, tiebreak ID ascending (coordinator decision D46). Their
+//     Turn is the other session's node turn, which says nothing about recency in this session, and
+//     ranking them by it let a project's eliminations at high turns fill the cap and push this
+//     session's own decisions out of its checkpoint. Now they fill only the room the own ones
+//     leave, and Truncate's tail-first cut drops them before any own decision.
+//
+// Newest-first is the tail-first cut order Truncate relies on; the slice-score ranking inside
+// ExtractDecisions decides which decisions survive a single pass, not this order.
+func (d *Draft) mergeDecisionsLocked(cands []decisionCandidate) {
 	have := make(map[core.DecisionID]bool, len(d.cp.Decisions))
 	for _, dec := range d.cp.Decisions {
 		have[dec.ID] = true
 	}
-	for _, dec := range decs {
+	for _, c := range cands {
+		dec := c.d
 		if dec.ID == "" || have[dec.ID] {
 			continue
 		}
@@ -1069,8 +1093,19 @@ func (d *Draft) mergeDecisionsLocked(decs []Decision) {
 		d.cp.Decisions = append(d.cp.Decisions, dec)
 		have[dec.ID] = true
 	}
+	foreign := d.foreignDecisionsLocked(cands)
 	slices.SortStableFunc(d.cp.Decisions, func(a, b Decision) int {
-		if a.Turn != b.Turn {
+		fa, aForeign := foreign[a.ID]
+		fb, bForeign := foreign[b.ID]
+		switch {
+		case aForeign != bForeign:
+			if aForeign {
+				return 1 // own before foreign
+			}
+			return -1
+		case aForeign && fa != fb:
+			return cmp.Compare(fb, fa) // recorded time descending
+		case !aForeign && a.Turn != b.Turn:
 			return int(b.Turn) - int(a.Turn) // Turn descending
 		}
 		return strings.Compare(string(a.ID), string(b.ID)) // tiebreak ID ascending
@@ -1078,6 +1113,56 @@ func (d *Draft) mergeDecisionsLocked(decs []Decision) {
 	if len(d.cp.Decisions) > maxDraftDecisions {
 		d.cp.Decisions = d.cp.Decisions[:maxDraftDecisions]
 	}
+}
+
+// foreignDecisionsLocked is foreignDecisions over the draft's carried eliminations and this
+// pass's candidates. Caller holds d.mu.
+func (d *Draft) foreignDecisionsLocked(cands []decisionCandidate) map[core.DecisionID]core.UnixMilli {
+	return foreignDecisions(d.cp.Eliminated, d.session, cands)
+}
+
+// ForeignDecisions maps each of cp's decisions that was minted from another session's
+// project-scoped elimination to that record's recorded time: the classification the draft's merge
+// ranks by (D46, mergeDecisionsLocked). It is exported for the checkpoint's consumers that re-sort
+// cp.Decisions — item 4 of a rehydration ranks by slice score — so they keep the session's own
+// decisions ahead of the foreign ones, as the sealed order does. An id absent from the map is own.
+func ForeignDecisions(cp Checkpoint) map[core.DecisionID]core.UnixMilli {
+	return foreignDecisions(cp.Eliminated, cp.Session, nil)
+}
+
+// foreignDecisions maps each foreign decision id to its record's recorded time. A checkpoint keeps
+// no per-decision provenance — the artifact's Decision shape is frozen — so it is derived again
+// from what the checkpoint does keep: every carried elimination another session made mints its
+// decision's id (the id does not depend on the turn), and a pass's own candidates say the same for
+// any record the draft has not merged yet. An id this session's own record also mints is own, and
+// when two foreign records mint one id the newer time stands. A resumed draft therefore ranks
+// exactly as the draft that persisted it did, and a sealed checkpoint's reader ranks as its writer.
+func foreignDecisions(eliminated []negknow.Record, session core.SessionID, cands []decisionCandidate) map[core.DecisionID]core.UnixMilli {
+	foreign := make(map[core.DecisionID]core.UnixMilli)
+	own := make(map[core.DecisionID]bool)
+	note := func(id core.DecisionID, isForeign bool, at core.UnixMilli) {
+		if !isForeign {
+			own[id] = true
+			return
+		}
+		if prev, ok := foreign[id]; !ok || at > prev {
+			foreign[id] = at
+		}
+	}
+	for _, r := range eliminated {
+		if dec, ok := eliminationDecision(r, 0); ok {
+			note(dec.ID, r.Session != session, r.TS)
+		}
+	}
+	for _, c := range cands {
+		if c.foreign {
+			note(c.d.ID, true, c.recorded)
+		}
+	}
+	for id := range own {
+		delete(foreign, id)
+	}
+	return foreign
 }
 
 // upsertFilePointerLocked applies §8's pointer-ordering rule to Pointers.Files: segments are
