@@ -505,6 +505,7 @@ func TestOnSessionEnd_NeverWritesTriedBloom(t *testing.T) {
 
 func TestOnSessionEnd_SegmentClosedWithFeatures(t *testing.T) {
 	h, ss := newSessionHarness(t)
+	ss.DefaultTokens = 40 // every captured read costs this much, so the segment is not empty
 	ctx := context.Background()
 
 	_, err := h.obs.OnSessionStart(ctx, startEvent("startup"))
@@ -520,7 +521,9 @@ func TestOnSessionEnd_SegmentClosedWithFeatures(t *testing.T) {
 	st := h.state(testSession)
 	st.mu.Lock()
 	endTurn := st.Turn
+	segTokens := st.PrefixTokens - st.SegStartPos
 	st.mu.Unlock()
+	require.Positive(t, segTokens, "fixture sanity: sixteen reads put tokens into the segment")
 
 	_, err = h.obs.OnSessionEnd(ctx, endEvent())
 	require.NoError(t, err)
@@ -528,10 +531,40 @@ func TestOnSessionEnd_SegmentClosedWithFeatures(t *testing.T) {
 	closes := ss.seg.closesList()
 	require.Len(t, closes, 1)
 	require.Equal(t, endTurn, closes[0].EndTurn, "Close receives endTurn == st.Turn")
-	require.Len(t, closes[0].Feats, 5, "the §6.6 five-key feature map")
+	// Criterion change (V6 close-out wave 13, retrieval D8): the map carried the five §6.6 keys
+	// and nothing else, which is what left every session-end close at 0 tokens for good — Close
+	// reads Segment.Tokens from the "tokens" pseudo-feature and has no other way to receive it.
+	// The five keys are still required, each by name; the sixth is the segment's token count.
+	require.Len(t, closes[0].Feats, 6, "the §6.6 five-key feature map plus the tokens pseudo-feature")
 	for _, key := range []string{"path_jaccard", "tool_shift", "lexical_cohesion", "gap_seconds", "todo_transition"} {
 		require.Contains(t, closes[0].Feats, key)
 	}
+	require.Equal(t, float64(segTokens), closes[0].Feats["tokens"], "Close receives the segment's token count")
+}
+
+// TestOnSessionEnd_SegmentClosedWithTokensWithoutFeatures: a session too short for a feature
+// window still closes its segment with its token count, so the log never records a captured
+// segment as empty.
+func TestOnSessionEnd_SegmentClosedWithTokensWithoutFeatures(t *testing.T) {
+	h, ss := newSessionHarness(t)
+	ss.DefaultTokens = 40 // every captured read costs this much, so the segment is not empty
+	ctx := context.Background()
+
+	_, err := h.obs.OnSessionStart(ctx, startEvent("startup"))
+	require.NoError(t, err)
+	h.drive(readOf("toolu_short_1", "src/short.ts", "export const short = 1;\n"))
+
+	st := h.state(testSession)
+	st.mu.Lock()
+	segTokens := st.PrefixTokens - st.SegStartPos
+	st.mu.Unlock()
+	require.Positive(t, segTokens)
+
+	_, err = h.obs.OnSessionEnd(ctx, endEvent())
+	require.NoError(t, err)
+	closes := ss.seg.closesList()
+	require.Len(t, closes, 1)
+	require.Equal(t, map[string]float64{"tokens": float64(segTokens)}, closes[0].Feats)
 }
 
 func TestState_RoundTrip(t *testing.T) {

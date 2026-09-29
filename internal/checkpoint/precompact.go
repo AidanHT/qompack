@@ -166,6 +166,12 @@ func (w *FileWriter) preCompact(ctx context.Context, in PreCompactInput) (PreCom
 	if err != nil {
 		return PreCompactResult{NewDraft: fresh}, err
 	}
+	// Negative knowledge is sealed as the ledger holds it NOW, not as it stood when this draft
+	// last read it (Draft.refreshNegativeKnowledge). A failure seals the draft's own copy.
+	if rerr := d.refreshNegativeKnowledge(ctx); rerr != nil {
+		w.log.Warn("checkpoint: PreCompact could not re-read the elimination ledger; sealing the draft's copy",
+			"session", string(in.Session), "err", rerr.Error())
+	}
 
 	d.SetCache(in.Cache)
 	d.AddDrops(in.ExtraDrops...)

@@ -54,7 +54,21 @@ const (
 	featLexicalCohesion = "lexical_cohesion"
 	featGapSeconds      = "gap_seconds"
 	featTodoTransition  = "todo_transition"
+
+	// featSegmentTokens is NOT a BOCD feature: it is the pseudo-feature store.SegmentLog.Close
+	// reads Segment.Tokens from (internal/store/segments.go segTokensFeature, which is unexported;
+	// the scheduler's own close spells it the same way).
+	featSegmentTokens = "tokens"
 )
+
+// segmentTokens is what st's current segment has accumulated: the prefix position now, less the
+// position the segment opened at. It is never negative.
+func segmentTokens(st *sessionState) int {
+	if n := st.PrefixTokens - st.SegStartPos; n > 0 {
+		return n
+	}
+	return 0
+}
 
 // OnSessionStart branches on the SessionStart source: startup/resume load the store's bookkeeping,
 // compact and clear delegate to the Rehydrator seam.
@@ -187,6 +201,12 @@ func (o *observer) onSessionEnd(ctx context.Context, e Event) (Output, error) {
 				featTodoTransition: fs.TodoTransition,
 			}
 		}
+		// The segment's token count rides in the same map under the store's pseudo-feature key,
+		// because that is the only way SegmentLog.Close takes it (store splitSegFeatures). This
+		// close is the one SP-08 performs, and it left the key out: every session-end close logged
+		// "segment closed without a tokens feature" and recorded 0 tokens for good, so `timeline`
+		// reported every such segment as empty (retrieval D8 of the V6 live lane).
+		feats[featSegmentTokens] = float64(segmentTokens(st))
 		o.soft(stageDAG, dag.BuildSegment(o.opt.Graph, dag.SegmentSpec{
 			ID: st.Segment, PrevID: st.PrevSegment,
 			StartTurn: st.SegStartTurn, EndTurn: st.Turn, TS: now,

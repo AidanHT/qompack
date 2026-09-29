@@ -24,6 +24,7 @@ import (
 	"github.com/qompack/qompack/internal/daemon"
 	"github.com/qompack/qompack/internal/ipc"
 	"github.com/qompack/qompack/internal/logging"
+	"github.com/qompack/qompack/internal/mcp"
 	"github.com/qompack/qompack/internal/negknow"
 	"github.com/qompack/qompack/internal/obs"
 	"github.com/qompack/qompack/internal/paths"
@@ -814,6 +815,73 @@ type fsckToolUseLine struct {
 	Turn    int64  `json:"turn"`
 	Root    string `json:"root"`
 	By      string `json:"by"`
+	Eph     bool   `json:"eph"`
+}
+
+// fsckIsSelfRecord reports whether tu is a retrieval self-record: the record the MCP server writes
+// for its own answer (mcp.SelfRecordIDPrefix, born ephemeral).
+func fsckIsSelfRecord(tu fsckToolUseLine) bool {
+	return tu.Eph && strings.HasPrefix(tu.ID, mcp.SelfRecordIDPrefix)
+}
+
+// fsckSegmentStarts is the turn every segment of a session opened at, per session, read from
+// index/segments.jsonl's `open` records. readable is false when the log exists but cannot be read,
+// which the index.segments row reports as its own defect.
+type fsckSegmentStarts struct {
+	starts   map[string]map[int64]bool
+	readable bool
+}
+
+// readSegmentStarts reads the segment log's open records. A missing log is readable and empty: no
+// segment was ever opened. A line that does not parse, or carries a version or op this build does
+// not read, is index.segments' finding and is skipped here.
+func (s *fsckScan) readSegmentStarts() fsckSegmentStarts {
+	out := fsckSegmentStarts{starts: map[string]map[int64]bool{}, readable: true}
+	lines, err := fsckReadLines(filepath.Join(s.l.Index, "segments.jsonl"))
+	if err != nil {
+		out.readable = errors.Is(err, fs.ErrNotExist)
+		return out
+	}
+	for _, raw := range lines {
+		var rec fsckSegmentLine
+		if json.Unmarshal(raw, &rec) != nil || rec.V != fsckKnownRecordVersion || rec.Op != "open" {
+			continue
+		}
+		if out.starts[rec.S] == nil {
+			out.starts[rec.S] = map[int64]bool{}
+		}
+		out.starts[rec.S][rec.St] = true
+	}
+	return out
+}
+
+// fsckPreFixSelfRecord is why tu, a record filed behind its session's baseline, is not a turn
+// regression: it carries the signature of the pre-wave-13 producer, or "" when it does not.
+//
+// Every build before V6 wave 13 filed a retrieval self-record at the turn the daemon's resolveTurn
+// read off the session's store segment log alone: the open segment's StartTurn (an open segment's
+// EndTurn is its StartTurn until the close is logged), or 0 when the session had no open segment.
+// A session's first segment opens at turn 0, and every later one at the turn a changepoint, a
+// SubagentStop, a resume or a scheduler roll opened it, so those records sat behind hook records of
+// later turns in any session that called a Qompack tool, and failed this check for good in every
+// such store (F-UAT01-2 and UAT-11 of the V6 live lane). A current build files the record at the
+// session's current turn and never behind a record already published, so this check orders it
+// like any other; the exemption is that old producer's exact output — turn 0, or a turn one of the
+// record's own session's segments opened at — and nothing wider. When the segment log cannot be
+// read, the start turns cannot be confirmed; the record is reported rather than counted, and the
+// unreadable log is index.segments' defect, so the store still does not pass.
+func fsckPreFixSelfRecord(tu fsckToolUseLine, segs fsckSegmentStarts) string {
+	switch {
+	case !fsckIsSelfRecord(tu):
+		return ""
+	case tu.Turn == 0:
+		return "filed with no turn (turn 0)"
+	case segs.starts[tu.Session][tu.Turn]:
+		return fmt.Sprintf("filed at turn %d, the first turn of one of session %s's segments,", tu.Turn, tu.Session)
+	case !segs.readable:
+		return fmt.Sprintf("filed at turn %d, which the unreadable segment log cannot place,", tu.Turn)
+	}
+	return ""
 }
 
 // fsckToolUseSupersede is the Op of the store's supersede mutation line (MarkSuperseded).
@@ -876,13 +944,28 @@ func (s *fsckScan) checkToolUse() fsckCheck {
 		}
 	}
 
+	segs := s.readSegmentStarts()
 	lastTurn := map[string]int64{}
 	for _, tu := range records {
-		if prev, seen := lastTurn[tu.Session]; seen && tu.Turn < prev {
+		prev, seen := lastTurn[tu.Session]
+		why := ""
+		if seen && tu.Turn < prev {
+			why = fsckPreFixSelfRecord(tu, segs)
+		}
+		switch {
+		case why != "":
+			// Reported, not counted, and the baseline stays where it was: the records after it are
+			// still checked against the session's real order.
+			row.note("tool_use %s is a retrieval self-record %s after turn %d in session %s; builds "+
+				"before V6 wave 13 filed a retrieval's own record at its open segment's first turn, "+
+				"outside the session's turn order, which it does not break", tu.ID, why, prev, tu.Session)
+		case seen && tu.Turn < prev:
 			row.defect("tool_use %s reports turn %d after turn %d in session %s; turns are monotone",
 				tu.ID, tu.Turn, prev, tu.Session)
+			lastTurn[tu.Session] = tu.Turn
+		default:
+			lastTurn[tu.Session] = tu.Turn
 		}
-		lastTurn[tu.Session] = tu.Turn
 
 		if tu.By != "" && !ids[tu.By] {
 			row.defect("tool_use %s is superseded by %s, which this index does not record",
@@ -1007,12 +1090,15 @@ func fsckReadFilesState(l paths.Layout) (fsckFilesState, map[string][]store.File
 // ── 5. segments and the DPI guard's seq references ─────────────────────────────────────────────
 
 // fsckSegmentLine is the subset of index/segments.jsonl every record shape shares, plus the encode
-// record's seq.
+// record's seq and the open record's session and start turn.
 type fsckSegmentLine struct {
 	V   int    `json:"v"`
 	Op  string `json:"op"`
 	ID  int64  `json:"id"`
 	Seq int64  `json:"seq"`
+	// S and St are an `open` record's session and start turn (readSegmentStarts).
+	S  string `json:"s"`
+	St int64  `json:"st"`
 }
 
 // checkSegments verifies that every `encode` record — the DPI guard's durable claim that a segment

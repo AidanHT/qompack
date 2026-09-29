@@ -266,20 +266,28 @@ Call it when you need a file as it was when Qompack saw it, at a turn, a timesta
 Queries recorded elimination evidence for a `target` and an `approach`. Call it **before**
 committing to an approach — that is the standing instruction Qompack injects alongside a non-empty
 elimination list ([ADR 0011](adr/0011-rehydration-budget-and-item-order.md) §13). Answers are
-`absent`, `active` or `stale`; a failed query is `unavailable`. Treat `unavailable` — and any state
-you do not recognize — as unknown: never as absence, and never as a prohibition.
+`absent`, `active` or `stale`; a failed query, or a ledger that cannot be opened, is `unavailable`
+with `degraded: true`. Treat `unavailable` — and any state you do not recognize — as unknown: never
+as absence, and never as a prohibition. It works from the session's first turn: the daemon opens the
+elimination ledger the first time either ledger tool is called. Each answer is checked against the
+file versions captured so far, so once a `depends_on` file has changed in this session the answer
+is `stale`, not `active`.
 
 ### `record_eliminated`
 
 Writes negative knowledge: that an approach does not work, with the reason and the project-relative
 paths the reason rests on, so it survives compaction. It is the one tool here that is **durable**
 rather than ephemeral. A change to any `depends_on` path flips the record to stale rather than
-deleting it. Check the response before relying on persistence.
+deleting it. A `session`-scoped record (the default) belongs to the session that made it and is
+answered only there; `project` scope carries it to later sessions. Check the response before relying
+on persistence: when no ledger can be opened it is a tool error and nothing is recorded.
 
 ### `timeline`
 
 Retrieves recorded session segments over a turn or timestamp range. Call it to reconstruct order —
-what happened between two points. Missing events and native-context coverage may be unknown.
+what happened between two points. A segment still open reports the session's current turn as its
+end and, when the daemon holds it, its running token count; a range whose `from` is after its `to`
+is refused. Missing events and native-context coverage may be unknown.
 
 ### `why`
 

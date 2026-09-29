@@ -285,12 +285,13 @@ func installMCPTools(opts *daemon.Options, root string, cfg config.Config,
 		log.Loud("mcp: expansion promotion counting disabled", "err", promErr.Error())
 	}
 
-	// There is no ledger HERE on the daemon path: WireRehydrator opens the negative-knowledge
-	// ledger lazily on the first compaction and only then publishes it back onto Options (see
-	// RehydrateOptions.OpenLedger for why an eager open is not an option). liveLedger hands the
-	// tools an accessor onto Options.LedgerHandle, so the single lazily-opened handle reaches them
-	// the moment it exists; passing a value here would freeze the nil for the life of the process.
-	deps := NewToolDeps(root, cfg, opts.Store, liveLedger(opts), ckptReader, dropReporter, prom, syms, log, reg, clk)
+	// There is no ledger HERE on the daemon path: the negative-knowledge ledger is opened lazily,
+	// through the one-shot opener WireRehydrator published on Options (see
+	// RehydrateOptions.OpenLedger for why an eager open is not an option). openingLedger hands the
+	// tools an accessor that calls that opener, so the first already_tried or record_eliminated
+	// opens the ledger if no compaction has yet; passing a value here would freeze the nil for the
+	// life of the process.
+	deps := NewToolDeps(root, cfg, opts.Store, openingLedger(opts), ckptReader, dropReporter, prom, syms, log, reg, clk)
 	if err := daemon.InstallMCPOp(opts, deps); err != nil {
 		log.Loud("mcp: retrieval tools unavailable; the daemon is running without them", "err", err.Error())
 	}

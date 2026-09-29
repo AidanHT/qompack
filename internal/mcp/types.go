@@ -41,9 +41,10 @@ type Request struct {
 	// returns something rather than hanging the model.
 	Deadline time.Time
 	// Turn is the session's current turn index, or 0 when it is not known. It is an ADDITIVE
-	// SP-13 field: the stdio MCP process has no turn of its own, so the daemon resolves one from
-	// the store's currently open segment and the ephemeral ToolUseRecord this call writes is
-	// ordered by it. 0 is an honest "unknown", never a claim about turn zero.
+	// SP-13 field: the stdio MCP process has no turn of its own, so the daemon resolves one — from
+	// its observer's live state, the tool_use index and the open segment (daemon resolveTurn) — and
+	// the ephemeral ToolUseRecord this call writes is filed at it (re-resolved at the write when the
+	// daemon attached a Live.Turn), and so is the DAG node of an elimination this call records.
 	Turn core.TurnIndex
 }
 
