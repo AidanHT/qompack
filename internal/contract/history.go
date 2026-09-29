@@ -139,6 +139,19 @@ type SessionHistory struct {
 
 	MCPInitialized bool `json:"mcp_initialized"`
 
+	// MCPAwaitSession is the session whose start first found no MCP handshake on record: the host
+	// connects the MCP server beside a session's first start, not before it, so that start reports
+	// mcp.server_registered pending. A start of any OTHER session while MCPInitialized is still
+	// false means a whole session passed without one, and the assertion fails. Owned by
+	// checkMCPServerRegistered.
+	MCPAwaitSession core.SessionID `json:"mcp_await_session,omitempty"`
+
+	// TranscriptAwaitPath is a transcript_path a start found not yet written — the host creates
+	// the transcript after SessionStart:startup in -p mode — so transcript.readable reported it
+	// pending. The next start of another transcript checks that it appeared, and fails the
+	// assertion if it never did. Owned by checkTranscriptReadable.
+	TranscriptAwaitPath string `json:"transcript_await_path,omitempty"`
+
 	// CleanRuns mirrors the monitor's own clean-run streak into the cross-session record so a
 	// caller inspecting History alone (e.g. self-test synthesizing an Env, per task-4-spec.md's
 	// nil-tolerance note) can see it without a live Monitor.
