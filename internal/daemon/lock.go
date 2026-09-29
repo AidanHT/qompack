@@ -209,6 +209,20 @@ func lockIsStale(lockPath, hbPath string, a ipc.Addr, clk core.Clock) bool {
 		return true // step 1: unparseable lock file
 	}
 
+	if lockIsForeign(info, a) {
+		// The lock records ANOTHER project's address: the store was copied or moved with its run/
+		// directory (F-UAT03-4). The listener at that address serves the other path's store, and the
+		// pid is that path's daemon, so neither can vouch for this store — dialling the recorded
+		// address used to keep a copy's lock "live" for as long as the original's daemon ran, and no
+		// daemon ever started for the copy. What can vouch for it is a daemon answering at THIS
+		// project's address, or this store's own heartbeat, which only a daemon serving this store
+		// refreshes: the same 90-second rule as step 4, unchanged.
+		if ipc.Probe(a, dialProbeTimeout) {
+			return false
+		}
+		return heartbeatStale(info, hbPath, clk)
+	}
+
 	// Step 2: the authoritative liveness dial (Ruling #22 — a successful DIAL, not a round trip
 	// through a request/response). ipc.Probe connects and closes without writing anything, against
 	// the address the lock file recorded (falling back to the caller's own resolved address if the
@@ -235,12 +249,66 @@ func lockIsStale(lockPath, hbPath string, a ipc.Addr, clk core.Clock) bool {
 	// misjudge a lock created microseconds ago as stale — reclaiming it out from under its rightful
 	// owner. Anchoring on Started instead means "just created" is never indistinguishable from
 	// "never had a chance to report in".
+	return heartbeatStale(info, hbPath, clk)
+}
+
+// heartbeatStale is the staleness protocol's step 4: the heartbeat file's mtime, or the lock's own
+// Started time when no heartbeat exists yet, older than staleAfter.
+func heartbeatStale(info LockInfo, hbPath string, clk core.Clock) bool {
+	return heartbeatAge(info, hbPath, clk) > staleAfter
+}
+
+// heartbeatAge is how long ago the lock's holder last reported in, by step 4's reading.
+func heartbeatAge(info LockInfo, hbPath string, clk core.Clock) time.Duration {
 	lastSeen := time.UnixMilli(info.Started)
 	if fi, err := os.Stat(paths.Long(hbPath)); err == nil {
 		lastSeen = fi.ModTime()
 	}
-	return clk.Now().Sub(lastSeen) > staleAfter
+	return clk.Now().Sub(lastSeen)
 }
+
+// lockIsForeign reports whether a lock records an IPC address other than the one this project
+// resolves to: it was written by a daemon serving another path, and the store was copied or moved
+// with its run/ directory. A lock that records no address is not foreign; step 2 then dials ours.
+func lockIsForeign(info LockInfo, a ipc.Addr) bool {
+	return info.Addr != "" && a.Path != "" && info.Addr != a.Path
+}
+
+// LockHolder describes whoever holds a project's daemon lock, for the one line a daemon that could
+// not take the lock logs before it exits (F-UAT03-4: it used to exit 0 with no line at all).
+type LockHolder struct {
+	Present bool
+	PID     int
+	Addr    string
+	Version string
+	Started int64
+	// Foreign is true when the lock records another project's address (a copied or moved store).
+	Foreign bool
+	// HeartbeatAge is how long ago the holder last reported in; past 90 s the lock is stale and the
+	// next start reclaims it.
+	HeartbeatAge time.Duration
+}
+
+// DescribeLockHolder reads projectRoot's daemon lock without taking it and reports who holds it and
+// whether it was written for another path. a is this project's own resolved address.
+func DescribeLockHolder(projectRoot string, a ipc.Addr, clk core.Clock) LockHolder {
+	if clk == nil {
+		clk = core.SystemClock()
+	}
+	info, ok := ReadLock(projectRoot)
+	if !ok {
+		return LockHolder{}
+	}
+	return LockHolder{
+		Present: true, PID: info.PID, Addr: info.Addr, Version: info.Version, Started: info.Started,
+		Foreign:      lockIsForeign(info, a),
+		HeartbeatAge: heartbeatAge(info, filepath.Join(paths.Of(projectRoot).Run, heartbeatFileName), clk),
+	}
+}
+
+// StaleAfter is the heartbeat staleness window the lock protocol reclaims after, for a caller that
+// tells an operator how long a held lock can still block a start.
+func StaleAfter() time.Duration { return staleAfter }
 
 // readLockFile reads and parses p, reporting ok=false for anything that is missing or does not
 // decode as LockInfo — step 1 of the staleness protocol treats both the same way.
