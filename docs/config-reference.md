@@ -82,7 +82,7 @@ Run `qompack config print --provenance` to see the effective value of every key 
 | `runtime.logging.level` | string | `"info"` | one of `debug`, `info`, `warn`, `error` | 00-ARCH §5.2 | minimum log level written to the day log |
 | `runtime.logging.maxFileMB` | integer | `10` | — | 00-ARCH §5.2 | log file size in MB before rotation |
 | `runtime.logging.maxFiles` | integer | `5` | — | 00-ARCH §5.2 | number of rotated log files retained |
-| `runtime.mcp.maxResponseBytes` | integer | `262144` | [4096,∞) | §8.7 | maximum bytes an MCP tool response may return |
+| `runtime.mcp.maxResponseBytes` | integer | `262144` | [4096,∞) | §8.7 | maximum bytes of result text the expand and re_read tools return (content JSON-escaped, with its envelope); other tools are not measured against it |
 | `runtime.mcp.spanWidenLines` | integer | `40` | [0,∞) | §8.7 | lines to widen a minimal span by when the caller requests more context |
 | `runtime.migration.capture.rawEvidence` | boolean | `false` | — | Qompack.md v1.5 §8.1 / SP-20 M1-01 | capture permitted raw host payload bytes before any transform (SP-20 M1); refused until the M1 gate passes |
 | `runtime.migration.compaction.automaticVeto` | boolean | `false` | — | Qompack.md v1.5 §7.3 / 00-ARCH §12.1 | let the scheduler veto an automatic compaction for optimization; refused: the recovery/proactive distinction is unverified (SP-19 M0-03) |
