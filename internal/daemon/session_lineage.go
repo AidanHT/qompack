@@ -21,18 +21,19 @@ const sessionSourceFork = checkpoint.LineageFork
 // forkNoter is the checkpoint writer's lineage seam (checkpoint.FileWriter.NoteFork). It is reached
 // by type assertion because checkpoint.Writer, SP-10's interface, does not declare it.
 type forkNoter interface {
-	NoteFork(context.Context, core.SessionID) error
+	NoteFork(context.Context, core.SessionID, core.UnixMilli) error
 }
 
-// noteFork records that s started as a fork. It is bookkeeping rather than an act, so it runs in
-// every degradation mode, and a failure costs only the lineage: the fork's own first prompt then
-// stands as its original, which is what every fork got before.
-func (d *daemon) noteFork(ctx context.Context, s core.SessionID) {
+// noteFork records that s started as a fork at at, the host's stamp on its SessionStart. It is
+// bookkeeping rather than an act, so it runs in every degradation mode, and a failure costs only
+// the lineage: the fork's own first prompt then stands as its original, which is what every fork
+// got before.
+func (d *daemon) noteFork(ctx context.Context, s core.SessionID, at core.UnixMilli) {
 	fn, ok := d.svc.Checkpoints.(forkNoter)
 	if !ok {
 		return
 	}
-	if err := fn.NoteFork(ctx, s); err != nil {
+	if err := fn.NoteFork(ctx, s, at); err != nil {
 		d.log.Warn("daemon: a forked session's lineage was not recorded; its own first prompt stands as its original",
 			"session", string(s), "err", err.Error())
 	}

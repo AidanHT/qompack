@@ -18,7 +18,8 @@ import (
 // Both are read from the SESSION'S OWN PROMPT RECORDS — every verbatim UserPromptSubmit capture the
 // store indexed for the session, in turn order (store.SessionPrompts) — and recomputed whole
 // whenever the draft is refreshed: at Begin, after every Advance, and at PreCompact just before the
-// seal. Two sources are deliberately not used any more:
+// seal. A forked session's are read the same way from the sessions it continues (lineage.go). Two
+// sources are deliberately not used any more:
 //
 //   - Encoding closed segments. Evolution used to be filled only there, and the observer closes a
 //     session's segment at SessionEnd, so at every host compaction the prompts since the session
@@ -160,7 +161,7 @@ func readRootText(ctx context.Context, src SourceSet, root core.Hash, what strin
 
 // intentCandidate is one prompt a draft's evolution may carry: a prompt record (rec.ID set), read
 // through the draft's cache, or a restatement copied from a checkpoint (copied), which is what a
-// fork inherits from the checkpoint it continues.
+// fork inherits when its ancestry's records cannot be enumerated.
 type intentCandidate struct {
 	rec    store.ToolUseRecord
 	copied string
@@ -202,6 +203,9 @@ func (d *Draft) refreshIntentLocked(ctx context.Context) {
 			first = &own[0]
 			own = own[1:]
 		}
+	case d.fork.fromRecords:
+		first = d.fork.origin
+		cands = recordCandidates(d.fork.inherited)
 	default:
 		if d.fork.original != "" {
 			original = d.fork.original
@@ -407,7 +411,7 @@ func (d *Draft) RefreshIntent(ctx context.Context) {
 // A store that cannot enumerate a session's prompts keeps the earlier behaviour: the graph's
 // earliest userprompt node.
 func (w *FileWriter) seedIntent(ctx context.Context, d *Draft, own *Checkpoint) {
-	d.fork = w.forkIntentFor(ctx, d.session, own)
+	d.fork = w.forkIntentFor(ctx, d.src.Store, d.session, own)
 	switch {
 	case d.fork != nil:
 		d.cp.UserIntent.Original = d.fork.original

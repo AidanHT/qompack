@@ -398,7 +398,7 @@ func (w *FileWriter) Begin(ctx context.Context, s core.SessionID, parent core.Ch
 			Original: d.cp.UserIntent.Original, Evolution: slices.Clone(d.cp.UserIntent.Evolution),
 		}}
 		d.mu.Unlock()
-		fork := w.forkIntentFor(ctx, s, &prior)
+		fork := w.forkIntentFor(ctx, src.Store, s, &prior)
 		d.mu.Lock()
 		d.fork = fork
 		d.promptText = handed

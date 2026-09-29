@@ -64,13 +64,19 @@ func TestSessionStartFork_RecordsTheForksLineage(t *testing.T) {
 		require.Nil(t, l, "a %s session is not a fork", source)
 	}
 
-	resp := dd.dispatchOp(context.Background(), startRequest(dd, lineageFork, "fork", "", ""))
+	// A start the host stamped a minute before the daemon handles it (a spooled start, replayed):
+	// the fork's moment is the host's stamp, which is what the parent's prompt records carry too.
+	req := startRequest(dd, lineageFork, "fork", "", "")
+	req.TS -= core.UnixMilli(time.Minute / time.Millisecond)
+	resp := dd.dispatchOp(context.Background(), req)
 	require.True(t, resp.OK)
 	l, err := checkpoint.ReadLineage(paths.Of(root), lineageFork)
 	require.NoError(t, err)
 	require.NotNil(t, l, "SessionStart(source=fork) records the fork's lineage")
 	require.Equal(t, checkpoint.LineageFork, l.Source)
 	require.Zero(t, l.ParentSeq, "no checkpoint existed, so the parent is recorded as unknown")
+	require.Empty(t, l.ParentSession, "no other session had said anything")
+	require.Equal(t, req.TS, l.At, "the fork started when the host says it did")
 }
 
 // lineageReader answers every read with the fork's checkpoint, as the fixed checkpointer seals it.
