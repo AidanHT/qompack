@@ -254,7 +254,7 @@ func (x *decisionExtractor) run(ctx context.Context) ([]decisionCandidate, error
 	if len(merged) > maxDraftDecisions {
 		merged = merged[:maxDraftDecisions]
 	}
-	x.emit(merged)
+	emitDecisions(x.src, merged)
 	return merged, nil
 }
 
@@ -559,8 +559,10 @@ func (x *decisionExtractor) currentSegment(ctx context.Context, latest core.Turn
 	return newest.ID, true
 }
 
-// emit writes every returned decision into the DAG: a KindDecision node and, when the source has
-// one, an explains edge from its evidence node (plan §9).
+// emitDecisions writes every returned decision into the DAG: a KindDecision node and, when the
+// source has one, an explains edge from its evidence node (plan §9). ExtractDecisions emits what
+// it returns, and the draft's seal-time refresh emits the decisions it mints the same way, so
+// slice scoring ranks both alike.
 //
 // AddNode is a field-wise merge and AddEdge folds max Weight / min Turn — SP-07's shipped
 // semantics, not the no-op §9 assumed — so everything emitted is a stable value: the same Turn,
@@ -570,7 +572,7 @@ func (x *decisionExtractor) currentSegment(ctx context.Context, latest core.Turn
 // would rewrite the node on every pass. Emission failures are logged at Warn and never fail the
 // extraction: the decisions are already minted, and the artifact must not lose them to a full
 // graph log.
-func (x *decisionExtractor) emit(cands []decisionCandidate) {
+func emitDecisions(src SourceSet, cands []decisionCandidate) {
 	for _, c := range cands {
 		id := dag.DecisionNode(c.d.ID)
 		want := dag.Node{
@@ -579,7 +581,7 @@ func (x *decisionExtractor) emit(cands []decisionCandidate) {
 			Turn:   c.d.Turn,
 			Ref:    string(c.d.ID),
 			Root:   c.d.Evidence,
-			Tokens: x.src.Tokens.EstimateString(c.d.What+" "+c.d.Why, tokens.ClassProse),
+			Tokens: src.Tokens.EstimateString(c.d.What+" "+c.d.Why, tokens.ClassProse),
 		}
 		// Emit only when the merge would change something. The shipped AddNode appends a log
 		// record and dirties the position index even when the field-wise merge is a value no-op,
@@ -589,9 +591,9 @@ func (x *decisionExtractor) emit(cands []decisionCandidate) {
 		// zero never displaces a stored value — so skipping is observationally identical to
 		// calling AddNode, and repeated extraction becomes a fixed point of the log as well as of
 		// the graph.
-		if prev, ok := x.src.Graph.Node(id); !ok || prev.Kind != want.Kind || prev.Turn != want.Turn ||
+		if prev, ok := src.Graph.Node(id); !ok || prev.Kind != want.Kind || prev.Turn != want.Turn ||
 			prev.Ref != want.Ref || prev.Root != want.Root || prev.Tokens != want.Tokens {
-			if err := x.src.Graph.AddNode(want); err != nil {
+			if err := src.Graph.AddNode(want); err != nil {
 				pkgLog().Warn("checkpoint: decision node emission failed", "id", string(c.d.ID), "err", err)
 			}
 		}
@@ -601,7 +603,7 @@ func (x *decisionExtractor) emit(cands []decisionCandidate) {
 		// AddEdge needs no such guard: its fold already appends a record only `if changed` and
 		// never dirties the position index on the fold path.
 		e := dag.Edge{From: c.evidence, To: id, Kind: dag.EdgeExplains, Weight: 1, Turn: c.d.Turn}
-		if err := x.src.Graph.AddEdge(e); err != nil {
+		if err := src.Graph.AddEdge(e); err != nil {
 			pkgLog().Warn("checkpoint: decision edge emission failed", "id", string(c.d.ID), "err", err)
 		}
 	}
