@@ -1427,6 +1427,40 @@ func TestDropReport_OrdersPathRulesFirst(t *testing.T) {
 	require.Equal(t, 6, got.seen)
 }
 
+// TestDropReport_UnreadPinSetSurvivesATightReport: a seal that could not re-read the pin set names
+// it in Checkpoint.Dropped as {invariants, pins} (internal/checkpoint sealInvariants) — tier-1
+// material that may be missing. Under a section-7 allowance too small for the whole report, that
+// line must be one the agent still reads by name, not one the counted tail swallows.
+func TestDropReport_UnreadPinSetSurvivesATightReport(t *testing.T) {
+	d := Deps{Tokens: fakeEstimator{}}
+	pinsDrop := checkpoint.DropEntry{
+		Kind: "invariants", ID: "pins",
+		Detail: "pins could not be re-read at the seal, so pins made after the draft began may be missing",
+	}
+	entries := []checkpoint.DropEntry{pinsDrop}
+	for _, id := range []string{".claude/rules/a.md", ".claude/rules/b.md", ".claude/rules/c.md", ".claude/rules/d.md"} {
+		entries = append(entries, checkpoint.DropEntry{Kind: dropKindPathRule, ID: id, Detail: "did not fit the rehydration budget"})
+	}
+	b := buildDropReport(entries)
+	priceUnits(d, b.units)
+	pinsLine := dropLine(pinsDrop)
+	var pinsCost cost
+	for _, u := range b.units {
+		if u.text == pinsLine {
+			pinsCost = unitCost(u)
+		}
+	}
+	require.NotZero(t, pinsCost, "fixture sanity: the pins line is in the report")
+
+	// Room for the heading, ONE line and the counted tail.
+	allowance := sectionCost(d, ItemDropReport, b).plus(pinsCost).plus(unitCost(moreDropsUnit(d, len(b.units)-1)))
+	got := fillDropReport(d, b, allowance)
+
+	require.True(t, got.truncated, "fixture sanity: the allowance cannot hold the whole report")
+	require.Equal(t, []string{pinsLine, "- … and 4 more; call dropped()\n"}, unitTexts(built{units: got.units}),
+		"the unread pin set is the line a truncated report keeps")
+}
+
 // TestDropReport_SortsByIDWithinAKind asserts the within-kind order is ID ascending, so the report
 // is stable across replays.
 func TestDropReport_SortsByIDWithinAKind(t *testing.T) {
