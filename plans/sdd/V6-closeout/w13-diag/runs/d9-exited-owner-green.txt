@@ -1,0 +1,27 @@
+=== RUN   TestLock_AnExitedOwnerIsReplacedAtOnce
+--- PASS: TestLock_AnExitedOwnerIsReplacedAtOnce (0.16s)
+=== RUN   TestLock_ALiveOwnerKeepsItsFreshLock
+--- PASS: TestLock_ALiveOwnerKeepsItsFreshLock (0.02s)
+=== RUN   TestAcquireLockExclusive
+=== PAUSE TestAcquireLockExclusive
+=== RUN   TestStaleLockReclaimed
+=== PAUSE TestStaleLockReclaimed
+=== RUN   TestLiveLockNotReclaimed
+=== PAUSE TestLiveLockNotReclaimed
+=== RUN   TestAcquireLockRaceWindowIsNotStale
+=== PAUSE TestAcquireLockRaceWindowIsNotStale
+=== RUN   TestLockRefusesAfterReclaim
+=== PAUSE TestLockRefusesAfterReclaim
+=== CONT  TestAcquireLockExclusive
+=== CONT  TestAcquireLockRaceWindowIsNotStale
+=== CONT  TestLiveLockNotReclaimed
+=== CONT  TestLockRefusesAfterReclaim
+=== CONT  TestStaleLockReclaimed
+--- PASS: TestAcquireLockRaceWindowIsNotStale (0.02s)
+--- PASS: TestLockRefusesAfterReclaim (0.03s)
+--- PASS: TestLiveLockNotReclaimed (0.04s)
+--- PASS: TestAcquireLockExclusive (0.04s)
+--- PASS: TestStaleLockReclaimed (0.05s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	0.544s
+EXIT=0
