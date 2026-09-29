@@ -1,6 +1,7 @@
 package store
 
 import (
+	"bufio"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
@@ -234,13 +235,28 @@ type RestoreProof struct {
 	// every chunk against its hash on read). It is the non-vacuous core of the proof.
 	ContentRootsProven int
 	ToolRefsProven     int
+	// ToolRefsTombstoned counts tool references whose root a gc tombstone in index/roots.jsonl
+	// retired: the store collected it on purpose (an MCP server's ephemeral record, typically), and
+	// `qompack fsck` reads the same reference as accounted for. Counted, never read back, and never
+	// a restore failure (F-C49-2). A reference nothing accounts for still fails the proof.
+	ToolRefsTombstoned int
 	// SameBuildOnly is always true; this makes no old-release compatibility claim.
 	SameBuildOnly bool
-	// CheckpointSealCovered is always false; the content reader does not verify checkpoint chains or
-	// delivery-seal readability. Note names the follow-up.
+	// CheckpointSealCovered is always false: it describes this proof, and the content reader does not
+	// verify checkpoint chains or delivery-seal readability. `qompack backup restore` and `backup
+	// verify` check those on the destination with fsck and the full dual-reader seal check, attach
+	// that integrity report, and say in Note that they did — so the note never contradicts the
+	// report beside it.
 	CheckpointSealCovered bool
 	Note                  string
 }
+
+// RestoreProofNote is what Restore's reader proof covers, and nothing more. A caller that runs
+// further checks on the destination appends what they covered.
+const RestoreProofNote = "content roots and tool references proven by a same-build read-only reader " +
+	"(a tool reference whose root a gc tombstone retired is counted, not read); the reader proof " +
+	"itself does not read checkpoint chains or delivery seals. Publication uses the platform's " +
+	"atomic no-replace directory rename and refuses unsupported filesystems."
 
 // Restore verifies backup id and publishes it into a FRESH destination .qompack. It uses one
 // validated manifest snapshot throughout: refuse an existing destination; stage on the same
@@ -250,9 +266,7 @@ type RestoreProof struct {
 func (x *Maintenance) Restore(ctx context.Context, id, dest string) (RestoreProof, error) {
 	proof := RestoreProof{
 		BackupID: id, Destination: dest, SameBuildOnly: true, CheckpointSealCovered: false,
-		Note: "content roots and tool references proven by a same-build read-only reader; checkpoint-chain " +
-			"and delivery-seal integrity are NOT covered — run packaged `fsck --seal-check` on the destination. " +
-			"Publication uses the platform's atomic no-replace directory rename and refuses unsupported filesystems.",
+		Note: RestoreProofNote,
 	}
 
 	man, err := x.readValidatedManifest(id)
@@ -465,6 +479,7 @@ func (x *Maintenance) proveReader(ctx context.Context, staging string, proof *Re
 			}
 			proof.ContentRootsProven++
 		}
+		var tombstoned map[core.Hash]bool // read on the first reference that does not resolve
 		for _, ref := range maintToolRoots(fs) {
 			if ref.IsZero() {
 				continue
@@ -473,6 +488,15 @@ func (x *Maintenance) proveReader(ctx context.Context, staging string, proof *Re
 				return err
 			}
 			if _, gerr := fs.GetRoot(ctx, ref); gerr != nil {
+				if tombstoned == nil {
+					tombstoned = maintTombstonedRoots(fs)
+				}
+				if errors.Is(gerr, core.ErrNotFound) && tombstoned[ref] {
+					// fsck's rule for the same reference (index.tool_use: "accounted for by a gc
+					// tombstone"): the store retired this root on purpose.
+					proof.ToolRefsTombstoned++
+					continue
+				}
 				return fmt.Errorf("store: restored tool reference root %s does not resolve: %w", ref.Short(), gerr)
 			}
 			proof.ToolRefsProven++
@@ -604,6 +628,28 @@ func maintRootHashes(s *FSStore) []core.Hash {
 	out := make([]core.Hash, 0, len(s.rootIndex))
 	for h := range s.rootIndex {
 		out = append(out, h)
+	}
+	return out
+}
+
+// maintTombstonedRoots is every root a gc tombstone in s's index/roots.jsonl retired — the same set
+// `qompack fsck` builds for its index.roots and index.tool_use rows, by the same rule: any gc line
+// naming the root. The loader drops a retired root from the index without remembering it, so the
+// file is read again here; an unreadable file or line answers "not tombstoned", which leaves the
+// reference a proof failure rather than excusing it.
+func maintTombstonedRoots(s *FSStore) map[core.Hash]bool {
+	out := map[core.Hash]bool{}
+	f, err := os.Open(paths.Long(filepath.Join(s.l.Index, rootsFile)))
+	if err != nil {
+		return out
+	}
+	defer func() { _ = f.Close() }()
+	sc := bufio.NewScanner(f)
+	sc.Buffer(make([]byte, 0, scannerInitialBuf), scannerMaxBuf)
+	for sc.Scan() {
+		if _, tombstone, root, perr := parseRootLine(sc.Bytes()); perr == nil && tombstone {
+			out[root] = true
+		}
 	}
 	return out
 }
