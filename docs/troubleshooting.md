@@ -95,13 +95,18 @@ word cannot quietly start reading as success.
 
 Two rows are evaluated at `SessionStart`, before what they observe can exist.
 `mcp.server_registered` reads `initialize-pending` until the MCP server's handshake reaches the
-daemon: the host connects the server beside a session's first start, not before it. It fails,
-`initialize-not-received`, only at the start of a later session, once a whole session has passed
-with no handshake. `transcript.readable` reads `transcript-pending` when the transcript does not
-exist yet, because in `-p` mode the host creates it after `SessionStart:startup`. It fails only if
-that transcript has still not appeared by the next start (`an earlier session's transcript_path
-never appeared`), or if it is missing at a compaction's start, when the host has been writing it all
-session (`internal/contract/assertions.go`, `checkMCPServerRegistered`, `checkTranscriptReadable`).
+daemon: the host connects the server beside a session's first start, not before it. The host
+creates a session's transcript with its first prompt, so `transcript.readable` reads
+`transcript-pending` while the transcript does not exist yet. Both stay pending at the start of a
+second session while the first is still running, however long that session goes without a prompt.
+They fail only at a later start, and only if the session they waited for had a prompt and has ended
+(its SessionEnd, or the daemon ended it as abandoned; see [section 7](#7-daemon-problems)).
+`mcp.server_registered` then fails `initialize-not-received` if no handshake ever arrived.
+`transcript.readable` fails `an earlier session's transcript_path never appeared` if that session's
+transcript still does not exist. A session that ended without a prompt had no transcript due, so
+nothing fails. `transcript.readable` also fails, `transcript_path does not exist`, if the transcript
+is missing at a compaction's start, since the host has been writing it all session
+(`internal/contract/assertions.go`, `checkMCPServerRegistered`, `checkTranscriptReadable`).
 
 **Action.** Read `OBSERVED`, never the `OK` column alone. To learn what a given assertion would
 observe if it ran, read its constant's comment in `internal/contract/ids.go`.
@@ -122,7 +127,11 @@ daemon last persisted, or nothing at all (`internal/commands/statuscollect.go`: 
 With no daemon listening, the provenance line says so rather than quoting an empty refusal:
 `daemon: no daemon answered: none is listening for this project yet`. The command asks one to
 start unless `runtime.daemon.enabled` is `false`, so run `status` again once it is up; until then
-the page falls back to the persisted metrics file (`source: disk`) if there is one.
+the page falls back to the persisted metrics file (`source: disk`) if there is one. If a daemon
+is listening but its answer did not come in time, or its connection broke mid-reply, the line reads
+`daemon: a daemon is listening for this project but did not answer within 10s` instead: it is up
+but busy or stuck; see [section 7](#7-daemon-problems) (`internal/cli/qompack_commands.go`,
+`fetchDaemonStatus`).
 
 Latency percentiles are never printed above the `max` on the same line. The histogram reports a
 percentile as its bucket's upper bound, which can sit up to about 9% above the samples in it, so the
