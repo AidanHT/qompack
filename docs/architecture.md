@@ -606,6 +606,20 @@ rehydration whose turn 0 is not the session's earliest-stamped prompt adds a `us
 entry, `host_order`, to section 7, naming both records and the `expand(tool_use_id=…)` call for
 the host-first one ([docs/cannot-do.md](cannot-do.md#the-first-captured-prompt-is-not-always-the-first-prompt-the-host-sent)).
 
+**What follows the original, and what a fork's original is (V6 close-out, D45).** The capture is
+read whole, never a prefix: an original longer than the block can carry is named in section 7 with
+its `expand(tool_use_id=…)` call. The checkpointer recomputes `user_intent` from the session's own
+prompt records (`store.SessionPrompts`) whenever its draft is refreshed and just before each seal,
+so every checkpoint carries the session's later prompts, verbatim and in order, as
+`user_intent.evolution`, including those in the segment that is still open when the host compacts;
+it keeps the newest 64 and names how many earlier ones it left out. A session that another session
+did not fork is seeded only from its own chain, never from another session's checkpoint. A fork
+(`SessionStart` with `source` `fork`) has its lineage recorded when it starts, naming the project's
+newest checkpoint as the one it continues (`state/lineage-<session>.json`); its checkpoints inherit
+that checkpoint's original and evolution, its own prompts follow them, and item 2 verifies the
+original against the origin session's own capture and labels it with that session
+([docs/cannot-do.md](cannot-do.md#a-forked-sessions-parent-is-inferred-not-reported-by-the-host)).
+
 **What "8–12K" is and is not.** It is a historical Qompack-added target for the material Qompack
 injects, recorded in [ADR 0011](adr/0011-rehydration-budget-and-item-order.md) and in `Qompack.md`
 §8.6. It is not the total restored native context, and nothing here claims the native input shrinks:

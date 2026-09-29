@@ -407,6 +407,17 @@ first captured prompt is the host's first except in a spool race and under hook 
 rehydration names either case when it happens
 ([docs/cannot-do.md](cannot-do.md#the-first-captured-prompt-is-not-always-the-first-prompt-the-host-sent)).
 
+What you say after that first prompt is carried too. Every checkpoint lists the session's later
+prompts, verbatim and in order, as the original's `user_intent.evolution`; the rehydration shows
+them under the original, newest first, so your latest correction is the first one Claude reads and
+the one a tight budget keeps. Each is a whole record: one that does not fit is left out and named
+in section 7 with where to read it, and the same holds for the original itself — a first prompt
+longer than the injected block can carry is named with its `expand(tool_use_id=…)` call rather
+than cut. A forked session (`claude --resume <id> --fork-session`) continues its parent's task: its
+original is the parent's first prompt, labelled with the session it came from, and the fork's own
+prompts follow as evolution
+([docs/cannot-do.md](cannot-do.md#a-forked-sessions-parent-is-inferred-not-reported-by-the-host)).
+
 **The recorded partial.** `plans/V5-report.md` §24 records the uncertainty gate as **partial**: it
 "does not survive the digest surface under a blind ledger". Concretely (§29 item 11), a stale
 record can render as `[active]` in a blind-ledger digest, and pin records are stamped `mcp` because
