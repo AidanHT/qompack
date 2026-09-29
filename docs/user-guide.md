@@ -489,7 +489,7 @@ Any subcommand accepts `--set <dotted.key>=<value>` to override configuration fo
 | `version` | the plugin version |
 | `admin delivery-seal [--project <root>] (--check \| --to v1) [--accept-torn-slot --yes]` | checks or converts the delivery journals' position seals; `--accept-torn-slot --yes` accepts a seal with one valid and one torn slot when the journal holds a complete tail past it. **The daemon must be stopped** |
 | `backup create --project <root> --id <name> [--json]` | takes a consistent backup with the source daemon stopped |
-| `backup verify --project <root> --id <name> [--json]` | validates the named backup's manifest and bytes |
+| `backup verify --project <root> --id <name> [--json]` | validates the named backup's manifest and bytes, then restores it into a scratch destination and runs restore's reader proof and integrity checks, so a backup that verifies restores ([procedure](backup.md)) |
 | `backup restore --project <root> --id <name> --destination <fresh-project> [--json]` | restores into a fresh destination, proves same-build reads and runs integrity checks; source and later writes remain intact ([procedure](backup.md)) |
 | `eval import` | imports recorded Claude Code transcripts as a redacted replay corpus |
 | `daemon` | runs the resident per-project daemon in the foreground |
