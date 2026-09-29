@@ -15,15 +15,17 @@ import (
 // observation. What they never did was join the capture sidecar to that record (LinkCaptureReference
 // ran for tool and subagent captures only), so every prompt sidecar they wrote says
 // published:false. The current build links prompts, and its leased prompt records carry an args
-// digest bound to the delivery's observation, so an unbound digest identifies an earlier build's
-// record.
+// digest bound to the delivery's observation and an observation intent; but its UNLEASED records
+// carry the same unbound digest an earlier build wrote, so the digest alone does not identify an
+// earlier build's record. LegacyPromptRecords says which records may claim.
 //
 // A released build never wrote a sidecar at all: v0.2.0 has no records/captures/ tree, and a store
 // it wrote carries nothing this file reads.
 //
 // Such a sidecar's reference EXISTS, so it is not a publication gap, and the accounting reads it as
 // published: the sidecar's own payload names the prompt, its session names the record's session, and
-// a record in that session carrying that digest is its reference. Each record accounts for one
+// a record in that session carrying that digest, published before the session's first
+// observation-bound prompt, is its reference. Each record accounts for one
 // sidecar, so two deliveries of the same words against one record still leave one gap. Nothing is
 // written, re-linked or re-minted: the sidecar stays exactly as the earlier build wrote it.
 
@@ -66,25 +68,68 @@ func LegacyPromptDigest(payload []byte) (core.Hash, bool) {
 	return d, true
 }
 
-// legacyPromptRecords counts this store's prompt records by (session, args digest). A current
-// build's leased prompt record carries an observation-bound digest no earlier build's sidecar
-// produces, so counting every prompt record is safe: only an unbound digest can be matched.
-func (s *FSStore) legacyPromptRecords() map[LegacyPromptKey]int {
+// LegacyPromptCounter is implemented by the store: the prompt records an earlier build's unlinked
+// prompt sidecars may claim (ClaimLegacyPrompt), counted by (session, args digest). The publication
+// audit claims from it, and so does `qompack fsck`'s captures row, through a read-only open, so the
+// two rows cannot disagree.
+type LegacyPromptCounter interface {
+	LegacyPromptRecords() map[LegacyPromptKey]int
+}
+
+var _ LegacyPromptCounter = (*FSStore)(nil)
+
+// LegacyPromptRecords counts the prompt records that may account for an earlier build's unlinked
+// prompt sidecar, by (session, args digest).
+//
+// An unbound digest alone does not identify an earlier build's record: the current build writes the
+// same {"prompt": <text>} digest for an UNLEASED delivery (observer's promptDeliveryDigest with no
+// observation, as when the delivery journal is unavailable), and such a record must not account for
+// a leased delivery of the same words that the current build left at stage 1 — that is a real gap.
+// What the current build does that no build before the prompt link did is publish a leased prompt
+// through an observation intent (index/observations.jsonl, which those builds never wrote). So a
+// session's records from the turn of its first intent-bound prompt on are the current build's, and
+// only its records BEFORE that turn — all of them, in a session no current build touched — may
+// claim. Turns are publication order within a session, so an upgrade in the middle of a session
+// splits it cleanly.
+//
+// When the observation intents cannot be read completely (the same condition the publication audit
+// reports as "observation intent integrity is unavailable"), no record claims anything: every such
+// sidecar stays a gap rather than being excused on partial evidence. The residual this cannot see is
+// a session whose every prompt the current build delivered unleased and whose first leased prompt
+// is itself the stage-1 gap; the durable record carries nothing that would tell it apart.
+func (s *FSStore) LegacyPromptRecords() map[LegacyPromptKey]int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	out := map[LegacyPromptKey]int{}
-	for _, rec := range s.toolUse {
-		if rec != nil && IsPromptRecord(rec.ID, rec.Tool) && !rec.ArgsDigest.IsZero() {
-			out[LegacyPromptKey{Session: rec.Session, Digest: rec.ArgsDigest}]++
+	if s.obsSidecarUncertain || len(s.obsAmbiguous) > 0 || len(s.obsUnavailable) > 0 {
+		return out
+	}
+	firstBound := map[core.SessionID]core.TurnIndex{}
+	for _, b := range s.obsBindings {
+		r := b.intent.rec
+		if !IsPromptRecord(r.ID, r.Tool) {
+			continue
 		}
+		if t, seen := firstBound[r.Session]; !seen || r.Turn < t {
+			firstBound[r.Session] = r.Turn
+		}
+	}
+	for _, rec := range s.toolUse {
+		if rec == nil || !IsPromptRecord(rec.ID, rec.Tool) || rec.ArgsDigest.IsZero() {
+			continue
+		}
+		if first, bound := firstBound[rec.Session]; bound && rec.Turn >= first {
+			continue
+		}
+		out[LegacyPromptKey{Session: rec.Session, Digest: rec.ArgsDigest}]++
 	}
 	return out
 }
 
 // ClaimLegacyPrompt reports whether an unpublished prompt capture of session sess, carrying payload,
 // is accounted for by an earlier build's record counted in records, and consumes that record if so.
-// The publication audit counts the records from the store; `qompack fsck` counts them from
-// index/tool_use.jsonl, and both claim through here so the two cannot disagree.
+// The publication audit and `qompack fsck` both take records from LegacyPromptRecords and both claim
+// through here, so the two cannot disagree.
 func ClaimLegacyPrompt(records map[LegacyPromptKey]int, sess core.SessionID, payload []byte) bool {
 	d, ok := LegacyPromptDigest(payload)
 	if !ok {

@@ -299,7 +299,7 @@ func (s *FSStore) AuditPublication(ctx context.Context, scanCap PublicationScanC
 
 	var a PublicationAudit
 	s.auditObservationBindings(ctx, bud, &a)
-	s.auditCaptures(ctx, scanCap.MaxCaptures, bud, &a, s.legacyPromptRecords())
+	s.auditCaptures(ctx, scanCap.MaxCaptures, bud, &a, s.LegacyPromptRecords())
 	pending := s.pendingObjectChunks(ctx, bud, &a)
 	s.auditObjects(ctx, scanCap.MaxObjects, bud, &a, pending)
 

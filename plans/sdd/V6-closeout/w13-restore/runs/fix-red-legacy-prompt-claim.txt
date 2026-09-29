@@ -1,0 +1,21 @@
+=== RUN   TestFsck_PromptCapturesAnEarlierBuildNeverLinkedReadAsPublished
+=== RUN   TestFsck_PromptCapturesAnEarlierBuildNeverLinkedReadAsPublished/each_sidecar_has_its_record
+=== RUN   TestFsck_PromptCapturesAnEarlierBuildNeverLinkedReadAsPublished/a_sidecar_no_record_accounts_for_is_still_a_gap
+=== RUN   TestFsck_PromptCapturesAnEarlierBuildNeverLinkedReadAsPublished/a_current_build's_unleased_record_does_not_account_for_a_current_build's_gap
+    crossversion_prompt_test.go:169: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-restore/internal/cli/crossversion_prompt_test.go:169
+        	Error:      	Not equal: 
+        	            	expected: false
+        	            	actual  : true
+        	Test:       	TestFsck_PromptCapturesAnEarlierBuildNeverLinkedReadAsPublished/a_current_build's_unleased_record_does_not_account_for_a_current_build's_gap
+        	Messages:   	1 prompt capture sidecar(s) were written by a build before the prompt link: each prompt was published as its prompt_<session>_<turn> record, which that build never joined to the sidecar; read as published, kept as written, and not a gap
+=== RUN   TestFsck_PromptCapturesAnEarlierBuildNeverLinkedReadAsPublished/an_earlier_build's_records_before_the_session's_first_bound_prompt_still_account
+--- FAIL: TestFsck_PromptCapturesAnEarlierBuildNeverLinkedReadAsPublished (2.03s)
+    --- PASS: TestFsck_PromptCapturesAnEarlierBuildNeverLinkedReadAsPublished/each_sidecar_has_its_record (0.92s)
+    --- PASS: TestFsck_PromptCapturesAnEarlierBuildNeverLinkedReadAsPublished/a_sidecar_no_record_accounts_for_is_still_a_gap (0.30s)
+    --- FAIL: TestFsck_PromptCapturesAnEarlierBuildNeverLinkedReadAsPublished/a_current_build's_unleased_record_does_not_account_for_a_current_build's_gap (0.40s)
+    --- PASS: TestFsck_PromptCapturesAnEarlierBuildNeverLinkedReadAsPublished/an_earlier_build's_records_before_the_session's_first_bound_prompt_still_account (0.41s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/cli	2.309s
+FAIL
+exit=1

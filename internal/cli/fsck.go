@@ -431,9 +431,10 @@ type fsckScan struct {
 	sidecarBytes map[string]bool
 	// manifestSeqs is every checkpoint seq checkpoints/MANIFEST.jsonl records.
 	manifestSeqs map[core.CheckpointSeq]bool
-	// legacyPrompts counts index/tool_use.jsonl's prompt records by (session, args digest), which
-	// checkToolUse fills and checkCaptures claims from (store.ClaimLegacyPrompt): an earlier build's
-	// prompt sidecar its record accounts for is published, not a stage-one gap (D3, cross-version).
+	// legacyPrompts counts the prompt records an earlier build's unlinked prompt sidecars may claim,
+	// by (session, args digest): an earlier build's prompt sidecar its record accounts for is
+	// published, not a stage-one gap (D3, cross-version). legacyPromptClaims loads it from the store
+	// the first time checkCaptures needs it; nil until then.
 	legacyPrompts map[store.LegacyPromptKey]int
 	// sealCheck is --seal-check: the one opt-in that lets this scan acquire the daemon lock.
 	sealCheck bool
@@ -508,12 +509,11 @@ func fsckScanProject(ctx context.Context, root string, repairing, sealCheck bool
 
 	s := &fsckScan{
 		ctx: ctx, root: root, l: l, report: &rep,
-		roots:         map[string]fsckRootLine{},
-		tombstoned:    map[string]bool{},
-		sidecarBytes:  map[string]bool{},
-		manifestSeqs:  map[core.CheckpointSeq]bool{},
-		legacyPrompts: map[store.LegacyPromptKey]int{},
-		sealCheck:     sealCheck,
+		roots:        map[string]fsckRootLine{},
+		tombstoned:   map[string]bool{},
+		sidecarBytes: map[string]bool{},
+		manifestSeqs: map[core.CheckpointSeq]bool{},
+		sealCheck:    sealCheck,
 	}
 
 	rep.Checks = append(rep.Checks,
@@ -825,8 +825,6 @@ type fsckToolUseLine struct {
 	Turn    int64  `json:"turn"`
 	Root    string `json:"root"`
 	By      string `json:"by"`
-	Tool    string `json:"tool"`
-	ArgD    string `json:"argd"`
 }
 
 // fsckToolUseSupersede is the Op of the store's supersede mutation line (MarkSuperseded).
@@ -887,21 +885,6 @@ func (s *fsckScan) checkToolUse() fsckCheck {
 		if m.By == "" || !ids[m.By] {
 			row.defect("tool_use %s is superseded by %s, which this index does not record", m.ID, m.By)
 		}
-	}
-
-	// The prompt records an earlier build's unlinked prompt sidecars may claim, keyed by id first so
-	// a record the file carries twice counts once, as the store's own index does.
-	prompts := map[string]store.LegacyPromptKey{}
-	for _, tu := range records {
-		if !store.IsPromptRecord(core.ToolUseID(tu.ID), tu.Tool) {
-			continue
-		}
-		if d, err := core.ParseHash(tu.ArgD); err == nil && !d.IsZero() {
-			prompts[tu.ID] = store.LegacyPromptKey{Session: core.SessionID(tu.Session), Digest: d}
-		}
-	}
-	for _, k := range prompts {
-		s.legacyPrompts[k]++
 	}
 
 	lastTurn := map[string]int64{}
@@ -1287,7 +1270,7 @@ func (s *fsckScan) checkCaptures() fsckCheck {
 			if required && sc.Outcome == string(core.OutcomeOK) &&
 				sc.BytesHash != "" && !fsckIsZeroHash(sc.BytesHash) {
 				if sc.Op == fsckOpObservePrompt &&
-					store.ClaimLegacyPrompt(s.legacyPrompts, core.SessionID(sc.Session), sc.Bytes) {
+					store.ClaimLegacyPrompt(s.legacyPromptClaims(), core.SessionID(sc.Session), sc.Bytes) {
 					linked++
 					return nil
 				}
@@ -1315,6 +1298,27 @@ func (s *fsckScan) checkCaptures() fsckCheck {
 	}
 	row.scan(seen)
 	return row.build()
+}
+
+// legacyPromptClaims returns the prompt records an earlier build's unlinked prompt sidecars may
+// claim, loading them on first use from a read-only open of the store: the same records, under the
+// same rule (store.LegacyPromptCounter), that the publication audit claims from, so the captures and
+// publication rows cannot disagree. It is reached only for an unpublished prompt sidecar. A store
+// that will not open, or cannot count, claims nothing, and every such sidecar stays a gap.
+func (s *fsckScan) legacyPromptClaims() map[store.LegacyPromptKey]int {
+	if s.legacyPrompts != nil {
+		return s.legacyPrompts
+	}
+	s.legacyPrompts = map[store.LegacyPromptKey]int{}
+	opened, err := store.OpenReadOnly(s.root, config.Defaults(), store.Deps{Log: logging.Nop()})
+	if err != nil {
+		return s.legacyPrompts
+	}
+	defer func() { _ = opened.Close() }()
+	if c, ok := opened.(store.LegacyPromptCounter); ok {
+		s.legacyPrompts = c.LegacyPromptRecords()
+	}
+	return s.legacyPrompts
 }
 
 // fsckOpObservePrompt is ipc.OpObservePrompt's wire form, the Op a prompt capture sidecar carries.
