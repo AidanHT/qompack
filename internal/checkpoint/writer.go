@@ -561,7 +561,7 @@ func (w *FileWriter) seedTierOne(ctx context.Context, d *Draft, parent core.Chec
 		return fmt.Errorf("checkpoint: begin: ledger: %w", err)
 	}
 	for _, r := range all {
-		if r.Session != d.session && r.Scope != negknow.ScopeProject {
+		if !carriedBy(r, d.session) {
 			continue
 		}
 		r.DependsOn = slices.Clone(r.DependsOn)
@@ -762,7 +762,7 @@ func (w *FileWriter) encodeSegmentLocked(ctx context.Context, d *Draft, seg stor
 	// Decisions: §9's extractor, merged by ID. decisions.go is another SP-10 slice; until it
 	// lands, its Rule W-1 stub answers ErrNotImplemented and the honest merge input is empty —
 	// a tier-2 enrichment gap must not stall the tier-1/tier-3 frontier.
-	decs, err := ExtractDecisions(ctx, src, seg.StartTurn)
+	decs, err := extractDecisions(ctx, src, seg.StartTurn, d.session)
 	switch {
 	case err == nil:
 		d.mergeDecisionsLocked(decs)
@@ -893,7 +893,7 @@ func (d *Draft) mergeEliminationsLocked(ctx context.Context, src SourceSet) erro
 		idx[r.ID] = i
 	}
 	for _, r := range all {
-		if r.Session != d.session && r.Scope != negknow.ScopeProject {
+		if !carriedBy(r, d.session) {
 			continue
 		}
 		r.DependsOn = slices.Clone(r.DependsOn)
@@ -905,6 +905,43 @@ func (d *Draft) mergeEliminationsLocked(ctx context.Context, src SourceSet) erro
 			d.cp.Eliminated = append(d.cp.Eliminated, r)
 		}
 	}
+	return nil
+}
+
+// refreshNegativeKnowledge brings a draft about to be sealed up to date with the ledger: the
+// eliminations recorded since the draft last read it, and the rejected-alternative decision each
+// of them is (ExtractDecisions' source (b)).
+//
+// A draft reads the ledger at Begin and again at each Advance, and Advance runs only over CLOSED
+// segments. A session's segment stays open until a changepoint or the session's end closes it, so
+// a live draft begun at the previous seal — before this session recorded anything — reached the
+// next PreCompact without ever re-reading the ledger, and the checkpoint sealed eliminated [] and
+// decisions [] beside an active elimination; `why` then had nothing to answer for the session
+// (retrieval D5 of the V6 live lane). Reading it here is O(records) and touches no graph scan:
+// source (b) needs only each record and its node's turn, and a record whose node the graph does
+// not hold is placed at turn 0, which Truncate cuts first.
+//
+// It is a no-op on a sealed draft, and a ledger that cannot be read leaves the draft's own copy
+// standing: the caller seals what the draft has, as the PreCompact failure rows require.
+func (d *Draft) refreshNegativeKnowledge(ctx context.Context) error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if d.sealed {
+		return nil
+	}
+	src := d.src
+	if err := d.mergeEliminationsLocked(ctx, src); err != nil {
+		return err
+	}
+	d.deriveOpenQuestionsLocked()
+	decs := make([]Decision, 0, len(d.cp.Eliminated))
+	for _, r := range d.cp.Eliminated {
+		if dec, ok := eliminationDecision(r, eliminationTurn(src.Graph, r, 0)); ok {
+			decs = append(decs, dec)
+		}
+	}
+	d.mergeDecisionsLocked(decs)
+	d.dirty = true
 	return nil
 }
 
