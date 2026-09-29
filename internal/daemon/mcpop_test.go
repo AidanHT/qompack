@@ -17,6 +17,7 @@ import (
 	"github.com/qompack/qompack/internal/logging"
 	"github.com/qompack/qompack/internal/mcp"
 	"github.com/qompack/qompack/internal/obs"
+	"github.com/qompack/qompack/internal/observer"
 	"github.com/qompack/qompack/internal/paths"
 	"github.com/qompack/qompack/internal/redact"
 	"github.com/qompack/qompack/internal/store"
@@ -523,4 +524,64 @@ func TestDaemonMCPOpUnknownKindIsRefused(t *testing.T) {
 	resp := f.call(t, mcpOpSession, MCPOpRequest{Kind: "teleport"})
 	require.False(t, resp.OK)
 	require.Contains(t, resp.Err, "teleport", "the refusal must name the kind it refused: %q", resp.Err)
+}
+
+// TestDaemonMCPOpFilesTheSelfRecordAtTheIndexedFrontier is F-UAT01-2: with no open segment past
+// turn 0 to resolve from, the retrieval's own record must still land at or after every record the
+// session already has, or fsck's index.tool_use check reports the session's turns regressing.
+func TestDaemonMCPOpFilesTheSelfRecordAtTheIndexedFrontier(t *testing.T) {
+	f := newMCPOpFixture(t)
+	id := f.seedToolUse(t, "Bash", "", "a later turn's output\n", 3)
+	_, err := f.Store.Segments().Open(context.Background(), store.Segment{
+		Session: mcpOpSession, StartTurn: 0, EndTurn: 0, StartTS: core.NowMilli(f.Clock),
+	})
+	require.NoError(t, err, "the session's first segment, open at turn 0 as in every live session")
+
+	payload := decodeMCPOp(t, f.callTool(t, mcpOpSession, mcp.ToolExpand, map[string]any{"tool_use_id": string(id)}))
+	require.False(t, payload.IsError, "expand must succeed: %v", payload.Content)
+	require.Equal(t, core.TurnIndex(3), f.ephemeralRecordOf(t, payload).Turn,
+		"the self-record is filed at the session's indexed frontier, not at the open segment's turn 0")
+}
+
+// TestDaemonMCPOpPrefersTheObserversLiveTurn: the observer's in-memory turn is where the session
+// is; a Stop advances it with no record to index, so it can lead the index.
+func TestDaemonMCPOpPrefersTheObserversLiveTurn(t *testing.T) {
+	f := newMCPOpFixture(t)
+	id := f.seedToolUse(t, "Bash", "", "expandable bytes\n", 3)
+	f.Svc.SessionProgress = func(s core.SessionID) (observer.Progress, bool) {
+		if s != mcpOpSession {
+			return observer.Progress{}, false
+		}
+		return observer.Progress{Turn: 9}, true
+	}
+
+	payload := decodeMCPOp(t, f.callTool(t, mcpOpSession, mcp.ToolExpand, map[string]any{"tool_use_id": string(id)}))
+	require.False(t, payload.IsError, "expand must succeed: %v", payload.Content)
+	require.Equal(t, core.TurnIndex(9), f.ephemeralRecordOf(t, payload).Turn)
+}
+
+// TestDaemonMCPOpTimelineReportsTheOpenSegmentsLiveEnd is retrieval D8 at the op: the daemon hands
+// the handlers its live view, so the open segment reads where the session is, not 0-0.
+func TestDaemonMCPOpTimelineReportsTheOpenSegmentsLiveEnd(t *testing.T) {
+	f := newMCPOpFixture(t)
+	segID, err := f.Store.Segments().Open(context.Background(), store.Segment{
+		Session: mcpOpSession, StartTurn: 0, EndTurn: 0, StartTS: core.NowMilli(f.Clock),
+	})
+	require.NoError(t, err)
+	f.Svc.SessionProgress = func(s core.SessionID) (observer.Progress, bool) {
+		return observer.Progress{Turn: 12, Segment: segID, SegmentTokens: 4096}, s == mcpOpSession
+	}
+
+	payload := decodeMCPOp(t, f.callTool(t, mcpOpSession, mcp.ToolTimeline, map[string]any{}))
+	require.False(t, payload.IsError, "timeline must answer: %v", payload.Content)
+	var body struct {
+		Segments []struct {
+			EndTurn core.TurnIndex `json:"end_turn"`
+			Tokens  core.Tokens    `json:"tokens"`
+		} `json:"segments"`
+	}
+	mcpOpBody(t, payload, &body)
+	require.Len(t, body.Segments, 1)
+	require.Equal(t, core.TurnIndex(12), body.Segments[0].EndTurn)
+	require.Equal(t, core.Tokens(4096), body.Segments[0].Tokens)
 }
