@@ -848,11 +848,14 @@ to stop waiting for it. Capture continues: each hook writes its event to the spo
 daemon replays the spool into the store, so nothing is lost, although recent tool uses can reach
 the store a little later than usual. The switch lasts until a new session starts in this project or
 the daemon restarts; it does not switch back on its own during the session, and compacting the
-current session does not reset it.
+current session does not reset it while the same daemon is running.
 
-**Action.** Nothing is required. To leave spool mode, start a new session, or let the daemon exit
-(its idle exit, below) or end its process; the next daemon starts in sync mode. If it happens in
-every session, check the machine's load, and check that `runtime.hotPath.budgetMs` is not set below
+**Action.** Nothing is required. To leave spool mode, start a new session: that is the reliable way
+out. Otherwise wait for the daemon's idle exit (below); the next daemon starts in sync mode. Do not
+end the daemon's process to get out of it: a killed daemon leaves the spool setting in place, hooks
+in spool mode do not start a daemon, and so nothing is replayed from the spool and spool mode lasts
+until the session is compacted or a new one starts. If it happens in every session, check the
+machine's load, and check that `runtime.hotPath.budgetMs` is not set below
 `runtime.budgets.l0IngestMs` (`qompack config print --provenance` shows both; when it is, the
 daemon's day log in `.qompack/logs/` has a `configuration warning` for `runtime.hotPath.budgetMs`).
 
