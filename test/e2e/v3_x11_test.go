@@ -10,6 +10,12 @@ package e2e
 // uses, 40 MB of raw tool output, and a ledger holding 5,000 active eliminations with a rebuilt
 // tried.bloom.
 //
+// Since coordinator decision D42 the harness runs twice in this one test: first over a byte copy
+// of the corpus taken before the ledger exists, then over the ledger-resident project. Both runs
+// face every absolute gate, and the ledger run's hook_controlled_observed p50 must stay within
+// x11RegressionFactor of the no-ledger run's (v3_x11_pair_test.go). The V2 B-A figure is reported
+// only; see x11V2BAp99Ms for why it is no longer comparable.
+//
 // Composition (the §5 Rule): no wave-3 package is referenced. The resident state is built through
 // the REAL wave-2 components — the real observer (SP-08) over a real store.Open/dag.Open, and the
 // real negknow ledger (SP-09) whose RebuildBloom persists sketches/tried.bloom through §7.4's one
@@ -50,6 +56,7 @@ package e2e
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -100,11 +107,18 @@ const (
 	x11EliminationTotal = 5000
 )
 
-// x11V2BAp99Ms is the V2 figure the row compares against: B-A p99 = 3.072 ms, recorded in the V2
-// completion report (plans/V2-report.md §9.1 and its §4.6 row: bench-hotpath, warm daemon,
-// n=2064, windows/amd64 — reproduced identically on the final tip re-run). The row's rule:
-// "a regression greater than 25% fails this checkpoint even if the absolute number is under
-// budget (§7 benchstat policy applied to the hot path)."
+// x11V2BAp99Ms is the V2 figure the row used to compare against: B-A p99 = 3.072 ms, recorded in
+// the V2 completion report (plans/V2-report.md §9.1 and its §4.6 row: bench-hotpath, warm daemon,
+// n=2064, windows/amd64 — reproduced identically on the final tip re-run). Since coordinator
+// decision D42 (plans/V6-CLOSEOUT-CHECKLIST.md, 2026-09-29) it is REPORTED beside both runs' B-A
+// p99 and never gated: V2's B-A sample was recvTS - req.TS + 1 ms with the handler excluded, over
+// an ingest that was not durable, while today's contains the measured pre-ACK handler time (the
+// SP20-D6 fix) and so B-B's fsync-before-ACK ingest (SP20-D1). The two are different quantities.
+//
+// x11RegressionFactor is the row's rule, "a regression greater than 25% fails this checkpoint
+// even if the absolute number is under budget (§7 benchstat policy applied to the hot path)",
+// rebased by D42, not relaxed: it now bounds the ledger-resident run's hook_controlled_observed
+// p50 against a paired no-ledger run's on the same host (x11LedgerPairVerdict).
 const (
 	x11V2BAp99Ms        = 3.072
 	x11RegressionFactor = 1.25
@@ -385,6 +399,24 @@ func TestV3_HotPathUnchangedWithLedgerResident(t *testing.T) {
 	require.GreaterOrEqual(t, stats.RawBytes, int64(x11RawFloorBytes),
 		"X11 setup: 40 MB of raw tool output in the real store (got %d bytes)", stats.RawBytes)
 
+	// ── The no-ledger twin (D42): the same corpus, byte for byte, without the ledger. ──
+	//
+	// The paired run must differ from the ledger run in the ledger alone, so its project is a copy
+	// of this one taken here, after the corpus is on disk and before any elimination is written:
+	// the same 2,000 tool uses, 40 MB of raw output and DAG, no records/eliminations.jsonl and no
+	// sketches/tried.bloom. (test/integration's resident state is not that: it seeds a tried.bloom
+	// and builds a different corpus.) The observer pipeline is in the measured daemon in both runs,
+	// since it is part of the product binary, so the pair isolates the ledger, and the absolute
+	// B-A/B-B gates still judge the observer's cost. The store is closed for the copy, so what is
+	// copied is what a daemon would open, and reopened for the ledger, which records through it.
+	storeClosed = true
+	require.NoError(t, st.Close(), "the pre-population store must close cleanly before the copy")
+	baseRoot := filepath.Join(t.TempDir(), "project-no-ledger")
+	require.NoError(t, x11CopyProject(p.Root, baseRoot), "the no-ledger twin must be an exact copy of the corpus")
+	st, err = store.Open(p.Root, p.Cfg, store.Deps{Log: p.Log, Clock: p.Clock})
+	require.NoError(t, err, "the store must reopen over the corpus for the ledger phase")
+	storeClosed = false
+
 	// ── The resident ledger: 5,000 active eliminations, then a rebuilt tried.bloom. ──
 	led, err := negknow.Open(p.Root, p.Cfg, nil, negknow.Deps{
 		Store: st, Graph: g, Session: x11Session, Log: p.Log, Clock: p.Clock,
@@ -441,7 +473,7 @@ func TestV3_HotPathUnchangedWithLedgerResident(t *testing.T) {
 	storeClosed = true
 	require.NoError(t, st.Close(), "the pre-population store must close cleanly")
 
-	// ── Phase B: the measured run — the row's command, driven as the process CI drives. ──
+	// ── Phase B: the measured runs — the row's command, driven as the process CI drives, twice. ──
 	//
 	//   go run ./tools/devtool bench-hotpath --iterations 2000 --hook observe-tool
 	//     --warm-daemon --json v3-hotpath.json
@@ -449,12 +481,75 @@ func TestV3_HotPathUnchangedWithLedgerResident(t *testing.T) {
 	// devtool's bench-hotpath task is a verbatim forwarder to `go run ./test/bench/hotpath`
 	// (tools/devtool/benchhotpath.go), so building and spawning the harness binary directly runs
 	// the identical measurement without nesting a `go run` inside the test. --project points it at
-	// the pre-populated project; --under-coload is forwarded iff the invoking job declared the run
+	// a pre-populated project; --under-coload is forwarded iff the invoking job declared the run
 	// co-loaded (see the file comment) — ci.yml's test-e2e job does not, and judges every row.
+	//
+	// D42: the no-ledger twin is measured first and the ledger-resident project second, on the same
+	// host, by the same harness binary, one after the other. Each run is judged on every absolute row
+	// exactly as the single run was; the pair is then judged on hook_controlled_observed's p50.
 	bench := x11BuildBenchBinary(t)
-	jsonPath := filepath.Join(t.TempDir(), "v3-hotpath.json")
-
 	underCoload := obs.UnderCoload()
+
+	baseRep := x11RunHarness(t, p, bench, baseRoot, underCoload, x11RunNoLedger)
+	baseRows := x11RequireAbsoluteRows(t, p, baseRep, underCoload, x11RunNoLedger)
+	ledRep := x11RunHarness(t, p, bench, p.Root, underCoload, x11RunLedger)
+	ledRows := x11RequireAbsoluteRows(t, p, ledRep, underCoload, x11RunLedger)
+
+	// ── Expected output 6 (D42): the ledger must not move the hot path. The ledger run's
+	// hook_controlled_observed p50 against the paired no-ledger run's, read from each artifact's
+	// own note — the like-for-like, non-ingest share of B-A (see v3_x11_pair_test.go). Judged where
+	// every wall-clock row is judged; co-loaded, the same comparison is REPORTED and left to
+	// `test-e2e`, and only an unreadable artifact still fails. ──
+	tick := x11ObservedTickUS()
+	pair, pairErr := x11LedgerPairVerdict(baseRep, ledRep, tick)
+	pairVerdict := "gated: PASS"
+	switch {
+	case pairErr == nil && underCoload:
+		pairVerdict = "REPORTED, not gated (" + x11UnderColoadFlag + "): within the ceiling"
+	case pairErr == nil:
+	case underCoload && errors.Is(pairErr, errX11LedgerRegressed):
+		pairVerdict = "REPORTED, not gated (" + x11UnderColoadFlag + "): over the ceiling"
+		t.Logf("X11 under %s: %v — a co-loaded pair is not judged; ci.yml's `test-e2e` job judges it",
+			obs.UnderColoadEnv, pairErr)
+	case underCoload && errors.Is(pairErr, errX11PairIncomparable):
+		pairVerdict = "REPORTED, not gated (" + x11UnderColoadFlag + "): populations differ, not compared"
+		t.Logf("X11 under %s: %v — a co-loaded run may defer to the spool (D39); ci.yml's `test-e2e` job "+
+			"judges the pair", obs.UnderColoadEnv, pairErr)
+	case underCoload:
+		require.NoError(t, pairErr,
+			"even a co-loaded run must carry a readable hook_controlled_observed note in both artifacts")
+	default:
+		require.NoError(t, pairErr,
+			"X11: wave 2's resident ledger is NOT allowed to move the hot path (§13 invariant 9), budget "+
+				"headroom or not")
+	}
+
+	// The §5 completion-report rows: the pair, then B-A p99 from both runs beside V2's figure, for the
+	// record only — V2's B-A was recvTS - req.TS + 1 ms with the handler excluded, over an ingest that
+	// was not durable, so today's B-A, which contains B-B's fsync-before-ACK ingest (SP20-D1, SP20-D6),
+	// is a different quantity and is gated only against its obs.Budgets() limit above.
+	t.Logf("X11 pair (%s): hook_controlled_observed p50 no-ledger=%.3fms (p99 %.3fms, n=%d) | ledger=%.3fms "+
+		"(p99 %.3fms, n=%d) | ceiling %.3fms (x%.2f, floor one %.3fms tick)",
+		pairVerdict, x11MsOf(pair.base.p50us), x11MsOf(pair.base.p99us), pair.base.n,
+		x11MsOf(pair.ledger.p50us), x11MsOf(pair.ledger.p99us), pair.ledger.n,
+		x11MsOf(int64(pair.ceilingUS)), x11RegressionFactor, x11MsOf(tick))
+	t.Logf("X11 B-A p99, REPORTED not gated against V2: no-ledger=%.3fms, ledger=%.3fms, V2 recorded %.3fms — "+
+		"V2's B-A excluded the handler and its ingest was not durable, so the figures measure different "+
+		"quantities (D42); B-A is gated only against its obs.Budgets() limit (%.0fms)",
+		baseRows.ba.P99, ledRows.ba.P99, x11V2BAp99Ms, x11BudgetLimitMs(t, p, obs.BA))
+}
+
+// x11RunNoLedger and x11RunLedger name the two measured runs in messages and logs.
+const (
+	x11RunNoLedger = "no-ledger run (the X11 corpus without the ledger)"
+	x11RunLedger   = "ledger-resident run (the X11 corpus with the 5 000-entry ledger)"
+)
+
+// x11RunHarness runs the bench harness once over root and returns its artifact, failing the test
+// if the harness exits non-zero — any gated budget breached — or writes no readable artifact.
+func x11RunHarness(t *testing.T, p *testutil.Project, bench, root string, underCoload bool, run string) x11BenchReport {
+	t.Helper()
+	jsonPath := filepath.Join(t.TempDir(), "v3-hotpath.json")
 	args := []string{
 		"--iterations", strconv.Itoa(x11BenchIterations),
 		"--hook", "observe-tool",
@@ -463,14 +558,14 @@ func TestV3_HotPathUnchangedWithLedgerResident(t *testing.T) {
 	if underCoload {
 		args = append(args, x11UnderColoadFlag)
 	}
-	args = append(args, "--json", jsonPath, "--project", p.Root)
+	args = append(args, "--json", jsonPath, "--project", root)
 
-	hctx, hcancel := context.WithTimeout(ctx, x11HarnessBound)
+	hctx, hcancel := context.WithTimeout(context.Background(), x11HarnessBound)
 	defer hcancel()
-	root, err := moduleRoot()
+	modRoot, err := moduleRoot()
 	require.NoError(t, err)
 	cmd := exec.CommandContext(hctx, bench, args...)
-	cmd.Dir = root
+	cmd.Dir = modRoot
 	// pathstest.Environ: the isolated home and the pinned toolchain, not the per-test HOME
 	// testutil.NewProject sets and not the real home either, which the harness's own daemons would
 	// otherwise write their calibration into.
@@ -478,32 +573,43 @@ func TestV3_HotPathUnchangedWithLedgerResident(t *testing.T) {
 	var stdout, stderr strings.Builder
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
+	started := time.Now()
 	runErr := cmd.Run()
 
-	t.Logf("bench harness stdout:\n%s", stdout.String())
+	t.Logf("%s: the bench harness took %s; stdout:\n%s", run, time.Since(started).Round(time.Second), stdout.String())
 	if raw, readErr := os.ReadFile(jsonPath); readErr == nil {
-		t.Logf("bench artifact %s:\n%s", jsonPath, raw)
+		t.Logf("%s: bench artifact %s:\n%s", run, jsonPath, raw)
 	}
 	require.NoError(t, runErr,
-		"bench-hotpath exited non-zero with the observer and the 5 000-elimination ledger resident "+
-			"(%s=%v): either a gated budget (B-E_cpu p99<%.0fms always; without %s also B-B p99<%.0fms, "+
-			"B-A p99<%.0fms and B-E's wall row p99<%.0fms) breached, or the harness itself failed\n"+
-			"stderr:\n%s",
-		obs.UnderColoadEnv, underCoload, x11BudgetLimitMs(t, p, obs.BE),
+		"%s: bench-hotpath exited non-zero (%s=%v): either a gated budget (B-E_cpu p99<%.0fms always; "+
+			"without %s also B-B p99<%.0fms, B-A p99<%.0fms and B-E's wall row p99<%.0fms) breached, or the "+
+			"harness itself failed\nstderr:\n%s",
+		run, obs.UnderColoadEnv, underCoload, x11BudgetLimitMs(t, p, obs.BE),
 		x11UnderColoadFlag, x11BudgetLimitMs(t, p, obs.BB), x11BudgetLimitMs(t, p, obs.BA),
 		x11BudgetLimitMs(t, p, obs.BE), stderr.String())
 
 	raw, err := os.ReadFile(jsonPath)
-	require.NoError(t, err, "the harness must write the --json artifact")
+	require.NoError(t, err, "%s: the harness must write the --json artifact", run)
 	var rep x11BenchReport
-	require.NoError(t, json.Unmarshal(raw, &rep))
-	require.Equal(t, x11BenchIterations, rep.N)
+	require.NoError(t, json.Unmarshal(raw, &rep), "%s", run)
+	require.Equal(t, x11BenchIterations, rep.N, "%s", run)
 
 	// Ruling #29 carried forward: the gated B-A row is the daemon's TS-anchored hook_controlled
 	// estimate, not a wall-clock-minus-floor subtraction.
 	require.Containsf(t, rep.BAMethod, "hook_controlled",
-		"b_a_method must name the TS-anchored hook_controlled estimate: b_a_method=%q", rep.BAMethod)
+		"%s: b_a_method must name the TS-anchored hook_controlled estimate: b_a_method=%q", run, rep.BAMethod)
+	return rep
+}
 
+// x11AbsoluteRows is what x11RequireAbsoluteRows judged, for the pair's log.
+type x11AbsoluteRows struct{ ba, bb x11BudgetRow }
+
+// x11RequireAbsoluteRows asserts every absolute row of one run's artifact — expected outputs 1-5,
+// unchanged by D42 and applied to both runs — and logs the run's measured line.
+func x11RequireAbsoluteRows(
+	t *testing.T, p *testutil.Project, rep x11BenchReport, underCoload bool, run string,
+) x11AbsoluteRows {
+	t.Helper()
 	baLimit := x11BudgetLimitMs(t, p, obs.BA)
 	bbLimit := x11BudgetLimitMs(t, p, obs.BB)
 	beLimit := x11BudgetLimitMs(t, p, obs.BE)
@@ -519,12 +625,13 @@ func TestV3_HotPathUnchangedWithLedgerResident(t *testing.T) {
 	// file comment). ──
 	beCPU := x11Row(t, rep, x11BECPURowID)
 	require.Equal(t, x11CheckpointSamples, beCPU.N,
-		"the B-E CPU row must cover every checkpoint spawn the harness made")
-	require.NotNil(t, beCPU.LimitMs, "B-E_cpu is gated in both modes and must carry its limit")
+		"%s: the B-E CPU row must cover every checkpoint spawn the harness made", run)
+	require.NotNil(t, beCPU.LimitMs, "%s: B-E_cpu is gated in both modes and must carry its limit", run)
 	require.InDelta(t, beLimit, *beCPU.LimitMs, x11LimitDeltaMs)
 	require.NotNil(t, beCPU.Pass)
-	require.True(t, *beCPU.Pass, "B-E gate must pass with the ledger resident (cpu p99=%.3fms)", beCPU.P99)
-	require.Less(t, beCPU.P99, beLimit, "X11: B-E p99 < %.0fms (§11.3 L4) on the checkpoint's own clock", beLimit)
+	require.True(t, *beCPU.Pass, "%s: B-E gate must pass (cpu p99=%.3fms)", run, beCPU.P99)
+	require.Less(t, beCPU.P99, beLimit, "X11 %s: B-E p99 < %.0fms (§11.3 L4) on the checkpoint's own clock",
+		run, beLimit)
 
 	// ── Expected outputs 1, 2 and 3, wall clock: B-A, B-B and B-E's wall-clock row are the three
 	// rows a co-loaded host inflates without the product changing, judged by the job that can judge
@@ -539,32 +646,39 @@ func TestV3_HotPathUnchangedWithLedgerResident(t *testing.T) {
 	//     flag that caused it, the limit not applied and where it still is; B-E's also names the
 	//     row that still enforces the limit here. A null pass field is not an explanation. ──
 	beWall := x11Row(t, rep, string(obs.BE))
-	require.Equal(t, x11CheckpointSamples, beWall.N, "both B-E rows must cover the same 50 children")
+	require.Equal(t, x11CheckpointSamples, beWall.N, "%s: both B-E rows must cover the same 50 children", run)
 	if underCoload {
 		x11RequireReportedRow(t, ba, baLimit, "B-A")
 		x11RequireReportedRow(t, bb, bbLimit, "B-B")
 		x11RequireReportedRow(t, beWall, beLimit, "B-E's wall-clock row")
 		require.True(t, x11NotesMention(rep, x11UnderColoadFlag) && x11NotesMention(rep, x11BECPURowID),
-			"the artifact must disclose B-E's wall-clock waiver in its notes, naming the flag and the row "+
-				"that still enforces the limit; notes present: %q", rep.Notes)
+			"%s: the artifact must disclose B-E's wall-clock waiver in its notes, naming the flag and the row "+
+				"that still enforces the limit; notes present: %q", run, rep.Notes)
 		require.True(t, x11NotesMention(rep, x11BAWaiverMark),
-			"the artifact must disclose B-A's waiver in its own note (%q), not only B-E's; notes present: %q",
-			x11BAWaiverMark, rep.Notes)
+			"%s: the artifact must disclose B-A's waiver in its own note (%q), not only B-E's; notes present: %q",
+			run, x11BAWaiverMark, rep.Notes)
 		require.True(t, x11NotesMention(rep, x11BBWaiverMark),
-			"the artifact must disclose B-B's waiver in its own note (%q) too: a co-loaded run keeps no "+
+			"%s: the artifact must disclose B-B's waiver in its own note (%q) too: a co-loaded run keeps no "+
 				"hot-path COST gate, and a null limit_ms is not an explanation of that; notes present: %q",
-			x11BBWaiverMark, rep.Notes)
-		t.Logf("X11 under %s: B-A p99=%.3fms (limit %.0fms), B-B p99=%.3fms (limit %.0fms) and B-E wall "+
+			run, x11BBWaiverMark, rep.Notes)
+		t.Logf("X11 %s under %s: B-A p99=%.3fms (limit %.0fms), B-B p99=%.3fms (limit %.0fms) and B-E wall "+
 			"p99=%.3fms (limit %.0fms) are REPORTED here, not judged; ci.yml's `test-e2e` job runs this "+
 			"package alone and judges all three",
-			obs.UnderColoadEnv, ba.P99, baLimit, bb.P99, bbLimit, beWall.P99, beLimit)
+			run, obs.UnderColoadEnv, ba.P99, baLimit, bb.P99, bbLimit, beWall.P99, beLimit)
 	} else {
+		// Isolated, no hot-path request may be deferred to the client spool: a deferral is the
+		// §12.2 degrade (or a request that could not wait), which only a co-loaded run reports.
+		if note, deferred := x11DeferralNote(rep); deferred {
+			require.Failf(t, "X11 deferred hot-path requests to the client spool in isolation",
+				"%s: the harness recorded a delivery ledger, so part of the run never reached the daemon "+
+					"and every daemon-side row judges a shortened population: %s", run, note)
+		}
 		x11RequireGatedRow(t, ba, baLimit, "B-A")
 		x11RequireGatedRow(t, bb, bbLimit, "B-B")
 		x11RequireGatedRow(t, beWall, beLimit, "B-E's wall-clock row")
 		require.False(t, x11NotesMention(rep, x11UnderColoadFlag),
-			"no %s waiver may appear in a run that did not pass the flag — the harness would be waiving "+
-				"on its own; notes present: %q", x11UnderColoadFlag, rep.Notes)
+			"%s: no %s waiver may appear in a run that did not pass the flag — the harness would be waiving "+
+				"on its own; notes present: %q", run, x11UnderColoadFlag, rep.Notes)
 	}
 
 	// ── Expected output 4: `pass: true` for each gated budget — swept structurally, so a row this
@@ -573,9 +687,9 @@ func TestV3_HotPathUnchangedWithLedgerResident(t *testing.T) {
 		if row.LimitMs == nil {
 			continue
 		}
-		require.NotNil(t, row.Pass, "gated row %s must carry a pass verdict", row.BudgetID)
-		require.True(t, *row.Pass, "gated row %s must pass (p99=%.3fms, limit=%.0fms)",
-			row.BudgetID, row.P99, *row.LimitMs)
+		require.NotNil(t, row.Pass, "%s: gated row %s must carry a pass verdict", run, row.BudgetID)
+		require.True(t, *row.Pass, "%s: gated row %s must pass (p99=%.3fms, limit=%.0fms)",
+			run, row.BudgetID, row.P99, *row.LimitMs)
 	}
 
 	// ── Expected output 5: B-D reported (never gated). ──
@@ -587,40 +701,25 @@ func TestV3_HotPathUnchangedWithLedgerResident(t *testing.T) {
 	require.Nil(t, spawnEst.LimitMs, "the wall-clock floor-subtracted estimate must stay informational")
 	require.Nil(t, spawnEst.Pass)
 
-	// ── Expected output 6: B-A p99 compared against the V2 completion report's figure — a
-	// regression greater than 25% fails this checkpoint even under budget (§7 benchstat policy
-	// applied to the hot path). The V2 figure was measured with the harness alone on its host, so
-	// the comparison is a judgement only where this run is: co-loaded, it is logged with the
-	// ceiling and left to `test-e2e`. ──
-	regressionCeiling := x11V2BAp99Ms * x11RegressionFactor
-	if underCoload {
-		t.Logf("X11 under %s: B-A p99=%.3fms against V2's %.3fms (ceiling %.3fms) is REPORTED, not "+
-			"judged — a co-loaded sample is not comparable to a figure taken in isolation",
-			obs.UnderColoadEnv, ba.P99, x11V2BAp99Ms, regressionCeiling)
-	} else {
-		require.LessOrEqualf(t, ba.P99, regressionCeiling,
-			"X11: B-A p99 regressed more than 25%% against V2's recorded %.3fms (got %.3fms, ceiling "+
-				"%.3fms) — wave 2's observer pipeline and resident ledger are NOT allowed to move the hot "+
-				"path, budget headroom or not (§13 invariant 9)",
-			x11V2BAp99Ms, ba.P99, regressionCeiling)
-	}
-
-	// The §5 completion-report row: B-A p99 now vs then, from one artifact. The verdict word says
-	// which mode this run was, and it is carried on B-B too since the Q3 ruling — a B-B number in a
-	// co-loaded log is a measurement, and the log must not read as if it were a verdict.
+	// The run's measured line. The verdict word says which mode this run was, and it is carried on
+	// B-B too since the Q3 ruling — a B-B number in a co-loaded log is a measurement, and the log
+	// must not read as if it were a verdict. Whether anything was deferred to the client spool is the
+	// harness's own delivery-ledger note, logged below with the others: refused above in isolation,
+	// reported co-loaded.
 	wallVerdict := "gated"
 	if underCoload {
 		wallVerdict = "reported, not gated: " + x11UnderColoadFlag
 	}
-	t.Logf("X11 measured (platform %s, n=%d): B-A p99 = %.3f ms (V2 was %.3f ms; ceiling %.3f ms, "+
-		"limit %.0f ms; %s) | B-B p99=%.3fms (limit %.0fms; %s) | B-E_cpu p99=%.3fms (limit %.0fms, n=%d) | "+
-		"B-E wall p50=%.3fms p99=%.3fms (limit %.0fms; %s) | B-D p50=%.3fms "+
-		"p99=%.3fms max=%.3fms (n=%d) | spawn_floor p50=%.3fms p99=%.3fms (n=%d) | b_a_method=%q",
-		rep.Platform, rep.N, ba.P99, x11V2BAp99Ms, regressionCeiling, baLimit, wallVerdict,
+	t.Logf("X11 %s measured (platform %s, n=%d): B-A p99 = %.3f ms (limit %.0f ms; %s) | B-B p99=%.3fms "+
+		"(limit %.0fms; %s) | B-E_cpu p99=%.3fms (limit %.0fms, n=%d) | B-E wall p50=%.3fms p99=%.3fms "+
+		"(limit %.0fms; %s) | B-D p50=%.3fms p99=%.3fms max=%.3fms (n=%d) | spawn_floor p50=%.3fms "+
+		"p99=%.3fms (n=%d) | b_a_method=%q",
+		run, rep.Platform, rep.N, ba.P99, baLimit, wallVerdict,
 		bb.P99, bbLimit, wallVerdict, beCPU.P99, beLimit, beCPU.N, beWall.P50, beWall.P99, beLimit, wallVerdict,
 		bd.P50, bd.P99, bd.Max, bd.N, rep.SpawnFloorMs.P50, rep.SpawnFloorMs.P99, rep.SpawnFloorMs.N,
 		rep.BAMethod)
 	for _, note := range rep.Notes {
-		t.Logf("bench note: %s", note)
+		t.Logf("%s bench note: %s", run, note)
 	}
+	return x11AbsoluteRows{ba: ba, bb: bb}
 }

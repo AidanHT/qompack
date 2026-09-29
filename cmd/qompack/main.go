@@ -3,8 +3,9 @@
 //
 // It is dispatch only, under 150 lines, with no package-level initialization beyond variable
 // declarations. That restraint is a latency requirement, not a style preference: this binary is
-// spawned on the hot path of every tool call, and budget B-A (§2.4) allows 15 ms p99 for the whole
-// process — spawn, connect, write, acknowledge, exit. Work done in init() is work every hook pays.
+// spawned on the hot path of every tool call, and budget B-A (§2.4) allows runtime.hotPath.budgetMs
+// at p99 — by default 15 ms on Linux, 50 on Windows, 40 on macOS (D41) — for the whole process:
+// spawn, connect, write, acknowledge, exit. Work done in init() is work every hook pays.
 package main
 
 import (
