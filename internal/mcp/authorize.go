@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"errors"
 	"path/filepath"
 	"sync"
 
@@ -242,7 +243,16 @@ func (h *handlers) authorizeHash(ctx context.Context, hash core.Hash) any {
 	origins, err := reader.ContentOrigins(ctx, hash)
 	if err != nil || len(origins) == 0 {
 		h.m.Counter("mcp.provenance_incomplete").Add(1)
-		return unavailable("complete content provenance could not be established")
+		// Still available:false rather than a plain miss — an object on disk that no index line
+		// names is exactly this case, and it must not be claimed absent — but the answer says
+		// where the lookup went, as every other miss does.
+		out := unavailable("complete content provenance could not be established")
+		if err == nil || errors.Is(err, core.ErrNotFound) {
+			out.Reason = "no indexed root or chunk carries this hash, so its content provenance " +
+				"could not be established"
+		}
+		out.Searched = provenanceSearched
+		return out
 	}
 	for _, origin := range origins {
 		if refusal := h.authorizeOrigin(ctx, origin.Tool, origin.Path); refusal != nil {
