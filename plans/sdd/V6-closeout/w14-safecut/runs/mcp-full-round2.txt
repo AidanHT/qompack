@@ -1,0 +1,2 @@
+# go test -p 2 -count=1 -timeout=30m ./internal/mcp -> exit 0
+ok  	github.com/qompack/qompack/internal/mcp	75.432s

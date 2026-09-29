@@ -89,29 +89,39 @@ func (h *handlers) boundedContent(tool string, root store.Root, span SpanResult,
 // cut it returns has passed that check; how it picks the next cut to try only decides which safe
 // cut it finds and how soon.
 //
-// From an unsafe cut the search locates the start of the region the cut split by where the kept
-// side's redaction parts from whole's, measured in whole — never by how long the kept side is,
-// because a placeholder can be longer than its match (redact's maxPlaceholderBytes is 37, a match
-// can be 3 bytes and a replaced group 1), so a kept side holding half a region with short secrets
-// nested in it outgrows the raw bytes behind it (V6 close-out, w14-safecut review).
+// An unsafe cut's kept side either parts from whole or is exactly a prefix of it, and each case
+// has its own search, both logarithmic in the window's length
+// (TestSafeCutRedactCallsAreLogarithmicInARawPrefix bounds the calls):
 //
-// Let p be how many bytes of whole the kept side reproduces. Every cut before the region's start
-// reproduces fewer: in a gap its kept side is a shorter prefix of whole, and inside an earlier
-// region it parts from whole at that region's placeholder, which ends before the split region's
-// begins. Every cut in the region at or past the unsafe one's depth reproduces p, since its kept
-// side reaches the region's first raw bytes where whole has the placeholder. So "reproduces at
-// least p bytes" is false below the region's start and true from it, and a binary search over the
-// rune boundaries before the cut finds the smallest cut where it holds, in about log2(cut) probes.
-//
-//   - When the kept side parts from whole (p < its length), that cut is the region's start: the
-//     largest safe cut at or before keep when regions are disjoint and each placeholder differs
-//     from its region's raw bytes at the first byte. When a placeholder shares its first k bytes
-//     with the raw region, the search lands k bytes in and steps back a rune at a time from there.
-//   - When the kept side renders exactly as whole's prefix — a rule whose first part alone still
-//     matches, such as a token with an unbounded run — the smallest cut that reproduces p bytes is
-//     the shortest prefix of the token that still matches. The search steps one rune below it,
-//     where the kept side holds a token too short to match and so parts from whole, and the next
-//     probe is the first case.
+//   - The kept side parts from whole: the cut is inside a region, and the search locates the
+//     region's start by where the kept side's redaction parts from whole's, measured in whole —
+//     never by how long the kept side is, because a placeholder can be longer than its match
+//     (redact's maxPlaceholderBytes is 37, a match can be 3 bytes and a replaced group 1), so a
+//     kept side holding half a region with short secrets nested in it outgrows the raw bytes
+//     behind it (V6 close-out, w14-safecut review). Let p be how many bytes of whole the kept side
+//     reproduces. Every cut before the region's start reproduces fewer: in a gap its kept side is
+//     a shorter prefix of whole, and inside an earlier region it parts from whole at that region's
+//     placeholder, which ends before the split region's begins. Every cut in the region at or past
+//     the unsafe one's depth reproduces p. So "reproduces at least p bytes" is false below the
+//     region's start and true from it, and a binary search over the rune boundaries before the cut
+//     finds the smallest cut where it holds. When regions are disjoint and each placeholder
+//     differs from its region's raw bytes at the first byte, that is the region's start, the
+//     largest safe cut at or before keep. When the region's first raw bytes are the placeholder's
+//     own first bytes, it lands after them, where the kept side is whole's prefix: the next case.
+//   - The kept side is exactly whole's prefix, yet the rest does not redact to whole's remainder.
+//     Two shapes give this. A rule whose first part alone still matches, such as a token with an
+//     unbounded run: the kept side's shorter token is replaced by the same placeholder. And a rule
+//     that replaces only a group of its match, leaving the text before the group raw in whole — a
+//     credentialed URI's scheme and user, a dotenv line's key, the bearer keyword and the blank
+//     after it: the kept side holds that raw text as whole does, and the rest, having lost the
+//     text the rule needs in front of the group, leaves the secret raw. The kept side then says
+//     nothing about where the region starts, so the search backs off from the cut by a doubling
+//     distance while the kept side is still whole's prefix and the cut unsafe, and binary-searches
+//     between the first probe where that fails and the last where it held for the largest cut
+//     where it fails. That cut is safe — before the token or the raw text — or parts from whole,
+//     which the first case resolves. Stepping back a rune at a time instead costs a full-prefix
+//     Redact per rune of raw text, about L x log2(n) calls for L raw bytes: seconds for one long
+//     URI user in a 256 KB page, minutes for a longer one (w14-safecut verify finding).
 //
 // Each step moves the cut strictly back, and the search stops only at a safe cut or after the
 // first rune boundary was tried. For a rule set outside that model (matches that overlap, or that
@@ -133,48 +143,82 @@ func (h *handlers) safeCut(window, whole []byte, keep int) (int, []byte, bool) {
 		}
 		return max(c, first)
 	}
+	// split redacts the kept side of a cut at c and, when that is whole's prefix, the rest too,
+	// and reports whether the two give whole back.
+	split := func(c int) ([]byte, bool) {
+		kept, _ := h.redactor.Redact(window[:c])
+		if !bytes.HasPrefix(whole, kept) {
+			return kept, false
+		}
+		rest, _ := h.redactor.Redact(window[c:])
+		return kept, len(kept)+len(rest) == len(whole) && bytes.HasSuffix(whole, rest)
+	}
 	// reproduces reports whether the kept side of a cut at c agrees with whole for p bytes.
 	reproduces := func(c, p int) bool {
 		kept, _ := h.redactor.Redact(window[:c])
 		return commonPrefixLen(kept, whole) >= p
 	}
+	// prefixUnsafe reports whether a cut at c is unsafe with a kept side that is whole's prefix.
+	prefixUnsafe := func(c int) bool {
+		kept, safe := split(c)
+		return !safe && bytes.HasPrefix(whole, kept)
+	}
+	// halve binary-searches the rune boundaries between lo and hi, where holds(lo) is false and
+	// holds(hi) true, and returns the adjacent pair it narrows them to.
+	halve := func(lo, hi int, holds func(int) bool) (int, int) {
+		for {
+			mid := floor(lo + (hi-lo)/2)
+			if mid <= lo {
+				_, size := utf8.DecodeRune(window[lo:])
+				mid = lo + size
+			}
+			if mid >= hi {
+				return lo, hi
+			}
+			if holds(mid) {
+				hi = mid
+			} else {
+				lo = mid
+			}
+		}
+	}
 	cut := floor(min(keep, len(window)))
 	for {
-		kept, _ := h.redactor.Redact(window[:cut])
-		rest, _ := h.redactor.Redact(window[cut:])
-		if len(kept)+len(rest) == len(whole) && bytes.HasPrefix(whole, kept) && bytes.HasSuffix(whole, rest) {
+		kept, safe := split(cut)
+		if safe {
 			return cut, kept, true
 		}
 		if cut <= first {
 			return 0, nil, false
 		}
-		p := commonPrefixLen(kept, whole)
-		// Binary search over rune boundaries in [first, cut] for the smallest that reproduces p:
-		// lo never does, hi always does (cut itself does, by definition of p).
-		next := first
-		if !reproduces(first, p) {
-			lo, hi := first, cut
-			for {
-				mid := floor(lo + (hi-lo)/2)
-				if mid <= lo {
-					_, size := utf8.DecodeRune(window[lo:])
-					mid = lo + size
-				}
-				if mid >= hi {
-					break
-				}
-				if reproduces(mid, p) {
-					hi = mid
-				} else {
-					lo = mid
+		var next int
+		if p := commonPrefixLen(kept, whole); p < len(kept) {
+			// The smallest rune boundary in [first, cut] that reproduces p: first is taken when it
+			// does; otherwise first never does and cut always does (by definition of p).
+			next = first
+			if !reproduces(first, p) {
+				_, next = halve(first, cut, func(c int) bool { return reproduces(c, p) })
+			}
+		} else {
+			// Back off by a doubling distance while the cut is prefixUnsafe, then take the largest
+			// cut below the last such probe that is not: hi always is, lo never is.
+			lo, hi := -1, cut
+			for d := 1; lo < 0; d <<= 1 {
+				c := floor(cut - d)
+				switch {
+				case c >= hi:
+					// cut-d is still inside the rune the last probe floored to.
+				case !prefixUnsafe(c):
+					lo = c
+				case c <= first:
+					// The window's first rune boundary is unsafe too, and so, in the model above, is
+					// every cut between it and this one: no page fits.
+					return 0, nil, false
+				default:
+					hi = c
 				}
 			}
-			next = hi
-		}
-		if p == len(kept) {
-			// The kept side is whole's prefix: next is the shortest still-matching prefix of the
-			// token, so the token starts before it.
-			next = floor(next - 1)
+			next, _ = halve(lo, hi, prefixUnsafe)
 		}
 		if next >= cut {
 			next = floor(cut - 1)
