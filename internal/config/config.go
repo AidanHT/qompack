@@ -257,16 +257,18 @@ type Env struct {
 }
 
 // Warning is a non-fatal problem discovered while loading configuration: an unknown key, an
-// unparseable file, or a leaf that fell back to its default. Load never returns an error for any
+// unparseable file, a leaf that fell back to its default, or (D43, hotPathBudgetWarnings) a B-A
+// budget set below the durable-ingest budget it contains. Load never returns an error for any
 // of these; it returns Warnings instead, so a hook that reads bad config never crashes (§11.3).
 type Warning struct {
 	Key      string
 	Message  string
 	Location string
 	// Deprecated marks a diagnostic about a key whose value WAS applied but whose production
-	// meaning Qompack.md v1.5 retired (migration.go's retiredMeaningKeys). Every other Warning
-	// describes something Load dropped or replaced; consumers that treat warnings as "your config
-	// was not honoured" must skip these.
+	// meaning Qompack.md v1.5 retired (migration.go's retiredMeaningKeys). Apart from these and
+	// the D43 budget WARN on runtime.hotPath.budgetMs, whose value is also applied as set, every
+	// Warning describes something Load dropped or replaced; consumers that treat warnings as "your
+	// config was not honoured" must skip both.
 	Deprecated bool
 }
 
