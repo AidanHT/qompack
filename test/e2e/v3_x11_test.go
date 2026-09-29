@@ -511,6 +511,10 @@ func TestV3_HotPathUnchangedWithLedgerResident(t *testing.T) {
 		pairVerdict = "REPORTED, not gated (" + x11UnderColoadFlag + "): over the ceiling"
 		t.Logf("X11 under %s: %v — a co-loaded pair is not judged; ci.yml's `test-e2e` job judges it",
 			obs.UnderColoadEnv, pairErr)
+	case underCoload && errors.Is(pairErr, errX11PairIncomparable):
+		pairVerdict = "REPORTED, not gated (" + x11UnderColoadFlag + "): populations differ, not compared"
+		t.Logf("X11 under %s: %v — a co-loaded run may defer to the spool (D39); ci.yml's `test-e2e` job "+
+			"judges the pair", obs.UnderColoadEnv, pairErr)
 	case underCoload:
 		require.NoError(t, pairErr,
 			"even a co-loaded run must carry a readable hook_controlled_observed note in both artifacts")
@@ -662,6 +666,13 @@ func x11RequireAbsoluteRows(
 			"package alone and judges all three",
 			run, obs.UnderColoadEnv, ba.P99, baLimit, bb.P99, bbLimit, beWall.P99, beLimit)
 	} else {
+		// Isolated, no hot-path request may be deferred to the client spool: a deferral is the
+		// §12.2 degrade (or a request that could not wait), which only a co-loaded run reports.
+		if note, deferred := x11DeferralNote(rep); deferred {
+			require.Failf(t, "X11 deferred hot-path requests to the client spool in isolation",
+				"%s: the harness recorded a delivery ledger, so part of the run never reached the daemon "+
+					"and every daemon-side row judges a shortened population: %s", run, note)
+		}
 		x11RequireGatedRow(t, ba, baLimit, "B-A")
 		x11RequireGatedRow(t, bb, bbLimit, "B-B")
 		x11RequireGatedRow(t, beWall, beLimit, "B-E's wall-clock row")
@@ -693,7 +704,8 @@ func x11RequireAbsoluteRows(
 	// The run's measured line. The verdict word says which mode this run was, and it is carried on
 	// B-B too since the Q3 ruling — a B-B number in a co-loaded log is a measurement, and the log
 	// must not read as if it were a verdict. Whether anything was deferred to the client spool is the
-	// harness's own delivery-ledger note, logged below with the others.
+	// harness's own delivery-ledger note, logged below with the others: refused above in isolation,
+	// reported co-loaded.
 	wallVerdict := "gated"
 	if underCoload {
 		wallVerdict = "reported, not gated: " + x11UnderColoadFlag

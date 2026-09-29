@@ -20,6 +20,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -105,6 +106,29 @@ func x11ReadObserved(rep x11BenchReport) (x11Observed, error) {
 // report it without also forgiving an unreadable artifact.
 var errX11LedgerRegressed = errors.New("X11: the resident ledger moved the hot path")
 
+// errX11PairIncomparable marks a pair whose two hook_controlled_observed populations differ in
+// size. An isolated run fails it; a co-loaded run, where a spool deferral is a reported outcome
+// (D39), reports it as a pair it could not compare.
+var errX11PairIncomparable = errors.New("X11: the two runs' hook_controlled_observed populations differ in size")
+
+// x11DeliveryLedgerNotePrefix is the opening of the harness's delivery-ledger note, verbatim from
+// buildNotes (test/bench/hotpath/measure.go), which writes the note only when the run deferred at
+// least one hot-path request to the client spool.
+const x11DeliveryLedgerNotePrefix = "delivery ledger: "
+
+// x11DeferralNote returns the artifact's delivery-ledger note, if it carries one. A run with that
+// note moved hooks to the client spool part of the way through, so its daemon-side populations lack
+// the requests that never reached the daemon: an isolated X11 run refuses it, the way
+// test/integration's hotpathJudgeSpool refuses any spool transition in an isolated run.
+func x11DeferralNote(rep x11BenchReport) (string, bool) {
+	for _, note := range rep.Notes {
+		if strings.HasPrefix(note, x11DeliveryLedgerNotePrefix) {
+			return note, true
+		}
+	}
+	return "", false
+}
+
 // x11Pair is what x11LedgerPairVerdict compared, for the test's log.
 type x11Pair struct {
 	base, ledger x11Observed
@@ -120,8 +144,9 @@ type x11Pair struct {
 // than one tick (Linux's p50 is one tick on every recorded run); from four ticks up, the factor
 // alone decides. The floor is a proposed bound listed for the owner (see x11ObservedTickUS).
 //
-// It returns an error wrapping errX11LedgerRegressed when the ledger p50 is over the ceiling, and a
-// plain error when either artifact's note is missing or unreadable.
+// It returns an error wrapping errX11PairIncomparable when the two notes' sample counts differ,
+// one wrapping errX11LedgerRegressed when the ledger p50 is over the ceiling, and a plain error
+// when either artifact's note is missing or unreadable.
 func x11LedgerPairVerdict(base, ledger x11BenchReport, tickUS int64) (x11Pair, error) {
 	var out x11Pair
 	b, err := x11ReadObserved(base)
@@ -135,6 +160,11 @@ func x11LedgerPairVerdict(base, ledger x11BenchReport, tickUS int64) (x11Pair, e
 	out = x11Pair{
 		base: b, ledger: l,
 		ceilingUS: math.Max(x11RegressionFactor*float64(b.p50us), float64(b.p50us+tickUS)),
+	}
+	if b.n != l.n {
+		return out, fmt.Errorf("%w: n=%d without the ledger, n=%d with it — a p50 over fewer samples is a p50 "+
+			"over part of the run (a spool deferral or rejected samples), so the two are not compared",
+			errX11PairIncomparable, b.n, l.n)
 	}
 	if float64(l.p50us) > out.ceilingUS {
 		return out, fmt.Errorf("%w: hook_controlled_observed p50 %.3fms with the 5 000-entry ledger resident "+
@@ -289,9 +319,50 @@ func TestV3_X11LedgerPairVerdict(t *testing.T) {
 				require.Error(t, err, "an artifact without a readable note must be refused, not passed")
 				require.NotErrorIs(t, err, errX11LedgerRegressed,
 					"a refusal is not a verdict: co-loaded runs report verdicts but must still fail refusals")
+				require.NotErrorIs(t, err, errX11PairIncomparable,
+					"an unreadable artifact is not an unequal population: co-loaded runs must still fail it")
 			})
 		}
 	})
+
+	// A run that lost samples to the client spool, or to the daemon's invalid-sample filter, judges
+	// its p50 over a shorter population than its twin's; a p50 over a prefix that ended at a spool
+	// transition is the fast part of the run. That pair is refused as incomparable whatever the two
+	// p50s say, and never as a verdict.
+	t.Run("unequal populations", func(t *testing.T) {
+		for _, uc := range []struct {
+			name             string
+			baseN, ledgerN   int
+			basePs, ledgerPs float64
+		}{
+			{"a shorter ledger run with an equal p50", n, n - 564, 4.096, 4.096},
+			{"a shorter no-ledger run with an equal p50", n - 1, n, 4.096, 4.096},
+			{"a shorter ledger run over the ceiling", n, 1500, 4.096, 30.720},
+		} {
+			t.Run(uc.name, func(t *testing.T) {
+				_, err := x11LedgerPairVerdict(
+					x11ReportWithNotes(x11ObservedNoteFixture(uc.basePs, 2*uc.basePs, uc.baseN)),
+					x11ReportWithNotes(x11ObservedNoteFixture(uc.ledgerPs, 2*uc.ledgerPs, uc.ledgerN)), tick)
+				require.ErrorIs(t, err, errX11PairIncomparable, "n=%d against n=%d", uc.baseN, uc.ledgerN)
+				require.NotErrorIs(t, err, errX11LedgerRegressed, "an incomparable pair has no verdict")
+			})
+		}
+	})
+}
+
+// TestV3_X11DeferralNoteIsFound pins x11DeferralNote, which an isolated X11 run uses to refuse a
+// run that deferred any hot-path request to the client spool: the harness's delivery-ledger note is
+// found exactly when buildNotes wrote it, and a clean artifact carries none.
+func TestV3_X11DeferralNoteIsFound(t *testing.T) {
+	const ledgerNote = "delivery ledger: 2064 hot-path requests sent, 1500 delivered live to the daemon, " +
+		"564 DEFERRED to the client spool and 0 lost. A deferral is §8.1/§12.2's documented path"
+	got, ok := x11DeferralNote(x11ReportWithNotes(x11ObservedNoteFixture(4.096, 8.192, 1500), ledgerNote))
+	require.True(t, ok, "a run whose artifact carries the delivery ledger deferred to the spool")
+	require.Equal(t, ledgerNote, got)
+
+	_, ok = x11DeferralNote(x11ReportWithNotes(x11ObservedNoteFixture(4.096, 8.192, 2064),
+		"B-A's gated n=2064 includes 64 in-process warm-up observe.tool requests"))
+	require.False(t, ok, "a clean run's artifact carries no delivery ledger")
 }
 
 // TestV3_X11CopyProjectIsExactButForLogs pins the twin X11's no-ledger run measures: every file
