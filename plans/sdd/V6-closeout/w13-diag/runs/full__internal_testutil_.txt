@@ -1,0 +1,2 @@
+ok  	github.com/qompack/qompack/internal/testutil	5.191s
+EXIT=0

@@ -1,0 +1,2 @@
+ok  	github.com/qompack/qompack/test/docs	2.095s
+EXIT=0
