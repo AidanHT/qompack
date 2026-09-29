@@ -60,9 +60,12 @@ listener, no port and no socket.
 
 **The daemon.** `internal/daemon` is "the resident per-project process … the thing that holds the
 store, the sketches and the scheduler in memory so a hook does not have to". Its stated reason for
-existing is a budget: a hook has a 15 ms p99 budget (B-A) and cannot open a store, load sketches and
-reconstruct scheduler state on every tool call, so "the daemon pays those costs once and the hook
-pays only a connect-write-ack".
+existing is a budget: a hook has a p99 budget (B-A, `runtime.hotPath.budgetMs`: 15 ms on Linux,
+50 ms on Windows, 40 ms on macOS) and cannot open a store, load sketches and reconstruct scheduler
+state on every tool call, so "the daemon pays those costs once and the hook pays only a
+connect-write-ack". The per-platform figures are B-B's durable ingest budget carried into B-A, which
+contains it: the ACK is written only after the delivery is fsynced (`internal/config/deadlines.go`,
+`HotPathBudgetMsFor`).
 
 **The daemon's lifetime.** One daemon serves a project, whichever sessions come and go: the
 singleton lock `.qompack/run/daemon.lock` decides which process that is, and a second one started
