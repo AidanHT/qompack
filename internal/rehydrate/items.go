@@ -3,6 +3,7 @@ package rehydrate
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"path/filepath"
 	"sort"
@@ -350,9 +351,19 @@ func buildUserIntent(ctx context.Context, r Request, d Deps) built {
 	log := loggerOf(d)
 	fallback := strings.TrimSpace(r.Checkpoint.UserIntent.Original)
 
-	l0 := readL0First(ctx, d, r.Session)
+	// Whose first prompt the original is: this session's, or — for a fork whose parent is recorded
+	// — the session the fork continues (F-UAT06-1, checkpoint/lineage.go). The fork's checkpoint
+	// inherited that session's original, so it is that session's L0 capture it is verified against;
+	// the fork's own first prompt is a later statement of the same task.
+	fork := forkOf(r)
+	origin := r.Session
+	if fork != nil && fork.OriginSession != "" {
+		origin = fork.OriginSession
+	}
+
+	l0 := readL0First(ctx, d, origin)
 	if l0.state == l0Whole {
-		if drop, substituted := hostOrderNotice(ctx, r, d, l0.rec); substituted {
+		if drop, substituted := hostOrderNotice(ctx, origin, d, l0.rec); substituted {
 			b.drops = append(b.drops, drop)
 		}
 	}
@@ -364,9 +375,9 @@ func buildUserIntent(ctx context.Context, r Request, d Deps) built {
 		// was read only in part, so it is compared with nothing: no mismatch is claimed either way.
 		b.seen++
 		b.drops = append(b.drops, tier1Overflow(ItemUserIntent, "the verbatim original user intent",
-			"expand(tool_use_id="+string(firstPromptID(r.Session))+")"))
+			"expand(tool_use_id="+string(firstPromptID(origin))+")"))
 		log.Info("rehydrate: the L0 original is longer than the ceiling can carry; named as an overflow",
-			"session", string(r.Session), "read_limit_bytes", intentReadLimit)
+			"session", string(r.Session), "origin", string(origin), "read_limit_bytes", intentReadLimit)
 		text = ""
 	case l0.state == l0Unavailable:
 		// Degraded but correct: §8.5 guarantees the checkpoint's copy is itself verbatim-from-L0
@@ -378,7 +389,7 @@ func buildUserIntent(ctx context.Context, r Request, d Deps) built {
 				"guarantees is itself verbatim-from-L0 and never regenerated",
 		})
 		log.Info("rehydrate: L0 verbatim prompt unavailable; using the checkpoint copy",
-			"session", string(r.Session), "id", string(firstPromptID(r.Session)))
+			"session", string(r.Session), "id", string(firstPromptID(origin)))
 		text = fallback
 	case fallback != "" && fallback != text:
 		// L0 WINS. This is the mechanical guarantee that no summary-derived intent reaches the
@@ -389,22 +400,26 @@ func buildUserIntent(ctx context.Context, r Request, d Deps) built {
 			Detail: "checkpoint user_intent.original differs from the L0 capture; injecting the L0 text",
 		})
 		log.Loud("rehydrate: checkpoint user_intent.original differs from the L0 capture",
-			"session", string(r.Session))
+			"session", string(r.Session), "origin", string(origin))
+	}
+	if fork != nil {
+		b.drops = append(b.drops, forkNotice(r, fork))
 	}
 
 	if text != "" {
 		b.seen++
 		// L0 is the source of record when it answered; otherwise the checkpoint's own copy is.
-		pointer := "expand(tool_use_id=" + string(firstPromptID(r.Session)) + ")"
+		pointer := "expand(tool_use_id=" + string(firstPromptID(origin)) + ")"
 		if l0.state == l0Unavailable {
 			pointer = checkpointPointer(r, "user_intent.original")
 		}
 		b.units = append(b.units, unit{
-			text:     quoteLines(text),
+			text:     forkProvenance(r, origin) + quoteLines(text),
 			overflow: tier1Overflow(ItemUserIntent, "the verbatim original user intent", pointer),
 		})
 	}
-	// Evolution is append-only and oldest-first (checkpoint/writer.go's appendEvolutionLocked), but
+
+	// Evolution is append-only and oldest-first (checkpoint/intent.go's setIntentLocked), but
 	// units are built NEWEST-FIRST here: fillPrefix admits a PREFIX of whatever order it is given
 	// and stops at the first unit that does not fit (Qompack.md's current-authority rule; see
 	// TestBuild_LatestEvolutionSurvivesTruncation). Building in stored (oldest-first) order would
@@ -419,13 +434,9 @@ func buildUserIntent(ctx context.Context, r Request, d Deps) built {
 	// Each unit's drop ID is still the delta's TRUE index into Checkpoint.UserIntent.Evolution —
 	// not its position in this reversed build order — so provenance (T11-AUTH-01) and any
 	// consumer correlating by that index are unaffected by the display/truncation order.
-	for i := len(r.Checkpoint.UserIntent.Evolution) - 1; i >= 0; i-- {
-		ev := strings.TrimSpace(r.Checkpoint.UserIntent.Evolution[i])
-		if ev == "" {
-			continue
-		}
+	for _, ev := range evolutionOf(ctx, r, d, fork, origin) {
 		b.seen++
-		body := quoteLines(ev)
+		body := quoteLines(ev.text)
 		if len(b.units) == 0 || isFixedUnit(b.units[len(b.units)-1]) {
 			// The header belongs to the first (most recent) evolution unit, so it disappears with
 			// it if that one unit alone is dropped.
@@ -434,13 +445,104 @@ func buildUserIntent(ctx context.Context, r Request, d Deps) built {
 		b.units = append(b.units, unit{
 			text: body,
 			drop: checkpoint.DropEntry{
-				Kind: dropKindUserIntentEvolution, ID: itoa(i),
-				Detail: "did not fit the rehydration budget" +
-					restoreClause(checkpointPointer(r, "user_intent.evolution["+itoa(i)+"]")),
+				Kind: dropKindUserIntentEvolution, ID: ev.id,
+				Detail: "did not fit the rehydration budget" + restoreClause(ev.pointer),
 			},
 		})
 	}
 	return b
+}
+
+// evolutionDelta is one evolution unit's content and where it can be read back from.
+type evolutionDelta struct {
+	text    string
+	id      string
+	pointer string
+}
+
+// evolutionOf returns the checkpoint's evolution deltas NEWEST FIRST (see buildUserIntent), each
+// with its true index as its id and the checkpoint field that holds it as its pointer.
+//
+// A fork's own first prompt is one of them: the checkpointer records it after the parent's history
+// (checkpoint/intent.go). A checkpoint that does not carry it — one sealed before this build — gets
+// it from L0 as the newest delta, pointing at its own capture, so the fork's first statement is
+// never lost with its misplaced role.
+func evolutionOf(ctx context.Context, r Request, d Deps, fork *checkpoint.Lineage, origin core.SessionID) []evolutionDelta {
+	evo := r.Checkpoint.UserIntent.Evolution
+	out := make([]evolutionDelta, 0, len(evo)+1)
+	if fork != nil && origin != r.Session {
+		if own := readL0First(ctx, d, r.Session); own.state == l0Whole && !listedIn(evo, own.text) {
+			id := string(firstPromptID(r.Session))
+			out = append(out, evolutionDelta{text: own.text, id: id, pointer: "expand(tool_use_id=" + id + ")"})
+		}
+	}
+	for i := len(evo) - 1; i >= 0; i-- {
+		ev := strings.TrimSpace(evo[i])
+		if ev == "" {
+			continue
+		}
+		out = append(out, evolutionDelta{
+			text: ev, id: itoa(i),
+			pointer: checkpointPointer(r, "user_intent.evolution["+itoa(i)+"]"),
+		})
+	}
+	return out
+}
+
+// listedIn reports whether text is one of evo's entries, compared as item 2 renders them.
+func listedIn(evo []string, text string) bool {
+	for _, e := range evo {
+		if strings.TrimSpace(e) == text {
+			return true
+		}
+	}
+	return false
+}
+
+// forkOf is r's lineage when r's session is a fork (checkpoint.LineageFork), or nil. A record for
+// another session is not this session's lineage and is ignored.
+func forkOf(r Request) *checkpoint.Lineage {
+	if l := r.Lineage; l != nil && l.Source == checkpoint.LineageFork && l.Session == r.Session {
+		return l
+	}
+	return nil
+}
+
+// forkDropID is the drop ID, under dropKindUserIntentSource, of the entry saying a session is a fork
+// and where its original came from.
+const forkDropID = "fork"
+
+// forkProvenance is the line a forked session's original unit opens with, saying whose request it
+// is. It is the unit's own first line so it can never be admitted without the record it labels,
+// and it is not quoted, so it is never mistaken for the user's words. It is empty for a session
+// that is not a fork of a known parent.
+func forkProvenance(r Request, origin core.SessionID) string {
+	if origin == r.Session {
+		return ""
+	}
+	return "(forked session: the original request of session " + shortSession(origin) +
+		", which this session continues)\n"
+}
+
+// forkNotice is the drop-report entry that says r's session is a fork: which session's first
+// prompt its original is and how to read it, or that its parent is unknown and its own first
+// prompt stands in.
+func forkNotice(r Request, fork *checkpoint.Lineage) checkpoint.DropEntry {
+	if fork.OriginSession == "" || fork.OriginSession == r.Session {
+		return checkpoint.DropEntry{
+			Kind: dropKindUserIntentSource, ID: forkDropID,
+			Detail: "this session was forked from another, but its parent is unknown to Qompack (no " +
+				"verifying checkpoint existed when it started), so its own first prompt is shown as its " +
+				"original request",
+		}
+	}
+	return checkpoint.DropEntry{
+		Kind: dropKindUserIntentSource, ID: forkDropID,
+		Detail: "this session is a fork of session " + string(fork.ParentSession) + " (checkpoint " +
+			fmt.Sprintf("%04d", int(fork.ParentSeq)) + "); its original request is session " +
+			string(fork.OriginSession) + "'s first prompt, and its own first prompt is an evolution entry" +
+			restoreClause("expand(tool_use_id="+string(firstPromptID(fork.OriginSession))+")"),
+	}
 }
 
 // l0State is how one L0 first-prompt lookup ended.
@@ -534,17 +636,17 @@ const hostOrderDropID = "host_order"
 // The check needs the store's PromptOrder capability (one bounded index scan, once per
 // rehydration); a store without it answers as before. A store that has it but cannot answer is
 // logged, and no substitution is claimed on a guess.
-func hostOrderNotice(ctx context.Context, r Request, d Deps, rec0 store.ToolUseRecord) (checkpoint.DropEntry, bool) {
+func hostOrderNotice(ctx context.Context, s core.SessionID, d Deps, rec0 store.ToolUseRecord) (checkpoint.DropEntry, bool) {
 	po, ok := d.Store.(store.PromptOrder)
 	if !ok {
 		return checkpoint.DropEntry{}, false
 	}
 	log := loggerOf(d)
-	first, err := po.EarliestPrompt(ctx, r.Session)
+	first, err := po.EarliestPrompt(ctx, s)
 	if err != nil {
 		if !errors.Is(err, core.ErrNotFound) {
 			log.Warn("rehydrate: could not check that the L0 original is the host's first prompt",
-				"session", string(r.Session), "err", err.Error())
+				"session", string(s), "err", err.Error())
 		}
 		return checkpoint.DropEntry{}, false
 	}
@@ -552,7 +654,7 @@ func hostOrderNotice(ctx context.Context, r Request, d Deps, rec0 store.ToolUseR
 		return checkpoint.DropEntry{}, false
 	}
 	log.Warn("rehydrate: the L0 original is not the host's first prompt of the session",
-		"session", string(r.Session), "substituted_id", string(rec0.ID), "host_first_id", string(first.ID))
+		"session", string(s), "substituted_id", string(rec0.ID), "host_first_id", string(first.ID))
 	return checkpoint.DropEntry{
 		Kind: dropKindUserIntentSource, ID: hostOrderDropID,
 		Detail: string(rec0.ID) + " is this session's first captured prompt, not the first its host " +
