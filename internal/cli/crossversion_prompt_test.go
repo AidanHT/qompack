@@ -81,8 +81,10 @@ func seedLinkedPrompt(t *testing.T, p seededProject, arrival uint64, turn core.T
 		Observation: obs,
 	}))
 	require.NoError(t, s.Close())
-	payload, err := json.Marshal(map[string]string{"hook_event_name": "UserPromptSubmit", "prompt": text,
-		"session_id": string(sess)})
+	payload, err := json.Marshal(map[string]string{
+		"hook_event_name": "UserPromptSubmit", "prompt": text,
+		"session_id": string(sess),
+	})
 	require.NoError(t, err)
 	require.NoError(t, store.WriteCaptureSidecar(p.Root, store.CaptureSidecar{
 		ObservationID: obs, Session: sess, Arrival: arrival, Op: "observe.prompt",

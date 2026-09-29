@@ -119,8 +119,10 @@ func TestFsck_ALockThisProjectWroteAtAnotherAddressIsItsDaemon(t *testing.T) {
 
 	recorded := ipc.Addr{Kind: ipc.UnixSocket, Path: shortSocketPath(t)}
 	if runtime.GOOS == "windows" {
-		recorded = ipc.Addr{Kind: ipc.NamedPipe,
-			Path: `\\.\pipe\qompack-fsck-lockid-` + strconv.FormatInt(time.Now().UnixNano(), 36)}
+		recorded = ipc.Addr{
+			Kind: ipc.NamedPipe,
+			Path: `\\.\pipe\qompack-fsck-lockid-` + strconv.FormatInt(time.Now().UnixNano(), 36),
+		}
 	}
 	srv, err := ipc.NewServer(recorded, logging.Nop(), nil, 0)
 	require.NoError(t, err)
