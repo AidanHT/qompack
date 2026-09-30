@@ -994,11 +994,17 @@ func (d *daemon) drainConfig() DrainConfig {
 // has fully started a drainer only in the sense that a nil drainer reports (0, nil) — Run always
 // constructs one before its own startup Drain call, and admin.drain / the flush and idle routes
 // only ever run once Run has.
+//
+// A drain is capture work for its whole pass (V6 close-out D51, captureGate): between the deliveries
+// it hands to runIngested it reads spool segments and appends fsynced lease-journal records, the
+// session I/O the startup publication pass must not run beside.
 func (d *daemon) Drain(ctx context.Context) (int, error) {
 	dr := d.drain.Load()
 	if dr == nil {
 		return 0, nil
 	}
+	d.capture.enter()
+	defer d.capture.leave()
 	return dr.Drain(ctx)
 }
 
