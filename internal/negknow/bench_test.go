@@ -387,8 +387,17 @@ const budgetAttempts = 3
 // us nothing, and it is the one value that can only ever make a CPU budget pass.
 func requireBudget(t *testing.T, name string, fn func(*testing.B), budget time.Duration) {
 	t.Helper()
+	requireBudgetOn(t, name, fn, budget, obs.UnderCoload())
+}
+
+// requireBudgetOn is requireBudget with the co-load declaration read by the caller. It exists for
+// the rows in the external test package (lineage_bench_test.go): test/guards' yielder walk follows
+// calls only within one package's test files, so a Test there spells obs.UnderCoload() itself and
+// is found, and named in ci.yml's `timing` lane, like every in-package TestBudget_.
+func requireBudgetOn(t *testing.T, name string, fn func(*testing.B), budget time.Duration, coloaded bool) {
+	t.Helper()
 	ceiling := budget * time.Duration(budgetFactor())
-	gateWall := !obs.UnderCoload()
+	gateWall := !coloaded
 	met := func(wall, cpu clockSample) bool {
 		return cpu.perOp <= ceiling && (!gateWall || wall.perOp <= ceiling)
 	}

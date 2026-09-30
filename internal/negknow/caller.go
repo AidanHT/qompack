@@ -60,8 +60,9 @@ func (l *ledger) sessionFor(ctx context.Context) core.SessionID {
 }
 
 // viewerFor is who ctx's read is made for: sessionFor's session with its inherited ancestry
-// (D49). It is resolved once per read, before the ledger lock, because Deps.Ancestry reads the
-// lineage records from disk.
+// (D49). It is resolved once per read, before the ledger lock, because Deps.Ancestry may read the
+// lineage records from disk; Query resolves it only after a filter hit, since a miss is absent for
+// every viewer.
 func (l *ledger) viewerFor(ctx context.Context) viewer {
 	return l.viewerOf(l.sessionFor(ctx))
 }

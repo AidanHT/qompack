@@ -10,6 +10,8 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"sync"
+	"sync/atomic"
 
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/negknow"
@@ -127,6 +129,7 @@ func (w *FileWriter) NoteFork(ctx context.Context, s core.SessionID, at core.Uni
 	if err := paths.WriteAtomic(p, b, draftPerm); err != nil {
 		return fmt.Errorf("checkpoint: lineage of %s: %w", s, err)
 	}
+	lineageWrites.Add(1) // LedgerAncestry's memo reads the lineage records again
 	w.log.Info("checkpoint: forked session recorded", "session", string(s),
 		"parent_session", string(rec.ParentSession), "parent_seq", int(rec.ParentSeq),
 		"origin_session", string(rec.OriginSession))
@@ -206,15 +209,25 @@ func ReadLineage(l paths.Layout, s core.SessionID) (*Lineage, error) {
 // the walk where it stands (a session is never given a parent it may not have), and a session
 // already visited ends it too, so damaged records cannot loop it.
 //
-// It is what the composition root wires as negknow.Deps.Ancestry (LedgerAncestry), and what a
-// draft measures the eliminations it carries by (carriedBy).
+// It is what a draft measures the eliminations it carries by (carriedBy), and, memoized, what the
+// composition root wires as negknow.Deps.Ancestry (LedgerAncestry).
 func Ancestry(l paths.Layout, s core.SessionID) []negknow.Inherited {
+	out, _ := ancestryOf(l, s)
+	return out
+}
+
+// ancestryOf is Ancestry, and whether every lineage record the walk read was readable: a walk
+// ended by an unreadable record is not the answer to keep.
+func ancestryOf(l paths.Layout, s core.SessionID) ([]negknow.Inherited, bool) {
 	var out []negknow.Inherited
 	visited := map[core.SessionID]bool{s: true}
 	for cur := s; ; {
 		rec, err := ReadLineage(l, cur)
-		if err != nil || rec == nil || rec.ParentSession == "" || visited[rec.ParentSession] {
-			return out
+		if err != nil {
+			return out, false
+		}
+		if rec == nil || rec.ParentSession == "" || visited[rec.ParentSession] {
+			return out, true
 		}
 		until := rec.At
 		if until <= 0 {
@@ -226,14 +239,51 @@ func Ancestry(l paths.Layout, s core.SessionID) []negknow.Inherited {
 	}
 }
 
-// LedgerAncestry is Ancestry over the project at root, in the shape negknow.Deps.Ancestry takes.
+// lineageWrites counts the lineage records this process has written (NoteFork). LedgerAncestry's
+// memo keeps an answer only while the count it was read at is current.
+var lineageWrites atomic.Uint64
+
+// ancestryMemo is one session's memoized ancestry and the lineageWrites count it was read at.
+type ancestryMemo struct {
+	gen uint64
+	anc []negknow.Inherited
+}
+
+// LedgerAncestry is Ancestry over the project at root, in the shape negknow.Deps.Ancestry takes,
+// memoized per session.
+//
+// The ledger asks it on every read that resolves a viewer — already_tried's filter hits, Active,
+// TopActive — and each walk opens state/lineage-<session>.json (ReadFileShared, about 114 µs on
+// Windows even when the file is absent), which alone is more than twice the §11.2 "Query (bloom
+// hit)" row's 50 µs. A lineage record is written once, when its session starts, and never
+// rewritten (NoteFork), and the daemon is the one process that writes them, so an answer changes
+// only when this process writes a lineage record: each answer is kept while no lineage record has
+// been written since it was read, and a walk that met an unreadable record is not kept at all. The
+// returned slice is shared between callers, which only read it.
 func LedgerAncestry(root string) func(core.SessionID) []negknow.Inherited {
 	l := paths.Of(root)
+	var (
+		mu   sync.Mutex
+		memo = map[core.SessionID]ancestryMemo{}
+	)
 	return func(s core.SessionID) []negknow.Inherited {
 		if checkSessionComponent(s) != nil {
 			return nil
 		}
-		return Ancestry(l, s)
+		gen := lineageWrites.Load()
+		mu.Lock()
+		m, ok := memo[s]
+		mu.Unlock()
+		if ok && m.gen == gen {
+			return m.anc
+		}
+		anc, clean := ancestryOf(l, s)
+		if clean {
+			mu.Lock()
+			memo[s] = ancestryMemo{gen: gen, anc: anc}
+			mu.Unlock()
+		}
+		return anc
 	}
 }
 
