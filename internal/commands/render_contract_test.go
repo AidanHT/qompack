@@ -104,3 +104,45 @@ func TestRenderStatus_AnUnimplementedProducerIsNotHolding(t *testing.T) {
 	require.Contains(t, text,
 		"host contract: 2 assertion(s), none failing: 1 holding, 0 pending, 1 with nothing to judge\n", text)
 }
+
+// TestRenderStatus_AHealthyStandardSetReadsNoneFailing pins the steady-state reading
+// docs/troubleshooting.md gives: the standard nine always carry the retired custom-instructions row,
+// which has nothing to judge, so a healthy project reads "none failing" with no pending row and
+// never "all holding".
+func TestRenderStatus_AHealthyStandardSetReadsNoneFailing(t *testing.T) {
+	t.Parallel()
+
+	text := contractBanner(t, []contract.Result{
+		{ID: contract.CSessionStartFires, OK: true, Observed: "marker-found"},
+		{ID: contract.CSessionStartSourceCompact, OK: true, Observed: "no-precompact-pending"},
+		{ID: contract.CAdditionalContext, OK: true, Observed: "sentinel-observed"},
+		{ID: contract.CPreCompactTiming, OK: true, Observed: "p99=40ms timeout=30000ms"},
+		{ID: contract.CPreCompactCustomInstr, OK: true, Severity: contract.SevInfo, Observed: "retired"},
+		{ID: contract.CHookPayloadShape, OK: true, Observed: "payload shape valid"},
+		{ID: contract.CMCPRegistered, OK: true, Observed: "initialize-received"},
+		{ID: contract.CTranscriptReadable, OK: true, Observed: "transcript readable"},
+		{ID: contract.CPluginRootResolves, OK: true, Observed: "resolved"},
+	})
+	require.Contains(t, text,
+		"host contract: 9 assertion(s), none failing: 7 holding, 0 pending, 2 with nothing to judge\n", text)
+	require.NotContains(t, text, "all holding", text)
+	require.NotContains(t, text, "pending:", text)
+}
+
+// TestRenderStatus_ASpentProbeReadFromHistoryIsFailing: the row contract.RefreshFromHistory gives a
+// probe whose chances are spent is counted as failing and prints its note that the mode waits for
+// the next start.
+func TestRenderStatus_ASpentProbeReadFromHistoryIsFailing(t *testing.T) {
+	t.Parallel()
+
+	h := &contract.SessionHistory{}
+	h.Sentinel.Chances = 2
+	results := contract.RefreshFromHistory(uat01Results(), h, nil)
+	text := contractBanner(t, results)
+	require.Contains(t, text,
+		"host contract: 1 of 9 assertion(s) FAILING; 2 holding, 2 pending, 4 with nothing to judge\n", text)
+	require.Contains(t, text, "  hook.additional_context_delivered (critical", text)
+	require.Contains(t, text, "    observed: sentinel not found after two chances\n", text)
+	require.Contains(t, text, "next SessionStart", text)
+	require.NotContains(t, text, "pending: hook.additional_context_delivered", text)
+}
