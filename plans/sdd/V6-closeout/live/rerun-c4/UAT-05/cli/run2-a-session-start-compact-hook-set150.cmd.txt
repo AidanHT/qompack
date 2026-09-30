@@ -1,0 +1,7 @@
+cwd: <scratch>/sessions/c4/uat05/proj
+argv: ["C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c4/qompack-plugin-0.3.0-windows-amd64/bin/qompack.exe", "session-start", "--set", "runtime.rehydrate.maxTokens=150", "--set", "runtime.rehydrate.minTokens=150"]
+env+: {}
+qompack_home: <scratch>/sessions/c4/qhome
+wall_s: 0.062
+at: 2026-09-29T21:41:42-04:00
+stdin: {"session_id": "042dfca0-5f24-464a-95c1-643603b4e13d", "transcript_path": "<scratch>/sessions/c4/uat05/proj/no-transcript.jsonl", "cwd": "<scratch>/sessions/c4/uat05/proj", "hook_event_name": "SessionStart", "source": "compact"}

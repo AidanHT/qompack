@@ -1,0 +1,77 @@
+qompack status — collected 2026-09-30T03:43:24Z
+
+source: daemon (available, 0µs old)
+
+host contract: 9 assertion(s), all holding
+
+mode:        full
+hot path:    sync
+sessions:    1
+spool files: 1
+
+counters
+  checkpoint.cold_precompact               1
+  daemon.publication.unindexed_object_candidates 0
+  daemon.publication.unpublished_captures  0
+  mcp.eliminations.recorded                2
+  mcp.ephemeral.recorded                   32
+  mcp.provenance_incomplete                1
+  negknow.bloom.rebuilds                   1
+  negknow.query.absent                     1
+  negknow.query.active                     2
+  negknow.records.appended                 2
+  observer.segment.followed                2
+  observer.subagent_capture                1
+  observer.superseded                      1
+  observer.tombstone                       5
+  sched.changepoint                        1
+  sched.pselection.enabled                 1
+  sched.segment.closed.changepoint         1
+  sched.segment.closed.compact             1
+  store.publication.sync                   130
+  store.publication.sync.dir               576
+  store.publication.sync.file              418
+
+hooks — per-entry-point latency
+  EVENT              SUBCOMMAND                       BUDGET  LATENCY
+  PostToolUse        qompack observe tool             B-A     unavailable
+                       no per-hook instrument: PostToolUse is folded into the hook_controlled aggregate,
+                       which mixes every delivering hook and cannot be attributed to one
+  UserPromptSubmit   qompack observe prompt           B-A     unavailable
+                       no per-hook instrument: UserPromptSubmit is folded into the hook_controlled
+                       aggregate, which mixes every delivering hook and cannot be attributed to one
+  SessionStart       qompack session-start            B-A     unavailable
+                       no per-hook instrument: SessionStart is folded into the hook_controlled aggregate,
+                       which mixes every delivering hook and cannot be attributed to one
+  PreCompact         qompack checkpoint               B-E     p50 72.16ms  p95 72.16ms  p99 72.16ms  max 72.16ms  n=1  (observed from daemon, 0µs old)
+  Stop               qompack observe stop             B-A     unavailable
+                       no per-hook instrument: Stop is folded into the hook_controlled aggregate, which
+                       mixes every delivering hook and cannot be attributed to one
+  SubagentStop       qompack observe stop --subagent  B-A     unavailable
+                       no per-hook instrument: SubagentStop is folded into the hook_controlled aggregate,
+                       which mixes every delivering hook and cannot be attributed to one
+  SessionEnd         qompack flush                    B-A     unavailable
+                       no per-hook instrument: SessionEnd is folded into the hook_controlled aggregate,
+                       which mixes every delivering hook and cannot be attributed to one
+
+budgets — §2.4
+  ID    HISTOGRAM             MEASURE     LATENCY
+  B-A   hook_controlled       estimated   p50 14.34ms  p95 24.58ms  p99 110.00ms  max 110.00ms  n=87  (estimated from daemon, 0µs old)
+          scope: aggregate over 6 entry point(s): PostToolUse, UserPromptSubmit, SessionStart, Stop, SubagentStop, SessionEnd
+  B-B   l0_ingest             observed    p50 11.26ms  p95 18.43ms  p99 105.83ms  max 105.83ms  n=87  (observed from daemon, 0µs old)
+          scope: aggregate; not attributable to a single hook entry point
+  B-C   l0_process            observed    p50 81.92ms  p95 114.69ms  p99 119.64ms  max 119.64ms  n=87  (observed from daemon, 0µs old)
+          scope: aggregate; not attributable to a single hook entry point
+          reported only, never gated
+  B-D   hook_wall             —           unavailable
+          scope: aggregate; not attributable to a single hook entry point
+          reported only, never gated
+          no instrument records this histogram in this build
+          it measures host process creation, which the created process cannot observe
+  B-E   checkpoint_finalize   observed    p50 72.16ms  p95 72.16ms  p99 72.16ms  max 72.16ms  n=1  (observed from daemon, 0µs old)
+  B-F   mcp_tool_call         observed    p50 1.92ms  p95 18.43ms  p99 35.35ms  max 35.35ms  n=47  (observed from daemon, 0µs old)
+          scope: aggregate; not attributable to a single hook entry point
+  B-G   hook_degraded         —           unavailable
+          scope: aggregate; not attributable to a single hook entry point
+          reported only, never gated
+          hook_degraded: no samples recorded in the observed window

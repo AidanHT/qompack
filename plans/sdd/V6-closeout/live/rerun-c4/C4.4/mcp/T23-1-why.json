@@ -1,0 +1,23 @@
+{
+ "turn": 23,
+ "tool": "mcp__plugin_qompack_qompack__why",
+ "tool_use_id": "toolu_01KNXcd3sdajABdkRif5pDaz",
+ "arguments": {
+  "decision_id": "dec_951bc89c3930"
+ },
+ "host_is_error": false,
+ "result": {
+  "alternatives_rejected": [
+   "raise the cache size"
+  ],
+  "checkpoint_seq": 1,
+  "decision_id": "dec_951bc89c3930",
+  "evidence": "sha256:0f16c0d443b9e7293c39f1e5ea6905d4c43f03d8b27f79a7fa7880d694eb1b31",
+  "evidence_bytes": 53,
+  "found": true,
+  "hint": "call expand with hash=sha256:0f16c0d443b9e7293c39f1e5ea6905d4c43f03d8b27f79a7fa7880d694eb1b31 to read the evidence",
+  "turn": 37,
+  "what": "rejected \"raise the cache size\" for src/cache.go:Evict",
+  "why": "a larger cache only postpones the same re-fetch storm"
+ }
+}

@@ -1,0 +1,14 @@
+ts=2026-09-30T03:29:24.5239722Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-09-30T03:29:24.5719172Z level=info msg="observer: session registered" session=24df5051-9fde-44d6-89df-729ba0e528ca source=startup turn=0 segment=1
+ts=2026-09-30T03:29:24.5719172Z level=info msg="scheduler: session bound" session=24df5051-9fde-44d6-89df-729ba0e528ca effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+ts=2026-09-30T03:30:45.5502428Z level=info msg="daemon: config reloaded" changed=[eliminations.staleResponse]
+ts=2026-09-30T03:31:48.5665675Z level=info msg="observer: gc" scanned=30 deleted=0 freed=0 truncated=false
+ts=2026-09-30T03:33:27.2625362Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-09-30T03:33:27.5905453Z level=info msg="observer: session registered" session=24df5051-9fde-44d6-89df-729ba0e528ca source=resume turn=16 segment=4
+ts=2026-09-30T03:33:27.5910688Z level=info msg="scheduler: session bound" session=24df5051-9fde-44d6-89df-729ba0e528ca effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+ts=2026-09-30T03:33:40.4393297Z level=info msg="observer: gc" scanned=31 deleted=0 freed=0 truncated=false
+ts=2026-09-30T03:35:37.6474563Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-09-30T03:45:42.9843491Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-09-30T03:45:43.2654077Z level=info msg="observer: session registered" session=24df5051-9fde-44d6-89df-729ba0e528ca source=resume turn=16 segment=5
+ts=2026-09-30T03:45:43.2659526Z level=info msg="scheduler: session bound" session=24df5051-9fde-44d6-89df-729ba0e528ca effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+ts=2026-09-30T03:45:47.1152821Z level=info msg="observer: gc" scanned=31 deleted=0 freed=0 truncated=false

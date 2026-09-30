@@ -1,0 +1,24 @@
+{
+ "turn": 5,
+ "tool": "mcp__plugin_qompack_qompack__expand",
+ "tool_use_id": "toolu_01265AxQbcDu1ELFJyHVx7vg",
+ "arguments": {
+  "tool_use_id": "toolu_018fr2XwCWyvrK6QDLj9Wx5A"
+ },
+ "host_is_error": false,
+ "result": {
+  "found": true,
+  "hash": "sha256:3bfe728b7191bb0655115ca3abc6aa38116f9c4779fb3f73d25d3a4d4722950c",
+  "tool": "Bash",
+  "span": [
+   0,
+   649
+  ],
+  "total_bytes": 649,
+  "truncated": false,
+  "widened": false,
+  "expansions": 1,
+  "promoted": false,
+  "content": "warning: in the working copy of 'README.md', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'big.log', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'creds.env', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'notes.md', LF will be replaced by CRLF the next time Git touches it\n[master (root-commit) 4934716] uat-11 work\n 5 files changed, 3029 insertions(+)\n create mode 100644 README.md\n create mode 100644 big.log\n create mode 100644 creds.env\n create mode 100644 notes.md\n create mode 100644 odd.txt\n4934716 uat-11 work"
+ }
+}

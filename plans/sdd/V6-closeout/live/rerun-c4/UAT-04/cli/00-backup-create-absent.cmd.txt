@@ -1,0 +1,6 @@
+cwd: <scratch>/sessions/c4/uat04/proj
+argv: ["C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c4/qompack-plugin-0.3.0-windows-amd64/bin/qompack.exe", "backup", "create", "--project", "<scratch>/sessions/c4/uat04/proj", "--id", "uat04-before", "--json"]
+env+: {}
+qompack_home: <scratch>/sessions/c4/qhome
+wall_s: 0.026
+at: 2026-09-29T21:26:57-04:00

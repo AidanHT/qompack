@@ -1,0 +1,2 @@
+wrote <project>/.qompack/config.json = {"runtime":{"rehydrate":{"minTokens":150,"maxTokens":150}}}
+(daemon pid from lock: 73660)

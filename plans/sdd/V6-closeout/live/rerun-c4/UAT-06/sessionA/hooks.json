@@ -1,0 +1,172 @@
+[
+ {
+  "hook_id": "0e840b40-aec3-41e0-a11b-7e48107aa5bb",
+  "hook_name": "SessionStart:startup",
+  "hook_event": "SessionStart",
+  "latency_ms": 1,
+  "before_init": true,
+  "measured": false,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "c5adda0a-cc63-47f0-be32-28e80169b713",
+  "hook_name": "UserPromptSubmit",
+  "hook_event": "UserPromptSubmit",
+  "latency_ms": 177,
+  "before_init": true,
+  "measured": false,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "cdd1fa68-3dd1-4e94-a8a3-9bfe5738ae76",
+  "hook_name": "PostToolUse:Bash",
+  "hook_event": "PostToolUse",
+  "latency_ms": 74,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "d34a49ff-12cf-4e29-9167-cfa45b1daa2b",
+  "hook_name": "Stop",
+  "hook_event": "Stop",
+  "latency_ms": 110,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "bb039a6c-c878-459a-8285-0086a9a567f6",
+  "hook_name": "UserPromptSubmit",
+  "hook_event": "UserPromptSubmit",
+  "latency_ms": 73,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "17867850-96a5-4aba-866d-efb2f8d9847c",
+  "hook_name": "Stop",
+  "hook_event": "Stop",
+  "latency_ms": 72,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "e824df4c-ad25-4938-ae45-65e124067518",
+  "hook_name": "UserPromptSubmit",
+  "hook_event": "UserPromptSubmit",
+  "latency_ms": 80,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "4fa823f4-79b8-4534-9293-1b5a123efca8",
+  "hook_name": "PostToolUse:ToolSearch",
+  "hook_event": "PostToolUse",
+  "latency_ms": 98,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "042b38fa-8495-43f6-9e68-4b3affeb0e4e",
+  "hook_name": "PostToolUse:mcp__plugin_qompack_qompack__record_eliminated",
+  "hook_event": "PostToolUse",
+  "latency_ms": 72,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "1f7ff80b-d104-4c6a-8f5c-3d54094a0565",
+  "hook_name": "Stop",
+  "hook_event": "Stop",
+  "latency_ms": 88,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "567cfda0-f395-410a-b567-ae6cf1b4139d",
+  "hook_name": "UserPromptSubmit",
+  "hook_event": "UserPromptSubmit",
+  "latency_ms": 70,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "59d384a1-a870-412e-b41e-de6fd95aa070",
+  "hook_name": "PostToolUse:Read",
+  "hook_event": "PostToolUse",
+  "latency_ms": 99,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "51d7446d-732e-46ac-9fdd-9c9edc54f7f5",
+  "hook_name": "Stop",
+  "hook_event": "Stop",
+  "latency_ms": 76,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "f3ef7e40-81c7-4eed-86b3-725f28358c56",
+  "hook_name": "SubagentStop",
+  "hook_event": "SubagentStop",
+  "latency_ms": 106,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "633b7d92-886f-4e2d-b552-be54f16d7b3e",
+  "hook_name": "SessionStart:compact",
+  "hook_event": "SessionStart",
+  "latency_ms": 103,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "d671259c-9594-4a57-86d0-2818f4da90d1",
+  "hook_name": "UserPromptSubmit",
+  "hook_event": "UserPromptSubmit",
+  "latency_ms": 64,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "8d3f59de-4727-4766-961e-e796ec5a07ff",
+  "hook_name": "Stop",
+  "hook_event": "Stop",
+  "latency_ms": 80,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ }
+]

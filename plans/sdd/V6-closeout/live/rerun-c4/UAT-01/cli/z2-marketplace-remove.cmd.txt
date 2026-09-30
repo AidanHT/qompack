@@ -1,0 +1,2 @@
+$ sh <scratch>/install/tools/unset.sh claude plugin marketplace remove qompack-live
+cwd: <scratch>/install/uat01/proj

@@ -1,0 +1,95 @@
+{
+ "initialize": {
+  "serverInfo": {
+   "name": "qompack",
+   "version": "0.3.0"
+  },
+  "protocolVersion": "2025-06-18"
+ },
+ "calls": [
+  {
+   "tool": "expand",
+   "args": {
+    "tool_use_id": "toolu_019ejEPUDQPiBe8L93YJuaU2"
+   },
+   "jsonrpc_line_bytes": 462,
+   "isError": false,
+   "error": null,
+   "text_bytes": 188,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 5,
+     "ephemeral": true,
+     "hash": "sha256:77754b87758dfd773fffbedfabb703e6f94e32cf0682832f9edfe6c68d4ccbab",
+     "tool_use_id": "qompack-mcp:47a827579859"
+    }
+   },
+   "json": [
+    {
+     "found": false,
+     "available": false,
+     "reason": "the stored object is missing: the index records it, but its bytes are no longer in the store, so it cannot be served; `qompack fsck` reports it"
+    }
+   ]
+  },
+  {
+   "tool": "re_read",
+   "args": {
+    "path": "notes.md"
+   },
+   "jsonrpc_line_bytes": 462,
+   "isError": false,
+   "error": null,
+   "text_bytes": 188,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 6,
+     "ephemeral": true,
+     "hash": "sha256:77754b87758dfd773fffbedfabb703e6f94e32cf0682832f9edfe6c68d4ccbab",
+     "tool_use_id": "qompack-mcp:b6d6486c08e7"
+    }
+   },
+   "json": [
+    {
+     "found": false,
+     "available": false,
+     "reason": "the stored object is missing: the index records it, but its bytes are no longer in the store, so it cannot be served; `qompack fsck` reports it"
+    }
+   ]
+  },
+  {
+   "tool": "recall",
+   "args": {
+    "query": "codeword"
+   },
+   "jsonrpc_line_bytes": 415,
+   "isError": false,
+   "error": null,
+   "text_bytes": 106,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 4,
+     "ephemeral": true,
+     "hash": "sha256:0dc359f87ad781867b98ac95631e26d04eea4fe3d0e524a4d7cf3e671c531585",
+     "tool_use_id": "qompack-mcp:e7ee65c08242",
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "hits": [],
+     "count": 0,
+     "found": false,
+     "query": {
+      "text": "codeword",
+      "path": "",
+      "symbol": "",
+      "tool": ""
+     },
+     "denied": 5
+    }
+   ]
+  }
+ ],
+ "stderr_tail": ""
+}

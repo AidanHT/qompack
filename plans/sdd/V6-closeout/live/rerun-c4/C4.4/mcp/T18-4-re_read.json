@@ -1,0 +1,11 @@
+{
+ "turn": 18,
+ "tool": "mcp__plugin_qompack_qompack__re_read",
+ "tool_use_id": "toolu_0146E3uSnz1szCZsNdSTqv11",
+ "arguments": {
+  "path": "src/cache.go",
+  "at": "yesterday"
+ },
+ "host_is_error": true,
+ "result": "at must be empty, an RFC3339 timestamp, sha256:<hex>, or turn:<N>"
+}

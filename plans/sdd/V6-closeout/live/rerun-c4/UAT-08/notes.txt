@@ -1,0 +1,52 @@
+UAT-08 re-run on candidate 4 (D47) — retrieval part, agent-executed on the owner's real host (D3), not human UAT
+
+Build: qompack 0.3.0 (bin/qompack.exe sha256 1e9d0cc84597bf719955e268ef2e0c990352eb964559116a6612a012f1e5c358),
+bundle qompack-bundles/c4/qompack-plugin-0.3.0-windows-amd64, BUNDLE.json sha256
+aa7da0e17b7597562a6eba47fc48f1db81ff5e9bdc494b9997a323137625558d, commit 9f6a2fadf086eba8080af589a35dd9554ae6cab4,
+Windows 11 Home 25H2 10.0.26200.9457, Claude Code 2.1.280, model claude-haiku-4-5-20251001, --plugin-dir.
+Date 2026-09-29 (America/Toronto; stream timestamps are UTC 2026-09-30T03:29Z onwards).
+
+Project <scratch>/retrieval/c4/uat0809/proj (fresh; src/pool.go, config/pool.yaml, README.md; git init).
+Preconditions: cli/02-config-print-provenance — eliminations.requireEvidence true, defaultScope session,
+staleResponse flag, rebuildOnStale nextIdle, runtime.phase7.reuse.scopedCandidates false, all `default`.
+Pre-run backup: cli/01-backup-create-before exit 1 "source project has no existing store" (initial absence).
+Env: QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS=90 (not a row key), QOMPACK_HOME=<scratch>/retrieval/c4/qhome.
+
+Session 1 (retrieval-c4 n=1, session1/, id 24df5051) — NO compaction before step 5:
+  T1 Read src/pool.go, config/pool.yaml.
+  T2 step 1-2 record_eliminated (mcp/T02-1): {"id":"elim_85d7cad2f621","descriptor":{normalized_path src/pool.go,
+     symbol DialPool, approach_class widen-pool-timeout, reason_hash ...},"scope":"session","evidence":"sha256:af7fcd07…",
+     "depends_on":[config/pool.yaml sha256:9f2751ea…, src/pool.go sha256:c10864c9…],"depends_on_unresolved":[],
+     "status":"active"} — id, descriptor, scope, evidence, both paths resolved; no warnings field (none to report).
+  T3 step 3 already_tried (mcp/T03-1): state active, reason, evidence, scope session, recorded_at
+     2026-09-30T03:29:33Z (RFC 3339 UTC), depends_on; no stale_because.
+  T4 step 4 different approach (mcp/T04-1): {"state":"absent"} — plain, no bloom_only.
+  step 5: snap/eliminations.after-record.jsonl (taken before T5, i.e. before any compaction): the record is on disk
+     with "session":"24df5051-9fde-44d6-89df-729ba0e528ca" — stored with the CALLING session (candidate 3: "").
+  T5 /compact -> snap/checkpoints.after-compact1/0001.json: eliminated [elim_85d7cad2f621, session 24df5051, active]
+     and decisions [dec_e760c8bbf50a "rejected \"widen pool timeout\" for src/pool.go:DialPool", turn 3]
+     (candidate 3: decisions [] and eliminated []). The injected block (session1/injected-2-SessionStart-compact.txt)
+     carries section 3 "[active]" and section 4 "[dec_e760c8bbf50a] (turn 3) rejected ...".
+  T6 the model found dec_e760c8bbf50a in its injected block and called why (mcp/T06-1): found true,
+     checkpoint_seq 1, what/why/evidence/alternatives_rejected; no evidence_withheld (candidate 3 had
+     "the capture has no usable path provenance").
+  T7-T11 are UAT-09 steps 1-3 (see ../UAT-09/notes.txt).
+Session 2 (n=2, ../UAT-09/session2-resume/, --resume of session 1, same session id): `/qompack:why dec_e760c8bbf50a`
+  (slash-commands.json) answered found true from checkpoint 1, exit path clean (the host expanded the command body).
+Session 6 (n=6, session6-isolation/, id 13a929a6, a LATER DIFFERENT session) — session-scope isolation:
+  run in the C4.4 project (../C4.4/), because this project's own record had gone stale in UAT-09 and a stale
+  record is no longer in the query filter after a restart (UAT-09 finding R4-1), so an `absent` here would not
+  have shown scoping. Session 5 (id 3187e738) recorded elim_fabe65cc6569 "shrink the ttl" scope session and
+  elim_d7148ee41a5a "raise the cache size" scope project (../C4.4/mcp/T19-*); both active in session 5 (T20).
+  Session 6, same daemon (started 03:39:35Z, so the in-memory filter holds both keys):
+    already_tried shrink the ttl -> {"state":"absent"} (plain, record-backed scoped-out absence; not bloom_only)
+    already_tried raise the cache size -> state active, scope project (the positive control)
+  index attributes both calls to session 13a929a6 (store-after copies in ../C4.4/store-after-session/ and the
+  live index). Supplementary: `/qompack:why dec_c770af84e084` (the session-scoped record's decision) from session 6
+  answered found true from checkpoint 1 — why reads the checkpoint chain, not the ledger's scope (recorded only;
+  the row states no expectation for it).
+fsck (read-only) after all sessions: cli/10-fsck-after-sessions exit 0.
+
+Result: pass. Rollback: initial state absent; run retained as evidence; no restore run.
+Observation (not a row expectation): checkpoint 0002 (after the record went stale) lists the elimination as stale
+and carries decisions [] — the stale elimination's decision is not re-listed; why still resolves it from checkpoint 1.

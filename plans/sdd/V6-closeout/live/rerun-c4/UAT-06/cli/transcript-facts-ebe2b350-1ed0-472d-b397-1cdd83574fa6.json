@@ -1,0 +1,65 @@
+{
+ "session_id": "ebe2b350-1ed0-472d-b397-1cdd83574fa6",
+ "found": true,
+ "project_slug_is_scratch": true,
+ "bytes": 726677,
+ "lines": 168,
+ "entry_types": {
+  "mode": 8,
+  "atis-latch": 8,
+  "queue-operation": 10,
+  "system": 11,
+  "user": 24,
+  "assistant": 18,
+  "attachment": 80,
+  "last-prompt": 8,
+  "cost-state": 1
+ },
+ "tool_uses": {
+  "Read": 2
+ },
+ "attachment_types": {
+  "hook_success": 15,
+  "file": 4,
+  "invoked_skills": 4,
+  "deferred_tools_delta": 4,
+  "agent_listing_delta": 4,
+  "mcp_instructions_delta": 4,
+  "environment": 4,
+  "model": 4,
+  "hook_additional_context": 6,
+  "total_tokens_reminder": 8,
+  "session_context": 4,
+  "date": 4,
+  "remote_session_change": 4,
+  "prompt_snapshot": 6,
+  "deferred_tools_record": 3,
+  "skill_listing": 2
+ },
+ "hook_attachments": {
+  "hook_success/Stop": 7,
+  "hook_success/SessionStart": 6,
+  "hook_additional_context/SessionStart": 6,
+  "hook_success/PostToolUse": 2
+ },
+ "main_chain_user_text_entries": 14,
+ "compact_boundaries": [
+  {
+   "trigger": "manual",
+   "preTokens": 29511
+  },
+  {
+   "trigger": "manual",
+   "preTokens": 29208
+  },
+  {
+   "trigger": "manual",
+   "preTokens": 29511
+  },
+  {
+   "trigger": "manual",
+   "preTokens": 27076
+  }
+ ],
+ "sidechain_markers": []
+}

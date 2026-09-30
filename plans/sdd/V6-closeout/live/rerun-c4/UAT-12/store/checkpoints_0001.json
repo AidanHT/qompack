@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "session": "1c4edc6d-c64d-40c6-a5f6-38ffdb11a199",
+  "seq": 1,
+  "created": "2026-09-30T00:50:15.744Z",
+  "encoded_segments": [],
+  "invariants": [],
+  "user_intent": {
+    "original": "Use the Read tool to read these three files, one after another: README.md, calc.py and private/deny.txt. Then reply with just the word done.",
+    "evolution": []
+  },
+  "eliminated": [],
+  "decisions": [],
+  "open_questions": [],
+  "current_work": {
+    "goal": "",
+    "next_step": "",
+    "blocked_on": null
+  },
+  "pointers": {
+    "files": [],
+    "tools": []
+  },
+  "narrative": "",
+  "sketch_refs": {
+    "touch": "touch.cms",
+    "tried": "tried.bloom"
+  },
+  "dropped": [],
+  "cache": {
+    "p_chosen": 0,
+    "rewrite_tokens": 0,
+    "ttl_state": "unknown"
+  }
+}

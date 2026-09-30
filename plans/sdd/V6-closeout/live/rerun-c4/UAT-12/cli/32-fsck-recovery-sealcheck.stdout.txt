@@ -1,0 +1,184 @@
+{
+  "schema": 1,
+  "project": "<scratch>/install/uat12/recovery",
+  "daemon_running": false,
+  "read_only": false,
+  "repairing": false,
+  "attempts_daemon_lock": true,
+  "checks": [
+    {
+      "id": "store",
+      "ok": true,
+      "severity": 0,
+      "count": 0,
+      "detail": [
+        "store present at <scratch>\\install\\uat12\\recovery\\.qompack"
+      ]
+    },
+    {
+      "id": "daemon",
+      "ok": true,
+      "severity": 0,
+      "count": 0,
+      "detail": [
+        "no daemon holds the lock; this project is quiet"
+      ]
+    },
+    {
+      "id": "objects",
+      "ok": true,
+      "severity": 0,
+      "scanned": 79,
+      "count": 0
+    },
+    {
+      "id": "index.roots",
+      "ok": true,
+      "severity": 0,
+      "scanned": 27,
+      "count": 0
+    },
+    {
+      "id": "index.tool_use",
+      "ok": true,
+      "severity": 0,
+      "scanned": 19,
+      "count": 0,
+      "detail": [
+        "tool_use qompack-mcp:022a367089e9 is a retrieval self-record filed with no turn (turn 0) after turn 9 in session 1c4edc6d-c64d-40c6-a5f6-38ffdb11a199; builds before V6 wave 13 filed a retrieval's own record at its open segment's first turn, outside the session's turn order, which it does not break",
+        "tool_use qompack-mcp:b2742042bfbf is a retrieval self-record filed with no turn (turn 0) after turn 9 in session 1c4edc6d-c64d-40c6-a5f6-38ffdb11a199; builds before V6 wave 13 filed a retrieval's own record at its open segment's first turn, outside the session's turn order, which it does not break"
+      ]
+    },
+    {
+      "id": "index.files",
+      "ok": true,
+      "severity": 0,
+      "scanned": 5,
+      "count": 0
+    },
+    {
+      "id": "index.segments",
+      "ok": true,
+      "severity": 0,
+      "scanned": 0,
+      "count": 0
+    },
+    {
+      "id": "captures",
+      "ok": true,
+      "severity": 0,
+      "scanned": 23,
+      "count": 0,
+      "detail": [
+        "6 prompt capture sidecar(s) were written by a build before the prompt link: each prompt was published as its prompt_<session>_<turn> record, which that build never joined to the sidecar; read as published, kept as written, and not a gap"
+      ]
+    },
+    {
+      "id": "publication",
+      "ok": true,
+      "severity": 0,
+      "scanned": 102,
+      "count": 0,
+      "detail": [
+        "6 prompt capture sidecar(s) were written by a build before the prompt link: each prompt was published as its prompt_<session>_<turn> record, which that build never joined to the sidecar; read as published, kept as written, and not a gap"
+      ]
+    },
+    {
+      "id": "checkpoints",
+      "ok": true,
+      "severity": 0,
+      "scanned": 1,
+      "count": 0,
+      "detail": [
+        "the chain from 0001 verifies across 1 checkpoint(s)"
+      ]
+    },
+    {
+      "id": "pins",
+      "ok": true,
+      "severity": 0,
+      "scanned": 0,
+      "count": 0,
+      "detail": [
+        "pins/invariants.jsonl does not exist yet"
+      ]
+    },
+    {
+      "id": "negknow",
+      "ok": true,
+      "severity": 0,
+      "scanned": 0,
+      "count": 0,
+      "detail": [
+        "eliminations: 0 record(s), 0 active, 0 stale",
+        "tried.bloom loads: 95872 bit(s), k=7, fill 0.0000, estimated fp 0.0000, saturated=false"
+      ]
+    },
+    {
+      "id": "delivery",
+      "ok": true,
+      "severity": 0,
+      "scanned": 46,
+      "count": 0,
+      "detail": [
+        "state/delivery-lease-position.json is a v1 position document",
+        "state/delivery-ack-position.json is a v1 position document",
+        "the full dual-reader seal check passed"
+      ]
+    },
+    {
+      "id": "spool",
+      "ok": true,
+      "severity": 0,
+      "scanned": 0,
+      "count": 0
+    },
+    {
+      "id": "retention",
+      "ok": true,
+      "severity": 0,
+      "scanned": 23,
+      "count": 0
+    },
+    {
+      "id": "migrate",
+      "ok": true,
+      "severity": 0,
+      "scanned": 0,
+      "count": 0,
+      "detail": [
+        "backups are checked by the read-only maintenance verifier; legacy import/cutover is separate"
+      ]
+    },
+    {
+      "id": "fidelity",
+      "ok": true,
+      "severity": 0,
+      "scanned": 27,
+      "count": 0,
+      "detail": [
+        "fidelity is counted as the store reports it; a canonical or unavailable root is never promoted to exact"
+      ]
+    },
+    {
+      "id": "quarantine",
+      "ok": true,
+      "severity": 0,
+      "scanned": 0,
+      "count": 0,
+      "detail": [
+        "0 quarantined file(s), 0 byte(s), preserved as evidence and never swept"
+      ]
+    }
+  ],
+  "repairs": [],
+  "fidelity": {
+    "canonical": 10,
+    "exact": 17
+  },
+  "quarantine": {
+    "files": 0,
+    "bytes": 0
+  },
+  "exit": 0
+}

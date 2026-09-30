@@ -1,0 +1,2 @@
+ts=2026-09-30T00:58:08.9049348Z level=loud msg="daemon: publication accounting incomplete; a zero gap count is only a lower bound" captures_scanned=70 objects_scanned=380 truncated=false notes="scan interrupted before it finished; publication accounting did not finish"
+ts=2026-09-30T01:03:52.1463551Z level=loud msg="daemon: publication accounting incomplete; a zero gap count is only a lower bound" captures_scanned=70 objects_scanned=374 truncated=false notes="scan interrupted before it finished; publication accounting did not finish"

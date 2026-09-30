@@ -1,0 +1,33 @@
+C4.3 re-run on candidate 4 (D47) — real compaction round trip: PreCompact checkpoint -> SessionStart source=compact
+-> bounded rehydration payload injected -> the model recovers pre-compaction facts. Index over UAT-03, UAT-04, UAT-05
+and UAT-06 (rerun-c4/), 6 real Haiku sessions (sessions-c4 n=1, 4, 6, 7, 8, 9). Agent-executed on the owner's real host
+per owner decision D3 by a Claude Code workflow subagent (Opus 5.5) — not human UAT.
+
+PreCompact -> checkpoint: every compaction the host performed wrote a checkpoint and every MANIFEST line re-hashes:
+ UAT-03 2/2 (0001-0002), UAT-04 16 for 17 attempts (the config-refused compaction writes none, by design; the
+ host-failed one wrote 0001), UAT-05 1/1, UAT-06 4 (A 0001, B 0002, fork 0004-0005; seq 3 skipped). Every "/compact"
+ turn's transcript line reads "Compacted PreCompact [...] completed successfully: {}" (no PreCompact output rejection,
+ C1.12). No session's stderr has "Hook cancelled" (C1.15/D13). Checkpoints now carry encoded_segments and
+ pointers.files/pointers.tools (candidate 3: empty).
+SessionStart source=compact -> bounded payload: injected at every compaction, manual and automatic: UAT-03
+ 1,579/1,637 UTF-16 units, UAT-04 841-2,498 (15 blocks), UAT-05 3,093, UAT-06 2,046-2,886; all under 9,500, inline,
+ no persisted-output note. SessionStart:resume and SessionStart:fork inject only the contract probe line (the one
+ injection adapter is source=compact).
+D5 whole records: FIXED — a 16,823-character first prompt is named whole in section 7 as a tier-1 OVERFLOW with
+ expand(tool_use_id=prompt_…_0), never cut (UAT-04); no spurious intent_mismatch.
+Current authority: corrections now reach user_intent.evolution (candidate 3: never). UAT-05's block carries the pin
+ (section 1), the original and then the TAB correction, the elimination and its decision; UAT-06 blocks 1, 2 and 4 carry
+ the in-force correction. BUT the fork's first block (UAT-06 step 4) omits the only correction in force (dropped by the
+ 10% evolution share while the block is 2,652 of 9,400 characters, named only as a restore pointer) and does not
+ inherit the parent's session-scoped elimination/decision (F-C4-UAT06-1); a decision is missing from a resumed
+ session's second checkpoint (F-C4-UAT06-2).
+Fallback: an unverifiable newest checkpoint is replaced by the older one with no statement in the payload or state
+ (F-C4-UAT03-1, UAT-03 probe).
+The model recovers pre-compaction facts: from Qompack in UAT-05 ("Delimiter: TAB ... From the SessionStart hook's
+ 'Original user intent' section showing the conversation evolution"); in UAT-04 expand returned both the brief's
+ closing marker (via the overflow pointer and next_span) and the deleted key Q23's value, but the host's forced-
+ threshold thrash stop ended those turns before the model answered; in UAT-03, UAT-05 (ticket) and UAT-06 the answers
+ came from the host's own preserved context / re-attached reads (host behaviour, documented under D45).
+
+Result: fail — on current authority in a fork (F-C4-UAT06-1) and the silent checkpoint fallback (F-C4-UAT03-1); the
+round trip itself works end to end and the D5 whole-record rule now holds.

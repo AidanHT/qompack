@@ -1,0 +1,74 @@
+{
+ "turn": 9,
+ "tool": "mcp__plugin_qompack_qompack__recall",
+ "tool_use_id": "toolu_014omkokszDQ91vnUG8Xhq8X",
+ "arguments": {
+  "query": "symbol:ReconcileBalances"
+ },
+ "host_is_error": false,
+ "result": {
+  "hits": [
+   {
+    "hash": "sha256:800cf27b3d28f24420053a66c887984da6fa859a938a4b293d58ab2c90812544",
+    "path": "src/ledger.go",
+    "tool": "FileRead",
+    "summary": "{\"type\":\"text\",\"file\":{\"filePath\":\"<tmp>\",\"content\":\"package ledger\\n\\n// Package ledger reconciles account balances …",
+    "ts": "2026-09-30T03:39:51Z",
+    "score": 0.45333333333333337,
+    "tool_use_id": "toolu_01PJaUKU6WgayifCJzKeCaiD",
+    "span": [
+     0,
+     838
+    ]
+   },
+   {
+    "hash": "sha256:18c74dd0bfbe908bdb9fac64c9647b7fc19ec6e0cc597a58d1d97a3c5d10fb3f",
+    "path": "src/ledger.go",
+    "tool": "FileEdit",
+    "summary": "{\"filePath\":\"<tmp>\",\"oldString\":\"const driftLimit = 25\",\"newString\":\"const driftLimit = 40\",\"originalFile\":\"package l…",
+    "ts": "2026-09-30T03:39:42Z",
+    "score": 0.4266666666666667,
+    "tool_use_id": "toolu_011dC56FhX1JTJfbYbTwK7tv",
+    "span": [
+     0,
+     1205
+    ]
+   },
+   {
+    "hash": "sha256:125153754afca5f623b4b7dc03edf6a54a60bb961e9a4d46a80ba61769b6c2f4",
+    "path": "src/ledger.go",
+    "tool": "FileRead",
+    "summary": "{\"type\":\"text\",\"file\":{\"filePath\":\"<tmp>\",\"content\":\"package ledger\\n\\n// Package ledger reconciles account balances …",
+    "ts": "2026-09-30T03:39:37Z",
+    "score": 0.4133333333333334,
+    "tool_use_id": "toolu_013NmN3HRzEemxDsAcrsDaD5",
+    "span": [
+     0,
+     838
+    ]
+   },
+   {
+    "hash": "sha256:d45851aeda118cac299a52e77ff587ea155e64e51c2ca28d67824bcbf3dfb96b",
+    "path": "",
+    "tool": "UserPromptSubmit",
+    "summary": "Call the MCP tool mcp__plugin_qompack_qompack__recall with query \"symbol:ReconcileBalances\". Take the first hit that …",
+    "ts": "2026-09-30T03:40:14Z",
+    "score": 0.31333333333333335,
+    "tool_use_id": "prompt_3187e738-5cc8-4c2d-a8e1-0c0d5d400ac9_16",
+    "span": [
+     0,
+     450
+    ]
+   }
+  ],
+  "count": 4,
+  "found": true,
+  "query": {
+   "text": "",
+   "path": "",
+   "symbol": "ReconcileBalances",
+   "tool": ""
+  },
+  "denied": 1
+ }
+}

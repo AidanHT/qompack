@@ -1,0 +1,45 @@
+<!-- qompack:injected seq=1 ver=1 -->
+# Qompack rehydration — checkpoint 0001, session ab01bf84
+
+## 2. Original user intent (verbatim from L0 capture — never summarized)
+> Use the Read tool to read notes.md, then tell me the project codename in one sentence.
+Evolution (most recent first):
+> Use the Task tool to launch one general-purpose subagent with this instruction: 'Read config.ini with the Read tool and return the port number.' Then tell me the port number it returned.
+> Call mcp__plugin_qompack_qompack__recall with query "path:big.log", then with "path:creds.txt". For each first hit, call mcp__plugin_qompack_qompack__expand with its tool_use_id. For each expand response report only these fields: span, total_bytes, truncated, next_span, fidelity, coverage (say 'absent' for a field that is not there), and whether its content contains a placeholder that starts with «redacted: (quote the placeholder names only, never any value).
+
+## 5. Current work
+goal: Use the Task tool to launch one general-purpose subagent with this instruction: 'Read config.ini with the Read tool and return the port number.' Then tell me th
+blocked on: none
+
+## 6. Pointers (paths and hashes — contents are NOT restored; use expand/re_read)
+- big.log sha256:38b71119c76a348a1b5879477c3b454ae946ff7304b59abec96ce85b907b1027 — referenced
+- config.ini sha256:f04c98874878ce536011d1cf115b41af78614e25ee7159c2b6377b02ec4eca0e — referenced
+- creds.txt sha256:bcb017e830d60dbd712fba343ff0ee31b6e0772a0d9dd3534b3c40f413bb70d1 — referenced
+- logo.png sha256:8b618bac1e795bd1de0446af955014c6632988e17fb58dd9246582bd0bd39462 — referenced
+- notes.md sha256:0b1d5454bc14896a1b9b5d68047998863d4647d7d94b5a4df849fb82ba850e79 — referenced
+- tool_use toolu_011zNAX4kpJLoyEEPv5ymNaL sha256:6d3842bb1d3559ab3920f2f19b6ca42b35a666fd0fbd57f861970d4093dc72ec — {"tool_use_id":"toolu_014CMiiLGehDmTwPCrfUDBZx"}
+- tool_use toolu_012Z5uNw8nbfEJjMavottFjL sha256:4c3ea97efb7134d2285771ad7f4fa540cb2553dd722cbfe081a3b463ad19b075 — {"description":"Read config.ini and return port number","prompt":"Read the file config.ini located in the current wor…
+- tool_use toolu_014CMiiLGehDmTwPCrfUDBZx sha256:0b1d5454bc14896a1b9b5d68047998863d4647d7d94b5a4df849fb82ba850e79 — <scratch>\sessions\c4\uat02\proj\notes.md
+- tool_use toolu_017f471X9nWacCRZ8V2xFcRj sha256:dfb875c10a9e4da000d9daeed19803c6605123c1c090e4bb91c434c8d58b13dc — {"query":"quartz lantern meridian"}
+- tool_use toolu_018wVJDsjQ3wdvywSte2GNva sha256:8b618bac1e795bd1de0446af955014c6632988e17fb58dd9246582bd0bd39462 — <scratch>\sessions\c4\uat02\proj\logo.png
+- tool_use toolu_0196w71AZEPNkUf1yQZ8XMHx sha256:bcb017e830d60dbd712fba343ff0ee31b6e0772a0d9dd3534b3c40f413bb70d1 — <scratch>\sessions\c4\uat02\proj\creds.txt
+- tool_use toolu_01CyY6K2fSxKR5b8CvHbSeRk sha256:38b71119c76a348a1b5879477c3b454ae946ff7304b59abec96ce85b907b1027 — <scratch>\sessions\c4\uat02\proj\big.log
+- tool_use toolu_01HkpSRRWxo8Ei8HUwLYDpJJ sha256:3a502ddbb3c6175a988b19b40f2ff2c0739b433b435fff82d3f2c41e5fa75e36 — {"query":"path:big.log"}
+- tool_use toolu_01PFH2RUNdrj1rSbXyXMKyjG sha256:92340c84905c459537187524044ab55d99b9dc7f3f2cb35029b7477d4f49807b — {"max_results":5,"query":"select:mcp__plugin_qompack_qompack__recall,mcp__plugin_qompack_qompack__expand"}
+- tool_use toolu_01QstA7DTBuGB5QSmxWX7mKi sha256:50d1fcb1cf7a5bf14bd7c4fd6bf8b87b46ccc728b20d59e2427b4135c39c437a — cat blob.bin
+- tool_use toolu_01SRp4US6MN5gwwWzuXE4NmV sha256:4fd3d149e5884f0c012e7575a373872acde053f18d5d8f9e8d97e37613f18fe9 — {"tool_use_id":"toolu_0196w71AZEPNkUf1yQZ8XMHx"}
+- tool_use toolu_01TZ1H2Ry8L46RiZGQsc6dbJ sha256:f04c98874878ce536011d1cf115b41af78614e25ee7159c2b6377b02ec4eca0e — <scratch>\sessions\c4\uat02\proj\config.ini
+- tool_use toolu_01UYpEnEqTNNrnhgvJwzBQX7 sha256:25014d510f33c4bda4df4855f038511ee81d4ea36d65fa2dd9403924c2e3562d — {"tool_use_id":"toolu_01CyY6K2fSxKR5b8CvHbSeRk"}
+- tool_use toolu_01WKPyE63aAX9ZtJ6G6bMG2r sha256:b4874b166dd81dd90e40ff90a85b6b217ab9b14b61e5fb7420c3e392cc57a676 — {"query":"path:creds.txt"}
+
+## 7. No longer in context
+- user_intent_evolution 0 — did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[0])
+- user_intent_evolution 1 — did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[1])
+- user_intent_evolution 2 — did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[2])
+- user_intent_evolution 3 — did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[3])
+- user_intent_evolution 4 — did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[4])
+
+## 8. Retrieval
+Qompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().
+<!-- /qompack:injected -->
+<!-- qompack-contract-probe qompack-contract-927a8a406269 -->

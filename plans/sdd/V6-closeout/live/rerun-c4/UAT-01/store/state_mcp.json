@@ -1,0 +1,10 @@
+{
+  "initialized": true,
+  "ts": 1790729047646,
+  "protocol_version": "2025-06-18",
+  "client_name": "claude-code",
+  "client_version": "2.1.280",
+  "server_version": "0.3.0",
+  "tools": 8,
+  "pid": 68056
+}

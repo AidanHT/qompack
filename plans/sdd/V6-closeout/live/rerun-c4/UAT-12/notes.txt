@@ -1,0 +1,180 @@
+UAT-12 - privacy and lifecycle edges across an upgrade and an uninstall (also the evidence for
+C4.8). Candidate 4 re-run (decision D47), commit 9f6a2fad, frozen bundle
+qompack-bundles/c4/qompack-plugin-0.3.0-windows-amd64 (BUNDLE.json sha256 aa7da0e1...558d, bin
+sha256 1e9d0cc8...c358). Agent-executed on the owner's real host per owner decision D3 by a Claude
+Code workflow subagent (Opus 5.5) - not human UAT. Candidate 3's evidence stays at
+plans/sdd/V6-closeout/live/uat/UAT-12/ (not touched).
+
+Date 2026-09-29 20:48-21:07 America/Toronto. Windows 11 Home 25H2 build 10.0.26200.9457, Claude
+Code 2.1.280. Sessions used: 3 (A, B, C), model claude-haiku-4-5-20251001.
+
+PREVIOUS BUILD, and why not v0.2.0: cli/00a-v020-bundle-attempt.txt - a detached worktree of the
+public v0.2.0 tag (71c46a23) has no bundle task: `go run ./tools/devtool bundle ...` answers
+`devtool: unknown task "bundle"` (exit 1) and tools/devtool/ holds no bundle source; v0.2.0 cannot
+produce an installable bundle. So, as the first run did, the previous build is local develop
+301a8e9 bundled with its own `devtool bundle --version 0.2.99-prev` from a detached worktree
+(cli/00b-old-bundle-build.log, cli/old-bundle-BUNDLE.json; bin sha256 b72892ba...a7ad, byte-identical
+to candidate 3's old bundle: the build is reproducible). Both worktrees were removed afterwards. The
+released v0.2.0 -> 0.3.0 path is covered only by the committed v0.2.0 store fixture (backup.md), not
+by a live install here.
+
+ORDERING (deliberate, as candidate 3): steps 2-5 ran after step 6, on the candidate. 301a8e9
+predates the C1.9 deny-rule support, so steps 2-5 on it would characterize the old build. Session A
+(old build) made the permitted captures, MCP calls and a /compact; the deny rule was added after the
+baseline backup; session B ran steps 2-5 on the candidate.
+
+Setup (setup-facts.json): disposable project <scratch>/install/uat12/proj (git init + one commit):
+README.md (HERON-43), calc.py, private/deny.txt (marker ORCHID-DENY-8842), big.log 317,200 B / 1,300
+lines (every other line escape-heavy: quotes, backslashes, a tab, and multi-byte UTF-8 cafe/arrow/
+kanji, to stress the response bound and page cuts), blob.bin 3,000 random bytes with NULs, pixel.png
+(24x24 PNG, 1,467 B); outside file <scratch>/install/uat12/outside/outside.txt. No planted secrets
+(C4.6 is not in this re-run). Session and CLI env: QOMPACK_HOME=<scratch>/qhome,
+QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS=90 (sessions), ENABLE_CLAUDEAI_MCP_SERVERS=false,
+CLAUDE_CODE_FILE_READ_MAX_OUTPUT_TOKENS=150000, MAX_MCP_OUTPUT_TOKENS=150000,
+BASH_MAX_OUTPUT_LENGTH=150000; redact.enabled, mcp.maxResponseBytes (262144) and retention at their
+defaults (no config file anywhere).
+
+Step 1: cli/00-step1-initial-absence.txt - no <project>/.qompack/ (initial absence recorded).
+Install OLD at local scope: cli/01 marketplace add --scope local, cli/02 install -s local --json.
+Session A (sessionA/, 0.2.99-prev, 7 commands incl. /qompack:checkpoint, MCP connected, 64.9 s):
+ Read README.md, calc.py, private/deny.txt (toolu_011XG5z2..., root sha256:880f90e7...); Read big.log
+ whole (toolu_01Jc6uDY..., stored 354,438 B); Bash `cat blob.bin` (toolu_017dXpNX...) and Read
+ pixel.png (toolu_01XMf4fK...); Read of the outside file (toolu_012kPLpT..., stored with no path);
+ recall "HERON-43" (2 hits) and timeline; /compact (pre 144,492 tokens): the old build's PreCompact
+ hook FAILED host validation ("Hook JSON output validation failed - hookSpecificOutput.hookEventName:
+ expected one of ..." for its retired PreCompact customInstructions output) but checkpoint 0001 was
+ written and SessionStart:compact injected it; the post-compact answer came from context. The old
+ daemon ran from the marketplace SOURCE directory's bin (no staged copy before D10) and exited on
+ idle (cli/03).
+Baseline (cli/05, cli/06): frozen CLI `backup create/verify --id uat12-c4-baseline --json`, exit 0/0,
+ consistent true, frontier 0, 136 files. verify now restores into .qompack/tmp/verify-.../project:
+ OpenedOK, 27 content roots, 19 tool refs, 0 tombstoned, same build, integrity exit 0 (captures and
+ publication read the old build's 6 unlinked prompt sidecars as published, "not a gap"; index.tool_use
+ notes the old build's two MCP self-records at turn 0 as pre-wave-13 records "which it does not
+ break"; checkpoint chain from 0001 verifies; delivery v1 documents, full dual-reader seal check
+ passed). cli/07: the source outside backup/ unchanged (138 = 138 files, diff exit 0).
+Deny rule: PROJECT .claude/settings.json {"permissions":{"deny":["Read(./private/deny.txt)"]}}
+ (cli/08); the operator's user settings were not touched. It took effect: the host refused the Read.
+Step 6 upgrade (install.md §5): frozen bundle copied into the marketplace, source re-pointed
+ (cli/marketplace-new.json); cli/09 `marketplace update` exit 0 "Validating local marketplace";
+ cli/10 `plugin update qompack@qompack-live -s local --json` exit 0 "updated from 0.2.99-prev to
+ 0.3.0 ... Restart to apply changes."; the old cache version is marked .orphaned_at at once.
+ cli/12: .qompack/ byte-identical across the upgrade (276 files, full listing incl. backup/, tmp/,
+ run/ identical: cli/12-diff-full.txt).
+Session B (sessionB/, 0.3.0, 6 commands, MCP connected, 129.4 s). Steps 2-5 + out-of-project:
+ - host Read of private/deny.txt: is_error "File is in a directory that is denied by your permission
+   settings." (observed string; no PostToolUse for a refused Read)
+ - recall "ORCHID-DENY-8842": 1 hit, the user's own prompt, "denied":1; recall
+   "path:private/deny.txt": 0 hits, "denied":1
+ - expand tool_use_id toolu_011XG5z2... and expand hash sha256:880f90e7...: {"found":false,
+   "denied":true,"reason":"authorization denied: the host's current permission rules deny reading the
+   associated path"}; re_read private/deny.txt: the same denied answer
+ - /qompack:recall ORCHID-DENY-8842: `!qompack recall` ran (the host resolved `qompack` through the
+   plugin's bin/ on PATH), output 1 prompt hit, "denied":3, no deny.txt content
+ - re_read of the absolute outside path and of ../outside/outside.txt: tool error "path escapes the
+   project root" (no path echoed); expand toolu_012kPLpT...: denied "the capture has no usable path
+   provenance"
+ - expand big.log capture (no full): span [0,6437], total_bytes 354,352, truncated true, next_span
+   6437:16384; fields found, hash, path, tool, span, total_bytes, truncated, next_span, widened,
+   expansions, promoted, content - no fidelity or coverage field (the D46 expectation)
+ - expand full:true: span [0,217070], truncated true, next_span 217070:137282; the host persisted it
+   (335.3KB in its own pretty-printed file) and showed the model a 2 KB preview; the model still read
+   the fields from the preview
+ - expand span=217070:137282 (the model passed the next_span back): span [217070,354352] - exactly
+   contiguous, to the end - truncated true, no next_span (span.go: truncated means "less than the
+   whole object")
+ - re_read big.log full:true: source store, turn 3, span [0,217070], next_span 217070:137282
+ - expand of the Bash blob capture and the PNG capture: whole (2,134 / 2,123 B, truncated false)
+ - /qompack:status: "host contract: 9 assertion(s), all holding", unpublished_captures 0
+ - /compact (pre 47,729 tokens): PreCompact "completed successfully: {}"; SessionStart:compact
+   injected an 8,017-char block, checkpoint 0003 (0002 is skipped because the old build's persisted
+   draft state/draft-1c4edc6d...json names it - w13-restore's claimSeq rule); then recall, dropped
+   (9 entries) and timeline (3 segments) answered; the model recovered HERON-43 through expand.
+ No response showed deny.txt content, a preview of it, or an out-of-project path.
+Sizes (cli/21-host-persisted-mcp-results.json from the host's persisted files, and cli/20-mcp-probe.json
+ from a direct stdio probe of frozen `qompack mcp`; sizes and metadata only). Result text bytes
+ (UTF-8) against runtime.mcp.maxResponseBytes 262,144:
+   expand minimal 8,038 (content 6,437)          expand full:true 261,163 (content 217,070)
+   expand span 217070:137282 165,233 (137,282)   expand span 217070:137282 + full: same (span wins)
+   expand span 0:354352 261,162 (cut at 217,070, next_span 217070:16384)
+   re_read full:true 261,172 (session: 261,171)  re_read minimal 8,047
+   blob expand 2,947 (content 2,134)             png expand full 2,394 (content 2,123)
+   denied / refused answers 29-131
+ Every result text is within the bound (candidate 3: 263,559 / 263,567 over it). The JSON-RPC line
+ that carries the full page is 349,250 B: the transport's own escaping, which mcp-tools.md says the
+ bound does not cover. No page contains U+FFFD or ends inside a multi-byte character.
+Step 4 binary: the host never hands a hook binary bytes. Bash `cat blob.bin` arrives as host-decoded
+ text (3,000-byte file -> 2,134 B with NUL and U+FFFD), Read pixel.png arrives as an image block that
+ is captured as JSON with base64. The capture sidecars (store/sidecar_*.json, both builds and session
+ C's candidate captures) record source_format application/json, fidelity "exact" (the captured host
+ delivery). expand returns the Bash capture as the text it was given (content_has_nul/fffd true in
+ cli/51); recall "QPK" (the blob's magic) finds nothing. No `binary` fidelity is reachable on this
+ host; Qompack decoded nothing itself.
+Step 7: day log store/logs_qompack-20260930.log - no version-block and no retired-meaning warning (no
+ config file exists, so none is expected); the first post-upgrade daemon start (00:53:47Z) logged NO
+ LOUD line (candidate 3: LOUD unpublished_captures=4). config.capture "applied as written"
+ (cli/24 self-test); the layout reappeared and grew after session B's hooks. LOUD.log gained two
+ lines later (finding F2 below).
+Step 8: session B's daemon had exited; cli/24 self-test spawned a daemon with the default 1800 s idle
+ exit, so cli/26 terminated it after verifying pid + image + command line (the stale lock was later
+ reclaimed by restore's writer lease: cli/31-source-diff.txt, only run/daemon.lock and run/daemon.hb
+ differ). cli/27 fsck (source, stopped) exit 0; cli/28 doctor exit 0 (captures.unpublished 0 gaps
+ across 70 sidecars, checkpoint.latest 0003 of 2 resolves). cli/30 `backup restore --id
+ uat12-c4-baseline --destination <scratch>/install/uat12/recovery --json`: exit 0, OpenedOK, 27 roots,
+ 19 tool refs, 0 tombstoned, SameBuildOnly, CheckpointSealCovered false, integrity exit 0 (candidate 3:
+ exit 1). cli/32 fsck --seal-check recovery exit 0 (chain from 0001, seal check passed); cli/33 fsck
+ --seal-check source exit 0 (chain from 0003 across 2, seal check passed). Later writes: cli/31, 652 =
+ 652 files outside backup/, tmp/, run/ identical. Rollback reader: cli/35 the 301a8e9 CLI's fsck on
+ the recovered baseline exits 1 on its OWN index.tool_use rule (the MCP self-record its build wrote at
+ turn 0), checkpoint chain verifies, and it wrote nothing there (cli/34 vs cli/36). The recovery was
+ not activated.
+Steps 9-10: cli/40 vs cli/42 - `plugin uninstall -s local --json` (no --keep-data, "keptData":false)
+ left .qompack/ byte-identical, all 791 files including run/. Reinstall cli/43/44 (0.3.0).
+Session C (sessionC/, 20.4 s): recall "HERON-43" (default k=5) returned 2 hits (the current prompt and
+ session B's expand self-record of readme.md) with "denied":3 - session A's own FileRead of README.md
+ was NOT among them (finding F1); re_read README.md answered from the store: source store, turn 1 =
+ session A's old-build capture, code word HERON-43; Bash cat blob.bin and Read pixel.png captured on
+ the candidate. cli/50 probe: recall "HERON-43" k=20 lists 7 hits with session A's FileRead
+ toolu_01LbceTh... last, expand of it answers; project work preserved.
+After C: cli/52 idle exit; cli/53 fsck --seal-check exit 0; cli/54 doctor exit 0; cli/55-57 backup
+ create/verify/restore --id uat12-c4-afterC (674 files; 102 roots, 106 tool refs) all exit 0 with
+ integrity exit 0; cli/58 fsck --seal-check of that recovery exit 0. Downgrade characterization:
+ cli/59 the 301a8e9 fsck on the upgraded copy exits 1 (index.tool_use: its turn-0 MCP rule, and it
+ reads session B's prompt_..._0 as "turn 0 after turn 11 in session " - it does not separate the
+ candidate's sessions). Restore never downgrades, as backup.md says.
+Cleanup: cli/70 final uninstall, cli/71 marketplace remove; cache versions 0.2.99-prev and 0.3.0 were
+ both this run's bundles (BUNDLE.json cmp) and marked .orphaned_at, removed (cli/72); the D10 staged
+ copy ~/.qompack/bin/1e9d0cc8.../ (sha256 = the frozen bin, no qompack.exe running) removed with
+ Remove-Item -Recurse -Force per install.md §6, then the empty run-created ~/.qompack (absent at snap)
+ (cli/73). Guard unchanged at the end.
+
+Findings (none is a fail criterion of this row):
+ F1 (product, retrieval) recall's k counts hits that authorization then withholds:
+    internal/mcp/handlers.go asks store.Search for K hits and drops the denied ones afterwards, so a
+    default k=5 recall answered 2 hits with "denied":3 although three more permitted hits existed
+    then (the k=20 probe run after the session lists 7, two of them from session C's later
+    re_read); the omitted ones included session A's original README capture. Denied candidates crowd
+    permitted context out of the answer. Retrieval's own MCP self-records (re_read/expand echoes) also
+    rank above the original capture. Evidence: sessionC/stream.jsonl, cli/50-mcp-probe-recall.json.
+ F2 (product, diagnostics) the daemon's startup publication accounting has a 250 ms bound
+    (internal/daemon/publication_audit.go publicationStartupBound); on this 3-session store (70
+    captures, ~380 objects) two daemon starts (00:58:08Z, the self-test spawn, and 01:03:52Z, session
+    C) logged LOUD "publication accounting incomplete; a zero gap count is only a lower bound ...
+    scan interrupted before it finished". A healthy store's LOUD.log then fills with a line per start
+    and the startup audit never completes. Evidence: store/logs_LOUD.log, store/logs_qompack-*.log.
+ F3 (doc) troubleshooting.md §3 still says "Diagnose. Read the record's Fidelity" and, for
+    interrupted output, "read that record's fidelity through expand", while mcp-tools.md (D46) says
+    no retrieval response carries fidelity and "no tool surfaces" the capture sidecar's. The host's
+    decoding of binary files (the D45 "documented" host behaviour) is not written in troubleshooting,
+    user-guide or cannot-do; only UAT Result blocks mention it.
+ F4 (observation) the rehydration block's section 6 lists the deny-ruled file's archived absolute
+    path and root hash and the out-of-project file's absolute path as pointers (no content). Not a
+    preview; recorded because re_read deliberately does not echo an out-of-project path.
+ F5 (observation) session B's rehydration dropped eight user_intent.evolution entries and one pointer
+    for the budget ("did not fit the rehydration budget") in an 8,017-char block; the evolution
+    ceiling is the sessions part's rows (UAT-04/05), noted here for the coordinator.
+ F6 (observation) a daemon spawned with no session (self-test) logged WARN "checkpoint: no usable
+    source set; the frontier is not advancing ... SourceSet.Ledger is nil ... running in degraded
+    mode" 30 s after start (the ledger opens lazily, D45).
+ F7 (host) the old build's PreCompact output (customInstructions, retired by C1.18) fails 2.1.280's
+    hook output validation; the candidate emits {} and passes.

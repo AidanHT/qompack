@@ -1,0 +1,21 @@
+<!-- qompack:injected seq=2 ver=1 -->
+# Qompack rehydration — checkpoint 0002, session d0c99489
+
+## 2. Original user intent (verbatim from L0 capture — never summarized)
+Evolution (most recent first):
+> Use the Read tool to read notes.md and summarize it in one sentence.
+
+## 5. Current work
+goal: Project brief for the Osprey ledger service.
+blocked on: none
+
+## 6. Pointers (paths and hashes — contents are NOT restored; use expand/re_read)
+- tool_use toolu_018sniWWhjmLCAd1TJSXje1v sha256:d6a6e34f972ad235e12f38cd2ae6bd52ae5a7db642e89468c4be39b23e1eb6e8 — cat data/keys.txt
+
+## 7. No longer in context
+- user_intent tier1 — OVERFLOW: the verbatim original user intent did not fit the rehydration payload and is emitted whole or not at all; restore: expand(tool_use_id=prompt_d0c99489-20eb-4e4b-9257-318a03e60108_0)
+
+## 8. Retrieval
+Qompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().
+<!-- /qompack:injected -->
+<!-- qompack-contract-probe qompack-contract-b9bec06d59d6 -->

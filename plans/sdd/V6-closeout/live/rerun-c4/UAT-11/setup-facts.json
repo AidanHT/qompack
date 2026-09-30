@@ -1,0 +1,34 @@
+{
+ "files": {
+  "README.md": {
+   "bytes": 59,
+   "sha256": "12a912ab9136d6b889b5266f0f2ba99d723032656f87696a1957d8b202ed03cd"
+  },
+  "big.log": {
+   "bytes": 363000,
+   "sha256": "2b95266848e9e267dd02f0d28afdb8f5b1ecaacd852f38e9db3ec85cddfa614c"
+  },
+  "creds.env": {
+   "bytes": 87,
+   "sha256": "ed645d52dc355def0b10a78570c84156667793826967abe0b210d9b768df22c2"
+  },
+  "notes.md": {
+   "bytes": 48,
+   "sha256": "394a7b4ab045ebf4cbd7a4e034ef4d7116aa7b43cc9f7661a2653db1bb7e1fe9"
+  },
+  "odd.txt": {
+   "bytes": 1880,
+   "sha256": "d610d6a49d7d24400caf1186419cc1f90ede7f036c1299e74f7e4f3f51874786"
+  }
+ },
+ "config": "shipped: no config file; runtime.migration.replacement.newResult false, runtime.redact.enabled true, runtime.migration.settingsVersion 1 (all defaults); no QOMPACK_* but QOMPACK_HOME",
+ "secrets": [
+  {
+   "placeholder": "@@SEC_PLANTED_1@@",
+   "shape": "aws_access_key_id (AKIA+16)",
+   "chars": 20,
+   "sha256": "b3baae1e22dfa7480e4e40c7c2d4cc1bff4a65c89725c75c0a0f6bdcd54144c2"
+  }
+ ],
+ "note": "creds.env's sha256 covers the planted literal; the literal lives only in <scratch>/retrieval/secrets.json"
+}

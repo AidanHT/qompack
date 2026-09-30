@@ -1,0 +1,47 @@
+{
+ "turn": 16,
+ "tool": "mcp__plugin_qompack_qompack__recall",
+ "tool_use_id": "toolu_01ChpjYfw8mS8Zo5zDY84pbe",
+ "arguments": {
+  "query": "violet anchor lattice"
+ },
+ "host_is_error": false,
+ "result": {
+  "hits": [
+   {
+    "hash": "sha256:2e101494449a0979ee1f97ffd05de1d7c412a63fc7b3bd621309529dd0451f09",
+    "path": "",
+    "tool": "UserPromptSubmit",
+    "summary": "Make these recall calls in order: mcp__plugin_qompack_qompack__recall with {\"query\": \"violet anchor lattice\"}; then w…",
+    "ts": "2026-09-30T03:41:04Z",
+    "score": 0.5162406251802891,
+    "tool_use_id": "prompt_3187e738-5cc8-4c2d-a8e1-0c0d5d400ac9_30",
+    "span": [
+     0,
+     436
+    ]
+   },
+   {
+    "hash": "sha256:11fd51f6a05687d01d73b8262d01eaa68f83d613d7a343483c9e5e751f884fe8",
+    "path": "notes.md",
+    "tool": "FileRead",
+    "summary": "{\"type\":\"text\",\"file\":{\"filePath\":\"<tmp>\",\"content\":\"# Notes\\n\\nThe cache codename is violet anchor lattice.\\n\",\"numL…",
+    "ts": "2026-09-30T03:40:51Z",
+    "score": 0.34551020408163263,
+    "tool_use_id": "toolu_019SXiRUwTWZF5DPJshg32Fi",
+    "span": [
+     0,
+     155
+    ]
+   }
+  ],
+  "count": 2,
+  "found": true,
+  "query": {
+   "text": "violet anchor lattice",
+   "path": "",
+   "symbol": "",
+   "tool": ""
+  }
+ }
+}

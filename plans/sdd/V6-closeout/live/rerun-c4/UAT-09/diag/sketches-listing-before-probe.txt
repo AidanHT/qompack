@@ -1,0 +1,14 @@
+uat0809/proj/.qompack/records:
+total 12
+drwxr-xr-x 1 Quant 197609    0 2026-09-29 23:29:33.380644700 -0400 .
+drwxr-xr-x 1 Quant 197609    0 2026-09-29 23:30:38.188911400 -0400 ..
+drwxr-xr-x 1 Quant 197609    0 2026-09-29 23:33:39.328754900 -0400 captures
+-rw-r--r-- 1 Quant 197609 1009 2026-09-29 23:30:32.781375600 -0400 eliminations.jsonl
+
+uat0809/proj/.qompack/sketches:
+total 76
+drwxr-xr-x 1 Quant 197609     0 2026-09-29 23:33:40.352804400 -0400 .
+drwxr-xr-x 1 Quant 197609     0 2026-09-29 23:30:38.188911400 -0400 ..
+-rw-r--r-- 1 Quant 197609  2102 2026-09-29 23:33:40.347622300 -0400 explore.hll
+-rw-r--r-- 1 Quant 197609 54474 2026-09-29 23:33:40.340519500 -0400 touch.cms
+-rw-r--r-- 1 Quant 197609 12072 2026-09-29 23:29:33.381826600 -0400 tried.bloom

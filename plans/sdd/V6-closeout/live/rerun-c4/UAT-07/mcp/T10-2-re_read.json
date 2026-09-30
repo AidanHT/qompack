@@ -1,0 +1,28 @@
+{
+ "turn": 10,
+ "tool": "mcp__plugin_qompack_qompack__re_read",
+ "tool_use_id": "toolu_01ToQ2wvsSwiJfz3f7srHFtS",
+ "arguments": {
+  "path": "src/ledger.go",
+  "at": "turn:1"
+ },
+ "host_is_error": false,
+ "result": {
+  "found": true,
+  "hash": "sha256:125153754afca5f623b4b7dc03edf6a54a60bb961e9a4d46a80ba61769b6c2f4",
+  "path": "src/ledger.go",
+  "at": "turn:1",
+  "source": "store",
+  "turn": 1,
+  "span": [
+   0,
+   838
+  ],
+  "total_bytes": 838,
+  "truncated": false,
+  "widened": false,
+  "expansions": 1,
+  "promoted": false,
+  "content": "{\"type\":\"text\",\"file\":{\"filePath\":\"<tmp>\",\"content\":\"package ledger\\n\\n// Package ledger reconciles account balances for the Kestrel acceptance run.\\n// Sentinel phrase for retrieval: cobalt heron threshold.\\n\\nimport \\\"errors\\\"\\n\\nconst driftLimit = 25\\n\\n// ErrDrift is returned when two balances differ by more than driftLimit cents.\\nvar ErrDrift = errors.New(\\\"ledger: balance drift over limit\\\")\\n\\n// ReconcileBalances compares the booked and the settled balance of one account, in cents,\\n// and returns the signed difference, or ErrDrift when it exceeds driftLimit in either direction.\\nfunc ReconcileBalances(booked, settled int64) (int64, error) {\\n\\tdiff := settled - booked\\n\\tif diff > driftLimit || diff < -driftLimit {\\n\\t\\treturn diff, ErrDrift\\n\\t}\\n\\treturn diff, nil\\n}\\n\",\"numLines\":22,\"startLine\":1,\"totalLines\":22}}"
+ }
+}

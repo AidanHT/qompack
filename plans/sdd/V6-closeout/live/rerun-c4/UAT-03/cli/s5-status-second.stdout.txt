@@ -1,0 +1,51 @@
+qompack status — collected 2026-09-30T01:51:41Z
+
+source: disk (available, 1.01m old)
+  daemon: no daemon answered: none is listening for this project yet. This command
+  asked one to start unless runtime.daemon.enabled is false
+  run status again once it is up
+
+hooks — per-entry-point latency
+  EVENT              SUBCOMMAND                       BUDGET  LATENCY
+  PostToolUse        qompack observe tool             B-A     unavailable
+                       no per-hook instrument: PostToolUse is folded into the hook_controlled aggregate,
+                       which mixes every delivering hook and cannot be attributed to one
+  UserPromptSubmit   qompack observe prompt           B-A     unavailable
+                       no per-hook instrument: UserPromptSubmit is folded into the hook_controlled
+                       aggregate, which mixes every delivering hook and cannot be attributed to one
+  SessionStart       qompack session-start            B-A     unavailable
+                       no per-hook instrument: SessionStart is folded into the hook_controlled aggregate,
+                       which mixes every delivering hook and cannot be attributed to one
+  PreCompact         qompack checkpoint               B-E     p50 73.73ms  p95 82.22ms  p99 82.22ms  max 82.22ms  n=2  (observed from disk, 1.01m old)
+  Stop               qompack observe stop             B-A     unavailable
+                       no per-hook instrument: Stop is folded into the hook_controlled aggregate, which
+                       mixes every delivering hook and cannot be attributed to one
+  SubagentStop       qompack observe stop --subagent  B-A     unavailable
+                       no per-hook instrument: SubagentStop is folded into the hook_controlled aggregate,
+                       which mixes every delivering hook and cannot be attributed to one
+  SessionEnd         qompack flush                    B-A     unavailable
+                       no per-hook instrument: SessionEnd is folded into the hook_controlled aggregate,
+                       which mixes every delivering hook and cannot be attributed to one
+
+budgets — §2.4
+  ID    HISTOGRAM             MEASURE     LATENCY
+  B-A   hook_controlled       estimated   p50 24.58ms  p95 295.00ms  p99 295.00ms  max 295.00ms  n=13  (estimated from disk, 1.01m old)
+          scope: aggregate over 6 entry point(s): PostToolUse, UserPromptSubmit, SessionStart, Stop, SubagentStop, SessionEnd
+  B-B   l0_ingest             observed    p50 15.36ms  p95 291.20ms  p99 291.20ms  max 291.20ms  n=13  (observed from disk, 1.01m old)
+          scope: aggregate; not attributable to a single hook entry point
+  B-C   l0_process            observed    p50 98.30ms  p95 145.00ms  p99 145.00ms  max 145.00ms  n=13  (observed from disk, 1.01m old)
+          scope: aggregate; not attributable to a single hook entry point
+          reported only, never gated
+  B-D   hook_wall             —           unavailable
+          scope: aggregate; not attributable to a single hook entry point
+          reported only, never gated
+          no instrument records this histogram in this build
+          it measures host process creation, which the created process cannot observe
+  B-E   checkpoint_finalize   observed    p50 73.73ms  p95 82.22ms  p99 82.22ms  max 82.22ms  n=2  (observed from disk, 1.01m old)
+  B-F   mcp_tool_call         —           unavailable
+          scope: aggregate; not attributable to a single hook entry point
+          mcp_tool_call: no samples recorded in the observed window
+  B-G   hook_degraded         —           unavailable
+          scope: aggregate; not attributable to a single hook entry point
+          reported only, never gated
+          hook_degraded: no samples recorded in the observed window

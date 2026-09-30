@@ -1,0 +1,18 @@
+{
+ "files": {
+  "README.md": {
+   "bytes": 64,
+   "sha256": "6e958f83de48deaa9b9df9155d5cff7b0e1b2b7d40806d1632dd95d54e4f0ce1"
+  },
+  "config/pool.yaml": {
+   "bytes": 48,
+   "sha256": "535caa5df059b65334d4a9864ca99457c969208c4c7bd9341e900931e5ecda89"
+  },
+  "src/pool.go": {
+   "bytes": 174,
+   "sha256": "e3e46c25889982a1303b7a0c902a3f4e8391b23c9c4fb223e3a565f7cfaa9da4"
+  }
+ },
+ "config": "defaults (no project config file) for UAT-08 and UAT-09 steps 1-3; the UAT-09 step-4 drop file is written before turn 9 of session 1 and kept for session 2; session 3 runs on {}",
+ "env": "session and CLI env QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS=90 (not a row precondition key), QOMPACK_HOME=<scratch>/retrieval/c4/qhome"
+}

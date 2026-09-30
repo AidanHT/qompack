@@ -1,0 +1,2 @@
+ts=2026-09-30T03:30:48.1599964Z level=loud msg="invalid configuration value, using default" key=runtime.migration.replacement.newResult got=true want=false message="invalid value, using default: true not in false"
+ts=2026-09-30T03:30:48.2129385Z level=loud msg="invalid configuration value, using default" key=runtime.migration got=<nil> want=<nil> message="settingsVersion 2 is newer than this build understands (1); the whole runtime.migration block is reset to defaults so unknown switches stay off"

@@ -1,0 +1,31 @@
+{
+ "turn": 21,
+ "tool": "mcp__plugin_qompack_qompack__timeline",
+ "tool_use_id": "toolu_01YR6QQkF8eUuwap8wNfgRUu",
+ "arguments": {
+  "from": "1",
+  "to": "6"
+ },
+ "host_is_error": false,
+ "result": {
+  "count": 1,
+  "found": true,
+  "from": 1,
+  "frontier": 0,
+  "segments": [
+   {
+    "checkpoint_seq": 0,
+    "closed": false,
+    "encoded_once": false,
+    "end_ts": "",
+    "end_turn": 41,
+    "features": null,
+    "id": 1,
+    "start_ts": "2026-09-30T03:39:35Z",
+    "start_turn": 0,
+    "tokens": 11683
+   }
+  ],
+  "to": 6
+ }
+}

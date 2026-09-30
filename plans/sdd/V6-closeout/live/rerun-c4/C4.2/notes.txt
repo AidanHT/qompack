@@ -1,0 +1,22 @@
+C4.2 re-run on candidate 4 (D47) — real headless sessions: every hook event captured; .qompack/ index counts match the
+transcript; `status`, `doctor`, `fsck` clean. Evidence: rerun-c4/UAT-02/ (c42-counts.json, cli/05-* live, cli/10-*
+stopped, cli/07-transcript-facts.json, hooks.json, notes.txt). 1 real Haiku session (sessions-c4 n=3) with 6 MCP calls
+and one CLI recall. Agent-executed on the owner's real host per owner decision D3 — not human UAT.
+
+ - All seven events fired: SessionStart (startup, compact), UserPromptSubmit 10, PostToolUse 14, Stop 10, SubagentStop
+   2 — every hook_response success/exit 0; PreCompact wrote checkpoint 0001 and the transcript reads "Compacted
+   PreCompact [...] completed successfully: {}"; SessionEnd wrote the sessions.jsonl end line and stderr.txt is empty
+   (no "Hook cancelled").
+ - Counts: prompts host 10 = store 10; tool uses host 15 (14 main + 1 subagent) minus the refused blob.bin Read (no
+   PostToolUse) = 14 = store capture records; sessions 1 = 1; plus 7 qompack-mcp:* self-records and 2 SubagentStop
+   records; turn_order_violations none (the MCP self-records are filed at their call's turn).
+ - Clean: live — status "host contract: 9 assertion(s), all holding" (latency rows `unavailable` with reasons, never 0),
+   doctor --json exit 0 with no degraded row (captures.unpublished "0 gap(s) across 36 sidecar(s)"), fsck --json exit 0;
+   stopped (after the DEFAULT idle exit) — doctor no degraded row, fsck --json and --seal-check exit 0, every row ok.
+   (One stopped set, cli/09-*, ran status first, which started a daemon that doctor caught mid-start; repeated as
+   cli/10-* with doctor and fsck first.)
+ - The other sessions of this part agree: fsck --json exit 0 after UAT-03, UAT-05, UAT-06 and C4.9 (C4.9 also after its
+   idle exit); UAT-04's exit 1 (index.files "absent while its log carries 4 path(s)") was taken with its deliberately
+   unparseable project config still in place, and whether it follows from that config was not isolated (UAT-04 notes).
+
+Result: PASS (candidate 3: FAIL on the clean-diagnostics clause).

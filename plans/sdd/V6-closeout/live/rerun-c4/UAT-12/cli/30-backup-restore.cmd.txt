@@ -1,0 +1,2 @@
+$ sh <scratch>/install/tools/unset.sh C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c4/qompack-plugin-0.3.0-windows-amd64/bin/qompack.exe backup restore --project <scratch>/install/uat12/proj --id uat12-c4-baseline --destination <scratch>/install/uat12/recovery --json
+cwd: <scratch>/install/uat12/proj

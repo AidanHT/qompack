@@ -1,0 +1,8 @@
+{
+ "turn": 17,
+ "tool": "mcp__plugin_qompack_qompack__expand",
+ "tool_use_id": "toolu_01Cc7NCh5FxRKK25ySUiftPx",
+ "arguments": {},
+ "host_is_error": true,
+ "result": "expand requires exactly one of hash or tool_use_id"
+}

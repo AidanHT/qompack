@@ -1,0 +1,9 @@
+[
+ "Use the Read tool to read these three files, one after another: README.md, calc.py and private/deny.txt. Then reply with just the word done.",
+ "Use the Read tool to read big.log with offset 1 and limit 1300 (the whole file). Then reply with only the number of lines you received.",
+ "Use the Bash tool to run exactly this command: cat blob.bin\nThen use the Read tool to read pixel.png. Then reply with just the word done.",
+ "Use the Read tool to read the file <scratch>/install/uat12/outside/outside.txt and reply with the marker it contains.",
+ "Call the MCP tool mcp__plugin_qompack_qompack__recall with query \"HERON-43\", then call mcp__plugin_qompack_qompack__timeline with no arguments. Reply in one sentence with the number of recall hits and the number of timeline segments.",
+ "/compact",
+ "What is this project's code word? If it is not in your context, call mcp__plugin_qompack_qompack__recall with query \"code word\". Reply in one sentence."
+]

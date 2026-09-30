@@ -1,0 +1,6 @@
+cwd: uat04/proj
+argv: ["C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c4/qompack-plugin-0.3.0-windows-amd64/bin/qompack.exe", "status"]
+env+: {}
+qompack_home: <scratch>/sessions/c4/qhome
+wall_s: 0.033
+at: 2026-09-29T21:38:38-04:00

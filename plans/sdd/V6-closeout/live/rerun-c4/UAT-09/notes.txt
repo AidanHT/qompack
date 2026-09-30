@@ -1,0 +1,51 @@
+UAT-09 re-run on candidate 4 (D47) — retrieval part, agent-executed on the owner's real host (D3), not human UAT
+
+Build/snapshot as ../UAT-08/notes.txt. Project uat0809 (UAT-08 complete in it, same pre-run absence).
+
+Steps 1-3, in the recording session (session 1, ../UAT-08/session1/, id 24df5051):
+  T7 step 1: the MODEL edited config/pool.yaml (Edit tool, max_idle 4 -> 16; files/pool.yaml.before-edit, .after-edit).
+  T8 step 2-3 (mcp-session1/T08-1): {"state":"stale", reason, note "previously eliminated, but the evidence has
+     changed since — re-verification may be warranted", evidence, scope session, recorded_at 2026-09-30T03:29:33Z,
+     depends_on, "stale_because":["config/pool.yaml: dependency hash changed from sha256:9f2751eac830"]} — flipped
+     IN THE SAME SESSION, seconds after the edit (candidate 3: stayed active). ../UAT-08/snap/eliminations.after-stale.jsonl
+     holds the {"op":"stale",...} line.
+  T9 (supplementary, not the row's step 4): files/config.drop.json written mid-session before T9; the running daemon
+     logged "config reloaded changed=[eliminations.staleResponse]" (store-after-session2/logs) but already_tried still
+     answered the flag form (mcp-session1/T09-1): a staleResponse change does not reach already_tried in a running daemon.
+  T10 /compact, T11: injected block seq 2 (../UAT-08/session1/injected-3-SessionStart-compact.txt) shows the elimination
+     "[stale: ...]", agreeing with already_tried: the known digest gap (V5-report §22 item 26) was NOT reproduced.
+Step 4, row's run (session 2, session2-resume/, --resume of session 1 = same session id 24df5051; drop file in place;
+  cli/01-config-print-provenance-drop shows staleResponse "drop" from the project layer; the session-1 daemon had
+  idle-exited, so a new daemon loaded the drop config):
+  already_tried (mcp-session2/T01-1) -> {"state":"absent"}.   FAIL: the row's fail list names "a drop configuration
+  that turns staleness into absent". The index files the call under session 24df5051 (store-after-session2/
+  index_tool_use.jsonl, turn 20), so the record was visible to the caller.
+Step 4 diagnostic (session 7, session7-resume-flag-diag/, --resume of session 1 again, config {} = flag,
+  cli/02-config-print-provenance-flag): already_tried -> {"state":"absent"} again, attributed to session 24df5051
+  turn 23. So `drop` is not the cause: after a daemon restart a STALE elimination answers `absent` under flag too.
+  Cause (from code, internal/negknow): the query filter tried.bloom holds ACTIVE records only (RebuildBloom
+  "from ACTIVE RECORDS ONLY"; reconcileBloom at Open only guarantees 2 x visibleActiveCount keys); Record adds a
+  key to the in-memory filter only, and the on-disk filter (sketches/tried.bloom, mtime 23:29:33 local = the first
+  open, before the record; diag/sketches-listing-before-probe.txt) never held it. A new daemon loads that filter,
+  finds no active record owed, does not rebuild, and Query's first check `!l.bloom.Test(mk)` returns AnswerAbsent
+  before the stale record is consulted. The same filter rule means an idle rebuild_bloom (rebuildOnStale nextIdle)
+  also drops a stale key in a long-running daemon (code reading, not observed here). Documented behaviour contradicted: mcp-tools.md "a dependency
+  changed earlier in the same session answers stale", UAT-09 "A record goes stale rather than being deleted",
+  already_tried's absent-only-with-complete-coverage rule.
+  diag/mcp-probe-flag-after-restart.json: a no-model stdio probe also answered absent, but that call carried session
+  "" (no live session in the probe's daemon), so it is NOT conclusive and is kept only as a record.
+Step 5 (session 3, session3-step5/, fresh project uat09s5, step5-setup-facts.json): the ledger made unreadable —
+  <project>/.qompack/records/eliminations.jsonl created as an empty DIRECTORY before the session (the only thing under
+  .qompack/, step5-cli/01-...). already_tried (mcp-session3-step5/T01-1, T03-1): {"state":"unavailable","reason":"the
+  elimination ledger is in blind mode: records/eliminations.jsonl could not be read","note":"repair or restore the
+  elimination log and restart; this is not evidence the approach is untried","degraded":true} — no record disclosed.
+  record_eliminated (T02-1): host is_error, "cannot record elimination: qompack: running in degraded mode: negknow:
+  the elimination log is not appendable" (records nothing; matches mcp-tools.md). LOUD.log names the blind ledger.
+  The doc's parenthetical "reachable form" (a project where the ledger is not present) no longer reaches a query
+  failure on this candidate: the ledger opens on first use, and the first already_tried in the fresh C4.4 project
+  (../C4.4/mcp/T15-1) answered a correct {"state":"absent"}. DOC FINDING: step 5's "reachable form" sentence is stale.
+Step 6: no response prohibits the approach — stale (T08) carries a re-verification note; step 4's absent says nothing
+  prohibitive (but is wrong, above); unavailable says "this is not evidence the approach is untried". Haiku's own
+  one-sentence judgements (session streams) agree.
+
+Result: fail (step 4). Rollback: initial state absent before UAT-08; run retained as evidence; no restore run.

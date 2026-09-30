@@ -1,0 +1,51 @@
+{
+  "session": "ebe2b350-1ed0-472d-b397-1cdd83574fa6",
+  "seq": 5,
+  "emitted": 1790732753239,
+  "tokens": 615,
+  "budget": 12000,
+  "items": [
+    {
+      "kind": "user_intent",
+      "rank": 0,
+      "tokens": 315,
+      "truncated": true,
+      "units": 7,
+      "units_seen": 9
+    },
+    {
+      "kind": "drop_report",
+      "rank": 1,
+      "tokens": 214,
+      "truncated": false,
+      "units": 3,
+      "units_seen": 3
+    },
+    {
+      "kind": "affordance",
+      "rank": 2,
+      "tokens": 86,
+      "truncated": false,
+      "units": 1,
+      "units_seen": 1
+    }
+  ],
+  "dropped": [
+    {
+      "kind": "user_intent_source",
+      "id": "fork",
+      "detail": "this session is a fork of session c8466b7e-f3e4-41c3-968b-6235e42f031c (its newest checkpoint then: 0002), which Qompack inferred because the host names no parent; its original request is session c8466b7e-f3e4-41c3-968b-6235e42f031c's first prompt, and its own first prompt is an evolution entry; restore: expand(tool_use_id=prompt_c8466b7e-f3e4-41c3-968b-6235e42f031c_0)"
+    },
+    {
+      "kind": "user_intent_evolution",
+      "id": "1",
+      "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0005.json (user_intent.evolution[1])"
+    },
+    {
+      "kind": "user_intent_evolution",
+      "id": "0",
+      "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0005.json (user_intent.evolution[0])"
+    }
+  ],
+  "degraded": false
+}

@@ -1,0 +1,236 @@
+{
+ "server": {
+  "name": "qompack",
+  "version": "0.3.0"
+ },
+ "limit": 262144,
+ "tools": [
+  "recall",
+  "expand",
+  "re_read",
+  "already_tried",
+  "record_eliminated",
+  "timeline",
+  "why",
+  "dropped"
+ ],
+ "calls": [
+  {
+   "tool": "recall",
+   "args": {
+    "query": "QPK",
+    "k": 10
+   },
+   "jsonrpc_line_bytes": 397,
+   "isError": false,
+   "error": null,
+   "text_bytes": [
+    90
+   ],
+   "text_within_limit": true,
+   "meta": {
+    "qompack": {
+     "elapsed_ms": 28,
+     "ephemeral": true,
+     "hash": "sha256:d98b22ea674666a5d4ea7bf6563760a348376b55a61dcf2f2d24f955d1f43381",
+     "tool_use_id": "qompack-mcp:89e325e2c898",
+     "untrusted": true
+    }
+   },
+   "fields": {
+    "count": 0,
+    "found": false,
+    "query": {
+     "text": "QPK",
+     "path": "",
+     "symbol": "",
+     "tool": ""
+    }
+   },
+   "field_names": [
+    "hits",
+    "count",
+    "found",
+    "query"
+   ],
+   "hits": []
+  },
+  {
+   "tool": "recall",
+   "args": {
+    "query": "tool:Bash",
+    "k": 10
+   },
+   "jsonrpc_line_bytes": 899,
+   "isError": false,
+   "error": null,
+   "text_bytes": [
+    537
+   ],
+   "text_within_limit": true,
+   "meta": {
+    "qompack": {
+     "elapsed_ms": 0,
+     "ephemeral": true,
+     "hash": "sha256:a5eebe7c235c8a99bdaf22a8d58f373004f2a81dbbe3437711a83e6b9613f80c",
+     "tool_use_id": "qompack-mcp:4f54668e1992",
+     "untrusted": true
+    }
+   },
+   "fields": {
+    "count": 2,
+    "found": true,
+    "query": {
+     "text": "",
+     "path": "",
+     "symbol": "",
+     "tool": "Bash"
+    }
+   },
+   "field_names": [
+    "hits",
+    "count",
+    "found",
+    "query"
+   ],
+   "hits": [
+    {
+     "path": "",
+     "tool": "Bash",
+     "tool_use_id": "toolu_01VmvAT4ft9Qa8H5UPzqBRTx"
+    },
+    {
+     "path": "",
+     "tool": "Bash",
+     "tool_use_id": "toolu_017dXpNXGXakoqRcbLuftezk"
+    }
+   ]
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "tool_use_id": "toolu_01VmvAT4ft9Qa8H5UPzqBRTx",
+    "full": true
+   },
+   "jsonrpc_line_bytes": 3502,
+   "isError": false,
+   "error": null,
+   "text_bytes": [
+    2948
+   ],
+   "text_within_limit": true,
+   "meta": {
+    "qompack": {
+     "elapsed_ms": 6,
+     "ephemeral": true,
+     "expansions": 1,
+     "hash": "sha256:ebda827efe6abc7636c39ab21c098c4ada64ded391a96aee63fc245a92ec1380",
+     "promoted": false,
+     "span": [
+      0,
+      2134
+     ],
+     "tool_use_id": "qompack-mcp:cc2e2bf1b9b3",
+     "total_bytes": 2134,
+     "truncated": false,
+     "untrusted": true
+    }
+   },
+   "fields": {
+    "found": true,
+    "hash": "sha256:eb87e0339b807a494dd9149ddc24d218c81f4b6decab123a3d4f0f8bb2b2b803",
+    "tool": "Bash",
+    "span": [
+     0,
+     2134
+    ],
+    "total_bytes": 2134,
+    "truncated": false,
+    "widened": false,
+    "expansions": 1,
+    "promoted": false
+   },
+   "field_names": [
+    "found",
+    "hash",
+    "tool",
+    "span",
+    "total_bytes",
+    "truncated",
+    "widened",
+    "expansions",
+    "promoted",
+    "content"
+   ],
+   "content_bytes": 2134,
+   "content_has_nul": true,
+   "content_has_fffd": true,
+   "content_has_redacted_placeholder": false
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "tool_use_id": "toolu_01GW22FPHNMsihjT973whYMi",
+    "full": true
+   },
+   "jsonrpc_line_bytes": 2864,
+   "isError": false,
+   "error": null,
+   "text_bytes": [
+    2395
+   ],
+   "text_within_limit": true,
+   "meta": {
+    "qompack": {
+     "elapsed_ms": 10,
+     "ephemeral": true,
+     "expansions": 1,
+     "hash": "sha256:bee95c0771284115fdde377f07db8d3584854f530fc46124b9f55d9a3642fe03",
+     "path": "pixel.png",
+     "promoted": false,
+     "span": [
+      0,
+      2123
+     ],
+     "tool_use_id": "qompack-mcp:01a47f6b16ae",
+     "total_bytes": 2123,
+     "truncated": false,
+     "untrusted": true
+    }
+   },
+   "fields": {
+    "found": true,
+    "hash": "sha256:23f552a52c854fe83fc5591d88f2128321f7de53e675fe89982b8dd541c95018",
+    "path": "pixel.png",
+    "tool": "FileRead",
+    "span": [
+     0,
+     2123
+    ],
+    "total_bytes": 2123,
+    "truncated": false,
+    "widened": false,
+    "expansions": 1,
+    "promoted": false
+   },
+   "field_names": [
+    "found",
+    "hash",
+    "path",
+    "tool",
+    "span",
+    "total_bytes",
+    "truncated",
+    "widened",
+    "expansions",
+    "promoted",
+    "content"
+   ],
+   "content_bytes": 2123,
+   "content_has_nul": false,
+   "content_has_fffd": false,
+   "content_has_redacted_placeholder": false
+  }
+ ],
+ "stderr_tail": ""
+}

@@ -1,0 +1,10 @@
+{
+ "turn": 17,
+ "tool": "mcp__plugin_qompack_qompack__expand",
+ "tool_use_id": "toolu_01R7dxwgdRDZYs1BJwt1L24C",
+ "arguments": {
+  "hash": "sha256:zz"
+ },
+ "host_is_error": true,
+ "result": "expand failed: hash must be \"sha256:\" followed by 64 hex characters"
+}

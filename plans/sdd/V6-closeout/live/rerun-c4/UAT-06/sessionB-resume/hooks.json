@@ -1,0 +1,102 @@
+[
+ {
+  "hook_id": "eb16104d-9376-4d11-a094-08cedbd3002d",
+  "hook_name": "SessionStart:resume",
+  "hook_event": "SessionStart",
+  "latency_ms": 118,
+  "before_init": true,
+  "measured": false,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "e11b2887-147b-4c67-be7a-b716d770eec5",
+  "hook_name": "UserPromptSubmit",
+  "hook_event": "UserPromptSubmit",
+  "latency_ms": 63,
+  "before_init": true,
+  "measured": false,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "2e03e900-5c91-4cdc-855e-31d7d8c96f70",
+  "hook_name": "Stop",
+  "hook_event": "Stop",
+  "latency_ms": 83,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "e91a23d6-0942-4e50-afbb-69122e8b9af8",
+  "hook_name": "UserPromptSubmit",
+  "hook_event": "UserPromptSubmit",
+  "latency_ms": 53,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "ae9c3033-e183-4153-af32-7b0d17b2e50b",
+  "hook_name": "PostToolUse:Read",
+  "hook_event": "PostToolUse",
+  "latency_ms": 86,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "a6c2db17-0e2a-470d-a35c-3ee831726034",
+  "hook_name": "Stop",
+  "hook_event": "Stop",
+  "latency_ms": 115,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "2e6ad4de-f736-48b8-9aa6-aae6de67186c",
+  "hook_name": "SubagentStop",
+  "hook_event": "SubagentStop",
+  "latency_ms": 65,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "4661d310-7d7e-4fa0-b118-b57349590d4d",
+  "hook_name": "SessionStart:compact",
+  "hook_event": "SessionStart",
+  "latency_ms": 82,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "f290d995-4579-47a5-9f34-62964fe2884f",
+  "hook_name": "UserPromptSubmit",
+  "hook_event": "UserPromptSubmit",
+  "latency_ms": 70,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "4f68a367-ef1f-4f5b-a8af-7930ce5beded",
+  "hook_name": "Stop",
+  "hook_event": "Stop",
+  "latency_ms": 80,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ }
+]

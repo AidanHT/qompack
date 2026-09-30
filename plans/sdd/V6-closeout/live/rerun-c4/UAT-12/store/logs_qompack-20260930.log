@@ -1,0 +1,21 @@
+ts=2026-09-30T00:49:43.52852Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-09-30T00:49:43.6851908Z level=info msg="observer: session registered" session=1c4edc6d-c64d-40c6-a5f6-38ffdb11a199 source=startup turn=0 segment=1
+ts=2026-09-30T00:49:43.6851908Z level=info msg="scheduler: session bound" session=1c4edc6d-c64d-40c6-a5f6-38ffdb11a199 effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+ts=2026-09-30T00:50:45.7807139Z level=warn msg="store: segment closed without a tokens feature; Segment.Tokens stays zero permanently" segment=1 session=1c4edc6d-c64d-40c6-a5f6-38ffdb11a199
+ts=2026-09-30T00:50:45.9013735Z level=info msg="observer: gc" scanned=79 deleted=0 freed=0 truncated=false
+ts=2026-09-30T00:53:47.607005Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-09-30T00:53:47.7598269Z level=info msg="observer: session registered" session=25699de3-9b52-419f-9dc7-b24109e38445 source=startup turn=0 segment=2
+ts=2026-09-30T00:53:47.7603322Z level=info msg="scheduler: state from another session discarded" path=<scratch>\install\uat12\proj\.qompack\state\bocd.json file_session=1c4edc6d-c64d-40c6-a5f6-38ffdb11a199 session=25699de3-9b52-419f-9dc7-b24109e38445
+ts=2026-09-30T00:53:47.7613403Z level=info msg="scheduler: state from another session discarded" path=<scratch>\install\uat12\proj\.qompack\state\scheduler.json file_session=1c4edc6d-c64d-40c6-a5f6-38ffdb11a199 session=25699de3-9b52-419f-9dc7-b24109e38445
+ts=2026-09-30T00:53:47.7613403Z level=info msg="scheduler: session bound" session=25699de3-9b52-419f-9dc7-b24109e38445 effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+ts=2026-09-30T00:55:54.2421818Z level=info msg="observer: gc" scanned=525 deleted=0 freed=0 truncated=false
+ts=2026-09-30T00:58:08.6243951Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-09-30T00:58:08.9049348Z level=loud msg="daemon: publication accounting incomplete; a zero gap count is only a lower bound" captures_scanned=70 objects_scanned=380 truncated=false notes="scan interrupted before it finished; publication accounting did not finish"
+ts=2026-09-30T00:58:38.9381611Z level=warn msg="checkpoint: no usable source set; the frontier is not advancing" err="checkpoint: SourceSet.Ledger is nil: its accessor resolved to no ledger: qompack: running in degraded mode"
+ts=2026-09-30T01:03:51.8701057Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-09-30T01:03:52.1463551Z level=loud msg="daemon: publication accounting incomplete; a zero gap count is only a lower bound" captures_scanned=70 objects_scanned=374 truncated=false notes="scan interrupted before it finished; publication accounting did not finish"
+ts=2026-09-30T01:03:52.1796024Z level=info msg="observer: session registered" session=73ed06aa-e6d3-4bbd-8828-f96c6cae37eb source=startup turn=0 segment=4
+ts=2026-09-30T01:03:52.1801901Z level=info msg="scheduler: state from another session discarded" path=<scratch>\install\uat12\proj\.qompack\state\bocd.json file_session=25699de3-9b52-419f-9dc7-b24109e38445 session=73ed06aa-e6d3-4bbd-8828-f96c6cae37eb
+ts=2026-09-30T01:03:52.1801901Z level=info msg="scheduler: state from another session discarded" path=<scratch>\install\uat12\proj\.qompack\state\scheduler.json file_session=25699de3-9b52-419f-9dc7-b24109e38445 session=73ed06aa-e6d3-4bbd-8828-f96c6cae37eb
+ts=2026-09-30T01:03:52.1801901Z level=info msg="scheduler: session bound" session=73ed06aa-e6d3-4bbd-8828-f96c6cae37eb effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+ts=2026-09-30T01:04:10.4907445Z level=info msg="observer: gc" scanned=544 deleted=0 freed=0 truncated=false

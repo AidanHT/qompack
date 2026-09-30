@@ -1,0 +1,3 @@
+step 7: regex postcompact|post-compact|post_compact|after compaction event|waiting for|awaiting|no post over <project>/.qompack/logs/* (qompack-20260930.log)
+0 match(es)
+(none)

@@ -1,0 +1,8 @@
+$ git -C <worktree> worktree add --detach <scratch>/install/prev 301a8e9 ; HEAD 301a8e9da53a567ec4d42209b74e71a04e26a1e6
+$ go run ./tools/devtool bundle --target windows/amd64 --version 0.2.99-prev --out <scratch>/install/old
+bundle: qompack-plugin-0.2.99-prev-windows-amd64 (11 file(s), version 0.2.99-prev)
+
+real	0m17.159s
+user	0m0.031s
+sys	0m0.016s
+exit 0

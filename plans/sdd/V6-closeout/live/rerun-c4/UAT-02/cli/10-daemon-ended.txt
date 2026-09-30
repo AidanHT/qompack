@@ -1,0 +1,2 @@
+the daemon 09-status started (pid 31064) ended by the DEFAULT idle exit at 22:26:44; no termination. This set runs doctor and fsck BEFORE status, so no command starts a daemon first (09-* ran status first, which started one, and doctor then saw it mid-start).
+daemon_info: {"lock": "unreadable: [Errno 2] No such file or directory: '<scratch>/sessions/c4/uat02/proj\\\\.qompack\\\\run\\\\daemon.lock'"}

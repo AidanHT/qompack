@@ -1,0 +1,961 @@
+{
+ "server": {
+  "name": "qompack",
+  "version": "0.3.0"
+ },
+ "limit": 262144,
+ "tools": [
+  "recall",
+  "expand",
+  "re_read",
+  "already_tried",
+  "record_eliminated",
+  "timeline",
+  "why",
+  "dropped"
+ ],
+ "calls": [
+  {
+   "tool": "expand",
+   "args": {
+    "tool_use_id": "toolu_01Jc6uDYtjZCgUbbxss11zRr"
+   },
+   "jsonrpc_line_bytes": 11146,
+   "isError": false,
+   "error": null,
+   "text_bytes": [
+    8038
+   ],
+   "text_within_limit": true,
+   "meta": {
+    "qompack": {
+     "elapsed_ms": 11,
+     "ephemeral": true,
+     "expansions": 5,
+     "hash": "sha256:f2fec426c79774bb84012e99607b6ef9418dd7d117fc2a037c0f9d1a94fb5908",
+     "next_span": "6437:16384",
+     "path": "big.log",
+     "promoted": true,
+     "span": [
+      0,
+      6437
+     ],
+     "tool_use_id": "qompack-mcp:c8d2cf52bc4b",
+     "total_bytes": 354352,
+     "truncated": true,
+     "untrusted": true
+    }
+   },
+   "fields": {
+    "found": true,
+    "hash": "sha256:20cfc2ab38ff9deb904afe9037fb8ec927ec2f9c04186c675b24e2057c7d4a7a",
+    "path": "big.log",
+    "tool": "FileRead",
+    "span": [
+     0,
+     6437
+    ],
+    "total_bytes": 354352,
+    "truncated": true,
+    "next_span": "6437:16384",
+    "widened": false,
+    "expansions": 5,
+    "promoted": true
+   },
+   "field_names": [
+    "found",
+    "hash",
+    "path",
+    "tool",
+    "span",
+    "total_bytes",
+    "truncated",
+    "next_span",
+    "widened",
+    "expansions",
+    "promoted",
+    "content"
+   ],
+   "content_bytes": 6437,
+   "content_has_nul": false,
+   "content_has_fffd": false,
+   "content_has_redacted_placeholder": false
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "tool_use_id": "toolu_01Jc6uDYtjZCgUbbxss11zRr",
+    "full": true
+   },
+   "jsonrpc_line_bytes": 349250,
+   "isError": false,
+   "error": null,
+   "text_bytes": [
+    261163
+   ],
+   "text_within_limit": true,
+   "meta": {
+    "qompack": {
+     "elapsed_ms": 28,
+     "ephemeral": true,
+     "expansions": 6,
+     "hash": "sha256:2ebcf01ed5dcb125f282533b750ee303f3cac7ad690deebca7d6d163075a7103",
+     "next_span": "217070:137282",
+     "path": "big.log",
+     "promoted": true,
+     "span": [
+      0,
+      217070
+     ],
+     "tool_use_id": "qompack-mcp:ae804bd586c7",
+     "total_bytes": 354352,
+     "truncated": true,
+     "untrusted": true
+    }
+   },
+   "fields": {
+    "found": true,
+    "hash": "sha256:20cfc2ab38ff9deb904afe9037fb8ec927ec2f9c04186c675b24e2057c7d4a7a",
+    "path": "big.log",
+    "tool": "FileRead",
+    "span": [
+     0,
+     217070
+    ],
+    "total_bytes": 354352,
+    "truncated": true,
+    "next_span": "217070:137282",
+    "widened": false,
+    "expansions": 6,
+    "promoted": true
+   },
+   "field_names": [
+    "found",
+    "hash",
+    "path",
+    "tool",
+    "span",
+    "total_bytes",
+    "truncated",
+    "next_span",
+    "widened",
+    "expansions",
+    "promoted",
+    "content"
+   ],
+   "content_bytes": 217070,
+   "content_has_nul": false,
+   "content_has_fffd": false,
+   "content_has_redacted_placeholder": false
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "tool_use_id": "toolu_01Jc6uDYtjZCgUbbxss11zRr",
+    "span": "217070:137282"
+   },
+   "jsonrpc_line_bytes": 221055,
+   "isError": false,
+   "error": null,
+   "text_bytes": [
+    165233
+   ],
+   "text_within_limit": true,
+   "meta": {
+    "qompack": {
+     "elapsed_ms": 11,
+     "ephemeral": true,
+     "expansions": 7,
+     "hash": "sha256:438ffbae747779b8064b33025e4a2d5181f37a3e551d66c89043ba17850a748e",
+     "path": "big.log",
+     "promoted": true,
+     "span": [
+      217070,
+      354352
+     ],
+     "tool_use_id": "qompack-mcp:f253e5b6151d",
+     "total_bytes": 354352,
+     "truncated": true,
+     "untrusted": true
+    }
+   },
+   "fields": {
+    "found": true,
+    "hash": "sha256:20cfc2ab38ff9deb904afe9037fb8ec927ec2f9c04186c675b24e2057c7d4a7a",
+    "path": "big.log",
+    "tool": "FileRead",
+    "span": [
+     217070,
+     354352
+    ],
+    "total_bytes": 354352,
+    "truncated": true,
+    "widened": false,
+    "expansions": 7,
+    "promoted": true
+   },
+   "field_names": [
+    "found",
+    "hash",
+    "path",
+    "tool",
+    "span",
+    "total_bytes",
+    "truncated",
+    "widened",
+    "expansions",
+    "promoted",
+    "content"
+   ],
+   "content_bytes": 137282,
+   "content_has_nul": false,
+   "content_has_fffd": false,
+   "content_has_redacted_placeholder": false
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "tool_use_id": "toolu_01Jc6uDYtjZCgUbbxss11zRr",
+    "span": "217070:137282",
+    "full": true
+   },
+   "jsonrpc_line_bytes": 221055,
+   "isError": false,
+   "error": null,
+   "text_bytes": [
+    165233
+   ],
+   "text_within_limit": true,
+   "meta": {
+    "qompack": {
+     "elapsed_ms": 12,
+     "ephemeral": true,
+     "expansions": 8,
+     "hash": "sha256:fefa5f790183c89b4a1dc1403b29b7267d697432eb4fba12c02fe3d76b4737d4",
+     "path": "big.log",
+     "promoted": true,
+     "span": [
+      217070,
+      354352
+     ],
+     "tool_use_id": "qompack-mcp:d274082db005",
+     "total_bytes": 354352,
+     "truncated": true,
+     "untrusted": true
+    }
+   },
+   "fields": {
+    "found": true,
+    "hash": "sha256:20cfc2ab38ff9deb904afe9037fb8ec927ec2f9c04186c675b24e2057c7d4a7a",
+    "path": "big.log",
+    "tool": "FileRead",
+    "span": [
+     217070,
+     354352
+    ],
+    "total_bytes": 354352,
+    "truncated": true,
+    "widened": false,
+    "expansions": 8,
+    "promoted": true
+   },
+   "field_names": [
+    "found",
+    "hash",
+    "path",
+    "tool",
+    "span",
+    "total_bytes",
+    "truncated",
+    "widened",
+    "expansions",
+    "promoted",
+    "content"
+   ],
+   "content_bytes": 137282,
+   "content_has_nul": false,
+   "content_has_fffd": false,
+   "content_has_redacted_placeholder": false
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "tool_use_id": "toolu_01Jc6uDYtjZCgUbbxss11zRr",
+    "span": "0:354352"
+   },
+   "jsonrpc_line_bytes": 349248,
+   "isError": false,
+   "error": null,
+   "text_bytes": [
+    261162
+   ],
+   "text_within_limit": true,
+   "meta": {
+    "qompack": {
+     "elapsed_ms": 16,
+     "ephemeral": true,
+     "expansions": 9,
+     "hash": "sha256:a0ad2f84d97784bc66307aa7c138312dd522e03332647252ef0d335eddbbf654",
+     "next_span": "217070:16384",
+     "path": "big.log",
+     "promoted": true,
+     "span": [
+      0,
+      217070
+     ],
+     "tool_use_id": "qompack-mcp:07ee2cc95b9b",
+     "total_bytes": 354352,
+     "truncated": true,
+     "untrusted": true
+    }
+   },
+   "fields": {
+    "found": true,
+    "hash": "sha256:20cfc2ab38ff9deb904afe9037fb8ec927ec2f9c04186c675b24e2057c7d4a7a",
+    "path": "big.log",
+    "tool": "FileRead",
+    "span": [
+     0,
+     217070
+    ],
+    "total_bytes": 354352,
+    "truncated": true,
+    "next_span": "217070:16384",
+    "widened": false,
+    "expansions": 9,
+    "promoted": true
+   },
+   "field_names": [
+    "found",
+    "hash",
+    "path",
+    "tool",
+    "span",
+    "total_bytes",
+    "truncated",
+    "next_span",
+    "widened",
+    "expansions",
+    "promoted",
+    "content"
+   ],
+   "content_bytes": 217070,
+   "content_has_nul": false,
+   "content_has_fffd": false,
+   "content_has_redacted_placeholder": false
+  },
+  {
+   "tool": "re_read",
+   "args": {
+    "path": "big.log",
+    "full": true
+   },
+   "jsonrpc_line_bytes": 349279,
+   "isError": false,
+   "error": null,
+   "text_bytes": [
+    261172
+   ],
+   "text_within_limit": true,
+   "meta": {
+    "qompack": {
+     "elapsed_ms": 20,
+     "ephemeral": true,
+     "expansions": 10,
+     "hash": "sha256:63515d42adc4ad7d80135856eb940a21ad4c6277c4f669948a178026d8f54aff",
+     "next_span": "217070:137282",
+     "path": "big.log",
+     "promoted": true,
+     "source": "store",
+     "span": [
+      0,
+      217070
+     ],
+     "tool_use_id": "qompack-mcp:bf8479a7af0f",
+     "total_bytes": 354352,
+     "truncated": true,
+     "untrusted": true
+    }
+   },
+   "fields": {
+    "found": true,
+    "hash": "sha256:20cfc2ab38ff9deb904afe9037fb8ec927ec2f9c04186c675b24e2057c7d4a7a",
+    "path": "big.log",
+    "source": "store",
+    "turn": 3,
+    "span": [
+     0,
+     217070
+    ],
+    "total_bytes": 354352,
+    "truncated": true,
+    "next_span": "217070:137282",
+    "widened": false,
+    "expansions": 10,
+    "promoted": true
+   },
+   "field_names": [
+    "found",
+    "hash",
+    "path",
+    "source",
+    "turn",
+    "span",
+    "total_bytes",
+    "truncated",
+    "next_span",
+    "widened",
+    "expansions",
+    "promoted",
+    "content"
+   ],
+   "content_bytes": 217070,
+   "content_has_nul": false,
+   "content_has_fffd": false,
+   "content_has_redacted_placeholder": false
+  },
+  {
+   "tool": "re_read",
+   "args": {
+    "path": "big.log"
+   },
+   "jsonrpc_line_bytes": 11175,
+   "isError": false,
+   "error": null,
+   "text_bytes": [
+    8047
+   ],
+   "text_within_limit": true,
+   "meta": {
+    "qompack": {
+     "elapsed_ms": 11,
+     "ephemeral": true,
+     "expansions": 11,
+     "hash": "sha256:dc92b708c670e49e2ea9c43a4bc376afda46ef3d979dfc96715d56b564aa0ab1",
+     "next_span": "6437:16384",
+     "path": "big.log",
+     "promoted": true,
+     "source": "store",
+     "span": [
+      0,
+      6437
+     ],
+     "tool_use_id": "qompack-mcp:13834906f0b9",
+     "total_bytes": 354352,
+     "truncated": true,
+     "untrusted": true
+    }
+   },
+   "fields": {
+    "found": true,
+    "hash": "sha256:20cfc2ab38ff9deb904afe9037fb8ec927ec2f9c04186c675b24e2057c7d4a7a",
+    "path": "big.log",
+    "source": "store",
+    "turn": 3,
+    "span": [
+     0,
+     6437
+    ],
+    "total_bytes": 354352,
+    "truncated": true,
+    "next_span": "6437:16384",
+    "widened": false,
+    "expansions": 11,
+    "promoted": true
+   },
+   "field_names": [
+    "found",
+    "hash",
+    "path",
+    "source",
+    "turn",
+    "span",
+    "total_bytes",
+    "truncated",
+    "next_span",
+    "widened",
+    "expansions",
+    "promoted",
+    "content"
+   ],
+   "content_bytes": 6437,
+   "content_has_nul": false,
+   "content_has_fffd": false,
+   "content_has_redacted_placeholder": false
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "tool_use_id": "toolu_017dXpNXGXakoqRcbLuftezk"
+   },
+   "jsonrpc_line_bytes": 3500,
+   "isError": false,
+   "error": null,
+   "text_bytes": [
+    2947
+   ],
+   "text_within_limit": true,
+   "meta": {
+    "qompack": {
+     "elapsed_ms": 5,
+     "ephemeral": true,
+     "expansions": 2,
+     "hash": "sha256:e7007db6ed6c601b280a19c71cbf13e62cbf8a2072f9a85fc4170ea6f062df90",
+     "promoted": true,
+     "span": [
+      0,
+      2134
+     ],
+     "tool_use_id": "qompack-mcp:1bddd16c64f8",
+     "total_bytes": 2134,
+     "truncated": false,
+     "untrusted": true
+    }
+   },
+   "fields": {
+    "found": true,
+    "hash": "sha256:eb87e0339b807a494dd9149ddc24d218c81f4b6decab123a3d4f0f8bb2b2b803",
+    "tool": "Bash",
+    "span": [
+     0,
+     2134
+    ],
+    "total_bytes": 2134,
+    "truncated": false,
+    "widened": false,
+    "expansions": 2,
+    "promoted": true
+   },
+   "field_names": [
+    "found",
+    "hash",
+    "tool",
+    "span",
+    "total_bytes",
+    "truncated",
+    "widened",
+    "expansions",
+    "promoted",
+    "content"
+   ],
+   "content_bytes": 2134,
+   "content_has_nul": true,
+   "content_has_fffd": true,
+   "content_has_redacted_placeholder": false
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "tool_use_id": "toolu_017dXpNXGXakoqRcbLuftezk",
+    "full": true
+   },
+   "jsonrpc_line_bytes": 3501,
+   "isError": false,
+   "error": null,
+   "text_bytes": [
+    2947
+   ],
+   "text_within_limit": true,
+   "meta": {
+    "qompack": {
+     "elapsed_ms": 5,
+     "ephemeral": true,
+     "expansions": 3,
+     "hash": "sha256:bb4578b01c216c995be5f61f6e793c62bdf2bd5c5fa1a65fbcdb97b81022eacb",
+     "promoted": true,
+     "span": [
+      0,
+      2134
+     ],
+     "tool_use_id": "qompack-mcp:9800fe696f0a",
+     "total_bytes": 2134,
+     "truncated": false,
+     "untrusted": true
+    }
+   },
+   "fields": {
+    "found": true,
+    "hash": "sha256:eb87e0339b807a494dd9149ddc24d218c81f4b6decab123a3d4f0f8bb2b2b803",
+    "tool": "Bash",
+    "span": [
+     0,
+     2134
+    ],
+    "total_bytes": 2134,
+    "truncated": false,
+    "widened": false,
+    "expansions": 3,
+    "promoted": true
+   },
+   "field_names": [
+    "found",
+    "hash",
+    "tool",
+    "span",
+    "total_bytes",
+    "truncated",
+    "widened",
+    "expansions",
+    "promoted",
+    "content"
+   ],
+   "content_bytes": 2134,
+   "content_has_nul": true,
+   "content_has_fffd": true,
+   "content_has_redacted_placeholder": false
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "tool_use_id": "toolu_01XMf4fK8ZgsAhC3f9MDREYs",
+    "full": true
+   },
+   "jsonrpc_line_bytes": 2862,
+   "isError": false,
+   "error": null,
+   "text_bytes": [
+    2394
+   ],
+   "text_within_limit": true,
+   "meta": {
+    "qompack": {
+     "elapsed_ms": 9,
+     "ephemeral": true,
+     "expansions": 2,
+     "hash": "sha256:e362174b939d2791f9d164995554fd2539ed54a4c4922062c48d9d99897306b9",
+     "path": "pixel.png",
+     "promoted": true,
+     "span": [
+      0,
+      2123
+     ],
+     "tool_use_id": "qompack-mcp:7f0128c0815c",
+     "total_bytes": 2123,
+     "truncated": false,
+     "untrusted": true
+    }
+   },
+   "fields": {
+    "found": true,
+    "hash": "sha256:23f552a52c854fe83fc5591d88f2128321f7de53e675fe89982b8dd541c95018",
+    "path": "pixel.png",
+    "tool": "FileRead",
+    "span": [
+     0,
+     2123
+    ],
+    "total_bytes": 2123,
+    "truncated": false,
+    "widened": false,
+    "expansions": 2,
+    "promoted": true
+   },
+   "field_names": [
+    "found",
+    "hash",
+    "path",
+    "tool",
+    "span",
+    "total_bytes",
+    "truncated",
+    "widened",
+    "expansions",
+    "promoted",
+    "content"
+   ],
+   "content_bytes": 2123,
+   "content_has_nul": false,
+   "content_has_fffd": false,
+   "content_has_redacted_placeholder": false
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "tool_use_id": "toolu_011XG5z29zSZZvejkXpLcgWK"
+   },
+   "jsonrpc_line_bytes": 405,
+   "isError": false,
+   "error": null,
+   "text_bytes": [
+    131
+   ],
+   "text_within_limit": true,
+   "meta": {
+    "qompack": {
+     "elapsed_ms": 5,
+     "ephemeral": true,
+     "hash": "sha256:2e12e2e801d571a772112ffdbd9ed654856c3282d5176bd6ef2b728d7ae57945",
+     "tool_use_id": "qompack-mcp:750df92664d3"
+    }
+   },
+   "fields": {
+    "found": false,
+    "denied": true,
+    "reason": "authorization denied: the host's current permission rules deny reading the associated path"
+   },
+   "field_names": [
+    "found",
+    "denied",
+    "reason"
+   ]
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "hash": "sha256:880f90e7dd5fa42afc21a0d266d84bed504a07a2262c73cac39807cb5fb30f14"
+   },
+   "jsonrpc_line_bytes": 405,
+   "isError": false,
+   "error": null,
+   "text_bytes": [
+    131
+   ],
+   "text_within_limit": true,
+   "meta": {
+    "qompack": {
+     "elapsed_ms": 3,
+     "ephemeral": true,
+     "hash": "sha256:2e12e2e801d571a772112ffdbd9ed654856c3282d5176bd6ef2b728d7ae57945",
+     "tool_use_id": "qompack-mcp:2227badb2c07"
+    }
+   },
+   "fields": {
+    "found": false,
+    "denied": true,
+    "reason": "authorization denied: the host's current permission rules deny reading the associated path"
+   },
+   "field_names": [
+    "found",
+    "denied",
+    "reason"
+   ]
+  },
+  {
+   "tool": "re_read",
+   "args": {
+    "path": "private/deny.txt"
+   },
+   "jsonrpc_line_bytes": 405,
+   "isError": false,
+   "error": null,
+   "text_bytes": [
+    131
+   ],
+   "text_within_limit": true,
+   "meta": {
+    "qompack": {
+     "elapsed_ms": 6,
+     "ephemeral": true,
+     "hash": "sha256:2e12e2e801d571a772112ffdbd9ed654856c3282d5176bd6ef2b728d7ae57945",
+     "tool_use_id": "qompack-mcp:9408ca5fc0da"
+    }
+   },
+   "fields": {
+    "found": false,
+    "denied": true,
+    "reason": "authorization denied: the host's current permission rules deny reading the associated path"
+   },
+   "field_names": [
+    "found",
+    "denied",
+    "reason"
+   ]
+  },
+  {
+   "tool": "recall",
+   "args": {
+    "query": "ORCHID-DENY-8842"
+   },
+   "jsonrpc_line_bytes": 1168,
+   "isError": false,
+   "error": null,
+   "text_bytes": [
+    796
+   ],
+   "text_within_limit": true,
+   "meta": {
+    "qompack": {
+     "elapsed_ms": 27,
+     "ephemeral": true,
+     "hash": "sha256:60e93bcf3d690a11d4f9a28ebb546d021dec358b5ea6f656d8761d56efcf6113",
+     "tool_use_id": "qompack-mcp:3c8ca4108f03",
+     "untrusted": true
+    }
+   },
+   "fields": {
+    "count": 2,
+    "found": true,
+    "query": {
+     "text": "ORCHID-DENY-8842",
+     "path": "",
+     "symbol": "",
+     "tool": ""
+    },
+    "denied": 3
+   },
+   "field_names": [
+    "hits",
+    "count",
+    "found",
+    "query",
+    "denied"
+   ],
+   "hits": [
+    {
+     "path": "",
+     "tool": "UserPromptSubmit",
+     "tool_use_id": "prompt_25699de3-9b52-419f-9dc7-b24109e38445_8"
+    },
+    {
+     "path": "",
+     "tool": "UserPromptSubmit",
+     "tool_use_id": "prompt_25699de3-9b52-419f-9dc7-b24109e38445_2"
+    }
+   ]
+  },
+  {
+   "tool": "recall",
+   "args": {
+    "query": "path:private/deny.txt"
+   },
+   "jsonrpc_line_bytes": 423,
+   "isError": false,
+   "error": null,
+   "text_bytes": [
+    114
+   ],
+   "text_within_limit": true,
+   "meta": {
+    "qompack": {
+     "elapsed_ms": 6,
+     "ephemeral": true,
+     "hash": "sha256:d946c9c6cc4679811795eacde6686c538c429f8fc5838253784c5b8131573187",
+     "tool_use_id": "qompack-mcp:4b9730727ccd",
+     "untrusted": true
+    }
+   },
+   "fields": {
+    "count": 0,
+    "found": false,
+    "query": {
+     "text": "",
+     "path": "private/deny.txt",
+     "symbol": "",
+     "tool": ""
+    },
+    "denied": 2
+   },
+   "field_names": [
+    "hits",
+    "count",
+    "found",
+    "query",
+    "denied"
+   ],
+   "hits": []
+  },
+  {
+   "tool": "re_read",
+   "args": {
+    "path": "<scratch>/install/uat12/outside/outside.txt"
+   },
+   "jsonrpc_line_bytes": 172,
+   "isError": true,
+   "error": null,
+   "text_bytes": [
+    29
+   ],
+   "text_within_limit": true,
+   "meta": {
+    "qompack": {
+     "elapsed_ms": 3,
+     "ephemeral": true
+    }
+   },
+   "text_head": "path escapes the project root"
+  },
+  {
+   "tool": "re_read",
+   "args": {
+    "path": "../outside/outside.txt"
+   },
+   "jsonrpc_line_bytes": 172,
+   "isError": true,
+   "error": null,
+   "text_bytes": [
+    29
+   ],
+   "text_within_limit": true,
+   "meta": {
+    "qompack": {
+     "elapsed_ms": 1,
+     "ephemeral": true
+    }
+   },
+   "text_head": "path escapes the project root"
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "tool_use_id": "toolu_012kPLpTC1YibRXukSDHT71f"
+   },
+   "jsonrpc_line_bytes": 378,
+   "isError": false,
+   "error": null,
+   "text_bytes": [
+    104
+   ],
+   "text_within_limit": true,
+   "meta": {
+    "qompack": {
+     "elapsed_ms": 0,
+     "ephemeral": true,
+     "hash": "sha256:ca2ea67bda57f0702ad90569aa17ce893b2856165120a1aad2f8c6f2094043ca",
+     "tool_use_id": "qompack-mcp:ec9c6bd32241"
+    }
+   },
+   "fields": {
+    "found": false,
+    "denied": true,
+    "reason": "authorization denied: the capture has no usable path provenance"
+   },
+   "field_names": [
+    "found",
+    "denied",
+    "reason"
+   ]
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "hash": "sha256:eaee600491d632f4f946b49971d45f75b2e418b8b7168b0d29a6ac25ef489381"
+   },
+   "jsonrpc_line_bytes": 378,
+   "isError": false,
+   "error": null,
+   "text_bytes": [
+    104
+   ],
+   "text_within_limit": true,
+   "meta": {
+    "qompack": {
+     "elapsed_ms": 0,
+     "ephemeral": true,
+     "hash": "sha256:ca2ea67bda57f0702ad90569aa17ce893b2856165120a1aad2f8c6f2094043ca",
+     "tool_use_id": "qompack-mcp:8df14d2124e8"
+    }
+   },
+   "fields": {
+    "found": false,
+    "denied": true,
+    "reason": "authorization denied: the capture has no usable path provenance"
+   },
+   "field_names": [
+    "found",
+    "denied",
+    "reason"
+   ]
+  }
+ ],
+ "stderr_tail": ""
+}

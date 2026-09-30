@@ -1,0 +1,119 @@
+{
+ "session_id": "d0c99489-20eb-4e4b-9257-318a03e60108",
+ "found": true,
+ "project_slug_is_scratch": true,
+ "bytes": 3430235,
+ "lines": 496,
+ "entry_types": {
+  "queue-operation": 22,
+  "attachment": 268,
+  "user": 44,
+  "atis-latch": 48,
+  "last-prompt": 47,
+  "assistant": 42,
+  "system": 24,
+  "cost-state": 1
+ },
+ "tool_uses": {
+  "Bash": 1,
+  "Read": 5,
+  "ToolSearch": 2,
+  "mcp__plugin_qompack_qompack__expand": 3,
+  "mcp__plugin_qompack_qompack__recall": 1
+ },
+ "attachment_types": {
+  "hook_success": 37,
+  "hook_additional_context": 17,
+  "environment": 18,
+  "model": 18,
+  "deferred_tools_delta": 18,
+  "agent_listing_delta": 18,
+  "mcp_instructions_delta": 18,
+  "skill_listing": 1,
+  "total_tokens_reminder": 21,
+  "session_context": 18,
+  "date": 18,
+  "remote_session_change": 18,
+  "prompt_snapshot": 27,
+  "file": 13,
+  "deferred_tools_record": 8
+ },
+ "hook_attachments": {
+  "hook_success/SessionStart": 18,
+  "hook_additional_context/SessionStart": 17,
+  "hook_success/PostToolUse": 12,
+  "hook_success/Stop": 7
+ },
+ "main_chain_user_text_entries": 13,
+ "compact_boundaries": [
+  {
+   "trigger": "auto",
+   "preTokens": 30463
+  },
+  {
+   "trigger": "auto",
+   "preTokens": 26013
+  },
+  {
+   "trigger": "manual",
+   "preTokens": 26943
+  },
+  {
+   "trigger": "auto",
+   "preTokens": 26013
+  },
+  {
+   "trigger": "auto",
+   "preTokens": 60862
+  },
+  {
+   "trigger": "auto",
+   "preTokens": 91323
+  },
+  {
+   "trigger": "auto",
+   "preTokens": 27111
+  },
+  {
+   "trigger": "auto",
+   "preTokens": 26690
+  },
+  {
+   "trigger": "auto",
+   "preTokens": 27839
+  },
+  {
+   "trigger": "auto",
+   "preTokens": 31207
+  },
+  {
+   "trigger": "auto",
+   "preTokens": 31083
+  },
+  {
+   "trigger": "auto",
+   "preTokens": 60785
+  },
+  {
+   "trigger": "auto",
+   "preTokens": 92348
+  },
+  {
+   "trigger": "auto",
+   "preTokens": 27458
+  },
+  {
+   "trigger": "auto",
+   "preTokens": 26829
+  },
+  {
+   "trigger": "auto",
+   "preTokens": 27852
+  },
+  {
+   "trigger": "manual",
+   "preTokens": 27979
+  }
+ ],
+ "sidechain_markers": []
+}

@@ -1,0 +1,5 @@
+Step 5 needs a fresh daemon: the running daemon (started 21:40 for run 1) reloads config.json but its rehydration keeps the startup budget (run2-a/run2-b), and it had not idled out by 22:19 (a hand-run SessionStart re-opened the ended session, which the daemon ended as abandoned at 22:12 and then kept idling). So it was terminated, after checking the lock pid, the process image and its command line:
+{"lock": {"pid": 73660, "started": 1790732411508, "addr": "\\\\.\\pipe\\qompack.32b99f56ea57", "version": "0.3.0", "owner": "f675740e27ef33e2f7f02451a1ebf05d8e7b8253061031d4325a8bf4ee6ef01a", "root": "<scratch>\\sessions\\c4\\uat05\\proj"}, "pid": 73660, "proc": {"Name": "qompack.exe", "Path": "C:\\Users\\Quant\\.qompack\\bin\\1e9d0cc84597bf719955e268ef2e0c990352eb964559116a6612a012f1e5c358\\qompack.exe", "Cmd": "C:\\Users\\Quant\\.qompack\\bin\\1e9d0cc84597bf719955e268ef2e0c990352eb964559116a6612a012f1e5c358\\qompack.exe daemon --project <scratch>\\sessions\\c4\\uat05\\proj"}}
+check image qompack.exe: True | check cmdline daemon+project: True
+Stop-Process exit 0  | still alive: False
+RESULT: stopped pid 73660

@@ -1,0 +1,19 @@
+{
+ "files": {
+  "README.md": {
+   "bytes": 73,
+   "sha256": "70494a7b55fbea2865ce167a3892b52d32a915300fce31972a3d4e6beec54d72"
+  },
+  "config/pool.yaml": {
+   "bytes": 48,
+   "sha256": "535caa5df059b65334d4a9864ca99457c969208c4c7bd9341e900931e5ecda89"
+  },
+  "src/pool.go": {
+   "bytes": 174,
+   "sha256": "e3e46c25889982a1303b7a0c902a3f4e8391b23c9c4fb223e3a565f7cfaa9da4"
+  }
+ },
+ "unreadable_ledger": "<project>/.qompack/records/eliminations.jsonl created as an empty DIRECTORY before the session (the only thing under .qompack/), so the elimination log cannot be opened",
+ "config": "defaults (no project config file)",
+ "env": "session env QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS=60, QOMPACK_HOME=<scratch>/retrieval/c4/qhome"
+}

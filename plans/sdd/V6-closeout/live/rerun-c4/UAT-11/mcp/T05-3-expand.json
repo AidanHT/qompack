@@ -1,0 +1,23 @@
+{
+ "turn": 5,
+ "tool": "mcp__plugin_qompack_qompack__expand",
+ "tool_use_id": "toolu_01Eg7Xny3KPZB8xmbsJe8ZFh",
+ "arguments": {
+  "hash": "sha256:5e54f4d9ded9308921833be164d3d27b83a730539c2bef43090c72fe29b4adba"
+ },
+ "host_is_error": false,
+ "result": {
+  "found": true,
+  "hash": "sha256:5e54f4d9ded9308921833be164d3d27b83a730539c2bef43090c72fe29b4adba",
+  "span": [
+   0,
+   149
+  ],
+  "total_bytes": 149,
+  "truncated": false,
+  "widened": false,
+  "expansions": 1,
+  "promoted": false,
+  "content": "{\"type\":\"text\",\"file\":{\"filePath\":\"<tmp>\",\"content\":\"# Notes\\n\\nThe export codename is COPPER-WREN-42.\\n\",\"numLines\":4,\"startLine\":1,\"totalLines\":4}}"
+ }
+}

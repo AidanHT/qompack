@@ -1,0 +1,127 @@
+{
+ "args": [
+  "-p",
+  "--input-format",
+  "stream-json",
+  "--output-format",
+  "stream-json",
+  "--verbose",
+  "--include-hook-events",
+  "--model",
+  "claude-haiku-4-5-20251001",
+  "--max-turns",
+  "10",
+  "--setting-sources",
+  "project,local",
+  "--permission-mode",
+  "dontAsk",
+  "--allowedTools",
+  "Read,mcp__plugin_qompack_qompack__recall,mcp__plugin_qompack_qompack__expand,mcp__plugin_qompack_qompack__re_read,mcp__plugin_qompack_qompack__already_tried,mcp__plugin_qompack_qompack__record_eliminated,mcp__plugin_qompack_qompack__timeline,mcp__plugin_qompack_qompack__why,mcp__plugin_qompack_qompack__dropped,Bash(qompack status:*),Bash(qompack recall:*),Bash(qompack pin:*),Bash(qompack why:*),Bash(qompack dropped:*),Bash(qompack eval:*),Bash(cat:*)"
+ ],
+ "turns": [
+  {
+   "msg": "Use the Read tool to read these three files, one after another: README.md, calc.py and private/deny.txt. Then reply with just the word done.",
+   "ok": true,
+   "wall_s": 7.015,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 23544,
+    "WorkingSet64": 47837184,
+    "PeakWorkingSet64": 47837184,
+    "CPU": 0.1875,
+    "StartTime": "/Date(1790729383491)/"
+   },
+   "store_bytes": 115910
+  },
+  {
+   "msg": "Use the Read tool to read big.log with offset 1 and limit 1300 (the whole file). Then reply with only the number of lines you received.",
+   "ok": true,
+   "wall_s": 5.617,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 23544,
+    "WorkingSet64": 91525120,
+    "PeakWorkingSet64": 91525120,
+    "CPU": 0.421875,
+    "StartTime": "/Date(1790729383491)/"
+   },
+   "store_bytes": 1460265
+  },
+  {
+   "msg": "Use the Bash tool to run exactly this command: cat blob.bin\nThen use the Read tool to read pixel.png. Then reply with just the word done.",
+   "ok": true,
+   "wall_s": 6.619,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 23544,
+    "WorkingSet64": 94982144,
+    "PeakWorkingSet64": 94982144,
+    "CPU": 0.453125,
+    "StartTime": "/Date(1790729383491)/"
+   },
+   "store_bytes": 1528648
+  },
+  {
+   "msg": "Use the Read tool to read the file <scratch>/install/uat12/outside/outside.txt and reply with the marker it contains.",
+   "ok": true,
+   "wall_s": 3.41,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 23544,
+    "WorkingSet64": 96886784,
+    "PeakWorkingSet64": 96886784,
+    "CPU": 0.515625,
+    "StartTime": "/Date(1790729383491)/"
+   },
+   "store_bytes": 1549651
+  },
+  {
+   "msg": "Call the MCP tool mcp__plugin_qompack_qompack__recall with query \"HERON-43\", then call mcp__plugin_qompack_qompack__timeline with no arguments. Reply in one sentence with the number of recall hits and the number of timeline segments.",
+   "ok": true,
+   "wall_s": 6.218,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 23544,
+    "WorkingSet64": 108097536,
+    "PeakWorkingSet64": 108097536,
+    "CPU": 0.6875,
+    "StartTime": "/Date(1790729383491)/"
+   },
+   "store_bytes": 1603140
+  },
+  {
+   "msg": "/compact",
+   "ok": true,
+   "wall_s": 25.48,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 23544,
+    "WorkingSet64": 111382528,
+    "PeakWorkingSet64": 111382528,
+    "CPU": 0.78125,
+    "StartTime": "/Date(1790729383491)/"
+   },
+   "store_bytes": 1645734
+  },
+  {
+   "msg": "What is this project's code word? If it is not in your context, call mcp__plugin_qompack_qompack__recall with query \"code word\". Reply in one sentence.",
+   "ok": true,
+   "wall_s": 2.606,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 23544,
+    "WorkingSet64": 111775744,
+    "PeakWorkingSet64": 111783936,
+    "CPU": 0.796875,
+    "StartTime": "/Date(1790729383491)/"
+   },
+   "store_bytes": 1655649
+  }
+ ],
+ "store_bytes_before": 0,
+ "started_ms": 1790729381818,
+ "pid": 5796,
+ "exit": 0,
+ "wall_s": 64.592,
+ "store_bytes_after": 818606
+}

@@ -1,0 +1,25 @@
+<!-- qompack:injected seq=7 ver=1 -->
+# Qompack rehydration — checkpoint 0007, session d0c99489
+
+## 2. Original user intent (verbatim from L0 capture — never summarized)
+Evolution (most recent first):
+> Use the Read tool to read src/ledger.py and summarize it in one sentence.
+> Use the Read tool to read filler/a.txt (the whole file) and reply with only the label of its last line.
+> Use the Read tool to read notes.md and summarize it in one sentence.
+
+## 5. Current work
+goal: Use the Read tool to read src/ledger.py and summarize it in one sentence.
+blocked on: none
+
+## 6. Pointers (paths and hashes — contents are NOT restored; use expand/re_read)
+- src/ledger.py sha256:995cfb1edb4233a993c620162cd7cf58f363993ce455d90ef249df3d86ffff51 — referenced
+- tool_use subagent_d0c99489-20eb-4e4b-9257-318a03e60108_11 sha256:0146b894e01287cfc67701e7c3206bb143a47de46888644db221e8a3c6b846bb — {"agent":"subagent","summary":"FA-1300"}
+- tool_use toolu_01UTWNeptTTdThY5tXNTwCUg sha256:995cfb1edb4233a993c620162cd7cf58f363993ce455d90ef249df3d86ffff51 — <scratch>\sessions\c4\uat04\proj\src\ledger.py
+
+## 7. No longer in context
+- user_intent tier1 — OVERFLOW: the verbatim original user intent did not fit the rehydration payload and is emitted whole or not at all; restore: expand(tool_use_id=prompt_d0c99489-20eb-4e4b-9257-318a03e60108_0)
+
+## 8. Retrieval
+Qompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().
+<!-- /qompack:injected -->
+<!-- qompack-contract-probe qompack-contract-f84cef8bc840 -->

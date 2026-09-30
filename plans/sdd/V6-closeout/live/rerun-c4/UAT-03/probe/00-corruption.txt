@@ -1,0 +1,1 @@
+restored copy (backup uat03-after-idle) checkpoints/0002.json: one byte at offset 583 changed (b'c' -> b'X'), same length; sha256 now 018ea37e7108729004f83832854e987944e4214a3e545dd7fffe1a32e4a36b1b (MANIFEST records sha256:b3da7cd4ca340450ff6961c2cc27c4aec7077032fc0a4b2d71f66ec99c171900)

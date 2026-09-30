@@ -1,0 +1,2 @@
+$ sh <scratch>/install/tools/unset.sh claude plugin uninstall qompack@qompack-live -s local --json
+cwd: <scratch>/install/uat12/proj

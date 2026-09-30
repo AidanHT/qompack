@@ -1,0 +1,2 @@
+$ sh <scratch>/install/tools/unset.sh <scratch>/install/old/qompack-plugin-0.2.99-prev-windows-amd64/bin/qompack.exe fsck --project <scratch>/install/uat12/recovery2 --json
+cwd: <scratch>/install/uat12/recovery2
