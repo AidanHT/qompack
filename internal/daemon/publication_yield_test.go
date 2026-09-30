@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"context"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -23,16 +24,30 @@ import (
 // parkSignal installs a park observer on g and returns the channel it signals, one send per park.
 // It is installed before anything can wait on g.
 func parkSignal(g *captureGate) <-chan struct{} {
+	parked, arm := armedParkSignal(g)
+	arm()
+	return parked
+}
+
+// armedParkSignal is parkSignal with the signal held back until arm is called: a park before it is
+// not signalled. The startup tests arm it once accountPublicationAtStartup has returned, because
+// the bounded half of the pass parks too, synchronously and before that return, and a park of that
+// half must not stand in for one of the background pass, the half D51 is about.
+func armedParkSignal(g *captureGate) (<-chan struct{}, func()) {
 	parked := make(chan struct{}, 64)
+	var armed atomic.Bool
 	g.mu.Lock()
 	g.onPark = func() {
+		if !armed.Load() {
+			return
+		}
 		select {
 		case parked <- struct{}{}:
 		default:
 		}
 	}
 	g.mu.Unlock()
-	return parked
+	return parked, func() { armed.Store(true) }
 }
 
 // TestCaptureGate_WaitReturnsOnlyOnceTheWorkInFlightEnds: a wait with work in flight parks, stays
@@ -150,19 +165,25 @@ func TestStartupPublicationAccounting_BackgroundPassPausesWhileARequestIsInFligh
 
 	var loud loudCapture
 	loud.attach(t)
-	parked := parkSignal(&d.capture)
+	parked, arm := armedParkSignal(&d.capture)
 
 	d.capture.enter() // a hook request is being served
 	d.accountPublicationAtStartup(context.Background())
+	// Only a park from here on is the background pass's: the bounded half parked, if at all, before
+	// accountPublicationAtStartup returned. A background pass that does not yield never parks, so
+	// it finishes beside the request and fails below.
+	arm()
 	finished := passFinished(d)
 	select {
 	case <-parked:
 	case <-finished:
-		t.Fatal("the publication pass finished beside a request in flight")
+		t.Fatal("the background publication pass finished beside a request in flight")
 	}
+	// The pass is parked on the gate's idle channel, which only the request's leave closes, so it
+	// cannot have finished: this is the pause itself, not a race with a walk still running.
 	select {
 	case <-finished:
-		t.Fatal("the publication pass finished beside a request in flight")
+		t.Fatal("the background publication pass finished beside a request in flight")
 	default:
 	}
 	require.Zero(t, m.Counter(counterPublicationUnpublishedCaptures).Value(),
@@ -187,17 +208,18 @@ func TestStartupPublicationAccounting_StopEndsAPausedPass(t *testing.T) {
 
 	var loud loudCapture
 	loud.attach(t)
-	parked := parkSignal(&d.capture)
+	parked, arm := armedParkSignal(&d.capture)
 
 	d.capture.enter()
 	defer d.capture.leave()
 	runCtx, cancel := context.WithCancel(context.Background())
 	d.accountPublicationAtStartup(runCtx)
+	arm() // only the background pass's parks, as in the pause test above
 	finished := passFinished(d)
 	select {
 	case <-parked:
 	case <-finished:
-		t.Fatal("the publication pass finished beside a request in flight")
+		t.Fatal("the background publication pass finished beside a request in flight")
 	}
 	cancel()
 	<-finished
