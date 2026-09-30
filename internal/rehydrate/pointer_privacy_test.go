@@ -169,9 +169,11 @@ func TestBuild_PointersNeverShowAHomeOrVariablePath(t *testing.T) {
 		{ToolUseID: "toolu_home", Hash: hashOf("t2"), Summary: "cat $HOME/.aws/credentials"},
 		{ToolUseID: "toolu_brace", Hash: hashOf("t3"), Summary: "cat ${HOME}/.aws/credentials"},
 		{ToolUseID: "toolu_profile", Hash: hashOf("t4"), Summary: `type %USERPROFILE%\.aws\credentials`},
+		{ToolUseID: "toolu_pf", Hash: hashOf("t5"), Summary: `type "%ProgramFiles(x86)%\vault\app.cfg"`},
+		{ToolUseID: "toolu_flag", Hash: hashOf("t6"), Summary: "ssh -i~/.ssh/deploy_key host"},
 		{ToolUseID: "toolu_ok", Hash: hashOf("ok"), Summary: "cat data/meta.txt"},
 	}
-	leaks := []string{"id_rsa", ".netrc", "credentials", "hosts.yml"}
+	leaks := []string{"id_rsa", ".netrc", "credentials", "hosts.yml", "vault", "deploy_key"}
 	d := uat05Deps(t, cp)
 	d.HostPaths = func() func(string) bool { return func(string) bool { return false } }
 	r := requestFor(t, cp, maxBudget())
@@ -184,7 +186,7 @@ func TestBuild_PointersNeverShowAHomeOrVariablePath(t *testing.T) {
 	for _, h := range []string{"tilde", "tildeuser", "home", "xdg", "profile"} {
 		require.Contains(t, section6, hashOf(h).String(), "a withheld file pointer still points by hash")
 	}
-	for _, id := range []string{"toolu_tilde", "toolu_home", "toolu_brace", "toolu_profile"} {
+	for _, id := range []string{"toolu_tilde", "toolu_home", "toolu_brace", "toolu_profile", "toolu_pf", "toolu_flag"} {
 		require.Contains(t, section6, "- tool_use "+id+" ", "a withheld tool pointer still points by id and hash")
 	}
 	require.Contains(t, section6, "- reports.py "+hashOf("reports").String(), "an allowed path is still shown")
