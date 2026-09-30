@@ -248,8 +248,9 @@ These do **not** heal, and the product says so rather than pretending otherwise 
 Run **`qompack fsck`** (integrity, eighteen check rows, read-only by default) and **`qompack
 doctor`** (capability, version, scope and control rows). Between them they name every state below.
 `fsck --repair --yes` performs five explicit repairs and no others: quarantine a damaged object,
-regenerate `index/files.json`, regenerate `pins/invariants.json`, rebuild `tried.bloom` from active
-records, and append a MANIFEST line for a clean orphan checkpoint artifact. Nothing else is
+regenerate `index/files.json`, regenerate `pins/invariants.json`, rebuild `tried.bloom` from the
+elimination records, active and stale, and append a MANIFEST line for a clean orphan checkpoint
+artifact. Nothing else is
 rewritten, and nothing is ever deleted.
 
 1. **A corrupt `.qompack/config.json`.** The daemon will not start; hooks keep exiting 0 and
