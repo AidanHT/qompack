@@ -222,8 +222,9 @@ host change could lift — as prepared proposals, none of which has been filed.
 ### A missing or `redacted`/`truncated`/`binary` original stays that way
 
 - **Limit.** Qompack cannot restore an original it does not hold. A record whose fidelity is
-  `redacted`, `truncated`, `binary`, `partial`, `failure` or `unknown` is returned as it is, with
-  that label; no substitute is invented and no gap is filled from elsewhere.
+  `redacted`, `truncated`, `binary`, `partial`, `failure` or `unknown` is returned as it is (the
+  label stays on its capture sidecar record); no substitute is invented and no gap is filled from
+  elsewhere.
 - **Why.** Each label names something that happened at capture time: privacy policy removed content,
   a size bound cut it, the bytes were not text, or the capture failed outright. The label is the
   honest answer; replacing it with a plausible reconstruction would erase the one signal telling you

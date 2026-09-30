@@ -41,6 +41,14 @@ var closeoutStaleClaims = []staleClaim{
 		"no retrieval response carries the fidelity label (D46)",
 	},
 	{
+		"docs/cannot-do.md", "is returned as it is, with that label",
+		"no retrieval response carries the fidelity label (D46); it stays on the capture sidecar",
+	},
+	{
+		"docs/user-guide.md", "comes from the daemon's own configuration files",
+		"a spawned daemon also inherits the QOMPACK_* environment it was started with (D49)",
+	},
+	{
 		"docs/architecture.md", "Capture, fidelity and coverage may be partial or unknown, and the response says which.",
 		"no retrieval response carries fidelity or coverage (D46)",
 	},
