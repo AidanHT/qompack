@@ -1,0 +1,50 @@
+{
+ "bin": "C:/Users/Quant/AppData/Roaming/npm/node_modules/@anthropic-ai/claude-code/bin/claude.exe",
+ "args": [
+  "-p",
+  "--input-format",
+  "stream-json",
+  "--output-format",
+  "stream-json",
+  "--verbose",
+  "--include-hook-events",
+  "--model",
+  "claude-haiku-4-5-20251001",
+  "--max-turns",
+  "10",
+  "--setting-sources",
+  "project,local",
+  "--permission-mode",
+  "dontAsk",
+  "--allowedTools",
+  "Read,mcp__plugin_qompack_qompack__recall,mcp__plugin_qompack_qompack__expand,mcp__plugin_qompack_qompack__re_read,mcp__plugin_qompack_qompack__already_tried,mcp__plugin_qompack_qompack__record_eliminated,mcp__plugin_qompack_qompack__timeline,mcp__plugin_qompack_qompack__why,mcp__plugin_qompack_qompack__dropped,Bash(qompack status:*),Bash(qompack recall:*),Bash(qompack pin:*),Bash(qompack why:*),Bash(qompack dropped:*),Bash(qompack eval:*)"
+ ],
+ "cwd": "<scratch>/install/uat12/proj",
+ "out": "<scratch>/install/uat12/sB",
+ "env": {
+  "ENABLE_CLAUDEAI_MCP_SERVERS": "false",
+  "QOMPACK_HOME": "<scratch>/install/qhome",
+  "QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS": "90",
+  "CLAUDE_CODE_FILE_READ_MAX_OUTPUT_TOKENS": "150000",
+  "MAX_MCP_OUTPUT_TOKENS": "150000",
+  "BASH_MAX_OUTPUT_LENGTH": "150000"
+ },
+ "messages": [
+  "Use the Read tool to read private/deny.txt. Then tell me exactly what the Read tool returned, quoting any error message word for word.",
+  "Call the MCP tool mcp__plugin_qompack_qompack__recall with query \"ORCHID-DENY-8842\". Then call it again with query \"path:private/deny.txt\". Report both raw results word for word.",
+  "Call the MCP tool mcp__plugin_qompack_qompack__expand with tool_use_id \"toolu_011XG5z29zSZZvejkXpLcgWK\". Then call expand again with hash \"sha256:880f90e7dd5fa42afc21a0d266d84bed504a07a2262c73cac39807cb5fb30f14\". Report both raw results word for word.",
+  "Call the MCP tool mcp__plugin_qompack_qompack__re_read with path \"private/deny.txt\". Report the raw result word for word.",
+  "/qompack:recall ORCHID-DENY-8842",
+  "Call the MCP tool mcp__plugin_qompack_qompack__re_read with path \"<scratch>/install/uat12/outside/outside.txt\". Then call re_read with path \"../outside/outside.txt\". Then call mcp__plugin_qompack_qompack__expand with tool_use_id \"toolu_012kPLpTC1YibRXukSDHT71f\". Report the three raw results word for word.",
+  "Call the MCP tool mcp__plugin_qompack_qompack__expand with tool_use_id \"toolu_01Jc6uDYtjZCgUbbxss11zRr\" and no other arguments. Reply with only: the names of every top-level field in the response, and the values of span, total_bytes, truncated and next_span (do not quote the content).",
+  "Call the MCP tool mcp__plugin_qompack_qompack__expand with tool_use_id \"toolu_01Jc6uDYtjZCgUbbxss11zRr\" and full set to true. Reply with only: the names of every top-level field in the response, and the values of span, total_bytes, truncated and next_span (do not quote the content).",
+  "Call the MCP tool mcp__plugin_qompack_qompack__expand with tool_use_id \"toolu_01Jc6uDYtjZCgUbbxss11zRr\" and span set to the next_span value the previous (full: true) response reported. Reply with only: the names of every top-level field in the response, and the values of span, total_bytes, truncated and next_span (do not quote the content). If you cannot find that next_span value, say so and do not guess.",
+  "Call the MCP tool mcp__plugin_qompack_qompack__re_read with path \"big.log\" and full set to true. Reply with only: the names of every top-level field in the response, and the values of span, total_bytes, truncated and next_span (do not quote the content).",
+  "Call the MCP tool mcp__plugin_qompack_qompack__expand with tool_use_id \"toolu_017dXpNXGXakoqRcbLuftezk\", then with tool_use_id \"toolu_01XMf4fK8ZgsAhC3f9MDREYs\". For each, reply with the names of every top-level field, the values of span, total_bytes and truncated, and whether the content is readable text; do not quote the content.",
+  "/qompack:status",
+  "/compact",
+  "What is this project's code word? If it is not in your context, call mcp__plugin_qompack_qompack__recall with query \"code word\". Then call mcp__plugin_qompack_qompack__dropped and mcp__plugin_qompack_qompack__timeline, each with no arguments, and reply in one sentence."
+ ],
+ "timeout_s": 1800,
+ "scrub": "<scratch>"
+}

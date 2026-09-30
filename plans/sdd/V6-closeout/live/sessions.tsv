@@ -28,3 +28,7 @@ retrieval	12	UAT-11 diagnostic rerun: small first prompts, then large/unusual re
 recovery	1	C1.6 seed (real session; publication gaps injected after daemon exit)	plans/sdd/V6-closeout/live/recovery/C1.6/session	claude-haiku-4-5-20251001	0	15.715
 recovery	2	C1.7 session 1 (seed before the backup)	plans/sdd/V6-closeout/live/recovery/C1.7/session1	claude-haiku-4-5-20251001	0	10.812
 recovery	3	C1.7 session 2 (new writes after the before backup)	plans/sdd/V6-closeout/live/recovery/C1.7/session2	claude-haiku-4-5-20251001	0	8.527
+install-c4	1	UAT-01 (candidate 4 re-run, local-scope install, one MCP call)	plans/sdd/V6-closeout/live/rerun-c4/UAT-01/session	claude-haiku-4-5-20251001	0	16.135
+install-c4	2	UAT-12/C4.8 session A (previous build 0.2.99-prev from 301a8e9: reads, MCP calls, /compact)	plans/sdd/V6-closeout/live/rerun-c4/UAT-12/sessionA	claude-haiku-4-5-20251001	0	64.889
+install-c4	3	UAT-12/C4.8 session B (frozen 0.3.0 after upgrade: deny, bounds, binary, /compact)	plans/sdd/V6-closeout/live/rerun-c4/UAT-12/sessionB	claude-haiku-4-5-20251001	0	129.39
+install-c4	4	UAT-12/C4.8 session C (reinstalled 0.3.0: recall/re_read of old work, binary captures)	plans/sdd/V6-closeout/live/rerun-c4/UAT-12/sessionC	claude-haiku-4-5-20251001	0	20.414

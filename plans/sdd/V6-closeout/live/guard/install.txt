@@ -221,3 +221,189 @@ same  plugins/data/ (2 entries)
 same  .qompack/ (0 entries)
 real home fingerprint unchanged
 check exit 0
+
+# ==== Candidate 4 re-run (D47), install part, 9f6a2fad, guard snap 2026-09-29 20:42:45 EDT ====
+== c4 rerun: after snap, before any step — 2026-09-29 20:42:45 EDT
+same  settings.json e15855d7e46a
+same  plugins/installed_plugins.json 728f75591291
+same  plugins/known_marketplaces.json 1b1eda7e17f0
+same  plugins/cache/ (10 entries)
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+same  .qompack/ (0 entries)
+real home fingerprint unchanged
+check exit 0
+== UAT-01 after marketplace add --scope local (install window open) — 2026-09-29 20:43:48 EDT
+same  settings.json e15855d7e46a
+same  plugins/installed_plugins.json 728f75591291
+DIFF  plugins/known_marketplaces.json 1b1eda7e17f0 -> c3a3d1efeab1
+same  plugins/cache/ (10 entries)
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+same  .qompack/ (0 entries)
+REAL HOME CHANGED
+check exit 1
+== UAT-01 after install -s local (install window open) — 2026-09-29 20:43:56 EDT
+same  settings.json e15855d7e46a
+DIFF  plugins/installed_plugins.json 728f75591291 -> 35193f68b7c2
+DIFF  plugins/known_marketplaces.json 1b1eda7e17f0 -> c3a3d1efeab1
+DIFF  plugins/cache/ lost [] gained ['qompack-live/', 'qompack-live/qompack/', 'qompack-live/qompack/0.3.0/']
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+same  .qompack/ (0 entries)
+REAL HOME CHANGED
+check exit 1
+== UAT-01 after session 1 (install window open) — 2026-09-29 20:44:27 EDT
+removed run-created empty plugins/data/qompack-qompack-live/
+same  settings.json e15855d7e46a
+DIFF  plugins/installed_plugins.json 728f75591291 -> 35193f68b7c2
+DIFF  plugins/known_marketplaces.json 1b1eda7e17f0 -> c3a3d1efeab1
+DIFF  plugins/cache/ lost [] gained ['qompack-live/', 'qompack-live/qompack/', 'qompack-live/qompack/0.3.0/']
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+INFO  .qompack/ gained ['bin/', 'bin/1e9d0cc84597bf719955e268ef2e0c990352eb964559116a6612a012f1e5c358/'] (run-created; record, remove only if yours)
+REAL HOME CHANGED
+check exit 1
+== UAT-01 after uninstall -s local (marketplace still added) — 2026-09-29 20:46:14 EDT
+same  settings.json e15855d7e46a
+same  plugins/installed_plugins.json 728f75591291
+DIFF  plugins/known_marketplaces.json 1b1eda7e17f0 -> c3a3d1efeab1
+DIFF  plugins/cache/ lost [] gained ['qompack-live/', 'qompack-live/qompack/', 'qompack-live/qompack/0.3.0/']
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+INFO  .qompack/ gained ['bin/', 'bin/1e9d0cc84597bf719955e268ef2e0c990352eb964559116a6612a012f1e5c358/'] (run-created; record, remove only if yours)
+REAL HOME CHANGED
+check exit 1
+== UAT-01 after marketplace remove + orphan cleanup (install window closed) — 2026-09-29 20:46:23 EDT
+same  settings.json e15855d7e46a
+same  plugins/installed_plugins.json 728f75591291
+same  plugins/known_marketplaces.json 1b1eda7e17f0
+same  plugins/cache/ (10 entries)
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+INFO  .qompack/ gained ['bin/', 'bin/1e9d0cc84597bf719955e268ef2e0c990352eb964559116a6612a012f1e5c358/'] (run-created; record, remove only if yours)
+real home fingerprint unchanged
+check exit 0
+== UAT-12 after marketplace add (old) --scope local (install window open) — 2026-09-29 20:49:18 EDT
+same  settings.json e15855d7e46a
+same  plugins/installed_plugins.json 728f75591291
+DIFF  plugins/known_marketplaces.json 1b1eda7e17f0 -> d0e38a297bab
+same  plugins/cache/ (10 entries)
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+INFO  .qompack/ gained ['bin/', 'bin/1e9d0cc84597bf719955e268ef2e0c990352eb964559116a6612a012f1e5c358/'] (run-created; record, remove only if yours)
+REAL HOME CHANGED
+check exit 1
+== UAT-12 after install old -s local (install window open) — 2026-09-29 20:49:21 EDT
+same  settings.json e15855d7e46a
+DIFF  plugins/installed_plugins.json 728f75591291 -> e8290d649d57
+DIFF  plugins/known_marketplaces.json 1b1eda7e17f0 -> d0e38a297bab
+DIFF  plugins/cache/ lost [] gained ['qompack-live/', 'qompack-live/qompack/', 'qompack-live/qompack/0.2.99-prev/']
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+INFO  .qompack/ gained ['bin/', 'bin/1e9d0cc84597bf719955e268ef2e0c990352eb964559116a6612a012f1e5c358/'] (run-created; record, remove only if yours)
+REAL HOME CHANGED
+check exit 1
+== UAT-12 after session A (old build; install window open) — 2026-09-29 20:50:53 EDT
+removed run-created empty plugins/data/qompack-qompack-live/
+same  settings.json e15855d7e46a
+DIFF  plugins/installed_plugins.json 728f75591291 -> e8290d649d57
+DIFF  plugins/known_marketplaces.json 1b1eda7e17f0 -> d0e38a297bab
+DIFF  plugins/cache/ lost [] gained ['qompack-live/', 'qompack-live/qompack/', 'qompack-live/qompack/0.2.99-prev/']
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+INFO  .qompack/ gained ['bin/', 'bin/1e9d0cc84597bf719955e268ef2e0c990352eb964559116a6612a012f1e5c358/'] (run-created; record, remove only if yours)
+REAL HOME CHANGED
+check exit 1
+== UAT-12 after marketplace update (install window open) — 2026-09-29 20:53:07 EDT
+same  settings.json e15855d7e46a
+DIFF  plugins/installed_plugins.json 728f75591291 -> e8290d649d57
+DIFF  plugins/known_marketplaces.json 1b1eda7e17f0 -> fa2377ab3a87
+DIFF  plugins/cache/ lost [] gained ['qompack-live/', 'qompack-live/qompack/', 'qompack-live/qompack/0.2.99-prev/']
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+INFO  .qompack/ gained ['bin/', 'bin/1e9d0cc84597bf719955e268ef2e0c990352eb964559116a6612a012f1e5c358/'] (run-created; record, remove only if yours)
+REAL HOME CHANGED
+check exit 1
+== UAT-12 after plugin update -s local to 0.3.0 (install window open) — 2026-09-29 20:53:10 EDT
+same  settings.json e15855d7e46a
+DIFF  plugins/installed_plugins.json 728f75591291 -> 7529191fe3f4
+DIFF  plugins/known_marketplaces.json 1b1eda7e17f0 -> fa2377ab3a87
+DIFF  plugins/cache/ lost [] gained ['qompack-live/', 'qompack-live/qompack/', 'qompack-live/qompack/0.2.99-prev/', 'qompack-live/qompack/0.3.0/']
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+INFO  .qompack/ gained ['bin/', 'bin/1e9d0cc84597bf719955e268ef2e0c990352eb964559116a6612a012f1e5c358/'] (run-created; record, remove only if yours)
+REAL HOME CHANGED
+check exit 1
+== UAT-12 after session B (candidate after upgrade; install window open) — 2026-09-29 20:55:58 EDT
+removed run-created empty plugins/data/qompack-qompack-live/
+same  settings.json e15855d7e46a
+DIFF  plugins/installed_plugins.json 728f75591291 -> 7529191fe3f4
+DIFF  plugins/known_marketplaces.json 1b1eda7e17f0 -> fa2377ab3a87
+DIFF  plugins/cache/ lost [] gained ['qompack-live/', 'qompack-live/qompack/', 'qompack-live/qompack/0.2.99-prev/', 'qompack-live/qompack/0.3.0/']
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+INFO  .qompack/ gained ['bin/', 'bin/1e9d0cc84597bf719955e268ef2e0c990352eb964559116a6612a012f1e5c358/'] (run-created; record, remove only if yours)
+REAL HOME CHANGED
+check exit 1
+== UAT-12 after uninstall -s local (marketplace still added; install window open) — 2026-09-29 21:03:30 EDT
+same  settings.json e15855d7e46a
+same  plugins/installed_plugins.json 728f75591291
+DIFF  plugins/known_marketplaces.json 1b1eda7e17f0 -> fa2377ab3a87
+DIFF  plugins/cache/ lost [] gained ['qompack-live/', 'qompack-live/qompack/', 'qompack-live/qompack/0.2.99-prev/', 'qompack-live/qompack/0.3.0/']
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+INFO  .qompack/ gained ['bin/', 'bin/1e9d0cc84597bf719955e268ef2e0c990352eb964559116a6612a012f1e5c358/'] (run-created; record, remove only if yours)
+REAL HOME CHANGED
+check exit 1
+== UAT-12 after reinstall -s local (install window open) — 2026-09-29 21:03:42 EDT
+same  settings.json e15855d7e46a
+DIFF  plugins/installed_plugins.json 728f75591291 -> b948e944be19
+DIFF  plugins/known_marketplaces.json 1b1eda7e17f0 -> fa2377ab3a87
+DIFF  plugins/cache/ lost [] gained ['qompack-live/', 'qompack-live/qompack/', 'qompack-live/qompack/0.2.99-prev/', 'qompack-live/qompack/0.3.0/']
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+INFO  .qompack/ gained ['bin/', 'bin/1e9d0cc84597bf719955e268ef2e0c990352eb964559116a6612a012f1e5c358/'] (run-created; record, remove only if yours)
+REAL HOME CHANGED
+check exit 1
+== UAT-12 after session C (reinstalled 0.3.0; install window open) — 2026-09-29 21:04:11 EDT
+removed run-created empty plugins/data/qompack-qompack-live/
+same  settings.json e15855d7e46a
+DIFF  plugins/installed_plugins.json 728f75591291 -> b948e944be19
+DIFF  plugins/known_marketplaces.json 1b1eda7e17f0 -> fa2377ab3a87
+DIFF  plugins/cache/ lost [] gained ['qompack-live/', 'qompack-live/qompack/', 'qompack-live/qompack/0.2.99-prev/', 'qompack-live/qompack/0.3.0/']
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+INFO  .qompack/ gained ['bin/', 'bin/1e9d0cc84597bf719955e268ef2e0c990352eb964559116a6612a012f1e5c358/'] (run-created; record, remove only if yours)
+REAL HOME CHANGED
+check exit 1
+== UAT-12 after final uninstall -s local — 2026-09-29 21:06:46 EDT
+same  settings.json e15855d7e46a
+same  plugins/installed_plugins.json 728f75591291
+DIFF  plugins/known_marketplaces.json 1b1eda7e17f0 -> fa2377ab3a87
+DIFF  plugins/cache/ lost [] gained ['qompack-live/', 'qompack-live/qompack/', 'qompack-live/qompack/0.2.99-prev/', 'qompack-live/qompack/0.3.0/']
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+INFO  .qompack/ gained ['bin/', 'bin/1e9d0cc84597bf719955e268ef2e0c990352eb964559116a6612a012f1e5c358/'] (run-created; record, remove only if yours)
+REAL HOME CHANGED
+check exit 1
+== UAT-12 after marketplace remove + orphan cleanup (install window closed) — 2026-09-29 21:06:49 EDT
+same  settings.json e15855d7e46a
+same  plugins/installed_plugins.json 728f75591291
+same  plugins/known_marketplaces.json 1b1eda7e17f0
+same  plugins/cache/ (10 entries)
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+INFO  .qompack/ gained ['bin/', 'bin/1e9d0cc84597bf719955e268ef2e0c990352eb964559116a6612a012f1e5c358/'] (run-created; record, remove only if yours)
+real home fingerprint unchanged
+check exit 0
+== install part end: after staged-copy cleanup (final) — 2026-09-29 21:07:05 EDT
+same  settings.json e15855d7e46a
+same  plugins/installed_plugins.json 728f75591291
+same  plugins/known_marketplaces.json 1b1eda7e17f0
+same  plugins/cache/ (10 entries)
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+same  .qompack/ (0 entries)
+real home fingerprint unchanged
+check exit 0

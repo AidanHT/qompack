@@ -1,0 +1,15 @@
+orphan cleanup 2026-09-29 21:06:48 EDT (commit 09a5222 rule: run-created cache, every version one of this run's bundles)
+$ ls -a <home>/.claude/plugins/cache/qompack-live/qompack/
+.
+..
+0.2.99-prev
+0.3.0
+$ cat .../0.2.99-prev/.orphaned_at
+1790729589288
+$ cat .../0.3.0/.orphaned_at
+1790730405368
+$ cmp .../0.2.99-prev/BUNDLE.json <this run's old bundle built from 301a8e9>/BUNDLE.json
+identical
+$ cmp .../0.3.0/BUNDLE.json <frozen bundle>/BUNDLE.json
+identical
+both versions are this run's bundles and nothing else is there -> removed <home>/.claude/plugins/cache/qompack-live

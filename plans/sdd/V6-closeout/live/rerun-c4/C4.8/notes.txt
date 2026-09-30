@@ -1,0 +1,51 @@
+C4.8 - upgrade from the previous build, uninstall, reinstall; project work preserved;
+backup -> restore -> fsck certified. Candidate 4 re-run (decision D47), commit 9f6a2fad. Agent-executed
+on the owner's real host per owner decision D3 (Claude Code workflow subagent, Opus 5.5) - not human
+UAT. Run 2026-09-29 20:48-21:07 America/Toronto together with UAT-12; all evidence is in
+plans/sdd/V6-closeout/live/rerun-c4/UAT-12/ (file names below are relative to it). Sessions: 3
+(UAT-12 A, B, C). Candidate 3's C4.8 notes stay at plans/sdd/V6-closeout/live/c4/C4.8/.
+
+Previous build: the public v0.2.0 tag cannot produce a bundle (cli/00a: devtool has no "bundle" task
+at 71c46a23), so the previous build is local develop 301a8e9 bundled as 0.2.99-prev with its own
+devtool (cli/00b; reproducible, bin identical to candidate 3's). 301a8e9 has no `qompack backup`, so
+every backup/verify/restore used the frozen candidate CLI on the store the old build wrote, with that
+store's daemon stopped. Unlike candidate 3's run, the old build's session made MCP calls (recall,
+timeline) and a /compact (checkpoint 0001) before the baseline.
+
+Result per part:
+ upgrade            PASS  0.2.99-prev installed at local scope; session A captured through the old
+                          hooks (reads, Bash, image, outside file, MCP calls, /compact); marketplace
+                          re-pointed at the frozen bundle, `marketplace update` + `plugin update -s
+                          local --json` -> "updated from 0.2.99-prev to 0.3.0" (cli/09-11);
+                          .qompack/ byte-identical across the upgrade (276 files, full listing,
+                          cli/12-diff-full.txt); session B ran on 0.3.0 and read the old build's
+                          captures (expand, re_read) and checkpoint chain
+ uninstall          PASS  `plugin uninstall -s local --json` without --keep-data: .qompack/
+                          byte-identical after, all 791 files (cli/40 vs cli/42)
+ reinstall          PASS  `plugin install -s local --json` (cli/43, cli/44)
+ project work       PASS  session C: re_read README.md answered from the store at turn 1 (session
+ preserved                A's old-build capture); expand of session A's capture answers (cli/50);
+                          recall finds it at k=20 but NOT at the default k=5 (finding F1)
+ backup             PASS  frozen CLI backup create + verify of the old-build store: exit 0/0,
+                          consistent, 136 files, frontier 0; verify's scratch restore proved the
+                          reader (27 roots, 19 tool refs) and passed integrity (cli/05, cli/06)
+ restore            PASS  `backup restore` of the pre-upgrade baseline into a fresh destination:
+                          exit 0, reader proof OK, integrity exit 0 (cli/30); candidate 3: exit 1
+ fsck certified     PASS  fsck --seal-check: recovery exit 0 (cli/32), source after B exit 0
+                          (cli/33), source after C exit 0 (cli/53); post-C backup/verify/restore +
+                          fsck --seal-check of that recovery all exit 0 (cli/55-58)
+ later writes       PASS  restore changed nothing in the source outside run/ (cli/31: 652 = 652
+                          files identical; restore's writer lease reclaimed the stale run/ lock)
+
+Overall: PASS. Candidate 3's two routed defects are gone: the old build's prompt sidecars read as
+published ("not a gap", fsck captures/publication), and MCP self-records written by this build carry
+their call's turn (the old build's two turn-0 records are explained in a note that does not fail).
+Not covered: a previous-build reader certifying the upgraded store (cli/59: the 301a8e9 fsck exits 1
+on a copy of it - a downgrade restore never promises) or the recovered baseline (cli/35: exits 1 on
+its own build's turn-0 MCP rule); the recovery was not activated; the public v0.2.0 -> 0.3.0 upgrade
+was not installed live (v0.2.0 has no bundle tooling).
+Findings: F1-F7 in ../UAT-12/notes.txt (recall k counts withheld hits; LOUD "publication accounting
+incomplete" at daemon starts from the 250 ms startup bound; troubleshooting §3 fidelity wording;
+observations).
+Guard: plans/sdd/V6-closeout/live/guard/install.txt (diffs only inside the open local-scope install
+windows; unchanged after the final cleanup).

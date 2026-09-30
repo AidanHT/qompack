@@ -1,0 +1,39 @@
+step 4: installed cache copy (plugin list installPath) .claude-plugin/plugin.json
+$ cat <installPath>/.claude-plugin/plugin.json
+{
+  "name": "qompack",
+  "version": "0.3.0",
+  "description": "Cache-aware, retrieval-backed context compaction",
+  "author": {
+    "name": "Qompack"
+  },
+  "homepage": "https://github.com/AidanHT/qompack",
+  "keywords": [
+    "compaction",
+    "context",
+    "memory",
+    "cache"
+  ]
+}
+
+$ test -e <installPath>/plugin/.claude-plugin/plugin.json
+exit 1
+$ (cd <installPath> && sha256sum -c checksums.txt)
+.claude-plugin/plugin.json: OK
+.mcp.json: OK
+bin/qompack.exe: OK
+commands/dropped.md: OK
+commands/eval.md: OK
+commands/pin.md: OK
+commands/recall.md: OK
+commands/status.md: OK
+commands/why.md: OK
+hooks/hooks.json: OK
+exit 0
+$ cmp <installPath>/BUNDLE.json <frozen bundle>/BUNDLE.json
+identical
+$ cmp <installPath>/bin/qompack.exe <frozen bundle>/bin/qompack.exe
+identical
+BUNDLE.json version: 0.3.0
+source tree plugin/.claude-plugin/plugin.json at 9f6a2fad: 0.1.0
+last git tag reachable from 9f6a2fad: v0.2.0

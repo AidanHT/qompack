@@ -1,0 +1,2 @@
+$ sh <scratch>/install/tools/unset.sh C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c4/qompack-plugin-0.3.0-windows-amd64/bin/qompack.exe fsck --project <scratch>/install/uat12/proj --json
+cwd: <scratch>/install/uat12/proj

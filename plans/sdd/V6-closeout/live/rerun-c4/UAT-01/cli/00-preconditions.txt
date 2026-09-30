@@ -1,0 +1,11 @@
+precondition checks 2026-09-29 20:43:40 EDT
+$ test -e ~/.qompack/config.json
+exit 1 (1 = absent)
+$ test -e ~/.qompack
+exit 1 (1 = absent)
+$ test -e <project>/.qompack
+exit 1 (1 = absent)
+$ env | grep -c ^QOMPACK_
+0
+$ test -e <project>/.claude
+exit 1

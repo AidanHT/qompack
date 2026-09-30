@@ -203,26 +203,33 @@ stored records to reconcile a failure.
 
 ```text
 Result: pass — frozen bundle installed through a disposable local marketplace at local scope
-  (real profile); the session's init listed plugin:qompack:qompack connected with the eight
-  documented tools and the six /qompack: commands; SessionStart, UserPromptSubmit, PostToolUse
-  and Stop fired (PreCompact, SubagentStop not exercised; SessionEnd ran per the store but has no
-  host stream event); every leaf default and every gated switch false; self-test exit 0, no
-  critical row. Step 8 OBSERVED (to be confirmed at execution): hook.additional_context_delivered,
+  (real profile, no QOMPACK_* variables, no config file); the session's init listed
+  plugin:qompack:qompack connected with the eight documented tools and the six /qompack:
+  commands (no qompack:checkpoint); SessionStart, UserPromptSubmit, PostToolUse and Stop fired
+  (PreCompact, SubagentStop not exercised by a two-turn session; SessionEnd ran per the store but
+  has no host stream event); step 2 printed 0.3.0, exit 0; step 4's installed plugin.json reads
+  0.3.0 = step 2 = BUNDLE.json (source tree plugin/.claude-plugin/plugin.json reads 0.1.0, last
+  tag v0.2.0); all 108 leaves default, every gated switch false; self-test exit 0, no critical
+  row. Step 8 OBSERVED (to be confirmed at execution): hook.additional_context_delivered,
   precompact.has_time_to_write, precompact.custom_instructions_accepted and
-  mcp.server_registered all read not-yet-implemented in the installed CLI self-test.
-  Findings (not fail criteria of this row): `qompack status` lists mcp.server_registered failing
-  ("initialize-not-received") although the host connected the server and served a call; `qompack
-  fsck` exits 1 after the session (index.tool_use: the MCP record is indexed at turn 0 after
-  turn 3); doctor reports captures.unpublished degraded; step 4 expects 0.1.0 at
-  plugin/.claude-plugin/plugin.json, the bundle has 0.3.0 at .claude-plugin/plugin.json.
+  mcp.server_registered read not-yet-implemented in the installed CLI self-test; the daemon's
+  own snapshot, where the producers are declared, read not-yet-observed, timeout-unknown,
+  retired and initialize-pending. Candidate 3's findings re-checked after the MCP call: `qompack
+  fsck --json` exit 0 with the daemon live and stopped, and with --seal-check (the MCP record is
+  indexed at its call's turn 3); `qompack status` "host contract: 9 assertion(s), all holding";
+  `qompack doctor --json` exit 0, captures.unpublished "0 gap(s) across 7 sidecar(s)", agreeing
+  with fsck.
+  Candidate 3 (d5598eb4): pass — with findings: fsck exit 1 (MCP record at turn 0), status
+  "2 of 9 FAILING", doctor vs fsck disagreeing, evidence
+  plans/sdd/V6-closeout/live/uat/UAT-01/
 Snapshot: qompack version 0.3.0; bundle BUNDLE.json sha256
-  32600778ae6463cd47736fc6b0a8614ad782e5bbd0ef0440f4e2c3937ccf4505; commit
-  d5598eb4445954120ee795560c2ea46640772f43; Windows 11 Home 25H2 build 10.0.26200.9457;
+  aa7da0e17b7597562a6eba47fc48f1db81ff5e9bdc494b9997a323137625558d; commit
+  9f6a2fadf086eba8080af589a35dd9554ae6cab4; Windows 11 Home 25H2 build 10.0.26200.9457;
   Claude Code 2.1.280
 Date: 2026-09-29 (America/Toronto)
 Executed by: Claude Code workflow subagent (Opus 5.5), agent-executed on the owner's real host
   per owner decision D3 — not human UAT
-Evidence: plans/sdd/V6-closeout/live/uat/UAT-01/ (notes.txt indexes it)
+Evidence: plans/sdd/V6-closeout/live/rerun-c4/UAT-01/ (notes.txt indexes it)
 Rollback verified: not applicable — initial state absent (no <project>/.qompack/, recorded);
   per the row's rule the run is retained as evidence and no pre-run store exists to restore;
   no backup or restore was run in this row
@@ -1396,40 +1403,53 @@ stored records to reconcile a failure.
 **Result**
 
 ```text
-Result: fail — (a) expand and re_read with full: true on the 324,902-byte capture return 263,559
-  and 263,567 bytes of result text (266,291 / 266,318-byte JSON-RPC lines) against
-  runtime.mcp.maxResponseBytes 262,144: the bound caps the content span, not the response;
-  (b) the restore of the pre-upgrade backup proved its reader (16 roots, 10 tool refs, same build)
-  but its packaged integrity checks failed (captures/publication: the previous build's four prompt
-  capture sidecars read as unpublished), exit 1; (c) the binary file came back decoded as text —
-  but the decoding happened in the host before Qompack saw the bytes: Bash `cat` delivered the
-  3,000-byte file as 2,134 bytes of host-decoded text (U+FFFD and control characters), which
-  Qompack stored and returned as the text it was given; the owner decides whether (c) counts
-  against the product. Passed: step 2 — the host refused the direct Read
-  ("File is in a directory that is denied by your permission settings." — observed string) and
-  recall, expand (tool_use_id and root hash), re_read, /qompack:recall and the bundle CLI all
-  answered denied with no preview; out-of-project re_read/expand refused without echoing the path;
-  step 3 minimal span 5,777 bytes with next_span; .qompack/ byte-identical across the upgrade and
-  the uninstall; reinstall found the old build's captures. Not as expected: responses carry no
-  fidelity or coverage field. Step 7 (to be confirmed at execution): no version-block or
-  retired-meaning warning (no config file); the first post-upgrade daemon start logged LOUD
-  unpublished_captures=4; config.capture ok. ORDER: steps 2-5 ran after step 6, on the candidate,
-  because the previous build (301a8e9) predates the C1.9 deny-rule support; the baseline was
-  taken after the old build's permitted captures (initial state absent).
+Result: pass — step 2: the host refused the direct Read ("File is in a directory that is denied
+  by your permission settings." — observed string) and recall (marker and path:), expand
+  (tool_use_id and root hash), re_read, /qompack:recall and a direct stdio probe all answered
+  denied ("authorization denied: the host's current permission rules deny reading the associated
+  path" — observed string) with no preview; out-of-project re_read refused ("path escapes the
+  project root", no path echoed), expand of the outside capture denied. Steps 3-5: every expand
+  and re_read result text is within runtime.mcp.maxResponseBytes 262,144 on a 354,352-byte
+  escape-heavy capture: minimal 8,038 bytes (span [0,6437], next_span 6437:16384); full: true
+  261,163 (span [0,217070], truncated true, next_span 217070:137282); that next_span passed back
+  165,233 (span [217070,354352], contiguous, to the end); re_read full: true 261,172; an explicit
+  span wins over full; no page ends inside a multi-byte character; each response reports span,
+  total_bytes, truncated and next_span and carries no fidelity or coverage field (as revised
+  under D46). Step 4: no binary bytes reach Qompack on this host — Bash `cat` delivers the
+  3,000-byte file as 2,134 bytes of host-decoded text and Read delivers a PNG as a base64 image
+  block; both capture sidecars record fidelity exact (the captured host delivery), expand returns
+  what was captured, recall does not find the blob's magic; Qompack decoded nothing. Step 6:
+  upgrade 0.2.99-prev (built from 301a8e9; the v0.2.0 tag has no bundle task) to 0.3.0 left
+  .qompack/ byte-identical. Step 7 (to be confirmed at execution): no version-block or
+  retired-meaning warning (no config file); no LOUD line at the first post-upgrade daemon start;
+  config.capture "applied as written"; the layout reappeared after session B's hooks. Step 8:
+  restore of the pre-upgrade backup exit 0, reader proof and integrity checks passed. Steps 9-10:
+  .qompack/ byte-identical across the uninstall (791 files); after the reinstall re_read answered
+  from the old build's capture. Findings (not fail criteria): a default k=5 recall answered 2 hits
+  with denied 3 while more permitted hits existed (withheld hits use up k); later daemon starts
+  logged LOUD "publication accounting incomplete" (250 ms startup bound); troubleshooting §3 still
+  tells the reader to read fidelity through expand. ORDER: steps 2-5 ran after step 6, on the
+  candidate, because 301a8e9 predates the C1.9 deny-rule support; the baseline was taken after
+  the old build's permitted captures, MCP calls and /compact (initial state absent).
+  Candidate 3 (d5598eb4): fail — full: true responses of 263,559 / 263,567 bytes over
+  the bound and a pre-upgrade restore failing its integrity checks, evidence
+  plans/sdd/V6-closeout/live/uat/UAT-12/
 Snapshot: qompack version 0.3.0; bundle BUNDLE.json sha256
-  32600778ae6463cd47736fc6b0a8614ad782e5bbd0ef0440f4e2c3937ccf4505; commit
-  d5598eb4445954120ee795560c2ea46640772f43 (upgraded from 0.2.99-prev built from 301a8e9);
+  aa7da0e17b7597562a6eba47fc48f1db81ff5e9bdc494b9997a323137625558d; commit
+  9f6a2fadf086eba8080af589a35dd9554ae6cab4 (upgraded from 0.2.99-prev built from 301a8e9);
   Windows 11 Home 25H2 build 10.0.26200.9457; Claude Code 2.1.280
 Date: 2026-09-29 (America/Toronto)
 Executed by: Claude Code workflow subagent (Opus 5.5), agent-executed on the owner's real host
   per owner decision D3 — not human UAT
-Evidence: plans/sdd/V6-closeout/live/uat/UAT-12/ (notes.txt indexes it; C4.6 and C4.8 notes
-  under plans/sdd/V6-closeout/live/c4/)
-Rollback verified: unverified — backup uat12-baseline (94 files, consistent, frontier 0) created
-  and verified by the candidate CLI with the source daemon stopped; same-build restore into a
-  fresh destination proved its reader, the delivery seal check passed, but the integrity checks
-  failed (fsck exit 1); the source's later writes were preserved (0 files changed); no
-  previous-build reader was run against the upgraded store and the recovery was not activated
+Evidence: plans/sdd/V6-closeout/live/rerun-c4/UAT-12/ (notes.txt indexes it; C4.8 notes under
+  plans/sdd/V6-closeout/live/rerun-c4/C4.8/)
+Rollback verified: unverified — backup uat12-c4-baseline (136 files, consistent, frontier 0)
+  created and verified by the candidate CLI with the source daemon stopped; same-build restore
+  into a fresh destination proved its reader (27 roots, 19 tool refs) and passed its integrity
+  checks and the delivery seal check (fsck --seal-check of the recovery and of the source exit
+  0); the source's later writes were preserved (only the stale run/ lock was reclaimed); the
+  previous-build (301a8e9) reader's fsck on the recovered baseline exits 1 on its own build's
+  turn-0 MCP rule; the recovery was not activated
 ```
 
 ---

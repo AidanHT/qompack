@@ -1,0 +1,4 @@
+[["recall", {"query": "HERON-43", "k": 20}],
+ ["recall", {"query": "path:README.md", "k": 20}],
+ ["recall", {"query": "tool:Read HERON-43", "k": 20}],
+ ["expand", {"tool_use_id": "toolu_01LbceThCcVSpEVzez5XUKFY"}]]

@@ -1,0 +1,1 @@
+✔ Successfully removed marketplace: qompack-live

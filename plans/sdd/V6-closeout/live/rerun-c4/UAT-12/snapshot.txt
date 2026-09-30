@@ -1,0 +1,15 @@
+UAT-12 snapshot (candidate 4 re-run, decision D47)
+qompack version:          0.3.0 (bundle CLI bin/qompack.exe, exit 0; ../UAT-01/version.txt)
+bundle:                   qompack-plugin-0.3.0-windows-amd64 (frozen, qompack-bundles/c4/)
+bundle BUNDLE.json sha256: aa7da0e17b7597562a6eba47fc48f1db81ff5e9bdc494b9997a323137625558d
+bundle bin/qompack.exe sha256: 1e9d0cc84597bf719955e268ef2e0c990352eb964559116a6612a012f1e5c358
+bundle source commit:     9f6a2fadf086eba8080af589a35dd9554ae6cab4 (dirty=false)
+host OS:                  Windows 11 Home 25H2, build 10.0.26200.9457 (registry ProductName reads
+                          "Windows 10 Home", CurrentBuild 26200, UBR 9457)
+Claude Code:              2.1.280 (claude --version; init event claude_code_version 2.1.280)
+model:                    claude-haiku-4-5-20251001
+date:                     2026-09-29 20:48-21:07 America/Toronto
+executed by:              Claude Code workflow subagent (Opus 5.5), agent-executed on the owner's
+                          real host per owner decision D3 - not human UAT
+previous build:           0.2.99-prev, bundled from 301a8e9 (v0.2.0 has no bundle task); bin sha256
+                          b72892ba0d0848353a357eae73698b1cd2a02915aa48174e84ea0c5e745ad7ca

@@ -1,0 +1,22 @@
+step 5: hook events declared in <installPath>/hooks/hooks.json: ['PostToolUse', 'PreCompact', 'SessionEnd', 'SessionStart', 'Stop', 'SubagentStop', 'UserPromptSubmit']
+hook events the host fired in session 1 (system/hook_response): ['PostToolUse', 'SessionStart', 'Stop', 'UserPromptSubmit']
+   ('SessionStart', 'SessionStart:startup', 'success', 0)
+   ('UserPromptSubmit', 'UserPromptSubmit', 'success', 0)
+   ('PostToolUse', 'PostToolUse:Read', 'success', 0)
+   ('Stop', 'Stop', 'success', 0)
+   ('UserPromptSubmit', 'UserPromptSubmit', 'success', 0)
+   ('PostToolUse', 'PostToolUse:ToolSearch', 'success', 0)
+   ('PostToolUse', 'PostToolUse:mcp__plugin_qompack_qompack__recall', 'success', 0)
+   ('Stop', 'Stop', 'success', 0)
+declared but not fired in this 2-turn session: ['PreCompact', 'SessionEnd', 'SubagentStop']
+fired but not declared: []
+stderr bytes: 0 ; 'SessionEnd hook' failures on stderr: 0
+
+step 6: init mcp_servers: [{'name': 'plugin:qompack:qompack', 'status': 'connected', 'source': 'plugin'}]
+init qompack tools: ['already_tried', 'dropped', 'expand', 're_read', 'recall', 'record_eliminated', 'timeline', 'why']
+docs/mcp-tools.md tools: ['already_tried', 'dropped', 'expand', 're_read', 'recall', 'record_eliminated', 'timeline', 'why']
+match: True
+init slash_commands (qompack): ['qompack:dropped', 'qompack:eval', 'qompack:pin', 'qompack:recall', 'qompack:status', 'qompack:why']
+qompack:checkpoint present: False
+init plugins (qompack): [{'name': 'qompack', 'path': '<scratch>\\install\\uat01\\marketplace\\qompack-plugin-0.3.0-windows-amd64', 'source': 'qompack@qompack-live', 'version': '0.3.0'}]
+claude_code_version: 2.1.280
