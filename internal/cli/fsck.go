@@ -1001,8 +1001,19 @@ func (s *fsckScan) checkToolUse() fsckCheck {
 // checkFiles parses the append-only log and compares the derived view against it. The LOG is the
 // truth: a crash between the last append and the next Flush leaves files.json stale, which is why a
 // disagreement here is a DERIVED-VIEW defect and one of the five things --repair may regenerate.
+//
+// A RUNNING daemon's view is behind its log by design. The store appends each file version as it is
+// observed and regenerates the view only when it flushes: at a session's end and when the daemon
+// stops. So while a daemon runs, a view that is absent or that holds a subset of the log's versions
+// is the store between two flushes, and it is a note saying when it catches up, not a defect naming
+// a repair fsck refuses while the daemon holds the lock (V6 close-out D49; UAT-04 on candidate 4,
+// where the planted unparseable config refused the session's end and so its flush). Anything else —
+// a path or a version the log does not carry, an unreadable view, an unreadable log line — is a
+// defect whether or not a daemon runs, because no flush produces it. With no daemon running nothing
+// will flush, and a view behind its log is the residue of a crash: a defect, as before.
 func (s *fsckScan) checkFiles() fsckCheck {
 	row := newFsckRow("index.files", contract.SevWarn)
+	live := s.report.DaemonRunning
 
 	view, log, err := fsckReadFilesState(s.l)
 	if err != nil {
@@ -1021,7 +1032,11 @@ func (s *fsckScan) checkFiles() fsckCheck {
 		return row.build()
 	}
 	if !view.present {
-		if len(log) > 0 {
+		switch {
+		case len(log) > 0 && live:
+			row.note("index/files.json is not materialized yet while its log carries %d path(s); the "+
+				"running daemon materializes it at its next flush (a session's end or its stop)", len(log))
+		case len(log) > 0:
 			row.defect("index/files.json is absent while its log carries %d path(s); the view is "+
 				"derived and --repair regenerates it", len(log))
 		}
@@ -1031,17 +1046,23 @@ func (s *fsckScan) checkFiles() fsckCheck {
 		row.defect("index/files.json declares view version %d, which this build does not read",
 			view.doc.Version)
 	}
+	behind := 0
 	for path, want := range log {
 		got, ok := view.doc.Files[path]
-		if !ok {
+		switch {
+		case (!ok || len(got) < len(want)) && live && fsckVersionsWithin(got, want):
+			behind++
+		case !ok:
 			row.defect("index/files.json omits %q, which the log records %d version(s) of",
 				path, len(want))
-			continue
-		}
-		if len(got) != len(want) {
+		case len(got) != len(want):
 			row.defect("index/files.json records %d version(s) of %q and the log records %d",
 				len(got), path, len(want))
 		}
+	}
+	if behind > 0 {
+		row.note("index/files.json is behind its log for %d path(s); the running daemon materializes "+
+			"it at its next flush (a session's end or its stop)", behind)
 	}
 	for path := range view.doc.Files {
 		if _, ok := log[path]; !ok {
@@ -1049,6 +1070,29 @@ func (s *fsckScan) checkFiles() fsckCheck {
 		}
 	}
 	return row.build()
+}
+
+// fsckVersionsWithin reports whether every version the view records for a path is one the log
+// records for it: the view is a projection of an earlier state of the log, not a different history.
+// Versions are matched by timestamp and root, each log version standing for at most one of the
+// view's.
+func fsckVersionsWithin(view, log []store.FileVersion) bool {
+	type key struct {
+		ts   core.UnixMilli
+		root core.Hash
+	}
+	left := make(map[key]int, len(log))
+	for _, v := range log {
+		left[key{v.TS, v.Root}]++
+	}
+	for _, v := range view {
+		k := key{v.TS, v.Root}
+		if left[k] == 0 {
+			return false
+		}
+		left[k]--
+	}
+	return true
 }
 
 // fsckFilesBadLine is one unparseable line of the files log.

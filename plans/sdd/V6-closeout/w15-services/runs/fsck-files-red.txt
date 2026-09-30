@@ -1,0 +1,25 @@
+=== RUN   TestFsck_ALiveDaemonsUnmaterializedFilesViewIsNotADefect
+    fsck_files_live_test.go:71: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-services/internal/cli/fsck_files_live_test.go:71
+        	Error:      	Not equal: 
+        	            	expected: true
+        	            	actual  : false
+        	Test:       	TestFsck_ALiveDaemonsUnmaterializedFilesViewIsNotADefect
+        	Messages:   	a running daemon's view that has not been materialized yet is not a defect: index/files.json is absent while its log carries 1 path(s); the view is derived and --repair regenerates it
+--- FAIL: TestFsck_ALiveDaemonsUnmaterializedFilesViewIsNotADefect (0.14s)
+=== RUN   TestFsck_ALiveDaemonsLaggingFilesViewIsNotADefect
+    fsck_files_live_test.go:97: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-services/internal/cli/fsck_files_live_test.go:97
+        	Error:      	Not equal: 
+        	            	expected: true
+        	            	actual  : false
+        	Test:       	TestFsck_ALiveDaemonsLaggingFilesViewIsNotADefect
+        	Messages:   	a view behind a live daemon's log is not a defect: index/files.json records 1 version(s) of "src/main.go" and the log records 2
+--- FAIL: TestFsck_ALiveDaemonsLaggingFilesViewIsNotADefect (0.33s)
+=== RUN   TestFsck_AQuietProjectsUnmaterializedFilesViewStaysADefect
+--- PASS: TestFsck_AQuietProjectsUnmaterializedFilesViewStaysADefect (0.07s)
+=== RUN   TestFsck_ALiveDaemonsViewThatContradictsItsLogStaysADefect
+--- PASS: TestFsck_ALiveDaemonsViewThatContradictsItsLogStaysADefect (0.16s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/cli	0.971s
+FAIL
