@@ -477,6 +477,9 @@ func mergeIntent(base, add *admitted) *admitted {
 // line, but the state file and therefore the `dropped` tool always get everything.
 func collectDrops(r Request, all map[ItemKind]built, fills map[ItemKind]*admitted) []checkpoint.DropEntry {
 	out := make([]checkpoint.DropEntry, 0, len(r.Checkpoint.Dropped)+8)
+	if fellBack(r) {
+		out = append(out, fallbackDrop(r))
+	}
 	out = append(out, r.Checkpoint.Dropped...)
 	for _, k := range renderOrder {
 		out = append(out, all[k].drops...)

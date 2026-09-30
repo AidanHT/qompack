@@ -1047,3 +1047,96 @@ func TestService_DeclaresAdditionalContextProducer(t *testing.T) {
 	require.True(t, contract.HasProducer(contract.CAdditionalContext),
 		"DeclareProducers declares CAdditionalContext exactly when Services.Rehydrate is bound")
 }
+
+// rsWriteCheckpointChain lays out checkpoints 0001..n of the golden checkpoint under rsSession,
+// each chained to the one before it, with a manifest whose digests match, exactly as the writer
+// would — through the files alone, as Rule W-2 requires of this file.
+func rsWriteCheckpointChain(t *testing.T, root string, n int) {
+	t.Helper()
+	l := paths.Of(root)
+	require.NoError(t, os.MkdirAll(paths.Long(l.Checkpoints), 0o700))
+	var manifest []byte
+	for seq := 1; seq <= n; seq++ {
+		cp := rsGoldenCheckpoint(t)
+		cp.Seq = core.CheckpointSeq(seq)
+		cp.Parent = ""
+		if seq > 1 {
+			cp.Parent = filepath.Base(paths.CheckpointPath(l, core.CheckpointSeq(seq-1)))
+		}
+		body, err := checkpoint.Marshal(cp)
+		require.NoError(t, err)
+		require.NoError(t, os.WriteFile(paths.Long(paths.CheckpointPath(l, core.CheckpointSeq(seq))), body, 0o600))
+		sum := sha256.Sum256(body)
+		line, err := json.Marshal(paths.ManifestEntry{
+			Seq: core.CheckpointSeq(seq), SHA256: hex.EncodeToString(sum[:]), Bytes: int64(len(body)),
+		})
+		require.NoError(t, err)
+		manifest = append(append(manifest, line...), '\n')
+	}
+	require.NoError(t, os.WriteFile(paths.Long(paths.ManifestPath(l)), manifest, 0o600))
+}
+
+// rsCorruptOneByte flips one byte of checkpoint seq's artifact, as the UAT-03 probe did.
+func rsCorruptOneByte(t *testing.T, root string, seq core.CheckpointSeq) {
+	t.Helper()
+	p := paths.Long(paths.CheckpointPath(paths.Of(root), seq))
+	b, err := os.ReadFile(p)
+	require.NoError(t, err)
+	b[len(b)/2] ^= 0x01
+	require.NoError(t, os.WriteFile(p, b, 0o600))
+}
+
+// TestService_CheckpointFallbackIsNeverSilent is F-C4-UAT03-1 (owner decision D49) through the real
+// reader: checkpoint 0002 does not verify (one byte flipped), the reader steps over it to 0001, and
+// the compaction must not present 0001 as current. The payload names the rollback in its header and
+// in section 7, the state file reads degraded with the reason and carries the fallback in the drop
+// report dropped() serves, and the Loud says what the rehydration was rolled back to.
+func TestService_CheckpointFallbackIsNeverSilent(t *testing.T) {
+	f := rsNewFixture(t)
+	rsWriteCheckpointChain(t, f.proj.Root, 2)
+	rsCorruptOneByte(t, f.proj.Root, 2)
+
+	out, err := rsRealReaderService(t, f).OnCompact(context.Background(), rsCompactEvent(f.proj.Root))
+	require.NoError(t, err)
+	require.NotNil(t, out.HookSpecificOutput)
+	ac := out.HookSpecificOutput.AdditionalContext
+	require.Contains(t, ac, "checkpoint 0001 (rolled back from 0002)", "the header must not present 0001 as current")
+	require.Contains(t, ac, "- checkpoint_fallback 0002 — checkpoint 0002 does not verify",
+		"section 7 names the refused checkpoint")
+
+	st := rsReadState(t, f.proj.Root)
+	require.Equal(t, core.CheckpointSeq(1), st.Seq)
+	require.True(t, st.Degraded, "a rehydration rebuilt from an older checkpoint is degraded")
+	require.Equal(t, "checkpoint 0002 does not verify; rolled back to 0001", st.DegradedReason)
+	require.NotEmpty(t, st.Dropped)
+	require.Equal(t, "checkpoint_fallback", st.Dropped[0].Kind, "the drop report leads with the fallback: %+v", st.Dropped)
+
+	var rolledBack bool
+	for _, m := range f.log.loudMsgs() {
+		rolledBack = rolledBack || strings.Contains(m, "rolled back to 0001")
+	}
+	require.True(t, rolledBack, "the Loud must say what the rehydration rolled back to: %q", f.log.loudMsgs())
+}
+
+// TestService_CheckpointFallbackToNothingIsNamed: when no recorded checkpoint verifies, the
+// rehydration is built from L0 and the ledger, and it still says which checkpoints were refused
+// rather than reading as a project that never had one.
+func TestService_CheckpointFallbackToNothingIsNamed(t *testing.T) {
+	f := rsNewFixture(t)
+	rsWriteCheckpointChain(t, f.proj.Root, 1)
+	rsCorruptOneByte(t, f.proj.Root, 1)
+
+	out, err := rsRealReaderService(t, f).OnCompact(context.Background(), rsCompactEvent(f.proj.Root))
+	require.NoError(t, err)
+	require.NotNil(t, out.HookSpecificOutput)
+	require.Contains(t, out.HookSpecificOutput.AdditionalContext, "(rolled back from 0001)")
+
+	st := rsReadState(t, f.proj.Root)
+	require.True(t, st.Degraded)
+	require.Equal(t, "checkpoint 0001 does not verify; rolled back to no checkpoint", st.DegradedReason)
+	var rolledBack bool
+	for _, m := range f.log.loudMsgs() {
+		rolledBack = rolledBack || strings.Contains(m, "rolled back to no checkpoint")
+	}
+	require.True(t, rolledBack, "%q", f.log.loudMsgs())
+}

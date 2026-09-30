@@ -124,6 +124,10 @@ type Result struct {
 	// Degraded reports that the rehydration could not do its full job — a missing checkpoint, a
 	// budget too small — and said so rather than failing (§12.3).
 	Degraded bool
+	// DegradedReason names a degradation the drop report alone would not make plain: today, a
+	// rehydration rebuilt from an older checkpoint because a newer one did not verify ("checkpoint
+	// 0002 does not verify; rolled back to 0001", D49). Empty otherwise.
+	DegradedReason string
 	// Seq is the checkpoint sequence this rehydration came from.
 	Seq core.CheckpointSeq
 }

@@ -319,11 +319,16 @@ func (s *rehydrateService) latest(ctx context.Context, sess core.SessionID) (che
 	cp, ref, err := s.o.Checkpoints.Latest(ctx, sess)
 	switch {
 	case err == nil:
+		s.rolledBack(sess, ref)
 		return cp, ref, nil
 	case errors.Is(err, core.ErrNotFound), errors.Is(err, core.ErrNotImplemented):
 		s.o.Log.Info("rehydrate: no checkpoint for session; building from L0 and the ledger",
 			"session", string(sess), "err", err.Error())
-		return checkpoint.Checkpoint{}, checkpoint.Ref{}, errNoCheckpoint
+		// What Latest refused is kept: a store whose every checkpoint failed verification is not a
+		// project that never had one, and the payload says which (D49).
+		refused := checkpoint.Ref{Refused: ref.Refused}
+		s.rolledBack(sess, refused)
+		return checkpoint.Checkpoint{}, refused, errNoCheckpoint
 	case cutShort(ctx, err):
 		// The read stopped because its context ended, not because the store failed it: OnCompact
 		// reports the daemon stopping (stopped), and the store is not Loud'd as unreadable.
@@ -332,6 +337,23 @@ func (s *rehydrateService) latest(ctx context.Context, sess core.SessionID) (che
 		s.o.Log.Loud("rehydrate: checkpoint unreadable", "session", string(sess), "err", err.Error())
 		return checkpoint.Checkpoint{}, checkpoint.Ref{}, errFatalCheckpoint
 	}
+}
+
+// rolledBack Louds a checkpoint fallback: the reader stepped over a newer checkpoint that does not
+// verify, and this rehydration is built from ref (or from no checkpoint). The reader's own Loud
+// names the artifact that failed; this one names what the session was rolled back to, which is
+// what F-C4-UAT03-1's LOUD.log left out (D49). The message carries the whole reason so the one
+// line a reader of LOUD.log sees says both halves.
+func (s *rehydrateService) rolledBack(sess core.SessionID, ref checkpoint.Ref) {
+	if len(ref.Refused) == 0 {
+		return
+	}
+	to := "no checkpoint"
+	if ref.Seq != 0 {
+		to = fmt.Sprintf("%04d", int(ref.Seq))
+	}
+	s.o.Log.Loud("rehydrate: newest checkpoint refused; rolled back to "+to,
+		"session", string(sess), "refused", fmt.Sprint(ref.Refused), "rolled_back_to", to)
 }
 
 // record persists the drop report. A write failure is logged and swallowed: the payload has
@@ -351,6 +373,8 @@ func (s *rehydrateService) record(ctx context.Context, sess core.SessionID, res 
 		Items:    stats,
 		Dropped:  res.Dropped,
 		Degraded: res.Degraded,
+		// Why, when the drop report alone would not make it plain (a checkpoint fallback, D49).
+		DegradedReason: res.DegradedReason,
 	}
 	if err := s.o.Reporter.Record(ctx, sess, st); err != nil {
 		s.o.Log.Warn("rehydrate: could not record state", "session", string(sess), "err", err.Error())

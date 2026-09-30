@@ -88,7 +88,10 @@ func BuildWithStats(ctx context.Context, r Request, d Deps) (Result, []ItemStat,
 		// as such so Overflowed(res.Dropped) recognizes it regardless of which estimator priced
 		// overhead — the bare (len+3)/4 fallback and a calibrated tokens.Estimator agree on the
 		// COMPARISON this branch makes even when they disagree on the exact count.
-		res := Result{Degraded: true, Seq: r.Ref.Seq}
+		res := Result{Degraded: true, DegradedReason: degradedReason(r), Seq: r.Ref.Seq}
+		if fellBack(r) {
+			res.Dropped = append(res.Dropped, fallbackDrop(r))
+		}
 		detail := "OVERFLOW: the injection wrapper alone (" + itoa(int(overhead.tok)) +
 			" tokens) exceeds the rehydration budget (" + itoa(int(budget)) +
 			" tokens); nothing was injected — call dropped() for the full accounting"
@@ -285,7 +288,8 @@ func BuildWithStats(ctx context.Context, r Request, d Deps) (Result, []ItemStat,
 
 	res, stats := render(r, d, fills, all, overhead.tok)
 	res.Dropped = drops
-	res.Degraded = res.Degraded || degraded || sourceUnavailable(drops)
+	res.Degraded = res.Degraded || degraded || sourceUnavailable(drops) || fellBack(r)
+	res.DegradedReason = degradedReason(r)
 	res.Seq = r.Ref.Seq
 
 	// ── the hard-cap assertion, unconditional ────────────────────────────────────────────────
