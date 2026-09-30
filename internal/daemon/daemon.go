@@ -89,8 +89,11 @@ type daemon struct {
 	// (delivery_diagnostics.go), attached to the lock on every journal access. Set once in New.
 	deliveryDiag *deliveryDiagnostics
 
-	cfgMu        sync.RWMutex
-	cfg          config.Config
+	// live is the configuration in effect, shared with every service the wiring built
+	// (config_live.go). cfgMu serializes reloads and guards their bookkeeping beside it: the
+	// config file's last mtime and size.
+	live         *liveConfig
+	cfgMu        sync.Mutex
 	cfgEnv       config.Env
 	lastCfgMTime time.Time
 	lastCfgSize  int64
@@ -368,13 +371,21 @@ func New(o Options) (Daemon, error) {
 	}
 	DeclareProducers(svc)
 
+	// The live configuration starts as Options.Cfg as it stands now. Every service the wiring built
+	// already holds this cell (ensureLiveConfig), so the one seed reaches all of them.
+	o.ensureLiveConfig()
+	o.live.seed(o.Cfg)
+	if o.CfgEnv.ProjectRoot == "" {
+		o.CfgEnv = config.Env{ProjectRoot: o.ProjectRoot, HomeDir: userHomeDir(), Getenv: os.Getenv}
+	}
+
 	d := &daemon{
 		root:        o.ProjectRoot,
 		log:         o.Log,
 		m:           o.Metrics,
 		clk:         o.Clock,
-		cfg:         o.Cfg,
-		cfgEnv:      config.Env{ProjectRoot: o.ProjectRoot, HomeDir: userHomeDir(), Getenv: os.Getenv},
+		live:        o.live,
+		cfgEnv:      o.CfgEnv,
 		svc:         svc,
 		monitor:     monitor,
 		firstServed: make(chan struct{}),
@@ -482,9 +493,8 @@ func (d *daemon) Idle() IdleController       { return d.idle }
 // currentCfg returns the daemon's live configuration, safe for concurrent readers against
 // reload.go's writer.
 func (d *daemon) currentCfg() config.Config {
-	d.cfgMu.RLock()
-	defer d.cfgMu.RUnlock()
-	return d.cfg
+	cfg, _ := d.live.load()
+	return cfg
 }
 
 // currentState renders the daemon's current mode/hot/deadlines into an ipc.State, for WriteState

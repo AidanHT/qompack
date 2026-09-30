@@ -180,6 +180,17 @@ func NewToolDeps(root string, cfg config.Config, st store.Store, ledger func() n
 	return d
 }
 
+// liveToolConfig points the retrieval tools at the daemon's live configuration: every call reads
+// retrieval.*, runtime.mcp.*, eliminations.* and runtime.budgets.* as the daemon has them at that
+// moment, and the archive re-check applies runtime.redact as it stands, so a key the daemon's config
+// reload applies reaches the next tool call rather than waiting for a restart (V6 close-out D49; the
+// candidate 4 live re-run's UAT-09 changed eliminations.staleResponse mid-session and already_tried
+// kept the old form).
+func liveToolConfig(d *mcp.ToolDeps, opts *daemon.Options) {
+	d.CfgFn = opts.CurrentCfg
+	d.Redactor = retrievalRedactor{r: daemon.NewLiveRedactor(opts.CurrentCfg)}
+}
+
 // nopSpool is the ipc.SpoolWriter `qompack mcp` hands its client: one that discards.
 //
 // MCP requests must NEVER be spooled. A spooled `expand` replayed minutes later on the daemon's

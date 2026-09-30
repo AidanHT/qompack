@@ -60,13 +60,25 @@ func newBreachDetector(limit time.Duration, need int) *breachDetector {
 	return &breachDetector{limit: limit, need: need}
 }
 
-// Config reports the limit/need this detector actually gates on. limit and need are set once at
-// construction and never mutated afterward (a config reload does not currently re-apply them —
-// fix round 1, M-5), so reading them needs no lock; the accessor exists so a caller that logs a
-// transition (applyHotPathTransition) reports what the detector actually holds rather than
-// whatever the live config currently says, which can have drifted since construction.
+// Config reports the limit/need this detector actually gates on, so a caller that logs a
+// transition (applyHotPathTransition) reports what the detector holds.
 func (b *breachDetector) Config() (limit time.Duration, need int) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	return b.limit, b.need
+}
+
+// reconfigure applies a reloaded runtime.hotPath.budgetMs and breachWindows (V6 close-out D49; it
+// closes fix round 1's M-5, where a reload did not re-apply them). need <= 0 falls back to 1 as in
+// newBreachDetector. The window in progress and the streaks are kept: a changed limit judges the
+// next window to close, and a streak already run is not un-run by a new count.
+func (b *breachDetector) reconfigure(limit time.Duration, need int) {
+	if need <= 0 {
+		need = 1
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.limit, b.need = limit, need
 }
 
 // Observe pushes d into the ring. When the ring fills (every sampleWindow-th sample) it closes a

@@ -139,7 +139,7 @@ func (r *schedRuntime) idleTask(name scheduler.BackgroundTask, body func(ctx con
 // error_no_window with an empty Background, so every task is inert — the right posture for a
 // daemon that has not yet seen a session, and for one that has not reached the soft floor.
 func (r *schedRuntime) gate(name scheduler.BackgroundTask) bool {
-	if !r.cfg.Scheduler.Idle.BackgroundWork {
+	if !r.conf().Scheduler.Idle.BackgroundWork {
 		return false
 	}
 	r.mu.Lock()
@@ -184,7 +184,7 @@ func (r *schedRuntime) refreshDecision(ctx context.Context) {
 // With either switch off the acting body returns before advanceFrontier (gate, advanceFrontierTask),
 // so a planned-but-unrun frontier is not starvation and refreshDecision must not count it.
 func (r *schedRuntime) frontierPlannable() bool {
-	return r.cfg.Scheduler.Idle.BackgroundWork && r.cfg.Checkpoint.Frontier.AdvanceOnSegmentClose
+	return r.conf().Scheduler.Idle.BackgroundWork && r.conf().Checkpoint.Frontier.AdvanceOnSegmentClose
 }
 
 // ── Task bodies ─────────────────────────────────────────────────────────────────────────────
@@ -192,7 +192,7 @@ func (r *schedRuntime) frontierPlannable() bool {
 // advanceFrontierTask is act.advance_frontier: O5, behind the AdvanceOnSegmentClose switch (the
 // BackgroundWork switch is gate's).
 func (r *schedRuntime) advanceFrontierTask(ctx context.Context) error {
-	if !r.cfg.Checkpoint.Frontier.AdvanceOnSegmentClose {
+	if !r.conf().Checkpoint.Frontier.AdvanceOnSegmentClose {
 		return nil
 	}
 	return r.advanceFrontier(ctx)
@@ -211,7 +211,7 @@ func (r *schedRuntime) precomputeSliceTask(ctx context.Context) error {
 		return nil
 	}
 	sl, err := r.graph.BackwardSlice(criteria, dag.SliceOptions{
-		Thin: r.cfg.Selection.Slicing == slicingThin, Decay: dag.DefaultDecay, Deadline: precomputeSliceDeadline,
+		Thin: r.conf().Selection.Slicing == slicingThin, Decay: dag.DefaultDecay, Deadline: precomputeSliceDeadline,
 	})
 	if err != nil {
 		return err
@@ -311,7 +311,7 @@ func (r *schedRuntime) rebuildBloomBody(st store.Store) func(ctx context.Context
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		if r.cfg.Eliminations.RebuildOnStale != rebuildOnStaleNextIdle {
+		if r.conf().Eliminations.RebuildOnStale != rebuildOnStaleNextIdle {
 			return nil
 		}
 		ledger := r.currentLedger()
@@ -354,8 +354,8 @@ func (r *schedRuntime) compactDAGTask(ctx context.Context) error {
 // idle pass asks again.
 func (r *schedRuntime) gcTask(ctx context.Context) error {
 	p := store.GCPolicy{
-		RetainDays:     r.cfg.Store.Retention.Days,
-		RetainSessions: r.cfg.Store.Retention.Sessions,
+		RetainDays:     r.conf().Store.Retention.Days,
+		RetainSessions: r.conf().Store.Retention.Sessions,
 	}
 	if dl, ok := ctx.Deadline(); ok {
 		p.Deadline = time.Until(dl)

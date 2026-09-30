@@ -45,6 +45,9 @@ func wireScheduler(opts *daemon.Options, getenv func(string) string,
 	}
 	schedOpts := daemon.SchedulerRuntimeOptions{
 		ProjectRoot: opts.ProjectRoot, Cfg: opts.Cfg,
+		// The daemon's live configuration, read at each use: a reloaded key reaches the
+		// scheduler's next evaluation (V6 close-out D49).
+		CfgFn: opts.CurrentCfg,
 		Clock: opts.Clock, Log: log, Metrics: opts.Metrics,
 		Store: opts.Store, Graph: opts.Graph, Ledger: opts.LedgerHandle(),
 		// LedgerFn closes over opts — the POINTER runDaemon holds — so it reads the FIELD, not the

@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"sort"
+	"time"
 
 	"github.com/qompack/qompack/internal/config"
 	"github.com/qompack/qompack/internal/ipc"
@@ -37,26 +38,40 @@ func (d *daemon) maybeReloadConfig(ctx context.Context, env config.Env) {
 }
 
 // reloadConfig is maybeReloadConfig's body, also reachable unconditionally (force=true) from
-// admin.reload. It returns the dotted keys that changed and were actually applied — a deferred
-// store.chunk.* change is reported via the Loud line and state/config-pending.json, not via this
-// return value, since it was NOT applied to the live config.
+// admin.reload. It returns the dotted keys that changed and were applied. A deferred store.chunk.*
+// change is reported via the Loud line and state/config-pending.json, and a key that needs a
+// restart via its own Loud line (reloadConfigKeys), not via this return value, since neither was
+// applied to the live config.
 func (d *daemon) reloadConfig(ctx context.Context, env config.Env, force bool) ([]string, error) {
+	changed, _, err := d.reloadConfigKeys(ctx, env, force)
+	return changed, err
+}
+
+// reloadConfigKeys is reloadConfig that also returns the changed keys it held back because they
+// need a daemon restart (reload_keys.go). Every key it returns as changed is in effect in the running
+// daemon when it returns (V6 close-out D49): the live configuration holds it, every service the
+// wiring built reads that configuration at its next use, and the daemon's own components that keep
+// a value derived from it have been updated (applyReloaded). The candidate 4 live re-run's UAT-05
+// logged "config reloaded changed=[runtime.rehydrate.maxTokens runtime.rehydrate.minTokens]" and
+// went on rehydrating at its startup budget, because the reload replaced the daemon's own copy and
+// nothing else.
+func (d *daemon) reloadConfigKeys(ctx context.Context, env config.Env, force bool) (changed, restart []string, err error) {
 	if err := ctx.Err(); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	p := configJSONPath(d.root)
 	fi, statErr := os.Stat(paths.Long(p))
 
-	d.cfgMu.RLock()
+	d.cfgMu.Lock()
+	defer d.cfgMu.Unlock()
 	prevMTime, prevSize := d.lastCfgMTime, d.lastCfgSize
-	d.cfgMu.RUnlock()
 
 	if statErr != nil {
 		if !force {
-			return nil, nil // no project config.json yet: nothing to reload.
+			return nil, nil, nil // no project config.json yet: nothing to reload.
 		}
 	} else if !force && fi.ModTime().Equal(prevMTime) && fi.Size() == prevSize {
-		return nil, nil // unchanged since the last load.
+		return nil, nil, nil // unchanged since the last load.
 	}
 
 	useEnv := env
@@ -66,25 +81,23 @@ func (d *daemon) reloadConfig(ctx context.Context, env config.Env, force bool) (
 
 	newCfg, _, warns, err := config.Load(useEnv)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	for _, w := range warns {
 		d.log.Loud("daemon: config reload warning", "key", w.Key, "message", w.Message, "location", w.Location)
 	}
 
-	d.cfgMu.Lock()
-	oldCfg := d.cfg
-	finalCfg := newCfg
+	// cfgMu serializes whole reloads (the idle tick, session.start and admin.reload can race), so
+	// the configuration read here is the one this reload replaces.
+	oldCfg := d.currentCfg()
 	chunkChanged := !reflect.DeepEqual(oldCfg.Store.Chunk, newCfg.Store.Chunk)
-	if chunkChanged {
-		finalCfg.Store.Chunk = oldCfg.Store.Chunk // deferred: the live config keeps the OLD block.
-	}
-	d.cfg = finalCfg
+	finalCfg, restart := holdForRestart(oldCfg, newCfg)
+	d.live.store(finalCfg)
 	if fi != nil {
 		d.lastCfgMTime = fi.ModTime()
 		d.lastCfgSize = fi.Size()
 	}
-	d.cfgMu.Unlock()
+	d.applyReloaded(finalCfg)
 
 	if chunkChanged {
 		d.log.Loud("daemon: store.chunk.* change deferred to next SessionStart",
@@ -93,8 +106,12 @@ func (d *daemon) reloadConfig(ctx context.Context, env config.Env, force bool) (
 			d.log.Warn("daemon: failed to persist state/config-pending.json", "err", perr)
 		}
 	}
+	if len(restart) > 0 {
+		d.log.Loud("daemon: config change needs a daemon restart to take effect; the running daemon keeps the value it started with",
+			"keys", restart)
+	}
 
-	changed := diffDottedKeys(oldCfg, finalCfg)
+	changed = diffDottedKeys(oldCfg, finalCfg)
 	if len(changed) > 0 {
 		d.log.Info("daemon: config reloaded", "changed", changed)
 		// state.bin carries ConnectDeadlineMs/AckDeadlineMs/MaxPayloadBytes/SpoolOnBreach/
@@ -105,7 +122,27 @@ func (d *daemon) reloadConfig(ctx context.Context, env config.Env, force bool) (
 			d.log.Warn("daemon: failed to rewrite state.bin after reload", "err", err)
 		}
 	}
-	return changed, nil
+	return changed, restart, nil
+}
+
+// applyReloaded hands a reloaded configuration to the daemon's own components that keep a value
+// derived from it rather than reading the live configuration per use: the session registry's
+// ceiling, the hot-path breach detector's limit and window count, and the idle horizon the idle
+// controller and the client-spool watcher share. A nil component (a daemon value no New built) is
+// skipped.
+func (d *daemon) applyReloaded(cfg config.Config) {
+	if d.registry != nil {
+		d.registry.SetMaxSessions(cfg.Runtime.Daemon.MaxSessions)
+	}
+	if d.breach != nil {
+		d.breach.reconfigure(time.Duration(cfg.Runtime.HotPath.BudgetMs)*time.Millisecond, cfg.Runtime.HotPath.BreachWindows)
+	}
+	if d.idle != nil {
+		d.idle.setDetectAfter(cfg.Scheduler.Idle.DetectAfterSeconds)
+		if d.spool != nil {
+			d.spool.setHorizon(d.idle.detectAfter())
+		}
+	}
 }
 
 // writeConfigPending persists cfg — the FULL reloaded config, including the deferred store.chunk.*
