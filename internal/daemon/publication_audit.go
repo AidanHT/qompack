@@ -3,6 +3,7 @@ package daemon
 import (
 	"context"
 	"errors"
+	"sync"
 	"time"
 
 	"github.com/qompack/qompack/internal/store"
@@ -98,17 +99,26 @@ func (d *daemon) publicationScanCap() store.PublicationScanCap {
 //
 // A store that cannot take a snapshot keeps the old shape: one bounded pass, announced as it ends.
 //
-// The background pass is not paced: it is bounded only by DefaultPublicationScanCap. On a store ten
-// times the live run's size (3800 objects in 3961 directories, 700 captures) it took 15.1 s with a
-// cold cache and about 4 s warm on the Windows host, and a PutBytes beside it moved from p99 16 ms
-// to 26 ms (plans/sdd/V6-closeout/w15-services/runs/review-pubscan-10x-diagnostic.txt). Whether to
-// pace it is the owner's call; the measurement is recorded for that decision.
+// Both halves of the pass step aside for capture work (V6 close-out D51): the pass waits on
+// d.capture before each unit of its I/O, so it runs between hook requests and never beside one, and
+// a session's I/O does not pay for it. A unit already under way when a request arrives finishes
+// first: one directory batch of at most scanDirBatch names, or one sidecar or pending-marker read
+// (internal/store, PublicationScanCap.Yield). The pause has no bound and adds no number of its own:
+// the pass is an announcement, a pass that never finishes delays only that announcement, and Stop
+// ends a paused pass like any other. Before D51 the pass ran unpaced beside the first session; on a
+// store ten times the live run's size (3800 objects in 3961 directories, 700 captures) it took
+// 15.1 s cold and about 4 s warm on the Windows host, and a PutBytes beside it moved from p99 16 ms
+// to 26 ms (plans/sdd/V6-closeout/w15-services/runs/review-pubscan-10x-diagnostic.txt). With one
+// os.Root per pass the same store took 10.1 s for the first pass after the writes (16.2 s before, in
+// the same session) and 0.7-0.9 s warm (3.8-6.0 s before), and a PutBytes beside the yielding pass
+// had the p99 of one alone (plans/sdd/V6-closeout/w15c-pubscan/runs/pubscan-10x-before-after.txt).
 func (d *daemon) accountPublicationAtStartup(runCtx context.Context) {
 	auditor, ok := d.svc.Store.(store.PublicationAuditor)
 	if !ok {
 		return // Observed:false — this store exposes no accounting, and nothing is announced
 	}
 	scanCap := d.publicationScanCap()
+	scanCap.Yield = d.capture.wait
 	if snapper, ok := d.svc.Store.(store.PublicationSnapshotter); ok {
 		if snap, err := snapper.SnapshotPublication(runCtx); err == nil {
 			scanCap.Snapshot = &snap
@@ -135,6 +145,76 @@ func (d *daemon) accountPublicationAtStartup(runCtx context.Context) {
 		return
 	}
 	d.announcePublication(rep, err != nil && runCtx.Err() != nil)
+}
+
+// captureGate counts the capture work in flight in this daemon, so the startup publication pass can
+// step aside for it (V6 close-out D51). Capture work is a request dispatchOp is serving, a delivery a
+// worker is applying (runIngested), a drain pass for the whole of it (Drain, and the client-spool
+// watcher's pass in lookAtClientSpools), since between its deliveries a drain reads spool segments and
+// appends fsynced lease-journal records, and the work a request leaves running past its answer
+// (startPromptRecording, startReplyWork, launchSessionEnd), each of which enters before its request
+// has left, so one request's work holds the gate without a gap. A fire-and-forget delivery's ACK and
+// its worker are the one seam: between the route's return and a worker's runIngested the delivery
+// sits in the ingest ring, which a worker takes it from at once unless every worker is busy, and a
+// busy worker holds the gate. The zero value is ready to use.
+type captureGate struct {
+	mu     sync.Mutex
+	active int
+	// idle is closed when active falls to zero, and made anew when it rises from zero.
+	idle chan struct{}
+	// onPark, when set, is called each time a wait parks, with the waiter's context. It is a test
+	// seam: a test that must see the pass paused waits for it instead of sleeping, and the context
+	// tells the bounded half of the startup pass (a deadline) from the background half (none).
+	onPark func(ctx context.Context)
+}
+
+// enter counts one piece of capture work in.
+func (g *captureGate) enter() {
+	g.mu.Lock()
+	if g.active == 0 {
+		g.idle = make(chan struct{})
+	}
+	g.active++
+	g.mu.Unlock()
+}
+
+// leave counts one piece of capture work out; the last one out releases every wait.
+func (g *captureGate) leave() {
+	g.mu.Lock()
+	g.active--
+	if g.active == 0 {
+		close(g.idle)
+	}
+	g.mu.Unlock()
+}
+
+// inFlight is the capture work in flight now.
+func (g *captureGate) inFlight() int {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	return g.active
+}
+
+// wait returns once no capture work is in flight, or with ctx's error once ctx has ended. It is the
+// publication pass's store.PublicationScanCap.Yield.
+func (g *captureGate) wait(ctx context.Context) error {
+	for {
+		g.mu.Lock()
+		if g.active == 0 {
+			g.mu.Unlock()
+			return ctx.Err()
+		}
+		idle, park := g.idle, g.onPark
+		g.mu.Unlock()
+		if park != nil {
+			park(ctx)
+		}
+		select {
+		case <-idle:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
 }
 
 // AccountPublicationGaps runs one bounded, read-only accounting pass against the daemon's store and

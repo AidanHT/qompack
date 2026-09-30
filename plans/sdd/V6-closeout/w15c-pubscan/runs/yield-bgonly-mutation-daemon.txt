@@ -1,0 +1,23 @@
+# Review fix F1: background-only mutation (bg := scanCap; bg.Yield = nil inside the d.goRun closure of
+# accountPublicationAtStartup), restored afterwards. BEFORE the test fix (tests at 9d37a97a): blind, green.
+# go test -p 2 -count=3 -run '^(TestStartupPublicationAccounting_BackgroundPassPausesWhileARequestIsInFlight|TestStartupPublicationAccounting_StopEndsAPausedPass)$' ./internal/daemon/
+ok  	github.com/qompack/qompack/internal/daemon	52.601s
+exit=0
+
+# AFTER the test fix (armedParkSignal: only parks after accountPublicationAtStartup returned count), same mutation, same command:
+--- FAIL: TestStartupPublicationAccounting_BackgroundPassPausesWhileARequestIsInFlight (7.66s)
+    publication_yield_test.go:180: the background publication pass finished beside a request in flight
+--- FAIL: TestStartupPublicationAccounting_StopEndsAPausedPass (8.36s)
+    publication_yield_test.go:222: the background publication pass finished beside a request in flight
+--- FAIL: TestStartupPublicationAccounting_BackgroundPassPausesWhileARequestIsInFlight (8.66s)
+    publication_yield_test.go:180: the background publication pass finished beside a request in flight
+--- FAIL: TestStartupPublicationAccounting_StopEndsAPausedPass (7.85s)
+    publication_yield_test.go:222: the background publication pass finished beside a request in flight
+--- FAIL: TestStartupPublicationAccounting_BackgroundPassPausesWhileARequestIsInFlight (8.58s)
+    publication_yield_test.go:180: the background publication pass finished beside a request in flight
+--- FAIL: TestStartupPublicationAccounting_StopEndsAPausedPass (8.77s)
+    publication_yield_test.go:222: the background publication pass finished beside a request in flight
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	50.278s
+FAIL
+exit=1

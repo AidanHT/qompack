@@ -1,0 +1,6 @@
+=== go test -p 2 -count=1 -timeout=30m ./tools/devtool/ 2026-09-30T17:14:55-04:00
+ok  	github.com/qompack/qompack/tools/devtool	128.303s
+exit=0
+=== go test -p 2 -count=1 -timeout=30m ./test/docs/ 2026-09-30T17:17:09-04:00
+ok  	github.com/qompack/qompack/test/docs	4.517s
+exit=0

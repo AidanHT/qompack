@@ -1,0 +1,16 @@
+# Review fix F1: pause tests green with the production code unmutated
+# go test -p 2 -count=3 -v -run '^(TestStartupPublicationAccounting_BackgroundPassPausesWhileARequestIsInFlight|TestStartupPublicationAccounting_StopEndsAPausedPass|TestCaptureGate_WaitReturnsOnlyOnceTheWorkInFlightEnds|TestCaptureGate_WaitEndsWithItsContext)$' ./internal/daemon/
+--- PASS: TestCaptureGate_WaitReturnsOnlyOnceTheWorkInFlightEnds (0.00s)
+--- PASS: TestCaptureGate_WaitEndsWithItsContext (0.00s)
+--- PASS: TestStartupPublicationAccounting_BackgroundPassPausesWhileARequestIsInFlight (8.94s)
+--- PASS: TestStartupPublicationAccounting_StopEndsAPausedPass (7.71s)
+--- PASS: TestCaptureGate_WaitReturnsOnlyOnceTheWorkInFlightEnds (0.00s)
+--- PASS: TestCaptureGate_WaitEndsWithItsContext (0.00s)
+--- PASS: TestStartupPublicationAccounting_BackgroundPassPausesWhileARequestIsInFlight (8.07s)
+--- PASS: TestStartupPublicationAccounting_StopEndsAPausedPass (7.24s)
+--- PASS: TestCaptureGate_WaitReturnsOnlyOnceTheWorkInFlightEnds (0.00s)
+--- PASS: TestCaptureGate_WaitEndsWithItsContext (0.00s)
+--- PASS: TestStartupPublicationAccounting_BackgroundPassPausesWhileARequestIsInFlight (8.29s)
+--- PASS: TestStartupPublicationAccounting_StopEndsAPausedPass (8.06s)
+ok  	github.com/qompack/qompack/internal/daemon	48.877s
+exit=0

@@ -1,0 +1,9 @@
+# Mutation check: docs/troubleshooting.md with runtime.telemetry swapped for runtime.mode in the no-effect list, restored afterwards
+# go test -p 2 -count=1 -run '^TestTroubleshootingNamesExactlyTheNoEffectReloadKeys$' ./test/docs/
+--- FAIL: TestTroubleshootingNamesExactlyTheNoEffectReloadKeys (0.18s)
+    troubleshooting_test.go:226: docs/troubleshooting.md: "### A config change that did not take effect" does not name runtime.telemetry, which has no effect in this build
+    troubleshooting_test.go:229: docs/troubleshooting.md: "### A config change that did not take effect" names runtime.mode as having no effect, but reload_keys.go gives it effectOutside
+FAIL
+FAIL	github.com/qompack/qompack/test/docs	1.048s
+FAIL
+exit=1

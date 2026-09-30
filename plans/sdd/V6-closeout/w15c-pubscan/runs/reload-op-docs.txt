@@ -1,0 +1,20 @@
+# Review fix F4: both reload pages say admin.reload is an IPC op no qompack subcommand sends
+# RED (test added, pages unchanged):
+# go test -p 2 -count=1 -run '^TestAdminReloadIsDescribedAsAnOpWithoutACommand$' ./test/docs/
+--- FAIL: TestAdminReloadIsDescribedAsAnOpWithoutACommand (0.10s)
+    troubleshooting_test.go:311: docs/troubleshooting.md: "### A config change that did not take effect" does not say "no `qompack` subcommand sends `admin.reload` in this build"
+    troubleshooting_test.go:311: docs/config-reference.md: "## Reloading the configuration" does not say "no `qompack` subcommand sends `admin.reload` in this build"
+FAIL
+FAIL	github.com/qompack/qompack/test/docs	0.934s
+FAIL
+exit=1
+
+# Source-scan half, temporary mutation: internal/cli/zz_tmp_mutation.go holding the text OpAdminReload
+# (removed afterwards): the same command reported 1 'sends admin.reload' error, exit=1
+
+# GREEN (troubleshooting.md edited; genconfigdocs.go prose changed; go run ./tools/devtool gen-config-docs):
+# go run ./tools/devtool gen-config-docs --check -> docs/config-reference.md is up to date, exit=0
+# go test -p 2 -count=1 -v -run '^TestAdminReloadIsDescribedAsAnOpWithoutACommand$' ./test/docs/
+--- PASS: TestAdminReloadIsDescribedAsAnOpWithoutACommand (0.10s)
+ok  	github.com/qompack/qompack/test/docs	0.973s
+exit=0

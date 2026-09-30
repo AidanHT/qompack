@@ -76,7 +76,8 @@ var reloadKeyEffects = []reloadKeyEffect{
 
 	{"eval", effectOutside, "the eval commands, which load the configuration when they run"},
 
-	{"runtime.mode", effectOutside, "each hook, which loads the configuration when it runs"},
+	{"runtime.mode", effectOutside, "each hook, which loads the configuration when it runs; the daemon's " +
+		"session start reads the live configuration (currentCfg)"},
 	{"runtime.daemon.enabled", effectLive, "state.bin, rewritten by the reload"},
 	{"runtime.daemon.ackDeadlineMs", effectLive, "state.bin, rewritten by the reload"},
 	{"runtime.daemon.connectDeadlineMs", effectLive, "state.bin, rewritten by the reload"},
@@ -99,6 +100,65 @@ var reloadKeyEffects = []reloadKeyEffect{
 	{"runtime.selection.submodularEnabled", effectLive, "rehydrate service (RehydrateOptions.CfgFn)"},
 	{"runtime.selection.loopWarningsEnabled", effectInert, "no reader in this build"},
 	{"runtime.tokens", effectRestart, "the token estimators, built with their constants at start"},
+}
+
+// What a reload reports, spelled once here for the reload and for the generated configuration
+// reference (tools/devtool gen-config-docs), which quotes them to its reader: the two LOUD lines that
+// name the changed keys a reload held back, and the fields of admin.reload's answer.
+const (
+	// LoudReloadNeedsRestart names the changed keys held until a daemon restart (effectRestart).
+	LoudReloadNeedsRestart = "daemon: config change needs a daemon restart to take effect; " +
+		"the running daemon keeps the value it started with"
+	// LoudReloadNoEffect names the changed keys nothing in this build reads (effectInert).
+	LoudReloadNoEffect = "daemon: config change has no effect in this build; " +
+		"nothing reads these keys, before or after a restart"
+	// AdminReloadChanged is admin.reload's field for the keys the reload applied.
+	AdminReloadChanged = "changed"
+	// AdminReloadRestartRequired is admin.reload's field for the keys held until a daemon restart.
+	AdminReloadRestartRequired = "restart_required"
+	// AdminReloadNoEffect is admin.reload's field for the keys nothing in this build reads.
+	AdminReloadNoEffect = "no_effect"
+)
+
+// ReloadEffect is what a reload does with a changed key, in the words the generated configuration
+// reference uses for it.
+type ReloadEffect string
+
+// The four reload effects, one per keyEffect.
+const (
+	// ReloadTakesEffect: every reader in the running daemon reads the key at its next use.
+	ReloadTakesEffect ReloadEffect = "takes effect on reload"
+	// ReloadReadWhenRun: nothing in the daemon reads the key; the hook or command that does loads
+	// the configuration each time it runs.
+	ReloadReadWhenRun ReloadEffect = "read by the hook or command when it runs"
+	// ReloadNeedsRestart: the key is held at its value in effect until the daemon restarts.
+	ReloadNeedsRestart ReloadEffect = "needs a daemon restart"
+	// ReloadNoEffect: nothing in this build reads the key, before or after a restart.
+	ReloadNoEffect ReloadEffect = "no effect in this build"
+)
+
+// ReloadKeyClass is one row of reloadKeyEffects: a dotted key, or every key under it, what a reload
+// does with it, and the readers that classification rests on.
+type ReloadKeyClass struct {
+	Prefix string
+	Effect ReloadEffect
+	Why    string
+}
+
+// ReloadKeyClasses returns reloadKeyEffects, in its own order, for the generated configuration
+// reference, so the page lists exactly the keys this build classifies and cannot drift from it.
+func ReloadKeyClasses() []ReloadKeyClass {
+	names := map[keyEffect]ReloadEffect{
+		effectLive:    ReloadTakesEffect,
+		effectOutside: ReloadReadWhenRun,
+		effectRestart: ReloadNeedsRestart,
+		effectInert:   ReloadNoEffect,
+	}
+	out := make([]ReloadKeyClass, 0, len(reloadKeyEffects))
+	for _, e := range reloadKeyEffects {
+		out = append(out, ReloadKeyClass{Prefix: e.prefix, Effect: names[e.effect], Why: e.why})
+	}
+	return out
 }
 
 // effectOf returns the classification of key by longest matching prefix, and false for a key no

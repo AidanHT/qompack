@@ -542,8 +542,11 @@ func (d *daemon) startReplyWork(ctx context.Context, what string, work func(cont
 
 	c, cancel := context.WithCancel(context.WithoutCancel(ctx))
 	stopAfter := context.AfterFunc(d.promptCtx, cancel)
+	// The work outlives its request, and is capture work until it ends (D51).
+	d.capture.enter()
 	go func() {
 		defer d.promptWG.Done()
+		defer d.capture.leave()
 		defer cancel()
 		defer stopAfter()
 		defer func() {

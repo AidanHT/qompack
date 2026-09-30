@@ -232,6 +232,9 @@ func decodeSubagent(raw json.RawMessage) bool {
 // C-1 — see drainDispatch's doc comment for the full rationale).
 func (d *daemon) dispatchOp(ctx context.Context, req ipc.Request) ipc.Response {
 	recvTS := core.NowMilli(d.clk)
+	// Every request is capture work while it is served: the publication pass waits it out (D51).
+	d.capture.enter()
+	defer d.capture.leave()
 	// The daemon is provably serving — release Run's spool re-drain (daemon.go, redrainOnceServing).
 	// A request drainDispatch replays from a spool proves nothing of the kind: Run's startup drain
 	// replays before Run dispatches any request, and spending the signal there would run the
@@ -655,8 +658,11 @@ func (d *daemon) startPromptRecording(ctx context.Context, record func(context.C
 
 	rec, cancel := context.WithCancel(context.WithoutCancel(ctx))
 	stopAfter := context.AfterFunc(d.promptCtx, cancel)
+	// The capture outlives its request, and is capture work until it ends (D51).
+	d.capture.enter()
 	go func() {
 		defer d.promptWG.Done()
+		defer d.capture.leave()
 		defer cancel()
 		defer stopAfter()
 		defer func() {
@@ -1478,7 +1484,7 @@ func (d *daemon) handleAdminDrain(ctx context.Context, req ipc.Request) ipc.Resp
 func (d *daemon) handleAdminReload(ctx context.Context, req ipc.Request) ipc.Response {
 	res, err := d.reloadConfigKeys(ctx, d.cfgEnv, true)
 	data, _ := json.Marshal(map[string]any{
-		"changed": res.Changed, "restart_required": res.Restart, "no_effect": res.NoEffect,
+		AdminReloadChanged: res.Changed, AdminReloadRestartRequired: res.Restart, AdminReloadNoEffect: res.NoEffect,
 	})
 	if err != nil {
 		return ipc.Response{OK: false, Err: err.Error(), Data: data}
