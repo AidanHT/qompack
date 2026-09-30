@@ -217,16 +217,17 @@ const (
 // checkpointer and carried in Checkpoint.Dropped; they are ranked here so a checkpoint-time drop
 // interleaves correctly with a rehydration-time one.
 var kindRank = map[string]int{
-	dropKindOverflow:       -1,
-	dropKindInvariants:     -1,
-	dropKindPathRule:       0,
-	dropKindNestedClaudeMD: 1,
-	dropKindSkill:          2,
-	dropKindElimination:    3,
-	dropKindDecision:       4,
-	dropKindPointer:        5,
-	"open_question":        6,
-	"narrative":            7,
+	dropKindOverflow:           -1,
+	dropKindInvariants:         -1,
+	dropKindCheckpointFallback: -1, // an older state must never read as the current one (D49)
+	dropKindPathRule:           0,
+	dropKindNestedClaudeMD:     1,
+	dropKindSkill:              2,
+	dropKindElimination:        3,
+	dropKindDecision:           4,
+	dropKindPointer:            5,
+	"open_question":            6,
+	"narrative":                7,
 
 	dropKindUserIntentEvolution: 8,
 	dropKindCurrentWork:         9,
@@ -414,6 +415,7 @@ func buildUserIntent(ctx context.Context, r Request, d Deps) built {
 		b.drops = append(b.drops, forkNotice(r, fork))
 	}
 
+	evolution := evolutionOf(ctx, r, d, fork, origin, text)
 	if text != "" {
 		b.seen++
 		// L0 is the source of record when it answered; otherwise the checkpoint's own copy is.
@@ -421,8 +423,15 @@ func buildUserIntent(ctx context.Context, r Request, d Deps) built {
 		if l0.state == l0Unavailable {
 			pointer = checkpointPointer(r, "user_intent.original")
 		}
+		// Section 2 renders the evolution above the original (sectionTexts, D50), so when there is
+		// evolution the original is labelled as the request as first made. The label is part of the
+		// unit, so it is priced exactly with the record it introduces.
+		label := ""
+		if len(evolution) > 0 {
+			label = originalRequestLabel + "\n"
+		}
 		b.units = append(b.units, unit{
-			text:     forkProvenance(r, origin) + quoteLines(text),
+			text:     label + forkProvenance(r, origin) + quoteLines(text),
 			overflow: tier1Overflow(ItemUserIntent, "the verbatim original user intent", pointer),
 		})
 	}
@@ -442,7 +451,7 @@ func buildUserIntent(ctx context.Context, r Request, d Deps) built {
 	// Each unit's drop ID is still the delta's TRUE index into Checkpoint.UserIntent.Evolution —
 	// not its position in this reversed build order — so provenance (T11-AUTH-01) and any
 	// consumer correlating by that index are unaffected by the display/truncation order.
-	for _, ev := range evolutionOf(ctx, r, d, fork, origin, text) {
+	for _, ev := range evolution {
 		b.seen++
 		body := quoteLines(ev.text)
 		if len(b.units) == 0 || isFixedUnit(b.units[len(b.units)-1]) {
@@ -460,6 +469,14 @@ func buildUserIntent(ctx context.Context, r Request, d Deps) built {
 	}
 	return b
 }
+
+// originalRequestLabel opens item 2's original unit when the checkpoint carries evolution: section
+// 2 then renders the evolution first (sectionTexts), and the original after it is labelled as what
+// it is — the request as first made, which the entries above it may supersede (D50). It is short
+// on purpose: it sits under the heading "Original user intent", so one word says which record it
+// is, and every character it costs is taken from the shares — the golden fixture's path-rule
+// section fits its share by fewer than 13 characters, and "Original request:" drops it.
+const originalRequestLabel = "Original:"
 
 // evolutionDelta is one evolution unit's content and where it can be read back from.
 type evolutionDelta struct {
@@ -1081,8 +1098,22 @@ func buildPointers(_ context.Context, r Request, d Deps, sc map[dag.NodeID]float
 		}
 		return files[i].Path < files[j].Path
 	})
+	judge := newPathJudge(r, d)
 	for _, f := range files {
 		b.seen++
+		if judge.withheld(f.Path) {
+			// Pointed to by hash alone, in the payload and in the drop report (D50): re_read would
+			// refuse this path, so the payload does not show it either.
+			id := f.Hash.String()
+			b.addGuarded(unit{
+				text: pointerLine(withheldPathLabel, f.Hash, ""),
+				drop: checkpoint.DropEntry{
+					Kind: dropKindPointer, ID: id,
+					Detail: "did not fit the rehydration budget" + restoreClause(hashPointer(f.Hash)),
+				},
+			}, dropKindPointer, id)
+			continue
+		}
 		b.addGuarded(unit{
 			text: pointerLine(f.Path, f.Hash, f.Why),
 			drop: checkpoint.DropEntry{
@@ -1104,8 +1135,12 @@ func buildPointers(_ context.Context, r Request, d Deps, sc map[dag.NodeID]float
 	})
 	for _, t := range tools {
 		b.seen++
+		summary := t.Summary
+		if judge.summaryWithheld(summary) {
+			summary = withheldSummary
+		}
 		b.addGuarded(unit{
-			text: pointerLine("tool_use "+string(t.ToolUseID), t.Hash, t.Summary),
+			text: pointerLine("tool_use "+string(t.ToolUseID), t.Hash, summary),
 			drop: checkpoint.DropEntry{
 				Kind: dropKindPointer, ID: string(t.ToolUseID),
 				Detail: "did not fit the rehydration budget; call expand(tool_use_id=" +

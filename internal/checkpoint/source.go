@@ -203,6 +203,12 @@ type Ref struct {
 	Frontier core.TurnIndex
 	// Created is when the artifact was finalized.
 	Created core.UnixMilli
+	// Refused names the checkpoints NEWER than this one that Reader.Latest stepped over because
+	// they did not verify, newest first; empty when this is the newest the manifest records that
+	// could be read. A fallback is never silent (owner decision D49, F-C4-UAT03-1): the rehydrator
+	// names it, degrades, and the daemon logs the rollback. Latest also returns it beside
+	// core.ErrNotFound when nothing verifies, with Seq 0. Only Latest sets it.
+	Refused []core.CheckpointSeq
 }
 
 // nodesInRange returns every live node of one of kinds whose Turn falls in [from,to].

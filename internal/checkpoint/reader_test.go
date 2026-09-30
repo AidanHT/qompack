@@ -630,3 +630,41 @@ func TestListThenVerifyLoudsEachIntegrityDefectOnce(t *testing.T) {
 	require.Contains(t, joined, "missing")
 	require.Contains(t, joined, "does not match its MANIFEST digest")
 }
+
+// TestLatestNamesTheCheckpointsItRefused is F-C4-UAT03-1 (owner decision D49) at the reader: a
+// fallback is never silent, so the Ref Latest returns names every newer checkpoint it stepped over
+// because it did not verify, newest first. A clean read names none, and so does a read that only
+// passed over checkpoints OLDER than the one it returned.
+func TestLatestNamesTheCheckpointsItRefused(t *testing.T) {
+	e := newReaderEnv(t)
+	e.chain(t, readerSession, 4)
+	e.corrupt(t, 4)
+	e.corrupt(t, 3)
+	e.corrupt(t, 1)
+
+	c, ref, err := e.r.Latest(context.Background(), readerSession)
+	require.NoError(t, err)
+	require.Equal(t, core.CheckpointSeq(2), c.Seq)
+	require.Equal(t, []core.CheckpointSeq{4, 3}, ref.Refused)
+
+	clean := newReaderEnv(t)
+	clean.chain(t, readerSession, 2)
+	_, ref, err = clean.r.Latest(context.Background(), readerSession)
+	require.NoError(t, err)
+	require.Empty(t, ref.Refused, "a clean read refused nothing")
+}
+
+// TestLatestNamesTheRefusalsWhenNothingVerifies keeps the account when there is no checkpoint left
+// to fall back to: the error is still ErrNotFound, and the Ref beside it names what was refused, so
+// the rehydration built from L0 and the ledger can say why it has no checkpoint.
+func TestLatestNamesTheRefusalsWhenNothingVerifies(t *testing.T) {
+	e := newReaderEnv(t)
+	e.chain(t, readerSession, 2)
+	e.corrupt(t, 1)
+	e.corrupt(t, 2)
+
+	_, ref, err := e.r.Latest(context.Background(), readerSession)
+	require.ErrorIs(t, err, core.ErrNotFound)
+	require.Equal(t, core.CheckpointSeq(0), ref.Seq)
+	require.Equal(t, []core.CheckpointSeq{2, 1}, ref.Refused)
+}

@@ -366,6 +366,12 @@ func requireOriginalWholeOrNamed(t *rapid.T, res Result, original string, fromL0
 		return
 	}
 	body := sectionBody(res.Text, sectionHeading(ItemUserIntent))
+	// Criterion change (w15-rehydrate, D50): section 2 renders the evolution above the original,
+	// which then opens with originalRequestLabel; the original is what follows the label, and the
+	// first thing in the section only when there is no evolution. Whole or named is unchanged.
+	if _, after, ok := strings.Cut(body, originalRequestLabel+"\n"); ok {
+		body = after
+	}
 	if strings.HasPrefix(body, "> ") {
 		if !strings.HasPrefix(body, quoteLines(want)) {
 			t.Fatalf("the verbatim original was cut mid-record: section 2 begins %q", firstLineOf(body))

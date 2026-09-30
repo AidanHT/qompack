@@ -1,7 +1,8 @@
 # ADR 0011 — Rehydration budget, item order, and whole-rule restoration
 
 - **Status:** accepted; amended 2026-09-22 by §21 (owner decision D5: the payload fits the host's
-  10,000-character additionalContext cap)
+  10,000-character additionalContext cap) and 2026-09-30 by §22 (owner decisions D49 and D50:
+  current authority, tier-1 order, fallbacks and pointer privacy)
 - **Date:** 2026-09-06
 - **Subplan:** SP-11 (L5 rehydrator)
 - **Design:** `Qompack.md` §8.6, §8.7, §6.9, §4.4, §12; `plans/00-ARCHITECTURE.md` §5.15, §11.5, §11.6, §12.1
@@ -324,6 +325,9 @@ The wave-3 coordinator owns the re-collection, and the phase-3 gate is green the
 
 ## 18. The hard-cap re-truncation evicts by importance, not from the tail
 
+*Superseded in its eviction order and its golden description by §22.4. The reason below — never
+evict the drop report and the retrieval line first — still stands.*
+
 The fill pass is supposed to keep `Result.Tokens <= Budget` on its own. It can still be beaten,
 because two admissions are deliberately unconditional: tier 1 (§4) and the fixed units that carry
 no drop entry — chief among them item 3's standing instruction, which must survive whatever
@@ -347,6 +351,9 @@ The 400-token `degraded` golden is the frozen evidence: items 4, 5, 6, 6a and 7 
 items 1, 2, 3 (heading and standing instruction), 6b and 8 remain.
 
 ## 19. Item 2's tier-1 admission is the verbatim original only
+
+*Superseded by §22.2: item 2's tier-1 slice is now the original and the newest restatement. The
+argument below against admitting every delta in tier 1 still stands.*
 
 `tier1Order` names `ItemUserIntent`, but item 2 is not one unit. It is the verbatim original
 prompt followed by the checkpoint's `user_intent.evolution` deltas, and only the first of those is
@@ -523,6 +530,79 @@ ones, pathological session ids and sequences); `test/e2e` `TestE2E_SessionStartC
 (the real binary, hook client and daemon: 20,033 characters and a Loud over-cap line before, inside
 the ceiling with no Loud line now); the real-host sessions under
 `plans/sdd/V6-closeout/rehydrate-cap/evidence/`.
+
+## 22. Amendment (2026-09-30, owner decisions D49 and D50): current authority first, and no silent fallback
+
+**What changed.** The live re-run on candidate 4 (`plans/sdd/V6-closeout/live/rerun-c4/`, audited
+in `plans/sdd/V6-closeout/live/report-c4.md`) showed six ways the payload misled the model while
+staying inside §21's ceiling. D49 and D50 (`plans/V6-CLOSEOUT-CHECKLIST.md`) say each one is fixed
+before 0.3.0. This section records how. It supersedes §18's eviction order and golden description,
+and §19.
+
+1. *Tier 1 is one prefix over `tier1Admission`* (refines §21.1-2). The admission order is the
+   retrieval line (item 8), then the pinned invariants, then item 2's tier-1 slice. The first
+   record the budget cannot hold ends tier 1: every tier-1 record after it, in any item, is named
+   rather than admitted, even when it is small enough to fit. §21.1's prefix was applied per item,
+   so at UAT-05's 150-token budget the retrieval line was refused and the smaller pinned invariant
+   after it got in; at 160 the reverse happened (F-C4-UAT05-3). One record does not end tier 1: a
+   record no payload could hold, because it and its heading exceed the ceiling less the wrapper and
+   item 7's floor. It is named and passed over, exactly as an L0 capture past `intentReadLimit` is.
+   *How far the closure reaches.* It stays inside tier 1, with two exceptions. First, when the
+   refused record is the retrieval line, no share, no skill index and no min-fill is offered any
+   room: every share-filled section is records plus the call that restores or checks them, and
+   those calls mean nothing to a model never told the tools exist. Second, while tier 1 is
+   incomplete, item 2 is re-admitted nowhere later (not its older deltas, not by min-fill, not by
+   step 9a below), because its pending units start with the tier-1 records the prefix refused.
+   Otherwise the shares fill as §6 says. An earlier draft closed the shares on any tier-1 refusal,
+   and a long newest restatement that could not follow a long original then emptied sections 3-6
+   of a payload with thousands of characters unused.
+2. *Item 2's tier-1 slice is the verbatim original and the newest restatement* (supersedes §19;
+   D49, F-C4-UAT06-1 and F-C4-UAT06-3). Evolution holds every later prompt, so a correction admitted
+   only from item 2's tenth was pushed out by a few ordinary prompts: UAT-06 named the only
+   correction in force as "did not fit" while the block used 2,652 of 9,400 characters. The newest
+   restatement is the current authority and is admitted with the original, whole or named. Older
+   deltas keep the share, and they are never shown without the newest above them: a list of
+   superseded statements under "most recent first" would present one of them as current.
+3. *Unused room goes to evolution, newest first* (step 9a, D49). After every share and the skill
+   index, Build measures what item 7 will take and gives the room beyond that to item 2's refused
+   older deltas, whole and in the same newest-first prefix order. Measuring item 7 first, rather
+   than holding back only its reserve, keeps the payload growing with the budget.
+4. *Hard-cap eviction runs the fill backwards* (supersedes §18's order). The loop first cuts item 7
+   to its floor. It then removes sections in the reverse of the order Build admitted them
+   (`admissionRank`): the skill index and the share-taking items, last rendered first; then item 2,
+   taken apart one record at a time (older deltas oldest first, then the newest restatement, then
+   the section with its original); then the invariants; then the retrieval line. Item 7, whose floor
+   is held from the first admission on, goes last. §18's "last non-tier-1 item, falling back to the
+   last item" evicted tier 1 in render order, which removed the retrieval line before the invariants.
+5. *Section 2 renders the correction above what it supersedes* (D50). The evolution, newest first,
+   comes before the verbatim original. The original stays whole and is labelled `Original:`. D5's
+   whole-record rule and item 2's admission rule are unchanged.
+6. *A checkpoint fallback is never silent* (D49, F-C4-UAT03-1). When the newest checkpoint does not
+   verify and the payload is rebuilt from an older one (`Request.Ref.Refused`), the header says
+   "rolled back from", section 7's first line is a `checkpoint_fallback` entry naming the refused
+   and used checkpoints, what may be missing and how to restore it, `Result.Degraded` is true with
+   `DegradedReason`, and the daemon logs "rolled back to" Loud.
+7. *Pointers never show a withheld path* (D50, C4.6, UAT-12 F4). A section-6 pointer, and its drop
+   entry, never show a path the host's current Read rules deny or ask about (`Deps.HostPaths`, the
+   rules `re_read` and `expand` apply), or a path outside the project. That includes a path spelled
+   from the home directory or an environment variable (`~/…`, `$HOME/…`, `%USERPROFILE%\…`). Such
+   pointers point by hash only. When the host's rules cannot be established, every path is withheld.
+8. *A named tier-1 overflow is Loud once per session* (D50, UAT-04). The payload names it on every
+   compaction. The Loud line "tier-1 material exceeds the hard budget cap" is logged once per
+   session (`Request.Tier1OverflowReported`) and at Info after that.
+
+**Evidence.** `internal/rehydrate`: `TestBuild_Tier1FollowsTheAdmissionOrderAtTinyBudgets`,
+`TestBuild_TinyBudgetNeverKeepsTheInvariantWithoutTheRetrievalLine`,
+`TestBuild_AnUnrepresentableTier1RecordDoesNotCloseTier1`,
+`TestBuild_ARefusedNewestRestatementLeavesTheSharesTheirRoom`,
+`TestBuild_NewestRestatementIsAdmittedAheadOfTheShare`, `TestBuild_OlderDeltasNeverShowWithoutTheNewest`,
+`TestBuild_UnusedRoomGoesToEvolutionNewestFirst`, `TestBuild_Section2RendersTheCorrectionAboveTheOriginal`,
+`TestBuild_CheckpointFallbackIsNamed`, `TestBuild_PointersNeverShowAWithheldPath`,
+`TestBuild_PointersNeverShowAHomeOrVariablePath`, `TestBuild_ReportedTier1OverflowIsNotLoudAgain`;
+`internal/daemon`: `TestService_CheckpointFallbackIsNeverSilent`,
+`TestService_Tier1OverflowIsLoudOncePerSession`. The `degraded`, `full-12k`, `full-8k` and
+`token-bound` goldens and `state.json` were re-recorded after reading each diff: they gain the newest
+restatement, the unused-room deltas and the evolution-first order.
 
 ## Consequences
 
