@@ -126,8 +126,16 @@ func TestBuild_V6_UnpricedSeparatorsOverflowIsTrimmedAndAccounted(t *testing.T) 
 	d.Tokens = separatorChargingEstimator{}
 
 	// Below the full payload's assembled cost under this fixture, so the fill pass fills toward the
-	// cap and the unpriced join separators push the assembled total past it — the trim loop must fire.
-	const budget = core.Tokens(6000)
+	// cap and the unpriced join separators push the assembled total past it — the trim loop must fire
+	// and evict at least one whole section, which is asserted below rather than assumed.
+	//
+	// Criterion change (w15-rehydrate, D49): the budget was 6000. Item 2 now admits its newest
+	// restatement in tier 1 and unused room goes to evolution, and the hard-cap loop cuts section 7
+	// to its floor before it evicts a section; at 6000 that cut alone absorbs this fixture's overrun,
+	// so no section was evicted and the row's premise silently lapsed. 5000 still overruns by more
+	// than section 7 can give back, and the eviction is now asserted, so the premise cannot lapse
+	// again unnoticed.
+	const budget = core.Tokens(5000)
 	got, err := Build(context.Background(), requestFor(t, cp, budget), d)
 	require.NoError(t, err)
 	require.NotEmpty(t, got.Text, "the wrapper and some tier-1 material still fit at this budget")
@@ -149,6 +157,11 @@ func TestBuild_V6_UnpricedSeparatorsOverflowIsTrimmedAndAccounted(t *testing.T) 
 	// A trim that removed whole sections must have said so: the payload is degraded and the removal
 	// is a NAMED, reportable overflow, never a silent erasure of a current requirement.
 	require.True(t, got.Degraded, "a payload trimmed to fit its cap is degraded")
+	var evicted bool
+	for _, e := range got.Dropped {
+		evicted = evicted || e.ID == dropIDEvicted
+	}
+	require.True(t, evicted, "fixture sanity: the trim loop evicted a whole section: %v", got.Dropped)
 	require.True(t, Overflowed(got.Dropped),
 		"whole-section eviction under the hard cap must record an explicit, named overflow: %v", got.Dropped)
 }
