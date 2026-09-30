@@ -1098,8 +1098,22 @@ func buildPointers(_ context.Context, r Request, d Deps, sc map[dag.NodeID]float
 		}
 		return files[i].Path < files[j].Path
 	})
+	judge := newPathJudge(r, d)
 	for _, f := range files {
 		b.seen++
+		if judge.withheld(f.Path) {
+			// Pointed to by hash alone, in the payload and in the drop report (D50): re_read would
+			// refuse this path, so the payload does not show it either.
+			id := f.Hash.String()
+			b.addGuarded(unit{
+				text: pointerLine(withheldPathLabel, f.Hash, ""),
+				drop: checkpoint.DropEntry{
+					Kind: dropKindPointer, ID: id,
+					Detail: "did not fit the rehydration budget" + restoreClause(hashPointer(f.Hash)),
+				},
+			}, dropKindPointer, id)
+			continue
+		}
 		b.addGuarded(unit{
 			text: pointerLine(f.Path, f.Hash, f.Why),
 			drop: checkpoint.DropEntry{
@@ -1121,8 +1135,12 @@ func buildPointers(_ context.Context, r Request, d Deps, sc map[dag.NodeID]float
 	})
 	for _, t := range tools {
 		b.seen++
+		summary := t.Summary
+		if judge.summaryWithheld(summary) {
+			summary = withheldSummary
+		}
 		b.addGuarded(unit{
-			text: pointerLine("tool_use "+string(t.ToolUseID), t.Hash, t.Summary),
+			text: pointerLine("tool_use "+string(t.ToolUseID), t.Hash, summary),
 			drop: checkpoint.DropEntry{
 				Kind: dropKindPointer, ID: string(t.ToolUseID),
 				Detail: "did not fit the rehydration budget; call expand(tool_use_id=" +
