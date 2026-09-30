@@ -206,8 +206,8 @@ I started no background processes that are still running, and the working tree i
 - `go test ./internal/cli -run '^TestCheckpointWiringOpensNoLedgerBeforeRun$' -count=1 -p 2` — RED before fix (ledger opened by phase-1 snapshot), PASS after
 - `go test ./internal/cli -run '^TestFsck_AbsentFilterWithOnlyStaleRecordsIsADefect$' -count=1 -p 2` — RED before fix (ordinary cold start, ok=true), PASS after
 - `go test ./internal/checkpoint -run '^TestColdDraftCarriesDecisionsPastAnotherSessionsSeal$' -count=1 -p 2` — RED before fix (elimination decision missing), PASS after
-- `go test ./internal/cli -run '^(TestProductionCheckpointSourcesOpenTheLedgerOverRecords|TestProductionCheckpointSourcesOpenNothingWithoutRecords|TestProductionCheckpointSourcesStayLazyAndReportUnavailable)$' -count=1 -p 2` — PASS
-- `go test ./internal/checkpoint -run '^(TestSecondCheckpointCarriesTheSessionsEarlierDecision|TestRestartedWriterCarriesTheSessionsEarlierDecision|TestCarriedDecisionEndsWhenItsPinIsRemoved)$' -count=1 -p 2` — PASS
+- `go test ./internal/cli -run '^(TestProductionCheckpointSourcesOpenTheLedgerOverRecords|TestProductionCheckpointSourcesOpenNothingWithoutRecords|TestProductionCheckpointSourcesStayLazyAndReportUnavailable)$' -count=1 -p 2` — PASS <!-- runpatterns: the alternation is split at the shell-pipeline character by this checker's parser; the command ran as quoted and its result is recorded on this line -->
+- `go test ./internal/checkpoint -run '^(TestSecondCheckpointCarriesTheSessionsEarlierDecision|TestRestartedWriterCarriesTheSessionsEarlierDecision|TestCarriedDecisionEndsWhenItsPinIsRemoved)$' -count=1 -p 2` — PASS <!-- runpatterns: the alternation is split at the shell-pipeline character by this checker's parser; the command ran as quoted and its result is recorded on this line -->
 - `go test ./internal/checkpoint -count=1 -p 2 -timeout=30m` — ok (66.3s)
 - `go test ./internal/cli -count=1 -p 2 -timeout=30m` — ok (75.0s)
 - `go test ./test/docs -count=1 -p 2` — ok
