@@ -99,7 +99,7 @@ func (l *ledger) markStaleLocked(ctx context.Context, ids []string, because []st
 
 	if len(flipped) > 0 {
 		l.m.Counter(counterStaleFlipped).Add(int64(len(flipped)))
-		switch l.elim.RebuildOnStale {
+		switch l.elims().RebuildOnStale {
 		case rebuildImmediate:
 			if _, _, err := l.rebuildLocked(ctx); err != nil && firstErr == nil {
 				firstErr = err

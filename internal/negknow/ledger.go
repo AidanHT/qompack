@@ -57,6 +57,14 @@ type Deps struct {
 	// match satisfies this.
 	Redact func([]byte) []byte
 
+	// Config, when set, supplies the configuration the ledger applies eliminations.* from at each
+	// use, in place of the one Open was given. The daemon passes its live configuration, so a
+	// reloaded eliminations.staleResponse (or defaultScope, requireEvidence, rebuildOnStale)
+	// reaches an open ledger without reopening it (V6 close-out D49; the candidate 4 live re-run's
+	// UAT-09 met already_tried keeping the old form after a reload). The filter's sizing is not
+	// read through it: tried.bloom is sized when it is built.
+	Config func() config.Config
+
 	Log     logging.Logger
 	Metrics obs.Registry
 	Clock   core.Clock
@@ -325,9 +333,14 @@ type ledger struct {
 	root string
 	cfg  config.Config
 	// elim is cfg.Eliminations after every out-of-domain value has been replaced by its
-	// Appendix C default, so the rest of the file never has to re-validate.
-	elim  config.EliminationsCfg
-	bloom *sketch.Bloom
+	// Appendix C default, so the rest of the file never has to re-validate. It is read through
+	// elims(), never directly: with Deps.Config set it follows the live configuration, and
+	// elimMu (a leaf lock, taken with or without mu) guards it and elimRaw, the block it was
+	// normalized from.
+	elimMu  sync.Mutex
+	elimRaw config.EliminationsCfg
+	elim    config.EliminationsCfg
+	bloom   *sketch.Bloom
 	// blind reports that records/eliminations.jsonl could not be read at Open. Under blind, Query
 	// answers AnswerUnavailable for everything: asserting absence, or activity, with no record
 	// behind it is the one thing §12.3 and §11.3 invariant 8 forbid here.
@@ -420,7 +433,7 @@ func Open(root string, cfg config.Config, b *sketch.Bloom, deps Deps) (Ledger, e
 		m:       deps.Metrics,
 		clk:     deps.Clock,
 	}
-	l.elim = normalizeEliminations(cfg.Eliminations, l.log)
+	l.elimRaw, l.elim = cfg.Eliminations, normalizeEliminations(cfg.Eliminations, l.log)
 
 	// EnsureLayout is what every composition root runs, and this one needs it before either of
 	// the next two steps: paths.AppendOnly does not create parent directories, and
@@ -462,6 +475,23 @@ func normalizeEliminations(in config.EliminationsCfg, log logging.Logger) config
 	out.StaleResponse = pickEnum(out.StaleResponse, staleResponseFlag,
 		"eliminations.staleResponse", log, staleResponseFlag, staleResponseDrop)
 	return out
+}
+
+// elims is the eliminations block in effect: the one Open normalized, or, with Deps.Config set, the
+// live configuration's, normalized again only when it has changed (so an out-of-domain value is
+// reported once per change, not once per use).
+func (l *ledger) elims() config.EliminationsCfg {
+	var raw config.EliminationsCfg
+	live := l.deps.Config != nil
+	if live {
+		raw = l.deps.Config().Eliminations
+	}
+	l.elimMu.Lock()
+	defer l.elimMu.Unlock()
+	if live && raw != l.elimRaw {
+		l.elimRaw, l.elim = raw, normalizeEliminations(raw, l.log)
+	}
+	return l.elim
 }
 
 // pickEnum returns got when it is one of allowed, fallback when got is empty, and fallback with
@@ -649,7 +679,7 @@ func (l *ledger) reconcileBloom(loadFailed bool, keys []recordKeys) {
 	if l.bloom.Count() > want {
 		// Extra keys are SAFE: each costs one record lookup that then answers AnswerAbsent with
 		// BloomOnly, or AnswerStale — both correct. So the rebuild is scheduled, not forced.
-		switch l.elim.RebuildOnStale {
+		switch l.elims().RebuildOnStale {
 		case rebuildImmediate:
 			if _, _, err := l.rebuildWith(context.Background(), keys); err != nil {
 				l.pending = true
@@ -663,7 +693,7 @@ func (l *ledger) reconcileBloom(loadFailed bool, keys []recordKeys) {
 // refreshAtOpen runs one bounded staleness refresh, so that a ledger is correct in wave 2 with no
 // daemon wiring at all while still being cheap. On expiry the rebuild is simply owed.
 func (l *ledger) refreshAtOpen() {
-	if l.deps.Store == nil || l.blind || l.elim.RebuildOnStale == rebuildNever {
+	if l.deps.Store == nil || l.blind || l.elims().RebuildOnStale == rebuildNever {
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), openRefreshDeadline)
@@ -812,7 +842,7 @@ func (l *ledger) Record(ctx context.Context, r Record) (string, error) {
 		r.TS = core.UnixMilli(l.clk.Now().UnixMilli())
 	}
 	if r.Scope == "" {
-		r.Scope = Scope(l.elim.DefaultScope)
+		r.Scope = Scope(l.elims().DefaultScope)
 	}
 	if r.Status == StatusStale {
 		l.log.Warn("negknow: a record may not be created stale; storing it active", "target", r.Target)
@@ -825,7 +855,7 @@ func (l *ledger) Record(ctx context.Context, r Record) (string, error) {
 
 	normalizeRecord(&r, l.deps.Redact, func(s string) { l.log.Warn("negknow: " + s) })
 
-	if l.elim.RequireEvidence && r.Evidence.IsZero() {
+	if l.elims().RequireEvidence && r.Evidence.IsZero() {
 		l.m.Counter(counterRejectedNoEvidence).Add(1)
 		return "", ErrNoEvidence
 	}
@@ -884,7 +914,7 @@ func (l *ledger) Record(ctx context.Context, r Record) (string, error) {
 	// consumption is therefore 2 x records, which is what every "2 *" in this package is.
 	l.bloom.Add(r.Desc.Key())
 	l.bloom.Add(r.Desc.MatchKey())
-	if l.elim.RebuildOnStale == rebuildNextIdle {
+	if l.elims().RebuildOnStale == rebuildNextIdle {
 		// The added keys live only in memory until a rebuild. Without this the next Open would
 		// have to rebuild synchronously to recover them.
 		l.pending = true
@@ -1007,7 +1037,7 @@ func (l *ledger) Query(ctx context.Context, target, approach string, scope Scope
 	}
 
 	// Every visible match is stale.
-	if l.elim.StaleResponse == staleResponseDrop {
+	if l.elims().StaleResponse == staleResponseDrop {
 		// "drop" suppresses the staleness DETAIL, not the fact that an elimination is on record.
 		// AnswerAbsent would assert this approach was never tried, which the ledger knows to be
 		// false (§11.3 invariant 8); AnswerUncertain reports honestly that applicability cannot be
