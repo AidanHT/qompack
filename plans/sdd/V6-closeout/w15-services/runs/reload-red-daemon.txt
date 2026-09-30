@@ -1,0 +1,47 @@
+# red, recorded by this seat's first pass before the fix (reload.go replaced only the daemon's own copy);
+# the five rows the file had then, run as go test -p 2 ./internal/daemon/ -run 'TestConfigReload_' -count=1 -v
+=== RUN   TestConfigReload_ReachesTheRehydrator
+    config_reload_services_test.go:100: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-services/internal/daemon/config_reload_services_test.go:100
+        	Error:      	Not equal: 
+        	            	expected: int(150)
+        	            	actual  : core.Tokens(12000)
+        	Test:       	TestConfigReload_ReachesTheRehydrator
+        	Messages:   	the rehydration must be built under the reloaded budget
+--- FAIL: TestConfigReload_ReachesTheRehydrator (0.19s)
+=== RUN   TestConfigReload_ReachesTheEliminationLedger
+    config_reload_services_test.go:126: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-services/internal/daemon/config_reload_services_test.go:126
+        	Error:      	Not equal: 
+        	            	expected: 0x4
+        	            	actual  : 0x2
+        	Test:       	TestConfigReload_ReachesTheEliminationLedger
+        	Messages:   	drop, reloaded, without reopening the ledger
+--- FAIL: TestConfigReload_ReachesTheEliminationLedger (0.05s)
+=== RUN   TestConfigReload_ReachesTheSessionRegistry
+    config_reload_services_test.go:137: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-services/internal/daemon/config_reload_services_test.go:137
+        	Error:      	Not equal: 
+        	            	expected: 3
+        	            	actual  : 8
+        	Test:       	TestConfigReload_ReachesTheSessionRegistry
+--- FAIL: TestConfigReload_ReachesTheSessionRegistry (0.05s)
+=== RUN   TestConfigReload_ReachesTheBreachDetector
+    config_reload_services_test.go:147: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-services/internal/daemon/config_reload_services_test.go:147
+        	Error:      	Not equal: 
+        	            	expected: 7ms
+        	            	actual  : 50ms
+        	Test:       	TestConfigReload_ReachesTheBreachDetector
+--- FAIL: TestConfigReload_ReachesTheBreachDetector (0.04s)
+=== RUN   TestConfigReload_ReachesTheIdleController
+    config_reload_services_test.go:158: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-services/internal/daemon/config_reload_services_test.go:158
+        	Error:      	Not equal: 
+        	            	expected: 30s
+        	            	actual  : 2m0s
+        	Test:       	TestConfigReload_ReachesTheIdleController
+--- FAIL: TestConfigReload_ReachesTheIdleController (0.04s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	0.604s
+FAIL

@@ -1,0 +1,38 @@
+# go test -p 2 ./internal/daemon/ -run 'TestConfigReload_|TestReloadKeyEffects_ClassifyEveryKey|TestConfigReloadDefersChunkChange' -count=1 -v
+=== RUN   TestConfigReload_ReachesTheRehydrator
+--- PASS: TestConfigReload_ReachesTheRehydrator (0.08s)
+=== RUN   TestConfigReload_ReachesTheEliminationLedger
+--- PASS: TestConfigReload_ReachesTheEliminationLedger (0.05s)
+=== RUN   TestConfigReload_ReachesTheSessionRegistry
+--- PASS: TestConfigReload_ReachesTheSessionRegistry (0.04s)
+=== RUN   TestConfigReload_ReachesTheBreachDetector
+--- PASS: TestConfigReload_ReachesTheBreachDetector (0.05s)
+=== RUN   TestConfigReload_ReachesTheIdleController
+--- PASS: TestConfigReload_ReachesTheIdleController (0.05s)
+=== RUN   TestConfigReload_ReachesTheStoreRedactor
+--- PASS: TestConfigReload_ReachesTheStoreRedactor (0.14s)
+=== RUN   TestConfigReload_ReachesTheSchedulerRuntime
+--- PASS: TestConfigReload_ReachesTheSchedulerRuntime (0.06s)
+=== RUN   TestConfigReload_HoldsAKeyThatNeedsARestart
+--- PASS: TestConfigReload_HoldsAKeyThatNeedsARestart (0.04s)
+=== RUN   TestReloadKeyEffects_ClassifyEveryKey
+--- PASS: TestReloadKeyEffects_ClassifyEveryKey (0.00s)
+=== RUN   TestConfigReloadDefersChunkChange
+=== PAUSE TestConfigReloadDefersChunkChange
+=== CONT  TestConfigReloadDefersChunkChange
+--- PASS: TestConfigReloadDefersChunkChange (0.05s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	0.827s
+exit=0
+# go test -p 2 ./internal/mcp/ -run '^TestToolsReadTheLiveConfigurationOnEveryCall$' -count=1 -v
+=== RUN   TestToolsReadTheLiveConfigurationOnEveryCall
+--- PASS: TestToolsReadTheLiveConfigurationOnEveryCall (0.14s)
+PASS
+ok  	github.com/qompack/qompack/internal/mcp	0.400s
+exit=0
+# go test -p 2 ./internal/negknow/ -run '^TestQuery_StaleResponseFollowsTheLiveConfiguration$' -count=1 -v
+=== RUN   TestQuery_StaleResponseFollowsTheLiveConfiguration
+--- PASS: TestQuery_StaleResponseFollowsTheLiveConfiguration (0.03s)
+PASS
+ok  	github.com/qompack/qompack/internal/negknow	0.285s
+exit=0

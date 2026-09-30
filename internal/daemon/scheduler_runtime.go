@@ -113,12 +113,18 @@ type SchedulerRuntimeOptions struct {
 	ProjectRoot string
 	Session     core.SessionID // may be empty; bound by the tap on the first SessionStart
 	Cfg         config.Config
-	Clock       core.Clock
-	Log         logging.Logger
-	Metrics     obs.Registry
-	Store       store.Store
-	Graph       dag.Graph
-	Ledger      negknow.Ledger // may be nil
+	// CfgFn, when set, supplies the configuration at each use instead of Cfg. A composition root
+	// passes the daemon's live configuration (Options.CurrentCfg), so a key the daemon's config
+	// reload applies reaches the scheduler's next evaluation and idle pass (V6 close-out D49).
+	// The keys it cannot apply live (the changepoint detector's shape, the cache regime) the
+	// reload holds back until a restart (reload_keys.go), so they never change under it.
+	CfgFn   func() config.Config
+	Clock   core.Clock
+	Log     logging.Logger
+	Metrics obs.Registry
+	Store   store.Store
+	Graph   dag.Graph
+	Ledger  negknow.Ledger // may be nil
 	// LedgerFn resolves the ledger LIVE, on every read, and takes precedence over Ledger.
 	//
 	// It exists because the daemon opens the negative-knowledge ledger LAZILY -- on the first
@@ -146,6 +152,7 @@ type schedRuntime struct {
 	root    string
 	session core.SessionID
 	cfg     config.Config
+	cfgFn   func() config.Config // may be nil; see SchedulerRuntimeOptions.CfgFn and conf
 	clock   core.Clock
 	log     logging.Logger
 	metrics obs.Registry
@@ -256,6 +263,9 @@ func NewSchedulerRuntime(o SchedulerRuntimeOptions) (scheduler.Runtime, error) {
 		getenv = func(string) string { return "" }
 	}
 	cp := o.Cfg.Scheduler.Changepoint
+	if o.CfgFn != nil {
+		cp = o.CfgFn().Scheduler.Changepoint
+	}
 	advancer := o.Frontier
 	if advancer == nil && o.Checkpoints != nil && o.Sources != nil {
 		advancer = checkpoint.NewFrontierAdvancer(o.Checkpoints, o.Sources)
@@ -263,6 +273,7 @@ func NewSchedulerRuntime(o SchedulerRuntimeOptions) (scheduler.Runtime, error) {
 	r := &schedRuntime{
 		root:     o.ProjectRoot,
 		cfg:      o.Cfg,
+		cfgFn:    o.CfgFn,
 		clock:    o.Clock,
 		log:      o.Log,
 		metrics:  o.Metrics,
@@ -285,6 +296,16 @@ func NewSchedulerRuntime(o SchedulerRuntimeOptions) (scheduler.Runtime, error) {
 	scheduler.EnablePSelection()
 	r.count(counterPSelectionEnabled)
 	return r, nil
+}
+
+// conf is the configuration in effect now: the live supplier's when one is wired, the
+// construction-time configuration otherwise. It takes no lock of r's; the supplier's own lock is a
+// leaf, so it is safe with or without mu held.
+func (r *schedRuntime) conf() config.Config {
+	if r.cfgFn != nil {
+		return r.cfgFn()
+	}
+	return r.cfg
 }
 
 func requiredDep(name string) error {
@@ -440,15 +461,15 @@ func (r *schedRuntime) noteBindingEventLocked(e *hookio.Event) {
 }
 
 func (r *schedRuntime) resolveRegimeLocked() scheduler.CacheRegime {
-	return scheduler.ResolveCacheRegime(r.getenv, r.cfg.Scheduler, r.model, r.subagent,
-		r.cfg.Runtime.Scheduler.Cache.AssumeMaxTTLSeconds)
+	return scheduler.ResolveCacheRegime(r.getenv, r.conf().Scheduler, r.model, r.subagent,
+		r.conf().Runtime.Scheduler.Cache.AssumeMaxTTLSeconds)
 }
 
 // resetSessionLocked clears everything session-scoped: the detector, the feature history, the
 // turn histories, the token accounting, the EWMAs, the decision and the local frontier.
 // Checkpoint drafts remain with their owner across a scheduler session change.
 func (r *schedRuntime) resetSessionLocked() {
-	cp := r.cfg.Scheduler.Changepoint
+	cp := r.conf().Scheduler.Changepoint
 	r.det = scheduler.NewBOCD(cp.HazardRate, cp.Features)
 	r.hist = NewFeatureHistory(defaultFeatureWindow)
 	r.asm.Invalidate()
@@ -618,7 +639,7 @@ func (r *schedRuntime) Evaluate(ctx context.Context) (scheduler.Decision, error)
 // evaluation so a single /effort switch produces one cold classification.
 func (r *schedRuntime) evaluateLocked(ctx context.Context) scheduler.Decision {
 	now := r.nowMS()
-	in := scheduler.Inputs{Now: now, Cfg: r.cfg.Scheduler}
+	in := scheduler.Inputs{Now: now, Cfg: r.conf().Scheduler}
 	if r.effectiveWindow > 0 {
 		in.ContextTokens = r.recomputeContextTokensLocked(ctx)
 		in.EffectiveWindow = r.effectiveWindow
@@ -632,12 +653,12 @@ func (r *schedRuntime) evaluateLocked(ctx context.Context) scheduler.Decision {
 		in.FrontierTurn = r.frontier
 		in.ResidualTokens = r.residual
 		in.LastCompactionTS = r.lastCompactionTS
-		in.CouplingLambda = r.cfg.Selection.Submodular.Lambda
+		in.CouplingLambda = r.conf().Selection.Submodular.Lambda
 		in.Regime = r.regime
 		in.LastRequestStartTS = r.lastRequestStartTS
 		in.EffortChanged = r.effortChanged
-		in.ExpiringTriggerFraction = r.cfg.Runtime.Scheduler.Cache.ExpiringTriggerFraction
-		in.AssumeMaxTTLSeconds = r.cfg.Runtime.Scheduler.Cache.AssumeMaxTTLSeconds
+		in.ExpiringTriggerFraction = r.conf().Runtime.Scheduler.Cache.ExpiringTriggerFraction
+		in.AssumeMaxTTLSeconds = r.conf().Runtime.Scheduler.Cache.AssumeMaxTTLSeconds
 		in.HostTriggerAbsent = r.hostTriggerAbsent
 	}
 	d := scheduler.Evaluate(in)
@@ -772,7 +793,7 @@ func (r *schedRuntime) IdleSince() (core.UnixMilli, bool) {
 	if r.lastActivity == 0 {
 		return 0, false
 	}
-	after := core.UnixMilli(r.cfg.Scheduler.Idle.DetectAfterSeconds) * core.UnixMilli(msPerSecondF)
+	after := core.UnixMilli(r.conf().Scheduler.Idle.DetectAfterSeconds) * core.UnixMilli(msPerSecondF)
 	return r.lastActivity, r.nowMS()-r.lastActivity >= after
 }
 
@@ -1043,7 +1064,7 @@ func SchedulerSnapshotOf(rt scheduler.Runtime) (SchedulerSnapshot, bool) {
 		LastDecision:         r.lastDecision,
 		FrontierTurn:         r.frontier,
 		ResidualTokens:       r.residual,
-		MaxResidualTokens:    core.Tokens(r.cfg.Checkpoint.Frontier.MaxResidualTokens),
+		MaxResidualTokens:    core.Tokens(r.conf().Checkpoint.Frontier.MaxResidualTokens),
 		DeltaSeconds:         r.deltaEWMA,
 		DeltaSamples:         r.deltaSamples,
 		BurnRateTokensPerMin: r.burnEWMA,

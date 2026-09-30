@@ -1,0 +1,8 @@
+# rerun alone: go test -p 2 ./internal/negknow/ -run '^TestBudget_RebuildBloom$' -count=1 -v
+=== RUN   TestBudget_RebuildBloom
+    bench_test.go:718: BenchmarkRebuildBloom: 16.826923ms CPU/op over 91 iterations (best of 1) against a 50ms budget
+    bench_test.go:718: BenchmarkRebuildBloom: 15.914707ms wall/op over 91 iterations (best of 1) against a 50ms budget
+--- PASS: TestBudget_RebuildBloom (1.73s)
+PASS
+ok  	github.com/qompack/qompack/internal/negknow	2.050s
+exit=0

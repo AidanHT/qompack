@@ -219,8 +219,8 @@ func (r *schedRuntime) saveStateLocked() (stateFiles, error) {
 		Version:    stateVersion,
 		Session:    r.session,
 		Updated:    now,
-		HazardRate: r.cfg.Scheduler.Changepoint.HazardRate,
-		Features:   r.cfg.Scheduler.Changepoint.Features,
+		HazardRate: r.conf().Scheduler.Changepoint.HazardRate,
+		Features:   r.conf().Scheduler.Changepoint.Features,
 		State:      base64.StdEncoding.EncodeToString(raw),
 	})
 	if err != nil {
@@ -310,7 +310,7 @@ func (r *schedRuntime) restoreBOCDLocked(raw []byte, p string) {
 		r.log.Info(msgStateOtherSession, "path", p, "file_session", string(doc.Session), "session", string(r.session))
 		return
 	}
-	cp := r.cfg.Scheduler.Changepoint
+	cp := r.conf().Scheduler.Changepoint
 	if doc.HazardRate != cp.HazardRate || !slices.Equal(doc.Features, cp.Features) {
 		r.log.Warn(msgStateModelShapeChanged, "path", p,
 			"file_hazard_rate", doc.HazardRate, "hazard_rate", cp.HazardRate,

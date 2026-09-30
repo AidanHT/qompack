@@ -3,6 +3,7 @@ package daemon
 import (
 	"context"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/qompack/qompack/internal/paths"
@@ -54,14 +55,17 @@ const spoolCheckInterval = idleRunBudget
 // gosec reads a constant named for passes as a hard-coded credential.)
 const counterSpoolWatchDrains = "l0_spool_watch_drains"
 
-// spoolWatcher is the watcher's configuration and its kick. New creates it; only the watcher's own
-// goroutine (watchClientSpools) reads the durations after that, and only tests change them, before
-// the watcher starts.
+// spoolWatcher is the watcher's configuration and its kick. New creates it; tests change the
+// durations before the watcher starts, and after that only a config reload changes the horizon,
+// through setHorizon, while the watcher's own goroutine (watchClientSpools) reads it through
+// horizonNow.
 type spoolWatcher struct {
 	// kick is signalled by every served request (kickSpoolWatch). Capacity one: kicks merge.
 	kick chan struct{}
 	// every is spoolCheckInterval.
 	every time.Duration
+	// mu guards horizon once the watcher runs.
+	mu sync.Mutex
 	// horizon is how long a spool its passes cannot consume keeps being retried: the idle drain's
 	// own DetectAfterSeconds, after which that drain covers it.
 	horizon time.Duration
@@ -69,6 +73,31 @@ type spoolWatcher struct {
 
 func newSpoolWatcher(horizon time.Duration) *spoolWatcher {
 	return &spoolWatcher{kick: make(chan struct{}, 1), every: spoolCheckInterval, horizon: horizon}
+}
+
+// horizonNow is the watcher's current retry horizon.
+func (w *spoolWatcher) horizonNow() time.Duration {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.horizon
+}
+
+// setHorizon applies a reloaded idle horizon (scheduler.idle.detectAfterSeconds) to the watcher.
+func (w *spoolWatcher) setHorizon(h time.Duration) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.horizon = h
+}
+
+// setDetectAfter applies a reloaded scheduler.idle.detectAfterSeconds, with newIdleController's
+// fallback for a value <= 0.
+func (c *idleController) setDetectAfter(afterSeconds int) {
+	if afterSeconds <= 0 {
+		afterSeconds = defaultIdleDetectAfterSeconds
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.afterSeconds = afterSeconds
 }
 
 // detectAfter is the idle horizon the controller was built with (DetectAfterSeconds).
@@ -172,6 +201,7 @@ func (d *daemon) lookAtClientSpools(ctx context.Context, entries map[string]*spo
 	now time.Time,
 ) (rest time.Duration, more bool) {
 	w := d.spool
+	horizon := w.horizonNow()
 	listed, err := os.ReadDir(paths.Long(paths.Of(d.root).Spool))
 	if err != nil {
 		listed = nil // no spool directory: nothing was spooled
@@ -197,7 +227,7 @@ func (d *daemon) lookAtClientSpools(ctx context.Context, entries map[string]*spo
 			continue
 		}
 		e.settled = true
-		if ok, _ := e.retryDue(now, w.horizon); ok {
+		if ok, _ := e.retryDue(now, horizon); ok {
 			due[base] = e
 		}
 	}
@@ -246,7 +276,7 @@ func (d *daemon) lookAtClientSpools(ctx context.Context, entries map[string]*spo
 	// next time.
 	var earliest time.Time
 	for _, e := range entries {
-		if _, waiting := e.retryDue(now, w.horizon); waiting && (earliest.IsZero() || e.next.Before(earliest)) {
+		if _, waiting := e.retryDue(now, horizon); waiting && (earliest.IsZero() || e.next.Before(earliest)) {
 			earliest = e.next
 		}
 	}

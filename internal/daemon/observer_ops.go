@@ -51,6 +51,9 @@ const (
 // when their fields are nil, and assigned back onto *Options so New copies the SAME instances
 // into Services — the observer and every route must share one store, one graph, one sketch set.
 func WireObserver(o *Options) (observer.Observer, error) {
+	// Wiring time: the store below reads the live configuration's cell, which must exist before
+	// New copies Options (config_live.go).
+	o.ensureLiveConfig()
 	log := o.Log
 	if log == nil {
 		log = logging.Nop()
@@ -69,6 +72,9 @@ func WireObserver(o *Options) (observer.Observer, error) {
 	if o.Store == nil {
 		st, err := store.Open(o.ProjectRoot, o.Cfg, store.Deps{
 			Symbols: syms, Log: log, Metrics: o.Metrics, Clock: clk,
+			// runtime.redact as the live configuration has it at each Put: a secret pattern a
+			// config reload adds binds the next capture (V6 close-out D49).
+			Redact: NewLiveRedactor(o.CurrentCfg),
 		})
 		if err != nil {
 			return nil, fmt.Errorf("daemon: wire observer: open store: %w", err)

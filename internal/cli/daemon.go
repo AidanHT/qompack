@@ -110,15 +110,19 @@ func runDaemon(ctx context.Context, env Env, args []string, out, errw io.Writer)
 	// Loud line task-6-spec.md's fault table names for it.
 	faultCorruptConfigIfNeeded(root)
 
-	cfg, _, cfgErr := LoadConfigAndReport(config.Env{
+	cfgEnv := config.Env{
 		ProjectRoot: root, HomeDir: homeDir(env), Getenv: env.Getenv, Flags: env.Set,
-	}, log, reg)
+	}
+	cfg, _, cfgErr := LoadConfigAndReport(cfgEnv, log, reg)
 	if cfgErr != nil {
 		cfg = config.Defaults()
 		log.Loud("daemon: could not load configuration, using defaults", "err", cfgErr.Error())
 	}
 
 	opts := daemon.NewOptions(root, cfg)
+	// The daemon's config reload loads through the same environment, so it neither drops a --set
+	// flag nor reads a different home than this load did.
+	opts.CfgEnv = cfgEnv
 	opts.Log = log
 	opts.Metrics = reg
 	opts.Clock = core.SystemClock() // §6.1's own "connection deadlines are always real wall-clock time" rule applies to the daemon's own lifecycle clock too.
@@ -337,6 +341,7 @@ func installMCPTools(opts *daemon.Options, root string, cfg config.Config,
 	// opens the ledger if no compaction has yet; passing a value here would freeze the nil for the
 	// life of the process.
 	deps := NewToolDeps(root, cfg, opts.Store, openingLedger(opts), ckptReader, dropReporter, prom, syms, log, reg, clk)
+	liveToolConfig(&deps, opts)
 	if err := daemon.InstallMCPOp(opts, deps); err != nil {
 		log.Loud("mcp: retrieval tools unavailable; the daemon is running without them", "err", err.Error())
 	}
