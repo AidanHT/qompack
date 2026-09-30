@@ -356,7 +356,19 @@ value is refused as a violation (`internal/config/validate.go`) — and the key
 
 **Symptom.** Retrieved content is shorter, emptier or stranger than the thing you remember.
 
-**Diagnose.** Read the record's `Fidelity`. The eight values and what each means are tabulated in
+**Diagnose.** Read the capture's fidelity where it is recorded: on the capture's sidecar record,
+one JSON file per host delivery under `.qompack/records/captures/<xx>/<observation id>.json`. No
+retrieval response carries it — `expand` and `re_read` report only what the read itself did (`span`,
+`truncated`, a `«redacted:…»` placeholder) — and no command prints it: the `fidelity:` line of
+`qompack fsck` is store-level restore fidelity, a different enumeration. To find the sidecar for a
+tool result, search the sidecars for its host `tool_use_id` (the one a `recall` hit names, or the
+one you passed to `expand`; not the `qompack-mcp:…` id of the call itself), for example
+`grep -l '"tool_use_id":"toolu_…"' .qompack/records/captures/*/*.json`, or in PowerShell
+`Select-String -List -SimpleMatch '"tool_use_id":"toolu_…"' .qompack\records\captures\*\*.json`; a
+prompt has no `tool_use_id`, so match its `session` and `op` `observe.prompt`. In the sidecar read
+`fidelity`, and beside it `redacted`, `truncated`, `source_bytes` (the size the host delivered),
+`outcome` and `capture_error`. The file also holds the permitted payload itself (`bytes`), so treat
+it like the rest of the store. The eight values and what each means are tabulated in
 [docs/user-guide.md](user-guide.md#fidelity-coverage-and-error-states); the actions are here.
 
 | Fidelity | What to do about it |
@@ -376,6 +388,11 @@ live-disk fallback anywhere in retrieval, and none may be added
 contents for a missing historical original would bypass every capture-time policy the original went
 through, and is the defect the contract forbids. **Nothing is reconstructed from current files.**
 
+**Binary files read `exact`.** A capture of a binary file's `cat` output or of an image is the text
+or base64 the host delivered, so its fidelity is `exact` and a search for the file's original bytes
+finds nothing; a `Read` the host refused as binary was never captured at all. The host decodes;
+Qompack does not ([docs/user-guide.md](user-guide.md#fidelity-coverage-and-error-states)).
+
 **Subagent work.** A child agent's detail enters the archive through one door: `internal/observer`'s
 step 8, "On `SubagentStop`, capture the subagent's returned summary and its tool-result hashes, so
 the parent gains a retrieval path into detail it never held" (`internal/observer/doc.go`). If that
@@ -385,7 +402,7 @@ hook did not fire, the child's work was not captured by another route.
 hook at all, and therefore whether it lands as `prefix`, `partial` or nothing, was not probed on
 this tree; Qompack records what the host delivers and has no separate notion of an interruption.
 To settle it: interrupt a long-running tool call in an installed host session, then read that
-record's fidelity through `expand`.
+capture's sidecar under `.qompack/records/captures/` as above.
 
 **Action.** Treat fidelity as the answer to "what may I quote from this?", and stop there.
 
@@ -449,8 +466,8 @@ covering what you asked for, widened to a symbol boundary where one is known
 ([docs/mcp-tools.md](mcp-tools.md#expand)).
 
 **Action.** Page with the `next_span` in the response, or pass `full: true` when you genuinely need
-the whole object. Note that `full: true` returns the whole *available* object — fidelity and
-coverage still qualify it.
+the whole object. Note that `full: true` returns the whole *available* object — the capture's
+fidelity, recorded on its sidecar and not in the response ([§3](#3-capture-gaps)), still qualifies it.
 
 ---
 
