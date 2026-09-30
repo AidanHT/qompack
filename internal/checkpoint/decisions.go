@@ -22,6 +22,7 @@ import (
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/dag"
 	"github.com/qompack/qompack/internal/negknow"
+	"github.com/qompack/qompack/internal/pins"
 	"github.com/qompack/qompack/internal/tokens"
 )
 
@@ -419,18 +420,71 @@ func (x *decisionExtractor) fromPins(ctx context.Context, cands []decisionCandid
 		return cands, nil
 	}
 	for _, inv := range invs {
-		if inv.Source != decisionPinSource {
-			continue
+		if d, ok := pinDecision(inv, x.from); ok {
+			cands = append(cands, decisionCandidate{d: d})
 		}
-		what, why, split := strings.Cut(inv.Text, decisionPinSeparator)
-		if !split {
-			what, why = inv.Text, defaultPinWhy
-		}
-		d := Decision{What: what, Why: why, Turn: x.from}
-		d.ID = MintDecisionID(what, why, core.Hash{})
-		cands = append(cands, decisionCandidate{d: d})
 	}
 	return cands, nil
+}
+
+// pinDecision is source (c) for one pin: a pin recorded as a decision, split into what/why on the
+// first " because ", with no evidence and the given turn. Any other pin mints nothing.
+func pinDecision(inv pins.Invariant, turn core.TurnIndex) (Decision, bool) {
+	if inv.Source != decisionPinSource {
+		return Decision{}, false
+	}
+	what, why, split := strings.Cut(inv.Text, decisionPinSeparator)
+	if !split {
+		what, why = inv.Text, defaultPinWhy
+	}
+	d := Decision{What: what, Why: why, Turn: turn}
+	d.ID = MintDecisionID(what, why, core.Hash{})
+	return d, true
+}
+
+// carryDecisionsLocked seeds a draft with the decisions of the session's previous checkpoint that
+// still hold (coordinator decision D49, F-C4-UAT06-2). A draft mints decisions only from what it
+// encodes or refreshes at or after its own frontier, so the successor a seal opens — and the draft
+// a restarted daemon begins from the session's newest checkpoint — started with none, and the
+// session's next checkpoint lost every decision minted before its frontier while the elimination
+// behind one was still carried. Eliminations carry because Begin re-reads the ledger; decisions now
+// carry from the checkpoint that holds them, keeping their id and turn, merged under the same
+// ranking and cap as every extraction pass (mergeDecisionsLocked).
+//
+// A decision carries while its source holds. The artifact keeps no per-decision provenance (the
+// Decision shape is frozen), so the source is read off the shape each source mints:
+//
+//   - an elimination's decision (source b, the only one with a rejected alternative) holds while
+//     the record that mints it is among the eliminations this draft carries;
+//   - a pinned decision (source c: no rejected alternative, no evidence) holds while a decision pin
+//     in invs still mints it;
+//   - an EdgeExplains decision (source a) holds: the explains edge is durable in the DAG.
+//
+// Caller holds d.mu or owns d before publication; d.cp.Eliminated must already be seeded.
+func (d *Draft) carryDecisionsLocked(prev []Decision, invs []pins.Invariant) {
+	if len(prev) == 0 {
+		return
+	}
+	holds := make(map[core.DecisionID]bool, len(d.cp.Eliminated)+len(invs))
+	for _, r := range d.cp.Eliminated {
+		if dec, ok := eliminationDecision(r, 0); ok {
+			holds[dec.ID] = true
+		}
+	}
+	for _, inv := range invs {
+		if dec, ok := pinDecision(inv, 0); ok {
+			holds[dec.ID] = true
+		}
+	}
+	cands := make([]decisionCandidate, 0, len(prev))
+	for _, dec := range prev {
+		explains := len(dec.AlternativesRejected) == 0 && dec.Evidence != (core.Hash{})
+		if !explains && !holds[dec.ID] {
+			continue
+		}
+		cands = append(cands, decisionCandidate{d: dec})
+	}
+	d.mergeDecisionsLocked(cands)
 }
 
 // text reads the content at root through the store, capped at maxExplainingReadBytes, strips
