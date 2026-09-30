@@ -606,9 +606,15 @@ carried at all.
 2. Capture the injected block from the resumed session's context. `[requires SP-17 artifact]`
 3. Read `.qompack/state/rehydrate-<session>.json`, the persisted rehydration state for that session.
 4. Run `/qompack:dropped --json` and capture the envelope.
-5. Repeat the run with a deliberately tiny budget (`--set runtime.rehydrate.maxTokens=<small>` on a
-   hook invocation, or a project config setting both bounds low) to force an overflow, and capture
-   the same three artifacts.
+5. Repeat the run with a deliberately tiny budget to force an overflow, and capture the same three
+   artifacts. The rehydration is built by the project's daemon under the daemon's own
+   configuration, so set the budget where the daemon reads it: both `runtime.rehydrate.minTokens`
+   and `runtime.rehydrate.maxTokens` low in `<project>/.qompack/config.json`, then make sure the
+   daemon that answers the compaction was started after that edit — end the running one (its idle
+   exit, or the `pid` in `.qompack/run/daemon.lock`,
+   [docs/troubleshooting.md](troubleshooting.md#7-daemon-problems)) so the next
+   `session-start` starts one under the new file. A `--set` on a hook invocation does not change
+   the budget: it configures that hook process only, and a daemon the hook starts is not given it.
 
 **Expected observable result**
 
