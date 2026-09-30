@@ -620,9 +620,17 @@ func (w *FileWriter) seedTierOne(ctx context.Context, d *Draft, parent core.Chec
 		d.cp.Eliminated = append(d.cp.Eliminated, r)
 	}
 	// The session's decisions carry from its previous checkpoint while they hold (D49), after
-	// the eliminations they may depend on are seeded.
-	if own != nil {
-		d.carryDecisionsLocked(own.Decisions, invs)
+	// the eliminations they may depend on are seeded. When the derived parent is another
+	// session's (a cold draft begun after someone else sealed), the carry reads this session's
+	// own newest checkpoint instead, as seedIntent's fallback does; parent and intent are unchanged.
+	carryFrom := own
+	if carryFrom == nil && derived {
+		if latest, ok := w.ownLatest(ctx, d.session); ok {
+			carryFrom = &latest
+		}
+	}
+	if carryFrom != nil {
+		d.carryDecisionsLocked(carryFrom.Decisions, invs)
 	}
 	return nil
 }

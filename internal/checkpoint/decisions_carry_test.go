@@ -132,3 +132,32 @@ func TestCarriedDecisionEndsWhenItsPinIsRemoved(t *testing.T) {
 	require.Empty(t, pinned(second), "a removed decision pin no longer holds: %+v", second.Decisions)
 	require.Len(t, rejected(second, carryApproach), 1)
 }
+
+// TestColdDraftCarriesDecisionsPastAnotherSessionsSeal: the session's successor draft file is gone
+// (removed, or set aside as unreadable or claimed after a crash) and ANOTHER session sealed the
+// project's newest checkpoint in between, so the cold draft's derived parent is not this session's.
+// The decision carry reads the session's own newest checkpoint then, as the intent seed already
+// does, rather than carrying nothing.
+func TestColdDraftCarriesDecisionsPastAnotherSessionsSeal(t *testing.T) {
+	f := newFx(t)
+	first := sealFirstWithDecision(t, f)
+	want := rejected(first, carryApproach)[0]
+
+	const other = core.SessionID("sess_carry_other")
+	between := f.sealed(t, f.precompactAs(other).Ref.Seq)
+	require.Equal(t, other, between.Session, "fixture sanity: the project's newest seal is another session's")
+	require.NoError(t, os.Remove(paths.Long(f.draftPath())))
+
+	w, err := checkpoint.OpenWriter(f.p.Root, f.p.Cfg, f.p.Log, obs.New(f.p.Clock), f.p.Clock)
+	require.NoError(t, err)
+	f.w = w
+	f.tool("toolu_carry_0006", 14, "Read", "docs/notes.md", "notes", false)
+	f.closedSeg(4, 13, 15)
+	second := f.sealed(t, f.precompactAs(f.sess).Ref.Seq)
+	require.Equal(t, f.sess, second.Session)
+
+	got := rejected(second, carryApproach)
+	require.Len(t, got, 1, "the decision holds past another session's seal: %+v", second.Decisions)
+	require.Equal(t, want.ID, got[0].ID)
+	require.Len(t, pinned(second), 1)
+}
