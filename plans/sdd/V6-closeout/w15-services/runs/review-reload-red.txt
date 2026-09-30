@@ -1,0 +1,87 @@
+# RED: go test -p 2 -count=1 -run '^(TestConfigReload_ChunkChangeNeedsARestart|TestConfigReload_NamesAKeyWithNoEffect|TestReloadKeyEffects_InertKeysHaveNoReader|TestRunClearsAConfigChangeItsStartApplied)$' ./internal/daemon/ (tests added, reloadResult/effectInert introduced with no behaviour)
+--- FAIL: TestConfigReload_ChunkChangeNeedsARestart (0.06s)
+    config_reload_services_test.go:257: 
+        	Error Trace:	internal/daemon/config_reload_services_test.go:257
+        	Error:      	[]string(nil) does not contain "store.chunk.target"
+        	Test:       	TestConfigReload_ChunkChangeNeedsARestart
+        	Messages:   	a chunk change needs a daemon restart
+--- FAIL: TestConfigReload_NamesAKeyWithNoEffect (0.06s)
+    config_reload_services_test.go:277: 
+        	Error Trace:	internal/daemon/config_reload_services_test.go:277
+        	Error:      	Not equal: 
+        	            	expected: []string{"runtime.daemon.maxSessions"}
+        	            	actual  : []string{"runtime.daemon.maxSessions", "runtime.logging.level"}
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,3 +1,4 @@
+        	            	-([]string) (len=1) {
+        	            	- (string) (len=26) "runtime.daemon.maxSessions"
+        	            	+([]string) (len=2) {
+        	            	+ (string) (len=26) "runtime.daemon.maxSessions",
+        	            	+ (string) (len=21) "runtime.logging.level"
+        	            	 }
+        	Test:       	TestConfigReload_NamesAKeyWithNoEffect
+--- FAIL: TestReloadKeyEffects_InertKeysHaveNoReader (0.00s)
+    config_reload_services_test.go:297: 
+        	Error Trace:	internal/daemon/config_reload_services_test.go:297
+        	Error:      	elements differ
+        	            	
+        	            	extra elements in list A:
+        	            	([]interface {}) (len=5) {
+        	            	 (string) (len=22) "selection.deltaScoring",
+        	            	 (string) (len=31) "selection.submodular.lazyGreedy",
+        	            	 (string) (len=15) "runtime.logging",
+        	            	 (string) (len=17) "runtime.telemetry",
+        	            	 (string) (len=37) "runtime.selection.loopWarningsEnabled"
+        	            	}
+        	            	
+        	            	
+        	            	listA:
+        	            	([]string) (len=5) {
+        	            	 (string) (len=22) "selection.deltaScoring",
+        	            	 (string) (len=31) "selection.submodular.lazyGreedy",
+        	            	 (string) (len=15) "runtime.logging",
+        	            	 (string) (len=17) "runtime.telemetry",
+        	            	 (string) (len=37) "runtime.selection.loopWarningsEnabled"
+        	            	}
+        	            	
+        	            	
+        	            	listB:
+        	            	([]string) <nil>
+        	Test:       	TestReloadKeyEffects_InertKeysHaveNoReader
+--- FAIL: TestRunClearsAConfigChangeItsStartApplied (1.30s)
+    daemon_test.go:961: 
+        	Error Trace:	internal/daemon/daemon_test.go:961
+        	Error:      	Should be true
+        	Test:       	TestRunClearsAConfigChangeItsStartApplied
+        	Messages:   	a started daemon applied the pending change; the record must go
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	1.731s
+FAIL
+exit=1
+
+# RED: go test -p 2 -count=1 -run '^TestDaemonConfigReload_NamesChunkAndInertKeys$' ./internal/cli/ (daemon fix files stashed)
+--- FAIL: TestDaemonConfigReload_NamesChunkAndInertKeys (0.21s)
+    config_reload_live_test.go:122: 
+        	Error Trace:	internal/cli/config_reload_live_test.go:122
+        	Error:      	Not equal: 
+        	            	expected: []string{"runtime.daemon.maxSessions"}
+        	            	actual  : []string{"runtime.daemon.maxSessions", "runtime.logging.level"}
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,3 +1,4 @@
+        	            	-([]string) (len=1) {
+        	            	- (string) (len=26) "runtime.daemon.maxSessions"
+        	            	+([]string) (len=2) {
+        	            	+ (string) (len=26) "runtime.daemon.maxSessions",
+        	            	+ (string) (len=21) "runtime.logging.level"
+        	            	 }
+        	Test:       	TestDaemonConfigReload_NamesChunkAndInertKeys
+FAIL
+FAIL	github.com/qompack/qompack/internal/cli	0.629s
+FAIL
+exit=1

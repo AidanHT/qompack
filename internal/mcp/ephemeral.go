@@ -80,7 +80,7 @@ type ephemeralRec struct {
 func (h *handlers) recordEphemeral(ctx context.Context, r Request, toolName string,
 	body []byte, path string,
 ) ephemeralRec {
-	if !h.cfg.Retrieval.EphemeralResults || h.store == nil || len(body) == 0 {
+	if !h.conf().Retrieval.EphemeralResults || h.store == nil || len(body) == 0 {
 		return ephemeralRec{}
 	}
 

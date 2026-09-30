@@ -90,8 +90,10 @@ func TestRecallSelectorPrefixesParsed(t *testing.T) {
 		"query": "path:src/*.ts symbol:refreshToken tool:Read retry",
 	}, &body)
 
+	// K is the store's whole ranked answer, not the caller's k: recall takes k PERMITTED hits from
+	// it, so asking for exactly k would let every withheld hit cost the caller a permitted one (D49).
 	require.Equal(t, store.Query{
-		Text: "retry", Path: "src/*.ts", Symbol: "refreshToken", Tool: "Read", K: 5,
+		Text: "retry", Path: "src/*.ts", Symbol: "refreshToken", Tool: "Read", K: store.MaxSearchK,
 	}, spy.lastQuery(t), "the selector prefixes did not reach store.Search as separate fields")
 	require.Equal(t, recallQuery{
 		Text: "retry", Path: "src/*.ts", Symbol: "refreshToken", Tool: "Read",

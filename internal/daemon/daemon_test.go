@@ -858,8 +858,9 @@ func feedBreachingWindow(dd *daemon) {
 }
 
 // TestConfigReloadDefersChunkChange: a store.chunk.* change in config.json is picked up on
-// reload but deferred — the live config keeps the old chunk block, and the full new config is
-// recorded to state/config-pending.json.
+// reload but held until a daemon restart — the live config keeps the old chunk block, and the full
+// new config is recorded to state/config-pending.json (TestConfigReload_ChunkChangeNeedsARestart
+// covers how the reload names it).
 func TestConfigReloadDefersChunkChange(t *testing.T) {
 	t.Parallel()
 
@@ -929,6 +930,36 @@ func TestIdleExitWithZeroSessions(t *testing.T) {
 	require.True(t, os.IsNotExist(statErr), "state.bin must be removed on idle exit")
 	_, lockErr := os.Stat(paths.Long(filepath.Join(paths.Of(root).Run, lockFileName)))
 	require.True(t, os.IsNotExist(lockErr), "daemon.lock must be released on idle exit")
+}
+
+// TestRunClearsAConfigChangeItsStartApplied: state/config-pending.json records a store.chunk.* change
+// the running daemon holds until a restart (reload.go). A daemon that starts has loaded config.json
+// itself, so the change the file records is in effect and the file no longer names anything a
+// restart would apply; left behind, it would claim a pending change for ever.
+func TestRunClearsAConfigChangeItsStartApplied(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("QOMPACK_IPC_ADDR", uniqueTestAddr(t))
+	require.NoError(t, os.MkdirAll(paths.Long(paths.Of(root).State), 0o700))
+	require.NoError(t, os.WriteFile(paths.Long(configPendingPath(root)), []byte(`{}`), 0o600))
+
+	cfg := testConfig()
+	cfg.Runtime.Daemon.IdleExitSeconds = 1
+	d, err := New(Options{ProjectRoot: root, Cfg: cfg, Log: logging.Nop(), Clock: core.SystemClock()})
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	errCh := make(chan error, 1)
+	go func() { errCh <- d.Run(ctx) }()
+	select {
+	case err := <-errCh:
+		require.NoError(t, err)
+	case <-time.After(12 * time.Second):
+		t.Fatal("Run did not exit on its own after the idle-exit window")
+	}
+
+	_, statErr := os.Stat(paths.Long(configPendingPath(root)))
+	require.True(t, os.IsNotExist(statErr), "a started daemon applied the pending change; the record must go")
 }
 
 // TestRunReturnsNilWhenLockHeld: a second daemon over the same project returns nil promptly,

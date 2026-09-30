@@ -35,7 +35,7 @@ import (
 // this number, and a second copy here would be the magic constant §11.6 forbids and would drift
 // from the documented default the first time either moved.
 func (s *rehydrateService) selectionLambda() float64 {
-	return s.o.Cfg.Selection.Submodular.Lambda
+	return s.cfg().Selection.Submodular.Lambda
 }
 
 // selectionFor runs representation selection for one rehydration, or reports nil when selection is
@@ -51,7 +51,7 @@ func (s *rehydrateService) selectionFor(
 	// The ship-order gate, checked here as well as inside NewSelector. The constructor's refusal
 	// is the structural guarantee; this one is the OPERATOR's switch, and it is checked first so
 	// that a disabled selector costs no store reads, no candidate construction and no log line.
-	if !s.o.Cfg.Runtime.Selection.SubmodularEnabled {
+	if !s.cfg().Runtime.Selection.SubmodularEnabled {
 		return nil
 	}
 

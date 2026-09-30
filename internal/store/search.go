@@ -42,10 +42,18 @@ const (
 const (
 	maxCandidates = 512
 	maxScanBytes  = 32 << 20
-	maxK          = 100
-	// defaultK is the `recall(query, k=5)` default of Qompack.md §8.7.
-	defaultK = 5
+	maxK          = MaxSearchK
+	defaultK      = DefaultSearchK
 )
+
+// MaxSearchK is the most hits one Search returns, whatever Query.K asks for. It is exported so a
+// caller that filters hits after the search (recall withholds the ones authorization refuses) can ask
+// for the whole ranked answer the store will give, rather than for a k it would then fall short of.
+const MaxSearchK = 100
+
+// DefaultSearchK is the number of hits a Query with no K asks for: the `recall(query, k=5)` default
+// of Qompack.md §8.7.
+const DefaultSearchK = 5
 
 // ErrBadPathGlob reports a Query.Path that carries glob metacharacters but is not a pattern
 // path.Match can parse. It is the caller's mistake, so it is an error rather than an empty result:

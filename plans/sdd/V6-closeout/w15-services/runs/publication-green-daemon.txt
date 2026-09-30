@@ -1,0 +1,17 @@
+=== RUN   TestLoudPublicationGaps_AnnouncesAnUnpublishedCapture
+--- PASS: TestLoudPublicationGaps_AnnouncesAnUnpublishedCapture (0.05s)
+=== RUN   TestLoudPublicationGaps_QuietWhenClean
+--- PASS: TestLoudPublicationGaps_QuietWhenClean (0.03s)
+=== RUN   TestAccountPublicationGaps_UnobservedForNonAuditorStore
+--- PASS: TestAccountPublicationGaps_UnobservedForNonAuditorStore (0.00s)
+=== RUN   TestStartupPublicationAccounting_HealthyLiveRunSizedStoreIsNeverLoud
+    publication_startup_test.go:69: one full accounting pass over 70 captures and 380 objects took 874.4722ms (startup bound 250ms)
+--- PASS: TestStartupPublicationAccounting_HealthyLiveRunSizedStoreIsNeverLoud (5.55s)
+=== RUN   TestStartupPublicationAccounting_FinishesPastTheBoundInTheBackground
+--- PASS: TestStartupPublicationAccounting_FinishesPastTheBoundInTheBackground (4.84s)
+=== RUN   TestStartupPublicationAccounting_BackgroundPassAnnouncesARealGap
+--- PASS: TestStartupPublicationAccounting_BackgroundPassAnnouncesARealGap (0.05s)
+=== RUN   TestStartupPublicationAccounting_StoppedBackgroundPassIsNotLoud
+--- PASS: TestStartupPublicationAccounting_StoppedBackgroundPassIsNotLoud (4.19s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	14.958s

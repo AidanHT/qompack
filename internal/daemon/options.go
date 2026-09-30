@@ -30,9 +30,14 @@ import (
 type Options struct {
 	ProjectRoot string
 	Cfg         config.Config
-	Log         logging.Logger
-	Metrics     obs.Registry
-	Clock       core.Clock
+	// CfgEnv is the environment the composition root loaded Cfg from. A config reload loads
+	// through it, so a reload sees the same home directory, environment and --set flags the daemon
+	// started with and never reports a flag it dropped as a changed key. A zero CfgEnv (no
+	// ProjectRoot) means the process's own: ProjectRoot, the user's home and os.Getenv.
+	CfgEnv  config.Env
+	Log     logging.Logger
+	Metrics obs.Registry
+	Clock   core.Clock
 
 	Store       store.Store
 	Ledger      negknow.Ledger
@@ -79,6 +84,11 @@ type Options struct {
 	// the raw field this replaced was a data race on a two-word interface value, which under the
 	// detector is a CI failure and without it is a non-nil interface over a nil data pointer.
 	ledger *ledgerCell
+
+	// live is the daemon's live configuration (config_live.go), a POINTER for the reason ledger is:
+	// New copies Options by value, and the services wiring builds must read the same cell the
+	// daemon's reload writes. NewOptions creates it; a wiring function creates it on a literal.
+	live *liveConfig
 
 	// handlers is the op-routing table. It is a map rather than a switch so a later wave adds an
 	// op by calling Handle at wiring time instead of editing a function in this package — the
@@ -170,6 +180,7 @@ func NewOptions(projectRoot string, cfg config.Config) Options {
 		Clock:       clk,
 		Sketches:    NewSketchSet(cfg),
 		ledger:      &ledgerCell{},
+		live:        &liveConfig{},
 	}
 }
 

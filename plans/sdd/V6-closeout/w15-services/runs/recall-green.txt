@@ -1,0 +1,10 @@
+=== RUN   TestRecallSelectorPrefixesParsed
+--- PASS: TestRecallSelectorPrefixesParsed (0.08s)
+=== RUN   TestRecallKCountsPermittedHits
+--- PASS: TestRecallKCountsPermittedHits (0.12s)
+=== RUN   TestRecallDeniedIsACountWhenFewerPermittedExist
+--- PASS: TestRecallDeniedIsACountWhenFewerPermittedExist (0.13s)
+=== RUN   TestRecallRanksSelfRecordsAfterOriginalCaptures
+--- PASS: TestRecallRanksSelfRecordsAfterOriginalCaptures (0.19s)
+PASS
+ok  	github.com/qompack/qompack/internal/mcp	0.936s

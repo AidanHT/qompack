@@ -1,0 +1,7 @@
+# rerun alone: go test -p 2 ./internal/mcp/ -run '^TestBudgetBF$' -count=1 -v
+=== RUN   TestBudgetBF
+    bench_test.go:141: B-F over 2000 tool uses: limit=250ms n=200 p50=49.152ms p95=98.304ms p99=122.88ms max=3.895929s
+--- PASS: TestBudgetBF (108.68s)
+PASS
+ok  	github.com/qompack/qompack/internal/mcp	132.329s
+exit=0

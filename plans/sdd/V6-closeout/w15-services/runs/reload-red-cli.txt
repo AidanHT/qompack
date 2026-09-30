@@ -1,0 +1,14 @@
+# red: internal/cli/daemon.go with the liveToolConfig(&deps, opts) call removed (the pre-fix wiring)
+# go test -p 2 ./internal/cli/ -run 'TestDaemonConfigReload_ReachesTheRetrievalTools' -count=1 -v
+=== RUN   TestDaemonConfigReload_ReachesTheRetrievalTools
+    config_reload_live_test.go:77: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-services/internal/cli/daemon_bootstrap_test.go:189
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-services/internal/cli/config_reload_live_test.go:77
+        	Error:      	Should be false
+        	Test:       	TestDaemonConfigReload_ReachesTheRetrievalTools
+        	Messages:   	a degradation is not a tool error: [{text cannot record a session-scoped elimination: no live session — pass scope="project", or retry once a session is active map[]}]
+--- FAIL: TestDaemonConfigReload_ReachesTheRetrievalTools (0.12s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/cli	0.399s
+FAIL
+exit=1
