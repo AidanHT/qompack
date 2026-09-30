@@ -37,6 +37,20 @@ func writeReloadConfig(t *testing.T, root, body string) {
 // reported, applied and held for a restart.
 func adminReload(t *testing.T, root string) (changed, restart []string) {
 	t.Helper()
+	body := adminReloadBody(t, root)
+	return body.Changed, body.Restart
+}
+
+// adminReloadReply is admin.reload's answer.
+type adminReloadReply struct {
+	Changed  []string `json:"changed"`
+	Restart  []string `json:"restart_required"`
+	NoEffect []string `json:"no_effect"`
+}
+
+// adminReloadBody forces the daemon at root to reload its configuration and returns its whole answer.
+func adminReloadBody(t *testing.T, root string) adminReloadReply {
+	t.Helper()
 	addr, err := ipc.Resolve(root)
 	require.NoError(t, err)
 	client := ipc.NewClientWithOptions(addr, nopSpool{}, logging.Nop(), obs.New(testClock()),
@@ -48,12 +62,9 @@ func adminReload(t *testing.T, root string) (changed, restart []string) {
 	resp, err := client.Send(context.Background(), ipc.Request{Op: ipc.OpAdminReload, Reply: true}, bootstrapCallDeadline)
 	require.NoError(t, err)
 	require.True(t, resp.OK, "admin.reload: %s", resp.Err)
-	var body struct {
-		Changed []string `json:"changed"`
-		Restart []string `json:"restart_required"`
-	}
+	var body adminReloadReply
 	require.NoError(t, json.Unmarshal(resp.Data, &body), "%s", resp.Data)
-	return body.Changed, body.Restart
+	return body
 }
 
 func TestDaemonConfigReload_ReachesTheRetrievalTools(t *testing.T) {
@@ -94,6 +105,23 @@ func TestDaemonConfigReload_SaysWhichKeysNeedARestart(t *testing.T) {
 	require.NotContains(t, changed, "sketches.bloom.capacity")
 	require.Contains(t, changed, "runtime.rehydrate.maxTokens")
 	require.Equal(t, 1, bootstrapCountLines(bootstrapLoudLog(t, root), "needs a daemon restart"))
+}
+
+// TestDaemonConfigReload_NamesChunkAndInertKeys: through the real composition root, admin.reload
+// names a store.chunk.* change as needing a restart (nothing re-reads the chunker's boundaries after
+// store.Open) and a key nothing in this build reads as having no effect, and reports neither as
+// changed.
+func TestDaemonConfigReload_NamesChunkAndInertKeys(t *testing.T) {
+	root := bootstrapProject(t)
+	stop := bootstrapDaemon(t, root)
+	defer stop()
+
+	writeReloadConfig(t, root, `{"store":{"chunk":{"min":1024,"target":9999,"max":16384}},`+
+		`"runtime":{"logging":{"level":"debug"},"daemon":{"maxSessions":3}}}`)
+	body := adminReloadBody(t, root)
+	require.Equal(t, []string{"runtime.daemon.maxSessions"}, body.Changed)
+	require.Equal(t, []string{"store.chunk.target"}, body.Restart)
+	require.Equal(t, []string{"runtime.logging.level"}, body.NoEffect)
 }
 
 // TestWireScheduler_ReadsTheLiveConfiguration: the composition root hands the scheduler runtime the

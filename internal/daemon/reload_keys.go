@@ -26,12 +26,13 @@ const (
 	// effectRestart: a reader built at start holds the key. The live configuration keeps the value
 	// in effect, and the reload names the key as needing a daemon restart.
 	effectRestart
-	// effectDeferred: store.chunk.*, applied at the next SessionStart (reload.go), because applying
-	// it mid-session would fork the dedup space (§11.2).
-	effectDeferred
 	// effectOutside: nothing in the daemon process reads the key. The hook or command that reads it
 	// loads the configuration itself when it runs, so the reload has nothing to apply.
 	effectOutside
+	// effectInert: nothing in this build reads the key at all, in the daemon or outside it, so
+	// neither the reload nor a restart gives it an effect. The live configuration keeps the value
+	// in effect, and the reload names the key as having no effect rather than as changed.
+	effectInert
 )
 
 // reloadKeyEffect classifies one dotted key prefix. why names the readers the classification rests
@@ -44,7 +45,8 @@ type reloadKeyEffect struct {
 
 // reloadKeyEffects is matched by longest prefix (effectOf).
 var reloadKeyEffects = []reloadKeyEffect{
-	{"store.chunk", effectDeferred, "the chunker's boundaries: a mid-session change forks the dedup space"},
+	{"store.chunk", effectRestart, "the chunker's boundaries, built once by store.Open at start; applying a " +
+		"change mid-session would also fork the dedup space (§11.2)"},
 	{"store.compression", effectRestart, "the store's object codec, fixed when store.Open builds it"},
 	{"store.retention", effectRestart, "the observer's retention stamps, taken from the configuration it was built with"},
 	{"store.canonicalize", effectRestart, "the store's and the observer's canonicalizers, built at start"},
@@ -68,9 +70,9 @@ var reloadKeyEffects = []reloadKeyEffect{
 	{"retrieval.promoteAfterExpansions", effectRestart, "the MCP expansion promoter, built with its threshold at start"},
 
 	{"selection.slicing", effectRestart, "the dependence DAG, opened with its slicing variant at start"},
-	{"selection.deltaScoring", effectOutside, "no reader in this build"},
+	{"selection.deltaScoring", effectInert, "no reader in this build"},
 	{"selection.submodular.lambda", effectLive, "rehydrate service and scheduler runtime read the live configuration"},
-	{"selection.submodular.lazyGreedy", effectOutside, "no reader in this build"},
+	{"selection.submodular.lazyGreedy", effectInert, "no reader in this build: the selector is always lazy (analyzer.NewSelector)"},
 
 	{"eval", effectOutside, "the eval commands, which load the configuration when they run"},
 
@@ -84,9 +86,9 @@ var reloadKeyEffects = []reloadKeyEffect{
 	{"runtime.hotPath.breachWindows", effectLive, "the breach detector (applyReloaded)"},
 	{"runtime.hotPath.spoolOnBreach", effectLive, "the hot-path handler (currentCfg) and state.bin"},
 	{"runtime.hotPath.maxPayloadBytes", effectRestart, "the observer's result bound and the MCP server's line bound, set at start"},
-	{"runtime.logging", effectOutside, "no reader in the daemon: its log is opened before the configuration loads"},
+	{"runtime.logging", effectInert, "no reader in this build: every log is opened at a fixed level and rotation before the configuration loads"},
 	{"runtime.redact", effectLive, "capture admission (currentCfg), the store's and the retrieval tools' redactors (NewLiveRedactor)"},
-	{"runtime.telemetry", effectOutside, "hardwired off; Validate refuses true"},
+	{"runtime.telemetry", effectInert, "hardwired off; Validate refuses true"},
 	{"runtime.rehydrate", effectLive, "rehydrate service (RehydrateOptions.CfgFn)"},
 	{"runtime.mcp", effectLive, "MCP tools (ToolDeps.CfgFn)"},
 	{"runtime.scheduler.cache", effectRestart, "the cache regime, resolved when the scheduler binds a session"},
@@ -95,7 +97,7 @@ var reloadKeyEffects = []reloadKeyEffect{
 	{"runtime.phase7", effectRestart, "gated refinements wired at start; Validate refuses the gated switches"},
 	{"runtime.budgets", effectLive, "budget checks (currentCfg) and the MCP tools (ToolDeps.CfgFn)"},
 	{"runtime.selection.submodularEnabled", effectLive, "rehydrate service (RehydrateOptions.CfgFn)"},
-	{"runtime.selection.loopWarningsEnabled", effectOutside, "no reader in this build"},
+	{"runtime.selection.loopWarningsEnabled", effectInert, "no reader in this build"},
 	{"runtime.tokens", effectRestart, "the token estimators, built with their constants at start"},
 }
 
@@ -111,17 +113,19 @@ func effectOf(key string) (keyEffect, bool) {
 	return found, best >= 0
 }
 
-// holdForRestart returns next with every restart and deferred key that differs from inEffect put
-// back to its value in inEffect, and the restart keys it held. A key the table does not cover is
-// held too: a reload never applies what nobody has shown to be safe to apply.
-func holdForRestart(inEffect, next config.Config) (config.Config, []string) {
-	var restart []string
+// holdForRestart returns next with every restart and inert key that differs from inEffect put back
+// to its value in inEffect, the restart keys it held, and the inert keys it held. A key the table
+// does not cover is held as a restart key: a reload never applies what nobody has shown to be safe
+// to apply.
+func holdForRestart(inEffect, next config.Config) (held config.Config, restart, inert []string) {
 	for _, key := range diffDottedKeys(inEffect, next) {
 		effect, ok := effectOf(key)
 		switch {
 		case ok && (effect == effectLive || effect == effectOutside):
 			continue
-		case !ok || effect == effectRestart:
+		case ok && effect == effectInert:
+			inert = append(inert, key)
+		default:
 			restart = append(restart, key)
 		}
 		copyConfigLeaf(&next, inEffect, key)
@@ -129,7 +133,7 @@ func holdForRestart(inEffect, next config.Config) (config.Config, []string) {
 	// Selection.Submodular.Enabled is derived from runtime.selection.submodularEnabled, not read
 	// from any file (config.Load), so it follows whatever that key now holds.
 	next.Selection.Submodular.Enabled = next.Runtime.Selection.SubmodularEnabled
-	return next, restart
+	return next, restart, inert
 }
 
 // copyConfigLeaf sets the field dotted names (by its json keys) in dst to its value in src. A path
