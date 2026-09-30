@@ -118,7 +118,7 @@ W14-SAFECUT FIX SEAT: the reviewer's major finding is confirmed and fixed. The b
 - It cannot happen through boundedContent, because shrinkSpan always keeps at least the first rune. The committed oracle sweep skips such keeps. It is recorded as an open item, not changed.
 
 ## Commands and results (all on Windows, machine co-loaded; nothing timing-sensitive involved)
-- RED at 1c8f492f plus the new rows: go test -p 2 -count=1 with -run set to TestSafeCutFindsTheSafeCutBelowARedactedRegion, TestSafeCutReportsFalseOnlyWhenNoCutIsSafe and TestSafeCutFindsTheLargestSafeCutWithTheProductionRedactor (one alternation), on ./internal/mcp/. All three FAILED as above.
+- RED at 1c8f492f plus the new rows: go test -p 2 -count=1 with -run set to TestSafeCutFindsTheSafeCutBelowARedactedRegion, TestSafeCutReportsFalseOnlyWhenNoCutIsSafe and TestSafeCutFindsTheLargestSafeCutWithTheProductionRedactor (one alternation), on ./internal/mcp/. All three FAILED as above. <!-- runpatterns: prose, not a command: 'set' is the English verb before the three test names, which all exist in ./internal/mcp -->
 - GREEN after the fix: the same three plus TestExpandBoundCutNeverSplitsARedactedRegion and TestExpandBoundPagesPastARedactedRegionLongerThanHalfThePage, -v. All five PASS; ok in 16.4s. Log: runs/green-after-review-fix.txt.
 - `go test -p 2 -count=1 ./internal/mcp/` passed (ok, 113.6s). Log: runs/mcp-full-after-review-fix.txt.
 - `go vet ./internal/mcp/` passed on Windows and with GOOS=linux.

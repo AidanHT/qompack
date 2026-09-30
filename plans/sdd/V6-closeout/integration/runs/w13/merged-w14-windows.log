@@ -1,0 +1,14 @@
+vet-ok
+fmt-ok
+gen-config-docs=0
+gen-mcp-docs=0
+gen-command-docs=0
+PASS golangci-lint
+PASS nomagic
+PASS importgraph
+PASS testdeps
+PASS bindeps
+PASS sleepcheck
+FAIL runpatterns: runpatterns: 1 unsatisfiable -run pattern(s):
+PASS docmarkers
+ok  	github.com/qompack/qompack/internal/observer	116.054s
