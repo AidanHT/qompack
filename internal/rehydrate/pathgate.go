@@ -71,12 +71,23 @@ func (j pathJudge) inside(p string) bool {
 }
 
 // absLike reports whether p is rooted in any spelling a pointer may carry: the platform's absolute
-// form, a POSIX root, a Windows drive or a UNC share — whichever platform recorded it.
+// form, a POSIX root, a Windows drive or a UNC share — whichever platform recorded it — or a path
+// spelled from the home directory or an environment variable (homeOrVarRoot).
 func absLike(p string) bool {
-	return filepath.IsAbs(p) || strings.HasPrefix(p, "/") || strings.HasPrefix(p, `\`) || driveRoot.MatchString(p)
+	return filepath.IsAbs(p) || strings.HasPrefix(p, "/") || strings.HasPrefix(p, `\`) ||
+		driveRoot.MatchString(p) || homeOrVarRoot.MatchString(p)
 }
 
 var driveRoot = regexp.MustCompile(`^[A-Za-z]:[\\/]`)
+
+// homeOrVarRoot matches a path that starts at a shell's home directory (`~`, `~user/`) or at an
+// environment variable (`$VAR`, `${VAR}`, `%VAR%`). Whatever it expands to, it is not a path the
+// project root anchors, and read as project-relative it would be joined under the root, where a host
+// deny rule on ~/.ssh/** never matches it. So it counts as rooted, and inside() finds it outside the
+// project. `~` must end the path or be followed by a user name and a separator, so a project file
+// named like an editor's lock file (`~$report.docx`) stays project-relative.
+var homeOrVarRoot = regexp.MustCompile(
+	`^(~[A-Za-z0-9._-]*([\\/]|$)|\$\{?[A-Za-z_][A-Za-z0-9_]*|%[A-Za-z_][A-Za-z0-9_()]*%)`)
 
 // summaryTokens splits a tool pointer's summary — a path, a command line, or the tool's JSON
 // arguments — into the pieces that could each name a path.
