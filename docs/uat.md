@@ -5,17 +5,16 @@ record another human can audit. Each one states what must be true before it star
 and host actions it performs, the exact fields to read, the evidence to keep, and what a failure or
 a skip means.
 
-**All twelve scenarios have been executed once, by an agent, not by a human.** The V6 close-out's
-live lane ran them on 2026-09-29 under owner decision D3 — agent-executed on the owner's real host,
-in real Claude Code 2.1.280 sessions on Windows 11 — against release candidate 3 (commit
-`d5598eb4`, the packaged `0.3.0` bundle that SP-17's `go run ./tools/devtool bundle` assembles; see
-[docs/install.md](install.md)). Each Result block below records that run: its executor, bundle,
-date, evidence and outcome — six pass and six fail. The findings are routed by the close-out's
-decision D45, and **every row is re-run on the fixed candidate**: the six that failed (UAT-05,
-UAT-06, UAT-08, UAT-09, UAT-11, UAT-12) and the six that passed with findings a fix changes
-(UAT-01, UAT-02, UAT-03, UAT-04, UAT-07, UAT-10); a re-run replaces its row's Result block. No
-human has run these scenarios, automated package and installation tests have separate evidence
-and do not fill these blocks, and no release has been published.
+**All twelve scenarios have been executed, by an agent, not by a human**, under owner decision D3:
+agent-executed on the owner's real host, in real Claude Code 2.1.280 sessions on Windows 11,
+against the packaged `0.3.0` bundle that SP-17's `go run ./tools/devtool bundle` assembles (see
+[docs/install.md](install.md)). All twelve first ran on 2026-09-29 against release candidate 3
+(commit `d5598eb4`), six passing and six failing, with the findings routed by decision D45; under
+decision D47 eleven rows were re-run on candidate 4 (commit `9f6a2fad`), eight passing and three
+failing (UAT-03, UAT-06, UAT-09), with the findings routed by decision D49. Each Result block
+records the latest run of its row (UAT-10's is candidate 3's) and keeps candidate 3's outcome as a
+history line; no human has run these scenarios, automated package and installation tests have
+separate evidence and do not fill these blocks, and no release has been published.
 
 What the commands, slash commands and MCP tools *are* is [docs/user-guide.md](user-guide.md); what
 each observation does and does not license you to conclude is
@@ -350,6 +349,11 @@ Evidence: plans/sdd/V6-closeout/live/rerun-c4/UAT-02/ (notes.txt indexes it; als
 Rollback verified: not applicable — initial state absent (recorded: `backup create` exit 1 "no
   existing store"); per the row's rule the run is retained as evidence; no restore was run
 ```
+
+Note: non-exact fidelity is host-limited on Claude Code 2.1.280; covered by
+`TestCapturePolicyProducesTheCompleteFidelitySet`, `TestHookCapture_OversizeRetainsClassificationWithoutOpaqueBytes`,
+`TestHookCapture_BinaryPayloadIsClassifiedNotSilentlyRejected`, `TestHookCapture_ShortReadIsRecordedAsPartial`
+and `TestCaptureSidecar_DegradedCaptureIsRecordedAsSuch` (D49, 2026-09-30).
 
 ---
 
@@ -1042,8 +1046,11 @@ approach.
 2. Call `already_tried` with the recorded `target` and `approach`, and capture the response.
 3. Read the response's `stale_because` and confirm it names the file that changed.
 4. Set `eliminations.staleResponse` to `drop`, repeat step 2, and capture the response.
-5. Make the ledger unreadable to force a query failure — the reachable form is to run the query in a
-   project where the elimination ledger is not present — and capture the response.
+5. Make the ledger unreadable to force a query failure, and capture the response. A project with no
+   ledger yet does not do it: the daemon opens the ledger on the first `already_tried` or
+   `record_eliminated` call and answers `absent`. The reachable form is a second disposable project
+   whose `.qompack/records/eliminations.jsonl` is made unreadable before any session there starts —
+   create it as an empty directory — then run step 2's query in a session in that project.
 6. Record, for each of steps 2, 4 and 5, whether anything in the response prohibits the approach.
 
 **Expected observable result**
