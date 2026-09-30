@@ -1050,6 +1050,47 @@ func TestFsck_RepairQuarantinesAFailingObjectAndRebuildsTheFilter(t *testing.T) 
 	require.NotEmpty(t, quarantinedFiles(t, p.Layot), "and its bytes are under tmp/quarantine/")
 }
 
+// TestFsck_AbsentFilterWithOnlyStaleRecordsIsADefect is D49's fsck half: a record goes stale,
+// never absent, so tried.bloom must hold a STALE record's keys as well as an active one's. An
+// absent filter beside a log whose only record is stale is therefore the same defect an absent
+// filter beside an active record is -- not the "ordinary cold start" the active-only rule reported
+// -- and --repair rebuilds it, saying how many records (active and stale) the filter now covers.
+func TestFsck_AbsentFilterWithOnlyStaleRecordsIsADefect(t *testing.T) {
+	// Not parallel: --repair takes the project's singleton lock.
+	p := seedFsckProject(t)
+
+	require.NoError(t, os.MkdirAll(paths.Long(p.Layot.Records), 0o700))
+	appendLine(t, filepath.Join(p.Layot.Records, "eliminations.jsonl"),
+		`{"id":"elm_1","session":"s-fsck","ts":1,"target":"a.go:f","approach":"widen the pool",`+
+			`"reason":"it deadlocks","status":"stale","stale_since":2,"scope":"project","source":1}`)
+	bloomPath := filepath.Join(p.Layot.Sketches, "tried.bloom")
+	require.NoFileExists(t, paths.Long(bloomPath), "fixture: no filter has been written")
+
+	_, doc, errw := fsckJSON(t, p.Root)
+	row := fsckRequireRow(t, doc, "negknow")
+	require.Equal(t, false, row["ok"],
+		"an absent filter beside a stale record is a defect, not a cold start: %s (stderr=%s)",
+		fsckDetail(row), errw)
+	require.NotContains(t, fsckDetail(row), "ordinary cold start")
+
+	code, out, errw := fsckDispatch(t, "fsck", "--project", p.Root, "--repair", "--yes", "--json")
+	require.NotEqual(t, ExitUsage, code, "stderr=%s", errw)
+	var repaired map[string]any
+	require.NoError(t, json.Unmarshal([]byte(out), &repaired), "stdout=%s stderr=%s", out, errw)
+	var after string
+	repairs, _ := repaired["repairs"].([]any)
+	for _, r := range repairs {
+		rr, _ := r.(map[string]any)
+		if rr["kind"] == "negknow.bloom" {
+			after, _ = rr["after"].(string)
+		}
+	}
+	require.NotEmpty(t, after, "--repair must rebuild the filter; repairs were %v", repairs)
+	require.Contains(t, after, "1 record(s)", "the rebuild covers the stale record")
+	require.NotContains(t, after, "active record(s)", "the filter is no longer built from active records only")
+	require.FileExists(t, paths.Long(bloomPath))
+}
+
 // quarantinedFiles lists every file under tmp/quarantine.
 func quarantinedFiles(t *testing.T, l paths.Layout) []string {
 	t.Helper()
