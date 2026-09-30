@@ -135,3 +135,5 @@ same  plugins/data/ (2 entries)
 same  .qompack/ (2 entries)
 real home fingerprint unchanged
 check exit 0
+
+== coordinator, after the candidate 4 re-run — 2026-09-30 13:45:24 EDT: removed the run-created ~/.qompack (only bin/1e9d0cc8.../qompack.exe, sha256 = the c4 bundle's bin/qompack.exe, no qompack.exe running), under install.md §6; ~/.qompack was absent at the sessions part's snap. Resolves the audit's staged-copy finding.
