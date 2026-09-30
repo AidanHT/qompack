@@ -1,0 +1,16 @@
+=== RUN   TestLiveMCPSelfRecordKeepsSessionTurnOrder
+--- PASS: TestLiveMCPSelfRecordKeepsSessionTurnOrder (1.06s)
+=== RUN   TestLiveLedgerToolsAnswerBeforeFirstCompaction
+--- PASS: TestLiveLedgerToolsAnswerBeforeFirstCompaction (0.71s)
+=== RUN   TestLiveSessionScopedEliminationStaysInItsSession
+--- PASS: TestLiveSessionScopedEliminationStaysInItsSession (1.10s)
+=== RUN   TestLiveAlreadyTriedSeesInSessionDependencyChange
+--- PASS: TestLiveAlreadyTriedSeesInSessionDependencyChange (0.97s)
+=== RUN   TestLivePreCompactCarriesEliminationAndDecision
+--- PASS: TestLivePreCompactCarriesEliminationAndDecision (0.91s)
+=== RUN   TestLiveTimelineShowsOpenSegmentProgress
+--- PASS: TestLiveTimelineShowsOpenSegmentProgress (0.94s)
+=== RUN   TestLiveTimelineRefusesAnInvertedRange
+--- PASS: TestLiveTimelineRefusesAnInvertedRange (0.68s)
+PASS
+ok  	github.com/qompack/qompack/internal/cli	6.660s

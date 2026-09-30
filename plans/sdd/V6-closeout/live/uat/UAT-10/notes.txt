@@ -1,0 +1,66 @@
+UAT-10 — ask the installation what it observed about itself. Agent-executed on the owner's real
+host per owner decision D3 by a Claude Code workflow subagent (Opus 5.5) — not human UAT.
+
+Date 2026-09-29 15:07-15:10 America/Toronto. Sessions used: 1 (retrieval part n=8, session/). Model
+claude-haiku-4-5-20251001, Claude Code 2.1.280, Windows 11 Home 25H2 build 10.0.26200.9457, frozen
+bundle 0.3.0 via --plugin-dir (BUNDLE.json sha256 32600778...ccf4505, commit d5598eb4); `qompack
+version` 0.3.0. Project uat10 (src/batch.go, worker.log 17 KB). Configuration: defaults — no config
+file, no QOMPACK_* but QOMPACK_HOME (moves calibration.json only); runtime.telemetry.enabled false
+(doctor 14-doctor-json: refused-by-validate, gate pending). The daemon (default idle 1800 s) was
+stopped by a verified kill (cli/12-stop-daemon.txt). Pre-run `backup create` exit 1 "no existing
+store" (initial absence).
+
+Session: T1 Read src/batch.go and worker.log; T2 /compact; T3 record_eliminated (after the first
+compaction because of UAT-08 F1) -> elim_0efd8b066bc0 active; T4 /compact; T5 /qompack:status
+--json; (before T6: `qompack status` text at the same moment, cli/10-status-text-same-moment)
+T6 /qompack:dropped --json; T7 /qompack:eval --json; T8 already_tried cross-check.
+slash-commands.json = the host's expansion (or failure text) of each command; status.json,
+dropped.json, eval.json are split from it.
+
+Step 1-2 (status.json, cli/10-status-text-same-moment): envelope {schema:1, command:"status",
+ ok:true, data:{schema, collected_at_ms, primary, snapshot, hooks, budgets}}. primary {source daemon,
+ status available, age_ms 0} (a live daemon, 0 µs old). Every hook row has latency null and a
+ provenance {source daemon, status unavailable, age_ms 0, reason "no per-hook instrument: <event> is
+ folded into the hook_controlled aggregate..."} except PreCompact (B-E, available, measure observed,
+ n=2). Budgets: B-A estimated, B-B/B-C/B-E/B-F observed; B-D "no instrument records this histogram
+ in this build; it measures host process creation, which the created process cannot observe"; B-G
+ "hook_degraded: no samples recorded in the observed window". No cell prints 0 for a missing
+ instrument; no age_ms 0 stands for an unknown age (after the daemon stop, cli/11-status-text-after
+ reads "source: none (error, age unknown)" with an EMPTY refusal reason "daemon: status refused: ",
+ as F-C49-1). PASS.
+ Findings: F1 the contract banner says "1 of 9 assertion(s) FAILING": mcp.server_registered
+ "initialize-not-received" in a session whose MCP server answered T3/T8 (C4.5 C45-1). F2 percentiles
+ above the maximum: B-A "p95 106.50ms p99 106.50ms max 99.00ms" (bucket upper bounds printed beside
+ an exact max).
+Usage categories (the row's middle bullet): not reachable from a user project — T7 /qompack:eval
+ --json exits 1 (cli/11-eval-json exit 1) with {"kind":"unavailable","message":"eval: qompack:
+ unavailable: no evaluation artifacts: no live-eval run under <project>\dist\live-eval and no replay
+ report at <project>\testdata\bench-replay.json. ..."}, naming both paths. That message and exit 1
+ are the row's pass. To see the categories at all, `qompack eval --corpus` was pointed at the
+ committed C5.4 pilot run (plans/sdd/V6-closeout/eval/runs/pilot1-plugin-dir; cli/13-*): the report
+ says "confirmatory: no", cost "unavailable: no request ledger was recorded for this run"
+ (data.cost.categories null), and the only usage figures are data.live.arms[].categories with the
+ six names, each {"known":N,"known_records":n,"unknown_records":m} (cache_write_1h and
+ cache_write_5m have 1 unknown record) in alphabetical key order, and mean_usage with only input,
+ output and cache_read. F3: the documented canonical order and the {"known":false} + `missing` form
+ (internal/eval/ledger.go) could not be observed on any reachable surface; every committed run lacks
+ the request ledger that carries it. Every figure shown names its category and its known/unknown
+ record count, so the fail condition (a figure without category or flag) did not occur.
+Step 3 (dropped.json): {"count":0,"drops":[]} with ephemeral true — nothing dropped in a session this
+ small; no entry's coverage could be read. The text form (C4.5) prints the same JSON plus the evidence
+ block.
+Step 5: .qompack/logs/qompack-20260929.log (store/logs_qompack-20260929.log, 5 lines, one warn
+ "segment closed without a tokens feature"); no LOUD.log; status loud_tail [] and the text status has
+ no "recent loud lines" section when the tail is empty.
+Step 6: the injected block after T4 (injected/injected-3-SessionStart-compact.txt) lists the
+ elimination "[active]" with "Before committing to an approach, call already_tried."; T8 already_tried
+ (stream) -> state active with reason, evidence, scope, recorded_at, depends_on: they agree. The
+ recorded partials (V5-report §24 uncertainty gate, §29 item 11 pin stamping) were not contradicted by
+ anything seen; no uncertainty marking appeared in a digest.
+Telemetry: runtime.telemetry.enabled false (refused if set); nothing in this run sent data anywhere
+ that Qompack controls.
+
+Result: PASS (no instrument-less cell printed 0, ages honest, eval unavailable with both paths and
+exit 1, usage figures always carry category and known/unknown counts), with findings F1-F3; the
+canonical usage-category serialization is unverified on a reachable surface. Rollback: initial
+state absent; run retained as evidence; no restore was run.

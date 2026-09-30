@@ -1,0 +1,15 @@
+=== RUN   TestStatus_APercentileNeverReadsAboveTheMax
+=== PAUSE TestStatus_APercentileNeverReadsAboveTheMax
+=== CONT  TestStatus_APercentileNeverReadsAboveTheMax
+    statuscollect_test.go:497: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-diag/internal/commands/statuscollect_test.go:497
+        	Error:      	Not equal: 
+        	            	expected: 99000
+        	            	actual  : 106500
+        	Test:       	TestStatus_APercentileNeverReadsAboveTheMax
+        	Messages:   	p95 may not read above the max
+--- FAIL: TestStatus_APercentileNeverReadsAboveTheMax (0.00s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/commands	1.193s
+FAIL
+EXIT=1

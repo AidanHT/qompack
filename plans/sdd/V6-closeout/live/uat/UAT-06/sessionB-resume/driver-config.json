@@ -1,0 +1,48 @@
+{
+ "args": [
+  "-p",
+  "--input-format",
+  "stream-json",
+  "--output-format",
+  "stream-json",
+  "--verbose",
+  "--include-hook-events",
+  "--model",
+  "claude-haiku-4-5-20251001",
+  "--max-turns",
+  "12",
+  "--setting-sources",
+  "project,local",
+  "--permission-mode",
+  "dontAsk",
+  "--plugin-dir",
+  "C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c3/qompack-plugin-0.3.0-windows-amd64",
+  "--allowedTools",
+  "Task,Read,Bash(cat:*),mcp__plugin_qompack_qompack__recall,mcp__plugin_qompack_qompack__expand,mcp__plugin_qompack_qompack__re_read,mcp__plugin_qompack_qompack__already_tried,mcp__plugin_qompack_qompack__record_eliminated,mcp__plugin_qompack_qompack__timeline,mcp__plugin_qompack_qompack__why,mcp__plugin_qompack_qompack__dropped,Bash(qompack status:*),Bash(qompack recall:*),Bash(qompack pin:*),Bash(qompack why:*),Bash(qompack dropped:*),Bash(qompack eval:*)",
+  "--resume",
+  "c8f504cc-2864-4daf-8125-f9ee3851b944"
+ ],
+ "cwd": "<scratch>/sessions/uat06/proj",
+ "out": "<scratch>/sessions/uat06/sB",
+ "env": {
+  "ENABLE_CLAUDEAI_MCP_SERVERS": "false",
+  "QOMPACK_HOME": "<scratch>/sessions/qhome",
+  "QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS": "120"
+ },
+ "timeout_s": 1500,
+ "messages": [
+  "We are resuming. In one sentence: what is the current per-client rate limit requirement?",
+  "Use the Task tool to launch one general-purpose subagent with this instruction: 'Read config/quota.txt with the Read tool and reply with ONLY the number of entries it lists. Never repeat any entry value.' Then tell me the number it returned.",
+  "/compact",
+  {
+   "content": "config/quota.txt has now been deleted and you never saw its values (only a subagent read it). What is the exact value of entry M17? Do not guess. Recover it from Qompack's archive: call mcp__plugin_qompack_qompack__recall with query \"M17\" and k 10, pick the hit whose path is config/quota.txt (tool FileRead), and call mcp__plugin_qompack_qompack__expand with that hit's tool_use_id. Reply with the value, then say which source gave it (your context, recall, or expand).",
+   "before": [
+    "python",
+    "-c",
+    "import os; p=r'<scratch>/sessions/uat06/proj/config/quota.txt'; os.remove(p); print('deleted config/quota.txt; exists now:', os.path.exists(p))"
+   ]
+  }
+ ],
+ "bin": "C:/Users/Quant/AppData/Roaming/npm/node_modules/@anthropic-ai/claude-code/bin/claude.exe",
+ "scrub": "<scratch>"
+}

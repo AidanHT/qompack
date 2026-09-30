@@ -1,0 +1,8 @@
+C4.9 preconditions
+project: <scratch>/sessions/c49/proj (git init + git add -A; no commit): notes.md (codename CINDER-MOTH-61, phrase
+'violet anchor lattice'), data.txt, README.md, app.py. <project>/.qompack exists: False (initial absence). Config defaults; session env
+QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS=120.
+(a) turn 2's before step: `python lane.py kill-daemon <project>` — reads <project>/.qompack/run/daemon.lock, checks the pid's image is
+qompack.exe and its command line is `daemon --project <this project>`, then Stop-Process; it refuses otherwise.
+(b) turn 6's before step writes <project>/.qompack/config.json = {"runtime":{"migration":{"settingsVersion":99}}}, the newer-schema
+configuration docs/troubleshooting.md section 1 and 6 describe ("settingsVersion 99 is newer than this build understands").

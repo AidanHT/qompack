@@ -1,0 +1,11 @@
+=== RUN   TestRun_LogsATakenOverLockAndASpoolReplay
+    startup_daylog_test.go:71: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-diag/internal/daemon/startup_daylog_test.go:71
+        	Error:      	Should be true
+        	Test:       	TestRun_LogsATakenOverLockAndASpoolReplay
+        	Messages:   	the day log must say a daemon ended without releasing its lock: []
+--- FAIL: TestRun_LogsATakenOverLockAndASpoolReplay (0.23s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	0.491s
+FAIL
+EXIT=1

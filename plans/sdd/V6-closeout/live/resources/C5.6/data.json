@@ -1,0 +1,908 @@
+{
+ "sessions": [
+  {
+   "evidence": "c4/C4.4/session",
+   "turns": 13,
+   "exit": 0,
+   "wall_s": 201.863,
+   "store_bytes_before": 0,
+   "store_bytes_after": 709993,
+   "store_growth_bytes": 709993,
+   "daemon_turns_sampled": 13,
+   "daemon_turns_not_sampled": 0,
+   "not_sampled_reasons": [],
+   "daemon_pids": [
+    28140
+   ],
+   "ws_max_bytes": 47898624,
+   "ws_last_bytes": 47898624,
+   "peak_ws_max_bytes": 47898624,
+   "cpu_s_last_per_pid": {
+    "28140": 1.078125
+   },
+   "cpu_s_sum_last_per_pid": 1.078,
+   "env_non_default": {
+    "QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS": "120"
+   }
+  },
+  {
+   "evidence": "c4/C4.5/session",
+   "turns": 16,
+   "exit": 0,
+   "wall_s": 83.81,
+   "store_bytes_before": 1490697,
+   "store_bytes_after": 1666759,
+   "store_growth_bytes": 176062,
+   "daemon_turns_sampled": 16,
+   "daemon_turns_not_sampled": 0,
+   "not_sampled_reasons": [],
+   "daemon_pids": [
+    2696
+   ],
+   "ws_max_bytes": 39489536,
+   "ws_last_bytes": 39489536,
+   "peak_ws_max_bytes": 39489536,
+   "cpu_s_last_per_pid": {
+    "2696": 0.375
+   },
+   "cpu_s_sum_last_per_pid": 0.375,
+   "env_non_default": {
+    "QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS": "120"
+   }
+  },
+  {
+   "evidence": "c4/C4.7/off/session",
+   "turns": 4,
+   "exit": 0,
+   "wall_s": 26.464,
+   "store_bytes_before": 27,
+   "store_bytes_after": 236,
+   "store_growth_bytes": 209,
+   "daemon_turns_sampled": 0,
+   "daemon_turns_not_sampled": 4,
+   "not_sampled_reasons": [
+    "no lock"
+   ],
+   "daemon_pids": [],
+   "ws_max_bytes": null,
+   "ws_last_bytes": null,
+   "peak_ws_max_bytes": null,
+   "cpu_s_last_per_pid": {},
+   "cpu_s_sum_last_per_pid": null,
+   "env_non_default": {}
+  },
+  {
+   "evidence": "c4/C4.7/reinj/session",
+   "turns": 4,
+   "exit": 0,
+   "wall_s": 38.027,
+   "store_bytes_before": 72,
+   "store_bytes_after": 273490,
+   "store_growth_bytes": 273418,
+   "daemon_turns_sampled": 4,
+   "daemon_turns_not_sampled": 0,
+   "not_sampled_reasons": [],
+   "daemon_pids": [
+    69504
+   ],
+   "ws_max_bytes": 37117952,
+   "ws_last_bytes": 37117952,
+   "peak_ws_max_bytes": 37117952,
+   "cpu_s_last_per_pid": {
+    "69504": 0.234375
+   },
+   "cpu_s_sum_last_per_pid": 0.234,
+   "env_non_default": {}
+  },
+  {
+   "evidence": "c4/C4.9/session1",
+   "turns": 8,
+   "exit": 0,
+   "wall_s": 154.752,
+   "store_bytes_before": 0,
+   "store_bytes_after": 268003,
+   "store_growth_bytes": 268003,
+   "daemon_turns_sampled": 5,
+   "daemon_turns_not_sampled": 3,
+   "not_sampled_reasons": [
+    "not running as qompack.exe"
+   ],
+   "daemon_pids": [
+    26384,
+    69552
+   ],
+   "ws_max_bytes": 38416384,
+   "ws_last_bytes": 38416384,
+   "peak_ws_max_bytes": 38416384,
+   "cpu_s_last_per_pid": {
+    "69552": 0.171875,
+    "26384": 0.40625
+   },
+   "cpu_s_sum_last_per_pid": 0.578,
+   "env_non_default": {
+    "QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS": "120"
+   }
+  },
+  {
+   "evidence": "c4/C4.9/session2-copy",
+   "turns": 7,
+   "exit": 0,
+   "wall_s": 41.563,
+   "store_bytes_before": 415648,
+   "store_bytes_after": 649006,
+   "store_growth_bytes": 233358,
+   "daemon_turns_sampled": 7,
+   "daemon_turns_not_sampled": 0,
+   "not_sampled_reasons": [],
+   "daemon_pids": [
+    26524
+   ],
+   "ws_max_bytes": 38100992,
+   "ws_last_bytes": 38100992,
+   "peak_ws_max_bytes": 38100992,
+   "cpu_s_last_per_pid": {
+    "26524": 0.546875
+   },
+   "cpu_s_sum_last_per_pid": 0.547,
+   "env_non_default": {
+    "QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS": "120"
+   }
+  },
+  {
+   "evidence": "recovery/C1.6/session",
+   "turns": 4,
+   "exit": 0,
+   "wall_s": 15.715,
+   "store_bytes_before": 0,
+   "store_bytes_after": 206764,
+   "store_growth_bytes": 206764,
+   "daemon_turns_sampled": 4,
+   "daemon_turns_not_sampled": 0,
+   "not_sampled_reasons": [],
+   "daemon_pids": [
+    22060
+   ],
+   "ws_max_bytes": 34418688,
+   "ws_last_bytes": 34418688,
+   "peak_ws_max_bytes": 34418688,
+   "cpu_s_last_per_pid": {
+    "22060": 0.3125
+   },
+   "cpu_s_sum_last_per_pid": 0.312,
+   "env_non_default": {
+    "QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS": "30"
+   }
+  },
+  {
+   "evidence": "recovery/C1.7/session1",
+   "turns": 3,
+   "exit": 0,
+   "wall_s": 10.812,
+   "store_bytes_before": 0,
+   "store_bytes_after": 187986,
+   "store_growth_bytes": 187986,
+   "daemon_turns_sampled": 3,
+   "daemon_turns_not_sampled": 0,
+   "not_sampled_reasons": [],
+   "daemon_pids": [
+    57772
+   ],
+   "ws_max_bytes": 33083392,
+   "ws_last_bytes": 33083392,
+   "peak_ws_max_bytes": 33083392,
+   "cpu_s_last_per_pid": {
+    "57772": 0.375
+   },
+   "cpu_s_sum_last_per_pid": 0.375,
+   "env_non_default": {
+    "QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS": "30"
+   }
+  },
+  {
+   "evidence": "recovery/C1.7/session2",
+   "turns": 2,
+   "exit": 0,
+   "wall_s": 8.527,
+   "store_bytes_before": 251229,
+   "store_bytes_after": 358964,
+   "store_growth_bytes": 107735,
+   "daemon_turns_sampled": 2,
+   "daemon_turns_not_sampled": 0,
+   "not_sampled_reasons": [],
+   "daemon_pids": [
+    8820
+   ],
+   "ws_max_bytes": 31117312,
+   "ws_last_bytes": 31117312,
+   "peak_ws_max_bytes": 31117312,
+   "cpu_s_last_per_pid": {
+    "8820": 0.203125
+   },
+   "cpu_s_sum_last_per_pid": 0.203,
+   "env_non_default": {
+    "QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS": "30"
+   }
+  },
+  {
+   "evidence": "uat/UAT-01/session",
+   "turns": 2,
+   "exit": 0,
+   "wall_s": 15.38,
+   "store_bytes_before": 0,
+   "store_bytes_after": 182988,
+   "store_growth_bytes": 182988,
+   "daemon_turns_sampled": 2,
+   "daemon_turns_not_sampled": 0,
+   "not_sampled_reasons": [],
+   "daemon_pids": [
+    19612
+   ],
+   "ws_max_bytes": 70369280,
+   "ws_last_bytes": 70369280,
+   "peak_ws_max_bytes": 70369280,
+   "cpu_s_last_per_pid": {
+    "19612": 0.328125
+   },
+   "cpu_s_sum_last_per_pid": 0.328,
+   "env_non_default": {}
+  },
+  {
+   "evidence": "uat/UAT-02/session",
+   "turns": 10,
+   "exit": 0,
+   "wall_s": 102.139,
+   "store_bytes_before": 397,
+   "store_bytes_after": 1759874,
+   "store_growth_bytes": 1759477,
+   "daemon_turns_sampled": 10,
+   "daemon_turns_not_sampled": 0,
+   "not_sampled_reasons": [],
+   "daemon_pids": [
+    9008
+   ],
+   "ws_max_bytes": 52166656,
+   "ws_last_bytes": 52166656,
+   "peak_ws_max_bytes": 52166656,
+   "cpu_s_last_per_pid": {
+    "9008": 1.75
+   },
+   "cpu_s_sum_last_per_pid": 1.75,
+   "env_non_default": {}
+  },
+  {
+   "evidence": "uat/UAT-03/session",
+   "turns": 4,
+   "exit": 0,
+   "wall_s": 32.184,
+   "store_bytes_before": 0,
+   "store_bytes_after": 205163,
+   "store_growth_bytes": 205163,
+   "daemon_turns_sampled": 4,
+   "daemon_turns_not_sampled": 0,
+   "not_sampled_reasons": [],
+   "daemon_pids": [
+    60196
+   ],
+   "ws_max_bytes": 35717120,
+   "ws_last_bytes": 35717120,
+   "peak_ws_max_bytes": 35717120,
+   "cpu_s_last_per_pid": {
+    "60196": 0.59375
+   },
+   "cpu_s_sum_last_per_pid": 0.594,
+   "env_non_default": {
+    "QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS": "120"
+   }
+  },
+  {
+   "evidence": "uat/UAT-04/session",
+   "turns": 10,
+   "exit": 0,
+   "wall_s": 469.87,
+   "store_bytes_before": 0,
+   "store_bytes_after": 1757861,
+   "store_growth_bytes": 1757861,
+   "daemon_turns_sampled": 10,
+   "daemon_turns_not_sampled": 0,
+   "not_sampled_reasons": [],
+   "daemon_pids": [
+    57528
+   ],
+   "ws_max_bytes": 52510720,
+   "ws_last_bytes": 52510720,
+   "peak_ws_max_bytes": 52510720,
+   "cpu_s_last_per_pid": {
+    "57528": 1.9375
+   },
+   "cpu_s_sum_last_per_pid": 1.938,
+   "env_non_default": {
+    "QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS": "120"
+   }
+  },
+  {
+   "evidence": "uat/UAT-05/run1-session",
+   "turns": 8,
+   "exit": 0,
+   "wall_s": 71.343,
+   "store_bytes_before": 0,
+   "store_bytes_after": 278870,
+   "store_growth_bytes": 278870,
+   "daemon_turns_sampled": 8,
+   "daemon_turns_not_sampled": 0,
+   "not_sampled_reasons": [],
+   "daemon_pids": [
+    11556
+   ],
+   "ws_max_bytes": 38703104,
+   "ws_last_bytes": 38703104,
+   "peak_ws_max_bytes": 38703104,
+   "cpu_s_last_per_pid": {
+    "11556": 0.828125
+   },
+   "cpu_s_sum_last_per_pid": 0.828,
+   "env_non_default": {
+    "QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS": "120"
+   }
+  },
+  {
+   "evidence": "uat/UAT-05/run2-session",
+   "turns": 8,
+   "exit": 0,
+   "wall_s": 68.535,
+   "store_bytes_before": 454441,
+   "store_bytes_after": 628769,
+   "store_growth_bytes": 174328,
+   "daemon_turns_sampled": 8,
+   "daemon_turns_not_sampled": 0,
+   "not_sampled_reasons": [],
+   "daemon_pids": [
+    67864
+   ],
+   "ws_max_bytes": 33812480,
+   "ws_last_bytes": 33812480,
+   "peak_ws_max_bytes": 33812480,
+   "cpu_s_last_per_pid": {
+    "67864": 0.8125
+   },
+   "cpu_s_sum_last_per_pid": 0.812,
+   "env_non_default": {
+    "QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS": "120"
+   }
+  },
+  {
+   "evidence": "uat/UAT-06/sessionA",
+   "turns": 9,
+   "exit": 0,
+   "wall_s": 46.81,
+   "store_bytes_before": 0,
+   "store_bytes_after": 335740,
+   "store_growth_bytes": 335740,
+   "daemon_turns_sampled": 9,
+   "daemon_turns_not_sampled": 0,
+   "not_sampled_reasons": [],
+   "daemon_pids": [
+    73920
+   ],
+   "ws_max_bytes": 39133184,
+   "ws_last_bytes": 39133184,
+   "peak_ws_max_bytes": 39133184,
+   "cpu_s_last_per_pid": {
+    "73920": 0.609375
+   },
+   "cpu_s_sum_last_per_pid": 0.609,
+   "env_non_default": {
+    "QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS": "120"
+   }
+  },
+  {
+   "evidence": "uat/UAT-06/sessionB-resume",
+   "turns": 4,
+   "exit": 0,
+   "wall_s": 41.661,
+   "store_bytes_before": 278896,
+   "store_bytes_after": 404522,
+   "store_growth_bytes": 125626,
+   "daemon_turns_sampled": 4,
+   "daemon_turns_not_sampled": 0,
+   "not_sampled_reasons": [],
+   "daemon_pids": [
+    73920
+   ],
+   "ws_max_bytes": 44163072,
+   "ws_last_bytes": 44163072,
+   "peak_ws_max_bytes": 44163072,
+   "cpu_s_last_per_pid": {
+    "73920": 0.953125
+   },
+   "cpu_s_sum_last_per_pid": 0.953,
+   "env_non_default": {
+    "QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS": "120"
+   }
+  },
+  {
+   "evidence": "uat/UAT-06/sessionC-fork",
+   "turns": 5,
+   "exit": 0,
+   "wall_s": 60.144,
+   "store_bytes_before": 404522,
+   "store_bytes_after": 467354,
+   "store_growth_bytes": 62832,
+   "daemon_turns_sampled": 5,
+   "daemon_turns_not_sampled": 0,
+   "not_sampled_reasons": [],
+   "daemon_pids": [
+    73920
+   ],
+   "ws_max_bytes": 48365568,
+   "ws_last_bytes": 48365568,
+   "peak_ws_max_bytes": 48365568,
+   "cpu_s_last_per_pid": {
+    "73920": 1.34375
+   },
+   "cpu_s_sum_last_per_pid": 1.344,
+   "env_non_default": {
+    "QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS": "120"
+   }
+  },
+  {
+   "evidence": "uat/UAT-07/run1/session",
+   "turns": 10,
+   "exit": 0,
+   "wall_s": 60.893,
+   "store_bytes_before": 0,
+   "store_bytes_after": 373273,
+   "store_growth_bytes": 373273,
+   "daemon_turns_sampled": 10,
+   "daemon_turns_not_sampled": 0,
+   "not_sampled_reasons": [],
+   "daemon_pids": [
+    60340
+   ],
+   "ws_max_bytes": 42086400,
+   "ws_last_bytes": 42086400,
+   "peak_ws_max_bytes": 42086400,
+   "cpu_s_last_per_pid": {
+    "60340": 0.40625
+   },
+   "cpu_s_sum_last_per_pid": 0.406,
+   "env_non_default": {
+    "QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS": "30"
+   }
+  },
+  {
+   "evidence": "uat/UAT-07/run2/session",
+   "turns": 13,
+   "exit": 0,
+   "wall_s": 64.655,
+   "store_bytes_before": 0,
+   "store_bytes_after": 539418,
+   "store_growth_bytes": 539418,
+   "daemon_turns_sampled": 13,
+   "daemon_turns_not_sampled": 0,
+   "not_sampled_reasons": [],
+   "daemon_pids": [
+    36604
+   ],
+   "ws_max_bytes": 42713088,
+   "ws_last_bytes": 42713088,
+   "peak_ws_max_bytes": 42717184,
+   "cpu_s_last_per_pid": {
+    "36604": 0.78125
+   },
+   "cpu_s_sum_last_per_pid": 0.781,
+   "env_non_default": {
+    "QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS": "30"
+   }
+  },
+  {
+   "evidence": "uat/UAT-08/session",
+   "turns": 14,
+   "exit": 0,
+   "wall_s": 167.397,
+   "store_bytes_before": 0,
+   "store_bytes_after": 487903,
+   "store_growth_bytes": 487903,
+   "daemon_turns_sampled": 11,
+   "daemon_turns_not_sampled": 3,
+   "not_sampled_reasons": [
+    "not running as qompack.exe"
+   ],
+   "daemon_pids": [
+    10884
+   ],
+   "ws_max_bytes": 43687936,
+   "ws_last_bytes": 43687936,
+   "peak_ws_max_bytes": 43687936,
+   "cpu_s_last_per_pid": {
+    "10884": 0.515625
+   },
+   "cpu_s_sum_last_per_pid": 0.516,
+   "env_non_default": {
+    "QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS": "30"
+   }
+  },
+  {
+   "evidence": "uat/UAT-09/session-s4-resume",
+   "turns": 7,
+   "exit": 0,
+   "wall_s": 221.81,
+   "store_bytes_before": 406891,
+   "store_bytes_after": 631270,
+   "store_growth_bytes": 224379,
+   "daemon_turns_sampled": 7,
+   "daemon_turns_not_sampled": 0,
+   "not_sampled_reasons": [],
+   "daemon_pids": [
+    15484,
+    26452
+   ],
+   "ws_max_bytes": 36532224,
+   "ws_last_bytes": 29106176,
+   "peak_ws_max_bytes": 36532224,
+   "cpu_s_last_per_pid": {
+    "26452": 0.25,
+    "15484": 0.203125
+   },
+   "cpu_s_sum_last_per_pid": 0.453,
+   "env_non_default": {
+    "QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS": "30"
+   }
+  },
+  {
+   "evidence": "uat/UAT-09/session-s5-new",
+   "turns": 4,
+   "exit": 0,
+   "wall_s": 35.772,
+   "store_bytes_before": 562595,
+   "store_bytes_after": 723791,
+   "store_growth_bytes": 161196,
+   "daemon_turns_sampled": 4,
+   "daemon_turns_not_sampled": 0,
+   "not_sampled_reasons": [],
+   "daemon_pids": [
+    63832
+   ],
+   "ws_max_bytes": 34316288,
+   "ws_last_bytes": 34316288,
+   "peak_ws_max_bytes": 34316288,
+   "cpu_s_last_per_pid": {
+    "63832": 0.234375
+   },
+   "cpu_s_sum_last_per_pid": 0.234,
+   "env_non_default": {}
+  },
+  {
+   "evidence": "uat/UAT-10/session",
+   "turns": 8,
+   "exit": 0,
+   "wall_s": 107.376,
+   "store_bytes_before": 0,
+   "store_bytes_after": 339371,
+   "store_growth_bytes": 339371,
+   "daemon_turns_sampled": 8,
+   "daemon_turns_not_sampled": 0,
+   "not_sampled_reasons": [],
+   "daemon_pids": [
+    4208
+   ],
+   "ws_max_bytes": 42237952,
+   "ws_last_bytes": 42237952,
+   "peak_ws_max_bytes": 42237952,
+   "cpu_s_last_per_pid": {
+    "4208": 0.3125
+   },
+   "cpu_s_sum_last_per_pid": 0.312,
+   "env_non_default": {}
+  },
+  {
+   "evidence": "uat/UAT-11/diag-rerun/session",
+   "turns": 7,
+   "exit": 0,
+   "wall_s": 86.403,
+   "store_bytes_before": 0,
+   "store_bytes_after": 1119778,
+   "store_growth_bytes": 1119778,
+   "daemon_turns_sampled": 7,
+   "daemon_turns_not_sampled": 0,
+   "not_sampled_reasons": [],
+   "daemon_pids": [
+    2112
+   ],
+   "ws_max_bytes": 56094720,
+   "ws_last_bytes": 56094720,
+   "peak_ws_max_bytes": 56094720,
+   "cpu_s_last_per_pid": {
+    "2112": 1.015625
+   },
+   "cpu_s_sum_last_per_pid": 1.016,
+   "env_non_default": {}
+  },
+  {
+   "evidence": "uat/UAT-11/session",
+   "turns": 5,
+   "exit": 0,
+   "wall_s": 58.366,
+   "store_bytes_before": 0,
+   "store_bytes_after": 1670194,
+   "store_growth_bytes": 1670194,
+   "daemon_turns_sampled": 5,
+   "daemon_turns_not_sampled": 0,
+   "not_sampled_reasons": [],
+   "daemon_pids": [
+    71228
+   ],
+   "ws_max_bytes": 52740096,
+   "ws_last_bytes": 52740096,
+   "peak_ws_max_bytes": 52740096,
+   "cpu_s_last_per_pid": {
+    "71228": 0.390625
+   },
+   "cpu_s_sum_last_per_pid": 0.391,
+   "env_non_default": {}
+  },
+  {
+   "evidence": "uat/UAT-12/sessionA",
+   "turns": 4,
+   "exit": 0,
+   "wall_s": 40.377,
+   "store_bytes_before": 0,
+   "store_bytes_after": 672436,
+   "store_growth_bytes": 672436,
+   "daemon_turns_sampled": 4,
+   "daemon_turns_not_sampled": 0,
+   "not_sampled_reasons": [],
+   "daemon_pids": [
+    61268
+   ],
+   "ws_max_bytes": 112242688,
+   "ws_last_bytes": 112242688,
+   "peak_ws_max_bytes": 112242688,
+   "cpu_s_last_per_pid": {
+    "61268": 0.6875
+   },
+   "cpu_s_sum_last_per_pid": 0.688,
+   "env_non_default": {
+    "QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS": "30"
+   }
+  },
+  {
+   "evidence": "uat/UAT-12/sessionB",
+   "turns": 12,
+   "exit": 0,
+   "wall_s": 115.533,
+   "store_bytes_before": 1229766,
+   "store_bytes_after": 2789074,
+   "store_growth_bytes": 1559308,
+   "daemon_turns_sampled": 12,
+   "daemon_turns_not_sampled": 0,
+   "not_sampled_reasons": [],
+   "daemon_pids": [
+    50580
+   ],
+   "ws_max_bytes": 56356864,
+   "ws_last_bytes": 56356864,
+   "peak_ws_max_bytes": 56356864,
+   "cpu_s_last_per_pid": {
+    "50580": 2.265625
+   },
+   "cpu_s_sum_last_per_pid": 2.266,
+   "env_non_default": {
+    "QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS": "30"
+   }
+  },
+  {
+   "evidence": "uat/UAT-12/sessionC",
+   "turns": 2,
+   "exit": 0,
+   "wall_s": 17.865,
+   "store_bytes_before": 2031745,
+   "store_bytes_after": 2158726,
+   "store_growth_bytes": 126981,
+   "daemon_turns_sampled": 2,
+   "daemon_turns_not_sampled": 0,
+   "not_sampled_reasons": [],
+   "daemon_pids": [
+    16480
+   ],
+   "ws_max_bytes": 39129088,
+   "ws_last_bytes": 39129088,
+   "peak_ws_max_bytes": 39129088,
+   "cpu_s_last_per_pid": {
+    "16480": 0.890625
+   },
+   "cpu_s_sum_last_per_pid": 0.891,
+   "env_non_default": {
+    "QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS": "30"
+   }
+  }
+ ],
+ "hooks_per_event": [
+  {
+   "event": "PostToolUse",
+   "hook_names": [
+    "PostToolUse:Agent",
+    "PostToolUse:Bash",
+    "PostToolUse:Edit",
+    "PostToolUse:Read",
+    "PostToolUse:ToolSearch",
+    "PostToolUse:mcp__plugin_qompack_qompack__already_tried",
+    "PostToolUse:mcp__plugin_qompack_qompack__dropped",
+    "PostToolUse:mcp__plugin_qompack_qompack__expand",
+    "PostToolUse:mcp__plugin_qompack_qompack__re_read",
+    "PostToolUse:mcp__plugin_qompack_qompack__recall",
+    "PostToolUse:mcp__plugin_qompack_qompack__record_eliminated",
+    "PostToolUse:mcp__plugin_qompack_qompack__timeline",
+    "PostToolUse:mcp__plugin_qompack_qompack__why"
+   ],
+   "n_measured": 228,
+   "median_ms": 52.0,
+   "p95_ms": 146,
+   "max_ms": 296,
+   "min_ms": 30,
+   "not_measured": 0,
+   "not_measured_before_init": 0,
+   "not_measured_within_5ms": 0,
+   "not_measured_no_response": 0,
+   "outcome_not_success": 0
+  },
+  {
+   "event": "SessionStart:compact",
+   "hook_names": [
+    "SessionStart:compact"
+   ],
+   "n_measured": 35,
+   "median_ms": 86,
+   "p95_ms": 144,
+   "max_ms": 8289,
+   "min_ms": 27,
+   "not_measured": 1,
+   "not_measured_before_init": 1,
+   "not_measured_within_5ms": 0,
+   "not_measured_no_response": 0,
+   "outcome_not_success": 0
+  },
+  {
+   "event": "SessionStart:fork",
+   "hook_names": [
+    "SessionStart:fork"
+   ],
+   "n_measured": 0,
+   "median_ms": null,
+   "p95_ms": null,
+   "max_ms": null,
+   "min_ms": null,
+   "not_measured": 1,
+   "not_measured_before_init": 1,
+   "not_measured_within_5ms": 0,
+   "not_measured_no_response": 0,
+   "outcome_not_success": 0
+  },
+  {
+   "event": "SessionStart:resume",
+   "hook_names": [
+    "SessionStart:resume"
+   ],
+   "n_measured": 0,
+   "median_ms": null,
+   "p95_ms": null,
+   "max_ms": null,
+   "min_ms": null,
+   "not_measured": 2,
+   "not_measured_before_init": 2,
+   "not_measured_within_5ms": 0,
+   "not_measured_no_response": 0,
+   "outcome_not_success": 0
+  },
+  {
+   "event": "SessionStart:startup",
+   "hook_names": [
+    "SessionStart:startup"
+   ],
+   "n_measured": 0,
+   "median_ms": null,
+   "p95_ms": null,
+   "max_ms": null,
+   "min_ms": null,
+   "not_measured": 26,
+   "not_measured_before_init": 26,
+   "not_measured_within_5ms": 0,
+   "not_measured_no_response": 0,
+   "outcome_not_success": 0
+  },
+  {
+   "event": "Stop",
+   "hook_names": [
+    "Stop"
+   ],
+   "n_measured": 179,
+   "median_ms": 56,
+   "p95_ms": 127,
+   "max_ms": 237,
+   "min_ms": 29,
+   "not_measured": 0,
+   "not_measured_before_init": 0,
+   "not_measured_within_5ms": 0,
+   "not_measured_no_response": 0,
+   "outcome_not_success": 0
+  },
+  {
+   "event": "SubagentStop",
+   "hook_names": [
+    "SubagentStop"
+   ],
+   "n_measured": 37,
+   "median_ms": 79,
+   "p95_ms": 124,
+   "max_ms": 153,
+   "min_ms": 33,
+   "not_measured": 1,
+   "not_measured_before_init": 1,
+   "not_measured_within_5ms": 0,
+   "not_measured_no_response": 0,
+   "outcome_not_success": 0
+  },
+  {
+   "event": "UserPromptSubmit",
+   "hook_names": [
+    "UserPromptSubmit"
+   ],
+   "n_measured": 152,
+   "median_ms": 49.0,
+   "p95_ms": 114,
+   "max_ms": 220,
+   "min_ms": 33,
+   "not_measured": 28,
+   "not_measured_before_init": 28,
+   "not_measured_within_5ms": 0,
+   "not_measured_no_response": 0,
+   "outcome_not_success": 0
+  }
+ ],
+ "hooks_all_events": {
+  "n_measured": 631,
+  "median_ms": 55,
+  "p95_ms": 138,
+  "max_ms": 8289,
+  "not_measured": 59,
+  "pairs_total": 690
+ },
+ "sessions_tsv": {
+  "install": {
+   "sessions": 4,
+   "wall_s": 189.158,
+   "exit_nonzero": 0,
+   "models": [
+    "claude-haiku-4-5-20251001"
+   ]
+  },
+  "sessions": {
+   "sessions": 10,
+   "wall_s": 1089.001,
+   "exit_nonzero": 0,
+   "models": [
+    "claude-haiku-4-5-20251001"
+   ]
+  },
+  "retrieval": {
+   "sessions": 12,
+   "wall_s": 1152.836,
+   "exit_nonzero": 0,
+   "models": [
+    "claude-haiku-4-5-20251001"
+   ]
+  },
+  "recovery": {
+   "sessions": 3,
+   "wall_s": 35.054,
+   "exit_nonzero": 0,
+   "models": [
+    "claude-haiku-4-5-20251001"
+   ]
+  }
+ },
+ "sessions_tsv_total": {
+  "sessions": 29,
+  "wall_s": 2466.049,
+  "exit_nonzero": 0
+ }
+}

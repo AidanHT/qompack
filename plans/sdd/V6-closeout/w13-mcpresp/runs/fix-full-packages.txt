@@ -1,0 +1,7 @@
+# fix seat: touched packages in full once (-p 2), Windows
+ok  	github.com/qompack/qompack/internal/mcp	160.811s
+ok  	github.com/qompack/qompack/internal/config	19.591s
+ok  	github.com/qompack/qompack/test/docs	2.270s
+exit=0
+ok  	github.com/qompack/qompack/tools/devtool	91.290s
+exit=0

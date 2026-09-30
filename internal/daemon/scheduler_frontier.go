@@ -71,14 +71,78 @@ func (r *schedRuntime) CloseSegmentOn(ctx context.Context, at core.TurnIndex, f 
 	return r.closeSegmentLocked(ctx, at, f, cause)
 }
 
-// closeSegmentLocked closes the session's current segment and opens its successor.
+// CloseSegmentForCompaction closes sess's current segment at the highest turn observed, with cause
+// "compact", and rolls its successor open: the host is compacting sess, and the checkpoint it seals
+// next encodes closed segments only (F-UAT03-1).
+//
+// The turn and the open-segment token count the close records are this runtime's, and they belong
+// to the session it is bound to. A compaction of ANOTHER session is therefore left alone and
+// counted. A runtime bound to no session yet — a daemon that restarted mid-session, which gets no
+// SessionStart, and whose first hook for the session has not reached the tap (bindOnFirstHook) —
+// holds only what it observed since it started, so it first binds sess exactly as a SessionStart
+// would, restoring the session's persisted account from state/scheduler.json, and then folds in
+// what it observed since the restart (bindUnboundLocked). A segment the
+// runtime still has no token account for is left open and counted rather than closed with zero
+// tokens, which Segment.Tokens would keep for good. The turn is the highest tool-use turn
+// observed, so a final prompt answered without a tool lands in the successor and is encoded by a
+// later checkpoint rather than this one.
+func (r *schedRuntime) CloseSegmentForCompaction(ctx context.Context, sess core.SessionID) error {
+	if sess == "" {
+		return nil
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	switch r.session {
+	case sess:
+	case "":
+		r.bindUnboundLocked(sess)
+	default:
+		r.count(counterTapCompactForeign)
+		return nil
+	}
+	if r.openSegTokens == 0 {
+		r.count(counterTapCompactUnobserved)
+		return nil
+	}
+	return r.closeSessionSegmentLocked(ctx, sess, r.maxTurn, scheduler.Features{}, causeCompact)
+}
+
+// bindUnboundLocked binds sess on a runtime bound to nothing, keeping the two accumulators a
+// segment close records. The bind resets them and restores the session's persisted values; what
+// this daemon observed before the bind came after that persist (an unbound runtime never
+// persists), so the turn is the later of the two and the open segment's tokens are their sum. Its
+// callers are a compaction close (CloseSegmentForCompaction) and a session's first hook
+// (bindOnFirstHook).
+func (r *schedRuntime) bindUnboundLocked(sess core.SessionID) {
+	seenTurn, seenTokens := r.maxTurn, r.openSegTokens
+	r.bindSessionLocked(sess, nil)
+	if seenTurn <= r.maxTurn && seenTokens == 0 {
+		return
+	}
+	r.maxTurn = max(r.maxTurn, seenTurn)
+	r.openSegTokens += seenTokens
+	// The live context and the burn baseline follow, as BindSession sets them: the merge is a
+	// recount, never a burn sample.
+	r.lastTokens = r.recomputeContextTokensLocked(context.Background())
+	r.dirty = true
+}
+
+// closeSegmentLocked closes the bound session's current segment and opens its successor.
 // Cause is one of: changepoint, todo, test, commit.
 // SP-08 owns the session's FIRST Open; every subsequent roll is owned here.
 func (r *schedRuntime) closeSegmentLocked(ctx context.Context, at core.TurnIndex, f scheduler.Features, cause string) error {
+	return r.closeSessionSegmentLocked(ctx, r.session, at, f, cause)
+}
+
+// closeSessionSegmentLocked is closeSegmentLocked for a named session: every close cause but
+// "compact" names the bound one.
+func (r *schedRuntime) closeSessionSegmentLocked(ctx context.Context, sess core.SessionID, at core.TurnIndex,
+	f scheduler.Features, cause string,
+) error {
 	if !r.cfg.Checkpoint.Frontier.AdvanceOnSegmentClose {
 		return nil
 	}
-	cur, err := r.segs.Current(ctx, r.session)
+	cur, err := r.segs.Current(ctx, sess)
 	if errors.Is(err, core.ErrNotFound) {
 		return nil // SP-08 has not opened one yet; nothing to close
 	} else if err != nil {
@@ -106,7 +170,7 @@ func (r *schedRuntime) closeSegmentLocked(ctx context.Context, at core.TurnIndex
 		return err
 	}
 	_, err = r.segs.Open(ctx, store.Segment{
-		Session: r.session, StartTurn: at + 1, StartTS: r.nowMS(),
+		Session: sess, StartTurn: at + 1, StartTS: r.nowMS(),
 	})
 	r.openSegTokens = 0 // the successor starts empty; the tap refills it from rec.Tokens
 	r.dirty = true

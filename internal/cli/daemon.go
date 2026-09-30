@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"syscall"
+	"time"
 
 	"github.com/qompack/qompack/internal/checkpoint"
 	"github.com/qompack/qompack/internal/config"
@@ -76,7 +77,9 @@ func runDaemon(ctx context.Context, env Env, args []string, out, errw io.Writer)
 	if err != nil {
 		if !errors.Is(err, daemon.ErrLockHeld) {
 			fmt.Fprintf(errw, "qompack daemon: writer lease unavailable: %v\n", err)
+			return nil
 		}
+		reportLockHeld(env, root, *foreground, errw)
 		return nil
 	}
 	defer func() { _ = releaseLease() }()
@@ -223,6 +226,48 @@ func runDaemon(ctx context.Context, env Env, args []string, out, errw io.Writer)
 	}
 }
 
+// reportLockHeld is the one line a daemon that could not take the project's lock leaves before it
+// exits 0 (§2.3). It used to leave none (F-UAT03-4): a store copied from another path with its run/
+// directory never started a daemon, every spawned daemon exited 0 silently, and nothing said why.
+// The line names the holder and, for a lock written for another project path, how the lock rules
+// treat it: stale once this store's own heartbeat is older than the staleness window.
+//
+// It is written to the project's day log, which exists: a held lock means .qompack/run/ does.
+// --foreground also prints it, since an operator watching the process asked to see it.
+func reportLockHeld(env Env, root string, foreground bool, errw io.Writer) {
+	clk := env.Clock
+	if clk == nil {
+		clk = core.SystemClock()
+	}
+	h := daemon.DescribeLockHolder(root, clk)
+	msg := "daemon: another daemon holds this project's lock; this one exits"
+	kv := []any{
+		"pid", h.PID, "addr", h.Addr, "root", h.Root, "version", h.Version,
+		"heartbeat_age_s", int64(h.HeartbeatAge / time.Second),
+	}
+	line := fmt.Sprintf("qompack daemon: another daemon holds this project's lock (pid %d, heartbeat %s ago); exiting",
+		h.PID, h.HeartbeatAge.Round(time.Second))
+	if h.Foreign {
+		msg = "daemon: this project's lock was written for another project path (a copied or moved store); " +
+			"it is treated as stale once this store's heartbeat is older than the staleness window, and this daemon exits"
+		kv = append(kv, "stale_after_s", int64(daemon.StaleAfter()/time.Second))
+		line = fmt.Sprintf("qompack daemon: this project's lock was written for another project path (%s, pid %d); "+
+			"it is treated as stale once this store's heartbeat is %s old (now %s); exiting",
+			lockOrigin(h.Root, h.Addr), h.PID, daemon.StaleAfter(), h.HeartbeatAge.Round(time.Second))
+	}
+	if log, closer, lerr := logging.New(paths.Of(root).Logs, logging.Info); lerr == nil {
+		if h.Foreign {
+			log.Warn(msg, kv...)
+		} else {
+			log.Info(msg, kv...)
+		}
+		_ = closer.Close()
+	}
+	if foreground {
+		fmt.Fprintln(errw, line)
+	}
+}
+
 // daemonEnabledKey is the configuration key that switches the resident daemon on and off.
 const daemonEnabledKey = "runtime.daemon.enabled"
 
@@ -285,13 +330,23 @@ func installMCPTools(opts *daemon.Options, root string, cfg config.Config,
 		log.Loud("mcp: expansion promotion counting disabled", "err", promErr.Error())
 	}
 
-	// There is no ledger HERE on the daemon path: WireRehydrator opens the negative-knowledge
-	// ledger lazily on the first compaction and only then publishes it back onto Options (see
-	// RehydrateOptions.OpenLedger for why an eager open is not an option). liveLedger hands the
-	// tools an accessor onto Options.LedgerHandle, so the single lazily-opened handle reaches them
-	// the moment it exists; passing a value here would freeze the nil for the life of the process.
-	deps := NewToolDeps(root, cfg, opts.Store, liveLedger(opts), ckptReader, dropReporter, prom, syms, log, reg, clk)
+	// There is no ledger HERE on the daemon path: the negative-knowledge ledger is opened lazily,
+	// through the one-shot opener WireRehydrator published on Options (see
+	// RehydrateOptions.OpenLedger for why an eager open is not an option). openingLedger hands the
+	// tools an accessor that calls that opener, so the first already_tried or record_eliminated
+	// opens the ledger if no compaction has yet; passing a value here would freeze the nil for the
+	// life of the process.
+	deps := NewToolDeps(root, cfg, opts.Store, openingLedger(opts), ckptReader, dropReporter, prom, syms, log, reg, clk)
 	if err := daemon.InstallMCPOp(opts, deps); err != nil {
 		log.Loud("mcp: retrieval tools unavailable; the daemon is running without them", "err", err.Error())
 	}
+}
+
+// lockOrigin names where a foreign lock came from for an operator: the project root it records, or,
+// for a lock written before daemon.LockInfo.Root existed, the address it records.
+func lockOrigin(root, addr string) string {
+	if root != "" {
+		return root
+	}
+	return addr
 }

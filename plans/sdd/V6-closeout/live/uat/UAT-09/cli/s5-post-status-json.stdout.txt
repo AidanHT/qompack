@@ -1,0 +1,248 @@
+{
+  "schema": 1,
+  "command": "status",
+  "ok": true,
+  "data": {
+    "schema": 1,
+    "collected_at_ms": 1790708167143,
+    "primary": {
+      "source": "disk",
+      "status": "available",
+      "age_ms": 66238,
+      "reason": "daemon: status refused: "
+    },
+    "snapshot": null,
+    "hooks": [
+      {
+        "event": "PostToolUse",
+        "subcommand": "observe tool",
+        "timeout_seconds": 5,
+        "budget": "B-A",
+        "latency": null,
+        "provenance": {
+          "source": "disk",
+          "status": "unavailable",
+          "age_ms": 66238,
+          "reason": "no per-hook instrument: PostToolUse is folded into the hook_controlled aggregate, which mixes every delivering hook and cannot be attributed to one"
+        }
+      },
+      {
+        "event": "UserPromptSubmit",
+        "subcommand": "observe prompt",
+        "timeout_seconds": 5,
+        "budget": "B-A",
+        "latency": null,
+        "provenance": {
+          "source": "disk",
+          "status": "unavailable",
+          "age_ms": 66238,
+          "reason": "no per-hook instrument: UserPromptSubmit is folded into the hook_controlled aggregate, which mixes every delivering hook and cannot be attributed to one"
+        }
+      },
+      {
+        "event": "SessionStart",
+        "subcommand": "session-start",
+        "timeout_seconds": 15,
+        "budget": "B-A",
+        "latency": null,
+        "provenance": {
+          "source": "disk",
+          "status": "unavailable",
+          "age_ms": 66238,
+          "reason": "no per-hook instrument: SessionStart is folded into the hook_controlled aggregate, which mixes every delivering hook and cannot be attributed to one"
+        }
+      },
+      {
+        "event": "PreCompact",
+        "subcommand": "checkpoint",
+        "timeout_seconds": 20,
+        "budget": "B-E",
+        "latency": null,
+        "provenance": {
+          "source": "disk",
+          "status": "unavailable",
+          "age_ms": 66238,
+          "reason": "checkpoint_finalize: no samples recorded in the observed window"
+        }
+      },
+      {
+        "event": "Stop",
+        "subcommand": "observe stop",
+        "timeout_seconds": 5,
+        "budget": "B-A",
+        "latency": null,
+        "provenance": {
+          "source": "disk",
+          "status": "unavailable",
+          "age_ms": 66238,
+          "reason": "no per-hook instrument: Stop is folded into the hook_controlled aggregate, which mixes every delivering hook and cannot be attributed to one"
+        }
+      },
+      {
+        "event": "SubagentStop",
+        "subcommand": "observe stop --subagent",
+        "timeout_seconds": 10,
+        "budget": "B-A",
+        "latency": null,
+        "provenance": {
+          "source": "disk",
+          "status": "unavailable",
+          "age_ms": 66238,
+          "reason": "no per-hook instrument: SubagentStop is folded into the hook_controlled aggregate, which mixes every delivering hook and cannot be attributed to one"
+        }
+      },
+      {
+        "event": "SessionEnd",
+        "subcommand": "flush",
+        "timeout_seconds": 20,
+        "budget": "B-A",
+        "latency": null,
+        "provenance": {
+          "source": "disk",
+          "status": "unavailable",
+          "age_ms": 66238,
+          "reason": "no per-hook instrument: SessionEnd is folded into the hook_controlled aggregate, which mixes every delivering hook and cannot be attributed to one"
+        }
+      }
+    ],
+    "budgets": [
+      {
+        "id": "B-A",
+        "hist": "hook_controlled",
+        "gated": true,
+        "aggregate": true,
+        "covers": [
+          "PostToolUse",
+          "UserPromptSubmit",
+          "SessionStart",
+          "Stop",
+          "SubagentStop",
+          "SessionEnd"
+        ],
+        "measure": "estimated",
+        "latency": {
+          "hist": "hook_controlled",
+          "n": 8,
+          "p50_us": 10240,
+          "p95_us": 22528,
+          "p99_us": 22528,
+          "max_us": 21000,
+          "measure": "estimated"
+        },
+        "provenance": {
+          "source": "disk",
+          "status": "available",
+          "age_ms": 66238
+        }
+      },
+      {
+        "id": "B-B",
+        "hist": "l0_ingest",
+        "gated": true,
+        "aggregate": true,
+        "measure": "observed",
+        "latency": {
+          "hist": "l0_ingest",
+          "n": 8,
+          "p50_us": 7168,
+          "p95_us": 18432,
+          "p99_us": 18432,
+          "max_us": 18199,
+          "measure": "observed"
+        },
+        "provenance": {
+          "source": "disk",
+          "status": "available",
+          "age_ms": 66238
+        }
+      },
+      {
+        "id": "B-C",
+        "hist": "l0_process",
+        "gated": false,
+        "aggregate": true,
+        "measure": "observed",
+        "latency": {
+          "hist": "l0_process",
+          "n": 8,
+          "p50_us": 36864,
+          "p95_us": 45056,
+          "p99_us": 45056,
+          "max_us": 44911,
+          "measure": "observed"
+        },
+        "provenance": {
+          "source": "disk",
+          "status": "available",
+          "age_ms": 66238
+        }
+      },
+      {
+        "id": "B-D",
+        "hist": "hook_wall",
+        "gated": false,
+        "aggregate": true,
+        "measure": "observed",
+        "latency": null,
+        "provenance": {
+          "source": "disk",
+          "status": "unavailable",
+          "age_ms": 66238,
+          "reason": "no instrument records this histogram in this build; it measures host process creation, which the created process cannot observe"
+        }
+      },
+      {
+        "id": "B-E",
+        "hist": "checkpoint_finalize",
+        "gated": true,
+        "aggregate": false,
+        "covers": [
+          "PreCompact"
+        ],
+        "measure": "observed",
+        "latency": null,
+        "provenance": {
+          "source": "disk",
+          "status": "unavailable",
+          "age_ms": 66238,
+          "reason": "checkpoint_finalize: no samples recorded in the observed window"
+        }
+      },
+      {
+        "id": "B-F",
+        "hist": "mcp_tool_call",
+        "gated": true,
+        "aggregate": true,
+        "measure": "observed",
+        "latency": {
+          "hist": "mcp_tool_call",
+          "n": 3,
+          "p50_us": 2,
+          "p95_us": 2,
+          "p99_us": 2,
+          "max_us": 0,
+          "measure": "observed"
+        },
+        "provenance": {
+          "source": "disk",
+          "status": "available",
+          "age_ms": 66238
+        }
+      },
+      {
+        "id": "B-G",
+        "hist": "hook_degraded",
+        "gated": false,
+        "aggregate": true,
+        "measure": "observed",
+        "latency": null,
+        "provenance": {
+          "source": "disk",
+          "status": "unavailable",
+          "age_ms": 66238,
+          "reason": "hook_degraded: no samples recorded in the observed window"
+        }
+      }
+    ]
+  }
+}

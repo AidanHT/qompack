@@ -1,0 +1,61 @@
+UAT-07 — find historical material four ways and get it back; a thing that cannot be reached is
+never `absent` and never replaced by the current file. Agent-executed on the owner's real host per
+owner decision D3 by a Claude Code workflow subagent (Opus 5.5) — not human UAT.
+
+Date 2026-09-29 14:38-14:43 America/Toronto. Sessions used: 2 (retrieval part n=1 run1/, n=2
+run2/). Model claude-haiku-4-5-20251001, Claude Code 2.1.280, Windows 11 Home 25H2 build
+10.0.26200.9457. Frozen bundle qompack-plugin-0.3.0-windows-amd64 via --plugin-dir (BUNDLE.json
+sha256 32600778ae6463cd47736fc6b0a8614ad782e5bbd0ef0440f4e2c3937ccf4505, bin sha256 c7b2b120...,
+commit d5598eb4); init: server plugin:qompack:qompack connected, eight tools, six commands, no
+qompack:checkpoint. Every CLI step used the bundle's bin/qompack.exe; `qompack version` 0.3.0.
+Configuration: defaults (retrieval.defaultSpan minimal, runtime.mcp.spanWidenLines 40,
+runtime.mcp.maxResponseBytes 262144, retention defaults); session/CLI env
+QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS=30 (not a row key). Pre-run: `backup create` exit 1 "source
+project has no existing store" in both projects (initial absence).
+
+run1/ is kept as a harness failure: --allowedTools lacked Edit, so the model's Edit was DENIED
+(dontAsk) and the row's precondition "read and edited" was not met. Its retrieval results agree with
+run2's. run2/ is the run of record (fresh project uat07b, same files, Edit allowed).
+
+run2 (session/stream.jsonl; slash-commands.json = the host's expansion of each /qompack:recall):
+ T1 Read src/ledger.go (turn 1 capture, driftLimit 25). T2 Edit 25 -> 40 (FileEdit capture).
+ T3 `/qompack:recall cobalt heron threshold --json`: hits with hash/path/tool/summary/ts/score/
+    tool_use_id/span, count, found true — references and summaries, not bytes. PASS.
+ T4 Read again (turn 7 capture, driftLimit 40).
+ T5 `/qompack:recall path:src/*.go --json`: count 0, found false, exit 0. The documented selector
+    is `path:<glob>`; a glob matches nothing. `path:src/ledger.go` (T6) and `path:ledger.go`
+    (cli/11-recall-02) do match: store/search.go's path term is equality, a path-segment suffix or a
+    substring, never a glob (`*.go` and `src/*.go` both 0 hits, cli/11-recall-00/03). FINDING F1.
+ T7 `symbol:ReconcileBalances --json`: hits. PASS.
+ T8 `tool:Read --json`: 0 hits; T9 `tool:FileRead --json`: 2 hits. The selector matches Qompack's
+    display name (FileRead, FileEdit, ...) case-insensitively, not the host's tool name the doc's
+    `tool:<ToolName>` suggests. FINDING F2.
+ T10 MCP recall symbol: + expand by hash (L127->L130) and by tool_use_id (L131->L134): same hash
+    sha256:800cf27b..., same span [0,838], same content. The response carries hash, span,
+    total_bytes, truncated, widened, expansions, promoted, and NO `source`; by tool_use_id it adds
+    path and tool. `_meta.qompack` (cli/13-mcp-probe.json, direct stdio, the model cannot see it):
+    ephemeral true, span, total_bytes, truncated, path, hash, tool_use_id, untrusted. Note: the
+    `_meta.qompack.hash` is the hash of the response's own capture record, not the resolved object's
+    hash (which is the body's `hash`). PASS.
+ T11 re_read no `at` (L156->L159): source "store", turn 7, driftLimit 40, `at` absent; re_read
+    at "turn:1" (L160->L163): source store, at "turn:1", turn 1, hash 125153754..., driftLimit 25.
+    PASS. (Qompack's turn index is its own: host prompt k is turn 2k-2 and its tool uses 2k-1.)
+ T12 (before: edit.py rewrote src/ledger.go ON DISK to driftLimit 7, files/ledger.go.before-step6 /
+    after-step6) re_read no `at` (L177->L180): still source store, turn 7, driftLimit 40 — the
+    captured version, not the edited file. PASS (the substitution check).
+ T13 expand with a never-stored sha256 (L194->L197), OBSERVED (to be confirmed at execution):
+    `{"found":false,"available":false,"reason":"complete content provenance could not be
+    established"}` — not a tool error, not `absent`. It does not name what was searched (an unknown
+    tool_use_id miss does: `{"found":false,"searched":"tool_use index"}`, C4.4). FINDING F3 (minor).
+
+Observations: recall results after a few retrieval calls are dominated by the retrieval responses'
+own captures (each MCP call is captured twice: `mcp__plugin_qompack_qompack__re_read` by PostToolUse
+and `mcp__qompack__re_read` by the server, cli/11-recall-01), which push the original FileRead out of
+a top-5 `path:` answer. Post-run fsck exits 1 on index.tool_use "reports turn 0 after turn N" for the
+MCP server's own records (as UAT-02); status/doctor in cli/12-*. Store copies in run2/store.
+
+Result: PASS against the row's fail conditions (step 6 returned the captured version; the never-
+stored lookup was not reported `absent`; both handles resolved), with findings F1 (path selector is
+not a glob), F2 (tool selector takes Qompack's display names), F3 (miss without what was searched).
+Rollback: initial state absent in both projects; per the row the run is retained as evidence; no
+restore was run.

@@ -1,0 +1,14 @@
+# review finding 2 (TEMPORARY DIAGNOSTIC, not committed as a test; source in 16-ticket-observer-stale-segment.go.txt)
+# go test -p 2 -count=1 -run <the temporary test> ./internal/observer/
+--- FAIL: TestTicketSessionEndClosesTheSuccessorOfAScheduledRoll (0.06s)
+    zz_ticket_stale_segment_test.go:38: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-pinsckpt/internal/observer/zz_ticket_stale_segment_test.go:38
+        	Error:      	Not equal: 
+        	            	expected: 2
+        	            	actual  : 1
+        	Test:       	TestTicketSessionEndClosesTheSuccessorOfAScheduledRoll
+        	Messages:   	SessionEnd closes the open successor, not the rolled segment
+FAIL
+FAIL	github.com/qompack/qompack/internal/observer	0.527s
+FAIL
+exit=1

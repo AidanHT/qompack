@@ -16,6 +16,7 @@ import (
 	"github.com/qompack/qompack/internal/logging"
 	"github.com/qompack/qompack/internal/negknow"
 	"github.com/qompack/qompack/internal/obs"
+	"github.com/qompack/qompack/internal/observer"
 	"github.com/qompack/qompack/internal/scheduler"
 	"github.com/qompack/qompack/internal/store"
 )
@@ -54,7 +55,10 @@ type Options struct {
 	// PreCompact hook fires first and the SessionStart(source=compact) that follows is already too
 	// late for it. Publishing the opener here lets the PreCompact seam trigger the SAME one-shot
 	// open, so nothing opens a second handle and nothing opens anything at all in a daemon that
-	// never compacts.
+	// never compacts. The MCP ledger tools are the other caller (internal/cli liveLedger): the
+	// first already_tried or record_eliminated opens it, so both work before any compaction and
+	// after a daemon restart, and a daemon that neither compacts nor serves those tools still
+	// opens nothing.
 	//
 	// The memoization is what makes it safe to call from anywhere: two compactions racing on the
 	// daemon's worker pool get one handle, and an open that FAILED is Loud once and then answers
@@ -66,10 +70,11 @@ type Options struct {
 	// struct is both a vet copylocks failure and a lock nobody shares — so every copy of an
 	// Options, and every closure over the *Options wiring holds, addresses one cell.
 	//
-	// It exists because the publication crosses goroutines. The write happens on whichever worker
-	// goroutine reaches the first PreCompact; the reads happen on the per-connection goroutines
-	// ipc.Server spawns, through three accessors that never call the opener: the MCP tools'
-	// liveLedger, the scheduler's LedgerFn, and the checkpoint SourceSet supplier. sync.Once
+	// It exists because the publication crosses goroutines. The write happens on whichever
+	// goroutine reaches the opener first — a worker's PreCompact or an MCP tool call; the reads
+	// happen on the per-connection goroutines ipc.Server spawns, through accessors that never call
+	// the opener: the scheduler's LedgerFn and the checkpoint SourceSet supplier (the MCP tools'
+	// liveLedger calls the opener, then falls back to this cell). sync.Once
 	// orders only goroutines that call Do — a plain field read elsewhere has no edge to it — so
 	// the raw field this replaced was a data race on a two-word interface value, which under the
 	// detector is a CI failure and without it is a non-nil interface over a nil data pointer.
@@ -325,6 +330,13 @@ type Services struct {
 	Rehydrate      func(ctx context.Context, e hookio.Event) (hookio.Output, error)
 	MCPInitialized func(ctx context.Context) bool
 	StatusExtra    func(ctx context.Context) (json.RawMessage, error)
+
+	// SessionProgress reports where one session stands in the observer's memory — its current
+	// turn, and its open segment's running token count — or false when the observer holds no
+	// state for it. WireObserver binds it; nil means no observer. The `mcp` op reads it to file a
+	// retrieval's own record at the session's current turn and to report an open segment's live
+	// progress (mcpop.go resolveTurn and liveView).
+	SessionProgress func(core.SessionID) (observer.Progress, bool)
 }
 
 // DeclareProducers is the bridge from a daemon's wired Services to the §12.1 not-yet-implemented

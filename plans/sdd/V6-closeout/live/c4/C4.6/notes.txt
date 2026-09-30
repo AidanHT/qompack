@@ -1,0 +1,55 @@
+C4.6 — privacy in a real session: planted secrets never reach any durable surface; out-of-project
+and deny-ruled archived reads are refused by every retrieval form. Agent-executed on the owner's
+real host per owner decision D3 (Claude Code workflow subagent, Opus 5.5) — not human UAT.
+Run 2026-09-29 13:22-13:35 America/Toronto inside UAT-12 (evidence plans/sdd/V6-closeout/live/uat/
+UAT-12/, file names below relative to it). Sessions: the same 3 (A old build, B and C candidate).
+
+Planted secrets (setup-facts.json): two credential-shaped fake strings built at run time from split
+parts, written only to the project file deploy_notes.md and to the scratch secrets.json (outside
+every git work tree); every driver session used "secrets_file", every other output went through a
+filter, and every commit passed `live_driver.py scan-staged` (exit 0).
+ @@SEC_PLANTED_1@@  aws_access_key_id shape, 20 chars, sha256
+                    3b87f8aab199b5be354c6763946d443b789ad6e625098af66a13d810875a5f04
+ @@SEC_PLANTED_2@@  github_token shape (ghp_ + 36), 40 chars, sha256
+                    f9ccc6ab295faf2d9adb64ea58ee1c53f4f49aec8fe31653ee17e6c4d1d9f130
+Captures of the file: session A (old build 301a8e9, Read) and session B (candidate, Read), plus
+candidate expand/re_read responses over them and a /compact checkpoint + rehydration in session B.
+
+Durable-surface scan (cli/60-c46-scan.json): for each secret the literal, its JSON-escaped form,
+every 10-character fragment (11 and 31 windows) and its sha256 in hex (both cases); .zst objects
+decompressed (221 in the source, 54 in the recovery).
+ <project>/.qompack (368 files: objects, index, state incl. rehydrate-*.json and drafts,
+   checkpoints/0001.json, logs, spool, backup/uat12-baseline)      0 hits; 4 «redacted:» placeholders
+ <recovery>/.qompack (restored baseline, 94 files)                  0 hits; 2 placeholders
+ ~/.qompack (only bin/ existed; no logs/ was written there)         0 hits
+ QOMPACK_HOME=<scratch>/qhome (empty)                               0 hits
+ session streams: 16 MCP tool results and 1 SessionStart:compact rehydration payload (889 chars)
+   contain no @@SEC_PLANTED placeholder (the driver would have substituted any secret)
+ bundle CLI outputs (cli/21, cli/22) and the direct MCP probe of deploy_notes.md
+   (expand full, re_read full, recall NOTES-WREN-19; cli/20): contains_planted_secret false
+Result: PASS for "planted secrets never reach any durable Qompack surface".
+Host surface (not Qompack's, recorded as asked): the host's own transcripts of sessions A and B hold
+both secrets (the Read tool results, and session B's compaction summary); session C's does not
+(cli/transcript-facts-*.json). The host's persisted 259.7KB tool-result file holds neither.
+
+Refusals (sessionB stream, cli/20-mcp-probe.json, cli/21-22):
+ form                                       deny-ruled private/deny.txt          out-of-project file
+ host Read                                  refused by the host ("File is in a    (not retried)
+                                            directory that is denied by your
+                                            permission settings.")
+ recall (MCP, text and path: selector)      no hit carries deny.txt; "denied" 1   -
+ recall (/qompack:recall slash command)     no deny.txt content; denied:3         -
+ recall (bundle CLI `qompack recall`)       denied:4 / denied:2, no content       -
+ expand by tool_use_id                      denied (host's current permission     denied ("the capture has no
+                                            rules)                                usable path provenance")
+ expand by root hash                        denied (same reason)                  denied (same)
+ re_read                                    denied (same reason)                  tool error "path escapes the
+                                                                                  project root" (absolute and ../)
+ why                                        not exercised (no decision id recorded)
+ dropped / timeline                         no deny.txt content (timeline carries no paths)
+No refusal echoed the denied content, a preview of it, or the out-of-project path.
+`qompack expand` does not exist as a CLI command (cli/23), so the CLI form of expand is n/a.
+Result: PASS for the refusal half (why not exercised).
+
+Overall C4.6: PASS, with `why` unexercised. Related findings are in UAT-12's notes (F-UAT12-1..9),
+none of them a privacy leak.

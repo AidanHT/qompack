@@ -324,6 +324,11 @@ func (r *schedRuntime) BindSession(id core.SessionID, e *hookio.Event) {
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	r.bindSessionLocked(id, e)
+}
+
+// bindSessionLocked is BindSession under r.mu, for a caller that already holds it; id is non-empty.
+func (r *schedRuntime) bindSessionLocked(id core.SessionID, e *hookio.Event) {
 	if e != nil {
 		r.noteBindingEventLocked(e)
 	}
@@ -361,6 +366,55 @@ func (r *schedRuntime) BindSession(id core.SessionID, e *hookio.Event) {
 		"session", string(id), "effective_window", int(r.effectiveWindow), "max_output", int(r.maxOutput),
 		"window_source", r.windowSource, "host_trigger_absent", r.hostTriggerAbsent,
 		"regime", r.regime.Source, "changepoints", len(r.cpTurns))
+}
+
+// bindOnFirstHook binds sess when the runtime is bound to no session and sess is live.
+//
+// A daemon that restarted in the middle of a session gets no SessionStart for it, and only a
+// SessionStart, or a PreCompact's compaction close, bound the runtime. For the rest of such a
+// session every Evaluate answered error_no_window and Persist wrote nothing. So the tap calls this
+// before its own work on every tool use, Stop and captured prompt: the live session's first hook to
+// reach the restarted daemon binds it, restoring its state from state/bocd.json and
+// state/scheduler.json as a SessionStart bind does, and folding in whatever this runtime observed
+// while unbound (bindUnboundLocked). The binding event is not a SessionStart, so it carries no model
+// hint: the cache regime resolves from the environment and configuration until the next
+// SessionStart. SessionEnd does not bind: its route ends the session in the registry first, and a
+// session that is ending has nothing left to schedule.
+//
+// "Live" is the daemon registry's answer. Every hook route touches the registry before the event is
+// dispatched, so a live hook's session is live by the time the tap sees it. A replayed delivery of a
+// session no hook has touched since the restart (a leftover of another session in the drained WAL
+// or a client spool) is not live and does not bind: binding it would leave the live session unbound
+// for good, because only a SessionStart rebinds a bound runtime. With no daemon attached, or one
+// with no registry, every session counts as live.
+//
+// A runtime already bound to any session is left alone, whichever session the hook names.
+// Rebinding is a SessionStart's decision (BindSession).
+func (r *schedRuntime) bindOnFirstHook(sess core.SessionID) {
+	if sess == "" {
+		return
+	}
+	r.mu.Lock()
+	bound, d := r.session != "", r.d
+	r.mu.Unlock()
+	if bound {
+		return
+	}
+	// The registry is asked without r.mu held: its lock is independent of this one, and nothing
+	// here should wait on the registry while the tap's other seams wait on r.mu.
+	if d != nil {
+		if reg := d.Registry(); reg != nil && !reg.IsLive(sess) {
+			r.count(counterTapBindNotLive)
+			return
+		}
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.session != "" {
+		return // another hook bound it in between
+	}
+	r.bindUnboundLocked(sess)
+	r.count(counterTapBindFirstHook)
 }
 
 // noteBindingEventLocked reads the model id and the subagent marker off a SessionStart payload.

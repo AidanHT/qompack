@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -56,9 +57,15 @@ type fakeSegClose struct {
 	Feats   map[string]float64
 }
 
-// fakeSegLog is the store.SegmentLog double. It embeds the interface so the four methods
-// session.go never calls need no body; calling one panics on the nil embedded interface, which is
-// a louder failure than a silent zero value.
+// fakeSegLog is the store.SegmentLog double. It embeds the interface so the methods session.go
+// never calls need no body; calling one panics on the nil embedded interface, which is a louder
+// failure than a silent zero value.
+//
+// It keeps every segment it opened, or was handed through setCurrent, by id, the way the real
+// segLog does, so that Get and Range answer what the log holds and Close refuses what the real log
+// refuses for such a segment: a second close at a different turn (core.ErrAppendOnly) and an end
+// turn before the start turn. A Close of an id it never saw is recorded without either check, as
+// before, because several rows close an id they set on the session state directly.
 type fakeSegLog struct {
 	store.SegmentLog
 
@@ -68,6 +75,7 @@ type fakeSegLog struct {
 	nextID  core.SegmentID
 	opens   []store.Segment
 	openErr error
+	byID    map[core.SegmentID]store.Segment
 
 	current    store.Segment
 	currentErr error
@@ -82,7 +90,7 @@ type fakeSegLog struct {
 // newFakeSegLog returns a log with no current segment (the fresh-project answer) and 1-based ids,
 // matching the real segLog's "SegmentID is 1-based so 0 can mean none".
 func newFakeSegLog() *fakeSegLog {
-	return &fakeSegLog{nextID: 1, currentErr: core.ErrNotFound}
+	return &fakeSegLog{nextID: 1, currentErr: core.ErrNotFound, byID: map[core.SegmentID]store.Segment{}}
 }
 
 func (l *fakeSegLog) Open(_ context.Context, s store.Segment) (core.SegmentID, error) {
@@ -94,6 +102,8 @@ func (l *fakeSegLog) Open(_ context.Context, s store.Segment) (core.SegmentID, e
 	l.opens = append(l.opens, s)
 	id := l.nextID
 	l.nextID++
+	s.ID = id
+	l.byID[id] = s
 	return id, nil
 }
 
@@ -106,18 +116,76 @@ func (l *fakeSegLog) Close(_ context.Context, id core.SegmentID, endTurn core.Tu
 	if l.closeErr != nil {
 		return l.closeErr
 	}
+	seg, known := l.byID[id]
+	switch {
+	case known && seg.Closed && seg.EndTurn == endTurn:
+		return nil
+	case known && seg.Closed:
+		return fmt.Errorf("%w: fake segment %d is already closed at turn %d, refused for %d",
+			core.ErrAppendOnly, id, seg.EndTurn, endTurn)
+	case known && endTurn < seg.StartTurn:
+		return fmt.Errorf("fake segment %d end turn %d precedes start turn %d", id, endTurn, seg.StartTurn)
+	}
 	copied := make(map[string]float64, len(feats))
 	for k, v := range feats {
 		copied[k] = v
 	}
 	l.closes = append(l.closes, fakeSegClose{ID: id, EndTurn: endTurn, Feats: copied})
+	if known {
+		seg.Closed, seg.EndTurn, seg.Tokens = true, endTurn, core.Tokens(copied[featSegmentTokens])
+		l.byID[id] = seg
+	}
 	return nil
+}
+
+// Get answers from the segments the log holds, as the real segLog does.
+func (l *fakeSegLog) Get(_ context.Context, id core.SegmentID) (store.Segment, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	seg, ok := l.byID[id]
+	if !ok {
+		return store.Segment{}, fmt.Errorf("%w: fake segment %d", core.ErrNotFound, id)
+	}
+	return seg, nil
+}
+
+// Range is the real segLog's: every segment whose turn range meets [from, to], an open one
+// whenever to reaches its start, ascending by start turn.
+func (l *fakeSegLog) Range(_ context.Context, from, to core.TurnIndex) ([]store.Segment, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	var out []store.Segment
+	for _, seg := range l.byID {
+		if seg.StartTurn <= to && (!seg.Closed || seg.EndTurn >= from) {
+			out = append(out, seg)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].StartTurn != out[j].StartTurn {
+			return out[i].StartTurn < out[j].StartTurn
+		}
+		return out[i].ID < out[j].ID
+	})
+	return out, nil
 }
 
 func (l *fakeSegLog) Current(_ context.Context, _ core.SessionID) (store.Segment, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	return l.current, l.currentErr
+}
+
+// roll does what the scheduler's closeSessionSegmentLocked does to the log, and nothing else: it
+// closes id at at with tokens and opens the session's successor at at+1, which becomes the current
+// segment. The observer is not told.
+func (l *fakeSegLog) roll(t *testing.T, id core.SegmentID, at core.TurnIndex, tokens core.Tokens) core.SegmentID {
+	t.Helper()
+	ctx := context.Background()
+	require.NoError(t, l.Close(ctx, id, at, map[string]float64{featSegmentTokens: float64(tokens)}))
+	next, err := l.Open(ctx, store.Segment{Session: testSession, StartTurn: at + 1})
+	require.NoError(t, err)
+	l.setCurrent(store.Segment{ID: next, Session: testSession, StartTurn: at + 1})
+	return next
 }
 
 func (l *fakeSegLog) Frontier(_ context.Context, _ core.SessionID) (core.TurnIndex, error) {
@@ -142,6 +210,12 @@ func (l *fakeSegLog) setCurrent(s store.Segment) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.current, l.currentErr = s, nil
+	if s.ID != 0 {
+		l.byID[s.ID] = s
+		if s.ID >= l.nextID {
+			l.nextID = s.ID + 1
+		}
+	}
 }
 
 func (l *fakeSegLog) setFrontier(t core.TurnIndex) {
@@ -505,6 +579,7 @@ func TestOnSessionEnd_NeverWritesTriedBloom(t *testing.T) {
 
 func TestOnSessionEnd_SegmentClosedWithFeatures(t *testing.T) {
 	h, ss := newSessionHarness(t)
+	ss.DefaultTokens = 40 // every captured read costs this much, so the segment is not empty
 	ctx := context.Background()
 
 	_, err := h.obs.OnSessionStart(ctx, startEvent("startup"))
@@ -520,7 +595,9 @@ func TestOnSessionEnd_SegmentClosedWithFeatures(t *testing.T) {
 	st := h.state(testSession)
 	st.mu.Lock()
 	endTurn := st.Turn
+	segTokens := st.PrefixTokens - st.SegStartPos
 	st.mu.Unlock()
+	require.Positive(t, segTokens, "fixture sanity: sixteen reads put tokens into the segment")
 
 	_, err = h.obs.OnSessionEnd(ctx, endEvent())
 	require.NoError(t, err)
@@ -528,10 +605,40 @@ func TestOnSessionEnd_SegmentClosedWithFeatures(t *testing.T) {
 	closes := ss.seg.closesList()
 	require.Len(t, closes, 1)
 	require.Equal(t, endTurn, closes[0].EndTurn, "Close receives endTurn == st.Turn")
-	require.Len(t, closes[0].Feats, 5, "the §6.6 five-key feature map")
+	// Criterion change (V6 close-out wave 13, retrieval D8): the map carried the five §6.6 keys
+	// and nothing else, which is what left every session-end close at 0 tokens for good — Close
+	// reads Segment.Tokens from the "tokens" pseudo-feature and has no other way to receive it.
+	// The five keys are still required, each by name; the sixth is the segment's token count.
+	require.Len(t, closes[0].Feats, 6, "the §6.6 five-key feature map plus the tokens pseudo-feature")
 	for _, key := range []string{"path_jaccard", "tool_shift", "lexical_cohesion", "gap_seconds", "todo_transition"} {
 		require.Contains(t, closes[0].Feats, key)
 	}
+	require.Equal(t, float64(segTokens), closes[0].Feats["tokens"], "Close receives the segment's token count")
+}
+
+// TestOnSessionEnd_SegmentClosedWithTokensWithoutFeatures: a session too short for a feature
+// window still closes its segment with its token count, so the log never records a captured
+// segment as empty.
+func TestOnSessionEnd_SegmentClosedWithTokensWithoutFeatures(t *testing.T) {
+	h, ss := newSessionHarness(t)
+	ss.DefaultTokens = 40 // every captured read costs this much, so the segment is not empty
+	ctx := context.Background()
+
+	_, err := h.obs.OnSessionStart(ctx, startEvent("startup"))
+	require.NoError(t, err)
+	h.drive(readOf("toolu_short_1", "src/short.ts", "export const short = 1;\n"))
+
+	st := h.state(testSession)
+	st.mu.Lock()
+	segTokens := st.PrefixTokens - st.SegStartPos
+	st.mu.Unlock()
+	require.Positive(t, segTokens)
+
+	_, err = h.obs.OnSessionEnd(ctx, endEvent())
+	require.NoError(t, err)
+	closes := ss.seg.closesList()
+	require.Len(t, closes, 1)
+	require.Equal(t, map[string]float64{"tokens": float64(segTokens)}, closes[0].Feats)
 }
 
 func TestState_RoundTrip(t *testing.T) {

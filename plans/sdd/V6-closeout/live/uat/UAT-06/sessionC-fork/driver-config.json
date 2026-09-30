@@ -1,0 +1,43 @@
+{
+ "args": [
+  "-p",
+  "--input-format",
+  "stream-json",
+  "--output-format",
+  "stream-json",
+  "--verbose",
+  "--include-hook-events",
+  "--model",
+  "claude-haiku-4-5-20251001",
+  "--max-turns",
+  "12",
+  "--setting-sources",
+  "project,local",
+  "--permission-mode",
+  "dontAsk",
+  "--plugin-dir",
+  "C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c3/qompack-plugin-0.3.0-windows-amd64",
+  "--allowedTools",
+  "Read,Bash(cat:*),mcp__plugin_qompack_qompack__recall,mcp__plugin_qompack_qompack__expand,mcp__plugin_qompack_qompack__re_read,mcp__plugin_qompack_qompack__already_tried,mcp__plugin_qompack_qompack__record_eliminated,mcp__plugin_qompack_qompack__timeline,mcp__plugin_qompack_qompack__why,mcp__plugin_qompack_qompack__dropped,Bash(qompack status:*),Bash(qompack recall:*),Bash(qompack pin:*),Bash(qompack why:*),Bash(qompack dropped:*),Bash(qompack eval:*)",
+  "--resume",
+  "c8f504cc-2864-4daf-8125-f9ee3851b944",
+  "--fork-session"
+ ],
+ "cwd": "<scratch>/sessions/uat06/proj",
+ "out": "<scratch>/sessions/uat06/sC",
+ "env": {
+  "ENABLE_CLAUDEAI_MCP_SERVERS": "false",
+  "QOMPACK_HOME": "<scratch>/sessions/qhome",
+  "QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS": "120"
+ },
+ "timeout_s": 1500,
+ "messages": [
+  "We are continuing in a forked session. In one sentence: what is the current per-client rate limit requirement?",
+  "/compact",
+  "Correction: the limit must now be 75 requests per minute per client. The 60 figure is superseded as well. Acknowledge in one sentence.",
+  "/compact",
+  "In one sentence: what is the current per-client rate limit requirement, and which earlier figures were superseded?"
+ ],
+ "bin": "C:/Users/Quant/AppData/Roaming/npm/node_modules/@anthropic-ai/claude-code/bin/claude.exe",
+ "scrub": "<scratch>"
+}

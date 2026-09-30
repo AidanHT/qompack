@@ -11,6 +11,7 @@ import (
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/ipc"
 	"github.com/qompack/qompack/internal/mcp"
+	"github.com/qompack/qompack/internal/store"
 )
 
 // The `mcp` op: the daemon side of the L6 retrieval layer.
@@ -107,6 +108,13 @@ func handleMCPOp(ctx context.Context, o *Options, srv mcp.Server,
 	switch m.Kind {
 	case MCPKindInitialized:
 		initialized.Store(true)
+		// The history read-modify-write is serialized with every other route that loads and saves
+		// state/history.json — above all the session.start route, which the host runs beside this
+		// handshake — through the daemon's historyMu, so neither save drops the other's change.
+		if d, ok := DaemonFrom(ctx).(*daemon); ok && d != nil {
+			d.historyMu.Lock()
+			defer d.historyMu.Unlock()
+		}
 		recordMCPHandshake(o, m.Observ)
 		return ipc.Response{OK: true}
 	case MCPKindCall, "":
@@ -160,11 +168,15 @@ func dispatchMCPCall(ctx context.Context, o *Options, srv mcp.Server,
 		session = resolveSession(ctx)
 	}
 	turn := m.Turn
+	live := mcp.Live{Progress: liveProgress(ctx)}
 	if turn == 0 {
 		turn = resolveTurn(ctx, session)
+		// Resolved here, so re-resolvable at the moment the call files its own record: the
+		// workers may publish this session's hook deliveries while the tool runs (recordTurn).
+		live.Turn = func() core.TurnIndex { return resolveTurn(ctx, session) }
 	}
 
-	callCtx, cancel := context.WithTimeout(ctx, mcpCallTimeout)
+	callCtx, cancel := context.WithTimeout(mcp.WithLive(ctx, live), mcpCallTimeout)
 	defer cancel()
 
 	resp, err := mcp.Dispatch(callCtx, srv, mcp.Request{
@@ -224,28 +236,69 @@ func resolveSession(ctx context.Context) core.SessionID {
 	return best.ID
 }
 
-// resolveTurn reports where the session currently is, as a lower bound.
+// resolveTurn reports the turn the session is at now: the turn its next event will be filed at.
 //
-// SP-05's SessionState carries no turn index and SP-13 may not add one (Rule W-3), so the answer
-// comes from the store's currently open segment instead: SP-06 initialises an open segment's
-// EndTurn to its StartTurn, which makes max(StartTurn, EndTurn) a defined, monotone lower bound on
-// "where we are now". That is honest under-approximation rather than a guess — an ephemeral
-// record's turn is used only for ordering, and ordering by segment start is correct.
+// Three sources answer, and the largest wins, because each is a lower bound on the same quantity
+// and none is complete on its own:
+//
+//   - the observer's in-memory state (Services.SessionProgress), which is exact for a session this
+//     daemon has seen since it started — every hook record is filed at this very value;
+//   - the store's tool_use index (store.PromptRecovery's PromptFrontier): the turn the next event
+//     takes given every record already published, which covers a session the observer has only
+//     just re-loaded after a daemon restart and whose state file lags the index;
+//   - the store's currently open segment, whose StartTurn (the log records no end until close) is
+//     the floor SP-13 originally resolved from.
+//
+// The segment alone was the defect: a session's first segment opens at turn 0 and stays open for
+// as long as no changepoint closes it, so every retrieval's record was filed at turn 0 behind hook
+// records of later turns, and fsck's index.tool_use check failed after any session with an MCP
+// call (F-UAT01-2 of the V6 live lane). A record filed at the maximum of the three can never sit
+// below a record already published for the session, which is the order fsck checks.
 func resolveTurn(ctx context.Context, session core.SessionID) core.TurnIndex {
 	svc := ServicesFrom(ctx)
-	if svc == nil || svc.Store == nil || session == "" {
+	if session == "" {
 		return 0
 	}
-	segs := svc.Store.Segments()
-	if segs == nil {
-		return 0
+	var turn core.TurnIndex
+	if svc.SessionProgress != nil {
+		if p, ok := svc.SessionProgress(session); ok {
+			turn = p.Turn
+		}
 	}
-	seg, err := segs.Current(ctx, session)
-	if err != nil {
-		return 0
+	if svc.Store == nil {
+		return turn
 	}
-	if seg.EndTurn > seg.StartTurn {
-		return seg.EndTurn
+	if pr, ok := svc.Store.(store.PromptRecovery); ok {
+		// The zero digest names no delivery, so only the frontier half of the answer is used.
+		if next, _, err := pr.PromptFrontier(ctx, session, core.Hash{}); err == nil && next > turn {
+			turn = next
+		}
 	}
-	return seg.StartTurn
+	if segs := svc.Store.Segments(); segs != nil {
+		if seg, err := segs.Current(ctx, session); err == nil {
+			if seg.StartTurn > turn {
+				turn = seg.StartTurn
+			}
+			if seg.EndTurn > turn {
+				turn = seg.EndTurn
+			}
+		}
+	}
+	return turn
+}
+
+// liveProgress adapts Services.SessionProgress to the view the retrieval handlers read, or nil when
+// no observer is bound.
+func liveProgress(ctx context.Context) func(core.SessionID) (mcp.SessionProgress, bool) {
+	f := ServicesFrom(ctx).SessionProgress
+	if f == nil {
+		return nil
+	}
+	return func(s core.SessionID) (mcp.SessionProgress, bool) {
+		p, ok := f(s)
+		if !ok {
+			return mcp.SessionProgress{}, false
+		}
+		return mcp.SessionProgress{Turn: p.Turn, Segment: p.Segment, SegmentTokens: p.SegmentTokens}, true
+	}
 }

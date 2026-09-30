@@ -121,6 +121,11 @@ func (s *rehydrateService) OnCompact(ctx context.Context, e observer.Event) (out
 		return hookio.Empty(), nil
 	}
 
+	// Every ledger read below — the selection's candidates and the build's item 3 — is made for
+	// the session being rehydrated: the daemon's one ledger serves every session of the project,
+	// and only this session's session-scoped eliminations belong in its block.
+	ctx = negknow.WithCaller(ctx, negknow.Caller{Session: e.SessionID})
+
 	// §12.1 is explicit: in ModeDegradedPassive there is "no additionalContext injection, no
 	// customInstructions, no scheduler-initiated checkpoints, no drop report". L0/L1 keep running;
 	// everything that ACTS is off. Getting this wrong would make the degradation doctrine a lie.
@@ -162,6 +167,7 @@ func (s *rehydrateService) OnCompact(ctx context.Context, e observer.Event) (out
 		Checkpoint:  cp,
 		Ref:         ref,
 		Cfg:         s.o.Cfg,
+		Lineage:     s.lineage(e.SessionID),
 	}
 
 	var res rehydrate.Result

@@ -1,0 +1,97 @@
+UAT-05 — the injected block fits its budget, keeps current authority above superseded material,
+and names what it could not carry (part of C4.3). Agent-executed on the owner's real host per owner
+decision D3 by a Claude Code workflow subagent (Opus 5.5) — not human UAT.
+
+Date 2026-09-29 13:53-14:03 America/Toronto. Sessions used: 2 (run1-session n=3, run2-session n=4).
+Model claude-haiku-4-5-20251001, Claude Code 2.1.280, Windows 11 Home 25H2 build
+10.0.26200.9457, frozen bundle 0.3.0 (BUNDLE.json sha256 32600778...ccf4505, commit d5598eb4) via
+--plugin-dir.
+
+Preconditions (cli/00-preconditions.txt): disposable project (git init + add): reports.py,
+data/sample.csv, data/meta.txt ("release ticket: TCK-58213"). No .qompack (initial absence;
+00-backup-create-absent exit 1). Run 1: defaults (minTokens 8000, maxTokens 12000,
+eliminationsTopN 8, reinjection.sessionStartCompact true); session env idle exit 120 s.
+
+Run 1 (run1-session/stream.jsonl, 8 turns): T1 original intent with a requirement ("the export
+must use a semicolon (;) as the field delimiter") + Read reports.py; T2 "/qompack:pin Never write to
+prod.db from the export code." — the command's `qompack pin` ran ("pinned inv_8382970dffd4
+(source: user)", run1-pins-invariants.jsonl); the model then also tried the Skill tool
+"qompack:pin", denied in dontAsk mode; T3 the CORRECTION ("the export delimiter must be a TAB
+character, not a semicolon. The semicolon requirement is superseded."); T4 MCP record_eliminated
+-> {"found":false,"available":false,"reason":"elimination ledger not present in this build"}; T5
+Bash `cat data/meta.txt`; T6 "/compact" (manual, pre 29,313 -> post 2,788; PreCompact "completed
+successfully: {}"); T7 (before: meta.txt deleted) the model answered TCK-58213 and TAB, both from
+the host's own context (summary / preserved segment); T8 "/qompack:dropped --json".
+ Step 2 injected block (run1-injected-block.txt, 725 UTF-16 units): "<!-- qompack:injected seq=1
+ ver=1 -->", header "checkpoint 0001", "## 2. Original user intent (verbatim from L0 capture —
+ never summarized)" = the first prompt WITH the superseded semicolon requirement, "## 8. Retrieval",
+ closing tag, probe line. NO section 1 (the pin made before the compaction is missing), NO evolution
+ delta for the correction, nothing marking the semicolon requirement superseded.
+ Step 3 (run1-rehydrate-state.json): tokens 221, budget 12000, items user_intent 135 + affordance
+ 86, dropped [], degraded false. The checkpoint (run1-checkpoint-0001.json) has invariants [],
+ user_intent.evolution [], eliminated [], decisions [], pointers empty.
+ Step 4 (run1-dropped-json-envelope.txt): count 0, drops []. The CLI after the session
+ (cli/run1-dropped-json) answers available false "no live session" (and its call started a daemon
+ with the default idle exit, which then blocked the run-2 backup until stopped; cli/run2-00a).
+ fsck after run 1 (cli/run1-fsck-json) exit 1: index.tool_use (F-UAT01-2), index.segments (F-UAT03-2)
+ and pins "pins/invariants.json omits live invariant \"inv_8382970dffd4\"; the view is stale" —
+ the likely reason the pin never reached checkpoint 0001.
+
+Run 2 — tiny budget (step 5). Pre-run backup: the first attempts were refused ("daemon lock already
+held") — first by the CLI-started daemon, then for ~90 s after it was terminated although no daemon
+ran (cli/run2-00c-backup-create-try1..3; try4 at heartbeat age 98.6 s exit 0, verify exit 0). The
+run's config was moved aside for the backup and put back (cli/run2-00a note). Project config
+.qompack/config.json {"runtime":{"rehydrate":{"minTokens":150,"maxTokens":150}}} proved in effect
+before the session: config print --provenance shows both leaves "project ...config.json:1";
+self-test config.capture "applied as written". data/meta.txt re-created (TCK-77402). Same 8 turns.
+ Injected block (run2-injected-block.txt, 361 UTF-16 units): header "checkpoint 0002", "## 1.
+ Invariants (pinned, verbatim)" "- [inv_8382970dffd4] Never write to prod.db from the export code.
+ (source: user)", "## 7. No longer in context" "- … and 2 more; call dropped()". Section 2 absent.
+ State (run2-rehydrate-state.json): tokens 109 <= budget 150; items invariants 87, drop_report 22
+ (truncated true, units_seen 2); dropped: {kind user_intent, id tier1, detail "OVERFLOW: the verbatim
+ original user intent did not fit the rehydration payload and is emitted whole or not at all;
+ restore: expand(tool_use_id=prompt_8ac0f6c5-..._0)"} and {kind affordance, id tier1, "OVERFLOW:
+ tier-1 material did not fit the rehydration budget and is emitted whole or not at all — call
+ dropped() for the full accounting"}; degraded true. LOUD: "rehydrate: tier-1 material exceeds the
+ hard budget cap budget=150 spent=87 ceiling_chars=9400 spent_chars=240". Envelope
+ (run2-dropped-json-envelope.txt): count 2, the same two entries. Checkpoint 0002 now carries the
+ invariant but still user_intent.evolution [].
+ The model answered TCK-77402 and TAB from the host's own context again.
+
+Expected result, field by field:
+ - delimiters and fixed section order: present in both blocks (1 before 7 in run 2; 2 before 8 in
+   run 1). PASS.
+ - size within budget, never raised: run 1 221 <= 12000; run 2 109 <= 150. PASS.
+ - inline, <= 9,500 UTF-16 units: 725 and 361; hook_additional_context attachments, no
+   persisted-output. PASS here; but UAT-04's block cut an 8 KiB prefix of a longer first prompt
+   mid-record under the "verbatim" heading (F-UAT04-1) — a "record cut mid-record" fail criterion.
+ - current authority: FAIL. The user's explicit correction never reached user_intent.evolution in
+   either checkpoint or block; run 1 re-injected only the superseded semicolon requirement as the
+   session's intent, with no statement that it was superseded and no drop entry.
+ - overflow explicit: run 2 PASS (tier1 entries, pointer, degraded true, counted tail). Run 1: the
+   pinned invariant was missing with dropped [] and degraded false — content missing with no overflow
+   named (fail criterion "an overflow that appears nowhere ... while content is missing"), caused by
+   the stale pins view rather than the budget.
+ - no native-shrink claim: steps/s6 search, 0 matches.
+
+Findings:
+ F-UAT05-1 (product defect, current authority) an explicit user correction in a real session is not
+   recorded as an intent evolution (checkpoint user_intent.evolution [] in both runs); the
+   rehydration presents the superseded original requirement alone.
+ F-UAT05-2 (product defect) a pin made with /qompack:pin while the daemon runs is written to
+   pins/invariants.jsonl but not to the pins/invariants.json view (fsck "the view is stale"); the next
+   PreCompact checkpoint and rehydration omit it without any drop entry. It appeared one daemon
+   restart later (run 2).
+ F-UAT05-3 (product/doc) MCP record_eliminated answers {"available":false,"reason":"elimination ledger
+   not present in this build"} in a normal project, so section 3 cannot be exercised live (routed to
+   C4.4).
+ F-UAT05-4 (product) after a daemon is terminated, backup create/verify refuse "daemon lock already
+   held" for ~90 s although no daemon runs (the stale-lock heartbeat window).
+ F-UAT05-5 (known) fsck index.segments on segment 2 -> checkpoint 0003 (F-UAT03-2); segment 1's
+   claim of 0002 stopped failing only because run 2's PreCompact happened to write a 0002.
+ F-UAT05-6 (host) the model answered the pre-compaction questions from the host's own summary and
+   preserved segment each time; Qompack's block was not needed for them.
+
+Rollback (run 2): pre-run backup uat05-before-run2 created and verified (exit 0/0, consistent); no
+restore was run for this row (its post-run store is retained as evidence); initial state for run 1
+was absent. Cross-version and activation checks: not run, unverified.

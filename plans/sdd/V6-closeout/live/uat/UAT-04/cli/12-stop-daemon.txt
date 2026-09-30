@@ -1,0 +1,6 @@
+session daemon (SessionEnd refused by the broken config, so the session was never ended in the daemon) stopped after the post-run checks:
+{"lock": {"pid": 57528, "started": 1790705018492, "addr": "\\\\.\\pipe\\qompack.0fe9e58c63a0", "version": "0.3.0", "owner": "46130c960aa49b72055ab2c5295d36a01ee5263f404d93252c9aa41e8e4f5576"}, "pid": 57528, "proc": {"Name": "qompack.exe", "Path": "C:\\Users\\Quant\\.qompack\\bin\\c7b2b120a6efcfc1def58bd55dd29df51ec1bc0bc35a164258d5e0bc9c12803d\\qompack.exe", "Cmd": "C:\\Users\\Quant\\.qompack\\bin\\c7b2b120a6efcfc1def58bd55dd29df51ec1bc0bc35a164258d5e0bc9c12803d\\qompack.exe daemon --project <scratch>\\sessions\\uat04\\proj"}}
+check image qompack.exe: True | check cmdline daemon+project: True
+Stop-Process exit 0  | still alive: False
+RESULT: stopped pid 57528
+then <project>/.qompack/config.json (the broken file this run planted) was moved out of the project to restore the precondition before the MCP probe.

@@ -1,0 +1,1 @@
+{"command":"update","outcome":"ok","plugin":"qompack@qompack-live","pluginId":"qompack@qompack-live","scope":"local","message":"Plugin \"qompack\" updated from 0.2.99-prev to 0.3.0 for scope local (<scratch>\\install\\uat12\\proj). Restart to apply changes.","updateOutcome":"updated","oldVersion":"0.2.99-prev","newVersion":"0.3.0"}

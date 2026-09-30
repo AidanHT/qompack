@@ -1,0 +1,6 @@
+cwd: <scratch>/sessions/uat05/proj
+argv: ["python", "<scratch>/sessions/lane.py", "tfacts", "8ac0f6c5-21c8-49e3-84d1-be016cb68153", "C:/Users/Quant/Documents/Programming/Projects/qompack-cx-live/plans/sdd/V6-closeout/live/uat/UAT-05/cli/run2-transcript-facts.json"]
+env+: {}
+qompack_home: <scratch>/sessions/qhome
+wall_s: 0.258
+at: 2026-09-29T14:02:29-04:00

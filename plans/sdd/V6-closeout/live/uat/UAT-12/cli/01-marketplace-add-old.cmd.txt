@@ -1,0 +1,2 @@
+$ claude plugin marketplace add <scratch>/install/uat12/marketplace --scope local
+cwd: <scratch>/install/uat12/proj

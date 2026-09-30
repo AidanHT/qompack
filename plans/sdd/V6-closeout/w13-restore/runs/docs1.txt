@@ -1,0 +1,1 @@
+ok  	github.com/qompack/qompack/test/docs	4.439s

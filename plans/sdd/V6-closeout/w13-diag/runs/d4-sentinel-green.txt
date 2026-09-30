@@ -1,0 +1,9 @@
+=== RUN   TestSentinelScan_ALargeFirstResultDoesNotHideTheProbe
+--- PASS: TestSentinelScan_ALargeFirstResultDoesNotHideTheProbe (0.10s)
+=== RUN   TestSentinelScan_AProbeMintedMidTranscriptIsFoundPastALargeResult
+--- PASS: TestSentinelScan_AProbeMintedMidTranscriptIsFoundPastALargeResult (0.09s)
+=== RUN   TestSentinelScan_AnAbsentProbeStillSpendsAChance
+--- PASS: TestSentinelScan_AnAbsentProbeStillSpendsAChance (0.09s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	0.545s
+EXIT=0

@@ -1,0 +1,10 @@
+{
+  "qompack-live": {
+    "source": {
+      "source": "directory",
+      "path": "<scratch>\\install\\c41\\marketplace"
+    },
+    "installLocation": "<scratch>\\install\\c41\\marketplace",
+    "lastUpdated": "2026-09-29T17:11:58.333Z"
+  }
+}

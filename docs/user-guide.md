@@ -86,10 +86,15 @@ Exit `2` on an unknown flag; otherwise `0`.
 
 Searches captured tool output and file versions by content: `<query> [--k N]`, plus `--json`. The
 query is free text or the prefixed selectors `path:<glob>`, `symbol:<name>` and `tool:<ToolName>`
-combined with spaces ([schema](commands.md#qompackrecall)). It returns references and summaries,
-not bytes — use the `expand` tool to materialize one. Capture and coverage may be partial, and the
-response says which. Exit `2` on a missing or malformed query, `0` otherwise — including for a
-search that matched nothing, which is an answer and not a failure.
+combined with spaces ([schema](commands.md#qompackrecall)). `path:` is a glob on slash paths
+(`path:src/*.go`, `path:*.go`; `*` does not cross `/`), matched against the whole project-relative
+path and against every trailing part of it; a path with no `*`, `?` or `[` matches by equality, by
+trailing path segments, or as a substring. `tool:` takes the host's tool name (`Read`, `Edit`,
+`Bash`) or Qompack's display name (`FileRead`, `FileEdit`), in any case
+([selectors](mcp-tools.md#recall)). It returns references and summaries, not bytes — use the
+`expand` tool to materialize one. Capture may be partial: a hit the current policy withholds is
+counted in `denied`, never shown. Exit `2` on a missing or malformed query, `0` otherwise —
+including for a search that matched nothing, which is an answer and not a failure.
 
 ### `/qompack:pin`
 
@@ -137,11 +142,14 @@ without a decision id, `1` if the decision could not be read, `0` otherwise.
 Reports what the last compaction dropped and how to get it back: `[--json]`
 ([schema](commands.md#qompackdropped)).
 
-`dropped` is the command's name; what it reports is **qualified coverage**. Each entry carries a
-`Coverage` value (see [Fidelity, coverage and error states](#fidelity-coverage-and-error-states)),
-so "dropped" means *Qompack did not carry this forward in the injected payload, and here is what it
-does hold instead*. It does not mean the host removed anything, and it is not a statement about
-native context at all: `docs/mcp-tools.md` puts the boundary in one line — "This report does not
+`dropped` is the command's name; what it reports is **qualified coverage**. Each entry names its
+`kind`, its `id` and an optional `detail`; the qualification is on the report as a whole —
+`available` and `reason` when there is no report to give, `denied` and `host_policy` when entries
+were withheld — and no entry carries a coverage value (see
+[Fidelity, coverage and error states](#fidelity-coverage-and-error-states)). So "dropped" means
+*Qompack did not carry this forward in the injected payload, and here is what it does hold
+instead*. It does not mean the host removed anything, and it is not a statement about native
+context at all: `docs/mcp-tools.md` puts the boundary in one line — "This report does not
 establish what remains in native context."
 
 The complete drop report is persisted whether or not the rendered section fit in the budget
@@ -226,7 +234,7 @@ threshold is printed and explicitly **not judged**, and cost never contributes t
 Qompack exposes eight tools over MCP, on stdio, from `qompack mcp`. The inventory and every
 argument schema are in [docs/mcp-tools.md](mcp-tools.md).
 
-Four behaviours apply across the set, from that page and from `internal/mcp`:
+Five behaviours apply across the set, from that page and from `internal/mcp`:
 
 **Ephemeral metadata.** Every retrieval response carries `_meta.qompack.ephemeral`.
 An ephemeral tag describes a Qompack record; it does not mean the host evicted anything.
@@ -237,6 +245,13 @@ It is not an eviction control and not proof of native retention.
 **Minimal spans.** A tool that returns file content returns the smallest chunk-aligned span
 covering the request, widened to a symbol boundary where one is known. Pass `full: true` for the
 whole object; a response with more to read carries `next_span`, which you pass back as `span`.
+
+**Bounded responses.** `runtime.mcp.maxResponseBytes` bounds the result text `expand` and
+`re_read` return — the JSON body with its content escaped, not only the content. A response that
+had to be cut says `truncated: true` and carries `next_span`, which continues exactly where it
+stopped; an explicit `span` takes precedence over `full`, and no page ends inside a multi-byte
+character. `re_read` takes no `span`: continue a `re_read` page with `expand`, its `hash` and the
+`next_span`. The other tools' results are not measured against this key.
 
 **Misses are not errors.** A thing that was looked for and is not there comes back as
 `found: false` with what was searched, not as a tool error (`internal/mcp/handlers_span.go`).
@@ -251,9 +266,11 @@ It returns pointers rather than content, so it never counts as demand for promot
 
 Materializes archived content by `hash` or `tool_use_id` — the identifiers a tombstone or a
 `recall` hit gives you. Call it when a reference is not enough. Minimal span by default; `full:
-true` or an explicit `span` when it is not; `next_span` to page. Fidelity and coverage may be
-incomplete, and a query that fails to reach the store reports `unavailable`, which is not a
-statement that the content is gone.
+true` or an explicit `span` when it is not; `next_span` to page. The response describes this read
+— `span`, `total_bytes`, `truncated`, `next_span` — and carries no fidelity or coverage field: what
+you hold may be a partial capture, so treat it as the archive's copy, not as the whole original.
+A query that fails to reach the store reports `unavailable`, which is not a statement that the
+content is gone.
 
 ### `re_read`
 
@@ -266,20 +283,28 @@ Call it when you need a file as it was when Qompack saw it, at a turn, a timesta
 Queries recorded elimination evidence for a `target` and an `approach`. Call it **before**
 committing to an approach — that is the standing instruction Qompack injects alongside a non-empty
 elimination list ([ADR 0011](adr/0011-rehydration-budget-and-item-order.md) §13). Answers are
-`absent`, `active` or `stale`; a failed query is `unavailable`. Treat `unavailable` — and any state
-you do not recognize — as unknown: never as absence, and never as a prohibition.
+`absent`, `active` or `stale`; a failed query, or a ledger that cannot be opened, is `unavailable`
+with `degraded: true`. Treat `unavailable` — and any state you do not recognize — as unknown: never
+as absence, and never as a prohibition. It works from the session's first turn: the daemon opens the
+elimination ledger the first time either ledger tool is called. Each answer is checked against the
+file versions captured so far, so once a `depends_on` file has changed in this session the answer
+is `stale`, not `active`.
 
 ### `record_eliminated`
 
 Writes negative knowledge: that an approach does not work, with the reason and the project-relative
 paths the reason rests on, so it survives compaction. It is the one tool here that is **durable**
 rather than ephemeral. A change to any `depends_on` path flips the record to stale rather than
-deleting it. Check the response before relying on persistence.
+deleting it. A `session`-scoped record (the default) belongs to the session that made it and is
+answered only there; `project` scope carries it to later sessions. Check the response before relying
+on persistence: when no ledger can be opened it is a tool error and nothing is recorded.
 
 ### `timeline`
 
 Retrieves recorded session segments over a turn or timestamp range. Call it to reconstruct order —
-what happened between two points. Missing events and native-context coverage may be unknown.
+what happened between two points. A segment still open reports the session's current turn as its
+end and, when the daemon holds it, its running token count; a range whose `from` is after its `to`
+is refused. Missing events and native-context coverage may be unknown.
 
 ### `why`
 
@@ -289,9 +314,9 @@ reasoning does not prove model compliance.
 
 ### `dropped`
 
-Retrieves Qompack's recorded omissions for the session, with coverage attached. Call it when
-something you expected to be present is not. As with the slash command, it does not establish what
-remains in native context.
+Retrieves Qompack's recorded omissions for the session, qualified by whether a report was available
+and how many entries were withheld. Call it when something you expected to be present is not. As
+with the slash command, it does not establish what remains in native context.
 
 ## Current vs historical reads
 
@@ -306,7 +331,9 @@ redaction, size bounds, host-denied paths — that a real capture went through, 
 current disk contents for a missing historical original is the defect the contract forbids. A
 current-file read remains the host's own, separately authorized operation.
 
-`recall` and `expand` return archive material in the same way, qualified by fidelity and coverage.
+`recall` and `expand` return archive material in the same way. Neither response carries a
+fidelity or coverage field (see [Fidelity, coverage and error states](#fidelity-coverage-and-error-states)
+for where those values do appear).
 
 **How to tell what you are holding.** A `re_read` response names where the bytes came from:
 `source`, whose only value is ever `store`, because there is deliberately no worktree counterpart
@@ -331,6 +358,20 @@ So the discriminator is not one field on every response: it is that **no** respo
 Three enumerations travel with retrieval evidence (`internal/core/evidence.go`). Read them
 together: fidelity is about the bytes, coverage is about where the thing was found, and the outcome
 is about whether the question could be answered at all.
+
+Where each one appears matters, because neither fidelity nor coverage is a field of any retrieval
+response. Capture fidelity (the first table below) is recorded on each capture's sidecar record
+under `.qompack/records/captures/` when it is stored, and no command or tool surfaces it today. The
+`fidelity:` line `qompack fsck` prints is a different enumeration: store-level restore fidelity
+(`exact`, `full`, `canonical`, `unavailable`, `corrupt`), which says whether a root's original
+bytes can be reproduced, not how they were captured. A retrieval shows only what it did to the
+bytes itself — `truncated` and `span` for a cut, and a `«redacted:…»` placeholder where today's
+privacy policy removed content. Coverage values (the second table) are assigned today only on
+admission records (`internal/admission`), which no tool surfaces; an `already_tried` answer that
+lacks coverage says so in its `reason` and `note` rather than with a coverage value. The outcome
+states are the vocabulary of the answers themselves: `already_tried`'s states, and the
+`found: false`, `available: false` and `denied` forms the content tools answer when they cannot
+return content.
 
 **Fidelity — what happened to the retained bytes.** "Exact" means the captured host delivery, not
 completeness of the underlying file, process or native conversation.
@@ -406,6 +447,17 @@ disagreement is logged loudly ([ADR 0011](adr/0011-rehydration-budget-and-item-o
 first captured prompt is the host's first except in a spool race and under hook pid reuse, and a
 rehydration names either case when it happens
 ([docs/cannot-do.md](cannot-do.md#the-first-captured-prompt-is-not-always-the-first-prompt-the-host-sent)).
+
+What you say after that first prompt is carried too. Every checkpoint lists the session's later
+prompts, verbatim and in order, as the original's `user_intent.evolution`; the rehydration shows
+them under the original, newest first, so your latest correction is the first one Claude reads and
+the one a tight budget keeps. Each is a whole record: one that does not fit is left out and named
+in section 7 with where to read it, and the same holds for the original itself — a first prompt
+longer than the injected block can carry is named with its `expand(tool_use_id=…)` call rather
+than cut. A forked session (`claude --resume <id> --fork-session`) continues its parent's task: its
+original is the parent's first prompt, labelled with the session it came from, and the fork's own
+prompts follow as evolution
+([docs/cannot-do.md](cannot-do.md#a-forked-sessions-parent-is-inferred-not-reported-by-the-host)).
 
 **The recorded partial.** `plans/V5-report.md` §24 records the uncertainty gate as **partial**: it
 "does not survive the digest surface under a blind ledger". Concretely (§29 item 11), a stale
@@ -489,7 +541,7 @@ Any subcommand accepts `--set <dotted.key>=<value>` to override configuration fo
 | `version` | the plugin version |
 | `admin delivery-seal [--project <root>] (--check \| --to v1) [--accept-torn-slot --yes]` | checks or converts the delivery journals' position seals; `--accept-torn-slot --yes` accepts a seal with one valid and one torn slot when the journal holds a complete tail past it. **The daemon must be stopped** |
 | `backup create --project <root> --id <name> [--json]` | takes a consistent backup with the source daemon stopped |
-| `backup verify --project <root> --id <name> [--json]` | validates the named backup's manifest and bytes |
+| `backup verify --project <root> --id <name> [--json]` | validates the named backup's manifest and bytes, then restores it into a scratch destination under the source's `.qompack/tmp/` and runs restore's reader proof and integrity checks, so a backup that verifies restores ([procedure](backup.md)) |
 | `backup restore --project <root> --id <name> --destination <fresh-project> [--json]` | restores into a fresh destination, proves same-build reads and runs integrity checks; source and later writes remain intact ([procedure](backup.md)) |
 | `eval import` | imports recorded Claude Code transcripts as a redacted replay corpus |
 | `daemon` | runs the resident per-project daemon in the foreground |

@@ -1,0 +1,85 @@
+{
+ "args": [
+  "-p",
+  "--input-format",
+  "stream-json",
+  "--output-format",
+  "stream-json",
+  "--verbose",
+  "--include-hook-events",
+  "--model",
+  "claude-haiku-4-5-20251001",
+  "--max-turns",
+  "10",
+  "--setting-sources",
+  "project,local",
+  "--permission-mode",
+  "dontAsk",
+  "--allowedTools",
+  "Read,mcp__plugin_qompack_qompack__recall,mcp__plugin_qompack_qompack__expand,mcp__plugin_qompack_qompack__re_read,mcp__plugin_qompack_qompack__already_tried,mcp__plugin_qompack_qompack__record_eliminated,mcp__plugin_qompack_qompack__timeline,mcp__plugin_qompack_qompack__why,mcp__plugin_qompack_qompack__dropped,Bash(qompack status:*),Bash(qompack recall:*),Bash(qompack pin:*),Bash(qompack why:*),Bash(qompack dropped:*),Bash(qompack eval:*),Bash(cat:*)"
+ ],
+ "turns": [
+  {
+   "msg": "Use the Read tool to read these three files, one after another: README.md, deploy_notes.md and private/deny.txt. Then reply with just the word done.",
+   "ok": true,
+   "wall_s": 9.838,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 61268,
+    "WorkingSet64": 58077184,
+    "PeakWorkingSet64": 58077184,
+    "CPU": 0.28125,
+    "StartTime": "/Date(1790702599393)/"
+   },
+   "store_bytes": 116817
+  },
+  {
+   "msg": "Use the Read tool to read big.log with offset 1 and limit 1400 (the whole file). Then reply with only the number of lines you received.",
+   "ok": true,
+   "wall_s": 8.428,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 61268,
+    "WorkingSet64": 105857024,
+    "PeakWorkingSet64": 105857024,
+    "CPU": 0.625,
+    "StartTime": "/Date(1790702599393)/"
+   },
+   "store_bytes": 1340926
+  },
+  {
+   "msg": "Use the Bash tool to run exactly this command: cat blob.bin\nThen reply with just the word done.",
+   "ok": true,
+   "wall_s": 9.846,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 61268,
+    "WorkingSet64": 109973504,
+    "PeakWorkingSet64": 109973504,
+    "CPU": 0.640625,
+    "StartTime": "/Date(1790702599393)/"
+   },
+   "store_bytes": 1389280
+  },
+  {
+   "msg": "Use the Read tool to read the file <scratch>/install/uat12/outside/outside.txt and reply with the marker it contains.",
+   "ok": true,
+   "wall_s": 6.02,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 61268,
+    "WorkingSet64": 112242688,
+    "PeakWorkingSet64": 112242688,
+    "CPU": 0.6875,
+    "StartTime": "/Date(1790702599393)/"
+   },
+   "store_bytes": 1410215
+  }
+ ],
+ "store_bytes_before": 0,
+ "started_ms": 1790702596764,
+ "pid": 4060,
+ "exit": 0,
+ "wall_s": 40.377,
+ "store_bytes_after": 672436
+}

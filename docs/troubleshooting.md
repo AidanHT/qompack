@@ -81,7 +81,8 @@ The other three are in a table this repository maintains for exactly this purpos
 `internal/contract/observation.go`'s `noObservationSpellings`, "every Observed string in
 assertions.go that means 'nothing was seen', as opposed to 'something was seen' or 'the contract was
 broken'". `first-session`, `no-precompact-pending`, `no-transcript-path` and `unset` are all in it,
-alongside `no-samples`, `not-yet-observed` and others you may meet — including `retired`, which is
+alongside `no-samples`, `not-yet-observed` and others you may meet — including `initialize-pending`
+and `transcript-pending` (below), and `retired`, which is
 what `precompact.custom_instructions_accepted` reports wherever a daemon has declared its producer:
 the PreCompact instruction it once probed for is retired, because no host accepts one (C1.18,
 [docs/cannot-do.md](cannot-do.md#no-summarizer-model-substitution)). **In every one of those cases
@@ -91,6 +92,21 @@ column describes a real observation is evidence.
 That table is the authority, not this page: it is pinned by a test that parses `assertions.go` and
 fails the build if a check grows a spelling the table does not classify, so a new "nothing was seen"
 word cannot quietly start reading as success.
+
+Two rows are evaluated at `SessionStart`, before what they observe can exist.
+`mcp.server_registered` reads `initialize-pending` until the MCP server's handshake reaches the
+daemon: the host connects the server beside a session's first start, not before it. The host
+creates a session's transcript with its first prompt, so `transcript.readable` reads
+`transcript-pending` while the transcript does not exist yet. Both stay pending at the start of a
+second session while the first is still running, however long that session goes without a prompt.
+They fail only at a later start, and only if the session they waited for had a prompt and has ended
+(its SessionEnd, or the daemon ended it as abandoned; see [section 7](#7-daemon-problems)).
+`mcp.server_registered` then fails `initialize-not-received` if no handshake ever arrived.
+`transcript.readable` fails `an earlier session's transcript_path never appeared` if that session's
+transcript still does not exist. A session that ended without a prompt had no transcript due, so
+nothing fails. `transcript.readable` also fails, `transcript_path does not exist`, if the transcript
+is missing at a compaction's start, since the host has been writing it all session
+(`internal/contract/assertions.go`, `checkMCPServerRegistered`, `checkTranscriptReadable`).
 
 **Action.** Read `OBSERVED`, never the `OK` column alone. To learn what a given assertion would
 observe if it ran, read its constant's comment in `internal/contract/ids.go`.
@@ -107,6 +123,20 @@ host-contract banner, the mode and hot-path lines, counters, the per-hook latenc
 **Meaning.** `source:` tells you whether you are reading a live daemon answer, the metrics file the
 daemon last persisted, or nothing at all (`internal/commands/statuscollect.go`: `daemon`, `disk`,
 `none`). A stale `disk` reading is not a current one.
+
+With no daemon listening, the provenance line says so rather than quoting an empty refusal:
+`daemon: no daemon answered: none is listening for this project yet`. The command asks one to
+start unless `runtime.daemon.enabled` is `false`, so run `status` again once it is up; until then
+the page falls back to the persisted metrics file (`source: disk`) if there is one. If a daemon
+is listening but its answer did not come in time, or its connection broke mid-reply, the line reads
+`daemon: a daemon is listening for this project but did not answer within 10s` instead: it is up
+but busy or stuck; see [section 7](#7-daemon-problems) (`internal/cli/qompack_commands.go`,
+`fetchDaemonStatus`).
+
+Latency percentiles are never printed above the `max` on the same line. The histogram reports a
+percentile as its bucket's upper bound, which can sit up to about 9% above the samples in it, so the
+page clamps each percentile to the exact maximum; the value stays an upper bound on the true
+percentile (`internal/commands/statuscollect.go`, `latencyOf`).
 
 In the same scratch project the banner read `host contract: no assertions reported`. That is not a
 failure: `status` shows the assertion results the *daemon* holds, and no `SessionStart` hook had
@@ -681,17 +711,31 @@ at the position its journal's full scan recovers. The tool refuses Rule R on any
 
 **Symptom.** A daemon will not start, or a lock file looks orphaned.
 
-**Diagnose.** `.qompack/run/daemon.lock` carries the owning `pid`, start time, address and version
-as JSON, and `.qompack/run/daemon.hb` is its heartbeat (`internal/daemon/lock.go`).
+**Diagnose.** `.qompack/run/daemon.lock` carries the owning `pid`, start time, address, version
+and project root as JSON, and `.qompack/run/daemon.hb` is its heartbeat
+(`internal/daemon/lock.go`). A lock written by an earlier build has no root.
 
 **Meaning.** A lock is not reclaimed on age alone. `internal/daemon/lock.go` returns `ErrLockHeld`
 while the liveness dial succeeds or the recorded process is still alive, and reclaims the lock only
 once the heartbeat's mtime is older than its staleness window *and* neither probe finds a live
 process — "rather than blocking every future daemon start forever".
 
+A daemon that cannot take the lock exits 0 and leaves one line in the day log (and on stderr under
+`--foreground`). The line names the holder's `pid`, its address and how long ago its heartbeat last
+moved. `another daemon holds this project's lock` is the ordinary case: a spawn raced a daemon that
+was already running. `this project's lock was written for another project path` means the store was
+copied or moved with its `run/` directory: the lock's root is another store, or, in a lock without
+a root, its address is named for another project's hash. That project's daemon does not serve this
+store, so only this store's own heartbeat counts, and the lock is reclaimed once that heartbeat is
+older than the staleness window. `fsck`'s `daemon` row probes this project's own address and names
+such a lock. A lock this project's own daemon wrote from another environment (another
+`XDG_RUNTIME_DIR`, `TMPDIR` or `QOMPACK_IPC_ADDR`, so another address) is not foreign: its recorded
+address is dialled and its `pid` checked as usual.
+
 **Action.** Do not delete `daemon.lock` to unblock a start. If a daemon really is gone, the
 staleness protocol reclaims the lock by itself; if it is not gone, deleting the file removes the
-protection against a second writer.
+protection against a second writer. To copy a project, use `qompack backup create` and `backup
+restore`, which leave `run/` out ([Backup and restore](backup.md)).
 
 ---
 
@@ -881,6 +925,41 @@ operator-facing stop path.
 `pid` appears in that project's `daemon.lock`; daemons are per project and another project's daemon
 is a different process.
 
+A terminated daemon leaves `daemon.lock` behind. The next hook, retrieval call or maintenance
+command that needs a daemon checks that lock's `pid`, finds the process gone, and takes the lock at
+once. On Windows the check is `OpenProcess`, which proves a process has exited but says nothing
+about one that is running, because Windows reuses process ids (`internal/daemon/lock_windows.go`,
+`pidAlive`). So in the rare case where a new process has already taken the dead daemon's `pid`, the
+lock is judged by its heartbeat instead: `backup create`/`verify` refuse with `daemon lock already
+held`, and retrieval answers `temporarily offline`, for up to 90 seconds after the daemon's last
+heartbeat (`internal/daemon/lock.go`, `staleAfter`). The daemon that takes the lock over writes
+`daemon: took over the project from a daemon that ended without releasing its lock` to the day log,
+with the old `pid`, `version` and `started` time. If its startup replayed deliveries that hooks
+spooled while no daemon answered, it also writes `daemon: replayed spooled deliveries at start` with
+their count.
+
+---
+
+**Symptom.** The day log says `daemon: ending abandoned session; no SessionEnd arrived and it has
+been silent past the idle-exit window` for a session that is still open.
+
+**Meaning.** The daemon ends a live session in its own bookkeeping once nothing has arrived from it
+for `runtime.daemon.idleExitSeconds` ([default `1800`](config-reference.md#runtime), 30 minutes)
+(`internal/daemon/registry.go`, `EndAbandoned`). This is how a daemon whose client died without a
+`SessionEnd` (a closed terminal, a crashed harness) stops counting that session as live and
+eventually exits. The detector cannot tell a dead client from a live session that has been quiet
+for that long: nothing reached the daemon, whether the user stepped away or one step such as a long
+`/compact` sent no hook. With a short setting it fires sooner; the Phase 4 live lane saw it after 31
+seconds of a 32-second `/compact` with `idleExitSeconds` at 30.
+
+It is bookkeeping only. No marker is written, no observer seam runs, and capture is unaffected. The
+session's next hook revives it. If no other session is live, the daemon may exit after one more
+idle-exit window; the next hook then starts a new daemon, which replays anything spooled meanwhile.
+
+**Action.** None at the default. If you set `runtime.daemon.idleExitSeconds` low, expect this line
+during quiet stretches of a live session. Keep the setting above the longest silence a session of
+yours has, a long compaction included.
+
 ---
 
 ### Windows Defender flags `qompack.exe`
@@ -1015,9 +1094,38 @@ records remain historical evidence; neither certifies an installed older release
 candidate's data. Human UAT, cross-version readers and supported-platform rehearsals must record
 the actual candidate and backup identities. Missing or failed checks remain unverified.
 
+`backup verify` restores the backup into a scratch destination under the source's
+`.qompack/tmp/` and runs the same reader proof and integrity checks as `backup restore`. A backup
+that verifies therefore restores. A failing scratch restore is kept, and the error names where;
+delete it once inspected.
+
+**Symptom.** `fsck`'s `index.segments` row carries a note that begins `unsealed-draft claim`.
+
+**Meaning.** A build before the V6 close-out recorded a segment as encoded into a draft checkpoint
+before any seal wrote that checkpoint. It happened after an idle exit that no compaction preceded.
+The draft's state file (`.qompack/state/draft-<session>.json`) still holds the segment. The next
+compaction of that session seals the draft at that number. A draft that was set aside
+(`draft-<session>.stale.json`) is sealed by nothing. The segment's turns stay readable from the
+capture log either way. This build records a segment's encode only when its checkpoint is sealed.
+
+**Action.** None. The note does not fail `fsck` or a restore. An encode record that no draft and no
+checkpoint artifact explains is still a defect.
+
+**Symptom.** `expand` or `re_read` answers `unavailable` with "the stored object is missing".
+
+**Meaning.** The index records the object, but its bytes are in neither `objects/` nor
+`tmp/quarantine/`: something outside the store moved or deleted them. Nothing was damaged or
+preserved. `fsck`'s `index.roots` row names it ("which the object store does not hold"). An object the store refused as damaged answers "a damaged object is preserved as evidence"
+instead, and its bytes are under `tmp/quarantine/`.
+
+**Action.** Restore the store from a verified backup into a fresh destination if you need the
+content. Do not copy objects in by hand.
+
 Startup publication accounting surfaces incomplete captures and object candidates through status
 counters and LOUD diagnostics. A bounded scan can be incomplete; zero observed gaps then means
 only a lower bound. `fsck` inspects integrity but never promises that missing content was restored.
+Prompt capture sidecars that a development build before the prompt link wrote are read as published
+when their prompt record exists ([Backup and restore](backup.md)). They are not gaps.
 
 An uncertain observation-intent write stops new capture publication until the store is reopened
 and checked. After resolving a transient storage error, restart the daemon to retry retained input.

@@ -1,0 +1,77 @@
+{
+ "secrets": [
+  {
+   "id": "@@SEC_PLANTED_1@@",
+   "sha256": "3b87f8aab199b5be354c6763946d443b789ad6e625098af66a13d810875a5f04",
+   "length": 20,
+   "needles": 15
+  },
+  {
+   "id": "@@SEC_PLANTED_2@@",
+   "sha256": "f9ccc6ab295faf2d9adb64ea58ee1c53f4f49aec8fe31653ee17e6c4d1d9f130",
+   "length": 40,
+   "needles": 35
+  }
+ ],
+ "trees": [
+  {
+   "root": "<project>/.qompack (source, incl. backup/, checkpoints/, state/, objects/)",
+   "files": 368,
+   "zst_decoded": 221,
+   "hits": [],
+   "redaction_placeholders": 4,
+   "hit_count": 0,
+   "hit_files": []
+  },
+  {
+   "root": "<recovery>/.qompack (restored baseline)",
+   "files": 94,
+   "zst_decoded": 54,
+   "hits": [],
+   "redaction_placeholders": 2,
+   "hit_count": 0,
+   "hit_files": []
+  },
+  {
+   "root": "~/.qompack (real home: logs/ and bin/ if present)",
+   "files": 1,
+   "zst_decoded": 0,
+   "hits": [],
+   "redaction_placeholders": 2,
+   "hit_count": 0,
+   "hit_files": []
+  },
+  {
+   "root": "QOMPACK_HOME=<scratch>/qhome",
+   "files": 0,
+   "zst_decoded": 0,
+   "hits": [],
+   "redaction_placeholders": 0,
+   "hit_count": 0,
+   "hit_files": []
+  }
+ ],
+ "streams": [
+  {
+   "stream": "UAT-12 session A stream.jsonl",
+   "mcp_results_with_placeholder": [],
+   "hook_outputs_with_placeholder": [],
+   "rehydration_payloads": 0,
+   "mcp_results": 0
+  },
+  {
+   "stream": "UAT-12 session B stream.jsonl",
+   "mcp_results_with_placeholder": [],
+   "hook_outputs_with_placeholder": [],
+   "rehydration_payloads": 1,
+   "mcp_results": 14
+  },
+  {
+   "stream": "UAT-12 session C stream.jsonl",
+   "mcp_results_with_placeholder": [],
+   "hook_outputs_with_placeholder": [],
+   "rehydration_payloads": 0,
+   "mcp_results": 2
+  }
+ ]
+}

@@ -1,0 +1,2 @@
+ok  	github.com/qompack/qompack/internal/contract	2.926s
+EXIT=0

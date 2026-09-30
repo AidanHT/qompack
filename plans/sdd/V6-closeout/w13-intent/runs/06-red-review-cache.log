@@ -1,0 +1,17 @@
+--- FAIL: TestRefreshHoldsOnlyTheTextsItKeeps (2.64s)
+    intent_evolution_test.go:264: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-intent/internal/checkpoint/intent_evolution_test.go:264
+        	Error:      	Not equal: 
+        	            	expected: 65
+        	            	actual  : 101
+        	Test:       	TestRefreshHoldsOnlyTheTextsItKeeps
+        	Messages:   	the original and the kept restatements, nothing the cap left out
+--- FAIL: TestBeginConsumesAStashedCacheOnEveryPath (0.11s)
+    intent_evolution_test.go:279: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-intent/internal/checkpoint/intent_evolution_test.go:279
+        	Error:      	Should be false
+        	Test:       	TestBeginConsumesAStashedCacheOnEveryPath
+        	Messages:   	the live path consumes it
+FAIL
+FAIL	github.com/qompack/qompack/internal/checkpoint	3.152s
+FAIL

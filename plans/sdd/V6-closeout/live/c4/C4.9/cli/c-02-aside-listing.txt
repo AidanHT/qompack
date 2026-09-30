@@ -1,0 +1,2 @@
+objects moved out of the disposable copy's store by the (c) before step (kept in scratch, not deleted):
+eca8789a33448268977fd4e4ce13ef0d343af3d38db28acd77b362e61418c6b6.zst

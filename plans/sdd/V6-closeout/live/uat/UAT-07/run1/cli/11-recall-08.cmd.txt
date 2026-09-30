@@ -1,0 +1,6 @@
+cwd: uat07/proj
+argv: ["C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c3/qompack-plugin-0.3.0-windows-amd64/bin/qompack.exe", "recall", "", "--json"]
+env+: {"QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS": "30"}
+qompack_home: <scratch>/retrieval/qhome
+wall_s: 0.019
+at: 2026-09-29T14:40:33-04:00

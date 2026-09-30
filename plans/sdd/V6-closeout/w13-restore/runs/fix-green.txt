@@ -1,0 +1,30 @@
+w13-restore FIX seat, review round. Windows 11, daytime, machine shared with five other seats; -p 2 throughout.
+HEAD at the time of these runs: 38f6708c
+
+== full packages (go test -p 2 -count=1 -timeout=30m ./internal/<pkg>/), run once, sequentially
+ok  	github.com/qompack/qompack/internal/ipc	18.213s
+ok  	github.com/qompack/qompack/internal/checkpoint	68.477s
+ok  	github.com/qompack/qompack/internal/cli	63.507s
+ok  	github.com/qompack/qompack/internal/daemon	286.352s
+ok  	github.com/qompack/qompack/internal/store	189.788s
+
+== focused e2e: go test -p 2 -count=1 -timeout=15m -v -run '^TestE2E_IdleExitLeavesNoUnsealedEncodeClaim$' ./test/e2e/
+--- PASS: TestE2E_IdleExitLeavesNoUnsealedEncodeClaim (28.40s)
+ok  	github.com/qompack/qompack/test/e2e	28.660s
+
+== go test -p 2 -count=1 ./test/docs
+ok  	github.com/qompack/qompack/test/docs	1.990s
+
+== devtool fmt-check: PASS (after 552dce14); go vet (windows and GOOS=linux) on internal/{cli,daemon,ipc,store,checkpoint}: PASS
+== devtool lint --only=golangci-lint,nomagic,importgraph,testdeps,bindeps,sleepcheck,docmarkers,runpatterns
+FAIL golangci-lint: exit status 1
+PASS nomagic
+PASS importgraph
+PASS testdeps
+PASS bindeps
+PASS sleepcheck
+PASS runpatterns
+PASS docmarkers
+  golangci-lint rerun after 38f6708c (errcheck on an unchecked type assertion in segments_reserve_test.go):
+PASS golangci-lint
+== gen-command-docs/gen-config-docs/gen-mcp-docs --check: up to date

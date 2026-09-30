@@ -1,0 +1,291 @@
+{
+ "initialize": {
+  "serverInfo": {
+   "name": "qompack",
+   "version": "0.3.0"
+  },
+  "protocolVersion": "2025-06-18"
+ },
+ "calls": [
+  {
+   "tool": "recall",
+   "args": {
+    "query": "violet anchor lattice",
+    "k": 2
+   },
+   "jsonrpc_line_bytes": 428,
+   "isError": false,
+   "error": null,
+   "text_bytes": 119,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 1,
+     "ephemeral": true,
+     "hash": "sha256:9abaa9eabe8f1c25fb1bec99d9b2ae9a7b69b02e00cb183646d40d3ef77f12a9",
+     "tool_use_id": "qompack-mcp:b436e4e06329",
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "hits": [],
+     "count": 0,
+     "found": false,
+     "query": {
+      "text": "violet anchor lattice",
+      "path": "",
+      "symbol": "",
+      "tool": ""
+     },
+     "denied": 2
+    }
+   ]
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "tool_use_id": "toolu_01PFwnukgjGXcpecDMqRCcXs"
+   },
+   "jsonrpc_line_bytes": 1189,
+   "isError": false,
+   "error": null,
+   "text_bytes": 678,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 6,
+     "ephemeral": true,
+     "expansions": 4,
+     "hash": "sha256:4009798193777dc6705d1bf7763b49257db813651b40d83dd28ef4cd5360698f",
+     "path": "src/cache.go",
+     "promoted": true,
+     "span": [
+      0,
+      385
+     ],
+     "tool_use_id": "qompack-mcp:13b9a738d479",
+     "total_bytes": 385,
+     "truncated": false,
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "found": true,
+     "hash": "sha256:5bb1df112f88726f2f1be4489db7a48645cbd6e691ef35420794d3a8e66d0f31",
+     "path": "src/cache.go",
+     "tool": "FileRead",
+     "span": [
+      0,
+      385
+     ],
+     "total_bytes": 385,
+     "truncated": false,
+     "widened": false,
+     "expansions": 4,
+     "promoted": true,
+     "content": "{\"type\":\"text\",\"file\":{\"filePath\":\"<tmp>\",\"content\":\"package cache\\n\\n// Evict drops entries older than the TTL. Sentinel phrase: violet anchor lattice.\\nfunc Evict(now, ttl int64, stamps map[string]int64) int {\\n\\tn := 0\\n\\tfor k, t := range stamps {\\n\\t\\tif now-t > ttl {\\n\\t\\t\\tdelete(stamps, k)\\n...[385 chars total]"
+    }
+   ]
+  },
+  {
+   "tool": "re_read",
+   "args": {
+    "path": "src/cache.go"
+   },
+   "jsonrpc_line_bytes": 1216,
+   "isError": false,
+   "error": null,
+   "text_bytes": 686,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 8,
+     "ephemeral": true,
+     "expansions": 5,
+     "hash": "sha256:7c28e2c265ac069f2acc7fe30c57cb1c53f0a79cb6de43ec5be253386dd28ae7",
+     "path": "src/cache.go",
+     "promoted": true,
+     "source": "store",
+     "span": [
+      0,
+      385
+     ],
+     "tool_use_id": "qompack-mcp:f7ce153794ab",
+     "total_bytes": 385,
+     "truncated": false,
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "found": true,
+     "hash": "sha256:5bb1df112f88726f2f1be4489db7a48645cbd6e691ef35420794d3a8e66d0f31",
+     "path": "src/cache.go",
+     "source": "store",
+     "turn": 3,
+     "span": [
+      0,
+      385
+     ],
+     "total_bytes": 385,
+     "truncated": false,
+     "widened": false,
+     "expansions": 5,
+     "promoted": true,
+     "content": "{\"type\":\"text\",\"file\":{\"filePath\":\"<tmp>\",\"content\":\"package cache\\n\\n// Evict drops entries older than the TTL. Sentinel phrase: violet anchor lattice.\\nfunc Evict(now, ttl int64, stamps map[string]int64) int {\\n\\tn := 0\\n\\tfor k, t := range stamps {\\n\\t\\tif now-t > ttl {\\n\\t\\t\\tdelete(stamps, k)\\n...[385 chars total]"
+    }
+   ]
+  },
+  {
+   "tool": "already_tried",
+   "args": {
+    "target": "src/cache.go:Evict",
+    "approach": "shrink the ttl"
+   },
+   "jsonrpc_line_bytes": 674,
+   "isError": false,
+   "error": null,
+   "text_bytes": 378,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 0,
+     "ephemeral": true,
+     "hash": "sha256:ecacd91a0ce0268af646a05a6468fb8b6a011c894485f75cfdb1244166ef4046",
+     "tool_use_id": "qompack-mcp:cd70b9902300"
+    }
+   },
+   "json": [
+    {
+     "state": "active",
+     "reason": "entries are re-fetched faster than a shorter ttl can evict them, so memory does not drop",
+     "evidence": "sha256:1bffdebcba1cc2f061b3ceecd6f2ac4e6518d9ad3203e202d346515565000e73",
+     "scope": "session",
+     "recorded_at": "2026-09-29T18:59:01Z",
+     "depends_on": [
+      {
+       "path": "src/cache.go",
+       "hash": "sha256:5bb1df112f88726f2f1be4489db7a48645cbd6e691ef35420794d3a8e66d0f31"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "tool": "timeline",
+   "args": {},
+   "jsonrpc_line_bytes": 674,
+   "isError": false,
+   "error": null,
+   "text_bytes": 362,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 0,
+     "ephemeral": true,
+     "hash": "sha256:0d4f6240f1f4774582907824c1679a825cca359f0912bdce7341f80cbf8cbf3f",
+     "tool_use_id": "qompack-mcp:8fdb034555e5"
+    }
+   },
+   "json": [
+    {
+     "count": 1,
+     "found": true,
+     "from": 0,
+     "frontier": 0,
+     "segments": [
+      {
+       "checkpoint_seq": 0,
+       "closed": true,
+       "encoded_once": false,
+       "end_ts": "2026-09-29T19:00:46Z",
+       "end_turn": 24,
+       "features": {
+        "gap_seconds": 0.792,
+        "lexical_cohesion": 0.2946847010171543,
+        "path_jaccard": 0,
+        "todo_transition": 0,
+        "tool_shift": 0.75
+       },
+       "id": 1,
+       "start_ts": "2026-09-29T18:57:25Z",
+       "start_turn": 0,
+       "tokens": 0
+      }
+     ],
+     "to": 24
+    }
+   ]
+  },
+  {
+   "tool": "why",
+   "args": {
+    "decision_id": "dec_000000000000"
+   },
+   "jsonrpc_line_bytes": 351,
+   "isError": false,
+   "error": null,
+   "text_bytes": 77,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 0,
+     "ephemeral": true,
+     "hash": "sha256:fc811ec221e623c40e7c04905408f130b309f8db2850345736c711adfd7e80b3",
+     "tool_use_id": "qompack-mcp:2983a73c41db"
+    }
+   },
+   "json": [
+    {
+     "decision_id": "dec_000000000000",
+     "found": false,
+     "searched_checkpoints": [
+      2,
+      1
+     ]
+    }
+   ]
+  },
+  {
+   "tool": "dropped",
+   "args": {},
+   "jsonrpc_line_bytes": 292,
+   "isError": false,
+   "error": null,
+   "text_bytes": 22,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 0,
+     "ephemeral": true,
+     "hash": "sha256:2cb20f2bc17fa600fba08ca7a50a3d358255731776f97bdaf720cd4f82a35bc1",
+     "tool_use_id": "qompack-mcp:ffaef42d0c72"
+    }
+   },
+   "json": [
+    {
+     "count": 0,
+     "drops": []
+    }
+   ]
+  },
+  {
+   "tool": "record_eliminated",
+   "args": {
+    "target": "src/cache.go:Evict",
+    "approach": "probe",
+    "reason": "x",
+    "scope": "global"
+   },
+   "jsonrpc_line_bytes": 210,
+   "isError": true,
+   "error": null,
+   "text_bytes": 66,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 0,
+     "ephemeral": false
+    }
+   },
+   "text": [
+    "invalid arguments for record_eliminated: /scope: value not in enum"
+   ]
+  }
+ ],
+ "stderr_tail": ""
+}

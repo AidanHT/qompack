@@ -1,0 +1,6 @@
+cwd: <scratch>/recovery/c17/d2
+argv: ["C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c3/qompack-plugin-0.3.0-windows-amd64/bin/qompack.exe", "recall", "saffron kestrel alpha", "--json"]
+env+: {"QOMPACK_PROJECT_ROOT": "<scratch>/recovery/c17/d2", "QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS": "30"}
+qompack_home: <scratch>/recovery/qhome
+wall_s: 0.029
+at: 2026-09-29T15:35:37-04:00

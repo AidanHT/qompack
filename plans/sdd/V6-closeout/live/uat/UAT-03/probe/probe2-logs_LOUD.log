@@ -1,0 +1,2 @@
+ts=2026-09-29T17:57:54.2913602Z level=loud msg="checkpoint artifact does not match its MANIFEST digest; the checkpoint is refused" artifact=0001.json seq=1 expected=sha256:8d4c26dcc1e7c4c712a4cf2acbac518aa47534099a13e03953dd31abbde37d64 observed=sha256:2dfa0dd4e4810d91a1c7d9d76b7a04a86bf960fd9d9f2b9ebe0cc17e50df933d
+ts=2026-09-29T17:57:54.3166212Z level=loud msg="checkpoint manifest mismatch" seq=1 expected=sha256:8d4c26dcc1e7c4c712a4cf2acbac518aa47534099a13e03953dd31abbde37d64 observed=sha256:2dfa0dd4e4810d91a1c7d9d76b7a04a86bf960fd9d9f2b9ebe0cc17e50df933d

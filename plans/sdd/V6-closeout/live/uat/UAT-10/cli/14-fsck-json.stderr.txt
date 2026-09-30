@@ -1,0 +1,1 @@
+qompack fsck: 1 defective check(s); see the report above

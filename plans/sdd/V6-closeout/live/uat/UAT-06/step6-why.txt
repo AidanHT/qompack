@@ -1,0 +1,2 @@
+step 6 /qompack:why: no captured block lists a decision id (checkpoints 0001, 0002, 0004, 0005 all have decisions []),
+so there was no id to run it on; not run. Capability left unverified by this row.

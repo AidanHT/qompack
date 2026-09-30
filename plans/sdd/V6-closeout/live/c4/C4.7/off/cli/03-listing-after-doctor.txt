@@ -1,0 +1,5 @@
+listing of <project>/.qompack (4 files)
+         2  .gitignore
+        27  config.json
+         0  logs/qompack-20260929.log
+       207  state/mcp.json

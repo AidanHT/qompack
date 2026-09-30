@@ -1,0 +1,8 @@
+qompack recall — Search stored tool output and file versions by content
+
+usage: qompack recall <query> [--k N]
+       /qompack:recall <query> [--k N]
+
+flags:
+  --json                 emit the stable JSON envelope instead of text
+  --k <N>                return at most N results

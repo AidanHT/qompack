@@ -1,0 +1,14 @@
+ts=2026-09-29T17:53:06.2157963Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-09-29T17:53:06.2748098Z level=info msg="observer: session registered" session=5e3a5fb2-368b-45de-b8a5-21a5c7407b59 source=startup turn=0 segment=1
+ts=2026-09-29T17:53:06.2753558Z level=info msg="scheduler: session bound" session=5e3a5fb2-368b-45de-b8a5-21a5c7407b59 effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+ts=2026-09-29T17:54:15.2098393Z level=warn msg="store: segment closed without a tokens feature; Segment.Tokens stays zero permanently" segment=1 session=5e3a5fb2-368b-45de-b8a5-21a5c7407b59
+ts=2026-09-29T17:54:15.3539451Z level=info msg="observer: gc" scanned=16 deleted=0 freed=0 truncated=false
+ts=2026-09-29T17:59:07.9149975Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-09-29T18:00:55.8418681Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-09-29T18:00:56.0020912Z level=info msg="observer: session registered" session=8ac0f6c5-21c8-49e3-84d1-be016cb68153 source=startup turn=0 segment=2
+ts=2026-09-29T18:00:56.0020912Z level=info msg="scheduler: state from another session discarded" path=<scratch>\sessions\uat05\proj\.qompack\state\bocd.json file_session=5e3a5fb2-368b-45de-b8a5-21a5c7407b59 session=8ac0f6c5-21c8-49e3-84d1-be016cb68153
+ts=2026-09-29T18:00:56.0027757Z level=info msg="scheduler: state from another session discarded" path=<scratch>\sessions\uat05\proj\.qompack\state\scheduler.json file_session=5e3a5fb2-368b-45de-b8a5-21a5c7407b59 session=8ac0f6c5-21c8-49e3-84d1-be016cb68153
+ts=2026-09-29T18:00:56.0027757Z level=info msg="scheduler: session bound" session=8ac0f6c5-21c8-49e3-84d1-be016cb68153 effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+ts=2026-09-29T18:01:45.5974966Z level=loud msg="rehydrate: tier-1 material exceeds the hard budget cap" budget=150 spent=87 ceiling_chars=9400 spent_chars=240
+ts=2026-09-29T18:02:02.2296731Z level=warn msg="store: segment closed without a tokens feature; Segment.Tokens stays zero permanently" segment=2 session=8ac0f6c5-21c8-49e3-84d1-be016cb68153
+ts=2026-09-29T18:02:02.3750019Z level=info msg="observer: gc" scanned=20 deleted=1 freed=80 truncated=false

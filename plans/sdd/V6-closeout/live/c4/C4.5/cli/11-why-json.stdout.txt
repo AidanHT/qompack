@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "command": "why",
+  "ok": true,
+  "data": {
+    "tool": "why",
+    "is_error": false,
+    "ephemeral": true,
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"alternatives_rejected\":[\"widen pool timeout\"],\"checkpoint_seq\":4,\"decision_id\":\"dec_e760c8bbf50a\",\"evidence\":\"sha256:af7fcd075e130e83c74f8e7a5cbd3b37edafbb65ba609473e540ef85b112b0bf\",\"evidence_withheld\":\"authorization denied: the capture has no usable path provenance\",\"found\":true,\"turn\":0,\"what\":\"rejected \\\"widen pool timeout\\\" for src/pool.go:DialPool\",\"why\":\"the stall comes from the server-side max_idle cap in config/pool.yaml, not from the client timeout; a longer timeout only delays the same failure\"}"
+      }
+    ],
+    "meta": {
+      "elapsed_ms": 1,
+      "hash": "sha256:13154fcc1b3918518cbb982c91ce1106cddd5f17e00c19731dfd34061c3186b6",
+      "tool_use_id": "qompack-mcp:27c0553f8597"
+    }
+  }
+}

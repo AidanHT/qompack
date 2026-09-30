@@ -1,0 +1,6 @@
+cwd: <scratch>/sessions/uat05/proj
+argv: ["C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c3/qompack-plugin-0.3.0-windows-amd64/bin/qompack.exe", "fsck", "--json"]
+env+: {}
+qompack_home: <scratch>/sessions/qhome
+wall_s: 0.129
+at: 2026-09-29T14:16:24-04:00

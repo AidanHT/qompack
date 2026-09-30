@@ -1,0 +1,2 @@
+run 2 (tiny budget): project config <project>/.qompack/config.json = {"runtime": {"rehydrate": {"minTokens": 150, "maxTokens": 150}}}
+data/meta.txt re-created with 'release ticket: TCK-77402' (run 1 deleted it). Pre-run backup uat05-before-run2 taken with no daemon running.

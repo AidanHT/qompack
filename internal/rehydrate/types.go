@@ -98,6 +98,12 @@ type Request struct {
 	// selection ran and chose nothing" are different facts, and only the second one should produce
 	// an empty item 3.
 	Selection *SelectionOutcome
+	// Lineage is the session's lineage record (checkpoint.ReadLineage), or nil for a session that
+	// was not forked. For a fork whose parent is recorded, item 2's original is the parent task's
+	// — verified against that session's L0 capture and labelled as such — and the fork's own first
+	// prompt is an evolution entry (F-UAT06-1). Like Selection it is request data the composition
+	// root reads, because Build reads no files.
+	Lineage *checkpoint.Lineage
 }
 
 // Result is one rehydration (00-ARCHITECTURE.md §5.15).

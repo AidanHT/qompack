@@ -1,0 +1,171 @@
+{
+ "args": [
+  "-p",
+  "--input-format",
+  "stream-json",
+  "--output-format",
+  "stream-json",
+  "--verbose",
+  "--include-hook-events",
+  "--model",
+  "claude-haiku-4-5-20251001",
+  "--max-turns",
+  "12",
+  "--setting-sources",
+  "project,local",
+  "--permission-mode",
+  "dontAsk",
+  "--plugin-dir",
+  "C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c3/qompack-plugin-0.3.0-windows-amd64",
+  "--allowedTools",
+  "Read,Task,Bash(cat:*),mcp__plugin_qompack_qompack__recall,mcp__plugin_qompack_qompack__expand,mcp__plugin_qompack_qompack__re_read,mcp__plugin_qompack_qompack__already_tried,mcp__plugin_qompack_qompack__record_eliminated,mcp__plugin_qompack_qompack__timeline,mcp__plugin_qompack_qompack__why,mcp__plugin_qompack_qompack__dropped,Bash(qompack status:*),Bash(qompack recall:*),Bash(qompack pin:*),Bash(qompack why:*),Bash(qompack dropped:*),Bash(qompack eval:*)"
+ ],
+ "turns": [
+  {
+   "msg": "Use the Read tool to read notes.md, then tell me the project codename in one sentence.",
+   "ok": true,
+   "wall_s": 7.023,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 9008,
+    "WorkingSet64": 28188672,
+    "PeakWorkingSet64": 28188672,
+    "CPU": 0.3125,
+    "StartTime": "/Date(1790703816461)/"
+   },
+   "store_bytes": 95175
+  },
+  {
+   "msg": "Use the Read tool to read big.log with offset 1 and limit 1400. Reply with only the label of the last line you received (it looks like LINE-NNNN).",
+   "ok": true,
+   "wall_s": 5.221,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 9008,
+    "WorkingSet64": 46747648,
+    "PeakWorkingSet64": 46747648,
+    "CPU": 0.796875,
+    "StartTime": "/Date(1790703816461)/"
+   },
+   "store_bytes": 1275684
+  },
+  {
+   "msg": "Use the Read tool to read logo.png. Then use the Read tool to read blob.bin; if Read refuses blob.bin, run the Bash command `cat blob.bin` instead. Describe what each tool returned in one short sentence each.",
+   "ok": true,
+   "wall_s": 9.636,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 9008,
+    "WorkingSet64": 47415296,
+    "PeakWorkingSet64": 47415296,
+    "CPU": 0.875,
+    "StartTime": "/Date(1790703816461)/"
+   },
+   "store_bytes": 1342542
+  },
+  {
+   "msg": "Use the Read tool to read creds.txt and tell me only the names of the settings it defines, never their values.",
+   "ok": true,
+   "wall_s": 3.21,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 9008,
+    "WorkingSet64": 47558656,
+    "PeakWorkingSet64": 47558656,
+    "CPU": 0.96875,
+    "StartTime": "/Date(1790703816461)/"
+   },
+   "store_bytes": 1366934
+  },
+  {
+   "msg": "/qompack:recall quartz lantern meridian",
+   "ok": true,
+   "wall_s": 4.216,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 9008,
+    "WorkingSet64": 48164864,
+    "PeakWorkingSet64": 48164864,
+    "CPU": 1.03125,
+    "StartTime": "/Date(1790703816461)/"
+   },
+   "store_bytes": 1381787
+  },
+  {
+   "msg": "Call the MCP tool mcp__plugin_qompack_qompack__recall with query \"quartz lantern meridian\". Then call mcp__plugin_qompack_qompack__expand on the first hit (use its hash, or its tool_use_id if it has no hash). Report the expand response's raw JSON word for word, including any _meta field.",
+   "ok": true,
+   "wall_s": 9.04,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 9008,
+    "WorkingSet64": 48574464,
+    "PeakWorkingSet64": 48574464,
+    "CPU": 1.203125,
+    "StartTime": "/Date(1790703816461)/"
+   },
+   "store_bytes": 1446777
+  },
+  {
+   "msg": "Call mcp__plugin_qompack_qompack__recall with query \"path:big.log\", then with \"path:logo.png\", then with \"path:blob.bin\". For each first hit, call mcp__plugin_qompack_qompack__expand with its tool_use_id. Report for each expand response only its fidelity, coverage, truncated and outcome fields (say 'absent' for a field that is not there).",
+   "ok": true,
+   "wall_s": 8.632,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 9008,
+    "WorkingSet64": 51429376,
+    "PeakWorkingSet64": 51429376,
+    "CPU": 1.53125,
+    "StartTime": "/Date(1790703816461)/"
+   },
+   "store_bytes": 1581952
+  },
+  {
+   "msg": "Use the Task tool to launch one general-purpose subagent with this instruction: 'Read config.ini with the Read tool and return the port number.' Then tell me the port number it returned.",
+   "ok": true,
+   "wall_s": 10.634,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 9008,
+    "WorkingSet64": 51646464,
+    "PeakWorkingSet64": 51646464,
+    "CPU": 1.640625,
+    "StartTime": "/Date(1790703816461)/"
+   },
+   "store_bytes": 1629758
+  },
+  {
+   "msg": "/compact",
+   "ok": true,
+   "wall_s": 28.149,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 9008,
+    "WorkingSet64": 52158464,
+    "PeakWorkingSet64": 52158464,
+    "CPU": 1.734375,
+    "StartTime": "/Date(1790703816461)/"
+   },
+   "store_bytes": 1673440
+  },
+  {
+   "msg": "What is the project codename? If it is not in your context, call mcp__plugin_qompack_qompack__recall with query \"codename\". Answer in one sentence.",
+   "ok": true,
+   "wall_s": 2.809,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 9008,
+    "WorkingSet64": 52166656,
+    "PeakWorkingSet64": 52166656,
+    "CPU": 1.75,
+    "StartTime": "/Date(1790703816461)/"
+   },
+   "store_bytes": 1683985
+  }
+ ],
+ "store_bytes_before": 397,
+ "started_ms": 1790703836938,
+ "pid": 12672,
+ "exit": 0,
+ "wall_s": 102.139,
+ "store_bytes_after": 1759874
+}

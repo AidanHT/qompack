@@ -1,0 +1,165 @@
+{
+ "args": [
+  "-p",
+  "--input-format",
+  "stream-json",
+  "--output-format",
+  "stream-json",
+  "--verbose",
+  "--include-hook-events",
+  "--model",
+  "claude-haiku-4-5-20251001",
+  "--max-turns",
+  "10",
+  "--setting-sources",
+  "project,local",
+  "--permission-mode",
+  "dontAsk",
+  "--plugin-dir",
+  "C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c3/qompack-plugin-0.3.0-windows-amd64",
+  "--allowedTools",
+  "Read,mcp__plugin_qompack_qompack__recall,mcp__plugin_qompack_qompack__expand,mcp__plugin_qompack_qompack__re_read,mcp__plugin_qompack_qompack__already_tried,mcp__plugin_qompack_qompack__record_eliminated,mcp__plugin_qompack_qompack__timeline,mcp__plugin_qompack_qompack__why,mcp__plugin_qompack_qompack__dropped,Bash(qompack status:*),Bash(qompack recall:*),Bash(qompack pin:*),Bash(qompack why:*),Bash(qompack dropped:*),Bash(qompack eval:*)"
+ ],
+ "turns": [
+  {
+   "msg": "Use the Read tool to read notes.md and tell me the project codename in one sentence.",
+   "ok": true,
+   "wall_s": 5.009,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 69552,
+    "WorkingSet64": 28397568,
+    "PeakWorkingSet64": 28397568,
+    "CPU": 0.171875,
+    "StartTime": "/Date(1790706195753)/"
+   },
+   "store_bytes": 94834
+  },
+  {
+   "before": {
+    "argv": [
+     "python",
+     "<scratch>/sessions/lane.py",
+     "kill-daemon",
+     "<scratch>/sessions/c49/proj"
+    ],
+    "exit": 0,
+    "stdout": "{\"lock\": {\"pid\": 69552, \"started\": 1790706195781, \"addr\": \"\\\\\\\\.\\\\pipe\\\\qompack.70c2d6a17cd2\", \"version\": \"0.3.0\", \"owner\": \"b90477e87fe602c416f4bba6949a86702aa344e58ead5a987bec5662943a5bf5\"}, \"pid\": 69552, \"proc\": {\"Name\": \"qompack.exe\", \"Path\": \"C:\\\\Users\\\\Quant\\\\.qompack\\\\bin\\\\c7b2b120a6efcfc1def58bd55dd29df51ec1bc0bc35a164258d5e0bc9c12803d\\\\qompack.exe\", \"Cmd\": \"C:\\\\Users\\\\Quant\\\\.qompack\\\\bin\\\\c7b2b120a6efcfc1def58bd55dd29df51ec1bc0bc35a164258d5e0bc9c12803d\\\\qompack.exe daemon --project C:\\\\Users\\\\Quant\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\qompack-live\\\\sessions\\\\c49\\\\proj\"}}\ncheck image qompack.exe: True | check cmdline daemon+project: True\nStop-Process exit 0  | still alive: False\nRESULT: stopped pid 69552\n",
+    "stderr": ""
+   },
+   "msg": "Use the Read tool to read data.txt and tell me how many rows it has.",
+   "ok": true,
+   "wall_s": 3.008,
+   "daemon": {
+    "daemon": "not running as qompack.exe",
+    "pid": 69552,
+    "image": ""
+   },
+   "store_bytes": 100780
+  },
+  {
+   "msg": "/qompack:status",
+   "ok": true,
+   "wall_s": 13.626,
+   "daemon": {
+    "daemon": "not running as qompack.exe",
+    "pid": 69552,
+    "image": ""
+   },
+   "store_bytes": 112133
+  },
+  {
+   "msg": "Call mcp__plugin_qompack_qompack__recall with query \"violet anchor lattice\" and report its raw result in one line.",
+   "ok": true,
+   "wall_s": 5.813,
+   "daemon": {
+    "daemon": "not running as qompack.exe",
+    "pid": 69552,
+    "image": ""
+   },
+   "store_bytes": 118063
+  },
+  {
+   "before": {
+    "argv": [
+     "python",
+     "-c",
+     "import time; time.sleep(100); print('waited 100 s')"
+    ],
+    "exit": 0,
+    "stdout": "waited 100 s\n",
+    "stderr": ""
+   },
+   "msg": "Call mcp__plugin_qompack_qompack__recall with query \"violet anchor lattice\" again and report the raw result in one line.",
+   "ok": true,
+   "wall_s": 5.612,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 26384,
+    "WorkingSet64": 35536896,
+    "PeakWorkingSet64": 35536896,
+    "CPU": 0.28125,
+    "StartTime": "/Date(1790706327638)/"
+   },
+   "store_bytes": 170056
+  },
+  {
+   "before": {
+    "argv": [
+     "python",
+     "-c",
+     "p=r'<scratch>/sessions/c49/proj/.qompack/config.json'; open(p,'w').write('{\"runtime\":{\"migration\":{\"settingsVersion\":99}}}\n'); print('wrote', open(p).read())"
+    ],
+    "exit": 1,
+    "stdout": "",
+    "stderr": "  File \"<string>\", line 1\n    p=r'<scratch>/sessions/c49/proj/.qompack/config.json'; open(p,'w').write('{\"runtime\":{\"migration\":{\"settingsVersion\":99}}}\n                                                                                                                         ^\nSyntaxError: unterminated string literal (detected at line 1)\n"
+   },
+   "msg": "Use the Read tool to read README.md and summarize it in one sentence.",
+   "ok": true,
+   "wall_s": 2.806,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 26384,
+    "WorkingSet64": 36544512,
+    "PeakWorkingSet64": 36544512,
+    "CPU": 0.34375,
+    "StartTime": "/Date(1790706327638)/"
+   },
+   "store_bytes": 193403
+  },
+  {
+   "msg": "/qompack:status",
+   "ok": true,
+   "wall_s": 7.814,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 26384,
+    "WorkingSet64": 37105664,
+    "PeakWorkingSet64": 37105664,
+    "CPU": 0.359375,
+    "StartTime": "/Date(1790706327638)/"
+   },
+   "store_bytes": 213732
+  },
+  {
+   "msg": "Use the Read tool to read app.py and tell me what run() returns.",
+   "ok": true,
+   "wall_s": 2.606,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 26384,
+    "WorkingSet64": 38416384,
+    "PeakWorkingSet64": 38416384,
+    "CPU": 0.40625,
+    "StartTime": "/Date(1790706327638)/"
+   },
+   "store_bytes": 236847
+  }
+ ],
+ "store_bytes_before": 0,
+ "started_ms": 1790706194938,
+ "pid": 62936,
+ "exit": 0,
+ "wall_s": 154.752,
+ "store_bytes_after": 268003
+}

@@ -14,8 +14,10 @@
 //
 // SP-01 shipped the complete type set as real declarations with every Store operation stubbed to
 // core.ErrNotImplemented. SP-10 replaced those stubs with the real *pinStore: a mutex-guarded
-// in-memory ordered map replayed once from the log at open, appending through paths.AppendOnly and
-// replacing the derived view through paths.ReplacePinsView. A corrupt log LINE is skipped,
+// in-memory ordered map replayed from the log at open, appending through paths.AppendOnly and
+// replacing the derived view through paths.ReplacePinsView. The map is not a snapshot: `qompack
+// pin` appends from its own process while the daemon's store stays open, so every read and write
+// first folds in the log's new tail (F-UAT05-2). A corrupt log LINE is skipped,
 // counted and reported once at Warn rather than being fatal — one bad record must not cost a
 // project every invariant it ever pinned — whereas a log that cannot be read at all is fatal,
 // because answering "no pins" for a file we failed to open would let the next checkpoint silently

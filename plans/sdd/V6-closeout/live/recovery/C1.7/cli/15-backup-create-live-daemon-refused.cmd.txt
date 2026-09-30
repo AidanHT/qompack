@@ -1,0 +1,6 @@
+cwd: <scratch>/recovery/c17/proj
+argv: ["C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c3/qompack-plugin-0.3.0-windows-amd64/bin/qompack.exe", "backup", "create", "--project", "<scratch>/recovery/c17/proj", "--id", "live-attempt", "--json"]
+env+: {}
+qompack_home: <scratch>/recovery/qhome
+wall_s: 0.027
+at: 2026-09-29T15:36:26-04:00

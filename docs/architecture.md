@@ -467,7 +467,13 @@ keeps the no-op on the NTFS-journaling premise rather than add a raw Windows dir
   file flush after the directory change it relies on (the `MANIFEST.jsonl` line, the journal and WAL
   appends, each object's flush in a publication pass, the pins and acknowledged elimination lines),
   except a backup's certification, and every change that can revert is safe to lose. `state/`
-  documents, the pins view, a draft and `state/precompact.json` are derived or rebuilt. A restore's
+  documents, the pins view, a draft and `state/precompact.json` are derived or rebuilt, with one
+  exception: a forked session's `state/lineage-<session>.json` records a fact nothing else holds
+  (which session the fork continues), and a backup carries it with the rest of `state/`. Its
+  rename is made durable by the next flush on the volume, which the fork's first prompt capture
+  makes before that prompt is acknowledged, so a power cut can revert it only before the fork has
+  said anything; the fork is then treated as unforked, its own first prompt standing as its
+  original, which is what every fork got before the record existed. A restore's
   final rename leaves the previous state to retry from. A backup's certification is the rename of its
   manifest and the removal of its certification-pending marker, the last two steps of
   `qompack backup`, and no flush follows them: a power cut just after the command reports the backup
@@ -605,6 +611,26 @@ timestamp. Any capture that lands behind a later-stamped turn, from either sourc
 rehydration whose turn 0 is not the session's earliest-stamped prompt adds a `user_intent_source`
 entry, `host_order`, to section 7, naming both records and the `expand(tool_use_id=…)` call for
 the host-first one ([docs/cannot-do.md](cannot-do.md#the-first-captured-prompt-is-not-always-the-first-prompt-the-host-sent)).
+
+**What follows the original, and what a fork's original is (V6 close-out, D45).** The capture is
+read whole, never a prefix: an original longer than the block can carry is named in section 7 with
+its `expand(tool_use_id=…)` call. The checkpointer recomputes `user_intent` from the session's own
+prompt records (`store.SessionPrompts`) whenever its draft is refreshed and just before each seal,
+so every checkpoint carries the session's later prompts, verbatim and in order, as
+`user_intent.evolution`, including those in the segment that is still open when the host compacts.
+It keeps the newest whole restatements, at most 64 and at most 9,400 characters of them (the most
+one rehydration can carry, so nothing left out could have been injected), and names how many
+earlier ones it left out with the `expand(tool_use_id=…)` call for the newest and the oldest of
+them; tier 1 is never truncated, so without the size bound a session of long pastes cost every
+checkpoint its pointers and decisions. A session that another session did not fork is seeded only
+from its own chain, never from another session's checkpoint. A fork (`SessionStart` with `source`
+`fork`) has its lineage recorded when it starts (`state/lineage-<session>.json`), naming as its
+parent the session whose prompt was the project's newest at that moment; its checkpoints inherit
+what that session had said before the fork started, read from its own prompt records (through its
+own lineage when it was itself a fork, and from a checkpoint it sealed only when the records cannot
+be read), its own prompts follow them, and item 2 verifies the original against the origin
+session's own capture and labels it with that session
+([docs/cannot-do.md](cannot-do.md#a-forked-sessions-parent-is-inferred-not-reported-by-the-host)).
 
 **What "8–12K" is and is not.** It is a historical Qompack-added target for the material Qompack
 injects, recorded in [ADR 0011](adr/0011-rehydration-budget-and-item-order.md) and in `Qompack.md`

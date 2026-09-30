@@ -1,0 +1,13 @@
+=== RUN   TestMCPServerRegistered_ASessionWithoutAHandshakeFailsTheNext
+--- PASS: TestMCPServerRegistered_ASessionWithoutAHandshakeFailsTheNext (0.00s)
+=== RUN   TestTranscriptReadable_ATranscriptThatNeverAppearedFails
+--- PASS: TestTranscriptReadable_ATranscriptThatNeverAppearedFails (0.00s)
+=== RUN   TestTranscriptReadable_ALiveSessionsTranscriptThatAppearsLaterIsForgotten
+--- PASS: TestTranscriptReadable_ALiveSessionsTranscriptThatAppearsLaterIsForgotten (0.00s)
+=== RUN   TestMCPServerRegistered_ASecondWindowBeforeTheFirstHasTurnedIsPending
+--- PASS: TestMCPServerRegistered_ASecondWindowBeforeTheFirstHasTurnedIsPending (0.00s)
+=== RUN   TestTranscriptReadable_ASecondWindowBeforeTheFirstPromptIsPending
+--- PASS: TestTranscriptReadable_ASecondWindowBeforeTheFirstPromptIsPending (0.00s)
+PASS
+ok  	github.com/qompack/qompack/internal/contract	1.339s
+EXIT=0

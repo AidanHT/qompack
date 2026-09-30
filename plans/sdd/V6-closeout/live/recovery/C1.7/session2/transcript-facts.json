@@ -1,0 +1,44 @@
+{
+ "session_id": "3eecc088-be65-43f4-a016-266a0d3cdb4e",
+ "found": true,
+ "project_slug_is_scratch": true,
+ "bytes": 213101,
+ "lines": 46,
+ "entry_types": {
+  "queue-operation": 4,
+  "attachment": 21,
+  "user": 4,
+  "atis-latch": 3,
+  "last-prompt": 3,
+  "assistant": 8,
+  "system": 2,
+  "cost-state": 1
+ },
+ "tool_uses": {
+  "Read": 2
+ },
+ "attachment_types": {
+  "hook_success": 5,
+  "hook_additional_context": 1,
+  "environment": 1,
+  "model": 1,
+  "deferred_tools_delta": 1,
+  "agent_listing_delta": 1,
+  "mcp_instructions_delta": 1,
+  "skill_listing": 1,
+  "total_tokens_reminder": 4,
+  "session_context": 1,
+  "date": 1,
+  "remote_session_change": 1,
+  "prompt_snapshot": 2
+ },
+ "hook_attachments": {
+  "hook_success/SessionStart": 1,
+  "hook_additional_context/SessionStart": 1,
+  "hook_success/PostToolUse": 2,
+  "hook_success/Stop": 2
+ },
+ "main_chain_user_text_entries": 2,
+ "compact_boundaries": [],
+ "sidechain_markers": []
+}

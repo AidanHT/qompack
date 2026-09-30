@@ -1,0 +1,4 @@
+13:57:10 EDT: `qompack status` in the project whose daemon was terminated at 13:48 printed source: disk (9.07m old) and
+"daemon: status refused: " (empty reason), and started a new daemon (pid 19308, default idle exit 1800 s) from the stale lock.
+(The 13:48:21 status right after the termination left no daemon running.) pid 19308 was then stopped by the same verified
+procedure (lock pid + image qompack.exe + command line naming this project): RESULT stopped pid 19308.

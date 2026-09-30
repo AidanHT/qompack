@@ -1,0 +1,3 @@
+# go test -p 2 -count=1 -timeout=30m ./internal/daemon/
+ok  	github.com/qompack/qompack/internal/daemon	360.464s
+exit=0

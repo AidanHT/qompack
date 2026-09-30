@@ -1,0 +1,11 @@
+=== RUN   TestStatusSource_NoDaemonNamesTheReason
+    status_reason_test.go:23: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-diag/internal/cli/status_reason_test.go:23
+        	Error:      	Should be false
+        	Test:       	TestStatusSource_NoDaemonNamesTheReason
+        	Messages:   	the reason must not be empty: "status refused: "
+--- FAIL: TestStatusSource_NoDaemonNamesTheReason (0.03s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/cli	0.402s
+FAIL
+EXIT=1

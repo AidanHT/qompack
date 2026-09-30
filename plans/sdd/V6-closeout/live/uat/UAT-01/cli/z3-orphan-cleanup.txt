@@ -1,0 +1,6 @@
+orphan cleanup 2026-09-29 13:17:47 EDT
+versions under cache/qompack-live/qompack: 0.3.0
+.orphaned_at: 1790702256143
+0.3.0 BUNDLE.json identical to the frozen bundle this run installed
+guard: cache/qompack-live/ gained by this run (absent at snap)
+removed ~/.claude/plugins/cache/qompack-live/

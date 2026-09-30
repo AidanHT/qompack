@@ -1,0 +1,439 @@
+{
+ "initialize": {
+  "serverInfo": {
+   "name": "qompack",
+   "version": "0.3.0"
+  },
+  "protocolVersion": "2025-06-18"
+ },
+ "calls": [
+  {
+   "tool": "expand",
+   "args": {
+    "tool_use_id": "toolu_01FEJ1zWdruUb1wVY5XZeNbC"
+   },
+   "jsonrpc_line_bytes": 985,
+   "isError": false,
+   "error": null,
+   "text_bytes": 520,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 16,
+     "ephemeral": true,
+     "expansions": 1,
+     "hash": "sha256:cd76a2980bc879c762094ebf009cd598f785696653888ba5b15f81254ce8f65c",
+     "path": "notes.md",
+     "promoted": false,
+     "span": [
+      0,
+      252
+     ],
+     "tool_use_id": "qompack-mcp:4fccb48cabc7",
+     "total_bytes": 252,
+     "truncated": false,
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "found": true,
+     "hash": "sha256:0b1d5454bc14896a1b9b5d68047998863d4647d7d94b5a4df849fb82ba850e79",
+     "path": "notes.md",
+     "tool": "FileRead",
+     "span": [
+      0,
+      252
+     ],
+     "total_bytes": 252,
+     "truncated": false,
+     "widened": false,
+     "expansions": 1,
+     "promoted": false,
+     "content": "{\"type\":\"text\",\"file\":{\"filePath\":\"<tmp>\",\"content\":\"# Notes\\n\\nThe project codename is AMBER-FALCON-58.\\nThe release train leaves on Thursdays.\\nOur build uses the sentinel phrase quartz lantern meridian.\\n\",\"numLines\":6,\"startLine\":1,\"totalLines\":6}}"
+    }
+   ]
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "tool_use_id": "toolu_01QJ5QZQgkqWGcJCTGvPCU6H"
+   },
+   "jsonrpc_line_bytes": 10794,
+   "isError": false,
+   "error": null,
+   "text_bytes": 10235,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 15,
+     "ephemeral": true,
+     "expansions": 2,
+     "hash": "sha256:6b5d80f4c07e8c1a5ab6dc2eb58d26ee86cdb00c33206b981c3fa9789fc60607",
+     "next_span": "9909:16384",
+     "path": "big.log",
+     "promoted": true,
+     "span": [
+      0,
+      9909
+     ],
+     "tool_use_id": "qompack-mcp:a09e7140793c",
+     "total_bytes": 312302,
+     "truncated": true,
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "found": true,
+     "hash": "sha256:38b71119c76a348a1b5879477c3b454ae946ff7304b59abec96ce85b907b1027",
+     "path": "big.log",
+     "tool": "FileRead",
+     "span": [
+      0,
+      9909
+     ],
+     "total_bytes": 312302,
+     "truncated": true,
+     "next_span": "9909:16384",
+     "widened": false,
+     "expansions": 2,
+     "promoted": true,
+     "content": "{\"type\":\"text\",\"file\":{\"filePath\":\"<tmp>\",\"content\":\"LINE-0001 event=sync status=ok shard=001 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nLINE-0002 event=sync sta...[9909 chars total]"
+    }
+   ]
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "tool_use_id": "toolu_01KsyrmUv7w59GFZGM4c8EZ3"
+   },
+   "jsonrpc_line_bytes": 1031,
+   "isError": false,
+   "error": null,
+   "text_bytes": 565,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 13,
+     "ephemeral": true,
+     "expansions": 2,
+     "hash": "sha256:add2a5fb8aaa1462bdf8b375c324ecf7813095cfb6dfc5bb846dd9d917ec516d",
+     "path": "logo.png",
+     "promoted": true,
+     "span": [
+      0,
+      297
+     ],
+     "tool_use_id": "qompack-mcp:ca20bf231fc0",
+     "total_bytes": 297,
+     "truncated": false,
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "found": true,
+     "hash": "sha256:8b618bac1e795bd1de0446af955014c6632988e17fb58dd9246582bd0bd39462",
+     "path": "logo.png",
+     "tool": "FileRead",
+     "span": [
+      0,
+      297
+     ],
+     "total_bytes": 297,
+     "truncated": false,
+     "widened": false,
+     "expansions": 2,
+     "promoted": true,
+     "content": "{\"type\":\"image\",\"file\":{\"base64\":\"iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAIAAAD8GO2jAAAAKUlEQVR4nO3NMQ0AAAgDsEmZf5OggoOkSf9m2lMRCAQCgUAgEAgEX4IFDbP8PQv8HGkAAAAASUVORK5CYII=\",\"type\":\"image/png\",\"originalSize\":98,\"dimensions\":{\"originalWidth\":32,\"originalHeight\":32,\"displayWidth\":32,\"displayHeight\":32}}}"
+    }
+   ]
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "tool_use_id": "toolu_01KTqHxKyLk4Lufd76h9ukvf"
+   },
+   "jsonrpc_line_bytes": 3927,
+   "isError": false,
+   "error": null,
+   "text_bytes": 3293,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 7,
+     "ephemeral": true,
+     "expansions": 1,
+     "hash": "sha256:b1786b8b2f234ab09da93b2b3e450bef00ebe0acaebcc6fbf57175bb0e2a13b0",
+     "promoted": false,
+     "span": [
+      0,
+      2068
+     ],
+     "tool_use_id": "qompack-mcp:1045d400e772",
+     "total_bytes": 2068,
+     "truncated": false,
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "found": true,
+     "hash": "sha256:c4a408149369ed01d5ee85e5c890c6f4d98fb88cdd0c96edd607341801174a53",
+     "tool": "Bash",
+     "span": [
+      0,
+      2068
+     ],
+     "total_bytes": 2068,
+     "truncated": false,
+     "widened": false,
+     "expansions": 1,
+     "promoted": false,
+     "content": "��]��RS�Ԓ��'�V�\u0015�<�%\u0013U\u0015Iо*�!��K�,��N�6u@\u0011[p�\u000f��\u0015��\u0002�j\u0016gq��L�!\u0016k�(�M�\bF�jWŊ\u001e$\u0014�*�i�0�3lO�\u0004,\u0007j0�\u0000��\u0007��ǽ��)0SC2f �[�^kT<\t��b�x\\*z\u0016\u0012\u0014�G,�\\of��'7�.Uy��t��\u0011�A�c[;%x��-2����{@E@#O���.0U�#IJ�e�X\u0004��_Z}�-I�\u00193\u000f�Z��躜\u000fJtߟ�yې�}H��\u0002���g\u000fAR��28\u00037\u0015\f�(e���&�\u000f�x�\u0007[\b�$��\u0001\u000b�_�\u0001�`_0Ԁ�D��N\u0019\u000b�\u0012L_��\nf��=E�\u0007\u0000SL\u0017�q��\u0010·��!C��...[1129 chars total]"
+    }
+   ]
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "tool_use_id": "toolu_01SgCBmPSFdYGaaUxsuupMvS"
+   },
+   "jsonrpc_line_bytes": 972,
+   "isError": false,
+   "error": null,
+   "text_bytes": 510,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 12,
+     "ephemeral": true,
+     "expansions": 1,
+     "hash": "sha256:02fb746b5c5035be7029808fac2770f7043ffc079da8ed345d4f2c2c61517abf",
+     "path": "creds.txt",
+     "promoted": false,
+     "span": [
+      0,
+      243
+     ],
+     "tool_use_id": "qompack-mcp:b9870cdda6c9",
+     "total_bytes": 243,
+     "truncated": false,
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "found": true,
+     "hash": "sha256:bcb017e830d60dbd712fba343ff0ee31b6e0772a0d9dd3534b3c40f413bb70d1",
+     "path": "creds.txt",
+     "tool": "FileRead",
+     "span": [
+      0,
+      243
+     ],
+     "total_bytes": 243,
+     "truncated": false,
+     "widened": false,
+     "expansions": 1,
+     "promoted": false,
+     "content": "{\"file\":{\"content\":\"# service credentials (fake, planted for the run)\\naws_access_key_id = «redacted:aws_access_key_id»\\ngithub_token = «redacted:github_token»\\n\",\"filePath\":\"<tmp>\",\"numLines\":4,\"startLine\":1,\"totalLines\":4},\"type\":\"text\"}"
+    }
+   ]
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "tool_use_id": "toolu_01JQc32QJ9SQTeqDMbP6B7zp"
+   },
+   "jsonrpc_line_bytes": 315,
+   "isError": false,
+   "error": null,
+   "text_bytes": 43,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 0,
+     "ephemeral": true,
+     "hash": "sha256:cce9cb505a9776de52b263f156f5eface864e049dbbda1d7c14332f91e89ccd9",
+     "tool_use_id": "qompack-mcp:2e6d41944e46"
+    }
+   },
+   "json": [
+    {
+     "found": false,
+     "searched": "tool_use index"
+    }
+   ]
+  },
+  {
+   "tool": "recall",
+   "args": {
+    "query": "quartz lantern meridian"
+   },
+   "jsonrpc_line_bytes": 852,
+   "isError": false,
+   "error": null,
+   "text_bytes": 492,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 18,
+     "ephemeral": true,
+     "hash": "sha256:8d14a28cc3215733f57d932635787da883b629732b92505a0995235eae5359b1",
+     "tool_use_id": "qompack-mcp:3316aa470115",
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "hits": [
+      {
+       "hash": "sha256:cd76a2980bc879c762094ebf009cd598f785696653888ba5b15f81254ce8f65c",
+       "path": "notes.md",
+       "tool": "mcp__qompack__expand",
+       "summary": "{\"found\":true,\"hash\":\"sha256:0b1d5454bc14896a1b9b5d68047998863d4647d7d94b5a4df849fb82ba850e79\",\"path\":\"notes.md\",\"too…",
+       "ts": "2026-09-29T17:47:19Z",
+       "score": 0.355,
+       "tool_use_id": "qompack-mcp:4fccb48cabc7",
+       "span": [
+        0,
+        520
+       ]
+      }
+     ],
+     "count": 1,
+     "found": true,
+     "query": {
+      "text": "quartz lantern meridian",
+      "path": "",
+      "symbol": "",
+      "tool": ""
+     },
+     "denied": 4
+    }
+   ]
+  },
+  {
+   "tool": "recall",
+   "args": {
+    "query": "aws_access_key_id"
+   },
+   "jsonrpc_line_bytes": 1263,
+   "isError": false,
+   "error": null,
+   "text_bytes": 865,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 19,
+     "ephemeral": true,
+     "hash": "sha256:28c3c8645b9ef7de4bcb57a4c5aac1f24ed8e8aaef6f8cd92850ec2b0d365098",
+     "tool_use_id": "qompack-mcp:753c4d794114",
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "hits": [
+      {
+       "hash": "sha256:02fb746b5c5035be7029808fac2770f7043ffc079da8ed345d4f2c2c61517abf",
+       "path": "creds.txt",
+       "tool": "mcp__qompack__expand",
+       "summary": "{\"found\":true,\"hash\":\"sha256:bcb017e830d60dbd712fba343ff0ee31b6e0772a0d9dd3534b3c40f413bb70d1\",\"path\":\"creds.txt\",\"to…",
+       "ts": "2026-09-29T17:47:19Z",
+       "score": 0.5103869666437038,
+       "tool_use_id": "qompack-mcp:b9870cdda6c9",
+       "span": [
+        0,
+        510
+       ]
+      },
+      {
+       "hash": "sha256:bcb017e830d60dbd712fba343ff0ee31b6e0772a0d9dd3534b3c40f413bb70d1",
+       "path": "creds.txt",
+       "tool": "FileRead",
+       "summary": "{\"file\":{\"content\":\"# service credentials (fake, planted for the run)\\naws_access_key_id = «redacted:aws_access_key_…",
+       "ts": "2026-09-29T17:44:24Z",
+       "score": 0.4225820885949232,
+       "tool_use_id": "toolu_01SgCBmPSFdYGaaUxsuupMvS",
+       "span": [
+        0,
+        243
+       ]
+      }
+     ],
+     "count": 2,
+     "found": true,
+     "query": {
+      "text": "aws_access_key_id",
+      "path": "",
+      "symbol": "",
+      "tool": ""
+     }
+    }
+   ]
+  },
+  {
+   "tool": "timeline",
+   "args": {},
+   "jsonrpc_line_bytes": 676,
+   "isError": false,
+   "error": null,
+   "text_bytes": 363,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 0,
+     "ephemeral": true,
+     "hash": "sha256:22ea6c07df01f753e85ec953796c2ea673c7a732df496c79ea95664698964726",
+     "tool_use_id": "qompack-mcp:8d6c6ec5ffea"
+    }
+   },
+   "json": [
+    {
+     "count": 1,
+     "found": true,
+     "from": 0,
+     "frontier": 0,
+     "segments": [
+      {
+       "checkpoint_seq": 0,
+       "closed": true,
+       "encoded_once": false,
+       "end_ts": "2026-09-29T17:45:38Z",
+       "end_turn": 20,
+       "features": {
+        "gap_seconds": 1.606,
+        "lexical_cohesion": 0.13621591374689138,
+        "path_jaccard": 0,
+        "todo_transition": 0,
+        "tool_shift": 0.25
+       },
+       "id": 1,
+       "start_ts": "2026-09-29T17:43:58Z",
+       "start_turn": 0,
+       "tokens": 0
+      }
+     ],
+     "to": 20
+    }
+   ]
+  },
+  {
+   "tool": "dropped",
+   "args": {},
+   "jsonrpc_line_bytes": 293,
+   "isError": false,
+   "error": null,
+   "text_bytes": 22,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 0,
+     "ephemeral": true,
+     "hash": "sha256:2cb20f2bc17fa600fba08ca7a50a3d358255731776f97bdaf720cd4f82a35bc1",
+     "tool_use_id": "qompack-mcp:75cffa13c017"
+    }
+   },
+   "json": [
+    {
+     "count": 0,
+     "drops": []
+    }
+   ]
+  }
+ ],
+ "stderr_tail": ""
+}

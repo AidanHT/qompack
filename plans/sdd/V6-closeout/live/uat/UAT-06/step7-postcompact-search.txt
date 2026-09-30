@@ -1,0 +1,3 @@
+command: python re.search('post.?compact|postcompact|wait(?:ing)? (?:for|on) .*compact|compact.*(?:never arrived|absent|not received|timed out)') over every line of <project>/.qompack/logs/* (LOUD.log, qompack-20260929.log)
+matches: 0
+(none)

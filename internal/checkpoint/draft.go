@@ -14,14 +14,21 @@ import (
 // The three accumulation caps of §7/§8. They bound what a single draft can pin in memory and in
 // state/draft-<session>.json, and each cap's KEEP side is deliberate:
 //
-//   - maxIntentEvolution keeps the OLDEST 64 restatements. Intent history is tier 1, and the
-//     early restatements are the ones that explain how the session got its shape; a newest-kept
-//     cap would silently rewrite history every time the user spoke.
+//   - maxIntentEvolution keeps the NEWEST 64 restatements, within EvolutionCeilingChars of text,
+//     and one DropEntry says how many earlier ones the two bounds left out and names the newest
+//     and the oldest of them (intent.go selectEvolutionLocked). It used to keep the oldest, on the
+//     grounds that early restatements explain the session's shape, but then every correction after
+//     a session's 65th prompt was lost to the one field that carries the current authority
+//     (Qompack.md §8.6: current authority takes precedence over obsolete intent). Nothing is lost
+//     silently: each left-out restatement is still its own prompt record in the store, and the
+//     entry says so.
 //   - maxOpenQuestions drops the NEWEST once full (§8's "newest dropped once full"): an open
 //     question that arrived when the list was already saturated is the one the session has had
 //     the least time to depend on.
 //   - maxDraftDecisions keeps the head of the Turn-descending order (§8 step 3): Truncate cuts
-//     tail-first, so the head is the newest and the cap discards the stalest decisions first. It
+//     tail-first, so the head is the newest and the cap discards the stalest decisions first.
+//     Decisions from other sessions' project-scoped eliminations sort after all of the session's
+//     own, newest recorded first (D46, mergeDecisionsLocked), so the cap discards them first. It
 //     is the package's single declaration of §8's decision cap: the per-extraction cap in §9 is
 //     the same bound applied one pass earlier, and a second constant spelling the same number is
 //     free to drift from this one.

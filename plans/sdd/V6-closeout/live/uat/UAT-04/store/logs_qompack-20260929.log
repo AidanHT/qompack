@@ -1,0 +1,21 @@
+ts=2026-09-29T18:03:38.533201Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-09-29T18:03:38.5865487Z level=info msg="observer: session registered" session=5fe7f497-1c23-414e-8fcc-933363180fd0 source=startup turn=0 segment=1
+ts=2026-09-29T18:03:38.587059Z level=info msg="scheduler: session bound" session=5fe7f497-1c23-414e-8fcc-933363180fd0 effective_window=100000 max_output=0 window_source=3 host_trigger_absent=false regime=unknown changepoints=0
+ts=2026-09-29T18:03:59.4210047Z level=loud msg="rehydrate: checkpoint user_intent.original differs from the L0 capture" session=5fe7f497-1c23-414e-8fcc-933363180fd0
+ts=2026-09-29T18:04:20.9109405Z level=loud msg="rehydrate: checkpoint user_intent.original differs from the L0 capture" session=5fe7f497-1c23-414e-8fcc-933363180fd0
+ts=2026-09-29T18:04:44.5906516Z level=loud msg="rehydrate: checkpoint user_intent.original differs from the L0 capture" session=5fe7f497-1c23-414e-8fcc-933363180fd0
+ts=2026-09-29T18:05:16.2799839Z level=loud msg="rehydrate: checkpoint user_intent.original differs from the L0 capture" session=5fe7f497-1c23-414e-8fcc-933363180fd0
+ts=2026-09-29T18:06:06.988685Z level=loud msg="rehydrate: checkpoint user_intent.original differs from the L0 capture" session=5fe7f497-1c23-414e-8fcc-933363180fd0
+ts=2026-09-29T18:06:34.6794792Z level=loud msg="rehydrate: checkpoint user_intent.original differs from the L0 capture" session=5fe7f497-1c23-414e-8fcc-933363180fd0
+ts=2026-09-29T18:07:11.1357876Z level=loud msg="rehydrate: checkpoint user_intent.original differs from the L0 capture" session=5fe7f497-1c23-414e-8fcc-933363180fd0
+ts=2026-09-29T18:07:41.0021689Z level=loud msg="rehydrate: checkpoint user_intent.original differs from the L0 capture" session=5fe7f497-1c23-414e-8fcc-933363180fd0
+ts=2026-09-29T18:08:20.7257515Z level=loud msg="rehydrate: checkpoint user_intent.original differs from the L0 capture" session=5fe7f497-1c23-414e-8fcc-933363180fd0
+ts=2026-09-29T18:08:49.1466116Z level=loud msg="rehydrate: checkpoint user_intent.original differs from the L0 capture" session=5fe7f497-1c23-414e-8fcc-933363180fd0
+ts=2026-09-29T18:09:23.4899421Z level=loud msg="rehydrate: checkpoint user_intent.original differs from the L0 capture" session=5fe7f497-1c23-414e-8fcc-933363180fd0
+ts=2026-09-29T18:09:58.8193862Z level=loud msg="rehydrate: checkpoint user_intent.original differs from the L0 capture" session=5fe7f497-1c23-414e-8fcc-933363180fd0
+ts=2026-09-29T18:10:33.1525442Z level=loud msg="rehydrate: checkpoint user_intent.original differs from the L0 capture" session=5fe7f497-1c23-414e-8fcc-933363180fd0
+ts=2026-09-29T18:11:02.5669716Z level=loud msg="daemon: config reload warning" key="" message="unparseable config: unexpected end of JSON input" location=<scratch>\sessions\uat04\proj\.qompack\config.json
+ts=2026-09-29T18:12:38.6774421Z level=warn msg="scheduler: residual span over budget; O5 is not keeping up" residual=65482 max=20000 unencodedClosed=0 frontierTurn=0
+ts=2026-09-29T18:12:38.6892549Z level=warn msg="daemon: ending abandoned session; no SessionEnd arrived and it has been silent past the idle-exit window" session=5fe7f497-1c23-414e-8fcc-933363180fd0 silentMs=125415
+ts=2026-09-29T18:12:38.700766Z level=loud msg="configuration unusable, using defaults" message="unparseable config: unexpected end of JSON input" location=<scratch>\sessions\uat04\proj\.qompack\config.json
+ts=2026-09-29T18:14:59.8281101Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false

@@ -166,6 +166,17 @@ func (w *FileWriter) preCompact(ctx context.Context, in PreCompactInput) (PreCom
 	if err != nil {
 		return PreCompactResult{NewDraft: fresh}, err
 	}
+	// Negative knowledge is sealed as the ledger holds it NOW, not as it stood when this draft
+	// last read it (Draft.refreshNegativeKnowledge). A failure seals the draft's own copy.
+	if rerr := d.refreshNegativeKnowledge(ctx); rerr != nil {
+		w.log.Warn("checkpoint: PreCompact could not re-read the elimination ledger; sealing the draft's copy",
+			"session", string(in.Session), "err", rerr.Error())
+	}
+
+	// The checkpoint this compaction seals carries every prompt the session has made, the ones in
+	// its still-open segment included: a live draft is otherwise only as fresh as its last idle
+	// Advance, and no segment encoding ever reads the open segment (F-UAT05-1, intent.go).
+	d.RefreshIntent(ctx)
 
 	d.SetCache(in.Cache)
 	d.AddDrops(in.ExtraDrops...)
@@ -215,8 +226,16 @@ func (w *FileWriter) preCompact(ctx context.Context, in PreCompactInput) (PreCom
 	}, nil
 }
 
-// draftForPreCompact returns the live draft for the session, opening and catching one up when
-// compaction fired before any idle window did.
+// draftForPreCompact returns the live draft for the session, opening one when compaction fired
+// before any idle window did, and catches it up with every closed segment not yet encoded.
+//
+// The catch-up runs on BOTH paths. It used to run on the cold one only, on the ground that idle
+// windows had already encoded everything by the time a warm draft was sealed. That ground is gone:
+// the daemon now closes the compacting session's open segment at the compaction itself (the
+// scheduler tap's PreCompact, F-UAT03-1), and a warm draft — every compaction after a session's
+// first finds the successor its previous seal opened — would otherwise be sealed without the very
+// span the host is compacting, leaving it to an idle pass to fold into the checkpoint after. An
+// already-caught-up draft pays one segment-log read.
 //
 // The catch-up is ONE Advance call over a trimmed batch, oldest segment first. Both halves matter:
 //
@@ -230,45 +249,57 @@ func (w *FileWriter) preCompact(ctx context.Context, in PreCompactInput) (PreCom
 //     paragraph bought nothing. store.SegmentLog.Unencoded already returns ascending StartTurn
 //     order, so the fix is to stop re-sorting it.
 func (w *FileWriter) draftForPreCompact(ctx context.Context, in PreCompactInput, start time.Time) (*Draft, bool, error) {
-	if d := w.liveDraft(in.Session); d != nil {
-		return d, false, nil
+	d, fresh := w.liveDraft(in.Session), false
+	if d == nil {
+		w.m.Counter("checkpoint.cold_precompact").Add(1)
+		var err error
+		if d, err = w.Begin(ctx, in.Session, 0, w.coldSources()); err != nil {
+			return nil, true, err
+		}
+		fresh = true
 	}
+	w.catchUpForPreCompact(ctx, d, in.Session, start)
+	return d, fresh, nil
+}
 
-	w.m.Counter("checkpoint.cold_precompact").Add(1)
-	d, err := w.Begin(ctx, in.Session, 0, w.coldSources())
+// catchUpForPreCompact encodes the session's closed, unencoded segments into d, oldest first, in one
+// bounded Advance. Every failure is logged and swallowed: a catch-up that cannot run is not a reason
+// to lose the checkpoint, which is sealed with what the draft already has.
+func (w *FileWriter) catchUpForPreCompact(ctx context.Context, d *Draft, s core.SessionID, start time.Time) {
+	segs, err := d.sources().Segments.Unencoded(ctx, s)
 	if err != nil {
-		return nil, true, err
+		w.log.Warn("checkpoint: PreCompact could not list unencoded segments", "err", err.Error())
+		return
 	}
-
-	segs, err := d.sources().Segments.Unencoded(ctx, in.Session)
-	if err != nil {
-		// A catch-up we cannot enumerate is not a reason to lose the checkpoint: seal what the
-		// draft already has.
-		w.log.Warn("checkpoint: cold PreCompact could not list unencoded segments", "err", err.Error())
-		return d, true, nil
+	closed := segs[:0:0]
+	for _, seg := range segs {
+		// The open segment is in-flight work, and Advance would skip it anyway; leaving it out keeps
+		// the common already-caught-up case from paying for an Advance that encodes nothing.
+		if seg.Closed {
+			closed = append(closed, seg)
+		}
 	}
-	if len(segs) == 0 {
-		return d, true, nil
+	if len(closed) == 0 {
+		return
 	}
 	if w.clk.Since(start) > coldEncodeWindow {
 		// Begin alone has already spent the catch-up window. Seal what it seeded rather than
 		// starting an encode we know will overrun budget B-E.
-		w.log.Warn("checkpoint: cold PreCompact skipped catch-up encoding; the window was already spent",
-			"unencoded", len(segs))
-		return d, true, nil
+		w.log.Warn("checkpoint: PreCompact skipped catch-up encoding; the window was already spent",
+			"unencoded", len(closed))
+		return
 	}
-	if len(segs) > maxColdEncodeSegments {
-		segs = segs[:maxColdEncodeSegments]
+	if len(closed) > maxColdEncodeSegments {
+		closed = closed[:maxColdEncodeSegments]
 	}
-	ids := make([]core.SegmentID, len(segs))
-	for i, s := range segs {
-		ids[i] = s.ID
+	ids := make([]core.SegmentID, len(closed))
+	for i, seg := range closed {
+		ids[i] = seg.ID
 	}
 	if _, err := w.Advance(ctx, d, ids); err != nil {
-		w.log.Warn("checkpoint: cold PreCompact could not encode its catch-up batch",
+		w.log.Warn("checkpoint: PreCompact could not encode its catch-up batch",
 			"segments", len(ids), "err", err.Error())
 	}
-	return d, true, nil
 }
 
 // preCompactDebug is .qompack/state/precompact.json: a Qompack-internal debug artifact. Nothing in

@@ -1,0 +1,4 @@
+# Fix seat: go test -p 2 -count=1 -timeout=30m ./internal/observer/... (at 9e3a61d8)
+ok  	github.com/qompack/qompack/internal/observer	79.315s
+ok  	github.com/qompack/qompack/internal/observer/observertest	2.546s
+exit=0

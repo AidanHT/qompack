@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "command": "recall",
+  "ok": true,
+  "data": {
+    "tool": "recall",
+    "is_error": false,
+    "ephemeral": true,
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"hits\":[{\"hash\":\"sha256:0f9f18aa706774057d9c60c45babc234d63ac4842cab772a29eba4c25cd13c3a\",\"path\":\"later.md\",\"tool\":\"FileRead\",\"summary\":\"{\\\"type\\\":\\\"text\\\",\\\"file\\\":{\\\"filePath\\\":\\\"\u003ctmp\u003e\\\",\\\"content\\\":\\\"# Later\\\\n\\\\nThe post-backup marker is vermilion osprey omega.\\\\nTh…\",\"ts\":\"2026-09-29T19:34:23Z\",\"score\":0.346,\"tool_use_id\":\"toolu_01KtSDeex8VVz6yeMoynNpXK\",\"span\":[0,208]}],\"count\":1,\"found\":true,\"query\":{\"text\":\"vermilion osprey omega\",\"path\":\"\",\"symbol\":\"\",\"tool\":\"\"}}"
+      }
+    ],
+    "meta": {
+      "elapsed_ms": 3,
+      "hash": "sha256:1e325718ca7095dbe6dd057f6a79414d7da0efadd4185f2e219e8363ec57fff8",
+      "tool_use_id": "qompack-mcp:229a5db6bb8f",
+      "untrusted": true
+    }
+  }
+}

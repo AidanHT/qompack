@@ -1,0 +1,88 @@
+== recovery part start (snap taken just before) — 2026-09-29 15:27:42 Eastern Daylight Time
+same  settings.json e15855d7e46a
+same  plugins/installed_plugins.json 728f75591291
+same  plugins/known_marketplaces.json 1b1eda7e17f0
+same  plugins/cache/ (10 entries)
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+same  .qompack/ (0 entries)
+real home fingerprint unchanged
+check exit 0
+== after session 1 (C1.6 seed) — 2026-09-29 15:28:43 Eastern Daylight Time
+removed run-created empty plugins/data/qompack-inline/
+same  settings.json e15855d7e46a
+same  plugins/installed_plugins.json 728f75591291
+same  plugins/known_marketplaces.json 1b1eda7e17f0
+same  plugins/cache/ (10 entries)
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+INFO  .qompack/ gained ['bin/', 'bin/c7b2b120a6efcfc1def58bd55dd29df51ec1bc0bc35a164258d5e0bc9c12803d/'] (run-created; record, remove only if yours)
+real home fingerprint unchanged
+check exit 0
+== after C1.6 cuts, bare session-start restart, status/fsck/doctor (daemon idle-exited) — 2026-09-29 15:31:34 Eastern Daylight Time
+same  settings.json e15855d7e46a
+same  plugins/installed_plugins.json 728f75591291
+same  plugins/known_marketplaces.json 1b1eda7e17f0
+same  plugins/cache/ (10 entries)
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+INFO  .qompack/ gained ['bin/', 'bin/c7b2b120a6efcfc1def58bd55dd29df51ec1bc0bc35a164258d5e0bc9c12803d/'] (run-created; record, remove only if yours)
+real home fingerprint unchanged
+check exit 0
+== after session 2 (C1.7 seed) — 2026-09-29 15:32:16 Eastern Daylight Time
+removed run-created empty plugins/data/qompack-inline/
+same  settings.json e15855d7e46a
+same  plugins/installed_plugins.json 728f75591291
+same  plugins/known_marketplaces.json 1b1eda7e17f0
+same  plugins/cache/ (10 entries)
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+INFO  .qompack/ gained ['bin/', 'bin/c7b2b120a6efcfc1def58bd55dd29df51ec1bc0bc35a164258d5e0bc9c12803d/'] (run-created; record, remove only if yours)
+real home fingerprint unchanged
+check exit 0
+== after C1.7 backup create/verify, restore into D1, fsck D1, reader recall in D1 (D1 daemon idle-exited) — 2026-09-29 15:34:14 Eastern Daylight Time
+same  settings.json e15855d7e46a
+same  plugins/installed_plugins.json 728f75591291
+same  plugins/known_marketplaces.json 1b1eda7e17f0
+same  plugins/cache/ (10 entries)
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+INFO  .qompack/ gained ['bin/', 'bin/c7b2b120a6efcfc1def58bd55dd29df51ec1bc0bc35a164258d5e0bc9c12803d/'] (run-created; record, remove only if yours)
+real home fingerprint unchanged
+check exit 0
+== after session 3 (C1.7 post-backup writes) — 2026-09-29 15:34:29 Eastern Daylight Time
+removed run-created empty plugins/data/qompack-inline/
+same  settings.json e15855d7e46a
+same  plugins/installed_plugins.json 728f75591291
+same  plugins/known_marketplaces.json 1b1eda7e17f0
+same  plugins/cache/ (10 entries)
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+INFO  .qompack/ gained ['bin/', 'bin/c7b2b120a6efcfc1def58bd55dd29df51ec1bc0bc35a164258d5e0bc9c12803d/'] (run-created; record, remove only if yours)
+real home fingerprint unchanged
+check exit 0
+== after C1.7 D2 restore, readers, refusals (source daemon started by a bare session-start hook, idle-exited) — 2026-09-29 15:37:31 Eastern Daylight Time
+same  settings.json e15855d7e46a
+same  plugins/installed_plugins.json 728f75591291
+same  plugins/known_marketplaces.json 1b1eda7e17f0
+same  plugins/cache/ (10 entries)
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+INFO  .qompack/ gained ['bin/', 'bin/c7b2b120a6efcfc1def58bd55dd29df51ec1bc0bc35a164258d5e0bc9c12803d/'] (run-created; record, remove only if yours)
+real home fingerprint unchanged
+check exit 0
+== staged-copy cleanup (recovery part end): no qompack.exe running (Get-Process qompack count 0); ~/.qompack/bin/c7b2b120.../qompack.exe
+sha256 = the frozen bundle bin/qompack.exe (c7b2b120a6efcfc1def58bd55dd29df51ec1bc0bc35a164258d5e0bc9c12803d); homeguard listed it as gained
+(created 2026-09-29 15:28:22 by session 1); no install in this part (--plugin-dir only), so install.md section 6 host uninstall
+is not applicable; removed with section 6 Remove-Item -Recurse -Force $HOME\.qompack\bin, then the empty run-created ~/.qompack
+(absent at snap).
+== END of recovery part (after staged-copy cleanup) — 2026-09-29 15:39:41 Eastern Daylight Time
+same  settings.json e15855d7e46a
+same  plugins/installed_plugins.json 728f75591291
+same  plugins/known_marketplaces.json 1b1eda7e17f0
+same  plugins/cache/ (10 entries)
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+same  .qompack/ (0 entries)
+real home fingerprint unchanged
+check exit 0

@@ -1,0 +1,20 @@
+# RED at 1c8f492f+review rows (w14-safecut fix seat), before the safeCut change
+# go test -p 2 -count=1 -run 'TestSafeCutFindsTheSafeCutBelowARedactedRegion|TestSafeCutReportsFalseOnlyWhenNoCutIsSafe|TestSafeCutFindsTheLargestSafeCutWithTheProductionRedactor' ./internal/mcp/
+--- FAIL: TestSafeCutFindsTheSafeCutBelowARedactedRegion (0.02s)
+        	Error:      	Not equal: 
+        	            	expected: 200
+        	            	actual  : 1
+        	Messages:   	nested long placeholders inside a block
+--- FAIL: TestSafeCutReportsFalseOnlyWhenNoCutIsSafe (0.05s)
+        	Error:      	Not equal: 
+        	            	expected: 30
+        	            	actual  : 1
+        	Messages:   	window 3 keep 38
+--- FAIL: TestSafeCutFindsTheLargestSafeCutWithTheProductionRedactor (0.36s)
+        	Error:      	Not equal: 
+        	            	expected: 200
+        	            	actual  : 1
+        	Messages:   	block after 200 bytes
+FAIL
+FAIL	github.com/qompack/qompack/internal/mcp	0.684s
+FAIL

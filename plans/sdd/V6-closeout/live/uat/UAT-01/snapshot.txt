@@ -1,0 +1,7 @@
+qompack version: 0.3.0 (frozen bundle CLI bin/qompack.exe, exit 0)
+bundle: qompack-plugin-0.3.0-windows-amd64 (c3 frozen); BUNDLE.json sha256 32600778ae6463cd47736fc6b0a8614ad782e5bbd0ef0440f4e2c3937ccf4505
+bundle git SHA: d5598eb4445954120ee795560c2ea46640772f43 (BUNDLE.json source.commit, dirty false)
+bin/qompack.exe sha256: c7b2b120a6efcfc1def58bd55dd29df51ec1bc0bc35a164258d5e0bc9c12803d
+host OS: Windows 11 Home 25H2, build 10.0.26200.9457 (windows/amd64)
+Claude Code: 2.1.280 (claude --version; init event claude_code_version 2.1.280)
+date: 2026-09-29, 13:14-13:18 America/Toronto (EDT)

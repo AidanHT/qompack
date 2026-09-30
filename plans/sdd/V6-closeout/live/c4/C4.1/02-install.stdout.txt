@@ -1,0 +1,1 @@
+{"command":"install","outcome":"ok","plugin":"qompack@qompack-live","pluginId":"qompack@qompack-live","scope":"user","message":"Successfully installed plugin: qompack@qompack-live (scope: user)"}

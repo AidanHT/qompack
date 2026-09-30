@@ -1,0 +1,11 @@
+# stream line 62, hook SessionStart:compact, exit 0, 904 chars
+<!-- qompack:injected seq=1 ver=1 -->
+# Qompack rehydration — checkpoint 0001, session 0cfcb558
+
+## 2. Original user intent (verbatim from L0 capture — never summarized)
+> Make these three MCP calls in order: mcp__plugin_qompack_qompack__already_tried with {"target": "src/cache.go:Evict", "approach": "shrink the ttl"}; mcp__plugin_qompack_qompack__dropped with {}; mcp__plugin_qompack_qompack__timeline with {}. Reply with one line per call: the arguments you passed, whether the host marked the result as an error (yes/no), and the first 200 characters of the result text.
+
+## 8. Retrieval
+Qompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().
+<!-- /qompack:injected -->
+<!-- qompack-contract-probe qompack-contract-f672b6b2b70f -->

@@ -1,0 +1,4 @@
+{"v":1,"path":"notes.md","ts":1790708261615,"turn":3,"root":"sha256:cc9c84ba5869aab19f3b48cfc97c2eeb795efdc0c8e4a93fd16ecf1a0a1a7074","bytes":276}
+{"v":1,"path":"src/cache.go","ts":1790708262028,"turn":3,"root":"sha256:5bb1df112f88726f2f1be4489db7a48645cbd6e691ef35420794d3a8e66d0f31","bytes":477}
+{"v":1,"path":".qompack/checkpoints/0002.json","ts":1790708410773,"turn":21,"root":"sha256:18d2857f9429bbf7e94af1916e0f8ce7a5bfd418c0b44f7d399f7cb7d035b355","bytes":1416}
+{"v":1,"path":".qompack/checkpoints/0001.json","ts":1790708416153,"turn":21,"root":"sha256:7f24935daee2be173069c913d6b931e68bfc95eeccfad049e3b3b638258d9824","bytes":1386}

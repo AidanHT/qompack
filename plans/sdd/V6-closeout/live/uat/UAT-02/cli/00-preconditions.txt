@@ -1,0 +1,5 @@
+UAT-02 preconditions (recorded before any Qompack command)
+project: <scratch>/sessions/uat02/proj (git init + git add -A so .git/index exists; no commit)
+<project>/.qompack exists: False  (initial absence: the pre-run backup is the recorded absence)
+<project>/.qompack/config.json exists: False; ~/.qompack/config.json exists: False (the file was not read)
+QOMPACK_* in the step environment: QOMPACK_HOME=<scratch>/sessions/qhome only (moves calibration.json); no --set

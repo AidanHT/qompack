@@ -1,0 +1,5 @@
+=== RUN   TestRun_LogsATakenOverLockAndASpoolReplay
+--- PASS: TestRun_LogsATakenOverLockAndASpoolReplay (0.22s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	0.500s
+EXIT=0

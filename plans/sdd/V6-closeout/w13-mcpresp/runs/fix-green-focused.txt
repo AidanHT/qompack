@@ -1,0 +1,20 @@
+# fix seat: focused bound rows after the fix
+=== RUN   TestExpandFullResponseTextFitsMaxResponseBytes_EscapeHeavy
+--- PASS: TestExpandFullResponseTextFitsMaxResponseBytes_EscapeHeavy (0.50s)
+=== RUN   TestReReadFullResponseTextFitsMaxResponseBytes_EscapeHeavy
+--- PASS: TestReReadFullResponseTextFitsMaxResponseBytes_EscapeHeavy (0.50s)
+=== RUN   TestExpandMinimalSpanResponseTextFitsMaxResponseBytes
+--- PASS: TestExpandMinimalSpanResponseTextFitsMaxResponseBytes (0.41s)
+=== RUN   TestExpandFullAtTheDefaultBoundFitsTheLiveOvershoot
+--- PASS: TestExpandFullAtTheDefaultBoundFitsTheLiveOvershoot (0.41s)
+=== RUN   TestExpandFollowsNextSpanWhenDefaultSpanIsFull
+--- PASS: TestExpandFollowsNextSpanWhenDefaultSpanIsFull (0.44s)
+=== RUN   TestExpandPagesNeverSplitARune
+--- PASS: TestExpandPagesNeverSplitARune (0.28s)
+=== RUN   TestExpandBoundCutNeverSplitsARedactedRegion
+--- PASS: TestExpandBoundCutNeverSplitsARedactedRegion (10.73s)
+=== RUN   TestShrinkSpanChargeDoublesEachRound
+--- PASS: TestShrinkSpanChargeDoublesEachRound (0.00s)
+PASS
+ok  	github.com/qompack/qompack/internal/mcp	13.654s
+exit=0

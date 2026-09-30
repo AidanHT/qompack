@@ -1,0 +1,55 @@
+UAT-08 — record that an approach does not work, then ask about it. Agent-executed on the owner's
+real host per owner decision D3 by a Claude Code workflow subagent (Opus 5.5) — not human UAT.
+
+Date 2026-09-29 14:44-14:47 America/Toronto. Sessions used: 1 (retrieval part n=3, session/; the
+same session carries UAT-09's first attempt). Model claude-haiku-4-5-20251001, Claude Code 2.1.280,
+Windows 11 Home 25H2 build 10.0.26200.9457, frozen bundle 0.3.0 via --plugin-dir (BUNDLE.json sha256
+32600778...ccf4505, commit d5598eb4); `qompack version` 0.3.0. Project uat0809: src/pool.go
+(DialPool) and config/pool.yaml, contents at record time in files/*.at-record. Configuration:
+defaults (eliminations.requireEvidence true, defaultScope session, staleResponse flag,
+rebuildOnStale nextIdle, runtime.phase7.reuse.scopedCandidates false); session env idle exit 30 s.
+Pre-run `backup create` exit 1 "no existing store" (initial absence).
+
+Steps as written (session/stream.jsonl):
+ T1 Read src/pool.go and config/pool.yaml (captures, so depends_on can resolve).
+ T2 step 1-2: record_eliminated {target src/pool.go:DialPool, approach "widen pool timeout",
+    reason, scope session, depends_on [src/pool.go, config/pool.yaml]} (L36->L39) ->
+    `{"found":false,"available":false,"reason":"elimination ledger not present in this build"}`.
+    No id, no evidence: the row's FAIL condition. Cause: the daemon wires the MCP tools to a ledger
+    accessor, and the ledger is opened lazily on the daemon's first compaction
+    (internal/cli/daemon.go installMCPTools comment; internal/daemon/rehydrate_service.go,
+    wire_checkpoint.go). Also seen in UAT-05 (sessions part) and in C4.4 T1. DEFECT F1.
+ T3 step 3: already_tried (L56->L59) -> the same body: no `state`, no `degraded` — outside the
+    tool's documented answers.
+ The row stops here (fail at step 2). Everything below is DIAGNOSTIC evidence for routing the
+ defect and is what UAT-09 builds on; it does not change this row's result.
+ T4 /compact (opens the ledger in this daemon).
+ T5 record_eliminated again (L89->L92): id elim_508b9ca0f584, descriptor {normalized_path, symbol,
+    approach_class widen-pool-timeout, reason_hash}, scope session, evidence sha256:af7fcd07...,
+    depends_on [{config/pool.yaml, sha256:9f2751ea...}, {src/pool.go, sha256:bf2691e0...}],
+    depends_on_unresolved [], status active; `warnings` omitted when empty (C4.4 shows it present).
+ T6 already_tried same (L107->L110): state active with reason, evidence, scope, recorded_at
+    2026-09-29T18:45:28Z (RFC 3339 UTC), depends_on; no stale_because. Matches the row.
+ T7 already_tried "add a connection retry loop" (L127->L130): `{"state":"absent"}` — plain form,
+    no bloom_only note, no coverage detail.
+ Step 5 (before T8, files/eliminations.after-record.jsonl): the record is on disk
+    (.qompack/records/eliminations.jsonl, 833 bytes). It carries `"session":""` although scope is
+    "session": the daemon's ledger is opened with no session (negknow.Open deps), so every
+    session-scoped record is stored under the empty session, and `visible()` shows it to every later
+    session of the project — UAT-09 s5, a NEW session, answered for it (uncertain). DEFECT F2
+    (session scope does not isolate; with scopedCandidates false the row is about a record "within
+    its own scope").
+ Injected blocks (injected/): checkpoint 0001 (no eliminations), 0002 (section 3 lists the record
+ "[active] [evidence ...]" with "Before committing to an approach, call already_tried."), and a
+ "rehydration-deferred" block after this row's T12 daemon stop (UAT-09).
+ Post-run (cli/s3-post-*): fsck exit 1 (index.tool_use turn-0 MCP records; index/files.json absent
+ while its log has entries); checkpoints 0001-0003 have `eliminated: []` and `decisions: []`
+ (store/checkpoints_*.json) even after the active record — see C4.4 C44-4.
+
+Result: FAIL at step 2 (acknowledgement without id or evidence while requireEvidence is true:
+"elimination ledger not present in this build" before the daemon's first compaction). After a
+compaction the acknowledgement, the active answer, the absent answer and the on-disk record all
+match the row. Second defect: session-scoped records are stored with an empty session and are
+visible to other sessions. Rollback: initial state absent; run retained as evidence (the project
+continued into UAT-09 and C4.5; `backup create/verify --id c45-before` exit 0/0 was taken later,
+c4/C4.5/cli/00-*); no restore was run.

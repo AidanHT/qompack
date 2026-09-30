@@ -1,0 +1,197 @@
+{
+ "args": [
+  "-p",
+  "--input-format",
+  "stream-json",
+  "--output-format",
+  "stream-json",
+  "--verbose",
+  "--include-hook-events",
+  "--model",
+  "claude-haiku-4-5-20251001",
+  "--max-turns",
+  "10",
+  "--setting-sources",
+  "project,local",
+  "--permission-mode",
+  "dontAsk",
+  "--allowedTools",
+  "Read,mcp__plugin_qompack_qompack__recall,mcp__plugin_qompack_qompack__expand,mcp__plugin_qompack_qompack__re_read,mcp__plugin_qompack_qompack__already_tried,mcp__plugin_qompack_qompack__record_eliminated,mcp__plugin_qompack_qompack__timeline,mcp__plugin_qompack_qompack__why,mcp__plugin_qompack_qompack__dropped,Bash(qompack status:*),Bash(qompack recall:*),Bash(qompack pin:*),Bash(qompack why:*),Bash(qompack dropped:*),Bash(qompack eval:*)"
+ ],
+ "turns": [
+  {
+   "msg": "Use the Read tool to read private/deny.txt. Then tell me exactly what the Read tool returned, quoting any error message word for word.",
+   "ok": true,
+   "wall_s": 7.22,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 50580,
+    "WorkingSet64": 29786112,
+    "PeakWorkingSet64": 29786112,
+    "CPU": 0.375,
+    "StartTime": "/Date(1790702773010)/"
+   },
+   "store_bytes": 1311644
+  },
+  {
+   "msg": "Call the MCP tool mcp__plugin_qompack_qompack__recall with query \"ORCHID-DENY-7731\". Then call it again with query \"path:private/deny.txt\". Report both raw results word for word.",
+   "ok": true,
+   "wall_s": 6.424,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 50580,
+    "WorkingSet64": 34238464,
+    "PeakWorkingSet64": 34238464,
+    "CPU": 0.578125,
+    "StartTime": "/Date(1790702773010)/"
+   },
+   "store_bytes": 1369750
+  },
+  {
+   "msg": "Call the MCP tool mcp__plugin_qompack_qompack__expand with tool_use_id \"toolu_015xN8WiMCC4hNiKdCATrFQq\". Then call expand again with hash \"sha256:024a48d020181f0281060c137af6ceac4828477627a3e74e6f4333f55ff7f898\". Report both raw results word for word.",
+   "ok": true,
+   "wall_s": 5.619,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 50580,
+    "WorkingSet64": 35696640,
+    "PeakWorkingSet64": 35696640,
+    "CPU": 0.78125,
+    "StartTime": "/Date(1790702773010)/"
+   },
+   "store_bytes": 1421559
+  },
+  {
+   "msg": "Call the MCP tool mcp__plugin_qompack_qompack__re_read with path \"private/deny.txt\". Report the raw result word for word.",
+   "ok": true,
+   "wall_s": 4.827,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 50580,
+    "WorkingSet64": 36540416,
+    "PeakWorkingSet64": 36540416,
+    "CPU": 0.921875,
+    "StartTime": "/Date(1790702773010)/"
+   },
+   "store_bytes": 1456407
+  },
+  {
+   "msg": "/qompack:recall ORCHID-DENY-7731",
+   "ok": true,
+   "wall_s": 7.024,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 50580,
+    "WorkingSet64": 36900864,
+    "PeakWorkingSet64": 36900864,
+    "CPU": 0.96875,
+    "StartTime": "/Date(1790702773010)/"
+   },
+   "store_bytes": 1472477
+  },
+  {
+   "msg": "Call the MCP tool mcp__plugin_qompack_qompack__re_read with path \"<scratch>/install/uat12/outside/outside.txt\". Then call re_read with path \"../outside/outside.txt\". Then call mcp__plugin_qompack_qompack__expand with tool_use_id \"toolu_01HaK18Y7xYeWKZTNmx37Wi2\". Report the three raw results word for word.",
+   "ok": true,
+   "wall_s": 5.217,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 50580,
+    "WorkingSet64": 37224448,
+    "PeakWorkingSet64": 37224448,
+    "CPU": 1.0625,
+    "StartTime": "/Date(1790702773010)/"
+   },
+   "store_bytes": 1500749
+  },
+  {
+   "msg": "Use the Read tool to read deploy_notes.md and reply with only the recall marker it contains.",
+   "ok": true,
+   "wall_s": 3.013,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 50580,
+    "WorkingSet64": 37584896,
+    "PeakWorkingSet64": 37584896,
+    "CPU": 1.203125,
+    "StartTime": "/Date(1790702773010)/"
+   },
+   "store_bytes": 1523361
+  },
+  {
+   "msg": "Call the MCP tool mcp__plugin_qompack_qompack__expand with tool_use_id \"toolu_01PTmSHvxRovjT5AYZiJQ5Z5\" and no other arguments. Reply with only the response's fidelity, its coverage and its next_span value.",
+   "ok": true,
+   "wall_s": 7.224,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 50580,
+    "WorkingSet64": 38670336,
+    "PeakWorkingSet64": 38670336,
+    "CPU": 1.296875,
+    "StartTime": "/Date(1790702773010)/"
+   },
+   "store_bytes": 1572447
+  },
+  {
+   "msg": "Call the MCP tool mcp__plugin_qompack_qompack__expand with tool_use_id \"toolu_01PTmSHvxRovjT5AYZiJQ5Z5\" and full set to true. Reply with only the response's fidelity, its coverage and its next_span value.",
+   "ok": true,
+   "wall_s": 5.018,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 50580,
+    "WorkingSet64": 55349248,
+    "PeakWorkingSet64": 55373824,
+    "CPU": 1.8125,
+    "StartTime": "/Date(1790702773010)/"
+   },
+   "store_bytes": 2594286
+  },
+  {
+   "msg": "Call the MCP tool mcp__plugin_qompack_qompack__expand with tool_use_id \"toolu_0162Bwq3VMWchx54kaD19Kos\". Reply with only the response's fidelity and coverage.",
+   "ok": true,
+   "wall_s": 4.219,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 50580,
+    "WorkingSet64": 55422976,
+    "PeakWorkingSet64": 55422976,
+    "CPU": 1.921875,
+    "StartTime": "/Date(1790702773010)/"
+   },
+   "store_bytes": 2634718
+  },
+  {
+   "msg": "/compact",
+   "ok": true,
+   "wall_s": 32.54,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 50580,
+    "WorkingSet64": 55943168,
+    "PeakWorkingSet64": 55943168,
+    "CPU": 1.984375,
+    "StartTime": "/Date(1790702773010)/"
+   },
+   "store_bytes": 2682279
+  },
+  {
+   "msg": "What is this project's code word? If it is not in your context, call mcp__plugin_qompack_qompack__recall with query \"code word\". Then call mcp__plugin_qompack_qompack__dropped and mcp__plugin_qompack_qompack__timeline, each with no arguments, and reply in one sentence.",
+   "ok": true,
+   "wall_s": 11.038,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 50580,
+    "WorkingSet64": 56356864,
+    "PeakWorkingSet64": 56356864,
+    "CPU": 2.265625,
+    "StartTime": "/Date(1790702773010)/"
+   },
+   "store_bytes": 2771967
+  }
+ ],
+ "store_bytes_before": 1229766,
+ "started_ms": 1790702770345,
+ "pid": 15344,
+ "exit": 0,
+ "wall_s": 115.533,
+ "store_bytes_after": 2789074
+}

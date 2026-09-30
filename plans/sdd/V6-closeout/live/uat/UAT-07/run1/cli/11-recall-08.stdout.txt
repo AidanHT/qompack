@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "command": "recall",
+  "ok": false,
+  "error": {
+    "kind": "usage",
+    "message": "qompack: usage: qompack recall: a query is required, e.g. qompack recall \"open file handle\""
+  }
+}

@@ -1,0 +1,33 @@
+{
+ "session_id": "b091b4b8-c71b-403b-9a79-78e095e4895d",
+ "transcript_bytes_at_end": 1200520,
+ "sentinel_token_offsets": [
+  798,
+  1439,
+  1770
+ ],
+ "prompt_enqueue_offsets": [
+  {
+   "offset": 0,
+   "content_chars": 185
+  },
+  {
+   "offset": 954253,
+   "content_chars": 164
+  },
+  {
+   "offset": 975258,
+   "content_chars": 127
+  },
+  {
+   "offset": 989564,
+   "content_chars": 8
+  },
+  {
+   "offset": 1021196,
+   "content_chars": 602
+  }
+ ],
+ "sentinelScanTailBytes (internal/daemon/handlers.go)": 262144,
+ "note": "offsets are byte positions in the host transcript; no message bodies copied"
+}

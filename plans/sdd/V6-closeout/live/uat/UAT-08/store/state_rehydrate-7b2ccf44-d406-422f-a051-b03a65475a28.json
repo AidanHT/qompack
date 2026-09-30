@@ -1,0 +1,16 @@
+{
+  "session": "7b2ccf44-d406-422f-a051-b03a65475a28",
+  "seq": 3,
+  "emitted": 1790707743871,
+  "tokens": 0,
+  "budget": 12000,
+  "items": [],
+  "dropped": [
+    {
+      "kind": "rehydration",
+      "id": "checkpoint-0003",
+      "detail": "not delivered: no answer from the daemon reached the SessionStart hook in time, so the hook answered without it (the model received a deferred note, or nothing); this report was recorded when the daemon replayed that request from the hook's spool; restore: Read .qompack/checkpoints/0003.json"
+    }
+  ],
+  "degraded": true
+}

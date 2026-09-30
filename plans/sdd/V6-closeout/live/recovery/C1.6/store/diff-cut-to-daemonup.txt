@@ -1,0 +1,17 @@
+fingerprint diff: fp1-after-cut.json -> fp2-daemon-up.json
+[objects/] before 12 files, after 12; unchanged 12; changed 0; added 0; removed 0
+[records/captures/ (capture sidecars)] before 12 files, after 12; unchanged 12; changed 0; added 0; removed 0
+[records/ (all)] before 12 files, after 12; unchanged 12; changed 0; added 0; removed 0
+[index/] before 7 files, after 7; unchanged 6; changed 1; added 0; removed 0
+  changed index/segments.jsonl  52b44d0c9d0f(160) -> 29b1dead7863(251)
+[state/] before 19 files, after 19; unchanged 17; changed 2; added 0; removed 0
+  changed state/history.json  515bf69384a9(490) -> 5bf92985f61c(478)
+  changed state/observations.json  5d290b72f4d0(3535) -> 30ff57aafbb4(6916)
+[checkpoints/] before 0 files, after 0; unchanged 0; changed 0; added 0; removed 0
+[logs/ run/ spool/ (runtime)] before 2 files, after 6; unchanged 1; changed 1; added 4; removed 0
+  changed logs/qompack-20260929.log  65819e32184b(873) -> 0c756fd33e53(2288)
+  added   logs/LOUD.log  876bd7432d9e(270)
+  added   run/daemon.hb  e3b0c44298fc(0)
+  added   run/daemon.lock  b9c1a461ef23(173)
+  added   run/state.bin  1e0c02d12b0f(32)
+COMPARED SET (objects/ + capture sidecars) UNCHANGED

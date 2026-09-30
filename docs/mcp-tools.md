@@ -17,20 +17,66 @@ context retention. Capture, archive availability and coverage may be partial or 
 `record_eliminated` writes evidence; check its response before relying on persistence.
 
 **Query failures leave prior attempts unknown.** `already_tried` returns the added
-`unavailable` state when its ledger query fails. Legacy JSON fields remain readable,
-but clients with a closed three-state enum must handle this outcome explicitly.
-Unavailable or unrecognized states never establish absence or prohibit an approach.
+`unavailable` state, with `degraded: true`, when no elimination ledger can be opened or
+its query fails. Legacy JSON fields remain readable, but clients with a closed
+three-state enum must handle this outcome explicitly. Unavailable or unrecognized
+states never establish absence or prohibit an approach. `record_eliminated` answers a
+tool error, and records nothing, when no ledger can be opened.
+
+**The elimination ledger is live from the first call.** The daemon opens it the first
+time `already_tried` or `record_eliminated` is called, or at the first compaction,
+whichever comes first. A `session`-scoped elimination belongs to the session that
+recorded it and answers only there; `project` scope is shared across sessions. Each
+`already_tried` compares the matching record's `depends_on` files against the versions
+captured so far, so a dependency changed earlier in the same session answers `stale`.
+
+**Open segments report progress so far.** `timeline` gives a session's open segment
+the session's current turn as its `end_turn`, and its running token count when the
+daemon holds it; a closed segment reports what was recorded when it closed. A `from`
+after `to` is refused as a tool error.
 
 **Spans are minimal by default.** A tool that returns file content returns the smallest
 chunk-aligned span that covers what you asked for, widened to a symbol boundary where
 one is known. Pass `full: true` when you genuinely need the whole object; the response
 carries a `next_span` when there is more to page through.
 
+**Responses are bounded.** `runtime.mcp.maxResponseBytes` (default `262144`) bounds the
+result text `expand` and `re_read` return: the JSON body with its content escaped, not
+only the content. When the content does not fit, the response is cut, `truncated` is
+`true`, and `next_span` continues exactly where it stopped; pass it back as `span`, which
+takes precedence over `full` (`re_read` takes no `span`: continue a `re_read` page
+with `expand` and the response's `hash`). A page never ends inside a multi-byte
+character. The JSON-RPC line that carries a result adds the transport's own framing.
+Only `expand` and `re_read` are measured against this key: `recall`, `already_tried`,
+`record_eliminated`, `timeline`, `why` and `dropped` results are not.
+
+**No fidelity or coverage field.** No retrieval response carries a capture fidelity
+or coverage value. `expand` and `re_read` report this read: `span`, `total_bytes`,
+`truncated` and `next_span`, and content the current privacy policy removed appears
+as a `«redacted:…»` placeholder. Capture fidelity is recorded on the capture's
+sidecar record, which no tool surfaces; the `fidelity:` line `qompack fsck` prints is
+store-level restore fidelity (`exact`, `full`, `canonical`, `unavailable`,
+`corrupt`), a different enumeration.
+
+**`recall` selectors.** `path:<glob>` is a `path.Match` pattern on slash paths (`*`
+does not cross `/`), matched against the whole project-relative path and against every
+trailing part of it, so `path:*.go` finds `src/ledger.go`; a malformed pattern is a tool
+error. A path with no `*`, `?` or `[` matches by equality, by trailing path segments, or
+as a substring. `tool:<name>` takes the host's tool name (`Read`, `Edit`, `Bash`) or
+Qompack's display name (`FileRead`, `FileEdit`), case-insensitively. A query with
+nothing to search for is a tool error, as is an `already_tried` call with an empty
+`target` or `approach`.
+
 **A session in the home directory is refused.** When a session's project root is the
 user's home directory, Qompack records nothing (owner decision D18), and `qompack mcp`
 answers every call with this tool error without starting a daemon:
 
 > qompack is inactive in this session: its project root is the user's home directory, so nothing is recorded and there is nothing to retrieve. Retrying will not help; the user can open a project directory (one with its own .git) to use qompack's tools.
+
+**A project with `runtime.mode` "off" answers that.** `qompack mcp` writes nothing
+into such a project and starts no daemon, and every call answers this tool error:
+
+> qompack is switched off for this project: runtime.mode is "off", so nothing is recorded and there is nothing to retrieve. Retrying will not help; the user can set runtime.mode to "auto" (for example in .qompack/config.json) to use qompack's tools.
 
 A model should call `already_tried` before committing to an approach: Before committing to an approach, call already_tried.
 

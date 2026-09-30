@@ -1,0 +1,13 @@
+=== RUN   TestBeginScansPersistedDraftsOncePerWriter
+    encode_ordering_test.go:179: 
+        	Error Trace:	<worktree>/internal/checkpoint/encode_ordering_test.go:179
+        	Error:      	Not equal: 
+        	            	expected: 1
+        	            	actual  : 2
+        	Test:       	TestBeginScansPersistedDraftsOncePerWriter
+        	Messages:   	the successor's Begin did not scan state/ again
+--- FAIL: TestBeginScansPersistedDraftsOncePerWriter (0.14s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/checkpoint	0.373s
+FAIL
+exit=1

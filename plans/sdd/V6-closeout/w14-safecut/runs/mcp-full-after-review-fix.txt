@@ -1,0 +1,2 @@
+# go test -p 2 -count=1 ./internal/mcp/ after the review fix
+ok  	github.com/qompack/qompack/internal/mcp	113.585s

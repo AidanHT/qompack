@@ -95,7 +95,7 @@ func unavailable(reason string) missBody {
 // order to stop retrying.
 func (h *handlers) spanFailure(tool, verb string, err error) Response {
 	if errors.Is(err, store.ErrDamaged) {
-		return h.jsonResponse(tool, damaged(), nil)
+		return h.jsonResponse(tool, refusedObject(err), nil)
 	}
 	return errResponse(verb + " failed: " + err.Error())
 }
@@ -122,6 +122,24 @@ func damaged() missBody {
 		"read intact; a damaged object is preserved as evidence and `qompack fsck` reports it")
 }
 
+// missingObject is what every retrieval tool reports for an object the index records and the store
+// no longer holds anywhere — not in objects/, not in tmp/quarantine/ (store.ErrObjectMissing). It is
+// still `unavailable`, never a miss: the content was captured. But nothing was damaged and nothing
+// was preserved, so damaged()'s wording would send an operator looking for evidence that does not
+// exist (F-C49-3); fsck names the same object "which the object store does not hold".
+func missingObject() missBody {
+	return unavailable("the stored object is missing: the index records it, but its bytes are no " +
+		"longer in the store, so it cannot be served; `qompack fsck` reports it")
+}
+
+// refusedObject words a store.ErrDamaged refusal by what actually happened: missing, or refused.
+func refusedObject(err error) missBody {
+	if errors.Is(err, store.ErrObjectMissing) {
+		return missingObject()
+	}
+	return damaged()
+}
+
 // noCapturedHistory is what `re_read` with an empty `at` reports when nothing has ever been
 // captured for the path. It is spelled as an explicit unavailable outcome — Available:false plus a
 // reason — rather than a plain miss, because "Qompack has no historical record" is a stronger,
@@ -133,10 +151,18 @@ func noCapturedHistory() missBody {
 
 // spanOptsFor builds the SpanOpts both content tools use. Every bound is read from configuration
 // at the call site, never written as a literal (D11, §11.6).
+//
+// An explicit span wins over full, whether full came from the call or from
+// retrieval.defaultSpan: the resolver's full read always starts at offset 0, so a caller following
+// next_span with full still set — or any caller in a project configured for full spans — would be
+// handed the first page again, forever. An explicit byte span starts exactly at its offset
+// (SpanOpts.ExactStart), which is what lets a next_span that falls inside a chunk be followed.
 func (h *handlers) spanOptsFor(full bool, explicit, path, anchorSym string, anchorLine int) SpanOpts {
 	return SpanOpts{
-		Full:        full || h.cfg.Retrieval.DefaultSpan == "full",
+		Full:        (full || h.cfg.Retrieval.DefaultSpan == "full") && explicit == "",
 		Explicit:    explicit,
+		ExactStart:  true,
+		RuneSafe:    true,
 		Path:        path,
 		AnchorSym:   anchorSym,
 		AnchorLine:  anchorLine,
@@ -173,25 +199,30 @@ func (h *handlers) expand(ctx context.Context, r Request, raw json.RawMessage) (
 	// This is where the tool_use_id form actually meets a damaged object. GetRoot answers from the
 	// in-memory index and succeeds; the bytes are not touched until here, so this — not the lookup
 	// above — is the branch finding S-3 was measured on.
-	span, err := h.resolveContent(ctx, root, path, inline, h.spanOptsFor(a.Full, a.Span, path, "", 0))
+	opts := h.spanOptsFor(a.Full, a.Span, path, "", 0)
+	span, err := h.resolveContent(ctx, root, path, inline, opts)
 	if err != nil {
 		return h.spanFailure(ToolExpand, "expand", err), nil
 	}
 
-	content, ok := h.redactForRetrieval(ToolExpand, span.Body)
-	if !ok {
+	// Fail closed before anything is counted or rendered: without a redactor this build cannot
+	// apply today's secret policy to the bytes (redactForRetrieval), so it serves nothing.
+	if h.redactor == nil {
 		return h.jsonResponse(ToolExpand, unavailable(redactorMissingReason), nil), nil
 	}
 
 	count, promoted := h.noteExpansion(ctx, r.Session, root.Hash)
-	body := contentBody{
-		Found: true, Hash: root.Hash.String(), Path: path, Tool: tool,
-		Span: [2]int64{span.Off, span.End}, TotalBytes: span.Total,
-		Truncated: span.Truncated, NextSpan: span.NextSpan, Widened: span.Widened,
-		Expansions: count, Promoted: promoted,
-		Content: string(content),
+	render := func(content []byte, s SpanResult) contentBody {
+		return contentBody{
+			Found: true, Hash: root.Hash.String(), Path: path, Tool: tool,
+			Span: [2]int64{s.Off, s.End}, TotalBytes: s.Total,
+			Truncated: s.Truncated, NextSpan: s.NextSpan, Widened: s.Widened,
+			Expansions: count, Promoted: promoted,
+			Content: string(content),
+		}
 	}
-	return h.jsonResponse(ToolExpand, body, spanMeta(span, path, "", count, promoted)), nil
+	meta := func(s SpanResult) map[string]any { return spanMeta(s, path, "", count, promoted) }
+	return h.boundedContent(ToolExpand, root, span, opts, render, meta), nil
 }
 
 // resolveExpandTarget turns expand's two address forms into a root.
@@ -218,7 +249,7 @@ func (h *handlers) resolveExpandTarget(ctx context.Context, a ExpandArgs) (
 		}
 		rt, gerr := h.store.GetRoot(ctx, rec.Root)
 		if errors.Is(gerr, store.ErrDamaged) {
-			return store.Root{}, "", "", nil, damaged(), nil
+			return store.Root{}, "", "", nil, refusedObject(gerr), nil
 		}
 		if errors.Is(gerr, core.ErrNotFound) {
 			return store.Root{}, "", "", nil, miss("tool_use index, object store"), nil
@@ -250,7 +281,7 @@ func (h *handlers) resolveExpandTarget(ctx context.Context, a ExpandArgs) (
 		// Finding S-3's second address form. This branch used to map EVERY failure here to miss(),
 		// which renders as ABSENT — the one answer §12.3 forbids for a quarantined object, because
 		// it tells a model the content was never there when in fact it was refused and preserved.
-		return store.Root{}, "", "", nil, damaged(), nil
+		return store.Root{}, "", "", nil, refusedObject(cerr), nil
 	}
 	if cerr != nil {
 		return store.Root{}, "", "", nil, miss("object store (root and chunk index)"), nil
@@ -319,25 +350,30 @@ func (h *handlers) reRead(ctx context.Context, r Request, raw json.RawMessage) (
 		return h.jsonResponse(ToolReRead, miss("file version history"), nil), nil
 	}
 
-	span, err := h.resolveContent(ctx, root, key, nil, h.spanOptsFor(a.Full, "", key, sym, line))
+	opts := h.spanOptsFor(a.Full, "", key, sym, line)
+	span, err := h.resolveContent(ctx, root, key, nil, opts)
 	if err != nil {
 		return h.spanFailure(ToolReRead, "re_read", err), nil
 	}
 
-	content, ok := h.redactForRetrieval(ToolReRead, span.Body)
-	if !ok {
+	// Fail closed before anything is counted or rendered: without a redactor this build cannot
+	// apply today's secret policy to the bytes (redactForRetrieval), so it serves nothing.
+	if h.redactor == nil {
 		return h.jsonResponse(ToolReRead, unavailable(redactorMissingReason), nil), nil
 	}
 
 	count, promoted := h.noteExpansion(ctx, r.Session, root.Hash)
-	body := contentBody{
-		Found: true, Hash: root.Hash.String(), Path: norm, At: a.At, Source: source, Turn: turn,
-		Span: [2]int64{span.Off, span.End}, TotalBytes: span.Total,
-		Truncated: span.Truncated, NextSpan: span.NextSpan, Widened: span.Widened,
-		Expansions: count, Promoted: promoted,
-		Content: string(content),
+	render := func(content []byte, s SpanResult) contentBody {
+		return contentBody{
+			Found: true, Hash: root.Hash.String(), Path: norm, At: a.At, Source: source, Turn: turn,
+			Span: [2]int64{s.Off, s.End}, TotalBytes: s.Total,
+			Truncated: s.Truncated, NextSpan: s.NextSpan, Widened: s.Widened,
+			Expansions: count, Promoted: promoted,
+			Content: string(content),
+		}
 	}
-	return h.jsonResponse(ToolReRead, body, spanMeta(span, key, source, count, promoted)), nil
+	meta := func(s SpanResult) map[string]any { return spanMeta(s, key, source, count, promoted) }
+	return h.boundedContent(ToolReRead, root, span, opts, render, meta), nil
 }
 
 // splitPathAnchor separates re_read's optional ":<symbol>" or ":<line>" suffix from the path.

@@ -1,0 +1,35 @@
+{
+ "project": "<scratch>/install/uat12/proj",
+ "files": {
+  "README.md": 119,
+  "deploy_notes.md": 262,
+  "private/deny.txt": 164,
+  "big.log": 323400,
+  "blob.bin": 3000
+ },
+ "outside": {
+  "<scratch>/install/uat12/outside/outside.txt": 53
+ },
+ "secrets": [
+  {
+   "id": "@@SEC_PLANTED_1@@",
+   "shape": "aws_access_key_id (AKIA+16)",
+   "length": 20,
+   "sha256": "3b87f8aab199b5be354c6763946d443b789ad6e625098af66a13d810875a5f04"
+  },
+  {
+   "id": "@@SEC_PLANTED_2@@",
+   "shape": "github_token (ghp_+36)",
+   "length": 40,
+   "sha256": "f9ccc6ab295faf2d9adb64ea58ee1c53f4f49aec8fe31653ee17e6c4d1d9f130"
+  }
+ ],
+ "secret_file": "deploy_notes.md",
+ "file_sha256": {
+  "README.md": "9c2aa24728f2e3dd4d50a3ca94ef6eb2d7e251162f1e506d69b9bac7cc65903c",
+  "deploy_notes.md": "e9098033d10903784e965c1ae237725c8a42fd440aea6b4d373cd46224aa1634",
+  "private/deny.txt": "db41e4266efce0099f2cf28ca3c966aad7410aa48ce25ff6733f2fc8e0dce181",
+  "big.log": "7dbfa78cde7ec9cf4206ae1c51fa668c217f68a3ec1ccf14b05987e91c9d29e1",
+  "blob.bin": "50c91d34282fd3d7ad9d4784c9473b3c78a565d413fe0b58c636fea8d4a050b8"
+ }
+}

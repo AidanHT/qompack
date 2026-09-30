@@ -1,0 +1,111 @@
+{
+ "session_id": "5fe7f497-1c23-414e-8fcc-933363180fd0",
+ "found": true,
+ "project_slug_is_scratch": true,
+ "bytes": 3016069,
+ "lines": 433,
+ "entry_types": {
+  "queue-operation": 20,
+  "attachment": 229,
+  "user": 39,
+  "atis-latch": 43,
+  "last-prompt": 42,
+  "assistant": 37,
+  "system": 22,
+  "cost-state": 1
+ },
+ "tool_uses": {
+  "Bash": 1,
+  "Read": 6,
+  "ToolSearch": 1,
+  "mcp__plugin_qompack_qompack__recall": 1,
+  "mcp__plugin_qompack_qompack__expand": 1
+ },
+ "attachment_types": {
+  "hook_success": 32,
+  "hook_additional_context": 15,
+  "environment": 16,
+  "model": 16,
+  "deferred_tools_delta": 16,
+  "agent_listing_delta": 16,
+  "mcp_instructions_delta": 16,
+  "skill_listing": 1,
+  "total_tokens_reminder": 18,
+  "session_context": 16,
+  "date": 16,
+  "remote_session_change": 16,
+  "prompt_snapshot": 21,
+  "file": 11,
+  "deferred_tools_record": 3
+ },
+ "hook_attachments": {
+  "hook_success/SessionStart": 16,
+  "hook_additional_context/SessionStart": 15,
+  "hook_success/PostToolUse": 9,
+  "hook_success/Stop": 7
+ },
+ "main_chain_user_text_entries": 12,
+ "compact_boundaries": [
+  {
+   "trigger": "auto",
+   "preTokens": 30535
+  },
+  {
+   "trigger": "auto",
+   "preTokens": 27733
+  },
+  {
+   "trigger": "auto",
+   "preTokens": 27863
+  },
+  {
+   "trigger": "auto",
+   "preTokens": 28097
+  },
+  {
+   "trigger": "manual",
+   "preTokens": 30508
+  },
+  {
+   "trigger": "auto",
+   "preTokens": 28097
+  },
+  {
+   "trigger": "auto",
+   "preTokens": 46985
+  },
+  {
+   "trigger": "auto",
+   "preTokens": 61442
+  },
+  {
+   "trigger": "auto",
+   "preTokens": 45597
+  },
+  {
+   "trigger": "auto",
+   "preTokens": 61731
+  },
+  {
+   "trigger": "auto",
+   "preTokens": 45802
+  },
+  {
+   "trigger": "auto",
+   "preTokens": 61864
+  },
+  {
+   "trigger": "auto",
+   "preTokens": 29026
+  },
+  {
+   "trigger": "auto",
+   "preTokens": 29349
+  },
+  {
+   "trigger": "manual",
+   "preTokens": 30635
+  }
+ ],
+ "sidechain_markers": []
+}

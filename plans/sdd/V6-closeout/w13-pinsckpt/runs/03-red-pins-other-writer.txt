@@ -1,0 +1,21 @@
+--- FAIL: TestPinsSeesAnotherWritersAppends (0.03s)
+    store_test.go:755: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-pinsckpt/internal/pins/store_test.go:755
+        	Error:      	"[{inv_72abeb09a7de first, pinned through the daemon agent 1700000000000}]" should have 2 item(s), but has 1
+        	Test:       	TestPinsSeesAnotherWritersAppends
+        	Messages:   	the daemon's store must answer a record another process appended
+--- FAIL: TestPinsRebuildsWhenTheLogShrinks (0.01s)
+    store_test.go:801: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-pinsckpt/internal/pins/store_test.go:801
+        	Error:      	"[{inv_keptafterall kept user 1700000000000} {inv_gonewithlog0 gone user 1700000000001}]" should have 1 item(s), but has 2
+        	Test:       	TestPinsRebuildsWhenTheLogShrinks
+        	Messages:   	a shorter log is replayed from the start, not read past its end
+--- FAIL: TestPinsRefusesToAnswerForAVanishedLog (0.01s)
+    store_test.go:816: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-pinsckpt/internal/pins/store_test.go:816
+        	Error:      	An error is expected but got nil.
+        	Test:       	TestPinsRefusesToAnswerForAVanishedLog
+        	Messages:   	a log that disappeared after it was read must be an error, not an empty set
+FAIL
+FAIL	github.com/qompack/qompack/internal/pins	1.102s
+FAIL

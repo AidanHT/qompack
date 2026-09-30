@@ -1,0 +1,30 @@
+--- FAIL: TestExpandFullResponseTextFitsMaxResponseBytes_EscapeHeavy (0.09s)
+    response_bound_test.go:116: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-mcpresp/internal/mcp/response_bound_test.go:77
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-mcpresp/internal/mcp/response_bound_test.go:116
+        	Error:      	"7262" is not less than or equal to "4096"
+        	Test:       	TestExpandFullResponseTextFitsMaxResponseBytes_EscapeHeavy
+        	Messages:   	expand page 0: the result text is 7262 bytes against runtime.mcp.maxResponseBytes 4096
+--- FAIL: TestReReadFullResponseTextFitsMaxResponseBytes_EscapeHeavy (0.07s)
+    response_bound_test.go:130: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-mcpresp/internal/mcp/response_bound_test.go:130
+        	Error:      	"7274" is not less than or equal to "4096"
+        	Test:       	TestReReadFullResponseTextFitsMaxResponseBytes_EscapeHeavy
+        	Messages:   	re_read full: the result text is 7274 bytes against 4096
+--- FAIL: TestExpandMinimalSpanResponseTextFitsMaxResponseBytes (0.07s)
+    response_bound_test.go:146: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-mcpresp/internal/mcp/response_bound_test.go:77
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-mcpresp/internal/mcp/response_bound_test.go:146
+        	Error:      	"7263" is not less than or equal to "4096"
+        	Test:       	TestExpandMinimalSpanResponseTextFitsMaxResponseBytes
+        	Messages:   	expand page 0: the result text is 7263 bytes against runtime.mcp.maxResponseBytes 4096
+--- FAIL: TestExpandFullAtTheDefaultBoundFitsTheLiveOvershoot (0.32s)
+    response_bound_test.go:159: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-mcpresp/internal/mcp/response_bound_test.go:77
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-mcpresp/internal/mcp/response_bound_test.go:159
+        	Error:      	"275150" is not less than or equal to "262144"
+        	Test:       	TestExpandFullAtTheDefaultBoundFitsTheLiveOvershoot
+        	Messages:   	expand page 0: the result text is 275150 bytes against runtime.mcp.maxResponseBytes 262144
+FAIL
+FAIL	github.com/qompack/qompack/internal/mcp	0.789s
+FAIL

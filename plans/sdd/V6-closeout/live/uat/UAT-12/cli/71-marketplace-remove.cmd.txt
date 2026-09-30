@@ -1,0 +1,2 @@
+$ claude plugin marketplace remove qompack-live
+cwd: <scratch>/install/uat12/proj

@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "command": "recall",
+  "ok": true,
+  "data": {
+    "tool": "recall",
+    "is_error": false,
+    "ephemeral": true,
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"hits\":[{\"hash\":\"sha256:2622e7212fcd1baa3e0da0347065505d4ebb6367ff5a97dc9d71bccbcf8a48e8\",\"path\":\"src/ledger.go\",\"tool\":\"mcp__qompack__re_read\",\"summary\":\"{\\\"found\\\":true,\\\"hash\\\":\\\"sha256:125153754afca5f623b4b7dc03edf6a54a60bb961e9a4d46a80ba61769b6c2f4\\\",\\\"path\\\":\\\"src/ledger.go\\\"…\",\"ts\":\"2026-09-29T18:42:32Z\",\"score\":0.5008,\"tool_use_id\":\"qompack-mcp:c8225989cdac\",\"span\":[0,1162]},{\"hash\":\"sha256:04396c042a109f247b54d43e7870bff3ed294fec12615ff3bce8a2c906dbc40d\",\"path\":\"src/ledger.go\",\"tool\":\"mcp__qompack__re_read\",\"summary\":\"{\\\"found\\\":true,\\\"hash\\\":\\\"sha256:800cf27b3d28f24420053a66c887984da6fa859a938a4b293d58ab2c90812544\\\",\\\"path\\\":\\\"src/ledger.go\\\"…\",\"ts\":\"2026-09-29T18:42:32Z\",\"score\":0.4984,\"tool_use_id\":\"qompack-mcp:4f31bc7d2f20\",\"span\":[0,1148]},{\"hash\":\"sha256:dffb61ac2ad838fa9eb1b58c7ec98c87e83a8380a322fbd2b3597df7f5539faa\",\"path\":\"src/ledger.go\",\"tool\":\"mcp__qompack__expand\",\"summary\":\"{\\\"found\\\":true,\\\"hash\\\":\\\"sha256:800cf27b3d28f24420053a66c887984da6fa859a938a4b293d58ab2c90812544\\\",\\\"path\\\":\\\"src/ledger.go\\\"…\",\"ts\":\"2026-09-29T18:42:32Z\",\"score\":0.496,\"tool_use_id\":\"qompack-mcp:f4c185dcbb7e\",\"span\":[0,1140]},{\"hash\":\"sha256:0f7f366d0188f35ae06f1089ef17ba148e24fcd540dba8a42c708fcbba7bffe6\",\"path\":\"src/ledger.go\",\"tool\":\"mcp__plugin_qompack_qompack__re_read\",\"summary\":\"[{\\\"type\\\":\\\"text\\\",\\\"text\\\":\\\"{\\\\\\\"found\\\\\\\":true,\\\\\\\"hash\\\\\\\":\\\\\\\"sha256:800cf27b3d28f24420053a66c887984da6fa859a938a4b293d58ab2c908…\",\"ts\":\"2026-09-29T18:42:01Z\",\"score\":0.484,\"tool_use_id\":\"toolu_01V7GsCjjgygoqkS6ZjhczVs\",\"span\":[0,1317]}],\"count\":4,\"found\":true,\"query\":{\"text\":\"\",\"path\":\"\",\"symbol\":\"ReconcileBalances\",\"tool\":\"\"},\"denied\":1}"
+      }
+    ],
+    "meta": {
+      "elapsed_ms": 7,
+      "hash": "sha256:89455b9b8dda9f05c0f9e1fa6154a5236e54a32ad2753c5d7e722c9cc9fc485e",
+      "tool_use_id": "qompack-mcp:68f97fd383d8",
+      "untrusted": true
+    }
+  }
+}

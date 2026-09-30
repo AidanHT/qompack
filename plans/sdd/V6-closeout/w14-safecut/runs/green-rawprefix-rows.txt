@@ -1,0 +1,53 @@
+# go test -p 2 -count=3 -timeout=10m -run '^(TestSafeCutRedactCallsAreLogarithmicInARawPrefix|TestSafeCutIsTheLargestSafeCutOnProductionShapes|TestSafeCutFindsTheSafeCutBelowARedactedRegion|TestSafeCutReportsFalseOnlyWhenNoCutIsSafe|TestSafeCutFindsTheLargestSafeCutWithTheProductionRedactor|TestExpandBoundCutNeverSplitsARedactedRegion|TestExpandBoundPagesPastARedactedRegionLongerThanHalfThePage)$' -v ./internal/mcp -> exit 0
+--- PASS: TestExpandBoundCutNeverSplitsARedactedRegion (5.22s)
+--- PASS: TestSafeCutFindsTheSafeCutBelowARedactedRegion (0.04s)
+--- PASS: TestSafeCutReportsFalseOnlyWhenNoCutIsSafe (0.09s)
+--- PASS: TestExpandBoundPagesPastARedactedRegionLongerThanHalfThePage (0.11s)
+--- PASS: TestSafeCutFindsTheLargestSafeCutWithTheProductionRedactor (0.67s)
+    response_bound_test.go:773: 44 Redact calls, bound 128, window 17033 bytes, keep 8763, cut 8009
+    response_bound_test.go:773: 28 Redact calls, bound 120, window 16073 bytes, keep 8043, cut 8009
+    response_bound_test.go:773: 59 Redact calls, bound 192, window 17033 bytes, keep 9020, cut 8009
+    response_bound_test.go:773: 43 Redact calls, bound 180, window 16073 bytes, keep 8060, cut 8009
+    response_bound_test.go:773: 40 Redact calls, bound 128, window 17027 bytes, keep 8508, cut 8003
+    response_bound_test.go:773: 24 Redact calls, bound 120, window 16067 bytes, keep 8028, cut 8003
+    response_bound_test.go:773: 70 Redact calls, bound 256, window 17027 bytes, keep 9021, cut 8003
+    response_bound_test.go:773: 54 Redact calls, bound 240, window 16067 bytes, keep 8061, cut 8003
+    response_bound_test.go:773: 44 Redact calls, bound 128, window 17053 bytes, keep 9019, cut 8016
+    response_bound_test.go:773: 28 Redact calls, bound 120, window 16093 bytes, keep 8059, cut 8016
+--- PASS: TestSafeCutRedactCallsAreLogarithmicInARawPrefix (0.69s)
+--- PASS: TestSafeCutIsTheLargestSafeCutOnProductionShapes (0.11s)
+--- PASS: TestExpandBoundCutNeverSplitsARedactedRegion (5.10s)
+--- PASS: TestSafeCutFindsTheSafeCutBelowARedactedRegion (0.04s)
+--- PASS: TestSafeCutReportsFalseOnlyWhenNoCutIsSafe (0.09s)
+--- PASS: TestExpandBoundPagesPastARedactedRegionLongerThanHalfThePage (0.09s)
+--- PASS: TestSafeCutFindsTheLargestSafeCutWithTheProductionRedactor (0.67s)
+    response_bound_test.go:773: 44 Redact calls, bound 128, window 17033 bytes, keep 8763, cut 8009
+    response_bound_test.go:773: 28 Redact calls, bound 120, window 16073 bytes, keep 8043, cut 8009
+    response_bound_test.go:773: 59 Redact calls, bound 192, window 17033 bytes, keep 9020, cut 8009
+    response_bound_test.go:773: 43 Redact calls, bound 180, window 16073 bytes, keep 8060, cut 8009
+    response_bound_test.go:773: 40 Redact calls, bound 128, window 17027 bytes, keep 8508, cut 8003
+    response_bound_test.go:773: 24 Redact calls, bound 120, window 16067 bytes, keep 8028, cut 8003
+    response_bound_test.go:773: 70 Redact calls, bound 256, window 17027 bytes, keep 9021, cut 8003
+    response_bound_test.go:773: 54 Redact calls, bound 240, window 16067 bytes, keep 8061, cut 8003
+    response_bound_test.go:773: 44 Redact calls, bound 128, window 17053 bytes, keep 9019, cut 8016
+    response_bound_test.go:773: 28 Redact calls, bound 120, window 16093 bytes, keep 8059, cut 8016
+--- PASS: TestSafeCutRedactCallsAreLogarithmicInARawPrefix (0.65s)
+--- PASS: TestSafeCutIsTheLargestSafeCutOnProductionShapes (0.10s)
+--- PASS: TestExpandBoundCutNeverSplitsARedactedRegion (5.08s)
+--- PASS: TestSafeCutFindsTheSafeCutBelowARedactedRegion (0.04s)
+--- PASS: TestSafeCutReportsFalseOnlyWhenNoCutIsSafe (0.09s)
+--- PASS: TestExpandBoundPagesPastARedactedRegionLongerThanHalfThePage (0.11s)
+--- PASS: TestSafeCutFindsTheLargestSafeCutWithTheProductionRedactor (0.65s)
+    response_bound_test.go:773: 44 Redact calls, bound 128, window 17033 bytes, keep 8763, cut 8009
+    response_bound_test.go:773: 28 Redact calls, bound 120, window 16073 bytes, keep 8043, cut 8009
+    response_bound_test.go:773: 59 Redact calls, bound 192, window 17033 bytes, keep 9020, cut 8009
+    response_bound_test.go:773: 43 Redact calls, bound 180, window 16073 bytes, keep 8060, cut 8009
+    response_bound_test.go:773: 40 Redact calls, bound 128, window 17027 bytes, keep 8508, cut 8003
+    response_bound_test.go:773: 24 Redact calls, bound 120, window 16067 bytes, keep 8028, cut 8003
+    response_bound_test.go:773: 70 Redact calls, bound 256, window 17027 bytes, keep 9021, cut 8003
+    response_bound_test.go:773: 54 Redact calls, bound 240, window 16067 bytes, keep 8061, cut 8003
+    response_bound_test.go:773: 44 Redact calls, bound 128, window 17053 bytes, keep 9019, cut 8016
+    response_bound_test.go:773: 28 Redact calls, bound 120, window 16093 bytes, keep 8059, cut 8016
+--- PASS: TestSafeCutRedactCallsAreLogarithmicInARawPrefix (0.69s)
+--- PASS: TestSafeCutIsTheLargestSafeCutOnProductionShapes (0.10s)
+ok  	github.com/qompack/qompack/internal/mcp	20.735s

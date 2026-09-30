@@ -1,0 +1,1 @@
+probe copy 1 (hand copy with a stale run/daemon.lock of another path): no daemon ever started there; nothing to stop.

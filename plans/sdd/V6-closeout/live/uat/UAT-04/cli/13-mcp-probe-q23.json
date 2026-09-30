@@ -1,0 +1,137 @@
+{
+ "initialize": {
+  "serverInfo": {
+   "name": "qompack",
+   "version": "0.3.0"
+  },
+  "protocolVersion": "2025-06-18"
+ },
+ "calls": [
+  {
+   "tool": "recall",
+   "args": {
+    "query": "Q23"
+   },
+   "jsonrpc_line_bytes": 271,
+   "isError": true,
+   "error": null,
+   "text_bytes": 142,
+   "result_meta": {
+    "qompack": {
+     "ephemeral": false
+    }
+   },
+   "text": [
+    "qompack daemon unavailable; retrieval is temporarily offline — the store is intact and the same call will succeed once the daemon is running"
+   ]
+  },
+  {
+   "tool": "recall",
+   "args": {
+    "query": "Q23 data/keys.txt",
+    "k": 5
+   },
+   "jsonrpc_line_bytes": 271,
+   "isError": true,
+   "error": null,
+   "text_bytes": 142,
+   "result_meta": {
+    "qompack": {
+     "ephemeral": false
+    }
+   },
+   "text": [
+    "qompack daemon unavailable; retrieval is temporarily offline — the store is intact and the same call will succeed once the daemon is running"
+   ]
+  },
+  {
+   "tool": "recall",
+   "args": {
+    "query": "WALNUT-2889-OAK"
+   },
+   "jsonrpc_line_bytes": 271,
+   "isError": true,
+   "error": null,
+   "text_bytes": 142,
+   "result_meta": {
+    "qompack": {
+     "ephemeral": false
+    }
+   },
+   "text": [
+    "qompack daemon unavailable; retrieval is temporarily offline — the store is intact and the same call will succeed once the daemon is running"
+   ]
+  },
+  {
+   "tool": "recall",
+   "args": {
+    "query": "keys"
+   },
+   "jsonrpc_line_bytes": 271,
+   "isError": true,
+   "error": null,
+   "text_bytes": 142,
+   "result_meta": {
+    "qompack": {
+     "ephemeral": false
+    }
+   },
+   "text": [
+    "qompack daemon unavailable; retrieval is temporarily offline — the store is intact and the same call will succeed once the daemon is running"
+   ]
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "tool_use_id": "toolu_018f6iMcqfRLUqDdRv2NxVTu"
+   },
+   "jsonrpc_line_bytes": 271,
+   "isError": true,
+   "error": null,
+   "text_bytes": 142,
+   "result_meta": {
+    "qompack": {
+     "ephemeral": false
+    }
+   },
+   "text": [
+    "qompack daemon unavailable; retrieval is temporarily offline — the store is intact and the same call will succeed once the daemon is running"
+   ]
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "tool_use_id": "prompt_5fe7f497-1c23-414e-8fcc-933363180fd0_0"
+   },
+   "jsonrpc_line_bytes": 271,
+   "isError": true,
+   "error": null,
+   "text_bytes": 142,
+   "result_meta": {
+    "qompack": {
+     "ephemeral": false
+    }
+   },
+   "text": [
+    "qompack daemon unavailable; retrieval is temporarily offline — the store is intact and the same call will succeed once the daemon is running"
+   ]
+  },
+  {
+   "tool": "dropped",
+   "args": {},
+   "jsonrpc_line_bytes": 271,
+   "isError": true,
+   "error": null,
+   "text_bytes": 142,
+   "result_meta": {
+    "qompack": {
+     "ephemeral": false
+    }
+   },
+   "text": [
+    "qompack daemon unavailable; retrieval is temporarily offline — the store is intact and the same call will succeed once the daemon is running"
+   ]
+  }
+ ],
+ "stderr_tail": ""
+}

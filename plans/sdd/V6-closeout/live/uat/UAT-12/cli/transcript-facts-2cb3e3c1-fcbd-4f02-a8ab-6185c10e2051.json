@@ -1,0 +1,56 @@
+{
+ "session_id": "2cb3e3c1-fcbd-4f02-a8ab-6185c10e2051",
+ "found": true,
+ "project_slug_is_scratch": true,
+ "bytes": 877748,
+ "lines": 245,
+ "entry_types": {
+  "queue-operation": 24,
+  "attachment": 89,
+  "user": 37,
+  "atis-latch": 12,
+  "last-prompt": 12,
+  "assistant": 58,
+  "system": 12,
+  "cost-state": 1
+ },
+ "tool_uses": {
+  "Read": 3,
+  "ToolSearch": 4,
+  "mcp__plugin_qompack_qompack__recall": 3,
+  "mcp__plugin_qompack_qompack__expand": 6,
+  "mcp__plugin_qompack_qompack__re_read": 3,
+  "mcp__plugin_qompack_qompack__dropped": 1,
+  "mcp__plugin_qompack_qompack__timeline": 1
+ },
+ "attachment_types": {
+  "hook_success": 31,
+  "hook_additional_context": 2,
+  "environment": 2,
+  "model": 2,
+  "deferred_tools_delta": 2,
+  "agent_listing_delta": 2,
+  "mcp_instructions_delta": 2,
+  "skill_listing": 1,
+  "total_tokens_reminder": 25,
+  "session_context": 2,
+  "date": 2,
+  "remote_session_change": 2,
+  "prompt_snapshot": 4,
+  "deferred_tools_record": 5,
+  "task_reminder": 2,
+  "command_permissions": 1,
+  "file": 1,
+  "invoked_skills": 1
+ },
+ "planted_secrets": [
+  {
+   "secret": "@@SEC_PLANTED_1@@",
+   "present_in_host_transcript": true
+  },
+  {
+   "secret": "@@SEC_PLANTED_2@@",
+   "present_in_host_transcript": true
+  }
+ ]
+}

@@ -1,0 +1,20 @@
+# RED with every implementation file stashed (git stash push -- <the nine non-test files>), cli rows present
+# go test -p 2 -count=1 -run 'TestAHostFailedCompactionsSuccessorClosesAtSessionEnd|TestARestartedDaemonBindsTheLiveSessionOnItsFirstHook' ./internal/cli/
+--- FAIL: TestAHostFailedCompactionsSuccessorClosesAtSessionEnd (16.04s)
+    segment_roll_live_test.go:162: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w14-observer/internal/cli/segment_roll_live_test.go:162
+        	Error:      	Condition never satisfied
+        	Test:       	TestAHostFailedCompactionsSuccessorClosesAtSessionEnd
+        	Messages:   	SessionEnd must close the session's open segment, the compaction's successor
+--- FAIL: TestARestartedDaemonBindsTheLiveSessionOnItsFirstHook (1.77s)
+    segment_roll_live_test.go:238: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w14-observer/internal/cli/segment_roll_live_test.go:238
+        	Error:      	Not equal: 
+        	            	expected: 4
+        	            	actual  : 1
+        	Test:       	TestARestartedDaemonBindsTheLiveSessionOnItsFirstHook
+        	Messages:   	the restarted daemon's scheduler observed the live session's Read
+FAIL
+FAIL	github.com/qompack/qompack/internal/cli	18.061s
+FAIL
+exit=1

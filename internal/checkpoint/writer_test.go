@@ -59,6 +59,8 @@ type fakePins struct {
 	// see TestPreCompactDerivesItsBudgetFromTheCallersDeadline.
 	ctxDeadline time.Time
 	hasDeadline bool
+	// allErr, when set, is what All answers instead of the list: a pin log that cannot be read.
+	allErr error
 }
 
 var _ pins.Store = (*fakePins)(nil)
@@ -69,6 +71,9 @@ func (f *fakePins) Add(_ context.Context, inv pins.Invariant) error {
 }
 func (f *fakePins) Remove(_ context.Context, id string) error { return nil }
 func (f *fakePins) All(_ context.Context) ([]pins.Invariant, error) {
+	if f.allErr != nil {
+		return nil, f.allErr
+	}
 	out := make([]pins.Invariant, len(f.invs))
 	copy(out, f.invs)
 	return out, nil

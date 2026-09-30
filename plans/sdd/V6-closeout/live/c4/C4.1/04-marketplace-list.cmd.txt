@@ -1,0 +1,2 @@
+$ claude plugin marketplace list --json
+cwd: <scratch>/install/c41/proj

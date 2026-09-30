@@ -1,0 +1,33 @@
+C4.3 — real compaction round trip: PreCompact checkpoint -> SessionStart source=compact -> bounded
+rehydration payload injected -> the model recovers pre-compaction facts. Agent-executed on the
+owner's real host per owner decision D3 by a Claude Code workflow subagent (Opus 5.5) — not human
+UAT. 2026-09-29 America/Toronto.
+
+Evidence: plans/sdd/V6-closeout/live/uat/UAT-03/, UAT-04/, UAT-05/, UAT-06/ (each notes.txt).
+Sessions used: 7 (UAT-03 1, UAT-04 1, UAT-05 2, UAT-06 3); UAT-02's /compact adds one more round
+trip.
+
+Result: FAIL on D5's whole-record rule and on current authority; the round trip itself works.
+ - PreCompact wrote a checkpoint at every compaction (1 in UAT-02/03, 2 in UAT-05, 14 in UAT-04, 4
+   in UAT-06), each MANIFEST line re-hashing; no PreCompact output rejection on any "/compact" turn
+   (C1.12: "completed successfully: {}"); no "Hook cancelled" on any session's stderr (C1.15/D13).
+ - SessionStart:compact injected the block every time (success/exit 0): both "/compact" (UAT-02/03/
+   04/05/06) and forced automatic compactions (UAT-04: 11, with
+   CLAUDE_CODE_AUTO_COMPACT_WINDOW=100000 + CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=30). Sizes 361-9,010
+   UTF-16 units, all under ~9,500 and the host's 10,000 cap; delivered inline (no persisted-output).
+ - Overflow named with pointers: YES at a tiny budget (UAT-05 run 2: tier1 OVERFLOW ... restore:
+   expand(tool_use_id=prompt_..._0), degraded true, counted tail). NO for a first prompt over 8 KiB
+   (UAT-04: the first 8,192 bytes injected cut mid-word under the "verbatim" heading, no overflow
+   entry, "truncated": false, spurious intent_mismatch) — F-UAT04-1.
+ - Fact recovery: YES from Qompack — UAT-06 session B: after the second compaction the model
+   recovered M17 (a value only a subagent had read; file deleted) via recall + expand and said
+   "Source: Qompack archive (expand)". The other probes were answered from the host's own context
+   (Claude Code 2.1.280 re-attaches files read with Read or `cat` after compaction from its cache,
+   even when deleted, and keeps a preserved message segment); UAT-04's in-session recovery failed
+   (recall "Q23 data/keys.txt" 0 hits; host thrash).
+ - Content of the block: user corrections never reach user_intent.evolution (UAT-05, UAT-06); a pin
+   made while the daemon runs is missed by the next checkpoint (stale view); checkpoints carry no
+   pointers; after --fork-session section 2 shows the fork's first prompt as the original
+   (F-UAT06-1).
+ - UAT-03's daemon-gone-and-back: checkpoint re-read byte-identical; UAT-04's failed compaction:
+   last checkpoint intact.

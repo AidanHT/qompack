@@ -1,0 +1,2 @@
+$ claude plugin validate <scratch>/install/profile/plugins/cache/qompack-live/qompack/0.3.0 --strict --json
+cwd: <scratch>/install/c41/proj

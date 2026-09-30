@@ -1,0 +1,25 @@
+# Fix seat, review finding 2. TEMPORARY MUTATION (reverted, never committed): scheduler_frontier.go bindUnboundLocked's
+# 'r.openSegTokens += seenTokens' replaced by '_ = seenTokens'.
+# (a) the row as committed at c734e57f fails, so it now covers the compaction path's merge:
+# go test -p 2 -count=1 -run '^TestWrapServices_PreCompactAfterARestartMergesWhatItObservedSince$' ./internal/daemon/
+--- FAIL: TestWrapServices_PreCompactAfterARestartMergesWhatItObservedSince (0.01s)
+    scheduler_tap_test.go:568: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w14-observer/internal/daemon/scheduler_tap_test.go:568
+        	Error:      	Not equal: 
+        	            	expected: 1000
+        	            	actual  : 700
+        	Test:       	TestWrapServices_PreCompactAfterARestartMergesWhatItObservedSince
+        	Messages:   	the persisted 700 plus the 300 observed since the restart
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	0.283s
+FAIL
+exit=1
+# (b) the row as the implementer left it (31e750d7) stays green under the same mutation: it was blind to that merge
+# go test -p 2 -count=1 -v -run '^TestWrapServices_PreCompactAfterARestartMergesWhatItObservedSince$' ./internal/daemon/
+=== RUN   TestWrapServices_PreCompactAfterARestartMergesWhatItObservedSince
+=== PAUSE TestWrapServices_PreCompactAfterARestartMergesWhatItObservedSince
+=== CONT  TestWrapServices_PreCompactAfterARestartMergesWhatItObservedSince
+--- PASS: TestWrapServices_PreCompactAfterARestartMergesWhatItObservedSince (0.02s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	0.236s
+exit=0

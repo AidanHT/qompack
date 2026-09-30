@@ -1,0 +1,41 @@
+{
+  "session": "2cb3e3c1-fcbd-4f02-a8ab-6185c10e2051",
+  "seq": 1,
+  "emitted": 1790702871408,
+  "tokens": 279,
+  "budget": 12000,
+  "items": [
+    {
+      "kind": "user_intent",
+      "rank": 0,
+      "tokens": 108,
+      "truncated": false,
+      "units": 1,
+      "units_seen": 1
+    },
+    {
+      "kind": "drop_report",
+      "rank": 1,
+      "tokens": 85,
+      "truncated": false,
+      "units": 1,
+      "units_seen": 1
+    },
+    {
+      "kind": "affordance",
+      "rank": 2,
+      "tokens": 86,
+      "truncated": false,
+      "units": 1,
+      "units_seen": 1
+    }
+  ],
+  "dropped": [
+    {
+      "kind": "pointer_git_unavailable",
+      "id": "",
+      "detail": "checkpoint: git index unsupported: reading index: GetFileAttributesEx <scratch>\\install\\uat12\\proj\\.git\\index: The system cannot find the file specified."
+    }
+  ],
+  "degraded": false
+}

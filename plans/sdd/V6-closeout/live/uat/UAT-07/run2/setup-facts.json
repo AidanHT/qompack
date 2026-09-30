@@ -1,0 +1,13 @@
+{
+ "files": {
+  "README.md": {
+   "bytes": 59,
+   "sha256": "2fd86fd2799408687909436999e45f5504f4f0f529502404542e58e385f53326"
+  },
+  "src/ledger.go": {
+   "bytes": 707,
+   "sha256": "8095be561e722b030982a6d4cb8078b2a0d2af00324f0becb79bf3bb2a2ecd62"
+  }
+ },
+ "config": "defaults (no config file); session and CLI env QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS=30 (not a row precondition key)"
+}

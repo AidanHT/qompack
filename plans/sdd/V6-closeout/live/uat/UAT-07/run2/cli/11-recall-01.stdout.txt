@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "command": "recall",
+  "ok": true,
+  "data": {
+    "tool": "recall",
+    "is_error": false,
+    "ephemeral": true,
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"hits\":[{\"hash\":\"sha256:2622e7212fcd1baa3e0da0347065505d4ebb6367ff5a97dc9d71bccbcf8a48e8\",\"path\":\"src/ledger.go\",\"tool\":\"mcp__qompack__re_read\",\"summary\":\"\",\"ts\":\"2026-09-29T18:42:32Z\",\"score\":1.12,\"tool_use_id\":\"qompack-mcp:c8225989cdac\",\"span\":[0,1162]},{\"hash\":\"sha256:04396c042a109f247b54d43e7870bff3ed294fec12615ff3bce8a2c906dbc40d\",\"path\":\"src/ledger.go\",\"tool\":\"mcp__qompack__re_read\",\"summary\":\"\",\"ts\":\"2026-09-29T18:42:32Z\",\"score\":1.1107692307692307,\"tool_use_id\":\"qompack-mcp:4f31bc7d2f20\",\"span\":[0,1148]},{\"hash\":\"sha256:dffb61ac2ad838fa9eb1b58c7ec98c87e83a8380a322fbd2b3597df7f5539faa\",\"path\":\"src/ledger.go\",\"tool\":\"mcp__qompack__expand\",\"summary\":\"\",\"ts\":\"2026-09-29T18:42:32Z\",\"score\":1.1015384615384616,\"tool_use_id\":\"qompack-mcp:f4c185dcbb7e\",\"span\":[0,1140]},{\"hash\":\"sha256:0f7f366d0188f35ae06f1089ef17ba148e24fcd540dba8a42c708fcbba7bffe6\",\"path\":\"src/ledger.go\",\"tool\":\"mcp__plugin_qompack_qompack__re_read\",\"summary\":\"\",\"ts\":\"2026-09-29T18:42:01Z\",\"score\":1.0923076923076922,\"tool_use_id\":\"toolu_01V7GsCjjgygoqkS6ZjhczVs\",\"span\":[0,1317]},{\"hash\":\"sha256:7f16dc5b541dc2889e49f015cba7e04348fad968413eaf0ba7b5280367b9e413\",\"path\":\"src/ledger.go\",\"tool\":\"mcp__qompack__re_read\",\"summary\":\"\",\"ts\":\"2026-09-29T18:42:01Z\",\"score\":1.083076923076923,\"tool_use_id\":\"qompack-mcp:c8ba118c38b1\",\"span\":[0,1148]}],\"count\":5,\"found\":true,\"query\":{\"text\":\"\",\"path\":\"src/ledger.go\",\"symbol\":\"\",\"tool\":\"\"}}"
+      }
+    ],
+    "meta": {
+      "elapsed_ms": 7,
+      "hash": "sha256:4c1a0e883eba2b6be97f8b9ce16c69b115ad127ab1f4ca29b1d54690eb3aa4be",
+      "tool_use_id": "qompack-mcp:d3aeedfd58e4",
+      "untrusted": true
+    }
+  }
+}

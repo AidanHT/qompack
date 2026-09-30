@@ -1,0 +1,6 @@
+cwd: <scratch>/retrieval/uat0809/proj
+argv: ["C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c3/qompack-plugin-0.3.0-windows-amd64/bin/qompack.exe", "eval", "--help"]
+env+: {}
+qompack_home: <scratch>/retrieval/qhome
+wall_s: 0.02
+at: 2026-09-29T15:04:32-04:00

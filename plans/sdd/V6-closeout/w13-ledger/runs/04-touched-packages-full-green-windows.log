@@ -1,0 +1,10 @@
+# GREEN on the final tree (ef2aa3e6), Windows 11, go1.26.6, machine shared with other seats:
+# $ go test -p 2 -count=1 -timeout=45m ./internal/negknow/ ./internal/mcp/ ./internal/checkpoint/ ./internal/rehydrate/ ./internal/daemon/ ./internal/observer/
+# internal/cli ran in full at 16:48 (ok, 74.5s) before the lint-only test edits; 03 is its focused re-run on the final tree.
+ok  	github.com/qompack/qompack/internal/negknow	31.877s
+ok  	github.com/qompack/qompack/internal/mcp	233.762s
+ok  	github.com/qompack/qompack/internal/checkpoint	114.398s
+ok  	github.com/qompack/qompack/internal/rehydrate	2.222s
+ok  	github.com/qompack/qompack/internal/daemon	448.960s
+ok  	github.com/qompack/qompack/internal/observer	192.962s
+exit=0

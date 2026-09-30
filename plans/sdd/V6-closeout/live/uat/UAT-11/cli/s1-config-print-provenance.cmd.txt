@@ -1,0 +1,6 @@
+cwd: <scratch>/retrieval/uat11/a
+argv: ["C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c3/qompack-plugin-0.3.0-windows-amd64/bin/qompack.exe", "config", "print", "--provenance"]
+env+: {}
+qompack_home: <scratch>/retrieval/qhome
+wall_s: 0.018
+at: 2026-09-29T15:11:23-04:00

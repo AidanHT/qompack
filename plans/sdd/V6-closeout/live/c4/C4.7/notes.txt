@@ -1,0 +1,55 @@
+C4.7 — kill switches in a real session: recording off and reinjection off, each set alone in the
+PROJECT config (<project>/.qompack/config.json, docs/config-reference.md), each shown independent of
+the other. Agent-executed on the owner's real host per owner decision D3 by a Claude Code workflow
+subagent (Opus 5.5) — not human UAT.
+
+Date 2026-09-29 15:15-15:17 America/Toronto. Sessions used: 2 (retrieval part n=10 off/session/,
+n=11 reinj/session/). Model claude-haiku-4-5-20251001, Claude Code 2.1.280, Windows 11 Home 25H2 build
+10.0.26200.9457, frozen bundle 0.3.0 via --plugin-dir (BUNDLE.json sha256 32600778...ccf4505, commit
+d5598eb4); `qompack version` 0.3.0. No user config (~/.qompack absent), no QOMPACK_* variable but
+QOMPACK_HOME, no other setting. Both sessions: T1 Read notes.md + plan.md, T2 /compact, T3 codename
+from context (no tool), T4 MCP recall "codename".
+
+Proof the settings took effect (with -p a settings problem is silent): before each session,
+`qompack config print --provenance` (cli/00-config-print-provenance) showed
+ off:   `"mode": "off",  // project <project>\.qompack\config.json:1` and sessionStartCompact
+        `true // default`;
+ reinj: `"sessionStartCompact": false  // project <project>\.qompack\config.json:1` and mode
+        `"auto" // default`.
+Before each session the project's .qompack/ held only config.json (cli/00-listing-before.txt).
+
+(a) runtime.mode "off" alone (off/):
+ - every hook (SessionStart:startup, UserPromptSubmit x3, PostToolUse:Read x2 + ToolSearch, Stop x3,
+   SubagentStop, SessionStart:compact) answered success, exit 0, output {} (session/hooks.json and
+   stream); SessionStart:compact injected nothing and the model still had the codename from the host's
+   own summary.
+ - nothing recorded: after the session .qompack/ holds config.json, .gitignore, an EMPTY
+   logs/qompack-20260929.log and state/mcp.json (the MCP server's handshake record: initialized,
+   protocol 2025-06-18, client claude-code 2.1.280, 8 tools, pid of `qompack mcp`), all written at
+   15:15:28.165 (session start) by `qompack mcp`, not by a hook (cli/01-listing-after.txt,
+   01-state-mcp.json.txt). No index, objects, spool, checkpoint or capture.
+ - no daemon: meta.json samples "no lock" after every turn; no qompack.exe process afterwards.
+ - T4 MCP recall -> tool error "the qompack daemon returned an empty result" (is_error true). It does
+   not say that Qompack is switched off here (compare the home-directory refusal, which explains
+   itself). FINDING F1 (message), F2 (`qompack mcp` writes .gitignore, logs/ and state/mcp.json into a
+   project whose operator switched Qompack off; release.md §4 says only hooks record nothing).
+ - `qompack doctor --json` afterwards (read-only) exit 0; listing unchanged (cli/03).
+ PASS: hooks exit 0, nothing recorded, no daemon — while reinjection was left at its default true.
+
+(b) runtime.migration.reinjection.sessionStartCompact false alone (reinj/):
+ - compaction still checkpoints: PreCompact wrote .qompack/checkpoints/0001.json (+MANIFEST.jsonl).
+ - tool events still recorded: index/tool_use.jsonl holds the prompts, FileRead notes.md and plan.md
+   (turn 1), SubagentStop, ToolSearch and both recall captures.
+ - no injected span: SessionStart:compact returned only the contract probe marker
+   "<!-- qompack-contract-probe qompack-contract-23de3e276fb7 -->" and no "<!-- qompack:injected"
+   tag (injected/injected-2-SessionStart-compact.txt), exactly as release.md §4 says ("the contract
+   monitor's probe marker remains"); the day log: "rehydrate: injection disabled by
+   runtime.migration.reinjection.sessionStartCompact".
+ - T4 recall answered with hits (retrieval unaffected).
+ - post-run cli/04-* (status, doctor, fsck exit 1 on the turn-0 MCP index records as in every
+   other project); daemon stopped by a verified kill (cli/05-stop-daemon.txt).
+ PASS: recording and checkpointing continue with mode at its default auto; only the injection stops.
+
+Independence: each switch was the only non-default key in its project; mode off stopped everything
+with reinjection at its default, and reinjection off stopped only the injection with recording on.
+Result: PASS for both, with findings F1 and F2 on mode off.

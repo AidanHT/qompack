@@ -1,0 +1,16 @@
+C4.11 - supported-platform installed hosts (no session in this part)
+Executed by: Claude Code workflow subagent (Opus 5.5), agent-executed on the owner's real host per owner
+decision D3 - not human UAT. Date 2026-09-29 (America/Toronto).
+
+windows/amd64: the host this whole live lane ran on (Windows 11 Home 10.0.26200 build 26200, Claude Code
+  2.1.280, frozen bundle qompack-plugin-0.3.0-windows-amd64 at commit d5598eb4). Its installed-host
+  evidence is the install, sessions, retrieval and recovery parts under plans/sdd/V6-closeout/live/.
+linux/amd64, no-model half (validate --strict, isolated-profile marketplace add/install, plugin list --json):
+  UNKNOWN - `docker exec qompack-v6-linux-verification true` exits 1 ("container ... is not running"), and
+  this lane may not start Docker or the container (linux-probe.txt). Whether a Linux `claude` exists in the
+  container was therefore not checked. The frozen linux/amd64 sibling bundle exists and passes the static
+  acceptance (target linux/amd64, source.commit d5598eb4, bin/qompack sha256 96d770e3... matches its
+  BUNDLE.json entry); nothing from it was executed.
+linux/amd64, real sessions: UNKNOWN - a model session needs a Claude login the container does not have
+  (credentials are never copied, D34(c)).
+darwin/amd64 and darwin/arm64 (macOS), windows/arm64: UNKNOWN - no runner.

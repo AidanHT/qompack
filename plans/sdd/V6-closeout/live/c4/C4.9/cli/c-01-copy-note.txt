@@ -1,0 +1,6 @@
+backup restore of c49-copy-src FAILED (c-00-backup-restore: exit 1, 'restored tool reference root f77b00a45902 does not resolve:
+qompack: not found'): that root is the MCP server's own ephemeral recall record (index/roots.jsonl eph true), which the daemon's GC
+deleted at 18:25:49Z (roots.jsonl {op gc}); index/tool_use.jsonl still references it (id qompack-mcp:d2300736b8c7, session "").
+fsck on the source passes (s1-post-fsck-json-after-idle-exit exit 0). The failed staging tree is kept at <copy>/.qompack.restore-c49-copy-src-*.
+The disposable copy for (c) was therefore made by hand: `cp -rp` of <project>/.qompack after the daemon's clean idle exit (no daemon.lock;
+timestamps preserved), into <scratch>/sessions/c49/copy/proj with the project files and a fresh `git init` + `git add -A`.

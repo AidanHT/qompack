@@ -1,0 +1,12 @@
+# Fix seat, review finding 1. The two rows that pin capture-order membership (commit 9e3a61d8). They pin the
+# behaviour the implementer shipped, so they are green on arrival by design; they are not a RED/GREEN pair.
+# go test -p 2 -count=1 -v -run '^TestAMidTurnRollEnrolsTheRestOfTheTurnInTheSuccessor$' ./internal/observer/
+# go test -p 2 -count=1 -v -run '^TestARollBehindAnEnrolledPromptLeavesItInTheRolledSegment$' ./internal/observer/
+# (run together as one invocation with both names in an anchored alternation)
+=== RUN   TestAMidTurnRollEnrolsTheRestOfTheTurnInTheSuccessor
+--- PASS: TestAMidTurnRollEnrolsTheRestOfTheTurnInTheSuccessor (0.04s)
+=== RUN   TestARollBehindAnEnrolledPromptLeavesItInTheRolledSegment
+--- PASS: TestARollBehindAnEnrolledPromptLeavesItInTheRolledSegment (0.03s)
+PASS
+ok  	github.com/qompack/qompack/internal/observer	0.312s
+exit=0

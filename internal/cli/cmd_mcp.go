@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -8,10 +9,12 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
 	"github.com/qompack/qompack/internal/config"
+	"github.com/qompack/qompack/internal/contract"
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/daemon"
 	"github.com/qompack/qompack/internal/ipc"
@@ -66,6 +69,13 @@ func runMCP(ctx context.Context, env Env, _ []string, out, errw io.Writer) error
 	if refused := refuseHomeRoot(env, root); refused != nil {
 		return serveRefusedMCP(ctx, env, refused, out, errw)
 	}
+	// runtime.mode "off" is decided before anything touches the project: no layout, no log file,
+	// no handshake record and no client, so a project that switched Qompack off gets nothing
+	// written into it (V6 close-out, live report C4.7 F2), and every call says why (F1).
+	if projectModeOff(env, root) {
+		fmt.Fprintln(errw, `qompack mcp: runtime.mode is "off" for this project; every tool answers that`)
+		return serveInactiveMCP(ctx, env, mcp.ModeOffText, out)
+	}
 
 	l := paths.Of(root)
 	if err := paths.EnsureLayout(l); err != nil {
@@ -101,7 +111,12 @@ func runMCP(ctx context.Context, env Env, _ []string, out, errw io.Writer) error
 	client := newMCPClient(root, cfg, env, log, reg, clk)
 	defer func() { _ = client.Close() }()
 
-	srv, err := buildMCPProxy(ctx, root, cfg, client, log)
+	// Ends the handshake relay's background attempts (mcpHandshake) when this server returns, before
+	// the deferred Close above takes their client away.
+	proxyCtx, stopProxy := context.WithCancel(ctx)
+	defer stopProxy()
+
+	srv, err := buildMCPProxy(proxyCtx, root, cfg, client, log)
 	if err != nil {
 		fmt.Fprintf(errw, "qompack mcp: could not build the tool set: %v\n", err)
 		return err
@@ -127,15 +142,38 @@ func runMCP(ctx context.Context, env Env, _ []string, out, errw io.Writer) error
 // stream, says why once.
 func serveRefusedMCP(ctx context.Context, env Env, refused error, out, errw io.Writer) error {
 	fmt.Fprintf(errw, "qompack mcp: %v\n", refused)
+	if err := serveInactiveMCP(ctx, env, mcp.HomeRootRefusedText, out); err != nil {
+		fmt.Fprintf(errw, "qompack mcp: %v\n", err)
+		return err
+	}
+	return nil
+}
+
+// projectModeOff reports whether the configuration in effect for root sets runtime.mode to "off".
+// config.Load only reads, which is the point: this runs before anything is written. A
+// configuration that does not load is not "off" — the ordinary path loads it again and reports
+// why, exactly as before.
+func projectModeOff(env Env, root string) bool {
+	cfg, _, _, err := config.Load(config.Env{
+		ProjectRoot: root, HomeDir: homeDir(env), Getenv: env.Getenv, Flags: env.Set,
+	})
+	return err == nil && cfg.Runtime.Mode == configModeOff
+}
+
+// serveInactiveMCP serves a session in which Qompack does nothing — a refused home-directory root
+// (D18) or a project with runtime.mode "off". The server still speaks JSON-RPC and lists the same
+// eight tools, so the host's view of the plugin never changes between directories or settings, and
+// every tools/call answers text as a tool error. It writes nothing, logs nothing and starts no
+// daemon.
+func serveInactiveMCP(ctx context.Context, env Env, text string, out io.Writer) error {
 	srv := mcp.NewServerWithOptions(mcp.ServerOptions{
 		Name:    mcp.ServerName,
 		Version: core.Version,
 		Log:     logging.Nop(),
 		MaxLine: config.Defaults().Runtime.HotPath.MaxPayloadBytes,
 	})
-	if err := mcp.RegisterProxy(srv, refusedMCPCall); err != nil {
-		fmt.Fprintf(errw, "qompack mcp: could not build the tool set: %v\n", err)
-		return err
+	if err := mcp.RegisterProxy(srv, inactiveMCPCall(text)); err != nil {
+		return fmt.Errorf("could not build the tool set: %w", err)
 	}
 	serveCtx, cancel := signalContext(ctx)
 	defer cancel()
@@ -145,12 +183,16 @@ func serveRefusedMCP(ctx context.Context, env Env, refused error, out, errw io.W
 	return nil
 }
 
-// refusedMCPCall is the handler every tool is bound to in a refused session.
-func refusedMCPCall(context.Context, mcp.Request) (mcp.Response, error) {
-	return mcp.Response{
-		IsError: true,
-		Content: []mcp.Content{{Type: "text", Text: mcp.HomeRootRefusedText}},
-	}, nil
+// inactiveMCPCall returns the handler every tool is bound to in an inactive session.
+func inactiveMCPCall(text string) mcp.Handler {
+	return func(context.Context, mcp.Request) (mcp.Response, error) {
+		return inactiveResponse(text), nil
+	}
+}
+
+// inactiveResponse is the tool error an inactive session answers every call with.
+func inactiveResponse(text string) mcp.Response {
+	return mcp.Response{IsError: true, Content: []mcp.Content{{Type: "text", Text: text}}}
 }
 
 // newMCPClient builds the transport `qompack mcp` forwards over, using SP-05's own lazy-spawn seam
@@ -174,6 +216,8 @@ func newMCPClient(root string, cfg config.Config, env Env,
 func buildMCPProxy(ctx context.Context, root string, cfg config.Config,
 	client ipc.Client, log logging.Logger,
 ) (mcp.Server, error) {
+	hs := &mcpHandshake{client: client}
+
 	// Declared before the server so it can be handed in through ServerOptions — which is the whole
 	// reason NewServerWithOptions exists rather than a method on the §5.16 Server interface.
 	onInit := func(o mcp.Observable) {
@@ -184,7 +228,10 @@ func buildMCPProxy(ctx context.Context, root string, cfg config.Config,
 		if merr != nil {
 			return
 		}
-		_, _ = client.Send(ctx, ipc.Request{Op: ipc.OpMCP, Raw: raw}, mcpCallDeadline)
+		hs.offer(raw)
+		// Off the handshake's own path: the host is waiting for the initialize answer, and the
+		// daemon this notice is for is often still starting.
+		go hs.deliver(ctx)
 	}
 
 	srv := mcp.NewServerWithOptions(mcp.ServerOptions{
@@ -194,10 +241,79 @@ func buildMCPProxy(ctx context.Context, root string, cfg config.Config,
 		MaxLine:      cfg.Runtime.HotPath.MaxPayloadBytes,
 		OnInitialize: onInit,
 	})
-	if err := mcp.RegisterProxy(srv, forwardMCPCall(client, log)); err != nil {
+	forward := forwardMCPCall(client, log)
+	handler := func(ctx context.Context, r mcp.Request) (mcp.Response, error) {
+		resp, err := forward(ctx, r)
+		hs.flush(ctx)
+		return resp, err
+	}
+	if err := mcp.RegisterProxy(srv, handler); err != nil {
 		return nil, err
 	}
 	return srv, nil
+}
+
+// mcpHandshake carries the stdio server's handshake notice to the daemon, which records it as the
+// §12.1 mcp.server_registered observable.
+//
+// The host starts this server beside a session's first SessionStart, usually before the project's
+// daemon is listening. The notice was sent once: its connect failed, the lazy spawn started a
+// daemon, and the notice was dropped, because nothing here is spooled — so status read
+// mcp.server_registered initialize-not-received in sessions whose server was connected and serving
+// (V6 close-out, Phase 4 install D4, C45-1). deliver retries it the way forwardMCPCall retries a
+// call, across the same cold start, and flush gives a notice those attempts missed one more try
+// after each tool call the host makes, when the daemon has just proved it is up. A tool call alone
+// is not the proof: the slash commands forward calls through the same handler, and only this server
+// answers the host's initialize.
+type mcpHandshake struct {
+	client ipc.Client
+	mu     sync.Mutex
+	raw    []byte // the notice not yet delivered; nil when there is none
+}
+
+// offer makes raw the notice to deliver, replacing any earlier one.
+func (h *mcpHandshake) offer(raw []byte) {
+	h.mu.Lock()
+	h.raw = raw
+	h.mu.Unlock()
+}
+
+// deliver retries the pending notice until the daemon accepts it, the attempts run out, or ctx
+// ends.
+func (h *mcpHandshake) deliver(ctx context.Context) {
+	for attempt := 0; attempt < mcpRetryAttempts; attempt++ {
+		if attempt > 0 {
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(mcpRetryDelay):
+			}
+		}
+		if h.flush(ctx) {
+			return
+		}
+	}
+}
+
+// flush sends the pending notice once and reports whether none is pending any more. The daemon's
+// handling is idempotent, so two flushes racing to deliver the same notice are harmless.
+func (h *mcpHandshake) flush(ctx context.Context) bool {
+	h.mu.Lock()
+	raw := h.raw
+	h.mu.Unlock()
+	if raw == nil {
+		return true
+	}
+	resp, err := h.client.Send(ctx, ipc.Request{Op: ipc.OpMCP, Reply: true, Raw: raw}, mcpCallDeadline)
+	if err != nil || !resp.OK {
+		return false
+	}
+	h.mu.Lock()
+	if bytes.Equal(h.raw, raw) {
+		h.raw = nil
+	}
+	h.mu.Unlock()
+	return true
 }
 
 // forwardMCPCall returns the handler every proxied tool is bound to.
@@ -224,6 +340,11 @@ func forwardMCPCall(client ipc.Client, log logging.Logger) mcp.Handler {
 			resp, serr := client.Send(ctx, req, mcpCallDeadline)
 			if serr != nil || !resp.OK {
 				continue
+			}
+			if resp.Mode == contract.ModeOff && len(resp.Data) == 0 {
+				// The client answered without dialing because the session's mode is off. That is
+				// not an empty result from a daemon, and saying so is the whole answer.
+				return inactiveResponse(mcp.ModeOffText), nil
 			}
 			return decodeMCPOpResponse(resp.Data, log)
 		}

@@ -1,0 +1,19 @@
+step 5: hook events declared by the installed hooks/hooks.json: ['PostToolUse', 'PreCompact', 'SessionEnd', 'SessionStart', 'Stop', 'SubagentStop', 'UserPromptSubmit']
+  PostToolUse       ${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe tool timeout=5
+  PreCompact        ${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe checkpoint timeout=20
+  SessionEnd        ${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe flush timeout=20
+  SessionStart      ${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe session-start timeout=15
+  Stop              ${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe stop timeout=5
+  SubagentStop      ${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe stop --subagent timeout=10
+  UserPromptSubmit  ${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe prompt timeout=5
+host hook_started events (stream order): ['SessionStart:startup', 'UserPromptSubmit', 'PostToolUse:Read', 'Stop', 'UserPromptSubmit', 'PostToolUse:ToolSearch', 'PostToolUse:mcp__plugin_qompack_qompack__recall', 'Stop']
+events fired: ['PostToolUse', 'SessionStart', 'Stop', 'UserPromptSubmit']
+events declared but not exercised by this 2-turn session: ['PreCompact', 'SessionEnd', 'SubagentStop']
+
+step 6: host init event (first), session 1b4bf1d7-5ca0-42a6-af07-4430679a076c claude_code_version 2.1.280
+qompack tools (8): ['mcp__plugin_qompack_qompack__already_tried', 'mcp__plugin_qompack_qompack__dropped', 'mcp__plugin_qompack_qompack__expand', 'mcp__plugin_qompack_qompack__re_read', 'mcp__plugin_qompack_qompack__recall', 'mcp__plugin_qompack_qompack__record_eliminated', 'mcp__plugin_qompack_qompack__timeline', 'mcp__plugin_qompack_qompack__why']
+docs/mcp-tools.md tools: ['recall', 'expand', 're_read', 'already_tried', 'record_eliminated', 'timeline', 'why', 'dropped']
+match: True
+mcp_servers: [{'name': 'plugin:qompack:qompack', 'status': 'connected', 'source': 'plugin'}]
+slash_commands (qompack): ['qompack:dropped', 'qompack:eval', 'qompack:pin', 'qompack:recall', 'qompack:status', 'qompack:why']
+plugins: [{'name': 'qompack', 'path': '<scratch>\\install\\uat01\\marketplace\\qompack-plugin-0.3.0-windows-amd64', 'source': 'qompack@qompack-live', 'version': '0.3.0'}]

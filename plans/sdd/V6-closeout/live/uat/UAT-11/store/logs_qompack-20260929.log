@@ -1,0 +1,6 @@
+ts=2026-09-29T19:12:52.1452805Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-09-29T19:12:52.1908175Z level=info msg="observer: session registered" session=b091b4b8-c71b-403b-9a79-78e095e4895d source=startup turn=0 segment=1
+ts=2026-09-29T19:12:52.1908175Z level=info msg="scheduler: session bound" session=b091b4b8-c71b-403b-9a79-78e095e4895d effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+ts=2026-09-29T19:13:31.8905544Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="critical host-contract failure: hook.additional_context_delivered (expected \"additionalContext reaches the transcript\", observed \"sentinel not found after two chances\")" failed=hook.additional_context_delivered/critical,mcp.server_registered/info
+ts=2026-09-29T19:13:49.5941067Z level=warn msg="observer: stage failed" stage=segment.close err="qompack: append-only violation: segment 1 is already closed at turn 5, refused for 9"
+ts=2026-09-29T19:13:49.7072238Z level=info msg="observer: gc" scanned=75 deleted=0 freed=0 truncated=false

@@ -329,22 +329,31 @@ func TestUserIntent_FencedPromptSurvivesVerbatim(t *testing.T) {
 	require.Equal(t, lines, back, "the prompt survives byte-identically inside the blockquote")
 }
 
-// TestUserIntent_CapsAtMaxIntentBytes asserts a pasted wall of text is bounded. The tail of a paste
-// is not the statement of intent, and an unbounded read would let one prompt consume the payload.
-func TestUserIntent_CapsAtMaxIntentBytes(t *testing.T) {
+// TestUserIntent_WallOfTextIsNamedNotCut asserts a pasted wall of text is bounded without being
+// cut. The read stops at intentReadLimit, so one prompt can neither consume the payload nor be read
+// without bound; and the capture is then named as an explicit overflow with the call that returns
+// it, never quoted in part.
+//
+// This row used to pin the opposite: "> " plus the first 8,192 bytes as item 2's unit, on the
+// grounds that the tail of a paste is not the statement of intent. D5 (whole records) and UAT-05's
+// "a record cut mid-record" fail criterion forbid exactly that, and the live lane found it cutting
+// a real brief mid-word under the "verbatim" heading (F-UAT04-1).
+func TestUserIntent_WallOfTextIsNamedNotCut(t *testing.T) {
 	cp := ckEmpty()
 	cp.Session = core.SessionID("s4")
 	r := requestFor(t, cp, generousTestBudget)
 	d := depsWith(&spyLogger{})
 	d.Store = newFakeStore().withPrompt(firstPromptID(cp.Session), cp.Session, 0,
-		strings.Repeat("a", 4*maxIntentBytes))
+		strings.Repeat("a", int(intentReadLimit)+1))
 
 	got := buildUserIntent(bg(), r, d)
 
-	require.Len(t, got.units, 1)
-	// "> " + at most maxIntentBytes of body + "\n".
-	require.LessOrEqual(t, len(got.units[0].text), maxIntentBytes+3)
-	require.Equal(t, "> "+strings.Repeat("a", maxIntentBytes)+"\n", got.units[0].text)
+	require.Empty(t, got.units, "no part of the wall of text is quoted")
+	require.Len(t, got.drops, 1)
+	require.Equal(t, ItemUserIntent.String(), got.drops[0].Kind)
+	require.Equal(t, "tier1", got.drops[0].ID, "an explicit overflow, which Overflowed recognizes")
+	require.True(t, strings.HasSuffix(got.drops[0].Detail, "; restore: expand(tool_use_id=prompt_s4_0)"),
+		"with the call that returns the whole capture: %q", got.drops[0].Detail)
 }
 
 // TestUserIntent_EvolutionUnitsFollowTheOriginal pins the unit layout the budget pass depends on:
@@ -1425,6 +1434,40 @@ func TestDropReport_OrdersPathRulesFirst(t *testing.T) {
 		"- a_kind_from_the_future z\n",
 	}, unitTexts(got))
 	require.Equal(t, 6, got.seen)
+}
+
+// TestDropReport_UnreadPinSetSurvivesATightReport: a seal that could not re-read the pin set names
+// it in Checkpoint.Dropped as {invariants, pins} (internal/checkpoint sealInvariants) — tier-1
+// material that may be missing. Under a section-7 allowance too small for the whole report, that
+// line must be one the agent still reads by name, not one the counted tail swallows.
+func TestDropReport_UnreadPinSetSurvivesATightReport(t *testing.T) {
+	d := Deps{Tokens: fakeEstimator{}}
+	pinsDrop := checkpoint.DropEntry{
+		Kind: "invariants", ID: "pins",
+		Detail: "pins could not be re-read at the seal, so pins made after the draft began may be missing",
+	}
+	entries := []checkpoint.DropEntry{pinsDrop}
+	for _, id := range []string{".claude/rules/a.md", ".claude/rules/b.md", ".claude/rules/c.md", ".claude/rules/d.md"} {
+		entries = append(entries, checkpoint.DropEntry{Kind: dropKindPathRule, ID: id, Detail: "did not fit the rehydration budget"})
+	}
+	b := buildDropReport(entries)
+	priceUnits(d, b.units)
+	pinsLine := dropLine(pinsDrop)
+	var pinsCost cost
+	for _, u := range b.units {
+		if u.text == pinsLine {
+			pinsCost = unitCost(u)
+		}
+	}
+	require.NotZero(t, pinsCost, "fixture sanity: the pins line is in the report")
+
+	// Room for the heading, ONE line and the counted tail.
+	allowance := sectionCost(d, ItemDropReport, b).plus(pinsCost).plus(unitCost(moreDropsUnit(d, len(b.units)-1)))
+	got := fillDropReport(d, b, allowance)
+
+	require.True(t, got.truncated, "fixture sanity: the allowance cannot hold the whole report")
+	require.Equal(t, []string{pinsLine, "- … and 4 more; call dropped()\n"}, unitTexts(built{units: got.units}),
+		"the unread pin set is the line a truncated report keeps")
 }
 
 // TestDropReport_SortsByIDWithinAKind asserts the within-kind order is ID ascending, so the report

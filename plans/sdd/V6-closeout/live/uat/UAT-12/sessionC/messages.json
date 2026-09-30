@@ -1,0 +1,4 @@
+[
+ "Call the MCP tool mcp__plugin_qompack_qompack__recall with query \"HERON-42\". Report the tool, path and tool_use_id of every hit.",
+ "Call the MCP tool mcp__plugin_qompack_qompack__re_read with path \"README.md\" and reply with only the code word it contains."
+]

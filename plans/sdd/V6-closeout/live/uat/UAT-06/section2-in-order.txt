@@ -1,0 +1,21 @@
+UAT-06 step 6: section 2 of each captured block, in capture order
+
+block1-A-compact (729 UTF-16 units):
+## 2. Original user intent (verbatim from L0 capture — never summarized)
+> We are building a rate limiter for the Kite API gateway. Requirement: allow 100 requests per minute per client. First, run the Bash command `cat config/limits.txt` and tell me how many entries it lists. Do not repeat any values.
+
+
+block2-B-resume-compact (729 UTF-16 units):
+## 2. Original user intent (verbatim from L0 capture — never summarized)
+> We are building a rate limiter for the Kite API gateway. Requirement: allow 100 requests per minute per client. First, run the Bash command `cat config/limits.txt` and tell me how many entries it lists. Do not repeat any values.
+
+
+block3-C-fork-compact (779 UTF-16 units):
+## 2. Original user intent (verbatim from L0 capture — never summarized)
+> We are continuing in a forked session. In one sentence: what is the current per-client rate limit requirement?
+
+
+block4-C-fork-after-second-correction-compact (779 UTF-16 units):
+## 2. Original user intent (verbatim from L0 capture — never summarized)
+> We are continuing in a forked session. In one sentence: what is the current per-client rate limit requirement?
+

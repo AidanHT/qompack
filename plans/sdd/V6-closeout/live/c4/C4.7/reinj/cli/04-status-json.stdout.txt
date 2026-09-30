@@ -1,0 +1,421 @@
+{
+  "schema": 1,
+  "command": "status",
+  "ok": true,
+  "data": {
+    "schema": 1,
+    "collected_at_ms": 1790709419502,
+    "primary": {
+      "source": "daemon",
+      "status": "available",
+      "age_ms": 0
+    },
+    "snapshot": {
+      "mode": "full",
+      "contract": [
+        {
+          "id": "session_start.fires",
+          "ok": true,
+          "severity": 0,
+          "expected": "SessionStart hook fires",
+          "observed": "marker-absent-once",
+          "ts": 1790709396386
+        },
+        {
+          "id": "session_start.source_compact",
+          "ok": true,
+          "severity": 0,
+          "expected": "compact",
+          "observed": "compact",
+          "ts": 1790709396386
+        },
+        {
+          "id": "hook.additional_context_delivered",
+          "ok": true,
+          "severity": 0,
+          "expected": "additionalContext reaches the transcript",
+          "observed": "not-yet-observed",
+          "ts": 1790709396386
+        },
+        {
+          "id": "precompact.has_time_to_write",
+          "ok": true,
+          "severity": 0,
+          "expected": "PreCompact has time to write",
+          "observed": "p99=60ms timeout=20000ms",
+          "ts": 1790709396386
+        },
+        {
+          "id": "precompact.custom_instructions_accepted",
+          "ok": true,
+          "severity": 0,
+          "expected": "custom_instructions accepted",
+          "observed": "retired",
+          "ts": 1790709396386,
+          "detail": "retired (C1.18): no host accepts a PreCompact instruction and Qompack no longer emits one; custom_instructions is PreCompact input, not a summarizer setter (see docs/cannot-do.md)"
+        },
+        {
+          "id": "hook.payload_shape",
+          "ok": true,
+          "severity": 0,
+          "expected": "hook payload shape matches hookio.Event",
+          "observed": "payload shape valid",
+          "ts": 1790709396386
+        },
+        {
+          "id": "mcp.server_registered",
+          "ok": false,
+          "severity": 0,
+          "expected": "MCP server received initialize",
+          "observed": "initialize-not-received",
+          "ts": 1790709396386
+        },
+        {
+          "id": "transcript.readable",
+          "ok": true,
+          "severity": 0,
+          "expected": "transcript_path exists and parses",
+          "observed": "transcript readable",
+          "ts": 1790709396387
+        },
+        {
+          "id": "plugin.root_resolves",
+          "ok": true,
+          "severity": 0,
+          "expected": "CLAUDE_PLUGIN_ROOT expands to an existing binary",
+          "observed": "resolved",
+          "ts": 1790709396387
+        }
+      ],
+      "hot": "sync",
+      "sessions": [
+        {
+          "ID": "08522ad0-2ef0-4cfa-96bf-ed46006f08dc",
+          "Hot": 0,
+          "Live": false,
+          "LastActivity": 1790709411063,
+          "Events": 11,
+          "StartedTS": 1790709374718,
+          "EndedTS": 1790709411858,
+          "Source": "compact",
+          "TranscriptPath": "C:\\Users\\Quant\\.claude\\projects\\C--Users-Quant-AppData-Local-Temp-claude-qompack-live-retrieval-c47-reinj-proj\\08522ad0-2ef0-4cfa-96bf-ed46006f08dc.jsonl"
+        }
+      ],
+      "latency": {
+        "checkpoint_finalize": {
+          "N": 1,
+          "P50": 49152000,
+          "P95": 49152000,
+          "P99": 49152000,
+          "P999": 49152000,
+          "Max": 49026000
+        },
+        "hook_controlled": {
+          "N": 11,
+          "P50": 18432000,
+          "P95": 81920000,
+          "P99": 81920000,
+          "P999": 81920000,
+          "Max": 74000000
+        },
+        "hook_controlled_observed": {
+          "N": 11,
+          "P50": 2048000,
+          "P95": 5120000,
+          "P99": 5120000,
+          "P999": 5120000,
+          "Max": 5000000
+        },
+        "l0_ingest": {
+          "N": 11,
+          "P50": 16384000,
+          "P95": 73728000,
+          "P99": 73728000,
+          "P999": 73728000,
+          "Max": 71082000
+        },
+        "l0_process": {
+          "N": 11,
+          "P50": 65536000,
+          "P95": 114688000,
+          "P99": 114688000,
+          "P999": 114688000,
+          "Max": 107006000
+        },
+        "mcp_tool_call": {
+          "N": 1,
+          "P50": 9216000,
+          "P95": 9216000,
+          "P99": 9216000,
+          "P999": 9216000,
+          "Max": 8535000
+        }
+      },
+      "budgets": null,
+      "counters": {
+        "checkpoint.cold_precompact": 1,
+        "contract_fail_mcp_server_registered": 2,
+        "contract_fail_transcript_readable": 1,
+        "daemon.publication.unindexed_object_candidates": 0,
+        "daemon.publication.unpublished_captures": 0,
+        "mcp.ephemeral.recorded": 1,
+        "negknow.bloom.rebuilds": 1,
+        "observer.subagent_capture": 1,
+        "observer.tombstone": 2,
+        "sched.persist": 2,
+        "sched.pselection.enabled": 1,
+        "store.publication.sync": 16,
+        "store.publication.sync.dir": 76,
+        "store.publication.sync.file": 54
+      },
+      "spool_files": 0,
+      "loud_tail": []
+    },
+    "hooks": [
+      {
+        "event": "PostToolUse",
+        "subcommand": "observe tool",
+        "timeout_seconds": 5,
+        "budget": "B-A",
+        "latency": null,
+        "provenance": {
+          "source": "daemon",
+          "status": "unavailable",
+          "age_ms": 0,
+          "reason": "no per-hook instrument: PostToolUse is folded into the hook_controlled aggregate, which mixes every delivering hook and cannot be attributed to one"
+        }
+      },
+      {
+        "event": "UserPromptSubmit",
+        "subcommand": "observe prompt",
+        "timeout_seconds": 5,
+        "budget": "B-A",
+        "latency": null,
+        "provenance": {
+          "source": "daemon",
+          "status": "unavailable",
+          "age_ms": 0,
+          "reason": "no per-hook instrument: UserPromptSubmit is folded into the hook_controlled aggregate, which mixes every delivering hook and cannot be attributed to one"
+        }
+      },
+      {
+        "event": "SessionStart",
+        "subcommand": "session-start",
+        "timeout_seconds": 15,
+        "budget": "B-A",
+        "latency": null,
+        "provenance": {
+          "source": "daemon",
+          "status": "unavailable",
+          "age_ms": 0,
+          "reason": "no per-hook instrument: SessionStart is folded into the hook_controlled aggregate, which mixes every delivering hook and cannot be attributed to one"
+        }
+      },
+      {
+        "event": "PreCompact",
+        "subcommand": "checkpoint",
+        "timeout_seconds": 20,
+        "budget": "B-E",
+        "latency": {
+          "hist": "checkpoint_finalize",
+          "n": 1,
+          "p50_us": 49152,
+          "p95_us": 49152,
+          "p99_us": 49152,
+          "max_us": 49026,
+          "measure": "observed"
+        },
+        "provenance": {
+          "source": "daemon",
+          "status": "available",
+          "age_ms": 0
+        }
+      },
+      {
+        "event": "Stop",
+        "subcommand": "observe stop",
+        "timeout_seconds": 5,
+        "budget": "B-A",
+        "latency": null,
+        "provenance": {
+          "source": "daemon",
+          "status": "unavailable",
+          "age_ms": 0,
+          "reason": "no per-hook instrument: Stop is folded into the hook_controlled aggregate, which mixes every delivering hook and cannot be attributed to one"
+        }
+      },
+      {
+        "event": "SubagentStop",
+        "subcommand": "observe stop --subagent",
+        "timeout_seconds": 10,
+        "budget": "B-A",
+        "latency": null,
+        "provenance": {
+          "source": "daemon",
+          "status": "unavailable",
+          "age_ms": 0,
+          "reason": "no per-hook instrument: SubagentStop is folded into the hook_controlled aggregate, which mixes every delivering hook and cannot be attributed to one"
+        }
+      },
+      {
+        "event": "SessionEnd",
+        "subcommand": "flush",
+        "timeout_seconds": 20,
+        "budget": "B-A",
+        "latency": null,
+        "provenance": {
+          "source": "daemon",
+          "status": "unavailable",
+          "age_ms": 0,
+          "reason": "no per-hook instrument: SessionEnd is folded into the hook_controlled aggregate, which mixes every delivering hook and cannot be attributed to one"
+        }
+      }
+    ],
+    "budgets": [
+      {
+        "id": "B-A",
+        "hist": "hook_controlled",
+        "gated": true,
+        "aggregate": true,
+        "covers": [
+          "PostToolUse",
+          "UserPromptSubmit",
+          "SessionStart",
+          "Stop",
+          "SubagentStop",
+          "SessionEnd"
+        ],
+        "measure": "estimated",
+        "latency": {
+          "hist": "hook_controlled",
+          "n": 11,
+          "p50_us": 18432,
+          "p95_us": 81920,
+          "p99_us": 81920,
+          "max_us": 74000,
+          "measure": "estimated"
+        },
+        "provenance": {
+          "source": "daemon",
+          "status": "available",
+          "age_ms": 0
+        }
+      },
+      {
+        "id": "B-B",
+        "hist": "l0_ingest",
+        "gated": true,
+        "aggregate": true,
+        "measure": "observed",
+        "latency": {
+          "hist": "l0_ingest",
+          "n": 11,
+          "p50_us": 16384,
+          "p95_us": 73728,
+          "p99_us": 73728,
+          "max_us": 71082,
+          "measure": "observed"
+        },
+        "provenance": {
+          "source": "daemon",
+          "status": "available",
+          "age_ms": 0
+        }
+      },
+      {
+        "id": "B-C",
+        "hist": "l0_process",
+        "gated": false,
+        "aggregate": true,
+        "measure": "observed",
+        "latency": {
+          "hist": "l0_process",
+          "n": 11,
+          "p50_us": 65536,
+          "p95_us": 114688,
+          "p99_us": 114688,
+          "max_us": 107006,
+          "measure": "observed"
+        },
+        "provenance": {
+          "source": "daemon",
+          "status": "available",
+          "age_ms": 0
+        }
+      },
+      {
+        "id": "B-D",
+        "hist": "hook_wall",
+        "gated": false,
+        "aggregate": true,
+        "measure": "observed",
+        "latency": null,
+        "provenance": {
+          "source": "daemon",
+          "status": "unavailable",
+          "age_ms": 0,
+          "reason": "no instrument records this histogram in this build; it measures host process creation, which the created process cannot observe"
+        }
+      },
+      {
+        "id": "B-E",
+        "hist": "checkpoint_finalize",
+        "gated": true,
+        "aggregate": false,
+        "covers": [
+          "PreCompact"
+        ],
+        "measure": "observed",
+        "latency": {
+          "hist": "checkpoint_finalize",
+          "n": 1,
+          "p50_us": 49152,
+          "p95_us": 49152,
+          "p99_us": 49152,
+          "max_us": 49026,
+          "measure": "observed"
+        },
+        "provenance": {
+          "source": "daemon",
+          "status": "available",
+          "age_ms": 0
+        }
+      },
+      {
+        "id": "B-F",
+        "hist": "mcp_tool_call",
+        "gated": true,
+        "aggregate": true,
+        "measure": "observed",
+        "latency": {
+          "hist": "mcp_tool_call",
+          "n": 1,
+          "p50_us": 9216,
+          "p95_us": 9216,
+          "p99_us": 9216,
+          "max_us": 8535,
+          "measure": "observed"
+        },
+        "provenance": {
+          "source": "daemon",
+          "status": "available",
+          "age_ms": 0
+        }
+      },
+      {
+        "id": "B-G",
+        "hist": "hook_degraded",
+        "gated": false,
+        "aggregate": true,
+        "measure": "observed",
+        "latency": null,
+        "provenance": {
+          "source": "daemon",
+          "status": "unavailable",
+          "age_ms": 0,
+          "reason": "hook_degraded: no samples recorded in the observed window"
+        }
+      }
+    ]
+  }
+}

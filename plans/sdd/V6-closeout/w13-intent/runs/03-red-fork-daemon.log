@@ -1,0 +1,15 @@
+--- FAIL: TestSessionStartFork_RecordsTheForksLineage (0.29s)
+    session_lineage_test.go:71: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-intent/internal/daemon/session_lineage_test.go:71
+        	Error:      	Expected value not to be nil.
+        	Test:       	TestSessionStartFork_RecordsTheForksLineage
+        	Messages:   	SessionStart(source=fork) records the fork's lineage
+--- FAIL: TestCompactRehydration_ForkShowsTheParentsOriginal (0.19s)
+    session_lineage_test.go:163: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-intent/internal/daemon/session_lineage_test.go:163
+        	Error:      	"<!-- qompack:injected seq=4 ver=1 -->\n# Qompack rehydration — checkpoint 0004, session sess-lin\n\n## 2. Original user intent (verbatim from L0 capture — never summarized)\n> We are continuing in a forked session. In one sentence: what is the current per-client rate limit requirement?\nEvolution (most recent first):\n> We are continuing in a forked session. In one sentence: what is the current per-client rate limit requirement?\n> Correction: the limit must be 60 requests per minute per client, not 100.\n\n## 7. No longer in context\n- path_rule unavailable — no rule scanner is wired; path-scoped rules were not restored\n- nested_claude_md unavailable — no rule scanner is wired; nested CLAUDE.md files were not restored\n- skill unavailable — no skill indexer is wired; the compact skill index was not restored\n- intent_mismatch sess-lineage-fork — checkpoint user_intent.original differs from the L0 capture; injecting the L0 text\n- elimination_source ledger — no elimination ledger is wired; using the checkpoint's frozen copy\n\n## 8. Retrieval\nQompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().\n<!-- /qompack:injected -->\n<!-- qompack-contract-probe qompack-contract-af25053218df -->" does not contain "> We are building a rate limiter for the Kite API gateway. Requirement: allow 100 requests per minute per client.\n"
+        	Test:       	TestCompactRehydration_ForkShowsTheParentsOriginal
+        	Messages:   	section 2's original is the parent's
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	0.849s
+FAIL

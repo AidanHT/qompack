@@ -1,0 +1,6 @@
+incomplete-outcome probe (UAT-03 expected result, last bullet), in a DISPOSABLE COPY of the post-run project
+(<scratch>/sessions/uat03/probe/proj, copied with its daemon stopped); the original store is untouched.
+corruption: checkpoints/0001.json, one byte changed ('Tern' -> 'Tarn' in user_intent.original), same length;
+sha256 now 2dfa0dd4e4810d91a1c7d9d76b7a04a86bf960fd9d9f2b9ebe0cc17e50df933d, MANIFEST still records 8d4c26dc...de37d64.
+rehydration: the bundle's hook entry point `qompack session-start` run by hand with a SessionStart source=compact payload
+for the recorded session (no model; no host session), then fsck and the day log.

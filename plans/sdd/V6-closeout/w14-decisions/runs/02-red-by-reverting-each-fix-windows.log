@@ -1,0 +1,67 @@
+### M1 extractor rank: drop own-before-foreign (internal/checkpoint/decisions.go)
+$ go test -p 2 -count=1 -run '^(TestAdvanceOwnDecisionsRankBeforeOtherSessionsProjectEliminations|TestPreCompactKeepsOwnDecisionsAheadOfForeignOnes|TestPreCompactSealTimeDecisionEmitsItsDAGNode)$' -v ./internal/checkpoint/
+        	Error:      	elements differ
+        	Messages:   	the session's own decisions rank first, all of them
+--- FAIL: TestAdvanceOwnDecisionsRankBeforeOtherSessionsProjectEliminations (0.11s)
+        	Error:      	elements differ
+        	Messages:   	the session's own decisions rank first, all of them
+--- FAIL: TestPreCompactKeepsOwnDecisionsAheadOfForeignOnes (0.16s)
+--- PASS: TestPreCompactSealTimeDecisionEmitsItsDAGNode (0.16s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/checkpoint	0.736s
+FAIL
+exit=1
+
+### M2 draft merge: back to Turn-descending only (internal/checkpoint/writer.go)
+$ go test -p 2 -count=1 -run '^(TestAdvanceOwnDecisionsRankBeforeOtherSessionsProjectEliminations|TestPreCompactKeepsOwnDecisionsAheadOfForeignOnes|TestPreCompactSealTimeDecisionEmitsItsDAGNode)$' -v ./internal/checkpoint/
+        	Error:      	elements differ
+        	Messages:   	the session's own decisions rank first, all of them
+--- FAIL: TestAdvanceOwnDecisionsRankBeforeOtherSessionsProjectEliminations (0.11s)
+        	Error:      	elements differ
+        	Messages:   	the session's own decisions rank first, all of them
+--- FAIL: TestPreCompactKeepsOwnDecisionsAheadOfForeignOnes (0.21s)
+--- PASS: TestPreCompactSealTimeDecisionEmitsItsDAGNode (0.24s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/checkpoint	0.834s
+FAIL
+exit=1
+
+### M3 extractor: restore the from-turn cut for foreign records (internal/checkpoint/decisions.go)
+$ go test -p 2 -count=1 -run '^(TestAdvanceOwnDecisionsRankBeforeOtherSessionsProjectEliminations|TestPreCompactKeepsOwnDecisionsAheadOfForeignOnes|TestPreCompactSealTimeDecisionEmitsItsDAGNode)$' -v ./internal/checkpoint/
+        	Error:      	Not equal: 
+        	            	--- Expected
+        	Messages:   	foreign decisions fill the remaining room newest-recorded first, not by the foreign session's turns
+--- FAIL: TestAdvanceOwnDecisionsRankBeforeOtherSessionsProjectEliminations (0.26s)
+--- PASS: TestPreCompactKeepsOwnDecisionsAheadOfForeignOnes (0.22s)
+--- PASS: TestPreCompactSealTimeDecisionEmitsItsDAGNode (0.23s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/checkpoint	0.978s
+FAIL
+exit=1
+
+### M4 refresh: no DAG emission (internal/checkpoint/writer.go)
+$ go test -p 2 -count=1 -run '^(TestAdvanceOwnDecisionsRankBeforeOtherSessionsProjectEliminations|TestPreCompactKeepsOwnDecisionsAheadOfForeignOnes|TestPreCompactSealTimeDecisionEmitsItsDAGNode)$' -v ./internal/checkpoint/
+--- PASS: TestAdvanceOwnDecisionsRankBeforeOtherSessionsProjectEliminations (0.25s)
+--- PASS: TestPreCompactKeepsOwnDecisionsAheadOfForeignOnes (0.17s)
+        	Error:      	"[]" should have 1 item(s), but has 0
+        	Messages:   	the seal-time decision is in the DAG, so slice scoring can rank it
+--- FAIL: TestPreCompactSealTimeDecisionEmitsItsDAGNode (0.18s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/checkpoint	0.896s
+FAIL
+exit=1
+
+### M5 foreign map: ignore the carried eliminations (internal/checkpoint/writer.go)
+$ go test -p 2 -count=1 -run '^(TestAdvanceOwnDecisionsRankBeforeOtherSessionsProjectEliminations|TestPreCompactKeepsOwnDecisionsAheadOfForeignOnes|TestPreCompactSealTimeDecisionEmitsItsDAGNode)$' -v ./internal/checkpoint/
+        	Error:      	elements differ
+        	Messages:   	the session's own decisions rank first, all of them
+--- FAIL: TestAdvanceOwnDecisionsRankBeforeOtherSessionsProjectEliminations (0.19s)
+        	Error:      	elements differ
+        	Messages:   	the session's own decisions rank first, all of them
+--- FAIL: TestPreCompactKeepsOwnDecisionsAheadOfForeignOnes (0.20s)
+--- PASS: TestPreCompactSealTimeDecisionEmitsItsDAGNode (0.27s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/checkpoint	0.942s
+FAIL
+exit=1
+

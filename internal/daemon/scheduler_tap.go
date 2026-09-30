@@ -16,8 +16,9 @@ import (
 
 // How L0 events reach L3. SP-05's daemon routes every hook to a Services function seam and never
 // calls Services.Sched itself; scheduler.Runtime has no hook-shaped method it could call. Without
-// this tap nothing would ever call Observe, NotifyActivity or Persist. It decorates exactly the
-// five L0 seams through SP-05's own late-binding hook, so no SP-05 or SP-08 file is edited.
+// this tap nothing would ever call Observe, NotifyActivity or Persist. It decorates the five L0
+// seams, and the PreCompact seam for the compaction boundary, through SP-05's own late-binding
+// hook, so no SP-05 or SP-08 file is edited.
 
 // The tap's instruments and the causes it hands CloseSegmentOn.
 const (
@@ -30,6 +31,22 @@ const (
 	causeTodo        = "todo"
 	causeTest        = "test"
 	causeCommit      = "commit"
+	// causeCompact is the host's compaction: the boundary every session has (F-UAT03-1).
+	causeCompact = "compact"
+
+	// counterTapCompactForeign counts compactions of a session other than the one this runtime is
+	// bound to, whose segment the tap therefore leaves alone.
+	counterTapCompactForeign = "sched.tap.compact_foreign"
+	// counterTapCompactUnobserved counts compactions whose open segment the tap left open because
+	// the runtime holds no token account for it: closed, it would record zero tokens for good.
+	counterTapCompactUnobserved = "sched.tap.compact_unobserved"
+
+	// counterTapBindFirstHook counts binds made by a session's first hook on a runtime bound to no
+	// session: a daemon restarted in the middle of the session, which gets no SessionStart for it.
+	counterTapBindFirstHook = "sched.tap.bind.first_hook"
+	// counterTapBindNotLive counts hooks that found the runtime unbound but named a session the
+	// daemon's registry does not hold live (a replayed delivery), which therefore did not bind.
+	counterTapBindNotLive = "sched.tap.bind.not_live"
 
 	msgTapPanic = "scheduler tap panicked; inner seam result returned unchanged"
 )
@@ -49,9 +66,16 @@ type schedTap struct {
 // runs — so a build without SP-08 degrades to "scheduler sees timestamps only". Every wrapper
 // calls the inner seam FIRST (SP-08 has then already written the tool-use record the tap reads)
 // and returns the inner result unchanged: a tap failure, including a panic, never changes a
-// hook's result. rt == nil, or a Runtime that is not the daemon's, leaves s untouched. The four
-// seams SP-12 does not decorate — PreCompact, Rehydrate, MCPInitialized, StatusExtra — and
-// Services.Mode are never read or replaced.
+// hook's result. rt == nil, or a Runtime that is not the daemon's, leaves s untouched. The three
+// seams SP-12 does not decorate — Rehydrate, MCPInitialized, StatusExtra — and Services.Mode are
+// never read or replaced.
+//
+// PreCompact is the one seam decorated the other way round: the tap runs BEFORE the inner seam.
+// A compaction is a segment boundary — the host is about to replace everything so far with its
+// summary — and the checkpointer the inner seam calls encodes closed segments only. So the segment
+// holding the compacted span is closed first, and the seal then encodes it; closed after, it was
+// left out of the very checkpoint sealed for it (F-UAT03-1). It is decorated only when set: with no
+// checkpointer there is no seal to close a segment for.
 func WrapServicesForScheduler(s *Services, rt scheduler.Runtime, o SchedulerRuntimeOptions) {
 	if s == nil || rt == nil {
 		return
@@ -106,7 +130,7 @@ func WrapServicesForScheduler(s *Services, rt scheduler.Runtime, o SchedulerRunt
 		if innerPrompt != nil {
 			out, err = innerPrompt(ctx, e)
 		}
-		t.guard("ObservePrompt", func() { t.observePrompt() })
+		t.guard("ObservePrompt", func() { t.observePrompt(ctx, e) })
 		return out, err
 	}
 	s.SessionEnd = func(ctx context.Context, e hookio.Event) error {
@@ -116,6 +140,12 @@ func WrapServicesForScheduler(s *Services, rt scheduler.Runtime, o SchedulerRunt
 		}
 		t.guard("SessionEnd", func() { t.sessionEnd(ctx) })
 		return err
+	}
+	if innerPreCompact := s.PreCompact; innerPreCompact != nil {
+		s.PreCompact = func(ctx context.Context, e hookio.Event) (hookio.Output, error) {
+			t.guard("PreCompact", func() { t.preCompact(ctx, e) })
+			return innerPreCompact(ctx, e)
+		}
 	}
 }
 
@@ -149,6 +179,7 @@ func (t *schedTap) sessionStart(e hookio.Event) {
 // task-boundary signal. A missing record (core.ErrNotFound) is counted and skips the BOCD update;
 // the timestamp work still happens, anchored on the clock instead of the record.
 func (t *schedTap) observeTool(ctx context.Context, e hookio.Event) {
+	t.r.bindOnFirstHook(e.SessionID)
 	sig := observer.ExtractSignals(e)
 	now := t.r.nowMS()
 	rec, err := t.r.st.ToolUse(ctx, e.ToolUseID)
@@ -176,6 +207,7 @@ func (t *schedTap) observeTool(ctx context.Context, e hookio.Event) {
 // fires once per assistant turn. It never anchors the request start: Stop fires after
 // generation. A subagent's Stop is activity but not a main-agent round or observation.
 func (t *schedTap) observeStop(ctx context.Context, e hookio.Event, subagent bool) {
+	t.r.bindOnFirstHook(e.SessionID)
 	now := t.r.nowMS()
 	t.r.NotifyActivity(now)
 	t.r.NoteEffort(e)
@@ -188,9 +220,14 @@ func (t *schedTap) observeStop(ctx context.Context, e hookio.Event, subagent boo
 	t.closeOnBoundary(ctx, turn, f, sig)
 }
 
-// observePrompt runs synchronously inside SP-05's 250 ms reply deadline: activity and the
-// request-start anchor only — no store I/O, no BOCD update.
-func (t *schedTap) observePrompt() {
+// observePrompt runs twice per prompt: synchronously inside SP-05's 250 ms reply deadline, and on
+// the ingest worker that captures the prompt. Both record activity and the request-start anchor
+// only — no store I/O, no BOCD update. The worker's call also binds a session on its first hook
+// (bindOnFirstHook), which reads the session's state files; the reply path never does.
+func (t *schedTap) observePrompt(ctx context.Context, e hookio.Event) {
+	if !observer.PromptReplyOnly(ctx) {
+		t.r.bindOnFirstHook(e.SessionID)
+	}
 	now := t.r.nowMS()
 	t.r.NotifyActivity(now)
 	t.r.NoteRequestStart(now)
@@ -203,6 +240,17 @@ func (t *schedTap) sessionEnd(ctx context.Context) {
 	}
 	if err := CloseSchedulerRuntime(t.r); err != nil {
 		t.log.Warn("scheduler tap: close at session end failed", "err", err.Error())
+	}
+}
+
+// preCompact closes the compacting session's open segment at the highest turn observed, with cause
+// "compact", so the checkpoint sealed next encodes the span the host is about to summarize. A
+// failure is logged at Warn and never stops the seal: the checkpoint is still written, as before,
+// only without that span.
+func (t *schedTap) preCompact(ctx context.Context, e hookio.Event) {
+	if err := t.r.CloseSegmentForCompaction(ctx, e.SessionID); err != nil {
+		t.log.Warn("scheduler tap: segment close at compaction failed; the checkpoint will not encode the open span",
+			"session", string(e.SessionID), "err", err.Error())
 	}
 }
 

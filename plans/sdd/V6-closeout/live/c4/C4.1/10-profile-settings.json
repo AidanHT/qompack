@@ -1,0 +1,13 @@
+{
+  "extraKnownMarketplaces": {
+    "qompack-live": {
+      "source": {
+        "source": "directory",
+        "path": "<scratch>\\install\\c41\\marketplace"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "qompack@qompack-live": true
+  }
+}

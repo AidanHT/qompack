@@ -1,0 +1,6 @@
+step 6 search: regex (shr[iu]nk|shrank|reduc|smaller|saved|saving|cut (?:the|your) (?:context|prompt|input)|freed (?:context|tokens)|native context (?:was|is) (?:reduced|smaller)|fewer tokens|compress(?:ed|ion) (?:your|the host))
+over 144 Qompack outputs (hook_response output+stderr in the session streams, every CLI/probe output under the
+evidence folder except the raw session copies, and <project>/.qompack/logs/*, state/rehydrate-*.json, checkpoints/*.json)
+
+0 match(es):
+(none)

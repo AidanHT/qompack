@@ -1,0 +1,140 @@
+=== RUN   TestExpandBoundCutNeverSplitsARedactedRegion
+--- PASS: TestExpandBoundCutNeverSplitsARedactedRegion (5.02s)
+=== RUN   TestSafeCutFindsTheSafeCutBelowARedactedRegion
+--- PASS: TestSafeCutFindsTheSafeCutBelowARedactedRegion (0.04s)
+=== RUN   TestSafeCutReportsFalseOnlyWhenNoCutIsSafe
+--- PASS: TestSafeCutReportsFalseOnlyWhenNoCutIsSafe (0.10s)
+=== RUN   TestExpandBoundPagesPastARedactedRegionLongerThanHalfThePage
+--- PASS: TestExpandBoundPagesPastARedactedRegionLongerThanHalfThePage (0.11s)
+=== RUN   TestSafeCutFindsTheLargestSafeCutWithTheProductionRedactor
+--- PASS: TestSafeCutFindsTheLargestSafeCutWithTheProductionRedactor (0.76s)
+=== RUN   TestSafeCutRedactCallsAreLogarithmicInARawPrefix
+=== RUN   TestSafeCutRedactCallsAreLogarithmicInARawPrefix/credentialed_URI,_keep_in_the_user/1000
+    response_bound_test.go:774: 44 Redact calls, bound 128, window 17033 bytes, keep 8763, cut 8009
+=== RUN   TestSafeCutRedactCallsAreLogarithmicInARawPrefix/credentialed_URI,_keep_in_the_user/40
+    response_bound_test.go:774: 28 Redact calls, bound 120, window 16073 bytes, keep 8043, cut 8009
+=== RUN   TestSafeCutRedactCallsAreLogarithmicInARawPrefix/credentialed_URI,_keep_in_the_password/1000
+    response_bound_test.go:774: 59 Redact calls, bound 192, window 17033 bytes, keep 9020, cut 8009
+=== RUN   TestSafeCutRedactCallsAreLogarithmicInARawPrefix/credentialed_URI,_keep_in_the_password/40
+    response_bound_test.go:774: 43 Redact calls, bound 180, window 16073 bytes, keep 8060, cut 8009
+=== RUN   TestSafeCutRedactCallsAreLogarithmicInARawPrefix/dotenv_key,_keep_in_the_key/1000
+    response_bound_test.go:774: 40 Redact calls, bound 128, window 17027 bytes, keep 8508, cut 8003
+=== RUN   TestSafeCutRedactCallsAreLogarithmicInARawPrefix/dotenv_key,_keep_in_the_key/40
+    response_bound_test.go:774: 24 Redact calls, bound 120, window 16067 bytes, keep 8028, cut 8003
+=== RUN   TestSafeCutRedactCallsAreLogarithmicInARawPrefix/dotenv_key,_keep_in_the_value/1000
+    response_bound_test.go:774: 70 Redact calls, bound 256, window 17027 bytes, keep 9021, cut 8003
+=== RUN   TestSafeCutRedactCallsAreLogarithmicInARawPrefix/dotenv_key,_keep_in_the_value/40
+    response_bound_test.go:774: 54 Redact calls, bound 240, window 16067 bytes, keep 8061, cut 8003
+=== RUN   TestSafeCutRedactCallsAreLogarithmicInARawPrefix/bearer_keyword,_keep_in_the_blank/1000
+    response_bound_test.go:774: 44 Redact calls, bound 128, window 17053 bytes, keep 9019, cut 8016
+=== RUN   TestSafeCutRedactCallsAreLogarithmicInARawPrefix/bearer_keyword,_keep_in_the_blank/40
+    response_bound_test.go:774: 28 Redact calls, bound 120, window 16093 bytes, keep 8059, cut 8016
+--- PASS: TestSafeCutRedactCallsAreLogarithmicInARawPrefix (0.69s)
+    --- PASS: TestSafeCutRedactCallsAreLogarithmicInARawPrefix/credentialed_URI,_keep_in_the_user/1000 (0.01s)
+    --- PASS: TestSafeCutRedactCallsAreLogarithmicInARawPrefix/credentialed_URI,_keep_in_the_user/40 (0.04s)
+    --- PASS: TestSafeCutRedactCallsAreLogarithmicInARawPrefix/credentialed_URI,_keep_in_the_password/1000 (0.02s)
+    --- PASS: TestSafeCutRedactCallsAreLogarithmicInARawPrefix/credentialed_URI,_keep_in_the_password/40 (0.06s)
+    --- PASS: TestSafeCutRedactCallsAreLogarithmicInARawPrefix/dotenv_key,_keep_in_the_key/1000 (0.02s)
+    --- PASS: TestSafeCutRedactCallsAreLogarithmicInARawPrefix/dotenv_key,_keep_in_the_key/40 (0.07s)
+    --- PASS: TestSafeCutRedactCallsAreLogarithmicInARawPrefix/dotenv_key,_keep_in_the_value/1000 (0.04s)
+    --- PASS: TestSafeCutRedactCallsAreLogarithmicInARawPrefix/dotenv_key,_keep_in_the_value/40 (0.17s)
+    --- PASS: TestSafeCutRedactCallsAreLogarithmicInARawPrefix/bearer_keyword,_keep_in_the_blank/1000 (0.03s)
+    --- PASS: TestSafeCutRedactCallsAreLogarithmicInARawPrefix/bearer_keyword,_keep_in_the_blank/40 (0.12s)
+=== RUN   TestSafeCutIsTheLargestSafeCutOnProductionShapes
+--- PASS: TestSafeCutIsTheLargestSafeCutOnProductionShapes (0.26s)
+=== RUN   TestSafeCutMatchesTheOracleOnRandomProductionCompositions
+--- PASS: TestSafeCutMatchesTheOracleOnRandomProductionCompositions (2.75s)
+=== RUN   TestExpandBoundCutNeverSplitsARedactedRegion
+--- PASS: TestExpandBoundCutNeverSplitsARedactedRegion (5.18s)
+=== RUN   TestSafeCutFindsTheSafeCutBelowARedactedRegion
+--- PASS: TestSafeCutFindsTheSafeCutBelowARedactedRegion (0.04s)
+=== RUN   TestSafeCutReportsFalseOnlyWhenNoCutIsSafe
+--- PASS: TestSafeCutReportsFalseOnlyWhenNoCutIsSafe (0.09s)
+=== RUN   TestExpandBoundPagesPastARedactedRegionLongerThanHalfThePage
+--- PASS: TestExpandBoundPagesPastARedactedRegionLongerThanHalfThePage (0.13s)
+=== RUN   TestSafeCutFindsTheLargestSafeCutWithTheProductionRedactor
+--- PASS: TestSafeCutFindsTheLargestSafeCutWithTheProductionRedactor (0.75s)
+=== RUN   TestSafeCutRedactCallsAreLogarithmicInARawPrefix
+=== RUN   TestSafeCutRedactCallsAreLogarithmicInARawPrefix/credentialed_URI,_keep_in_the_user/1000
+    response_bound_test.go:774: 44 Redact calls, bound 128, window 17033 bytes, keep 8763, cut 8009
+=== RUN   TestSafeCutRedactCallsAreLogarithmicInARawPrefix/credentialed_URI,_keep_in_the_user/40
+    response_bound_test.go:774: 28 Redact calls, bound 120, window 16073 bytes, keep 8043, cut 8009
+=== RUN   TestSafeCutRedactCallsAreLogarithmicInARawPrefix/credentialed_URI,_keep_in_the_password/1000
+    response_bound_test.go:774: 59 Redact calls, bound 192, window 17033 bytes, keep 9020, cut 8009
+=== RUN   TestSafeCutRedactCallsAreLogarithmicInARawPrefix/credentialed_URI,_keep_in_the_password/40
+    response_bound_test.go:774: 43 Redact calls, bound 180, window 16073 bytes, keep 8060, cut 8009
+=== RUN   TestSafeCutRedactCallsAreLogarithmicInARawPrefix/dotenv_key,_keep_in_the_key/1000
+    response_bound_test.go:774: 40 Redact calls, bound 128, window 17027 bytes, keep 8508, cut 8003
+=== RUN   TestSafeCutRedactCallsAreLogarithmicInARawPrefix/dotenv_key,_keep_in_the_key/40
+    response_bound_test.go:774: 24 Redact calls, bound 120, window 16067 bytes, keep 8028, cut 8003
+=== RUN   TestSafeCutRedactCallsAreLogarithmicInARawPrefix/dotenv_key,_keep_in_the_value/1000
+    response_bound_test.go:774: 70 Redact calls, bound 256, window 17027 bytes, keep 9021, cut 8003
+=== RUN   TestSafeCutRedactCallsAreLogarithmicInARawPrefix/dotenv_key,_keep_in_the_value/40
+    response_bound_test.go:774: 54 Redact calls, bound 240, window 16067 bytes, keep 8061, cut 8003
+=== RUN   TestSafeCutRedactCallsAreLogarithmicInARawPrefix/bearer_keyword,_keep_in_the_blank/1000
+    response_bound_test.go:774: 44 Redact calls, bound 128, window 17053 bytes, keep 9019, cut 8016
+=== RUN   TestSafeCutRedactCallsAreLogarithmicInARawPrefix/bearer_keyword,_keep_in_the_blank/40
+    response_bound_test.go:774: 28 Redact calls, bound 120, window 16093 bytes, keep 8059, cut 8016
+--- PASS: TestSafeCutRedactCallsAreLogarithmicInARawPrefix (0.68s)
+    --- PASS: TestSafeCutRedactCallsAreLogarithmicInARawPrefix/credentialed_URI,_keep_in_the_user/1000 (0.01s)
+    --- PASS: TestSafeCutRedactCallsAreLogarithmicInARawPrefix/credentialed_URI,_keep_in_the_user/40 (0.04s)
+    --- PASS: TestSafeCutRedactCallsAreLogarithmicInARawPrefix/credentialed_URI,_keep_in_the_password/1000 (0.01s)
+    --- PASS: TestSafeCutRedactCallsAreLogarithmicInARawPrefix/credentialed_URI,_keep_in_the_password/40 (0.06s)
+    --- PASS: TestSafeCutRedactCallsAreLogarithmicInARawPrefix/dotenv_key,_keep_in_the_key/1000 (0.02s)
+    --- PASS: TestSafeCutRedactCallsAreLogarithmicInARawPrefix/dotenv_key,_keep_in_the_key/40 (0.07s)
+    --- PASS: TestSafeCutRedactCallsAreLogarithmicInARawPrefix/dotenv_key,_keep_in_the_value/1000 (0.04s)
+    --- PASS: TestSafeCutRedactCallsAreLogarithmicInARawPrefix/dotenv_key,_keep_in_the_value/40 (0.16s)
+    --- PASS: TestSafeCutRedactCallsAreLogarithmicInARawPrefix/bearer_keyword,_keep_in_the_blank/1000 (0.02s)
+    --- PASS: TestSafeCutRedactCallsAreLogarithmicInARawPrefix/bearer_keyword,_keep_in_the_blank/40 (0.12s)
+=== RUN   TestSafeCutIsTheLargestSafeCutOnProductionShapes
+--- PASS: TestSafeCutIsTheLargestSafeCutOnProductionShapes (0.26s)
+=== RUN   TestSafeCutMatchesTheOracleOnRandomProductionCompositions
+--- PASS: TestSafeCutMatchesTheOracleOnRandomProductionCompositions (2.78s)
+=== RUN   TestExpandBoundCutNeverSplitsARedactedRegion
+--- PASS: TestExpandBoundCutNeverSplitsARedactedRegion (5.17s)
+=== RUN   TestSafeCutFindsTheSafeCutBelowARedactedRegion
+--- PASS: TestSafeCutFindsTheSafeCutBelowARedactedRegion (0.04s)
+=== RUN   TestSafeCutReportsFalseOnlyWhenNoCutIsSafe
+--- PASS: TestSafeCutReportsFalseOnlyWhenNoCutIsSafe (0.09s)
+=== RUN   TestExpandBoundPagesPastARedactedRegionLongerThanHalfThePage
+--- PASS: TestExpandBoundPagesPastARedactedRegionLongerThanHalfThePage (0.10s)
+=== RUN   TestSafeCutFindsTheLargestSafeCutWithTheProductionRedactor
+--- PASS: TestSafeCutFindsTheLargestSafeCutWithTheProductionRedactor (0.72s)
+=== RUN   TestSafeCutRedactCallsAreLogarithmicInARawPrefix
+=== RUN   TestSafeCutRedactCallsAreLogarithmicInARawPrefix/credentialed_URI,_keep_in_the_user/1000
+    response_bound_test.go:774: 44 Redact calls, bound 128, window 17033 bytes, keep 8763, cut 8009
+=== RUN   TestSafeCutRedactCallsAreLogarithmicInARawPrefix/credentialed_URI,_keep_in_the_user/40
+    response_bound_test.go:774: 28 Redact calls, bound 120, window 16073 bytes, keep 8043, cut 8009
+=== RUN   TestSafeCutRedactCallsAreLogarithmicInARawPrefix/credentialed_URI,_keep_in_the_password/1000
+    response_bound_test.go:774: 59 Redact calls, bound 192, window 17033 bytes, keep 9020, cut 8009
+=== RUN   TestSafeCutRedactCallsAreLogarithmicInARawPrefix/credentialed_URI,_keep_in_the_password/40
+    response_bound_test.go:774: 43 Redact calls, bound 180, window 16073 bytes, keep 8060, cut 8009
+=== RUN   TestSafeCutRedactCallsAreLogarithmicInARawPrefix/dotenv_key,_keep_in_the_key/1000
+    response_bound_test.go:774: 40 Redact calls, bound 128, window 17027 bytes, keep 8508, cut 8003
+=== RUN   TestSafeCutRedactCallsAreLogarithmicInARawPrefix/dotenv_key,_keep_in_the_key/40
+    response_bound_test.go:774: 24 Redact calls, bound 120, window 16067 bytes, keep 8028, cut 8003
+=== RUN   TestSafeCutRedactCallsAreLogarithmicInARawPrefix/dotenv_key,_keep_in_the_value/1000
+    response_bound_test.go:774: 70 Redact calls, bound 256, window 17027 bytes, keep 9021, cut 8003
+=== RUN   TestSafeCutRedactCallsAreLogarithmicInARawPrefix/dotenv_key,_keep_in_the_value/40
+    response_bound_test.go:774: 54 Redact calls, bound 240, window 16067 bytes, keep 8061, cut 8003
+=== RUN   TestSafeCutRedactCallsAreLogarithmicInARawPrefix/bearer_keyword,_keep_in_the_blank/1000
+    response_bound_test.go:774: 44 Redact calls, bound 128, window 17053 bytes, keep 9019, cut 8016
+=== RUN   TestSafeCutRedactCallsAreLogarithmicInARawPrefix/bearer_keyword,_keep_in_the_blank/40
+    response_bound_test.go:774: 28 Redact calls, bound 120, window 16093 bytes, keep 8059, cut 8016
+--- PASS: TestSafeCutRedactCallsAreLogarithmicInARawPrefix (0.64s)
+    --- PASS: TestSafeCutRedactCallsAreLogarithmicInARawPrefix/credentialed_URI,_keep_in_the_user/1000 (0.01s)
+    --- PASS: TestSafeCutRedactCallsAreLogarithmicInARawPrefix/credentialed_URI,_keep_in_the_user/40 (0.04s)
+    --- PASS: TestSafeCutRedactCallsAreLogarithmicInARawPrefix/credentialed_URI,_keep_in_the_password/1000 (0.01s)
+    --- PASS: TestSafeCutRedactCallsAreLogarithmicInARawPrefix/credentialed_URI,_keep_in_the_password/40 (0.06s)
+    --- PASS: TestSafeCutRedactCallsAreLogarithmicInARawPrefix/dotenv_key,_keep_in_the_key/1000 (0.02s)
+    --- PASS: TestSafeCutRedactCallsAreLogarithmicInARawPrefix/dotenv_key,_keep_in_the_key/40 (0.06s)
+    --- PASS: TestSafeCutRedactCallsAreLogarithmicInARawPrefix/dotenv_key,_keep_in_the_value/1000 (0.04s)
+    --- PASS: TestSafeCutRedactCallsAreLogarithmicInARawPrefix/dotenv_key,_keep_in_the_value/40 (0.15s)
+    --- PASS: TestSafeCutRedactCallsAreLogarithmicInARawPrefix/bearer_keyword,_keep_in_the_blank/1000 (0.02s)
+    --- PASS: TestSafeCutRedactCallsAreLogarithmicInARawPrefix/bearer_keyword,_keep_in_the_blank/40 (0.13s)
+=== RUN   TestSafeCutIsTheLargestSafeCutOnProductionShapes
+--- PASS: TestSafeCutIsTheLargestSafeCutOnProductionShapes (0.26s)
+=== RUN   TestSafeCutMatchesTheOracleOnRandomProductionCompositions
+--- PASS: TestSafeCutMatchesTheOracleOnRandomProductionCompositions (2.61s)
+PASS
+ok  	github.com/qompack/qompack/internal/mcp	29.471s

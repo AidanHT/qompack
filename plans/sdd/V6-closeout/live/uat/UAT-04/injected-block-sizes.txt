@@ -1,0 +1,15 @@
+SessionStart:compact additionalContext per compaction (stream order):
+01: 9009 UTF-16 units, header # Qompack rehydration — checkpoint 0002, session 5fe7f497
+02: 9009 UTF-16 units, header # Qompack rehydration — checkpoint 0003, session 5fe7f497
+03: 9009 UTF-16 units, header # Qompack rehydration — checkpoint 0004, session 5fe7f497
+04: 9009 UTF-16 units, header # Qompack rehydration — checkpoint 0005, session 5fe7f497
+05: 9009 UTF-16 units, header # Qompack rehydration — checkpoint 0006, session 5fe7f497
+06: 9009 UTF-16 units, header # Qompack rehydration — checkpoint 0007, session 5fe7f497
+07: 9009 UTF-16 units, header # Qompack rehydration — checkpoint 0008, session 5fe7f497
+08: 9009 UTF-16 units, header # Qompack rehydration — checkpoint 0009, session 5fe7f497
+09: 9010 UTF-16 units, header # Qompack rehydration — checkpoint 0010, session 5fe7f497
+10: 9010 UTF-16 units, header # Qompack rehydration — checkpoint 0011, session 5fe7f497
+11: 9010 UTF-16 units, header # Qompack rehydration — checkpoint 0012, session 5fe7f497
+12: 9010 UTF-16 units, header # Qompack rehydration — checkpoint 0013, session 5fe7f497
+13: 9010 UTF-16 units, header # Qompack rehydration — checkpoint 0014, session 5fe7f497
+14: output {} (the config-refused compaction)

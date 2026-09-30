@@ -6,7 +6,7 @@ import "github.com/qompack/qompack/internal/testutil"
 
 // e2eProcessAlive reports whether a process with this pid is still running, through
 // OpenProcess + GetExitCodeProcess, which is decisive on Windows where
-// internal/daemon's own pidAlive deliberately abstains.
+// internal/daemon's own pidAlive answers only "dead" and abstains for a running process.
 //
 // The probe itself lives in internal/testutil, which is the one home for it: test/guards needs
 // the same answer for the same reason (v1StopDaemonAndWaitGone), and two copies of a platform

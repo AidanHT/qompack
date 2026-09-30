@@ -1,10 +1,11 @@
 package checkpoint
 
 import (
+	"cmp"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"math"
 	"os"
 	"path/filepath"
@@ -100,6 +101,20 @@ type FileWriter struct {
 	// concurrent calls for one session both observe no live draft, both publish, and the loser's
 	// draft is displaced while still holding the same file path.
 	begins map[core.SessionID]*sessionGate
+	// handoff carries a sealed draft's prompt-text cache to the successor Finalize opens for the
+	// same session (afterSeal), so the successor's intent refresh does not re-read every prompt of
+	// the session inside the PreCompact window. Begin consumes the entry; it is never read twice.
+	handoff map[core.SessionID]map[core.ToolUseID]string
+
+	// claimFloorMu serializes loadClaimFloor and guards claimFloorLoaded and draftScans.
+	// claimFloorLoaded is set once persistedClaimFloor has run to completion for this writer; its
+	// answer is then part of issuedSeq, and no later Begin scans again. The lock order is a
+	// session's begin gate, then claimFloorMu, then mu.
+	claimFloorMu     sync.Mutex
+	claimFloorLoaded bool
+	// draftScans counts persistedClaimFloor's state/ scans, so a test can pin that a writer makes
+	// one (export_test.go).
+	draftScans int
 }
 
 // sessionGate is one session's Begin admission gate, reference-counted so the map does not grow
@@ -187,6 +202,10 @@ func (w *FileWriter) releaseBeginGate(s core.SessionID, g *sessionGate) {
 // number would leave every encoded segment naming a checkpoint that does not contain it (§8.2's
 // "encoded-once flag, and checkpoint reference"). Choosing a free number up front is the cheap
 // half of avoiding that; Finalize enforces the other half.
+//
+// Numbers another daemon lifetime already gave a draft that is still unsealed, or that a durable
+// encode record names, are skipped too: loadClaimFloor folds them into issuedSeq before the first
+// fresh draft of this writer's lifetime claims a number.
 func (w *FileWriter) claimSeq() core.CheckpointSeq {
 	w.mu.Lock()
 	defer w.mu.Unlock()
@@ -357,6 +376,12 @@ func (w *FileWriter) Begin(ctx context.Context, s core.SessionID, parent core.Ch
 	gate := w.acquireBeginGate(s)
 	defer w.releaseBeginGate(s, gate)
 
+	// The sealed predecessor's prompt texts, when Finalize is opening this draft as its successor
+	// (afterSeal). They are taken on every path, so a Begin that finds a live draft or resumes a
+	// persisted one leaves nothing stashed; prompt records are immutable, so a text read once
+	// stays valid for whichever draft uses it.
+	handed := w.takeHandoff(s)
+
 	w.mu.Lock()
 	w.lastSrc = src
 	live := w.drafts[s]
@@ -380,6 +405,22 @@ func (w *FileWriter) Begin(ctx context.Context, s core.SessionID, parent core.Ch
 
 	p := draftPathFor(w.l, s)
 	if d, ok := w.resumeDraft(s, p, parent, src); ok {
+		// A draft written by an earlier process — possibly an earlier build — carries whatever intent
+		// that process computed; it is recomputed from the session's own prompt records now.
+		// A fork's resumed draft inherited its intent from the checkpoint the fork continues, so
+		// it is forkIntentFor's fallback when that checkpoint no longer verifies.
+		d.mu.Lock()
+		prior := Checkpoint{UserIntent: UserIntent{
+			Original: d.cp.UserIntent.Original, Evolution: slices.Clone(d.cp.UserIntent.Evolution),
+		}}
+		d.mu.Unlock()
+		fork := w.forkIntentFor(ctx, src.Store, s, &prior)
+		d.mu.Lock()
+		d.fork = fork
+		d.promptText = handed
+		d.refreshIntentLocked(ctx)
+		d.persistOrLogLocked()
+		d.mu.Unlock()
 		w.noteSeq(d.seq)
 		w.mu.Lock()
 		w.drafts[s] = d
@@ -387,17 +428,19 @@ func (w *FileWriter) Begin(ctx context.Context, s core.SessionID, parent core.Ch
 		return d, nil
 	}
 
+	w.loadClaimFloor(ctx, src)
 	d := &Draft{
-		session:  s,
-		seq:      w.claimSeq(),
-		parent:   parent,
-		encoded:  map[core.SegmentID]bool{},
-		src:      src,
-		started:  w.clk.Now(),
-		dirty:    true,
-		path:     p,
-		fileTurn: map[string]core.TurnIndex{},
-		toolTurn: map[core.ToolUseID]core.TurnIndex{},
+		session:    s,
+		seq:        w.claimSeq(),
+		parent:     parent,
+		encoded:    map[core.SegmentID]bool{},
+		src:        src,
+		started:    w.clk.Now(),
+		dirty:      true,
+		path:       p,
+		fileTurn:   map[string]core.TurnIndex{},
+		toolTurn:   map[core.ToolUseID]core.TurnIndex{},
+		promptText: handed,
 	}
 	d.cp = Checkpoint{
 		Version:    SchemaVersion,
@@ -530,17 +573,19 @@ func (w *FileWriter) seedTierOne(ctx context.Context, d *Draft, parent core.Chec
 		parent = maxSeq(w.l)
 	}
 
-	inherited := false
+	var own *Checkpoint
 	if parent != 0 {
 		pc, _, gerr := w.reader.Get(ctx, parent)
 		switch {
 		case gerr == nil:
-			// The parent chain is how the verbatim original survives arbitrarily many checkpoints
-			// (G2.3): copied, never regenerated.
 			d.parent = parent
 			d.cp.Parent = filepath.Base(paths.CheckpointPath(w.l, parent))
-			d.cp.UserIntent.Original = pc.UserIntent.Original
-			inherited = true
+			// An explicit parent is the caller's statement about THIS session's chain (Finalize's
+			// successor). A derived one is only the project's newest checkpoint, and when another
+			// session sealed it, that session's intent is not this one's.
+			if !derived || pc.Session == d.session {
+				own = &pc
+			}
 		case derived:
 			w.log.Warn("checkpoint: begin: latest checkpoint unreadable; beginning an unchained draft",
 				"parent", int(parent), "err", gerr.Error())
@@ -548,20 +593,14 @@ func (w *FileWriter) seedTierOne(ctx context.Context, d *Draft, parent core.Chec
 			return fmt.Errorf("checkpoint: begin: parent %d: %w", int(parent), gerr)
 		}
 	}
-	if !inherited {
-		if first, ok := earliestPrompt(src.Graph); ok {
-			if text, ok := readPromptText(ctx, src, first); ok {
-				d.cp.UserIntent.Original = text
-			}
-		}
-	}
+	w.seedIntent(ctx, d, own)
 
 	all, err := src.Ledger.All(ctx)
 	if err != nil {
 		return fmt.Errorf("checkpoint: begin: ledger: %w", err)
 	}
 	for _, r := range all {
-		if r.Session != d.session && r.Scope != negknow.ScopeProject {
+		if !carriedBy(r, d.session) {
 			continue
 		}
 		r.DependsOn = slices.Clone(r.DependsOn)
@@ -597,6 +636,11 @@ func (w *FileWriter) seedTierOne(ctx context.Context, d *Draft, parent core.Chec
 //   - MarkEncoded's own batch validation catches the race where another writer encoded a segment
 //     between Get and the mark, and its error propagates unchanged.
 //
+// With the store's own segment log the mark is a RESERVATION (store.SegmentReservation): the DPI
+// guard and the in-memory effect of MarkEncoded, with no record appended. Finalize writes the
+// records when it seals, so index/segments.jsonl never names this draft's sequence while the draft
+// is unsealed — an idle exit before any compaction left it naming one (F-UAT03-2).
+//
 // A segment already encoded into THIS draft (d.encoded) is skipped silently, which is what makes
 // Advance idempotent for the same seq; a re-Begin-after-Abort re-encodes legitimately, because
 // MarkEncoded is idempotent for the same seq.
@@ -616,11 +660,28 @@ func (w *FileWriter) Advance(ctx context.Context, d *Draft, segs []core.SegmentI
 	slices.Sort(ids)
 	ids = slices.Compact(ids)
 
+	// mark is how this batch's encodes reach the segment log: a RESERVATION where the log offers
+	// one, so index/segments.jsonl never names this draft's sequence before Finalize seals it
+	// (F-UAT03-2), and MarkEncoded's single phase for a log that does not (a test double).
+	mark := src.Segments.MarkEncoded
+	reserver, reserves := src.Segments.(store.SegmentReservation)
+	if reserves {
+		mark = reserver.ReserveEncoded
+	}
+
 	var cands []store.Segment
 	var skipped []core.SegmentID
+	// relost are segments this draft already holds that the caller offered again. With a
+	// reserving log that happens after a restart: a reservation is not durable, so the resumed
+	// draft remembers the segment and the reopened log reports it unencoded. Reserving it again
+	// keeps the scheduler's residual and the frontier seeing it as encoded, as they did before.
+	var relost []core.SegmentID
 	for _, id := range ids {
 		if d.encoded[id] {
 			w.log.Debug("checkpoint: segment already encoded into this draft; skipped", "segment", int(id))
+			if reserves {
+				relost = append(relost, id)
+			}
 			continue
 		}
 		seg, err := src.Segments.Get(ctx, id)
@@ -677,10 +738,10 @@ func (w *FileWriter) Advance(ctx context.Context, d *Draft, segs []core.SegmentI
 		for i, seg := range cands {
 			encodable[i] = seg.ID
 		}
-		if err := src.Segments.MarkEncoded(ctx, encodable, d.seq); err != nil {
+		if err := mark(ctx, encodable, d.seq); err != nil {
 			// ErrAlreadyEncoded propagates unchanged (§8 step 4); the caller logs Loud and drops
-			// those ids. MarkEncoded validates the whole batch before writing, so nothing was
-			// marked, and the frontier stays put.
+			// those ids. MarkEncoded and ReserveEncoded validate the whole batch before touching
+			// anything, so nothing was marked, and the frontier stays put.
 			d.persistOrLogLocked()
 			return d.frontier, err
 		}
@@ -710,6 +771,20 @@ func (w *FileWriter) Advance(ctx context.Context, d *Draft, segs []core.SegmentI
 				"session", string(d.session), "err", ferr.Error())
 		} else if fr > d.frontier {
 			d.frontier = fr
+		}
+	}
+
+	// The session's intent is recomputed from its own prompt records on every pass — the open
+	// segment's prompts included, which no segment encoding reaches (intent.go).
+	d.refreshIntentLocked(ctx)
+
+	if len(relost) > 0 {
+		// Best effort, and only the in-memory view is at stake: Finalize commits every segment the
+		// draft holds whether or not it is reserved. A refusal here is a segment another sequence
+		// now owns durably, which the seal reports as drift.
+		if err := reserver.ReserveEncoded(ctx, relost, d.seq); err != nil {
+			w.log.Debug("checkpoint: advance: segments this draft holds could not be reserved again",
+				"segments", len(relost), "err", err.Error())
 		}
 	}
 
@@ -751,18 +826,14 @@ func (w *FileWriter) encodeSegmentLocked(ctx context.Context, d *Draft, seg stor
 		}
 	}
 
-	// Intent evolution: every prompt in range, verbatim through fromStore (§8.5's regeneration
-	// rule — the store's bytes may carry a prior injection, and it must never re-enter).
-	for _, pn := range prompts {
-		if text, ok := readPromptText(ctx, src, pn); ok {
-			d.appendEvolutionLocked(text)
-		}
-	}
+	// Intent evolution is not read here: Advance recomputes it from the session's own prompt
+	// records after the batch (intent.go), because a segment's prompts are only the ones that
+	// happened to close in a segment, and the graph's userprompt nodes are shared across sessions.
 
 	// Decisions: §9's extractor, merged by ID. decisions.go is another SP-10 slice; until it
 	// lands, its Rule W-1 stub answers ErrNotImplemented and the honest merge input is empty —
 	// a tier-2 enrichment gap must not stall the tier-1/tier-3 frontier.
-	decs, err := ExtractDecisions(ctx, src, seg.StartTurn)
+	decs, err := extractDecisions(ctx, src, seg.StartTurn, d.session)
 	switch {
 	case err == nil:
 		d.mergeDecisionsLocked(decs)
@@ -863,7 +934,10 @@ func (d *Draft) appendNarrativeLocked(id core.SegmentID, line string) {
 // Abort deletes state/draft-<session>.json, drops the in-memory draft, and returns nil —
 // idempotent, a missing file included. It never un-marks encoded segments: those segments are
 // legitimately encoded into a draft that will be re-Begin-ned with the same seq, and MarkEncoded
-// is idempotent for the same seq (§8). The DPI guard is one-way.
+// is idempotent for the same seq (§8). The DPI guard is one-way. With a reserving segment log
+// (store.SegmentReservation) the marks an aborted draft made are reservations no seal will commit:
+// they hold for the rest of this log's life and are gone after a restart, which frees segments
+// that no checkpoint ever carried.
 //
 // The aborted draft is sealed and stays sealed, so a caller still holding the pointer can neither
 // Advance it nor Finalize it into an artifact. A discarded draft that could still be sealed would
@@ -893,7 +967,7 @@ func (d *Draft) mergeEliminationsLocked(ctx context.Context, src SourceSet) erro
 		idx[r.ID] = i
 	}
 	for _, r := range all {
-		if r.Session != d.session && r.Scope != negknow.ScopeProject {
+		if !carriedBy(r, d.session) {
 			continue
 		}
 		r.DependsOn = slices.Clone(r.DependsOn)
@@ -905,6 +979,75 @@ func (d *Draft) mergeEliminationsLocked(ctx context.Context, src SourceSet) erro
 			d.cp.Eliminated = append(d.cp.Eliminated, r)
 		}
 	}
+	return nil
+}
+
+// refreshNegativeKnowledge brings a draft about to be sealed up to date with the ledger: the
+// eliminations recorded since the draft last read it, and the rejected-alternative decisions an
+// Advance over the not-yet-encoded range would have minted (ExtractDecisions' source (b)).
+//
+// A draft reads the ledger at Begin and again at each Advance, and Advance runs only over CLOSED
+// segments. A session's segment stays open until a changepoint or the session's end closes it, so
+// a live draft begun at the previous seal — before this session recorded anything — reached the
+// next PreCompact without ever re-reading the ledger, and the checkpoint sealed eliminated [] and
+// decisions [] beside an active elimination; `why` then had nothing to answer for the session
+// (retrieval D5 of the V6 live lane). Reading it here is O(records) and touches no graph scan:
+// source (b) needs only each record and its node's turn.
+//
+// eliminated[] takes every record the draft carries (carriedBy), exactly as Advance merges it. The
+// decisions are narrower, and each limit is Advance's own cut applied to the open range:
+//
+//   - only this session's records. A project-scoped record another session made is carried as
+//     negative knowledge, but its node turn is in THAT session's numbering, so minting every one
+//     of them at every seal let a project's older eliminations at high turns fill the
+//     Turn-descending maxDraftDecisions cap and push this session's own decisions out of the
+//     sealed checkpoint. Advance mints them as foreign decisions, which rank after every own one
+//     (D46, mergeDecisionsLocked), so the seal has no room to make for them that Advance did not;
+//   - only turns at or after the draft's frontier, the first turn no encoded segment covers. An
+//     earlier record of this session was recorded before the segment holding it closed, so the
+//     Advance that encoded that segment has already considered it; a record whose node the graph
+//     does not hold takes the frontier, as Advance's takes its from-turn.
+//
+// Each decision it keeps is emitted into the DAG exactly as ExtractDecisions emits its own — a
+// KindDecision node and an explains edge from the elimination node (emitDecisions) — so slice
+// scoring can rank it. The node and edge carry the same values an Advance extracting the same
+// record later emits (the record's node turn, its evidence), which makes that emission a no-op.
+//
+// It is a no-op on a sealed draft, and a ledger that cannot be read leaves the draft's own copy
+// standing: the caller seals what the draft has, as the PreCompact failure rows require.
+func (d *Draft) refreshNegativeKnowledge(ctx context.Context) error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if d.sealed {
+		return nil
+	}
+	src := d.src
+	if err := d.mergeEliminationsLocked(ctx, src); err != nil {
+		return err
+	}
+	d.deriveOpenQuestionsLocked()
+	var cands []decisionCandidate
+	for _, r := range d.cp.Eliminated {
+		if r.Session != d.session {
+			continue
+		}
+		turn := eliminationTurn(src.Graph, r, d.frontier)
+		if turn < d.frontier {
+			continue
+		}
+		if dec, ok := eliminationDecision(r, turn); ok {
+			cands = append(cands, decisionCandidate{d: dec, evidence: dag.EliminationNode(r.ID)})
+		}
+	}
+	d.mergeDecisionsLocked(cands)
+	// Emit only what the draft kept: ExtractDecisions emits its capped set, not every candidate.
+	kept := make(map[core.DecisionID]bool, len(d.cp.Decisions))
+	for _, dec := range d.cp.Decisions {
+		kept[dec.ID] = true
+	}
+	cands = slices.DeleteFunc(cands, func(c decisionCandidate) bool { return !kept[c.d.ID] })
+	emitDecisions(src, cands)
+	d.dirty = true
 	return nil
 }
 
@@ -922,34 +1065,27 @@ func (d *Draft) deriveOpenQuestionsLocked() {
 	}
 }
 
-// appendEvolutionLocked appends one verbatim restatement to UserIntent.Evolution: deduped by
-// exact string (the Original counts as already listed), capped at maxIntentEvolution with the
-// OLDEST kept — intent history is tier 1, and early restatements are the ones that explain the
-// session's shape.
-func (d *Draft) appendEvolutionLocked(text string) {
-	if text == "" || text == d.cp.UserIntent.Original {
-		return
-	}
-	if slices.Contains(d.cp.UserIntent.Evolution, text) {
-		return
-	}
-	if len(d.cp.UserIntent.Evolution) >= maxIntentEvolution {
-		return
-	}
-	d.cp.UserIntent.Evolution = append(d.cp.UserIntent.Evolution, text)
-}
-
 // mergeDecisionsLocked merges one extraction pass into cp.Decisions by Decision.ID — first
 // occurrence wins, and existing entries came from earlier (lower-turn) passes — then restores the
-// serialized order §8 fixes: Turn descending, tiebreak ID ascending, capped at maxDraftDecisions
-// keeping the head. Newest-first is the tail-first cut order Truncate relies on; the slice-score
-// ranking inside ExtractDecisions decides which decisions survive a single pass, not this order.
-func (d *Draft) mergeDecisionsLocked(decs []Decision) {
+// serialized order §8 fixes, capped at maxDraftDecisions keeping the head:
+//
+//   - this session's own decisions first, Turn descending, tiebreak ID ascending;
+//   - then the foreign ones — minted from another session's project-scoped elimination — by that
+//     record's recorded time descending, tiebreak ID ascending (coordinator decision D46). Their
+//     Turn is the other session's node turn, which says nothing about recency in this session, and
+//     ranking them by it let a project's eliminations at high turns fill the cap and push this
+//     session's own decisions out of its checkpoint. Now they fill only the room the own ones
+//     leave, and Truncate's tail-first cut drops them before any own decision.
+//
+// Newest-first is the tail-first cut order Truncate relies on; the slice-score ranking inside
+// ExtractDecisions decides which decisions survive a single pass, not this order.
+func (d *Draft) mergeDecisionsLocked(cands []decisionCandidate) {
 	have := make(map[core.DecisionID]bool, len(d.cp.Decisions))
 	for _, dec := range d.cp.Decisions {
 		have[dec.ID] = true
 	}
-	for _, dec := range decs {
+	for _, c := range cands {
+		dec := c.d
 		if dec.ID == "" || have[dec.ID] {
 			continue
 		}
@@ -957,8 +1093,19 @@ func (d *Draft) mergeDecisionsLocked(decs []Decision) {
 		d.cp.Decisions = append(d.cp.Decisions, dec)
 		have[dec.ID] = true
 	}
+	foreign := d.foreignDecisionsLocked(cands)
 	slices.SortStableFunc(d.cp.Decisions, func(a, b Decision) int {
-		if a.Turn != b.Turn {
+		fa, aForeign := foreign[a.ID]
+		fb, bForeign := foreign[b.ID]
+		switch {
+		case aForeign != bForeign:
+			if aForeign {
+				return 1 // own before foreign
+			}
+			return -1
+		case aForeign && fa != fb:
+			return cmp.Compare(fb, fa) // recorded time descending
+		case !aForeign && a.Turn != b.Turn:
 			return int(b.Turn) - int(a.Turn) // Turn descending
 		}
 		return strings.Compare(string(a.ID), string(b.ID)) // tiebreak ID ascending
@@ -966,6 +1113,56 @@ func (d *Draft) mergeDecisionsLocked(decs []Decision) {
 	if len(d.cp.Decisions) > maxDraftDecisions {
 		d.cp.Decisions = d.cp.Decisions[:maxDraftDecisions]
 	}
+}
+
+// foreignDecisionsLocked is foreignDecisions over the draft's carried eliminations and this
+// pass's candidates. Caller holds d.mu.
+func (d *Draft) foreignDecisionsLocked(cands []decisionCandidate) map[core.DecisionID]core.UnixMilli {
+	return foreignDecisions(d.cp.Eliminated, d.session, cands)
+}
+
+// ForeignDecisions maps each of cp's decisions that was minted from another session's
+// project-scoped elimination to that record's recorded time: the classification the draft's merge
+// ranks by (D46, mergeDecisionsLocked). It is exported for the checkpoint's consumers that re-sort
+// cp.Decisions — item 4 of a rehydration ranks by slice score — so they keep the session's own
+// decisions ahead of the foreign ones, as the sealed order does. An id absent from the map is own.
+func ForeignDecisions(cp Checkpoint) map[core.DecisionID]core.UnixMilli {
+	return foreignDecisions(cp.Eliminated, cp.Session, nil)
+}
+
+// foreignDecisions maps each foreign decision id to its record's recorded time. A checkpoint keeps
+// no per-decision provenance — the artifact's Decision shape is frozen — so it is derived again
+// from what the checkpoint does keep: every carried elimination another session made mints its
+// decision's id (the id does not depend on the turn), and a pass's own candidates say the same for
+// any record the draft has not merged yet. An id this session's own record also mints is own, and
+// when two foreign records mint one id the newer time stands. A resumed draft therefore ranks
+// exactly as the draft that persisted it did, and a sealed checkpoint's reader ranks as its writer.
+func foreignDecisions(eliminated []negknow.Record, session core.SessionID, cands []decisionCandidate) map[core.DecisionID]core.UnixMilli {
+	foreign := make(map[core.DecisionID]core.UnixMilli)
+	own := make(map[core.DecisionID]bool)
+	note := func(id core.DecisionID, isForeign bool, at core.UnixMilli) {
+		if !isForeign {
+			own[id] = true
+			return
+		}
+		if prev, ok := foreign[id]; !ok || at > prev {
+			foreign[id] = at
+		}
+	}
+	for _, r := range eliminated {
+		if dec, ok := eliminationDecision(r, 0); ok {
+			note(dec.ID, r.Session != session, r.TS)
+		}
+	}
+	for _, c := range cands {
+		if c.foreign {
+			note(c.d.ID, true, c.recorded)
+		}
+	}
+	for id := range own {
+		delete(foreign, id)
+	}
+	return foreign
 }
 
 // upsertFilePointerLocked applies §8's pointer-ordering rule to Pointers.Files: segments are
@@ -1022,6 +1219,116 @@ func seqClaimed(l paths.Layout, seq core.CheckpointSeq) bool {
 		}
 	}
 	return false
+}
+
+// loadClaimFloor folds persistedClaimFloor into issuedSeq the first time this writer begins a fresh
+// draft, and never again. The numbers it finds are fixed by the time the writer opens: only the
+// daemon holding the project's lock creates drafts or seals checkpoints, and every number this
+// writer hands out afterwards is issuedSeq's already. So the state/ scan is paid once per writer,
+// not on every Begin — Finalize's afterSeal Begins a successor inside the PreCompact budget (B-E),
+// and the drafts of ended sessions accumulate with the project's history. A scan that could not
+// finish (an unreadable state/ directory, a segment log whose Range failed) is retried next time.
+func (w *FileWriter) loadClaimFloor(ctx context.Context, src SourceSet) {
+	w.claimFloorMu.Lock()
+	defer w.claimFloorMu.Unlock()
+	if w.claimFloorLoaded {
+		return
+	}
+	floor, complete := w.persistedClaimFloor(ctx, src)
+	w.noteSeq(floor)
+	w.claimFloorLoaded = complete
+}
+
+// persistedClaimFloor is the highest checkpoint sequence number the project already holds for
+// something that is not sealed: a persisted draft of any session (state/draft-*.json, set-aside
+// .stale.json ones included) and any encode record in the segment log. A fresh draft must not take
+// such a number, and issuedSeq cannot say so on its own, because it only remembers this writer's
+// lifetime. complete is false when a source could not be read, so the caller asks again.
+//
+// The case it closes is a store an earlier daemon left behind (F-UAT03-2): session A's draft 0002
+// persisted with segments marked into it — durably, by builds before the two-phase encode — and a
+// new daemon beginning session B's first draft. With only the manifest to go on B took 0002 too, B's
+// seal then made A's claim look valid while 0002 held none of A's turns, and A's own draft, resumed
+// later, found 0002 taken and was set aside with its segments encoded into nothing.
+//
+// Its cost is one directory listing and, per draft file, the few hundred bytes up to its "seq"
+// (draftSeqOf); the segment log answers from SegmentEncodeFloor in O(1), and only a log without that
+// capability (a test double) is copied through Range. Unreadable drafts are skipped: this only ever
+// raises the number claimed, and a gap in the sequence is harmless where a collision is not.
+// The caller holds claimFloorMu.
+func (w *FileWriter) persistedClaimFloor(ctx context.Context, src SourceSet) (core.CheckpointSeq, bool) {
+	w.draftScans++
+	var floor core.CheckpointSeq
+	complete := true
+	entries, err := os.ReadDir(paths.Long(w.l.State))
+	switch {
+	case err == nil:
+		for _, e := range entries {
+			name := e.Name()
+			if e.IsDir() || !strings.HasPrefix(name, "draft-") || !strings.HasSuffix(name, ".json") {
+				continue
+			}
+			if seq, ok := draftSeqOf(filepath.Join(w.l.State, name)); ok && seq > floor {
+				floor = seq
+			}
+		}
+	case !os.IsNotExist(err):
+		complete = false
+	}
+	switch segs := src.Segments.(type) {
+	case store.SegmentEncodeFloor:
+		if f := segs.DurableEncodeFloor(); f > floor {
+			floor = f
+		}
+	case nil:
+		complete = false
+	default:
+		all, rerr := segs.Range(ctx, 0, core.TurnIndex(math.MaxInt))
+		if rerr != nil {
+			complete = false
+		}
+		for _, seg := range all {
+			if seg.EncodedOnce && seg.CheckpointSeq > floor {
+				floor = seg.CheckpointSeq
+			}
+		}
+	}
+	return floor, complete
+}
+
+// draftSeqOf reads a persisted draft's top-level "seq" and nothing after it. draftFile writes the
+// field second, after the session id, so the decoder stops within its first buffer however large
+// the draft's checkpoint body has grown. The file is opened shared (paths.OpenShared): another
+// session's draft may be replaced by its own persist while this reads it, and on Windows an ordinary
+// handle would make that replace fail.
+func draftSeqOf(p string) (core.CheckpointSeq, bool) {
+	f, err := paths.OpenShared(p)
+	if err != nil {
+		return 0, false
+	}
+	defer func() { _ = f.Close() }()
+	dec := json.NewDecoder(f)
+	if tok, terr := dec.Token(); terr != nil || tok != json.Delim('{') {
+		return 0, false
+	}
+	for dec.More() {
+		tok, terr := dec.Token()
+		if terr != nil {
+			return 0, false
+		}
+		if key, _ := tok.(string); key == "seq" {
+			var seq core.CheckpointSeq
+			if dec.Decode(&seq) != nil {
+				return 0, false
+			}
+			return seq, true
+		}
+		var skip json.RawMessage
+		if dec.Decode(&skip) != nil {
+			return 0, false
+		}
+	}
+	return 0, false
 }
 
 // draftPathFor names session s's draft file: state/draft-<session>.json (§7). Callers must have
@@ -1126,24 +1433,8 @@ func readPromptText(ctx context.Context, src SourceSet, n dag.Node) (string, boo
 		}
 		root = rec.Root
 	}
-	if root.IsZero() {
-		pkgLog().Debug("checkpoint: prompt has no stored root; skipped", "node", string(n.ID))
-		return "", false
-	}
-	rc, err := src.Store.Open(ctx, root)
-	if err != nil {
-		pkgLog().Debug("checkpoint: prompt bytes unreadable; skipped",
-			"node", string(n.ID), "err", err.Error())
-		return "", false
-	}
-	defer func() { _ = rc.Close() }()
-	b, err := io.ReadAll(rc)
-	if err != nil {
-		pkgLog().Debug("checkpoint: prompt bytes unreadable; skipped",
-			"node", string(n.ID), "err", err.Error())
-		return "", false
-	}
-	return fromStore(b), true
+	text, st := readRootText(ctx, src, root, string(n.ID), 0)
+	return text, st == textWhole
 }
 
 // fileTouch is one file's presence in one segment: the path, the turn that orders its pointer

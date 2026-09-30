@@ -1,0 +1,41 @@
+{
+  "session": "5fe7f497-1c23-414e-8fcc-933363180fd0",
+  "seq": 14,
+  "emitted": 1790705433153,
+  "tokens": 2521,
+  "budget": 12000,
+  "items": [
+    {
+      "kind": "user_intent",
+      "rank": 0,
+      "tokens": 2385,
+      "truncated": false,
+      "units": 1,
+      "units_seen": 1
+    },
+    {
+      "kind": "drop_report",
+      "rank": 1,
+      "tokens": 50,
+      "truncated": false,
+      "units": 1,
+      "units_seen": 1
+    },
+    {
+      "kind": "affordance",
+      "rank": 2,
+      "tokens": 86,
+      "truncated": false,
+      "units": 1,
+      "units_seen": 1
+    }
+  ],
+  "dropped": [
+    {
+      "kind": "intent_mismatch",
+      "id": "5fe7f497-1c23-414e-8fcc-933363180fd0",
+      "detail": "checkpoint user_intent.original differs from the L0 capture; injecting the L0 text"
+    }
+  ],
+  "degraded": false
+}

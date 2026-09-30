@@ -1,0 +1,15 @@
+--- FAIL: TestLivePinReachesTheNextCheckpointAndBlock (0.80s)
+    precompact_live_rows_test.go:74: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-pinsckpt/internal/cli/precompact_live_rows_test.go:74
+        	Error:      	[]string(nil) does not contain "inv_8382970dffd4"
+        	Test:       	TestLivePinReachesTheNextCheckpointAndBlock
+        	Messages:   	a pin made while the daemon runs must reach the very next checkpoint (F-UAT05-2)
+--- FAIL: TestPreCompactCheckpointCarriesTheCompactedReads (0.47s)
+    precompact_live_rows_test.go:98: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-pinsckpt/internal/cli/precompact_live_rows_test.go:98
+        	Error:      	Should NOT be empty, but was []
+        	Test:       	TestPreCompactCheckpointCarriesTheCompactedReads
+        	Messages:   	the span the host compacted must be encoded into the checkpoint sealed for it (F-UAT03-1)
+FAIL
+FAIL	github.com/qompack/qompack/internal/cli	1.565s
+FAIL

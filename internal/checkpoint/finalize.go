@@ -40,8 +40,9 @@ var _ Writer = (*FileWriter)(nil)
 // line naming bytes or a name the cut took, and never a seal whose segments the log forgot:
 //
 //  1. the artifact's bytes (paths.CreateNew syncs the file);
-//  2. the draft's segment marks (sealSegmentMarks: re-marked, then store.SegmentSync; a failure
-//     here is Loud and counted but does not refuse the seal — see sealSegmentMarks for why);
+//  2. the draft's segment marks (sealSegmentMarks: committed — Advance only reserved them — or
+//     re-marked, then store.SegmentSync; a failure here is Loud and counted but does not refuse
+//     the seal — see sealSegmentMarks for why);
 //  3. the artifact's name (paths.AppendManifest's first SyncDir of checkpoints/);
 //  4. the MANIFEST line (appended, then the manifest synced) — the seal;
 //  5. the manifest's name, when this seal created the manifest (a second SyncDir). A barrier that
@@ -77,6 +78,7 @@ func (w *FileWriter) Finalize(ctx context.Context, d *Draft, budget core.Tokens)
 
 	cp.Created = CreatedNow(w.clk)
 	cp.Version = SchemaVersion
+	cp.Invariants, cp.Dropped = w.sealInvariants(ctx, src, cp.Session, cp.Invariants, cp.Dropped)
 	cp.ensureNonNil()
 
 	// 2. Ground truth (G2.5). ValidatePointers errors only on ctx cancellation, and a cancelled
@@ -180,6 +182,41 @@ func (w *FileWriter) Finalize(ctx context.Context, d *Draft, budget core.Tokens)
 	return ref, nil
 }
 
+// dropKindInvariants and dropIDPins name the one tier-1 drop a seal can record: the pin set could
+// not be re-read, so pins made since the draft was begun may be missing from the artifact.
+const (
+	dropKindInvariants = "invariants"
+	dropIDPins         = "pins"
+)
+
+// sealInvariants answers tier 1's invariants as they stand at the SEAL.
+//
+// Begin seeds a draft's invariants, and a seal begins its successor at once, so the draft a
+// compaction seals was usually begun long before it: seeded from Begin alone, a pin made in between
+// — `qompack pin` in the middle of a session, the UAT-05 case — was missing from the next
+// checkpoint and from the rehydration built on it, with nothing in dropped to say so (F-UAT05-2).
+// The set is read again here, verbatim and in pins.All's own order (§8).
+//
+// The read ignores the caller's cancellation: §12's PreCompact-timeout row says finalize as-is, and
+// a deadline must not be what empties tier 1. When the set cannot be read at all, the invariants the
+// draft was begun with are kept — they were pinned, and nothing says otherwise — and the gap is a
+// named drop, because a pin made since may be absent and an absence nobody names is the failure.
+func (w *FileWriter) sealInvariants(ctx context.Context, src SourceSet, session core.SessionID,
+	begun []Invariant, drops []DropEntry,
+) ([]Invariant, []DropEntry) {
+	invs, err := src.Pins.All(context.WithoutCancel(ctx))
+	if err == nil {
+		return invs, drops
+	}
+	w.log.Loud("checkpoint: the pin set could not be re-read at the seal; sealing the invariants the draft began with",
+		"session", string(session), "err", err.Error())
+	return begun, append(drops, DropEntry{
+		Kind: dropKindInvariants, ID: dropIDPins,
+		Detail: "pins could not be re-read at the seal, so pins made after the draft began may be missing; " +
+			"run /qompack:pin --list: " + err.Error(),
+	})
+}
+
 // metricSealNotDurable counts seals whose MANIFEST line was written but whose barriers after the
 // write failed (paths.ErrLineNotDurable): the checkpoint is sealed for every reader, Finalize reported
 // it failed, and a power cut may still undo it. Its Loud line tells the operator to run fsck after
@@ -199,6 +236,7 @@ func (w *FileWriter) afterSeal(ctx context.Context, d *Draft, src SourceSet, seq
 	//    the very next idle tick. This is what keeps the NEXT residual span O(delta) rather than
 	//    letting it grow from zero again (§8.5, O5).
 	w.retireDraft(d)
+	w.handOff(d)
 	if _, err := w.Begin(ctx, d.session, seq, src); err != nil {
 		// The artifact is written and indexed; only the successor draft failed to open. Advance
 		// will open one on its next call.
@@ -235,6 +273,12 @@ func (w *FileWriter) reconcileEncodedSeq(
 	}
 	d.setSeq(seq)
 	if len(ids) == 0 {
+		return
+	}
+	if _, ok := src.Segments.(store.SegmentReservation); ok {
+		// Advance only RESERVED these into the pre-bump number, and a reservation was never written:
+		// sealSegmentMarks commits them at the number the artifact actually has, and reports as
+		// drift only a segment some other sequence already holds durably.
 		return
 	}
 	if err := src.Segments.MarkEncoded(ctx, ids, seq); err != nil {
@@ -291,6 +335,18 @@ func (w *FileWriter) sealSegmentMarks(ctx context.Context, src SourceSet, ids []
 			failed = err
 		}
 	}
+	if r, ok := src.Segments.(store.SegmentReservation); ok {
+		w.commitSegmentMarks(ctx, r, ids, seq, note)
+		if s, ok := src.Segments.(store.SegmentSync); ok && failed == nil {
+			failed = s.Sync(ctx)
+		}
+		if failed != nil {
+			w.m.Counter(metricSegmentMarksUnsynced).Add(1)
+			w.log.Loud("checkpoint: segment marks not durable before the seal; a later draft may re-encode them",
+				"seq", int(seq), "segments", len(ids), "err", failed.Error())
+		}
+		return
+	}
 	var lost []core.SegmentID
 	for _, id := range ids {
 		seg, err := src.Segments.Get(ctx, id)
@@ -321,6 +377,43 @@ func (w *FileWriter) sealSegmentMarks(ctx context.Context, src SourceSet, ids []
 		w.m.Counter(metricSegmentMarksUnsynced).Add(1)
 		w.log.Loud("checkpoint: segment marks not durable before the seal; a later draft may re-encode them",
 			"seq", int(seq), "segments", len(ids), "err", failed.Error())
+	}
+}
+
+// commitSegmentMarks is sealSegmentMarks for a log that reserves (store.SegmentReservation): the
+// draft's segments were only RESERVED by Advance, so this is where their encode records are first
+// written — after the artifact's bytes are durable and before the MANIFEST line, the order the seal
+// already had. index/segments.jsonl therefore never names a sequence no seal reached (F-UAT03-2);
+// the one window left is a cut between here and the MANIFEST line, and in it the artifact itself
+// is on disk as the orphan `qompack fsck` reports and --repair re-indexes.
+//
+// One batch, in the ordinary seal. A batch the log refuses — one segment another sequence holds
+// DURABLY, or a segment the log does not know or holds open — is retried id by id, so one bad id
+// does not leave its batch-mates unwritten; the durable conflict is the seq-reference drift
+// reconcileEncodedSeq used to report, and it is reported here the same way.
+func (w *FileWriter) commitSegmentMarks(ctx context.Context, r store.SegmentReservation,
+	ids []core.SegmentID, seq core.CheckpointSeq, note func(error),
+) {
+	if r.CommitEncoded(ctx, ids, seq) == nil {
+		return
+	}
+	drift := 0
+	for _, id := range ids {
+		err := r.CommitEncoded(ctx, []core.SegmentID{id}, seq)
+		switch {
+		case err == nil, errors.Is(err, core.ErrNotFound), errors.Is(err, store.ErrSegmentOpen):
+			// Committed, or nothing to point: a segment the log lost or never closed has no record
+			// to write, exactly as sealSegmentMarks treats it.
+		case errors.Is(err, core.ErrAlreadyEncoded):
+			drift++
+		default:
+			note(err)
+		}
+	}
+	if drift > 0 {
+		w.m.Counter(metricSeqReferenceDrift).Add(1)
+		w.log.Loud("checkpoint: segments still reference the sequence this checkpoint was NOT written at; run qompack fsck",
+			"written_seq", int(seq), "segments", drift)
 	}
 }
 

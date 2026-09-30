@@ -1,0 +1,9 @@
+UAT-04 preconditions
+project: <scratch>/sessions/uat04/proj (git init + git add -A; no commit): README.md, notes.md, src/ledger.py,
+data/keys.txt (40 generated keys, sha256 464ba1670f64107e2db5abec4fa96e50c05b8643842bd5573bc35dd43a922151; Q23 = WALNUT-2889-OAK is the pre-compaction fact, delivered through Bash `cat`, which the host does not re-attach),
+filler/a.txt, b.txt, c.txt (60 KB each, to drive the automatic compaction).
+first prompt: 17774 characters (17774 UTF-16 units), longer than the 9,500-character rehydration ceiling (D5), so the verbatim original intent cannot be injected whole.
+<project>/.qompack exists: False (initial absence)
+config: defaults — automaticVeto false, blockManualCompact false (hardwired), scheduler.hardCeilingMargin and softFloorPct default;
+session env: QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS=120; host env CLAUDE_CODE_AUTO_COMPACT_WINDOW=100000, CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=30 (force the host's automatic
+compaction), CLAUDE_CODE_FILE_READ_MAX_OUTPUT_TOKENS=120000.

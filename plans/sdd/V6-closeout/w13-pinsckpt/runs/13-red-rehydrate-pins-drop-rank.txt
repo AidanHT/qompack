@@ -1,0 +1,23 @@
+# review finding 3 RED: the checkpoint seal drop {invariants, pins} sorts last in item 7 (rank 99)
+$ go test -p 2 -count=1 -run TestDropReport_UnreadPinSetSurvivesATightReport ./internal/rehydrate/
+--- FAIL: TestDropReport_UnreadPinSetSurvivesATightReport (0.00s)
+    items_test.go:1460: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-pinsckpt/internal/rehydrate/items_test.go:1460
+        	Error:      	Not equal: 
+        	            	expected: []string{"- invariants pins — pins could not be re-read at the seal, so pins made after the draft began may be missing\n", "- … and 4 more; call dropped()\n"}
+        	            	actual  : []string{"- path_rule .claude/rules/a.md — did not fit the rehydration budget\n", "- … and 4 more; call dropped()\n"}
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,3 +1,3 @@
+        	            	 ([]string) (len=2) {
+        	            	- (string) (len=111) "- invariants pins — pins could not be re-read at the seal, so pins made after the draft began may be missing\n",
+        	            	+ (string) (len=70) "- path_rule .claude/rules/a.md — did not fit the rehydration budget\n",
+        	            	  (string) (len=33) "- … and 4 more; call dropped()\n"
+        	Test:       	TestDropReport_UnreadPinSetSurvivesATightReport
+        	Messages:   	the unread pin set is the line a truncated report keeps
+FAIL
+FAIL	github.com/qompack/qompack/internal/rehydrate	1.855s
+FAIL
+exit=1

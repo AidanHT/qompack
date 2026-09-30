@@ -1,0 +1,6 @@
+[
+ "Use the Read tool to read these three files, one after another: README.md, deploy_notes.md and private/deny.txt. Then reply with just the word done.",
+ "Use the Read tool to read big.log with offset 1 and limit 1400 (the whole file). Then reply with only the number of lines you received.",
+ "Use the Bash tool to run exactly this command: cat blob.bin\nThen reply with just the word done.",
+ "Use the Read tool to read the file <scratch>/install/uat12/outside/outside.txt and reply with the marker it contains."
+]

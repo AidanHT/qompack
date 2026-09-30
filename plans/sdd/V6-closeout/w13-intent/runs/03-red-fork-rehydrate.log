@@ -1,0 +1,26 @@
+--- FAIL: TestUserIntent_ForkKeepsTheParentsOriginal (0.00s)
+    intent_fork_test.go:77: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-intent/internal/rehydrate/intent_fork_test.go:77
+        	Error:      	"> We are continuing in a forked session. In one sentence: what is the current per-client rate limit requirement?\n" does not contain "> We are building a rate limiter for the Kite API gateway. Requirement: allow 100 requests per minute per client. First, run the Bash command `cat config/limits.txt` and tell me how many entries it lists. Do not repeat any values.\n"
+        	Test:       	TestUserIntent_ForkKeepsTheParentsOriginal
+        	Messages:   	the parent's original, whole
+--- FAIL: TestUserIntent_ForkedParentMismatchIsStillLoud (0.00s)
+    intent_fork_test.go:116: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-intent/internal/rehydrate/intent_fork_test.go:116
+        	Error:      	"> We are continuing in a forked session. In one sentence: what is the current per-client rate limit requirement?\n" does not contain "> We are building a rate limiter for the Kite API gateway. Requirement: allow 100 requests per minute per client. First, run the Bash command `cat config/limits.txt` and tell me how many entries it lists. Do not repeat any values.\n"
+        	Test:       	TestUserIntent_ForkedParentMismatchIsStillLoud
+        	Messages:   	L0 wins
+--- FAIL: TestUserIntent_ForkWithUnknownParentSaysSo (0.00s)
+    intent_fork_test.go:141: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-intent/internal/rehydrate/intent_fork_test.go:141
+        	Error:      	Should be true
+        	Test:       	TestUserIntent_ForkWithUnknownParentSaysSo
+        	Messages:   	[]
+--- FAIL: TestBuild_ForkBlockMatchesUAT06 (0.00s)
+    intent_fork_test.go:162: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w13-intent/internal/rehydrate/intent_fork_test.go:162
+        	Error:      	"> We are continuing in a forked session. In one sentence: what is the current per-client rate limit requirement?\nEvolution (most recent first):\n> We are continuing in a forked session. In one sentence: what is the current per-client rate limit requirement?\n> Correction: the limit must be 60 requests per minute per client, not 100. The 100 figure is superseded.\n" does not contain "> We are building a rate limiter for the Kite API gateway. Requirement: allow 100 requests per minute per client. First, run the Bash command `cat config/limits.txt` and tell me how many entries it lists. Do not repeat any values.\n"
+        	Test:       	TestBuild_ForkBlockMatchesUAT06
+FAIL
+FAIL	github.com/qompack/qompack/internal/rehydrate	0.293s
+FAIL

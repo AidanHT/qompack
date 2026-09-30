@@ -51,6 +51,12 @@ type LockInfo struct {
 	// Owner distinguishes acquisitions in the same process. Older readers ignore this additive
 	// field; an old record remains usable for liveness checks but cannot authorize new leases.
 	Owner string `json:"owner,omitempty"`
+	// Root is the absolute project root the lock was taken for, in the spelling its holder used.
+	// It is additive like Owner, and it is what LockIsForeign reads first: a lock whose Root is
+	// another project's store was copied or moved in with this store's run/ directory (F-UAT03-4).
+	// A lock written before the field existed has none, and LockIsForeign falls back to the
+	// project hash its recorded address is named for.
+	Root string `json:"root,omitempty"`
 }
 
 // Lock is a held per-project singleton lock (.qompack/run/daemon.lock).
@@ -82,6 +88,9 @@ type Lock struct {
 	// It is atomic because the journal reads it at the moment it reports, from whichever goroutine
 	// that is, with or without Lock.mu held.
 	deliveryDiag atomic.Pointer[deliveryDiagnostics]
+	// tookOver is the record of the stale owner AcquireLock replaced, nil when the lock was free
+	// (TookOver).
+	tookOver *LockInfo
 }
 
 // deliverySealFormat is the seal format the journal this lock opens writes: the build's constant,
@@ -144,6 +153,10 @@ func AcquireLock(projectRoot string, a ipc.Addr, clk core.Clock) (*Lock, error) 
 		return nil, fmt.Errorf("%w: lock ownership identity unavailable", core.ErrDegraded)
 	}
 	owner := hex.EncodeToString(nonce[:])
+	absRoot, err := filepath.Abs(projectRoot)
+	if err != nil {
+		absRoot = projectRoot
+	}
 
 	body, err := json.Marshal(LockInfo{
 		PID:     os.Getpid(),
@@ -151,21 +164,27 @@ func AcquireLock(projectRoot string, a ipc.Addr, clk core.Clock) (*Lock, error) 
 		Addr:    a.Path,
 		Version: core.Version,
 		Owner:   owner,
+		Root:    absRoot,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("daemon: lock: encode: %w", err)
 	}
 
+	var took *LockInfo
 	if err := paths.CreateNew(lockPath, body); err != nil {
 		if !os.IsExist(err) {
 			return nil, fmt.Errorf("daemon: lock: create: %w", err)
 		}
-		if !lockIsStale(lockPath, hbPath, a, clk) {
+		if !lockIsStale(lockPath, hbPath, projectRoot, a, clk) {
 			return nil, ErrLockHeld
 		}
+		prev, prevOK := readLockFile(lockPath)
 		removeLockFiles(lockPath, hbPath)
 		if err := paths.CreateNew(lockPath, body); err != nil {
 			return nil, ErrLockHeld // lost the retry race: another daemon won it (step 5)
+		}
+		if prevOK {
+			took = &prev
 		}
 	}
 
@@ -177,7 +196,17 @@ func AcquireLock(projectRoot string, a ipc.Addr, clk core.Clock) (*Lock, error) 
 		return nil, fmt.Errorf("daemon: lock: initial heartbeat: %w", err)
 	}
 
-	return &Lock{path: lockPath, hb: hbPath, clk: clk, owner: owner}, nil
+	return &Lock{path: lockPath, hb: hbPath, clk: clk, owner: owner, tookOver: took}, nil
+}
+
+// TookOver reports the lock record this acquisition replaced: the owner the staleness protocol
+// judged gone — a daemon that was terminated, crashed or lost its machine without releasing the
+// lock. ok is false when the lock was free, or when the replaced record did not parse.
+func (l *Lock) TookOver() (LockInfo, bool) {
+	if l == nil || l.tookOver == nil {
+		return LockInfo{}, false
+	}
+	return *l.tookOver, true
 }
 
 // LockPath returns the path ReadLock reads: <projectRoot>/.qompack/run/daemon.lock.
@@ -202,11 +231,31 @@ func ReadLock(projectRoot string) (LockInfo, bool) {
 }
 
 // lockIsStale runs the staleness protocol's steps 1-4 against an existing lock file, stopping at
-// the first decisive answer. hbPath is the heartbeat file recorded alongside the lock.
-func lockIsStale(lockPath, hbPath string, a ipc.Addr, clk core.Clock) bool {
+// the first decisive answer. hbPath is the heartbeat file recorded alongside the lock, projectRoot
+// the project whose lock it is, and a that project's address as this process resolves it.
+func lockIsStale(lockPath, hbPath, projectRoot string, a ipc.Addr, clk core.Clock) bool {
 	info, ok := readLockFile(lockPath)
 	if !ok {
 		return true // step 1: unparseable lock file
+	}
+
+	if LockIsForeign(info, projectRoot) {
+		// The lock was written for ANOTHER project: the store was copied or moved with its run/
+		// directory (F-UAT03-4). The listener at its recorded address serves that other store, and
+		// its pid is that store's daemon, so neither can vouch for this one — dialling the recorded
+		// address used to keep a copy's lock "live" for as long as the original's daemon ran, and no
+		// daemon ever started for the copy. What can vouch for it is a daemon answering at THIS
+		// project's address, or this store's own heartbeat, which only a daemon serving this store
+		// refreshes: the same 90-second rule as step 4, unchanged.
+		//
+		// Only a lock that names another project takes this branch (LockIsForeign). One this
+		// project's daemon wrote under another environment — a different XDG_RUNTIME_DIR, TMPDIR
+		// or QOMPACK_IPC_ADDR, so a different address — keeps steps 2 and 3 below: judging it by
+		// the heartbeat alone would reclaim a live daemon's lock after a suspend or a stall.
+		if ipc.Probe(a, dialProbeTimeout) {
+			return false
+		}
+		return heartbeatStale(info, hbPath, clk)
 	}
 
 	// Step 2: the authoritative liveness dial (Ruling #22 — a successful DIAL, not a round trip
@@ -235,12 +284,101 @@ func lockIsStale(lockPath, hbPath string, a ipc.Addr, clk core.Clock) bool {
 	// misjudge a lock created microseconds ago as stale — reclaiming it out from under its rightful
 	// owner. Anchoring on Started instead means "just created" is never indistinguishable from
 	// "never had a chance to report in".
+	return heartbeatStale(info, hbPath, clk)
+}
+
+// heartbeatStale is the staleness protocol's step 4: the heartbeat file's mtime, or the lock's own
+// Started time when no heartbeat exists yet, older than staleAfter.
+func heartbeatStale(info LockInfo, hbPath string, clk core.Clock) bool {
+	return heartbeatAge(info, hbPath, clk) > staleAfter
+}
+
+// heartbeatAge is how long ago the lock's holder last reported in, by step 4's reading.
+func heartbeatAge(info LockInfo, hbPath string, clk core.Clock) time.Duration {
 	lastSeen := time.UnixMilli(info.Started)
 	if fi, err := os.Stat(paths.Long(hbPath)); err == nil {
 		lastSeen = fi.ModTime()
 	}
-	return clk.Now().Sub(lastSeen) > staleAfter
+	return clk.Now().Sub(lastSeen)
 }
+
+// LockIsForeign reports whether a daemon lock was written for a project other than projectRoot:
+// the store was copied or moved with its run/ directory, and the lock names the original.
+//
+// It judges project identity, never the whole recorded address, because an address also depends on
+// its holder's environment (ipc.Resolve: XDG_RUNTIME_DIR, TMPDIR, the uid, QOMPACK_IPC_ADDR):
+//
+//   - a lock that records its Root is foreign when that root's store is not this one — neither the
+//     same normalized path nor, by os.SameFile, the same .qompack directory reached another way;
+//   - an older lock, with no Root, is foreign only when its address is named for another
+//     project's hash (ipc.EndpointNamesProject);
+//   - anything else — no address, or one no project hash names — is not foreign, and the full
+//     staleness protocol judges it.
+func LockIsForeign(info LockInfo, projectRoot string) bool {
+	if info.Root != "" {
+		return !sameProjectStore(info.Root, projectRoot)
+	}
+	names, known := ipc.EndpointNamesProject(info.Addr, projectRoot)
+	return known && !names
+}
+
+// sameProjectStore reports whether two project roots are one store: the same path once normalized
+// as ipc names endpoints (ipc.ProjectHash12), or two spellings of one .qompack directory (a symlink,
+// a junction, a short name). A recorded root this process cannot stat is not this store.
+func sameProjectStore(recorded, root string) bool {
+	if ipc.ProjectHash12(recorded) == ipc.ProjectHash12(root) {
+		return true
+	}
+	a, err := os.Stat(paths.Long(paths.Of(recorded).Dot))
+	if err != nil {
+		return false
+	}
+	b, err := os.Stat(paths.Long(paths.Of(root).Dot))
+	if err != nil {
+		return false
+	}
+	return os.SameFile(a, b)
+}
+
+// LockHolder describes whoever holds a project's daemon lock, for the one line a daemon that could
+// not take the lock logs before it exits (F-UAT03-4: it used to exit 0 with no line at all).
+type LockHolder struct {
+	Present bool
+	PID     int
+	Addr    string
+	// Root is the project root the lock records, empty for a lock written before LockInfo.Root.
+	Root    string
+	Version string
+	Started int64
+	// Foreign is true when the lock was written for another project (LockIsForeign): a copied or
+	// moved store.
+	Foreign bool
+	// HeartbeatAge is how long ago the holder last reported in; past 90 s the lock is stale and the
+	// next start reclaims it.
+	HeartbeatAge time.Duration
+}
+
+// DescribeLockHolder reads projectRoot's daemon lock without taking it and reports who holds it and
+// whether it was written for another project.
+func DescribeLockHolder(projectRoot string, clk core.Clock) LockHolder {
+	if clk == nil {
+		clk = core.SystemClock()
+	}
+	info, ok := ReadLock(projectRoot)
+	if !ok {
+		return LockHolder{}
+	}
+	return LockHolder{
+		Present: true, PID: info.PID, Addr: info.Addr, Root: info.Root, Version: info.Version,
+		Started:      info.Started,
+		Foreign:      LockIsForeign(info, projectRoot),
+		HeartbeatAge: heartbeatAge(info, filepath.Join(paths.Of(projectRoot).Run, heartbeatFileName), clk),
+	}
+}
+
+// StaleAfter is the heartbeat staleness window the lock protocol reclaims after, for a caller that
+// tells an operator how long a held lock can still block a start.
+func StaleAfter() time.Duration { return staleAfter }
 
 // readLockFile reads and parses p, reporting ok=false for anything that is missing or does not
 // decode as LockInfo — step 1 of the staleness protocol treats both the same way.

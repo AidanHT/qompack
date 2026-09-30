@@ -1,0 +1,190 @@
+{
+  "schema": 1,
+  "project": "<scratch>\\retrieval\\uat0809\\proj",
+  "daemon_running": false,
+  "read_only": true,
+  "repairing": false,
+  "attempts_daemon_lock": false,
+  "checks": [
+    {
+      "id": "store",
+      "ok": true,
+      "severity": 0,
+      "count": 0,
+      "detail": [
+        "store present at <scratch>\\retrieval\\uat0809\\proj\\.qompack"
+      ]
+    },
+    {
+      "id": "daemon",
+      "ok": true,
+      "severity": 0,
+      "count": 0,
+      "detail": [
+        "a lock file names pid 63832 whose listener does not answer: the lock is STALE, and the staleness protocol reclaims such a lock rather than blocking forever"
+      ]
+    },
+    {
+      "id": "objects",
+      "ok": true,
+      "severity": 0,
+      "scanned": 35,
+      "count": 0
+    },
+    {
+      "id": "index.roots",
+      "ok": true,
+      "severity": 0,
+      "scanned": 35,
+      "count": 0
+    },
+    {
+      "id": "index.tool_use",
+      "ok": false,
+      "severity": 2,
+      "scanned": 66,
+      "count": 13,
+      "detail": [
+        "tool_use qompack-mcp:4e49c6f75644 reports turn 0 after turn 5 in session 7b2ccf44-d406-422f-a051-b03a65475a28; turns are monotone",
+        "tool_use qompack-mcp:3d005a985724 reports turn 0 after turn 10 in session 7b2ccf44-d406-422f-a051-b03a65475a28; turns are monotone",
+        "tool_use qompack-mcp:e5e6f5f3d480 reports turn 0 after turn 11 in session 7b2ccf44-d406-422f-a051-b03a65475a28; turns are monotone",
+        "tool_use qompack-mcp:581050b7d1bc reports turn 0 after turn 15 in session 7b2ccf44-d406-422f-a051-b03a65475a28; turns are monotone",
+        "tool_use qompack-mcp:2e7b675076f3 reports turn 0 after turn 19 in session 7b2ccf44-d406-422f-a051-b03a65475a28; turns are monotone",
+        "tool_use subagent_7b2ccf44-d406-422f-a051-b03a65475a28_0 reports turn 0 after turn 23 in session 7b2ccf44-d406-422f-a051-b03a65475a28; turns are monotone",
+        "tool_use qompack-mcp:d38e4540d6f1 reports turn 0 after turn 25 in session 7b2ccf44-d406-422f-a051-b03a65475a28; turns are monotone",
+        "tool_use qompack-mcp:3528c5813794 reports turn 0 after turn 28 in session 7b2ccf44-d406-422f-a051-b03a65475a28; turns are monotone",
+        "tool_use qompack-mcp:f399f9ebac48 reports turn 0 after turn 32 in session 7b2ccf44-d406-422f-a051-b03a65475a28; turns are monotone",
+        "tool_use qompack-mcp:d0543abb0154 reports turn 0 after turn 34 in session 7b2ccf44-d406-422f-a051-b03a65475a28; turns are monotone",
+        "tool_use qompack-mcp:b6de8191f8ef reports turn 0 after turn 1 in session 85d2f679-b09b-4d39-9265-8e9dbc9d652a; turns are monotone",
+        "tool_use qompack-mcp:b8e415ab7db1 reports turn 0 after turn 4 in session 85d2f679-b09b-4d39-9265-8e9dbc9d652a; turns are monotone",
+        "tool_use qompack-mcp:71dc6895afe1 reports turn 0 after turn 5 in session 85d2f679-b09b-4d39-9265-8e9dbc9d652a; turns are monotone"
+      ]
+    },
+    {
+      "id": "index.files",
+      "ok": true,
+      "severity": 0,
+      "scanned": 2,
+      "count": 0
+    },
+    {
+      "id": "index.segments",
+      "ok": true,
+      "severity": 0,
+      "scanned": 1,
+      "count": 0
+    },
+    {
+      "id": "captures",
+      "ok": true,
+      "severity": 0,
+      "scanned": 73,
+      "count": 0
+    },
+    {
+      "id": "publication",
+      "ok": true,
+      "severity": 0,
+      "scanned": 108,
+      "count": 0
+    },
+    {
+      "id": "checkpoints",
+      "ok": true,
+      "severity": 0,
+      "scanned": 5,
+      "count": 0,
+      "detail": [
+        "the chain from 0005 verifies across 5 checkpoint(s)"
+      ]
+    },
+    {
+      "id": "pins",
+      "ok": true,
+      "severity": 0,
+      "scanned": 0,
+      "count": 0,
+      "detail": [
+        "pins/invariants.jsonl does not exist yet"
+      ]
+    },
+    {
+      "id": "negknow",
+      "ok": true,
+      "severity": 0,
+      "scanned": 2,
+      "count": 0,
+      "detail": [
+        "eliminations: 2 record(s), 1 active, 0 stale",
+        "tried.bloom loads: 95872 bit(s), k=7, fill 0.0001, estimated fp 0.0000, saturated=false",
+        "filter generation 1 (the highest surviving tried.bloom.<n>.bak)"
+      ]
+    },
+    {
+      "id": "delivery",
+      "ok": true,
+      "severity": 0,
+      "scanned": 156,
+      "count": 0,
+      "detail": [
+        "state/delivery-lease-position.json is a v2 position document",
+        "state/delivery-ack-position.json is a v2 position document",
+        "the full dual-reader seal check was NOT run: it acquires the daemon lock, which the default run never does; pass --seal-check, or run `qompack admin delivery-seal --check` on a stopped project"
+      ]
+    },
+    {
+      "id": "spool",
+      "ok": true,
+      "severity": 0,
+      "scanned": 0,
+      "count": 0
+    },
+    {
+      "id": "retention",
+      "ok": true,
+      "severity": 0,
+      "scanned": 73,
+      "count": 0
+    },
+    {
+      "id": "migrate",
+      "ok": true,
+      "severity": 0,
+      "scanned": 0,
+      "count": 0,
+      "detail": [
+        "backups are checked by the read-only maintenance verifier; legacy import/cutover is separate"
+      ]
+    },
+    {
+      "id": "fidelity",
+      "ok": true,
+      "severity": 0,
+      "scanned": 35,
+      "count": 0,
+      "detail": [
+        "fidelity is counted as the store reports it; a canonical or unavailable root is never promoted to exact"
+      ]
+    },
+    {
+      "id": "quarantine",
+      "ok": true,
+      "severity": 0,
+      "scanned": 0,
+      "count": 0,
+      "detail": [
+        "0 quarantined file(s), 0 byte(s), preserved as evidence and never swept"
+      ]
+    }
+  ],
+  "repairs": [],
+  "fidelity": {
+    "canonical": 12,
+    "exact": 23
+  },
+  "quarantine": {
+    "files": 0,
+    "bytes": 0
+  },
+  "exit": 1
+}
