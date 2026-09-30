@@ -1,0 +1,100 @@
+{
+  "kind": "claude-plugin-validate",
+  "label": "Directory validation, not an installed-plugin canary: the bundle was validated where it sits. Installed manifest resolution, ${CLAUDE_PLUGIN_ROOT} expansion and launcher discovery remain unverified until the platform matrix covers them.",
+  "outcome": "accepted",
+  "host": {
+    "os": "windows",
+    "arch": "amd64"
+  },
+  "go": "go1.26.6",
+  "claudeCli": "2.1.280 (Claude Code)",
+  "command": [
+    "claude",
+    "plugin",
+    "validate",
+    "<out>\\qompack-plugin-0.3.0-windows-amd64",
+    "--strict",
+    "--json"
+  ],
+  "exitCode": 0,
+  "success": true,
+  "verdictSource": "the CLI's --json `success` field, together with its exit status",
+  "output": {
+    "success": true,
+    "strict": true,
+    "target": "<out>\\qompack-plugin-0.3.0-windows-amd64\\.claude-plugin\\plugin.json",
+    "manifest": {
+      "file": "<out>\\qompack-plugin-0.3.0-windows-amd64\\.claude-plugin\\plugin.json",
+      "type": "plugin",
+      "errors": [],
+      "warnings": [],
+      "notes": []
+    },
+    "contents": []
+  },
+  "bundle": {
+    "name": "qompack",
+    "version": "0.3.0",
+    "target": {
+      "os": "windows",
+      "arch": "amd64"
+    },
+    "go": "go1.26.6",
+    "source": {
+      "commit": "0d06ab1233efb0fd5be8c99dc453e1aa2ee071af",
+      "dirty": false
+    },
+    "files": [
+      {
+        "path": ".claude-plugin/plugin.json",
+        "sha256": "9d3a5384da3ab9256f575bb6a19107453c4b71e45c60dcc4970c8d2f84c6e248",
+        "bytes": 288
+      },
+      {
+        "path": ".mcp.json",
+        "sha256": "37d89da303e19dd551fe28e55679f613c2ffbb51c929a3a1fcbdafdc394ff268",
+        "bytes": 145
+      },
+      {
+        "path": "bin/qompack.exe",
+        "sha256": "08a513369c0ef65901fcc6ad330e42b62b8c46d77e7444a76f672ad6e3308d25",
+        "bytes": 10308096
+      },
+      {
+        "path": "commands/dropped.md",
+        "sha256": "2fe3851069f017fbdcce72313b93cf2043fa24584d0194ac63354cd0981c912c",
+        "bytes": 257
+      },
+      {
+        "path": "commands/eval.md",
+        "sha256": "2e1ac0fd56b4cc89c0525f9721a5f45a5cef73f7cd3fe7c95ab6413b3f0cf280",
+        "bytes": 247
+      },
+      {
+        "path": "commands/pin.md",
+        "sha256": "7d48a7d37859de10c28f4001ea3ecdf6eec52d0bb2585f4a2fa2be71cc147147",
+        "bytes": 228
+      },
+      {
+        "path": "commands/recall.md",
+        "sha256": "bd9a7a1d39f2e573054997caa2b51bb01db4ccc652ef1be977c8ec2e5e4f1667",
+        "bytes": 253
+      },
+      {
+        "path": "commands/status.md",
+        "sha256": "b002f0354d266a9d80492fd3db4687d9ea64f92cf2e0bcc1a4cf9e4a8be5eb67",
+        "bytes": 257
+      },
+      {
+        "path": "commands/why.md",
+        "sha256": "71aefa2f488b7734a9517b260b81eaea405f7be8253d4e1fc53b46a4b4a28729",
+        "bytes": 242
+      },
+      {
+        "path": "hooks/hooks.json",
+        "sha256": "9bc236ff32295961fe25d8e38c63278662ee25f96bc949ad5a6e4183cb6e0630",
+        "bytes": 2117
+      }
+    ]
+  }
+}
