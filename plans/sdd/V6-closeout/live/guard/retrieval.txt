@@ -251,3 +251,13 @@ same  plugins/data/ (2 entries)
 INFO  .qompack/ gained ['bin/', 'bin/1e9d0cc84597bf719955e268ef2e0c990352eb964559116a6612a012f1e5c358/'] (run-created; record, remove only if yours)
 real home fingerprint unchanged
 check exit 0
+== final check on resume (no session run) — retrieval part end — 2026-09-30 10:11:09 Eastern Daylight Time
+same  settings.json e15855d7e46a
+same  plugins/installed_plugins.json 728f75591291
+same  plugins/known_marketplaces.json 1b1eda7e17f0
+same  plugins/cache/ (10 entries)
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+INFO  .qompack/ gained ['bin/', 'bin/1e9d0cc84597bf719955e268ef2e0c990352eb964559116a6612a012f1e5c358/'] (run-created; record, remove only if yours)
+real home fingerprint unchanged
+check exit 0
