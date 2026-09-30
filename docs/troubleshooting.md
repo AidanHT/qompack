@@ -143,6 +143,23 @@ failure: `status` shows the assertion results the *daemon* holds, and no `Sessio
 ever run there, so there were none. A project that has never hosted a session has nothing to report,
 and reports exactly that.
 
+The banner counts what the rows established, not their `OK` column (`internal/commands/render.go`,
+`renderContract`; `internal/contract/refresh.go`, `StandingOf`). `all holding` means every row
+reports something actually seen. Otherwise it reads, for example, `host contract: 9 assertion(s),
+none failing: 4 holding, 1 pending, 4 with nothing to judge` and names each pending row on its own
+`pending:` line. A row is pending while the observation it waits for has not arrived:
+`not-yet-observed`, `initialize-pending`, `transcript-pending` or `marker-absent-once`. A row has
+nothing to judge when it reads `not-yet-implemented` or another "nothing was seen" spelling from §1,
+such as `first-session` or `retired`. The rows come from the last `SessionStart`, which runs before
+the MCP handshake and before the probe reaches the transcript. So `status` reads
+`.qompack/state/history.json` too: once it records the handshake or the observed probe,
+`mcp.server_registered` reads `initialize-received` and `hook.additional_context_delivered` reads
+`sentinel-observed` without waiting for the next session. `doctor` reads the observation ledger
+(`state/observations.json`) the same way: when a capability's newest entry is the start's
+`not_observed` and history.json records the observation, the row reports it and says it was read
+from `state/history.json` (`internal/cli/doctor.go`, `capabilityRow`). The ledger itself is not
+rewritten. A failing row is never rewritten this way; the next `SessionStart` evaluates it again.
+
 **Action.** No action; this is a recorded limit. See §2 for the `unavailable` latency rows.
 
 ### Qompack is inactive in the home directory
