@@ -547,7 +547,9 @@ the daemon too, observed in a separate probe on this tree. Treat every hook entr
 Any subcommand accepts `--set <dotted.key>=<value>` to override configuration for that run — that
 process only. A daemon the process starts is not given the flag, so a setting the daemon applies,
 such as the rehydration budget a compaction's block is built under, comes from the daemon's own
-configuration files, not from a `--set` on a hook or command.
+configuration: its config files and the `QOMPACK_*` environment it was started with (a daemon a
+hook spawns inherits the hook's environment, but not its `--set` flags). A `--set` on a hook or
+command never reaches it, and a daemon already running keeps the environment it started with.
 
 | Command | What it does |
 |---|---|

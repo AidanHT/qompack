@@ -619,6 +619,9 @@ carried at all.
    [docs/troubleshooting.md](troubleshooting.md#7-daemon-problems)) so the next
    `session-start` starts one under the new file. A `--set` on a hook invocation does not change
    the budget: it configures that hook process only, and a daemon the hook starts is not given it.
+   (A `QOMPACK_RUNTIME__REHYDRATE__MINTOKENS` / `QOMPACK_RUNTIME__REHYDRATE__MAXTOKENS` pair in
+   the environment Claude Code runs hooks in also reaches a daemon a hook spawns, since it
+   inherits that environment; the config file plus a daemon restart is the primary route.)
 
 **Expected observable result**
 
