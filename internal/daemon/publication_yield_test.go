@@ -192,6 +192,60 @@ func TestLaunchSessionEnd_HoldsTheCaptureGateUntilTheEndFinishes(t *testing.T) {
 	require.Zero(t, dd.capture.inFlight(), "and releases it once it has finished")
 }
 
+// gateAtDispatch installs dd's drainer with its Dispatch wrapped to record the capture work in flight
+// just before each delivery is handed to the daemon: outside runIngested, where the drain has done
+// its own I/O for the line (the read of the spool, the lease journal's fsynced record). The drain
+// itself is capture work there too, or the pass could run beside that I/O between deliveries.
+func gateAtDispatch(dd *daemon) *[]int {
+	var seen []int
+	cfg := dd.drainConfig()
+	dispatch := cfg.Dispatch
+	cfg.Dispatch = func(ctx context.Context, req ipc.Request) ipc.Response {
+		seen = append(seen, dd.capture.inFlight())
+		return dispatch(ctx, req)
+	}
+	dd.drain.Store(newDrainer(cfg))
+	return &seen
+}
+
+// TestRequestedDrainPass_HoldsTheCaptureGateBetweenDeliveries: the drain a lane asks for after a
+// hook's ACK (drainOnRequest) is capture work for the whole pass, not only inside each delivery.
+func TestRequestedDrainPass_HoldsTheCaptureGateBetweenDeliveries(t *testing.T) {
+	dd, _, root := laneTestDaemon(t)
+	seen := gateAtDispatch(dd)
+	first := liveOrderTool(dd, root, "sess-gate-requested-a", 1)
+	second := liveOrderTool(dd, root, "sess-gate-requested-b", 2)
+	writeHookSpool(t, root, "client-9301.ndjson", first)
+	writeHookSpool(t, root, "client-9302.ndjson", second)
+
+	dd.requestedDrainPass(context.Background())
+	require.True(t, spoolWatchPublished(dd, first.Nonce), "fixture: the pass published the first spool")
+	require.True(t, spoolWatchPublished(dd, second.Nonce), "fixture: the pass published the second spool")
+	require.Len(t, *seen, 2)
+	for i, n := range *seen {
+		require.Equal(t, 1, n, "delivery %d: the drain holds the gate between deliveries", i)
+	}
+	require.Zero(t, dd.capture.inFlight(), "and releases it once the pass has ended")
+}
+
+// TestLookAtClientSpools_HoldsTheCaptureGateForItsPass: the client-spool pass the watcher runs after
+// a hook spooled (watchClientSpools) is capture work for the whole pass as well.
+func TestLookAtClientSpools_HoldsTheCaptureGateForItsPass(t *testing.T) {
+	dd, _, root := laneTestDaemon(t)
+	seen := gateAtDispatch(dd)
+	req := liveOrderTool(dd, root, "sess-gate-watched", 3)
+	writeHookSpool(t, root, "client-9303.ndjson", req)
+
+	ctx := context.Background()
+	entries := map[string]*spoolWatchEntry{}
+	now := time.Now()
+	dd.lookAtClientSpools(ctx, entries, true, now) // seen for the first time: not settled yet
+	dd.lookAtClientSpools(ctx, entries, false, now.Add(spoolWatchTick))
+	require.True(t, spoolWatchPublished(dd, req.Nonce), "fixture: the second look's pass published the spool")
+	require.Equal(t, []int{1}, *seen, "the watcher's pass holds the gate around its delivery")
+	require.Zero(t, dd.capture.inFlight(), "and releases it once the pass has ended")
+}
+
 // passFinished closes once every goroutine accountPublicationAtStartup started has returned, the
 // join Stop does. accountPublicationAtStartup has added them all by the time it returns.
 func passFinished(d *daemon) <-chan struct{} {

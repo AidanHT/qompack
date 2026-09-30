@@ -149,7 +149,9 @@ func (d *daemon) accountPublicationAtStartup(runCtx context.Context) {
 
 // captureGate counts the capture work in flight in this daemon, so the startup publication pass can
 // step aside for it (V6 close-out D51). Capture work is a request dispatchOp is serving, a delivery a
-// worker or a drain is applying (runIngested), and the work a request leaves running past its answer
+// worker is applying (runIngested), a drain pass for the whole of it (Drain, and the client-spool
+// watcher's pass in lookAtClientSpools), since between its deliveries a drain reads spool segments and
+// appends fsynced lease-journal records, and the work a request leaves running past its answer
 // (startPromptRecording, startReplyWork, launchSessionEnd), each of which enters before its request
 // has left, so one request's work holds the gate without a gap. A fire-and-forget delivery's ACK and
 // its worker are the one seam: between the route's return and a worker's runIngested the delivery
