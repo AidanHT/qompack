@@ -91,11 +91,13 @@ type handlers struct {
 	prom     Promoter
 	wide     Widener
 
-	cfg  config.Config
-	root string
-	clk  core.Clock
-	log  logging.Logger
-	m    obs.Registry
+	// cfgFn supplies the configuration each call reads (conf). It is never nil: newHandlers wraps a
+	// plain ToolDeps.Cfg in a closure, as it does the ledger.
+	cfgFn func() config.Config
+	root  string
+	clk   core.Clock
+	log   logging.Logger
+	m     obs.Registry
 
 	// bfHist is the histogram obs.Budgets() associates with B-F, resolved once at construction.
 	// It is looked up rather than respelled because internal/obs exports no name-for-budget
@@ -142,7 +144,11 @@ func newHandlers(d ToolDeps) *handlers {
 	if m == nil {
 		m = obs.New(clk)
 	}
-	cfg := normalizeCfg(d.Cfg)
+	cfgFn := d.CfgFn
+	if cfgFn == nil {
+		cfg := d.Cfg
+		cfgFn = func() config.Config { return cfg }
+	}
 	ledgerFn := d.LedgerFn
 	if ledgerFn == nil {
 		l := d.Ledger
@@ -155,14 +161,21 @@ func newHandlers(d ToolDeps) *handlers {
 	return &handlers{
 		store: d.Store, ledgerFn: ledgerFn, ckpt: d.Checkpoints,
 		drops: d.Rehydrator, prom: d.Promoter, wide: d.Widener,
-		cfg:  cfg,
-		root: d.ProjectRoot,
-		clk:  clk, log: log, m: m,
+		cfgFn: cfgFn,
+		root:  d.ProjectRoot,
+		clk:   clk, log: log, m: m,
 		bfHist:     bfHistName(),
 		redactor:   d.Redactor,
 		host:       host,
 		disableWhy: d.DisableWhy, disableDropped: d.DisableDropped,
 	}
+}
+
+// conf is the configuration this call reads: the supplier's current value, with the keys this
+// package reads filled where it arrived zeroed (normalizeCfg). It is read per call, never cached, so
+// a configuration the daemon reloads reaches the next call.
+func (h *handlers) conf() config.Config {
+	return normalizeCfg(h.cfgFn())
 }
 
 // ledger resolves the elimination ledger for this call, or nil when none is wired. Every
@@ -182,7 +195,16 @@ func (h *handlers) ledger() negknow.Ledger {
 // zero Store.Chunk.Max as "the maximum span is nothing" — turns a wiring omission into an empty
 // retrieval that looks like a store bug (D11/§11.6: every use site reads its number from config,
 // and this is where a missing config becomes the documented default rather than zero).
+//
+// It runs on every tool call (conf), so a configuration that needs nothing filled, which is every
+// configuration config.Load produces, is returned without building the defaults.
 func normalizeCfg(cfg config.Config) config.Config {
+	if cfg.Store.Chunk.Max > 0 && cfg.Runtime.MCP.MaxResponseBytes > 0 && cfg.Retrieval.DefaultSpan != "" &&
+		cfg.Retrieval.PromoteAfterExpansions >= 1 && cfg.Eliminations.DefaultScope != "" &&
+		cfg.Eliminations.StaleResponse != "" && cfg.Runtime.Budgets.MCPToolCallMs > 0 &&
+		cfg.Runtime.HotPath.MaxPayloadBytes > 0 {
+		return cfg
+	}
 	def := config.Defaults()
 	if cfg.Store.Chunk.Max <= 0 {
 		cfg.Store.Chunk.Max = def.Store.Chunk.Max
@@ -234,10 +256,10 @@ func bfHistName() string {
 func (h *handlers) run(name string, fn toolFunc) Handler {
 	schema, compileErr := Compile(json.RawMessage(toolSchemas[name]))
 	toolHist := "mcp.tool." + name
-	ephemeral := ephemeralTools[name] && h.cfg.Retrieval.EphemeralResults
 
 	return func(ctx context.Context, r Request) (Response, error) {
 		started := time.Now()
+		ephemeral := ephemeralTools[name] && h.conf().Retrieval.EphemeralResults
 		resp := h.invoke(ctx, r, name, schema, compileErr, fn)
 
 		elapsed := time.Since(started)

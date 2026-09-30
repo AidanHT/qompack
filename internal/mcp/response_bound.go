@@ -42,7 +42,7 @@ func (h *handlers) boundedContent(tool string, root store.Root, span SpanResult,
 	o SpanOpts, render func(content []byte, s SpanResult) contentBody,
 	meta func(s SpanResult) map[string]any,
 ) Response {
-	limit := h.cfg.Runtime.MCP.MaxResponseBytes
+	limit := h.conf().Runtime.MCP.MaxResponseBytes
 	starts, _ := boundaries(root)
 	window := span.Body
 	whole, ok := h.redactForRetrieval(tool, window)
