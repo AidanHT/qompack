@@ -122,8 +122,13 @@ var shareFilledSections = []ItemKind{
 //   - the tier-1 records present are a PREFIX of the admission order: no invariant without the
 //     retrieval line, no original without the invariant, whether the fill left a record out or the
 //     hard-cap loop evicted it;
-//   - while tier 1 is incomplete, nothing filled from a share is present, and no evolution entry:
-//     a smaller record never takes the place of a tier-1 record the budget could not hold (§7);
+//   - while the retrieval line is out, nothing filled from a share is present: every share-filled
+//     section is records plus a call the model was never told exists (F-C4-UAT05-3);
+//   - while tier 1 is incomplete, no evolution entry is present: a smaller item-2 record never takes
+//     the place of a tier-1 record the budget could not hold (§7). The shares themselves stay open
+//     once the retrieval line is in (criterion change, w15-rehydrate review: closing them on any
+//     tier-1 refusal emptied sections 3-6 of a payload with room — see
+//     TestBuild_ARefusedNewestRestatementLeavesTheSharesTheirRoom);
 //   - the tier-1 prefix never shrinks as the budget grows.
 func TestBuild_Tier1FollowsTheAdmissionOrderAtTinyBudgets(t *testing.T) {
 	cp := ckUAT05()
@@ -158,12 +163,14 @@ func TestBuild_Tier1FollowsTheAdmissionOrderAtTinyBudgets(t *testing.T) {
 						"budget %d: tier-1 record %d is present although record %d before it in the "+
 							"admission order is not:\n%s", int(budget), i, n, res.Text)
 				}
-				if n < len(present) {
+				if n == 0 {
 					for _, k := range shareFilledSections {
 						require.NotContains(t, res.Text, "\n"+sectionHeading(k),
-							"budget %d: section %s was admitted while tier 1 is incomplete:\n%s",
+							"budget %d: section %s was admitted without the retrieval line:\n%s",
 							int(budget), k, res.Text)
 					}
+				}
+				if n < len(present) {
 					require.NotContains(t, res.Text, "Evolution (most recent first):",
 						"budget %d: an evolution entry while tier 1 is incomplete:\n%s", int(budget), res.Text)
 				}
@@ -241,5 +248,36 @@ func TestBuild_AnUnrepresentableTier1RecordDoesNotCloseTier1(t *testing.T) {
 		require.True(t, ok, "tier-1 record %d is missing although only an unrepresentable record was out:\n%s", i, res.Text)
 	}
 	require.Contains(t, res.Text, "\n"+sectionHeading(ItemDecisions), "the shares still fill")
+	requireSectionSevenAccountsForEveryDrop(t, res)
+}
+
+// TestBuild_ARefusedNewestRestatementLeavesTheSharesTheirRoom keeps tier 1's prefix rule inside tier
+// 1 (w15-rehydrate review). Item 2's newest restatement is the LAST tier-1 record admitted, so when a
+// long one cannot follow a long original it ends tier 1 with nothing left to refuse there — and
+// closing the shares on it as well took sections 3-6 out of a payload with thousands of characters
+// unused. The retrieval line was admitted, so every pointer the shares carry is actionable: a
+// refused tier-1 record refuses the tier-1 records after it, not the discretionary items.
+func TestBuild_ARefusedNewestRestatementLeavesTheSharesTheirRoom(t *testing.T) {
+	cp := ckUAT05()
+	cp.UserIntent.Original = strings.TrimSpace(strings.Repeat("The export must keep every column of the report in order. ", 76))
+	long := strings.TrimSpace(strings.Repeat("Correction: write the export with a TAB between fields, never a semicolon. ", 60))
+	cp.UserIntent.Evolution = append(append([]string(nil), cp.UserIntent.Evolution...), long)
+
+	res, err := Build(context.Background(), requestFor(t, cp, maxBudget()), uat05Deps(t, cp))
+	require.NoError(t, err)
+	requireInsideTheHostCeiling(t, res, cp.Session)
+
+	require.Contains(t, res.Text, quoteLines(cp.UserIntent.Original), "fixture sanity: the original fits")
+	require.NotContains(t, res.Text, "never a semicolon", "fixture sanity: the newest restatement does not")
+	e, ok := dropForKind(res.Dropped, "user_intent_evolution", "4")
+	require.True(t, ok, "the refused newest restatement is named with its restore pointer: %v", res.Dropped)
+	require.Contains(t, e.Detail, "user_intent.evolution[4]", "%v", e)
+	require.NotContains(t, res.Text, "Evolution (most recent first):",
+		"older deltas never render without the newest restatement above them")
+
+	for _, k := range []ItemKind{ItemEliminations, ItemDecisions, ItemCurrentWork, ItemPointers} {
+		require.Contains(t, res.Text, "\n"+sectionHeading(k),
+			"section %s was refused although the retrieval line is in and the payload has room:\n%s", k, res.Text)
+	}
 	requireSectionSevenAccountsForEveryDrop(t, res)
 }

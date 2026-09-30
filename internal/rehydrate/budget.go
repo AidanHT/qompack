@@ -635,3 +635,15 @@ func refusedNewest(a *admitted) bool {
 	}
 	return false
 }
+
+// withoutKind returns order with k left out, as a new slice: min-fill's order when item 2 may not
+// be re-admitted (Build step 9).
+func withoutKind(order []ItemKind, k ItemKind) []ItemKind {
+	out := make([]ItemKind, 0, len(order))
+	for _, o := range order {
+		if o != k {
+			out = append(out, o)
+		}
+	}
+	return out
+}
