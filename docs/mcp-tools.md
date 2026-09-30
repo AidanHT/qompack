@@ -67,6 +67,20 @@ Qompack's display name (`FileRead`, `FileEdit`), case-insensitively. A query wit
 nothing to search for is a tool error, as is an `already_tried` call with an empty
 `target` or `approach`.
 
+**`recall` counts what it withheld.** `denied` counts the matched records that
+authorization withheld before any summary was built, and names none of them: a path
+outside the project or not safely resolvable, a path the host's saved Read rules deny
+or ask about, or a record with no usable path provenance. The last group includes
+Qompack's records of its own tool calls, which carry no file path and match a query
+whose words their responses echo; only a pathless `Bash`, `PowerShell`, prompt,
+`SubagentStop` or elimination-evidence record is served. `host_policy` is set when the
+host's settings could not be read, so path-bearing hits were withheld (fail closed).
+The check runs in the project's daemon against the host's saved settings files, not
+against anything a host session supplies, so `qompack mcp` started by hand outside a
+session is judged by the same rules; it can answer the same query differently because
+by then the store holds more of Qompack's own call records. A query can answer fewer
+hits than `k`, or none, with `denied` counting the ones withheld.
+
 **A session in the home directory is refused.** When a session's project root is the
 user's home directory, Qompack records nothing (owner decision D18), and `qompack mcp`
 answers every call with this tool error without starting a daemon:
