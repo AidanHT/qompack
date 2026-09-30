@@ -454,18 +454,18 @@ func (s *FSStore) AuditPublication(ctx context.Context, scanCap PublicationScanC
 // eachPhaseEntry lists the directory at full, a path under the project root that starts one phase
 // of the walk, through eachDirEntry. Each directory between the pass's root and full is opened by
 // openPublicationDir, so a link anywhere on the way stops the phase exactly as a link inside it
-// would. A missing directory on the way is a silent true, as a missing phase directory is; any other
-// failure to reach it is noted (incomplete) and returns true.
+// would. A missing directory on the way is silent, as a missing phase directory is; any other failure
+// to reach it is noted (incomplete). Where the walk stopped is in a, so nothing is returned.
 func (s *FSStore) eachPhaseEntry(ctx context.Context, full string, bud *scanBudget, a *PublicationAudit,
 	fn func(dir *os.Root, e os.DirEntry) bool,
-) bool {
+) {
 	if !bud.proceed(ctx, a) {
-		return false
+		return
 	}
 	rel, err := filepath.Rel(s.root, full)
 	if err != nil {
 		a.note("a directory under .qompack could not be opened")
-		return true
+		return
 	}
 	parts := strings.Split(rel, string(filepath.Separator))
 	var opened []*os.Root
@@ -481,13 +481,13 @@ func (s *FSStore) eachPhaseEntry(ctx context.Context, full string, bud *scanBudg
 			if !os.IsNotExist(err) {
 				a.note("a directory under .qompack could not be opened")
 			}
-			return true
+			return
 		}
 		_ = f.Close()
 		opened = append(opened, next)
 		cur = next
 	}
-	return s.eachDirEntry(ctx, cur, parts[len(parts)-1], true, bud, a, fn)
+	s.eachDirEntry(ctx, cur, parts[len(parts)-1], true, bud, a, fn)
 }
 
 // eachDirEntry opens the directory name under parent and calls fn for each entry in bounded
