@@ -320,21 +320,32 @@ func TestClampBudget_NeverRaisesAndNeverExceedsTheCap(t *testing.T) {
 	require.Equal(t, core.Tokens(1), clampBudget(1, bad))
 }
 
-func TestEvictIndex_PrefersTheLastNonTier1Item(t *testing.T) {
-	// The hard-cap loop's eviction order. Item 8 is tier 1 and sits LAST in renderOrder, so a
-	// tail-first eviction would take the affordance line before anything discretionary — see ADR
-	// 0011 §18.
+// TestEvictIndex_EvictsInReverseAdmissionOrder pins the hard-cap loop's eviction order: the section
+// Build admitted last goes first. Item 8 is tier 1 and sits LAST in renderOrder, so a tail-first
+// eviction would take the affordance line before anything discretionary (ADR 0011 §18); and tier 1
+// goes in the reverse of §21.2's admission order — item 2, then the invariants, then the retrieval
+// line every overflow pointer depends on — with item 7, whose floor is held before anything is
+// admitted, last of all (F-C4-UAT05-3).
+func TestEvictIndex_EvictsInReverseAdmissionOrder(t *testing.T) {
 	items := []Item{
 		{Kind: ItemInvariants},
 		{Kind: ItemUserIntent},
 		{Kind: ItemDecisions},
+		{Kind: ItemSkillIndex},
 		{Kind: ItemDropReport},
 		{Kind: ItemAffordance},
 	}
-	require.Equal(t, 3, evictIndex(items), "the drop report goes before the affordance")
-
-	items = []Item{{Kind: ItemInvariants}, {Kind: ItemUserIntent}, {Kind: ItemAffordance}}
-	require.Equal(t, 2, evictIndex(items), "with only tier-1 items left, the tail is the fallback")
+	var order []ItemKind
+	for len(items) > 0 {
+		i := evictIndex(items)
+		order = append(order, items[i].Kind)
+		items = append(items[:i], items[i+1:]...)
+	}
+	require.Equal(t, []ItemKind{
+		ItemSkillIndex, ItemDecisions, // the shares and the skill index, last rendered first
+		ItemUserIntent, ItemInvariants, ItemAffordance, // tier 1, the reverse of tier1Admission
+		ItemDropReport, // its floor was held before anything was admitted
+	}, order)
 
 	require.Equal(t, 0, evictIndex([]Item{{Kind: ItemInvariants}}))
 }
