@@ -127,6 +127,16 @@ protects MISSING records, not ones a caller was already told are stale. Ruling R
 SP-13: neither may assume a stale `already_tried` answer persists past a rebuild — `Query` alone
 reverts to `AnswerAbsent`, and only `Get`/`All`/`Health` still know the record was ever stale.
 
+**Addendum — D49 (V6 close-out, 2026-09-30) supersedes R25.** The candidate 4 live re-run found
+the R25 behaviour as a user-facing defect (R4-1): after a daemon restart, `already_tried` answered
+`{"state":"absent"}` for an elimination that had gone stale, because the on-disk filter held active
+records only and `reconcileBloom` saw no active record missing. Coordinator decision D49: a record
+goes stale, never absent. The filter now covers every record in the ledger's view, active and
+stale (`filterRecords` in `ledger.go`), at every rebuild, and `reconcileBloom` checks each record's
+`MatchKey` against the loaded filter rather than comparing counts, so a filter written by an
+earlier build is repaired at the next `Open`. A stale answer now persists across rebuilds and
+restarts; the record lookup, not the filter, tells stale from active.
+
 ### 6. Why the rebuild honours the configured capacity instead of over-allocating
 
 `rebuildLocked` starts from the configured `capacity, fpRate` (`bloom.go:61`) and grows only when

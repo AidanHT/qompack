@@ -270,26 +270,33 @@ func TestE2E_EliminationLifecycle(t *testing.T) {
 	require.NotNil(t, ans.Record)
 	require.Equal(t, rec.ID, ans.Record.ID)
 
-	// ── step 4: RebuildBloom → tried.bloom shrinks to nothing; still AnswerStale; Health flips ──
+	// ── step 4: RebuildBloom → tried.bloom keeps the stale record's keys; still AnswerStale ──
+	//
+	// Criterion change (coordinator decision D49 of the V6 close-out, finding R4-1): this step
+	// asserted that the rebuild dropped the stale record's keys and that Query then answered
+	// ABSENT. That is the failure the candidate 4 live re-run found — a stale elimination answering
+	// absent after a daemon restart or an idle rebuild. A record goes stale, never absent: the
+	// filter covers every record, active and stale (TestRebuildBloom_CoversActiveAndStaleRecords).
 	healthBefore := led.Health()
-	require.Positive(t, healthBefore.FillRatio, "fixture sanity: the still-active record's keys must still be in the on-disk filter before the rebuild")
+	require.Positive(t, healthBefore.FillRatio, "fixture sanity: the record's keys must be in the filter before the rebuild")
 
 	bloom, health, err := led.RebuildBloom(ctx)
 	require.NoError(t, err)
-	require.Zero(t, bloom.Count(), "RebuildBloom draws from active records only, and none remain active")
-	require.Less(t, health.FillRatio, healthBefore.FillRatio, "tried.bloom must shrink once its only record goes stale")
+	require.Equal(t, 2, bloom.Count(), "RebuildBloom draws from every record: the stale one keeps its Key and MatchKey")
+	require.Equal(t, healthBefore.FillRatio, health.FillRatio, "the rebuild holds exactly the keys the filter already held")
 	require.Equal(t, 0, health.Active)
 	require.Equal(t, 1, health.Stale)
 
 	ans, err = led.Query(ctx, negknowTarget, negknowApproach, negknow.ScopeSession)
 	require.NoError(t, err)
-	require.Equal(t, negknow.AnswerAbsent, ans.State, "Query gates on bloom.Test first (TestRebuildBloom_ActiveOnly): "+
-		"once tried.bloom is rebuilt from active records only, a stale record's key is gone and Query can no "+
-		"longer route to it — the record itself, read directly, still says stale")
+	require.Equal(t, negknow.AnswerStale, ans.State, "a stale record answers stale after the rebuild, never absent (D49)")
+	require.Equal(t, negknow.StaleNote, ans.Note)
+	require.NotNil(t, ans.Record)
+	require.Equal(t, rec.ID, ans.Record.ID)
 
 	rawRec, err := led.Get(ctx, rec.ID)
 	require.NoError(t, err)
-	require.Equal(t, negknow.StatusStale, rawRec.Status, "the structured record remains the source of truth even once the bloom no longer flags it")
+	require.Equal(t, negknow.StatusStale, rawRec.Status, "the structured record remains the source of truth")
 
 	// ── step 5: append-only holds; exactly one backup generation; nothing written outside .qompack/ ──
 	p.AssertAppendOnly(t)

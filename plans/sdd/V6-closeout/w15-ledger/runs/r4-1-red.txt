@@ -1,0 +1,47 @@
+--- FAIL: TestQuery_StaleRecordAnswersStaleAfterRestart (0.10s)
+    stale_filter_test.go:53: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-ledger/internal/negknow/stale_filter_test.go:53
+        	Error:      	Not equal: 
+        	            	expected: 0x2
+        	            	actual  : 0x0
+        	Test:       	TestQuery_StaleRecordAnswersStaleAfterRestart
+        	Messages:   	a stale record must answer stale after a restart, never absent
+--- FAIL: TestQuery_StaleRecordIsUncertainAfterRestartUnderDrop (0.11s)
+    stale_filter_test.go:71: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-ledger/internal/negknow/stale_filter_test.go:71
+        	Error:      	Not equal: 
+        	            	expected: 0x4
+        	            	actual  : 0x0
+        	Test:       	TestQuery_StaleRecordIsUncertainAfterRestartUnderDrop
+        	Messages:   	drop withholds the detail; it never turns a record into an absence
+--- FAIL: TestQuery_StaleRecordAnswersStaleAfterColdOpen (0.05s)
+    stale_filter_test.go:86: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-ledger/internal/negknow/stale_filter_test.go:86
+        	Error:      	Not equal: 
+        	            	expected: 0x2
+        	            	actual  : 0x0
+        	Test:       	TestQuery_StaleRecordAnswersStaleAfterColdOpen
+--- FAIL: TestQuery_StaleRecordAnswersStaleAfterIdleRebuild (0.04s)
+    stale_filter_test.go:104: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-ledger/internal/negknow/stale_filter_test.go:104
+        	Error:      	Not equal: 
+        	            	expected: 0x2
+        	            	actual  : 0x0
+        	Test:       	TestQuery_StaleRecordAnswersStaleAfterIdleRebuild
+        	Messages:   	an idle rebuild must not drop a stale record's key
+--- FAIL: TestQuery_StaleRecordAnswersStaleAfterImmediateRebuild (0.03s)
+    stale_filter_test.go:124: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-ledger/internal/negknow/stale_filter_test.go:124
+        	Error:      	Not equal: 
+        	            	expected: 0x2
+        	            	actual  : 0x0
+        	Test:       	TestQuery_StaleRecordAnswersStaleAfterImmediateRebuild
+--- FAIL: TestReconcile_RebuildsAFilterMissingAStaleRecord (0.04s)
+    stale_filter_test.go:138: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-ledger/internal/negknow/stale_filter_test.go:138
+        	Error:      	Should be true
+        	Test:       	TestReconcile_RebuildsAFilterMissingAStaleRecord
+        	Messages:   	reconcile added the stale record's key
+FAIL
+FAIL	github.com/qompack/qompack/internal/negknow	0.844s
+FAIL

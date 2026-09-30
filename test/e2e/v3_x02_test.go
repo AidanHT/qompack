@@ -240,12 +240,14 @@ func TestV3_ObserverFileVersionsDriveEliminationStaleness(t *testing.T) {
 	require.NotNil(t, ans.Record, "the stale record must still be returned")
 	require.Equal(t, rec.ID, ans.Record.ID)
 
-	// ── step 7: RebuildBloom — tried.bloom replaced, one .bak, and the stale record's keys LEAVE ──
+	// ── step 7: RebuildBloom — tried.bloom replaced, one .bak, and the stale record's keys STAY ──
 	//
-	// Controller ruling (V3-VERIFY §8.1 case d): the X2 row's original step-7/8 bullets contradicted
-	// the plan's own I8/I12 rows, §13 invariant 3 (tried.bloom is a cache rebuilt from ACTIVE
-	// records only) and the already-merged TestE2E_EliminationLifecycle step 4. The record is
-	// counted in Health but its keys must vanish from the rebuilt filter.
+	// Criterion change (coordinator decision D49 of the V6 close-out, finding R4-1): the V3-VERIFY
+	// §8.1 case d ruling had this step assert that the stale record's keys LEFT the rebuilt filter,
+	// and step 8 that Query then answered absent, following §3.3's "rebuilt from active records
+	// only". The candidate 4 live re-run found exactly that behaviour as a defect — a stale
+	// elimination answering absent after a daemon restart — and D49 ruled that a record goes stale,
+	// never absent. The X2 row's original step-7/8 bullets (the answer stays stale) hold again.
 	require.NotNil(t, x2BloomBytes(t, p.Root), "negknow.Open must have persisted an initial tried.bloom")
 	require.Empty(t, bloomBackupNames(t, p.Root), "no backup generation may exist before the explicit rebuild")
 
@@ -268,30 +270,29 @@ func TestV3_ObserverFileVersionsDriveEliminationStaleness(t *testing.T) {
 	baks := bloomBackupNames(t, p.Root)
 	require.Len(t, baks, 1, "exactly one tried.bloom.<seq>.bak generation must survive: %v", baks)
 
-	// I8/I12 and §13 invariant 3: RebuildBloom draws from ACTIVE records only, and none remain
-	// active — the rebuilt filter is empty, exactly as TestE2E_EliminationLifecycle step 4 already
-	// pins at the unit-composition level.
-	require.Zero(t, health.FillRatio,
-		"post-rebuild FillRatio must be 0: the only record is stale, and I8/I12 rebuild from active records only")
+	// D49: RebuildBloom draws from every record, active and stale, so the one stale record keeps its
+	// keys and the rebuilt filter holds exactly what the filter held before it.
+	require.Equal(t, healthBefore.FillRatio, health.FillRatio,
+		"post-rebuild FillRatio must equal pre-rebuild: the only record is stale, and the rebuild keeps stale records (D49)")
 
-	// ── step 8: after the rebuild the stale record's keys are gone from the cache → absent ──
+	// ── step 8: after the rebuild the answer is still stale — never absent, never active ──
 	//
-	// Query gates on bloom.Test first (I8/I12; TestE2E_EliminationLifecycle step 4): once
-	// tried.bloom is rebuilt from active records only, the stale record's keys leave the cache and
-	// Query can no longer route to it, so AnswerStale is unreachable here. AnswerActive would be
-	// the §12 stale-block incident this test exists to prevent. The structured record — read
-	// directly below — remains the source of truth (§13 invariant 3: the bloom is a cache, never
-	// the source of truth).
+	// Query gates on bloom.Test first, so a rebuild that dropped the stale record's keys made it
+	// answer absent (R4-1). AnswerActive would be the §12 stale-block incident this test exists to
+	// prevent; AnswerAbsent is the silent loss of the elimination D49 forbids. The structured
+	// record, read directly below, remains the source of truth (§13 invariant 3).
 	ans, err = led.Query(ctx, x2Target, x2Synonym, negknow.ScopeProject)
 	require.NoError(t, err)
-	require.Equal(t, negknow.AnswerAbsent, ans.State,
-		"post-rebuild the answer is absent (I8/I12, TestE2E_EliminationLifecycle step 4): the stale record's keys left the rebuilt cache")
-	require.False(t, ans.BloomOnly, "a clean bloom miss is not a BloomOnly hit")
+	require.Equal(t, negknow.AnswerStale, ans.State,
+		"post-rebuild the answer is still stale (D49): the rebuilt cache keeps the stale record's keys")
+	require.Equal(t, x2StaleNote, ans.Note)
+	require.NotNil(t, ans.Record)
+	require.Equal(t, rec.ID, ans.Record.ID)
+	require.False(t, ans.BloomOnly, "a record backs the hit")
 
 	rawRec, err := led.Get(ctx, rec.ID)
 	require.NoError(t, err)
-	require.Equal(t, negknow.StatusStale, rawRec.Status,
-		"the structured record remains stale and readable even once the bloom no longer flags it")
+	require.Equal(t, negknow.StatusStale, rawRec.Status, "the structured record remains stale and readable")
 
 	// ── append-only holds; nothing was written outside .qompack/ ──
 	p.AssertAppendOnly(t)
