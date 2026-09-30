@@ -1,0 +1,29 @@
+# GREEN after the doc fixes (worktree closeout/w15-docs on 08034a3f)
+# go test -p 2 -count=1 -run '^(TestCloseoutStaleClaimsAreGone|TestFidelityIsReadFromTheCaptureRecord|TestHostBinaryDecodingIsDocumented|TestRecallDeniedCountIsExplained|TestUATNamedTestsExist|TestUATIntroDescribesTheCurrentRecord)$' -v ./test/docs/
+=== RUN   TestCloseoutStaleClaimsAreGone
+--- PASS: TestCloseoutStaleClaimsAreGone (0.08s)
+=== RUN   TestFidelityIsReadFromTheCaptureRecord
+--- PASS: TestFidelityIsReadFromTheCaptureRecord (0.04s)
+=== RUN   TestHostBinaryDecodingIsDocumented
+--- PASS: TestHostBinaryDecodingIsDocumented (0.05s)
+=== RUN   TestRecallDeniedCountIsExplained
+--- PASS: TestRecallDeniedCountIsExplained (0.05s)
+=== RUN   TestUATNamedTestsExist
+--- PASS: TestUATNamedTestsExist (0.36s)
+=== RUN   TestUATIntroDescribesTheCurrentRecord
+--- PASS: TestUATIntroDescribesTheCurrentRecord (0.05s)
+PASS
+ok  	github.com/qompack/qompack/test/docs	1.325s
+exit=0
+# go test -p 2 -count=1 ./test/docs/
+ok  	github.com/qompack/qompack/test/docs	2.347s
+exit=0
+# go run ./tools/devtool gen-mcp-docs --check
+gen-mcp-docs: docs/mcp-tools.md is up to date
+exit=0
+# go run ./tools/devtool gen-config-docs --check
+gen-config-docs: docs/config-reference.md is up to date
+exit=0
+# go run ./tools/devtool gen-command-docs --check
+gen-command-docs: docs/commands.md is up to date
+exit=0

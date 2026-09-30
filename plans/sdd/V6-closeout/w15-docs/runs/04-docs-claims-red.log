@@ -1,0 +1,32 @@
+# RED before the doc fixes, base 08034a3f + test/docs/closeout_claims_test.go
+# go test -p 2 -count=1 -run '^(TestCloseoutStaleClaimsAreGone|TestFidelityIsReadFromTheCaptureRecord|TestHostBinaryDecodingIsDocumented|TestRecallDeniedCountIsExplained|TestUATNamedTestsExist|TestUATIntroDescribesTheCurrentRecord)$' -v ./test/docs/
+=== RUN   TestCloseoutStaleClaimsAreGone
+    closeout_claims_test.go:50: docs/troubleshooting.md still says "read that record's fidelity through `expand`": no retrieval response carries fidelity (D46); capture fidelity is on the capture record (D49)
+    closeout_claims_test.go:50: docs/troubleshooting.md still says "Read the record's `Fidelity`.": a retrieval record has no Fidelity field to read (D46); the capture sidecar has it (D49)
+    closeout_claims_test.go:50: docs/cannot-do.md still says "It returns the label with the content": no retrieval response carries the fidelity label (D46)
+    closeout_claims_test.go:50: docs/architecture.md still says "Capture, fidelity and coverage may be partial or unknown, and the response says which.": no retrieval response carries fidelity or coverage (D46)
+    closeout_claims_test.go:50: docs/uat.md still says "(`--set runtime.rehydrate.maxTokens=<small>` on a hook invocation": the daemon builds the rehydration under its own configuration (D49, UAT-05 step 5)
+    closeout_claims_test.go:50: docs/uat.md still says "the reachable form is to run the query in a project where the elimination ledger is not present": the ledger opens on first use and answers absent there (D49, UAT-09 step 5)
+--- FAIL: TestCloseoutStaleClaimsAreGone (0.19s)
+=== RUN   TestFidelityIsReadFromTheCaptureRecord
+    closeout_claims_test.go:65: docs/troubleshooting.md section 3 does not say capture fidelity is on the sidecar under .qompack/records/captures/
+--- FAIL: TestFidelityIsReadFromTheCaptureRecord (0.17s)
+=== RUN   TestHostBinaryDecodingIsDocumented
+    closeout_claims_test.go:79: docs/user-guide.md does not document the host's decoding of binary files: want "Qompack records what the host delivered and decodes nothing itself."
+    closeout_claims_test.go:79: docs/cannot-do.md does not document the host's decoding of binary files: want "Qompack records what the host delivered and decodes nothing itself."
+--- FAIL: TestHostBinaryDecodingIsDocumented (0.17s)
+=== RUN   TestRecallDeniedCountIsExplained
+    closeout_claims_test.go:92: docs/mcp-tools.md does not explain recall's denied count: missing "`denied`"
+    closeout_claims_test.go:92: docs/mcp-tools.md does not explain recall's denied count: missing "no usable path provenance"
+--- FAIL: TestRecallDeniedCountIsExplained (0.17s)
+=== RUN   TestUATNamedTestsExist
+    closeout_claims_test.go:114: docs/uat.md UAT-02 does not carry D49's note "non-exact fidelity is host-limited on Claude Code 2.1.280; covered by"
+--- FAIL: TestUATNamedTestsExist (0.37s)
+=== RUN   TestUATIntroDescribesTheCurrentRecord
+    closeout_claims_test.go:168: docs/uat.md introduction does not describe the current record: missing `9f6a2fad`
+    closeout_claims_test.go:168: docs/uat.md introduction does not describe the current record: missing D47
+--- FAIL: TestUATIntroDescribesTheCurrentRecord (0.17s)
+FAIL
+FAIL	github.com/qompack/qompack/test/docs	2.148s
+FAIL
+exit=1
