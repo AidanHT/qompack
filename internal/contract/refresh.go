@@ -23,7 +23,8 @@ import (
 // SessionHistory.MCPInitialized and SentinelState.Observed never reset to false, so once either is
 // set the check reads the same observation at every later start. SentinelState.Chances counts the
 // session's prompts that missed the probe its start minted; once it reaches two the check reads the
-// failure the next start will report, and only that start's mint resets it.
+// failure the next start will report. Three things reset it: a start's mint, the withdrawal of a
+// lost start's probe (the daemon's withdrawLostStartAnswer), and a scan that finds the probe.
 var historyRead = []struct {
 	id    ID
 	check func(context.Context, Env) Result
