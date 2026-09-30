@@ -1,0 +1,124 @@
+[2026-09-30T18:19:45] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate && git status && git log --oneline -3 && mkdir -p C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w15/rehydrate/ && ls internal/rehydrate plans/sdd/V6-closeout/live/rerun-c4/
+[2026-09-30T18:19:54] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate && ls -la internal/rehydrate/tier1_order_test.go internal/rehydrate/zz_diag_w15_test.go && cat internal/rehydrate/tier1_order_test.go && echo ======== && cat internal/rehydrate/zz_diag_w15_test.go; ls -la C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad
+[2026-09-30T18:19:59] Bash: date; cd C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w15/rehydrate/ && cat base-rehydrate.txt && echo ---- && cat prev-attempt.diff | head -80; powershell -NoProfile -Command "Get-CimInstance Win32_Process | Where-Object { \$_.CommandLine -like '*w15-rehydrate*' } | Select-Object ProcessId,Name,Creat
+[2026-09-30T18:20:09] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-v6 && grep -n "D45\|D46\|D49\|D5\b\|D5 " plans/V6-CLOSEOUT-CHECKLIST.md | head -50
+[2026-09-30T18:20:09] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate && wc -l internal/rehydrate/*.go && ls docs/adr/ 2>/dev/null | head -30
+[2026-09-30T18:20:17] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate && cat docs/adr/0011-rehydration-budget-and-item-order.md
+[2026-09-30T18:20:19] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate && grep -n "^## \|^### " docs/adr/0011-rehydration-budget-and-item-order.md
+[2026-09-30T18:20:22] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate && sed -n 36,130p docs/adr/0011-rehydration-budget-and-item-order.md
+[2026-09-30T18:20:22] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate && sed -n 318,560p docs/adr/0011-rehydration-budget-and-item-order.md
+[2026-09-30T18:20:25] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate && cat internal/rehydrate/build.go
+[2026-09-30T18:20:25] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate && cat internal/rehydrate/budget.go
+[2026-09-30T18:20:29] Bash: cd C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w15/rehydrate/ && sed -n 80,200p prev-attempt.diff; echo ======; cat prev3-fallback_test.go.txt
+[2026-09-30T18:20:33] Bash: cd C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w15/rehydrate/ && cat prev3-current_authority_test.go.txt
+[2026-09-30T18:20:37] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate/plans/sdd/V6-closeout/live/rerun-c4 && ls -la UAT-03 UAT-03/probe UAT-05 UAT-06
+[2026-09-30T18:20:39] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate && grep -n "F-C4-UAT03-1\|F-C4-UAT06-1\|F-C4-UAT06-3\|F-C4-UAT05-3" -r docs/uat.md plans/sdd/V6-closeout/live/ | head -30
+[2026-09-30T18:20:51] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate/plans/sdd/V6-closeout/live/rerun-c4/UAT-03 && sed -n 40,80p notes.txt; echo ====; cd probe && for f in 00-corruption.txt 02-session-start-compact.cmd.txt 02-session-start-compact.stdout.txt probe-logs_LOUD.log probe-logs_qompack-20260930.log probe-state_rehydrate-19e641f9-5be8-439f-87ef-1a7e73451c76.json; do echo "--- $f"; c
+[2026-09-30T18:20:55] Grep: rolled back to|does not verify
+[2026-09-30T18:21:01] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate && cat internal/checkpoint/resolve.go
+[2026-09-30T18:21:03] Grep: ResolveLatest\(|rehydrate\.BuildWithStats\(|rehydrate\.Build\(|\.Latest\(ctx
+[2026-09-30T18:21:06] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate && cat internal/daemon/rehydrate_service.go
+[2026-09-30T18:21:08] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate && sed -n 100,420p internal/daemon/rehydrate_service.go
+[2026-09-30T18:21:15] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate && ls internal/checkpoint/ && grep -n "func (r \*\w*) Latest\|func (.*) Latest(\|func (.*) Verify(\|func (.*) List(" internal/checkpoint/*.go
+[2026-09-30T18:21:17] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate && sed -n 1,420p internal/checkpoint/reader.go
+[2026-09-30T18:21:37] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate && sed -n 28,100p internal/daemon/rehydrate_service.go && sed -n 420,700p internal/daemon/rehydrate_service.go
+[2026-09-30T18:21:40] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate && grep -rn "func (s \*rehydrateService)" internal/daemon/ && grep -rn "Lineage" internal/rehydrate/types.go
+[2026-09-30T18:21:42] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate && cat internal/rehydrate/types.go && cat internal/rehydrate/drops.go
+[2026-09-30T18:21:44] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate && cat internal/rehydrate/render.go
+[2026-09-30T18:21:46] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate && grep -n "^func \|^const\|^var\|^\t*dropKind\|^type " internal/rehydrate/items.go | head -120
+[2026-09-30T18:21:48] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate && sed -n 1,570p internal/rehydrate/items.go
+[2026-09-30T18:21:51] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate && sed -n 1430,1601p internal/rehydrate/items.go
+[2026-09-30T18:21:53] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate/plans/sdd/V6-closeout/live/rerun-c4/UAT-06 && sed -n 40,80p notes.txt; echo =====; cat C-block2-SessionStart-compact.txt
+[2026-09-30T18:22:28] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate/plans/sdd/V6-closeout/live/rerun-c4/UAT-05 && sed -n 30,90p notes.txt; echo ====; cat run2-block-tiny-budget.txt; echo; cat run2-state-rehydrate.json; cat setup-facts.json
+[2026-09-30T18:23:08] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate && grep -n "UAT-05" docs/uat.md | head; awk '/^### UAT-05/,/^### UAT-06/' docs/uat.md | head -120
+[2026-09-30T18:23:11] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate && sed -n 584,720p docs/uat.md
+[2026-09-30T18:24:15] Grep: func PropBuild_MonotoneInBudget|func TestPropBuild|MonotoneInBudget
+[2026-09-30T18:24:18] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate && sed -n 180,359p internal/rehydrate/verify_test.go
+[2026-09-30T18:24:54] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate && ls testdata/golden/rehydrate/ && grep -c "user_intent_evolution" testdata/golden/rehydrate/* ; grep -n "func ckFull\|func ckLongEvolution\|func fullDeps\|func goldenDeps\|func goldenRequest\|func requestFor\|func maxBudget\|degradedBudget\|func ckEmpty\|func requireInsideTheHostCeiling\|func requireSectionSevenAccountsFor
+[2026-09-30T18:24:59] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate && cat testdata/golden/rehydrate/degraded.txt; echo; echo =====; cat testdata/golden/rehydrate/token-bound.txt | head -60; ls testdata/golden/rehydrate/input
+[2026-09-30T18:25:05] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate && sed -n 460,625p internal/rehydrate/fake_test.go && sed -n 20,60p internal/rehydrate/budget_test.go
+[2026-09-30T18:25:16] Grep: tier1Units|tier1Admission|isTier1Kind|evictIndex|units\[1:\]|OriginalOnly|EvolutionIsNotTier1|VerbatimOriginalOnly
+[2026-09-30T18:25:19] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate && sed -n 300,352p internal/rehydrate/budget_test.go
+[2026-09-30T18:26:40] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate && sed -n 420,520p internal/checkpoint/reader.go; grep -rn "\.Verify(ctx\|\.Verify(context" internal --include=*.go | grep -v _test | head
+[2026-09-30T18:26:46] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate && grep -rn "ResolveLatest" --include=*.go . | grep -v "^./internal/checkpoint/resolve.go" ; sed -n 130,200p internal/checkpoint/publication_test.go
+[2026-09-30T18:26:57] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate && grep -rn "Checkpoints\b\|\.Latest(\|rehydrate.Request{" internal/daemon/*.go | grep -v _test | head -20; grep -rn "Qompack rehydration — checkpoint" --include=*.go . | grep -v "internal/rehydrate/" | head
+[2026-09-30T18:27:02] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate && ls internal/daemon/ | grep -i "rehydrat\|compact\|lineage" ; grep -ln "OpenReader\|checkpoint.OpenWriter" internal/daemon/*_test.go | head
+[2026-09-30T18:27:04] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate && grep -n "^func \|OpenReader\|OpenWriter\|Finalize\|spyLog\|Loud" internal/daemon/rehydrate_service_test.go | head -80
+[2026-09-30T18:27:07] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate && sed -n 1,80p internal/daemon/rehydrate_service_test.go && sed -n 350,565p internal/daemon/rehydrate_service_test.go
+[2026-09-30T18:27:12] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate && grep -n "type ManifestEntry" -A 20 internal/paths/*.go | head -40; grep -n "func AppendManifest\|func ReadManifest\|func CheckpointPath\|func ManifestPath" internal/paths/*.go; ls plans/sdd/V6-closeout/live/rerun-c4/UAT-03/store/ 2>/dev/null | head
+[2026-09-30T18:27:25] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate && grep -rln "rehydration — checkpoint" --include=*.go . ; grep -rn "rehydration — checkpoint" docs/*.md | head -5; ls internal/cli | grep -i "backup\|restore\|fsck\|rollback"; grep -rn "\"restore\"\|Use: *\"restore\|\"backup\"" internal/cli/*.go | grep -v _test | head
+[2026-09-30T18:27:28] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate && sed -n 15,60p internal/cli/backup.go; grep -rn "corrupt\|does not verify" docs/troubleshooting.md 2>/dev/null | head -10; ls docs
+[2026-09-30T18:27:51] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate && go test -p 2 -count=1 -run 'TestDiagW15_UAT05' ./internal/rehydrate/ 2>&1 | head -80
+[2026-09-30T18:27:59] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate && go test -p 2 -count=1 -v -run 'TestDiagW15_UAT05' ./internal/rehydrate/ 2>&1 | head -120
+[2026-09-30T18:28:07] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate && go test -p 2 -count=1 -run 'TestBuild_Tier1FollowsTheAdmissionOrderAtTinyBudgets|TestBuild_TinyBudgetNeverKeepsTheInvariantWithoutTheRetrievalLine|TestBuild_AnUnrepresentableTier1RecordDoesNotCloseTier1' ./internal/rehydrate/ 2>&1 | grep -v "^\s*$" | cut -c1-300 | head -60
+[2026-09-30T18:28:18] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate && grep -n "^func Test\|^func Prop\|^func Fuzz" internal/rehydrate/hostcap_test.go internal/rehydrate/budget_test.go internal/rehydrate/intent_*_test.go internal/rehydrate/assembled_budget_v6_test.go internal/rehydrate/items_test.go | cut -c1-200
+[2026-09-30T18:28:21] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate && sed -n 130,240p internal/rehydrate/budget_test.go
+[2026-09-30T18:29:47] TEXT: Reproduced F-C4-UAT05-3 exactly with the temporary diagnostic (150 tokens: invariant kept, retrieval line out; 160: the reverse). Now let me check a few more code paths before editing.
+[2026-09-30T18:29:49] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate && grep -n "\.overflow\|isTier1Kind\|tier1Order\b" internal/rehydrate/*.go | grep -v "_test.go" ; sed -n 95,154p internal/rehydrate/assembled_budget_v6_test.go; grep -n "func sectionCost\|func unitCost\|func sumCost\|type cost\|func (c cost)" internal/rehydrate/*.go
+[2026-09-30T18:29:53] TEXT: Now let me implement the tier-1 prefix (F-C4-UAT05-3) in budget.go.
+[2026-09-30T18:30:06] Edit: C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate/internal/rehydrate/budget.go
+[2026-09-30T18:30:10] Edit: C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate/internal/rehydrate/budget.go
+[2026-09-30T18:30:11] Edit: C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate/internal/rehydrate/budget.go
+[2026-09-30T18:30:12] TEXT: Now the eviction order.
+[2026-09-30T18:30:22] Edit: C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate/internal/rehydrate/budget.go
+[2026-09-30T18:30:25] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate && grep -rn "tier1Order\b\|isTier1Kind" --include=*.go . 
+[2026-09-30T18:30:27] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate && sed -n 270,320p internal/rehydrate/budget.go
+[2026-09-30T18:30:35] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate && python - <<'EOF'
+import re
+p='internal/rehydrate/budget.go'
+s=open(p,encoding='utf-8').read()
+old_order='''// tier1Order is the material admitted whole before any share is computed: §8.6's "verbatim,
+// always" items plus the affordance line, which is a fixed ~80-token string that must survive to
+// tell the agent retriev
+[2026-09-30T18:30:37] TEXT: Now update build.go's tier-1 step and the share/skill steps for an incomplete tier 1.
+[2026-09-30T18:30:43] Edit: C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate/internal/rehydrate/build.go
+[2026-09-30T18:30:44] Edit: C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate/internal/rehydrate/build.go
+[2026-09-30T18:30:48] Edit: C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate/internal/rehydrate/build.go
+[2026-09-30T18:30:53] Edit: C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate/internal/rehydrate/build.go
+[2026-09-30T18:30:56] Edit: C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate/internal/rehydrate/tier1_order_test.go
+[2026-09-30T18:31:06] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate && python - <<'EOF'
+p='internal/rehydrate/tier1_order_test.go'
+s=open(p,encoding='utf-8').read()
+old='''	_, ok := dropForKind(res.Dropped, dropKindUserIntentEvolution, "tier1")
+	require.True(t, ok, "the newest restatement is a named tier-1 overflow too: %v", res.Dropped)
+}'''
+assert old in s
+s=s.replace(old,'}')
+old2='''//  
+[2026-09-30T18:31:08] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate && sed -n 160,175p internal/rehydrate/tier1_order_test.go
+[2026-09-30T18:31:11] Edit: C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate/internal/rehydrate/tier1_order_test.go
+[2026-09-30T18:31:12] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate && go build ./internal/rehydrate/ && go vet ./internal/rehydrate/ && go test -p 2 -count=1 ./internal/rehydrate/ 2>&1 | grep -E "^(---|===|ok|FAIL|panic)|Error:|Messages:" | head -60
+[2026-09-30T18:31:25] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate && cat > internal/rehydrate/zz_diag_w15_test.go <<'EOF'
+package rehydrate
+
+// TEMPORARY DIAGNOSTIC (w15, not committed): print the UAT-05 fixture's payload around a budget.
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"strconv"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/qompack/qompack/internal/core"
+)
+
+func Test
+[2026-09-30T18:31:30] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate && W15_LO=327 W15_HI=328 W15_EST=shipped go test -p 2 -count=1 -v -run 'TestDiagW15_Around' ./internal/rehydrate/ 2>&1 | grep -v "^  drop" | head -60
+[2026-09-30T18:32:02] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate && grep -n "hard-cap assertion" -A 75 internal/rehydrate/build.go | head -90
+[2026-09-30T18:32:32] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate && python - <<'EOF'
+p='internal/rehydrate/build.go'
+s=open(p,encoding='utf-8').read()
+old='''	// It evicts in the REVERSE of the order Build admitted sections in (evictIndex), not in render
+	// order, and that distinction is load-bearing. Evicting the literal tail removes items 7 and 8
+	// first: the drop report that says wh
+[2026-09-30T18:32:44] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate && cp internal/rehydrate/build.go /c/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w15/rehydrate/build.go.keep && python - <<'EOF'
+p='internal/rehydrate/build.go'
+s=open(p,encoding='utf-8').read()
+s=s.replace('''		if incomplete {
+		
+[2026-09-30T18:32:52] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate && grep -rn "TestEvictIndex\|TestTier1Units_TakesOnlyTheVerbatimOriginal" --include=*.md --include=*.go --include=*.txt --include=*.json . | grep -v "^./internal/rehydrate/budget_test.go" | head
+[2026-09-30T18:33:45] Edit: C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate/internal/rehydrate/budget_test.go
+[2026-09-30T18:33:51] Bash: cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-rehydrate && sed -n 40,70p internal/rehydrate/hostcap_test.go && sed -n 180,230p internal/rehydrate/hostcap_test.go
