@@ -1,0 +1,27 @@
+$ go test -p 2 ./test/docs -count=1
+ok  	github.com/qompack/qompack/test/docs	2.985s
+exit=0
+$ go run ./tools/devtool gen-command-docs --check
+gen-command-docs: docs/commands.md is up to date
+exit=0
+$ go run ./tools/devtool gen-config-docs --check
+gen-config-docs: docs/config-reference.md is up to date
+exit=0
+$ go run ./tools/devtool gen-mcp-docs --check
+gen-mcp-docs: docs/mcp-tools.md is up to date
+exit=0
+$ go run ./tools/devtool fmt-check
+exit=0
+$ go vet ./test/docs (windows, GOOS=linux)
+exit=0
+exit=0
+$ devtool lint --only=golangci-lint,nomagic,importgraph,testdeps,bindeps,sleepcheck,docmarkers,runpatterns
+PASS golangci-lint
+PASS nomagic
+PASS importgraph
+PASS testdeps
+PASS bindeps
+PASS sleepcheck
+PASS runpatterns
+PASS docmarkers
+exit=0
