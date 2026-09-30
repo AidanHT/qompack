@@ -39,3 +39,15 @@ re-joined), as docs/backup.md says ("discovers incomplete state; it does not rec
 Observations (not defects): the startup line gives counts only - it does not name the observation id or the
 object hash (fsck does); `status` after a bare session-start restart reports contract assertion
 mcp.server_registered FAILING (info) because no MCP host initialised, which is expected for this restart form.
+
+Candidate 4 note (2026-09-30, D50; C1.6 was not re-run on candidate 4, 9f6a2fad): the automatic startup
+accounting above is present on candidate 4 but did not finish on ordinary stores. Its 250 ms startup bound
+(internal/daemon/publication_audit.go publicationStartupBound) interrupted the scan at every daemon start the
+live re-run logged, each writing LOUD "daemon: publication accounting incomplete; a zero gap count is only a
+lower bound ... scan interrupted before it finished":
+  - rerun-c4/UAT-12/store/logs_LOUD.log: 00:58:08Z (captures_scanned=70 objects_scanned=380) and 01:03:52Z
+    (captures_scanned=70 objects_scanned=374), a 3-session store;
+  - rerun-c4/UAT-05/store/logs_LOUD.log: 02:19:59Z (captures_scanned=14 objects_scanned=0).
+So on candidate 4 "automatic startup accounting EXISTS" holds only as an incomplete lower bound; the "no
+automatic RECOVERY" statement is unchanged. D49's fix ("a healthy store never logs 'publication accounting
+incomplete'") is a precondition for citing C1.6's startup accounting on a later candidate.
