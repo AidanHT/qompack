@@ -123,8 +123,17 @@ func BuildWithStats(ctx context.Context, r Request, d Deps) (Result, []ItemStat,
 	//
 	// Item 7's floor is held back from the first admission on: whatever tier 1 cannot carry is
 	// then always namable, with the call that restores it, inside the ceiling.
+	//
+	// Tier 1 is one prefix in tier1Admission order (fillTier1): once a record the budget cannot
+	// hold ends it, every later tier-1 record is named rather than admitted, and — below — no share,
+	// no skill index and no min-fill is offered any room either. Tier 1 is admitted whole before
+	// any share is computed (ADR 0011 §6, §19); a payload that could not finish it has no share to
+	// give, and handing what is left to smaller, less important records is the cheapest-first fill
+	// §7 forbids — at 150 tokens it put item 3's standing instruction where the retrieval line
+	// that makes it actionable could not go.
 	spent := overhead
 	degraded := false
+	incomplete := false
 	fills := make(map[ItemKind]*admitted, len(renderOrder))
 	floor := dropReportFloor(d)
 	for _, k := range tier1Admission {
@@ -132,9 +141,10 @@ func BuildWithStats(ctx context.Context, r Request, d Deps) (Result, []ItemStat,
 		if len(units) == 0 {
 			continue
 		}
-		a := fillTier1(d, k, all[k], units, limit.minus(spent).minus(floor))
+		a, closed := fillTier1(d, k, all[k], units, limit.minus(spent).minus(floor), overhead.plus(floor), incomplete)
 		fills[k] = a
 		spent = spent.plus(a.used)
+		incomplete = closed
 		if a.truncated {
 			degraded = true
 		}
@@ -188,6 +198,10 @@ func BuildWithStats(ctx context.Context, r Request, d Deps) (Result, []ItemStat,
 			carry = allowance
 			continue
 		}
+		if incomplete {
+			fills[k] = mergeIntent(fills[k], abandon(units))
+			continue
+		}
 		// The heading is charged with the first unit this section emits. For item 2 that is the
 		// tier-1 original when step 3 admitted it — charging it again would inflate the item above
 		// its true rendered cost — and the first evolution delta when step 3 could not.
@@ -206,7 +220,12 @@ func BuildWithStats(ctx context.Context, r Request, d Deps) (Result, []ItemStat,
 	// the character half, where a tenth of the ceiling would otherwise cut a payload that has room.
 	skillAllowance := reserveSkill.plus(carry)
 	if b := all[ItemSkillIndex]; len(b.units) > 0 {
-		a := fillWithHeading(d, ItemSkillIndex, b, b.units, skillAllowance, limit.minus(spent).minus(reserveDrop), true)
+		var a *admitted
+		if incomplete {
+			a = abandon(b.units)
+		} else {
+			a = fillWithHeading(d, ItemSkillIndex, b, b.units, skillAllowance, limit.minus(spent).minus(reserveDrop), true)
+		}
 		fills[ItemSkillIndex] = a
 		spent = spent.plus(a.used)
 		skillAllowance = skillAllowance.minus(a.used)
@@ -214,7 +233,11 @@ func BuildWithStats(ctx context.Context, r Request, d Deps) (Result, []ItemStat,
 	carry = skillAllowance
 
 	// ── 9. min-fill, for an unset request only ───────────────────────────────────────────────
-	if r.Budget <= 0 {
+	//
+	// Never while tier 1 is incomplete: item 2's pending units start with the tier-1 records the
+	// prefix refused, and re-admitting one because it is smaller than the record that ended tier 1
+	// is the skip-ahead fillTier1 exists to prevent.
+	if r.Budget <= 0 && !incomplete {
 		spent = minFill(d, all, fills, shareOrder, spent, core.Tokens(cfg.MinTokens), limit, reserveDrop)
 	}
 
@@ -273,14 +296,30 @@ func BuildWithStats(ctx context.Context, r Request, d Deps) (Result, []ItemStat,
 	// arithmetic bug visible. The character half is exact above, so only a token estimator that
 	// prices the assembled payload above the sum of its parts can reach it.
 	//
-	// It evicts in IMPORTANCE order, not in render order, and that distinction is load-bearing.
-	// Evicting the literal tail removes items 7 and 8 first: the drop report that says what was
-	// lost, and the affordance line that says how to ask for it back. That inverts §8.6 exactly,
-	// and it is worst in precisely the case that needs them most.
+	// It removes material in the REVERSE of the order Build admitted it in, not in render order, and
+	// that distinction is load-bearing. Evicting the literal tail removes items 7 and 8 first: the
+	// drop report that says what was lost, and the affordance line that says how to ask for it back.
+	// That inverts §8.6 exactly, and it is worst in precisely the case that needs them most. So the
+	// first thing to go is what was admitted last — item 7's lines beyond its floor, cut to the
+	// counted tail — and then whole sections in evictIndex order, which ends with tier 1 in the
+	// reverse of its admission order (F-C4-UAT05-3). Keeping section 7's extra lines while evicting
+	// the original prompt would lose a record to keep a line that only names others.
+	shrunkReport := false
 	for (res.Tokens > limit.tok || hostChars(res.Text) > limit.chars) && len(res.Items) > 0 {
 		d.Log.Loud("rehydrate: payload exceeded its budget after filling; re-truncating",
 			"tokens", int(res.Tokens), "budget", int(budget),
 			"chars", hostChars(res.Text), "ceiling_chars", limit.chars)
+		if !shrunkReport {
+			shrunkReport = true
+			if dropReportToFloor(d, res.Items, stats, res.Dropped, true) {
+				res.Text = renderText(r, res.Items)
+				res.Tokens = estimate(d, res.Text)
+				allocateAssembledTokens(res.Items, res.Tokens)
+				syncStatTokens(stats, res.Items)
+				res.Degraded = true
+				continue
+			}
+		}
 		i := evictIndex(res.Items)
 		gone := res.Items[i]
 		res.Items = append(res.Items[:i], res.Items[i+1:]...)
@@ -303,6 +342,10 @@ func BuildWithStats(ctx context.Context, r Request, d Deps) (Result, []ItemStat,
 				}
 			}
 		}
+		// The evicted section's records are now among the drops, so a section 7 still in the payload
+		// counts them: it is re-rendered as its floor, the heading and the counted tail over the
+		// whole report, which is what dropped() answers with.
+		dropReportToFloor(d, res.Items, stats, res.Dropped, false)
 		// Re-measure against the assembled text after EACH eviction rather than decrementing by the
 		// evicted row's allocated share: the share was an allocation, and the true remaining cost is
 		// what the estimator prices the shorter payload at (wrapper and separators included). Then
@@ -322,6 +365,29 @@ func BuildWithStats(ctx context.Context, r Request, d Deps) (Result, []ItemStat,
 		res.Degraded = true
 	}
 	return res, stats, nil
+}
+
+// dropReportToFloor re-renders item 7, when items carry it, as its floor: its heading and the
+// counted tail "- … and N more; call dropped()", N counting every line of the report on dropped.
+// With onlyIfSmaller it leaves a section that is already no longer than that alone. It reports
+// whether it changed item 7; stats is kept index-aligned with items.
+func dropReportToFloor(d Deps, items []Item, stats []ItemStat, dropped []checkpoint.DropEntry, onlyIfSmaller bool) bool {
+	for i := range items {
+		if items[i].Kind != ItemDropReport {
+			continue
+		}
+		tail := moreDropsUnit(d, len(buildDropReport(dropped).units))
+		floor := itemText(ItemDropReport, 0, 0, []string{tail.text})
+		if items[i].Text == floor || (onlyIfSmaller && hostChars(floor) >= hostChars(items[i].Text)) {
+			return false
+		}
+		items[i].Text = floor
+		items[i].Truncated = true
+		stats[i].Truncated = true
+		stats[i].Units = 1
+		return true
+	}
+	return false
 }
 
 // normalizeDeps fills in the tolerable nils. A nil collaborator is never an error: the item that
