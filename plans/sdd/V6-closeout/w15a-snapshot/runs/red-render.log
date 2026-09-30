@@ -1,0 +1,202 @@
+--- FAIL: TestRenderStatus_AFailingBannerStillCountsThePendingRows (0.00s)
+    render_contract_test.go:75: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15a-snapshot/internal/commands/render_contract_test.go:75
+        	Error:      	"qompack status — collected 2026-09-08T12:00:00Z\n\nsource: daemon (available, 0µs old)\n\nhost contract: 1 of 9 assertion(s) FAILING\n  session_start.source_compact (critical — degrades the session when observed)\n    expected: compact\n    observed: startup\n\nmode:        full\nhot path:    sync\nsessions:    0\nspool files: 0\n\nhooks — per-entry-point latency\n  EVENT              SUBCOMMAND                       BUDGET  LATENCY\n  PostToolUse        qompack observe tool             B-A     unavailable\n                       no per-hook instrument: PostToolUse is folded into the hook_controlled aggregate,\n                       which mixes every delivering hook and cannot be attributed to one\n  UserPromptSubmit   qompack observe prompt           B-A     unavailable\n                       no per-hook instrument: UserPromptSubmit is folded into the hook_controlled\n                       aggregate, which mixes every delivering hook and cannot be attributed to one\n  SessionStart       qompack session-start            B-A     unavailable\n                       no per-hook instrument: SessionStart is folded into the hook_controlled aggregate,\n                       which mixes every delivering hook and cannot be attributed to one\n  PreCompact         qompack checkpoint               B-E     unavailable\n                       checkpoint_finalize: no samples recorded in the observed window\n  Stop               qompack observe stop             B-A     unavailable\n                       no per-hook instrument: Stop is folded into the hook_controlled aggregate, which\n                       mixes every delivering hook and cannot be attributed to one\n  SubagentStop       qompack observe stop --subagent  B-A     unavailable\n                       no per-hook instrument: SubagentStop is folded into the hook_controlled aggregate,\n                       which mixes every delivering hook and cannot be attributed to one\n  SessionEnd         qompack flush                    B-A     unavailable\n                       no per-hook instrument: SessionEnd is folded into the hook_controlled aggregate,\n                       which mixes every delivering hook and cannot be attributed to one\n\nbudgets — §2.4\n  ID    HISTOGRAM             MEASURE     LATENCY\n  B-A   hook_controlled       —           unavailable\n          scope: aggregate over 6 entry point(s): PostToolUse, UserPromptSubmit, SessionStart, Stop, SubagentStop, SessionEnd\n          hook_controlled: no samples recorded in the observed window\n  B-B   l0_ingest             —           unavailable\n          scope: aggregate; not attributable to a single hook entry point\n          l0_ingest: no samples recorded in the observed window\n  B-C   l0_process            —           unavailable\n          scope: aggregate; not attributable to a single hook entry point\n          reported only, never gated\n          l0_process: no samples recorded in the observed window\n  B-D   hook_wall             —           unavailable\n          scope: aggregate; not attributable to a single hook entry point\n          reported only, never gated\n          no instrument records this histogram in this build\n          it measures host process creation, which the created process cannot observe\n  B-E   checkpoint_finalize   —           unavailable\n          checkpoint_finalize: no samples recorded in the observed window\n  B-F   mcp_tool_call         —           unavailable\n          scope: aggregate; not attributable to a single hook entry point\n          mcp_tool_call: no samples recorded in the observed window\n  B-G   hook_degraded         —           unavailable\n          scope: aggregate; not attributable to a single hook entry point\n          reported only, never gated\n          hook_degraded: no samples recorded in the observed window\n" does not contain "host contract: 1 of 9 assertion(s) FAILING; 2 holding, 3 pending, 3 with nothing to judge\n"
+        	Test:       	TestRenderStatus_AFailingBannerStillCountsThePendingRows
+        	Messages:   	qompack status — collected 2026-09-08T12:00:00Z
+        	            	
+        	            	source: daemon (available, 0µs old)
+        	            	
+        	            	host contract: 1 of 9 assertion(s) FAILING
+        	            	  session_start.source_compact (critical — degrades the session when observed)
+        	            	    expected: compact
+        	            	    observed: startup
+        	            	
+        	            	mode:        full
+        	            	hot path:    sync
+        	            	sessions:    0
+        	            	spool files: 0
+        	            	
+        	            	hooks — per-entry-point latency
+        	            	  EVENT              SUBCOMMAND                       BUDGET  LATENCY
+        	            	  PostToolUse        qompack observe tool             B-A     unavailable
+        	            	                       no per-hook instrument: PostToolUse is folded into the hook_controlled aggregate,
+        	            	                       which mixes every delivering hook and cannot be attributed to one
+        	            	  UserPromptSubmit   qompack observe prompt           B-A     unavailable
+        	            	                       no per-hook instrument: UserPromptSubmit is folded into the hook_controlled
+        	            	                       aggregate, which mixes every delivering hook and cannot be attributed to one
+        	            	  SessionStart       qompack session-start            B-A     unavailable
+        	            	                       no per-hook instrument: SessionStart is folded into the hook_controlled aggregate,
+        	            	                       which mixes every delivering hook and cannot be attributed to one
+        	            	  PreCompact         qompack checkpoint               B-E     unavailable
+        	            	                       checkpoint_finalize: no samples recorded in the observed window
+        	            	  Stop               qompack observe stop             B-A     unavailable
+        	            	                       no per-hook instrument: Stop is folded into the hook_controlled aggregate, which
+        	            	                       mixes every delivering hook and cannot be attributed to one
+        	            	  SubagentStop       qompack observe stop --subagent  B-A     unavailable
+        	            	                       no per-hook instrument: SubagentStop is folded into the hook_controlled aggregate,
+        	            	                       which mixes every delivering hook and cannot be attributed to one
+        	            	  SessionEnd         qompack flush                    B-A     unavailable
+        	            	                       no per-hook instrument: SessionEnd is folded into the hook_controlled aggregate,
+        	            	                       which mixes every delivering hook and cannot be attributed to one
+        	            	
+        	            	budgets — §2.4
+        	            	  ID    HISTOGRAM             MEASURE     LATENCY
+        	            	  B-A   hook_controlled       —           unavailable
+        	            	          scope: aggregate over 6 entry point(s): PostToolUse, UserPromptSubmit, SessionStart, Stop, SubagentStop, SessionEnd
+        	            	          hook_controlled: no samples recorded in the observed window
+        	            	  B-B   l0_ingest             —           unavailable
+        	            	          scope: aggregate; not attributable to a single hook entry point
+        	            	          l0_ingest: no samples recorded in the observed window
+        	            	  B-C   l0_process            —           unavailable
+        	            	          scope: aggregate; not attributable to a single hook entry point
+        	            	          reported only, never gated
+        	            	          l0_process: no samples recorded in the observed window
+        	            	  B-D   hook_wall             —           unavailable
+        	            	          scope: aggregate; not attributable to a single hook entry point
+        	            	          reported only, never gated
+        	            	          no instrument records this histogram in this build
+        	            	          it measures host process creation, which the created process cannot observe
+        	            	  B-E   checkpoint_finalize   —           unavailable
+        	            	          checkpoint_finalize: no samples recorded in the observed window
+        	            	  B-F   mcp_tool_call         —           unavailable
+        	            	          scope: aggregate; not attributable to a single hook entry point
+        	            	          mcp_tool_call: no samples recorded in the observed window
+        	            	  B-G   hook_degraded         —           unavailable
+        	            	          scope: aggregate; not attributable to a single hook entry point
+        	            	          reported only, never gated
+        	            	          hook_degraded: no samples recorded in the observed window
+--- FAIL: TestRenderStatus_APendingRowIsNeverCountedAsHolding (0.00s)
+    render_contract_test.go:56: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15a-snapshot/internal/commands/render_contract_test.go:56
+        	Error:      	"qompack status — collected 2026-09-08T12:00:00Z\n\nsource: daemon (available, 0µs old)\n\nhost contract: 9 assertion(s), all holding\n\nmode:        full\nhot path:    sync\nsessions:    0\nspool files: 0\n\nhooks — per-entry-point latency\n  EVENT              SUBCOMMAND                       BUDGET  LATENCY\n  PostToolUse        qompack observe tool             B-A     unavailable\n                       no per-hook instrument: PostToolUse is folded into the hook_controlled aggregate,\n                       which mixes every delivering hook and cannot be attributed to one\n  UserPromptSubmit   qompack observe prompt           B-A     unavailable\n                       no per-hook instrument: UserPromptSubmit is folded into the hook_controlled\n                       aggregate, which mixes every delivering hook and cannot be attributed to one\n  SessionStart       qompack session-start            B-A     unavailable\n                       no per-hook instrument: SessionStart is folded into the hook_controlled aggregate,\n                       which mixes every delivering hook and cannot be attributed to one\n  PreCompact         qompack checkpoint               B-E     unavailable\n                       checkpoint_finalize: no samples recorded in the observed window\n  Stop               qompack observe stop             B-A     unavailable\n                       no per-hook instrument: Stop is folded into the hook_controlled aggregate, which\n                       mixes every delivering hook and cannot be attributed to one\n  SubagentStop       qompack observe stop --subagent  B-A     unavailable\n                       no per-hook instrument: SubagentStop is folded into the hook_controlled aggregate,\n                       which mixes every delivering hook and cannot be attributed to one\n  SessionEnd         qompack flush                    B-A     unavailable\n                       no per-hook instrument: SessionEnd is folded into the hook_controlled aggregate,\n                       which mixes every delivering hook and cannot be attributed to one\n\nbudgets — §2.4\n  ID    HISTOGRAM             MEASURE     LATENCY\n  B-A   hook_controlled       —           unavailable\n          scope: aggregate over 6 entry point(s): PostToolUse, UserPromptSubmit, SessionStart, Stop, SubagentStop, SessionEnd\n          hook_controlled: no samples recorded in the observed window\n  B-B   l0_ingest             —           unavailable\n          scope: aggregate; not attributable to a single hook entry point\n          l0_ingest: no samples recorded in the observed window\n  B-C   l0_process            —           unavailable\n          scope: aggregate; not attributable to a single hook entry point\n          reported only, never gated\n          l0_process: no samples recorded in the observed window\n  B-D   hook_wall             —           unavailable\n          scope: aggregate; not attributable to a single hook entry point\n          reported only, never gated\n          no instrument records this histogram in this build\n          it measures host process creation, which the created process cannot observe\n  B-E   checkpoint_finalize   —           unavailable\n          checkpoint_finalize: no samples recorded in the observed window\n  B-F   mcp_tool_call         —           unavailable\n          scope: aggregate; not attributable to a single hook entry point\n          mcp_tool_call: no samples recorded in the observed window\n  B-G   hook_degraded         —           unavailable\n          scope: aggregate; not attributable to a single hook entry point\n          reported only, never gated\n          hook_degraded: no samples recorded in the observed window\n" should not contain "all holding"
+        	Test:       	TestRenderStatus_APendingRowIsNeverCountedAsHolding
+        	Messages:   	a pending row must not be counted as holding:
+        	            	qompack status — collected 2026-09-08T12:00:00Z
+        	            	
+        	            	source: daemon (available, 0µs old)
+        	            	
+        	            	host contract: 9 assertion(s), all holding
+        	            	
+        	            	mode:        full
+        	            	hot path:    sync
+        	            	sessions:    0
+        	            	spool files: 0
+        	            	
+        	            	hooks — per-entry-point latency
+        	            	  EVENT              SUBCOMMAND                       BUDGET  LATENCY
+        	            	  PostToolUse        qompack observe tool             B-A     unavailable
+        	            	                       no per-hook instrument: PostToolUse is folded into the hook_controlled aggregate,
+        	            	                       which mixes every delivering hook and cannot be attributed to one
+        	            	  UserPromptSubmit   qompack observe prompt           B-A     unavailable
+        	            	                       no per-hook instrument: UserPromptSubmit is folded into the hook_controlled
+        	            	                       aggregate, which mixes every delivering hook and cannot be attributed to one
+        	            	  SessionStart       qompack session-start            B-A     unavailable
+        	            	                       no per-hook instrument: SessionStart is folded into the hook_controlled aggregate,
+        	            	                       which mixes every delivering hook and cannot be attributed to one
+        	            	  PreCompact         qompack checkpoint               B-E     unavailable
+        	            	                       checkpoint_finalize: no samples recorded in the observed window
+        	            	  Stop               qompack observe stop             B-A     unavailable
+        	            	                       no per-hook instrument: Stop is folded into the hook_controlled aggregate, which
+        	            	                       mixes every delivering hook and cannot be attributed to one
+        	            	  SubagentStop       qompack observe stop --subagent  B-A     unavailable
+        	            	                       no per-hook instrument: SubagentStop is folded into the hook_controlled aggregate,
+        	            	                       which mixes every delivering hook and cannot be attributed to one
+        	            	  SessionEnd         qompack flush                    B-A     unavailable
+        	            	                       no per-hook instrument: SessionEnd is folded into the hook_controlled aggregate,
+        	            	                       which mixes every delivering hook and cannot be attributed to one
+        	            	
+        	            	budgets — §2.4
+        	            	  ID    HISTOGRAM             MEASURE     LATENCY
+        	            	  B-A   hook_controlled       —           unavailable
+        	            	          scope: aggregate over 6 entry point(s): PostToolUse, UserPromptSubmit, SessionStart, Stop, SubagentStop, SessionEnd
+        	            	          hook_controlled: no samples recorded in the observed window
+        	            	  B-B   l0_ingest             —           unavailable
+        	            	          scope: aggregate; not attributable to a single hook entry point
+        	            	          l0_ingest: no samples recorded in the observed window
+        	            	  B-C   l0_process            —           unavailable
+        	            	          scope: aggregate; not attributable to a single hook entry point
+        	            	          reported only, never gated
+        	            	          l0_process: no samples recorded in the observed window
+        	            	  B-D   hook_wall             —           unavailable
+        	            	          scope: aggregate; not attributable to a single hook entry point
+        	            	          reported only, never gated
+        	            	          no instrument records this histogram in this build
+        	            	          it measures host process creation, which the created process cannot observe
+        	            	  B-E   checkpoint_finalize   —           unavailable
+        	            	          checkpoint_finalize: no samples recorded in the observed window
+        	            	  B-F   mcp_tool_call         —           unavailable
+        	            	          scope: aggregate; not attributable to a single hook entry point
+        	            	          mcp_tool_call: no samples recorded in the observed window
+        	            	  B-G   hook_degraded         —           unavailable
+        	            	          scope: aggregate; not attributable to a single hook entry point
+        	            	          reported only, never gated
+        	            	          hook_degraded: no samples recorded in the observed window
+--- FAIL: TestRenderStatus_AnUnimplementedProducerIsNotHolding (0.00s)
+    render_contract_test.go:104: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15a-snapshot/internal/commands/render_contract_test.go:104
+        	Error:      	"qompack status — collected 2026-09-08T12:00:00Z\n\nsource: daemon (available, 0µs old)\n\nhost contract: 2 assertion(s), all holding\n\nmode:        full\nhot path:    sync\nsessions:    0\nspool files: 0\n\nhooks — per-entry-point latency\n  EVENT              SUBCOMMAND                       BUDGET  LATENCY\n  PostToolUse        qompack observe tool             B-A     unavailable\n                       no per-hook instrument: PostToolUse is folded into the hook_controlled aggregate,\n                       which mixes every delivering hook and cannot be attributed to one\n  UserPromptSubmit   qompack observe prompt           B-A     unavailable\n                       no per-hook instrument: UserPromptSubmit is folded into the hook_controlled\n                       aggregate, which mixes every delivering hook and cannot be attributed to one\n  SessionStart       qompack session-start            B-A     unavailable\n                       no per-hook instrument: SessionStart is folded into the hook_controlled aggregate,\n                       which mixes every delivering hook and cannot be attributed to one\n  PreCompact         qompack checkpoint               B-E     unavailable\n                       checkpoint_finalize: no samples recorded in the observed window\n  Stop               qompack observe stop             B-A     unavailable\n                       no per-hook instrument: Stop is folded into the hook_controlled aggregate, which\n                       mixes every delivering hook and cannot be attributed to one\n  SubagentStop       qompack observe stop --subagent  B-A     unavailable\n                       no per-hook instrument: SubagentStop is folded into the hook_controlled aggregate,\n                       which mixes every delivering hook and cannot be attributed to one\n  SessionEnd         qompack flush                    B-A     unavailable\n                       no per-hook instrument: SessionEnd is folded into the hook_controlled aggregate,\n                       which mixes every delivering hook and cannot be attributed to one\n\nbudgets — §2.4\n  ID    HISTOGRAM             MEASURE     LATENCY\n  B-A   hook_controlled       —           unavailable\n          scope: aggregate over 6 entry point(s): PostToolUse, UserPromptSubmit, SessionStart, Stop, SubagentStop, SessionEnd\n          hook_controlled: no samples recorded in the observed window\n  B-B   l0_ingest             —           unavailable\n          scope: aggregate; not attributable to a single hook entry point\n          l0_ingest: no samples recorded in the observed window\n  B-C   l0_process            —           unavailable\n          scope: aggregate; not attributable to a single hook entry point\n          reported only, never gated\n          l0_process: no samples recorded in the observed window\n  B-D   hook_wall             —           unavailable\n          scope: aggregate; not attributable to a single hook entry point\n          reported only, never gated\n          no instrument records this histogram in this build\n          it measures host process creation, which the created process cannot observe\n  B-E   checkpoint_finalize   —           unavailable\n          checkpoint_finalize: no samples recorded in the observed window\n  B-F   mcp_tool_call         —           unavailable\n          scope: aggregate; not attributable to a single hook entry point\n          mcp_tool_call: no samples recorded in the observed window\n  B-G   hook_degraded         —           unavailable\n          scope: aggregate; not attributable to a single hook entry point\n          reported only, never gated\n          hook_degraded: no samples recorded in the observed window\n" does not contain "host contract: 2 assertion(s), none failing: 1 holding, 0 pending, 1 with nothing to judge\n"
+        	Test:       	TestRenderStatus_AnUnimplementedProducerIsNotHolding
+        	Messages:   	qompack status — collected 2026-09-08T12:00:00Z
+        	            	
+        	            	source: daemon (available, 0µs old)
+        	            	
+        	            	host contract: 2 assertion(s), all holding
+        	            	
+        	            	mode:        full
+        	            	hot path:    sync
+        	            	sessions:    0
+        	            	spool files: 0
+        	            	
+        	            	hooks — per-entry-point latency
+        	            	  EVENT              SUBCOMMAND                       BUDGET  LATENCY
+        	            	  PostToolUse        qompack observe tool             B-A     unavailable
+        	            	                       no per-hook instrument: PostToolUse is folded into the hook_controlled aggregate,
+        	            	                       which mixes every delivering hook and cannot be attributed to one
+        	            	  UserPromptSubmit   qompack observe prompt           B-A     unavailable
+        	            	                       no per-hook instrument: UserPromptSubmit is folded into the hook_controlled
+        	            	                       aggregate, which mixes every delivering hook and cannot be attributed to one
+        	            	  SessionStart       qompack session-start            B-A     unavailable
+        	            	                       no per-hook instrument: SessionStart is folded into the hook_controlled aggregate,
+        	            	                       which mixes every delivering hook and cannot be attributed to one
+        	            	  PreCompact         qompack checkpoint               B-E     unavailable
+        	            	                       checkpoint_finalize: no samples recorded in the observed window
+        	            	  Stop               qompack observe stop             B-A     unavailable
+        	            	                       no per-hook instrument: Stop is folded into the hook_controlled aggregate, which
+        	            	                       mixes every delivering hook and cannot be attributed to one
+        	            	  SubagentStop       qompack observe stop --subagent  B-A     unavailable
+        	            	                       no per-hook instrument: SubagentStop is folded into the hook_controlled aggregate,
+        	            	                       which mixes every delivering hook and cannot be attributed to one
+        	            	  SessionEnd         qompack flush                    B-A     unavailable
+        	            	                       no per-hook instrument: SessionEnd is folded into the hook_controlled aggregate,
+        	            	                       which mixes every delivering hook and cannot be attributed to one
+        	            	
+        	            	budgets — §2.4
+        	            	  ID    HISTOGRAM             MEASURE     LATENCY
+        	            	  B-A   hook_controlled       —           unavailable
+        	            	          scope: aggregate over 6 entry point(s): PostToolUse, UserPromptSubmit, SessionStart, Stop, SubagentStop, SessionEnd
+        	            	          hook_controlled: no samples recorded in the observed window
+        	            	  B-B   l0_ingest             —           unavailable
+        	            	          scope: aggregate; not attributable to a single hook entry point
+        	            	          l0_ingest: no samples recorded in the observed window
+        	            	  B-C   l0_process            —           unavailable
+        	            	          scope: aggregate; not attributable to a single hook entry point
+        	            	          reported only, never gated
+        	            	          l0_process: no samples recorded in the observed window
+        	            	  B-D   hook_wall             —           unavailable
+        	            	          scope: aggregate; not attributable to a single hook entry point
+        	            	          reported only, never gated
+        	            	          no instrument records this histogram in this build
+        	            	          it measures host process creation, which the created process cannot observe
+        	            	  B-E   checkpoint_finalize   —           unavailable
+        	            	          checkpoint_finalize: no samples recorded in the observed window
+        	            	  B-F   mcp_tool_call         —           unavailable
+        	            	          scope: aggregate; not attributable to a single hook entry point
+        	            	          mcp_tool_call: no samples recorded in the observed window
+        	            	  B-G   hook_degraded         —           unavailable
+        	            	          scope: aggregate; not attributable to a single hook entry point
+        	            	          reported only, never gated
+        	            	          hook_degraded: no samples recorded in the observed window
+FAIL
+FAIL	github.com/qompack/qompack/internal/commands	1.408s
+FAIL

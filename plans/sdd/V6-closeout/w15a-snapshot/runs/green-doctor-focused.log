@@ -1,0 +1,10 @@
+=== RUN   TestDoctor_AnObservedProbeRefreshesTheInjectionRow
+=== PAUSE TestDoctor_AnObservedProbeRefreshesTheInjectionRow
+=== RUN   TestDoctor_AnUnobservedProbeKeepsTheLedgersWord
+=== PAUSE TestDoctor_AnUnobservedProbeKeepsTheLedgersWord
+=== CONT  TestDoctor_AnObservedProbeRefreshesTheInjectionRow
+=== CONT  TestDoctor_AnUnobservedProbeKeepsTheLedgersWord
+--- PASS: TestDoctor_AnObservedProbeRefreshesTheInjectionRow (0.33s)
+--- PASS: TestDoctor_AnUnobservedProbeKeepsTheLedgersWord (0.34s)
+PASS
+ok  	github.com/qompack/qompack/internal/cli	0.648s

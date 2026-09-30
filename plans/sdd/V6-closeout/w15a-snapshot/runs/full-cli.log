@@ -1,0 +1,1241 @@
+=== RUN   TestAdminDeliverySeal_IsWiredWithItsUsageContract
+=== PAUSE TestAdminDeliverySeal_IsWiredWithItsUsageContract
+=== RUN   TestAdminDeliverySeal_PassesTheOperatorsFlagsThrough
+=== RUN   TestAdminDeliverySeal_PassesTheOperatorsFlagsThrough/--check_asks_for_a_check_and_nothing_else
+=== RUN   TestAdminDeliverySeal_PassesTheOperatorsFlagsThrough/--to_v1_asks_for_the_conversion_and_nothing_else
+=== RUN   TestAdminDeliverySeal_PassesTheOperatorsFlagsThrough/rule_R_reaches_the_tool_only_when_both_its_flags_were_typed
+=== RUN   TestAdminDeliverySeal_PassesTheOperatorsFlagsThrough/--yes_alone_confirms_nothing,_because_no_acceptance_was_asked_for
+=== RUN   TestAdminDeliverySeal_PassesTheOperatorsFlagsThrough/a_refused_repair_is_exit_1,_not_exit_2_and_not_exit_0
+=== RUN   TestAdminDeliverySeal_PassesTheOperatorsFlagsThrough/a_refused_check_is_exit_1_as_well
+--- PASS: TestAdminDeliverySeal_PassesTheOperatorsFlagsThrough (0.01s)
+    --- PASS: TestAdminDeliverySeal_PassesTheOperatorsFlagsThrough/--check_asks_for_a_check_and_nothing_else (0.00s)
+    --- PASS: TestAdminDeliverySeal_PassesTheOperatorsFlagsThrough/--to_v1_asks_for_the_conversion_and_nothing_else (0.00s)
+    --- PASS: TestAdminDeliverySeal_PassesTheOperatorsFlagsThrough/rule_R_reaches_the_tool_only_when_both_its_flags_were_typed (0.00s)
+    --- PASS: TestAdminDeliverySeal_PassesTheOperatorsFlagsThrough/--yes_alone_confirms_nothing,_because_no_acceptance_was_asked_for (0.00s)
+    --- PASS: TestAdminDeliverySeal_PassesTheOperatorsFlagsThrough/a_refused_repair_is_exit_1,_not_exit_2_and_not_exit_0 (0.00s)
+    --- PASS: TestAdminDeliverySeal_PassesTheOperatorsFlagsThrough/a_refused_check_is_exit_1_as_well (0.00s)
+=== RUN   TestBackupCLI_CreateVerifyRestoreBeyondMaxPath
+--- PASS: TestBackupCLI_CreateVerifyRestoreBeyondMaxPath (0.65s)
+=== RUN   TestFsckCLI_PassesBeyondMaxPath
+--- PASS: TestFsckCLI_PassesBeyondMaxPath (0.10s)
+=== RUN   TestBackupCLI_VerifyJudgesWhatRestoreJudges
+=== RUN   TestBackupCLI_VerifyJudgesWhatRestoreJudges/a_healthy_backup:_verify_proves_it_the_way_restore_does
+=== RUN   TestBackupCLI_VerifyJudgesWhatRestoreJudges/a_backup_no_reader_can_serve:_both_refuse
+--- PASS: TestBackupCLI_VerifyJudgesWhatRestoreJudges (0.85s)
+    --- PASS: TestBackupCLI_VerifyJudgesWhatRestoreJudges/a_healthy_backup:_verify_proves_it_the_way_restore_does (0.37s)
+    --- PASS: TestBackupCLI_VerifyJudgesWhatRestoreJudges/a_backup_no_reader_can_serve:_both_refuse (0.47s)
+=== RUN   TestBackupCLI_RestoreNoteMatchesItsIntegrityReport
+--- PASS: TestBackupCLI_RestoreNoteMatchesItsIntegrityReport (0.37s)
+=== RUN   TestBackupCLI_ConsistentRestoreRetainsLaterSourceWrites
+--- PASS: TestBackupCLI_ConsistentRestoreRetainsLaterSourceWrites (0.61s)
+=== RUN   TestBackupCLI_RefusesLiveWriterAndDoesNotOpenStore
+--- PASS: TestBackupCLI_RefusesLiveWriterAndDoesNotOpenStore (0.12s)
+=== RUN   TestBackupCLI_UncertifiedSnapshotIsRefusedByEveryReader
+--- PASS: TestBackupCLI_UncertifiedSnapshotIsRefusedByEveryReader (0.30s)
+=== RUN   TestHookCapture_RedactsBeforeEveryLegacySpoolMode
+=== RUN   TestHookCapture_RedactsBeforeEveryLegacySpoolMode/connect_failure/observe_tool
+=== RUN   TestHookCapture_RedactsBeforeEveryLegacySpoolMode/connect_failure/observe_prompt
+=== RUN   TestHookCapture_RedactsBeforeEveryLegacySpoolMode/connect_failure/observe_stop
+=== RUN   TestHookCapture_RedactsBeforeEveryLegacySpoolMode/connect_failure/session-start
+=== RUN   TestHookCapture_RedactsBeforeEveryLegacySpoolMode/connect_failure/checkpoint
+=== RUN   TestHookCapture_RedactsBeforeEveryLegacySpoolMode/connect_failure/flush
+=== RUN   TestHookCapture_RedactsBeforeEveryLegacySpoolMode/hot_spool/observe_tool
+=== RUN   TestHookCapture_RedactsBeforeEveryLegacySpoolMode/hot_spool/observe_prompt
+=== RUN   TestHookCapture_RedactsBeforeEveryLegacySpoolMode/hot_spool/observe_stop
+=== RUN   TestHookCapture_RedactsBeforeEveryLegacySpoolMode/hot_spool/session-start
+=== RUN   TestHookCapture_RedactsBeforeEveryLegacySpoolMode/hot_spool/checkpoint
+=== RUN   TestHookCapture_RedactsBeforeEveryLegacySpoolMode/hot_spool/flush
+=== RUN   TestHookCapture_RedactsBeforeEveryLegacySpoolMode/daemon_disabled/observe_tool
+=== RUN   TestHookCapture_RedactsBeforeEveryLegacySpoolMode/daemon_disabled/observe_prompt
+=== RUN   TestHookCapture_RedactsBeforeEveryLegacySpoolMode/daemon_disabled/observe_stop
+=== RUN   TestHookCapture_RedactsBeforeEveryLegacySpoolMode/daemon_disabled/session-start
+=== RUN   TestHookCapture_RedactsBeforeEveryLegacySpoolMode/daemon_disabled/checkpoint
+=== RUN   TestHookCapture_RedactsBeforeEveryLegacySpoolMode/daemon_disabled/flush
+--- PASS: TestHookCapture_RedactsBeforeEveryLegacySpoolMode (0.69s)
+    --- PASS: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/connect_failure/observe_tool (0.06s)
+    --- PASS: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/connect_failure/observe_prompt (0.04s)
+    --- PASS: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/connect_failure/observe_stop (0.04s)
+    --- PASS: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/connect_failure/session-start (0.03s)
+    --- PASS: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/connect_failure/checkpoint (0.03s)
+    --- PASS: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/connect_failure/flush (0.03s)
+    --- PASS: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/hot_spool/observe_tool (0.04s)
+    --- PASS: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/hot_spool/observe_prompt (0.04s)
+    --- PASS: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/hot_spool/observe_stop (0.05s)
+    --- PASS: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/hot_spool/session-start (0.04s)
+    --- PASS: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/hot_spool/checkpoint (0.04s)
+    --- PASS: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/hot_spool/flush (0.03s)
+    --- PASS: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/daemon_disabled/observe_tool (0.04s)
+    --- PASS: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/daemon_disabled/observe_prompt (0.03s)
+    --- PASS: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/daemon_disabled/observe_stop (0.04s)
+    --- PASS: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/daemon_disabled/session-start (0.04s)
+    --- PASS: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/daemon_disabled/checkpoint (0.03s)
+    --- PASS: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/daemon_disabled/flush (0.03s)
+=== RUN   TestHookCapture_RefusesBeforeSpoolAndDaemonStart
+=== RUN   TestHookCapture_RefusesBeforeSpoolAndDaemonStart/{"runtime":
+=== RUN   TestHookCapture_RefusesBeforeSpoolAndDaemonStart/{"runtime":{"redact":{"patterns":"PRIVATE-ABCDEFGHIJKL"}}}
+=== RUN   TestHookCapture_RefusesBeforeSpoolAndDaemonStart/{"runtime":{"redact":{"patterns":["["]}}}
+=== RUN   TestHookCapture_RefusesBeforeSpoolAndDaemonStart/{"runtime":{"redact":{"enabled":false,"enabled":true}}}
+=== RUN   TestHookCapture_RefusesBeforeSpoolAndDaemonStart/{"runtime":{"mode":"OFF"}}
+=== RUN   TestHookCapture_RefusesBeforeSpoolAndDaemonStart/{"runtime":{"mode":false}}
+--- PASS: TestHookCapture_RefusesBeforeSpoolAndDaemonStart (0.09s)
+    --- PASS: TestHookCapture_RefusesBeforeSpoolAndDaemonStart/{"runtime": (0.02s)
+    --- PASS: TestHookCapture_RefusesBeforeSpoolAndDaemonStart/{"runtime":{"redact":{"patterns":"PRIVATE-ABCDEFGHIJKL"}}} (0.02s)
+    --- PASS: TestHookCapture_RefusesBeforeSpoolAndDaemonStart/{"runtime":{"redact":{"patterns":["["]}}} (0.02s)
+    --- PASS: TestHookCapture_RefusesBeforeSpoolAndDaemonStart/{"runtime":{"redact":{"enabled":false,"enabled":true}}} (0.02s)
+    --- PASS: TestHookCapture_RefusesBeforeSpoolAndDaemonStart/{"runtime":{"mode":"OFF"}} (0.01s)
+    --- PASS: TestHookCapture_RefusesBeforeSpoolAndDaemonStart/{"runtime":{"mode":false}} (0.01s)
+=== RUN   TestHookCapture_RejectsInvalidInputWithoutPrivateDiagnostics
+--- PASS: TestHookCapture_RejectsInvalidInputWithoutPrivateDiagnostics (0.02s)
+=== RUN   TestHookCapture_DestinationCannotWeakenInitialPolicy
+=== RUN   TestHookCapture_DestinationCannotWeakenInitialPolicy/source_policy
+=== RUN   TestHookCapture_DestinationCannotWeakenInitialPolicy/destination_policy
+=== RUN   TestHookCapture_DestinationCannotWeakenInitialPolicy/destination_invalid
+=== RUN   TestHookCapture_DestinationCannotWeakenInitialPolicy/destination_changes_cwd
+--- PASS: TestHookCapture_DestinationCannotWeakenInitialPolicy (0.09s)
+    --- PASS: TestHookCapture_DestinationCannotWeakenInitialPolicy/source_policy (0.02s)
+    --- PASS: TestHookCapture_DestinationCannotWeakenInitialPolicy/destination_policy (0.03s)
+    --- PASS: TestHookCapture_DestinationCannotWeakenInitialPolicy/destination_invalid (0.01s)
+    --- PASS: TestHookCapture_DestinationCannotWeakenInitialPolicy/destination_changes_cwd (0.02s)
+=== RUN   TestHookCapture_CompositionPreservesEarlierFacts
+--- PASS: TestHookCapture_CompositionPreservesEarlierFacts (0.00s)
+=== RUN   TestHookCapture_HardBoundPrecedesConfiguration
+--- PASS: TestHookCapture_HardBoundPrecedesConfiguration (0.04s)
+=== RUN   TestHookCapture_HardCapMatchesTheValidationBound
+--- PASS: TestHookCapture_HardCapMatchesTheValidationBound (0.00s)
+=== RUN   TestHookCapture_ConfigViolationClampsAndIsRecorded
+=== RUN   TestHookCapture_ConfigViolationClampsAndIsRecorded/hardwired-off_switch
+=== RUN   TestHookCapture_ConfigViolationClampsAndIsRecorded/newer_settingsVersion
+--- PASS: TestHookCapture_ConfigViolationClampsAndIsRecorded (0.07s)
+    --- PASS: TestHookCapture_ConfigViolationClampsAndIsRecorded/hardwired-off_switch (0.04s)
+    --- PASS: TestHookCapture_ConfigViolationClampsAndIsRecorded/newer_settingsVersion (0.04s)
+=== RUN   TestHookCapture_NoViolationWritesNothing
+--- PASS: TestHookCapture_NoViolationWritesNothing (0.01s)
+=== RUN   TestHookCapture_GatedSwitchClampsRatherThanDisablingCapture
+--- PASS: TestHookCapture_GatedSwitchClampsRatherThanDisablingCapture (0.02s)
+=== RUN   TestSelfTest_ReportsACaptureConfigRefusal
+--- PASS: TestSelfTest_ReportsACaptureConfigRefusal (0.04s)
+=== RUN   TestSelfTest_ReportsACaptureSwitchRefusal
+--- PASS: TestSelfTest_ReportsACaptureSwitchRefusal (0.04s)
+=== RUN   TestSelfTest_ReportsACaptureConfigDegradation
+--- PASS: TestSelfTest_ReportsACaptureConfigDegradation (0.05s)
+=== RUN   TestSelfTest_CleanCaptureConfigIsOK
+--- PASS: TestSelfTest_CleanCaptureConfigIsOK (0.03s)
+=== RUN   TestDoctor_ReportsTheCaptureConfiguration
+=== RUN   TestDoctor_ReportsTheCaptureConfiguration/clean
+=== RUN   TestDoctor_ReportsTheCaptureConfiguration/refused
+=== RUN   TestDoctor_ReportsTheCaptureConfiguration/refused_switch
+=== RUN   TestDoctor_ReportsTheCaptureConfiguration/degraded
+--- PASS: TestDoctor_ReportsTheCaptureConfiguration (0.04s)
+    --- PASS: TestDoctor_ReportsTheCaptureConfiguration/clean (0.01s)
+    --- PASS: TestDoctor_ReportsTheCaptureConfiguration/refused (0.01s)
+    --- PASS: TestDoctor_ReportsTheCaptureConfiguration/refused_switch (0.01s)
+    --- PASS: TestDoctor_ReportsTheCaptureConfiguration/degraded (0.01s)
+=== RUN   TestDoctor_CaptureConfigResolvesARelativeProject
+--- PASS: TestDoctor_CaptureConfigResolvesARelativeProject (0.01s)
+=== RUN   TestHookCapture_UnknownKeyAndInvalidLeafStillCapture
+--- PASS: TestHookCapture_UnknownKeyAndInvalidLeafStillCapture (0.07s)
+=== RUN   TestHookCapture_UnappliableCaptureSwitchRecordsNothing
+--- PASS: TestHookCapture_UnappliableCaptureSwitchRecordsNothing (0.03s)
+=== RUN   TestHookCapture_MistypedLeafStillCaptures
+--- PASS: TestHookCapture_MistypedLeafStillCaptures (0.05s)
+=== RUN   TestHookCapture_ShortReadIsRecordedAsPartial
+--- PASS: TestHookCapture_ShortReadIsRecordedAsPartial (0.01s)
+=== RUN   TestHookCapture_OversizeRetainsClassificationWithoutOpaqueBytes
+--- PASS: TestHookCapture_OversizeRetainsClassificationWithoutOpaqueBytes (0.02s)
+=== RUN   TestHookCapture_BinaryPayloadIsClassifiedNotSilentlyRejected
+--- PASS: TestHookCapture_BinaryPayloadIsClassifiedNotSilentlyRejected (0.01s)
+=== RUN   TestHookCapture_AdmittedPayloadRecordsObservedHostFields
+--- PASS: TestHookCapture_AdmittedPayloadRecordsObservedHostFields (0.01s)
+=== RUN   TestHookCapture_DeliveryNonceAndCaptureReachTheSpooledRequest
+--- PASS: TestHookCapture_DeliveryNonceAndCaptureReachTheSpooledRequest (0.05s)
+=== RUN   TestAdmitHookCapture_RedactionCannotLaunderOriginalScope
+--- PASS: TestAdmitHookCapture_RedactionCannotLaunderOriginalScope (0.02s)
+=== RUN   TestAdmitHookCapture_DuplicateOriginalPathIsUnavailable
+--- PASS: TestAdmitHookCapture_DuplicateOriginalPathIsUnavailable (0.01s)
+=== RUN   TestScopeGuard_OKOutOfProjectReadDenied
+--- PASS: TestScopeGuard_OKOutOfProjectReadDenied (0.00s)
+=== RUN   TestScopeGuard_OKDroppedPathReadUnavailable
+--- PASS: TestScopeGuard_OKDroppedPathReadUnavailable (0.00s)
+=== RUN   TestScopeGuard_OKInProjectReadUntouched
+--- PASS: TestScopeGuard_OKInProjectReadUntouched (0.00s)
+=== RUN   TestScopeGuard_PathlessBashOKUntouched
+--- PASS: TestScopeGuard_PathlessBashOKUntouched (0.00s)
+=== RUN   TestScopeGuard_DegradedTruncatedBytesDropped
+--- PASS: TestScopeGuard_DegradedTruncatedBytesDropped (0.00s)
+=== RUN   TestScopeGuard_DegradedCompletePathlessObjectKept
+--- PASS: TestScopeGuard_DegradedCompletePathlessObjectKept (0.00s)
+=== RUN   TestScopeGuard_DegradedCompleteOutOfProjectObjectDropped
+--- PASS: TestScopeGuard_DegradedCompleteOutOfProjectObjectDropped (0.00s)
+=== RUN   TestScopeGuard_UnrecordedCaptureUntouched
+--- PASS: TestScopeGuard_UnrecordedCaptureUntouched (0.00s)
+=== RUN   TestAdmitHookCapture_OutOfProjectReadIsByteFreeWithNoEvent
+--- PASS: TestAdmitHookCapture_OutOfProjectReadIsByteFreeWithNoEvent (0.01s)
+=== RUN   TestCmdMCPHandshakeReachesADaemonThatStartsLate
+--- PASS: TestCmdMCPHandshakeReachesADaemonThatStartsLate (0.23s)
+=== RUN   TestCmdMCPModeOffWritesNothingAndSaysSo
+--- PASS: TestCmdMCPModeOffWritesNothingAndSaysSo (0.01s)
+=== RUN   TestForwardMCPCallModeOffSaysSo
+--- PASS: TestForwardMCPCallModeOffSaysSo (0.00s)
+=== RUN   TestCmdMCPWritesNothingButJSONRPCToStdout
+--- PASS: TestCmdMCPWritesNothingButJSONRPCToStdout (0.04s)
+=== RUN   TestCmdMCPDaemonUnavailableReturnsToolError
+--- PASS: TestCmdMCPDaemonUnavailableReturnsToolError (1.37s)
+=== RUN   TestCmdMCPRetriesUntilListenerAppears
+--- PASS: TestCmdMCPRetriesUntilListenerAppears (0.33s)
+=== RUN   TestCmdMCPNeverSpools
+--- PASS: TestCmdMCPNeverSpools (1.37s)
+=== RUN   TestCmdMCPRetryIsCancellable
+--- PASS: TestCmdMCPRetryIsCancellable (0.02s)
+=== RUN   TestCmdMCPToolsListMatchesDaemonToolSet
+--- PASS: TestCmdMCPToolsListMatchesDaemonToolSet (0.02s)
+=== RUN   TestNewToolDepsNilExtractorLeavesWidenerNil
+=== PAUSE TestNewToolDepsNilExtractorLeavesWidenerNil
+=== RUN   TestSymbolWidenerFindsAndWidens
+=== PAUSE TestSymbolWidenerFindsAndWidens
+=== RUN   TestNopSpoolDiscards
+=== PAUSE TestNopSpoolDiscards
+=== RUN   TestConfigPrint_Provenance
+--- PASS: TestConfigPrint_Provenance (0.02s)
+=== RUN   TestConfigSchema_Emits
+=== PAUSE TestConfigSchema_Emits
+=== RUN   TestSetFlagParsing
+=== PAUSE TestSetFlagParsing
+=== RUN   TestSetFlagParsing_MalformedIsUsageErrorButHooksStillExitZero
+=== PAUSE TestSetFlagParsing_MalformedIsUsageErrorButHooksStillExitZero
+=== RUN   TestCLI_ConfigViolationsAreLoudAndPersisted
+--- PASS: TestCLI_ConfigViolationsAreLoudAndPersisted (0.04s)
+=== RUN   TestCLI_UnparseableConfigIsLoud
+--- PASS: TestCLI_UnparseableConfigIsLoud (0.03s)
+=== RUN   TestLoud_CounterWiring
+--- PASS: TestLoud_CounterWiring (0.00s)
+=== RUN   TestFsck_PromptCapturesAnEarlierBuildNeverLinkedReadAsPublished
+=== RUN   TestFsck_PromptCapturesAnEarlierBuildNeverLinkedReadAsPublished/each_sidecar_has_its_record
+=== RUN   TestFsck_PromptCapturesAnEarlierBuildNeverLinkedReadAsPublished/a_sidecar_no_record_accounts_for_is_still_a_gap
+=== RUN   TestFsck_PromptCapturesAnEarlierBuildNeverLinkedReadAsPublished/a_current_build's_unleased_record_does_not_account_for_a_current_build's_gap
+=== RUN   TestFsck_PromptCapturesAnEarlierBuildNeverLinkedReadAsPublished/an_earlier_build's_records_before_the_session's_first_bound_prompt_still_account
+--- PASS: TestFsck_PromptCapturesAnEarlierBuildNeverLinkedReadAsPublished (1.98s)
+    --- PASS: TestFsck_PromptCapturesAnEarlierBuildNeverLinkedReadAsPublished/each_sidecar_has_its_record (0.90s)
+    --- PASS: TestFsck_PromptCapturesAnEarlierBuildNeverLinkedReadAsPublished/a_sidecar_no_record_accounts_for_is_still_a_gap (0.28s)
+    --- PASS: TestFsck_PromptCapturesAnEarlierBuildNeverLinkedReadAsPublished/a_current_build's_unleased_record_does_not_account_for_a_current_build's_gap (0.38s)
+    --- PASS: TestFsck_PromptCapturesAnEarlierBuildNeverLinkedReadAsPublished/an_earlier_build's_records_before_the_session's_first_bound_prompt_still_account (0.41s)
+=== RUN   TestCrossVersion_AStoreTheV020ReleaseWroteReadsClean
+--- PASS: TestCrossVersion_AStoreTheV020ReleaseWroteReadsClean (1.06s)
+=== RUN   TestBootstrapPromoterFailureDegrades
+--- PASS: TestBootstrapPromoterFailureDegrades (0.03s)
+=== RUN   TestBootstrapInstallsMCPOpBeforeDaemonNew
+--- PASS: TestBootstrapInstallsMCPOpBeforeDaemonNew (0.14s)
+=== RUN   TestBootstrapStoreOpenFailureDegrades
+--- PASS: TestBootstrapStoreOpenFailureDegrades (0.10s)
+=== RUN   TestBootstrapClosesStoreExactlyOnce
+--- PASS: TestBootstrapClosesStoreExactlyOnce (0.14s)
+=== RUN   TestBootstrapDAGOpenFailureDegrades
+--- PASS: TestBootstrapDAGOpenFailureDegrades (0.15s)
+=== RUN   TestBootstrapLedgerSkippedWhenStoreIsNil
+--- PASS: TestBootstrapLedgerSkippedWhenStoreIsNil (0.12s)
+=== RUN   TestDaemonClients_HonourDisabledDaemonOverStaleState
+=== RUN   TestDaemonClients_HonourDisabledDaemonOverStaleState/mcp/disabled
+=== RUN   TestDaemonClients_HonourDisabledDaemonOverStaleState/mcp/enabled
+=== RUN   TestDaemonClients_HonourDisabledDaemonOverStaleState/commands/disabled
+=== RUN   TestDaemonClients_HonourDisabledDaemonOverStaleState/commands/enabled
+--- PASS: TestDaemonClients_HonourDisabledDaemonOverStaleState (0.13s)
+    --- PASS: TestDaemonClients_HonourDisabledDaemonOverStaleState/mcp/disabled (0.03s)
+    --- PASS: TestDaemonClients_HonourDisabledDaemonOverStaleState/mcp/enabled (0.04s)
+    --- PASS: TestDaemonClients_HonourDisabledDaemonOverStaleState/commands/disabled (0.03s)
+    --- PASS: TestDaemonClients_HonourDisabledDaemonOverStaleState/commands/enabled (0.03s)
+=== RUN   TestDaemon_RefusesWhenDaemonDisabled
+=== RUN   TestDaemon_RefusesWhenDaemonDisabled/project_file
+    daemon_disabled_test.go:81: refusal: qompack daemon: the daemon is disabled for this project: runtime.daemon.enabled is false (project layer, C:\Users\Quant\AppData\Local\Temp\TestDaemon_RefusesWhenDaemonDisabledproject_file2252362261\001\.qompack\config.json:1); set runtime.daemon.enabled to true to enable it
+=== RUN   TestDaemon_RefusesWhenDaemonDisabled/user_file
+    daemon_disabled_test.go:81: refusal: qompack daemon: the daemon is disabled for this project: runtime.daemon.enabled is false (user layer, C:\Users\Quant\AppData\Local\Temp\TestDaemon_RefusesWhenDaemonDisableduser_file842719262\002\.qompack\config.json:1); set runtime.daemon.enabled to true to enable it
+=== RUN   TestDaemon_RefusesWhenDaemonDisabled/environment
+    daemon_disabled_test.go:81: refusal: qompack daemon: the daemon is disabled for this project: runtime.daemon.enabled is false (env layer, QOMPACK_RUNTIME__DAEMON__ENABLED); set runtime.daemon.enabled to true to enable it
+=== RUN   TestDaemon_RefusesWhenDaemonDisabled/set_flag
+    daemon_disabled_test.go:81: refusal: qompack daemon: the daemon is disabled for this project: runtime.daemon.enabled is false (flag layer, --set); set runtime.daemon.enabled to true to enable it
+=== RUN   TestDaemon_RefusesWhenDaemonDisabled/foreground
+    daemon_disabled_test.go:81: refusal: qompack daemon: the daemon is disabled for this project: runtime.daemon.enabled is false (project layer, C:\Users\Quant\AppData\Local\Temp\TestDaemon_RefusesWhenDaemonDisabledforeground780292367\001\.qompack\config.json:1); set runtime.daemon.enabled to true to enable it
+--- PASS: TestDaemon_RefusesWhenDaemonDisabled (0.03s)
+    --- PASS: TestDaemon_RefusesWhenDaemonDisabled/project_file (0.01s)
+    --- PASS: TestDaemon_RefusesWhenDaemonDisabled/user_file (0.01s)
+    --- PASS: TestDaemon_RefusesWhenDaemonDisabled/environment (0.00s)
+    --- PASS: TestDaemon_RefusesWhenDaemonDisabled/set_flag (0.00s)
+    --- PASS: TestDaemon_RefusesWhenDaemonDisabled/foreground (0.01s)
+=== RUN   TestDaemon_RunsWhenTheMergedConfigEnablesIt
+--- PASS: TestDaemon_RunsWhenTheMergedConfigEnablesIt (0.12s)
+=== RUN   TestDaemon_LockHeldExitNamesTheHolder
+=== RUN   TestDaemon_LockHeldExitNamesTheHolder/a_live_daemon_holds_it
+=== RUN   TestDaemon_LockHeldExitNamesTheHolder/a_lock_copied_in_from_another_path
+--- PASS: TestDaemon_LockHeldExitNamesTheHolder (0.11s)
+    --- PASS: TestDaemon_LockHeldExitNamesTheHolder/a_live_daemon_holds_it (0.05s)
+    --- PASS: TestDaemon_LockHeldExitNamesTheHolder/a_lock_copied_in_from_another_path (0.05s)
+=== RUN   TestFsck_ALockCopiedFromAnotherPathIsNotARunningDaemon
+--- PASS: TestFsck_ALockCopiedFromAnotherPathIsNotARunningDaemon (0.14s)
+=== RUN   TestFsck_ALockThisProjectWroteAtAnotherAddressIsItsDaemon
+--- PASS: TestFsck_ALockThisProjectWroteAtAnotherAddressIsItsDaemon (0.13s)
+=== RUN   TestDaemonFirstPreCompactSealsCheckpoint
+--- PASS: TestDaemonFirstPreCompactSealsCheckpoint (0.23s)
+=== RUN   TestDaemon_ExitsZeroOnCleanStop
+--- PASS: TestDaemon_ExitsZeroOnCleanStop (0.10s)
+=== RUN   TestDaemon_ExitsZeroWhenLockHeld
+--- PASS: TestDaemon_ExitsZeroWhenLockHeld (0.04s)
+=== RUN   TestDaemon_LayoutFailureExitsZero
+--- PASS: TestDaemon_LayoutFailureExitsZero (0.01s)
+=== RUN   TestDaemon_ForegroundFlagParses
+--- PASS: TestDaemon_ForegroundFlagParses (0.11s)
+=== RUN   TestDispatch_HookAlwaysExitsZero
+=== PAUSE TestDispatch_HookAlwaysExitsZero
+=== RUN   TestDispatch_NonHookErrorExitsOne
+=== PAUSE TestDispatch_NonHookErrorExitsOne
+=== RUN   TestDispatch_UnknownCommandExitsTwo
+=== PAUSE TestDispatch_UnknownCommandExitsTwo
+=== RUN   TestDispatch_PanicRecovered
+--- PASS: TestDispatch_PanicRecovered (0.00s)
+=== RUN   TestDoctor_UnpublishedCapturesAgreesWithFsck
+--- PASS: TestDoctor_UnpublishedCapturesAgreesWithFsck (0.21s)
+=== RUN   TestDoctor_AnObservedProbeRefreshesTheInjectionRow
+=== PAUSE TestDoctor_AnObservedProbeRefreshesTheInjectionRow
+=== RUN   TestDoctor_AnUnobservedProbeKeepsTheLedgersWord
+=== PAUSE TestDoctor_AnUnobservedProbeKeepsTheLedgersWord
+=== RUN   TestDoctor_AlwaysExitsZeroAndNeverCreatesAProject
+=== PAUSE TestDoctor_AlwaysExitsZeroAndNeverCreatesAProject
+=== RUN   TestDoctor_ReportsCapabilityEvidenceWithoutInventingIt
+=== PAUSE TestDoctor_ReportsCapabilityEvidenceWithoutInventingIt
+=== RUN   TestDoctor_EveryMigrationGateIsPendingInThisBuild
+=== PAUSE TestDoctor_EveryMigrationGateIsPendingInThisBuild
+=== RUN   TestDoctor_ShowsAConfigViolationRatherThanRefusing
+=== PAUSE TestDoctor_ShowsAConfigViolationRatherThanRefusing
+=== RUN   TestDoctor_ReportsTheProjectStoreWritabilityProbe
+=== PAUSE TestDoctor_ReportsTheProjectStoreWritabilityProbe
+=== RUN   TestDoctor_AgreesWithStatusOnModeAndProvenance
+=== RUN   TestDoctor_AgreesWithStatusOnModeAndProvenance/no_daemon
+=== RUN   TestDoctor_AgreesWithStatusOnModeAndProvenance/a_daemon_holds_the_lock
+--- PASS: TestDoctor_AgreesWithStatusOnModeAndProvenance (0.15s)
+    --- PASS: TestDoctor_AgreesWithStatusOnModeAndProvenance/no_daemon (0.02s)
+    --- PASS: TestDoctor_AgreesWithStatusOnModeAndProvenance/a_daemon_holds_the_lock (0.04s)
+=== RUN   TestDoctor_NamesTheVersionAndDoesNotProbeTheHost
+=== PAUSE TestDoctor_NamesTheVersionAndDoesNotProbeTheHost
+=== RUN   TestDoctor_TableModeWritesAReadableSummary
+=== PAUSE TestDoctor_TableModeWritesAReadableSummary
+=== RUN   TestDoctor_ReportsTheThreePluginRootOutcomes
+=== PAUSE TestDoctor_ReportsTheThreePluginRootOutcomes
+=== RUN   TestPluginBinaryExecutable
+=== PAUSE TestPluginBinaryExecutable
+=== RUN   TestDoctor_AnUnreadableSpoolIsItsOwnRow
+=== PAUSE TestDoctor_AnUnreadableSpoolIsItsOwnRow
+=== RUN   TestDoctor_ReportsTheSegmentsTheProjectHolds
+--- PASS: TestDoctor_ReportsTheSegmentsTheProjectHolds (0.15s)
+=== RUN   TestDoctor_ReportsDeliveryRollover
+=== PAUSE TestDoctor_ReportsDeliveryRollover
+=== RUN   TestHookCapture_FaultsCannotBypassAdmission
+=== RUN   TestHookCapture_FaultsCannotBypassAdmission/oversize
+=== RUN   TestHookCapture_FaultsCannotBypassAdmission/config-corrupt
+--- PASS: TestHookCapture_FaultsCannotBypassAdmission (0.11s)
+    --- PASS: TestHookCapture_FaultsCannotBypassAdmission/oversize (0.11s)
+    --- PASS: TestHookCapture_FaultsCannotBypassAdmission/config-corrupt (0.01s)
+=== RUN   TestFaultActive_UnsetIsInertForAllElevenSites
+--- PASS: TestFaultActive_UnsetIsInertForAllElevenSites (0.00s)
+=== RUN   TestFaultActive_ParsesBareSiteNames
+--- PASS: TestFaultActive_ParsesBareSiteNames (0.00s)
+=== RUN   TestFaultActive_PanicSiteNamesEmbedTheirOwnColon
+--- PASS: TestFaultActive_PanicSiteNamesEmbedTheirOwnColon (0.00s)
+=== RUN   TestFaultActive_ParsesSiteWithArgument
+--- PASS: TestFaultActive_ParsesSiteWithArgument (0.00s)
+=== RUN   TestFaultActive_UnknownTokensAreIgnored
+--- PASS: TestFaultActive_UnknownTokensAreIgnored (0.00s)
+=== RUN   TestFaultStdin_EOFAndGarbage
+--- PASS: TestFaultStdin_EOFAndGarbage (0.00s)
+=== RUN   TestFaultInflateToolResponse_OnlyWhenActive
+--- PASS: TestFaultInflateToolResponse_OnlyWhenActive (0.00s)
+=== RUN   TestWrapFaultSpool_SpoolFullFailsAfterAllowance
+--- PASS: TestWrapFaultSpool_SpoolFullFailsAfterAllowance (0.00s)
+=== RUN   TestWrapFaultSpool_SpoolFullDefaultAllowanceIsOne
+--- PASS: TestWrapFaultSpool_SpoolFullDefaultAllowanceIsOne (0.00s)
+=== RUN   TestWrapFaultSpool_DiskFullFailsFromTheFirstWrite
+--- PASS: TestWrapFaultSpool_DiskFullFailsFromTheFirstWrite (0.00s)
+=== RUN   TestWrapFaultSpool_InertWhenUnset
+--- PASS: TestWrapFaultSpool_InertWhenUnset (0.00s)
+=== RUN   TestWrapFaultClient_PanicClientPanics
+--- PASS: TestWrapFaultClient_PanicClientPanics (0.00s)
+=== RUN   TestWrapFaultClient_InertWhenUnset
+--- PASS: TestWrapFaultClient_InertWhenUnset (0.00s)
+=== RUN   TestFaultDaemonDownAddr_Inactive
+--- PASS: TestFaultDaemonDownAddr_Inactive (0.00s)
+=== RUN   TestFaultDaemonDownAddr_Active
+--- PASS: TestFaultDaemonDownAddr_Active (0.00s)
+=== RUN   TestFaultDaemonDownAddr_ActiveAmongOtherSites
+--- PASS: TestFaultDaemonDownAddr_ActiveAmongOtherSites (0.00s)
+=== RUN   TestFaultCorruptStateIfNeeded_OverwritesWithBadRecord
+--- PASS: TestFaultCorruptStateIfNeeded_OverwritesWithBadRecord (0.03s)
+=== RUN   TestFaultCorruptConfigIfNeeded_WritesUnparseableJSON
+--- PASS: TestFaultCorruptConfigIfNeeded_WritesUnparseableJSON (0.00s)
+=== RUN   TestFaultCorruptConfigIfNeeded_NeverConjuresAMissingRoot
+--- PASS: TestFaultCorruptConfigIfNeeded_NeverConjuresAMissingRoot (0.00s)
+=== RUN   TestSelfTest_ConfigCorruptFallsBackButReportsTheRefusedCapture
+--- PASS: TestSelfTest_ConfigCorruptFallsBackButReportsTheRefusedCapture (0.03s)
+=== RUN   TestFlushHook_IsFireAndForgetWithItsNonce
+--- PASS: TestFlushHook_IsFireAndForgetWithItsNonce (0.05s)
+=== RUN   TestFlushHook_ASlowAckInsideTheHostBudgetLeavesNoSpool
+--- PASS: TestFlushHook_ASlowAckInsideTheHostBudgetLeavesNoSpool (0.26s)
+=== RUN   TestFsck_FrozenLegacySealIsClassifiedByTheSegmentAuthority
+--- PASS: TestFsck_FrozenLegacySealIsClassifiedByTheSegmentAuthority (0.19s)
+=== RUN   TestFsck_FrozenLegacySealWithoutAnAuthorityIsADefect
+--- PASS: TestFsck_FrozenLegacySealWithoutAnAuthorityIsADefect (0.12s)
+=== RUN   TestFsck_UnknownObservationIntentIsIncompleteAndReadOnly
+--- PASS: TestFsck_UnknownObservationIntentIsIncompleteAndReadOnly (0.15s)
+=== RUN   TestFsck_NewerCaptureSchemaIsASupportGapNotADefect
+--- PASS: TestFsck_NewerCaptureSchemaIsASupportGapNotADefect (0.15s)
+=== RUN   TestFsck_LegacyControlCaptureIsNotADefect
+--- PASS: TestFsck_LegacyControlCaptureIsNotADefect (0.22s)
+=== RUN   TestFsck_NewerCaptureSchemaDoesNotExcuseOtherIncompleteness
+--- PASS: TestFsck_NewerCaptureSchemaDoesNotExcuseOtherIncompleteness (0.13s)
+=== RUN   TestFsck_AnUnsealedDraftClaimIsNamedNotFailed
+=== PAUSE TestFsck_AnUnsealedDraftClaimIsNamedNotFailed
+=== RUN   TestFsck_AClaimNothingExplainsIsStillADefect
+=== PAUSE TestFsck_AClaimNothingExplainsIsStillADefect
+=== RUN   TestFsck_AClaimOnAnOrphanArtifactIsTheOrphansFinding
+=== PAUSE TestFsck_AClaimOnAnOrphanArtifactIsTheOrphansFinding
+=== RUN   TestFsck_CleanProjectFindsNoDefect
+=== PAUSE TestFsck_CleanProjectFindsNoDefect
+=== RUN   TestFsck_AbsentStoreIsReportedAndNothingIsCreated
+=== PAUSE TestFsck_AbsentStoreIsReportedAndNothingIsCreated
+=== RUN   TestFsck_RepairWithoutYesIsAUsageError
+=== PAUSE TestFsck_RepairWithoutYesIsAUsageError
+=== RUN   TestFsck_ReportsEachSeededDefectAndRepairsNone
+=== PAUSE TestFsck_ReportsEachSeededDefectAndRepairsNone
+=== RUN   TestFsck_UnreadableFilesViewIsNamedAsTheViewNotTheLog
+=== PAUSE TestFsck_UnreadableFilesViewIsNamedAsTheViewNotTheLog
+=== RUN   TestFsck_ANewerCheckpointSchemaIsNotCorrupt
+=== PAUSE TestFsck_ANewerCheckpointSchemaIsNotCorrupt
+=== RUN   TestFsck_CanonicalStaysCanonicalInTheFidelitySummary
+=== PAUSE TestFsck_CanonicalStaysCanonicalInTheFidelitySummary
+=== RUN   TestFsck_ALiveDaemonMakesTheAnswerASnapshot
+--- PASS: TestFsck_ALiveDaemonMakesTheAnswerASnapshot (0.14s)
+=== RUN   TestFsck_AStaleLockDisablesNoCheck
+--- PASS: TestFsck_AStaleLockDisablesNoCheck (0.13s)
+=== RUN   TestFsck_RepairIsRefusedWhileADaemonHoldsTheLock
+--- PASS: TestFsck_RepairIsRefusedWhileADaemonHoldsTheLock (0.16s)
+=== RUN   TestFsck_RepairPerformsOnlyTheFiveAdditiveKinds
+--- PASS: TestFsck_RepairPerformsOnlyTheFiveAdditiveKinds (0.23s)
+=== RUN   TestFsck_RepairSeamGetsTheOperatorsOptions
+=== RUN   TestFsck_RepairSeamGetsTheOperatorsOptions/no_--repair_reaches_the_repair_at_all
+=== RUN   TestFsck_RepairSeamGetsTheOperatorsOptions/--repair_--yes_asks_for_the_repair_with_the_confirmation_typed
+=== RUN   TestFsck_RepairSeamGetsTheOperatorsOptions/--yes_alone_confirms_nothing,_because_no_repair_was_asked_for
+=== RUN   TestFsck_RepairSeamGetsTheOperatorsOptions/a_refused_repair_is_exit_1,_not_exit_2_and_not_exit_0
+--- PASS: TestFsck_RepairSeamGetsTheOperatorsOptions (0.16s)
+    --- PASS: TestFsck_RepairSeamGetsTheOperatorsOptions/no_--repair_reaches_the_repair_at_all (0.02s)
+    --- PASS: TestFsck_RepairSeamGetsTheOperatorsOptions/--repair_--yes_asks_for_the_repair_with_the_confirmation_typed (0.01s)
+    --- PASS: TestFsck_RepairSeamGetsTheOperatorsOptions/--yes_alone_confirms_nothing,_because_no_repair_was_asked_for (0.01s)
+    --- PASS: TestFsck_RepairSeamGetsTheOperatorsOptions/a_refused_repair_is_exit_1,_not_exit_2_and_not_exit_0 (0.01s)
+=== RUN   TestFsck_TheViewRepairGoesThroughTheStoresOwnRegenerator
+--- PASS: TestFsck_TheViewRepairGoesThroughTheStoresOwnRegenerator (0.17s)
+=== RUN   TestFsck_RegisteredInAllAndNotAHook
+=== PAUSE TestFsck_RegisteredInAllAndNotAHook
+=== RUN   TestFsck_TableModeWritesAReadableSummary
+=== PAUSE TestFsck_TableModeWritesAReadableSummary
+=== RUN   TestFsck_RepairQuarantinesAFailingObjectAndRebuildsTheFilter
+--- PASS: TestFsck_RepairQuarantinesAFailingObjectAndRebuildsTheFilter (0.25s)
+=== RUN   TestFsck_AndDoctor_CreateNothingOnAnyProjectShape
+=== PAUSE TestFsck_AndDoctor_CreateNothingOnAnyProjectShape
+=== RUN   TestFsck_ReportsEveryDanglingReferenceClass
+=== PAUSE TestFsck_ReportsEveryDanglingReferenceClass
+=== RUN   TestFsck_ReportsADanglingDeltaPointer
+=== PAUSE TestFsck_ReportsADanglingDeltaPointer
+=== RUN   TestFsck_AnUnreadableArtifactIsAReportedRow
+=== PAUSE TestFsck_AnUnreadableArtifactIsAReportedRow
+=== RUN   TestFsck_TheDefaultRunNeverTakesTheDaemonLock
+--- PASS: TestFsck_TheDefaultRunNeverTakesTheDaemonLock (0.14s)
+=== RUN   TestFsck_SealCheckIsNotReportedReadOnly
+--- PASS: TestFsck_SealCheckIsNotReportedReadOnly (0.18s)
+=== RUN   TestFsck_SealCheckAndRepairAreMutuallyExclusive
+=== PAUSE TestFsck_SealCheckAndRepairAreMutuallyExclusive
+=== RUN   TestFsck_RepairOnACleanProjectWritesNothing
+--- PASS: TestFsck_RepairOnACleanProjectWritesNothing (0.17s)
+=== RUN   TestFsck_TheObjectSizeLimitIsTheStoresOwn
+=== PAUSE TestFsck_TheObjectSizeLimitIsTheStoresOwn
+=== RUN   TestFsck_ToolUseTurnsAreMonotonePerSessionNotAcrossSessions
+--- PASS: TestFsck_ToolUseTurnsAreMonotonePerSessionNotAcrossSessions (0.24s)
+=== RUN   TestFsck_ToolUseNonMonotoneTurnNamesItsSession
+--- PASS: TestFsck_ToolUseNonMonotoneTurnNamesItsSession (0.22s)
+=== RUN   TestFsck_ToolUseSupersedeMarkIsNotATurnRegression
+--- PASS: TestFsck_ToolUseSupersedeMarkIsNotATurnRegression (0.17s)
+=== RUN   TestFsck_ToolUseSupersedeMarkMustNameRecordsThisIndexCarries
+--- PASS: TestFsck_ToolUseSupersedeMarkMustNameRecordsThisIndexCarries (0.24s)
+=== RUN   TestFsck_ToolUseUnattributedSelfRecordIsNotARegression
+--- PASS: TestFsck_ToolUseUnattributedSelfRecordIsNotARegression (0.19s)
+=== RUN   TestFsck_ToolUseRegressionAfterASelfRecordIsStillADefect
+--- PASS: TestFsck_ToolUseRegressionAfterASelfRecordIsStillADefect (0.19s)
+=== RUN   TestFsck_ToolUseAttributedSelfRecordIsOrderedLikeAnyOther
+--- PASS: TestFsck_ToolUseAttributedSelfRecordIsOrderedLikeAnyOther (0.19s)
+=== RUN   TestFsck_ToolUsePreFixSelfRecordAtItsSegmentStartIsNotARegression
+--- PASS: TestFsck_ToolUsePreFixSelfRecordAtItsSegmentStartIsNotARegression (0.28s)
+=== RUN   TestFsck_ToolUseRegressionBesideSegmentStartSelfRecordsIsStillADefect
+--- PASS: TestFsck_ToolUseRegressionBesideSegmentStartSelfRecordsIsStillADefect (0.30s)
+=== RUN   TestFsck_ToolUseSegmentStartOfAnotherSessionDoesNotExcuseASelfRecord
+--- PASS: TestFsck_ToolUseSegmentStartOfAnotherSessionDoesNotExcuseASelfRecord (0.28s)
+=== RUN   TestFsck_ToolUseSelfRecordBesideAnUnreadableSegmentLogIsReportedNotCounted
+--- PASS: TestFsck_ToolUseSelfRecordBesideAnUnreadableSegmentLogIsReportedNotCounted (0.23s)
+=== RUN   TestHomeRoot_StatusSaysWhy
+--- PASS: TestHomeRoot_StatusSaysWhy (0.02s)
+=== RUN   TestHomeRoot_DoctorSaysWhy
+--- PASS: TestHomeRoot_DoctorSaysWhy (0.03s)
+=== RUN   TestHomeRoot_StoreCommandsRefuseWithANonZeroExit
+=== RUN   TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/fsck
+=== RUN   TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/fsck_--json
+=== RUN   TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/fsck_--seal-check
+=== RUN   TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/fsck_--repair_--yes
+=== RUN   TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/fsck_--project_<home>
+=== RUN   TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/backup_create
+=== RUN   TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/backup_verify
+=== RUN   TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/backup_create_--project_<home>
+=== RUN   TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/admin_delivery-seal_--check
+=== RUN   TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/admin_delivery-seal_--project_<home>_--check
+=== RUN   TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/self-test
+=== RUN   TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/self-test_--json
+=== RUN   TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/recall
+=== RUN   TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/why
+=== RUN   TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/dropped
+=== RUN   TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/pin
+=== RUN   TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/pin_--list
+--- PASS: TestHomeRoot_StoreCommandsRefuseWithANonZeroExit (0.20s)
+    --- PASS: TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/fsck (0.01s)
+    --- PASS: TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/fsck_--json (0.01s)
+    --- PASS: TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/fsck_--seal-check (0.01s)
+    --- PASS: TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/fsck_--repair_--yes (0.01s)
+    --- PASS: TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/fsck_--project_<home> (0.01s)
+    --- PASS: TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/backup_create (0.01s)
+    --- PASS: TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/backup_verify (0.01s)
+    --- PASS: TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/backup_create_--project_<home> (0.01s)
+    --- PASS: TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/admin_delivery-seal_--check (0.02s)
+    --- PASS: TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/admin_delivery-seal_--project_<home>_--check (0.02s)
+    --- PASS: TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/self-test (0.01s)
+    --- PASS: TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/self-test_--json (0.01s)
+    --- PASS: TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/recall (0.01s)
+    --- PASS: TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/why (0.01s)
+    --- PASS: TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/dropped (0.01s)
+    --- PASS: TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/pin (0.01s)
+    --- PASS: TestHomeRoot_StoreCommandsRefuseWithANonZeroExit/pin_--list (0.01s)
+=== RUN   TestHomeRoot_ARelativeProjectFlagTypedInHomeIsRefused
+--- PASS: TestHomeRoot_ARelativeProjectFlagTypedInHomeIsRefused (0.01s)
+=== RUN   TestHomeRoot_RecallJSONReportsTheRefusalAsUnavailable
+--- PASS: TestHomeRoot_RecallJSONReportsTheRefusalAsUnavailable (0.01s)
+=== RUN   TestHomeRoot_BackupRestoreRefusesTheHomeDirectoryAsItsDestination
+--- PASS: TestHomeRoot_BackupRestoreRefusesTheHomeDirectoryAsItsDestination (0.03s)
+=== RUN   TestHomeRoot_ConfigPrintShowsOnlyTheUserGlobalLayer
+--- PASS: TestHomeRoot_ConfigPrintShowsOnlyTheUserGlobalLayer (0.02s)
+=== RUN   TestHomeRoot_EveryHookRecordsNothingAndOnlySessionStartSpeaks
+=== RUN   TestHomeRoot_EveryHookRecordsNothingAndOnlySessionStartSpeaks/QOMPACK_PROJECT_ROOT_names_home
+=== RUN   TestHomeRoot_EveryHookRecordsNothingAndOnlySessionStartSpeaks/session_started_in_the_home_directory
+=== RUN   TestHomeRoot_EveryHookRecordsNothingAndOnlySessionStartSpeaks/payload_cwd_is_the_home_directory
+=== RUN   TestHomeRoot_EveryHookRecordsNothingAndOnlySessionStartSpeaks/session_below_a_dotfiles_home
+=== RUN   TestHomeRoot_EveryHookRecordsNothingAndOnlySessionStartSpeaks/payload_cwd_below_a_dotfiles_home
+--- PASS: TestHomeRoot_EveryHookRecordsNothingAndOnlySessionStartSpeaks (0.33s)
+    --- PASS: TestHomeRoot_EveryHookRecordsNothingAndOnlySessionStartSpeaks/QOMPACK_PROJECT_ROOT_names_home (0.02s)
+    --- PASS: TestHomeRoot_EveryHookRecordsNothingAndOnlySessionStartSpeaks/session_started_in_the_home_directory (0.02s)
+    --- PASS: TestHomeRoot_EveryHookRecordsNothingAndOnlySessionStartSpeaks/payload_cwd_is_the_home_directory (0.18s)
+    --- PASS: TestHomeRoot_EveryHookRecordsNothingAndOnlySessionStartSpeaks/session_below_a_dotfiles_home (0.02s)
+    --- PASS: TestHomeRoot_EveryHookRecordsNothingAndOnlySessionStartSpeaks/payload_cwd_below_a_dotfiles_home (0.09s)
+=== RUN   TestHomeRoot_ASessionStartedInHomeStaysRefusedWhenAPayloadNamesAProject
+--- PASS: TestHomeRoot_ASessionStartedInHomeStaysRefusedWhenAPayloadNamesAProject (0.02s)
+=== RUN   TestHomeRoot_SessionStartNoticeIsShortAndSaysHowToFixIt
+--- PASS: TestHomeRoot_SessionStartNoticeIsShortAndSaysHowToFixIt (0.00s)
+=== RUN   TestHomeRoot_AProjectBelowHomeStillRecords
+=== RUN   TestHomeRoot_AProjectBelowHomeStillRecords/a_git_project_below_a_plain_home
+=== RUN   TestHomeRoot_AProjectBelowHomeStillRecords/a_git_project_below_a_dotfiles_home
+=== RUN   TestHomeRoot_AProjectBelowHomeStillRecords/a_plain_directory_below_a_plain_home
+--- PASS: TestHomeRoot_AProjectBelowHomeStillRecords (0.11s)
+    --- PASS: TestHomeRoot_AProjectBelowHomeStillRecords/a_git_project_below_a_plain_home (0.04s)
+    --- PASS: TestHomeRoot_AProjectBelowHomeStillRecords/a_git_project_below_a_dotfiles_home (0.03s)
+    --- PASS: TestHomeRoot_AProjectBelowHomeStillRecords/a_plain_directory_below_a_plain_home (0.03s)
+=== RUN   TestHomeRoot_MCPToolsAnswerWithTheStableRefusal
+--- PASS: TestHomeRoot_MCPToolsAnswerWithTheStableRefusal (0.01s)
+=== RUN   TestHomeRoot_DaemonStartsNothing
+=== RUN   TestHomeRoot_DaemonStartsNothing/from_the_override
+=== RUN   TestHomeRoot_DaemonStartsNothing/from_--project
+--- PASS: TestHomeRoot_DaemonStartsNothing (0.02s)
+    --- PASS: TestHomeRoot_DaemonStartsNothing/from_the_override (0.01s)
+    --- PASS: TestHomeRoot_DaemonStartsNothing/from_--project (0.01s)
+=== RUN   TestHookLogger_FallsBackToTheUserLevelLogDirectory
+qompack: cannot write the project log for C:\Users\Quant\AppData\Local\Temp\TestHookLogger_FallsBackToTheUserLevelLogDirectory323453718\001 (logging: New: open day log in C:\Users\Quant\AppData\Local\Temp\TestHookLogger_FallsBackToTheUserLevelLogDirectory323453718\001\.qompack\logs: open C:\Users\Quant\AppData\Local\Temp\TestHookLogger_FallsBackToTheUserLevelLogDirectory323453718\001\.qompack\logs\qompack-20260930.log: is a directory); degradation for this session is being recorded under C:\Users\Quant\AppData\Local\Temp\TestHookLogger_FallsBackToTheUserLevelLogDirectory323453718\002\.qompack\logs instead
+--- PASS: TestHookLogger_FallsBackToTheUserLevelLogDirectory (0.02s)
+=== RUN   TestHookLogger_PrefersTheProjectLogDirectory
+--- PASS: TestHookLogger_PrefersTheProjectLogDirectory (0.03s)
+=== RUN   TestHookLogger_NeverCreatesStateForAProjectThatNeverOptedIn
+--- PASS: TestHookLogger_NeverCreatesStateForAProjectThatNeverOptedIn (0.00s)
+=== RUN   TestHookOutput_PreCompactCarriesNoHookSpecificOutput
+--- PASS: TestHookOutput_PreCompactCarriesNoHookSpecificOutput (0.04s)
+=== RUN   TestHookOutput_EveryEntryPointConformsToTheHostSchema
+=== RUN   TestHookOutput_EveryEntryPointConformsToTheHostSchema/PostToolUse
+=== RUN   TestHookOutput_EveryEntryPointConformsToTheHostSchema/UserPromptSubmit
+=== RUN   TestHookOutput_EveryEntryPointConformsToTheHostSchema/SessionStart
+=== RUN   TestHookOutput_EveryEntryPointConformsToTheHostSchema/PreCompact
+=== RUN   TestHookOutput_EveryEntryPointConformsToTheHostSchema/Stop
+=== RUN   TestHookOutput_EveryEntryPointConformsToTheHostSchema/SubagentStop
+=== RUN   TestHookOutput_EveryEntryPointConformsToTheHostSchema/SessionEnd
+--- PASS: TestHookOutput_EveryEntryPointConformsToTheHostSchema (0.31s)
+    --- PASS: TestHookOutput_EveryEntryPointConformsToTheHostSchema/PostToolUse (0.05s)
+    --- PASS: TestHookOutput_EveryEntryPointConformsToTheHostSchema/UserPromptSubmit (0.04s)
+    --- PASS: TestHookOutput_EveryEntryPointConformsToTheHostSchema/SessionStart (0.04s)
+    --- PASS: TestHookOutput_EveryEntryPointConformsToTheHostSchema/PreCompact (0.05s)
+    --- PASS: TestHookOutput_EveryEntryPointConformsToTheHostSchema/Stop (0.04s)
+    --- PASS: TestHookOutput_EveryEntryPointConformsToTheHostSchema/SubagentStop (0.04s)
+    --- PASS: TestHookOutput_EveryEntryPointConformsToTheHostSchema/SessionEnd (0.05s)
+=== RUN   TestHookOutput_ForeignEventNameIsDropped
+--- PASS: TestHookOutput_ForeignEventNameIsDropped (0.04s)
+=== RUN   TestHostHookSchema_RejectsTheShippedDefect
+--- PASS: TestHostHookSchema_RejectsTheShippedDefect (0.00s)
+=== RUN   TestHookEvent_MatchesTheManifest
+--- PASS: TestHookEvent_MatchesTheManifest (0.00s)
+=== RUN   TestHookOutput_OverTheHostCapIsLoud
+=== RUN   TestHookOutput_OverTheHostCapIsLoud/at_the_cap
+=== RUN   TestHookOutput_OverTheHostCapIsLoud/one_over
+--- PASS: TestHookOutput_OverTheHostCapIsLoud (0.10s)
+    --- PASS: TestHookOutput_OverTheHostCapIsLoud/at_the_cap (0.04s)
+    --- PASS: TestHookOutput_OverTheHostCapIsLoud/one_over (0.06s)
+=== RUN   TestHooks_AllSixExitZeroWithValidJSON
+=== RUN   TestHooks_AllSixExitZeroWithValidJSON/observe_tool
+=== RUN   TestHooks_AllSixExitZeroWithValidJSON/observe_prompt
+=== RUN   TestHooks_AllSixExitZeroWithValidJSON/observe_stop
+=== RUN   TestHooks_AllSixExitZeroWithValidJSON/session-start
+=== RUN   TestHooks_AllSixExitZeroWithValidJSON/checkpoint
+=== RUN   TestHooks_AllSixExitZeroWithValidJSON/flush
+--- PASS: TestHooks_AllSixExitZeroWithValidJSON (0.02s)
+    --- PASS: TestHooks_AllSixExitZeroWithValidJSON/observe_tool (0.00s)
+    --- PASS: TestHooks_AllSixExitZeroWithValidJSON/observe_prompt (0.00s)
+    --- PASS: TestHooks_AllSixExitZeroWithValidJSON/observe_stop (0.00s)
+    --- PASS: TestHooks_AllSixExitZeroWithValidJSON/session-start (0.00s)
+    --- PASS: TestHooks_AllSixExitZeroWithValidJSON/checkpoint (0.00s)
+    --- PASS: TestHooks_AllSixExitZeroWithValidJSON/flush (0.00s)
+=== RUN   TestHooks_ModeOffShortCircuits
+--- PASS: TestHooks_ModeOffShortCircuits (0.02s)
+=== RUN   TestHooks_RefuseToCreateStoreUnderMissingRoot
+--- PASS: TestHooks_RefuseToCreateStoreUnderMissingRoot (0.00s)
+=== RUN   TestHooks_RootReResolvesFromPayload
+--- PASS: TestHooks_RootReResolvesFromPayload (0.01s)
+=== RUN   TestHooks_ObserveStopSubagentFlagReachesRaw
+--- PASS: TestHooks_ObserveStopSubagentFlagReachesRaw (0.02s)
+=== RUN   TestHooks_CheckpointTriggerReachesRaw
+--- PASS: TestHooks_CheckpointTriggerReachesRaw (0.02s)
+=== RUN   TestHooks_LogQuietWritesWhenLogsDirExists
+--- PASS: TestHooks_LogQuietWritesWhenLogsDirExists (0.02s)
+=== RUN   TestHooks_LogQuietNeverCreatesLogsDir
+--- PASS: TestHooks_LogQuietNeverCreatesLogsDir (0.00s)
+=== RUN   TestHookConnectDeadline
+=== RUN   TestHookConnectDeadline/observe.tool_(hot_path,_no_fixed_deadline)
+=== RUN   TestHookConnectDeadline/observe.prompt_(hot_path,_DOES_carry_a_fixed_deadline)
+=== RUN   TestHookConnectDeadline/observe.stop_(hot_path,_no_fixed_deadline)
+=== RUN   TestHookConnectDeadline/session-start_(not_hot_path,_fixed_deadline)
+=== RUN   TestHookConnectDeadline/checkpoint_(not_hot_path,_fixed_deadline)
+=== RUN   TestHookConnectDeadline/flush_(not_hot_path,_fire-and-forget_since_C1.15:_no_fixed_deadline)
+=== RUN   TestHookConnectDeadline/a_non-hot-path_op's_own_State.ConnectDeadlineMs_is_kept_when_it_already_exceeds_the_floor
+--- PASS: TestHookConnectDeadline (0.00s)
+    --- PASS: TestHookConnectDeadline/observe.tool_(hot_path,_no_fixed_deadline) (0.00s)
+    --- PASS: TestHookConnectDeadline/observe.prompt_(hot_path,_DOES_carry_a_fixed_deadline) (0.00s)
+    --- PASS: TestHookConnectDeadline/observe.stop_(hot_path,_no_fixed_deadline) (0.00s)
+    --- PASS: TestHookConnectDeadline/session-start_(not_hot_path,_fixed_deadline) (0.00s)
+    --- PASS: TestHookConnectDeadline/checkpoint_(not_hot_path,_fixed_deadline) (0.00s)
+    --- PASS: TestHookConnectDeadline/flush_(not_hot_path,_fire-and-forget_since_C1.15:_no_fixed_deadline) (0.00s)
+    --- PASS: TestHookConnectDeadline/a_non-hot-path_op's_own_State.ConnectDeadlineMs_is_kept_when_it_already_exceeds_the_floor (0.00s)
+=== RUN   TestEnsureDaemonRunning_GatedOnDaemonEnabled
+=== RUN   TestEnsureDaemonRunning_GatedOnDaemonEnabled/disabled:_EnsureRunning_is_never_attempted
+=== RUN   TestEnsureDaemonRunning_GatedOnDaemonEnabled/enabled:_EnsureRunning_is_attempted
+--- PASS: TestEnsureDaemonRunning_GatedOnDaemonEnabled (0.06s)
+    --- PASS: TestEnsureDaemonRunning_GatedOnDaemonEnabled/disabled:_EnsureRunning_is_never_attempted (0.02s)
+    --- PASS: TestEnsureDaemonRunning_GatedOnDaemonEnabled/enabled:_EnsureRunning_is_attempted (0.04s)
+=== RUN   TestRawExtras_ResolvesTheSubagentNameClientSide
+=== RUN   TestRawExtras_ResolvesTheSubagentNameClientSide/no_extras_at_all
+=== RUN   TestRawExtras_ResolvesTheSubagentNameClientSide/no_name_key_among_the_extras
+=== RUN   TestRawExtras_ResolvesTheSubagentNameClientSide/subagent_type_wins
+=== RUN   TestRawExtras_ResolvesTheSubagentNameClientSide/agent_name_is_second
+=== RUN   TestRawExtras_ResolvesTheSubagentNameClientSide/agent_is_third
+=== RUN   TestRawExtras_ResolvesTheSubagentNameClientSide/priority_order_is_subagent_type,_agent_name,_agent
+=== RUN   TestRawExtras_ResolvesTheSubagentNameClientSide/a_numeric_value_falls_through_to_the_next_key
+=== RUN   TestRawExtras_ResolvesTheSubagentNameClientSide/an_object_value_falls_through_to_the_next_key
+=== RUN   TestRawExtras_ResolvesTheSubagentNameClientSide/an_empty_string_is_not_a_name
+--- PASS: TestRawExtras_ResolvesTheSubagentNameClientSide (0.00s)
+    --- PASS: TestRawExtras_ResolvesTheSubagentNameClientSide/no_extras_at_all (0.00s)
+    --- PASS: TestRawExtras_ResolvesTheSubagentNameClientSide/no_name_key_among_the_extras (0.00s)
+    --- PASS: TestRawExtras_ResolvesTheSubagentNameClientSide/subagent_type_wins (0.00s)
+    --- PASS: TestRawExtras_ResolvesTheSubagentNameClientSide/agent_name_is_second (0.00s)
+    --- PASS: TestRawExtras_ResolvesTheSubagentNameClientSide/agent_is_third (0.00s)
+    --- PASS: TestRawExtras_ResolvesTheSubagentNameClientSide/priority_order_is_subagent_type,_agent_name,_agent (0.00s)
+    --- PASS: TestRawExtras_ResolvesTheSubagentNameClientSide/a_numeric_value_falls_through_to_the_next_key (0.00s)
+    --- PASS: TestRawExtras_ResolvesTheSubagentNameClientSide/an_object_value_falls_through_to_the_next_key (0.00s)
+    --- PASS: TestRawExtras_ResolvesTheSubagentNameClientSide/an_empty_string_is_not_a_name (0.00s)
+=== RUN   TestHooks_SubagentNameReachesTheSpooledRequest
+--- PASS: TestHooks_SubagentNameReachesTheSpooledRequest (0.02s)
+=== RUN   TestHooks_OverBudgetDeliveryIsRecordedNotDropped
+--- PASS: TestHooks_OverBudgetDeliveryIsRecordedNotDropped (0.02s)
+=== RUN   TestHooks_HardCapDeliveryIsRecordedWhenStateExists
+--- PASS: TestHooks_HardCapDeliveryIsRecordedWhenStateExists (0.05s)
+=== RUN   TestHooks_HardCapDeliveryIsDroppedWithoutState
+--- PASS: TestHooks_HardCapDeliveryIsDroppedWithoutState (0.03s)
+=== RUN   TestLiveMCPSelfRecordKeepsSessionTurnOrder
+--- PASS: TestLiveMCPSelfRecordKeepsSessionTurnOrder (1.04s)
+=== RUN   TestLiveLedgerToolsAnswerBeforeFirstCompaction
+--- PASS: TestLiveLedgerToolsAnswerBeforeFirstCompaction (0.78s)
+=== RUN   TestLiveSessionScopedEliminationStaysInItsSession
+--- PASS: TestLiveSessionScopedEliminationStaysInItsSession (1.09s)
+=== RUN   TestLiveAlreadyTriedSeesInSessionDependencyChange
+--- PASS: TestLiveAlreadyTriedSeesInSessionDependencyChange (0.90s)
+=== RUN   TestLivePreCompactCarriesEliminationAndDecision
+--- PASS: TestLivePreCompactCarriesEliminationAndDecision (0.89s)
+=== RUN   TestLiveTimelineShowsOpenSegmentProgress
+--- PASS: TestLiveTimelineShowsOpenSegmentProgress (0.83s)
+=== RUN   TestLiveTimelineRefusesAnInvertedRange
+--- PASS: TestLiveTimelineRefusesAnInvertedRange (0.63s)
+=== RUN   TestNewToolDepsResolvesTheLedgerLive
+=== PAUSE TestNewToolDepsResolvesTheLedgerLive
+=== RUN   TestNewToolDepsWithoutAnAccessorStaysNilTolerant
+=== PAUSE TestNewToolDepsWithoutAnAccessorStaysNilTolerant
+=== RUN   TestNewToolDepsAlwaysSuppliesARedactor
+=== PAUSE TestNewToolDepsAlwaysSuppliesARedactor
+=== RUN   TestNewRetrievalRedactorIsIdempotent
+=== PAUSE TestNewRetrievalRedactorIsIdempotent
+=== RUN   TestLedgerAccessorsAreSafeAgainstTheLazyOpen
+=== PAUSE TestLedgerAccessorsAreSafeAgainstTheLazyOpen
+=== RUN   TestOpeningLedgerOpensOnFirstUseAndOnlyThere
+=== PAUSE TestOpeningLedgerOpensOnFirstUseAndOnlyThere
+=== RUN   TestLivePinReachesTheNextCheckpointAndBlock
+--- PASS: TestLivePinReachesTheNextCheckpointAndBlock (0.58s)
+=== RUN   TestLivePinAfterACompactionReachesTheNextOne
+--- PASS: TestLivePinAfterACompactionReachesTheNextOne (0.71s)
+=== RUN   TestPreCompactCheckpointCarriesTheCompactedReads
+--- PASS: TestPreCompactCheckpointCarriesTheCompactedReads (0.81s)
+=== RUN   TestSecondPreCompactCarriesItsOwnSpan
+--- PASS: TestSecondPreCompactCarriesItsOwnSpan (1.03s)
+=== RUN   TestExitCodes_MatchTheCLITable
+=== PAUSE TestExitCodes_MatchTheCLITable
+=== RUN   TestSlashCommands_AreDiscoverable
+=== PAUSE TestSlashCommands_AreDiscoverable
+=== RUN   TestSlashCommands_AppearInHelp
+=== PAUSE TestSlashCommands_AppearInHelp
+=== RUN   TestSlashCommands_StatusSucceedsWithoutADaemon
+=== PAUSE TestSlashCommands_StatusSucceedsWithoutADaemon
+=== RUN   TestSlashCommands_ReadOnlyCommandsCreateNoProject
+=== PAUSE TestSlashCommands_ReadOnlyCommandsCreateNoProject
+=== RUN   TestSlashCommands_UsageErrorsExitTwo
+=== PAUSE TestSlashCommands_UsageErrorsExitTwo
+=== RUN   TestSlashCommands_UnavailableExitsOne
+=== PAUSE TestSlashCommands_UnavailableExitsOne
+=== RUN   TestSlashCommands_HelpExitsZero
+=== PAUSE TestSlashCommands_HelpExitsZero
+=== RUN   TestSlashCommands_CheckpointRemainsTheHook
+=== PAUSE TestSlashCommands_CheckpointRemainsTheHook
+=== RUN   TestSlashCommands_EvalImportStillResolves
+=== PAUSE TestSlashCommands_EvalImportStillResolves
+=== RUN   TestSlashCommands_EvalReportsTheLatestLiveRun
+=== PAUSE TestSlashCommands_EvalReportsTheLatestLiveRun
+=== RUN   TestSchedulerNotOnHotPath
+    scheduler_hotpath_test.go:34: hook roots: [doHook runSessionStart]
+    scheduler_hotpath_test.go:76: 58 functions reachable from the hook roots, none on the scheduler
+--- PASS: TestSchedulerNotOnHotPath (0.02s)
+=== RUN   TestWireSchedulerKeepsFrontierUnavailableUntilSharedSources
+--- PASS: TestWireSchedulerKeepsFrontierUnavailableUntilSharedSources (0.04s)
+=== RUN   TestProductionCheckpointSourcesStayLazyAndReportUnavailable
+--- PASS: TestProductionCheckpointSourcesStayLazyAndReportUnavailable (0.04s)
+=== RUN   TestShippedDaemonRegistersTheCheckpointIdleTasks
+--- PASS: TestShippedDaemonRegistersTheCheckpointIdleTasks (0.15s)
+=== RUN   TestAHostFailedCompactionsSuccessorClosesAtSessionEnd
+--- PASS: TestAHostFailedCompactionsSuccessorClosesAtSessionEnd (1.07s)
+=== RUN   TestARestartedDaemonBindsTheLiveSessionOnItsFirstHook
+--- PASS: TestARestartedDaemonBindsTheLiveSessionOnItsFirstHook (1.28s)
+=== RUN   TestSelfTest_ExitsZeroOnHealthyProject
+--- PASS: TestSelfTest_ExitsZeroOnHealthyProject (0.03s)
+=== RUN   TestSelfTest_ExitsNonZeroOnCritical
+--- PASS: TestSelfTest_ExitsNonZeroOnCritical (0.04s)
+=== RUN   TestSelfTest_TableModeWritesAReadableSummary
+--- PASS: TestSelfTest_TableModeWritesAReadableSummary (0.02s)
+=== RUN   TestSelfTest_RegisteredInAll
+--- PASS: TestSelfTest_RegisteredInAll (0.00s)
+=== RUN   TestSelfTest_DaemonDisabledStartsNoDaemon
+--- PASS: TestSelfTest_DaemonDisabledStartsNoDaemon (0.03s)
+=== RUN   TestSelfTest_DaemonDisabledButReachableWarns
+--- PASS: TestSelfTest_DaemonDisabledButReachableWarns (0.04s)
+=== RUN   TestSessionStartBudget_AnUnspoolableStartWithNoTimeLeftIsLoud
+--- PASS: TestSessionStartBudget_AnUnspoolableStartWithNoTimeLeftIsLoud (3.64s)
+=== RUN   TestSessionStartBudget_SplitsTheManifestTimeout
+--- PASS: TestSessionStartBudget_SplitsTheManifestTimeout (0.00s)
+=== RUN   TestSessionStartBudget_APreSendOverrunCutsTheReplyWait
+--- PASS: TestSessionStartBudget_APreSendOverrunCutsTheReplyWait (3.30s)
+=== RUN   TestSessionStartBudget_NoTimeLeftSpoolsWithoutDialling
+--- PASS: TestSessionStartBudget_NoTimeLeftSpoolsWithoutDialling (3.65s)
+=== RUN   TestSessionStartBudget_ANoTimeLeftStartTheSpoolDropsIsNotLoggedAsSpooled
+--- PASS: TestSessionStartBudget_ANoTimeLeftStartTheSpoolDropsIsNotLoggedAsSpooled (3.65s)
+=== RUN   TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered
+=== RUN   TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/4s
+=== PAUSE TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/4s
+=== RUN   TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/6s
+=== PAUSE TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/6s
+=== RUN   TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/8s
+=== PAUSE TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/8s
+=== CONT  TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/4s
+=== CONT  TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/8s
+=== CONT  TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/6s
+--- PASS: TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered (0.00s)
+    --- PASS: TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/4s (4.06s)
+    --- PASS: TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/6s (6.07s)
+    --- PASS: TestSessionStartBudget_ADaemonUpWhileTheStepMayBorrowIsAnswered/8s (8.05s)
+=== RUN   TestSessionStartBudget_ADaemonThatNeverComesUpIsSpooledAtTheBorrowLimit
+=== PAUSE TestSessionStartBudget_ADaemonThatNeverComesUpIsSpooledAtTheBorrowLimit
+=== RUN   TestSessionStartBudget_ACompactStartUpAt8sKeepsTheCompactBound
+=== PAUSE TestSessionStartBudget_ACompactStartUpAt8sKeepsTheCompactBound
+=== RUN   TestSessionStartCompact_UnderSameSessionIngest
+    sessionstart_compact_load_test.go:328: round 0: 68.8239ms rehydration
+    sessionstart_compact_load_test.go:328: round 1: 65.8192ms rehydration
+    sessionstart_compact_load_test.go:328: round 2: 71.3296ms rehydration
+    sessionstart_compact_load_test.go:335: compact SessionStart wall (n=3): p50=68.8239ms p95=71.3296ms p99=71.3296ms max=71.3296ms answers=map[rehydration:3]
+    sessionstart_compact_load_test.go:335:   checkpoint.precompact              n=3     p50=61.44ms    p95=65.536ms   p99=65.536ms   max=64.367ms
+    sessionstart_compact_load_test.go:335:   checkpoint_finalize                n=3     p50=61.44ms    p95=73.728ms   p99=73.728ms   max=68.179ms
+    sessionstart_compact_load_test.go:335:   l0_ingest                          n=16    p50=10.24ms    p95=81.92ms    p99=81.92ms    max=75.047ms
+    sessionstart_compact_load_test.go:335:   l0_process                         n=8     p50=81.92ms    p95=98.304ms   p99=98.304ms   max=94.095ms
+    sessionstart_compact_load_test.go:335:   negknow.rebuild                    n=1     p50=1.152ms    p95=1.152ms    p99=1.152ms    max=1.083ms
+    sessionstart_compact_load_test.go:335:   negknow.refresh                    n=1     p50=2µs        p95=2µs        p99=2µs        max=0s
+    sessionstart_compact_load_test.go:335:   observer.prompt                    n=2     p50=2µs        p95=61.44ms    p99=61.44ms    max=57.447ms
+    sessionstart_compact_load_test.go:335:   observer.session_start             n=4     p50=18.432ms   p95=26.624ms   p99=26.624ms   max=26.09ms
+    sessionstart_compact_load_test.go:335:   observer.stop                      n=16    p50=65.536ms   p95=81.92ms    p99=81.92ms    max=77.015ms
+    sessionstart_compact_load_test.go:335:   rehydrate.build                    n=3     p50=576µs      p95=576µs      p99=576µs      max=552µs
+    sessionstart_compact_load_test.go:335:   rehydrate.deps                     n=3     p50=2µs        p95=2µs        p99=2µs        max=0s
+    sessionstart_compact_load_test.go:335:   rehydrate.latest                   n=3     p50=576µs      p95=576µs      p99=576µs      max=547µs
+    sessionstart_compact_load_test.go:335:   rehydrate.record                   n=3     p50=5.12ms     p95=6.144ms    p99=6.144ms    max=5.998ms
+    sessionstart_compact_load_test.go:335:   rehydrate.selection                n=3     p50=2µs        p95=2µs        p99=2µs        max=0s
+    sessionstart_compact_load_test.go:335:   session_start.compact_wait         n=3     p50=2µs        p95=2µs        p99=2µs        max=0s
+    sessionstart_compact_load_test.go:335:   session_start.contract             n=4     p50=49.152ms   p95=53.248ms   p99=53.248ms   max=49.387ms
+    sessionstart_compact_load_test.go:335:   session_start.finish               n=4     p50=18.432ms   p95=20.48ms    p99=20.48ms    max=19.389ms
+    sessionstart_compact_load_test.go:335:   session_start.route                n=4     p50=65.536ms   p95=73.728ms   p99=73.728ms   max=67.607ms
+    sessionstart_compact_load_test.go:335:   session_start.seam                 n=4     p50=2µs        p95=576µs      p99=576µs      max=529µs
+--- PASS: TestSessionStartCompact_UnderSameSessionIngest (1.54s)
+=== RUN   TestSessionStartCompact_UnansweredIsTheDeferredNote
+--- PASS: TestSessionStartCompact_UnansweredIsTheDeferredNote (0.03s)
+=== RUN   TestSessionStartCompact_UnansweredNoteOnlyWhereARehydrationWasDue
+=== RUN   TestSessionStartCompact_UnansweredNoteOnlyWhereARehydrationWasDue/source=startup
+=== RUN   TestSessionStartCompact_UnansweredNoteOnlyWhereARehydrationWasDue/source=resume
+=== RUN   TestSessionStartCompact_UnansweredNoteOnlyWhereARehydrationWasDue/source=clear
+=== RUN   TestSessionStartCompact_UnansweredNoteOnlyWhereARehydrationWasDue/source=
+=== RUN   TestSessionStartCompact_UnansweredNoteOnlyWhereARehydrationWasDue/daemon_disabled
+=== RUN   TestSessionStartCompact_UnansweredNoteOnlyWhereARehydrationWasDue/degraded_passive
+=== RUN   TestSessionStartCompact_UnansweredNoteOnlyWhereARehydrationWasDue/runtime.mode=passive
+=== RUN   TestSessionStartCompact_UnansweredNoteOnlyWhereARehydrationWasDue/runtime.mode=off
+=== RUN   TestSessionStartCompact_UnansweredNoteOnlyWhereARehydrationWasDue/reinjection_switched_off
+--- PASS: TestSessionStartCompact_UnansweredNoteOnlyWhereARehydrationWasDue (0.30s)
+    --- PASS: TestSessionStartCompact_UnansweredNoteOnlyWhereARehydrationWasDue/source=startup (0.03s)
+    --- PASS: TestSessionStartCompact_UnansweredNoteOnlyWhereARehydrationWasDue/source=resume (0.03s)
+    --- PASS: TestSessionStartCompact_UnansweredNoteOnlyWhereARehydrationWasDue/source=clear (0.03s)
+    --- PASS: TestSessionStartCompact_UnansweredNoteOnlyWhereARehydrationWasDue/source= (0.03s)
+    --- PASS: TestSessionStartCompact_UnansweredNoteOnlyWhereARehydrationWasDue/daemon_disabled (0.03s)
+    --- PASS: TestSessionStartCompact_UnansweredNoteOnlyWhereARehydrationWasDue/degraded_passive (0.04s)
+    --- PASS: TestSessionStartCompact_UnansweredNoteOnlyWhereARehydrationWasDue/runtime.mode=passive (0.03s)
+    --- PASS: TestSessionStartCompact_UnansweredNoteOnlyWhereARehydrationWasDue/runtime.mode=off (0.03s)
+    --- PASS: TestSessionStartCompact_UnansweredNoteOnlyWhereARehydrationWasDue/reinjection_switched_off (0.04s)
+=== RUN   TestSessionStartCompact_DaemonsFailureNoteReachesTheHostWhole
+=== RUN   TestSessionStartCompact_DaemonsFailureNoteReachesTheHostWhole/the_checkpoint_store_could_not_be_read
+=== RUN   TestSessionStartCompact_DaemonsFailureNoteReachesTheHostWhole/building_it_failed
+--- PASS: TestSessionStartCompact_DaemonsFailureNoteReachesTheHostWhole (0.08s)
+    --- PASS: TestSessionStartCompact_DaemonsFailureNoteReachesTheHostWhole/the_checkpoint_store_could_not_be_read (0.04s)
+    --- PASS: TestSessionStartCompact_DaemonsFailureNoteReachesTheHostWhole/building_it_failed (0.04s)
+=== RUN   TestStatusSource_NoDaemonNamesTheReason
+--- PASS: TestStatusSource_NoDaemonNamesTheReason (0.02s)
+=== RUN   TestStatusSource_ASilentDaemonIsNotReportedAbsent
+--- PASS: TestStatusSource_ASilentDaemonIsNotReportedAbsent (0.03s)
+=== CONT  TestAdminDeliverySeal_IsWiredWithItsUsageContract
+=== CONT  TestFsck_UnreadableFilesViewIsNamedAsTheViewNotTheLog
+=== CONT  TestLedgerAccessorsAreSafeAgainstTheLazyOpen
+=== CONT  TestDoctor_ShowsAConfigViolationRatherThanRefusing
+=== CONT  TestFsck_AClaimNothingExplainsIsStillADefect
+=== CONT  TestSlashCommands_UnavailableExitsOne
+=== CONT  TestDispatch_NonHookErrorExitsOne
+--- PASS: TestDispatch_NonHookErrorExitsOne (0.00s)
+=== CONT  TestDoctor_EveryMigrationGateIsPendingInThisBuild
+=== CONT  TestConfigSchema_Emits
+=== CONT  TestFsck_AnUnreadableArtifactIsAReportedRow
+=== CONT  TestSymbolWidenerFindsAndWidens
+=== RUN   TestFsck_AnUnreadableArtifactIsAReportedRow/migrate/cursor.json
+=== PAUSE TestFsck_AnUnreadableArtifactIsAReportedRow/migrate/cursor.json
+=== RUN   TestFsck_AnUnreadableArtifactIsAReportedRow/migrate/mapping.jsonl
+=== PAUSE TestFsck_AnUnreadableArtifactIsAReportedRow/migrate/mapping.jsonl
+=== RUN   TestFsck_AnUnreadableArtifactIsAReportedRow/state/delivery-lease-position.json
+=== PAUSE TestFsck_AnUnreadableArtifactIsAReportedRow/state/delivery-lease-position.json
+=== RUN   TestFsck_AnUnreadableArtifactIsAReportedRow/state/pending
+=== CONT  TestFsck_ReportsEachSeededDefectAndRepairsNone
+=== RUN   TestFsck_ReportsEachSeededDefectAndRepairsNone/an_object_whose_compressed_frame_fails_its_CRC
+=== CONT  TestFsck_RepairWithoutYesIsAUsageError
+=== PAUSE TestFsck_ReportsEachSeededDefectAndRepairsNone/an_object_whose_compressed_frame_fails_its_CRC
+=== CONT  TestFsck_AbsentStoreIsReportedAndNothingIsCreated
+=== RUN   TestFsck_ReportsEachSeededDefectAndRepairsNone/an_object_that_decodes_cleanly_to_content_that_is_not_its_own_name
+=== PAUSE TestFsck_ReportsEachSeededDefectAndRepairsNone/an_object_that_decodes_cleanly_to_content_that_is_not_its_own_name
+=== CONT  TestFsck_CleanProjectFindsNoDefect
+=== CONT  TestFsck_AClaimOnAnOrphanArtifactIsTheOrphansFinding
+=== CONT  TestNewRetrievalRedactorIsIdempotent
+=== CONT  TestNewToolDepsAlwaysSuppliesARedactor
+=== CONT  TestNewToolDepsWithoutAnAccessorStaysNilTolerant
+=== CONT  TestNewToolDepsResolvesTheLedgerLive
+=== CONT  TestFsck_TheObjectSizeLimitIsTheStoresOwn
+=== CONT  TestSlashCommands_ReadOnlyCommandsCreateNoProject
+=== CONT  TestFsck_SealCheckAndRepairAreMutuallyExclusive
+=== CONT  TestFsck_AnUnsealedDraftClaimIsNamedNotFailed
+=== RUN   TestFsck_AnUnsealedDraftClaimIsNamedNotFailed/a_live_draft
+=== PAUSE TestFsck_AnUnsealedDraftClaimIsNamedNotFailed/a_live_draft
+=== RUN   TestFsck_AnUnsealedDraftClaimIsNamedNotFailed/a_set-aside_draft
+=== PAUSE TestFsck_AnUnsealedDraftClaimIsNamedNotFailed/a_set-aside_draft
+=== PAUSE TestFsck_AnUnreadableArtifactIsAReportedRow/state/pending
+=== RUN   TestFsck_AnUnreadableArtifactIsAReportedRow/checkpoints/
+=== PAUSE TestFsck_AnUnreadableArtifactIsAReportedRow/checkpoints/
+=== RUN   TestFsck_AnUnreadableArtifactIsAReportedRow/backup/
+=== PAUSE TestFsck_AnUnreadableArtifactIsAReportedRow/backup/
+=== RUN   TestFsck_AnUnreadableArtifactIsAReportedRow/pins/invariants.json
+=== PAUSE TestFsck_AnUnreadableArtifactIsAReportedRow/pins/invariants.json
+--- PASS: TestSymbolWidenerFindsAndWidens (0.00s)
+--- PASS: TestNewRetrievalRedactorIsIdempotent (0.00s)
+=== CONT  TestSlashCommands_StatusSucceedsWithoutADaemon
+--- PASS: TestFsck_TheObjectSizeLimitIsTheStoresOwn (0.00s)
+=== RUN   TestFsck_ReportsEachSeededDefectAndRepairsNone/a_roots.jsonl_line_that_does_not_parse
+=== PAUSE TestFsck_ReportsEachSeededDefectAndRepairsNone/a_roots.jsonl_line_that_does_not_parse
+=== RUN   TestFsck_ReportsEachSeededDefectAndRepairsNone/a_roots.jsonl_record_version_this_build_does_not_know
+=== PAUSE TestFsck_ReportsEachSeededDefectAndRepairsNone/a_roots.jsonl_record_version_this_build_does_not_know
+=== RUN   TestFsck_ReportsEachSeededDefectAndRepairsNone/a_roots.jsonl_op_this_build_does_not_know
+=== PAUSE TestFsck_ReportsEachSeededDefectAndRepairsNone/a_roots.jsonl_op_this_build_does_not_know
+=== RUN   TestFsck_ReportsEachSeededDefectAndRepairsNone/a_tool_use.jsonl_line_that_does_not_parse
+=== PAUSE TestFsck_ReportsEachSeededDefectAndRepairsNone/a_tool_use.jsonl_line_that_does_not_parse
+=== RUN   TestFsck_ReportsEachSeededDefectAndRepairsNone/an_encode_record_naming_a_checkpoint_seq_the_manifest_never_recorded
+=== PAUSE TestFsck_ReportsEachSeededDefectAndRepairsNone/an_encode_record_naming_a_checkpoint_seq_the_manifest_never_recorded
+=== RUN   TestFsck_ReportsEachSeededDefectAndRepairsNone/a_capture_sidecar_left_at_stage_one
+=== PAUSE TestFsck_ReportsEachSeededDefectAndRepairsNone/a_capture_sidecar_left_at_stage_one
+=== RUN   TestFsck_ReportsEachSeededDefectAndRepairsNone/a_checkpoint_artifact_that_no_longer_matches_its_manifest_digest
+=== PAUSE TestFsck_ReportsEachSeededDefectAndRepairsNone/a_checkpoint_artifact_that_no_longer_matches_its_manifest_digest
+=== RUN   TestFsck_ReportsEachSeededDefectAndRepairsNone/a_checkpoint_artifact_with_no_manifest_line
+=== PAUSE TestFsck_ReportsEachSeededDefectAndRepairsNone/a_checkpoint_artifact_with_no_manifest_line
+=== RUN   TestFsck_ReportsEachSeededDefectAndRepairsNone/a_pins_tombstone_naming_an_add_nobody_recorded
+=== PAUSE TestFsck_ReportsEachSeededDefectAndRepairsNone/a_pins_tombstone_naming_an_add_nobody_recorded
+=== RUN   TestFsck_ReportsEachSeededDefectAndRepairsNone/a_retention_root_naming_bytes_nothing_holds
+=== PAUSE TestFsck_ReportsEachSeededDefectAndRepairsNone/a_retention_root_naming_bytes_nothing_holds
+=== RUN   TestAdminDeliverySeal_IsWiredWithItsUsageContract/check_reports_a_project_with_no_delivery_journal
+=== CONT  TestSlashCommands_UsageErrorsExitTwo
+=== CONT  TestFsck_TableModeWritesAReadableSummary
+=== CONT  TestSlashCommands_AppearInHelp
+--- PASS: TestSlashCommands_AppearInHelp (0.00s)
+=== CONT  TestFsck_ReportsADanglingDeltaPointer
+=== RUN   TestFsck_ReportsEachSeededDefectAndRepairsNone/a_drain_record_whose_offset_is_past_its_size
+=== PAUSE TestFsck_ReportsEachSeededDefectAndRepairsNone/a_drain_record_whose_offset_is_past_its_size
+=== RUN   TestFsck_ReportsEachSeededDefectAndRepairsNone/a_delivery_journal_line_that_does_not_parse
+=== PAUSE TestFsck_ReportsEachSeededDefectAndRepairsNone/a_delivery_journal_line_that_does_not_parse
+=== RUN   TestFsck_ReportsEachSeededDefectAndRepairsNone/a_backup_file_that_drifted_from_its_manifest
+=== PAUSE TestFsck_ReportsEachSeededDefectAndRepairsNone/a_backup_file_that_drifted_from_its_manifest
+=== CONT  TestFsck_ReportsEveryDanglingReferenceClass
+=== RUN   TestFsck_ReportsEveryDanglingReferenceClass/a_root's_chunk
+=== PAUSE TestFsck_ReportsEveryDanglingReferenceClass/a_root's_chunk
+=== RUN   TestFsck_ReportsEveryDanglingReferenceClass/a_tool_use_record's_root
+=== PAUSE TestFsck_ReportsEveryDanglingReferenceClass/a_tool_use_record's_root
+=== RUN   TestFsck_ReportsEveryDanglingReferenceClass/a_checkpoint's_file_pointer
+=== PAUSE TestFsck_ReportsEveryDanglingReferenceClass/a_checkpoint's_file_pointer
+=== RUN   TestFsck_ReportsEveryDanglingReferenceClass/a_checkpoint's_tool_pointer
+=== PAUSE TestFsck_ReportsEveryDanglingReferenceClass/a_checkpoint's_tool_pointer
+=== RUN   TestFsck_ReportsEveryDanglingReferenceClass/a_published_capture_sidecar's_root
+=== PAUSE TestFsck_ReportsEveryDanglingReferenceClass/a_published_capture_sidecar's_root
+=== CONT  TestFsck_AndDoctor_CreateNothingOnAnyProjectShape
+=== RUN   TestFsck_AndDoctor_CreateNothingOnAnyProjectShape/a_bare_.qompack_directory
+=== PAUSE TestFsck_AndDoctor_CreateNothingOnAnyProjectShape/a_bare_.qompack_directory
+=== RUN   TestFsck_AndDoctor_CreateNothingOnAnyProjectShape/one_roots_line_and_one_object
+=== PAUSE TestFsck_AndDoctor_CreateNothingOnAnyProjectShape/one_roots_line_and_one_object
+=== RUN   TestFsck_AndDoctor_CreateNothingOnAnyProjectShape/a_laid-out_project_with_no_roots_at_all
+=== PAUSE TestFsck_AndDoctor_CreateNothingOnAnyProjectShape/a_laid-out_project_with_no_roots_at_all
+=== RUN   TestFsck_AndDoctor_CreateNothingOnAnyProjectShape/a_fully_seeded_project
+=== PAUSE TestFsck_AndDoctor_CreateNothingOnAnyProjectShape/a_fully_seeded_project
+=== CONT  TestNopSpoolDiscards
+--- PASS: TestNopSpoolDiscards (0.00s)
+=== CONT  TestDoctor_AnUnobservedProbeKeepsTheLedgersWord
+--- PASS: TestNewToolDepsWithoutAnAccessorStaysNilTolerant (0.03s)
+=== CONT  TestDoctor_ReportsCapabilityEvidenceWithoutInventingIt
+--- PASS: TestSlashCommands_UnavailableExitsOne (0.03s)
+=== CONT  TestDoctor_AlwaysExitsZeroAndNeverCreatesAProject
+=== RUN   TestDoctor_AlwaysExitsZeroAndNeverCreatesAProject/an_empty_directory
+=== PAUSE TestDoctor_AlwaysExitsZeroAndNeverCreatesAProject/an_empty_directory
+=== RUN   TestDoctor_AlwaysExitsZeroAndNeverCreatesAProject/a_seeded_project
+=== PAUSE TestDoctor_AlwaysExitsZeroAndNeverCreatesAProject/a_seeded_project
+=== RUN   TestDoctor_AlwaysExitsZeroAndNeverCreatesAProject/a_project_whose_store_is_damaged
+=== PAUSE TestDoctor_AlwaysExitsZeroAndNeverCreatesAProject/a_project_whose_store_is_damaged
+=== RUN   TestDoctor_AlwaysExitsZeroAndNeverCreatesAProject/an_unknown_flag_is_the_one_usage_error
+=== PAUSE TestDoctor_AlwaysExitsZeroAndNeverCreatesAProject/an_unknown_flag_is_the_one_usage_error
+=== CONT  TestDoctor_ReportsTheThreePluginRootOutcomes
+--- PASS: TestFsck_AbsentStoreIsReportedAndNothingIsCreated (0.03s)
+=== CONT  TestDoctor_ReportsDeliveryRollover
+=== RUN   TestDoctor_ReportsDeliveryRollover/nothing_recorded
+=== PAUSE TestDoctor_ReportsDeliveryRollover/nothing_recorded
+=== RUN   TestDoctor_ReportsDeliveryRollover/rotated_with_pauses_only
+=== PAUSE TestDoctor_ReportsDeliveryRollover/rotated_with_pauses_only
+=== RUN   TestDoctor_ReportsDeliveryRollover/never_rotated,_first_rotation_advised
+=== PAUSE TestDoctor_ReportsDeliveryRollover/never_rotated,_first_rotation_advised
+=== RUN   TestDoctor_ReportsDeliveryRollover/failed_rotation_on_the_carry_bound
+=== PAUSE TestDoctor_ReportsDeliveryRollover/failed_rotation_on_the_carry_bound
+=== RUN   TestDoctor_ReportsDeliveryRollover/gc_halted_on_the_carry_bound
+--- PASS: TestNewToolDepsAlwaysSuppliesARedactor (0.03s)
+=== PAUSE TestDoctor_ReportsDeliveryRollover/gc_halted_on_the_carry_bound
+=== CONT  TestDoctor_AnUnreadableSpoolIsItsOwnRow
+=== RUN   TestDoctor_ReportsDeliveryRollover/unreadable_head
+=== RUN   TestDoctor_AnUnreadableSpoolIsItsOwnRow/absent
+=== PAUSE TestDoctor_ReportsDeliveryRollover/unreadable_head
+=== PAUSE TestDoctor_AnUnreadableSpoolIsItsOwnRow/absent
+=== RUN   TestDoctor_AnUnreadableSpoolIsItsOwnRow/unreadable
+=== CONT  TestPluginBinaryExecutable
+=== PAUSE TestDoctor_AnUnreadableSpoolIsItsOwnRow/unreadable
+=== CONT  TestSlashCommands_EvalReportsTheLatestLiveRun
+--- PASS: TestPluginBinaryExecutable (0.00s)
+=== CONT  TestSessionStartBudget_ACompactStartUpAt8sKeepsTheCompactBound
+--- PASS: TestConfigSchema_Emits (0.03s)
+=== CONT  TestSessionStartBudget_ADaemonThatNeverComesUpIsSpooledAtTheBorrowLimit
+--- PASS: TestSlashCommands_StatusSucceedsWithoutADaemon (0.03s)
+=== CONT  TestDoctor_NamesTheVersionAndDoesNotProbeTheHost
+--- PASS: TestSlashCommands_UsageErrorsExitTwo (0.06s)
+=== CONT  TestDoctor_TableModeWritesAReadableSummary
+=== RUN   TestAdminDeliverySeal_IsWiredWithItsUsageContract/no_action_is_a_usage_error
+=== RUN   TestAdminDeliverySeal_IsWiredWithItsUsageContract/both_actions_are_a_usage_error
+=== RUN   TestAdminDeliverySeal_IsWiredWithItsUsageContract/an_unknown_target_format_is_a_usage_error
+=== RUN   TestAdminDeliverySeal_IsWiredWithItsUsageContract/a_torn_slot_needs_its_confirmation
+--- PASS: TestSlashCommands_EvalReportsTheLatestLiveRun (0.09s)
+=== CONT  TestExitCodes_MatchTheCLITable
+--- PASS: TestExitCodes_MatchTheCLITable (0.00s)
+=== CONT  TestSlashCommands_AreDiscoverable
+--- PASS: TestSlashCommands_AreDiscoverable (0.00s)
+=== CONT  TestOpeningLedgerOpensOnFirstUseAndOnlyThere
+--- PASS: TestAdminDeliverySeal_IsWiredWithItsUsageContract (0.14s)
+    --- PASS: TestAdminDeliverySeal_IsWiredWithItsUsageContract/check_reports_a_project_with_no_delivery_journal (0.07s)
+    --- PASS: TestAdminDeliverySeal_IsWiredWithItsUsageContract/no_action_is_a_usage_error (0.01s)
+    --- PASS: TestAdminDeliverySeal_IsWiredWithItsUsageContract/both_actions_are_a_usage_error (0.01s)
+    --- PASS: TestAdminDeliverySeal_IsWiredWithItsUsageContract/an_unknown_target_format_is_a_usage_error (0.02s)
+    --- PASS: TestAdminDeliverySeal_IsWiredWithItsUsageContract/a_torn_slot_needs_its_confirmation (0.01s)
+=== CONT  TestSlashCommands_CheckpointRemainsTheHook
+--- PASS: TestLedgerAccessorsAreSafeAgainstTheLazyOpen (0.14s)
+=== CONT  TestSlashCommands_EvalImportStillResolves
+--- PASS: TestSlashCommands_EvalImportStillResolves (0.00s)
+=== CONT  TestSetFlagParsing_MalformedIsUsageErrorButHooksStillExitZero
+=== RUN   TestSetFlagParsing_MalformedIsUsageErrorButHooksStillExitZero/ordinary_command,_missing_value
+=== RUN   TestSetFlagParsing_MalformedIsUsageErrorButHooksStillExitZero/ordinary_command,_no_equals
+=== RUN   TestSetFlagParsing_MalformedIsUsageErrorButHooksStillExitZero/hook,_missing_value
+=== RUN   TestSetFlagParsing_MalformedIsUsageErrorButHooksStillExitZero/hook,_no_equals
+--- PASS: TestSetFlagParsing_MalformedIsUsageErrorButHooksStillExitZero (0.00s)
+    --- PASS: TestSetFlagParsing_MalformedIsUsageErrorButHooksStillExitZero/ordinary_command,_missing_value (0.00s)
+    --- PASS: TestSetFlagParsing_MalformedIsUsageErrorButHooksStillExitZero/ordinary_command,_no_equals (0.00s)
+    --- PASS: TestSetFlagParsing_MalformedIsUsageErrorButHooksStillExitZero/hook,_missing_value (0.00s)
+    --- PASS: TestSetFlagParsing_MalformedIsUsageErrorButHooksStillExitZero/hook,_no_equals (0.00s)
+=== CONT  TestDispatch_HookAlwaysExitsZero
+=== RUN   TestDispatch_HookAlwaysExitsZero/observe_tool/unreadable_stdin
+=== RUN   TestDispatch_HookAlwaysExitsZero/observe_tool/malformed_JSON
+--- PASS: TestSlashCommands_CheckpointRemainsTheHook (0.02s)
+=== CONT  TestSlashCommands_HelpExitsZero
+=== RUN   TestDispatch_HookAlwaysExitsZero/observe_tool/project_root_that_does_not_exist
+--- PASS: TestNewToolDepsResolvesTheLedgerLive (0.17s)
+=== CONT  TestSetFlagParsing
+=== RUN   TestDispatch_HookAlwaysExitsZero/observe_tool/unwritable_store
+--- PASS: TestSetFlagParsing (0.01s)
+=== CONT  TestDoctor_ReportsTheProjectStoreWritabilityProbe
+=== RUN   TestDoctor_ReportsTheProjectStoreWritabilityProbe/a_project_with_files_to_open
+=== PAUSE TestDoctor_ReportsTheProjectStoreWritabilityProbe/a_project_with_files_to_open
+=== RUN   TestDoctor_ReportsTheProjectStoreWritabilityProbe/a_bare_.qompack_has_nothing_to_open
+=== PAUSE TestDoctor_ReportsTheProjectStoreWritabilityProbe/a_bare_.qompack_has_nothing_to_open
+=== CONT  TestDoctor_AnObservedProbeRefreshesTheInjectionRow
+=== RUN   TestDispatch_HookAlwaysExitsZero/observe_tool/panicking_handler
+--- PASS: TestSlashCommands_HelpExitsZero (0.05s)
+=== CONT  TestDispatch_UnknownCommandExitsTwo
+--- PASS: TestDispatch_UnknownCommandExitsTwo (0.00s)
+=== CONT  TestNewToolDepsNilExtractorLeavesWidenerNil
+--- PASS: TestNewToolDepsNilExtractorLeavesWidenerNil (0.01s)
+=== CONT  TestFsck_CanonicalStaysCanonicalInTheFidelitySummary
+=== RUN   TestDispatch_HookAlwaysExitsZero/observe_prompt/unreadable_stdin
+=== RUN   TestDispatch_HookAlwaysExitsZero/observe_prompt/malformed_JSON
+=== CONT  TestFsck_RegisteredInAllAndNotAHook
+--- PASS: TestOpeningLedgerOpensOnFirstUseAndOnlyThere (0.10s)
+--- PASS: TestFsck_RegisteredInAllAndNotAHook (0.00s)
+=== CONT  TestFsck_ANewerCheckpointSchemaIsNotCorrupt
+=== RUN   TestDispatch_HookAlwaysExitsZero/observe_prompt/project_root_that_does_not_exist
+=== RUN   TestDispatch_HookAlwaysExitsZero/observe_prompt/unwritable_store
+=== RUN   TestDispatch_HookAlwaysExitsZero/observe_prompt/panicking_handler
+=== RUN   TestDispatch_HookAlwaysExitsZero/observe_stop/unreadable_stdin
+=== RUN   TestDispatch_HookAlwaysExitsZero/observe_stop/malformed_JSON
+=== RUN   TestDispatch_HookAlwaysExitsZero/observe_stop/project_root_that_does_not_exist
+=== RUN   TestDoctor_ReportsTheThreePluginRootOutcomes/unset
+=== PAUSE TestDoctor_ReportsTheThreePluginRootOutcomes/unset
+=== RUN   TestDoctor_ReportsTheThreePluginRootOutcomes/set_but_no_binary_under_it
+=== PAUSE TestDoctor_ReportsTheThreePluginRootOutcomes/set_but_no_binary_under_it
+=== RUN   TestDoctor_ReportsTheThreePluginRootOutcomes/set_and_resolves
+=== PAUSE TestDoctor_ReportsTheThreePluginRootOutcomes/set_and_resolves
+=== RUN   TestDoctor_ReportsTheThreePluginRootOutcomes/set,_present,_not_executable
+=== PAUSE TestDoctor_ReportsTheThreePluginRootOutcomes/set,_present,_not_executable
+=== CONT  TestFsck_AnUnsealedDraftClaimIsNamedNotFailed/a_live_draft
+=== RUN   TestDispatch_HookAlwaysExitsZero/observe_stop/unwritable_store
+--- PASS: TestFsck_RepairWithoutYesIsAUsageError (0.43s)
+=== CONT  TestFsck_AnUnreadableArtifactIsAReportedRow/migrate/cursor.json
+=== RUN   TestDispatch_HookAlwaysExitsZero/observe_stop/panicking_handler
+--- PASS: TestFsck_SealCheckAndRepairAreMutuallyExclusive (0.44s)
+=== CONT  TestFsck_AnUnsealedDraftClaimIsNamedNotFailed/a_set-aside_draft
+=== RUN   TestDispatch_HookAlwaysExitsZero/session-start/unreadable_stdin
+=== RUN   TestDispatch_HookAlwaysExitsZero/session-start/malformed_JSON
+=== RUN   TestDispatch_HookAlwaysExitsZero/session-start/project_root_that_does_not_exist
+--- PASS: TestFsck_CleanProjectFindsNoDefect (0.47s)
+=== CONT  TestFsck_AnUnreadableArtifactIsAReportedRow/pins/invariants.json
+--- PASS: TestFsck_UnreadableFilesViewIsNamedAsTheViewNotTheLog (0.48s)
+=== CONT  TestFsck_AnUnreadableArtifactIsAReportedRow/backup/
+--- PASS: TestDoctor_ShowsAConfigViolationRatherThanRefusing (0.48s)
+=== CONT  TestFsck_AnUnreadableArtifactIsAReportedRow/checkpoints/
+=== RUN   TestDispatch_HookAlwaysExitsZero/session-start/unwritable_store
+--- PASS: TestDoctor_EveryMigrationGateIsPendingInThisBuild (0.48s)
+=== CONT  TestFsck_AnUnreadableArtifactIsAReportedRow/state/pending
+--- PASS: TestDoctor_TableModeWritesAReadableSummary (0.44s)
+=== CONT  TestFsck_AnUnreadableArtifactIsAReportedRow/state/delivery-lease-position.json
+--- PASS: TestFsck_ReportsADanglingDeltaPointer (0.49s)
+=== CONT  TestFsck_AnUnreadableArtifactIsAReportedRow/migrate/mapping.jsonl
+--- PASS: TestFsck_AClaimNothingExplainsIsStillADefect (0.50s)
+=== CONT  TestFsck_ReportsEachSeededDefectAndRepairsNone/an_object_whose_compressed_frame_fails_its_CRC
+--- PASS: TestDoctor_ReportsCapabilityEvidenceWithoutInventingIt (0.47s)
+=== CONT  TestFsck_ReportsEveryDanglingReferenceClass/a_root's_chunk
+--- PASS: TestFsck_TableModeWritesAReadableSummary (0.50s)
+=== CONT  TestFsck_ReportsEachSeededDefectAndRepairsNone/a_backup_file_that_drifted_from_its_manifest
+=== RUN   TestDispatch_HookAlwaysExitsZero/session-start/panicking_handler
+--- PASS: TestDoctor_NamesTheVersionAndDoesNotProbeTheHost (0.47s)
+=== CONT  TestFsck_ReportsEachSeededDefectAndRepairsNone/a_delivery_journal_line_that_does_not_parse
+--- PASS: TestDoctor_AnUnobservedProbeKeepsTheLedgersWord (0.51s)
+=== CONT  TestFsck_ReportsEachSeededDefectAndRepairsNone/a_drain_record_whose_offset_is_past_its_size
+--- PASS: TestFsck_AClaimOnAnOrphanArtifactIsTheOrphansFinding (0.52s)
+=== CONT  TestFsck_ReportsEachSeededDefectAndRepairsNone/a_retention_root_naming_bytes_nothing_holds
+=== RUN   TestDispatch_HookAlwaysExitsZero/checkpoint/unreadable_stdin
+=== RUN   TestDispatch_HookAlwaysExitsZero/checkpoint/malformed_JSON
+=== RUN   TestDispatch_HookAlwaysExitsZero/checkpoint/project_root_that_does_not_exist
+=== RUN   TestDispatch_HookAlwaysExitsZero/checkpoint/unwritable_store
+--- PASS: TestFsck_CanonicalStaysCanonicalInTheFidelitySummary (0.38s)
+=== CONT  TestFsck_ReportsEachSeededDefectAndRepairsNone/a_pins_tombstone_naming_an_add_nobody_recorded
+=== RUN   TestDispatch_HookAlwaysExitsZero/checkpoint/panicking_handler
+=== RUN   TestDispatch_HookAlwaysExitsZero/flush/unreadable_stdin
+=== RUN   TestDispatch_HookAlwaysExitsZero/flush/malformed_JSON
+=== RUN   TestDispatch_HookAlwaysExitsZero/flush/project_root_that_does_not_exist
+=== RUN   TestDispatch_HookAlwaysExitsZero/flush/unwritable_store
+--- PASS: TestDoctor_AnObservedProbeRefreshesTheInjectionRow (0.48s)
+=== CONT  TestFsck_ReportsEachSeededDefectAndRepairsNone/a_checkpoint_artifact_with_no_manifest_line
+=== RUN   TestDispatch_HookAlwaysExitsZero/flush/panicking_handler
+--- PASS: TestDispatch_HookAlwaysExitsZero (0.52s)
+    --- PASS: TestDispatch_HookAlwaysExitsZero/observe_tool/unreadable_stdin (0.00s)
+    --- PASS: TestDispatch_HookAlwaysExitsZero/observe_tool/malformed_JSON (0.02s)
+    --- PASS: TestDispatch_HookAlwaysExitsZero/observe_tool/project_root_that_does_not_exist (0.01s)
+    --- PASS: TestDispatch_HookAlwaysExitsZero/observe_tool/unwritable_store (0.03s)
+    --- PASS: TestDispatch_HookAlwaysExitsZero/observe_tool/panicking_handler (0.02s)
+    --- PASS: TestDispatch_HookAlwaysExitsZero/observe_prompt/unreadable_stdin (0.00s)
+    --- PASS: TestDispatch_HookAlwaysExitsZero/observe_prompt/malformed_JSON (0.06s)
+    --- PASS: TestDispatch_HookAlwaysExitsZero/observe_prompt/project_root_that_does_not_exist (0.01s)
+    --- PASS: TestDispatch_HookAlwaysExitsZero/observe_prompt/unwritable_store (0.08s)
+    --- PASS: TestDispatch_HookAlwaysExitsZero/observe_prompt/panicking_handler (0.02s)
+    --- PASS: TestDispatch_HookAlwaysExitsZero/observe_stop/unreadable_stdin (0.00s)
+    --- PASS: TestDispatch_HookAlwaysExitsZero/observe_stop/malformed_JSON (0.03s)
+    --- PASS: TestDispatch_HookAlwaysExitsZero/observe_stop/project_root_that_does_not_exist (0.01s)
+    --- PASS: TestDispatch_HookAlwaysExitsZero/observe_stop/unwritable_store (0.01s)
+    --- PASS: TestDispatch_HookAlwaysExitsZero/observe_stop/panicking_handler (0.01s)
+    --- PASS: TestDispatch_HookAlwaysExitsZero/session-start/unreadable_stdin (0.00s)
+    --- PASS: TestDispatch_HookAlwaysExitsZero/session-start/malformed_JSON (0.02s)
+    --- PASS: TestDispatch_HookAlwaysExitsZero/session-start/project_root_that_does_not_exist (0.01s)
+    --- PASS: TestDispatch_HookAlwaysExitsZero/session-start/unwritable_store (0.02s)
+    --- PASS: TestDispatch_HookAlwaysExitsZero/session-start/panicking_handler (0.02s)
+    --- PASS: TestDispatch_HookAlwaysExitsZero/checkpoint/unreadable_stdin (0.00s)
+    --- PASS: TestDispatch_HookAlwaysExitsZero/checkpoint/malformed_JSON (0.04s)
+    --- PASS: TestDispatch_HookAlwaysExitsZero/checkpoint/project_root_that_does_not_exist (0.01s)
+    --- PASS: TestDispatch_HookAlwaysExitsZero/checkpoint/unwritable_store (0.03s)
+    --- PASS: TestDispatch_HookAlwaysExitsZero/checkpoint/panicking_handler (0.01s)
+    --- PASS: TestDispatch_HookAlwaysExitsZero/flush/unreadable_stdin (0.00s)
+    --- PASS: TestDispatch_HookAlwaysExitsZero/flush/malformed_JSON (0.03s)
+    --- PASS: TestDispatch_HookAlwaysExitsZero/flush/project_root_that_does_not_exist (0.01s)
+    --- PASS: TestDispatch_HookAlwaysExitsZero/flush/unwritable_store (0.02s)
+    --- PASS: TestDispatch_HookAlwaysExitsZero/flush/panicking_handler (0.00s)
+=== CONT  TestFsck_ReportsEachSeededDefectAndRepairsNone/a_checkpoint_artifact_that_no_longer_matches_its_manifest_digest
+--- PASS: TestFsck_ANewerCheckpointSchemaIsNotCorrupt (0.49s)
+=== CONT  TestFsck_ReportsEachSeededDefectAndRepairsNone/a_capture_sidecar_left_at_stage_one
+=== CONT  TestFsck_ReportsEachSeededDefectAndRepairsNone/an_encode_record_naming_a_checkpoint_seq_the_manifest_never_recorded
+=== CONT  TestFsck_ReportsEachSeededDefectAndRepairsNone/a_tool_use.jsonl_line_that_does_not_parse
+=== CONT  TestFsck_ReportsEachSeededDefectAndRepairsNone/a_roots.jsonl_op_this_build_does_not_know
+--- PASS: TestFsck_AnUnsealedDraftClaimIsNamedNotFailed (0.00s)
+    --- PASS: TestFsck_AnUnsealedDraftClaimIsNamedNotFailed/a_live_draft (0.31s)
+    --- PASS: TestFsck_AnUnsealedDraftClaimIsNamedNotFailed/a_set-aside_draft (0.35s)
+=== CONT  TestFsck_ReportsEachSeededDefectAndRepairsNone/a_roots.jsonl_record_version_this_build_does_not_know
+=== CONT  TestFsck_ReportsEachSeededDefectAndRepairsNone/a_roots.jsonl_line_that_does_not_parse
+=== CONT  TestFsck_ReportsEachSeededDefectAndRepairsNone/an_object_that_decodes_cleanly_to_content_that_is_not_its_own_name
+=== CONT  TestFsck_AndDoctor_CreateNothingOnAnyProjectShape/a_bare_.qompack_directory
+=== CONT  TestFsck_ReportsEveryDanglingReferenceClass/a_published_capture_sidecar's_root
+--- PASS: TestFsck_AnUnreadableArtifactIsAReportedRow (0.00s)
+    --- PASS: TestFsck_AnUnreadableArtifactIsAReportedRow/migrate/cursor.json (0.34s)
+    --- PASS: TestFsck_AnUnreadableArtifactIsAReportedRow/checkpoints/ (0.33s)
+    --- PASS: TestFsck_AnUnreadableArtifactIsAReportedRow/backup/ (0.34s)
+    --- PASS: TestFsck_AnUnreadableArtifactIsAReportedRow/pins/invariants.json (0.34s)
+    --- PASS: TestFsck_AnUnreadableArtifactIsAReportedRow/state/pending (0.38s)
+    --- PASS: TestFsck_AnUnreadableArtifactIsAReportedRow/migrate/mapping.jsonl (0.38s)
+    --- PASS: TestFsck_AnUnreadableArtifactIsAReportedRow/state/delivery-lease-position.json (0.38s)
+=== CONT  TestFsck_ReportsEveryDanglingReferenceClass/a_checkpoint's_tool_pointer
+=== CONT  TestFsck_ReportsEveryDanglingReferenceClass/a_checkpoint's_file_pointer
+=== CONT  TestFsck_ReportsEveryDanglingReferenceClass/a_tool_use_record's_root
+=== CONT  TestFsck_AndDoctor_CreateNothingOnAnyProjectShape/a_laid-out_project_with_no_roots_at_all
+=== CONT  TestFsck_AndDoctor_CreateNothingOnAnyProjectShape/a_fully_seeded_project
+=== CONT  TestFsck_AndDoctor_CreateNothingOnAnyProjectShape/one_roots_line_and_one_object
+=== CONT  TestDoctor_AlwaysExitsZeroAndNeverCreatesAProject/an_empty_directory
+=== CONT  TestDoctor_AlwaysExitsZeroAndNeverCreatesAProject/a_project_whose_store_is_damaged
+=== CONT  TestDoctor_AlwaysExitsZeroAndNeverCreatesAProject/an_unknown_flag_is_the_one_usage_error
+=== CONT  TestDoctor_AlwaysExitsZeroAndNeverCreatesAProject/a_seeded_project
+=== CONT  TestDoctor_ReportsDeliveryRollover/nothing_recorded
+=== CONT  TestDoctor_AnUnreadableSpoolIsItsOwnRow/absent
+=== CONT  TestDoctor_ReportsDeliveryRollover/failed_rotation_on_the_carry_bound
+=== CONT  TestDoctor_ReportsDeliveryRollover/unreadable_head
+=== CONT  TestDoctor_ReportsDeliveryRollover/gc_halted_on_the_carry_bound
+=== CONT  TestDoctor_AnUnreadableSpoolIsItsOwnRow/unreadable
+=== CONT  TestDoctor_ReportsDeliveryRollover/never_rotated,_first_rotation_advised
+=== CONT  TestDoctor_ReportsDeliveryRollover/rotated_with_pauses_only
+=== CONT  TestDoctor_ReportsTheProjectStoreWritabilityProbe/a_project_with_files_to_open
+=== CONT  TestDoctor_ReportsTheProjectStoreWritabilityProbe/a_bare_.qompack_has_nothing_to_open
+=== CONT  TestDoctor_ReportsTheThreePluginRootOutcomes/unset
+--- PASS: TestFsck_ReportsEachSeededDefectAndRepairsNone (0.00s)
+    --- PASS: TestFsck_ReportsEachSeededDefectAndRepairsNone/an_object_whose_compressed_frame_fails_its_CRC (0.39s)
+    --- PASS: TestFsck_ReportsEachSeededDefectAndRepairsNone/a_retention_root_naming_bytes_nothing_holds (0.37s)
+    --- PASS: TestFsck_ReportsEachSeededDefectAndRepairsNone/a_drain_record_whose_offset_is_past_its_size (0.38s)
+    --- PASS: TestFsck_ReportsEachSeededDefectAndRepairsNone/a_delivery_journal_line_that_does_not_parse (0.39s)
+    --- PASS: TestFsck_ReportsEachSeededDefectAndRepairsNone/a_backup_file_that_drifted_from_its_manifest (0.42s)
+    --- PASS: TestFsck_ReportsEachSeededDefectAndRepairsNone/a_pins_tombstone_naming_an_add_nobody_recorded (0.34s)
+    --- PASS: TestFsck_ReportsEachSeededDefectAndRepairsNone/a_checkpoint_artifact_with_no_manifest_line (0.33s)
+    --- PASS: TestFsck_ReportsEachSeededDefectAndRepairsNone/a_checkpoint_artifact_that_no_longer_matches_its_manifest_digest (0.33s)
+    --- PASS: TestFsck_ReportsEachSeededDefectAndRepairsNone/an_encode_record_naming_a_checkpoint_seq_the_manifest_never_recorded (0.35s)
+    --- PASS: TestFsck_ReportsEachSeededDefectAndRepairsNone/a_capture_sidecar_left_at_stage_one (0.38s)
+    --- PASS: TestFsck_ReportsEachSeededDefectAndRepairsNone/a_tool_use.jsonl_line_that_does_not_parse (0.33s)
+    --- PASS: TestFsck_ReportsEachSeededDefectAndRepairsNone/a_roots.jsonl_op_this_build_does_not_know (0.37s)
+    --- PASS: TestFsck_ReportsEachSeededDefectAndRepairsNone/a_roots.jsonl_record_version_this_build_does_not_know (0.36s)
+    --- PASS: TestFsck_ReportsEachSeededDefectAndRepairsNone/a_roots.jsonl_line_that_does_not_parse (0.35s)
+    --- PASS: TestFsck_ReportsEachSeededDefectAndRepairsNone/an_object_that_decodes_cleanly_to_content_that_is_not_its_own_name (0.36s)
+=== CONT  TestDoctor_ReportsTheThreePluginRootOutcomes/set,_present,_not_executable
+=== CONT  TestDoctor_ReportsTheThreePluginRootOutcomes/set_and_resolves
+=== CONT  TestDoctor_ReportsTheThreePluginRootOutcomes/set_but_no_binary_under_it
+--- PASS: TestDoctor_ReportsTheThreePluginRootOutcomes (0.42s)
+    --- PASS: TestDoctor_ReportsTheThreePluginRootOutcomes/unset (0.05s)
+    --- PASS: TestDoctor_ReportsTheThreePluginRootOutcomes/set,_present,_not_executable (0.06s)
+    --- PASS: TestDoctor_ReportsTheThreePluginRootOutcomes/set_and_resolves (0.04s)
+    --- PASS: TestDoctor_ReportsTheThreePluginRootOutcomes/set_but_no_binary_under_it (0.02s)
+--- PASS: TestDoctor_AlwaysExitsZeroAndNeverCreatesAProject (0.00s)
+    --- PASS: TestDoctor_AlwaysExitsZeroAndNeverCreatesAProject/an_empty_directory (0.02s)
+    --- PASS: TestDoctor_AlwaysExitsZeroAndNeverCreatesAProject/an_unknown_flag_is_the_one_usage_error (0.00s)
+    --- PASS: TestDoctor_AlwaysExitsZeroAndNeverCreatesAProject/a_seeded_project (0.35s)
+    --- PASS: TestDoctor_AlwaysExitsZeroAndNeverCreatesAProject/a_project_whose_store_is_damaged (0.39s)
+--- PASS: TestFsck_AndDoctor_CreateNothingOnAnyProjectShape (0.00s)
+    --- PASS: TestFsck_AndDoctor_CreateNothingOnAnyProjectShape/a_bare_.qompack_directory (0.03s)
+    --- PASS: TestFsck_AndDoctor_CreateNothingOnAnyProjectShape/one_roots_line_and_one_object (0.08s)
+    --- PASS: TestFsck_AndDoctor_CreateNothingOnAnyProjectShape/a_laid-out_project_with_no_roots_at_all (0.11s)
+    --- PASS: TestFsck_AndDoctor_CreateNothingOnAnyProjectShape/a_fully_seeded_project (0.45s)
+--- PASS: TestFsck_ReportsEveryDanglingReferenceClass (0.00s)
+    --- PASS: TestFsck_ReportsEveryDanglingReferenceClass/a_root's_chunk (0.50s)
+    --- PASS: TestFsck_ReportsEveryDanglingReferenceClass/a_published_capture_sidecar's_root (0.46s)
+    --- PASS: TestFsck_ReportsEveryDanglingReferenceClass/a_checkpoint's_file_pointer (0.45s)
+    --- PASS: TestFsck_ReportsEveryDanglingReferenceClass/a_checkpoint's_tool_pointer (0.46s)
+    --- PASS: TestFsck_ReportsEveryDanglingReferenceClass/a_tool_use_record's_root (0.46s)
+--- PASS: TestDoctor_AnUnreadableSpoolIsItsOwnRow (0.00s)
+    --- PASS: TestDoctor_AnUnreadableSpoolIsItsOwnRow/absent (0.35s)
+    --- PASS: TestDoctor_AnUnreadableSpoolIsItsOwnRow/unreadable (0.32s)
+--- PASS: TestDoctor_ReportsTheProjectStoreWritabilityProbe (0.00s)
+    --- PASS: TestDoctor_ReportsTheProjectStoreWritabilityProbe/a_bare_.qompack_has_nothing_to_open (0.04s)
+    --- PASS: TestDoctor_ReportsTheProjectStoreWritabilityProbe/a_project_with_files_to_open (0.28s)
+--- PASS: TestDoctor_ReportsDeliveryRollover (0.00s)
+    --- PASS: TestDoctor_ReportsDeliveryRollover/nothing_recorded (0.36s)
+    --- PASS: TestDoctor_ReportsDeliveryRollover/unreadable_head (0.35s)
+    --- PASS: TestDoctor_ReportsDeliveryRollover/failed_rotation_on_the_carry_bound (0.39s)
+    --- PASS: TestDoctor_ReportsDeliveryRollover/gc_halted_on_the_carry_bound (0.42s)
+    --- PASS: TestDoctor_ReportsDeliveryRollover/never_rotated,_first_rotation_advised (0.34s)
+    --- PASS: TestDoctor_ReportsDeliveryRollover/rotated_with_pauses_only (0.34s)
+--- PASS: TestSlashCommands_ReadOnlyCommandsCreateNoProject (2.75s)
+--- PASS: TestSessionStartBudget_ADaemonThatNeverComesUpIsSpooledAtTheBorrowLimit (8.44s)
+--- PASS: TestSessionStartBudget_ACompactStartUpAt8sKeepsTheCompactBound (13.18s)
+PASS
+ok  	github.com/qompack/qompack/internal/cli	70.627s
