@@ -1,6 +1,7 @@
 package checkpoint
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -86,6 +87,10 @@ func (s SourceSet) Validate() error {
 	return nil
 }
 
+// ErrNoLedger is what Resolve reports when the set's ledger accessor answers no ledger: nothing has
+// opened one yet, or opening one failed. The set it returns alongside is otherwise complete.
+var ErrNoLedger = errors.New("checkpoint: SourceSet.Ledger is nil: its accessor resolved to no ledger")
+
 // Resolve materializes the late-bound seams and returns the set a draft may actually be built
 // from. It is what a CONSUMER calls; Validate is what a producer calls.
 //
@@ -105,7 +110,7 @@ func (s SourceSet) Resolve() (SourceSet, error) {
 		return s, err
 	}
 	if s.Ledger == nil {
-		return s, fmt.Errorf("checkpoint: SourceSet.Ledger is nil: its accessor resolved to no ledger")
+		return s, ErrNoLedger
 	}
 	return s, nil
 }

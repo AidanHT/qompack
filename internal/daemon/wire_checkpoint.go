@@ -380,6 +380,13 @@ func staticSources(src checkpoint.SourceSet) func() (checkpoint.SourceSet, error
 // compacted yet -- for a condition that is expected, temporary and already reported once, with a
 // counter behind it. §12.3's "fail toward doing nothing" is the whole handling: nothing is
 // advanced, nothing is begun, and the pass is over.
+//
+// A set whose only gap is the ledger (checkpoint.ErrNoLedger) is not unusable (coordinator
+// decision D49, F-C4-C49-3): the daemon opens its ledger lazily, and a session that neither
+// compacts nor records an elimination never opens one. The sweep runs over the partial set and the
+// checkpoint writer begins its drafts without negative knowledge while the project holds no
+// elimination record. Only when records exist that no open ledger serves does the writer refuse,
+// and that refusal takes the unavailable route above rather than a task error.
 func advanceFrontierTask(reg *SessionRegistry, w *checkpoint.FileWriter,
 	resolve func() (checkpoint.SourceSet, error), log logging.Logger, m obs.Registry,
 ) func(context.Context) error {
@@ -388,8 +395,7 @@ func advanceFrontierTask(reg *SessionRegistry, w *checkpoint.FileWriter,
 	}
 	var reported atomic.Bool
 	return func(ctx context.Context) error {
-		live, err := resolve()
-		if err != nil {
+		unavailable := func(err error) error {
 			if m != nil {
 				m.Counter(counterSourcesUnavailable).Add(1)
 			}
@@ -399,6 +405,17 @@ func advanceFrontierTask(reg *SessionRegistry, w *checkpoint.FileWriter,
 				log.Debug(msgSourcesUnavailable, "err", err.Error())
 			}
 			return nil
+		}
+		live, err := resolve()
+		if errors.Is(err, checkpoint.ErrNoLedger) {
+			sweepErr := advanceAllSessions(ctx, reg, w, live, log, m)
+			if errors.Is(sweepErr, checkpoint.ErrNoLedger) {
+				return unavailable(sweepErr)
+			}
+			return sweepErr
+		}
+		if err != nil {
+			return unavailable(err)
 		}
 		// Republish to the writer now that the set has resolved. This is no longer the cold
 		// PreCompact path's only hope -- BindCheckpoint publishes a set at wiring time and
@@ -470,9 +487,14 @@ func advanceAllSessions(ctx context.Context, reg *SessionRegistry, w *checkpoint
 	// wired composition root would look, at this call site, exactly like a working one. Validating
 	// here means the frontier route is either backed by a real source or explicitly unavailable —
 	// never quietly advancing over a stub.
+	// A set whose only gap is the ledger travels WITH its reason, so the port can begin a draft
+	// without negative knowledge while the project holds none (D49); any other gap is refused.
 	advancer := checkpoint.NewFrontierAdvancer(w, func() (checkpoint.SourceSet, error) {
 		resolved, err := src.Resolve()
-		if err != nil {
+		switch {
+		case errors.Is(err, checkpoint.ErrNoLedger):
+			return resolved, fmt.Errorf("%w: %w", err, core.ErrDegraded)
+		case err != nil:
 			return checkpoint.SourceSet{}, fmt.Errorf("%w: %w", err, core.ErrDegraded)
 		}
 		return resolved, nil

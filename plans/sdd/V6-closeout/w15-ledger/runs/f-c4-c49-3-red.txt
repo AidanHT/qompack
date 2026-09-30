@@ -1,0 +1,22 @@
+--- FAIL: TestFrontierAdvancer_AdvancesBeforeAnyLedgerExists (0.10s)
+    noledger_frontier_test.go:62: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-ledger/internal/checkpoint/noledger_frontier_test.go:62
+        	Error:      	Received unexpected error:
+        	            	checkpoint: frontier sources unavailable: checkpoint: SourceSet.Ledger is nil: its accessor resolved to no ledger: qompack: running in degraded mode
+        	Test:       	TestFrontierAdvancer_AdvancesBeforeAnyLedgerExists
+        	Messages:   	no ledger yet is not an error
+--- FAIL: TestFrontierAdvancer_ReadsTheLedgerOnceOneExists (0.04s)
+    noledger_frontier_test.go:80: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-ledger/internal/checkpoint/noledger_frontier_test.go:80
+        	Error:      	Received unexpected error:
+        	            	checkpoint: frontier sources unavailable: checkpoint: SourceSet.Ledger is nil: its accessor resolved to no ledger: qompack: running in degraded mode
+        	Test:       	TestFrontierAdvancer_ReadsTheLedgerOnceOneExists
+--- FAIL: TestPreCompact_SealsTheLedgerThatOpenedAfterANoLedgerAdvance (0.10s)
+    noledger_frontier_test.go:111: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-ledger/internal/checkpoint/noledger_frontier_test.go:111
+        	Error:      	Received unexpected error:
+        	            	checkpoint: frontier sources unavailable: checkpoint: SourceSet.Ledger is nil: its accessor resolved to no ledger: qompack: running in degraded mode
+        	Test:       	TestPreCompact_SealsTheLedgerThatOpenedAfterANoLedgerAdvance
+FAIL
+FAIL	github.com/qompack/qompack/internal/checkpoint	0.556s
+FAIL

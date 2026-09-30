@@ -151,6 +151,38 @@ func openingLedger(opts *daemon.Options) func() negknow.Ledger {
 	}
 }
 
+// recordedLedger is the checkpoint sources' ledger accessor: liveLedger, except that it OPENS the
+// ledger, through the daemon's shared opener, when the project already holds elimination records
+// (negknow.HasRecords) and nothing has opened one yet.
+//
+// The frontier begins its drafts without negative knowledge while the project holds none
+// (coordinator decision D49, F-C4-C49-3), but a restarted daemon in a project WITH records has
+// negative knowledge no open ledger serves until a compaction or a ledger tool call opens one, and
+// its frontier would refuse on every idle tick meanwhile. Opening then creates nothing new: the
+// records' own ledger created the files. A project with no records still opens nothing here, which
+// is the laziness liveLedger's note explains.
+func recordedLedger(opts *daemon.Options) func() negknow.Ledger {
+	if opts == nil {
+		return nil
+	}
+	read := liveLedger(opts)
+	return func() negknow.Ledger {
+		if l := read(); l != nil {
+			return l
+		}
+		open := opts.OpenLedger
+		if open == nil {
+			return nil
+		}
+		// A log this cannot stat may hold records (HasRecords answers true with the error), and
+		// the open is then the one that reports what is wrong with it.
+		if has, _ := negknow.HasRecords(opts.ProjectRoot); !has {
+			return nil
+		}
+		return open()
+	}
+}
+
 // NewToolDeps assembles the collaborator set the eight retrieval tools are bound to.
 //
 // Every collaborator may be nil and each handler says so rather than failing: a daemon whose store
