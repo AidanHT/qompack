@@ -8,8 +8,10 @@ at=$1; C=$2; H=$3; E=$4
 here=$(cd "$(dirname "$0")" && pwd)
 mkdir -p "$E"
 : > "$E/cancel"
+target=$(date -d "today ${at%??}:${at#??}" +%s)
 echo "armed for $at pid $$ $(date '+%F %T %Z')" >> "$E/at.log"
-while [ "$(date +%H%M)" != "$at" ]; do
+# At or after the target, not at its exact minute: a laptop asleep across HHMM starts on waking.
+while [ "$(date +%s)" -lt "$target" ]; do
   [ -f "$E/cancel" ] || { echo "cancelled $(date '+%F %T %Z')" >> "$E/at.log"; exit 0; }
   sleep 20
 done
