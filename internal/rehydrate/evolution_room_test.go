@@ -107,3 +107,25 @@ func TestBuild_NewestRestatementIsAdmittedAheadOfTheShare(t *testing.T) {
 	require.Contains(t, res.Text, quoteLines(newest), "the newest restatement did not arrive:\n%s", res.Text)
 	requireEveryEvolutionEntryWholeOrNamed(t, cp, res)
 }
+
+// TestBuild_OlderDeltasNeverShowWithoutTheNewest: a newest restatement too large for any payload is
+// named and passed over (fillTier1), and the older deltas go with it rather than render under "most
+// recent first" as though one of them were the current authority. Found by
+// TestBuild_NeverExceedsTheHostCeiling at a high check count once item 2 rendered its evolution first.
+func TestBuild_OlderDeltasNeverShowWithoutTheNewest(t *testing.T) {
+	cp := ckUAT06()
+	huge := "Correction: " + strings.Repeat("the limit is now set per tenant, not per client; ", 250)
+	cp.UserIntent.Evolution = append(cp.UserIntent.Evolution, huge)
+
+	res, err := Build(context.Background(), requestFor(t, cp, maxBudget()), fullDeps(t, cp))
+	require.NoError(t, err)
+	requireInsideTheHostCeiling(t, res, cp.Session)
+
+	require.NotContains(t, res.Text, "per tenant", "whole or absent")
+	for i, ev := range cp.UserIntent.Evolution[:len(cp.UserIntent.Evolution)-1] {
+		require.NotContains(t, res.Text, quoteLines(ev), "older delta %d renders while the newest is out", i)
+	}
+	require.Contains(t, res.Text, quoteLines(uat06Original), "the original still arrives")
+	requireEveryEvolutionEntryWholeOrNamed(t, cp, res)
+	require.Contains(t, res.Text, "\n"+sectionHeading(ItemCurrentWork), "the shares still fill")
+}

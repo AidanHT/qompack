@@ -136,6 +136,29 @@ func itemText(k ItemKind, shown, seen int, units []string) string {
 	return b.String()
 }
 
+// sectionTexts is the order a section's admitted units render in. It is admission order for every
+// section but item 2, which renders its evolution first — newest first, as admitted — and its
+// verbatim original last (owner decision D50, UAT-05 read literally): a correction renders above
+// the request it supersedes, so the first requirement a reader meets is the one in force. The
+// original stays whole and carries originalRequestLabel. Reordering moves no character, so the
+// exact character price Build admitted against is unchanged.
+func sectionTexts(k ItemKind, units []unit) []string {
+	texts := make([]string, 0, len(units))
+	for _, u := range units {
+		if k != ItemUserIntent || !isFixedUnit(u) {
+			texts = append(texts, u.text)
+		}
+	}
+	if k == ItemUserIntent {
+		for _, u := range units {
+			if isFixedUnit(u) {
+				texts = append(texts, u.text)
+			}
+		}
+	}
+	return texts
+}
+
 // documentHeader is the payload's first line: "# Qompack rehydration — checkpoint 0007, session
 // 3f2a9c81".
 //
@@ -213,10 +236,7 @@ func render(r Request, d Deps, fills map[ItemKind]*admitted, all map[ItemKind]bu
 		if a == nil || len(a.units) == 0 {
 			continue
 		}
-		texts := make([]string, 0, len(a.units))
-		for _, u := range a.units {
-			texts = append(texts, u.text)
-		}
+		texts := sectionTexts(k, a.units)
 		b := all[k]
 		text := itemText(k, eliminationsShown(b), b.seen, texts)
 		if text == "" {

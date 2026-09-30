@@ -76,7 +76,9 @@ func TestUserIntent_ForkKeepsTheParentsOriginal(t *testing.T) {
 	require.True(t, isFixedUnit(got.units[0]), "the original is tier 1")
 	require.Contains(t, got.units[0].text, quoteLines(uat06Original), "the parent's original, whole")
 	require.NotContains(t, got.units[0].text, uat06ForkFirst, "the fork's first prompt is not the original")
-	require.True(t, strings.HasPrefix(got.units[0].text, "(forked session: "),
+	// Criterion change (w15-rehydrate, D50): section 2 renders the evolution above the original, so
+	// the original unit now opens with originalRequestLabel; the provenance line follows it.
+	require.True(t, strings.HasPrefix(got.units[0].text, originalRequestLabel+"\n(forked session: "),
 		"the unit says where its original came from: %q", got.units[0].text)
 	require.Contains(t, got.units[0].text, shortSession(uat06Parent))
 
@@ -163,8 +165,11 @@ func TestBuild_ForkBlockMatchesUAT06(t *testing.T) {
 	iOrig := strings.Index(section2, uat06Original)
 	iFork := strings.Index(section2, uat06ForkFirst)
 	i60 := strings.Index(section2, uat06Correction60)
-	require.True(t, iOrig >= 0 && iFork > iOrig && i60 > iFork,
-		"original, then the fork's prompt, then the older correction: %q", section2)
+	// Criterion change (w15-rehydrate, D50, UAT-05 read literally): the order was original, fork's
+	// prompt, older correction. A correction now renders above what it supersedes: the evolution
+	// newest first — the fork's prompt, then the older correction — and the original last.
+	require.True(t, iFork >= 0 && i60 > iFork && iOrig > i60,
+		"the fork's prompt, then the older correction, then the original: %q", section2)
 	require.NotContains(t, res.Text, "intent_mismatch")
 	require.False(t, res.Degraded, "a fork is not a degradation")
 }
