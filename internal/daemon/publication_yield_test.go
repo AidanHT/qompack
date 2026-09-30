@@ -137,6 +137,61 @@ func TestRunIngested_HoldsTheCaptureGateWhileApplying(t *testing.T) {
 	require.Zero(t, dd.capture.inFlight())
 }
 
+// The work a request leaves running past its answer holds the gate from before the request has
+// left until the work ends, so the pass cannot slip in between the answer and the work
+// (startPromptRecording, startReplyWork, launchSessionEnd). Each test blocks the launched work,
+// reads the gate once the launcher (or the request) has returned, then releases the work and
+// reads it again once the work has been joined.
+
+// TestStartPromptRecording_HoldsTheCaptureGateUntilTheCaptureEnds: the verbatim prompt capture an
+// observe.prompt request leaves running is capture work until it ends.
+func TestStartPromptRecording_HoldsTheCaptureGateUntilTheCaptureEnds(t *testing.T) {
+	dd := newGateDaemon(t, func() {})
+	release := make(chan struct{})
+	started := dd.startPromptRecording(context.Background(), func(context.Context) { <-release })
+	require.True(t, started)
+	require.Equal(t, 1, dd.capture.inFlight(),
+		"the capture holds the gate from before its launcher returns, so the request's own leave leaves no gap")
+	close(release)
+	dd.promptWG.Wait()
+	require.Zero(t, dd.capture.inFlight(), "and releases it once it has ended")
+}
+
+// TestStartReplyWork_HoldsTheCaptureGateUntilTheWorkEnds: the compact SessionStart work a
+// session.start request leaves running is capture work until it ends.
+func TestStartReplyWork_HoldsTheCaptureGateUntilTheWorkEnds(t *testing.T) {
+	dd := newGateDaemon(t, func() {})
+	release := make(chan struct{})
+	started := dd.startReplyWork(context.Background(), "gate test", func(context.Context) { <-release }, nil)
+	require.True(t, started)
+	require.Equal(t, 1, dd.capture.inFlight(),
+		"the work holds the gate from before its launcher returns, so the request's own leave leaves no gap")
+	close(release)
+	dd.promptWG.Wait()
+	require.Zero(t, dd.capture.inFlight(), "and releases it once it has ended")
+}
+
+// TestLaunchSessionEnd_HoldsTheCaptureGateUntilTheEndFinishes: the session end a flush request
+// leaves running (launchSessionEnd) is capture work until it finishes, though the flush has long
+// been answered.
+func TestLaunchSessionEnd_HoldsTheCaptureGateUntilTheEndFinishes(t *testing.T) {
+	dd, hold, root := flushAsyncDaemon(t)
+	const sess core.SessionID = "sess-gate-end"
+	resp := flushAsyncDispatch(t, dd, flushAsyncRequest(dd, root, sess, orderNonce(90)))
+	require.True(t, resp.OK, resp.Err)
+	require.GreaterOrEqual(t, dd.capture.inFlight(), 1,
+		"the answered flush's session end holds the gate from before the request left")
+	select {
+	case <-hold.entered:
+	case <-time.After(liveOrderBound):
+		require.FailNow(t, "the flush's session end never reached SessionEnd")
+	}
+	require.Equal(t, 1, dd.capture.inFlight(), "the end, held in SessionEnd, is the one piece of capture work")
+	hold.open()
+	flushAsyncAwait(t, dd)
+	require.Zero(t, dd.capture.inFlight(), "and releases it once it has finished")
+}
+
 // passFinished closes once every goroutine accountPublicationAtStartup started has returned, the
 // join Stop does. accountPublicationAtStartup has added them all by the time it returns.
 func passFinished(d *daemon) <-chan struct{} {
