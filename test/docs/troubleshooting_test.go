@@ -1,6 +1,8 @@
 package docs
 
 import (
+	"io/fs"
+	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -228,6 +230,85 @@ func TestTroubleshootingNamesExactlyTheNoEffectReloadKeys(t *testing.T) {
 		case effect != "effectInert" && named:
 			t.Errorf("%s: %q names %s as having no effect, but reload_keys.go gives it %s",
 				troubleshootingRel, reloadNoEffectSection, key, effect)
+		}
+	}
+}
+
+// adminReloadNoCommandClaim is what both pages that describe the reload say about admin.reload: it is
+// an IPC op no qompack subcommand sends in this build, so a reader is not sent looking for a command
+// that does not exist (w15c-pubscan review). The reload a reader can see is the one an edit of the
+// file starts, with its LOUD lines and its `config reloaded` line.
+const adminReloadNoCommandClaim = "no `qompack` subcommand sends `admin.reload` in this build"
+
+// adminReloadCommandDirs are where a qompack subcommand would send admin.reload from.
+var adminReloadCommandDirs = []string{"cmd", "internal/cli"}
+
+// adminReloadPages are the pages that describe the reload, and the heading of the part that does.
+var adminReloadPages = []struct{ rel, heading string }{
+	{troubleshootingRel, reloadNoEffectSection},
+	{"docs/config-reference.md", "## Reloading the configuration"},
+}
+
+// docSection returns the lines under heading, fenced blocks blanked, up to the next heading of its
+// level or higher.
+func docSection(t *testing.T, path, heading string) []string {
+	t.Helper()
+	var section []string
+	in := false
+	level := strings.IndexByte(heading, ' ')
+	for _, l := range defenced(t, path) {
+		if text, lv, ok := headingText(l); ok {
+			if in && lv <= level {
+				break
+			}
+			if strings.Repeat("#", lv)+" "+text == heading {
+				in = true
+				continue
+			}
+		}
+		if in {
+			section = append(section, l)
+		}
+	}
+	return section
+}
+
+// TestAdminReloadIsDescribedAsAnOpWithoutACommand holds the pages' claim to the code in both
+// directions: no non-test source of a qompack subcommand names the admin.reload op, and both pages
+// that describe the reload say so. A subcommand that starts sending it fails the first half until
+// the pages (and this test) say how to run it.
+func TestAdminReloadIsDescribedAsAnOpWithoutACommand(t *testing.T) {
+	root := repoRoot(t)
+	for _, dir := range adminReloadCommandDirs {
+		err := filepath.WalkDir(filepath.Join(root, filepath.FromSlash(dir)),
+			func(path string, e fs.DirEntry, err error) error {
+				if err != nil || e.IsDir() || !strings.HasSuffix(path, ".go") ||
+					strings.HasSuffix(path, "_test.go") {
+					return err
+				}
+				b, err := os.ReadFile(path)
+				if err != nil {
+					return err
+				}
+				if src := string(b); strings.Contains(src, "OpAdminReload") ||
+					strings.Contains(src, `"admin.reload"`) {
+					t.Errorf("%s sends admin.reload: the pages say no qompack subcommand does; say how to "+
+						"run it and update adminReloadNoCommandClaim", path)
+				}
+				return nil
+			})
+		if err != nil {
+			t.Fatalf("walk %s: %v", dir, err)
+		}
+	}
+
+	for _, p := range adminReloadPages {
+		section := docSection(t, filepath.Join(root, filepath.FromSlash(p.rel)), p.heading)
+		if len(section) == 0 {
+			t.Fatalf("%s: no %q section", p.rel, p.heading)
+		}
+		if !strings.Contains(normalized(strings.Join(section, "\n")), adminReloadNoCommandClaim) {
+			t.Errorf("%s: %q does not say %q", p.rel, p.heading, adminReloadNoCommandClaim)
 		}
 	}
 }

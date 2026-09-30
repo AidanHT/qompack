@@ -245,11 +245,11 @@ file and line it was set in, and what the key no longer means.
 ## Reloading the configuration
 
 A running daemon reloads the configuration when the project's `.qompack/config.json` changes
-(its size or modification time), which it checks at every session start and on its idle tick;
-the daemon's `admin.reload` request reloads unconditionally. The hooks and commands load the
-configuration themselves each time they run. What the reload does with a changed key depends on
-the key, and every key it reports as changed is in effect when it returns. A changed key that
-needs a restart is named, in its `keys` field, by this line in `LOUD.log`:
+(its size or modification time), which it checks at every session start and on its idle tick.
+The hooks and commands load the configuration themselves each time they run. What the reload
+does with a changed key depends on the key, and every key it reports as changed is in effect
+when it returns. A changed key that needs a restart is named, in its `keys` field, by this line
+in `LOUD.log`:
 
     daemon: config change needs a daemon restart to take effect; the running daemon keeps the value it started with
 
@@ -257,7 +257,11 @@ and a changed key that has no effect in this build by this one:
 
     daemon: config change has no effect in this build; nothing reads these keys, before or after a restart
 
-`admin.reload` answers with three lists of keys: `changed`, `restart_required` and `no_effect`.
+The day log's `config reloaded` line lists the keys the reload applied, under `changed`. Those
+lines are the reload you can see. The daemon also has an `admin.reload` request, which reloads
+whether or not the file changed and answers with the same three lists of keys
+(`changed`, `restart_required` and `no_effect`), but it is an IPC op only: no `qompack`
+subcommand sends `admin.reload` in this build.
 To restart the daemon, let it exit when idle (`runtime.daemon.idleExitSeconds`); the next hook
 starts a new one, which loads the whole configuration
 ([troubleshooting §7](troubleshooting.md#7-daemon-problems)).

@@ -618,9 +618,10 @@ daemon: config change needs a daemon restart to take effect; the running daemon 
 daemon: config change has no effect in this build; nothing reads these keys, before or after a restart
 ```
 
-The day log's `config reloaded` line lists the keys the reload applied, under `changed`. The daemon's
-`admin.reload` request, which reloads whether or not the file changed, answers with the same three
-lists: `changed`, `restart_required` and `no_effect`.
+The day log's `config reloaded` line lists the keys the reload applied, under `changed`. Those lines
+are the reload you can see. The daemon also has an `admin.reload` request, which reloads whether or
+not the file changed and answers with the same three lists (`changed`, `restart_required` and
+`no_effect`), but it is an IPC op only: no `qompack` subcommand sends `admin.reload` in this build.
 
 **Meaning.** Every key the reload lists as changed is in effect when it returns. A key named as
 needing a restart is held by something the daemon built when it started: the daemon keeps the value
