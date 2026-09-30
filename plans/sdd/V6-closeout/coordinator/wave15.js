@@ -1,0 +1,123 @@
+export const meta = {
+  name: 'v6-closeout-wave15',
+  description: 'Wave 15 close-out: candidate 4 live re-run defects (D49): rehydration fallback and authority, ledger across restarts and forks, daemon services, docs; reviewed, fixed and verified',
+  phases: [
+    { title: 'Implement', detail: 'four workstreams off closeout/integration 08034a3f' },
+    { title: 'Review', detail: 'independent adversarial review' },
+    { title: 'Fix', detail: 'resolve confirmed findings' },
+    { title: 'Verify', detail: 'check the fix seat resolved every non-nit finding' },
+  ],
+}
+
+const ROOT = 'C:/Users/Quant/Documents/Programming/Projects'
+const BASE = '08034a3f'
+const SCRATCH = 'C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/9c57653d-e5ff-4791-8ab4-ad49457994c1/scratchpad/w15'
+
+const COMMON = (w) => `You are one of the parallel workstreams (four seats: rehydrate, ledger, services, docs) closing out the Qompack V6 verification (Qompack is a Go Claude Code plugin: hooks -> resident daemon -> content-addressed store under .qompack/, an MCP retrieval server, slash commands). Coordinator ledger (read it; do NOT edit it): ${ROOT}/qompack-v6/plans/V6-CLOSEOUT-CHECKLIST.md — owner decisions D1-D49 and the coordinator defaults are there. Earlier workstream reports are committed on your base under plans/sdd/V6-closeout/<ws>/report.md (wave 1: ingest, e2e, config, hostperm, rollover, perfstore, perfobs, eval, linux, packaging, rehydrate-cap; wave 2b: w2-*; wave 3/4: w3-startroute, w3-paths, w3-e2ereds, w3-eval3, w4-syncs, w4-e2eflakes; wave 5: w5-coldstart, w5-home, w5-winfiles, w5-helpers, w5-dirsync, w5-deps; wave 6: w6-borrow, w6-config, w6-ckptsync, w6-gcserial, w6-linuxrows; wave 7: w7-spawnclaim, w7-layout, w7-sp08d3, w7-docs, w7b-selftest, w7b-checkpoint; wave 8: w8-sp08d3fix, w8-stagerace, w8b-polish) — read the ones relevant to your task first.
+
+YOUR WORKTREE: ${ROOT}/qompack-cx-w15-${w.ws} on branch closeout/w15-${w.ws}, cut from closeout/integration @ ${BASE} (every earlier wave merged). The Bash tool resets cwd between calls: prefix every command with \`cd ${ROOT}/qompack-cx-w15-${w.ws} &&\` or use absolute paths. Never edit other worktrees. Never push, tag, merge, rebase or reset other branches, change git config/hooks, or SendMessage anyone. Your scratch files go under ${SCRATCH}/${w.ws}/ (create it); never delete anything else in that scratchpad.
+
+Hard rules (owner directives, non-negotiable):
+- Never weaken a check: no t.Skip, no //nolint, no //nomagic:allow added to silence something, no lowered threshold/budget, no golden regenerated to match broken output, no deleted or loosened assertion, no widened timeout that hides a defect. Criterion changes only with a written rationale in your returned report.
+- Root cause first; failing regression test first; then fix.
+- New budget/bound numbers are the owner's: implement them behind a named constant with a derivation comment, and list each one (value, derivation, what breaks if it is wrong) under needs_owner; the coordinator gets approval before merging.
+- Commits: conventional \`type(scope): subject\` (lowercase scope, subject <=64 chars, no trailing period), body lines <=100 chars, \`Refs: V6-VERIFY, ${w.cid}\` footer on feat/fix, NO attribution trailers (no Co-Authored-By, Signed-off-by, Claude-Session, "Generated with", robot emoji) — the commit-msg hook rejects them. Small focused commits. Evidence logs may be committed under plans/sdd/V6-closeout/w15-${w.ws}/runs/.
+- \`go run ./tools/devtool fmt\`/\`fmt-check\`, \`go vet\` on touched packages (Windows and GOOS=linux); \`go test ./test/docs\` and gen-*-docs --check when docs/generated inputs change. Use \`go run ./tools/devtool lint --only=golangci-lint,nomagic,importgraph,testdeps,bindeps,sleepcheck,docmarkers,runpatterns\`: never the stubskips sub-check (it runs a whole-tree go test).
+- Tests: FOCUSED runs plus each touched package once in full; never ./... or devtool test/test-race (four other workstreams run tests on this machine and in the Linux container at the same time, so the machine is loaded: re-run any wall-clock failure alone before believing it, and say so). Never let a pipe mask go test's exit code.
+- Every \`go test -run\` pattern you quote in your report must match a real test name exactly (the runpatterns lint checks committed reports); name temporary diagnostics as such.
+- Processes: never kill a process you did not start. If you must stop your own processes, match on YOUR worktree path or your own scratch subdirectory.
+- Linux: container \`qompack-v6-linux-verification\`; the committed script plans/sdd/V6-closeout/linux/linux-nonroot-gate.sh runs an exact commit non-root with -race (see its header; use --prefix cx-w15-${w.ws}; pass --repo and --out as Windows-style C:/ paths, a POSIX /c/ path is refused); never reuse or delete other /work dirs.
+- CPU: the owner uses this laptop interactively. Any load generator you start must be bounded with \`timeout\` to at most 20 minutes per run and at most 8 busy processes (of 22 cores), and you must stop it when the measurement ends; never leave one running. Stop your own background diagnostics before you finish.
+- Never create, read or modify the real ~/.qompack or ~/.claude in tests; use a fake HOME/USERPROFILE. Real Claude Code sessions are NOT allowed.
+- The harness refuses report files from subagents: do NOT write report.md. Return the full report (root causes with evidence, what changed, exact commands + results, criterion changes, open items, owner decisions) in your returned summary; the coordinator commits it.`
+
+const MACHINE = `MACHINE LIMITS FOR THIS SEAT (override the general rules): Phase 3 gates run on this laptop now and memory is tight. The Linux container is STOPPED on purpose: do NOT start it and do not run the Linux gate script; the coordinator runs Linux verification later. On Windows use \`-p 2\`, no load generators. The Phase 3 chain logs to C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/chain-2.log: while that file has a "win-timing start" line with no later "win-timing exit" line, an ISOLATED timing gate is running and you must not run anything load-bearing (no hot-path row, no test/integration package, no -race, no benchmark) until it ends; do code reading and cheap deterministic unit tests meanwhile. Run at most one load-bearing test at a time.`
+
+const EV = `EVIDENCE: the Phase 4 live lane ran real Claude Code 2.1.280 sessions on the frozen candidate 3 (d5598eb4) with the packaged bundle. Its report is plans/sdd/V6-closeout/live/report.md in your worktree (evidence dirs beside it under plans/sdd/V6-closeout/live/uat/, c4/, recovery/). Read the rows named below and their evidence files before touching code. Coordinator decision D45 (ledger) says these are fixed before 0.3.0.
+MACHINE LIMITS FOR THIS SEAT (override the general rules): DAYTIME, the owner is using this laptop and six seats run at once. Use \`-p 2\`, no load generators, no -race on whole packages, and do NOT run the hot-path rows (TestIntegration_HotPath*, TestV3_HotPath*) or whole test/integration / test/e2e packages; run only the focused rows you add or touch plus the touched packages in full once. The Linux container is STOPPED: do not start it. Real Claude Code sessions are NOT allowed: reproduce each live finding with a deterministic test (a real daemon/store/hook process in a temp project is fine) that is RED before the fix. The coordinator re-runs the live rows on the fixed candidate.
+Other seats in this wave (do not fix their items; if your root cause turns out to be theirs, say so and stop): ledger (elimination ledger, MCP self-record turns, timeline), intent (rehydration intent/corrections/fork), restore (backup/restore/fsck segments/cross-version), pinsckpt (pins view, checkpoint pointers), diag (sentinel scan, status/doctor diagnostics), mcpresp (MCP response bounds/selectors/messages, UAT docs).`
+
+const LIM = `MACHINE LIMITS FOR THIS SEAT (override the general rules): three seats run at once. Use \`-p 2\`, no load generators, no -race on whole packages, and do NOT run the hot-path rows (TestIntegration_HotPath*, TestV3_HotPath*) or whole test/integration / test/e2e packages; run the focused rows you add or touch and the touched packages in full once. The Linux container is STOPPED: do not start it. No real Claude Code sessions: reproduce with deterministic tests that are RED before the fix. Read coordinator decision D46 in the ledger. Other seats: observer, decisions, safecut.`
+
+const LIM15 = `EVIDENCE: the live re-run on candidate 4 (9f6a2fad, decision D47) ran real Claude Code sessions with the frozen bundle. Its evidence is committed on your base under plans/sdd/V6-closeout/live/rerun-c4/<row>/ and the Result blocks in docs/uat.md; the findings named below come from there. Coordinator decision D49 in the ledger says every one is fixed before 0.3.0 and fixes each disposition: read D45, D46 and D49 first.
+MACHINE LIMITS FOR THIS SEAT (override the general rules): DAYTIME, the owner is using this laptop and four seats run at once. Use \`-p 2\`, no load generators, no -race on whole packages, and do NOT run the hot-path rows (TestIntegration_HotPath*, TestV3_HotPath*) or whole test/integration / test/e2e packages; run the focused rows you add or touch and the touched packages in full once. The Linux container is STOPPED: do not start it. No real Claude Code sessions: reproduce each finding with a deterministic test (a real daemon/store/hook process in a temp project is fine) that is RED before the fix.
+Other seats: rehydrate (fallback visibility, evolution admission, eviction order), ledger (stale bloom, advance_frontier, decisions across checkpoints, fork inheritance), services (config reload, recall k, publication accounting, fsck index.files), docs. Do not fix their items; if your root cause is theirs, say so and stop.`
+
+const WS = []
+
+WS.push({ ws: 'rehydrate', cid: 'C4.3', effort: 'xhigh', reviewEffort: 'high', task: `TASK — rehydration's current-authority and fallback defects (D49).
+${LIM15}
+(1) F-C4-UAT03-1 (rerun-c4/UAT-03/probe/): when the newest checkpoint does not verify (one byte corrupted), SessionStart(compact) builds the payload from the previous checkpoint and presents it as current: 'checkpoint 0001', state dropped [], degraded false, no section-7 entry; LOUD.log names only the refusal of 0002. D49: a fallback is never silent. The payload names it (section 7: newest checkpoint N refused, rebuilt from M, what may be missing, how to restore), the rehydrate state reads degraded true with the reason, the drop report carries it, and LOUD.log says 'rolled back to M'.
+(2) F-C4-UAT06-1 + F-C4-UAT06-3 (rerun-c4/UAT-06/C-block2-SessionStart-compact.txt, section2-in-order.txt): the fixed 10% evolution share drops the only correction in force (named 'user_intent_evolution 0 — did not fit') while the block uses 2,652 of 9,400 chars; evolution holds every later prompt, so ordinary prompts push a correction out. D49: the newest restatement of the user's intent (the correction in force) is admitted with the original, ahead of the share; the share stays for older entries, and room the payload leaves unused goes to evolution newest-first before the payload is final. Keep D5 (whole records or a named overflow) and D46's ceilings.
+(3) F-C4-UAT05-3 (rerun-c4/UAT-05/): at a 150-token budget section 8 (retrieval) is evicted while the pinned invariant stays. Read ADR 0011's tier-1 admission order and make the eviction follow it exactly; if ADR 0011 and the code are both defensible but disagree, follow the ADR and say so. A test at a tiny budget pins the order.
+Scope: internal/rehydrate (and the checkpoint loader it calls), their tests.` })
+
+WS.push({ ws: 'ledger', cid: 'C4.3/C4.4', effort: 'high', reviewEffort: 'high', task: `TASK — elimination ledger and decisions across restarts, resumes and forks (D49).
+${LIM15}
+(1) R4-1 (rerun-c4/UAT-09/): after a daemon restart already_tried answers {"state":"absent"} for a STALE elimination. From code (internal/negknow): the tried.bloom query filter holds only ACTIVE records, Record adds a key only to the in-memory filter, reconcileBloom finds no active record missing and does not rebuild, and Query's first !bloom.Test returns absent before it reads the stale record; an idle rebuild_bloom (rebuildOnStale) drops the key the same way. D49: a record goes stale, never absent: the filter covers every record that exists (active and stale), rebuild and reconcile included, with tests for the restart and the idle-rebuild paths.
+(2) F-C4-C49-3 (rerun-c4/C4.9/): in a session with no compaction and no elimination, the idle task act.advance_frontier fails every 30 s ('SourceSet.Ledger is nil: its accessor resolved to no ledger: qompack: running in degraded mode'). D49: no ledger yet is not an error: the frontier advances without negative knowledge (or the task is a quiet no-op until a ledger exists), no WARN, and the frontier does advance; test it.
+(3) F-C4-UAT06-2 (rerun-c4/UAT-06/steps/checkpoint-0001.json vs checkpoint-0002.json): after --resume, the same session's second checkpoint has decisions [] although 0001 had dec_991dbff588ec and the elimination is still carried. D49: a decision stays in every later checkpoint of the session while it holds (the way eliminations carry), under the existing cap and ranking.
+(4) F-C4-UAT06-1, ledger half: a --fork-session's checkpoints (0004/0005) carry eliminated [] and decisions []: the parent's session-scoped eliminations and decisions are not inherited. D49: a fork continues the parent's conversation, so the parent's session-scoped records up to the fork point are visible to the fork (already_tried, why, checkpoints), attributed to the parent session; a later sibling session still does not see them.
+Scope: internal/negknow, internal/checkpoint (decisions, advance), internal/daemon idle wiring, their tests.` })
+
+WS.push({ ws: 'services', cid: 'C4.4/C4.5', effort: 'high', reviewEffort: 'high', task: `TASK — daemon services: config reload, recall, publication accounting, fsck (D49).
+${LIM15}
+(1) F-C4-UAT05-2 (rerun-c4/UAT-05/cli/run2-b-*): the daemon logs 'config reloaded changed=[runtime.rehydrate.maxTokens runtime.rehydrate.minTokens]' but rehydrates at its startup budget until a restart (reload.go updates d.cfg; the rehydrate service reads s.o.Cfg). The same class in UAT-09: a mid-session eliminations.staleResponse change is reloaded but already_tried keeps the old form. D49: every setting the reload reports as changed takes effect in the running daemon, or the reload says it needs a restart. Audit every service that holds a config copy (rehydrate, negknow, mcp, scheduler, gc...) and fix each; a test per service that a reload reaches it.
+(2) F1 (rerun-c4/UAT-12/cli/50-mcp-probe-recall.json, sessionC): recall's k counts hits that authorization then withholds (handlers.go asks store.Search for K hits and drops denied ones afterwards): at k=5 the caller got 2 hits and denied:3 while three permitted hits existed. D49: k is the number of permitted hits returned when that many exist (keep fetching past denied ones, bounded), denied stays a count. Also, Qompack's own retrieval self-records rank above the original captures (UAT-07, UAT-12): they rank after every non-self hit.
+(3) F2 (rerun-c4/UAT-12/store/logs_LOUD.log): the startup publication accounting is bounded at 250 ms (publicationStartupBound); on a 3-session store (70 captures, ~380 objects) every start logs LOUD 'publication accounting incomplete ... scan interrupted'. D49: a healthy store never gets that line: the scan finishes (continue it in the background after the startup bound, or make it fast enough), and LOUD is written only for a real gap or a scan that cannot finish. Measure the scan on a store of that size in the test.
+(4) Investigate (rerun-c4/UAT-04/, post-run): with a planted unparseable config in place fsck exited 1 on index.files 'absent while its log carries 4 path(s)'. Reproduce deterministically; if it is a product defect fix it, if it follows from the planted config say exactly why and whether fsck's message is right.
+Scope: internal/daemon (reload, services), internal/mcp (recall), internal/store (publication accounting, fsck index.files), their tests.` })
+
+WS.push({ ws: 'docs', cid: 'C4.10', effort: 'medium', reviewEffort: 'medium', task: `TASK — documentation findings from the candidate 4 re-run (D49). No product code.
+${LIM15}
+(1) F3: docs/troubleshooting.md §3 still says 'Read the record's Fidelity' and 'read that record's fidelity through expand', contradicting mcp-tools.md (no retrieval response carries fidelity or coverage, D46). Say where fidelity is recorded and how an operator reads it (the capture sidecar / fsck / doctor, whatever the shipped code offers: read internal/ and cmd/).
+(2) Document the host's decoding of binary files (UAT-12 step 4, UAT-02): Claude Code refuses Read on a binary, decodes Bash output as text and sends images as base64, so Qompack records what the host delivered (fidelity exact) and never decodes anything itself. Put it in user-guide.md and cannot-do.md (or wherever the existing structure says), consistently.
+(3) F-C4-UAT05-1: UAT-05 step 5 says '--set runtime.rehydrate.maxTokens on a hook invocation' changes the budget; when the daemon builds the rehydration its config governs. Fix the step (and any doc making the same claim) to what the code does.
+(4) UAT-09 step 5's 'reachable form' (a project with no ledger answers unavailable/degraded) is stale: the ledger now opens on first use and answers absent. Rewrite the step to a reachable degraded form (the re-run used records/eliminations.jsonl made unreadable) and keep its expectation.
+(5) UAT-02: the non-exact fidelity capability is not observable through this host (it delivers oversized/binary content whole or not at all). D49 records it as host-limited, covered by tests: name those tests in the UAT-02 block (exact names) with a one-line note 'non-exact fidelity is host-limited on Claude Code 2.1.280; covered by <tests> (D49, 2026-09-30)'. Do not change a verdict.
+(6) The stdio \`qompack mcp\` probe outside a host session answers denied:N for records an in-session recall returns (rerun-c4/C4.9, retrieval notes): read internal/mcp authorization, and document why (no host permission context = fail closed, or whatever the code does) in mcp-tools.md; if it is a product defect, do not fix it: report it.
+(7) docs/uat.md's intro paragraph (about lines 8-18) still describes the candidate 3 run: make it describe the current record (candidate 3 first run, candidate 4 re-run under D47) in two or three sentences.
+Run go test ./test/docs and the docs gen --check tasks. Scope: docs/ only.` })
+
+const RESULT = { type: 'object', properties: {
+  status: { type: 'string', enum: ['done', 'partial', 'blocked'] }, head: { type: 'string' },
+  commits: { type: 'array', items: { type: 'string' } }, root_cause: { type: 'string' }, summary: { type: 'string' },
+  tests: { type: 'array', items: { type: 'object', properties: { command: { type: 'string' }, result: { type: 'string' } }, required: ['command', 'result'] } },
+  criterion_changes: { type: 'array', items: { type: 'string' } }, open_issues: { type: 'array', items: { type: 'string' } },
+  needs_owner: { type: 'array', items: { type: 'string' } },
+}, required: ['status', 'head', 'commits', 'summary', 'tests', 'open_issues', 'needs_owner'] }
+const FINDINGS = { type: 'object', properties: {
+  verdict: { type: 'string', enum: ['sound', 'needs-fixes', 'unsound'] },
+  findings: { type: 'array', items: { type: 'object', properties: {
+    severity: { type: 'string', enum: ['blocker', 'major', 'minor', 'nit'] }, location: { type: 'string' },
+    issue: { type: 'string' }, evidence: { type: 'string' }, fix: { type: 'string' },
+  }, required: ['severity', 'location', 'issue', 'evidence', 'fix'] } },
+}, required: ['verdict', 'findings'] }
+
+const LENS = 'Lenses: (a) root cause proven and fixed at the source; correctness incl. concurrency (races, deadlocks, lock order, goroutine leaks), durability/crash semantics (fsync ordering, WAL retention, idempotency, identity never re-minted), fail-closed paths, Windows vs POSIX, bounded memory/CPU; (b) check-weakening (deleted/loosened assertions, skips, nolint/nomagic, lowered thresholds, regenerated goldens, widened timeouts, tests bent to buggy output) and legitimacy of every criterion change; (c) every new bound/budget number is named, derived, and listed for the owner; (d) docs consistent with behaviour, generated docs via generators; (e) commit hygiene (conventional subjects, Refs footer, no attribution trailers); (f) was the whole task done, or parts silently dropped?'
+
+const results = await pipeline(
+  WS,
+  (w) => agent(`${COMMON(w)}\n\n${w.task}`, { label: `impl:${w.ws}`, phase: 'Implement', schema: RESULT, effort: w.effort }),
+  async (impl, w) => {
+    if (!impl) return { w, impl: null, review: null }
+    const review = await agent(`You are an independent, adversarial reviewer for Qompack V6 close-out wave-15 workstream "${w.ws}" (${w.cid}). Worktree ${ROOT}/qompack-cx-w15-${w.ws}, branch closeout/w15-${w.ws}, base ${BASE}. The task was:\n---\n${w.task}\n---\nImplementer result: ${JSON.stringify(impl)}\nReview \`git -C ${ROOT}/qompack-cx-w15-${w.ws} log ${BASE}..HEAD\` and the full diff \`git diff ${BASE} HEAD\`. READ-ONLY: do not edit, commit, stash or reset. You may run focused tests (never ./...; never kill processes you did not start; the machine is loaded — re-run a timing failure alone before believing it). No real claude sessions; never touch the real ~/.qompack or ~/.claude.\n${LENS}\nReturn findings with severity, file:line, evidence and a concrete fix; if sound, verdict "sound" and an empty list.`,
+      { label: `review:${w.ws}`, phase: 'Review', schema: FINDINGS, effort: w.reviewEffort })
+    return { w, impl, review }
+  },
+  async (r) => {
+    if (!r.impl) return { w: r.w, ws: r.w.ws, impl: null, review: null, final: null }
+    const actionable = (r.review ? r.review.findings : []).filter((f) => f.severity !== 'nit')
+    if (actionable.length === 0) return { w: r.w, ws: r.w.ws, impl: r.impl, review: r.review, final: r.impl, fixRan: false, actionable }
+    const final = await agent(`${COMMON(r.w)}\n\nYou are the FIX seat for this workstream (the implementer has finished). Its task was:\n---\n${r.w.task}\n---\nIndependent reviewer findings:\n${JSON.stringify(actionable, null, 1)}\nVerify each independently; fix the correct ones (failing test first where applicable) and re-run focused tests; rebut wrong ones with evidence. Blockers/majors must be resolved or rebutted. Return the final state with a "Review resolution" section (finding -> action/rebuttal) in your summary, and carry forward every needs_owner item still open (the implementer's were: ${JSON.stringify(r.impl.needs_owner || [])}).`,
+      { label: `fix:${r.w.ws}`, phase: 'Fix', schema: RESULT, effort: r.w.effort })
+    return { w: r.w, ws: r.w.ws, impl: r.impl, review: r.review, final, fixRan: true, actionable }
+  },
+  async (r) => {
+    if (!r.fixRan || !r.final) return { ws: r.ws, impl: r.impl, review: r.review, final: r.final, fixRan: !!r.fixRan, verify: null }
+    const verify = await agent(`You are an independent verifier for Qompack V6 close-out wave-15 workstream "${r.ws}". Worktree ${ROOT}/qompack-cx-w15-${r.ws}, branch closeout/w15-${r.ws}. A reviewer raised these findings:\n${JSON.stringify(r.actionable, null, 1)}\nThe fix seat's result: ${JSON.stringify(r.final)}\nFor EACH finding decide whether it is now resolved correctly or rebutted soundly, by reading the code at HEAD and the fix commits (\`git -C ${ROOT}/qompack-cx-w15-${r.ws} log ${r.impl.head}..HEAD\`), and check the fix commits introduced no new defect or check-weakening. READ-ONLY: do not edit, commit, stash or reset; focused tests allowed (never ./...; never kill processes you did not start; never touch the real ~/.qompack or ~/.claude). Return as findings ONLY what is still wrong (unresolved, badly rebutted, or newly introduced), with severity, file:line, evidence and fix; verdict "sound" with an empty list if everything is resolved.`,
+      { label: `verify:${r.ws}`, phase: 'Verify', schema: FINDINGS, effort: r.w.reviewEffort })
+    return { ws: r.ws, impl: r.impl, review: r.review, final: r.final, fixRan: true, verify }
+  },
+)
+return results
