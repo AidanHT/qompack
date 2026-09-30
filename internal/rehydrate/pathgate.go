@@ -93,9 +93,21 @@ var homeOrVarRoot = regexp.MustCompile(
 // arguments — into the pieces that could each name a path.
 var summaryTokens = regexp.MustCompile("[\\s\"'`,;(){}\\[\\]<>|=]+")
 
+// summaryHomeOrVar finds a home- or variable-rooted path anywhere in a summary, before it is split:
+// a `%NAME%` whose name holds parentheses (`%ProgramFiles(x86)%`) would be cut apart by
+// summaryTokens, and a path glued to a flag (`-i~/.ssh/key`) does not start its token. The segment
+// must start the summary or follow a separator, a quote, an assignment, or a flag's letters.
+var summaryHomeOrVar = regexp.MustCompile(
+	`(^|[\s"'` + "`" + `=,;|<>(\[{:]|-[A-Za-z]*)` +
+		`(~[A-Za-z0-9._-]*([\\/]|$)|\$\{?[A-Za-z_][A-Za-z0-9_]*|%[A-Za-z_][A-Za-z0-9_()]*%)`)
+
 // summaryWithheld reports whether a tool pointer's summary names any path withheld() refuses. A
 // piece is judged when it could be a path at all: it is rooted, or it carries a separator or a dot.
+// A home- or variable-rooted path anywhere in it withholds it whole (summaryHomeOrVar).
 func (j pathJudge) summaryWithheld(s string) bool {
+	if summaryHomeOrVar.MatchString(strings.ReplaceAll(s, `\\`, `\`)) {
+		return true
+	}
 	for _, tok := range summaryTokens.Split(strings.ReplaceAll(s, `\\`, `\`), -1) {
 		tok = strings.TrimRight(tok, ".:")
 		if tok == "" || !(absLike(tok) || strings.ContainsAny(tok, `/\.`)) {
