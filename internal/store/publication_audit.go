@@ -345,8 +345,15 @@ func (s *FSStore) SnapshotPublication(ctx context.Context) (PublicationSnapshot,
 
 // postSnapshot reports whether a file modified at mod postdates the pass's snapshot. It is always
 // false for a pass without one.
+//
+// Only a time strictly after the snapshot's instant is live work. File times and the wall clock tick
+// together on Windows, so a file written in the last clock tick before the snapshot carries exactly
+// the snapshot's time, and counting that as live work skipped a real residue until the next start
+// (w15-services review). The other side of the tick is safe to classify: the daemon takes its
+// snapshot before it serves anything and keeps requests waiting until the startup pass returns, well
+// over a clock tick later, so nothing it serves writes a file stamped with the snapshot's instant.
 func (b *scanBudget) postSnapshot(mod time.Time) bool {
-	return b.snap != nil && !mod.Before(b.snap.taken)
+	return b.snap != nil && mod.After(b.snap.taken)
 }
 
 // hasChunkFor reports whether h is a live chunk: of the snapshot's index when the pass has one, of
