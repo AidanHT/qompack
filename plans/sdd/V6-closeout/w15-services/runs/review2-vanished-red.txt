@@ -1,0 +1,12 @@
+# fix seat (review), Windows, parent HEAD ee03ab04 + hook call only (no fix): RED
+# go test -p 2 -count=1 -run 'TestAuditPublication_SnapshotCountsVanishedEntriesAsLiveWork$' ./internal/store/
+--- FAIL: TestAuditPublication_SnapshotCountsVanishedEntriesAsLiveWork (0.18s)
+    publication_snapshot_test.go:200: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-services/internal/store/publication_snapshot_test.go:200
+        	Error:      	Should be false
+        	Test:       	TestAuditPublication_SnapshotCountsVanishedEntriesAsLiveWork
+        	Messages:   	a file removed while the pass runs is live work, not unreadable: [capture sidecar unreadable pending-write marker unreadable]
+FAIL
+FAIL	github.com/qompack/qompack/internal/store	0.897s
+FAIL
+exit=1
