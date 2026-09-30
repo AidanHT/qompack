@@ -162,9 +162,10 @@ type captureGate struct {
 	active int
 	// idle is closed when active falls to zero, and made anew when it rises from zero.
 	idle chan struct{}
-	// onPark, when set, is called each time a wait parks. It is a test seam: a test that must see
-	// the pass paused waits for it instead of sleeping.
-	onPark func()
+	// onPark, when set, is called each time a wait parks, with the waiter's context. It is a test
+	// seam: a test that must see the pass paused waits for it instead of sleeping, and the context
+	// tells the bounded half of the startup pass (a deadline) from the background half (none).
+	onPark func(ctx context.Context)
 }
 
 // enter counts one piece of capture work in.
@@ -206,7 +207,7 @@ func (g *captureGate) wait(ctx context.Context) error {
 		idle, park := g.idle, g.onPark
 		g.mu.Unlock()
 		if park != nil {
-			park()
+			park(ctx)
 		}
 		select {
 		case <-idle:

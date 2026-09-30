@@ -2,7 +2,6 @@ package daemon
 
 import (
 	"context"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -24,21 +23,25 @@ import (
 // parkSignal installs a park observer on g and returns the channel it signals, one send per park.
 // It is installed before anything can wait on g.
 func parkSignal(g *captureGate) <-chan struct{} {
-	parked, arm := armedParkSignal(g)
-	arm()
-	return parked
+	return parkSignalWhen(g, func(context.Context) bool { return true })
 }
 
-// armedParkSignal is parkSignal with the signal held back until arm is called: a park before it is
-// not signalled. The startup tests arm it once accountPublicationAtStartup has returned, because
-// the bounded half of the pass parks too, synchronously and before that return, and a park of that
-// half must not stand in for one of the background pass, the half D51 is about.
-func armedParkSignal(g *captureGate) (<-chan struct{}, func()) {
+// backgroundParkSignal is parkSignal for the background half of the startup pass only. The bounded
+// half runs under a context with a deadline (publicationBound) and parks too; the background half
+// runs under the daemon's run context, which has none. Telling them apart by what they are, not by
+// when they park, loses no park whatever order the two goroutines run in.
+func backgroundParkSignal(g *captureGate) <-chan struct{} {
+	return parkSignalWhen(g, func(ctx context.Context) bool {
+		_, bounded := ctx.Deadline()
+		return !bounded
+	})
+}
+
+func parkSignalWhen(g *captureGate, match func(context.Context) bool) <-chan struct{} {
 	parked := make(chan struct{}, 64)
-	var armed atomic.Bool
 	g.mu.Lock()
-	g.onPark = func() {
-		if !armed.Load() {
+	g.onPark = func(ctx context.Context) {
+		if !match(ctx) {
 			return
 		}
 		select {
@@ -47,7 +50,7 @@ func armedParkSignal(g *captureGate) (<-chan struct{}, func()) {
 		}
 	}
 	g.mu.Unlock()
-	return parked, func() { armed.Store(true) }
+	return parked
 }
 
 // TestCaptureGate_WaitReturnsOnlyOnceTheWorkInFlightEnds: a wait with work in flight parks, stays
@@ -274,19 +277,20 @@ func TestStartupPublicationAccounting_BackgroundPassPausesWhileARequestIsInFligh
 
 	var loud loudCapture
 	loud.attach(t)
-	parked, arm := armedParkSignal(&d.capture)
+	parked := backgroundParkSignal(&d.capture)
 
 	d.capture.enter() // a hook request is being served
 	d.accountPublicationAtStartup(context.Background())
-	// Only a park from here on is the background pass's: the bounded half parked, if at all, before
-	// accountPublicationAtStartup returned. A background pass that does not yield never parks, so
-	// it finishes beside the request and fails below.
-	arm()
+	// Only the background pass's parks are signalled (it runs under a context with no deadline). A
+	// background pass that does not yield never parks, so it finishes beside the request and fails
+	// below.
 	finished := passFinished(d)
 	select {
 	case <-parked:
 	case <-finished:
 		t.Fatal("the background publication pass finished beside a request in flight")
+	case <-time.After(liveOrderBound):
+		t.Fatal("the background publication pass neither parked nor finished")
 	}
 	// The pass is parked on the gate's idle channel, which only the request's leave closes, so it
 	// cannot have finished: this is the pause itself, not a race with a walk still running.
@@ -317,18 +321,19 @@ func TestStartupPublicationAccounting_StopEndsAPausedPass(t *testing.T) {
 
 	var loud loudCapture
 	loud.attach(t)
-	parked, arm := armedParkSignal(&d.capture)
+	parked := backgroundParkSignal(&d.capture) // only the background pass's parks, as above
 
 	d.capture.enter()
 	defer d.capture.leave()
 	runCtx, cancel := context.WithCancel(context.Background())
 	d.accountPublicationAtStartup(runCtx)
-	arm() // only the background pass's parks, as in the pause test above
 	finished := passFinished(d)
 	select {
 	case <-parked:
 	case <-finished:
 		t.Fatal("the background publication pass finished beside a request in flight")
+	case <-time.After(liveOrderBound):
+		t.Fatal("the background publication pass neither parked nor finished")
 	}
 	cancel()
 	<-finished
