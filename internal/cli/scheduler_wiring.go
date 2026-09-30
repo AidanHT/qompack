@@ -117,6 +117,9 @@ func wiringLog(o daemon.SchedulerRuntimeOptions) logging.Logger {
 type checkpointWiring struct {
 	w       *checkpoint.FileWriter
 	sources func() (checkpoint.SourceSet, error)
+	// set is the supplier's set BEFORE Resolve: it opens no ledger, so it is what the wiring-time
+	// snapshots (before Run accepts) are taken from. See wireCheckpointSources' phase-1 note.
+	set func() checkpoint.SourceSet
 }
 
 // wireCheckpointSources is the checkpoint layer's Block 1: it assembles the SourceSet the L4
@@ -176,15 +179,20 @@ func wireCheckpointSources(opts *daemon.Options) checkpointWiring {
 	}
 	toks := tokens.NewForProject(opts.Cfg, tokens.DefaultCalibPath(), opts.ProjectRoot)
 
-	sources := func() (checkpoint.SourceSet, error) {
+	// set assembles the SourceSet WITHOUT resolving it: it reads the ledger handle but never calls
+	// the accessor, so it opens nothing. The wiring-time snapshots below are built from it (see
+	// the note at the phase-1 call); sources, the supplier every later consumer resolves through,
+	// is set plus Resolve.
+	set := func() checkpoint.SourceSet {
 		var segs store.SegmentLog
 		if opts.Store != nil {
 			segs = opts.Store.Segments()
 		}
-		src := checkpoint.SourceSet{
+		return checkpoint.SourceSet{
 			Store:    opts.Store,
 			Segments: segs,
-			// Resolved now — nil until the first compaction opens it. See the note above.
+			// Read now — nil until something (a compaction, a ledger tool call, or this set's own
+			// accessor on a resolve) has opened it. See the note above.
 			Ledger: opts.LedgerHandle(),
 			// ... and the ACCESSOR onto that same field, so a set published before the open is a
 			// wired seam rather than a rejected one. Without it SourceSet.Validate refused every
@@ -199,19 +207,26 @@ func wireCheckpointSources(opts *daemon.Options) checkpointWiring {
 			Grammar:  gram,
 			Tokens:   toks,
 		}
+	}
+	sources := func() (checkpoint.SourceSet, error) {
+		src := set()
 		// Resolve, not Validate: this supplier answers the question "may a draft be BEGUN from
 		// this?", and until something has opened the ledger the honest answer is no. Validate
 		// would say yes on the strength of the accessor alone, and every consumer -- frontier
 		// advancement, the scheduler's advancer -- would then discover the missing handle one
 		// frame deeper, inside Begin, as an idle-task error on every tick instead of the one
-		// reported-unavailable line §16 asks for. Resolving costs a field read and opens nothing.
-		if _, valErr := src.Resolve(); valErr != nil {
+		// reported-unavailable line §16 asks for. Resolving costs a field read and opens nothing in
+		// a project with no elimination record; in one with records it is the one lazy open
+		// (recordedLedger), which is why only consumers that run once the daemon is serving call it.
+		resolved, valErr := src.Resolve()
+		if valErr != nil {
 			// The partial set travels WITH the reason: a consumer that needs only one seam (pins)
 			// must not be degraded by a seam it never reads (the ledger). It keeps its live
 			// accessor, so a consumer that only needs to PUBLISH it -- SetSources -- still can.
 			return src, fmt.Errorf("%w: %w", valErr, core.ErrDegraded)
 		}
-		return src, nil
+		// The resolved set, so the ledger this call may just have opened travels with it.
+		return resolved, nil
 	}
 
 	// Publish the writer on Options so daemon.New copies it onto Services and, with Sources, so
@@ -220,16 +235,20 @@ func wireCheckpointSources(opts *daemon.Options) checkpointWiring {
 	// every nil check downstream and fault inside Advance instead.
 	opts.Checkpoints = w
 
-	// Phase 1, before New. The snapshot handed over here has no ledger HANDLE in a project with no
-	// elimination record -- nothing has opened one yet -- but it does carry the accessor (in a
-	// project with records, this call is what opens the ledger; see recordedLedger), so SetSources accepts it and the writer's
-	// cold path is usable from this moment on. The SUPPLIER goes over too: the bound PreCompact
-	// seam re-resolves through it at every compaction, which is what lets the FIRST compaction of a
-	// daemon's life trigger the one lazy ledger open and then seal against it.
-	src, _ := sources()
-	daemon.BindCheckpoint(opts, opts.Cfg, w, src, daemon.WithSourceSupplier(sources))
+	// Phase 1, before New. The snapshot handed over here is set(), never sources(): it has no ledger
+	// HANDLE until something has opened one, but it carries the accessor, so SetSources accepts it
+	// and the writer's cold path is usable from this moment on. It is not RESOLVED here, because
+	// resolving calls recordedLedger, and in a project that holds records that is a negknow.Open
+	// (log load, reconcile, possibly a tried.bloom rebuild and fsync, refreshAtOpen) on the path
+	// that runs before Run accepts -- the window a hook's SessionStart dial waits on, bounded by
+	// hookConnectDeadlineFloor. The open happens instead on the first resolve after the daemon is
+	// serving: an idle tick's advance_frontier or materialize_pins, a scheduler advance, or a
+	// compaction. The SUPPLIER goes over too: the bound PreCompact seam re-resolves through it at
+	// every compaction, which is what lets the FIRST compaction of a daemon's life trigger the one
+	// lazy ledger open and then seal against it.
+	daemon.BindCheckpoint(opts, opts.Cfg, w, set(), daemon.WithSourceSupplier(sources))
 
-	return checkpointWiring{w: w, sources: sources}
+	return checkpointWiring{w: w, sources: sources, set: set}
 }
 
 // registerCheckpointIdle is the checkpoint layer's Block 2, called immediately after daemon.New:
@@ -249,6 +268,8 @@ func registerCheckpointIdle(d daemon.Daemon, cfg config.Config, cw checkpointWir
 	if noter, ok := sched.(daemon.LocalCheckpointNoter); ok && sched != nil {
 		opts = append(opts, daemon.ReportLocalCheckpointsTo(noter))
 	}
-	src, _ := cw.sources()
-	daemon.WireCheckpoint(d, cfg, cw.w, src, opts...)
+	// set(), not sources(): this runs before Run accepts, and resolving would open the ledger in a
+	// project with records (wireCheckpointSources' phase-1 note). The snapshot is only the frozen
+	// fallback WireCheckpoint uses when no supplier is given, and one always is here.
+	daemon.WireCheckpoint(d, cfg, cw.w, cw.set(), opts...)
 }

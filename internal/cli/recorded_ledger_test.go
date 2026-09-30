@@ -82,3 +82,41 @@ func TestProductionCheckpointSourcesOpenNothingWithoutRecords(t *testing.T) {
 	require.NoFileExists(t, filepath.Join(root, ".qompack", "records", "eliminations.jsonl"))
 	require.NoFileExists(t, filepath.Join(root, ".qompack", "sketches", "tried.bloom"))
 }
+
+// TestCheckpointWiringOpensNoLedgerBeforeRun pins where recordedLedger's open may happen: on the
+// first use of the sources after the daemon is serving (an idle tick, a compaction), never while
+// runDaemon is still wiring. The wiring phases run before Run accepts connections, and a hook's
+// SessionStart dial waits only hookConnectDeadlineFloor for that accept, so an open there (log
+// load, reconcile, bloom rebuild and fsync, refreshAtOpen) would spend the hook's connect budget
+// in any project that holds records. The project here holds one; the phase-1 snapshot, the
+// scheduler wiring, daemon.New and the idle registration must all leave the ledger unopened, and
+// the supplier's first call afterwards is the one that opens it.
+func TestCheckpointWiringOpensNoLedgerBeforeRun(t *testing.T) {
+	root := t.TempDir()
+	require.NoError(t, paths.EnsureLayout(paths.Of(root)))
+	cfg := config.Defaults()
+	cfg.Eliminations.RequireEvidence = false
+
+	prev, err := negknow.Open(root, cfg, nil, negknow.Deps{Session: "sess_prev", Clock: testClock(), Log: logging.Nop()})
+	require.NoError(t, err)
+	_, err = prev.Record(context.Background(), negknow.Record{
+		Target: "src/cache.go", Approach: "drop the cache", Reason: "load-bearing", Scope: negknow.ScopeProject,
+	})
+	require.NoError(t, err)
+	require.NoError(t, prev.Close())
+
+	opts, ckpt := wiredCheckpointOptions(t, root, cfg)
+	require.Nil(t, opts.LedgerHandle(), "wireCheckpointSources' phase-1 snapshot must not open the ledger")
+
+	sched, schedOpts := wireScheduler(opts, nil, ckpt.sources)
+	t.Cleanup(func() { closeScheduler(sched, schedOpts) })
+	d, err := daemon.New(*opts)
+	require.NoError(t, err)
+	registerCheckpointIdle(d, cfg, ckpt, sched)
+	registerSchedulerIdle(d, sched, schedOpts)
+	require.Nil(t, opts.LedgerHandle(), "the idle registrations must not open the ledger")
+
+	src, err := ckpt.sources()
+	require.NoError(t, err, "the first use after wiring opens the ledger over the records")
+	require.Same(t, opts.LedgerHandle(), src.Ledger)
+}
