@@ -108,7 +108,10 @@ func (d *daemon) publicationScanCap() store.PublicationScanCap {
 // ends a paused pass like any other. Before D51 the pass ran unpaced beside the first session; on a
 // store ten times the live run's size (3800 objects in 3961 directories, 700 captures) it took
 // 15.1 s cold and about 4 s warm on the Windows host, and a PutBytes beside it moved from p99 16 ms
-// to 26 ms (plans/sdd/V6-closeout/w15-services/runs/review-pubscan-10x-diagnostic.txt).
+// to 26 ms (plans/sdd/V6-closeout/w15-services/runs/review-pubscan-10x-diagnostic.txt). With one
+// os.Root per pass the same store took 10.1 s for the first pass after the writes (16.2 s before, in
+// the same session) and 0.7-0.9 s warm (3.8-6.0 s before), and a PutBytes beside the yielding pass
+// had the p99 of one alone (plans/sdd/V6-closeout/w15c-pubscan/runs/pubscan-10x-before-after.txt).
 func (d *daemon) accountPublicationAtStartup(runCtx context.Context) {
 	auditor, ok := d.svc.Store.(store.PublicationAuditor)
 	if !ok {
