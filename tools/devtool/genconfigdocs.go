@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/qompack/qompack/internal/config"
+	"github.com/qompack/qompack/internal/daemon"
 )
 
 // configDocPath is the generated reference, relative to the repository root. §11.4 requires it to
@@ -193,19 +194,89 @@ var originMeanings = map[config.Origin]string{
 	config.OriginFlag:        "set by a `--set <dotted.key>=<value>` flag",
 }
 
-// writeConfigMetadata appends the four metadata sections: where a value came from, which blocks
-// carry their own schema version, which switches ship off behind a gate, and which keys are still
-// read but no longer mean what they used to.
+// writeConfigMetadata appends the five metadata sections: where a value came from, which blocks
+// carry their own schema version, which switches ship off behind a gate, which keys are still read
+// but no longer mean what they used to, and what a running daemon's reload does with each key.
 //
-// Every row is rendered from internal/config — Origin, config.VersionedSections,
-// config.MigrationGates, config.MigrationBuildGates and config.RetiredMeaningKeys — so this
-// generator holds no config key of its own and the page cannot describe a build it was not
-// generated from.
+// Every row is rendered from the shipped code — Origin, config.VersionedSections,
+// config.MigrationGates, config.MigrationBuildGates, config.RetiredMeaningKeys and
+// daemon.ReloadKeyClasses — so this generator holds no config key of its own and the page cannot
+// describe a build it was not generated from.
 func writeConfigMetadata(b *strings.Builder) {
 	writeOriginSection(b)
 	writeVersionedSection(b)
 	writeGateSection(b)
 	writeRetiredSection(b)
+	writeReloadSection(b)
+}
+
+// reloadEffectOrder is the order the reload section lists its four groups in, and the one-line
+// gloss each group opens with. Keyed by daemon.ReloadEffect, so an effect the daemon adds renders no
+// group until it is given one here, and TestGenConfigDocs_ReloadSectionListsEveryClassifiedKey fails
+// until then.
+var reloadEffectOrder = []struct {
+	effect daemon.ReloadEffect
+	gloss  string
+}{
+	{daemon.ReloadTakesEffect, "Every reader in the running daemon reads these keys at its next use. " +
+		"The reload lists them in its `config reloaded` line and in `admin.reload`'s `" +
+		daemon.AdminReloadChanged + "`."},
+	{daemon.ReloadReadWhenRun, "The hook or command that reads these keys loads the configuration each " +
+		"time it runs, so its next run uses the new value, and any reader in the daemon reads the live " +
+		"configuration. The reload applies them and lists them as changed."},
+	{daemon.ReloadNeedsRestart, "Something the daemon built when it started holds these keys. The reload " +
+		"keeps the value the daemon started with, leaves the key out of `" + daemon.AdminReloadChanged +
+		"`, names it in the LOUD line above and in `admin.reload`'s `" + daemon.AdminReloadRestartRequired +
+		"`; the next daemon applies it."},
+	{daemon.ReloadNoEffect, "Nothing in this build reads these keys, before or after a restart. The " +
+		"reload keeps the value in effect, leaves the key out of `" + daemon.AdminReloadChanged +
+		"`, names it in the LOUD line above and in `admin.reload`'s `" + daemon.AdminReloadNoEffect + "`."},
+}
+
+// writeReloadSection renders what a running daemon's config reload does with each key, one group per
+// daemon.ReloadEffect, from daemon.ReloadKeyClasses.
+func writeReloadSection(b *strings.Builder) {
+	b.WriteString("## Reloading the configuration\n\n")
+	b.WriteString("A running daemon reloads the configuration when the project's `.qompack/config.json` changes\n")
+	b.WriteString("(its size or modification time), which it checks at every session start and on its idle tick;\n")
+	b.WriteString("the daemon's `admin.reload` request reloads unconditionally. The hooks and commands load the\n")
+	b.WriteString("configuration themselves each time they run. What the reload does with a changed key depends on\n")
+	b.WriteString("the key, and every key it reports as changed is in effect when it returns. A changed key that\n")
+	b.WriteString("needs a restart is named, in its `keys` field, by this line in `LOUD.log`:\n\n")
+	fmt.Fprintf(b, "    %s\n\n", daemon.LoudReloadNeedsRestart)
+	b.WriteString("and a changed key that has no effect in this build by this one:\n\n")
+	fmt.Fprintf(b, "    %s\n\n", daemon.LoudReloadNoEffect)
+	fmt.Fprintf(b, "`admin.reload` answers with three lists of keys: `%s`, `%s` and `%s`.\n",
+		daemon.AdminReloadChanged, daemon.AdminReloadRestartRequired, daemon.AdminReloadNoEffect)
+	b.WriteString("To restart the daemon, let it exit when idle (`runtime.daemon.idleExitSeconds`); the next hook\n")
+	b.WriteString("starts a new one, which loads the whole configuration\n")
+	b.WriteString("([troubleshooting §7](troubleshooting.md#7-daemon-problems)).\n\n")
+	b.WriteString("A row names one key or every key under it, and the longest matching row decides, so\n")
+	b.WriteString("`runtime.migration.reinjection.sessionStartCompact` takes effect on reload while the rest of\n")
+	b.WriteString("`runtime.migration` needs a restart. A key no row covers is held until a restart.\n\n")
+
+	classes := daemon.ReloadKeyClasses()
+	for _, group := range reloadEffectOrder {
+		var rows []daemon.ReloadKeyClass
+		for _, c := range classes {
+			if c.Effect == group.effect {
+				rows = append(rows, c)
+			}
+		}
+		if len(rows) == 0 {
+			continue
+		}
+		sort.Slice(rows, func(i, j int) bool { return rows[i].Prefix < rows[j].Prefix })
+		title := string(group.effect)
+		fmt.Fprintf(b, "### %s%s\n\n", strings.ToUpper(title[:1]), title[1:])
+		b.WriteString(group.gloss + "\n\n")
+		b.WriteString("| Key | Read by |\n")
+		b.WriteString("|---|---|\n")
+		for _, r := range rows {
+			fmt.Fprintf(b, "| `%s` | %s |\n", escapePipes(r.Prefix), escapePipes(r.Why))
+		}
+		b.WriteString("\n")
+	}
 }
 
 // writeOriginSection renders one row per Origin, ascending from OriginDefault. The enum bounds
