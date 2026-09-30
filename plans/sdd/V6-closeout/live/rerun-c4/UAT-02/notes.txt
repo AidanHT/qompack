@@ -3,7 +3,7 @@ every hook event captured, index counts vs the host, `qompack status`, `doctor -
 session with MCP calls). Agent-executed on the owner's real host per owner decision D3 by a Claude Code workflow subagent
 (Opus 5.5) — not human UAT.
 
-Date 2026-09-29 21:23-22:10 America/Toronto. Sessions used: 1 (session/, sessions-c4 n=3, 93 s). Model
+Date 2026-09-29 21:23-22:58 America/Toronto. Sessions used: 1 (session/, sessions-c4 n=3, 93 s). Model
 claude-haiku-4-5-20251001, Claude Code 2.1.280, Windows 11 Home 25H2 build 10.0.26200.9457, frozen bundle 0.3.0
 (BUNDLE.json sha256 aa7da0e1...558d, bin sha256 1e9d0cc8...c358, commit 9f6a2fad) via --plugin-dir (init: plugin
 qompack 0.3.0 qompack@inline, plugin:qompack:qompack connected, 8 tools, six /qompack: commands, no
@@ -87,7 +87,7 @@ C4.2 (c42-counts.json, cli/07-transcript-facts.json, hooks.json):
     first: doctor --json exit 0, no degraded row; fsck --json and fsck --json --seal-check exit 0, daemon_running
     false ("no daemon holds the lock; this project is quiet"), every row ok (index.segments ok: no idle encode naming
     an unwritten checkpoint, candidate 3's F-UAT02-4); status last ("source: disk ...", no failing row; it asked a
-    daemon to start again, which later idled out or was stopped as recorded in guard/sessions.txt).
+    daemon to start again, which idled out at 22:57:59).
   C4.2 therefore holds: every hook event captured, counts match, status/doctor/fsck clean after a session with MCP
   calls, live and stopped (candidate 3: fsck exit 1 on turn-0 MCP records, doctor over-counting capture gaps).
 

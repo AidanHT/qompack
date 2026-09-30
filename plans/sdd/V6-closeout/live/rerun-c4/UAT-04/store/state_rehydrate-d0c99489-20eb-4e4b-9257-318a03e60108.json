@@ -1,0 +1,64 @@
+{
+  "session": "d0c99489-20eb-4e4b-9257-318a03e60108",
+  "seq": 16,
+  "emitted": 1790732148674,
+  "tokens": 599,
+  "budget": 12000,
+  "items": [
+    {
+      "kind": "user_intent",
+      "rank": 0,
+      "tokens": 238,
+      "truncated": true,
+      "units": 4,
+      "units_seen": 8
+    },
+    {
+      "kind": "pointers",
+      "rank": 1,
+      "tokens": 72,
+      "truncated": false,
+      "units": 1,
+      "units_seen": 1
+    },
+    {
+      "kind": "drop_report",
+      "rank": 2,
+      "tokens": 203,
+      "truncated": false,
+      "units": 4,
+      "units_seen": 4
+    },
+    {
+      "kind": "affordance",
+      "rank": 3,
+      "tokens": 86,
+      "truncated": false,
+      "units": 1,
+      "units_seen": 1
+    }
+  ],
+  "dropped": [
+    {
+      "kind": "user_intent",
+      "id": "tier1",
+      "detail": "OVERFLOW: the verbatim original user intent did not fit the rehydration payload and is emitted whole or not at all; restore: expand(tool_use_id=prompt_d0c99489-20eb-4e4b-9257-318a03e60108_0)"
+    },
+    {
+      "kind": "user_intent_evolution",
+      "id": "2",
+      "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0016.json (user_intent.evolution[2])"
+    },
+    {
+      "kind": "user_intent_evolution",
+      "id": "1",
+      "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0016.json (user_intent.evolution[1])"
+    },
+    {
+      "kind": "user_intent_evolution",
+      "id": "0",
+      "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0016.json (user_intent.evolution[0])"
+    }
+  ],
+  "degraded": true
+}

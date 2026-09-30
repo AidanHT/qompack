@@ -1,0 +1,6 @@
+{"v":1,"op":"open","id":1,"s":"042dfca0-5f24-464a-95c1-643603b4e13d","st":0,"sts":1790732411584}
+{"v":1,"op":"close","id":1,"et":9,"ets":1790732434096,"tok":445,"feat":{"gap_seconds":0,"lexical_cohesion":0,"path_jaccard":0,"prob_changepoint":0.001328218752007548,"todo_transition":0,"tool_shift":0}}
+{"v":1,"op":"open","id":2,"s":"042dfca0-5f24-464a-95c1-643603b4e13d","st":10,"sts":1790732434097}
+{"v":1,"op":"encode","id":1,"seq":1,"ts":1790732434135}
+{"v":1,"op":"close","id":2,"et":15,"ets":1790732466259,"tok":236}
+{"v":1,"op":"open","id":3,"s":"042dfca0-5f24-464a-95c1-643603b4e13d","st":9,"sts":1790732502222}

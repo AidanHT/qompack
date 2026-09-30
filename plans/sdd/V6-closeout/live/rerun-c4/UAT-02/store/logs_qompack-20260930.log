@@ -1,0 +1,8 @@
+ts=2026-09-30T01:23:45.7098196Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-09-30T01:23:51.4503433Z level=info msg="observer: session registered" session=ab01bf84-7951-44ec-85e7-62adae04c127 source=startup turn=0 segment=1
+ts=2026-09-30T01:23:51.4508719Z level=info msg="scheduler: session bound" session=ab01bf84-7951-44ec-85e7-62adae04c127 effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+ts=2026-09-30T01:25:23.1999209Z level=info msg="observer: gc" scanned=85 deleted=0 freed=0 truncated=false
+ts=2026-09-30T01:56:07.2720626Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-09-30T01:56:37.42252Z level=warn msg="checkpoint: no usable source set; the frontier is not advancing" err="checkpoint: SourceSet.Ledger is nil: its accessor resolved to no ledger: qompack: running in degraded mode"
+ts=2026-09-30T02:26:56.2308128Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-09-30T02:27:26.4413512Z level=warn msg="checkpoint: no usable source set; the frontier is not advancing" err="checkpoint: SourceSet.Ledger is nil: its accessor resolved to no ledger: qompack: running in degraded mode"

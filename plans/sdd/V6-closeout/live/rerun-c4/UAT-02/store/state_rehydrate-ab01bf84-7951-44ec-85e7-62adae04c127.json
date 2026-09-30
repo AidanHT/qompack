@@ -1,0 +1,77 @@
+{
+  "session": "ab01bf84-7951-44ec-85e7-62adae04c127",
+  "seq": 1,
+  "emitted": 1790731517511,
+  "tokens": 1596,
+  "budget": 12000,
+  "items": [
+    {
+      "kind": "user_intent",
+      "rank": 0,
+      "tokens": 289,
+      "truncated": true,
+      "units": 3,
+      "units_seen": 8
+    },
+    {
+      "kind": "current_work",
+      "rank": 1,
+      "tokens": 56,
+      "truncated": false,
+      "units": 1,
+      "units_seen": 1
+    },
+    {
+      "kind": "pointers",
+      "rank": 2,
+      "tokens": 935,
+      "truncated": false,
+      "units": 19,
+      "units_seen": 19
+    },
+    {
+      "kind": "drop_report",
+      "rank": 3,
+      "tokens": 230,
+      "truncated": false,
+      "units": 5,
+      "units_seen": 5
+    },
+    {
+      "kind": "affordance",
+      "rank": 4,
+      "tokens": 86,
+      "truncated": false,
+      "units": 1,
+      "units_seen": 1
+    }
+  ],
+  "dropped": [
+    {
+      "kind": "user_intent_evolution",
+      "id": "4",
+      "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[4])"
+    },
+    {
+      "kind": "user_intent_evolution",
+      "id": "3",
+      "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[3])"
+    },
+    {
+      "kind": "user_intent_evolution",
+      "id": "2",
+      "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[2])"
+    },
+    {
+      "kind": "user_intent_evolution",
+      "id": "1",
+      "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[1])"
+    },
+    {
+      "kind": "user_intent_evolution",
+      "id": "0",
+      "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[0])"
+    }
+  ],
+  "degraded": false
+}

@@ -4,7 +4,7 @@ visible) and the pin, fsck must not report a stale pins view; then the tiny-budg
 Agent-executed on the owner's real host per owner decision D3 by a Claude Code workflow subagent (Opus 5.5) — not human
 UAT.
 
-Date 2026-09-29 21:40-22:21 America/Toronto. Sessions used: 1 (run1-session/, sessions-c4 n=6, 56 s). Step 5 was run
+Date 2026-09-29 21:40-23:20 America/Toronto. Sessions used: 1 (run1-session/, sessions-c4 n=6, 56 s). Step 5 was run
 WITHOUT a second model session (the part's budget lost one session to a lane error, sessions.tsv n=5): the row allows
 the repeat "on a hook invocation", so the hook entry point `qompack session-start` was run by hand with a SessionStart
 source=compact payload for run 1's session. Model claude-haiku-4-5-20251001, Claude Code 2.1.280, Windows 11 Home 25H2
@@ -67,7 +67,8 @@ Findings:
    tier 1 admits item 8 first so every overflow pointer is backed by it.
  O-UAT05-4: a hand-run SessionStart(compact) for an ended session re-opens it: the daemon ended it at 22:12 as
    "abandoned; no SessionEnd arrived" (silentMs 1815423) and then kept running past its idle exit (a hand-probe artefact,
-   not a host flow).
+   not a host flow). The run-2 daemon the hand hook started behaved the same (abandoned at 22:49:59) and ended by its
+   default idle exit at 23:20:09, the "up to twice the setting" troubleshooting describes.
 
 Result: pass. Rollback: initial state absent (recorded); the post-run store is retained; no backup or restore was run;
 cross-version and activation checks unverified. Guard: guard/sessions.txt ("session 6 UAT-05 run 1").

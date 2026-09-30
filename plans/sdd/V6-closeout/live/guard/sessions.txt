@@ -250,3 +250,17 @@ same  plugins/data/ (2 entries)
 INFO  .qompack/ gained ['bin/', 'bin/1e9d0cc84597bf719955e268ef2e0c990352eb964559116a6612a012f1e5c358/'] (run-created; record, remove only if yours)
 real home fingerprint unchanged
 check exit 0
+== staged-copy cleanup (sessions-c4 part end): no qompack.exe running (tasklist); ~/.qompack/bin/1e9d0cc8.../qompack.exe sha256 =
+the frozen c4 bundle bin/qompack.exe (1e9d0cc84597bf719955e268ef2e0c990352eb964559116a6612a012f1e5c358); homeguard listed it as gained;
+removed with install.md section 6 `Remove-Item -Recurse -Force $HOME\.qompack\bin`, then the empty run-created ~/.qompack (absent at snap).
+Every daemon of this part ended by its default idle exit except the UAT-05 run-1 daemon, terminated for step 5 (UAT-05 notes).
+== END of sessions-c4 part (after staged-copy cleanup) — 2026-09-29 23:20:59 Eastern Daylight Time
+same  settings.json e15855d7e46a
+same  plugins/installed_plugins.json 728f75591291
+same  plugins/known_marketplaces.json 1b1eda7e17f0
+same  plugins/cache/ (10 entries)
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+same  .qompack/ (0 entries)
+real home fingerprint unchanged
+check exit 0

@@ -1,0 +1,2 @@
+ts=2026-09-30T02:19:59.7067143Z level=loud msg="daemon: publication accounting incomplete; a zero gap count is only a lower bound" captures_scanned=14 objects_scanned=0 truncated=false notes="scan interrupted before it finished; publication accounting did not finish"
+ts=2026-09-30T02:19:59.7679993Z level=loud msg="rehydrate: tier-1 material exceeds the hard budget cap" budget=150 spent=87 ceiling_chars=9400 spent_chars=240
