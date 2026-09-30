@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"maps"
 	"os"
 	"path/filepath"
@@ -125,6 +126,29 @@ type logLine struct {
 // logPath is <root>/.qompack/records/eliminations.jsonl.
 func logPath(root string) string {
 	return filepath.Join(paths.Of(root).Records, logFileName)
+}
+
+// HasRecords reports whether the project at root holds any elimination on disk: whether
+// records/eliminations.jsonl exists with at least one byte in it. A project with no log, or with the
+// empty one a ledger that recorded nothing leaves behind, has no negative knowledge for a reader to
+// miss, which is what lets a consumer proceed before any ledger has been opened (coordinator
+// decision D49: no ledger yet is not an error). It opens nothing and creates nothing.
+//
+// Any failure other than the log's absence answers true with the error: a log this cannot stat
+// may hold records, and the caller's safe reading of "unknown" is "there may be something to miss".
+func HasRecords(root string) (bool, error) {
+	fi, err := os.Stat(paths.Long(logPath(root)))
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
+		return false, nil
+	case err != nil:
+		return true, fmt.Errorf("negknow: stat %s: %w", logPath(root), err)
+	case !fi.Mode().IsRegular():
+		// Not a log a ledger could read (a directory in its place is blind mode's reachable form):
+		// what it stands for is unknown, so it is not "nothing to miss".
+		return true, fmt.Errorf("negknow: %s is not a regular file", logPath(root))
+	}
+	return fi.Size() > 0, nil
 }
 
 // openLog opens the elimination log for appending, creating the records directory if this is the

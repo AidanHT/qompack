@@ -366,8 +366,14 @@ func (w *FileWriter) Begin(ctx context.Context, s core.SessionID, parent core.Ch
 	// rather than left for a nil dereference several frames down. Resolve reports an accessor that
 	// answers nil the same way a nil field is reported, by name.
 	src, err := src.Resolve()
+	cold := src
 	if err != nil {
-		return nil, err
+		// The frontier's allowance (D49): no ledger yet is not an error while the project holds
+		// no elimination record. The admitted set reads the ledger late (deferredLedger); the cold
+		// paths keep the set as it was handed in, never the stand-in.
+		if src, err = admitNoLedger(ctx, src, err, w.root); err != nil {
+			return nil, err
+		}
 	}
 	if err := checkSessionComponent(s); err != nil {
 		return nil, err
@@ -383,7 +389,7 @@ func (w *FileWriter) Begin(ctx context.Context, s core.SessionID, parent core.Ch
 	handed := w.takeHandoff(s)
 
 	w.mu.Lock()
-	w.lastSrc = src
+	w.lastSrc = cold
 	live := w.drafts[s]
 	w.mu.Unlock()
 

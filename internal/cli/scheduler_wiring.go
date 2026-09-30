@@ -131,14 +131,15 @@ type checkpointWiring struct {
 // that never compacts, and §3.3 reserves that file for the ledger itself) and assigns the handle
 // back onto the SAME *daemon.Options this closure captures. So the closure calls
 // opts.LedgerHandle on every call, exactly as LedgerFn does one layer up — the synchronized read
-// of a publication that happens on another goroutine. It never opens a ledger, never owns
-// one, and never creates an unused one; the lifecycle stays where SP-19 M0-02 put it, including
-// runDaemon's existing shutdown defer, which is the only thing that closes it.
+// of a publication that happens on another goroutine. It never owns a ledger and never creates an
+// unused one: it opens one, through the daemon's shared opener, only in a project that already
+// holds elimination records (recordedLedger, D49). The lifecycle stays where SP-19 M0-02 put it,
+// including runDaemon's existing shutdown defer, which is the only thing that closes it.
 //
-// Until that first compaction the supplier returns its PARTIAL set together with a reason wrapping
-// core.ErrDegraded. That is the unavailable route, and it is deliberately reported rather than
-// hidden: the frontier advances nothing and says why, while materialize_pins — which needs the pin
-// log and nothing else — still runs off the partial set.
+// Until a ledger is open the supplier returns its PARTIAL set together with a reason wrapping
+// core.ErrDegraded (checkpoint.ErrNoLedger). materialize_pins, which needs the pin log and nothing
+// else, runs off the partial set; so does the frontier, which begins its drafts without negative
+// knowledge while the project holds none (D49), and says why it advances nothing otherwise.
 //
 // The three collaborators that have no instance anywhere else on the daemon path are constructed
 // here and are safe to construct here, for the reason installMCPTools states about its own three:
@@ -186,12 +187,13 @@ func wireCheckpointSources(opts *daemon.Options) checkpointWiring {
 			// Resolved now — nil until the first compaction opens it. See the note above.
 			Ledger: opts.LedgerHandle(),
 			// ... and the ACCESSOR onto that same field, so a set published before the open is a
-			// wired seam rather than a rejected one. It is liveLedger, the accessor the MCP tools
-			// are already wired with: it reads the field on every call and opens nothing. Without
-			// it SourceSet.Validate refused every set this supplier built before the first
-			// compaction, SetSources dropped them, and the first PreCompact of the daemon's life
-			// sealed nothing at all.
-			LedgerFn: liveLedger(opts),
+			// wired seam rather than a rejected one. Without it SourceSet.Validate refused every
+			// set this supplier built before the first compaction, SetSources dropped them, and
+			// the first PreCompact of the daemon's life sealed nothing at all. It is
+			// recordedLedger (D49): it reads the field on every call and opens nothing in a
+			// project with no elimination record, while a project that already holds records has
+			// the ledger opened through the shared opener, so its frontier reads them.
+			LedgerFn: recordedLedger(opts),
 			Pins:     pinStore,
 			Graph:    opts.Graph,
 			Grammar:  gram,
@@ -218,8 +220,9 @@ func wireCheckpointSources(opts *daemon.Options) checkpointWiring {
 	// every nil check downstream and fault inside Advance instead.
 	opts.Checkpoints = w
 
-	// Phase 1, before New. The snapshot handed over here still has no ledger HANDLE -- nothing has
-	// opened one yet -- but it does carry the accessor, so SetSources accepts it and the writer's
+	// Phase 1, before New. The snapshot handed over here has no ledger HANDLE in a project with no
+	// elimination record -- nothing has opened one yet -- but it does carry the accessor (in a
+	// project with records, this call is what opens the ledger; see recordedLedger), so SetSources accepts it and the writer's
 	// cold path is usable from this moment on. The SUPPLIER goes over too: the bound PreCompact
 	// seam re-resolves through it at every compaction, which is what lets the FIRST compaction of a
 	// daemon's life trigger the one lazy ledger open and then seal against it.
