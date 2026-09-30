@@ -1,0 +1,9 @@
+--- FAIL: TestAdvanceFrontierTask_AdvancesBeforeAnyLedgerExists (0.04s)
+    noledger_frontier_test.go:52: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-ledger/internal/daemon/noledger_frontier_test.go:52
+        	Error:      	unable to find file "C:\\Users\\Quant\\AppData\\Local\\Temp\\TestAdvanceFrontierTask_AdvancesBeforeAnyLedgerExists1404872905\\001\\project\\.qompack\\state\\draft-sess_wire_checkpoint.json"
+        	Test:       	TestAdvanceFrontierTask_AdvancesBeforeAnyLedgerExists
+        	Messages:   	the frontier begins its draft without a ledger
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	0.366s
+FAIL

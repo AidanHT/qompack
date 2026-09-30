@@ -1,0 +1,18 @@
+=== RUN   TestRebuildBloom_CoversActiveAndStaleRecords
+--- PASS: TestRebuildBloom_CoversActiveAndStaleRecords (0.09s)
+=== RUN   TestQuery_StaleRecordAnswersStaleAfterRestart
+--- PASS: TestQuery_StaleRecordAnswersStaleAfterRestart (0.04s)
+=== RUN   TestQuery_StaleRecordIsUncertainAfterRestartUnderDrop
+--- PASS: TestQuery_StaleRecordIsUncertainAfterRestartUnderDrop (0.03s)
+=== RUN   TestQuery_StaleRecordAnswersStaleAfterColdOpen
+--- PASS: TestQuery_StaleRecordAnswersStaleAfterColdOpen (0.02s)
+=== RUN   TestQuery_StaleRecordAnswersStaleAfterIdleRebuild
+--- PASS: TestQuery_StaleRecordAnswersStaleAfterIdleRebuild (0.04s)
+=== RUN   TestQuery_StaleRecordAnswersStaleAfterImmediateRebuild
+--- PASS: TestQuery_StaleRecordAnswersStaleAfterImmediateRebuild (0.02s)
+=== RUN   TestReconcile_RebuildsAFilterMissingAStaleRecord
+--- PASS: TestReconcile_RebuildsAFilterMissingAStaleRecord (0.02s)
+=== RUN   TestThreeWayAnswerFixture_ColdOpen
+--- PASS: TestThreeWayAnswerFixture_ColdOpen (0.03s)
+PASS
+ok  	github.com/qompack/qompack/internal/negknow	0.544s

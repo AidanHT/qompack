@@ -1,0 +1,11 @@
+# review minor 2 (cold-draft decision carry) RED: go test ./internal/checkpoint -run '^TestColdDraftCarriesDecisionsPastAnotherSessionsSeal$' -count=1 -p 2
+# at 2c60aafd + the new test only
+--- FAIL: TestColdDraftCarriesDecisionsPastAnotherSessionsSeal (0.27s)
+    decisions_carry_test.go:160: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-ledger/internal/checkpoint/decisions_carry_test.go:160
+        	Error:      	"[]" should have 1 item(s), but has 0
+        	Test:       	TestColdDraftCarriesDecisionsPastAnotherSessionsSeal
+        	Messages:   	the decision holds past another session's seal: [{ID:dec_8351d77688eb What:keep the limiter in-process Why:a shared store adds a network hop AlternativesRejected:[] Evidence:sha256:0000000000000000000000000000000000000000000000000000000000000000 Turn:13}]
+FAIL
+FAIL	github.com/qompack/qompack/internal/checkpoint	0.552s
+FAIL

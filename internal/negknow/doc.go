@@ -1,7 +1,7 @@
 // Package negknow implements the L2 negative-knowledge seam of 00-ARCHITECTURE.md §5.10: the
 // evidence-linked elimination ledger, canonical descriptors, staleness detection against the
 // store's file version history, and the tried.bloom membership cache the ledger rebuilds — never
-// regenerates from a checkpoint or a summary — from active records only.
+// regenerates from a checkpoint or a summary — from the records themselves.
 //
 // # What it is for
 //
@@ -37,6 +37,12 @@
 // The earlier claim that Bloom false positives are "the safe direction" is scoped by those rules:
 // it holds only while evidence is current.
 //
+// Rule 3's "rebuilt from active records only" is superseded by coordinator decision D49 of the V6
+// close-out: a record goes stale, never absent. A filter that dropped a stale record's keys made
+// Query answer absent for it after the next rebuild or daemon restart, so rule 4's stale answer
+// was reachable only until then (finding R4-1 of the candidate 4 live re-run). The filter covers
+// every record that exists, active and stale; the record lookup, not the filter, tells them apart.
+//
 // # Invariant 3 — the bloom filter is a cache, never the source of truth
 //
 // 00-ARCHITECTURE.md §13 invariant 3, verbatim: "The bloom filter is a cache, never the source of
@@ -45,7 +51,7 @@
 //
 // Two mechanical consequences bind every file in this package. records/eliminations.jsonl is
 // written only through paths.AppendOnly, and sketches/tried.bloom is replaced only by a rebuild
-// whose input is that log filtered to status:"active" — never a checkpoint, never a summary,
+// whose input is that log's records, active and stale (D49) — never a checkpoint, never a summary,
 // never context (§3.3). And no code path may return an answer of active or stale without a
 // materialized record: a bloom hit alone is either flagged BloomOnly or is not an answer.
 //

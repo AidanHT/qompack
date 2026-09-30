@@ -1,0 +1,17 @@
+# review fixes GREEN (Windows, -p 2, loaded machine: four seats running)
+go test ./internal/cli -run '^TestCheckpointWiringOpensNoLedgerBeforeRun$' -count=1 -p 2 -v
+--- PASS: TestCheckpointWiringOpensNoLedgerBeforeRun (0.10s)
+ok  	github.com/qompack/qompack/internal/cli	0.406s
+go test ./internal/cli -run '^TestFsck_AbsentFilterWithOnlyStaleRecordsIsADefect$' -count=1 -p 2 -v
+--- PASS: TestFsck_AbsentFilterWithOnlyStaleRecordsIsADefect (0.32s)
+ok  	github.com/qompack/qompack/internal/cli	0.655s
+go test ./internal/checkpoint -run '^TestColdDraftCarriesDecisionsPastAnotherSessionsSeal$' -count=1 -p 2 -v
+--- PASS: TestColdDraftCarriesDecisionsPastAnotherSessionsSeal (0.39s)
+ok  	github.com/qompack/qompack/internal/checkpoint	0.724s
+# full packages, once each:
+go test ./internal/checkpoint -count=1 -p 2 -timeout=30m
+ok  	github.com/qompack/qompack/internal/checkpoint	66.256s
+go test ./internal/cli -count=1 -p 2 -timeout=30m
+ok  	github.com/qompack/qompack/internal/cli	75.033s
+go test ./test/docs -count=1 -p 2
+ok  	github.com/qompack/qompack/test/docs	2.441s
