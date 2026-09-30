@@ -228,3 +228,51 @@ func TestStandingOf_CountsOnlyObservationsAsHolding(t *testing.T) {
 		require.Equal(t, tc.want, contract.StandingOf(tc.r), "%+v", tc.r)
 	}
 }
+
+// TestRefreshFromHistory_SpentChancesTurnThePendingProbeRowFailing: history.json can also record the
+// probe's failure. Once the session's prompts have missed it twice, the check reads "not found after
+// two chances" at critical severity, and a status page that kept calling the row pending would
+// contradict what history.json already knows. A single miss is still pending.
+func TestRefreshFromHistory_SpentChancesTurnThePendingProbeRowFailing(t *testing.T) {
+	declareAll(t)
+
+	once := &contract.SessionHistory{}
+	once.Sentinel.Chances = 1
+	require.Equal(t, startSnapshot(), contract.RefreshFromHistory(startSnapshot(), once, newFakeClock()),
+		"one missed chance is still a row waiting for its observation")
+
+	spent := &contract.SessionHistory{}
+	spent.Sentinel.Chances = 2
+	got := contract.RefreshFromHistory(startSnapshot(), spent, newFakeClock())
+
+	row := rowOf(t, got, contract.CAdditionalContext)
+	require.False(t, row.OK)
+	require.Equal(t, contract.StandingFailing, contract.StandingOf(row))
+	require.Equal(t, "sentinel not found after two chances", row.Observed)
+	require.Equal(t, contract.SevCritical, row.Severity, "the assertion's declared severity, as a start reports it")
+	require.Equal(t, "additionalContext reaches the transcript", row.Expected)
+	require.Greater(t, int64(row.TS), int64(1), "the refreshed row is dated when it was read")
+	require.Contains(t, row.Detail, "state/history.json", "the row says where the failure was read")
+	require.Contains(t, row.Detail, "next SessionStart", "the row says the mode is not changed by the read")
+	require.Equal(t, "initialize-pending", rowOf(t, got, contract.CMCPRegistered).Observed,
+		"a history without the handshake leaves the MCP row pending")
+}
+
+// TestRefreshObservation_SpentChancesReadAsAFailedInjection is the same for doctor: a pending
+// injection entry whose probe history.json records as missed twice reads as a failed observation,
+// which supports no coverage claim.
+func TestRefreshObservation_SpentChancesReadAsAFailedInjection(t *testing.T) {
+	t.Parallel()
+
+	stale := ledgerEntry(t, contract.CAdditionalContext, "not-yet-observed")
+	h := &contract.SessionHistory{}
+	h.Sentinel.Chances = 2
+
+	got, changed := contract.RefreshObservation(stale, h, contract.DefaultCapabilityRegister(), newFakeClock())
+	require.True(t, changed)
+	require.Equal(t, contract.OutcomeFailed, got.Outcome)
+	require.Equal(t, "sentinel not found after two chances", got.Observed)
+	require.Equal(t, contract.CoverageNone, got.Coverage)
+	require.Equal(t, stale.Target, got.Target)
+	require.Equal(t, stale.Scope, got.Scope)
+}
