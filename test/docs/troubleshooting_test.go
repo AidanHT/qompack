@@ -151,13 +151,15 @@ func TestTroubleshootingNamesEveryContractAssertion(t *testing.T) {
 	}
 }
 
-// configReferenceSectionLinks are the three compatibility sections Commit 2's generator emits.
-// The page must send a reader to the generated page rather than restate a table that would drift
-// from it; TestRelativeLinksResolve then proves each anchor still exists.
+// configReferenceSectionLinks are the three compatibility sections Commit 2's generator emits, and
+// the reload section it gained with V6 close-out D51. The page must send a reader to the generated
+// page rather than restate a table that would drift from it; TestRelativeLinksResolve then proves
+// each anchor still exists.
 var configReferenceSectionLinks = []string{
 	"config-reference.md#versioned-blocks",
 	"config-reference.md#gated-switches-ship-off",
 	"config-reference.md#retired-meaning-keys",
+	"config-reference.md#reloading-the-configuration",
 }
 
 // TestTroubleshootingLinksConfigReferenceSections fails if the configuration section stops
@@ -169,6 +171,63 @@ func TestTroubleshootingLinksConfigReferenceSections(t *testing.T) {
 	for _, want := range configReferenceSectionLinks {
 		if !strings.Contains(body, "("+want+")") {
 			t.Errorf("%s: does not link %s", troubleshootingRel, want)
+		}
+	}
+}
+
+// reloadKeyRowRe matches one row of internal/daemon/reload_keys.go's reloadKeyEffects and captures
+// its key prefix and effect:
+//
+//	{"runtime.telemetry", effectInert, "hardwired off; Validate refuses true"},
+var reloadKeyRowRe = regexp.MustCompile(`^\s*\{"([A-Za-z0-9.]+)", (effect[A-Za-z]+),`)
+
+// reloadNoEffectSection is the heading of the page's entry for a config change that did not take
+// effect, the one place it names the keys that have no effect in this build.
+const reloadNoEffectSection = "### A config change that did not take effect"
+
+// TestTroubleshootingNamesExactlyTheNoEffectReloadKeys ties the page's list of keys with no effect in
+// this build (V6 close-out D51) to the daemon's reload table, in both directions: every key
+// reload_keys.go classifies effectInert is named in a code span in that entry, and no key the table
+// gives another effect is. A key that gains a reader, or one that loses its last, fails here until
+// the page says so.
+func TestTroubleshootingNamesExactlyTheNoEffectReloadKeys(t *testing.T) {
+	effects := map[string]string{}
+	for _, l := range sourceLines(t, "internal/daemon/reload_keys.go") {
+		if m := reloadKeyRowRe.FindStringSubmatch(l); m != nil {
+			effects[m[1]] = m[2]
+		}
+	}
+	if len(effects) == 0 {
+		t.Fatal("internal/daemon/reload_keys.go: no reloadKeyEffects rows matched: the declaration shape changed")
+	}
+
+	var section []string
+	in := false
+	for _, l := range defenced(t, troubleshootingPath(t)) {
+		if text, level, ok := headingText(l); ok {
+			if in && level <= 3 {
+				break
+			}
+			in = "### "+text == reloadNoEffectSection
+			continue
+		}
+		if in {
+			section = append(section, l)
+		}
+	}
+	if len(section) == 0 {
+		t.Fatalf("%s: no %q entry", troubleshootingRel, reloadNoEffectSection)
+	}
+
+	for key, effect := range effects {
+		named := codeSpan(section, key)
+		switch {
+		case effect == "effectInert" && !named:
+			t.Errorf("%s: %q does not name %s, which has no effect in this build", troubleshootingRel,
+				reloadNoEffectSection, key)
+		case effect != "effectInert" && named:
+			t.Errorf("%s: %q names %s as having no effect, but reload_keys.go gives it %s",
+				troubleshootingRel, reloadNoEffectSection, key, effect)
 		}
 	}
 }
