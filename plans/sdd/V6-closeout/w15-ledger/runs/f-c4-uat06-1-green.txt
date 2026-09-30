@@ -1,0 +1,26 @@
+=== RUN   TestQuery_ForkSeesItsParentsEliminationsUpToTheForkPoint
+--- PASS: TestQuery_ForkSeesItsParentsEliminationsUpToTheForkPoint (0.03s)
+PASS
+ok  	github.com/qompack/qompack/internal/negknow	0.288s
+=== RUN   TestActive_ForkListsItsParentsEliminationsUpToTheForkPoint
+--- PASS: TestActive_ForkListsItsParentsEliminationsUpToTheForkPoint (0.03s)
+PASS
+ok  	github.com/qompack/qompack/internal/negknow	0.296s
+=== RUN   TestQuery_SessionLedgerOfAForkSeesItsParentsEliminations
+--- PASS: TestQuery_SessionLedgerOfAForkSeesItsParentsEliminations (0.05s)
+PASS
+ok  	github.com/qompack/qompack/internal/negknow	0.317s
+=== RUN   TestForkCarriesItsParentsEliminationsUpToTheForkPoint
+--- PASS: TestForkCarriesItsParentsEliminationsUpToTheForkPoint (0.31s)
+PASS
+ok  	github.com/qompack/qompack/internal/checkpoint	0.577s
+=== RUN   TestAncestryFollowsTheForkChain
+--- PASS: TestAncestryFollowsTheForkChain (0.11s)
+PASS
+ok  	github.com/qompack/qompack/internal/checkpoint	0.397s
+=== RUN   TestDaemonLedgerAnswersAForkWithItsParentsEliminations
+=== PAUSE TestDaemonLedgerAnswersAForkWithItsParentsEliminations
+=== CONT  TestDaemonLedgerAnswersAForkWithItsParentsEliminations
+--- PASS: TestDaemonLedgerAnswersAForkWithItsParentsEliminations (0.03s)
+PASS
+ok  	github.com/qompack/qompack/internal/cli	0.282s

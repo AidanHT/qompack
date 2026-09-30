@@ -631,6 +631,13 @@ own lineage when it was itself a fork, and from a checkpoint it sealed only when
 be read), its own prompts follow them, and item 2 verifies the original against the origin
 session's own capture and labels it with that session
 ([docs/cannot-do.md](cannot-do.md#a-forked-sessions-parent-is-inferred-not-reported-by-the-host)).
+A fork inherits its negative knowledge the same way (V6 close-out, D49): the parent's
+session-scoped eliminations recorded before the fork started (and, through the chain, each
+ancestor's up to the next fork point) answer the fork's `already_tried`, reach its rehydration and
+are carried in its checkpoints with the decisions they mint, still attributed to the session that
+made them; a sibling session that merely shares the project sees none of them. Within one session,
+a decision stays in every later checkpoint while its source holds: an elimination's while the record
+is carried, a pinned one while the pin stands, one read off an explains edge always.
 
 **What "8–12K" is and is not.** It is a historical Qompack-added target for the material Qompack
 injects, recorded in [ADR 0011](adr/0011-rehydration-budget-and-item-order.md) and in `Qompack.md`

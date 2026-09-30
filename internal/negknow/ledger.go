@@ -56,6 +56,12 @@ type Deps struct {
 	// Query would never meet. Replacing a match with a fixed placeholder that is not itself a
 	// match satisfies this.
 	Redact func([]byte) []byte
+	// Ancestry, when non-nil, answers the sessions whose conversation session s continues — a
+	// fork's parent up to the moment the fork started, that parent's own parent up to the moment
+	// IT started, and so on — so s sees their session-scoped records up to those moments as its
+	// own negative knowledge (coordinator decision D49). The composition root builds it from the
+	// lineage records; nil means no session inherits anything.
+	Ancestry func(s core.SessionID) []Inherited
 
 	Log     logging.Logger
 	Metrics obs.Registry
@@ -374,9 +380,12 @@ type ledger struct {
 	// like every other mutable field.
 	depCoverage core.Omission
 	deps        Deps
-	log         logging.Logger
-	m           obs.Registry
-	clk         core.Clock
+	// self is the viewer of the session this ledger was opened for (Deps.Session), resolved at
+	// Open: what inView measures a session ledger's view by, inherited ancestry included (D49).
+	self viewer
+	log  logging.Logger
+	m    obs.Registry
+	clk  core.Clock
 }
 
 // The compile-time assertion that keeps Open's return type and this implementation in sync. The
@@ -421,6 +430,7 @@ func Open(root string, cfg config.Config, b *sketch.Bloom, deps Deps) (Ledger, e
 		m:       deps.Metrics,
 		clk:     deps.Clock,
 	}
+	l.self = l.viewerOf(deps.Session)
 	l.elim = normalizeEliminations(cfg.Eliminations, l.log)
 
 	// EnsureLayout is what every composition root runs, and this one needs it before either of
@@ -685,20 +695,21 @@ func (l *ledger) refreshAtOpen() {
 // item 5).
 //
 //	ScopeProject       -> project-scoped records only, which is the cross-session carry-over
-//	ScopeSession or "" -> project-scoped records, plus session-scoped records of sess
+//	ScopeSession or "" -> project-scoped records, plus session-scoped records the viewer owns:
+//	                      its session's, and an ancestor's up to the fork point (D49, viewer.owns)
 //
-// sess is the caller's session (sessionFor), never assumed to be the one the ledger was opened
-// for: the daemon's ledger serves every session of the project.
+// v is the caller's (viewerFor), never assumed to be the session the ledger was opened for: the
+// daemon's ledger serves every session of the project.
 //
 // The caller holds mu.
-func (l *ledger) visible(r Record, q Scope, sess core.SessionID) bool {
+func (l *ledger) visible(r Record, q Scope, v viewer) bool {
 	if r.Scope == ScopeProject {
 		return true
 	}
 	if q == ScopeProject {
 		return false
 	}
-	return r.Session == sess
+	return v.owns(r)
 }
 
 // inView reports whether r belongs to what this ledger can be asked about at all. A ledger opened
@@ -711,7 +722,7 @@ func (l *ledger) inView(r Record) bool {
 	if l.deps.Session == "" {
 		return true
 	}
-	return l.visible(r, ScopeSession, l.deps.Session)
+	return l.visible(r, ScopeSession, l.self)
 }
 
 // filterRecords yields the position in recs of every record in this ledger's view (inView), active
@@ -976,12 +987,12 @@ func (l *ledger) Query(ctx context.Context, target, approach string, scope Scope
 	d := Canonicalize(target, approach, "")
 	mh := d.matchHash()
 	mk := mh[:] // d.MatchKey(), whose array is this call's own
-	sess := l.sessionFor(ctx)
+	v := l.viewerFor(ctx)
 
 	// The records this question could be answered from are brought up to date with the store
 	// BEFORE the answer is read, so a dependency change captured earlier in this very session is
 	// reflected now rather than at the next idle refresh (refreshMatches).
-	verified, cov := l.refreshMatches(ctx, mh, scope, sess)
+	verified, cov := l.refreshMatches(ctx, mh, scope, v)
 
 	l.mu.RLock()
 	defer l.mu.RUnlock()
@@ -1007,7 +1018,7 @@ func (l *ledger) Query(ctx context.Context, target, approach string, scope Scope
 	backed := false
 	for _, i := range idx {
 		backed = backed || l.inView(l.recs[i])
-		if l.visible(l.recs[i], scope, sess) {
+		if l.visible(l.recs[i], scope, v) {
 			cands = append(cands, l.recs[i])
 		}
 	}
@@ -1143,12 +1154,12 @@ func (l *ledger) Get(ctx context.Context, id string) (Record, error) {
 
 // Active returns every active record visible at scope, ordered by TS ascending then ID ascending.
 func (l *ledger) Active(ctx context.Context, scope Scope) ([]Record, error) {
+	v := l.viewerFor(ctx)
 	l.mu.RLock()
 	defer l.mu.RUnlock()
-	sess := l.sessionFor(ctx)
 	out := make([]Record, 0, len(l.recs))
 	for _, r := range l.recs {
-		if r.Status == StatusActive && l.visible(r, scope, sess) {
+		if r.Status == StatusActive && l.visible(r, scope, v) {
 			out = append(out, r)
 		}
 	}
