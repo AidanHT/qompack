@@ -1,0 +1,71 @@
+UAT-04 re-run on candidate 4 (D47) — compaction belongs to the host: manual and automatic compactions proceed, a
+failed one leaves the last usable checkpoint intact, no veto, no native-shrink claim; re-checked: a first prompt over
+8 KiB must be injected whole or named as a whole-record overflow with an expand pointer (never cut mid-record), and no
+spurious intent_mismatch (also C4.3). Agent-executed on the owner's real host per owner decision D3 by a Claude Code
+workflow subagent (Opus 5.5) — not human UAT.
+
+Date 2026-09-29 21:26-21:37 America/Toronto. Sessions used: 1 (session/, sessions-c4 n=4, 588 s). Model
+claude-haiku-4-5-20251001, Claude Code 2.1.280, Windows 11 Home 25H2 build 10.0.26200.9457, frozen bundle 0.3.0
+(BUNDLE.json sha256 aa7da0e1...558d, commit 9f6a2fad) via --plugin-dir.
+
+Preconditions (cli/00-preconditions.txt, setup-facts.json): fresh project (git init + add) with data/keys.txt (40 keys,
+delivered only through Bash `cat`; Q23 in setup-facts.json), notes.md, src/ledger.py, filler/a.txt and b.txt
+(~130 KB each). First prompt: first-prompt.txt, 16,823 characters (16,823 UTF-8 bytes; a requirement appendix
+R001-R151 whose last sentence names the closing marker OSPREY-END-7731), i.e. over the 9,400-character payload ceiling
+and over 8 KiB. Config defaults (automaticVeto false, blockManualCompact false hardwired, scheduler defaults), DEFAULT
+idle exit. Host env: CLAUDE_CODE_AUTO_COMPACT_WINDOW=100000 + CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=30 (forces automatic
+compaction, as candidate 3) and CLAUDE_CODE_FILE_READ_MAX_OUTPUT_TOKENS=120000. Initial absence recorded.
+
+What happened (session/stream.jsonl; checkpoint times in steps/s5-checkpoints.txt):
+ - T1 (the long brief + `cat data/keys.txt`): the host's first automatic compaction FAILED (compact_result "failed",
+   compact_error "too_few_groups"); PreCompact had written checkpoint 0001 (01:27:03Z); the host retried and succeeded
+   (0002, 01:27:06Z). A real host-failed compaction: 0001 stays intact and verifying.
+ - Step 1: T3 "/compact" MANUAL (pre 26,943 -> post 3,201) proceeded; the transcript carries "Compacted PreCompact
+   [${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe checkpoint] completed successfully: {}" (no output rejection, C1.12).
+ - Step 3: 14 AUTOMATIC compactions, every one proceeded (pre 26-92k tokens). The forced 30%-of-100k threshold sits
+   just above the host's own post-compaction floor, so the host compacted at almost every turn and ended two turns with
+   is_error "Autocompact is thrashing: the context refilled to the limit within 3 turns of the previous compact, 3 times
+   in a row" — the run configuration, as on candidate 3, not Qompack.
+ - T6 asked the brief's closing marker; the model called expand(tool_use_id=prompt_d0c99489..._0) (the block's overflow
+   pointer) and then expand with span "14256:16823", whose result carries "OSPREY-END-7731", before the host's thrash
+   stop ended the turn. T9 (before: data/keys.txt deleted) Q23: recall "Q23" + expand of the `cat` capture returned
+   "Q23=GINKGO-8892-TEAK" (the value), and the host's thrash stop again ended the turn before the model replied. So
+   Qompack delivered both facts; the host's forced-threshold thrash kept the model from answering.
+ - Step 4: T10 (before: <project>/.qompack/config.json = `{"runtime":`, steps/s4-config-json-as-left.txt) "/compact":
+   the compaction PROCEEDED (manual, pre 27,979 -> post 3,954); the PreCompact line still reads "completed successfully:
+   {}"; SessionStart:compact answered with an empty additionalContext; NO checkpoint was written (newest stays 0016,
+   01:34:55Z; the config was written 01:35:58Z). cli/11: the PreCompact hook (`qompack checkpoint`) run by hand against
+   the same file printed {} and exited 0. T11 "Reply with only the word done." -> "done": the session continued.
+ - stderr.txt empty (no "Hook cancelled"); 60 hook responses, all success/exit 0.
+
+Step 2/5 (steps/s5-checkpoints.txt): 16 PreCompact checkpoints for 17 attempts (15 host successes other than the
+config-refused one, plus the host-failed one); MANIFEST.jsonl 0001..0016, EVERY artifact re-hashes to its line; after
+the failed compaction nothing was rewritten and 0016 is still the newest verifying checkpoint.
+Step 6 (steps/s6-native-shrink-search.txt): the regex over 112 Qompack outputs (every hook_response in the stream,
+every CLI output and injected block here, <project>/.qompack/logs/*, the rehydrate state and every checkpoint): 0
+matches.
+
+The re-checked D5 defect (F-UAT04-1) — FIXED: all 15 compact injections (block2..block16) carry NO part of the 16,823-
+character original: section 2 has the heading and the evolution deltas only, and section 7's first line is the
+whole-record overflow "user_intent tier1 — OVERFLOW: the verbatim original user intent did not fit the rehydration
+payload and is emitted whole or not at all; restore: expand(tool_use_id=prompt_d0c99489-20eb-4e4b-9257-318a03e60108_0)".
+No R001-style line appears in any block (no mid-record cut). Sizes 841-2,498 UTF-16 units, inline, no
+persisted-output. The rehydrate state (store/state_rehydrate-*.json) has degraded true and the tier1 drop entry first.
+LOUD.log has 0 "intent_mismatch" lines (candidate 3: 14); it logs "rehydrate: tier-1 material exceeds the hard budget
+cap" once per compaction instead. The checkpoints hold the whole original (user_intent.original 16,823 chars).
+
+Other observations:
+ O-UAT04-1 (design, recorded): evolution deltas take a fixed 10% share with carry-forward only to later items, so with
+ 7 later prompts the three oldest were dropped ("did not fit the rehydration budget; restore: Read
+ .qompack/checkpoints/0016.json (user_intent.evolution[N])") while the payload used 599 of 12,000 tokens (block16,
+ 1,954 units). Named with pointers, as ADR 0011 §6 specifies; relevant to UAT-06 (a correction can fall out).
+ O-UAT04-2: after the run (cli/10-*), with the planted unparseable config still in place: self-test exit 1
+ (config.capture critical), doctor config.capture degraded "refused: every hook admits nothing" and spool.pending
+ degraded "1 file(s), 941858 byte(s)" (the session WAL the refused SessionEnd flush could not retire), fsck exit 1 on
+ index.files "index/files.json is absent while its log carries 4 path(s); the view is derived and --repair regenerates
+ it" (candidate 3 saw the same row). The config.capture and spool rows follow from the step-4 config the row
+ plants; whether the index.files row does too was not isolated (the other projects of this part, with no planted
+ config, have a clean index.files). Recorded, not repaired.
+
+Result: pass. Rollback: initial state absent (recorded); the run is retained as evidence; no backup or restore was run
+in this row. Guard: guard/sessions.txt ("session 4 UAT-04").

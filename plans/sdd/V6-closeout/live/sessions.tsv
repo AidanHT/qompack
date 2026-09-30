@@ -32,3 +32,12 @@ install-c4	1	UAT-01 (candidate 4 re-run, local-scope install, one MCP call)	plan
 install-c4	2	UAT-12/C4.8 session A (previous build 0.2.99-prev from 301a8e9: reads, MCP calls, /compact)	plans/sdd/V6-closeout/live/rerun-c4/UAT-12/sessionA	claude-haiku-4-5-20251001	0	64.889
 install-c4	3	UAT-12/C4.8 session B (frozen 0.3.0 after upgrade: deny, bounds, binary, /compact)	plans/sdd/V6-closeout/live/rerun-c4/UAT-12/sessionB	claude-haiku-4-5-20251001	0	129.39
 install-c4	4	UAT-12/C4.8 session C (reinstalled 0.3.0: recall/re_read of old work, binary captures)	plans/sdd/V6-closeout/live/rerun-c4/UAT-12/sessionC	claude-haiku-4-5-20251001	0	20.414
+sessions-c4	1	UAT-03/C4.3 (two /compact, idle exit at default, restart, backup)	plans/sdd/V6-closeout/live/rerun-c4/UAT-03/session	claude-haiku-4-5-20251001	0	51.454
+sessions-c4	2	C4.9 (c)-style: MCP calls, then idle GC + default idle exit, backup/verify/restore	plans/sdd/V6-closeout/live/rerun-c4/C4.9/session	claude-haiku-4-5-20251001	0	26.415
+sessions-c4	3	UAT-02/C4.2 (ordinary work, every hook event, MCP calls)	plans/sdd/V6-closeout/live/rerun-c4/UAT-02/session	claude-haiku-4-5-20251001	0	92.877
+sessions-c4	4	UAT-04/C4.3 (17k first prompt, manual + automatic + hook-failed compaction)	plans/sdd/V6-closeout/live/rerun-c4/UAT-04/session	claude-haiku-4-5-20251001	0	587.664
+sessions-c4	5	ACCIDENTAL (lane error: a Python helper was executed by Git Bash as a shell script; its line CLAUDE = "..." started the host CLI `claude =` in the real profile, cwd <scratch>/sessions/c4, no plugin-dir, default model; one text reply, no tools; counted against the budget)	plans/sdd/V6-closeout/live/rerun-c4/accidental-session	claude-opus-5-5	0	4
+sessions-c4	6	UAT-05/C4.3 run 1 (default budget, pin with daemon up, correction, /compact)	plans/sdd/V6-closeout/live/rerun-c4/UAT-05/run1-session	claude-haiku-4-5-20251001	0	56.019
+sessions-c4	7	UAT-06 A / C4.3 (intent, correction, eliminated, /compact)	plans/sdd/V6-closeout/live/rerun-c4/UAT-06/sessionA	claude-haiku-4-5-20251001	0	45.611
+sessions-c4	8	UAT-06 B --resume A / C4.3 (/qompack:why, second compaction)	plans/sdd/V6-closeout/live/rerun-c4/UAT-06/sessionB-resume	claude-haiku-4-5-20251001	0	36.954
+sessions-c4	9	UAT-06 C --resume A --fork-session / C4.3 (compact in fork, second correction, compact)	plans/sdd/V6-closeout/live/rerun-c4/UAT-06/sessionC-fork	claude-haiku-4-5-20251001	0	72.891

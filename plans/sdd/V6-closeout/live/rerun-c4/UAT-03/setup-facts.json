@@ -1,0 +1,21 @@
+{
+ "files": {
+  "handoff.md": {
+   "bytes": 816,
+   "sha256": "0e8470e8987ce12bc7f78336b160970fffe347673e89e138892ae19ffeb08405"
+  },
+  "README.md": {
+   "bytes": 81,
+   "sha256": "eea1919a5914c9efd524830d72ce6591adebb1798018ae8d50939744628d70f1"
+  },
+  "docs/plan.md": {
+   "bytes": 126,
+   "sha256": "350aaa046a93cfa171fc353ef4ed5a289d2d4294c3beb836c3166aa555efaaa2"
+  },
+  "src/app.py": {
+   "bytes": 186,
+   "sha256": "104e4bb90d7d182e4474acb9421656caf4c6161f0bb171dd83aa6d02ea25aebd"
+  }
+ },
+ "K17": "ROWAN-3173-MAPLE"
+}

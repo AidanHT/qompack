@@ -1,0 +1,29 @@
+<!-- qompack:injected seq=15 ver=1 -->
+# Qompack rehydration — checkpoint 0015, session d0c99489
+
+## 2. Original user intent (verbatim from L0 capture — never summarized)
+Evolution (most recent first):
+> data/keys.txt has now been deleted, so you cannot run cat on it again. What is the exact value of key Q23 from data/keys.txt? If it is not in your context, recover it with mcp__plugin_qompack_qompack__recall and mcp__plugin_qompack_qompack__expand. Reply with the value, then say in one sentence where you found it.
+> Reply with only the word ok.
+> Use the Read tool to read filler/b.txt (the whole file) and reply with only the label of its last line.
+> In one sentence: what is the closing marker of the project brief I gave you in my first message?
+
+## 5. Current work
+goal: data/keys.txt has now been deleted, so you cannot run cat on it again.
+blocked on: none
+
+## 6. Pointers (paths and hashes — contents are NOT restored; use expand/re_read)
+- tool_use subagent_d0c99489-20eb-4e4b-9257-318a03e60108_23 sha256:ad4d524f9c0c75258a901526d45fc539feabefc4fafd08e0bb03033bccd6f0b3 — {"agent":"subagent","summary":"FB-1300"}
+- tool_use subagent_d0c99489-20eb-4e4b-9257-318a03e60108_26 sha256:19773cb22df60c41f6eebaf88cb4073d59ada26109245563afb6f5dcbb89c2bf — {"agent":"subagent","summary":"ok"}
+- tool_use toolu_01V1zTPa7h8qyJwJZ1FLBdFm sha256:92340c84905c459537187524044ab55d99b9dc7f3f2cb35029b7477d4f49807b — {"max_results":5,"query":"select:mcp__plugin_qompack_qompack__recall,mcp__plugin_qompack_qompack__expand"}
+
+## 7. No longer in context
+- user_intent tier1 — OVERFLOW: the verbatim original user intent did not fit the rehydration payload and is emitted whole or not at all; restore: expand(tool_use_id=prompt_d0c99489-20eb-4e4b-9257-318a03e60108_0)
+- user_intent_evolution 0 — did not fit the rehydration budget; restore: Read .qompack/checkpoints/0015.json (user_intent.evolution[0])
+- user_intent_evolution 1 — did not fit the rehydration budget; restore: Read .qompack/checkpoints/0015.json (user_intent.evolution[1])
+- user_intent_evolution 2 — did not fit the rehydration budget; restore: Read .qompack/checkpoints/0015.json (user_intent.evolution[2])
+
+## 8. Retrieval
+Qompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().
+<!-- /qompack:injected -->
+<!-- qompack-contract-probe qompack-contract-7ff595f4803e -->

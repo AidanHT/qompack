@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "session": "19e641f9-5be8-439f-87ef-1a7e73451c76",
+  "seq": 1,
+  "created": "2026-09-30T01:19:50.018Z",
+  "encoded_segments": [
+    1
+  ],
+  "invariants": [],
+  "user_intent": {
+    "original": "We are preparing the Tern key migration. Use the Read tool to read handoff.md and tell me how many keys it lists. Do not repeat the key values.",
+    "evolution": [
+      "Use the Read tool to read src/app.py and tell me in one sentence what migrate() does."
+    ]
+  },
+  "eliminated": [],
+  "decisions": [],
+  "open_questions": [],
+  "current_work": {
+    "goal": "Use the Read tool to read src/app.py and tell me in one sentence what migrate() does.",
+    "next_step": "",
+    "blocked_on": null
+  },
+  "pointers": {
+    "files": [
+      {
+        "path": "src/app.py",
+        "hash": "sha256:51f4f9824e458121c986a6faf432dd77fd7e4ff68f46263bc786c50970ffec9c",
+        "why": "referenced"
+      },
+      {
+        "path": "handoff.md",
+        "hash": "sha256:6db3c7a6d0c6c9721a40327a4975c93242511550896bb52a4ef05c256cd4ec3b",
+        "why": "referenced"
+      }
+    ],
+    "tools": [
+      {
+        "tool_use_id": "toolu_01M79qWAArZRft8tELt17rxz",
+        "hash": "sha256:51f4f9824e458121c986a6faf432dd77fd7e4ff68f46263bc786c50970ffec9c",
+        "summary": "<scratch>\\sessions\\c4\\uat03\\proj\\src\\app.py"
+      },
+      {
+        "tool_use_id": "toolu_01B75ymBoaxVoH517VkW1FCg",
+        "hash": "sha256:6db3c7a6d0c6c9721a40327a4975c93242511550896bb52a4ef05c256cd4ec3b",
+        "summary": "<scratch>\\sessions\\c4\\uat03\\proj\\handoff.md"
+      }
+    ]
+  },
+  "narrative": "seg 1 turns 0-3: 2 tool uses over 2 files; gap_seconds=0.00, lexical_cohesion=0.00, path_jaccard=0.00, prob_changepoint=0.00, todo_transition=0.00, tool_shift=0.00\n",
+  "sketch_refs": {
+    "touch": "touch.cms",
+    "tried": "tried.bloom"
+  },
+  "dropped": [],
+  "cache": {
+    "p_chosen": 0,
+    "rewrite_tokens": 0,
+    "ttl_state": "unknown"
+  }
+}

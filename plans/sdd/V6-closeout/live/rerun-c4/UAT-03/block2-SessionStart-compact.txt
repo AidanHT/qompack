@@ -1,0 +1,22 @@
+<!-- qompack:injected seq=1 ver=1 -->
+# Qompack rehydration — checkpoint 0001, session 19e641f9
+
+## 2. Original user intent (verbatim from L0 capture — never summarized)
+> We are preparing the Tern key migration. Use the Read tool to read handoff.md and tell me how many keys it lists. Do not repeat the key values.
+Evolution (most recent first):
+> Use the Read tool to read src/app.py and tell me in one sentence what migrate() does.
+
+## 5. Current work
+goal: Use the Read tool to read src/app.py and tell me in one sentence what migrate() does.
+blocked on: none
+
+## 6. Pointers (paths and hashes — contents are NOT restored; use expand/re_read)
+- handoff.md sha256:6db3c7a6d0c6c9721a40327a4975c93242511550896bb52a4ef05c256cd4ec3b — referenced
+- src/app.py sha256:51f4f9824e458121c986a6faf432dd77fd7e4ff68f46263bc786c50970ffec9c — referenced
+- tool_use toolu_01B75ymBoaxVoH517VkW1FCg sha256:6db3c7a6d0c6c9721a40327a4975c93242511550896bb52a4ef05c256cd4ec3b — <scratch>\sessions\c4\uat03\proj\handoff.md
+- tool_use toolu_01M79qWAArZRft8tELt17rxz sha256:51f4f9824e458121c986a6faf432dd77fd7e4ff68f46263bc786c50970ffec9c — <scratch>\sessions\c4\uat03\proj\src\app.py
+
+## 8. Retrieval
+Qompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().
+<!-- /qompack:injected -->
+<!-- qompack-contract-probe qompack-contract-03b3a56e2236 -->

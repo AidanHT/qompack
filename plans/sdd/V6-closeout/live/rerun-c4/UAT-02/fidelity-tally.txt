@@ -1,0 +1,37 @@
+capture sidecars under <project>/.qompack/records/captures/ (post-session): {'exact': 35, 'redacted': 1}
+observe.prompt UserPromptSubmit                                      fidelity=exact     redacted=False truncated=False source_bytes=1310
+observe.prompt UserPromptSubmit                                      fidelity=exact     redacted=False truncated=False source_bytes=495
+observe.prompt UserPromptSubmit                                      fidelity=exact     redacted=False truncated=False source_bytes=542
+observe.prompt UserPromptSubmit                                      fidelity=exact     redacted=False truncated=False source_bytes=566
+observe.prompt UserPromptSubmit                                      fidelity=exact     redacted=False truncated=False source_bytes=602
+observe.prompt UserPromptSubmit                                      fidelity=exact     redacted=False truncated=False source_bytes=605
+observe.prompt UserPromptSubmit                                      fidelity=exact     redacted=False truncated=False source_bytes=642
+observe.prompt UserPromptSubmit                                      fidelity=exact     redacted=False truncated=False source_bytes=664
+observe.prompt UserPromptSubmit                                      fidelity=exact     redacted=False truncated=False source_bytes=710
+observe.prompt UserPromptSubmit                                      fidelity=exact     redacted=False truncated=False source_bytes=924
+observe.stop   Stop                                                  fidelity=exact     redacted=False truncated=False source_bytes=1140
+observe.stop   Stop                                                  fidelity=exact     redacted=False truncated=False source_bytes=1569
+observe.stop   Stop                                                  fidelity=exact     redacted=False truncated=False source_bytes=535
+observe.stop   Stop                                                  fidelity=exact     redacted=False truncated=False source_bytes=566
+observe.stop   Stop                                                  fidelity=exact     redacted=False truncated=False source_bytes=566
+observe.stop   Stop                                                  fidelity=exact     redacted=False truncated=False source_bytes=570
+observe.stop   Stop                                                  fidelity=exact     redacted=False truncated=False source_bytes=605
+observe.stop   Stop                                                  fidelity=exact     redacted=False truncated=False source_bytes=725
+observe.stop   Stop                                                  fidelity=exact     redacted=False truncated=False source_bytes=879
+observe.stop   Stop                                                  fidelity=exact     redacted=False truncated=False source_bytes=950
+observe.stop   SubagentStop                                          fidelity=exact     redacted=False truncated=False source_bytes=1009
+observe.stop   SubagentStop                                          fidelity=exact     redacted=False truncated=False source_bytes=8788
+observe.tool   Agent                                                 fidelity=exact     redacted=False truncated=False source_bytes=1385
+observe.tool   Bash                                   cat blob.bin   fidelity=exact     redacted=False truncated=False source_bytes=8247
+observe.tool   Read                                   big.log        fidelity=exact     redacted=False truncated=False source_bytes=313083
+observe.tool   Read                                   config.ini     fidelity=exact     redacted=False truncated=False source_bytes=959
+observe.tool   Read                                   creds.txt      fidelity=redacted  redacted=True  truncated=False source_bytes=1008
+observe.tool   Read                                   logo.png       fidelity=exact     redacted=False truncated=False source_bytes=962
+observe.tool   Read                                   notes.md       fidelity=exact     redacted=False truncated=False source_bytes=1010
+observe.tool   ToolSearch                                            fidelity=exact     redacted=False truncated=False source_bytes=868
+observe.tool   mcp__plugin_qompack_qompack__expand                   fidelity=exact     redacted=False truncated=False source_bytes=11108
+observe.tool   mcp__plugin_qompack_qompack__expand                   fidelity=exact     redacted=False truncated=False source_bytes=1311
+observe.tool   mcp__plugin_qompack_qompack__expand                   fidelity=exact     redacted=False truncated=False source_bytes=1324
+observe.tool   mcp__plugin_qompack_qompack__recall                   fidelity=exact     redacted=False truncated=False source_bytes=1081
+observe.tool   mcp__plugin_qompack_qompack__recall                   fidelity=exact     redacted=False truncated=False source_bytes=1085
+observe.tool   mcp__plugin_qompack_qompack__recall                   fidelity=exact     redacted=False truncated=False source_bytes=2050

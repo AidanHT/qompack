@@ -1,0 +1,39 @@
+{
+ "args": [
+  "-p",
+  "--input-format",
+  "stream-json",
+  "--output-format",
+  "stream-json",
+  "--verbose",
+  "--include-hook-events",
+  "--model",
+  "claude-haiku-4-5-20251001",
+  "--max-turns",
+  "10",
+  "--setting-sources",
+  "project,local",
+  "--permission-mode",
+  "dontAsk",
+  "--plugin-dir",
+  "C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c4/qompack-plugin-0.3.0-windows-amd64",
+  "--allowedTools",
+  "Read,mcp__plugin_qompack_qompack__recall,mcp__plugin_qompack_qompack__expand,mcp__plugin_qompack_qompack__re_read,mcp__plugin_qompack_qompack__already_tried,mcp__plugin_qompack_qompack__record_eliminated,mcp__plugin_qompack_qompack__timeline,mcp__plugin_qompack_qompack__why,mcp__plugin_qompack_qompack__dropped,Bash(qompack status:*),Bash(qompack recall:*),Bash(qompack pin:*),Bash(qompack why:*),Bash(qompack dropped:*),Bash(qompack eval:*)"
+ ],
+ "cwd": "<scratch>/sessions/c4/c49/proj",
+ "out": "<scratch>/sessions/c4/c49/s1",
+ "env": {
+  "ENABLE_CLAUDEAI_MCP_SERVERS": "false",
+  "QOMPACK_HOME": "<scratch>/sessions/c4/qhome"
+ },
+ "messages": [
+  "Use the Read tool to read notes.md and tell me the project codeword in one sentence.",
+  "Call the MCP tool mcp__plugin_qompack_qompack__recall with query \"codeword\". Then call mcp__plugin_qompack_qompack__expand on the first hit (use its tool_use_id, or its hash if it has no tool_use_id). Report in one sentence how many hits recall returned and whether expand found the content.",
+  "Use the Read tool to read data.txt and tell me the value on row 17, in one sentence.",
+  "/qompack:recall HERON"
+ ],
+ "timeout_s": 1500,
+ "project": "<scratch>/sessions/c4/c49/proj",
+ "bin": "C:/Users/Quant/AppData/Roaming/npm/node_modules/@anthropic-ai/claude-code/bin/claude.exe",
+ "scrub": "<scratch>"
+}

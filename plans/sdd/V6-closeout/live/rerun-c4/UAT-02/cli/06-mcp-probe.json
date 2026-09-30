@@ -1,0 +1,152 @@
+{
+ "initialize": {
+  "serverInfo": {
+   "name": "qompack",
+   "version": "0.3.0"
+  },
+  "protocolVersion": "2025-06-18"
+ },
+ "calls": [
+  {
+   "tool": "expand",
+   "args": {
+    "tool_use_id": "toolu_014CMiiLGehDmTwPCrfUDBZx"
+   },
+   "jsonrpc_line_bytes": 983,
+   "isError": false,
+   "error": null,
+   "text_bytes": 519,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 13,
+     "ephemeral": true,
+     "expansions": 2,
+     "hash": "sha256:d48164bc99dbc4942b95be01d7c0e0c99d24e27db3a8582d40c8c66d2a8360a0",
+     "path": "notes.md",
+     "promoted": true,
+     "span": [
+      0,
+      252
+     ],
+     "tool_use_id": "qompack-mcp:3a4162eee1f0",
+     "total_bytes": 252,
+     "truncated": false,
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "found": true,
+     "hash": "sha256:0b1d5454bc14896a1b9b5d68047998863d4647d7d94b5a4df849fb82ba850e79",
+     "path": "notes.md",
+     "tool": "FileRead",
+     "span": [
+      0,
+      252
+     ],
+     "total_bytes": 252,
+     "truncated": false,
+     "widened": false,
+     "expansions": 2,
+     "promoted": true,
+     "content": "{\"type\":\"text\",\"file\":{\"filePath\":\"<tmp>\",\"content\":\"# Notes\\n\\nThe project codename is AMBER-FALCON-58.\\nThe release train leaves on Thursdays.\\nOur build uses the sentinel phrase quartz lantern meridian.\\n\",\"numLines\":6,\"startLine\":1,\"totalLines\":6}}"
+    }
+   ]
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "tool_use_id": "toolu_0196w71AZEPNkUf1yQZ8XMHx"
+   },
+   "jsonrpc_line_bytes": 969,
+   "isError": false,
+   "error": null,
+   "text_bytes": 509,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 9,
+     "ephemeral": true,
+     "expansions": 2,
+     "hash": "sha256:bb65289438735dd379290d29500b81c95b1ae6577adb6ae6a6115e1cb2ca6ab1",
+     "path": "creds.txt",
+     "promoted": true,
+     "span": [
+      0,
+      243
+     ],
+     "tool_use_id": "qompack-mcp:05d4ddbf403d",
+     "total_bytes": 243,
+     "truncated": false,
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "found": true,
+     "hash": "sha256:bcb017e830d60dbd712fba343ff0ee31b6e0772a0d9dd3534b3c40f413bb70d1",
+     "path": "creds.txt",
+     "tool": "FileRead",
+     "span": [
+      0,
+      243
+     ],
+     "total_bytes": 243,
+     "truncated": false,
+     "widened": false,
+     "expansions": 2,
+     "promoted": true,
+     "content": "{\"file\":{\"content\":\"# service credentials (fake, planted for the run)\\naws_access_key_id = «redacted:aws_access_key_id»\\ngithub_token = «redacted:github_token»\\n\",\"filePath\":\"<tmp>\",\"numLines\":4,\"startLine\":1,\"totalLines\":4},\"type\":\"text\"}"
+    }
+   ]
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "tool_use_id": "toolu_01CyY6K2fSxKR5b8CvHbSeRk"
+   },
+   "jsonrpc_line_bytes": 10794,
+   "isError": false,
+   "error": null,
+   "text_bytes": 10235,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 13,
+     "ephemeral": true,
+     "expansions": 2,
+     "hash": "sha256:6b5d80f4c07e8c1a5ab6dc2eb58d26ee86cdb00c33206b981c3fa9789fc60607",
+     "next_span": "9909:16384",
+     "path": "big.log",
+     "promoted": true,
+     "span": [
+      0,
+      9909
+     ],
+     "tool_use_id": "qompack-mcp:d661083e0419",
+     "total_bytes": 312302,
+     "truncated": true,
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "found": true,
+     "hash": "sha256:38b71119c76a348a1b5879477c3b454ae946ff7304b59abec96ce85b907b1027",
+     "path": "big.log",
+     "tool": "FileRead",
+     "span": [
+      0,
+      9909
+     ],
+     "total_bytes": 312302,
+     "truncated": true,
+     "next_span": "9909:16384",
+     "widened": false,
+     "expansions": 2,
+     "promoted": true,
+     "content": "{\"type\":\"text\",\"file\":{\"filePath\":\"<tmp>\",\"content\":\"LINE-0001 event=sync status=ok shard=001 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nLINE-0002 event=sync sta...[9909 chars total]"
+    }
+   ]
+  }
+ ],
+ "stderr_tail": ""
+}

@@ -1,0 +1,96 @@
+UAT-02 re-run on candidate 4 (D47) — ordinary work in a real session; permitted capture and fidelity (also C4.2:
+every hook event captured, index counts vs the host, `qompack status`, `doctor --json` and `fsck --json` clean after a
+session with MCP calls). Agent-executed on the owner's real host per owner decision D3 by a Claude Code workflow subagent
+(Opus 5.5) — not human UAT.
+
+Date 2026-09-29 21:23-22:10 America/Toronto. Sessions used: 1 (session/, sessions-c4 n=3, 93 s). Model
+claude-haiku-4-5-20251001, Claude Code 2.1.280, Windows 11 Home 25H2 build 10.0.26200.9457, frozen bundle 0.3.0
+(BUNDLE.json sha256 aa7da0e1...558d, bin sha256 1e9d0cc8...c358, commit 9f6a2fad) via --plugin-dir (init: plugin
+qompack 0.3.0 qompack@inline, plugin:qompack:qompack connected, 8 tools, six /qompack: commands, no
+qompack:checkpoint). Every CLI step used the bundle's bin/qompack.exe.
+
+Setup (setup-facts.json): disposable project, git init + add: README.md, notes.md (codename AMBER-FALCON-58, phrase
+"quartz lantern meridian"), config.ini, creds.txt with two credential-shaped fake secrets built at run time from split
+parts (@@SEC_PLANTED_1@@ aws_access_key_id shape, @@SEC_PLANTED_2@@ github_token shape; sha256 of each in
+setup-facts.json; literals only in the scratch secrets.json; every driver output and CLI capture filtered; commit gated
+by scan-staged), big.log 310,800 B (> runtime.mcp.maxResponseBytes 262,144), blob.bin 3,064 random bytes with NULs,
+logo.png (a 32x32 PNG). Configuration: defaults (no config file; QOMPACK_HOME=<scratch>/sessions/c4/qhome only moves
+calibration.json; DEFAULT idle exit). Host env for the session only: CLAUDE_CODE_FILE_READ_MAX_OUTPUT_TOKENS=120000 and
+BASH_MAX_OUTPUT_LENGTH=150000 (as candidate 3). Pre-run backup: cli/00-backup-create-absent exit 1 "source project has
+no existing store" (initial absence).
+
+Step 1 (cli/01-self-test, 01-self-test-json): exit 0, mode full; the eight self-checks then the nine assertions, as the
+row lists. OBSERVED (to be confirmed at execution; before any session): session_start.fires first-session,
+session_start.source_compact no-precompact-pending, hook.additional_context_delivered / precompact.has_time_to_write /
+precompact.custom_instructions_accepted / mcp.server_registered not-yet-implemented, hook.payload_shape "payload shape
+valid", transcript.readable no-transcript-path, plugin.root_resolves unset; daemon.reachable "was not running; spawned
+and reachable now". Identical to candidate 3.
+
+Steps 2-4, 6 (session/stream.jsonl; ten user messages): T1 Read notes.md -> AMBER-FALCON-58. T2 Read big.log offset 1
+limit 1400 -> LINE-1400 (the host delivered the whole file). T3 Read logo.png (image block); Read blob.bin REFUSED by
+the host ("This tool cannot read binary files...", no PostToolUse), then Bash `cat blob.bin` (host-decoded text). T4
+Read creds.txt (the model named the two settings only). T5 /qompack:recall quartz lantern meridian (the command's
+`qompack recall` ran through the host; notes.md capture returned). T6 MCP recall + expand of the notes.md hit. T7 recall
+path:big.log / path:creds.txt and expand of each (fields reported by the model: big.log span [0,9909], total_bytes
+312302, truncated true, next_span "9909:16384", fidelity absent, coverage absent; creds.txt span [0,243], truncated
+false, fidelity/coverage absent, placeholders «redacted:aws_access_key_id», «redacted:github_token»). T8 subagent (the
+host launched it as a background task; its Read of config.ini -> 8421, reported after compaction). T9 /compact. T10
+codename -> AMBER-FALCON-58. step6-mcp-responses.json holds the recall/expand response texts; cli/06-mcp-probe.json (the
+frozen `qompack mcp` over stdio, no model, after the session) shows result._meta.qompack on each expand: elapsed_ms,
+ephemeral, expansions, hash, path, promoted, span, tool_use_id, total_bytes, truncated, untrusted, and next_span for
+big.log.
+
+Step 5 (cli/05-status): first line "source: daemon (available, 0µs old)"; "host contract: 9 assertion(s), all
+holding"; every per-hook row except PreCompact reads `unavailable` with its reason (never 0); PreCompact B-E observed
+n=1 p50 96.50 ms; B-D unavailable. counters: daemon.publication.unpublished_captures 0, mcp.ephemeral.recorded 7.
+
+Step 6 expectation (revised under D46): MET — the expand responses carry _meta.qompack and report the read (span,
+total_bytes, truncated, next_span when there is more), redacted content appears as «redacted:…» placeholders, and no
+response carries a fidelity or coverage field.
+
+Fidelity of the oversized and binary captures (capture sidecars .qompack/records/captures/*/*.json, fidelity-tally.txt):
+35 exact, 1 redacted (creds.txt). big.log (Read, source_bytes 313,083): exact — the host delivered the whole file and
+Qompack stored the whole delivery, so nothing was cut; expand pages it (truncated true + next_span). blob.bin: the Read
+was refused by the host (no PostToolUse, no capture); the `cat` capture (source_bytes 8,247, host-decoded text) is
+exact. logo.png: image block, exact. The row's expected NON-exact fidelity for the oversized and binary captures was
+therefore NOT observed (same as candidate 3, F-UAT02-2/3; the host never hands a hook raw binary or a cut read here) —
+recorded as an expected-result field not met; none of the row's three fail criteria occurred (every capture came back,
+no demonstrably cut capture reads exact, no latency cell prints 0 without an instrument).
+
+C4.2 (c42-counts.json, cli/07-transcript-facts.json, hooks.json):
+ event              host stream (hook_response, all success/exit 0)   store evidence
+ SessionStart       startup 1, compact 1                              sessions.jsonl; rehydrate state; block2
+ UserPromptSubmit   10                                                 10 UserPromptSubmit records
+ PostToolUse        14 (Read 5 incl. the subagent's, Bash, ToolSearch, 14 capture records (FileRead 5, Bash, ToolSearch,
+                    recall 3, expand 3, Agent)                         plugin recall 3, plugin expand 3, Agent)
+ Stop               10                                                 turn boundaries (observe.stop sidecars 10)
+ SubagentStop       2 (the Agent task; one during /compact)           2 SubagentStop records
+ PreCompact         no stream event; the transcript carries "Compacted checkpoints/0001.json + MANIFEST line
+                    PreCompact [...] completed successfully: {}"
+ SessionEnd         no stream event; stderr.txt EMPTY (no "Hook       index/sessions.jsonl: 1 line, end set, turns 19,
+                    cancelled")                                        tooluses 33
+ Host tool uses 15 (14 main + 1 subagent) minus the refused blob.bin Read = 14 = store capture records; prompts 10 = 10;
+ sessions 1 = 1; the store additionally holds 7 qompack-mcp:* self-records (the MCP server's and the CLI recall's) and
+ 2 SubagentStop records. turn_order_violations: none (candidate 3: 8 MCP records at turn 0).
+ Arrival deltas (hooks.json; approximate, host-seen): PostToolUse n14 61-183 ms (median 96), Stop n10 63-113,
+ UserPromptSubmit n9 51-88, SubagentStop n2 70-91, SessionStart:compact 93 ms; SessionStart:startup and the first
+ UserPromptSubmit arrived before init: not measured.
+ Clean diagnostics after the session with MCP calls:
+  - daemon live, right after the session (cli/05-*): status all holding; doctor --json exit 0, no degraded row
+    (captures.unpublished "0 gap(s) across 36 sidecar(s)"); fsck --json exit 0, every row ok.
+  - the session's daemon ended by the DEFAULT idle exit at 21:55:47 (cli/08-daemon-ended.txt; no termination).
+    cli/09-*: status was run FIRST and, as documented, asked a daemon to start ("no daemon answered: none is
+    listening for this project yet. This command asked one to start"); doctor, run next, caught that daemon mid-start
+    (scope.daemon degraded "held by pid 31064, not reachable"), and fsck exit 0 saw it running. 09b-doctor a moment
+    later: no degraded row. That ordering was the lane's, so the stopped measurement was repeated.
+  - daemon 31064 ended by the DEFAULT idle exit at 22:26:44 (cli/10-daemon-ended.txt); cli/10-* ran doctor and fsck
+    first: doctor --json exit 0, no degraded row; fsck --json and fsck --json --seal-check exit 0, daemon_running
+    false ("no daemon holds the lock; this project is quiet"), every row ok (index.segments ok: no idle encode naming
+    an unwritten checkpoint, candidate 3's F-UAT02-4); status last ("source: disk ...", no failing row; it asked a
+    daemon to start again, which later idled out or was stopped as recorded in guard/sessions.txt).
+  C4.2 therefore holds: every hook event captured, counts match, status/doctor/fsck clean after a session with MCP
+  calls, live and stopped (candidate 3: fsck exit 1 on turn-0 MCP records, doctor over-counting capture gaps).
+
+Planted-secret scan: see secret-scan.txt.
+Rollback: not applicable — initial state absent (recorded); per the row's rule this run is retained as evidence; no
+restore was run. Guard: guard/sessions.txt ("session 3 UAT-02/C4.2").

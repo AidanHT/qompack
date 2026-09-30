@@ -1,0 +1,201 @@
+[
+ {
+  "tool_use_id": "toolu_017f471X9nWacCRZ8V2xFcRj",
+  "tool": "mcp__plugin_qompack_qompack__recall",
+  "input": {
+   "query": "quartz lantern meridian"
+  },
+  "is_error": null,
+  "response_text_json": {
+   "hits": [
+    {
+     "hash": "sha256:b21ac362b3066a60c4df21a2e883c8c6ab0c00122b578d78dc24682629eadd73",
+     "path": "",
+     "tool": "UserPromptSubmit",
+     "summary": "Call the MCP tool mcp__plugin_qompack_qompack__recall with query \"quartz lantern meridian\". Then call mcp__plugin_qom…",
+     "ts": "2026-09-30T01:24:24Z",
+     "score": 0.3607692307692308,
+     "tool_use_id": "prompt_ab01bf84-7951-44ec-85e7-62adae04c127_10",
+     "span": [
+      0,
+      252
+     ]
+    },
+    {
+     "hash": "sha256:b7392ee1e5d36b561afdfe931d7bd5fded51a2720831c5ca1c58bba4035fdd40",
+     "path": "",
+     "tool": "UserPromptSubmit",
+     "summary": "/qompack:recall quartz lantern meridian",
+     "ts": "2026-09-30T01:24:20Z",
+     "score": 0.3515384615384615,
+     "tool_use_id": "prompt_ab01bf84-7951-44ec-85e7-62adae04c127_8",
+     "span": [
+      0,
+      39
+     ]
+    },
+    {
+     "hash": "sha256:0b1d5454bc14896a1b9b5d68047998863d4647d7d94b5a4df849fb82ba850e79",
+     "path": "notes.md",
+     "tool": "FileRead",
+     "summary": "{\"type\":\"text\",\"file\":{\"filePath\":\"<tmp>\",\"content\":\"# Notes\\n\\nThe project codename is AMBER-FALCON-58.\\nThe release…",
+     "ts": "2026-09-30T01:23:54Z",
+     "score": 0.2684615384615385,
+     "tool_use_id": "toolu_014CMiiLGehDmTwPCrfUDBZx",
+     "span": [
+      0,
+      252
+     ]
+    }
+   ],
+   "count": 3,
+   "found": true,
+   "query": {
+    "text": "quartz lantern meridian",
+    "path": "",
+    "symbol": "",
+    "tool": ""
+   },
+   "denied": 1
+  }
+ },
+ {
+  "tool_use_id": "toolu_011zNAX4kpJLoyEEPv5ymNaL",
+  "tool": "mcp__plugin_qompack_qompack__expand",
+  "input": {
+   "tool_use_id": "toolu_014CMiiLGehDmTwPCrfUDBZx"
+  },
+  "is_error": null,
+  "response_text_json": {
+   "found": true,
+   "hash": "sha256:0b1d5454bc14896a1b9b5d68047998863d4647d7d94b5a4df849fb82ba850e79",
+   "path": "notes.md",
+   "tool": "FileRead",
+   "span": [
+    0,
+    252
+   ],
+   "total_bytes": 252,
+   "truncated": false,
+   "widened": false,
+   "expansions": 1,
+   "promoted": false,
+   "content": "{\"type\":\"text\",\"file\":{\"filePath\":\"<tmp>\",\"content\":\"# Notes\\n\\nThe project codename is AMBER-FALCON-58.\\nThe release train leaves on Thursdays.\\nOur build uses the sentinel phrase quartz lantern meridian.\\n\",\"numLines\":6,\"startLine\":1,\"totalLines\":6}}"
+  }
+ },
+ {
+  "tool_use_id": "toolu_01HkpSRRWxo8Ei8HUwLYDpJJ",
+  "tool": "mcp__plugin_qompack_qompack__recall",
+  "input": {
+   "query": "path:big.log"
+  },
+  "is_error": null,
+  "response_text_json": {
+   "hits": [
+    {
+     "hash": "sha256:38b71119c76a348a1b5879477c3b454ae946ff7304b59abec96ce85b907b1027",
+     "path": "big.log",
+     "tool": "FileRead",
+     "summary": "",
+     "ts": "2026-09-30T01:23:59Z",
+     "score": 1.12,
+     "tool_use_id": "toolu_01CyY6K2fSxKR5b8CvHbSeRk",
+     "span": [
+      0,
+      312302
+     ]
+    }
+   ],
+   "count": 1,
+   "found": true,
+   "query": {
+    "text": "",
+    "path": "big.log",
+    "symbol": "",
+    "tool": ""
+   }
+  }
+ },
+ {
+  "tool_use_id": "toolu_01WKPyE63aAX9ZtJ6G6bMG2r",
+  "tool": "mcp__plugin_qompack_qompack__recall",
+  "input": {
+   "query": "path:creds.txt"
+  },
+  "is_error": null,
+  "response_text_json": {
+   "hits": [
+    {
+     "hash": "sha256:bcb017e830d60dbd712fba343ff0ee31b6e0772a0d9dd3534b3c40f413bb70d1",
+     "path": "creds.txt",
+     "tool": "FileRead",
+     "summary": "",
+     "ts": "2026-09-30T01:24:16Z",
+     "score": 1.12,
+     "tool_use_id": "toolu_0196w71AZEPNkUf1yQZ8XMHx",
+     "span": [
+      0,
+      243
+     ]
+    }
+   ],
+   "count": 1,
+   "found": true,
+   "query": {
+    "text": "",
+    "path": "creds.txt",
+    "symbol": "",
+    "tool": ""
+   }
+  }
+ },
+ {
+  "tool_use_id": "toolu_01UYpEnEqTNNrnhgvJwzBQX7",
+  "tool": "mcp__plugin_qompack_qompack__expand",
+  "input": {
+   "tool_use_id": "toolu_01CyY6K2fSxKR5b8CvHbSeRk"
+  },
+  "is_error": null,
+  "response_text_json": {
+   "found": true,
+   "hash": "sha256:38b71119c76a348a1b5879477c3b454ae946ff7304b59abec96ce85b907b1027",
+   "path": "big.log",
+   "tool": "FileRead",
+   "span": [
+    0,
+    9909
+   ],
+   "total_bytes": 312302,
+   "truncated": true,
+   "next_span": "9909:16384",
+   "widened": false,
+   "expansions": 1,
+   "promoted": false,
+   "content": "{\"type\":\"text\",\"file\":{\"filePath\":\"<tmp>\",\"content\":\"LINE-0001 event=sync status=ok shard=001 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nLINE-0002 event=sync status=ok shard=002 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nLINE-0003 event=sync status=ok shard=003 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nLINE-0004 event=sync status=ok shard=004 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nLINE-0005 event=sync status=ok shard=005 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nLINE-0006 event=sync status=ok shard=006 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nLINE-0007 event=sync status=ok shard=007 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nLINE-0008 event=sync status=ok shard=008 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nLINE-0009 event=sync status=ok shard=009 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nLINE-0010 event=sync status=ok shard=010 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nLINE-0011 event=sync status=ok shard=011 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nLINE-0012 event=sync status=ok shard=012 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nLINE-0013 event=sync status=ok shard=013 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nLINE-0014 event=sync status=ok shard=014 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nLINE-0015 event=sync status=ok shard=015 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nLINE-0016 event=sync status=ok shard=016 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nLINE-0017 event=sync status=ok shard=017 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nLINE-0018 event=sync status=ok shard=018 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nLINE-0019 event=sync status=ok shard=019 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nLINE-0020 event=sync status=ok shard=020 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nLINE-0021 event=sync status=ok shard=021 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nLINE-0022 event=sync status=ok shard=022 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nLINE-0023 event=sync status=ok shard=023 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nLINE-0024 event=sync status=ok shard=024 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nLINE-0025 event=sync status=ok shard=025 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nLINE-0026 event=sync status=ok shard=026 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nLINE-0027 event=sync status=ok shard=027 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nLINE-0028 event=sync status=ok shard=028 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nLINE-0029 event=sync status=ok shard=029 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nLINE-0030 event=sync status=ok shard=030 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nLINE-0031 event=sync status=ok shard=031 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nLINE-0032 event=sync status=ok shard=032 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nLINE-0033 event=sync status=ok shard=033 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nLINE-0034 event=sync status=ok shard=034 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nLINE-0035 event=sync status=ok shard=035 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nLINE-0036 event=sync status=ok shard=036 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nLINE-0037 event=sync status=ok shard=037 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nLINE-0038 event=sync status=ok shard=038 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nLINE-0039 event=sync status=ok shard=039 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nLINE-0040 event=sync status=ok shard=040 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nLINE-0041 event=sync status=ok shard=041 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nLINE-0042 event=sync status=ok shard=042 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nLINE-0043 event=sync status=ok shard=043 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nLINE-0044 event=sync status=ok shard=044 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nLINE-0045 event=sync status=ok shard=045 xxx"
+  }
+ },
+ {
+  "tool_use_id": "toolu_01SRp4US6MN5gwwWzuXE4NmV",
+  "tool": "mcp__plugin_qompack_qompack__expand",
+  "input": {
+   "tool_use_id": "toolu_0196w71AZEPNkUf1yQZ8XMHx"
+  },
+  "is_error": null,
+  "response_text_json": {
+   "found": true,
+   "hash": "sha256:bcb017e830d60dbd712fba343ff0ee31b6e0772a0d9dd3534b3c40f413bb70d1",
+   "path": "creds.txt",
+   "tool": "FileRead",
+   "span": [
+    0,
+    243
+   ],
+   "total_bytes": 243,
+   "truncated": false,
+   "widened": false,
+   "expansions": 1,
+   "promoted": false,
+   "content": "{\"file\":{\"content\":\"# service credentials (fake, planted for the run)\\naws_access_key_id = «redacted:aws_access_key_id»\\ngithub_token = «redacted:github_token»\\n\",\"filePath\":\"<tmp>\",\"numLines\":4,\"startLine\":1,\"totalLines\":4},\"type\":\"text\"}"
+  }
+ }
+]

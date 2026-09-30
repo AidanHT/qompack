@@ -1,0 +1,7 @@
+ephemeral roots (MCP/CLI self-records): 4
+{"root": "sha256:084e897a93d0457e4be8d54f7bee072d189e7c8fc6a254d5539da90694bba33c", "ts": 1790731299567, "tool": "mcp__qompack__recall", "eph": true}
+{"root": "sha256:f6108621222d4e7785e2f4b7585a34fba2481bafa541baef406445aa17af52e0", "ts": 1790731303669, "tool": "mcp__qompack__expand", "eph": true}
+{"root": "sha256:2fa4af681b9475139ba82554aadf1af50350c2a9a9030ee825f10019570248ad", "ts": 1790731311660, "tool": "mcp__qompack__recall", "eph": true}
+{"root": "sha256:da4883632177f1615616fdbdc727cee9e86c4a02f2ace4cee6fa9bc65798dc78", "ts": 1790731329584, "tool": "mcp__qompack__recall", "eph": true}
+gc tombstones in roots.jsonl: 0
+

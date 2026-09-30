@@ -1,0 +1,6 @@
+cwd: <scratch>/sessions/c4/c49/recovery/proj
+argv: ["C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c4/qompack-plugin-0.3.0-windows-amd64/bin/qompack.exe", "fsck", "--project", "<scratch>/sessions/c4/c49/recovery/proj", "--json"]
+env+: {}
+qompack_home: <scratch>/sessions/c4/qhome
+wall_s: 0.136
+at: 2026-09-29T21:52:25-04:00
