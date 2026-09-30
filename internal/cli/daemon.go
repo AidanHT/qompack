@@ -133,8 +133,10 @@ func runDaemon(ctx context.Context, env Env, args []string, out, errw io.Writer)
 	}
 	// The checkpoint layer's first phase: assemble the LIVE source supplier and bind the
 	// PreCompact seam. It must run after WireObserver (it reads the store and the DAG that call
-	// opened) and before daemon.New (Options.Bind is what New applies). It opens NO ledger — see
-	// wireCheckpointSources.
+	// opened) and before daemon.New (Options.Bind is what New applies). It opens NO ledger here:
+	// the supplier's accessor (recordedLedger) opens one through the shared opener in a project
+	// that already holds elimination records, but only on a resolve after Run is serving, never
+	// during wiring — see wireCheckpointSources.
 	ckpt := wireCheckpointSources(&opts)
 	sched, schedOpts := wireScheduler(&opts, env.Getenv, ckpt.sources)
 	// store.Open pre-creates .qompack/tmp/quarantine as scaffolding for its corrupt-object path,
