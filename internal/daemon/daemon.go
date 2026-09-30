@@ -677,6 +677,9 @@ func (d *daemon) Run(ctx context.Context) error {
 		}
 		return nil
 	}
+	// This daemon owns the project and started from config.json as it stands, so a chunk change an
+	// earlier daemon held for a restart is now in effect (reload.go clearConfigPending).
+	d.clearConfigPending()
 
 	if d.svc.Sketches != nil {
 		d.svc.Sketches.Load(d.root, d.log)

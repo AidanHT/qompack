@@ -211,7 +211,7 @@ func TestConfigReload_HoldsAKeyThatNeedsARestart(t *testing.T) {
 	loud := &reloadLoudLog{}
 	h.d.log = loud
 
-	changed, restart, err := func() ([]string, []string, error) {
+	res, err := func() (reloadResult, error) {
 		p := configJSONPath(h.root)
 		require.NoError(t, os.MkdirAll(paths.Long(filepath.Dir(p)), 0o700))
 		require.NoError(t, os.WriteFile(paths.Long(p), []byte(
@@ -219,6 +219,7 @@ func TestConfigReload_HoldsAKeyThatNeedsARestart(t *testing.T) {
 		return h.d.reloadConfigKeys(context.Background(), h.d.cfgEnv, true)
 	}()
 	require.NoError(t, err)
+	changed, restart := res.Changed, res.Restart
 	require.Equal(t, []string{"sketches.bloom.capacity"}, restart)
 	require.Equal(t, []string{"runtime.daemon.maxSessions"}, changed)
 	require.Equal(t, cfg.Sketches.Bloom.Capacity, h.d.currentCfg().Sketches.Bloom.Capacity,
@@ -226,6 +227,77 @@ func TestConfigReload_HoldsAKeyThatNeedsARestart(t *testing.T) {
 	require.Equal(t, 3, h.d.currentCfg().Runtime.Daemon.MaxSessions)
 	require.Len(t, loud.lines, 1)
 	require.Contains(t, loud.lines[0], "needs a daemon restart")
+}
+
+// reloadKeysWithLoud writes body as the project's config.json, forces a reload with a Loud recorder
+// attached, and returns the reload's result and the Loud lines it wrote.
+func (h *reloadHarness) reloadKeysWithLoud(t *testing.T, body string) (reloadResult, []string) {
+	t.Helper()
+	loud := &reloadLoudLog{}
+	h.d.log = loud
+	p := configJSONPath(h.root)
+	require.NoError(t, os.MkdirAll(paths.Long(filepath.Dir(p)), 0o700))
+	require.NoError(t, os.WriteFile(paths.Long(p), []byte(body), 0o600))
+	res, err := h.d.reloadConfigKeys(context.Background(), h.d.cfgEnv, true)
+	require.NoError(t, err)
+	loud.mu.Lock()
+	defer loud.mu.Unlock()
+	return res, append([]string(nil), loud.lines...)
+}
+
+// TestConfigReload_ChunkChangeNeedsARestart: nothing re-reads store.chunk.* after store.Open builds
+// the chunker at daemon start, so a reloaded chunk change is applied by a daemon restart and by
+// nothing else. The reload used to log it as "deferred to next SessionStart" and leave it out of
+// restart_required, while no SessionStart ever applied it.
+func TestConfigReload_ChunkChangeNeedsARestart(t *testing.T) {
+	cfg := testConfig()
+	h := newReloadHarness(t, cfg, nil)
+
+	res, loud := h.reloadKeysWithLoud(t, `{"store":{"chunk":{"min":1024,"target":9999,"max":16384}}}`)
+	require.Contains(t, res.Restart, "store.chunk.target", "a chunk change needs a daemon restart")
+	require.NotContains(t, res.Changed, "store.chunk.target")
+	require.Equal(t, cfg.Store.Chunk, h.d.currentCfg().Store.Chunk, "the running chunker keeps its boundaries")
+	for _, line := range loud {
+		require.NotContains(t, line, "SessionStart", "no SessionStart applies a chunk change")
+	}
+	require.Len(t, loud, 1)
+	require.Contains(t, loud[0], "needs a daemon restart")
+}
+
+// TestConfigReload_NamesAKeyWithNoEffect: a key nothing in this build reads is not reported as
+// changed (D49: every key the reload reports as changed takes effect). runtime.logging.level is one:
+// the daemon's log is opened at a fixed level before the configuration loads, so changing it used to
+// log "config reloaded changed=[runtime.logging.level]" while the level never moved.
+func TestConfigReload_NamesAKeyWithNoEffect(t *testing.T) {
+	cfg := testConfig()
+	h := newReloadHarness(t, cfg, nil)
+
+	res, loud := h.reloadKeysWithLoud(t,
+		`{"runtime":{"logging":{"level":"debug"},"daemon":{"maxSessions":3}}}`)
+	require.Equal(t, []string{"runtime.daemon.maxSessions"}, res.Changed)
+	require.Empty(t, res.Restart)
+	require.Equal(t, []string{"runtime.logging.level"}, res.NoEffect)
+	require.Equal(t, cfg.Runtime.Logging, h.d.currentCfg().Runtime.Logging,
+		"the live configuration keeps the value in effect")
+	require.Len(t, loud, 1)
+	require.Contains(t, loud[0], "no effect in this build")
+}
+
+// TestReloadKeyEffects_InertKeysHaveNoReader pins the inert classification to the product: each
+// prefix classified effectInert names a key no package outside internal/config reads, which the
+// greps in the V6 close-out w15-services review established. A future reader wired for one of them
+// must reclassify it, which this row reminds by naming them.
+func TestReloadKeyEffects_InertKeysHaveNoReader(t *testing.T) {
+	var inert []string
+	for _, e := range reloadKeyEffects {
+		if e.effect == effectInert {
+			inert = append(inert, e.prefix)
+		}
+	}
+	require.ElementsMatch(t, []string{
+		"selection.deltaScoring", "selection.submodular.lazyGreedy", "runtime.logging",
+		"runtime.telemetry", "runtime.selection.loopWarningsEnabled",
+	}, inert)
 }
 
 // TestReloadKeyEffects_ClassifyEveryKey keeps reload_keys.go total over the configuration schema

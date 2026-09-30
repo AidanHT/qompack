@@ -14,9 +14,12 @@ import (
 	"github.com/qompack/qompack/internal/paths"
 )
 
-// configPendingFileName is state/config-pending.json's basename: where a deferred store.chunk.*
-// change is recorded until the next SessionStart picks it up (§11.2: applying it mid-session
-// would fork the dedup space).
+// configPendingFileName is state/config-pending.json's basename: the record of a store.chunk.*
+// change the running daemon holds until a restart applies it. Nothing re-reads the chunk block after
+// store.Open builds the chunker at daemon start, and applying a change mid-session would fork the
+// dedup space (§11.2), so a restart is the only thing that applies it. The file lives exactly as long
+// as that is true: a reload that holds a chunk change writes it, and the next daemon's Run, which
+// loaded config.json itself, removes it (clearConfigPending).
 const configPendingFileName = "config-pending.json"
 
 // configJSONPath and configPendingPath name the two files reload.go reads/writes, both derived
@@ -38,26 +41,35 @@ func (d *daemon) maybeReloadConfig(ctx context.Context, env config.Env) {
 }
 
 // reloadConfig is maybeReloadConfig's body, also reachable unconditionally (force=true) from
-// admin.reload. It returns the dotted keys that changed and were applied. A deferred store.chunk.*
-// change is reported via the Loud line and state/config-pending.json, and a key that needs a
-// restart via its own Loud line (reloadConfigKeys), not via this return value, since neither was
-// applied to the live config.
+// admin.reload. It returns the dotted keys that changed and were applied. A key that needs a restart
+// (store.chunk.* among them) and a key with no effect in this build are reported by their own Loud
+// lines (reloadConfigKeys), not via this return value, since neither was applied to the live config.
 func (d *daemon) reloadConfig(ctx context.Context, env config.Env, force bool) ([]string, error) {
-	changed, _, err := d.reloadConfigKeys(ctx, env, force)
-	return changed, err
+	res, err := d.reloadConfigKeys(ctx, env, force)
+	return res.Changed, err
 }
 
-// reloadConfigKeys is reloadConfig that also returns the changed keys it held back because they
-// need a daemon restart (reload_keys.go). Every key it returns as changed is in effect in the running
+// reloadResult is what one reload did with the keys it found changed.
+type reloadResult struct {
+	// Changed are the keys the reload applied: each is in effect in the running daemon.
+	Changed []string
+	// Restart are the keys held at their value in effect until a daemon restart applies them.
+	Restart []string
+	// NoEffect are the keys nothing in this build reads, held at their value in effect.
+	NoEffect []string
+}
+
+// reloadConfigKeys is reloadConfig that also returns the changed keys it held back, because they
+// need a daemon restart or because nothing in this build reads them (reload_keys.go). Every key it returns as changed is in effect in the running
 // daemon when it returns (V6 close-out D49): the live configuration holds it, every service the
 // wiring built reads that configuration at its next use, and the daemon's own components that keep
 // a value derived from it have been updated (applyReloaded). The candidate 4 live re-run's UAT-05
 // logged "config reloaded changed=[runtime.rehydrate.maxTokens runtime.rehydrate.minTokens]" and
 // went on rehydrating at its startup budget, because the reload replaced the daemon's own copy and
 // nothing else.
-func (d *daemon) reloadConfigKeys(ctx context.Context, env config.Env, force bool) (changed, restart []string, err error) {
+func (d *daemon) reloadConfigKeys(ctx context.Context, env config.Env, force bool) (reloadResult, error) {
 	if err := ctx.Err(); err != nil {
-		return nil, nil, err
+		return reloadResult{}, err
 	}
 	p := configJSONPath(d.root)
 	fi, statErr := os.Stat(paths.Long(p))
@@ -68,10 +80,10 @@ func (d *daemon) reloadConfigKeys(ctx context.Context, env config.Env, force boo
 
 	if statErr != nil {
 		if !force {
-			return nil, nil, nil // no project config.json yet: nothing to reload.
+			return reloadResult{}, nil // no project config.json yet: nothing to reload.
 		}
 	} else if !force && fi.ModTime().Equal(prevMTime) && fi.Size() == prevSize {
-		return nil, nil, nil // unchanged since the last load.
+		return reloadResult{}, nil // unchanged since the last load.
 	}
 
 	useEnv := env
@@ -81,7 +93,7 @@ func (d *daemon) reloadConfigKeys(ctx context.Context, env config.Env, force boo
 
 	newCfg, _, warns, err := config.Load(useEnv)
 	if err != nil {
-		return nil, nil, err
+		return reloadResult{}, err
 	}
 	for _, w := range warns {
 		d.log.Loud("daemon: config reload warning", "key", w.Key, "message", w.Message, "location", w.Location)
@@ -91,7 +103,7 @@ func (d *daemon) reloadConfigKeys(ctx context.Context, env config.Env, force boo
 	// the configuration read here is the one this reload replaces.
 	oldCfg := d.currentCfg()
 	chunkChanged := !reflect.DeepEqual(oldCfg.Store.Chunk, newCfg.Store.Chunk)
-	finalCfg, restart := holdForRestart(oldCfg, newCfg)
+	finalCfg, restart, inert := holdForRestart(oldCfg, newCfg)
 	d.live.store(finalCfg)
 	if fi != nil {
 		d.lastCfgMTime = fi.ModTime()
@@ -100,8 +112,8 @@ func (d *daemon) reloadConfigKeys(ctx context.Context, env config.Env, force boo
 	d.applyReloaded(finalCfg)
 
 	if chunkChanged {
-		d.log.Loud("daemon: store.chunk.* change deferred to next SessionStart",
-			"old", oldCfg.Store.Chunk, "new", newCfg.Store.Chunk)
+		// Named with the other restart keys below; the file records the whole reloaded configuration
+		// for an operator until the restart that applies it.
 		if perr := d.writeConfigPending(newCfg); perr != nil {
 			d.log.Warn("daemon: failed to persist state/config-pending.json", "err", perr)
 		}
@@ -110,8 +122,12 @@ func (d *daemon) reloadConfigKeys(ctx context.Context, env config.Env, force boo
 		d.log.Loud("daemon: config change needs a daemon restart to take effect; the running daemon keeps the value it started with",
 			"keys", restart)
 	}
+	if len(inert) > 0 {
+		d.log.Loud("daemon: config change has no effect in this build; nothing reads these keys, before or after a restart",
+			"keys", inert)
+	}
 
-	changed = diffDottedKeys(oldCfg, finalCfg)
+	changed := diffDottedKeys(oldCfg, finalCfg)
 	if len(changed) > 0 {
 		d.log.Info("daemon: config reloaded", "changed", changed)
 		// state.bin carries ConnectDeadlineMs/AckDeadlineMs/MaxPayloadBytes/SpoolOnBreach/
@@ -122,7 +138,7 @@ func (d *daemon) reloadConfigKeys(ctx context.Context, env config.Env, force boo
 			d.log.Warn("daemon: failed to rewrite state.bin after reload", "err", err)
 		}
 	}
-	return changed, restart, nil
+	return reloadResult{Changed: changed, Restart: restart, NoEffect: inert}, nil
 }
 
 // applyReloaded hands a reloaded configuration to the daemon's own components that keep a value
@@ -145,9 +161,9 @@ func (d *daemon) applyReloaded(cfg config.Config) {
 	}
 }
 
-// writeConfigPending persists cfg — the FULL reloaded config, including the deferred store.chunk.*
-// block — to state/config-pending.json, so the next SessionStart (or an operator running `qompack
-// doctor`) can see exactly what is waiting to take effect.
+// writeConfigPending persists cfg — the FULL reloaded config, including the held store.chunk.*
+// block — to state/config-pending.json, so an operator can see exactly what a daemon restart would
+// apply.
 func (d *daemon) writeConfigPending(cfg config.Config) error {
 	b, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
@@ -158,6 +174,16 @@ func (d *daemon) writeConfigPending(cfg config.Config) error {
 		return err
 	}
 	return paths.WriteAtomic(p, b, 0o600)
+}
+
+// clearConfigPending removes state/config-pending.json. Run calls it once it owns the project: this
+// daemon loaded config.json when it started, so the change the file records is in effect, and the
+// record would otherwise claim a pending change for ever. A missing file is the ordinary case.
+func (d *daemon) clearConfigPending() {
+	err := os.Remove(paths.Long(configPendingPath(d.root)))
+	if err != nil && !os.IsNotExist(err) {
+		d.log.Warn("daemon: failed to remove a stale state/config-pending.json", "err", err)
+	}
 }
 
 // diffDottedKeys is a best-effort JSON diff between two configs, rendering every leaf that
