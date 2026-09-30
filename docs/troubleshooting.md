@@ -150,15 +150,25 @@ none failing: 4 holding, 1 pending, 4 with nothing to judge` and names each pend
 `pending:` line. A row is pending while the observation it waits for has not arrived:
 `not-yet-observed`, `initialize-pending`, `transcript-pending` or `marker-absent-once`. A row has
 nothing to judge when it reads `not-yet-implemented` or another "nothing was seen" spelling from §1,
-such as `first-session` or `retired`. The rows come from the last `SessionStart`, which runs before
-the MCP handshake and before the probe reaches the transcript. So `status` reads
-`.qompack/state/history.json` too: once it records the handshake or the observed probe,
-`mcp.server_registered` reads `initialize-received` and `hook.additional_context_delivered` reads
-`sentinel-observed` without waiting for the next session. `doctor` reads the observation ledger
-(`state/observations.json`) the same way: when a capability's newest entry is the start's
-`not_observed` and history.json records the observation, the row reports it and says it was read
-from `state/history.json` (`internal/cli/doctor.go`, `capabilityRow`). The ledger itself is not
-rewritten. A failing row is never rewritten this way; the next `SessionStart` evaluates it again.
+such as `first-session` or `retired`. The standard nine always include one such row:
+`precompact.custom_instructions_accepted` reads `retired` (or `not-yet-implemented`). So the
+standard set never reads `all holding`, and a healthy project reads `none failing` with `0 pending`,
+for example `host contract: 9 assertion(s), none failing: 7 holding, 0 pending, 2 with nothing to
+judge`.
+
+The rows come from the last `SessionStart`, which runs before the MCP handshake and before the probe
+reaches the transcript. So `status` reads `.qompack/state/history.json` too. Once it records the
+handshake or the observed probe, `mcp.server_registered` reads `initialize-received` and
+`hook.additional_context_delivered` reads `sentinel-observed` without waiting for the next session.
+Once it records that two of the session's prompts missed the probe, that row reads `sentinel not
+found after two chances` and is counted as failing, with a note that it was read from
+`state/history.json`. The mode on the page does not change until the next `SessionStart` evaluates
+the row. `doctor` reads the observation ledger (`state/observations.json`) the same way: when a
+capability's newest entry is the start's `not_observed` and history.json records the observation or
+the spent chances, the row reports that outcome and says it was read from `state/history.json`
+(`internal/cli/doctor.go`, `capabilityRow`). The ledger itself is not rewritten. A row that was
+already failing at the start is never rewritten this way; the next `SessionStart` evaluates it
+again.
 
 **Action.** No action; this is a recorded limit. See §2 for the `unavailable` latency rows.
 
