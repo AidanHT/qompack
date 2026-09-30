@@ -97,6 +97,12 @@ func (d *daemon) publicationScanCap() store.PublicationScanCap {
 // under runCtx, so Stop ends it, and on the goRun group, so Stop joins it.
 //
 // A store that cannot take a snapshot keeps the old shape: one bounded pass, announced as it ends.
+//
+// The background pass is not paced: it is bounded only by DefaultPublicationScanCap. On a store ten
+// times the live run's size (3800 objects in 3961 directories, 700 captures) it took 15.1 s with a
+// cold cache and about 4 s warm on the Windows host, and a PutBytes beside it moved from p99 16 ms
+// to 26 ms (plans/sdd/V6-closeout/w15-services/runs/review-pubscan-10x-diagnostic.txt). Whether to
+// pace it is the owner's call; the measurement is recorded for that decision.
 func (d *daemon) accountPublicationAtStartup(runCtx context.Context) {
 	auditor, ok := d.svc.Store.(store.PublicationAuditor)
 	if !ok {
