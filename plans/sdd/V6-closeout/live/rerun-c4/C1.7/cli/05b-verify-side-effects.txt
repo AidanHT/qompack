@@ -1,0 +1,7 @@
+system temp (%TEMP%) entries before verify: 13367, after: 13367; added during verify:
+(none above = verify wrote nothing to the system temporary directory)
+source .qompack fingerprint after create vs after verify: +0 -0 ~0 (st/fp-A2 vs fp-A3); source .qompack/tmp after verify:
+<scratch>/recovery/c4/C1.7/proj/.qompack/tmp:
+quarantine
+
+<scratch>/recovery/c4/C1.7/proj/.qompack/tmp/quarantine:

@@ -1,0 +1,127 @@
+{
+ "how": "store_bytes_before/after and per-turn samples from live_driver.py meta.json (every file under <project>/.qompack/, backup/ included); daemon WorkingSet64/PeakWorkingSet64/CPU sampled after each turn; idle tail sampled once a minute by waitidle.py until the default idle exit; hook latency is the host stream arrival delta (approximate, measured pairs only)",
+ "sessions": [
+  {
+   "evidence": "rerun-c4/C1.7/session1",
+   "turns": 5,
+   "wall_s": 53.103,
+   "store_bytes_before": 0,
+   "store_bytes_after": 390204,
+   "growth_bytes": 390204,
+   "per_turn": [
+    {
+     "turn": 0,
+     "store_bytes": 95407,
+     "daemon_ws": 28753920,
+     "daemon_peak_ws": 28753920,
+     "daemon_cpu_s": 0.234375
+    },
+    {
+     "turn": 1,
+     "store_bytes": 157015,
+     "daemon_ws": 34050048,
+     "daemon_peak_ws": 34050048,
+     "daemon_cpu_s": 0.375
+    },
+    {
+     "turn": 2,
+     "store_bytes": 224901,
+     "daemon_ws": 36524032,
+     "daemon_peak_ws": 36524032,
+     "daemon_cpu_s": 0.53125
+    },
+    {
+     "turn": 3,
+     "store_bytes": 262345,
+     "daemon_ws": 39489536,
+     "daemon_peak_ws": 39489536,
+     "daemon_cpu_s": 0.625
+    },
+    {
+     "turn": 4,
+     "store_bytes": 322044,
+     "daemon_ws": 40984576,
+     "daemon_peak_ws": 40984576,
+     "daemon_cpu_s": 0.796875
+    }
+   ],
+   "hooks": {
+    "pairs": 21,
+    "measured": 19,
+    "median_ms": 64,
+    "p95_ms": 113,
+    "max_ms": 113
+   },
+   "idle_tail": {
+    "samples": 29,
+    "max_ws": 74199040,
+    "max_peak_ws": 74199040,
+    "cpu_s_at_last_sample": 2.328125,
+    "store_bytes_first_sample": 330628,
+    "store_bytes_after_exit": 270435,
+    "idle_exit_after_s": 1771
+   }
+  },
+  {
+   "evidence": "rerun-c4/C1.7/session2",
+   "turns": 5,
+   "wall_s": 45.149,
+   "store_bytes_before": 548146,
+   "store_bytes_after": 795497,
+   "growth_bytes": 247351,
+   "per_turn": [
+    {
+     "turn": 0,
+     "store_bytes": 642280,
+     "daemon_ws": 29798400,
+     "daemon_peak_ws": 29798400,
+     "daemon_cpu_s": 0.140625
+    },
+    {
+     "turn": 1,
+     "store_bytes": 699418,
+     "daemon_ws": 35553280,
+     "daemon_peak_ws": 35553280,
+     "daemon_cpu_s": 0.28125
+    },
+    {
+     "turn": 2,
+     "store_bytes": 750018,
+     "daemon_ws": 37183488,
+     "daemon_peak_ws": 37183488,
+     "daemon_cpu_s": 0.390625
+    },
+    {
+     "turn": 3,
+     "store_bytes": 786752,
+     "daemon_ws": 40534016,
+     "daemon_peak_ws": 40534016,
+     "daemon_cpu_s": 0.5
+    },
+    {
+     "turn": 4,
+     "store_bytes": 844719,
+     "daemon_ws": 41213952,
+     "daemon_peak_ws": 41213952,
+     "daemon_cpu_s": 0.59375
+    }
+   ],
+   "hooks": {
+    "pairs": 20,
+    "measured": 18,
+    "median_ms": 47,
+    "p95_ms": 86,
+    "max_ms": 86
+   },
+   "idle_tail": {
+    "samples": 20,
+    "max_ws": 42586112,
+    "max_peak_ws": 42729472,
+    "cpu_s_at_last_sample": 1.65625,
+    "store_bytes_first_sample": 795497,
+    "store_bytes_after_exit": 731440,
+    "idle_exit_after_s": 1846
+   }
+  }
+ ]
+}

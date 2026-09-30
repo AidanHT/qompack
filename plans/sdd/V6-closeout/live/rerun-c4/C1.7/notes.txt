@@ -1,0 +1,130 @@
+C1.7 (V6-RECOVERY-2) re-run on candidate 4 (D47): operator backup / verify / restore through the shipped CLI on a
+REALISTIC store (MCP calls, a /compact with a sealed checkpoint, the daemon's default idle exit), pre- and post-new-write
+rollback, the two documented refusals. Candidate 3 rehearsed only a Read-only, checkpoint-free store
+(../../recovery/C1.7/notes.txt). Agent-executed on the owner's real host per owner decision D3 by a Claude Code
+workflow subagent (Opus 5.5) - not human UAT.
+
+Date 2026-09-30 10:13-11:23 America/Toronto (sessions 10:14:09 and 10:47:42). Sessions used: 2 (sessions.tsv
+recovery-c4 n=1 53.1 s, n=2 45.1 s; both exit 0, stderr empty). Model claude-haiku-4-5-20251001, Claude Code 2.1.280
+(init event), Windows 11 Home build 10.0.26200.9457, frozen bundle 0.3.0 via --plugin-dir (cli/00-version: "0.3.0",
+exit 0; BUNDLE.json sha256 aa7da0e17b7597562a6eba47fc48f1db81ff5e9bdc494b9997a323137625558d, bin/qompack.exe sha256
+1e9d0cc84597bf719955e268ef2e0c990352eb964559116a6612a012f1e5c358), commit 9f6a2fadf086eba8080af589a35dd9554ae6cab4.
+Self-tests before the first session: selftests.txt (homeguard_test 10 OK, live_driver_test 3 OK).
+The part's run was done by the first live4 seat, which lost its API connection at ~11:27 after writing the END-of-part
+guard block; a replacement seat checked this evidence for completeness, wrote this file, ran one homeguard check and
+committed. It ran no session, plugin command, backup/restore or daemon. Every step below is read from the files named.
+
+Result: PASS on the realistic store. Every step the checklist names ran and behaved as docs/backup.md states; the
+three candidate-3 blockers of a restore after ordinary use did not recur where this store could show them (details
+below). One of them (a GC-tombstoned MCP root) was NOT exercised: the tombstone count stayed 0.
+
+Project (scratch <scratch>/recovery/c4/C1.7/proj): notes.md (codeword COBALT-LYNX-417), data.txt (30 rows), src/app.py,
+git init + add; defaults; no QOMPACK_RUNTIME__* override on either session (driver-config.json env: QOMPACK_HOME and
+ENABLE_CLAUDEAI_MCP_SERVERS only). cli/00-backup-create-absent: exit 1, {"error":"backup: source project has no
+existing store"} - the initial absence, recorded. Nothing planted is credential-shaped; no secrets.json was written.
+
+Session 1 (session1/, transcript-facts: tool_uses Read 2, recall 1, expand 1, record_eliminated 1, already_tried 1,
+timeline 1; one manual compact boundary, preTokens 29012). init: 8 plugin MCP tools, server plugin:qompack:qompack
+connected, six /qompack: commands (no checkpoint command). T1 Read notes.md; T2 recall "COBALT" 2 hits + expand found;
+T3 record_eliminated (scope project; depends_on data.txt unresolved: "no stored version for data.txt" - the file was
+read later in the same turn) + Read data.txt; T4 "/compact": "PreCompact [...qompack.exe checkpoint] completed
+successfully: {}", SessionStart:compact success; T5 already_tried -> state active with the recorded reason; timeline
+count 2 (segment 1 closed, encoded_once, checkpoint_seq 1). All 21 hook pairs success / exit 0.
+ 01 right after the session (daemon up): status --json exit 0, doctor --json exit 0, fsck --json exit 0 (18/18 ok;
+    checkpoints "the chain from 0001 verifies across 1 checkpoint(s)"; negknow 1 active elimination).
+ 02 idle exit: daemon pid 67652 (lock root = this project, image qompack.exe) sampled once a minute; gone 1771 s after
+    sampling began (10:45:28) on the DEFAULT idle exit (1800 s); no termination; run/ keeps marker.json only.
+ 03 fsck --seal-check --json on the stopped source: exit 0, 18/18 ok, "the full dual-reader seal check passed".
+    Idle frontier work, candidate 3's F-UAT03-2: store/source_index_segments.jsonl records encode only for segment
+    1 -> seq 1; session 1's segment 2 closed without an encode claim; its draft (state/draft-dddfef64...json, seq 2,
+    parent 1) was set aside and never sealed, as docs/backup.md describes. index.segments ok everywhere.
+
+Backup (stopped source):
+ 04 backup create --id before --json: exit 0; manifest consistent:true, 83 files, 264,604 bytes, taken_at
+    1790779568551 (10:46:08); includes checkpoints/0001.json, MANIFEST.jsonl, index/segments.jsonl and the set-aside
+    draft. (frontier 0 / snapshot_id "" are the legacy-import cursor fields: no import.)
+ 05 backup verify --id before --json: exit 0; manifest re-hashed plus a scratch restore into
+    .qompack/tmp/verify-before-53f3cdd7dc7f3529/project: OpenedOK true, ContentRootsProven 25, ToolRefsProven 19,
+    ToolRefsTombstoned 0, SameBuildOnly true, CheckpointSealCovered false; integrity exit 0 incl. "the full
+    dual-reader seal check passed". 05b: %TEMP% entry count 13367 before and after (nothing added); the source .qompack
+    fingerprint after create vs after verify +0 -0 ~0; the scratch restore was removed (tmp/ holds only quarantine/).
+
+Pre-new-write rollback:
+ 06 backup restore --id before --destination D1 --json: exit 0; same reader proof as 05 (25 / 19 / 0), integrity exit 0
+    with the full seal check. The Note now says "The checkpoint chain and the delivery seals were then checked on the
+    destination by the integrity report in this response" - candidate 3's contradictory-wording observation is gone.
+ 06a D1 carries the project-file snapshot taken at backup time (data.txt, notes.md, src/app.py sha256).
+ 07 fsck D1 --json exit 0; 08 fsck D1 --seal-check --json exit 0 (18/18 ok, chain from 0001, seal check passed).
+ 09 D1 equals the backup manifest file for file (83 = 83, no extra, missing or differing file).
+ 10 reader: `qompack mcp` probe in D1 (QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS=30 on the probe only): recall
+    path:notes.md -> notes.md FileRead; expand of both session-1 Reads found; already_tried active; why dec_a220df719af3
+    found; timeline 2 segments; recall path:later.md 0 (not yet written). 10b: the D1 reader daemon exited on its idle
+    exit, no termination. 11 fsck D1 --seal-check after the reader: exit 0 (objects 25 -> 32: the reader's own MCP
+    records).
+
+Post-new-write rollback:
+ Session 2 (session2/, later.md "AMBER-FALCON-862" created on disk after the backup; tool_uses Read 1, Write 1,
+ recall 2, record_eliminated 1 (scope session), already_tried 1; one manual compact, preTokens 28314). already_tried
+ in session 2 returned session 1's project-scope elimination. All 20 hook pairs success / exit 0.
+ 12 right after session 2: status exit 0, fsck --json exit 0 (objects 43, chain from 0003 across 2 checkpoints).
+ 13 idle exit: pid 6472 gone 1846 s after sampling began (11:19:33), default idle exit, no termination.
+ 14 fsck source --seal-check exit 0.
+ 15 backup restore --id before --destination D2 --json: exit 0 (25 / 19 / 0, integrity exit 0 with the seal check).
+ 16 fsck D2 --seal-check --json exit 0. D2 got the same project-file snapshot (store/D2-files.sha256 = 06a).
+ 17 D2 == manifest (83 files, equal file for file). Source vs manifest: 43 files only in the source (checkpoints/
+    0003.json, 18 objects, 18 capture records, ...), 27 changed, 0 missing. Counts D2 / source: objects 25 / 43,
+    roots.jsonl 25 / 43, tool_use.jsonl 19 / 36, segments.jsonl 5 / 10, eliminations 1 / 2, delivery leases and acks
+    20 / 39, checkpoints [0001] / [0001, 0003].
+ 18a reader in D2: later.md, summary.md, "AMBER", session 2's Read (expand) and decision dec_654d48ad8345 (why) all
+    not found; session 1's Read, decision and elimination found; timeline 2.
+ 18b the SOURCE keeps its later writes: later.md, summary.md, "AMBER" (3 hits), session 2's Read and decision found;
+    timeline 4. 18c both reader daemons exited on their idle exit.
+ 25 fsck source --seal-check final: exit 0 (objects 52, incl. the reader probes' records). 26 backup verify before
+    (daemon stopped) final: exit 0 - the backup still verifies after the later writes.
+
+Refusals (docs/backup.md):
+ 19a restore --id before into the existing D1: exit 1, "store: restore destination .qompack already exists: ...D1\.qompack
+     is a directory"; the response says "No integrity check ran: the restore stopped before it published a destination
+     to check" (as documented). 19b D1 fingerprint before/after the refusal: +0 -0 ~0.
+ 20  live writer: a `qompack mcp` client started the source daemon (pid 45952, image qompack.exe, daemon.lock root =
+     this project; IDLEEXITSECONDS=30 on that client only).
+ 21  backup create --id live-attempt: exit 1, "backup: stop the source daemon before maintenance: qompack: daemon lock
+     already held". 22 verify --id before: exit 1, same message. 23 restore --id before --destination D3-live-attempt:
+     exit 1, same message. 24: backup/ still lists only "before"; D3 was not created; the daemon was still alive.
+ 24b the daemon exited on its idle exit ~26 s after the client closed; no termination.
+
+Store growth (growth.json, C5.6-style): session 1 0 -> 390,204 B in 5 turns (53.1 s), daemon WS 28.8 -> 41.0 MB;
+idle tail 29 samples, WS rose from ~37 MB to 74.2 MB at ~11 min idle and stayed there until exit, CPU 2.33 s;
+store 270,435 B after exit. Session 2 548,146 -> 795,497 B (+247,351, backup/ included), WS 29.8 -> 41.2 MB; idle tail
+20 samples, max WS 42.6 MB, CPU 1.66 s, 731,440 B after exit. Hook arrival deltas (measured pairs only; the
+SessionStart:startup and first UserPromptSubmit pairs arrive before init and are NOT measured): session 1 19 of 21
+measured, median 64 ms, p95/max 113 ms; session 2 18 of 20, median 47 ms, p95/max 86 ms. The session-2 idle sampler
+has no samples between 10:53:52 and 11:05:19 (a sampler gap; the exit time is still bounded).
+
+Observations (none is a fail condition of C1.7):
+ O1 Checkpoint numbers skip: session 1's set-aside draft holds seq 2, so session 2's compaction sealed 0003 (parent
+    0001); fsck verifies the chain 0001 -> 0003. Consistent with docs/backup.md's set-aside-draft wording; the doc does
+    not say the numbering then has a gap.
+ O2 Corroborates UAT-12 F1 (rerun-c4/UAT-12/notes.txt; recall's k counts hits authorization then withholds): the
+    recall top-5 is filled by pathless MCP self-records that are then denied, so a permitted file hit drops out. D1
+    recall "COBALT" -> count 1, denied 4, notes.md absent (session 1 got notes.md for the same query before those
+    records existed); session 2 recall "FALCON" -> count 3, denied 2, later.md absent although it holds FALCON.
+ O3 Corroborates F-C4-C49-3 / UAT-12 F6: the sessionless daemon started by the refusal-2 `qompack mcp` client logged
+    warn "checkpoint: no usable source set; the frontier is not advancing" err "SourceSet.Ledger is nil ... running in
+    degraded mode" (store/source_logs_qompack-20260930.log, 15:21:17Z). No other warn in any of the three logs.
+ O4 fsck reports the delivery position documents as "v2" while a daemon runs (01, 12) and "v1" on the stopped store
+    (03, 14, 25, D1, D2); every check passed either way. Recorded, not judged.
+ O5 ToolRefsTombstoned stayed 0 in every proof (the one gc pass per session deleted nothing), so the reader proof's
+    tombstoned-reference path (candidate 3's F-C49-2) is not exercised by this run, as in the C4.9 re-run (F-C4-C49-1).
+
+Not established here (docs/backup.md, docs/uat.md): older-release compatibility, cross-version readers, activation of
+a recovered project; these remain unverified. The three reader probes are CLI `qompack mcp` clients, not host
+sessions.
+Rollback verified: backup "before" (83 files, consistent, verified twice), candidate 9f6a2fad same-build reader proof
+and integrity report on D1, D2 and the verify scratch copy, restored content checked by readers against the matching
+project-file snapshot, later writes kept in the source; cross-version, frontier-compatibility and activation checks
+unverified.
+Guard: ../../guard/recovery.txt (after each session, the END-of-part block and the resume check: unchanged, exit 0;
+no plugin install in this part). Sessions: ../../sessions.tsv recovery-c4 1-2. Paths under the scratch root are
+scrubbed to <scratch> where live_driver.py's scrub applies; stream.jsonl and the two status outputs keep the
+backslash-escaped spelling of the scratch path and the host's project slug, as the other committed streams do.

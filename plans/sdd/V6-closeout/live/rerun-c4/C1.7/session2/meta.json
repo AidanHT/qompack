@@ -1,0 +1,101 @@
+{
+ "args": [
+  "-p",
+  "--input-format",
+  "stream-json",
+  "--output-format",
+  "stream-json",
+  "--verbose",
+  "--include-hook-events",
+  "--model",
+  "claude-haiku-4-5-20251001",
+  "--max-turns",
+  "12",
+  "--setting-sources",
+  "project,local",
+  "--permission-mode",
+  "dontAsk",
+  "--plugin-dir",
+  "C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c4/qompack-plugin-0.3.0-windows-amd64",
+  "--allowedTools",
+  "Read,Write,mcp__plugin_qompack_qompack__recall,mcp__plugin_qompack_qompack__expand,mcp__plugin_qompack_qompack__re_read,mcp__plugin_qompack_qompack__already_tried,mcp__plugin_qompack_qompack__record_eliminated,mcp__plugin_qompack_qompack__timeline,mcp__plugin_qompack_qompack__why,mcp__plugin_qompack_qompack__dropped,Bash(qompack status:*),Bash(qompack recall:*),Bash(qompack pin:*),Bash(qompack why:*),Bash(qompack dropped:*),Bash(qompack eval:*)"
+ ],
+ "turns": [
+  {
+   "msg": "Use the Read tool to read later.md and tell me the second codeword in one sentence.",
+   "ok": true,
+   "wall_s": 4.608,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 6472,
+    "WorkingSet64": 29798400,
+    "PeakWorkingSet64": 29798400,
+    "CPU": 0.140625,
+    "StartTime": "/Date(1790779663466)/"
+   },
+   "store_bytes": 642280
+  },
+  {
+   "msg": "Use the Write tool to create summary.md containing exactly two lines: \"codeword 1: COBALT-LYNX-417\" and \"codeword 2: AMBER-FALCON-862\". Then call the MCP tool mcp__plugin_qompack_qompack__recall with query \"AMBER\" and report in one sentence how many hits it returned.",
+   "ok": true,
+   "wall_s": 5.812,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 6472,
+    "WorkingSet64": 35553280,
+    "PeakWorkingSet64": 35553280,
+    "CPU": 0.28125,
+    "StartTime": "/Date(1790779663466)/"
+   },
+   "store_bytes": 699418
+  },
+  {
+   "msg": "Call mcp__plugin_qompack_qompack__record_eliminated with target \"later.md lookup\", approach \"grep for the codeword\", reason \"later.md holds a single codeword line; reading the file is cheaper than a search\", scope \"session\" and depends_on [\"later.md\"]. Answer in one sentence.",
+   "ok": true,
+   "wall_s": 5.611,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 6472,
+    "WorkingSet64": 37183488,
+    "PeakWorkingSet64": 37183488,
+    "CPU": 0.390625,
+    "StartTime": "/Date(1790779663466)/"
+   },
+   "store_bytes": 750018
+  },
+  {
+   "msg": "/compact",
+   "ok": true,
+   "wall_s": 16.429,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 6472,
+    "WorkingSet64": 40534016,
+    "PeakWorkingSet64": 40534016,
+    "CPU": 0.5,
+    "StartTime": "/Date(1790779663466)/"
+   },
+   "store_bytes": 786752
+  },
+  {
+   "msg": "Call mcp__plugin_qompack_qompack__already_tried with target \"data.txt parsing\" and approach \"regex per row\", then call mcp__plugin_qompack_qompack__recall with query \"FALCON\". Report in two sentences what already_tried answered and how many hits recall returned.",
+   "ok": true,
+   "wall_s": 8.417,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 6472,
+    "WorkingSet64": 41213952,
+    "PeakWorkingSet64": 41213952,
+    "CPU": 0.59375,
+    "StartTime": "/Date(1790779663466)/"
+   },
+   "store_bytes": 844719
+  }
+ ],
+ "store_bytes_before": 548146,
+ "started_ms": 1790779662679,
+ "pid": 66944,
+ "exit": 0,
+ "wall_s": 45.149,
+ "store_bytes_after": 795497
+}

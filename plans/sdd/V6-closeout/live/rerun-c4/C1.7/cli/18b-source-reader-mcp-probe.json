@@ -1,0 +1,516 @@
+{
+ "env_overrides": {
+  "QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS": "30"
+ },
+ "initialize": {
+  "serverInfo": {
+   "name": "qompack",
+   "version": "0.3.0"
+  },
+  "protocolVersion": "2025-06-18"
+ },
+ "calls": [
+  {
+   "tool": "recall",
+   "args": {
+    "query": "path:later.md"
+   },
+   "jsonrpc_line_bytes": 663,
+   "isError": false,
+   "error": null,
+   "text_bytes": 328,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 5,
+     "ephemeral": true,
+     "hash": "sha256:8003c8f81590ac597f5335c10fb8be0eadd7782097d444b35d8fb1ea274f55ff",
+     "tool_use_id": "qompack-mcp:8bcec6e40113",
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "hits": [
+      {
+       "hash": "sha256:f36168ba93ca822bbdd29c00fa6933542fe4b2cf0951a45ac615951fa47ad2a8",
+       "path": "later.md",
+       "tool": "FileRead",
+       "summary": "",
+       "ts": "2026-09-30T14:47:46Z",
+       "score": 1.12,
+       "tool_use_id": "toolu_01RTrzozUuwRsSFPb1h9XyYc",
+       "span": [
+        0,
+        151
+       ]
+      }
+     ],
+     "count": 1,
+     "found": true,
+     "query": {
+      "text": "",
+      "path": "later.md",
+      "symbol": "",
+      "tool": ""
+     }
+    }
+   ]
+  },
+  {
+   "tool": "recall",
+   "args": {
+    "query": "path:summary.md"
+   },
+   "jsonrpc_line_bytes": 667,
+   "isError": false,
+   "error": null,
+   "text_bytes": 332,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 9,
+     "ephemeral": true,
+     "hash": "sha256:d91e5b2218daddbf60f0c6320a86473412cc324cd8e731c2fcbb0dcf75a16c31",
+     "tool_use_id": "qompack-mcp:6e248f2aabc0",
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "hits": [
+      {
+       "hash": "sha256:bd4525d82bb35b29652b9d581ac714d7e73e4376d932e1df275849f4c1e3cf9c",
+       "path": "summary.md",
+       "tool": "FileWrite",
+       "summary": "",
+       "ts": "2026-09-30T14:47:51Z",
+       "score": 1.12,
+       "tool_use_id": "toolu_012unp2zLR7CKRFfscY31xfc",
+       "span": [
+        0,
+        56
+       ]
+      }
+     ],
+     "count": 1,
+     "found": true,
+     "query": {
+      "text": "",
+      "path": "summary.md",
+      "symbol": "",
+      "tool": ""
+     }
+    }
+   ]
+  },
+  {
+   "tool": "recall",
+   "args": {
+    "query": "AMBER"
+   },
+   "jsonrpc_line_bytes": 1590,
+   "isError": false,
+   "error": null,
+   "text_bytes": 1154,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 25,
+     "ephemeral": true,
+     "hash": "sha256:da83f5cf241dc3787f7fb6cb806d1661459085f01d4dd94bb7e28906b5abf2cb",
+     "tool_use_id": "qompack-mcp:f21481b11bd2",
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "hits": [
+      {
+       "hash": "sha256:192e8c5fa31d1bbd002f3737e96dbe305fe88d19928003bce3d5e2640d2f4eec",
+       "path": "",
+       "tool": "UserPromptSubmit",
+       "summary": "Use the Write tool to create summary.md containing exactly two lines: \"codeword 1: COBALT-LYNX-417\" and \"codeword 2: …",
+       "ts": "2026-09-30T14:47:48Z",
+       "score": 0.4657143093908154,
+       "tool_use_id": "prompt_e971f578-e2ab-4136-8689-c365532295bf_2",
+       "span": [
+        0,
+        267
+       ]
+      },
+      {
+       "hash": "sha256:bd4525d82bb35b29652b9d581ac714d7e73e4376d932e1df275849f4c1e3cf9c",
+       "path": "summary.md",
+       "tool": "FileWrite",
+       "summary": "codeword 1: COBALT-LYNX-417",
+       "ts": "2026-09-30T14:47:51Z",
+       "score": 0.32263157894736844,
+       "tool_use_id": "toolu_012unp2zLR7CKRFfscY31xfc",
+       "span": [
+        0,
+        56
+       ]
+      },
+      {
+       "hash": "sha256:f36168ba93ca822bbdd29c00fa6933542fe4b2cf0951a45ac615951fa47ad2a8",
+       "path": "later.md",
+       "tool": "FileRead",
+       "summary": "{\"type\":\"text\",\"file\":{\"filePath\":\"<tmp>\",\"content\":\"# Later\\n\\nThe second codeword is AMBER-FALCON-862.\\n\",\"numLines…",
+       "ts": "2026-09-30T14:47:46Z",
+       "score": 0.3163157894736842,
+       "tool_use_id": "toolu_01RTrzozUuwRsSFPb1h9XyYc",
+       "span": [
+        0,
+        151
+       ]
+      }
+     ],
+     "count": 3,
+     "found": true,
+     "query": {
+      "text": "AMBER",
+      "path": "",
+      "symbol": "",
+      "tool": ""
+     },
+     "denied": 2
+    }
+   ]
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "tool_use_id": "toolu_01RTrzozUuwRsSFPb1h9XyYc"
+   },
+   "jsonrpc_line_bytes": 878,
+   "isError": false,
+   "error": null,
+   "text_bytes": 417,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 11,
+     "ephemeral": true,
+     "expansions": 1,
+     "hash": "sha256:b318d5c918904dce0eb478bf7301f575e2fd52bd7444ed8ae894bd195e3a5a2d",
+     "path": "later.md",
+     "promoted": false,
+     "span": [
+      0,
+      151
+     ],
+     "tool_use_id": "qompack-mcp:a4e7a8e2d389",
+     "total_bytes": 151,
+     "truncated": false,
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "found": true,
+     "hash": "sha256:f36168ba93ca822bbdd29c00fa6933542fe4b2cf0951a45ac615951fa47ad2a8",
+     "path": "later.md",
+     "tool": "FileRead",
+     "span": [
+      0,
+      151
+     ],
+     "total_bytes": 151,
+     "truncated": false,
+     "widened": false,
+     "expansions": 1,
+     "promoted": false,
+     "content": "{\"type\":\"text\",\"file\":{\"filePath\":\"<tmp>\",\"content\":\"# Later\\n\\nThe second codeword is AMBER-FALCON-862.\\n\",\"numLines\":4,\"startLine\":1,\"totalLines\":4}}"
+    }
+   ]
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "tool_use_id": "toolu_01UqdUTTsG2LhYJXwQF77ogs"
+   },
+   "jsonrpc_line_bytes": 920,
+   "isError": false,
+   "error": null,
+   "text_bytes": 457,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 12,
+     "ephemeral": true,
+     "expansions": 1,
+     "hash": "sha256:5ec97866a028d8bd9f9158db22cef8844651ee5d1166160f32d560dd4fb355c9",
+     "path": "notes.md",
+     "promoted": false,
+     "span": [
+      0,
+      190
+     ],
+     "tool_use_id": "qompack-mcp:373615488eb2",
+     "total_bytes": 190,
+     "truncated": false,
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "found": true,
+     "hash": "sha256:eec183d333c48beb4766815681fe76104525dd2ee3296762d45f4daa45a17d2e",
+     "path": "notes.md",
+     "tool": "FileRead",
+     "span": [
+      0,
+      190
+     ],
+     "total_bytes": 190,
+     "truncated": false,
+     "widened": false,
+     "expansions": 1,
+     "promoted": false,
+     "content": "{\"type\":\"text\",\"file\":{\"filePath\":\"<tmp>\",\"content\":\"# Notes\\n\\nThe project codeword is COBALT-LYNX-417.\\nThe release train leaves on Thursday.\\n\",\"numLines\":5,\"startLine\":1,\"totalLines\":5}}"
+    }
+   ]
+  },
+  {
+   "tool": "already_tried",
+   "args": {
+    "target": "data.txt parsing",
+    "approach": "regex per row"
+   },
+   "jsonrpc_line_bytes": 544,
+   "isError": false,
+   "error": null,
+   "text_bytes": 258,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 6,
+     "ephemeral": true,
+     "hash": "sha256:8f8edb9016a4a060941ccf9f47931fecc9aa208e84304c0d3e265d87f3981cf3",
+     "tool_use_id": "qompack-mcp:af7ef072adc3"
+    }
+   },
+   "json": [
+    {
+     "state": "active",
+     "reason": "every row is fixed-format 'row N: V'; a split on ': ' is enough and a regex adds nothing",
+     "evidence": "sha256:52775b683ab2e2c081e72cacdb4190d665fb4ffa64e1a2fa34ea72ca04093fec",
+     "scope": "project",
+     "recorded_at": "2026-09-30T14:14:26Z"
+    }
+   ]
+  },
+  {
+   "tool": "why",
+   "args": {
+    "decision_id": "dec_654d48ad8345"
+   },
+   "jsonrpc_line_bytes": 809,
+   "isError": false,
+   "error": null,
+   "text_bytes": 507,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 1,
+     "ephemeral": true,
+     "hash": "sha256:15fac963b24540322ee19d4d3b8e4bda6ff79a2d188fde3348ca61b2a15a5380",
+     "tool_use_id": "qompack-mcp:8cd5fceed455"
+    }
+   },
+   "json": [
+    {
+     "alternatives_rejected": [
+      "grep for the codeword"
+     ],
+     "checkpoint_seq": 3,
+     "decision_id": "dec_654d48ad8345",
+     "evidence": "sha256:10d440343fcf65783394b5dca790d586a0322e06842c9d5e736dbb7c1ff4063b",
+     "evidence_bytes": 80,
+     "found": true,
+     "hint": "call expand with hash=sha256:10d440343fcf65783394b5dca790d586a0322e06842c9d5e736dbb7c1ff4063b to read the evidence",
+     "turn": 5,
+     "what": "rejected \"grep for the codeword\" for later.md lookup",
+     "why": "later.md holds a single codeword line; reading the file is cheaper than a search"
+    }
+   ]
+  },
+  {
+   "tool": "why",
+   "args": {
+    "decision_id": "dec_a220df719af3"
+   },
+   "jsonrpc_line_bytes": 802,
+   "isError": false,
+   "error": null,
+   "text_bytes": 500,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 1,
+     "ephemeral": true,
+     "hash": "sha256:35c553af4523e556c9d17269137bb56f2d334d616e44f895029dd03a8a5cc11a",
+     "tool_use_id": "qompack-mcp:6d60a0b606fb"
+    }
+   },
+   "json": [
+    {
+     "alternatives_rejected": [
+      "regex per row"
+     ],
+     "checkpoint_seq": 3,
+     "decision_id": "dec_a220df719af3",
+     "evidence": "sha256:52775b683ab2e2c081e72cacdb4190d665fb4ffa64e1a2fa34ea72ca04093fec",
+     "evidence_bytes": 88,
+     "found": true,
+     "hint": "call expand with hash=sha256:52775b683ab2e2c081e72cacdb4190d665fb4ffa64e1a2fa34ea72ca04093fec to read the evidence",
+     "turn": 5,
+     "what": "rejected \"regex per row\" for data.txt parsing",
+     "why": "every row is fixed-format 'row N: V'; a split on ': ' is enough and a regex adds nothing"
+    }
+   ]
+  },
+  {
+   "tool": "timeline",
+   "args": {},
+   "jsonrpc_line_bytes": 1466,
+   "isError": false,
+   "error": null,
+   "text_bytes": 1067,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 0,
+     "ephemeral": true,
+     "hash": "sha256:3ebe724f662dd36ee3d8b06e055dbf9c77cf733f1a0f7aff4a2a733466416a22",
+     "tool_use_id": "qompack-mcp:91db94c8d2df"
+    }
+   },
+   "json": [
+    {
+     "count": 4,
+     "found": true,
+     "from": 0,
+     "frontier": 0,
+     "segments": [
+      {
+       "checkpoint_seq": 1,
+       "closed": true,
+       "encoded_once": true,
+       "end_ts": "2026-09-30T14:14:29Z",
+       "end_turn": 5,
+       "features": {
+        "gap_seconds": 0,
+        "lexical_cohesion": 0,
+        "path_jaccard": 0,
+        "prob_changepoint": 2.797899471288112e-05,
+        "todo_transition": 0,
+        "tool_shift": 0
+       },
+       "id": 1,
+       "start_ts": "2026-09-30T14:14:10Z",
+       "start_turn": 0,
+       "tokens": 1460
+      },
+      {
+       "checkpoint_seq": 3,
+       "closed": true,
+       "encoded_once": true,
+       "end_ts": "2026-09-30T14:48:01Z",
+       "end_turn": 5,
+       "features": {
+        "gap_seconds": 0,
+        "lexical_cohesion": 0,
+        "path_jaccard": 0,
+        "prob_changepoint": 0.0013252450246352004,
+        "todo_transition": 0,
+        "tool_shift": 0
+       },
+       "id": 3,
+       "start_ts": "2026-09-30T14:47:43Z",
+       "start_turn": 0,
+       "tokens": 1183
+      },
+      {
+       "checkpoint_seq": 0,
+       "closed": true,
+       "encoded_once": false,
+       "end_ts": "2026-09-30T14:15:02Z",
+       "end_turn": 9,
+       "features": null,
+       "id": 2,
+       "start_ts": "2026-09-30T14:14:29Z",
+       "start_turn": 6,
+       "tokens": 1016
+      },
+      {
+       "checkpoint_seq": 0,
+       "closed": true,
+       "encoded_once": false,
+       "end_ts": "2026-09-30T14:48:27Z",
+       "end_turn": 9,
+       "features": null,
+       "id": 4,
+       "start_ts": "2026-09-30T14:48:01Z",
+       "start_turn": 6,
+       "tokens": 1191
+      }
+     ],
+     "to": 9
+    }
+   ]
+  },
+  {
+   "tool": "recall",
+   "args": {
+    "query": "path:notes.md"
+   },
+   "jsonrpc_line_bytes": 933,
+   "isError": false,
+   "error": null,
+   "text_bytes": 569,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 7,
+     "ephemeral": true,
+     "hash": "sha256:34f679f65219e3a85e074df8c861648db47b8cd04e525dbeb3abf1a583cb3374",
+     "tool_use_id": "qompack-mcp:42bf1f5667df",
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "hits": [
+      {
+       "hash": "sha256:5ec97866a028d8bd9f9158db22cef8844651ee5d1166160f32d560dd4fb355c9",
+       "path": "notes.md",
+       "tool": "mcp__qompack__expand",
+       "summary": "",
+       "ts": "2026-09-30T15:20:20Z",
+       "score": 1.12,
+       "tool_use_id": "qompack-mcp:373615488eb2",
+       "span": [
+        0,
+        457
+       ]
+      },
+      {
+       "hash": "sha256:eec183d333c48beb4766815681fe76104525dd2ee3296762d45f4daa45a17d2e",
+       "path": "notes.md",
+       "tool": "FileRead",
+       "summary": "",
+       "ts": "2026-09-30T14:14:12Z",
+       "score": 1.06,
+       "tool_use_id": "toolu_01UqdUTTsG2LhYJXwQF77ogs",
+       "span": [
+        0,
+        190
+       ]
+      }
+     ],
+     "count": 2,
+     "found": true,
+     "query": {
+      "text": "",
+      "path": "notes.md",
+      "symbol": "",
+      "tool": ""
+     }
+    }
+   ]
+  }
+ ],
+ "stderr_tail": ""
+}

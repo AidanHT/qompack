@@ -1,0 +1,2 @@
+D2 reader daemon pid 73340 (started by the 18 probe with QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS=30) exited on idle after ~29 s of polling; no termination
+source reader daemon pid 27004 (started by the 18 probe with QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS=30) exited on idle after ~29 s of polling; no termination

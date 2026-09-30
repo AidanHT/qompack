@@ -1,0 +1,130 @@
+{
+ "D2_vs_manifest": {
+  "equal_file_for_file": true,
+  "manifest_files": 83,
+  "D2_files": 83
+ },
+ "source_vs_manifest": {
+  "only_in_source": [
+   "checkpoints/0003.json",
+   "logs/qompack-20260930.log",
+   "metrics/latency.json",
+   "objects/08/61/086182f9c766c146595cfab4ed25c19a797e6d9707103e0362c97102e692038d.zst",
+   "objects/09/9c/099c85d014ef47352559484057b9dc02665c93b16b43b3058d7581ae8002447d.zst",
+   "objects/3c/4e/3c4efe0c7ed526721caee564a2975a74b37e1ef7aa8f59ab35e7c13c2b926d4a.zst",
+   "objects/52/fd/52fdbc76217db612b13d11eeaee1f09b0d4203ae40a114504ea28aae7153bde1.zst",
+   "objects/57/7a/577a13f45af26db02474a9609799cc78b3b69b3a27a46e8f9da7ab84063b1f91.zst",
+   "objects/63/4d/634d9e76e96f7c7a189d835f907c292ff6ab05d46e81c8cd4300db890535cb29.zst",
+   "objects/67/c8/67c83d7153f14b96e24137b279af2d6cf2168a2a44bcf8398d57da875f5686da.zst",
+   "objects/6c/42/6c427972db9ed8fe6aad04b55c14962b64a521954f3bfe5e8b9caf60f0ea853d.zst",
+   "objects/6c/b9/6cb911bc1927b3f5450e8e04ad7a5fbe318e963e3e29182cf46e82ceef83d4b3.zst",
+   "objects/73/78/73787e155c5062790eb7f5961a3a992a01df0cfe8baab4401e078a2c4ea80db1.zst",
+   "objects/90/a4/90a441feacdfbd0385b5d97da80880938ab43155fccc1b63504e73084edfdcbb.zst",
+   "objects/94/32/9432b9528f2dea70e7556b1764ceab91cfa73360c93d8cfc6acca4cbbb811e74.zst",
+   "objects/95/f7/95f7ba67c0da1fbf97698402e9240cf7d6a257b8283e99f960644bbe8761f4ff.zst",
+   "objects/a7/ba/a7bab281f5c3c0858d50137156d47b4bf70e88674e2ccc18f1a4315a75e8d968.zst",
+   "objects/b9/ee/b9ee44123cd866a9a8c0d8b81462f230b35ef1c9db2eadb23166d617d748c0ec.zst",
+   "objects/c7/4e/c74ebf65194ccf51d37e10faf0b43ecba99f29940047df52d3d6f0f0442e9c3c.zst",
+   "objects/e1/08/e1086e2186147db2dd374b5c103883543a1db3f253b684d35e111b7703dd3728.zst",
+   "objects/fd/eb/fdebf8e874c51fe8c4e82fa167ab6dd6fa14c015d563839c2bdbde2b29fcfdf4.zst",
+   "records/captures/02/026e68f3297034666694db4b9e9e873b0082902bea92ddaafff22e2334f3f194.json",
+   "records/captures/0a/0a960712757a64f72557d7f0a3b33bac7dd0e4f08558f4990eb5344304addd26.json",
+   "records/captures/10/108b7da1b9db0619a2264d948f177416663b08f7821ff21e765c803b33a70ca3.json",
+   "records/captures/2b/2b202e718cf886932cc1b14b4284ca2409009edea5c385c99ab82da79990950d.json",
+   "records/captures/2c/2c514d2a80b9d5d1c22cb104a0eea4d5b5bac4ca5fc4d30c27a73d421334a94b.json",
+   "records/captures/5c/5c245cb51962cef406bd0c96212f8bc79e4f5078b3ba3c73f1cd0ef89894db75.json",
+   "records/captures/6c/6c43f6d55b2439fb38a5b566194f89c8070b89f356d181c808113d44e9fd64a5.json",
+   "records/captures/73/73160f1c7f222d0d53b65f656c26651fbae043c4dcfe52be04e8737b3d7136e3.json",
+   "records/captures/78/7862a4218cc2a154222140f7c285920267477e77c380d3a3c883a5b61b370cf8.json",
+   "records/captures/83/834c7c56ceaeca17b90bea661177cbd76b5c81861a388cc4ec48783a0c88ef6f.json",
+   "records/captures/8d/8dd14b6df773caaa9dc972304e01cac89d44f5bef7dd657ec2406f7de00639e1.json",
+   "records/captures/90/9016fab87901644c5d902514566dded0b1a3d7cbc9b9329f8f82a61f0a26c65b.json",
+   "records/captures/9c/9c433753dfb997389de9f850f836dd7c418e70fe248da0801fbcfad5563bb6f9.json",
+   "records/captures/a7/a7b6fd1f6a19d4bfa4666724a6f9a7aa540fd9a0455b484bc0f928db47876cbe.json",
+   "records/captures/a9/a95bb037ac0e8ab5407858e7d2b99a865abc0aa83a8459d75c33b0620af58087.json",
+   "records/captures/e7/e71bdfc79d90e0c1b6db1ba61adc5267e1f1045eee8e60bfbb1a875e4877c519.json",
+   "records/captures/ed/edbaadbcc53109aff17b5397821e91802c43d3b4e4b92f1982aff979c8b8b665.json",
+   "records/captures/f2/f2ab4907589b1145fb771fa4461d18493c965dfb556c50b978012704f9f5d529.json",
+   "run/marker.json",
+   "sketches/tried.bloom.1.bak",
+   "state/draft-e971f578-e2ab-4136-8689-c365532295bf.json",
+   "state/rehydrate-e971f578-e2ab-4136-8689-c365532295bf.json"
+  ],
+  "changed_in_source": [
+   "checkpoints/MANIFEST.jsonl",
+   "dag/deps.jsonl",
+   "index/files.json",
+   "index/files.jsonl",
+   "index/observations.jsonl",
+   "index/roots.jsonl",
+   "index/segments.jsonl",
+   "index/sessions.jsonl",
+   "index/tool_use.jsonl",
+   "records/eliminations.jsonl",
+   "sketches/explore.hll",
+   "sketches/touch.cms",
+   "sketches/tried.bloom",
+   "state/bocd.json",
+   "state/chunktokens.bin",
+   "state/delivery-ack-position.json",
+   "state/delivery-acks.jsonl",
+   "state/delivery-lease-position.json",
+   "state/delivery-leases.jsonl",
+   "state/gc-live.bin",
+   "state/history.json",
+   "state/mcp.json",
+   "state/observations.json",
+   "state/precompact.json",
+   "state/retention-roots.jsonl",
+   "state/scheduler.json",
+   "state/store.json"
+  ],
+  "in_manifest_missing_from_source": []
+ },
+ "counts": {
+  "manifest_before": {
+   "files": 83,
+   "objects": 25,
+   "checkpoints": [
+    "checkpoints/0001.json"
+   ]
+  },
+  "D2": {
+   "files": 83,
+   "objects": 25,
+   "records_files": 20,
+   "checkpoints": [
+    "checkpoints/0001.json"
+   ],
+   "index/roots.jsonl lines": 25,
+   "index/tool_use.jsonl lines": 19,
+   "index/segments.jsonl lines": 5,
+   "records/eliminations.jsonl lines": 1,
+   "state/delivery-leases.jsonl lines": 20,
+   "state/delivery-acks.jsonl lines": 20,
+   "draft state files": [
+    "state/draft-dddfef64-d5f6-41f2-b924-4863be1b2b5d.json"
+   ]
+  },
+  "source": {
+   "files": 126,
+   "objects": 43,
+   "records_files": 38,
+   "checkpoints": [
+    "checkpoints/0001.json",
+    "checkpoints/0003.json"
+   ],
+   "index/roots.jsonl lines": 43,
+   "index/tool_use.jsonl lines": 36,
+   "index/segments.jsonl lines": 10,
+   "records/eliminations.jsonl lines": 2,
+   "state/delivery-leases.jsonl lines": 39,
+   "state/delivery-acks.jsonl lines": 39,
+   "draft state files": [
+    "state/draft-dddfef64-d5f6-41f2-b924-4863be1b2b5d.json",
+    "state/draft-e971f578-e2ab-4136-8689-c365532295bf.json"
+   ]
+  }
+ },
+ "note": "source listing excludes .qompack/backup/ (the backup itself) and is taken after the session-2 daemon's idle exit, before any reader probe of the source"
+}

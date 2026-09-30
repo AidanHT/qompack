@@ -1,0 +1,387 @@
+{
+ "env_overrides": {
+  "QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS": "30"
+ },
+ "initialize": {
+  "serverInfo": {
+   "name": "qompack",
+   "version": "0.3.0"
+  },
+  "protocolVersion": "2025-06-18"
+ },
+ "calls": [
+  {
+   "tool": "recall",
+   "args": {
+    "query": "path:later.md"
+   },
+   "jsonrpc_line_bytes": 402,
+   "isError": false,
+   "error": null,
+   "text_bytes": 95,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 0,
+     "ephemeral": true,
+     "hash": "sha256:311b6fa5eb75ff9695b5ae3bf12fb05aa56e72b77eaba73e8ac8cdbca01ee7f4",
+     "tool_use_id": "qompack-mcp:5d24e501d346",
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "hits": [],
+     "count": 0,
+     "found": false,
+     "query": {
+      "text": "",
+      "path": "later.md",
+      "symbol": "",
+      "tool": ""
+     }
+    }
+   ]
+  },
+  {
+   "tool": "recall",
+   "args": {
+    "query": "path:summary.md"
+   },
+   "jsonrpc_line_bytes": 404,
+   "isError": false,
+   "error": null,
+   "text_bytes": 97,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 0,
+     "ephemeral": true,
+     "hash": "sha256:2f3b7177e048d59a2c8b66e23500db9076a19efe83c200562531f5a5ea20c30f",
+     "tool_use_id": "qompack-mcp:2274bd4f8a9b",
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "hits": [],
+     "count": 0,
+     "found": false,
+     "query": {
+      "text": "",
+      "path": "summary.md",
+      "symbol": "",
+      "tool": ""
+     }
+    }
+   ]
+  },
+  {
+   "tool": "recall",
+   "args": {
+    "query": "AMBER"
+   },
+   "jsonrpc_line_bytes": 399,
+   "isError": false,
+   "error": null,
+   "text_bytes": 92,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 9,
+     "ephemeral": true,
+     "hash": "sha256:f08f1b73a0050f74f00db42939594afa49486bb6bf630d1f2b93daa83e03bd09",
+     "tool_use_id": "qompack-mcp:bcbd75760721",
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "hits": [],
+     "count": 0,
+     "found": false,
+     "query": {
+      "text": "AMBER",
+      "path": "",
+      "symbol": "",
+      "tool": ""
+     }
+    }
+   ]
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "tool_use_id": "toolu_01RTrzozUuwRsSFPb1h9XyYc"
+   },
+   "jsonrpc_line_bytes": 315,
+   "isError": false,
+   "error": null,
+   "text_bytes": 43,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 0,
+     "ephemeral": true,
+     "hash": "sha256:cce9cb505a9776de52b263f156f5eface864e049dbbda1d7c14332f91e89ccd9",
+     "tool_use_id": "qompack-mcp:0e0accd4b0a5"
+    }
+   },
+   "json": [
+    {
+     "found": false,
+     "searched": "tool_use index"
+    }
+   ]
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "tool_use_id": "toolu_01UqdUTTsG2LhYJXwQF77ogs"
+   },
+   "jsonrpc_line_bytes": 920,
+   "isError": false,
+   "error": null,
+   "text_bytes": 457,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 15,
+     "ephemeral": true,
+     "expansions": 1,
+     "hash": "sha256:5ec97866a028d8bd9f9158db22cef8844651ee5d1166160f32d560dd4fb355c9",
+     "path": "notes.md",
+     "promoted": false,
+     "span": [
+      0,
+      190
+     ],
+     "tool_use_id": "qompack-mcp:a0ed53a1a2c0",
+     "total_bytes": 190,
+     "truncated": false,
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "found": true,
+     "hash": "sha256:eec183d333c48beb4766815681fe76104525dd2ee3296762d45f4daa45a17d2e",
+     "path": "notes.md",
+     "tool": "FileRead",
+     "span": [
+      0,
+      190
+     ],
+     "total_bytes": 190,
+     "truncated": false,
+     "widened": false,
+     "expansions": 1,
+     "promoted": false,
+     "content": "{\"type\":\"text\",\"file\":{\"filePath\":\"<tmp>\",\"content\":\"# Notes\\n\\nThe project codeword is COBALT-LYNX-417.\\nThe release train leaves on Thursday.\\n\",\"numLines\":5,\"startLine\":1,\"totalLines\":5}}"
+    }
+   ]
+  },
+  {
+   "tool": "already_tried",
+   "args": {
+    "target": "data.txt parsing",
+    "approach": "regex per row"
+   },
+   "jsonrpc_line_bytes": 544,
+   "isError": false,
+   "error": null,
+   "text_bytes": 258,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 5,
+     "ephemeral": true,
+     "hash": "sha256:8f8edb9016a4a060941ccf9f47931fecc9aa208e84304c0d3e265d87f3981cf3",
+     "tool_use_id": "qompack-mcp:2ffccb06b2ce"
+    }
+   },
+   "json": [
+    {
+     "state": "active",
+     "reason": "every row is fixed-format 'row N: V'; a split on ': ' is enough and a regex adds nothing",
+     "evidence": "sha256:52775b683ab2e2c081e72cacdb4190d665fb4ffa64e1a2fa34ea72ca04093fec",
+     "scope": "project",
+     "recorded_at": "2026-09-30T14:14:26Z"
+    }
+   ]
+  },
+  {
+   "tool": "why",
+   "args": {
+    "decision_id": "dec_654d48ad8345"
+   },
+   "jsonrpc_line_bytes": 349,
+   "isError": false,
+   "error": null,
+   "text_bytes": 75,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 2,
+     "ephemeral": true,
+     "hash": "sha256:ad5956afffade1c7f680c0314085a3395c985477eb483d44849b1b8a0ce649f0",
+     "tool_use_id": "qompack-mcp:f880b5ebfbaf"
+    }
+   },
+   "json": [
+    {
+     "decision_id": "dec_654d48ad8345",
+     "found": false,
+     "searched_checkpoints": [
+      1
+     ]
+    }
+   ]
+  },
+  {
+   "tool": "why",
+   "args": {
+    "decision_id": "dec_a220df719af3"
+   },
+   "jsonrpc_line_bytes": 802,
+   "isError": false,
+   "error": null,
+   "text_bytes": 500,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 1,
+     "ephemeral": true,
+     "hash": "sha256:fede70d219f8fa5914a7b1732ed509741e3e9abfad3d3a1dac70485dc830175d",
+     "tool_use_id": "qompack-mcp:7c0b2016fe28"
+    }
+   },
+   "json": [
+    {
+     "alternatives_rejected": [
+      "regex per row"
+     ],
+     "checkpoint_seq": 1,
+     "decision_id": "dec_a220df719af3",
+     "evidence": "sha256:52775b683ab2e2c081e72cacdb4190d665fb4ffa64e1a2fa34ea72ca04093fec",
+     "evidence_bytes": 88,
+     "found": true,
+     "hint": "call expand with hash=sha256:52775b683ab2e2c081e72cacdb4190d665fb4ffa64e1a2fa34ea72ca04093fec to read the evidence",
+     "turn": 5,
+     "what": "rejected \"regex per row\" for data.txt parsing",
+     "why": "every row is fixed-format 'row N: V'; a split on ': ' is enough and a regex adds nothing"
+    }
+   ]
+  },
+  {
+   "tool": "timeline",
+   "args": {},
+   "jsonrpc_line_bytes": 906,
+   "isError": false,
+   "error": null,
+   "text_bytes": 567,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 0,
+     "ephemeral": true,
+     "hash": "sha256:b9a717f80eb71fb30e87d35cb8f86146b0aa3ea6364d2a5d4b8d924e93e1c4af",
+     "tool_use_id": "qompack-mcp:1354a6358d88"
+    }
+   },
+   "json": [
+    {
+     "count": 2,
+     "found": true,
+     "from": 0,
+     "frontier": 0,
+     "segments": [
+      {
+       "checkpoint_seq": 1,
+       "closed": true,
+       "encoded_once": true,
+       "end_ts": "2026-09-30T14:14:29Z",
+       "end_turn": 5,
+       "features": {
+        "gap_seconds": 0,
+        "lexical_cohesion": 0,
+        "path_jaccard": 0,
+        "prob_changepoint": 2.797899471288112e-05,
+        "todo_transition": 0,
+        "tool_shift": 0
+       },
+       "id": 1,
+       "start_ts": "2026-09-30T14:14:10Z",
+       "start_turn": 0,
+       "tokens": 1460
+      },
+      {
+       "checkpoint_seq": 0,
+       "closed": true,
+       "encoded_once": false,
+       "end_ts": "2026-09-30T14:15:02Z",
+       "end_turn": 9,
+       "features": null,
+       "id": 2,
+       "start_ts": "2026-09-30T14:14:29Z",
+       "start_turn": 6,
+       "tokens": 1016
+      }
+     ],
+     "to": 9
+    }
+   ]
+  },
+  {
+   "tool": "recall",
+   "args": {
+    "query": "path:notes.md"
+   },
+   "jsonrpc_line_bytes": 933,
+   "isError": false,
+   "error": null,
+   "text_bytes": 569,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 6,
+     "ephemeral": true,
+     "hash": "sha256:6ee38e654fb1d3b2cd4a9ee5940ddba3cf0452c19aa841928e3df062356ee153",
+     "tool_use_id": "qompack-mcp:bf1655c08911",
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "hits": [
+      {
+       "hash": "sha256:5ec97866a028d8bd9f9158db22cef8844651ee5d1166160f32d560dd4fb355c9",
+       "path": "notes.md",
+       "tool": "mcp__qompack__expand",
+       "summary": "",
+       "ts": "2026-09-30T15:20:20Z",
+       "score": 1.12,
+       "tool_use_id": "qompack-mcp:a0ed53a1a2c0",
+       "span": [
+        0,
+        457
+       ]
+      },
+      {
+       "hash": "sha256:eec183d333c48beb4766815681fe76104525dd2ee3296762d45f4daa45a17d2e",
+       "path": "notes.md",
+       "tool": "FileRead",
+       "summary": "",
+       "ts": "2026-09-30T14:14:12Z",
+       "score": 1.06,
+       "tool_use_id": "toolu_01UqdUTTsG2LhYJXwQF77ogs",
+       "span": [
+        0,
+        190
+       ]
+      }
+     ],
+     "count": 2,
+     "found": true,
+     "query": {
+      "text": "",
+      "path": "notes.md",
+      "symbol": "",
+      "tool": ""
+     }
+    }
+   ]
+  }
+ ],
+ "stderr_tail": ""
+}

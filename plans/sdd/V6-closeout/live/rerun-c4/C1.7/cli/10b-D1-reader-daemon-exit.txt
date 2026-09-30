@@ -1,0 +1,1 @@
+D1 reader daemon pid 57956 (started by the 10-D1 qompack mcp probe, SET QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS=30, lock root = D1) exited on its idle exit 28 s after polling began; no termination

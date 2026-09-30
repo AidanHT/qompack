@@ -1,0 +1,12 @@
+{
+ "mcp_client_pid": 76744,
+ "timeline_isError": false,
+ "daemon_lock": {
+  "pid": 45952,
+  "version": "0.3.0",
+  "root": "<scratch>\\recovery\\c4\\C1.7\\proj"
+ },
+ "lock_root_is_this_project": true,
+ "tasklist": "\"qompack.exe\",\"45952\",\"Console\",\"2\",\"24,840 K\"",
+ "env_override": "QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS=30 (on the mcp client, inherited by the daemon it started)"
+}

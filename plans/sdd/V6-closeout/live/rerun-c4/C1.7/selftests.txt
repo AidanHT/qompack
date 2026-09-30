@@ -1,0 +1,8 @@
+homeguard_test.py exit 0
+Ran 10 tests in 0.292s
+
+OK
+live_driver_test.py exit 0
+Ran 3 tests in 3.065s
+
+OK
