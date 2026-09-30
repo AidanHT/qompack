@@ -1,0 +1,8 @@
+$ go test -p 2 ./test/docs -run "^TestCloseoutStaleClaimsAreGone$" -count=1   (new pins, docs unfixed)
+--- FAIL: TestCloseoutStaleClaimsAreGone (0.19s)
+    closeout_claims_test.go:70: docs/cannot-do.md still says "is returned as it is, with that label": no retrieval response carries the fidelity label (D46); it stays on the capture sidecar
+    closeout_claims_test.go:70: docs/user-guide.md still says "comes from the daemon's own configuration files": a spawned daemon also inherits the QOMPACK_* environment it was started with (D49)
+FAIL
+FAIL	github.com/qompack/qompack/test/docs	0.823s
+FAIL
+exit=1
