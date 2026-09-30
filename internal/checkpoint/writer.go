@@ -629,9 +629,7 @@ func (w *FileWriter) seedTierOne(ctx context.Context, d *Draft, parent core.Chec
 			carryFrom = &latest
 		}
 	}
-	if carryFrom != nil {
-		d.carryDecisionsLocked(carryFrom.Decisions, invs)
-	}
+	d.carryDecisionsLocked(ctx, carryFrom, invs)
 	return nil
 }
 

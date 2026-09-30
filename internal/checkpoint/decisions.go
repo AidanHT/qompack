@@ -462,49 +462,127 @@ func pinDecision(inv pins.Invariant, turn core.TurnIndex) (Decision, bool) {
 	return d, true
 }
 
-// carryDecisionsLocked seeds a draft with the decisions of the session's previous checkpoint that
-// still hold (coordinator decision D49, F-C4-UAT06-2). A draft mints decisions only from what it
-// encodes or refreshes at or after its own frontier, so the successor a seal opens — and the draft
-// a restarted daemon begins from the session's newest checkpoint — started with none, and the
+// carryDecisionsLocked seeds a draft with the decisions of from, the session's previous checkpoint,
+// that still hold (coordinator decision D49, F-C4-UAT06-2). A draft mints decisions only from what it encodes
+// or refreshes at or after its own frontier, so the successor a seal opens, and the draft a
+// restarted daemon begins from the session's newest checkpoint, started with none, and the
 // session's next checkpoint lost every decision minted before its frontier while the elimination
 // behind one was still carried. Eliminations carry because Begin re-reads the ledger; decisions now
-// carry from the checkpoint that holds them, keeping their id and turn, merged under the same
+// carry from the checkpoint that held them, keeping their id and turn, merged under the same
 // ranking and cap as every extraction pass (mergeDecisionsLocked).
 //
-// A decision carries while its source holds. The artifact keeps no per-decision provenance (the
-// Decision shape is frozen), so the source is read off the shape each source mints:
+// from is read as it was SEALED, and Finalize truncates before it seals: at budget every
+// decision's alternatives_rejected is emptied, and then whole decisions go tail-first (§10), each
+// named in from.Dropped. Neither the degraded copy nor the gap is carried forward. The artifact
+// keeps no per-decision provenance (the Decision shape is frozen), so each decision from held,
+// kept or cut, is resolved against the source that minted it:
 //
-//   - an elimination's decision (source b, the only one with a rejected alternative) holds while
-//     the record that mints it is among the eliminations this draft carries;
-//   - a pinned decision (source c: no rejected alternative, no evidence) holds while a decision pin
-//     in invs still mints it;
-//   - an EdgeExplains decision (source a) holds: the explains edge is durable in the DAG.
+//   - an elimination's decision (source b) holds while the record that mints it is among the
+//     eliminations this draft carries, and is carried as that record mints it now;
+//   - a pinned decision (source c) holds while a decision pin in invs still mints it, and is
+//     carried as that pin mints it now;
+//   - any other decision holds when the DAG still shows it came from an explains edge (source a,
+//     explainedBy): kept, it is carried as sealed (truncation never touches it, since it has no
+//     alternative to empty); cut, it is derived again from that edge (explainsByID).
 //
 // Caller holds d.mu or owns d before publication; d.cp.Eliminated must already be seeded.
-func (d *Draft) carryDecisionsLocked(prev []Decision, invs []pins.Invariant) {
-	if len(prev) == 0 {
+func (d *Draft) carryDecisionsLocked(ctx context.Context, from *Checkpoint, invs []pins.Invariant) {
+	if from == nil {
 		return
 	}
-	holds := make(map[core.DecisionID]bool, len(d.cp.Eliminated)+len(invs))
+	var cut []core.DecisionID
+	held := make(map[core.DecisionID]bool, len(from.Decisions))
+	for _, dec := range from.Decisions {
+		held[dec.ID] = true
+	}
+	for _, e := range from.Dropped {
+		if id := core.DecisionID(e.ID); e.Kind == dropDecision && !held[id] {
+			held[id] = true
+			cut = append(cut, id)
+		}
+	}
+	if len(held) == 0 {
+		return
+	}
+	minted := make(map[core.DecisionID]Decision, len(d.cp.Eliminated)+len(invs))
 	for _, r := range d.cp.Eliminated {
 		if dec, ok := eliminationDecision(r, 0); ok {
-			holds[dec.ID] = true
+			if _, dup := minted[dec.ID]; !dup {
+				minted[dec.ID] = dec
+			}
 		}
 	}
 	for _, inv := range invs {
 		if dec, ok := pinDecision(inv, 0); ok {
-			holds[dec.ID] = true
+			if _, dup := minted[dec.ID]; !dup {
+				minted[dec.ID] = dec
+			}
 		}
 	}
-	cands := make([]decisionCandidate, 0, len(prev))
-	for _, dec := range prev {
-		explains := len(dec.AlternativesRejected) == 0 && dec.Evidence != (core.Hash{})
-		if !explains && !holds[dec.ID] {
-			continue
+	g := d.src.Graph
+	cands := make([]decisionCandidate, 0, len(held))
+	for _, dec := range from.Decisions {
+		if m, ok := minted[dec.ID]; ok {
+			m.Turn = dec.Turn
+			cands = append(cands, decisionCandidate{d: m})
+		} else if explainedBy(g, dec.ID) {
+			cands = append(cands, decisionCandidate{d: dec})
 		}
-		cands = append(cands, decisionCandidate{d: dec})
+	}
+	x := &decisionExtractor{src: d.src, session: d.session, inherit: d.inherit, texts: make(map[core.Hash]string)}
+	for _, id := range cut {
+		if m, ok := minted[id]; ok {
+			if n, found := g.Node(dag.DecisionNode(id)); found {
+				m.Turn = n.Turn // the turn it was minted at, which the sealed copy no longer shows
+			}
+			cands = append(cands, decisionCandidate{d: m})
+		} else if dec, ok := x.explainsByID(ctx, id); ok {
+			cands = append(cands, decisionCandidate{d: dec})
+		}
 	}
 	d.mergeDecisionsLocked(cands)
+}
+
+// explainedBy reports whether the DAG shows decision id was minted from an explains edge (source a):
+// an explains edge enters its decision node from a node that is not an elimination. emitDecisions
+// draws that edge from the explaining node for source (a) and from the elimination node for source
+// (b), and none for a pin (source c).
+func explainedBy(g dag.Graph, id core.DecisionID) bool {
+	_, ok := explainingEdge(g, id)
+	return ok
+}
+
+// explainingEdge is the explains edge into decision id's node from its explaining node: the
+// non-elimination node its evidence lives at.
+func explainingEdge(g dag.Graph, id core.DecisionID) (dag.Edge, bool) {
+	for _, e := range g.In(dag.DecisionNode(id)) {
+		if e.Kind != dag.EdgeExplains {
+			continue
+		}
+		if n, ok := g.Node(e.From); ok && n.Kind != dag.KindElimination {
+			return e, true
+		}
+	}
+	return dag.Edge{}, false
+}
+
+// explainsByID derives explains decision id again from the edge that minted it: an explains edge
+// out of its explaining node whose candidate mints id. It reports false when the graph no longer
+// shows the edge or its content cannot be read.
+func (x *decisionExtractor) explainsByID(ctx context.Context, id core.DecisionID) (Decision, bool) {
+	in, ok := explainingEdge(x.src.Graph, id)
+	if !ok {
+		return Decision{}, false
+	}
+	for _, e := range x.src.Graph.Out(in.From) {
+		if e.Kind != dag.EdgeExplains || e.To == in.To {
+			continue
+		}
+		if c, ok := x.explainCandidate(ctx, e); ok && c.d.ID == id {
+			return c.d, true
+		}
+	}
+	return Decision{}, false
 }
 
 // text reads the content at root through the store, capped at maxExplainingReadBytes, strips
