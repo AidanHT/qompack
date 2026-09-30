@@ -106,6 +106,8 @@ func pageToEndFrom(t *testing.T, f *fixture, tool string, args map[string]any, l
 
 		if body.Span[1] == body.TotalBytes {
 			require.Empty(t, body.NextSpan, "the last page carries no cursor")
+			require.False(t, body.Truncated, "%s page %d: the page that reaches the end is not truncated (D50)",
+				tool, pages)
 			return all.String(), pages
 		}
 		require.True(t, body.Truncated, "%s page %d: a cut page must say it was truncated", tool, pages)
