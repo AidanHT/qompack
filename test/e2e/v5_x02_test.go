@@ -396,11 +396,13 @@ func x02ExpandPaged(t *testing.T, c *mcpE2EChild, next func() int, p *testutil.P
 		// record; the flag above is configuration, this is the record's existence in its own words.
 		require.NotEmpty(t, qm["tool_use_id"], "an expansion must have recorded its own ephemeral result; _meta=%v", res.Meta)
 
-		// Truncated means "less than the whole object" — it is true of every page but a single
-		// whole-object one, the last page of a walk included — so the cursor, not the flag, says
-		// whether there is more.
-		require.Equal(t, body.Span[0] > 0 || body.Span[1] < body.TotalBytes, body.Truncated,
-			"truncated must report exactly whether this span is less than the whole object: %+v", body.Span)
+		// Truncated means "this page stops before the object's end", and a truncated page always
+		// carries the cursor that continues it (V6 close-out D50: the candidate 4 live re-run's last
+		// page said truncated with no cursor, under the old "less than the whole object" meaning).
+		require.Equal(t, body.Span[1] < body.TotalBytes, body.Truncated,
+			"truncated must report exactly whether this page stops before the object's end: %+v", body.Span)
+		require.Equal(t, body.Truncated, body.NextSpan != "",
+			"a truncated page carries next_span and the page that reaches the end none: %+v", body.Span)
 
 		b.WriteString(body.Content)
 		pages++
