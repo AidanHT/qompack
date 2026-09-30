@@ -190,11 +190,9 @@ func BuildWithStats(ctx context.Context, r Request, d Deps) (Result, []ItemStat,
 		b := all[k]
 		units := b.units
 		if k == ItemUserIntent {
-			// The original-intent unit was admitted whole in step 3; this share funds only the
-			// evolution deltas that follow it.
-			if len(units) > 0 {
-				units = units[1:]
-			}
+			// The original and the newest restatement were admitted whole in step 3; this share
+			// funds only the older evolution deltas that follow them.
+			units = units[len(tier1Units(k, b)):]
 		}
 		allowance := shares[k].plus(carry)
 		if len(units) == 0 {
@@ -234,6 +232,18 @@ func BuildWithStats(ctx context.Context, r Request, d Deps) (Result, []ItemStat,
 		skillAllowance = skillAllowance.minus(a.used)
 	}
 	carry = skillAllowance
+
+	// ── 8a. unused room goes to item 2's evolution, newest first ───────────────────────────────
+	//
+	// Item 2's share is a tenth, and evolution holds every later prompt, so a correction older than
+	// a handful of ordinary prompts fell out of a payload that had thousands of characters to spare
+	// (F-C4-UAT06-1, D49). Every share has been filled and the skill index has had its reserve, so
+	// what is left beyond item 7's reserve is room nothing else will use: the older deltas item 2's
+	// share refused are re-admitted into it, whole and in the same newest-first prefix order, so the
+	// admitted set still only grows with the budget. Never while tier 1 is incomplete (step 9).
+	if !incomplete {
+		spent = minFill(d, all, fills, []ItemKind{ItemUserIntent}, spent, limit.tok, limit, reserveDrop)
+	}
 
 	// ── 9. min-fill, for an unset request only ───────────────────────────────────────────────
 	//
@@ -324,7 +334,22 @@ func BuildWithStats(ctx context.Context, r Request, d Deps) (Result, []ItemStat,
 				continue
 			}
 		}
+		// When the eviction order reaches item 2, it is taken apart one record at a time rather than
+		// evicted whole: its older evolution entries oldest first, then its newest restatement, and
+		// only then the section with its original (tier 1 run backwards, F-C4-UAT05-3). Item 2 is
+		// the one tier-1 section that also carries discretionary records, and a few tokens of
+		// overrun must not take the original down with the evolution.
 		i := evictIndex(res.Items)
+		if u, ok := trimIntent(&res.Items[i], stats, i, fills[ItemUserIntent], all[ItemUserIntent]); ok {
+			res.Dropped = append(res.Dropped, u.drop)
+			dropReportToFloor(d, res.Items, stats, res.Dropped, false)
+			res.Text = renderText(r, res.Items)
+			res.Tokens = estimate(d, res.Text)
+			allocateAssembledTokens(res.Items, res.Tokens)
+			syncStatTokens(stats, res.Items)
+			res.Degraded = true
+			continue
+		}
 		gone := res.Items[i]
 		res.Items = append(res.Items[:i], res.Items[i+1:]...)
 		stats = append(stats[:i], stats[i+1:]...)
@@ -369,6 +394,32 @@ func BuildWithStats(ctx context.Context, r Request, d Deps) (Result, []ItemStat,
 		res.Degraded = true
 	}
 	return res, stats, nil
+}
+
+// trimIntent removes item 2's last admitted unit — its oldest evolution entry shown, and last its
+// newest restatement — when it is the item being evicted and still holds more than one unit, and
+// re-renders the section in place. It never removes the section's only unit (the section is then
+// evicted whole) or a fixed unit. It returns the removed unit, whose DropEntry names it with its
+// restore pointer; stats[i] is item's row.
+func trimIntent(item *Item, stats []ItemStat, i int, a *admitted, b built) (unit, bool) {
+	if item.Kind != ItemUserIntent || a == nil || len(a.units) <= 1 {
+		return unit{}, false
+	}
+	u := a.units[len(a.units)-1]
+	if isFixedUnit(u) {
+		return unit{}, false
+	}
+	a.units = a.units[:len(a.units)-1]
+	a.truncated = true
+	texts := make([]string, 0, len(a.units))
+	for _, v := range a.units {
+		texts = append(texts, v.text)
+	}
+	item.Text = itemText(ItemUserIntent, 0, b.seen, texts)
+	item.Truncated = true
+	stats[i].Truncated = true
+	stats[i].Units = len(a.units)
+	return u, true
 }
 
 // dropReportToFloor re-renders item 7, when items carry it, as its floor: its heading and the

@@ -286,20 +286,34 @@ var tier1Admission = []ItemKind{ItemAffordance, ItemInvariants, ItemUserIntent}
 // tier1Units is the slice of k's units that step 3 admits whole, ahead of every share.
 //
 // For every kind but one it is all of them. ItemUserIntent is the exception: §8.6 pins the
-// VERBATIM ORIGINAL, and only that — the evolution deltas that follow it are a summary of how the
-// ask moved and are discretionary, which is why ItemUserIntent also appears in shareOrder and why
-// step 7 refills it from units[1:].
+// VERBATIM ORIGINAL, and the evolution deltas that follow it are a record of how the ask moved,
+// which is why ItemUserIntent also appears in shareOrder and why step 7 refills it from what
+// follows these units. Step 3 admits the original and the NEWEST restatement — the correction in
+// force (owner decision D49, F-C4-UAT06-3). Evolution holds every later prompt, so a correction
+// admitted only out of item 2's tenth is pushed out by a handful of ordinary prompts; the newest
+// restatement is the current authority, and admitting it with the original is what keeps the
+// original from standing alone as the requirement. It is one whole record and, like every tier-1
+// record, is emitted whole or named with the pointer that restores it. The builder orders the
+// deltas newest first, so it is the first unit after the original (or the first unit, when there
+// is no original unit to show).
 //
-// Admitting the whole item here instead would be wrong twice over. The deltas would bypass the
-// budget entirely, so a checkpoint with a long evolution list would crowd out items 3 through 6a
-// without ever being charged for it; and step 7 would then re-fill the same deltas out of a share,
-// drop them for want of allowance, and write drop entries for units the payload is still
-// rendering — a drop report that names material the reader can see.
+// Admitting every delta here instead would be wrong twice over. The deltas would crowd out items 3
+// through 6a before any share is computed; and step 7 would then re-fill the same deltas out of a
+// share, drop them for want of allowance, and write drop entries for units the payload is still
+// rendering — a drop report that names material the reader can see. The older deltas keep the
+// share, and whatever room the payload leaves unused goes to them after every share (Build step 8a).
 func tier1Units(k ItemKind, b built) []unit {
-	if k == ItemUserIntent && len(b.units) > 1 {
-		return b.units[:1]
+	if k != ItemUserIntent {
+		return b.units
 	}
-	return b.units
+	n := 1 // the newest restatement
+	if len(b.units) > 0 && isFixedUnit(b.units[0]) {
+		n++ // the verbatim original before it
+	}
+	if n > len(b.units) {
+		n = len(b.units)
+	}
+	return b.units[:n]
 }
 
 // admissionRank is where Build admits k's section, first admitted lowest: item 7, whose floor is
