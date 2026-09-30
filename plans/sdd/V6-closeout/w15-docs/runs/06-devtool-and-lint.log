@@ -1,0 +1,14 @@
+# go test -p 2 -count=1 ./tools/devtool/  (touched package, once in full)
+ok  	github.com/qompack/qompack/tools/devtool	94.946s
+exit=0
+# go run ./tools/devtool lint --only=golangci-lint,nomagic,importgraph,testdeps,bindeps,sleepcheck,docmarkers,runpatterns
+PASS golangci-lint
+PASS nomagic
+PASS importgraph
+PASS testdeps
+PASS bindeps
+PASS sleepcheck
+PASS runpatterns
+PASS docmarkers
+exit=0
+# go vet ./tools/devtool/ ./test/docs/ (Windows and GOOS=linux): exit=0 both; devtool fmt-check exit=0
