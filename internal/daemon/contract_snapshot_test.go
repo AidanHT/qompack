@@ -131,7 +131,8 @@ func TestStatus_AnObservedSentinelRefreshesTheContractSnapshot(t *testing.T) {
 }
 
 // TestStatus_AMissedSentinelIsNotRefreshedIntoAnObservation: a prompt whose scan misses the probe
-// spends a chance and changes nothing status reports; only an observation refreshes a row.
+// spends one chance and changes nothing status reports; the probe has a second chance, so the row is
+// still pending (TestStatus_TwoMissedSentinelScansReadAsFailing is the second miss).
 func TestStatus_AMissedSentinelIsNotRefreshedIntoAnObservation(t *testing.T) {
 	dd := replayProbeDaemon(t)
 	const sess = core.SessionID("sess-snapshot-miss")
@@ -143,4 +144,28 @@ func TestStatus_AMissedSentinelIsNotRefreshedIntoAnObservation(t *testing.T) {
 	require.False(t, history(t, dd).Sentinel.Observed, "fixture: the transcript carries no probe")
 
 	require.Equal(t, "not-yet-observed", statusRow(t, dd, contract.CAdditionalContext).Observed)
+}
+
+// TestStatus_TwoMissedSentinelScansReadAsFailing: once two prompts' scans have missed the probe,
+// history.json records its chances spent, and status reads the failure the next start will report
+// rather than calling the row pending. The mode is still the start's: only a SessionStart applies a
+// failure to it.
+func TestStatus_TwoMissedSentinelScansReadAsFailing(t *testing.T) {
+	dd := replayProbeDaemon(t)
+	const sess = core.SessionID("sess-snapshot-spent")
+	transcript := replayTranscript(t, dd.root)
+
+	require.True(t, dd.dispatchOp(context.Background(), startRequest(dd, sess, "startup", transcript, "nonce-start")).OK)
+	h := history(t, dd)
+	promptScan(dd, sess, transcript, h.Sentinel.MintedAt+1)
+	promptScan(dd, sess, transcript, h.Sentinel.MintedAt+2)
+	spent := history(t, dd)
+	require.False(t, spent.Sentinel.Observed, "fixture: the transcript carries no probe")
+	require.Equal(t, 2, spent.Sentinel.Chances, "fixture: both prompts spent a chance")
+
+	row := statusRow(t, dd, contract.CAdditionalContext)
+	require.False(t, row.OK, "status must read the failure history.json records: %+v", row)
+	require.Equal(t, "sentinel not found after two chances", row.Observed)
+	require.Equal(t, contract.SevCritical, row.Severity)
+	require.Equal(t, contract.ModeFull, dd.monitor.Mode(), "a read never changes the mode")
 }

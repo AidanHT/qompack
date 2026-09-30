@@ -7,8 +7,9 @@ import (
 )
 
 // contractSnapshot is the contract rows the status op answers: the monitor's last RunAll, with
-// every row still waiting for an observation that state/history.json now records replaced by that
-// observation (contract.RefreshFromHistory). The monitor runs at SessionStart, before the host has
+// every row still waiting for an observation that state/history.json now settles replaced by what it
+// records — the observation, or the probe's failure once its two chances are spent
+// (contract.RefreshFromHistory). The mode is not touched: only a SessionStart applies a failure. The monitor runs at SessionStart, before the host has
 // connected the MCP server or delivered the probe into the transcript, and its rows would otherwise
 // read both pending until the next start while history.json already records them (candidate 4
 // re-run, UAT-01; D50). doctor applies the same refresh to the observation ledger's newest entry
