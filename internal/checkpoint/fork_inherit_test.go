@@ -102,3 +102,22 @@ func TestAncestryFollowsTheForkChain(t *testing.T) {
 	}, got)
 	require.Empty(t, checkpoint.Ancestry(paths.Of(f.p.Root), forkParent), "a session that is no fork inherits nothing")
 }
+
+// TestLedgerAncestryAnswersAForkRecordedAfterItsFirstAnswer: LedgerAncestry memoizes each session's
+// answer, because the ledger asks it on every read, and a lineage record is written once, when its
+// session starts. A session asked about before its record exists — an already_tried from a session
+// whose SessionStart has not been routed yet — must still read as a fork once NoteFork records it,
+// and the chain must answer from the memo afterwards exactly as the walk does.
+func TestLedgerAncestryAnswersAForkRecordedAfterItsFirstAnswer(t *testing.T) {
+	f := newFx(t)
+	anc := checkpoint.LedgerAncestry(f.p.Root)
+	promptAs(f, forkParent, 0, rateAsk)
+	require.Empty(t, anc(f.sess), "no lineage record yet: the session is no fork")
+
+	f.noteFork(f.sess)
+	want := checkpoint.Ancestry(paths.Of(f.p.Root), f.sess)
+	require.Len(t, want, 1, "fixture sanity: NoteFork recorded the parent")
+	require.Equal(t, want, anc(f.sess), "the fork NoteFork recorded is read, not the memoized answer")
+	require.Equal(t, want, anc(f.sess), "and answered again from the memo")
+	require.Empty(t, anc(forkParent))
+}
