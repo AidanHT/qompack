@@ -294,6 +294,12 @@ type daemon struct {
 	// it is a field only so a test can make the bound short.
 	compactBudget time.Duration
 
+	// publicationBound is how long the startup publication accounting may run inside Run's startup
+	// before it finishes in the background (accountPublicationAtStartup). Zero means
+	// publicationStartupBound, which is all production uses; it is a field only so a test can make
+	// the bound short enough to prove the background pass on any machine.
+	publicationBound time.Duration
+
 	// compactGates holds each session's next observer work until the compact SessionStart
 	// bookkeeping the route did not wait for has finished (session_start_compact.go).
 	compactGates compactGates
@@ -746,12 +752,9 @@ func (d *daemon) Run(ctx context.Context) error {
 	// route does.
 	d.drainsEndSessions.Store(true)
 	d.sweepCheckpointIntegrity(runCtx)
-	// Account for crash residues even when no operator has invoked fsck. This
-	// bounded startup snapshot may be incomplete; counters and LOUD preserve that
-	// qualification in status rather than promoting zero observations to clean.
-	auditCtx, auditCancel := context.WithTimeout(runCtx, publicationStartupBound)
-	d.LoudPublicationGaps(auditCtx)
-	auditCancel()
+	// Account for crash residues even when no operator has invoked fsck
+	// (publication_audit.go, accountPublicationAtStartup).
+	d.accountPublicationAtStartup(runCtx)
 
 	hbTicker := time.NewTicker(heartbeatInterval)
 	defer hbTicker.Stop()

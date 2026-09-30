@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/qompack/qompack/internal/store"
@@ -15,13 +16,22 @@ import (
 // is repaired, moved or deleted, both are discovery-only reads, and the daemon never refuses to start
 // over a gap — a gap is surfaced so an operator or a later fsck --repair can act, not blocked on.
 //
-// WHERE main should call LoudPublicationGaps: immediately after the existing
-// d.sweepCheckpointIntegrity(runCtx) call in Run (today daemon.go:594), on Run's own goroutine —
-// AFTER the startup Drain, so a capture the drain is about to publish is not reported as a transient
-// gap, and BEFORE the serve loop. Never from Stop, and never before Drain. The store method only
-// reads (a filesystem walk plus in-memory index lookups under a read lock) and writes nothing, so it
-// is safe against the daemon's live read-write store at that position; the position is about the
-// MEANING of the answer (post-drain, so the numbers are real), not about writer safety.
+// WHERE Run calls it (accountPublicationAtStartup): immediately after d.sweepCheckpointIntegrity in
+// Run, on Run's own goroutine — AFTER the startup Drain, so a capture the drain is about to publish
+// is not reported as a transient gap, and BEFORE the serve loop. Never from Stop, and never before
+// Drain. The store method only reads (a filesystem walk plus in-memory index lookups under a read
+// lock) and writes nothing, so it is safe against the daemon's live read-write store; the position
+// is about the MEANING of the answer (post-drain, so the numbers are real), not about writer
+// safety.
+//
+// That meaning is pinned by a snapshot (store.PublicationSnapshot) taken at that position, before
+// anything is served. The pass gets publicationStartupBound to finish inside the startup; one that
+// does not fit is not announced as incomplete but finishes in the background against the same
+// snapshot, which leaves every file written after it unclassified, so it still reports the store
+// as the startup found it (V6 close-out D49). The candidate 4 live re-run's healthy three-session
+// store (70 captures, about 380 objects) needed longer than the bound on Windows, and every start
+// logged LOUD "publication accounting incomplete ... scan interrupted" for a scan that was simply
+// cut short.
 //
 // The store the daemon holds may be a test double or a store without this capability; a store that
 // cannot be audited yields an unobserved report and no LOUD line, exactly as a non-*FSStore does for
@@ -35,6 +45,9 @@ const (
 	counterPublicationUnpublishedCaptures = "daemon.publication.unpublished_captures"
 	counterPublicationUnindexedObjects    = "daemon.publication.unindexed_object_candidates"
 	counterPublicationIncomplete          = "daemon.publication.accounting_incomplete"
+	// counterPublicationContinued counts the startup passes that did not fit publicationStartupBound
+	// and finished in the background (accountPublicationAtStartup).
+	counterPublicationContinued = "daemon.publication.accounting_continued"
 )
 
 // PublicationGapReport is the daemon's narrow, non-sensitive summary of one accounting pass. Every
@@ -57,6 +70,9 @@ type PublicationGapReport struct {
 
 	CapturesScanned int
 	ObjectsScanned  int
+	// PostSnapshotEntries counts the files a pass against a startup snapshot left unclassified
+	// because they were written after it: live work, never a gap.
+	PostSnapshotEntries int
 
 	Incomplete bool
 	Truncated  bool
@@ -74,6 +90,47 @@ func (d *daemon) publicationScanCap() store.PublicationScanCap {
 	return store.DefaultPublicationScanCap()
 }
 
+// accountPublicationAtStartup is Run's startup accounting. It snapshots the store before anything is
+// served, gives the pass publicationStartupBound (d.publicationBound in a test) to finish inside the
+// startup, and when the pass does not fit, finishes it in the background against the same snapshot
+// rather than announcing a healthy store as incompletely accounted (D49). The background pass runs
+// under runCtx, so Stop ends it, and on the goRun group, so Stop joins it.
+//
+// A store that cannot take a snapshot keeps the old shape: one bounded pass, announced as it ends.
+func (d *daemon) accountPublicationAtStartup(runCtx context.Context) {
+	auditor, ok := d.svc.Store.(store.PublicationAuditor)
+	if !ok {
+		return // Observed:false — this store exposes no accounting, and nothing is announced
+	}
+	scanCap := d.publicationScanCap()
+	if snapper, ok := d.svc.Store.(store.PublicationSnapshotter); ok {
+		if snap, err := snapper.SnapshotPublication(runCtx); err == nil {
+			scanCap.Snapshot = &snap
+		}
+	}
+	bound := d.publicationBound
+	if bound <= 0 {
+		bound = publicationStartupBound
+	}
+	auditCtx, auditCancel := context.WithTimeout(runCtx, bound)
+	rep, err := d.accountPublication(auditCtx, auditor, scanCap)
+	auditCancel()
+	if scanCap.Snapshot != nil && errors.Is(err, context.DeadlineExceeded) && runCtx.Err() == nil {
+		if d.m != nil {
+			d.m.Counter(counterPublicationContinued).Add(1)
+		}
+		d.log.Info("daemon: publication accounting continues after startup",
+			"startup_bound_ms", bound.Milliseconds(),
+			"captures_scanned", rep.CapturesScanned, "objects_scanned", rep.ObjectsScanned)
+		d.goRun(func() {
+			full, err := d.accountPublication(runCtx, auditor, scanCap)
+			d.announcePublication(full, err != nil && runCtx.Err() != nil)
+		})
+		return
+	}
+	d.announcePublication(rep, err != nil && runCtx.Err() != nil)
+}
+
 // AccountPublicationGaps runs one bounded, read-only accounting pass against the daemon's store and
 // returns the narrow report. It writes nothing and repairs nothing.
 //
@@ -87,7 +144,16 @@ func (d *daemon) AccountPublicationGaps(ctx context.Context) PublicationGapRepor
 	if !ok {
 		return PublicationGapReport{} // Observed:false — this store exposes no accounting
 	}
-	a, err := auditor.AuditPublication(ctx, d.publicationScanCap())
+	rep, _ := d.accountPublication(ctx, auditor, d.publicationScanCap())
+	return rep
+}
+
+// accountPublication is one pass under scanCap, returning the narrow report and the store's error
+// (a context that ended, or a closed store), which the report itself never carries.
+func (d *daemon) accountPublication(ctx context.Context, auditor store.PublicationAuditor,
+	scanCap store.PublicationScanCap,
+) (PublicationGapReport, error) {
+	a, err := auditor.AuditPublication(ctx, scanCap)
 	rep := PublicationGapReport{
 		Observed:                  true,
 		UnpublishedCaptures:       a.UnpublishedCaptures,
@@ -97,6 +163,7 @@ func (d *daemon) AccountPublicationGaps(ctx context.Context) PublicationGapRepor
 		LegacyControlCaptures:     a.LegacyControlCaptures,
 		CapturesScanned:           a.CapturesScanned,
 		ObjectsScanned:            a.ObjectsScanned,
+		PostSnapshotEntries:       a.PostSnapshotEntries,
 		Incomplete:                a.Incomplete,
 		Truncated:                 a.Truncated,
 		Notes:                     a.Notes,
@@ -108,7 +175,7 @@ func (d *daemon) AccountPublicationGaps(ctx context.Context) PublicationGapRepor
 		rep.Incomplete = true
 		rep.Notes = appendGenericNote(rep.Notes, "publication accounting did not finish")
 	}
-	return rep
+	return rep, err
 }
 
 // LoudPublicationGaps runs AccountPublicationGaps and, when it finds a gap OR could not complete,
@@ -121,8 +188,17 @@ func (d *daemon) AccountPublicationGaps(ctx context.Context) PublicationGapRepor
 // actually need attention (§12).
 func (d *daemon) LoudPublicationGaps(ctx context.Context) PublicationGapReport {
 	rep := d.AccountPublicationGaps(ctx)
+	d.announcePublication(rep, false)
+	return rep
+}
+
+// announcePublication is LoudPublicationGaps' announcement half. A found gap is LOUD whether or not
+// the pass finished, because a gap found is real. A pass that could not finish is LOUD too, except
+// one the daemon's own stop cut short (stopped): that pass was not unable to finish, it was told to
+// stop, and it is a Warn in the day log rather than an operator's alarm.
+func (d *daemon) announcePublication(rep PublicationGapReport, stopped bool) {
 	if !rep.Observed {
-		return rep
+		return
 	}
 
 	if d.m != nil {
@@ -145,6 +221,11 @@ func (d *daemon) LoudPublicationGaps(ctx context.Context) PublicationGapReport {
 			"truncated", rep.Truncated,
 			"notes", notesField(rep.Notes),
 		)
+	case rep.Incomplete && stopped:
+		d.log.Warn("daemon: publication accounting stopped by the daemon's stop before it finished",
+			"captures_scanned", rep.CapturesScanned,
+			"objects_scanned", rep.ObjectsScanned,
+		)
 	case rep.Incomplete:
 		// No gap was found, but the pass could not prove there is none. Say so out loud rather than
 		// letting a truncated or unreadable scan pass for a clean bill of health.
@@ -159,9 +240,9 @@ func (d *daemon) LoudPublicationGaps(ctx context.Context) PublicationGapReport {
 			"captures_scanned", rep.CapturesScanned,
 			"objects_scanned", rep.ObjectsScanned,
 			"legacy_control_captures", rep.LegacyControlCaptures,
+			"post_snapshot_entries", rep.PostSnapshotEntries,
 		)
 	}
-	return rep
 }
 
 // notesField renders the generic note list as a single log value. The notes are a fixed vocabulary

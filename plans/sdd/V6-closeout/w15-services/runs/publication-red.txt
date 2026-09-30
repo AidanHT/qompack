@@ -1,0 +1,11 @@
+=== RUN   TestStartupPublicationAccounting_HealthyLiveRunSizedStoreIsNeverLoud
+    publication_startup_test.go:66: one full accounting pass over 70 captures and 380 objects took 1.2657529s (startup bound 250ms)
+    publication_startup_test.go:75: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-services/internal/daemon/publication_startup_test.go:75
+        	Error:      	Should be false
+        	Test:       	TestStartupPublicationAccounting_HealthyLiveRunSizedStoreIsNeverLoud
+        	Messages:   	a healthy store must never be announced as incompletely accounted
+--- FAIL: TestStartupPublicationAccounting_HealthyLiveRunSizedStoreIsNeverLoud (6.28s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	6.588s
+FAIL
