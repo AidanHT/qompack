@@ -94,7 +94,7 @@ File: runs/pubscan-10x-before-after.txt. Throwaway diagnostic, never committed. 
 - `go test -p 2 -count=1 -v -run '^TestStartupPublicationAccounting_BackgroundPassPausesWhileARequestIsInFlight$' ./internal/daemon/ (and the other 9 gate/startup rows by exact name)` — PASS: 10 rows, ok 34 s (runs/yield-green-daemon.txt)
 - `go test -p 2 -count=1 -v -run '^TestAuditPublication_LinkedCaptureTreeIsNotFollowed$' ./internal/store/ (the 4 link tests, on the base tree a38a2b6d)` — PASS on base (runs/links-on-base.txt)
 - `go test -p 2 -count=1 -v -run '^TestAuditPublication_YieldBeforeEveryEntryLeavesTheAnswerUnchanged$' ./internal/store/ (and the other 5 walk rows)` — PASS (runs/walk-green-store.txt)
-- `go test -p 2 -count=1 -v -run (all 39 publication tests of internal/store by exact name) ./internal/store/ after 16487804` — PASS, ok 7.9 s (runs/walk-unparam-store.txt)
+- `go test -p 2 -count=1 -v -run (all 39 publication tests of internal/store by exact name) ./internal/store/ after 16487804` — PASS, ok 7.9 s (runs/walk-unparam-store.txt) <!-- runpatterns: the -run argument is a prose placeholder for the exact test names in the cited runs/ log, not a command to verify -->
 - `go test -p 2 -count=1 -run '^TestGenConfigDocs_ReloadSectionListsEveryClassifiedKey$' ./tools/devtool/` — RED before regenerating the page, PASS after (runs/reload-docs-red.txt, runs/reload-docs-green.txt)
 - `go test -p 2 -count=1 -run '^TestTroubleshootingNamesExactlyTheNoEffectReloadKeys$' ./test/docs/` — PASS; mutation (runtime.telemetry swapped for runtime.mode) FAIL as expected (runs/reload-troubleshooting-mutation.txt)
 - `go test -p 2 -count=1 -timeout=30m ./internal/store/` — ok 339 s (at 2fe70ecb code; runs/full-store-daemon.txt)
@@ -221,14 +221,14 @@ None new: I added no bound or budget number. The implementer's needs_owner list 
 
 ### Tests
 
-- `go test -p 2 -count=3 -run (background-pass pause and stop tests, under the background-only Yield=nil mutation, tests at 9d37a97a) ./internal/daemon/  [verbatim in runs/yield-bgonly-mutation-daemon.txt]` — ok 52.6s: the tests were blind to the mutation, confirming F1
+- `go test -p 2 -count=3 -run (background-pass pause and stop tests, under the background-only Yield=nil mutation, tests at 9d37a97a) ./internal/daemon/  [verbatim in runs/yield-bgonly-mutation-daemon.txt]` — ok 52.6s: the tests were blind to the mutation, confirming F1 <!-- runpatterns: the -run argument is a prose placeholder for the exact test names in the cited runs/ log, not a command to verify -->
 - `same command and mutation after the armedParkSignal change` — FAIL 3/3 for both tests (expected)
-- `go test -p 2 -count=3 -v -run (pause, stop and both TestCaptureGate tests) ./internal/daemon/  [runs/yield-bgonly-green-daemon.txt]` — PASS 3/3, ok 48.9s
-- `go test -p 2 -count=1 -run (three launcher gate tests) ./internal/daemon/ with the enter/leave pairs removed  [runs/launch-gate-mutations-daemon.txt]` — FAIL all three (expected)
-- `go test -p 2 -count=10 -v -run (three launcher gate tests) ./internal/daemon/ with enter moved into each goroutine` — red 10/10, 10/10 and 7/10 (this mutation cannot be caught every time by construction)
-- `go test -p 2 -count=3 -v -run (three launcher gate tests) ./internal/daemon/ unmutated` — PASS
-- `go test -p 2 -count=1 -v -run (TestRequestedDrainPass_HoldsTheCaptureGateBetweenDeliveries and TestLookAtClientSpools_HoldsTheCaptureGateForItsPass) ./internal/daemon/ before the fix  [runs/drain-gate-daemon.txt]` — FAIL: expected 1, actual 0 in both
-- `go test -p 2 -count=3 -v -run (both drain tests plus the dispatchOp, runIngested and launchSessionEnd gate tests) ./internal/daemon/ after the fix` — PASS, ok 5.1s
+- `go test -p 2 -count=3 -v -run (pause, stop and both TestCaptureGate tests) ./internal/daemon/  [runs/yield-bgonly-green-daemon.txt]` — PASS 3/3, ok 48.9s <!-- runpatterns: the -run argument is a prose placeholder for the exact test names in the cited runs/ log, not a command to verify -->
+- `go test -p 2 -count=1 -run (three launcher gate tests) ./internal/daemon/ with the enter/leave pairs removed  [runs/launch-gate-mutations-daemon.txt]` — FAIL all three (expected) <!-- runpatterns: the -run argument is a prose placeholder for the exact test names in the cited runs/ log, not a command to verify -->
+- `go test -p 2 -count=10 -v -run (three launcher gate tests) ./internal/daemon/ with enter moved into each goroutine` — red 10/10, 10/10 and 7/10 (this mutation cannot be caught every time by construction) <!-- runpatterns: the -run argument is a prose placeholder for the exact test names in the cited runs/ log, not a command to verify -->
+- `go test -p 2 -count=3 -v -run (three launcher gate tests) ./internal/daemon/ unmutated` — PASS <!-- runpatterns: the -run argument is a prose placeholder for the exact test names in the cited runs/ log, not a command to verify -->
+- `go test -p 2 -count=1 -v -run (TestRequestedDrainPass_HoldsTheCaptureGateBetweenDeliveries and TestLookAtClientSpools_HoldsTheCaptureGateForItsPass) ./internal/daemon/ before the fix  [runs/drain-gate-daemon.txt]` — FAIL: expected 1, actual 0 in both <!-- runpatterns: the -run argument is a prose placeholder for the exact test names in the cited runs/ log, not a command to verify -->
+- `go test -p 2 -count=3 -v -run (both drain tests plus the dispatchOp, runIngested and launchSessionEnd gate tests) ./internal/daemon/ after the fix` — PASS, ok 5.1s <!-- runpatterns: the -run argument is a prose placeholder for the exact test names in the cited runs/ log, not a command to verify -->
 - `go test -p 2 -count=1 -run '^TestAdminReloadIsDescribedAsAnOpWithoutACommand$' ./test/docs/` — RED before the doc edits (both pages); GREEN after
 - `go run ./tools/devtool gen-config-docs --check` — docs/config-reference.md is up to date, exit 0
 - `go test -p 2 -count=1 -run '^TestGenConfigDocs_ReloadSectionListsEveryClassifiedKey$' ./tools/devtool/ (also ran TestTroubleshootingNamesExactlyTheNoEffectReloadKeys, TestTroubleshootingLinksConfigReferenceSections and TestRelativeLinksResolve in ./test/docs/)` — ok
