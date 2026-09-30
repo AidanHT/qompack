@@ -1,0 +1,53 @@
+# RED on base efd5bf68 (internal/mcp/span.go and response_bound.go stashed, the new and strengthened tests in place)
+# go test -p 2 ./internal/mcp -count=1 -v -run <the twelve rows listed below>; byte dumps and expected/actual bodies elided
+=== RUN   TestExpandEveryTruncatedPageCarriesNextSpan
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15a-paging/internal/mcp/paging_test.go:73
+        	Messages:   	expand full page 11 [23164,24568) of 24568: truncated must say whether the page stops before the end
+--- FAIL: TestExpandEveryTruncatedPageCarriesNextSpan (0.24s)
+=== RUN   TestExpandExplicitSpanPagesLikeFull
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15a-paging/internal/mcp/paging_test.go:168
+        	Messages:   	live log at the default bound: the explicit span pages in as many responses as full
+--- FAIL: TestExpandExplicitSpanPagesLikeFull (0.45s)
+=== RUN   TestExpandExplicitSubSpanNextSpanCoversTheRestOfTheRequest
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15a-paging/internal/mcp/paging_test.go:212
+        	Messages:   	page 0 [1000,3265): next_span "3265:16384" must cover the rest of the requested span [3265,16384)
+--- FAIL: TestExpandExplicitSubSpanNextSpanCoversTheRestOfTheRequest (0.10s)
+=== RUN   TestResolveSpanExplicitWholeRangeMatchesFull
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15a-paging/internal/mcp/paging_test.go:240
+        	Messages:   	an explicit span over the whole object resolves like full
+--- FAIL: TestResolveSpanExplicitWholeRangeMatchesFull (0.00s)
+=== RUN   TestResolveSpanFullCursorCoversTheRestOfTheObject
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15a-paging/internal/mcp/paging_test.go:262
+--- FAIL: TestResolveSpanFullCursorCoversTheRestOfTheObject (0.00s)
+=== RUN   TestResolveSpanExplicitHugeLengthReadsToTheEnd
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15a-paging/internal/mcp/paging_test.go:283
+        	Messages:   	a response-sized page from the offset
+--- FAIL: TestResolveSpanExplicitHugeLengthReadsToTheEnd (0.00s)
+=== RUN   TestExpandFullResponseTextFitsMaxResponseBytes_EscapeHeavy
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15a-paging/internal/mcp/response_bound_test.go:109
+        	Messages:   	expand page 12: the page that reaches the end is not truncated (D50)
+--- FAIL: TestExpandFullResponseTextFitsMaxResponseBytes_EscapeHeavy (0.24s)
+=== RUN   TestReReadFullResponseTextFitsMaxResponseBytes_EscapeHeavy
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15a-paging/internal/mcp/response_bound_test.go:109
+        	Messages:   	expand page 11: the page that reaches the end is not truncated (D50)
+--- FAIL: TestReReadFullResponseTextFitsMaxResponseBytes_EscapeHeavy (0.24s)
+=== RUN   TestExpandMinimalSpanResponseTextFitsMaxResponseBytes
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15a-paging/internal/mcp/response_bound_test.go:109
+        	Messages:   	expand page 12: the page that reaches the end is not truncated (D50)
+--- FAIL: TestExpandMinimalSpanResponseTextFitsMaxResponseBytes (0.25s)
+=== RUN   TestExpandFullAtTheDefaultBoundFitsTheLiveOvershoot
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15a-paging/internal/mcp/response_bound_test.go:109
+        	Messages:   	expand page 2: the page that reaches the end is not truncated (D50)
+--- FAIL: TestExpandFullAtTheDefaultBoundFitsTheLiveOvershoot (0.20s)
+=== RUN   TestExpandFollowsNextSpanWhenDefaultSpanIsFull
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15a-paging/internal/mcp/response_bound_test.go:109
+        	Messages:   	expand page 12: the page that reaches the end is not truncated (D50)
+--- FAIL: TestExpandFollowsNextSpanWhenDefaultSpanIsFull (0.27s)
+=== RUN   TestExpandPagesNeverSplitARune
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15a-paging/internal/mcp/response_bound_test.go:109
+        	Messages:   	expand page 7: the page that reaches the end is not truncated (D50)
+--- FAIL: TestExpandPagesNeverSplitARune (0.21s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/mcp	2.505s
+FAIL
+exit 1
