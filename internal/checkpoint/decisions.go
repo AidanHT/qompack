@@ -22,6 +22,7 @@ import (
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/dag"
 	"github.com/qompack/qompack/internal/negknow"
+	"github.com/qompack/qompack/internal/pins"
 	"github.com/qompack/qompack/internal/tokens"
 )
 
@@ -156,7 +157,7 @@ func MintDecisionID(what, why string, evidence core.Hash) core.DecisionID {
 // with a Warn, and a failed emission is logged and ignored. Only a SourceSet.Validate failure or
 // a ctx cancellation returns an error.
 func ExtractDecisions(ctx context.Context, src SourceSet, from core.TurnIndex) ([]Decision, error) {
-	cands, err := extractDecisions(ctx, src, from, "")
+	cands, err := extractDecisions(ctx, src, from, "", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -179,19 +180,37 @@ func ExtractDecisions(ctx context.Context, src SourceSet, from core.TurnIndex) (
 // from-turn cut, because a foreign record's node turn is in that session's numbering and says
 // nothing about where this session's segments start. The candidates come back with that
 // classification so the draft's merge can keep the same order across passes.
-func extractDecisions(ctx context.Context, src SourceSet, from core.TurnIndex, s core.SessionID) ([]decisionCandidate, error) {
+//
+// inherit is what s inherits as a fork (Ancestry, D49): its ancestors' session-scoped records up to
+// the fork point are carried and minted too, as foreign ones, since another session made them.
+func extractDecisions(ctx context.Context, src SourceSet, from core.TurnIndex, s core.SessionID,
+	inherit []negknow.Inherited,
+) ([]decisionCandidate, error) {
 	if err := src.Validate(); err != nil {
 		return nil, err
 	}
-	x := &decisionExtractor{src: src, from: from, session: s, texts: make(map[core.Hash]string)}
+	x := &decisionExtractor{src: src, from: from, session: s, inherit: inherit, texts: make(map[core.Hash]string)}
 	return x.run(ctx)
 }
 
-// carriedBy reports whether r belongs in session s's checkpoint: its own records, and every
-// project-scoped one (§8.3 item 5). It is the one statement of the rule the draft's eliminated[]
-// and its elimination-sourced decisions both follow.
-func carriedBy(r negknow.Record, s core.SessionID) bool {
-	return r.Session == s || r.Scope == negknow.ScopeProject
+// carriedBy reports whether r belongs in session s's checkpoint: its own records, every
+// project-scoped one (§8.3 item 5), and — for a fork — the session-scoped records its ancestors
+// made up to the fork point (inherit, D49), which keep their own session. It is the one statement
+// of the rule the draft's eliminated[] and its elimination-sourced decisions both follow, and the
+// ledger's own visibility rule for already_tried (negknow's viewer) is the same.
+func carriedBy(r negknow.Record, s core.SessionID, inherit []negknow.Inherited) bool {
+	return r.Session == s || r.Scope == negknow.ScopeProject || inheritedBy(r, inherit)
+}
+
+// inheritedBy reports whether r is a session-scoped record one of inherit's ancestors made at or
+// before the moment the conversation left it.
+func inheritedBy(r negknow.Record, inherit []negknow.Inherited) bool {
+	for _, a := range inherit {
+		if r.Session == a.Session && r.TS <= a.Until {
+			return true
+		}
+	}
+	return false
 }
 
 // decisionCandidate pairs a derived Decision with the node its evidence lives at, which the DAG
@@ -220,6 +239,8 @@ type decisionExtractor struct {
 	// session, when set, restricts source (b) to the records carriedBy it and marks the ones
 	// another session made foreign (D46).
 	session core.SessionID
+	// inherit is what session inherits as a fork (Ancestry, D49).
+	inherit []negknow.Inherited
 	texts   map[core.Hash]string
 }
 
@@ -361,7 +382,7 @@ func (x *decisionExtractor) fromEliminations(ctx context.Context, cands []decisi
 		if err := ctx.Err(); err != nil {
 			return nil, extractInterrupted(err)
 		}
-		if x.session != "" && !carriedBy(r, x.session) {
+		if x.session != "" && !carriedBy(r, x.session, x.inherit) {
 			continue
 		}
 		foreign := x.session != "" && r.Session != x.session
@@ -419,18 +440,71 @@ func (x *decisionExtractor) fromPins(ctx context.Context, cands []decisionCandid
 		return cands, nil
 	}
 	for _, inv := range invs {
-		if inv.Source != decisionPinSource {
-			continue
+		if d, ok := pinDecision(inv, x.from); ok {
+			cands = append(cands, decisionCandidate{d: d})
 		}
-		what, why, split := strings.Cut(inv.Text, decisionPinSeparator)
-		if !split {
-			what, why = inv.Text, defaultPinWhy
-		}
-		d := Decision{What: what, Why: why, Turn: x.from}
-		d.ID = MintDecisionID(what, why, core.Hash{})
-		cands = append(cands, decisionCandidate{d: d})
 	}
 	return cands, nil
+}
+
+// pinDecision is source (c) for one pin: a pin recorded as a decision, split into what/why on the
+// first " because ", with no evidence and the given turn. Any other pin mints nothing.
+func pinDecision(inv pins.Invariant, turn core.TurnIndex) (Decision, bool) {
+	if inv.Source != decisionPinSource {
+		return Decision{}, false
+	}
+	what, why, split := strings.Cut(inv.Text, decisionPinSeparator)
+	if !split {
+		what, why = inv.Text, defaultPinWhy
+	}
+	d := Decision{What: what, Why: why, Turn: turn}
+	d.ID = MintDecisionID(what, why, core.Hash{})
+	return d, true
+}
+
+// carryDecisionsLocked seeds a draft with the decisions of the session's previous checkpoint that
+// still hold (coordinator decision D49, F-C4-UAT06-2). A draft mints decisions only from what it
+// encodes or refreshes at or after its own frontier, so the successor a seal opens — and the draft
+// a restarted daemon begins from the session's newest checkpoint — started with none, and the
+// session's next checkpoint lost every decision minted before its frontier while the elimination
+// behind one was still carried. Eliminations carry because Begin re-reads the ledger; decisions now
+// carry from the checkpoint that holds them, keeping their id and turn, merged under the same
+// ranking and cap as every extraction pass (mergeDecisionsLocked).
+//
+// A decision carries while its source holds. The artifact keeps no per-decision provenance (the
+// Decision shape is frozen), so the source is read off the shape each source mints:
+//
+//   - an elimination's decision (source b, the only one with a rejected alternative) holds while
+//     the record that mints it is among the eliminations this draft carries;
+//   - a pinned decision (source c: no rejected alternative, no evidence) holds while a decision pin
+//     in invs still mints it;
+//   - an EdgeExplains decision (source a) holds: the explains edge is durable in the DAG.
+//
+// Caller holds d.mu or owns d before publication; d.cp.Eliminated must already be seeded.
+func (d *Draft) carryDecisionsLocked(prev []Decision, invs []pins.Invariant) {
+	if len(prev) == 0 {
+		return
+	}
+	holds := make(map[core.DecisionID]bool, len(d.cp.Eliminated)+len(invs))
+	for _, r := range d.cp.Eliminated {
+		if dec, ok := eliminationDecision(r, 0); ok {
+			holds[dec.ID] = true
+		}
+	}
+	for _, inv := range invs {
+		if dec, ok := pinDecision(inv, 0); ok {
+			holds[dec.ID] = true
+		}
+	}
+	cands := make([]decisionCandidate, 0, len(prev))
+	for _, dec := range prev {
+		explains := len(dec.AlternativesRejected) == 0 && dec.Evidence != (core.Hash{})
+		if !explains && !holds[dec.ID] {
+			continue
+		}
+		cands = append(cands, decisionCandidate{d: dec})
+	}
+	d.mergeDecisionsLocked(cands)
 }
 
 // text reads the content at root through the store, capped at maxExplainingReadBytes, strips

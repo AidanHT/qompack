@@ -129,8 +129,10 @@ func liveLedger(opts *daemon.Options) func() negknow.Ledger {
 // "elimination ledger not present in this build" beside a perfectly openable ledger (retrieval D1
 // of the V6 live lane). The ledger's laziness is kept where it matters: a daemon whose sessions
 // never call a ledger tool and never compact still opens nothing and creates no
-// sketches/tried.bloom, and every OTHER accessor (the checkpoint SourceSet supplier, the
-// scheduler's LedgerFn) still only reads. Opening through the shared opener, never a second
+// sketches/tried.bloom. The scheduler's LedgerFn still only reads; the checkpoint SourceSet
+// supplier's accessor (recordedLedger) opens too, but only in a project that already holds
+// elimination records and only on a resolve after the daemon is serving. Opening through the
+// shared opener, never a second
 // negknow.Open, keeps one handle per process and hands its close to the daemon (OnStop).
 //
 // The opener is read off the *daemon.Options POINTER at call time, and an Options no wiring has
@@ -148,6 +150,43 @@ func openingLedger(opts *daemon.Options) func() negknow.Ledger {
 			}
 		}
 		return read()
+	}
+}
+
+// recordedLedger is the checkpoint sources' ledger accessor: liveLedger, except that it OPENS the
+// ledger, through the daemon's shared opener, when the project already holds elimination records
+// (negknow.HasRecords) and nothing has opened one yet.
+//
+// The frontier begins its drafts without negative knowledge while the project holds none
+// (coordinator decision D49, F-C4-C49-3), but a restarted daemon in a project WITH records has
+// negative knowledge no open ledger serves until a compaction or a ledger tool call opens one, and
+// its frontier would refuse on every idle tick meanwhile. Opening then creates nothing new: the
+// records' own ledger created the files. A project with no records still opens nothing here, which
+// is the laziness liveLedger's note explains.
+//
+// It is called only by a RESOLVE of the checkpoint sources, and wireCheckpointSources keeps every
+// wiring-time snapshot unresolved, so the open lands on the first idle tick, scheduler advance or
+// compaction after Run is accepting -- never on the startup path a hook's connect deadline waits on
+// (TestCheckpointWiringOpensNoLedgerBeforeRun).
+func recordedLedger(opts *daemon.Options) func() negknow.Ledger {
+	if opts == nil {
+		return nil
+	}
+	read := liveLedger(opts)
+	return func() negknow.Ledger {
+		if l := read(); l != nil {
+			return l
+		}
+		open := opts.OpenLedger
+		if open == nil {
+			return nil
+		}
+		// A log this cannot stat may hold records (HasRecords answers true with the error), and
+		// the open is then the one that reports what is wrong with it.
+		if has, _ := negknow.HasRecords(opts.ProjectRoot); !has {
+			return nil
+		}
+		return open()
 	}
 }
 

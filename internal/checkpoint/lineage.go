@@ -6,11 +6,13 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"math"
 	"os"
 	"path/filepath"
 	"slices"
 
 	"github.com/qompack/qompack/internal/core"
+	"github.com/qompack/qompack/internal/negknow"
 	"github.com/qompack/qompack/internal/paths"
 	"github.com/qompack/qompack/internal/store"
 )
@@ -194,6 +196,45 @@ func ReadLineage(l paths.Layout, s core.SessionID) (*Lineage, error) {
 			s, rec.Version, rec.Session, core.ErrContract)
 	}
 	return &rec, nil
+}
+
+// Ancestry is the negative knowledge session s inherits through its lineage (coordinator decision
+// D49, F-C4-UAT06-1): its parent's session-scoped records up to the moment s started, and — when
+// the parent was itself a fork — the grandparent's up to the moment the parent started, and so on,
+// nearest ancestor first, exactly the conversation ancestorPrompts reads the intent from. A session
+// that is no fork, or whose parent is unknown, inherits nothing. An unreadable lineage record ends
+// the walk where it stands (a session is never given a parent it may not have), and a session
+// already visited ends it too, so damaged records cannot loop it.
+//
+// It is what the composition root wires as negknow.Deps.Ancestry (LedgerAncestry), and what a
+// draft measures the eliminations it carries by (carriedBy).
+func Ancestry(l paths.Layout, s core.SessionID) []negknow.Inherited {
+	var out []negknow.Inherited
+	visited := map[core.SessionID]bool{s: true}
+	for cur := s; ; {
+		rec, err := ReadLineage(l, cur)
+		if err != nil || rec == nil || rec.ParentSession == "" || visited[rec.ParentSession] {
+			return out
+		}
+		until := rec.At
+		if until <= 0 {
+			until = math.MaxInt64 // no stamp: the whole of the parent's conversation, as stampedBy
+		}
+		out = append(out, negknow.Inherited{Session: rec.ParentSession, Until: until})
+		visited[rec.ParentSession] = true
+		cur = rec.ParentSession
+	}
+}
+
+// LedgerAncestry is Ancestry over the project at root, in the shape negknow.Deps.Ancestry takes.
+func LedgerAncestry(root string) func(core.SessionID) []negknow.Inherited {
+	l := paths.Of(root)
+	return func(s core.SessionID) []negknow.Inherited {
+		if checkSessionComponent(s) != nil {
+			return nil
+		}
+		return Ancestry(l, s)
+	}
 }
 
 // forkIntent is the user intent a forked session inherits: what its conversation held when it

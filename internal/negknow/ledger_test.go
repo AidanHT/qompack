@@ -479,7 +479,7 @@ func TestQuery_ScopeSession_OtherSessionHidden(t *testing.T) {
 	got := mustQuery(t, b, target, approach, ScopeSession)
 	require.Equal(t, AnswerAbsent, got.State)
 	require.False(t, got.BloomOnly,
-		"Open rebuilt from visibleActive(), which excludes the foreign session's keys")
+		"Open rebuilt from filterRecords(), which excludes the foreign session's keys")
 }
 
 func TestQuery_ScopeSession_OtherSessionHidden_NextIdle(t *testing.T) {

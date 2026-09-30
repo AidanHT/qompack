@@ -90,9 +90,13 @@ func corruptBloomFile(t *testing.T, root string) {
 	require.NoError(t, os.WriteFile(p, b, 0o600))
 }
 
-// ── RebuildBloom: active records only ─────────────────────────────────────────────────────────
+// ── RebuildBloom: every record, active and stale ─────────────────────────────────────────────
 
-func TestRebuildBloom_ActiveOnly(t *testing.T) {
+// TestRebuildBloom_CoversActiveAndStaleRecords: the rebuild's input is every record in view, active
+// and stale (coordinator decision D49). Criterion change: this row was TestRebuildBloom_ActiveOnly,
+// which asserted that the four stale records' keys were DROPPED — the §3.3 reading D49 supersedes,
+// because a stale record whose keys the filter does not hold answers absent (R4-1).
+func TestRebuildBloom_CoversActiveAndStaleRecords(t *testing.T) {
 	root, cfg := newProject(t)
 	l := openLedger(t, root, cfg, nil, testDeps("sess", newMetrics()))
 
@@ -107,21 +111,18 @@ func TestRebuildBloom_ActiveOnly(t *testing.T) {
 
 	nb, health, err := l.RebuildBloom(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, 12, nb.Count(), "six active records contribute Key and MatchKey each")
+	require.Equal(t, 20, nb.Count(), "ten records, active and stale, contribute Key and MatchKey each")
 	require.Equal(t, 6, health.Active)
 	require.Equal(t, 4, health.Stale)
 
-	for i := 4; i < 10; i++ {
-		require.True(t, nb.Test(descs[i].MatchKey()), "active record %d must survive the rebuild", i)
-		require.True(t, nb.Test(descs[i].Key()))
+	for i := range 10 {
+		require.True(t, nb.Test(descs[i].MatchKey()), "record %d must survive the rebuild", i)
+		require.True(t, nb.Test(descs[i].Key()), "record %d must survive the rebuild", i)
 	}
-	absent := 0
 	for i := range 4 {
-		if !nb.Test(descs[i].MatchKey()) {
-			absent++
-		}
+		require.Equal(t, AnswerStale, mustQuery(t, l, fmt.Sprintf("src/a%d.ts", i), "widen pool timeout", ScopeSession).State,
+			"a stale record answers stale after the rebuild, never absent")
 	}
-	require.GreaterOrEqual(t, absent, 3, "stale records are dropped; the 1%% fp rate is the only slack")
 }
 
 func TestRebuildBloom_ExcludesForeignSession(t *testing.T) {
@@ -669,7 +670,7 @@ func TestRebuildBloom_NeverFromCheckpoint(t *testing.T) {
 
 	callers := filesContaining(all, "sketch.RebuildBloom(")
 	require.Equal(t, []string{"../../internal/negknow/bloom.go"}, callers,
-		"there is exactly one non-test sketch.RebuildBloom call site under internal/, and it is fed by visibleActive()")
+		"there is exactly one non-test sketch.RebuildBloom call site under internal/, and it is fed by filterRecords()")
 
 	require.Empty(t, filesContaining(map[string][]string{
 		"bloom.go": all["../../internal/negknow/bloom.go"],

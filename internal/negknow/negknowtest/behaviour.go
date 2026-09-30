@@ -11,7 +11,8 @@ import (
 
 // This file authors the behaviour assertions of the negknowtest suite (subplan table, §15 of
 // plans/V1-SP-01-foundation-toolchain-and-contracts.md): the three-way absent/active/stale
-// answer, tried.bloom rebuilt from active records only, and BloomOnly's consistency contract. All
+// answer, tried.bloom rebuilt from the records, active and stale (D49), and BloomOnly's
+// consistency contract. All
 // are authored now, gated behind the same Rule W-1 stub probe as the rest of the suite, so SP-09
 // inherits them rather than writing its own grader.
 
@@ -67,10 +68,16 @@ func runThreeWayAnswerCase(t *testing.T, factory func(t *testing.T) negknow.Ledg
 	require.Equal(t, id, stale.Record.ID)
 }
 
-// runBloomRebuildActiveOnlyCase asserts RebuildBloom rebuilds tried.bloom from ACTIVE RECORDS
-// ONLY (00-ARCHITECTURE.md §3.3, §13 invariant 2): an active record's descriptor key must be
-// present in the rebuilt bloom, and a stale record's descriptor key must be absent from it — the
-// mechanism that lets a stale elimination "reopen" the question it once closed.
+// runBloomRebuildCoversStaleCase asserts RebuildBloom rebuilds tried.bloom from the RECORDS,
+// active and stale alike (00-ARCHITECTURE.md §3.3, §13 invariant 2, as coordinator decision D49
+// of the V6 close-out widened it): both records' descriptor keys must be present in the rebuilt
+// bloom, and the stale one must still answer stale after the rebuild. A record goes stale, never
+// absent — a filter that dropped a stale record's keys made Query answer absent for it (R4-1).
+//
+// Criterion change: this case was runBloomRebuildActiveOnlyCase, which asserted that the stale
+// record's key was ABSENT from the rebuilt bloom, "the mechanism that lets a stale elimination
+// reopen the question it once closed". D49 supersedes that reading: the stale answer, with its
+// re-verification note, is how the question is reopened.
 //
 // The rebuilt bloom's *sketch.Bloom methods (Test) are called on the value RebuildBloom returns
 // without this file importing internal/sketch: negknowtest's import allow-set is its own base
@@ -78,7 +85,7 @@ func runThreeWayAnswerCase(t *testing.T, factory func(t *testing.T) negknow.Ledg
 // import to call an exported method on a value whose type was inferred from another package's
 // already-imported function signature — only to spell the type name explicitly, which this file
 // never needs to do.
-func runBloomRebuildActiveOnlyCase(t *testing.T, factory func(t *testing.T) negknow.Ledger) {
+func runBloomRebuildCoversStaleCase(t *testing.T, factory func(t *testing.T) negknow.Ledger) {
 	t.Helper()
 	l := factory(t)
 	ctx := context.Background()
@@ -105,9 +112,14 @@ func runBloomRebuildActiveOnlyCase(t *testing.T, factory func(t *testing.T) negk
 	require.NotNil(t, bloom)
 	require.True(t, bloom.Test(activeDesc.Key()),
 		"RebuildBloom's bloom must contain every currently-active record's descriptor key")
-	require.False(t, bloom.Test(staleDesc.Key()),
-		"RebuildBloom must EXCLUDE stale records: it rebuilds from active records only, never a checkpoint or a summary (§3.3)")
+	require.True(t, bloom.Test(staleDesc.Key()),
+		"RebuildBloom must KEEP stale records: a record goes stale, never absent (D49)")
+	require.True(t, bloom.Test(staleDesc.MatchKey()), "the key Query tests must survive the rebuild too")
 	require.GreaterOrEqual(t, health.Active, 1, "Health.Active must count at least the one active record this case recorded")
+
+	stale, err := l.Query(ctx, "rebuild-stale-target", "rebuild-stale-approach", negknow.ScopeProject)
+	require.NoError(t, err)
+	require.Equal(t, negknow.AnswerStale, stale.State, "the stale record answers stale after the rebuild")
 }
 
 // runBloomOnlyConsistencyCase asserts the half of BloomOnly's contract (§13 invariant 3: the
@@ -330,7 +342,7 @@ func runStaleNoteTextCase(t *testing.T, factory func(t *testing.T) negknow.Ledge
 // RebuildBloom RETURNS: that pointer is the ledger's live filter (§3.3 — the rebuild adopts what
 // it built), so adding a key to it leaves exactly the state a genuine hash collision would.
 // Calling Add on it needs no import of internal/sketch, for the reason
-// runBloomRebuildActiveOnlyCase spells out above: Go requires an import to SPELL a type, not to
+// runBloomRebuildCoversStaleCase spells out above: Go requires an import to SPELL a type, not to
 // call an exported method on a value whose type came back from an already-imported signature.
 func runBloomFalsePositiveCase(t *testing.T, factory func(t *testing.T) negknow.Ledger) {
 	t.Helper()

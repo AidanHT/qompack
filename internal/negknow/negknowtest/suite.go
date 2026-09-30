@@ -78,7 +78,7 @@ func RunLedgerSuite(t *testing.T, name string, factory func(t *testing.T) negkno
 		t.Run("scope_isolation", func(t *testing.T) { runScopeIsolationCase(t, factory) })
 		t.Run("require_evidence", func(t *testing.T) { runRequireEvidenceCase(t, factory) })
 		t.Run("stale_note_text", func(t *testing.T) { runStaleNoteTextCase(t, factory) })
-		t.Run("bloom_rebuilt_from_active_records_only", func(t *testing.T) { runBloomRebuildActiveOnlyCase(t, factory) })
+		t.Run("bloom_rebuilt_from_active_and_stale_records", func(t *testing.T) { runBloomRebuildCoversStaleCase(t, factory) })
 		t.Run("bloomonly_consistency", func(t *testing.T) { runBloomOnlyConsistencyCase(t, factory) })
 		t.Run("bloomonly_on_a_synthetic_false_positive", func(t *testing.T) { runBloomFalsePositiveCase(t, factory) })
 		t.Run("maintainer_surface", func(t *testing.T) { runMaintainerSurfaceCase(t, factory) })

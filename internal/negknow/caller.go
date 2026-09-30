@@ -59,6 +59,13 @@ func (l *ledger) sessionFor(ctx context.Context) core.SessionID {
 	return l.deps.Session
 }
 
+// viewerFor is who ctx's read is made for: sessionFor's session with its inherited ancestry
+// (D49). It is resolved once per read, before the ledger lock, because Deps.Ancestry reads the
+// lineage records from disk.
+func (l *ledger) viewerFor(ctx context.Context) viewer {
+	return l.viewerOf(l.sessionFor(ctx))
+}
+
 // turnFor is the turn ctx's operation is made at, 0 when no caller says.
 func turnFor(ctx context.Context) core.TurnIndex {
 	c, _ := CallerFrom(ctx)
