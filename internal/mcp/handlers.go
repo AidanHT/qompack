@@ -255,7 +255,7 @@ func (h *handlers) alreadyTried(ctx context.Context, _ Request, raw json.RawMess
 		return h.jsonResponse(ToolAlreadyTried, ledgerUnavailableResult(), nil), nil
 	}
 
-	scope := negknow.Scope(h.cfg.Eliminations.DefaultScope)
+	scope := negknow.Scope(h.conf().Eliminations.DefaultScope)
 	ans, err := l.Query(ctx, a.Target, a.Approach, scope)
 	if err != nil {
 		// A failed query is not evidence of absence. Do not expose a backend error that may
@@ -300,7 +300,7 @@ func (h *handlers) renderAnswer(ans negknow.Answer) AlreadyTriedResult {
 	if ans.BloomOnly {
 		return AlreadyTriedResult{State: stateAbsent, Note: bloomOnlyNote}
 	}
-	if ans.State == negknow.AnswerStale && h.cfg.Eliminations.StaleResponse == "drop" {
+	if ans.State == negknow.AnswerStale && h.conf().Eliminations.StaleResponse == "drop" {
 		// "drop" suppresses the staleness DETAIL, not the fact that an elimination is on record.
 		// The record's reason, evidence and stale_because stay hidden, but the state may not claim
 		// absence: this handler has just been told an elimination exists.
@@ -415,7 +415,7 @@ func (h *handlers) recordEliminated(ctx context.Context, r Request, raw json.Raw
 	}
 	effective := explicit
 	if effective == "" {
-		effective = h.cfg.Eliminations.DefaultScope
+		effective = h.conf().Eliminations.DefaultScope
 	}
 
 	// A session-scoped record in a session that does not exist is invisible for ever: SP-09's
@@ -471,7 +471,7 @@ func (h *handlers) ingestEliminationFallback(ctx context.Context, a RecordElimin
 	negknow.Record, []string, error,
 ) {
 	if scope == "" {
-		scope = h.cfg.Eliminations.DefaultScope
+		scope = h.conf().Eliminations.DefaultScope
 	}
 
 	var evidence core.Hash
@@ -482,12 +482,12 @@ func (h *handlers) ingestEliminationFallback(ctx context.Context, a RecordElimin
 		switch {
 		case err == nil:
 			evidence = pr.Root.Hash
-		case h.cfg.Eliminations.RequireEvidence:
+		case h.conf().Eliminations.RequireEvidence:
 			return negknow.Record{}, nil, errors.New("evidence could not be stored")
 		default:
 			h.log.Warn("mcp: recording an elimination without evidence", "err", err.Error())
 		}
-	} else if h.cfg.Eliminations.RequireEvidence {
+	} else if h.conf().Eliminations.RequireEvidence {
 		return negknow.Record{}, nil, errors.New("evidence could not be stored")
 	}
 
