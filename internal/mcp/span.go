@@ -27,7 +27,8 @@ import (
 // Four properties are normative and property-tested:
 //
 //   - [Off, End) begins and ends on a chunk boundary, or on the object's end (an ExactStart
-//     explicit byte window begins at the offset it names instead);
+//     explicit window begins at the offset it names instead, and one the response cap cuts ends
+//     where a full read over the same range would);
 //   - End > Off for any non-empty object;
 //   - End-Off never exceeds MaxResponse;
 //   - following NextSpan from offset 0 concatenates to the whole object exactly once, with no
@@ -36,6 +37,18 @@ import (
 // The last one is why alignment is not cosmetic: a next-span that started mid-chunk would be
 // aligned BACKWARDS by the next call and hand the model the same bytes twice. The one window that
 // cannot end on a boundary — a single chunk larger than MaxResponse — is why ExactStart exists.
+//
+// Two paging rules hold for every window (V6 close-out D50, from the candidate 4 live re-run, whose
+// last page answered truncated:true with no cursor and whose explicit 0:<total> paged differently
+// from full:true):
+//
+//   - Truncated, a non-empty NextSpan and End < Total are one statement. A page that reaches the
+//     object's end is not truncated, wherever it started; a page that stops short always carries a
+//     cursor that starts at its End.
+//   - A read that asks for a range — full (the whole object) or an ExactStart explicit span — is
+//     cut as a full read over that range is cut, and a page cut short of the range publishes a
+//     cursor to the rest of the range. Following that cursor is the same read over what remains,
+//     so an explicit span and full:true page identically, response-sized page after page.
 
 // spanByteRe and spanLineRe are the two explicit-span spellings: "<off>:<len>" in bytes, and
 // "L<start>-L<end>" in 1-based inclusive lines.
@@ -86,7 +99,8 @@ type SpanResult struct {
 	Off, End int64
 	// Total is the object's canonical size.
 	Total int64
-	// Truncated reports that this is less than the whole object.
+	// Truncated reports that the window stops before the object's end: there is more to page to,
+	// and NextSpan names it. A window that reaches the end is not truncated, wherever it starts.
 	Truncated bool
 	// NextSpan is the "<off>:<len>" to pass back as `span` to continue reading; "" at the end.
 	NextSpan string
@@ -94,6 +108,10 @@ type SpanResult struct {
 	Widened bool
 	// Body is the content of [Off, End).
 	Body []byte
+	// want is the end of the range the read asked for: the object's end for a full read, the
+	// resolved end of an explicit span, and 0 for a minimal span. A window that stops short of it
+	// publishes a cursor to the rest of it (nextSpanFor).
+	want int64
 }
 
 // byteReader reads one span of an object. It exists so the resolver can run against a store, an
@@ -228,18 +246,10 @@ func resolveSpan(read byteReader, root store.Root, w Widener, o SpanOpts) (SpanR
 	// Step 1 — full. A full read is a byte window by definition, not a chunk window: the caller
 	// asked for the object, and aligning outward would hand back more than the object.
 	if o.Full {
-		body, end, err := readWindow(read, 0, minInt64(total, maxResp), total, maxResp, o.RuneSafe)
-		if err != nil {
-			return SpanResult{}, err
-		}
-		res := SpanResult{Off: 0, End: end, Total: total, Truncated: end < total, Body: body}
-		if end < total {
-			res.NextSpan = spanStr(end, minInt64(maxResp, total-end))
-		}
-		return res, nil
+		return rangeWindow(read, 0, total, total, maxResp, o)
 	}
 
-	off, end, err := resolveWindow(read, starts, total, maxResp, w, o)
+	off, end, explicit, err := resolveWindow(read, starts, total, maxResp, w, o)
 	if err != nil {
 		return SpanResult{}, err
 	}
@@ -250,6 +260,22 @@ func resolveSpan(read byteReader, root store.Root, w Widener, o SpanOpts) (SpanR
 		if newEnd, ok := widenTail(read, starts, total, maxResp, w, o, off, end); ok {
 			res.End, res.Widened = newEnd, true
 			end = newEnd
+		}
+	}
+
+	// An explicit span is a request for the range it resolved to. The retrieval tools' (ExactStart)
+	// is read like full over that range: the same byte cap, the same cut, the same cursor rule
+	// (D50). Without ExactStart a capped window must still end on a chunk boundary (step 7), because
+	// the next call would align a mid-chunk cursor backwards and serve bytes twice.
+	if explicit {
+		res.want = end
+		if o.ExactStart {
+			out, err := rangeWindow(read, off, end, total, maxResp, o)
+			if err != nil {
+				return SpanResult{}, err
+			}
+			out.Widened = res.Widened
+			return out, nil
 		}
 	}
 
@@ -272,11 +298,36 @@ func resolveSpan(read byteReader, root store.Root, w Widener, o SpanOpts) (SpanR
 		return SpanResult{}, err
 	}
 	res.Body, res.End = body, end
-	res.Truncated = off > 0 || end < total
-	if end < total {
-		res.NextSpan = spanStr(end, minInt64(int64(o.MaxSpan), total-end))
-	}
+	res.Truncated, res.NextSpan = nextSpanFor(res, o)
 	return res, nil
+}
+
+// rangeWindow reads the range [off, want) as a full read does: one window from off, capped at
+// maxResp bytes and moved off a split rune, whose cursor, when the cap cut it short of want, names
+// the rest of the range. A full read is the range [0, total).
+func rangeWindow(read byteReader, off, want, total, maxResp int64, o SpanOpts) (SpanResult, error) {
+	body, end, err := readWindow(read, off, minInt64(want, off+maxResp), total, maxResp, o.RuneSafe)
+	if err != nil {
+		return SpanResult{}, err
+	}
+	res := SpanResult{Off: off, End: end, Total: total, Body: body, want: want}
+	res.Truncated, res.NextSpan = nextSpanFor(res, o)
+	return res, nil
+}
+
+// nextSpanFor is the one paging rule every window follows (D50). A window that reaches the
+// object's end is not truncated and has no cursor. One that stops short is truncated, and its
+// cursor starts at its End: over the rest of the range the read asked for when the window stops
+// short of it, and otherwise — a minimal span, or a range already served whole — over the next
+// store.chunk.max bytes.
+func nextSpanFor(s SpanResult, o SpanOpts) (truncated bool, next string) {
+	if s.End >= s.Total {
+		return false, ""
+	}
+	if s.want > s.End {
+		return true, spanStr(s.End, s.want-s.End)
+	}
+	return true, spanStr(s.End, minInt64(int64(o.MaxSpan), s.Total-s.End))
 }
 
 // readWindow reads [off, end) and, when runeSafe is set and the window stops short of the object's
@@ -336,31 +387,32 @@ func firstFullRune(b []byte) int {
 // span.
 func resolveWindow(read byteReader, starts []int64, total, maxResp int64,
 	w Widener, o SpanOpts,
-) (off, end int64, err error) {
+) (off, end int64, explicit bool, err error) {
 	var hardEnd int64
 	// Step 2 — an explicit byte span.
 	if m := spanByteRe.FindStringSubmatch(o.Explicit); m != nil {
 		off0 := clamp64(parseInt64(m[1]), 0, total)
-		want := off0 + parseInt64(m[2])
+		// Saturating: a length near the int64 maximum must not wrap the end below the offset.
+		want := off0 + minInt64(parseInt64(m[2]), total)
 		off = chunkStartAtOrBefore(starts, off0)
 		if o.ExactStart && off0 < total {
 			off = off0
 		}
 		end = chunkEndAtOrAfter(starts, total, clamp64(want, off+1, total))
-		return off, end, nil
+		return off, end, true, nil
 	}
 
 	// Step 3 — an explicit line span.
 	if m := spanLineRe.FindStringSubmatch(o.Explicit); m != nil {
 		probe, perr := read(0, minInt64(total, maxResp))
 		if perr != nil {
-			return 0, 0, perr
+			return 0, 0, false, perr
 		}
 		off0 := lineStartOffset(probe, int(parseInt64(m[1])))
 		end0 := lineEndOffset(probe, int(parseInt64(m[2])))
 		off = chunkStartAtOrBefore(starts, off0)
 		end = chunkEndAtOrAfter(starts, total, maxInt64(end0, off+1))
-		return off, end, nil
+		return off, end, true, nil
 	}
 
 	// Step 4 — the anchor probe. This is the one read that cannot be bounded by MaxSpan: a symbol
@@ -371,7 +423,7 @@ func resolveWindow(read byteReader, starts []int64, total, maxResp int64,
 	if o.AnchorSym != "" || o.AnchorLine > 0 {
 		probe, perr := read(0, minInt64(total, maxResp))
 		if perr != nil {
-			return 0, 0, perr
+			return 0, 0, false, perr
 		}
 		if o.AnchorSym != "" && w != nil {
 			if a, b, ok := w.Find(o.Path, probe, o.AnchorSym); ok {
@@ -407,7 +459,7 @@ func resolveWindow(read byteReader, starts []int64, total, maxResp int64,
 	if hardEnd > end && hardEnd-off <= maxResp {
 		end = chunkEndAtOrAfter(starts, total, hardEnd)
 	}
-	return off, end, nil
+	return off, end, false, nil
 }
 
 // widenTail extends end to the end of the symbol enclosing it, when the widener finds one and the
