@@ -86,3 +86,52 @@ same  plugins/data/ (2 entries)
 same  .qompack/ (0 entries)
 real home fingerprint unchanged
 check exit 0
+
+== candidate 4 re-run (D47), recovery part C1.7: after session 1 (recovery-c4 n=1) — 2026-09-30 10:15:06 EDT
+removed run-created empty plugins/data/qompack-inline/
+clean exit 0
+same  settings.json e15855d7e46a
+same  plugins/installed_plugins.json 728f75591291
+same  plugins/known_marketplaces.json 1b1eda7e17f0
+same  plugins/cache/ (10 entries)
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+same  .qompack/ (2 entries)
+real home fingerprint unchanged
+check exit 0
+
+== candidate 4 re-run (D47), recovery part C1.7: after session 2 (recovery-c4 n=2) — 2026-09-30 10:48:34 EDT
+removed run-created empty plugins/data/qompack-inline/
+clean exit 0
+same  settings.json e15855d7e46a
+same  plugins/installed_plugins.json 728f75591291
+same  plugins/known_marketplaces.json 1b1eda7e17f0
+same  plugins/cache/ (10 entries)
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+same  .qompack/ (2 entries)
+real home fingerprint unchanged
+check exit 0
+
+== candidate 4 re-run (D47), recovery part C1.7: END of part — 2026-09-30 11:22:58 EDT. No plugin install in this part (--plugin-dir only); no qompack.exe running (tasklist); ~/.qompack gained nothing (bin/1e9d0cc8.../ = the frozen c4 bundle binary's staged copy existed at snap time, made by an earlier part; left in place).
+clean exit 0
+same  settings.json e15855d7e46a
+same  plugins/installed_plugins.json 728f75591291
+same  plugins/known_marketplaces.json 1b1eda7e17f0
+same  plugins/cache/ (10 entries)
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+same  .qompack/ (2 entries)
+real home fingerprint unchanged
+check exit 0
+
+== candidate 4 re-run (D47), recovery part C1.7: resume check by the replacement seat (the earlier seat lost its API connection after the END block above) — 2026-09-30 11:39:02 EDT. No session, plugin command, backup/restore or daemon run by this seat. tasklist qompack.exe: INFO: No tasks are running which match the specified criteria.
+same  settings.json e15855d7e46a
+same  plugins/installed_plugins.json 728f75591291
+same  plugins/known_marketplaces.json 1b1eda7e17f0
+same  plugins/cache/ (10 entries)
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+same  .qompack/ (2 entries)
+real home fingerprint unchanged
+check exit 0

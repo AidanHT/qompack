@@ -1,0 +1,1 @@
+source daemon pid 45952 (started by the refusal-2 mcp client, QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS=30) exited on idle ~26 s after the client closed; no termination

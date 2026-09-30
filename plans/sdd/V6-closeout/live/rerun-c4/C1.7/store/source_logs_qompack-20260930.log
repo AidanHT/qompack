@@ -1,0 +1,13 @@
+ts=2026-09-30T14:14:10.2317272Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-09-30T14:14:10.2716937Z level=info msg="observer: session registered" session=dddfef64-d5f6-41f2-b924-4863be1b2b5d source=startup turn=0 segment=1
+ts=2026-09-30T14:14:10.2722272Z level=info msg="scheduler: session bound" session=dddfef64-d5f6-41f2-b924-4863be1b2b5d effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+ts=2026-09-30T14:15:02.4376215Z level=info msg="observer: gc" scanned=25 deleted=0 freed=0 truncated=false
+ts=2026-09-30T14:47:43.5106834Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-09-30T14:47:43.5891075Z level=info msg="observer: session registered" session=e971f578-e2ab-4136-8689-c365532295bf source=startup turn=0 segment=3
+ts=2026-09-30T14:47:43.5891075Z level=info msg="scheduler: state from another session discarded" path=<scratch>\recovery\c4\C1.7\proj\.qompack\state\bocd.json file_session=dddfef64-d5f6-41f2-b924-4863be1b2b5d session=e971f578-e2ab-4136-8689-c365532295bf
+ts=2026-09-30T14:47:43.5896926Z level=info msg="scheduler: state from another session discarded" path=<scratch>\recovery\c4\C1.7\proj\.qompack\state\scheduler.json file_session=dddfef64-d5f6-41f2-b924-4863be1b2b5d session=e971f578-e2ab-4136-8689-c365532295bf
+ts=2026-09-30T14:47:43.5896926Z level=info msg="scheduler: session bound" session=e971f578-e2ab-4136-8689-c365532295bf effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+ts=2026-09-30T14:48:27.706359Z level=info msg="observer: gc" scanned=43 deleted=0 freed=0 truncated=false
+ts=2026-09-30T15:20:20.6502134Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-09-30T15:21:14.510602Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-09-30T15:21:17.621676Z level=warn msg="checkpoint: no usable source set; the frontier is not advancing" err="checkpoint: SourceSet.Ledger is nil: its accessor resolved to no ledger: qompack: running in degraded mode"

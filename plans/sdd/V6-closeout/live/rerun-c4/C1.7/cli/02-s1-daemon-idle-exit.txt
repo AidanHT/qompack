@@ -1,0 +1,37 @@
+session-1 daemon (pid 67652, lock root = this project, image qompack.exe) sampled once a minute from 10:15:57 until it was gone:
+{"event": "start", "t": "2026-09-30 10:15:57 -0400", "pid": 67652, "lock_root_matches": true}
+{"event": "sample", "t": "2026-09-30 10:15:58 -0400", "elapsed_s": 1, "store_bytes": 330628, "WorkingSet64": 43008000, "PeakWorkingSet64": 43008000, "CPU": 1}
+{"event": "sample", "t": "2026-09-30 10:16:59 -0400", "elapsed_s": 62, "store_bytes": 330628, "WorkingSet64": 42987520, "PeakWorkingSet64": 43020288, "CPU": 1.015625}
+{"event": "sample", "t": "2026-09-30 10:18:00 -0400", "elapsed_s": 123, "store_bytes": 335977, "WorkingSet64": 38146048, "PeakWorkingSet64": 43020288, "CPU": 1.0625}
+{"event": "sample", "t": "2026-09-30 10:19:01 -0400", "elapsed_s": 183, "store_bytes": 335999, "WorkingSet64": 38170624, "PeakWorkingSet64": 43020288, "CPU": 1.078125}
+{"event": "sample", "t": "2026-09-30 10:20:02 -0400", "elapsed_s": 244, "store_bytes": 336016, "WorkingSet64": 37953536, "PeakWorkingSet64": 43020288, "CPU": 1.109375}
+{"event": "sample", "t": "2026-09-30 10:21:03 -0400", "elapsed_s": 305, "store_bytes": 336016, "WorkingSet64": 37933056, "PeakWorkingSet64": 43020288, "CPU": 1.140625}
+{"event": "sample", "t": "2026-09-30 10:22:04 -0400", "elapsed_s": 366, "store_bytes": 336020, "WorkingSet64": 37650432, "PeakWorkingSet64": 43020288, "CPU": 1.203125}
+{"event": "sample", "t": "2026-09-30 10:23:05 -0400", "elapsed_s": 427, "store_bytes": 336031, "WorkingSet64": 37650432, "PeakWorkingSet64": 43020288, "CPU": 1.25}
+{"event": "sample", "t": "2026-09-30 10:24:06 -0400", "elapsed_s": 488, "store_bytes": 336034, "WorkingSet64": 37404672, "PeakWorkingSet64": 43020288, "CPU": 1.296875}
+{"event": "sample", "t": "2026-09-30 10:25:07 -0400", "elapsed_s": 549, "store_bytes": 336034, "WorkingSet64": 37437440, "PeakWorkingSet64": 43020288, "CPU": 1.3125}
+{"event": "sample", "t": "2026-09-30 10:26:08 -0400", "elapsed_s": 610, "store_bytes": 336034, "WorkingSet64": 37421056, "PeakWorkingSet64": 43020288, "CPU": 1.421875}
+{"event": "sample", "t": "2026-09-30 10:27:09 -0400", "elapsed_s": 672, "store_bytes": 336032, "WorkingSet64": 74199040, "PeakWorkingSet64": 74199040, "CPU": 1.46875}
+{"event": "sample", "t": "2026-09-30 10:28:10 -0400", "elapsed_s": 733, "store_bytes": 336030, "WorkingSet64": 74199040, "PeakWorkingSet64": 74199040, "CPU": 1.546875}
+{"event": "sample", "t": "2026-09-30 10:29:11 -0400", "elapsed_s": 794, "store_bytes": 336030, "WorkingSet64": 74100736, "PeakWorkingSet64": 74199040, "CPU": 1.59375}
+{"event": "sample", "t": "2026-09-30 10:30:12 -0400", "elapsed_s": 855, "store_bytes": 336030, "WorkingSet64": 74100736, "PeakWorkingSet64": 74199040, "CPU": 1.625}
+{"event": "sample", "t": "2026-09-30 10:31:14 -0400", "elapsed_s": 916, "store_bytes": 336037, "WorkingSet64": 74113024, "PeakWorkingSet64": 74199040, "CPU": 1.65625}
+{"event": "sample", "t": "2026-09-30 10:32:15 -0400", "elapsed_s": 977, "store_bytes": 336038, "WorkingSet64": 74113024, "PeakWorkingSet64": 74199040, "CPU": 1.703125}
+{"event": "sample", "t": "2026-09-30 10:33:16 -0400", "elapsed_s": 1038, "store_bytes": 336039, "WorkingSet64": 74117120, "PeakWorkingSet64": 74199040, "CPU": 1.734375}
+{"event": "sample", "t": "2026-09-30 10:34:17 -0400", "elapsed_s": 1099, "store_bytes": 336039, "WorkingSet64": 74117120, "PeakWorkingSet64": 74199040, "CPU": 1.78125}
+{"event": "sample", "t": "2026-09-30 10:35:18 -0400", "elapsed_s": 1160, "store_bytes": 336039, "WorkingSet64": 74117120, "PeakWorkingSet64": 74199040, "CPU": 1.921875}
+{"event": "sample", "t": "2026-09-30 10:36:19 -0400", "elapsed_s": 1222, "store_bytes": 336042, "WorkingSet64": 74121216, "PeakWorkingSet64": 74199040, "CPU": 1.984375}
+{"event": "sample", "t": "2026-09-30 10:37:20 -0400", "elapsed_s": 1283, "store_bytes": 336039, "WorkingSet64": 74137600, "PeakWorkingSet64": 74199040, "CPU": 2.015625}
+{"event": "sample", "t": "2026-09-30 10:38:21 -0400", "elapsed_s": 1344, "store_bytes": 336039, "WorkingSet64": 74133504, "PeakWorkingSet64": 74199040, "CPU": 2.0625}
+{"event": "sample", "t": "2026-09-30 10:39:22 -0400", "elapsed_s": 1405, "store_bytes": 336042, "WorkingSet64": 74076160, "PeakWorkingSet64": 74199040, "CPU": 2.125}
+{"event": "sample", "t": "2026-09-30 10:40:23 -0400", "elapsed_s": 1466, "store_bytes": 336043, "WorkingSet64": 74076160, "PeakWorkingSet64": 74199040, "CPU": 2.171875}
+{"event": "sample", "t": "2026-09-30 10:41:24 -0400", "elapsed_s": 1527, "store_bytes": 336043, "WorkingSet64": 74076160, "PeakWorkingSet64": 74199040, "CPU": 2.21875}
+{"event": "sample", "t": "2026-09-30 10:42:25 -0400", "elapsed_s": 1588, "store_bytes": 336043, "WorkingSet64": 74076160, "PeakWorkingSet64": 74199040, "CPU": 2.28125}
+{"event": "sample", "t": "2026-09-30 10:43:27 -0400", "elapsed_s": 1649, "store_bytes": 336043, "WorkingSet64": 74129408, "PeakWorkingSet64": 74199040, "CPU": 2.3125}
+{"event": "sample", "t": "2026-09-30 10:44:28 -0400", "elapsed_s": 1710, "store_bytes": 336043, "WorkingSet64": 70701056, "PeakWorkingSet64": 74199040, "CPU": 2.328125}
+{"event": "exited", "t": "2026-09-30 10:45:28 -0400", "waited_s": 1771, "lock_exists": false, "store_bytes": 270435}
+tasklist qompack.exe after exit:
+INFO: No tasks are running which match the specified criteria.
+run/ after exit:
+marker.json
+No termination: default runtime.daemon.idleExitSeconds (1800), no QOMPACK_RUNTIME__* override on the session.
