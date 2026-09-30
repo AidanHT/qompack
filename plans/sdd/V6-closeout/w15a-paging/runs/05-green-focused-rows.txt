@@ -1,0 +1,25 @@
+# go test -p 2 -count=1 -timeout=30m ./test/e2e -run '^TestV5_TombstoneToExpandRoundTrip$' -v
+=== RUN   TestV5_TombstoneToExpandRoundTrip
+=== RUN   TestV5_TombstoneToExpandRoundTrip/CorruptObjectIsHonestFailureNotWorkingTreeSubstitution
+--- PASS: TestV5_TombstoneToExpandRoundTrip (7.53s)
+    --- PASS: TestV5_TombstoneToExpandRoundTrip/CorruptObjectIsHonestFailureNotWorkingTreeSubstitution (1.35s)
+PASS
+ok  	github.com/qompack/qompack/test/e2e	7.838s
+e2e exit 0
+# go test -p 2 -count=1 -timeout=30m ./test/e2e -run 'TestStdioServerEndToEnd|TestV4_T13HandleResolvesAfterCompactionOverStdio' -v
+=== RUN   TestStdioServerEndToEnd
+--- PASS: TestStdioServerEndToEnd (3.75s)
+=== RUN   TestV4_T13HandleResolvesAfterCompactionOverStdio
+--- PASS: TestV4_T13HandleResolvesAfterCompactionOverStdio (14.23s)
+PASS
+ok  	github.com/qompack/qompack/test/e2e	18.373s
+e2e exit 0
+# go test -p 2 -count=1 ./test/security -run '^TestSecurity_MCPResponseStaysWithinItsConfiguredBound$' -v
+=== RUN   TestSecurity_MCPResponseStaysWithinItsConfiguredBound
+    bounds_test.go:499: security bounds_mcp_max_response_bytes: verified — with runtime.mcp.maxResponseBytes=4096, a full expand of a 24636-byte object returned 3764 bytes, marked truncated, with a next_span cursor.
+          detail:   
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestSecurity_MCPResponseStaysWithinItsConfiguredBound3846680890\001\bounds_mcp_max_response_bytes.json
+--- PASS: TestSecurity_MCPResponseStaysWithinItsConfiguredBound (17.52s)
+PASS
+ok  	github.com/qompack/qompack/test/security	20.104s
+sec exit 0
