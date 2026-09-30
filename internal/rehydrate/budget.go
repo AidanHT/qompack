@@ -301,7 +301,7 @@ var tier1Admission = []ItemKind{ItemAffordance, ItemInvariants, ItemUserIntent}
 // through 6a before any share is computed; and step 7 would then re-fill the same deltas out of a
 // share, drop them for want of allowance, and write drop entries for units the payload is still
 // rendering — a drop report that names material the reader can see. The older deltas keep the
-// share, and whatever room the payload leaves unused goes to them after every share (Build step 8a).
+// share, and whatever room the payload leaves unused goes to them after every share (Build step 9a).
 func tier1Units(k ItemKind, b built) []unit {
 	if k != ItemUserIntent {
 		return b.units
@@ -619,4 +619,19 @@ func fillDropReport(d Deps, b built, allowance cost) *admitted {
 	a := &admitted{units: append(append([]unit(nil), b.units[:best]...), bestTail), truncated: true}
 	a.used = head.plus(sumCost(a.units))
 	return a
+}
+
+// refusedNewest reports whether step 3 refused item 2's newest restatement: whether its tier-1
+// fill left a discretionary unit pending. Its older deltas then take no share and no unused room
+// (see the share loop in Build).
+func refusedNewest(a *admitted) bool {
+	if a == nil {
+		return false
+	}
+	for _, u := range a.pending {
+		if !isFixedUnit(u) {
+			return true
+		}
+	}
+	return false
 }

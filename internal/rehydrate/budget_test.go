@@ -102,10 +102,10 @@ func TestBuild_MinFillReadmitsUnits(t *testing.T) {
 
 		// Criterion change (w15-rehydrate, D49): this half compared the same 300-delta checkpoint
 		// under a named budget and counted evolution deltas. D49 gives the room a payload leaves
-		// unused to evolution, newest first, in EVERY build (Build step 8a) — the daemon's own call
+		// unused to evolution, newest first, in EVERY build (Build step 9a) — the daemon's own call
 		// names its budget, and F-C4-UAT06-1 was a correction dropped from a payload with room — so
 		// both calls now fill that checkpoint to the ceiling with deltas and the count cannot tell
-		// them apart. What min-fill still adds is the OTHER ranked material step 8a does not touch:
+		// them apart. What min-fill still adds is the OTHER ranked material step 9a does not touch:
 		// with few deltas and many decisions, the unset call carries strictly more decisions.
 		dcp := ckLongEvolution(3)
 		for i := range 120 {
@@ -175,7 +175,7 @@ func TestBuild_LatestEvolutionSurvivesTruncation(t *testing.T) {
 
 	// Criterion change (w15-rehydrate, D49): this row required the SECOND-newest delta to be dropped,
 	// as its fixture sanity and as its proof that the cut falls on the old side. D49 gives unused room
-	// to evolution newest first (Build step 8a), so at this budget a few more deltas arrive and which
+	// to evolution newest first (Build step 9a), so at this budget a few more deltas arrive and which
 	// index the cut falls on is no longer fixed. The row now asserts the property that sentence stood
 	// for, at every index: the budget truncates history (the oldest delta is dropped), the newest is
 	// never dropped, and what renders is a newest-first prefix — no delta renders while a NEWER one is

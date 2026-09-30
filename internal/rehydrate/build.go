@@ -199,7 +199,12 @@ func BuildWithStats(ctx context.Context, r Request, d Deps) (Result, []ItemStat,
 			carry = allowance
 			continue
 		}
-		if incomplete {
+		// Item 2's older deltas are never shown without the newest restatement above them: a list of
+		// superseded statements under "most recent first" would present one of them as the current
+		// authority. Step 3 refuses the newest only when it cannot be held whole — a record too
+		// large for any payload is passed over without closing tier 1 — and its older deltas then go
+		// with it, named.
+		if incomplete || (k == ItemUserIntent && refusedNewest(fills[k])) {
 			fills[k] = mergeIntent(fills[k], abandon(units))
 			continue
 		}
@@ -233,18 +238,6 @@ func BuildWithStats(ctx context.Context, r Request, d Deps) (Result, []ItemStat,
 	}
 	carry = skillAllowance
 
-	// ── 8a. unused room goes to item 2's evolution, newest first ───────────────────────────────
-	//
-	// Item 2's share is a tenth, and evolution holds every later prompt, so a correction older than
-	// a handful of ordinary prompts fell out of a payload that had thousands of characters to spare
-	// (F-C4-UAT06-1, D49). Every share has been filled and the skill index has had its reserve, so
-	// what is left beyond item 7's reserve is room nothing else will use: the older deltas item 2's
-	// share refused are re-admitted into it, whole and in the same newest-first prefix order, so the
-	// admitted set still only grows with the budget. Never while tier 1 is incomplete (step 9).
-	if !incomplete {
-		spent = minFill(d, all, fills, []ItemKind{ItemUserIntent}, spent, limit.tok, limit, reserveDrop)
-	}
-
 	// ── 9. min-fill, for an unset request only ───────────────────────────────────────────────
 	//
 	// Never while tier 1 is incomplete: item 2's pending units start with the tier-1 records the
@@ -252,6 +245,27 @@ func BuildWithStats(ctx context.Context, r Request, d Deps) (Result, []ItemStat,
 	// is the skip-ahead fillTier1 exists to prevent.
 	if r.Budget <= 0 && !incomplete {
 		spent = minFill(d, all, fills, shareOrder, spent, core.Tokens(cfg.MinTokens), limit, reserveDrop)
+	}
+
+	// ── 9a. unused room goes to item 2's evolution, newest first ──────────────────────────────
+	//
+	// Item 2's share is a tenth, and evolution holds every later prompt, so a correction older than
+	// a handful of ordinary prompts fell out of a payload that had thousands of characters to spare
+	// (F-C4-UAT06-1, D49). Every share and the skill index have been filled; what item 7 would then
+	// take is measured by filling it once against its allowance (step 10 fills it for real), and
+	// the room beyond THAT is room nothing will use. The older deltas item 2 refused are re-admitted
+	// into it, whole and in the same newest-first prefix order. Measuring item 7 first, rather than
+	// holding back only its reserve, is what keeps the payload growing with the budget: item 7
+	// never loses lines it had room for to a delta, which would make a larger budget's payload
+	// smaller. Never while tier 1 is incomplete (step 9).
+	if !incomplete {
+		held := reserveDrop
+		if b := buildDropReport(collectDrops(r, all, fills)); len(b.units) > 0 {
+			priceUnits(d, b.units)
+			allowance := reserveDrop.plus(carry).atLeast(floor).atMost(limit.minus(spent))
+			held = fillDropReport(d, b, allowance).used.atLeast(floor)
+		}
+		spent = minFill(d, all, fills, []ItemKind{ItemUserIntent}, spent, limit.tok, limit, held)
 	}
 
 	// An original item 2 had to name rather than read whole (an L0 capture past intentReadLimit)
@@ -411,11 +425,7 @@ func trimIntent(item *Item, stats []ItemStat, i int, a *admitted, b built) (unit
 	}
 	a.units = a.units[:len(a.units)-1]
 	a.truncated = true
-	texts := make([]string, 0, len(a.units))
-	for _, v := range a.units {
-		texts = append(texts, v.text)
-	}
-	item.Text = itemText(ItemUserIntent, 0, b.seen, texts)
+	item.Text = itemText(ItemUserIntent, 0, b.seen, sectionTexts(ItemUserIntent, a.units))
 	item.Truncated = true
 	stats[i].Truncated = true
 	stats[i].Units = len(a.units)

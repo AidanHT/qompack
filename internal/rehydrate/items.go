@@ -415,6 +415,7 @@ func buildUserIntent(ctx context.Context, r Request, d Deps) built {
 		b.drops = append(b.drops, forkNotice(r, fork))
 	}
 
+	evolution := evolutionOf(ctx, r, d, fork, origin, text)
 	if text != "" {
 		b.seen++
 		// L0 is the source of record when it answered; otherwise the checkpoint's own copy is.
@@ -422,8 +423,15 @@ func buildUserIntent(ctx context.Context, r Request, d Deps) built {
 		if l0.state == l0Unavailable {
 			pointer = checkpointPointer(r, "user_intent.original")
 		}
+		// Section 2 renders the evolution above the original (sectionTexts, D50), so when there is
+		// evolution the original is labelled as the request as first made. The label is part of the
+		// unit, so it is priced exactly with the record it introduces.
+		label := ""
+		if len(evolution) > 0 {
+			label = originalRequestLabel + "\n"
+		}
 		b.units = append(b.units, unit{
-			text:     forkProvenance(r, origin) + quoteLines(text),
+			text:     label + forkProvenance(r, origin) + quoteLines(text),
 			overflow: tier1Overflow(ItemUserIntent, "the verbatim original user intent", pointer),
 		})
 	}
@@ -443,7 +451,7 @@ func buildUserIntent(ctx context.Context, r Request, d Deps) built {
 	// Each unit's drop ID is still the delta's TRUE index into Checkpoint.UserIntent.Evolution —
 	// not its position in this reversed build order — so provenance (T11-AUTH-01) and any
 	// consumer correlating by that index are unaffected by the display/truncation order.
-	for _, ev := range evolutionOf(ctx, r, d, fork, origin, text) {
+	for _, ev := range evolution {
 		b.seen++
 		body := quoteLines(ev.text)
 		if len(b.units) == 0 || isFixedUnit(b.units[len(b.units)-1]) {
@@ -461,6 +469,14 @@ func buildUserIntent(ctx context.Context, r Request, d Deps) built {
 	}
 	return b
 }
+
+// originalRequestLabel opens item 2's original unit when the checkpoint carries evolution: section
+// 2 then renders the evolution first (sectionTexts), and the original after it is labelled as what
+// it is — the request as first made, which the entries above it may supersede (D50). It is short
+// on purpose: it sits under the heading "Original user intent", so one word says which record it
+// is, and every character it costs is taken from the shares — the golden fixture's path-rule
+// section fits its share by fewer than 13 characters, and "Original request:" drops it.
+const originalRequestLabel = "Original:"
 
 // evolutionDelta is one evolution unit's content and where it can be read back from.
 type evolutionDelta struct {
