@@ -10,11 +10,13 @@ agent-executed on the owner's real host, in real Claude Code 2.1.280 sessions on
 against the packaged `0.3.0` bundle that SP-17's `go run ./tools/devtool bundle` assembles (see
 [docs/install.md](install.md)). All twelve first ran on 2026-09-29 against release candidate 3
 (commit `d5598eb4`), six passing and six failing, with the findings routed by decision D45; under
-decision D47 eleven rows were re-run on candidate 4 (commit `9f6a2fad`), eight passing and three
-failing (UAT-03, UAT-06, UAT-09), with the findings routed by decision D49. Each Result block
-records the latest run of its row (UAT-10's is candidate 3's) and keeps candidate 3's outcome as a
-history line; no human has run these scenarios, automated package and installation tests have
-separate evidence and do not fill these blocks, and no release has been published.
+decision D47 the eleven other rows were re-run on candidate 4 (commit `9f6a2fad`), seven passing
+and four failing (UAT-03, UAT-05, UAT-06, UAT-09; UAT-05 fails because decision D50 reads its
+authority-order expectation literally), with the findings routed by decisions D49 and D50. Those
+eleven Result blocks report candidate 4 and keep candidate 3's outcome as a history line. UAT-10
+was not re-run: its Result block still reports candidate 3, and it is re-run on the next candidate
+(D50). No human has run these scenarios, automated package and installation tests have separate
+evidence and do not fill these blocks, and no release has been published.
 
 What the commands, slash commands and MCP tools *are* is [docs/user-guide.md](user-guide.md); what
 each observation does and does not license you to conclude is
@@ -314,7 +316,8 @@ stored records to reconcile a failure.
 **Result**
 
 ```text
-Result: pass on the row's fail criteria — none occurred (every capture came back; no demonstrably
+Result: pass on fail criteria; row capability host-limited (D49) — no fail criterion occurred
+  (every capture came back; no demonstrably
   cut capture reads exact; latency cells without an instrument read `unavailable` with a reason,
   never 0). Step 6 as revised under D46 holds: the expand responses carry `_meta.qompack` (span,
   total_bytes, truncated, and next_span "9909:16384" for the paged big.log) and the redacted
@@ -567,7 +570,11 @@ Result: pass — every compaction proceeded: 2 manual "/compact" and 14 automati
   is thrashing", two turns ended before the model answered, although expand had returned both the
   brief's closing marker and the deleted key's value); with 7 later prompts the three oldest
   evolution deltas were dropped by their 10% share (named, with pointers) while the payload used
-  599 of 12,000 tokens.
+  599 of 12,000 tokens; LOUD.log carries "rehydrate: tier-1 material exceeds the hard budget cap"
+  on every compaction (15 lines) although section 7 already names the overflow (D50: logged once
+  per session); after the run, with the planted unparseable config still in place, fsck exits 1
+  on index.files "index/files.json is absent while its log carries 4 path(s)" (candidate 3 saw
+  the same row; whether the planted config causes it was not isolated; under investigation).
   Candidate 3 (d5598eb4): pass — with findings: the 17,774-character first prompt was injected cut
   at 8,192 bytes mid-word with a spurious intent_mismatch, evidence
   plans/sdd/V6-closeout/live/uat/UAT-04/
@@ -687,14 +694,16 @@ stored records to reconcile a failure.
 **Result**
 
 ```text
-Result: pass — run 1 (a real session): the requirement "semicolon", a /qompack:pin made with the
-  daemon running, the correction "must be a TAB character, not a semicolon ... superseded",
-  record_eliminated (answered before any compaction), then "/compact". The block (3,093 UTF-16
-  units, 938/12,000 tokens, inline) has the delimiters and the fixed section order, carries the pin
-  in section 1, the verbatim original and then the TAB correction in section 2's newest-first
-  evolution (nothing older above it), the eliminated semicolon approach in section 3 and its
-  decision in section 4; state dropped [], degraded false; /qompack:dropped --json {"count":0,
-  "drops":[]}; pins/invariants.json matches the log and fsck exits 0 with pins ok (no stale view);
+Result: fail — under D50 the expectation is read literally: section 2 renders the superseded
+  semicolon original above the TAB correction that supersedes it. Run 1 (a real session): the
+  requirement "semicolon", a /qompack:pin made with the daemon running, the correction "must be a
+  TAB character, not a semicolon ... superseded", record_eliminated (answered before any
+  compaction), then "/compact". The block (3,093 UTF-16 units, 938/12,000 tokens, inline) has the
+  delimiters and the fixed section order, carries the pin in section 1, the verbatim original and
+  then, below it, the TAB correction in section 2's newest-first evolution (third, under two later
+  ordinary prompts), the eliminated semicolon approach in section 3 and its decision in section 4;
+  state dropped [], degraded false; /qompack:dropped --json {"count":0,"drops":[]};
+  pins/invariants.json matches the log and fsck exits 0 with pins ok (no stale view);
   after compaction the model answered the delimiter "From the SessionStart hook's 'Original user
   intent' section". Step 5 ran as a hook invocation, not a second session: `qompack session-start`
   with a source=compact payload for run 1's session, the project config setting both bounds to 150,
@@ -797,8 +806,10 @@ Result: fail — at step 4 the fork's block does not carry the only correction t
   section 7 ("user_intent_evolution 0 — did not fit the rehydration budget; restore: Read
   .qompack/checkpoints/0004.json (user_intent.evolution[0])") while the block is 2,652 of 9,400
   characters, and the parent's session-scoped elimination of "100" and its decision are not
-  inherited (no section 3 or 4), so the block's only statement of the limit is the superseded one
-  and "the newest correction stays above the older ones" does not hold there. Fixed since candidate
+  inherited (no section 3 or 4), so the correction record itself is absent: 60 appears only inside
+  an echoed record_eliminated prompt in the evolution list ('reason "superseded by the user's
+  correction: 60 per minute"'), and "the newest correction stays above the older ones" does not
+  hold there. Fixed since candidate
   3: the fork's section 2 is the PARENT's original ("(forked session: the original request of
   session c8466b7e, which this session continues)") with a section-7 fork-provenance entry and an
   expand pointer, and corrections now reach the checkpoints: blocks 1 and 2 carry the 60 correction
@@ -1485,7 +1496,13 @@ Result: pass — step 2: the host refused the direct Read ("File is in a directo
   from the old build's capture. Findings (not fail criteria): a default k=5 recall answered 2 hits
   with denied 3 while more permitted hits existed (withheld hits use up k); later daemon starts
   logged LOUD "publication accounting incomplete" (250 ms startup bound); troubleshooting §3 still
-  tells the reader to read fidelity through expand. ORDER: steps 2-5 ran after step 6, on the
+  tells the reader to read fidelity through expand; F4: section 6 of the rehydration block lists
+  pointers carrying the deny-ruled file's absolute path and root hash and the out-of-project
+  file's absolute path, with no content (D50 routes it to a fix: pointers never show a denied path
+  or an absolute path outside the project); paging semantics on candidate 4: the final page
+  answers truncated true with no next_span, and an explicit span 0:354352 cut at 217070 answers
+  next_span 217070:16384 where full: true answers 217070:137282 (fixed after candidate 4 under D50: a
+  truncated page always carries next_span, and an explicit span pages like full: true). ORDER: steps 2-5 ran after step 6, on the
   candidate, because 301a8e9 predates the C1.9 deny-rule support; the baseline was taken after
   the old build's permitted captures, MCP calls and /compact (initial state absent).
   Candidate 3 (d5598eb4): fail — full: true responses of 263,559 / 263,567 bytes over
