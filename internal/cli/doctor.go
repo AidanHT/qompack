@@ -590,9 +590,15 @@ func (s *doctorState) capabilityRow(c contract.Capability, rec contract.Capabili
 		Observed: fmt.Sprintf("%s, enabled=%t", rec.Status, rec.Enabled),
 	}
 	if obsv, found := doctorNewestObservation(s.ledger, c); found {
+		// The ledger is written at SessionStart, before the MCP handshake and the probe's delivery
+		// can be seen; history.json records both when they happen, and the newest word is that (D50).
+		obsv, fromHistory := contract.RefreshObservation(obsv, s.history, s.register, s.clk)
 		row.Coverage = obsv.Coverage
 		detail += fmt.Sprintf("; newest observation: outcome %s, scope %q, ts %d",
 			obsv.Outcome, obsv.Scope, obsv.TS)
+		if fromHistory {
+			detail += " (read from state/history.json; the ledger's entry from the session's start was not_observed)"
+		}
 	} else {
 		detail += "; no observation"
 	}
