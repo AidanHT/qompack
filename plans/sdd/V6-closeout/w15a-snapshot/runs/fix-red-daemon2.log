@@ -1,0 +1,9 @@
+--- FAIL: TestStatus_TwoMissedSentinelScansReadAsFailing (0.09s)
+    contract_snapshot_test.go:166: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15a-snapshot/internal/daemon/contract_snapshot_test.go:166
+        	Error:      	Should be false
+        	Test:       	TestStatus_TwoMissedSentinelScansReadAsFailing
+        	Messages:   	status must read the failure history.json records: {ID:hook.additional_context_delivered OK:true Severity:0 Expected:additionalContext reaches the transcript Observed:not-yet-observed TS:1790794724552 Detail:}
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	0.378s
+FAIL

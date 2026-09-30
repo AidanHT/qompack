@@ -1,0 +1,13 @@
+--- FAIL: TestRefreshFromHistory_SpentChancesTurnThePendingProbeRowFailing (0.00s)
+    refresh_test.go:249: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15a-snapshot/internal/contract/refresh_test.go:249
+        	Error:      	Should be false
+        	Test:       	TestRefreshFromHistory_SpentChancesTurnThePendingProbeRowFailing
+--- FAIL: TestRefreshObservation_SpentChancesReadAsAFailedInjection (0.00s)
+    refresh_test.go:272: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15a-snapshot/internal/contract/refresh_test.go:272
+        	Error:      	Should be true
+        	Test:       	TestRefreshObservation_SpentChancesReadAsAFailedInjection
+FAIL
+FAIL	github.com/qompack/qompack/internal/contract	1.172s
+FAIL
