@@ -1,0 +1,10 @@
+=== RUN   TestStatus_AnObservedHandshakeRefreshesTheContractSnapshot
+--- PASS: TestStatus_AnObservedHandshakeRefreshesTheContractSnapshot (0.10s)
+=== RUN   TestStatus_AHandshakeOnlyTheDaemonSawStillRefreshes
+--- PASS: TestStatus_AHandshakeOnlyTheDaemonSawStillRefreshes (0.06s)
+=== RUN   TestStatus_AnObservedSentinelRefreshesTheContractSnapshot
+--- PASS: TestStatus_AnObservedSentinelRefreshesTheContractSnapshot (0.09s)
+=== RUN   TestStatus_AMissedSentinelIsNotRefreshedIntoAnObservation
+--- PASS: TestStatus_AMissedSentinelIsNotRefreshedIntoAnObservation (0.09s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	0.659s
