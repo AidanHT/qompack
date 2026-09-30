@@ -1,0 +1,137 @@
+{
+ "initialize": {
+  "serverInfo": {
+   "name": "qompack",
+   "version": "0.3.0"
+  },
+  "protocolVersion": "2025-06-18"
+ },
+ "calls": [
+  {
+   "tool": "expand",
+   "args": {
+    "hash": "sha256:800cf27b3d28f24420053a66c887984da6fa859a938a4b293d58ab2c90812544"
+   },
+   "jsonrpc_line_bytes": 1598,
+   "isError": false,
+   "error": null,
+   "text_bytes": 1100,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 8,
+     "ephemeral": true,
+     "expansions": 1,
+     "hash": "sha256:bf86eccc473abe64d90d74fcc6d8172ea14039c0ade9605c0259bb8d4afe044d",
+     "promoted": false,
+     "span": [
+      0,
+      838
+     ],
+     "tool_use_id": "qompack-mcp:300b4812ba97",
+     "total_bytes": 838,
+     "truncated": false,
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "found": true,
+     "hash": "sha256:800cf27b3d28f24420053a66c887984da6fa859a938a4b293d58ab2c90812544",
+     "span": [
+      0,
+      838
+     ],
+     "total_bytes": 838,
+     "truncated": false,
+     "widened": false,
+     "expansions": 1,
+     "promoted": false,
+     "content": "{\"type\":\"text\",\"file\":{\"filePath\":\"<tmp>\",\"content\":\"package ledger\\n\\n// Package ledger reconciles account balances for the Kestrel acceptance run.\\n// Sentinel phrase for retrieval: cobalt heron threshold.\\n\\nimport \\\"errors\\\"\\n\\nconst driftLimit = 40\\n\\n// ErrDrift is returned when two balances d...[838 chars total]"
+    }
+   ]
+  },
+  {
+   "tool": "re_read",
+   "args": {
+    "path": "src/ledger.go"
+   },
+   "jsonrpc_line_bytes": 1695,
+   "isError": false,
+   "error": null,
+   "text_bytes": 1148,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 7,
+     "ephemeral": true,
+     "expansions": 2,
+     "hash": "sha256:5ce88fa4a63fc2e7793c899300237ffd3d230e3f00ef5ea8a1abe6ee66fbbb6e",
+     "path": "src/ledger.go",
+     "promoted": true,
+     "source": "store",
+     "span": [
+      0,
+      838
+     ],
+     "tool_use_id": "qompack-mcp:95ef82fd73c8",
+     "total_bytes": 838,
+     "truncated": false,
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "found": true,
+     "hash": "sha256:800cf27b3d28f24420053a66c887984da6fa859a938a4b293d58ab2c90812544",
+     "path": "src/ledger.go",
+     "source": "store",
+     "turn": 7,
+     "span": [
+      0,
+      838
+     ],
+     "total_bytes": 838,
+     "truncated": false,
+     "widened": false,
+     "expansions": 2,
+     "promoted": true,
+     "content": "{\"type\":\"text\",\"file\":{\"filePath\":\"<tmp>\",\"content\":\"package ledger\\n\\n// Package ledger reconciles account balances for the Kestrel acceptance run.\\n// Sentinel phrase for retrieval: cobalt heron threshold.\\n\\nimport \\\"errors\\\"\\n\\nconst driftLimit = 40\\n\\n// ErrDrift is returned when two balances d...[838 chars total]"
+    }
+   ]
+  },
+  {
+   "tool": "already_tried",
+   "args": {
+    "target": "src/cache.go:Evict",
+    "approach": "raise the cache size"
+   },
+   "jsonrpc_line_bytes": 639,
+   "isError": false,
+   "error": null,
+   "text_bytes": 343,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 0,
+     "ephemeral": true,
+     "hash": "sha256:a5062310539b0809d9707124134050d35b168f48e4b1ebddabc3f61836de8073",
+     "tool_use_id": "qompack-mcp:c998806f701d"
+    }
+   },
+   "json": [
+    {
+     "state": "active",
+     "reason": "a larger cache only postpones the same re-fetch storm",
+     "evidence": "sha256:0f16c0d443b9e7293c39f1e5ea6905d4c43f03d8b27f79a7fa7880d694eb1b31",
+     "scope": "project",
+     "recorded_at": "2026-09-30T03:41:56Z",
+     "depends_on": [
+      {
+       "path": "src/cache.go",
+       "hash": "sha256:92f68c79afc52b18eeca5cb0fa98500c9e460a7af0e29470a982e360fc128ea6"
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "stderr_tail": ""
+}

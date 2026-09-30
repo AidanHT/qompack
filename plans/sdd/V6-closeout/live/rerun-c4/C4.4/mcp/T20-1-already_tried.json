@@ -1,0 +1,23 @@
+{
+ "turn": 20,
+ "tool": "mcp__plugin_qompack_qompack__already_tried",
+ "tool_use_id": "toolu_01EfWMQNVNGyKdNVoPtXDqAg",
+ "arguments": {
+  "target": "src/cache.go:Evict",
+  "approach": "shrink the ttl"
+ },
+ "host_is_error": false,
+ "result": {
+  "state": "active",
+  "reason": "entries are re-fetched faster than a shorter ttl can evict them, so memory does not drop",
+  "evidence": "sha256:1bffdebcba1cc2f061b3ceecd6f2ac4e6518d9ad3203e202d346515565000e73",
+  "scope": "session",
+  "recorded_at": "2026-09-30T03:41:51Z",
+  "depends_on": [
+   {
+    "path": "src/cache.go",
+    "hash": "sha256:92f68c79afc52b18eeca5cb0fa98500c9e460a7af0e29470a982e360fc128ea6"
+   }
+  ]
+ }
+}

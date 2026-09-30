@@ -1,0 +1,31 @@
+{
+ "turn": 8,
+ "tool": "mcp__plugin_qompack_qompack__already_tried",
+ "tool_use_id": "toolu_01CJNqYM7gzSperEHr8QgQdD",
+ "arguments": {
+  "target": "src/pool.go:DialPool",
+  "approach": "widen pool timeout"
+ },
+ "host_is_error": false,
+ "result": {
+  "state": "stale",
+  "reason": "the stall comes from the server-side max_idle cap in config/pool.yaml, not from the client timeout; a longer timeout only delays the same failure",
+  "note": "previously eliminated, but the evidence has changed since — re-verification may be warranted",
+  "evidence": "sha256:af7fcd075e130e83c74f8e7a5cbd3b37edafbb65ba609473e540ef85b112b0bf",
+  "scope": "session",
+  "recorded_at": "2026-09-30T03:29:33Z",
+  "depends_on": [
+   {
+    "path": "config/pool.yaml",
+    "hash": "sha256:9f2751eac830ec5327fbd626f86ff5f728882230a55dfcf30fcb0f4c189a36c7"
+   },
+   {
+    "path": "src/pool.go",
+    "hash": "sha256:c10864c97164759167c41a627a4c7988b2e61e857f816d304fbaa25adeb05e65"
+   }
+  ],
+  "stale_because": [
+   "config/pool.yaml: dependency hash changed from sha256:9f2751eac830"
+  ]
+ }
+}

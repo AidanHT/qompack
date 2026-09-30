@@ -1,0 +1,66 @@
+{
+ "turn": 24,
+ "tool": "mcp__plugin_qompack_qompack__timeline",
+ "tool_use_id": "toolu_014tiYTUL98rYkKNDj9Dk7Qi",
+ "arguments": {},
+ "host_is_error": false,
+ "result": {
+  "count": 3,
+  "found": true,
+  "from": 0,
+  "frontier": 41,
+  "segments": [
+   {
+    "checkpoint_seq": 1,
+    "closed": true,
+    "encoded_once": true,
+    "end_ts": "2026-09-30T03:42:26Z",
+    "end_turn": 41,
+    "features": {
+     "gap_seconds": 0,
+     "lexical_cohesion": 0,
+     "path_jaccard": 0,
+     "prob_changepoint": 1.4937416378569322e-06,
+     "todo_transition": 0,
+     "tool_shift": 0
+    },
+    "id": 1,
+    "start_ts": "2026-09-30T03:39:35Z",
+    "start_turn": 0,
+    "tokens": 10172
+   },
+   {
+    "checkpoint_seq": 0,
+    "closed": true,
+    "encoded_once": false,
+    "end_ts": "2026-09-30T03:43:06Z",
+    "end_turn": 44,
+    "features": {
+     "gap_seconds": 5.212,
+     "lexical_cohesion": 1,
+     "path_jaccard": 1,
+     "prob_changepoint": 0.9902029943810174,
+     "todo_transition": 0,
+     "tool_shift": 0.8333333333333334
+    },
+    "id": 2,
+    "start_ts": "2026-09-30T03:42:26Z",
+    "start_turn": 42,
+    "tokens": 426
+   },
+   {
+    "checkpoint_seq": 0,
+    "closed": false,
+    "encoded_once": false,
+    "end_ts": "",
+    "end_turn": 46,
+    "features": null,
+    "id": 3,
+    "start_ts": "2026-09-30T03:43:06Z",
+    "start_turn": 45,
+    "tokens": 4928
+   }
+  ],
+  "to": 46
+ }
+}

@@ -1,0 +1,10 @@
+{
+ "turn": 21,
+ "tool": "mcp__plugin_qompack_qompack__timeline",
+ "tool_use_id": "toolu_01SoGEWoFbLScjPp3FNMRkyh",
+ "arguments": {
+  "from": "not-a-turn"
+ },
+ "host_is_error": true,
+ "result": "timeline: from must be a turn index, an RFC3339 timestamp, or empty"
+}

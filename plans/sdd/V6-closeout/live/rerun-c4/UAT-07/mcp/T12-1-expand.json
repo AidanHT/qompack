@@ -1,0 +1,15 @@
+{
+ "turn": 12,
+ "tool": "mcp__plugin_qompack_qompack__expand",
+ "tool_use_id": "toolu_01Qr7X2QogqgEZYePmoho2Bx",
+ "arguments": {
+  "hash": "sha256:17b5216581b8649cf48acad90524b1b064753381868717f7dbac241c6c0b5244"
+ },
+ "host_is_error": false,
+ "result": {
+  "found": false,
+  "searched": "the root index, including every indexed root's chunk list",
+  "available": false,
+  "reason": "no indexed root or chunk carries this hash, so its content provenance could not be established"
+ }
+}

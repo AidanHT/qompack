@@ -1,0 +1,22 @@
+C4.5 re-check on candidate 4 (D47): the status banner in healthy sessions — agent-executed on the owner's real host
+(D3), not human UAT. Build as ../UAT-08/notes.txt. The command bodies were NOT given a PATH fix: every
+/qompack:* body ran `qompack <cmd>` and printed its output, so the host resolved `qompack` on the first attempt
+(with --plugin-dir the host puts the plugin's bin/ on PATH, as candidate 3 recorded with `where qompack`).
+
+Readings (all in real sessions with MCP traffic, which is where candidate 3 saw 2 of 9 FAILING):
+  1. session 5 (id 3187e738) after 12 turns, before any compaction — ../C4.4/cli/20-status-during-session (`qompack status`
+     run by the driver during the session, exit 0) and the in-session /qompack:status expansion
+     (../C4.4/session/slash-commands.json): "source: daemon (available, 0µs old)", "host contract: 9 assertion(s),
+     all holding".
+  2. session 5 after its /compact (turn 25) — ../C4.4/cli/21-status-after-compact exit 0 and the in-session
+     /qompack:status: "host contract: 9 assertion(s), all holding" (transcript.readable is checked at a compaction's
+     start; candidate 3 failed it there with "transcript_path does not exist").
+  3. session 6 (id 13a929a6), a second session's start in the same project after session 5 ended —
+     ../UAT-08/session6-isolation/slash-commands.json: "sessions: 2", "host contract: 9 assertion(s), all holding"
+     (mcp.server_registered is the row that failed "initialize-not-received" on candidate 3).
+  4. the UAT-11 project after its session (../UAT-11/cli/c-10-status-after-session, c-11 --json): all 9 rows ok,
+     mcp.server_registered "initialize-received", transcript.readable "transcript readable",
+     hook.additional_context_delivered "sentinel-observed".
+No FAILING contract row in any reading. The slash command list in the init event is exactly the six commands;
+qompack:checkpoint is absent (D36).
+Result: pass.

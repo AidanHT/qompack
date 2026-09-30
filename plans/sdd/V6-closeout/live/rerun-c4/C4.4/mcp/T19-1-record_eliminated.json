@@ -1,0 +1,40 @@
+{
+ "turn": 19,
+ "tool": "mcp__plugin_qompack_qompack__record_eliminated",
+ "tool_use_id": "toolu_01D5VQCQt5GBELERV2uan3sR",
+ "arguments": {
+  "target": "src/cache.go:Evict",
+  "approach": "shrink the ttl",
+  "reason": "entries are re-fetched faster than a shorter ttl can evict them, so memory does not drop",
+  "scope": "session",
+  "depends_on": [
+   "src/cache.go",
+   "src/missing.go"
+  ]
+ },
+ "host_is_error": false,
+ "result": {
+  "id": "elim_fabe65cc6569",
+  "descriptor": {
+   "normalized_path": "src/cache.go",
+   "symbol": "Evict",
+   "approach_class": "shrink-timeout",
+   "reason_hash": "sha256:83329d7f9ef4cd3c70ceba6818cfe903101d1e996330df4feeb51f7196fde0d5"
+  },
+  "scope": "session",
+  "evidence": "sha256:1bffdebcba1cc2f061b3ceecd6f2ac4e6518d9ad3203e202d346515565000e73",
+  "depends_on": [
+   {
+    "path": "src/cache.go",
+    "hash": "sha256:92f68c79afc52b18eeca5cb0fa98500c9e460a7af0e29470a982e360fc128ea6"
+   }
+  ],
+  "depends_on_unresolved": [
+   "src/missing.go"
+  ],
+  "status": "active",
+  "warnings": [
+   "no stored version for src/missing.go; not used as a staleness dependency"
+  ]
+ }
+}

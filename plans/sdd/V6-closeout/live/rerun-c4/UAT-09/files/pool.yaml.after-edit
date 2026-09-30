@@ -1,0 +1,4 @@
+pool:
+  size: 8
+  timeout_ms: 500
+  max_idle: 16

@@ -1,0 +1,13 @@
+{
+ "turn": 19,
+ "tool": "mcp__plugin_qompack_qompack__record_eliminated",
+ "tool_use_id": "toolu_01MP2GXy1Tj2UTRAwWHing5i",
+ "arguments": {
+  "target": "src/cache.go:Evict",
+  "approach": "double the sweep rate",
+  "reason": "x",
+  "scope": "global"
+ },
+ "host_is_error": true,
+ "result": "invalid arguments for record_eliminated: /scope: value not in enum"
+}

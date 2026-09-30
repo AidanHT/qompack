@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "command": "recall",
+  "ok": true,
+  "data": {
+    "tool": "recall",
+    "is_error": false,
+    "ephemeral": true,
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"hits\":[{\"hash\":\"sha256:0f7f366d0188f35ae06f1089ef17ba148e24fcd540dba8a42c708fcbba7bffe6\",\"path\":\"src/ledger.go\",\"tool\":\"mcp__plugin_qompack_qompack__re_read\",\"summary\":\"[{\\\"type\\\":\\\"text\\\",\\\"text\\\":\\\"{\\\\\\\"found\\\\\\\":true,\\\\\\\"hash\\\\\\\":\\\\\\\"sha256:800cf27b3d28f24420053a66c887984da6fa859a938a4b293d58ab2c908…\",\"ts\":\"2026-09-30T03:40:34Z\",\"score\":0.4392079207920792,\"tool_use_id\":\"toolu_01Q8rhC8X8MNXityxJ9XuCsA\",\"span\":[0,1317]},{\"hash\":\"sha256:7f16dc5b541dc2889e49f015cba7e04348fad968413eaf0ba7b5280367b9e413\",\"path\":\"src/ledger.go\",\"tool\":\"mcp__qompack__re_read\",\"summary\":\"{\\\"found\\\":true,\\\"hash\\\":\\\"sha256:800cf27b3d28f24420053a66c887984da6fa859a938a4b293d58ab2c90812544\\\",\\\"path\\\":\\\"src/ledger.go\\\"…\",\"ts\":\"2026-09-30T03:40:34Z\",\"score\":0.438019801980198,\"tool_use_id\":\"qompack-mcp:89daa76cb826\",\"span\":[0,1148]},{\"hash\":\"sha256:0c7cf6bcc7330e35fac5c0544d7597c5046827a3db3956ad4759f7712f36eed3\",\"path\":\"src/ledger.go\",\"tool\":\"mcp__plugin_qompack_qompack__re_read\",\"summary\":\"[{\\\"type\\\":\\\"text\\\",\\\"text\\\":\\\"{\\\\\\\"found\\\\\\\":true,\\\\\\\"hash\\\\\\\":\\\\\\\"sha256:125153754afca5f623b4b7dc03edf6a54a60bb961e9a4d46a80ba61769b…\",\"ts\":\"2026-09-30T03:40:29Z\",\"score\":0.4356435643564357,\"tool_use_id\":\"toolu_01ToQ2wvsSwiJfz3f7srHFtS\",\"span\":[0,1336]},{\"hash\":\"sha256:1d56509c6a6471de7f87c81998bc5d98bdf1c01508eb82df715974a06ea4bdb8\",\"path\":\"src/ledger.go\",\"tool\":\"mcp__qompack__re_read\",\"summary\":\"{\\\"found\\\":true,\\\"hash\\\":\\\"sha256:125153754afca5f623b4b7dc03edf6a54a60bb961e9a4d46a80ba61769b6c2f4\\\",\\\"path\\\":\\\"src/ledger.go\\\"…\",\"ts\":\"2026-09-30T03:40:29Z\",\"score\":0.4344554455445545,\"tool_use_id\":\"qompack-mcp:617eef4d30e4\",\"span\":[0,1163]},{\"hash\":\"sha256:013fa55037a502992170d602cee8c42417ab79a2b227ad06e48f2707265c121b\",\"path\":\"src/ledger.go\",\"tool\":\"mcp__plugin_qompack_qompack__re_read\",\"summary\":\"[{\\\"type\\\":\\\"text\\\",\\\"text\\\":\\\"{\\\\\\\"found\\\\\\\":true,\\\\\\\"hash\\\\\\\":\\\\\\\"sha256:800cf27b3d28f24420053a66c887984da6fa859a938a4b293d58ab2c908…\",\"ts\":\"2026-09-30T03:40:29Z\",\"score\":0.4332673267326733,\"tool_use_id\":\"toolu_01HXeNiEzbFWwsdevB1DRwgj\",\"span\":[0,1317]}],\"count\":5,\"found\":true,\"query\":{\"text\":\"\",\"path\":\"\",\"symbol\":\"ReconcileBalances\",\"tool\":\"\"}}"
+      }
+    ],
+    "meta": {
+      "elapsed_ms": 10,
+      "hash": "sha256:6b730706aeb97e30562f0ecc8e8b1b39e543a9aca71fd257e6877a8fb75792e4",
+      "tool_use_id": "qompack-mcp:5cf071619deb",
+      "untrusted": true
+    }
+  }
+}

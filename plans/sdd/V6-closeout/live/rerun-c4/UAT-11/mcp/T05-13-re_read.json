@@ -1,0 +1,26 @@
+{
+ "turn": 5,
+ "tool": "mcp__plugin_qompack_qompack__re_read",
+ "tool_use_id": "toolu_01NqvP9e6HgN8rZPGgB9AxTw",
+ "arguments": {
+  "path": "odd.txt"
+ },
+ "host_is_error": false,
+ "result": {
+  "found": true,
+  "hash": "sha256:e564dcc948ddba5f4679bd81cbd7bdfcac79170a1f84e23e6f0ed1a77fe2fcc4",
+  "path": "odd.txt",
+  "source": "store",
+  "turn": 3,
+  "span": [
+   0,
+   2220
+  ],
+  "total_bytes": 2220,
+  "truncated": false,
+  "widened": false,
+  "expansions": 3,
+  "promoted": true,
+  "content": "{\"type\":\"text\",\"file\":{\"filePath\":\"<tmp>\",\"content\":\"tab\\there, nul-free control \\u0007\\u001b[<d> escape, emoji 🧭, rtl ‮txt‬, cjk 漢字, zero​width\\ntab\\there, nul-free control \\u0007\\u001b[<d> escape, emoji 🧭, rtl ‮txt‬, cjk 漢字, zero​width\\ntab\\there, nul-free control \\u0007\\u001b[<d> escape, emoji 🧭, rtl ‮txt‬, cjk 漢字, zero​width\\ntab\\there, nul-free control \\u0007\\u001b[<d> escape, emoji 🧭, rtl ‮txt‬, cjk 漢字, zero​width\\ntab\\there, nul-free control \\u0007\\u001b[<d> escape, emoji 🧭, rtl ‮txt‬, cjk 漢字, zero​width\\ntab\\there, nul-free control \\u0007\\u001b[<d> escape, emoji 🧭, rtl ‮txt‬, cjk 漢字, zero​width\\ntab\\there, nul-free control \\u0007\\u001b[<d> escape, emoji 🧭, rtl ‮txt‬, cjk 漢字, zero​width\\ntab\\there, nul-free control \\u0007\\u001b[<d> escape, emoji 🧭, rtl ‮txt‬, cjk 漢字, zero​width\\ntab\\there, nul-free control \\u0007\\u001b[<d> escape, emoji 🧭, rtl ‮txt‬, cjk 漢字, zero​width\\ntab\\there, nul-free control \\u0007\\u001b[<d> escape, emoji 🧭, rtl ‮txt‬, cjk 漢字, zero​width\\ntab\\there, nul-free control \\u0007\\u001b[<d> escape, emoji 🧭, rtl ‮txt‬, cjk 漢字, zero​width\\ntab\\there, nul-free control \\u0007\\u001b[<d> escape, emoji 🧭, rtl ‮txt‬, cjk 漢字, zero​width\\ntab\\there, nul-free control \\u0007\\u001b[<d> escape, emoji 🧭, rtl ‮txt‬, cjk 漢字, zero​width\\ntab\\there, nul-free control \\u0007\\u001b[<d> escape, emoji 🧭, rtl ‮txt‬, cjk 漢字, zero​width\\ntab\\there, nul-free control \\u0007\\u001b[<d> escape, emoji 🧭, rtl ‮txt‬, cjk 漢字, zero​width\\ntab\\there, nul-free control \\u0007\\u001b[<d> escape, emoji 🧭, rtl ‮txt‬, cjk 漢字, zero​width\\ntab\\there, nul-free control \\u0007\\u001b[<d> escape, emoji 🧭, rtl ‮txt‬, cjk 漢字, zero​width\\ntab\\there, nul-free control \\u0007\\u001b[<d> escape, emoji 🧭, rtl ‮txt‬, cjk 漢字, zero​width\\ntab\\there, nul-free control \\u0007\\u001b[<d> escape, emoji 🧭, rtl ‮txt‬, cjk 漢字, zero​width\\ntab\\there, nul-free control \\u0007\\u001b[<d> escape, emoji 🧭, rtl ‮txt‬, cjk 漢字, zero​width\\n\",\"numLines\":21,\"startLine\":1,\"totalLines\":21}}"
+ }
+}

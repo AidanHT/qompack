@@ -1,0 +1,83 @@
+# stream line 444, hook SessionStart:compact, exit 0, 9421 chars
+<!-- qompack:injected seq=1 ver=1 -->
+# Qompack rehydration — checkpoint 0001, session 3187e738
+
+## 2. Original user intent (verbatim from L0 capture — never summarized)
+> Use the Read tool to read src/ledger.go. In one sentence, what does the function ReconcileBalances do?
+Evolution (most recent first):
+> Make these timeline calls in order: mcp__plugin_qompack_qompack__timeline with {}; then {"from": "1", "to": "6"}; then {"from": "not-a-turn"}; then {"from": "20", "to": "2"}. Reply with one line per call: the arguments you passed, whether the host marked the result as an error (yes/no), and the first 300 characters of the result text.
+
+## 3. Approaches already eliminated (top 2 of 2 by slice relevance)
+- src/cache.go:Evict — "raise the cache size" — a larger cache only postpones the same re-fetch storm [active] [evidence sha256:0f16c0d443b9e7293c39f1e5ea6905d4c43f03d8b27f79a7fa7880d694eb1b31]
+- src/cache.go:Evict — "shrink the ttl" — entries are re-fetched faster than a shorter ttl can evict them, so memory does not drop [active] [evidence sha256:1bffdebcba1cc2f061b3ceecd6f2ac4e6518d9ad3203e202d346515565000e73]
+Before committing to an approach, call already_tried.
+
+## 4. Decisions
+- [dec_951bc89c3930] (turn 37) rejected "raise the cache size" for src/cache.go:Evict
+  why: a larger cache only postpones the same re-fetch storm
+  rejected: raise the cache size
+  evidence: sha256:0f16c0d443b9e7293c39f1e5ea6905d4c43f03d8b27f79a7fa7880d694eb1b31
+- [dec_c770af84e084] (turn 37) rejected "shrink the ttl" for src/cache.go:Evict
+  why: entries are re-fetched faster than a shorter ttl can evict them, so memory does not drop
+  rejected: shrink the ttl
+  evidence: sha256:1bffdebcba1cc2f061b3ceecd6f2ac4e6518d9ad3203e202d346515565000e73
+
+## 5. Current work
+goal: Make these timeline calls in order: mcp__plugin_qompack_qompack__timeline with {}; then {"from": "1", "to": "6"}; then {"from": "not-a-turn"}; then {"from": "20
+blocked on: none
+
+## 6. Pointers (paths and hashes — contents are NOT restored; use expand/re_read)
+- notes.md sha256:11fd51f6a05687d01d73b8262d01eaa68f83d613d7a343483c9e5e751f884fe8 — referenced
+- src/cache.go sha256:92f68c79afc52b18eeca5cb0fa98500c9e460a7af0e29470a982e360fc128ea6 — referenced
+- src/ledger.go sha256:800cf27b3d28f24420053a66c887984da6fa859a938a4b293d58ab2c90812544 — touched at turn 3 via FileEdit
+- tool_use toolu_011dC56FhX1JTJfbYbTwK7tv sha256:18c74dd0bfbe908bdb9fac64c9647b7fc19ec6e0cc597a58d1d97a3c5d10fb3f — <scratch>\retrieval\c4\c44\proj\src\ledger.go
+- tool_use toolu_013cRUmc4WdHosLAt1JUvdqb sha256:add317bf9ab76f7cbc2f26a3cc308a50ebb9f358039019c78ad22da21872c1a9 — {"tool_use_id":"toolu_01PJaUKU6WgayifCJzKeCaiD"}
+- tool_use toolu_014omkokszDQ91vnUG8Xhq8X sha256:8061ea504ce29774826fde0ce9cdc510850ea2c76c4d02813b5cea537bc0af79 — {"query":"symbol:ReconcileBalances"}
+- tool_use toolu_017amMJMY88Vw7zMGmBT46fU sha256:92340c84905c459537187524044ab55d99b9dc7f3f2cb35029b7477d4f49807b — {"max_results":5,"query":"select:mcp__plugin_qompack_qompack__recall,mcp__plugin_qompack_qompack__expand"}
+- tool_use toolu_019SXiRUwTWZF5DPJshg32Fi sha256:11fd51f6a05687d01d73b8262d01eaa68f83d613d7a343483c9e5e751f884fe8 — <scratch>\retrieval\c4\c44\proj\notes.md
+- tool_use toolu_019fKPtUNmrBMVoXqnbGmLkL sha256:92f68c79afc52b18eeca5cb0fa98500c9e460a7af0e29470a982e360fc128ea6 — <scratch>\retrieval\c4\c44\proj\src\cache.go
+- tool_use toolu_01AYxpRd6QsCAM9vUhRXUxto sha256:d7840325cf458468f76353f6e2fcc6d11b3633345cf3769de8e773497f460599 — src/cache.go:Evict
+- tool_use toolu_01ChpjYfw8mS8Zo5zDY84pbe sha256:44465b6d18b5a26f7d56bdcd7cbd64ab227ebc93dabc39051f862d0aa325c431 — {"query":"violet anchor lattice"}
+- tool_use toolu_01D5VQCQt5GBELERV2uan3sR sha256:69df938ce698d26151b46093d43b86fb5200db53dae218c33ae6e808f3959e35 — {"approach":"shrink the ttl","depends_on":["src/cache.go","src/missing.go"],"reason":"entries are re-fetched faster t…
+- tool_use toolu_01Drn4kznKAkAUni6qYd6vBx sha256:feb9e702a812b69dd5f27fdbf0d6fed28760f2afaeb4f089df085da3fff6606c — {"k":2,"query":"path:src/cache.go"}
+- tool_use toolu_01EGnec5gFpQaETftdrhiaUu sha256:e5aed4d3381027209cecec57460644a94262876b2ae03d7ffca0da8c3ed98c6a — src/nope.go
+- tool_use toolu_01EfWMQNVNGyKdNVoPtXDqAg sha256:ab1866ff5591adc5c164bbe15fe118ad9e0f09571ae7ea8da71b0d0bfd37c2f8 — {"approach":"shrink the ttl","target":"src/cache.go:Evict"}
+- tool_use toolu_01EpZcTtJb9FjKMvz6Znv3Ch sha256:678018903cbab6ca4a8cccc3ea0f4e212f4ee0f903e47c5e53db4abc434f5373 — {"tool_use_id":"toolu_019fKPtUNmrBMVoXqnbGmLkL"}
+- tool_use toolu_01Ey1NcvQmqwy129DsfkeCKa sha256:bc0a412d9465141d602e4a7bd518ef2620c7e3781ec28998d8938766f6a67001 — {"approach":"raise the cache size","target":"src/cache.go:Evict"}
+- tool_use toolu_01GizY3PRZgAtLyyEaP9ZvSw sha256:42bf66b03905fc200cf195f3a068948b12d839e2fd81ff0924181154e6450a74 — {}
+- tool_use toolu_01HXeNiEzbFWwsdevB1DRwgj sha256:013fa55037a502992170d602cee8c42417ab79a2b227ad06e48f2707265c121b — src/ledger.go
+- tool_use toolu_01PJaUKU6WgayifCJzKeCaiD sha256:800cf27b3d28f24420053a66c887984da6fa859a938a4b293d58ab2c90812544 — <scratch>\retrieval\c4\c44\proj\src\ledger.go
+- tool_use toolu_01PPgQJX54Svyy5DgVzYfR5i sha256:b9bb3f5e462dcd2fd556a987c6a807ce0e98ffcf3680e70491c186bd0534bd8f — {"max_results":5,"query":"select:mcp__plugin_qompack_qompack__already_tried,mcp__plugin_qompack_qompack__dropped,mcp_…
+- tool_use toolu_01Q8rhC8X8MNXityxJ9XuCsA sha256:0f7f366d0188f35ae06f1089ef17ba148e24fcd540dba8a42c708fcbba7bffe6 — src/ledger.go
+- tool_use toolu_01QQYRT22haVihnav9yz9xAz sha256:2492a8ff3f6528d811e0b58f65ff0311bd4eff562cf873da614f71ee24e39180 — {"max_results":5,"query":"select:mcp__plugin_qompack_qompack__re_read"}
+- tool_use toolu_01Qr7X2QogqgEZYePmoho2Bx sha256:69dc5ae1e54dd4d956bd667c118cc576a6cc37cb5e8ebc40ffa83bad383315db — {"hash":"sha256:17b5216581b8649cf48acad90524b1b064753381868717f7dbac241c6c0b5244"}
+- tool_use toolu_01RDwgcHZDpfyaDaZp1sJbJJ sha256:3b133b09a421e682674500a7237b563268a1382312c0758d407fc882aac21e8e — src/cache.go
+
+## 7. No longer in context
+- pointer toolu_01RhtrtAMakeQeK47LJqk5ts — did not fit the rehydration budget; call expand(tool_use_id=toolu_01RhtrtAMakeQeK47LJqk5ts)
+- pointer toolu_01ST3UjTJBFzkLBHm94bXfUA — did not fit the rehydration budget; call expand(tool_use_id=toolu_01ST3UjTJBFzkLBHm94bXfUA)
+- pointer toolu_01TSwcPLE8dCxMu27R8kRL7j — did not fit the rehydration budget; call expand(tool_use_id=toolu_01TSwcPLE8dCxMu27R8kRL7j)
+- pointer toolu_01ToQ2wvsSwiJfz3f7srHFtS — did not fit the rehydration budget; call expand(tool_use_id=toolu_01ToQ2wvsSwiJfz3f7srHFtS)
+- pointer toolu_01Wb9CxdEmLKKHTCsDSbLwou — did not fit the rehydration budget; call expand(tool_use_id=toolu_01Wb9CxdEmLKKHTCsDSbLwou)
+- pointer toolu_01XHb4HtypmnqCENvJGGT2qw — did not fit the rehydration budget; call expand(tool_use_id=toolu_01XHb4HtypmnqCENvJGGT2qw)
+- pointer toolu_01XVEdBb8S9vY9jeh6nMaRYo — did not fit the rehydration budget; call expand(tool_use_id=toolu_01XVEdBb8S9vY9jeh6nMaRYo)
+- pointer toolu_01YG19hrMkdihmvXiDrHZWRk — did not fit the rehydration budget; call expand(tool_use_id=toolu_01YG19hrMkdihmvXiDrHZWRk)
+- pointer toolu_01YR6QQkF8eUuwap8wNfgRUu — did not fit the rehydration budget; call expand(tool_use_id=toolu_01YR6QQkF8eUuwap8wNfgRUu)
+- user_intent_evolution 0 — did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[0])
+- user_intent_evolution 1 — did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[1])
+- user_intent_evolution 10 — did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[10])
+- user_intent_evolution 11 — did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[11])
+- user_intent_evolution 12 — did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[12])
+- user_intent_evolution 13 — did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[13])
+- user_intent_evolution 14 — did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[14])
+- user_intent_evolution 15 — did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[15])
+- user_intent_evolution 16 — did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[16])
+- user_intent_evolution 17 — did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[17])
+- user_intent_evolution 18 — did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[18])
+- user_intent_evolution 2 — did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[2])
+- … and 8 more; call dropped()
+
+## 8. Retrieval
+Qompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().
+<!-- /qompack:injected -->
+<!-- qompack-contract-probe qompack-contract-23af0138f9f3 -->

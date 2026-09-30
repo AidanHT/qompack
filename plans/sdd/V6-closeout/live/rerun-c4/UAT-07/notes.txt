@@ -1,0 +1,41 @@
+UAT-07 re-run on candidate 4 (D47) — retrieval part, agent-executed on the owner's real host (D3), not human UAT
+
+Build/snapshot as ../UAT-08/notes.txt. One session shared with C4.4 and C4.5 (retrieval-c4 n=5, id 3187e738;
+driver outputs in ../C4.4/session/; turns 1-13 are this row). Project <scratch>/retrieval/c4/c44/proj (fresh;
+src/ledger.go with ReconcileBalances and the phrase "cobalt heron threshold", src/cache.go, notes.md; git init).
+Preconditions: cli/02-config-print-provenance — retrieval.defaultSpan minimal, runtime.mcp.spanWidenLines 40,
+maxResponseBytes 262144, store.retention.days 30 / sessions 10, all `default`. Pre-run backup: cli/01 exit 1
+"no existing store" (initial absence). Env IDLEEXITSECONDS=120 (not a row key).
+
+T1 Read src/ledger.go (turn 1, driftLimit 25); T2 Edit 25 -> 40; T4 Read again (turn 7, driftLimit 40).
+Steps 1-3 in the session (slash/0N-*.txt = the host's expansion of each /qompack:recall, i.e. the `qompack recall
+... --json` envelope the command body printed; `qompack` resolved on the host's PATH on the first attempt):
+  1 `cobalt heron threshold --json`: ok true, hits with hash/path/tool/summary/ts/score/tool_use_id/span, count, found.
+  2 `path:src/*.go --json` and `path:*.go --json`: both match src/ledger.go (FileRead, FileEdit hits)
+    — the glob now works (candidate 3: 0 hits for both).
+  3 `symbol:ReconcileBalances --json` matches; `tool:Read --json` returns the two FileRead captures of src/ledger.go
+    — the host tool name now matches (candidate 3: 0 hits).
+  Envelopes with exit codes after the session (cli/11-19, `qompack recall <q> --json`, all exit 0): the no-match
+  `path:nothing/*.rs` is `count 0, found false`, exit 0 (an answer, not a failure); tool:Read = tool:FileRead
+  (4 hits each); tool:Edit -> FileEdit.
+Step 4 (mcp/T09-*): recall symbol:ReconcileBalances; expand {hash sha256:800cf27b…} and expand {tool_use_id
+  toolu_01PJaUKU6WgayifCJzKeCaiD}: same hash, span [0,838], total_bytes 838, truncated false, identical content, no
+  `source` field in either body. _meta.qompack.ephemeral true on expand (stdio probe ../C4.4/cli/31-mcp-probe-result-meta.json;
+  the host does not show result-level _meta to the model). next_span absent because nothing was left.
+Step 5 (mcp/T10-*): re_read no at -> source store, turn 7, hash 800cf27b (driftLimit 40), no `at` field (none given);
+  at turn:1 -> source store, at "turn:1", turn 1, hash 12515375 (driftLimit 25).
+Step 6 (mcp/T11-1): src/ledger.go edited on disk out of band before T11 (files/ledger.go.before-step6 = driftLimit 40,
+  .after-step6 = "const driftLimit = 7 // edited on disk out of band; was 40"); re_read no at still returned the
+  captured turn-7 version (hash 800cf27b, driftLimit 40, source store) — no substitution.
+Step 7 (mcp/T12-1), OBSERVED for a never-stored well-formed hash, not a tool error:
+  {"found":false,"searched":"the root index, including every indexed root's chunk list","available":false,
+   "reason":"no indexed root or chunk carries this hash, so its content provenance could not be established"}
+  — it now says what was searched (candidate 3 did not); no lookup reported `absent`.
+End-of-run index: ../C4.4/store-after-session/index_*.jsonl.
+
+Result: pass. Rollback: initial state absent; run retained as evidence; no restore run.
+Observations carried from candidate 3 (not fail conditions): after the session's MCP calls, CLI `path:src/*.go` and
+`path:*.go` top-5 answers (cli/12, cli/13) are filled by retrieval self-records (mcp__qompack__re_read /expand and the
+host's mcp__plugin_qompack_qompack__re_read captures), including a hit for src/nope.go — a path that never existed,
+recorded from a failed re_read — so the files themselves are crowded out; _meta.qompack.hash names the response's
+own capture rather than the resolved object (the body's `hash` is the resolved one).

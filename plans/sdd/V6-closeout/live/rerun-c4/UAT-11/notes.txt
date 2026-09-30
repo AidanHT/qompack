@@ -1,0 +1,46 @@
+UAT-11 re-run on candidate 4 (D47) — retrieval part, agent-executed on the owner's real host (D3), not human UAT
+
+Build/snapshot as ../UAT-08/notes.txt. Shipped configuration: no QOMPACK_* variable except QOMPACK_HOME.
+
+Steps 1-4 (no model; frozen bundle binary; cli/): projects uat11/a (steps 1-3) and uat11/b (fresh, step 4);
+  pre-run backup create exit 1 "no existing store" for a, b and c (initial absence).
+  1: s1-config-print-provenance: `"newResult": false  // default config.Defaults()`.
+  2: s2-config.json.txt {"runtime":{"migration":{"replacement":{"newResult":true}}}}; hook prints {} exit 0;
+     s2-_qompack_state_config-violations_json.txt: Message "invalid value, using default: true not in false";
+     leaf reads `false  // default fallback after violation`.
+  3: {} then settingsVersion 2: config-violations.json "settingsVersion 2 is newer than this build understands (1);
+     the whole runtime.migration block is reset to defaults so unknown switches stay off"; every migration leaf reads
+     `default reset: newer settingsVersion`; the same line is in the day log and LOUD.log (s3-_qompack_logs_*); capture
+     continued (s3-listing).
+  4a: {"runtime": -> hook prints {} exit 0; s4a-after-hook-listing: only README.md and .qompack/config.json;
+     self-test exit 1, config.capture FAIL critical "refused: every hook admits nothing"; s4a-self-test-json-rerun
+     detail "qompack: running in degraded mode: capture configuration unavailable: the project config file is not a
+     single strict JSONC object". (self-test itself then started a daemon and wrote the store skeleton,
+     s4a-after-self-test-listing; the doc says self-test can write.)
+  4b: {"runtime":{"notAKey":1}} -> capture continues (s4b-after-hook-listing has a capture), self-test exit 0,
+     config.capture FAIL warn; s4b-self-test-json detail "runtime.notAKey: unknown key".
+Steps 5-6 (session 4 = retrieval-c4 n=4, session/, id 0bf8b197, project uat11/c, setup-facts.json; one planted
+  aws_access_key_id-shaped secret, sha256 in setup-facts.json, literal only in <scratch>/retrieval/secrets.json; the
+  driver scrubbed it to @@SEC_PLANTED_1@@ in every output):
+  T1 FIRST TURN: Read notes.md, then big.log offset 1 limit 3000 = the whole 363,000-byte file (captured object
+     total_bytes 366,102) — the same ordinary large first-turn Read that degraded candidate 3's session.
+  T2 odd.txt (tabs, ANSI escapes, emoji, RTL override, CJK, zero-width) and creds.env; T3 git add/commit/log (a commit
+     closes a segment); T4 /compact.
+  SessionStart:compact injected the rehydration block (session/injected-2-SessionStart-compact.txt, 2,604 chars,
+     `<!-- qompack:injected seq=1 ver=1 -->`); no degraded systemMessage anywhere in the stream; no "degraded" or
+     "sentinel" line in the day log; cli/c-11-status-json-after-session contract row
+     hook.additional_context_delivered observed "sentinel-observed", session_start.source_compact "compact", status
+     banner "9 assertion(s), all holding" (cli/c-10). (Candidate 3: "sentinel not found after two chances", passive.)
+  T5 step 6, section 6 has 9 pointers (4 file paths + 5 tool_use lines). mcp/T05-*:
+     expand by hash: big.log ecc579c9 (found, span [0,15452] of 366,102, truncated, next_span "15452:16384"),
+       creds.env 884ddc07 (found; content carries the redaction placeholder, no secret), notes.md 5e54f4d9, odd.txt e564dcc9;
+     re_read by path: big.log (truncated, next_span), creds.env, notes.md, odd.txt — all found, source store;
+     tool_use lines: the model called expand with each line's tool_use_id (not its hash); all 5 found and each returned
+       the hash printed on the line (5e54f4d9, 3bfe728b, e564dcc9, 884ddc07, ecc579c9). The one hash not also expanded
+       by hash in-session (3bfe728b, the Bash result) was expanded by hash with a no-model stdio probe:
+       diag-probe-expand-bash-pointer-hash.json found true, span [0,649].
+     Every pointer resolved; truncated (big.log) and redacted (creds.env) are recorded fidelities, not failures.
+  Privacy: secret-scan-store.json — 178 files, 106 zstd-decompressed, 241 base64 fields: 0 hits in the store.
+Result: pass. Rollback: initial state absent; run retained as evidence; no restore run.
+Note: the uat11/a, /b and /c daemons ran at the default idle exit (shipped configuration); see the guard log for
+their end.

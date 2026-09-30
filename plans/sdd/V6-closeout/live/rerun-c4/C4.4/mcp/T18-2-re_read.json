@@ -1,0 +1,14 @@
+{
+ "turn": 18,
+ "tool": "mcp__plugin_qompack_qompack__re_read",
+ "tool_use_id": "toolu_01EGnec5gFpQaETftdrhiaUu",
+ "arguments": {
+  "path": "src/nope.go"
+ },
+ "host_is_error": false,
+ "result": {
+  "found": false,
+  "available": false,
+  "reason": "no historical version has been captured for this path yet"
+ }
+}

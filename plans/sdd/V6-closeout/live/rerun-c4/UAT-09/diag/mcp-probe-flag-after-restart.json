@@ -1,0 +1,36 @@
+{
+ "initialize": {
+  "serverInfo": {
+   "name": "qompack",
+   "version": "0.3.0"
+  },
+  "protocolVersion": "2025-06-18"
+ },
+ "calls": [
+  {
+   "tool": "already_tried",
+   "args": {
+    "target": "src/pool.go:DialPool",
+    "approach": "widen pool timeout"
+   },
+   "jsonrpc_line_bytes": 288,
+   "isError": false,
+   "error": null,
+   "text_bytes": 18,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 2,
+     "ephemeral": true,
+     "hash": "sha256:90ce0b936fb4c87993310b848150ba103d9345563003748c84889514cf5a6a2a",
+     "tool_use_id": "qompack-mcp:c9402a4ba290"
+    }
+   },
+   "json": [
+    {
+     "state": "absent"
+    }
+   ]
+  }
+ ],
+ "stderr_tail": ""
+}

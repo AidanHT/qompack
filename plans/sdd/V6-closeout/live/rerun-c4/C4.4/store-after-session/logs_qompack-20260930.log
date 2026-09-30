@@ -1,0 +1,5 @@
+ts=2026-09-30T03:39:35.6779737Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-09-30T03:39:35.720621Z level=info msg="observer: session registered" session=3187e738-5cc8-4c2d-a8e1-0c0d5d400ac9 source=startup turn=0 segment=1
+ts=2026-09-30T03:39:35.720621Z level=info msg="scheduler: session bound" session=3187e738-5cc8-4c2d-a8e1-0c0d5d400ac9 effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+ts=2026-09-30T03:41:10.959433Z level=warn msg="mcp: recall search failed" err="qompack: store: the path selector is not a valid glob: \"src/[\""
+ts=2026-09-30T03:43:29.3164527Z level=info msg="observer: gc" scanned=110 deleted=0 freed=0 truncated=false

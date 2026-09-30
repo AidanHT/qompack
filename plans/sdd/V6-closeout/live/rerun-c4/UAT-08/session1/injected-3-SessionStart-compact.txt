@@ -1,0 +1,37 @@
+# stream line 163, hook SessionStart:compact, exit 0, 3503 chars
+<!-- qompack:injected seq=2 ver=1 -->
+# Qompack rehydration — checkpoint 0002, session 24df5051
+
+## 2. Original user intent (verbatim from L0 capture — never summarized)
+> Use the Read tool to read src/pool.go and then config/pool.yaml. Reply only 'done'.
+Evolution (most recent first):
+> Call mcp__plugin_qompack_qompack__already_tried with {"target": "src/pool.go:DialPool", "approach": "widen pool timeout"}. Reply with the tool result's text verbatim, then say in one sentence whether anything in it forbids trying the approach.
+> Use the Edit tool to change `max_idle: 4` to `max_idle: 16` in config/pool.yaml. Reply only 'done'.
+
+## 3. Approaches already eliminated (top 1 of 1 by slice relevance)
+- src/pool.go:DialPool — "widen pool timeout" — the stall comes from the server-side max_idle cap in config/pool.yaml, not from the client timeout; a longer timeout only delays the same failure [stale: previously eliminated, but the evidence has changed since — re-verification may be warranted] [evidence sha256:af7fcd075e130e83c74f8e7a5cbd3b37edafbb65ba609473e540ef85b112b0bf]
+Before committing to an approach, call already_tried.
+
+## 5. Current work
+goal: Call mcp__plugin_qompack_qompack__already_tried with {"target": "src/pool.go:DialPool", "approach": "widen pool timeout"}.
+blocked on: none
+
+## 6. Pointers (paths and hashes — contents are NOT restored; use expand/re_read)
+- config/pool.yaml sha256:259204dd59dea3f99ebeb05621d34621c57792d6ab871511be29b3039473ec64 — touched at turn 12 via FileEdit
+- tool_use subagent_24df5051-9fde-44d6-89df-729ba0e528ca_8 sha256:237a64f264a4e7d53d1ae76f9802cc661c28bee8a3a5f4c4b585bba6c54fb231 — {"agent":"subagent","summary":"{\"state\":\"absent\"}\n\nNo, nothing forbids trying this approach—the absent state …
+- tool_use toolu_016o4RQ2sJ8LFT2DDycY6JMb sha256:be8f37f9dcce0372d6ba309e8bf0f905d58509f6b3c700172f62a4c1d984a80f — {"max_results":1,"query":"select:mcp__plugin_qompack_qompack__why"}
+- tool_use toolu_0194syDWPQXWjViRgn5ueMLc sha256:2448df98924b133331e90f6336f66e71cf8ce4283389d5e83149452602dff61f — {"approach":"widen pool timeout","target":"src/pool.go:DialPool"}
+- tool_use toolu_01C2T8Xt77zDYZ2eDyibjgEo sha256:259204dd59dea3f99ebeb05621d34621c57792d6ab871511be29b3039473ec64 — <scratch>\retrieval\c4\uat0809\proj\config\pool.yaml
+- tool_use toolu_01CJNqYM7gzSperEHr8QgQdD sha256:2448df98924b133331e90f6336f66e71cf8ce4283389d5e83149452602dff61f — {"approach":"widen pool timeout","target":"src/pool.go:DialPool"}
+- tool_use toolu_01SVGzyKz13yJmb6JoVLs4fN sha256:b83c6291db7527d6c0cb1af49a7f27ca3a8a536c6e332eb340a142b869942db4 — {"decision_id":"dec_e760c8bbf50a"}
+
+## 7. No longer in context
+- user_intent_evolution 0 — did not fit the rehydration budget; restore: Read .qompack/checkpoints/0002.json (user_intent.evolution[0])
+- user_intent_evolution 1 — did not fit the rehydration budget; restore: Read .qompack/checkpoints/0002.json (user_intent.evolution[1])
+- user_intent_evolution 2 — did not fit the rehydration budget; restore: Read .qompack/checkpoints/0002.json (user_intent.evolution[2])
+- pointer_dirty config/pool.yaml — modified since index on master
+
+## 8. Retrieval
+Qompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().
+<!-- /qompack:injected -->
+<!-- qompack-contract-probe qompack-contract-e2fcdca2244d -->

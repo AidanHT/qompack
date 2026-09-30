@@ -1,0 +1,157 @@
+{
+ "turn": 24,
+ "tool": "mcp__plugin_qompack_qompack__dropped",
+ "tool_use_id": "toolu_016w3bumssM2RhyaJgzBKDiq",
+ "arguments": {},
+ "host_is_error": false,
+ "result": {
+  "count": 29,
+  "drops": [
+   {
+    "detail": "modified since index on master",
+    "id": "src/ledger.go",
+    "kind": "pointer_dirty"
+   },
+   {
+    "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[18])",
+    "id": "18",
+    "kind": "user_intent_evolution"
+   },
+   {
+    "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[17])",
+    "id": "17",
+    "kind": "user_intent_evolution"
+   },
+   {
+    "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[16])",
+    "id": "16",
+    "kind": "user_intent_evolution"
+   },
+   {
+    "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[15])",
+    "id": "15",
+    "kind": "user_intent_evolution"
+   },
+   {
+    "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[14])",
+    "id": "14",
+    "kind": "user_intent_evolution"
+   },
+   {
+    "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[13])",
+    "id": "13",
+    "kind": "user_intent_evolution"
+   },
+   {
+    "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[12])",
+    "id": "12",
+    "kind": "user_intent_evolution"
+   },
+   {
+    "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[11])",
+    "id": "11",
+    "kind": "user_intent_evolution"
+   },
+   {
+    "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[10])",
+    "id": "10",
+    "kind": "user_intent_evolution"
+   },
+   {
+    "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[9])",
+    "id": "9",
+    "kind": "user_intent_evolution"
+   },
+   {
+    "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[8])",
+    "id": "8",
+    "kind": "user_intent_evolution"
+   },
+   {
+    "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[7])",
+    "id": "7",
+    "kind": "user_intent_evolution"
+   },
+   {
+    "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[6])",
+    "id": "6",
+    "kind": "user_intent_evolution"
+   },
+   {
+    "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[5])",
+    "id": "5",
+    "kind": "user_intent_evolution"
+   },
+   {
+    "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[4])",
+    "id": "4",
+    "kind": "user_intent_evolution"
+   },
+   {
+    "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[3])",
+    "id": "3",
+    "kind": "user_intent_evolution"
+   },
+   {
+    "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[2])",
+    "id": "2",
+    "kind": "user_intent_evolution"
+   },
+   {
+    "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[1])",
+    "id": "1",
+    "kind": "user_intent_evolution"
+   },
+   {
+    "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[0])",
+    "id": "0",
+    "kind": "user_intent_evolution"
+   },
+   {
+    "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01RhtrtAMakeQeK47LJqk5ts)",
+    "id": "toolu_01RhtrtAMakeQeK47LJqk5ts",
+    "kind": "pointer"
+   },
+   {
+    "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01ST3UjTJBFzkLBHm94bXfUA)",
+    "id": "toolu_01ST3UjTJBFzkLBHm94bXfUA",
+    "kind": "pointer"
+   },
+   {
+    "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01TSwcPLE8dCxMu27R8kRL7j)",
+    "id": "toolu_01TSwcPLE8dCxMu27R8kRL7j",
+    "kind": "pointer"
+   },
+   {
+    "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01ToQ2wvsSwiJfz3f7srHFtS)",
+    "id": "toolu_01ToQ2wvsSwiJfz3f7srHFtS",
+    "kind": "pointer"
+   },
+   {
+    "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01Wb9CxdEmLKKHTCsDSbLwou)",
+    "id": "toolu_01Wb9CxdEmLKKHTCsDSbLwou",
+    "kind": "pointer"
+   },
+   {
+    "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01XHb4HtypmnqCENvJGGT2qw)",
+    "id": "toolu_01XHb4HtypmnqCENvJGGT2qw",
+    "kind": "pointer"
+   },
+   {
+    "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01XVEdBb8S9vY9jeh6nMaRYo)",
+    "id": "toolu_01XVEdBb8S9vY9jeh6nMaRYo",
+    "kind": "pointer"
+   },
+   {
+    "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01YG19hrMkdihmvXiDrHZWRk)",
+    "id": "toolu_01YG19hrMkdihmvXiDrHZWRk",
+    "kind": "pointer"
+   },
+   {
+    "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01YR6QQkF8eUuwap8wNfgRUu)",
+    "id": "toolu_01YR6QQkF8eUuwap8wNfgRUu",
+    "kind": "pointer"
+   }
+  ]
+ }
+}
