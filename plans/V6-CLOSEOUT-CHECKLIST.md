@@ -147,38 +147,26 @@ Additional finding at dispatch: a root-run Linux `-race` pass of `3dab390` (cont
 (`handleAdminShutdown`'s `sync.Once` vs `daemon.Run`) and failures in `test/guards`,
 `test/integration` and `test/security` beyond the ingest family — assigned to the `linux` lane.
 
-## PAUSED 2026-09-28 23:10 (America/Toronto): resume here
+## PAUSED 2026-09-30 ~03:30 (America/Toronto): resume here
 
-Paused at the owner's request ("I will continue tomorrow"). Wave 11 (`wf_fc02f288-db0`, seat `babudget`, D41) was
-stopped with TaskStop mid-verification; its one live `go test` tree was killed. Nothing of the close-out is running:
-the container is stopped, Docker Desktop is left running, the keep-awake is released. Phase 3 chain-2 had finished.
+Paused at the owner's request. The live re-run on candidate 4 (`wf_8b477987-691`) was stopped with TaskStop after its
+install and sessions parts returned and while its retrieval part was finishing; three scratch-project daemons it had
+started (uat11 a/b/c) were stopped. Nothing of the close-out is running; the container is stopped; the keep-awake is
+released.
 
-State:
-- Integration `closeout/integration` `fc5289c3` (`../qompack-cx-int`) holds waves 1-10.
-- verify/v6 froze candidate 2 (`aad1ceb`), which D41 supersedes: no gate ran on it.
-- Wave 11 is in `../qompack-cx-w11-babudget` (branch `closeout/w11-babudget`, base `fc5289c`), with three
-  unreviewed commits: `748f43ef` config (B-A default = max(15, platform L0IngestMs)), `9700950b` docs(arch) and
-  `c3782687` Qompack.md v1.8. Its evidence under `plans/sdd/V6-closeout/w11-babudget/runs/` is untracked. Digest:
-  `coordinator/digests/w11-impl-babudget.txt`.
-- The isolated Windows hot-path row **passes** with D41 (B-A n=2064, p99 32.8 ms vs 50, no spool).
-  `TestV3_HotPathUnchangedWithLedgerResident` alone fails its separate X11 ceiling, B-A p99 within 25 % of V2's
-  recorded 3.072 ms (got 24.6 ms). That ceiling predates the durable WAL and needs a coordinator decision from the
-  resumed seat's evidence.
+State: candidate 4 = verify/v6 `9f6a2fad` (`phase3/c4-CANDIDATE.md`), bundles `qompack-bundles/c4/`. Live worktree
+`../qompack-cx-live` on closeout/live4 holds the re-run's commits (install `3553483`, sessions `db7244d`/`c84f793`,
+retrieval `e891361`/`a27dc8f`); sessions used: install 4, sessions 9 (one accidental, recorded), retrieval 7. Digests
+`coordinator/digests/live4-*.txt`. Not yet run: the recovery part (C1.7 on a realistic store, 2 sessions) and the audit.
 
 Resume, in order:
-1. Start the keep-awake (`coordinator/keepawake.ps1` with a sentinel).
-2. `Workflow({scriptPath: "../qompack-v6/plans/sdd/V6-closeout/coordinator/wave11-resume.js"})`.
-3. Decide the X11 ceiling (D42) and render the report (wfreport.py, shacheck.sh, runpatterns, rpwaive.py).
-4. Merge into integration and freeze candidate 3 on verify/v6. Point `../qompack-cx-cand` at it: detached, same
-   directory, so the go test cache reuses the unchanged packages.
-5. At night, with nothing else running: `sh coordinator/overnight.sh <cand> <sha> plans/sdd/V6-closeout/phase3/c3`
-   runs the D28 timing, the waves 9-10 Linux proofs and quiet.sh C5.1/C5.2.
-6. Then:
-   - re-run the whole tree on candidate 3 with daytime caps (win-tree, win-race, linux-tree/e2e/child, lint, cover,
-     gens, fuzz, bundles);
-   - carried-defect dispositions (C2.3-C2.8) from the quiet numbers;
-   - release-check;
-   - Phase 4 live lane, the C5.5 eval, Phase 6 docs and report, Phase 7 release.
+1. keep-awake;
+2. `Workflow({scriptPath: "../qompack-v6/plans/sdd/V6-closeout/coordinator/live-rerun-c4-resume.js", resumeFromRunId: "wf_8b477987-691"})`
+   (install and sessions replay from cache; retrieval only assembles its result, no sessions; then recovery and the audit);
+3. render live/report-c4.md, merge closeout/live4 into integration; route any defect still failing;
+4. at night, alone: `sh coordinator/overnight.sh ../qompack-cx-cand 9f6a2fad plans/sdd/V6-closeout/phase3/c4`
+   (timing, Linux proofs, quiet.sh C5.1/C5.2);
+5. then whole-tree re-runs on candidate 4 with caps, carried-defect dispositions, release-check, C5.5 eval, Phase 6 and 7.
 
 ## Where things stand (found at takeover)
 
