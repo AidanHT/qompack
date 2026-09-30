@@ -16,6 +16,7 @@ import (
 	"github.com/qompack/qompack/internal/mcp"
 	"github.com/qompack/qompack/internal/obs"
 	"github.com/qompack/qompack/internal/paths"
+	"github.com/qompack/qompack/internal/store"
 )
 
 // A config reload reaches the retrieval tools of a daemon runDaemon composed (V6 close-out D49).
@@ -122,6 +123,41 @@ func TestDaemonConfigReload_NamesChunkAndInertKeys(t *testing.T) {
 	require.Equal(t, []string{"runtime.daemon.maxSessions"}, body.Changed)
 	require.Equal(t, []string{"store.chunk.target"}, body.Restart)
 	require.Equal(t, []string{"runtime.logging.level"}, body.NoEffect)
+}
+
+// TestDaemonConfigReload_ReachesTheRetrievalRedactor: the retrieval tools re-apply the secret policy
+// to archive bytes on their way out (T20-M2-04), and a redaction rule a reload adds binds the next
+// expand of an object archived before the rule existed. The composition root wires the tools'
+// redactor over the live configuration (liveToolConfig); this row fails if it goes back to one built
+// from the configuration the daemon started with.
+func TestDaemonConfigReload_ReachesTheRetrievalRedactor(t *testing.T) {
+	root := bootstrapProject(t)
+	const secret = "ZZQSECRET12345ZZ"
+	st, err := store.Open(root, config.Defaults(), store.Deps{Log: logging.Nop(), Clock: testClock()})
+	require.NoError(t, err)
+	put, err := st.PutBytes(context.Background(), []byte("the deploy key is "+secret+", keep it out"),
+		store.PutOptions{Tool: "Bash"})
+	require.NoError(t, err)
+	require.Zero(t, put.Redacted, "no rule matches when the object is archived")
+	require.NoError(t, st.Close())
+
+	stop := bootstrapDaemon(t, root)
+	defer stop()
+	expand := func() string {
+		var body struct {
+			Found   bool   `json:"found"`
+			Content string `json:"content"`
+		}
+		bootstrapBody(t, bootstrapCall(t, root, mcp.ToolExpand, map[string]any{"hash": put.Root.Hash.String()}), &body)
+		require.True(t, body.Found, "the archived object expands")
+		return body.Content
+	}
+	require.Contains(t, expand(), secret, "no rule covers the secret yet")
+
+	writeReloadConfig(t, root, `{"runtime":{"redact":{"enabled":true,"patterns":["ZZQSECRET[0-9]+ZZ"]}}}`)
+	changed, _ := adminReload(t, root)
+	require.Contains(t, changed, "runtime.redact.patterns")
+	require.NotContains(t, expand(), secret, "the reloaded rule binds the next expand")
 }
 
 // TestWireScheduler_ReadsTheLiveConfiguration: the composition root hands the scheduler runtime the
