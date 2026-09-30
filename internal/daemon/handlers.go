@@ -1472,10 +1472,14 @@ func (d *daemon) handleAdminDrain(ctx context.Context, req ipc.Request) ipc.Resp
 	return ipc.Response{OK: true, Data: data}
 }
 
-// handleAdminReload forces a config reload regardless of config.json's mtime/size.
+// handleAdminReload forces a config reload regardless of config.json's mtime/size. It answers the
+// keys the reload applied (changed), the ones it held for a daemon restart (restart_required), and
+// the ones nothing in this build reads (no_effect).
 func (d *daemon) handleAdminReload(ctx context.Context, req ipc.Request) ipc.Response {
-	changed, err := d.reloadConfig(ctx, d.cfgEnv, true)
-	data, _ := json.Marshal(map[string]any{"changed": changed})
+	res, err := d.reloadConfigKeys(ctx, d.cfgEnv, true)
+	data, _ := json.Marshal(map[string]any{
+		"changed": res.Changed, "restart_required": res.Restart, "no_effect": res.NoEffect,
+	})
 	if err != nil {
 		return ipc.Response{OK: false, Err: err.Error(), Data: data}
 	}

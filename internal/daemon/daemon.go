@@ -89,8 +89,11 @@ type daemon struct {
 	// (delivery_diagnostics.go), attached to the lock on every journal access. Set once in New.
 	deliveryDiag *deliveryDiagnostics
 
-	cfgMu        sync.RWMutex
-	cfg          config.Config
+	// live is the configuration in effect, shared with every service the wiring built
+	// (config_live.go). cfgMu serializes reloads and guards their bookkeeping beside it: the
+	// config file's last mtime and size.
+	live         *liveConfig
+	cfgMu        sync.Mutex
 	cfgEnv       config.Env
 	lastCfgMTime time.Time
 	lastCfgSize  int64
@@ -294,6 +297,12 @@ type daemon struct {
 	// it is a field only so a test can make the bound short.
 	compactBudget time.Duration
 
+	// publicationBound is how long the startup publication accounting may run inside Run's startup
+	// before it finishes in the background (accountPublicationAtStartup). Zero means
+	// publicationStartupBound, which is all production uses; it is a field only so a test can make
+	// the bound short enough to prove the background pass on any machine.
+	publicationBound time.Duration
+
 	// compactGates holds each session's next observer work until the compact SessionStart
 	// bookkeeping the route did not wait for has finished (session_start_compact.go).
 	compactGates compactGates
@@ -362,13 +371,21 @@ func New(o Options) (Daemon, error) {
 	}
 	DeclareProducers(svc)
 
+	// The live configuration starts as Options.Cfg as it stands now. Every service the wiring built
+	// already holds this cell (ensureLiveConfig), so the one seed reaches all of them.
+	o.ensureLiveConfig()
+	o.live.seed(o.Cfg)
+	if o.CfgEnv.ProjectRoot == "" {
+		o.CfgEnv = config.Env{ProjectRoot: o.ProjectRoot, HomeDir: userHomeDir(), Getenv: os.Getenv}
+	}
+
 	d := &daemon{
 		root:        o.ProjectRoot,
 		log:         o.Log,
 		m:           o.Metrics,
 		clk:         o.Clock,
-		cfg:         o.Cfg,
-		cfgEnv:      config.Env{ProjectRoot: o.ProjectRoot, HomeDir: userHomeDir(), Getenv: os.Getenv},
+		live:        o.live,
+		cfgEnv:      o.CfgEnv,
 		svc:         svc,
 		monitor:     monitor,
 		firstServed: make(chan struct{}),
@@ -476,9 +493,8 @@ func (d *daemon) Idle() IdleController       { return d.idle }
 // currentCfg returns the daemon's live configuration, safe for concurrent readers against
 // reload.go's writer.
 func (d *daemon) currentCfg() config.Config {
-	d.cfgMu.RLock()
-	defer d.cfgMu.RUnlock()
-	return d.cfg
+	cfg, _ := d.live.load()
+	return cfg
 }
 
 // currentState renders the daemon's current mode/hot/deadlines into an ipc.State, for WriteState
@@ -661,6 +677,9 @@ func (d *daemon) Run(ctx context.Context) error {
 		}
 		return nil
 	}
+	// This daemon owns the project and started from config.json as it stands, so a chunk change an
+	// earlier daemon held for a restart is now in effect (reload.go clearConfigPending).
+	d.clearConfigPending()
 
 	if d.svc.Sketches != nil {
 		d.svc.Sketches.Load(d.root, d.log)
@@ -746,12 +765,9 @@ func (d *daemon) Run(ctx context.Context) error {
 	// route does.
 	d.drainsEndSessions.Store(true)
 	d.sweepCheckpointIntegrity(runCtx)
-	// Account for crash residues even when no operator has invoked fsck. This
-	// bounded startup snapshot may be incomplete; counters and LOUD preserve that
-	// qualification in status rather than promoting zero observations to clean.
-	auditCtx, auditCancel := context.WithTimeout(runCtx, publicationStartupBound)
-	d.LoudPublicationGaps(auditCtx)
-	auditCancel()
+	// Account for crash residues even when no operator has invoked fsck
+	// (publication_audit.go, accountPublicationAtStartup).
+	d.accountPublicationAtStartup(runCtx)
 
 	hbTicker := time.NewTicker(heartbeatInterval)
 	defer hbTicker.Stop()

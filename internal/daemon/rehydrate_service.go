@@ -29,7 +29,13 @@ import (
 // drop report rather than failing the hook (Qompack.md §12.3).
 type RehydrateOptions struct {
 	ProjectRoot string
-	Cfg         config.Config
+	// Cfg is the configuration the service reads when CfgFn is nil.
+	Cfg config.Config
+	// CfgFn, when set, supplies the configuration at each use instead of Cfg. The daemon wiring
+	// passes its live configuration (Options.CurrentCfg), so a reloaded runtime.rehydrate budget is
+	// the budget the next compaction is built under rather than the one the daemon started with
+	// (V6 close-out D49; the candidate 4 live re-run's UAT-05).
+	CfgFn func() config.Config
 	// Checkpoints is the L4 reader. A nil reader, or one whose Latest reports ErrNotFound or
 	// ErrNotImplemented, is the no-checkpoint path: the payload is still built from the L0
 	// verbatim capture, the ledger and the skill index, and Result.Degraded is set.
@@ -82,6 +88,14 @@ func NewRehydrateService(o RehydrateOptions) observer.Rehydrator {
 		o.Clock = core.SystemClock()
 	}
 	return &rehydrateService{o: o}
+}
+
+// cfg is the configuration in effect now: the live supplier's when one is wired, Cfg otherwise.
+func (s *rehydrateService) cfg() config.Config {
+	if s.o.CfgFn != nil {
+		return s.o.CfgFn()
+	}
+	return s.o.Cfg
 }
 
 var _ observer.Rehydrator = (*rehydrateService)(nil)
@@ -137,7 +151,8 @@ func (s *rehydrateService) OnCompact(ctx context.Context, e observer.Event) (out
 	// Qompack.md v1.5 Appendix C's independent injection kill switch (SP-19): recording is
 	// untouched — runtime.mode governs that — and nothing is reinjected. Checked before the
 	// checkpoint read for the same reason the mode is: work §12.1 forbids is not paid for first.
-	if !s.o.Cfg.Runtime.Migration.Reinjection.SessionStartCompact {
+	cfg := s.cfg()
+	if !cfg.Runtime.Migration.Reinjection.SessionStartCompact {
 		s.o.Log.Info("rehydrate: injection disabled by runtime.migration.reinjection.sessionStartCompact",
 			"session", string(e.SessionID))
 		return hookio.Empty(), nil
@@ -158,7 +173,7 @@ func (s *rehydrateService) OnCompact(ctx context.Context, e observer.Event) (out
 		return s.stopped(ctx, e.SessionID, "reading the checkpoint"), nil
 	}
 
-	budget := core.Tokens(s.o.Cfg.Runtime.Rehydrate.MaxTokens)
+	budget := core.Tokens(cfg.Runtime.Rehydrate.MaxTokens)
 	req := rehydrate.Request{
 		Session:     e.SessionID,
 		Source:      e.Source,
@@ -166,7 +181,7 @@ func (s *rehydrateService) OnCompact(ctx context.Context, e observer.Event) (out
 		Budget:      budget,
 		Checkpoint:  cp,
 		Ref:         ref,
-		Cfg:         s.o.Cfg,
+		Cfg:         cfg,
 		Lineage:     s.lineage(e.SessionID),
 	}
 
@@ -411,7 +426,7 @@ func (s *rehydrateService) recordNotBuilt(ctx context.Context, sess core.Session
 	st := rehydrate.State{
 		Session: sess,
 		Emitted: core.UnixMilli(s.o.Clock.Now().UnixMilli()),
-		Budget:  core.Tokens(s.o.Cfg.Runtime.Rehydrate.MaxTokens),
+		Budget:  core.Tokens(s.cfg().Runtime.Rehydrate.MaxTokens),
 		Dropped: []checkpoint.DropEntry{{
 			Kind: undeliveredDropKind, ID: notBuiltDropID,
 			Detail: why + "; the checkpoints are kept in .qompack/checkpoints/ (the highest-numbered file is the newest)",
@@ -553,6 +568,8 @@ func WireRehydrator(o *Options) observer.Rehydrator {
 	// Wiring time, on the goroutine that owns this Options and before anything can read the
 	// handle: the cell the opener publishes into must exist before the opener does.
 	o.ensureLedgerCell()
+	// Likewise the live configuration's cell, which the service and the ledger read (config_live.go).
+	o.ensureLiveConfig()
 	log := o.Log
 	if log == nil {
 		log = logging.Nop()
@@ -598,10 +615,14 @@ func WireRehydrator(o *Options) observer.Rehydrator {
 				ledger = existing
 				return
 			}
-			// Ancestry reads the lineage records, so a fork's already_tried and rehydration see its
-			// parent's session-scoped eliminations up to the fork point (D49, F-C4-UAT06-1).
-			l, err := negknow.Open(o.ProjectRoot, o.Cfg, nil, negknow.Deps{
+			// Opened with the configuration in effect NOW, and reading the live one after
+			// (Deps.Config): the ledger applies eliminations.* itself, and a reload between the
+			// daemon's start and the first compaction, or after it, must reach it. Ancestry reads the
+			// lineage records, so a fork's already_tried and rehydration see its parent's
+			// session-scoped eliminations up to the fork point (D49, F-C4-UAT06-1).
+			l, err := negknow.Open(o.ProjectRoot, o.CurrentCfg(), nil, negknow.Deps{
 				Store: o.Store, Graph: o.Graph, Log: log, Metrics: o.Metrics, Clock: clk,
+				Config:   o.CurrentCfg,
 				Ancestry: checkpoint.LedgerAncestry(o.ProjectRoot),
 			})
 			if err != nil {
@@ -640,6 +661,7 @@ func WireRehydrator(o *Options) observer.Rehydrator {
 	svc := NewRehydrateService(RehydrateOptions{
 		ProjectRoot: o.ProjectRoot,
 		Cfg:         o.Cfg,
+		CfgFn:       o.CurrentCfg,
 		Checkpoints: ckpt,
 		OpenLedger:  o.OpenLedger,
 		Deps: rehydrate.Deps{

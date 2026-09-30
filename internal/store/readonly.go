@@ -91,6 +91,12 @@ func (r readOnlyStore) AuditPublication(ctx context.Context, cap PublicationScan
 	return r.fs.AuditPublication(ctx, cap)
 }
 
+// SnapshotPublication is AuditPublication's in-memory half, an optional read capability like it: it
+// reads the loaded index and writes nothing.
+func (r readOnlyStore) SnapshotPublication(ctx context.Context) (PublicationSnapshot, error) {
+	return r.fs.SnapshotPublication(ctx)
+}
+
 // LegacyPromptRecords is an optional read capability, like AuditPublication: the prompt records an
 // earlier build's unlinked prompt sidecars may claim (legacy_prompt.go), for `qompack fsck`'s
 // captures row to claim from under the same rule the audit applies.

@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/qompack/qompack/internal/config"
 	"github.com/qompack/qompack/internal/core"
@@ -139,6 +140,10 @@ type PublicationScanCap struct {
 	MaxEntries int
 	// MaxBytes bounds the total bytes read across all sidecar and pending-marker reads.
 	MaxBytes int64
+	// Snapshot, when set, is the instant and the in-memory state the pass accounts for, so the pass
+	// may run while the store serves (SnapshotPublication). It is nil for a pass over a quiet store,
+	// which is what fsck and doctor run.
+	Snapshot *PublicationSnapshot
 }
 
 // DefaultPublicationScanCap is the cap a caller with no reason to choose its own should pass.
@@ -209,6 +214,11 @@ type PublicationAudit struct {
 	// kept rather than silently skipped.
 	LegacyControlCaptures int
 
+	// PostSnapshotEntries counts the capture sidecars, pending-write markers and unindexed object
+	// files a pass with a Snapshot did not classify because they were written at or after the
+	// snapshot: live writes the snapshot does not account for, never a gap and never damage.
+	PostSnapshotEntries int
+
 	// NewerSchemaCaptures counts sidecars declaring a schema NEWER than this build. They are written by
 	// a newer plugin — a support gap (Qompack.md §7.1), never damage — and are not classified, so they
 	// make the pass Incomplete exactly like every other unreadable record. The count exists so a
@@ -277,6 +287,83 @@ var _ PublicationAuditor = (*FSStore)(nil)
 type scanBudget struct {
 	entriesLeft int
 	bytesLeft   int64
+	// snap is the pass's frame of reference when it runs against a snapshot, nil otherwise. It
+	// rides on the budget because the budget is the one value every walk of the pass is handed.
+	snap *PublicationSnapshot
+}
+
+// PublicationSnapshot is the in-memory half of one accounting pass, taken at one instant: which
+// chunks the live index references, the prompt records an earlier build's unlinked prompt sidecars
+// may claim, and the verdict on the in-memory observation bindings. A pass handed one
+// (PublicationScanCap.Snapshot) compares the tree against it rather than against the store's state
+// at the moment each entry is read, and leaves every file written at or after it unclassified, so
+// it accounts for exactly the store as it stood at the snapshot even while the store goes on
+// serving: an in-flight capture, a Put whose root line has not landed, or a chunk GC tombstones
+// mid-pass is then never mistaken for a publication gap.
+//
+// The daemon takes it at startup, after the drain and before it serves anything (V6 close-out
+// D49), so a pass that does not fit the startup bound can finish in the background and still
+// report the startup state.
+type PublicationSnapshot struct {
+	taken    time.Time
+	chunks   map[core.Hash]struct{}
+	legacy   map[LegacyPromptKey]int
+	bindings PublicationAudit
+}
+
+// PublicationSnapshotter is the capability SnapshotPublication is reached through, beside
+// PublicationAuditor.
+type PublicationSnapshotter interface {
+	SnapshotPublication(ctx context.Context) (PublicationSnapshot, error)
+}
+
+var _ PublicationSnapshotter = (*FSStore)(nil)
+
+// SnapshotPublication takes a PublicationSnapshot of the store as it stands now. It reads memory
+// only (the chunk set, the tool-use index and the observation bindings, each under the read lock)
+// and writes nothing. The bindings are audited here, once, because they are the in-memory half:
+// while the store serves, an uncommitted binding is an ordinary observation in flight, not a
+// publication left incomplete.
+func (s *FSStore) SnapshotPublication(ctx context.Context) (PublicationSnapshot, error) {
+	if err := s.use(); err != nil {
+		return PublicationSnapshot{}, err
+	}
+	if err := ctx.Err(); err != nil {
+		return PublicationSnapshot{}, err
+	}
+	snap := PublicationSnapshot{taken: time.Now()}
+	s.mu.RLock()
+	snap.chunks = make(map[core.Hash]struct{}, len(s.chunkSet))
+	for h := range s.chunkSet {
+		snap.chunks[h] = struct{}{}
+	}
+	s.mu.RUnlock()
+	snap.legacy = s.LegacyPromptRecords()
+	s.auditObservationBindings(ctx, &scanBudget{entriesLeft: defaultMaxEntries}, &snap.bindings)
+	return snap, nil
+}
+
+// postSnapshot reports whether a file modified at mod postdates the pass's snapshot. It is always
+// false for a pass without one.
+//
+// Only a time strictly after the snapshot's instant is live work. File times and the wall clock tick
+// together on Windows, so a file written in the last clock tick before the snapshot carries exactly
+// the snapshot's time, and counting that as live work skipped a real residue until the next start
+// (w15-services review). The other side of the tick is safe to classify: the daemon takes its
+// snapshot before it serves anything and keeps requests waiting until the startup pass returns, well
+// over a clock tick later, so nothing it serves writes a file stamped with the snapshot's instant.
+func (b *scanBudget) postSnapshot(mod time.Time) bool {
+	return b.snap != nil && mod.After(b.snap.taken)
+}
+
+// hasChunkFor reports whether h is a live chunk: of the snapshot's index when the pass has one, of
+// the store's loaded index otherwise.
+func (s *FSStore) hasChunkFor(b *scanBudget, h core.Hash) bool {
+	if b.snap != nil {
+		_, ok := b.snap.chunks[h]
+		return ok
+	}
+	return s.indexHasChunk(h)
 }
 
 // AuditPublication walks the capture sidecars and the object tree once, bounded by scanCap, and
@@ -295,11 +382,22 @@ func (s *FSStore) AuditPublication(ctx context.Context, scanCap PublicationScanC
 		return PublicationAudit{}, err
 	}
 	scanCap = scanCap.withDefaults()
-	bud := &scanBudget{entriesLeft: scanCap.MaxEntries, bytesLeft: scanCap.MaxBytes}
+	bud := &scanBudget{entriesLeft: scanCap.MaxEntries, bytesLeft: scanCap.MaxBytes, snap: scanCap.Snapshot}
 
 	var a PublicationAudit
-	s.auditObservationBindings(ctx, bud, &a)
-	s.auditCaptures(ctx, scanCap.MaxCaptures, bud, &a, s.LegacyPromptRecords())
+	var legacy map[LegacyPromptKey]int
+	if snap := scanCap.Snapshot; snap != nil {
+		// The bindings were audited when the snapshot was taken; their verdict is this pass's.
+		for _, n := range snap.bindings.Notes {
+			a.note(n)
+		}
+		a.Truncated = snap.bindings.Truncated
+		legacy = snap.legacy
+	} else {
+		s.auditObservationBindings(ctx, bud, &a)
+		legacy = s.LegacyPromptRecords()
+	}
+	s.auditCaptures(ctx, scanCap.MaxCaptures, bud, &a, legacy)
 	pending := s.pendingObjectChunks(ctx, bud, &a)
 	s.auditObjects(ctx, scanCap.MaxObjects, bud, &a, pending)
 
@@ -427,6 +525,11 @@ func (s *FSStore) classifyCaptureFile(path string, entry os.DirEntry, bud *scanB
 		a.note("capture sidecar unreadable")
 		return true
 	}
+	if bud.postSnapshot(info.ModTime()) {
+		// Written, or rewritten by its publication, after the snapshot: live work, not residue.
+		a.PostSnapshotEntries++
+		return true
+	}
 	if info.Size() > captureSidecarReadLimit {
 		// Read past the limit is the unbounded work this pass forbids; the file is reported, not read.
 		a.note("capture sidecar exceeds the read limit")
@@ -535,7 +638,7 @@ func (s *FSStore) auditObjects(ctx context.Context, maxObjects int, bud *scanBud
 			}
 			leaf := filepath.Join(s.l.Objects, l1.Name(), l2.Name())
 			return s.eachDirEntry(ctx, leaf, bud, a, func(f os.DirEntry) bool {
-				return s.classifyObjectLeaf(f, maxObjects, pending, a)
+				return s.classifyObjectLeaf(f, maxObjects, pending, bud, a)
 			})
 		})
 	})
@@ -544,7 +647,7 @@ func (s *FSStore) auditObjects(ctx context.Context, maxObjects int, bud *scanBud
 // classifyObjectLeaf tallies one object leaf file. It returns false only when the object cap is
 // reached (the signal to stop the phase).
 func (s *FSStore) classifyObjectLeaf(f os.DirEntry, maxObjects int,
-	pending map[core.Hash]struct{}, a *PublicationAudit,
+	pending map[core.Hash]struct{}, bud *scanBudget, a *PublicationAudit,
 ) bool {
 	if isSymlinkish(f) {
 		a.note("symlink or reparse point in the object tree was not traversed")
@@ -565,12 +668,25 @@ func (s *FSStore) classifyObjectLeaf(f os.DirEntry, maxObjects int,
 		a.note("object file name is not a content address")
 		return true
 	}
-	if s.indexHasChunk(h) {
+	if s.hasChunkFor(bud, h) {
 		return true
 	}
 	if _, isPending := pending[h]; isPending {
 		a.PendingObjects++
 		return true
+	}
+	if bud.snap != nil {
+		// Only an object the snapshot's index does not reference pays for a stat: one written after
+		// the snapshot belongs to a Put the snapshot never saw.
+		info, err := f.Info()
+		if err != nil {
+			a.note("object file unreadable")
+			return true
+		}
+		if bud.postSnapshot(info.ModTime()) {
+			a.PostSnapshotEntries++
+			return true
+		}
 	}
 	a.UnindexedObjectCandidates++
 	return true
@@ -630,6 +746,10 @@ func (s *FSStore) pendingObjectChunks(ctx context.Context, bud *scanBudget, a *P
 		info, err := e.Info()
 		if err != nil {
 			a.note("pending-write marker unreadable")
+			return true
+		}
+		if bud.postSnapshot(info.ModTime()) {
+			a.PostSnapshotEntries++
 			return true
 		}
 		if info.Size() > pendingMarkerReadLimit {
