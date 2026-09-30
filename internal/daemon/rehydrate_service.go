@@ -14,6 +14,7 @@ import (
 	"github.com/qompack/qompack/internal/contract"
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/hookio"
+	"github.com/qompack/qompack/internal/hostperm"
 	"github.com/qompack/qompack/internal/logging"
 	"github.com/qompack/qompack/internal/negknow"
 	"github.com/qompack/qompack/internal/obs"
@@ -700,6 +701,8 @@ func WireRehydrator(o *Options) observer.Rehydrator {
 			Skills: skills.New(skills.WithLogger(log)),
 			Tokens: tokens.NewForProject(o.Cfg, tokens.DefaultCalibPath(), o.ProjectRoot),
 			Log:    log,
+			// Section 6 never shows a path re_read would refuse (D50): the same host rules.
+			HostPaths: rehydrateHostPaths(hostPolicyFor(o), o.ProjectRoot, log),
 		},
 		Reporter: rehydrate.NewReporter(o.ProjectRoot, log),
 		Log:      log,
@@ -708,4 +711,50 @@ func WireRehydrator(o *Options) observer.Rehydrator {
 	})
 	BindRehydrate(o, svc)
 	return svc
+}
+
+// hostPolicyFor is o.HostPolicy, or the machine's own rules for the project when none is supplied —
+// the default internal/mcp builds for re_read and expand, so the two judge a path alike.
+func hostPolicyFor(o *Options) *hostperm.Policy {
+	if o.HostPolicy != nil {
+		return o.HostPolicy
+	}
+	return hostperm.New(hostperm.Options{ProjectRoot: o.ProjectRoot})
+}
+
+// rehydrateHostPaths adapts the host's permission policy to rehydrate.HostPaths: one rule snapshot
+// per build, and a path refused when a Read deny or ask rule matches it (an archived rehydration
+// cannot ask), judged as recorded and as the project's resolved root spells it — the two spellings
+// internal/mcp's authorizeHost judges. Rules that cannot be established return nil, and rehydrate
+// then withholds every path, as re_read withholds path-bearing content (fail closed).
+func rehydrateHostPaths(p *hostperm.Policy, root string, log logging.Logger) rehydrate.HostPaths {
+	return func() func(string) bool {
+		rules, err := p.Snapshot()
+		if err != nil {
+			log.Loud("rehydrate: host permission policy unavailable; section 6 withholds every path",
+				"err", err.Error())
+			return nil
+		}
+		if rules.Empty() {
+			return func(string) bool { return false }
+		}
+		resolved := root
+		if r, err := filepath.EvalSymlinks(root); err == nil {
+			resolved = r
+		}
+		return func(path string) bool {
+			abs := path
+			if !filepath.IsAbs(abs) {
+				abs = filepath.Join(root, filepath.FromSlash(path))
+			}
+			if rules.Evaluate(abs).Effect != hostperm.Allow {
+				return true
+			}
+			rel, err := filepath.Rel(root, abs)
+			if err != nil || resolved == root {
+				return false
+			}
+			return rules.Evaluate(filepath.Join(resolved, rel)).Effect != hostperm.Allow
+		}
+	}
 }
