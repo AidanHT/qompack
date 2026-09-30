@@ -1393,8 +1393,9 @@ func (d *daemon) endSession(ctx context.Context, req ipc.Request, drain bool, ow
 }
 
 // handleStatus assembles the StatusSnapshot payload. Nothing here mutates daemon state; every
-// field is read from something already maintained elsewhere (the metrics registry, the monitor,
-// the registry, the cached CheckBudgets result).
+// field is read from something already maintained elsewhere (the metrics registry, the monitor
+// refreshed from state/history.json by contractSnapshot, the registry, the cached CheckBudgets
+// result).
 func (d *daemon) handleStatus(ctx context.Context, req ipc.Request) ipc.Response {
 	snap := d.m.Snapshot()
 	latency := make(map[string]obs.HistSnapshot, len(obs.Budgets())+1)
@@ -1422,7 +1423,7 @@ func (d *daemon) handleStatus(ctx context.Context, req ipc.Request) ipc.Response
 
 	snapshot := StatusSnapshot{
 		Mode:       d.monitor.Mode().String(),
-		Contract:   d.monitor.Report(),
+		Contract:   d.contractSnapshot(ctx),
 		Hot:        hotModeString(d.registry.HotMode()),
 		Sessions:   d.registry.Snapshot(),
 		Latency:    latency,
