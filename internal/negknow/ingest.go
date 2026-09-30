@@ -199,18 +199,18 @@ func (l *ledger) latestRoot(ctx context.Context, key string) (core.Hash, bool) {
 //
 // An unparseable value is a WARNING and not an error: the caller of an MCP tool or a slash command
 // has already done the work of eliminating something, and refusing to record it over a typo in an
-// enum would lose the elimination entirely. l.elim was normalized at Open, so the fallback is
+// enum would lose the elimination entirely. elims() is normalized, so the fallback is
 // always one of the two real scopes.
 func (l *ledger) resolveScope(s string) (Scope, []string) {
 	switch Scope(s) {
 	case ScopeSession, ScopeProject:
 		return Scope(s), nil
 	case "":
-		return Scope(l.elim.DefaultScope), nil
+		return Scope(l.elims().DefaultScope), nil
 	default:
-		return Scope(l.elim.DefaultScope), []string{fmt.Sprintf(
+		return Scope(l.elims().DefaultScope), []string{fmt.Sprintf(
 			"scope %q is neither %q nor %q; using %q",
-			s, ScopeSession, ScopeProject, l.elim.DefaultScope)}
+			s, ScopeSession, ScopeProject, l.elims().DefaultScope)}
 	}
 }
 
@@ -228,7 +228,7 @@ func (l *ledger) resolveScope(s string) (Scope, []string) {
 // and whether that trade is acceptable is exactly what the configuration key decides.
 func (l *ledger) mintEvidence(ctx context.Context, text string) (core.Hash, error) {
 	if l.deps.Store == nil {
-		if l.elim.RequireEvidence {
+		if l.elims().RequireEvidence {
 			l.m.Counter(counterRejectedNoEvidence).Add(1)
 			return core.Hash{}, fmt.Errorf("%w: no store to mint one from", ErrNoEvidence)
 		}
@@ -240,7 +240,7 @@ func (l *ledger) mintEvidence(ctx context.Context, text string) (core.Hash, erro
 		Ephemeral: false,
 	})
 	if err != nil {
-		if l.elim.RequireEvidence {
+		if l.elims().RequireEvidence {
 			l.m.Counter(counterRejectedNoEvidence).Add(1)
 			return core.Hash{}, fmt.Errorf("%w: %w", ErrNoEvidence, err)
 		}
