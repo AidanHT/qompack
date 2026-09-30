@@ -45,8 +45,13 @@ result text `expand` and `re_read` return: the JSON body with its content escape
 only the content. When the content does not fit, the response is cut, `truncated` is
 `true`, and `next_span` continues exactly where it stopped; pass it back as `span`, which
 takes precedence over `full` (`re_read` takes no `span`: continue a `re_read` page
-with `expand` and the response's `hash`). A page never ends inside a multi-byte
-character. The JSON-RPC line that carries a result adds the transport's own framing.
+with `expand` and the response's `hash`). `truncated` is `true` exactly when the
+page stops before the object's end, and such a page always carries `next_span`; the
+page that reaches the end is not truncated, wherever it started. An explicit `span` is
+read the way `full: true` reads the whole object, over the range it names: the same
+cut, and a `next_span` that covers the rest of that range. A page never ends inside a
+multi-byte character. The JSON-RPC line that carries a result adds the transport's own
+framing.
 Only `expand` and `re_read` are measured against this key: `recall`, `already_tried`,
 `record_eliminated`, `timeline`, `why` and `dropped` results are not.
 
