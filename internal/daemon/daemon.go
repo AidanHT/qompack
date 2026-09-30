@@ -303,6 +303,10 @@ type daemon struct {
 	// the bound short enough to prove the background pass on any machine.
 	publicationBound time.Duration
 
+	// capture counts the capture work in flight, which the startup publication pass steps aside
+	// for (publication_audit.go, captureGate; V6 close-out D51).
+	capture captureGate
+
 	// compactGates holds each session's next observer work until the compact SessionStart
 	// bookkeeping the route did not wait for has finished (session_start_compact.go).
 	compactGates compactGates
@@ -990,11 +994,17 @@ func (d *daemon) drainConfig() DrainConfig {
 // has fully started a drainer only in the sense that a nil drainer reports (0, nil) — Run always
 // constructs one before its own startup Drain call, and admin.drain / the flush and idle routes
 // only ever run once Run has.
+//
+// A drain is capture work for its whole pass (V6 close-out D51, captureGate): between the deliveries
+// it hands to runIngested it reads spool segments and appends fsynced lease-journal records, the
+// session I/O the startup publication pass must not run beside.
 func (d *daemon) Drain(ctx context.Context) (int, error) {
 	dr := d.drain.Load()
 	if dr == nil {
 		return 0, nil
 	}
+	d.capture.enter()
+	defer d.capture.leave()
 	return dr.Drain(ctx)
 }
 
@@ -1003,6 +1013,9 @@ func (d *daemon) Drain(ctx context.Context) (int, error) {
 // sentinel scan. It is also drainer.Dispatch's underlying function, wrapped as dispatchOp so a
 // drained line gets exactly the same handling a live request would.
 func (d *daemon) runIngested(ctx context.Context, req ipc.Request) ipc.Response {
+	// Applying a delivery is capture work: the publication pass waits it out (D51).
+	d.capture.enter()
+	defer d.capture.leave()
 	// Publication order stage 1 — the sidecar — has already run by the time this is reached, so
 	// the evidence is durable. Stage 2 is the observation, and a delivery that carries a
 	// classified capture but no derived Event has none to publish: acknowledge it so the durable

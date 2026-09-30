@@ -245,7 +245,11 @@ func (d *daemon) lookAtClientSpools(ctx context.Context, entries map[string]*spo
 		// budget runs out keeps its own drainLineDeadline and is published.
 		pass, budget := newPassBudget(ctx, idleRunBudget)
 		if dr := d.drain.Load(); dr != nil {
-			if _, perr := dr.DrainClientSpools(pass); perr != nil && ctx.Err() == nil {
+			// The pass is capture work, as every drain is (Drain, V6 close-out D51).
+			d.capture.enter()
+			_, perr := dr.DrainClientSpools(pass)
+			d.capture.leave()
+			if perr != nil && ctx.Err() == nil {
 				d.log.Debug("daemon: a client-spool pass ended early", "err", perr)
 			}
 		}

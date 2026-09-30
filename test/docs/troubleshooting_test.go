@@ -1,6 +1,8 @@
 package docs
 
 import (
+	"io/fs"
+	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -151,13 +153,15 @@ func TestTroubleshootingNamesEveryContractAssertion(t *testing.T) {
 	}
 }
 
-// configReferenceSectionLinks are the three compatibility sections Commit 2's generator emits.
-// The page must send a reader to the generated page rather than restate a table that would drift
-// from it; TestRelativeLinksResolve then proves each anchor still exists.
+// configReferenceSectionLinks are the three compatibility sections Commit 2's generator emits, and
+// the reload section it gained with V6 close-out D51. The page must send a reader to the generated
+// page rather than restate a table that would drift from it; TestRelativeLinksResolve then proves
+// each anchor still exists.
 var configReferenceSectionLinks = []string{
 	"config-reference.md#versioned-blocks",
 	"config-reference.md#gated-switches-ship-off",
 	"config-reference.md#retired-meaning-keys",
+	"config-reference.md#reloading-the-configuration",
 }
 
 // TestTroubleshootingLinksConfigReferenceSections fails if the configuration section stops
@@ -169,6 +173,142 @@ func TestTroubleshootingLinksConfigReferenceSections(t *testing.T) {
 	for _, want := range configReferenceSectionLinks {
 		if !strings.Contains(body, "("+want+")") {
 			t.Errorf("%s: does not link %s", troubleshootingRel, want)
+		}
+	}
+}
+
+// reloadKeyRowRe matches one row of internal/daemon/reload_keys.go's reloadKeyEffects and captures
+// its key prefix and effect:
+//
+//	{"runtime.telemetry", effectInert, "hardwired off; Validate refuses true"},
+var reloadKeyRowRe = regexp.MustCompile(`^\s*\{"([A-Za-z0-9.]+)", (effect[A-Za-z]+),`)
+
+// reloadNoEffectSection is the heading of the page's entry for a config change that did not take
+// effect, the one place it names the keys that have no effect in this build.
+const reloadNoEffectSection = "### A config change that did not take effect"
+
+// TestTroubleshootingNamesExactlyTheNoEffectReloadKeys ties the page's list of keys with no effect in
+// this build (V6 close-out D51) to the daemon's reload table, in both directions: every key
+// reload_keys.go classifies effectInert is named in a code span in that entry, and no key the table
+// gives another effect is. A key that gains a reader, or one that loses its last, fails here until
+// the page says so.
+func TestTroubleshootingNamesExactlyTheNoEffectReloadKeys(t *testing.T) {
+	effects := map[string]string{}
+	for _, l := range sourceLines(t, "internal/daemon/reload_keys.go") {
+		if m := reloadKeyRowRe.FindStringSubmatch(l); m != nil {
+			effects[m[1]] = m[2]
+		}
+	}
+	if len(effects) == 0 {
+		t.Fatal("internal/daemon/reload_keys.go: no reloadKeyEffects rows matched: the declaration shape changed")
+	}
+
+	var section []string
+	in := false
+	for _, l := range defenced(t, troubleshootingPath(t)) {
+		if text, level, ok := headingText(l); ok {
+			if in && level <= 3 {
+				break
+			}
+			in = "### "+text == reloadNoEffectSection
+			continue
+		}
+		if in {
+			section = append(section, l)
+		}
+	}
+	if len(section) == 0 {
+		t.Fatalf("%s: no %q entry", troubleshootingRel, reloadNoEffectSection)
+	}
+
+	for key, effect := range effects {
+		named := codeSpan(section, key)
+		switch {
+		case effect == "effectInert" && !named:
+			t.Errorf("%s: %q does not name %s, which has no effect in this build", troubleshootingRel,
+				reloadNoEffectSection, key)
+		case effect != "effectInert" && named:
+			t.Errorf("%s: %q names %s as having no effect, but reload_keys.go gives it %s",
+				troubleshootingRel, reloadNoEffectSection, key, effect)
+		}
+	}
+}
+
+// adminReloadNoCommandClaim is what both pages that describe the reload say about admin.reload: it is
+// an IPC op no qompack subcommand sends in this build, so a reader is not sent looking for a command
+// that does not exist (w15c-pubscan review). The reload a reader can see is the one an edit of the
+// file starts, with its LOUD lines and its `config reloaded` line.
+const adminReloadNoCommandClaim = "no `qompack` subcommand sends `admin.reload` in this build"
+
+// adminReloadCommandDirs are where a qompack subcommand would send admin.reload from.
+var adminReloadCommandDirs = []string{"cmd", "internal/cli"}
+
+// adminReloadPages are the pages that describe the reload, and the heading of the part that does.
+var adminReloadPages = []struct{ rel, heading string }{
+	{troubleshootingRel, reloadNoEffectSection},
+	{"docs/config-reference.md", "## Reloading the configuration"},
+}
+
+// docSection returns the lines under heading, fenced blocks blanked, up to the next heading of its
+// level or higher.
+func docSection(t *testing.T, path, heading string) []string {
+	t.Helper()
+	var section []string
+	in := false
+	level := strings.IndexByte(heading, ' ')
+	for _, l := range defenced(t, path) {
+		if text, lv, ok := headingText(l); ok {
+			if in && lv <= level {
+				break
+			}
+			if strings.Repeat("#", lv)+" "+text == heading {
+				in = true
+				continue
+			}
+		}
+		if in {
+			section = append(section, l)
+		}
+	}
+	return section
+}
+
+// TestAdminReloadIsDescribedAsAnOpWithoutACommand holds the pages' claim to the code in both
+// directions: no non-test source of a qompack subcommand names the admin.reload op, and both pages
+// that describe the reload say so. A subcommand that starts sending it fails the first half until
+// the pages (and this test) say how to run it.
+func TestAdminReloadIsDescribedAsAnOpWithoutACommand(t *testing.T) {
+	root := repoRoot(t)
+	for _, dir := range adminReloadCommandDirs {
+		err := filepath.WalkDir(filepath.Join(root, filepath.FromSlash(dir)),
+			func(path string, e fs.DirEntry, err error) error {
+				if err != nil || e.IsDir() || !strings.HasSuffix(path, ".go") ||
+					strings.HasSuffix(path, "_test.go") {
+					return err
+				}
+				b, err := os.ReadFile(path)
+				if err != nil {
+					return err
+				}
+				if src := string(b); strings.Contains(src, "OpAdminReload") ||
+					strings.Contains(src, `"admin.reload"`) {
+					t.Errorf("%s sends admin.reload: the pages say no qompack subcommand does; say how to "+
+						"run it and update adminReloadNoCommandClaim", path)
+				}
+				return nil
+			})
+		if err != nil {
+			t.Fatalf("walk %s: %v", dir, err)
+		}
+	}
+
+	for _, p := range adminReloadPages {
+		section := docSection(t, filepath.Join(root, filepath.FromSlash(p.rel)), p.heading)
+		if len(section) == 0 {
+			t.Fatalf("%s: no %q section", p.rel, p.heading)
+		}
+		if !strings.Contains(normalized(strings.Join(section, "\n")), adminReloadNoCommandClaim) {
+			t.Errorf("%s: %q does not say %q", p.rel, p.heading, adminReloadNoCommandClaim)
 		}
 	}
 }

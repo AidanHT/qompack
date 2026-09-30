@@ -604,6 +604,38 @@ in a build where its gate had passed is refused in one where it has not), and
 no longer meaning what the old documentation said). Then run `qompack self-test`, read
 `config.capture`, and confirm a hook records, per the action above.
 
+### A config change that did not take effect
+
+**Symptom.** You edited `.qompack/config.json` while a daemon was running, and the daemon still
+behaves as it did before.
+
+**Diagnose.** Read `LOUD.log` (or `qompack status`'s recent loud lines) after the change. The running
+daemon reloads the configuration when the project's `config.json` changes, at the next session start
+or idle tick, and a key it did not apply is named there, in the `keys` field of one of two lines:
+
+```
+daemon: config change needs a daemon restart to take effect; the running daemon keeps the value it started with
+daemon: config change has no effect in this build; nothing reads these keys, before or after a restart
+```
+
+The day log's `config reloaded` line lists the keys the reload applied, under `changed`. Those lines
+are the reload you can see. The daemon also has an `admin.reload` request, which reloads whether or
+not the file changed and answers with the same three lists (`changed`, `restart_required` and
+`no_effect`), but it is an IPC op only: no `qompack` subcommand sends `admin.reload` in this build.
+
+**Meaning.** Every key the reload lists as changed is in effect when it returns. A key named as
+needing a restart is held by something the daemon built when it started: the daemon keeps the value
+it started with, and the next daemon applies the new one. A key named as having no effect is read by
+nothing in 0.3.0, before or after a restart: `runtime.logging`, `runtime.selection.loopWarningsEnabled`,
+`runtime.telemetry`, `selection.deltaScoring` and `selection.submodular.lazyGreedy`. Which key is
+which is tabulated, generated from the daemon's own table, in
+[Reloading the configuration](config-reference.md#reloading-the-configuration).
+
+**Action.** For a key needing a restart, let the daemon exit when idle (the entry "A daemon is running
+and you want it to stop" in §7) and let the next hook start a new one, which loads the whole
+configuration. For a key with no effect, there is nothing to apply: remove it, or leave it and expect
+the line again at each change of the file.
+
 ## 7. Daemon problems
 
 **Symptom.** `qompack admin delivery-seal` refuses to run.
