@@ -99,8 +99,10 @@ type recallBody struct {
 	Found bool        `json:"found"`
 	Query recallQuery `json:"query"`
 	// Denied counts hits the search actually matched but whose stored path failed authorization
-	// before the preview was built (T13-TRUST). It is reported explicitly, never left for the
-	// caller to infer from a shorter-than-expected hit list, and it never names which paths.
+	// before the preview was built (T13-TRUST): those ranked ahead of the last hit returned, or every
+	// one when fewer than k permitted hits exist. A withheld hit never takes a permitted one's place
+	// among the k (D49). It is reported explicitly, never left for the caller to infer from a
+	// shorter-than-expected hit list, and it never names which paths.
 	Denied int `json:"denied,omitempty"`
 	// SummariesWithheld says every summary was suppressed because this build wired no retrieval
 	// -side Redactor, and Reason says why in one sentence.
@@ -135,8 +137,16 @@ func (h *handlers) recall(ctx context.Context, _ Request, raw json.RawMessage) (
 		// returned a confident, meaningless hit list; `qompack recall` refuses it as a usage error.
 		return errResponse(recallEmptyQueryMsg), nil
 	}
+	// The caller's k counts PERMITTED hits (D49). Authorization can only run on what the search
+	// returned, so the search is asked for the whole ranked answer the store gives (MaxSearchK, twice
+	// the schema's largest k) and the loop below takes permitted hits from it until k are in hand.
+	// Asking the store for exactly k made every withheld hit cost the caller one it was entitled to.
+	k := a.K
+	if k <= 0 {
+		k = store.DefaultSearchK
+	}
 	hits, err := h.store.Search(ctx, store.Query{
-		Text: q.Text, Path: q.Path, Symbol: q.Symbol, Tool: q.Tool, K: a.K,
+		Text: q.Text, Path: q.Path, Symbol: q.Symbol, Tool: q.Tool, K: store.MaxSearchK,
 	})
 	if err != nil && !errors.Is(err, core.ErrNotFound) {
 		h.log.Warn("mcp: recall search failed", "err", err.Error())
@@ -154,10 +164,15 @@ func (h *handlers) recall(ctx context.Context, _ Request, raw json.RawMessage) (
 			"tool", ToolRecall, "hits", len(hits))
 	}
 
-	out := make([]RecallHit, 0, len(hits))
+	out := make([]RecallHit, 0, min(k, len(hits)))
 	var deniedCount int
 	var hostUnavailable bool
-	for _, hit := range hits {
+	for _, hit := range selfRecordsLast(hits) {
+		if len(out) == k {
+			// Denied counts the withheld hits that ranked ahead of the last one returned: the ones
+			// this answer was actually made from, not the tail nobody would have been shown.
+			break
+		}
 		// Authorization runs BEFORE the preview is built, over every hit the search actually
 		// matched — a hash or a stored path is never itself proof that this hit may be shown
 		// (T13-TRUST). A hit that fails is omitted rather than rendered with its summary redacted:
