@@ -119,12 +119,10 @@ func (d *daemon) reloadConfigKeys(ctx context.Context, env config.Env, force boo
 		}
 	}
 	if len(restart) > 0 {
-		d.log.Loud("daemon: config change needs a daemon restart to take effect; the running daemon keeps the value it started with",
-			"keys", restart)
+		d.log.Loud(LoudReloadNeedsRestart, "keys", restart)
 	}
 	if len(inert) > 0 {
-		d.log.Loud("daemon: config change has no effect in this build; nothing reads these keys, before or after a restart",
-			"keys", inert)
+		d.log.Loud(LoudReloadNoEffect, "keys", inert)
 	}
 
 	changed := diffDottedKeys(oldCfg, finalCfg)

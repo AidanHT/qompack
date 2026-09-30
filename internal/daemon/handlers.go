@@ -1484,7 +1484,7 @@ func (d *daemon) handleAdminDrain(ctx context.Context, req ipc.Request) ipc.Resp
 func (d *daemon) handleAdminReload(ctx context.Context, req ipc.Request) ipc.Response {
 	res, err := d.reloadConfigKeys(ctx, d.cfgEnv, true)
 	data, _ := json.Marshal(map[string]any{
-		"changed": res.Changed, "restart_required": res.Restart, "no_effect": res.NoEffect,
+		AdminReloadChanged: res.Changed, AdminReloadRestartRequired: res.Restart, AdminReloadNoEffect: res.NoEffect,
 	})
 	if err != nil {
 		return ipc.Response{OK: false, Err: err.Error(), Data: data}
