@@ -38,7 +38,10 @@ import (
 //  1. It never probes the host. §7.5 is explicit that repository JSON parsing alone does not
 //     validate an installed plugin, so every capability row cites the evidence register and the
 //     observation ledger rather than asserting an installed-host fact, and the Claude CLI row says
-//     plainly that it was not probed.
+//     plainly that it was not probed. A ledger entry the session's start left pending is read
+//     against state/history.json, which records the MCP handshake and the probe's delivery or its
+//     spent chances after the start (D50, contract.RefreshObservation); that too is a record the
+//     daemon kept, not a probe.
 //  2. It never creates a project. An absent `.qompack` is a REPORTED FACT
 //     (qompack_commands.go's READ-ONLY DISCIPLINE block), which is also why it loads configuration
 //     through config.Load directly rather than LoadConfigAndReport: that helper persists the
@@ -79,7 +82,9 @@ type doctorRow struct {
 	Status   string `json:"status"`
 	Observed string `json:"observed"`
 	Detail   string `json:"detail,omitempty"`
-	// Coverage is rendered EXACTLY as the observation ledger stored it, and is never "complete".
+	// Coverage is the observation ledger's newest entry's, or its refresh from state/history.json
+	// (D50, contract.RefreshObservation), derived by contract.ObservationsOf's rules either way; it
+	// is never "complete".
 	Coverage string      `json:"coverage,omitempty"`
 	Gate     *doctorGate `json:"gate,omitempty"`
 }
@@ -590,9 +595,15 @@ func (s *doctorState) capabilityRow(c contract.Capability, rec contract.Capabili
 		Observed: fmt.Sprintf("%s, enabled=%t", rec.Status, rec.Enabled),
 	}
 	if obsv, found := doctorNewestObservation(s.ledger, c); found {
+		// The ledger is written at SessionStart, before the MCP handshake and the probe's delivery
+		// can be seen; history.json records both when they happen, and the newest word is that (D50).
+		obsv, fromHistory := contract.RefreshObservation(obsv, s.history, s.register, s.clk)
 		row.Coverage = obsv.Coverage
 		detail += fmt.Sprintf("; newest observation: outcome %s, scope %q, ts %d",
 			obsv.Outcome, obsv.Scope, obsv.TS)
+		if fromHistory {
+			detail += " (read from state/history.json; the ledger's entry from the session's start was not_observed)"
+		}
 	} else {
 		detail += "; no observation"
 	}

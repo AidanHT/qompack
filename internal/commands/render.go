@@ -98,24 +98,43 @@ func renderSnapshot(rw *errWriter, s DaemonStatus) {
 // contract.Result carries Expected and Observed precisely so a degraded session can lead with what
 // the host promised next to what was actually seen (internal/contract's own doc comment says so).
 // A count of failures without that pair tells a user something is wrong and nothing about what.
+//
+// A row that is not failing is not therefore holding (contract.StandingOf): one still waiting for
+// its observation is pending, and one with nothing to judge is neither. "all holding" is printed
+// only when every row reports something actually seen; otherwise the banner counts the three and
+// names each pending row with what it is waiting on. The candidate 4 live re-run read "9
+// assertion(s), all holding" beside two rows still pending (UAT-01, D50).
 func renderContract(rw *errWriter, results []contract.Result) {
 	if len(results) == 0 {
 		rw.printf("host contract: no assertions reported\n\n")
 		return
 	}
 
-	failed := make([]contract.Result, 0, len(results))
+	var failed, pending []contract.Result
+	holding, idle := 0, 0
 	for _, r := range results {
-		if !r.OK {
+		switch contract.StandingOf(r) {
+		case contract.StandingFailing:
 			failed = append(failed, r)
+		case contract.StandingPending:
+			pending = append(pending, r)
+		case contract.StandingIdle:
+			idle++
+		default:
+			holding++
 		}
 	}
-	if len(failed) == 0 {
+	if holding == len(results) {
 		rw.printf("host contract: %d assertion(s), all holding\n\n", len(results))
 		return
 	}
 
-	rw.printf("host contract: %d of %d assertion(s) FAILING\n", len(failed), len(results))
+	counts := fmt.Sprintf("%d holding, %d pending, %d with nothing to judge", holding, len(pending), idle)
+	if len(failed) == 0 {
+		rw.printf("host contract: %d assertion(s), none failing: %s\n", len(results), counts)
+	} else {
+		rw.printf("host contract: %d of %d assertion(s) FAILING; %s\n", len(failed), len(results), counts)
+	}
 	for _, r := range failed {
 		rw.printf("  %s (%s)\n", r.ID, severityText(r.Severity))
 		rw.printf("    expected: %s\n", orUnknown(r.Expected))
@@ -125,6 +144,9 @@ func renderContract(rw *errWriter, results []contract.Result) {
 				rw.printf("    %s\n", line)
 			}
 		}
+	}
+	for _, r := range pending {
+		rw.printf("  pending: %s (%s)\n", r.ID, r.Observed)
 	}
 	rw.printf("\n")
 }
