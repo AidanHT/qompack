@@ -598,8 +598,11 @@ func WireRehydrator(o *Options) observer.Rehydrator {
 				ledger = existing
 				return
 			}
+			// Ancestry reads the lineage records, so a fork's already_tried and rehydration see its
+			// parent's session-scoped eliminations up to the fork point (D49, F-C4-UAT06-1).
 			l, err := negknow.Open(o.ProjectRoot, o.Cfg, nil, negknow.Deps{
 				Store: o.Store, Graph: o.Graph, Log: log, Metrics: o.Metrics, Clock: clk,
+				Ancestry: checkpoint.LedgerAncestry(o.ProjectRoot),
 			})
 			if err != nil {
 				log.Loud("daemon: negative-knowledge ledger unavailable; eliminations will not be rehydrated",

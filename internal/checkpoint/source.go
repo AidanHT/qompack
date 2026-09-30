@@ -179,6 +179,10 @@ type Draft struct {
 	// fork is the intent this session inherits as a fork of another (lineage.go), or nil. It is
 	// resolved at Begin — fresh or resumed — from the lineage record and the parent checkpoint.
 	fork *forkIntent
+	// inherit is the negative knowledge this session inherits through its lineage (Ancestry,
+	// D49): the ancestors whose session-scoped eliminations up to the fork point the draft carries
+	// (carriedBy) and mints decisions from. Resolved at Begin, fresh, live or resumed.
+	inherit []negknow.Inherited
 }
 
 // Ref is the durable reference to one finalized checkpoint artifact (00-ARCHITECTURE.md §5.14):

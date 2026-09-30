@@ -157,7 +157,7 @@ func MintDecisionID(what, why string, evidence core.Hash) core.DecisionID {
 // with a Warn, and a failed emission is logged and ignored. Only a SourceSet.Validate failure or
 // a ctx cancellation returns an error.
 func ExtractDecisions(ctx context.Context, src SourceSet, from core.TurnIndex) ([]Decision, error) {
-	cands, err := extractDecisions(ctx, src, from, "")
+	cands, err := extractDecisions(ctx, src, from, "", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -180,19 +180,37 @@ func ExtractDecisions(ctx context.Context, src SourceSet, from core.TurnIndex) (
 // from-turn cut, because a foreign record's node turn is in that session's numbering and says
 // nothing about where this session's segments start. The candidates come back with that
 // classification so the draft's merge can keep the same order across passes.
-func extractDecisions(ctx context.Context, src SourceSet, from core.TurnIndex, s core.SessionID) ([]decisionCandidate, error) {
+//
+// inherit is what s inherits as a fork (Ancestry, D49): its ancestors' session-scoped records up to
+// the fork point are carried and minted too, as foreign ones, since another session made them.
+func extractDecisions(ctx context.Context, src SourceSet, from core.TurnIndex, s core.SessionID,
+	inherit []negknow.Inherited,
+) ([]decisionCandidate, error) {
 	if err := src.Validate(); err != nil {
 		return nil, err
 	}
-	x := &decisionExtractor{src: src, from: from, session: s, texts: make(map[core.Hash]string)}
+	x := &decisionExtractor{src: src, from: from, session: s, inherit: inherit, texts: make(map[core.Hash]string)}
 	return x.run(ctx)
 }
 
-// carriedBy reports whether r belongs in session s's checkpoint: its own records, and every
-// project-scoped one (§8.3 item 5). It is the one statement of the rule the draft's eliminated[]
-// and its elimination-sourced decisions both follow.
-func carriedBy(r negknow.Record, s core.SessionID) bool {
-	return r.Session == s || r.Scope == negknow.ScopeProject
+// carriedBy reports whether r belongs in session s's checkpoint: its own records, every
+// project-scoped one (§8.3 item 5), and — for a fork — the session-scoped records its ancestors
+// made up to the fork point (inherit, D49), which keep their own session. It is the one statement
+// of the rule the draft's eliminated[] and its elimination-sourced decisions both follow, and the
+// ledger's own visibility rule for already_tried (negknow's viewer) is the same.
+func carriedBy(r negknow.Record, s core.SessionID, inherit []negknow.Inherited) bool {
+	return r.Session == s || r.Scope == negknow.ScopeProject || inheritedBy(r, inherit)
+}
+
+// inheritedBy reports whether r is a session-scoped record one of inherit's ancestors made at or
+// before the moment the conversation left it.
+func inheritedBy(r negknow.Record, inherit []negknow.Inherited) bool {
+	for _, a := range inherit {
+		if r.Session == a.Session && r.TS <= a.Until {
+			return true
+		}
+	}
+	return false
 }
 
 // decisionCandidate pairs a derived Decision with the node its evidence lives at, which the DAG
@@ -221,6 +239,8 @@ type decisionExtractor struct {
 	// session, when set, restricts source (b) to the records carriedBy it and marks the ones
 	// another session made foreign (D46).
 	session core.SessionID
+	// inherit is what session inherits as a fork (Ancestry, D49).
+	inherit []negknow.Inherited
 	texts   map[core.Hash]string
 }
 
@@ -362,7 +382,7 @@ func (x *decisionExtractor) fromEliminations(ctx context.Context, cands []decisi
 		if err := ctx.Err(); err != nil {
 			return nil, extractInterrupted(err)
 		}
-		if x.session != "" && !carriedBy(r, x.session) {
+		if x.session != "" && !carriedBy(r, x.session, x.inherit) {
 			continue
 		}
 		foreign := x.session != "" && r.Session != x.session
