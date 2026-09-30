@@ -108,32 +108,31 @@ func entryFor(t *testing.T, l negknow.Ledger, target, approach string) threeWayE
 }
 
 // threeWayOverSeed materializes seed into a fresh project and renders the three-way answer
-// document the live ledger produces over it.
+// document the live ledger produces over it, adopting the filter a previous session left on disk.
 //
-// THE FIXTURE PINS THE ADOPTED-FILTER PATH, DELIBERATELY, AND A COLD OPEN OVER THE SAME SEED
-// WOULD NOT REPRODUCE IT. Stated plainly because it is the one thing about this fixture a reader
-// could otherwise get wrong: hand negknow.Open a nil bloom over input/ledger_seed.jsonl and the
-// "stale" entry comes back ABSENT, not stale. That is not a bug in either the ledger or the
-// fixture — it is §3.3's rebuild-from-active-records-only rule doing exactly what it says. A cold
-// Open finds no tried.bloom on disk, rebuilds it from visibleActive(), and the seed's stale record
-// is not active, so its key is not in the filter Query then tests. The stale third way is
-// unreachable from a cold start by design, and that is the same mechanism
-// runBloomRebuildActiveOnlyCase asserts as a feature: a stale elimination reopens the question it
-// once closed.
-//
-// What a real session does is the other order, and it is the order this fixture models. The
-// previous process rebuilt tried.bloom while the record was still active; the flip then appended
-// its control line; eliminations.rebuildOnStale is "nextIdle", so the rebuild that flip owed never
-// ran before the session ended; and the next process starts by ADOPTING the filter left on disk —
+// The fixture pins the ADOPTED-FILTER path, which is what a real session does: the previous
+// process rebuilt tried.bloom while the record was still active; the flip then appended its
+// control line; eliminations.rebuildOnStale is "nextIdle", so the rebuild that flip owed never ran
+// before the session ended; and the next process starts by ADOPTING the filter left on disk —
 // which is precisely what Open's b parameter is for ("the filter to adopt — the daemon has usually
 // loaded it already"). So the bloom handed to Open here holds exactly the keys that previous
 // session's rebuild would have written: both project-scoped records, and not the foreign session's
 // session-scoped one, which was never visible to it.
 //
-// The consequence worth carrying forward to SP-11 and SP-13: §8.3's stale answer is reachable only
-// between a staleness flip and the next rebuild. A record that was already stale in the log when
-// the filter was last rebuilt answers absent, and the re-verification note is gone.
+// A COLD Open over the same seed — no filter on disk, so Open rebuilds one from the records — must
+// render the same bytes, and TestThreeWayAnswerFixture_ColdOpen holds it to that. It used not to:
+// the rebuild drew on active records only, so the seed's stale record fell out of the filter and
+// its "stale" entry came back ABSENT, which is how a stale elimination answered absent after every
+// daemon restart (R4-1 of the candidate 4 live re-run). Coordinator decision D49 made the filter
+// cover every record, active and stale: a record goes stale, never absent.
 func threeWayOverSeed(t *testing.T, seed []byte) threeWayDoc {
+	t.Helper()
+	return threeWayOverSeedWith(t, seed, true)
+}
+
+// threeWayOverSeedWith is threeWayOverSeed, adopting the previous session's filter when adopt is
+// set and opening cold — Open loads or rebuilds tried.bloom itself — when it is not.
+func threeWayOverSeedWith(t *testing.T, seed []byte, adopt bool) threeWayDoc {
 	t.Helper()
 	p := testutil.NewProject(t)
 
@@ -148,6 +147,9 @@ func threeWayOverSeed(t *testing.T, seed []byte) threeWayDoc {
 		}
 		b.Add(r.Desc.Key())
 		b.Add(r.Desc.MatchKey())
+	}
+	if !adopt {
+		b = nil
 	}
 
 	l, err := negknow.Open(p.Root, p.Cfg, b, negknow.Deps{
@@ -237,6 +239,20 @@ func TestThreeWayAnswerFixture(t *testing.T) {
 
 	// LF-normalized: the fixture is committed with LF endings, and a checkout under
 	// core.autocrlf=true would otherwise fail this on line endings rather than on content.
+	require.Equal(t, lf(want), lf(got))
+}
+
+// TestThreeWayAnswerFixture_ColdOpen: a ledger that opens with no filter to adopt answers the
+// frozen seed exactly as the adopted-filter path does. Its stale entry is the D49 row: the rebuild
+// Open performs keeps the stale record's keys, so the record answers stale and not absent.
+func TestThreeWayAnswerFixture_ColdOpen(t *testing.T) {
+	seed, want, frozen := testutil.ContractFixture(t, "negknow", "three_way_answer")
+	if !frozen {
+		t.Skip(testutil.NotRecordedSkip)
+	}
+	require.NotEmpty(t, seed, "the frozen fixture names an input seed")
+
+	got := renderThreeWay(t, threeWayOverSeedWith(t, seed, false))
 	require.Equal(t, lf(want), lf(got))
 }
 

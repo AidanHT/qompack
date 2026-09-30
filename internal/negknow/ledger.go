@@ -83,7 +83,7 @@ type Health struct {
 
 // Ledger is the negative-knowledge elimination store's full seam (00-ARCHITECTURE.md §5.10):
 // recording eliminations, answering the three-way already_tried question, tracking staleness
-// against the store's current file versions, and rebuilding tried.bloom from active records only.
+// against the store's current file versions, and rebuilding tried.bloom from the records.
 type Ledger interface {
 	// Record appends r to records/eliminations.jsonl and updates tried.bloom, returning r's
 	// assigned ID.
@@ -101,9 +101,10 @@ type Ledger interface {
 	// RefreshStaleness compares every active record's depends_on hashes against s's current file
 	// versions and flips changed ones to stale. It returns the flipped ids.
 	RefreshStaleness(ctx context.Context, s store.Store) ([]string, error)
-	// RebuildBloom rebuilds tried.bloom from ACTIVE RECORDS ONLY — never from a checkpoint, never
-	// from context (00-ARCHITECTURE.md §3.3, §13 invariant 2). It resizes if
-	// sketch.Bloom.ResizeTarget says so.
+	// RebuildBloom rebuilds tried.bloom from the RECORDS, active and stale — never from a
+	// checkpoint, never from context (00-ARCHITECTURE.md §3.3, §13 invariant 2; coordinator
+	// decision D49 widened "active records only", so a record goes stale and never absent). It
+	// resizes if sketch.Bloom.ResizeTarget says so.
 	RebuildBloom(ctx context.Context) (*sketch.Bloom, Health, error)
 	// Health reports the ledger's current size and bloom saturation.
 	Health() Health
@@ -619,7 +620,8 @@ func (l *ledger) newConfiguredBloom() *sketch.Bloom {
 }
 
 // reconcileBloom is §13 invariant 3 made operational: the filter must hold at least the keys the
-// records imply, or the feature silently stops working.
+// records imply, or the feature silently stops working. The records are every record in this
+// ledger's view, active AND stale (filterRecords, D49).
 //
 // It is skipped entirely under blind mode. The records that would feed a rebuild are unreadable,
 // so rebuilding would replace a good on-disk cache with an empty one on the strength of a
@@ -631,13 +633,18 @@ func (l *ledger) reconcileBloom(loadFailed bool, keys []recordKeys) {
 	if l.blind {
 		return
 	}
-	want := 2 * l.visibleActiveCount()
+	want := 2 * l.filterRecordCount()
 
-	if loadFailed || l.bloom.Count() < want {
+	if loadFailed || l.filterMissesARecord(keys) {
 		// Missing keys are false NEGATIVES, which defeat the feature without any symptom. This is
 		// the common case rather than an exception: Record adds keys to the in-memory filter only,
 		// and §3.3 lets nothing but a rebuild replace tried.bloom, so the on-disk filter always
 		// lags the log by whatever has been recorded since the last rebuild.
+		//
+		// The question is asked per record, not by comparing Count against want. A count cannot
+		// see WHICH key is missing: a filter written when a record was active, or by a build whose
+		// rebuild held active records only, can hold as many keys as the log implies and still
+		// lack a stale record's, and that record then answered absent after every restart (R4-1).
 		if _, _, err := l.rebuildWith(context.Background(), keys); err != nil {
 			// The rebuilt filter is correct even when only its persistence failed. rebuildLocked
 			// has already adopted it and left pending set, so the write is retried at idle.
@@ -707,17 +714,68 @@ func (l *ledger) inView(r Record) bool {
 	return l.visible(r, ScopeSession, l.deps.Session)
 }
 
-// visibleActive yields the position in recs of every active record in this ledger's view (inView),
-// in log order. It is the ONE source the bloom rebuild draws its keys from. It yields positions
-// rather than copies because every caller reads the records in place: a copy of the whole visible
-// set is 5.9 MB at 20 000 records, and Open used to make three of them. The caller holds mu, for
-// as long as it is iterating.
+// filterRecords yields the position in recs of every record in this ledger's view (inView), active
+// and stale alike, in log order. It is the ONE source the bloom rebuild draws its keys from, and
+// what reconcileBloom checks the filter against. It yields positions rather than copies because
+// every caller reads the records in place: a copy of the whole visible set is 5.9 MB at 20 000
+// records, and Open used to make three of them. The caller holds mu, for as long as it is
+// iterating.
 //
-// For the daemon's multi-session ledger that is every active record of every session. The filter
-// is a cache over the records (§13 invariant 3), so a key another session's record contributes
-// costs a query from this session one record lookup that visible() then refuses — a plain absence
-// (Query), since the hit is true and only out of this session's scope — while leaving a session's
-// own records out of the filter would make them unanswerable after the next rebuild.
+// Stale records are in it because a record goes stale, never absent (coordinator decision D49).
+// Query tests the filter BEFORE it reads a record, so a record whose keys the filter does not hold
+// answers absent whatever its status; filtered to active records, as §3.3 first read, a stale
+// record answered stale only until the next rebuild or daemon restart and absent after (R4-1).
+// A record of a status this reader does not know is in it for the same reason: Query answers it
+// uncertain, and only while the filter holds its key.
+//
+// For the daemon's multi-session ledger that is every record of every session. The filter is a
+// cache over the records (§13 invariant 3), so a key another session's record contributes costs a
+// query from this session one record lookup that visible() then refuses — a plain absence (Query),
+// since the hit is true and only out of this session's scope — while leaving a session's own
+// records out of the filter would make them unanswerable after the next rebuild.
+func (l *ledger) filterRecords() iter.Seq[int] {
+	return func(yield func(int) bool) {
+		for i := range l.recs {
+			if l.inView(l.recs[i]) && !yield(i) {
+				return
+			}
+		}
+	}
+}
+
+// filterRecordCount is how many records filterRecords yields. The caller holds mu.
+func (l *ledger) filterRecordCount() int {
+	n := 0
+	for range l.filterRecords() {
+		n++
+	}
+	return n
+}
+
+// filterMissesARecord reports whether the filter lacks the MatchKey of any record filterRecords
+// yields. MatchKey is the key Query tests, so it is the one whose absence is a false negative; the
+// identity Key is never tested and its absence costs nothing. keys is loadRecords' per-record
+// digests when it lines up with recs, and nil otherwise. The caller holds mu.
+func (l *ledger) filterMissesARecord(keys []recordKeys) bool {
+	if len(keys) != len(l.recs) {
+		keys = nil
+	}
+	for i := range l.filterRecords() {
+		var mh core.Hash
+		if keys != nil {
+			mh = keys[i].match
+		} else {
+			mh = l.recs[i].Desc.matchHash()
+		}
+		if !l.bloom.Test(mh[:]) {
+			return true
+		}
+	}
+	return false
+}
+
+// visibleActive yields the position in recs of every ACTIVE record in this ledger's view (inView),
+// in log order: what Health counts as Active. The caller holds mu, for as long as it is iterating.
 func (l *ledger) visibleActive() iter.Seq[int] {
 	return func(yield func(int) bool) {
 		for i := range l.recs {

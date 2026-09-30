@@ -18,8 +18,12 @@ import (
 //	never context. The rebuild writes a new file and renames; the previous file is kept as
 //	tried.bloom.<seq>.bak for one generation.
 //
+// Coordinator decision D49 of the V6 close-out widens the input from the active records to every
+// record, active and stale: a record goes stale, never absent (filterRecords says why). The rest
+// of the rule stands.
+//
 // Both halves of that sentence are enforced by tests rather than by convention. The key iterator
-// below walks visibleActive() and nothing else, and bloom_test.go greps every non-test file under
+// below walks filterRecords() and nothing else, and bloom_test.go greps every non-test file under
 // internal/ to prove there is exactly one sketch.RebuildBloom call site and that it is this one.
 // The keys it yields for each of those records are that record's Desc.Key and Desc.MatchKey:
 // derived here from the descriptor, or — at Open only — handed in as the digests reindex derived
@@ -29,7 +33,7 @@ import (
 // sketch.ReplaceGenerational and paths.ReplaceBloom; this package re-implements none of it, and a
 // second grep proves there is no os.Rename here to do so with.
 
-// RebuildBloom rebuilds tried.bloom from ACTIVE RECORDS ONLY and persists it.
+// RebuildBloom rebuilds tried.bloom from the records, active and stale (D49), and persists it.
 func (l *ledger) RebuildBloom(ctx context.Context) (*sketch.Bloom, Health, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -71,8 +75,8 @@ func (l *ledger) rebuildWith(ctx context.Context, keys []recordKeys) (*sketch.Bl
 	if err := ctx.Err(); err != nil {
 		// The caller has already given up — an idle window that closed, an Open that ran out of
 		// its 250 ms. A rebuild is a size optimization and never a correctness requirement, since
-		// a stale-inclusive filter still resolves to a stale record, so the right answer to an
-		// expired context is to OWE the rebuild rather than to start one. It is checked here and
+		// the in-memory filter already holds every key the records imply, so the right answer to
+		// an expired context is to OWE the rebuild rather than to start one. It is checked here and
 		// nowhere inside the pass below: a rebuild abandoned half-way would produce a filter
 		// missing keys, which is a false negative and the one direction that must never happen.
 		l.pending = true
@@ -82,19 +86,19 @@ func (l *ledger) rebuildWith(ctx context.Context, keys []recordKeys) (*sketch.Bl
 	if len(keys) != len(l.recs) {
 		keys = nil
 	}
-	active := l.visibleActiveCount()
+	held := l.filterRecordCount()
 	capacity, fpRate := l.cfg.Sketches.Bloom.Capacity, l.cfg.Sketches.Bloom.FPRate
-	if need := 2 * active; need > capacity {
+	if need := 2 * held; need > capacity {
 		// The configured capacity is honoured whenever it is SUFFICIENT — that is what keeps a
 		// normal project's filter at the Appendix A size instead of silently allocating a
 		// multiple of it. Growth happens only when the key count genuinely exceeds it.
 		capacity = roundUpPow2(need)
 	}
 
-	// Key, then MatchKey, for each visible active record in log order. A pre-derived pair is
-	// yielded as slices of keys' own arrays, which allocates nothing.
+	// Key, then MatchKey, for each record in view, active or stale, in log order. A pre-derived
+	// pair is yielded as slices of keys' own arrays, which allocates nothing.
 	seq := func(yield func([]byte) bool) {
-		for i := range l.visibleActive() {
+		for i := range l.filterRecords() {
 			if keys != nil {
 				if !yield(keys[i].key[:]) || !yield(keys[i].match[:]) {
 					return
@@ -118,7 +122,7 @@ func (l *ledger) rebuildWith(ctx context.Context, keys []recordKeys) (*sketch.Bl
 		// A saturated filter degrades to more false positives, each of which the record lookup
 		// then resolves. That is a cost, not a correctness failure, so it is loud and continues.
 		l.log.Loud("negknow: bloom saturated after resize",
-			"records", active, "fill", nb.FillRatio(), "fp", nb.EstimatedFPRate())
+			"records", held, "fill", nb.FillRatio(), "fp", nb.EstimatedFPRate())
 	}
 
 	err := l.persistBloom(nb)
