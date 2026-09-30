@@ -1,0 +1,13 @@
+# The four link tests of internal/store/publication_walk_test.go run against the BASE tree (git archive a38a2b6d, scratch copy): the confinement they pin held before the one-root walk
+# go test -p 2 -count=1 -run '^(TestAuditPublication_LinkedCaptureTreeIsNotFollowed|TestAuditPublication_LinkedRecordsAncestorIsNotFollowed|TestAuditPublication_LinkedCaptureShardIsNotFollowed|TestAuditPublication_LinkedObjectFanoutIsNotFollowed)$' -v ./internal/store/
+=== RUN   TestAuditPublication_LinkedCaptureTreeIsNotFollowed
+--- PASS: TestAuditPublication_LinkedCaptureTreeIsNotFollowed (0.41s)
+=== RUN   TestAuditPublication_LinkedRecordsAncestorIsNotFollowed
+--- PASS: TestAuditPublication_LinkedRecordsAncestorIsNotFollowed (0.31s)
+=== RUN   TestAuditPublication_LinkedCaptureShardIsNotFollowed
+--- PASS: TestAuditPublication_LinkedCaptureShardIsNotFollowed (0.38s)
+=== RUN   TestAuditPublication_LinkedObjectFanoutIsNotFollowed
+--- PASS: TestAuditPublication_LinkedObjectFanoutIsNotFollowed (0.48s)
+PASS
+ok  	github.com/qompack/qompack/internal/store	2.286s
+exit=0

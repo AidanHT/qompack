@@ -1,0 +1,11 @@
+# GREEN after go run ./tools/devtool gen-config-docs
+# go test -p 2 -count=1 -run '^(TestGenConfigDocs_ReloadSectionListsEveryClassifiedKey|TestGenConfigDocs_CommittedPageIsCurrent|TestGenConfigDocs_LeavesMatchDefaultsOneToOne)$' -v ./tools/devtool/
+=== RUN   TestGenConfigDocs_LeavesMatchDefaultsOneToOne
+--- PASS: TestGenConfigDocs_LeavesMatchDefaultsOneToOne (0.02s)
+=== RUN   TestGenConfigDocs_CommittedPageIsCurrent
+--- PASS: TestGenConfigDocs_CommittedPageIsCurrent (0.02s)
+=== RUN   TestGenConfigDocs_ReloadSectionListsEveryClassifiedKey
+--- PASS: TestGenConfigDocs_ReloadSectionListsEveryClassifiedKey (0.00s)
+PASS
+ok  	github.com/qompack/qompack/tools/devtool	1.928s
+exit=0

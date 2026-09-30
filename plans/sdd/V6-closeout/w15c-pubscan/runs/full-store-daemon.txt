@@ -1,0 +1,6 @@
+=== go test -p 2 -count=1 -timeout=30m ./internal/store/ 2026-09-30T17:02:22-04:00
+ok  	github.com/qompack/qompack/internal/store	339.156s
+exit=0
+=== go test -p 2 -count=1 -timeout=30m ./internal/daemon/ 2026-09-30T17:08:08-04:00
+ok  	github.com/qompack/qompack/internal/daemon	400.801s
+exit=0

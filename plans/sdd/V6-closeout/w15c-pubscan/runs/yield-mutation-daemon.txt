@@ -1,0 +1,10 @@
+# Mutation check: scanCap.Yield = d.capture.wait removed from accountPublicationAtStartup, restored afterwards
+# go test -p 2 -count=1 -run '^(TestStartupPublicationAccounting_BackgroundPassPausesWhileARequestIsInFlight|TestStartupPublicationAccounting_StopEndsAPausedPass)$' ./internal/daemon/
+--- FAIL: TestStartupPublicationAccounting_BackgroundPassPausesWhileARequestIsInFlight (13.95s)
+    publication_yield_test.go:161: the publication pass finished beside a request in flight
+--- FAIL: TestStartupPublicationAccounting_StopEndsAPausedPass (13.75s)
+    publication_yield_test.go:200: the publication pass finished beside a request in flight
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	28.489s
+FAIL
+exit=1

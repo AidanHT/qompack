@@ -1,0 +1,16 @@
+# go test -p 2 -count=1 -v -run '^(TestAuditPublication_YieldBeforeEveryEntryLeavesTheAnswerUnchanged|TestAuditPublication_YieldThatEndsStopsThePassAsInterrupted|TestAuditPublication_LinkedCaptureTreeIsNotFollowed|TestAuditPublication_LinkedRecordsAncestorIsNotFollowed|TestAuditPublication_LinkedCaptureShardIsNotFollowed|TestAuditPublication_LinkedObjectFanoutIsNotFollowed)$' ./internal/store/
+=== RUN   TestAuditPublication_YieldBeforeEveryEntryLeavesTheAnswerUnchanged
+--- PASS: TestAuditPublication_YieldBeforeEveryEntryLeavesTheAnswerUnchanged (0.18s)
+=== RUN   TestAuditPublication_YieldThatEndsStopsThePassAsInterrupted
+--- PASS: TestAuditPublication_YieldThatEndsStopsThePassAsInterrupted (0.13s)
+=== RUN   TestAuditPublication_LinkedCaptureTreeIsNotFollowed
+--- PASS: TestAuditPublication_LinkedCaptureTreeIsNotFollowed (0.13s)
+=== RUN   TestAuditPublication_LinkedRecordsAncestorIsNotFollowed
+--- PASS: TestAuditPublication_LinkedRecordsAncestorIsNotFollowed (0.13s)
+=== RUN   TestAuditPublication_LinkedCaptureShardIsNotFollowed
+--- PASS: TestAuditPublication_LinkedCaptureShardIsNotFollowed (0.16s)
+=== RUN   TestAuditPublication_LinkedObjectFanoutIsNotFollowed
+--- PASS: TestAuditPublication_LinkedObjectFanoutIsNotFollowed (0.13s)
+PASS
+ok  	github.com/qompack/qompack/internal/store	1.185s
+exit=0

@@ -1,0 +1,96 @@
+# TEMPORARY DIAGNOSTIC (not committed as a test): the startup publication pass at 10x the candidate 4
+# live run (3800 indexed objects in 3938 directories, 700 published captures), Windows host,
+# 2026-09-30 afternoon, with another seat (wave 15 rehydrate) running tests on the same machine.
+# Method: the w15-services method (runs/review-pubscan-10x-diagnostic.txt in w15-services), made
+# comparable. One throwaway internal/daemon test file (never committed) was compiled twice with
+# `go test -c`: "before" from `git archive a38a2b6d` (the base), "after" from this branch. Each binary
+# seeds or opens a store (store.Open, fake HOME), runs three snapshot passes (SnapshotPublication +
+# AuditPublication with DefaultPublicationScanCap, as the background continuation runs them), then
+# times 200 PutBytes alone, 200 beside passes run back to back, and ("after" only) 200 beside passes
+# that yield on a captureGate while every PutBytes holds the gate, which is how the daemon runs it.
+# Section A: one store seeded once, copied fresh (cp -r) before every run, before/after alternated
+#   twice. Section B ("cold"): each binary seeds a fresh store and measures in the same process, so
+#   pass 0 is the first pass after the writes, the w15-services "cold" figure.
+# Every run was one process under `timeout 1200` (-test.timeout=20m); no other load generator ran.
+# Numbers are under co-load: PutBytes "alone" moves between runs by more than the effect measured.
+
+## Section A: fresh copy of one seeded store per run
+=== round 1 variant before 2026-09-30T16:55:20-04:00
+=== RUN   TestDiagPublicationScanAtTenTimes
+    zz_diag_common_test.go:90: object tree: 3938 directories, 3800 files
+    zz_diag_common_test.go:104: pass 0: 3.7594176s captures=700 objects=3800 incomplete=false truncated=false gaps=false
+    zz_diag_common_test.go:104: pass 1: 5.612095s captures=700 objects=3800 incomplete=false truncated=false gaps=false
+    zz_diag_common_test.go:104: pass 2: 5.6831645s captures=700 objects=3800 incomplete=false truncated=false gaps=false
+    zz_diag_common_test.go:120: PutBytes alone:       p50=17.7752ms p90=22.0497ms p99=27.0057ms max=29.9399ms
+    zz_diag_common_test.go:137: PutBytes beside ungated pass: p50=17.8436ms p90=21.9689ms p99=27.05ms max=32.0751ms (passes run: 1, last pass 6.2378648s)
+--- PASS: TestDiagPublicationScanAtTenTimes (25.57s)
+PASS
+exit=0
+=== round 1 variant after 2026-09-30T16:56:01-04:00
+=== RUN   TestDiagPublicationScanAtTenTimes
+    zz_diag_common_test.go:90: object tree: 3938 directories, 3800 files
+    zz_diag_common_test.go:104: pass 0: 841.9371ms captures=700 objects=3800 incomplete=false truncated=false gaps=false
+    zz_diag_common_test.go:104: pass 1: 791.2612ms captures=700 objects=3800 incomplete=false truncated=false gaps=false
+    zz_diag_common_test.go:104: pass 2: 705.9235ms captures=700 objects=3800 incomplete=false truncated=false gaps=false
+    zz_diag_common_test.go:120: PutBytes alone:       p50=16.5585ms p90=20.7288ms p99=22.9084ms max=24.0878ms
+    zz_diag_common_test.go:137: PutBytes beside ungated pass: p50=15.0173ms p90=21.0072ms p99=28.4041ms max=244.2884ms (passes run: 3, last pass 1.4453481s)
+    zz_diag_common_test.go:137: PutBytes beside gated pass: p50=13.4385ms p90=15.682ms p99=19.9305ms max=25.4086ms (passes run: 1, last pass 4.4014281s)
+--- PASS: TestDiagPublicationScanAtTenTimes (15.40s)
+PASS
+exit=0
+=== round 2 variant before 2026-09-30T16:56:37-04:00
+=== RUN   TestDiagPublicationScanAtTenTimes
+    zz_diag_common_test.go:90: object tree: 3938 directories, 3800 files
+    zz_diag_common_test.go:104: pass 0: 4.0390419s captures=700 objects=3800 incomplete=false truncated=false gaps=false
+    zz_diag_common_test.go:104: pass 1: 5.823097s captures=700 objects=3800 incomplete=false truncated=false gaps=false
+    zz_diag_common_test.go:104: pass 2: 6.0116972s captures=700 objects=3800 incomplete=false truncated=false gaps=false
+    zz_diag_common_test.go:120: PutBytes alone:       p50=15.4506ms p90=20.2422ms p99=22.4308ms max=353.6324ms
+    zz_diag_common_test.go:137: PutBytes beside ungated pass: p50=13.9439ms p90=18.6991ms p99=27.9951ms max=82.3555ms (passes run: 1, last pass 6.9983676s)
+--- PASS: TestDiagPublicationScanAtTenTimes (27.11s)
+PASS
+exit=0
+=== round 2 variant after 2026-09-30T16:57:26-04:00
+=== RUN   TestDiagPublicationScanAtTenTimes
+    zz_diag_common_test.go:90: object tree: 3938 directories, 3800 files
+    zz_diag_common_test.go:104: pass 0: 881.47ms captures=700 objects=3800 incomplete=false truncated=false gaps=false
+    zz_diag_common_test.go:104: pass 1: 826.6299ms captures=700 objects=3800 incomplete=false truncated=false gaps=false
+    zz_diag_common_test.go:104: pass 2: 790.6974ms captures=700 objects=3800 incomplete=false truncated=false gaps=false
+    zz_diag_common_test.go:120: PutBytes alone:       p50=12.837ms p90=15.546ms p99=25.1108ms max=26.7979ms
+    zz_diag_common_test.go:137: PutBytes beside ungated pass: p50=13.5218ms p90=15.3147ms p99=19.6442ms max=31.6653ms (passes run: 2, last pass 1.5231044s)
+    zz_diag_common_test.go:137: PutBytes beside gated pass: p50=13.5294ms p90=16.4983ms p99=18.8961ms max=19.2369ms (passes run: 1, last pass 4.3618545s)
+--- PASS: TestDiagPublicationScanAtTenTimes (13.34s)
+PASS
+exit=0
+script-exit=0
+
+## Section B: seed then measure in one process (cold first pass)
+=== cold variant before 2026-09-30T16:58:09-04:00
+=== RUN   TestDiagSeedTenTimes
+    zz_diag_common_test.go:68: seeded in 1m25.7149714s
+--- PASS: TestDiagSeedTenTimes (85.81s)
+=== RUN   TestDiagPublicationScanAtTenTimes
+    zz_diag_common_test.go:90: object tree: 3938 directories, 3800 files
+    zz_diag_common_test.go:104: pass 0: 16.2204762s captures=700 objects=3800 incomplete=false truncated=false gaps=false
+    zz_diag_common_test.go:104: pass 1: 5.6243916s captures=700 objects=3800 incomplete=false truncated=false gaps=false
+    zz_diag_common_test.go:104: pass 2: 5.7522576s captures=700 objects=3800 incomplete=false truncated=false gaps=false
+    zz_diag_common_test.go:120: PutBytes alone:       p50=13.1877ms p90=14.3977ms p99=16.2377ms max=16.7614ms
+    zz_diag_common_test.go:137: PutBytes beside ungated pass: p50=13.2468ms p90=15.4282ms p99=18.6813ms max=33.6904ms (passes run: 1, last pass 6.4757588s)
+--- PASS: TestDiagPublicationScanAtTenTimes (38.55s)
+PASS
+exit=0
+=== cold variant after 2026-09-30T17:00:22-04:00
+=== RUN   TestDiagSeedTenTimes
+    zz_diag_common_test.go:68: seeded in 1m15.3241945s
+--- PASS: TestDiagSeedTenTimes (75.45s)
+=== RUN   TestDiagPublicationScanAtTenTimes
+    zz_diag_common_test.go:90: object tree: 3938 directories, 3800 files
+    zz_diag_common_test.go:104: pass 0: 10.1078607s captures=700 objects=3800 incomplete=false truncated=false gaps=false
+    zz_diag_common_test.go:104: pass 1: 2.9458225s captures=700 objects=3800 incomplete=false truncated=false gaps=false
+    zz_diag_common_test.go:104: pass 2: 3.471635s captures=700 objects=3800 incomplete=false truncated=false gaps=false
+    zz_diag_common_test.go:120: PutBytes alone:       p50=21.648ms p90=45.6236ms p99=64.269ms max=90.0024ms
+    zz_diag_common_test.go:137: PutBytes beside ungated pass: p50=12.9014ms p90=14.618ms p99=26.3729ms max=62.0654ms (passes run: 2, last pass 1.4559786s)
+    zz_diag_common_test.go:137: PutBytes beside gated pass: p50=12.8757ms p90=16.1305ms p99=20.3362ms max=201.2352ms (passes run: 1, last pass 4.4036846s)
+--- PASS: TestDiagPublicationScanAtTenTimes (29.62s)
+PASS
+exit=0
+script-exit=0
