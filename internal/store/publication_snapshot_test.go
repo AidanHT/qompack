@@ -106,3 +106,49 @@ func TestAuditPublication_SnapshotJudgesObjectsByItsOwnIndex(t *testing.T) {
 	require.NoError(t, err)
 	require.Positive(t, live.UnindexedObjectCandidates, "the live index no longer does")
 }
+
+// TestAuditPublication_SnapshotCountsResidueAtItsInstant: a file whose modification time equals the
+// snapshot's instant was written before the snapshot, not after it. File times and the wall clock
+// tick together on Windows, so residue written in the last clock tick before the snapshot carries
+// exactly the snapshot's time, and a pass that read that as live work skipped a real gap until the
+// next start (w15-services review). Only a file strictly after the snapshot is live work.
+func TestAuditPublication_SnapshotCountsResidueAtItsInstant(t *testing.T) {
+	tp := newTestStore(t)
+	seedCapture(t, tp.Root, "residue", auditOpObserveTool, false, core.OutcomeOK, []byte("captured"))
+	sidecar, err := CaptureSidecarPath(tp.Root, auditObsID("residue"))
+	require.NoError(t, err)
+	h := core.HashBytes(core.DomainChunk, []byte("a crash orphan"))
+	writeBareObject(t, tp, h)
+
+	snap, err := tp.Store.SnapshotPublication(context.Background())
+	require.NoError(t, err)
+	setModTime(t, sidecar, snap.taken)
+	setModTime(t, tp.Store.objectPath(h), snap.taken)
+
+	scanCap := DefaultPublicationScanCap()
+	scanCap.Snapshot = &snap
+	a, err := tp.Store.AuditPublication(context.Background(), scanCap)
+	require.NoError(t, err)
+	require.Equal(t, 1, a.UnpublishedCaptures, "a capture written at the snapshot's instant is residue")
+	require.Equal(t, 1, a.UnindexedObjectCandidates, "an object written at the snapshot's instant is residue")
+	require.Zero(t, a.PostSnapshotEntries)
+}
+
+// TestAuditPublication_SnapshotCountsResidueWrittenJustBeforeIt is the same boundary as the store
+// meets it, with no time moved: residue written immediately before the snapshot is reported.
+func TestAuditPublication_SnapshotCountsResidueWrittenJustBeforeIt(t *testing.T) {
+	tp := newTestStore(t)
+	seedCapture(t, tp.Root, "residue", auditOpObserveTool, false, core.OutcomeOK, []byte("captured"))
+	h := core.HashBytes(core.DomainChunk, []byte("a crash orphan"))
+	writeBareObject(t, tp, h)
+
+	snap, err := tp.Store.SnapshotPublication(context.Background())
+	require.NoError(t, err)
+	scanCap := DefaultPublicationScanCap()
+	scanCap.Snapshot = &snap
+	a, err := tp.Store.AuditPublication(context.Background(), scanCap)
+	require.NoError(t, err)
+	require.Equal(t, 1, a.UnpublishedCaptures)
+	require.Equal(t, 1, a.UnindexedObjectCandidates)
+	require.Zero(t, a.PostSnapshotEntries)
+}
