@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -115,43 +116,21 @@ func TestV6_StartupAccountingReportsUnpublishedCaptureViaStatus(t *testing.T) {
 	}
 
 	// status --json, asked WITH THE DAEMON UP so StatusReport.Snapshot is the daemon's own — its
-	// loud tail and its counters, which is where the startup accounting's report lives.
-	statusOut, statusErr, _ := run(t, b.Bin, p.Root, []string{"status", "--json"}, nil, p.Env)
-	var env statusEnvelope
-	require.NoError(t, json.Unmarshal(statusOut, &env),
-		"status --json must return the slash-command envelope; stderr=%s", statusErr)
-	require.NotNil(t, env.Data.Snapshot,
+	// loud tail and its counters, which is where the startup accounting's report lives. A pass that
+	// does not fit the startup bound finishes in the background after the daemon starts serving
+	// (D49), so the row polls until the report lands rather than reading once.
+	obs := awaitStartupGap(t, b, p)
+	require.NotNil(t, obs.env.Data.Snapshot,
 		"status --json must carry the daemon's snapshot when the daemon is up, or the counters and "+
-			"loud tail the startup accounting reports through are unreadable")
-
-	counterNamed := false
-	for name, v := range env.Data.Snapshot.Counters {
-		if v > 0 && strings.Contains(name, "publication") {
-			counterNamed = true
-			break
-		}
-	}
-	loudTailNamed := false
-	for _, l := range env.Data.Snapshot.LoudTail {
-		if strings.Contains(l, "unpublished") {
-			loudTailNamed = true
-			break
-		}
-	}
-	surfaced := counterNamed || loudTailNamed
+			"loud tail the startup accounting reports through are unreadable; stderr=%s", obs.stderr)
+	surfaced := obs.counterNamed || obs.loudTailNamed
 	require.True(t, surfaced,
-		"the daemon's startup accounting must name the stage-one capture on `status --json` — a "+
-			"publication counter (counter=%v) or the loud tail (tail=%v)", counterNamed, loudTailNamed)
+		"the daemon's startup accounting must name the stage-one capture on `status --json` within %s — "+
+			"the %s counter (counter=%v) or the loud tail (tail=%v)",
+		startupAccountingBound, counterUnpublishedCaptures, obs.counterNamed, obs.loudTailNamed)
 
 	// The same line is durable on LOUD.log (§13 invariant 10: degradation is loud and never rotated).
-	loudNamed := false
-	for _, l := range loudLines(p.Root) {
-		if strings.Contains(l, "unpublished") {
-			loudNamed = true
-			break
-		}
-	}
-	require.True(t, loudNamed, "the startup accounting must also leave a LOUD.log line naming the gap")
+	require.True(t, obs.loudNamed, "the startup accounting must also leave a LOUD.log line naming the gap")
 
 	// Detection is not recovery: the capture is still at stage one, and the read-only accounting
 	// changed nothing it walked.
@@ -225,4 +204,93 @@ func v6CaptureBytes(t *testing.T, root string) map[string]string {
 	}
 	require.NotEmpty(t, out)
 	return out
+}
+
+// counterUnpublishedCaptures is the daemon's gap counter for a stage-one capture
+// (internal/daemon's counterPublicationUnpublishedCaptures). The row matches it exactly: the
+// daemon registers other publication counters, and daemon.publication.accounting_continued is
+// non-zero whenever the startup pass merely finished in the background, gap or none.
+const counterUnpublishedCaptures = "daemon.publication.unpublished_captures"
+
+// startupAccountingBound is how long the startup row waits for the daemon's publication
+// accounting to report. It adds no number of its own: the accounting is part of the daemon coming
+// up, so it gets the bound the daemon's start already has.
+const startupAccountingBound = daemonUpBound
+
+// startupGapObservation is what the startup row read from the product's two surfaces.
+type startupGapObservation struct {
+	env                                    statusEnvelope
+	stderr                                 []byte
+	counterNamed, loudTailNamed, loudNamed bool
+}
+
+// awaitStartupGap asks `status --json` and reads LOUD.log every daemonPollTick until both name the
+// startup accounting's gap, or startupAccountingBound passes, and returns the last reading. The
+// LOUD.log line is written just after the counters move, so both are polled.
+func awaitStartupGap(t *testing.T, b bundle, p project) startupGapObservation {
+	t.Helper()
+	ticker := time.NewTicker(daemonPollTick)
+	defer ticker.Stop()
+	deadline := time.NewTimer(startupAccountingBound)
+	defer deadline.Stop()
+	for {
+		var o startupGapObservation
+		var statusOut []byte
+		statusOut, o.stderr, _ = run(t, b.Bin, p.Root, []string{"status", "--json"}, nil, p.Env)
+		if err := json.Unmarshal(statusOut, &o.env); err != nil {
+			t.Fatalf("fault: status --json must return the slash-command envelope: %v; stderr=%s", err, o.stderr)
+		}
+		o.counterNamed, o.loudTailNamed = startupGapOnStatus(o.env)
+		for _, l := range loudLines(p.Root) {
+			if strings.Contains(l, "unpublished") {
+				o.loudNamed = true
+				break
+			}
+		}
+		if (o.counterNamed || o.loudTailNamed) && o.loudNamed {
+			return o
+		}
+		select {
+		case <-ticker.C:
+		case <-deadline.C:
+			t.Logf("fault: the startup accounting had not named the gap on both surfaces within %s",
+				startupAccountingBound)
+			return o
+		}
+	}
+}
+
+// startupGapOnStatus reports whether a `status --json` envelope names the startup accounting's gap:
+// through the unpublished-captures counter, or through the loud tail.
+func startupGapOnStatus(env statusEnvelope) (counterNamed, loudTailNamed bool) {
+	if env.Data.Snapshot == nil {
+		return false, false
+	}
+	counterNamed = env.Data.Snapshot.Counters[counterUnpublishedCaptures] > 0
+	for _, l := range env.Data.Snapshot.LoudTail {
+		if strings.Contains(l, "unpublished") {
+			loudTailNamed = true
+			break
+		}
+	}
+	return counterNamed, loudTailNamed
+}
+
+// TestFault_StartupGapOnStatusIgnoresTheContinuedCounter: a startup pass that does not fit its bound
+// finishes in the background and counts daemon.publication.accounting_continued, whatever it finds.
+// That counter says nothing about a gap, so it must not stand in for the product naming one
+// (w15-services review).
+func TestFault_StartupGapOnStatusIgnoresTheContinuedCounter(t *testing.T) {
+	var env statusEnvelope
+	require.NoError(t, json.Unmarshal([]byte(`{"ok":true,"data":{"snapshot":{"counters":{
+		"daemon.publication.accounting_continued":1,
+		"daemon.publication.unpublished_captures":0,
+		"daemon.publication.unindexed_object_candidates":0}}}}`), &env))
+	counter, tail := startupGapOnStatus(env)
+	require.False(t, counter, "a pass that continued in the background named no gap")
+	require.False(t, tail)
+
+	env.Data.Snapshot.Counters["daemon.publication.unpublished_captures"] = 1
+	counter, _ = startupGapOnStatus(env)
+	require.True(t, counter, "the unpublished-captures counter is the gap this row plants")
 }
