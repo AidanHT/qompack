@@ -296,8 +296,16 @@ func PropBuild_MonotoneInBudget(t *rapid.T) {
 			t.Fatalf("kind %s survived budget %d but not budget %d", it.Kind, lo, hi)
 		}
 		// Prefix on LINES rather than bytes: the item's heading carries counts that legitimately
-		// differ between builds, and it is the admitted units that must nest.
-		if !linesArePrefix(it.Text, big) {
+		// differ between builds, and it is the admitted units that must nest. Item 2 renders its
+		// evolution above its original (D50), so a larger budget's extra deltas land BETWEEN the
+		// smaller one's deltas and the original: its evolution must nest as a prefix and its
+		// original must be the same (criterion change, w15-rehydrate — the admitted records still
+		// nest exactly as before; only where item 2 renders its original moved).
+		nests := linesArePrefix(it.Text, big)
+		if it.Kind == ItemUserIntent {
+			nests = intentNests(it.Text, big)
+		}
+		if !nests {
 			t.Fatalf("kind %s at budget %d is not a prefix of the same kind at budget %d:\n%s\n---\n%s",
 				it.Kind, lo, hi, it.Text, big)
 		}
@@ -340,6 +348,18 @@ func exportedFieldNames(v any) []string {
 
 // linesArePrefix reports whether small's unit lines are a prefix of big's, ignoring the heading
 // line each section starts with.
+// intentNests is linesArePrefix for item 2: the evolution above originalRequestLabel nests as a
+// prefix, and everything from the label on (the original) is identical.
+func intentNests(small, big string) bool {
+	label := "\n" + originalRequestLabel + "\n"
+	sEvo, sOrig, sOK := strings.Cut(small, label)
+	bEvo, bOrig, bOK := strings.Cut(big, label)
+	if !sOK || !bOK {
+		return linesArePrefix(small, big)
+	}
+	return sOrig == bOrig && linesArePrefix(sEvo+"\n", bEvo+"\n")
+}
+
 func linesArePrefix(small, big string) bool {
 	s := strings.Split(strings.TrimSuffix(small, "\n"), "\n")
 	b := strings.Split(strings.TrimSuffix(big, "\n"), "\n")

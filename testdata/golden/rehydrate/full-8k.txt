@@ -6,10 +6,11 @@
 - [inv_2d8f0a6c3e15] Never change the pgbouncer pool mode without re-running the connection-exhaustion reproduction. (source: agent)
 
 ## 2. Original user intent (verbatim from L0 capture — never summarized)
-> Fix the intermittent 500s on POST /api/session/refresh. They started after the connection-pool change last Tuesday.
 Evolution (most recent first):
 > Scope widened to include the pgbouncer transaction-mode interaction after the timeout fix did not help.
 > Narrowed to refreshToken(): the 500 is a pool acquisition timeout, not a token error.
+Original:
+> Fix the intermittent 500s on POST /api/session/refresh. They started after the connection-pool change last Tuesday.
 
 ## 3. Approaches already eliminated (top 1 of 1 by slice relevance)
 - src/auth.ts:refreshToken — "widen pool timeout" — pgbouncer 1.18 ignores statement_timeout in transaction pooling mode, so the widened timeout never takes effect [active] [evidence sha256:4d7a0c3f6b9e2158a4d7c0f3b6e9a2d5c8f1b4e7a0d3c6f9b2e5a8d1c4f7b0e3]

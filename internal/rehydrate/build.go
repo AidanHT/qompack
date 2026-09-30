@@ -88,7 +88,10 @@ func BuildWithStats(ctx context.Context, r Request, d Deps) (Result, []ItemStat,
 		// as such so Overflowed(res.Dropped) recognizes it regardless of which estimator priced
 		// overhead — the bare (len+3)/4 fallback and a calibrated tokens.Estimator agree on the
 		// COMPARISON this branch makes even when they disagree on the exact count.
-		res := Result{Degraded: true, Seq: r.Ref.Seq}
+		res := Result{Degraded: true, DegradedReason: degradedReason(r), Seq: r.Ref.Seq}
+		if fellBack(r) {
+			res.Dropped = append(res.Dropped, fallbackDrop(r))
+		}
 		detail := "OVERFLOW: the injection wrapper alone (" + itoa(int(overhead.tok)) +
 			" tokens) exceeds the rehydration budget (" + itoa(int(budget)) +
 			" tokens); nothing was injected — call dropped() for the full accounting"
@@ -123,8 +126,23 @@ func BuildWithStats(ctx context.Context, r Request, d Deps) (Result, []ItemStat,
 	//
 	// Item 7's floor is held back from the first admission on: whatever tier 1 cannot carry is
 	// then always namable, with the call that restores it, inside the ceiling.
+	//
+	// Tier 1 is one prefix in tier1Admission order (fillTier1): once a record the budget cannot
+	// hold ends it, every later tier-1 record is named rather than admitted (incomplete), and item
+	// 2 is re-admitted nowhere below — not its older deltas, not by min-fill, not by step 9a — since
+	// its pending units start with the tier-1 records the prefix refused.
+	//
+	// The closure stays inside tier 1 (ADR 0011 §22.1) unless the refused record is the retrieval
+	// line (unanchored). Every share-filled section is records plus the call that restores or checks
+	// them, and none of those calls means anything to a model never told the tools exist, so a
+	// payload without item 8 offers no share, no skill index and no min-fill any room: at 150
+	// tokens that is what put item 3's standing instruction where the retrieval line could not go
+	// (F-C4-UAT05-3). Closing the shares on any other tier-1 refusal took sections 3-6 out of a
+	// payload with thousands of characters unused whenever a long newest restatement could not
+	// follow a long original (w15-rehydrate review).
 	spent := overhead
 	degraded := false
+	incomplete := false
 	fills := make(map[ItemKind]*admitted, len(renderOrder))
 	floor := dropReportFloor(d)
 	for _, k := range tier1Admission {
@@ -132,15 +150,22 @@ func BuildWithStats(ctx context.Context, r Request, d Deps) (Result, []ItemStat,
 		if len(units) == 0 {
 			continue
 		}
-		a := fillTier1(d, k, all[k], units, limit.minus(spent).minus(floor))
+		a, closed := fillTier1(d, k, all[k], units, limit.minus(spent).minus(floor), overhead.plus(floor), incomplete)
 		fills[k] = a
 		spent = spent.plus(a.used)
+		incomplete = closed
 		if a.truncated {
 			degraded = true
 		}
 	}
+	unanchored := fills[ItemAffordance] != nil && len(fills[ItemAffordance].pending) > 0
+	tier1Overflow := degraded
 	if degraded {
-		d.Log.Loud("rehydrate: tier-1 material exceeds the hard budget cap",
+		log := d.Log.Loud
+		if r.Tier1OverflowReported {
+			log = d.Log.Info // named in the payload every time; Loud once per session (D50)
+		}
+		log("rehydrate: tier-1 material exceeds the hard budget cap",
 			"budget", int(budget), "spent", int(spent.tok),
 			"ceiling_chars", limit.chars, "spent_chars", spent.chars)
 	}
@@ -177,15 +202,21 @@ func BuildWithStats(ctx context.Context, r Request, d Deps) (Result, []ItemStat,
 		b := all[k]
 		units := b.units
 		if k == ItemUserIntent {
-			// The original-intent unit was admitted whole in step 3; this share funds only the
-			// evolution deltas that follow it.
-			if len(units) > 0 {
-				units = units[1:]
-			}
+			// The original and the newest restatement were admitted whole in step 3; this share
+			// funds only the older evolution deltas that follow them.
+			units = units[len(tier1Units(k, b)):]
 		}
 		allowance := shares[k].plus(carry)
 		if len(units) == 0 {
 			carry = allowance
+			continue
+		}
+		// Item 2's older deltas are never shown without the newest restatement above them: a list of
+		// superseded statements under "most recent first" would present one of them as the current
+		// authority. When step 3 refused the newest — for want of room, or as a record too large for
+		// any payload — its older deltas go with it, named.
+		if unanchored || (k == ItemUserIntent && (incomplete || refusedNewest(fills[k]))) {
+			fills[k] = mergeIntent(fills[k], abandon(units))
 			continue
 		}
 		// The heading is charged with the first unit this section emits. For item 2 that is the
@@ -206,7 +237,12 @@ func BuildWithStats(ctx context.Context, r Request, d Deps) (Result, []ItemStat,
 	// the character half, where a tenth of the ceiling would otherwise cut a payload that has room.
 	skillAllowance := reserveSkill.plus(carry)
 	if b := all[ItemSkillIndex]; len(b.units) > 0 {
-		a := fillWithHeading(d, ItemSkillIndex, b, b.units, skillAllowance, limit.minus(spent).minus(reserveDrop), true)
+		var a *admitted
+		if unanchored {
+			a = abandon(b.units)
+		} else {
+			a = fillWithHeading(d, ItemSkillIndex, b, b.units, skillAllowance, limit.minus(spent).minus(reserveDrop), true)
+		}
 		fills[ItemSkillIndex] = a
 		spent = spent.plus(a.used)
 		skillAllowance = skillAllowance.minus(a.used)
@@ -214,8 +250,37 @@ func BuildWithStats(ctx context.Context, r Request, d Deps) (Result, []ItemStat,
 	carry = skillAllowance
 
 	// ── 9. min-fill, for an unset request only ───────────────────────────────────────────────
-	if r.Budget <= 0 {
-		spent = minFill(d, all, fills, shareOrder, spent, core.Tokens(cfg.MinTokens), limit, reserveDrop)
+	//
+	// Never without the retrieval line, and never for item 2 while tier 1 is incomplete: item 2's
+	// pending units start with the tier-1 records the prefix refused, and re-admitting one because
+	// it is smaller than the record that ended tier 1 is the skip-ahead fillTier1 exists to prevent.
+	if r.Budget <= 0 && !unanchored {
+		order := shareOrder
+		if incomplete {
+			order = withoutKind(shareOrder, ItemUserIntent)
+		}
+		spent = minFill(d, all, fills, order, spent, core.Tokens(cfg.MinTokens), limit, reserveDrop)
+	}
+
+	// ── 9a. unused room goes to item 2's evolution, newest first ──────────────────────────────
+	//
+	// Item 2's share is a tenth, and evolution holds every later prompt, so a correction older than
+	// a handful of ordinary prompts fell out of a payload that had thousands of characters to spare
+	// (F-C4-UAT06-1, D49). Every share and the skill index have been filled; what item 7 would then
+	// take is measured by filling it once against its allowance (step 10 fills it for real), and
+	// the room beyond THAT is room nothing will use. The older deltas item 2 refused are re-admitted
+	// into it, whole and in the same newest-first prefix order. Measuring item 7 first, rather than
+	// holding back only its reserve, is what keeps the payload growing with the budget: item 7
+	// never loses lines it had room for to a delta, which would make a larger budget's payload
+	// smaller. Never while tier 1 is incomplete: this room is item 2's alone (step 9).
+	if !incomplete {
+		held := reserveDrop
+		if b := buildDropReport(collectDrops(r, all, fills)); len(b.units) > 0 {
+			priceUnits(d, b.units)
+			allowance := reserveDrop.plus(carry).atLeast(floor).atMost(limit.minus(spent))
+			held = fillDropReport(d, b, allowance).used.atLeast(floor)
+		}
+		spent = minFill(d, all, fills, []ItemKind{ItemUserIntent}, spent, limit.tok, limit, held)
 	}
 
 	// An original item 2 had to name rather than read whole (an L0 capture past intentReadLimit)
@@ -262,7 +327,9 @@ func BuildWithStats(ctx context.Context, r Request, d Deps) (Result, []ItemStat,
 
 	res, stats := render(r, d, fills, all, overhead.tok)
 	res.Dropped = drops
-	res.Degraded = res.Degraded || degraded || sourceUnavailable(drops)
+	res.Degraded = res.Degraded || degraded || sourceUnavailable(drops) || fellBack(r)
+	res.DegradedReason = degradedReason(r)
+	res.Tier1Overflow = tier1Overflow
 	res.Seq = r.Ref.Seq
 
 	// ── the hard-cap assertion, unconditional ────────────────────────────────────────────────
@@ -273,15 +340,46 @@ func BuildWithStats(ctx context.Context, r Request, d Deps) (Result, []ItemStat,
 	// arithmetic bug visible. The character half is exact above, so only a token estimator that
 	// prices the assembled payload above the sum of its parts can reach it.
 	//
-	// It evicts in IMPORTANCE order, not in render order, and that distinction is load-bearing.
-	// Evicting the literal tail removes items 7 and 8 first: the drop report that says what was
-	// lost, and the affordance line that says how to ask for it back. That inverts §8.6 exactly,
-	// and it is worst in precisely the case that needs them most.
+	// It removes material in the REVERSE of the order Build admitted it in, not in render order, and
+	// that distinction is load-bearing. Evicting the literal tail removes items 7 and 8 first: the
+	// drop report that says what was lost, and the affordance line that says how to ask for it back.
+	// That inverts §8.6 exactly, and it is worst in precisely the case that needs them most. So the
+	// first thing to go is what was admitted last — item 7's lines beyond its floor, cut to the
+	// counted tail — and then whole sections in evictIndex order, which ends with tier 1 in the
+	// reverse of its admission order (F-C4-UAT05-3). Keeping section 7's extra lines while evicting
+	// the original prompt would lose a record to keep a line that only names others.
+	shrunkReport := false
 	for (res.Tokens > limit.tok || hostChars(res.Text) > limit.chars) && len(res.Items) > 0 {
 		d.Log.Loud("rehydrate: payload exceeded its budget after filling; re-truncating",
 			"tokens", int(res.Tokens), "budget", int(budget),
 			"chars", hostChars(res.Text), "ceiling_chars", limit.chars)
+		if !shrunkReport {
+			shrunkReport = true
+			if dropReportToFloor(d, res.Items, stats, res.Dropped, true) {
+				res.Text = renderText(r, res.Items)
+				res.Tokens = estimate(d, res.Text)
+				allocateAssembledTokens(res.Items, res.Tokens)
+				syncStatTokens(stats, res.Items)
+				res.Degraded = true
+				continue
+			}
+		}
+		// When the eviction order reaches item 2, it is taken apart one record at a time rather than
+		// evicted whole: its older evolution entries oldest first, then its newest restatement, and
+		// only then the section with its original (tier 1 run backwards, F-C4-UAT05-3). Item 2 is
+		// the one tier-1 section that also carries discretionary records, and a few tokens of
+		// overrun must not take the original down with the evolution.
 		i := evictIndex(res.Items)
+		if u, ok := trimIntent(&res.Items[i], stats, i, fills[ItemUserIntent], all[ItemUserIntent]); ok {
+			res.Dropped = append(res.Dropped, u.drop)
+			dropReportToFloor(d, res.Items, stats, res.Dropped, false)
+			res.Text = renderText(r, res.Items)
+			res.Tokens = estimate(d, res.Text)
+			allocateAssembledTokens(res.Items, res.Tokens)
+			syncStatTokens(stats, res.Items)
+			res.Degraded = true
+			continue
+		}
 		gone := res.Items[i]
 		res.Items = append(res.Items[:i], res.Items[i+1:]...)
 		stats = append(stats[:i], stats[i+1:]...)
@@ -303,6 +401,10 @@ func BuildWithStats(ctx context.Context, r Request, d Deps) (Result, []ItemStat,
 				}
 			}
 		}
+		// The evicted section's records are now among the drops, so a section 7 still in the payload
+		// counts them: it is re-rendered as its floor, the heading and the counted tail over the
+		// whole report, which is what dropped() answers with.
+		dropReportToFloor(d, res.Items, stats, res.Dropped, false)
 		// Re-measure against the assembled text after EACH eviction rather than decrementing by the
 		// evicted row's allocated share: the share was an allocation, and the true remaining cost is
 		// what the estimator prices the shorter payload at (wrapper and separators included). Then
@@ -322,6 +424,51 @@ func BuildWithStats(ctx context.Context, r Request, d Deps) (Result, []ItemStat,
 		res.Degraded = true
 	}
 	return res, stats, nil
+}
+
+// trimIntent removes item 2's last admitted unit — its oldest evolution entry shown, and last its
+// newest restatement — when it is the item being evicted and still holds more than one unit, and
+// re-renders the section in place. It never removes the section's only unit (the section is then
+// evicted whole) or a fixed unit. It returns the removed unit, whose DropEntry names it with its
+// restore pointer; stats[i] is item's row.
+func trimIntent(item *Item, stats []ItemStat, i int, a *admitted, b built) (unit, bool) {
+	if item.Kind != ItemUserIntent || a == nil || len(a.units) <= 1 {
+		return unit{}, false
+	}
+	u := a.units[len(a.units)-1]
+	if isFixedUnit(u) {
+		return unit{}, false
+	}
+	a.units = a.units[:len(a.units)-1]
+	a.truncated = true
+	item.Text = itemText(ItemUserIntent, 0, b.seen, sectionTexts(ItemUserIntent, a.units))
+	item.Truncated = true
+	stats[i].Truncated = true
+	stats[i].Units = len(a.units)
+	return u, true
+}
+
+// dropReportToFloor re-renders item 7, when items carry it, as its floor: its heading and the
+// counted tail "- … and N more; call dropped()", N counting every line of the report on dropped.
+// With onlyIfSmaller it leaves a section that is already no longer than that alone. It reports
+// whether it changed item 7; stats is kept index-aligned with items.
+func dropReportToFloor(d Deps, items []Item, stats []ItemStat, dropped []checkpoint.DropEntry, onlyIfSmaller bool) bool {
+	for i := range items {
+		if items[i].Kind != ItemDropReport {
+			continue
+		}
+		tail := moreDropsUnit(d, len(buildDropReport(dropped).units))
+		floor := itemText(ItemDropReport, 0, 0, []string{tail.text})
+		if items[i].Text == floor || (onlyIfSmaller && hostChars(floor) >= hostChars(items[i].Text)) {
+			return false
+		}
+		items[i].Text = floor
+		items[i].Truncated = true
+		stats[i].Truncated = true
+		stats[i].Units = 1
+		return true
+	}
+	return false
 }
 
 // normalizeDeps fills in the tolerable nils. A nil collaborator is never an error: the item that

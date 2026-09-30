@@ -104,6 +104,11 @@ type Request struct {
 	// prompt is an evolution entry (F-UAT06-1). Like Selection it is request data the composition
 	// root reads, because Build reads no files.
 	Lineage *checkpoint.Lineage
+	// Tier1OverflowReported says this session has already logged a tier-1 overflow Loud. The payload
+	// and the drop report name every overflow each time either way; the Loud is once per session
+	// (D50: UAT-04 logged the same line on each of 15 compactions), and a repeat is logged at Info.
+	// The composition root tracks it, because Build keeps no state between calls.
+	Tier1OverflowReported bool
 }
 
 // Result is one rehydration (00-ARCHITECTURE.md §5.15).
@@ -124,6 +129,13 @@ type Result struct {
 	// Degraded reports that the rehydration could not do its full job — a missing checkpoint, a
 	// budget too small — and said so rather than failing (§12.3).
 	Degraded bool
+	// DegradedReason names a degradation the drop report alone would not make plain: today, a
+	// rehydration rebuilt from an older checkpoint because a newer one did not verify ("checkpoint
+	// 0002 does not verify; rolled back to 0001", D49). Empty otherwise.
+	DegradedReason string
+	// Tier1Overflow reports that tier-1 material did not fit and is named as an overflow — the
+	// condition Build logs Loud unless Request.Tier1OverflowReported.
+	Tier1Overflow bool
 	// Seq is the checkpoint sequence this rehydration came from.
 	Seq core.CheckpointSeq
 }
@@ -145,4 +157,7 @@ type Deps struct {
 	Tokens tokens.Estimator
 	// Log is the logger; a nil Log must be treated as logging.Nop.
 	Log logging.Logger
+	// HostPaths judges recorded paths against the host's current Read rules, so section 6 never
+	// shows one re_read would refuse (D50). Nil applies containment alone; see HostPaths.
+	HostPaths HostPaths
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/qompack/qompack/internal/dag"
 	"github.com/qompack/qompack/internal/grammar"
 	"github.com/qompack/qompack/internal/hookio"
+	"github.com/qompack/qompack/internal/hostperm"
 	"github.com/qompack/qompack/internal/ipc"
 	"github.com/qompack/qompack/internal/logging"
 	"github.com/qompack/qompack/internal/negknow"
@@ -34,10 +35,14 @@ type Options struct {
 	// through it, so a reload sees the same home directory, environment and --set flags the daemon
 	// started with and never reports a flag it dropped as a changed key. A zero CfgEnv (no
 	// ProjectRoot) means the process's own: ProjectRoot, the user's home and os.Getenv.
-	CfgEnv  config.Env
-	Log     logging.Logger
-	Metrics obs.Registry
-	Clock   core.Clock
+	CfgEnv config.Env
+	// HostPolicy is the host's permission policy the rehydration judges section 6's pointers
+	// against, as re_read does (D50). Nil means the machine's own rules for ProjectRoot, which is
+	// what the daemon runs with; a test supplies a hermetic one.
+	HostPolicy *hostperm.Policy
+	Log        logging.Logger
+	Metrics    obs.Registry
+	Clock      core.Clock
 
 	Store       store.Store
 	Ledger      negknow.Ledger

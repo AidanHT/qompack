@@ -192,15 +192,7 @@ func fillWithHeading(d Deps, k ItemKind, b built, units []unit, allowance, room 
 	}
 	fixed := fixedCost(units)
 	if !head.plus(fixed).within(room) {
-		a := &admitted{truncated: true, abandoned: true}
-		for _, u := range units {
-			if isFixedUnit(u) {
-				continue
-			}
-			a.dropped = append(a.dropped, u.drop)
-			a.pending = append(a.pending, u)
-		}
-		return a
+		return abandon(units)
 	}
 	a := fillPrefix(units, allowance.atMost(room).minus(head))
 	if len(a.units) > 0 {
@@ -209,15 +201,32 @@ func fillWithHeading(d Deps, k ItemKind, b built, units []unit, allowance, room 
 	return &a
 }
 
-// fillTier1 admits k's tier-1 units whole, in builder order, while they fit room, and stops at the
-// first one that does not (the same prefix rule as every other item, ADR 0011 §7). The section
+// fillTier1 admits k's tier-1 units whole, in builder order, while they fit room. The section
 // heading is charged with the first admitted unit.
 //
 // A tier-1 unit is a whole record — one pinned invariant, the verbatim original prompt, the
 // retrieval line — and is never cut: it is emitted whole or it is named as an explicit overflow
 // (tier1Drop) carrying the pointer that restores it. Filling record by record rather than item by
 // item is what lets forty invariants that fit survive the one that does not.
-func fillTier1(d Deps, k ItemKind, b built, units []unit, room cost) *admitted {
+//
+// Tier 1 is ONE prefix over tier1Admission, not one prefix per item (ADR 0011 §22.1): the first
+// record the budget cannot hold ends it, closed reports that an earlier item's record already
+// did, and every record from there on is refused and named even when it is small enough to fit
+// what is left. Letting a later, smaller record through is the cheapest-first fill §7 forbids. It
+// kept the pinned invariant and lost the retrieval line at 150 tokens and did the reverse at 160
+// (F-C4-UAT05-3), so what survived stopped following the admission order and stopped growing with
+// the budget.
+//
+// One record is passed over without ending tier 1: one no payload could hold, because it and its
+// heading alone exceed the host character ceiling less the wrapper and item 7's floor (reserved).
+// No budget ever admits it, so leaving it out is not a budget cut, and ending tier 1 there would
+// let one oversized pin take the original prompt and every share down with it at every budget —
+// the loss §21.1 exists to prevent. It is named exactly like an L0 capture past intentReadLimit.
+// The ceiling is a host constant, so this reads the character dimension only: a record the token
+// budget cannot hold is always a budget cut, however small that budget is.
+//
+// The second result reports whether tier 1 is closed after this item.
+func fillTier1(d Deps, k ItemKind, b built, units []unit, room, reserved cost, closed bool) (*admitted, bool) {
 	head := sectionCost(d, k, b)
 	a := &admitted{units: make([]unit, 0, len(units))}
 	for _, u := range units {
@@ -225,7 +234,9 @@ func fillTier1(d Deps, k ItemKind, b built, units []unit, room cost) *admitted {
 		if len(a.units) == 0 {
 			next = next.plus(head)
 		}
-		if a.truncated || !next.within(room) {
+		if closed || !next.within(room) {
+			// Only a record some payload could hold ends tier 1.
+			closed = closed || representable(head, u, reserved)
 			a.truncated = true
 			a.dropped = append(a.dropped, tier1Drop(k, u))
 			a.pending = append(a.pending, u)
@@ -234,69 +245,114 @@ func fillTier1(d Deps, k ItemKind, b built, units []unit, room cost) *admitted {
 		a.units = append(a.units, u)
 		a.used = next
 	}
+	return a, closed
+}
+
+// representable reports whether a tier-1 unit u, with its section heading head, could be emitted
+// in SOME payload: whether it fits the host character ceiling once reserved (the wrapper and item
+// 7's floor) is held back. See fillTier1.
+func representable(head cost, u unit, reserved cost) bool {
+	return head.chars+u.chars <= PayloadCeilingChars-reserved.chars
+}
+
+// abandon refuses every unit of an item that is not filled at all: each discretionary unit is
+// named through its own DropEntry and kept pending, and fixed units are not rendered without the
+// records they accompany. It is fillWithHeading's abandoned outcome, for an item Build does not
+// offer any room to.
+func abandon(units []unit) *admitted {
+	a := &admitted{truncated: true, abandoned: true}
+	for _, u := range units {
+		if isFixedUnit(u) {
+			continue
+		}
+		a.dropped = append(a.dropped, u.drop)
+		a.pending = append(a.pending, u)
+	}
 	return a
 }
 
-// tier1Order is the material admitted whole before any share is computed: §8.6's "verbatim,
-// always" items plus the affordance line, which is a fixed ~80-token string that must survive to
-// tell the agent retrieval exists at all.
-//
-// ItemUserIntent appears here for its FIRST unit only — the verbatim original. Its evolution
-// deltas are discretionary and take a share in shareOrder.
-var tier1Order = []ItemKind{ItemInvariants, ItemUserIntent, ItemAffordance}
-
-// tier1Admission is the order step 3 ADMITS tier-1 material in, which is not the order it renders
+// tier1Admission is the material admitted whole before any share is computed — §8.6's "verbatim,
+// always" items plus the affordance line, a fixed ~80-token string that must survive to tell the
+// agent retrieval exists at all — in the order step 3 ADMITS it, which is not the order it renders
 // in: the retrieval line goes first. It is the smallest tier-1 item and the one every overflow
 // pointer depends on — a drop report that says "call expand(…)" to a model that was never told
 // expand exists is not a pointer — so, like item 7's floor, it is held before the invariants and
 // the original prompt can claim the room (ADR 0011 §18, §21). Rendering still follows renderOrder.
+//
+// ItemUserIntent is here for its tier-1 units only (tier1Units). Its older evolution deltas are
+// discretionary and take a share in shareOrder.
 var tier1Admission = []ItemKind{ItemAffordance, ItemInvariants, ItemUserIntent}
 
 // tier1Units is the slice of k's units that step 3 admits whole, ahead of every share.
 //
 // For every kind but one it is all of them. ItemUserIntent is the exception: §8.6 pins the
-// VERBATIM ORIGINAL, and only that — the evolution deltas that follow it are a summary of how the
-// ask moved and are discretionary, which is why ItemUserIntent also appears in shareOrder and why
-// step 7 refills it from units[1:].
+// VERBATIM ORIGINAL, and the evolution deltas that follow it are a record of how the ask moved,
+// which is why ItemUserIntent also appears in shareOrder and why step 7 refills it from what
+// follows these units. Step 3 admits the original and the NEWEST restatement — the correction in
+// force (owner decision D49, F-C4-UAT06-3). Evolution holds every later prompt, so a correction
+// admitted only out of item 2's tenth is pushed out by a handful of ordinary prompts; the newest
+// restatement is the current authority, and admitting it with the original is what keeps the
+// original from standing alone as the requirement. It is one whole record and, like every tier-1
+// record, is emitted whole or named with the pointer that restores it. The builder orders the
+// deltas newest first, so it is the first unit after the original (or the first unit, when there
+// is no original unit to show).
 //
-// Admitting the whole item here instead would be wrong twice over. The deltas would bypass the
-// budget entirely, so a checkpoint with a long evolution list would crowd out items 3 through 6a
-// without ever being charged for it; and step 7 would then re-fill the same deltas out of a share,
-// drop them for want of allowance, and write drop entries for units the payload is still
-// rendering — a drop report that names material the reader can see.
+// Admitting every delta here instead would be wrong twice over. The deltas would crowd out items 3
+// through 6a before any share is computed; and step 7 would then re-fill the same deltas out of a
+// share, drop them for want of allowance, and write drop entries for units the payload is still
+// rendering — a drop report that names material the reader can see. The older deltas keep the
+// share, and whatever room the payload leaves unused goes to them after every share (Build step 9a).
 func tier1Units(k ItemKind, b built) []unit {
-	if k == ItemUserIntent && len(b.units) > 1 {
-		return b.units[:1]
+	if k != ItemUserIntent {
+		return b.units
 	}
-	return b.units
+	n := 1 // the newest restatement
+	if len(b.units) > 0 && isFixedUnit(b.units[0]) {
+		n++ // the verbatim original before it
+	}
+	if n > len(b.units) {
+		n = len(b.units)
+	}
+	return b.units[:n]
 }
 
-// isTier1Kind reports whether k is admitted whole in step 3 rather than out of a share. It is the
-// membership test for tier1Order, written as a function so the hard-cap eviction and the fill pass
-// cannot disagree about what "tier 1" means.
-func isTier1Kind(k ItemKind) bool {
-	for _, t := range tier1Order {
+// admissionRank is where Build admits k's section, first admitted lowest: item 7, whose floor is
+// held back before anything is admitted; then tier 1 in tier1Admission order (the retrieval line,
+// the invariants, item 2); then the share-taking items and the skill index, in render order.
+func admissionRank(k ItemKind) int {
+	if k == ItemDropReport {
+		return 0
+	}
+	for i, t := range tier1Admission {
 		if t == k {
-			return true
+			return 1 + i
 		}
 	}
-	return false
+	return 1 + len(tier1Admission) + int(k)
 }
 
-// evictIndex picks which emitted Item the hard-cap loop removes: the LAST non-tier-1 item, or the
-// last item of all when every one of them is tier 1.
+// evictIndex picks which emitted Item the hard-cap loop removes: the one Build admitted LAST
+// (admissionRank), so eviction is the fill run backwards and a payload the loop trims holds the
+// same kind of prefix a smaller budget's fill would have produced.
 //
-// Dropping the literal tail would take item 8 (the affordance) and item 7 (the drop report) first,
-// which are the two things a payload that has just lost everything else most needs to carry. Both
-// are cheap and both are §8.6's answer to "you no longer have the material" — so they are the last
-// things to go, not the first. items is assumed non-empty; the caller's loop guarantees it.
+// That puts every share-taking item and the skill index before tier 1, and — the part the tail
+// fallback got wrong (F-C4-UAT05-3) — tier 1 in the reverse of ADR 0011 §21.2's admission order:
+// item 2, then the invariants, then the retrieval line. Dropping the literal tail would take item
+// 8 and item 7 first, which are the two things a payload that has just lost everything else most
+// needs to carry (§18); evicting the retrieval line before the invariants left a payload of pins
+// with pointers the model was never told how to follow. Item 7 goes last because its floor is held
+// before anything else is admitted; a payload of item 7 alone is no payload, so once it and the
+// retrieval line are all that is left and they do not fit, nothing is injected — the same outcome
+// the fill pass reaches at a budget that cannot hold both. items is assumed non-empty; the caller's
+// loop guarantees it.
 func evictIndex(items []Item) int {
-	for i := len(items) - 1; i > 0; i-- {
-		if !isTier1Kind(items[i].Kind) {
-			return i
+	last := 0
+	for i := range items {
+		if admissionRank(items[i].Kind) > admissionRank(items[last].Kind) {
+			last = i
 		}
 	}
-	return len(items) - 1
+	return last
 }
 
 // shareOrder is the six discretionary items, in renderOrder. The remainder from integer division
@@ -435,6 +491,9 @@ func mergeIntent(base, add *admitted) *admitted {
 // line, but the state file and therefore the `dropped` tool always get everything.
 func collectDrops(r Request, all map[ItemKind]built, fills map[ItemKind]*admitted) []checkpoint.DropEntry {
 	out := make([]checkpoint.DropEntry, 0, len(r.Checkpoint.Dropped)+8)
+	if fellBack(r) {
+		out = append(out, fallbackDrop(r))
+	}
 	out = append(out, r.Checkpoint.Dropped...)
 	for _, k := range renderOrder {
 		out = append(out, all[k].drops...)
@@ -560,4 +619,31 @@ func fillDropReport(d Deps, b built, allowance cost) *admitted {
 	a := &admitted{units: append(append([]unit(nil), b.units[:best]...), bestTail), truncated: true}
 	a.used = head.plus(sumCost(a.units))
 	return a
+}
+
+// refusedNewest reports whether step 3 refused item 2's newest restatement: whether its tier-1
+// fill left a discretionary unit pending. Its older deltas then take no share and no unused room
+// (see the share loop in Build).
+func refusedNewest(a *admitted) bool {
+	if a == nil {
+		return false
+	}
+	for _, u := range a.pending {
+		if !isFixedUnit(u) {
+			return true
+		}
+	}
+	return false
+}
+
+// withoutKind returns order with k left out, as a new slice: min-fill's order when item 2 may not
+// be re-admitted (Build step 9).
+func withoutKind(order []ItemKind, k ItemKind) []ItemKind {
+	out := make([]ItemKind, 0, len(order))
+	for _, o := range order {
+		if o != k {
+			out = append(out, o)
+		}
+	}
+	return out
 }
