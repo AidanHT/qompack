@@ -1,0 +1,47 @@
+# base 08034a3f
+## go test -p 2 -count=1 -run '^TestCapturePolicyProducesTheCompleteFidelitySet$' -v ./test/integration/
+=== RUN   TestCapturePolicyProducesTheCompleteFidelitySet
+=== RUN   TestCapturePolicyProducesTheCompleteFidelitySet/exact
+=== RUN   TestCapturePolicyProducesTheCompleteFidelitySet/redacted
+=== RUN   TestCapturePolicyProducesTheCompleteFidelitySet/truncated
+=== RUN   TestCapturePolicyProducesTheCompleteFidelitySet/partial
+=== RUN   TestCapturePolicyProducesTheCompleteFidelitySet/binary
+=== RUN   TestCapturePolicyProducesTheCompleteFidelitySet/failure
+--- PASS: TestCapturePolicyProducesTheCompleteFidelitySet (0.01s)
+PASS
+ok  	github.com/qompack/qompack/test/integration	0.459s
+exit=0
+## go test -p 2 -count=1 -run '^(TestHookCapture_OversizeRetainsClassificationWithoutOpaqueBytes|TestHookCapture_BinaryPayloadIsClassifiedNotSilentlyRejected|TestHookCapture_ShortReadIsRecordedAsPartial)$' -v ./internal/cli/
+=== RUN   TestHookCapture_ShortReadIsRecordedAsPartial
+--- PASS: TestHookCapture_ShortReadIsRecordedAsPartial (0.03s)
+=== RUN   TestHookCapture_OversizeRetainsClassificationWithoutOpaqueBytes
+--- PASS: TestHookCapture_OversizeRetainsClassificationWithoutOpaqueBytes (0.03s)
+=== RUN   TestHookCapture_BinaryPayloadIsClassifiedNotSilentlyRejected
+--- PASS: TestHookCapture_BinaryPayloadIsClassifiedNotSilentlyRejected (0.01s)
+PASS
+ok  	github.com/qompack/qompack/internal/cli	0.534s
+exit=0
+## go test -p 2 -count=1 -run '^TestCaptureSidecar_DegradedCaptureIsRecordedAsSuch$' -v ./internal/store/
+=== RUN   TestCaptureSidecar_DegradedCaptureIsRecordedAsSuch
+--- PASS: TestCaptureSidecar_DegradedCaptureIsRecordedAsSuch (0.03s)
+PASS
+ok  	github.com/qompack/qompack/internal/store	0.530s
+exit=0
+## go test -p 2 -count=1 -run '^TestBlindMode$' -v ./internal/negknow/
+=== RUN   TestBlindMode
+--- PASS: TestBlindMode (0.05s)
+PASS
+ok  	github.com/qompack/qompack/internal/negknow	0.566s
+exit=0
+## go test -p 2 -count=1 -run '^TestLiveLedgerToolsAnswerBeforeFirstCompaction$' -v ./internal/cli/
+=== RUN   TestLiveLedgerToolsAnswerBeforeFirstCompaction
+--- PASS: TestLiveLedgerToolsAnswerBeforeFirstCompaction (1.18s)
+PASS
+ok  	github.com/qompack/qompack/internal/cli	1.676s
+exit=0
+## go test -p 2 -count=1 -run '^TestHostPolicy_PathlessRecordsKeepTheirV6Behaviour$' -v ./internal/mcp/
+=== RUN   TestHostPolicy_PathlessRecordsKeepTheirV6Behaviour
+--- PASS: TestHostPolicy_PathlessRecordsKeepTheirV6Behaviour (0.21s)
+PASS
+ok  	github.com/qompack/qompack/internal/mcp	0.718s
+exit=0

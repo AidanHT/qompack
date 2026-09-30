@@ -1,0 +1,35 @@
+# TEMPORARY DIAGNOSTIC (not committed as a test): internal/mcp/zz_w15diag_test.go on 08034a3f
+# go test -p 2 -count=1 -run TestW15DiagRecallDeniesPathlessMCPSelfRecords -v ./internal/mcp/
+# | package mcp
+# | 
+# | // TEMPORARY DIAGNOSTIC (w15-docs), not committed: does recall count Qompack's own pathless MCP
+# | // call records as denied, independent of any host session?
+# | 
+# | import (
+# | 	"testing"
+# | 
+# | 	"github.com/stretchr/testify/require"
+# | )
+# | 
+# | func TestW15DiagRecallDeniesPathlessMCPSelfRecords(t *testing.T) {
+# | 	f := newFixture(t)
+# | 	f.putAndRecord(t, "mcp__qompack__recall", "", "codeword search result", 1)
+# | 	f.putAndRecord(t, "mcp__plugin_qompack_qompack__expand", "", "the codeword is HERON", 2)
+# | 	f.putAndRecord(t, "Read", "notes.md", "the codeword is HERON", 3)
+# | 
+# | 	var body recallBody
+# | 	f.callOK(t, ToolRecall, map[string]any{"query": "codeword"}, &body)
+# | 	t.Logf("hits=%d denied=%d host_policy=%q", body.Count, body.Denied, body.HostPolicy)
+# | 	for _, h := range body.Hits {
+# | 		t.Logf("hit tool=%s path=%s", h.Tool, h.Path)
+# | 	}
+# | 	require.Equal(t, 2, body.Denied)
+# | 	require.Empty(t, body.HostPolicy)
+# | }
+=== RUN   TestW15DiagRecallDeniesPathlessMCPSelfRecords
+    zz_w15diag_test.go:20: hits=1 denied=2 host_policy=""
+    zz_w15diag_test.go:22: hit tool=Read path=notes.md
+--- PASS: TestW15DiagRecallDeniesPathlessMCPSelfRecords (0.15s)
+PASS
+ok  	github.com/qompack/qompack/internal/mcp	0.639s
+exit=0
