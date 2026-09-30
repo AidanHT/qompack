@@ -48,8 +48,10 @@ takes precedence over `full` (`re_read` takes no `span`: continue a `re_read` pa
 with `expand` and the response's `hash`). `truncated` is `true` exactly when the
 page stops before the object's end, and such a page always carries `next_span`; the
 page that reaches the end is not truncated, wherever it started. An explicit `span` is
-read the way `full: true` reads the whole object, over the range it names: the same
-cut, and a `next_span` that covers the rest of that range. A page never ends inside a
+read the way `full: true` reads the whole object, over the range it resolves to, which
+ends on the next chunk boundary: the same cut, and a `next_span` that covers the rest
+of that range. Once that range is served, a page still short of the object's end
+continues in `store.chunk.max`-sized steps. A page never ends inside a
 multi-byte character. The JSON-RPC line that carries a result adds the transport's own
 framing.
 Only `expand` and `re_read` are measured against this key: `recall`, `already_tried`,
