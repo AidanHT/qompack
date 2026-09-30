@@ -169,6 +169,9 @@ func TestCompactRehydration_ForkShowsTheParentsOriginal(t *testing.T) {
 	require.Contains(t, ac, "> "+lineageParentAsk+"\n", "section 2's original is the parent's")
 	require.Contains(t, ac, "(forked session: the original request of session "+string(lineageParent)[:8])
 	require.Contains(t, ac, "> "+lineageForkFirst+"\n", "the fork's first prompt is an evolution entry")
-	require.Less(t, strings.Index(ac, lineageParentAsk), strings.Index(ac, lineageForkFirst))
+	// Criterion change (w15-rehydrate, D50, UAT-05 read literally): the original rendered first and
+	// the fork's prompt under it. Section 2 now renders the evolution above what it may supersede,
+	// so the fork's first prompt comes first and the parent's original, labelled, last.
+	require.Less(t, strings.Index(ac, lineageForkFirst), strings.Index(ac, lineageParentAsk))
 	require.NotContains(t, ac, "intent_mismatch", "the parent's original is not overridden")
 }
