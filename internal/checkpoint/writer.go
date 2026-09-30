@@ -615,6 +615,11 @@ func (w *FileWriter) seedTierOne(ctx context.Context, d *Draft, parent core.Chec
 		// precisely to preserve the distinction.
 		d.cp.Eliminated = append(d.cp.Eliminated, r)
 	}
+	// The session's decisions carry from its previous checkpoint while they hold (D49), after
+	// the eliminations they may depend on are seeded.
+	if own != nil {
+		d.carryDecisionsLocked(own.Decisions, invs)
+	}
 	return nil
 }
 
