@@ -117,3 +117,28 @@ func TestBuild_NoFallbackNoEntry(t *testing.T) {
 	}
 	require.Contains(t, res.Text, "\n# Qompack rehydration — checkpoint 0001, session ")
 }
+
+// TestBuild_ReportedTier1OverflowIsNotLoudAgain: Build reports a tier-1 overflow in Result, and a
+// session that has already logged one Loud gets it at Info (D50, UAT-04's 15 identical lines). The
+// overflow is named in the drop report either way.
+func TestBuild_ReportedTier1OverflowIsNotLoudAgain(t *testing.T) {
+	cp := ckFull(t)
+	for _, reported := range []bool{false, true} {
+		log := &spyLogger{}
+		d := fullDeps(t, cp)
+		d.Log = log
+		r := requestFor(t, cp, core.Tokens(60))
+		r.Tier1OverflowReported = reported
+
+		res, err := Build(context.Background(), r, d)
+		require.NoError(t, err)
+		require.True(t, res.Tier1Overflow)
+		require.True(t, Overflowed(res.Dropped), "named either way")
+		if reported {
+			require.Zero(t, log.loud, "already Loud in this session")
+			require.Positive(t, log.info)
+		} else {
+			require.Positive(t, log.loud, "the first overflow in a session is Loud")
+		}
+	}
+}
