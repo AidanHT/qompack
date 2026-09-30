@@ -518,7 +518,8 @@ returns `unavailable`, and "unavailable or unrecognized states never establish a
 an approach". An unavailable answer is never substituted with current content.
 
 **`dropped` reports qualified coverage.** It retrieves Qompack's own recorded omissions for the
-session — what Qompack did not carry, qualified by the coverage and fidelity of what it did carry.
+session — what Qompack did not carry — qualified as a whole: the report says when it is unavailable
+or when entries were withheld, and no entry carries a coverage or fidelity value.
 `docs/mcp-tools.md` states the boundary in its own words: "This report does not establish what
 remains in native context."
 
@@ -532,7 +533,10 @@ establish native context retention."
 span covering the request, widened to a symbol boundary where one is known, with `full: true` as the
 explicit escape hatch and a `next_span` for paging.
 
-Capture, fidelity and coverage may be partial or unknown, and the response says which.
+Capture, fidelity and coverage may be partial or unknown. No retrieval response carries a fidelity
+or coverage value: a response reports what the read itself did (`span`, `truncated`, a
+`«redacted:…»` placeholder), and capture fidelity is recorded on the capture's sidecar record under
+`.qompack/records/captures/` ([docs/troubleshooting.md §3](troubleshooting.md#3-capture-gaps)).
 
 ## 7. Checkpoint and rehydration
 

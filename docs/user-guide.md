@@ -361,7 +361,9 @@ is about whether the question could be answered at all.
 
 Where each one appears matters, because neither fidelity nor coverage is a field of any retrieval
 response. Capture fidelity (the first table below) is recorded on each capture's sidecar record
-under `.qompack/records/captures/` when it is stored, and no command or tool surfaces it today. The
+under `.qompack/records/captures/` when it is stored, and no command or tool surfaces it today: an
+operator reads it from that file ([docs/troubleshooting.md §3](troubleshooting.md#3-capture-gaps)
+says how to find the one for a result). The
 `fidelity:` line `qompack fsck` prints is a different enumeration: store-level restore fidelity
 (`exact`, `full`, `canonical`, `unavailable`, `corrupt`), which says whether a root's original
 bytes can be reproduced, not how they were captured. A retrieval shows only what it did to the
@@ -386,6 +388,20 @@ completeness of the underlying file, process or native conversation.
 | `binary` | not text; treat it as opaque |
 | `failure` | the capture itself failed; there are no trustworthy bytes |
 | `unknown` | nothing recorded a fidelity, so assume nothing |
+
+**Binary files are decoded by the host, not by Qompack.** A hook receives what Claude Code hands it,
+and for a binary file that is never the file's raw bytes. Observed on Claude Code 2.1.280 in the V6
+close-out's live runs (`plans/sdd/V6-closeout/live/rerun-c4/UAT-02/` and `UAT-12/`): `Read` refuses a
+binary file ("This tool cannot read binary files") and no `PostToolUse` fires, so nothing is
+captured; `Bash` output such as `cat` of a binary file arrives decoded as text, with undecodable
+bytes already replaced; and `Read` of an image arrives as an image block whose data is base64 inside
+the hook's JSON. Qompack records what the host delivered and decodes nothing itself. So such a
+capture's fidelity is `exact` — the captured host delivery, not the file's bytes — a `recall` for a
+sequence of the file's original bytes finds nothing the host did not deliver as text, and the
+`binary` value above, which describes a hook payload that is not a JSON object, was not produced by
+this host. Oversized content behaved the same way: the host delivered a 310,800-byte file whole, and
+Qompack stored the whole delivery. The non-`exact` values are exercised by tests, not by this host
+([docs/uat.md UAT-02](uat.md#uat-02)).
 
 **Coverage — what the record says about where the thing lived.** It never describes complete native
 history.
