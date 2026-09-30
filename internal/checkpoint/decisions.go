@@ -462,8 +462,9 @@ func pinDecision(inv pins.Invariant, turn core.TurnIndex) (Decision, bool) {
 	return d, true
 }
 
-// carryDecisionsLocked seeds a draft with the decisions of from, the session's previous checkpoint,
-// that still hold (coordinator decision D49, F-C4-UAT06-2). A draft mints decisions only from what it encodes
+// carryDecisionsLocked seeds a draft with the decisions of from, the session's previous checkpoint
+// (or, for a fork's first draft, the checkpoint its conversation continued: forkPoint), that still
+// hold (coordinator decision D49, F-C4-UAT06-2). A draft mints decisions only from what it encodes
 // or refreshes at or after its own frontier, so the successor a seal opens, and the draft a
 // restarted daemon begins from the session's newest checkpoint, started with none, and the
 // session's next checkpoint lost every decision minted before its frontier while the elimination
@@ -583,6 +584,45 @@ func (x *decisionExtractor) explainsByID(ctx context.Context, id core.DecisionID
 		}
 	}
 	return Decision{}, false
+}
+
+// forkPoint is the checkpoint session s's conversation continued when it started as a fork, and
+// the moment it forked: the checkpoint its lineage record names (ParentSeq, the project's newest
+// when the fork started, recorded only when the parent sealed it). ok is false for a session that
+// is no fork, when the parent had not sealed the project's newest checkpoint at the fork, or when
+// that checkpoint does not verify (forkIntentFor reports that case).
+func (w *FileWriter) forkPoint(ctx context.Context, s core.SessionID, inherit []negknow.Inherited) (Checkpoint, core.UnixMilli, bool) {
+	if len(inherit) == 0 {
+		return Checkpoint{}, 0, false
+	}
+	rec, err := ReadLineage(w.l, s)
+	if err != nil || rec == nil || rec.ParentSeq == 0 || rec.ParentSession != inherit[0].Session {
+		return Checkpoint{}, 0, false
+	}
+	pc, _, err := w.reader.Get(ctx, rec.ParentSeq)
+	if err != nil || pc.Session != rec.ParentSession {
+		return Checkpoint{}, 0, false
+	}
+	return pc, inherit[0].Until, true
+}
+
+// inheritedDecisions maps each explains decision fp held, kept or cut at its seal, to at, the
+// moment the fork started. Its elimination decisions need no entry, since the carried records
+// already say which session made them (foreignDecisions), and its pinned decisions are the
+// project's, minted by every session alike.
+func inheritedDecisions(g dag.Graph, fp Checkpoint, at core.UnixMilli) map[core.DecisionID]core.UnixMilli {
+	out := map[core.DecisionID]core.UnixMilli{}
+	for _, dec := range fp.Decisions {
+		if explainedBy(g, dec.ID) {
+			out[dec.ID] = at
+		}
+	}
+	for _, e := range fp.Dropped {
+		if id := core.DecisionID(e.ID); e.Kind == dropDecision && explainedBy(g, id) {
+			out[id] = at
+		}
+	}
+	return out
 }
 
 // text reads the content at root through the store, capped at maxExplainingReadBytes, strips
