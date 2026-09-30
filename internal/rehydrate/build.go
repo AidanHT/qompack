@@ -128,12 +128,18 @@ func BuildWithStats(ctx context.Context, r Request, d Deps) (Result, []ItemStat,
 	// then always namable, with the call that restores it, inside the ceiling.
 	//
 	// Tier 1 is one prefix in tier1Admission order (fillTier1): once a record the budget cannot
-	// hold ends it, every later tier-1 record is named rather than admitted, and — below — no share,
-	// no skill index and no min-fill is offered any room either. Tier 1 is admitted whole before
-	// any share is computed (ADR 0011 §6, §19); a payload that could not finish it has no share to
-	// give, and handing what is left to smaller, less important records is the cheapest-first fill
-	// §7 forbids — at 150 tokens it put item 3's standing instruction where the retrieval line
-	// that makes it actionable could not go.
+	// hold ends it, every later tier-1 record is named rather than admitted (incomplete), and item
+	// 2 is re-admitted nowhere below — not its older deltas, not by min-fill, not by step 9a — since
+	// its pending units start with the tier-1 records the prefix refused.
+	//
+	// The closure stays inside tier 1 unless the refused record is the retrieval line
+	// (unanchored). Every share-filled section is records plus the call that restores or checks
+	// them, and none of those calls means anything to a model never told the tools exist, so a
+	// payload without item 8 offers no share, no skill index and no min-fill any room: at 150
+	// tokens that is what put item 3's standing instruction where the retrieval line could not go
+	// (F-C4-UAT05-3). Closing the shares on any other tier-1 refusal took sections 3-6 out of a
+	// payload with thousands of characters unused whenever a long newest restatement could not
+	// follow a long original (w15-rehydrate review).
 	spent := overhead
 	degraded := false
 	incomplete := false
@@ -152,6 +158,7 @@ func BuildWithStats(ctx context.Context, r Request, d Deps) (Result, []ItemStat,
 			degraded = true
 		}
 	}
+	unanchored := fills[ItemAffordance] != nil && len(fills[ItemAffordance].pending) > 0
 	tier1Overflow := degraded
 	if degraded {
 		log := d.Log.Loud
@@ -206,10 +213,9 @@ func BuildWithStats(ctx context.Context, r Request, d Deps) (Result, []ItemStat,
 		}
 		// Item 2's older deltas are never shown without the newest restatement above them: a list of
 		// superseded statements under "most recent first" would present one of them as the current
-		// authority. Step 3 refuses the newest only when it cannot be held whole — a record too
-		// large for any payload is passed over without closing tier 1 — and its older deltas then go
-		// with it, named.
-		if incomplete || (k == ItemUserIntent && refusedNewest(fills[k])) {
+		// authority. When step 3 refused the newest — for want of room, or as a record too large for
+		// any payload — its older deltas go with it, named.
+		if unanchored || (k == ItemUserIntent && (incomplete || refusedNewest(fills[k]))) {
 			fills[k] = mergeIntent(fills[k], abandon(units))
 			continue
 		}
@@ -232,7 +238,7 @@ func BuildWithStats(ctx context.Context, r Request, d Deps) (Result, []ItemStat,
 	skillAllowance := reserveSkill.plus(carry)
 	if b := all[ItemSkillIndex]; len(b.units) > 0 {
 		var a *admitted
-		if incomplete {
+		if unanchored {
 			a = abandon(b.units)
 		} else {
 			a = fillWithHeading(d, ItemSkillIndex, b, b.units, skillAllowance, limit.minus(spent).minus(reserveDrop), true)
@@ -245,11 +251,15 @@ func BuildWithStats(ctx context.Context, r Request, d Deps) (Result, []ItemStat,
 
 	// ── 9. min-fill, for an unset request only ───────────────────────────────────────────────
 	//
-	// Never while tier 1 is incomplete: item 2's pending units start with the tier-1 records the
-	// prefix refused, and re-admitting one because it is smaller than the record that ended tier 1
-	// is the skip-ahead fillTier1 exists to prevent.
-	if r.Budget <= 0 && !incomplete {
-		spent = minFill(d, all, fills, shareOrder, spent, core.Tokens(cfg.MinTokens), limit, reserveDrop)
+	// Never without the retrieval line, and never for item 2 while tier 1 is incomplete: item 2's
+	// pending units start with the tier-1 records the prefix refused, and re-admitting one because
+	// it is smaller than the record that ended tier 1 is the skip-ahead fillTier1 exists to prevent.
+	if r.Budget <= 0 && !unanchored {
+		order := shareOrder
+		if incomplete {
+			order = withoutKind(shareOrder, ItemUserIntent)
+		}
+		spent = minFill(d, all, fills, order, spent, core.Tokens(cfg.MinTokens), limit, reserveDrop)
 	}
 
 	// ── 9a. unused room goes to item 2's evolution, newest first ──────────────────────────────
@@ -262,7 +272,7 @@ func BuildWithStats(ctx context.Context, r Request, d Deps) (Result, []ItemStat,
 	// into it, whole and in the same newest-first prefix order. Measuring item 7 first, rather than
 	// holding back only its reserve, is what keeps the payload growing with the budget: item 7
 	// never loses lines it had room for to a delta, which would make a larger budget's payload
-	// smaller. Never while tier 1 is incomplete (step 9).
+	// smaller. Never while tier 1 is incomplete: this room is item 2's alone (step 9).
 	if !incomplete {
 		held := reserveDrop
 		if b := buildDropReport(collectDrops(r, all, fills)); len(b.units) > 0 {
