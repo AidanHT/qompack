@@ -77,6 +77,28 @@ type rehydrateService struct {
 	mu         sync.Mutex
 	ledgerOnce bool
 	ledger     negknow.Ledger
+
+	// tier1Loud names the sessions that have logged a tier-1 overflow Loud (D50: once per
+	// session, not on every compaction). Guarded by mu. It holds one entry per session this
+	// daemon has seen overflow, and a daemon serves one project's sessions until it idles out.
+	tier1Loud map[core.SessionID]bool
+}
+
+// tier1Reported reports whether sess has already logged a tier-1 overflow Loud.
+func (s *rehydrateService) tier1Reported(sess core.SessionID) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.tier1Loud[sess]
+}
+
+// noteTier1 records that sess has logged a tier-1 overflow Loud.
+func (s *rehydrateService) noteTier1(sess core.SessionID) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.tier1Loud == nil {
+		s.tier1Loud = make(map[core.SessionID]bool)
+	}
+	s.tier1Loud[sess] = true
 }
 
 // NewRehydrateService returns the observer.Rehydrator the SessionStart source switch delegates to.
@@ -184,6 +206,8 @@ func (s *rehydrateService) OnCompact(ctx context.Context, e observer.Event) (out
 		Ref:         ref,
 		Cfg:         cfg,
 		Lineage:     s.lineage(e.SessionID),
+		// A tier-1 overflow is Loud once per session; the payload names it every time (D50).
+		Tier1OverflowReported: s.tier1Reported(e.SessionID),
 	}
 
 	var res rehydrate.Result
@@ -208,6 +232,9 @@ func (s *rehydrateService) OnCompact(ctx context.Context, e observer.Event) (out
 	}
 	if degraded == errNoCheckpoint {
 		res.Degraded = true
+	}
+	if res.Tier1Overflow {
+		s.noteTier1(e.SessionID)
 	}
 
 	// An empty additionalContext is noise: the host would inject a blank block and the §12.1 probe

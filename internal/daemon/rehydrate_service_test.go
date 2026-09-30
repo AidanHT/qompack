@@ -1140,3 +1140,38 @@ func TestService_CheckpointFallbackToNothingIsNamed(t *testing.T) {
 	}
 	require.True(t, rolledBack, "%q", f.log.loudMsgs())
 }
+
+// TestService_Tier1OverflowIsLoudOncePerSession is UAT-04's 15 identical lines (owner decision D50):
+// a tier-1 overflow the payload already names is logged Loud the first time in a session, not on
+// every compaction. The overflow is still named in every payload and every drop report.
+func TestService_Tier1OverflowIsLoudOncePerSession(t *testing.T) {
+	f := rsNewFixtureWith(t, func(c *config.Config) { c.Runtime.Rehydrate.MaxTokens = 120 })
+	const msg = "rehydrate: tier-1 material exceeds the hard budget cap"
+	count := func() int {
+		n := 0
+		for _, m := range f.log.loudMsgs() {
+			if m == msg {
+				n++
+			}
+		}
+		return n
+	}
+
+	for i := range 3 {
+		_, err := f.svc.OnCompact(context.Background(), rsCompactEvent(f.proj.Root))
+		require.NoError(t, err)
+		st := rsReadState(t, f.proj.Root)
+		var named bool
+		for _, e := range st.Dropped {
+			named = named || e.ID == "tier1"
+		}
+		require.True(t, named, "compaction %d: the overflow is named in every drop report: %+v", i, st.Dropped)
+	}
+	require.Equal(t, 1, count(), "the tier-1 overflow is Loud once per session: %q", f.log.loudMsgs())
+
+	other := rsCompactEvent(f.proj.Root)
+	other.SessionID = "sess-another"
+	_, err := f.svc.OnCompact(context.Background(), other)
+	require.NoError(t, err)
+	require.Equal(t, 2, count(), "another session's first overflow is Loud too")
+}

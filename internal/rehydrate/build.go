@@ -152,8 +152,13 @@ func BuildWithStats(ctx context.Context, r Request, d Deps) (Result, []ItemStat,
 			degraded = true
 		}
 	}
+	tier1Overflow := degraded
 	if degraded {
-		d.Log.Loud("rehydrate: tier-1 material exceeds the hard budget cap",
+		log := d.Log.Loud
+		if r.Tier1OverflowReported {
+			log = d.Log.Info // named in the payload every time; Loud once per session (D50)
+		}
+		log("rehydrate: tier-1 material exceeds the hard budget cap",
 			"budget", int(budget), "spent", int(spent.tok),
 			"ceiling_chars", limit.chars, "spent_chars", spent.chars)
 	}
@@ -314,6 +319,7 @@ func BuildWithStats(ctx context.Context, r Request, d Deps) (Result, []ItemStat,
 	res.Dropped = drops
 	res.Degraded = res.Degraded || degraded || sourceUnavailable(drops) || fellBack(r)
 	res.DegradedReason = degradedReason(r)
+	res.Tier1Overflow = tier1Overflow
 	res.Seq = r.Ref.Seq
 
 	// ── the hard-cap assertion, unconditional ────────────────────────────────────────────────
