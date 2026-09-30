@@ -22,6 +22,6 @@ Checkpoint 0001 (`store-after-session/checkpoints_0001.json`) carries both elimi
 session 3187e738) and both decisions (dec_951bc89c3930, dec_c770af84e084). Read-only fsck after the sessions:
 `cli/40-fsck-after-sessions` exit 0.
 
-Result: partial — every success and error call above is correct, including timeline's live turn ranges and the
+Result: failed on candidate 4 (R4-1; D50 relabelled it from partial, 2026-09-30) — every success and error call above is correct, including timeline's live turn ranges and the
 from > to refusal; but already_tried answers `absent` for a STALE elimination once a daemon restarts (UAT-09
 finding R4-1, observed in real sessions 2 and 7), which is a wrong result from this tool.

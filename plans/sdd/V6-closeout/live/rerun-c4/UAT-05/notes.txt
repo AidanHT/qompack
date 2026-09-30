@@ -70,5 +70,8 @@ Findings:
    not a host flow). The run-2 daemon the hand hook started behaved the same (abandoned at 22:49:59) and ended by its
    default idle exit at 23:20:09, the "up to twice the setting" troubleshooting describes.
 
-Result: pass. Rollback: initial state absent (recorded); the post-run store is retained; no backup or restore was run;
+Result: fail (candidate 4, D50) — the expectation is read literally, and section 2 renders the superseded original
+above the correction (lines 31-32's "nothing older is rendered above it" is wrong: the verbatim semicolon original comes
+first, and the TAB correction is third in the evolution, under two later ordinary prompts). Recorded pass by the run,
+relabelled 2026-09-30 under D50. Rollback: initial state absent (recorded); the post-run store is retained; no backup or restore was run;
 cross-version and activation checks unverified. Guard: guard/sessions.txt ("session 6 UAT-05 run 1").
