@@ -544,7 +544,10 @@ same probe. The hook entry points (`checkpoint`, `flush`, `observe prompt|stop|t
 doing nothing: `qompack checkpoint` run by hand with empty stdin created `.qompack/` and started
 the daemon too, observed in a separate probe on this tree. Treat every hook entry point as a write.
 
-Any subcommand accepts `--set <dotted.key>=<value>` to override configuration for that run.
+Any subcommand accepts `--set <dotted.key>=<value>` to override configuration for that run — that
+process only. A daemon the process starts is not given the flag, so a setting the daemon applies,
+such as the rehydration budget a compaction's block is built under, comes from the daemon's own
+configuration files, not from a `--set` on a hook or command.
 
 | Command | What it does |
 |---|---|
