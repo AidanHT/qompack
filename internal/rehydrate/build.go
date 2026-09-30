@@ -132,8 +132,8 @@ func BuildWithStats(ctx context.Context, r Request, d Deps) (Result, []ItemStat,
 	// 2 is re-admitted nowhere below — not its older deltas, not by min-fill, not by step 9a — since
 	// its pending units start with the tier-1 records the prefix refused.
 	//
-	// The closure stays inside tier 1 unless the refused record is the retrieval line
-	// (unanchored). Every share-filled section is records plus the call that restores or checks
+	// The closure stays inside tier 1 (ADR 0011 §22.1) unless the refused record is the retrieval
+	// line (unanchored). Every share-filled section is records plus the call that restores or checks
 	// them, and none of those calls means anything to a model never told the tools exist, so a
 	// payload without item 8 offers no share, no skill index and no min-fill any room: at 150
 	// tokens that is what put item 3's standing instruction where the retrieval line could not go

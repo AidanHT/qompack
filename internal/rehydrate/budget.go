@@ -209,7 +209,7 @@ func fillWithHeading(d Deps, k ItemKind, b built, units []unit, allowance, room 
 // (tier1Drop) carrying the pointer that restores it. Filling record by record rather than item by
 // item is what lets forty invariants that fit survive the one that does not.
 //
-// Tier 1 is ONE prefix over tier1Admission, not one prefix per item (ADR 0011 §21.1-2): the first
+// Tier 1 is ONE prefix over tier1Admission, not one prefix per item (ADR 0011 §22.1): the first
 // record the budget cannot hold ends it, closed reports that an earlier item's record already
 // did, and every record from there on is refused and named even when it is small enough to fit
 // what is left. Letting a later, smaller record through is the cheapest-first fill §7 forbids. It
