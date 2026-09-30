@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/qompack/qompack/internal/config"
+	"github.com/qompack/qompack/internal/daemon"
 )
 
 // docs/config-reference.md is the page a user edits their config against, and §11.4 requires it to
@@ -292,4 +293,68 @@ func TestGenConfigDocs_CheckDetectsMissingAndStale(t *testing.T) {
 	require.Error(t, err, "a page that differs from config.Defaults() must be reported")
 	require.Contains(t, err.Error(), "is stale")
 	require.Contains(t, err.Error(), configDocPath, "the error must name the file to regenerate")
+}
+
+// reloadNoEffectKeys are the keys V6 close-out D51 names as having no effect in 0.3.0. They are
+// spelled here, apart from the table, so a change that gives one of them a reader (or drops one
+// from the table) is a decision this test makes someone record, not a silent regeneration.
+var reloadNoEffectKeys = []string{
+	"runtime.logging",
+	"runtime.selection.loopWarningsEnabled",
+	"runtime.telemetry",
+	"selection.deltaScoring",
+	"selection.submodular.lazyGreedy",
+}
+
+// TestGenConfigDocs_ReloadSectionListsEveryClassifiedKey ties the committed page's reload lists to
+// internal/daemon's reload table (reload_keys.go, daemon.ReloadKeyClasses): every classified key is
+// listed once, under the heading of the effect the daemon gives it, and nothing else is. It reads the
+// committed page rather than a fresh render, so a page left behind by a change to the table fails
+// here by key and not only as a byte difference, and it checks the page quotes the reload's own LOUD
+// lines and admin.reload's field names.
+func TestGenConfigDocs_ReloadSectionListsEveryClassifiedKey(t *testing.T) {
+	b, err := os.ReadFile(filepath.Join(repoRootForTest(t), filepath.FromSlash(configDocPath)))
+	require.NoError(t, err)
+	page := string(normalizeNewlines(b))
+
+	byEffect := map[daemon.ReloadEffect]map[string]bool{}
+	for _, c := range daemon.ReloadKeyClasses() {
+		if byEffect[c.Effect] == nil {
+			byEffect[c.Effect] = map[string]bool{}
+		}
+		require.False(t, byEffect[c.Effect][c.Prefix], "reload table classifies %q twice", c.Prefix)
+		byEffect[c.Effect][c.Prefix] = true
+	}
+	ordered := map[daemon.ReloadEffect]bool{}
+	for _, g := range reloadEffectOrder {
+		ordered[g.effect] = true
+	}
+	for effect := range byEffect {
+		require.True(t, ordered[effect], "reload effect %q has no group on the page", effect)
+	}
+
+	for _, g := range reloadEffectOrder {
+		title := string(g.effect)
+		heading := "### " + strings.ToUpper(title[:1]) + title[1:]
+		listed := map[string]bool{}
+		for _, row := range tableRows(t, page, heading) {
+			key := strings.Trim(row[0], "`")
+			require.False(t, listed[key], "%q is listed twice under %q", key, heading)
+			listed[key] = true
+		}
+		require.Equal(t, byEffect[g.effect], listed,
+			"%s under %q must list exactly the keys reload_keys.go gives that effect; run `go run ./tools/devtool gen-config-docs`",
+			configDocPath, heading)
+	}
+	for _, key := range reloadNoEffectKeys {
+		require.True(t, byEffect[daemon.ReloadNoEffect][key], "%q must be listed as having no effect (D51)", key)
+	}
+
+	for _, quoted := range []string{
+		daemon.LoudReloadNeedsRestart, daemon.LoudReloadNoEffect,
+		"`" + daemon.AdminReloadChanged + "`", "`" + daemon.AdminReloadRestartRequired + "`",
+		"`" + daemon.AdminReloadNoEffect + "`",
+	} {
+		require.Contains(t, page, quoted, "%s must quote what the reload reports", configDocPath)
+	}
 }
