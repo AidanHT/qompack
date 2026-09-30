@@ -60,6 +60,9 @@ type State struct {
 	Items    []ItemStat             `json:"items"`
 	Dropped  []checkpoint.DropEntry `json:"dropped"`
 	Degraded bool                   `json:"degraded"`
+	// DegradedReason is Result.DegradedReason: why a degraded rehydration is degraded, when the
+	// drop report alone would not make it plain (a checkpoint fallback, D49).
+	DegradedReason string `json:"degraded_reason,omitempty"`
 }
 
 // ItemStat is one emitted Item's accounting row.

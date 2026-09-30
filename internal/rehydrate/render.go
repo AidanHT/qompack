@@ -142,9 +142,16 @@ func itemText(k ItemKind, shown, seen int, units []string) string {
 // The sequence is %04d of Ref.Seq (wider sequences are not truncated, only unpadded ones are
 // padded) and the session is its first eight characters. Eight characters is enough to identify a
 // payload in a transcript and cheap enough not to matter; the full id is in the state file.
+//
+// A rehydration rebuilt from an older checkpoint says so in the header itself — "checkpoint 0001
+// (rolled back from 0002)" — so no reader of the payload takes the older state for the current
+// one (D49); section 7 carries the rest.
 func documentHeader(r Request) string {
-	return fmt.Sprintf("# Qompack rehydration — checkpoint %04d, session %s",
-		int(r.Ref.Seq), shortSession(r.Session))
+	seq := fmt.Sprintf("%04d", int(r.Ref.Seq))
+	if fellBack(r) {
+		seq += " (rolled back from " + seqs(r.Ref.Refused) + ")"
+	}
+	return fmt.Sprintf("# Qompack rehydration — checkpoint %s, session %s", seq, shortSession(r.Session))
 }
 
 // sessionHeaderRunes is how much of the session id the document header carries.

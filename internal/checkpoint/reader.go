@@ -206,7 +206,8 @@ func (r *fileReader) Get(ctx context.Context, seq core.CheckpointSeq) (Checkpoin
 //
 // Two behaviours are deliberate. A checkpoint that fails verification does not end the walk: it
 // is reported Loud, counted, and stepped over to its parent — §12's "refuse to use the affected
-// checkpoint, fall back to its parent". And a session with no checkpoint of its own inherits the
+// checkpoint, fall back to its parent" — and the returned Ref.Refused names it, so the caller can
+// say it fell back instead of presenting the parent as current (D49). And a session with no checkpoint of its own inherits the
 // project's newest verifying checkpoint from any session, because a resumed session legitimately
 // continues the project's chain; the alternative is to hand a resumed session an empty context it
 // had no way to ask for.
@@ -224,17 +225,20 @@ func (r *fileReader) Latest(ctx context.Context, s core.SessionID) (Checkpoint, 
 		newest    Checkpoint
 		newestRef Ref
 		haveAny   bool
+		refused   []core.CheckpointSeq // newest first
 	)
 	for i := len(entries) - 1; i >= 0; i-- {
 		c, ref, err := r.load(ctx, entries[i])
 		switch {
 		case err == nil:
 		case errors.Is(err, core.ErrContract):
+			refused = append(refused, entries[i].Seq)
 			continue // step over to the parent
 		default:
 			return Checkpoint{}, Ref{}, err
 		}
 		if c.Session == s {
+			ref.Refused = refusedAfter(refused, ref.Seq)
 			return c, ref, nil
 		}
 		if !haveAny {
@@ -242,10 +246,25 @@ func (r *fileReader) Latest(ctx context.Context, s core.SessionID) (Checkpoint, 
 		}
 	}
 	if haveAny {
+		newestRef.Refused = refusedAfter(refused, newestRef.Seq)
 		return newest, newestRef, nil
 	}
-	return Checkpoint{}, Ref{}, fmt.Errorf(
+	return Checkpoint{}, Ref{Refused: refused}, fmt.Errorf(
 		"checkpoint: no verifiable checkpoint for session %q: %w", string(s), core.ErrNotFound)
+}
+
+// refusedAfter is the part of refused (newest first) newer than seq: the refusals that stand
+// between the manifest's newest checkpoint and the one Latest returned. A refused checkpoint's
+// session cannot be read, so every one of them may have been this session's newest. Nil when
+// there are none, so a clean read's Ref is unchanged.
+func refusedAfter(refused []core.CheckpointSeq, seq core.CheckpointSeq) []core.CheckpointSeq {
+	var out []core.CheckpointSeq
+	for _, r := range refused {
+		if r > seq {
+			out = append(out, r)
+		}
+	}
+	return out
 }
 
 // Chain returns seq and every ancestor it descends from, OLDEST FIRST — the order a rehydrator

@@ -217,16 +217,17 @@ const (
 // checkpointer and carried in Checkpoint.Dropped; they are ranked here so a checkpoint-time drop
 // interleaves correctly with a rehydration-time one.
 var kindRank = map[string]int{
-	dropKindOverflow:       -1,
-	dropKindInvariants:     -1,
-	dropKindPathRule:       0,
-	dropKindNestedClaudeMD: 1,
-	dropKindSkill:          2,
-	dropKindElimination:    3,
-	dropKindDecision:       4,
-	dropKindPointer:        5,
-	"open_question":        6,
-	"narrative":            7,
+	dropKindOverflow:           -1,
+	dropKindInvariants:         -1,
+	dropKindCheckpointFallback: -1, // an older state must never read as the current one (D49)
+	dropKindPathRule:           0,
+	dropKindNestedClaudeMD:     1,
+	dropKindSkill:              2,
+	dropKindElimination:        3,
+	dropKindDecision:           4,
+	dropKindPointer:            5,
+	"open_question":            6,
+	"narrative":                7,
 
 	dropKindUserIntentEvolution: 8,
 	dropKindCurrentWork:         9,
