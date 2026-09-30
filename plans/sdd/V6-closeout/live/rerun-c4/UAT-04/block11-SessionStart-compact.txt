@@ -1,0 +1,23 @@
+<!-- qompack:injected seq=11 ver=1 -->
+# Qompack rehydration — checkpoint 0011, session d0c99489
+
+## 2. Original user intent (verbatim from L0 capture — never summarized)
+Evolution (most recent first):
+> Use the Read tool to read filler/b.txt (the whole file) and reply with only the label of its last line.
+> In one sentence: what is the closing marker of the project brief I gave you in my first message?
+> Use the Read tool to read src/ledger.py and summarize it in one sentence.
+> Use the Read tool to read filler/a.txt (the whole file) and reply with only the label of its last line.
+> Use the Read tool to read notes.md and summarize it in one sentence.
+
+## 6. Pointers (paths and hashes — contents are NOT restored; use expand/re_read)
+- tool_use subagent_d0c99489-20eb-4e4b-9257-318a03e60108_17 sha256:adef60738e7a0dc00aece72ae4bb58980a6a330bf37454c7c53837b3e24a1cea — {"agent":"subagent","summary":"I need to retrieve the original first message to find the project brief and its closin…
+- tool_use toolu_0138fyk6CfdVeTMLZZxgeFct sha256:62b987e6f1f850c7af7298b4a414a08189ca1eaa52c40c6e066ed9e2d410f574 — {"tool_use_id":"prompt_d0c99489-20eb-4e4b-9257-318a03e60108_0"}
+- tool_use toolu_0156cfQZd3mxVkxXiiuMJovz sha256:dd389ed48289010466198fed77e8d4a2c636c11cdee4d468e9c344c628330f77 — {"span":"14256:16823","tool_use_id":"prompt_d0c99489-20eb-4e4b-9257-318a03e60108_0"}
+
+## 7. No longer in context
+- user_intent tier1 — OVERFLOW: the verbatim original user intent did not fit the rehydration payload and is emitted whole or not at all; restore: expand(tool_use_id=prompt_d0c99489-20eb-4e4b-9257-318a03e60108_0)
+
+## 8. Retrieval
+Qompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().
+<!-- /qompack:injected -->
+<!-- qompack-contract-probe qompack-contract-e3a95f62279d -->

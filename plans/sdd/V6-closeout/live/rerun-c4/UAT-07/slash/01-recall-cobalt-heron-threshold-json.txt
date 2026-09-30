@@ -1,0 +1,26 @@
+# /qompack:recall cobalt heron threshold --json (host expansion from the session transcript; permissions ['Bash(qompack recall:*)'])
+Run the Qompack recall command and report its output verbatim to the user.
+
+{
+  "schema": 1,
+  "command": "recall",
+  "ok": true,
+  "data": {
+    "tool": "recall",
+    "is_error": false,
+    "ephemeral": true,
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"hits\":[{\"hash\":\"sha256:18c74dd0bfbe908bdb9fac64c9647b7fc19ec6e0cc597a58d1d97a3c5d10fb3f\",\"path\":\"src/ledger.go\",\"tool\":\"FileEdit\",\"summary\":\"{\\\"filePath\\\":\\\"\u003ctmp\u003e\\\",\\\"oldString\\\":\\\"const driftLimit = 25\\\",\\\"newString\\\":\\\"const driftLimit = 40\\\",\\\"originalFile\\\":\\\"package l…\",\"ts\":\"2026-09-30T03:39:42Z\",\"score\":0.37,\"tool_use_id\":\"toolu_011dC56FhX1JTJfbYbTwK7tv\",\"span\":[0,1205]},{\"hash\":\"sha256:125153754afca5f623b4b7dc03edf6a54a60bb961e9a4d46a80ba61769b6c2f4\",\"path\":\"src/ledger.go\",\"tool\":\"FileRead\",\"summary\":\"{\\\"type\\\":\\\"text\\\",\\\"file\\\":{\\\"filePath\\\":\\\"\u003ctmp\u003e\\\",\\\"content\\\":\\\"package ledger\\\\n\\\\n// Package ledger reconciles account balances …\",\"ts\":\"2026-09-30T03:39:37Z\",\"score\":0.31,\"tool_use_id\":\"toolu_013NmN3HRzEemxDsAcrsDaD5\",\"span\":[0,838]}],\"count\":2,\"found\":true,\"query\":{\"text\":\"cobalt heron threshold\",\"path\":\"\",\"symbol\":\"\",\"tool\":\"\"}}"
+      }
+    ],
+    "meta": {
+      "elapsed_ms": 4,
+      "hash": "sha256:b9503bd943f3feaf9b64bdcd06e97aeb00d49f271c5d55f67475a4054b9c5f85",
+      "tool_use_id": "qompack-mcp:fd67a71a9f2e",
+      "untrusted": true
+    }
+  }
+}
+

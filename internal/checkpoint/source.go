@@ -1,6 +1,7 @@
 package checkpoint
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -86,6 +87,10 @@ func (s SourceSet) Validate() error {
 	return nil
 }
 
+// ErrNoLedger is what Resolve reports when the set's ledger accessor answers no ledger: nothing has
+// opened one yet, or opening one failed. The set it returns alongside is otherwise complete.
+var ErrNoLedger = errors.New("checkpoint: SourceSet.Ledger is nil: its accessor resolved to no ledger")
+
 // Resolve materializes the late-bound seams and returns the set a draft may actually be built
 // from. It is what a CONSUMER calls; Validate is what a producer calls.
 //
@@ -105,7 +110,7 @@ func (s SourceSet) Resolve() (SourceSet, error) {
 		return s, err
 	}
 	if s.Ledger == nil {
-		return s, fmt.Errorf("checkpoint: SourceSet.Ledger is nil: its accessor resolved to no ledger")
+		return s, ErrNoLedger
 	}
 	return s, nil
 }
@@ -174,6 +179,10 @@ type Draft struct {
 	// fork is the intent this session inherits as a fork of another (lineage.go), or nil. It is
 	// resolved at Begin — fresh or resumed — from the lineage record and the parent checkpoint.
 	fork *forkIntent
+	// inherit is the negative knowledge this session inherits through its lineage (Ancestry,
+	// D49): the ancestors whose session-scoped eliminations up to the fork point the draft carries
+	// (carriedBy) and mints decisions from. Resolved at Begin, fresh, live or resumed.
+	inherit []negknow.Inherited
 }
 
 // Ref is the durable reference to one finalized checkpoint artifact (00-ARCHITECTURE.md §5.14):
@@ -194,6 +203,12 @@ type Ref struct {
 	Frontier core.TurnIndex
 	// Created is when the artifact was finalized.
 	Created core.UnixMilli
+	// Refused names the checkpoints NEWER than this one that Reader.Latest stepped over because
+	// they did not verify, newest first; empty when this is the newest the manifest records that
+	// could be read. A fallback is never silent (owner decision D49, F-C4-UAT03-1): the rehydrator
+	// names it, degrades, and the daemon logs the rollback. Latest also returns it beside
+	// core.ErrNotFound when nothing verifies, with Seq 0. Only Latest sets it.
+	Refused []core.CheckpointSeq
 }
 
 // nodesInRange returns every live node of one of kinds whose Turn falls in [from,to].

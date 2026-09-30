@@ -1,0 +1,1 @@
+{"command":"uninstall","outcome":"ok","plugin":"qompack@qompack-live","pluginId":"qompack@qompack-live","scope":"local","keptData":false,"message":"Successfully uninstalled plugin: qompack (scope: local)"}

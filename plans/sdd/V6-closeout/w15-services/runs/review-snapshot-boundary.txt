@@ -1,0 +1,35 @@
+# RED: go test -p 2 -count=1 -v -run '^(TestAuditPublication_SnapshotCountsResidueAtItsInstant|TestAuditPublication_SnapshotCountsResidueWrittenJustBeforeIt)$' ./internal/store/ (before postSnapshot used a strict After)
+=== RUN   TestAuditPublication_SnapshotCountsResidueAtItsInstant
+    publication_snapshot_test.go:132: 
+        	Error Trace:	internal/store/publication_snapshot_test.go:132
+        	Error:      	Not equal: 
+        	            	expected: 1
+        	            	actual  : 0
+        	Test:       	TestAuditPublication_SnapshotCountsResidueAtItsInstant
+        	Messages:   	a capture written at the snapshot's instant is residue
+--- FAIL: TestAuditPublication_SnapshotCountsResidueAtItsInstant (0.05s)
+=== RUN   TestAuditPublication_SnapshotCountsResidueWrittenJustBeforeIt
+    publication_snapshot_test.go:152: 
+        	Error Trace:	internal/store/publication_snapshot_test.go:152
+        	Error:      	Not equal: 
+        	            	expected: 1
+        	            	actual  : 0
+        	Test:       	TestAuditPublication_SnapshotCountsResidueWrittenJustBeforeIt
+--- FAIL: TestAuditPublication_SnapshotCountsResidueWrittenJustBeforeIt (0.06s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/store	0.401s
+FAIL
+exit=1
+
+# GREEN: go test -p 2 -count=1 -v -run '^(TestAuditPublication_SnapshotCountsResidueAtItsInstant|TestAuditPublication_SnapshotCountsResidueWrittenJustBeforeIt|TestAuditPublication_SnapshotLeavesLaterWritesUnclassified|TestAuditPublication_SnapshotStillReportsResidueFromBeforeIt|TestAuditPublication_SnapshotJudgesObjectsByItsOwnIndex)$' ./internal/store/
+--- PASS: TestAuditPublication_SnapshotLeavesLaterWritesUnclassified (0.07s)
+--- PASS: TestAuditPublication_SnapshotStillReportsResidueFromBeforeIt (0.09s)
+--- PASS: TestAuditPublication_SnapshotJudgesObjectsByItsOwnIndex (0.08s)
+--- PASS: TestAuditPublication_SnapshotCountsResidueAtItsInstant (0.07s)
+--- PASS: TestAuditPublication_SnapshotCountsResidueWrittenJustBeforeIt (0.06s)
+PASS
+ok  	github.com/qompack/qompack/internal/store	0.721s
+exit=0
+# STABILITY: go test -p 2 -count=20 -run '^(TestAuditPublication_SnapshotCountsResidueWrittenJustBeforeIt|TestAuditPublication_SnapshotLeavesLaterWritesUnclassified)$' ./internal/store/
+ok  	github.com/qompack/qompack/internal/store	2.740s
+exit=0

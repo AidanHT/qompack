@@ -232,6 +232,9 @@ func decodeSubagent(raw json.RawMessage) bool {
 // C-1 — see drainDispatch's doc comment for the full rationale).
 func (d *daemon) dispatchOp(ctx context.Context, req ipc.Request) ipc.Response {
 	recvTS := core.NowMilli(d.clk)
+	// Every request is capture work while it is served: the publication pass waits it out (D51).
+	d.capture.enter()
+	defer d.capture.leave()
 	// The daemon is provably serving — release Run's spool re-drain (daemon.go, redrainOnceServing).
 	// A request drainDispatch replays from a spool proves nothing of the kind: Run's startup drain
 	// replays before Run dispatches any request, and spending the signal there would run the
@@ -655,8 +658,11 @@ func (d *daemon) startPromptRecording(ctx context.Context, record func(context.C
 
 	rec, cancel := context.WithCancel(context.WithoutCancel(ctx))
 	stopAfter := context.AfterFunc(d.promptCtx, cancel)
+	// The capture outlives its request, and is capture work until it ends (D51).
+	d.capture.enter()
 	go func() {
 		defer d.promptWG.Done()
+		defer d.capture.leave()
 		defer cancel()
 		defer stopAfter()
 		defer func() {
@@ -1393,8 +1399,9 @@ func (d *daemon) endSession(ctx context.Context, req ipc.Request, drain bool, ow
 }
 
 // handleStatus assembles the StatusSnapshot payload. Nothing here mutates daemon state; every
-// field is read from something already maintained elsewhere (the metrics registry, the monitor,
-// the registry, the cached CheckBudgets result).
+// field is read from something already maintained elsewhere (the metrics registry, the monitor
+// refreshed from state/history.json by contractSnapshot, the registry, the cached CheckBudgets
+// result).
 func (d *daemon) handleStatus(ctx context.Context, req ipc.Request) ipc.Response {
 	snap := d.m.Snapshot()
 	latency := make(map[string]obs.HistSnapshot, len(obs.Budgets())+1)
@@ -1422,7 +1429,7 @@ func (d *daemon) handleStatus(ctx context.Context, req ipc.Request) ipc.Response
 
 	snapshot := StatusSnapshot{
 		Mode:       d.monitor.Mode().String(),
-		Contract:   d.monitor.Report(),
+		Contract:   d.contractSnapshot(ctx),
 		Hot:        hotModeString(d.registry.HotMode()),
 		Sessions:   d.registry.Snapshot(),
 		Latency:    latency,
@@ -1471,10 +1478,14 @@ func (d *daemon) handleAdminDrain(ctx context.Context, req ipc.Request) ipc.Resp
 	return ipc.Response{OK: true, Data: data}
 }
 
-// handleAdminReload forces a config reload regardless of config.json's mtime/size.
+// handleAdminReload forces a config reload regardless of config.json's mtime/size. It answers the
+// keys the reload applied (changed), the ones it held for a daemon restart (restart_required), and
+// the ones nothing in this build reads (no_effect).
 func (d *daemon) handleAdminReload(ctx context.Context, req ipc.Request) ipc.Response {
-	changed, err := d.reloadConfig(ctx, d.cfgEnv, true)
-	data, _ := json.Marshal(map[string]any{"changed": changed})
+	res, err := d.reloadConfigKeys(ctx, d.cfgEnv, true)
+	data, _ := json.Marshal(map[string]any{
+		AdminReloadChanged: res.Changed, AdminReloadRestartRequired: res.Restart, AdminReloadNoEffect: res.NoEffect,
+	})
 	if err != nil {
 		return ipc.Response{OK: false, Err: err.Error(), Data: data}
 	}

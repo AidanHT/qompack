@@ -1,0 +1,6 @@
+cwd: <scratch>/retrieval/c4/c44/proj
+argv: ["C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c4/qompack-plugin-0.3.0-windows-amd64/bin/qompack.exe", "recall", "path:src/*.go", "--json"]
+env+: {"QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS": "120"}
+qompack_home: <scratch>/retrieval/c4/qhome
+wall_s: 0.04
+at: 2026-09-29T23:44:10-04:00

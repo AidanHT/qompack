@@ -1,0 +1,11 @@
+# review major (wiring-time open) RED: go test ./internal/cli -run '^TestCheckpointWiringOpensNoLedgerBeforeRun$' -count=1 -p 2
+# at 2c60aafd + the new test only (the ledger struct dump on the Error line is elided)
+--- FAIL: TestCheckpointWiringOpensNoLedgerBeforeRun (0.06s)
+    recorded_ledger_test.go:109: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-ledger/internal/cli/recorded_ledger_test.go:109
+        	Error:      	Expected nil, but got: &negknow.ledger{...elided...}
+        	Test:       	TestCheckpointWiringOpensNoLedgerBeforeRun
+        	Messages:   	wireCheckpointSources' phase-1 snapshot must not open the ledger
+FAIL
+FAIL	github.com/qompack/qompack/internal/cli	0.294s
+FAIL

@@ -1,0 +1,80 @@
+{
+  "session": "24df5051-9fde-44d6-89df-729ba0e528ca",
+  "seq": 2,
+  "emitted": 1790739082745,
+  "tokens": 1103,
+  "budget": 12000,
+  "items": [
+    {
+      "kind": "user_intent",
+      "rank": 0,
+      "tokens": 215,
+      "truncated": true,
+      "units": 3,
+      "units_seen": 6
+    },
+    {
+      "kind": "eliminations",
+      "rank": 1,
+      "tokens": 150,
+      "truncated": false,
+      "units": 2,
+      "units_seen": 1
+    },
+    {
+      "kind": "current_work",
+      "rank": 2,
+      "tokens": 56,
+      "truncated": false,
+      "units": 1,
+      "units_seen": 1
+    },
+    {
+      "kind": "pointers",
+      "rank": 3,
+      "tokens": 433,
+      "truncated": false,
+      "units": 7,
+      "units_seen": 7
+    },
+    {
+      "kind": "drop_report",
+      "rank": 4,
+      "tokens": 163,
+      "truncated": false,
+      "units": 4,
+      "units_seen": 4
+    },
+    {
+      "kind": "affordance",
+      "rank": 5,
+      "tokens": 86,
+      "truncated": false,
+      "units": 1,
+      "units_seen": 1
+    }
+  ],
+  "dropped": [
+    {
+      "kind": "pointer_dirty",
+      "id": "config/pool.yaml",
+      "detail": "modified since index on master"
+    },
+    {
+      "kind": "user_intent_evolution",
+      "id": "2",
+      "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0002.json (user_intent.evolution[2])"
+    },
+    {
+      "kind": "user_intent_evolution",
+      "id": "1",
+      "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0002.json (user_intent.evolution[1])"
+    },
+    {
+      "kind": "user_intent_evolution",
+      "id": "0",
+      "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0002.json (user_intent.evolution[0])"
+    }
+  ],
+  "degraded": false
+}

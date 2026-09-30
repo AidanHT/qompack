@@ -1,0 +1,102 @@
+# After the unparam fix: every publication accounting test of internal/store (all TestAuditPublication_*, TestSyncPublication_CountsOnePassPerCall, TestCaptureRequiresReference_ControlOpsAreKnownToNeedNone in publication_*_test.go), by exact name
+# go test -p 2 -count=1 -v -run '^(TestAuditPublication_LegacyControlCaptureIsKnownNotIncomplete|TestCaptureRequiresReference_ControlOpsAreKnownToNeedNone|TestAuditPublication_NewerSchemaAloneIsASupportGap|TestAuditPublication_NewerSchemaBesideOtherIncompletenessIsNotASupportGap|TestAuditPublication_CompletePassIsNotASupportGap|TestAuditPublication_ClassifiesCaptureSidecars|TestAuditPublication_DeniedCaptureIsNotAGap|TestAuditPublication_EmptyOkCaptureIsNotAGap|TestAuditPublication_UnknownOutcomeIsIncomplete|TestAuditPublication_UnknownOpIsIncomplete|TestAuditPublication_FutureSchemaIsIncompleteNotEmpty|TestAuditPublication_MissingOrOlderSchemaIsIncomplete|TestAuditPublication_MalformedTrailingJSONIsIncomplete|TestAuditPublication_UnreadableSidecarIsIncomplete|TestAuditPublication_UnindexedObjectCandidate|TestAuditPublication_IndexedObjectsAreNotCandidates|TestAuditPublication_KeepRawPutCreatesNoCandidates|TestAuditPublication_PendingObjectIsNotACandidate|TestAuditPublication_EmptyProjectIsCleanAndComplete|TestAuditPublication_RespectsTheCaptureCap|TestAuditPublication_RespectsTheEntryBudget|TestAuditPublication_ClosedStoreDegrades|TestAuditPublication_HonoursCancellation|TestAuditPublication_StopReferenceRequirementIsQualified|TestSyncPublication_CountsAFileBarrierPerObjectAndIndex|TestSyncPublication_SyncsEachDirectoryOncePerPass|TestSyncPublication_FsyncsEveryClosureDirectoryExactlyOnce|TestSyncPublication_CountsOnePassPerCall|TestAuditPublication_SnapshotLeavesLaterWritesUnclassified|TestAuditPublication_SnapshotStillReportsResidueFromBeforeIt|TestAuditPublication_SnapshotJudgesObjectsByItsOwnIndex|TestAuditPublication_SnapshotCountsResidueAtItsInstant|TestAuditPublication_SnapshotCountsResidueWrittenJustBeforeIt|TestAuditPublication_YieldBeforeEveryEntryLeavesTheAnswerUnchanged|TestAuditPublication_YieldThatEndsStopsThePassAsInterrupted|TestAuditPublication_LinkedCaptureTreeIsNotFollowed|TestAuditPublication_LinkedRecordsAncestorIsNotFollowed|TestAuditPublication_LinkedCaptureShardIsNotFollowed|TestAuditPublication_LinkedObjectFanoutIsNotFollowed)$' ./internal/store/
+=== RUN   TestAuditPublication_LegacyControlCaptureIsKnownNotIncomplete
+=== RUN   TestAuditPublication_LegacyControlCaptureIsKnownNotIncomplete/alone
+=== RUN   TestAuditPublication_LegacyControlCaptureIsKnownNotIncomplete/beside_a_real_gap_and_an_unknown_op
+--- PASS: TestAuditPublication_LegacyControlCaptureIsKnownNotIncomplete (0.22s)
+    --- PASS: TestAuditPublication_LegacyControlCaptureIsKnownNotIncomplete/alone (0.11s)
+    --- PASS: TestAuditPublication_LegacyControlCaptureIsKnownNotIncomplete/beside_a_real_gap_and_an_unknown_op (0.10s)
+=== RUN   TestCaptureRequiresReference_ControlOpsAreKnownToNeedNone
+--- PASS: TestCaptureRequiresReference_ControlOpsAreKnownToNeedNone (0.00s)
+=== RUN   TestAuditPublication_NewerSchemaAloneIsASupportGap
+--- PASS: TestAuditPublication_NewerSchemaAloneIsASupportGap (0.07s)
+=== RUN   TestAuditPublication_NewerSchemaBesideOtherIncompletenessIsNotASupportGap
+=== RUN   TestAuditPublication_NewerSchemaBesideOtherIncompletenessIsNotASupportGap/an_older_schema
+=== RUN   TestAuditPublication_NewerSchemaBesideOtherIncompletenessIsNotASupportGap/an_unknown_op
+=== RUN   TestAuditPublication_NewerSchemaBesideOtherIncompletenessIsNotASupportGap/an_unexpected_entry_in_the_capture_tree
+--- PASS: TestAuditPublication_NewerSchemaBesideOtherIncompletenessIsNotASupportGap (0.14s)
+    --- PASS: TestAuditPublication_NewerSchemaBesideOtherIncompletenessIsNotASupportGap/an_older_schema (0.05s)
+    --- PASS: TestAuditPublication_NewerSchemaBesideOtherIncompletenessIsNotASupportGap/an_unknown_op (0.05s)
+    --- PASS: TestAuditPublication_NewerSchemaBesideOtherIncompletenessIsNotASupportGap/an_unexpected_entry_in_the_capture_tree (0.03s)
+=== RUN   TestAuditPublication_CompletePassIsNotASupportGap
+--- PASS: TestAuditPublication_CompletePassIsNotASupportGap (0.04s)
+=== RUN   TestAuditPublication_ClassifiesCaptureSidecars
+--- PASS: TestAuditPublication_ClassifiesCaptureSidecars (0.17s)
+=== RUN   TestAuditPublication_DeniedCaptureIsNotAGap
+--- PASS: TestAuditPublication_DeniedCaptureIsNotAGap (0.06s)
+=== RUN   TestAuditPublication_EmptyOkCaptureIsNotAGap
+--- PASS: TestAuditPublication_EmptyOkCaptureIsNotAGap (0.06s)
+=== RUN   TestAuditPublication_UnknownOutcomeIsIncomplete
+--- PASS: TestAuditPublication_UnknownOutcomeIsIncomplete (0.05s)
+=== RUN   TestAuditPublication_UnknownOpIsIncomplete
+--- PASS: TestAuditPublication_UnknownOpIsIncomplete (0.06s)
+=== RUN   TestAuditPublication_FutureSchemaIsIncompleteNotEmpty
+--- PASS: TestAuditPublication_FutureSchemaIsIncompleteNotEmpty (0.05s)
+=== RUN   TestAuditPublication_MissingOrOlderSchemaIsIncomplete
+--- PASS: TestAuditPublication_MissingOrOlderSchemaIsIncomplete (0.06s)
+=== RUN   TestAuditPublication_MalformedTrailingJSONIsIncomplete
+--- PASS: TestAuditPublication_MalformedTrailingJSONIsIncomplete (0.05s)
+=== RUN   TestAuditPublication_UnreadableSidecarIsIncomplete
+--- PASS: TestAuditPublication_UnreadableSidecarIsIncomplete (0.05s)
+=== RUN   TestAuditPublication_UnindexedObjectCandidate
+--- PASS: TestAuditPublication_UnindexedObjectCandidate (0.04s)
+=== RUN   TestAuditPublication_IndexedObjectsAreNotCandidates
+--- PASS: TestAuditPublication_IndexedObjectsAreNotCandidates (0.06s)
+=== RUN   TestAuditPublication_KeepRawPutCreatesNoCandidates
+--- PASS: TestAuditPublication_KeepRawPutCreatesNoCandidates (0.10s)
+=== RUN   TestAuditPublication_PendingObjectIsNotACandidate
+--- PASS: TestAuditPublication_PendingObjectIsNotACandidate (0.06s)
+=== RUN   TestAuditPublication_EmptyProjectIsCleanAndComplete
+--- PASS: TestAuditPublication_EmptyProjectIsCleanAndComplete (0.03s)
+=== RUN   TestAuditPublication_RespectsTheCaptureCap
+--- PASS: TestAuditPublication_RespectsTheCaptureCap (0.09s)
+=== RUN   TestAuditPublication_RespectsTheEntryBudget
+--- PASS: TestAuditPublication_RespectsTheEntryBudget (0.09s)
+=== RUN   TestAuditPublication_ClosedStoreDegrades
+--- PASS: TestAuditPublication_ClosedStoreDegrades (0.04s)
+=== RUN   TestAuditPublication_HonoursCancellation
+--- PASS: TestAuditPublication_HonoursCancellation (0.04s)
+=== RUN   TestAuditPublication_StopReferenceRequirementIsQualified
+=== RUN   TestAuditPublication_StopReferenceRequirementIsQualified/ordinary_stop
+=== RUN   TestAuditPublication_StopReferenceRequirementIsQualified/subagent_stop
+=== RUN   TestAuditPublication_StopReferenceRequirementIsQualified/unknown_stop
+=== RUN   TestAuditPublication_StopReferenceRequirementIsQualified/denied_stop
+--- PASS: TestAuditPublication_StopReferenceRequirementIsQualified (0.24s)
+    --- PASS: TestAuditPublication_StopReferenceRequirementIsQualified/ordinary_stop (0.06s)
+    --- PASS: TestAuditPublication_StopReferenceRequirementIsQualified/subagent_stop (0.07s)
+    --- PASS: TestAuditPublication_StopReferenceRequirementIsQualified/unknown_stop (0.06s)
+    --- PASS: TestAuditPublication_StopReferenceRequirementIsQualified/denied_stop (0.06s)
+=== RUN   TestSyncPublication_CountsAFileBarrierPerObjectAndIndex
+--- PASS: TestSyncPublication_CountsAFileBarrierPerObjectAndIndex (1.96s)
+=== RUN   TestSyncPublication_SyncsEachDirectoryOncePerPass
+    publication_barriers_test.go:79: closure: 87 objects in 87 leaves under 74 fanouts; 163 directory fsyncs per pass (262 at three per object)
+--- PASS: TestSyncPublication_SyncsEachDirectoryOncePerPass (1.14s)
+=== RUN   TestSyncPublication_FsyncsEveryClosureDirectoryExactlyOnce
+--- PASS: TestSyncPublication_FsyncsEveryClosureDirectoryExactlyOnce (1.07s)
+=== RUN   TestSyncPublication_CountsOnePassPerCall
+--- PASS: TestSyncPublication_CountsOnePassPerCall (0.11s)
+=== RUN   TestAuditPublication_SnapshotLeavesLaterWritesUnclassified
+--- PASS: TestAuditPublication_SnapshotLeavesLaterWritesUnclassified (0.08s)
+=== RUN   TestAuditPublication_SnapshotStillReportsResidueFromBeforeIt
+--- PASS: TestAuditPublication_SnapshotStillReportsResidueFromBeforeIt (0.09s)
+=== RUN   TestAuditPublication_SnapshotJudgesObjectsByItsOwnIndex
+--- PASS: TestAuditPublication_SnapshotJudgesObjectsByItsOwnIndex (0.09s)
+=== RUN   TestAuditPublication_SnapshotCountsResidueAtItsInstant
+--- PASS: TestAuditPublication_SnapshotCountsResidueAtItsInstant (0.06s)
+=== RUN   TestAuditPublication_SnapshotCountsResidueWrittenJustBeforeIt
+--- PASS: TestAuditPublication_SnapshotCountsResidueWrittenJustBeforeIt (0.06s)
+=== RUN   TestAuditPublication_YieldBeforeEveryEntryLeavesTheAnswerUnchanged
+--- PASS: TestAuditPublication_YieldBeforeEveryEntryLeavesTheAnswerUnchanged (0.20s)
+=== RUN   TestAuditPublication_YieldThatEndsStopsThePassAsInterrupted
+--- PASS: TestAuditPublication_YieldThatEndsStopsThePassAsInterrupted (0.13s)
+=== RUN   TestAuditPublication_LinkedCaptureTreeIsNotFollowed
+--- PASS: TestAuditPublication_LinkedCaptureTreeIsNotFollowed (0.15s)
+=== RUN   TestAuditPublication_LinkedRecordsAncestorIsNotFollowed
+--- PASS: TestAuditPublication_LinkedRecordsAncestorIsNotFollowed (0.15s)
+=== RUN   TestAuditPublication_LinkedCaptureShardIsNotFollowed
+--- PASS: TestAuditPublication_LinkedCaptureShardIsNotFollowed (0.17s)
+=== RUN   TestAuditPublication_LinkedObjectFanoutIsNotFollowed
+--- PASS: TestAuditPublication_LinkedObjectFanoutIsNotFollowed (0.17s)
+PASS
+ok  	github.com/qompack/qompack/internal/store	7.878s
+exit=0

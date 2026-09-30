@@ -1,0 +1,9 @@
+--- FAIL: TestDoctor_AnObservedProbeRefreshesTheInjectionRow (0.42s)
+    doctor_contract_refresh_test.go:47: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15a-snapshot/internal/cli/doctor_contract_refresh_test.go:47
+        	Error:      	"class act; mechanism SessionStart additionalContext reinjection (source=compact); evidence implemented_unverified; target unknown target; fallback none stated; newest observation: outcome not_observed, scope \"sess-doctor-refresh\", ts 1790729049437" does not contain "newest observation: outcome observed"
+        	Test:       	TestDoctor_AnObservedProbeRefreshesTheInjectionRow
+        	Messages:   	stderr= row=map[coverage:none detail:class act; mechanism SessionStart additionalContext reinjection (source=compact); evidence implemented_unverified; target unknown target; fallback none stated; newest observation: outcome not_observed, scope "sess-doctor-refresh", ts 1790729049437 id:injection observed:implemented_unverified, enabled=true status:ok]
+FAIL
+FAIL	github.com/qompack/qompack/internal/cli	0.688s
+FAIL

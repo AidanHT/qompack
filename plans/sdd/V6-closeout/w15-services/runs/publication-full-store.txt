@@ -1,0 +1,14 @@
+# go test -p 2 -timeout=30m ./internal/store/ -count=1 (first: before f2137f27 delegated SnapshotPublication; second: after)
+--- FAIL: TestReadOnly_EveryExportedMethodIsClassified (0.03s)
+    readonly_test.go:373: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-services/internal/store/readonly_test.go:373
+        	Error:      	Should be empty, but was [SnapshotPublication]
+        	Test:       	TestReadOnly_EveryExportedMethodIsClassified
+        	Messages:   	every exported *FSStore method must be delegated, swept as a writer, or justified in readOnlyReadsAllowlist; these are in none of the three: [SnapshotPublication]
+FAIL
+FAIL	github.com/qompack/qompack/internal/store	203.225s
+FAIL
+exit=1
+# ---- after f2137f27
+ok  	github.com/qompack/qompack/internal/store	240.344s
+exit=0

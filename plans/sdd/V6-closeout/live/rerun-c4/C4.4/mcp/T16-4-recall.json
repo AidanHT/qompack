@@ -1,0 +1,35 @@
+{
+ "turn": 16,
+ "tool": "mcp__plugin_qompack_qompack__recall",
+ "tool_use_id": "toolu_01Drn4kznKAkAUni6qYd6vBx",
+ "arguments": {
+  "query": "path:src/cache.go",
+  "k": 2
+ },
+ "host_is_error": false,
+ "result": {
+  "hits": [
+   {
+    "hash": "sha256:92f68c79afc52b18eeca5cb0fa98500c9e460a7af0e29470a982e360fc128ea6",
+    "path": "src/cache.go",
+    "tool": "FileRead",
+    "summary": "",
+    "ts": "2026-09-30T03:40:51Z",
+    "score": 1.12,
+    "tool_use_id": "toolu_019fKPtUNmrBMVoXqnbGmLkL",
+    "span": [
+     0,
+     312
+    ]
+   }
+  ],
+  "count": 1,
+  "found": true,
+  "query": {
+   "text": "",
+   "path": "src/cache.go",
+   "symbol": "",
+   "tool": ""
+  }
+ }
+}

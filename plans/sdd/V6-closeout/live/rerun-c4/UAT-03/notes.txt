@@ -1,0 +1,65 @@
+UAT-03 re-run on candidate 4 (D47) — checkpoint round trip across a daemon idle exit and restart, then fsck and
+backup create/verify/restore of that store (also C4.3). Agent-executed on the owner's real host per owner decision D3
+by a Claude Code workflow subagent (Opus 5.5) — not human UAT.
+
+Date 2026-09-29 21:18-21:52 America/Toronto. Sessions used: 1 (session/, sessions.tsv part sessions-c4 n=1, 51 s).
+Model claude-haiku-4-5-20251001. Claude Code 2.1.280, Windows 11 Home 25H2 build 10.0.26200.9457. Frozen bundle
+qompack-bundles/c4/qompack-plugin-0.3.0-windows-amd64 (BUNDLE.json sha256
+aa7da0e17b7597562a6eba47fc48f1db81ff5e9bdc494b9997a323137625558d, bin sha256 1e9d0cc8...c358, commit 9f6a2fad) via
+--plugin-dir; every CLI step used the bundle's bin/qompack.exe. Init: plugin qompack 0.3.0 (qompack@inline),
+plugin:qompack:qompack connected, 8 tools, the six /qompack: commands (no qompack:checkpoint).
+
+Preconditions (cli/00-preconditions.txt): fresh project (git init + add, no commit) with handoff.md (30 keys; K17 in
+setup-facts.json), src/app.py, docs/plan.md, README.md. Defaults only: no config file, no QOMPACK_* except
+QOMPACK_HOME=<scratch>/sessions/c4/qhome, and the DEFAULT idle exit (1800 s) — unlike candidate 3, no idle-exit override.
+Initial absence recorded: cli/00-backup-create-absent exit 1 "source project has no existing store".
+
+Step 1 (session/stream.jsonl): T1 Read handoff.md, T2 Read src/app.py, T3 "/compact" (manual, pre 26,589 -> post 2,749),
+T4 Read docs/plan.md, T5 "/compact" (pre 26,375 -> post 3,120), T6 (before: handoff.md deleted) K17 asked: the model
+answered ROWAN-3173-MAPLE "from my current conversation context" (the host's preserved segment, not Qompack). Every hook
+success/exit 0; stderr.txt empty (no "Hook cancelled"). Injected blocks: block2 (1,579 UTF-16 units) and block3 (1,637).
+
+Step 2 (steps/s2-pre-checkpoints.txt, s2-pre-MANIFEST.jsonl): 0001.json and 0002.json; MANIFEST's last line
+{"seq":2,"sha256":"sha256:b3da7cd4...c171900","bytes":2072}; both artifacts re-hash to their lines (MATCH).
+Step 3 (steps/s2-pre-0001.json, s2-pre-0002.json): the artifacts carry their frontier and references — F-UAT03-1 is
+fixed: 0001 encoded_segments [1], pointers.files handoff.md + src/app.py (sha256 addresses), pointers.tools the two Read
+tool_use ids with the same hashes; 0002 encoded_segments [2], parent 0001.json, pointers docs/plan.md and the
+compaction subagent's record. user_intent.original is the verbatim first prompt; evolution holds the later prompts.
+cli/s2-status-pre-idle and s2-fsck-json-live: exit 0, fsck clean with the daemon live.
+
+Step 4 (steps/s4-daemon-ended.txt): the daemon ended by the DEFAULT idle exit at 21:50:46 (1800 s after the session);
+no termination; run/daemon.lock removed on exit. index/segments.jsonl gained NO encode record after the session (the
+candidate 3 defect F-UAT03-2 — an idle frontier encode naming unwritten checkpoint 0002 — did not recur).
+cli/s4-fsck-json-stopped (and --seal-check): exit 0, every row ok (index.segments ok, checkpoints "the chain from 0002
+verifies across 2 checkpoint(s)"). cli/s4-doctor-json-stopped: exit 0, no degraded row.
+
+Backup of that store (taken with the daemon stopped, before step 5): b1 create --id uat03-after-idle exit 0
+(consistent true); b2 verify exit 0 (scratch restore + integrity, both passed); b3 restore --destination
+<scratch>/sessions/c4/uat03/recovery/proj exit 0: OpenedOK true, ContentRootsProven 12, ToolRefsProven 9,
+ToolRefsTombstoned 0, SameBuildOnly true, CheckpointSealCovered false, integrity all ok incl. "the full dual-reader
+seal check passed"; b4 fsck --seal-check of the destination exit 0. The candidate 3 "restore integrity FAILED" is fixed.
+
+Step 5: cli/s5-status-brings-daemon-back: "source: disk (available, 1.01m old) / daemon: no daemon answered: none is
+listening for this project yet. This command asked one to start unless runtime.daemon.enabled is false / run status
+again once it is up" (the candidate 3 empty "status refused: " is gone, F-UAT03-3 fixed); s5-status-third: "source:
+daemon (available, 0µs old)", new daemon pid 572. steps/s5-diff.txt: listing, MANIFEST.jsonl, 0001.json and 0002.json
+IDENTICAL to the pre-idle reads. cli/s5-fsck-json-live-after-restart exit 0.
+
+The explicit incomplete outcome (probe/, in the RESTORED copy only): 0002.json changed by one byte (offset 583,
+'c' -> 'X', same length; probe/00-corruption.txt); fsck (probe/01) exit 1 names it: checkpoints "checkpoint 0002: the
+artifact is missing or does not re-hash ... / the chain from 0001 verifies across 1 checkpoint(s)". Then the hook entry
+point `qompack session-start` with a SessionStart source=compact payload for the session (probe/02): exit 0 in 0.24 s,
+additionalContext "<!-- qompack:injected seq=1 ver=1 --> # Qompack rehydration — checkpoint 0001, session 19e641f9"
+built from 0001 (evolution without the plan.md prompt), no section 7, and the rehydrate state (probe/probe-state_*)
+seq 1, dropped [], degraded false. The logs (probe/probe-logs_*) say only: loud "checkpoint artifact does not match its
+MANIFEST digest; the checkpoint is refused artifact=0002.json seq=2 ..." and loud "checkpoint manifest mismatch". The
+resolver's "checkpoint 0002 does not verify; rolled back to 0001" string appears nowhere.
+ FINDING F-C4-UAT03-1 (fail criterion): an unverifiable checkpoint (0002) was replaced by an older one (0001) that the
+ payload presents as current, with no statement in the payload, the rehydrate state or the drop report that a fallback
+ happened; the log names the refusal of 0002 but not that 0001 took its place. This is the first live run with an
+ older checkpoint to fall back to (candidate 3's probe had none, so it built "checkpoint 0000" from L0).
+
+The gated durable frontier (runtime.migration.publication.durableFrontier false) is unverified by this row.
+Rollback: initial state absent (recorded). Same-build backup/restore of the post-idle store verified (above); the
+destination was not activated; cross-version and activation checks unverified.
+Guard: plans/sdd/V6-closeout/live/guard/sessions.txt ("session 1 UAT-03").

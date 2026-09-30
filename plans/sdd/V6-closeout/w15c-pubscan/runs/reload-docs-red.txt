@@ -1,0 +1,13 @@
+# RED: committed docs/config-reference.md before regeneration
+# go test -p 2 -count=1 -run '^TestGenConfigDocs_ReloadSectionListsEveryClassifiedKey$' ./tools/devtool/
+--- FAIL: TestGenConfigDocs_ReloadSectionListsEveryClassifiedKey (0.02s)
+    genconfigdocs_test.go:340: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15c-pubscan/tools/devtool/genconfigdocs_test.go:118
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15c-pubscan/tools/devtool/genconfigdocs_test.go:340
+        	Error:      	"-1" is not greater than or equal to "0"
+        	Test:       	TestGenConfigDocs_ReloadSectionListsEveryClassifiedKey
+        	Messages:   	the page must have a "### Takes effect on reload" section
+FAIL
+FAIL	github.com/qompack/qompack/tools/devtool	1.883s
+FAIL
+exit=1

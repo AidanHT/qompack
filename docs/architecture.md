@@ -518,7 +518,8 @@ returns `unavailable`, and "unavailable or unrecognized states never establish a
 an approach". An unavailable answer is never substituted with current content.
 
 **`dropped` reports qualified coverage.** It retrieves Qompack's own recorded omissions for the
-session — what Qompack did not carry, qualified by the coverage and fidelity of what it did carry.
+session — what Qompack did not carry — qualified as a whole: the report says when it is unavailable
+or when entries were withheld, and no entry carries a coverage or fidelity value.
 `docs/mcp-tools.md` states the boundary in its own words: "This report does not establish what
 remains in native context."
 
@@ -532,7 +533,10 @@ establish native context retention."
 span covering the request, widened to a symbol boundary where one is known, with `full: true` as the
 explicit escape hatch and a `next_span` for paging.
 
-Capture, fidelity and coverage may be partial or unknown, and the response says which.
+Capture, fidelity and coverage may be partial or unknown. No retrieval response carries a fidelity
+or coverage value: a response reports what the read itself did (`span`, `truncated`, a
+`«redacted:…»` placeholder), and capture fidelity is recorded on the capture's sidecar record under
+`.qompack/records/captures/` ([docs/troubleshooting.md §3](troubleshooting.md#3-capture-gaps)).
 
 ## 7. Checkpoint and rehydration
 
@@ -631,6 +635,13 @@ own lineage when it was itself a fork, and from a checkpoint it sealed only when
 be read), its own prompts follow them, and item 2 verifies the original against the origin
 session's own capture and labels it with that session
 ([docs/cannot-do.md](cannot-do.md#a-forked-sessions-parent-is-inferred-not-reported-by-the-host)).
+A fork inherits its negative knowledge the same way (V6 close-out, D49): the parent's
+session-scoped eliminations recorded before the fork started (and, through the chain, each
+ancestor's up to the next fork point) answer the fork's `already_tried`, reach its rehydration and
+are carried in its checkpoints with the decisions they mint, still attributed to the session that
+made them; a sibling session that merely shares the project sees none of them. Within one session,
+a decision stays in every later checkpoint while its source holds: an elimination's while the record
+is carried, a pinned one while the pin stands, one read off an explains edge always.
 
 **What "8–12K" is and is not.** It is a historical Qompack-added target for the material Qompack
 injects, recorded in [ADR 0011](adr/0011-rehydration-budget-and-item-order.md) and in `Qompack.md`

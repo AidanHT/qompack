@@ -1,0 +1,55 @@
+{
+ "initialize": {
+  "serverInfo": {
+   "name": "qompack",
+   "version": "0.3.0"
+  },
+  "protocolVersion": "2025-06-18"
+ },
+ "calls": [
+  {
+   "tool": "expand",
+   "args": {
+    "hash": "sha256:3bfe728b7191bb0655115ca3abc6aa38116f9c4779fb3f73d25d3a4d4722950c"
+   },
+   "jsonrpc_line_bytes": 1264,
+   "isError": false,
+   "error": null,
+   "text_bytes": 866,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 4,
+     "ephemeral": true,
+     "expansions": 2,
+     "hash": "sha256:a57c914ae0ddd6eb0c46b3583bed1a51b9bf77ea413dd66792aa75fe6c503e90",
+     "promoted": true,
+     "span": [
+      0,
+      649
+     ],
+     "tool_use_id": "qompack-mcp:333e8f415849",
+     "total_bytes": 649,
+     "truncated": false,
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "found": true,
+     "hash": "sha256:3bfe728b7191bb0655115ca3abc6aa38116f9c4779fb3f73d25d3a4d4722950c",
+     "span": [
+      0,
+      649
+     ],
+     "total_bytes": 649,
+     "truncated": false,
+     "widened": false,
+     "expansions": 2,
+     "promoted": true,
+     "content": "warning: in the working copy of 'README.md', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'big.log', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'creds.env', LF will be replaced by CRLF the next time Git touches...[649 chars total]"
+    }
+   ]
+  }
+ ],
+ "stderr_tail": ""
+}

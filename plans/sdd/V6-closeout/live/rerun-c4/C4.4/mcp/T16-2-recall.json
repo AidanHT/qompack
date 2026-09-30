@@ -1,0 +1,11 @@
+{
+ "turn": 16,
+ "tool": "mcp__plugin_qompack_qompack__recall",
+ "tool_use_id": "toolu_012FXFXMcKVfRLaLqoBra65e",
+ "arguments": {
+  "query": "violet anchor lattice",
+  "k": 0
+ },
+ "host_is_error": true,
+ "result": "invalid arguments for recall: /k: below minimum"
+}

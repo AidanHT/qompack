@@ -1,0 +1,87 @@
+{
+ "args": [
+  "-p",
+  "--input-format",
+  "stream-json",
+  "--output-format",
+  "stream-json",
+  "--verbose",
+  "--include-hook-events",
+  "--model",
+  "claude-haiku-4-5-20251001",
+  "--max-turns",
+  "10",
+  "--setting-sources",
+  "project,local",
+  "--permission-mode",
+  "dontAsk",
+  "--plugin-dir",
+  "C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c4/qompack-plugin-0.3.0-windows-amd64",
+  "--allowedTools",
+  "Read,mcp__plugin_qompack_qompack__recall,mcp__plugin_qompack_qompack__expand,mcp__plugin_qompack_qompack__re_read,mcp__plugin_qompack_qompack__already_tried,mcp__plugin_qompack_qompack__record_eliminated,mcp__plugin_qompack_qompack__timeline,mcp__plugin_qompack_qompack__why,mcp__plugin_qompack_qompack__dropped,Bash(qompack status:*),Bash(qompack recall:*),Bash(qompack pin:*),Bash(qompack why:*),Bash(qompack dropped:*),Bash(qompack eval:*)"
+ ],
+ "turns": [
+  {
+   "msg": "Use the Read tool to read notes.md and tell me the project codeword in one sentence.",
+   "ok": true,
+   "wall_s": 4.614,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 26688,
+    "WorkingSet64": 28889088,
+    "PeakWorkingSet64": 28889088,
+    "CPU": 0.140625,
+    "StartTime": "/Date(1790731290992)/"
+   },
+   "store_bytes": 95346
+  },
+  {
+   "msg": "Call the MCP tool mcp__plugin_qompack_qompack__recall with query \"codeword\". Then call mcp__plugin_qompack_qompack__expand on the first hit (use its tool_use_id, or its hash if it has no tool_use_id). Report in one sentence how many hits recall returned and whether expand found the content.",
+   "ok": true,
+   "wall_s": 9.626,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 26688,
+    "WorkingSet64": 34283520,
+    "PeakWorkingSet64": 34283520,
+    "CPU": 0.3125,
+    "StartTime": "/Date(1790731290992)/"
+   },
+   "store_bytes": 158568
+  },
+  {
+   "msg": "Use the Read tool to read data.txt and tell me the value on row 17, in one sentence.",
+   "ok": true,
+   "wall_s": 2.609,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 26688,
+    "WorkingSet64": 35348480,
+    "PeakWorkingSet64": 35348480,
+    "CPU": 0.421875,
+    "StartTime": "/Date(1790731290992)/"
+   },
+   "store_bytes": 184783
+  },
+  {
+   "msg": "/qompack:recall HERON",
+   "ok": true,
+   "wall_s": 5.415,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 26688,
+    "WorkingSet64": 36143104,
+    "PeakWorkingSet64": 36143104,
+    "CPU": 0.5,
+    "StartTime": "/Date(1790731290992)/"
+   },
+   "store_bytes": 200922
+  }
+ ],
+ "store_bytes_before": 0,
+ "started_ms": 1790731289992,
+ "pid": 69380,
+ "exit": 0,
+ "wall_s": 26.415,
+ "store_bytes_after": 266374
+}

@@ -64,19 +64,35 @@ func (a frontierAdvancer) Advance(ctx context.Context, session core.SessionID, s
 	return a.writer.Advance(ctx, draft, segments)
 }
 
+// begin resolves the sources and begins (or reuses) the session's draft.
+//
+// A set whose only gap is the ledger (ErrNoLedger) is not an unavailable source for the frontier:
+// the daemon opens its ledger lazily, and in a session that neither compacts nor calls a ledger
+// tool none is ever opened, which left act.advance_frontier failing on every idle tick and the
+// frontier never advancing (F-C4-C49-3). Coordinator decision D49: no ledger yet is not an error.
+// The partial set goes to Begin under allowNoLedger, and Begin proceeds without negative knowledge
+// only while the project holds no elimination record (admitNoLedger); with records on disk the
+// supplier's own report is returned, as before.
 func (a frontierAdvancer) begin(ctx context.Context, session core.SessionID) (*Draft, error) {
 	if a.writer == nil || a.sources == nil {
 		return nil, fmt.Errorf("checkpoint: frontier advance unavailable: %w", core.ErrDegraded)
 	}
-	src, err := a.sources()
-	if err != nil {
-		return nil, fmt.Errorf("checkpoint: frontier sources unavailable: %w", err)
+	src, srcErr := a.sources()
+	if srcErr != nil && !errors.Is(srcErr, ErrNoLedger) {
+		return nil, fmt.Errorf("checkpoint: frontier sources unavailable: %w", srcErr)
 	}
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	draft, err := a.writer.Begin(ctx, session, 0, src)
+	bctx := ctx
+	if srcErr != nil {
+		bctx = allowNoLedger(ctx)
+	}
+	draft, err := a.writer.Begin(bctx, session, 0, src)
 	if err != nil {
+		if srcErr != nil && errors.Is(err, ErrNoLedger) {
+			return nil, fmt.Errorf("checkpoint: frontier sources unavailable: %w", srcErr)
+		}
 		return nil, err
 	}
 	if draft == nil {

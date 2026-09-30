@@ -1,0 +1,16 @@
+{
+ "turn": 23,
+ "tool": "mcp__plugin_qompack_qompack__why",
+ "tool_use_id": "toolu_01DUvSMG2UNyJutWQgd9JfxZ",
+ "arguments": {
+  "decision_id": "dec_000000000000"
+ },
+ "host_is_error": false,
+ "result": {
+  "decision_id": "dec_000000000000",
+  "found": false,
+  "searched_checkpoints": [
+   1
+  ]
+ }
+}

@@ -1,0 +1,18 @@
+ts=2026-09-30T01:27:22.6821637Z level=loud msg="rehydrate: tier-1 material exceeds the hard budget cap" budget=12000 spent=133 ceiling_chars=9400 spent_chars=362
+ts=2026-09-30T01:27:56.0152617Z level=loud msg="rehydrate: tier-1 material exceeds the hard budget cap" budget=12000 spent=133 ceiling_chars=9400 spent_chars=362
+ts=2026-09-30T01:28:27.2538118Z level=loud msg="rehydrate: tier-1 material exceeds the hard budget cap" budget=12000 spent=133 ceiling_chars=9400 spent_chars=362
+ts=2026-09-30T01:28:50.4662585Z level=loud msg="rehydrate: tier-1 material exceeds the hard budget cap" budget=12000 spent=133 ceiling_chars=9400 spent_chars=362
+ts=2026-09-30T01:29:32.7356358Z level=loud msg="rehydrate: tier-1 material exceeds the hard budget cap" budget=12000 spent=133 ceiling_chars=9400 spent_chars=362
+ts=2026-09-30T01:29:59.1486975Z level=loud msg="rehydrate: tier-1 material exceeds the hard budget cap" budget=12000 spent=133 ceiling_chars=9400 spent_chars=362
+ts=2026-09-30T01:30:37.142803Z level=loud msg="rehydrate: tier-1 material exceeds the hard budget cap" budget=12000 spent=133 ceiling_chars=9400 spent_chars=362
+ts=2026-09-30T01:31:09.2606287Z level=loud msg="rehydrate: tier-1 material exceeds the hard budget cap" budget=12000 spent=133 ceiling_chars=9400 spent_chars=362
+ts=2026-09-30T01:31:37.72612Z level=loud msg="rehydrate: tier-1 material exceeds the hard budget cap" budget=12000 spent=133 ceiling_chars=9400 spent_chars=363
+ts=2026-09-30T01:32:10.8169641Z level=loud msg="rehydrate: tier-1 material exceeds the hard budget cap" budget=12000 spent=133 ceiling_chars=9400 spent_chars=363
+ts=2026-09-30T01:32:46.5075723Z level=loud msg="rehydrate: tier-1 material exceeds the hard budget cap" budget=12000 spent=133 ceiling_chars=9400 spent_chars=363
+ts=2026-09-30T01:33:23.4249699Z level=loud msg="rehydrate: tier-1 material exceeds the hard budget cap" budget=12000 spent=133 ceiling_chars=9400 spent_chars=363
+ts=2026-09-30T01:34:07.8409583Z level=loud msg="rehydrate: tier-1 material exceeds the hard budget cap" budget=12000 spent=133 ceiling_chars=9400 spent_chars=363
+ts=2026-09-30T01:34:52.6400591Z level=loud msg="rehydrate: tier-1 material exceeds the hard budget cap" budget=12000 spent=133 ceiling_chars=9400 spent_chars=363
+ts=2026-09-30T01:35:48.6746298Z level=loud msg="rehydrate: tier-1 material exceeds the hard budget cap" budget=12000 spent=133 ceiling_chars=9400 spent_chars=363
+ts=2026-09-30T01:35:58.6285426Z level=loud msg="daemon: config reload warning" key="" message="unparseable config: unexpected end of JSON input" location=<scratch>\sessions\c4\uat04\proj\.qompack\config.json
+ts=2026-09-30T01:38:38.4210701Z level=loud msg="configuration unusable, using defaults" message="unparseable config: unexpected end of JSON input" location=<scratch>\sessions\c4\uat04\proj\.qompack\config.json
+ts=2026-09-30T01:38:38.4562252Z level=loud msg="configuration unusable, using defaults" message="unparseable config: unexpected end of JSON input" location=<scratch>\sessions\c4\uat04\proj\.qompack\config.json

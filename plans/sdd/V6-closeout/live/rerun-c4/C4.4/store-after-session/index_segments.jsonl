@@ -1,0 +1,7 @@
+{"v":1,"op":"open","id":1,"s":"3187e738-5cc8-4c2d-a8e1-0c0d5d400ac9","st":0,"sts":1790739575720}
+{"v":1,"op":"close","id":1,"et":41,"ets":1790739746069,"tok":10172,"feat":{"gap_seconds":0,"lexical_cohesion":0,"path_jaccard":0,"prob_changepoint":0.0000014937416378569322,"todo_transition":0,"tool_shift":0}}
+{"v":1,"op":"open","id":2,"s":"3187e738-5cc8-4c2d-a8e1-0c0d5d400ac9","st":42,"sts":1790739746069}
+{"v":1,"op":"encode","id":1,"seq":1,"ts":1790739746100}
+{"v":1,"op":"close","id":2,"et":44,"ets":1790739786371,"tok":426,"feat":{"gap_seconds":5.212,"lexical_cohesion":1,"path_jaccard":1,"prob_changepoint":0.9902029943810174,"todo_transition":0,"tool_shift":0.8333333333333334}}
+{"v":1,"op":"open","id":3,"s":"3187e738-5cc8-4c2d-a8e1-0c0d5d400ac9","st":45,"sts":1790739786371}
+{"v":1,"op":"close","id":3,"et":49,"ets":1790739809155,"tok":5499,"feat":{"gap_seconds":0.877,"lexical_cohesion":0.29757649909764655,"path_jaccard":1,"todo_transition":0,"tool_shift":0.375}}

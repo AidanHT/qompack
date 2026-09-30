@@ -1,0 +1,4 @@
+[["recall", {"query": "QPK", "k": 10}],
+ ["recall", {"query": "tool:Bash", "k": 10}],
+ ["expand", {"tool_use_id": "toolu_01VmvAT4ft9Qa8H5UPzqBRTx", "full": true}],
+ ["expand", {"tool_use_id": "toolu_01GW22FPHNMsihjT973whYMi", "full": true}]]

@@ -1,0 +1,2 @@
+== devtool lint: golangci-lint ==
+PASS golangci-lint

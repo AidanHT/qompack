@@ -1,0 +1,25 @@
+# go test -p 2 -count=1 -v -run '^(TestCaptureGate_WaitReturnsOnlyOnceTheWorkInFlightEnds|TestCaptureGate_WaitEndsWithItsContext|TestDispatchOp_HoldsTheCaptureGateWhileServing|TestRunIngested_HoldsTheCaptureGateWhileApplying|TestStartupPublicationAccounting_BackgroundPassPausesWhileARequestIsInFlight|TestStartupPublicationAccounting_StopEndsAPausedPass|TestStartupPublicationAccounting_HealthyLiveRunSizedStoreIsNeverLoud|TestStartupPublicationAccounting_FinishesPastTheBoundInTheBackground|TestStartupPublicationAccounting_BackgroundPassAnnouncesARealGap|TestStartupPublicationAccounting_StoppedBackgroundPassIsNotLoud)$' ./internal/daemon/
+=== RUN   TestStartupPublicationAccounting_HealthyLiveRunSizedStoreIsNeverLoud
+    publication_startup_test.go:69: one full accounting pass over 70 captures and 380 objects took 1.2014725s (startup bound 250ms)
+--- PASS: TestStartupPublicationAccounting_HealthyLiveRunSizedStoreIsNeverLoud (7.23s)
+=== RUN   TestStartupPublicationAccounting_FinishesPastTheBoundInTheBackground
+--- PASS: TestStartupPublicationAccounting_FinishesPastTheBoundInTheBackground (6.79s)
+=== RUN   TestStartupPublicationAccounting_BackgroundPassAnnouncesARealGap
+--- PASS: TestStartupPublicationAccounting_BackgroundPassAnnouncesARealGap (0.09s)
+=== RUN   TestStartupPublicationAccounting_StoppedBackgroundPassIsNotLoud
+--- PASS: TestStartupPublicationAccounting_StoppedBackgroundPassIsNotLoud (6.71s)
+=== RUN   TestCaptureGate_WaitReturnsOnlyOnceTheWorkInFlightEnds
+--- PASS: TestCaptureGate_WaitReturnsOnlyOnceTheWorkInFlightEnds (0.00s)
+=== RUN   TestCaptureGate_WaitEndsWithItsContext
+--- PASS: TestCaptureGate_WaitEndsWithItsContext (0.00s)
+=== RUN   TestDispatchOp_HoldsTheCaptureGateWhileServing
+--- PASS: TestDispatchOp_HoldsTheCaptureGateWhileServing (0.01s)
+=== RUN   TestRunIngested_HoldsTheCaptureGateWhileApplying
+--- PASS: TestRunIngested_HoldsTheCaptureGateWhileApplying (0.01s)
+=== RUN   TestStartupPublicationAccounting_BackgroundPassPausesWhileARequestIsInFlight
+--- PASS: TestStartupPublicationAccounting_BackgroundPassPausesWhileARequestIsInFlight (6.65s)
+=== RUN   TestStartupPublicationAccounting_StopEndsAPausedPass
+--- PASS: TestStartupPublicationAccounting_StopEndsAPausedPass (6.44s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	34.324s
+exit=0

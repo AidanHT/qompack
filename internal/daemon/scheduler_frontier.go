@@ -139,7 +139,7 @@ func (r *schedRuntime) closeSegmentLocked(ctx context.Context, at core.TurnIndex
 func (r *schedRuntime) closeSessionSegmentLocked(ctx context.Context, sess core.SessionID, at core.TurnIndex,
 	f scheduler.Features, cause string,
 ) error {
-	if !r.cfg.Checkpoint.Frontier.AdvanceOnSegmentClose {
+	if !r.conf().Checkpoint.Frontier.AdvanceOnSegmentClose {
 		return nil
 	}
 	cur, err := r.segs.Current(ctx, sess)
@@ -368,7 +368,7 @@ func (r *schedRuntime) recomputeResidualLocked(ctx context.Context) {
 // The gauge tracks the current state, so it reads 0 again once the residual is back under
 // budget; the Warn does not repeat.
 func (r *schedRuntime) checkResidualBudgetLocked(unencodedClosed int) {
-	limit := core.Tokens(r.cfg.Checkpoint.Frontier.MaxResidualTokens)
+	limit := core.Tokens(r.conf().Checkpoint.Frontier.MaxResidualTokens)
 	if limit <= 0 || r.residual <= limit {
 		r.gauge(gaugeResidualOverBudget, 0)
 		return

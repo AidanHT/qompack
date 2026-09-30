@@ -1,0 +1,14 @@
+final staged-copy cleanup 2026-09-29 21:07:03 EDT (install.md §6, after the final uninstall; homeguard listed ~/.qompack as absent/0 entries at snap)
+$ find ~/.qompack
+<home>/.qompack
+<home>/.qompack/bin
+<home>/.qompack/bin/1e9d0cc84597bf719955e268ef2e0c990352eb964559116a6612a012f1e5c358
+<home>/.qompack/bin/1e9d0cc84597bf719955e268ef2e0c990352eb964559116a6612a012f1e5c358/qompack.exe
+$ running qompack.exe processes
+0
+$ sha256sum <home>/.qompack/bin/1e9d.../qompack.exe <frozen bundle>/bin/qompack.exe
+1e9d0cc84597bf719955e268ef2e0c990352eb964559116a6612a012f1e5c358 *<home>/.qompack/bin/1e9d0cc84597bf719955e268ef2e0c990352eb964559116a6612a012f1e5c358/qompack.exe
+1e9d0cc84597bf719955e268ef2e0c990352eb964559116a6612a012f1e5c358 *<bundles>/c4/qompack-plugin-0.3.0-windows-amd64/bin/qompack.exe
+$ Remove-Item -Recurse -Force $HOME\.qompack\bin
+exit 0
+removed the now-empty run-created <home>/.qompack (absent at snap)

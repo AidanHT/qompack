@@ -1,0 +1,16 @@
+{
+ "turn": 1,
+ "tool": "mcp__plugin_qompack_qompack__already_tried",
+ "tool_use_id": "toolu_01NffBeELRhfcUw7KzpPAbi3",
+ "arguments": {
+  "target": "src/pool.go:DialPool",
+  "approach": "widen pool timeout"
+ },
+ "host_is_error": false,
+ "result": {
+  "state": "unavailable",
+  "reason": "the elimination ledger is in blind mode: records/eliminations.jsonl could not be read",
+  "note": "repair or restore the elimination log and restart; this is not evidence the approach is untried",
+  "degraded": true
+ }
+}

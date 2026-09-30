@@ -1,0 +1,10 @@
+=== RUN   TestRenderStatus_AHealthyStandardSetReadsNoneFailing
+=== PAUSE TestRenderStatus_AHealthyStandardSetReadsNoneFailing
+=== RUN   TestRenderStatus_ASpentProbeReadFromHistoryIsFailing
+=== PAUSE TestRenderStatus_ASpentProbeReadFromHistoryIsFailing
+=== CONT  TestRenderStatus_AHealthyStandardSetReadsNoneFailing
+=== CONT  TestRenderStatus_ASpentProbeReadFromHistoryIsFailing
+--- PASS: TestRenderStatus_ASpentProbeReadFromHistoryIsFailing (0.00s)
+--- PASS: TestRenderStatus_AHealthyStandardSetReadsNoneFailing (0.00s)
+PASS
+ok  	github.com/qompack/qompack/internal/commands	1.510s

@@ -14,6 +14,7 @@ import (
 	"github.com/qompack/qompack/internal/contract"
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/hookio"
+	"github.com/qompack/qompack/internal/hostperm"
 	"github.com/qompack/qompack/internal/logging"
 	"github.com/qompack/qompack/internal/negknow"
 	"github.com/qompack/qompack/internal/obs"
@@ -29,7 +30,13 @@ import (
 // drop report rather than failing the hook (Qompack.md §12.3).
 type RehydrateOptions struct {
 	ProjectRoot string
-	Cfg         config.Config
+	// Cfg is the configuration the service reads when CfgFn is nil.
+	Cfg config.Config
+	// CfgFn, when set, supplies the configuration at each use instead of Cfg. The daemon wiring
+	// passes its live configuration (Options.CurrentCfg), so a reloaded runtime.rehydrate budget is
+	// the budget the next compaction is built under rather than the one the daemon started with
+	// (V6 close-out D49; the candidate 4 live re-run's UAT-05).
+	CfgFn func() config.Config
 	// Checkpoints is the L4 reader. A nil reader, or one whose Latest reports ErrNotFound or
 	// ErrNotImplemented, is the no-checkpoint path: the payload is still built from the L0
 	// verbatim capture, the ledger and the skill index, and Result.Degraded is set.
@@ -70,6 +77,28 @@ type rehydrateService struct {
 	mu         sync.Mutex
 	ledgerOnce bool
 	ledger     negknow.Ledger
+
+	// tier1Loud names the sessions that have logged a tier-1 overflow Loud (D50: once per
+	// session, not on every compaction). Guarded by mu. It holds one entry per session this
+	// daemon has seen overflow, and a daemon serves one project's sessions until it idles out.
+	tier1Loud map[core.SessionID]bool
+}
+
+// tier1Reported reports whether sess has already logged a tier-1 overflow Loud.
+func (s *rehydrateService) tier1Reported(sess core.SessionID) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.tier1Loud[sess]
+}
+
+// noteTier1 records that sess has logged a tier-1 overflow Loud.
+func (s *rehydrateService) noteTier1(sess core.SessionID) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.tier1Loud == nil {
+		s.tier1Loud = make(map[core.SessionID]bool)
+	}
+	s.tier1Loud[sess] = true
 }
 
 // NewRehydrateService returns the observer.Rehydrator the SessionStart source switch delegates to.
@@ -82,6 +111,14 @@ func NewRehydrateService(o RehydrateOptions) observer.Rehydrator {
 		o.Clock = core.SystemClock()
 	}
 	return &rehydrateService{o: o}
+}
+
+// cfg is the configuration in effect now: the live supplier's when one is wired, Cfg otherwise.
+func (s *rehydrateService) cfg() config.Config {
+	if s.o.CfgFn != nil {
+		return s.o.CfgFn()
+	}
+	return s.o.Cfg
 }
 
 var _ observer.Rehydrator = (*rehydrateService)(nil)
@@ -137,7 +174,8 @@ func (s *rehydrateService) OnCompact(ctx context.Context, e observer.Event) (out
 	// Qompack.md v1.5 Appendix C's independent injection kill switch (SP-19): recording is
 	// untouched — runtime.mode governs that — and nothing is reinjected. Checked before the
 	// checkpoint read for the same reason the mode is: work §12.1 forbids is not paid for first.
-	if !s.o.Cfg.Runtime.Migration.Reinjection.SessionStartCompact {
+	cfg := s.cfg()
+	if !cfg.Runtime.Migration.Reinjection.SessionStartCompact {
 		s.o.Log.Info("rehydrate: injection disabled by runtime.migration.reinjection.sessionStartCompact",
 			"session", string(e.SessionID))
 		return hookio.Empty(), nil
@@ -158,7 +196,7 @@ func (s *rehydrateService) OnCompact(ctx context.Context, e observer.Event) (out
 		return s.stopped(ctx, e.SessionID, "reading the checkpoint"), nil
 	}
 
-	budget := core.Tokens(s.o.Cfg.Runtime.Rehydrate.MaxTokens)
+	budget := core.Tokens(cfg.Runtime.Rehydrate.MaxTokens)
 	req := rehydrate.Request{
 		Session:     e.SessionID,
 		Source:      e.Source,
@@ -166,8 +204,10 @@ func (s *rehydrateService) OnCompact(ctx context.Context, e observer.Event) (out
 		Budget:      budget,
 		Checkpoint:  cp,
 		Ref:         ref,
-		Cfg:         s.o.Cfg,
+		Cfg:         cfg,
 		Lineage:     s.lineage(e.SessionID),
+		// A tier-1 overflow is Loud once per session; the payload names it every time (D50).
+		Tier1OverflowReported: s.tier1Reported(e.SessionID),
 	}
 
 	var res rehydrate.Result
@@ -192,6 +232,9 @@ func (s *rehydrateService) OnCompact(ctx context.Context, e observer.Event) (out
 	}
 	if degraded == errNoCheckpoint {
 		res.Degraded = true
+	}
+	if res.Tier1Overflow {
+		s.noteTier1(e.SessionID)
 	}
 
 	// An empty additionalContext is noise: the host would inject a blank block and the §12.1 probe
@@ -304,11 +347,16 @@ func (s *rehydrateService) latest(ctx context.Context, sess core.SessionID) (che
 	cp, ref, err := s.o.Checkpoints.Latest(ctx, sess)
 	switch {
 	case err == nil:
+		s.rolledBack(sess, ref)
 		return cp, ref, nil
 	case errors.Is(err, core.ErrNotFound), errors.Is(err, core.ErrNotImplemented):
 		s.o.Log.Info("rehydrate: no checkpoint for session; building from L0 and the ledger",
 			"session", string(sess), "err", err.Error())
-		return checkpoint.Checkpoint{}, checkpoint.Ref{}, errNoCheckpoint
+		// What Latest refused is kept: a store whose every checkpoint failed verification is not a
+		// project that never had one, and the payload says which (D49).
+		refused := checkpoint.Ref{Refused: ref.Refused}
+		s.rolledBack(sess, refused)
+		return checkpoint.Checkpoint{}, refused, errNoCheckpoint
 	case cutShort(ctx, err):
 		// The read stopped because its context ended, not because the store failed it: OnCompact
 		// reports the daemon stopping (stopped), and the store is not Loud'd as unreadable.
@@ -317,6 +365,23 @@ func (s *rehydrateService) latest(ctx context.Context, sess core.SessionID) (che
 		s.o.Log.Loud("rehydrate: checkpoint unreadable", "session", string(sess), "err", err.Error())
 		return checkpoint.Checkpoint{}, checkpoint.Ref{}, errFatalCheckpoint
 	}
+}
+
+// rolledBack Louds a checkpoint fallback: the reader stepped over a newer checkpoint that does not
+// verify, and this rehydration is built from ref (or from no checkpoint). The reader's own Loud
+// names the artifact that failed; this one names what the session was rolled back to, which is
+// what F-C4-UAT03-1's LOUD.log left out (D49). The message carries the whole reason so the one
+// line a reader of LOUD.log sees says both halves.
+func (s *rehydrateService) rolledBack(sess core.SessionID, ref checkpoint.Ref) {
+	if len(ref.Refused) == 0 {
+		return
+	}
+	to := "no checkpoint"
+	if ref.Seq != 0 {
+		to = fmt.Sprintf("%04d", int(ref.Seq))
+	}
+	s.o.Log.Loud("rehydrate: newest checkpoint refused; rolled back to "+to,
+		"session", string(sess), "refused", fmt.Sprint(ref.Refused), "rolled_back_to", to)
 }
 
 // record persists the drop report. A write failure is logged and swallowed: the payload has
@@ -336,6 +401,8 @@ func (s *rehydrateService) record(ctx context.Context, sess core.SessionID, res 
 		Items:    stats,
 		Dropped:  res.Dropped,
 		Degraded: res.Degraded,
+		// Why, when the drop report alone would not make it plain (a checkpoint fallback, D49).
+		DegradedReason: res.DegradedReason,
 	}
 	if err := s.o.Reporter.Record(ctx, sess, st); err != nil {
 		s.o.Log.Warn("rehydrate: could not record state", "session", string(sess), "err", err.Error())
@@ -411,7 +478,7 @@ func (s *rehydrateService) recordNotBuilt(ctx context.Context, sess core.Session
 	st := rehydrate.State{
 		Session: sess,
 		Emitted: core.UnixMilli(s.o.Clock.Now().UnixMilli()),
-		Budget:  core.Tokens(s.o.Cfg.Runtime.Rehydrate.MaxTokens),
+		Budget:  core.Tokens(s.cfg().Runtime.Rehydrate.MaxTokens),
 		Dropped: []checkpoint.DropEntry{{
 			Kind: undeliveredDropKind, ID: notBuiltDropID,
 			Detail: why + "; the checkpoints are kept in .qompack/checkpoints/ (the highest-numbered file is the newest)",
@@ -553,6 +620,8 @@ func WireRehydrator(o *Options) observer.Rehydrator {
 	// Wiring time, on the goroutine that owns this Options and before anything can read the
 	// handle: the cell the opener publishes into must exist before the opener does.
 	o.ensureLedgerCell()
+	// Likewise the live configuration's cell, which the service and the ledger read (config_live.go).
+	o.ensureLiveConfig()
 	log := o.Log
 	if log == nil {
 		log = logging.Nop()
@@ -598,8 +667,15 @@ func WireRehydrator(o *Options) observer.Rehydrator {
 				ledger = existing
 				return
 			}
-			l, err := negknow.Open(o.ProjectRoot, o.Cfg, nil, negknow.Deps{
+			// Opened with the configuration in effect NOW, and reading the live one after
+			// (Deps.Config): the ledger applies eliminations.* itself, and a reload between the
+			// daemon's start and the first compaction, or after it, must reach it. Ancestry reads the
+			// lineage records, so a fork's already_tried and rehydration see its parent's
+			// session-scoped eliminations up to the fork point (D49, F-C4-UAT06-1).
+			l, err := negknow.Open(o.ProjectRoot, o.CurrentCfg(), nil, negknow.Deps{
 				Store: o.Store, Graph: o.Graph, Log: log, Metrics: o.Metrics, Clock: clk,
+				Config:   o.CurrentCfg,
+				Ancestry: checkpoint.LedgerAncestry(o.ProjectRoot),
 			})
 			if err != nil {
 				log.Loud("daemon: negative-knowledge ledger unavailable; eliminations will not be rehydrated",
@@ -637,6 +713,7 @@ func WireRehydrator(o *Options) observer.Rehydrator {
 	svc := NewRehydrateService(RehydrateOptions{
 		ProjectRoot: o.ProjectRoot,
 		Cfg:         o.Cfg,
+		CfgFn:       o.CurrentCfg,
 		Checkpoints: ckpt,
 		OpenLedger:  o.OpenLedger,
 		Deps: rehydrate.Deps{
@@ -651,6 +728,8 @@ func WireRehydrator(o *Options) observer.Rehydrator {
 			Skills: skills.New(skills.WithLogger(log)),
 			Tokens: tokens.NewForProject(o.Cfg, tokens.DefaultCalibPath(), o.ProjectRoot),
 			Log:    log,
+			// Section 6 never shows a path re_read would refuse (D50): the same host rules.
+			HostPaths: rehydrateHostPaths(hostPolicyFor(o), o.ProjectRoot, log),
 		},
 		Reporter: rehydrate.NewReporter(o.ProjectRoot, log),
 		Log:      log,
@@ -659,4 +738,50 @@ func WireRehydrator(o *Options) observer.Rehydrator {
 	})
 	BindRehydrate(o, svc)
 	return svc
+}
+
+// hostPolicyFor is o.HostPolicy, or the machine's own rules for the project when none is supplied —
+// the default internal/mcp builds for re_read and expand, so the two judge a path alike.
+func hostPolicyFor(o *Options) *hostperm.Policy {
+	if o.HostPolicy != nil {
+		return o.HostPolicy
+	}
+	return hostperm.New(hostperm.Options{ProjectRoot: o.ProjectRoot})
+}
+
+// rehydrateHostPaths adapts the host's permission policy to rehydrate.HostPaths: one rule snapshot
+// per build, and a path refused when a Read deny or ask rule matches it (an archived rehydration
+// cannot ask), judged as recorded and as the project's resolved root spells it — the two spellings
+// internal/mcp's authorizeHost judges. Rules that cannot be established return nil, and rehydrate
+// then withholds every path, as re_read withholds path-bearing content (fail closed).
+func rehydrateHostPaths(p *hostperm.Policy, root string, log logging.Logger) rehydrate.HostPaths {
+	return func() func(string) bool {
+		rules, err := p.Snapshot()
+		if err != nil {
+			log.Loud("rehydrate: host permission policy unavailable; section 6 withholds every path",
+				"err", err.Error())
+			return nil
+		}
+		if rules.Empty() {
+			return func(string) bool { return false }
+		}
+		resolved := root
+		if r, err := filepath.EvalSymlinks(root); err == nil {
+			resolved = r
+		}
+		return func(path string) bool {
+			abs := path
+			if !filepath.IsAbs(abs) {
+				abs = filepath.Join(root, filepath.FromSlash(path))
+			}
+			if rules.Evaluate(abs).Effect != hostperm.Allow {
+				return true
+			}
+			rel, err := filepath.Rel(root, abs)
+			if err != nil || resolved == root {
+				return false
+			}
+			return rules.Evaluate(filepath.Join(resolved, rel)).Effect != hostperm.Allow
+		}
+	}
 }

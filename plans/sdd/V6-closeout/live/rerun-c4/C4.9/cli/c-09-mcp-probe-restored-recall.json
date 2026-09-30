@@ -1,0 +1,135 @@
+{
+ "initialize": {
+  "serverInfo": {
+   "name": "qompack",
+   "version": "0.3.0"
+  },
+  "protocolVersion": "2025-06-18"
+ },
+ "calls": [
+  {
+   "tool": "recall",
+   "args": {
+    "query": "codeword"
+   },
+   "jsonrpc_line_bytes": 415,
+   "isError": false,
+   "error": null,
+   "text_bytes": 106,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 1,
+     "ephemeral": true,
+     "hash": "sha256:0dc359f87ad781867b98ac95631e26d04eea4fe3d0e524a4d7cf3e671c531585",
+     "tool_use_id": "qompack-mcp:4ee26bb972ec",
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "hits": [],
+     "count": 0,
+     "found": false,
+     "query": {
+      "text": "codeword",
+      "path": "",
+      "symbol": "",
+      "tool": ""
+     },
+     "denied": 5
+    }
+   ]
+  },
+  {
+   "tool": "recall",
+   "args": {
+    "query": "path:data.txt"
+   },
+   "jsonrpc_line_bytes": 663,
+   "isError": false,
+   "error": null,
+   "text_bytes": 328,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 2,
+     "ephemeral": true,
+     "hash": "sha256:d1823bd1e3cc64d74b10307d079d9d9ad8f0380a21164d708c5125567fc1feeb",
+     "tool_use_id": "qompack-mcp:d60bf3c07668",
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "hits": [
+      {
+       "hash": "sha256:503f779139b23553cbd59e71a86b9d99ea670c2dd3dff13f98c64f6d70493246",
+       "path": "data.txt",
+       "tool": "FileRead",
+       "summary": "",
+       "ts": "2026-09-30T01:21:47Z",
+       "score": 1.12,
+       "tool_use_id": "toolu_01K7CVxeFTzmC5cGN173CDiG",
+       "span": [
+        0,
+        778
+       ]
+      }
+     ],
+     "count": 1,
+     "found": true,
+     "query": {
+      "text": "",
+      "path": "data.txt",
+      "symbol": "",
+      "tool": ""
+     }
+    }
+   ]
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "tool_use_id": "prompt_e99d07d3-0359-42f9-8d15-aecdd132b4d5_0"
+   },
+   "jsonrpc_line_bytes": 706,
+   "isError": false,
+   "error": null,
+   "text_bytes": 315,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 10,
+     "ephemeral": true,
+     "expansions": 1,
+     "hash": "sha256:c5176ee3d1eff28096f91c3a7c761d2fe7acd97216348d734909e88332ffe8d3",
+     "promoted": false,
+     "span": [
+      0,
+      84
+     ],
+     "tool_use_id": "qompack-mcp:dbd231772f93",
+     "total_bytes": 84,
+     "truncated": false,
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "found": true,
+     "hash": "sha256:b9bf62b1559d7513f19cdb08274f877e064ef04b69c664ace35ed2f76dc1a344",
+     "tool": "UserPromptSubmit",
+     "span": [
+      0,
+      84
+     ],
+     "total_bytes": 84,
+     "truncated": false,
+     "widened": false,
+     "expansions": 1,
+     "promoted": false,
+     "content": "Use the Read tool to read notes.md and tell me the project codeword in one sentence."
+    }
+   ]
+  }
+ ],
+ "stderr_tail": ""
+}

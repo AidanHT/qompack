@@ -1,0 +1,23 @@
+{
+ "turn": 6,
+ "tool": "mcp__plugin_qompack_qompack__why",
+ "tool_use_id": "toolu_01SVGzyKz13yJmb6JoVLs4fN",
+ "arguments": {
+  "decision_id": "dec_e760c8bbf50a"
+ },
+ "host_is_error": false,
+ "result": {
+  "alternatives_rejected": [
+   "widen pool timeout"
+  ],
+  "checkpoint_seq": 1,
+  "decision_id": "dec_e760c8bbf50a",
+  "evidence": "sha256:af7fcd075e130e83c74f8e7a5cbd3b37edafbb65ba609473e540ef85b112b0bf",
+  "evidence_bytes": 145,
+  "found": true,
+  "hint": "call expand with hash=sha256:af7fcd075e130e83c74f8e7a5cbd3b37edafbb65ba609473e540ef85b112b0bf to read the evidence",
+  "turn": 3,
+  "what": "rejected \"widen pool timeout\" for src/pool.go:DialPool",
+  "why": "the stall comes from the server-side max_idle cap in config/pool.yaml, not from the client timeout; a longer timeout only delays the same failure"
+ }
+}

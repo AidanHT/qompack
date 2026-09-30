@@ -1,0 +1,3 @@
+verified pid 26148 image qompack.exe cmdline C:\Users\Quant\.qompack\bin\1e9d0cc84597bf719955e268ef2e0c990352eb964559116a6612a012f1e5c358\qompack.exe daemon --project <scratch>\install\uat12\proj
+terminated pid 26148
+daemon.lock still present after termination (stale lock left for the staleness protocol)

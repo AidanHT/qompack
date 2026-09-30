@@ -1,0 +1,2 @@
+D1 (restored at step 06, read by the 10 probe) fingerprinted before and after the refused restore 19a:
+vs fp-D1-before-refusal.json: +0 -0 ~0

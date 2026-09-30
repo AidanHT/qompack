@@ -118,8 +118,8 @@ func stubRegistry() []stubPackage {
 		// would assert grammar is still a stub, which it is not.
 		{pkg: "grammar", build: func(*testing.T) any { return grammar.New() }, pureMethods: allMethodsAreReal},
 		// negknow's seam is REAL as of SP-09 (the elimination ledger: the three-way already_tried
-		// answer, the evidence-linked staleness flip, tried.bloom rebuilt from active records
-		// only), so none of its methods reports ErrNotImplemented any more — Get reports
+		// answer, the evidence-linked staleness flip, tried.bloom rebuilt from the records, active
+		// and stale), so none of its methods reports ErrNotImplemented any more — Get reports
 		// ErrNotFound for an id that does not exist, which is the honest answer and not a stub's.
 		// It stays registered for the completeness check; dropping the marker would assert
 		// negknow is still a stub, which it is not.

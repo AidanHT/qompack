@@ -1,0 +1,974 @@
+=== RUN   TestGated_ShortCircuitsBeforeCheckRuns
+--- PASS: TestGated_ShortCircuitsBeforeCheckRuns (0.00s)
+=== RUN   TestAdditionalContextGatedUntilRehydrator
+--- PASS: TestAdditionalContextGatedUntilRehydrator (0.00s)
+=== RUN   TestPercentileMs
+--- PASS: TestPercentileMs (0.00s)
+=== RUN   TestParseMode_RoundTripsEveryMode
+--- PASS: TestParseMode_RoundTripsEveryMode (0.00s)
+=== RUN   TestParseMode_RejectsUnrecognizedValues
+--- PASS: TestParseMode_RejectsUnrecognizedValues (0.00s)
+=== RUN   TestSeverity_Label
+--- PASS: TestSeverity_Label (0.00s)
+=== RUN   TestDegradeReason_IsOrderIndependent
+--- PASS: TestDegradeReason_IsOrderIndependent (0.00s)
+=== RUN   TestDegradeReason_IgnoresPassingAndNonCriticalResults
+--- PASS: TestDegradeReason_IgnoresPassingAndNonCriticalResults (0.00s)
+=== RUN   TestFailedSummary_ListsEveryFailureWithItsSeverity
+--- PASS: TestFailedSummary_ListsEveryFailureWithItsSeverity (0.00s)
+=== RUN   TestLatestTS_ReturnsTheNewestStamp
+--- PASS: TestLatestTS_ReturnsTheNewestStamp (0.00s)
+=== RUN   TestMarkerPath_IsRunMarkerJSON
+--- PASS: TestMarkerPath_IsRunMarkerJSON (0.00s)
+=== RUN   TestWriteMarker_RoundTripsThroughReadMarker
+--- PASS: TestWriteMarker_RoundTripsThroughReadMarker (0.02s)
+=== RUN   TestReadMarker_MissingFileIsAnError
+--- PASS: TestReadMarker_MissingFileIsAnError (0.00s)
+=== RUN   TestWriteMarker_OverwritesRatherThanAppends
+--- PASS: TestWriteMarker_OverwritesRatherThanAppends (0.03s)
+=== RUN   TestWriteMarker_IsTheOnlyMarkerWriterInContract
+--- PASS: TestWriteMarker_IsTheOnlyMarkerWriterInContract (0.00s)
+=== RUN   TestReadMarker_ReadsThroughAReplaceStillFinishing
+--- PASS: TestReadMarker_ReadsThroughAReplaceStillFinishing (0.03s)
+=== RUN   TestSessionStartFires_AMarkerMidReplaceIsNotAnAbsence
+--- PASS: TestSessionStartFires_AMarkerMidReplaceIsNotAnAbsence (0.02s)
+=== RUN   TestCapabilityOf_MapsEveryStandardAssertion
+=== PAUSE TestCapabilityOf_MapsEveryStandardAssertion
+=== RUN   TestClassifyResult_Table
+=== PAUSE TestClassifyResult_Table
+=== RUN   TestClassifyResult_UnsupportedBeatsEveryOtherReading
+=== PAUSE TestClassifyResult_UnsupportedBeatsEveryOtherReading
+=== RUN   TestClassifyResult_FreshBuildIsEntirelyUnavailable
+--- PASS: TestClassifyResult_FreshBuildIsEntirelyUnavailable (0.00s)
+=== RUN   TestNoObservationSpellings_AreWhatTheChecksActuallyEmit
+--- PASS: TestNoObservationSpellings_AreWhatTheChecksActuallyEmit (0.00s)
+=== RUN   TestObservedVocabulary_CoversEveryLiteralInAssertionsGo
+=== PAUSE TestObservedVocabulary_CoversEveryLiteralInAssertionsGo
+=== RUN   TestObservationsOf_AttributesAndDatesEveryResult
+=== PAUSE TestObservationsOf_AttributesAndDatesEveryResult
+=== RUN   TestObservationsOf_CoverageIsNeverComplete
+=== PAUSE TestObservationsOf_CoverageIsNeverComplete
+=== RUN   TestObservationLedgerPath_IsItsOwnFile
+=== PAUSE TestObservationLedgerPath_IsItsOwnFile
+=== RUN   TestObservationLedger_RoundTrips
+=== PAUSE TestObservationLedger_RoundTrips
+=== RUN   TestObservationLedger_CapsPerID
+=== PAUSE TestObservationLedger_CapsPerID
+=== RUN   TestSaveObservationLedger_NilIsAFreshLedger
+=== PAUSE TestSaveObservationLedger_NilIsAFreshLedger
+=== RUN   TestStandingVocabulary_PendingIsNothingSeen
+=== PAUSE TestStandingVocabulary_PendingIsNothingSeen
+=== RUN   TestStandingVocabulary_EveryNothingSeenSpellingIsNotHolding
+=== PAUSE TestStandingVocabulary_EveryNothingSeenSpellingIsNotHolding
+=== RUN   TestFreshBuildReportsModeFull
+--- PASS: TestFreshBuildReportsModeFull (0.00s)
+=== RUN   TestCriticalFailureDegrades
+--- PASS: TestCriticalFailureDegrades (0.02s)
+=== RUN   TestTwoCleanRunsRestore
+--- PASS: TestTwoCleanRunsRestore (0.02s)
+=== RUN   TestOneCleanRunDoesNotRestore
+--- PASS: TestOneCleanRunDoesNotRestore (0.01s)
+=== RUN   TestRuntimeModeOffShortCircuits
+--- PASS: TestRuntimeModeOffShortCircuits (0.00s)
+=== RUN   TestRuntimeModeOffForcesModeOff
+--- PASS: TestRuntimeModeOffForcesModeOff (0.00s)
+=== RUN   TestRuntimeModePassiveForces
+--- PASS: TestRuntimeModePassiveForces (0.00s)
+=== RUN   TestRuntimeModeFullForces
+--- PASS: TestRuntimeModeFullForces (0.01s)
+=== RUN   TestPanickingAssertionDoesNotDegrade
+--- PASS: TestPanickingAssertionDoesNotDegrade (0.00s)
+=== RUN   TestSessionStartFiresNeedsTwoMisses
+--- PASS: TestSessionStartFiresNeedsTwoMisses (0.01s)
+=== RUN   TestSessionStartFires_SameSessionRunTwiceDoesNotDoubleCount
+--- PASS: TestSessionStartFires_SameSessionRunTwiceDoesNotDoubleCount (0.00s)
+=== RUN   TestSessionStartFires_ConsecutiveAbsenceIsPerSession
+--- PASS: TestSessionStartFires_ConsecutiveAbsenceIsPerSession (0.02s)
+=== RUN   TestSessionStartFires_EmptyProjectRootIsNoObservation
+--- PASS: TestSessionStartFires_EmptyProjectRootIsNoObservation (0.00s)
+=== RUN   TestSessionStartFires_DaemonPreWriteOfLastSessionIDDoesNotWedgeFutureCounting
+--- PASS: TestSessionStartFires_DaemonPreWriteOfLastSessionIDDoesNotWedgeFutureCounting (0.00s)
+=== RUN   TestSourceCompactEvaluatedOnFollowingStart
+--- PASS: TestSourceCompactEvaluatedOnFollowingStart (0.00s)
+=== RUN   TestPreCompactTimeoutUnknownIsOK
+--- PASS: TestPreCompactTimeoutUnknownIsOK (0.00s)
+=== RUN   TestPreCompactTiming_NoSamplesIsOK
+--- PASS: TestPreCompactTiming_NoSamplesIsOK (0.00s)
+=== RUN   TestCustomInstructions_RetiredRowNeverProbesAndNeverWarns
+=== RUN   TestCustomInstructions_RetiredRowNeverProbesAndNeverWarns/an_older_daemon's_instruction,_replayed_into_the_transcript
+=== RUN   TestCustomInstructions_RetiredRowNeverProbesAndNeverWarns/an_older_daemon's_instruction,_unreadable_transcript
+=== RUN   TestCustomInstructions_RetiredRowNeverProbesAndNeverWarns/no_instruction_ever_recorded
+=== RUN   TestCustomInstructions_RetiredRowNeverProbesAndNeverWarns/no_history_at_all
+=== RUN   TestCustomInstructions_RetiredRowNeverProbesAndNeverWarns/an_older_daemon's_instruction,_absent_from_the_transcript
+--- PASS: TestCustomInstructions_RetiredRowNeverProbesAndNeverWarns (0.00s)
+    --- PASS: TestCustomInstructions_RetiredRowNeverProbesAndNeverWarns/an_older_daemon's_instruction,_replayed_into_the_transcript (0.00s)
+    --- PASS: TestCustomInstructions_RetiredRowNeverProbesAndNeverWarns/an_older_daemon's_instruction,_unreadable_transcript (0.00s)
+    --- PASS: TestCustomInstructions_RetiredRowNeverProbesAndNeverWarns/no_instruction_ever_recorded (0.00s)
+    --- PASS: TestCustomInstructions_RetiredRowNeverProbesAndNeverWarns/no_history_at_all (0.00s)
+    --- PASS: TestCustomInstructions_RetiredRowNeverProbesAndNeverWarns/an_older_daemon's_instruction,_absent_from_the_transcript (0.00s)
+=== RUN   TestHookPayloadShapeRejectsEmptySession
+--- PASS: TestHookPayloadShapeRejectsEmptySession (0.00s)
+=== RUN   TestPluginRootUnsetIsOK
+--- PASS: TestPluginRootUnsetIsOK (0.00s)
+=== RUN   TestHistoryPersistsAcrossMonitors
+--- PASS: TestHistoryPersistsAcrossMonitors (0.04s)
+=== RUN   TestSourceCompact_PendingForAnotherSessionDoesNotFail
+--- PASS: TestSourceCompact_PendingForAnotherSessionDoesNotFail (0.00s)
+=== RUN   TestSourceCompact_SameSessionStillFails
+--- PASS: TestSourceCompact_SameSessionStillFails (0.00s)
+=== RUN   TestSourceCompact_SameSessionCompactPasses
+--- PASS: TestSourceCompact_SameSessionCompactPasses (0.00s)
+=== RUN   TestDefaultCapabilityRegister_Validates
+=== PAUSE TestDefaultCapabilityRegister_Validates
+=== RUN   TestDefaultCapabilityRegister_ListsTheEightCapabilitiesExactlyOnce
+=== PAUSE TestDefaultCapabilityRegister_ListsTheEightCapabilitiesExactlyOnce
+=== RUN   TestDefaultCapabilityRegister_MatchesTheLedgerTable
+=== PAUSE TestDefaultCapabilityRegister_MatchesTheLedgerTable
+=== RUN   TestDefaultCapabilityRegister_EveryOptimizeCapabilityIsDisabled
+=== PAUSE TestDefaultCapabilityRegister_EveryOptimizeCapabilityIsDisabled
+=== RUN   TestDefaultCapabilityRegister_UnsupportedMechanismsAreNamedAsSuch
+=== PAUSE TestDefaultCapabilityRegister_UnsupportedMechanismsAreNamedAsSuch
+=== RUN   TestDefaultCapabilityRegister_CompactionBlockingNeverBlocksManualCompact
+=== PAUSE TestDefaultCapabilityRegister_CompactionBlockingNeverBlocksManualCompact
+=== RUN   TestDefaultCapabilityRegister_EnabledActingCapabilityNamesItsCanary
+=== PAUSE TestDefaultCapabilityRegister_EnabledActingCapabilityNamesItsCanary
+=== RUN   TestCapabilityRegister_Validate_RedCases
+=== PAUSE TestCapabilityRegister_Validate_RedCases
+=== RUN   TestCapabilityRegister_Get
+=== PAUSE TestCapabilityRegister_Get
+=== RUN   TestResultSet_MatchesFrozenGolden
+=== PAUSE TestResultSet_MatchesFrozenGolden
+=== RUN   TestResultSet_GoldenRoundTripsLosslessly
+=== PAUSE TestResultSet_GoldenRoundTripsLosslessly
+=== RUN   TestHistoryPath_IsStateHistoryJSON
+--- PASS: TestHistoryPath_IsStateHistoryJSON (0.00s)
+=== RUN   TestLoadHistory_MissingFileIsFirstRun
+--- PASS: TestLoadHistory_MissingFileIsFirstRun (0.00s)
+=== RUN   TestLoadHistory_CorruptFileFallsBackToZero
+--- PASS: TestLoadHistory_CorruptFileFallsBackToZero (0.01s)
+=== RUN   TestLoadHistory_UnrecognizedVersionFallsBackToZero
+--- PASS: TestLoadHistory_UnrecognizedVersionFallsBackToZero (0.01s)
+=== RUN   TestLoadHistory_ReappliesCapsOnLoad
+--- PASS: TestLoadHistory_ReappliesCapsOnLoad (0.01s)
+=== RUN   TestSaveHistory_RoundTripsThroughLoadHistory
+--- PASS: TestSaveHistory_RoundTripsThroughLoadHistory (0.02s)
+=== RUN   TestSaveHistory_CreatesTheStateDirectory
+--- PASS: TestSaveHistory_CreatesTheStateDirectory (0.01s)
+=== RUN   TestAddPrecompactWallSample_CapsAtTheNewest64
+--- PASS: TestAddPrecompactWallSample_CapsAtTheNewest64 (0.00s)
+=== RUN   TestSetPrecompactInstr_CapsAt256Chars
+--- PASS: TestSetPrecompactInstr_CapsAt256Chars (0.00s)
+=== RUN   TestSetPrecompactInstr_CapsByRunesNotBytes
+--- PASS: TestSetPrecompactInstr_CapsByRunesNotBytes (0.02s)
+=== RUN   TestRecordLast_CapsAt9Results
+--- PASS: TestRecordLast_CapsAt9Results (0.00s)
+=== RUN   TestSessionHistory_NilReceiverMethodsAreNoOps
+--- PASS: TestSessionHistory_NilReceiverMethodsAreNoOps (0.00s)
+=== RUN   TestHistoryDegradedGolden_Decodes
+--- PASS: TestHistoryDegradedGolden_Decodes (0.00s)
+=== RUN   TestGuard_LastSessionIDIsWrittenOnlyByContract
+--- PASS: TestGuard_LastSessionIDIsWrittenOnlyByContract (0.32s)
+=== RUN   TestGuard_LastSessionIDScannerFindsTheOwnedWrites
+--- PASS: TestGuard_LastSessionIDScannerFindsTheOwnedWrites (0.09s)
+=== RUN   TestMCPServerRegistered_TheFirstSessionIsPending
+--- PASS: TestMCPServerRegistered_TheFirstSessionIsPending (0.00s)
+=== RUN   TestMCPServerRegistered_ASessionWithoutAHandshakeFailsTheNext
+--- PASS: TestMCPServerRegistered_ASessionWithoutAHandshakeFailsTheNext (0.00s)
+=== RUN   TestTranscriptReadable_NotYetWrittenAtStartupIsPending
+--- PASS: TestTranscriptReadable_NotYetWrittenAtStartupIsPending (0.00s)
+=== RUN   TestTranscriptReadable_ATranscriptThatNeverAppearedFails
+--- PASS: TestTranscriptReadable_ATranscriptThatNeverAppearedFails (0.01s)
+=== RUN   TestTranscriptReadable_ALiveSessionsTranscriptThatAppearsLaterIsForgotten
+--- PASS: TestTranscriptReadable_ALiveSessionsTranscriptThatAppearsLaterIsForgotten (0.01s)
+=== RUN   TestTranscriptReadable_AMissingTranscriptAtCompactFails
+--- PASS: TestTranscriptReadable_AMissingTranscriptAtCompactFails (0.00s)
+=== RUN   TestMCPServerRegistered_ASecondWindowBeforeTheFirstHasTurnedIsPending
+--- PASS: TestMCPServerRegistered_ASecondWindowBeforeTheFirstHasTurnedIsPending (0.00s)
+=== RUN   TestTranscriptReadable_ASecondWindowBeforeTheFirstPromptIsPending
+--- PASS: TestTranscriptReadable_ASecondWindowBeforeTheFirstPromptIsPending (0.00s)
+=== RUN   TestMode_StringIsFrozen
+--- PASS: TestMode_StringIsFrozen (0.00s)
+=== RUN   TestMode_StringOfUnknownValue
+--- PASS: TestMode_StringOfUnknownValue (0.00s)
+=== RUN   TestMode_MayAct
+--- PASS: TestMode_MayAct (0.00s)
+=== RUN   TestMode_MayRecord
+--- PASS: TestMode_MayRecord (0.00s)
+=== RUN   TestSeverity_ValuesAreOrdered
+--- PASS: TestSeverity_ValuesAreOrdered (0.00s)
+=== RUN   TestMonitor_StandardAssertionsReportModeFull
+--- PASS: TestMonitor_StandardAssertionsReportModeFull (0.00s)
+=== RUN   TestMonitor_FlippedCriticalAssertionDegrades
+--- PASS: TestMonitor_FlippedCriticalAssertionDegrades (0.02s)
+=== RUN   TestMonitor_WarnFailureDoesNotDegrade
+--- PASS: TestMonitor_WarnFailureDoesNotDegrade (0.00s)
+=== RUN   TestMonitor_TwoConsecutiveCleanRunsRestore
+--- PASS: TestMonitor_TwoConsecutiveCleanRunsRestore (0.03s)
+=== RUN   TestMonitor_CleanRunStreakResetsOnAFurtherFailure
+--- PASS: TestMonitor_CleanRunStreakResetsOnAFurtherFailure (0.02s)
+=== RUN   TestMonitor_DegradationSurvivesIntoTheNextSession
+--- PASS: TestMonitor_DegradationSurvivesIntoTheNextSession (0.02s)
+=== RUN   TestMonitor_CorruptStateFileFallsBackToModeFull
+--- PASS: TestMonitor_CorruptStateFileFallsBackToModeFull (0.02s)
+=== RUN   TestMonitor_DegradeWritesLoudLog
+--- PASS: TestMonitor_DegradeWritesLoudLog (0.02s)
+=== RUN   TestMonitor_DegradeIsLoudWithoutAStatePath
+--- PASS: TestMonitor_DegradeIsLoudWithoutAStatePath (0.00s)
+=== RUN   TestMonitor_NilLoggerAndRegistryAreTolerated
+--- PASS: TestMonitor_NilLoggerAndRegistryAreTolerated (0.00s)
+=== RUN   TestMonitor_RunAllToleratesANilClock
+--- PASS: TestMonitor_RunAllToleratesANilClock (0.00s)
+=== RUN   TestMonitor_RegisterRejectsUnusableAssertions
+--- PASS: TestMonitor_RegisterRejectsUnusableAssertions (0.00s)
+=== RUN   TestMonitor_RunAllPreservesRegistrationOrder
+--- PASS: TestMonitor_RunAllPreservesRegistrationOrder (0.00s)
+=== RUN   TestMonitor_ReportIsACopy
+--- PASS: TestMonitor_ReportIsACopy (0.00s)
+=== RUN   TestMonitor_ModeOffIsNeverEnteredOrLeftAutomatically
+--- PASS: TestMonitor_ModeOffIsNeverEnteredOrLeftAutomatically (0.01s)
+=== RUN   TestMonitor_DegradeReasonNamesExpectedAndObserved
+--- PASS: TestMonitor_DegradeReasonNamesExpectedAndObserved (0.02s)
+=== RUN   TestDegradeIsIdempotent
+--- PASS: TestDegradeIsIdempotent (0.05s)
+=== RUN   TestDeclareProducer_IsIdempotentAndScoped
+--- PASS: TestDeclareProducer_IsIdempotentAndScoped (0.00s)
+=== RUN   TestRefreshFromHistory_AnObservedHandshakeAndSentinelReplaceTheirPendingRows
+--- PASS: TestRefreshFromHistory_AnObservedHandshakeAndSentinelReplaceTheirPendingRows (0.00s)
+=== RUN   TestRefreshFromHistory_NothingRecordedLeavesThePendingRows
+--- PASS: TestRefreshFromHistory_NothingRecordedLeavesThePendingRows (0.00s)
+=== RUN   TestRefreshFromHistory_NeverRewritesAFailingRow
+--- PASS: TestRefreshFromHistory_NeverRewritesAFailingRow (0.00s)
+=== RUN   TestRefreshFromHistory_AnUndeclaredProducerIsLeftAlone
+--- PASS: TestRefreshFromHistory_AnUndeclaredProducerIsLeftAlone (0.00s)
+=== RUN   TestRefreshFromHistory_MatchesWhatTheChecksRead
+--- PASS: TestRefreshFromHistory_MatchesWhatTheChecksRead (0.00s)
+=== RUN   TestRefreshObservation_AnObservedProbeIsTheInjectionCapabilitysNewestWord
+=== PAUSE TestRefreshObservation_AnObservedProbeIsTheInjectionCapabilitysNewestWord
+=== RUN   TestRefreshObservation_AnObservedHandshakeRefreshesItsEntry
+=== PAUSE TestRefreshObservation_AnObservedHandshakeRefreshesItsEntry
+=== RUN   TestRefreshObservation_LeavesEverythingElse
+=== PAUSE TestRefreshObservation_LeavesEverythingElse
+=== RUN   TestStandingOf_CountsOnlyObservationsAsHolding
+=== PAUSE TestStandingOf_CountsOnlyObservationsAsHolding
+=== RUN   TestSentinelRoundTrip
+--- PASS: TestSentinelRoundTrip (0.01s)
+=== RUN   TestSentinelNotObservedGivesTwoChances
+--- PASS: TestSentinelNotObservedGivesTwoChances (0.00s)
+=== RUN   TestSentinelRenderIsAnInertComment
+--- PASS: TestSentinelRenderIsAnInertComment (0.00s)
+=== RUN   TestRecordSentinelScanOf_ADeliveryIsOneChance
+--- PASS: TestRecordSentinelScanOf_ADeliveryIsOneChance (0.00s)
+=== RUN   TestRecordSentinelScanOf_TheRecordIsBounded
+--- PASS: TestRecordSentinelScanOf_TheRecordIsBounded (0.02s)
+=== RUN   TestScanTranscriptForProbe_ReadsTwoBoundedWindows
+--- PASS: TestScanTranscriptForProbe_ReadsTwoBoundedWindows (0.04s)
+=== RUN   TestTranscriptSize_AnAbsentTranscriptIsZero
+--- PASS: TestTranscriptSize_AnAbsentTranscriptIsZero (0.00s)
+=== RUN   TestStandardAssertions_MatchTheNormativeTable
+--- PASS: TestStandardAssertions_MatchTheNormativeTable (0.00s)
+=== RUN   TestStandardAssertions_IDsAreUnique
+--- PASS: TestStandardAssertions_IDsAreUnique (0.00s)
+=== RUN   TestStandardAssertions_EveryCheckReportsNotYetImplemented
+--- PASS: TestStandardAssertions_EveryCheckReportsNotYetImplemented (0.00s)
+=== RUN   TestStandardAssertions_DeclaredSeveritiesAreNotFlattened
+--- PASS: TestStandardAssertions_DeclaredSeveritiesAreNotFlattened (0.00s)
+=== CONT  TestRefreshObservation_LeavesEverythingElse
+=== CONT  TestCapabilityRegister_Validate_RedCases
+=== CONT  TestStandingVocabulary_PendingIsNothingSeen
+=== CONT  TestDefaultCapabilityRegister_UnsupportedMechanismsAreNamedAsSuch
+=== CONT  TestObservationLedgerPath_IsItsOwnFile
+=== CONT  TestDefaultCapabilityRegister_ListsTheEightCapabilitiesExactlyOnce
+=== RUN   TestCapabilityRegister_Validate_RedCases/wrong_version
+=== CONT  TestDefaultCapabilityRegister_Validates
+=== CONT  TestRefreshObservation_AnObservedHandshakeRefreshesItsEntry
+=== PAUSE TestCapabilityRegister_Validate_RedCases/wrong_version
+=== CONT  TestStandingVocabulary_EveryNothingSeenSpellingIsNotHolding
+=== RUN   TestCapabilityRegister_Validate_RedCases/a_capability_is_missing
+=== PAUSE TestCapabilityRegister_Validate_RedCases/a_capability_is_missing
+=== RUN   TestCapabilityRegister_Validate_RedCases/a_capability_appears_twice
+=== PAUSE TestCapabilityRegister_Validate_RedCases/a_capability_appears_twice
+=== CONT  TestRefreshObservation_AnObservedProbeIsTheInjectionCapabilitysNewestWord
+=== CONT  TestResultSet_GoldenRoundTripsLosslessly
+=== CONT  TestResultSet_MatchesFrozenGolden
+=== CONT  TestCapabilityRegister_Get
+=== CONT  TestObservationsOf_AttributesAndDatesEveryResult
+=== CONT  TestObservedVocabulary_CoversEveryLiteralInAssertionsGo
+=== CONT  TestClassifyResult_UnsupportedBeatsEveryOtherReading
+--- PASS: TestRefreshObservation_LeavesEverythingElse (0.00s)
+=== CONT  TestCapabilityOf_MapsEveryStandardAssertion
+=== CONT  TestClassifyResult_Table
+=== CONT  TestObservationsOf_CoverageIsNeverComplete
+=== CONT  TestDefaultCapabilityRegister_EveryOptimizeCapabilityIsDisabled
+=== CONT  TestSaveObservationLedger_NilIsAFreshLedger
+=== CONT  TestDefaultCapabilityRegister_EnabledActingCapabilityNamesItsCanary
+=== CONT  TestObservationLedger_CapsPerID
+=== CONT  TestDefaultCapabilityRegister_CompactionBlockingNeverBlocksManualCompact
+=== CONT  TestObservationLedger_RoundTrips
+=== CONT  TestStandingOf_CountsOnlyObservationsAsHolding
+=== CONT  TestDefaultCapabilityRegister_MatchesTheLedgerTable
+=== RUN   TestCapabilityRegister_Validate_RedCases/an_unknown_capability_appears
+=== PAUSE TestCapabilityRegister_Validate_RedCases/an_unknown_capability_appears
+=== RUN   TestCapabilityRegister_Validate_RedCases/a_record_is_filed_under_the_wrong_class
+--- PASS: TestDefaultCapabilityRegister_UnsupportedMechanismsAreNamedAsSuch (0.00s)
+--- PASS: TestDefaultCapabilityRegister_MatchesTheLedgerTable (0.00s)
+=== RUN   TestClassifyResult_Table/not-yet-implemented_is_unavailable
+=== PAUSE TestCapabilityRegister_Validate_RedCases/a_record_is_filed_under_the_wrong_class
+--- PASS: TestStandingVocabulary_PendingIsNothingSeen (0.00s)
+--- PASS: TestDefaultCapabilityRegister_ListsTheEightCapabilitiesExactlyOnce (0.00s)
+--- PASS: TestDefaultCapabilityRegister_Validates (0.00s)
+--- PASS: TestStandingVocabulary_EveryNothingSeenSpellingIsNotHolding (0.00s)
+=== PAUSE TestClassifyResult_Table/not-yet-implemented_is_unavailable
+--- PASS: TestRefreshObservation_AnObservedHandshakeRefreshesItsEntry (0.00s)
+--- PASS: TestRefreshObservation_AnObservedProbeIsTheInjectionCapabilitysNewestWord (0.00s)
+=== RUN   TestCapabilityRegister_Validate_RedCases/an_unrecognised_evidence_status
+=== RUN   TestClassifyResult_Table/not-yet-implemented_on_the_injection_probe
+=== PAUSE TestClassifyResult_Table/not-yet-implemented_on_the_injection_probe
+--- PASS: TestCapabilityRegister_Get (0.00s)
+=== RUN   TestClassifyResult_Table/unsupported_mechanism,_phrase_found
+--- PASS: TestObservationsOf_AttributesAndDatesEveryResult (0.00s)
+--- PASS: TestClassifyResult_UnsupportedBeatsEveryOtherReading (0.00s)
+=== PAUSE TestClassifyResult_Table/unsupported_mechanism,_phrase_found
+--- PASS: TestObservationsOf_CoverageIsNeverComplete (0.00s)
+--- PASS: TestCapabilityOf_MapsEveryStandardAssertion (0.00s)
+--- PASS: TestDefaultCapabilityRegister_EveryOptimizeCapabilityIsDisabled (0.00s)
+--- PASS: TestDefaultCapabilityRegister_EnabledActingCapabilityNamesItsCanary (0.00s)
+--- PASS: TestDefaultCapabilityRegister_CompactionBlockingNeverBlocksManualCompact (0.00s)
+=== RUN   TestClassifyResult_Table/unsupported_mechanism,_phrase_absent
+--- PASS: TestStandingOf_CountsOnlyObservationsAsHolding (0.00s)
+=== PAUSE TestClassifyResult_Table/unsupported_mechanism,_phrase_absent
+=== RUN   TestClassifyResult_Table/unsupported_mechanism,_nothing_emitted
+=== PAUSE TestCapabilityRegister_Validate_RedCases/an_unrecognised_evidence_status
+=== RUN   TestCapabilityRegister_Validate_RedCases/an_optimization_is_enabled_on_documented_evidence
+=== PAUSE TestCapabilityRegister_Validate_RedCases/an_optimization_is_enabled_on_documented_evidence
+=== RUN   TestCapabilityRegister_Validate_RedCases/an_optimization_is_enabled_as_verified_in_target_with_no_target
+=== PAUSE TestCapabilityRegister_Validate_RedCases/an_optimization_is_enabled_as_verified_in_target_with_no_target
+=== RUN   TestCapabilityRegister_Validate_RedCases/an_optimization_is_enabled_and_verified_against_a_target_but_names_no_source
+=== PAUSE TestClassifyResult_Table/unsupported_mechanism,_nothing_emitted
+=== RUN   TestClassifyResult_Table/failed_marker
+=== PAUSE TestCapabilityRegister_Validate_RedCases/an_optimization_is_enabled_and_verified_against_a_target_but_names_no_source
+=== RUN   TestCapabilityRegister_Validate_RedCases/an_acting_capability_is_enabled_on_documentation_alone
+=== PAUSE TestCapabilityRegister_Validate_RedCases/an_acting_capability_is_enabled_on_documentation_alone
+=== RUN   TestCapabilityRegister_Validate_RedCases/an_acting_capability_is_enabled_with_no_canary
+=== PAUSE TestCapabilityRegister_Validate_RedCases/an_acting_capability_is_enabled_with_no_canary
+=== RUN   TestCapabilityRegister_Validate_RedCases/an_unsupported_mechanism_is_enabled
+=== PAUSE TestClassifyResult_Table/failed_marker
+=== PAUSE TestCapabilityRegister_Validate_RedCases/an_unsupported_mechanism_is_enabled
+=== RUN   TestClassifyResult_Table/failed_source
+--- PASS: TestObservationLedgerPath_IsItsOwnFile (0.00s)
+=== RUN   TestCapabilityRegister_Validate_RedCases/an_unknown_mechanism_is_enabled
+=== PAUSE TestClassifyResult_Table/failed_source
+=== PAUSE TestCapabilityRegister_Validate_RedCases/an_unknown_mechanism_is_enabled
+=== RUN   TestClassifyResult_Table/failed_sentinel
+=== RUN   TestCapabilityRegister_Validate_RedCases/compaction_blocking_stops_promising_manual_compact_is_never_blocked
+=== PAUSE TestClassifyResult_Table/failed_sentinel
+=== PAUSE TestCapabilityRegister_Validate_RedCases/compaction_blocking_stops_promising_manual_compact_is_never_blocked
+=== RUN   TestClassifyResult_Table/failed_payload
+=== CONT  TestCapabilityRegister_Validate_RedCases/an_unsupported_mechanism_is_enabled
+=== PAUSE TestClassifyResult_Table/failed_payload
+=== RUN   TestClassifyResult_Table/failed_mcp
+=== PAUSE TestClassifyResult_Table/failed_mcp
+=== RUN   TestClassifyResult_Table/failed_transcript
+=== PAUSE TestClassifyResult_Table/failed_transcript
+=== RUN   TestClassifyResult_Table/failed_plugin_root
+=== CONT  TestCapabilityRegister_Validate_RedCases/an_optimization_is_enabled_on_documented_evidence
+=== PAUSE TestClassifyResult_Table/failed_plugin_root
+=== RUN   TestClassifyResult_Table/failed_timing
+=== PAUSE TestClassifyResult_Table/failed_timing
+=== RUN   TestClassifyResult_Table/no_observation_yet
+=== PAUSE TestClassifyResult_Table/no_observation_yet
+=== RUN   TestClassifyResult_Table/first-session
+=== PAUSE TestClassifyResult_Table/first-session
+=== RUN   TestClassifyResult_Table/marker-absent-once
+=== PAUSE TestClassifyResult_Table/marker-absent-once
+=== RUN   TestClassifyResult_Table/no-precompact-pending
+=== CONT  TestCapabilityRegister_Validate_RedCases/an_optimization_is_enabled_as_verified_in_target_with_no_target
+=== PAUSE TestClassifyResult_Table/no-precompact-pending
+=== RUN   TestClassifyResult_Table/pending_for_another_session
+=== PAUSE TestClassifyResult_Table/pending_for_another_session
+=== CONT  TestCapabilityRegister_Validate_RedCases/an_acting_capability_is_enabled_with_no_canary
+=== RUN   TestClassifyResult_Table/not-yet-observed
+=== PAUSE TestClassifyResult_Table/not-yet-observed
+=== CONT  TestCapabilityRegister_Validate_RedCases/compaction_blocking_stops_promising_manual_compact_is_never_blocked
+=== CONT  TestCapabilityRegister_Validate_RedCases/wrong_version
+=== CONT  TestCapabilityRegister_Validate_RedCases/an_unknown_mechanism_is_enabled
+=== CONT  TestCapabilityRegister_Validate_RedCases/an_unrecognised_evidence_status
+=== CONT  TestCapabilityRegister_Validate_RedCases/a_record_is_filed_under_the_wrong_class
+=== CONT  TestCapabilityRegister_Validate_RedCases/an_unknown_capability_appears
+=== CONT  TestCapabilityRegister_Validate_RedCases/a_capability_appears_twice
+=== CONT  TestCapabilityRegister_Validate_RedCases/a_capability_is_missing
+=== CONT  TestCapabilityRegister_Validate_RedCases/an_acting_capability_is_enabled_on_documentation_alone
+=== CONT  TestCapabilityRegister_Validate_RedCases/an_optimization_is_enabled_and_verified_against_a_target_but_names_no_source
+--- PASS: TestObservedVocabulary_CoversEveryLiteralInAssertionsGo (0.00s)
+=== RUN   TestClassifyResult_Table/timeout-unknown
+=== PAUSE TestClassifyResult_Table/timeout-unknown
+--- PASS: TestCapabilityRegister_Validate_RedCases (0.00s)
+    --- PASS: TestCapabilityRegister_Validate_RedCases/an_unsupported_mechanism_is_enabled (0.00s)
+    --- PASS: TestCapabilityRegister_Validate_RedCases/an_optimization_is_enabled_on_documented_evidence (0.00s)
+    --- PASS: TestCapabilityRegister_Validate_RedCases/an_optimization_is_enabled_as_verified_in_target_with_no_target (0.00s)
+    --- PASS: TestCapabilityRegister_Validate_RedCases/an_acting_capability_is_enabled_with_no_canary (0.00s)
+    --- PASS: TestCapabilityRegister_Validate_RedCases/compaction_blocking_stops_promising_manual_compact_is_never_blocked (0.00s)
+    --- PASS: TestCapabilityRegister_Validate_RedCases/wrong_version (0.00s)
+    --- PASS: TestCapabilityRegister_Validate_RedCases/an_unknown_mechanism_is_enabled (0.00s)
+    --- PASS: TestCapabilityRegister_Validate_RedCases/an_unrecognised_evidence_status (0.00s)
+    --- PASS: TestCapabilityRegister_Validate_RedCases/a_record_is_filed_under_the_wrong_class (0.00s)
+    --- PASS: TestCapabilityRegister_Validate_RedCases/an_unknown_capability_appears (0.00s)
+    --- PASS: TestCapabilityRegister_Validate_RedCases/a_capability_appears_twice (0.00s)
+    --- PASS: TestCapabilityRegister_Validate_RedCases/a_capability_is_missing (0.00s)
+    --- PASS: TestCapabilityRegister_Validate_RedCases/an_acting_capability_is_enabled_on_documentation_alone (0.00s)
+    --- PASS: TestCapabilityRegister_Validate_RedCases/an_optimization_is_enabled_and_verified_against_a_target_but_names_no_source (0.00s)
+=== RUN   TestClassifyResult_Table/no-samples
+=== PAUSE TestClassifyResult_Table/no-samples
+=== RUN   TestClassifyResult_Table/no-transcript-path
+=== PAUSE TestClassifyResult_Table/no-transcript-path
+=== RUN   TestClassifyResult_Table/plugin_root_unset
+=== PAUSE TestClassifyResult_Table/plugin_root_unset
+=== RUN   TestClassifyResult_Table/marker-found
+=== PAUSE TestClassifyResult_Table/marker-found
+=== RUN   TestClassifyResult_Table/source_compact
+=== PAUSE TestClassifyResult_Table/source_compact
+=== RUN   TestClassifyResult_Table/sentinel-observed
+=== PAUSE TestClassifyResult_Table/sentinel-observed
+=== RUN   TestClassifyResult_Table/payload_shape_valid
+=== PAUSE TestClassifyResult_Table/payload_shape_valid
+=== RUN   TestClassifyResult_Table/initialize-received
+=== PAUSE TestClassifyResult_Table/initialize-received
+=== RUN   TestClassifyResult_Table/transcript_readable
+=== PAUSE TestClassifyResult_Table/transcript_readable
+=== RUN   TestClassifyResult_Table/plugin_root_resolved
+=== PAUSE TestClassifyResult_Table/plugin_root_resolved
+=== RUN   TestClassifyResult_Table/timing_within_budget
+=== PAUSE TestClassifyResult_Table/timing_within_budget
+=== RUN   TestClassifyResult_Table/unmapped_assertion
+=== PAUSE TestClassifyResult_Table/unmapped_assertion
+=== CONT  TestClassifyResult_Table/not-yet-implemented_is_unavailable
+=== CONT  TestClassifyResult_Table/unmapped_assertion
+=== CONT  TestClassifyResult_Table/timing_within_budget
+=== CONT  TestClassifyResult_Table/plugin_root_resolved
+=== CONT  TestClassifyResult_Table/transcript_readable
+=== CONT  TestClassifyResult_Table/initialize-received
+=== CONT  TestClassifyResult_Table/first-session
+=== CONT  TestClassifyResult_Table/failed_timing
+=== CONT  TestClassifyResult_Table/plugin_root_unset
+=== CONT  TestClassifyResult_Table/failed_plugin_root
+=== CONT  TestClassifyResult_Table/no-transcript-path
+=== CONT  TestClassifyResult_Table/failed_mcp
+=== CONT  TestClassifyResult_Table/no-samples
+=== CONT  TestClassifyResult_Table/failed_marker
+=== CONT  TestClassifyResult_Table/no_observation_yet
+=== CONT  TestClassifyResult_Table/marker-absent-once
+=== CONT  TestClassifyResult_Table/failed_source
+=== CONT  TestClassifyResult_Table/failed_payload
+=== CONT  TestClassifyResult_Table/unsupported_mechanism,_nothing_emitted
+=== CONT  TestClassifyResult_Table/unsupported_mechanism,_phrase_absent
+=== CONT  TestClassifyResult_Table/not-yet-observed
+=== CONT  TestClassifyResult_Table/unsupported_mechanism,_phrase_found
+=== CONT  TestClassifyResult_Table/pending_for_another_session
+=== CONT  TestClassifyResult_Table/not-yet-implemented_on_the_injection_probe
+=== CONT  TestClassifyResult_Table/no-precompact-pending
+=== CONT  TestClassifyResult_Table/failed_transcript
+=== CONT  TestClassifyResult_Table/failed_sentinel
+=== CONT  TestClassifyResult_Table/payload_shape_valid
+=== CONT  TestClassifyResult_Table/sentinel-observed
+=== CONT  TestClassifyResult_Table/source_compact
+=== CONT  TestClassifyResult_Table/marker-found
+=== CONT  TestClassifyResult_Table/timeout-unknown
+--- PASS: TestClassifyResult_Table (0.00s)
+    --- PASS: TestClassifyResult_Table/not-yet-implemented_is_unavailable (0.00s)
+    --- PASS: TestClassifyResult_Table/unmapped_assertion (0.00s)
+    --- PASS: TestClassifyResult_Table/timing_within_budget (0.00s)
+    --- PASS: TestClassifyResult_Table/plugin_root_resolved (0.00s)
+    --- PASS: TestClassifyResult_Table/transcript_readable (0.00s)
+    --- PASS: TestClassifyResult_Table/initialize-received (0.00s)
+    --- PASS: TestClassifyResult_Table/first-session (0.00s)
+    --- PASS: TestClassifyResult_Table/plugin_root_unset (0.00s)
+    --- PASS: TestClassifyResult_Table/failed_plugin_root (0.00s)
+    --- PASS: TestClassifyResult_Table/no-transcript-path (0.00s)
+    --- PASS: TestClassifyResult_Table/failed_timing (0.00s)
+    --- PASS: TestClassifyResult_Table/no-samples (0.00s)
+    --- PASS: TestClassifyResult_Table/failed_mcp (0.00s)
+    --- PASS: TestClassifyResult_Table/failed_marker (0.00s)
+    --- PASS: TestClassifyResult_Table/no_observation_yet (0.00s)
+    --- PASS: TestClassifyResult_Table/marker-absent-once (0.00s)
+    --- PASS: TestClassifyResult_Table/failed_source (0.00s)
+    --- PASS: TestClassifyResult_Table/failed_payload (0.00s)
+    --- PASS: TestClassifyResult_Table/unsupported_mechanism,_nothing_emitted (0.00s)
+    --- PASS: TestClassifyResult_Table/unsupported_mechanism,_phrase_absent (0.00s)
+    --- PASS: TestClassifyResult_Table/not-yet-observed (0.00s)
+    --- PASS: TestClassifyResult_Table/unsupported_mechanism,_phrase_found (0.00s)
+    --- PASS: TestClassifyResult_Table/pending_for_another_session (0.00s)
+    --- PASS: TestClassifyResult_Table/not-yet-implemented_on_the_injection_probe (0.00s)
+    --- PASS: TestClassifyResult_Table/no-precompact-pending (0.00s)
+    --- PASS: TestClassifyResult_Table/failed_transcript (0.00s)
+    --- PASS: TestClassifyResult_Table/failed_sentinel (0.00s)
+    --- PASS: TestClassifyResult_Table/payload_shape_valid (0.00s)
+    --- PASS: TestClassifyResult_Table/sentinel-observed (0.00s)
+    --- PASS: TestClassifyResult_Table/timeout-unknown (0.00s)
+    --- PASS: TestClassifyResult_Table/source_compact (0.00s)
+    --- PASS: TestClassifyResult_Table/marker-found (0.00s)
+--- PASS: TestResultSet_GoldenRoundTripsLosslessly (0.02s)
+--- PASS: TestResultSet_MatchesFrozenGolden (0.02s)
+--- PASS: TestObservationLedger_CapsPerID (0.02s)
+--- PASS: TestSaveObservationLedger_NilIsAFreshLedger (0.03s)
+--- PASS: TestObservationLedger_RoundTrips (0.05s)
+PASS
+ok  	github.com/qompack/qompack/internal/contract	2.396s
+=== RUN   TestAll_CoversEverySlashCommand
+=== PAUSE TestAll_CoversEverySlashCommand
+=== RUN   TestAll_SurvivesEntirelyNilDeps
+=== PAUSE TestAll_SurvivesEntirelyNilDeps
+=== RUN   TestNames_ReturnsACopy
+=== PAUSE TestNames_ReturnsACopy
+=== RUN   TestRun_HelpFlagPrintsHelpAndSucceeds
+=== PAUSE TestRun_HelpFlagPrintsHelpAndSucceeds
+=== RUN   TestRun_UnknownFlagIsAUsageError
+=== PAUSE TestRun_UnknownFlagIsAUsageError
+=== RUN   TestRun_ValueFlagRequiresItsValue
+=== PAUSE TestRun_ValueFlagRequiresItsValue
+=== RUN   TestRun_JSONEnvelopeCarriesTheError
+=== PAUSE TestRun_JSONEnvelopeCarriesTheError
+=== RUN   TestRun_WithoutJSONWritesNoEnvelope
+=== PAUSE TestRun_WithoutJSONWritesNoEnvelope
+=== RUN   TestRun_ExitCodesCoverEveryCommand
+=== PAUSE TestRun_ExitCodesCoverEveryCommand
+=== RUN   TestRun_DoubleDashEndsFlagParsing
+=== PAUSE TestRun_DoubleDashEndsFlagParsing
+=== RUN   TestEnvelope_IsIndentedWithATrailingNewline
+=== PAUSE TestEnvelope_IsIndentedWithATrailingNewline
+=== RUN   TestCommandNames_MatchesSection75
+=== PAUSE TestCommandNames_MatchesSection75
+=== RUN   TestSpecs_PinInstalledSurface
+=== PAUSE TestSpecs_PinInstalledSurface
+=== RUN   TestExitCode
+=== PAUSE TestExitCode
+=== RUN   TestUsageErrorf_WrapsErrUsage
+=== PAUSE TestUsageErrorf_WrapsErrUsage
+=== RUN   TestSpec_WriteHelp_IsDocumentedAndDeterministic
+=== PAUSE TestSpec_WriteHelp_IsDocumentedAndDeterministic
+=== RUN   TestSpecs_EveryCommandDocumentsJSON
+=== PAUSE TestSpecs_EveryCommandDocumentsJSON
+=== RUN   TestEnvelope_CarriesSchemaAndCommand
+=== PAUSE TestEnvelope_CarriesSchemaAndCommand
+=== RUN   TestEnvelope_ErrorKindsAreDistinct
+=== PAUSE TestEnvelope_ErrorKindsAreDistinct
+=== RUN   TestDecodeEnvelope_UnknownSchemaIsUnsupported
+=== PAUSE TestDecodeEnvelope_UnknownSchemaIsUnsupported
+=== RUN   TestEval_LiveConfirmatoryRunIsJudgedByThePreregisteredRule
+--- PASS: TestEval_LiveConfirmatoryRunIsJudgedByThePreregisteredRule (0.00s)
+=== RUN   TestEval_LivePilotIsNeverJudged
+--- PASS: TestEval_LivePilotIsNeverJudged (0.00s)
+=== RUN   TestEval_LiveNotConfirmatoryWhenTheDesignWasNarrowed
+--- PASS: TestEval_LiveNotConfirmatoryWhenTheDesignWasNarrowed (0.00s)
+=== RUN   TestEval_LiveInferiorOrRegressedFails
+--- PASS: TestEval_LiveInferiorOrRegressedFails (0.00s)
+=== RUN   TestEval_LiveFailedTrialsAreCountedInTheDecisionAndListed
+--- PASS: TestEval_LiveFailedTrialsAreCountedInTheDecisionAndListed (0.00s)
+=== RUN   TestEval_LiveNotConfirmatoryOnASupersededTaskSet
+--- PASS: TestEval_LiveNotConfirmatoryOnASupersededTaskSet (0.00s)
+=== RUN   TestEval_ReplayAndLiveAreReportedTogether
+--- PASS: TestEval_ReplayAndLiveAreReportedTogether (0.00s)
+=== RUN   TestEval_AReplayCannotPassAConfirmatoryRunThatReachedNoDecision
+--- PASS: TestEval_AReplayCannotPassAConfirmatoryRunThatReachedNoDecision (0.00s)
+=== RUN   TestFileEvalArtifacts_ReadsTheLatestRunAndTheReplayReport
+--- PASS: TestFileEvalArtifacts_ReadsTheLatestRunAndTheReplayReport (0.05s)
+=== RUN   TestFileEvalArtifacts_CorpusNamesARunARunsDirectoryOrAReplayReport
+--- PASS: TestFileEvalArtifacts_CorpusNamesARunARunsDirectoryOrAReplayReport (0.04s)
+=== RUN   TestFileEvalArtifacts_NothingThereIsUnavailable
+--- PASS: TestFileEvalArtifacts_NothingThereIsUnavailable (0.00s)
+=== RUN   TestFileEvalArtifacts_RefusesWhatItCannotRead
+--- PASS: TestFileEvalArtifacts_RefusesWhatItCannotRead (0.02s)
+=== RUN   TestFileEvalArtifacts_ReadsTheCommittedPilotRun
+--- PASS: TestFileEvalArtifacts_ReadsTheCommittedPilotRun (0.00s)
+=== RUN   TestEval_LiveNotConfirmatoryUnlessItRanThePreregisteredMaterials
+--- PASS: TestEval_LiveNotConfirmatoryUnlessItRanThePreregisteredMaterials (0.00s)
+=== RUN   TestFileEvalArtifacts_NamesANewerRunThatNeverFinished
+--- PASS: TestFileEvalArtifacts_NamesANewerRunThatNeverFinished (0.05s)
+=== RUN   TestEval_LiveNotConfirmatoryWithoutTheSection9DefectAttestation
+--- PASS: TestEval_LiveNotConfirmatoryWithoutTheSection9DefectAttestation (0.00s)
+=== RUN   TestEval_LiveConfirmatoryRunSaysItsDefectPreconditionIsAttested
+--- PASS: TestEval_LiveConfirmatoryRunSaysItsDefectPreconditionIsAttested (0.00s)
+=== RUN   TestEval_LiveNotConfirmatoryWhenAForeignPluginLoaded
+--- PASS: TestEval_LiveNotConfirmatoryWhenAForeignPluginLoaded (0.00s)
+=== RUN   TestFileEvalArtifacts_OnlyTheNewestRunMustBeReadable
+--- PASS: TestFileEvalArtifacts_OnlyTheNewestRunMustBeReadable (0.06s)
+=== RUN   TestEval_LiveTheSection3ModelContingencyCanBeConfirmatory
+--- PASS: TestEval_LiveTheSection3ModelContingencyCanBeConfirmatory (0.00s)
+=== RUN   TestEval_TaskAndRecoveryLeadNotFractionOfOPT
+=== PAUSE TestEval_TaskAndRecoveryLeadNotFractionOfOPT
+=== RUN   TestEval_TextOutputLeadsWithOutcomes
+=== PAUSE TestEval_TextOutputLeadsWithOutcomes
+=== RUN   TestEval_CheapWrongResultCannotPass
+=== PAUSE TestEval_CheapWrongResultCannotPass
+=== RUN   TestEval_ReAttemptOfAnEliminatedApproachFails
+=== PAUSE TestEval_ReAttemptOfAnEliminatedApproachFails
+=== RUN   TestEval_SkippedOrFailedTrialsAreInconclusiveNotPass
+=== PAUSE TestEval_SkippedOrFailedTrialsAreInconclusiveNotPass
+=== RUN   TestEval_MissingUsageIsUnknownNotZero
+=== PAUSE TestEval_MissingUsageIsUnknownNotZero
+=== RUN   TestEval_CostCategoriesRetriesAndPricingSourcesSurvive
+=== PAUSE TestEval_CostCategoriesRetriesAndPricingSourcesSurvive
+=== RUN   TestEval_UnjudgedMetricsAreNotCountedAsPassing
+=== PAUSE TestEval_UnjudgedMetricsAreNotCountedAsPassing
+=== RUN   TestEval_NoScoresIsInconclusive
+=== PAUSE TestEval_NoScoresIsInconclusive
+=== RUN   TestEval_WithoutArtifactsIsUnavailable
+=== PAUSE TestEval_WithoutArtifactsIsUnavailable
+=== RUN   TestEval_ArtifactErrorIsReported
+=== PAUSE TestEval_ArtifactErrorIsReported
+=== RUN   TestEval_CorpusFlagReachesTheProducer
+=== PAUSE TestEval_CorpusFlagReachesTheProducer
+=== RUN   TestEval_RejectsPositionalArguments
+=== PAUSE TestEval_RejectsPositionalArguments
+=== RUN   TestEval_ReplayReportsQompacksPolicyNotAReference
+=== PAUSE TestEval_ReplayReportsQompacksPolicyNotAReference
+=== RUN   TestEval_ReplayWithOnlyReferencePoliciesJudgesNothing
+=== PAUSE TestEval_ReplayWithOnlyReferencePoliciesJudgesNothing
+=== RUN   TestEval_ReplayJudgesEveryQompackPolicyItScored
+=== PAUSE TestEval_ReplayJudgesEveryQompackPolicyItScored
+=== RUN   TestPin_AddRecordsUserAuthorityByDefault
+=== PAUSE TestPin_AddRecordsUserAuthorityByDefault
+=== RUN   TestPin_AgentClaimIsNotUpgradedToAUserInstruction
+=== PAUSE TestPin_AgentClaimIsNotUpgradedToAUserInstruction
+=== RUN   TestPin_SourceFlagIsValidated
+=== PAUSE TestPin_SourceFlagIsValidated
+=== RUN   TestPin_ListReportsSourcePerInvariant
+=== PAUSE TestPin_ListReportsSourcePerInvariant
+=== RUN   TestPin_RemoveAppendsATombstoneAndKeepsTheAddRecord
+=== PAUSE TestPin_RemoveAppendsATombstoneAndKeepsTheAddRecord
+=== RUN   TestPin_RemoveUnknownIDSaysSo
+=== PAUSE TestPin_RemoveUnknownIDSaysSo
+=== RUN   TestPin_ModesAreExclusive
+=== PAUSE TestPin_ModesAreExclusive
+=== RUN   TestPin_NoStoreIsUnavailable
+=== PAUSE TestPin_NoStoreIsUnavailable
+=== RUN   TestPin_EliminationRequiresItsDependencies
+=== PAUSE TestPin_EliminationRequiresItsDependencies
+=== RUN   TestPin_EliminationGoesThroughTheSP13Handler
+=== PAUSE TestPin_EliminationGoesThroughTheSP13Handler
+=== RUN   TestPin_EliminationRequiresEveryClaimField
+=== PAUSE TestPin_EliminationRequiresEveryClaimField
+=== RUN   TestRefused_EveryProjectCommandReportsTheRefusalAsUnavailable
+=== PAUSE TestRefused_EveryProjectCommandReportsTheRefusalAsUnavailable
+=== RUN   TestRefused_HelpStillAnswers
+=== PAUSE TestRefused_HelpStillAnswers
+=== RUN   TestRefused_StatusReportsTheRefusalAsItsOneReason
+=== PAUSE TestRefused_StatusReportsTheRefusalAsItsOneReason
+=== RUN   TestRefused_CollectStatusAsksNoSource
+=== PAUSE TestRefused_CollectStatusAsksNoSource
+=== RUN   TestRefused_EvalStillReadsItsArtifacts
+=== PAUSE TestRefused_EvalStillReadsItsArtifacts
+=== RUN   TestRenderStatus_APendingRowIsNeverCountedAsHolding
+=== PAUSE TestRenderStatus_APendingRowIsNeverCountedAsHolding
+=== RUN   TestRenderStatus_AFailingBannerStillCountsThePendingRows
+=== PAUSE TestRenderStatus_AFailingBannerStillCountsThePendingRows
+=== RUN   TestRenderStatus_AllHoldingOnlyWhenEveryRowIsAnObservation
+=== PAUSE TestRenderStatus_AllHoldingOnlyWhenEveryRowIsAnObservation
+=== RUN   TestRenderStatus_AnUnimplementedProducerIsNotHolding
+=== PAUSE TestRenderStatus_AnUnimplementedProducerIsNotHolding
+=== RUN   TestRenderStatus_Golden
+=== PAUSE TestRenderStatus_Golden
+=== RUN   TestRenderStatus_JSONGolden
+=== PAUSE TestRenderStatus_JSONGolden
+=== RUN   TestRenderStatus_CarriesNoANSI
+=== PAUSE TestRenderStatus_CarriesNoANSI
+=== RUN   TestRenderStatus_IsDeterministic
+=== PAUSE TestRenderStatus_IsDeterministic
+=== RUN   TestRenderStatus_NeverPrintsAZeroForAnAbsentMeasurement
+=== PAUSE TestRenderStatus_NeverPrintsAZeroForAnAbsentMeasurement
+=== RUN   TestRenderStatus_RetainsEstimatorSourceAndAge
+=== PAUSE TestRenderStatus_RetainsEstimatorSourceAndAge
+=== RUN   TestRecall_NoSecondImplementation
+=== PAUSE TestRecall_NoSecondImplementation
+=== RUN   TestRecall_PreservesDenialAndCoverageDistinctions
+=== PAUSE TestRecall_PreservesDenialAndCoverageDistinctions
+=== RUN   TestRetrieval_MetaReachesTheJSONEnvelopeToo
+=== PAUSE TestRetrieval_MetaReachesTheJSONEnvelopeToo
+=== RUN   TestRetrieval_ToolErrorIsNotSuccess
+=== PAUSE TestRetrieval_ToolErrorIsNotSuccess
+=== RUN   TestRetrieval_NoServerIsUnavailableNotEmpty
+=== PAUSE TestRetrieval_NoServerIsUnavailableNotEmpty
+=== RUN   TestRetrieval_UnregisteredToolIsUnavailable
+=== PAUSE TestRetrieval_UnregisteredToolIsUnavailable
+=== RUN   TestRecall_PaginationFlagReachesTheHandler
+=== PAUSE TestRecall_PaginationFlagReachesTheHandler
+=== RUN   TestRecall_RejectsANonsenseK
+=== PAUSE TestRecall_RejectsANonsenseK
+=== RUN   TestRetrieval_RequiredArgumentsAreUsageErrors
+=== PAUSE TestRetrieval_RequiredArgumentsAreUsageErrors
+=== RUN   TestDropped_TakesNoArguments
+=== PAUSE TestDropped_TakesNoArguments
+=== RUN   TestDropped_EphemeralNoteClaimsNothingAboutTheHost
+=== PAUSE TestDropped_EphemeralNoteClaimsNothingAboutTheHost
+=== RUN   TestRecall_OmitsKWhenNotAsked
+=== PAUSE TestRecall_OmitsKWhenNotAsked
+=== RUN   TestStatus_DaemonPayloadMirrorIsCurrent
+=== PAUSE TestStatus_DaemonPayloadMirrorIsCurrent
+=== RUN   TestStatus_OriginalOpStatusIsPreserved
+=== PAUSE TestStatus_OriginalOpStatusIsPreserved
+=== RUN   TestStatus_HotPathNames
+=== PAUSE TestStatus_HotPathNames
+=== RUN   TestStatus_AggregateRowsDeclareTheirScopeAndMeasure
+=== PAUSE TestStatus_AggregateRowsDeclareTheirScopeAndMeasure
+=== RUN   TestStatus_DiskFallbackCarriesItsAge
+=== PAUSE TestStatus_DiskFallbackCarriesItsAge
+=== RUN   TestStatus_LiveAnswerStampedAfterNowIsNotNegativelyAged
+=== PAUSE TestStatus_LiveAnswerStampedAfterNowIsNotNegativelyAged
+=== RUN   TestStatus_NilDepsUnavailable
+=== PAUSE TestStatus_NilDepsUnavailable
+=== RUN   TestStatus_DaemonErrorIsReportedNotSwallowed
+=== PAUSE TestStatus_DaemonErrorIsReportedNotSwallowed
+=== RUN   TestStatus_PanickingDaemonSourceIsRecoveredIntoItsSection
+=== PAUSE TestStatus_PanickingDaemonSourceIsRecoveredIntoItsSection
+=== RUN   TestStatus_PanickingDiskSourceIsRecoveredIntoItsSection
+=== PAUSE TestStatus_PanickingDiskSourceIsRecoveredIntoItsSection
+=== RUN   TestStatus_BothSourcesPanickingIsStillAReport
+=== PAUSE TestStatus_BothSourcesPanickingIsStillAReport
+=== RUN   TestStatus_ReportIsDeterministic
+=== PAUSE TestStatus_ReportIsDeterministic
+=== RUN   TestStatus_ReportSchemaIsVersioned
+=== PAUSE TestStatus_ReportSchemaIsVersioned
+=== RUN   TestStatus_APercentileNeverReadsAboveTheMax
+=== PAUSE TestStatus_APercentileNeverReadsAboveTheMax
+=== CONT  TestAll_CoversEverySlashCommand
+=== CONT  TestPin_EliminationRequiresItsDependencies
+--- PASS: TestAll_CoversEverySlashCommand (0.00s)
+=== CONT  TestEval_TextOutputLeadsWithOutcomes
+=== CONT  TestEval_TaskAndRecoveryLeadNotFractionOfOPT
+=== CONT  TestDecodeEnvelope_UnknownSchemaIsUnsupported
+=== CONT  TestEnvelope_ErrorKindsAreDistinct
+=== CONT  TestPin_ListReportsSourcePerInvariant
+=== CONT  TestEnvelope_CarriesSchemaAndCommand
+=== CONT  TestPin_SourceFlagIsValidated
+=== CONT  TestRun_UnknownFlagIsAUsageError
+=== CONT  TestSpecs_EveryCommandDocumentsJSON
+=== CONT  TestSpec_WriteHelp_IsDocumentedAndDeterministic
+=== CONT  TestUsageErrorf_WrapsErrUsage
+=== CONT  TestEval_ReplayJudgesEveryQompackPolicyItScored
+=== CONT  TestExitCode
+=== CONT  TestSpecs_PinInstalledSurface
+=== CONT  TestAll_SurvivesEntirelyNilDeps
+=== CONT  TestRenderStatus_AnUnimplementedProducerIsNotHolding
+=== CONT  TestRetrieval_ToolErrorIsNotSuccess
+=== CONT  TestRetrieval_MetaReachesTheJSONEnvelopeToo
+=== CONT  TestCommandNames_MatchesSection75
+=== CONT  TestRecall_PreservesDenialAndCoverageDistinctions
+=== CONT  TestEnvelope_IsIndentedWithATrailingNewline
+=== CONT  TestRun_DoubleDashEndsFlagParsing
+=== CONT  TestRun_ExitCodesCoverEveryCommand
+=== CONT  TestRun_WithoutJSONWritesNoEnvelope
+=== CONT  TestRun_JSONEnvelopeCarriesTheError
+=== CONT  TestEval_ReplayWithOnlyReferencePoliciesJudgesNothing
+=== CONT  TestEval_ReplayReportsQompacksPolicyNotAReference
+=== CONT  TestEval_CheapWrongResultCannotPass
+=== CONT  TestPin_NoStoreIsUnavailable
+=== CONT  TestPin_ModesAreExclusive
+=== CONT  TestPin_RemoveUnknownIDSaysSo
+=== CONT  TestRun_ValueFlagRequiresItsValue
+--- PASS: TestPin_EliminationRequiresItsDependencies (0.00s)
+=== CONT  TestPin_RemoveAppendsATombstoneAndKeepsTheAddRecord
+=== CONT  TestPin_AgentClaimIsNotUpgradedToAUserInstruction
+=== CONT  TestRun_HelpFlagPrintsHelpAndSucceeds
+=== CONT  TestPin_AddRecordsUserAuthorityByDefault
+=== CONT  TestNames_ReturnsACopy
+=== CONT  TestRecall_NoSecondImplementation
+--- PASS: TestDecodeEnvelope_UnknownSchemaIsUnsupported (0.00s)
+=== CONT  TestEval_CorpusFlagReachesTheProducer
+=== CONT  TestEval_ArtifactErrorIsReported
+=== CONT  TestRenderStatus_NeverPrintsAZeroForAnAbsentMeasurement
+=== CONT  TestRenderStatus_RetainsEstimatorSourceAndAge
+=== CONT  TestEval_RejectsPositionalArguments
+=== CONT  TestRenderStatus_IsDeterministic
+=== CONT  TestRenderStatus_JSONGolden
+--- PASS: TestEval_TextOutputLeadsWithOutcomes (0.00s)
+=== CONT  TestStatus_AggregateRowsDeclareTheirScopeAndMeasure
+--- PASS: TestEnvelope_ErrorKindsAreDistinct (0.00s)
+--- PASS: TestSpecs_EveryCommandDocumentsJSON (0.00s)
+--- PASS: TestEnvelope_CarriesSchemaAndCommand (0.00s)
+--- PASS: TestRenderStatus_NeverPrintsAZeroForAnAbsentMeasurement (0.00s)
+=== CONT  TestRenderStatus_Golden
+=== CONT  TestRenderStatus_CarriesNoANSI
+=== CONT  TestEval_CostCategoriesRetriesAndPricingSourcesSurvive
+=== CONT  TestEval_UnjudgedMetricsAreNotCountedAsPassing
+=== CONT  TestStatus_PanickingDaemonSourceIsRecoveredIntoItsSection
+--- PASS: TestPin_SourceFlagIsValidated (0.00s)
+=== CONT  TestStatus_ReportSchemaIsVersioned
+=== CONT  TestEval_WithoutArtifactsIsUnavailable
+=== CONT  TestStatus_ReportIsDeterministic
+=== CONT  TestEval_NoScoresIsInconclusive
+=== RUN   TestRenderStatus_JSONGolden/full.json
+=== CONT  TestStatus_BothSourcesPanickingIsStillAReport
+=== CONT  TestStatus_APercentileNeverReadsAboveTheMax
+=== CONT  TestStatus_PanickingDiskSourceIsRecoveredIntoItsSection
+=== CONT  TestEval_MissingUsageIsUnknownNotZero
+--- PASS: TestUsageErrorf_WrapsErrUsage (0.00s)
+--- PASS: TestEval_TaskAndRecoveryLeadNotFractionOfOPT (0.00s)
+--- PASS: TestPin_ListReportsSourcePerInvariant (0.00s)
+--- PASS: TestExitCode (0.00s)
+--- PASS: TestSpecs_PinInstalledSurface (0.00s)
+--- PASS: TestSpec_WriteHelp_IsDocumentedAndDeterministic (0.00s)
+--- PASS: TestCommandNames_MatchesSection75 (0.00s)
+--- PASS: TestRenderStatus_AnUnimplementedProducerIsNotHolding (0.00s)
+--- PASS: TestRun_DoubleDashEndsFlagParsing (0.00s)
+--- PASS: TestRun_WithoutJSONWritesNoEnvelope (0.00s)
+--- PASS: TestRetrieval_MetaReachesTheJSONEnvelopeToo (0.00s)
+--- PASS: TestRetrieval_ToolErrorIsNotSuccess (0.00s)
+--- PASS: TestEval_ReplayWithOnlyReferencePoliciesJudgesNothing (0.00s)
+--- PASS: TestRecall_PreservesDenialAndCoverageDistinctions (0.00s)
+--- PASS: TestEval_RejectsPositionalArguments (0.00s)
+--- PASS: TestRun_ValueFlagRequiresItsValue (0.00s)
+--- PASS: TestNames_ReturnsACopy (0.00s)
+--- PASS: TestRecall_NoSecondImplementation (0.00s)
+--- PASS: TestPin_RemoveAppendsATombstoneAndKeepsTheAddRecord (0.00s)
+--- PASS: TestRun_UnknownFlagIsAUsageError (0.00s)
+--- PASS: TestPin_ModesAreExclusive (0.00s)
+--- PASS: TestPin_RemoveUnknownIDSaysSo (0.00s)
+--- PASS: TestEval_ArtifactErrorIsReported (0.00s)
+--- PASS: TestPin_NoStoreIsUnavailable (0.00s)
+--- PASS: TestAll_SurvivesEntirelyNilDeps (0.00s)
+--- PASS: TestRun_HelpFlagPrintsHelpAndSucceeds (0.00s)
+=== CONT  TestStatus_NilDepsUnavailable
+--- PASS: TestRenderStatus_CarriesNoANSI (0.00s)
+=== CONT  TestStatus_HotPathNames
+--- PASS: TestStatus_NilDepsUnavailable (0.00s)
+=== CONT  TestStatus_DaemonErrorIsReportedNotSwallowed
+=== CONT  TestEval_SkippedOrFailedTrialsAreInconclusiveNotPass
+=== CONT  TestRetrieval_NoServerIsUnavailableNotEmpty
+=== CONT  TestEval_ReAttemptOfAnEliminatedApproachFails
+=== CONT  TestStatus_LiveAnswerStampedAfterNowIsNotNegativelyAged
+=== CONT  TestStatus_OriginalOpStatusIsPreserved
+--- PASS: TestEnvelope_IsIndentedWithATrailingNewline (0.00s)
+--- PASS: TestEval_WithoutArtifactsIsUnavailable (0.00s)
+=== CONT  TestRetrieval_RequiredArgumentsAreUsageErrors
+=== CONT  TestRefused_StatusReportsTheRefusalAsItsOneReason
+=== CONT  TestPin_EliminationRequiresEveryClaimField
+=== CONT  TestRefused_HelpStillAnswers
+--- PASS: TestPin_AgentClaimIsNotUpgradedToAUserInstruction (0.00s)
+--- PASS: TestRenderStatus_RetainsEstimatorSourceAndAge (0.00s)
+--- PASS: TestPin_AddRecordsUserAuthorityByDefault (0.00s)
+=== CONT  TestPin_EliminationGoesThroughTheSP13Handler
+=== CONT  TestRenderStatus_AllHoldingOnlyWhenEveryRowIsAnObservation
+=== CONT  TestRefused_CollectStatusAsksNoSource
+=== RUN   TestEval_SkippedOrFailedTrialsAreInconclusiveNotPass/skipped
+=== RUN   TestRenderStatus_Golden/full.txt
+=== CONT  TestStatus_DaemonPayloadMirrorIsCurrent
+=== CONT  TestRecall_OmitsKWhenNotAsked
+=== CONT  TestDropped_EphemeralNoteClaimsNothingAboutTheHost
+=== CONT  TestStatus_DiskFallbackCarriesItsAge
+=== CONT  TestRecall_RejectsANonsenseK
+=== CONT  TestDropped_TakesNoArguments
+=== CONT  TestRecall_PaginationFlagReachesTheHandler
+=== CONT  TestRetrieval_UnregisteredToolIsUnavailable
+=== CONT  TestRefused_EveryProjectCommandReportsTheRefusalAsUnavailable
+=== CONT  TestRenderStatus_AFailingBannerStillCountsThePendingRows
+--- PASS: TestEval_CorpusFlagReachesTheProducer (0.00s)
+--- PASS: TestEval_ReplayReportsQompacksPolicyNotAReference (0.00s)
+--- PASS: TestStatus_AggregateRowsDeclareTheirScopeAndMeasure (0.00s)
+--- PASS: TestEval_CheapWrongResultCannotPass (0.00s)
+--- PASS: TestStatus_ReportSchemaIsVersioned (0.00s)
+--- PASS: TestStatus_PanickingDaemonSourceIsRecoveredIntoItsSection (0.00s)
+--- PASS: TestStatus_APercentileNeverReadsAboveTheMax (0.00s)
+--- PASS: TestStatus_DaemonErrorIsReportedNotSwallowed (0.00s)
+--- PASS: TestRun_ExitCodesCoverEveryCommand (0.00s)
+--- PASS: TestStatus_HotPathNames (0.00s)
+--- PASS: TestEval_UnjudgedMetricsAreNotCountedAsPassing (0.00s)
+--- PASS: TestStatus_PanickingDiskSourceIsRecoveredIntoItsSection (0.00s)
+--- PASS: TestStatus_LiveAnswerStampedAfterNowIsNotNegativelyAged (0.00s)
+--- PASS: TestStatus_OriginalOpStatusIsPreserved (0.00s)
+--- PASS: TestEval_ReAttemptOfAnEliminatedApproachFails (0.00s)
+--- PASS: TestRetrieval_NoServerIsUnavailableNotEmpty (0.00s)
+--- PASS: TestRetrieval_RequiredArgumentsAreUsageErrors (0.00s)
+--- PASS: TestEval_ReplayJudgesEveryQompackPolicyItScored (0.01s)
+--- PASS: TestStatus_BothSourcesPanickingIsStillAReport (0.00s)
+--- PASS: TestRun_JSONEnvelopeCarriesTheError (0.00s)
+--- PASS: TestEval_NoScoresIsInconclusive (0.00s)
+--- PASS: TestPin_EliminationRequiresEveryClaimField (0.00s)
+--- PASS: TestPin_EliminationGoesThroughTheSP13Handler (0.00s)
+--- PASS: TestRefused_HelpStillAnswers (0.00s)
+--- PASS: TestEval_CostCategoriesRetriesAndPricingSourcesSurvive (0.00s)
+--- PASS: TestRefused_CollectStatusAsksNoSource (0.00s)
+=== CONT  TestRenderStatus_APendingRowIsNeverCountedAsHolding
+=== CONT  TestRefused_EvalStillReadsItsArtifacts
+=== RUN   TestRefused_EveryProjectCommandReportsTheRefusalAsUnavailable/recall
+--- PASS: TestStatus_DaemonPayloadMirrorIsCurrent (0.00s)
+--- PASS: TestRetrieval_UnregisteredToolIsUnavailable (0.00s)
+--- PASS: TestEval_MissingUsageIsUnknownNotZero (0.00s)
+--- PASS: TestDropped_EphemeralNoteClaimsNothingAboutTheHost (0.00s)
+--- PASS: TestRenderStatus_AFailingBannerStillCountsThePendingRows (0.00s)
+--- PASS: TestRecall_OmitsKWhenNotAsked (0.00s)
+--- PASS: TestDropped_TakesNoArguments (0.00s)
+--- PASS: TestRecall_PaginationFlagReachesTheHandler (0.00s)
+--- PASS: TestRecall_RejectsANonsenseK (0.00s)
+--- PASS: TestRenderStatus_AllHoldingOnlyWhenEveryRowIsAnObservation (0.00s)
+=== RUN   TestEval_SkippedOrFailedTrialsAreInconclusiveNotPass/failed
+--- PASS: TestRefused_StatusReportsTheRefusalAsItsOneReason (0.00s)
+--- PASS: TestStatus_DiskFallbackCarriesItsAge (0.00s)
+--- PASS: TestRefused_EvalStillReadsItsArtifacts (0.00s)
+--- PASS: TestRenderStatus_APendingRowIsNeverCountedAsHolding (0.00s)
+=== RUN   TestRefused_EveryProjectCommandReportsTheRefusalAsUnavailable/pin
+=== RUN   TestRefused_EveryProjectCommandReportsTheRefusalAsUnavailable/why
+=== RUN   TestRefused_EveryProjectCommandReportsTheRefusalAsUnavailable/dropped
+--- PASS: TestRefused_EveryProjectCommandReportsTheRefusalAsUnavailable (0.00s)
+    --- PASS: TestRefused_EveryProjectCommandReportsTheRefusalAsUnavailable/recall (0.00s)
+    --- PASS: TestRefused_EveryProjectCommandReportsTheRefusalAsUnavailable/pin (0.00s)
+    --- PASS: TestRefused_EveryProjectCommandReportsTheRefusalAsUnavailable/why (0.00s)
+    --- PASS: TestRefused_EveryProjectCommandReportsTheRefusalAsUnavailable/dropped (0.00s)
+=== RUN   TestEval_SkippedOrFailedTrialsAreInconclusiveNotPass/none_ran
+--- PASS: TestEval_SkippedOrFailedTrialsAreInconclusiveNotPass (0.00s)
+    --- PASS: TestEval_SkippedOrFailedTrialsAreInconclusiveNotPass/skipped (0.00s)
+    --- PASS: TestEval_SkippedOrFailedTrialsAreInconclusiveNotPass/failed (0.00s)
+    --- PASS: TestEval_SkippedOrFailedTrialsAreInconclusiveNotPass/none_ran (0.00s)
+--- PASS: TestRenderStatus_IsDeterministic (0.01s)
+--- PASS: TestStatus_ReportIsDeterministic (0.01s)
+=== RUN   TestRenderStatus_JSONGolden/degraded.json
+=== RUN   TestRenderStatus_JSONGolden/unknown.json
+=== RUN   TestRenderStatus_Golden/degraded.txt
+--- PASS: TestRenderStatus_JSONGolden (0.03s)
+    --- PASS: TestRenderStatus_JSONGolden/full.json (0.01s)
+    --- PASS: TestRenderStatus_JSONGolden/degraded.json (0.00s)
+    --- PASS: TestRenderStatus_JSONGolden/unknown.json (0.01s)
+=== RUN   TestRenderStatus_Golden/unknown.txt
+--- PASS: TestRenderStatus_Golden (0.05s)
+    --- PASS: TestRenderStatus_Golden/full.txt (0.02s)
+    --- PASS: TestRenderStatus_Golden/degraded.txt (0.01s)
+    --- PASS: TestRenderStatus_Golden/unknown.txt (0.01s)
+PASS
+ok  	github.com/qompack/qompack/internal/commands	1.539s
+=== RUN   TestGeneratedInventoriesAreNonEmpty
+--- PASS: TestGeneratedInventoriesAreNonEmpty (0.09s)
+=== RUN   TestCannotDoCoversSection12Limits
+--- PASS: TestCannotDoCoversSection12Limits (0.04s)
+=== RUN   TestUpstreamIssuesAreAllUnfiled
+--- PASS: TestUpstreamIssuesAreAllUnfiled (0.04s)
+=== RUN   TestCannotDoNamesTheUnimplementedChecks
+--- PASS: TestCannotDoNamesTheUnimplementedChecks (0.05s)
+=== RUN   TestRelativeLinksResolve
+--- PASS: TestRelativeLinksResolve (0.07s)
+=== RUN   TestOwnedDocsExist
+--- PASS: TestOwnedDocsExist (0.04s)
+=== RUN   TestADRIndexListsEveryADR
+--- PASS: TestADRIndexListsEveryADR (0.04s)
+=== RUN   TestNoPlannedPointerToAnExistingPage
+--- PASS: TestNoPlannedPointerToAnExistingPage (0.06s)
+=== RUN   TestTroubleshootingNamesEveryEvidenceOutcome
+--- PASS: TestTroubleshootingNamesEveryEvidenceOutcome (0.11s)
+=== RUN   TestTroubleshootingNamesEverySelfTestCheck
+--- PASS: TestTroubleshootingNamesEverySelfTestCheck (0.12s)
+=== RUN   TestTroubleshootingNamesEveryContractAssertion
+--- PASS: TestTroubleshootingNamesEveryContractAssertion (0.11s)
+=== RUN   TestTroubleshootingLinksConfigReferenceSections
+--- PASS: TestTroubleshootingLinksConfigReferenceSections (0.06s)
+=== RUN   TestUATRetainsAllTwelveIDs
+--- PASS: TestUATRetainsAllTwelveIDs (0.06s)
+=== RUN   TestUATSectionsHaveTheRecordShape
+--- PASS: TestUATSectionsHaveTheRecordShape (0.06s)
+=== RUN   TestUATUnexecutedRowsSayUnverified
+--- PASS: TestUATUnexecutedRowsSayUnverified (0.05s)
+=== RUN   TestUATConfigKeysExist
+--- PASS: TestUATConfigKeysExist (0.06s)
+=== RUN   TestUserGuideCoversEveryGeneratedCommandAndTool
+--- PASS: TestUserGuideCoversEveryGeneratedCommandAndTool (0.17s)
+=== RUN   TestUserGuideStatesTheBindingQualifications
+--- PASS: TestUserGuideStatesTheBindingQualifications (0.05s)
+=== RUN   TestUserGuideMarksCheckpointAsUnrouted
+--- PASS: TestUserGuideMarksCheckpointAsUnrouted (0.10s)
+PASS
+ok  	github.com/qompack/qompack/test/docs	2.119s

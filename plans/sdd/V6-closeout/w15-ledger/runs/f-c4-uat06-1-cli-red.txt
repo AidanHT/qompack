@@ -1,0 +1,14 @@
+=== RUN   TestDaemonLedgerAnswersAForkWithItsParentsEliminations
+=== PAUSE TestDaemonLedgerAnswersAForkWithItsParentsEliminations
+=== CONT  TestDaemonLedgerAnswersAForkWithItsParentsEliminations
+    fork_ledger_test.go:66: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-ledger/internal/cli/fork_ledger_test.go:66
+        	Error:      	Not equal: 
+        	            	expected: 0x1
+        	            	actual  : 0x0
+        	Test:       	TestDaemonLedgerAnswersAForkWithItsParentsEliminations
+        	Messages:   	the fork's already_tried sees its parent's elimination
+--- FAIL: TestDaemonLedgerAnswersAForkWithItsParentsEliminations (0.03s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/cli	0.299s
+FAIL

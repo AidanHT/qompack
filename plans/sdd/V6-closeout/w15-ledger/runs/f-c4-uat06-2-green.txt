@@ -1,0 +1,8 @@
+=== RUN   TestSecondCheckpointCarriesTheSessionsEarlierDecision
+--- PASS: TestSecondCheckpointCarriesTheSessionsEarlierDecision (0.43s)
+=== RUN   TestRestartedWriterCarriesTheSessionsEarlierDecision
+--- PASS: TestRestartedWriterCarriesTheSessionsEarlierDecision (0.28s)
+=== RUN   TestCarriedDecisionEndsWhenItsPinIsRemoved
+--- PASS: TestCarriedDecisionEndsWhenItsPinIsRemoved (0.31s)
+PASS
+ok  	github.com/qompack/qompack/internal/checkpoint	1.308s

@@ -1,0 +1,85 @@
+qompack status — collected 2026-09-30T01:38:38Z
+
+source: daemon (available, 0µs old)
+
+host contract: 9 assertion(s), all holding
+
+mode:        full
+hot path:    sync
+sessions:    1
+spool files: 1
+
+counters
+  checkpoint.cold_precompact               1
+  daemon.publication.unindexed_object_candidates 0
+  daemon.publication.unpublished_captures  0
+  loud.total                               16
+  mcp.ephemeral.recorded                   4
+  negknow.bloom.rebuilds                   1
+  observer.segment.followed                9
+  observer.subagent_capture                15
+  observer.tombstone                       5
+  sched.idle.evaluate                      2
+  sched.persist                            1
+  sched.pselection.enabled                 1
+  sched.segment.closed.compact             9
+  sched.tap.compact_unobserved             7
+  store.publication.sync                   68
+  store.publication.sync.dir               500
+  store.publication.sync.file              322
+
+recent loud lines
+  ts=2026-09-30T01:33:23.4249699Z level=loud msg="rehydrate: tier-1 material exceeds the hard budget cap" budget=12000 spent=133 ceiling_chars=9400 spent_chars=363
+
+  ts=2026-09-30T01:34:07.8409583Z level=loud msg="rehydrate: tier-1 material exceeds the hard budget cap" budget=12000 spent=133 ceiling_chars=9400 spent_chars=363
+
+  ts=2026-09-30T01:34:52.6400591Z level=loud msg="rehydrate: tier-1 material exceeds the hard budget cap" budget=12000 spent=133 ceiling_chars=9400 spent_chars=363
+
+  ts=2026-09-30T01:35:48.6746298Z level=loud msg="rehydrate: tier-1 material exceeds the hard budget cap" budget=12000 spent=133 ceiling_chars=9400 spent_chars=363
+
+  ts=2026-09-30T01:35:58.6285426Z level=loud msg="daemon: config reload warning" key="" message="unparseable config: unexpected end of JSON input" location=<scratch>\sessions\c4\uat04\proj\.qompack\config.json
+
+
+hooks — per-entry-point latency
+  EVENT              SUBCOMMAND                       BUDGET  LATENCY
+  PostToolUse        qompack observe tool             B-A     unavailable
+                       no per-hook instrument: PostToolUse is folded into the hook_controlled aggregate,
+                       which mixes every delivering hook and cannot be attributed to one
+  UserPromptSubmit   qompack observe prompt           B-A     unavailable
+                       no per-hook instrument: UserPromptSubmit is folded into the hook_controlled
+                       aggregate, which mixes every delivering hook and cannot be attributed to one
+  SessionStart       qompack session-start            B-A     unavailable
+                       no per-hook instrument: SessionStart is folded into the hook_controlled aggregate,
+                       which mixes every delivering hook and cannot be attributed to one
+  PreCompact         qompack checkpoint               B-E     p50 61.44ms  p95 73.58ms  p99 73.58ms  max 73.58ms  n=16  (observed from daemon, 0µs old)
+  Stop               qompack observe stop             B-A     unavailable
+                       no per-hook instrument: Stop is folded into the hook_controlled aggregate, which
+                       mixes every delivering hook and cannot be attributed to one
+  SubagentStop       qompack observe stop --subagent  B-A     unavailable
+                       no per-hook instrument: SubagentStop is folded into the hook_controlled aggregate,
+                       which mixes every delivering hook and cannot be attributed to one
+  SessionEnd         qompack flush                    B-A     unavailable
+                       no per-hook instrument: SessionEnd is folded into the hook_controlled aggregate,
+                       which mixes every delivering hook and cannot be attributed to one
+
+budgets — §2.4
+  ID    HISTOGRAM             MEASURE     LATENCY
+  B-A   hook_controlled       estimated   p50 24.58ms  p95 73.73ms  p99 150.00ms  max 150.00ms  n=40  (estimated from daemon, 0µs old)
+          scope: aggregate over 6 entry point(s): PostToolUse, UserPromptSubmit, SessionStart, Stop, SubagentStop, SessionEnd
+  B-B   l0_ingest             observed    p50 22.53ms  p95 26.62ms  p99 137.12ms  max 137.12ms  n=40  (observed from daemon, 0µs old)
+          scope: aggregate; not attributable to a single hook entry point
+  B-C   l0_process            observed    p50 114.69ms  p95 163.84ms  p99 380.49ms  max 380.49ms  n=40  (observed from daemon, 0µs old)
+          scope: aggregate; not attributable to a single hook entry point
+          reported only, never gated
+  B-D   hook_wall             —           unavailable
+          scope: aggregate; not attributable to a single hook entry point
+          reported only, never gated
+          no instrument records this histogram in this build
+          it measures host process creation, which the created process cannot observe
+  B-E   checkpoint_finalize   observed    p50 61.44ms  p95 73.58ms  p99 73.58ms  max 73.58ms  n=16  (observed from daemon, 0µs old)
+  B-F   mcp_tool_call         observed    p50 10.24ms  p95 16.08ms  p99 16.08ms  max 16.08ms  n=4  (observed from daemon, 0µs old)
+          scope: aggregate; not attributable to a single hook entry point
+  B-G   hook_degraded         —           unavailable
+          scope: aggregate; not attributable to a single hook entry point
+          reported only, never gated
+          hook_degraded: no samples recorded in the observed window

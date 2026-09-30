@@ -1,0 +1,5 @@
+step 1 2026-09-29 20:49:16 EDT: initial state
+$ test -e <project>/.qompack
+exit 1 (1 = absent: no pre-run store; per the row, record absence and take a non-vacuous baseline after the initial permitted capture, before the upgrade)
+$ test -e <project>/.claude
+exit 1

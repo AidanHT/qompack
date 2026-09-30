@@ -1,0 +1,10 @@
+<!-- qompack:injected seq=1 ver=1 -->
+# Qompack rehydration — checkpoint 0001, session 042dfca0
+
+## 1. Invariants (pinned, verbatim)
+- [inv_8382970dffd4] Never write to prod.db from the export code. (source: user)
+
+## 7. No longer in context
+- … and 14 more; call dropped()
+<!-- /qompack:injected -->
+<!-- qompack-contract-probe qompack-contract-3109d41ba211 -->

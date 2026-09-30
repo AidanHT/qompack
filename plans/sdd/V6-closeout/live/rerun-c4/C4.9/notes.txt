@@ -1,0 +1,55 @@
+C4.9 re-run on candidate 4 (D47), (c)-style: backup create/verify/restore after a session with MCP calls and an
+idle period (candidate 3: restore failed on a garbage-collected MCP root, F-C49-2), fsck agreeing; plus the
+unavailable-object answer in the restored copy. Agent-executed on the owner's real host per owner decision D3 by a
+Claude Code workflow subagent (Opus 5.5) — not human UAT.
+
+Date 2026-09-29 21:21-21:54 America/Toronto. Sessions used: 1 (session/, sessions-c4 n=2, 26 s). Model
+claude-haiku-4-5-20251001, Claude Code 2.1.280, Windows 11 Home 25H2 build 10.0.26200.9457, frozen bundle 0.3.0
+(BUNDLE.json sha256 aa7da0e1...558d, commit 9f6a2fad) via --plugin-dir. Preconditions cli/00-preconditions.txt: fresh
+project (notes.md, data.txt, src/app.py; git init + add), defaults, DEFAULT idle exit, initial absence recorded.
+Scope: only the (c)-style restore was re-run, as the part asked; (a) daemon ended mid-session and (b) newer
+settingsVersion passed on candidate 3 and were not repeated.
+
+Session (session/stream.jsonl): T1 Read notes.md -> HERON-TIDE-914; T2 MCP recall "codeword" (3 hits) + expand of the
+first hit (found); T3 Read data.txt -> 23; T4 /qompack:recall HERON (the command's `qompack recall` resolved through
+the host; notes.md capture returned). Every hook success/exit 0, stderr empty.
+Right after the session (cli/s1-post-live-*): status "source: daemon ... / host contract: 9 assertion(s), all holding",
+doctor exit 0 with no degraded row (captures.unpublished "0 gap(s) across 13 sidecar(s)"), fsck --json exit 0
+(index.tool_use ok: the MCP self-records are no longer at turn 0).
+
+Idle period: the daemon idled 30 minutes and exited on the DEFAULT idle exit at 21:52:03 (cli/c-00-daemon-ended.txt;
+no termination). cli/c-00-ephemeral-roots.txt: 4 ephemeral roots (the three MCP answers and the CLI recall), 0 gc
+tombstones. The ephemeral roots were NOT collected: MCP records now carry the calling session (w13-ledger), and the GC
+keeps a root "used by one of the most recent sessions" (internal/store/gcrun.go), so candidate 3's condition (a root a
+gc tombstone retired while a tool reference still names it) did not recur after one session and an idle period.
+ OBSERVATION F-C4-C49-1 (not a restore failure): the tombstoned-reference path of the reader proof
+ (ToolRefsTombstoned > 0) is therefore unexercised by this live run.
+
+Backup (stopped source): c-01 fsck --json --seal-check exit 0; c-02 create --id c49-after-mcp-idle exit 0; c-03 verify
+exit 0 (scratch restore: OpenedOK, ToolRefsProven 13, ToolRefsTombstoned 0; integrity ok); c-04 restore --destination
+<scratch>/sessions/c4/c49/recovery/proj exit 0 (OpenedOK true, ContentRootsProven 16, ToolRefsProven 13,
+ToolRefsTombstoned 0, SameBuildOnly true, error none, integrity all ok incl. the dual-reader seal check); c-05 fsck
+--seal-check of the destination exit 0. fsck on the source and on the destination agree (every row ok).
+
+Unavailable object (restored copy only, cli/c-06, c-07): the one chunk object of the notes.md capture
+(toolu_019ejEPU..., root fed11f6e5d6c) moved aside, then the frozen `qompack mcp` over stdio (no model): expand and
+re_read answer {"found":false,"available":false,"reason":"the stored object is missing: the index records it, but its
+bytes are no longer in the store, so it cannot be served; `qompack fsck` reports it"} — candidate 3's wording defect
+(F-C49-3, "a damaged object is preserved as evidence") is fixed. c-08 fsck exit 1 names it: index.roots "root
+fed11f6e5d6c names chunk 566dba684542, which the object store does not hold", index.tool_use "cannot be
+materialized", captures "published capture sidecar ... does not resolve".
+ OBSERVATION F-C4-C49-2 (route to retrieval/C4.4): a stdio probe outside any host session answers recall "codeword"
+ with 0 hits and "denied": 5 in BOTH the original project and the restored copy (c-09, c-10), while the same recall
+ inside the session returned 3 hits; path: selectors and expand answer normally. Not restore-specific.
+
+New defect seen in this project's day log (store/logs_qompack-20260930.log):
+ F-C4-C49-3 (product): in a session with no compaction and no elimination, every idle tick (every 30 s from 2 minutes
+ after the session until the idle exit: 57 times, 01:24:01Z-01:52:01Z) logs warn "daemon: idle task returned an error"
+ name=act.advance_frontier err="checkpoint: frontier sources unavailable: checkpoint: SourceSet.Ledger is nil: its
+ accessor resolved to no ledger: qompack: running in degraded mode" plus "scheduler: frontier advance failed; local
+ frontier unchanged" (first: warn "checkpoint: no usable source set; the frontier is not advancing"). The idle frontier
+ never advances in such a session. No other project of this part (all had a compaction) logged it.
+
+Result: PASS — backup create/verify/restore after MCP calls and an idle period pass, fsck agreeing on source and
+destination; the host session was never broken. Rollback: initial state absent; the recovery copy is a disposable
+probe, not activated; cross-version and activation checks unverified. Guard: guard/sessions.txt ("session 2 C4.9").

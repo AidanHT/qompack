@@ -1,0 +1,37 @@
+# Review fix F3: a drain pass holds the capture gate between its deliveries
+# RED (tests added, Drain and the watcher pass not yet gated):
+# go test -p 2 -count=1 -v -run '^(TestRequestedDrainPass_HoldsTheCaptureGateBetweenDeliveries|TestLookAtClientSpools_HoldsTheCaptureGateForItsPass)$' ./internal/daemon/
+        	Error:      	Not equal: 
+        	            	expected: 1
+        	            	actual  : 0
+        	Messages:   	delivery 0: the drain holds the gate between deliveries
+--- FAIL: TestRequestedDrainPass_HoldsTheCaptureGateBetweenDeliveries (0.62s)
+        	Error:      	Not equal: 
+        	            	expected: []int{1}
+        	            	actual  : []int{0}
+        	Messages:   	the watcher's pass holds the gate around its delivery
+--- FAIL: TestLookAtClientSpools_HoldsTheCaptureGateForItsPass (0.41s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	1.462s
+FAIL
+exit=1
+
+# GREEN (Drain and lookAtClientSpools enter the gate for the pass):
+# go test -p 2 -count=3 -v -run '^(TestRequestedDrainPass_HoldsTheCaptureGateBetweenDeliveries|TestLookAtClientSpools_HoldsTheCaptureGateForItsPass|TestLaunchSessionEnd_HoldsTheCaptureGateUntilTheEndFinishes|TestRunIngested_HoldsTheCaptureGateWhileApplying|TestDispatchOp_HoldsTheCaptureGateWhileServing)$' ./internal/daemon/
+--- PASS: TestDispatchOp_HoldsTheCaptureGateWhileServing (0.01s)
+--- PASS: TestRunIngested_HoldsTheCaptureGateWhileApplying (0.00s)
+--- PASS: TestLaunchSessionEnd_HoldsTheCaptureGateUntilTheEndFinishes (0.58s)
+--- PASS: TestRequestedDrainPass_HoldsTheCaptureGateBetweenDeliveries (0.56s)
+--- PASS: TestLookAtClientSpools_HoldsTheCaptureGateForItsPass (0.38s)
+--- PASS: TestDispatchOp_HoldsTheCaptureGateWhileServing (0.00s)
+--- PASS: TestRunIngested_HoldsTheCaptureGateWhileApplying (0.00s)
+--- PASS: TestLaunchSessionEnd_HoldsTheCaptureGateUntilTheEndFinishes (0.52s)
+--- PASS: TestRequestedDrainPass_HoldsTheCaptureGateBetweenDeliveries (0.56s)
+--- PASS: TestLookAtClientSpools_HoldsTheCaptureGateForItsPass (0.42s)
+--- PASS: TestDispatchOp_HoldsTheCaptureGateWhileServing (0.01s)
+--- PASS: TestRunIngested_HoldsTheCaptureGateWhileApplying (0.01s)
+--- PASS: TestLaunchSessionEnd_HoldsTheCaptureGateUntilTheEndFinishes (0.57s)
+--- PASS: TestRequestedDrainPass_HoldsTheCaptureGateBetweenDeliveries (0.60s)
+--- PASS: TestLookAtClientSpools_HoldsTheCaptureGateForItsPass (0.45s)
+ok  	github.com/qompack/qompack/internal/daemon	5.127s
+exit=0

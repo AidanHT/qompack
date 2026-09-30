@@ -1,0 +1,5 @@
+{"v":1,"op":"open","id":1,"s":"ab01bf84-7951-44ec-85e7-62adae04c127","st":0,"sts":1790731431450}
+{"v":1,"op":"close","id":1,"et":16,"ets":1790731490436,"tok":99914,"feat":{"gap_seconds":0,"lexical_cohesion":0,"path_jaccard":0,"prob_changepoint":0.000003634944752690511,"todo_transition":0,"tool_shift":0}}
+{"v":1,"op":"open","id":2,"s":"ab01bf84-7951-44ec-85e7-62adae04c127","st":17,"sts":1790731490436}
+{"v":1,"op":"encode","id":1,"seq":1,"ts":1790731490481}
+{"v":1,"op":"close","id":2,"et":22,"ets":1790731523043,"tok":736,"feat":{"gap_seconds":0.194,"lexical_cohesion":0.17638461887112475,"path_jaccard":0,"todo_transition":0,"tool_shift":0.25}}

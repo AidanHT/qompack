@@ -1,0 +1,16 @@
+{
+ "files": {
+  "README.md": {
+   "bytes": 84,
+   "sha256": "9d048343c1e0369dd099c3efcfaca4e47b200f7571862f650b7644b6169ac7c4"
+  },
+  "reports.py": {
+   "bytes": 158,
+   "sha256": "64c50fdb49b6d92975f065161e3dbf90f1c2e92a9ea287fe2656f49813c8f3fa"
+  },
+  "data/meta.txt": {
+   "bytes": 53,
+   "sha256": "3ac16b899e771e3f0417d1ffa3da91158432564c0a69cb2cf3c5057c9884fd44"
+  }
+ }
+}

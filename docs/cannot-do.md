@@ -222,18 +222,40 @@ host change could lift — as prepared proposals, none of which has been filed.
 ### A missing or `redacted`/`truncated`/`binary` original stays that way
 
 - **Limit.** Qompack cannot restore an original it does not hold. A record whose fidelity is
-  `redacted`, `truncated`, `binary`, `partial`, `failure` or `unknown` is returned as it is, with
-  that label; no substitute is invented and no gap is filled from elsewhere.
+  `redacted`, `truncated`, `binary`, `partial`, `failure` or `unknown` is returned as it is (the
+  label stays on its capture sidecar record); no substitute is invented and no gap is filled from
+  elsewhere.
 - **Why.** Each label names something that happened at capture time: privacy policy removed content,
   a size bound cut it, the bytes were not text, or the capture failed outright. The label is the
   honest answer; replacing it with a plausible reconstruction would erase the one signal telling you
   not to trust the bytes.
-- **What Qompack does instead.** It returns the label with the content and separates it from the
-  outcome enumeration, so `denied` (withheld) and `unavailable` (lookup failed) never read as
-  "absent" — [docs/user-guide.md](user-guide.md#fidelity-coverage-and-error-states) and
+- **What Qompack does instead.** It records the label on the capture's sidecar record under
+  `.qompack/records/captures/`, where an operator reads it
+  ([docs/troubleshooting.md §3](troubleshooting.md#3-capture-gaps)); no retrieval response carries
+  it, and a retrieval reports only what the read itself did (`truncated`, `span`, a `«redacted:…»`
+  placeholder). The label is kept apart from the outcome enumeration, so `denied` (withheld) and
+  `unavailable` (lookup failed) never read as "absent" —
+  [docs/user-guide.md](user-guide.md#fidelity-coverage-and-error-states) and
   [docs/troubleshooting.md §4](troubleshooting.md#4-denied-or-unavailable-evidence).
 - **Recorded at.** `internal/core/evidence.go` (the three enumerations);
   [ADR 0013](adr/0013-migration-contracts.md) ("errors read as absence" is a named defect).
+
+### No raw bytes of a binary file
+
+- **Limit.** Qompack cannot hold a binary file's raw bytes, and so cannot label a capture of one
+  `binary`. On Claude Code 2.1.280 `Read` refuses a binary file and fires no `PostToolUse`, `Bash`
+  output of one arrives decoded as text with undecodable bytes replaced, and an image arrives as
+  base64 inside the hook's JSON.
+- **Why.** A hook sees only what the host delivers, and the host decodes before it delivers. Qompack
+  records what the host delivered and decodes nothing itself. Decoding in Qompack would store bytes
+  no one delivered, under a label that claims otherwise.
+- **What Qompack does instead.** It records the delivery with fidelity `exact`, which means the
+  captured host delivery, not the file's bytes, and keeps the `binary` value for a hook payload that
+  is not a JSON object. The non-`exact` values are covered by tests rather than by this host
+  ([docs/uat.md UAT-02](uat.md#uat-02)); [docs/user-guide.md](user-guide.md#fidelity-coverage-and-error-states)
+  has what each case looks like.
+- **Recorded at.** `plans/sdd/V6-closeout/live/rerun-c4/UAT-02/notes.txt` and `UAT-12/notes.txt`;
+  the V6 close-out's decisions D45 and D49 (`internal/core/evidence.go` for the enumeration).
 
 ### No complete capture of unobserved child work
 

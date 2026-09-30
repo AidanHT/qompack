@@ -1,0 +1,77 @@
+{
+ "note": "measured from the host's own persisted tool-result files of session B (<home>/.claude/projects/<slug>/<session>/tool-results/); sizes and non-content fields only",
+ "results": [
+  {
+   "tool_use_id": "toolu_01A9Ng8f1jayHDMZoyeziAuv",
+   "persisted_file_bytes": 348881,
+   "result_text_bytes_utf8": 261163,
+   "within_262144": true,
+   "content_bytes": 217070,
+   "content_has_fffd": false,
+   "fields": {
+    "found": true,
+    "hash": "sha256:20cfc2ab38ff9deb904afe9037fb8ec927ec2f9c04186c675b24e2057c7d4a7a",
+    "path": "big.log",
+    "tool": "FileRead",
+    "span": [
+     0,
+     217070
+    ],
+    "total_bytes": 354352,
+    "truncated": true,
+    "next_span": "217070:137282",
+    "widened": false,
+    "expansions": 2,
+    "promoted": true
+   }
+  },
+  {
+   "tool_use_id": "toolu_01KZwhnz1YaUdtdAKiBMPzMg",
+   "persisted_file_bytes": 220709,
+   "result_text_bytes_utf8": 165233,
+   "within_262144": true,
+   "content_bytes": 137282,
+   "content_has_fffd": false,
+   "fields": {
+    "found": true,
+    "hash": "sha256:20cfc2ab38ff9deb904afe9037fb8ec927ec2f9c04186c675b24e2057c7d4a7a",
+    "path": "big.log",
+    "tool": "FileRead",
+    "span": [
+     217070,
+     354352
+    ],
+    "total_bytes": 354352,
+    "truncated": true,
+    "widened": false,
+    "expansions": 3,
+    "promoted": true
+   }
+  },
+  {
+   "tool_use_id": "toolu_01VAQc2NvS8gpNaVsVTkP71s",
+   "persisted_file_bytes": 348891,
+   "result_text_bytes_utf8": 261171,
+   "within_262144": true,
+   "content_bytes": 217070,
+   "content_has_fffd": false,
+   "fields": {
+    "found": true,
+    "hash": "sha256:20cfc2ab38ff9deb904afe9037fb8ec927ec2f9c04186c675b24e2057c7d4a7a",
+    "path": "big.log",
+    "source": "store",
+    "turn": 3,
+    "span": [
+     0,
+     217070
+    ],
+    "total_bytes": 354352,
+    "truncated": true,
+    "next_span": "217070:137282",
+    "widened": false,
+    "expansions": 4,
+    "promoted": true
+   }
+  }
+ ]
+}

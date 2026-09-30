@@ -1,0 +1,14 @@
+# review minor 1 (fsck active-only) RED: go test ./internal/cli -run '^TestFsck_AbsentFilterWithOnlyStaleRecordsIsADefect$' -count=1 -p 2
+# fsck.go at 2c60aafd, final test (fixture "source":1)
+--- FAIL: TestFsck_AbsentFilterWithOnlyStaleRecordsIsADefect (0.18s)
+    fsck_test.go:1071: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-ledger/internal/cli/fsck_test.go:1071
+        	Error:      	Not equal: 
+        	            	expected: false
+        	            	actual  : true
+        	Test:       	TestFsck_AbsentFilterWithOnlyStaleRecordsIsADefect
+        	Messages:   	an absent filter beside a stale record is a defect, not a cold start: eliminations: 1 record(s), 0 active, 1 stale
+        	            	sketches/tried.bloom is absent, which is an ordinary cold start (stderr=)
+FAIL
+FAIL	github.com/qompack/qompack/internal/cli	0.437s
+FAIL

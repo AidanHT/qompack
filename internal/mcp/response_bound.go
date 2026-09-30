@@ -42,7 +42,7 @@ func (h *handlers) boundedContent(tool string, root store.Root, span SpanResult,
 	o SpanOpts, render func(content []byte, s SpanResult) contentBody,
 	meta func(s SpanResult) map[string]any,
 ) Response {
-	limit := h.cfg.Runtime.MCP.MaxResponseBytes
+	limit := h.conf().Runtime.MCP.MaxResponseBytes
 	starts, _ := boundaries(root)
 	window := span.Body
 	whole, ok := h.redactForRetrieval(tool, window)
@@ -325,16 +325,12 @@ func cutSpan(s SpanResult, end int64, o SpanOpts) SpanResult {
 	out := s
 	out.End = end
 	out.Body = s.Body[:end-s.Off]
-	out.Truncated = true
 	// The widened tail, if any, is what was just cut away.
 	out.Widened = false
-	// The cursor's length follows the rule the resolver used for this kind of read: a full read
-	// pages in response-sized steps, a minimal one in chunk.max-sized steps.
-	step := int64(o.MaxSpan)
-	if o.Full {
-		step = int64(o.MaxResponse)
-	}
-	out.NextSpan = spanStr(end, minInt64(step, s.Total-end))
+	// The cursor follows the resolver's own rule (nextSpanFor): a range read — full or an explicit
+	// span — continues over the rest of its range, so an explicit span pages exactly like full over
+	// the same range (D50); a minimal one continues in chunk.max-sized steps.
+	out.Truncated, out.NextSpan = nextSpanFor(out, o)
 	return out
 }
 

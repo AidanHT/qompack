@@ -1,0 +1,7 @@
+cwd: <scratch>/retrieval/c4/uat11/a
+argv: ["C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c4/qompack-plugin-0.3.0-windows-amd64/bin/qompack.exe", "observe", "prompt"]
+env+: {}
+qompack_home: <scratch>/retrieval/c4/qhome
+wall_s: 0.245
+at: 2026-09-29T23:30:48-04:00
+stdin: {"session_id": "uat11-cli-s3", "transcript_path": "", "cwd": "<scratch>/retrieval/c4/uat11/a", "hook_event_name": "UserPromptSubmit", "prompt": "UAT-11 s3 hook run 1"}

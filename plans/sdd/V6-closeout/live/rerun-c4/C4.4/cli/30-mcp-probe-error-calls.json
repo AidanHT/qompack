@@ -1,0 +1,149 @@
+{
+ "initialize": {
+  "serverInfo": {
+   "name": "qompack",
+   "version": "0.3.0"
+  },
+  "protocolVersion": "2025-06-18"
+ },
+ "calls": [
+  {
+   "tool": "dropped",
+   "args": {
+    "session": "x"
+   },
+   "jsonrpc_line_bytes": 200,
+   "isError": true,
+   "error": null,
+   "text_bytes": 57,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 0,
+     "ephemeral": true
+    }
+   },
+   "text": [
+    "invalid arguments for dropped: /session: unknown property"
+   ]
+  },
+  {
+   "tool": "timeline",
+   "args": {
+    "from": "20",
+    "to": "2"
+   },
+   "jsonrpc_line_bytes": 196,
+   "isError": true,
+   "error": null,
+   "text_bytes": 53,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 0,
+     "ephemeral": true
+    }
+   },
+   "text": [
+    "timeline: from is after to; pass from at or before to"
+   ]
+  },
+  {
+   "tool": "recall",
+   "args": {
+    "query": "path:src/*.go"
+   },
+   "jsonrpc_line_bytes": 1816,
+   "isError": false,
+   "error": null,
+   "text_bytes": 1368,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 14,
+     "ephemeral": true,
+     "hash": "sha256:815af6bd15b73d36fd50e7ca196119179d48d6825efa1742bae2f1682a780303",
+     "tool_use_id": "qompack-mcp:e84488eab84d",
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "hits": [
+      {
+       "hash": "sha256:1d69e935d5dea7268f48fba7cbbd89d10b6ad1bb1ce6672535e4c4a5d3691a97",
+       "path": "src/cache.go",
+       "tool": "mcp__qompack__re_read",
+       "summary": "",
+       "ts": "2026-09-30T03:41:40Z",
+       "score": 1.12,
+       "tool_use_id": "qompack-mcp:8ead566f3dfa",
+       "span": [
+        0,
+        601
+       ]
+      },
+      {
+       "hash": "sha256:e5aed4d3381027209cecec57460644a94262876b2ae03d7ffca0da8c3ed98c6a",
+       "path": "src/nope.go",
+       "tool": "mcp__plugin_qompack_qompack__re_read",
+       "summary": "",
+       "ts": "2026-09-30T03:41:36Z",
+       "score": 1.1125,
+       "tool_use_id": "toolu_01EGnec5gFpQaETftdrhiaUu",
+       "span": [
+        0,
+        137
+       ]
+      },
+      {
+       "hash": "sha256:3b133b09a421e682674500a7237b563268a1382312c0758d407fc882aac21e8e",
+       "path": "src/cache.go",
+       "tool": "mcp__plugin_qompack_qompack__re_read",
+       "summary": "",
+       "ts": "2026-09-30T03:41:35Z",
+       "score": 1.105,
+       "tool_use_id": "toolu_01RDwgcHZDpfyaDaZp1sJbJJ",
+       "span": [
+        0,
+        728
+       ]
+      },
+      {
+       "hash": "sha256:a81c5d848f7bb4a47a2fb34c9a4f066bf667e3d312902a62a5eadff573288724",
+       "path": "src/cache.go",
+       "tool": "mcp__qompack__re_read",
+       "summary": "",
+       "ts": "2026-09-30T03:41:35Z",
+       "score": 1.0975,
+       "tool_use_id": "qompack-mcp:a2a446b79869",
+       "span": [
+        0,
+        601
+       ]
+      },
+      {
+       "hash": "sha256:2dc5bfb1b494a652517fd161652fb674c5682cc3a837a0cf7b4d3f7423b0a1d6",
+       "path": "src/cache.go",
+       "tool": "mcp__qompack__expand",
+       "summary": "",
+       "ts": "2026-09-30T03:41:21Z",
+       "score": 1.09,
+       "tool_use_id": "qompack-mcp:10cbbe067cab",
+       "span": [
+        0,
+        593
+       ]
+      }
+     ],
+     "count": 5,
+     "found": true,
+     "query": {
+      "text": "",
+      "path": "src/*.go",
+      "symbol": "",
+      "tool": ""
+     }
+    }
+   ]
+  }
+ ],
+ "stderr_tail": ""
+}

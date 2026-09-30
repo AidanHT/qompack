@@ -6,6 +6,10 @@
 - [inv_2d8f0a6c3e15] Never change the pgbouncer pool mode without re-running the connection-exhaustion reproduction. (source: agent)
 
 ## 2. Original user intent (verbatim from L0 capture — never summarized)
+Evolution (most recent first):
+> Scope widened to include the pgbouncer transaction-mode interaction after the timeout fix did not help.
+> Narrowed to refreshToken(): the 500 is a pool acquisition timeout, not a token error.
+Original:
 > Fix the intermittent 500s on POST /api/session/refresh. They started after the connection-pool change last Tuesday.
 
 ## 3. Approaches already eliminated (top 1 of 1 by slice relevance)
@@ -14,10 +18,8 @@ Before committing to an approach, call already_tried.
 ## 6b. Skill index (names and one-line descriptions only)
 - api-lint: Check a route against the API conventions: codes, pagination, idempotency.
 - changelog-bump: Bump the version and update the changelog per the release protocol.
-- code-review: Review a diff for correctness, security, and convention drift before merge.
 
 ## 7. No longer in context
-- path_rule .claude/rules/api-conventions.md — matched src/auth.ts; did not fit the rehydration budget; restore: Read .claude/rules/api-conventions.md
 - … and 40 more; call dropped()
 
 ## 8. Retrieval

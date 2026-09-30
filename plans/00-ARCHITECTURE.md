@@ -1740,8 +1740,10 @@ type Ledger interface {
     // RefreshStaleness compares every active record's depends_on hashes against the store's
     // current file versions and flips changed ones to stale. Returns the flipped ids.
     RefreshStaleness(ctx context.Context, s store.Store) ([]string, error)
-    // RebuildBloom rebuilds tried.bloom from ACTIVE RECORDS ONLY. Never from a checkpoint,
-    // never from context. Resizes if sketch.Bloom.ResizeTarget says so.
+    // RebuildBloom rebuilds tried.bloom from the records, ACTIVE AND STALE (V6 close-out D49:
+    // a record goes stale, never absent; ADR 0009's D49 addendum). The active-only rule the
+    // SP-09 plan, V1-VERIFY row 3 and V3-report I8/X2 state is superseded. Never from a
+    // checkpoint, never from context. Resizes if sketch.Bloom.ResizeTarget says so.
     RebuildBloom(ctx context.Context) (*sketch.Bloom, Health, error)
     Health() Health
     Close() error

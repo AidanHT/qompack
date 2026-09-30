@@ -1,0 +1,15 @@
+# GREEN at 31641d6d, same twelve rows
+--- PASS: TestExpandEveryTruncatedPageCarriesNextSpan (1.47s)
+--- PASS: TestExpandExplicitSpanPagesLikeFull (2.06s)
+--- PASS: TestExpandExplicitSubSpanNextSpanCoversTheRestOfTheRequest (0.40s)
+--- PASS: TestResolveSpanExplicitWholeRangeMatchesFull (0.00s)
+--- PASS: TestResolveSpanFullCursorCoversTheRestOfTheObject (0.00s)
+--- PASS: TestResolveSpanExplicitHugeLengthReadsToTheEnd (0.00s)
+--- PASS: TestExpandFullResponseTextFitsMaxResponseBytes_EscapeHeavy (0.58s)
+--- PASS: TestReReadFullResponseTextFitsMaxResponseBytes_EscapeHeavy (0.48s)
+--- PASS: TestExpandMinimalSpanResponseTextFitsMaxResponseBytes (2.44s)
+--- PASS: TestExpandFullAtTheDefaultBoundFitsTheLiveOvershoot (3.97s)
+--- PASS: TestExpandFollowsNextSpanWhenDefaultSpanIsFull (2.31s)
+--- PASS: TestExpandPagesNeverSplitARune (1.55s)
+ok  	github.com/qompack/qompack/internal/mcp	15.741s
+exit 0

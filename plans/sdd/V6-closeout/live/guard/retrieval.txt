@@ -164,3 +164,100 @@ same  plugins/data/ (2 entries)
 same  .qompack/ (0 entries)
 real home fingerprint unchanged
 check exit 0
+== CANDIDATE 4 RE-RUN (D47), retrieval part, commit 9f6a2fad, bundle c4: start (fresh snap) — 2026-09-29 23:27:22 Eastern Daylight Time
+same  settings.json e15855d7e46a
+same  plugins/installed_plugins.json 728f75591291
+same  plugins/known_marketplaces.json 1b1eda7e17f0
+same  plugins/cache/ (10 entries)
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+same  .qompack/ (0 entries)
+real home fingerprint unchanged
+check exit 0
+== after retrieval-c4 session 1 (UAT-08/UAT-09 session1) — 2026-09-29 23:31:53 Eastern Daylight Time
+removed run-created empty plugins/data/qompack-inline/
+same  settings.json e15855d7e46a
+same  plugins/installed_plugins.json 728f75591291
+same  plugins/known_marketplaces.json 1b1eda7e17f0
+same  plugins/cache/ (10 entries)
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+INFO  .qompack/ gained ['bin/', 'bin/1e9d0cc84597bf719955e268ef2e0c990352eb964559116a6612a012f1e5c358/'] (run-created; record, remove only if yours)
+real home fingerprint unchanged
+check exit 0
+== after retrieval-c4 session 2 (UAT-09 session2 --resume) — 2026-09-29 23:33:45 Eastern Daylight Time
+removed run-created empty plugins/data/qompack-inline/
+same  settings.json e15855d7e46a
+same  plugins/installed_plugins.json 728f75591291
+same  plugins/known_marketplaces.json 1b1eda7e17f0
+same  plugins/cache/ (10 entries)
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+INFO  .qompack/ gained ['bin/', 'bin/1e9d0cc84597bf719955e268ef2e0c990352eb964559116a6612a012f1e5c358/'] (run-created; record, remove only if yours)
+real home fingerprint unchanged
+check exit 0
+== after retrieval-c4 session 3 (UAT-09 step 5, unreadable ledger) — 2026-09-29 23:36:27 Eastern Daylight Time
+removed run-created empty plugins/data/qompack-inline/
+same  settings.json e15855d7e46a
+same  plugins/installed_plugins.json 728f75591291
+same  plugins/known_marketplaces.json 1b1eda7e17f0
+same  plugins/cache/ (10 entries)
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+INFO  .qompack/ gained ['bin/', 'bin/1e9d0cc84597bf719955e268ef2e0c990352eb964559116a6612a012f1e5c358/'] (run-created; record, remove only if yours)
+real home fingerprint unchanged
+check exit 0
+== after retrieval-c4 session 4 (UAT-11 steps 5-6) — 2026-09-29 23:38:21 Eastern Daylight Time
+removed run-created empty plugins/data/qompack-inline/
+same  settings.json e15855d7e46a
+same  plugins/installed_plugins.json 728f75591291
+same  plugins/known_marketplaces.json 1b1eda7e17f0
+same  plugins/cache/ (10 entries)
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+INFO  .qompack/ gained ['bin/', 'bin/1e9d0cc84597bf719955e268ef2e0c990352eb964559116a6612a012f1e5c358/'] (run-created; record, remove only if yours)
+real home fingerprint unchanged
+check exit 0
+== after retrieval-c4 session 5 (UAT-07 + C4.4 + C4.5 status) — 2026-09-29 23:43:37 Eastern Daylight Time
+removed run-created empty plugins/data/qompack-inline/
+same  settings.json e15855d7e46a
+same  plugins/installed_plugins.json 728f75591291
+same  plugins/known_marketplaces.json 1b1eda7e17f0
+same  plugins/cache/ (10 entries)
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+INFO  .qompack/ gained ['bin/', 'bin/1e9d0cc84597bf719955e268ef2e0c990352eb964559116a6612a012f1e5c358/'] (run-created; record, remove only if yours)
+real home fingerprint unchanged
+check exit 0
+== after retrieval-c4 session 6 (UAT-08 isolation, C4.4 project) — 2026-09-29 23:45:15 Eastern Daylight Time
+removed run-created empty plugins/data/qompack-inline/
+same  settings.json e15855d7e46a
+same  plugins/installed_plugins.json 728f75591291
+same  plugins/known_marketplaces.json 1b1eda7e17f0
+same  plugins/cache/ (10 entries)
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+INFO  .qompack/ gained ['bin/', 'bin/1e9d0cc84597bf719955e268ef2e0c990352eb964559116a6612a012f1e5c358/'] (run-created; record, remove only if yours)
+real home fingerprint unchanged
+check exit 0
+== after retrieval-c4 session 7 (UAT-09 diagnostic resume, flag) — 2026-09-29 23:45:47 Eastern Daylight Time
+removed run-created empty plugins/data/qompack-inline/
+same  settings.json e15855d7e46a
+same  plugins/installed_plugins.json 728f75591291
+same  plugins/known_marketplaces.json 1b1eda7e17f0
+same  plugins/cache/ (10 entries)
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+INFO  .qompack/ gained ['bin/', 'bin/1e9d0cc84597bf719955e268ef2e0c990352eb964559116a6612a012f1e5c358/'] (run-created; record, remove only if yours)
+real home fingerprint unchanged
+check exit 0
+== final check on resume (no session run) — retrieval part end — 2026-09-30 10:11:09 Eastern Daylight Time
+same  settings.json e15855d7e46a
+same  plugins/installed_plugins.json 728f75591291
+same  plugins/known_marketplaces.json 1b1eda7e17f0
+same  plugins/cache/ (10 entries)
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+INFO  .qompack/ gained ['bin/', 'bin/1e9d0cc84597bf719955e268ef2e0c990352eb964559116a6612a012f1e5c358/'] (run-created; record, remove only if yours)
+real home fingerprint unchanged
+check exit 0

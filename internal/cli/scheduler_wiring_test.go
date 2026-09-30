@@ -58,7 +58,9 @@ func TestWireSchedulerKeepsFrontierUnavailableUntilSharedSources(t *testing.T) {
 //     open would create them in every daemon that never compacts.
 //  3. So the route is UNAVAILABLE until something else opens one — and it says so, naming the
 //     missing seam and wrapping core.ErrDegraded, rather than returning a set that faults inside
-//     Begin several frames later.
+//     Begin several frames later. (Since D49 the frontier port admits this one gap while the
+//     project holds no elimination record and advances without negative knowledge; the
+//     supplier's answer, pinned here, is unchanged: checkpoint.ErrNoLedger, by name.)
 //
 // The last leg then opens a ledger the way the first compaction does — by assigning it onto the
 // SAME Options — and re-asks the SAME supplier. A supplier that had captured the value rather than

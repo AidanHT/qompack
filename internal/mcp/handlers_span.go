@@ -158,17 +158,18 @@ func noCapturedHistory() missBody {
 // handed the first page again, forever. An explicit byte span starts exactly at its offset
 // (SpanOpts.ExactStart), which is what lets a next_span that falls inside a chunk be followed.
 func (h *handlers) spanOptsFor(full bool, explicit, path, anchorSym string, anchorLine int) SpanOpts {
+	cfg := h.conf()
 	return SpanOpts{
-		Full:        (full || h.cfg.Retrieval.DefaultSpan == "full") && explicit == "",
+		Full:        (full || cfg.Retrieval.DefaultSpan == "full") && explicit == "",
 		Explicit:    explicit,
 		ExactStart:  true,
 		RuneSafe:    true,
 		Path:        path,
 		AnchorSym:   anchorSym,
 		AnchorLine:  anchorLine,
-		MaxSpan:     h.cfg.Store.Chunk.Max,
-		MaxResponse: h.cfg.Runtime.MCP.MaxResponseBytes,
-		WidenLines:  h.cfg.Runtime.MCP.SpanWidenLines,
+		MaxSpan:     cfg.Store.Chunk.Max,
+		MaxResponse: cfg.Runtime.MCP.MaxResponseBytes,
+		WidenLines:  cfg.Runtime.MCP.SpanWidenLines,
 	}
 }
 

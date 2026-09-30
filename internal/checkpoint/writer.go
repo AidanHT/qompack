@@ -366,12 +366,19 @@ func (w *FileWriter) Begin(ctx context.Context, s core.SessionID, parent core.Ch
 	// rather than left for a nil dereference several frames down. Resolve reports an accessor that
 	// answers nil the same way a nil field is reported, by name.
 	src, err := src.Resolve()
+	cold := src
 	if err != nil {
-		return nil, err
+		// The frontier's allowance (D49): no ledger yet is not an error while the project holds
+		// no elimination record. The admitted set reads the ledger late (deferredLedger); the cold
+		// paths keep the set as it was handed in, never the stand-in.
+		if src, err = admitNoLedger(ctx, src, err, w.root); err != nil {
+			return nil, err
+		}
 	}
 	if err := checkSessionComponent(s); err != nil {
 		return nil, err
 	}
+	inherit := Ancestry(w.l, s)
 
 	gate := w.acquireBeginGate(s)
 	defer w.releaseBeginGate(s, gate)
@@ -383,13 +390,14 @@ func (w *FileWriter) Begin(ctx context.Context, s core.SessionID, parent core.Ch
 	handed := w.takeHandoff(s)
 
 	w.mu.Lock()
-	w.lastSrc = src
+	w.lastSrc = cold
 	live := w.drafts[s]
 	w.mu.Unlock()
 
 	if live != nil {
 		live.mu.Lock()
 		live.src = src
+		live.inherit = inherit
 		if parent != 0 && parent != live.parent {
 			live.parent = parent
 			live.cp.Parent = filepath.Base(paths.CheckpointPath(w.l, parent))
@@ -417,6 +425,7 @@ func (w *FileWriter) Begin(ctx context.Context, s core.SessionID, parent core.Ch
 		fork := w.forkIntentFor(ctx, src.Store, s, &prior)
 		d.mu.Lock()
 		d.fork = fork
+		d.inherit = inherit
 		d.promptText = handed
 		d.refreshIntentLocked(ctx)
 		d.persistOrLogLocked()
@@ -441,6 +450,7 @@ func (w *FileWriter) Begin(ctx context.Context, s core.SessionID, parent core.Ch
 		fileTurn:   map[string]core.TurnIndex{},
 		toolTurn:   map[core.ToolUseID]core.TurnIndex{},
 		promptText: handed,
+		inherit:    inherit,
 	}
 	d.cp = Checkpoint{
 		Version:    SchemaVersion,
@@ -600,7 +610,7 @@ func (w *FileWriter) seedTierOne(ctx context.Context, d *Draft, parent core.Chec
 		return fmt.Errorf("checkpoint: begin: ledger: %w", err)
 	}
 	for _, r := range all {
-		if !carriedBy(r, d.session) {
+		if !carriedBy(r, d.session, d.inherit) {
 			continue
 		}
 		r.DependsOn = slices.Clone(r.DependsOn)
@@ -608,6 +618,19 @@ func (w *FileWriter) seedTierOne(ctx context.Context, d *Draft, parent core.Chec
 		// Both active and stale records are carried verbatim: §8.5's status field exists
 		// precisely to preserve the distinction.
 		d.cp.Eliminated = append(d.cp.Eliminated, r)
+	}
+	// The session's decisions carry from its previous checkpoint while they hold (D49), after
+	// the eliminations they may depend on are seeded. When the derived parent is another
+	// session's (a cold draft begun after someone else sealed), the carry reads this session's
+	// own newest checkpoint instead, as seedIntent's fallback does; parent and intent are unchanged.
+	carryFrom := own
+	if carryFrom == nil && derived {
+		if latest, ok := w.ownLatest(ctx, d.session); ok {
+			carryFrom = &latest
+		}
+	}
+	if carryFrom != nil {
+		d.carryDecisionsLocked(carryFrom.Decisions, invs)
 	}
 	return nil
 }
@@ -833,7 +856,7 @@ func (w *FileWriter) encodeSegmentLocked(ctx context.Context, d *Draft, seg stor
 	// Decisions: §9's extractor, merged by ID. decisions.go is another SP-10 slice; until it
 	// lands, its Rule W-1 stub answers ErrNotImplemented and the honest merge input is empty —
 	// a tier-2 enrichment gap must not stall the tier-1/tier-3 frontier.
-	decs, err := extractDecisions(ctx, src, seg.StartTurn, d.session)
+	decs, err := extractDecisions(ctx, src, seg.StartTurn, d.session, d.inherit)
 	switch {
 	case err == nil:
 		d.mergeDecisionsLocked(decs)
@@ -967,7 +990,7 @@ func (d *Draft) mergeEliminationsLocked(ctx context.Context, src SourceSet) erro
 		idx[r.ID] = i
 	}
 	for _, r := range all {
-		if !carriedBy(r, d.session) {
+		if !carriedBy(r, d.session, d.inherit) {
 			continue
 		}
 		r.DependsOn = slices.Clone(r.DependsOn)
@@ -997,7 +1020,8 @@ func (d *Draft) mergeEliminationsLocked(ctx context.Context, src SourceSet) erro
 // eliminated[] takes every record the draft carries (carriedBy), exactly as Advance merges it. The
 // decisions are narrower, and each limit is Advance's own cut applied to the open range:
 //
-//   - only this session's records. A project-scoped record another session made is carried as
+//   - only this session's records, and a fork's inherited ones (D49, minted as foreign). A
+//     project-scoped record another session made is carried as
 //     negative knowledge, but its node turn is in THAT session's numbering, so minting every one
 //     of them at every seal let a project's older eliminations at high turns fill the
 //     Turn-descending maxDraftDecisions cap and push this session's own decisions out of the
@@ -1029,6 +1053,19 @@ func (d *Draft) refreshNegativeKnowledge(ctx context.Context) error {
 	var cands []decisionCandidate
 	for _, r := range d.cp.Eliminated {
 		if r.Session != d.session {
+			// A fork's inherited record (D49) is minted here too: the fork may compact before any
+			// Advance has run, and its ancestors' records are bounded by the fork point, so they
+			// cannot flood the cap the way every project-scoped record could. It ranks as the
+			// foreign decision it is (another session made it) and skips the turn cut, whose turn
+			// is in that session's numbering.
+			if !inheritedBy(r, d.inherit) {
+				continue
+			}
+			if dec, ok := eliminationDecision(r, eliminationTurn(src.Graph, r, d.frontier)); ok {
+				cands = append(cands, decisionCandidate{
+					d: dec, evidence: dag.EliminationNode(r.ID), foreign: true, recorded: r.TS,
+				})
+			}
 			continue
 		}
 		turn := eliminationTurn(src.Graph, r, d.frontier)

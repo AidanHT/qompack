@@ -1,0 +1,26 @@
+<!-- qompack:injected seq=6 ver=1 -->
+# Qompack rehydration — checkpoint 0006, session d0c99489
+
+## 2. Original user intent (verbatim from L0 capture — never summarized)
+Evolution (most recent first):
+> Use the Read tool to read src/ledger.py and summarize it in one sentence.
+> Use the Read tool to read filler/a.txt (the whole file) and reply with only the label of its last line.
+> Use the Read tool to read notes.md and summarize it in one sentence.
+
+## 5. Current work
+goal: Use the Read tool to read filler/a.txt (the whole file) and reply with only the label of its last line.
+blocked on: none
+
+## 6. Pointers (paths and hashes — contents are NOT restored; use expand/re_read)
+- filler/a.txt sha256:a021964d0f1a19bf7fd1f0a23c4d74e92432d14bb4659f52e829c1e98ef3ea0c — referenced
+- tool_use subagent_d0c99489-20eb-4e4b-9257-318a03e60108_6 sha256:232c380dfe1d9f0273917130b78141b2a3debc867a918bf0ebf6276566997d42 — {"agent":"subagent","summary":"**notes.md summary:** The Osprey ledger reconciles twice daily and is managed by the o…
+- tool_use subagent_d0c99489-20eb-4e4b-9257-318a03e60108_8 sha256:f9d2bee8cf1f653052b0d1c921d5e7bf9bec7cd22c5d6721d8cce9696f6c31c3 — {"agent":"subagent","summary":"**notes.md summary:** The Osprey ledger reconciles twice daily and is managed by the o…
+- tool_use toolu_01XF98pPcu1bSaTqtqRek5hk sha256:a021964d0f1a19bf7fd1f0a23c4d74e92432d14bb4659f52e829c1e98ef3ea0c — <scratch>\sessions\c4\uat04\proj\filler\a.txt
+
+## 7. No longer in context
+- user_intent tier1 — OVERFLOW: the verbatim original user intent did not fit the rehydration payload and is emitted whole or not at all; restore: expand(tool_use_id=prompt_d0c99489-20eb-4e4b-9257-318a03e60108_0)
+
+## 8. Retrieval
+Qompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().
+<!-- /qompack:injected -->
+<!-- qompack-contract-probe qompack-contract-c698970699df -->

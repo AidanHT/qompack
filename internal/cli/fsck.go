@@ -1001,8 +1001,19 @@ func (s *fsckScan) checkToolUse() fsckCheck {
 // checkFiles parses the append-only log and compares the derived view against it. The LOG is the
 // truth: a crash between the last append and the next Flush leaves files.json stale, which is why a
 // disagreement here is a DERIVED-VIEW defect and one of the five things --repair may regenerate.
+//
+// A RUNNING daemon's view is behind its log by design. The store appends each file version as it is
+// observed and regenerates the view only when it flushes: at a session's end and when the daemon
+// stops. So while a daemon runs, a view that is absent or that holds a subset of the log's versions
+// is the store between two flushes, and it is a note saying when it catches up, not a defect naming
+// a repair fsck refuses while the daemon holds the lock (V6 close-out D49; UAT-04 on candidate 4,
+// where the planted unparseable config refused the session's end and so its flush). Anything else —
+// a path or a version the log does not carry, an unreadable view, an unreadable log line — is a
+// defect whether or not a daemon runs, because no flush produces it. With no daemon running nothing
+// will flush, and a view behind its log is the residue of a crash: a defect, as before.
 func (s *fsckScan) checkFiles() fsckCheck {
 	row := newFsckRow("index.files", contract.SevWarn)
+	live := s.report.DaemonRunning
 
 	view, log, err := fsckReadFilesState(s.l)
 	if err != nil {
@@ -1021,7 +1032,11 @@ func (s *fsckScan) checkFiles() fsckCheck {
 		return row.build()
 	}
 	if !view.present {
-		if len(log) > 0 {
+		switch {
+		case len(log) > 0 && live:
+			row.note("index/files.json is not materialized yet while its log carries %d path(s); the "+
+				"running daemon materializes it at its next flush (a session's end or its stop)", len(log))
+		case len(log) > 0:
 			row.defect("index/files.json is absent while its log carries %d path(s); the view is "+
 				"derived and --repair regenerates it", len(log))
 		}
@@ -1031,17 +1046,23 @@ func (s *fsckScan) checkFiles() fsckCheck {
 		row.defect("index/files.json declares view version %d, which this build does not read",
 			view.doc.Version)
 	}
+	behind := 0
 	for path, want := range log {
 		got, ok := view.doc.Files[path]
-		if !ok {
+		switch {
+		case (!ok || len(got) < len(want)) && live && fsckVersionsWithin(got, want):
+			behind++
+		case !ok:
 			row.defect("index/files.json omits %q, which the log records %d version(s) of",
 				path, len(want))
-			continue
-		}
-		if len(got) != len(want) {
+		case len(got) != len(want):
 			row.defect("index/files.json records %d version(s) of %q and the log records %d",
 				len(got), path, len(want))
 		}
+	}
+	if behind > 0 {
+		row.note("index/files.json is behind its log for %d path(s); the running daemon materializes "+
+			"it at its next flush (a session's end or its stop)", behind)
 	}
 	for path := range view.doc.Files {
 		if _, ok := log[path]; !ok {
@@ -1049,6 +1070,29 @@ func (s *fsckScan) checkFiles() fsckCheck {
 		}
 	}
 	return row.build()
+}
+
+// fsckVersionsWithin reports whether every version the view records for a path is one the log
+// records for it: the view is a projection of an earlier state of the log, not a different history.
+// Versions are matched by timestamp and root, each log version standing for at most one of the
+// view's.
+func fsckVersionsWithin(view, log []store.FileVersion) bool {
+	type key struct {
+		ts   core.UnixMilli
+		root core.Hash
+	}
+	left := make(map[key]int, len(log))
+	for _, v := range log {
+		left[key{v.TS, v.Root}]++
+	}
+	for _, v := range view {
+		k := key{v.TS, v.Root}
+		if left[k] == 0 {
+			return false
+		}
+		left[k]--
+	}
+	return true
 }
 
 // fsckFilesBadLine is one unparseable line of the files log.
@@ -1818,15 +1862,18 @@ func (s *fsckScan) checkNegativeKnowledge() fsckCheck {
 	row.scan(total)
 	row.note("eliminations: %d record(s), %d active, %d stale", total, active, stale)
 
-	s.classifyTriedBloom(row, active)
+	// The filter holds every record's keys, active and stale (D49: a record goes stale, never
+	// absent), so both count towards "an absent filter is a defect".
+	s.classifyTriedBloom(row, active+stale)
 	return row.build()
 }
 
 // classifyTriedBloom loads sketches/tried.bloom and tells absence, corruption, truncation and an
 // unsupported version apart through errors.Is on sketch's own sentinels. Load maps every failure to
 // core.ErrNotFound at the boundary, and the sentinel underneath is the only thing that separates a
-// cold start from bit rot.
-func (s *fsckScan) classifyTriedBloom(row *fsckRowBuilder, activeRecords int) {
+// cold start from bit rot. heldRecords is the number of records whose keys the filter must hold:
+// the active and the stale ones (coordinator decision D49).
+func (s *fsckScan) classifyTriedBloom(row *fsckRowBuilder, heldRecords int) {
 	p := filepath.Join(s.l.Sketches, sketch.TriedBloomBase)
 	b := &sketch.Bloom{}
 	err := sketch.LoadWithLog(p, b, logging.Nop())
@@ -1836,18 +1883,18 @@ func (s *fsckScan) classifyTriedBloom(row *fsckRowBuilder, activeRecords int) {
 		row.note("tried.bloom loads: %d bit(s), k=%d, fill %.4f, estimated fp %.4f, saturated=%t",
 			m, k, b.FillRatio(), b.EstimatedFPRate(), b.Saturated())
 	case errors.Is(err, fs.ErrNotExist):
-		if activeRecords > 0 {
-			row.defect("sketches/tried.bloom is absent while %d active elimination record(s) exist; "+
-				"--repair rebuilds it from those records", activeRecords)
+		if heldRecords > 0 {
+			row.defect("sketches/tried.bloom is absent while %d elimination record(s), active or "+
+				"stale, exist; --repair rebuilds it from those records", heldRecords)
 			return
 		}
 		row.note("sketches/tried.bloom is absent, which is an ordinary cold start")
 	case errors.Is(err, sketch.ErrCorrupt):
 		row.defect("sketches/tried.bloom fails its CRC (bit rot, not a cold start); --repair "+
-			"rebuilds it from the active records: %v", err)
+			"rebuilds it from the elimination records, active and stale: %v", err)
 	case errors.Is(err, sketch.ErrTruncated):
-		row.defect("sketches/tried.bloom is truncated; --repair rebuilds it from the active "+
-			"records: %v", err)
+		row.defect("sketches/tried.bloom is truncated; --repair rebuilds it from the elimination "+
+			"records, active and stale: %v", err)
 	case errors.Is(err, sketch.ErrUnsupportedVersion):
 		row.note("sketches/tried.bloom declares a format version newer than this build reads, "+
 			"which is a support gap rather than damage: %v", err)
@@ -2363,8 +2410,8 @@ func (s *fsckScan) checkQuarantine() fsckCheck {
 //  2. pins/invariants.json  — regenerated from pins/invariants.jsonl, through pins' own Materialize
 //  3. checkpoints/MANIFEST.jsonl — one appended line for an orphan artifact that re-hashes cleanly
 //     and parses at a known schema version, through paths.AppendManifest, the only legal writer
-//  4. sketches/tried.bloom  — rebuilt from ACTIVE elimination records through the ledger's own
-//     RebuildBloom, which replaces generationally and bumps the sequence
+//  4. sketches/tried.bloom  — rebuilt from the elimination records, active and stale (D49), through
+//     the ledger's own RebuildBloom, which replaces generationally and bumps the sequence
 //  5. tmp/quarantine/       — an object that fails verification is moved there through the store's
 //     own quarantine path, which is §12.3's behaviour and keeps the bytes as evidence
 //
@@ -2548,8 +2595,8 @@ func fsckRepairOrphanManifestLines(l paths.Layout, clk core.Clock) []fsckRepair 
 	return out
 }
 
-// fsckRepairTriedBloom rebuilds sketches/tried.bloom from the ACTIVE elimination records, through
-// negknow's own RebuildBloom — never from a checkpoint and never from context (§13 invariant 2).
+// fsckRepairTriedBloom rebuilds sketches/tried.bloom from the elimination records, active and stale
+// (coordinator decision D49), through negknow's own RebuildBloom — never from a checkpoint and never from context (§13 invariant 2).
 //
 // It runs only when the filter is actually broken or missing while records exist. Rebuilding a
 // healthy filter would bump the generation for nothing and consume the one backup generation
@@ -2560,7 +2607,7 @@ func fsckRepairTriedBloom(ctx context.Context, root string, l paths.Layout) []fs
 	if loadErr == nil {
 		return nil
 	}
-	if errors.Is(loadErr, fs.ErrNotExist) && !fsckHasActiveEliminations(l) {
+	if errors.Is(loadErr, fs.ErrNotExist) && !fsckHasFilteredEliminations(l) {
 		return nil // an ordinary cold start
 	}
 
@@ -2583,21 +2630,26 @@ func fsckRepairTriedBloom(ctx context.Context, root string, l paths.Layout) []fs
 	}
 	return []fsckRepair{{
 		Kind: "negknow.bloom", Target: "sketches/tried.bloom", Before: before,
-		After: fmt.Sprintf("%s, rebuilt from %d active record(s), generation %d",
-			after, health.Active, health.FilterGeneration),
+		After: fmt.Sprintf("%s, rebuilt from %d record(s) (%d active, %d stale), generation %d",
+			after, health.Active+health.Stale, health.Active, health.Stale, health.FilterGeneration),
 	}}
 }
 
-// fsckHasActiveEliminations reports whether any elimination record is still active, which is what
+// fsckHasFilteredEliminations reports whether any elimination record is active or stale -- the
+// records whose keys tried.bloom holds (D49: a record goes stale, never absent) -- which is what
 // makes an absent filter a defect rather than a cold start.
-func fsckHasActiveEliminations(l paths.Layout) bool {
+func fsckHasFilteredEliminations(l paths.Layout) bool {
 	lines, err := fsckReadLines(filepath.Join(l.Records, "eliminations.jsonl"))
 	if err != nil {
 		return false
 	}
 	for _, raw := range lines {
 		var rec fsckEliminationRecord
-		if json.Unmarshal(raw, &rec) == nil && negknow.Status(rec.Status) == negknow.StatusActive {
+		if json.Unmarshal(raw, &rec) != nil {
+			continue
+		}
+		switch negknow.Status(rec.Status) {
+		case negknow.StatusActive, negknow.StatusStale:
 			return true
 		}
 	}

@@ -1,0 +1,16 @@
+{
+ "files": {
+  "data.txt": {
+   "bytes": 638,
+   "sha256": "7f5132abc9ce9f7bd2d9ef9f41bc59c6918fc5bcbb6cef0d35cb18849a2d2f2b"
+  },
+  "notes.md": {
+   "bytes": 84,
+   "sha256": "220c30b655a56e333c09f8f4b6796a2cb8b685330273c4343e13a25d9ab262b9"
+  },
+  "src/app.py": {
+   "bytes": 52,
+   "sha256": "623cca88e063915bd91b60a5b6915a4620add9b9629cad2c980ebd4a771d5897"
+  }
+ }
+}

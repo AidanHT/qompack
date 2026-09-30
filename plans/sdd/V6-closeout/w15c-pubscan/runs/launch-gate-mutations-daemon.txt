@@ -1,0 +1,28 @@
+# Review fix F2: the three post-reply launchers hold the capture gate
+# Mutation A: the enter/leave pair removed from startPromptRecording, startReplyWork and launchSessionEnd
+# go test -p 2 -count=1 -run '^(TestStartPromptRecording_HoldsTheCaptureGateUntilTheCaptureEnds|TestStartReplyWork_HoldsTheCaptureGateUntilTheWorkEnds|TestLaunchSessionEnd_HoldsTheCaptureGateUntilTheEndFinishes)$' ./internal/daemon/
+--- FAIL: TestStartPromptRecording_HoldsTheCaptureGateUntilTheCaptureEnds (0.01s)
+    publication_yield_test.go:153: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15c-pubscan/internal/daemon/publication_yield_test.go:153
+        	Error:      	Not equal: 
+--- FAIL: TestStartReplyWork_HoldsTheCaptureGateUntilTheWorkEnds (0.00s)
+    publication_yield_test.go:167: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15c-pubscan/internal/daemon/publication_yield_test.go:167
+        	Error:      	Not equal: 
+--- FAIL: TestLaunchSessionEnd_HoldsTheCaptureGateUntilTheEndFinishes (0.54s)
+    publication_yield_test.go:182: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15c-pubscan/internal/daemon/publication_yield_test.go:182
+        	Error:      	"0" is not greater than or equal to "1"
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	0.966s
+FAIL
+exit=1
+
+# Mutation B: enter moved inside each launched goroutine (a gap after the request leaves); detection is
+# probabilistic by construction for this shape: 10/10, 10/10 and 7/10 red
+# go test -p 2 -count=10 -v -run '^(TestStartPromptRecording_HoldsTheCaptureGateUntilTheCaptureEnds|TestStartReplyWork_HoldsTheCaptureGateUntilTheWorkEnds|TestLaunchSessionEnd_HoldsTheCaptureGateUntilTheEndFinishes)$' ./internal/daemon/
+      7 --- FAIL: TestLaunchSessionEnd_HoldsTheCaptureGateUntilTheEndFinishes
+     10 --- FAIL: TestStartPromptRecording_HoldsTheCaptureGateUntilTheCaptureEnds
+     10 --- FAIL: TestStartReplyWork_HoldsTheCaptureGateUntilTheWorkEnds
+      3 --- PASS: TestLaunchSessionEnd_HoldsTheCaptureGateUntilTheEndFinishes
+exit=1

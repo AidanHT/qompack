@@ -1,0 +1,72 @@
+=== RUN   TestAuditPublication_LegacyControlCaptureIsKnownNotIncomplete
+=== RUN   TestAuditPublication_LegacyControlCaptureIsKnownNotIncomplete/alone
+=== RUN   TestAuditPublication_LegacyControlCaptureIsKnownNotIncomplete/beside_a_real_gap_and_an_unknown_op
+--- PASS: TestAuditPublication_LegacyControlCaptureIsKnownNotIncomplete (0.22s)
+    --- PASS: TestAuditPublication_LegacyControlCaptureIsKnownNotIncomplete/alone (0.11s)
+    --- PASS: TestAuditPublication_LegacyControlCaptureIsKnownNotIncomplete/beside_a_real_gap_and_an_unknown_op (0.11s)
+=== RUN   TestAuditPublication_NewerSchemaAloneIsASupportGap
+--- PASS: TestAuditPublication_NewerSchemaAloneIsASupportGap (0.12s)
+=== RUN   TestAuditPublication_NewerSchemaBesideOtherIncompletenessIsNotASupportGap
+=== RUN   TestAuditPublication_NewerSchemaBesideOtherIncompletenessIsNotASupportGap/an_older_schema
+=== RUN   TestAuditPublication_NewerSchemaBesideOtherIncompletenessIsNotASupportGap/an_unknown_op
+=== RUN   TestAuditPublication_NewerSchemaBesideOtherIncompletenessIsNotASupportGap/an_unexpected_entry_in_the_capture_tree
+--- PASS: TestAuditPublication_NewerSchemaBesideOtherIncompletenessIsNotASupportGap (0.21s)
+    --- PASS: TestAuditPublication_NewerSchemaBesideOtherIncompletenessIsNotASupportGap/an_older_schema (0.07s)
+    --- PASS: TestAuditPublication_NewerSchemaBesideOtherIncompletenessIsNotASupportGap/an_unknown_op (0.08s)
+    --- PASS: TestAuditPublication_NewerSchemaBesideOtherIncompletenessIsNotASupportGap/an_unexpected_entry_in_the_capture_tree (0.06s)
+=== RUN   TestAuditPublication_CompletePassIsNotASupportGap
+--- PASS: TestAuditPublication_CompletePassIsNotASupportGap (0.06s)
+=== RUN   TestAuditPublication_ClassifiesCaptureSidecars
+--- PASS: TestAuditPublication_ClassifiesCaptureSidecars (0.18s)
+=== RUN   TestAuditPublication_DeniedCaptureIsNotAGap
+--- PASS: TestAuditPublication_DeniedCaptureIsNotAGap (0.06s)
+=== RUN   TestAuditPublication_EmptyOkCaptureIsNotAGap
+--- PASS: TestAuditPublication_EmptyOkCaptureIsNotAGap (0.06s)
+=== RUN   TestAuditPublication_UnknownOutcomeIsIncomplete
+--- PASS: TestAuditPublication_UnknownOutcomeIsIncomplete (0.07s)
+=== RUN   TestAuditPublication_UnknownOpIsIncomplete
+--- PASS: TestAuditPublication_UnknownOpIsIncomplete (0.06s)
+=== RUN   TestAuditPublication_FutureSchemaIsIncompleteNotEmpty
+--- PASS: TestAuditPublication_FutureSchemaIsIncompleteNotEmpty (0.07s)
+=== RUN   TestAuditPublication_MissingOrOlderSchemaIsIncomplete
+--- PASS: TestAuditPublication_MissingOrOlderSchemaIsIncomplete (0.06s)
+=== RUN   TestAuditPublication_MalformedTrailingJSONIsIncomplete
+--- PASS: TestAuditPublication_MalformedTrailingJSONIsIncomplete (0.06s)
+=== RUN   TestAuditPublication_UnreadableSidecarIsIncomplete
+--- PASS: TestAuditPublication_UnreadableSidecarIsIncomplete (0.07s)
+=== RUN   TestAuditPublication_UnindexedObjectCandidate
+--- PASS: TestAuditPublication_UnindexedObjectCandidate (0.05s)
+=== RUN   TestAuditPublication_IndexedObjectsAreNotCandidates
+--- PASS: TestAuditPublication_IndexedObjectsAreNotCandidates (0.08s)
+=== RUN   TestAuditPublication_KeepRawPutCreatesNoCandidates
+--- PASS: TestAuditPublication_KeepRawPutCreatesNoCandidates (0.12s)
+=== RUN   TestAuditPublication_PendingObjectIsNotACandidate
+--- PASS: TestAuditPublication_PendingObjectIsNotACandidate (0.08s)
+=== RUN   TestAuditPublication_EmptyProjectIsCleanAndComplete
+--- PASS: TestAuditPublication_EmptyProjectIsCleanAndComplete (0.06s)
+=== RUN   TestAuditPublication_RespectsTheCaptureCap
+--- PASS: TestAuditPublication_RespectsTheCaptureCap (0.15s)
+=== RUN   TestAuditPublication_RespectsTheEntryBudget
+--- PASS: TestAuditPublication_RespectsTheEntryBudget (0.12s)
+=== RUN   TestAuditPublication_ClosedStoreDegrades
+--- PASS: TestAuditPublication_ClosedStoreDegrades (0.05s)
+=== RUN   TestAuditPublication_HonoursCancellation
+--- PASS: TestAuditPublication_HonoursCancellation (0.07s)
+=== RUN   TestAuditPublication_StopReferenceRequirementIsQualified
+=== RUN   TestAuditPublication_StopReferenceRequirementIsQualified/ordinary_stop
+=== RUN   TestAuditPublication_StopReferenceRequirementIsQualified/subagent_stop
+=== RUN   TestAuditPublication_StopReferenceRequirementIsQualified/unknown_stop
+=== RUN   TestAuditPublication_StopReferenceRequirementIsQualified/denied_stop
+--- PASS: TestAuditPublication_StopReferenceRequirementIsQualified (0.31s)
+    --- PASS: TestAuditPublication_StopReferenceRequirementIsQualified/ordinary_stop (0.07s)
+    --- PASS: TestAuditPublication_StopReferenceRequirementIsQualified/subagent_stop (0.09s)
+    --- PASS: TestAuditPublication_StopReferenceRequirementIsQualified/unknown_stop (0.08s)
+    --- PASS: TestAuditPublication_StopReferenceRequirementIsQualified/denied_stop (0.08s)
+=== RUN   TestAuditPublication_SnapshotLeavesLaterWritesUnclassified
+--- PASS: TestAuditPublication_SnapshotLeavesLaterWritesUnclassified (0.09s)
+=== RUN   TestAuditPublication_SnapshotStillReportsResidueFromBeforeIt
+--- PASS: TestAuditPublication_SnapshotStillReportsResidueFromBeforeIt (0.09s)
+=== RUN   TestAuditPublication_SnapshotJudgesObjectsByItsOwnIndex
+--- PASS: TestAuditPublication_SnapshotJudgesObjectsByItsOwnIndex (0.09s)
+PASS
+ok  	github.com/qompack/qompack/internal/store	2.954s

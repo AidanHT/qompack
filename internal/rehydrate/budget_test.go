@@ -2,6 +2,7 @@ package rehydrate
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -99,15 +100,40 @@ func TestBuild_MinFillReadmitsUnits(t *testing.T) {
 		require.GreaterOrEqual(t, hostChars(got.Text), PayloadCeilingChars-unitChars,
 			"an unset budget with material to spare must fill to the host ceiling, not stop at the share")
 
-		stopped, err := Build(context.Background(), requestFor(t, cp, core.Tokens(cfg.MinTokens)), fullDeps(t, cp))
+		// Criterion change (w15-rehydrate, D49): this half compared the same 300-delta checkpoint
+		// under a named budget and counted evolution deltas. D49 gives the room a payload leaves
+		// unused to evolution, newest first, in EVERY build (Build step 9a) — the daemon's own call
+		// names its budget, and F-C4-UAT06-1 was a correction dropped from a payload with room — so
+		// both calls now fill that checkpoint to the ceiling with deltas and the count cannot tell
+		// them apart. What min-fill still adds is the OTHER ranked material step 9a does not touch:
+		// with few deltas and many decisions, the unset call carries strictly more decisions.
+		dcp := ckLongEvolution(3)
+		for i := range 120 {
+			dcp.Decisions = append(dcp.Decisions, checkpoint.Decision{
+				ID:   core.DecisionID(fmt.Sprintf("dec_%012d", i)),
+				What: "kept the pool in session mode for the refresh path " + itoa(i),
+				Why:  "transaction mode breaks the advisory lock the refresh relies on", Turn: core.TurnIndex(i),
+			})
+		}
+		unset, err := Build(context.Background(), requestFor(t, dcp, 0), fullDeps(t, dcp))
 		require.NoError(t, err)
-		// Both calls now meet the same ceiling, so their SIZES no longer tell them apart: what the
-		// named call's shares leave over flows to item 7, which lists more omissions. What min-fill
-		// changes is the CONTENT — the unset call carries strictly more of the ranked material.
-		const delta = "> Narrowed the failure window again: "
-		require.Greater(t, strings.Count(got.Text, delta), strings.Count(stopped.Text, delta),
-			"a named budget must not be min-filled, so it carries strictly fewer re-admitted deltas")
-		requireMinFillShape(t, got, stopped)
+		stopped, err := Build(context.Background(), requestFor(t, dcp, core.Tokens(cfg.MinTokens)), fullDeps(t, dcp))
+		require.NoError(t, err)
+		for i := range dcp.UserIntent.Evolution {
+			require.Contains(t, stopped.Text, quoteLines(dcp.UserIntent.Evolution[i]),
+				"fixture sanity: the named call has room for every delta")
+		}
+		const decision = "- [dec_"
+		require.Greater(t, strings.Count(unset.Text, decision), strings.Count(stopped.Text, decision),
+			"a named budget must not be min-filled, so it carries strictly fewer re-admitted decisions")
+		// requireMinFillShape's shape, for decisions: section 7 names a dropped decision by its id, so
+		// the check is on the decision's own rendered line rather than on the id anywhere in the text.
+		for _, e := range unset.Dropped {
+			if e.Kind == dropKindDecision {
+				require.NotContains(t, unset.Text, "- ["+e.ID+"]", "a re-admitted decision left the drop report")
+			}
+		}
+		require.Less(t, len(unset.Dropped), len(stopped.Dropped), "re-admitted units must leave the drop report")
 	})
 }
 
@@ -145,26 +171,32 @@ func TestBuild_LatestEvolutionSurvivesTruncation(t *testing.T) {
 	require.LessOrEqual(t, int(got.Tokens), int(tight))
 
 	newest := cp.UserIntent.Evolution[n-1]
-	secondNewest := cp.UserIntent.Evolution[n-2]
 	require.Contains(t, got.Text, newest, "the most recent, currently authorized restatement must survive")
 
-	var newestDropped, secondNewestDropped bool
+	// Criterion change (w15-rehydrate, D49): this row required the SECOND-newest delta to be dropped,
+	// as its fixture sanity and as its proof that the cut falls on the old side. D49 gives unused room
+	// to evolution newest first (Build step 9a), so at this budget a few more deltas arrive and which
+	// index the cut falls on is no longer fixed. The row now asserts the property that sentence stood
+	// for, at every index: the budget truncates history (the oldest delta is dropped), the newest is
+	// never dropped, and what renders is a newest-first prefix — no delta renders while a NEWER one is
+	// dropped, so the cut always falls on the old side.
+	dropped := make(map[string]bool)
 	for _, e := range got.Dropped {
-		if e.Kind != dropKindUserIntentEvolution {
-			continue
-		}
-		switch e.ID {
-		case itoa(n - 1):
-			newestDropped = true
-		case itoa(n - 2):
-			secondNewestDropped = true
+		if e.Kind == dropKindUserIntentEvolution {
+			dropped[e.ID] = true
 		}
 	}
-	require.False(t, newestDropped, "the current authorized intent must never appear in the drop report")
-	require.True(t, secondNewestDropped,
-		"the budget must actually be tight enough to truncate history (fixture sanity)")
-	require.NotContains(t, got.Text, secondNewest,
-		"a delta this tight a budget cannot hold must not render, even one turn short of current")
+	require.False(t, dropped[itoa(n-1)], "the current authorized intent must never appear in the drop report")
+	require.True(t, dropped[itoa(0)], "the budget must actually be tight enough to truncate history (fixture sanity)")
+	cut := false
+	for i := n - 1; i >= 0; i-- {
+		shown := strings.Contains(got.Text, quoteLines(cp.UserIntent.Evolution[i]))
+		require.NotEqual(t, shown, dropped[itoa(i)], "delta %d is shown or named, never both or neither", i)
+		if cut {
+			require.False(t, shown, "delta %d renders although a newer delta was dropped", i)
+		}
+		cut = cut || !shown
+	}
 }
 
 func TestBuild_Tier1ThatCannotFitIsDroppedWhole(t *testing.T) {
@@ -320,33 +352,54 @@ func TestClampBudget_NeverRaisesAndNeverExceedsTheCap(t *testing.T) {
 	require.Equal(t, core.Tokens(1), clampBudget(1, bad))
 }
 
-func TestEvictIndex_PrefersTheLastNonTier1Item(t *testing.T) {
-	// The hard-cap loop's eviction order. Item 8 is tier 1 and sits LAST in renderOrder, so a
-	// tail-first eviction would take the affordance line before anything discretionary — see ADR
-	// 0011 §18.
+// TestEvictIndex_EvictsInReverseAdmissionOrder pins the hard-cap loop's eviction order: the section
+// Build admitted last goes first. Item 8 is tier 1 and sits LAST in renderOrder, so a tail-first
+// eviction would take the affordance line before anything discretionary (ADR 0011 §18); and tier 1
+// goes in the reverse of §21.2's admission order — item 2, then the invariants, then the retrieval
+// line every overflow pointer depends on — with item 7, whose floor is held before anything is
+// admitted, last of all (F-C4-UAT05-3).
+func TestEvictIndex_EvictsInReverseAdmissionOrder(t *testing.T) {
 	items := []Item{
 		{Kind: ItemInvariants},
 		{Kind: ItemUserIntent},
 		{Kind: ItemDecisions},
+		{Kind: ItemSkillIndex},
 		{Kind: ItemDropReport},
 		{Kind: ItemAffordance},
 	}
-	require.Equal(t, 3, evictIndex(items), "the drop report goes before the affordance")
-
-	items = []Item{{Kind: ItemInvariants}, {Kind: ItemUserIntent}, {Kind: ItemAffordance}}
-	require.Equal(t, 2, evictIndex(items), "with only tier-1 items left, the tail is the fallback")
+	var order []ItemKind
+	for len(items) > 0 {
+		i := evictIndex(items)
+		order = append(order, items[i].Kind)
+		items = append(items[:i], items[i+1:]...)
+	}
+	require.Equal(t, []ItemKind{
+		ItemSkillIndex, ItemDecisions, // the shares and the skill index, last rendered first
+		ItemUserIntent, ItemInvariants, ItemAffordance, // tier 1, the reverse of tier1Admission
+		ItemDropReport, // its floor was held before anything was admitted
+	}, order)
 
 	require.Equal(t, 0, evictIndex([]Item{{Kind: ItemInvariants}}))
 }
 
-func TestTier1Units_TakesOnlyTheVerbatimOriginal(t *testing.T) {
+// TestTier1Units_TakesTheOriginalAndTheNewestRestatement pins item 2's tier-1 slice. Criterion
+// change (w15-rehydrate, D49): this row was TestTier1Units_TakesOnlyTheVerbatimOriginal (ADR 0011
+// §19). D49 admits the newest restatement — the correction in force — with the original, ahead of
+// the share (F-C4-UAT06-3); the older deltas still take the share, which is §19's point.
+func TestTier1Units_TakesTheOriginalAndTheNewestRestatement(t *testing.T) {
 	b := built{units: []unit{
 		{text: "> original\n"},
-		{text: "Evolution:\n> a\n", drop: checkpoint.DropEntry{Kind: dropKindUserIntentEvolution, ID: "0"}},
-		{text: "> b\n", drop: checkpoint.DropEntry{Kind: dropKindUserIntentEvolution, ID: "1"}},
+		{text: "Evolution:\n> newest\n", drop: checkpoint.DropEntry{Kind: dropKindUserIntentEvolution, ID: "1"}},
+		{text: "> older\n", drop: checkpoint.DropEntry{Kind: dropKindUserIntentEvolution, ID: "0"}},
 	}}
-	require.Len(t, tier1Units(ItemUserIntent, b), 1,
-		"only the verbatim original is tier 1; the evolution deltas take a share (ADR 0011 §19)")
+	require.Equal(t, b.units[:2], tier1Units(ItemUserIntent, b),
+		"the verbatim original and the newest restatement are tier 1; the older deltas take a share")
 	require.Len(t, tier1Units(ItemInvariants, b), 3, "every other kind admits all of its units")
 	require.Empty(t, tier1Units(ItemUserIntent, built{}))
+
+	// No original unit to show (an L0 capture named as an overflow): the newest restatement alone.
+	noOriginal := built{units: b.units[1:]}
+	require.Equal(t, b.units[1:2], tier1Units(ItemUserIntent, noOriginal))
+	// No evolution: the original alone.
+	require.Equal(t, b.units[:1], tier1Units(ItemUserIntent, built{units: b.units[:1]}))
 }

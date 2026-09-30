@@ -242,3 +242,105 @@ file and line it was set in, and what the key no longer means.
 | `scheduler.idle.deepCutWhenCold` | no native cut is available to a plugin; the key is read for compatibility only and selects no history rewrite (Qompack.md v1.5 §12; SP-12 reviewed migration) |
 | `checkpoint.incrementalSpanInstruction` | custom_instructions is PreCompact input, not a summarizer setter, and since C1.18 Qompack emits no PreCompact instruction at all; the key is read for compatibility only (Qompack.md v1.5 §7.3; SP-10 reviewed migration) |
 
+## Reloading the configuration
+
+A running daemon reloads the configuration when the project's `.qompack/config.json` changes
+(its size or modification time), which it checks at every session start and on its idle tick.
+The hooks and commands load the configuration themselves each time they run. What the reload
+does with a changed key depends on the key, and every key it reports as changed is in effect
+when it returns. A changed key that needs a restart is named, in its `keys` field, by this line
+in `LOUD.log`:
+
+    daemon: config change needs a daemon restart to take effect; the running daemon keeps the value it started with
+
+and a changed key that has no effect in this build by this one:
+
+    daemon: config change has no effect in this build; nothing reads these keys, before or after a restart
+
+The day log's `config reloaded` line lists the keys the reload applied, under `changed`. Those
+lines are the reload you can see. The daemon also has an `admin.reload` request, which reloads
+whether or not the file changed and answers with the same three lists of keys
+(`changed`, `restart_required` and `no_effect`), but it is an IPC op only: no `qompack`
+subcommand sends `admin.reload` in this build.
+To restart the daemon, let it exit when idle (`runtime.daemon.idleExitSeconds`); the next hook
+starts a new one, which loads the whole configuration
+([troubleshooting §7](troubleshooting.md#7-daemon-problems)).
+
+A row names one key or every key under it, and the longest matching row decides, so
+`runtime.migration.reinjection.sessionStartCompact` takes effect on reload while the rest of
+`runtime.migration` needs a restart. A key no row covers is held until a restart.
+
+### Takes effect on reload
+
+Every reader in the running daemon reads these keys at its next use. The reload lists them in its `config reloaded` line and in `admin.reload`'s `changed`.
+
+| Key | Read by |
+|---|---|
+| `eliminations` | rehydrate service, MCP tools, elimination ledger and scheduler read the live configuration |
+| `retrieval.defaultSpan` | MCP tools (ToolDeps.CfgFn) |
+| `retrieval.ephemeralResults` | MCP tools (ToolDeps.CfgFn) |
+| `runtime.budgets` | budget checks (currentCfg) and the MCP tools (ToolDeps.CfgFn) |
+| `runtime.daemon.ackDeadlineMs` | state.bin, rewritten by the reload |
+| `runtime.daemon.connectDeadlineMs` | state.bin, rewritten by the reload |
+| `runtime.daemon.enabled` | state.bin, rewritten by the reload |
+| `runtime.daemon.idleExitSeconds` | the daemon's idle-exit check (currentCfg) |
+| `runtime.daemon.maxSessions` | the session registry (applyReloaded) |
+| `runtime.hotPath.breachWindows` | the breach detector (applyReloaded) |
+| `runtime.hotPath.budgetMs` | the breach detector (applyReloaded) and the hot-path handler |
+| `runtime.hotPath.spoolOnBreach` | the hot-path handler (currentCfg) and state.bin |
+| `runtime.mcp` | MCP tools (ToolDeps.CfgFn) |
+| `runtime.migration.reinjection.sessionStartCompact` | rehydrate service (RehydrateOptions.CfgFn) |
+| `runtime.redact` | capture admission (currentCfg), the store's and the retrieval tools' redactors (NewLiveRedactor) |
+| `runtime.rehydrate` | rehydrate service (RehydrateOptions.CfgFn) |
+| `runtime.selection.submodularEnabled` | rehydrate service (RehydrateOptions.CfgFn) |
+| `scheduler.hardCeilingMargin` | scheduler runtime Evaluate (SchedulerRuntimeOptions.CfgFn) |
+| `scheduler.idle.backgroundWork` | scheduler runtime idle tasks (SchedulerRuntimeOptions.CfgFn) |
+| `scheduler.idle.deepCutWhenCold` | scheduler runtime Evaluate (SchedulerRuntimeOptions.CfgFn) |
+| `scheduler.idle.detectAfterSeconds` | idle controller, client-spool watcher and scheduler runtime (applyReloaded) |
+| `scheduler.softFloorPct` | scheduler runtime Evaluate (SchedulerRuntimeOptions.CfgFn) |
+| `scheduler.youngDaly` | scheduler runtime Evaluate (SchedulerRuntimeOptions.CfgFn) |
+| `selection.submodular.lambda` | rehydrate service and scheduler runtime read the live configuration |
+
+### Read by the hook or command when it runs
+
+The hook or command that reads these keys loads the configuration each time it runs, so its next run uses the new value, and any reader in the daemon reads the live configuration. The reload applies them and lists them as changed.
+
+| Key | Read by |
+|---|---|
+| `eval` | the eval commands, which load the configuration when they run |
+| `runtime.mode` | each hook, which loads the configuration when it runs; the daemon's session start reads the live configuration (currentCfg) |
+
+### Needs a daemon restart
+
+Something the daemon built when it started holds these keys. The reload keeps the value the daemon started with, leaves the key out of `changed`, names it in the LOUD line above and in `admin.reload`'s `restart_required`; the next daemon applies it.
+
+| Key | Read by |
+|---|---|
+| `checkpoint` | the checkpoint writer and the PreCompact/idle seams, wired with the start configuration |
+| `retrieval.promoteAfterExpansions` | the MCP expansion promoter, built with its threshold at start |
+| `runtime.hotPath.maxPayloadBytes` | the observer's result bound and the MCP server's line bound, set at start |
+| `runtime.migration` | gated capabilities wired at start; Validate refuses the gated switches |
+| `runtime.phase7` | gated refinements wired at start; Validate refuses the gated switches |
+| `runtime.scheduler.cache` | the cache regime, resolved when the scheduler binds a session |
+| `runtime.tokens` | the token estimators, built with their constants at start |
+| `scheduler.cache` | the cache regime, resolved when the scheduler binds a session |
+| `scheduler.changepoint` | the changepoint detector's shape, built with the scheduler runtime |
+| `selection.slicing` | the dependence DAG, opened with its slicing variant at start |
+| `sketches` | the sketch set and the elimination filter, sized at start |
+| `store.canonicalize` | the store's and the observer's canonicalizers, built at start |
+| `store.chunk` | the chunker's boundaries, built once by store.Open at start; applying a change mid-session would also fork the dedup space (§11.2) |
+| `store.compression` | the store's object codec, fixed when store.Open builds it |
+| `store.retention` | the observer's retention stamps, taken from the configuration it was built with |
+
+### No effect in this build
+
+Nothing in this build reads these keys, before or after a restart. The reload keeps the value in effect, leaves the key out of `changed`, names it in the LOUD line above and in `admin.reload`'s `no_effect`.
+
+| Key | Read by |
+|---|---|
+| `runtime.logging` | no reader in this build: every log is opened at a fixed level and rotation before the configuration loads |
+| `runtime.selection.loopWarningsEnabled` | no reader in this build |
+| `runtime.telemetry` | hardwired off; Validate refuses true |
+| `selection.deltaScoring` | no reader in this build |
+| `selection.submodular.lazyGreedy` | no reader in this build: the selector is always lazy (analyzer.NewSelector) |
+

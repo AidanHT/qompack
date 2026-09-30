@@ -1,0 +1,20 @@
+=== go test -p 2 -count=1 -timeout=30m ./internal/daemon/ 2026-09-30T17:42:51-04:00 (HEAD bfc77162)
+ok  	github.com/qompack/qompack/internal/daemon	367.582s
+exit=0
+=== go test -p 2 -count=1 -timeout=30m ./tools/devtool/ 2026-09-30T17:49:08-04:00 (HEAD 26addc19)
+ok  	github.com/qompack/qompack/tools/devtool	96.288s
+exit=0
+=== go test -p 2 -count=1 -timeout=30m ./test/docs/ 2026-09-30T17:50:47-04:00 (HEAD 26addc19)
+ok  	github.com/qompack/qompack/test/docs	4.246s
+exit=0
+=== go run ./tools/devtool lint --only=golangci-lint,nomagic,importgraph,testdeps,bindeps,sleepcheck,docmarkers,runpatterns (HEAD 26addc19)
+PASS golangci-lint
+PASS nomagic
+PASS importgraph
+PASS testdeps
+PASS bindeps
+PASS sleepcheck
+PASS runpatterns
+PASS docmarkers
+exit=0
+=== go run ./tools/devtool fmt-check -> exit=0; go vet (windows and GOOS=linux) ./internal/daemon/ ./tools/devtool/ ./test/docs/ -> ok

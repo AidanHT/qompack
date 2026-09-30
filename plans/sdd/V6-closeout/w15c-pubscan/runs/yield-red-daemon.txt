@@ -1,0 +1,14 @@
+# RED before the gate existed: go vet ./internal/daemon/ with publication_yield_test.go added and no captureGate (compile failure is the red)
+# github.com/qompack/qompack/internal/daemon [github.com/qompack/qompack/internal/daemon.test]
+internal\daemon\publication_yield_test.go:25:20: undefined: captureGate
+internal\daemon\publication_yield_test.go:41:8: undefined: captureGate
+internal\daemon\publication_yield_test.go:65:8: undefined: captureGate
+internal\daemon\publication_yield_test.go:103:15: dd.capture undefined (type *daemon has no field or method capture)
+internal\daemon\publication_yield_test.go:109:21: dd.capture undefined (type *daemon has no field or method capture)
+internal\daemon\publication_yield_test.go:117:45: dd.capture undefined (type *daemon has no field or method capture)
+internal\daemon\publication_yield_test.go:122:21: dd.capture undefined (type *daemon has no field or method capture)
+internal\daemon\publication_yield_test.go:142:26: d.capture undefined (type *daemon has no field or method capture)
+internal\daemon\publication_yield_test.go:144:4: d.capture undefined (type *daemon has no field or method capture)
+internal\daemon\publication_yield_test.go:161:4: d.capture undefined (type *daemon has no field or method capture)
+internal\daemon\publication_yield_test.go:161:4: too many errors
+exit=1

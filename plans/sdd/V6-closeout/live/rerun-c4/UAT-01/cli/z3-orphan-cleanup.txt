@@ -1,0 +1,22 @@
+orphan cleanup 2026-09-29 20:46:22 EDT (per commit 09a5222: delete only a run-created cache whose every version is one of this run's bundles)
+guard before: plugins/cache gained qompack-live/ (run-created)
+$ ls -a <home>/.claude/plugins/cache/qompack-live/qompack/
+.
+..
+0.3.0
+$ ls -a .../0.3.0
+.
+..
+.claude-plugin
+.mcp.json
+.orphaned_at
+bin
+BUNDLE.json
+checksums.txt
+commands
+hooks
+$ cat .../0.3.0/.orphaned_at
+1790729173884
+$ cmp .../0.3.0/BUNDLE.json <frozen bundle>/BUNDLE.json
+identical -> removing <home>/.claude/plugins/cache/qompack-live
+removed

@@ -1,0 +1,23 @@
+<!-- qompack:injected seq=3 ver=1 -->
+# Qompack rehydration — checkpoint 0003, session d0c99489
+
+## 2. Original user intent (verbatim from L0 capture — never summarized)
+Evolution (most recent first):
+> Use the Read tool to read notes.md and summarize it in one sentence.
+
+## 5. Current work
+goal: Use the Read tool to read notes.md and summarize it in one sentence.
+blocked on: none
+
+## 6. Pointers (paths and hashes — contents are NOT restored; use expand/re_read)
+- notes.md sha256:4050a975315b8f9a5c5848e1905bd291bc70ebf6f3ab8cbabf4539780293098a — referenced
+- tool_use subagent_d0c99489-20eb-4e4b-9257-318a03e60108_3 sha256:eac0ee101e16ce768ec802ad687620a40d2aa10daa3cbb40093a430f531e0ebb — {"agent":"subagent","summary":"The file lists **40 keys** (Q01 through Q40)."}
+- tool_use toolu_01SRSDExYZ7DUUTEkmPKvfhy sha256:4050a975315b8f9a5c5848e1905bd291bc70ebf6f3ab8cbabf4539780293098a — <scratch>\sessions\c4\uat04\proj\notes.md
+
+## 7. No longer in context
+- user_intent tier1 — OVERFLOW: the verbatim original user intent did not fit the rehydration payload and is emitted whole or not at all; restore: expand(tool_use_id=prompt_d0c99489-20eb-4e4b-9257-318a03e60108_0)
+
+## 8. Retrieval
+Qompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().
+<!-- /qompack:injected -->
+<!-- qompack-contract-probe qompack-contract-9d68e28f2d3c -->

@@ -1,0 +1,6 @@
+checkpoints/ listing:
+    3961  0001.json  sha256:46e49afd17a9a2afd0af8a41ca3e7498ba05092c53f35ef1c552200d8f7980cf
+     130  MANIFEST.jsonl  sha256:6e652ecea9b2490460762ed7fe65e92842b0115d7d7ea92ae2025cde61a12780
+
+MANIFEST re-hash:
+seq 1 0001.json manifest sha256:46e49afd17a9a2afd0af8a41ca3e7498ba05092c53f35ef1c552200d8f7980cf artifact sha256:46e49afd17a9a2afd0af8a41ca3e7498ba05092c53f35ef1c552200d8f7980cf -> MATCH

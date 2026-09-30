@@ -1,0 +1,29 @@
+{
+ "files": {
+  "notes.md": {
+   "bytes": 84,
+   "sha256": "cbdb9d8f5307a29fab742c0876ee5cd040b093d3aec3e3540cb29cd3214b976b"
+  },
+  "data/keys.txt": {
+   "bytes": 821,
+   "sha256": "9f16f4a11989ab8084b473ca278063076e4ebe92a3cf90667816bd1debd7acbd"
+  },
+  "filler/a.txt": {
+   "bytes": 129991,
+   "sha256": "58bab01f5eb6210983a3bd02252068915e6a5f6af0aae3bdc90fd9b4fb245956"
+  },
+  "filler/b.txt": {
+   "bytes": 129997,
+   "sha256": "3c586aa02384b898e8ee35b00e69213a592e274a2a4b61d3038714662d5e1241"
+  },
+  "src/ledger.py": {
+   "bytes": 100,
+   "sha256": "e398ae3e8d49b389401d95064500a354397671b5f9f41391b102573073251bdc"
+  }
+ },
+ "first_prompt_chars": 16823,
+ "first_prompt_utf8_bytes": 16823,
+ "first_prompt_sha256": "037d8d3d41c8092e8700f69099c4d49826756870a8e819c0c33b31dea3d8536f",
+ "first_prompt_last_requirement": "R151",
+ "Q23": "GINKGO-8892-TEAK"
+}

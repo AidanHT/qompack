@@ -1,0 +1,14 @@
+# RED on base efd5bf68 for the updated x02 walk: go test -p 2 -count=1 -timeout=30m ./test/e2e -run '^TestV5_TombstoneToExpandRoundTrip$'
+--- FAIL: TestV5_TombstoneToExpandRoundTrip (4.65s)
+    v5_x02_test.go:515: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15a-paging/test/e2e/v5_x02_test.go:402
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15a-paging/test/e2e/v5_x02_test.go:515
+        	Error:      	Not equal: 
+        	            	expected: false
+        	            	actual  : true
+        	Test:       	TestV5_TombstoneToExpandRoundTrip
+        	Messages:   	truncated must report exactly whether this page stops before the object's end: [193080 204820]
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	4.963s
+FAIL
+e2e red exit 1

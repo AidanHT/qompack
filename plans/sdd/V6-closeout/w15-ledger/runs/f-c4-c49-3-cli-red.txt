@@ -1,0 +1,10 @@
+# red: internal/cli/scheduler_wiring.go LedgerFn temporarily reverted to liveLedger(opts)
+--- FAIL: TestProductionCheckpointSourcesOpenTheLedgerOverRecords (0.39s)
+    recorded_ledger_test.go:64: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-ledger/internal/cli/recorded_ledger_test.go:64
+        	Error:      	Received unexpected error:
+        	Test:       	TestProductionCheckpointSourcesOpenTheLedgerOverRecords
+        	Messages:   	a project holding records has its ledger opened for the checkpoint sources
+FAIL
+FAIL	github.com/qompack/qompack/internal/cli	0.831s
+FAIL

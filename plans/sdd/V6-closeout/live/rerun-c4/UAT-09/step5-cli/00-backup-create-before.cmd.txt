@@ -1,0 +1,6 @@
+cwd: <scratch>/retrieval/c4/uat09s5/proj
+argv: ["C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c4/qompack-plugin-0.3.0-windows-amd64/bin/qompack.exe", "backup", "create", "--project", "<scratch>/retrieval/c4/uat09s5/proj", "--id", "uat09s5-c4-before", "--json"]
+env+: {"QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS": "60"}
+qompack_home: <scratch>/retrieval/c4/qhome
+wall_s: 0.028
+at: 2026-09-29T23:36:03-04:00

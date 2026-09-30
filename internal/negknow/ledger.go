@@ -56,6 +56,20 @@ type Deps struct {
 	// Query would never meet. Replacing a match with a fixed placeholder that is not itself a
 	// match satisfies this.
 	Redact func([]byte) []byte
+	// Ancestry, when non-nil, answers the sessions whose conversation session s continues — a
+	// fork's parent up to the moment the fork started, that parent's own parent up to the moment
+	// IT started, and so on — so s sees their session-scoped records up to those moments as its
+	// own negative knowledge (coordinator decision D49). The composition root builds it from the
+	// lineage records; nil means no session inherits anything.
+	Ancestry func(s core.SessionID) []Inherited
+
+	// Config, when set, supplies the configuration the ledger applies eliminations.* from at each
+	// use, in place of the one Open was given. The daemon passes its live configuration, so a
+	// reloaded eliminations.staleResponse (or defaultScope, requireEvidence, rebuildOnStale)
+	// reaches an open ledger without reopening it (V6 close-out D49; the candidate 4 live re-run's
+	// UAT-09 met already_tried keeping the old form after a reload). The filter's sizing is not
+	// read through it: tried.bloom is sized when it is built.
+	Config func() config.Config
 
 	Log     logging.Logger
 	Metrics obs.Registry
@@ -83,7 +97,7 @@ type Health struct {
 
 // Ledger is the negative-knowledge elimination store's full seam (00-ARCHITECTURE.md §5.10):
 // recording eliminations, answering the three-way already_tried question, tracking staleness
-// against the store's current file versions, and rebuilding tried.bloom from active records only.
+// against the store's current file versions, and rebuilding tried.bloom from the records.
 type Ledger interface {
 	// Record appends r to records/eliminations.jsonl and updates tried.bloom, returning r's
 	// assigned ID.
@@ -101,9 +115,10 @@ type Ledger interface {
 	// RefreshStaleness compares every active record's depends_on hashes against s's current file
 	// versions and flips changed ones to stale. It returns the flipped ids.
 	RefreshStaleness(ctx context.Context, s store.Store) ([]string, error)
-	// RebuildBloom rebuilds tried.bloom from ACTIVE RECORDS ONLY — never from a checkpoint, never
-	// from context (00-ARCHITECTURE.md §3.3, §13 invariant 2). It resizes if
-	// sketch.Bloom.ResizeTarget says so.
+	// RebuildBloom rebuilds tried.bloom from the RECORDS, active and stale — never from a
+	// checkpoint, never from context (00-ARCHITECTURE.md §3.3, §13 invariant 2; coordinator
+	// decision D49 widened "active records only", so a record goes stale and never absent). It
+	// resizes if sketch.Bloom.ResizeTarget says so.
 	RebuildBloom(ctx context.Context) (*sketch.Bloom, Health, error)
 	// Health reports the ledger's current size and bloom saturation.
 	Health() Health
@@ -325,9 +340,14 @@ type ledger struct {
 	root string
 	cfg  config.Config
 	// elim is cfg.Eliminations after every out-of-domain value has been replaced by its
-	// Appendix C default, so the rest of the file never has to re-validate.
-	elim  config.EliminationsCfg
-	bloom *sketch.Bloom
+	// Appendix C default, so the rest of the file never has to re-validate. It is read through
+	// elims(), never directly: with Deps.Config set it follows the live configuration, and
+	// elimMu (a leaf lock, taken with or without mu) guards it and elimRaw, the block it was
+	// normalized from.
+	elimMu  sync.Mutex
+	elimRaw config.EliminationsCfg
+	elim    config.EliminationsCfg
+	bloom   *sketch.Bloom
 	// blind reports that records/eliminations.jsonl could not be read at Open. Under blind, Query
 	// answers AnswerUnavailable for everything: asserting absence, or activity, with no record
 	// behind it is the one thing §12.3 and §11.3 invariant 8 forbid here.
@@ -373,9 +393,12 @@ type ledger struct {
 	// like every other mutable field.
 	depCoverage core.Omission
 	deps        Deps
-	log         logging.Logger
-	m           obs.Registry
-	clk         core.Clock
+	// self is the viewer of the session this ledger was opened for (Deps.Session), resolved at
+	// Open: what inView measures a session ledger's view by, inherited ancestry included (D49).
+	self viewer
+	log  logging.Logger
+	m    obs.Registry
+	clk  core.Clock
 }
 
 // The compile-time assertion that keeps Open's return type and this implementation in sync. The
@@ -420,7 +443,8 @@ func Open(root string, cfg config.Config, b *sketch.Bloom, deps Deps) (Ledger, e
 		m:       deps.Metrics,
 		clk:     deps.Clock,
 	}
-	l.elim = normalizeEliminations(cfg.Eliminations, l.log)
+	l.self = l.viewerOf(deps.Session)
+	l.elimRaw, l.elim = cfg.Eliminations, normalizeEliminations(cfg.Eliminations, l.log)
 
 	// EnsureLayout is what every composition root runs, and this one needs it before either of
 	// the next two steps: paths.AppendOnly does not create parent directories, and
@@ -462,6 +486,23 @@ func normalizeEliminations(in config.EliminationsCfg, log logging.Logger) config
 	out.StaleResponse = pickEnum(out.StaleResponse, staleResponseFlag,
 		"eliminations.staleResponse", log, staleResponseFlag, staleResponseDrop)
 	return out
+}
+
+// elims is the eliminations block in effect: the one Open normalized, or, with Deps.Config set, the
+// live configuration's, normalized again only when it has changed (so an out-of-domain value is
+// reported once per change, not once per use).
+func (l *ledger) elims() config.EliminationsCfg {
+	var raw config.EliminationsCfg
+	live := l.deps.Config != nil
+	if live {
+		raw = l.deps.Config().Eliminations
+	}
+	l.elimMu.Lock()
+	defer l.elimMu.Unlock()
+	if live && raw != l.elimRaw {
+		l.elimRaw, l.elim = raw, normalizeEliminations(raw, l.log)
+	}
+	return l.elim
 }
 
 // pickEnum returns got when it is one of allowed, fallback when got is empty, and fallback with
@@ -619,7 +660,8 @@ func (l *ledger) newConfiguredBloom() *sketch.Bloom {
 }
 
 // reconcileBloom is §13 invariant 3 made operational: the filter must hold at least the keys the
-// records imply, or the feature silently stops working.
+// records imply, or the feature silently stops working. The records are every record in this
+// ledger's view, active AND stale (filterRecords, D49).
 //
 // It is skipped entirely under blind mode. The records that would feed a rebuild are unreadable,
 // so rebuilding would replace a good on-disk cache with an empty one on the strength of a
@@ -631,13 +673,18 @@ func (l *ledger) reconcileBloom(loadFailed bool, keys []recordKeys) {
 	if l.blind {
 		return
 	}
-	want := 2 * l.visibleActiveCount()
+	want := 2 * l.filterRecordCount()
 
-	if loadFailed || l.bloom.Count() < want {
+	if loadFailed || l.filterMissesARecord(keys) {
 		// Missing keys are false NEGATIVES, which defeat the feature without any symptom. This is
 		// the common case rather than an exception: Record adds keys to the in-memory filter only,
 		// and §3.3 lets nothing but a rebuild replace tried.bloom, so the on-disk filter always
 		// lags the log by whatever has been recorded since the last rebuild.
+		//
+		// The question is asked per record, not by comparing Count against want. A count cannot
+		// see WHICH key is missing: a filter written when a record was active, or by a build whose
+		// rebuild held active records only, can hold as many keys as the log implies and still
+		// lack a stale record's, and that record then answered absent after every restart (R4-1).
 		if _, _, err := l.rebuildWith(context.Background(), keys); err != nil {
 			// The rebuilt filter is correct even when only its persistence failed. rebuildLocked
 			// has already adopted it and left pending set, so the write is retried at idle.
@@ -649,7 +696,7 @@ func (l *ledger) reconcileBloom(loadFailed bool, keys []recordKeys) {
 	if l.bloom.Count() > want {
 		// Extra keys are SAFE: each costs one record lookup that then answers AnswerAbsent with
 		// BloomOnly, or AnswerStale — both correct. So the rebuild is scheduled, not forced.
-		switch l.elim.RebuildOnStale {
+		switch l.elims().RebuildOnStale {
 		case rebuildImmediate:
 			if _, _, err := l.rebuildWith(context.Background(), keys); err != nil {
 				l.pending = true
@@ -663,7 +710,7 @@ func (l *ledger) reconcileBloom(loadFailed bool, keys []recordKeys) {
 // refreshAtOpen runs one bounded staleness refresh, so that a ledger is correct in wave 2 with no
 // daemon wiring at all while still being cheap. On expiry the rebuild is simply owed.
 func (l *ledger) refreshAtOpen() {
-	if l.deps.Store == nil || l.blind || l.elim.RebuildOnStale == rebuildNever {
+	if l.deps.Store == nil || l.blind || l.elims().RebuildOnStale == rebuildNever {
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), openRefreshDeadline)
@@ -678,20 +725,21 @@ func (l *ledger) refreshAtOpen() {
 // item 5).
 //
 //	ScopeProject       -> project-scoped records only, which is the cross-session carry-over
-//	ScopeSession or "" -> project-scoped records, plus session-scoped records of sess
+//	ScopeSession or "" -> project-scoped records, plus session-scoped records the viewer owns:
+//	                      its session's, and an ancestor's up to the fork point (D49, viewer.owns)
 //
-// sess is the caller's session (sessionFor), never assumed to be the one the ledger was opened
-// for: the daemon's ledger serves every session of the project.
+// v is the caller's (viewerFor), never assumed to be the session the ledger was opened for: the
+// daemon's ledger serves every session of the project.
 //
 // The caller holds mu.
-func (l *ledger) visible(r Record, q Scope, sess core.SessionID) bool {
+func (l *ledger) visible(r Record, q Scope, v viewer) bool {
 	if r.Scope == ScopeProject {
 		return true
 	}
 	if q == ScopeProject {
 		return false
 	}
-	return r.Session == sess
+	return v.owns(r)
 }
 
 // inView reports whether r belongs to what this ledger can be asked about at all. A ledger opened
@@ -704,20 +752,71 @@ func (l *ledger) inView(r Record) bool {
 	if l.deps.Session == "" {
 		return true
 	}
-	return l.visible(r, ScopeSession, l.deps.Session)
+	return l.visible(r, ScopeSession, l.self)
 }
 
-// visibleActive yields the position in recs of every active record in this ledger's view (inView),
-// in log order. It is the ONE source the bloom rebuild draws its keys from. It yields positions
-// rather than copies because every caller reads the records in place: a copy of the whole visible
-// set is 5.9 MB at 20 000 records, and Open used to make three of them. The caller holds mu, for
-// as long as it is iterating.
+// filterRecords yields the position in recs of every record in this ledger's view (inView), active
+// and stale alike, in log order. It is the ONE source the bloom rebuild draws its keys from, and
+// what reconcileBloom checks the filter against. It yields positions rather than copies because
+// every caller reads the records in place: a copy of the whole visible set is 5.9 MB at 20 000
+// records, and Open used to make three of them. The caller holds mu, for as long as it is
+// iterating.
 //
-// For the daemon's multi-session ledger that is every active record of every session. The filter
-// is a cache over the records (§13 invariant 3), so a key another session's record contributes
-// costs a query from this session one record lookup that visible() then refuses — a plain absence
-// (Query), since the hit is true and only out of this session's scope — while leaving a session's
-// own records out of the filter would make them unanswerable after the next rebuild.
+// Stale records are in it because a record goes stale, never absent (coordinator decision D49).
+// Query tests the filter BEFORE it reads a record, so a record whose keys the filter does not hold
+// answers absent whatever its status; filtered to active records, as §3.3 first read, a stale
+// record answered stale only until the next rebuild or daemon restart and absent after (R4-1).
+// A record of a status this reader does not know is in it for the same reason: Query answers it
+// uncertain, and only while the filter holds its key.
+//
+// For the daemon's multi-session ledger that is every record of every session. The filter is a
+// cache over the records (§13 invariant 3), so a key another session's record contributes costs a
+// query from this session one record lookup that visible() then refuses — a plain absence (Query),
+// since the hit is true and only out of this session's scope — while leaving a session's own
+// records out of the filter would make them unanswerable after the next rebuild.
+func (l *ledger) filterRecords() iter.Seq[int] {
+	return func(yield func(int) bool) {
+		for i := range l.recs {
+			if l.inView(l.recs[i]) && !yield(i) {
+				return
+			}
+		}
+	}
+}
+
+// filterRecordCount is how many records filterRecords yields. The caller holds mu.
+func (l *ledger) filterRecordCount() int {
+	n := 0
+	for range l.filterRecords() {
+		n++
+	}
+	return n
+}
+
+// filterMissesARecord reports whether the filter lacks the MatchKey of any record filterRecords
+// yields. MatchKey is the key Query tests, so it is the one whose absence is a false negative; the
+// identity Key is never tested and its absence costs nothing. keys is loadRecords' per-record
+// digests when it lines up with recs, and nil otherwise. The caller holds mu.
+func (l *ledger) filterMissesARecord(keys []recordKeys) bool {
+	if len(keys) != len(l.recs) {
+		keys = nil
+	}
+	for i := range l.filterRecords() {
+		var mh core.Hash
+		if keys != nil {
+			mh = keys[i].match
+		} else {
+			mh = l.recs[i].Desc.matchHash()
+		}
+		if !l.bloom.Test(mh[:]) {
+			return true
+		}
+	}
+	return false
+}
+
+// visibleActive yields the position in recs of every ACTIVE record in this ledger's view (inView),
+// in log order: what Health counts as Active. The caller holds mu, for as long as it is iterating.
 func (l *ledger) visibleActive() iter.Seq[int] {
 	return func(yield func(int) bool) {
 		for i := range l.recs {
@@ -812,7 +911,7 @@ func (l *ledger) Record(ctx context.Context, r Record) (string, error) {
 		r.TS = core.UnixMilli(l.clk.Now().UnixMilli())
 	}
 	if r.Scope == "" {
-		r.Scope = Scope(l.elim.DefaultScope)
+		r.Scope = Scope(l.elims().DefaultScope)
 	}
 	if r.Status == StatusStale {
 		l.log.Warn("negknow: a record may not be created stale; storing it active", "target", r.Target)
@@ -825,7 +924,7 @@ func (l *ledger) Record(ctx context.Context, r Record) (string, error) {
 
 	normalizeRecord(&r, l.deps.Redact, func(s string) { l.log.Warn("negknow: " + s) })
 
-	if l.elim.RequireEvidence && r.Evidence.IsZero() {
+	if l.elims().RequireEvidence && r.Evidence.IsZero() {
 		l.m.Counter(counterRejectedNoEvidence).Add(1)
 		return "", ErrNoEvidence
 	}
@@ -884,7 +983,7 @@ func (l *ledger) Record(ctx context.Context, r Record) (string, error) {
 	// consumption is therefore 2 x records, which is what every "2 *" in this package is.
 	l.bloom.Add(r.Desc.Key())
 	l.bloom.Add(r.Desc.MatchKey())
-	if l.elim.RebuildOnStale == rebuildNextIdle {
+	if l.elims().RebuildOnStale == rebuildNextIdle {
 		// The added keys live only in memory until a rebuild. Without this the next Open would
 		// have to rebuild synchronously to recover them.
 		l.pending = true
@@ -918,12 +1017,12 @@ func (l *ledger) Query(ctx context.Context, target, approach string, scope Scope
 	d := Canonicalize(target, approach, "")
 	mh := d.matchHash()
 	mk := mh[:] // d.MatchKey(), whose array is this call's own
-	sess := l.sessionFor(ctx)
+	v := l.viewerFor(ctx)
 
 	// The records this question could be answered from are brought up to date with the store
 	// BEFORE the answer is read, so a dependency change captured earlier in this very session is
 	// reflected now rather than at the next idle refresh (refreshMatches).
-	verified, cov := l.refreshMatches(ctx, mh, scope, sess)
+	verified, cov := l.refreshMatches(ctx, mh, scope, v)
 
 	l.mu.RLock()
 	defer l.mu.RUnlock()
@@ -949,7 +1048,7 @@ func (l *ledger) Query(ctx context.Context, target, approach string, scope Scope
 	backed := false
 	for _, i := range idx {
 		backed = backed || l.inView(l.recs[i])
-		if l.visible(l.recs[i], scope, sess) {
+		if l.visible(l.recs[i], scope, v) {
 			cands = append(cands, l.recs[i])
 		}
 	}
@@ -1007,7 +1106,7 @@ func (l *ledger) Query(ctx context.Context, target, approach string, scope Scope
 	}
 
 	// Every visible match is stale.
-	if l.elim.StaleResponse == staleResponseDrop {
+	if l.elims().StaleResponse == staleResponseDrop {
 		// "drop" suppresses the staleness DETAIL, not the fact that an elimination is on record.
 		// AnswerAbsent would assert this approach was never tried, which the ledger knows to be
 		// false (§11.3 invariant 8); AnswerUncertain reports honestly that applicability cannot be
@@ -1085,12 +1184,12 @@ func (l *ledger) Get(ctx context.Context, id string) (Record, error) {
 
 // Active returns every active record visible at scope, ordered by TS ascending then ID ascending.
 func (l *ledger) Active(ctx context.Context, scope Scope) ([]Record, error) {
+	v := l.viewerFor(ctx)
 	l.mu.RLock()
 	defer l.mu.RUnlock()
-	sess := l.sessionFor(ctx)
 	out := make([]Record, 0, len(l.recs))
 	for _, r := range l.recs {
-		if r.Status == StatusActive && l.visible(r, scope, sess) {
+		if r.Status == StatusActive && l.visible(r, scope, v) {
 			out = append(out, r)
 		}
 	}

@@ -1,0 +1,9 @@
+# go test -p 2 -count=1 ./internal/mcp (whole package, at 31641d6d's product code)
+ok  	github.com/qompack/qompack/internal/mcp	209.136s
+exit 0
+# go test -p 2 -count=1 -timeout=19m ./tools/devtool
+ok  	github.com/qompack/qompack/tools/devtool	188.672s
+devtool exit 0
+# go test -p 2 -count=1 ./test/docs
+ok  	github.com/qompack/qompack/test/docs	3.049s
+docs exit 0

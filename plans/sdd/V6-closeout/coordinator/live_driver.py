@@ -18,10 +18,13 @@ is sent only after the previous turn's `result` line). Additions for the Phase 4
 - after every turn, when <project>/.qompack/run/daemon.lock names a live qompack.exe, the daemon's
   working set, peak working set and CPU seconds are sampled (PowerShell Get-Process), and the
   .qompack/ byte total is recorded (C5.6).
-- driver-config.json and meta.json have cfg["scrub"] (the scratch prefix, / or \\ form) replaced
-  by <scratch>; stream.jsonl and stderr.txt otherwise keep the host's bytes, EXCEPT planted
-  secrets: cfg["secrets_file"] names a JSON list of literal strings kept outside every git work
-  tree (the driver refuses one inside a work tree). Every output the driver writes has the n-th
+- every output has cfg["scrub"] (the scratch prefix) replaced by <scratch> in each spelling it
+  can take: the / form, the \\ form, and that form JSON-escaped once and twice (a Windows path in
+  the host's stream, and in a hook output the stream carries as a JSON string; D50). Scrubbing
+  changes byte lengths, so measure response sizes from probe outputs, not from stream.jsonl.
+  Apart from that, stream.jsonl and stderr.txt keep the host's bytes, EXCEPT planted secrets:
+  cfg["secrets_file"] names a JSON list of literal strings kept outside every git work tree
+  (the driver refuses one inside a work tree). Every output the driver writes has the n-th
   secret (1-based; literal, JSON-escaped and doubly JSON-escaped forms) replaced by
   @@SEC_PLANTED_n@@, so a credential-shaped string never reaches an evidence folder.
 - scan-staged is the commit gate for evidence the driver did not write: it runs git grep over the
@@ -141,6 +144,19 @@ def scan_staged(repo, secrets_path):
     return 2
 
 
+def scrub_forms(prefix):
+    """Every spelling of the scratch prefix an output can carry, longest first: the / form, the \\
+    form, and the \\ form JSON-escaped once (a Windows path in stream.jsonl) and twice (a path in
+    a hook output the stream carries as a JSON string)."""
+    if not prefix:
+        return []
+    p = prefix.replace("\\", "/")
+    b = p.replace("/", "\\")
+    e1 = json.dumps(b)[1:-1]
+    e2 = json.dumps(e1)[1:-1]
+    return sorted({p, b, e1, e2}, key=len, reverse=True)
+
+
 def main():
     if sys.argv[1] == "scan-staged":
         sys.exit(scan_staged(sys.argv[2], sys.argv[3]))
@@ -148,10 +164,7 @@ def main():
         cfg = json.load(f)
     out_dir = cfg["out"]
     project = cfg.get("project", cfg["cwd"])
-    forms = set()
-    if cfg.get("scrub"):
-        p = cfg["scrub"].replace("\\", "/")
-        forms = {p, p.replace("/", "\\"), json.dumps(p.replace("/", "\\"))[1:-1]}
+    forms = scrub_forms(cfg.get("scrub"))
     planted = []
     if cfg.get("secrets_file"):
         if inside_work_tree(cfg["secrets_file"]):
@@ -164,15 +177,15 @@ def main():
             text = text.replace(form, repl)
         return text
 
-    def unplant_bytes(raw):
-        if not planted:
-            return raw
-        return unplant(raw.decode("utf-8", "surrogateescape")).encode("utf-8", "surrogateescape")
-
     def scrub(text):
-        for form in sorted(forms, key=len, reverse=True):
+        for form in forms:
             text = text.replace(form, "<scratch>")
         return unplant(text)
+
+    def scrub_bytes(raw):
+        if not planted and not forms:
+            return raw
+        return scrub(raw.decode("utf-8", "surrogateescape")).encode("utf-8", "surrogateescape")
 
     with open(os.path.join(out_dir, "driver-config.json"), "w", encoding="utf-8") as f:
         f.write(scrub(json.dumps(cfg, indent=1)))
@@ -194,13 +207,13 @@ def main():
 
     def err_reader():
         for raw in proc.stderr:
-            stderr.write(unplant_bytes(raw))
+            stderr.write(scrub_bytes(raw))
             stderr.flush()
 
     def reader():
         for raw in proc.stdout:
             t = now_ms()
-            stream.write(unplant_bytes(raw))
+            stream.write(scrub_bytes(raw))
             stream.flush()
             try:
                 obj = json.loads(raw)
@@ -263,7 +276,7 @@ def main():
     meta["wall_s"] = round(time.time() - t0, 3)
     meta["store_bytes_after"] = store_bytes(project)
     with open(os.path.join(out_dir, "hooks.json"), "w", encoding="utf-8") as f:
-        f.write(unplant(json.dumps(pair_hooks(timed), indent=1)))
+        f.write(scrub(json.dumps(pair_hooks(timed), indent=1)))
     with open(os.path.join(out_dir, "meta.json"), "w", encoding="utf-8") as f:
         f.write(scrub(json.dumps(meta, indent=1)))
     print("exit", proc.returncode, flush=True)

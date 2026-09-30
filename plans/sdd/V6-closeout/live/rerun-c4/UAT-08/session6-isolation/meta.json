@@ -1,0 +1,87 @@
+{
+ "args": [
+  "-p",
+  "--input-format",
+  "stream-json",
+  "--output-format",
+  "stream-json",
+  "--verbose",
+  "--include-hook-events",
+  "--model",
+  "claude-haiku-4-5-20251001",
+  "--max-turns",
+  "10",
+  "--setting-sources",
+  "project,local",
+  "--permission-mode",
+  "dontAsk",
+  "--plugin-dir",
+  "C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c4/qompack-plugin-0.3.0-windows-amd64",
+  "--allowedTools",
+  "Read,mcp__plugin_qompack_qompack__recall,mcp__plugin_qompack_qompack__expand,mcp__plugin_qompack_qompack__re_read,mcp__plugin_qompack_qompack__already_tried,mcp__plugin_qompack_qompack__record_eliminated,mcp__plugin_qompack_qompack__timeline,mcp__plugin_qompack_qompack__why,mcp__plugin_qompack_qompack__dropped,Bash(qompack status:*),Bash(qompack recall:*),Bash(qompack pin:*),Bash(qompack why:*),Bash(qompack dropped:*),Bash(qompack eval:*)"
+ ],
+ "turns": [
+  {
+   "msg": "Call mcp__plugin_qompack_qompack__already_tried with {\"target\": \"src/cache.go:Evict\", \"approach\": \"shrink the ttl\"}. Reply with the tool result's text verbatim, then say in one sentence whether anything in it forbids trying the approach.",
+   "ok": true,
+   "wall_s": 6.613,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 32624,
+    "WorkingSet64": 52744192,
+    "PeakWorkingSet64": 52744192,
+    "CPU": 1.71875,
+    "StartTime": "/Date(1790739575621)/"
+   },
+   "store_bytes": 1062792
+  },
+  {
+   "msg": "Call mcp__plugin_qompack_qompack__already_tried with {\"target\": \"src/cache.go:Evict\", \"approach\": \"raise the cache size\"}. Reply with the tool result's text verbatim, then say in one sentence whether anything in it forbids trying the approach.",
+   "ok": true,
+   "wall_s": 3.807,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 32624,
+    "WorkingSet64": 52887552,
+    "PeakWorkingSet64": 52887552,
+    "CPU": 1.78125,
+    "StartTime": "/Date(1790739575621)/"
+   },
+   "store_bytes": 1088186
+  },
+  {
+   "msg": "/qompack:why dec_c770af84e084",
+   "ok": true,
+   "wall_s": 5.809,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 32624,
+    "WorkingSet64": 53202944,
+    "PeakWorkingSet64": 53202944,
+    "CPU": 1.796875,
+    "StartTime": "/Date(1790739575621)/"
+   },
+   "store_bytes": 1103737
+  },
+  {
+   "msg": "/qompack:status",
+   "ok": true,
+   "wall_s": 10.219,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 32624,
+    "WorkingSet64": 53374976,
+    "PeakWorkingSet64": 53374976,
+    "CPU": 1.8125,
+    "StartTime": "/Date(1790739575621)/"
+   },
+   "store_bytes": 1125813
+  }
+ ],
+ "store_bytes_before": 1023344,
+ "started_ms": 1790739885634,
+ "pid": 51628,
+ "exit": 0,
+ "wall_s": 29.483,
+ "store_bytes_after": 1091018
+}

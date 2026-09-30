@@ -1,0 +1,23 @@
+{
+ "files": {
+  "README.md": {
+   "bytes": 68,
+   "sha256": "dbb11dcd3f0febff2d3e087a65423033d559fbdcd91c33bb4ef9899b7a3843b2"
+  },
+  "notes.md": {
+   "bytes": 54,
+   "sha256": "a316595b9e48142ae73cd00374c93365f947a8bdcc9ab07fd60ee78f9f506aae"
+  },
+  "src/cache.go": {
+   "bytes": 198,
+   "sha256": "068d4dcb568a509226304d3406ab238e674ffd51aa0baadb79088af86ac85e8b"
+  },
+  "src/ledger.go": {
+   "bytes": 707,
+   "sha256": "8095be561e722b030982a6d4cb8078b2a0d2af00324f0becb79bf3bb2a2ecd62"
+  }
+ },
+ "config": "defaults (no project config file): retrieval.defaultSpan minimal, runtime.mcp.spanWidenLines 40, runtime.mcp.maxResponseBytes 262144, store.retention.days 30 / sessions 10 are all defaults (cli/02-config-print-provenance)",
+ "env": "session and CLI env QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS=120 (not a row precondition key), QOMPACK_HOME=<scratch>/retrieval/c4/qhome",
+ "shared": "one session covers UAT-07 (turns 1-13), C4.4 (turns 14-25) and the C4.5 status check"
+}

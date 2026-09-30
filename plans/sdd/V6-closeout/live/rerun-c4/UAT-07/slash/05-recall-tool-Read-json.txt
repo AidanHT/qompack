@@ -1,0 +1,26 @@
+# /qompack:recall tool:Read --json (host expansion from the session transcript; permissions ['Bash(qompack recall:*)'])
+Run the Qompack recall command and report its output verbatim to the user.
+
+{
+  "schema": 1,
+  "command": "recall",
+  "ok": true,
+  "data": {
+    "tool": "recall",
+    "is_error": false,
+    "ephemeral": true,
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"hits\":[{\"hash\":\"sha256:800cf27b3d28f24420053a66c887984da6fa859a938a4b293d58ab2c90812544\",\"path\":\"src/ledger.go\",\"tool\":\"FileRead\",\"summary\":\"\",\"ts\":\"2026-09-30T03:39:51Z\",\"score\":0.32,\"tool_use_id\":\"toolu_01PJaUKU6WgayifCJzKeCaiD\",\"span\":[0,838]},{\"hash\":\"sha256:125153754afca5f623b4b7dc03edf6a54a60bb961e9a4d46a80ba61769b6c2f4\",\"path\":\"src/ledger.go\",\"tool\":\"FileRead\",\"summary\":\"\",\"ts\":\"2026-09-30T03:39:37Z\",\"score\":0.26,\"tool_use_id\":\"toolu_013NmN3HRzEemxDsAcrsDaD5\",\"span\":[0,838]}],\"count\":2,\"found\":true,\"query\":{\"text\":\"\",\"path\":\"\",\"symbol\":\"\",\"tool\":\"Read\"}}"
+      }
+    ],
+    "meta": {
+      "elapsed_ms": 3,
+      "hash": "sha256:97dc8d6d82639321bbd90a0d4647cd8abedc50847cf25a9a7bccf6c8dee83ec9",
+      "tool_use_id": "qompack-mcp:88dbad45a7d6",
+      "untrusted": true
+    }
+  }
+}
+

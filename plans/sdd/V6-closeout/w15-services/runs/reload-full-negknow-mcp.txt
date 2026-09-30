@@ -1,0 +1,24 @@
+--- FAIL: TestBudget_RebuildBloom (23.39s)
+    bench_test.go:718: BenchmarkRebuildBloom: attempt 1 is 233.056359ms wall/op and 21.306818ms CPU/op, over the 50ms ceiling on a gated clock — retrying
+    bench_test.go:718: BenchmarkRebuildBloom: attempt 2 is 137.297707ms wall/op and 26.442307ms CPU/op, over the 50ms ceiling on a gated clock — retrying
+    bench_test.go:718: BenchmarkRebuildBloom: attempt 3 is 130.54224ms wall/op and 26.5625ms CPU/op, over the 50ms ceiling on a gated clock — retrying
+    bench_test.go:718: BenchmarkRebuildBloom: 21.306818ms CPU/op over 22 iterations (best of 3) against a 50ms budget
+    bench_test.go:718: BenchmarkRebuildBloom: 130.54224ms wall/op over 10 iterations (best of 3) against a 50ms budget
+    bench_test.go:718: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-services/internal/negknow/bench_test.go:441
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-services/internal/negknow/bench_test.go:718
+        	Error:      	"130.54224ms" is not less than or equal to "50ms"
+        	Test:       	TestBudget_RebuildBloom
+        	Messages:   	BenchmarkRebuildBloom: 130.54224ms wall/op exceeds the §11.2 budget of 50ms
+FAIL
+FAIL	github.com/qompack/qompack/internal/negknow	86.837s
+--- FAIL: TestBudgetBF (152.39s)
+    bench_test.go:131: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-services/internal/mcp/bench_test.go:131
+        	Error:      	"524.288ms" is not less than "250ms"
+        	Test:       	TestBudgetBF
+        	Messages:   	B-F breached over 2000 tool uses / ~39 MB: limit=250ms n=200 p50=90.112ms p95=524.288ms p99=786.432ms max=4.515762s
+FAIL
+FAIL	github.com/qompack/qompack/internal/mcp	248.301s
+FAIL
+exit=1

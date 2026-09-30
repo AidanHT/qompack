@@ -110,15 +110,19 @@ func runDaemon(ctx context.Context, env Env, args []string, out, errw io.Writer)
 	// Loud line task-6-spec.md's fault table names for it.
 	faultCorruptConfigIfNeeded(root)
 
-	cfg, _, cfgErr := LoadConfigAndReport(config.Env{
+	cfgEnv := config.Env{
 		ProjectRoot: root, HomeDir: homeDir(env), Getenv: env.Getenv, Flags: env.Set,
-	}, log, reg)
+	}
+	cfg, _, cfgErr := LoadConfigAndReport(cfgEnv, log, reg)
 	if cfgErr != nil {
 		cfg = config.Defaults()
 		log.Loud("daemon: could not load configuration, using defaults", "err", cfgErr.Error())
 	}
 
 	opts := daemon.NewOptions(root, cfg)
+	// The daemon's config reload loads through the same environment, so it neither drops a --set
+	// flag nor reads a different home than this load did.
+	opts.CfgEnv = cfgEnv
 	opts.Log = log
 	opts.Metrics = reg
 	opts.Clock = core.SystemClock() // §6.1's own "connection deadlines are always real wall-clock time" rule applies to the daemon's own lifecycle clock too.
@@ -133,8 +137,10 @@ func runDaemon(ctx context.Context, env Env, args []string, out, errw io.Writer)
 	}
 	// The checkpoint layer's first phase: assemble the LIVE source supplier and bind the
 	// PreCompact seam. It must run after WireObserver (it reads the store and the DAG that call
-	// opened) and before daemon.New (Options.Bind is what New applies). It opens NO ledger — see
-	// wireCheckpointSources.
+	// opened) and before daemon.New (Options.Bind is what New applies). It opens NO ledger here:
+	// the supplier's accessor (recordedLedger) opens one through the shared opener in a project
+	// that already holds elimination records, but only on a resolve after Run is serving, never
+	// during wiring — see wireCheckpointSources.
 	ckpt := wireCheckpointSources(&opts)
 	sched, schedOpts := wireScheduler(&opts, env.Getenv, ckpt.sources)
 	// store.Open pre-creates .qompack/tmp/quarantine as scaffolding for its corrupt-object path,
@@ -337,6 +343,7 @@ func installMCPTools(opts *daemon.Options, root string, cfg config.Config,
 	// opens the ledger if no compaction has yet; passing a value here would freeze the nil for the
 	// life of the process.
 	deps := NewToolDeps(root, cfg, opts.Store, openingLedger(opts), ckptReader, dropReporter, prom, syms, log, reg, clk)
+	liveToolConfig(&deps, opts)
 	if err := daemon.InstallMCPOp(opts, deps); err != nil {
 		log.Loud("mcp: retrieval tools unavailable; the daemon is running without them", "err", err.Error())
 	}

@@ -1,0 +1,28 @@
+=== RUN   TestRecallKCountsPermittedHits
+    recall_k_test.go:53: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-services/internal/mcp/recall_k_test.go:53
+        	Error:      	"[]" should have 3 item(s), but has 0
+        	Test:       	TestRecallKCountsPermittedHits
+        	Messages:   	k permitted hits exist, so k must come back
+--- FAIL: TestRecallKCountsPermittedHits (0.07s)
+=== RUN   TestRecallDeniedIsACountWhenFewerPermittedExist
+--- PASS: TestRecallDeniedIsACountWhenFewerPermittedExist (0.05s)
+=== RUN   TestRecallRanksSelfRecordsAfterOriginalCaptures
+    recall_k_test.go:94: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-services/internal/mcp/recall_k_test.go:94
+        	Error:      	Not equal: 
+        	            	expected: "FileRead"
+        	            	actual  : "mcp__plugin_qompack_qompack__expand"
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-FileRead
+        	            	+mcp__plugin_qompack_qompack__expand
+        	Test:       	TestRecallRanksSelfRecordsAfterOriginalCaptures
+        	Messages:   	the original capture must rank ahead of Qompack's own retrieval echoes
+--- FAIL: TestRecallRanksSelfRecordsAfterOriginalCaptures (0.07s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/mcp	0.449s
+FAIL

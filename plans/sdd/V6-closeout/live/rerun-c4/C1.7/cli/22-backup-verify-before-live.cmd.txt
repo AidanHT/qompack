@@ -1,0 +1,3 @@
+cwd=<scratch>/recovery/c4
+env QOMPACK_HOME=<scratch>/recovery/c4/qhome 
+C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c4/qompack-plugin-0.3.0-windows-amd64/bin/qompack.exe backup verify --project <scratch>/recovery/c4/C1.7/proj --id before --json

@@ -1,0 +1,45 @@
+# TEMPORARY DIAGNOSTIC (not committed as a test): internal/cli/zz_w15diag_test.go on 08034a3f
+# go test -p 2 -count=1 -run TestW15DiagHookSetDoesNotReachTheDaemonsRehydrateBudget -v ./internal/cli/
+# | package cli
+# | 
+# | // TEMPORARY DIAGNOSTIC (w15-docs), not committed: does --set on the session-start hook invocation
+# | // change the budget the daemon builds a compaction's rehydration under?
+# | 
+# | import (
+# | 	"encoding/json"
+# | 	"os"
+# | 	"path/filepath"
+# | 	"testing"
+# | 
+# | 	"github.com/qompack/qompack/internal/core"
+# | 	"github.com/stretchr/testify/require"
+# | )
+# | 
+# | func TestW15DiagHookSetDoesNotReachTheDaemonsRehydrateBudget(t *testing.T) {
+# | 	const sess = core.SessionID("sess-w15-diag-budget")
+# | 	r := newLiveRig(t)
+# | 	r.start(t, sess)
+# | 	r.prompt(t, sess, "keep the delimiter a semicolon")
+# | 	r.endTurn(t, sess)
+# | 	r.compact(t, sess)
+# | 	r.hook(t, sess, []string{"session-start", "--set", "runtime.rehydrate.minTokens=150",
+# | 		"--set", "runtime.rehydrate.maxTokens=150"}, "SessionStart", map[string]any{"source": "compact"})
+# | 
+# | 	p := filepath.Join(r.root, ".qompack", "state", "rehydrate-"+string(sess)+".json")
+# | 	var raw []byte
+# | 	require.Eventually(t, func() bool {
+# | 		b, err := os.ReadFile(p)
+# | 		raw = b
+# | 		return err == nil
+# | 	}, liveWait, liveTick)
+# | 	var st map[string]any
+# | 	require.NoError(t, json.Unmarshal(raw, &st))
+# | 	t.Logf("state budget=%v tokens=%v degraded=%v", st["budget"], st["tokens"], st["degraded"])
+# | 	require.EqualValues(t, 12000, st["budget"], "the daemon's configuration governs the budget")
+# | }
+=== RUN   TestW15DiagHookSetDoesNotReachTheDaemonsRehydrateBudget
+    zz_w15diag_test.go:35: state budget=12000 tokens=200 degraded=false
+--- PASS: TestW15DiagHookSetDoesNotReachTheDaemonsRehydrateBudget (0.84s)
+PASS
+ok  	github.com/qompack/qompack/internal/cli	1.332s
+exit=0

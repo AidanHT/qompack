@@ -1,0 +1,23 @@
+=== RUN   TestSecondCheckpointCarriesTheSessionsEarlierDecision
+    decisions_carry_test.go:89: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-ledger/internal/checkpoint/decisions_carry_test.go:89
+        	Error:      	"[]" should have 1 item(s), but has 0
+        	Test:       	TestSecondCheckpointCarriesTheSessionsEarlierDecision
+        	Messages:   	the decision holds while its elimination is carried: [{ID:dec_8351d77688eb What:keep the limiter in-process Why:a shared store adds a network hop AlternativesRejected:[] Evidence:sha256:0000000000000000000000000000000000000000000000000000000000000000 Turn:13}]
+--- FAIL: TestSecondCheckpointCarriesTheSessionsEarlierDecision (0.36s)
+=== RUN   TestRestartedWriterCarriesTheSessionsEarlierDecision
+    decisions_carry_test.go:113: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-ledger/internal/checkpoint/decisions_carry_test.go:113
+        	Error:      	"[]" should have 1 item(s), but has 0
+        	Test:       	TestRestartedWriterCarriesTheSessionsEarlierDecision
+        	Messages:   	the decision survives a daemon restart: [{ID:dec_8351d77688eb What:keep the limiter in-process Why:a shared store adds a network hop AlternativesRejected:[] Evidence:sha256:0000000000000000000000000000000000000000000000000000000000000000 Turn:13}]
+--- FAIL: TestRestartedWriterCarriesTheSessionsEarlierDecision (0.32s)
+=== RUN   TestCarriedDecisionEndsWhenItsPinIsRemoved
+    decisions_carry_test.go:133: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-ledger/internal/checkpoint/decisions_carry_test.go:133
+        	Error:      	"[]" should have 1 item(s), but has 0
+        	Test:       	TestCarriedDecisionEndsWhenItsPinIsRemoved
+--- FAIL: TestCarriedDecisionEndsWhenItsPinIsRemoved (0.31s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/checkpoint	1.365s
+FAIL

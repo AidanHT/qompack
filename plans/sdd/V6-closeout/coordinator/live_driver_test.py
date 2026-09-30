@@ -33,19 +33,21 @@ FAKE_HOST = textwrap.dedent('''
     emit({"type": "system", "subtype": "hook_response", "hook_id": "ss",
           "hook_name": "SessionStart:startup", "hook_event": "SessionStart",
           "outcome": "success", "exit_code": 0})
-    emit({"type": "system", "subtype": "init", "cwd": "SCRATCH/project"})
+    WIN = WINSCRATCH
+    emit({"type": "system", "subtype": "init", "cwd": "SCRATCH/project",
+          "win_cwd": WIN + "\\\\project"})
     n = 0
     for line in sys.stdin:
         n += 1
         hid = "h%d" % n
         content = json.loads(line)["message"]["content"]
-        sys.stderr.write("host saw: " + content + "\\n"); sys.stderr.flush()
+        sys.stderr.write("host saw: " + content + " in " + WIN + "\\n"); sys.stderr.flush()
         emit({"type": "system", "subtype": "hook_started", "hook_id": hid,
               "hook_name": "UserPromptSubmit", "hook_event": "UserPromptSubmit"})
         time.sleep(0.15)
         emit({"type": "system", "subtype": "hook_response", "hook_id": hid,
               "hook_name": "UserPromptSubmit", "hook_event": "UserPromptSubmit",
-              "output": json.dumps({"additionalContext": content}),
+              "output": json.dumps({"additionalContext": content, "cwd": WIN}),
               "outcome": "success", "exit_code": 0})
         emit({"type": "result", "subtype": "success", "echo": content})
     emit({"type": "system", "subtype": "hook_started", "hook_id": "end",
@@ -56,7 +58,8 @@ FAKE_HOST = textwrap.dedent('''
 def write_host(tmp):
     host = os.path.join(tmp, "fake_host.py")
     with open(host, "w") as f:
-        f.write(FAKE_HOST.replace("SCRATCH", tmp.replace("\\", "/")))
+        f.write(FAKE_HOST.replace("WINSCRATCH", repr(tmp.replace("/", "\\")))
+                .replace("SCRATCH", tmp.replace("\\", "/")))
     return host
 
 
@@ -101,12 +104,21 @@ class LiveDriverTest(unittest.TestCase):
             end = [h for h in hooks if h["hook_event"] == "SessionEnd"]
             self.assertEqual(end[0]["latency_ms"], None)
             self.assertFalse(end[0]["measured"])
-            for name in ("driver-config.json", "meta.json"):
+            # D50: every output, the host's stream included, carries the scratch prefix in none of
+            # its spellings: / and \ forms, and the \ form JSON-escaped once (the stream) and
+            # twice (a hook output the stream carries as a JSON string).
+            for name in os.listdir(out):
                 text = read(os.path.join(out, name))
-                self.assertNotIn(tmp.replace("\\", "/"), text.replace("\\\\", "/").replace("\\", "/"))
-                self.assertIn("<scratch>", text)
-            self.assertIn(tmp.replace("\\", "/"), read(os.path.join(out, "stream.jsonl")))
-            self.assertIn("host saw: second", read(os.path.join(out, "stderr.txt")))
+                self.assertNotIn(tmp.replace("\\", "/"),
+                                 text.replace("\\\\", "/").replace("\\", "/"), name)
+                for form in forms(tmp.replace("/", "\\")):
+                    self.assertNotIn(form, text, name)
+            for name in ("driver-config.json", "meta.json", "stream.jsonl", "stderr.txt"):
+                self.assertIn("<scratch>", read(os.path.join(out, name)), name)
+            stream = read(os.path.join(out, "stream.jsonl"))
+            self.assertIn('"win_cwd": "<scratch>\\\\project"', stream)
+            self.assertIn('\\"cwd\\": \\"<scratch>\\"', stream)
+            self.assertIn("host saw: second in <scratch>", read(os.path.join(out, "stderr.txt")))
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
 

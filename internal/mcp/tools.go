@@ -209,8 +209,14 @@ type ToolDeps struct {
 	Rehydrator DropReporter
 	// Promoter implements retrieval.promoteAfterExpansions (§8.7).
 	Promoter Promoter
-	// Cfg supplies retrieval.defaultSpan, retrieval.ephemeralResults and the response limits.
+	// Cfg supplies retrieval.defaultSpan, retrieval.ephemeralResults, the eliminations keys and the
+	// response limits, when CfgFn is nil.
 	Cfg config.Config
+	// CfgFn, when set, supplies the configuration on every call instead of Cfg: the daemon passes
+	// its live configuration, so a key its config reload applies reaches the next tool call rather
+	// than waiting for a restart (V6 close-out D49; UAT-09 met an eliminations.staleResponse change
+	// the daemon had reloaded while already_tried kept answering the old form).
+	CfgFn func() config.Config
 	// Redactor re-applies TODAY'S secret policy to archive bytes on their way out (T20-M2-04). It
 	// is an interface rather than a redact.Redactor because §3.2 forbids mcp importing redact; the
 	// composition root adapts one to the other (cli.NewRetrievalRedactor).

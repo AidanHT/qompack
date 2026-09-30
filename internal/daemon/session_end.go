@@ -208,8 +208,11 @@ func (d *daemon) launchSessionEnd(ctx context.Context, req ipc.Request, own *job
 	// as a session end's, so no drain it runs starts another one (endDrainedFlush).
 	run, cancel := context.WithCancel(context.WithValue(context.WithoutCancel(ctx), sessionEndRunKey{}, true))
 	stopAfter := context.AfterFunc(e.ctx, cancel)
+	// The end outlives its request, and is capture work until it ends (D51).
+	d.capture.enter()
 	go func() {
 		defer e.end()
+		defer d.capture.leave()
 		defer cancel()
 		defer stopAfter()
 		resp := ipc.Response{OK: false, Err: "daemon: session end panicked"}

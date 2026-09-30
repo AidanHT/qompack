@@ -1,0 +1,352 @@
+{
+ "env_overrides": {
+  "QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS": "30"
+ },
+ "initialize": {
+  "serverInfo": {
+   "name": "qompack",
+   "version": "0.3.0"
+  },
+  "protocolVersion": "2025-06-18"
+ },
+ "calls": [
+  {
+   "tool": "recall",
+   "args": {
+    "query": "path:notes.md"
+   },
+   "jsonrpc_line_bytes": 664,
+   "isError": false,
+   "error": null,
+   "text_bytes": 328,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 14,
+     "ephemeral": true,
+     "hash": "sha256:2d27e325b166905cf023254d2aa91c4dc35f79f2f9cbe41aa5b372c0c01ff1bb",
+     "tool_use_id": "qompack-mcp:94bcbe368107",
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "hits": [
+      {
+       "hash": "sha256:eec183d333c48beb4766815681fe76104525dd2ee3296762d45f4daa45a17d2e",
+       "path": "notes.md",
+       "tool": "FileRead",
+       "summary": "",
+       "ts": "2026-09-30T14:14:12Z",
+       "score": 1.12,
+       "tool_use_id": "toolu_01UqdUTTsG2LhYJXwQF77ogs",
+       "span": [
+        0,
+        190
+       ]
+      }
+     ],
+     "count": 1,
+     "found": true,
+     "query": {
+      "text": "",
+      "path": "notes.md",
+      "symbol": "",
+      "tool": ""
+     }
+    }
+   ]
+  },
+  {
+   "tool": "recall",
+   "args": {
+    "query": "COBALT"
+   },
+   "jsonrpc_line_bytes": 817,
+   "isError": false,
+   "error": null,
+   "text_bytes": 475,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 10,
+     "ephemeral": true,
+     "hash": "sha256:231f002bb54662421aae1343c37888726942da5c798eb6d58ae7de834a380ab4",
+     "tool_use_id": "qompack-mcp:519e25c895a3",
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "hits": [
+      {
+       "hash": "sha256:8e2488398d4686c8d5bcdaa2cba71dadc4f28cca1ae99ccff4e6f2fe8f4e95fb",
+       "path": "",
+       "tool": "UserPromptSubmit",
+       "summary": "Call the MCP tool mcp__plugin_qompack_qompack__recall with query \"COBALT\". Then call mcp__plugin_qompack_qompack__exp…",
+       "ts": "2026-09-30T14:14:14Z",
+       "score": 0.268,
+       "tool_use_id": "prompt_dddfef64-d5f6-41f2-b924-4863be1b2b5d_2",
+       "span": [
+        0,
+        289
+       ]
+      }
+     ],
+     "count": 1,
+     "found": true,
+     "query": {
+      "text": "COBALT",
+      "path": "",
+      "symbol": "",
+      "tool": ""
+     },
+     "denied": 4
+    }
+   ]
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "tool_use_id": "toolu_01UqdUTTsG2LhYJXwQF77ogs"
+   },
+   "jsonrpc_line_bytes": 919,
+   "isError": false,
+   "error": null,
+   "text_bytes": 457,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 8,
+     "ephemeral": true,
+     "expansions": 1,
+     "hash": "sha256:5ec97866a028d8bd9f9158db22cef8844651ee5d1166160f32d560dd4fb355c9",
+     "path": "notes.md",
+     "promoted": false,
+     "span": [
+      0,
+      190
+     ],
+     "tool_use_id": "qompack-mcp:3772e2e779bf",
+     "total_bytes": 190,
+     "truncated": false,
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "found": true,
+     "hash": "sha256:eec183d333c48beb4766815681fe76104525dd2ee3296762d45f4daa45a17d2e",
+     "path": "notes.md",
+     "tool": "FileRead",
+     "span": [
+      0,
+      190
+     ],
+     "total_bytes": 190,
+     "truncated": false,
+     "widened": false,
+     "expansions": 1,
+     "promoted": false,
+     "content": "{\"type\":\"text\",\"file\":{\"filePath\":\"<tmp>\",\"content\":\"# Notes\\n\\nThe project codeword is COBALT-LYNX-417.\\nThe release train leaves on Thursday.\\n\",\"numLines\":5,\"startLine\":1,\"totalLines\":5}}"
+    }
+   ]
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "tool_use_id": "toolu_012hYXyzT82aSQDxsfVaUZWB"
+   },
+   "jsonrpc_line_bytes": 1275,
+   "isError": false,
+   "error": null,
+   "text_bytes": 761,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 7,
+     "ephemeral": true,
+     "expansions": 1,
+     "hash": "sha256:9dda9052084df155b1a7954133057d4ee5f1550ea1ada825ec281b4a3ab73fb5",
+     "path": "data.txt",
+     "promoted": false,
+     "span": [
+      0,
+      468
+     ],
+     "tool_use_id": "qompack-mcp:d34787f9a066",
+     "total_bytes": 468,
+     "truncated": false,
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "found": true,
+     "hash": "sha256:5ee4ad1324e9e33d4be836145881aacbe122b843153cc303cb0320933f778f2c",
+     "path": "data.txt",
+     "tool": "FileRead",
+     "span": [
+      0,
+      468
+     ],
+     "total_bytes": 468,
+     "truncated": false,
+     "widened": false,
+     "expansions": 1,
+     "promoted": false,
+     "content": "{\"type\":\"text\",\"file\":{\"filePath\":\"<tmp>\",\"content\":\"row 1: 10\\nrow 2: 17\\nrow 3: 24\\nrow 4: 31\\nrow 5: 38\\nrow 6: 45\\nrow 7: 52\\nrow 8: 59\\nrow 9: 66\\nrow 10: 73\\nrow 11: 80\\nrow 12: 87\\nrow 13: 94\\nrow 14: 101\\nrow 15: 108\\nrow 16: 115\\nrow 17: 122\\nrow 18: 129\\nrow 19: 136\\nrow 20: 143\\nrow 21: 1...[468 chars total]"
+    }
+   ]
+  },
+  {
+   "tool": "already_tried",
+   "args": {
+    "target": "data.txt parsing",
+    "approach": "regex per row"
+   },
+   "jsonrpc_line_bytes": 544,
+   "isError": false,
+   "error": null,
+   "text_bytes": 258,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 3,
+     "ephemeral": true,
+     "hash": "sha256:8f8edb9016a4a060941ccf9f47931fecc9aa208e84304c0d3e265d87f3981cf3",
+     "tool_use_id": "qompack-mcp:47ac8d665d85"
+    }
+   },
+   "json": [
+    {
+     "state": "active",
+     "reason": "every row is fixed-format 'row N: V'; a split on ': ' is enough and a regex adds nothing",
+     "evidence": "sha256:52775b683ab2e2c081e72cacdb4190d665fb4ffa64e1a2fa34ea72ca04093fec",
+     "scope": "project",
+     "recorded_at": "2026-09-30T14:14:26Z"
+    }
+   ]
+  },
+  {
+   "tool": "why",
+   "args": {
+    "decision_id": "dec_a220df719af3"
+   },
+   "jsonrpc_line_bytes": 802,
+   "isError": false,
+   "error": null,
+   "text_bytes": 500,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 1,
+     "ephemeral": true,
+     "hash": "sha256:fede70d219f8fa5914a7b1732ed509741e3e9abfad3d3a1dac70485dc830175d",
+     "tool_use_id": "qompack-mcp:d95f5dd742f5"
+    }
+   },
+   "json": [
+    {
+     "alternatives_rejected": [
+      "regex per row"
+     ],
+     "checkpoint_seq": 1,
+     "decision_id": "dec_a220df719af3",
+     "evidence": "sha256:52775b683ab2e2c081e72cacdb4190d665fb4ffa64e1a2fa34ea72ca04093fec",
+     "evidence_bytes": 88,
+     "found": true,
+     "hint": "call expand with hash=sha256:52775b683ab2e2c081e72cacdb4190d665fb4ffa64e1a2fa34ea72ca04093fec to read the evidence",
+     "turn": 5,
+     "what": "rejected \"regex per row\" for data.txt parsing",
+     "why": "every row is fixed-format 'row N: V'; a split on ': ' is enough and a regex adds nothing"
+    }
+   ]
+  },
+  {
+   "tool": "timeline",
+   "args": {},
+   "jsonrpc_line_bytes": 905,
+   "isError": false,
+   "error": null,
+   "text_bytes": 567,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 0,
+     "ephemeral": true,
+     "hash": "sha256:b9a717f80eb71fb30e87d35cb8f86146b0aa3ea6364d2a5d4b8d924e93e1c4af",
+     "tool_use_id": "qompack-mcp:69284e54a974"
+    }
+   },
+   "json": [
+    {
+     "count": 2,
+     "found": true,
+     "from": 0,
+     "frontier": 0,
+     "segments": [
+      {
+       "checkpoint_seq": 1,
+       "closed": true,
+       "encoded_once": true,
+       "end_ts": "2026-09-30T14:14:29Z",
+       "end_turn": 5,
+       "features": {
+        "gap_seconds": 0,
+        "lexical_cohesion": 0,
+        "path_jaccard": 0,
+        "prob_changepoint": 2.797899471288112e-05,
+        "todo_transition": 0,
+        "tool_shift": 0
+       },
+       "id": 1,
+       "start_ts": "2026-09-30T14:14:10Z",
+       "start_turn": 0,
+       "tokens": 1460
+      },
+      {
+       "checkpoint_seq": 0,
+       "closed": true,
+       "encoded_once": false,
+       "end_ts": "2026-09-30T14:15:02Z",
+       "end_turn": 9,
+       "features": null,
+       "id": 2,
+       "start_ts": "2026-09-30T14:14:29Z",
+       "start_turn": 6,
+       "tokens": 1016
+      }
+     ],
+     "to": 9
+    }
+   ]
+  },
+  {
+   "tool": "recall",
+   "args": {
+    "query": "path:later.md"
+   },
+   "jsonrpc_line_bytes": 402,
+   "isError": false,
+   "error": null,
+   "text_bytes": 95,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 0,
+     "ephemeral": true,
+     "hash": "sha256:311b6fa5eb75ff9695b5ae3bf12fb05aa56e72b77eaba73e8ac8cdbca01ee7f4",
+     "tool_use_id": "qompack-mcp:d49ab6fc70fc",
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "hits": [],
+     "count": 0,
+     "found": false,
+     "query": {
+      "text": "",
+      "path": "later.md",
+      "symbol": "",
+      "tool": ""
+     }
+    }
+   ]
+  }
+ ],
+ "stderr_tail": ""
+}

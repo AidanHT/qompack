@@ -1,0 +1,25 @@
+{
+ "turn": 17,
+ "tool": "mcp__plugin_qompack_qompack__expand",
+ "tool_use_id": "toolu_01EpZcTtJb9FjKMvz6Znv3Ch",
+ "arguments": {
+  "tool_use_id": "toolu_019fKPtUNmrBMVoXqnbGmLkL"
+ },
+ "host_is_error": false,
+ "result": {
+  "found": true,
+  "hash": "sha256:92f68c79afc52b18eeca5cb0fa98500c9e460a7af0e29470a982e360fc128ea6",
+  "path": "src/cache.go",
+  "tool": "FileRead",
+  "span": [
+   0,
+   312
+  ],
+  "total_bytes": 312,
+  "truncated": false,
+  "widened": false,
+  "expansions": 1,
+  "promoted": false,
+  "content": "{\"type\":\"text\",\"file\":{\"filePath\":\"<tmp>\",\"content\":\"package cache\\n\\n// Evict drops entries older than the ttl. Memory stays flat because entries are re-fetched.\\nfunc Evict(ttlSeconds int) int {\\n\\tif ttlSeconds <= 0 {\\n\\t\\treturn 0\\n\\t}\\n\\treturn ttlSeconds\\n}\\n\",\"numLines\":10,\"startLine\":1,\"totalLines\":10}}"
+ }
+}

@@ -1,0 +1,77 @@
+UAT-05 re-run on candidate 4 (D47) — an explicit user correction after the original requirement, a /qompack:pin made
+while the daemon runs, then /compact: the block must carry the correction after the original (current authority
+visible) and the pin, fsck must not report a stale pins view; then the tiny-budget repeat (step 5). Also C4.3.
+Agent-executed on the owner's real host per owner decision D3 by a Claude Code workflow subagent (Opus 5.5) — not human
+UAT.
+
+Date 2026-09-29 21:40-23:20 America/Toronto. Sessions used: 1 (run1-session/, sessions-c4 n=6, 56 s). Step 5 was run
+WITHOUT a second model session (the part's budget lost one session to a lane error, sessions.tsv n=5): the row allows
+the repeat "on a hook invocation", so the hook entry point `qompack session-start` was run by hand with a SessionStart
+source=compact payload for run 1's session. Model claude-haiku-4-5-20251001, Claude Code 2.1.280, Windows 11 Home 25H2
+build 10.0.26200.9457, frozen bundle 0.3.0 (BUNDLE.json sha256 aa7da0e1...558d, commit 9f6a2fad) via --plugin-dir.
+Preconditions cli/00-preconditions.txt: fresh project (reports.py, data/meta.txt, README.md; git init + add), defaults
+(rehydrate minTokens 8000 / maxTokens 12000, eliminationsTopN 8, reinjection.sessionStartCompact true), DEFAULT idle
+exit, initial absence recorded (cli/00-backup-create-absent exit 1).
+
+Run 1 (run1-session/stream.jsonl): T1 requirement "the export must use a semicolon (;)" + Read reports.py; T2
+"/qompack:pin Never write to prod.db from the export code." -> "pinned inv_8382970dffd4 (source: user)" with the daemon
+running; T3 "Correction: the export delimiter must be a TAB character, not a semicolon. The semicolon requirement is
+superseded."; T4 record_eliminated -> {"id":"elim_cb75b399ddfb",...,"scope":"session",...,"status":"active"} (the ledger
+answers before any compaction; candidate 3: "elimination ledger not present in this build"); T5 `cat data/meta.txt`;
+T6 "/compact"; T7 (before: data/meta.txt deleted) -> ticket REL-5521-KESTREL "From the Read result shown just above in
+the system reminders" (the host's re-attachment) and "Delimiter: TAB ... From the SessionStart hook's 'Original user
+intent' section showing the conversation evolution" (Qompack's block); T8 /qompack:dropped --json -> {"count":0,
+"drops":[]}. Every hook success/exit 0, stderr empty.
+
+Step 2, the injected block (run1-block2-SessionStart-compact.txt; 3,093 UTF-16 units, inline, no persisted-output):
+delimiters "<!-- qompack:injected seq=1 ver=1 -->" ... "<!-- /qompack:injected -->" then the probe line; sections in
+the fixed order 1 Invariants ([inv_8382970dffd4] the pin), 2 Original user intent (the verbatim semicolon requirement,
+then "Evolution (most recent first)": cat data/meta.txt, record_eliminated, the TAB CORRECTION, the /qompack:pin
+prompt), 3 Approaches already eliminated (semicolon, [active]), 4 Decisions ([dec_dde1ccbde407] rejected "semicolon
+delimiter"), 5 Current work, 6 Pointers, 8 Retrieval. Current authority is visible: the correction is carried after the
+original and nothing older is rendered above it; the eliminated approach and its decision say the same. No native-shrink
+claim.
+Step 3 (run1-state-rehydrate.json): tokens 938, budget 12000, dropped [], degraded false.
+Step 4 (cli/run1-dropped-json): {"count":0,"drops":[]}.
+Pins (F-UAT05-2 re-checked, FIXED): pins/invariants.json holds inv_8382970dffd4, the same as invariants.jsonl; fsck
+(cli/run1-post-fsck-json) exit 0, pins ok (no stale view); the next checkpoint and block carry the pin.
+Diagnostics after the session (cli/run1-post-*): status all holding, doctor no degraded row, fsck exit 0 every row ok.
+
+Step 5, tiny budget (cli/run2-*):
+ run2-a: the hook with --set runtime.rehydrate.maxTokens=150 --set runtime.rehydrate.minTokens=150 while run 1's daemon
+   ran: the payload was the full default block, state budget 12000.
+ run2-b: <project>/.qompack/config.json {"runtime":{"rehydrate":{"minTokens":150,"maxTokens":150}}} written; config
+   print shows maxTokens 150 from the project file; the day log says "daemon: config reloaded"
+   changed="[runtime.rehydrate.maxTokens runtime.rehydrate.minTokens]"; the same hook still built the full block with
+   budget 12000.
+ run2-c: the running daemon was TERMINATED (run2-c-stop-daemon.txt: lock pid 73660, image qompack.exe, command line
+   "daemon --project <this project>"), because the step needs a daemon that starts with the tiny budget; the same hook
+   then spawned a fresh daemon and answered (run2-block-tiny-budget.txt, 362 UTF-16 units): section 1 (the pin) and
+   section 7 cut to its counted tail "- … and 14 more; call dropped()". run2-state-rehydrate.json: tokens 109, budget
+   150, degraded true, 14 drops with the tier1 entry FIRST: "OVERFLOW: the verbatim original user intent did not fit the
+   rehydration payload and is emitted whole or not at all; restore:
+   expand(tool_use_id=prompt_042dfca0-5f24-464a-95c1-643603b4e13d_0)", then the four evolution deltas (checkpoint
+   pointers), the elimination (already_tried call), the decision (why call), current work, four pointers, and "affordance
+   tier1 — OVERFLOW: tier-1 material did not fit ...". run2-dropped-json returns the complete 14-entry report.
+   run2-fsck-json exit 0, pins ok.
+
+Findings:
+ F-C4-UAT05-1 (doc vs product): step 5's "--set runtime.rehydrate.maxTokens=<small> on a hook invocation" has no effect
+   when a daemon builds the rehydration: the daemon's own config sets the budget (internal/daemon/rehydrate_service.go
+   reads s.o.Cfg.Runtime.Rehydrate.MaxTokens), not the hook's --set layer (run2-a).
+ F-C4-UAT05-2 (product): a project config change of runtime.rehydrate.* is logged as "daemon: config reloaded" with those
+   keys changed, but the running daemon keeps rehydrating with its startup budget (run2-b; reload.go updates d.cfg while
+   the rehydrate service reads the copy it was built with) — the reload log claims a change that is not applied.
+ F-C4-UAT05-3 (ADR deviation, same shape as candidate 3's run 2): at the tiny budget the retrieval line (section 8) is
+   evicted ("affordance tier1 OVERFLOW") while the pinned invariant is kept, although ADR 0011 (D5 refinement 2) says
+   tier 1 admits item 8 first so every overflow pointer is backed by it.
+ O-UAT05-4: a hand-run SessionStart(compact) for an ended session re-opens it: the daemon ended it at 22:12 as
+   "abandoned; no SessionEnd arrived" (silentMs 1815423) and then kept running past its idle exit (a hand-probe artefact,
+   not a host flow). The run-2 daemon the hand hook started behaved the same (abandoned at 22:49:59) and ended by its
+   default idle exit at 23:20:09, the "up to twice the setting" troubleshooting describes.
+
+Result: fail (candidate 4, D50) — the expectation is read literally, and section 2 renders the superseded original
+above the correction (lines 31-32's "nothing older is rendered above it" is wrong: the verbatim semicolon original comes
+first, and the TAB correction is third in the evolution, under two later ordinary prompts). Recorded pass by the run,
+relabelled 2026-09-30 under D50. Rollback: initial state absent (recorded); the post-run store is retained; no backup or restore was run;
+cross-version and activation checks unverified. Guard: guard/sessions.txt ("session 6 UAT-05 run 1").

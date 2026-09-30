@@ -143,6 +143,33 @@ failure: `status` shows the assertion results the *daemon* holds, and no `Sessio
 ever run there, so there were none. A project that has never hosted a session has nothing to report,
 and reports exactly that.
 
+The banner counts what the rows established, not their `OK` column (`internal/commands/render.go`,
+`renderContract`; `internal/contract/refresh.go`, `StandingOf`). `all holding` means every row
+reports something actually seen. Otherwise it reads, for example, `host contract: 9 assertion(s),
+none failing: 4 holding, 1 pending, 4 with nothing to judge` and names each pending row on its own
+`pending:` line. A row is pending while the observation it waits for has not arrived:
+`not-yet-observed`, `initialize-pending`, `transcript-pending` or `marker-absent-once`. A row has
+nothing to judge when it reads `not-yet-implemented` or another "nothing was seen" spelling from §1,
+such as `first-session` or `retired`. The standard nine always include one such row:
+`precompact.custom_instructions_accepted` reads `retired` (or `not-yet-implemented`). So the
+standard set never reads `all holding`, and a healthy project reads `none failing` with `0 pending`,
+for example `host contract: 9 assertion(s), none failing: 7 holding, 0 pending, 2 with nothing to
+judge`.
+
+The rows come from the last `SessionStart`, which runs before the MCP handshake and before the probe
+reaches the transcript. So `status` reads `.qompack/state/history.json` too. Once it records the
+handshake or the observed probe, `mcp.server_registered` reads `initialize-received` and
+`hook.additional_context_delivered` reads `sentinel-observed` without waiting for the next session.
+Once it records that two of the session's prompts missed the probe, that row reads `sentinel not
+found after two chances` and is counted as failing, with a note that it was read from
+`state/history.json`. The mode on the page does not change until the next `SessionStart` evaluates
+the row. `doctor` reads the observation ledger (`state/observations.json`) the same way: when a
+capability's newest entry is the start's `not_observed` and history.json records the observation or
+the spent chances, the row reports that outcome and says it was read from `state/history.json`
+(`internal/cli/doctor.go`, `capabilityRow`). The ledger itself is not rewritten. A row that was
+already failing at the start is never rewritten this way; the next `SessionStart` evaluates it
+again.
+
 **Action.** No action; this is a recorded limit. See §2 for the `unavailable` latency rows.
 
 ### Qompack is inactive in the home directory
@@ -329,7 +356,19 @@ value is refused as a violation (`internal/config/validate.go`) — and the key
 
 **Symptom.** Retrieved content is shorter, emptier or stranger than the thing you remember.
 
-**Diagnose.** Read the record's `Fidelity`. The eight values and what each means are tabulated in
+**Diagnose.** Read the capture's fidelity where it is recorded: on the capture's sidecar record,
+one JSON file per host delivery under `.qompack/records/captures/<xx>/<observation id>.json`. No
+retrieval response carries it — `expand` and `re_read` report only what the read itself did (`span`,
+`truncated`, a `«redacted:…»` placeholder) — and no command prints it: the `fidelity:` line of
+`qompack fsck` is store-level restore fidelity, a different enumeration. To find the sidecar for a
+tool result, search the sidecars for its host `tool_use_id` (the one a `recall` hit names, or the
+one you passed to `expand`; not the `qompack-mcp:…` id of the call itself), for example
+`grep -l '"tool_use_id":"toolu_…"' .qompack/records/captures/*/*.json`, or in PowerShell
+`Select-String -List -SimpleMatch '"tool_use_id":"toolu_…"' .qompack\records\captures\*\*.json`; a
+prompt has no `tool_use_id`, so match its `session` and `op` `observe.prompt`. In the sidecar read
+`fidelity`, and beside it `redacted`, `truncated`, `source_bytes` (the size the host delivered),
+`outcome` and `capture_error`. The file also holds the permitted payload itself (`bytes`), so treat
+it like the rest of the store. The eight values and what each means are tabulated in
 [docs/user-guide.md](user-guide.md#fidelity-coverage-and-error-states); the actions are here.
 
 | Fidelity | What to do about it |
@@ -349,6 +388,11 @@ live-disk fallback anywhere in retrieval, and none may be added
 contents for a missing historical original would bypass every capture-time policy the original went
 through, and is the defect the contract forbids. **Nothing is reconstructed from current files.**
 
+**Binary files read `exact`.** A capture of a binary file's `cat` output or of an image is the text
+or base64 the host delivered, so its fidelity is `exact` and a search for the file's original bytes
+finds nothing; a `Read` the host refused as binary was never captured at all. The host decodes;
+Qompack does not ([docs/user-guide.md](user-guide.md#fidelity-coverage-and-error-states)).
+
 **Subagent work.** A child agent's detail enters the archive through one door: `internal/observer`'s
 step 8, "On `SubagentStop`, capture the subagent's returned summary and its tool-result hashes, so
 the parent gains a retrieval path into detail it never held" (`internal/observer/doc.go`). If that
@@ -358,7 +402,7 @@ hook did not fire, the child's work was not captured by another route.
 hook at all, and therefore whether it lands as `prefix`, `partial` or nothing, was not probed on
 this tree; Qompack records what the host delivers and has no separate notion of an interruption.
 To settle it: interrupt a long-running tool call in an installed host session, then read that
-record's fidelity through `expand`.
+capture's sidecar under `.qompack/records/captures/` as above.
 
 **Action.** Treat fidelity as the answer to "what may I quote from this?", and stop there.
 
@@ -422,8 +466,8 @@ covering what you asked for, widened to a symbol boundary where one is known
 ([docs/mcp-tools.md](mcp-tools.md#expand)).
 
 **Action.** Page with the `next_span` in the response, or pass `full: true` when you genuinely need
-the whole object. Note that `full: true` returns the whole *available* object — fidelity and
-coverage still qualify it.
+the whole object. Note that `full: true` returns the whole *available* object — the capture's
+fidelity, recorded on its sidecar and not in the response ([§3](#3-capture-gaps)), still qualifies it.
 
 ---
 
@@ -559,6 +603,38 @@ in a build where its gate had passed is refused in one where it has not), and
 [Retired-meaning keys](config-reference.md#retired-meaning-keys) (still applied, with a warning, and
 no longer meaning what the old documentation said). Then run `qompack self-test`, read
 `config.capture`, and confirm a hook records, per the action above.
+
+### A config change that did not take effect
+
+**Symptom.** You edited `.qompack/config.json` while a daemon was running, and the daemon still
+behaves as it did before.
+
+**Diagnose.** Read `LOUD.log` (or `qompack status`'s recent loud lines) after the change. The running
+daemon reloads the configuration when the project's `config.json` changes, at the next session start
+or idle tick, and a key it did not apply is named there, in the `keys` field of one of two lines:
+
+```
+daemon: config change needs a daemon restart to take effect; the running daemon keeps the value it started with
+daemon: config change has no effect in this build; nothing reads these keys, before or after a restart
+```
+
+The day log's `config reloaded` line lists the keys the reload applied, under `changed`. Those lines
+are the reload you can see. The daemon also has an `admin.reload` request, which reloads whether or
+not the file changed and answers with the same three lists (`changed`, `restart_required` and
+`no_effect`), but it is an IPC op only: no `qompack` subcommand sends `admin.reload` in this build.
+
+**Meaning.** Every key the reload lists as changed is in effect when it returns. A key named as
+needing a restart is held by something the daemon built when it started: the daemon keeps the value
+it started with, and the next daemon applies the new one. A key named as having no effect is read by
+nothing in 0.3.0, before or after a restart: `runtime.logging`, `runtime.selection.loopWarningsEnabled`,
+`runtime.telemetry`, `selection.deltaScoring` and `selection.submodular.lazyGreedy`. Which key is
+which is tabulated, generated from the daemon's own table, in
+[Reloading the configuration](config-reference.md#reloading-the-configuration).
+
+**Action.** For a key needing a restart, let the daemon exit when idle (the entry "A daemon is running
+and you want it to stop" in §7) and let the next hook start a new one, which loads the whole
+configuration. For a key with no effect, there is nothing to apply: remove it, or leave it and expect
+the line again at each change of the file.
 
 ## 7. Daemon problems
 

@@ -1,0 +1,22 @@
+{"event": "start", "t": "2026-09-30 10:48:47 -0400", "pid": 6472, "lock_root_matches": true}
+{"event": "sample", "t": "2026-09-30 10:48:48 -0400", "elapsed_s": 1, "store_bytes": 795497, "WorkingSet64": 42385408, "PeakWorkingSet64": 42385408, "CPU": 0.65625}
+{"event": "sample", "t": "2026-09-30 10:49:49 -0400", "elapsed_s": 61, "store_bytes": 795497, "WorkingSet64": 42418176, "PeakWorkingSet64": 42418176, "CPU": 0.671875}
+{"event": "sample", "t": "2026-09-30 10:50:50 -0400", "elapsed_s": 122, "store_bytes": 796120, "WorkingSet64": 42569728, "PeakWorkingSet64": 42569728, "CPU": 0.71875}
+{"event": "sample", "t": "2026-09-30 10:51:51 -0400", "elapsed_s": 183, "store_bytes": 797004, "WorkingSet64": 42586112, "PeakWorkingSet64": 42586112, "CPU": 0.78125}
+{"event": "sample", "t": "2026-09-30 10:52:51 -0400", "elapsed_s": 244, "store_bytes": 797004, "WorkingSet64": 38588416, "PeakWorkingSet64": 42729472, "CPU": 0.828125}
+{"event": "sample", "t": "2026-09-30 10:53:52 -0400", "elapsed_s": 305, "store_bytes": 797002, "WorkingSet64": 38588416, "PeakWorkingSet64": 42729472, "CPU": 0.875}
+{"event": "sample", "t": "2026-09-30 11:05:19 -0400", "elapsed_s": 992, "store_bytes": 797006, "WorkingSet64": 38084608, "PeakWorkingSet64": 42729472, "CPU": 0.890625}
+{"event": "sample", "t": "2026-09-30 11:06:21 -0400", "elapsed_s": 1053, "store_bytes": 797032, "WorkingSet64": 38105088, "PeakWorkingSet64": 42729472, "CPU": 0.953125}
+{"event": "sample", "t": "2026-09-30 11:07:22 -0400", "elapsed_s": 1114, "store_bytes": 797032, "WorkingSet64": 38096896, "PeakWorkingSet64": 42729472, "CPU": 1.03125}
+{"event": "sample", "t": "2026-09-30 11:08:23 -0400", "elapsed_s": 1175, "store_bytes": 797032, "WorkingSet64": 38109184, "PeakWorkingSet64": 42729472, "CPU": 1.078125}
+{"event": "sample", "t": "2026-09-30 11:09:23 -0400", "elapsed_s": 1236, "store_bytes": 797034, "WorkingSet64": 38125568, "PeakWorkingSet64": 42729472, "CPU": 1.140625}
+{"event": "sample", "t": "2026-09-30 11:10:24 -0400", "elapsed_s": 1297, "store_bytes": 797034, "WorkingSet64": 37830656, "PeakWorkingSet64": 42729472, "CPU": 1.203125}
+{"event": "sample", "t": "2026-09-30 11:11:25 -0400", "elapsed_s": 1358, "store_bytes": 797026, "WorkingSet64": 37822464, "PeakWorkingSet64": 42729472, "CPU": 1.265625}
+{"event": "sample", "t": "2026-09-30 11:12:27 -0400", "elapsed_s": 1419, "store_bytes": 797026, "WorkingSet64": 37834752, "PeakWorkingSet64": 42729472, "CPU": 1.296875}
+{"event": "sample", "t": "2026-09-30 11:13:27 -0400", "elapsed_s": 1480, "store_bytes": 797026, "WorkingSet64": 37834752, "PeakWorkingSet64": 42729472, "CPU": 1.359375}
+{"event": "sample", "t": "2026-09-30 11:14:28 -0400", "elapsed_s": 1541, "store_bytes": 797028, "WorkingSet64": 37847040, "PeakWorkingSet64": 42729472, "CPU": 1.421875}
+{"event": "sample", "t": "2026-09-30 11:15:29 -0400", "elapsed_s": 1602, "store_bytes": 797028, "WorkingSet64": 37847040, "PeakWorkingSet64": 42729472, "CPU": 1.484375}
+{"event": "sample", "t": "2026-09-30 11:16:30 -0400", "elapsed_s": 1663, "store_bytes": 797032, "WorkingSet64": 37851136, "PeakWorkingSet64": 42729472, "CPU": 1.546875}
+{"event": "sample", "t": "2026-09-30 11:17:31 -0400", "elapsed_s": 1724, "store_bytes": 797032, "WorkingSet64": 37851136, "PeakWorkingSet64": 42729472, "CPU": 1.609375}
+{"event": "sample", "t": "2026-09-30 11:18:33 -0400", "elapsed_s": 1785, "store_bytes": 797032, "WorkingSet64": 37859328, "PeakWorkingSet64": 42729472, "CPU": 1.65625}
+{"event": "exited", "t": "2026-09-30 11:19:33 -0400", "waited_s": 1846, "lock_exists": false, "store_bytes": 731440}

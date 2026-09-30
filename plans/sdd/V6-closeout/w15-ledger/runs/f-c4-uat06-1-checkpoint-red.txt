@@ -1,0 +1,12 @@
+=== RUN   TestForkCarriesItsParentsEliminationsUpToTheForkPoint
+    fork_inherit_test.go:70: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-ledger/internal/checkpoint/fork_inherit_test.go:70
+        	Error:      	Should be true
+        	Test:       	TestForkCarriesItsParentsEliminationsUpToTheForkPoint
+        	Messages:   	the fork carries its parent's elimination from before the fork: []
+--- FAIL: TestForkCarriesItsParentsEliminationsUpToTheForkPoint (0.32s)
+=== RUN   TestAncestryFollowsTheForkChain
+--- PASS: TestAncestryFollowsTheForkChain (0.17s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/checkpoint	0.765s
+FAIL

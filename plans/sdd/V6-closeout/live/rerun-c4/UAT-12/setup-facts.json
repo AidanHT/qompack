@@ -1,0 +1,25 @@
+{
+ "project": "<scratch>/install/uat12/proj",
+ "git": "git init + one commit (so checkpoint git pointers resolve)",
+ "files": {
+  "README.md": 140,
+  "calc.py": 66,
+  "private/deny.txt": 169,
+  "big.log": 317200,
+  "blob.bin": 3000,
+  "pixel.png": 1467
+ },
+ "big_log_lines": 1300,
+ "outside": {
+  "<scratch>/install/uat12/outside/outside.txt": 53
+ },
+ "planted_secrets": "none (C4.6 is not part of the candidate 4 install re-run)",
+ "file_sha256": {
+  "README.md": "8b05c1ddd16cd31b5ecab4a25f83737faf7d02ed9fe5701ebce19561b5447cf4",
+  "calc.py": "0825f76e4924c2e610b2ac94d5f2cc4d708272ee7bded5f40955d62e19b18871",
+  "private/deny.txt": "750f1f4b9fb7e6b641d5001b098aecae62a3132c9b2c757829e61295270b513e",
+  "big.log": "119419e5c844a8a9d3a5fc97f214580e12158d9ea68facb1b23cf9bdf705e960",
+  "blob.bin": "50c91d34282fd3d7ad9d4784c9473b3c78a565d413fe0b58c636fea8d4a050b8",
+  "pixel.png": "97da97e68d3dc5244ea5f30fd0b6f841896fa4d7fdcfde983eed8f30bed2632a"
+ }
+}

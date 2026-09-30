@@ -1,0 +1,10 @@
+{
+ "turn": 16,
+ "tool": "mcp__plugin_qompack_qompack__recall",
+ "tool_use_id": "toolu_016nXbFM3JoagEEdfeQWx6ou",
+ "arguments": {
+  "query": ""
+ },
+ "host_is_error": true,
+ "result": "recall requires a non-empty query: free text, or a selector with a value (path:<glob>, symbol:<name>, tool:<name>)"
+}

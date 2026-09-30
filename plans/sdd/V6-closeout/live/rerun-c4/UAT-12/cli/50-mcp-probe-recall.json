@@ -1,0 +1,290 @@
+{
+ "server": {
+  "name": "qompack",
+  "version": "0.3.0"
+ },
+ "limit": 262144,
+ "tools": [
+  "recall",
+  "expand",
+  "re_read",
+  "already_tried",
+  "record_eliminated",
+  "timeline",
+  "why",
+  "dropped"
+ ],
+ "calls": [
+  {
+   "tool": "recall",
+   "args": {
+    "query": "HERON-43",
+    "k": 20
+   },
+   "jsonrpc_line_bytes": 3503,
+   "isError": false,
+   "error": null,
+   "text_bytes": [
+    2852
+   ],
+   "text_within_limit": true,
+   "meta": {
+    "qompack": {
+     "elapsed_ms": 50,
+     "ephemeral": true,
+     "hash": "sha256:e101012ddbd8532fa58ee99f704d55d3a7727d54f87ad10322bec81381691658",
+     "tool_use_id": "qompack-mcp:773efe97d3b9",
+     "untrusted": true
+    }
+   },
+   "fields": {
+    "count": 7,
+    "found": true,
+    "query": {
+     "text": "HERON-43",
+     "path": "",
+     "symbol": "",
+     "tool": ""
+    },
+    "denied": 5
+   },
+   "field_names": [
+    "hits",
+    "count",
+    "found",
+    "query",
+    "denied"
+   ],
+   "hits": [
+    {
+     "path": "readme.md",
+     "tool": "mcp__plugin_qompack_qompack__re_read",
+     "tool_use_id": "toolu_01XR5ad8uMNZHeKUqwT2HPAq"
+    },
+    {
+     "path": "readme.md",
+     "tool": "mcp__qompack__re_read",
+     "tool_use_id": "qompack-mcp:2d43dbf1cb55"
+    },
+    {
+     "path": "",
+     "tool": "UserPromptSubmit",
+     "tool_use_id": "prompt_73ed06aa-e6d3-4bbd-8828-f96c6cae37eb_0"
+    },
+    {
+     "path": "readme.md",
+     "tool": "mcp__qompack__expand",
+     "tool_use_id": "qompack-mcp:71c5bcc0c245"
+    },
+    {
+     "path": "",
+     "tool": "SubagentStop",
+     "tool_use_id": "subagent_1c4edc6d-c64d-40c6-a5f6-38ffdb11a199_10"
+    },
+    {
+     "path": "",
+     "tool": "UserPromptSubmit",
+     "tool_use_id": "prompt_1c4edc6d-c64d-40c6-a5f6-38ffdb11a199_8"
+    },
+    {
+     "path": "readme.md",
+     "tool": "FileRead",
+     "tool_use_id": "toolu_01LbceThCcVSpEVzez5XUKFY"
+    }
+   ]
+  },
+  {
+   "tool": "recall",
+   "args": {
+    "query": "path:README.md",
+    "k": 20
+   },
+   "jsonrpc_line_bytes": 1498,
+   "isError": false,
+   "error": null,
+   "text_bytes": [
+    1079
+   ],
+   "text_within_limit": true,
+   "meta": {
+    "qompack": {
+     "elapsed_ms": 38,
+     "ephemeral": true,
+     "hash": "sha256:cb6d3f1c7055f594311a062250c3b7506558302cbe38c40cc0b7ca4e15baa965",
+     "tool_use_id": "qompack-mcp:17b71357c414",
+     "untrusted": true
+    }
+   },
+   "fields": {
+    "count": 4,
+    "found": true,
+    "query": {
+     "text": "",
+     "path": "README.md",
+     "symbol": "",
+     "tool": ""
+    }
+   },
+   "field_names": [
+    "hits",
+    "count",
+    "found",
+    "query"
+   ],
+   "hits": [
+    {
+     "path": "readme.md",
+     "tool": "mcp__plugin_qompack_qompack__re_read",
+     "tool_use_id": "toolu_01XR5ad8uMNZHeKUqwT2HPAq"
+    },
+    {
+     "path": "readme.md",
+     "tool": "mcp__qompack__re_read",
+     "tool_use_id": "qompack-mcp:2d43dbf1cb55"
+    },
+    {
+     "path": "readme.md",
+     "tool": "mcp__qompack__expand",
+     "tool_use_id": "qompack-mcp:71c5bcc0c245"
+    },
+    {
+     "path": "readme.md",
+     "tool": "FileRead",
+     "tool_use_id": "toolu_01LbceThCcVSpEVzez5XUKFY"
+    }
+   ]
+  },
+  {
+   "tool": "recall",
+   "args": {
+    "query": "tool:Read HERON-43",
+    "k": 20
+   },
+   "jsonrpc_line_bytes": 2642,
+   "isError": false,
+   "error": null,
+   "text_bytes": [
+    2029
+   ],
+   "text_within_limit": true,
+   "meta": {
+    "qompack": {
+     "elapsed_ms": 32,
+     "ephemeral": true,
+     "hash": "sha256:b2a2bc7067f0753c2fe8e8317a496692aad76d5157a78c36cb6a99a107f2d594",
+     "tool_use_id": "qompack-mcp:4f1f0a2c59dc",
+     "untrusted": true
+    }
+   },
+   "fields": {
+    "count": 5,
+    "found": true,
+    "query": {
+     "text": "HERON-43",
+     "path": "",
+     "symbol": "",
+     "tool": "Read"
+    },
+    "denied": 2
+   },
+   "field_names": [
+    "hits",
+    "count",
+    "found",
+    "query",
+    "denied"
+   ],
+   "hits": [
+    {
+     "path": "readme.md",
+     "tool": "FileRead",
+     "tool_use_id": "toolu_01LbceThCcVSpEVzez5XUKFY"
+    },
+    {
+     "path": "pixel.png",
+     "tool": "FileRead",
+     "tool_use_id": "toolu_01GW22FPHNMsihjT973whYMi"
+    },
+    {
+     "path": "pixel.png",
+     "tool": "FileRead",
+     "tool_use_id": "toolu_01XMf4fK8ZgsAhC3f9MDREYs"
+    },
+    {
+     "path": "big.log",
+     "tool": "FileRead",
+     "tool_use_id": "toolu_01Jc6uDYtjZCgUbbxss11zRr"
+    },
+    {
+     "path": "calc.py",
+     "tool": "FileRead",
+     "tool_use_id": "toolu_01XCWmWycFeA4wjexux5fNVR"
+    }
+   ]
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "tool_use_id": "toolu_01LbceThCcVSpEVzez5XUKFY"
+   },
+   "jsonrpc_line_bytes": 971,
+   "isError": false,
+   "error": null,
+   "text_bytes": [
+    509
+   ],
+   "text_within_limit": true,
+   "meta": {
+    "qompack": {
+     "elapsed_ms": 13,
+     "ephemeral": true,
+     "expansions": 2,
+     "hash": "sha256:2d980053855d2b4c14efbe39156a1972ea794fbbb0c76ff7acdb7ad77d09624b",
+     "path": "readme.md",
+     "promoted": true,
+     "span": [
+      0,
+      242
+     ],
+     "tool_use_id": "qompack-mcp:c156d0883b3a",
+     "total_bytes": 242,
+     "truncated": false,
+     "untrusted": true
+    }
+   },
+   "fields": {
+    "found": true,
+    "hash": "sha256:b9380feb6c91b31d4f715832114ce90e38ea380ac50e638160fd09176cfc27a8",
+    "path": "readme.md",
+    "tool": "FileRead",
+    "span": [
+     0,
+     242
+    ],
+    "total_bytes": 242,
+    "truncated": false,
+    "widened": false,
+    "expansions": 2,
+    "promoted": true
+   },
+   "field_names": [
+    "found",
+    "hash",
+    "path",
+    "tool",
+    "span",
+    "total_bytes",
+    "truncated",
+    "widened",
+    "expansions",
+    "promoted",
+    "content"
+   ],
+   "content_bytes": 242,
+   "content_has_nul": false,
+   "content_has_fffd": false,
+   "content_has_redacted_placeholder": false
+  }
+ ],
+ "stderr_tail": ""
+}

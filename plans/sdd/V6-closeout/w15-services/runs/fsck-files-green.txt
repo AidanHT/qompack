@@ -1,0 +1,10 @@
+=== RUN   TestFsck_ALiveDaemonsUnmaterializedFilesViewIsNotADefect
+--- PASS: TestFsck_ALiveDaemonsUnmaterializedFilesViewIsNotADefect (0.15s)
+=== RUN   TestFsck_ALiveDaemonsLaggingFilesViewIsNotADefect
+--- PASS: TestFsck_ALiveDaemonsLaggingFilesViewIsNotADefect (0.33s)
+=== RUN   TestFsck_AQuietProjectsUnmaterializedFilesViewStaysADefect
+--- PASS: TestFsck_AQuietProjectsUnmaterializedFilesViewStaysADefect (0.09s)
+=== RUN   TestFsck_ALiveDaemonsViewThatContradictsItsLogStaysADefect
+--- PASS: TestFsck_ALiveDaemonsViewThatContradictsItsLogStaysADefect (0.19s)
+PASS
+ok  	github.com/qompack/qompack/internal/cli	1.014s

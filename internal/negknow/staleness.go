@@ -99,7 +99,7 @@ func (l *ledger) markStaleLocked(ctx context.Context, ids []string, because []st
 
 	if len(flipped) > 0 {
 		l.m.Counter(counterStaleFlipped).Add(int64(len(flipped)))
-		switch l.elim.RebuildOnStale {
+		switch l.elims().RebuildOnStale {
 		case rebuildImmediate:
 			if _, _, err := l.rebuildLocked(ctx); err != nil && firstErr == nil {
 				firstErr = err
@@ -240,7 +240,7 @@ func staleReasons(changed []core.Dep, owners map[string][]string) map[string][]s
 // proved could not be written — and Query then declines to back an ACTIVE answer from a record with
 // dependencies (§11.3 invariant 8), without setting the ledger-wide watermark: a failure on a few
 // records says nothing about the rest. Both are zero when there was nothing to compare.
-func (l *ledger) refreshMatches(ctx context.Context, mh core.Hash, scope Scope, sess core.SessionID) (
+func (l *ledger) refreshMatches(ctx context.Context, mh core.Hash, scope Scope, v viewer) (
 	verified bool, cov core.Omission,
 ) {
 	s := l.deps.Store
@@ -260,7 +260,7 @@ func (l *ledger) refreshMatches(ctx context.Context, mh core.Hash, scope Scope, 
 	)
 	for _, i := range l.byMatch[mh] {
 		r := &l.recs[i]
-		if r.Status != StatusActive || !l.visible(*r, scope, sess) {
+		if r.Status != StatusActive || !l.visible(*r, scope, v) {
 			continue
 		}
 		for _, d := range r.DependsOn {

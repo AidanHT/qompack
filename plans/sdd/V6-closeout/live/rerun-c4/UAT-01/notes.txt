@@ -1,0 +1,88 @@
+UAT-01 - install, then record what is installed. Candidate 4 re-run (decision D47), commit
+9f6a2fad, frozen bundle qompack-bundles/c4/qompack-plugin-0.3.0-windows-amd64. Agent-executed on the
+owner's real host per owner decision D3 by a Claude Code workflow subagent (Opus 5.5) - not human UAT.
+
+Date 2026-09-29 20:43-20:47 America/Toronto. Snapshot in snapshot.txt. Sessions used: 1 (haiku).
+Candidate 3's evidence stays at plans/sdd/V6-closeout/live/uat/UAT-01/ (not touched).
+
+Preconditions (cli/00-preconditions.txt): fresh disposable project <scratch>/install/uat01/proj
+(git init + one commit; README.md with code word OSPREY-4, calc.py); no <project>/.qompack/; no
+~/.qompack at all (so no user config.json); zero QOMPACK_* variables in every step and in the
+session; no --set. Parent Claude Code linkage variables removed (tools/unset.sh), as in candidate 3.
+
+Step 1 install (real profile, LOCAL scope, disposable marketplace qompack-live around a copy of the
+frozen bundle, checksums verified, BUNDLE.json identical): cli/01 marketplace add --scope local
+exit 0 "(declared in local settings)"; cli/02 install -s local --json exit 0; cli/03 plugin list
+--json (qompack entry only): scope local, version 0.3.0, installPath
+~/.claude/plugins/cache/qompack-live/qompack/0.3.0, projectPath = the disposable project.
+
+Session (session/): two user turns (Read README.md; call the recall MCP tool with "OSPREY"), exit 0,
+16.1 s. Init: mcp_servers [plugin:qompack:qompack connected, source plugin]; the 8 tools
+mcp__plugin_qompack_qompack__{already_tried,dropped,expand,re_read,recall,record_eliminated,
+timeline,why}; slash_commands qompack:{dropped,eval,pin,recall,status,why} (no qompack:checkpoint,
+D36); plugins qompack 0.3.0 source qompack@qompack-live, path = the marketplace SOURCE directory
+(host behaviour, as candidate 3 saw). Hooks (hook_response success, exit 0): SessionStart:startup,
+UserPromptSubmit x2, PostToolUse (Read, ToolSearch, mcp recall), Stop x2. recall answered 2 hits,
+found true. SessionEnd: no host stream event, empty stderr; index/sessions.jsonl carries the
+session's end (the flush ran).
+
+Steps 2-8 (bundle CLI, cwd = project, no QOMPACK_*):
+ 2 version.txt: "0.3.0", exit 0.
+ 4 cli/s4-plugin-json.txt: installed .claude-plugin/plugin.json version "0.3.0" = step 2 = BUNDLE.json
+   version (the stamped version; matches the current expectation). No plugin/ prefix in the bundle.
+   As they stand: source tree plugin/.claude-plugin/plugin.json at 9f6a2fad reads 0.1.0; the last
+   tag reachable from 9f6a2fad is v0.2.0. Cache checksums verify; bin and BUNDLE.json identical to
+   the frozen bundle.
+ 5 cli/s5-installed-hooks.json + cli/s5-s6-host-discovery.txt: the seven events, each exec form
+   ${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe + args (observe tool 5 s; checkpoint 20; flush 20;
+   session-start 15; observe stop 5; observe stop --subagent 10; observe prompt 5). The host fired
+   SessionStart, UserPromptSubmit, PostToolUse, Stop; PreCompact and SubagentStop not exercised by a
+   two-turn session; SessionEnd ran per the store; nothing fired that is not declared.
+ 6 same file: the host's 8 tools equal docs/mcp-tools.md's eight (match True).
+ 7 config-provenance.txt: all 108 leaves "// default config.Defaults()"; the ten gated switches,
+   runtime.telemetry.enabled and runtime.migration.compaction.blockManualCompact all false.
+ 8 self-test.txt / self-test.json: exit 0, mode full, every row ok/info, no critical row. OBSERVED
+   ("to be confirmed at execution"), installed CLI self-test: hook.additional_context_delivered,
+   precompact.has_time_to_write, precompact.custom_instructions_accepted and mcp.server_registered
+   read not-yet-implemented; session_start.fires marker-found; session_start.source_compact
+   no-precompact-pending; hook.payload_shape "payload shape valid"; transcript.readable
+   no-transcript-path; plugin.root_resolves unset. The daemon's own contract snapshot
+   (cli/x4-status-json, the declared producers): session_start.fires first-session,
+   hook.additional_context_delivered not-yet-observed, precompact.has_time_to_write timeout-unknown,
+   precompact.custom_instructions_accepted RETIRED (as the expectation says wherever its producer is
+   declared), mcp.server_registered initialize-pending, transcript.readable transcript-pending,
+   plugin.root_resolves resolved; state/history.json records mcp_initialized true and the sentinel
+   observed true.
+
+Candidate 3's three defects, re-checked (the point of this re-run):
+ - fsck: cli/x3-fsck-json (daemon live) exit 0, index.tool_use ok (6 scanned); cli/y1 (daemon
+   stopped) exit 0; cli/y3 fsck --seal-check exit 0, "the full dual-reader seal check passed". The
+   MCP server's own record (mcp__qompack__recall) is now indexed at turn 3, the turn of the call
+   (store/index_tool_use.jsonl). FIXED.
+ - status: cli/x1-status exit 0, "host contract: 9 assertion(s), all holding" (candidate 3: "2 of 9
+   FAILING"). FIXED.
+ - doctor vs fsck: cli/x2-doctor-json exit 0, captures.unpublished ok "0 gap(s) across 7
+   sidecar(s)", agreeing with fsck's captures (7 scanned, 0) and publication rows and with status
+   daemon.publication.unpublished_captures 0. FIXED.
+
+Daemon: pid 76452 ran from the D10 staged copy ~/.qompack/bin/1e9d0cc8.../qompack.exe with
+"daemon --project <project>"; daemon.lock now carries the additive root field. Defaults only (idle
+exit 1800 s), so cli/x5-stop-daemon.txt terminated it after checking lock pid + image qompack.exe +
+a command line naming this project. Afterwards fsck's daemon row reads the lock as STALE (ok) and
+doctor's scope.daemon reads "degraded held by pid 76452, not reachable" (same fact, doctor's label).
+
+Rollback: not applicable - initial state absent (no <project>/.qompack/, recorded); per the row's
+rule the run is retained as evidence; no pre-run store exists to restore.
+
+Cleanup: cli/z1 uninstall -s local --json exit 0 ("keptData": false); cli/z2 marketplace remove
+exit 0; the host left plugins/cache/qompack-live/qompack/0.3.0/ marked .orphaned_at, run-created,
+BUNDLE.json equal to the frozen bundle, removed (cli/z3). An empty plugins/data/qompack-qompack-live/
+the host created during the session was removed by homeguard clean. Guard after cleanup:
+fingerprint unchanged (guard/install.txt). The staged copy was removed at the end of the part.
+
+Findings (none is a fail criterion of this row):
+ F1 (doc, stale brief premise) the install part's brief says install.md §3 claims install/update/
+    uninstall have no --json on 2.1.280; the committed install.md §3 already records that 2.1.280
+    accepts --json (observed again: install/update/uninstall --json each print one JSON line). No
+    documentation change needed.
+ F2 (host) init reports the plugin path as the marketplace source directory, not installPath.

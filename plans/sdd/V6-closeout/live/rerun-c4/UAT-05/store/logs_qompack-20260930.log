@@ -1,0 +1,12 @@
+ts=2026-09-30T01:40:11.5309737Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-09-30T01:40:11.5845507Z level=info msg="observer: session registered" session=042dfca0-5f24-464a-95c1-643603b4e13d source=startup turn=0 segment=1
+ts=2026-09-30T01:40:11.5845507Z level=info msg="scheduler: session bound" session=042dfca0-5f24-464a-95c1-643603b4e13d effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+ts=2026-09-30T01:41:06.4405804Z level=info msg="observer: gc" scanned=15 deleted=0 freed=0 truncated=false
+ts=2026-09-30T01:41:56.147689Z level=info msg="daemon: config reloaded" changed="[runtime.rehydrate.maxTokens runtime.rehydrate.minTokens]"
+ts=2026-09-30T02:12:11.6306641Z level=warn msg="daemon: ending abandoned session; no SessionEnd arrived and it has been silent past the idle-exit window" session=042dfca0-5f24-464a-95c1-643603b4e13d silentMs=1815423
+ts=2026-09-30T02:19:59.3188455Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-09-30T02:19:59.3206519Z level=info msg="daemon: took over the project from a daemon that ended without releasing its lock" pid=73660 version=0.3.0 started=2026-09-30T01:40:11Z
+ts=2026-09-30T02:19:59.7067143Z level=loud msg="daemon: publication accounting incomplete; a zero gap count is only a lower bound" captures_scanned=14 objects_scanned=0 truncated=false notes="scan interrupted before it finished; publication accounting did not finish"
+ts=2026-09-30T02:19:59.7282014Z level=info msg="scheduler: session bound" session=042dfca0-5f24-464a-95c1-643603b4e13d effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+ts=2026-09-30T02:19:59.7679993Z level=loud msg="rehydrate: tier-1 material exceeds the hard budget cap" budget=150 spent=87 ceiling_chars=9400 spent_chars=240
+ts=2026-09-30T02:49:59.7743341Z level=warn msg="daemon: ending abandoned session; no SessionEnd arrived and it has been silent past the idle-exit window" session=042dfca0-5f24-464a-95c1-643603b4e13d silentMs=1800000

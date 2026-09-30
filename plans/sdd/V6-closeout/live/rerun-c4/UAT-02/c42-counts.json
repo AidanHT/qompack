@@ -1,0 +1,92 @@
+{
+ "session_id": "ab01bf84-7951-44ec-85e7-62adae04c127",
+ "store": {
+  "tool_use_records": 33,
+  "by_tool": {
+   "UserPromptSubmit": 10,
+   "FileRead": 5,
+   "Bash": 1,
+   "mcp__qompack__recall": 4,
+   "ToolSearch": 1,
+   "mcp__plugin_qompack_qompack__recall": 3,
+   "mcp__qompack__expand": 3,
+   "mcp__plugin_qompack_qompack__expand": 3,
+   "Agent": 1,
+   "SubagentStop": 2
+  },
+  "prompt_records": 10,
+  "capture_records(non-prompt)": 23,
+  "subagent_tagged": 2,
+  "mcp_self_records(qompack-mcp:*)": 7,
+  "sessions_records": 1,
+  "sessions_line": [
+   {
+    "v": 1,
+    "s": "ab01bf84-7951-44ec-85e7-62adae04c127",
+    "start": 1790731431982,
+    "end": 1790731520073,
+    "turns": 19,
+    "tooluses": 33,
+    "roots": 33,
+    "objects": 75,
+    "bytes": 347507,
+    "rawbytes": 350816,
+    "dedup": 1.0095221103459786
+   }
+  ],
+  "observation_records": 26,
+  "turn_order_violations": []
+ },
+ "host_stream": {
+  "hook_responses_by_name": {
+   "SessionStart:startup": 1,
+   "UserPromptSubmit": 10,
+   "PostToolUse:Read": 5,
+   "Stop": 10,
+   "PostToolUse:Bash": 1,
+   "PostToolUse:ToolSearch": 1,
+   "PostToolUse:mcp__plugin_qompack_qompack__recall": 3,
+   "PostToolUse:mcp__plugin_qompack_qompack__expand": 3,
+   "PostToolUse:Agent": 1,
+   "SubagentStop": 2,
+   "SessionStart:compact": 1
+  },
+  "tool_uses": {
+   "Read": 5,
+   "Bash": 1,
+   "ToolSearch": 1,
+   "mcp__plugin_qompack_qompack__recall": 3,
+   "mcp__plugin_qompack_qompack__expand": 3,
+   "Agent": 1,
+   "Read (subagent)": 1
+  },
+  "UserPromptSubmit_hooks": 10,
+  "PostToolUse_hooks": 14,
+  "tool_use_ids_main": 14,
+  "tool_use_ids_subagent": 1,
+  "host_tool_use_ids_missing_from_store": [
+   "toolu_01N2ra66wszXJgx6FG41sGPf"
+  ],
+  "store_ids_not_host_tool_uses": [
+   "prompt_ab01bf84-7951-44ec-85e7-62adae04c127_0",
+   "prompt_ab01bf84-7951-44ec-85e7-62adae04c127_10",
+   "prompt_ab01bf84-7951-44ec-85e7-62adae04c127_12",
+   "prompt_ab01bf84-7951-44ec-85e7-62adae04c127_14",
+   "prompt_ab01bf84-7951-44ec-85e7-62adae04c127_18",
+   "prompt_ab01bf84-7951-44ec-85e7-62adae04c127_2",
+   "prompt_ab01bf84-7951-44ec-85e7-62adae04c127_20",
+   "prompt_ab01bf84-7951-44ec-85e7-62adae04c127_4",
+   "prompt_ab01bf84-7951-44ec-85e7-62adae04c127_6",
+   "prompt_ab01bf84-7951-44ec-85e7-62adae04c127_8",
+   "qompack-mcp:188f5947985e",
+   "qompack-mcp:4a67275dba90",
+   "qompack-mcp:66a012d92a95",
+   "qompack-mcp:8be0493d4af8",
+   "qompack-mcp:9381b837446f",
+   "qompack-mcp:99028eca13da",
+   "qompack-mcp:c36ea79d4ac7",
+   "subagent_ab01bf84-7951-44ec-85e7-62adae04c127_16",
+   "subagent_ab01bf84-7951-44ec-85e7-62adae04c127_17"
+  ]
+ }
+}

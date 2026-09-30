@@ -1,0 +1,18 @@
+Accidental real session (sessions.tsv part sessions-c4 n=5) — a lane error, recorded because it counts against the
+part's 9-session budget.
+
+What happened (2026-09-29 21:38 America/Toronto): a Git Bash command line contained the bare word `lane.py`. Git Bash
+found ./lane.py (a Python helper in the scratch directory, "." is on PATH) and, the file having no shebang, executed it
+as a shell script. Its line `CLAUDE = "C:/.../claude.exe"` resolved `CLAUDE` case-insensitively to the host CLI and ran
+`claude = C:/.../claude.exe` in the operator's real profile, cwd <scratch>/sessions/c4 (no --plugin-dir, the operator's
+default model claude-opus-5-5). The CLI printed one text reply to the prompt "=" and exited after about 4 s; no tool was
+used (transcript-facts.json: 27 lines, tool_uses {}, one user and two assistant entries). Nothing else in the script ran:
+Bash stopped at the first Python `def` line with a syntax error. No qompack command ran and no daemon started.
+
+Effects: one host transcript under ~/.claude/projects/C--Users-Quant-AppData-Local-Temp-claude-qompack-live-sessions-c4/
+(a host surface; left untouched per the never-edit-~/.claude rule). The real-home guard check right after it
+(guard/sessions.txt, "session 5 ACCIDENTAL") reports the fingerprint unchanged.
+
+Consequence for the part: 8 sessions remained for 8 planned rows' sessions minus one, so UAT-05's step 5 (tiny budget)
+was run as a hook invocation (which the row allows) instead of a second model session; no row or session was skipped.
+Every later helper call in this lane used `python <script>` explicitly.

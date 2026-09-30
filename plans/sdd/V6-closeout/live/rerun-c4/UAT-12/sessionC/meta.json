@@ -1,0 +1,71 @@
+{
+ "args": [
+  "-p",
+  "--input-format",
+  "stream-json",
+  "--output-format",
+  "stream-json",
+  "--verbose",
+  "--include-hook-events",
+  "--model",
+  "claude-haiku-4-5-20251001",
+  "--max-turns",
+  "10",
+  "--setting-sources",
+  "project,local",
+  "--permission-mode",
+  "dontAsk",
+  "--allowedTools",
+  "Read,mcp__plugin_qompack_qompack__recall,mcp__plugin_qompack_qompack__expand,mcp__plugin_qompack_qompack__re_read,mcp__plugin_qompack_qompack__already_tried,mcp__plugin_qompack_qompack__record_eliminated,mcp__plugin_qompack_qompack__timeline,mcp__plugin_qompack_qompack__why,mcp__plugin_qompack_qompack__dropped,Bash(qompack status:*),Bash(qompack recall:*),Bash(qompack pin:*),Bash(qompack why:*),Bash(qompack dropped:*),Bash(qompack eval:*),Bash(cat:*)"
+ ],
+ "turns": [
+  {
+   "msg": "Call the MCP tool mcp__plugin_qompack_qompack__recall with query \"HERON-43\". Report the tool, path and tool_use_id of every hit.",
+   "ok": true,
+   "wall_s": 7.419,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 69652,
+    "WorkingSet64": 40382464,
+    "PeakWorkingSet64": 40382464,
+    "CPU": 0.5625,
+    "StartTime": "/Date(1790730231795)/"
+   },
+   "store_bytes": 3640786
+  },
+  {
+   "msg": "Call the MCP tool mcp__plugin_qompack_qompack__re_read with path \"README.md\" and reply with only the code word it contains.",
+   "ok": true,
+   "wall_s": 4.01,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 69652,
+    "WorkingSet64": 41689088,
+    "PeakWorkingSet64": 41689088,
+    "CPU": 0.703125,
+    "StartTime": "/Date(1790730231795)/"
+   },
+   "store_bytes": 3679265
+  },
+  {
+   "msg": "Use the Bash tool to run exactly this command: cat blob.bin\nThen use the Read tool to read pixel.png. Then reply with just the word done.",
+   "ok": true,
+   "wall_s": 4.811,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 69652,
+    "WorkingSet64": 43204608,
+    "PeakWorkingSet64": 43204608,
+    "CPU": 0.796875,
+    "StartTime": "/Date(1790730231795)/"
+   },
+   "store_bytes": 3742503
+  }
+ ],
+ "store_bytes_before": 3528542,
+ "started_ms": 1790730230784,
+ "pid": 63256,
+ "exit": 0,
+ "wall_s": 20.018,
+ "store_bytes_after": 3694761
+}

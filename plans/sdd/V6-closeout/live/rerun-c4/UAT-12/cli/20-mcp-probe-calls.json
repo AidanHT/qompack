@@ -1,0 +1,124 @@
+[
+ [
+  "expand",
+  {
+   "tool_use_id": "toolu_01Jc6uDYtjZCgUbbxss11zRr"
+  }
+ ],
+ [
+  "expand",
+  {
+   "tool_use_id": "toolu_01Jc6uDYtjZCgUbbxss11zRr",
+   "full": true
+  }
+ ],
+ [
+  "expand",
+  {
+   "tool_use_id": "toolu_01Jc6uDYtjZCgUbbxss11zRr",
+   "span": "217070:137282"
+  }
+ ],
+ [
+  "expand",
+  {
+   "tool_use_id": "toolu_01Jc6uDYtjZCgUbbxss11zRr",
+   "span": "217070:137282",
+   "full": true
+  }
+ ],
+ [
+  "expand",
+  {
+   "tool_use_id": "toolu_01Jc6uDYtjZCgUbbxss11zRr",
+   "span": "0:354352"
+  }
+ ],
+ [
+  "re_read",
+  {
+   "path": "big.log",
+   "full": true
+  }
+ ],
+ [
+  "re_read",
+  {
+   "path": "big.log"
+  }
+ ],
+ [
+  "expand",
+  {
+   "tool_use_id": "toolu_017dXpNXGXakoqRcbLuftezk"
+  }
+ ],
+ [
+  "expand",
+  {
+   "tool_use_id": "toolu_017dXpNXGXakoqRcbLuftezk",
+   "full": true
+  }
+ ],
+ [
+  "expand",
+  {
+   "tool_use_id": "toolu_01XMf4fK8ZgsAhC3f9MDREYs",
+   "full": true
+  }
+ ],
+ [
+  "expand",
+  {
+   "tool_use_id": "toolu_011XG5z29zSZZvejkXpLcgWK"
+  }
+ ],
+ [
+  "expand",
+  {
+   "hash": "sha256:880f90e7dd5fa42afc21a0d266d84bed504a07a2262c73cac39807cb5fb30f14"
+  }
+ ],
+ [
+  "re_read",
+  {
+   "path": "private/deny.txt"
+  }
+ ],
+ [
+  "recall",
+  {
+   "query": "ORCHID-DENY-8842"
+  }
+ ],
+ [
+  "recall",
+  {
+   "query": "path:private/deny.txt"
+  }
+ ],
+ [
+  "re_read",
+  {
+   "path": "<scratch>/install/uat12/outside/outside.txt"
+  }
+ ],
+ [
+  "re_read",
+  {
+   "path": "../outside/outside.txt"
+  }
+ ],
+ [
+  "expand",
+  {
+   "tool_use_id": "toolu_012kPLpTC1YibRXukSDHT71f"
+  }
+ ],
+ [
+  "expand",
+  {
+   "hash": "sha256:eaee600491d632f4f946b49971d45f75b2e418b8b7168b0d29a6ac25ef489381"
+  }
+ ]
+]

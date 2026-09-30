@@ -1,0 +1,173 @@
+{
+  "schema": 1,
+  "project": "<scratch>/install/uat12/recovery2",
+  "daemon_running": false,
+  "read_only": true,
+  "repairing": false,
+  "attempts_daemon_lock": false,
+  "checks": [
+    {
+      "id": "store",
+      "ok": true,
+      "severity": 0,
+      "count": 0,
+      "detail": [
+        "store present at <scratch>\\install\\uat12\\recovery2\\.qompack"
+      ]
+    },
+    {
+      "id": "daemon",
+      "ok": true,
+      "severity": 0,
+      "count": 0,
+      "detail": [
+        "no daemon holds the lock; this project is quiet"
+      ]
+    },
+    {
+      "id": "objects",
+      "ok": true,
+      "severity": 0,
+      "scanned": 550,
+      "count": 0
+    },
+    {
+      "id": "index.roots",
+      "ok": true,
+      "severity": 0,
+      "scanned": 102,
+      "count": 0
+    },
+    {
+      "id": "index.tool_use",
+      "ok": false,
+      "severity": 2,
+      "scanned": 107,
+      "count": 4,
+      "detail": [
+        "tool_use qompack-mcp:022a367089e9 reports turn 0 after turn 9 in session ; turns are monotone",
+        "tool_use prompt_25699de3-9b52-419f-9dc7-b24109e38445_0 reports turn 0 after turn 11 in session ; turns are monotone",
+        "tool_use prompt_73ed06aa-e6d3-4bbd-8828-f96c6cae37eb_0 reports turn 0 after turn 26 in session ; turns are monotone",
+        "tool_use toolu_01XMf4fK8ZgsAhC3f9MDREYs reports turn 0 after turn 5 in session ; turns are monotone"
+      ]
+    },
+    {
+      "id": "index.files",
+      "ok": true,
+      "severity": 0,
+      "scanned": 5,
+      "count": 0
+    },
+    {
+      "id": "index.segments",
+      "ok": true,
+      "severity": 0,
+      "scanned": 1,
+      "count": 0
+    },
+    {
+      "id": "captures",
+      "ok": true,
+      "severity": 0,
+      "scanned": 82,
+      "count": 0
+    },
+    {
+      "id": "checkpoints",
+      "ok": true,
+      "severity": 0,
+      "scanned": 2,
+      "count": 0,
+      "detail": [
+        "the chain from 0003 verifies across 2 checkpoint(s)"
+      ]
+    },
+    {
+      "id": "pins",
+      "ok": true,
+      "severity": 0,
+      "scanned": 0,
+      "count": 0,
+      "detail": [
+        "pins/invariants.jsonl does not exist yet"
+      ]
+    },
+    {
+      "id": "negknow",
+      "ok": true,
+      "severity": 0,
+      "scanned": 0,
+      "count": 0,
+      "detail": [
+        "eliminations: 0 record(s), 0 active, 0 stale",
+        "tried.bloom loads: 95872 bit(s), k=7, fill 0.0000, estimated fp 0.0000, saturated=false"
+      ]
+    },
+    {
+      "id": "delivery",
+      "ok": true,
+      "severity": 0,
+      "scanned": 168,
+      "count": 0,
+      "detail": [
+        "state/delivery-lease-position.json is a v1 position document",
+        "state/delivery-ack-position.json is a v1 position document",
+        "the full dual-reader seal check was NOT run: it acquires the daemon lock, which the default run never does; pass --seal-check, or run `qompack admin delivery-seal --check` on a stopped project"
+      ]
+    },
+    {
+      "id": "spool",
+      "ok": true,
+      "severity": 0,
+      "scanned": 0,
+      "count": 0
+    },
+    {
+      "id": "retention",
+      "ok": true,
+      "severity": 0,
+      "scanned": 82,
+      "count": 0
+    },
+    {
+      "id": "migrate",
+      "ok": true,
+      "severity": 0,
+      "scanned": 0,
+      "count": 0,
+      "detail": [
+        "the legacy-import gate \"store.migrate.legacyImportCutover\" is closed (owner SP-20 M1-04), so NewMigrator refuses and each backup is verified by re-hashing its manifest's files directly"
+      ]
+    },
+    {
+      "id": "fidelity",
+      "ok": true,
+      "severity": 0,
+      "scanned": 102,
+      "count": 0,
+      "detail": [
+        "fidelity is counted as the store reports it; a canonical or unavailable root is never promoted to exact"
+      ]
+    },
+    {
+      "id": "quarantine",
+      "ok": true,
+      "severity": 0,
+      "scanned": 0,
+      "count": 0,
+      "detail": [
+        "0 quarantined file(s), 0 byte(s), preserved as evidence and never swept"
+      ]
+    }
+  ],
+  "repairs": [],
+  "fidelity": {
+    "canonical": 49,
+    "exact": 53
+  },
+  "quarantine": {
+    "files": 0,
+    "bytes": 0
+  },
+  "exit": 1
+}
