@@ -1,0 +1,54 @@
+--- FAIL: TestWriteAtomic_AFailedWriteLeavesTheTargetAndNoStagingFile (0.00s)
+    writefail_linux_test.go:55: 
+        	Error Trace:	/work/cx-w16b-cover-clone-before-4e11cd1-20261001T161627Z/internal/paths/writefail_linux_test.go:37
+        	            				/work/cx-w16b-cover-clone-before-4e11cd1-20261001T161627Z/internal/paths/writefail_linux_test.go:55
+        	Error:      	Should be empty, but was /tmp/go-build2217984037/b001/testlog.txt
+        	Test:       	TestWriteAtomic_AFailedWriteLeavesTheTargetAndNoStagingFile
+        	Messages:   	RLIMIT_FSIZE must not be lowered in a process that keeps a test log
+--- FAIL: TestCreateNew_AFailedWriteIsNotSealed (0.00s)
+    writefail_linux_test.go:72: 
+        	Error Trace:	/work/cx-w16b-cover-clone-before-4e11cd1-20261001T161627Z/internal/paths/writefail_linux_test.go:37
+        	            				/work/cx-w16b-cover-clone-before-4e11cd1-20261001T161627Z/internal/paths/writefail_linux_test.go:72
+        	Error:      	Should be empty, but was /tmp/go-build2217984037/b001/testlog.txt
+        	Test:       	TestCreateNew_AFailedWriteIsNotSealed
+        	Messages:   	RLIMIT_FSIZE must not be lowered in a process that keeps a test log
+--- FAIL: TestRestoreLog_ReportsAFailedWrite (0.00s)
+    writefail_linux_test.go:86: 
+        	Error Trace:	/work/cx-w16b-cover-clone-before-4e11cd1-20261001T161627Z/internal/paths/writefail_linux_test.go:37
+        	            				/work/cx-w16b-cover-clone-before-4e11cd1-20261001T161627Z/internal/paths/writefail_linux_test.go:86
+        	Error:      	Should be empty, but was /tmp/go-build2217984037/b001/testlog.txt
+        	Test:       	TestRestoreLog_ReportsAFailedWrite
+        	Messages:   	RLIMIT_FSIZE must not be lowered in a process that keeps a test log
+--- FAIL: TestReplacePinsView_AFailedWriteKeepsTheViewAndCleansStaging (0.09s)
+    writefail_linux_test.go:99: 
+        	Error Trace:	/work/cx-w16b-cover-clone-before-4e11cd1-20261001T161627Z/internal/paths/writefail_linux_test.go:37
+        	            				/work/cx-w16b-cover-clone-before-4e11cd1-20261001T161627Z/internal/paths/writefail_linux_test.go:99
+        	Error:      	Should be empty, but was /tmp/go-build2217984037/b001/testlog.txt
+        	Test:       	TestReplacePinsView_AFailedWriteKeepsTheViewAndCleansStaging
+        	Messages:   	RLIMIT_FSIZE must not be lowered in a process that keeps a test log
+--- FAIL: TestAppendLinesDurable_AFailedWriteAppendsNothingAndIsNotANotDurableLine (0.00s)
+    writefail_linux_test.go:118: 
+        	Error Trace:	/work/cx-w16b-cover-clone-before-4e11cd1-20261001T161627Z/internal/paths/writefail_linux_test.go:37
+        	            				/work/cx-w16b-cover-clone-before-4e11cd1-20261001T161627Z/internal/paths/writefail_linux_test.go:118
+        	Error:      	Should be empty, but was /tmp/go-build2217984037/b001/testlog.txt
+        	Test:       	TestAppendLinesDurable_AFailedWriteAppendsNothingAndIsNotANotDurableLine
+        	Messages:   	RLIMIT_FSIZE must not be lowered in a process that keeps a test log
+--- FAIL: TestAppendersStopWhenTheTornTailCannotBeTerminated (0.00s)
+    --- FAIL: TestAppendersStopWhenTheTornTailCannotBeTerminated/AppendJSONL (0.00s)
+        writefail_linux_test.go:143: 
+            	Error Trace:	/work/cx-w16b-cover-clone-before-4e11cd1-20261001T161627Z/internal/paths/writefail_linux_test.go:37
+            	            				/work/cx-w16b-cover-clone-before-4e11cd1-20261001T161627Z/internal/paths/writefail_linux_test.go:143
+            	Error:      	Should be empty, but was /tmp/go-build2217984037/b001/testlog.txt
+            	Test:       	TestAppendersStopWhenTheTornTailCannotBeTerminated/AppendJSONL
+            	Messages:   	RLIMIT_FSIZE must not be lowered in a process that keeps a test log
+    --- FAIL: TestAppendersStopWhenTheTornTailCannotBeTerminated/AppendLinesDurable (0.00s)
+        writefail_linux_test.go:143: 
+            	Error Trace:	/work/cx-w16b-cover-clone-before-4e11cd1-20261001T161627Z/internal/paths/writefail_linux_test.go:37
+            	            				/work/cx-w16b-cover-clone-before-4e11cd1-20261001T161627Z/internal/paths/writefail_linux_test.go:143
+            	Error:      	Should be empty, but was /tmp/go-build2217984037/b001/testlog.txt
+            	Test:       	TestAppendersStopWhenTheTornTailCannotBeTerminated/AppendLinesDurable
+            	Messages:   	RLIMIT_FSIZE must not be lowered in a process that keeps a test log
+FAIL
+coverage: 89.1% of statements
+FAIL	github.com/qompack/qompack/internal/paths	3.603s
+FAIL

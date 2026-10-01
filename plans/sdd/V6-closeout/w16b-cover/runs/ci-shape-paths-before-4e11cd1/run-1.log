@@ -1,0 +1,4 @@
+PASS
+testing: can't write /tmp/go-build2992428863/b001/testlog.txt: write /tmp/go-build2992428863/b001/testlog.txt: file too large
+FAIL	github.com/qompack/qompack/internal/paths	3.548s
+FAIL
