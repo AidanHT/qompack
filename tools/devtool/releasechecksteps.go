@@ -210,6 +210,10 @@ func releaseCheckVulncheck(o releaseCheckOptions) releaseCheckOutcome {
 func releaseCheckDeterminism(o releaseCheckOptions) releaseCheckOutcome {
 	host := bundleTarget{OS: runtime.GOOS, Arch: runtime.GOARCH}
 	version, versionSrc := releaseCheckDeterminismVersion(o)
+	legal, err := readBundleLegalFiles(root)
+	if err != nil {
+		return rcFailf("%v", err)
+	}
 	dirs := make([]string, 0, 2)
 	for i := 0; i < 2; i++ {
 		base, err := os.MkdirTemp("", "qompack-determinism-")
@@ -225,6 +229,7 @@ func releaseCheckDeterminism(o releaseCheckOptions) releaseCheckOutcome {
 			build: func(goos, goarch, out string) error {
 				return goBuildRelease(goos, goarch, out, versionLdflags(version))
 			},
+			legal: legal,
 		}
 		dir, _, err := asm.assemble(host)
 		if err != nil {

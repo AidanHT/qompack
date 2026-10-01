@@ -28,7 +28,10 @@ current failure records.
    supported-scope table into `dist/release-notes.md`, attests build provenance for the archives
    and the marketplace document, and hands everything to goreleaser.
 6. **goreleaser creates a DRAFT release.** It builds nothing — every build entry in
-   `.goreleaser.yaml` is skipped — and uploads the six zips, `checksums.txt` and `marketplace.json`.
+   `.goreleaser.yaml` is skipped — and uploads the six zips, `checksums.txt`, `marketplace.json`,
+   `LICENSE` and `THIRD_PARTY_NOTICES.md`. Every zip carries the last two at its root as well: the
+   binary statically links the Go runtime and standard library, go-winio, klauspost/compress and
+   golang.org/x/sys, whose licences ask for their notices in a binary distribution.
    A person reads the scope table in the draft's notes and decides whether to publish. Nothing
    reaches users because a tag was pushed.
 7. **After publishing: review the marketplace pull request.** A full release triggers

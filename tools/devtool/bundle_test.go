@@ -35,6 +35,17 @@ func testAssembly(t *testing.T, outDir string) bundleAssembly {
 		goVersion: "go1.26.6",
 		outDir:    outDir,
 		build:     fixtureBuilder(t),
+		legal:     fixtureLegalFiles(),
+	}
+}
+
+// fixtureLegalFiles stands in for the repository's LICENSE and THIRD_PARTY_NOTICES.md, so the
+// layout and determinism tests do not depend on the notices page's current bytes.
+// TestReadBundleLegalFiles_ReadsTheRepositoryCopies checks the real files are what a run reads.
+func fixtureLegalFiles() map[string][]byte {
+	return map[string][]byte{
+		"LICENSE":                []byte("fixture licence\n"),
+		"THIRD_PARTY_NOTICES.md": []byte("# fixture notices\n"),
 	}
 }
 
@@ -99,6 +110,8 @@ func TestAssembleBundle_Layout(t *testing.T) {
 				".claude-plugin/plugin.json",
 				".mcp.json",
 				"BUNDLE.json",
+				"LICENSE",
+				"THIRD_PARTY_NOTICES.md",
 				"checksums.txt",
 				tc.wantBin,
 				"commands/dropped.md",
@@ -384,6 +397,7 @@ func TestAssembleBundle_HostRealBuild(t *testing.T) {
 		source:    bundleSource{Commit: "deadbeef", Dirty: true},
 		goVersion: runtime.Version(),
 		outDir:    t.TempDir(),
+		legal:     mustReadBundleLegalFiles(t),
 		build: func(goos, goarch, out string) error {
 			return goBuildRelease(goos, goarch, out, versionLdflags(version))
 		},
