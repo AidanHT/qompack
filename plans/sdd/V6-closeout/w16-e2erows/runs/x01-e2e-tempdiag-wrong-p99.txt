@@ -1,0 +1,17 @@
+TEMPORARY DIAGNOSTIC (product edit reverted right after the run): internal/commands/statuscollect.go latencyOf shows the p50 as the p99
+go test -p 2 -count=1 -v -run '^TestV5_ObserveToStatusRoundTrip$' ./test/e2e/  => EXIT 1
+        	Error:      	Not equal: 
+        	            	expected: 131000
+        	            	actual  : 20480
+        	Messages:   	B-A: p99
+        	Error:      	Not equal: 
+        	            	expected: 131000
+        	            	actual  : 20480
+        	Messages:   	B-A from disk: p99
+--- FAIL: TestV5_ObserveToStatusRoundTrip (8.40s)
+    --- FAIL: TestV5_ObserveToStatusRoundTrip/live (0.00s)
+    --- FAIL: TestV5_ObserveToStatusRoundTrip/daemon_down_falls_back_to_persisted_snapshot (0.05s)
+    --- PASS: TestV5_ObserveToStatusRoundTrip/nothing_observed_is_reported_as_unknown (0.03s)
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	8.648s
+FAIL

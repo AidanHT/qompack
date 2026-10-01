@@ -749,7 +749,7 @@ func (d *daemon) scanSentinelForPrompt(ev *hookio.Event, promptTS core.UnixMilli
 		found, _ := contract.ScanTranscriptForProbe(ev.TranscriptPath, h.Sentinel.Token,
 			h.Sentinel.ScanFrom, sentinelScanFromMintBytes)
 		if found || sentinelMissCounts(h.Sentinel, ev.SessionID, promptTS) {
-			h.RecordSentinelScanOf(found, nonce)
+			h.RecordSentinelScanAt(found, nonce, core.NowMilli(d.clk))
 			changed = true
 		}
 	}

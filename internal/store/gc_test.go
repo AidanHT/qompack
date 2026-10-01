@@ -1634,8 +1634,7 @@ func BenchmarkGC_50kObjects(b *testing.B) {
 		bytesPerRoot  = 13 << 10
 		wantMinObject = 40000
 	)
-	t := &testing.T{}
-	tp := newTestStore(t, withGranularChunker())
+	tp := newTestStore(b, withGranularChunker())
 	ctx := context.Background()
 
 	for i := 0; i < roots; i++ {
@@ -1649,7 +1648,7 @@ func BenchmarkGC_50kObjects(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
-	if got := len(tp.objectPaths(t)); got < wantMinObject {
+	if got := len(tp.objectPaths(b)); got < wantMinObject {
 		b.Fatalf("benchmark fixture built only %d objects; it is supposed to exercise ~50 000", got)
 	}
 

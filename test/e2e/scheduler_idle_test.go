@@ -44,6 +44,7 @@ const (
 	schedCounterNoWriter       = "sched.frontier.no_writer"
 	schedCounterPersist        = "sched.persist"
 	schedCounterSourcesUnavail = "checkpoint.sources.unavailable"
+	schedCounterCommitClose    = "sched.segment.closed.commit"
 	schedGaugeFrontierTicks    = "sched.frontier.ticks_since_advance"
 	schedCounterTapPanic       = "sched.tap.panic"
 	schedCounterPrefix         = "sched."
@@ -51,6 +52,7 @@ const (
 	schedHistGC                = "idle_task_gc"
 	schedStateScheduler        = "scheduler.json"
 	schedStateBOCD             = "bocd.json"
+	schedTriedBloom            = "tried.bloom"
 )
 
 // schedObserveToolPayload is observeToolPayload with a tool response large enough that the
@@ -68,6 +70,44 @@ func schedObserveToolPayload(t *testing.T, root string, id core.ToolUseID) []byt
 	})
 	require.NoError(t, err)
 	return b
+}
+
+// schedCommitToolPayload is a successful `git commit` run through the shell tool. It is the tap's
+// commit boundary (observer.isGitCommit, scheduler_tap.go closeOnBoundary): the daemon closes the
+// session's open segment at the record's turn and rolls its successor open, so the idle pass has one
+// closed, unencoded segment to advance the frontier over. Without one the frontier has nothing to
+// begin a draft for, and the no-ledger route below would go unexercised.
+func schedCommitToolPayload(t *testing.T, root string, id core.ToolUseID) []byte {
+	t.Helper()
+	input, err := json.Marshal(map[string]string{"command": `git commit -m "wire the idle frontier"`})
+	require.NoError(t, err)
+	resp, err := json.Marshal(map[string]any{
+		"stdout": "[main 1a2b3c4] wire the idle frontier\n 1 file changed, 1 insertion(+)\n",
+		"stderr": "", "interrupted": false,
+	})
+	require.NoError(t, err)
+	b, err := json.Marshal(hookio.Event{
+		HookEventName: "PostToolUse", SessionID: e2eSession, CWD: root,
+		ToolName: "Bash", ToolUseID: id,
+		ToolInput: input, ToolResponse: resp,
+	})
+	require.NoError(t, err)
+	return b
+}
+
+// schedReadDraft is cpReadDraft without the require: it runs inside a poll, against a file the
+// daemon replaces atomically while the row reads it, so a read or decode that fails is "not yet"
+// and its reason is handed back for the failure message.
+func schedReadDraft(root string, sess core.SessionID) (cpDraftState, string) {
+	b, err := os.ReadFile(paths.Long(filepath.Join(paths.Of(root).State, "draft-"+string(sess)+".json")))
+	if err != nil {
+		return cpDraftState{}, err.Error()
+	}
+	var d cpDraftState
+	if err := json.Unmarshal(b, &d); err != nil {
+		return cpDraftState{}, err.Error()
+	}
+	return d, ""
 }
 
 // pollUntil samples cond every tick until it holds or bound elapses. It is require.Eventually
@@ -100,6 +140,9 @@ func pollUntil(bound, tick time.Duration, cond func() bool) bool {
 //     idle task) carries the per-task histograms SP-05's RunOnce times every registered task
 //     into, under SP-12's names, and the `sched.*` family, and the frontier gauge only the
 //     ACTING body of act.advance_frontier can leave at zero;
+//   - a git commit closes a segment and the idle frontier encodes it into the session's draft
+//     although no ledger is open (D49), without opening one and without counting the source as
+//     unavailable;
 //   - state/scheduler.json and state/bocd.json exist and carry the session id, written by
 //     refresh_delta's Persist during the idle pass;
 //   - nothing about the scheduler was ever Loud.
@@ -131,16 +174,31 @@ func TestDaemonIdleRunsSchedulerWork(t *testing.T) {
 	require.True(t, held, "a reachable daemon holds daemon.lock")
 	daemonPID = pid
 
+	// A task boundary first: the commit closes the session's open segment, which is what the idle
+	// frontier then advances over (see the D49 block below). It comes BEFORE the two reads, and the
+	// row waits for the close to be durable, so the reads' tokens land in the successor segment:
+	// Evaluate plans act.advance_frontier only while the residual (tokens no checkpoint encodes) is
+	// positive (scheduler planBackground), so a session whose every token had just been encoded
+	// would leave the scheduler's acting body unplanned and the frontier gauge the poll waits on unset.
+	l := paths.Of(p.Root)
+	stdout, stderr, code = Run(t, bin, []string{"observe", "tool"}, schedCommitToolPayload(t, p.Root, "toolu_sched_commit"), env)
+	require.Equal(t, 0, code, "observe tool (git commit): stderr:\n%s", stderr)
+	requireParsesAsOutput(t, stdout)
+	segLog := paths.Long(filepath.Join(l.Index, "segments.jsonl"))
+	require.True(t, pollUntil(obsProcessBound, obsProcessTick, func() bool {
+		b, err := os.ReadFile(segLog)
+		return err == nil && strings.Contains(string(b), `"op":"close"`)
+	}), "the git commit never closed the session's open segment in %s within %s", segLog, obsProcessBound)
+
 	for i, id := range []core.ToolUseID{"toolu_sched_1", "toolu_sched_2"} {
 		stdout, stderr, code = Run(t, bin, []string{"observe", "tool"}, schedObserveToolPayload(t, p.Root, id), env)
 		require.Equal(t, 0, code, "observe tool #%d: stderr:\n%s", i, stderr)
 		requireParsesAsOutput(t, stdout)
 	}
-
-	l := paths.Of(p.Root)
 	metricsPath := filepath.Join(l.Metrics, "latency.json")
 	var snap obs.Snapshot
-	var last string
+	var draft cpDraftState
+	var last, lastDraft string
 	ok := pollUntil(schedIdleWorkBound, schedIdleWorkTick, func() bool {
 		b, err := os.ReadFile(metricsPath)
 		if err != nil {
@@ -166,11 +224,15 @@ func TestDaemonIdleRunsSchedulerWork(t *testing.T) {
 		if ticks, ran := s.Gauges[schedGaugeFrontierTicks]; !ran || ticks != 0 {
 			return false
 		}
+		if draft, lastDraft = schedReadDraft(p.Root, e2eSession); lastDraft != "" || len(draft.Encoded) == 0 {
+			return false // the frontier has not advanced a draft over the closed segment yet
+		}
 		snap = s
 		return true
 	})
-	require.True(t, ok, "the idle pass never ran SP-12's tasks into %s within %s (idle tick %s); last read: %s",
-		metricsPath, schedIdleWorkBound, schedIdleTick, last)
+	require.True(t, ok, "the idle pass never ran SP-12's tasks into %s, or never advanced the frontier into "+
+		"state/draft-%s.json, within %s (idle tick %s); last read: %s; draft: %+v %s",
+		metricsPath, e2eSession, schedIdleWorkBound, schedIdleTick, last, draft, lastDraft)
 
 	// The acting task ran against a REAL writer, and that is the direction that changed.
 	// sched.frontier.no_writer is the Rule W-2 posture of a runtime with no frontier advancer,
@@ -184,19 +246,42 @@ func TestDaemonIdleRunsSchedulerWork(t *testing.T) {
 	require.Zero(t, snap.Gauges[schedGaugeFrontierTicks],
 		"...and O5 was never starved: the acting body ran on every pass it was planned for")
 
-	// It found nothing to advance INTO, and that is by design rather than a hole. negknow.Open
-	// has exactly one production call site and fires on the first COMPACTION, because an eager
-	// open creates sketches/tried.bloom in every daemon that never compacts and §3.3 reserves
-	// that file for the ledger alone (TestE2E_ObserverThroughDaemon and V3-X08 both guard it).
-	// This daemon never compacts, so the SourceSet never resolves, and checkpoint's own
-	// advance_frontier reports unavailable
-	// once per pass -- counted, degraded, never Loud. The first PreCompact is what opens the
+	// It advanced WITHOUT a ledger, and that is the D49 rule (F-C4-C49-3): no ledger yet is not an
+	// advance_frontier error. The daemon opens its elimination ledger lazily, through one memoized
+	// opener (internal/daemon rehydrate_service.go): on a compaction, on the first already_tried or
+	// record_eliminated call (internal/cli openingLedger), or, only in a project that already holds
+	// elimination records, on the checkpoint sources' first resolve after Run is serving
+	// (internal/cli recordedLedger). This project holds none and this session neither compacts nor
+	// calls a ledger tool, so nothing opens one. Both frontier paths -- checkpoint's own
+	// advance_frontier and the scheduler's act.advance_frontier -- may begin a draft without
+	// negative knowledge (checkpoint admitNoLedger); whichever reaches the closed segment first
+	// encodes it, and the other finds nothing left to encode.
+	//
+	// Each assertion below is a regression this row exists to catch:
+	//   - a closed segment the commit boundary produced, or the frontier had nothing to advance over;
+	//   - a draft with that segment encoded (the poll above waited for it): a no-ledger case turned
+	//     back into an error leaves no draft at all;
+	//   - checkpoint.sources.unavailable at ZERO: the unavailable route is counted, once per pass, by
+	//     checkpoint's advance_frontier when a sweep is refused for want of a ledger (and it was this
+	//     row's REQUIRED value before D49);
+	//   - no sketches/tried.bloom: negknow.Open persists a filter even over no records, and §3.3
+	//     reserves that file for the ledger, so its presence means something opened the ledger
+	//     eagerly to get past the refusal (TestE2E_ObserverThroughDaemon asserts the same of a
+	//     session that never touches the ledger; V3-X08 that nothing but negknow.Open creates it).
+	// Unit rows on each half: internal/checkpoint TestFrontierAdvancer_AdvancesBeforeAnyLedgerExists,
+	// internal/daemon TestAdvanceFrontierTask_AdvancesBeforeAnyLedgerExists, internal/cli
+	// TestProductionCheckpointSourcesOpenNothingWithoutRecords. The first PreCompact opens the
 	// ledger and seals (internal/daemon TestBindCheckpointSealsOnTheFirstPreCompact,
-	// TestE2E_CheckpointHookWritesImmutableArtifact), and the field is live for every pass after
-	// it. A ZERO here would mean something opened the ledger eagerly after all.
-	require.Positive(t, snap.Counters[schedCounterSourcesUnavail],
-		"a daemon that has never compacted has no ledger, so frontier advancement reports "+
-			"unavailable rather than advancing: %v", snap.Counters)
+	// TestE2E_CheckpointHookWritesImmutableArtifact).
+	require.Positive(t, snap.Counters[schedCounterCommitClose],
+		"the git commit is a task boundary: it must have closed the session's open segment: %v", snap.Counters)
+	require.NotEmpty(t, draft.Encoded,
+		"with no ledger yet the frontier still advances: state/draft-%s.json encodes the closed segment", e2eSession)
+	require.Zero(t, snap.Counters[schedCounterSourcesUnavail],
+		"no ledger yet is not an unavailable source (D49); a count means the frontier refused a ledgerless "+
+			"project: %v", snap.Counters)
+	require.NoFileExists(t, paths.Long(filepath.Join(l.Sketches, schedTriedBloom)),
+		"advancing the frontier must not open the ledger: nothing in this session needs one")
 	require.Zero(t, snap.Counters[schedCounterTapPanic], "the tap never panicked")
 	family := 0
 	for name := range snap.Counters {

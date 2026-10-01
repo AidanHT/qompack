@@ -111,11 +111,16 @@ func handleMCPOp(ctx context.Context, o *Options, srv mcp.Server,
 		// The history read-modify-write is serialized with every other route that loads and saves
 		// state/history.json — above all the session.start route, which the host runs beside this
 		// handshake — through the daemon's historyMu, so neither save drops the other's change.
+		clk := o.Clock
 		if d, ok := DaemonFrom(ctx).(*daemon); ok && d != nil {
+			clk = d.clk
 			d.historyMu.Lock()
 			defer d.historyMu.Unlock()
 		}
-		recordMCPHandshake(o, m.Observ)
+		if clk == nil {
+			clk = core.SystemClock()
+		}
+		recordMCPHandshake(o, m.Observ, core.NowMilli(clk))
 		return ipc.Response{OK: true}
 	case MCPKindCall, "":
 		return dispatchMCPCall(ctx, o, srv, req, m)
@@ -124,8 +129,9 @@ func handleMCPOp(ctx context.Context, o *Options, srv mcp.Server,
 	}
 }
 
-// recordMCPHandshake sets the §12.1 observable and, when the stdio process supplied one, the
-// human-readable handshake record beside it.
+// recordMCPHandshake sets the §12.1 observable, with at as the time it was seen (the refreshed
+// status row's date, D53(a)), and, when the stdio process supplied one, the human-readable
+// handshake record beside it.
 //
 // The read-modify-write goes through contract.LoadHistory/SaveHistory, which are POINTER-based
 // precisely because the read-modify-write is the point: a value copy would silently lose the
@@ -138,11 +144,10 @@ func handleMCPOp(ctx context.Context, o *Options, srv mcp.Server,
 // Every failure here is a Warn and a shrug. A failed observable must never fail a retrieval
 // session: the assertion's declared severity is SevInfo, so a missing handshake is surfaced and
 // can never degrade a session on its own.
-func recordMCPHandshake(o *Options, obs *mcp.Observable) {
+func recordMCPHandshake(o *Options, obs *mcp.Observable, at core.UnixMilli) {
 	path := contract.HistoryPath(o.ProjectRoot)
 	h := contract.LoadHistory(path)
-	if !h.MCPInitialized {
-		h.MCPInitialized = true
+	if h.RecordMCPInitialized(at) {
 		if err := contract.SaveHistory(path, h); err != nil {
 			o.Log.Warn("mcp: could not record the server_registered observable", "err", err.Error())
 		}

@@ -1,0 +1,39 @@
+=== RUN   TestStatus_ASpentProbeRowCarriesTheLastMissNotTheRead
+    contract_snapshot_stamp_test.go:130: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16-e2erows/internal/daemon/contract_snapshot_stamp_test.go:130
+        	Error:      	Not equal: 
+        	            	expected: 1767225602000
+        	            	actual  : 1767225607000
+        	Test:       	TestStatus_ASpentProbeRowCarriesTheLastMissNotTheRead
+        	Messages:   	the refreshed row is dated by the scan that spent the probe's last chance, not by the read
+--- FAIL: TestStatus_ASpentProbeRowCarriesTheLastMissNotTheRead (0.11s)
+=== RUN   TestStatus_AnObservedProbeRowCarriesTheScanThatFoundIt
+    contract_snapshot_stamp_test.go:157: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16-e2erows/internal/daemon/contract_snapshot_stamp_test.go:157
+        	Error:      	Not equal: 
+        	            	expected: 1767225601000
+        	            	actual  : 1767225606000
+        	Test:       	TestStatus_AnObservedProbeRowCarriesTheScanThatFoundIt
+        	Messages:   	the refreshed row is dated by the scan that found the probe, not by the read
+--- FAIL: TestStatus_AnObservedProbeRowCarriesTheScanThatFoundIt (0.08s)
+=== RUN   TestStatus_AnObservedHandshakeRowCarriesTheHandshakeTime
+    contract_snapshot_stamp_test.go:182: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16-e2erows/internal/daemon/contract_snapshot_stamp_test.go:182
+        	Error:      	Not equal: 
+        	            	expected: 1767225601000
+        	            	actual  : 1767225606000
+        	Test:       	TestStatus_AnObservedHandshakeRowCarriesTheHandshakeTime
+        	Messages:   	the refreshed row is dated by the handshake, not by the read
+--- FAIL: TestStatus_AnObservedHandshakeRowCarriesTheHandshakeTime (0.07s)
+=== RUN   TestStatus_AHandshakeOnlyTheSeamSawKeepsTheStartsTime
+    contract_snapshot_stamp_test.go:209: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16-e2erows/internal/daemon/contract_snapshot_stamp_test.go:209
+        	Error:      	Not equal: 
+        	            	expected: 1767225600000
+        	            	actual  : 1767225606000
+        	Test:       	TestStatus_AHandshakeOnlyTheSeamSawKeepsTheStartsTime
+        	Messages:   	an observation with no recorded time keeps the start's evaluation time
+--- FAIL: TestStatus_AHandshakeOnlyTheSeamSawKeepsTheStartsTime (0.06s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	0.565s
+FAIL

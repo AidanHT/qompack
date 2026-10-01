@@ -1,0 +1,9 @@
+TEMPORARY DIAGNOSTIC (product edit reverted right after the run): internal/checkpoint/finalize.go sets current_work.next_step from the newest evolution entry (the echoed warning)
+go test -p 2 -count=1 -v -run '^TestV5_ThrashWarningVisibleInStatusAndCheckpoint$/^sequitur_warning_is_warning_only_and_once_per_rule$' ./test/e2e/  => EXIT 1
+        	Error:      	"[qompack] possible loop: FileRead→FileEdit→Bash repeated 4× (turns 2) — consider a different approach" should not contain "[qompack] possible loop:"
+        	Messages:   	a warning is transient by design: Qompack must not write it into .current_work.next_step of the sealed checkpoint
+--- FAIL: TestV5_ThrashWarningVisibleInStatusAndCheckpoint (25.43s)
+    --- FAIL: TestV5_ThrashWarningVisibleInStatusAndCheckpoint/sequitur_warning_is_warning_only_and_once_per_rule (25.43s)
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	25.673s
+FAIL

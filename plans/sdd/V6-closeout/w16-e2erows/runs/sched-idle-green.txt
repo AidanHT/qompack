@@ -1,0 +1,4 @@
+=== RUN   TestDaemonIdleRunsSchedulerWork
+--- PASS: TestDaemonIdleRunsSchedulerWork (8.78s)
+PASS
+ok  	github.com/qompack/qompack/test/e2e	9.030s
