@@ -533,6 +533,18 @@ func x10v5DeliverOrRecover(t *testing.T, r *v4Rig, f *x10v5Feed, before x10v5Cou
 				obsProcessBound, obsProcessTick,
 				"a late reply's warning must be re-armed (%s), not consumed", x10v5CounterUndelivered)
 		}
+		if spooled {
+			// A deferred reply is settled only when a drain consumes the hook's spooled copy: that is
+			// where a claimed-but-undelivered warning is re-armed (w16f-rearm), and where a prompt no
+			// live reply answered is captured with its warning still queued. Until then the copy can
+			// sit behind its unacknowledged live twin, and a recovery cycle replayed meanwhile would
+			// fold into the re-arm floor and waste the attempt, so wait for the drain to consume it.
+			require.Eventually(t, func() bool {
+				_, _ = f.r.D.Drain(context.Background())
+				return x10v5SpooledPrompts(t, r.P.Root, f.sess, d.with) == 0
+			}, obsProcessBound, obsProcessTick,
+				"the hook's spooled copy of %q must be settled by a drain before the recovery cycle", d.with)
+		}
 		declaredAny = declaredAny || declared
 		x10v5ReportBranch(t, declared, "LATE OR DEFERRED PROMPT REPLY (%s): the reply to %q carried no "+
 			"warning; late %s %d -> %d, hook deferred it to its client spool: %v, %s now %d. Recovery attempt "+
