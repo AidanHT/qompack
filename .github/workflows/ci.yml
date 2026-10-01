@@ -490,10 +490,14 @@ jobs:
       #
       # `go list -deps` without -test reports each package's non-test imports only, so a _test.go
       # file's imports never appear here. internal/testutil and internal/paths/pathstest are test
-      # support (§6.2): non-test packages, but ones only a test binary may link. The third check is
-      # what makes their os/exec carve-out safe: no product package — anything under internal/ or
-      # cmd/ that is not test support itself — imports either, so their os/exec never reaches a
-      # shipped binary (bindeps proves the same from the binaries' side).
+      # support (§6.2): non-test packages, but ones only a test binary may link. The third and
+      # fourth checks are what make their os/exec carve-out safe. The third reads direct imports:
+      # no product package — anything under internal/ or cmd/ that is not test support itself —
+      # imports either. It exempts test support as an importer, so a product package importing a
+      # conformance package that imports pathstest would pass it; the fourth closes that by
+      # reading what the shipped binary links, transitively: no test support package and no
+      # `testing` package anywhere in `go list -deps ./cmd/...`, on all three release OSes. bindeps
+      # cannot stand in for it: it allows every package under the module path.
       - name: import allowlist (§8, D10)
         run: |
           go list -deps -f '{{.ImportPath}} {{join .Imports " "}}' ./... > imports.txt
@@ -520,6 +524,18 @@ jobs:
             | grep -E ' github.com/qompack/qompack/internal/(testutil|paths/pathstest)( |$)'; then
             echo "::error::a product package imports test support (internal/testutil or internal/paths/pathstest)"; rc=1
           fi
+          # Nor does the shipped binary link test support or `testing` through any chain of imports.
+          # grep exits 2 on a bad pattern or file, which an `if` alone would read as "no match", so
+          # anything but 0 (a match) or 1 (none) fails the step too.
+          linked='^(testing(/.*)?|github.com/qompack/qompack/internal/(testutil|paths/pathstest|([a-z0-9]+)/\4test))$'
+          for goos in linux darwin windows; do
+            GOOS=$goos go list -deps ./cmd/... > "shipped-$goos.txt"
+            if grep -E "$linked" "shipped-$goos.txt"; then
+              echo "::error::the $goos release binary links test support or testing"; rc=1
+            elif [ "$?" -ne 1 ]; then
+              echo "::error::grep could not check the $goos release binary's packages"; rc=1
+            fi
+          done
           exit "$rc"
 
   docs:
