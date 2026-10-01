@@ -1,0 +1,17 @@
+# base product 8fe6c1f4 + the new row only (product files stashed; the row's one 5-argument call
+# to callObservePromptWithDeadline respelled to base's 4 arguments). git diff --stat:
+ internal/daemon/prompt_warning_delivery_test.go | 98 ++++++++++++++++++++++++-
+ 1 file changed, 95 insertions(+), 3 deletions(-)
+=== RUN   TestPromptWarning_ClaimedReplyTheHookSpooledIsReArmed
+    prompt_warning_delivery_test.go:358: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16f-rearm/internal/daemon/prompt_warning_delivery_test.go:358
+        	Error:      	Not equal: 
+        	            	expected: 1
+        	            	actual  : 0
+        	Test:       	TestPromptWarning_ClaimedReplyTheHookSpooledIsReArmed
+        	Messages:   	a warning whose reply the hook spooled was never seen: it is re-armed, not counted as delivered
+--- FAIL: TestPromptWarning_ClaimedReplyTheHookSpooledIsReArmed (0.37s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	0.660s
+FAIL
+go test exit: 1

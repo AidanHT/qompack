@@ -1,0 +1,11 @@
+# TEMPORARY DIAGNOSTIC: promptReplyOutput's st.ReplyWarning record removed (not committed)
+=== RUN   TestPromptReplySpooled_ReArmsTheWarningAClaimedReplyCarried
+    prompt_reply_claim_test.go:149: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16f-rearm/internal/observer/prompt_reply_claim_test.go:149
+        	Error:      	Should be true
+        	Test:       	TestPromptReplySpooled_ReArmsTheWarningAClaimedReplyCarried
+--- FAIL: TestPromptReplySpooled_ReArmsTheWarningAClaimedReplyCarried (0.01s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/observer	0.423s
+FAIL
+go test exit: 1

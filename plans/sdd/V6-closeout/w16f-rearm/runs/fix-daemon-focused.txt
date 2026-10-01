@@ -1,0 +1,8 @@
+=== RUN   TestPromptWarning_LateReplyDoesNotConsumeTheRule
+--- PASS: TestPromptWarning_LateReplyDoesNotConsumeTheRule (0.45s)
+=== RUN   TestPromptWarning_ReplyThatMayNotActRefusesTheClaim
+--- PASS: TestPromptWarning_ReplyThatMayNotActRefusesTheClaim (0.16s)
+=== RUN   TestPromptWarning_ClaimedReplyTheHookSpooledIsReArmed
+--- PASS: TestPromptWarning_ClaimedReplyTheHookSpooledIsReArmed (0.56s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	1.612s
