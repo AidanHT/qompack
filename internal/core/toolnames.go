@@ -50,3 +50,37 @@ func DisplayToolNameFold(name string) string {
 	}
 	return name
 }
+
+// hostPluginToolPrefix begins the name the host gives every tool of a plugin's MCP server:
+// mcp__plugin_<entry>_<server>__<tool>.
+const hostPluginToolPrefix = "mcp__plugin_"
+
+// hostServerToolSeparator joins a host tool name's server segment to its tool.
+const hostServerToolSeparator = "__"
+
+// CutHostPluginTool reports whether name is the host's name for a tool of the plugin MCP server
+// called server, mcp__plugin_<entry>_<server>__<tool>, and returns <tool>. The <entry> segment is
+// whatever the host derives from the marketplace entry the plugin was installed from: `qompack` for
+// every install observed so far, and unobserved for a release entry named qompack-<os>-<arch>
+// (audit F2, V6 close-out D53(e)), so it is not assumed. It must be non-empty and hold no "__", so
+// the server boundary is unambiguous, and <tool> is what follows the last "__" and must be
+// non-empty.
+//
+// It lives here because two packages must agree on it without importing each other: internal/mcp,
+// which ranks the host's capture of a call to one of its tools after the original captures, and
+// internal/grammar, whose self-suppression must recognise the same name (grammar is below mcp).
+func CutHostPluginTool(name, server string) (tool string, ok bool) {
+	rest, ok := strings.CutPrefix(name, hostPluginToolPrefix)
+	if !ok {
+		return "", false
+	}
+	i := strings.LastIndex(rest, hostServerToolSeparator)
+	if i < 0 || i+len(hostServerToolSeparator) == len(rest) {
+		return "", false
+	}
+	entry, ok := strings.CutSuffix(rest[:i], "_"+server)
+	if !ok || entry == "" || strings.Contains(entry, hostServerToolSeparator) {
+		return "", false
+	}
+	return rest[i+len(hostServerToolSeparator):], true
+}

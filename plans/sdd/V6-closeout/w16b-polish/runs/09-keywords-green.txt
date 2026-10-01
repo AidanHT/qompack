@@ -1,0 +1,4 @@
+=== RUN   TestManifest_KeywordsClaimOnlyWhatIsSupported
+--- PASS: TestManifest_KeywordsClaimOnlyWhatIsSupported (0.00s)
+PASS
+ok  	github.com/qompack/qompack/internal/pluginmanifest	1.043s

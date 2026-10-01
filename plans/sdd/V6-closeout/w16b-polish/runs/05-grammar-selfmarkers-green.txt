@@ -1,0 +1,56 @@
+=== RUN   TestIsSelfOriginated
+=== RUN   TestIsSelfOriginated/self/slash_command_in_goal
+=== RUN   TestIsSelfOriginated/self/injected_warning_text
+=== RUN   TestIsSelfOriginated/self/host_mcp_tool_local_entry
+=== RUN   TestIsSelfOriginated/self/host_mcp_tool_release_entry
+=== RUN   TestIsSelfOriginated/self/release_slash_command_in_goal
+=== RUN   TestIsSelfOriginated/self/release_slash_command_underscore
+=== RUN   TestIsSelfOriginated/self/mcp_retrieval_action
+=== RUN   TestIsSelfOriginated/self/state_dir_target
+=== RUN   TestIsSelfOriginated/self/state_dir_itself
+=== RUN   TestIsSelfOriginated/self/host_mcp_tool_release_folded
+=== RUN   TestIsSelfOriginated/self/release_slash_command_at_start
+=== RUN   TestIsSelfOriginated/not_self/other_plugin_slash_command
+=== RUN   TestIsSelfOriginated/not_self/plugin_prefixed_by_qompack
+=== RUN   TestIsSelfOriginated/not_self/plugin_ending_in_qompack
+=== RUN   TestIsSelfOriginated/not_self/other_plugin_mcp_tool
+=== RUN   TestIsSelfOriginated/not_self/other_server_in_qompack_entry
+=== RUN   TestIsSelfOriginated/not_self/no_plugin_segment
+=== RUN   TestIsSelfOriginated/not_self/empty_entry_suffix
+=== RUN   TestIsSelfOriginated/not_self/segment_hiding_a_boundary
+=== RUN   TestIsSelfOriginated/not_self/no_tool
+=== RUN   TestIsSelfOriginated/not_self/release_name_without_command
+=== RUN   TestIsSelfOriginated/not_self/server_only_ending_in_qompack
+=== RUN   TestIsSelfOriginated/not_self/ordinary_tool
+=== RUN   TestIsSelfOriginated/not_self/project_source_file
+=== RUN   TestIsSelfOriginated/not_self/similarly_named_dir
+=== RUN   TestIsSelfOriginated/not_self/empty
+--- PASS: TestIsSelfOriginated (0.00s)
+    --- PASS: TestIsSelfOriginated/self/slash_command_in_goal (0.00s)
+    --- PASS: TestIsSelfOriginated/self/injected_warning_text (0.00s)
+    --- PASS: TestIsSelfOriginated/self/host_mcp_tool_local_entry (0.00s)
+    --- PASS: TestIsSelfOriginated/self/host_mcp_tool_release_entry (0.00s)
+    --- PASS: TestIsSelfOriginated/self/release_slash_command_in_goal (0.00s)
+    --- PASS: TestIsSelfOriginated/self/release_slash_command_underscore (0.00s)
+    --- PASS: TestIsSelfOriginated/self/mcp_retrieval_action (0.00s)
+    --- PASS: TestIsSelfOriginated/self/state_dir_target (0.00s)
+    --- PASS: TestIsSelfOriginated/self/state_dir_itself (0.00s)
+    --- PASS: TestIsSelfOriginated/self/host_mcp_tool_release_folded (0.00s)
+    --- PASS: TestIsSelfOriginated/self/release_slash_command_at_start (0.00s)
+    --- PASS: TestIsSelfOriginated/not_self/other_plugin_slash_command (0.00s)
+    --- PASS: TestIsSelfOriginated/not_self/plugin_prefixed_by_qompack (0.00s)
+    --- PASS: TestIsSelfOriginated/not_self/plugin_ending_in_qompack (0.00s)
+    --- PASS: TestIsSelfOriginated/not_self/other_plugin_mcp_tool (0.00s)
+    --- PASS: TestIsSelfOriginated/not_self/other_server_in_qompack_entry (0.00s)
+    --- PASS: TestIsSelfOriginated/not_self/no_plugin_segment (0.00s)
+    --- PASS: TestIsSelfOriginated/not_self/empty_entry_suffix (0.00s)
+    --- PASS: TestIsSelfOriginated/not_self/segment_hiding_a_boundary (0.00s)
+    --- PASS: TestIsSelfOriginated/not_self/no_tool (0.00s)
+    --- PASS: TestIsSelfOriginated/not_self/release_name_without_command (0.00s)
+    --- PASS: TestIsSelfOriginated/not_self/server_only_ending_in_qompack (0.00s)
+    --- PASS: TestIsSelfOriginated/not_self/ordinary_tool (0.00s)
+    --- PASS: TestIsSelfOriginated/not_self/project_source_file (0.00s)
+    --- PASS: TestIsSelfOriginated/not_self/similarly_named_dir (0.00s)
+    --- PASS: TestIsSelfOriginated/not_self/empty (0.00s)
+PASS
+ok  	github.com/qompack/qompack/internal/grammar	1.340s

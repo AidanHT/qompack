@@ -357,12 +357,21 @@ const unresolvedShortName = "(an 8.3 name that names nothing on disk, so its lon
 // could not be expanded at, of a path that does not exist and so has no 8.3 names to compare.
 const unknownShortName = "(a rule names an 8.3 name, and a path that does not exist has none to compare)"
 
-// shortNameRe matches a segment that may be a generated 8.3 name: a tilde followed by a digit, as
-// in CREDEN~1.SEC or the hashed form 5B2E~1. A long name may contain the same characters; such a
-// name is only ever refused when it does not exist, see osAlias.
-var shortNameRe = regexp.MustCompile(`~[0-9]`)
+// shortNameRe matches a segment that may be, or as a glob may name, a generated 8.3 name: a tilde
+// followed by a digit, as in CREDEN~1.SEC or the hashed form 5B2E~1, or by a glob metacharacter
+// (concretePrefix's `*?[\`) that can stand for one, as in CREDEN~?.SEC, or a tilde inside a bracket
+// expression, as in CREDEN[~]1.SEC or CREDEN[}-~]1.SEC, where the class itself can match the tilde.
+// A tilde followed by anything else outside a class, as in the backup-file rule Read(**/*~) or
+// Read(**/*.[ch]~), names no 8.3 name. A long name may contain the same characters; such a name is
+// only ever refused when it does not exist, see osAlias. A path segment is a name, not a glob: `*`,
+// `?` and `\` cannot occur in a Windows file name, and `~[` or `[...~` in one only widens that
+// refusal, which fails closed.
+var shortNameRe = regexp.MustCompile(`~[0-9*?\[\\]|\[[^\]]*~`)
 
-// shortShaped reports whether the segment seg may be an 8.3 name.
+// shortShaped reports whether the segment seg may be an 8.3 name, or as a rule's glob segment may
+// name one. It is the one 8.3-shape predicate: a path's unexpandable segment (osAlias), a rule's
+// pending 8.3 name (longNameAliases) and the rule segments compared with a path's 8.3 names
+// (literalEqual, prefixRow) are all judged by it.
 func shortShaped(seg string) bool { return shortNameRe.MatchString(seg) }
 
 // appendDistinct appends segs unless an identical list is already present.
@@ -580,7 +589,7 @@ func (p *Policy) longNameAliases(pt *pattern, memo linkMemo) (out []*pattern, pe
 		return nil, slices.ContainsFunc(pt.segs, shortShaped)
 	}
 	prefix := concretePrefix(pt)
-	pending = slices.ContainsFunc(pt.segs[prefix:], func(s string) bool { return strings.Contains(s, "~") })
+	pending = slices.ContainsFunc(pt.segs[prefix:], shortShaped)
 	if prefix == 0 || !spelledAsAlias(pt.segs[:prefix]) {
 		return nil, pending
 	}

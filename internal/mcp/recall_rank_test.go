@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/qompack/qompack/internal/grammar"
 )
 
 // The host names a plugin's MCP tool mcp__plugin_<plugin segment>_<server>__<tool>. Every install
@@ -62,4 +64,19 @@ func TestIsRetrievalSelfRecord_Negatives(t *testing.T) {
 	} {
 		require.False(t, isRetrievalSelfRecord(name), "%q is not a Qompack retrieval self-record", name)
 	}
+}
+
+// TestHostToolNames_AreGrammarSelfMarkers is the agreement between the two readers of the host's
+// tool name: every name recall ranks as a self-record is also one internal/grammar's
+// self-suppression recognises, so a warning can never be built from Qompack's own retrieval under
+// any entry spelling. It fails if grammar's server marker drifts from ServerName.
+func TestHostToolNames_AreGrammarSelfMarkers(t *testing.T) {
+	for _, seg := range []string{"qompack", "qompack-windows-amd64", "qompack_linux_arm64"} {
+		for _, tool := range ToolNames() {
+			name := "mcp__plugin_" + seg + "_" + ServerName + "__" + tool
+			require.True(t, isRetrievalSelfRecord(name), "%q", name)
+			require.True(t, grammar.IsSelfOriginated(grammar.StateSignature{Action: name}), "%q", name)
+		}
+	}
+	require.True(t, grammar.IsSelfOriginated(grammar.StateSignature{Action: mcpToolPrefix + ToolRecall}))
 }

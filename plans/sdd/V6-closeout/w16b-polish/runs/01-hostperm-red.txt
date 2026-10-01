@@ -1,0 +1,47 @@
+=== RUN   TestShortNames_ATildeThatNamesNoShortNameJudgesDeletedFiles
+=== RUN   TestShortNames_ATildeThatNamesNoShortNameJudgesDeletedFiles/Read(**/*~)
+    shortname_seam_windows_test.go:246: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16b-polish/internal/hostperm/shortname_seam_windows_test.go:246
+        	Error:      	Not equal: 
+        	            	expected: 0
+        	            	actual  : 2
+        	Test:       	TestShortNames_ATildeThatNamesNoShortNameJudgesDeletedFiles/Read(**/*~)
+        	Messages:   	"Read(**/*~)" names no 8.3 name, so a deleted file is judged
+=== RUN   TestShortNames_ATildeThatNamesNoShortNameJudgesDeletedFiles/Read(*~)
+    shortname_seam_windows_test.go:246: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16b-polish/internal/hostperm/shortname_seam_windows_test.go:246
+        	Error:      	Not equal: 
+        	            	expected: 0
+        	            	actual  : 2
+        	Test:       	TestShortNames_ATildeThatNamesNoShortNameJudgesDeletedFiles/Read(*~)
+        	Messages:   	"Read(*~)" names no 8.3 name, so a deleted file is judged
+=== RUN   TestShortNames_ATildeThatNamesNoShortNameJudgesDeletedFiles/Read(**/*.txt~)
+    shortname_seam_windows_test.go:246: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16b-polish/internal/hostperm/shortname_seam_windows_test.go:246
+        	Error:      	Not equal: 
+        	            	expected: 0
+        	            	actual  : 2
+        	Test:       	TestShortNames_ATildeThatNamesNoShortNameJudgesDeletedFiles/Read(**/*.txt~)
+        	Messages:   	"Read(**/*.txt~)" names no 8.3 name, so a deleted file is judged
+=== RUN   TestShortNames_ATildeThatNamesNoShortNameJudgesDeletedFiles/Read(./foo.txt~)
+    shortname_seam_windows_test.go:246: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16b-polish/internal/hostperm/shortname_seam_windows_test.go:246
+        	Error:      	Not equal: 
+        	            	expected: 0
+        	            	actual  : 2
+        	Test:       	TestShortNames_ATildeThatNamesNoShortNameJudgesDeletedFiles/Read(./foo.txt~)
+        	Messages:   	"Read(./foo.txt~)" names no 8.3 name, so a deleted file is judged
+=== RUN   TestShortNames_ATildeThatNamesNoShortNameJudgesDeletedFiles/Read(**/CREDEN~1.SEC)
+=== RUN   TestShortNames_ATildeThatNamesNoShortNameJudgesDeletedFiles/Read(**/CREDEN~?.SEC)
+=== RUN   TestShortNames_ATildeThatNamesNoShortNameJudgesDeletedFiles/Read(**/CONFIG~*/**)
+--- FAIL: TestShortNames_ATildeThatNamesNoShortNameJudgesDeletedFiles (0.08s)
+    --- FAIL: TestShortNames_ATildeThatNamesNoShortNameJudgesDeletedFiles/Read(**/*~) (0.01s)
+    --- FAIL: TestShortNames_ATildeThatNamesNoShortNameJudgesDeletedFiles/Read(*~) (0.01s)
+    --- FAIL: TestShortNames_ATildeThatNamesNoShortNameJudgesDeletedFiles/Read(**/*.txt~) (0.01s)
+    --- FAIL: TestShortNames_ATildeThatNamesNoShortNameJudgesDeletedFiles/Read(./foo.txt~) (0.02s)
+    --- PASS: TestShortNames_ATildeThatNamesNoShortNameJudgesDeletedFiles/Read(**/CREDEN~1.SEC) (0.01s)
+    --- PASS: TestShortNames_ATildeThatNamesNoShortNameJudgesDeletedFiles/Read(**/CREDEN~?.SEC) (0.01s)
+    --- PASS: TestShortNames_ATildeThatNamesNoShortNameJudgesDeletedFiles/Read(**/CONFIG~*/**) (0.01s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/hostperm	1.387s
+FAIL
