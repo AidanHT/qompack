@@ -194,10 +194,10 @@ jobs:
           # budget, so the Windows leg gets two passes' worth: 2 x 30m = 60m (owner ruling D55).
           # Measured: internal/daemon was killed at 1800 s in run 36816905394's windows test job
           # under -count=2; alone at -count=2 on a loaded local Windows host it took 527 s with no
-          # hang (plans/sdd/V6-closeout/w16-ci/runs/fix-daemon-count2-windows.log), so the kill was
-          # the whole-tree co-load stretching two passes past one pass's budget. A real hang is
-          # still killed, and the reconciliation below names the tests it left unfinished. The
-          # other legs make one pass and keep 30m.
+          # hang (plans/sdd/V6-closeout/w16-ci/runs/fix-daemon-count2-windows.log), so the kill is
+          # attributed to whole-tree co-load on the two-core runner. A hosted-only hang is not yet
+          # excluded: a real hang is still killed, and the reconciliation below names the tests it
+          # left unfinished (c697ed1e). The other legs make one pass and keep 30m.
           if [ "$RUNNER_OS" = "Windows" ]; then
             flags='-count=2'; timeout='60m'
           else
