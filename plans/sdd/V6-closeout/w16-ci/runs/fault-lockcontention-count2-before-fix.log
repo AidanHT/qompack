@@ -1,0 +1,6 @@
+--- FAIL: TestFault_LockContention (3.36s)
+    resources_test.go:318: fault: aged C:\Users\Quant\AppData\Local\Temp\qompack-fault-681046905\proj\.qompack\run\daemon.hb past the staleness window so the next daemon may reclaim the lock
+    resources_test.go:336: fault: writing C:\Users\Quant\AppData\Local\Temp\TestFault_LockContention2400742688\001\resource_lock_contention.json: open C:\Users\Quant\AppData\Local\Temp\TestFault_LockContention2400742688\001\resource_lock_contention.json: The system cannot find the path specified.
+FAIL
+FAIL	github.com/qompack/qompack/test/fault	14.579s
+FAIL

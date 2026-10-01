@@ -1,0 +1,13 @@
+=== RUN   TestReadBoundedObject_RefusesASocketLeaf
+--- PASS: TestReadBoundedObject_RefusesASocketLeaf (0.00s)
+=== RUN   TestOpenObjectLeaf_BranchesOnTheHandlesReparseAttribute
+    object_leaf_open_windows_test.go:35: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16-ci/internal/store/object_leaf_open_windows_test.go:35
+        	Error:      	Received unexpected error:
+        	            	listen unix C:\Users\Quant\AppData\Local\Temp\w16ci-pad\TestOpenObjectLeaf_BranchesOnTheHandlesReparseAttribute1987936384\001\s: bind: invalid argument
+        	Test:       	TestOpenObjectLeaf_BranchesOnTheHandlesReparseAttribute
+        	Messages:   	fixture: an AF_UNIX socket file must be creatable here
+--- FAIL: TestOpenObjectLeaf_BranchesOnTheHandlesReparseAttribute (0.01s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/store	0.290s
+FAIL
