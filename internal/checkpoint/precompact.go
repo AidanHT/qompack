@@ -10,6 +10,7 @@ import (
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/obs"
 	"github.com/qompack/qompack/internal/paths"
+	"github.com/qompack/qompack/internal/tokens"
 )
 
 // Compactor is the PreCompact seam the daemon's composition root binds. It is additive to
@@ -44,6 +45,12 @@ type PreCompactInput struct {
 	Cfg         config.CheckpointCfg
 	Cache       CacheInfo
 	ExtraDrops  []DropEntry
+	// PricedDrops, when set, is called once with the estimator this seal's Truncate prices the
+	// document with (the draft's SourceSet.Tokens, project-calibrated on the daemon's path), and the
+	// entries it returns are added like ExtraDrops. It is for a caller whose drop report must fit a
+	// share of the budget as Truncate will measure it: the daemon's report of captures its PreCompact
+	// settle left unreplayed (V6 close-out D55).
+	PricedDrops func(est tokens.Estimator) []DropEntry
 	// CurrentWork overrides whatever the draft derived; nil means keep the derived value.
 	CurrentWork *CurrentWork
 	// OpenQuestions are appended to the draft's derived list; may be nil.
@@ -184,6 +191,9 @@ func (w *FileWriter) preCompact(ctx context.Context, in PreCompactInput) (PreCom
 
 	d.SetCache(in.Cache)
 	d.AddDrops(in.ExtraDrops...)
+	if in.PricedDrops != nil {
+		d.AddDrops(in.PricedDrops(d.sources().Tokens)...)
+	}
 	if in.CurrentWork != nil {
 		d.SetCurrentWork(*in.CurrentWork)
 	}
