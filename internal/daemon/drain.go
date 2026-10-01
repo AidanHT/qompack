@@ -443,12 +443,25 @@ func (dr *drainer) DrainClientSpools(ctx context.Context) (int, error) {
 // budget and a line's drainLineDeadline, so a plain DrainClientSpools could keep the route waiting
 // past its bound before its own pass had begun. When ctx ends first, nothing is read and ctx's error
 // is returned.
-func (dr *drainer) DrainClientSpoolsWithin(ctx context.Context) (int, error) {
+//
+// only, when it is not nil, restricts the pass to the client spools it names by base name: the files
+// holding the compacting session's captures, so another session's backlog, older in host order, does
+// not spend the settle's bound. Skipping a file reorders nothing within a session: every file that
+// holds one of the session's unconsumed lines is in only, and the pass keeps their host order.
+//
+// ctx's deadline is a hard one, unlike a pass budget (withPassBudget): when it expires the line in
+// flight is cancelled, not finished. That is deliberate. A pass budget lets the line it started run
+// for up to its own drainLineDeadline, which would put the PreCompact's settle past B-E by seconds,
+// and the settle's bound exists to keep it inside B-E. The cost lands on the slowest disks: a line
+// whose publication takes longer than the bound is cancelled by every settle and published by none
+// of them, and its capture is named in the checkpoint's drop report instead. Nothing is lost: the
+// client-spool watcher and the idle drain, which use pass budgets, finish and publish it.
+func (dr *drainer) DrainClientSpoolsWithin(ctx context.Context, only map[string]bool) (int, error) {
 	if !dr.lockWithin(ctx) {
 		return 0, ctx.Err()
 	}
 	defer dr.mu.Unlock()
-	return dr.passLocked(ctx, true)
+	return dr.passLocked(ctx, true, only)
 }
 
 // lockWithin takes dr.mu, giving up when ctx ends first. A Lock still pending then is completed and
@@ -483,11 +496,12 @@ func (dr *drainer) lockWithin(ctx context.Context) bool {
 func (dr *drainer) pass(ctx context.Context, clientOnly bool) (int, error) {
 	dr.mu.Lock()
 	defer dr.mu.Unlock()
-	return dr.passLocked(ctx, clientOnly)
+	return dr.passLocked(ctx, clientOnly, nil)
 }
 
-// passLocked is pass with dr.mu already held by the caller.
-func (dr *drainer) passLocked(ctx context.Context, clientOnly bool) (int, error) {
+// passLocked is pass with dr.mu already held by the caller. A non-nil only restricts it further, to
+// the spool files it names by base name (DrainClientSpoolsWithin).
+func (dr *drainer) passLocked(ctx context.Context, clientOnly bool, only map[string]bool) (int, error) {
 	defer dr.releaseSessions() // however the pass ends, and before mu is released
 	dr.dirSynced = false       // a file created since the last pass has an entry that pass's sync missed
 
@@ -532,6 +546,9 @@ func (dr *drainer) passLocked(ctx context.Context, clientOnly bool) (int, error)
 
 	for i, path := range files {
 		if clientOnly && !isClientSpoolName(filepath.Base(path)) {
+			continue
+		}
+		if only != nil && !only[filepath.Base(path)] {
 			continue
 		}
 		if err := passStopped(ctx); err != nil {
