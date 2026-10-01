@@ -57,8 +57,18 @@ type compactLoadRig struct {
 
 func newCompactLoadRig(t *testing.T) (*compactLoadRig, func()) {
 	t.Helper()
+	return newCompactLoadRigWithConfig(t, "")
+}
+
+// newCompactLoadRigWithConfig is newCompactLoadRig with projectConfig, when it is not empty, as the
+// project's .qompack/config.json, in place before the daemon and every hook client load it.
+func newCompactLoadRigWithConfig(t *testing.T, projectConfig string) (*compactLoadRig, func()) {
+	t.Helper()
 	root := t.TempDir()
 	require.NoError(t, paths.EnsureLayout(paths.Of(root)))
+	if projectConfig != "" {
+		writeProjectConfig(t, root, projectConfig)
+	}
 	r := &compactLoadRig{root: root, home: t.TempDir()}
 	stop := bootstrapDaemon(t, root)
 	return r, stop
