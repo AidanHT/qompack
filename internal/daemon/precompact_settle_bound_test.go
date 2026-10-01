@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -246,4 +247,64 @@ func TestPreCompactSettle_NamesFitTheirShareUnderTheSealsCalibratedEstimator(t *
 	require.Greater(t, len(identity), len(got), "fixture sanity: the identity names more")
 	require.Greater(t, namesCost(identity), share,
 		"priced with the identity, the names overrun their share as the seal measures them")
+}
+
+// coldBacklogBound is the settle's bound in TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound:
+// long enough that, with the first look held until just past half of it, the replay of the session's
+// one spooled Read fits in what is left on a loaded machine (it is one line, and the row fails only
+// if that replay takes more than 45 % of it).
+const coldBacklogBound = 3 * time.Second
+
+// coldBacklogLeft is how much of coldBacklogBound the row's slow read leaves: just under half, so the
+// first look takes more than half of the bound and still leaves time for the replay.
+const coldBacklogLeft = coldBacklogBound * 45 / 100
+
+// TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound (wave 16b review): twenty client
+// spools of other sessions, none indexed yet, are listed before the session's own spool, and the
+// first look's read of the last of them is slow (a read seam holds it until less than half of the
+// bound is left). The first look still leaves time, so the session's own Read is replayed before the
+// seal and nothing is left over: the waits and the replay run to the bound's own deadline. Held back
+// by the first look's whole duration again, as they were, they would have had no time at all, and a
+// cold backlog of other sessions' spools would have cost this session its replay. The last look reads
+// nothing: the own spool is released by the replay, and the others it does not look at again.
+func TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound(t *testing.T) {
+	dd, root := settleTestDaemon(t, coldBacklogBound)
+	dd.drain.Store(newDrainer(dd.drainConfig()))
+	liveOrderWorkers(t, dd, 2, dd.runIngested)
+	const sess core.SessionID = "sess-precompact-cold-backlog"
+	const backlog = 20
+	for i := range backlog {
+		other := core.SessionID(fmt.Sprintf("sess-precompact-cold-other-%02d", i))
+		writeHookSpool(t, root, fmt.Sprintf("client-%d.ndjson", 10000+i), liveOrderTool(dd, root, other, 100+i))
+	}
+	own := liveOrderTool(dd, root, sess, 1)
+	writeHookSpool(t, root, "client-9999.ndjson", own) // listed after the backlog
+	slow := fmt.Sprintf("client-%d.ndjson", 10000+backlog-1)
+	var left atomic.Int64 // what the slow read left of the bound
+	dd.spoolHeads.read = func(ctx context.Context, path string) ([]byte, error) {
+		if dl, ok := ctx.Deadline(); ok && filepath.Base(path) == slow {
+			hold := time.NewTimer(time.Until(dl) - coldBacklogLeft)
+			select {
+			case <-hold.C:
+			case <-ctx.Done():
+			}
+			hold.Stop()
+			left.Store(int64(time.Until(dl)))
+		}
+		return paths.ReadFileShared(path)
+	}
+	probe := bindSealProbe(dd, own.Nonce)
+
+	pre := checkpointRequest(dd, sess, "nonce-precompact-cold-backlog")
+	pre.TS = own.TS + 1
+	require.True(t, dd.dispatchOp(context.Background(), pre).OK)
+
+	require.Positive(t, left.Load(), "fixture sanity: the first look ended before the bound")
+	require.Less(t, time.Duration(left.Load()), coldBacklogBound/2,
+		"fixture sanity: the first look took more than half of the bound")
+	require.True(t, probe.published[own.Nonce],
+		"the first look left time, so the session's own spool is replayed before the seal")
+	require.Empty(t, probe.drops, "nothing of the session was left unreplayed")
+	require.Equal(t, int64(backlog+1), settleSpoolReads(dd),
+		"the first look reads every file once; the last look reads none")
 }

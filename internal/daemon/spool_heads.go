@@ -37,6 +37,9 @@ type spoolHeadIndex struct {
 	// reads counts the client spool files read to index them. The rows that pin what a settle costs
 	// count files read, not time.
 	reads atomic.Int64
+	// read reads one client spool whole; nil reads it with paths.ReadFileShared. It is a test seam: a
+	// row makes the reads of a cold backlog slow, under the look's own context, without a clock.
+	read func(ctx context.Context, path string) ([]byte, error)
 }
 
 // spoolHeadFile is one indexed client spool: the size and time it was listed at, and its lines.
@@ -99,7 +102,11 @@ func (x *spoolHeadIndex) heads(ctx context.Context, root string, l clientSpoolLi
 		return nil, false
 	}
 	x.reads.Add(1)
-	b, err := paths.ReadFileShared(filepath.Join(paths.Of(root).Spool, l.base))
+	read := x.read
+	if read == nil {
+		read = func(_ context.Context, path string) ([]byte, error) { return paths.ReadFileShared(path) }
+	}
+	b, err := read(ctx, filepath.Join(paths.Of(root).Spool, l.base))
 	if err != nil {
 		return nil, true // consumed and removed since the listing, or unreadable: nothing to name from it
 	}

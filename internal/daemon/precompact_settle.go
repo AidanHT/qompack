@@ -197,10 +197,15 @@ func captureOf(req ipc.Request) pendingCapture {
 // with the spool runs against it:
 //   - the first look at the client spools (scanClientSpools): a listing, and a read of each file the
 //     spool index does not hold at its listed size and time, each started only before the deadline;
-//   - the waits for the session's lane and the replay of the files holding its captures, which stop
-//     before the deadline by as long as the first look took: the time the last look is left;
+//   - the waits for the session's lane and the replay of the files holding its captures, which run to
+//     the same deadline: no time is held back for the last look, so a first look slowed by other
+//     sessions' cold spools leaves the replay whatever it did not use;
 //   - the last look, which keeps the first look's result and reads again only the files that look
-//     named and the ones listed since it (or left unread by it), again only before the deadline.
+//     named and the ones listed since it (or left unread by it), again only before the deadline. Most
+//     of what it looks at it takes from the spool index: a file the replay released is no longer
+//     listed, and one it left is unchanged, since a drain records its progress elsewhere. A file it
+//     would have to read once the deadline has passed (one listed since the first look, or one a hook
+//     appended to) it counts as unread instead.
 //
 // What can run past the deadline is fixed work: a file read already under way, the spool listings,
 // the drain's progress file and the pricing of the names, which the seal does (namesWithin measures a
@@ -209,9 +214,7 @@ func captureOf(req ipc.Request) pendingCapture {
 func (d *daemon) settleBeforeSeal(ctx context.Context, sess core.SessionID, at core.UnixMilli) *sealReport {
 	cfg := d.currentCfg()
 	bound := precompactSettleBound(cfg)
-	begun := time.Now()
-	deadline := begun.Add(bound)
-	sctx, cancel := context.WithDeadline(ctx, deadline)
+	sctx, cancel := context.WithDeadline(ctx, time.Now().Add(bound))
 	defer cancel()
 	reads := d.spoolHeads.reads.Load()
 	defer func() {
@@ -233,21 +236,22 @@ func (d *daemon) settleBeforeSeal(ctx context.Context, sess core.SessionID, at c
 		d.m.Counter(counterPrecompactSettle).Add(1)
 	}
 
-	wctx, wcancel := context.WithDeadline(sctx, deadline.Add(-time.Since(begun)))
-	d.awaitArrivals(wctx, sess, upTo)
-	if len(own) > 0 && wctx.Err() == nil {
+	// The waits and the replay run to the bound's own deadline. Nothing is held back for the last
+	// look: what it reads past the deadline it counts as unread, which keeps the report honest
+	// without spending the replay's time on other sessions' files.
+	d.awaitArrivals(sctx, sess, upTo)
+	if len(own) > 0 && sctx.Err() == nil {
 		if dr := d.drain.Load(); dr != nil {
 			// A replay is capture work, as every drain is (D51).
 			d.capture.enter()
-			_, err := dr.DrainClientSpoolsWithin(wctx, own)
+			_, err := dr.DrainClientSpoolsWithin(sctx, own)
 			d.capture.leave()
-			if err != nil && wctx.Err() == nil {
+			if err != nil && sctx.Err() == nil {
 				d.log.Debug("daemon: PreCompact: the client-spool replay before the seal ended early", "err", err)
 			}
 		}
-		d.awaitArrivals(wctx, sess, upTo)
+		d.awaitArrivals(sctx, sess, upTo)
 	}
-	wcancel()
 
 	last := d.scanClientSpools(sctx, sess, at, func(base string) bool {
 		return own[base] || !first.listed[base] || first.unread[base]
