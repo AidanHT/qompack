@@ -276,7 +276,7 @@ func ForTarget(version, goos string) Manifest {
 			Description: Description,
 			Author:      Author{Name: "Qompack"},
 			Homepage:    "https://github.com/AidanHT/qompack",
-			Keywords:    []string{"compaction", "context", "memory", "cache"},
+			Keywords:    []string{"compaction", "context", "memory"},
 		},
 		Hooks: HooksJSON{Hooks: hooks},
 		MCP: MCPJSON{MCPServers: map[string]MCPServer{
