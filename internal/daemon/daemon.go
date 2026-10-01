@@ -931,10 +931,10 @@ func (d *daemon) openForRequests() {
 // the filesystem, so it is safe to leave on the B-A/B-B path.
 //
 // It also kicks the client-spool watcher (spool_watch.go), except for op ipc.OpCheckpoint, the
-// PreCompact: its route kicks the watcher after its seal (handleCheckpoint). Kicked here, the
-// watcher's pass over every session's spools could take the drain's mutex before the route's settle
-// did, and the settle's replay of the compacting session's own spools would wait behind it, spending
-// the settle's bound on other sessions' backlog (wave 16f).
+// PreCompact: its route kicks the watcher as it returns, after its seal or a panic (handleCheckpoint).
+// Kicked here, the watcher's pass over every session's spools could take the drain's mutex before the
+// route's settle did, and the settle's replay of the compacting session's own spools would wait
+// behind it, spending the settle's bound on other sessions' backlog (wave 16f).
 func (d *daemon) noteServed(op ipc.Op) {
 	d.firstServedOnce.Do(func() { close(d.firstServed) })
 	if op == ipc.OpCheckpoint {
