@@ -1,0 +1,35 @@
+=== RUN   TestServerManagedRulesApplyAtAnyDepth
+=== RUN   TestServerManagedRulesApplyAtAnyDepth/nine_objects_deep
+    depth_test.go:55: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16f-hpdepth/internal/hostperm/depth_test.go:55
+        	Error:      	Not equal: 
+        	            	expected: 2
+        	            	actual  : 0
+        	Test:       	TestServerManagedRulesApplyAtAnyDepth/nine_objects_deep
+=== RUN   TestServerManagedRulesApplyAtAnyDepth/a_hundred_objects_deep
+    depth_test.go:55: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16f-hpdepth/internal/hostperm/depth_test.go:55
+        	Error:      	Not equal: 
+        	            	expected: 2
+        	            	actual  : 0
+        	Test:       	TestServerManagedRulesApplyAtAnyDepth/a_hundred_objects_deep
+=== RUN   TestServerManagedRulesApplyAtAnyDepth/a_hundred_objects_and_arrays_deep
+    depth_test.go:55: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16f-hpdepth/internal/hostperm/depth_test.go:55
+        	Error:      	Not equal: 
+        	            	expected: 2
+        	            	actual  : 0
+        	Test:       	TestServerManagedRulesApplyAtAnyDepth/a_hundred_objects_and_arrays_deep
+--- FAIL: TestServerManagedRulesApplyAtAnyDepth (0.03s)
+    --- FAIL: TestServerManagedRulesApplyAtAnyDepth/nine_objects_deep (0.01s)
+    --- FAIL: TestServerManagedRulesApplyAtAnyDepth/a_hundred_objects_deep (0.00s)
+    --- FAIL: TestServerManagedRulesApplyAtAnyDepth/a_hundred_objects_and_arrays_deep (0.02s)
+=== RUN   TestADeepServerManagedDocumentWithoutPermissionsStaysEnforced
+--- PASS: TestADeepServerManagedDocumentWithoutPermissionsStaysEnforced (0.03s)
+=== RUN   TestAServerManagedHooksBlockAtDepthSevenParses
+--- PASS: TestAServerManagedHooksBlockAtDepthSevenParses (0.01s)
+=== RUN   TestAServerManagedDocumentPastTheJSONNestingLimitFailsClosed
+--- PASS: TestAServerManagedDocumentPastTheJSONNestingLimitFailsClosed (0.02s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/hostperm	1.253s
+FAIL
