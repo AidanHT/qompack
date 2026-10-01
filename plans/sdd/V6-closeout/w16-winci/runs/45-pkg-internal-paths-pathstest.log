@@ -1,0 +1,16 @@
+=== RUN   TestWithoutPrivileges_RemovesAHeldPrivilegeOnlyForFn
+--- PASS: TestWithoutPrivileges_RemovesAHeldPrivilegeOnlyForFn (0.00s)
+=== RUN   TestIsolateHome_RedirectsEveryHomeLookupAndPutsItBack
+--- PASS: TestIsolateHome_RedirectsEveryHomeLookupAndPutsItBack (0.10s)
+=== RUN   TestIsolateHome_RunsNoGoCommandWhenTheToolchainIsPinned
+--- PASS: TestIsolateHome_RunsNoGoCommandWhenTheToolchainIsPinned (0.10s)
+=== RUN   TestIsolateHome_GoEnvLeavesNoTelemetryInTheHomeItRunsUnder
+--- PASS: TestIsolateHome_GoEnvLeavesNoTelemetryInTheHomeItRunsUnder (0.10s)
+=== RUN   TestIsolateHome_GoCommandsUnderTheIsolatedHomeLeaveNoTelemetry
+--- PASS: TestIsolateHome_GoCommandsUnderTheIsolatedHomeLeaveNoTelemetry (0.13s)
+=== RUN   TestWithoutBackupPrivileges_FnRunsWithNeitherBypassPrivilege
+    privileges_windows_test.go:19: process token enables: []
+--- PASS: TestWithoutBackupPrivileges_FnRunsWithNeitherBypassPrivilege (0.00s)
+PASS
+ok  	github.com/qompack/qompack/internal/paths/pathstest	1.682s
+exit=0
