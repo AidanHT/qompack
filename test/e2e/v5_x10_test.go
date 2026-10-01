@@ -326,6 +326,68 @@ func x10v5RequireLoopWarning(t *testing.T, ac string) {
 	require.True(t, strings.HasSuffix(ac, x10v5WarningAdvice), "the warning ends with the observer's advice: %q", ac)
 }
 
+// x10v5DeliveredWith is the prompt the loop warning is delivered with: the first prompt after the
+// loop crossed the threshold.
+const x10v5DeliveredWith = "still red — try the exact same fix again"
+
+// x10v5RequireWarningOnlyAsEchoedPrompts holds the sealed checkpoint raw to what this row protects:
+// Qompack never puts its own warning on a durable surface.
+//
+// Criterion change (D53(a), after D45/D46): this row used to require that the checkpoint carry no
+// warning text at all. The arm above echoes the delivered warning back as the user's prompt, and
+// since D45/D46 every user prompt reaches user_intent.evolution verbatim; a user's words are never
+// stripped or rewritten, even when they quote a warning. So the warning text may appear, and only,
+// as an evolution entry that is EXACTLY an echoed prompt (ac, which the arm sent as the prompt
+// text). It may appear in no other field, inside no other entry, and in particular not attached to
+// the prompt it was delivered with (x10v5DeliveredWith), whose entry must be that prompt's own words
+// and nothing more. Every string in the artifact is checked, so a warning that Qompack wrote into
+// any field still fails here.
+func x10v5RequireWarningOnlyAsEchoedPrompts(t *testing.T, raw []byte, ac string) {
+	t.Helper()
+	var doc map[string]any
+	require.NoError(t, json.Unmarshal(raw, &doc), "the sealed checkpoint must be JSON:\n%s", raw)
+
+	intent, ok := doc["user_intent"].(map[string]any)
+	require.True(t, ok, "the sealed checkpoint carries user_intent:\n%s", raw)
+	evolution, ok := intent["evolution"].([]any)
+	require.True(t, ok, "user_intent.evolution is a list:\n%s", raw)
+	echoed := map[int]bool{}
+	deliveredWith := false
+	for i, e := range evolution {
+		s, _ := e.(string)
+		switch {
+		case s == ac:
+			echoed[i] = true
+		case s == x10v5DeliveredWith:
+			deliveredWith = true
+		}
+	}
+	require.True(t, deliveredWith,
+		"the prompt the warning was delivered with is in evolution as the user's own words, unchanged: %q", evolution)
+	require.NotEmpty(t, echoed, "fixture: the echoed prompts reach evolution verbatim (D45/D46): %q", evolution)
+
+	var walk func(path string, v any)
+	walk = func(path string, v any) {
+		switch v := v.(type) {
+		case map[string]any:
+			for k, c := range v {
+				walk(path+"."+k, c)
+			}
+		case []any:
+			for i, c := range v {
+				if path == ".user_intent.evolution" && echoed[i] {
+					continue // an echoed prompt, verbatim: the user's words, not Qompack's warning
+				}
+				walk(fmt.Sprintf("%s[%d]", path, i), c)
+			}
+		case string:
+			require.NotContains(t, v, x10v5WarningPrefix,
+				"a warning is transient by design: Qompack must not write it into %s of the sealed checkpoint", path)
+		}
+	}
+	walk("", doc)
+}
+
 // x10v5EliminationLines counts the non-empty lines of records/eliminations.jsonl, or 0 before the
 // ledger has written one. A thrash warning must never mint one: it is advisory, not an elimination.
 func x10v5EliminationLines(t *testing.T, root string) int {
@@ -400,7 +462,7 @@ func x10v5FullModeArm(t *testing.T) {
 	// ── The loop, through the real binary ────────────────────────────────────────────────────────
 	f.cycles(x10v5Cycles, x10v5Spacers[:x10v5Cycles-1])
 
-	out = f.prompt("still red — try the exact same fix again")
+	out = f.prompt(x10v5DeliveredWith)
 	require.NotNil(t, out.HookSpecificOutput, "the prompt after a thrashing loop must carry the warning")
 	require.Equal(t, "UserPromptSubmit", out.HookSpecificOutput.HookEventName,
 		"additionalContext reaches the transcript only under the hook's own event name")
@@ -447,8 +509,7 @@ func x10v5FullModeArm(t *testing.T) {
 	x4RequireManifestVerifies(t, p.Root)
 	raw, err := os.ReadFile(paths.Long(paths.CheckpointPath(paths.Of(p.Root), x10v5SealedSeq)))
 	require.NoError(t, err)
-	require.NotContains(t, string(raw), x10v5WarningPrefix,
-		"a warning is transient by design: the sealed checkpoint must not carry it")
+	x10v5RequireWarningOnlyAsEchoedPrompts(t, raw, ac)
 	require.Zero(t, x10v5EliminationLines(t, p.Root),
 		"opening the ledger on the first PreCompact must not have turned the warning into a record")
 	// testutil's append-only probe seeds checkpoints/0001.json itself, so it belongs to the arm

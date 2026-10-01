@@ -25,12 +25,16 @@ import (
 // session's prompts that missed the probe its start minted; once it reaches two the check reads the
 // failure the next start will report. Three things reset it: a start's mint, the withdrawal of a
 // lost start's probe (the daemon's withdrawLostStartAnswer), and a scan that finds the probe.
+//
+// at is when h recorded the observation the row reads. A refreshed row carries that time, never the
+// time of the read that refreshed it, so two reads of unchanged state agree (D53(a)).
 var historyRead = []struct {
 	id    ID
 	check func(context.Context, Env) Result
+	at    func(*SessionHistory) core.UnixMilli
 }{
-	{CMCPRegistered, checkMCPServerRegistered},
-	{CAdditionalContext, checkAdditionalContextDelivered},
+	{CMCPRegistered, checkMCPServerRegistered, func(h *SessionHistory) core.UnixMilli { return h.MCPInitializedAt }},
+	{CAdditionalContext, checkAdditionalContextDelivered, func(h *SessionHistory) core.UnixMilli { return h.Sentinel.ScannedAt }},
 }
 
 // declaredSeverity is the severity StandardAssertions declares for id, which gated gives a failing
@@ -50,9 +54,10 @@ const refreshedFailureDetail = "read from state/history.json after this session'
 	"the next SessionStart evaluates it and applies it to the mode"
 
 // readByHistory returns the row h settles for assertion id — what id's check reports reading h now,
-// stamped by clk (nil reads the system clock) — or false when id is not one historyRead names or h
-// still leaves it pending. A settled row is an observation (holding) or a failure: two missed
-// chances for the probe. The row is the check's own, with the declared severity gated gives a
+// dated by the time h recorded that observation, or by fallback when h recorded none — or false when
+// id is not one historyRead names or h still leaves it pending. clk is only the check's own clock
+// (nil reads the system clock); the time the check stamps is replaced by the observation's. A
+// settled row is an observation (holding) or a failure: two missed chances for the probe. The row is the check's own, with the declared severity gated gives a
 // failure at a start, so a refresh and the next SessionStart can never spell one reading
 // differently; a failure also carries refreshedFailureDetail.
 //
@@ -62,7 +67,7 @@ const refreshedFailureDetail = "read from state/history.json after this session'
 // Producers are not consulted: a caller refreshes only a row whose check already ran (a pending row,
 // a not_observed observation), which is itself the proof that its producer was declared where it
 // ran.
-func readByHistory(id ID, h *SessionHistory, clk core.Clock) (Result, bool) {
+func readByHistory(id ID, h *SessionHistory, clk core.Clock, fallback core.UnixMilli) (Result, bool) {
 	if h == nil {
 		return Result{}, false
 	}
@@ -76,6 +81,9 @@ func readByHistory(id ID, h *SessionHistory, clk core.Clock) (Result, bool) {
 		}
 		r := p.check(context.Background(), Env{Clock: clk, History: probe})
 		r.ID = id
+		if r.TS = p.at(h); r.TS == 0 {
+			r.TS = fallback
+		}
 		switch StandingOf(r) {
 		case StandingHolding:
 			return r, true
@@ -94,8 +102,11 @@ func readByHistory(id ID, h *SessionHistory, clk core.Clock) (Result, bool) {
 
 // RefreshFromHistory returns a copy of results in which every row still waiting for its
 // observation (StandingPending) that h now settles is replaced by what h records: the observation,
-// or the probe's failure once its two chances are spent. Nothing else changes: a failing row stays
-// failing until the next SessionStart re-evaluates it, and a row with nothing to judge —
+// or the probe's failure once its two chances are spent. The replacement is dated by the time h
+// recorded that observation (MCPInitializedAt, Sentinel.ScannedAt), or keeps the replaced row's own
+// TS when h recorded none; never by clk, so two reads of unchanged state return equal rows
+// (D53(a)). Nothing else changes: a failing row stays failing until the next SessionStart
+// re-evaluates it, and a row with nothing to judge —
 // not-yet-implemented included — or already holding is left as it was. results itself is not
 // modified, and no mode changes: only a SessionStart applies a failure to it.
 func RefreshFromHistory(results []Result, h *SessionHistory, clk core.Clock) []Result {
@@ -104,7 +115,7 @@ func RefreshFromHistory(results []Result, h *SessionHistory, clk core.Clock) []R
 		if StandingOf(r) != StandingPending {
 			continue
 		}
-		if p, ok := readByHistory(r.ID, h, clk); ok {
+		if p, ok := readByHistory(r.ID, h, clk, r.TS); ok {
 			out[i] = p
 		}
 	}
@@ -114,15 +125,15 @@ func RefreshFromHistory(results []Result, h *SessionHistory, clk core.Clock) []R
 // RefreshObservation is RefreshFromHistory for one observation-ledger entry, which doctor reads as
 // a capability's newest word: a not_observed entry whose Observed is pending and which h now settles
 // is returned as what h records — the observation, or a failed outcome once the probe's chances are
-// spent; outcome, Observed and coverage re-derived by ObservationsOf's own rules under reg, stamped
-// by clk — with its target and scope kept. It reports
-// whether it changed anything. The ledger on disk is never rewritten: it keeps one run per
+// spent; outcome, Observed and coverage re-derived by ObservationsOf's own rules under reg, dated as
+// RefreshFromHistory dates a row (by the entry's own TS when h recorded no time) — with its target
+// and scope kept. It reports whether it changed anything. The ledger on disk is never rewritten: it keeps one run per
 // SessionStart (V5-VERIFY §4.14).
 func RefreshObservation(o Observation, h *SessionHistory, reg CapabilityRegister, clk core.Clock) (Observation, bool) {
 	if o.Outcome != OutcomeNotObserved || !pendingSpellings[o.Observed] {
 		return o, false
 	}
-	r, ok := readByHistory(o.ID, h, clk)
+	r, ok := readByHistory(o.ID, h, clk, o.TS)
 	if !ok {
 		return o, false
 	}
