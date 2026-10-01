@@ -437,10 +437,57 @@ func (dr *drainer) DrainClientSpools(ctx context.Context) (int, error) {
 	return dr.pass(ctx, true)
 }
 
+// DrainClientSpoolsWithin is DrainClientSpools for a caller that may wait no longer than ctx allows,
+// including for the drain's mutex: the PreCompact route's settle (precompact_settle.go, D53(c)). The
+// other passes take the mutex without watching any context, and one of them may hold it for its own
+// budget and a line's drainLineDeadline, so a plain DrainClientSpools could keep the route waiting
+// past its bound before its own pass had begun. When ctx ends first, nothing is read and ctx's error
+// is returned.
+func (dr *drainer) DrainClientSpoolsWithin(ctx context.Context) (int, error) {
+	if !dr.lockWithin(ctx) {
+		return 0, ctx.Err()
+	}
+	defer dr.mu.Unlock()
+	return dr.passLocked(ctx, true)
+}
+
+// lockWithin takes dr.mu, giving up when ctx ends first. A Lock still pending then is completed and
+// released by its own goroutine as soon as the pass holding the mutex ends: it reads and writes
+// nothing, so it can outlive the caller harmlessly.
+func (dr *drainer) lockWithin(ctx context.Context) bool {
+	if dr.mu.TryLock() {
+		return true
+	}
+	locked := make(chan struct{})
+	go func() {
+		dr.mu.Lock()
+		close(locked)
+	}()
+	select {
+	case <-locked:
+		if ctx.Err() == nil {
+			return true
+		}
+		dr.mu.Unlock()
+		return false
+	case <-ctx.Done():
+		go func() {
+			<-locked
+			dr.mu.Unlock()
+		}()
+		return false
+	}
+}
+
 // pass is Drain's body; clientOnly restricts it to the client spools (DrainClientSpools).
 func (dr *drainer) pass(ctx context.Context, clientOnly bool) (int, error) {
 	dr.mu.Lock()
 	defer dr.mu.Unlock()
+	return dr.passLocked(ctx, clientOnly)
+}
+
+// passLocked is pass with dr.mu already held by the caller.
+func (dr *drainer) passLocked(ctx context.Context, clientOnly bool) (int, error) {
 	defer dr.releaseSessions() // however the pass ends, and before mu is released
 	dr.dirSynced = false       // a file created since the last pass has an entry that pass's sync missed
 

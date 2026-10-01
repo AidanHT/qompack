@@ -1222,8 +1222,17 @@ func (d *daemon) handleCheckpoint(ctx context.Context, req ipc.Request) ipc.Resp
 		// through New — unlike the ingest/drain layer's defensive "if i.m != nil" checks, which
 		// exist because those types are also constructible directly by tests without going
 		// through New.
+		//
+		// The seal waits first for the session's own captures, bounded (precompact_settle.go, D53(c)),
+		// and inside the B-E timing: B-E is PreCompact entry to exit, and the settle is on that path.
+		// A PreCompact a drain replays does not settle: the drain replaying it holds the drain's mutex,
+		// and the compaction it announced is already over.
 		_ = obs.Timed(d.m.Hist(histName(obs.BE)), func() error {
-			_, callErr = d.svc.PreCompact(ctx, *ev)
+			sealCtx := ctx
+			if !spoolReplay(ctx) {
+				sealCtx = withSealDrops(ctx, d.settleBeforeSeal(ctx, ev.SessionID, hookTime(req, now)))
+			}
+			_, callErr = d.svc.PreCompact(sealCtx, *ev)
 			return callErr
 		})
 		if callErr != nil {
