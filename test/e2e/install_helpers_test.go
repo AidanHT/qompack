@@ -160,7 +160,15 @@ func installArtifactDir(t *testing.T) string {
 		return d
 	}
 	d := t.TempDir()
-	installTempDirs[t.Name()] = d
+	name := t.Name()
+	installTempDirs[name] = d
+	// The directory dies with this test, so the entry must too: under `go test -count=N` the next
+	// run of the same name would otherwise be handed a directory that no longer exists.
+	t.Cleanup(func() {
+		installTempDirMu.Lock()
+		defer installTempDirMu.Unlock()
+		delete(installTempDirs, name)
+	})
 	return d
 }
 
