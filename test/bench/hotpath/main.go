@@ -176,8 +176,11 @@ func parseFlags(args []string, errw io.Writer) (flags, error) {
 	// B-E gate (budgetIDBECPU) is still hard, every entry in internal/obs/budgets.go keeps its own
 	// Gated flag untouched, and every invocation that does not pass this flag — bench-gate's and
 	// nightly bench-deep's `devtool bench-hotpath` lines, ci.yml's test-e2e and timing jobs, and a
-	// bare local run — keeps every gate it has always had, byte for byte. Default false so that
-	// forgetting it can only ever make a run STRICTER.
+	// bare local run — keeps every gate it has always had, byte for byte, on a reference disk (the
+	// owner's quiet runs); hosted runs of those lanes report B-A, B-B and B-E's wall row under
+	// QOMPACK_NONREFERENCE_DISK instead (D53(e), D55; ADR 0010 Addendum 2), a separate declaration
+	// this flag does not touch. Default false so that forgetting it can only ever make a run
+	// STRICTER.
 	//
 	// The evidence for B-A is CI's own, on windows-latest, one commit: the B-A row measured p99
 	// 3.072 ms in bench-gate (harness alone on its runner) and 11.264 ms then 18.432 ms in two
@@ -237,8 +240,9 @@ func parseFlags(args []string, errw io.Writer) (flags, error) {
 	// takes (design §6.2's T9, T10 and T14 — one sync per batch, check-then-append order, zero
 	// releases before the seal — live in internal/daemon's delivery group-commit tests and run in
 	// every lane regardless). The isolated verdict lives in bench-gate, nightly bench-deep, ci.yml's
-	// timing job and its test-e2e job, and test/guards' TestColoadYieldersAreJudgedInIsolation
-	// mechanically prevents that coverage from disappearing. internal/obs/budgets.go's B-B entry
+	// timing job and its test-e2e job on a reference disk (the owner's quiet runs); hosted runs of
+	// these lanes report the rows under QOMPACK_NONREFERENCE_DISK (ADR 0010 Addendum 2). test/guards'
+	// TestColoadYieldersAreJudgedInIsolation mechanically prevents that coverage from disappearing. internal/obs/budgets.go's B-B entry
 	// stays Gated: true — it is the co-loaded RUN that reports, never the budget.
 	fs.BoolVar(&f.underCoload, "under-coload", false,
 		"declare that this run shares its host with unrelated concurrent work (e.g. the whole-tree `go test ./...`), "+
