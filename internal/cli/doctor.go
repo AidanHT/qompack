@@ -21,6 +21,7 @@ import (
 	"github.com/qompack/qompack/internal/contract"
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/daemon"
+	"github.com/qompack/qompack/internal/ipc"
 	"github.com/qompack/qompack/internal/logging"
 	"github.com/qompack/qompack/internal/mcp"
 	"github.com/qompack/qompack/internal/obs"
@@ -914,14 +915,26 @@ func (s *doctorState) spoolRow() doctorRow {
 		bytes += info.Size()
 	}
 	status := doctorOK
+	detail := "spool files the daemon has not drained; an observation, not a latency or health verdict"
 	if files > 0 {
 		status = doctorDegraded
+		if ipc.ReadState(s.root, s.cfg).Hot == ipc.HotSpool {
+			if s.lockAlive {
+				// Spool submode with a daemon serving: the files are the designed path, replayed by
+				// the daemon, and nothing is lost (D53(c)). Informational, and still shown.
+				status = doctorOK
+				detail = "the hot path is in spool submode: " + obs.SpoolSubmodeWhat + ". It lasts until " +
+					obs.SpoolSubmodeUntil + ". To tune it: " + obs.SpoolSubmodeTune
+			} else {
+				detail = "state.bin still says spool submode but no daemon is serving, so hooks spool without " +
+					"starting one and nothing replays these files until a new session starts in this project"
+			}
+		}
 	}
 	return doctorRow{
 		ID: "spool.pending", Status: status,
 		Observed: fmt.Sprintf("%d file(s), %d byte(s)", files, bytes),
-		Detail: "spool files the daemon has not drained; an observation, not a latency or health " +
-			"verdict",
+		Detail:   detail,
 	}
 }
 
@@ -1311,6 +1324,36 @@ func (s *doctorState) statusRows() []doctorRow {
 			ID: "status.schema", Status: doctorOK, Observed: fmt.Sprintf("%d", rep.Schema),
 			Detail: "commands.StatusSchema, so a reader of both documents compares one number",
 		},
+		doctorHotPathRow(rep),
+	}
+}
+
+// doctorHotPathRow reports the hot path's submode from the same snapshot `qompack status` renders.
+// Spool submode is informational, never degraded: on a slow disk it is the designed behaviour of a
+// long session and loses nothing (D53(c)), so the row says what happened, what ends it and what
+// tunes it.
+func doctorHotPathRow(rep commands.StatusReport) doctorRow {
+	hot := ""
+	if rep.Snapshot != nil {
+		hot = rep.Snapshot.Hot
+	}
+	switch hot {
+	case "sync":
+		return doctorRow{
+			ID: "status.hotPath", Status: doctorOK, Observed: hot,
+			Detail: "hooks hand their captures to the daemon and wait for its acknowledgement",
+		}
+	case "spool":
+		return doctorRow{
+			ID: "status.hotPath", Status: doctorOK, Observed: hot,
+			Detail: obs.SpoolSubmodeWhat + ". It lasts until " + obs.SpoolSubmodeUntil + ". To tune it: " +
+				obs.SpoolSubmodeTune,
+		}
+	default:
+		return doctorRow{
+			ID: "status.hotPath", Status: doctorUnknown, Observed: doctorFirstNonEmpty(hot, doctorUnknown),
+			Detail: "no running daemon reported its hot-path submode",
+		}
 	}
 }
 

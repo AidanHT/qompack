@@ -21,6 +21,7 @@ import (
 	"github.com/qompack/qompack/internal/hookio"
 	"github.com/qompack/qompack/internal/ipc"
 	"github.com/qompack/qompack/internal/logging"
+	"github.com/qompack/qompack/internal/obs"
 	"github.com/qompack/qompack/internal/paths"
 	"github.com/qompack/qompack/internal/sketch"
 )
@@ -733,9 +734,22 @@ func TestHotModeTransitionWritesStateAndNAKs(t *testing.T) {
 	// append-only and never rotated, which is what makes it the durable half.
 	loud, readErr := os.ReadFile(filepath.Join(logDir, "LOUD.log"))
 	require.NoError(t, readErr, "the transition must reach LOUD.log")
-	require.Contains(t, string(loud), "hot path degraded to spool submode")
-	require.Contains(t, readDayLogs(t, logDir), "hot path degraded to spool submode",
+	require.Contains(t, string(loud), "hot path switched to spool submode; nothing is lost")
+	require.Contains(t, readDayLogs(t, logDir), "hot path switched to spool submode; nothing is lost",
 		"the transition must also reach the day log, at WARN")
+	// Worded for the user (D53(c)): what happened, that nothing is lost, what ends it and how to tune
+	// it, with the breach fields first as test/integration reads them.
+	require.Contains(t, string(loud), " budget_ms=15 windows=1 l0_ingest_ms=")
+	for _, want := range []string{
+		"nothing is lost", "durable writes on this disk", "a new session",
+		"idle exit", "no stop command",
+	} {
+		require.Contains(t, string(loud), want)
+	}
+	for _, key := range obs.SpoolSubmodeKeys {
+		require.Contains(t, string(loud), key, "the LOUD line names the tuning key %s", key)
+	}
+	require.NotContains(t, string(loud), "degraded", "a session that loses nothing is not called degraded")
 
 	// 4. status — what /qompack:status renders, and the only channel a user can query on demand.
 	statusResp := dd.dispatchOp(context.Background(), ipc.Request{Op: ipc.OpStatus, Session: "sess-1", Reply: true, TS: core.NowMilli(dd.clk)})
