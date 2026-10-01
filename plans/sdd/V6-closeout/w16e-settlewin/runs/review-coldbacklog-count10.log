@@ -1,0 +1,23 @@
+=== RUN   TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound
+--- PASS: TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound (5.31s)
+=== RUN   TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound
+--- PASS: TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound (5.28s)
+=== RUN   TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound
+--- PASS: TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound (5.27s)
+=== RUN   TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound
+--- PASS: TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound (5.28s)
+=== RUN   TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound
+--- PASS: TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound (5.27s)
+=== RUN   TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound
+--- PASS: TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound (5.29s)
+=== RUN   TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound
+--- PASS: TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound (5.27s)
+=== RUN   TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound
+--- PASS: TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound (5.33s)
+=== RUN   TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound
+--- PASS: TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound (5.62s)
+=== RUN   TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound
+--- PASS: TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound (5.37s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	53.560s
+exit 0
