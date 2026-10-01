@@ -230,6 +230,22 @@ jobs:
               echo "--- package-level output of $pkg ---"
               grep "\"Package\":\"$pkg\"" test.json | grep -v '"Test":"' | grep '"Action":"output"' \
                 | sed -n 's/.*"Output":"\(.*\)"}$/\1/p' | tail -n 40
+              # A binary killed at -timeout, or one that panicked, leaves the tests it was running
+              # with a "run" event and no verdict, and the panic and goroutine dump are THEIR output,
+              # which the package-level lines above leave out: run 36816905394's windows-latest leg
+              # printed only "FAIL internal/daemon 1800.187s". Counted per name, since -count=2 runs
+              # every test twice.
+              grep "\"Package\":\"$pkg\"" test.json | grep '"Test":"' \
+                | grep -E '"Action":"(run|pass|fail|skip)"' \
+                | sed -n 's/.*"Action":"\([a-z]*\)".*"Test":"\([^"]*\)".*/\1 \2/p' \
+                | awk '$1 == "run" { n[$2]++ } $1 != "run" { n[$2]-- } END { for (t in n) if (n[t] > 0) print t }' \
+                | sort > unfinished.txt
+              while read -r test; do
+                [ -n "$test" ] || continue
+                echo "--- $pkg $test started and never finished; its last output ---"
+                grep "\"Package\":\"$pkg\"" test.json | grep "\"Test\":\"$test\"" | grep '"Action":"output"' \
+                  | sed -n 's/.*"Output":"\(.*\)"}$/\1/p' | tail -n 60
+              done < unfinished.txt
             done < failed-pkgs.txt
           fi
           exit "$rc"
