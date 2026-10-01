@@ -69,8 +69,10 @@ jobs:
     # exact invisibility this job exists to remove. The sub-checks an allowlist would drop are also
     # the cheap ones (bindeps iterates its own GOOS matrix, sleepcheck parses every file regardless
     # of build tags, runpatterns and docmarkers read Markdown), so it would buy no minutes worth the
-    # risk. The cost that matters is stubskips' single `go test` pass over internal/, cmd/ and
-    # test/, and that is not removable: the check IS a test run.
+    # risk. The cost that matters is stubskips' `go test` over internal/, cmd/ and test/, and that is
+    # not removable: the check IS a test run. It is two passes since run 36816905394: the tree in
+    # parallel, then test/e2e alone, for the reason the `test` job leaves test/e2e to `test-e2e`
+    # (tools/devtool/test.go, isolatedPackages).
     #
     # It is a separate job rather than a Windows leg of `verify` because nothing else in verify —
     # fmt-check, go vet, go build, the two git-history greps — is platform-sensitive, and paying for
@@ -80,9 +82,23 @@ jobs:
     # The backstop for plausibly the longest job in the matrix: the stubskips sub-check runs a real
     # `go test` over internal/, cmd/ and test/ at the repository's own -timeout=30m, on the slowest
     # runner OS. Go's timeout is per test binary, so a job that wedges outside one — a hung child
-    # process, a stalled runner — would sit until GitHub's 360-minute platform default. 45 leaves
-    # that pass its whole 30-minute budget plus checkout, toolchain setup and the other sub-checks.
-    timeout-minutes: 45
+    # process, a stalled runner — would sit until GitHub's 360-minute platform default.
+    #
+    # 75, from run 36816905394's job 110223848264 (it was 45 for one pass). -timeout bounds each
+    # test binary, not each pass: a pass runs several binaries at once and can outlast 30 minutes.
+    # Measured there: checkout and setup about 1 minute (04:49:41 to 04:50:30); the sub-checks before
+    # stubskips about 4 (to 04:54:26); then ONE whole-tree pass of 38 minutes (to 05:32:33), whose
+    # length was test/e2e's binary starting about 8 minutes in and being killed at its 30, so the
+    # tree was only partly inspected. Split, the first pass is the tree without test/e2e: not yet
+    # measured alone, bounded above by those 38 minutes (every other binary finished inside them,
+    # with test/e2e loading the runner) and plausibly 25 to 35. The second is test/e2e alone: about
+    # 20 minutes (that run's test-e2e job, 1188 s), killed at 30 if it hangs. Expected 1 + 4 + 30 +
+    # 20, about 55; worst case 1 + 4 + 38 + 30 = 73, a thin 2-minute margin, so stubskips now prints
+    # each pass's start and duration and the next run measures the first pass directly. No
+    # per-binary -timeout moved: a hung test is still killed at 30 minutes and still reported, and
+    # this bound still catches a wedge outside a binary. The owner sets the value (wave 16 ci seat,
+    # needs_owner).
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
@@ -221,6 +237,22 @@ jobs:
               echo "--- package-level output of $pkg ---"
               grep "\"Package\":\"$pkg\"" test.json | grep -v '"Test":"' | grep '"Action":"output"' \
                 | sed -n 's/.*"Output":"\(.*\)"}$/\1/p' | tail -n 40
+              # A binary killed at -timeout, or one that panicked, leaves the tests it was running
+              # with a "run" event and no verdict, and the panic and goroutine dump are THEIR output,
+              # which the package-level lines above leave out: run 36816905394's windows-latest leg
+              # printed only "FAIL internal/daemon 1800.187s". Counted per name, since -count=2 runs
+              # every test twice.
+              grep "\"Package\":\"$pkg\"" test.json | grep '"Test":"' \
+                | grep -E '"Action":"(run|pass|fail|skip)"' \
+                | sed -n 's/.*"Action":"\([a-z]*\)".*"Test":"\([^"]*\)".*/\1 \2/p' \
+                | awk '$1 == "run" { n[$2]++ } $1 != "run" { n[$2]-- } END { for (t in n) if (n[t] > 0) print t }' \
+                | sort > unfinished.txt
+              while read -r test; do
+                [ -n "$test" ] || continue
+                echo "--- $pkg $test started and never finished; its last output ---"
+                grep "\"Package\":\"$pkg\"" test.json | grep "\"Test\":\"$test\"" | grep '"Action":"output"' \
+                  | sed -n 's/.*"Output":"\(.*\)"}$/\1/p' | tail -n 60
+              done < unfinished.txt
             done < failed-pkgs.txt
           fi
           exit "$rc"
@@ -233,12 +265,26 @@ jobs:
     #
     # This job does NOT set QOMPACK_UNDER_COLOAD, on purpose: it is the isolation in which
     # test/e2e's wall-clock rows are judgeable, and TestV3_HotPathUnchangedWithLedgerResident
-    # gates B-A and B-E's wall row here exactly as bench-gate does.
+    # judges every row here exactly as bench-gate does, except the fsync-bound wall rows the
+    # non-reference-disk declaration below reports.
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
+    # ── Non-reference disk (owner Q1, third option; D53(e)) ──────────────────────────────────────
+    # A GitHub-hosted runner's disk is not a reference disk: its fsync latency carries a tail no
+    # budget priced on a quiet reference host survives (run 36816905394: ubuntu-latest B-B p50
+    # 0.576 ms but p99 40.960 ms against 15; windows-latest p50 45 ms against 50; the quiet Windows
+    # reference run C5.1 read p99 22.5 ms). Hosted figures never become constants (Q1), and this
+    # runner is not co-loaded, so QOMPACK_UNDER_COLOAD would name the wrong cause. The declaration
+    # reports, without gating, the fsync-bound wall rows (B-A, B-B, B-E's wall row) and the §12.2
+    # spool-submode transition, each with a note naming it; B-E_cpu, the delivery ledger (identity,
+    # 0 lost), the population census and every structural check stay gated. It is honoured only
+    # where GITHUB_ACTIONS=true (internal/obs.NonReferenceDiskEnv), the owner's quiet reference runs
+    # never set it, and test/guards' TestNonReferenceDisk_IsHostedCIOnly keeps both true.
+    env:
+      QOMPACK_NONREFERENCE_DISK: '1'
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
@@ -255,11 +301,29 @@ jobs:
     # -run pattern and fails the tree if any test that consults obs.UnderCoload is missing
     # from it (test/e2e's are covered by `test-e2e` instead), so a wall-clock budget can be
     # deferred by the whole-tree job but never dropped by the pipeline.
+    #
+    # What this lane cannot judge on a hosted runner is an fsync-bound wall row, for the reason
+    # below: TestIntegration_HotPathWarmWithRealResidentState reports B-A, B-B and B-E's wall row
+    # here and the owner's quiet reference runs judge them. Every other row named above is
+    # unaffected — none of them reads the declaration.
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
+    # ── Non-reference disk (owner Q1, third option; D53(e)) ──────────────────────────────────────
+    # A GitHub-hosted runner's disk is not a reference disk: its fsync latency carries a tail no
+    # budget priced on a quiet reference host survives (run 36816905394: ubuntu-latest B-B p50
+    # 0.576 ms but p99 40.960 ms against 15; windows-latest p50 45 ms against 50; the quiet Windows
+    # reference run C5.1 read p99 22.5 ms). Hosted figures never become constants (Q1), and this
+    # runner is not co-loaded, so QOMPACK_UNDER_COLOAD would name the wrong cause. The declaration
+    # reports, without gating, the fsync-bound wall rows (B-A, B-B, B-E's wall row) and the §12.2
+    # spool-submode transition, each with a note naming it; B-E_cpu, the delivery ledger (identity,
+    # 0 lost), the population census and every structural check stay gated. It is honoured only
+    # where GITHUB_ACTIONS=true (internal/obs.NonReferenceDiskEnv), the owner's quiet reference runs
+    # never set it, and test/guards' TestNonReferenceDisk_IsHostedCIOnly keeps both true.
+    env:
+      QOMPACK_NONREFERENCE_DISK: '1'
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
@@ -267,8 +331,18 @@ jobs:
         with: { go-version: '1.26.6', cache: true }
       - run: go test -p 1 -count=1 -timeout=30m -run '^(TestGC_DeadlineTruncatesAndResumes|TestGC_DeadlineOvershootIsBoundedByTheCheckInterval|TestBudget_QueryHit|TestBudget_QueryMiss|TestBudget_Record|TestBudget_RebuildBloom|TestBudget_RefreshStaleness|TestBudget_Open|TestBudget_DetectorScan|TestBudgetBF|TestIntegration_HotPathWarmWithRealResidentState|TestFeaturesFrom_LexicalCohesionShingleCap)$' ./internal/store ./internal/negknow ./internal/mcp ./internal/daemon ./test/integration
 
+  # `devtool cover` runs two passes (tools/devtool/cover.go, coverPasses): the tree but test/e2e in
+  # parallel under its own co-load declaration, then test/e2e alone without it, as `test-e2e` runs
+  # it (ADR 0010 decision 4). Inside the whole-tree pass the live-path e2e rows' hooks took the
+  # designed degrade to the client spool, and TestE2EHookRoundTrip, which counts the WAL, was red
+  # here in runs 34804619564 and 36816905394 while `test-e2e` passed it. The e2e pass judges X11's
+  # fsync-bound rows exactly as `test-e2e` does, so it carries the same non-reference-disk
+  # declaration (owner Q1, D53(e)); devtool takes it back from the co-loaded pass, so no pass
+  # names both causes.
   cover:
     runs-on: ubuntu-latest
+    env:
+      QOMPACK_NONREFERENCE_DISK: '1'
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
@@ -297,7 +371,9 @@ jobs:
     # GitHub branch-protection setting, not a file in this repo — see task-7-report.md for the
     # controller note.
     #
-    # This job gates the HOT-PATH budgets (B-A / B-E) only. §7's other half — the >10% warn /
+    # This job gates the HOT-PATH budgets (B-A / B-E) only. On a hosted runner what it gates is
+    # B-E_cpu and the delivery ledger; B-A, B-B and B-E's wall row are reported there, under the
+    # non-reference-disk declaration below. §7's other half — the >10% warn /
     # >25% fail comparison of every micro-benchmark against testdata/bench-baseline.txt — is
     # `devtool bench-compare`, and the V2 checkpoint's decision is that it runs LOCALLY, on a
     # quiet machine, as part of §5.3's baseline discipline:
@@ -325,6 +401,21 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
+    # ── Non-reference disk (owner Q1, third option; D53(e)) ──────────────────────────────────────
+    # A GitHub-hosted runner's disk is not a reference disk: its fsync latency carries a tail no
+    # budget priced on a quiet reference host survives (run 36816905394: ubuntu-latest B-B p50
+    # 0.576 ms but p99 40.960 ms against 15; windows-latest p50 45 ms against 50; the quiet Windows
+    # reference run C5.1 read p99 22.5 ms). Hosted figures never become constants (Q1), and this
+    # runner is not co-loaded, so QOMPACK_UNDER_COLOAD would name the wrong cause. The declaration
+    # reports, without gating, the fsync-bound wall rows (B-A, B-B, B-E's wall row) and the §12.2
+    # spool-submode transition, each with a note naming it; B-E_cpu, the delivery ledger (identity,
+    # 0 lost), the population census and every structural check stay gated. It is honoured only
+    # where GITHUB_ACTIONS=true (internal/obs.NonReferenceDiskEnv), the owner's quiet reference runs
+    # never set it, and test/guards' TestNonReferenceDisk_IsHostedCIOnly keeps both true.
+    # The harness reads the declaration itself (test/bench/hotpath, wallWaiver), so the command
+    # line below is the one a quiet reference run uses, byte for byte.
+    env:
+      QOMPACK_NONREFERENCE_DISK: '1'
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
@@ -399,17 +490,60 @@ jobs:
         with: { go-version: '1.26.6', cache: true }
       - run: go run -modfile=tools/pinned/go.mod golang.org/x/vuln/cmd/govulncheck ./...
       - run: go run ./tools/devtool lint --only=importgraph,testdeps,bindeps
+      # Each check is an explicit `if` that fails the step. The bare `! grep ...` lines this replaced
+      # were only enforced while they were the LAST command of the script: bash -e does not exit on
+      # a command whose status `!` inverts, so every check but the last could find an offender, print
+      # it, and still let the step pass.
+      #
+      # `go list -deps` without -test reports each package's non-test imports only, so a _test.go
+      # file's imports never appear here. internal/testutil and internal/paths/pathstest are test
+      # support (§6.2): non-test packages, but ones only a test binary may link. The third and
+      # fourth checks are what make their os/exec carve-out safe. The third reads direct imports:
+      # no product package — anything under internal/ or cmd/ that is not test support itself —
+      # imports either. It exempts test support as an importer, so a product package importing a
+      # conformance package that imports pathstest would pass it; the fourth closes that by
+      # reading what the shipped binary links, transitively: no test support package and no
+      # `testing` package anywhere in `go list -deps ./cmd/...`, on all three release OSes. bindeps
+      # cannot stand in for it: it allows every package under the module path.
       - name: import allowlist (§8, D10)
         run: |
           go list -deps -f '{{.ImportPath}} {{join .Imports " "}}' ./... > imports.txt
+          product='^github.com/qompack/qompack/(internal|cmd)/'
+          # Test support: internal/testutil, internal/paths/pathstest, and every conformance package
+          # internal/<pkg>/<pkg>test.
+          support='^github.com/qompack/qompack/internal/(testutil|paths/pathstest|([a-z0-9]+)/\2test) '
+          rc=0
           # No network stack anywhere; `net` itself is permitted only in internal/ipc (unix sockets).
-          ! grep -E '^github.com/qompack/qompack/(internal|cmd)/' imports.txt \
-            | grep -Ev '^github.com/qompack/qompack/internal/ipc ' \
-            | grep -E '\b(net/http|net/url|crypto/tls)\b'
-          # os/exec allowlist: daemon (detached self-spawn), cli, and testutil (§6.2 real-binary RunHook).
-          ! grep -E '^github.com/qompack/qompack/(internal|cmd)/' imports.txt \
-            | grep -Ev '^github.com/qompack/qompack/internal/(daemon|cli|testutil) ' \
-            | grep -E '\bos/exec\b'
+          if grep -E "$product" imports.txt | grep -Ev '^github.com/qompack/qompack/internal/ipc ' \
+            | grep -E '\b(net/http|net/url|crypto/tls)\b'; then
+            echo "::error::a product package imports a network stack (§8, D10)"; rc=1
+          fi
+          # os/exec allowlist: daemon (detached self-spawn), cli, testutil (§6.2 real-binary RunHook),
+          # and pathstest, which runs `go env` once to pin the toolchain's cache locations before it
+          # moves HOME (a9f276e7, b763d728). pathstest is test support exactly as testutil is.
+          if grep -E "$product" imports.txt \
+            | grep -Ev '^github.com/qompack/qompack/internal/(daemon|cli|testutil|paths/pathstest) ' \
+            | grep -E '\bos/exec\b'; then
+            echo "::error::a product package outside the os/exec allow-list imports os/exec (§8)"; rc=1
+          fi
+          # Test support stays test-only: no product package imports testutil or pathstest.
+          if grep -E "$product" imports.txt | grep -Ev "$support" \
+            | grep -E ' github.com/qompack/qompack/internal/(testutil|paths/pathstest)( |$)'; then
+            echo "::error::a product package imports test support (internal/testutil or internal/paths/pathstest)"; rc=1
+          fi
+          # Nor does the shipped binary link test support or `testing` through any chain of imports.
+          # grep exits 2 on a bad pattern or file, which an `if` alone would read as "no match", so
+          # anything but 0 (a match) or 1 (none) fails the step too.
+          linked='^(testing(/.*)?|github.com/qompack/qompack/internal/(testutil|paths/pathstest|([a-z0-9]+)/\4test))$'
+          for goos in linux darwin windows; do
+            GOOS=$goos go list -deps ./cmd/... > "shipped-$goos.txt"
+            if grep -E "$linked" "shipped-$goos.txt"; then
+              echo "::error::the $goos release binary links test support or testing"; rc=1
+            elif [ "$?" -ne 1 ]; then
+              echo "::error::grep could not check the $goos release binary's packages"; rc=1
+            fi
+          done
+          exit "$rc"
 
   docs:
     runs-on: ubuntu-latest

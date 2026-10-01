@@ -25,7 +25,7 @@ import (
 // Either way the refusal must be the not-regular one and never os.IsNotExist, which readObjectFile
 // would read as "try the other spelling" or "absent" rather than as a refused object.
 func TestReadBoundedObject_RefusesASocketLeaf(t *testing.T) {
-	p := filepath.Join(t.TempDir(), "s")
+	p := filepath.Join(shortSocketDir(t), "s")
 	l, err := net.Listen("unix", p)
 	require.NoError(t, err, "fixture: an AF_UNIX socket file must be creatable here")
 	t.Cleanup(func() { _ = l.Close() })
@@ -36,6 +36,22 @@ func TestReadBoundedObject_RefusesASocketLeaf(t *testing.T) {
 	_, err = readBoundedObject(p, 1<<20)
 	require.ErrorIs(t, err, errObjectNotRegular)
 	require.False(t, os.IsNotExist(err))
+}
+
+// shortSocketDir returns a fresh, empty directory short enough to bind an AF_UNIX socket in, removed when
+// the test ends.
+//
+// Not t.TempDir: its name embeds the test's name, and sun_path is 104 bytes on darwin and 108 on
+// Linux and Windows. macos-latest's /var/folders/<2>/<30>/T/ (49 bytes) plus a test-named directory
+// overflowed it ("bind: invalid argument", run 36816905394), and so did windows-latest's
+// C:\Users\RUNNER~1\AppData\Local\Temp\ under internal/store's longest socket test name. A short
+// prefix under the same temp directory leaves the socket path near 70 bytes on every runner.
+func shortSocketDir(t *testing.T) string {
+	t.Helper()
+	dir, err := os.MkdirTemp("", "qsk")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	return dir
 }
 
 // TestReadBoundedObject_RefusesADirectoryLeafAsNotRegular pins the sentinel the directory refusal

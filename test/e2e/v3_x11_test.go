@@ -183,6 +183,15 @@ const (
 	x11BAWaiverMark = string(obs.BA) + "'s row is REPORTED, not gated"
 	x11BBWaiverMark = string(obs.BB) + "'s row is REPORTED, not gated"
 
+	// x11NonrefDiskPhrase is the harness's nonrefDiskReportedPhrase (test/bench/hotpath/report.go):
+	// after a row's name it opens every note the harness writes for a row it REPORTED because the run
+	// declared a non-reference disk (obs.NonReferenceDiskEnv, honoured only on GitHub Actions;
+	// D53(e)). The three marks are that phrase on the rows the declaration reports.
+	x11NonrefDiskPhrase = "REPORTED, not gated, for this run: " + obs.NonReferenceDiskEnv + " declares"
+	x11NonrefDiskBAMark = string(obs.BA) + "'s row is " + x11NonrefDiskPhrase
+	x11NonrefDiskBBMark = string(obs.BB) + "'s row is " + x11NonrefDiskPhrase
+	x11NonrefDiskBEMark = string(obs.BE) + "'s wall-clock row is " + x11NonrefDiskPhrase
+
 	// x11LimitDeltaMs is the tolerance for comparing a row's limit_ms against obs.Budgets(): the
 	// artifact renders limits in whole milliseconds, so anything under a microsecond is a float
 	// rendering difference, never a different budget.
@@ -321,10 +330,11 @@ func x11RequireGatedRow(t *testing.T, row x11BudgetRow, limitMs float64, what st
 func x11RequireReportedRow(t *testing.T, row x11BudgetRow, limitMs float64, what string) {
 	t.Helper()
 	require.Nil(t, row.LimitMs,
-		"%s must leave %s REPORTED (limit_ms null) in this run's artifact; it is still gated at %.0fms "+
-			"by every run that does not pass the flag", x11UnderColoadFlag, what, limitMs)
-	require.Nil(t, row.Pass, "%s must leave %s REPORTED (pass null) in this run's artifact",
-		x11UnderColoadFlag, what)
+		"the run's declaration (%s, or %s on GitHub Actions) must leave %s REPORTED (limit_ms null) in this "+
+			"run's artifact; it is still gated at %.0fms by every run that declares neither",
+		x11UnderColoadFlag, obs.NonReferenceDiskEnv, what, limitMs)
+	require.Nil(t, row.Pass, "the run's declaration (%s, or %s on GitHub Actions) must leave %s REPORTED "+
+		"(pass null) in this run's artifact", x11UnderColoadFlag, obs.NonReferenceDiskEnv, what)
 }
 
 // x11BuildBenchBinary compiles ./test/bench/hotpath and returns the executable: the harness is
@@ -489,11 +499,19 @@ func TestV3_HotPathUnchangedWithLedgerResident(t *testing.T) {
 	// exactly as the single run was; the pair is then judged on hook_controlled_observed's p50.
 	bench := x11BuildBenchBinary(t)
 	underCoload := obs.UnderCoload()
+	// D53(e): a non-reference disk, honoured only on a GitHub Actions runner (obs.NonReferenceDiskEnv),
+	// is the other declaration under which the fsync-bound wall rows — B-A, B-B, B-E's wall row — and
+	// the spool deferrals that follow a throttled disk are REPORTED. The harness reads it from the
+	// environment it inherits (pathstest.Environ, where the job set it), so the two cannot disagree.
+	// B-E_cpu, the delivery ledger (0 lost) and the pair's ledger-regression ceiling stay gated: the
+	// pair compares hook_controlled_observed, the share of B-A outside the durable ingest.
+	nonrefDisk := obs.NonReferenceDisk()
+	decl := x11Declarations{underCoload: underCoload, nonrefDisk: nonrefDisk}
 
 	baseRep := x11RunHarness(t, p, bench, baseRoot, underCoload, x11RunNoLedger)
-	baseRows := x11RequireAbsoluteRows(t, p, baseRep, underCoload, x11RunNoLedger)
+	baseRows := x11RequireAbsoluteRows(t, p, baseRep, decl, x11RunNoLedger)
 	ledRep := x11RunHarness(t, p, bench, p.Root, underCoload, x11RunLedger)
-	ledRows := x11RequireAbsoluteRows(t, p, ledRep, underCoload, x11RunLedger)
+	ledRows := x11RequireAbsoluteRows(t, p, ledRep, decl, x11RunLedger)
 
 	// ── Expected output 6 (D42): the ledger must not move the hot path. The ledger run's
 	// hook_controlled_observed p50 against the paired no-ledger run's, read from each artifact's
@@ -515,6 +533,10 @@ func TestV3_HotPathUnchangedWithLedgerResident(t *testing.T) {
 		pairVerdict = "REPORTED, not gated (" + x11UnderColoadFlag + "): populations differ, not compared"
 		t.Logf("X11 under %s: %v — a co-loaded run may defer to the spool (D39); ci.yml's `test-e2e` job "+
 			"judges the pair", obs.UnderColoadEnv, pairErr)
+	case nonrefDisk && errors.Is(pairErr, errX11PairIncomparable):
+		pairVerdict = "REPORTED, not gated (" + obs.NonReferenceDiskEnv + "): populations differ, not compared"
+		t.Logf("X11 under %s: %v — on a non-reference disk a run may defer to the spool (D53(e)); the owner's "+
+			"quiet reference runs judge the pair", obs.NonReferenceDiskEnv, pairErr)
 	case underCoload:
 		require.NoError(t, pairErr,
 			"even a co-loaded run must carry a readable hook_controlled_observed note in both artifacts")
@@ -581,10 +603,11 @@ func x11RunHarness(t *testing.T, p *testutil.Project, bench, root string, underC
 		t.Logf("%s: bench artifact %s:\n%s", run, jsonPath, raw)
 	}
 	require.NoError(t, runErr,
-		"%s: bench-hotpath exited non-zero (%s=%v): either a gated budget (B-E_cpu p99<%.0fms always; "+
-			"without %s also B-B p99<%.0fms, B-A p99<%.0fms and B-E's wall row p99<%.0fms) breached, or the "+
-			"harness itself failed\nstderr:\n%s",
-		run, obs.UnderColoadEnv, underCoload, x11BudgetLimitMs(t, p, obs.BE),
+		"%s: bench-hotpath exited non-zero (%s=%v, %s honoured=%v): either a gated budget (B-E_cpu "+
+			"p99<%.0fms always; without %s or the non-reference-disk declaration also B-B p99<%.0fms, B-A "+
+			"p99<%.0fms and B-E's wall row p99<%.0fms) breached, or the harness itself failed\nstderr:\n%s",
+		run, obs.UnderColoadEnv, underCoload, obs.NonReferenceDiskEnv, obs.NonReferenceDisk(),
+		x11BudgetLimitMs(t, p, obs.BE),
 		x11UnderColoadFlag, x11BudgetLimitMs(t, p, obs.BB), x11BudgetLimitMs(t, p, obs.BA),
 		x11BudgetLimitMs(t, p, obs.BE), stderr.String())
 
@@ -601,15 +624,25 @@ func x11RunHarness(t *testing.T, p *testutil.Project, bench, root string, underC
 	return rep
 }
 
+// x11Declarations are the invoking job's two declarations about the run's host, read once: co-load
+// (obs.UnderCoload, forwarded to the harness as --under-coload) and a non-reference disk on GitHub
+// Actions (obs.NonReferenceDisk, which the harness reads from its own environment). Either one
+// reports B-A, B-B and B-E's wall row; each is disclosed by its own notes.
+type x11Declarations struct{ underCoload, nonrefDisk bool }
+
+// waived reports whether either declaration is in force.
+func (d x11Declarations) waived() bool { return d.underCoload || d.nonrefDisk }
+
 // x11AbsoluteRows is what x11RequireAbsoluteRows judged, for the pair's log.
 type x11AbsoluteRows struct{ ba, bb x11BudgetRow }
 
 // x11RequireAbsoluteRows asserts every absolute row of one run's artifact — expected outputs 1-5,
 // unchanged by D42 and applied to both runs — and logs the run's measured line.
 func x11RequireAbsoluteRows(
-	t *testing.T, p *testutil.Project, rep x11BenchReport, underCoload bool, run string,
+	t *testing.T, p *testutil.Project, rep x11BenchReport, decl x11Declarations, run string,
 ) x11AbsoluteRows {
 	t.Helper()
+	underCoload := decl.underCoload
 	baLimit := x11BudgetLimitMs(t, p, obs.BA)
 	bbLimit := x11BudgetLimitMs(t, p, obs.BB)
 	beLimit := x11BudgetLimitMs(t, p, obs.BE)
@@ -647,10 +680,35 @@ func x11RequireAbsoluteRows(
 	//     row that still enforces the limit here. A null pass field is not an explanation. ──
 	beWall := x11Row(t, rep, string(obs.BE))
 	require.Equal(t, x11CheckpointSamples, beWall.N, "%s: both B-E rows must cover the same 50 children", run)
-	if underCoload {
+	if decl.waived() {
 		x11RequireReportedRow(t, ba, baLimit, "B-A")
 		x11RequireReportedRow(t, bb, bbLimit, "B-B")
 		x11RequireReportedRow(t, beWall, beLimit, "B-E's wall-clock row")
+	}
+	if decl.nonrefDisk {
+		for _, mark := range []string{x11NonrefDiskBAMark, x11NonrefDiskBBMark, x11NonrefDiskBEMark} {
+			require.True(t, x11NotesMention(rep, mark),
+				"%s: the artifact must disclose each row the non-reference-disk declaration reported, naming "+
+					"the declaration (%q); notes present: %q", run, mark, rep.Notes)
+		}
+		require.True(t, x11NotesMention(rep, x11BECPURowID),
+			"%s: B-E's non-reference-disk note must name %s, the row that still enforces the limit; notes "+
+				"present: %q", run, x11BECPURowID, rep.Notes)
+		if note, deferred := x11DeferralNote(rep); deferred {
+			t.Logf("X11 %s under %s: hot-path requests were deferred to the client spool, REPORTED not failed "+
+				"on a non-reference disk (D53(e)); the harness's delivery-integrity guard still found every one, "+
+				"0 lost: %s", run, obs.NonReferenceDiskEnv, note)
+		}
+		t.Logf("X11 %s under %s (GitHub Actions): B-A p99=%.3fms (limit %.0fms), B-B p99=%.3fms (limit %.0fms) "+
+			"and B-E wall p99=%.3fms (limit %.0fms) are REPORTED here, not judged: a hosted runner's disk is not "+
+			"a reference disk (Q1, D53(e)); the owner's quiet reference runs judge all three",
+			run, obs.NonReferenceDiskEnv, ba.P99, baLimit, bb.P99, bbLimit, beWall.P99, beLimit)
+	} else {
+		require.False(t, x11NotesMention(rep, x11NonrefDiskPhrase),
+			"%s: no non-reference-disk waiver may appear in a run where the declaration is not honoured — the "+
+				"harness would be waiving on its own; notes present: %q", run, rep.Notes)
+	}
+	if underCoload {
 		require.True(t, x11NotesMention(rep, x11UnderColoadFlag) && x11NotesMention(rep, x11BECPURowID),
 			"%s: the artifact must disclose B-E's wall-clock waiver in its notes, naming the flag and the row "+
 				"that still enforces the limit; notes present: %q", run, rep.Notes)
@@ -666,16 +724,19 @@ func x11RequireAbsoluteRows(
 			"package alone and judges all three",
 			run, obs.UnderColoadEnv, ba.P99, baLimit, bb.P99, bbLimit, beWall.P99, beLimit)
 	} else {
-		// Isolated, no hot-path request may be deferred to the client spool: a deferral is the
-		// §12.2 degrade (or a request that could not wait), which only a co-loaded run reports.
-		if note, deferred := x11DeferralNote(rep); deferred {
-			require.Failf(t, "X11 deferred hot-path requests to the client spool in isolation",
-				"%s: the harness recorded a delivery ledger, so part of the run never reached the daemon "+
-					"and every daemon-side row judges a shortened population: %s", run, note)
+		if !decl.waived() {
+			// Isolated, no hot-path request may be deferred to the client spool: a deferral is the
+			// §12.2 degrade (or a request that could not wait), which only a co-loaded run, or one on a
+			// declared non-reference disk, reports.
+			if note, deferred := x11DeferralNote(rep); deferred {
+				require.Failf(t, "X11 deferred hot-path requests to the client spool in isolation",
+					"%s: the harness recorded a delivery ledger, so part of the run never reached the daemon "+
+						"and every daemon-side row judges a shortened population: %s", run, note)
+			}
+			x11RequireGatedRow(t, ba, baLimit, "B-A")
+			x11RequireGatedRow(t, bb, bbLimit, "B-B")
+			x11RequireGatedRow(t, beWall, beLimit, "B-E's wall-clock row")
 		}
-		x11RequireGatedRow(t, ba, baLimit, "B-A")
-		x11RequireGatedRow(t, bb, bbLimit, "B-B")
-		x11RequireGatedRow(t, beWall, beLimit, "B-E's wall-clock row")
 		require.False(t, x11NotesMention(rep, x11UnderColoadFlag),
 			"%s: no %s waiver may appear in a run that did not pass the flag — the harness would be waiving "+
 				"on its own; notes present: %q", run, x11UnderColoadFlag, rep.Notes)
@@ -707,8 +768,13 @@ func x11RequireAbsoluteRows(
 	// harness's own delivery-ledger note, logged below with the others: refused above in isolation,
 	// reported co-loaded.
 	wallVerdict := "gated"
-	if underCoload {
+	switch {
+	case underCoload && decl.nonrefDisk:
+		wallVerdict = "reported, not gated: " + x11UnderColoadFlag + " and " + obs.NonReferenceDiskEnv
+	case underCoload:
 		wallVerdict = "reported, not gated: " + x11UnderColoadFlag
+	case decl.nonrefDisk:
+		wallVerdict = "reported, not gated: " + obs.NonReferenceDiskEnv
 	}
 	t.Logf("X11 %s measured (platform %s, n=%d): B-A p99 = %.3f ms (limit %.0f ms; %s) | B-B p99=%.3fms "+
 		"(limit %.0fms; %s) | B-E_cpu p99=%.3fms (limit %.0fms, n=%d) | B-E wall p50=%.3fms p99=%.3fms "+

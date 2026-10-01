@@ -1,4 +1,4 @@
-//go:build linux
+//go:build linux || darwin
 
 package daemon
 
@@ -13,6 +13,10 @@ import (
 	"github.com/qompack/qompack/internal/ipc"
 )
 
+// TestLock_V6_ExitedUnreapedOwnerCanBeReplaced pins that a lock whose owner exited without
+// releasing it, and has not been reaped (a zombie), is reclaimable at once rather than after the
+// heartbeat. On darwin that zombie is the ordinary state of a daemon `qompack mcp` spawned and that
+// then died: it stays the server's child (lock_darwin.go). Linux and darwin both run it.
 func TestLock_V6_ExitedUnreapedOwnerCanBeReplaced(t *testing.T) {
 	cmd := exec.Command("sh", "-c", "exit 0")
 	require.NoError(t, cmd.Start())

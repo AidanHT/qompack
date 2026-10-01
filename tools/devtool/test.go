@@ -49,6 +49,35 @@ var wholeTreeEnv = map[string]string{obs.UnderColoadEnv: "1"}
 // in-test and unchanged.
 const wholeTreeTestTimeout = "30m"
 
+// isolatedPackages are the packages a whole-tree `go test` here runs in a pass of their own,
+// after the parallel pass over the rest of the tree: test/e2e, the package of intrinsically
+// wall-clock rows that ADR 0010 decision 4 takes out of the whole-tree run and ci.yml's `test` job
+// leaves to `test-e2e`. Beside the rest of the tree on a small runner its rows' hooks take the
+// designed degrade to the client spool and its binary can outrun -timeout (run 36816905394: killed
+// at 30 minutes in lint-windows' stubskips; TestE2EHookRoundTrip red in cover). Alone, each pass
+// keeps the same -timeout, so a hang is still killed and still reported.
+var isolatedPackages = map[string]bool{modulePath + "/test/e2e": true}
+
+// isolatedPasses splits pkgs into the `go test` passes a whole-tree run makes, in order: every
+// package not in isolatedPackages together, then each isolated package alone. Every package lands
+// in exactly one pass, the input order is kept within a pass, and no pass is empty.
+func isolatedPasses(pkgs []string) [][]string {
+	var shared []string
+	var alone [][]string
+	for _, p := range pkgs {
+		if isolatedPackages[p] {
+			alone = append(alone, []string{p})
+			continue
+		}
+		shared = append(shared, p)
+	}
+	var passes [][]string
+	if len(shared) > 0 {
+		passes = append(passes, shared)
+	}
+	return append(passes, alone...)
+}
+
 // taskTestRace uses CI's non-e2e race scope (ADR-0010). E2E remains in taskTest and the
 // isolated CI test-e2e job. Ordinary -race instruments the e2e harness, not the child go build;
 // repeating that known timeout cannot certify races in the actual installed process.
