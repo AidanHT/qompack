@@ -582,3 +582,41 @@ func TestSpoolWatch_TheIdleTickKicksItInSpoolSubmode(t *testing.T) {
 	require.Eventually(t, func() bool { return spoolWatchGone(root, "client-8181.ndjson") },
 		liveOrderBound, liveOrderTick, "the consumed client spool is released")
 }
+
+// spoolIndexed reports whether the spool index holds the client spool base.
+func spoolIndexed(dd *daemon, base string) bool {
+	dd.spoolHeads.mu.Lock()
+	defer dd.spoolHeads.mu.Unlock()
+	_, ok := dd.spoolHeads.files[base]
+	return ok
+}
+
+// TestSpoolWatch_IndexesTheSpoolsItsPassLeavesForThePreCompactSettle (D55, wave 16b): a spool the
+// watcher's pass cannot consume (its line waits on an earlier arrival nothing will publish) is
+// indexed by the watcher, off the hook path, so another session compacting beside it reads no spool
+// file at all: its settle's cost is the listing.
+func TestSpoolWatch_IndexesTheSpoolsItsPassLeavesForThePreCompactSettle(t *testing.T) {
+	dd, _, root := laneTestDaemon(t)
+	dd.drain.Store(newDrainer(dd.drainConfig()))
+	liveOrderWorkers(t, dd, 2, dd.runIngested)
+	startSpoolWatch(t, dd, spoolWatchTick, liveOrderBound)
+	ctx := context.Background()
+
+	const stuck core.SessionID = "sess-spool-index-stuck"
+	lost := spD3Prompt(dd, root, stuck, orderNonce(0), "lost")
+	_, ok := dd.ing.leaseDelivery(ctx, lost)
+	require.True(t, ok)
+	writeSpoolLines(t, root, "client-8282.ndjson", spD3Prompt(dd, root, stuck, orderNonce(1), "blocked"))
+	dd.kickSpoolWatch()
+	require.Eventually(t, func() bool {
+		return dd.m.Counter(counterSpoolWatchDrains).Value() >= 1 && spoolIndexed(dd, "client-8282.ndjson")
+	}, liveOrderBound, liveOrderTick, "the watcher's pass leaves the spool, and the watcher indexes it")
+	require.FileExists(t, filepath.Join(paths.Of(root).Spool, "client-8282.ndjson"), "fixture sanity: it stays")
+
+	reads := dd.spoolHeads.reads.Load()
+	require.Nil(t, dd.settleBeforeSeal(ctx, "sess-spool-index-healthy", 0))
+	require.Equal(t, reads, dd.spoolHeads.reads.Load(),
+		"a healthy session compacting beside the indexed spool reads no spool file")
+	require.Zero(t, dd.m.Counter(counterPrecompactSpoolReads).Value())
+	require.Zero(t, dd.m.Counter(counterPrecompactSettle).Value())
+}

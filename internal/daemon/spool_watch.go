@@ -274,6 +274,16 @@ func (d *daemon) lookAtClientSpools(ctx context.Context, entries map[string]*spo
 				d.log.Debug("daemon: a client-spool pass ended early", "err", perr)
 			}
 		}
+		// The spools the pass left are indexed for the PreCompact settle (spool_heads.go), bounded
+		// like the pass by idleRunBudget, a deadline here: a read it cuts short is only left to the
+		// next look that needs it. A session that compacts beside these spools then reads none of them.
+		left := make(map[string]bool, len(due))
+		for base := range due {
+			left[base] = true
+		}
+		ictx, cancel := context.WithTimeout(ctx, idleRunBudget)
+		d.indexClientSpools(ictx, left)
+		cancel()
 		// A spool the pass left unfinished because its budget was spent has not been found
 		// unconsumable: the pass may never have reached it. It is due again at the next look rather
 		// than after the doubling wait meant for a spool a pass could not consume. A spool the pass

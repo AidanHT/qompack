@@ -22,7 +22,9 @@ import (
 // TestPreCompactInSpoolSubmodeSealsTheSpooledReads; these rows pin the route's own behaviour.
 
 // sealProbe is a PreCompact seam that records, at the moment the route calls it, the drop entries the
-// settle handed over and whether each watched delivery was already published.
+// settle handed over, priced as a seal whose estimator is the identity would price them, and whether
+// each watched delivery was already published. (The real seam prices them with the draft's
+// calibrated estimator: TestPreCompactSettle_NamesFitTheirShareUnderTheSealsCalibratedEstimator.)
 type sealProbe struct {
 	calls     int
 	drops     []checkpoint.DropEntry
@@ -33,7 +35,7 @@ func bindSealProbe(dd *daemon, watch ...string) *sealProbe {
 	p := &sealProbe{published: map[string]bool{}}
 	dd.svc.PreCompact = func(ctx context.Context, _ hookio.Event) (hookio.Output, error) {
 		p.calls++
-		p.drops = sealDrops(ctx)
+		p.drops = sealReportOf(ctx).drops(tokens.New(dd.currentCfg(), ""))
 		for _, nonce := range watch {
 			p.published[nonce] = spoolWatchPublished(dd, nonce)
 		}
@@ -111,8 +113,8 @@ func TestPreCompactSettle_NamesWhatTheBoundLeftUnreplayed(t *testing.T) {
 }
 
 // TestPreCompactSettle_AHealthySessionPaysNothing: a session with nothing spooled and every leased
-// arrival published seals at once: no wait, no drain pass, no drop entry. settleFast is the whole
-// cost, one spool listing and two in-memory lookups, which the row logs.
+// arrival published seals at once: no wait, no drain pass, no drop entry. With no client spool at all
+// the cost is one spool listing and two lookups in the journal's memory, which the row logs.
 func TestPreCompactSettle_AHealthySessionPaysNothing(t *testing.T) {
 	dd, _, root := laneTestDaemon(t)
 	dd.drain.Store(newDrainer(dd.drainConfig()))
@@ -432,11 +434,22 @@ func TestPreCompactSettle_ABacklogIsCountedInFullAndNamedWithinItsShare(t *testi
 		reqs[i] = liveOrderTool(dd, root, sess, i+1)
 		writeHookSpool(t, root, fmt.Sprintf("client-%d.ndjson", 80000+i), reqs[i])
 	}
+	// The client-spool watcher's passes over the backlog have indexed it, as they do every spool they
+	// leave (spool_heads.go), so the settle's looks, which run against its bound, read no file and
+	// count the whole backlog. A backlog no look has read yet is counted as unread spools instead
+	// (TestPreCompactSettle_ALookPastTheBoundReadsNothingAndSaysSo).
+	all := map[string]bool{}
+	for _, l := range listClientSpools(root) {
+		all[l.base] = true
+	}
+	require.Len(t, all, backlog)
+	dd.indexClientSpools(context.Background(), all)
 	probe := bindSealProbe(dd)
 	pre := checkpointRequest(dd, sess, "nonce-precompact-backlog")
 	pre.TS = reqs[backlog-1].TS + 1
 	require.True(t, dd.dispatchOp(context.Background(), pre).OK)
 
+	require.Zero(t, settleSpoolReads(dd), "fixture sanity: the settle read no spool file")
 	require.Equal(t, 1, probe.calls)
 	require.NotEmpty(t, probe.drops)
 	named := probe.drops[1:]
