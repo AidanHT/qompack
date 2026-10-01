@@ -1,0 +1,8 @@
+TEMPORARY DIAGNOSTIC (product edit reverted with git checkout right after the run): internal/cli/mcpwire.go recordedLedger opens the ledger with no records on disk (eager open)
+go test -p 2 -count=1 -run '^TestDaemonIdleRunsSchedulerWork$' ./test/e2e/ -v  => EXIT 1
+        	Error:      	file "C:\\Users\\Quant\\AppData\\Local\\Temp\\TestDaemonIdleRunsSchedulerWork2668382233\\001\\project\\.qompack\\sketches\\tried.bloom" exists
+        	Messages:   	advancing the frontier must not open the ledger: nothing in this session needs one
+--- FAIL: TestDaemonIdleRunsSchedulerWork (7.50s)
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	7.770s
+FAIL

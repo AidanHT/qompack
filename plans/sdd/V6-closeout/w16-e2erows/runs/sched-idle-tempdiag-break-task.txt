@@ -1,0 +1,8 @@
+TEMPORARY DIAGNOSTIC (product edit reverted with git checkout right after the run): internal/daemon/wire_checkpoint.go advanceFrontierTask sends ErrNoLedger to the unavailable route (pre-D49 shape)
+go test -p 2 -count=1 -run '^TestDaemonIdleRunsSchedulerWork$' ./test/e2e/ -v  => EXIT 1
+        	Error:      	Should be zero, but was 2
+        	Messages:   	no ledger yet is not an unavailable source (D49); a count means the frontier refused a ledgerless project: map[checkpoint.sources.unavailable:2 daemon.publication.unindexed_object_candidates:0 daemon.publication.unpublished_captures:0 observer.segment.followed:1 observer.signal.git:1 observer.superseded:1 observer.tombstone:3 sched.idle.evaluate:1 sched.persist:1 sched.pselec
+--- FAIL: TestDaemonIdleRunsSchedulerWork (7.33s)
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	7.573s
+FAIL

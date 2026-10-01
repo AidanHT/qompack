@@ -1,0 +1,8 @@
+TEMPORARY DIAGNOSTIC (product edit reverted with git checkout right after the run): internal/checkpoint/noledger.go admitNoLedger refuses every resolve error (no-ledger is an error again)
+go test -p 2 -count=1 -run '^TestDaemonIdleRunsSchedulerWork$' ./test/e2e/ -v  => EXIT 1
+        	Error:      	Should be true
+        	Messages:   	the idle pass never ran SP-12's tasks into C:\Users\Quant\AppData\Local\Temp\TestDaemonIdleRunsSchedulerWork1431692487\001\project\.qompack\metrics\latency.json, or never advanced the frontier into state/draft-sess-e2e-daemon.json, within 19s (idle tick 3s); last read: {"ts":1790849575055,"hists":{"checkpoint_finalize":{"N":0,"P50":0,"P95":0,"P99":0,"P999":0,"Max":0},"hook_co
+--- FAIL: TestDaemonIdleRunsSchedulerWork (20.66s)
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	20.921s
+FAIL
