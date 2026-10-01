@@ -376,3 +376,26 @@ func TestLiteralPatternsCleanTheirDotDots(t *testing.T) {
 	requireEffect(t, rs, Allow, "/proj/a/b/[bad", "/proj/a")
 	require.Equal(t, []string{"b"}, cleanLiteral([]string{"..", "a", "..", "b"}))
 }
+
+// TestShortShaped_NamesAnEightDotThreeNameOnlyByShape pins the one 8.3-shape predicate: a tilde
+// followed by a digit or a glob metacharacter, or a tilde inside a bracket expression (where the
+// class can match the tilde itself), may name an 8.3 name; a backup-file tilde does not.
+func TestShortShaped_NamesAnEightDotThreeNameOnlyByShape(t *testing.T) {
+	for seg, want := range map[string]bool{
+		"creden~1.sec":     true,
+		"5b2e~1":           true,
+		"creden~?.sec":     true,
+		"config~*":         true,
+		"creden~[12].sec":  true,
+		"creden[~]1.sec":   true,
+		"creden[}-~]1.sec": true,
+		"*~":               false,
+		"*.txt~":           false,
+		"foo.txt~":         false,
+		"*.[ch]~":          false,
+		"~foo":             false,
+		"credentials":      false,
+	} {
+		require.Equal(t, want, shortShaped(seg), "shortShaped(%q)", seg)
+	}
+}

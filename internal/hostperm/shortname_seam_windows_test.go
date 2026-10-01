@@ -224,3 +224,51 @@ func TestShortNames_AShortRuleAfterAGlobRefusesWhatItCannotJudge(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, Deny, d.Effect, "a carve-out spelled short reopens nothing")
 }
+
+// TestShortNames_ATildeThatNamesNoShortNameJudgesDeletedFiles: only a rule segment of 8.3 shape (a
+// tilde followed by a digit, or by a glob metacharacter that can stand for one, as in
+// CREDEN~?.SEC, or a tilde inside a bracket expression, as in CREDEN[~]1.SEC) names an 8.3 name.
+// A common backup-file rule such as Read(**/*~) has a tilde but names no 8.3 name, so it does not
+// turn on the 8.3 comparison, and a deleted file's history is judged on its long name as before
+// (docs/security.md, doc.go: "only while a rule names an 8.3 name"). The rule itself still holds for a file it names. An 8.3-shaped rule after a glob keeps
+// the fail-closed refusal of a path that does not exist (D55).
+func TestShortNames_ATildeThatNamesNoShortNameJudgesDeletedFiles(t *testing.T) {
+	s := newShortEnv(t)
+	deleted := filepath.Join(s.long, "configuration", "gone-but-archived.txt")
+	backup := filepath.Join(s.long, "foo.txt~")
+	s.write(t, backup, "b")
+
+	for _, rule := range []string{"Read(**/*~)", "Read(*~)", "Read(**/*.txt~)", "Read(./foo.txt~)"} {
+		t.Run(rule, func(t *testing.T) {
+			s.deny(t, rule)
+			d, err := s.pol.Check(deleted)
+			require.NoError(t, err)
+			require.Equal(t, Allow, d.Effect, "%q names no 8.3 name, so a deleted file is judged", rule)
+
+			d, err = s.pol.Check(backup)
+			require.NoError(t, err)
+			require.Equal(t, Deny, d.Effect, "%q still denies the file it names", rule)
+		})
+	}
+
+	for _, rule := range []string{
+		"Read(**/CREDEN~1.SEC)", "Read(**/CREDEN~?.SEC)", "Read(**/CONFIG~*/**)",
+		"Read(**/CREDEN[~]1.SEC)", "Read(**/CREDEN[}-~]1.SEC)",
+	} {
+		t.Run(rule, func(t *testing.T) {
+			s.deny(t, rule)
+			d, err := s.pol.Check(deleted)
+			require.NoError(t, err)
+			require.Equal(t, Deny, d.Effect, "%q names an 8.3 name: a deleted file is refused", rule)
+			require.Equal(t, unknownShortName, d.Rule)
+
+			d, err = s.pol.Check(s.file)
+			require.NoError(t, err)
+			require.Equal(t, Deny, d.Effect, "%q holds at the long name", rule)
+
+			d, err = s.pol.Check(filepath.Join(s.long, "public.txt"))
+			require.NoError(t, err)
+			require.Equal(t, Allow, d.Effect, "control: public.txt is not the denied file")
+		})
+	}
+}
