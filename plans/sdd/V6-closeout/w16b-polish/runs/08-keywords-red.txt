@@ -1,0 +1,24 @@
+=== RUN   TestManifest_KeywordsClaimOnlyWhatIsSupported
+    manifest_test.go:118: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16b-polish/internal/pluginmanifest/manifest_test.go:118
+        	Error:      	Not equal: 
+        	            	expected: []string{"compaction", "context", "memory"}
+        	            	actual  : []string{"compaction", "context", "memory", "cache"}
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,5 +1,6 @@
+        	            	-([]string) (len=3) {
+        	            	+([]string) (len=4) {
+        	            	  (string) (len=10) "compaction",
+        	            	  (string) (len=7) "context",
+        	            	- (string) (len=6) "memory"
+        	            	+ (string) (len=6) "memory",
+        	            	+ (string) (len=5) "cache"
+        	            	 }
+        	Test:       	TestManifest_KeywordsClaimOnlyWhatIsSupported
+--- FAIL: TestManifest_KeywordsClaimOnlyWhatIsSupported (0.00s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/pluginmanifest	1.085s
+FAIL
