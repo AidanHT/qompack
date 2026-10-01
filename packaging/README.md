@@ -241,7 +241,9 @@ a checksums file missing a target or naming any other qompack archive, and every
 passes the same validator `--validate` applies. `--check` regenerates and compares.
 
 **Where it goes.** `release.yml` uploads it beside the zips (the draft stays a draft).
-`marketplace.yml` runs when a release is PUBLISHED: it re-downloads the zips, re-verifies them
+`marketplace.yml` runs once per FULL release, on GitHub's `released` event, which fires for a
+release published directly and for a pre-release promoted to one, never for a pre-release
+(`docs/release.md` §1 step 7): it re-downloads the zips, re-verifies them
 against the release's `checksums.txt`, regenerates the document from the served bytes with the
 tag's own generator (a generator change on `develop` since the tag cannot fail the comparison),
 requires it to equal the uploaded document and opens a pull request onto `develop` that puts it at
