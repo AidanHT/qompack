@@ -1,0 +1,9 @@
+=== RUN   TestSpoolWatch_TheIdleTickKicksItInSpoolSubmode
+--- PASS: TestSpoolWatch_TheIdleTickKicksItInSpoolSubmode (0.55s)
+=== RUN   TestSpoolWatch_TheIdleTickKicksItInSpoolSubmode
+--- PASS: TestSpoolWatch_TheIdleTickKicksItInSpoolSubmode (0.49s)
+=== RUN   TestSpoolWatch_TheIdleTickKicksItInSpoolSubmode
+--- PASS: TestSpoolWatch_TheIdleTickKicksItInSpoolSubmode (0.54s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	1.905s
+exit=0
