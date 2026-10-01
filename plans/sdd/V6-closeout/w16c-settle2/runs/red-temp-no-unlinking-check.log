@@ -1,0 +1,13 @@
+# TEMPORARY local mutation (not committed): the hit-side unlinking check in spoolHeadIndex.heads removed
+$ go test -p 2 ./internal/daemon -run '^TestSpoolHeadIndex_ASpoolRecreatedRightAfterTheDrainsUnlinkIsReadAgain$' -count=1 -v
+=== RUN   TestSpoolHeadIndex_ASpoolRecreatedRightAfterTheDrainsUnlinkIsReadAgain
+    precompact_settle_bound_test.go:501: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16c-settle2/internal/daemon/precompact_settle_bound_test.go:501
+        	Error:      	Should be true
+        	Test:       	TestSpoolHeadIndex_ASpoolRecreatedRightAfterTheDrainsUnlinkIsReadAgain
+        	Messages:   	the look right after the unlink reads the recreated spool
+--- FAIL: TestSpoolHeadIndex_ASpoolRecreatedRightAfterTheDrainsUnlinkIsReadAgain (0.36s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	0.832s
+FAIL
+exit=1

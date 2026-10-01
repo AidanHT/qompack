@@ -1,0 +1,22 @@
+=== RUN   TestPreCompactSettle_CountsOnlyTheSpoolReadsOfItsOwnLooks
+    precompact_settle_bound_test.go:346: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16c-settle2/internal/daemon/precompact_settle_bound_test.go:346
+        	Error:      	Not equal: 
+        	            	expected: 1
+        	            	actual  : 2
+        	Test:       	TestPreCompactSettle_CountsOnlyTheSpoolReadsOfItsOwnLooks
+        	Messages:   	the settle counts the one file its own look read
+--- FAIL: TestPreCompactSettle_CountsOnlyTheSpoolReadsOfItsOwnLooks (0.20s)
+=== RUN   TestPreCompactSettle_ReadsASpoolTheDrainReleasedAndAHookRecreated
+    precompact_settle_bound_test.go:399: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16c-settle2/internal/daemon/precompact_settle_bound_test.go:399
+        	Error:      	Not equal: 
+        	            	expected: 1
+        	            	actual  : 0
+        	Test:       	TestPreCompactSettle_ReadsASpoolTheDrainReleasedAndAHookRecreated
+        	Messages:   	the settle reads the recreated spool again
+--- FAIL: TestPreCompactSettle_ReadsASpoolTheDrainReleasedAndAHookRecreated (0.32s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	0.872s
+FAIL
+exit=1
