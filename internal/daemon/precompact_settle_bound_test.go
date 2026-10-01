@@ -250,28 +250,40 @@ func TestPreCompactSettle_NamesFitTheirShareUnderTheSealsCalibratedEstimator(t *
 		"priced with the identity, the names overrun their share as the seal measures them")
 }
 
-// coldBacklogBound is the settle's bound in TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound:
-// long enough that, with the first look held until just past half of it, the replay of the session's
-// one spooled Read fits in what is left on a loaded machine (it is one line, and the row fails only
-// if that replay takes more than 45 % of it).
-const coldBacklogBound = 3 * time.Second
+// coldBacklogLeft is how much of the settle's bound the slow first look of
+// TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound leaves: drainLineDeadline, the
+// most one replayed line can ever be given (dispatchPending hands each line its own drainLineDeadline
+// from its start). Left no more than that, the replay's line carries the settle's own deadline, so
+// the row's Dispatch seam reads exactly the deadline the settle handed its replay; and the replay has
+// as much wall time as any line can have, whatever the cold reads before the hold cost.
+const coldBacklogLeft = drainLineDeadline
 
-// coldBacklogLeft is how much of coldBacklogBound the row's slow read leaves: just under half, so the
-// first look takes more than half of the bound and still leaves time for the replay.
-const coldBacklogLeft = coldBacklogBound * 45 / 100
+// coldBacklogBound is that row's settle bound: twice what the slow first look leaves, so the first
+// look takes at least half of the bound before the replay starts. Both are the row's fixture, not
+// product numbers: the row fails on time only if the session's one replayed line takes longer than
+// coldBacklogLeft, or the cold journal and the twenty-one cold reads before the hold take longer
+// than coldBacklogBound - coldBacklogLeft (the fixture-sanity check on the hold says which).
+const coldBacklogBound = 2 * coldBacklogLeft
 
 // TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound (wave 16b review): twenty client
-// spools of other sessions, none indexed yet, are listed before the session's own spool, and the
-// first look's read of the last of them is slow (a read seam holds it until less than half of the
-// bound is left). The first look still leaves time, so the session's own Read is replayed before the
-// seal and nothing is left over: the waits and the replay run to the bound's own deadline. Held back
-// by the first look's whole duration again, as they were, they would have had no time at all, and a
-// cold backlog of other sessions' spools would have cost this session its replay. The last look reads
-// nothing: the own spool is released by the replay, and the others it does not look at again.
+// spools of other sessions, none indexed yet, are listed before the session's own spool, and the first
+// look reads them all, cold, before it reaches the session's own; its read of the last of them is slow
+// (a read seam holds it until coldBacklogLeft of the bound is left), so the first look takes at least
+// half of the bound. The waits and the replay run to the bound's own deadline, the one the looks run
+// to: the replay's line carries exactly that deadline, so the replay has the rest of the bound, and
+// the session's own Read is replayed before the seal with nothing left over. Held back by the first
+// look's whole duration, as they were (5fd55bdd), they had bound - 2*e1, nothing here, and a cold
+// backlog of other sessions' spools taking half the bound cost this session its replay; the row reads
+// that as a replay deadline earlier than the looks' and as a drop. A settle that decided from the time
+// left (skipping the replay once less than half the bound remains) fails it the same way. The last
+// look reads nothing: the own spool is released by the replay, and the others it does not look at
+// again.
+//
+// Wave 16e: the hold left the replay 45 % of a 3 s bound (1.35 s of wall time on a co-loaded host)
+// and nothing checked the replay's deadline. The replay now has drainLineDeadline, and the row reads
+// the deadline it was given, which no load can move.
 func TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound(t *testing.T) {
 	dd, root := settleTestDaemon(t, coldBacklogBound)
-	dd.drain.Store(newDrainer(dd.drainConfig()))
-	liveOrderWorkers(t, dd, 2, dd.runIngested)
 	const sess core.SessionID = "sess-precompact-cold-backlog"
 	const backlog = 20
 	for i := range backlog {
@@ -282,8 +294,10 @@ func TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound(t *testin
 	writeHookSpool(t, root, "client-9999.ndjson", own) // listed after the backlog
 	slow := fmt.Sprintf("client-%d.ndjson", 10000+backlog-1)
 	var left atomic.Int64 // what the slow read left of the bound
+	var reads settleLooks
 	dd.spoolHeads.read = func(ctx context.Context, path string) ([]byte, error) {
-		if dl, ok := ctx.Deadline(); ok && filepath.Base(path) == slow {
+		dl, ok := ctx.Deadline()
+		if ok && filepath.Base(path) == slow {
 			hold := time.NewTimer(time.Until(dl) - coldBacklogLeft)
 			select {
 			case <-hold.C:
@@ -292,17 +306,50 @@ func TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound(t *testin
 			hold.Stop()
 			left.Store(int64(time.Until(dl)))
 		}
+		reads.mu.Lock()
+		reads.reads = append(reads.reads, settleLookRead{at: time.Now(), deadline: dl, bounded: ok})
+		reads.mu.Unlock()
 		return paths.ReadFileShared(path)
 	}
+	var replay struct {
+		sync.Mutex
+		at       time.Time
+		deadline time.Time
+		bounded  bool
+	}
+	cfg := dd.drainConfig()
+	cfg.Dispatch = func(ctx context.Context, req ipc.Request) ipc.Response {
+		if req.Nonce == own.Nonce {
+			dl, ok := ctx.Deadline()
+			replay.Lock()
+			replay.at, replay.deadline, replay.bounded = time.Now(), dl, ok
+			replay.Unlock()
+		}
+		return dd.drainDispatch(ctx, req)
+	}
+	dd.drain.Store(newDrainer(cfg))
+	liveOrderWorkers(t, dd, 2, dd.runIngested)
 	probe := bindSealProbe(dd, own.Nonce)
 
 	pre := checkpointRequest(dd, sess, "nonce-precompact-cold-backlog")
 	pre.TS = own.TS + 1
+	before := time.Now()
 	require.True(t, dd.dispatchOp(context.Background(), pre).OK)
 
 	require.Positive(t, left.Load(), "fixture sanity: the first look ended before the bound")
-	require.Less(t, time.Duration(left.Load()), coldBacklogBound/2,
-		"fixture sanity: the first look took more than half of the bound")
+	require.LessOrEqual(t, time.Duration(left.Load()), coldBacklogLeft,
+		"fixture sanity: the first look took at least half of the bound")
+	reads.ranUnderTheBound(t, before, coldBacklogBound, backlog+1)
+	reads.mu.Lock()
+	look := reads.reads[len(reads.reads)-1]
+	reads.mu.Unlock()
+	replay.Lock()
+	defer replay.Unlock()
+	require.True(t, replay.bounded, "the settle replayed the session's own Read, under a deadline")
+	require.True(t, replay.at.After(look.at), "fixture sanity: the replay began after the first look's reads")
+	require.True(t, replay.deadline.Equal(look.deadline),
+		"the replay runs to the bound's own deadline, the looks' (%s), not one the first look's cost moved "+
+			"earlier (%s)", look.deadline.Format(time.StampMicro), replay.deadline.Format(time.StampMicro))
 	require.True(t, probe.published[own.Nonce],
 		"the first look left time, so the session's own spool is replayed before the seal")
 	require.Empty(t, probe.drops, "nothing of the session was left unreplayed")
@@ -316,9 +363,11 @@ func TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound(t *testin
 // indexClientSpools runs on its own goroutine in the middle of the settle's first look (a read seam
 // starts it when the settle reads the one listed spool and waits for it to finish, so the overlap is
 // certain and no clock decides it), and reads a spool a hook wrote after the settle's listing. The
-// index reads two files in all; the settle read one, and counts one.
+// index reads two files in all; the settle read one, and counts one. The settle's bound is one no
+// co-loaded host can exhaust: with the default 500 ms the cold journal open and the listing could
+// end it before the look's read began (wave 16e), and the row counts reads, not time.
 func TestPreCompactSettle_CountsOnlyTheSpoolReadsOfItsOwnLooks(t *testing.T) {
-	dd, _, root := laneTestDaemon(t)
+	dd, root := settleTestDaemon(t, liveOrderBound)
 	dd.drain.Store(newDrainer(dd.drainConfig()))
 	const other core.SessionID = "sess-precompact-reads-other"
 	const listed, written = "client-7272.ndjson", "client-7373.ndjson"
@@ -353,20 +402,25 @@ func TestPreCompactSettle_CountsOnlyTheSpoolReadsOfItsOwnLooks(t *testing.T) {
 // The daemon's own removal drops the index entry, so the settle reads the recreated file again and
 // names the capture it holds. Served from the released file's heads, the settle found only a
 // published Read and sealed with nothing named: the capture was silently missing from the report.
+// The row, not the clock, ends the settle (settleCut), once the recreated spool's Read is in its
+// replay: the bound is one no co-loaded host can exhaust, so the look's read of the recreated spool is
+// never the cut, as it could be with the default 500 ms (wave 16e).
 func TestPreCompactSettle_ReadsASpoolTheDrainReleasedAndAHookRecreated(t *testing.T) {
-	dd, _, root := laneTestDaemon(t)
+	dd, root := settleTestDaemon(t, liveOrderBound)
 	ctx := context.Background()
+	settle, cut := settleCut(t)
 	const sess core.SessionID = "sess-precompact-recreated"
 	const base = "client-7474.ndjson"
 	first := liveOrderTool(dd, root, sess, 1)
 	second := liveOrderTool(dd, root, sess, 2) // the same length as first: the reused pid's next Read
 	cfg := dd.drainConfig()
-	cfg.Dispatch = func(ctx context.Context, req ipc.Request) ipc.Response {
+	cfg.Dispatch = func(lctx context.Context, req ipc.Request) ipc.Response {
 		if req.Nonce == second.Nonce {
-			<-ctx.Done() // the disk that never finishes inside the bound
-			return ipc.Response{Err: ctx.Err().Error()}
+			cut()         // the bound ends while the recreated spool's Read is in its replay
+			<-lctx.Done() // the disk that never finishes inside the bound
+			return ipc.Response{Err: lctx.Err().Error()}
 		}
-		return dd.drainDispatch(ctx, req)
+		return dd.drainDispatch(lctx, req)
 	}
 	dd.drain.Store(newDrainer(cfg))
 	liveOrderWorkers(t, dd, 2, dd.runIngested)
@@ -394,7 +448,7 @@ func TestPreCompactSettle_ReadsASpoolTheDrainReleasedAndAHookRecreated(t *testin
 	probe := bindSealProbe(dd, second.Nonce)
 	pre := checkpointRequest(dd, sess, "nonce-precompact-recreated")
 	pre.TS = second.TS + 1
-	require.True(t, dd.dispatchOp(ctx, pre).OK)
+	require.True(t, dd.dispatchOp(settle, pre).OK)
 
 	require.Equal(t, int64(1), settleSpoolReads(dd), "the settle reads the recreated spool again")
 	require.False(t, probe.published[second.Nonce], "fixture sanity: its replay could not finish in the bound")

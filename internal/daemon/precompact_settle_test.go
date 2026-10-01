@@ -13,6 +13,7 @@ import (
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/hookio"
 	"github.com/qompack/qompack/internal/ipc"
+	"github.com/qompack/qompack/internal/paths"
 	"github.com/qompack/qompack/internal/tokens"
 )
 
@@ -47,8 +48,11 @@ func bindSealProbe(dd *daemon, watch ...string) *sealProbe {
 // TestPreCompactSettle_ReplaysTheSpoolBeforeTheSeal: the daemon has moved to spool submode (its own
 // transition, so state.bin says spool and every hook spools), the session's newest Read sits only in
 // a client spool, and nothing else drains: no watcher runs here. The seal must see it published.
+// The row asserts what the settle does before the seal, not how fast, so its bound is one no
+// co-loaded host can exhaust (wave 16e: on a hosted runner the default 500 ms did not cover the look
+// and one durable replay). What the bound cuts is TestPreCompactSettle_NamesWhatTheBoundLeftUnreplayed's.
 func TestPreCompactSettle_ReplaysTheSpoolBeforeTheSeal(t *testing.T) {
-	dd, _, root := laneTestDaemon(t)
+	dd, root := settleTestDaemon(t, liveOrderBound)
 	dd.drain.Store(newDrainer(dd.drainConfig()))
 	liveOrderWorkers(t, dd, 2, dd.runIngested)
 	const sess core.SessionID = "sess-precompact-spooled"
@@ -77,18 +81,27 @@ func TestPreCompactSettle_ReplaysTheSpoolBeforeTheSeal(t *testing.T) {
 // inside the settle's bound (the slow disk, made deterministic: its replay waits until its context
 // ends) does not hold the seal past the bound, and the seal names it. A Read the session made after
 // the PreCompact fired is not this compaction's, and is not named.
+//
+// The row, not the clock, ends the settle (settleCut), at the moment the slow Read's replay is in
+// flight: the settle's bound is one no co-loaded host can exhaust, so both spools are read before it
+// and only the replay is cut. With the default 500 ms bound a hosted runner's cold journal open,
+// listing and first reads ran the bound out before either spool was read, and the seal could only
+// count both as unread (wave 16e). The looks still run under the bound's own deadline, which the row
+// checks.
 func TestPreCompactSettle_NamesWhatTheBoundLeftUnreplayed(t *testing.T) {
-	dd, _, root := laneTestDaemon(t)
+	dd, root := settleTestDaemon(t, liveOrderBound)
 	const sess core.SessionID = "sess-precompact-bound"
 	slow := liveOrderTool(dd, root, sess, 1)
 	later := liveOrderTool(dd, root, sess, 2)
+	ctx, cut := settleCut(t)
 	cfg := dd.drainConfig()
-	cfg.Dispatch = func(ctx context.Context, req ipc.Request) ipc.Response {
+	cfg.Dispatch = func(lctx context.Context, req ipc.Request) ipc.Response {
 		if req.Nonce == slow.Nonce {
-			<-ctx.Done() // the disk that never finishes inside the bound
-			return ipc.Response{Err: ctx.Err().Error()}
+			cut()         // the bound ends while the slow Read's replay is in flight
+			<-lctx.Done() // the disk that never finishes inside the bound
+			return ipc.Response{Err: lctx.Err().Error()}
 		}
-		return dd.drainDispatch(ctx, req)
+		return dd.drainDispatch(lctx, req)
 	}
 	dd.drain.Store(newDrainer(cfg))
 	liveOrderWorkers(t, dd, 2, dd.runIngested)
@@ -97,19 +110,81 @@ func TestPreCompactSettle_NamesWhatTheBoundLeftUnreplayed(t *testing.T) {
 	writeHookSpool(t, root, "client-6262.ndjson", slow)
 	later.TS = slow.TS + 10
 	writeHookSpool(t, root, "client-6363.ndjson", later)
+	looks := recordSettleLooks(dd)
 	probe := bindSealProbe(dd, slow.Nonce)
 
 	pre := checkpointRequest(dd, sess, "nonce-precompact-bound")
 	pre.TS = slow.TS + 5 // fired between the two Reads
-	require.True(t, dd.dispatchOp(context.Background(), pre).OK)
+	before := time.Now()
+	require.True(t, dd.dispatchOp(ctx, pre).OK)
 
 	require.Equal(t, 1, probe.calls, "the route seals once the bound has expired")
 	require.False(t, probe.published[slow.Nonce], "fixture sanity: the slow Read was not replayed")
+	looks.ranUnderTheBound(t, before, liveOrderBound, 2)
 	require.Equal(t, []checkpoint.DropEntry{
 		{Kind: checkpoint.DropKindUnreplayedCapture, Detail: fmt.Sprintf(unreplayedDetailFormat, 1, 1, 0, 0, 1)},
 		{Kind: checkpoint.DropKindUnreplayedToolResult, ID: string(slow.Event.ToolUseID)},
 	}, probe.drops, "the seal names the capture the bound left unreplayed, and only that one")
 	require.Equal(t, int64(1), dd.m.Counter(counterPrecompactUnreplayed).Value())
+}
+
+// settleCut is the context a row dispatches its PreCompact with when the row, not the clock, ends the
+// settle: the row gives the settle a bound no co-loaded host can exhaust (settleTestDaemon with
+// liveOrderBound) and calls cut at the moment its subject is in place. The settle's context derives
+// from the route's, so its waits, the replay's line in flight and its last look's reads end then
+// exactly as they end at the bound's deadline: settleBeforeSeal asks only whether its context has
+// ended, never why. The rows that pin the deadline itself are
+// TestPrecompactSettleBound_IsWhatBELeavesTheSeal (its derivation),
+// TestPreCompactSettle_ALookPastTheBoundReadsNothingAndSaysSo (a bound already over),
+// TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound (the replay runs to it), and
+// TestPreCompactSettle_ABacklogIsCountedInFullAndNamedWithinItsShare (the default bound's deadline
+// ends a held replay, whatever the host's speed).
+func settleCut(t *testing.T) (context.Context, func()) {
+	ctx, cut := context.WithCancel(context.Background())
+	t.Cleanup(cut)
+	return ctx, cut
+}
+
+// settleLooks records, for every client spool file the spool index reads, when the read began and
+// the deadline of the look that made it.
+type settleLooks struct {
+	mu    sync.Mutex
+	reads []settleLookRead
+}
+
+type settleLookRead struct {
+	at       time.Time
+	deadline time.Time
+	bounded  bool
+}
+
+// recordSettleLooks installs a read seam on dd's spool index that records each read, and then reads
+// the file as the index does.
+func recordSettleLooks(dd *daemon) *settleLooks {
+	r := &settleLooks{}
+	dd.spoolHeads.read = func(ctx context.Context, path string) ([]byte, error) {
+		dl, ok := ctx.Deadline()
+		r.mu.Lock()
+		r.reads = append(r.reads, settleLookRead{at: time.Now(), deadline: dl, bounded: ok})
+		r.mu.Unlock()
+		return paths.ReadFileShared(path)
+	}
+	return r
+}
+
+// ranUnderTheBound asserts that n spool files were read, each under the deadline of a settle that
+// began at or after before with bound: no earlier than before plus bound, and no later than the
+// read's own start plus bound.
+func (r *settleLooks) ranUnderTheBound(t *testing.T, before time.Time, bound time.Duration, n int) {
+	t.Helper()
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	require.Len(t, r.reads, n, "the settle's looks read every spool they had to")
+	for _, rd := range r.reads {
+		require.True(t, rd.bounded, "a look reads under the settle's deadline")
+		require.False(t, rd.deadline.Before(before.Add(bound)), "the look's deadline is the bound's")
+		require.False(t, rd.deadline.After(rd.at.Add(bound)), "the look's deadline is the bound's")
+	}
 }
 
 // TestPreCompactSettle_AHealthySessionPaysNothing: a session with nothing spooled and every leased
@@ -302,10 +377,13 @@ func TestPreCompactSettle_WaitsForALeasedArrivalStillPublishing(t *testing.T) {
 
 // TestPreCompactSettle_NamesALeasedArrivalOnceBesideItsSpoolCopy: the same leased Read never finishes
 // inside the bound. The seal names it exactly once, although both the lane and a client spool hold
-// it, and does not name a Read the daemon accepted after the PreCompact arrived.
+// it, and does not name a Read the daemon accepted after the PreCompact arrived. The row ends the
+// settle (settleCut) once that later Read is queued in the lane, so the seal is made while the lane
+// holds both, whatever the host's load: a 2 s bound left the first look's read of the spool, and the
+// later Read's acceptance before the seal, to the clock (wave 16e).
 func TestPreCompactSettle_NamesALeasedArrivalOnceBesideItsSpoolCopy(t *testing.T) {
-	const bound = 2 * time.Second
-	dd, root := settleTestDaemon(t, bound)
+	dd, root := settleTestDaemon(t, liveOrderBound)
+	ctx, cut := settleCut(t)
 	dd.drain.Store(newDrainer(dd.drainConfig()))
 	const sess core.SessionID = "sess-precompact-leased-left"
 	tool := liveOrderTool(dd, root, sess, 1)
@@ -323,10 +401,11 @@ func TestPreCompactSettle_NamesALeasedArrivalOnceBesideItsSpoolCopy(t *testing.T
 	pre := checkpointRequest(dd, sess, "nonce-precompact-leased-left")
 	pre.TS = tool.TS + 1
 	done := make(chan ipc.Response, 1)
-	go func() { done <- dd.dispatchOp(context.Background(), pre) }()
+	go func() { done <- dd.dispatchOp(ctx, pre) }()
 	require.True(t, liveOrderPollUntil(liveOrderBound, func() bool { return settleStarted(dd) }),
 		"fixture sanity: the settle began")
 	acceptPrompt(t, dd, after) // leased after the PreCompact, queued behind the held Read
+	cut()                      // the bound ends with both Reads in the lane
 	require.True(t, (<-done).OK)
 
 	require.Equal(t, 1, probe.calls)
@@ -340,8 +419,11 @@ func TestPreCompactSettle_NamesALeasedArrivalOnceBesideItsSpoolCopy(t *testing.T
 // TestPreCompactSettle_AnotherSessionsSpoolCostsAHealthySessionNoDrain: a client spool another
 // session left is not this session's to settle. A healthy session's PreCompact must neither count a
 // settle nor wait for the drain (held here for the whole PreCompact), and the other spool stays.
+// Its first look reads the other session's spool, under a bound no co-loaded host can exhaust: the
+// row asserts what that look finds, and the default 500 ms left the read itself to the clock (wave
+// 16e). A look the bound cuts is TestPreCompactSettle_ALookPastTheBoundReadsNothingAndSaysSo's.
 func TestPreCompactSettle_AnotherSessionsSpoolCostsAHealthySessionNoDrain(t *testing.T) {
-	dd, _, root := laneTestDaemon(t)
+	dd, root := settleTestDaemon(t, liveOrderBound)
 	dd.drain.Store(newDrainer(dd.drainConfig()))
 	liveOrderWorkers(t, dd, 2, dd.runIngested)
 	const sess core.SessionID = "sess-precompact-healthy-beside"
@@ -378,17 +460,23 @@ func TestPreCompactSettle_AnotherSessionsSpoolCostsAHealthySessionNoDrain(t *tes
 
 // TestPreCompactSettle_ReplaysThisSessionsSpoolBeforeOlderOnesOfOthers: another session's older spool
 // whose replay cannot finish (the slow disk) must not spend this session's bound: the settle replays
-// the compacting session's own spools, and its Read is sealed.
+// the compacting session's own spools, and its Read is sealed. The bound is one no co-loaded host can
+// exhaust, and the older spool's replay, should the settle ever start it, takes the whole of it: it
+// ends the settle there (settleCut), so the row asserts which spool the settle replays, not how fast
+// (wave 16e). Waiting out its own line's deadline instead, it would let a 30 s bound go on to the
+// session's spool and hide the regression.
 func TestPreCompactSettle_ReplaysThisSessionsSpoolBeforeOlderOnesOfOthers(t *testing.T) {
-	dd, _, root := laneTestDaemon(t)
+	dd, root := settleTestDaemon(t, liveOrderBound)
+	ctx, cut := settleCut(t)
 	const sess, other core.SessionID = "sess-precompact-own", "sess-precompact-older"
 	cfg := dd.drainConfig()
-	cfg.Dispatch = func(ctx context.Context, req ipc.Request) ipc.Response {
+	cfg.Dispatch = func(lctx context.Context, req ipc.Request) ipc.Response {
 		if resolveEvent(req).SessionID == other {
-			<-ctx.Done()
-			return ipc.Response{Err: ctx.Err().Error()}
+			cut() // the slow disk: this replay takes the whole bound
+			<-lctx.Done()
+			return ipc.Response{Err: lctx.Err().Error()}
 		}
-		return dd.drainDispatch(ctx, req)
+		return dd.drainDispatch(lctx, req)
 	}
 	dd.drain.Store(newDrainer(cfg))
 	liveOrderWorkers(t, dd, 2, dd.runIngested)
@@ -403,7 +491,7 @@ func TestPreCompactSettle_ReplaysThisSessionsSpoolBeforeOlderOnesOfOthers(t *tes
 
 	pre := checkpointRequest(dd, sess, "nonce-precompact-own")
 	pre.TS = own.TS + 1
-	require.True(t, dd.dispatchOp(context.Background(), pre).OK)
+	require.True(t, dd.dispatchOp(ctx, pre).OK)
 
 	require.Equal(t, 1, probe.calls)
 	require.True(t, probe.published[own.Nonce], "the compacting session's own spooled Read is replayed first")
