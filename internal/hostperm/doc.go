@@ -42,7 +42,9 @@
 // segment's own 8.3 name. Two paths cannot be judged, so under any deny or ask rule they are refused
 // as denied: one holding an 8.3-shaped name (a tilde and a digit) that names nothing on disk, whose
 // long name is unknown, and, while a rule names an 8.3 name after a glob, one that does not exist,
-// whose 8.3 names are unknown. Paths are compared in the host's POSIX form (C:\x becomes /c/x) and case-insensitively on
+// whose 8.3 names are unknown. A rule names an 8.3 name only with a tilde followed by a digit or by
+// a glob character that can stand for one (CREDEN~?.SEC); a backup-file rule such as **/*~ names
+// none, and a deleted file is judged under it as before. Paths are compared in the host's POSIX form (C:\x becomes /c/x) and case-insensitively on
 // Windows and macOS. More than 5000 path patterns, or 80 000 path segments across them, make the
 // rules unusable (fail closed), which bounds what one path's check can cost.
 //

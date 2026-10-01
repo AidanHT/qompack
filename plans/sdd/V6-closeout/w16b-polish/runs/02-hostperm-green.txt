@@ -1,0 +1,18 @@
+=== RUN   TestShortNames_ATildeThatNamesNoShortNameJudgesDeletedFiles
+=== RUN   TestShortNames_ATildeThatNamesNoShortNameJudgesDeletedFiles/Read(**/*~)
+=== RUN   TestShortNames_ATildeThatNamesNoShortNameJudgesDeletedFiles/Read(*~)
+=== RUN   TestShortNames_ATildeThatNamesNoShortNameJudgesDeletedFiles/Read(**/*.txt~)
+=== RUN   TestShortNames_ATildeThatNamesNoShortNameJudgesDeletedFiles/Read(./foo.txt~)
+=== RUN   TestShortNames_ATildeThatNamesNoShortNameJudgesDeletedFiles/Read(**/CREDEN~1.SEC)
+=== RUN   TestShortNames_ATildeThatNamesNoShortNameJudgesDeletedFiles/Read(**/CREDEN~?.SEC)
+=== RUN   TestShortNames_ATildeThatNamesNoShortNameJudgesDeletedFiles/Read(**/CONFIG~*/**)
+--- PASS: TestShortNames_ATildeThatNamesNoShortNameJudgesDeletedFiles (0.05s)
+    --- PASS: TestShortNames_ATildeThatNamesNoShortNameJudgesDeletedFiles/Read(**/*~) (0.01s)
+    --- PASS: TestShortNames_ATildeThatNamesNoShortNameJudgesDeletedFiles/Read(*~) (0.00s)
+    --- PASS: TestShortNames_ATildeThatNamesNoShortNameJudgesDeletedFiles/Read(**/*.txt~) (0.00s)
+    --- PASS: TestShortNames_ATildeThatNamesNoShortNameJudgesDeletedFiles/Read(./foo.txt~) (0.01s)
+    --- PASS: TestShortNames_ATildeThatNamesNoShortNameJudgesDeletedFiles/Read(**/CREDEN~1.SEC) (0.01s)
+    --- PASS: TestShortNames_ATildeThatNamesNoShortNameJudgesDeletedFiles/Read(**/CREDEN~?.SEC) (0.00s)
+    --- PASS: TestShortNames_ATildeThatNamesNoShortNameJudgesDeletedFiles/Read(**/CONFIG~*/**) (0.00s)
+PASS
+ok  	github.com/qompack/qompack/internal/hostperm	1.201s

@@ -307,10 +307,11 @@ func (p *pattern) row(rel []string, sc *scratch) []bool {
 }
 
 // literalEqual reports whether a literal pattern's segments equal segs, where a pattern segment
-// holding a tilde may instead equal the 8.3 name alt records for that segment (nil: none known).
+// of 8.3 shape (shortShaped) may instead equal the 8.3 name alt records for that segment (nil: none
+// known).
 func literalEqual(pat, segs, alt []string) bool {
 	for i, ps := range pat {
-		if ps != segs[i] && (alt == nil || !strings.Contains(ps, "~") || ps != alt[i]) {
+		if ps != segs[i] && (alt == nil || !shortShaped(ps) || ps != alt[i]) {
 			return false
 		}
 	}
@@ -322,7 +323,8 @@ func literalEqual(pat, segs, alt []string) bool {
 type scratch struct {
 	a, b []bool
 	// alt is nil, or the 8.3 spelling of the path segments being matched, aligned with them: a
-	// pattern segment holding a tilde matches a segment whose own name or 8.3 name it matches.
+	// pattern segment of 8.3 shape (shortShaped) matches a segment whose own name or 8.3 name it
+	// matches.
 	alt []string
 	// rules and pos are carvedMatch's per-prefix answer: the deciding rule and its polarity.
 	rules []string
@@ -374,7 +376,7 @@ func prefixRow(pat, segs []string, sc *scratch) []bool {
 				v = prev[j] || (j > 0 && cur[j-1])
 			case j > 0 && prev[j-1]:
 				v, _ = path.Match(ps, segs[j-1])
-				if !v && sc.alt != nil && strings.Contains(ps, "~") {
+				if !v && sc.alt != nil && shortShaped(ps) {
 					v, _ = path.Match(ps, sc.alt[j-1])
 				}
 			}
