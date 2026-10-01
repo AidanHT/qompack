@@ -18,6 +18,10 @@ mkdir -p "$E"
 log() { echo "$* $(date -u +%FT%TZ)" >> "$E/chain.log"; }
 
 log "start candidate=$H"
+# The owner runs their own containers on this engine (supabase_*_promptly). Stop only our container,
+# and stop the engine at the end only if this chain started it.
+engine_was_up=0; docker ps > /dev/null 2>&1 && engine_was_up=1; log "engine up at start=$engine_was_up"
+docker ps --format "{{.Names}} {{.Status}}" >> "$E/chain.log" 2>&1
 docker stop qompack-v6-linux-verification > /dev/null 2>&1
 sh "$here/phase3.sh" "$C" "$E" win-timing win-e2e-timing >> "$E/chain.log" 2>&1; log "windows timing exit=$?"
 GOFLAGS=-p=4 sh "$here/phase3.sh" "$C" "$E" win-race bundles >> "$E/chain.log" 2>&1; log "windows race+bundles exit=$?"
@@ -27,6 +31,8 @@ sh "$here/phase3.sh" "$C" "$E" linux-timing linux-e2e-timing >> "$E/chain.log" 2
 sh "$here/phase3.sh" "$C" "$E" linux-tree linux-e2e linux-child >> "$E/chain.log" 2>&1; log "linux race exit=$?"
 
 sh "$here/quiet.sh" "$C" cf31e01 "$E/quiet" c51-win c51-linux >> "$E/chain.log" 2>&1; log "quiet exit=$?"
-# Hand the WSL VM's memory back: a running engine holds its page cache (12.7 GB after candidate 5's night).
-docker stop qompack-v6-linux-verification > /dev/null 2>&1; docker desktop stop > /dev/null 2>&1; log "engine stopped exit=$?"
+# Hand the WSL VM's memory back when this chain started the engine: a running engine holds its page cache
+# (12.7 GB after candidate 5's night). An engine the owner had running stays up with their containers.
+docker stop qompack-v6-linux-verification > /dev/null 2>&1; log "container stopped exit=$?"
+if [ "$engine_was_up" = 0 ]; then docker desktop stop > /dev/null 2>&1; log "engine stopped exit=$?"; else log "engine left running (owner)"; fi
 log "done"
