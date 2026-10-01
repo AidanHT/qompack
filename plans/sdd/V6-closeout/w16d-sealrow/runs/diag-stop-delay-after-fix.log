@@ -1,0 +1,48 @@
+=== RUN   TestPreCompactInSpoolSubmodeSealsTheSpooledReads
+DIAG settle first-cap +19.0968ms [observe.tool toolu_d53c_spooled_read_1 client-23044.ndjson]
+DIAG settle first-cap +19.0968ms [observe.tool toolu_d53c_spooled_read_2 client-23044.ndjson]
+DIAG settle first-cap +19.6317ms [observe.stop  client-23044.ndjson]
+DIAG settle before-await +19.6317ms [own 1 upTo 2]
+DIAG settle after-await +53.5854ms []
+DIAG drain handler op=observe.tool took=94.341ms
+DIAG drain line op=observe.tool took=116.9419ms err=<nil> ctxErr=<nil>
+DIAG drain handler op=observe.tool took=79.6292ms
+DIAG drain line op=observe.tool took=95.0656ms err=<nil> ctxErr=<nil>
+DIAG drain handler op=observe.stop took=5.5131ms
+DIAG drain line op=observe.stop took=618.0196ms err=<nil> ctxErr=<nil>
+DIAG settle after-drain +944.6119ms [n 3 err <nil>]
+DIAG settle end +945.1481ms [left 0 unread 0]
+--- PASS: TestPreCompactInSpoolSubmodeSealsTheSpooledReads (1.77s)
+=== RUN   TestPreCompactInSpoolSubmodeSealsTheSpooledReads
+DIAG settle first-cap +21.7753ms [observe.tool toolu_d53c_spooled_read_1 client-23044.ndjson]
+DIAG settle first-cap +21.7753ms [observe.tool toolu_d53c_spooled_read_2 client-23044.ndjson]
+DIAG settle first-cap +21.7753ms [observe.stop  client-23044.ndjson]
+DIAG settle before-await +21.7753ms [own 1 upTo 2]
+DIAG settle after-await +21.7753ms []
+DIAG drain handler op=observe.tool took=73.2174ms
+DIAG drain line op=observe.tool took=94.4658ms err=<nil> ctxErr=<nil>
+DIAG drain handler op=observe.tool took=83.9429ms
+DIAG drain line op=observe.tool took=101.5169ms err=<nil> ctxErr=<nil>
+DIAG drain handler op=observe.stop took=5.0598ms
+DIAG drain line op=observe.stop took=620.1384ms err=<nil> ctxErr=<nil>
+DIAG settle after-drain +906.6053ms [n 3 err <nil>]
+DIAG settle end +907.144ms [left 0 unread 0]
+--- PASS: TestPreCompactInSpoolSubmodeSealsTheSpooledReads (1.80s)
+=== RUN   TestPreCompactInSpoolSubmodeSealsTheSpooledReads
+DIAG settle first-cap +21.5029ms [observe.tool toolu_d53c_spooled_read_1 client-23044.ndjson]
+DIAG settle first-cap +21.5029ms [observe.tool toolu_d53c_spooled_read_2 client-23044.ndjson]
+DIAG settle first-cap +21.5029ms [observe.stop  client-23044.ndjson]
+DIAG settle before-await +21.5029ms [own 1 upTo 2]
+DIAG settle after-await +22.0444ms []
+DIAG drain handler op=observe.tool took=70.9462ms
+DIAG drain line op=observe.tool took=99.2704ms err=<nil> ctxErr=<nil>
+DIAG drain handler op=observe.tool took=106.6694ms
+DIAG drain line op=observe.tool took=129.3648ms err=<nil> ctxErr=<nil>
+DIAG drain handler op=observe.stop took=6.3526ms
+DIAG drain line op=observe.stop took=621.2544ms err=<nil> ctxErr=<nil>
+DIAG settle after-drain +959.5045ms [n 3 err <nil>]
+DIAG settle end +960.7015ms [left 0 unread 0]
+--- PASS: TestPreCompactInSpoolSubmodeSealsTheSpooledReads (1.83s)
+PASS
+coverage: 14.3% of statements
+ok  	github.com/qompack/qompack/internal/cli	5.806s	coverage: 14.3% of statements
