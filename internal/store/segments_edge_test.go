@@ -63,7 +63,9 @@ func TestSegmentLog_SyncMakesTheLogDurableAndAReadOnlyLogRefusesToEncode(t *test
 	ro, err := OpenReadOnly(f.root, config.Defaults(), Deps{Clock: f.clk})
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = ro.Close() })
-	rl := ro.(readOnlyStore).fs.seg
+	rs, ok := ro.(readOnlyStore)
+	require.True(t, ok)
+	rl := rs.fs.seg
 	require.NoError(t, rl.Sync(ctx), "a read-only log appends nothing, so it has nothing to make durable")
 	require.ErrorIs(t, rl.ReserveEncoded(ctx, []core.SegmentID{id}, 1), ErrReadOnly)
 	require.ErrorIs(t, rl.CommitEncoded(ctx, []core.SegmentID{id}, 1), ErrReadOnly)
