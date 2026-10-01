@@ -110,9 +110,14 @@ func TestHostPolicy_AShortNameSpellingIsRefused(t *testing.T) {
 
 	// A project root spelled with 8.3 names: an absolute rule names the long path, and a
 	// project-relative rule is measured from the short root while the caller names the long file.
+	// The mixed rule spells the file's directory short and its name long, the shape the first row
+	// takes where TEMP is itself short (C:\Users\RUNNER~1\..., nightly 36820740318): it is neither
+	// the served spelling nor the long name, so the rule's own 8.3 names must be expanded.
+	mixed := filepath.Join(filepath.Dir(shortFull), filepath.Base(full))
 	for name, tc := range map[string]struct{ rule, path string }{
-		"absolute rule, relative path": {"Read(/" + posixOf(full) + ")", snLong},
-		"relative rule, long absolute": {"Read(./" + snLong + ")", full},
+		"absolute rule, relative path":       {"Read(/" + posixOf(full) + ")", snLong},
+		"relative rule, long absolute":       {"Read(./" + snLong + ")", full},
+		"mixed absolute rule, relative path": {"Read(/" + posixOf(mixed) + ")", snLong},
 	} {
 		t.Run("short project root/"+name, func(t *testing.T) {
 			f.writeSettings(t, projectSettings, denyRules(tc.rule))

@@ -1,0 +1,42 @@
+=== RUN   TestStop_IsNotHeldBehindASessionEndsDrain
+--- PASS: TestStop_IsNotHeldBehindASessionEndsDrain (0.96s)
+=== RUN   TestStop_IsNotHeldBehindASessionEndsDrain
+--- PASS: TestStop_IsNotHeldBehindASessionEndsDrain (0.88s)
+=== RUN   TestStop_IsNotHeldBehindASessionEndsDrain
+--- PASS: TestStop_IsNotHeldBehindASessionEndsDrain (0.83s)
+=== RUN   TestStop_IsNotHeldBehindASessionEndsDrain
+--- PASS: TestStop_IsNotHeldBehindASessionEndsDrain (1.01s)
+=== RUN   TestStop_IsNotHeldBehindASessionEndsDrain
+--- PASS: TestStop_IsNotHeldBehindASessionEndsDrain (0.99s)
+=== RUN   TestStop_IsNotHeldBehindASessionEndsDrain
+--- PASS: TestStop_IsNotHeldBehindASessionEndsDrain (0.96s)
+=== RUN   TestStop_IsNotHeldBehindASessionEndsDrain
+--- PASS: TestStop_IsNotHeldBehindASessionEndsDrain (0.88s)
+=== RUN   TestStop_IsNotHeldBehindASessionEndsDrain
+--- PASS: TestStop_IsNotHeldBehindASessionEndsDrain (0.89s)
+=== RUN   TestStop_IsNotHeldBehindASessionEndsDrain
+--- PASS: TestStop_IsNotHeldBehindASessionEndsDrain (0.87s)
+=== RUN   TestStop_IsNotHeldBehindASessionEndsDrain
+--- PASS: TestStop_IsNotHeldBehindASessionEndsDrain (0.83s)
+=== RUN   TestStop_IsNotHeldBehindASessionEndsDrain
+--- PASS: TestStop_IsNotHeldBehindASessionEndsDrain (1.00s)
+=== RUN   TestStop_IsNotHeldBehindASessionEndsDrain
+--- PASS: TestStop_IsNotHeldBehindASessionEndsDrain (1.08s)
+=== RUN   TestStop_IsNotHeldBehindASessionEndsDrain
+--- PASS: TestStop_IsNotHeldBehindASessionEndsDrain (1.05s)
+=== RUN   TestStop_IsNotHeldBehindASessionEndsDrain
+--- PASS: TestStop_IsNotHeldBehindASessionEndsDrain (1.00s)
+=== RUN   TestStop_IsNotHeldBehindASessionEndsDrain
+--- PASS: TestStop_IsNotHeldBehindASessionEndsDrain (1.06s)
+=== RUN   TestStop_IsNotHeldBehindASessionEndsDrain
+--- PASS: TestStop_IsNotHeldBehindASessionEndsDrain (0.88s)
+=== RUN   TestStop_IsNotHeldBehindASessionEndsDrain
+--- PASS: TestStop_IsNotHeldBehindASessionEndsDrain (0.83s)
+=== RUN   TestStop_IsNotHeldBehindASessionEndsDrain
+--- PASS: TestStop_IsNotHeldBehindASessionEndsDrain (0.84s)
+=== RUN   TestStop_IsNotHeldBehindASessionEndsDrain
+--- PASS: TestStop_IsNotHeldBehindASessionEndsDrain (0.81s)
+=== RUN   TestStop_IsNotHeldBehindASessionEndsDrain
+--- PASS: TestStop_IsNotHeldBehindASessionEndsDrain (0.79s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	19.731s

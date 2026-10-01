@@ -129,6 +129,14 @@ func heldOpenElsewhere(err error) bool {
 // verified and is about to start; any other copy that fails verification, including one that
 // cannot be read for a reason that does not pass, is removed and staged again.
 func stageBinary(self, home string) (string, error) {
+	return stageBinaryVerifying(self, home, verifyStaged)
+}
+
+// stageBinaryVerifying is stageBinary with verify making the first check of an existing copy, the
+// check whose answer decides whether that copy is used, kept or replaced. Every caller outside the
+// tests passes verifyStaged; a test passes a refusal no token can read past
+// (TestStageBinary_KeepsACopyWhoseCheckIsRefusedAsHeldOpen).
+func stageBinaryVerifying(self, home string, verify func(target, sum string) error) (string, error) {
 	if home == "" {
 		return "", errors.New("daemon: no home directory to stage the daemon binary under")
 	}
@@ -140,7 +148,7 @@ func stageBinary(self, home string) (string, error) {
 	dir := filepath.Join(binRoot, sum)
 	target := filepath.Join(dir, stagedBinaryName+filepath.Ext(self))
 
-	switch verr := verifyStaged(target, sum); {
+	switch verr := verify(target, sum); {
 	case verr == nil:
 		return target, nil
 	case heldOpenElsewhere(verr):

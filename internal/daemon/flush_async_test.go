@@ -369,6 +369,13 @@ func TestFlush_AFlushAcknowledgedDuringShutdownIsMarkedForRecovery(t *testing.T)
 // reaches them, and a drain line is bounded only by its own drainLineDeadline, line after line. Stop
 // must give the ends their grace from the moment it begins, so the drain it waits behind is cancelled
 // once the grace is over, and Stop stays inside its bound however long the drain had left to run.
+//
+// What tells the two apart is how the drain's line ended: cancelled by the grace, which runs from
+// Stop's start, or by its own drainLineDeadline, which is all that ended it when the grace started
+// after the join. The row once timed the whole of Stop against the grace, the abandon window and two
+// seconds; but after the join Stop runs its own drain (stopDrainBound) and its cleanup, which under
+// -race on the hosted runner's slow disk took 7.3 s with the grace on time (nightly 36820740318). So
+// the cause of the release is asserted, and Stop's total is held to the product's own bounds.
 func TestStop_IsNotHeldBehindASessionEndsDrain(t *testing.T) {
 	dd, hold, root := flushAsyncDaemon(t)
 	hold.open()
@@ -380,6 +387,9 @@ func TestStop_IsNotHeldBehindASessionEndsDrain(t *testing.T) {
 	entered := make(chan struct{}, 8)
 	released := make(chan struct{})
 	var releaseOnce sync.Once
+	// ended is how the first stuck line, the session end's, was ended: the grace's cancellation, or
+	// the line's own drainLineDeadline.
+	ended := make(chan error, 1)
 	cfg := dd.drainConfig()
 	real := cfg.Dispatch
 	cfg.Dispatch = func(ctx context.Context, req ipc.Request) ipc.Response {
@@ -389,6 +399,10 @@ func TestStop_IsNotHeldBehindASessionEndsDrain(t *testing.T) {
 			default:
 				entered <- struct{}{}
 				<-ctx.Done()
+				select {
+				case ended <- ctx.Err():
+				default:
+				}
 				if errors.Is(ctx.Err(), context.Canceled) {
 					releaseOnce.Do(func() { close(released) })
 				}
@@ -417,10 +431,13 @@ func TestStop_IsNotHeldBehindASessionEndsDrain(t *testing.T) {
 	dd.runCancelMu.Unlock()
 	dd.goRun(func() { _, _ = dd.drain.Load().DrainClientSpools(runCtx) })
 
-	// The grace, the abandon window, and room for a loaded machine: well short of the drain line's
-	// own deadline, which is all that ended the wait before.
-	bound := dd.sessionEndGrace + sessionEndAbandonAfter + 2*time.Second
-	require.Less(t, bound, drainLineDeadline, "precondition: the bound tells the two outcomes apart")
+	// The grace ends well inside the line's own deadline, so the first of the two to end the line
+	// says whether the grace ran from Stop's start.
+	require.Less(t, dd.sessionEndGrace, drainLineDeadline, "precondition: the grace and the line's deadline are told apart")
+	// Stop's whole run: the grace and the abandon window, then its own bounded drain and the cleanup
+	// after it, which awaitStopCleanup bounds by stopCleanupBound.
+	bound := dd.sessionEndGrace + sessionEndAbandonAfter + stopCleanupBound
+	require.Less(t, bound, liveOrderBound, "precondition: Stop's bound is inside the row's own")
 	began := time.Now()
 	stopped := make(chan error, 1)
 	go func() { stopped <- dd.Stop(context.Background()) }()
@@ -431,8 +448,16 @@ func TestStop_IsNotHeldBehindASessionEndsDrain(t *testing.T) {
 		require.FailNow(t, "Stop never returned")
 	}
 	took := time.Since(began)
-	require.Less(t, took, bound,
-		"Stop waited %s behind a session end's drain: the grace must run from Stop's start, not after runWG", took)
+	t.Logf("Stop took %s (bound %s)", took, bound)
+	var how error
+	select {
+	case how = <-ended:
+	case <-time.After(liveOrderBound):
+		require.FailNow(t, "the session end's drain line never ended")
+	}
+	require.ErrorIs(t, how, context.Canceled,
+		"the session end's drain line ran to its own deadline: the grace must run from Stop's start, not after runWG")
+	require.Less(t, took, bound, "Stop took %s", took)
 }
 
 // TestDrain_AReplayedFlushIsEndedOnItsOwnNotUnderThePassBudget: a flush only a hook's client spool

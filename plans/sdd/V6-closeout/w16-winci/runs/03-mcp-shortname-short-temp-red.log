@@ -1,0 +1,29 @@
+=== RUN   TestHostPolicy_AShortNameSpellingIsRefused
+=== RUN   TestHostPolicy_AShortNameSpellingIsRefused/re_read/at_turn
+=== RUN   TestHostPolicy_AShortNameSpellingIsRefused/re_read/at_timestamp
+=== RUN   TestHostPolicy_AShortNameSpellingIsRefused/re_read/absolute_short
+=== RUN   TestHostPolicy_AShortNameSpellingIsRefused/expand/short_record
+=== RUN   TestHostPolicy_AShortNameSpellingIsRefused/re_read/latest
+=== RUN   TestHostPolicy_AShortNameSpellingIsRefused/recall_withholds_the_short-spelled_hit
+=== RUN   TestHostPolicy_AShortNameSpellingIsRefused/dropped_withholds_pointers_spelled_short
+=== RUN   TestHostPolicy_AShortNameSpellingIsRefused/short_project_root/absolute_rule,_relative_path
+    hostperm_shortname_windows_test.go:131: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16-winci/internal/mcp/hostperm_shortname_windows_test.go:47
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16-winci/internal/mcp/hostperm_shortname_windows_test.go:131
+        	Error:      	"{\"found\":true,\"hash\":\"sha256:d56d2777c57320a19ab1985aeea44256f45d97e1645f8a0a853d58e0acfc368e\",\"path\":\"configuration/credentials.secret\",\"source\":\"store\",\"turn\":4,\"span\":[0,67],\"total_bytes\":67,\"truncated\":false,\"widened\":false,\"expansions\":1,\"promoted\":false,\"content\":\"archived marker SHORTNAME-ARCHIVE-5d20e7a4 for the rotation window\\n\"}" should not contain "SHORTNAME-ARCHIVE-5d20e7a4"
+        	Test:       	TestHostPolicy_AShortNameSpellingIsRefused/short_project_root/absolute_rule,_relative_path
+        	Messages:   	archived content was served: {"found":true,"hash":"sha256:d56d2777c57320a19ab1985aeea44256f45d97e1645f8a0a853d58e0acfc368e","path":"configuration/credentials.secret","source":"store","turn":4,"span":[0,67],"total_bytes":67,"truncated":false,"widened":false,"expansions":1,"promoted":false,"content":"archived marker SHORTNAME-ARCHIVE-5d20e7a4 for the rotation window\n"}
+=== RUN   TestHostPolicy_AShortNameSpellingIsRefused/short_project_root/relative_rule,_long_absolute
+--- FAIL: TestHostPolicy_AShortNameSpellingIsRefused (0.27s)
+    --- PASS: TestHostPolicy_AShortNameSpellingIsRefused/re_read/at_turn (0.02s)
+    --- PASS: TestHostPolicy_AShortNameSpellingIsRefused/re_read/at_timestamp (0.01s)
+    --- PASS: TestHostPolicy_AShortNameSpellingIsRefused/re_read/absolute_short (0.01s)
+    --- PASS: TestHostPolicy_AShortNameSpellingIsRefused/expand/short_record (0.01s)
+    --- PASS: TestHostPolicy_AShortNameSpellingIsRefused/re_read/latest (0.01s)
+    --- PASS: TestHostPolicy_AShortNameSpellingIsRefused/recall_withholds_the_short-spelled_hit (0.03s)
+    --- PASS: TestHostPolicy_AShortNameSpellingIsRefused/dropped_withholds_pointers_spelled_short (0.02s)
+    --- FAIL: TestHostPolicy_AShortNameSpellingIsRefused/short_project_root/absolute_rule,_relative_path (0.03s)
+    --- PASS: TestHostPolicy_AShortNameSpellingIsRefused/short_project_root/relative_rule,_long_absolute (0.01s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/mcp	0.542s
+FAIL

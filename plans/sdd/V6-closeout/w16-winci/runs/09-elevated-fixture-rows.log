@@ -1,0 +1,21 @@
+=== RUN   TestStageBinary_NeverRemovesACopyHeldOpen
+=== PAUSE TestStageBinary_NeverRemovesACopyHeldOpen
+=== RUN   TestStageBinary_RestagesACopyItCanNeverRead
+=== PAUSE TestStageBinary_RestagesACopyItCanNeverRead
+=== CONT  TestStageBinary_NeverRemovesACopyHeldOpen
+=== CONT  TestStageBinary_RestagesACopyItCanNeverRead
+--- PASS: TestStageBinary_NeverRemovesACopyHeldOpen (0.09s)
+--- PASS: TestStageBinary_RestagesACopyItCanNeverRead (0.11s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	0.397s
+=== RUN   TestTerminatePartialTail_UnreadablePathIsLeftAlone
+--- PASS: TestTerminatePartialTail_UnreadablePathIsLeftAlone (0.06s)
+=== RUN   TestEnsureLayout_WriteAtomicFailureIsPropagated
+--- PASS: TestEnsureLayout_WriteAtomicFailureIsPropagated (0.07s)
+PASS
+ok  	github.com/qompack/qompack/internal/paths	1.482s
+=== RUN   TestWithoutBackupPrivileges_FnRunsWithNeitherBypassPrivilege
+    privileges_windows_test.go:19: process token enables: []
+--- PASS: TestWithoutBackupPrivileges_FnRunsWithNeitherBypassPrivilege (0.00s)
+PASS
+ok  	github.com/qompack/qompack/internal/paths/pathstest	0.995s

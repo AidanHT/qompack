@@ -1,0 +1,176 @@
+=== RUN   TestHostPolicy_ALinkSpellingIsJudgedToo
+--- PASS: TestHostPolicy_ALinkSpellingIsJudgedToo (0.12s)
+=== RUN   TestHostPolicy_AShortNameSpellingIsRefused
+=== RUN   TestHostPolicy_AShortNameSpellingIsRefused/re_read/latest
+=== RUN   TestHostPolicy_AShortNameSpellingIsRefused/re_read/at_turn
+=== RUN   TestHostPolicy_AShortNameSpellingIsRefused/re_read/at_timestamp
+=== RUN   TestHostPolicy_AShortNameSpellingIsRefused/re_read/absolute_short
+=== RUN   TestHostPolicy_AShortNameSpellingIsRefused/expand/short_record
+=== RUN   TestHostPolicy_AShortNameSpellingIsRefused/recall_withholds_the_short-spelled_hit
+=== RUN   TestHostPolicy_AShortNameSpellingIsRefused/dropped_withholds_pointers_spelled_short
+=== RUN   TestHostPolicy_AShortNameSpellingIsRefused/short_project_root/relative_rule,_long_absolute
+=== RUN   TestHostPolicy_AShortNameSpellingIsRefused/short_project_root/absolute_rule,_relative_path
+--- PASS: TestHostPolicy_AShortNameSpellingIsRefused (0.20s)
+    --- PASS: TestHostPolicy_AShortNameSpellingIsRefused/re_read/latest (0.01s)
+    --- PASS: TestHostPolicy_AShortNameSpellingIsRefused/re_read/at_turn (0.01s)
+    --- PASS: TestHostPolicy_AShortNameSpellingIsRefused/re_read/at_timestamp (0.01s)
+    --- PASS: TestHostPolicy_AShortNameSpellingIsRefused/re_read/absolute_short (0.01s)
+    --- PASS: TestHostPolicy_AShortNameSpellingIsRefused/expand/short_record (0.00s)
+    --- PASS: TestHostPolicy_AShortNameSpellingIsRefused/recall_withholds_the_short-spelled_hit (0.02s)
+    --- PASS: TestHostPolicy_AShortNameSpellingIsRefused/dropped_withholds_pointers_spelled_short (0.01s)
+    --- PASS: TestHostPolicy_AShortNameSpellingIsRefused/short_project_root/relative_rule,_long_absolute (0.01s)
+    --- PASS: TestHostPolicy_AShortNameSpellingIsRefused/short_project_root/absolute_rule,_relative_path (0.02s)
+=== RUN   TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused
+=== RUN   TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/latest/config/secret.env.
+=== RUN   TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/line_anchor/config/secret.env.
+=== RUN   TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/at_turn/config/secret.env.
+=== RUN   TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/at_timestamp/config/secret.env.
+=== RUN   TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/latest/config/secret.env_
+=== RUN   TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/line_anchor/config/secret.env_
+=== RUN   TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/at_turn/config/secret.env_
+=== RUN   TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/at_timestamp/config/secret.env_
+=== RUN   TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/line_anchor/config/secret.env...
+=== RUN   TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/at_turn/config/secret.env...
+=== RUN   TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/at_timestamp/config/secret.env...
+=== RUN   TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/latest/config/secret.env...
+=== RUN   TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/at_timestamp/config/secret.env._._
+=== RUN   TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/latest/config/secret.env._._
+=== RUN   TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/line_anchor/config/secret.env._._
+=== RUN   TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/at_turn/config/secret.env._._
+=== RUN   TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/latest/config./secret.env
+=== RUN   TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/line_anchor/config./secret.env
+=== RUN   TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/at_turn/config./secret.env
+=== RUN   TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/at_timestamp/config./secret.env
+=== RUN   TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/dropped_withholds_a_pointer_spelled_as_an_alias
+--- PASS: TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused (0.25s)
+    --- PASS: TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/latest/config/secret.env. (0.01s)
+    --- PASS: TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/line_anchor/config/secret.env. (0.01s)
+    --- PASS: TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/at_turn/config/secret.env. (0.01s)
+    --- PASS: TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/at_timestamp/config/secret.env. (0.01s)
+    --- PASS: TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/latest/config/secret.env_ (0.01s)
+    --- PASS: TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/line_anchor/config/secret.env_ (0.01s)
+    --- PASS: TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/at_turn/config/secret.env_ (0.01s)
+    --- PASS: TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/at_timestamp/config/secret.env_ (0.01s)
+    --- PASS: TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/line_anchor/config/secret.env... (0.01s)
+    --- PASS: TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/at_turn/config/secret.env... (0.01s)
+    --- PASS: TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/at_timestamp/config/secret.env... (0.01s)
+    --- PASS: TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/latest/config/secret.env... (0.01s)
+    --- PASS: TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/at_timestamp/config/secret.env._._ (0.01s)
+    --- PASS: TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/latest/config/secret.env._._ (0.01s)
+    --- PASS: TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/line_anchor/config/secret.env._._ (0.01s)
+    --- PASS: TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/at_turn/config/secret.env._._ (0.01s)
+    --- PASS: TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/latest/config./secret.env (0.01s)
+    --- PASS: TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/line_anchor/config./secret.env (0.01s)
+    --- PASS: TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/at_turn/config./secret.env (0.01s)
+    --- PASS: TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/at_timestamp/config./secret.env (0.01s)
+    --- PASS: TestHostPolicy_AnAliasSpellingOfADeniedPathIsRefused/dropped_withholds_a_pointer_spelled_as_an_alias (0.01s)
+=== RUN   TestHostPolicy_EveryContentFormRefusesADeniedPath
+=== RUN   TestHostPolicy_EveryContentFormRefusesADeniedPath/expand/tool_use_id
+=== RUN   TestHostPolicy_EveryContentFormRefusesADeniedPath/expand/root_hash
+=== RUN   TestHostPolicy_EveryContentFormRefusesADeniedPath/expand/chunk_hash
+=== RUN   TestHostPolicy_EveryContentFormRefusesADeniedPath/re_read/at_timestamp
+=== RUN   TestHostPolicy_EveryContentFormRefusesADeniedPath/re_read/other_path_at_hash
+=== RUN   TestHostPolicy_EveryContentFormRefusesADeniedPath/re_read/latest
+=== RUN   TestHostPolicy_EveryContentFormRefusesADeniedPath/re_read/line_anchor
+=== RUN   TestHostPolicy_EveryContentFormRefusesADeniedPath/re_read/at_turn
+=== RUN   TestHostPolicy_EveryContentFormRefusesADeniedPath/re_read/at_hash
+=== RUN   TestHostPolicy_EveryContentFormRefusesADeniedPath/the_ordinary_path_still_serves
+--- PASS: TestHostPolicy_EveryContentFormRefusesADeniedPath (0.23s)
+    --- PASS: TestHostPolicy_EveryContentFormRefusesADeniedPath/expand/tool_use_id (0.01s)
+    --- PASS: TestHostPolicy_EveryContentFormRefusesADeniedPath/expand/root_hash (0.00s)
+    --- PASS: TestHostPolicy_EveryContentFormRefusesADeniedPath/expand/chunk_hash (0.00s)
+    --- PASS: TestHostPolicy_EveryContentFormRefusesADeniedPath/re_read/at_timestamp (0.00s)
+    --- PASS: TestHostPolicy_EveryContentFormRefusesADeniedPath/re_read/other_path_at_hash (0.01s)
+    --- PASS: TestHostPolicy_EveryContentFormRefusesADeniedPath/re_read/latest (0.00s)
+    --- PASS: TestHostPolicy_EveryContentFormRefusesADeniedPath/re_read/line_anchor (0.00s)
+    --- PASS: TestHostPolicy_EveryContentFormRefusesADeniedPath/re_read/at_turn (0.00s)
+    --- PASS: TestHostPolicy_EveryContentFormRefusesADeniedPath/re_read/at_hash (0.00s)
+    --- PASS: TestHostPolicy_EveryContentFormRefusesADeniedPath/the_ordinary_path_still_serves (0.01s)
+=== RUN   TestHostPolicy_RecallWithholdsDeniedHits
+--- PASS: TestHostPolicy_RecallWithholdsDeniedHits (0.10s)
+=== RUN   TestHostPolicy_AskIsRefusedWithItsOwnReason
+=== RUN   TestHostPolicy_AskIsRefusedWithItsOwnReason/re_read/line_anchor
+=== RUN   TestHostPolicy_AskIsRefusedWithItsOwnReason/re_read/at_turn
+=== RUN   TestHostPolicy_AskIsRefusedWithItsOwnReason/re_read/at_hash
+=== RUN   TestHostPolicy_AskIsRefusedWithItsOwnReason/re_read/other_path_at_hash
+=== RUN   TestHostPolicy_AskIsRefusedWithItsOwnReason/expand/tool_use_id
+=== RUN   TestHostPolicy_AskIsRefusedWithItsOwnReason/expand/root_hash
+=== RUN   TestHostPolicy_AskIsRefusedWithItsOwnReason/expand/chunk_hash
+=== RUN   TestHostPolicy_AskIsRefusedWithItsOwnReason/re_read/latest
+=== RUN   TestHostPolicy_AskIsRefusedWithItsOwnReason/re_read/at_timestamp
+--- PASS: TestHostPolicy_AskIsRefusedWithItsOwnReason (0.15s)
+    --- PASS: TestHostPolicy_AskIsRefusedWithItsOwnReason/re_read/line_anchor (0.01s)
+    --- PASS: TestHostPolicy_AskIsRefusedWithItsOwnReason/re_read/at_turn (0.01s)
+    --- PASS: TestHostPolicy_AskIsRefusedWithItsOwnReason/re_read/at_hash (0.01s)
+    --- PASS: TestHostPolicy_AskIsRefusedWithItsOwnReason/re_read/other_path_at_hash (0.01s)
+    --- PASS: TestHostPolicy_AskIsRefusedWithItsOwnReason/expand/tool_use_id (0.00s)
+    --- PASS: TestHostPolicy_AskIsRefusedWithItsOwnReason/expand/root_hash (0.01s)
+    --- PASS: TestHostPolicy_AskIsRefusedWithItsOwnReason/expand/chunk_hash (0.00s)
+    --- PASS: TestHostPolicy_AskIsRefusedWithItsOwnReason/re_read/latest (0.01s)
+    --- PASS: TestHostPolicy_AskIsRefusedWithItsOwnReason/re_read/at_timestamp (0.00s)
+=== RUN   TestHostPolicy_ReasonsAreDistinct
+--- PASS: TestHostPolicy_ReasonsAreDistinct (0.00s)
+=== RUN   TestHostPolicy_UnreadableSettingsFailClosedForPathBearingContentOnly
+=== RUN   TestHostPolicy_UnreadableSettingsFailClosedForPathBearingContentOnly/re_read/line_anchor
+=== RUN   TestHostPolicy_UnreadableSettingsFailClosedForPathBearingContentOnly/re_read/at_turn
+=== RUN   TestHostPolicy_UnreadableSettingsFailClosedForPathBearingContentOnly/re_read/at_timestamp
+=== RUN   TestHostPolicy_UnreadableSettingsFailClosedForPathBearingContentOnly/re_read/other_path_at_hash
+=== RUN   TestHostPolicy_UnreadableSettingsFailClosedForPathBearingContentOnly/expand/tool_use_id
+=== RUN   TestHostPolicy_UnreadableSettingsFailClosedForPathBearingContentOnly/expand/root_hash
+=== RUN   TestHostPolicy_UnreadableSettingsFailClosedForPathBearingContentOnly/expand/chunk_hash
+=== RUN   TestHostPolicy_UnreadableSettingsFailClosedForPathBearingContentOnly/re_read/latest
+=== RUN   TestHostPolicy_UnreadableSettingsFailClosedForPathBearingContentOnly/re_read/at_hash
+=== RUN   TestHostPolicy_UnreadableSettingsFailClosedForPathBearingContentOnly/ordinary_paths_are_withheld_too
+=== RUN   TestHostPolicy_UnreadableSettingsFailClosedForPathBearingContentOnly/pathless_records_keep_their_V6_behaviour
+=== RUN   TestHostPolicy_UnreadableSettingsFailClosedForPathBearingContentOnly/recall_says_why_its_path-bearing_hits_are_gone
+=== RUN   TestHostPolicy_UnreadableSettingsFailClosedForPathBearingContentOnly/the_counter_and_the_loud_log_record_the_degradation
+=== RUN   TestHostPolicy_UnreadableSettingsFailClosedForPathBearingContentOnly/fixing_the_file_restores_retrieval_on_the_next_call
+--- PASS: TestHostPolicy_UnreadableSettingsFailClosedForPathBearingContentOnly (0.13s)
+    --- PASS: TestHostPolicy_UnreadableSettingsFailClosedForPathBearingContentOnly/re_read/line_anchor (0.00s)
+    --- PASS: TestHostPolicy_UnreadableSettingsFailClosedForPathBearingContentOnly/re_read/at_turn (0.00s)
+    --- PASS: TestHostPolicy_UnreadableSettingsFailClosedForPathBearingContentOnly/re_read/at_timestamp (0.00s)
+    --- PASS: TestHostPolicy_UnreadableSettingsFailClosedForPathBearingContentOnly/re_read/other_path_at_hash (0.00s)
+    --- PASS: TestHostPolicy_UnreadableSettingsFailClosedForPathBearingContentOnly/expand/tool_use_id (0.00s)
+    --- PASS: TestHostPolicy_UnreadableSettingsFailClosedForPathBearingContentOnly/expand/root_hash (0.00s)
+    --- PASS: TestHostPolicy_UnreadableSettingsFailClosedForPathBearingContentOnly/expand/chunk_hash (0.00s)
+    --- PASS: TestHostPolicy_UnreadableSettingsFailClosedForPathBearingContentOnly/re_read/latest (0.00s)
+    --- PASS: TestHostPolicy_UnreadableSettingsFailClosedForPathBearingContentOnly/re_read/at_hash (0.00s)
+    --- PASS: TestHostPolicy_UnreadableSettingsFailClosedForPathBearingContentOnly/ordinary_paths_are_withheld_too (0.00s)
+    --- PASS: TestHostPolicy_UnreadableSettingsFailClosedForPathBearingContentOnly/pathless_records_keep_their_V6_behaviour (0.02s)
+    --- PASS: TestHostPolicy_UnreadableSettingsFailClosedForPathBearingContentOnly/recall_says_why_its_path-bearing_hits_are_gone (0.00s)
+    --- PASS: TestHostPolicy_UnreadableSettingsFailClosedForPathBearingContentOnly/the_counter_and_the_loud_log_record_the_degradation (0.00s)
+    --- PASS: TestHostPolicy_UnreadableSettingsFailClosedForPathBearingContentOnly/fixing_the_file_restores_retrieval_on_the_next_call (0.01s)
+=== RUN   TestHostPolicy_PathlessRecordsKeepTheirV6Behaviour
+--- PASS: TestHostPolicy_PathlessRecordsKeepTheirV6Behaviour (0.12s)
+=== RUN   TestHostPolicy_RulesFromEverySourceApply
+=== RUN   TestHostPolicy_RulesFromEverySourceApply/project
+=== RUN   TestHostPolicy_RulesFromEverySourceApply/local
+=== RUN   TestHostPolicy_RulesFromEverySourceApply/user
+=== RUN   TestHostPolicy_RulesFromEverySourceApply/managed
+--- PASS: TestHostPolicy_RulesFromEverySourceApply (0.39s)
+    --- PASS: TestHostPolicy_RulesFromEverySourceApply/project (0.10s)
+    --- PASS: TestHostPolicy_RulesFromEverySourceApply/local (0.10s)
+    --- PASS: TestHostPolicy_RulesFromEverySourceApply/user (0.10s)
+    --- PASS: TestHostPolicy_RulesFromEverySourceApply/managed (0.10s)
+=== RUN   TestHostPolicy_AnEditIsSeenByTheNextCall
+--- PASS: TestHostPolicy_AnEditIsSeenByTheNextCall (0.12s)
+=== RUN   TestHostPolicy_CaseFollowsThePlatform
+--- PASS: TestHostPolicy_CaseFollowsThePlatform (0.10s)
+=== RUN   TestHostPolicy_AnInProjectLinkIsJudgedWhereItLands
+--- PASS: TestHostPolicy_AnInProjectLinkIsJudgedWhereItLands (0.12s)
+=== RUN   TestHostPolicy_WhyWithholdsDeniedEvidence
+--- PASS: TestHostPolicy_WhyWithholdsDeniedEvidence (0.10s)
+=== RUN   TestHostPolicy_DroppedWithholdsPointersIntoDeniedArchive
+--- PASS: TestHostPolicy_DroppedWithholdsPointersIntoDeniedArchive (0.12s)
+=== RUN   TestHostPolicy_TimelineCarriesNoPathBearingContent
+--- PASS: TestHostPolicy_TimelineCarriesNoPathBearingContent (0.08s)
+=== RUN   TestHostPolicy_DefaultPolicyIsBuiltFromTheProjectRoot
+--- PASS: TestHostPolicy_DefaultPolicyIsBuiltFromTheProjectRoot (0.00s)
+=== RUN   TestHostPolicy_OneSnapshotPerCall
+--- PASS: TestHostPolicy_OneSnapshotPerCall (0.10s)
+=== RUN   TestHostPolicy_EphemeralCopiesAreJudgedToo
+--- PASS: TestHostPolicy_EphemeralCopiesAreJudgedToo (0.12s)
+=== RUN   TestHostPolicy_ReReadHashFormNeedsProvenance
+--- PASS: TestHostPolicy_ReReadHashFormNeedsProvenance (0.09s)
+PASS
+ok  	github.com/qompack/qompack/internal/mcp	2.886s

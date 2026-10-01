@@ -1,0 +1,8 @@
+PASS golangci-lint
+PASS nomagic
+PASS importgraph
+PASS testdeps
+PASS bindeps
+PASS sleepcheck
+PASS runpatterns
+PASS docmarkers
