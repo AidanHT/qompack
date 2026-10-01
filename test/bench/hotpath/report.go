@@ -122,8 +122,9 @@ const budgetIDBASpawnEstimate = "B-A_spawn_estimate"
 // checkpoint on I/O without executing more instructions passes this gate. Quiet, roughly half of a
 // B-E wall sample is exactly that (wall p50 138.8 ms against 57.2 ms of spawn floor and 15.6 ms of
 // CPU). That is why the wall-clock "B-E" row keeps its own hard gate at the same limit and is
-// waived ONLY for a run that has declared itself co-loaded (--under-coload, main.go): bench-gate
-// and nightly still judge it, in the isolation where a wall-clock SLO is judgeable at all, and the
+// waived ONLY for a run that has declared itself co-loaded (--under-coload, main.go), or that has
+// declared a non-reference disk on a GitHub Actions runner (wallWaiver, D53(e)): a quiet reference
+// run still judges it, in the isolation where a wall-clock SLO is judgeable at all, and the
 // whole-tree run — where it never was — judges the CPU one.
 //
 // B-A and B-B are waived by the same flag on the same reasoning (baWallWaivedNote,
@@ -209,6 +210,67 @@ func bbWallWaivedNote(limit time.Duration) string {
 	return fmt.Sprintf(
 		"%s's row is REPORTED, not gated, for this run: --under-coload declares that the harness shares its host with unrelated concurrent work, and %s times the daemon's own ingest.Accept in full — a region that has carried three fsyncs (the WAL Sync, the lease journal's Sync and the seal) since f6a8691 made the delivery path durable, so co-load moves it like any other wall-clock cost (the last full parallel pass measured this row's p99 at 14.3 / 28.7 / 53.2ms against the %.0fms limit, while three runs of the same build inside an attested quiet window measured 20.480 / 12.288 / 20.480ms). There is no CPU-time analogue to gate instead: %s has no child process, so the user+system time of a spawned child cannot be read for it; obs.ProcessCPU is a cumulative whole-process counter summed over every thread, quantised to Windows's 15.625ms scheduler tick (internal/obs/cpu_windows.go), so a single-request bracket against a limit in the low tens of milliseconds reads exact zero, which that file requires be treated as a FAILED measurement; and what inflates this row is fsync — blocked time that costs no CPU at all. The %.0fms limit is still enforced on %s by every run that does NOT pass --under-coload — bench-gate, nightly bench-deep, ci.yml's timing job (which runs test/integration's hot-path test alone by name) and its test-e2e job, where X-11 runs alone — and the co-load-immune structural gates T9, T10 and T14 (one sync per batch, check-then-append order, zero releases before the seal; internal/daemon's delivery group-commit tests) run in every lane regardless. This is ADR 0010's fallback branch applied to a row its enumeration misclassified, per SP20-D1 design section 7.6's Q3; internal/obs/budgets.go still marks %s Gated, and only this RUN reports it",
 		obs.BB, obs.BB, msf(limit), obs.BB, msf(limit), obs.BB, obs.BB)
+}
+
+// wallWaiver is a run's declared reasons for REPORTING, rather than gating, the wall-clock rows
+// whose region the host inflates without the product changing: B-A, B-B and B-E's wall row.
+// There are two, and each is a fact about the run's environment that only its caller knows:
+//
+//   - coload: --under-coload, the harness shares its host with unrelated concurrent work
+//     (ADR 0010; parseFlags, main.go);
+//   - nonrefDisk: obs.NonReferenceDisk(), QOMPACK_NONREFERENCE_DISK on a GitHub Actions runner,
+//     whose disk is not a reference disk for fsync-bound rows (the owner's Q1, third option;
+//     D53(e)). See obs.NonReferenceDiskEnv for the evidence and what it licenses.
+//
+// Either one reports the three rows. Each reason writes its own note on each row, so the artifact
+// says which declaration did it. Neither touches B-E_cpu, the delivery ledger (identity, 0 lost) or
+// any structural check: those are gated in every run.
+type wallWaiver struct {
+	coload     bool
+	nonrefDisk bool
+}
+
+// waives reports whether any reason is declared.
+func (w wallWaiver) waives() bool { return w.coload || w.nonrefDisk }
+
+// nonrefDiskReportedPhrase opens every non-reference-disk waiver note, after the row's name. It
+// names the declaration, so a reader of the artifact sees which reason reported the row, and the
+// tests that drive this harness look for it verbatim (test/integration's and test/e2e's
+// hot-path rows carry a copy, since this package is package main).
+const nonrefDiskReportedPhrase = "REPORTED, not gated, for this run: " + obs.NonReferenceDiskEnv + " declares"
+
+// nonrefDiskReason is the shared body of the non-reference-disk notes: why the declaration is
+// honoured here and where the limit is still judged.
+func nonrefDiskReason(limit time.Duration) string {
+	return fmt.Sprintf(
+		"(honoured because %s=true) that this run's store sits on a GitHub-hosted runner's disk, whose fsync latency carries a tail no budget priced on a reference host survives — run 36816905394's bench-gate measured B-B at p50 0.576ms but p99 40.960ms on ubuntu-latest against 15ms, and p50 45.056ms on windows-latest against 50ms, while the quiet Windows reference run (C5.1) read p99 22.5ms; hosted figures never become constants (the owner's Q1, third option; D53(e)). This is not co-load: the runner is doing nothing else. The %.0fms limit is still judged by the owner's quiet reference runs, which never set the variable, and the delivery ledger (every request found by its identity, 0 lost) is gated in this run as in every other",
+		obs.GitHubActionsEnv, msf(limit))
+}
+
+// daemonRowNonrefDiskNote is the non-reference-disk disclosure for B-A or B-B: both time a region
+// that holds the durable path's three fsyncs (B-B is ingest.Accept itself; B-A contains it, since
+// the ACK follows the seal), so a throttled disk moves both.
+//
+// Like bbWallWaivedNote it does not spell budgetIDBECPU: test/integration and test/e2e look for that
+// id in the notes to prove B-E's own waiver was disclosed.
+func daemonRowNonrefDiskNote(id obs.BudgetID, limit time.Duration) string {
+	return fmt.Sprintf("%s's row is %s %s", id, nonrefDiskReportedPhrase, nonrefDiskReason(limit))
+}
+
+// beWallNonrefDiskNote is the non-reference-disk disclosure for B-E's wall-clock row, which also
+// names the row that still enforces the same limit in this run: the children's own CPU time, which
+// a slow disk does not move.
+func beWallNonrefDiskNote(limit time.Duration) string {
+	return fmt.Sprintf("%s's wall-clock row is %s %s. The %s row below enforces the same %.0fms limit on these children's own CPU time in this run",
+		obs.BE, nonrefDiskReportedPhrase, nonrefDiskReason(limit), budgetIDBECPU, msf(limit))
+}
+
+// nonrefDiskIgnoredNote is written when QOMPACK_NONREFERENCE_DISK is set where it is not honoured:
+// every wall-clock row was gated, and the reader is told why the declaration did nothing.
+func nonrefDiskIgnoredNote() string {
+	return fmt.Sprintf(
+		"%s is set but IGNORED: %s is not \"true\", and the declaration is honoured only on a GitHub Actions runner, so every wall-clock row in this run is gated (obs.NonReferenceDiskEnv)",
+		obs.NonReferenceDiskEnv, obs.GitHubActionsEnv)
 }
 
 // GateFailed reports whether any GATED budget (a non-nil Pass) reports false. B-D's Pass is

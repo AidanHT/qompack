@@ -1,0 +1,6 @@
+=== RUN   TestReadBoundedObject_RefusesASocketLeaf
+--- PASS: TestReadBoundedObject_RefusesASocketLeaf (0.00s)
+=== RUN   TestOpenObjectLeaf_BranchesOnTheHandlesReparseAttribute
+--- PASS: TestOpenObjectLeaf_BranchesOnTheHandlesReparseAttribute (0.01s)
+PASS
+ok  	github.com/qompack/qompack/internal/store	0.248s

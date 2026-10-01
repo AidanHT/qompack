@@ -1,0 +1,26 @@
+# wave 16 ci fix seat: devtool cover's two passes, scratch smoke (review finding 1)
+# Scratch copy of the worktree only: runCoverPasses' go list narrowed to internal/core and
+# internal/obs, isolatedPackages set to internal/obs, -v -run=TestZZEnvProbe added, and a
+# temporary diagnostic TestZZEnvProbe (never committed) logging the two declarations.
+# Run as: QOMPACK_NONREFERENCE_DISK=1 go run ./tools/devtool cover
+# Exit 1 is the floor stage judging every other owned package as unexercised, as expected.
+
+=== RUN   TestZZEnvProbe
+    zz_envprobe_test.go:10: ENVPROBE coload="1" nonref=""
+--- PASS: TestZZEnvProbe (0.00s)
+PASS
+coverage: 0.0% of statements
+ok  	github.com/qompack/qompack/internal/core	0.985s	coverage: 0.0% of statements
+=== RUN   TestZZEnvProbe
+    zz_envprobe_test.go:10: ENVPROBE coload="" nonref="1"
+--- PASS: TestZZEnvProbe (0.00s)
+PASS
+coverage: 0.0% of statements
+ok  	github.com/qompack/qompack/internal/obs	1.201s	coverage: 0.0% of statements
+no coverage data: paths (not exercised by `go test ./...`)
+no coverage data: config (not exercised by `go test ./...`)
+...
+
+## merged coverage.out: one mode line, both passes' blocks, the isolated profile removed
+files: coverage.out only
+lines: 153, mode lines: 1, internal/core blocks: 58, internal/obs blocks: 94

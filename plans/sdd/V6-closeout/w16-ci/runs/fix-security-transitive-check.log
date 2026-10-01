@@ -1,0 +1,26 @@
+# wave 16 ci fix seat: security step's transitive test-support check (review finding 2)
+# The import allowlist step was extracted from .github/workflows/ci.yml and run with bash in a
+# scratch copy of the worktree (Windows host, Git Bash, GNU grep). Not a hosted run.
+
+## real tree: exit 0, nothing printed
+exit=0
+
+## mutant: internal/store/storetest imports internal/paths/pathstest, and internal/mcp (product)
+## imports storetest, both from non-test files. The three direct-import checks print nothing;
+## only the new transitive check over go list -deps ./cmd/... fires, on every release OS.
+testing
+github.com/qompack/qompack/internal/paths/pathstest
+github.com/qompack/qompack/internal/store/storetest
+::error::the linux release binary links test support or testing
+testing
+github.com/qompack/qompack/internal/paths/pathstest
+github.com/qompack/qompack/internal/store/storetest
+::error::the darwin release binary links test support or testing
+testing
+github.com/qompack/qompack/internal/paths/pathstest
+github.com/qompack/qompack/internal/store/storetest
+::error::the windows release binary links test support or testing
+exit=1
+
+## grep exit 2 (unreadable file) takes the error branch rather than reading as no match
+grep-error branch taken; rc=1

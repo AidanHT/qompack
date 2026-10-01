@@ -1,0 +1,46 @@
+# wave 16 ci fix seat: TestE2EHookRoundTrip under cover, hosted evidence (review finding 1)
+# Read-only: gh run view <run> --json jobs; gh api repos/AidanHT/qompack/actions/jobs/<id>/logs
+
+## cover job conclusions, last nine ci.yml runs that reached it
+36816905394 cover 110223848071 failure: TestE2EHookRoundTrip (plus the three e2erows rows)
+34804619564 cover 103853920864 failure: TestE2EHookRoundTrip
+34802759637 cover 103848578168 failure: no test FAIL line (floor or build stage)
+34800489027 cover 103842018848 failure: no test FAIL line (floor or build stage)
+34797774997 cover 103834108633 failure: TestE2E_ObserverThroughDaemon and four others, see below
+34068369882 cover 101581066337 failure: no test FAIL line
+34054286301 cover 101543203497 success
+34052269275 cover 101537873835 success
+
+## job 110223848071 (run 36816905394)
+2026-10-01T05:00:15.1550339Z --- FAIL: TestE2EHookRoundTrip (6.84s)
+2026-10-01T05:00:15.1552997Z     daemon_e2e_test.go:273: 
+2026-10-01T05:00:15.1554140Z         	Error Trace:	/home/runner/work/qompack/qompack/test/e2e/daemon_e2e_test.go:273
+2026-10-01T05:00:15.1554954Z         	Error:      	Condition never satisfied
+2026-10-01T05:00:15.1555583Z         	Test:       	TestE2EHookRoundTrip
+2026-10-01T05:00:15.1557911Z         	Messages:   	wal-sess-e2e-daemon.ndjson never reached 50 lines (last seen 0) at /tmp/TestE2EHookRoundTrip832918982/001/project/.qompack/spool/wal-sess-e2e-daemon.ndjson
+2026-10-01T05:00:15.1559341Z --- FAIL: TestDaemonIdleRunsSchedulerWork (6.18s)
+
+## job 103853920864 (run 34804619564)
+2026-09-14T04:13:24.7685304Z --- FAIL: TestE2EHookRoundTrip (8.87s)
+2026-09-14T04:13:24.7687399Z     daemon_e2e_test.go:257: 
+2026-09-14T04:13:24.7688031Z         	Error Trace:	/home/runner/work/qompack/qompack/test/e2e/daemon_e2e_test.go:257
+2026-09-14T04:13:24.7688485Z         	Error:      	Condition never satisfied
+2026-09-14T04:13:24.7688884Z         	Test:       	TestE2EHookRoundTrip
+2026-09-14T04:13:24.7689775Z         	Messages:   	wal-sess-e2e-daemon.ndjson never reached 50 lines (last seen 0) at /tmp/TestE2EHookRoundTrip2184687922/001/project/.qompack/spool/wal-sess-e2e-daemon.ndjson
+2026-09-14T04:13:24.7690303Z FAIL
+
+## job 103834108633 (run 34797774997): the sibling live-path row's own diagnostic names the
+## client spool files that hooks degraded into inside the same co-loaded cover pass
+2026-09-14T02:09:59.3319868Z --- FAIL: TestE2E_ObserverThroughDaemon (61.50s)
+2026-09-14T02:09:59.3320434Z     observer_e2e_test.go:213: 
+2026-09-14T02:09:59.3321210Z         	Error Trace:	/home/runner/work/qompack/qompack/test/e2e/observer_e2e_test.go:213
+2026-09-14T02:09:59.3321899Z         	Error:      	Condition never satisfied
+2026-09-14T02:09:59.3322421Z         	Test:       	TestE2E_ObserverThroughDaemon
+2026-09-14T02:09:59.3324598Z         	Messages:   	index/tool_use.jsonl never reached 44 lines: index holds 43 lines; undrained client spool [client-18573.ndjson client-18619.ndjson client-18806.ndjson], so at least one event degraded to the spool and this waited on the 30s idle-tick drain
+2026-09-14T02:09:59.3325871Z FAIL
+
+## same run 36816905394, isolated test-e2e jobs: TestE2EHookRoundTrip is not among the FAIL lines
+test-e2e (ubuntu-latest) 110223848323, (macos-latest) 110223848413, (windows-latest) 110223848457:
+job-110223848323.log: 0 FAIL lines for TestE2EHookRoundTrip
+job-110223848413.log: 0 FAIL lines for TestE2EHookRoundTrip
+job-110223848457.log: 0 FAIL lines for TestE2EHookRoundTrip

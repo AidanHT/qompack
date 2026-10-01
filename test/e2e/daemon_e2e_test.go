@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -246,6 +248,80 @@ func e2eWaitDaemonUp(t *testing.T, root string) {
 	}, e2eDaemonUpBound, e2eDaemonUpTick, "no daemon ever answered at %s", addr.Path)
 }
 
+// walWaitDiag is TestE2EHookRoundTrip's failure detail, formatted only when the wait fails: the
+// WAL's line count AT THAT MOMENT, every file in the spool directory with its size, and what the
+// daemon says of its mode, hot-path submode, sessions and LOUD tail. It never fails the test itself.
+//
+// Under `devtool cover` on ubuntu-latest this row failed twice (runs 34804619564 and 36816905394)
+// with "never reached 50 lines (last seen 0)", and that 0 was not an observation: the message's
+// arguments were evaluated when require.Eventually was CALLED, before the first poll, so it printed
+// 0 whatever the WAL held (shown locally by waiting for 51 lines: the WAL held all 50 and the
+// message still said 0). A delivery that missed the daemon's live path is in a client-*.ndjson
+// spool file and reaches the store through the drain, never the WAL; this line now tells that case
+// from a daemon that took the call and wrote it elsewhere.
+//
+// Both reds were inside cover's whole-tree pass, the one hosted job that still ran test/e2e beside
+// the rest of the tree (ADR 0010 decision 4 takes it out; `test-e2e` passed this row on all three
+// OSes in run 36816905394). There a hook's 5 ms dial (config.ConnectDeadlineMsPortable) is missed
+// by design and the delivery spools, as the same job's sibling row showed (job 103834108633: three
+// client spool files). The WAL count is a live-path property, so devtool cover now runs test/e2e
+// alone (tools/devtool/cover.go, coverPasses), and this row keeps its assertion and its bound.
+type walWaitDiag struct{ root string }
+
+func (d walWaitDiag) String() string {
+	var b strings.Builder
+	dir := paths.Of(d.root).Spool
+	walPath := filepath.Join(dir, "wal-"+string(e2eSession)+".ndjson")
+	if wal, err := os.ReadFile(paths.Long(walPath)); err != nil {
+		fmt.Fprintf(&b, "WAL unreadable at the deadline (%v); ", err)
+	} else {
+		fmt.Fprintf(&b, "WAL holds %d lines at the deadline; ", countNonEmptyLines(string(wal)))
+	}
+	entries, err := os.ReadDir(paths.Long(dir))
+	if err != nil {
+		fmt.Fprintf(&b, "spool unreadable (%v)", err)
+	} else {
+		b.WriteString("spool holds [")
+		for i, e := range entries {
+			if i > 0 {
+				b.WriteString(" ")
+			}
+			size := int64(-1)
+			if fi, ierr := e.Info(); ierr == nil {
+				size = fi.Size()
+			}
+			fmt.Fprintf(&b, "%s:%d", e.Name(), size)
+		}
+		b.WriteString("]")
+	}
+	addr, err := ipc.Resolve(d.root)
+	if err != nil {
+		fmt.Fprintf(&b, "; no address (%v)", err)
+		return b.String()
+	}
+	c := ipc.NewClientWithOptions(addr, nil, nil, nil, ipc.ClientOptions{
+		ProjectRoot:     d.root,
+		State:           ipc.State{Mode: contract.ModeFull, DaemonEnabled: true},
+		ConnectDeadline: e2eRoundTripDeadline,
+		AckDeadline:     e2eRoundTripDeadline,
+	})
+	defer func() { _ = c.Close() }()
+	resp, err := c.Send(context.Background(), ipc.Request{
+		Op: ipc.OpStatus, Session: e2eSession, TS: core.NowMilli(core.SystemClock()), Reply: true,
+	}, e2eRoundTripDeadline)
+	var snap daemon.StatusSnapshot
+	switch {
+	case err != nil || !resp.OK:
+		fmt.Fprintf(&b, "; status unanswered (err=%v resp.Err=%q)", err, resp.Err)
+	case json.Unmarshal(resp.Data, &snap) != nil:
+		b.WriteString("; status undecodable")
+	default:
+		fmt.Fprintf(&b, "; daemon mode=%s hot=%s spool_files=%d sessions=%+v loud_tail=%q",
+			snap.Mode, snap.Hot, snap.SpoolFiles, snap.Sessions, snap.LoudTail)
+	}
+	return b.String()
+}
+
 // TestE2EHookRoundTrip is task-6-spec.md's e2e table row: session-start brings the daemon up, then
 // 50 observe-tool calls all exit 0, land in the session's WAL, and the daemon's own status reports
 // exactly one live session.
@@ -269,15 +345,14 @@ func TestE2EHookRoundTrip(t *testing.T) {
 	}
 
 	walPath := filepath.Join(paths.Of(p.Root).Spool, "wal-"+string(e2eSession)+".ndjson")
-	var lines int
 	require.Eventually(t, func() bool {
 		b, err := os.ReadFile(walPath)
 		if err != nil {
 			return false
 		}
-		lines = countNonEmptyLines(string(b))
-		return lines >= n
-	}, e2eWALVisibleBound, e2eSpoolDrainTick, "wal-%s.ndjson never reached %d lines (last seen %d) at %s", e2eSession, n, lines, walPath)
+		return countNonEmptyLines(string(b)) >= n
+	}, e2eWALVisibleBound, e2eSpoolDrainTick, "wal-%s.ndjson never reached %d lines at %s: %v",
+		e2eSession, n, walPath, walWaitDiag{root: p.Root})
 
 	snap := e2eStatus(t, p.Root)
 	live := 0

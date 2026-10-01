@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 )
 
 // The three, and only three, permitted t.Skip reasons anywhere in the tree.
@@ -197,28 +198,47 @@ func runStubSkips() error {
 		return fmt.Errorf("stubskips: %w", err)
 	}
 
+	// `go list` rather than the patterns themselves, so the packages can be split into passes
+	// (isolatedPasses) and none is dropped on the way: every listed package is in exactly one. On
+	// windows-latest test/e2e's binary was killed past -timeout=30m inside the single whole-tree
+	// pass (run 36816905394, lint-windows), so none of its skips were inspected; alone it takes
+	// about 20 minutes there (that run's test-e2e job, 1188 s).
+	listOut, listErr, err := runCapture(nil, "go", append([]string{"list"}, patterns...)...)
+	if err != nil {
+		return fmt.Errorf("stubskips: go list %s: %w\n%s", strings.Join(patterns, " "), err, listErr)
+	}
+	pkgs := strings.Fields(string(listOut))
+
 	// -timeout=wholeTreeTestTimeout for the same reason taskTest, taskTestRace and cover all pass
 	// it: go's 10-minute per-binary default is not enough for test/integration's hot-path suites
 	// when the whole tree runs in parallel on a shared machine. stubskips ran without it, which
 	// made it the one whole-tree `go test` in this tool that could be killed at the default wall —
 	// and, unlike the others, it would not have said so, because it ignores the exit status. A CI
 	// runner is exactly the loaded, small box the constant's own comment describes.
-	args := append([]string{"test", "-json", "-timeout=" + wholeTreeTestTimeout}, patterns...)
-	// The exit status of this `go test` run is deliberately not inspected here: a package that
+	//
+	// The exit status of each `go test` pass is deliberately not inspected here: a package that
 	// fails to build, or whose non-skip tests fail, is already reported by the `test` task.
 	// stubskips only cares about the text of whatever skip reasons this run does produce. The two
-	// cases where that reasoning breaks down — a run that produced nothing at all to inspect, and
-	// a run killed at the wall part-way through the tree — are caught explicitly below, because in
-	// both of them a missing skip event carries no information and silence would read as
-	// compliance.
-	stdout, stderr, runErr := runCapture(nil, "go", args...)
-
-	events, err := parseTestEvents(stdout)
-	if err != nil {
-		return fmt.Errorf("stubskips: parsing `go test -json` output: %w", err)
-	}
-	if runErr != nil && len(events) == 0 {
-		return fmt.Errorf("stubskips: `go test -json` produced no events to inspect: %w\n%s", runErr, stderr)
+	// cases where that reasoning breaks down — a pass that produced nothing at all to inspect, and
+	// a binary killed at the wall part-way through — are caught explicitly below, because in both
+	// of them a missing skip event carries no information and silence would read as compliance.
+	var events []testEvent
+	for i, pass := range isolatedPasses(pkgs) {
+		args := append([]string{"test", "-json", "-timeout=" + wholeTreeTestTimeout}, pass...)
+		// Each pass is timed in the log, so a job that runs up against its timeout-minutes
+		// backstop says which pass spent the time (ci.yml, lint-windows).
+		began := time.Now()
+		fmt.Printf("stubskips: pass %d: %d package(s), starting %s\n", i+1, len(pass), began.UTC().Format(time.RFC3339))
+		stdout, stderr, runErr := runCapture(nil, "go", args...)
+		fmt.Printf("stubskips: pass %d: finished in %s\n", i+1, time.Since(began).Round(time.Second))
+		passEvents, err := parseTestEvents(stdout)
+		if err != nil {
+			return fmt.Errorf("stubskips: parsing `go test -json` output: %w", err)
+		}
+		if runErr != nil && len(passEvents) == 0 {
+			return fmt.Errorf("stubskips: `go test -json` produced no events to inspect: %w\n%s", runErr, stderr)
+		}
+		events = append(events, passEvents...)
 	}
 
 	problems, notices, counts := classifySkips(events, owners)

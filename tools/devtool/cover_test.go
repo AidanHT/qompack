@@ -3,7 +3,10 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+
+	"github.com/qompack/qompack/internal/obs"
 )
 
 func TestParseCoverProfile(t *testing.T) {
@@ -303,5 +306,97 @@ func Evaluate() error {
 `)
 	if !probeStillStub(dir, "Evaluate") {
 		t.Error("a return wrapping core.ErrNotImplemented via fmt.Errorf should still be detected")
+	}
+}
+
+// TestCoverPasses_RunsE2EAloneWithoutTheColoadDeclaration pins cover's `go test` passes. Every
+// package but test/e2e runs in one parallel pass that declares co-load and never the non-reference
+// disk (one cause per run, test/guards' TestNonReferenceDisk_IsHostedCIOnly). test/e2e then runs
+// alone with the co-load declaration taken back, as ADR 0010 decision 4 and ci.yml's `test-e2e` job
+// run it: inside the whole-tree pass on ubuntu-latest its live-path rows' hooks took the designed
+// degrade to the client spool (job 103834108633), and TestE2EHookRoundTrip, which counts the WAL,
+// failed cover in runs 34804619564 and 36816905394 while the latter's `test-e2e` passed it on all
+// three OSes.
+func TestCoverPasses_RunsE2EAloneWithoutTheColoadDeclaration(t *testing.T) {
+	e2e := modulePath + "/test/e2e"
+	pkgs := []string{modulePath + "/internal/core", e2e, modulePath + "/test/guards"}
+	passes := coverPasses(pkgs)
+	if len(passes) != 2 {
+		t.Fatalf("got %d passes, want 2: %+v", len(passes), passes)
+	}
+
+	shared, alone := passes[0], passes[1]
+	if got, want := strings.Join(shared.pkgs, " "), modulePath+"/internal/core "+modulePath+"/test/guards"; got != want {
+		t.Fatalf("shared pass = %q, want %q", got, want)
+	}
+	if v, ok := shared.env[obs.UnderColoadEnv]; !ok || v == "" {
+		t.Fatalf("the shared pass must declare %s; env = %v", obs.UnderColoadEnv, shared.env)
+	}
+	if v, ok := shared.env[obs.NonReferenceDiskEnv]; !ok || v != "" {
+		t.Fatalf("the co-loaded pass must take back an inherited %s (set it to empty); env = %v",
+			obs.NonReferenceDiskEnv, shared.env)
+	}
+	if shared.profile != coverProfileName {
+		t.Fatalf("the shared pass writes %q, want %q", shared.profile, coverProfileName)
+	}
+
+	if got := strings.Join(alone.pkgs, " "); got != e2e {
+		t.Fatalf("isolated pass = %q, want %q", got, e2e)
+	}
+	if v, ok := alone.env[obs.UnderColoadEnv]; !ok || v != "" {
+		t.Fatalf("test/e2e alone is not co-loaded: the pass must take %s back (set it to empty); env = %v",
+			obs.UnderColoadEnv, alone.env)
+	}
+	if _, ok := alone.env[obs.NonReferenceDiskEnv]; ok {
+		t.Fatalf("the isolated pass must inherit the job's %s, not set it; env = %v", obs.NonReferenceDiskEnv, alone.env)
+	}
+	if alone.profile == coverProfileName || alone.profile == "" {
+		t.Fatalf("the isolated pass needs a profile of its own, got %q", alone.profile)
+	}
+
+	if got := coverPasses([]string{modulePath + "/internal/core"}); len(got) != 1 {
+		t.Fatalf("a tree without test/e2e is one pass; got %+v", got)
+	}
+}
+
+// TestAppendCoverProfile_MergesBlocksUnderOneModeLine pins how cover joins the isolated pass's
+// profile onto the shared one: the blocks are appended, the second "mode:" line is not (go tool
+// cover and parseCoverProfile both read one header), and a mode mismatch is refused, not merged.
+func TestAppendCoverProfile_MergesBlocksUnderOneModeLine(t *testing.T) {
+	dir := t.TempDir()
+	dst := filepath.Join(dir, "coverage.out")
+	src := filepath.Join(dir, "coverage-e2e.out")
+	write := func(p, s string) {
+		t.Helper()
+		if err := os.WriteFile(p, []byte(s), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write(dst, "mode: atomic\ngithub.com/qompack/qompack/internal/core/hash.go:10.2,12.3 2 1\n")
+	write(src, "mode: atomic\ngithub.com/qompack/qompack/test/e2e/harness.go:5.2,7.3 4 0\n")
+	if err := appendCoverProfile(dst, src); err != nil {
+		t.Fatalf("appendCoverProfile: %v", err)
+	}
+	stats, err := parseCoverProfile(dst)
+	if err != nil {
+		t.Fatalf("parseCoverProfile: %v", err)
+	}
+	if s := stats[modulePath+"/internal/core"]; s.total != 2 || s.covered != 2 {
+		t.Fatalf("internal/core = %+v, want 2/2", s)
+	}
+	if s := stats[modulePath+"/test/e2e"]; s.total != 4 || s.covered != 0 {
+		t.Fatalf("test/e2e = %+v, want 0/4", s)
+	}
+	b, err := os.ReadFile(dst)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n := strings.Count(string(b), "mode:"); n != 1 {
+		t.Fatalf("merged profile has %d mode lines, want 1:\n%s", n, b)
+	}
+
+	write(src, "mode: set\ngithub.com/qompack/qompack/test/e2e/harness.go:5.2,7.3 4 0\n")
+	if err := appendCoverProfile(dst, src); err == nil {
+		t.Fatal("a profile of another mode must be refused, not merged")
 	}
 }
