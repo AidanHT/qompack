@@ -1030,3 +1030,56 @@ enabled production capacity limitation is resolved. Evidence is recorded under
 **SP20-D4 -> fixed.** This supersedes the "partial mitigation, still unresolved" paragraph and the
 2026-09-22 integration follow-up above: segmented rollover is enabled by default (C1.10), and the
 resolution, its evidence test and its residuals are at the end of the SP20-D4 section.
+
+---
+
+## V6-VERIFY disposition of SP06-D2 (2026-10-01, coordinator under owner decision D33; ledger D54)
+
+**SP06-D2 -> wontfix for 0.3.0.** Measured by quiet C5.2 on candidate 5 `0d06ab12`, ten balanced ABBA rounds against the pre-Phase-2 base `cf31e01`, medians per call (`plans/sdd/V6-closeout/phase3/c5/quiet/c52-win/paired.txt` and `c52-linux/paired.txt` on verify/v6 `593003e9`; Windows 11, Intel Core Ultra 7 155H; Linux is the Docker Desktop container, valid for CPU- and read-bound rows, not for fsync-bound ones (D53(b))), against PutBytes's 3 ms (cold) and 400 us (warm)
+budgets:
+
+| benchmark | Windows | Linux |
+|---|---|---|
+| `BenchmarkPutBytes_100KB_Cold` | 17.27 ms (0.71x base) | 19.38 ms (0.82x base) |
+| `BenchmarkPutBytes_100KB_Warm` | 3.27 ms (0.47x base) | 2.34 ms (0.38x base) |
+
+Both OSes are 10/10 rounds faster than the base, and cold allocations fell 2-3.4x. Both budgets are
+still missed by 6-8x. The cost is one durable, verified object file per novel chunk (fsync before ACK,
+SP20-D1; D26), and on the container a slow fsync on top. The budgets were set before the store became
+durable and verify-on-read; no measurement on any platform has met them since. PutBytes runs after the
+hook's ACK, on the B-C path (SP08-D1), so a user's hook never waits on it. Meeting 3 ms needs a
+batched-write store format (packs or group commit), a crash-model change that is not taken at the
+release freeze. Revisit with SP08-D1 in post-0.3.0 performance work.
+
+---
+
+## V6-VERIFY disposition of SP09-D1 (2026-10-01, coordinator under owner decision D33; ledger D54)
+
+**SP09-D1 -> fixed.** Measured by quiet C5.2 on candidate 5 `0d06ab12`, ten balanced ABBA rounds against the pre-Phase-2 base `cf31e01`, medians per call (`plans/sdd/V6-closeout/phase3/c5/quiet/c52-win/paired.txt` and `c52-linux/paired.txt` on verify/v6 `593003e9`; Windows 11, Intel Core Ultra 7 155H; Linux is the Docker Desktop container, valid for CPU- and read-bound rows, not for fsync-bound ones (D53(b))): negknow `BenchmarkOpen` reads **61.6 ms/op** on Windows
+(78 ms CPU/op in the candidate's own run) and **77.0 ms/op** on Linux, against the 300 ms budget, with
+allocations down 35 % (the V6 close-out allocation work, `internal/negknow/open_cost_test.go`). Even at
+the row's worst observed clock factor (2.3x at 55 % processor performance), Windows stays under 300 ms.
+`TestBudget_Open` passes in candidate 5's isolated timing on Windows and Linux
+(`phase3/c5/p3-win-timing.log`, `phase3/c5/linux/cx-p3-p3-linux-timing-*`).
+
+Recorded, not acted on: Linux reads 1.33x the base (58.2 ms) while allocations fell. That is unattributed;
+an fsync-bound step on the container is the likeliest reading. Open runs once per daemon start, off the
+hot path.
+
+---
+
+## V6-VERIFY disposition of SP20-D2 (2026-10-01, coordinator under owner decision D33; ledger D54)
+
+**SP20-D2 -> fixed (budgets met on the reference platform; Windows residual recorded).** Measured by
+quiet C5.2 on candidate 5 `0d06ab12`, ten balanced ABBA rounds against the pre-Phase-2 base `cf31e01`, medians per call (`plans/sdd/V6-closeout/phase3/c5/quiet/c52-win/paired.txt` and `c52-linux/paired.txt` on verify/v6 `593003e9`; Windows 11, Intel Core Ultra 7 155H; Linux is the Docker Desktop container, valid for CPU- and read-bound rows, not for fsync-bound ones (D53(b))):
+
+| benchmark | budget | Linux | Windows |
+|---|---|---|---|
+| `GetChunk` | 60 us | **20.4 us** | 73.7 us, 0.55x base |
+| `Search_1000Roots` | 25 ms | **7.0 ms** | **11.9 ms**, 0.10x base |
+| `OpenSpan_4KB_of_4MB` | 150 us | **21.2 us** | **71.1 us** |
+
+The row's other two concerns are closed on both OSes. On Windows, GetChunk stays 23 % over. That
+residual is the per-object file open, Lstat and fstat, which is NTFS cost, plus the content hash
+verify-on-read keeps on purpose (integrity, 16ecc77). The read buffer is presized (allocations 22 -> 9).
+Retrieval's user-facing envelope, B-F, is gated separately (quiet C5.1 B-F gate runs pass).

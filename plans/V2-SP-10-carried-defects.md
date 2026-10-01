@@ -209,3 +209,23 @@ successor draft, the per-pointer `store.Has` stat and the `persist`/`CreateNew` 
 therefore stays unresolved, re-owned by V6-VERIFY together with SP06-D2 and SP08-D1, with
 `BenchmarkFinalize` as its evidence and CI's `timing` job as its judge. `testdata/bench-baseline.txt`
 was not regenerated.
+
+---
+
+## V6-VERIFY disposition (2026-10-01, coordinator under owner decision D33; ledger D54)
+
+**SP10-D1 -> fixed (budget met on the reference platform; Windows residual recorded).** Measured by quiet C5.2 on candidate 5 `0d06ab12`, ten balanced ABBA rounds against the pre-Phase-2 base `cf31e01`, medians per call (`plans/sdd/V6-closeout/phase3/c5/quiet/c52-win/paired.txt` and `c52-linux/paired.txt` on verify/v6 `593003e9`; Windows 11, Intel Core Ultra 7 155H; Linux is the Docker Desktop container, valid for CPU- and read-bound rows, not for fsync-bound ones (D53(b))):
+`BenchmarkFinalize` reads **46.05 ms** on Linux and **56.85 ms** on Windows, against exit criterion
+1570's 50 ms. Linux is the platform the budget is stated for; on Windows the figure is 0.87x the base,
+10 of 10 rounds faster.
+
+Two caveats are recorded honestly:
+- **Windows is still 14 % over.** The Windows residual is NTFS file creation, not code Qompack can
+  remove.
+- **Linux is 1.33x the base (34.37 ms) while allocations fell 29 %.** That is consistent with the
+  checkpoint barriers w6-ckptsync added under D26: checkpoints/, the MANIFEST line and the segment marks
+  are now fsynced before the seal, and on this container each fsync costs several milliseconds. The
+  attribution is by inspection, not by profile.
+
+Finalize runs inside PreCompact's B-E (2,000 ms; quiet C5.1 B-E p99 162 ms on Windows, 310 ms on Linux),
+so neither figure reaches the user.
