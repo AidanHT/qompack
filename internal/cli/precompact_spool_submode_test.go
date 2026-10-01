@@ -90,7 +90,7 @@ func TestPreCompactInSpoolSubmodeSealsTheSpooledReads(t *testing.T) {
 		"PreCompact must replay the session's client-spooled captures before it seals (D53(c))")
 	require.True(t, indexedToolUses(r.root, spoolSubmodeReadIDs), "the replay published both Reads")
 	for _, d := range cp.Dropped {
-		require.NotEqual(t, "unreplayed_capture", d.Kind, "nothing was left unreplayed: %+v", d)
+		require.NotContains(t, d.Kind, "unreplayed", "nothing was left unreplayed: %+v", d)
 	}
 	require.Equal(t, "rehydration", compactAnswer(out), "the compact SessionStart answers with the rehydration")
 	ac := out.HookSpecificOutput.AdditionalContext

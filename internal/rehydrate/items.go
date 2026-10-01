@@ -220,17 +220,19 @@ var kindRank = map[string]int{
 	dropKindOverflow:           -1,
 	dropKindInvariants:         -1,
 	dropKindCheckpointFallback: -1, // an older state must never read as the current one (D49)
-	// A capture the PreCompact seal could not wait for (D53(c)): the newest tool results are not in
-	// the checkpoint, so the line saying so must be named, never counted into the tail.
-	checkpoint.DropKindUnreplayedCapture: -1,
-	dropKindPathRule:                     0,
-	dropKindNestedClaudeMD:               1,
-	dropKindSkill:                        2,
-	dropKindElimination:                  3,
-	dropKindDecision:                     4,
-	dropKindPointer:                      5,
-	"open_question":                      6,
-	"narrative":                          7,
+	// The captures the PreCompact seal could not wait for (D53(c)): the newest tool results are not
+	// in the checkpoint, so the one line saying so, with its count, is named, never counted into the
+	// tail. The per-result lines rank with the pointers they stand in for.
+	checkpoint.DropKindUnreplayedCapture:    -1,
+	checkpoint.DropKindUnreplayedToolResult: 5,
+	dropKindPathRule:                        0,
+	dropKindNestedClaudeMD:                  1,
+	dropKindSkill:                           2,
+	dropKindElimination:                     3,
+	dropKindDecision:                        4,
+	dropKindPointer:                         5,
+	"open_question":                         6,
+	"narrative":                             7,
 
 	dropKindUserIntentEvolution: 8,
 	dropKindCurrentWork:         9,

@@ -983,9 +983,9 @@ B-B (the daemon's durable ingest) at about 37 ms at the median, so there it is e
 A compaction does not miss the session's newest captures: before it seals the checkpoint, the
 `PreCompact` hook replays this session's spooled captures, inside its own budget (B-E,
 `runtime.budgets.checkpointFinalizeMs`, less the seal's own window). A capture it could not replay in
-time is named in the checkpoint's drop report as `unreplayed_capture`, which the rehydration's
-section 7 shows by its `tool_use_id`; the daemon replays it afterwards, and `recall` and `expand` find
-it then.
+time is named in the checkpoint's drop report: one `unreplayed_capture` line counts what was left, and
+one `unreplayed_tool_result` line per tool result names its `tool_use_id`; the rehydration's section
+7 carries both. The daemon replays them afterwards, and `recall` and `expand` find them then.
 
 The switch lasts until a new session starts in this project or the daemon exits on idle (below); it
 does not switch back on its own during the session, and compacting the current session does not reset

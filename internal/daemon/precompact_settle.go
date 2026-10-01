@@ -3,6 +3,7 @@ package daemon
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"time"
@@ -31,9 +32,10 @@ import (
 // C1.13): it waits for the session's ingest lane to publish every arrival leased before the
 // PreCompact, replays the hooks' client spools, and waits for the lane once more for the successors
 // the replay unparked. It does so only inside the bound below, and a capture still unpublished when
-// the bound expires is named in the checkpoint's drop report (checkpoint.DropKindUnreplayedCapture),
-// which the rehydration's section 7 carries: never silently missing. A session with nothing spooled
-// and nothing still publishing pays one directory listing and two in-memory lookups (settleFast).
+// the bound expires is named in the checkpoint's drop report (checkpoint.DropKindUnreplayedCapture,
+// with DropKindUnreplayedToolResult per tool result), which the rehydration's section 7 carries:
+// never silently missing. A session with nothing spooled and nothing still publishing pays one
+// directory listing and two in-memory lookups (settleFast).
 
 // precompactSettleBound is how long the PreCompact route may spend settling the session before it
 // seals: B-E (runtime.budgets.checkpointFinalizeMs, the gated p99 for PreCompact entry to exit) less
@@ -59,10 +61,12 @@ const counterPrecompactSettle = "precompact_settle"
 // client spool or the session's lane when the settle's bound expired.
 const counterPrecompactUnreplayed = "precompact_unreplayed_captures"
 
-// unreplayedDetail is the drop entry's explanation, as the checkpoint and section 7 carry it.
-const unreplayedDetail = "captured before this compaction but still waiting to be replayed into the store " +
-	"when this checkpoint was sealed (durable writes on this disk were slower than its budget); nothing " +
-	"is lost: the daemon replays it, and recall or expand finds it then"
+// unreplayedDetailFormat is the summary drop entry's detail, as the checkpoint and section 7 carry it:
+// how many captures were left, of which kinds, and what that means.
+const unreplayedDetailFormat = "%d capture(s) of this session (%d tool result(s), %d prompt(s), %d other) were " +
+	"still waiting to be replayed into the store when this checkpoint was sealed (durable writes on this disk " +
+	"were slower than their budget); nothing is lost: the daemon replays them, and recall or expand finds " +
+	"them then"
 
 // sealDropsKey carries the settle's drop entries to the bound PreCompact seam (wire_checkpoint.go),
 // beside the event, which has no room for them.
@@ -110,16 +114,17 @@ func (d *daemon) settleBeforeSeal(ctx context.Context, sess core.SessionID, at c
 		d.awaitArrivals(sctx, sess, upTo)
 	}
 
-	drops := d.unreplayedCaptures(sess, upTo, at)
-	if len(drops) > 0 {
-		if d.m != nil {
-			d.m.Counter(counterPrecompactUnreplayed).Add(int64(len(drops)))
-		}
-		d.log.Warn("daemon: PreCompact sealed before some of the session's captures were replayed; "+
-			"the checkpoint's drop report names them, and the daemon replays them next",
-			"session", string(sess), "captures", len(drops), "bound", bound.String())
+	left := d.unreplayedCaptures(sess, upTo, at)
+	if len(left) == 0 {
+		return nil
 	}
-	return drops
+	if d.m != nil {
+		d.m.Counter(counterPrecompactUnreplayed).Add(int64(len(left)))
+	}
+	d.log.Warn("daemon: PreCompact sealed before some of the session's captures were replayed; "+
+		"the checkpoint's drop report names them, and the daemon replays them next",
+		"session", string(sess), "captures", len(left), "bound", bound.String())
+	return unreplayedDrops(left)
 }
 
 // settleFast reports what the settle has to wait for. upTo is one past the session's newest leased
@@ -181,14 +186,14 @@ func (d *daemon) awaitArrivals(ctx context.Context, sess core.SessionID, upTo ui
 	}
 }
 
-// unreplayedCaptures names the captures of sess the seal will not hold: the lane's jobs leased before
+// unreplayedCaptures returns the captures of sess the seal will not hold: the lane's jobs leased before
 // upTo and not yet settled, and the client-spooled hot-path requests fired at or before at that no
 // drain has consumed and whose delivery is not on the committed frontier. A delivery the lane and a
-// spool both hold (a late ACK's copy) is named once.
-func (d *daemon) unreplayedCaptures(sess core.SessionID, upTo uint64, at core.UnixMilli) []checkpoint.DropEntry {
+// spool both hold (a late ACK's copy) is returned once.
+func (d *daemon) unreplayedCaptures(sess core.SessionID, upTo uint64, at core.UnixMilli) []ipc.Request {
 	j, _ := d.deliveryJournal()
 	named := map[string]bool{}
-	var drops []checkpoint.DropEntry
+	var left []ipc.Request
 	add := func(req ipc.Request) {
 		if req.Nonce != "" {
 			if named[req.Nonce] {
@@ -196,7 +201,7 @@ func (d *daemon) unreplayedCaptures(sess core.SessionID, upTo uint64, at core.Un
 			}
 			named[req.Nonce] = true
 		}
-		drops = append(drops, unreplayedDrop(req))
+		left = append(left, req)
 	}
 	for _, jb := range d.ing.lanes.pending(sess) {
 		if jb.leased && jb.lease.ArrivalSeq >= upTo {
@@ -217,17 +222,32 @@ func (d *daemon) unreplayedCaptures(sess core.SessionID, upTo uint64, at core.Un
 			add(req)
 		}
 	}
-	return drops
+	return left
 }
 
-// unreplayedDrop is the drop entry naming one unreplayed capture: by its tool_use_id when it has one,
-// and by its hook operation otherwise.
-func unreplayedDrop(req ipc.Request) checkpoint.DropEntry {
-	id := string(req.Op)
-	if req.Event != nil && req.Event.ToolUseID != "" {
-		id = string(req.Event.ToolUseID)
+// unreplayedDrops is the drop report for left: one summary entry counting every capture by kind, and
+// one entry per tool result naming its tool_use_id (checkpoint.DropKindUnreplayedToolResult). The
+// per-result entries carry no detail, because every entry counts against the checkpoint's own token
+// budget and the summary already says what they mean.
+func unreplayedDrops(left []ipc.Request) []checkpoint.DropEntry {
+	var tools, prompts int
+	var named []checkpoint.DropEntry
+	for _, req := range left {
+		switch {
+		case req.Event != nil && req.Event.ToolUseID != "":
+			tools++
+			named = append(named, checkpoint.DropEntry{
+				Kind: checkpoint.DropKindUnreplayedToolResult, ID: string(req.Event.ToolUseID),
+			})
+		case req.Op == ipc.OpObservePrompt:
+			prompts++
+		}
 	}
-	return checkpoint.DropEntry{Kind: checkpoint.DropKindUnreplayedCapture, ID: id, Detail: unreplayedDetail}
+	summary := checkpoint.DropEntry{
+		Kind:   checkpoint.DropKindUnreplayedCapture,
+		Detail: fmt.Sprintf(unreplayedDetailFormat, len(left), tools, prompts, len(left)-tools-prompts),
+	}
+	return append([]checkpoint.DropEntry{summary}, named...)
 }
 
 // pending returns a copy of the requests sess's lane still holds, in arrival order: queued, parked, or
