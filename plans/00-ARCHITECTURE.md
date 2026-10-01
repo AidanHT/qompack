@@ -823,9 +823,13 @@ across files. SP-01 owns both, keeps them consistent, and validates them:
   "description": "Cache-aware, retrieval-backed context compaction",
   "author": { "name": "Qompack" },
   "homepage": "https://github.com/qompack/qompack",
-  "keywords": ["compaction", "context", "memory", "cache"]
+  "keywords": ["compaction", "context", "memory"]
 }
 ```
+
+**Keywords note (amended 2026-10-01, D53(e)).** The example listed a `"cache"` keyword; the shipped
+manifest (`pluginmanifest.Default`) dropped it in wave 16b because no supported feature backs it,
+so the example drops it too.
 
 `plugin/hooks/hooks.json` — the six hooks of §7.3, with `${CLAUDE_PLUGIN_ROOT}` resolution to the
 per-platform binary:
