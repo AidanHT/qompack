@@ -3,6 +3,8 @@ package daemon
 import (
 	"bytes"
 	"context"
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sync"
@@ -107,8 +109,11 @@ func listClientSpools(root string) []clientSpoolListing {
 // heads returns l's line heads: from memory when the index holds l at the size and time listed,
 // and otherwise read from root's spool now and remembered. read reports whether this call read the
 // file. When the file is not in memory and ctx has already ended, nothing is read and ok is false:
-// the caller counts the file as unread. A file gone since the listing has nothing to give and is not
-// remembered, and neither is one read while the daemon removed a client spool (removing).
+// the caller counts the file as unread. So is ok false for a file the read failed on for any reason
+// but its absence (a sharing violation, an anti-virus lock, an I/O error): it may hold the session's
+// captures, and taking it as holding none sealed without them and without a word (w16d-sealrow). A
+// file gone since the listing has nothing to give and is not remembered, and neither is one read
+// while the daemon removed a client spool (removing).
 func (x *spoolHeadIndex) heads(ctx context.Context, root string, l clientSpoolListing) (lines []spoolHeadLine, ok, read bool) {
 	x.mu.Lock()
 	f, hit := x.files[l.base]
@@ -127,8 +132,11 @@ func (x *spoolHeadIndex) heads(ctx context.Context, root string, l clientSpoolLi
 		readFile = func(_ context.Context, path string) ([]byte, error) { return paths.ReadFileShared(path) }
 	}
 	b, err := readFile(ctx, filepath.Join(paths.Of(root).Spool, l.base))
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, true, true // consumed and removed since the listing: nothing to name from it
+	}
 	if err != nil {
-		return nil, true, true // consumed and removed since the listing, or unreadable: nothing to name from it
+		return nil, false, true // unreadable: what it holds is not known, and the caller counts it unread
 	}
 	lines = parseSpoolHeads(b, l.base)
 	x.mu.Lock()
