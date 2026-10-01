@@ -3,6 +3,7 @@ package daemon
 import (
 	"context"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -226,6 +227,112 @@ func TestUnreplayedDrops_CountsEveryCaptureAndNamesEachToolResult(t *testing.T) 
 	require.Equal(t, []checkpoint.DropEntry{
 		{Kind: checkpoint.DropKindUnreplayedCapture, Detail: fmt.Sprintf(unreplayedDetailFormat, 4, 2, 1, 1, 0)},
 	}, unreplayedDrops(left, 0, est))
+}
+
+// settleTestDaemon is laneTestDaemon with B-E set so that the settle's bound is bound: the rows that
+// assert what the settle waits FOR, not how long, give it a bound no co-loaded host can exhaust.
+func settleTestDaemon(t *testing.T, bound time.Duration) (*daemon, string) {
+	t.Helper()
+	root := t.TempDir()
+	_, dd, _ := wireTestDaemon(t, root, func(o *Options) {
+		o.Cfg.Runtime.Budgets.CheckpointFinalizeMs = int((checkpoint.MaxPreCompactWindow + bound) / time.Millisecond)
+	})
+	require.Equal(t, bound, precompactSettleBound(dd.currentCfg()), "fixture sanity: the settle's bound")
+	lock := lockFor(t, dd, root)
+	t.Cleanup(func() { _ = lock.Release() })
+	t.Cleanup(func() {
+		grace, cancel := context.WithTimeout(context.Background(), promptRecordWait)
+		defer cancel()
+		dd.stopPromptRecordings(grace)
+	})
+	return dd, root
+}
+
+// settleGate holds the lane's publication of one delivery until it is opened. The caller registers
+// open as a cleanup after starting the worker pool, so it runs before the pool is joined.
+func settleGate(dd *daemon, nonce string) (func(context.Context, ipc.Request) ipc.Response, func()) {
+	release := make(chan struct{})
+	var once sync.Once
+	open := func() { once.Do(func() { close(release) }) }
+	run := func(ctx context.Context, req ipc.Request) ipc.Response {
+		if req.Nonce == nonce {
+			<-release
+		}
+		return dd.runIngested(ctx, req)
+	}
+	return run, open
+}
+
+// settleStarted reports whether a PreCompact's settle has begun: it counts itself before it waits.
+func settleStarted(dd *daemon) bool { return dd.m.Counter(counterPrecompactSettle).Value() > 0 }
+
+// TestPreCompactSettle_WaitsForALeasedArrivalStillPublishing is the deferred half of D53(c): a Read
+// the daemon accepted live (leased) before the PreCompact is still publishing in the session's lane
+// when the PreCompact arrives, and the hook that sent it waited out its ACK deadline and spooled a
+// copy. The seal waits for the lane, inside its bound, and sees the Read published.
+func TestPreCompactSettle_WaitsForALeasedArrivalStillPublishing(t *testing.T) {
+	dd, root := settleTestDaemon(t, liveOrderBound)
+	dd.drain.Store(newDrainer(dd.drainConfig()))
+	const sess core.SessionID = "sess-precompact-leased"
+	tool := liveOrderTool(dd, root, sess, 1)
+	run, open := settleGate(dd, tool.Nonce)
+	liveOrderWorkers(t, dd, 2, run)
+	t.Cleanup(open)
+
+	acceptPrompt(t, dd, tool)
+	require.Eventually(t, func() bool { _, running := liveOrderLane(dd, sess); return running },
+		liveOrderBound, liveOrderTick, "fixture sanity: the lane is publishing the Read")
+	writeHookSpool(t, root, "client-6868.ndjson", tool) // the copy a late ACK leaves
+	probe := bindSealProbe(dd, tool.Nonce)
+
+	go func() {
+		liveOrderPollUntil(liveOrderBound, func() bool { return settleStarted(dd) })
+		open() // the slow publication finishes while the settle waits
+	}()
+	pre := checkpointRequest(dd, sess, "nonce-precompact-leased")
+	pre.TS = tool.TS + 1
+	require.True(t, dd.dispatchOp(context.Background(), pre).OK)
+
+	require.Equal(t, 1, probe.calls)
+	require.True(t, probe.published[tool.Nonce], "the seal waited for the leased Read's publication")
+	require.Empty(t, probe.drops, "nothing was left unreplayed")
+}
+
+// TestPreCompactSettle_NamesALeasedArrivalOnceBesideItsSpoolCopy: the same leased Read never finishes
+// inside the bound. The seal names it exactly once, although both the lane and a client spool hold
+// it, and does not name a Read the daemon accepted after the PreCompact arrived.
+func TestPreCompactSettle_NamesALeasedArrivalOnceBesideItsSpoolCopy(t *testing.T) {
+	const bound = 2 * time.Second
+	dd, root := settleTestDaemon(t, bound)
+	dd.drain.Store(newDrainer(dd.drainConfig()))
+	const sess core.SessionID = "sess-precompact-leased-left"
+	tool := liveOrderTool(dd, root, sess, 1)
+	after := liveOrderTool(dd, root, sess, 2)
+	run, open := settleGate(dd, tool.Nonce)
+	liveOrderWorkers(t, dd, 2, run)
+	t.Cleanup(open)
+
+	acceptPrompt(t, dd, tool)
+	require.Eventually(t, func() bool { _, running := liveOrderLane(dd, sess); return running },
+		liveOrderBound, liveOrderTick, "fixture sanity: the lane is publishing the Read")
+	writeHookSpool(t, root, "client-6969.ndjson", tool)
+	probe := bindSealProbe(dd, tool.Nonce)
+
+	pre := checkpointRequest(dd, sess, "nonce-precompact-leased-left")
+	pre.TS = tool.TS + 1
+	done := make(chan ipc.Response, 1)
+	go func() { done <- dd.dispatchOp(context.Background(), pre) }()
+	require.True(t, liveOrderPollUntil(liveOrderBound, func() bool { return settleStarted(dd) }),
+		"fixture sanity: the settle began")
+	acceptPrompt(t, dd, after) // leased after the PreCompact, queued behind the held Read
+	require.True(t, (<-done).OK)
+
+	require.Equal(t, 1, probe.calls)
+	require.False(t, probe.published[tool.Nonce], "fixture sanity: the held Read did not publish")
+	require.Equal(t, []checkpoint.DropEntry{
+		{Kind: checkpoint.DropKindUnreplayedCapture, Detail: fmt.Sprintf(unreplayedDetailFormat, 1, 1, 0, 0, 1)},
+		{Kind: checkpoint.DropKindUnreplayedToolResult, ID: string(tool.Event.ToolUseID)},
+	}, probe.drops, "the held Read is named once, and the Read leased after the PreCompact is not named")
 }
 
 // TestPreCompactSettle_AnotherSessionsSpoolCostsAHealthySessionNoDrain: a client spool another
