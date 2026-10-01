@@ -150,6 +150,18 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
+    # ── Non-reference disk (owner Q1, third option; D53(e), D55) ─────────────────────────────────
+    # The same declaration ci.yml's bench-gate makes, for the same reason: this job runs the
+    # hot-path harness alone on a GitHub-hosted runner, whose disk carries an fsync tail no budget
+    # priced on a quiet reference host survives (run 36820740318, windows-latest: B-B p99
+    # 1310.7 ms and B-A p99 1441.8 ms against 50). Hosted figures never become constants (Q1), and
+    # the runner is not co-loaded. The fsync-bound wall rows (B-A, B-B, B-E's wall row) and the
+    # spool-submode transition are reported with a note naming the declaration; B-E_cpu, the
+    # delivery ledger (identity, 0 lost), the population census and every structural check stay
+    # gated. Honoured only where GITHUB_ACTIONS=true (internal/obs.NonReferenceDiskEnv); test/guards'
+    # TestNonReferenceDisk_IsHostedCIOnly pins this job as nightly.yml's only declaring job.
+    env:
+      QOMPACK_NONREFERENCE_DISK: '1'
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }

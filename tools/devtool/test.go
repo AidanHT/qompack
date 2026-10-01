@@ -7,7 +7,10 @@ import (
 	"github.com/qompack/qompack/internal/obs"
 )
 
-// taskTest runs the fmt-check gate and then `go test ./...`.
+// taskTest runs the fmt-check gate and then the whole tree's `go test` passes (testInvocations):
+// every package but test/e2e together under the co-load declaration, then test/e2e alone without
+// it, as ADR 0010 decision 4 and ci.yml's `test-e2e` job run it. Both passes always run, so a red
+// in the first does not leave test/e2e unrun, and the task fails if either failed.
 //
 // fmt-check is here because of V2-MERGE-24. `devtool fmt-check` runs the pinned gofumpt, which is
 // strictly stricter than gofmt, and SP-04's branch tip failed it — its own exit criterion — with
@@ -30,7 +33,68 @@ func taskTest(args []string) error {
 	if err := taskFmtCheck(nil); err != nil {
 		return err
 	}
-	return goInheritEnv(wholeTreeEnv, "test", "-timeout="+wholeTreeTestTimeout, "./...")
+	listOut, listErr, err := runCapture(nil, "go", "list", "./...")
+	if err != nil {
+		return fmt.Errorf("test: go list ./...: %w\n%s", err, listErr)
+	}
+	var failed []string
+	for _, inv := range testInvocations(strings.Fields(string(listOut))) {
+		if err := goInheritEnv(inv.env, inv.args...); err != nil {
+			failed = append(failed, fmt.Sprintf("go %s: %v", strings.Join(inv.args, " "), err))
+		}
+	}
+	if len(failed) > 0 {
+		return fmt.Errorf("test: %s", strings.Join(failed, "; "))
+	}
+	return nil
+}
+
+// goInvocation is one `go` command: its arguments and the environment it adds or takes back (an
+// empty value takes a variable back, which is how the obs declarations read it).
+type goInvocation struct {
+	args []string
+	env  map[string]string
+}
+
+// testInvocations is taskTest's `go test` commands over pkgs, one per wholeTreePasses pass, each
+// at wholeTreeTestTimeout.
+func testInvocations(pkgs []string) []goInvocation {
+	passes := wholeTreePasses(pkgs)
+	out := make([]goInvocation, 0, len(passes))
+	for _, p := range passes {
+		args := append([]string{"test", "-timeout=" + wholeTreeTestTimeout}, p.pkgs...)
+		out = append(out, goInvocation{args: args, env: p.env})
+	}
+	return out
+}
+
+// testPass is one pass of a whole-tree `go test`: its packages and the environment it adds or
+// takes back.
+type testPass struct {
+	pkgs []string
+	env  map[string]string
+}
+
+// wholeTreePasses splits pkgs into isolatedPasses and gives each its environment. The shared pass
+// is the co-loaded whole-tree run, so it declares co-load (wholeTreeEnv) and takes back a
+// non-reference-disk declaration the caller's environment may carry: one cause per run (test/guards'
+// TestNonReferenceDisk_IsHostedCIOnly). Each isolated package then runs alone with the co-load
+// declaration taken back, exactly as ci.yml's `test-e2e` job runs test/e2e (ADR 0010 decision 4),
+// and inherits whatever the caller declares of its disk. taskTest and cover both use it.
+func wholeTreePasses(pkgs []string) []testPass {
+	var passes []testPass
+	for _, p := range isolatedPasses(pkgs) {
+		if !isolatedPackages[p[0]] {
+			env := map[string]string{obs.NonReferenceDiskEnv: ""}
+			for k, v := range wholeTreeEnv {
+				env[k] = v
+			}
+			passes = append(passes, testPass{pkgs: p, env: env})
+			continue
+		}
+		passes = append(passes, testPass{pkgs: p, env: map[string]string{obs.UnderColoadEnv: ""}})
+	}
+	return passes
 }
 
 // wholeTreeEnv is the environment every whole-tree `go test` here runs under. A whole-tree run is
@@ -78,8 +142,8 @@ func isolatedPasses(pkgs []string) [][]string {
 	return append(passes, alone...)
 }
 
-// taskTestRace uses CI's non-e2e race scope (ADR-0010). E2E remains in taskTest and the
-// isolated CI test-e2e job. Ordinary -race instruments the e2e harness, not the child go build;
+// taskTestRace uses CI's non-e2e race scope (ADR-0010). E2E remains in taskTest's isolated pass
+// and the isolated CI test-e2e job. Ordinary -race instruments the e2e harness, not the child go build;
 // repeating that known timeout cannot certify races in the actual installed process.
 func taskTestRace(args []string) error {
 	out, stderr, err := runCapture(nil, "go", "list", "./...")

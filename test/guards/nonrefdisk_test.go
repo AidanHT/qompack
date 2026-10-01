@@ -22,7 +22,7 @@ import (
 //     the ci.yml jobs whose fsync-bound rows a hosted disk cannot judge alone on their runner
 //     (bench-gate, timing, test-e2e, and cover, whose test/e2e pass runs alone as test-e2e does;
 //     devtool takes it back from cover's co-loaded pass) — never by the whole-tree `test` job, whose
-//     own declaration is co-load — and by no nightly.yml job until the owner rules on bench-deep;
+//     own declaration is co-load — and in nightly.yml by bench-deep alone (D55);
 //   - the REFERENCE verdict on those rows survives: the owner's quiet local runs (quiet.sh's C5.1,
 //     phase3.sh's isolated D28 rows, overnight.sh which chains them) never make the declaration,
 //     and never claim to be GitHub Actions, the one thing that would make it honoured.
@@ -38,12 +38,13 @@ var workflowNonrefDiskEnvRE = regexp.MustCompile(`(?m)^\s*` + regexp.QuoteMeta(o
 // TestCoverPasses_RunsE2EAloneWithoutTheColoadDeclaration pins.
 var nonrefDiskJobs = []string{"bench-gate", "cover", "test-e2e", "timing"}
 
-// nightlyNonrefDiskJobs are the nightly.yml jobs that make the declaration: none. bench-deep runs
-// the harness alone on hosted runners and meets the same fsync tail (B-B p99 1311 ms on
-// windows-latest), but whether it reports those rows or stays a classified Q1 red is the owner's
-// call (wave 16 ci seat, needs_owner). Pinning the empty set means that call is made here, in a
-// reviewed edit, and not by a workflow change nobody checks.
-var nightlyNonrefDiskJobs []string
+// nightlyNonrefDiskJobs are the nightly.yml jobs that make the declaration: bench-deep alone.
+// It runs the hot-path harness alone on hosted runners and meets the same fsync tail as
+// bench-gate: windows-latest B-B p99 1310.7 ms against 50 in run 36820740318 (job 110235563683).
+// The coordinator ruled under D33 that it reports those rows as bench-gate does (D55). Pinning the
+// set means any further nightly job is ruled here, in a reviewed edit, and not by a workflow change
+// nobody checks.
+var nightlyNonrefDiskJobs = []string{"bench-deep"}
 
 // referenceRunScripts are the coordinator's local scripts whose runs are the reference verdict on
 // the rows the declaration reports on hosted runners.
@@ -54,8 +55,8 @@ var referenceRunScripts = []string{"quiet.sh", "phase3.sh", "overnight.sh"}
 var githubActionsAssignRE = regexp.MustCompile(`(^|[\s;(])(export\s+)?` + regexp.QuoteMeta(obs.GitHubActionsEnv) + `=`)
 
 // TestNonReferenceDisk_IsHostedCIOnly pins the declaration to hosted CI: ignored outside GitHub
-// Actions, set by exactly bench-gate, cover, timing and test-e2e in ci.yml and by no nightly.yml
-// job, and never set — nor made honourable by faking GitHub Actions — by the scripts that produce
+// Actions, set by exactly bench-gate, cover, timing and test-e2e in ci.yml and by bench-deep in
+// nightly.yml, and never set — nor made honourable by faking GitHub Actions — by the scripts that produce
 // the reference verdict.
 func TestNonReferenceDisk_IsHostedCIOnly(t *testing.T) {
 	root := repoRoot(t)
@@ -104,6 +105,11 @@ func TestNonReferenceDisk_IsHostedCIOnly(t *testing.T) {
 		require.Equal(t, nightlyNonrefDiskJobs, setting,
 			"nightly.yml must declare %s in exactly %v: a nightly job that reports hosted fsync-bound rows "+
 				"needs the owner's ruling recorded here first", obs.NonReferenceDiskEnv, nightlyNonrefDiskJobs)
+		for _, name := range nightlyNonrefDiskJobs {
+			require.False(t, jobs[name].setsCoload,
+				"nightly.yml's `%s` job must not also declare %s: a hosted runner running one job is not co-loaded",
+				name, obs.UnderColoadEnv)
+		}
 	})
 
 	t.Run("reference_run_scripts_never_declare_it", func(t *testing.T) {

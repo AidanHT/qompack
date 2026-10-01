@@ -1,3 +1,47 @@
 # wave 16 ci fix seat: CGO_ENABLED=0 QOMPACK_UNDER_COLOAD=1 go test -p 2 -count=2 -timeout=30m -json ./internal/daemon
 # Windows, daytime host shared with other seats; started 2026-10-01T11:16:38Z
-# snapshot at 2026-10-01T11:23:05Z: pass events=2059 fail events=0; exit file: 
+# snapshot at 2026-10-01T11:23:05Z: pass events=2059 fail events=0; exit file:
+#
+# ── Outcome (wave 16b cirec seat, from the run's full stream; D55 item 1) ──────────────────────────
+# Source: the session scratchpad's w16/ci/daemon-count2.json (16 860 test2json lines). The run's
+# exit file was never written; the stream's last event is the package verdict below.
+#
+# Verdict: FAIL in 526.6 s, no hang.
+#   - started 07:16:39-04:00 (11:16:39Z), package verdict 07:25:26-04:00 (11:25:26Z)
+#   - iteration 1: first test run at 07:16:40, second iteration's first run at 07:21:12 (~272 s)
+#   - iteration 2: 07:21:12 -> 07:25:26 (~254 s)
+#   - events: 3252 run, 3247 pass, 2 skip, 3 test fail, 1 package fail. Every started test
+#     finished (3247 + 2 + 3 = 3252), so nothing was left running: not a hang.
+#   - the -count=1 figure on the same host was 398 s (runs/touched-pkgs-windows.log), so
+#     -count=2 cost ~1.3x, not 2x.
+#
+# The three test failures, all in ITERATION 2, all `exit status 0xc0000142`
+# (STATUS_DLL_INIT_FAILED: a child process could not initialise its DLLs; the usual cause on a
+# loaded interactive host is desktop-heap exhaustion, inferred here, not measured). Each test spawns
+# os.Args[0] or a staged copy of it; each passed in iteration 1.
+{"Time":"2026-10-01T07:19:58.5146777-04:00","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestLock_AnExitedOwnerIsReplacedAtOnce","Elapsed":0.17}
+{"Time":"2026-10-01T07:24:11.4764473-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestLock_AnExitedOwnerIsReplacedAtOnce","Output":"        \t            \texit status 0xc0000142\n"}
+{"Time":"2026-10-01T07:24:11.4764473-04:00","Action":"fail","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestLock_AnExitedOwnerIsReplacedAtOnce","Elapsed":0.01}
+{"Time":"2026-10-01T07:20:52.0752828-04:00","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRun_LogsATakenOverLockAndASpoolReplay","Elapsed":0.12}
+{"Time":"2026-10-01T07:25:02.9365216-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRun_LogsATakenOverLockAndASpoolReplay","Output":"        \t            \texit status 0xc0000142\n"}
+{"Time":"2026-10-01T07:25:02.9370507-04:00","Action":"fail","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestRun_LogsATakenOverLockAndASpoolReplay","Elapsed":0.01}
+{"Time":"2026-10-01T07:20:54.0057352-04:00","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestStageBinary_StartsACopyItsRenamerStillHolds","Elapsed":0.33}
+{"Time":"2026-10-01T07:25:06.9887175-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestStageBinary_StartsACopyItsRenamerStillHolds","Output":"        \t            \texit status 0xc0000142\n"}
+{"Time":"2026-10-01T07:25:06.9924732-04:00","Action":"fail","Package":"github.com/qompack/qompack/internal/daemon","Test":"TestStageBinary_StartsACopyItsRenamerStillHolds","Elapsed":0.42}
+{"Time":"2026-10-01T07:25:26.2794728-04:00","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Output":"FAIL\tgithub.com/qompack/qompack/internal/daemon\t526.556s\n"}
+{"Time":"2026-10-01T07:25:26.2794728-04:00","Action":"fail","Package":"github.com/qompack/qompack/internal/daemon","Elapsed":526.556}
+#
+# The three, alone at -count=3 (no second-iteration hazard in them):
+#   independent verifier:  CGO_ENABLED=0 go test -count=3 -run '^(TestLock_AnExitedOwnerIsReplacedAtOnce|TestRun_LogsATakenOverLockAndASpoolReplay|TestStageBinary_StartsACopyItsRenamerStillHolds)$' ./internal/daemon
+#                          -> ok 1.869s
+#   wave 16b cirec seat:   CGO_ENABLED=0 go test -p 2 -count=3 -run '^(TestLock_AnExitedOwnerIsReplacedAtOnce|TestRun_LogsATakenOverLockAndASpoolReplay|TestStageBinary_StartsACopyItsRenamerStillHolds)$' ./internal/daemon
+#                          -> ok 2.666s (2026-10-01, Windows, daytime host)
+#
+# What it settles for the hosted Windows leg (run 36816905394, internal/daemon killed at 1800 s
+# under -count=2): the package alone neither hangs nor nears 30 minutes at -count=2 here, so the
+# hosted kill is the whole-tree co-load on a two-core windows-latest runner stretching two passes
+# past one pass's budget (nightly's -race run of the package alone took 1203 s there), or a
+# hosted-only hang. The hosted log named no test still running at the kill (the reconciliation
+# then dropped unfinished tests; c697ed1e now prints them). D55 sets the Windows leg to
+# -timeout 60m = 2 x wholeTreeTestTimeout, one per-pass budget per -count iteration; a real hang is
+# still killed and, since c697ed1e, named.

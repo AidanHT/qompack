@@ -44,3 +44,22 @@ test-e2e (ubuntu-latest) 110223848323, (macos-latest) 110223848413, (windows-lat
 job-110223848323.log: 0 FAIL lines for TestE2EHookRoundTrip
 job-110223848413.log: 0 FAIL lines for TestE2EHookRoundTrip
 job-110223848457.log: 0 FAIL lines for TestE2EHookRoundTrip
+
+## status of the cause (wave 16b cirec seat, review nit on the fix seat)
+The cause is INFERRED, not observed. Both hosted reds above printed "last seen 0", which the
+failure message evaluated before the first poll, so neither run shows what the WAL or the spool
+held. The inference rests on:
+- the differential: the row was red only in cover's co-loaded whole-tree pass, and run
+  36816905394's isolated test-e2e jobs passed it on all three OSes;
+- the mechanism: a hook that misses its 5 ms dial (config.ConnectDeadlineMsPortable) writes a
+  client spool file, which the daemon drains into the store, never the WAL; and ingest.makeDurable
+  appends the WAL before Accept returns and the ACK is sent (internal/daemon/ingest.go), so a
+  missed ACK cannot shorten the WAL;
+- a sibling row's diagnostic in a DIFFERENT cover run (job 103834108633, TestE2E_ObserverThroughDaemon)
+  listing three client spool files.
+What settles it: the first red of TestE2EHookRoundTrip under co-load that prints walWaitDiag. If
+the missing deliveries are in client-*.ndjson files, it was the designed degrade. If the spool is
+empty and the WAL is short, it is a product ingest race and must be fixed in the product.
+Hosted cover and local devtool test now both run test/e2e alone, so neither lane reproduces the
+co-loaded condition any more; a by-hand co-loaded run (go test ./... with QOMPACK_UNDER_COLOAD=1)
+still can.
