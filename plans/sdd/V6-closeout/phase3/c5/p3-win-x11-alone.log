@@ -1,0 +1,15 @@
+=== RUN   TestV3_HotPathUnchangedWithLedgerResident
+    v3_x11_test.go:463: X11 resident state: ToolUses=2000 RawBytes=43120000 (41.1 MB) StoredBytes=3682837 DedupRatio=11.71; DAG Nodes=9041 Edges=17920; ledger Active=5000 Stale=0 FillRatio=0.306 tried.bloom=24056B
+    v3_x11_test.go:493: no-ledger run (the X11 corpus without the ledger): the bench harness took 1s; stdout:
+    v3_x11_test.go:493: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-cand/test/e2e/v3_x11_test.go:583
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-cand/test/e2e/v3_x11_test.go:493
+        	Error:      	Received unexpected error:
+        	            	exit status 0xc0000142
+        	Test:       	TestV3_HotPathUnchangedWithLedgerResident
+        	Messages:   	no-ledger run (the X11 corpus without the ledger): bench-hotpath exited non-zero (QOMPACK_UNDER_COLOAD=false): either a gated budget (B-E_cpu p99<2000ms always; without --under-coload also B-B p99<50ms, B-A p99<50ms and B-E's wall row p99<2000ms) breached, or the harness itself failed
+        	            	stderr:
+--- FAIL: TestV3_HotPathUnchangedWithLedgerResident (334.25s)
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	334.546s
+FAIL

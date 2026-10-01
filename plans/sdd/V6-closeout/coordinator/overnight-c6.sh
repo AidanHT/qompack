@@ -22,9 +22,11 @@ docker stop qompack-v6-linux-verification > /dev/null 2>&1
 sh "$here/phase3.sh" "$C" "$E" win-timing win-e2e-timing >> "$E/chain.log" 2>&1; log "windows timing exit=$?"
 GOFLAGS=-p=4 sh "$here/phase3.sh" "$C" "$E" win-race bundles >> "$E/chain.log" 2>&1; log "windows race+bundles exit=$?"
 
-docker start qompack-v6-linux-verification > /dev/null && docker update --cpus 8 --memory 8g --memory-swap 8g qompack-v6-linux-verification > /dev/null; log "container start exit=$?"
+docker desktop start > /dev/null 2>&1; docker start qompack-v6-linux-verification > /dev/null && docker update --cpus 8 --memory 8g --memory-swap 8g qompack-v6-linux-verification > /dev/null; log "container start exit=$?"
 sh "$here/phase3.sh" "$C" "$E" linux-timing linux-e2e-timing >> "$E/chain.log" 2>&1; log "linux timing exit=$?"
 sh "$here/phase3.sh" "$C" "$E" linux-tree linux-e2e linux-child >> "$E/chain.log" 2>&1; log "linux race exit=$?"
 
 sh "$here/quiet.sh" "$C" cf31e01 "$E/quiet" c51-win c51-linux >> "$E/chain.log" 2>&1; log "quiet exit=$?"
+# Hand the WSL VM's memory back: a running engine holds its page cache (12.7 GB after candidate 5's night).
+docker stop qompack-v6-linux-verification > /dev/null 2>&1; docker desktop stop > /dev/null 2>&1; log "engine stopped exit=$?"
 log "done"

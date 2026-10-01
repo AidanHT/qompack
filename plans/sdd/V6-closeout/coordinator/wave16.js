@@ -80,6 +80,11 @@ Background: on a disk whose fsync is slower than runtime.budgets.l0IngestMs (Lin
   - what ends it: a new session or the daemon's idle exit (there is no stop command);
   - how to tune it: runtime.hotPath.budgetMs, runtime.budgets.l0IngestMs and the ACK deadline key, named exactly as config-reference.md names them.
   If status or doctor reports FAILING, or the banner calls the session degraded, purely because of spool submode, make it informational but still visible. Machine-readable fields stay stable or change additively. No default number changes.
+(4) X11 diagnostic, by reading code plus unit-level measurement only (no hot-path rows in the day). On candidate 5's isolated Windows run, X11's no-ledger run (41 MB resident corpus, 2000 tool uses) showed hook_controlled_observed p50 13.3 ms, against 6.1 ms at wave 12. The host was also slow then (spawn floor 42.6 ms against 14.3 quiet), so this may be noise. Find out whether anything wave 15 added can sit beside a hook request on a large store at daemon start:
+  - the background publication pass (wave 15c, D51: 'it never runs beside a hook request');
+  - the eager or earlier ledger open (w15-ledger);
+  - the reload machinery (w15-services).
+Check whether D51's yield covers every request kind the hot path sends (observe.tool from separate hook processes arriving back to back), and whether the pass holds a lock, a store mutex or the disk across a request. Prove the answer with a deterministic test. If there is a real overlap, fix it.
 (3) docs/troubleshooting.md: a slow-disk entry (WSL2, containers, network or encrypted filesystems): the symptom, that it is expected and loses nothing, and the tuning keys. Correct any page that attributes spool submode only to a "heavily loaded" machine or names a stop command.
 Scope: internal/daemon (PreCompact route, spool replay, budget/breach surfaces), internal/commands (status/doctor wording), internal/checkpoint or internal/rehydrate only for the drop entry, docs. Run the daemon rows you add or touch by name and the touched packages in full once.` })
 
