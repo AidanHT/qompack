@@ -1,0 +1,1 @@
+PASS      github.com/qompack/qompack/internal/store  (pass=977 fail=0 skip=4)

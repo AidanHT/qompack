@@ -1,0 +1,21 @@
+run_id=cx-w16b-cover-cover-base-paths-6f118a7-20261001T150117Z
+commit=6f118a7b039b716423b9f191fbb61183609483d3
+tree=010c627911d19ee25a9fb0b6193ab3510eb0e56d
+bundle_sha256=0e09ca6194836917408bf316f6727a17a64c44c71215a37168c38d64df6e012e
+started_utc=2026-10-01T15:01:36Z
+uid=10001 user=qompack-test groups=qompack-test
+race=0 count=1 timeout=30m gomaxprocs=2 coload=1
+run=
+skip=
+extra_env= GOFLAGS=-coverprofile=/tmp/cx-w16b-cover-base-paths.out
+go version go1.26.6 linux/amd64
+linux
+amd64
+0
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-coverprofile=/tmp/cx-w16b-cover-base-paths.out
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+finished_utc=2026-10-01T15:01:51Z
