@@ -105,8 +105,14 @@ func (s StateSignature) Key() string {
 //   - selfMarkerMCPTool is the ephemeral retrieval tool prefix internal/mcp/ephemeral.go writes and
 //     internal/observer/doc.go item 6 classifies ("a tool whose normalized name begins with
 //     mcp__qompack__ is a retrieval result").
+//   - selfMarkerMCPServer is .mcp.json's server key (internal/mcp's ServerName). The host names a
+//     plugin's tool mcp__plugin_<entry>_<server>__<tool>, whatever marketplace entry it came from
+//     (core.CutHostPluginTool, the predicate internal/mcp's recall ranking shares).
 //   - selfMarkerSlashCommand covers SP-14's slash commands and the injection markers built from the
-//     same spelling, such as internal/checkpoint's InjectionCloseTag.
+//     same spelling, such as internal/checkpoint's InjectionCloseTag. A release entry named
+//     qompack-<os>-<arch> may namespace the commands by its own name (D53(f)), so a namespace that
+//     extends the plugin's name by a hyphen or underscore and an entry segment counts too
+//     (hasSlashCommandMarker).
 //   - selfMarkerWarning is the prefix FormatWarning itself emits. It is the direct feedback edge:
 //     a warning injected into the prompt becomes part of the next turn's text, and a goal or failure
 //     signature derived from that text must not be able to produce the next warning.
@@ -114,6 +120,7 @@ func (s StateSignature) Key() string {
 //     an action targeting Qompack's files is never mistaken for the session's own work.
 const (
 	selfMarkerMCPTool      = "mcp__qompack__"
+	selfMarkerMCPServer    = "qompack"
 	selfMarkerSlashCommand = "/qompack:"
 	selfMarkerWarning      = "[qompack]"
 	selfMarkerStateDir     = ".qompack"
@@ -141,7 +148,8 @@ func IsSelfOriginated(s StateSignature) bool {
 	for _, f := range [...]string{s.Goal, s.Target, s.Action, s.Failure} {
 		switch {
 		case strings.HasPrefix(f, selfMarkerMCPTool),
-			strings.Contains(f, selfMarkerSlashCommand),
+			isHostSelfTool(f),
+			hasSlashCommandMarker(f),
 			strings.Contains(f, selfMarkerWarning):
 			return true
 		case f == selfMarkerStateDir || strings.HasPrefix(f, selfMarkerStateDir+"/"):
@@ -151,6 +159,50 @@ func IsSelfOriginated(s StateSignature) bool {
 		}
 	}
 	return false
+}
+
+// isHostSelfTool reports whether f is the host's name for a tool of Qompack's MCP server, from any
+// marketplace entry. Unlike internal/mcp's recall ranking it does not require one of the eight
+// tools: a false positive only suppresses a warning, the direction this file leans.
+func isHostSelfTool(f string) bool {
+	_, ok := core.CutHostPluginTool(f, selfMarkerMCPServer)
+	return ok
+}
+
+// hasSlashCommandMarker reports whether f holds a Qompack slash command: selfMarkerSlashCommand, or
+// the same namespace extended by an entry segment, as in /qompack-windows-amd64:status or
+// /qompack_linux_arm64:pin. The segment is one or more letters, digits, '.', '-' or '_' after a '-'
+// or '_'. Another plugin whose name begins with qompack- is taken as Qompack's own, which only
+// suppresses a warning; /qompackish:, /my-qompack: and a bare /qompack-windows-amd64 are not.
+func hasSlashCommandMarker(f string) bool {
+	ns := strings.TrimSuffix(selfMarkerSlashCommand, ":")
+	for i := strings.Index(f, ns); i >= 0; {
+		rest := f[i+len(ns):]
+		if strings.HasPrefix(rest, ":") {
+			return true
+		}
+		if rest != "" && (rest[0] == '-' || rest[0] == '_') {
+			j := 1
+			for j < len(rest) && isEntryByte(rest[j]) {
+				j++
+			}
+			if j > 1 && j < len(rest) && rest[j] == ':' {
+				return true
+			}
+		}
+		next := strings.Index(rest, ns)
+		if next < 0 {
+			return false
+		}
+		i += len(ns) + next
+	}
+	return false
+}
+
+// isEntryByte reports whether c may appear in a marketplace entry's name segment.
+func isEntryByte(c byte) bool {
+	return c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' ||
+		c == '-' || c == '_' || c == '.'
 }
 
 // Detector defaults. Every one of them is a bound on how loud this feature is allowed to be, so each
