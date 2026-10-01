@@ -1,0 +1,546 @@
+﻿2026-10-01T05:38:32.0045406Z Current runner version: '2.337.0'
+2026-10-01T05:38:32.0069833Z ##[group]Runner Image Provisioner
+2026-10-01T05:38:32.0070571Z Hosted Compute Agent
+2026-10-01T05:38:32.0071005Z Version: 20260901.588
+2026-10-01T05:38:32.0071492Z Commit: f88ec8081b781fac6c440065ac7ff9e710ce3d0b
+2026-10-01T05:38:32.0072043Z Build Date: 2026-09-01T19:56:44Z
+2026-10-01T05:38:32.0072555Z Worker ID: {e611da7b-adce-497e-a8d5-15f815d10d1b}
+2026-10-01T05:38:32.0073115Z Azure Region: westus3
+2026-10-01T05:38:32.0073751Z ##[endgroup]
+2026-10-01T05:38:32.0075367Z ##[group]Operating System
+2026-10-01T05:38:32.0075908Z Microsoft Windows Server 2025
+2026-10-01T05:38:32.0076388Z 10.0.26100
+2026-10-01T05:38:32.0076869Z Datacenter
+2026-10-01T05:38:32.0077338Z ##[endgroup]
+2026-10-01T05:38:32.0077803Z ##[group]Runner Image
+2026-10-01T05:38:32.0078312Z Image: windows-2025-vs2026
+2026-10-01T05:38:32.0078787Z Version: 20260925.250.1
+2026-10-01T05:38:32.0080004Z Included Software: https://github.com/actions/runner-images/blob/win25-vs2026/20260925.250/images/windows/Windows2025-VS2026-Readme.md
+2026-10-01T05:38:32.0081280Z Image Release: https://github.com/actions/runner-images/releases/tag/win25-vs2026%2F20260925.250
+2026-10-01T05:38:32.0082033Z ##[endgroup]
+2026-10-01T05:38:32.0082958Z ##[group]GITHUB_TOKEN Permissions
+2026-10-01T05:38:32.0084640Z Contents: read
+2026-10-01T05:38:32.0085174Z Metadata: read
+2026-10-01T05:38:32.0085690Z Packages: read
+2026-10-01T05:38:32.0086107Z ##[endgroup]
+2026-10-01T05:38:32.0087921Z Secret source: Actions
+2026-10-01T05:38:32.0088612Z Cache mode: write
+2026-10-01T05:38:32.0089196Z Prepare workflow directory
+2026-10-01T05:38:32.0465049Z Prepare all required actions
+2026-10-01T05:38:32.0507952Z Getting action download info
+2026-10-01T05:38:32.3589062Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+2026-10-01T05:38:32.4725446Z Download action repository 'actions/setup-go@v5' (SHA:40f1582b2485089dde7abd97c1529aa768e1baff)
+2026-10-01T05:38:33.1986561Z Complete job name: race-windows
+2026-10-01T05:38:33.3330522Z ##[group]Run actions/checkout@v4
+2026-10-01T05:38:33.3331652Z with:
+2026-10-01T05:38:33.3331994Z   fetch-depth: 0
+2026-10-01T05:38:33.3332368Z   repository: AidanHT/qompack
+2026-10-01T05:38:33.3336057Z   token: ***
+2026-10-01T05:38:33.3336412Z   ssh-strict: true
+2026-10-01T05:38:33.3336787Z   ssh-user: git
+2026-10-01T05:38:33.3337145Z   persist-credentials: true
+2026-10-01T05:38:33.3337553Z   clean: true
+2026-10-01T05:38:33.3337929Z   sparse-checkout-cone-mode: true
+2026-10-01T05:38:33.3338359Z   fetch-tags: false
+2026-10-01T05:38:33.3338728Z   show-progress: true
+2026-10-01T05:38:33.3339123Z   lfs: false
+2026-10-01T05:38:33.3339474Z   submodules: false
+2026-10-01T05:38:33.3339847Z   set-safe-directory: true
+2026-10-01T05:38:33.3340265Z   allow-unsafe-pr-checkout: false
+2026-10-01T05:38:33.3341270Z env:
+2026-10-01T05:38:33.3341609Z   GOTOOLCHAIN: local
+2026-10-01T05:38:33.3341977Z   CGO_ENABLED: 1
+2026-10-01T05:38:33.3342582Z ##[endgroup]
+2026-10-01T05:38:33.4590548Z Syncing repository: AidanHT/qompack
+2026-10-01T05:38:33.4592056Z ##[group]Getting Git version info
+2026-10-01T05:38:33.4592580Z Working directory is 'D:\a\qompack\qompack'
+2026-10-01T05:38:33.5265070Z [command]"C:\Program Files\Git\bin\git.exe" version
+2026-10-01T05:38:33.9150237Z git version 2.55.0.windows.5
+2026-10-01T05:38:33.9191247Z ##[endgroup]
+2026-10-01T05:38:33.9207120Z Temporarily overriding HOME='D:\a\_temp\1021ae54-43bf-41d4-b84b-1bcb5594560a' before making global git config changes
+2026-10-01T05:38:33.9208719Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-01T05:38:33.9215834Z [command]"C:\Program Files\Git\bin\git.exe" config --global --add safe.directory D:\a\qompack\qompack
+2026-10-01T05:38:33.9825507Z Deleting the contents of 'D:\a\qompack\qompack'
+2026-10-01T05:38:33.9831092Z ##[group]Initializing the repository
+2026-10-01T05:38:33.9838218Z [command]"C:\Program Files\Git\bin\git.exe" init D:\a\qompack\qompack
+2026-10-01T05:38:34.0748643Z Initialized empty Git repository in D:/a/qompack/qompack/.git/
+2026-10-01T05:38:34.0798342Z [command]"C:\Program Files\Git\bin\git.exe" remote add origin https://github.com/AidanHT/qompack
+2026-10-01T05:38:34.1448349Z ##[endgroup]
+2026-10-01T05:38:34.1449747Z ##[group]Disabling automatic garbage collection
+2026-10-01T05:38:34.1456197Z [command]"C:\Program Files\Git\bin\git.exe" config --local gc.auto 0
+2026-10-01T05:38:34.1709610Z ##[endgroup]
+2026-10-01T05:38:34.1711068Z ##[group]Setting up auth
+2026-10-01T05:38:34.1720076Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp core\.sshCommand
+2026-10-01T05:38:34.1976716Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\""
+2026-10-01T05:38:35.7230666Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-01T05:38:35.7497412Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\""
+2026-10-01T05:38:36.2767549Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-01T05:38:36.3047128Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "git config --local --show-origin --name-only --get-regexp remote.origin.url"
+2026-10-01T05:38:36.8044742Z [command]"C:\Program Files\Git\bin\git.exe" config --local http.https://github.com/.extraheader "AUTHORIZATION: basic ***"
+2026-10-01T05:38:36.8325746Z ##[endgroup]
+2026-10-01T05:38:36.8327757Z ##[group]Fetching the repository
+2026-10-01T05:38:36.8370149Z [command]"C:\Program Files\Git\bin\git.exe" -c protocol.version=2 fetch --prune --no-recurse-submodules origin +refs/heads/*:refs/remotes/origin/* +refs/tags/*:refs/tags/*
+2026-10-01T05:38:41.9783334Z From https://github.com/AidanHT/qompack
+2026-10-01T05:38:41.9784276Z  * [new branch]        chore/post-v2-hardening -> origin/chore/post-v2-hardening
+2026-10-01T05:38:41.9784883Z  * [new branch]        develop                 -> origin/develop
+2026-10-01T05:38:41.9785322Z  * [new branch]        verify/v3               -> origin/verify/v3
+2026-10-01T05:38:41.9785784Z  * [new branch]        verify/v5-final         -> origin/verify/v5-final
+2026-10-01T05:38:41.9786315Z  * [new branch]        verify/v6               -> origin/verify/v6
+2026-10-01T05:38:41.9844522Z [command]"C:\Program Files\Git\bin\git.exe" branch --list --remote origin/verify/v6
+2026-10-01T05:38:42.0171039Z   origin/verify/v6
+2026-10-01T05:38:42.0218907Z [command]"C:\Program Files\Git\bin\git.exe" rev-parse refs/remotes/origin/verify/v6
+2026-10-01T05:38:42.0455121Z 3e4e3ee9e2e4875c345316325c4a34878000b5d6
+2026-10-01T05:38:42.0485855Z ##[endgroup]
+2026-10-01T05:38:42.0486326Z ##[group]Determining the checkout info
+2026-10-01T05:38:42.0487963Z ##[endgroup]
+2026-10-01T05:38:42.0496331Z [command]"C:\Program Files\Git\bin\git.exe" sparse-checkout disable
+2026-10-01T05:38:42.0879128Z [command]"C:\Program Files\Git\bin\git.exe" config --local --unset-all extensions.worktreeConfig
+2026-10-01T05:38:42.1131049Z ##[group]Checking out the ref
+2026-10-01T05:38:42.1140221Z [command]"C:\Program Files\Git\bin\git.exe" checkout --progress --force -B verify/v6 refs/remotes/origin/verify/v6
+2026-10-01T05:38:43.2039929Z Updating files:  26% (3648/13888)
+2026-10-01T05:38:43.2334725Z Updating files:  27% (3750/13888)
+2026-10-01T05:38:43.2582244Z Updating files:  28% (3889/13888)
+2026-10-01T05:38:43.2840486Z Updating files:  29% (4028/13888)
+2026-10-01T05:38:43.3082960Z Updating files:  30% (4167/13888)
+2026-10-01T05:38:43.3391604Z Updating files:  31% (4306/13888)
+2026-10-01T05:38:43.3617159Z Updating files:  32% (4445/13888)
+2026-10-01T05:38:43.3874266Z Updating files:  33% (4584/13888)
+2026-10-01T05:38:43.4131693Z Updating files:  34% (4722/13888)
+2026-10-01T05:38:43.4427677Z Updating files:  35% (4861/13888)
+2026-10-01T05:38:43.4668031Z Updating files:  36% (5000/13888)
+2026-10-01T05:38:43.4951326Z Updating files:  37% (5139/13888)
+2026-10-01T05:38:43.5177328Z Updating files:  38% (5278/13888)
+2026-10-01T05:38:43.5466824Z Updating files:  39% (5417/13888)
+2026-10-01T05:38:43.5740691Z Updating files:  40% (5556/13888)
+2026-10-01T05:38:43.5971739Z Updating files:  41% (5695/13888)
+2026-10-01T05:38:43.6235947Z Updating files:  42% (5833/13888)
+2026-10-01T05:38:43.6482446Z Updating files:  43% (5972/13888)
+2026-10-01T05:38:43.6739406Z Updating files:  44% (6111/13888)
+2026-10-01T05:38:43.6983380Z Updating files:  45% (6250/13888)
+2026-10-01T05:38:43.7225534Z Updating files:  46% (6389/13888)
+2026-10-01T05:38:43.7454690Z Updating files:  47% (6528/13888)
+2026-10-01T05:38:43.7700378Z Updating files:  48% (6667/13888)
+2026-10-01T05:38:43.7998194Z Updating files:  49% (6806/13888)
+2026-10-01T05:38:43.8243754Z Updating files:  50% (6944/13888)
+2026-10-01T05:38:43.8457762Z Updating files:  51% (7083/13888)
+2026-10-01T05:38:43.8678798Z Updating files:  52% (7222/13888)
+2026-10-01T05:38:43.8916087Z Updating files:  53% (7361/13888)
+2026-10-01T05:38:43.9257836Z Updating files:  54% (7500/13888)
+2026-10-01T05:38:43.9506225Z Updating files:  55% (7639/13888)
+2026-10-01T05:38:43.9732268Z Updating files:  56% (7778/13888)
+2026-10-01T05:38:43.9964298Z Updating files:  57% (7917/13888)
+2026-10-01T05:38:44.0239786Z Updating files:  58% (8056/13888)
+2026-10-01T05:38:44.0493327Z Updating files:  59% (8194/13888)
+2026-10-01T05:38:44.0770363Z Updating files:  60% (8333/13888)
+2026-10-01T05:38:44.1079182Z Updating files:  61% (8472/13888)
+2026-10-01T05:38:44.1571297Z Updating files:  62% (8611/13888)
+2026-10-01T05:38:44.4699736Z Updating files:  63% (8750/13888)
+2026-10-01T05:38:44.5903666Z Updating files:  63% (8780/13888)
+2026-10-01T05:38:44.6164730Z Updating files:  64% (8889/13888)
+2026-10-01T05:38:44.6493160Z Updating files:  65% (9028/13888)
+2026-10-01T05:38:44.6738692Z Updating files:  66% (9167/13888)
+2026-10-01T05:38:44.6990436Z Updating files:  67% (9305/13888)
+2026-10-01T05:38:44.7261607Z Updating files:  68% (9444/13888)
+2026-10-01T05:38:44.7781689Z Updating files:  69% (9583/13888)
+2026-10-01T05:38:44.8084217Z Updating files:  70% (9722/13888)
+2026-10-01T05:38:44.8365498Z Updating files:  71% (9861/13888)
+2026-10-01T05:38:44.8711022Z Updating files:  72% (10000/13888)
+2026-10-01T05:38:44.9457781Z Updating files:  73% (10139/13888)
+2026-10-01T05:38:44.9745415Z Updating files:  74% (10278/13888)
+2026-10-01T05:38:45.0066142Z Updating files:  75% (10416/13888)
+2026-10-01T05:38:45.0357971Z Updating files:  76% (10555/13888)
+2026-10-01T05:38:45.0787247Z Updating files:  77% (10694/13888)
+2026-10-01T05:38:45.1055712Z Updating files:  78% (10833/13888)
+2026-10-01T05:38:45.1435403Z Updating files:  79% (10972/13888)
+2026-10-01T05:38:45.1687709Z Updating files:  80% (11111/13888)
+2026-10-01T05:38:45.1960169Z Updating files:  81% (11250/13888)
+2026-10-01T05:38:45.1972588Z Updating files:  82% (11389/13888)
+2026-10-01T05:38:45.2313807Z Updating files:  82% (11396/13888)
+2026-10-01T05:38:45.2693626Z Updating files:  83% (11528/13888)
+2026-10-01T05:38:45.3003869Z Updating files:  84% (11666/13888)
+2026-10-01T05:38:45.3273216Z Updating files:  85% (11805/13888)
+2026-10-01T05:38:45.3561945Z Updating files:  86% (11944/13888)
+2026-10-01T05:38:45.3821306Z Updating files:  87% (12083/13888)
+2026-10-01T05:38:45.4159431Z Updating files:  88% (12222/13888)
+2026-10-01T05:38:45.4413259Z Updating files:  89% (12361/13888)
+2026-10-01T05:38:45.4804092Z Updating files:  90% (12500/13888)
+2026-10-01T05:38:45.5138362Z Updating files:  91% (12639/13888)
+2026-10-01T05:38:45.9562343Z Updating files:  92% (12777/13888)
+2026-10-01T05:38:46.0435424Z Updating files:  93% (12916/13888)
+2026-10-01T05:38:46.0772628Z Updating files:  94% (13055/13888)
+2026-10-01T05:38:46.1155461Z Updating files:  95% (13194/13888)
+2026-10-01T05:38:46.1461666Z Updating files:  96% (13333/13888)
+2026-10-01T05:38:46.1793389Z Updating files:  97% (13472/13888)
+2026-10-01T05:38:46.2089630Z Updating files:  98% (13611/13888)
+2026-10-01T05:38:46.2115698Z Updating files:  98% (13737/13888)
+2026-10-01T05:38:46.2446567Z Updating files:  99% (13750/13888)
+2026-10-01T05:38:46.2446935Z Updating files: 100% (13888/13888)
+2026-10-01T05:38:46.2447243Z Updating files: 100% (13888/13888), done.
+2026-10-01T05:38:46.2704358Z Switched to a new branch 'verify/v6'
+2026-10-01T05:38:46.2718850Z branch 'verify/v6' set up to track 'origin/verify/v6'.
+2026-10-01T05:38:46.2833320Z ##[endgroup]
+2026-10-01T05:38:46.3126326Z [command]"C:\Program Files\Git\bin\git.exe" log -1 --format=%H
+2026-10-01T05:38:46.3356059Z 3e4e3ee9e2e4875c345316325c4a34878000b5d6
+2026-10-01T05:38:46.3762035Z ##[group]Run actions/setup-go@v5
+2026-10-01T05:38:46.3762301Z with:
+2026-10-01T05:38:46.3762478Z   go-version: 1.26.6
+2026-10-01T05:38:46.3762634Z   cache: true
+2026-10-01T05:38:46.3762795Z   check-latest: false
+2026-10-01T05:38:46.3764941Z   token: ***
+2026-10-01T05:38:46.3765087Z env:
+2026-10-01T05:38:46.3765239Z   GOTOOLCHAIN: local
+2026-10-01T05:38:46.3765397Z   CGO_ENABLED: 1
+2026-10-01T05:38:46.3765534Z ##[endgroup]
+2026-10-01T05:38:46.5099705Z Setup go version spec 1.26.6
+2026-10-01T05:38:46.5109970Z Attempting to download 1.26.6...
+2026-10-01T05:38:46.5262685Z (node:6636) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-10-01T05:38:46.5263246Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-10-01T05:38:47.4507586Z matching 1.26.6...
+2026-10-01T05:38:47.4532753Z Acquiring 1.26.6 from https://github.com/actions/go-versions/releases/download/1.26.6-31764261251/go-1.26.6-win32-x64.zip
+2026-10-01T05:38:48.0192636Z Extracting Go...
+2026-10-01T05:38:48.1325700Z [command]"C:\Program Files\PowerShell\7\pwsh.exe" -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command "$ErrorActionPreference = 'Stop' ; try { Add-Type -AssemblyName System.IO.Compression.ZipFile } catch { } ; try { [System.IO.Compression.ZipFile]::ExtractToDirectory('D:\a\_temp\go-1.26.6-win32-x64.zip', 'D:\a\_temp\59390113-c1e3-41f3-83b3-aa13f7e8dc93', $true) } catch { if (($_.Exception.GetType().FullName -eq 'System.Management.Automation.MethodException') -or ($_.Exception.GetType().FullName -eq 'System.Management.Automation.RuntimeException') ){ Expand-Archive -LiteralPath 'D:\a\_temp\go-1.26.6-win32-x64.zip' -DestinationPath 'D:\a\_temp\59390113-c1e3-41f3-83b3-aa13f7e8dc93' -Force } else { throw $_ } } ;"
+2026-10-01T05:38:52.9681675Z Successfully extracted go to D:\a\_temp\59390113-c1e3-41f3-83b3-aa13f7e8dc93
+2026-10-01T05:38:52.9682030Z Adding to the cache ...
+2026-10-01T05:39:01.8230786Z Created link C:\hostedtoolcache\windows\go\1.26.6\x64 => D:\hostedtoolcache\windows\go\1.26.6\x64
+2026-10-01T05:39:01.8234101Z Created link C:\hostedtoolcache\windows\go\1.26.6\x64.complete => D:\hostedtoolcache\windows\go\1.26.6\x64.complete
+2026-10-01T05:39:01.8235089Z Successfully cached go to C:\hostedtoolcache\windows\go\1.26.6\x64
+2026-10-01T05:39:01.8240924Z Added go to the path
+2026-10-01T05:39:01.8243358Z Successfully set up Go version 1.26.6
+2026-10-01T05:39:02.0463591Z [command]C:\hostedtoolcache\windows\go\1.26.6\x64\bin\go.exe env GOMODCACHE
+2026-10-01T05:39:02.0507046Z [command]C:\hostedtoolcache\windows\go\1.26.6\x64\bin\go.exe env GOCACHE
+2026-10-01T05:39:02.0698079Z C:\Users\runneradmin\go\pkg\mod
+2026-10-01T05:39:02.0750930Z C:\Users\runneradmin\AppData\Local\go-build
+2026-10-01T05:39:02.3825351Z Cache is not found
+2026-10-01T05:39:02.3846975Z go version go1.26.6 windows/amd64
+2026-10-01T05:39:02.3847149Z 
+2026-10-01T05:39:02.3847395Z ##[group]go env
+2026-10-01T05:39:05.5548367Z set AR=ar
+2026-10-01T05:39:05.5548786Z set CC=gcc
+2026-10-01T05:39:05.5549050Z set CGO_CFLAGS=-O2 -g
+2026-10-01T05:39:05.5549612Z set CGO_CPPFLAGS=
+2026-10-01T05:39:05.5549874Z set CGO_CXXFLAGS=-O2 -g
+2026-10-01T05:39:05.5550141Z set CGO_ENABLED=1
+2026-10-01T05:39:05.5550386Z set CGO_FFLAGS=-O2 -g
+2026-10-01T05:39:05.5550788Z set CGO_LDFLAGS=-O2 -g
+2026-10-01T05:39:05.5551028Z set CXX=g++
+2026-10-01T05:39:05.5551225Z set GCCGO=gccgo
+2026-10-01T05:39:05.5551671Z set GO111MODULE=
+2026-10-01T05:39:05.5551892Z set GOAMD64=v1
+2026-10-01T05:39:05.5552089Z set GOARCH=amd64
+2026-10-01T05:39:05.5552296Z set GOAUTH=netrc
+2026-10-01T05:39:05.5552493Z set GOBIN=
+2026-10-01T05:39:05.5552772Z set GOCACHE=C:\Users\runneradmin\AppData\Local\go-build
+2026-10-01T05:39:05.5553130Z set GOCACHEPROG=
+2026-10-01T05:39:05.5553325Z set GODEBUG=
+2026-10-01T05:39:05.5553616Z set GOENV=C:\Users\runneradmin\AppData\Roaming\go\env
+2026-10-01T05:39:05.5553942Z set GOEXE=.exe
+2026-10-01T05:39:05.5555910Z set GOEXPERIMENT=
+2026-10-01T05:39:05.5556206Z set GOFIPS140=off
+2026-10-01T05:39:05.5556433Z set GOFLAGS=
+2026-10-01T05:39:05.5557316Z set GOGCCFLAGS=-m64 -mthreads -Wl,--no-gc-sections -fmessage-length=0 -ffile-prefix-map=C:\Users\RUNNER~1\AppData\Local\Temp\go-build3224285518=/tmp/go-build -gno-record-gcc-switches
+2026-10-01T05:39:05.5558180Z set GOHOSTARCH=amd64
+2026-10-01T05:39:05.5558409Z set GOHOSTOS=windows
+2026-10-01T05:39:05.5558614Z set GOINSECURE=
+2026-10-01T05:39:05.5558865Z set GOMOD=D:\a\qompack\qompack\go.mod
+2026-10-01T05:39:05.5559219Z set GOMODCACHE=C:\Users\runneradmin\go\pkg\mod
+2026-10-01T05:39:05.5559520Z set GONOPROXY=
+2026-10-01T05:39:05.5559718Z set GONOSUMDB=
+2026-10-01T05:39:05.5559936Z set GOOS=windows
+2026-10-01T05:39:05.5560185Z set GOPATH=C:\Users\runneradmin\go
+2026-10-01T05:39:05.5560509Z set GOPRIVATE=
+2026-10-01T05:39:05.5560851Z set GOPROXY=https://proxy.golang.org,direct
+2026-10-01T05:39:05.5561230Z set GOROOT=C:\hostedtoolcache\windows\go\1.26.6\x64
+2026-10-01T05:39:05.5561594Z set GOSUMDB=sum.golang.org
+2026-10-01T05:39:05.5561858Z set GOTELEMETRY=local
+2026-10-01T05:39:05.5562235Z set GOTELEMETRYDIR=C:\Users\runneradmin\AppData\Roaming\go\telemetry
+2026-10-01T05:39:05.5562654Z set GOTMPDIR=
+2026-10-01T05:39:05.5562868Z set GOTOOLCHAIN=local
+2026-10-01T05:39:05.5563257Z set GOTOOLDIR=C:\hostedtoolcache\windows\go\1.26.6\x64\pkg\tool\windows_amd64
+2026-10-01T05:39:05.5563929Z set GOVCS=
+2026-10-01T05:39:05.5564108Z set GOVERSION=go1.26.6
+2026-10-01T05:39:05.5564308Z set GOWORK=
+2026-10-01T05:39:05.5564500Z set PKG_CONFIG=pkg-config
+2026-10-01T05:39:05.5564660Z 
+2026-10-01T05:39:05.5565017Z ##[endgroup]
+2026-10-01T05:39:05.5829039Z ##[group]Run go test -race -timeout=30m $(go list ./... | grep -v '/test/e2e$')
+2026-10-01T05:39:05.5829564Z [36;1mgo test -race -timeout=30m $(go list ./... | grep -v '/test/e2e$')[0m
+2026-10-01T05:39:05.5850502Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+2026-10-01T05:39:05.5850805Z env:
+2026-10-01T05:39:05.5850950Z   GOTOOLCHAIN: local
+2026-10-01T05:39:05.5851116Z   CGO_ENABLED: 1
+2026-10-01T05:39:05.5851294Z   QOMPACK_UNDER_COLOAD: 1
+2026-10-01T05:39:05.5851459Z ##[endgroup]
+2026-10-01T05:39:06.8584035Z go: downloading github.com/stretchr/testify v1.10.0
+2026-10-01T05:39:06.9989927Z go: downloading github.com/Microsoft/go-winio v0.6.2
+2026-10-01T05:39:07.0216934Z go: downloading golang.org/x/sys v0.47.0
+2026-10-01T05:39:07.0397074Z go: downloading github.com/google/go-cmp v0.7.0
+2026-10-01T05:39:07.1085102Z go: downloading pgregory.net/rapid v1.1.0
+2026-10-01T05:39:07.1947422Z go: downloading github.com/klauspost/compress v1.18.7
+2026-10-01T05:39:07.2140980Z go: downloading golang.org/x/tools v0.49.0
+2026-10-01T05:39:08.5378491Z go: downloading github.com/davecgh/go-spew v1.1.1
+2026-10-01T05:39:09.6969797Z go: downloading github.com/pmezard/go-difflib v1.0.0
+2026-10-01T05:39:11.8116740Z go: downloading gopkg.in/yaml.v3 v3.0.1
+2026-10-01T05:39:16.2436793Z go: downloading golang.org/x/sync v0.22.0
+2026-10-01T05:39:16.2620689Z go: downloading golang.org/x/mod v0.40.0
+2026-10-01T05:39:40.3157120Z ?   	github.com/qompack/qompack/cmd/qompack	[no test files]
+2026-10-01T05:39:51.9862095Z ok  	github.com/qompack/qompack/internal/admission	1.198s
+2026-10-01T05:39:57.9775520Z ok  	github.com/qompack/qompack/internal/analyzer	6.336s
+2026-10-01T05:39:57.9776242Z ok  	github.com/qompack/qompack/internal/analyzer/analyzertest	1.128s
+2026-10-01T05:41:04.2654604Z ok  	github.com/qompack/qompack/internal/canon	61.535s
+2026-10-01T05:41:04.2655307Z ok  	github.com/qompack/qompack/internal/canon/canontest	1.047s
+2026-10-01T05:43:33.0346157Z ok  	github.com/qompack/qompack/internal/checkpoint	194.699s
+2026-10-01T05:43:33.0346914Z ok  	github.com/qompack/qompack/internal/checkpoint/checkpointtest	1.123s
+2026-10-01T05:43:33.0347567Z ok  	github.com/qompack/qompack/internal/chunk	13.000s
+2026-10-01T05:43:33.0348382Z ok  	github.com/qompack/qompack/internal/chunk/chunktest	1.117s
+2026-10-01T05:43:33.0348965Z ok  	github.com/qompack/qompack/internal/cli	173.119s
+2026-10-01T05:43:33.0349496Z ok  	github.com/qompack/qompack/internal/commands	1.426s
+2026-10-01T05:43:33.0350054Z ok  	github.com/qompack/qompack/internal/config	35.947s
+2026-10-01T05:43:33.0350618Z ok  	github.com/qompack/qompack/internal/contract	4.026s
+2026-10-01T05:43:33.0351209Z ok  	github.com/qompack/qompack/internal/contract/contracttest	1.568s
+2026-10-01T05:43:33.0351799Z ok  	github.com/qompack/qompack/internal/core	1.077s
+2026-10-01T06:01:31.9940919Z --- FAIL: TestStop_IsNotHeldBehindASessionEndsDrain (18.75s)
+2026-10-01T06:01:31.9943805Z     flush_async_test.go:434: 
+2026-10-01T06:01:31.9944919Z         	Error Trace:	D:/a/qompack/qompack/internal/daemon/flush_async_test.go:434
+2026-10-01T06:01:31.9945953Z         	Error:      	"7.2965722s" is not less than "2.45s"
+2026-10-01T06:01:31.9946715Z         	Test:       	TestStop_IsNotHeldBehindASessionEndsDrain
+2026-10-01T06:01:31.9948116Z         	Messages:   	Stop waited 7.2965722s behind a session end's drain: the grace must run from Stop's start, not after runWG
+2026-10-01T06:01:31.9949170Z --- FAIL: TestStageBinary_NeverRemovesACopyHeldOpen (0.07s)
+2026-10-01T06:01:31.9949779Z     spawn_stage_windows_test.go:118: 
+2026-10-01T06:01:31.9950753Z         	Error Trace:	D:/a/qompack/qompack/internal/daemon/spawn_stage_windows_test.go:118
+2026-10-01T06:01:31.9951555Z         	Error:      	Target error should be in err chain:
+2026-10-01T06:01:31.9952804Z         	            	expected: "The process cannot access the file because it is being used by another process."
+2026-10-01T06:01:31.9955679Z         	            	in chain: 
+2026-10-01T06:01:31.9956190Z         	Test:       	TestStageBinary_NeverRemovesACopyHeldOpen
+2026-10-01T06:01:31.9956724Z         	Messages:   	a copy that cannot be verified is never returned to be run
+2026-10-01T06:01:31.9957160Z --- FAIL: TestStageBinary_RestagesACopyItCanNeverRead (0.11s)
+2026-10-01T06:01:31.9957567Z     spawn_stage_windows_test.go:134: 
+2026-10-01T06:01:31.9958198Z         	Error Trace:	D:/a/qompack/qompack/internal/daemon/spawn_stage_windows_test.go:134
+2026-10-01T06:01:31.9958888Z         	Error:      	Target error should be in err chain:
+2026-10-01T06:01:31.9959486Z         	            	expected: "permission denied"
+2026-10-01T06:01:31.9959932Z         	            	in chain: 
+2026-10-01T06:01:31.9960336Z         	Test:       	TestStageBinary_RestagesACopyItCanNeverRead
+2026-10-01T06:01:31.9960803Z         	Messages:   	precondition: the copy's data cannot be read
+2026-10-01T06:01:31.9961113Z FAIL
+2026-10-01T06:01:31.9961411Z FAIL	github.com/qompack/qompack/internal/daemon	1203.316s
+2026-10-01T06:01:31.9961792Z ok  	github.com/qompack/qompack/internal/dag	31.814s
+2026-10-01T06:01:31.9962274Z ok  	github.com/qompack/qompack/internal/dag/dagtest	1.391s
+2026-10-01T06:01:31.9962626Z ok  	github.com/qompack/qompack/internal/eval	4.557s
+2026-10-01T06:01:31.9962975Z ok  	github.com/qompack/qompack/internal/eval/evaltest	1.179s
+2026-10-01T06:01:31.9963485Z ok  	github.com/qompack/qompack/internal/grammar	3.128s
+2026-10-01T06:01:31.9966030Z ok  	github.com/qompack/qompack/internal/grammar/grammartest	1.088s
+2026-10-01T06:01:31.9966737Z ok  	github.com/qompack/qompack/internal/hookio	1.131s
+2026-10-01T06:01:31.9967310Z ok  	github.com/qompack/qompack/internal/hostperm	3.819s
+2026-10-01T06:01:31.9967927Z ok  	github.com/qompack/qompack/internal/ipc	52.065s
+2026-10-01T06:01:31.9968480Z ok  	github.com/qompack/qompack/internal/ipc/ipctest	1.364s
+2026-10-01T06:01:31.9969018Z ok  	github.com/qompack/qompack/internal/logging	1.233s
+2026-10-01T06:01:31.9970078Z --- FAIL: TestHostPolicy_AShortNameSpellingIsRefused (1.67s)
+2026-10-01T06:01:31.9970710Z     --- FAIL: TestHostPolicy_AShortNameSpellingIsRefused/short_project_root/absolute_rule,_relative_path (0.12s)
+2026-10-01T06:01:31.9971308Z         hostperm_shortname_windows_test.go:131: 
+2026-10-01T06:01:31.9971929Z             	Error Trace:	D:/a/qompack/qompack/internal/mcp/hostperm_shortname_windows_test.go:47
+2026-10-01T06:01:31.9972828Z             	            				D:/a/qompack/qompack/internal/mcp/hostperm_shortname_windows_test.go:131
+2026-10-01T06:01:31.9975413Z             	Error:      	"{\"found\":true,\"hash\":\"sha256:d56d2777c57320a19ab1985aeea44256f45d97e1645f8a0a853d58e0acfc368e\",\"path\":\"configuration/credentials.secret\",\"source\":\"store\",\"turn\":4,\"span\":[0,67],\"total_bytes\":67,\"truncated\":false,\"widened\":false,\"expansions\":1,\"promoted\":false,\"content\":\"archived marker SHORTNAME-ARCHIVE-5d20e7a4 for the rotation window\\n\"}" should not contain "SHORTNAME-ARCHIVE-5d20e7a4"
+2026-10-01T06:01:31.9977136Z             	Test:       	TestHostPolicy_AShortNameSpellingIsRefused/short_project_root/absolute_rule,_relative_path
+2026-10-01T06:01:31.9979314Z             	Messages:   	archived content was served: {"found":true,"hash":"sha256:d56d2777c57320a19ab1985aeea44256f45d97e1645f8a0a853d58e0acfc368e","path":"configuration/credentials.secret","source":"store","turn":4,"span":[0,67],"total_bytes":67,"truncated":false,"widened":false,"expansions":1,"promoted":false,"content":"archived marker SHORTNAME-ARCHIVE-5d20e7a4 for the rotation window\n"}
+2026-10-01T06:01:31.9980858Z FAIL
+2026-10-01T06:01:31.9981128Z FAIL	github.com/qompack/qompack/internal/mcp	623.552s
+2026-10-01T06:01:31.9981492Z ok  	github.com/qompack/qompack/internal/mcp/mcptest	1.160s
+2026-10-01T06:01:32.0031416Z ok  	github.com/qompack/qompack/internal/negknow	64.963s
+2026-10-01T06:01:32.0032415Z ok  	github.com/qompack/qompack/internal/negknow/negknowtest	2.187s
+2026-10-01T06:01:32.0033741Z ok  	github.com/qompack/qompack/internal/obs	1.108s
+2026-10-01T06:01:32.0034275Z ok  	github.com/qompack/qompack/internal/observer	333.700s
+2026-10-01T06:01:32.0034814Z ok  	github.com/qompack/qompack/internal/observer/observertest	5.254s
+2026-10-01T06:01:32.0035457Z --- FAIL: TestTerminatePartialTail_UnreadablePathIsLeftAlone (0.06s)
+2026-10-01T06:01:32.0036059Z     appendonly_test.go:998: 
+2026-10-01T06:01:32.0036841Z         	Error Trace:	D:/a/qompack/qompack/internal/paths/appendonly_test.go:998
+2026-10-01T06:01:32.0037643Z         	Error:      	Should be zero, but was 1
+2026-10-01T06:01:32.0038342Z         	Test:       	TestTerminatePartialTail_UnreadablePathIsLeftAlone
+2026-10-01T06:01:32.0039611Z         	Messages:   	an unreadable path must not receive a terminator write
+2026-10-01T06:01:32.0040301Z --- FAIL: TestEnsureLayout_WriteAtomicFailureIsPropagated (0.12s)
+2026-10-01T06:01:32.0040842Z     layout_test.go:107: 
+2026-10-01T06:01:32.0041504Z         	Error Trace:	D:/a/qompack/qompack/internal/paths/layout_test.go:107
+2026-10-01T06:01:32.0042204Z         	Error:      	An error is expected but got nil.
+2026-10-01T06:01:32.0042968Z         	Test:       	TestEnsureLayout_WriteAtomicFailureIsPropagated
+2026-10-01T06:01:32.0043461Z FAIL
+2026-10-01T06:01:32.0043863Z FAIL	github.com/qompack/qompack/internal/paths	26.001s
+2026-10-01T06:01:32.0044458Z ok  	github.com/qompack/qompack/internal/paths/pathstest	1.182s
+2026-10-01T06:01:32.0045063Z ok  	github.com/qompack/qompack/internal/pins	7.293s
+2026-10-01T06:01:32.0045914Z ok  	github.com/qompack/qompack/internal/pins/pinstest	1.101s
+2026-10-01T06:01:32.0046522Z ok  	github.com/qompack/qompack/internal/pluginmanifest	1.259s
+2026-10-01T06:01:32.0047124Z ok  	github.com/qompack/qompack/internal/redact	3.615s
+2026-10-01T06:01:32.0047708Z ok  	github.com/qompack/qompack/internal/redact/redacttest	1.174s
+2026-10-01T06:01:32.0048310Z ok  	github.com/qompack/qompack/internal/rehydrate	29.468s
+2026-10-01T06:01:32.0048946Z ok  	github.com/qompack/qompack/internal/rehydrate/rehydratetest	2.595s
+2026-10-01T06:01:32.0049566Z ok  	github.com/qompack/qompack/internal/rules	1.454s
+2026-10-01T06:01:32.0050119Z ok  	github.com/qompack/qompack/internal/rules/rulestest	1.117s
+2026-10-01T06:01:32.0050707Z ok  	github.com/qompack/qompack/internal/scheduler	10.493s
+2026-10-01T06:01:32.0051333Z ok  	github.com/qompack/qompack/internal/scheduler/schedulertest	1.098s
+2026-10-01T06:01:32.0051988Z ok  	github.com/qompack/qompack/internal/sketch	36.571s
+2026-10-01T06:01:32.0052572Z ok  	github.com/qompack/qompack/internal/sketch/sketchtest	3.247s
+2026-10-01T06:01:32.0053127Z ok  	github.com/qompack/qompack/internal/skills	1.356s
+2026-10-01T06:01:32.0053703Z ok  	github.com/qompack/qompack/internal/skills/skillstest	1.188s
+2026-10-01T06:01:32.0054288Z ok  	github.com/qompack/qompack/internal/state	1.105s
+2026-10-01T06:05:55.7320935Z ok  	github.com/qompack/qompack/internal/store	971.941s
+2026-10-01T06:05:55.7321408Z ok  	github.com/qompack/qompack/internal/store/storetest	4.404s
+2026-10-01T06:05:55.7321940Z ok  	github.com/qompack/qompack/internal/symbols	2.236s
+2026-10-01T06:05:55.7322453Z ok  	github.com/qompack/qompack/internal/symbols/symbolstest	1.030s
+2026-10-01T06:05:55.7322819Z ok  	github.com/qompack/qompack/internal/testutil	9.219s
+2026-10-01T06:05:55.7323158Z ok  	github.com/qompack/qompack/internal/tokens	25.558s
+2026-10-01T06:05:55.7323523Z ok  	github.com/qompack/qompack/internal/tokens/tokenstest	1.058s
+2026-10-01T06:05:55.7323881Z ok  	github.com/qompack/qompack/test/bench/hotpath	21.632s
+2026-10-01T06:05:55.7324228Z ok  	github.com/qompack/qompack/test/canary	23.102s
+2026-10-01T06:05:55.7324537Z ok  	github.com/qompack/qompack/test/dedup	3.250s
+2026-10-01T06:05:55.7324840Z ok  	github.com/qompack/qompack/test/docs	4.084s
+2026-10-01T06:05:55.7325374Z ok  	github.com/qompack/qompack/test/fault	768.808s
+2026-10-01T06:05:55.7325790Z --- FAIL: TestCarriedDefects_WaveReportRequiresResolution (0.04s)
+2026-10-01T06:05:55.7326506Z     --- FAIL: TestCarriedDefects_WaveReportRequiresResolution/SP06-D2 (0.00s)
+2026-10-01T06:05:55.7327030Z         carrieddefects_test.go:293: 
+2026-10-01T06:05:55.7327571Z             	Error Trace:	D:/a/qompack/qompack/test/guards/carrieddefects_test.go:293
+2026-10-01T06:05:55.7328118Z             	Error:      	carried defect left unresolved at wave sign-off
+2026-10-01T06:05:55.7328647Z             	Test:       	TestCarriedDefects_WaveReportRequiresResolution/SP06-D2
+2026-10-01T06:05:55.7331004Z             	Messages:   	SP06-D2 is still `deferred:V6-VERIFY` in plans/CARRIED-DEFECTS.tsv, but plans/V6-report.md exists — V6-VERIFY has been signed off with a defect it was responsible for resolving.
+2026-10-01T06:05:55.7331704Z             	            	
+2026-10-01T06:05:55.7333390Z             	            	  the PutBytes cold and warm budgets (3 ms / 400 us) are 5.2x and 14.1x over on Windows at V5 (15.74 / 5.65 ms, cold allocations up 28 % since the wave-3 baseline) and have never been measured on the reference platform
+2026-10-01T06:05:55.7334085Z             	            	
+2026-10-01T06:05:55.7335620Z             	            	Resolve it one of two ways: fix it and set the status to `fixed`, or set the status to `deferred:<a later checkpoint>` and add the reason to plans/V2-WAVE1-carried-defects.md. Both are fine; leaving it for this checkpoint is not.
+2026-10-01T06:05:55.7336485Z     --- FAIL: TestCarriedDefects_WaveReportRequiresResolution/SP08-D1 (0.00s)
+2026-10-01T06:05:55.7337788Z         carrieddefects_test.go:293: 
+2026-10-01T06:05:55.7338777Z             	Error Trace:	D:/a/qompack/qompack/test/guards/carrieddefects_test.go:293
+2026-10-01T06:05:55.7339543Z             	Error:      	carried defect left unresolved at wave sign-off
+2026-10-01T06:05:55.7340527Z             	Test:       	TestCarriedDefects_WaveReportRequiresResolution/SP08-D1
+2026-10-01T06:05:55.7342379Z             	Messages:   	SP08-D1 is still `deferred:V6-VERIFY` in plans/CARRIED-DEFECTS.tsv, but plans/V6-report.md exists — V6-VERIFY has been signed off with a defect it was responsible for resolving.
+2026-10-01T06:05:55.7343545Z             	            	
+2026-10-01T06:05:55.7346374Z             	            	  OnToolUse over a 256 KB tool result breaches budget B-C (l0_process, p99 < 50 ms): 53-115 ms on Qompack.md 8.1's own one-changed-line case and 262-655 ms when every chunk is novel, dominated by store.PutBytes's per-novel-chunk object-write path
+2026-10-01T06:05:55.7347828Z             	            	
+2026-10-01T06:05:55.7349457Z             	            	Resolve it one of two ways: fix it and set the status to `fixed`, or set the status to `deferred:<a later checkpoint>` and add the reason to plans/V2-SP-08-carried-defects.md. Both are fine; leaving it for this checkpoint is not.
+2026-10-01T06:05:55.7350312Z     --- FAIL: TestCarriedDefects_WaveReportRequiresResolution/SP10-D1 (0.00s)
+2026-10-01T06:05:55.7350747Z         carrieddefects_test.go:293: 
+2026-10-01T06:05:55.7351285Z             	Error Trace:	D:/a/qompack/qompack/test/guards/carrieddefects_test.go:293
+2026-10-01T06:05:55.7351822Z             	Error:      	carried defect left unresolved at wave sign-off
+2026-10-01T06:05:55.7352360Z             	Test:       	TestCarriedDefects_WaveReportRequiresResolution/SP10-D1
+2026-10-01T06:05:55.7353625Z             	Messages:   	SP10-D1 is still `deferred:V6-VERIFY` in plans/CARRIED-DEFECTS.tsv, but plans/V6-report.md exists — V6-VERIFY has been signed off with a defect it was responsible for resolving.
+2026-10-01T06:05:55.7354329Z             	            	
+2026-10-01T06:05:55.7356349Z             	            	  Finalize measures 42.8-43.8 ms/op at 170-208 % processor performance but 64-73 ms/op at 128 % and at base clock on Windows against exit criterion 1570's 50 ms after perf(checkpoint) 72f3226 removed the paths.Norm share (264-284 ms before), and the reference platform has never been measured
+2026-10-01T06:05:55.7357239Z             	            	
+2026-10-01T06:05:55.7358977Z             	            	Resolve it one of two ways: fix it and set the status to `fixed`, or set the status to `deferred:<a later checkpoint>` and add the reason to plans/V2-SP-10-carried-defects.md. Both are fine; leaving it for this checkpoint is not.
+2026-10-01T06:05:55.7359882Z     --- FAIL: TestCarriedDefects_WaveReportRequiresResolution/SP09-D1 (0.00s)
+2026-10-01T06:05:55.7360443Z         carrieddefects_test.go:293: 
+2026-10-01T06:05:55.7360973Z             	Error Trace:	D:/a/qompack/qompack/test/guards/carrieddefects_test.go:293
+2026-10-01T06:05:55.7361515Z             	Error:      	carried defect left unresolved at wave sign-off
+2026-10-01T06:05:55.7362042Z             	Test:       	TestCarriedDefects_WaveReportRequiresResolution/SP09-D1
+2026-10-01T06:05:55.7363223Z             	Messages:   	SP09-D1 is still `deferred:V6-VERIFY` in plans/CARRIED-DEFECTS.tsv, but plans/V6-report.md exists — V6-VERIFY has been signed off with a defect it was responsible for resolving.
+2026-10-01T06:05:55.7363896Z             	            	
+2026-10-01T06:05:55.7365891Z             	            	  negknow Open measures 258-273 ms CPU/op at 120 % processor performance but 586-633 ms at 55 % on Windows against its 300 ms budget, so the budget holds on this host only at turbo clocks, and the reference platform has never been measured
+2026-10-01T06:05:55.7366673Z             	            	
+2026-10-01T06:05:55.7368245Z             	            	Resolve it one of two ways: fix it and set the status to `fixed`, or set the status to `deferred:<a later checkpoint>` and add the reason to plans/V2-WAVE1-carried-defects.md. Both are fine; leaving it for this checkpoint is not.
+2026-10-01T06:05:55.7369791Z     --- FAIL: TestCarriedDefects_WaveReportRequiresResolution/SP20-D2 (0.00s)
+2026-10-01T06:05:55.7370216Z         carrieddefects_test.go:293: 
+2026-10-01T06:05:55.7370728Z             	Error Trace:	D:/a/qompack/qompack/test/guards/carrieddefects_test.go:293
+2026-10-01T06:05:55.7371286Z             	Error:      	carried defect left unresolved at wave sign-off
+2026-10-01T06:05:55.7371798Z             	Test:       	TestCarriedDefects_WaveReportRequiresResolution/SP20-D2
+2026-10-01T06:05:55.7372978Z             	Messages:   	SP20-D2 is still `deferred:V6-VERIFY` in plans/CARRIED-DEFECTS.tsv, but plans/V6-report.md exists — V6-VERIFY has been signed off with a defect it was responsible for resolving.
+2026-10-01T06:05:55.7373658Z             	            	
+2026-10-01T06:05:55.7376743Z             	            	  verify-on-read (16ecc77) adds an Lstat, an fstat and a content hash of the plaintext to every object read, so GetChunk measures 85-88 us/op (26 allocs) against the 60 us budget where the wave-3 baseline read 45 us (18 allocs), and Search_1000Roots, which reads every candidate chunk through the same path, 82 ms against 25 ms where the baseline read 45-52 ms; OpenSpan_4KB_of_4MB (19 -> 27 allocs) stays inside its 150 us at turbo but reads 316-333 us at base clock
+2026-10-01T06:05:55.7378062Z             	            	
+2026-10-01T06:05:55.7379638Z             	            	Resolve it one of two ways: fix it and set the status to `fixed`, or set the status to `deferred:<a later checkpoint>` and add the reason to plans/V2-WAVE1-carried-defects.md. Both are fine; leaving it for this checkpoint is not.
+2026-10-01T06:05:55.7380329Z FAIL
+2026-10-01T06:05:55.7380580Z FAIL	github.com/qompack/qompack/test/guards	194.423s
+2026-10-01T06:15:47.4788115Z ok  	github.com/qompack/qompack/test/integration	1052.925s
+2026-10-01T06:15:47.4788894Z ok  	github.com/qompack/qompack/test/platform	44.071s
+2026-10-01T06:15:47.4789326Z ok  	github.com/qompack/qompack/test/release	10.994s
+2026-10-01T06:15:47.4789649Z ok  	github.com/qompack/qompack/test/replay	52.984s
+2026-10-01T06:15:47.4789989Z ok  	github.com/qompack/qompack/test/replay/l3policy	1.669s
+2026-10-01T06:15:47.4790345Z ok  	github.com/qompack/qompack/test/security	69.246s
+2026-10-01T06:15:47.4790767Z bundle: packed qompack-plugin-v9.9.9-testing-linux-amd64.zip
+2026-10-01T06:15:47.4791114Z bundle: checksums.txt covers 1 archive(s)
+2026-10-01T06:15:47.4792659Z gen-config-docs: docs/config-reference.md is up to date
+2026-10-01T06:15:47.4793140Z gen-contract-fixtures: 11 package(s), 43 frozen fixture(s), 3 awaiting --record
+2026-10-01T06:15:47.4793668Z   consumers of an unrecorded fixture skip with "contract fixture not yet recorded (Rule W-2)"
+2026-10-01T06:15:47.4794155Z gen-contract-fixtures: OK (nothing written; the frozen set is byte-final)
+2026-10-01T06:15:47.4794559Z gen-mcp-docs: docs/mcp-tools.md is up to date
+2026-10-01T06:15:47.4794897Z gen-mcp-docs: wrote docs/mcp-tools.md
+2026-10-01T06:15:47.4795177Z gen-mcp-docs: docs/mcp-tools.md is up to date
+2026-10-01T06:15:47.4795459Z importgraph: OK (73 package(s) checked)
+2026-10-01T06:15:47.4795970Z --- FAIL: TestRunLiveEval_RelativeBundleReachesTheHostWhole (0.00s)
+2026-10-01T06:15:47.4796490Z     liveeval_test.go:1033: 
+2026-10-01T06:15:47.4796939Z         	Error Trace:	D:/a/qompack/qompack/tools/devtool/liveeval_test.go:1033
+2026-10-01T06:15:47.4797361Z         	Error:      	Received unexpected error:
+2026-10-01T06:15:47.4798744Z         	            	Rel: can't make C:\Users\RUNNER~1\AppData\Local\Temp\TestRunLiveEval_RelativeBundleReachesTheHostWhole995733140\001\qompack-plugin-9.9.9-test-windows-amd64 relative to D:\a\qompack\qompack\tools\devtool
+2026-10-01T06:15:47.4799609Z         	Test:       	TestRunLiveEval_RelativeBundleReachesTheHostWhole
+2026-10-01T06:15:47.4799992Z bundle: packed qompack-plugin-0.3.0-linux-amd64.zip
+2026-10-01T06:15:47.4800488Z bundle: packed qompack-plugin-0.3.0-linux-arm64.zip
+2026-10-01T06:15:47.4800812Z bundle: packed qompack-plugin-0.3.0-darwin-amd64.zip
+2026-10-01T06:15:47.4801138Z bundle: packed qompack-plugin-0.3.0-darwin-arm64.zip
+2026-10-01T06:15:47.4801490Z bundle: packed qompack-plugin-0.3.0-windows-amd64.zip
+2026-10-01T06:15:47.4801816Z bundle: packed qompack-plugin-0.3.0-windows-arm64.zip
+2026-10-01T06:15:47.4802113Z bundle: checksums.txt covers 6 archive(s)
+2026-10-01T06:15:47.4802712Z marketplace: wrote C:\Users\RUNNER~1\AppData\Local\Temp\TestMarketplace_PinsTheArchivesTheBundlerWrote1272972627\001\marketplace.json (6 targets, v0.3.0)
+2026-10-01T06:15:47.4803596Z marketplace: C:\Users\RUNNER~1\AppData\Local\Temp\TestMarketplace_PinsTheArchivesTheBundlerWrote1272972627\001\marketplace.json matches the generator (v0.3.0)
+2026-10-01T06:15:47.4804492Z marketplace: C:\Users\RUNNER~1\AppData\Local\Temp\TestMarketplace_PinsTheArchivesTheBundlerWrote1272972627\001\marketplace.json is valid (6 targets, version 0.3.0)
+2026-10-01T06:15:47.4805106Z flag provided but not defined: -nope
+2026-10-01T06:15:47.4805400Z Usage of marketplace:
+2026-10-01T06:15:47.4805628Z   -check
+2026-10-01T06:15:47.4805930Z     	regenerate and compare with --out instead of writing it
+2026-10-01T06:15:47.4806238Z   -checksums string
+2026-10-01T06:15:47.4806918Z     	the archives' sha256sum-format checksums.txt (devtool bundle --archive writes it) (default "dist/bundle/checksums.txt")
+2026-10-01T06:15:47.4807383Z   -out string
+2026-10-01T06:15:47.4807885Z     	where the generated marketplace.json is written (or, with --check, compared) (default "dist/bundle/marketplace.json")
+2026-10-01T06:15:47.4808330Z   -repo string
+2026-10-01T06:15:47.4808966Z     	the GitHub owner/repo whose releases host the archives (default "AidanHT/qompack")
+2026-10-01T06:15:47.4809356Z   -tag string
+2026-10-01T06:15:47.4809670Z     	the release tag the archives were published under, e.g. v0.3.0
+2026-10-01T06:15:47.4809987Z   -validate string
+2026-10-01T06:15:47.4810271Z     	validate an existing marketplace.json and exit
+2026-10-01T06:15:47.4810461Z 
+2026-10-01T06:15:47.4810578Z === release-check: a ===
+2026-10-01T06:15:47.4811612Z release-check: a PASS — a detail
+2026-10-01T06:15:47.4811785Z 
+2026-10-01T06:15:47.4811870Z === release-check: b ===
+2026-10-01T06:15:47.4812138Z release-check: b PASS — b detail
+2026-10-01T06:15:47.4812297Z 
+2026-10-01T06:15:47.4812381Z === release-check: c ===
+2026-10-01T06:15:47.4812661Z release-check: c PASS — c detail
+2026-10-01T06:15:47.4812790Z 
+2026-10-01T06:15:47.4813056Z === release-check: a ===
+2026-10-01T06:15:47.4813324Z release-check: a PASS — a detail
+2026-10-01T06:15:47.4813451Z 
+2026-10-01T06:15:47.4813558Z === release-check: b ===
+2026-10-01T06:15:47.4813818Z release-check: b SKIPPED — b detail
+2026-10-01T06:15:47.4813987Z 
+2026-10-01T06:15:47.4814067Z === release-check: c ===
+2026-10-01T06:15:47.4814317Z release-check: c PASS — c detail
+2026-10-01T06:15:47.4814472Z 
+2026-10-01T06:15:47.4814561Z === release-check: a ===
+2026-10-01T06:15:47.4814835Z release-check: a PASS — a detail
+2026-10-01T06:15:47.4814964Z 
+2026-10-01T06:15:47.4815070Z === release-check: b ===
+2026-10-01T06:15:47.4815347Z release-check: b FAIL — b detail
+2026-10-01T06:15:47.4815562Z 
+2026-10-01T06:15:47.4815705Z === release-check: a ===
+2026-10-01T06:15:47.4815964Z release-check: a FAIL — a detail
+2026-10-01T06:15:47.4816117Z 
+2026-10-01T06:15:47.4816206Z === release-check: first ===
+2026-10-01T06:15:47.4816499Z release-check: first PASS — first detail
+2026-10-01T06:15:47.4816687Z 
+2026-10-01T06:15:47.4816778Z === release-check: second ===
+2026-10-01T06:15:47.4817074Z release-check: second SKIPPED — second detail
+2026-10-01T06:15:47.4817362Z FAIL
+2026-10-01T06:15:47.4817609Z FAIL	github.com/qompack/qompack/tools/devtool	64.760s
+2026-10-01T06:15:47.4817949Z ok  	github.com/qompack/qompack/tools/lint/nomagic	1.814s
+2026-10-01T06:15:47.4818229Z FAIL
+2026-10-01T06:15:48.1768822Z ##[error]Process completed with exit code 1.
+2026-10-01T06:15:48.2055564Z Post job cleanup.
+2026-10-01T06:15:48.3949036Z [command]"C:\Program Files\Git\bin\git.exe" version
+2026-10-01T06:15:48.4284662Z git version 2.55.0.windows.5
+2026-10-01T06:15:48.4346949Z Temporarily overriding HOME='D:\a\_temp\cff5cf26-039f-437c-9e34-8762b6801f96' before making global git config changes
+2026-10-01T06:15:48.4348108Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-01T06:15:48.4357612Z [command]"C:\Program Files\Git\bin\git.exe" config --global --add safe.directory D:\a\qompack\qompack
+2026-10-01T06:15:48.4723195Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp core\.sshCommand
+2026-10-01T06:15:48.5099398Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\""
+2026-10-01T06:15:49.7183265Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-01T06:15:49.7417757Z http.https://github.com/.extraheader
+2026-10-01T06:15:49.7469835Z [command]"C:\Program Files\Git\bin\git.exe" config --local --unset-all http.https://github.com/.extraheader
+2026-10-01T06:15:49.7753077Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\""
+2026-10-01T06:15:50.4107682Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-01T06:15:50.4441066Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "git config --local --show-origin --name-only --get-regexp remote.origin.url"
+2026-10-01T06:15:51.0855632Z Cleaning up orphan processes
+2026-10-01T06:15:51.1374412Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-go@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

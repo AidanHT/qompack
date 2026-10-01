@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/qompack/qompack/internal/paths"
+	"github.com/qompack/qompack/internal/paths/pathstest"
 )
 
 // newLayout materializes a fresh, fully created .qompack tree under a new t.TempDir() and
@@ -103,7 +104,22 @@ func TestEnsureLayout_WriteAtomicFailureIsPropagated(t *testing.T) {
 	}
 	require.True(t, os.IsPermission(probeErr), "the fixture must fail for access denial: %v", probeErr)
 
-	err = paths.EnsureLayout(l)
+	// The rename is what the deny entry has to stop, and the I/O manager opens a rename's target
+	// directory with backup intent: a token holding the restore privilege enabled, as the hosted
+	// runner's elevated account does, renames past the entry although the create above is refused
+	// (nightly 36820740318). So the rename probe and EnsureLayout run without that privilege, and
+	// the probe fails loudly, naming the privileges in force, if a token still gets past.
+	staged := filepath.Join(l.Tmp, "rename-fixture-probe")
+	require.NoError(t, os.WriteFile(staged, []byte("p"), 0o600))
+	t.Cleanup(func() { _ = os.Remove(staged) })
+	pathstest.WithoutBackupPrivileges(t, func() {
+		renameErr := os.Rename(staged, filepath.Join(l.Dot, "rename-fixture-probe"))
+		require.True(t, os.IsPermission(renameErr),
+			"precondition: the deny entry must refuse this token's rename into %s (enabled: %v): %v",
+			l.Dot, pathstest.EnabledBypassPrivileges(t), renameErr)
+
+		err = paths.EnsureLayout(l)
+	})
 	require.Error(t, err)
 }
 
