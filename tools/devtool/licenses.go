@@ -53,6 +53,15 @@ type licenseText struct {
 	Body string
 }
 
+// goLicense is the Go distribution's LICENSE and the toolchain go.mod pins. The runtime and the
+// standard library are compiled into every released binary, so this text ships like a module's.
+type goLicense struct {
+	// Toolchain is go.mod's `toolchain` directive, e.g. go1.26.6. It is read from go.mod rather than
+	// from the running toolchain so the page renders the same on every machine that checks it.
+	Toolchain string
+	Body      string
+}
+
 // licenseModule is one redistributed dependency.
 type licenseModule struct {
 	Path    string
@@ -136,7 +145,44 @@ func renderNoticesFromRepo() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return renderNotices(strings.ReplaceAll(string(project), "\r\n", "\n"), mods, tooling), nil
+	goLic, err := goToolchainLicense()
+	if err != nil {
+		return "", err
+	}
+	return renderNotices(strings.ReplaceAll(string(project), "\r\n", "\n"), goLic, mods, tooling), nil
+}
+
+// goModToolchainRE matches go.mod's toolchain directive.
+var goModToolchainRE = regexp.MustCompile(`(?m)^toolchain\s+(go\S+)\s*$`)
+
+// goToolchainLicense reads go.mod's toolchain directive and the LICENSE of the Go distribution
+// `go env GOROOT` names. The go command resolves GOROOT for this module the way a build does
+// (GOTOOLCHAIN selects go.mod's toolchain when the local one is older), so the text is the licence
+// of the distribution that compiles the release. A missing directive or file is an error: a page
+// that silently dropped the Go licence would repeat the defect this section fixes.
+func goToolchainLicense() (goLicense, error) {
+	mod, err := os.ReadFile(filepath.Join(root, "go.mod"))
+	if err != nil {
+		return goLicense{}, fmt.Errorf("licenses: reading go.mod: %w", err)
+	}
+	m := goModToolchainRE.FindStringSubmatch(strings.ReplaceAll(string(mod), "\r\n", "\n"))
+	if m == nil {
+		return goLicense{}, errors.New("licenses: go.mod has no toolchain directive, so the page " +
+			"cannot name the Go distribution whose licence every binary carries")
+	}
+	stdout, stderr, err := runCapture(nil, "go", "env", "GOROOT")
+	if err != nil {
+		return goLicense{}, fmt.Errorf("licenses: go env GOROOT: %w\n%s", err, stderr)
+	}
+	goroot := strings.TrimSpace(string(stdout))
+	if goroot == "" {
+		return goLicense{}, errors.New("licenses: go env GOROOT printed nothing")
+	}
+	body, err := os.ReadFile(filepath.Join(goroot, "LICENSE"))
+	if err != nil {
+		return goLicense{}, fmt.Errorf("licenses: reading the Go distribution's LICENSE: %w", err)
+	}
+	return goLicense{Toolchain: m[1], Body: strings.ReplaceAll(string(body), "\r\n", "\n")}, nil
 }
 
 // goModRequireRE matches one require line of a go.mod, with or without the indirect marker.

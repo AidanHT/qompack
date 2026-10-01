@@ -98,7 +98,12 @@ including for a search that matched nothing, which is an answer and not a failur
 
 ### `/qompack:pin`
 
-Pins an invariant so it is never summarized away: `<text>`. The same command manages the list
+Pins an invariant, `<text>`, so that it is re-injected after every compaction. Pins are among the
+first records admitted, inside the 9,500-character limit on what Qompack injects; a pin that does
+not fit is named in the drop report instead
+([docs/architecture.md §7](architecture.md#7-checkpoint-and-rehydration)). Nothing shields a pin
+from the host's own summary, which can still drop or reword it; the re-injection is what brings it
+back. The same command manages the list
 (`--list`, `--remove <id>`), records authority (`--source user|agent`) and records an eliminated
 approach instead of an invariant (`--eliminated` with `--target`, `--approach`, `--reason`,
 `--depends-on`, `--scope`). The full flag set is in [docs/commands.md](commands.md#qompackpin).

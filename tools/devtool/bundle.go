@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -98,6 +99,38 @@ type bundleAssembly struct {
 	goVersion string
 	outDir    string
 	build     bundleBuilder
+	// legal is LICENSE and THIRD_PARTY_NOTICES.md, keyed by bundle-relative path
+	// (readBundleLegalFiles). assemble refuses to run without every bundleLegalFiles entry.
+	legal map[string][]byte
+}
+
+// bundleLegalFiles are the repository files every bundle, and therefore every release zip, ships
+// at its root (V6 close-out audit F4, D53(e)). The binary statically links go-winio (MIT),
+// klauspost/compress (BSD-3-Clause with Apache-2.0 and MIT parts), golang.org/x/sys and the Go
+// runtime and standard library (both BSD-3-Clause); BSD-3-Clause asks for its notice "in the
+// documentation and/or other materials provided with the distribution", and goreleaser uploads
+// only the zips, checksums.txt and marketplace.json, so the zip is where the notices must be.
+// THIRD_PARTY_NOTICES.md is generated (`devtool licenses`) and release-check's `licenses` step
+// fails a stale one before any bundle is assembled.
+var bundleLegalFiles = []string{"LICENSE", noticesFileName}
+
+// readBundleLegalFiles reads bundleLegalFiles from repoRoot. Line endings are normalised to LF, so a
+// Windows checkout without .gitattributes' eol=lf still assembles the bytes a Linux one does. A
+// missing or empty file is an error: a release without its notices is the defect this exists for.
+func readBundleLegalFiles(repoRoot string) (map[string][]byte, error) {
+	out := make(map[string][]byte, len(bundleLegalFiles))
+	for _, name := range bundleLegalFiles {
+		b, err := os.ReadFile(filepath.Join(repoRoot, name))
+		if err != nil {
+			return nil, fmt.Errorf("bundle: reading %s, which every bundle ships: %w", name, err)
+		}
+		b = bytes.ReplaceAll(b, []byte("\r\n"), []byte("\n"))
+		if len(bytes.TrimSpace(b)) == 0 {
+			return nil, fmt.Errorf("bundle: %s is empty; every bundle ships it", name)
+		}
+		out[name] = b
+	}
+	return out, nil
 }
 
 // taskBundle assembles the per-target plugin bundles (00-ARCHITECTURE.md §2.6, plans/V6-SP-17).
@@ -148,7 +181,12 @@ func taskBundle(args []string) error {
 		return errors.Join(errUsage, err)
 	}
 	ldflags := versionLdflags(v)
+	legal, err := readBundleLegalFiles(root)
+	if err != nil {
+		return err
+	}
 	asm := bundleAssembly{
+		legal:     legal,
 		version:   v,
 		source:    gitSource(),
 		goVersion: runtime.Version(),
@@ -340,6 +378,16 @@ func (a bundleAssembly) assemble(tgt bundleTarget) (string, bundleIdentity, erro
 	tree, err := pluginTreeFiles(a.version, tgt.OS)
 	if err != nil {
 		return "", bundleIdentity{}, err
+	}
+	for _, name := range bundleLegalFiles {
+		b, ok := a.legal[name]
+		if !ok {
+			return "", bundleIdentity{}, fmt.Errorf("no %s to ship; every bundle carries it", name)
+		}
+		if _, clash := tree[name]; clash {
+			return "", bundleIdentity{}, fmt.Errorf("internal/pluginmanifest also produces %s", name)
+		}
+		tree[name] = b
 	}
 	for rel, b := range tree {
 		p := filepath.Join(dir, filepath.FromSlash(rel))

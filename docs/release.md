@@ -28,11 +28,19 @@ current failure records.
    supported-scope table into `dist/release-notes.md`, attests build provenance for the archives
    and the marketplace document, and hands everything to goreleaser.
 6. **goreleaser creates a DRAFT release.** It builds nothing — every build entry in
-   `.goreleaser.yaml` is skipped — and uploads the six zips, `checksums.txt` and `marketplace.json`.
+   `.goreleaser.yaml` is skipped — and uploads the six zips, `checksums.txt`, `marketplace.json`,
+   `LICENSE` and `THIRD_PARTY_NOTICES.md`. Every zip carries the last two at its root as well: the
+   binary statically links the Go runtime and standard library, go-winio, klauspost/compress and
+   golang.org/x/sys, whose licences ask for their notices in a binary distribution.
    A person reads the scope table in the draft's notes and decides whether to publish. Nothing
    reaches users because a tag was pushed.
-7. **After publishing: review the marketplace pull request.** Publishing (not drafting, and not a
-   pre-release) triggers `.github/workflows/marketplace.yml`, which re-downloads the six zips from
+7. **After publishing: review the marketplace pull request.** A full release triggers
+   `.github/workflows/marketplace.yml` exactly once, whichever way it became one: published as a
+   full release directly, or published as a pre-release and later promoted (edited to clear "Set as
+   a pre-release"). The workflow listens to GitHub's `released` event, which fires in both cases
+   and never for a draft or a pre-release, so the route this repository uses — pre-release first,
+   rehearse the install from it, then promote — opens the pull request at the promotion. The job
+   re-downloads the six zips from
    the published release, re-verifies each against the release's `checksums.txt`, regenerates the
    marketplace from the served bytes with the release's own generator (the tag's `devtool`, not
    `develop`'s), requires it to equal the uploaded `marketplace.json`, and opens a pull request

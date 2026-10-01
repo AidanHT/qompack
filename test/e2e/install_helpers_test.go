@@ -719,7 +719,7 @@ func writeMarketplace(t *testing.T, root, pluginDirBase string) string {
 		"plugins": []any{map[string]any{
 			"name":        "qompack",
 			"source":      "./" + pluginDirBase,
-			"description": "Cache-aware, retrieval-backed context compaction",
+			"description": pluginmanifest.Description,
 		}},
 	}
 	b, err := json.MarshalIndent(doc, "", "  ")
