@@ -72,7 +72,7 @@ jobs:
     # risk. The cost that matters is stubskips' `go test` over internal/, cmd/ and test/, and that is
     # not removable: the check IS a test run. It is two passes since run 36816905394: the tree in
     # parallel, then test/e2e alone, for the reason the `test` job leaves test/e2e to `test-e2e`
-    # (tools/devtool/stubskips.go, stubskipsIsolated).
+    # (tools/devtool/test.go, isolatedPackages).
     #
     # It is a separate job rather than a Windows leg of `verify` because nothing else in verify —
     # fmt-check, go vet, go build, the two git-history greps — is platform-sensitive, and paying for
@@ -324,8 +324,18 @@ jobs:
         with: { go-version: '1.26.6', cache: true }
       - run: go test -p 1 -count=1 -timeout=30m -run '^(TestGC_DeadlineTruncatesAndResumes|TestGC_DeadlineOvershootIsBoundedByTheCheckInterval|TestBudget_QueryHit|TestBudget_QueryMiss|TestBudget_Record|TestBudget_RebuildBloom|TestBudget_RefreshStaleness|TestBudget_Open|TestBudget_DetectorScan|TestBudgetBF|TestIntegration_HotPathWarmWithRealResidentState|TestFeaturesFrom_LexicalCohesionShingleCap)$' ./internal/store ./internal/negknow ./internal/mcp ./internal/daemon ./test/integration
 
+  # `devtool cover` runs two passes (tools/devtool/cover.go, coverPasses): the tree but test/e2e in
+  # parallel under its own co-load declaration, then test/e2e alone without it, as `test-e2e` runs
+  # it (ADR 0010 decision 4). Inside the whole-tree pass the live-path e2e rows' hooks took the
+  # designed degrade to the client spool, and TestE2EHookRoundTrip, which counts the WAL, was red
+  # here in runs 34804619564 and 36816905394 while `test-e2e` passed it. The e2e pass judges X11's
+  # fsync-bound rows exactly as `test-e2e` does, so it carries the same non-reference-disk
+  # declaration (owner Q1, D53(e)); devtool takes it back from the co-loaded pass, so no pass
+  # names both causes.
   cover:
     runs-on: ubuntu-latest
+    env:
+      QOMPACK_NONREFERENCE_DISK: '1'
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }

@@ -225,7 +225,7 @@ func TestStubSkipsPasses_RunsE2EAloneAndDropsNothing(t *testing.T) {
 		modulePath + "/internal/store",
 		modulePath + "/test/guards",
 	}
-	passes := stubskipsPasses(pkgs)
+	passes := isolatedPasses(pkgs)
 	want := [][]string{
 		{modulePath + "/internal/core", modulePath + "/internal/store", modulePath + "/test/guards"},
 		{modulePath + "/test/e2e"},
@@ -234,10 +234,10 @@ func TestStubSkipsPasses_RunsE2EAloneAndDropsNothing(t *testing.T) {
 		t.Fatalf("passes = %v, want %v", passes, want)
 	}
 
-	if got := stubskipsPasses([]string{modulePath + "/internal/core"}); fmt.Sprint(got) != fmt.Sprint([][]string{{modulePath + "/internal/core"}}) {
+	if got := isolatedPasses([]string{modulePath + "/internal/core"}); fmt.Sprint(got) != fmt.Sprint([][]string{{modulePath + "/internal/core"}}) {
 		t.Fatalf("a tree without test/e2e is one pass; got %v", got)
 	}
-	if got := stubskipsPasses([]string{modulePath + "/test/e2e"}); fmt.Sprint(got) != fmt.Sprint([][]string{{modulePath + "/test/e2e"}}) {
+	if got := isolatedPasses([]string{modulePath + "/test/e2e"}); fmt.Sprint(got) != fmt.Sprint([][]string{{modulePath + "/test/e2e"}}) {
 		t.Fatalf("a tree of test/e2e alone is one pass and never an empty one; got %v", got)
 	}
 }

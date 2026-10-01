@@ -181,35 +181,6 @@ func hasReasonedPlatformSkip(text string) bool {
 	return false
 }
 
-// stubskipsIsolated are the packages stubskips runs in a `go test` pass of their own, after the
-// parallel pass over the rest of the tree, for the reason ci.yml's `test` job leaves test/e2e to
-// the `test-e2e` job: it is the package of intrinsically wall-clock rows (X11 alone spawns 2 000
-// hooks), and beside the rest of the tree on a small runner it does not finish. On windows-latest
-// its binary was killed past -timeout=30m inside the whole-tree pass (run 36816905394), so none of
-// its skips were inspected; alone it takes about 20 minutes there (that run's test-e2e job,
-// 1188 s). It keeps the same -timeout, so a hang is still killed and still reported.
-var stubskipsIsolated = map[string]bool{modulePath + "/test/e2e": true}
-
-// stubskipsPasses splits pkgs into the `go test` passes stubskips runs, in order: every package not
-// in stubskipsIsolated together, then each isolated package alone. Every package lands in exactly
-// one pass, the input order is kept within a pass, and no pass is empty.
-func stubskipsPasses(pkgs []string) [][]string {
-	var shared []string
-	var alone [][]string
-	for _, p := range pkgs {
-		if stubskipsIsolated[p] {
-			alone = append(alone, []string{p})
-			continue
-		}
-		shared = append(shared, p)
-	}
-	var passes [][]string
-	if len(shared) > 0 {
-		passes = append(passes, shared)
-	}
-	return append(passes, alone...)
-}
-
 // runStubSkips is the `devtool lint` sub-check: it runs the test suite under internal/, cmd/ and
 // test/ (whichever of those trees exist) with `-json`, and greps the resulting skip reasons for
 // Rule W-1/W-2 compliance — a Rule-W-1 skip is a merge blocker only for the subplan that owns the
@@ -227,7 +198,10 @@ func runStubSkips() error {
 	}
 
 	// `go list` rather than the patterns themselves, so the packages can be split into passes
-	// (stubskipsPasses) and none is dropped on the way: every listed package is in exactly one.
+	// (isolatedPasses) and none is dropped on the way: every listed package is in exactly one. On
+	// windows-latest test/e2e's binary was killed past -timeout=30m inside the single whole-tree
+	// pass (run 36816905394, lint-windows), so none of its skips were inspected; alone it takes
+	// about 20 minutes there (that run's test-e2e job, 1188 s).
 	listOut, listErr, err := runCapture(nil, "go", append([]string{"list"}, patterns...)...)
 	if err != nil {
 		return fmt.Errorf("stubskips: go list %s: %w\n%s", strings.Join(patterns, " "), err, listErr)
@@ -248,7 +222,7 @@ func runStubSkips() error {
 	// a binary killed at the wall part-way through — are caught explicitly below, because in both
 	// of them a missing skip event carries no information and silence would read as compliance.
 	var events []testEvent
-	for _, pass := range stubskipsPasses(pkgs) {
+	for _, pass := range isolatedPasses(pkgs) {
 		args := append([]string{"test", "-json", "-timeout=" + wholeTreeTestTimeout}, pass...)
 		stdout, stderr, runErr := runCapture(nil, "go", args...)
 		passEvents, err := parseTestEvents(stdout)

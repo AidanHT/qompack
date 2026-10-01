@@ -259,6 +259,13 @@ func e2eWaitDaemonUp(t *testing.T, root string) {
 // message still said 0). A delivery that missed the daemon's live path is in a client-*.ndjson
 // spool file and reaches the store through the drain, never the WAL; this line now tells that case
 // from a daemon that took the call and wrote it elsewhere.
+//
+// Both reds were inside cover's whole-tree pass, the one hosted job that still ran test/e2e beside
+// the rest of the tree (ADR 0010 decision 4 takes it out; `test-e2e` passed this row on all three
+// OSes in run 36816905394). There a hook's 5 ms dial (config.ConnectDeadlineMsPortable) is missed
+// by design and the delivery spools, as the same job's sibling row showed (job 103834108633: three
+// client spool files). The WAL count is a live-path property, so devtool cover now runs test/e2e
+// alone (tools/devtool/cover.go, coverPasses), and this row keeps its assertion and its bound.
 type walWaitDiag struct{ root string }
 
 func (d walWaitDiag) String() string {
