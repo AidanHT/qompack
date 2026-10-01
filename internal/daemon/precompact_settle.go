@@ -125,16 +125,17 @@ const unreplayedDetailFormat = "%d capture(s) of this session (%d tool result(s)
 	"were slower than their budget); the newest %d tool result(s) are named by tool_use_id; nothing is lost: " +
 	"the daemon replays them, and recall or expand finds them then"
 
-// unreadSpoolsClauseFormat is added to the summary's detail when the settle's bound ended before it
-// had read every client spool it had to look at: those files were listed but not read, so the
-// summary cannot count this session's captures in them, if there are any.
-const unreadSpoolsClauseFormat = "; %d hook client spool file(s) could not be read within the bound, so this " +
-	"session's captures in them, if any, are not counted here"
+// unreadSpoolsClauseFormat is added to the summary's detail when the settle's looks left a client
+// spool they had to look at unread: the bound ended before they could read it, or reading it failed
+// (a sharing violation, an anti-virus lock, an I/O error; spool_heads.go). Those files were listed but
+// not read, so the summary cannot count this session's captures in them, if there are any.
+const unreadSpoolsClauseFormat = "; %d hook client spool file(s) could not be read within the bound or " +
+	"failed to read, so this session's captures in them, if any, are not counted here"
 
 // sealReport is what the settle hands the seal: the captures it left unreplayed, how many client
-// spools it could not read within its bound, and the names' share of the checkpoint's budget. The
-// seal prices the names with its own estimator (drops), the one its Truncate measures the document
-// with.
+// spools it could not read within its bound or failed to read, and the names' share of the
+// checkpoint's budget. The seal prices the names with its own estimator (drops), the one its Truncate
+// measures the document with.
 type sealReport struct {
 	left      []pendingCapture
 	unread    int
@@ -221,8 +222,8 @@ func captureOf(req ipc.Request) pendingCapture {
 //
 // What can run past the deadline is fixed work: a file read already under way, the spool listings,
 // the drain's progress file and the pricing of the names, which the seal does (namesWithin measures a
-// handful of candidate reports, whatever the backlog). A file a look could not read in time is
-// counted in the summary as not read.
+// handful of candidate reports, whatever the backlog). A file a look could not read in time, or
+// failed to read, is counted in the summary as not read.
 func (d *daemon) settleBeforeSeal(ctx context.Context, sess core.SessionID, at core.UnixMilli) *sealReport {
 	cfg := d.currentCfg()
 	bound := precompactSettleBound(cfg)

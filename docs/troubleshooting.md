@@ -993,8 +993,9 @@ results, as many as fit in one twentieth of `checkpoint.budgetTokens`, so a long
 crowds the checkpoint's pointers out; the rehydration's section 7 carries both. On a very slow disk a
 replay that is still writing when the budget runs out is abandoned and its capture is reported this
 way too. Finding which spool files are this session's also runs inside that budget: the daemon reads
-each spool file once and remembers what it holds, and a file it had no time to read is counted in the
-`unreplayed_capture` line as not read. The daemon replays them all afterwards, and `recall` and `expand` find them then.
+each spool file once and remembers what it holds, and a file it had no time to read, or failed to read
+(a sharing violation, an anti-virus lock, an I/O error), is counted in the `unreplayed_capture` line as
+not read. The daemon replays them all afterwards, and `recall` and `expand` find them then.
 
 The switch lasts until a new session starts in this project or the daemon exits on idle (below); it
 does not switch back on its own during the session, and compacting the current session does not reset
