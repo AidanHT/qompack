@@ -30,6 +30,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -166,14 +167,25 @@ func x1v5RequireQualified(t *testing.T, rep commands.StatusReport) {
 }
 
 // x1v5RequireLatencyEquals asserts a displayed reading is the authoritative histogram, quantile
-// for quantile, at the microsecond resolution the instrument actually has.
+// for quantile, at the microsecond resolution the instrument actually has, under the one display
+// rule status applies (e2e7e480, commands.latencyOf): a percentile is shown clamped to the
+// snapshot's max when the max is known. obs reports a percentile as its bucket's upper bound, up to
+// ~9% above every sample in that bucket, while Max is the largest sample itself, so an unclamped
+// p99 above the max was a number no sample had. Every field is still compared exactly: N and Max
+// as recorded, each percentile as recorded or, when it exceeds a known max, as that max.
 func x1v5RequireLatencyEquals(t *testing.T, what string, got *commands.Latency, want obs.HistSnapshot) {
 	t.Helper()
+	shown := func(p time.Duration) int64 {
+		if want.Max > 0 && p > want.Max {
+			p = want.Max
+		}
+		return p.Microseconds()
+	}
 	require.NotNil(t, got, "%s: expected a displayed reading", what)
 	require.Equal(t, want.N, got.N, "%s: sample count", what)
-	require.Equal(t, want.P50.Microseconds(), got.P50US, "%s: p50", what)
-	require.Equal(t, want.P95.Microseconds(), got.P95US, "%s: p95", what)
-	require.Equal(t, want.P99.Microseconds(), got.P99US, "%s: p99", what)
+	require.Equal(t, shown(want.P50), got.P50US, "%s: p50", what)
+	require.Equal(t, shown(want.P95), got.P95US, "%s: p95", what)
+	require.Equal(t, shown(want.P99), got.P99US, "%s: p99", what)
 	require.Equal(t, want.Max.Microseconds(), got.MaxUS, "%s: max", what)
 }
 
