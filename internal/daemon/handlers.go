@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strconv"
+	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -571,7 +572,7 @@ func (d *daemon) handleObservePrompt(ctx context.Context, req ipc.Request) ipc.R
 	if d.svc.ObservePrompt != nil {
 		// The call is recording, so it runs under the MayRecord check above; only what it hands
 		// back is acting, and under !MayAct the reply stays the empty output.
-		produced := d.callObservePromptWithDeadline(ctx, ev)
+		produced := d.callObservePromptWithDeadline(ctx, ev, req.TS, mode.MayAct())
 		if mode.MayAct() {
 			out = produced
 		}
@@ -599,9 +600,31 @@ func (d *daemon) handleObservePrompt(ctx context.Context, req ipc.Request) ipc.R
 // since have left. The miss is counted (counterPromptReplyLate), never silent — but only when the
 // deadline is what ended the wait: a request cancelled from outside (Stop cancels the serving
 // context) is not an overrun, and neither is a panicking seam, which answers the wait at once.
-func (d *daemon) callObservePromptWithDeadline(ctx context.Context, ev *hookio.Event) hookio.Output {
-	wait, cancel := context.WithTimeout(ctx, promptReplyDeadline)
+//
+// Discarded is not delivered (V6 close-out w16d). The observer drains a warning only through the
+// reply's claim (observer.WithPromptReplyClaim, promptReplyHandoff): the claim and this wait's
+// deadline are decided under one lock, so a warning is drained only into a reply that goes out
+// carrying it. A claim refused because the wait had already ended makes the observer re-arm the
+// rule instead of consuming it — it warns afresh once the loop occurs again — so a loop on a slow
+// disk is not silenced for the session by a reply nobody received. A reply the daemon may not act
+// on (!mayAct) can deliver nothing, so its claim is refused from the start.
+//
+// The deadline is the hook's, measured from ts — ipc.Request.TS, the hook's first statement, which
+// precedes the instant its own reply wait starts — and not from this call. The wait used to start
+// here, after ingest.Accept had made the prompt durable, so on a slow disk the daemon was still
+// waiting, and still handing the warning over, after the hook had given up and printed nothing
+// (promptReplyBudget).
+func (d *daemon) callObservePromptWithDeadline(ctx context.Context, ev *hookio.Event, ts core.UnixMilli, mayAct bool) hookio.Output {
+	budget := d.promptReplyBudget(ts)
+	wait, cancel := context.WithTimeout(ctx, budget)
 	defer cancel()
+
+	handoff := new(promptReplyHandoff)
+	// Spent before the call starts: no reply can reach the hook any more, so nothing may be claimed.
+	spent := budget <= 0 && ctx.Err() == nil
+	if spent || !mayAct {
+		handoff.abandon()
+	}
 
 	type result struct {
 		out hookio.Output
@@ -619,9 +642,14 @@ func (d *daemon) callObservePromptWithDeadline(ctx context.Context, ev *hookio.E
 		// worker/replay's, under the leased observation identity, so a prompt no daemon captured
 		// live is still captured and a later live prompt cannot take a turn 0 the replay owed. The
 		// reply-only marker makes ObservePrompt drain the pending warning under the session lock and
-		// record nothing.
-		r.out, r.err = d.svc.ObservePrompt(observer.WithPromptReplyOnly(rec), e)
+		// record nothing; the claim is how it learns whether this reply still goes out.
+		replyCtx := observer.WithPromptReplyClaim(observer.WithPromptReplyOnly(rec), handoff.claim)
+		r.out, r.err = d.svc.ObservePrompt(replyCtx, e)
 	}) {
+		return hookio.Empty()
+	}
+	if spent {
+		d.countPromptReplyLate()
 		return hookio.Empty()
 	}
 
@@ -631,11 +659,81 @@ func (d *daemon) callObservePromptWithDeadline(ctx context.Context, ev *hookio.E
 			return r.out
 		}
 	case <-wait.Done():
-		if d.m != nil && errors.Is(wait.Err(), context.DeadlineExceeded) {
-			d.m.Counter(counterPromptReplyLate).Add(1)
+		if !handoff.abandon() {
+			// The observer claimed this reply before the deadline and is handing its warning over
+			// now, with nothing left to wait on but the rendering: the reply carries it.
+			if r := <-ch; r.err == nil {
+				return r.out
+			}
+			return hookio.Empty()
+		}
+		if errors.Is(wait.Err(), context.DeadlineExceeded) {
+			d.countPromptReplyLate()
 		}
 	}
 	return hookio.Empty()
+}
+
+// countPromptReplyLate counts one reply that went out empty because its deadline ran out.
+func (d *daemon) countPromptReplyLate() {
+	if d.m != nil {
+		d.m.Counter(counterPromptReplyLate).Add(1)
+	}
+}
+
+// promptReplyBudget is what is left of promptReplyDeadline for a prompt the hook stamped at ts.
+//
+// The hook waits promptReplyDeadline for its reply from the instant it has written the request
+// (internal/cli hookclient.go's mirror of the constant; ipc client.awaitReply), and ts is its first
+// statement, before that. So ts + promptReplyDeadline is no later than the hook's own give-up
+// instant, by the hook's work before the write, and a reply decided after it may reach nobody.
+// Measuring from ts never waits past the hook. It costs a reference host little: what the hook
+// does before its write is part of B-A, whose Windows budget is 50 ms.
+//
+// A ts this daemon cannot trust as a hot-path stamp (validHotPathTS: absent, from the future, or
+// implausibly old) gets the whole deadline from now, the behaviour before ts was used, and a stamp
+// a few milliseconds ahead of the daemon's clock counts as no time spent. No new number: the
+// deadline is promptReplyDeadline, and the stamp checks are validHotPathTS's.
+func (d *daemon) promptReplyBudget(ts core.UnixMilli) time.Duration {
+	now := core.NowMilli(d.clk)
+	if !validHotPathTS(ts, now) {
+		return promptReplyDeadline
+	}
+	elapsed := max(time.Duration(int64(now)-int64(ts))*time.Millisecond, 0)
+	return promptReplyDeadline - elapsed
+}
+
+// promptReplyHandoff decides, once, whether a reply hands over what the observer drains for it: the
+// observer's claim (observer.WithPromptReplyClaim) and the end of the reply wait race for it under
+// mu. A claim first means the wait takes the observer's Output whatever the clock says by then; an
+// abandoned wait first means every later claim is refused.
+type promptReplyHandoff struct {
+	mu        sync.Mutex
+	claimed   bool
+	abandoned bool
+}
+
+// claim is the observer's side: it reports whether the reply will carry the warning.
+func (h *promptReplyHandoff) claim() bool {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.abandoned {
+		return false
+	}
+	h.claimed = true
+	return true
+}
+
+// abandon is the wait's side: it reports whether the reply goes out without the observer's
+// Output, which is false only once the observer has claimed it.
+func (h *promptReplyHandoff) abandon() bool {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.claimed {
+		return false
+	}
+	h.abandoned = true
+	return true
 }
 
 // errPromptCapturePanicked is the result a panicking ObservePrompt seam hands the reply wait. It
