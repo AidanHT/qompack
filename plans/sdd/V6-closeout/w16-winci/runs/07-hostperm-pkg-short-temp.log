@@ -1,0 +1,258 @@
+=== RUN   TestWindowsAliasesOfADeniedFileAreJudged
+--- PASS: TestWindowsAliasesOfADeniedFileAreJudged (0.03s)
+=== RUN   TestAShortDirectoryOfADeletedFileIsExpanded
+--- PASS: TestAShortDirectoryOfADeletedFileIsExpanded (0.02s)
+=== RUN   TestAnAliasOfALinkIsJudgedAsTheLink
+--- PASS: TestAnAliasOfALinkIsJudgedAsTheLink (0.06s)
+=== RUN   TestAShortSpelledProjectRootAnchorsRulesAtItsRealName
+--- PASS: TestAShortSpelledProjectRootAnchorsRulesAtItsRealName (0.02s)
+=== RUN   TestAnUnboundedRuleCountFailsClosed
+--- PASS: TestAnUnboundedRuleCountFailsClosed (0.06s)
+=== RUN   TestTheRuleCapIsSummedAcrossSources
+--- PASS: TestTheRuleCapIsSummedAcrossSources (0.11s)
+=== RUN   TestTheSegmentCapBoundsAFewLongRules
+--- PASS: TestTheSegmentCapBoundsAFewLongRules (0.08s)
+=== RUN   TestPrefixRowAgreesWithTheReferenceMatcher
+--- PASS: TestPrefixRowAgreesWithTheReferenceMatcher (0.08s)
+=== RUN   TestCarvedMatchAgreesWithTheReferenceOrdering
+--- PASS: TestCarvedMatchAgreesWithTheReferenceOrdering (0.01s)
+=== RUN   TestEverySettingsSourceIsRead
+=== RUN   TestEverySettingsSourceIsRead/managed-settings.json
+=== RUN   TestEverySettingsSourceIsRead/managed-settings.d_drop-in
+=== RUN   TestEverySettingsSourceIsRead/server-managed_cache
+=== RUN   TestEverySettingsSourceIsRead/user
+=== RUN   TestEverySettingsSourceIsRead/project
+=== RUN   TestEverySettingsSourceIsRead/local
+--- PASS: TestEverySettingsSourceIsRead (0.06s)
+    --- PASS: TestEverySettingsSourceIsRead/managed-settings.json (0.01s)
+    --- PASS: TestEverySettingsSourceIsRead/managed-settings.d_drop-in (0.01s)
+    --- PASS: TestEverySettingsSourceIsRead/server-managed_cache (0.01s)
+    --- PASS: TestEverySettingsSourceIsRead/user (0.01s)
+    --- PASS: TestEverySettingsSourceIsRead/project (0.01s)
+    --- PASS: TestEverySettingsSourceIsRead/local (0.01s)
+=== RUN   TestDropInsFollowTheHostsFilter
+--- PASS: TestDropInsFollowTheHostsFilter (0.00s)
+=== RUN   TestServerManagedCacheIsReadWhereverItsRulesSit
+--- PASS: TestServerManagedCacheIsReadWhereverItsRulesSit (0.01s)
+=== RUN   TestConfigDirRedirectsUserSettings
+--- PASS: TestConfigDirRedirectsUserSettings (0.02s)
+=== RUN   TestUserSettingsSlashAnchorIsTheConfigDir
+--- PASS: TestUserSettingsSlashAnchorIsTheConfigDir (0.03s)
+=== RUN   TestManagedSlashAnchorCoversProjectAndItsOwnDirectory
+--- PASS: TestManagedSlashAnchorCoversProjectAndItsOwnDirectory (0.02s)
+=== RUN   TestWorktreeReadsTheMainCheckoutsLocalSettings
+--- PASS: TestWorktreeReadsTheMainCheckoutsLocalSettings (0.06s)
+=== RUN   TestUnusableSourcesFailClosed
+=== RUN   TestUnusableSourcesFailClosed/oversized_managed_file
+=== RUN   TestUnusableSourcesFailClosed/an_undecodable_managed_profile
+=== RUN   TestUnusableSourcesFailClosed/invalid_JSON_in_project_settings
+=== RUN   TestUnusableSourcesFailClosed/malformed_Read_rule_in_user_settings
+=== RUN   TestUnusableSourcesFailClosed/a_directory_where_local_settings_belong
+--- PASS: TestUnusableSourcesFailClosed (0.14s)
+    --- PASS: TestUnusableSourcesFailClosed/oversized_managed_file (0.09s)
+    --- PASS: TestUnusableSourcesFailClosed/an_undecodable_managed_profile (0.01s)
+    --- PASS: TestUnusableSourcesFailClosed/invalid_JSON_in_project_settings (0.02s)
+    --- PASS: TestUnusableSourcesFailClosed/malformed_Read_rule_in_user_settings (0.01s)
+    --- PASS: TestUnusableSourcesFailClosed/a_directory_where_local_settings_belong (0.00s)
+=== RUN   TestAMissingHomeOrRootFailsClosed
+--- PASS: TestAMissingHomeOrRootFailsClosed (0.00s)
+=== RUN   TestUnreadableSettingsFailClosed
+    policy_test.go:212: platform: a mode bit cannot make a file unreadable to its owner on Windows; the directory case in TestUnusableSourcesFailClosed covers the unreadable shape there
+--- SKIP: TestUnreadableSettingsFailClosed (0.00s)
+=== RUN   TestAReadFailureIsNotCached
+--- PASS: TestAReadFailureIsNotCached (0.00s)
+=== RUN   TestSnapshotReloadsOnChangeAndOnlyOnChange
+--- PASS: TestSnapshotReloadsOnChangeAndOnlyOnChange (0.02s)
+=== RUN   TestARacilyFreshFileIsReRead
+--- PASS: TestARacilyFreshFileIsReRead (0.02s)
+=== RUN   TestAParseFailureIsCachedUntilTheSourceChanges
+--- PASS: TestAParseFailureIsCachedUntilTheSourceChanges (0.01s)
+=== RUN   TestSymlinkTargetsAreChecked
+    policy_test.go:284: platform: this host will not create a file symlink (windows): symlink C:\Users\Quant\AppData\Local\Temp\claude\C-4E52~1\9C5765~1\SCRATC~1\w16\winci\SHORTT~1\TestSymlinkTargetsAreChecked2058764688\001\secret.env C:\Users\Quant\AppData\Local\Temp\claude\C-4E52~1\9C5765~1\SCRATC~1\w16\winci\SHORTT~1\TestSymlinkTargetsAreChecked2058764688\001\innocent.txt: A required privilege is not held by the client.
+--- SKIP: TestSymlinkTargetsAreChecked (0.00s)
+=== RUN   TestJunctionTargetsAreChecked
+--- PASS: TestJunctionTargetsAreChecked (0.06s)
+=== RUN   TestARuleWrittenThroughALinkedDirectoryAppliesAtItsRealLocation
+--- PASS: TestARuleWrittenThroughALinkedDirectoryAppliesAtItsRealLocation (0.05s)
+=== RUN   TestDefaultManagedLocations
+--- PASS: TestDefaultManagedLocations (0.00s)
+=== RUN   TestUnavailableErrorsNameTheirSource
+--- PASS: TestUnavailableErrorsNameTheirSource (0.00s)
+=== RUN   TestConfigDirExpandsATilde
+--- PASS: TestConfigDirExpandsATilde (0.02s)
+=== RUN   TestTooManyDropInsFailClosed
+--- PASS: TestTooManyDropInsFailClosed (0.22s)
+=== RUN   TestMainCheckoutIgnoresWhatIsNotALinkedWorktree
+--- PASS: TestMainCheckoutIgnoresWhatIsNotALinkedWorktree (0.02s)
+=== RUN   TestNativePathRoundTrips
+--- PASS: TestNativePathRoundTrips (0.00s)
+=== RUN   TestRegistryPolicyIsRead
+--- PASS: TestRegistryPolicyIsRead (0.13s)
+=== RUN   TestRegistryPolicyOfTheWrongTypeFailsClosed
+--- PASS: TestRegistryPolicyOfTheWrongTypeFailsClosed (0.08s)
+=== RUN   TestUnknownHiveFailsClosed
+--- PASS: TestUnknownHiveFailsClosed (0.00s)
+=== RUN   TestExpandPercent
+--- PASS: TestExpandPercent (0.00s)
+=== RUN   TestPatternForms_POSIX
+=== RUN   TestPatternForms_POSIX/bare_filename_matches_at_any_depth
+=== RUN   TestPatternForms_POSIX/./_is_the_working_directory
+=== RUN   TestPatternForms_POSIX/glob_in_a_bare_name
+=== RUN   TestPatternForms_POSIX/question_mark_and_class
+=== RUN   TestPatternForms_POSIX///_is_the_filesystem_root
+=== RUN   TestPatternForms_POSIX///**/name_anywhere_on_the_filesystem
+=== RUN   TestPatternForms_POSIX/~/_is_the_home_directory
+=== RUN   TestPatternForms_POSIX/~_alone_is_the_whole_home_directory
+=== RUN   TestPatternForms_POSIX//_in_project_settings_is_the_project
+=== RUN   TestPatternForms_POSIX/single_directory_segment_matches_at_any_depth_for_deny
+=== RUN   TestPatternForms_POSIX/multi-segment_relative_pattern_is_anchored
+=== RUN   TestPatternForms_POSIX/**/dir/**_anywhere_under_the_project
+=== RUN   TestPatternForms_POSIX/trailing_slash_names_a_directory_and_blocks_its_contents
+=== RUN   TestPatternForms_POSIX/a_plain_directory_name_blocks_its_contents
+=== RUN   TestPatternForms_POSIX/leading_.._climbs_above_the_project
+=== RUN   TestPatternForms_POSIX/an_unusable_glob_still_guards_its_exact_path
+=== RUN   TestPatternForms_POSIX/parentheses_in_a_path_are_literal
+=== RUN   TestPatternForms_POSIX/matching_is_case-sensitive_on_Linux
+--- PASS: TestPatternForms_POSIX (0.00s)
+    --- PASS: TestPatternForms_POSIX/bare_filename_matches_at_any_depth (0.00s)
+    --- PASS: TestPatternForms_POSIX/./_is_the_working_directory (0.00s)
+    --- PASS: TestPatternForms_POSIX/glob_in_a_bare_name (0.00s)
+    --- PASS: TestPatternForms_POSIX/question_mark_and_class (0.00s)
+    --- PASS: TestPatternForms_POSIX///_is_the_filesystem_root (0.00s)
+    --- PASS: TestPatternForms_POSIX///**/name_anywhere_on_the_filesystem (0.00s)
+    --- PASS: TestPatternForms_POSIX/~/_is_the_home_directory (0.00s)
+    --- PASS: TestPatternForms_POSIX/~_alone_is_the_whole_home_directory (0.00s)
+    --- PASS: TestPatternForms_POSIX//_in_project_settings_is_the_project (0.00s)
+    --- PASS: TestPatternForms_POSIX/single_directory_segment_matches_at_any_depth_for_deny (0.00s)
+    --- PASS: TestPatternForms_POSIX/multi-segment_relative_pattern_is_anchored (0.00s)
+    --- PASS: TestPatternForms_POSIX/**/dir/**_anywhere_under_the_project (0.00s)
+    --- PASS: TestPatternForms_POSIX/trailing_slash_names_a_directory_and_blocks_its_contents (0.00s)
+    --- PASS: TestPatternForms_POSIX/a_plain_directory_name_blocks_its_contents (0.00s)
+    --- PASS: TestPatternForms_POSIX/leading_.._climbs_above_the_project (0.00s)
+    --- PASS: TestPatternForms_POSIX/an_unusable_glob_still_guards_its_exact_path (0.00s)
+    --- PASS: TestPatternForms_POSIX/parentheses_in_a_path_are_literal (0.00s)
+    --- PASS: TestPatternForms_POSIX/matching_is_case-sensitive_on_Linux (0.00s)
+=== RUN   TestSettingsRelativeAnchorFollowsTheSource
+--- PASS: TestSettingsRelativeAnchorFollowsTheSource (0.00s)
+=== RUN   TestToolLevelAndToolGlobRules
+=== RUN   TestToolLevelAndToolGlobRules/Read
+=== RUN   TestToolLevelAndToolGlobRules/Read()
+=== RUN   TestToolLevelAndToolGlobRules/*
+=== RUN   TestToolLevelAndToolGlobRules/R*
+=== RUN   TestToolLevelAndToolGlobRules/Rea?
+=== RUN   TestToolLevelAndToolGlobRules/irrelevant_Bash
+=== RUN   TestToolLevelAndToolGlobRules/irrelevant_Bash(*)
+=== RUN   TestToolLevelAndToolGlobRules/irrelevant_Edit(./x)
+=== RUN   TestToolLevelAndToolGlobRules/irrelevant_mcp__*
+=== RUN   TestToolLevelAndToolGlobRules/irrelevant_Write(./x)
+=== RUN   TestToolLevelAndToolGlobRules/irrelevant_Glob(./x)
+=== RUN   TestToolLevelAndToolGlobRules/irrelevant_ReadX
+--- PASS: TestToolLevelAndToolGlobRules (0.00s)
+    --- PASS: TestToolLevelAndToolGlobRules/Read (0.00s)
+    --- PASS: TestToolLevelAndToolGlobRules/Read() (0.00s)
+    --- PASS: TestToolLevelAndToolGlobRules/* (0.00s)
+    --- PASS: TestToolLevelAndToolGlobRules/R* (0.00s)
+    --- PASS: TestToolLevelAndToolGlobRules/Rea? (0.00s)
+    --- PASS: TestToolLevelAndToolGlobRules/irrelevant_Bash (0.00s)
+    --- PASS: TestToolLevelAndToolGlobRules/irrelevant_Bash(*) (0.00s)
+    --- PASS: TestToolLevelAndToolGlobRules/irrelevant_Edit(./x) (0.00s)
+    --- PASS: TestToolLevelAndToolGlobRules/irrelevant_mcp__* (0.00s)
+    --- PASS: TestToolLevelAndToolGlobRules/irrelevant_Write(./x) (0.00s)
+    --- PASS: TestToolLevelAndToolGlobRules/irrelevant_Glob(./x) (0.00s)
+    --- PASS: TestToolLevelAndToolGlobRules/irrelevant_ReadX (0.00s)
+=== RUN   TestParameterRulesGovernNoArchivedRead
+--- PASS: TestParameterRulesGovernNoArchivedRead (0.00s)
+=== RUN   TestAskRulesAndPrecedence
+--- PASS: TestAskRulesAndPrecedence (0.00s)
+=== RUN   TestNegationCarvesOnlyWhatTheHostCarves
+=== RUN   TestNegationCarvesOnlyWhatTheHostCarves/carves_the_earlier_relative_rule_in_the_same_list
+=== RUN   TestNegationCarvesOnlyWhatTheHostCarves/a_carve-out_listed_first_carves_nothing
+=== RUN   TestNegationCarvesOnlyWhatTheHostCarves/never_across_sources
+=== RUN   TestNegationCarvesOnlyWhatTheHostCarves/never_across_deny_and_ask
+=== RUN   TestNegationCarvesOnlyWhatTheHostCarves/cannot_reopen_inside_a_blocked_directory
+=== RUN   TestNegationCarvesOnlyWhatTheHostCarves/reopens_a_file_the_directory_rule_only_matched_by_content
+=== RUN   TestNegationCarvesOnlyWhatTheHostCarves/cannot_reach_an_anchored_rule
+--- PASS: TestNegationCarvesOnlyWhatTheHostCarves (0.00s)
+    --- PASS: TestNegationCarvesOnlyWhatTheHostCarves/carves_the_earlier_relative_rule_in_the_same_list (0.00s)
+    --- PASS: TestNegationCarvesOnlyWhatTheHostCarves/a_carve-out_listed_first_carves_nothing (0.00s)
+    --- PASS: TestNegationCarvesOnlyWhatTheHostCarves/never_across_sources (0.00s)
+    --- PASS: TestNegationCarvesOnlyWhatTheHostCarves/never_across_deny_and_ask (0.00s)
+    --- PASS: TestNegationCarvesOnlyWhatTheHostCarves/cannot_reopen_inside_a_blocked_directory (0.00s)
+    --- PASS: TestNegationCarvesOnlyWhatTheHostCarves/reopens_a_file_the_directory_rule_only_matched_by_content (0.00s)
+    --- PASS: TestNegationCarvesOnlyWhatTheHostCarves/cannot_reach_an_anchored_rule (0.00s)
+=== RUN   TestMalformedEntries
+=== RUN   TestMalformedEntries/deny_not_an_array
+=== RUN   TestMalformedEntries/ask_not_an_array
+=== RUN   TestMalformedEntries/unbalanced_Read_rule
+=== RUN   TestMalformedEntries/empty_file
+=== RUN   TestMalformedEntries/permissions_null
+=== RUN   TestMalformedEntries/non-string_entry
+=== RUN   TestMalformedEntries/unbalanced_tool-glob_rule
+=== RUN   TestMalformedEntries/invalid_JSON
+=== RUN   TestMalformedEntries/top_level_not_an_object
+=== RUN   TestMalformedEntries/permissions_not_object
+=== RUN   TestMalformedEntries/tolerated:_unbalanced_rule_for_another_tool
+=== RUN   TestMalformedEntries/tolerated:_no_permissions_at_all
+=== RUN   TestMalformedEntries/tolerated:_unknown_permission_keys
+=== RUN   TestMalformedEntries/tolerated:_byte_order_mark
+=== RUN   TestMalformedEntries/tolerated:_empty_rule_string
+--- PASS: TestMalformedEntries (0.00s)
+    --- PASS: TestMalformedEntries/deny_not_an_array (0.00s)
+    --- PASS: TestMalformedEntries/ask_not_an_array (0.00s)
+    --- PASS: TestMalformedEntries/unbalanced_Read_rule (0.00s)
+    --- PASS: TestMalformedEntries/empty_file (0.00s)
+    --- PASS: TestMalformedEntries/permissions_null (0.00s)
+    --- PASS: TestMalformedEntries/non-string_entry (0.00s)
+    --- PASS: TestMalformedEntries/unbalanced_tool-glob_rule (0.00s)
+    --- PASS: TestMalformedEntries/invalid_JSON (0.00s)
+    --- PASS: TestMalformedEntries/top_level_not_an_object (0.00s)
+    --- PASS: TestMalformedEntries/permissions_not_object (0.00s)
+    --- PASS: TestMalformedEntries/tolerated:_unbalanced_rule_for_another_tool (0.00s)
+    --- PASS: TestMalformedEntries/tolerated:_no_permissions_at_all (0.00s)
+    --- PASS: TestMalformedEntries/tolerated:_unknown_permission_keys (0.00s)
+    --- PASS: TestMalformedEntries/tolerated:_byte_order_mark (0.00s)
+    --- PASS: TestMalformedEntries/tolerated:_empty_rule_string (0.00s)
+=== RUN   TestWindowsPathsAreComparedInPOSIXFormWithoutCase
+=== RUN   TestWindowsPathsAreComparedInPOSIXFormWithoutCase///c/_is_the_drive_root
+=== RUN   TestWindowsPathsAreComparedInPOSIXFormWithoutCase///**/_spans_every_drive
+=== RUN   TestWindowsPathsAreComparedInPOSIXFormWithoutCase/relative_rules_ignore_case
+=== RUN   TestWindowsPathsAreComparedInPOSIXFormWithoutCase/home_rules_ignore_case
+=== RUN   TestWindowsPathsAreComparedInPOSIXFormWithoutCase/a_drive-letter_rule_is_also_read_as_the_path_it_names
+=== RUN   TestWindowsPathsAreComparedInPOSIXFormWithoutCase/a_backslash_rule_is_also_read_with_slashes
+=== RUN   TestWindowsPathsAreComparedInPOSIXFormWithoutCase/extended-length_paths
+--- PASS: TestWindowsPathsAreComparedInPOSIXFormWithoutCase (0.00s)
+    --- PASS: TestWindowsPathsAreComparedInPOSIXFormWithoutCase///c/_is_the_drive_root (0.00s)
+    --- PASS: TestWindowsPathsAreComparedInPOSIXFormWithoutCase///**/_spans_every_drive (0.00s)
+    --- PASS: TestWindowsPathsAreComparedInPOSIXFormWithoutCase/relative_rules_ignore_case (0.00s)
+    --- PASS: TestWindowsPathsAreComparedInPOSIXFormWithoutCase/home_rules_ignore_case (0.00s)
+    --- PASS: TestWindowsPathsAreComparedInPOSIXFormWithoutCase/a_drive-letter_rule_is_also_read_as_the_path_it_names (0.00s)
+    --- PASS: TestWindowsPathsAreComparedInPOSIXFormWithoutCase/a_backslash_rule_is_also_read_with_slashes (0.00s)
+    --- PASS: TestWindowsPathsAreComparedInPOSIXFormWithoutCase/extended-length_paths (0.00s)
+=== RUN   TestMacOSComparesWithoutCase
+--- PASS: TestMacOSComparesWithoutCase (0.00s)
+=== RUN   TestMatchSegmentsStaysPolynomialOnHostilePatterns
+--- PASS: TestMatchSegmentsStaysPolynomialOnHostilePatterns (0.00s)
+=== RUN   TestEvaluateOnAnEmptySetIsAllow
+--- PASS: TestEvaluateOnAnEmptySetIsAllow (0.00s)
+=== RUN   TestLiteralPatternsCleanTheirDotDots
+--- PASS: TestLiteralPatternsCleanTheirDotDots (0.00s)
+=== RUN   TestShortNames_EverySpellingOfTheServedFileIsJudged
+=== RUN   TestShortNames_EverySpellingOfTheServedFileIsJudged/mixed_absolute_rule,_short_root,_long_file
+=== RUN   TestShortNames_EverySpellingOfTheServedFileIsJudged/mixed_absolute_rule,_long_path
+=== RUN   TestShortNames_EverySpellingOfTheServedFileIsJudged/mixed_absolute_rule,_short_path
+=== RUN   TestShortNames_EverySpellingOfTheServedFileIsJudged/long_absolute_rule,_short_path
+=== RUN   TestShortNames_EverySpellingOfTheServedFileIsJudged/relative_rule,_long_path
+=== RUN   TestShortNames_EverySpellingOfTheServedFileIsJudged/short_relative_rule,_long_path
+=== RUN   TestShortNames_EverySpellingOfTheServedFileIsJudged/short_directory_glob,_long_path
+--- PASS: TestShortNames_EverySpellingOfTheServedFileIsJudged (0.08s)
+    --- PASS: TestShortNames_EverySpellingOfTheServedFileIsJudged/mixed_absolute_rule,_short_root,_long_file (0.02s)
+    --- PASS: TestShortNames_EverySpellingOfTheServedFileIsJudged/mixed_absolute_rule,_long_path (0.01s)
+    --- PASS: TestShortNames_EverySpellingOfTheServedFileIsJudged/mixed_absolute_rule,_short_path (0.01s)
+    --- PASS: TestShortNames_EverySpellingOfTheServedFileIsJudged/long_absolute_rule,_short_path (0.02s)
+    --- PASS: TestShortNames_EverySpellingOfTheServedFileIsJudged/relative_rule,_long_path (0.00s)
+    --- PASS: TestShortNames_EverySpellingOfTheServedFileIsJudged/short_relative_rule,_long_path (0.00s)
+    --- PASS: TestShortNames_EverySpellingOfTheServedFileIsJudged/short_directory_glob,_long_path (0.02s)
+=== RUN   TestShortNames_AnUnresolvableShortNameIsRefused
+--- PASS: TestShortNames_AnUnresolvableShortNameIsRefused (0.03s)
+PASS
+ok  	github.com/qompack/qompack/internal/hostperm	2.653s

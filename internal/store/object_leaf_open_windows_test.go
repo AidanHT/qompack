@@ -30,7 +30,7 @@ func TestOpenObjectLeaf_BranchesOnTheHandlesReparseAttribute(t *testing.T) {
 	require.EqualValues(t, len("plain object bytes"), fi.Size())
 	require.NoError(t, f.Close())
 
-	sock := filepath.Join(dir, "s")
+	sock := filepath.Join(shortSocketDir(t), "s")
 	l, err := net.Listen("unix", sock)
 	require.NoError(t, err, "fixture: an AF_UNIX socket file must be creatable here")
 	t.Cleanup(func() { _ = l.Close() })

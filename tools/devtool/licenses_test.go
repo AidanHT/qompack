@@ -116,9 +116,9 @@ func TestRenderNotices_DetectsAChangedVersion(t *testing.T) {
 	}}
 	tooling := []toolingRow{{Path: "example.com/tool", Version: "v2.0.0", ID: "MPL-2.0", Note: "test only, not shipped"}}
 
-	before := renderNotices("MIT License\n", mods, tooling)
+	before := renderNotices("MIT License\n", goLicense{Toolchain: "go1.0.0", Body: "Go\n"}, mods, tooling)
 	mods[0].Version = "v1.0.1"
-	after := renderNotices("MIT License\n", mods, tooling)
+	after := renderNotices("MIT License\n", goLicense{Toolchain: "go1.0.0", Body: "Go\n"}, mods, tooling)
 
 	if before == after {
 		t.Fatal("a dependency version bump did not change the rendered page, so --check could never detect one")
@@ -150,5 +150,67 @@ func TestGoModVersions(t *testing.T) {
 	if versions["direct:gopkg.in/yaml.v3"] != "" {
 		t.Error("an `// indirect` requirement must not be recorded as direct; the closing table " +
 			"lists direct dependencies only")
+	}
+}
+
+// TestNotices_CarryTheGoLicence is audit F4's second half (V6 close-out D53(e)). The Go runtime and
+// standard library are compiled into every released binary, so the binary redistributes them and
+// Go's BSD-3-Clause licence asks for its notice in that binary form. The committed page used to
+// say the standard library "is not redistributed by this repository", which was false. The page
+// must reproduce the LICENSE of the toolchain the repository builds with, and must not repeat the
+// false statement.
+func TestNotices_CarryTheGoLicence(t *testing.T) {
+	withRepoRoot(t)
+
+	page, err := os.ReadFile(filepath.Join(root, noticesFileName))
+	if err != nil {
+		t.Fatalf("read %s: %v", noticesFileName, err)
+	}
+	text := strings.ReplaceAll(string(page), "\r\n", "\n")
+
+	goLicense, err := goToolchainLicense()
+	if err != nil {
+		t.Fatalf("goToolchainLicense: %v", err)
+	}
+	if !strings.Contains(goLicense.Body, "The Go Authors") {
+		t.Fatalf("GOROOT's LICENSE does not name The Go Authors; read the wrong file?\n%s", goLicense.Body)
+	}
+	// The text is looked for inside the Go section, not anywhere on the page: golang.org/x/sys
+	// carries a LICENSE with the same words, so a page-wide search would pass without the section.
+	var indented strings.Builder
+	writeIndented(&indented, goLicense.Body)
+	section := strings.Index(text, "### The Go runtime and standard library")
+	if section < 0 || !strings.Contains(text[section:], indented.String()) {
+		t.Errorf("%s does not reproduce the Go distribution's LICENSE, which every binary carries in "+
+			"its runtime and standard library; run `devtool licenses --write`", noticesFileName)
+	}
+	if strings.Contains(text, "is not redistributed by this") {
+		t.Errorf("%s still says the Go standard library is not redistributed; it is compiled into "+
+			"every binary", noticesFileName)
+	}
+}
+
+// TestRenderNotices_GoLicenceIsARedistributedSection pins where the Go licence sits: in §2, among
+// what the binary carries, with the toolchain named, and not in §3's not-redistributed list.
+func TestRenderNotices_GoLicenceIsARedistributedSection(t *testing.T) {
+	goLic := goLicense{Toolchain: "go1.99.9", Body: "Copyright 2009 The Go Authors.\n\nBSD text\n"}
+	page := renderNotices("MIT License\n", goLic, nil, nil)
+
+	sec2 := strings.Index(page, "## 2. Redistributed dependencies")
+	sec3 := strings.Index(page, "## 3. Build- and test-time dependencies")
+	goSec := strings.Index(page, "### The Go runtime and standard library")
+	if sec2 < 0 || sec3 < 0 || goSec < 0 {
+		t.Fatalf("the page lacks a section; §2 %d, §3 %d, Go %d:\n%s", sec2, sec3, goSec, page)
+	}
+	if goSec < sec2 || goSec > sec3 {
+		t.Errorf("the Go licence must sit inside §2 (redistributed), at %d, not between %d and %d", goSec, sec2, sec3)
+	}
+	for _, want := range []string{"go1.99.9", "    Copyright 2009 The Go Authors.", "    BSD text", "BSD-3-Clause"} {
+		if !strings.Contains(page, want) {
+			t.Errorf("the rendered page omits %q", want)
+		}
+	}
+	if !strings.Contains(page, "None: the binary links no third-party module.") {
+		t.Errorf("with no shipped module the page must still say so")
 	}
 }

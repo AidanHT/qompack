@@ -227,3 +227,33 @@ func TestRenderStatus_RetainsEstimatorSourceAndAge(t *testing.T) {
 	require.Contains(t, stale.String(), "from disk", "a fallback reading must name its source")
 	require.Contains(t, stale.String(), "4.00m old", "a fallback reading must show how stale it is")
 }
+
+// TestRenderStatus_SpoolSubmodeSaysNothingIsLost (D53(c)): a daemon in spool submode on a slow disk
+// is healthy and loses nothing, so the page explains the `hot path: spool` line — what happened, that
+// nothing is lost, what ends it and which settings tune it — and neither calls the session degraded
+// nor fails anything for it. The machine-readable field stays the plain word.
+func TestRenderStatus_SpoolSubmodeSaysNothingIsLost(t *testing.T) {
+	t.Parallel()
+	rep := fullReport()
+	rep.Snapshot.Hot = "spool"
+
+	var out bytes.Buffer
+	require.NoError(t, commands.RenderStatus(&out, rep))
+	text := out.String()
+	require.Contains(t, text, "hot path:    spool\n")
+	flat := strings.Join(strings.Fields(text), " ")
+	for _, want := range []string{
+		"durable writes on this disk take longer than runtime.budgets.l0IngestMs",
+		"nothing is lost",
+		"It lasts until a new session in this project, or the daemon's idle exit (there is no stop command).",
+		"To tune it: runtime.hotPath.budgetMs, runtime.budgets.l0IngestMs and runtime.daemon.ackDeadlineMs",
+	} {
+		require.Contains(t, flat, want)
+	}
+	require.NotContains(t, text, "FAILING")
+	require.NotContains(t, strings.ToLower(text), "degraded to")
+
+	raw, err := json.Marshal(rep)
+	require.NoError(t, err)
+	require.Contains(t, string(raw), `"hot":"spool"`, "the JSON field is unchanged")
+}

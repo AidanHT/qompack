@@ -1,0 +1,2 @@
+ok  	github.com/qompack/qompack/internal/contract	2.085s
+ok  	github.com/qompack/qompack/internal/contract/contracttest	1.115s

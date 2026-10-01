@@ -10,6 +10,7 @@ import (
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/obs"
 	"github.com/qompack/qompack/internal/paths"
+	"github.com/qompack/qompack/internal/tokens"
 )
 
 // Compactor is the PreCompact seam the daemon's composition root binds. It is additive to
@@ -44,6 +45,12 @@ type PreCompactInput struct {
 	Cfg         config.CheckpointCfg
 	Cache       CacheInfo
 	ExtraDrops  []DropEntry
+	// PricedDrops, when set, is called once with the estimator this seal's Truncate prices the
+	// document with (the draft's SourceSet.Tokens, project-calibrated on the daemon's path), and the
+	// entries it returns are added like ExtraDrops. It is for a caller whose drop report must fit a
+	// share of the budget as Truncate will measure it: the daemon's report of captures its PreCompact
+	// settle left unreplayed (V6 close-out D55).
+	PricedDrops func(est tokens.Estimator) []DropEntry
 	// CurrentWork overrides whatever the draft derived; nil means keep the derived value.
 	CurrentWork *CurrentWork
 	// OpenQuestions are appended to the draft's derived list; may be nil.
@@ -75,6 +82,10 @@ const (
 	finalizeGuard = 400 * time.Millisecond
 	// maxPreCompact keeps us well inside budget B-E (2 s p99, Qompack.md §11.3 L4).
 	maxPreCompact = 1500 * time.Millisecond
+	// MaxPreCompactWindow is maxPreCompact, for the daemon's PreCompact route: the seal's own worst
+	// case inside B-E, which the route subtracts from B-E to bound what it may spend before the seal
+	// (internal/daemon precompactSettleBound, D53(c)).
+	MaxPreCompactWindow = maxPreCompact
 	// minFinalizeWindow is the floor. A host that hands us a deadline already inside finalizeGuard
 	// — or in the past — must still get a written checkpoint, because §12's PreCompact-timeout row
 	// says finalize as-is, not give up. With this floor, Finalize always has at least this much
@@ -180,6 +191,9 @@ func (w *FileWriter) preCompact(ctx context.Context, in PreCompactInput) (PreCom
 
 	d.SetCache(in.Cache)
 	d.AddDrops(in.ExtraDrops...)
+	if in.PricedDrops != nil {
+		d.AddDrops(in.PricedDrops(d.sources().Tokens)...)
+	}
 	if in.CurrentWork != nil {
 		d.SetCurrentWork(*in.CurrentWork)
 	}

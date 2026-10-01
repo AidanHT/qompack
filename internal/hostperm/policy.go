@@ -4,7 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"regexp"
 	"runtime"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -236,6 +238,10 @@ type RuleSet struct {
 	resolve bool
 	deny    []ruleList
 	ask     []ruleList
+	// shortPending reports that a rule names an 8.3 name its compile could not expand to a real
+	// name: after a glob, in a literal rule, or naming an entry that does not exist. Evaluate then
+	// also judges each path segment by its own 8.3 name (shortSpellings).
+	shortPending bool
 }
 
 // Empty reports whether no Read deny or ask rule is in force, in which case Evaluate touches no
@@ -253,19 +259,38 @@ func (rs *RuleSet) Empty() bool {
 // The path itself is treated as possibly being a directory, so a directory-only rule (`secrets/`)
 // also matches a plain file of that name — a refusal the host might not make, taken because an
 // archived path's kind at capture time is not recorded.
+//
+// A path with an 8.3-shaped segment that names nothing on disk (a deleted file's short name) has
+// no long name to judge, and a rule on that long name would be walked past, so with any rule in
+// force it is refused outright (Rule unresolvedShortName), as unreadable settings are.
+//
+// A rule that names an 8.3 name it could not be expanded at (shortPending) is matched against each
+// path segment's 8.3 name as well as its own. Only an existing path has 8.3 names to compare, so
+// while such a rule is in force a path that does not exist is refused (Rule unknownShortName).
+// Both refusals answer Deny whichever lists hold the rules, since the rule the unknown name would
+// match cannot be told.
 func (rs *RuleSet) Evaluate(abs string) Decision {
 	if rs.Empty() || abs == "" {
 		return Decision{Effect: Allow}
 	}
-	cands := spellings(abs, rs.goos, rs.fold, rs.resolve, nil)
+	cands, natives, unresolved := spellings(abs, rs.goos, rs.fold, rs.resolve, nil)
+	if unresolved {
+		return Decision{Effect: Deny, Rule: unresolvedShortName}
+	}
+	var alts [][]string
+	if rs.shortPending {
+		if alts = shortSpellings(cands, natives, rs.goos, rs.fold); alts == nil {
+			return Decision{Effect: Deny, Rule: unknownShortName}
+		}
+	}
 	var sc scratch
 	for _, l := range rs.deny {
-		if rule, ok := l.match(cands, &sc); ok {
+		if rule, ok := l.match(cands, alts, &sc); ok {
 			return Decision{Effect: Deny, Rule: rule, Source: l.source}
 		}
 	}
 	for _, l := range rs.ask {
-		if rule, ok := l.match(cands, &sc); ok {
+		if rule, ok := l.match(cands, alts, &sc); ok {
 			return Decision{Effect: Ask, Rule: rule, Source: l.source}
 		}
 	}
@@ -275,26 +300,79 @@ func (rs *RuleSet) Evaluate(abs string) Decision {
 // spellings returns every distinct spelling of the absolute path p as POSIX segments: p itself
 // and, when onDisk is set, the name the operating system opens for it and where each of those
 // resolves through links. onDisk is false only when a test evaluates another platform's paths.
-// memo may be nil; see linkMemo.
-func spellings(p, goos string, fold, onDisk bool, memo linkMemo) [][]string {
-	out := [][]string{posixSegments(p, goos, fold)}
+// memo may be nil; see linkMemo. natives holds each spelling as this platform names it, in the
+// same order. unresolved is osAlias's: p holds an 8.3 name it cannot expand.
+func spellings(p, goos string, fold, onDisk bool, memo linkMemo) (out [][]string, natives []string,
+	unresolved bool,
+) {
+	out, natives = [][]string{posixSegments(p, goos, fold)}, []string{p}
 	if !onDisk {
-		return out
+		return out, natives, false
 	}
-	names := []string{p}
-	if a := osAlias(p); a != "" {
+	a, unresolved := osAlias(p)
+	if a != "" {
 		var added bool
 		if out, added = appendDistinct(out, posixSegments(a, goos, fold)); added {
-			names = append(names, a)
+			natives = append(natives, a)
 		}
 	}
-	for _, n := range names {
+	// Each spelling found so far is resolved through links; a resolution is not resolved again.
+	for _, n := range natives[:len(natives):len(natives)] {
 		if r, ok := resolveLinks(n, memo); ok {
-			out, _ = appendDistinct(out, posixSegments(r, goos, fold))
+			var added bool
+			if out, added = appendDistinct(out, posixSegments(r, goos, fold)); added {
+				natives = append(natives, r)
+			}
 		}
 	}
-	return out
+	return out, natives, unresolved
 }
+
+// shortSpellings returns, for each spelling in cands, the same path with every segment in its 8.3
+// spelling (osShortName), aligned segment for segment, or nil where that is not known. It returns
+// nil when it is known for none: the path does not exist, so its own 8.3 names cannot be read.
+func shortSpellings(cands [][]string, natives []string, goos string, fold bool) [][]string {
+	alts := make([][]string, len(cands))
+	known := false
+	for i, c := range cands {
+		s, complete := osShortName(natives[i])
+		if !complete {
+			continue
+		}
+		if segs := posixSegments(s, goos, fold); len(segs) == len(c) {
+			alts[i], known = segs, true
+		}
+	}
+	if !known {
+		return nil
+	}
+	return alts
+}
+
+// unresolvedShortName is the Decision.Rule of Evaluate's refusal of an 8.3 name it cannot expand.
+// Like every Rule it is for local diagnostics only.
+const unresolvedShortName = "(an 8.3 name that names nothing on disk, so its long name is unknown)"
+
+// unknownShortName is the Decision.Rule of Evaluate's refusal, under a rule naming an 8.3 name it
+// could not be expanded at, of a path that does not exist and so has no 8.3 names to compare.
+const unknownShortName = "(a rule names an 8.3 name, and a path that does not exist has none to compare)"
+
+// shortNameRe matches a segment that may be, or as a glob may name, a generated 8.3 name: a tilde
+// followed by a digit, as in CREDEN~1.SEC or the hashed form 5B2E~1, or by a glob metacharacter
+// (concretePrefix's `*?[\`) that can stand for one, as in CREDEN~?.SEC, or a tilde inside a bracket
+// expression, as in CREDEN[~]1.SEC or CREDEN[}-~]1.SEC, where the class itself can match the tilde.
+// A tilde followed by anything else outside a class, as in the backup-file rule Read(**/*~) or
+// Read(**/*.[ch]~), names no 8.3 name. A long name may contain the same characters; such a name is
+// only ever refused when it does not exist, see osAlias. A path segment is a name, not a glob: `*`,
+// `?` and `\` cannot occur in a Windows file name, and `~[` or `[...~` in one only widens that
+// refusal, which fails closed.
+var shortNameRe = regexp.MustCompile(`~[0-9*?\[\\]|\[[^\]]*~`)
+
+// shortShaped reports whether the segment seg may be an 8.3 name, or as a rule's glob segment may
+// name one. It is the one 8.3-shape predicate: a path's unexpandable segment (osAlias), a rule's
+// pending 8.3 name (longNameAliases) and the rule segments compared with a path's 8.3 names
+// (literalEqual, prefixRow) are all judged by it.
+func shortShaped(seg string) bool { return shortNameRe.MatchString(seg) }
 
 // appendDistinct appends segs unless an identical list is already present.
 func appendDistinct(all [][]string, segs []string) ([][]string, bool) {
@@ -321,24 +399,33 @@ type ruleList struct {
 }
 
 // match reports whether any candidate spelling of the path is refused by this list, and by which
-// entry.
-func (l *ruleList) match(cands [][]string, sc *scratch) (string, bool) {
+// entry. alts is nil, or holds each candidate's 8.3 spelling (shortSpellings), which a rule
+// segment naming an 8.3 name is compared with as well.
+func (l *ruleList) match(cands, alts [][]string, sc *scratch) (string, bool) {
 	if l.toolRule != "" {
 		return l.toolRule, true
 	}
-	for _, c := range cands {
+	for i, c := range cands {
+		var alt []string
+		if alts != nil {
+			alt = alts[i]
+		}
 		for _, p := range l.patterns {
 			if p.neg || p.carvable {
 				continue
 			}
 			for _, a := range p.anchors {
-				if rel, ok := under(c, a); ok && p.matchSelfOrAncestor(rel, sc) {
-					return p.raw, true
+				if rel, ok := under(c, a); ok {
+					sc.alt = tail(alt, len(a))
+					if p.matchSelfOrAncestor(rel, sc) {
+						return p.raw, true
+					}
 				}
 			}
 		}
 		for _, a := range l.cwdAnchors {
 			if rel, ok := under(c, a); ok {
+				sc.alt = tail(alt, len(a))
 				if rule, hit := l.carvedMatch(rel, sc); hit {
 					return rule, true
 				}
@@ -346,6 +433,14 @@ func (l *ruleList) match(cands [][]string, sc *scratch) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+// tail returns alt below its first n segments, or nil when there is no alt.
+func tail(alt []string, n int) []string {
+	if alt == nil {
+		return nil
+	}
+	return alt[n:]
 }
 
 // carvedMatch applies gitignore's ordering to the carvable group: a directory above rel that the
@@ -357,9 +452,16 @@ func (l *ruleList) match(cands [][]string, sc *scratch) (string, bool) {
 func (l *ruleList) carvedMatch(rel []string, sc *scratch) (string, bool) {
 	n := len(rel)
 	sc.rules, sc.pos = resize(sc.rules, n+1), resize(sc.pos, n+1)
+	// A carve-out is compared with the path's own names only: the 8.3 comparison adds refusals,
+	// never reopenings.
+	alt := sc.alt
 	for _, p := range l.patterns {
 		if !p.carvable {
 			continue
+		}
+		sc.alt = alt
+		if p.neg {
+			sc.alt = nil
 		}
 		for k, hit := range p.row(rel, sc) {
 			if hit {
@@ -367,6 +469,7 @@ func (l *ruleList) carvedMatch(rel []string, sc *scratch) (string, bool) {
 			}
 		}
 	}
+	sc.alt = alt
 	for k := 1; k < n; k++ {
 		if sc.pos[k] {
 			return sc.rules[k], true
@@ -418,6 +521,11 @@ func (p *Policy) newRuleSet(lists []ruleList) *RuleSet {
 			if !pt.neg && pt.kind != anchorCwd {
 				aliases = append(aliases, p.throughLinks(pt, memo)...)
 			}
+			if !pt.neg {
+				long, pending := p.longNameAliases(pt, memo)
+				aliases = append(aliases, long...)
+				rs.shortPending = rs.shortPending || pending
+			}
 		}
 		l.patterns = append(l.patterns, aliases...)
 		l.cwdAnchors = cwd
@@ -446,7 +554,83 @@ func (p *Policy) anchorVariants(dir string, memo linkMemo) [][]string {
 	if dir == "" {
 		return nil
 	}
-	return spellings(dir, p.goos, p.fold, p.goos == runtime.GOOS, memo)
+	out, _, _ := spellings(dir, p.goos, p.fold, p.goos == runtime.GOOS, memo)
+	return out
+}
+
+// concretePrefix counts pt's leading segments that name a concrete directory or file: the walk
+// stops at the first segment that is a glob, which is as far as a rule names a concrete path.
+func concretePrefix(pt *pattern) int {
+	prefix := 0
+	for prefix < len(pt.segs) && !strings.ContainsAny(pt.segs[prefix], `*?[\`) {
+		prefix++
+	}
+	return prefix
+}
+
+// longNameAliases returns the aliases of a rule whose concrete prefix is spelled through a name
+// Windows opens under another spelling: an 8.3 name (or a trailing dot, space or stream), which
+// osAlias expands to the real name. A path is judged by its own spelling and its real name
+// (spellings), so a rule spelled short, or mixing short and long segments as one under a short
+// TEMP (C:\Users\RUNNER~1\...) does, would match neither; the rule is applied at its real name too.
+// Every rule kind is aliased, since the alias only adds refusals; like compileAlias's, an alias is
+// never carvable. osAlias is asked only of a prefix that holds such a segment (spelledAsAlias), so
+// a rule set without one pays nothing. The real name of a `//`, `~/` or `/` rule is also walked
+// through links (memo), as throughLinks walks the rule as written.
+//
+// pending reports an 8.3-shaped name the rule holds that no alias expands: one after a glob or in a
+// literal rule, where no concrete directory names it, or one naming an entry that does not exist.
+// Such a rule is matched against each path segment's 8.3 name instead (RuleSet.shortPending).
+func (p *Policy) longNameAliases(pt *pattern, memo linkMemo) (out []*pattern, pending bool) {
+	if p.goos != runtime.GOOS || runtime.GOOS != "windows" || pt.inert {
+		return nil, false
+	}
+	if pt.literal {
+		return nil, slices.ContainsFunc(pt.segs, shortShaped)
+	}
+	prefix := concretePrefix(pt)
+	pending = slices.ContainsFunc(pt.segs[prefix:], shortShaped)
+	if prefix == 0 || !spelledAsAlias(pt.segs[:prefix]) {
+		return nil, pending
+	}
+	for _, a := range pt.anchors {
+		lit := append(append([]string{}, a...), pt.segs[:prefix]...)
+		alias, unresolved := osAlias(nativePath(lit, p.goos))
+		pending = pending || unresolved
+		if alias == "" {
+			continue
+		}
+		reals := []string{alias}
+		if pt.kind != anchorCwd {
+			if r, ok := resolveLinks(alias, memo); ok {
+				reals = append(reals, r)
+			}
+		}
+		seen := [][]string{lit}
+		for _, r := range reals {
+			rp := posixSegments(r, p.goos, p.fold)
+			var added bool
+			if seen, added = appendDistinct(seen, rp); !added {
+				continue
+			}
+			out = append(out, &pattern{
+				raw: pt.raw, kind: pt.kind, segs: append([]string{}, pt.segs[prefix:]...),
+				anchors: [][]string{rp},
+			})
+		}
+	}
+	return out, pending
+}
+
+// spelledAsAlias reports whether any segment is one Windows may open under another spelling: an
+// 8.3-shaped name (a tilde), or one ending in a dot or a space, or holding a stream's colon.
+func spelledAsAlias(segs []string) bool {
+	for _, s := range segs {
+		if strings.ContainsAny(s, "~:") || strings.HasSuffix(s, ".") || strings.HasSuffix(s, " ") {
+			return true
+		}
+	}
+	return false
 }
 
 // throughLinks returns the aliases of an anchored rule written through a symlinked directory:
@@ -456,10 +640,7 @@ func (p *Policy) throughLinks(pt *pattern, memo linkMemo) []*pattern {
 	if p.goos != runtime.GOOS || pt.literal {
 		return nil
 	}
-	prefix := 0
-	for prefix < len(pt.segs) && !strings.ContainsAny(pt.segs[prefix], `*?[\`) {
-		prefix++
-	}
+	prefix := concretePrefix(pt)
 	if prefix == 0 {
 		return nil
 	}

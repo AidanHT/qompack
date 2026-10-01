@@ -1,0 +1,11 @@
+=== RUN   TestV5_ObserveToStatusRoundTrip
+=== RUN   TestV5_ObserveToStatusRoundTrip/live
+    v5_x01_test.go:555: V5 4.1 live: index_tool_uses=65 hook_controlled.N=65 l0_ingest.N=65 B-A p99=114000us (estimated) B-B p99=94263us (observed)
+=== RUN   TestV5_ObserveToStatusRoundTrip/daemon_down_falls_back_to_persisted_snapshot
+=== RUN   TestV5_ObserveToStatusRoundTrip/nothing_observed_is_reported_as_unknown
+--- PASS: TestV5_ObserveToStatusRoundTrip (8.65s)
+    --- PASS: TestV5_ObserveToStatusRoundTrip/live (0.00s)
+    --- PASS: TestV5_ObserveToStatusRoundTrip/daemon_down_falls_back_to_persisted_snapshot (0.04s)
+    --- PASS: TestV5_ObserveToStatusRoundTrip/nothing_observed_is_reported_as_unknown (0.03s)
+PASS
+ok  	github.com/qompack/qompack/test/e2e	8.876s

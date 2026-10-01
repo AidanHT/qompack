@@ -1,0 +1,8 @@
+TEMPORARY DIAGNOSTIC (product edit reverted with git checkout right after the run): internal/daemon/scheduler_runtime.go builds the runtime with a nil frontier advancer
+go test -p 2 -count=1 -run '^TestDaemonIdleRunsSchedulerWork$' ./test/e2e/ -v  => EXIT 1
+        	Error:      	Should be zero, but was 1
+        	Messages:   	the shipped daemon wires a frontier advancer; a count here means it stopped: map[daemon.publication.unindexed_object_candidates:0 daemon.publication.unpublished_captures:0 observer.segment.followed:1 observer.signal.git:1 observer.superseded:1 observer.tombstone:3 sched.frontier.no_writer:1 sched.idle.evaluate:1 sched.persist:1 sched.pselection.enabled:1 sched.segment.closed.
+--- FAIL: TestDaemonIdleRunsSchedulerWork (7.37s)
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	7.669s
+FAIL

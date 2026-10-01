@@ -13,6 +13,7 @@ import (
 	"golang.org/x/sys/windows"
 
 	"github.com/qompack/qompack/internal/paths"
+	"github.com/qompack/qompack/internal/paths/pathstest"
 )
 
 // Windows rows for stageBinary under concurrent spawners (C1.17). Opening a file is not a passive
@@ -105,6 +106,14 @@ func TestStageBinary_StartsACopyItsRenamerStillHolds(t *testing.T) {
 // spawn falls back to the plugin binary (daemonProgram), and the copy stays for the next spawn.
 // Removing it could pull a correct copy out from under a spawner that verified it and is about to
 // start it.
+//
+// On nightly 36820740318's elevated runner stageBinary returned no error here, and why is not
+// known: the row then had no precondition, so whether the copy was read or refused another way was
+// not recorded. The backup privilege that elevated token holds is not documented to bypass a
+// sharing check (backup tools fail on files in use for that reason), so removing it, as the re-stage
+// below does, may not change that outcome. The precondition now fails loudly with what this token's
+// read got. TestStageBinary_KeepsACopyWhoseCheckIsRefusedAsHeldOpen proves the behaviour this row
+// names for any token, through an injected refusal.
 func TestStageBinary_NeverRemovesACopyHeldOpen(t *testing.T) {
 	t.Parallel()
 	self, home := fakeSelf(t), t.TempDir()
@@ -114,7 +123,17 @@ func TestStageBinary_NeverRemovesACopyHeldOpen(t *testing.T) {
 	require.NoError(t, err)
 	holdStaged(t, staged, windows.GENERIC_READ, windows.FILE_SHARE_DELETE)
 
-	_, err = stageBinary(self, home)
+	pathstest.WithoutBackupPrivileges(t, func() {
+		f, perr := paths.OpenShared(staged)
+		if perr == nil {
+			_ = f.Close()
+		}
+		require.ErrorIs(t, perr, windows.ERROR_SHARING_VIOLATION,
+			"precondition: a handle that does not share read refuses this token's read (got %v; enabled: %v)",
+			perr, pathstest.EnabledBypassPrivileges(t))
+
+		_, err = stageBinary(self, home)
+	})
 	require.ErrorIs(t, err, windows.ERROR_SHARING_VIOLATION, "a copy that cannot be verified is never returned to be run")
 	requireSameStagedFile(t, before, staged)
 }
@@ -124,16 +143,28 @@ func TestStageBinary_NeverRemovesACopyHeldOpen(t *testing.T) {
 // is refused as surely by every other spawner, so none can have verified it and none is about to
 // start it; keeping it would send every later spawn to the plugin binary for good, the D10 hazard
 // staging exists to remove. It is removed and staged again, as it was before w8-stagerace.
+//
+// The deny entry binds every token but one holding the backup privilege enabled, which an open with
+// backup semantics (paths.OpenShared) uses to read past it, as the hosted runner's elevated account
+// did (nightly 36820740318); the row therefore reads without that privilege.
 func TestStageBinary_RestagesACopyItCanNeverRead(t *testing.T) {
 	t.Parallel()
 	self, home := fakeSelf(t), t.TempDir()
 	staged, err := stageBinary(self, home)
 	require.NoError(t, err)
 	denyReadingData(t, staged)
-	_, err = paths.OpenShared(staged)
-	require.ErrorIs(t, err, fs.ErrPermission, "precondition: the copy's data cannot be read")
 
-	again, err := stageBinary(self, home)
+	var again string
+	pathstest.WithoutBackupPrivileges(t, func() {
+		f, perr := paths.OpenShared(staged)
+		if perr == nil {
+			_ = f.Close()
+		}
+		require.ErrorIs(t, perr, fs.ErrPermission, "precondition: the copy's data cannot be read (enabled: %v)",
+			pathstest.EnabledBypassPrivileges(t))
+
+		again, err = stageBinary(self, home)
+	})
 	require.NoError(t, err, "an unreadable copy is replaced, not a reason to run the plugin binary")
 	require.Equal(t, staged, again)
 	require.NoError(t, verifyStaged(again, filepath.Base(filepath.Dir(again))))
@@ -150,4 +181,37 @@ func denyReadingData(t *testing.T, p string) {
 	require.NoError(t, err)
 	require.NoError(t, windows.SetNamedSecurityInfo(p, windows.SE_FILE_OBJECT,
 		windows.DACL_SECURITY_INFORMATION|windows.PROTECTED_DACL_SECURITY_INFORMATION, nil, nil, dacl, nil))
+}
+
+// TestStageBinary_KeepsACopyWhoseCheckIsRefusedAsHeldOpen is the product half of
+// TestStageBinary_NeverRemovesACopyHeldOpen for any token: the first check of an existing copy is
+// refused the way a read is while another handle holds the file (a sharing violation, or a
+// byte-range lock), so it is neither run nor removed. That row needs a real handle to refuse this
+// token's read, which nightly 36820740318's elevated runner did not show (stageBinary returned no
+// error, for a reason the run did not record); this one holds whatever the token. A refusal that
+// does not pass, access denied, still has the copy replaced.
+func TestStageBinary_KeepsACopyWhoseCheckIsRefusedAsHeldOpen(t *testing.T) {
+	t.Parallel()
+	self, home := fakeSelf(t), t.TempDir()
+	staged, err := stageBinary(self, home)
+	require.NoError(t, err)
+	before, err := os.Lstat(staged)
+	require.NoError(t, err)
+	refusedWith := func(errno windows.Errno) func(target, sum string) error {
+		return func(target, _ string) error { return &os.PathError{Op: "open", Path: target, Err: errno} }
+	}
+
+	for _, errno := range []windows.Errno{windows.ERROR_SHARING_VIOLATION, windows.ERROR_LOCK_VIOLATION} {
+		_, err = stageBinaryVerifying(self, home, refusedWith(errno))
+		require.ErrorIs(t, err, errno, "a copy that cannot be verified is never returned to be run")
+		requireSameStagedFile(t, before, staged)
+	}
+
+	again, err := stageBinaryVerifying(self, home, refusedWith(windows.ERROR_ACCESS_DENIED))
+	require.NoError(t, err, "a copy refused for a reason that does not pass is replaced")
+	require.Equal(t, staged, again)
+	now, err := os.Lstat(again)
+	require.NoError(t, err)
+	require.False(t, os.SameFile(before, now), "the refused copy was replaced, not kept")
+	require.NoError(t, verifyStaged(again, filepath.Base(filepath.Dir(again))))
 }

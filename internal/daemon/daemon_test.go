@@ -21,6 +21,7 @@ import (
 	"github.com/qompack/qompack/internal/hookio"
 	"github.com/qompack/qompack/internal/ipc"
 	"github.com/qompack/qompack/internal/logging"
+	"github.com/qompack/qompack/internal/obs"
 	"github.com/qompack/qompack/internal/paths"
 	"github.com/qompack/qompack/internal/sketch"
 )
@@ -29,15 +30,23 @@ import (
 func testConfig() config.Config { return config.Defaults() }
 
 // uniqueTestAddr returns a QOMPACK_IPC_ADDR value naming an endpoint private to this test: a
-// per-test-uniquely-named pipe on Windows, a socket inside t.TempDir() on POSIX. Only tests that
-// actually call Daemon.Run need this — dispatchOp-driven tests never touch the transport.
+// per-test-uniquely-named pipe on Windows, a socket in a fresh short directory on POSIX. Only tests
+// that actually call Daemon.Run need this — dispatchOp-driven tests never touch the transport.
+//
+// The directory is not t.TempDir: on macOS /var/folders/<2>/<30>/T/ plus a long test name passes
+// the override's 100-byte budget, and an over-long QOMPACK_IPC_ADDR is ignored rather than refused
+// (ipc.parseIPCAddrOverride), so the daemon silently fell back to the project-hash address and the
+// endpoint was no longer the private one this helper promises.
 func uniqueTestAddr(t *testing.T) string {
 	t.Helper()
 	if runtime.GOOS == "windows" {
 		name := `\\.\pipe\qompack-test-` + strconv.FormatInt(time.Now().UnixNano(), 36)
 		return "pipe:" + name
 	}
-	return "unix:" + filepath.Join(t.TempDir(), "d.sock")
+	dir, err := os.MkdirTemp("", "qdt")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	return "unix:" + filepath.Join(dir, "d.sock")
 }
 
 // TestNew_SucceedsWithNoServices is the property waves 1-2 depend on: a daemon constructs from an
@@ -733,9 +742,22 @@ func TestHotModeTransitionWritesStateAndNAKs(t *testing.T) {
 	// append-only and never rotated, which is what makes it the durable half.
 	loud, readErr := os.ReadFile(filepath.Join(logDir, "LOUD.log"))
 	require.NoError(t, readErr, "the transition must reach LOUD.log")
-	require.Contains(t, string(loud), "hot path degraded to spool submode")
-	require.Contains(t, readDayLogs(t, logDir), "hot path degraded to spool submode",
+	require.Contains(t, string(loud), "hot path switched to spool submode; nothing is lost")
+	require.Contains(t, readDayLogs(t, logDir), "hot path switched to spool submode; nothing is lost",
 		"the transition must also reach the day log, at WARN")
+	// Worded for the user (D53(c)): what happened, that nothing is lost, what ends it and how to tune
+	// it, with the breach fields first as test/integration reads them.
+	require.Contains(t, string(loud), " budget_ms=15 windows=1 l0_ingest_ms=")
+	for _, want := range []string{
+		"nothing is lost", "durable writes on this disk", "a new session",
+		"idle exit", "no stop command",
+	} {
+		require.Contains(t, string(loud), want)
+	}
+	for _, key := range obs.SpoolSubmodeKeys {
+		require.Contains(t, string(loud), key, "the LOUD line names the tuning key %s", key)
+	}
+	require.NotContains(t, string(loud), "degraded", "a session that loses nothing is not called degraded")
 
 	// 4. status — what /qompack:status renders, and the only channel a user can query on demand.
 	statusResp := dd.dispatchOp(context.Background(), ipc.Request{Op: ipc.OpStatus, Session: "sess-1", Reply: true, TS: core.NowMilli(dd.clk)})

@@ -199,7 +199,7 @@ const (
 
 	// hotpathDegradedMsg is applyHotPathTransition's WARN/LOUD message, pinned verbatim (the same
 	// string internal/daemon's TestHotModeTransitionWritesStateAndNAKs pins).
-	hotpathDegradedMsg = "hot path degraded to spool submode"
+	hotpathDegradedMsg = "hot path switched to spool submode; nothing is lost"
 
 	// hotpathDegradedCounter is the transition counter the status payload must report
 	// (internal/daemon/handlers.go's counterHotpathDegraded).
@@ -750,11 +750,13 @@ type hotpathSpoolTransition struct {
 // hotpathJudgeSpool judges test 1's §12.2 observation by mode (owner decision D39) and returns an
 // error naming the first check that does not hold.
 //
-// Isolated (underCoload false), the transition stays forbidden exactly as before D39: state.bin
-// never showed hot=1, no WARN line, nothing in LOUD.log, and a state.bin left by teardown says sync.
+// Isolated (waived false), the transition stays forbidden exactly as before D39: state.bin never
+// showed hot=1, no WARN line, nothing in LOUD.log, and a state.bin left by teardown says sync.
 //
-// Co-loaded, the transition is REPORTED: it is what the breach detector does when the wall budgets
-// this mode waives (ADR 0010) are breached for wantWindows consecutive windows. A run with none of
+// Waived — co-loaded (D39), or on a non-reference disk on a GitHub Actions runner (D53(e),
+// obs.NonReferenceDisk) — the transition is REPORTED: it is what the breach detector does when the
+// wall budgets the run waives (ADR 0010; Q1) are breached for wantWindows consecutive windows, and on
+// a throttled hosted disk B-A's p50 alone sits at its limit. A run with none of
 // the four signs is the clean run. A run with any of them must show a transition that is loud and
 // named, and one whose spooled events are accounted for:
 //
@@ -771,11 +773,11 @@ type hotpathSpoolTransition struct {
 // The watcher's own hot=1 sighting is not required in (a): it polls, and the lines are the
 // product's record of the transition. Everything else the row asserts is outside this function
 // and identical in both modes.
-func hotpathJudgeSpool(o hotpathSpoolObservation, underCoload bool, wantBudgetMs, wantWindows int,
+func hotpathJudgeSpool(o hotpathSpoolObservation, waived bool, wantBudgetMs, wantWindows int,
 	ledger *hotpathDeliveryLedger,
 ) (hotpathSpoolTransition, error) {
 	var out hotpathSpoolTransition
-	if !underCoload {
+	if !waived {
 		switch {
 		case o.sawSpool:
 			return out, errors.New("state.bin must report hot=0 (sync) for the entire measured run")
@@ -794,7 +796,8 @@ func hotpathJudgeSpool(o hotpathSpoolObservation, underCoload bool, wantBudgetMs
 		return out, nil
 	}
 	if len(o.warnLines) == 0 || len(o.loudLines) == 0 || len(o.warnLines) != len(o.loudLines) {
-		return out, fmt.Errorf("a co-loaded run may report the §12.2 spool transition, never a silent one: "+
+		return out, fmt.Errorf("a waived (co-loaded or non-reference-disk) run may report the §12.2 spool "+
+			"transition, never a silent one: "+
 			"applyHotPathTransition writes one %q WARN line and one LOUD.log line per transition, but the "+
 			"day logs carry %d and LOUD.log %d (state.bin watcher saw hot=1: %v; state.bin left by teardown "+
 			"not sync: %v)", hotpathDegradedMsg, len(o.warnLines), len(o.loudLines), o.sawSpool, o.survivedSpool)
@@ -841,6 +844,19 @@ const (
 	hotpathBBWaiverMark = string(obs.BB) + "'s row is REPORTED, not gated"
 )
 
+// hotpathNonrefDiskPhrase is the harness's nonrefDiskReportedPhrase (test/bench/hotpath/report.go),
+// which opens, after the row's name, every note the harness writes for a row it REPORTED because
+// the run declared a non-reference disk (obs.NonReferenceDiskEnv, honoured only on GitHub Actions;
+// D53(e)). The harness is package main, so the phrase is carried here, as the marks above are.
+// hotpathNonrefDiskBAMark, ...BBMark and ...BEMark are that phrase on each row the declaration
+// reports: the first two open the B-A and B-B notes, the third B-E's wall-clock row's.
+const (
+	hotpathNonrefDiskPhrase = "REPORTED, not gated, for this run: " + obs.NonReferenceDiskEnv + " declares"
+	hotpathNonrefDiskBAMark = string(obs.BA) + "'s row is " + hotpathNonrefDiskPhrase
+	hotpathNonrefDiskBBMark = string(obs.BB) + "'s row is " + hotpathNonrefDiskPhrase
+	hotpathNonrefDiskBEMark = string(obs.BE) + "'s wall-clock row is " + hotpathNonrefDiskPhrase
+)
+
 // hotpathLimitDeltaMs is the tolerance for comparing a row's limit_ms against obs.Budgets(): the
 // artifact renders limits in whole milliseconds, so anything under a microsecond is a float
 // rendering difference, never a different budget.
@@ -883,10 +899,11 @@ func hotpathRequireGatedRow(t *testing.T, row hotpathBudgetRow, limitMs float64,
 func hotpathRequireReportedRow(t *testing.T, row hotpathBudgetRow, limitMs float64, what string) {
 	t.Helper()
 	require.Nil(t, row.LimitMs,
-		"%s must leave %s REPORTED (limit_ms null) in this run's artifact; it is still gated at %.0fms "+
-			"by every run that does not pass the flag", hotpathUnderColoadFlag, what, limitMs)
-	require.Nil(t, row.Pass, "%s must leave %s REPORTED (pass null) in this run's artifact",
-		hotpathUnderColoadFlag, what)
+		"the run's declaration (%s, or %s on GitHub Actions) must leave %s REPORTED (limit_ms null) in this "+
+			"run's artifact; it is still gated at %.0fms by every run that declares neither",
+		hotpathUnderColoadFlag, obs.NonReferenceDiskEnv, what, limitMs)
+	require.Nil(t, row.Pass, "the run's declaration (%s, or %s on GitHub Actions) must leave %s REPORTED "+
+		"(pass null) in this run's artifact", hotpathUnderColoadFlag, obs.NonReferenceDiskEnv, what)
 }
 
 // hotpathRow returns the report row for id, failing the test if the artifact does not carry it.
@@ -1074,6 +1091,16 @@ func TestIntegration_HotPathWarmWithRealResidentState(t *testing.T) {
 	// `devtool bench-hotpath` lines, and this test itself in the `timing` job, where every assertion
 	// below is the one bench-gate makes.
 	underCoload := obs.UnderCoload()
+	// The other declaration, D53(e): a non-reference disk, honoured only on a GitHub Actions runner
+	// (obs.NonReferenceDiskEnv). It is not a flag: the harness reads it from the environment it
+	// inherits — pathstest.Environ, the process environment at TestMain, where the job set it — so
+	// this row and the harness can never disagree about it. Under it the same three wall rows are
+	// REPORTED, each with a note naming that declaration, and the spool transition is reported as
+	// under co-load; B-E_cpu, the delivery ledger and every structural check below stay gated. The
+	// reference verdict on the wall rows is the owner's quiet local runs, which never set it
+	// (test/guards' TestNonReferenceDisk_IsHostedCIOnly).
+	nonrefDisk := obs.NonReferenceDisk()
+	waived := underCoload || nonrefDisk
 	args := []string{
 		"--iterations", strconv.Itoa(hotpathBenchIterations),
 		"--hook", "observe-tool",
@@ -1101,11 +1128,11 @@ func TestIntegration_HotPathWarmWithRealResidentState(t *testing.T) {
 		t.Logf("bench artifact %s:\n%s", jsonPath, raw)
 	}
 	require.NoError(t, runErr,
-		"bench-hotpath exited non-zero (%s=%v): either a gated budget (B-E_cpu p99<%.0fms always; "+
-			"without %s also B-B p99<%.0fms, B-A p99<%.0fms and B-E's wall row p99<%.0fms) breached "+
-			"against the real resident state, or the harness itself failed (its own delivery-integrity "+
-			"guard included)\nstderr:\n%s",
-		obs.UnderColoadEnv, underCoload, hotpathBudgetLimitMs(t, p, obs.BE),
+		"bench-hotpath exited non-zero (%s=%v, %s honoured=%v): either a gated budget (B-E_cpu p99<%.0fms "+
+			"always; without %s or the non-reference-disk declaration also B-B p99<%.0fms, B-A p99<%.0fms "+
+			"and B-E's wall row p99<%.0fms) breached against the real resident state, or the harness itself "+
+			"failed (its own delivery-integrity guard included)\nstderr:\n%s",
+		obs.UnderColoadEnv, underCoload, obs.NonReferenceDiskEnv, nonrefDisk, hotpathBudgetLimitMs(t, p, obs.BE),
 		hotpathUnderColoadFlag, hotpathBudgetLimitMs(t, p, obs.BB), hotpathBudgetLimitMs(t, p, obs.BA),
 		hotpathBudgetLimitMs(t, p, obs.BE),
 		stderr.String())
@@ -1209,10 +1236,30 @@ func TestIntegration_HotPathWarmWithRealResidentState(t *testing.T) {
 	// it asserts exactly what the unconditional block asserted before the ruling.
 	beWall := hotpathRow(t, rep, string(obs.BE))
 	require.Equal(t, hotpathCheckpointSamples, beWall.N)
-	if underCoload {
+	if waived {
 		hotpathRequireReportedRow(t, ba, baLimit, "B-A")
 		hotpathRequireReportedRow(t, bb, bbLimit, "B-B")
 		hotpathRequireReportedRow(t, beWall, beLimit, "B-E's wall-clock row")
+	}
+	if nonrefDisk {
+		for _, mark := range []string{hotpathNonrefDiskBAMark, hotpathNonrefDiskBBMark, hotpathNonrefDiskBEMark} {
+			require.True(t, hotpathNotesMention(rep, mark),
+				"the artifact must disclose each row the non-reference-disk declaration reported, naming the "+
+					"declaration (%q); notes present: %q", mark, rep.Notes)
+		}
+		require.True(t, hotpathNotesMention(rep, hotpathBECPURowID),
+			"B-E's non-reference-disk note must name %s, the row that still enforces the limit; notes present: %q",
+			hotpathBECPURowID, rep.Notes)
+		t.Logf("§4.6 under %s (GitHub Actions): B-A p99=%.3fms (limit %.0fms), B-B p99=%.3fms (limit %.0fms) "+
+			"and B-E wall p99=%.3fms (limit %.0fms) are REPORTED here, not judged: a hosted runner's disk is "+
+			"not a reference disk (Q1, D53(e)); the owner's quiet reference runs judge all three",
+			obs.NonReferenceDiskEnv, ba.P99, baLimit, bb.P99, bbLimit, beWall.P99, beLimit)
+	} else {
+		require.False(t, hotpathNotesMention(rep, hotpathNonrefDiskPhrase),
+			"no non-reference-disk waiver may appear in a run where the declaration is not honoured — the "+
+				"harness would be waiving on its own; notes present: %q", rep.Notes)
+	}
+	if underCoload {
 		require.True(t,
 			hotpathNotesMention(rep, hotpathUnderColoadFlag) && hotpathNotesMention(rep, hotpathBECPURowID),
 			"the artifact must disclose B-E's wall-clock waiver in its notes, naming both the flag that "+
@@ -1229,9 +1276,11 @@ func TestIntegration_HotPathWarmWithRealResidentState(t *testing.T) {
 			"test alone and judges all three",
 			obs.UnderColoadEnv, ba.P99, baLimit, bb.P99, bbLimit, beWall.P99, beLimit)
 	} else {
-		hotpathRequireGatedRow(t, ba, baLimit, "B-A")
-		hotpathRequireGatedRow(t, bb, bbLimit, "B-B")
-		hotpathRequireGatedRow(t, beWall, beLimit, "B-E's wall-clock row")
+		if !waived {
+			hotpathRequireGatedRow(t, ba, baLimit, "B-A")
+			hotpathRequireGatedRow(t, bb, bbLimit, "B-B")
+			hotpathRequireGatedRow(t, beWall, beLimit, "B-E's wall-clock row")
+		}
 		require.False(t, hotpathNotesMention(rep, hotpathUnderColoadFlag),
 			"no %s waiver may appear in a run that did not pass the flag — the harness would be waiving "+
 				"on its own; notes present: %q", hotpathUnderColoadFlag, rep.Notes)
@@ -1264,15 +1313,16 @@ func TestIntegration_HotPathWarmWithRealResidentState(t *testing.T) {
 		spoolSeen.survivedSpool = ipc.ReadState(p.Root, p.Cfg).Hot != ipc.HotSync
 	}
 	hotCfg := p.Cfg.Runtime.HotPath
-	spoolTr, spoolErr := hotpathJudgeSpool(spoolSeen, underCoload, hotCfg.BudgetMs, hotCfg.BreachWindows, pop.ledger)
+	spoolTr, spoolErr := hotpathJudgeSpool(spoolSeen, waived, hotCfg.BudgetMs, hotCfg.BreachWindows, pop.ledger)
 	require.NoError(t, spoolErr)
 	if spoolTr.transitions > 0 {
-		t.Logf("§4.6 under %s: the daemon moved to §12.2 spool submode %d time(s), REPORTED not failed "+
-			"(D39): the WARN and LOUD.log lines name the breach as budget_ms=%d over windows=%d "+
+		t.Logf("§4.6 under %s=%v / %s=%v: the daemon moved to §12.2 spool submode %d time(s), REPORTED not "+
+			"failed (D39, D53(e)): the WARN and LOUD.log lines name the breach as budget_ms=%d over windows=%d "+
 			"consecutive %d-sample windows (state.bin watcher saw hot=1: %v; state.bin left by teardown "+
 			"still spool: %v); delivered to the daemon: B-A n=%d p99=%.3fms, B-B n=%d p99=%.3fms, of %d "+
 			"planned; delivery ledger %d sent = %d delivered live + %d deferred to the client spool, 0 lost",
-			obs.UnderColoadEnv, spoolTr.transitions, spoolTr.budgetMs, spoolTr.windows, hotpathSampleWindow,
+			obs.UnderColoadEnv, underCoload, obs.NonReferenceDiskEnv, nonrefDisk,
+			spoolTr.transitions, spoolTr.budgetMs, spoolTr.windows, hotpathSampleWindow,
 			spoolSeen.sawSpool, spoolSeen.survivedSpool, ba.N, ba.P99, bb.N, bb.P99, pop.planned,
 			pop.ledger.sent, pop.ledger.delivered, pop.ledger.deferred)
 	}
@@ -1283,8 +1333,13 @@ func TestIntegration_HotPathWarmWithRealResidentState(t *testing.T) {
 	// says which mode this run was, and it is carried on B-B too since the Q3 ruling — a B-B number
 	// in a co-loaded log is a measurement, and the log must not read as if it were a verdict.
 	wallVerdict := "gated"
-	if underCoload {
+	switch {
+	case underCoload && nonrefDisk:
+		wallVerdict = "reported, not gated: " + hotpathUnderColoadFlag + " and " + obs.NonReferenceDiskEnv
+	case underCoload:
 		wallVerdict = "reported, not gated: " + hotpathUnderColoadFlag
+	case nonrefDisk:
+		wallVerdict = "reported, not gated: " + obs.NonReferenceDiskEnv
 	}
 	t.Logf("§4.6 measured (platform %s, n=%d): B-A p99=%.3fms (limit %.0fms, n=%d; %s) | B-B p99=%.3fms "+
 		"(limit %.0fms, n=%d; %s) | B-E_cpu p99=%.3fms (limit %.0fms, n=%d) | B-E wall p50=%.3fms p99=%.3fms "+

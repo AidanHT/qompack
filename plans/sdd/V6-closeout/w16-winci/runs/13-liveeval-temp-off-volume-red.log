@@ -1,0 +1,8 @@
+=== RUN   TestRunLiveEval_RelativeBundleReachesTheHostWhole
+    liveeval_test.go:1033: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16-winci/tools/devtool/liveeval_test.go:1033
+        	Error:      	Received unexpected error:
+        	            	Rel: can't make \\?\C:\Users\Quant\AppData\Local\Temp\claude\C--Users-Quant-Documents-Programming-Projects-qompack\9c57653d-e5ff-4791-8ab4-ad49457994c1\scratchpad\w16\winci\othervol\TestRunLiveEval_RelativeBundleReachesTheHostWhole1687565337\001\qompack-plugin-9.9.9-test-windows-amd64 relative to C:\Users\Quant\Documents\Programming\Projects\qompack-cx-w16-winci\tools\devtool
+        	Test:       	TestRunLiveEval_RelativeBundleReachesTheHostWhole
+--- FAIL: TestRunLiveEval_RelativeBundleReachesTheHostWhole (0.02s)
+FAIL

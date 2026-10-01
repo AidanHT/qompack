@@ -666,7 +666,13 @@ func fakeLiveEnv(t *testing.T, cliCalls *[]string) *liveEnv {
 // fakeBundle writes a minimal bundle directory whose BUNDLE.json matches its files.
 func fakeBundle(t *testing.T) string {
 	t.Helper()
-	dir := filepath.Join(t.TempDir(), "qompack-plugin-9.9.9-test-"+runtime.GOOS+"-"+runtime.GOARCH)
+	return fakeBundleIn(t, t.TempDir())
+}
+
+// fakeBundleIn is fakeBundle made under parent.
+func fakeBundleIn(t *testing.T, parent string) string {
+	t.Helper()
+	dir := filepath.Join(parent, "qompack-plugin-9.9.9-test-"+runtime.GOOS+"-"+runtime.GOARCH)
 	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".claude-plugin"), 0o755))
 	manifest := []byte(`{"name":"qompack","version":"9.9.9-test"}`)
 	require.NoError(t, os.WriteFile(filepath.Join(dir, ".claude-plugin", "plugin.json"), manifest, 0o600))
@@ -1025,10 +1031,18 @@ func TestRunLiveEval_PluginMustComeFromTheArmsInstall(t *testing.T) {
 // in its disposable project directory. A --plugin-dir the driver passed through unchanged would be
 // resolved by the host against the project, find nothing there, and every qompack trial would run
 // without its plugin. The host must receive a path that names the bundle from wherever it runs.
+//
+// The bundle is made under the working directory, the package's, where a relative path to it always
+// exists: the test's temporary directory may be on another volume, as the hosted Windows runner's
+// TEMP (C:) is from its checkout (D:), and no path relative to the one names the other (nightly
+// 36820740318). The leading dot keeps the go tool from reading the directory as a package.
 func TestRunLiveEval_RelativeBundleReachesTheHostWhole(t *testing.T) {
-	bundle := fakeBundle(t)
 	wd, err := os.Getwd()
 	require.NoError(t, err)
+	parent, err := os.MkdirTemp(wd, ".tmp-liveeval-bundle-")
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, os.RemoveAll(parent)) })
+	bundle := fakeBundleIn(t, parent)
 	rel, err := filepath.Rel(wd, bundle)
 	require.NoError(t, err)
 	require.False(t, filepath.IsAbs(rel))

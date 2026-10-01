@@ -1,0 +1,20 @@
+--- FAIL: TestShortNames_ATildeThatNamesNoShortNameJudgesDeletedFiles (0.10s)
+    --- FAIL: TestShortNames_ATildeThatNamesNoShortNameJudgesDeletedFiles/Read(**/CREDEN[~]1.SEC) (0.02s)
+        shortname_seam_windows_test.go:263: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16b-polish/internal/hostperm/shortname_seam_windows_test.go:263
+            	Error:      	Not equal: 
+            	            	expected: 2
+            	            	actual  : 0
+            	Test:       	TestShortNames_ATildeThatNamesNoShortNameJudgesDeletedFiles/Read(**/CREDEN[~]1.SEC)
+            	Messages:   	"Read(**/CREDEN[~]1.SEC)" names an 8.3 name: a deleted file is refused
+    --- FAIL: TestShortNames_ATildeThatNamesNoShortNameJudgesDeletedFiles/Read(**/CREDEN[}-~]1.SEC) (0.02s)
+        shortname_seam_windows_test.go:263: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16b-polish/internal/hostperm/shortname_seam_windows_test.go:263
+            	Error:      	Not equal: 
+            	            	expected: 2
+            	            	actual  : 0
+            	Test:       	TestShortNames_ATildeThatNamesNoShortNameJudgesDeletedFiles/Read(**/CREDEN[}-~]1.SEC)
+            	Messages:   	"Read(**/CREDEN[}-~]1.SEC)" names an 8.3 name: a deleted file is refused
+FAIL
+FAIL	github.com/qompack/qompack/internal/hostperm	1.430s
+FAIL

@@ -1,7 +1,7 @@
 {
   "name": "qompack",
   "version": "0.1.0",
-  "description": "Cache-aware, retrieval-backed context compaction",
+  "description": "Qompack keeps a local record of the session and restores the important parts after Claude Code compacts its context, with tools to recall anything left out.",
   "author": {
     "name": "Qompack"
   },
@@ -9,7 +9,6 @@
   "keywords": [
     "compaction",
     "context",
-    "memory",
-    "cache"
+    "memory"
   ]
 }

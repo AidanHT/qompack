@@ -1,0 +1,33 @@
+# ci.yml test job's reconciliation block (recon-step.sh, go test line replaced by cp $FIXTURE),
+# run with Git Bash against a go test -json -count=2 -timeout=3s stream whose second run of a test hangs.
+# The new 'started and never finished' section names the hung test and prints its panic.
+--- expected-pkgs.txt	2026-10-01 06:41:40.422560800 -0400
++++ failed-pkgs.txt	2026-10-01 06:41:40.354583100 -0400
+@@ -0,0 +1 @@
++example.com/tmo
+::error::a package failed outside the expected set, or an expected package stopped failing — a build break, panic or timeout looks like this (see plans/V4-report.md section 19)
+--- package-level output of example.com/tmo ---
+FAIL\texample.com/tmo\t3.804s\n
+--- example.com/tmo TestHangsOnSecondRun started and never finished; its last output ---
+=== RUN   TestHangsOnSecondRun\n
+--- PASS: TestHangsOnSecondRun (0.00s)\n
+=== RUN   TestHangsOnSecondRun\n
+    tmo_test.go:16: about to hang\n
+panic: test timed out after 3s\n
+\trunning tests:\n
+\t\tTestHangsOnSecondRun (3s)\n
+\n
+goroutine 11 [running]:\n
+testing.(*M).startAlarm.func1()\n
+\tC:/Program Files/Go/src/testing/testing.go:2802 +0x354\n
+created by time.goFunc\n
+\tC:/Program Files/Go/src/time/sleep.go:215 +0x2d\n
+\n
+goroutine 1 [chan receive]:\n
+testing.(*T).Run(0x1a558854800, {0x7ff62b8dfa89?, 0x7ff62b840a6e?}, 0x7ff62b8ea6a0)\n
+\tC:/Program Files/Go/src/testing/testing.go:2109 +0x4c7\n
+testing.runTests.func1(0x1a558854800)\n
+\tC:/Program Files/Go/src/testing/testing.go:2585 +0x3e\n
+testing.tRunner(0x1a558854800, 0x1a5588efc58)\n
+\tC:/Program Files/Go/src/testing/testing.go:2036 +0xc3\n
+testing.runTests({0x7ff62b8ddd39, 0xf}, {0x7ff62b8ddd39, 0xf}, 0x1a55885c0c0, {0x7ff62ba29120, 0x2, 0x2}, {0xc2a7ac14b3992694, 0xb2d877d5, ...})\n

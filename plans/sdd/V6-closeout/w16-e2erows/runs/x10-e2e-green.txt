@@ -1,0 +1,6 @@
+=== RUN   TestV5_ThrashWarningVisibleInStatusAndCheckpoint
+=== RUN   TestV5_ThrashWarningVisibleInStatusAndCheckpoint/sequitur_warning_is_warning_only_and_once_per_rule
+--- PASS: TestV5_ThrashWarningVisibleInStatusAndCheckpoint (22.15s)
+    --- PASS: TestV5_ThrashWarningVisibleInStatusAndCheckpoint/sequitur_warning_is_warning_only_and_once_per_rule (22.15s)
+PASS
+ok  	github.com/qompack/qompack/test/e2e	22.400s

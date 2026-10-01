@@ -282,8 +282,7 @@ func TestSearch_ClosedStoreDegrades(t *testing.T) {
 // pays one file read per chunk. Measuring against it would report a chunk-size artefact sixteen
 // times removed from the 4 KiB target store.chunk.target actually configures.
 func BenchmarkSearch_1000Roots(b *testing.B) {
-	t := &testing.T{}
-	tp := newTestStore(t, func(_ *config.Config, d *Deps) { d.Chunker = fixedChunker{size: 4096} })
+	tp := newTestStore(b, func(_ *config.Config, d *Deps) { d.Chunker = fixedChunker{size: 4096} })
 	ctx := context.Background()
 	body := []byte(strings.Repeat("the quick brown fox jumps over the lazy dog\n", 190)) // ~8 KB each
 	for i := 0; i < 1000; i++ {
@@ -316,8 +315,7 @@ func BenchmarkSearch_1000Roots(b *testing.B) {
 // repeats and every candidate chunk is its own object read: the other end of the range, and the
 // row that shows what verify-on-read costs a text search when content addressing saves nothing.
 func BenchmarkSearch_1000Roots_DistinctChunks(b *testing.B) {
-	t := &testing.T{}
-	tp := newTestStore(t, func(_ *config.Config, d *Deps) { d.Chunker = fixedChunker{size: 4096} })
+	tp := newTestStore(b, func(_ *config.Config, d *Deps) { d.Chunker = fixedChunker{size: 4096} })
 	ctx := context.Background()
 	for i := 0; i < 1000; i++ {
 		word := string([]byte{byte('a' + i%26), byte('a' + i/26%26), byte('a' + i/676%26)})

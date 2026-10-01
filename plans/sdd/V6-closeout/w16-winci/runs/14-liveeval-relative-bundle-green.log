@@ -1,0 +1,4 @@
+=== RUN   TestRunLiveEval_RelativeBundleReachesTheHostWhole
+--- PASS: TestRunLiveEval_RelativeBundleReachesTheHostWhole (3.17s)
+PASS
+ok  	github.com/qompack/qompack/tools/devtool	4.960s

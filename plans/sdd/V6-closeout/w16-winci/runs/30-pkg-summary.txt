@@ -1,0 +1,6 @@
+internal/hostperm exit=0
+internal/paths exit=0
+internal/paths/pathstest exit=0
+tools/devtool exit=0
+internal/mcp exit=0
+internal/daemon exit=0

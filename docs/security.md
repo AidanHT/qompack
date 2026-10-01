@@ -39,10 +39,19 @@ unavailable") until it is fixed. No refusal echoes the path or the rule. Records
 Every spelling that reaches the served content is judged, and a rule matching any one of them
 refuses: the path as asked for or recorded, the real name whose history is served, the name the
 operating system opens for each (on Windows a trailing dot or space, a `:stream` suffix or an 8.3
-short name opens the same file) and where each resolves through links. More than 5000 Read path
-patterns, or 80 000 path segments across them, in force at once makes the rules unusable, so
-path-bearing content is withheld as for an unreadable file; the bound keeps every check's cost
-bounded.
+short name opens the same file) and where each resolves through links. A rule written with 8.3
+names holds at the file's real name too. Two paths cannot be judged on Windows, so under any deny
+or ask rule they answer `denied` with the deny rule's reason, never the ask reason: one holding an
+8.3-shaped name (a tilde and a digit, such as a deleted file's `CREDEN~1.SEC`) that names nothing on
+disk, because its long name is unknown, and, while a rule names an 8.3 name after a glob (such as
+`Read(**/CREDEN~1.SEC)`), a file that no longer exists, because its 8.3 names are unknown. A rule
+names an 8.3 name only with a tilde followed by a digit or by a glob character that can stand for
+one (`Read(**/CREDEN~?.SEC)`), or with a tilde inside a bracket expression
+(`Read(**/CREDEN[~]1.SEC)`); a backup-file rule such as `Read(**/*~)` names none, so deleted files
+are judged under it as before. More
+than 5000 Read path patterns, or 80 000 path segments across them, in force at once makes the rules
+unusable, so path-bearing content is withheld as for an unreadable file; the bound keeps every
+check's cost bounded.
 
 **That is the part of the host's decision a plugin can read, not the decision itself.** Rules added
 for one session only, `--allowedTools`/`--disallowedTools`/`--settings`/`--setting-sources` flags,

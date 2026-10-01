@@ -1,0 +1,13 @@
+Mutation checks of TestWithoutPrivileges_RemovesAHeldPrivilegeOnlyForFn (2026-10-01, fix seat; each
+mutation applied to internal/paths/pathstest/privileges_windows.go, run, then reverted):
+
+1. removePrivilege call replaced by a no-op:
+   privileges_internal_windows_test.go:34: pathstest: SeChangeNotifyPrivilege is still held after its removal
+   FAIL github.com/qompack/qompack/internal/paths/pathstest
+
+2. RevertToSelf replaced by a nil error (the thread is never reverted):
+   Error: Should be false
+   Messages: the impersonation ends when the helper returns
+   FAIL github.com/qompack/qompack/internal/paths/pathstest
+
+Unmutated: see 45-pkg-internal-paths-pathstest.log (PASS).

@@ -21,6 +21,7 @@ import (
 	"github.com/qompack/qompack/internal/contract"
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/daemon"
+	"github.com/qompack/qompack/internal/ipc"
 	"github.com/qompack/qompack/internal/logging"
 	"github.com/qompack/qompack/internal/mcp"
 	"github.com/qompack/qompack/internal/obs"
@@ -902,6 +903,7 @@ func (s *doctorState) spoolRow() doctorRow {
 		}
 	}
 	files, bytes := 0, int64(0)
+	kinds := map[ipc.SpoolFileKind]int{}
 	for _, e := range entries {
 		if e.IsDir() {
 			continue
@@ -911,18 +913,63 @@ func (s *doctorState) spoolRow() doctorRow {
 			continue
 		}
 		files++
+		kinds[ipc.SpoolFileKindOf(e.Name())]++
 		bytes += info.Size()
 	}
 	status := doctorOK
+	detail := "spool files the daemon has not drained; an observation, not a latency or health verdict"
 	if files > 0 {
 		status = doctorDegraded
+		if ipc.ReadState(s.root, s.cfg).Hot == ipc.HotSpool {
+			if s.lockAlive {
+				// Spool submode with a daemon serving: the files are the designed path, replayed by
+				// the daemon, and nothing is lost (D53(c)). Informational, and still shown.
+				status = doctorOK
+				detail = "the hot path is in spool submode: " + obs.SpoolSubmodeWhat + ". It lasts until " +
+					obs.SpoolSubmodeUntil + ". To tune it: " + obs.SpoolSubmodeTune
+			} else {
+				detail = "state.bin still says spool submode but no daemon is serving, so hooks spool without " +
+					"starting one and nothing replays these files until a new session starts in this project"
+			}
+		} else if s.lockAlive {
+			// Sync submode with a daemon serving keeps its verdict: the daemon replays these files
+			// within seconds, so files that stay here are the one sign the replay is not keeping up.
+			// What the user reads names the ordinary cause of each kind first (D53(c)), and calls
+			// neither the daemon's own WAL segments nor the hooks' externalized tool results client
+			// spools (D55, wave 16b).
+			detail = syncSpoolDetail(kinds[ipc.SpoolFileClient], kinds[ipc.SpoolFileWAL], kinds[ipc.SpoolFileOther])
+		}
 	}
 	return doctorRow{
 		ID: "spool.pending", Status: status,
 		Observed: fmt.Sprintf("%d file(s), %d byte(s)", files, bytes),
-		Detail: "spool files the daemon has not drained; an observation, not a latency or health " +
-			"verdict",
+		Detail:   detail,
 	}
+}
+
+// syncSpoolDetail is spool.pending's detail in sync submode with a daemon serving, for client hook
+// client spools, wal daemon WAL segments and other files (ipc.SpoolFileKindOf): the hooks'
+// externalized tool results, or anything else. The kinds have different causes and different parts
+// of the daemon clear them, so each is counted and explained on its own.
+func syncSpoolDetail(client, wal, other int) string {
+	var parts []string
+	if client > 0 {
+		parts = append(parts, fmt.Sprintf("%d hook client spool(s) the running daemon has not replayed yet: on a "+
+			"slow disk a hook that waits out its ACK deadline hands its capture to its client spool, and the "+
+			"daemon's client-spool watcher replays it within seconds", client))
+	}
+	if wal > 0 {
+		parts = append(parts, fmt.Sprintf("%d daemon WAL segment(s) the running daemon has not finished "+
+			"publishing: captures it accepted and logged before publishing them, which its worker pool and "+
+			"drains replay", wal))
+	}
+	if other > 0 {
+		parts = append(parts, fmt.Sprintf("%d other spool file(s): tool results a hook externalized beside "+
+			"its request (blob-*.bin), which the daemon removes once it has published the request naming "+
+			"them, or files no replay reads", other))
+	}
+	return strings.Join(parts, "; ") + "; either way nothing is lost: run doctor again, and if the files stay " +
+		"the replay is not keeping up. To tune it: " + obs.SpoolSubmodeTune
 }
 
 // drainRow reports whether the drain's own progress document can be read at all. An unreadable one
@@ -1311,6 +1358,36 @@ func (s *doctorState) statusRows() []doctorRow {
 			ID: "status.schema", Status: doctorOK, Observed: fmt.Sprintf("%d", rep.Schema),
 			Detail: "commands.StatusSchema, so a reader of both documents compares one number",
 		},
+		doctorHotPathRow(rep),
+	}
+}
+
+// doctorHotPathRow reports the hot path's submode from the same snapshot `qompack status` renders.
+// Spool submode is informational, never degraded: on a slow disk it is the designed behaviour of a
+// long session and loses nothing (D53(c)), so the row says what happened, what ends it and what
+// tunes it.
+func doctorHotPathRow(rep commands.StatusReport) doctorRow {
+	hot := ""
+	if rep.Snapshot != nil {
+		hot = rep.Snapshot.Hot
+	}
+	switch hot {
+	case "sync":
+		return doctorRow{
+			ID: "status.hotPath", Status: doctorOK, Observed: hot,
+			Detail: "hooks hand their captures to the daemon and wait for its acknowledgement",
+		}
+	case "spool":
+		return doctorRow{
+			ID: "status.hotPath", Status: doctorOK, Observed: hot,
+			Detail: obs.SpoolSubmodeWhat + ". It lasts until " + obs.SpoolSubmodeUntil + ". To tune it: " +
+				obs.SpoolSubmodeTune,
+		}
+	default:
+		return doctorRow{
+			ID: "status.hotPath", Status: doctorUnknown, Observed: doctorFirstNonEmpty(hot, doctorUnknown),
+			Detail: "no running daemon reported its hot-path submode",
+		}
 	}
 }
 

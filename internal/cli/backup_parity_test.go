@@ -90,7 +90,14 @@ func TestBackupCLI_VerifyJudgesWhatRestoreJudges(t *testing.T) {
 // the test, so what a command writes there can be seen, and returns it.
 func redirectSystemTemp(t *testing.T) string {
 	t.Helper()
-	tmp := t.TempDir()
+	// Not t.TempDir: the daemon's socket resolves under TMPDIR (ipc.Resolve), and on macos-latest
+	// /var/folders/<2>/<30>/T/ plus a subtest-named directory left even the short fallback
+	// <TMPDIR>/qp-<hash8>.sock past ipc's 100-byte budget, so backup create refused with
+	// "ipc address exceeds sun_path limit" (run 36816905394). A short prefix under the same temp
+	// directory keeps the ordinary per-uid candidate inside it.
+	tmp, err := os.MkdirTemp("", "qbk")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.RemoveAll(tmp) })
 	for _, k := range []string{"TMP", "TEMP", "TMPDIR"} {
 		t.Setenv(k, tmp)
 	}

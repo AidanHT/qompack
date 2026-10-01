@@ -1470,6 +1470,43 @@ func TestDropReport_UnreadPinSetSurvivesATightReport(t *testing.T) {
 		"the unread pin set is the line a truncated report keeps")
 }
 
+// TestDropReport_UnreplayedCaptureIsNamedFirst: a PreCompact seal that could not wait for the
+// session's newest spooled captures names them in Checkpoint.Dropped (D53(c), internal/daemon
+// precompact_settle.go): one counted summary, and one line per tool result. The rehydration must
+// carry the summary by name, ahead of the operating-rule drops, and a section-7 allowance too small
+// for the whole report must still keep it; the per-result lines rank with the pointers.
+func TestDropReport_UnreplayedCaptureIsNamedFirst(t *testing.T) {
+	d := Deps{Tokens: fakeEstimator{}}
+	summary := checkpoint.DropEntry{
+		Kind:   checkpoint.DropKindUnreplayedCapture,
+		Detail: "2 capture(s) of this session were still waiting to be replayed into the store",
+	}
+	result := checkpoint.DropEntry{Kind: checkpoint.DropKindUnreplayedToolResult, ID: "toolu_newest_read"}
+	entries := []checkpoint.DropEntry{
+		{Kind: "narrative", ID: "n1"},
+		result,
+		{Kind: dropKindPathRule, ID: ".claude/rules/a.md"},
+		{Kind: dropKindPointer, ID: "p1"},
+		summary,
+	}
+	b := buildDropReport(entries)
+	require.Equal(t, []string{
+		dropLine(summary),
+		"- path_rule .claude/rules/a.md\n",
+		"- pointer p1\n",
+		"- unreplayed_tool_result toolu_newest_read\n",
+		"- narrative n1\n",
+	}, unitTexts(b))
+
+	priceUnits(d, b.units)
+	allowance := sectionCost(d, ItemDropReport, b).plus(unitCost(b.units[0])).
+		plus(unitCost(moreDropsUnit(d, len(b.units)-1)))
+	got := fillDropReport(d, b, allowance)
+	require.True(t, got.truncated, "fixture sanity: the allowance cannot hold the whole report")
+	require.Equal(t, []string{dropLine(summary), "- … and 4 more; call dropped()\n"}, unitTexts(built{units: got.units}),
+		"the unreplayed-capture summary is the line a truncated report keeps")
+}
+
 // TestDropReport_SortsByIDWithinAKind asserts the within-kind order is ID ascending, so the report
 // is stable across replays.
 func TestDropReport_SortsByIDWithinAKind(t *testing.T) {

@@ -1,0 +1,10 @@
+=== RUN   TestTerminatePartialTail_UnreadablePathIsLeftAlone
+--- PASS: TestTerminatePartialTail_UnreadablePathIsLeftAlone (0.10s)
+PASS
+ok  	github.com/qompack/qompack/internal/paths	1.581s
+exit=0
+=== RUN   TestEnsureLayout_WriteAtomicFailureIsPropagated
+--- PASS: TestEnsureLayout_WriteAtomicFailureIsPropagated (0.11s)
+PASS
+ok  	github.com/qompack/qompack/internal/paths	1.556s
+exit=0

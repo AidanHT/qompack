@@ -137,8 +137,8 @@ var probeBlind = map[string]bool{
 // stub — lives inside the exemption branch below, and is the one that catches a landed subplan
 // nobody added to landedSubplans.
 func taskCover(args []string) error {
-	if err := goInheritEnv(wholeTreeEnv, "test", "-timeout="+wholeTreeTestTimeout, "-coverprofile="+coverProfileName, "-covermode=atomic", "./..."); err != nil {
-		return fmt.Errorf("cover: go test -coverprofile: %w", err)
+	if err := runCoverPasses(); err != nil {
+		return err
 	}
 
 	owners, err := loadOwners(filepath.Join(root, "plans", "OWNERS.tsv"))
@@ -218,6 +218,112 @@ func taskCover(args []string) error {
 		fmt.Println("  " + p)
 	}
 	return fmt.Errorf("cover: %d package(s) below floor or still stubbed", len(problems))
+}
+
+// coverMode is the -covermode every cover pass uses; appendCoverProfile refuses a profile of any
+// other mode, since blocks counted under two modes cannot be summed.
+const coverMode = "atomic"
+
+// coverPass is one `go test -coverprofile` invocation of cover's: the packages it tests, the
+// environment it adds or takes back (an empty value takes a variable back, which is how the
+// obs declarations read it), and the profile it writes.
+type coverPass struct {
+	pkgs    []string
+	env     map[string]string
+	profile string
+}
+
+// coverPasses splits pkgs into cover's passes (wholeTreePasses, the same passes and environments
+// `devtool test` uses) and gives each its profile. The shared pass is the co-loaded whole-tree
+// run, so it declares co-load and takes back a non-reference-disk declaration the job may have
+// made: one cause per run (test/guards' TestNonReferenceDisk_IsHostedCIOnly). Each isolated
+// package then runs alone with the co-load declaration taken back, exactly as ci.yml's `test-e2e`
+// job runs test/e2e (ADR 0010 decision 4), and inherits whatever the job declares of its disk.
+// Inside the whole-tree pass test/e2e's live-path rows were judged on a host where the
+// hooks take the designed degrade to the client spool (5 ms dial, config.ConnectDeadlineMsPortable)
+// — the condition TestE2EHookRoundTrip's WAL count is not defined for (runs 34804619564 and
+// 36816905394; the sibling row's diagnostic in job 103834108633 listed three client spool files).
+func coverPasses(pkgs []string) []coverPass {
+	var passes []coverPass
+	for i, p := range wholeTreePasses(pkgs) {
+		profile := coverProfileName
+		if isolatedPackages[p.pkgs[0]] {
+			profile = fmt.Sprintf("coverage-isolated-%d.out", i)
+		}
+		passes = append(passes, coverPass{pkgs: p.pkgs, env: p.env, profile: profile})
+	}
+	return passes
+}
+
+// runCoverPasses runs every cover pass, even after one fails, so a red in the shared pass does not
+// leave the isolated packages unrun, and joins each isolated profile onto coverProfileName. It
+// fails if any pass failed or any profile cannot be joined.
+func runCoverPasses() error {
+	listOut, listErr, err := runCapture(nil, "go", "list", "./...")
+	if err != nil {
+		return fmt.Errorf("cover: go list ./...: %w\n%s", err, listErr)
+	}
+	var failed []string
+	for _, pass := range coverPasses(strings.Fields(string(listOut))) {
+		args := append([]string{
+			"test", "-timeout=" + wholeTreeTestTimeout,
+			"-coverprofile=" + pass.profile, "-covermode=" + coverMode,
+		}, pass.pkgs...)
+		if err := goInheritEnv(pass.env, args...); err != nil {
+			failed = append(failed, fmt.Sprintf("%s: %v", strings.Join(pass.pkgs, " "), err))
+		}
+		if pass.profile == coverProfileName {
+			continue
+		}
+		src := filepath.Join(root, pass.profile)
+		if _, statErr := os.Stat(src); statErr != nil {
+			continue // the pass failed before writing one, and is already in failed
+		}
+		if err := appendCoverProfile(filepath.Join(root, coverProfileName), src); err != nil {
+			failed = append(failed, err.Error())
+		}
+		_ = os.Remove(src)
+	}
+	if len(failed) > 0 {
+		return fmt.Errorf("cover: go test -coverprofile: %s", strings.Join(failed, "; "))
+	}
+	return nil
+}
+
+// appendCoverProfile appends src's blocks to dst, without src's "mode:" line, refusing a src whose
+// mode is not dst's. The two passes test disjoint packages, so no block is counted twice.
+func appendCoverProfile(dst, src string) error {
+	readMode := func(b []byte) string {
+		first, _, _ := strings.Cut(string(b), "\n")
+		return strings.TrimSpace(strings.TrimPrefix(first, "mode:"))
+	}
+	srcBytes, err := os.ReadFile(src)
+	if err != nil {
+		return fmt.Errorf("cover: reading %s: %w", src, err)
+	}
+	dstBytes, err := os.ReadFile(dst)
+	if err != nil {
+		return fmt.Errorf("cover: reading %s: %w", dst, err)
+	}
+	if dm, sm := readMode(dstBytes), readMode(srcBytes); dm != sm {
+		return fmt.Errorf("cover: %s is mode %q but %s is mode %q; refusing to merge", src, sm, dst, dm)
+	}
+	_, blocks, _ := strings.Cut(string(srcBytes), "\n")
+	f, err := os.OpenFile(dst, os.O_APPEND|os.O_WRONLY, 0)
+	if err != nil {
+		return fmt.Errorf("cover: opening %s: %w", dst, err)
+	}
+	if len(dstBytes) > 0 && dstBytes[len(dstBytes)-1] != '\n' {
+		blocks = "\n" + blocks
+	}
+	if _, err := f.WriteString(blocks); err != nil {
+		_ = f.Close()
+		return fmt.Errorf("cover: appending %s to %s: %w", src, dst, err)
+	}
+	if err := f.Close(); err != nil {
+		return fmt.Errorf("cover: closing %s: %w", dst, err)
+	}
+	return nil
 }
 
 // floorApplies reports whether o's §6.4 coverage floor binds right now, and when it does not, the

@@ -101,7 +101,21 @@ func TestManifest_PluginJSONShape(t *testing.T) {
 	require.NoError(t, json.Unmarshal(files["plugin/.claude-plugin/plugin.json"], &pj))
 	require.Equal(t, "qompack", pj["name"])
 	require.Equal(t, testVersion, pj["version"])
-	require.Equal(t, "Cache-aware, retrieval-backed context compaction", pj["description"])
+	require.Equal(t, pluginmanifest.Description, pj["description"])
+}
+
+// TestManifest_KeywordsClaimOnlyWhatIsSupported pins plugin.json's keywords. A marketplace search
+// matches them, so each is a claim: "compaction" names what Qompack responds to, while "cache"
+// suggested the cache awareness the audit's F8 calls unsupported (V6 close-out D53(e)).
+func TestManifest_KeywordsClaimOnlyWhatIsSupported(t *testing.T) {
+	files, err := pluginmanifest.Default(testVersion).Files()
+	require.NoError(t, err)
+
+	var pj struct {
+		Keywords []string `json:"keywords"`
+	}
+	require.NoError(t, json.Unmarshal(files["plugin/.claude-plugin/plugin.json"], &pj))
+	require.Equal(t, []string{"compaction", "context", "memory"}, pj.Keywords)
 }
 
 func TestManifest_FilesAreStableBytes(t *testing.T) {

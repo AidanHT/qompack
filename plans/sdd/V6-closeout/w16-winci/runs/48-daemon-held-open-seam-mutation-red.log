@@ -1,0 +1,12 @@
+--- FAIL: TestStageBinary_KeepsACopyWhoseCheckIsRefusedAsHeldOpen (0.09s)
+    spawn_stage_windows_test.go:203: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16-winci/internal/daemon/spawn_stage_windows_test.go:203
+        	Error:      	Target error should be in err chain:
+        	            	expected: "The process cannot access the file because it is being used by another process."
+        	            	in chain: 
+        	Test:       	TestStageBinary_KeepsACopyWhoseCheckIsRefusedAsHeldOpen
+        	Messages:   	a copy that cannot be verified is never returned to be run
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	0.480s
+FAIL
+mutation (heldOpenElsewhere branch disabled) exit=1

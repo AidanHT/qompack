@@ -62,6 +62,15 @@ func BinaryRef(goos string) string {
 	return pluginRootBin + binaryName
 }
 
+// Description is the one sentence that says what Qompack does, wherever a host or a marketplace
+// shows it: plugin.json, the release marketplace and the disposable marketplaces the install and
+// live-evaluation rehearsals write. It claims neither compaction (the host compacts; Qompack
+// records and restores) nor cache awareness (the shipped checkpoint path passes the cache state as
+// unknown), which the earlier "Cache-aware, retrieval-backed context compaction" did (V6 close-out
+// audit F8, D53(e)).
+const Description = "Qompack keeps a local record of the session and restores the important " +
+	"parts after Claude Code compacts its context, with tools to recall anything left out."
+
 // Manifest is the whole bundle as one typed value.
 type Manifest struct {
 	Plugin   PluginJSON
@@ -201,8 +210,9 @@ var commandSpecs = []CommandDoc{
 		Subcommand:   "recall",
 	},
 	{
-		Name:         "pin",
-		Description:  "Pin an invariant so it is never summarized away",
+		Name: "pin",
+		Description: "Pin an invariant to re-inject first after each compaction, within the 9,500-character cap; " +
+			"the host's summary can still drop it",
 		ArgumentHint: "<text>",
 		Subcommand:   "pin",
 	},
@@ -263,10 +273,10 @@ func ForTarget(version, goos string) Manifest {
 		Plugin: PluginJSON{
 			Name:        "qompack",
 			Version:     version,
-			Description: "Cache-aware, retrieval-backed context compaction",
+			Description: Description,
 			Author:      Author{Name: "Qompack"},
 			Homepage:    "https://github.com/AidanHT/qompack",
-			Keywords:    []string{"compaction", "context", "memory", "cache"},
+			Keywords:    []string{"compaction", "context", "memory"},
 		},
 		Hooks: HooksJSON{Hooks: hooks},
 		MCP: MCPJSON{MCPServers: map[string]MCPServer{

@@ -633,3 +633,23 @@ Residuals, recorded rather than fixed:
   turn. The live-vs-spool race and pid-reused spool files are its two known sources. Only a
   per-record merge across files, or a spool name unique per hook process, would close it; D35
   specified neither.
+
+---
+
+## V6-VERIFY disposition (2026-10-01, coordinator under owner decision D33; ledger D54)
+
+**SP08-D1 -> wontfix for 0.3.0.** Measured by quiet C5.2 on candidate 5 `0d06ab12`, ten balanced ABBA rounds against the pre-Phase-2 base `cf31e01`, medians per call (`plans/sdd/V6-closeout/phase3/c5/quiet/c52-win/paired.txt` and `c52-linux/paired.txt` on verify/v6 `593003e9`; Windows 11, Intel Core Ultra 7 155H; Linux is the Docker Desktop container, valid for CPU- and read-bound rows, not for fsync-bound ones (D53(b))):
+
+| fixture | Windows median / p99 | Linux median / p99 | B-C (p99 < 50 ms, soft) |
+|---|---|---|---|
+| `TestOutput256KB/Deduped` | 23.5 ms / 34.8 | 26.3 ms / 32.8 | inside on both |
+| `TestOutput256KB/Delta` | 36.1 ms / 59.4 | 58.0 ms / 73.7 | over |
+| `TestOutput256KB/AllNovel` | 94.5 ms / 180.2 | 78.9 ms / 98.3 | over |
+
+Every fixture is faster than the base on both OSes (10/10 rounds, sign test p = 0.002; allocations down
+4-5x), and the 64 KB file-read fixtures stay inside. The remaining cost is SP06-D2's: one durable object
+write per novel chunk. B-C is Reported, never gated (section 2.4), and it runs after the hook's ACK. A
+user's hook does not wait on it, and the user-facing envelopes that do (B-A/B-B on the reference host,
+host-seen hook latency in the live lane, D53(i)) are gated separately. Closing the gap needs batched object
+writes (a pack or group-commit design), which changes the store's crash model and is not taken at the
+release freeze. Revisit with SP06-D2 in post-0.3.0 performance work.

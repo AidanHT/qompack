@@ -278,11 +278,11 @@ allows it.
 
 | ID | Clock | Budget | Enforced |
 |---|---|---|---|
-| **B-A** | `hook_controlled` — client `main()` entry → `exit` (connect + write + ACK) | **p99 < 15 ms** (§11.3 L0) (default **50** on Windows, **40** on macOS: the default is never tighter than B-B's — see the D41 note below) | CI on linux/macos/windows, 5 000 iterations |
-| **B-B** | `l0_ingest` — the daemon's whole `ingest.Accept`: durable WAL append, delivery lease, seal | p99 < 15 ms (**50** on Windows, **40** on macOS) — see the B-B note below | daemon self-metrics + CI, except under `QOMPACK_UNDER_COLOAD`, where it is reported and not gated |
+| **B-A** | `hook_controlled` — client `main()` entry → `exit` (connect + write + ACK) | **p99 < 15 ms** (§11.3 L0) (default **50** on Windows, **40** on macOS: the default is never tighter than B-B's — see the D41 note below) | CI on linux/macos/windows, 5 000 iterations; on GitHub-hosted runners under `QOMPACK_NONREFERENCE_DISK` it is reported, not gated (see the non-reference-disk note below) |
+| **B-B** | `l0_ingest` — the daemon's whole `ingest.Accept`: durable WAL append, delivery lease, seal | p99 < 15 ms (**50** on Windows, **40** on macOS) — see the B-B note below | daemon self-metrics + CI, except under `QOMPACK_UNDER_COLOAD`, and on GitHub-hosted runners under `QOMPACK_NONREFERENCE_DISK`, where it is reported and not gated (see the non-reference-disk note below) |
 | **B-C** | `l0_process` — WAL → fully chunked, stored, DAG/sketches updated (async) | p99 < 50 ms | soft; overrun → sampling + backpressure, never blocking |
 | **B-D** | `hook_wall` — includes host process creation | reported, not gated; tracked in `/qompack:status` and the bench artifact | — |
-| **B-E** | `checkpoint_finalize` — `PreCompact` entry → exit | **p99 < 2 s** (§11.3 L4) | CI |
+| **B-E** | `checkpoint_finalize` — `PreCompact` entry → exit | **p99 < 2 s** (§11.3 L4) | CI; the wall row is reported, not gated, under `QOMPACK_UNDER_COLOAD` and under the hosted `QOMPACK_NONREFERENCE_DISK`, and `B-E_cpu` stays gated |
 | **B-F** | `mcp_tool_call` — request → response | p95 < 250 ms (`minimal` span) | CI |
 
 B-A is the number the design document names. B-D is reported honestly because process creation is
@@ -332,6 +332,21 @@ tool uses ran degraded with a WARN and a LOUD.log entry. Coordinator decision D4
 `HotPathBudgetMsFor` in `internal/config/deadlines.go`, which therefore follows B-B wherever B-B is
 re-priced. A `budgetMs` the user sets is applied as written. B-B, the ACK deadline, `breachWindows`
 and every other budget are unchanged. `Qompack.md` v1.8 records the revision.
+
+**Non-reference-disk note (amended 2026-10-01, Q1, D53(e), D55).** GitHub-hosted runners' disks
+carry an fsync tail no budget priced on a quiet reference host survives (run 36816905394's
+`bench-gate`: ubuntu-latest B-B p99 40.960 ms against 15, windows-latest p50 45 ms against 50;
+nightly run 36820740318's `bench-deep`, windows-latest: B-B p99 1310.7 ms and B-A p99 1441.8 ms
+against 50), and hosted figures never become constants. Under the owner's Q1 third option, ci.yml's
+`bench-gate`, `timing`, `test-e2e` and `cover` (its isolated `test/e2e` pass) and nightly's
+`bench-deep` declare `QOMPACK_NONREFERENCE_DISK`, honoured only where `GITHUB_ACTIONS=true`. Under it
+B-A, B-B and B-E's wall row, and the §12.2 spool-submode transition, are reported with a note
+naming the declaration instead of gated. B-A is included because its sample contains B-B's
+durable ingest (D41). B-E_cpu, the delivery ledger (identity, 0 lost), the population census and
+every structural check stay gated. No hosted job therefore gates those three wall rows; the
+reference verdict on them is the owner's quiet local runs, which never make the declaration
+(`test/guards`' `TestNonReferenceDisk_IsHostedCIOnly`). Rationale and the full scope: ADR 0010
+Addendum 2.
 
 **When the budget is exceeded (§8.1 fallback).** The daemon keeps a rolling 512-sample HDR
 histogram per hook. If B-A p99 exceeds budget for 3 consecutive 512-sample windows, the daemon
@@ -2664,7 +2679,9 @@ per-invocation wall time and reading the daemon-side B-B histogram at the end.
 Outputs `{budget_id, n, p50, p95, p99, p999, max, pass}` for B-A, B-B, B-D. CI runs it on
 ubuntu-latest, macos-latest, and windows-latest with `--iterations 2000` (5 000 nightly) and **fails the
 build if B-A p99 ≥ its platform's `runtime.hotPath.budgetMs` (15 ms; 50 on Windows, 40 on macOS —
-§2.4's D41 note) or B-E p99 ≥ 2 s**. B-D is recorded and posted as a PR comment but is
+§2.4's D41 note) or B-E p99 ≥ 2 s** — except on GitHub-hosted runners, where the
+non-reference-disk declaration (§2.4's note, ADR 0010 Addendum 2) reports B-A, B-B and B-E's wall
+row and B-E_cpu stays the gate. B-D is recorded and posted as a PR comment but is
 never a gate — that is the honest treatment of a cost we do not own.
 
 Micro-benchmarks (`go test -bench=. ./...`) cover FastCDC throughput (MB/s), canonicalizer
@@ -2687,15 +2704,15 @@ baselines recorded on the runners are the stated precondition for wiring it into
 |---|---|---|
 | `verify` | ubuntu | `devtool fmt-check` · `devtool lint` (ten sub-checks, in order: `golangci-lint`, `nomagic`, `importgraph`, `testdeps`, `bindeps`, `sleepcheck`, `stubskips`, `runpatterns`, `docmarkers`, `coveragefloors`) · `go vet ./...` · `go build ./...` · two git-history greps over the PR's commit range enforcing §10: no attribution trailer (`Co-Authored-By`, `Signed-off-by`, `Generated with`, 🤖) and a conventional-commit subject with no trailing period |
 | `lint-windows` | windows | the same `devtool lint`, again on Windows. `stubskips` greps a real test run, so a `runtime.GOOS == "windows"` skip only reaches it on Windows; and `golangci-lint`, `nomagic`, `importgraph` and `testdeps` load packages through the host's build constraints, so the `//go:build windows` files are linted on no other runner |
-| `test` | ubuntu, macos, windows — an **OS matrix only**, one pinned Go (§2.6) | the whole tree **except `test/e2e`**, with `QOMPACK_UNDER_COLOAD=1` declared at job level (ADR 0010): `go test -race -timeout=30m $(go list ./... \\| grep -v '/test/e2e$')` on ubuntu+macos, with `CGO_ENABLED=1` overriding the workflow default because `-race` requires cgo; the same list under `-count=2` on windows (Windows `-race` runs nightly). Under the declaration a cost budget is judged on the process's CPU clock and an intrinsically wall-clock budget is reported, not judged — the `timing` and `test-e2e` jobs below judge those |
-| `test-e2e` | ubuntu, macos, windows | `go test -count=1 -timeout=30m ./test/e2e` — the package alone on its runner, no `-race` (the detector only ever instrumented the harness: every e2e test drives the plainly built real binary, and under `-race` the package did not finish inside 30 min on any runner), and **no co-load declaration**, so X-11 gates B-A and B-E's wall row here exactly as `bench-gate` does |
-| `timing` | ubuntu, macos, windows | `go test -p 1 -count=1 -timeout=30m -run '^(TestGC_DeadlineTruncatesAndResumes\|TestGC_DeadlineOvershootIsBoundedByTheCheckInterval\|TestBudget_QueryHit\|TestBudget_QueryMiss\|TestBudget_Record\|TestBudget_RebuildBloom\|TestBudget_RefreshStaleness\|TestBudget_Open\|TestBudget_DetectorScan\|TestIntegration_HotPathWarmWithRealResidentState)$' ./internal/store ./internal/negknow ./test/integration` — every test that yields a wall-clock judgement under `QOMPACK_UNDER_COLOAD`, run **by name**, one package binary at a time, without the declaration. The name list is enforced by `test/guards`' `TestColoadYieldersAreJudgedInIsolation`: a test that consults `obs.UnderCoload` and is named in neither this job nor `test-e2e` fails the tree |
-| `cover` | ubuntu | merged profile, per-group floors (§6.4), artifact upload |
+| `test` | ubuntu, macos, windows — an **OS matrix only**, one pinned Go (§2.6) | the whole tree **except `test/e2e`**, with `QOMPACK_UNDER_COLOAD=1` declared at job level (ADR 0010): `go test -race -timeout=30m $(go list ./... \\| grep -v '/test/e2e$')` on ubuntu+macos, with `CGO_ENABLED=1` overriding the workflow default because `-race` requires cgo; the same list under `-count=2 -timeout=60m` on windows (two passes, so twice the one-pass `wholeTreeTestTimeout`; D55; Windows `-race` runs nightly). Under the declaration a cost budget is judged on the process's CPU clock and an intrinsically wall-clock budget is reported, not judged — the `timing` and `test-e2e` jobs below judge those |
+| `test-e2e` | ubuntu, macos, windows | `go test -count=1 -timeout=30m ./test/e2e` — the package alone on its runner, no `-race` (the detector only ever instrumented the harness: every e2e test drives the plainly built real binary, and under `-race` the package did not finish inside 30 min on any runner), and **no co-load declaration**, so X-11 judges B-A and B-E's wall row here exactly as `bench-gate` does: with the job's `QOMPACK_NONREFERENCE_DISK` declaration they and B-B are reported, not gated, on the hosted runner (§2.4's non-reference-disk note), while the delivery ledger, 0 lost and X-11's ledger-regression ceiling stay gated |
+| `timing` | ubuntu, macos, windows | `go test -p 1 -count=1 -timeout=30m -run '^(TestGC_DeadlineTruncatesAndResumes\|TestGC_DeadlineOvershootIsBoundedByTheCheckInterval\|TestBudget_QueryHit\|TestBudget_QueryMiss\|TestBudget_Record\|TestBudget_RebuildBloom\|TestBudget_RefreshStaleness\|TestBudget_Open\|TestBudget_DetectorScan\|TestBudgetBF\|TestIntegration_HotPathWarmWithRealResidentState\|TestFeaturesFrom_LexicalCohesionShingleCap)$' ./internal/store ./internal/negknow ./internal/mcp ./internal/daemon ./test/integration` — every test that yields a wall-clock judgement under `QOMPACK_UNDER_COLOAD`, run **by name**, one package binary at a time, without the declaration. The name list is enforced by `test/guards`' `TestColoadYieldersAreJudgedInIsolation`: a test that consults `obs.UnderCoload` and is named in neither this job nor `test-e2e` fails the tree. The job declares `QOMPACK_NONREFERENCE_DISK`, so the hot-path row's fsync-bound wall rows are reported, not gated, on the hosted runner (§2.4) |
+| `cover` | ubuntu | `devtool cover`: two passes merged into one profile — every package but `test/e2e` under the co-load declaration, then `test/e2e` alone without it, as `test-e2e` runs it (ADR 0010 decision 4) — then per-group floors (§6.4) and artifact upload. The job declares `QOMPACK_NONREFERENCE_DISK` for the `test/e2e` pass; devtool takes it back from the co-loaded pass |
 | `crossbuild` | ubuntu | `GOOS/GOARCH` matrix build for all 6 release targets |
-| `bench-gate` | ubuntu, macos, windows | `devtool bench-hotpath --iterations 2000 --hook observe-tool --warm-daemon --json bench-<os>.json`; hard fail on B-A / B-E |
+| `bench-gate` | ubuntu, macos, windows | `devtool bench-hotpath --iterations 2000 --hook observe-tool --warm-daemon --json bench-<os>.json`; under the job's `QOMPACK_NONREFERENCE_DISK` declaration B-A, B-B and B-E's wall row are reported, not gated (§2.4's non-reference-disk note); B-E_cpu, the delivery ledger (0 lost), the census and the structural checks fail the build |
 | `replay-gate` | ubuntu | `devtool replay --corpus testdata/sessions/synthetic --baseline testdata/baseline/phase0.json --phase 0 --growth testdata/golden/eval/growth/stats-growth.json --sketch testdata/golden/eval/growth/health.json --signoff "$RUNNER_TEMP/pr-body.md" --max-cpu 2m --ci`; enforces §11.3 (no metric regresses >2% to improve another without a `sign-off:` trailer in the PR body — read from the body captured to a file, so a direct *push* can sign off on nothing) and the phase exit criterion of every phase merged so far. **`--baseline` names a FILE, never a git ref**: the driver refuses a baseline recorded over a different `corpusTier`, and refuses a `--baseline` path naming nothing. `--baseline ""` is the only way to ask for no comparison |
 | `plugin-validate` | ubuntu | `devtool plugin-validate` byte-compares `plugin/**` against what `internal/pluginmanifest` generates (`--write` regenerates), then `git diff --exit-code -- plugin/`. It asserts the three counts §7.5 fixes: **6 commands** (7 until D36 removed `/qompack:checkpoint`, 2026-09-27), **7 hook events** (§7.3's six entry points, with `Stop` and `SubagentStop` as separate host events) and **1 MCP server**. It does **not** JSON-schema-validate the bundle, and it deliberately does **not** count MCP tools — `mcp.Tools()` is a stub returning nil until SP-13, so a count here would pass for the wrong reason. Asserting the eight tools is SP-13's own exit criterion |
-| `security` | ubuntu | `govulncheck ./...` · `devtool lint --only=importgraph,testdeps,bindeps` · two import-allowlist greps over `go list -deps`: **(1)** zero non-test imports of `net/http`, `net/url`, `crypto/tls` from any `internal/**` or `cmd/**` package — `net` itself only in `internal/ipc` (Unix sockets, and only `net.Dial`/`net.Listen` on `unix`, never `tcp`); **(2)** `os/exec` only in `internal/daemon` (detached self-spawn), `internal/cli`, and `internal/testutil` (§6.2 real-binary `RunHook`) |
+| `security` | ubuntu | `govulncheck ./...` · `devtool lint --only=importgraph,testdeps,bindeps` · four import-allowlist checks over `go list -deps`, each an explicit `if` that fails the step: **(1)** zero non-test imports of `net/http`, `net/url`, `crypto/tls` from any `internal/**` or `cmd/**` package — `net` itself only in `internal/ipc` (Unix sockets, and only `net.Dial`/`net.Listen` on `unix`, never `tcp`); **(2)** `os/exec` only in `internal/daemon` (detached self-spawn), `internal/cli`, `internal/testutil` (§6.2 real-binary `RunHook`) and `internal/paths/pathstest` (test support that runs `go env` once); **(3)** no product package imports `internal/testutil` or `internal/paths/pathstest` directly; **(4)** transitively, `go list -deps ./cmd/...` on linux, darwin and windows links no `testing` package and no test-support or `<pkg>/<pkg>test` package (a `grep` error fails the step too) |
 | `docs` | ubuntu | `devtool gen-config-docs --check` — diffs `docs/config-reference.md` against `config.Defaults()` in-process and fails if it is missing or stale, so the page can never drift. `--check` is load-bearing: bare `gen-config-docs` *writes* the file, so a job without the flag passes on a stale tree |
 
 **Two things the `security` job deliberately does *not* do**, stated here so nobody re-derives them
@@ -2707,12 +2724,13 @@ scrubs before anything enters the store (§5.23), the redaction fixtures are del
 credential-shaped and are guarded by tests, and the repo's `.gitguardian.yaml` exists to tell an
 *external* scanner to ignore those fixtures — no workflow invokes it. Do not describe this
 pipeline as secret-scanning; a claimed-but-absent scan is worse than an honest absence in a repo
-that commits credential-shaped fixtures on purpose. The third allowlist entry, `internal/testutil`,
+that commits credential-shaped fixtures on purpose. The `internal/testutil` allowlist entry
 is load-bearing: `internal/testutil/spawn.go` is a non-test file that spawns the real binary for
 §6.2's `RunHook`. The greps scope to `internal/**` and `cmd/**`, so `tools/**` — build-time only,
 never in a shipped binary — is outside the scanned set by construction.
 
-`.github/workflows/nightly.yml`: fuzz (10 min/target), Windows `-race` (the whole tree except `test/e2e`, under the same co-load declaration as `test`), 5 000-iteration bench, and
+`.github/workflows/nightly.yml`: fuzz (10 min/target), Windows `-race` (the whole tree except `test/e2e`, under the same co-load declaration as `test`), 5 000-iteration bench (`bench-deep`, which declares
+`QOMPACK_NONREFERENCE_DISK` as `bench-gate` does, D55), and
 **deterministic** replay over the recorded corpus (§6.3 tier 2) when the `QOMPACK_SESSIONS_DIR`
 secret is present — the corpus is what makes that run different from `replay-gate`, not the mode.
 Live mode is never run by any workflow (§5.18).

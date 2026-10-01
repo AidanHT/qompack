@@ -1,0 +1,8 @@
+# github.com/qompack/qompack/internal/paths/pathstest [github.com/qompack/qompack/internal/paths/pathstest.test]
+internal\paths\pathstest\privileges_internal_windows_test.go:29:19: undefined: privilegeState
+internal\paths\pathstest\privileges_internal_windows_test.go:34:2: undefined: withoutPrivileges
+internal\paths\pathstest\privileges_internal_windows_test.go:37:14: undefined: privilegeState
+internal\paths\pathstest\privileges_internal_windows_test.go:43:18: undefined: privilegeState
+FAIL	github.com/qompack/qompack/internal/paths/pathstest [build failed]
+FAIL
+exit=1

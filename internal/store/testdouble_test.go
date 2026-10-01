@@ -332,7 +332,12 @@ type project struct {
 // default token estimator resolves tokens.DefaultCalibPath(), which reads the user's home
 // directory: without this, a test run would write to the developer's own ~/.qompack, which §13
 // invariant 7 forbids.
-func newProject(t *testing.T) *project {
+//
+// It takes a testing.TB so a benchmark passes its own *testing.B: the redirection is undone by t's
+// cleanup, and only a runner-owned T or B ever runs one. A zero testing.T built by hand never does,
+// so a benchmark that used one left HOME and USERPROFILE pointing into a leaked temp tree for every
+// benchmark after it, and pathstest.Main failed the binary after PASS (candidate 5's quiet C5.2).
+func newProject(t testing.TB) *project {
 	t.Helper()
 	base := t.TempDir()
 	root := filepath.Join(base, "project")
@@ -417,14 +422,14 @@ type testProject struct {
 
 // newTestStore builds a project and opens a real FSStore over it, wired to the PRODUCTION
 // dependencies. See openOver for why nothing is injected by default.
-func newTestStore(t *testing.T, opts ...storeOpt) *testProject {
+func newTestStore(t testing.TB, opts ...storeOpt) *testProject {
 	t.Helper()
 	return openOver(t, newProject(t), opts...)
 }
 
 // openOver opens a store over an existing project, which is what the reopen tests need. The store
 // is closed by t.Cleanup; Close is idempotent, so a test that closes it early is fine.
-func openOver(t *testing.T, p *project, opts ...storeOpt) *testProject {
+func openOver(t testing.TB, p *project, opts ...storeOpt) *testProject {
 	t.Helper()
 
 	cfg := p.Cfg
@@ -464,7 +469,7 @@ func (tp *testProject) counter(name string) int64 {
 }
 
 // objectPaths lists every object file under objects/, relative to the objects root, sorted.
-func (tp *testProject) objectPaths(t *testing.T) []string {
+func (tp *testProject) objectPaths(t testing.TB) []string {
 	t.Helper()
 	base := paths.Long(paths.Of(tp.Root).Objects)
 	var out []string

@@ -1,0 +1,24 @@
+=== RUN   TestDiagTmpBaseScansOutsideTheBound
+    zz_diagtmp_w16b_test.go:36: drops with a zero bound: [{Kind:unreplayed_capture ID: Detail:1 capture(s) of this session (1 tool result(s), 0 prompt(s), 0 other) were still waiting to be replayed into the store when this checkpoint was sealed (durable writes on this disk were slower than their budget); the newest 1 tool result(s) are named by tool_use_id; nothing is lost: the daemon replays them, and recall or expand finds them then} {Kind:unreplayed_tool_result ID:toolu_lane_01 Detail:}]
+    zz_diagtmp_w16b_test.go:37: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16b-settle/internal/daemon/zz_diagtmp_w16b_test.go:37
+        	Error:      	Should be empty, but was [{unreplayed_capture  1 capture(s) of this session (1 tool result(s), 0 prompt(s), 0 other) were still waiting to be replayed into the store when this checkpoint was sealed (durable writes on this disk were slower than their budget); the newest 1 tool result(s) are named by tool_use_id; nothing is lost: the daemon replays them, and recall or expand finds them then} {unreplayed_tool_result toolu_lane_01 }]
+        	Test:       	TestDiagTmpBaseScansOutsideTheBound
+        	Messages:   	EXPECTED RED on the base: a look past the bound read the spool file
+--- FAIL: TestDiagTmpBaseScansOutsideTheBound (0.30s)
+=== RUN   TestDiagTmpBaseHealthyBesideBacklogCost
+    zz_diagtmp_w16b_test.go:55: base healthy settle beside 300 spools: 4.9437859s per PreCompact over 1 round(s)
+    zz_diagtmp_w16b_test.go:55: base healthy settle beside 300 spools: 51.302115ms per PreCompact over 20 round(s)
+--- PASS: TestDiagTmpBaseHealthyBesideBacklogCost (6.31s)
+=== RUN   TestDiagTmpBaseNamesPricedWithIdentity
+    zz_diagtmp_w16b_test.go:69: factor 1.600
+    zz_diagtmp_w16b_test.go:95: sealed 15 names costing 907 tokens under the seal's estimator; share 600
+    zz_diagtmp_w16b_test.go:96: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16b-settle/internal/daemon/zz_diagtmp_w16b_test.go:96
+        	Error:      	"907" is not less than or equal to "600"
+        	Test:       	TestDiagTmpBaseNamesPricedWithIdentity
+        	Messages:   	EXPECTED RED on the base: names overrun their share
+--- FAIL: TestDiagTmpBaseNamesPricedWithIdentity (0.45s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	7.515s
+FAIL

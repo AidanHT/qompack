@@ -1,0 +1,6 @@
+ok  	github.com/qompack/qompack/internal/obs	1.351s
+ok  	github.com/qompack/qompack/internal/checkpoint	96.026s
+ok  	github.com/qompack/qompack/internal/rehydrate	1.740s
+ok  	github.com/qompack/qompack/internal/commands	1.515s
+ok  	github.com/qompack/qompack/test/docs	2.846s
+exit=0

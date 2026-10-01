@@ -426,6 +426,15 @@ func TestIsSelfOriginated(t *testing.T) {
 		"injected_warning_text": {Failure: "[qompack] possible loop: Read→Edit repeated 3× (turns 1–4) — x"},
 		"state_dir_target":      {Target: ".qompack/sketches/tried.bloom"},
 		"state_dir_itself":      {Target: ".qompack"},
+		// The host's name for a plugin's MCP tool, mcp__plugin_<entry>_<server>__<tool>, from a
+		// local entry named qompack and from a release entry named qompack-<os>-<arch>, whose
+		// segment has not been observed yet (D53(f)), kept or with its hyphens folded.
+		"host_mcp_tool_local_entry":        {Action: "mcp__plugin_qompack_qompack__recall"},
+		"host_mcp_tool_release_entry":      {Action: "mcp__plugin_qompack-windows-amd64_qompack__expand"},
+		"host_mcp_tool_release_folded":     {Action: "mcp__plugin_qompack_linux_arm64_qompack__re_read"},
+		"release_slash_command_in_goal":    {Goal: "check /qompack-windows-amd64:dropped"},
+		"release_slash_command_at_start":   {Goal: "/qompack-linux-arm64:status"},
+		"release_slash_command_underscore": {Failure: "see /qompack_darwin_arm64:pin x"},
 	}
 	for name, sig := range self {
 		t.Run("self/"+name, func(t *testing.T) {
@@ -438,6 +447,18 @@ func TestIsSelfOriginated(t *testing.T) {
 		"project_source_file": {Action: "Read", Target: "internal/qompack/main.go"},
 		"similarly_named_dir": {Action: "Read", Target: "qompack-docs/README.md"},
 		"empty":               {},
+		// Another plugin's tools and commands, including ones that merely mention qompack.
+		"other_plugin_mcp_tool":         {Action: "mcp__plugin_github_github__search_code"},
+		"other_server_in_qompack_entry": {Action: "mcp__plugin_qompack-windows-amd64_other__recall"},
+		"server_only_ending_in_qompack": {Action: "mcp__plugin_tools_notqompack__recall"},
+		"no_plugin_segment":             {Action: "mcp__plugin__qompack__recall"},
+		"segment_hiding_a_boundary":     {Action: "mcp__plugin_evil__x_qompack__recall"},
+		"no_tool":                       {Action: "mcp__plugin_qompack_qompack__"},
+		"other_plugin_slash_command":    {Goal: "run /review:qompack now"},
+		"plugin_prefixed_by_qompack":    {Goal: "run /qompackish:status"},
+		"plugin_ending_in_qompack":      {Goal: "run /my-qompack:status"},
+		"empty_entry_suffix":            {Goal: "run /qompack-:status"},
+		"release_name_without_command":  {Goal: "installed /qompack-windows-amd64 today"},
 	}
 	for name, sig := range notSelf {
 		t.Run("not_self/"+name, func(t *testing.T) {

@@ -85,7 +85,7 @@ func TestRecallRanksSelfRecordsAfterOriginalCaptures(t *testing.T) {
 	f.record(t, "FileRead", "readme.md", recallMarker, 1)
 	echo := strings.Repeat(recallMarker+" ", 6)
 	f.record(t, mcpToolPrefix+ToolReRead, "readme.md", echo, 5)
-	f.record(t, hostQompackToolPrefix+ToolExpand, "readme.md", echo, 6)
+	f.record(t, "mcp__plugin_qompack_qompack__"+ToolExpand, "readme.md", echo, 6)
 
 	var body recallBody
 	f.callOK(t, ToolRecall, map[string]any{"query": recallMarker, "k": 5}, &body)

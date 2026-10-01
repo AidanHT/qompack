@@ -140,6 +140,19 @@ type flags struct {
 	jsonPath    string
 	project     string
 	underCoload bool
+	// nonrefDisk is obs.NonReferenceDisk(): QOMPACK_NONREFERENCE_DISK declared on a GitHub Actions
+	// runner. It is an environment declaration, not a flag — ci.yml's bench-gate, timing and
+	// test-e2e jobs set it once for the job, and the tests that spawn this harness pass their
+	// environment through — and parseFlags reads it so a test can drive it with t.Setenv.
+	// nonrefDiskIgnored is the declaration made where it is not honoured (not GitHub Actions); the
+	// run then gates everything and says so in its notes.
+	nonrefDisk        bool
+	nonrefDiskIgnored bool
+}
+
+// waiver is the run's reasons, if any, for REPORTING the wall-clock rows rather than gating them.
+func (f flags) waiver() wallWaiver {
+	return wallWaiver{coload: f.underCoload, nonrefDisk: f.nonrefDisk}
 }
 
 // parseFlags parses args into a flags value. flag.ErrHelp is returned verbatim so main can treat
@@ -234,6 +247,8 @@ func parseFlags(args []string, errw io.Writer) (flags, error) {
 	if err := fs.Parse(args); err != nil {
 		return flags{}, err
 	}
+	f.nonrefDisk = obs.NonReferenceDisk()
+	f.nonrefDiskIgnored = obs.NonReferenceDiskDeclared() && !f.nonrefDisk
 	if f.iterations <= 0 {
 		return flags{}, fmt.Errorf("--iterations must be > 0, got %d", f.iterations)
 	}
@@ -543,15 +558,22 @@ func runHarness(ctx context.Context, f flags, stdout, stderr io.Writer) (Report,
 		return Report{}, err
 	}
 
-	baRow, bbRow, daemonNotes := buildDaemonRows(cfg, baSnap, bbSnap, baMissing, gated.Undelivered(), f.underCoload)
+	waiver := f.waiver()
+	baRow, bbRow, daemonNotes := buildDaemonRows(cfg, baSnap, bbSnap, baMissing, gated.Undelivered(), waiver)
 
 	// One limit, read once from obs.Budgets() + config.Defaults() (task-7-brief.md's binding
 	// ruling), and applied to BOTH B-E rows: the wall-clock one and the CPU-time one are two
 	// measurements of the same §2.4 budget, so they must never be able to drift to two numbers.
 	beLimit := budgetLimit(cfg, obs.BE)
-	beWallNote := ""
-	if f.underCoload {
-		beWallNote = beWallWaivedNote(beLimit)
+	var beWallNotes []string
+	if waiver.coload {
+		beWallNotes = append(beWallNotes, beWallWaivedNote(beLimit))
+	}
+	if waiver.nonrefDisk {
+		beWallNotes = append(beWallNotes, beWallNonrefDiskNote(beLimit))
+	}
+	if f.nonrefDiskIgnored {
+		beWallNotes = append(beWallNotes, nonrefDiskIgnoredNote())
 	}
 
 	report := Report{
@@ -562,9 +584,9 @@ func runHarness(ctx context.Context, f flags, stdout, stderr io.Writer) (Report,
 			N: spawnFloorIterations, P50: msf(floorP50), P99: msf(floorP99),
 		},
 		Notes: buildNotes(gatedSnap, f.warmDaemon, f.iterations, ledger,
-			append(daemonNotes, beWallNote, ackRTTNote())...),
+			append(append(daemonNotes, beWallNotes...), ackRTTNote())...),
 		Budgets: buildBudgetRows(baRow, bbRow,
-			bdSamples.Wall, beSamples.Wall, beSamples.CPU, baSamples, ackRTT, beLimit, !f.underCoload),
+			bdSamples.Wall, beSamples.Wall, beSamples.CPU, baSamples, ackRTT, beLimit, !waiver.waives()),
 	}
 	return report, nil
 }
@@ -605,9 +627,10 @@ func buildBudgetRows(baRow, bbRow BudgetRow, bdWall, beWall, beCPU, baSpawnEstim
 // buildDaemonRows builds the two rows sourced from the daemon's own histograms via the status op —
 // B-A (ruling #29's hook_controlled estimate) and B-B (l0_ingest) — with their limits read from
 // obs.Budgets() + cfg, and returns them with every disclosure note they owe the artifact, in row
-// order. underCoload is the one thing that changes their shape, and since the Q3 ruling (parseFlags'
+// order. The waiver is the one thing that changes their shape, and since the Q3 ruling (parseFlags'
 // own comment) it changes BOTH: each row is built REPORTED (LimitMs/Pass nil, exactly B-D's shape)
-// with its own waiver note appended after its tail-adjustment note.
+// with its own waiver note appended after its tail-adjustment note — one note per declared reason,
+// co-load's first, then the non-reference disk's (D53(e), obs.NonReferenceDiskEnv).
 //
 // B-A yields because reqTS is stamped inside the spawned hook process, so a child's scheduling wait
 // on a shared host sits inside the interval with no CPU clock to move the judgement to. B-B yields
@@ -619,18 +642,24 @@ func buildBudgetRows(baRow, bbRow BudgetRow, bdWall, beWall, beCPU, baSpawnEstim
 // The shortfall accounting is identical in both shapes: tailAdjustedP99 still counts the missing
 // samples back in and the P99 field carries the same number the gate would have read, so a reported
 // row can be re-judged from the artifact alone.
-func buildDaemonRows(cfg config.Config, baSnap, bbSnap obs.HistSnapshot, baMissing, bbMissing int64, underCoload bool) (baRow, bbRow BudgetRow, notes []string) {
+func buildDaemonRows(cfg config.Config, baSnap, bbSnap obs.HistSnapshot, baMissing, bbMissing int64, w wallWaiver) (baRow, bbRow BudgetRow, notes []string) {
 	baLimit := budgetLimit(cfg, obs.BA)
-	baRow, baNote := buildBudgetRowFromSnapshot(string(obs.BA), baSnap, baLimit, !underCoload, baMissing)
+	baRow, baNote := buildBudgetRowFromSnapshot(string(obs.BA), baSnap, baLimit, !w.waives(), baMissing)
 	notes = append(notes, baNote)
-	if underCoload {
+	if w.coload {
 		notes = append(notes, baWallWaivedNote(baLimit))
 	}
+	if w.nonrefDisk {
+		notes = append(notes, daemonRowNonrefDiskNote(obs.BA, baLimit))
+	}
 	bbLimit := budgetLimit(cfg, obs.BB)
-	bbRow, bbNote := buildBudgetRowFromSnapshot(string(obs.BB), bbSnap, bbLimit, !underCoload, bbMissing)
+	bbRow, bbNote := buildBudgetRowFromSnapshot(string(obs.BB), bbSnap, bbLimit, !w.waives(), bbMissing)
 	notes = append(notes, bbNote)
-	if underCoload {
+	if w.coload {
 		notes = append(notes, bbWallWaivedNote(bbLimit))
+	}
+	if w.nonrefDisk {
+		notes = append(notes, daemonRowNonrefDiskNote(obs.BB, bbLimit))
 	}
 	return baRow, bbRow, notes
 }

@@ -13,8 +13,9 @@
 #
 # which assembles the per-target plugin bundle, packs it reproducibly, and writes
 # dist/bundle/checksums.txt, then `devtool marketplace`, which writes dist/bundle/marketplace.json
-# from it. `release.extra_files` below names exactly those files. goreleaser's remaining job is to
-# create the GitHub release and upload them.
+# from it. `release.extra_files` below names exactly those files, plus the repository's LICENSE and
+# THIRD_PARTY_NOTICES.md (which every zip also carries). goreleaser's remaining job is to create the
+# GitHub release and upload them.
 #
 # The release is a DRAFT. A tag therefore produces something a human reviews and publishes; nothing
 # reaches users because a tag was pushed. test/guards/release_test.go pins all of this.
@@ -58,3 +59,9 @@ release:
     - glob: dist/bundle/*.zip
     - glob: dist/bundle/checksums.txt
     - glob: dist/bundle/marketplace.json
+    # Every zip already carries LICENSE and THIRD_PARTY_NOTICES.md at its root (`devtool bundle`):
+    # the binary statically links the Go runtime, go-winio, klauspost/compress and x/sys, whose
+    # licences ask for their notices in a binary distribution (V6 close-out audit F4, D53(e)).
+    # The release page offers both beside the zips as well, so a reader need not unpack one.
+    - glob: LICENSE
+    - glob: THIRD_PARTY_NOTICES.md
