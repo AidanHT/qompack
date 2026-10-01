@@ -29,15 +29,23 @@ import (
 func testConfig() config.Config { return config.Defaults() }
 
 // uniqueTestAddr returns a QOMPACK_IPC_ADDR value naming an endpoint private to this test: a
-// per-test-uniquely-named pipe on Windows, a socket inside t.TempDir() on POSIX. Only tests that
-// actually call Daemon.Run need this — dispatchOp-driven tests never touch the transport.
+// per-test-uniquely-named pipe on Windows, a socket in a fresh short directory on POSIX. Only tests
+// that actually call Daemon.Run need this — dispatchOp-driven tests never touch the transport.
+//
+// The directory is not t.TempDir: on macOS /var/folders/<2>/<30>/T/ plus a long test name passes
+// the override's 100-byte budget, and an over-long QOMPACK_IPC_ADDR is ignored rather than refused
+// (ipc.parseIPCAddrOverride), so the daemon silently fell back to the project-hash address and the
+// endpoint was no longer the private one this helper promises.
 func uniqueTestAddr(t *testing.T) string {
 	t.Helper()
 	if runtime.GOOS == "windows" {
 		name := `\\.\pipe\qompack-test-` + strconv.FormatInt(time.Now().UnixNano(), 36)
 		return "pipe:" + name
 	}
-	return "unix:" + filepath.Join(t.TempDir(), "d.sock")
+	dir, err := os.MkdirTemp("", "qdt")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	return "unix:" + filepath.Join(dir, "d.sock")
 }
 
 // TestNew_SucceedsWithNoServices is the property waves 1-2 depend on: a daemon constructs from an
