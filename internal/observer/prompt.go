@@ -159,7 +159,7 @@ func (o *observer) onUserPrompt(ctx context.Context, e Event) (Output, error) {
 
 	// The live reply path's whole job is the synchronous warning; it records nothing (Option A).
 	if promptReplyOnly(ctx) {
-		return o.promptReplyOutput(st), nil
+		return o.promptReplyOutput(ctx, st), nil
 	}
 
 	now := o.now()
@@ -233,7 +233,7 @@ func (o *observer) onUserPrompt(ctx context.Context, e Event) (Output, error) {
 	// Preserve the direct observer API. Only the explicitly marked worker path
 	// leaves warnings queued for the live reply.
 	if !promptCaptureOnly(ctx) {
-		return o.promptReplyOutput(st), nil
+		return o.promptReplyOutput(ctx, st), nil
 	}
 	return hookio.Empty(), nil
 }
@@ -304,6 +304,11 @@ func promptArgs(prompt string) json.RawMessage {
 // as long as it stays above the multiplicity threshold: without it, one loop would produce a
 // warning on every prompt for the rest of the session. WarnedRules is deliberately not persisted
 // (see state.go) — the worst failure of losing it is one repeated line.
+//
+// A rule is marked warned when it is queued, so a warning whose reply never reached the host would
+// silence its rule for the session. promptReplyOutput's rearmUndelivered undoes that mark and holds
+// the rule at the multiplicity it had then (ThrashFloor): it is queued again here only once its
+// reference count has grown past that floor, which is the loop occurring again.
 func (o *observer) collectThrash(st *sessionState) {
 	if o.opt.Grammar == nil {
 		return
@@ -311,6 +316,12 @@ func (o *observer) collectThrash(st *sessionState) {
 	for _, rule := range o.opt.Grammar.Thrash(thrashMinUses) {
 		if st.WarnedRules[rule.ID] {
 			continue
+		}
+		if floor, held := st.ThrashFloor[rule.ID]; held {
+			if rule.Uses <= floor {
+				continue // re-armed after a lost delivery: waits for the loop to occur again
+			}
+			delete(st.ThrashFloor, rule.ID)
 		}
 		st.WarnedRules[rule.ID] = true
 		if len(st.PendingThrash) == 0 {

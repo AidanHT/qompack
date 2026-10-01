@@ -28,7 +28,13 @@ import "os"
 //   - the hot-path tests that drive the harness (test/integration's
 //     TestIntegration_HotPathWarmWithRealResidentState, test/e2e's X11) REPORT the §12.2 spool
 //     submode transition, and the hook deferrals that follow it, instead of forbidding them, and
-//     still require a loud, named transition and a delivery ledger that adds up with 0 lost.
+//     still require a loud, named transition and a delivery ledger that adds up with 0 lost;
+//   - test/e2e's X10 (TestV5_ThrashWarningVisibleInStatusAndCheckpoint) answers a prompt reply that
+//     was observably late (l0_prompt_reply_late) or deferred to the hook's client spool with a
+//     proof of RECOVERY — the warning re-armed, and carried by the prompt after one more loop
+//     cycle — instead of failing on first-prompt delivery. A reply that was on time and carried
+//     nothing still fails, every other property of the warning is asserted as before, and the
+//     branch is written to the job summary, so a green run still says it took it (w16d-warnlate).
 //
 // B-E_cpu, the delivery-ledger identity check, 0 lost, the population census and every structural
 // check stay gated exactly as before. The reference verdict on those wall rows is the owner's quiet

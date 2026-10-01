@@ -1,0 +1,25 @@
+=== RUN   TestColoadYieldersAreJudgedInIsolation
+=== PAUSE TestColoadYieldersAreJudgedInIsolation
+=== RUN   TestColoadDeclarationIsPinnedToTheGoConstant
+=== PAUSE TestColoadDeclarationIsPinnedToTheGoConstant
+=== RUN   TestNonReferenceDisk_IsHostedCIOnly
+=== RUN   TestNonReferenceDisk_IsHostedCIOnly/ignored_outside_github_actions
+=== RUN   TestNonReferenceDisk_IsHostedCIOnly/ci_yml_sets_it_in_exactly_the_hosted_isolation_jobs
+=== RUN   TestNonReferenceDisk_IsHostedCIOnly/nightly_yml_declares_it_in_exactly_the_ruled_jobs
+=== RUN   TestNonReferenceDisk_IsHostedCIOnly/reference_run_scripts_never_declare_it
+--- PASS: TestNonReferenceDisk_IsHostedCIOnly (0.05s)
+    --- PASS: TestNonReferenceDisk_IsHostedCIOnly/ignored_outside_github_actions (0.00s)
+    --- PASS: TestNonReferenceDisk_IsHostedCIOnly/ci_yml_sets_it_in_exactly_the_hosted_isolation_jobs (0.00s)
+    --- PASS: TestNonReferenceDisk_IsHostedCIOnly/nightly_yml_declares_it_in_exactly_the_ruled_jobs (0.00s)
+    --- PASS: TestNonReferenceDisk_IsHostedCIOnly/reference_run_scripts_never_declare_it (0.00s)
+=== CONT  TestColoadYieldersAreJudgedInIsolation
+=== CONT  TestColoadDeclarationIsPinnedToTheGoConstant
+--- PASS: TestColoadDeclarationIsPinnedToTheGoConstant (0.05s)
+=== NAME  TestColoadYieldersAreJudgedInIsolation
+    coload_test.go:149: 14 yielders found from source: [./internal/daemon:TestFeaturesFrom_LexicalCohesionShingleCap ./internal/mcp:TestBudgetBF ./internal/negknow:TestBudget_DetectorScan ./internal/negknow:TestBudget_Open ./internal/negknow:TestBudget_QueryHit ./internal/negknow:TestBudget_QueryMiss ./internal/negknow:TestBudget_RebuildBloom ./internal/negknow:TestBudget_Record ./internal/negknow:TestBudget_RefreshStaleness ./internal/store:TestGC_DeadlineOvershootIsBoundedByTheCheckInterval ./internal/store:TestGC_DeadlineTruncatesAndResumes ./test/e2e:TestV3_HotPathUnchangedWithLedgerResident ./test/e2e:TestV5_ThrashWarningVisibleInStatusAndCheckpoint ./test/integration:TestIntegration_HotPathWarmWithRealResidentState]
+    coload_test.go:209: ./test/e2e:TestV3_HotPathUnchangedWithLedgerResident is judged by `test-e2e`, which runs ./test/e2e whole
+    coload_test.go:209: ./test/e2e:TestV5_ThrashWarningVisibleInStatusAndCheckpoint is judged by `test-e2e`, which runs ./test/e2e whole
+    coload_test.go:248: every yielder is judged in isolation: 12 by name in `timing`, the rest by `test-e2e`
+--- PASS: TestColoadYieldersAreJudgedInIsolation (0.57s)
+PASS
+ok  	github.com/qompack/qompack/test/guards	0.888s

@@ -1,0 +1,16 @@
+# TEMPORARY DIAGNOSTIC (fix round): x10v5LateReplyArm with forced=false, no declaration (reference disk).
+# Expected red: an unlicensed late reply fails the row.
+# go test -count=1 -timeout=10m -v -run '^TestV5_ThrashWarningVisibleInStatusAndCheckpoint$/^a_late_reply_does_not_count_as_delivered_and_the_loop_warns_afresh$' ./test/e2e
+=== RUN   TestV5_ThrashWarningVisibleInStatusAndCheckpoint
+=== RUN   TestV5_ThrashWarningVisibleInStatusAndCheckpoint/a_late_reply_does_not_count_as_delivered_and_the_loop_warns_afresh
+    v5_x10_test.go:806: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16d-warnlate/test/e2e/v5_x10_test.go:521
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16d-warnlate/test/e2e/v5_x10_test.go:806
+        	Error:      	Should NOT be empty, but was 
+        	Test:       	TestV5_ThrashWarningVisibleInStatusAndCheckpoint/a_late_reply_does_not_count_as_delivered_and_the_loop_warns_afresh
+        	Messages:   	the held reply must be counted late or deferred: a reference disk must deliver the warning on the first prompt after the loop, but the reply to "still red — try the exact same fix again" was late (l0_prompt_reply_late 0 -> 1) or deferred to the hook's client spool (false). Only a run that declares a non-reference disk (QOMPACK_NONREFERENCE_DISK, on GitHub Actions) or co-load (QOMPACK_UNDER_COLOAD) may answer that with recovery
+--- FAIL: TestV5_ThrashWarningVisibleInStatusAndCheckpoint (19.31s)
+    --- FAIL: TestV5_ThrashWarningVisibleInStatusAndCheckpoint/a_late_reply_does_not_count_as_delivered_and_the_loop_warns_afresh (19.31s)
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	19.602s
+FAIL

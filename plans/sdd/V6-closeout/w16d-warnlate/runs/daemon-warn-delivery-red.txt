@@ -1,0 +1,20 @@
+=== RUN   TestPromptWarning_DeliveredReplyCountsOnce
+--- PASS: TestPromptWarning_DeliveredReplyCountsOnce (0.21s)
+=== RUN   TestPromptWarning_LateReplyDoesNotConsumeTheRule
+    prompt_warning_delivery_test.go:222: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16d-warnlate/internal/daemon/prompt_warning_delivery_test.go:173
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16d-warnlate/internal/daemon/prompt_warning_delivery_test.go:222
+        	Error:      	Expected value not to be nil.
+        	Test:       	TestPromptWarning_LateReplyDoesNotConsumeTheRule
+        	Messages:   	a warning the host never received must not count as delivered once the loop continues
+--- FAIL: TestPromptWarning_LateReplyDoesNotConsumeTheRule (0.44s)
+=== RUN   TestPromptWarning_SlowDurableAcceptIsLateForTheClient
+    prompt_warning_delivery_test.go:251: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16d-warnlate/internal/daemon/prompt_warning_delivery_test.go:251
+        	Error:      	Expected nil, but got: &hookio.HSO{HookEventName:"UserPromptSubmit", AdditionalContext:"[qompack] possible loop: FileRead→FileEdit→Bash repeated 4× (turns 1) — consider a different approach", CustomInstructions:""}
+        	Test:       	TestPromptWarning_SlowDurableAcceptIsLateForTheClient
+        	Messages:   	a reply produced after the hook's budget ran out reaches nobody; it must go out empty
+--- FAIL: TestPromptWarning_SlowDurableAcceptIsLateForTheClient (0.42s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	1.458s
+FAIL
