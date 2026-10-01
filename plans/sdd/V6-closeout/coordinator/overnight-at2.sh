@@ -1,10 +1,11 @@
 #!/bin/sh
-# overnight-at.sh <HHMM> <candidate-repo> <candidate-sha> <evidence-dir>
-# Waits until local time HHMM, then holds its own keep-awake and runs overnight.sh. Launched detached
+# overnight-at2.sh <HHMM> <candidate-repo> <candidate-sha> <evidence-dir> [chain-script]
+# Waits until local time HHMM, then holds its own keep-awake and runs the chain script (default
+# overnight.sh; overnight-c6.sh for the release candidate). Launched detached
 # (Start-Process), so Claude Code's background-shell reaper cannot stop it. Remove
 # <evidence-dir>/cancel before HHMM to cancel it; <evidence-dir>/at.log records what it did.
 set -u
-at=$1; C=$2; H=$3; E=$4
+at=$1; C=$2; H=$3; E=$4; chain=${5:-overnight.sh}
 here=$(cd "$(dirname "$0")" && pwd)
 mkdir -p "$E"
 : > "$E/cancel"
@@ -19,6 +20,6 @@ sentinel="$E/keepawake.sentinel"
 : > "$sentinel"
 pwsh -NoProfile -File "$(cygpath -w "$here/keepawake.ps1")" "$(cygpath -w "$sentinel")" >> "$E/at.log" 2>&1 &
 echo "start $(date '+%F %T %Z')" >> "$E/at.log"
-sh "$here/overnight.sh" "$C" "$H" "$E"
+sh "$here/$chain" "$C" "$H" "$E"
 echo "overnight exit=$? $(date '+%F %T %Z')" >> "$E/at.log"
 rm -f "$sentinel"
