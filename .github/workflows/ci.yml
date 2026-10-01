@@ -189,9 +189,22 @@ jobs:
           # could reconcile anything: `go test` exits non-zero by design here, and a `grep` that
           # matches nothing (the good case, for a green package set) exits 1 too.
           set +e -u
-          if [ "$RUNNER_OS" = "Windows" ]; then flags='-count=2'; else flags='-race'; fi
+          # -timeout is per test binary, and devtool's wholeTreeTestTimeout (30m) is sized for ONE
+          # pass of the whole tree. -count=2 runs every test of a binary twice inside that one
+          # budget, so the Windows leg gets two passes' worth: 2 x 30m = 60m (owner ruling D55).
+          # Measured: internal/daemon was killed at 1800 s in run 36816905394's windows test job
+          # under -count=2; alone at -count=2 on a loaded local Windows host it took 527 s with no
+          # hang (plans/sdd/V6-closeout/w16-ci/runs/fix-daemon-count2-windows.log), so the kill was
+          # the whole-tree co-load stretching two passes past one pass's budget. A real hang is
+          # still killed, and the reconciliation below names the tests it left unfinished. The
+          # other legs make one pass and keep 30m.
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            flags='-count=2'; timeout='60m'
+          else
+            flags='-race'; timeout='30m'
+          fi
           # shellcheck disable=SC2046  # the package list must word-split
-          go test $flags -timeout=30m -json $(go list ./... | grep -v '/test/e2e$') > test.json
+          go test $flags -timeout="$timeout" -json $(go list ./... | grep -v '/test/e2e$') > test.json
           status=$?
           # test2json emits one object per event. A test-level verdict is the object that carries
           # Action, Test AND Elapsed; an "output" event carries no Elapsed, which is what keeps a
