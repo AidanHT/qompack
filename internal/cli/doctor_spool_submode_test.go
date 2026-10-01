@@ -20,9 +20,15 @@ import (
 // writeClientSpool leaves one hook client spool file in root's spool directory.
 func writeClientSpool(t *testing.T, root string) {
 	t.Helper()
+	writeSpoolFile(t, root, "client-4242.ndjson")
+}
+
+// writeSpoolFile leaves the spool file base, one line, in root's spool directory.
+func writeSpoolFile(t *testing.T, root, base string) {
+	t.Helper()
 	spool := paths.Of(root).Spool
 	require.NoError(t, os.MkdirAll(paths.Long(spool), 0o700))
-	require.NoError(t, os.WriteFile(paths.Long(filepath.Join(spool, "client-4242.ndjson")), []byte("{}\n"), 0o600))
+	require.NoError(t, os.WriteFile(paths.Long(filepath.Join(spool, base)), []byte("{}\n"), 0o600))
 }
 
 func TestDoctor_SpoolSubmodeIsInformational(t *testing.T) {
@@ -76,6 +82,64 @@ func TestDoctor_SpoolSubmodeIsInformational(t *testing.T) {
 		for _, key := range obs.SpoolSubmodeKeys {
 			require.Contains(t, detail, key)
 		}
+	})
+
+	// The spool directory also holds the daemon's WAL segments (wal-*.ndjson), which the worker pool
+	// replays, not the client-spool watcher, and no hook's ACK deadline put there (D55, wave 16b). The
+	// detail must not call them client spools: it counts each kind and says what replays it.
+	t.Run("sync submode with only WAL segments does not call them client spools", func(t *testing.T) {
+		p := seedFsckProject(t)
+		stop := bootstrapDaemon(t, p.Root)
+		defer stop()
+		writeSpoolFile(t, p.Root, "wal-sess-doctor.ndjson")
+
+		_, doc, errw := doctorJSON(t, p.Root)
+		row := doctorFindRow(t, doc, "recording", "spool.pending")
+		require.Equal(t, doctorDegraded, row["status"], "stderr=%s", errw)
+		detail, _ := row["detail"].(string)
+		require.Contains(t, detail, "1 daemon WAL segment(s)")
+		require.Contains(t, detail, "worker pool")
+		require.NotContains(t, detail, "client spool")
+		require.NotContains(t, detail, "ACK deadline")
+	})
+
+	t.Run("sync submode with both kinds counts each", func(t *testing.T) {
+		p := seedFsckProject(t)
+		stop := bootstrapDaemon(t, p.Root)
+		defer stop()
+		writeClientSpool(t, p.Root)
+		writeSpoolFile(t, p.Root, "wal-sess-doctor.ndjson")
+
+		_, doc, errw := doctorJSON(t, p.Root)
+		row := doctorFindRow(t, doc, "recording", "spool.pending")
+		require.Equal(t, doctorDegraded, row["status"], "stderr=%s", errw)
+		detail, _ := row["detail"].(string)
+		for _, want := range []string{"1 hook client spool(s)", "ACK deadline", "1 daemon WAL segment(s)", "worker pool"} {
+			require.Contains(t, detail, want)
+		}
+	})
+
+	// The directory also holds the hooks' externalized tool results (blob-<pid>-<n>.bin, ipc
+	// client.go), written on the live path too and removed once the request naming them is published.
+	// They are neither client spools nor WAL segments, and no ACK deadline put them there (wave 16b
+	// review): a blob beside a WAL segment is counted and worded on its own.
+	t.Run("sync submode does not call an externalized tool result a client spool", func(t *testing.T) {
+		p := seedFsckProject(t)
+		stop := bootstrapDaemon(t, p.Root)
+		defer stop()
+		writeSpoolFile(t, p.Root, "wal-sess-doctor.ndjson")
+		writeSpoolFile(t, p.Root, "blob-4242-1.bin")
+
+		_, doc, errw := doctorJSON(t, p.Root)
+		row := doctorFindRow(t, doc, "recording", "spool.pending")
+		require.Equal(t, doctorDegraded, row["status"], "stderr=%s", errw)
+		require.Contains(t, row["observed"], "2 file(s)", "every file is still counted")
+		detail, _ := row["detail"].(string)
+		for _, want := range []string{"1 daemon WAL segment(s)", "1 other spool file(s)", "externalized"} {
+			require.Contains(t, detail, want)
+		}
+		require.NotContains(t, detail, "client spool")
+		require.NotContains(t, detail, "ACK deadline")
 	})
 
 	t.Run("sync submode keeps the old verdict", func(t *testing.T) {

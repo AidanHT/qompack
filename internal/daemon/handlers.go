@@ -1244,7 +1244,7 @@ func (d *daemon) handleCheckpoint(ctx context.Context, req ipc.Request) ipc.Resp
 		_ = obs.Timed(d.m.Hist(histName(obs.BE)), func() error {
 			sealCtx := ctx
 			if !spoolReplay(ctx) {
-				sealCtx = withSealDrops(ctx, d.settleBeforeSeal(ctx, ev.SessionID, hookTime(req, now)))
+				sealCtx = withSealReport(ctx, d.settleBeforeSeal(ctx, ev.SessionID, hookTime(req, now)))
 			}
 			_, callErr = d.svc.PreCompact(sealCtx, *ev)
 			return callErr

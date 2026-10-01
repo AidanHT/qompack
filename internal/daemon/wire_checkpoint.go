@@ -191,8 +191,9 @@ func BindCheckpoint(o *Options, cfg config.Config, w *checkpoint.FileWriter, src
 				// a value inside a 2 s hook would also be a scheduler decision this layer does not
 				// get to make. SP-12 fills these in through this same struct.
 				Cache: checkpoint.CacheInfo{TTLState: "unknown"},
-				// The captures the route's settle could not replay before this seal (D53(c)).
-				ExtraDrops: sealDrops(ctx),
+				// The captures the route's settle could not replay before this seal (D53(c)), their
+				// names priced by the seal with the estimator its Truncate uses (D55).
+				PricedDrops: sealReportOf(ctx).pricer(),
 			})
 			// The empty object on success as on failure: the seal is the whole of this seam's job,
 			// and nothing it could say survives the host's PreCompact contract (C1.18).
