@@ -1,0 +1,28 @@
+=== RUN   TestPromptWarning_DeliveredReplyCountsOnce
+--- PASS: TestPromptWarning_DeliveredReplyCountsOnce (0.13s)
+=== RUN   TestPromptWarning_LateReplyDoesNotConsumeTheRule
+--- PASS: TestPromptWarning_LateReplyDoesNotConsumeTheRule (0.41s)
+=== RUN   TestPromptWarning_SlowDurableAcceptIsLateForTheClient
+--- PASS: TestPromptWarning_SlowDurableAcceptIsLateForTheClient (0.39s)
+=== RUN   TestPromptWarning_ReplyThatMayNotActRefusesTheClaim
+--- PASS: TestPromptWarning_ReplyThatMayNotActRefusesTheClaim (0.13s)
+=== RUN   TestPromptWarning_ClaimedReplyTheHookSpooledIsReArmed
+--- PASS: TestPromptWarning_ClaimedReplyTheHookSpooledIsReArmed (0.43s)
+=== RUN   TestPromptReplyHandoff_FirstSideWins
+--- PASS: TestPromptReplyHandoff_FirstSideWins (0.00s)
+=== RUN   TestPromptReplyBudget_IsMeasuredFromTheHooksStamp
+--- PASS: TestPromptReplyBudget_IsMeasuredFromTheHooksStamp (0.03s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	1.894s
+go test exit: 0
+=== RUN   TestPromptReplyClaim_RefusedClaimReArmsForTheLoopsNextOccurrence
+--- PASS: TestPromptReplyClaim_RefusedClaimReArmsForTheLoopsNextOccurrence (0.01s)
+=== RUN   TestPromptReplyClaim_AskedOnlyWhenThereIsAWarningToHandOver
+--- PASS: TestPromptReplyClaim_AskedOnlyWhenThereIsAWarningToHandOver (0.01s)
+=== RUN   TestPromptReplyClaim_PassiveModeKeepsTheQueue
+--- PASS: TestPromptReplyClaim_PassiveModeKeepsTheQueue (0.01s)
+=== RUN   TestPromptReplySpooled_ReArmsTheWarningAClaimedReplyCarried
+--- PASS: TestPromptReplySpooled_ReArmsTheWarningAClaimedReplyCarried (0.01s)
+PASS
+ok  	github.com/qompack/qompack/internal/observer	0.373s
+go test exit: 0
