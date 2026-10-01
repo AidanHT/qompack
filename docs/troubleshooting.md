@@ -981,11 +981,15 @@ Linux defaults are 15 ms for both budgets; in a Docker Desktop/WSL2 container th
 B-B (the daemon's durable ingest) at about 37 ms at the median, so there it is expected.
 
 A compaction does not miss the session's newest captures: before it seals the checkpoint, the
-`PreCompact` hook replays this session's spooled captures, inside its own budget (B-E,
-`runtime.budgets.checkpointFinalizeMs`, less the seal's own window). A capture it could not replay in
-time is named in the checkpoint's drop report: one `unreplayed_capture` line counts what was left, and
-one `unreplayed_tool_result` line per tool result names its `tool_use_id`; the rehydration's section
-7 carries both. The daemon replays them afterwards, and `recall` and `expand` find them then.
+`PreCompact` hook replays this session's spooled captures (other sessions' spools are left to the
+daemon's usual replay), inside its own budget (B-E, `runtime.budgets.checkpointFinalizeMs`, less the
+seal's own window). A capture it could not replay in time is reported in the checkpoint's drop
+report: one `unreplayed_capture` line counts everything that was left and says how many tool results
+are named, and one `unreplayed_tool_result` line names the `tool_use_id` of each of the newest tool
+results, as many as fit in one twentieth of `checkpoint.budgetTokens`, so a long backlog never
+crowds the checkpoint's pointers out; the rehydration's section 7 carries both. On a very slow disk a
+replay that is still writing when the budget runs out is abandoned and its capture is reported this
+way too. The daemon replays them all afterwards, and `recall` and `expand` find them then.
 
 The switch lasts until a new session starts in this project or the daemon exits on idle (below); it
 does not switch back on its own during the session, and compacting the current session does not reset
