@@ -588,6 +588,24 @@ func TestPreCompactSettle_DoesNotWaitBehindAWatcherPassItsOwnRequestKicked(t *te
 		liveOrderBound, liveOrderTick, "the kick after the seal lets the watcher publish the other session's spool")
 }
 
+// TestPreCompactSettle_APanickingSealStillKicksTheWatcher (wave 16f review): noteServed leaves the
+// PreCompact's kick of the client-spool watcher to its route, which kicks once the seal is over. A
+// seal that panics is recovered into a refusal (callHandler), and the kick must still run: other
+// sessions' spools would otherwise wait for the next served request or the idle tick, which the
+// kick noteServed used to make before the route ran did not leave them to.
+func TestPreCompactSettle_APanickingSealStillKicksTheWatcher(t *testing.T) {
+	dd, _ := settleTestDaemon(t, liveOrderBound)
+	dd.svc.PreCompact = func(context.Context, hookio.Event) (hookio.Output, error) {
+		panic("seal fixture panics")
+	}
+	require.Empty(t, dd.spool.kick, "fixture sanity: nothing has kicked the watcher before the PreCompact")
+
+	resp := dd.dispatchOp(context.Background(), checkpointRequest(dd, "sess-precompact-panics", "nonce-panics"))
+	require.False(t, resp.OK, "fixture sanity: the panicking seal is refused")
+	require.Equal(t, int64(1), dd.m.Counter(counterHandlerPanic).Value(), "fixture sanity: the route panicked")
+	require.Len(t, dd.spool.kick, 1, "a PreCompact whose seal panics still kicks the watcher")
+}
+
 // TestPreCompactSettle_ABacklogIsCountedInFullAndNamedWithinItsShare: a few hundred spooled Reads, one
 // hook process each as in spool submode, on a disk too slow to replay any of them inside the bound.
 // The summary counts every one; only the newest are named, within their share of

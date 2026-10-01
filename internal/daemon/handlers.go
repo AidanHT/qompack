@@ -1291,6 +1291,13 @@ func (d *daemon) handleCheckpoint(ctx context.Context, req ipc.Request) ipc.Resp
 	ev := resolveEvent(req)
 	now := core.NowMilli(d.clk)
 	routeStart := d.clk.Now()
+	// The served-request kick of the client-spool watcher, which noteServed leaves to this route: when
+	// the route returns, after the seal, so the watcher's pass over every session's spools cannot hold
+	// the drain's mutex against the settle (wave 16f). Deferred, it also runs when the route panics
+	// and callHandler refuses the request, as the kick noteServed made before the route did.
+	if !spoolReplay(ctx) {
+		defer d.kickSpoolWatch()
+	}
 
 	// Phase 1 (locked): record the PreCompact observation — this package's own file I/O only,
 	// no seam call — and save immediately, matching the spec's own ordering (history observation,
@@ -1358,13 +1365,6 @@ func (d *daemon) handleCheckpoint(ctx context.Context, req ipc.Request) ipc.Resp
 			d.log.Warn("daemon: PreCompact failed", "err", callErr)
 		}
 	}
-	// The served-request kick of the client-spool watcher, which noteServed leaves to this route: after
-	// the seal, so the watcher's pass over every session's spools cannot hold the drain's mutex
-	// against the settle (wave 16f).
-	if !spoolReplay(ctx) {
-		d.kickSpoolWatch()
-	}
-
 	// Phase 3 (re-locked): re-load — a concurrent route may have saved its own changes while
 	// phase 2 ran unlocked — then apply this route's remaining mutations and save.
 	d.historyMu.Lock()
