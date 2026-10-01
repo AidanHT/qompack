@@ -69,8 +69,10 @@ jobs:
     # exact invisibility this job exists to remove. The sub-checks an allowlist would drop are also
     # the cheap ones (bindeps iterates its own GOOS matrix, sleepcheck parses every file regardless
     # of build tags, runpatterns and docmarkers read Markdown), so it would buy no minutes worth the
-    # risk. The cost that matters is stubskips' single `go test` pass over internal/, cmd/ and
-    # test/, and that is not removable: the check IS a test run.
+    # risk. The cost that matters is stubskips' `go test` over internal/, cmd/ and test/, and that is
+    # not removable: the check IS a test run. It is two passes since run 36816905394: the tree in
+    # parallel, then test/e2e alone, for the reason the `test` job leaves test/e2e to `test-e2e`
+    # (tools/devtool/stubskips.go, stubskipsIsolated).
     #
     # It is a separate job rather than a Windows leg of `verify` because nothing else in verify —
     # fmt-check, go vet, go build, the two git-history greps — is platform-sensitive, and paying for
@@ -80,9 +82,16 @@ jobs:
     # The backstop for plausibly the longest job in the matrix: the stubskips sub-check runs a real
     # `go test` over internal/, cmd/ and test/ at the repository's own -timeout=30m, on the slowest
     # runner OS. Go's timeout is per test binary, so a job that wedges outside one — a hung child
-    # process, a stalled runner — would sit until GitHub's 360-minute platform default. 45 leaves
-    # that pass its whole 30-minute budget plus checkout, toolchain setup and the other sub-checks.
-    timeout-minutes: 45
+    # process, a stalled runner — would sit until GitHub's 360-minute platform default.
+    #
+    # 75 leaves each of stubskips' two sequential passes its whole 30-minute budget plus checkout,
+    # toolchain setup and the other sub-checks (about 10 minutes together). It was 45 for one pass.
+    # Inside that one pass test/e2e's binary was killed at its 30 minutes on windows-latest (run
+    # 36816905394), and the job reported a tree it had only partly inspected; alone the package
+    # takes about 20 minutes there (that run's test-e2e job, 1188 s). No per-binary -timeout moved:
+    # a hung test is still killed at 30 minutes and still reported, and this bound still catches a
+    # wedge outside a binary.
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
