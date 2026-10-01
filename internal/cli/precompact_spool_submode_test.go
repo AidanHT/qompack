@@ -6,9 +6,11 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/qompack/qompack/internal/checkpoint"
 	"github.com/qompack/qompack/internal/config"
 	"github.com/qompack/qompack/internal/ipc"
 	"github.com/qompack/qompack/internal/paths"
@@ -23,6 +25,29 @@ import (
 // session's newest tool results. These rows run the shipped composition (the compactLoadRig) with
 // the hook clients in spool submode and nothing else draining: no admin.drain, no flush, and no idle
 // drain, which needs two quiet minutes.
+
+// spoolSubmodeRowBE is the B-E (runtime.budgets.checkpointFinalizeMs) this file's daemon runs with:
+// the hook client's checkpoint reply deadline less the seal's own window, so that the settle's bound
+// (precompactSettleBound: B-E less checkpoint.MaxPreCompactWindow, 12 s here) and the seal's window
+// together come to 13.5 s, a whole seal window before the PreCompact hook stops waiting for its
+// reply (15 s). The bound is a ceiling, not a wait: a settle returns as soon as the replay is done.
+//
+// Why not the default 2000 ms, whose bound is 500 ms: this row's subject is that the PreCompact
+// replays the session's spooled captures before it seals, not how many of them a 500 ms bound
+// fits. Three replayed lines took 275-320 ms of that bound on a loaded Windows host under
+// -covermode=atomic, and the hosted cover job, which runs every package at once on a runner whose
+// fsync has a latency tail (Q1), ran out of it before the third line, the Stop, and sealed with it
+// named as unreplayed (job 110516048246): the designed degrade, on a wall clock the row does not
+// control. The default bound and that degrade have their own rows in internal/daemon:
+// TestPrecompactSettleBound_IsWhatBELeavesTheSeal pins 500 ms, and
+// TestPreCompactSettle_NamesWhatTheBoundLeftUnreplayed and
+// TestUnreplayedDrops_CountsEveryCaptureAndNamesEachToolResult pin what a seal reports when the
+// bound runs out. A settle that never replays fails this row whatever its bound.
+const spoolSubmodeRowBE = checkpointReplyDeadline - checkpoint.MaxPreCompactWindow
+
+// spoolSubmodeRowConfig is the project config that gives this file's daemon spoolSubmodeRowBE.
+var spoolSubmodeRowConfig = fmt.Sprintf(`{"runtime":{"budgets":{"checkpointFinalizeMs":%d}}}`,
+	spoolSubmodeRowBE/time.Millisecond)
 
 // spoolSubmodeReadIDs are the Reads the session makes after the switch to spool submode.
 var spoolSubmodeReadIDs = []string{"toolu_d53c_spooled_read_1", "toolu_d53c_spooled_read_2"}
@@ -53,11 +78,17 @@ func clientSpools(t *testing.T, root string) []string {
 }
 
 // TestPreCompactInSpoolSubmodeSealsTheSpooledReads: a session in spool submode makes two Reads and
-// compacts. The Reads sit only in client spools when PreCompact arrives; the checkpoint it seals
-// must point to both, and the rehydration after the compaction must be built from that checkpoint.
+// a Stop, and compacts. They sit only in client spools when PreCompact arrives; the checkpoint it
+// seals must point to both Reads and report nothing unreplayed, and the rehydration after the
+// compaction must be built from that checkpoint. The daemon runs with spoolSubmodeRowBE.
 func TestPreCompactInSpoolSubmodeSealsTheSpooledReads(t *testing.T) {
-	r, stop := newCompactLoadRig(t)
+	r, stop := newCompactLoadRigWithConfig(t, spoolSubmodeRowConfig)
 	defer stop()
+	cfg, _, warns, err := config.Load(config.Env{ProjectRoot: r.root, HomeDir: r.home, Getenv: noEnv})
+	require.NoError(t, err)
+	require.Empty(t, warns, "fixture sanity: the row's project config loads cleanly")
+	require.Equal(t, int(spoolSubmodeRowBE/time.Millisecond), cfg.Runtime.Budgets.CheckpointFinalizeMs,
+		"fixture sanity: the daemon runs with the row's B-E")
 
 	start := r.base("SessionStart")
 	start["source"] = "startup"
