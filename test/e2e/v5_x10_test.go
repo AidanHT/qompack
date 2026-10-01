@@ -24,10 +24,13 @@
 // What the historical text expected and this row does NOT assert, with the reason:
 //
 //   - "repeated 11×": Sequitur's Thrash reports a rule's REFERENCE count, and the observer queues
-//     a rule the first time that count exceeds thrashMinUses (3). The warning therefore always
-//     says "repeated 4×", however long the loop ran. A pure periodic cycle never gets there at all
-//     — hierarchical folding keeps every rule at ≤ 3 references — which is why the replayed loop
-//     separates its cycles with distinct one-off tools.
+//     a rule the first time that count exceeds thrashMinUses (3). The warning therefore says
+//     "repeated 4×", however long the loop ran — unless the reply that should have carried it was
+//     lost (late or deferred on a slow disk, which only a run declaring a non-reference disk or
+//     co-load may answer with recovery), in which case the rule is re-armed and warns afresh at
+//     its grown count once the loop occurs again (x10v5DeliverOrRecover). A pure periodic cycle
+//     never gets there at all — hierarchical folding keeps every rule at ≤ 3 references — which is
+//     why the replayed loop separates its cycles with distinct one-off tools.
 //   - "the cycle appears in the checkpoint's action history": checkpoint.SourceSet carries a
 //     Grammar but nothing reads it — Compressed() has no production consumer — so the checkpoint
 //     arm asserts only that a warning lands on NO durable surface, which is what warning-only means.
@@ -42,6 +45,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -55,6 +59,9 @@ import (
 	"github.com/qompack/qompack/internal/daemon"
 	"github.com/qompack/qompack/internal/grammar"
 	"github.com/qompack/qompack/internal/hookio"
+	"github.com/qompack/qompack/internal/ipc"
+	"github.com/qompack/qompack/internal/obs"
+	"github.com/qompack/qompack/internal/observer"
 	"github.com/qompack/qompack/internal/paths"
 	"github.com/qompack/qompack/internal/pins"
 	"github.com/qompack/qompack/internal/store"
@@ -118,6 +125,25 @@ var x10v5Spacers = []string{
 // composition internal/cli's wireCheckpointSources already describes for a non-nil Options.Grammar.
 func x10v5StartRig(t *testing.T, p *testutil.Project) *v4Rig {
 	t.Helper()
+	return x10v5StartRigWith(t, p, nil)
+}
+
+// x10v5ReplyHold holds the daemon's prompt REPLY path — the reply-only ObservePrompt call, never the
+// worker's capture — while armed: the call signals entered and waits for release before the observer
+// sees it, exactly as a session lock held by a slow disk's durable capture would keep it waiting.
+type x10v5ReplyHold struct {
+	armed   atomic.Bool
+	entered chan struct{}
+	release chan struct{}
+}
+
+func newX10v5ReplyHold() *x10v5ReplyHold {
+	return &x10v5ReplyHold{entered: make(chan struct{}, 1), release: make(chan struct{})}
+}
+
+// x10v5StartRigWith is x10v5StartRig with an optional reply hold bound in front of the observer.
+func x10v5StartRigWith(t *testing.T, p *testutil.Project, hold *x10v5ReplyHold) *v4Rig {
+	t.Helper()
 
 	opts := daemon.NewOptions(p.Root, p.Cfg)
 	opts.Log = p.Log
@@ -126,6 +152,19 @@ func x10v5StartRig(t *testing.T, p *testutil.Project) *v4Rig {
 
 	obsv, err := daemon.WireObserver(&opts)
 	require.NoError(t, err)
+	if hold != nil {
+		// Bound after WireObserver's own bind, so it wraps the observer's seam.
+		opts.Bind(func(s *daemon.Services) {
+			inner := s.ObservePrompt
+			s.ObservePrompt = func(ctx context.Context, e hookio.Event) (hookio.Output, error) {
+				if observer.PromptReplyOnly(ctx) && hold.armed.CompareAndSwap(true, false) {
+					hold.entered <- struct{}{}
+					<-hold.release
+				}
+				return inner(ctx, e)
+			}
+		})
+	}
 	t.Cleanup(func() { _ = opts.Store.Close() })
 	t.Cleanup(func() {
 		if led := opts.LedgerHandle(); led != nil {
@@ -273,10 +312,44 @@ func (f *x10v5Feed) tool(name string, input, response map[string]any) {
 // hook's decoded stdout — the only channel a thrash warning has.
 func (f *x10v5Feed) prompt(text string) hookio.Output {
 	f.t.Helper()
+	out, _ := f.promptSpooled(text)
+	return out
+}
+
+// promptSpooled is prompt, also reporting whether the hook DEFERRED the prompt: appended it to its
+// client spool because no reply reached it in time (ipc client.awaitReply) or it could not connect.
+// The spool is read before the feed's wait drives a Drain, which consumes it; the daemon's own
+// watcher passes a spool only once it has stood unchanged for a whole check interval.
+func (f *x10v5Feed) promptSpooled(text string) (hookio.Output, bool) {
+	f.t.Helper()
+	before := x10v5SpooledPrompts(f.t, f.r.P.Root, f.sess, text)
 	out := f.r.Hook(f.t, []string{"observe", "prompt"}, obsPromptPayload(f.t, f.r.P.Root, f.sess, text))
+	spooled := x10v5SpooledPrompts(f.t, f.r.P.Root, f.sess, text) > before
 	f.indexed++
 	f.waitPrimary(f.indexed)
-	return out
+	return out, spooled
+}
+
+// x10v5SpooledPrompts counts the client spool lines that carry an observe.prompt of sess with text.
+func x10v5SpooledPrompts(t *testing.T, root string, sess core.SessionID, text string) int {
+	t.Helper()
+	n := 0
+	for _, reqs := range x3v5ClientSpoolLines(t, root) {
+		for _, req := range reqs {
+			if req.Op == ipc.OpObservePrompt && req.Event != nil && req.Event.SessionID == sess && req.Event.Prompt == text {
+				n++
+			}
+		}
+	}
+	return n
+}
+
+// cycleAfter replays one more Read→Edit→Bash cycle of the loop, after the spacer tool `spacer`.
+func (f *x10v5Feed) cycleAfter(spacer string) {
+	f.t.Helper()
+	f.tool(spacer, map[string]any{"pattern": "errExpired", "file_path": "notes.md", "command": "Get-Date", "query": "errExpired"},
+		map[string]any{"content": "no result"})
+	f.cycles(1, nil)
 }
 
 // cycles replays n Read→Edit→Bash cycles against the same file with the same failing build, each
@@ -326,6 +399,189 @@ func x10v5RequireLoopWarning(t *testing.T, ac string) {
 	require.True(t, strings.HasSuffix(ac, x10v5WarningAdvice), "the warning ends with the observer's advice: %q", ac)
 }
 
+// The daemon counters the late-reply branch reads, respelled because both are unexported:
+// internal/daemon's counterPromptReplyLate (a reply that went out empty because its deadline ran
+// out) and internal/observer's counterThrashUndelivered (a warning a reply drained but could not
+// deliver, re-armed for the loop's next occurrence).
+const (
+	x10v5CounterReplyLate   = "l0_prompt_reply_late"
+	x10v5CounterUndelivered = "observer.thrash_undelivered"
+)
+
+// x10v5RecoveryPrompt is the prompt each recovery attempt sends (x10v5DeliverOrRecover).
+const x10v5RecoveryPrompt = "still red after one more try"
+
+// x10v5RecoverySpacers are the spacers of the recovery cycles, one per attempt: host tool names the
+// display table does not claim, so each passes through as a symbol that occurs nowhere else in the
+// stream, exactly like x10v5Spacers. Their number is the number of attempts: a disk on which three
+// consecutive prompt replies all miss their deadline cannot show a warning at all, and the row says
+// so rather than looping.
+var x10v5RecoverySpacers = []string{"ListMcpResourcesTool", "ReadMcpResourceTool", "AskUserQuestion"}
+
+// x10v5Delivery is what x10v5DeliverOrRecover found: the hook output that carried the warning, the
+// warning, the prompt it rode on, and whether a lost reply re-armed its rule on the way.
+type x10v5Delivery struct {
+	out     hookio.Output
+	ac      string
+	with    string
+	rearmed bool
+}
+
+// x10v5Counters is what the two late-branch counters read at one instant.
+type x10v5Counters struct{ late, undelivered int64 }
+
+func x10v5ReadCounters(r *v4Rig) x10v5Counters {
+	return x10v5Counters{
+		late:        r.Opts.Metrics.Counter(x10v5CounterReplyLate).Value(),
+		undelivered: r.Opts.Metrics.Counter(x10v5CounterUndelivered).Value(),
+	}
+}
+
+// x10v5StepSummaryEnv is the file GitHub Actions builds a job's summary page from. `go test` in
+// package-list mode drops a passing package's test output (ci.yml's test-e2e runs `go test
+// ./test/e2e` without -v), so t.Log alone would leave no trace of a recovery branch in a green
+// hosted run; x10v5ReportBranch also appends the branch to this file.
+const x10v5StepSummaryEnv = "GITHUB_STEP_SUMMARY"
+
+// x10v5ReportBranch logs a late-or-deferred branch the row took and, when a declaration the run made
+// licensed it (declared, x10v5RecoveryLicence) rather than the arm forcing it through a seam, appends
+// the same line to the GitHub Actions job summary, so a green hosted run still says that it proved
+// recovery and not first-prompt delivery. Outside GitHub Actions the variable is unset and the log
+// line is all there is. A summary GitHub names but that cannot be appended to fails the row: the
+// branch is never silent.
+func x10v5ReportBranch(t *testing.T, declared bool, format string, args ...any) {
+	t.Helper()
+	msg := fmt.Sprintf(format, args...)
+	t.Log(msg)
+	path := os.Getenv(x10v5StepSummaryEnv)
+	if !declared || path == "" {
+		return
+	}
+	sf, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	require.NoError(t, err, "X10's recovery branch must reach the job summary %s names", x10v5StepSummaryEnv)
+	_, werr := fmt.Fprintf(sf, "- X10 `%s`: %s\n", t.Name(), msg)
+	cerr := sf.Close()
+	require.NoError(t, werr, "X10's recovery branch must reach the job summary %s names", x10v5StepSummaryEnv)
+	require.NoError(t, cerr, "X10's recovery branch must reach the job summary %s names", x10v5StepSummaryEnv)
+}
+
+// x10v5RecoveryLicence says why a late or deferred prompt reply may be answered with recovery instead
+// of failing the row, and whether the reason is a declaration the run made (declared) rather than the
+// arm forcing the lateness itself (forced: x10v5LateReplyArm's reply hold). It is empty when nothing
+// licenses it: on a reference disk, judged alone, the first prompt after the loop must carry the
+// warning. The two declarations are the ones X11 reports its fsync-bound rows under:
+// obs.NonReferenceDisk (Q1, D53(e); honoured only on GitHub Actions, and ci.yml's test-e2e sets it)
+// and obs.UnderCoload (ADR 0010; never set where test/e2e runs alone, locally or hosted).
+func x10v5RecoveryLicence(forced bool) (reason string, declared bool) {
+	switch {
+	case forced:
+		return "forced by the arm's reply hold (x10v5ReplyHold)", false
+	case obs.NonReferenceDisk():
+		return "non-reference disk declared via " + obs.NonReferenceDiskEnv + " (Q1, D53(e))", true
+	case obs.UnderCoload():
+		return "co-loaded run declared via " + obs.UnderColoadEnv + " (ADR 0010)", true
+	}
+	return "", false
+}
+
+// x10v5DeliverOrRecover takes the hook output of the first prompt that must carry the warning (out,
+// for the prompt sentWith, sent after the counters read before; spooled says whether its hook
+// deferred it) and returns the delivered warning. must is what the row requires of that prompt;
+// forced says the arm itself made that prompt's reply late (x10v5LateReplyArm).
+//
+// On a reference disk that prompt carries it, and a late or deferred reply there fails the row, as
+// it did before the recovery branch existed. A prompt reply that is LATE (the daemon counted
+// l0_prompt_reply_late) or DEFERRED (the hook found no reply in time and spooled the prompt) cannot
+// carry anything; a hosted runner's disk does that (Q1, QOMPACK_NONREFERENCE_DISK), and where the run
+// has declared so (x10v5RecoveryLicence) the row proves recovery instead of delivery: a warning the
+// host never received does not count as delivered, so one more loop cycle must bring it on the next
+// prompt. Each such branch is logged and, on GitHub Actions, written to the job summary
+// (x10v5ReportBranch), never silent, and bounded by x10v5RecoverySpacers. A prompt whose reply was on
+// time and still carried nothing fails exactly as before, under every licence. forced covers only the
+// prompt the arm held: a recovery prompt that is late again needs a declaration like any other.
+//
+// A late reply's own observer call may still be waiting for the session lock when the hook gives up,
+// and it is that call that re-arms the rule, so the row waits for the re-arm before it replays the
+// cycle — otherwise the cycle could fold before the rule is re-armed and the row would be racing the
+// product.
+func x10v5DeliverOrRecover(t *testing.T, r *v4Rig, f *x10v5Feed, before x10v5Counters, sentWith string,
+	out hookio.Output, spooled, forced bool, must string,
+) x10v5Delivery {
+	t.Helper()
+	m := r.Opts.Metrics
+	d := x10v5Delivery{with: sentWith}
+	lateBefore, rearmed := before.late, before.undelivered
+	late := m.Counter(x10v5CounterReplyLate).Value()
+	declaredAny := false
+	for attempt := 0; out.HookSpecificOutput == nil; attempt++ {
+		wasLate := late > lateBefore
+		require.True(t, wasLate || spooled,
+			"%s: the reply to %q was neither late (%s %d -> %d) nor deferred to the hook's client spool, so a "+
+				"reply that was on time carried nothing", must, d.with, x10v5CounterReplyLate, lateBefore, late)
+		licence, declared := x10v5RecoveryLicence(forced && attempt == 0)
+		require.NotEmpty(t, licence,
+			"%s: a reference disk must deliver the warning on the first prompt after the loop, but the reply "+
+				"to %q was late (%s %d -> %d) or deferred to the hook's client spool (%v). Only a run that "+
+				"declares a non-reference disk (%s, on GitHub Actions) or co-load (%s) may answer that with "+
+				"recovery", must, d.with, x10v5CounterReplyLate, lateBefore, late, spooled,
+			obs.NonReferenceDiskEnv, obs.UnderColoadEnv)
+		require.Less(t, attempt, len(x10v5RecoverySpacers),
+			"every prompt reply was late or deferred for %d recovery cycles in a row: this disk delivers no warning at all",
+			len(x10v5RecoverySpacers))
+		if wasLate {
+			require.Eventually(t, func() bool { return m.Counter(x10v5CounterUndelivered).Value() > rearmed },
+				obsProcessBound, obsProcessTick,
+				"a late reply's warning must be re-armed (%s), not consumed", x10v5CounterUndelivered)
+		}
+		declaredAny = declaredAny || declared
+		x10v5ReportBranch(t, declared, "LATE OR DEFERRED PROMPT REPLY (%s): the reply to %q carried no "+
+			"warning; late %s %d -> %d, hook deferred it to its client spool: %v, %s now %d. Recovery attempt "+
+			"%d of %d replays one more loop cycle and requires the next prompt to carry the warning.",
+			licence, d.with, x10v5CounterReplyLate, lateBefore, late, spooled,
+			x10v5CounterUndelivered, m.Counter(x10v5CounterUndelivered).Value(), attempt+1, len(x10v5RecoverySpacers))
+		lateBefore = late
+		rearmed = m.Counter(x10v5CounterUndelivered).Value()
+		f.cycleAfter(x10v5RecoverySpacers[attempt])
+		d.with = x10v5RecoveryPrompt
+		out, spooled = f.promptSpooled(x10v5RecoveryPrompt)
+		late = m.Counter(x10v5CounterReplyLate).Value()
+	}
+	require.Equal(t, "UserPromptSubmit", out.HookSpecificOutput.HookEventName,
+		"additionalContext reaches the transcript only under the hook's own event name")
+	d.out, d.ac = out, out.HookSpecificOutput.AdditionalContext
+	d.rearmed = m.Counter(x10v5CounterUndelivered).Value() > before.undelivered
+	if d.with != sentWith {
+		x10v5ReportBranch(t, declaredAny, "RECOVERED: %q carried the warning after the lost reply (re-armed: %v): %q",
+			d.with, d.rearmed, d.ac)
+	}
+	if d.rearmed {
+		x10v5RequireRecoveredLoopWarning(t, d.ac)
+	} else {
+		x10v5RequireLoopWarning(t, d.ac)
+	}
+	return d
+}
+
+// x10v5RequireRecoveredLoopWarning is x10v5RequireLoopWarning for a warning re-armed after a lost
+// reply. Every property is the same but the multiplicity: the rule is queued again only once
+// Sequitur reports it referenced more often than when the lost reply re-armed it, which was at
+// least the x10v5FirstThrashUses it was first queued at, so it renders strictly more.
+func x10v5RequireRecoveredLoopWarning(t *testing.T, ac string) {
+	t.Helper()
+	require.True(t, strings.HasPrefix(ac, x10v5WarningPrefix),
+		"additionalContext must begin with FormatWarning's frozen prefix: %q", ac)
+	require.NotContains(t, ac, "\n", "one thrashing rule must render as exactly one line: %q", ac)
+	require.Contains(t, ac, x10v5LoopExpansion, "the warning must name the induced rule's expansion: %q", ac)
+	require.True(t, strings.HasSuffix(ac, x10v5WarningAdvice), "the warning ends with the observer's advice: %q", ac)
+	const repeated = "repeated "
+	require.Contains(t, ac, repeated, "the warning states its multiplicity: %q", ac)
+	var uses int
+	_, err := fmt.Sscanf(ac[strings.Index(ac, repeated)+len(repeated):], "%d×", &uses)
+	require.NoError(t, err, "the warning states its multiplicity: %q", ac)
+	require.Greater(t, uses, x10v5FirstThrashUses,
+		"a re-armed rule warns afresh only once the loop has occurred again, at its grown multiplicity: %q", ac)
+}
+
 // x10v5DeliveredWith is the prompt the loop warning is delivered with: the first prompt after the
 // loop crossed the threshold.
 const x10v5DeliveredWith = "still red — try the exact same fix again"
@@ -339,10 +595,11 @@ const x10v5DeliveredWith = "still red — try the exact same fix again"
 // stripped or rewritten, even when they quote a warning. So the warning text may appear, and only,
 // as an evolution entry that is EXACTLY an echoed prompt (ac, which the arm sent as the prompt
 // text). It may appear in no other field, inside no other entry, and in particular not attached to
-// the prompt it was delivered with (x10v5DeliveredWith), whose entry must be that prompt's own words
-// and nothing more. Every string in the artifact is checked, so a warning that Qompack wrote into
+// the prompt it was delivered with (deliveredWith: x10v5DeliveredWith, or x10v5RecoveryPrompt when a
+// late reply made the row prove recovery), whose entry must be that prompt's own words and nothing
+// more. Every string in the artifact is checked, so a warning that Qompack wrote into
 // any field still fails here.
-func x10v5RequireWarningOnlyAsEchoedPrompts(t *testing.T, raw []byte, ac string) {
+func x10v5RequireWarningOnlyAsEchoedPrompts(t *testing.T, raw []byte, ac, deliveredWith string) {
 	t.Helper()
 	var doc map[string]any
 	require.NoError(t, json.Unmarshal(raw, &doc), "the sealed checkpoint must be JSON:\n%s", raw)
@@ -352,17 +609,17 @@ func x10v5RequireWarningOnlyAsEchoedPrompts(t *testing.T, raw []byte, ac string)
 	evolution, ok := intent["evolution"].([]any)
 	require.True(t, ok, "user_intent.evolution is a list:\n%s", raw)
 	echoed := map[int]bool{}
-	deliveredWith := false
+	sawDeliveredWith := false
 	for i, e := range evolution {
 		s, _ := e.(string)
 		switch {
 		case s == ac:
 			echoed[i] = true
-		case s == x10v5DeliveredWith:
-			deliveredWith = true
+		case s == deliveredWith:
+			sawDeliveredWith = true
 		}
 	}
-	require.True(t, deliveredWith,
+	require.True(t, sawDeliveredWith,
 		"the prompt the warning was delivered with is in evolution as the user's own words, unchanged: %q", evolution)
 	require.NotEmpty(t, echoed, "fixture: the echoed prompts reach evolution verbatim (D45/D46): %q", evolution)
 
@@ -445,6 +702,7 @@ func TestV5_ThrashWarningVisibleInStatusAndCheckpoint(t *testing.T) {
 	t.Run("sequitur_warning_is_warning_only_and_once_per_rule", x10v5FullModeArm)
 	t.Run("degraded_passive_records_the_loop_and_says_nothing_until_restored", x10v5DegradedArm)
 	t.Run("state_aware_detector_is_progress_aware_and_cannot_feed_itself", x10v5DetectorArm)
+	t.Run("a_late_reply_does_not_count_as_delivered_and_the_loop_warns_afresh", x10v5LateReplyArm)
 }
 
 func x10v5FullModeArm(t *testing.T) {
@@ -462,12 +720,15 @@ func x10v5FullModeArm(t *testing.T) {
 	// ── The loop, through the real binary ────────────────────────────────────────────────────────
 	f.cycles(x10v5Cycles, x10v5Spacers[:x10v5Cycles-1])
 
-	out = f.prompt(x10v5DeliveredWith)
-	require.NotNil(t, out.HookSpecificOutput, "the prompt after a thrashing loop must carry the warning")
-	require.Equal(t, "UserPromptSubmit", out.HookSpecificOutput.HookEventName,
-		"additionalContext reaches the transcript only under the hook's own event name")
-	ac := out.HookSpecificOutput.AdditionalContext
-	x10v5RequireLoopWarning(t, ac)
+	// On a reference disk the first prompt after the loop carries the warning. Where its reply was
+	// observably late or deferred and the run declared a non-reference disk or co-load, the row
+	// proves recovery instead (x10v5DeliverOrRecover); undeclared, a late reply fails the row.
+	counters := x10v5ReadCounters(r)
+	out, spooled := f.promptSpooled(x10v5DeliveredWith)
+	delivered := x10v5DeliverOrRecover(t, r, f, counters, x10v5DeliveredWith, out, spooled, false,
+		"the prompt after a thrashing loop must carry the warning")
+	out = delivered.out
+	ac := delivered.ac
 
 	// ── Warning-only: additionalContext is the ONLY channel, and nothing durable changes ─────────
 	require.Empty(t, out.HookSpecificOutput.CustomInstructions, "a prompt-hook warning never rides customInstructions")
@@ -509,11 +770,57 @@ func x10v5FullModeArm(t *testing.T) {
 	x4RequireManifestVerifies(t, p.Root)
 	raw, err := os.ReadFile(paths.Long(paths.CheckpointPath(paths.Of(p.Root), x10v5SealedSeq)))
 	require.NoError(t, err)
-	x10v5RequireWarningOnlyAsEchoedPrompts(t, raw, ac)
+	x10v5RequireWarningOnlyAsEchoedPrompts(t, raw, ac, delivered.with)
 	require.Zero(t, x10v5EliminationLines(t, p.Root),
 		"opening the ledger on the first PreCompact must not have turned the warning into a record")
 	// testutil's append-only probe seeds checkpoints/0001.json itself, so it belongs to the arm
 	// that seals no checkpoint (arm 2), not here.
+}
+
+// x10v5LateReplyArm drives arm 1's late branch on purpose, through a deterministic seam rather than
+// a slow disk: the reply path of the first prompt after the loop is held (x10v5ReplyHold) until the
+// hook process has exited, so that reply goes out empty and is counted late. The warning it would
+// have carried must not count as delivered: it is not replayed by itself, and one more loop cycle
+// brings it, re-armed, on the next prompt — exactly once.
+func x10v5LateReplyArm(t *testing.T) {
+	p := v4Project(t)
+	hold := newX10v5ReplyHold()
+	r := x10v5StartRigWith(t, p, hold)
+	f := x10v5NewFeed(t, r, x10v5Session)
+	obsRunHook(t, r.Bin, []string{"session-start"}, sessionStartFor(t, p.Root, x10v5Session), f.env)
+
+	require.Nil(t, f.prompt("make TestRefresh pass without touching the token store").HookSpecificOutput)
+	f.cycles(x10v5Cycles, x10v5Spacers[:x10v5Cycles-1])
+
+	counters := x10v5ReadCounters(r)
+	hold.armed.Store(true)
+	out, spooled := f.promptSpooled(x10v5DeliveredWith)
+	select {
+	case <-hold.entered:
+	case <-time.After(obsProcessBound):
+		require.FailNow(t, "the held reply path was never called for the prompt after the loop")
+	}
+	// The hook has exited, its reply long gone; only now does the observer see the reply call.
+	close(hold.release)
+	require.Nil(t, out.HookSpecificOutput, "a held reply goes out empty")
+	require.Greater(t, x10v5ReadCounters(r).late, counters.late, "and the daemon counts it late")
+
+	delivered := x10v5DeliverOrRecover(t, r, f, counters, x10v5DeliveredWith, out, spooled, true,
+		"the held reply must be counted late or deferred")
+	require.True(t, delivered.rearmed, "the warning the late reply drained must have been re-armed, not consumed")
+	require.Equal(t, x10v5RecoveryPrompt, delivered.with, "and it arrives on the prompt after one more loop cycle")
+	require.Empty(t, delivered.out.HookSpecificOutput.CustomInstructions)
+	require.Nil(t, delivered.out.Continue)
+	require.Nil(t, delivered.out.SuppressOutput)
+	require.Empty(t, delivered.out.SystemMessage)
+
+	// Once delivered, once per rule, however long the loop runs.
+	require.Nil(t, f.prompt("ok, same thing once more").HookSpecificOutput,
+		"the same rule must not be reported on the next prompt")
+	f.cycles(x10v5ExtraCycles, x10v5Spacers[x10v5Cycles-1:])
+	require.Nil(t, f.prompt("and again").HookSpecificOutput,
+		"a re-armed rule, once delivered, is reported only once")
+	require.Zero(t, x10v5EliminationLines(t, p.Root), "a thrash warning must never mint an elimination record")
 }
 
 func x10v5DegradedArm(t *testing.T) {
@@ -565,11 +872,16 @@ func x10v5DegradedArm(t *testing.T) {
 	mode, _ = x10v5Status(t, r)
 	require.Equal(t, contract.ModeFull.String(), mode, "and the status surface must show it")
 
-	out = f.prompt("and now?")
-	require.NotNil(t, out.HookSpecificOutput,
+	// On a reference disk the first full-mode prompt carries it; where that reply was observably late
+	// or deferred and the run declared a non-reference disk or co-load, the row proves recovery
+	// instead (x10v5DeliverOrRecover). Either way the warning
+	// exists only because the grammar folded the loop while the daemon was degraded.
+	const restoredWith = "and now?"
+	counters := x10v5ReadCounters(r)
+	out, spooled := f.promptSpooled(restoredWith)
+	x10v5DeliverOrRecover(t, r, f, counters, restoredWith, out, spooled, false,
 		"the warning queued while degraded must be delivered on the first full-mode prompt: the "+
 			"grammar kept folding the loop while the daemon was forbidden to act on it")
-	x10v5RequireLoopWarning(t, out.HookSpecificOutput.AdditionalContext)
 	require.Zero(t, x10v5EliminationLines(t, p.Root), "still no elimination record")
 
 	p.AssertAppendOnly(t)

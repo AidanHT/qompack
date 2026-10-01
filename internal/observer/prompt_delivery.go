@@ -7,6 +7,7 @@ import (
 
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/dag"
+	"github.com/qompack/qompack/internal/grammar"
 	"github.com/qompack/qompack/internal/hookio"
 	"github.com/qompack/qompack/internal/store"
 	"github.com/qompack/qompack/internal/tokens"
@@ -179,13 +180,53 @@ func promptReplyOnly(ctx context.Context) bool {
 // its first hook) waits for the worker's capture of the same prompt.
 func PromptReplyOnly(ctx context.Context) bool { return promptReplyOnly(ctx) }
 
+// promptReplyClaimKey carries the reply's claim (WithPromptReplyClaim).
+type promptReplyClaimKey struct{}
+
+// WithPromptReplyClaim attaches the reply path's claim: a function the observer calls, under the
+// session lock and only when it has a warning to hand over, to learn whether the reply it is
+// answering will still reach the hook. True means the caller has committed to sending what this call
+// returns; false means the caller has stopped waiting (its deadline ran out first), so nothing this
+// call returns will be seen.
+//
+// The daemon's reply path is the one caller (internal/daemon callObservePromptWithDeadline): it
+// answers the claim and its own deadline under one lock, so a claim that returns true is a reply that
+// goes out carrying the warning, and one that returns false is a reply that already went out empty.
+// A context without a claim — the direct observer API, the tests — is always claimed.
+func WithPromptReplyClaim(ctx context.Context, claim func() bool) context.Context {
+	if claim == nil {
+		return ctx
+	}
+	return context.WithValue(ctx, promptReplyClaimKey{}, claim)
+}
+
+// promptReplyClaimed asks ctx's claim, or answers true when it carries none.
+func promptReplyClaimed(ctx context.Context) bool {
+	claim, _ := ctx.Value(promptReplyClaimKey{}).(func() bool)
+	return claim == nil || claim()
+}
+
+// counterThrashUndelivered counts the thrash warnings a reply drained but could not deliver (its
+// claim was refused), each re-armed for the loop's next occurrence (rearmUndelivered).
+const counterThrashUndelivered = "observer.thrash_undelivered"
+
 // promptReplyOutput is the reply-only path's whole job: the queued thrash warning, and only in
 // ModeFull (§12 forbids injection while the contract is degraded). It drains the queue — a warning is
 // shown once — and does not touch the store, the DAG, the grammar or the turn: those belong to the
 // authoritative worker/replay capture. The caller holds st.mu.
-func (o *observer) promptReplyOutput(st *sessionState) Output {
+//
+// A warning counts as shown only when the reply that carries it is still being waited for: the queue
+// is drained into the reply only when ctx's claim succeeds. When it fails, the reply has already gone
+// out empty — the daemon's deadline ran out while this call waited for the session lock, or the hook
+// had stopped waiting before the daemon had even made the prompt durable — and the warning is
+// re-armed instead (rearmUndelivered).
+func (o *observer) promptReplyOutput(ctx context.Context, st *sessionState) Output {
 	out := hookio.Empty()
-	if o.mode() != ModeFull {
+	if o.mode() != ModeFull || len(st.PendingThrash) == 0 {
+		return out
+	}
+	if !promptReplyClaimed(ctx) {
+		o.rearmUndelivered(st)
 		return out
 	}
 	if lines := o.pendingThrashAt(st, st.WarningTurn); len(lines) > 0 {
@@ -195,6 +236,34 @@ func (o *observer) promptReplyOutput(st *sessionState) Output {
 		}
 	}
 	return out
+}
+
+// rearmUndelivered handles the queued warnings a reply could not deliver. The host never saw them, so
+// they must not count as delivered: each rule leaves WarnedRules and may be reported again. But the
+// warning itself is not kept for a later prompt. It described the loop as it stood when this prompt
+// arrived, and a later turn may have left it (the design callObservePromptWithDeadline documents), so
+// the queue is cleared and each rule is held at the multiplicity it has now (ThrashFloor):
+// collectThrash queues it again only once Sequitur reports it referenced MORE often — the loop has
+// occurred again since. The caller holds st.mu.
+func (o *observer) rearmUndelivered(st *sessionState) {
+	now := map[grammar.RuleID]int{}
+	if o.opt.Grammar != nil {
+		for _, rule := range o.opt.Grammar.Thrash(thrashMinUses) {
+			now[rule.ID] = rule.Uses
+		}
+	}
+	if st.ThrashFloor == nil {
+		st.ThrashFloor = make(map[grammar.RuleID]int, len(st.PendingThrash))
+	}
+	for _, rule := range st.PendingThrash {
+		floor := max(rule.Uses, now[rule.ID])
+		delete(st.WarnedRules, rule.ID)
+		st.ThrashFloor[rule.ID] = floor
+		o.count(counterThrashUndelivered)
+		o.opt.Log.Info("observer: thrash warning not delivered; re-armed for the loop's next occurrence",
+			"rule", int(rule.ID), "uses", floor)
+	}
+	st.PendingThrash = nil
 }
 
 // recordPromptDurable publishes the verbatim record and observation link before
