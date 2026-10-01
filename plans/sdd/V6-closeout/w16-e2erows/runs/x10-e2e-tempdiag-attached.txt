@@ -1,0 +1,9 @@
+TEMPORARY DIAGNOSTIC (product edit reverted right after the run): internal/observer prompt capture appends the warning delivered with a prompt to that prompt's captured text
+go test -p 2 -count=1 -v -run '^TestV5_ThrashWarningVisibleInStatusAndCheckpoint$/^sequitur_warning_is_warning_only_and_once_per_rule$' ./test/e2e/  => EXIT 1
+        	Error:      	Should be true
+        	Messages:   	the prompt the warning was delivered with is in evolution as the user's own words, unchanged: ["still red — try the exact same fix again [qompack] possible loop: FileRead→FileEdit→Bash repeated 4× (turns 2) — consider a different approach" "ok, same thing once more" "and again" "[qompack] possible loop: FileRead→FileEdit→Bash repeated 4× (turns 2) — consider a different approach"]
+--- FAIL: TestV5_ThrashWarningVisibleInStatusAndCheckpoint (26.51s)
+    --- FAIL: TestV5_ThrashWarningVisibleInStatusAndCheckpoint/sequitur_warning_is_warning_only_and_once_per_rule (26.51s)
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	26.789s
+FAIL
