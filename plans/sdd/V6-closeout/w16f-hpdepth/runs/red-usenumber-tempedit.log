@@ -1,0 +1,11 @@
+=== RUN   TestAServerManagedNumberFloat64CannotHoldIsNotRefused
+    depth_test.go:93: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16f-hpdepth/internal/hostperm/policy_test.go:76
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16f-hpdepth/internal/hostperm/depth_test.go:93
+        	Error:      	Received unexpected error:
+        	            	host permission policy unavailable: C:\Users\Quant\AppData\Local\Temp\TestAServerManagedNumberFloat64CannotHoldIsNotRefused1711961570\002\.claude\remote-settings.json: not a JSON object
+        	Test:       	TestAServerManagedNumberFloat64CannotHoldIsNotRefused
+--- FAIL: TestAServerManagedNumberFloat64CannotHoldIsNotRefused (0.02s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/hostperm	0.983s
+FAIL

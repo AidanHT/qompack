@@ -1,0 +1,20 @@
+=== RUN   TestServerManagedRulesApplyAtAnyDepth
+=== RUN   TestServerManagedRulesApplyAtAnyDepth/nine_objects_deep
+=== RUN   TestServerManagedRulesApplyAtAnyDepth/a_hundred_objects_deep
+=== RUN   TestServerManagedRulesApplyAtAnyDepth/a_hundred_objects_and_arrays_deep
+--- PASS: TestServerManagedRulesApplyAtAnyDepth (0.09s)
+    --- PASS: TestServerManagedRulesApplyAtAnyDepth/nine_objects_deep (0.03s)
+    --- PASS: TestServerManagedRulesApplyAtAnyDepth/a_hundred_objects_deep (0.03s)
+    --- PASS: TestServerManagedRulesApplyAtAnyDepth/a_hundred_objects_and_arrays_deep (0.03s)
+=== RUN   TestADeepServerManagedDocumentWithoutPermissionsStaysEnforced
+--- PASS: TestADeepServerManagedDocumentWithoutPermissionsStaysEnforced (0.05s)
+=== RUN   TestAServerManagedHooksBlockAtDepthSevenParses
+--- PASS: TestAServerManagedHooksBlockAtDepthSevenParses (0.03s)
+=== RUN   TestAServerManagedDocumentPastTheJSONNestingLimitFailsClosed
+--- PASS: TestAServerManagedDocumentPastTheJSONNestingLimitFailsClosed (0.04s)
+=== RUN   TestServerManagedRulesInsideAnArrayApply
+--- PASS: TestServerManagedRulesInsideAnArrayApply (0.03s)
+=== RUN   TestServerManagedCacheIsReadWhereverItsRulesSit
+--- PASS: TestServerManagedCacheIsReadWhereverItsRulesSit (0.03s)
+PASS
+ok  	github.com/qompack/qompack/internal/hostperm	1.765s
