@@ -161,12 +161,12 @@ The fix round is done. I checked all four reviewer findings. Both majors were re
 All run in my worktree, local Windows; the Linux container stayed stopped.
 - `go run ./tools/devtool fmt-check`: exit 0.
 - `go vet ./internal/daemon ./internal/obs ./test/e2e`, on Windows and with GOOS=linux: both exit 0.
-- `go test -p 2 -count=1 -timeout=10m -v -run <anchored alternation> ./internal/daemon` over 11 rows: TestObservePrompt_PanickingSeamIsRecovered, TestObservePrompt_RecordingOutlivesTheReplyDeadline, TestObservePrompt_CancelledRequestIsNotAnOverrun, TestObservePrompt_StopJoinsAnInFlightRecording, TestObservePrompt_StopCancelsARecordingThatOutlivesItsGrace, TestPromptWarning_DeliveredReplyCountsOnce, TestPromptWarning_LateReplyDoesNotConsumeTheRule, TestPromptWarning_SlowDurableAcceptIsLateForTheClient, TestPromptWarning_ReplyThatMayNotActRefusesTheClaim, TestPromptReplyHandoff_FirstSideWins, TestPromptReplyBudget_IsMeasuredFromTheHooksStamp. All PASS (runs/daemon-prompt-rows-fixround.txt).
+- `go test -p 2 -count=1 -timeout=10m -v -run <anchored alternation> ./internal/daemon` over 11 rows: TestObservePrompt_PanickingSeamIsRecovered, TestObservePrompt_RecordingOutlivesTheReplyDeadline, TestObservePrompt_CancelledRequestIsNotAnOverrun, TestObservePrompt_StopJoinsAnInFlightRecording, TestObservePrompt_StopCancelsARecordingThatOutlivesItsGrace, TestPromptWarning_DeliveredReplyCountsOnce, TestPromptWarning_LateReplyDoesNotConsumeTheRule, TestPromptWarning_SlowDurableAcceptIsLateForTheClient, TestPromptWarning_ReplyThatMayNotActRefusesTheClaim, TestPromptReplyHandoff_FirstSideWins, TestPromptReplyBudget_IsMeasuredFromTheHooksStamp. All PASS (runs/daemon-prompt-rows-fixround.txt). <!-- runpatterns: the -run argument is a placeholder naming a set of tests the surrounding report lists, not a runnable pattern -->
 - `go test -p 2 -count=1 -timeout=30m ./internal/daemon ./internal/obs`: ok, 303.7 s and 1.4 s (runs/daemon-obs-packages-fixround.txt).
 - `go test -count=1 -timeout=20m -v -run '^TestV5_ThrashWarningVisibleInStatusAndCheckpoint$' ./test/e2e`, with no QOMPACK_UNDER_COLOAD, QOMPACK_NONREFERENCE_DISK or GITHUB_STEP_SUMMARY: all four arms PASS, 80.4 s (runs/x10-all-arms-fixround.txt).
   - The full-mode and degraded arms delivered on the first prompt under the strict reference rule, with no branch logged.
   - The late arm logged its forced branch and recovered at "repeated 12×".
-- `go test -p 2 -count=1 -timeout=10m -v -run <anchored alternation> ./test/guards` over TestNonReferenceDisk_IsHostedCIOnly, TestColoadYieldersAreJudgedInIsolation and TestColoadDeclarationIsPinnedToTheGoConstant: all PASS.
+- `go test -p 2 -count=1 -timeout=10m -v -run <anchored alternation> ./test/guards` over TestNonReferenceDisk_IsHostedCIOnly, TestColoadYieldersAreJudgedInIsolation and TestColoadDeclarationIsPinnedToTheGoConstant: all PASS. <!-- runpatterns: the -run argument is a placeholder naming a set of tests the surrounding report lists, not a runnable pattern -->
 - `go test -p 2 -count=1 ./test/docs`: ok.
 - `go run ./tools/devtool lint --only=golangci-lint,nomagic,importgraph,testdeps,bindeps,sleepcheck,docmarkers,runpatterns`: exit 0 (runs/lint-subset-fixround.txt).
 - Note for the coordinator: runpatterns splits `-run` alternations at `|`. When committing this report, keep the alternation commands written as name lists, as above.
@@ -189,13 +189,13 @@ No wall-clock failure was seen in this round. No load generators were run, and n
 
 ### Tests
 
-- `go test -p 2 -count=1 -timeout=10m -v -run <anchored alternation of the 11 prompt rows named in the summary> ./internal/daemon` — PASS, all 11 rows (runs/daemon-prompt-rows-fixround.txt)
+- `go test -p 2 -count=1 -timeout=10m -v -run <anchored alternation of the 11 prompt rows named in the summary> ./internal/daemon` — PASS, all 11 rows (runs/daemon-prompt-rows-fixround.txt) <!-- runpatterns: the -run argument is a placeholder naming a set of tests the surrounding report lists, not a runnable pattern -->
 - `go test -p 2 -count=1 -timeout=30m ./internal/daemon ./internal/obs` — ok daemon 303.7s, ok obs 1.4s
 - `go test -count=1 -timeout=20m -v -run '^TestV5_ThrashWarningVisibleInStatusAndCheckpoint$' ./test/e2e (QOMPACK_UNDER_COLOAD, QOMPACK_NONREFERENCE_DISK and GITHUB_STEP_SUMMARY all unset)` — PASS, all 4 arms, 80.4s; the full-mode and degraded arms delivered on the first prompt
 - `TEMPORARY DIAGNOSTIC: x10v5LateReplyArm with forced=false, no declaration, -run '^TestV5_ThrashWarningVisibleInStatusAndCheckpoint$' (subtest a_late_reply_does_not_count_as_delivered_and_the_loop_warns_afresh)` — FAIL as expected: 'a reference disk must deliver the warning on the first prompt after the loop' (runs/x10-unforced-reference-red.txt)
 - `TEMPORARY DIAGNOSTIC: same arm, forced=false, QOMPACK_UNDER_COLOAD=1 GITHUB_STEP_SUMMARY=<scratch>/summary.md` — PASS; LATE OR DEFERRED and RECOVERED lines appended to the summary file (runs/x10-unforced-coload-summary-green.txt)
 - `TEMPORARY DIAGNOSTIC: TestObservePrompt_PanickingSeamIsRecovered with req.TS -= 300, on 8991abca + fix-round test file` — FAIL as expected: late counter expected 0, got 1 (runs/daemon-panic-row-stamp-red.txt)
-- `go test -p 2 -count=1 -timeout=10m -v -run <anchored alternation: TestNonReferenceDisk_IsHostedCIOnly, TestColoadYieldersAreJudgedInIsolation, TestColoadDeclarationIsPinnedToTheGoConstant> ./test/guards` — PASS; X10 is listed as a yielder judged by test-e2e
+- `go test -p 2 -count=1 -timeout=10m -v -run <anchored alternation: TestNonReferenceDisk_IsHostedCIOnly, TestColoadYieldersAreJudgedInIsolation, TestColoadDeclarationIsPinnedToTheGoConstant> ./test/guards` — PASS; X10 is listed as a yielder judged by test-e2e <!-- runpatterns: the -run argument is a placeholder naming a set of tests the surrounding report lists, not a runnable pattern -->
 - `go test -p 2 -count=1 ./test/docs` — ok
 - `go run ./tools/devtool fmt-check; go vet ./internal/daemon ./internal/obs ./test/e2e (Windows and GOOS=linux)` — exit 0 on all
 - `go run ./tools/devtool lint --only=golangci-lint,nomagic,importgraph,testdeps,bindeps,sleepcheck,docmarkers,runpatterns` — exit 0
