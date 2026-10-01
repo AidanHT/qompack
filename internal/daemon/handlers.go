@@ -532,12 +532,15 @@ func (d *daemon) acceptHotPathEvent(ctx context.Context, req ipc.Request) ipc.Re
 //
 // The two mode gates are DIFFERENT gates, and collapsing them is a silent data-loss bug. §12.1
 // says ModeDegradedPassive keeps "L0 and L1 running (observe, chunk, store, sketches, DAG,
-// verbatim capture …)" and turns only ACTING off, but the ObservePrompt seam does both jobs in one
-// call: G2.3's verbatim prompt capture is recording, and the hookio.Output it returns is acting.
-// So MayRecord gates the WAL append and the CALL, exactly as it does on observe.tool/observe.stop,
-// while MayAct gates only whether the returned Output reaches the reply. Gating the call itself on
-// MayAct — which this route used to do — stopped the verbatim capture the moment the contract
-// degraded, with no error, no counter and a reply indistinguishable from a healthy passive one.
+// verbatim capture …)" and turns only ACTING off. Since SP08-D3 G2.3's verbatim prompt capture is
+// runIngested's, through the WAL line this route appends, and that append is recording. The
+// ObservePrompt call is reply-only (observer.WithPromptReplyOnly): it records nothing, and drains
+// the queued warning into the reply or, under a refused claim, re-arms it. So MayRecord gates the
+// WAL append and the CALL, exactly as it does on observe.tool/observe.stop, while MayAct gates
+// only whether the returned Output reaches the reply (a !MayAct reply's claim is refused, so its
+// warning is re-armed, not consumed). Gating the append on MayAct, as this route once gated the
+// then-recording call, would stop the verbatim capture the moment the contract degraded, with no
+// error, no counter and a reply indistinguishable from a healthy passive one.
 func (d *daemon) handleObservePrompt(ctx context.Context, req ipc.Request) ipc.Response {
 	ev := resolveEvent(req)
 	now := core.NowMilli(d.clk)
@@ -569,8 +572,9 @@ func (d *daemon) handleObservePrompt(ctx context.Context, req ipc.Request) ipc.R
 
 	out := hookio.Empty()
 	if d.svc.ObservePrompt != nil {
-		// The call is recording, so it runs under the MayRecord check above; only what it hands
-		// back is acting, and under !MayAct the reply stays the empty output.
+		// The call is reply-only and records nothing (the capture is runIngested's, from the WAL
+		// line above); it runs under the MayRecord check above with the append, and what it hands
+		// back is acting, so under !MayAct its claim is refused and the reply stays empty.
 		produced := d.callObservePromptWithDeadline(ctx, ev, req.TS, req.Nonce, mode.MayAct())
 		if mode.MayAct() {
 			out = produced
