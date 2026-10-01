@@ -399,17 +399,44 @@ jobs:
         with: { go-version: '1.26.6', cache: true }
       - run: go run -modfile=tools/pinned/go.mod golang.org/x/vuln/cmd/govulncheck ./...
       - run: go run ./tools/devtool lint --only=importgraph,testdeps,bindeps
+      # Each check is an explicit `if` that fails the step. The bare `! grep ...` lines this replaced
+      # were only enforced while they were the LAST command of the script: bash -e does not exit on
+      # a command whose status `!` inverts, so every check but the last could find an offender, print
+      # it, and still let the step pass.
+      #
+      # `go list -deps` without -test reports each package's non-test imports only, so a _test.go
+      # file's imports never appear here. internal/testutil and internal/paths/pathstest are test
+      # support (§6.2): non-test packages, but ones only a test binary may link. The third check is
+      # what makes their os/exec carve-out safe: no product package — anything under internal/ or
+      # cmd/ that is not test support itself — imports either, so their os/exec never reaches a
+      # shipped binary (bindeps proves the same from the binaries' side).
       - name: import allowlist (§8, D10)
         run: |
           go list -deps -f '{{.ImportPath}} {{join .Imports " "}}' ./... > imports.txt
+          product='^github.com/qompack/qompack/(internal|cmd)/'
+          # Test support: internal/testutil, internal/paths/pathstest, and every conformance package
+          # internal/<pkg>/<pkg>test.
+          support='^github.com/qompack/qompack/internal/(testutil|paths/pathstest|([a-z0-9]+)/\2test) '
+          rc=0
           # No network stack anywhere; `net` itself is permitted only in internal/ipc (unix sockets).
-          ! grep -E '^github.com/qompack/qompack/(internal|cmd)/' imports.txt \
-            | grep -Ev '^github.com/qompack/qompack/internal/ipc ' \
-            | grep -E '\b(net/http|net/url|crypto/tls)\b'
-          # os/exec allowlist: daemon (detached self-spawn), cli, and testutil (§6.2 real-binary RunHook).
-          ! grep -E '^github.com/qompack/qompack/(internal|cmd)/' imports.txt \
-            | grep -Ev '^github.com/qompack/qompack/internal/(daemon|cli|testutil) ' \
-            | grep -E '\bos/exec\b'
+          if grep -E "$product" imports.txt | grep -Ev '^github.com/qompack/qompack/internal/ipc ' \
+            | grep -E '\b(net/http|net/url|crypto/tls)\b'; then
+            echo "::error::a product package imports a network stack (§8, D10)"; rc=1
+          fi
+          # os/exec allowlist: daemon (detached self-spawn), cli, testutil (§6.2 real-binary RunHook),
+          # and pathstest, which runs `go env` once to pin the toolchain's cache locations before it
+          # moves HOME (a9f276e7, b763d728). pathstest is test support exactly as testutil is.
+          if grep -E "$product" imports.txt \
+            | grep -Ev '^github.com/qompack/qompack/internal/(daemon|cli|testutil|paths/pathstest) ' \
+            | grep -E '\bos/exec\b'; then
+            echo "::error::a product package outside the os/exec allow-list imports os/exec (§8)"; rc=1
+          fi
+          # Test support stays test-only: no product package imports testutil or pathstest.
+          if grep -E "$product" imports.txt | grep -Ev "$support" \
+            | grep -E ' github.com/qompack/qompack/internal/(testutil|paths/pathstest)( |$)'; then
+            echo "::error::a product package imports test support (internal/testutil or internal/paths/pathstest)"; rc=1
+          fi
+          exit "$rc"
 
   docs:
     runs-on: ubuntu-latest
