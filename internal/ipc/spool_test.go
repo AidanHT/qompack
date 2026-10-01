@@ -192,3 +192,19 @@ func TestSpoolFiles_MissingDirIsEmpty(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, got)
 }
+
+// TestSpoolFileKindOf_ClassifiesAsSpoolFilesDoes pins the classifier doctor counts the spool
+// directory with: the two families SpoolFiles returns, and everything else, the externalized tool
+// results (this package's own blob names) included, as other.
+func TestSpoolFileKindOf_ClassifiesAsSpoolFilesDoes(t *testing.T) {
+	for name, want := range map[string]SpoolFileKind{
+		"wal-sess.ndjson":                       SpoolFileWAL,
+		"client-4242.ndjson":                    SpoolFileClient,
+		blobFilePrefix + "4242-1" + blobFileExt: SpoolFileOther,
+		"wal-sess.ndjson.tmp":                   SpoolFileOther,
+		"client-4242.txt":                       SpoolFileOther,
+		"ignored.txt":                           SpoolFileOther,
+	} {
+		require.Equal(t, want, SpoolFileKindOf(name), name)
+	}
+}
