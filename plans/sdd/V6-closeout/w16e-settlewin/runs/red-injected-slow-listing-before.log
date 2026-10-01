@@ -1,0 +1,69 @@
+=== RUN   TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound
+--- PASS: TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound (2.58s)
+=== RUN   TestPreCompactSettle_CountsOnlyTheSpoolReadsOfItsOwnLooks
+    precompact_settle_bound_test.go:343: 
+        	Error Trace:	
+        	Error:      	Expected nil, but got: &daemon.sealReport{left:[]daemon.pendingCapture(nil), unread:1, allowance:600}
+        	Test:       	TestPreCompactSettle_CountsOnlyTheSpoolReadsOfItsOwnLooks
+--- FAIL: TestPreCompactSettle_CountsOnlyTheSpoolReadsOfItsOwnLooks (1.42s)
+=== RUN   TestPreCompactSettle_ReadsASpoolTheDrainReleasedAndAHookRecreated
+    precompact_settle_bound_test.go:399: 
+        	Error Trace:	
+        	Error:      	Not equal: 
+        	            	expected: 1
+        	            	actual  : 0
+        	Test:       	TestPreCompactSettle_ReadsASpoolTheDrainReleasedAndAHookRecreated
+        	Messages:   	the settle reads the recreated spool again
+--- FAIL: TestPreCompactSettle_ReadsASpoolTheDrainReleasedAndAHookRecreated (2.43s)
+=== RUN   TestPreCompactSettle_ReplaysTheSpoolBeforeTheSeal
+    precompact_settle_test.go:69: 
+        	Error Trace:	
+        	Error:      	Should be true
+        	Test:       	TestPreCompactSettle_ReplaysTheSpoolBeforeTheSeal
+        	Messages:   	the PreCompact route must replay the session's client spool before it seals
+--- FAIL: TestPreCompactSettle_ReplaysTheSpoolBeforeTheSeal (1.49s)
+=== RUN   TestPreCompactSettle_NamesWhatTheBoundLeftUnreplayed
+    precompact_settle_test.go:108: 
+        	Error Trace:	
+        	Error:      	Not equal: 
+        	            	expected: []checkpoint.DropEntry{checkpoint.DropEntry{Kind:"unreplayed_capture", ID:"", Detail:"1 capture(s) of this session (1 tool result(s), 0 prompt(s), 0 other) were still waiting to be replayed into the store when this checkpoint was sealed (durable writes on this disk were slower than their budget); the newest 1 tool result(s) are named by tool_use_id; nothing is lost: the daemon replays them, and recall or expand finds them then"}, checkpoint.DropEntry{Kind:"unreplayed_tool_result", ID:"toolu_lane_01", Detail:""}}
+        	            	actual  : []checkpoint.DropEntry{checkpoint.DropEntry{Kind:"unreplayed_capture", ID:"", Detail:"0 capture(s) of this session (0 tool result(s), 0 prompt(s), 0 other) were still waiting to be replayed into the store when this checkpoint was sealed (durable writes on this disk were slower than their budget); the newest 0 tool result(s) are named by tool_use_id; nothing is lost: the daemon replays them, and recall or expand finds them then; 2 hook client spool file(s) could not be read within the bound, so this session's captures in them, if any, are not counted here"}}
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,2 +1,2 @@
+        	            	-([]checkpoint.DropEntry) (len=2) {
+        	            	+([]checkpoint.DropEntry) (len=1) {
+        	            	  (checkpoint.DropEntry) {
+        	            	@@ -4,8 +4,3 @@
+        	            	   ID: (string) "",
+        	            	-  Detail: (string) (len=344) "1 capture(s) of this session (1 tool result(s), 0 prompt(s), 0 other) were still waiting to be replayed into the store when this checkpoint was sealed (durable writes on this disk were slower than their budget); the newest 1 tool result(s) are named by tool_use_id; nothing is lost: the daemon replays them, and recall or expand finds them then"
+        	            	- },
+        	            	- (checkpoint.DropEntry) {
+        	            	-  Kind: (string) (len=22) "unreplayed_tool_result",
+        	            	-  ID: (string) (len=13) "toolu_lane_01",
+        	            	-  Detail: (string) ""
+        	            	+  Detail: (string) (len=474) "0 capture(s) of this session (0 tool result(s), 0 prompt(s), 0 other) were still waiting to be replayed into the store when this checkpoint was sealed (durable writes on this disk were slower than their budget); the newest 0 tool result(s) are named by tool_use_id; nothing is lost: the daemon replays them, and recall or expand finds them then; 2 hook client spool file(s) could not be read within the bound, so this session's captures in them, if any, are not counted here"
+        	            	  }
+        	Test:       	TestPreCompactSettle_NamesWhatTheBoundLeftUnreplayed
+        	Messages:   	the seal names the capture the bound left unreplayed, and only that one
+--- FAIL: TestPreCompactSettle_NamesWhatTheBoundLeftUnreplayed (1.50s)
+=== RUN   TestPreCompactSettle_NamesALeasedArrivalOnceBesideItsSpoolCopy
+--- PASS: TestPreCompactSettle_NamesALeasedArrivalOnceBesideItsSpoolCopy (2.90s)
+=== RUN   TestPreCompactSettle_AnotherSessionsSpoolCostsAHealthySessionNoDrain
+    precompact_settle_test.go:364: 
+        	Error Trace:	
+        	Error:      	Should be empty, but was [{unreplayed_capture  0 capture(s) of this session (0 tool result(s), 0 prompt(s), 0 other) were still waiting to be replayed into the store when this checkpoint was sealed (durable writes on this disk were slower than their budget); the newest 0 tool result(s) are named by tool_use_id; nothing is lost: the daemon replays them, and recall or expand finds them then; 1 hook client spool file(s) could not be read within the bound, so this session's captures in them, if any, are not counted here}]
+        	Test:       	TestPreCompactSettle_AnotherSessionsSpoolCostsAHealthySessionNoDrain
+--- FAIL: TestPreCompactSettle_AnotherSessionsSpoolCostsAHealthySessionNoDrain (2.44s)
+=== RUN   TestPreCompactSettle_ReplaysThisSessionsSpoolBeforeOlderOnesOfOthers
+    precompact_settle_test.go:409: 
+        	Error Trace:	
+        	Error:      	Should be true
+        	Test:       	TestPreCompactSettle_ReplaysThisSessionsSpoolBeforeOlderOnesOfOthers
+        	Messages:   	the compacting session's own spooled Read is replayed first
+--- FAIL: TestPreCompactSettle_ReplaysThisSessionsSpoolBeforeOlderOnesOfOthers (1.73s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	16.883s
+FAIL

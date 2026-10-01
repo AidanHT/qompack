@@ -1,0 +1,86 @@
+=== RUN   TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound
+--- PASS: TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound (0.92s)
+=== RUN   TestPreCompactSettle_CountsOnlyTheSpoolReadsOfItsOwnLooks
+--- PASS: TestPreCompactSettle_CountsOnlyTheSpoolReadsOfItsOwnLooks (0.29s)
+=== RUN   TestPreCompactSettle_ReadsASpoolTheDrainReleasedAndAHookRecreated
+--- PASS: TestPreCompactSettle_ReadsASpoolTheDrainReleasedAndAHookRecreated (0.80s)
+=== RUN   TestPreCompactSettle_ReplaysTheSpoolBeforeTheSeal
+--- PASS: TestPreCompactSettle_ReplaysTheSpoolBeforeTheSeal (0.65s)
+=== RUN   TestPreCompactSettle_NamesWhatTheBoundLeftUnreplayed
+--- PASS: TestPreCompactSettle_NamesWhatTheBoundLeftUnreplayed (0.48s)
+=== RUN   TestPreCompactSettle_NamesALeasedArrivalOnceBesideItsSpoolCopy
+--- PASS: TestPreCompactSettle_NamesALeasedArrivalOnceBesideItsSpoolCopy (0.38s)
+=== RUN   TestPreCompactSettle_AnotherSessionsSpoolCostsAHealthySessionNoDrain
+    precompact_settle_test.go:457: healthy settle beside another session's spool: 581.942µs per PreCompact over 200 rounds
+--- PASS: TestPreCompactSettle_AnotherSessionsSpoolCostsAHealthySessionNoDrain (0.60s)
+=== RUN   TestPreCompactSettle_ReplaysThisSessionsSpoolBeforeOlderOnesOfOthers
+--- PASS: TestPreCompactSettle_ReplaysThisSessionsSpoolBeforeOlderOnesOfOthers (0.61s)
+=== RUN   TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound
+--- PASS: TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound (0.97s)
+=== RUN   TestPreCompactSettle_CountsOnlyTheSpoolReadsOfItsOwnLooks
+--- PASS: TestPreCompactSettle_CountsOnlyTheSpoolReadsOfItsOwnLooks (0.26s)
+=== RUN   TestPreCompactSettle_ReadsASpoolTheDrainReleasedAndAHookRecreated
+--- PASS: TestPreCompactSettle_ReadsASpoolTheDrainReleasedAndAHookRecreated (0.68s)
+=== RUN   TestPreCompactSettle_ReplaysTheSpoolBeforeTheSeal
+--- PASS: TestPreCompactSettle_ReplaysTheSpoolBeforeTheSeal (1.29s)
+=== RUN   TestPreCompactSettle_NamesWhatTheBoundLeftUnreplayed
+--- PASS: TestPreCompactSettle_NamesWhatTheBoundLeftUnreplayed (0.48s)
+=== RUN   TestPreCompactSettle_NamesALeasedArrivalOnceBesideItsSpoolCopy
+--- PASS: TestPreCompactSettle_NamesALeasedArrivalOnceBesideItsSpoolCopy (0.32s)
+=== RUN   TestPreCompactSettle_AnotherSessionsSpoolCostsAHealthySessionNoDrain
+    precompact_settle_test.go:457: healthy settle beside another session's spool: 482.407µs per PreCompact over 200 rounds
+--- PASS: TestPreCompactSettle_AnotherSessionsSpoolCostsAHealthySessionNoDrain (0.66s)
+=== RUN   TestPreCompactSettle_ReplaysThisSessionsSpoolBeforeOlderOnesOfOthers
+--- PASS: TestPreCompactSettle_ReplaysThisSessionsSpoolBeforeOlderOnesOfOthers (0.57s)
+=== RUN   TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound
+--- PASS: TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound (0.96s)
+=== RUN   TestPreCompactSettle_CountsOnlyTheSpoolReadsOfItsOwnLooks
+--- PASS: TestPreCompactSettle_CountsOnlyTheSpoolReadsOfItsOwnLooks (0.32s)
+=== RUN   TestPreCompactSettle_ReadsASpoolTheDrainReleasedAndAHookRecreated
+--- PASS: TestPreCompactSettle_ReadsASpoolTheDrainReleasedAndAHookRecreated (0.79s)
+=== RUN   TestPreCompactSettle_ReplaysTheSpoolBeforeTheSeal
+--- PASS: TestPreCompactSettle_ReplaysTheSpoolBeforeTheSeal (0.69s)
+=== RUN   TestPreCompactSettle_NamesWhatTheBoundLeftUnreplayed
+--- PASS: TestPreCompactSettle_NamesWhatTheBoundLeftUnreplayed (0.94s)
+=== RUN   TestPreCompactSettle_NamesALeasedArrivalOnceBesideItsSpoolCopy
+--- PASS: TestPreCompactSettle_NamesALeasedArrivalOnceBesideItsSpoolCopy (0.39s)
+=== RUN   TestPreCompactSettle_AnotherSessionsSpoolCostsAHealthySessionNoDrain
+    precompact_settle_test.go:457: healthy settle beside another session's spool: 486.867µs per PreCompact over 200 rounds
+--- PASS: TestPreCompactSettle_AnotherSessionsSpoolCostsAHealthySessionNoDrain (0.69s)
+=== RUN   TestPreCompactSettle_ReplaysThisSessionsSpoolBeforeOlderOnesOfOthers
+--- PASS: TestPreCompactSettle_ReplaysThisSessionsSpoolBeforeOlderOnesOfOthers (0.67s)
+=== RUN   TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound
+--- PASS: TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound (0.93s)
+=== RUN   TestPreCompactSettle_CountsOnlyTheSpoolReadsOfItsOwnLooks
+--- PASS: TestPreCompactSettle_CountsOnlyTheSpoolReadsOfItsOwnLooks (0.25s)
+=== RUN   TestPreCompactSettle_ReadsASpoolTheDrainReleasedAndAHookRecreated
+--- PASS: TestPreCompactSettle_ReadsASpoolTheDrainReleasedAndAHookRecreated (0.56s)
+=== RUN   TestPreCompactSettle_ReplaysTheSpoolBeforeTheSeal
+--- PASS: TestPreCompactSettle_ReplaysTheSpoolBeforeTheSeal (0.61s)
+=== RUN   TestPreCompactSettle_NamesWhatTheBoundLeftUnreplayed
+--- PASS: TestPreCompactSettle_NamesWhatTheBoundLeftUnreplayed (0.32s)
+=== RUN   TestPreCompactSettle_NamesALeasedArrivalOnceBesideItsSpoolCopy
+--- PASS: TestPreCompactSettle_NamesALeasedArrivalOnceBesideItsSpoolCopy (0.32s)
+=== RUN   TestPreCompactSettle_AnotherSessionsSpoolCostsAHealthySessionNoDrain
+    precompact_settle_test.go:457: healthy settle beside another session's spool: 245.415µs per PreCompact over 200 rounds
+--- PASS: TestPreCompactSettle_AnotherSessionsSpoolCostsAHealthySessionNoDrain (0.96s)
+=== RUN   TestPreCompactSettle_ReplaysThisSessionsSpoolBeforeOlderOnesOfOthers
+--- PASS: TestPreCompactSettle_ReplaysThisSessionsSpoolBeforeOlderOnesOfOthers (0.51s)
+=== RUN   TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound
+--- PASS: TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound (0.76s)
+=== RUN   TestPreCompactSettle_CountsOnlyTheSpoolReadsOfItsOwnLooks
+--- PASS: TestPreCompactSettle_CountsOnlyTheSpoolReadsOfItsOwnLooks (0.25s)
+=== RUN   TestPreCompactSettle_ReadsASpoolTheDrainReleasedAndAHookRecreated
+--- PASS: TestPreCompactSettle_ReadsASpoolTheDrainReleasedAndAHookRecreated (0.51s)
+=== RUN   TestPreCompactSettle_ReplaysTheSpoolBeforeTheSeal
+--- PASS: TestPreCompactSettle_ReplaysTheSpoolBeforeTheSeal (0.63s)
+=== RUN   TestPreCompactSettle_NamesWhatTheBoundLeftUnreplayed
+--- PASS: TestPreCompactSettle_NamesWhatTheBoundLeftUnreplayed (0.39s)
+=== RUN   TestPreCompactSettle_NamesALeasedArrivalOnceBesideItsSpoolCopy
+--- PASS: TestPreCompactSettle_NamesALeasedArrivalOnceBesideItsSpoolCopy (0.35s)
+=== RUN   TestPreCompactSettle_AnotherSessionsSpoolCostsAHealthySessionNoDrain
+    precompact_settle_test.go:457: healthy settle beside another session's spool: 206.759µs per PreCompact over 200 rounds
+--- PASS: TestPreCompactSettle_AnotherSessionsSpoolCostsAHealthySessionNoDrain (0.45s)
+=== RUN   TestPreCompactSettle_ReplaysThisSessionsSpoolBeforeOlderOnesOfOthers
+--- PASS: TestPreCompactSettle_ReplaysThisSessionsSpoolBeforeOlderOnesOfOthers (0.55s)
+PASS

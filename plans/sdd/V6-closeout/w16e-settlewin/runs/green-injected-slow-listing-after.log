@@ -1,0 +1,19 @@
+=== RUN   TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound
+--- PASS: TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound (6.38s)
+=== RUN   TestPreCompactSettle_CountsOnlyTheSpoolReadsOfItsOwnLooks
+--- PASS: TestPreCompactSettle_CountsOnlyTheSpoolReadsOfItsOwnLooks (2.27s)
+=== RUN   TestPreCompactSettle_ReadsASpoolTheDrainReleasedAndAHookRecreated
+--- PASS: TestPreCompactSettle_ReadsASpoolTheDrainReleasedAndAHookRecreated (3.22s)
+=== RUN   TestPreCompactSettle_ReplaysTheSpoolBeforeTheSeal
+--- PASS: TestPreCompactSettle_ReplaysTheSpoolBeforeTheSeal (1.69s)
+=== RUN   TestPreCompactSettle_NamesWhatTheBoundLeftUnreplayed
+--- PASS: TestPreCompactSettle_NamesWhatTheBoundLeftUnreplayed (1.58s)
+=== RUN   TestPreCompactSettle_NamesALeasedArrivalOnceBesideItsSpoolCopy
+--- PASS: TestPreCompactSettle_NamesALeasedArrivalOnceBesideItsSpoolCopy (1.84s)
+=== RUN   TestPreCompactSettle_AnotherSessionsSpoolCostsAHealthySessionNoDrain
+    precompact_settle_test.go:457: healthy settle beside another session's spool: 603.576874ms per PreCompact over 200 rounds
+--- PASS: TestPreCompactSettle_AnotherSessionsSpoolCostsAHealthySessionNoDrain (121.75s)
+=== RUN   TestPreCompactSettle_ReplaysThisSessionsSpoolBeforeOlderOnesOfOthers
+--- PASS: TestPreCompactSettle_ReplaysThisSessionsSpoolBeforeOlderOnesOfOthers (1.85s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	141.974s
