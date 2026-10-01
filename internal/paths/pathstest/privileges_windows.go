@@ -16,18 +16,29 @@ import (
 // backup semantics. That is not an exotic open. Go's os.Open passes FILE_FLAG_BACKUP_SEMANTICS for
 // every read-only open (so that it can open a directory), internal/paths.OpenShared does too, and
 // the I/O manager opens a rename's target directory with backup intent. An elevated account whose
-// token has the two enabled, as the hosted Windows runner's has, therefore reads a file whose ACL
-// denies it and renames into a directory whose ACL denies it, while a plain create there is still
-// refused (nightly 36820740318: the deny-ACE rows of internal/daemon and internal/paths).
+// token has the two enabled, as the hosted Windows runner's has, is expected to read a file whose
+// ACL denies it and to rename into a directory whose ACL denies it, while a plain create there is
+// still refused: the documented effect of the two privileges, and the reading of nightly
+// 36820740318's deny-ACE reds in internal/daemon and internal/paths. No machine available before
+// hosted CI holds them, so that run is the first to exercise this removal on them; the removal
+// steps themselves are proven on any token (TestWithoutPrivileges_RemovesAHeldPrivilegeOnlyForFn).
 var accessBypassPrivileges = []string{"SeBackupPrivilege", "SeRestorePrivilege"}
 
 // WithoutBackupPrivileges runs fn on one OS thread whose token is a copy of the process's own with
 // accessBypassPrivileges removed, so that an access-control entry a fixture writes is enforced on
 // fn's file operations for any account, an elevated one included. fn's file operations must run on
 // the calling goroutine, which is locked to the thread for the call; the impersonation ends when fn
-// returns, or when a require inside fn ends the test. Nothing outside this thread changes, and a token that never held the privileges, an
-// ordinary user's, runs fn unchanged.
+// returns, or when a require inside fn ends the test. Nothing outside this thread changes, and a
+// token that never held the privileges, an ordinary user's, runs fn unchanged.
 func WithoutBackupPrivileges(t testing.TB, fn func()) {
+	t.Helper()
+	withoutPrivileges(t, accessBypassPrivileges, fn)
+}
+
+// withoutPrivileges runs fn on the calling goroutine, locked to its thread, while that thread
+// impersonates a copy of the process token with the privileges names removed. It fails the test
+// if a privilege is still held once removed, and reverts the thread when fn returns.
+func withoutPrivileges(t testing.TB, names []string, fn func()) {
 	t.Helper()
 	runtime.LockOSThread()
 	if err := windows.ImpersonateSelf(windows.SecurityImpersonation); err != nil {
@@ -49,28 +60,24 @@ func WithoutBackupPrivileges(t testing.TB, fn func()) {
 		t.Fatalf("pathstest: OpenThreadToken: %v", err)
 	}
 	defer func() { _ = tok.Close() }()
-	for _, name := range accessBypassPrivileges {
+	for _, name := range names {
 		removePrivilege(t, tok, name)
+		// AdjustTokenPrivileges succeeds even when it changes nothing (it then sets
+		// ERROR_NOT_ALL_ASSIGNED as the last error, which x/sys does not report), so the token is
+		// read back instead of trusting the call.
+		if held, _ := privilegeState(t, name); held {
+			t.Fatalf("pathstest: %s is still held after its removal", name)
+		}
 	}
 	fn()
 }
 
-// removePrivilege removes name from tok. A token that does not hold it is already what is wanted:
-// AdjustTokenPrivileges then reports ERROR_NOT_ALL_ASSIGNED, which is not a failure here.
+// removePrivilege removes name from tok. A token that does not hold it is left as it is.
 func removePrivilege(t testing.TB, tok windows.Token, name string) {
 	t.Helper()
-	u, err := windows.UTF16PtrFromString(name)
-	if err != nil {
-		t.Fatalf("pathstest: %s: %v", name, err)
-	}
-	var luid windows.LUID
-	if err := windows.LookupPrivilegeValue(nil, u, &luid); err != nil {
-		t.Fatalf("pathstest: LookupPrivilegeValue(%s): %v", name, err)
-	}
 	tp := windows.Tokenprivileges{PrivilegeCount: 1}
-	tp.Privileges[0] = windows.LUIDAndAttributes{Luid: luid, Attributes: windows.SE_PRIVILEGE_REMOVED}
-	err = windows.AdjustTokenPrivileges(tok, false, &tp, uint32(unsafe.Sizeof(tp)), nil, nil)
-	if err != nil && !errors.Is(err, windows.ERROR_NOT_ALL_ASSIGNED) {
+	tp.Privileges[0] = windows.LUIDAndAttributes{Luid: privilegeLUID(t, name), Attributes: windows.SE_PRIVILEGE_REMOVED}
+	if err := windows.AdjustTokenPrivileges(tok, false, &tp, uint32(unsafe.Sizeof(tp)), nil, nil); err != nil {
 		t.Fatalf("pathstest: removing %s: %v", name, err)
 	}
 }
@@ -79,6 +86,19 @@ func removePrivilege(t testing.TB, tok windows.Token, name string) {
 // token (its impersonation token, or the process's when it has none) holds enabled. A fixture
 // reports it so that a hosted run says which kind of account it ran under.
 func EnabledBypassPrivileges(t testing.TB) []string {
+	t.Helper()
+	var out []string
+	for _, name := range accessBypassPrivileges {
+		if _, enabled := privilegeState(t, name); enabled {
+			out = append(out, name)
+		}
+	}
+	return out
+}
+
+// privilegeState reports whether the calling thread's effective token holds the privilege name,
+// and whether it holds it enabled.
+func privilegeState(t testing.TB, name string) (held, enabled bool) {
 	t.Helper()
 	tok, err := effectiveToken()
 	if err != nil {
@@ -94,24 +114,27 @@ func EnabledBypassPrivileges(t testing.TB) []string {
 	if err := windows.GetTokenInformation(tok, windows.TokenPrivileges, &buf[0], n, &n); err != nil {
 		t.Fatalf("pathstest: GetTokenInformation(TokenPrivileges): %v", err)
 	}
-	held := (*windows.Tokenprivileges)(unsafe.Pointer(&buf[0]))
-	var out []string
-	for _, name := range accessBypassPrivileges {
-		u, err := windows.UTF16PtrFromString(name)
-		if err != nil {
-			t.Fatalf("pathstest: %s: %v", name, err)
-		}
-		var luid windows.LUID
-		if err := windows.LookupPrivilegeValue(nil, u, &luid); err != nil {
-			t.Fatalf("pathstest: LookupPrivilegeValue(%s): %v", name, err)
-		}
-		for _, p := range held.AllPrivileges() {
-			if p.Luid == luid && p.Attributes&windows.SE_PRIVILEGE_ENABLED != 0 {
-				out = append(out, name)
-			}
+	luid := privilegeLUID(t, name)
+	for _, p := range (*windows.Tokenprivileges)(unsafe.Pointer(&buf[0])).AllPrivileges() {
+		if p.Luid == luid {
+			return true, p.Attributes&windows.SE_PRIVILEGE_ENABLED != 0
 		}
 	}
-	return out
+	return false, false
+}
+
+// privilegeLUID looks up the privilege name's LUID on this machine.
+func privilegeLUID(t testing.TB, name string) windows.LUID {
+	t.Helper()
+	u, err := windows.UTF16PtrFromString(name)
+	if err != nil {
+		t.Fatalf("pathstest: %s: %v", name, err)
+	}
+	var luid windows.LUID
+	if err := windows.LookupPrivilegeValue(nil, u, &luid); err != nil {
+		t.Fatalf("pathstest: LookupPrivilegeValue(%s): %v", name, err)
+	}
+	return luid
 }
 
 // effectiveToken opens the calling thread's impersonation token, or the process token when the
