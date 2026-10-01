@@ -242,12 +242,26 @@ jobs:
     #
     # This job does NOT set QOMPACK_UNDER_COLOAD, on purpose: it is the isolation in which
     # test/e2e's wall-clock rows are judgeable, and TestV3_HotPathUnchangedWithLedgerResident
-    # gates B-A and B-E's wall row here exactly as bench-gate does.
+    # judges every row here exactly as bench-gate does, except the fsync-bound wall rows the
+    # non-reference-disk declaration below reports.
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
+    # ── Non-reference disk (owner Q1, third option; D53(e)) ──────────────────────────────────────
+    # A GitHub-hosted runner's disk is not a reference disk: its fsync latency carries a tail no
+    # budget priced on a quiet reference host survives (run 36816905394: ubuntu-latest B-B p50
+    # 0.576 ms but p99 40.960 ms against 15; windows-latest p50 45 ms against 50; the quiet Windows
+    # reference run C5.1 read p99 22.5 ms). Hosted figures never become constants (Q1), and this
+    # runner is not co-loaded, so QOMPACK_UNDER_COLOAD would name the wrong cause. The declaration
+    # reports, without gating, the fsync-bound wall rows (B-A, B-B, B-E's wall row) and the §12.2
+    # spool-submode transition, each with a note naming it; B-E_cpu, the delivery ledger (identity,
+    # 0 lost), the population census and every structural check stay gated. It is honoured only
+    # where GITHUB_ACTIONS=true (internal/obs.NonReferenceDiskEnv), the owner's quiet reference runs
+    # never set it, and test/guards' TestNonReferenceDisk_IsHostedCIOnly keeps both true.
+    env:
+      QOMPACK_NONREFERENCE_DISK: '1'
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
@@ -264,11 +278,29 @@ jobs:
     # -run pattern and fails the tree if any test that consults obs.UnderCoload is missing
     # from it (test/e2e's are covered by `test-e2e` instead), so a wall-clock budget can be
     # deferred by the whole-tree job but never dropped by the pipeline.
+    #
+    # What this lane cannot judge on a hosted runner is an fsync-bound wall row, for the reason
+    # below: TestIntegration_HotPathWarmWithRealResidentState reports B-A, B-B and B-E's wall row
+    # here and the owner's quiet reference runs judge them. Every other row named above is
+    # unaffected — none of them reads the declaration.
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
+    # ── Non-reference disk (owner Q1, third option; D53(e)) ──────────────────────────────────────
+    # A GitHub-hosted runner's disk is not a reference disk: its fsync latency carries a tail no
+    # budget priced on a quiet reference host survives (run 36816905394: ubuntu-latest B-B p50
+    # 0.576 ms but p99 40.960 ms against 15; windows-latest p50 45 ms against 50; the quiet Windows
+    # reference run C5.1 read p99 22.5 ms). Hosted figures never become constants (Q1), and this
+    # runner is not co-loaded, so QOMPACK_UNDER_COLOAD would name the wrong cause. The declaration
+    # reports, without gating, the fsync-bound wall rows (B-A, B-B, B-E's wall row) and the §12.2
+    # spool-submode transition, each with a note naming it; B-E_cpu, the delivery ledger (identity,
+    # 0 lost), the population census and every structural check stay gated. It is honoured only
+    # where GITHUB_ACTIONS=true (internal/obs.NonReferenceDiskEnv), the owner's quiet reference runs
+    # never set it, and test/guards' TestNonReferenceDisk_IsHostedCIOnly keeps both true.
+    env:
+      QOMPACK_NONREFERENCE_DISK: '1'
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
@@ -306,7 +338,9 @@ jobs:
     # GitHub branch-protection setting, not a file in this repo — see task-7-report.md for the
     # controller note.
     #
-    # This job gates the HOT-PATH budgets (B-A / B-E) only. §7's other half — the >10% warn /
+    # This job gates the HOT-PATH budgets (B-A / B-E) only. On a hosted runner what it gates is
+    # B-E_cpu and the delivery ledger; B-A, B-B and B-E's wall row are reported there, under the
+    # non-reference-disk declaration below. §7's other half — the >10% warn /
     # >25% fail comparison of every micro-benchmark against testdata/bench-baseline.txt — is
     # `devtool bench-compare`, and the V2 checkpoint's decision is that it runs LOCALLY, on a
     # quiet machine, as part of §5.3's baseline discipline:
@@ -334,6 +368,21 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
+    # ── Non-reference disk (owner Q1, third option; D53(e)) ──────────────────────────────────────
+    # A GitHub-hosted runner's disk is not a reference disk: its fsync latency carries a tail no
+    # budget priced on a quiet reference host survives (run 36816905394: ubuntu-latest B-B p50
+    # 0.576 ms but p99 40.960 ms against 15; windows-latest p50 45 ms against 50; the quiet Windows
+    # reference run C5.1 read p99 22.5 ms). Hosted figures never become constants (Q1), and this
+    # runner is not co-loaded, so QOMPACK_UNDER_COLOAD would name the wrong cause. The declaration
+    # reports, without gating, the fsync-bound wall rows (B-A, B-B, B-E's wall row) and the §12.2
+    # spool-submode transition, each with a note naming it; B-E_cpu, the delivery ledger (identity,
+    # 0 lost), the population census and every structural check stay gated. It is honoured only
+    # where GITHUB_ACTIONS=true (internal/obs.NonReferenceDiskEnv), the owner's quiet reference runs
+    # never set it, and test/guards' TestNonReferenceDisk_IsHostedCIOnly keeps both true.
+    # The harness reads the declaration itself (test/bench/hotpath, wallWaiver), so the command
+    # line below is the one a quiet reference run uses, byte for byte.
+    env:
+      QOMPACK_NONREFERENCE_DISK: '1'
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }

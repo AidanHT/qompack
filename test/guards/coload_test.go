@@ -448,7 +448,9 @@ func isTestFunc(fd *ast.FuncDecl) bool {
 // not care which — and the commands of its run steps, block scalars flattened to one line.
 type workflowJob struct {
 	setsCoload bool
-	runs       []string
+	// setsNonrefDisk: the job's env makes the non-reference-disk declaration (nonrefdisk_test.go).
+	setsNonrefDisk bool
+	runs           []string
 }
 
 // workflowJobs splits a workflow's live text into its jobs by the two-space-indented headers under
@@ -494,6 +496,7 @@ func workflowJobs(t *testing.T, path string) map[string]workflowJob {
 func parseWorkflowJob(lines []string) workflowJob {
 	var job workflowJob
 	job.setsCoload = workflowColoadEnvRE.MatchString(strings.Join(lines, "\n"))
+	job.setsNonrefDisk = workflowNonrefDiskEnvRE.MatchString(strings.Join(lines, "\n"))
 	for i := 0; i < len(lines); i++ {
 		m := workflowRunRE.FindStringSubmatch(lines[i])
 		if m == nil {
