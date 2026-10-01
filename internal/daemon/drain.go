@@ -363,6 +363,13 @@ type DrainConfig struct {
 	// with the drain's mutex held, so neither may block or drain. A nil ClientSpoolRemoving tells
 	// nobody.
 	ClientSpoolRemoving func(base string) (done func())
+	// SpooledPromptSettled is told every observe.prompt a pass consumes through its delivery stages
+	// (absorbed, replayed or retired) from a hook's client spool. A hook spools a reply request only
+	// when no reply reached it, so a warning the daemon's live reply to that nonce carried never
+	// reached the host; the daemon wires settleSpooledPrompt, which has the observer re-arm it. It is
+	// called with the drain's mutex held: it may wait for the session's observer lock, as Dispatch
+	// does, but must not drain. A nil SpooledPromptSettled tells nobody.
+	SpooledPromptSettled func(req ipc.Request)
 }
 
 // errSessionEndStarted is dispatchPending's answer for a leased flush EndSession took off the pass.
@@ -809,6 +816,13 @@ func (dr *drainer) drainFile(ctx context.Context, path string, st drainState, ga
 		return true, deferNot, true, true, nil
 	}
 
+	// settledSpooledPrompt reports a consumed client-spool prompt (DrainConfig.SpooledPromptSettled).
+	settledSpooledPrompt := func(req ipc.Request) {
+		if dr.cfg.SpooledPromptSettled != nil && req.Op == ipc.OpObservePrompt && isClientSpoolName(base) {
+			dr.cfg.SpooledPromptSettled(req)
+		}
+	}
+
 	// reattempt re-runs the deferred lines after a consume may have acknowledged a predecessor, to a
 	// fixpoint. It never blocks: a line that is still deferred is simply kept for a later pass.
 	reattempt := func() error {
@@ -831,6 +845,7 @@ func (dr *drainer) drainFile(ctx context.Context, path string, st drainState, ga
 				}
 				dl := deferred[idx]
 				consume(dl.start, dl.next)
+				settledSpooledPrompt(dl.req)
 				if changed && dl.leased {
 					dr.released(dl.lease)
 				}
@@ -985,6 +1000,7 @@ readLoop:
 		}
 		if done {
 			consume(lineStart, nextOffset)
+			settledSpooledPrompt(dl.req)
 			if changed && dl.leased {
 				dr.released(dl.lease)
 			}

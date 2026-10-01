@@ -291,11 +291,13 @@ jobs:
     # 0.576 ms but p99 40.960 ms against 15; windows-latest p50 45 ms against 50; the quiet Windows
     # reference run C5.1 read p99 22.5 ms). Hosted figures never become constants (Q1), and this
     # runner is not co-loaded, so QOMPACK_UNDER_COLOAD would name the wrong cause. The declaration
-    # reports, without gating, the fsync-bound wall rows (B-A, B-B, B-E's wall row) and the §12.2
-    # spool-submode transition, each with a note naming it; B-E_cpu, the delivery ledger (identity,
-    # 0 lost), the population census and every structural check stay gated. It is honoured only
-    # where GITHUB_ACTIONS=true (internal/obs.NonReferenceDiskEnv), the owner's quiet reference runs
-    # never set it, and test/guards' TestNonReferenceDisk_IsHostedCIOnly keeps both true.
+    # reports, without gating, the fsync-bound wall rows (B-A, B-B, B-E's wall row), the §12.2
+    # spool-submode transition, and X10's late or deferred prompt-reply recovery branch (written to
+    # the job summary), each with a note naming it; internal/obs/nonrefdisk.go lists what it
+    # licenses. B-E_cpu, the delivery ledger (identity, 0 lost), the population census and every
+    # structural check stay gated. It is honoured only where GITHUB_ACTIONS=true
+    # (internal/obs.NonReferenceDiskEnv), the owner's quiet reference runs never set it, and
+    # test/guards' TestNonReferenceDisk_IsHostedCIOnly keeps both true.
     env:
       QOMPACK_NONREFERENCE_DISK: '1'
     steps:

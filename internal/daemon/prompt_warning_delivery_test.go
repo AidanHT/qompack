@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -17,6 +19,7 @@ import (
 	"github.com/qompack/qompack/internal/hookio"
 	"github.com/qompack/qompack/internal/ipc"
 	"github.com/qompack/qompack/internal/observer"
+	"github.com/qompack/qompack/internal/paths"
 )
 
 // A thrash warning is drained from the observer's queue by the prompt reply that carries it, and its
@@ -28,7 +31,8 @@ import (
 //
 // The daemon here is the real one, wired to the real observer and a real Sequitur grammar
 // (WireObserver), and the tool uses are folded in process, so the queue state is exact. No ingest
-// worker runs, so the only ObservePrompt calls are the reply path's own.
+// worker runs, so the only ObservePrompt calls are the reply path's own, except where a row runs the
+// queued worker job itself (drainRing).
 
 // warnDeliverySess is the session every row here drives.
 const warnDeliverySess = core.SessionID("sess-warn-delivery")
@@ -53,13 +57,16 @@ func newReplyGate() *replyGate {
 	return &replyGate{entered: make(chan struct{}, 1), release: make(chan struct{}), done: make(chan struct{}, 1)}
 }
 
-// warnDeliveryRig is a wired daemon with a hold seam in front of the observer's reply path.
+// warnDeliveryRig is a wired daemon with a hold seam in front of the observer's reply path (gate)
+// and one behind it (held): held lets the observer answer, and so claim the reply, and then holds
+// the reply before the daemon renders it.
 type warnDeliveryRig struct {
 	t      *testing.T
 	root   string
 	obsv   observer.Observer
 	dd     *daemon
 	gate   atomic.Pointer[replyGate]
+	held   atomic.Pointer[replyGate]
 	nextID int
 	spacer int
 }
@@ -82,8 +89,18 @@ func newWarnDeliveryRig(t *testing.T) *warnDeliveryRig {
 	o.Bind(func(s *Services) {
 		inner := s.ObservePrompt
 		s.ObservePrompt = func(ctx context.Context, e hookio.Event) (hookio.Output, error) {
+			if !observer.PromptReplyOnly(ctx) {
+				return inner(ctx, e)
+			}
+			if h := r.held.Load(); h != nil {
+				out, err := inner(ctx, e)
+				h.entered <- struct{}{}
+				<-h.release
+				h.done <- struct{}{}
+				return out, err
+			}
 			g := r.gate.Load()
-			if g == nil || !observer.PromptReplyOnly(ctx) {
+			if g == nil {
 				return inner(ctx, e)
 			}
 			g.entered <- struct{}{}
@@ -268,7 +285,7 @@ func TestPromptWarning_ReplyThatMayNotActRefusesTheClaim(t *testing.T) {
 	r := newWarnDeliveryRig(t)
 	r.loop(warnLoopCycles)
 	ev := &hookio.Event{HookEventName: "UserPromptSubmit", SessionID: warnDeliverySess, CWD: r.root, Prompt: "still red"}
-	out := r.dd.callObservePromptWithDeadline(context.Background(), ev, core.NowMilli(r.dd.clk), false)
+	out := r.dd.callObservePromptWithDeadline(context.Background(), ev, core.NowMilli(r.dd.clk), "", false)
 	require.Nil(t, out.HookSpecificOutput)
 	r.dd.promptWG.Wait() // the reply call has answered, whichever side of the deadline it landed on
 	require.Equal(t, int64(1), r.dd.m.Counter(observerThrashUndelivered).Value(),
@@ -278,6 +295,81 @@ func TestPromptWarning_ReplyThatMayNotActRefusesTheClaim(t *testing.T) {
 	r.cycle()
 	requireLoopWarning(t, r.prompt("still red after another try"), warnLoopCycles+1,
 		"the rule warns afresh once the loop continues")
+}
+
+// warnSpooledFile is the client spool the "hook" of TestPromptWarning_ClaimedReplyTheHookSpooledIsReArmed
+// falls back to, named the way ipc names a hook process's own spool.
+const warnSpooledFile = "client-04242.ndjson"
+
+// TestPromptWarning_ClaimedReplyTheHookSpooledIsReArmed is the window w16d-warnlate left open (its
+// mode (b) residual). The observer claims the reply inside the deadline, so the daemon's reply
+// carries the warning and nothing is counted late; but the reply is held, after the claim and before
+// the daemon renders it, while the hook gives up and spools the prompt. The host never saw the
+// warning. The exact signal is the drain settling that client-spooled copy, whose nonce the daemon
+// already answered live: it must re-arm the rule, so the loop warns afresh if it continues.
+//
+// The request carries no hook stamp, as the rig's prompt does, so the claim gets the whole deadline
+// from the route and does not depend on how long this machine's WAL fsync takes. The hook's give-up
+// is the test's own step (it writes the spool while the reply is held), not a clock.
+func TestPromptWarning_ClaimedReplyTheHookSpooledIsReArmed(t *testing.T) {
+	r := newWarnDeliveryRig(t)
+	lock := lockFor(t, r.dd, r.root)
+	t.Cleanup(func() { _ = lock.Release() })
+	r.dd.drain.Store(newDrainer(r.dd.drainConfig()))
+	r.loop(warnLoopCycles)
+	undelivered := func() int64 { return r.dd.m.Counter(observerThrashUndelivered).Value() }
+
+	req := ipc.Request{
+		Op: ipc.OpObservePrompt, Session: warnDeliverySess, Reply: true, Nonce: testDeliveryToken('a'),
+		Event: &hookio.Event{HookEventName: "UserPromptSubmit", SessionID: warnDeliverySess, CWD: r.root, Prompt: "still red"},
+	}
+	h := newReplyGate()
+	r.held.Store(h)
+	replied := make(chan ipc.Response, 1)
+	go func() { replied <- r.dd.dispatchOp(context.Background(), req) }()
+	awaitSignal(t, h.entered, "the observer never answered the reply path")
+
+	// The claim has been made and the reply is held: the hook's own wait runs out meanwhile, and it
+	// gives up and spools the prompt.
+	writeSpoolLine(t, r.root, warnSpooledFile, req)
+	close(h.release)
+	awaitSignal(t, h.done, "the held reply call never finished")
+	var resp ipc.Response
+	select {
+	case resp = <-replied:
+	case <-time.After(promptRecordWait):
+		require.FailNow(t, "the claimed reply never went out")
+	}
+	r.held.Store(nil)
+	require.True(t, resp.OK)
+	require.NotNil(t, resp.Output)
+	requireLoopWarning(t, *resp.Output, warnLoopCycles, "the claim won, so the daemon's reply carries the warning")
+	require.Zero(t, r.late(), "a claimed reply is not counted late: the daemon cannot see that the hook gave up")
+	require.Zero(t, undelivered())
+
+	// The worker captures the live copy and acknowledges its nonce; the drain then absorbs the hook's
+	// spooled copy without dispatching it — and that is the moment the loss becomes known.
+	drainRing(t, r.dd)
+	n, err := r.dd.Drain(context.Background())
+	require.NoError(t, err)
+	require.Zero(t, n, "the spooled copy of a prompt the daemon answered live is absorbed, not dispatched")
+	_, statErr := os.Stat(paths.Long(filepath.Join(paths.Of(r.root).Spool, warnSpooledFile)))
+	require.ErrorIs(t, statErr, fs.ErrNotExist, "the absorbed client spool is released")
+	require.Equal(t, int64(1), undelivered(),
+		"a warning whose reply the hook spooled was never seen: it is re-armed, not counted as delivered")
+
+	// As for a refused claim: the stale warning is not replayed, and the rule warns afresh only once
+	// the loop continues.
+	require.Nil(t, r.prompt("what now?").HookSpecificOutput,
+		"a warning whose reply reached no hook must not reappear on a later prompt by itself")
+	r.spacerTool()
+	r.cycle()
+	requireLoopWarning(t, r.prompt("still red after another try"), warnLoopCycles+1,
+		"a warning the host never received must not count as delivered once the loop continues")
+	r.spacerTool()
+	r.cycle()
+	require.Nil(t, r.prompt("and again").HookSpecificOutput, "once delivered, the rule is reported once")
+	require.Equal(t, int64(1), undelivered())
 }
 
 // observerThrashUndelivered is internal/observer's counterThrashUndelivered, respelled because it is
