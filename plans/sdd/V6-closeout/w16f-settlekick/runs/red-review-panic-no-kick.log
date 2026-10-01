@@ -1,0 +1,9 @@
+--- FAIL: TestPreCompactSettle_APanickingSealStillKicksTheWatcher (0.17s)
+    precompact_settle_test.go:606: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16f-settlekick/internal/daemon/precompact_settle_test.go:606
+        	Error:      	"0x2a7ad6552a80" should have 1 item(s), but has 0
+        	Test:       	TestPreCompactSettle_APanickingSealStillKicksTheWatcher
+        	Messages:   	a PreCompact whose seal panics still kicks the watcher
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	0.440s
+FAIL
