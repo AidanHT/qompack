@@ -1,0 +1,82 @@
+=== RUN   TestPreCompactSettle_ASpoolItCannotReadIsCountedNotTakenAsEmpty
+--- PASS: TestPreCompactSettle_ASpoolItCannotReadIsCountedNotTakenAsEmpty (0.19s)
+=== RUN   TestPreCompactSettle_DoesNotWaitBehindAWatcherPassItsOwnRequestKicked
+--- PASS: TestPreCompactSettle_DoesNotWaitBehindAWatcherPassItsOwnRequestKicked (0.53s)
+=== RUN   TestPreCompactSettle_APanickingSealStillKicksTheWatcher
+--- PASS: TestPreCompactSettle_APanickingSealStillKicksTheWatcher (0.16s)
+=== RUN   TestSpoolWatch_DoesNothingWithoutAKick
+--- PASS: TestSpoolWatch_DoesNothingWithoutAKick (0.51s)
+=== RUN   TestPreCompactSettle_ASpoolItCannotReadIsCountedNotTakenAsEmpty
+--- PASS: TestPreCompactSettle_ASpoolItCannotReadIsCountedNotTakenAsEmpty (0.19s)
+=== RUN   TestPreCompactSettle_DoesNotWaitBehindAWatcherPassItsOwnRequestKicked
+--- PASS: TestPreCompactSettle_DoesNotWaitBehindAWatcherPassItsOwnRequestKicked (0.64s)
+=== RUN   TestPreCompactSettle_APanickingSealStillKicksTheWatcher
+--- PASS: TestPreCompactSettle_APanickingSealStillKicksTheWatcher (0.15s)
+=== RUN   TestSpoolWatch_DoesNothingWithoutAKick
+--- PASS: TestSpoolWatch_DoesNothingWithoutAKick (0.50s)
+=== RUN   TestPreCompactSettle_ASpoolItCannotReadIsCountedNotTakenAsEmpty
+--- PASS: TestPreCompactSettle_ASpoolItCannotReadIsCountedNotTakenAsEmpty (0.21s)
+=== RUN   TestPreCompactSettle_DoesNotWaitBehindAWatcherPassItsOwnRequestKicked
+--- PASS: TestPreCompactSettle_DoesNotWaitBehindAWatcherPassItsOwnRequestKicked (0.56s)
+=== RUN   TestPreCompactSettle_APanickingSealStillKicksTheWatcher
+--- PASS: TestPreCompactSettle_APanickingSealStillKicksTheWatcher (0.18s)
+=== RUN   TestSpoolWatch_DoesNothingWithoutAKick
+--- PASS: TestSpoolWatch_DoesNothingWithoutAKick (0.51s)
+=== RUN   TestPreCompactSettle_ASpoolItCannotReadIsCountedNotTakenAsEmpty
+--- PASS: TestPreCompactSettle_ASpoolItCannotReadIsCountedNotTakenAsEmpty (0.20s)
+=== RUN   TestPreCompactSettle_DoesNotWaitBehindAWatcherPassItsOwnRequestKicked
+--- PASS: TestPreCompactSettle_DoesNotWaitBehindAWatcherPassItsOwnRequestKicked (0.55s)
+=== RUN   TestPreCompactSettle_APanickingSealStillKicksTheWatcher
+--- PASS: TestPreCompactSettle_APanickingSealStillKicksTheWatcher (0.18s)
+=== RUN   TestSpoolWatch_DoesNothingWithoutAKick
+--- PASS: TestSpoolWatch_DoesNothingWithoutAKick (0.52s)
+=== RUN   TestPreCompactSettle_ASpoolItCannotReadIsCountedNotTakenAsEmpty
+--- PASS: TestPreCompactSettle_ASpoolItCannotReadIsCountedNotTakenAsEmpty (0.21s)
+=== RUN   TestPreCompactSettle_DoesNotWaitBehindAWatcherPassItsOwnRequestKicked
+--- PASS: TestPreCompactSettle_DoesNotWaitBehindAWatcherPassItsOwnRequestKicked (0.56s)
+=== RUN   TestPreCompactSettle_APanickingSealStillKicksTheWatcher
+--- PASS: TestPreCompactSettle_APanickingSealStillKicksTheWatcher (0.37s)
+=== RUN   TestSpoolWatch_DoesNothingWithoutAKick
+--- PASS: TestSpoolWatch_DoesNothingWithoutAKick (0.68s)
+=== RUN   TestPreCompactSettle_ASpoolItCannotReadIsCountedNotTakenAsEmpty
+--- PASS: TestPreCompactSettle_ASpoolItCannotReadIsCountedNotTakenAsEmpty (0.28s)
+=== RUN   TestPreCompactSettle_DoesNotWaitBehindAWatcherPassItsOwnRequestKicked
+--- PASS: TestPreCompactSettle_DoesNotWaitBehindAWatcherPassItsOwnRequestKicked (0.70s)
+=== RUN   TestPreCompactSettle_APanickingSealStillKicksTheWatcher
+--- PASS: TestPreCompactSettle_APanickingSealStillKicksTheWatcher (0.25s)
+=== RUN   TestSpoolWatch_DoesNothingWithoutAKick
+--- PASS: TestSpoolWatch_DoesNothingWithoutAKick (0.67s)
+=== RUN   TestPreCompactSettle_ASpoolItCannotReadIsCountedNotTakenAsEmpty
+--- PASS: TestPreCompactSettle_ASpoolItCannotReadIsCountedNotTakenAsEmpty (0.29s)
+=== RUN   TestPreCompactSettle_DoesNotWaitBehindAWatcherPassItsOwnRequestKicked
+--- PASS: TestPreCompactSettle_DoesNotWaitBehindAWatcherPassItsOwnRequestKicked (0.79s)
+=== RUN   TestPreCompactSettle_APanickingSealStillKicksTheWatcher
+--- PASS: TestPreCompactSettle_APanickingSealStillKicksTheWatcher (0.25s)
+=== RUN   TestSpoolWatch_DoesNothingWithoutAKick
+--- PASS: TestSpoolWatch_DoesNothingWithoutAKick (0.67s)
+=== RUN   TestPreCompactSettle_ASpoolItCannotReadIsCountedNotTakenAsEmpty
+--- PASS: TestPreCompactSettle_ASpoolItCannotReadIsCountedNotTakenAsEmpty (0.46s)
+=== RUN   TestPreCompactSettle_DoesNotWaitBehindAWatcherPassItsOwnRequestKicked
+--- PASS: TestPreCompactSettle_DoesNotWaitBehindAWatcherPassItsOwnRequestKicked (0.67s)
+=== RUN   TestPreCompactSettle_APanickingSealStillKicksTheWatcher
+--- PASS: TestPreCompactSettle_APanickingSealStillKicksTheWatcher (0.28s)
+=== RUN   TestSpoolWatch_DoesNothingWithoutAKick
+--- PASS: TestSpoolWatch_DoesNothingWithoutAKick (0.64s)
+=== RUN   TestPreCompactSettle_ASpoolItCannotReadIsCountedNotTakenAsEmpty
+--- PASS: TestPreCompactSettle_ASpoolItCannotReadIsCountedNotTakenAsEmpty (0.27s)
+=== RUN   TestPreCompactSettle_DoesNotWaitBehindAWatcherPassItsOwnRequestKicked
+--- PASS: TestPreCompactSettle_DoesNotWaitBehindAWatcherPassItsOwnRequestKicked (0.75s)
+=== RUN   TestPreCompactSettle_APanickingSealStillKicksTheWatcher
+--- PASS: TestPreCompactSettle_APanickingSealStillKicksTheWatcher (0.27s)
+=== RUN   TestSpoolWatch_DoesNothingWithoutAKick
+--- PASS: TestSpoolWatch_DoesNothingWithoutAKick (0.71s)
+=== RUN   TestPreCompactSettle_ASpoolItCannotReadIsCountedNotTakenAsEmpty
+--- PASS: TestPreCompactSettle_ASpoolItCannotReadIsCountedNotTakenAsEmpty (0.31s)
+=== RUN   TestPreCompactSettle_DoesNotWaitBehindAWatcherPassItsOwnRequestKicked
+--- PASS: TestPreCompactSettle_DoesNotWaitBehindAWatcherPassItsOwnRequestKicked (0.68s)
+=== RUN   TestPreCompactSettle_APanickingSealStillKicksTheWatcher
+--- PASS: TestPreCompactSettle_APanickingSealStillKicksTheWatcher (0.19s)
+=== RUN   TestSpoolWatch_DoesNothingWithoutAKick
+--- PASS: TestSpoolWatch_DoesNothingWithoutAKick (0.55s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	17.550s
