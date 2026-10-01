@@ -18,6 +18,10 @@
 // TestGuard_IsolatedTestsNeverReadAPoisonedRealHome proves the isolation against a fake real home
 // holding a poisoned config.json, calibration.json and Claude Code settings file.
 //
+// WithoutBackupPrivileges is the other process-level difference a filesystem test meets: an account
+// whose token enables the backup and restore privileges, as the hosted Windows runner's does, opens
+// past an access-control entry a fixture writes (privileges_windows.go).
+//
 // The package imports nothing from this module, so the in-package tests of any package can use it
 // without an import cycle. internal/testutil cannot offer that: it imports store, config and most of
 // the tree, so the in-package tests of those packages cannot import it.

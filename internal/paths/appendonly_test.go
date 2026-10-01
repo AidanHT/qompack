@@ -19,6 +19,7 @@ import (
 
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/paths"
+	"github.com/qompack/qompack/internal/paths/pathstest"
 )
 
 func TestIsProtected_Table(t *testing.T) {
@@ -992,9 +993,22 @@ func TestTerminatePartialTail_UnreadablePathIsLeftAlone(t *testing.T) {
 		_, _ = exec.Command("icacls", p, "/remove:d", u.Username).CombinedOutput()
 	})
 
+	// The diagnostic read is an os.Open, which Go issues with backup semantics, so a token holding
+	// the backup privilege enabled reads past the deny entry, as the hosted runner's elevated
+	// account did (nightly 36820740318). The open runs without that privilege, and the precondition
+	// fails loudly, naming the privileges in force, if a token still reads the file.
 	w := &countingWriter{}
-	require.NoError(t, paths.TerminatePartialTail(w, p),
-		"a failed diagnostic open must not refuse the caller's append")
+	pathstest.WithoutBackupPrivileges(t, func() {
+		f, openErr := os.Open(p)
+		if openErr == nil {
+			_ = f.Close()
+		}
+		require.True(t, os.IsPermission(openErr), "precondition: the deny entry must refuse this token's read "+
+			"(enabled: %v): %v", pathstest.EnabledBypassPrivileges(t), openErr)
+
+		require.NoError(t, paths.TerminatePartialTail(w, p),
+			"a failed diagnostic open must not refuse the caller's append")
+	})
 	require.Zero(t, w.writes, "an unreadable path must not receive a terminator write")
 
 	if out, clearErr := exec.Command("icacls", p, "/remove:d", u.Username).CombinedOutput(); clearErr != nil {
