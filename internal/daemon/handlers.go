@@ -243,7 +243,7 @@ func (d *daemon) dispatchOp(ctx context.Context, req ipc.Request) ipc.Response {
 	// replays before Run dispatches any request, and spending the signal there would run the
 	// re-drain before the cold-start window it exists to cover has closed.
 	if !spoolReplay(ctx) {
-		d.noteServed()
+		d.noteServed(req.Op)
 	}
 	ctx = withServices(ctx, d.svc)
 	ctx = withRegistry(ctx, d.registry)
@@ -1357,6 +1357,12 @@ func (d *daemon) handleCheckpoint(ctx context.Context, req ipc.Request) ipc.Resp
 		if callErr != nil {
 			d.log.Warn("daemon: PreCompact failed", "err", callErr)
 		}
+	}
+	// The served-request kick of the client-spool watcher, which noteServed leaves to this route: after
+	// the seal, so the watcher's pass over every session's spools cannot hold the drain's mutex
+	// against the settle (wave 16f).
+	if !spoolReplay(ctx) {
+		d.kickSpoolWatch()
 	}
 
 	// Phase 3 (re-locked): re-load — a concurrent route may have saved its own changes while

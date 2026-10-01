@@ -48,6 +48,14 @@ import (
 // one listing of the spool directory, lookups in that index and two in the journal; it reads only
 // the client spools the index does not yet hold (a spool written since the watcher last passed, or
 // any when no watcher has run), each once, and only while the bound lasts.
+//
+// The settle's replay takes the drain's mutex within the bound (DrainClientSpoolsWithin), so a
+// client-spool watcher pass, which covers every session's spools under that mutex, would make it wait.
+// The PreCompact's own request therefore kicks the watcher only after the seal (noteServed,
+// handleCheckpoint): it cannot start a pass that holds the mutex against its own settle. A pass
+// already running for another reason (an earlier request's kick, the idle tick, a drain the lanes ask
+// for) is waited for, within the bound, and what the bound then leaves is named in the drop report
+// and replayed afterwards (D55): nothing is lost.
 
 // precompactSettleBound is how long the PreCompact route may spend settling the session before it
 // seals: B-E (runtime.budgets.checkpointFinalizeMs, the gated p99 for PreCompact entry to exit) less
