@@ -1,0 +1,62 @@
+=== RUN   TestStop_IsNotHeldBehindASessionEndsDrain
+    flush_async_test.go:451: Stop took 408.5732ms (bound 15.45s)
+--- PASS: TestStop_IsNotHeldBehindASessionEndsDrain (0.89s)
+=== RUN   TestStop_IsNotHeldBehindASessionEndsDrain
+    flush_async_test.go:451: Stop took 403.1094ms (bound 15.45s)
+--- PASS: TestStop_IsNotHeldBehindASessionEndsDrain (0.94s)
+=== RUN   TestStop_IsNotHeldBehindASessionEndsDrain
+    flush_async_test.go:451: Stop took 409.481ms (bound 15.45s)
+--- PASS: TestStop_IsNotHeldBehindASessionEndsDrain (0.93s)
+=== RUN   TestStop_IsNotHeldBehindASessionEndsDrain
+    flush_async_test.go:451: Stop took 402.7901ms (bound 15.45s)
+--- PASS: TestStop_IsNotHeldBehindASessionEndsDrain (0.90s)
+=== RUN   TestStop_IsNotHeldBehindASessionEndsDrain
+    flush_async_test.go:451: Stop took 427.3851ms (bound 15.45s)
+--- PASS: TestStop_IsNotHeldBehindASessionEndsDrain (0.92s)
+=== RUN   TestStop_IsNotHeldBehindASessionEndsDrain
+    flush_async_test.go:451: Stop took 402.6351ms (bound 15.45s)
+--- PASS: TestStop_IsNotHeldBehindASessionEndsDrain (0.87s)
+=== RUN   TestStop_IsNotHeldBehindASessionEndsDrain
+    flush_async_test.go:451: Stop took 396.855ms (bound 15.45s)
+--- PASS: TestStop_IsNotHeldBehindASessionEndsDrain (0.90s)
+=== RUN   TestStop_IsNotHeldBehindASessionEndsDrain
+    flush_async_test.go:451: Stop took 393.5892ms (bound 15.45s)
+--- PASS: TestStop_IsNotHeldBehindASessionEndsDrain (0.87s)
+=== RUN   TestStop_IsNotHeldBehindASessionEndsDrain
+    flush_async_test.go:451: Stop took 397.5468ms (bound 15.45s)
+--- PASS: TestStop_IsNotHeldBehindASessionEndsDrain (0.86s)
+=== RUN   TestStop_IsNotHeldBehindASessionEndsDrain
+    flush_async_test.go:451: Stop took 430.0963ms (bound 15.45s)
+--- PASS: TestStop_IsNotHeldBehindASessionEndsDrain (0.88s)
+=== RUN   TestStop_IsNotHeldBehindASessionEndsDrain
+    flush_async_test.go:451: Stop took 393.2359ms (bound 15.45s)
+--- PASS: TestStop_IsNotHeldBehindASessionEndsDrain (0.83s)
+=== RUN   TestStop_IsNotHeldBehindASessionEndsDrain
+    flush_async_test.go:451: Stop took 386.5689ms (bound 15.45s)
+--- PASS: TestStop_IsNotHeldBehindASessionEndsDrain (0.88s)
+=== RUN   TestStop_IsNotHeldBehindASessionEndsDrain
+    flush_async_test.go:451: Stop took 392.8112ms (bound 15.45s)
+--- PASS: TestStop_IsNotHeldBehindASessionEndsDrain (0.84s)
+=== RUN   TestStop_IsNotHeldBehindASessionEndsDrain
+    flush_async_test.go:451: Stop took 437.3646ms (bound 15.45s)
+--- PASS: TestStop_IsNotHeldBehindASessionEndsDrain (0.89s)
+=== RUN   TestStop_IsNotHeldBehindASessionEndsDrain
+    flush_async_test.go:451: Stop took 394.8363ms (bound 15.45s)
+--- PASS: TestStop_IsNotHeldBehindASessionEndsDrain (0.85s)
+=== RUN   TestStop_IsNotHeldBehindASessionEndsDrain
+    flush_async_test.go:451: Stop took 387.7924ms (bound 15.45s)
+--- PASS: TestStop_IsNotHeldBehindASessionEndsDrain (0.89s)
+=== RUN   TestStop_IsNotHeldBehindASessionEndsDrain
+    flush_async_test.go:451: Stop took 389.8318ms (bound 15.45s)
+--- PASS: TestStop_IsNotHeldBehindASessionEndsDrain (0.89s)
+=== RUN   TestStop_IsNotHeldBehindASessionEndsDrain
+    flush_async_test.go:451: Stop took 391.2831ms (bound 15.45s)
+--- PASS: TestStop_IsNotHeldBehindASessionEndsDrain (0.85s)
+=== RUN   TestStop_IsNotHeldBehindASessionEndsDrain
+    flush_async_test.go:451: Stop took 480.5897ms (bound 15.45s)
+--- PASS: TestStop_IsNotHeldBehindASessionEndsDrain (0.93s)
+=== RUN   TestStop_IsNotHeldBehindASessionEndsDrain
+    flush_async_test.go:451: Stop took 396.6594ms (bound 15.45s)
+--- PASS: TestStop_IsNotHeldBehindASessionEndsDrain (0.87s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	19.008s
