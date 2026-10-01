@@ -40,10 +40,6 @@ const maxReadPatterns = 5000
 // a real rule has two to four.
 const maxReadSegments = 16 * maxReadPatterns
 
-// maxNesting bounds the walk for `permissions` objects inside the server-managed settings cache,
-// whose on-disk shape is not documented.
-const maxNesting = 8
-
 // maxGitFileBytes bounds the two tiny git pointer files read to find a worktree's main checkout.
 const maxGitFileBytes = 64 << 10
 
@@ -360,7 +356,10 @@ func parseSettings(data []byte, s *source, goos string, fold bool) ([]ruleList, 
 	}
 	var blocks []json.RawMessage
 	if s.nested {
-		collectPermissions(data, 0, &blocks)
+		var err error
+		if blocks, err = collectPermissions(data); err != nil {
+			return nil, sourceError(s.id, err.Error())
+		}
 	} else if raw, ok := top["permissions"]; ok {
 		blocks = append(blocks, raw)
 	}
@@ -419,35 +418,51 @@ func parseList(raw json.RawMessage, effect Effect, s *source, goos string, fold 
 	return l, nil
 }
 
-// collectPermissions gathers every object-valued `permissions` key at any depth up to maxNesting.
-// It serves the server-managed cache, whose envelope is not documented: wherever its rules sit,
-// they apply. Keys are visited in sorted order so diagnostics are stable.
-func collectPermissions(raw json.RawMessage, depth int, out *[]json.RawMessage) {
-	if depth > maxNesting {
-		return
+// collectPermissions gathers every object-valued `permissions` key at any depth. It serves the
+// server-managed cache, whose envelope is not documented: wherever its rules sit, they apply, so no
+// depth is skipped. The document is decoded once and walked in memory. Its size is bounded by the
+// source read (maxSettingsBytes) and its depth by encoding/json's own nesting limit, and a document
+// past either is refused as a source error (fail closed), never truncated. Numbers are kept as
+// written so a value float64 cannot hold does not refuse the document. Keys are visited in sorted
+// order so diagnostics are stable.
+func collectPermissions(data []byte) ([]json.RawMessage, error) {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.UseNumber()
+	var doc any
+	if err := dec.Decode(&doc); err != nil {
+		return nil, errors.New("not a JSON object")
 	}
-	var obj map[string]json.RawMessage
-	if json.Unmarshal(raw, &obj) == nil && obj != nil {
-		keys := make([]string, 0, len(obj))
-		for k := range obj {
-			keys = append(keys, k)
-		}
-		sort.Strings(keys)
-		for _, k := range keys {
-			v := obj[k]
-			var probe map[string]json.RawMessage
-			if k == "permissions" && json.Unmarshal(v, &probe) == nil && probe != nil {
-				*out = append(*out, v)
-				continue
+	var found []map[string]any
+	var walk func(v any)
+	walk = func(v any) {
+		switch v := v.(type) {
+		case map[string]any:
+			keys := make([]string, 0, len(v))
+			for k := range v {
+				keys = append(keys, k)
 			}
-			collectPermissions(v, depth+1, out)
+			sort.Strings(keys)
+			for _, k := range keys {
+				if perms, ok := v[k].(map[string]any); ok && k == "permissions" {
+					found = append(found, perms)
+					continue
+				}
+				walk(v[k])
+			}
+		case []any:
+			for _, e := range v {
+				walk(e)
+			}
 		}
-		return
 	}
-	var arr []json.RawMessage
-	if json.Unmarshal(raw, &arr) == nil {
-		for _, v := range arr {
-			collectPermissions(v, depth+1, out)
+	walk(doc)
+	out := make([]json.RawMessage, 0, len(found))
+	for _, perms := range found {
+		raw, err := json.Marshal(perms)
+		if err != nil {
+			return nil, errors.New("permissions cannot be re-encoded")
 		}
+		out = append(out, raw)
 	}
+	return out, nil
 }
