@@ -384,3 +384,66 @@ never ran still leave the run without a verdict (A4). When that decision is inco
 not-applicable, `qompack eval`'s verdict is inconclusive even with a passing replay read beside
 it: a replay cannot supply the pre-registered verdict the live rule did not reach (C5.5 review
 seat, 2026-09-25).
+
+**A8 — 2026-10-01, by the V6 close-out coordinator under owner decision D33 (ledger decision D53),
+before any confirmatory trial.** No task, fixture, hidden test, rate, model, sample size or analysis
+parameter changes. This amendment states what each verdict means for the release, bounds the claims
+the result may support, and makes the run order and the §9 precondition exact. It follows the
+independent audit `plans/sdd/V6-closeout/audit/goal-metrics-audit.md` §3. No trial of
+`qompack-live-v2` exists at the time of writing.
+
+*Reason.* As designed, this study can show that Qompack does not break work after a compaction. It
+cannot show that Qompack helps. H1 is a non-inferiority test on task success with a 0.20 margin. H3,
+the recovery hypothesis, carries no verdict. The tasks are short sessions compacted by hand, and the
+host's own summary of them will often keep the facts, so stock is expected near ceiling. At 20
+trials per arm, two arms of identical performance below 95 % success give a Newcombe lower bound
+under −0.20, a verdict of *inconclusive* (audit §3 and its appendix: 0.90 in both arms gives
+−0.214). None of this was stated, and nothing said what a verdict decides.
+
+*Amendment.*
+
+1. **What each verdict decides for release 0.3.0.**
+   - *inferior* on H1, or an H2 constraint-clean regression (§8), blocks the release.
+   - *not-applicable* re-runs once, under §8's re-run rule. A second not-applicable is reported, and
+     the release notes say the study did not run as designed.
+   - *non-inferior*, *superior* or *inconclusive* allows the release. The verdict is quoted verbatim
+     in the release notes and in `docs/user-guide.md`.
+2. **Claim boundary.** No document, release note, README, plugin or marketplace description may
+   claim that Qompack improves recovery, task success or constraint retention unless that outcome's
+   95 % Newcombe lower bound (qompack − stock) is above 0. H3 is reported with one label:
+   "recovery advantage shown" when its lower bound is above 0, otherwise "recovery advantage not
+   shown". The pre-registered decision rule is unchanged; this bounds only what may be said.
+3. **Sample size, stated.** §7's 40 sessions stand, with no second batch: the owner's real-session
+   budget (D3, raised by D34, D47 and D52) is already exceeded. With equal arms below 95 % success,
+   *inconclusive* is the expected verdict, by design. It is not evidence that Qompack adds nothing,
+   and the release notes say so beside it.
+4. **"Known open defect" (§9, A5).** A known open defect is an item in
+   `plans/V6-CLOSEOUT-CHECKLIST.md` or `plans/CARRIED-DEFECTS.tsv` that has no recorded fix and no
+   recorded disposition when the run is planned. Residuals accepted by a recorded decision (D6, D29,
+   D35(c), D38, D44, D48, and any C2.8 performance ruling) are listed by ID in the run's
+   `--known-open-defects` statement or its notes, and do not make the run non-confirmatory. Anything
+   else that is open does.
+5. **Run order and bundle.**
+   - The confirmatory run uses the frozen release-candidate bundle as built at its freeze, not a
+     rebuild (§9's `devtool bundle` line is replaced by the frozen bundle's path).
+   - `plan.json`'s BUNDLE.json SHA-256 must equal the one recorded in that candidate's
+     `phase3/c<N>-CANDIDATE.md`.
+   - A `--dry-run` with `--confirmatory` comes first and must print "confirmatory preconditions at
+     plan time: met".
+   - The run itself also passes `--confirmatory`, and starts only after that candidate's Phase 4
+     live lane has passed.
+6. **Reported beside the verdict, for C5.6 and the release notes:** host-reported hook failures
+   and timeouts per arm (the release criterion of D53(i) is 0 on the qompack arm, apart from
+   documented host behaviour), and the host-seen hook latency p50/p95 per hook, from the
+   transcript's `durationMs`, SessionStart:startup included.
+
+§9's command becomes:
+
+```
+QOMPACK_LIVE_EVAL=1 go run ./tools/devtool live-eval --tasks testdata/eval/live/tasks-v2.json \
+  --include-held-out --arms stock,qompack --install plugin-dir --confirmatory \
+  --known-open-defects <none, or the dispositioned residual IDs per item 4> \
+  --bundle <frozen release-candidate bundle>/qompack-plugin-0.3.0-windows-amd64 --max-sessions 40
+```
+
+run once with `--dry-run` first.
