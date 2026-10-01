@@ -571,7 +571,7 @@ func (d *daemon) handleObservePrompt(ctx context.Context, req ipc.Request) ipc.R
 	if d.svc.ObservePrompt != nil {
 		// The call is recording, so it runs under the MayRecord check above; only what it hands
 		// back is acting, and under !MayAct the reply stays the empty output.
-		produced := d.callObservePromptWithDeadline(ctx, ev, req.TS, mode.MayAct())
+		produced := d.callObservePromptWithDeadline(ctx, ev, req.TS, req.Nonce, mode.MayAct())
 		if mode.MayAct() {
 			out = produced
 		}
@@ -612,12 +612,20 @@ func (d *daemon) handleObservePrompt(ctx context.Context, req ipc.Request) ipc.R
 // disk is not silenced for the session by a reply nobody received. A reply the daemon may not act
 // on (!mayAct) can deliver nothing, so its claim is refused from the start.
 //
+// A claim that succeeds is still not proof of delivery: the hook's own wait may run out while the
+// claimed reply is rendered and written, and the hook then spools the prompt. So the reply call
+// carries the prompt's nonce (observer.WithPromptReplyNonce), the observer remembers which nonce's
+// reply carried a warning, and the drain re-arms that warning when it settles the spooled copy
+// (settleSpooledPrompt).
+//
 // The deadline is the hook's, measured from ts — ipc.Request.TS, the hook's first statement, which
 // precedes the instant its own reply wait starts — and not from this call. The wait used to start
 // here, after ingest.Accept had made the prompt durable, so on a slow disk the daemon was still
 // waiting, and still handing the warning over, after the hook had given up and printed nothing
 // (promptReplyBudget).
-func (d *daemon) callObservePromptWithDeadline(ctx context.Context, ev *hookio.Event, ts core.UnixMilli, mayAct bool) hookio.Output {
+func (d *daemon) callObservePromptWithDeadline(ctx context.Context, ev *hookio.Event, ts core.UnixMilli, nonce string,
+	mayAct bool,
+) hookio.Output {
 	budget := d.promptReplyBudget(ts)
 	wait, cancel := context.WithTimeout(ctx, budget)
 	defer cancel()
@@ -645,8 +653,10 @@ func (d *daemon) callObservePromptWithDeadline(ctx context.Context, ev *hookio.E
 		// worker/replay's, under the leased observation identity, so a prompt no daemon captured
 		// live is still captured and a later live prompt cannot take a turn 0 the replay owed. The
 		// reply-only marker makes ObservePrompt drain the pending warning under the session lock and
-		// record nothing; the claim is how it learns whether this reply still goes out.
-		replyCtx := observer.WithPromptReplyClaim(observer.WithPromptReplyOnly(rec), handoff.claim)
+		// record nothing; the claim is how it learns whether this reply still goes out, and the nonce
+		// is what a later spooled copy of this prompt is matched by (settleSpooledPrompt).
+		replyCtx := observer.WithPromptReplyNonce(
+			observer.WithPromptReplyClaim(observer.WithPromptReplyOnly(rec), handoff.claim), nonce)
 		r.out, r.err = d.svc.ObservePrompt(replyCtx, e)
 	}) {
 		return hookio.Empty()
@@ -664,12 +674,10 @@ func (d *daemon) callObservePromptWithDeadline(ctx context.Context, ev *hookio.E
 	case <-wait.Done():
 		if !handoff.abandon() {
 			// The observer claimed this reply before the deadline and is handing its warning over
-			// now, with nothing left to wait on but the rendering: the reply carries it. Residual
-			// (w16d-warnlate, carried): a claim made just inside ts+promptReplyDeadline whose reply
-			// then reaches the hook after the hook's own give-up is spooled by the hook; no path
-			// that later handles the spooled copy delivers or re-arms a warning, so the rule stays
-			// warned though the host never saw the line. Closing it belongs to the drain path
-			// (re-arm when it settles a spooled prompt whose live reply carried a warning).
+			// now, with nothing left to wait on but the rendering: the reply carries it. A claim made
+			// just inside ts+promptReplyDeadline can still reach the hook after the hook's own
+			// give-up; the hook then spools the prompt, and the drain re-arms the warning when it
+			// settles that spooled copy (settleSpooledPrompt, V6 close-out w16f).
 			if r := <-ch; r.err == nil {
 				return r.out
 			}
@@ -680,6 +688,23 @@ func (d *daemon) callObservePromptWithDeadline(ctx context.Context, ev *hookio.E
 		}
 	}
 	return hookio.Empty()
+}
+
+// settleSpooledPrompt is the drain's report (DrainConfig.SpooledPromptSettled) that it has settled a
+// hook's client-spooled observe.prompt. A hook spools a reply request only when no reply reached it —
+// it could not send it, or its own wait ran out — so if the daemon answered that nonce live with a
+// warning, the host never saw the warning. The observer re-arms it (observer.SpooledReplyRearmer),
+// counted in observer.thrash_undelivered and logged at Info; a nonce whose live reply carried no
+// warning, or that was never answered live, changes nothing.
+//
+// The observer remembers the nonce when the reply's claim succeeds, and the claim is decided before
+// ts+promptReplyDeadline, which is no later than the hook's own give-up: so the warning is remembered
+// before the hook can have spooled the prompt, and before any drain can settle the copy.
+func (d *daemon) settleSpooledPrompt(req ipc.Request) {
+	if req.Op != ipc.OpObservePrompt || req.Nonce == "" || d.svc.PromptReplySpooled == nil {
+		return
+	}
+	d.svc.PromptReplySpooled(req.Session, req.Nonce)
 }
 
 // countPromptReplyLate counts one reply that went out empty because its deadline ran out.
