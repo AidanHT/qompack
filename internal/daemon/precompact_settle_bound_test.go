@@ -316,9 +316,11 @@ func TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound(t *testin
 // indexClientSpools runs on its own goroutine in the middle of the settle's first look (a read seam
 // starts it when the settle reads the one listed spool and waits for it to finish, so the overlap is
 // certain and no clock decides it), and reads a spool a hook wrote after the settle's listing. The
-// index reads two files in all; the settle read one, and counts one.
+// index reads two files in all; the settle read one, and counts one. The settle's bound is one no
+// co-loaded host can exhaust: with the default 500 ms the cold journal open and the listing could
+// end it before the look's read began (wave 16e), and the row counts reads, not time.
 func TestPreCompactSettle_CountsOnlyTheSpoolReadsOfItsOwnLooks(t *testing.T) {
-	dd, _, root := laneTestDaemon(t)
+	dd, root := settleTestDaemon(t, liveOrderBound)
 	dd.drain.Store(newDrainer(dd.drainConfig()))
 	const other core.SessionID = "sess-precompact-reads-other"
 	const listed, written = "client-7272.ndjson", "client-7373.ndjson"
@@ -353,20 +355,25 @@ func TestPreCompactSettle_CountsOnlyTheSpoolReadsOfItsOwnLooks(t *testing.T) {
 // The daemon's own removal drops the index entry, so the settle reads the recreated file again and
 // names the capture it holds. Served from the released file's heads, the settle found only a
 // published Read and sealed with nothing named: the capture was silently missing from the report.
+// The row, not the clock, ends the settle (settleCut), once the recreated spool's Read is in its
+// replay: the bound is one no co-loaded host can exhaust, so the look's read of the recreated spool is
+// never the cut, as it could be with the default 500 ms (wave 16e).
 func TestPreCompactSettle_ReadsASpoolTheDrainReleasedAndAHookRecreated(t *testing.T) {
-	dd, _, root := laneTestDaemon(t)
+	dd, root := settleTestDaemon(t, liveOrderBound)
 	ctx := context.Background()
+	settle, cut := settleCut(t)
 	const sess core.SessionID = "sess-precompact-recreated"
 	const base = "client-7474.ndjson"
 	first := liveOrderTool(dd, root, sess, 1)
 	second := liveOrderTool(dd, root, sess, 2) // the same length as first: the reused pid's next Read
 	cfg := dd.drainConfig()
-	cfg.Dispatch = func(ctx context.Context, req ipc.Request) ipc.Response {
+	cfg.Dispatch = func(lctx context.Context, req ipc.Request) ipc.Response {
 		if req.Nonce == second.Nonce {
-			<-ctx.Done() // the disk that never finishes inside the bound
-			return ipc.Response{Err: ctx.Err().Error()}
+			cut()         // the bound ends while the recreated spool's Read is in its replay
+			<-lctx.Done() // the disk that never finishes inside the bound
+			return ipc.Response{Err: lctx.Err().Error()}
 		}
-		return dd.drainDispatch(ctx, req)
+		return dd.drainDispatch(lctx, req)
 	}
 	dd.drain.Store(newDrainer(cfg))
 	liveOrderWorkers(t, dd, 2, dd.runIngested)
@@ -394,7 +401,7 @@ func TestPreCompactSettle_ReadsASpoolTheDrainReleasedAndAHookRecreated(t *testin
 	probe := bindSealProbe(dd, second.Nonce)
 	pre := checkpointRequest(dd, sess, "nonce-precompact-recreated")
 	pre.TS = second.TS + 1
-	require.True(t, dd.dispatchOp(ctx, pre).OK)
+	require.True(t, dd.dispatchOp(settle, pre).OK)
 
 	require.Equal(t, int64(1), settleSpoolReads(dd), "the settle reads the recreated spool again")
 	require.False(t, probe.published[second.Nonce], "fixture sanity: its replay could not finish in the bound")
