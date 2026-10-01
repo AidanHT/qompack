@@ -57,6 +57,27 @@ func TestDoctor_SpoolSubmodeIsInformational(t *testing.T) {
 		require.Contains(t, row["detail"], "no daemon is serving")
 	})
 
+	// Sync submode with a daemon serving keeps its degraded verdict (a client spool that stays while a
+	// daemon serves is the one sign that the replay is not keeping up), but the detail names the
+	// slow-disk cause, that nothing is lost, and what to look for.
+	t.Run("sync submode with a daemon serving says why", func(t *testing.T) {
+		p := seedFsckProject(t)
+		stop := bootstrapDaemon(t, p.Root)
+		defer stop()
+		writeClientSpool(t, p.Root)
+
+		_, doc, errw := doctorJSON(t, p.Root)
+		row := doctorFindRow(t, doc, "recording", "spool.pending")
+		require.Equal(t, doctorDegraded, row["status"], "stderr=%s", errw)
+		detail, _ := row["detail"].(string)
+		for _, want := range []string{"ACK deadline", "nothing is lost", "not keeping up"} {
+			require.Contains(t, detail, want)
+		}
+		for _, key := range obs.SpoolSubmodeKeys {
+			require.Contains(t, detail, key)
+		}
+	})
+
 	t.Run("sync submode keeps the old verdict", func(t *testing.T) {
 		p := seedFsckProject(t)
 		writeClientSpool(t, p.Root)
