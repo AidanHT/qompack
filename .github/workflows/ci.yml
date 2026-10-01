@@ -84,13 +84,20 @@ jobs:
     # runner OS. Go's timeout is per test binary, so a job that wedges outside one — a hung child
     # process, a stalled runner — would sit until GitHub's 360-minute platform default.
     #
-    # 75 leaves each of stubskips' two sequential passes its whole 30-minute budget plus checkout,
-    # toolchain setup and the other sub-checks (about 10 minutes together). It was 45 for one pass.
-    # Inside that one pass test/e2e's binary was killed at its 30 minutes on windows-latest (run
-    # 36816905394), and the job reported a tree it had only partly inspected; alone the package
-    # takes about 20 minutes there (that run's test-e2e job, 1188 s). No per-binary -timeout moved:
-    # a hung test is still killed at 30 minutes and still reported, and this bound still catches a
-    # wedge outside a binary.
+    # 75, from run 36816905394's job 110223848264 (it was 45 for one pass). -timeout bounds each
+    # test binary, not each pass: a pass runs several binaries at once and can outlast 30 minutes.
+    # Measured there: checkout and setup about 1 minute (04:49:41 to 04:50:30); the sub-checks before
+    # stubskips about 4 (to 04:54:26); then ONE whole-tree pass of 38 minutes (to 05:32:33), whose
+    # length was test/e2e's binary starting about 8 minutes in and being killed at its 30, so the
+    # tree was only partly inspected. Split, the first pass is the tree without test/e2e: not yet
+    # measured alone, bounded above by those 38 minutes (every other binary finished inside them,
+    # with test/e2e loading the runner) and plausibly 25 to 35. The second is test/e2e alone: about
+    # 20 minutes (that run's test-e2e job, 1188 s), killed at 30 if it hangs. Expected 1 + 4 + 30 +
+    # 20, about 55; worst case 1 + 4 + 38 + 30 = 73, a thin 2-minute margin, so stubskips now prints
+    # each pass's start and duration and the next run measures the first pass directly. No
+    # per-binary -timeout moved: a hung test is still killed at 30 minutes and still reported, and
+    # this bound still catches a wedge outside a binary. The owner sets the value (wave 16 ci seat,
+    # needs_owner).
     timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4

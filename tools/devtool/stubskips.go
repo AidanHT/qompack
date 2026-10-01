@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 )
 
 // The three, and only three, permitted t.Skip reasons anywhere in the tree.
@@ -222,9 +223,14 @@ func runStubSkips() error {
 	// a binary killed at the wall part-way through — are caught explicitly below, because in both
 	// of them a missing skip event carries no information and silence would read as compliance.
 	var events []testEvent
-	for _, pass := range isolatedPasses(pkgs) {
+	for i, pass := range isolatedPasses(pkgs) {
 		args := append([]string{"test", "-json", "-timeout=" + wholeTreeTestTimeout}, pass...)
+		// Each pass is timed in the log, so a job that runs up against its timeout-minutes
+		// backstop says which pass spent the time (ci.yml, lint-windows).
+		began := time.Now()
+		fmt.Printf("stubskips: pass %d: %d package(s), starting %s\n", i+1, len(pass), began.UTC().Format(time.RFC3339))
 		stdout, stderr, runErr := runCapture(nil, "go", args...)
+		fmt.Printf("stubskips: pass %d: finished in %s\n", i+1, time.Since(began).Round(time.Second))
 		passEvents, err := parseTestEvents(stdout)
 		if err != nil {
 			return fmt.Errorf("stubskips: parsing `go test -json` output: %w", err)
