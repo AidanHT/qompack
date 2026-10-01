@@ -11,6 +11,8 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/qompack/qompack/internal/pluginmanifest"
 )
 
 // The marketplace is how a user adds Qompack from its public repository (C7.5): one
@@ -242,7 +244,7 @@ func buildMarketplace(tag, repo string, sums map[string]string) (marketplaceDoc,
 	doc := marketplaceDoc{
 		Name:  marketplaceName,
 		Owner: marketplaceOwner{Name: "Qompack", URL: homepage},
-		Description: "Qompack: cache-aware, retrieval-backed context compaction for Claude Code. " +
+		Description: pluginmanifest.Description + " " +
 			"Each entry is one release target; install exactly one, the entry for your OS and CPU.",
 	}
 	want := map[string]bool{}

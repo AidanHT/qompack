@@ -160,6 +160,10 @@ func TestGoreleaserBuildsNothingAndDraftsTheRelease(t *testing.T) {
 		"dist/bundle/*.zip",
 		"dist/bundle/checksums.txt",
 		"dist/bundle/marketplace.json",
+		// Audit F4 (V6 close-out D53(e)): every zip carries LICENSE and THIRD_PARTY_NOTICES.md
+		// (devtool bundle), and the release page offers both beside them.
+		"glob: LICENSE",
+		"glob: THIRD_PARTY_NOTICES.md",
 	} {
 		require.Contains(t, release, glob,
 			"release.extra_files must name %s: the archives devtool assembled are the artifacts, and "+

@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// marketplace.yml (C7.5) runs once, when a person publishes a release, and it has no second chance
+// marketplace.yml (C7.5) runs once per full release, and it has no second chance
 // that does not involve a person reading a failed run. Two properties decide whether it works:
 //
 //   - It must regenerate the marketplace with the RELEASE'S generator. The uploaded marketplace.json
@@ -91,4 +91,48 @@ func TestMarketplaceWorkflowReRunsCleanly(t *testing.T) {
 		"a re-run must look for the pull request its first run opened (gh pr list --head) before "+
 			"creating one; gh refuses a second pull request for the same head")
 	require.Less(t, list, create, "the existing-PR check must come before gh pr create")
+}
+
+// marketplaceTypesRE is the `types:` list of the release trigger, in flow ([a, b]) spelling.
+var marketplaceTypesRE = regexp.MustCompile(`(?m)^\s+types:\s*\[([^\]]*)\]\s*$`)
+
+// marketplacePrereleaseGuardRE is the pin job's refusal to run for a pre-release.
+var marketplacePrereleaseGuardRE = regexp.MustCompile(`(?m)^\s+if:.*!github\.event\.release\.prerelease\b`)
+
+// TestMarketplaceWorkflowRunsOnceForAFullRelease pins the trigger (audit F2, V6 close-out D53(e)).
+//
+// GitHub's release activity types: `published` fires when a release or a PRE-RELEASE is published;
+// `prereleased` when a pre-release is; `released` when a release is published OR a pre-release is
+// changed to a release. The workflow listened to `published` alone and skipped pre-releases, so
+// the documented route — publish as a pre-release, rehearse, then promote — fired `published` once
+// for the pre-release (skipped) and never again: the promotion fires only `released`, and no
+// marketplace pull request was ever opened. `released` alone is exactly once for a full release by
+// either route. Listing `published` beside it would run the job twice for a release published
+// directly, and the pre-release guard stays as a second line in case the trigger list ever grows.
+func TestMarketplaceWorkflowRunsOnceForAFullRelease(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(repoRoot(t), ".github", "workflows", "marketplace.yml")
+	live := liveYAMLText(t, path)
+
+	on := yamlSection(live, "on")
+	require.Contains(t, on, "release:", "marketplace.yml must be triggered by release events")
+	for _, other := range []string{"push:", "pull_request:", "schedule:", "workflow_run:"} {
+		require.NotContains(t, on, other, "marketplace.yml must run only for a release, not on %s", other)
+	}
+	m := marketplaceTypesRE.FindAllStringSubmatch(on, -1)
+	require.Len(t, m, 1, "marketplace.yml's release trigger must list its activity types exactly once")
+	var types []string
+	for _, ty := range strings.Split(m[0][1], ",") {
+		if ty = strings.Trim(strings.TrimSpace(ty), `'"`); ty != "" {
+			types = append(types, ty)
+		}
+	}
+	require.Equal(t, []string{"released"}, types,
+		"only `released` fires both for a release published directly and for a pre-release promoted "+
+			"to a release, and never for a pre-release; `published` misses the promotion and, beside "+
+			"`released`, runs the job twice")
+
+	require.Regexp(t, marketplacePrereleaseGuardRE, live,
+		"the pin job must still refuse a pre-release (`!github.event.release.prerelease`)")
 }

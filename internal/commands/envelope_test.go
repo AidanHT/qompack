@@ -52,7 +52,8 @@ func TestSpecs_PinInstalledSurface(t *testing.T) {
 		},
 		{
 			Name: "pin", Subcommand: "pin", ArgumentHint: "<text>",
-			Summary: "Pin an invariant so it is never summarized away",
+			Summary: "Pin an invariant to re-inject first after each compaction, within the 9,500-character cap; " +
+				"the host's summary can still drop it",
 		},
 		{
 			Name: "why", Subcommand: "why", ArgumentHint: "<decision-id>",

@@ -1,0 +1,17 @@
+# Bundle reproducibility with LICENSE and THIRD_PARTY_NOTICES.md (w16-relhyg, D53(e), audit F4)
+# commit 6f1e4a5e (clean tree: BUNDLE.json source.dirty=false), Windows host, go version go1.26.6 windows/amd64
+# command, run twice into separate directories a and b:
+#   go run ./tools/devtool bundle --archive --version 0.0.0-relhyg --target windows/amd64 --target linux/amd64 --out <scratch>/repro-{a,b}
+# result: diff -r repro-a repro-b -> no difference (trees and zips byte-identical)
+## sha256 run a
+a0e1795c7644a6684b90ef6307684a896dfa8075210aec14ab476285f37ed2a4 *qompack-plugin-0.0.0-relhyg-linux-amd64.zip
+776ab49069b75411f52d0670fd720f175315a41a4cd234cb243c0e7ec8c93d95 *qompack-plugin-0.0.0-relhyg-windows-amd64.zip
+20c0518003a07d3802dd373ff977fe27413905b409e7af3d14e2af7921196ed7 *checksums.txt
+## sha256 run b
+a0e1795c7644a6684b90ef6307684a896dfa8075210aec14ab476285f37ed2a4 *qompack-plugin-0.0.0-relhyg-linux-amd64.zip
+776ab49069b75411f52d0670fd720f175315a41a4cd234cb243c0e7ec8c93d95 *qompack-plugin-0.0.0-relhyg-windows-amd64.zip
+20c0518003a07d3802dd373ff977fe27413905b409e7af3d14e2af7921196ed7 *checksums.txt
+## zip members (both targets)
+qompack-plugin-0.0.0-relhyg-windows-amd64.zip: .claude-plugin/plugin.json .mcp.json BUNDLE.json LICENSE THIRD_PARTY_NOTICES.md bin/qompack.exe checksums.txt commands/dropped.md commands/eval.md commands/pin.md commands/recall.md commands/status.md commands/why.md hooks/hooks.json
+qompack-plugin-0.0.0-relhyg-linux-amd64.zip: .claude-plugin/plugin.json .mcp.json BUNDLE.json LICENSE THIRD_PARTY_NOTICES.md bin/qompack checksums.txt commands/dropped.md commands/eval.md commands/pin.md commands/recall.md commands/status.md commands/why.md hooks/hooks.json
+## LICENSE and THIRD_PARTY_NOTICES.md in the linux bundle: cmp against the repository copies -> equal
