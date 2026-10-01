@@ -33,8 +33,9 @@ import (
 // So before it seals, the route settles the session the way a session end does (settleSession,
 // C1.13): it waits for the session's ingest lane to publish every arrival leased before the
 // PreCompact, replays the client spools that hold this session's captures (only those: another
-// session's backlog, older in host order, must not spend this session's bound), and waits for the
-// lane once more for the successors the replay unparked. All of it, the looks at the spool included,
+// session's backlog, older in host order, must not spend this session's bound), waits for the lane
+// once more for the successors the replay unparked and for a live delivery still publishing, and
+// replays again while that can advance (replayOwnSpools). All of it, the looks at the spool included,
 // runs inside the bound below (settleBeforeSeal), and a capture still unpublished when the bound
 // expires is counted in the checkpoint's drop report (checkpoint.DropKindUnreplayedCapture), the
 // newest tool results among them named by tool_use_id (DropKindUnreplayedToolResult) within their
@@ -199,8 +200,9 @@ func captureOf(req ipc.Request) pendingCapture {
 // with the spool runs against it:
 //   - the first look at the client spools (scanClientSpools): a listing, and a read of each file the
 //     spool index does not hold at its listed size and time, each started only before the deadline;
-//   - the waits for the session's lane and the replay of the files holding its captures, which run to
-//     the same deadline: no time is held back for the last look, so a first look slowed by other
+//   - the waits for the session's lane and the replays of the files holding its captures, with the
+//     looks at those files between replays (replayOwnSpools), which run to the same deadline: no
+//     time is held back for the last look, so a first look slowed by other
 //     sessions' cold spools leaves the replay whatever it did not use;
 //   - the last look, which keeps the first look's result and reads again only the files that look
 //     named and the ones listed since it (or left unread by it), again only before the deadline. Most
@@ -245,13 +247,7 @@ func (d *daemon) settleBeforeSeal(ctx context.Context, sess core.SessionID, at c
 	d.awaitArrivals(sctx, sess, upTo)
 	if len(own) > 0 && sctx.Err() == nil {
 		if dr := d.drain.Load(); dr != nil {
-			// A replay is capture work, as every drain is (D51).
-			d.capture.enter()
-			_, err := dr.DrainClientSpoolsWithin(sctx, own)
-			d.capture.leave()
-			if err != nil && sctx.Err() == nil {
-				d.log.Debug("daemon: PreCompact: the client-spool replay before the seal ended early", "err", err)
-			}
+			reads += d.replayOwnSpools(sctx, dr, sess, at, own)
 		}
 		d.awaitArrivals(sctx, sess, upTo)
 	}
@@ -271,6 +267,76 @@ func (d *daemon) settleBeforeSeal(ctx context.Context, sess core.SessionID, at c
 		"the checkpoint's drop report counts them, and the daemon replays them next",
 		"session", string(sess), "captures", len(left), "unread_spools", len(last.unread), "bound", bound.String())
 	return &sealReport{left: left, unread: len(last.unread), allowance: unreplayedNamesAllowance(cfg)}
+}
+
+// replayOwnSpools replays own, the client spools holding sess's captures, within ctx, and replays
+// them again while that can advance. It returns how many client spool files its looks read.
+//
+// One replay is not always enough (w16d-sealrow). A hook whose ACK deadline lapsed spools a copy of a
+// delivery the daemon may still be taking: leased only after the settle looked at the session's leases
+// (leasedUpTo), and publishing when the replay meets its copy. The replay leaves the copy to the live
+// publication, and the session's later captures to the ordering gate behind it, so it can publish
+// nothing with nearly all of the bound left. So after a replay the settle looks at own again (from the
+// spool index, unless a hook appended) and, while a capture of sess is left there, waits for the lane
+// to publish every arrival of sess up to the earliest capture left, that one included (the live
+// delivery a copy stands for), and replays again once every predecessor of that capture is
+// acknowledged. Anything else ends the loop: no capture left, a file the look could not read, a
+// capture the replay did not lease, a replay that ended early, a predecessor still unpublished when
+// the lane went quiet, or a replay that published nothing while held at the same capture as the one
+// before, so the loop never spins on a line only a later pass can take.
+func (d *daemon) replayOwnSpools(ctx context.Context, dr *drainer, sess core.SessionID, at core.UnixMilli,
+	own map[string]bool,
+) (reads int64) {
+	var held uint64 // the earliest capture left by the last replay that published nothing
+	for ctx.Err() == nil {
+		// A replay is capture work, as every drain is (D51).
+		d.capture.enter()
+		n, err := dr.DrainClientSpoolsWithin(ctx, own)
+		d.capture.leave()
+		if err != nil || ctx.Err() != nil {
+			if err != nil && ctx.Err() == nil {
+				d.log.Debug("daemon: PreCompact: the client-spool replay before the seal ended early", "err", err)
+			}
+			return reads
+		}
+		rest := d.scanClientSpools(ctx, sess, at, func(base string) bool { return own[base] })
+		reads += rest.reads
+		if len(rest.caps) == 0 || len(rest.unread) > 0 {
+			return reads
+		}
+		earliest, ok := d.earliestLeasedArrival(rest.caps)
+		if !ok || (n == 0 && earliest == held) {
+			return reads
+		}
+		if n == 0 {
+			held = earliest
+		}
+		d.awaitArrivals(ctx, sess, earliest+1)
+		if delivered, _ := d.sessionDelivered(sess, earliest); !delivered {
+			return reads
+		}
+	}
+	return reads
+}
+
+// earliestLeasedArrival is the lowest arrival among caps' leases. ok is false when one of them holds
+// no lease the journal can read.
+func (d *daemon) earliestLeasedArrival(caps []pendingCapture) (uint64, bool) {
+	j, err := d.deliveryJournal()
+	if err != nil || j == nil {
+		return 0, false
+	}
+	var earliest uint64
+	for _, c := range caps {
+		l, held, err := j.leaseHeld(c.nonce)
+		if err != nil || !held {
+			return 0, false
+		}
+		if earliest == 0 || l.ArrivalSeq < earliest {
+			earliest = l.ArrivalSeq
+		}
+	}
+	return earliest, earliest > 0
 }
 
 // leasedUpTo is one past sess's newest leased arrival, 0 when the journal cannot say.
