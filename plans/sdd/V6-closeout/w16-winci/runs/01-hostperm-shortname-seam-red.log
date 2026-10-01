@@ -1,0 +1,63 @@
+=== RUN   TestShortNames_EverySpellingOfTheServedFileIsJudged
+=== RUN   TestShortNames_EverySpellingOfTheServedFileIsJudged/mixed_absolute_rule,_short_root,_long_file
+    shortname_seam_windows_test.go:119: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16-winci/internal/hostperm/shortname_seam_windows_test.go:119
+        	Error:      	Not equal: 
+        	            	expected: 2
+        	            	actual  : 0
+        	Test:       	TestShortNames_EverySpellingOfTheServedFileIsJudged/mixed_absolute_rule,_short_root,_long_file
+        	Messages:   	"C:\\Users\\Quant\\AppData\\Local\\Temp\\TestShortNames_EverySpellingOfTheServedFileIsJudged3689499176\\004\\PARENT~1\\PROJEC~1\\configuration\\credentials.secret" under "Read(//c/Users/Quant/AppData/Local/Temp/TestShortNames_EverySpellingOfTheServedFileIsJudged3689499176/004/PARENT~1/projectroot/configuration/credentials.secret)" opens the denied file
+=== RUN   TestShortNames_EverySpellingOfTheServedFileIsJudged/mixed_absolute_rule,_long_path
+    shortname_seam_windows_test.go:119: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16-winci/internal/hostperm/shortname_seam_windows_test.go:119
+        	Error:      	Not equal: 
+        	            	expected: 2
+        	            	actual  : 0
+        	Test:       	TestShortNames_EverySpellingOfTheServedFileIsJudged/mixed_absolute_rule,_long_path
+        	Messages:   	"C:\\Users\\Quant\\AppData\\Local\\Temp\\TestShortNames_EverySpellingOfTheServedFileIsJudged3689499176\\004\\parentdirectory\\projectroot\\configuration\\credentials.secret" under "Read(//c/Users/Quant/AppData/Local/Temp/TestShortNames_EverySpellingOfTheServedFileIsJudged3689499176/004/PARENT~1/projectroot/configuration/credentials.secret)" opens the denied file
+=== RUN   TestShortNames_EverySpellingOfTheServedFileIsJudged/mixed_absolute_rule,_short_path
+    shortname_seam_windows_test.go:119: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16-winci/internal/hostperm/shortname_seam_windows_test.go:119
+        	Error:      	Not equal: 
+        	            	expected: 2
+        	            	actual  : 0
+        	Test:       	TestShortNames_EverySpellingOfTheServedFileIsJudged/mixed_absolute_rule,_short_path
+        	Messages:   	"C:\\Users\\Quant\\AppData\\Local\\Temp\\TestShortNames_EverySpellingOfTheServedFileIsJudged3689499176\\004\\PARENT~1\\PROJEC~1\\CONFIG~1\\CREDEN~1.SEC" under "Read(//c/Users/Quant/AppData/Local/Temp/TestShortNames_EverySpellingOfTheServedFileIsJudged3689499176/004/PARENT~1/projectroot/configuration/credentials.secret)" opens the denied file
+=== RUN   TestShortNames_EverySpellingOfTheServedFileIsJudged/long_absolute_rule,_short_path
+=== RUN   TestShortNames_EverySpellingOfTheServedFileIsJudged/relative_rule,_long_path
+=== RUN   TestShortNames_EverySpellingOfTheServedFileIsJudged/short_relative_rule,_long_path
+    shortname_seam_windows_test.go:119: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16-winci/internal/hostperm/shortname_seam_windows_test.go:119
+        	Error:      	Not equal: 
+        	            	expected: 2
+        	            	actual  : 0
+        	Test:       	TestShortNames_EverySpellingOfTheServedFileIsJudged/short_relative_rule,_long_path
+        	Messages:   	"C:\\Users\\Quant\\AppData\\Local\\Temp\\TestShortNames_EverySpellingOfTheServedFileIsJudged3689499176\\004\\parentdirectory\\projectroot\\configuration\\credentials.secret" under "Read(./CONFIG~1/CREDEN~1.SEC)" opens the denied file
+=== RUN   TestShortNames_EverySpellingOfTheServedFileIsJudged/short_directory_glob,_long_path
+    shortname_seam_windows_test.go:119: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16-winci/internal/hostperm/shortname_seam_windows_test.go:119
+        	Error:      	Not equal: 
+        	            	expected: 2
+        	            	actual  : 0
+        	Test:       	TestShortNames_EverySpellingOfTheServedFileIsJudged/short_directory_glob,_long_path
+        	Messages:   	"C:\\Users\\Quant\\AppData\\Local\\Temp\\TestShortNames_EverySpellingOfTheServedFileIsJudged3689499176\\004\\parentdirectory\\projectroot\\configuration\\credentials.secret" under "Read(//c/Users/Quant/AppData/Local/Temp/TestShortNames_EverySpellingOfTheServedFileIsJudged3689499176/004/PARENT~1/PROJEC~1/CONFIG~1/**)" opens the denied file
+--- FAIL: TestShortNames_EverySpellingOfTheServedFileIsJudged (0.05s)
+    --- FAIL: TestShortNames_EverySpellingOfTheServedFileIsJudged/mixed_absolute_rule,_short_root,_long_file (0.01s)
+    --- FAIL: TestShortNames_EverySpellingOfTheServedFileIsJudged/mixed_absolute_rule,_long_path (0.00s)
+    --- FAIL: TestShortNames_EverySpellingOfTheServedFileIsJudged/mixed_absolute_rule,_short_path (0.00s)
+    --- PASS: TestShortNames_EverySpellingOfTheServedFileIsJudged/long_absolute_rule,_short_path (0.02s)
+    --- PASS: TestShortNames_EverySpellingOfTheServedFileIsJudged/relative_rule,_long_path (0.00s)
+    --- FAIL: TestShortNames_EverySpellingOfTheServedFileIsJudged/short_relative_rule,_long_path (0.00s)
+    --- FAIL: TestShortNames_EverySpellingOfTheServedFileIsJudged/short_directory_glob,_long_path (0.01s)
+=== RUN   TestShortNames_AnUnresolvableShortNameIsRefused
+    shortname_seam_windows_test.go:145: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16-winci/internal/hostperm/shortname_seam_windows_test.go:145
+        	Error:      	Not equal: 
+        	            	expected: 2
+        	            	actual  : 0
+        	Test:       	TestShortNames_AnUnresolvableShortNameIsRefused
+        	Messages:   	the short name of a deleted file cannot be expanded
+--- FAIL: TestShortNames_AnUnresolvableShortNameIsRefused (0.01s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/hostperm	1.158s
+FAIL

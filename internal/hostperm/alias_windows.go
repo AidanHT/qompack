@@ -4,6 +4,7 @@ package hostperm
 
 import (
 	"path/filepath"
+	"regexp"
 	"strings"
 	"syscall"
 
@@ -21,19 +22,29 @@ import (
 // normalization is used rather than a re-implementation of its rules: GetFullPathNameW is the
 // function the Win32 file APIs apply, and GetLongPathNameW reads each name from the directory.
 //
-// Only the directories that exist can be expanded, so a deleted file's own short name stays
-// short; its surviving parents are still expanded.
-func osAlias(p string) string {
+// Only the entries that exist can be expanded, so a deleted file's own short name stays short; its
+// surviving parents are still expanded. unresolved reports that such a kept segment has the shape
+// of an 8.3 name (shortShaped): its long name, which a rule may name, cannot be established, and
+// Evaluate refuses the path rather than judge it on the short spelling alone.
+func osAlias(p string) (alias string, unresolved bool) {
 	full, err := syscall.FullPath(p)
 	if err != nil {
 		full = p
 	}
-	full = longName(stripStreams(filepath.Clean(full)))
+	full, unresolved = longName(stripStreams(filepath.Clean(full)))
 	if full == p {
-		return ""
+		return "", unresolved
 	}
-	return full
+	return full, unresolved
 }
+
+// shortNameRe matches a segment that may be a generated 8.3 name: a tilde followed by a digit, as
+// in CREDEN~1.SEC or the hashed form 5B2E~1. A long name may contain the same characters; such a
+// name is only ever refused when it does not exist, see osAlias.
+var shortNameRe = regexp.MustCompile(`~[0-9]`)
+
+// shortShaped reports whether the segment seg may be an 8.3 name.
+func shortShaped(seg string) bool { return shortNameRe.MatchString(seg) }
 
 // stripStreams cuts every segment below the volume at its first colon. A colon cannot be part of a
 // Windows file name; after the volume it only ever introduces a stream of the file named before it.
@@ -53,20 +64,28 @@ func stripStreams(p string) string {
 }
 
 // longName expands the 8.3 names of p's longest existing prefix and keeps the rest as written.
-func longName(p string) string {
+// unresolved reports whether a kept segment is shortShaped.
+func longName(p string) (string, bool) {
 	if l, ok := getLongPathName(p); ok {
-		return l
+		return l, false
 	}
 	dir := filepath.Dir(p)
 	if dir == p {
-		return p
+		return p, false
 	}
-	return filepath.Join(longName(dir), filepath.Base(p))
+	parent, unresolved := longName(dir)
+	base := filepath.Base(p)
+	return filepath.Join(parent, base), unresolved || shortShaped(base)
 }
 
 // getLongPathName is GetLongPathNameW for p, which fails when any component of p does not exist.
-// Long paths go through their \\?\ form, and the answer is returned without it.
-func getLongPathName(p string) (string, bool) {
+// It is a variable so that a test can stand in for a volume that records 8.3 names: whether a
+// volume records them is a system setting, which a test may not change (shortname_seam test).
+var getLongPathName = win32LongPathName
+
+// win32LongPathName is GetLongPathNameW. Long paths go through their \\?\ form, and the answer is
+// returned without it.
+func win32LongPathName(p string) (string, bool) {
 	in := paths.Long(p)
 	u, err := syscall.UTF16PtrFromString(in)
 	if err != nil {

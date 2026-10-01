@@ -253,11 +253,18 @@ func (rs *RuleSet) Empty() bool {
 // The path itself is treated as possibly being a directory, so a directory-only rule (`secrets/`)
 // also matches a plain file of that name — a refusal the host might not make, taken because an
 // archived path's kind at capture time is not recorded.
+//
+// A path with an 8.3-shaped segment that names nothing on disk (a deleted file's short name) has
+// no long name to judge, and a rule on that long name would be walked past, so with any rule in
+// force it is refused outright (Rule unresolvedShortName), as unreadable settings are.
 func (rs *RuleSet) Evaluate(abs string) Decision {
 	if rs.Empty() || abs == "" {
 		return Decision{Effect: Allow}
 	}
-	cands := spellings(abs, rs.goos, rs.fold, rs.resolve, nil)
+	cands, unresolved := spellings(abs, rs.goos, rs.fold, rs.resolve, nil)
+	if unresolved {
+		return Decision{Effect: Deny, Rule: unresolvedShortName}
+	}
 	var sc scratch
 	for _, l := range rs.deny {
 		if rule, ok := l.match(cands, &sc); ok {
@@ -275,14 +282,15 @@ func (rs *RuleSet) Evaluate(abs string) Decision {
 // spellings returns every distinct spelling of the absolute path p as POSIX segments: p itself
 // and, when onDisk is set, the name the operating system opens for it and where each of those
 // resolves through links. onDisk is false only when a test evaluates another platform's paths.
-// memo may be nil; see linkMemo.
-func spellings(p, goos string, fold, onDisk bool, memo linkMemo) [][]string {
-	out := [][]string{posixSegments(p, goos, fold)}
+// memo may be nil; see linkMemo. unresolved is osAlias's: p holds an 8.3 name it cannot expand.
+func spellings(p, goos string, fold, onDisk bool, memo linkMemo) (out [][]string, unresolved bool) {
+	out = [][]string{posixSegments(p, goos, fold)}
 	if !onDisk {
-		return out
+		return out, false
 	}
 	names := []string{p}
-	if a := osAlias(p); a != "" {
+	a, unresolved := osAlias(p)
+	if a != "" {
 		var added bool
 		if out, added = appendDistinct(out, posixSegments(a, goos, fold)); added {
 			names = append(names, a)
@@ -293,8 +301,12 @@ func spellings(p, goos string, fold, onDisk bool, memo linkMemo) [][]string {
 			out, _ = appendDistinct(out, posixSegments(r, goos, fold))
 		}
 	}
-	return out
+	return out, unresolved
 }
+
+// unresolvedShortName is the Decision.Rule of Evaluate's refusal of an 8.3 name it cannot expand.
+// Like every Rule it is for local diagnostics only.
+const unresolvedShortName = "(an 8.3 name that names nothing on disk, so its long name is unknown)"
 
 // appendDistinct appends segs unless an identical list is already present.
 func appendDistinct(all [][]string, segs []string) ([][]string, bool) {
@@ -418,6 +430,9 @@ func (p *Policy) newRuleSet(lists []ruleList) *RuleSet {
 			if !pt.neg && pt.kind != anchorCwd {
 				aliases = append(aliases, p.throughLinks(pt, memo)...)
 			}
+			if !pt.neg {
+				aliases = append(aliases, p.longNameAliases(pt, memo)...)
+			}
 		}
 		l.patterns = append(l.patterns, aliases...)
 		l.cwdAnchors = cwd
@@ -446,7 +461,75 @@ func (p *Policy) anchorVariants(dir string, memo linkMemo) [][]string {
 	if dir == "" {
 		return nil
 	}
-	return spellings(dir, p.goos, p.fold, p.goos == runtime.GOOS, memo)
+	out, _ := spellings(dir, p.goos, p.fold, p.goos == runtime.GOOS, memo)
+	return out
+}
+
+// concretePrefix counts pt's leading segments that name a concrete directory or file: the walk
+// stops at the first segment that is a glob, which is as far as a rule names a concrete path.
+func concretePrefix(pt *pattern) int {
+	prefix := 0
+	for prefix < len(pt.segs) && !strings.ContainsAny(pt.segs[prefix], `*?[\`) {
+		prefix++
+	}
+	return prefix
+}
+
+// longNameAliases returns the aliases of a rule whose concrete prefix is spelled through a name
+// Windows opens under another spelling: an 8.3 name (or a trailing dot, space or stream), which
+// osAlias expands to the real name. A path is judged by its own spelling and its real name
+// (spellings), so a rule spelled short, or mixing short and long segments as one under a short
+// TEMP (C:\Users\RUNNER~1\...) does, would match neither; the rule is applied at its real name too.
+// Every rule kind is aliased, since the alias only adds refusals; like compileAlias's, an alias is
+// never carvable. osAlias is asked only of a prefix that holds such a segment (spelledAsAlias), so
+// a rule set without one pays nothing. The real name of a `//`, `~/` or `/` rule is also walked
+// through links (memo), as throughLinks walks the rule as written.
+func (p *Policy) longNameAliases(pt *pattern, memo linkMemo) []*pattern {
+	if p.goos != runtime.GOOS || runtime.GOOS != "windows" || pt.literal {
+		return nil
+	}
+	prefix := concretePrefix(pt)
+	if prefix == 0 || !spelledAsAlias(pt.segs[:prefix]) {
+		return nil
+	}
+	var out []*pattern
+	for _, a := range pt.anchors {
+		lit := append(append([]string{}, a...), pt.segs[:prefix]...)
+		alias, _ := osAlias(nativePath(lit, p.goos))
+		if alias == "" {
+			continue
+		}
+		reals := []string{alias}
+		if pt.kind != anchorCwd {
+			if r, ok := resolveLinks(alias, memo); ok {
+				reals = append(reals, r)
+			}
+		}
+		seen := [][]string{lit}
+		for _, r := range reals {
+			rp := posixSegments(r, p.goos, p.fold)
+			var added bool
+			if seen, added = appendDistinct(seen, rp); !added {
+				continue
+			}
+			out = append(out, &pattern{
+				raw: pt.raw, kind: pt.kind, segs: append([]string{}, pt.segs[prefix:]...),
+				anchors: [][]string{rp},
+			})
+		}
+	}
+	return out
+}
+
+// spelledAsAlias reports whether any segment is one Windows may open under another spelling: an
+// 8.3-shaped name (a tilde), or one ending in a dot or a space, or holding a stream's colon.
+func spelledAsAlias(segs []string) bool {
+	for _, s := range segs {
+		if strings.ContainsAny(s, "~:") || strings.HasSuffix(s, ".") || strings.HasSuffix(s, " ") {
+			return true
+		}
+	}
+	return false
 }
 
 // throughLinks returns the aliases of an anchored rule written through a symlinked directory:
@@ -456,10 +539,7 @@ func (p *Policy) throughLinks(pt *pattern, memo linkMemo) []*pattern {
 	if p.goos != runtime.GOOS || pt.literal {
 		return nil
 	}
-	prefix := 0
-	for prefix < len(pt.segs) && !strings.ContainsAny(pt.segs[prefix], `*?[\`) {
-		prefix++
-	}
+	prefix := concretePrefix(pt)
 	if prefix == 0 {
 		return nil
 	}
