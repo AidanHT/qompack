@@ -117,6 +117,8 @@ func TestPreCompactSettle_ASpoolItCannotReadIsCountedNotTakenAsEmpty(t *testing.
 		Detail: fmt.Sprintf(unreplayedDetailFormat, 0, 0, 0, 0, 0) +
 			fmt.Sprintf(unreadSpoolsClauseFormat, 1),
 	}}, probe.drops, "the seal says a spool went unread rather than silently counting nothing")
+	require.Contains(t, probe.drops[0].Detail, "or failed to read",
+		"the clause says the file failed to read, not only that the bound ended first (wave 16f)")
 	require.Equal(t, int64(1), dd.m.Counter(counterPrecompactSettle).Value(),
 		"a settle that could not tell counts as one")
 

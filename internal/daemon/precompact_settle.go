@@ -48,6 +48,14 @@ import (
 // one listing of the spool directory, lookups in that index and two in the journal; it reads only
 // the client spools the index does not yet hold (a spool written since the watcher last passed, or
 // any when no watcher has run), each once, and only while the bound lasts.
+//
+// The settle's replay takes the drain's mutex within the bound (DrainClientSpoolsWithin), so a
+// client-spool watcher pass, which covers every session's spools under that mutex, would make it wait.
+// The PreCompact's own request therefore kicks the watcher only after the seal (noteServed,
+// handleCheckpoint): it cannot start a pass that holds the mutex against its own settle. A pass
+// already running for another reason (an earlier request's kick, the idle tick, a drain the lanes ask
+// for) is waited for, within the bound, and what the bound then leaves is named in the drop report
+// and replayed afterwards (D55): nothing is lost.
 
 // precompactSettleBound is how long the PreCompact route may spend settling the session before it
 // seals: B-E (runtime.budgets.checkpointFinalizeMs, the gated p99 for PreCompact entry to exit) less
@@ -117,16 +125,17 @@ const unreplayedDetailFormat = "%d capture(s) of this session (%d tool result(s)
 	"were slower than their budget); the newest %d tool result(s) are named by tool_use_id; nothing is lost: " +
 	"the daemon replays them, and recall or expand finds them then"
 
-// unreadSpoolsClauseFormat is added to the summary's detail when the settle's bound ended before it
-// had read every client spool it had to look at: those files were listed but not read, so the
-// summary cannot count this session's captures in them, if there are any.
-const unreadSpoolsClauseFormat = "; %d hook client spool file(s) could not be read within the bound, so this " +
-	"session's captures in them, if any, are not counted here"
+// unreadSpoolsClauseFormat is added to the summary's detail when the settle's looks left a client
+// spool they had to look at unread: the bound ended before they could read it, or reading it failed
+// (a sharing violation, an anti-virus lock, an I/O error; spool_heads.go). Those files were listed but
+// not read, so the summary cannot count this session's captures in them, if there are any.
+const unreadSpoolsClauseFormat = "; %d hook client spool file(s) could not be read within the bound or " +
+	"failed to read, so this session's captures in them, if any, are not counted here"
 
 // sealReport is what the settle hands the seal: the captures it left unreplayed, how many client
-// spools it could not read within its bound, and the names' share of the checkpoint's budget. The
-// seal prices the names with its own estimator (drops), the one its Truncate measures the document
-// with.
+// spools it could not read within its bound or failed to read, and the names' share of the
+// checkpoint's budget. The seal prices the names with its own estimator (drops), the one its Truncate
+// measures the document with.
 type sealReport struct {
 	left      []pendingCapture
 	unread    int
@@ -213,8 +222,8 @@ func captureOf(req ipc.Request) pendingCapture {
 //
 // What can run past the deadline is fixed work: a file read already under way, the spool listings,
 // the drain's progress file and the pricing of the names, which the seal does (namesWithin measures a
-// handful of candidate reports, whatever the backlog). A file a look could not read in time is
-// counted in the summary as not read.
+// handful of candidate reports, whatever the backlog). A file a look could not read in time, or
+// failed to read, is counted in the summary as not read.
 func (d *daemon) settleBeforeSeal(ctx context.Context, sess core.SessionID, at core.UnixMilli) *sealReport {
 	cfg := d.currentCfg()
 	bound := precompactSettleBound(cfg)
