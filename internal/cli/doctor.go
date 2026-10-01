@@ -902,7 +902,7 @@ func (s *doctorState) spoolRow() doctorRow {
 				"unknown rather than zero: " + s.l.Spool + ": " + err.Error(),
 		}
 	}
-	files, bytes := 0, int64(0)
+	files, wal, bytes := 0, 0, int64(0)
 	for _, e := range entries {
 		if e.IsDir() {
 			continue
@@ -912,6 +912,9 @@ func (s *doctorState) spoolRow() doctorRow {
 			continue
 		}
 		files++
+		if strings.HasPrefix(e.Name(), doctorWALSpoolPrefix) {
+			wal++
+		}
 		bytes += info.Size()
 	}
 	status := doctorOK
@@ -930,13 +933,11 @@ func (s *doctorState) spoolRow() doctorRow {
 					"starting one and nothing replays these files until a new session starts in this project"
 			}
 		} else if s.lockAlive {
-			// Sync submode with a daemon serving keeps its verdict: the watcher replays a client spool
+			// Sync submode with a daemon serving keeps its verdict: the daemon replays these files
 			// within seconds, so files that stay here are the one sign the replay is not keeping up.
-			// What the user reads names the ordinary cause first (D53(c)).
-			detail = "client spools the running daemon has not replayed yet. On a slow disk a hook that waits " +
-				"out its ACK deadline hands its capture to the spool and the daemon replays it within seconds, " +
-				"so nothing is lost; run doctor again, and if the files stay the replay is not keeping up. " +
-				"To tune it: " + obs.SpoolSubmodeTune
+			// What the user reads names the ordinary cause of each kind first (D53(c)), and does not
+			// call the daemon's own WAL segments client spools (D55, wave 16b).
+			detail = syncSpoolDetail(files-wal, wal)
 		}
 	}
 	return doctorRow{
@@ -944,6 +945,29 @@ func (s *doctorState) spoolRow() doctorRow {
 		Observed: fmt.Sprintf("%d file(s), %d byte(s)", files, bytes),
 		Detail:   detail,
 	}
+}
+
+// doctorWALSpoolPrefix names the daemon's own WAL segments in the spool directory (wal-<session>.ndjson,
+// internal/ipc SpoolFiles); every other file there is a hook client spool (client-<pid>.ndjson).
+const doctorWALSpoolPrefix = "wal-"
+
+// syncSpoolDetail is spool.pending's detail in sync submode with a daemon serving, for client hook
+// client spool files and wal daemon WAL segments. The two kinds have different causes and are replayed by
+// different parts of the daemon, so each is counted and explained on its own.
+func syncSpoolDetail(client, wal int) string {
+	var parts []string
+	if client > 0 {
+		parts = append(parts, fmt.Sprintf("%d hook client spool(s) the running daemon has not replayed yet: on a "+
+			"slow disk a hook that waits out its ACK deadline hands its capture to its client spool, and the "+
+			"daemon's client-spool watcher replays it within seconds", client))
+	}
+	if wal > 0 {
+		parts = append(parts, fmt.Sprintf("%d daemon WAL segment(s) the running daemon has not finished "+
+			"publishing: captures it accepted and logged before publishing them, which its worker pool and "+
+			"drains replay", wal))
+	}
+	return strings.Join(parts, "; ") + "; either way nothing is lost: run doctor again, and if the files stay " +
+		"the replay is not keeping up. To tune it: " + obs.SpoolSubmodeTune
 }
 
 // drainRow reports whether the drain's own progress document can be read at all. An unreadable one
