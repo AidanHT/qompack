@@ -191,3 +191,50 @@ loss and should be read as one.
 
 See `plans/sdd/V4-SP-20-capture-storage-and-state-remediation/sp20d1-design-final.md` §7.6, whose
 question Q3 this settles, and `plans/V5-report.md` §31.3.2.
+
+---
+
+## Addendum 2 — hosted runners are a non-reference disk (2026-10-01, V6 close-out)
+
+Addendum 1 left B-A, B-B and B-E's wall row judged at their limits in the isolation lanes
+(`bench-gate`, nightly `bench-deep`, `timing`, `test-e2e`), and the Consequences above say a
+wall-clock regression "surfaces in `timing` / `test-e2e` / `bench-gate`". On GitHub-hosted runners
+that is no longer so, and this addendum records why and what replaced it.
+
+**What was measured.** Those lanes run alone on their runner, so they are not co-loaded, yet their
+fsync-bound rows were red on figures that measure the runner's disk rather than the product. Run
+36816905394's `bench-gate` read ubuntu-latest B-B at p50 0.576 ms but p99 40.960 ms against 15,
+and windows-latest at p50 45 ms against 50. Nightly run 36820740318's `bench-deep` on
+windows-latest read B-B p99 1310.7 ms and B-A p99 1441.8 ms against 50. The quiet Windows reference
+run (C5.1, D53(b)) read B-B p99 22.5 ms on the same candidate. The first three ci.yml runs had put
+B-B on one windows-latest runner class at 73.7 ms in `bench-gate` and 2 359 ms in `test-e2e`: a
+thirtyfold spread in one run is a throttled disk. Hosted figures never become constants (owner
+Q1), and `QOMPACK_UNDER_COLOAD` would name the wrong cause.
+
+**The decision.** The owner's Q1, third option ("C7.2 hosted runners report-only for fsync-bound
+rows"), applied by coordinator decisions D53(e) and D55 (`plans/V6-CLOSEOUT-CHECKLIST.md`), adds a
+second declaration beside co-load: `QOMPACK_NONREFERENCE_DISK` (`internal/obs.NonReferenceDiskEnv`).
+
+- **It is honoured only where `GITHUB_ACTIONS=true`** (`obs.NonReferenceDisk`). Anywhere else it is
+  ignored, and the harness writes a note saying it was ignored, so a local run cannot waive a gate
+  with it. Unset by default, so forgetting it only makes a run stricter.
+- **Who makes it.** ci.yml's `bench-gate`, `timing`, `test-e2e` and `cover` (whose `test/e2e` pass
+  runs alone; `devtool cover` takes the declaration back from its co-loaded pass), and nightly's
+  `bench-deep` (D55). Never the whole-tree `test` job, whose declaration is co-load, and no job makes
+  both. The owner's quiet reference runs (quiet.sh, phase3.sh, overnight.sh) never make it and never
+  claim to be GitHub Actions. `test/guards`' `TestNonReferenceDisk_IsHostedCIOnly` pins all of this.
+- **What is reported, not gated:** B-A, B-B and B-E's wall row, each with a note naming the
+  declaration in the printed summary and the JSON artifact; and, in the hot-path tests that drive
+  the harness (`TestIntegration_HotPathWarmWithRealResidentState`, X11), the §12.2 spool-submode
+  transition and the hook deferrals behind it. B-A is in the set although Q1's original
+  recommendation kept it gated: B-A's sample contains B-B's durable ingest by construction (D41), so
+  it carries the same fsync tail, and D55 rules it in.
+- **What stays gated:** B-E_cpu, the delivery-ledger identity check and 0 lost, the population
+  census, X11's ledger-regression ceiling, and every structural check (T9, T10, T14 among them). A
+  reported spool transition must still be loud and named, and the ledger must still add up.
+
+**What is lost, stated plainly.** No hosted job now gates B-A, B-B or B-E's wall row. The
+reference verdict on them is the owner's quiet runs on a reference disk (C5.1 and the isolated D28
+rows), and nowhere else. A wall-clock regression in the durable path therefore surfaces in those
+runs, or as a reported figure in the hosted artifacts; the Consequences bullet above that names
+`timing` / `test-e2e` / `bench-gate` holds for the other wall-clock rows only.
