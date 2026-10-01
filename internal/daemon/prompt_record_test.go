@@ -210,8 +210,14 @@ func TestObservePrompt_PanickingSeamIsRecovered(t *testing.T) {
 	require.True(t, ok)
 	t.Cleanup(func() { _ = dd.ing.Close() })
 
+	// No hook stamp: the reply gets the whole deadline from the route (promptReplyBudget), so the
+	// late counter below does not depend on how long this machine's WAL fsync in ingest.Accept takes.
+	// A reply whose stamped budget was already spent is counted late whatever the seam does; that is
+	// TestPromptWarning_SlowDurableAcceptIsLateForTheClient's subject, not this row's.
+	req := promptRequest(dd, "sess-panic")
+	req.TS = 0
 	var resp ipc.Response
-	require.NotPanics(t, func() { resp = dd.dispatchOp(context.Background(), promptRequest(dd, "sess-panic")) })
+	require.NotPanics(t, func() { resp = dd.dispatchOp(context.Background(), req) })
 	require.True(t, resp.OK)
 	require.NotNil(t, resp.Output)
 	require.Nil(t, resp.Output.HookSpecificOutput, "a panicked capture's reply must be hookio.Empty()")
