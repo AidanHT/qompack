@@ -1,0 +1,125 @@
+### go test -p 2 -count=1 -run '^TestPreCompactSettle_AHealthySessionReadsOthersBacklogOnceThenOnlyLists$' -v ./internal/daemon
+=== RUN   TestPreCompactSettle_AHealthySessionReadsOthersBacklogOnceThenOnlyLists
+    precompact_settle_bound_test.go:81: healthy PreCompact beside 300 other sessions' spools: route 3.9832044s cold, 41.3132ms warm; settle 769.226µs per PreCompact over 200 warm rounds
+--- PASS: TestPreCompactSettle_AHealthySessionReadsOthersBacklogOnceThenOnlyLists (4.74s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	5.021s
+### exit=0
+### go test -p 2 -count=1 -run '^TestPreCompactSettle_ALookPastTheBoundReadsNothingAndSaysSo$' -v ./internal/daemon
+=== RUN   TestPreCompactSettle_ALookPastTheBoundReadsNothingAndSaysSo
+--- PASS: TestPreCompactSettle_ALookPastTheBoundReadsNothingAndSaysSo (0.36s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	0.774s
+### exit=0
+### go test -p 2 -count=1 -run '^TestPreCompactSettle_TheLastLookReadsOnlyNamedAndNewSpools$' -v ./internal/daemon
+=== RUN   TestPreCompactSettle_TheLastLookReadsOnlyNamedAndNewSpools
+--- PASS: TestPreCompactSettle_TheLastLookReadsOnlyNamedAndNewSpools (0.52s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	1.167s
+### exit=0
+### go test -p 2 -count=1 -run '^TestPreCompactSettle_NamesFitTheirShareUnderTheSealsCalibratedEstimator$' -v ./internal/daemon
+=== RUN   TestPreCompactSettle_NamesFitTheirShareUnderTheSealsCalibratedEstimator
+--- PASS: TestPreCompactSettle_NamesFitTheirShareUnderTheSealsCalibratedEstimator (0.47s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	0.949s
+### exit=0
+### go test -p 2 -count=1 -run '^TestPreCompactSettle_ABacklogIsCountedInFullAndNamedWithinItsShare$' -v ./internal/daemon
+=== RUN   TestPreCompactSettle_ABacklogIsCountedInFullAndNamedWithinItsShare
+    precompact_settle_test.go:472: named the newest 16 of 300 spooled tool results within 600 of 12000 tokens
+--- PASS: TestPreCompactSettle_ABacklogIsCountedInFullAndNamedWithinItsShare (9.15s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	9.632s
+### exit=0
+### go test -p 2 -count=1 -run '^TestPreCompactSettle_AHealthySessionPaysNothing$' -v ./internal/daemon
+=== RUN   TestPreCompactSettle_AHealthySessionPaysNothing
+    precompact_settle_test.go:148: healthy settle: 1.781339ms per PreCompact over 1000 rounds
+--- PASS: TestPreCompactSettle_AHealthySessionPaysNothing (2.49s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	2.901s
+### exit=0
+### go test -p 2 -count=1 -run '^TestPreCompactSettle_AnotherSessionsSpoolCostsAHealthySessionNoDrain$' -v ./internal/daemon
+=== RUN   TestPreCompactSettle_AnotherSessionsSpoolCostsAHealthySessionNoDrain
+    precompact_settle_test.go:375: healthy settle beside another session's spool: 493.386µs per PreCompact over 200 rounds
+--- PASS: TestPreCompactSettle_AnotherSessionsSpoolCostsAHealthySessionNoDrain (0.55s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	1.046s
+### exit=0
+### go test -p 2 -count=1 -run '^TestPreCompactSettle_ReplaysTheSpoolBeforeTheSeal$' -v ./internal/daemon
+=== RUN   TestPreCompactSettle_ReplaysTheSpoolBeforeTheSeal
+--- PASS: TestPreCompactSettle_ReplaysTheSpoolBeforeTheSeal (0.46s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	0.779s
+### exit=0
+### go test -p 2 -count=1 -run '^TestPreCompactSettle_NamesWhatTheBoundLeftUnreplayed$' -v ./internal/daemon
+=== RUN   TestPreCompactSettle_NamesWhatTheBoundLeftUnreplayed
+--- PASS: TestPreCompactSettle_NamesWhatTheBoundLeftUnreplayed (0.53s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	0.862s
+### exit=0
+### go test -p 2 -count=1 -run '^TestPreCompactSettle_ReplaysThisSessionsSpoolBeforeOlderOnesOfOthers$' -v ./internal/daemon
+=== RUN   TestPreCompactSettle_ReplaysThisSessionsSpoolBeforeOlderOnesOfOthers
+--- PASS: TestPreCompactSettle_ReplaysThisSessionsSpoolBeforeOlderOnesOfOthers (0.51s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	0.808s
+### exit=0
+### go test -p 2 -count=1 -run '^TestPreCompactSettle_WaitsForALeasedArrivalStillPublishing$' -v ./internal/daemon
+=== RUN   TestPreCompactSettle_WaitsForALeasedArrivalStillPublishing
+--- PASS: TestPreCompactSettle_WaitsForALeasedArrivalStillPublishing (0.40s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	0.709s
+### exit=0
+### go test -p 2 -count=1 -run '^TestPreCompactSettle_NamesALeasedArrivalOnceBesideItsSpoolCopy$' -v ./internal/daemon
+=== RUN   TestPreCompactSettle_NamesALeasedArrivalOnceBesideItsSpoolCopy
+--- PASS: TestPreCompactSettle_NamesALeasedArrivalOnceBesideItsSpoolCopy (2.22s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	2.535s
+### exit=0
+### go test -p 2 -count=1 -run '^TestPreCompactSettle_AReplayedPreCompactDoesNotSettle$' -v ./internal/daemon
+=== RUN   TestPreCompactSettle_AReplayedPreCompactDoesNotSettle
+--- PASS: TestPreCompactSettle_AReplayedPreCompactDoesNotSettle (0.09s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	0.379s
+### exit=0
+### go test -p 2 -count=1 -run '^TestSpoolWatch_TheIdleTickKicksItInSpoolSubmode$' -v ./internal/daemon
+=== RUN   TestSpoolWatch_TheIdleTickKicksItInSpoolSubmode
+--- PASS: TestSpoolWatch_TheIdleTickKicksItInSpoolSubmode (0.58s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	0.885s
+### exit=0
+### go test -p 2 -count=1 -run '^TestSpoolWatch_IndexesTheSpoolsItsPassLeavesForThePreCompactSettle$' -v ./internal/daemon
+=== RUN   TestSpoolWatch_IndexesTheSpoolsItsPassLeavesForThePreCompactSettle
+--- PASS: TestSpoolWatch_IndexesTheSpoolsItsPassLeavesForThePreCompactSettle (0.27s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	0.614s
+### exit=0
+### go test -p 2 -count=1 -run '^TestPreCompactPricesTheCallersDropsWithTheDraftsEstimator$' -v ./internal/checkpoint
+=== RUN   TestPreCompactPricesTheCallersDropsWithTheDraftsEstimator
+--- PASS: TestPreCompactPricesTheCallersDropsWithTheDraftsEstimator (0.27s)
+PASS
+ok  	github.com/qompack/qompack/internal/checkpoint	0.602s
+### exit=0
+### go test -p 2 -count=1 -run '^TestDoctor_SpoolSubmodeIsInformational$' -v ./internal/cli
+=== RUN   TestDoctor_SpoolSubmodeIsInformational
+=== RUN   TestDoctor_SpoolSubmodeIsInformational/a_daemon_is_serving
+=== RUN   TestDoctor_SpoolSubmodeIsInformational/no_daemon_is_serving
+=== RUN   TestDoctor_SpoolSubmodeIsInformational/sync_submode_with_a_daemon_serving_says_why
+=== RUN   TestDoctor_SpoolSubmodeIsInformational/sync_submode_with_only_WAL_segments_does_not_call_them_client_spools
+=== RUN   TestDoctor_SpoolSubmodeIsInformational/sync_submode_with_both_kinds_counts_each
+=== RUN   TestDoctor_SpoolSubmodeIsInformational/sync_submode_keeps_the_old_verdict
+--- PASS: TestDoctor_SpoolSubmodeIsInformational (1.88s)
+    --- PASS: TestDoctor_SpoolSubmodeIsInformational/a_daemon_is_serving (0.42s)
+    --- PASS: TestDoctor_SpoolSubmodeIsInformational/no_daemon_is_serving (0.32s)
+    --- PASS: TestDoctor_SpoolSubmodeIsInformational/sync_submode_with_a_daemon_serving_says_why (0.29s)
+    --- PASS: TestDoctor_SpoolSubmodeIsInformational/sync_submode_with_only_WAL_segments_does_not_call_them_client_spools (0.37s)
+    --- PASS: TestDoctor_SpoolSubmodeIsInformational/sync_submode_with_both_kinds_counts_each (0.32s)
+    --- PASS: TestDoctor_SpoolSubmodeIsInformational/sync_submode_keeps_the_old_verdict (0.16s)
+PASS
+ok  	github.com/qompack/qompack/internal/cli	2.188s
+### exit=0
+### go test -p 2 -count=1 -run '^TestPreCompactInSpoolSubmodeSealsTheSpooledReads$' -v ./internal/cli
+=== RUN   TestPreCompactInSpoolSubmodeSealsTheSpooledReads
+--- PASS: TestPreCompactInSpoolSubmodeSealsTheSpooledReads (1.12s)
+PASS
+ok  	github.com/qompack/qompack/internal/cli	1.441s
+### exit=0
+### overall rc=0
