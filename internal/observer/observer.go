@@ -319,6 +319,10 @@ type sessionState struct {
 	PendingThrash []grammar.Rule
 	// WarningTurn is fixed when the queue becomes nonempty, before worker/reply scheduling.
 	WarningTurn core.TurnIndex
+	// ThrashFloor holds each rule whose warning a reply drained but could not deliver, at the
+	// reference count it had then (rearmUndelivered). collectThrash queues such a rule again only
+	// once Sequitur reports it referenced more often. Not persisted, like WarnedRules.
+	ThrashFloor map[grammar.RuleID]int
 }
 
 // observer is the real L0 implementation.
