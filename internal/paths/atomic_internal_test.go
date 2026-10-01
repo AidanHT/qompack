@@ -104,3 +104,27 @@ func TestOwnerOf_AsksEveryStoreOnThePathForProtection(t *testing.T) {
 		})
 	}
 }
+
+// TestRenameWithRetry_PutsBackAReadOnlyDestinationWhenTheRetryFails pins the retry's other promise:
+// when the chmod-and-retry still cannot replace a read-only regular file, the file's mode is put
+// back, and the error returned is the FIRST replace's, the one that explains what happened. Here the
+// staged file is missing, so both replaces fail for a reason the destination's mode cannot cure.
+func TestRenameWithRetry_PutsBackAReadOnlyDestinationWhenTheRetryFails(t *testing.T) {
+	root := t.TempDir()
+	dst := filepath.Join(root, "sealed.json")
+	require.NoError(t, os.WriteFile(dst, []byte("sealed"), 0o600))
+	require.NoError(t, os.Chmod(dst, 0o444))
+	t.Cleanup(func() { _ = os.Chmod(dst, 0o600) })
+	before, err := os.Lstat(dst)
+	require.NoError(t, err)
+
+	err = renameWithRetry(filepath.Join(root, "staged-but-gone.tmp"), dst)
+	require.ErrorIs(t, err, os.ErrNotExist, "the first replace's error, not the retry's, is returned")
+
+	after, err := os.Lstat(dst)
+	require.NoError(t, err)
+	require.Equal(t, before.Mode().Perm(), after.Mode().Perm(), "a failed retry must restore the destination's mode")
+	got, err := os.ReadFile(dst)
+	require.NoError(t, err)
+	require.Equal(t, "sealed", string(got))
+}
