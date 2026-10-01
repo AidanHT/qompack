@@ -386,7 +386,13 @@ func TestCreateNew_MissingParentIsAnError(t *testing.T) {
 // non-file that is not a directory (an AF_UNIX socket) is fs.ErrInvalid, never os.ErrExist. The
 // socket stays the socket.
 func TestCreateNew_NonRegularEntryIsNotACollision(t *testing.T) {
-	p := filepath.Join(t.TempDir(), "artifact")
+	// Not t.TempDir: on macos-latest /var/folders/<2>/<30>/T/ plus this test's name and "artifact"
+	// is 116 bytes, past darwin's 104-byte sun_path, so the listen failed with EINVAL and the row
+	// SKIPPED there as "unix domain sockets unavailable" on every macOS run.
+	dir, err := os.MkdirTemp("", "qsk")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	p := filepath.Join(dir, "artifact")
 	ln, err := net.Listen("unix", p)
 	if err != nil {
 		t.Skipf("platform: unix domain sockets unavailable: %v", err)

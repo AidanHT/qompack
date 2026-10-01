@@ -116,6 +116,38 @@ func TestResolveFor_ShortFallbackWhenNoCandidateFits(t *testing.T) {
 	require.LessOrEqual(t, len(a.Path), sunPathMax)
 }
 
+// macOSTempDirs are the temp directories a macOS user's processes actually see: TMPDIR as
+// launchd sets it (confstr's _CS_DARWIN_USER_TEMP_DIR, /var/folders/<2>/<30>/T/ with its trailing
+// slash; this one is macos-latest's in run 36816905394), and the same directory through the
+// /private symlink that realpath and os.Getwd report.
+var macOSTempDirs = []string{
+	"/var/folders/36/tjdph2t965j8snz9_vkdnw0r0000gn/T/",
+	"/private/var/folders/36/tjdph2t965j8snz9_vkdnw0r0000gn/T/",
+}
+
+// TestResolveFor_TypicalMacOSTempDirFitsTheOrdinaryCandidate pins that a real macOS user never
+// needs the short fallback, let alone fails: with no XDG_RUNTIME_DIR (macOS sets none) the
+// per-uid candidate <TMPDIR>/qompack-<uid>/<hash12>.sock fits sunPathMax even for a ten-digit uid,
+// the widest a directory-service account is given. The project root does not enter the length: it
+// is hashed.
+//
+// Run 36816905394's darwin socket failures were test fixtures that pointed TMPDIR at a long
+// t.TempDir() (internal/cli's redirectSystemTemp), never this resolution.
+func TestResolveFor_TypicalMacOSTempDirFitsTheOrdinaryCandidate(t *testing.T) {
+	longRoot := "/Users/someone/" + strings.Repeat("deep/", 40) + "project"
+	hash12, _ := projectHashFor(goosDarwin, longRoot)
+	for _, tmp := range macOSTempDirs {
+		for _, uid := range []int{501, 2147483647} {
+			a, err := resolveFor(goosDarwin, noEnv, tmp, uid, longRoot)
+			require.NoError(t, err, "TMPDIR %s, uid %d", tmp, uid)
+			require.Equal(t, UnixSocket, a.Kind)
+			require.Equal(t, path.Join(tmp, "qompack-"+strconv.Itoa(uid), hash12+".sock"), a.Path,
+				"the ordinary per-uid candidate, not the short fallback")
+			require.LessOrEqual(t, len(a.Path), sunPathMax, "%s", a.Path)
+		}
+	}
+}
+
 // TestResolveFor_ReportsWhenEvenTheShortFallbackIsTooLong asserts the one case nothing can fix is
 // reported — as the exported ErrAddrTooLong sentinel — rather than silently returning an address
 // the bind would reject with a bare EINVAL.
