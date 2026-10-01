@@ -1,0 +1,25 @@
+=== RUN   TestHostPolicy_AShortNameSpellingIsRefused
+=== RUN   TestHostPolicy_AShortNameSpellingIsRefused/re_read/latest
+=== RUN   TestHostPolicy_AShortNameSpellingIsRefused/re_read/at_turn
+=== RUN   TestHostPolicy_AShortNameSpellingIsRefused/re_read/at_timestamp
+=== RUN   TestHostPolicy_AShortNameSpellingIsRefused/re_read/absolute_short
+=== RUN   TestHostPolicy_AShortNameSpellingIsRefused/expand/short_record
+=== RUN   TestHostPolicy_AShortNameSpellingIsRefused/recall_withholds_the_short-spelled_hit
+=== RUN   TestHostPolicy_AShortNameSpellingIsRefused/dropped_withholds_pointers_spelled_short
+=== RUN   TestHostPolicy_AShortNameSpellingIsRefused/short_project_root/absolute_rule,_relative_path
+=== RUN   TestHostPolicy_AShortNameSpellingIsRefused/short_project_root/relative_rule,_long_absolute
+=== RUN   TestHostPolicy_AShortNameSpellingIsRefused/short_project_root/mixed_absolute_rule,_relative_path
+--- PASS: TestHostPolicy_AShortNameSpellingIsRefused (0.28s)
+    --- PASS: TestHostPolicy_AShortNameSpellingIsRefused/re_read/latest (0.01s)
+    --- PASS: TestHostPolicy_AShortNameSpellingIsRefused/re_read/at_turn (0.01s)
+    --- PASS: TestHostPolicy_AShortNameSpellingIsRefused/re_read/at_timestamp (0.01s)
+    --- PASS: TestHostPolicy_AShortNameSpellingIsRefused/re_read/absolute_short (0.00s)
+    --- PASS: TestHostPolicy_AShortNameSpellingIsRefused/expand/short_record (0.00s)
+    --- PASS: TestHostPolicy_AShortNameSpellingIsRefused/recall_withholds_the_short-spelled_hit (0.03s)
+    --- PASS: TestHostPolicy_AShortNameSpellingIsRefused/dropped_withholds_pointers_spelled_short (0.01s)
+    --- PASS: TestHostPolicy_AShortNameSpellingIsRefused/short_project_root/absolute_rule,_relative_path (0.02s)
+    --- PASS: TestHostPolicy_AShortNameSpellingIsRefused/short_project_root/relative_rule,_long_absolute (0.01s)
+    --- PASS: TestHostPolicy_AShortNameSpellingIsRefused/short_project_root/mixed_absolute_rule,_relative_path (0.03s)
+PASS
+ok  	github.com/qompack/qompack/internal/mcp	0.667s
+mcp exit=0

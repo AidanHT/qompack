@@ -292,7 +292,7 @@ func (p *pattern) row(rel []string, sc *scratch) []bool {
 		return sc.cleared(len(rel) + 1)
 	case p.literal:
 		r := sc.cleared(len(rel) + 1)
-		if k := len(p.segs); k <= len(rel) && slices.Equal(p.segs, rel[:k]) {
+		if k := len(p.segs); k <= len(rel) && literalEqual(p.segs, rel[:k], sc.alt) {
 			r[k] = true
 		}
 		return r
@@ -306,10 +306,24 @@ func (p *pattern) row(rel []string, sc *scratch) []bool {
 	return prefixRow(p.segs, rel, sc)
 }
 
+// literalEqual reports whether a literal pattern's segments equal segs, where a pattern segment
+// holding a tilde may instead equal the 8.3 name alt records for that segment (nil: none known).
+func literalEqual(pat, segs, alt []string) bool {
+	for i, ps := range pat {
+		if ps != segs[i] && (alt == nil || !strings.Contains(ps, "~") || ps != alt[i]) {
+			return false
+		}
+	}
+	return true
+}
+
 // scratch is one evaluation's reusable matcher buffers. A RuleSet is shared by concurrent requests,
 // so the buffers belong to the Evaluate call, never to the rule set.
 type scratch struct {
 	a, b []bool
+	// alt is nil, or the 8.3 spelling of the path segments being matched, aligned with them: a
+	// pattern segment holding a tilde matches a segment whose own name or 8.3 name it matches.
+	alt []string
 	// rules and pos are carvedMatch's per-prefix answer: the deciding rule and its polarity.
 	rules []string
 	pos   []bool
@@ -360,6 +374,9 @@ func prefixRow(pat, segs []string, sc *scratch) []bool {
 				v = prev[j] || (j > 0 && cur[j-1])
 			case j > 0 && prev[j-1]:
 				v, _ = path.Match(ps, segs[j-1])
+				if !v && sc.alt != nil && strings.Contains(ps, "~") {
+					v, _ = path.Match(ps, sc.alt[j-1])
+				}
 			}
 			cur[j] = v
 		}

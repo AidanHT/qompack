@@ -1,0 +1,33 @@
+=== RUN   TestShortNames_EverySpellingOfTheServedFileIsJudged
+=== RUN   TestShortNames_EverySpellingOfTheServedFileIsJudged/mixed_absolute_rule,_short_root,_long_file
+=== RUN   TestShortNames_EverySpellingOfTheServedFileIsJudged/mixed_absolute_rule,_long_path
+=== RUN   TestShortNames_EverySpellingOfTheServedFileIsJudged/mixed_absolute_rule,_short_path
+=== RUN   TestShortNames_EverySpellingOfTheServedFileIsJudged/long_absolute_rule,_short_path
+=== RUN   TestShortNames_EverySpellingOfTheServedFileIsJudged/relative_rule,_long_path
+=== RUN   TestShortNames_EverySpellingOfTheServedFileIsJudged/short_relative_rule,_long_path
+=== RUN   TestShortNames_EverySpellingOfTheServedFileIsJudged/short_directory_glob,_long_path
+=== RUN   TestShortNames_EverySpellingOfTheServedFileIsJudged/short_bare_name,_long_path
+=== RUN   TestShortNames_EverySpellingOfTheServedFileIsJudged/short_directory_after_a_glob,_long_path
+=== RUN   TestShortNames_EverySpellingOfTheServedFileIsJudged/short_directory_after_a_glob,_long_file
+=== RUN   TestShortNames_EverySpellingOfTheServedFileIsJudged/short_bare_name,_short_root,_long_file
+=== RUN   TestShortNames_EverySpellingOfTheServedFileIsJudged/literal_short_rule,_long_path
+--- PASS: TestShortNames_EverySpellingOfTheServedFileIsJudged (0.11s)
+    --- PASS: TestShortNames_EverySpellingOfTheServedFileIsJudged/mixed_absolute_rule,_short_root,_long_file (0.02s)
+    --- PASS: TestShortNames_EverySpellingOfTheServedFileIsJudged/mixed_absolute_rule,_long_path (0.01s)
+    --- PASS: TestShortNames_EverySpellingOfTheServedFileIsJudged/mixed_absolute_rule,_short_path (0.01s)
+    --- PASS: TestShortNames_EverySpellingOfTheServedFileIsJudged/long_absolute_rule,_short_path (0.02s)
+    --- PASS: TestShortNames_EverySpellingOfTheServedFileIsJudged/relative_rule,_long_path (0.00s)
+    --- PASS: TestShortNames_EverySpellingOfTheServedFileIsJudged/short_relative_rule,_long_path (0.00s)
+    --- PASS: TestShortNames_EverySpellingOfTheServedFileIsJudged/short_directory_glob,_long_path (0.01s)
+    --- PASS: TestShortNames_EverySpellingOfTheServedFileIsJudged/short_bare_name,_long_path (0.01s)
+    --- PASS: TestShortNames_EverySpellingOfTheServedFileIsJudged/short_directory_after_a_glob,_long_path (0.00s)
+    --- PASS: TestShortNames_EverySpellingOfTheServedFileIsJudged/short_directory_after_a_glob,_long_file (0.02s)
+    --- PASS: TestShortNames_EverySpellingOfTheServedFileIsJudged/short_bare_name,_short_root,_long_file (0.00s)
+    --- PASS: TestShortNames_EverySpellingOfTheServedFileIsJudged/literal_short_rule,_long_path (0.00s)
+=== RUN   TestShortNames_AnUnresolvableShortNameIsRefused
+--- PASS: TestShortNames_AnUnresolvableShortNameIsRefused (0.02s)
+=== RUN   TestShortNames_AShortRuleAfterAGlobRefusesWhatItCannotJudge
+--- PASS: TestShortNames_AShortRuleAfterAGlobRefusesWhatItCannotJudge (0.02s)
+PASS
+ok  	github.com/qompack/qompack/internal/hostperm	1.459s
+exit=0

@@ -4,7 +4,6 @@ package hostperm
 
 import (
 	"path/filepath"
-	"regexp"
 	"strings"
 	"syscall"
 
@@ -37,14 +36,6 @@ func osAlias(p string) (alias string, unresolved bool) {
 	}
 	return full, unresolved
 }
-
-// shortNameRe matches a segment that may be a generated 8.3 name: a tilde followed by a digit, as
-// in CREDEN~1.SEC or the hashed form 5B2E~1. A long name may contain the same characters; such a
-// name is only ever refused when it does not exist, see osAlias.
-var shortNameRe = regexp.MustCompile(`~[0-9]`)
-
-// shortShaped reports whether the segment seg may be an 8.3 name.
-func shortShaped(seg string) bool { return shortNameRe.MatchString(seg) }
 
 // stripStreams cuts every segment below the volume at its first colon. A colon cannot be part of a
 // Windows file name; after the volume it only ever introduces a stream of the file named before it.
@@ -113,4 +104,44 @@ func trimLong(s string, added bool) string {
 		return `\\` + rest
 	}
 	return strings.TrimPrefix(s, `\\?\`)
+}
+
+// osShortName returns p with every segment of its longest existing prefix in its 8.3 spelling
+// (GetShortPathNameW), and the rest as written; complete reports whether all of p exists, so that
+// every segment's 8.3 name is known. A segment with no 8.3 name keeps its own.
+func osShortName(p string) (short string, complete bool) {
+	if s, ok := getShortPathName(p); ok {
+		return s, true
+	}
+	dir := filepath.Dir(p)
+	if dir == p {
+		return p, false
+	}
+	parent, _ := osShortName(dir)
+	return filepath.Join(parent, filepath.Base(p)), false
+}
+
+// getShortPathName is GetShortPathNameW for p, which fails when any component of p does not exist.
+// It is a variable for the reason getLongPathName is.
+var getShortPathName = win32ShortPathName
+
+// win32ShortPathName is GetShortPathNameW. Long paths go through their \?\ form, and the answer is
+// returned without it.
+func win32ShortPathName(p string) (string, bool) {
+	in := paths.Long(p)
+	u, err := syscall.UTF16PtrFromString(in)
+	if err != nil {
+		return "", false
+	}
+	buf := make([]uint16, syscall.MAX_PATH)
+	for {
+		n, err := syscall.GetShortPathName(u, &buf[0], uint32(len(buf)))
+		if err != nil || n == 0 {
+			return "", false
+		}
+		if int(n) < len(buf) {
+			return trimLong(syscall.UTF16ToString(buf[:n]), in != p), true
+		}
+		buf = make([]uint16, n)
+	}
 }

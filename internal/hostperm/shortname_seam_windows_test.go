@@ -14,31 +14,56 @@ import (
 )
 
 // fakeShortNames stands in for a volume that records the given 8.3 names (upper-case short name to
-// long name) by replacing getLongPathName for the test. Like GetLongPathNameW it expands every
-// short segment it knows, and fails when the expanded path does not exist. Every other call this
-// package makes is real, so a short spelling that only the fake knows is, to the filesystem, an
-// absent path: exactly what an unexpandable 8.3 name is.
+// long name) by replacing getLongPathName and getShortPathName for the test. Like GetLongPathNameW
+// and GetShortPathNameW it rewrites every segment it knows, and fails when the path does not
+// exist. Every other call this package makes is real, so a short spelling that only the fake knows
+// is, to the filesystem, an absent path: exactly what an unexpandable 8.3 name is.
 //
-// Whether a volume records 8.3 names is a system setting that no test may change, and this
-// machine's volume records none, so without the fake the 8.3 rows here and in internal/mcp skip
-// locally and ran only on the hosted runner (nightly 36820740318, race-windows), where they failed.
+// Whether a volume records 8.3 names is a system setting that no test may change. This machine's
+// volume does record them, and the internal/mcp row runs here, but its TEMP has no short segment,
+// so the hosted runner's shape (a short TEMP parent, C:\Users\RUNNER~1, under a rule mixing short
+// and long names: nightly 36820740318, race-windows) never arose locally. The fake makes that
+// shape, an unexpandable short name and a rule naming a short name after a glob deterministic on
+// any volume.
 func fakeShortNames(t *testing.T, names map[string]string) {
 	t.Helper()
-	prev := getLongPathName
-	t.Cleanup(func() { getLongPathName = prev })
-	getLongPathName = func(p string) (string, bool) {
+	shortOf := map[string]string{}
+	for s, l := range names {
+		shortOf[strings.ToLower(l)] = s
+	}
+	rewrite := func(p string, to func(seg string) string) (string, bool) {
 		vol := filepath.VolumeName(p)
 		segs := strings.Split(strings.TrimPrefix(p, vol), `\`)
+		long := make([]string, len(segs))
 		for i, s := range segs {
+			long[i] = s
 			if l, ok := names[strings.ToUpper(s)]; ok {
-				segs[i] = l
+				long[i] = l
 			}
+			segs[i] = to(s)
 		}
-		long := vol + strings.Join(segs, `\`)
-		if _, err := os.Lstat(paths.Long(long)); err != nil {
+		if _, err := os.Lstat(paths.Long(vol + strings.Join(long, `\`))); err != nil {
 			return "", false
 		}
-		return long, true
+		return vol + strings.Join(segs, `\`), true
+	}
+	prevLong, prevShort := getLongPathName, getShortPathName
+	t.Cleanup(func() { getLongPathName, getShortPathName = prevLong, prevShort })
+	getLongPathName = func(p string) (string, bool) {
+		return rewrite(p, func(s string) string {
+			if l, ok := names[strings.ToUpper(s)]; ok {
+				return l
+			}
+			return s
+		})
+	}
+	getShortPathName = func(p string) (string, bool) {
+		return rewrite(p, func(s string) string {
+			if sh, ok := shortOf[strings.ToLower(s)]; ok {
+				return sh
+			}
+			return s
+		})
 	}
 }
 
@@ -115,6 +140,16 @@ func TestShortNames_EverySpellingOfTheServedFileIsJudged(t *testing.T) {
 		{"short relative rule, long path", "Read(./CONFIG~1/CREDEN~1.SEC)", s.file},
 		{"short directory glob, long path", "Read(//" + strings.ToLower(s.base[:1]) +
 			filepath.ToSlash(filepath.Join(s.base, "PARENT~1", "PROJEC~1")[2:]) + "/CONFIG~1/**)", s.file},
+		// A short name after a glob, or in a literal rule, names no concrete directory the rule could
+		// be expanded at, so each segment of the path is also judged by its own 8.3 name.
+		{"short bare name, long path", "Read(CREDEN~1.SEC)", s.file},
+		{"short directory after a glob, long path", "Read(**/CONFIG~1/**)", s.file},
+		{"short directory after a glob, long file", "Read(**/CONFIG~1/credentials.secret)", s.file},
+		{
+			"short bare name, short root, long file", "Read(CREDEN~1.SEC)",
+			filepath.Join(s.shortRoot, "configuration", "credentials.secret"),
+		},
+		{"literal short rule, long path", "Read(./x/../CONFIG~1/CREDEN~1.SEC)", s.file},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			s.deny(t, tc.rule)
@@ -158,4 +193,34 @@ func TestShortNames_AnUnresolvableShortNameIsRefused(t *testing.T) {
 	d, err = s.pol.Check(tilde)
 	require.NoError(t, err)
 	require.Equal(t, Allow, d.Effect, "an existing long name with ~1 in it is its own name")
+}
+
+// TestShortNames_AShortRuleAfterAGlobRefusesWhatItCannotJudge: a rule naming an 8.3 name after a
+// glob is matched against each path segment's 8.3 name, which only a file that exists has. A file
+// that no longer exists (the archive serves deleted files' history) has no 8.3 name to compare, so
+// while such a rule is in force its read is refused rather than judged on its long name alone. A
+// carve-out spelled short reopens nothing, even while a rule naming a short name after a glob
+// turns the 8.3 comparison on: that comparison only ever adds refusals.
+func TestShortNames_AShortRuleAfterAGlobRefusesWhatItCannotJudge(t *testing.T) {
+	s := newShortEnv(t)
+	deleted := filepath.Join(s.long, "configuration", "gone-but-archived.txt")
+
+	s.deny(t, "Read(**/GONE~1.TXT)")
+	d, err := s.pol.Check(deleted)
+	require.NoError(t, err)
+	require.Equal(t, Deny, d.Effect, "a deleted file's own 8.3 name cannot be established")
+
+	d, err = s.pol.Check(filepath.Join(s.long, "public.txt"))
+	require.NoError(t, err)
+	require.Equal(t, Allow, d.Effect, "an existing file's 8.3 names are all known, and none matches")
+
+	s.deny(t, "Read(./elsewhere/**)")
+	d, err = s.pol.Check(deleted)
+	require.NoError(t, err)
+	require.Equal(t, Allow, d.Effect, "with no 8.3 name in the rules, a deleted file is judged as before")
+
+	s.deny(t, "Read(*.secret)", "Read(**/OTHER~1/**)", "Read(!CONFIG~1/CREDEN~1.SEC)")
+	d, err = s.pol.Check(s.file)
+	require.NoError(t, err)
+	require.Equal(t, Deny, d.Effect, "a carve-out spelled short reopens nothing")
 }
