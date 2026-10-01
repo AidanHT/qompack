@@ -19,8 +19,10 @@ import (
 // true, and this file holds both:
 //
 //   - it is HOSTED-CI ONLY: honoured where GITHUB_ACTIONS=true and nowhere else, and set by exactly
-//     the three ci.yml jobs whose fsync-bound rows a hosted disk cannot judge (bench-gate, timing,
-//     test-e2e) — never by the whole-tree `test` or `cover` jobs, whose own declaration is co-load;
+//     the ci.yml jobs whose fsync-bound rows a hosted disk cannot judge alone on their runner
+//     (bench-gate, timing, test-e2e, and cover, whose test/e2e pass runs alone as test-e2e does;
+//     devtool takes it back from cover's co-loaded pass) — never by the whole-tree `test` job, whose
+//     own declaration is co-load;
 //   - the REFERENCE verdict on those rows survives: the owner's quiet local runs (quiet.sh's C5.1,
 //     phase3.sh's isolated D28 rows, overnight.sh which chains them) never make the declaration,
 //     and never claim to be GitHub Actions, the one thing that would make it honoured.
@@ -30,8 +32,11 @@ import (
 var workflowNonrefDiskEnvRE = regexp.MustCompile(`(?m)^\s*` + regexp.QuoteMeta(obs.NonReferenceDiskEnv) + `:\s*\S`)
 
 // nonrefDiskJobs are the ci.yml jobs that make the declaration, each on every hosted OS of its
-// matrix: the three that judge fsync-bound wall rows alone on their runner.
-var nonrefDiskJobs = []string{"bench-gate", "test-e2e", "timing"}
+// matrix: the ones that judge fsync-bound wall rows alone on their runner. cover is one because its
+// test/e2e pass runs X11 alone (tools/devtool/cover.go, coverPasses); its co-loaded pass has the
+// declaration taken back by devtool, which tools/devtool's
+// TestCoverPasses_RunsE2EAloneWithoutTheColoadDeclaration pins.
+var nonrefDiskJobs = []string{"bench-gate", "cover", "test-e2e", "timing"}
 
 // referenceRunScripts are the coordinator's local scripts whose runs are the reference verdict on
 // the rows the declaration reports on hosted runners.
@@ -42,8 +47,8 @@ var referenceRunScripts = []string{"quiet.sh", "phase3.sh", "overnight.sh"}
 var githubActionsAssignRE = regexp.MustCompile(`(^|[\s;(])(export\s+)?` + regexp.QuoteMeta(obs.GitHubActionsEnv) + `=`)
 
 // TestNonReferenceDisk_IsHostedCIOnly pins the declaration to hosted CI: ignored outside GitHub
-// Actions, set by exactly bench-gate, timing and test-e2e in ci.yml, and never set — nor made
-// honourable by faking GitHub Actions — by the scripts that produce the reference verdict.
+// Actions, set by exactly bench-gate, cover, timing and test-e2e in ci.yml, and never set — nor
+// made honourable by faking GitHub Actions — by the scripts that produce the reference verdict.
 func TestNonReferenceDisk_IsHostedCIOnly(t *testing.T) {
 	root := repoRoot(t)
 
