@@ -77,12 +77,34 @@ func clientSpools(t *testing.T, root string) []string {
 	return out
 }
 
+// logDaemonOnFailure logs, when t has failed, what the rig's daemon wrote to its logs and which
+// client spools are still waiting, once the daemon has stopped and before root is removed: the
+// settle's own account of a seal that left captures out.
+func logDaemonOnFailure(t *testing.T, root string) {
+	t.Helper()
+	t.Cleanup(func() {
+		if !t.Failed() {
+			return
+		}
+		logs, err := filepath.Glob(filepath.Join(paths.Of(root).Logs, "*.log"))
+		if err != nil {
+			t.Logf("listing the daemon's logs: %v", err)
+		}
+		for _, p := range logs {
+			b, rerr := paths.ReadFileShared(p)
+			t.Logf("%s (read error %v):\n%s", filepath.Base(p), rerr, b)
+		}
+		t.Logf("client spools left: %v", clientSpools(t, root))
+	})
+}
+
 // TestPreCompactInSpoolSubmodeSealsTheSpooledReads: a session in spool submode makes two Reads and
 // a Stop, and compacts. They sit only in client spools when PreCompact arrives; the checkpoint it
 // seals must point to both Reads and report nothing unreplayed, and the rehydration after the
 // compaction must be built from that checkpoint. The daemon runs with spoolSubmodeRowBE.
 func TestPreCompactInSpoolSubmodeSealsTheSpooledReads(t *testing.T) {
 	r, stop := newCompactLoadRigWithConfig(t, spoolSubmodeRowConfig)
+	logDaemonOnFailure(t, r.root)
 	defer stop()
 	cfg, _, warns, err := config.Load(config.Env{ProjectRoot: r.root, HomeDir: r.home, Getenv: noEnv})
 	require.NoError(t, err)
@@ -118,7 +140,8 @@ func TestPreCompactInSpoolSubmodeSealsTheSpooledReads(t *testing.T) {
 		tools = append(tools, string(tp.ToolUseID))
 	}
 	require.Subset(t, tools, spoolSubmodeReadIDs,
-		"PreCompact must replay the session's client-spooled captures before it seals (D53(c))")
+		"PreCompact must replay the session's client-spooled captures before it seals (D53(c)); dropped: %+v",
+		cp.Dropped)
 	require.True(t, indexedToolUses(r.root, spoolSubmodeReadIDs), "the replay published both Reads")
 	for _, d := range cp.Dropped {
 		require.NotContains(t, d.Kind, "unreplayed", "nothing was left unreplayed: %+v", d)
