@@ -52,10 +52,16 @@ UAT-12 (2 sessions; reuse the candidate 4 recipe without the previous-build upgr
 C4.4 (1 session; may share with UAT-09's second session): the eight tools' success and error calls, already_tried included after a restart.
 C4.6: judge from UAT-12 (every retrieval form and the rehydration block refuse the denied path).` },
   { key: 'resilience', phase: 'Recovery', budget: 3, part: `${RERUN}
-Scenario ids to return: UAT-10, C4.9. Every session uses --plugin-dir ${BUNDLE}.
+Scenario ids to return: UAT-10, C4.9, C5.6. Every session uses --plugin-dir ${BUNDLE}.
 UAT-10 (1 session): as docs/uat.md states it in its current text (status/dropped/eval envelopes, provenance, usage categories, the uncertainty check). Candidate 3 recorded a FAILING banner and a p95>max finding here: say whether each is gone.
 C4.9 (2 sessions):
   - (a) The daemon ends mid-session. Terminate only a daemon you started, after checking its lock pid, image and command line. The host session must never break, and the next hook must recover.
   - (b) A newer settingsVersion in the project config: the documented refusal or degradation, and no broken session. Record the unavailable-object wording in a host session if reachable.
-  - (c) was re-run on candidate 4 and passed; do not repeat it.` },
+  - (c) was re-run on candidate 4 and passed; do not repeat it.
+C5.6 (no session, last): aggregate this candidate's resource cost over EVERY session of this lane (all of ${LIVE}/rerun-c6/*/ that hold a meta.json or hooks.json, from every part), taken exactly as plans/sdd/V6-closeout/live/resources/C5.6/summary.md says under "How each number was taken". Write ${LIVE}/rerun-c6/C5.6/summary.md and data.json. Report:
+  - store growth per session;
+  - daemon working set and CPU;
+  - host-seen latency per hook event (n, median, p95 and max over measured pairs; unmeasured pairs counted apart, never as 0 ms);
+  - D53(i): every host-reported hook failure or timeout (a hook_response with a non-zero exit code, an error, blocked or timeout outcome, or a hook the host's stderr names as failed), each with its session and evidence file, and the total. The criterion is 0 except behaviour docs/cannot-do.md or docs/upstream-issues.md documents; say which, if any, are documented.
+  Numbers only; no budget is proposed. Bundle sessions and the C4.8/UAT-12 previous-build session are kept apart.` },
 ]
