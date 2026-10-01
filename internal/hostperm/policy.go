@@ -358,15 +358,19 @@ const unresolvedShortName = "(an 8.3 name that names nothing on disk, so its lon
 const unknownShortName = "(a rule names an 8.3 name, and a path that does not exist has none to compare)"
 
 // shortNameRe matches a segment that may be, or as a glob may name, a generated 8.3 name: a tilde
-// followed by a digit, as in CREDEN~1.SEC or the hashed form 5B2E~1, or by a glob metacharacter
-// (concretePrefix's `*?[\`) that can stand for one, as in CREDEN~?.SEC, or a tilde inside a bracket
-// expression, as in CREDEN[~]1.SEC or CREDEN[}-~]1.SEC, where the class itself can match the tilde.
-// A tilde followed by anything else outside a class, as in the backup-file rule Read(**/*~) or
-// Read(**/*.[ch]~), names no 8.3 name. A long name may contain the same characters; such a name is
-// only ever refused when it does not exist, see osAlias. A path segment is a name, not a glob: `*`,
-// `?` and `\` cannot occur in a Windows file name, and `~[` or `[...~` in one only widens that
-// refusal, which fails closed.
-var shortNameRe = regexp.MustCompile(`~[0-9*?\[\\]|\[[^\]]*~`)
+// (escaped or not) followed by a digit, as in CREDEN~1.SEC or the hashed form 5B2E~1, or by a glob
+// metacharacter (concretePrefix's `*?[\`) that may stand for one, as in CREDEN~?.SEC, or a tilde
+// listed in a bracket expression, as in CREDEN[~]1.SEC, CREDEN[}-~]1.SEC or CREDEN[\~]1.SEC. The
+// class alternative steps over escapes, so a class that lists an escaped `]` before its tilde, as
+// in CREDEN[\]~]1.SEC, is still one class. Any tilde in a class is shaped whatever follows the
+// class, which fails closed. A tilde followed by anything else outside a class, as in the
+// backup-file rule Read(**/*~) or Read(**/*.[ch]~), names no 8.3 name. Not covered: a glob with no
+// tilde at all that path.Match still lets match one (CREDEN?1.SEC, CREDEN[^a]1.SEC); that case
+// predates this predicate and is recorded as such. A long name may contain the same characters;
+// such a name is only ever refused when it does not exist, see osAlias. A path segment is a name,
+// not a glob: `*`, `?` and `\` cannot occur in a Windows file name, and `~[` or `[...~` in one only
+// widens that refusal, which fails closed.
+var shortNameRe = regexp.MustCompile(`~[0-9*?\[\\]|\[(?:\\.|[^\]\\])*\\?~`)
 
 // shortShaped reports whether the segment seg may be an 8.3 name, or as a rule's glob segment may
 // name one. It is the one 8.3-shape predicate: a path's unexpandable segment (osAlias), a rule's
