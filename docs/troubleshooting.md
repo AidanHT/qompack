@@ -959,7 +959,8 @@ Copies of versions no daemon is running are removed automatically when a new ver
 **Symptom.** On a slow disk — WSL2, a container or devcontainer, a network or encrypted filesystem —
 `/qompack:status` (or `qompack status`) shows `hot path:    spool` for the rest of a long session, with
 `daemon: hot path switched to spool submode; nothing is lost` among its recent loud lines. Hooks stay
-fast; recent tool results can reach `recall` a little later than usual.
+fast; recent tool results can reach `recall` a little later than usual: the daemon replays the spool
+on its idle tick (every 30 seconds at most) as well as whenever it serves another request.
 
 **Diagnose.** The loud line (also in `.qompack/logs/LOUD.log`, and at WARN in the day log) names the
 budget the daemon gated on (`budget_ms`), how many consecutive over-budget windows it saw
@@ -991,7 +992,9 @@ are named, and one `unreplayed_tool_result` line names the `tool_use_id` of each
 results, as many as fit in one twentieth of `checkpoint.budgetTokens`, so a long backlog never
 crowds the checkpoint's pointers out; the rehydration's section 7 carries both. On a very slow disk a
 replay that is still writing when the budget runs out is abandoned and its capture is reported this
-way too. The daemon replays them all afterwards, and `recall` and `expand` find them then.
+way too. Finding which spool files are this session's also runs inside that budget: the daemon reads
+each spool file once and remembers what it holds, and a file it had no time to read is counted in the
+`unreplayed_capture` line as not read. The daemon replays them all afterwards, and `recall` and `expand` find them then.
 
 The switch lasts until a new session starts in this project or the daemon exits on idle (below); it
 does not switch back on its own during the session, and compacting the current session does not reset

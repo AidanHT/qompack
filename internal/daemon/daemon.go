@@ -330,6 +330,9 @@ type daemon struct {
 	// spool is the client-spool watcher's configuration and kick (C1.13, spool_watch.go): every served
 	// request kicks it (noteServed). New creates it; nil on a daemon value that never went through New.
 	spool *spoolWatcher
+	// spoolHeads remembers what each hook client spool holds, so the PreCompact settle reads a file
+	// once per version rather than on every compaction (spool_heads.go). The zero value is ready.
+	spoolHeads spoolHeadIndex
 }
 
 // New constructs a Daemon from o. A bare Options{} literal is safe by construction: every field
@@ -847,6 +850,7 @@ func (d *daemon) Run(ctx context.Context) error {
 			}
 		case <-idleTicker.C:
 			d.idle.Notify(d.registry.LastActivity())
+			d.kickSpoolWatchInSpoolSubmode()
 			now := core.NowMilli(d.clk)
 			if d.idle.IsIdle(now) {
 				_, _ = d.idle.RunOnce(runCtx, idleRunBudget)

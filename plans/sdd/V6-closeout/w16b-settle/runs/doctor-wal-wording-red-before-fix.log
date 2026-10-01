@@ -1,0 +1,25 @@
+=== RUN   TestDoctor_SpoolSubmodeIsInformational
+=== RUN   TestDoctor_SpoolSubmodeIsInformational/a_daemon_is_serving
+=== RUN   TestDoctor_SpoolSubmodeIsInformational/no_daemon_is_serving
+=== RUN   TestDoctor_SpoolSubmodeIsInformational/sync_submode_with_a_daemon_serving_says_why
+=== RUN   TestDoctor_SpoolSubmodeIsInformational/sync_submode_with_only_WAL_segments_does_not_call_them_client_spools
+    doctor_spool_submode_test.go:100: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16b-settle/internal/cli/doctor_spool_submode_test.go:100
+        	Error:      	"client spools the running daemon has not replayed yet. On a slow disk a hook that waits out its ACK deadline hands its capture to the spool and the daemon replays it within seconds, so nothing is lost; run doctor again, and if the files stay the replay is not keeping up. To tune it: runtime.hotPath.budgetMs, runtime.budgets.l0IngestMs and runtime.daemon.ackDeadlineMs (docs/troubleshooting.md, slow disks)" does not contain "1 daemon WAL segment(s)"
+        	Test:       	TestDoctor_SpoolSubmodeIsInformational/sync_submode_with_only_WAL_segments_does_not_call_them_client_spools
+=== RUN   TestDoctor_SpoolSubmodeIsInformational/sync_submode_with_both_kinds_counts_each
+    doctor_spool_submode_test.go:118: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16b-settle/internal/cli/doctor_spool_submode_test.go:118
+        	Error:      	"client spools the running daemon has not replayed yet. On a slow disk a hook that waits out its ACK deadline hands its capture to the spool and the daemon replays it within seconds, so nothing is lost; run doctor again, and if the files stay the replay is not keeping up. To tune it: runtime.hotPath.budgetMs, runtime.budgets.l0IngestMs and runtime.daemon.ackDeadlineMs (docs/troubleshooting.md, slow disks)" does not contain "1 hook client spool(s)"
+        	Test:       	TestDoctor_SpoolSubmodeIsInformational/sync_submode_with_both_kinds_counts_each
+=== RUN   TestDoctor_SpoolSubmodeIsInformational/sync_submode_keeps_the_old_verdict
+--- FAIL: TestDoctor_SpoolSubmodeIsInformational (1.89s)
+    --- PASS: TestDoctor_SpoolSubmodeIsInformational/a_daemon_is_serving (0.47s)
+    --- PASS: TestDoctor_SpoolSubmodeIsInformational/no_daemon_is_serving (0.21s)
+    --- PASS: TestDoctor_SpoolSubmodeIsInformational/sync_submode_with_a_daemon_serving_says_why (0.35s)
+    --- FAIL: TestDoctor_SpoolSubmodeIsInformational/sync_submode_with_only_WAL_segments_does_not_call_them_client_spools (0.37s)
+    --- FAIL: TestDoctor_SpoolSubmodeIsInformational/sync_submode_with_both_kinds_counts_each (0.35s)
+    --- PASS: TestDoctor_SpoolSubmodeIsInformational/sync_submode_keeps_the_old_verdict (0.15s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/cli	2.286s
+FAIL

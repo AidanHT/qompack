@@ -1,12 +1,10 @@
 package daemon
 
 import (
-	"bytes"
 	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
-	"path/filepath"
 	"slices"
 	"sort"
 	"time"
@@ -15,7 +13,6 @@ import (
 	"github.com/qompack/qompack/internal/config"
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/ipc"
-	"github.com/qompack/qompack/internal/paths"
 	"github.com/qompack/qompack/internal/tokens"
 )
 
@@ -27,30 +24,40 @@ import (
 // to spool submode, from which point no tool result, prompt or Stop of the session reaches the daemon
 // except through a client spool: the hook clients stop connecting for them at all (ipc client.go Send
 // step 3). Only a drain reads a client spool, and the drains a session in spool submode meets are the
-// client-spool watcher, which a served request kicks and which takes two intervals to pass a spool,
-// and the idle drain, two quiet minutes away. PreCompact is not a hot-path op, so the compaction does
-// reach the daemon, and the route sealed at once: the checkpoint the host's compaction then depends
-// on lacked the session's newest tool results, and so did the rehydration built from it.
+// client-spool watcher, which a served request or (in spool submode) Run's idle tick kicks and which
+// takes two intervals to pass a spool, and the idle drain, two quiet minutes away. PreCompact is not
+// a hot-path op, so the compaction does reach the daemon, and the route sealed at once: the
+// checkpoint the host's compaction then depends on lacked the session's newest tool results, and so
+// did the rehydration built from it.
 //
 // So before it seals, the route settles the session the way a session end does (settleSession,
 // C1.13): it waits for the session's ingest lane to publish every arrival leased before the
 // PreCompact, replays the client spools that hold this session's captures (only those: another
 // session's backlog, older in host order, must not spend this session's bound), and waits for the
-// lane once more for the successors the replay unparked. It does so only inside the bound below, and
-// a capture still unpublished when the bound expires is counted in the checkpoint's drop report
-// (checkpoint.DropKindUnreplayedCapture), the newest tool results among them named by tool_use_id
-// (DropKindUnreplayedToolResult) within their share of the checkpoint's budget, which the
-// rehydration's section 7 carries: never silently missing. A session with no client spool waiting
-// and nothing still publishing pays one directory listing and two in-memory lookups (settleFast);
-// when another session's spools are waiting it also reads them, to find none of its own.
+// lane once more for the successors the replay unparked. All of it, the looks at the spool included,
+// runs inside the bound below (settleBeforeSeal), and a capture still unpublished when the bound
+// expires is counted in the checkpoint's drop report (checkpoint.DropKindUnreplayedCapture), the
+// newest tool results among them named by tool_use_id (DropKindUnreplayedToolResult) within their
+// share of the checkpoint's budget, which the rehydration's section 7 carries: never silently missing.
+//
+// A client spool's name does not say whose captures it holds, so the settle learns that from the
+// lines, through the daemon's index of the spools' line heads (spool_heads.go), which reads a file
+// once per version: the settle indexes what it reads, and the client-spool watcher indexes every
+// spool its pass leaves. A session with no client spool of its own and nothing still publishing pays
+// one listing of the spool directory, lookups in that index and two in the journal; it reads only
+// the client spools the index does not yet hold (a spool written since the watcher last passed, or
+// any when no watcher has run), each once, and only while the bound lasts.
 
 // precompactSettleBound is how long the PreCompact route may spend settling the session before it
 // seals: B-E (runtime.budgets.checkpointFinalizeMs, the gated p99 for PreCompact entry to exit) less
 // the seal's own worst case inside B-E (checkpoint.MaxPreCompactWindow). The settle is timed inside
-// B-E with the seal, so a settle that takes its whole bound still leaves the seal the window it
-// always had, and B-E's limit is not exceeded on the seal's account. 500 ms with the defaults
-// (2000 - 1500). A B-E configured at or below the seal's window leaves no settle at all: the route
-// seals at once and names what is unpublished.
+// B-E with the seal, and every part of it that grows with the spool (its looks at the client spools,
+// its waits and its replay) runs against this bound, so a settle that takes its whole bound still
+// leaves the seal the window it always had. What runs past it is fixed work, not the backlog's: a
+// file read already under way, the spool listings, the drain's progress file and the pricing of the
+// names (settleBeforeSeal lists it). 500 ms with the defaults (2000 - 1500). A B-E configured at or
+// below the seal's window leaves no settle at all: the route seals at once and names what is
+// unpublished, from what the spool index already holds.
 //
 // It is far inside the nested PreCompact deadlines (wire_checkpoint.go precompactDeadlineSlack:
 // 14 s for the daemon inside the client's 15 s inside the host's 20 s), and it is a bound on a wait,
@@ -64,17 +71,21 @@ func precompactSettleBound(cfg config.Config) time.Duration {
 
 // unreplayedNamesBudgetDivisor sets the share of checkpoint.budgetTokens the per-tool-result names of
 // the unreplayed report may take: one twentieth (5 %), 600 tokens of the default 12000, which names
-// the newest dozen or so tool results (16 with the test fixture's short ids; an indented entry costs
-// 35 to 40 tokens). Every drop entry is part of the checkpoint document Truncate
-// measures, and Truncate never cuts the drop report: it cuts the narrative and then the pointers to
-// make room for it. Named without a bound, a spool-submode backlog of 300 tool results took 11147
-// of the default 12000 tokens (TestPreCompactSettle_ABacklogIsCountedInFullAndNamedWithinItsShare's
-// fixture, before this bound) and cost the checkpoint its pointers to the session's older work. With
-// it, a checkpoint whose pointers fit within 95 % of its budget keeps them all, whatever the backlog.
-// The summary entry still counts every capture left, so nothing becomes silent; a tool result that is
-// counted but not named is in the store once the daemon replays it, and recall finds it then.
-// This is an owner number (V6 close-out D53(c)): too large and the names cut pointers on a nearly
-// full checkpoint; too small and fewer of the newest tool results are named.
+// the newest dozen or so tool results (16 with the test fixture's short ids and the identity
+// estimator; an indented entry costs 35 to 40 tokens before calibration). Every drop entry is part
+// of the checkpoint document Truncate measures, and Truncate never cuts the drop report: it cuts the
+// narrative and then the pointers to make room for it. Named without a bound, a spool-submode backlog
+// of 300 tool results took 11147 of the default 12000 tokens
+// (TestPreCompactSettle_ABacklogIsCountedInFullAndNamedWithinItsShare's fixture, before this bound)
+// and cost the checkpoint its pointers to the session's older work. The names are priced by the
+// seal's own estimator, the project-calibrated one Truncate measures the document with
+// (sealReport.drops, through checkpoint.PreCompactInput.PricedDrops), so the share holds under any
+// calibration factor: a checkpoint whose pointers fit within 95 % of its budget keeps them all,
+// whatever the backlog. The summary entry still counts every capture left, so nothing becomes
+// silent; a tool result that is counted but not named is in the store once the daemon replays it,
+// and recall finds it then. This is an owner number (V6 close-out D53(c), approved in D55): too large
+// and the names cut pointers on a nearly full checkpoint; too small and fewer of the newest tool
+// results are named.
 const unreplayedNamesBudgetDivisor = 20
 
 // unreplayedNamesAllowance is the token allowance of the per-tool-result names under cfg.
@@ -83,13 +94,17 @@ func unreplayedNamesAllowance(cfg config.Config) core.Tokens {
 }
 
 // counterPrecompactSettle counts PreCompact seals that found something of their session to settle
-// first: a client spool holding one of its captures, or an arrival leased before the PreCompact and
-// not yet published.
+// first, or could not tell within the bound: a client spool holding one of its captures, an arrival
+// leased before the PreCompact and not yet published, or a client spool the bound left unread.
 const counterPrecompactSettle = "precompact_settle"
 
 // counterPrecompactUnreplayed counts the captures a PreCompact seal reported as unreplayed: still in a
 // client spool or the session's lane when the settle's bound expired.
 const counterPrecompactUnreplayed = "precompact_unreplayed_captures"
+
+// counterPrecompactSpoolReads counts the client spool files PreCompact settles read: the files the
+// spool index (spool_heads.go) did not already hold at their listed size and time.
+const counterPrecompactSpoolReads = "precompact_settle_spool_reads"
 
 // unreplayedDetailFormat is the summary drop entry's detail, as the checkpoint and section 7 carry it:
 // how many captures were left, of which kinds, how many of the tool results are named, and what that
@@ -99,21 +114,58 @@ const unreplayedDetailFormat = "%d capture(s) of this session (%d tool result(s)
 	"were slower than their budget); the newest %d tool result(s) are named by tool_use_id; nothing is lost: " +
 	"the daemon replays them, and recall or expand finds them then"
 
-// sealDropsKey carries the settle's drop entries to the bound PreCompact seam (wire_checkpoint.go),
-// beside the event, which has no room for them.
-type sealDropsKey struct{}
+// unreadSpoolsClauseFormat is added to the summary's detail when the settle's bound ended before it
+// had read every client spool it had to look at: those files were listed but not read, so the
+// summary cannot count this session's captures in them, if there are any.
+const unreadSpoolsClauseFormat = "; %d hook client spool file(s) could not be read within the bound, so this " +
+	"session's captures in them, if any, are not counted here"
 
-func withSealDrops(ctx context.Context, drops []checkpoint.DropEntry) context.Context {
-	if len(drops) == 0 {
-		return ctx
-	}
-	return context.WithValue(ctx, sealDropsKey{}, drops)
+// sealReport is what the settle hands the seal: the captures it left unreplayed, how many client
+// spools it could not read within its bound, and the names' share of the checkpoint's budget. The
+// seal prices the names with its own estimator (drops), the one its Truncate measures the document
+// with.
+type sealReport struct {
+	left      []pendingCapture
+	unread    int
+	allowance core.Tokens
 }
 
-// sealDrops returns the drop entries the PreCompact route's settle left for the seal, if any.
-func sealDrops(ctx context.Context) []checkpoint.DropEntry {
-	drops, _ := ctx.Value(sealDropsKey{}).([]checkpoint.DropEntry)
+// drops is the report's drop entries, the names priced with est (unreplayedDrops). A nil report has
+// none.
+func (r *sealReport) drops(est tokens.Estimator) []checkpoint.DropEntry {
+	if r == nil {
+		return nil
+	}
+	drops := unreplayedDrops(r.left, r.allowance, est)
+	if r.unread > 0 {
+		drops[0].Detail += fmt.Sprintf(unreadSpoolsClauseFormat, r.unread)
+	}
 	return drops
+}
+
+// pricer is drops in the shape checkpoint.PreCompactInput.PricedDrops takes; nil for a nil report.
+func (r *sealReport) pricer() func(tokens.Estimator) []checkpoint.DropEntry {
+	if r == nil {
+		return nil
+	}
+	return r.drops
+}
+
+// sealReportKey carries the settle's report to the bound PreCompact seam (wire_checkpoint.go), beside
+// the event, which has no room for it.
+type sealReportKey struct{}
+
+func withSealReport(ctx context.Context, r *sealReport) context.Context {
+	if r == nil {
+		return ctx
+	}
+	return context.WithValue(ctx, sealReportKey{}, r)
+}
+
+// sealReportOf returns the report the PreCompact route's settle left for the seal, or nil.
+func sealReportOf(ctx context.Context) *sealReport {
+	r, _ := ctx.Value(sealReportKey{}).(*sealReport)
+	return r
 }
 
 // pendingCapture is what the settle knows of a capture it may have to report: enough to count it by
@@ -137,28 +189,62 @@ func captureOf(req ipc.Request) pendingCapture {
 	return c
 }
 
-// settleBeforeSeal settles sess before its PreCompact seal (see above) and returns the drop entries
-// reporting what it could not settle. at is the PreCompact's hook time: a client-spooled capture
-// fired after it does not belong to this compaction.
-func (d *daemon) settleBeforeSeal(ctx context.Context, sess core.SessionID, at core.UnixMilli) []checkpoint.DropEntry {
-	upTo, files, settled := d.settleFast(sess, at)
-	if settled {
-		return nil
+// settleBeforeSeal settles sess before its PreCompact seal (see above) and returns the report of what
+// it could not settle, or nil when nothing is left. at is the PreCompact's hook time: a
+// client-spooled capture fired after it does not belong to this compaction.
+//
+// The bound's deadline starts before anything else is done, and every part of the settle that grows
+// with the spool runs against it:
+//   - the first look at the client spools (scanClientSpools): a listing, and a read of each file the
+//     spool index does not hold at its listed size and time, each started only before the deadline;
+//   - the waits for the session's lane and the replay of the files holding its captures, which run to
+//     the same deadline: no time is held back for the last look, so a first look slowed by other
+//     sessions' cold spools leaves the replay whatever it did not use;
+//   - the last look, which keeps the first look's result and reads again only the files that look
+//     named and the ones listed since it (or left unread by it), again only before the deadline. Most
+//     of what it looks at it takes from the spool index: a file the replay released is no longer
+//     listed, and one it left is unchanged, since a drain records its progress elsewhere. A file it
+//     would have to read once the deadline has passed (one listed since the first look, or one a hook
+//     appended to) it counts as unread instead.
+//
+// What can run past the deadline is fixed work: a file read already under way, the spool listings,
+// the drain's progress file and the pricing of the names, which the seal does (namesWithin measures a
+// handful of candidate reports, whatever the backlog). A file a look could not read in time is
+// counted in the summary as not read.
+func (d *daemon) settleBeforeSeal(ctx context.Context, sess core.SessionID, at core.UnixMilli) *sealReport {
+	cfg := d.currentCfg()
+	bound := precompactSettleBound(cfg)
+	sctx, cancel := context.WithDeadline(ctx, time.Now().Add(bound))
+	defer cancel()
+	reads := d.spoolHeads.reads.Load()
+	defer func() {
+		if d.m != nil {
+			d.m.Counter(counterPrecompactSpoolReads).Add(d.spoolHeads.reads.Load() - reads)
+		}
+	}()
+
+	upTo := d.leasedUpTo(sess)
+	first := d.scanClientSpools(sctx, sess, at, nil)
+	own := map[string]bool{}
+	for _, c := range first.caps {
+		own[c.file] = true
+	}
+	if len(own) == 0 && len(first.unread) == 0 && d.arrivalsSettled(sess, upTo) {
+		return nil // nothing of this session's to settle
 	}
 	if d.m != nil {
 		d.m.Counter(counterPrecompactSettle).Add(1)
 	}
-	cfg := d.currentCfg()
-	bound := precompactSettleBound(cfg)
-	sctx, cancel := context.WithTimeout(ctx, bound)
-	defer cancel()
 
+	// The waits and the replay run to the bound's own deadline. Nothing is held back for the last
+	// look: what it reads past the deadline it counts as unread, which keeps the report honest
+	// without spending the replay's time on other sessions' files.
 	d.awaitArrivals(sctx, sess, upTo)
-	if len(files) > 0 && sctx.Err() == nil {
+	if len(own) > 0 && sctx.Err() == nil {
 		if dr := d.drain.Load(); dr != nil {
 			// A replay is capture work, as every drain is (D51).
 			d.capture.enter()
-			_, err := dr.DrainClientSpoolsWithin(sctx, files)
+			_, err := dr.DrainClientSpoolsWithin(sctx, own)
 			d.capture.leave()
 			if err != nil && sctx.Err() == nil {
 				d.log.Debug("daemon: PreCompact: the client-spool replay before the seal ended early", "err", err)
@@ -167,46 +253,40 @@ func (d *daemon) settleBeforeSeal(ctx context.Context, sess core.SessionID, at c
 		d.awaitArrivals(sctx, sess, upTo)
 	}
 
-	left := d.unreplayedCaptures(sess, upTo, at)
-	if len(left) == 0 {
+	last := d.scanClientSpools(sctx, sess, at, func(base string) bool {
+		return own[base] || !first.listed[base] || first.unread[base]
+	})
+	left := d.unreplayedCaptures(sess, upTo, last.caps)
+	if len(left) == 0 && len(last.unread) == 0 {
 		return nil
 	}
 	if d.m != nil {
 		d.m.Counter(counterPrecompactUnreplayed).Add(int64(len(left)))
 	}
-	drops := unreplayedDrops(left, unreplayedNamesAllowance(cfg), tokens.New(cfg, ""))
 	d.log.Warn("daemon: PreCompact sealed before some of the session's captures were replayed; "+
 		"the checkpoint's drop report counts them, and the daemon replays them next",
-		"session", string(sess), "captures", len(left), "named", len(drops)-1, "bound", bound.String())
-	return drops
+		"session", string(sess), "captures", len(left), "unread_spools", len(last.unread), "bound", bound.String())
+	return &sealReport{left: left, unread: len(last.unread), allowance: unreplayedNamesAllowance(cfg)}
 }
 
-// settleFast reports what the settle has to wait for. upTo is one past the session's newest leased
-// arrival when the PreCompact arrived (0 when the journal cannot say), files the client spools that
-// hold the session's unreplayed captures fired at or before at, and settled is true when neither
-// leaves anything to do: no such spool, and every arrival before upTo already on the committed
-// frontier. With no client spool waiting at all, that answer costs one listing of the spool directory
-// and two lookups in memory; with other sessions' spools waiting, it also reads them.
-func (d *daemon) settleFast(sess core.SessionID, at core.UnixMilli) (upTo uint64, files map[string]bool, settled bool) {
+// leasedUpTo is one past sess's newest leased arrival, 0 when the journal cannot say.
+func (d *daemon) leasedUpTo(sess core.SessionID) uint64 {
 	if j, err := d.deliveryJournal(); err == nil && j != nil {
 		if last, ok := j.lastArrival(sess); ok {
-			upTo = last + 1
+			return last + 1
 		}
 	}
-	for _, c := range d.spooledCaptures(sess, at) {
-		if files == nil {
-			files = map[string]bool{}
-		}
-		files[c.file] = true
-	}
-	if len(files) > 0 {
-		return upTo, files, false
-	}
+	return 0
+}
+
+// arrivalsSettled reports whether every leased arrival of sess before upTo is on the committed
+// frontier, from the journal's memory.
+func (d *daemon) arrivalsSettled(sess core.SessionID, upTo uint64) bool {
 	if upTo <= 1 {
-		return upTo, nil, true // no leased arrival before the PreCompact, or none the journal can name
+		return true // no leased arrival before the PreCompact, or none the journal can name
 	}
 	delivered, known := d.sessionDelivered(sess, upTo)
-	return upTo, nil, known && delivered
+	return known && delivered
 }
 
 // awaitArrivals waits, within ctx, until every leased arrival of sess before upTo is on the committed
@@ -232,17 +312,72 @@ func (d *daemon) awaitArrivals(ctx context.Context, sess core.SessionID, upTo ui
 	}
 }
 
-// spooledCaptures returns sess's hot-path captures fired at or before at that sit in a hook client
-// spool, unconsumed by any drain and not already published through another copy of their delivery
-// (a late ACK's spool copy of a delivery the lane published).
-func (d *daemon) spooledCaptures(sess core.SessionID, at core.UnixMilli) []pendingCapture {
+// spoolScan is one look at the client spools for a session: its captures found there, every client
+// spool listed, and the ones the look had to read but could not before its context ended.
+type spoolScan struct {
+	caps   []pendingCapture
+	listed map[string]bool
+	unread map[string]bool
+}
+
+// scanClientSpools looks at the hook client spools for sess's hot-path captures fired at or before
+// at that no drain has consumed and whose delivery is not already on the committed frontier through
+// another copy (a late ACK's spool copy of a delivery the lane published). It looks into the files
+// look accepts, all of them when look is nil. Their heads come from the spool index
+// (spool_heads.go); a file the index does not hold at its listed size and time is read, but only
+// while ctx has not ended, and is otherwise reported unread. With no drainer nothing could replay
+// the spools, and nothing is returned. It reads the drain's progress only when a line of sess is
+// found.
+func (d *daemon) scanClientSpools(ctx context.Context, sess core.SessionID, at core.UnixMilli,
+	look func(base string) bool,
+) spoolScan {
+	s := spoolScan{listed: map[string]bool{}}
 	dr := d.drain.Load()
 	if dr == nil {
-		return nil
+		return s
 	}
-	caps := dr.pendingClientCaptures(sess, at)
+	var st drainState
+	loaded := false
+	for _, l := range listClientSpools(d.root) {
+		s.listed[l.base] = true
+		if look != nil && !look(l.base) {
+			continue
+		}
+		lines, ok := d.spoolHeads.heads(ctx, d.root, l)
+		if !ok {
+			if s.unread == nil {
+				s.unread = map[string]bool{}
+			}
+			s.unread[l.base] = true
+			continue
+		}
+		for _, ln := range lines {
+			if ln.sess != sess || (ln.c.ts > 0 && at > 0 && ln.c.ts > at) {
+				continue
+			}
+			if !loaded {
+				// What the passes consumed of each file: everything before its recorded offset. A file
+				// whose progress cannot be read is taken from its start; whatever a pass did consume of
+				// it is acknowledged, and notYetAcknowledged drops it on that ground.
+				st, _ = dr.loadState()
+				loaded = true
+			}
+			if fs := st[l.base]; fs != nil && fs.Offset > 0 && fs.Offset <= l.size && ln.start < fs.Offset {
+				continue
+			}
+			s.caps = append(s.caps, ln.c)
+		}
+	}
+	d.spoolHeads.forget(s.listed)
+	s.caps = d.notYetAcknowledged(s.caps)
+	return s
+}
+
+// notYetAcknowledged drops from caps every capture whose delivery is already on the committed
+// frontier: a spool copy of a delivery the lane, or a drain, has published.
+func (d *daemon) notYetAcknowledged(caps []pendingCapture) []pendingCapture {
 	if len(caps) == 0 {
-		return nil
+		return caps
 	}
 	j, _ := d.deliveryJournal()
 	out := caps[:0]
@@ -258,10 +393,9 @@ func (d *daemon) spooledCaptures(sess core.SessionID, at core.UnixMilli) []pendi
 }
 
 // unreplayedCaptures returns the captures of sess the seal will not hold: the lane's jobs leased before
-// upTo and not yet settled, and the client-spooled hot-path requests fired at or before at that no
-// drain has consumed and whose delivery is not on the committed frontier. A delivery the lane and a
-// spool both hold (a late ACK's copy) is returned once.
-func (d *daemon) unreplayedCaptures(sess core.SessionID, upTo uint64, at core.UnixMilli) []pendingCapture {
+// upTo and not yet settled, and spooled, what the settle's last look at the client spools found. A
+// delivery the lane and a spool both hold (a late ACK's copy) is returned once.
+func (d *daemon) unreplayedCaptures(sess core.SessionID, upTo uint64, spooled []pendingCapture) []pendingCapture {
 	j, _ := d.deliveryJournal()
 	named := map[string]bool{}
 	var left []pendingCapture
@@ -283,7 +417,7 @@ func (d *daemon) unreplayedCaptures(sess core.SessionID, upTo uint64, at core.Un
 		}
 		add(captureOf(jb.req))
 	}
-	for _, c := range d.spooledCaptures(sess, at) {
+	for _, c := range spooled {
 		add(c)
 	}
 	return left
@@ -291,9 +425,9 @@ func (d *daemon) unreplayedCaptures(sess core.SessionID, upTo uint64, at core.Un
 
 // unreplayedDrops is the drop report for left: one summary entry counting every capture by kind, and
 // one entry per tool result naming its tool_use_id (checkpoint.DropKindUnreplayedToolResult), newest
-// first, for as many as fit allowance as the checkpoint measures them (est, priced the way Truncate
-// prices the whole document). The summary says how many are named. The named entries carry no detail,
-// because the summary already says what they mean.
+// first, for as many as fit allowance as the checkpoint measures them (est, the estimator the seal's
+// Truncate prices the whole document with). The summary says how many are named. The named entries
+// carry no detail, because the summary already says what they mean.
 func unreplayedDrops(left []pendingCapture, allowance core.Tokens, est tokens.Estimator) []checkpoint.DropEntry {
 	var tools []pendingCapture
 	prompts := 0
@@ -318,9 +452,9 @@ func unreplayedDrops(left []pendingCapture, allowance core.Tokens, est tokens.Es
 // namesWithin returns the drop entries naming the longest prefix of tools whose cost in a checkpoint
 // document is at most allowance. The cost of a prefix grows with its length, so it is found by binary
 // search: a handful of measurements, whatever the backlog. A prefix that cannot be measured does not
-// fit.
+// fit, and neither does any without an estimator to measure it.
 func namesWithin(tools []pendingCapture, allowance core.Tokens, est tokens.Estimator) []checkpoint.DropEntry {
-	if allowance <= 0 || len(tools) == 0 {
+	if allowance <= 0 || len(tools) == 0 || est == nil {
 		return nil
 	}
 	entries := make([]checkpoint.DropEntry, len(tools))
@@ -395,58 +529,4 @@ func (h spoolLineHead) capture() pendingCapture {
 		c.toolUseID = h.Event.ToolUseID
 	}
 	return c
-}
-
-// pendingClientCaptures reads the hook client spools and returns the hot-path captures of sess fired at
-// or before at that no drain has consumed yet: each file past the offset state/drain.json records for
-// it, or from its start when the progress cannot be read (whatever a pass did consume is acknowledged,
-// and the caller drops it on that ground). With no client spool listed it reads nothing more. It
-// takes no lock: it only reads, through shared handles, so it never keeps a concurrent pass from
-// replacing or removing a file. It decodes each line's head only (spoolLineHead).
-func (dr *drainer) pendingClientCaptures(sess core.SessionID, at core.UnixMilli) []pendingCapture {
-	files, err := ipc.SpoolFiles(paths.Of(dr.cfg.Root).Spool)
-	if err != nil {
-		return nil
-	}
-	files = slices.DeleteFunc(files, func(path string) bool { return !isClientSpoolName(filepath.Base(path)) })
-	if len(files) == 0 {
-		return nil
-	}
-	st, err := dr.loadState()
-	if err != nil {
-		st = nil
-	}
-	var out []pendingCapture
-	for _, path := range files {
-		base := filepath.Base(path)
-		b, err := paths.ReadFileShared(path)
-		if err != nil {
-			continue // consumed and removed since the listing, or unreadable: nothing to name from it
-		}
-		if fs := st[base]; fs != nil && fs.Offset > 0 && fs.Offset <= int64(len(b)) {
-			b = b[fs.Offset:]
-		}
-		for len(b) > 0 {
-			i := bytes.IndexByte(b, '\n')
-			if i < 0 {
-				break // a trailing partial line: its hook is still writing it
-			}
-			var line []byte
-			line, b = b[:i], b[i+1:]
-			if len(bytes.TrimSpace(line)) == 0 {
-				continue
-			}
-			h, err := decodeSpoolLineHead(line)
-			if err != nil || !h.Op.HotPath() || h.session() != sess {
-				continue
-			}
-			if h.TS > 0 && at > 0 && h.TS > at {
-				continue
-			}
-			c := h.capture()
-			c.file = base
-			out = append(out, c)
-		}
-	}
-	return out
 }
