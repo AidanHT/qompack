@@ -847,6 +847,7 @@ func (d *daemon) Run(ctx context.Context) error {
 			}
 		case <-idleTicker.C:
 			d.idle.Notify(d.registry.LastActivity())
+			d.kickSpoolWatchInSpoolSubmode()
 			now := core.NowMilli(d.clk)
 			if d.idle.IsIdle(now) {
 				_, _ = d.idle.RunOnce(runCtx, idleRunBudget)

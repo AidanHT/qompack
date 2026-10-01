@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/qompack/qompack/internal/ipc"
 	"github.com/qompack/qompack/internal/paths"
 )
 
@@ -22,14 +23,15 @@ import (
 // published ahead of it.
 //
 // The watcher closes that without polling an idle daemon. Every request the daemon serves kicks it
-// (noteServed). A kicked watcher looks at the spool directory once per spoolCheckInterval for as long
-// as kicks keep coming, and once more an interval after they stop, so a spool file written just after
-// the last hook (a late ACK spools after the request was served) is still seen. A client spool that
-// has stood unchanged across a whole interval — its hook has finished writing it, and a live copy of
-// the same delivery, when there is one, has had an interval to publish — gets a client-spool drain
-// pass (drainer.DrainClientSpools): bounded by idleRunBudget, run on the watcher's own goroutine, never
-// on a worker, under the drain's own mutex, ordering gate and frontier. The pass reads no WAL segment,
-// which is the worker pool's.
+// (noteServed), and so does Run's idle tick while the hot path is in spool submode, when no hook
+// request is served at all (kickSpoolWatchInSpoolSubmode). A kicked watcher looks at the spool
+// directory once per spoolCheckInterval for as long as kicks keep coming, and once more an interval
+// after they stop, so a spool file written just after the last hook (a late ACK spools after the
+// request was served) is still seen. A client spool that has stood unchanged across a whole interval
+// — its hook has finished writing it, and a live copy of the same delivery, when there is one, has
+// had an interval to publish — gets a client-spool drain pass (drainer.DrainClientSpools): bounded by
+// idleRunBudget, run on the watcher's own goroutine, never on a worker, under the drain's own mutex,
+// ordering gate and frontier. The pass reads no WAL segment, which is the worker pool's.
 //
 // A spool a pass could not consume — its line waits on an earlier arrival of its session that is
 // still publishing, which is the usual reason, or on one nothing will ever publish — is passed over
@@ -117,6 +119,25 @@ func (d *daemon) kickSpoolWatch() {
 	case d.spool.kick <- struct{}{}:
 	default:
 	}
+}
+
+// kickSpoolWatchInSpoolSubmode kicks the watcher from Run's idle tick while the hot path is in spool
+// submode, and reports whether it did (V6 close-out D55, wave 16b). In spool submode no hot-path hook
+// connects (ipc client.go Send step 3), so no served request kicks the watcher, and a session's tool
+// results, prompts and Stops waited in their client spools for a non-hot request or for the idle
+// drain, DetectAfterSeconds after the last served request: recall lagged by minutes. The tick is
+// Run's existing cadence (idleTickMax, or a tenth of idleExitSeconds), so spooled captures now reach
+// the store within a tick and the watcher's two intervals. The kick is the watcher's ordinary one: a
+// look per interval while kicks keep coming, a pass only for a spool that has stood unchanged for an
+// interval, each pass bounded by idleRunBudget as a pass budget, and the retry backoff and horizon
+// for a spool its passes cannot consume. No new number. In sync submode the tick does not kick: the
+// hooks' own requests do.
+func (d *daemon) kickSpoolWatchInSpoolSubmode() bool {
+	if d.registry == nil || d.registry.HotMode() != ipc.HotSpool {
+		return false
+	}
+	d.kickSpoolWatch()
+	return true
 }
 
 // spoolWatchEntry is what the watcher remembers about one client spool between two looks.
