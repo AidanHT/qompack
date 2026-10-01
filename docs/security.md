@@ -46,7 +46,8 @@ or ask rule they answer `denied` with the deny rule's reason, never the ask reas
 disk, because its long name is unknown, and, while a rule names an 8.3 name after a glob (such as
 `Read(**/CREDEN~1.SEC)`), a file that no longer exists, because its 8.3 names are unknown. A rule
 names an 8.3 name only with a tilde followed by a digit or by a glob character that can stand for
-one (`Read(**/CREDEN~?.SEC)`); a backup-file rule such as `Read(**/*~)` names none, so deleted files
+one (`Read(**/CREDEN~?.SEC)`), or with a tilde inside a bracket expression
+(`Read(**/CREDEN[~]1.SEC)`); a backup-file rule such as `Read(**/*~)` names none, so deleted files
 are judged under it as before. More
 than 5000 Read path patterns, or 80 000 path segments across them, in force at once makes the rules
 unusable, so path-bearing content is withheld as for an unreadable file; the bound keeps every
