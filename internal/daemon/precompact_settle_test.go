@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -100,9 +101,10 @@ func TestPreCompactSettle_NamesWhatTheBoundLeftUnreplayed(t *testing.T) {
 
 	require.Equal(t, 1, probe.calls, "the route seals once the bound has expired")
 	require.False(t, probe.published[slow.Nonce], "fixture sanity: the slow Read was not replayed")
-	require.Equal(t, []checkpoint.DropEntry{{
-		Kind: checkpoint.DropKindUnreplayedCapture, ID: string(slow.Event.ToolUseID), Detail: unreplayedDetail,
-	}}, probe.drops, "the seal names the capture the bound left unreplayed, and only that one")
+	require.Equal(t, []checkpoint.DropEntry{
+		{Kind: checkpoint.DropKindUnreplayedCapture, Detail: fmt.Sprintf(unreplayedDetailFormat, 1, 1, 0, 0)},
+		{Kind: checkpoint.DropKindUnreplayedToolResult, ID: string(slow.Event.ToolUseID)},
+	}, probe.drops, "the seal names the capture the bound left unreplayed, and only that one")
 	require.Equal(t, int64(1), dd.m.Counter(counterPrecompactUnreplayed).Value())
 }
 
@@ -193,4 +195,26 @@ func TestDrainer_DrainClientSpoolsWithinGivesUpOnABusyMutex(t *testing.T) {
 		}
 		return false
 	}, liveOrderBound, liveOrderTick)
+}
+
+// TestUnreplayedDrops_CountsEveryCaptureAndNamesEachToolResult: the drop report for what the bound
+// left is one counted summary and one line per tool result, by tool_use_id; a prompt and a Stop are
+// counted, having no id the model could ask for.
+func TestUnreplayedDrops_CountsEveryCaptureAndNamesEachToolResult(t *testing.T) {
+	tool := func(id string) ipc.Request {
+		return ipc.Request{Op: ipc.OpObserveTool, Event: &hookio.Event{ToolUseID: core.ToolUseID(id)}}
+	}
+	got := unreplayedDrops([]ipc.Request{
+		tool("toolu_a"),
+		{Op: ipc.OpObservePrompt, Event: &hookio.Event{Prompt: "next"}},
+		tool("toolu_b"),
+		{Op: ipc.OpObserveStop},
+	})
+	require.Equal(t, []checkpoint.DropEntry{
+		{Kind: checkpoint.DropKindUnreplayedCapture, Detail: fmt.Sprintf(unreplayedDetailFormat, 4, 2, 1, 1)},
+		{Kind: checkpoint.DropKindUnreplayedToolResult, ID: "toolu_a"},
+		{Kind: checkpoint.DropKindUnreplayedToolResult, ID: "toolu_b"},
+	}, got)
+	require.Contains(t, got[0].Detail, "4 capture(s) of this session (2 tool result(s), 1 prompt(s), 1 other)")
+	require.Contains(t, got[0].Detail, "nothing is lost")
 }
