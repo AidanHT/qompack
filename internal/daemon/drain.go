@@ -134,18 +134,18 @@ func withoutPassBudget(ctx context.Context) context.Context {
 // drainReadBufferBytes sizes the buffered reader Drain scans each spool file with.
 const drainReadBufferBytes = 64 << 10 // 64 KiB
 
-// The two filename families Drain (via ipc.SpoolFiles) distinguishes. (The blob-descriptor field
-// name and shape live in blob.go, shared with ingest.go's dispatch path.)
+// The WAL segment name's parts, which walSessionID takes apart to find the segment's session. Which
+// family a spool file is in is ipc.SpoolFileKindOf's to say. (The blob-descriptor field name and
+// shape live in blob.go, shared with ingest.go's dispatch path.)
 const (
-	drainWalPrefix    = "wal-"
-	drainClientPrefix = "client-"
-	drainFileExt      = ".ndjson"
+	drainWalPrefix = "wal-"
+	drainFileExt   = ".ndjson"
 )
 
 // isClientSpoolName reports whether base names a hook's client spool (ipc's client-<pid>.ndjson), as
 // opposed to one of the ingest's WAL segments or anything else in the spool directory.
 func isClientSpoolName(base string) bool {
-	return strings.HasPrefix(base, drainClientPrefix) && strings.HasSuffix(base, drainFileExt)
+	return ipc.SpoolFileKindOf(base) == ipc.SpoolFileClient
 }
 
 // drainDeferral says why the drain left a line it read for a later attempt instead of consuming it.
@@ -354,6 +354,15 @@ type DrainConfig struct {
 	// It is called with the drain's mutex held, so it must not block or drain. A nil EndSession, or a
 	// nil Seen, replays every flush through Dispatch.
 	EndSession func(ctx context.Context, req ipc.Request, key core.Hash, lease deliveryLease) bool
+	// ClientSpoolRemoving is told the base name of every hook client spool a pass is about to remove
+	// once it was fully replayed (removeCompletedFile), and the drain calls the done it returns once the
+	// removal has returned, whatever its outcome. The daemon wires its spool index's removing
+	// (spool_heads.go): a hook whose pid was reused can write the same name again at the same size and
+	// time the instant the unlink returns, and the index must read that file, not serve the removed
+	// one's heads, so its entry must be gone from before the unlink to after it. Both calls are made
+	// with the drain's mutex held, so neither may block or drain. A nil ClientSpoolRemoving tells
+	// nobody.
+	ClientSpoolRemoving func(base string) (done func())
 }
 
 // errSessionEndStarted is dispatchPending's answer for a leased flush EndSession took off the pass.
@@ -376,6 +385,10 @@ type drainer struct {
 	// syncDir makes the spool directory's entries durable: paths.SyncDir outside tests, which set it to
 	// observe or fail it. durableEnd issues it once per pass, after the pass's first file sync.
 	syncDir func(dir string) error
+	// removeSpool removes a fully replayed spool file that is not a WAL segment the ingest removes
+	// (DrainConfig.RemoveWAL): removeIfUnchanged outside tests, which set it to act on the spool
+	// directory between the unlink and the rest of removeCompletedFile.
+	removeSpool func(path string, drained int64) (bool, error)
 	// dirSynced is set once the pass in progress has synced the spool directory. Drain clears it, under
 	// mu, before the pass's first file.
 	dirSynced bool
@@ -409,7 +422,10 @@ func newDrainer(cfg DrainConfig) *drainer {
 	if cfg.IsLive == nil {
 		cfg.IsLive = func(core.SessionID) bool { return false }
 	}
-	dr := &drainer{cfg: cfg, syncHandle: (*os.File).Sync, syncDir: paths.SyncDir, unsyncedNoted: map[string]bool{}}
+	dr := &drainer{
+		cfg: cfg, syncHandle: (*os.File).Sync, syncDir: paths.SyncDir, unsyncedNoted: map[string]bool{},
+		removeSpool: removeIfUnchanged,
+	}
 	dr.syncFile = func(path string) error { return syncSpoolFileWith(path, dr.syncHandle) }
 	return dr
 }
@@ -1163,7 +1179,7 @@ func (dr *drainer) removeCompletedFile(path, base string, fs *drainFileState, st
 	if isWAL && dr.cfg.HoldsWAL != nil && dr.cfg.HoldsWAL(path) {
 		return nil // RemoveWAL would refuse it: nothing to forget, nothing to put back
 	}
-	remove := removeIfUnchanged
+	remove := dr.removeSpool
 	if isWAL && dr.cfg.RemoveWAL != nil {
 		remove = dr.cfg.RemoveWAL
 	}
@@ -1172,7 +1188,7 @@ func (dr *drainer) removeCompletedFile(path, base string, fs *drainFileState, st
 		st[base] = fs // nothing is removed until its forgetting is on disk
 		return err
 	}
-	removed, err := remove(path, fs.Offset)
+	removed, err := dr.removeSpoolFile(remove, path, base, fs.Offset)
 	if removed || errors.Is(err, os.ErrNotExist) {
 		return nil // gone, and already forgotten on disk
 	}
@@ -1181,6 +1197,15 @@ func (dr *drainer) removeCompletedFile(path, base string, fs *drainFileState, st
 		return errors.Join(err, serr)
 	}
 	return err
+}
+
+// removeSpoolFile runs remove on the spool file path, named base, drained to drained, and brackets it
+// in DrainConfig.ClientSpoolRemoving when base is a hook client spool.
+func (dr *drainer) removeSpoolFile(remove func(string, int64) (bool, error), path, base string, drained int64) (bool, error) {
+	if isClientSpoolName(base) && dr.cfg.ClientSpoolRemoving != nil {
+		defer dr.cfg.ClientSpoolRemoving(base)()
+	}
+	return remove(path, drained)
 }
 
 // removeIfUnchanged removes path only if its size still equals drained, so bytes appended after a
