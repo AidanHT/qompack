@@ -163,7 +163,9 @@ handshake or the observed probe, `mcp.server_registered` reads `initialize-recei
 Once it records that two of the session's prompts missed the probe, that row reads `sentinel not
 found after two chances` and is counted as failing, with a note that it was read from
 `state/history.json`. The mode on the page does not change until the next `SessionStart` evaluates
-the row. `doctor` reads the observation ledger (`state/observations.json`) the same way: when a
+the row. A row read this way carries the time the daemon recorded the observation (the handshake,
+or the prompt scan that found the probe or spent its last chance), not the time of the read, so two
+reads of unchanged state show the same rows. `doctor` reads the observation ledger (`state/observations.json`) the same way: when a
 capability's newest entry is the start's `not_observed` and history.json records the observation or
 the spent chances, the row reports that outcome and says it was read from `state/history.json`
 (`internal/cli/doctor.go`, `capabilityRow`). The ledger itself is not rewritten. A row that was

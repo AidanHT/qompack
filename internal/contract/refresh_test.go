@@ -2,10 +2,20 @@ package contract_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/qompack/qompack/internal/contract"
+	"github.com/qompack/qompack/internal/core"
+)
+
+// handshakeAt and scannedAt are the times a fixture history records its MCP handshake and its probe
+// scan at. Both are past startSnapshot's TS (1) and before newFakeClock's now, so a row dated by the
+// observation, by the start or by the read can each be told apart.
+const (
+	handshakeAt core.UnixMilli = 1_000
+	scannedAt   core.UnixMilli = 2_000
 )
 
 // A SessionStart's RunAll runs before the host connects the MCP server or writes the probe into the
@@ -47,12 +57,14 @@ func rowOf(t *testing.T, rs []contract.Result, id contract.ID) contract.Result {
 
 // TestRefreshFromHistory_AnObservedHandshakeAndSentinelReplaceTheirPendingRows is UAT-01's reading:
 // history.json records the handshake and the probe, so the two rows read what their checks would
-// read from it now, stamped with the refresh's own time.
+// read from it now, dated by when history.json recorded each observation (D53(a): never by the read,
+// which this row once required and which made two reads of unchanged state differ).
 func TestRefreshFromHistory_AnObservedHandshakeAndSentinelReplaceTheirPendingRows(t *testing.T) {
 	declareAll(t)
 	clk := newFakeClock()
-	h := &contract.SessionHistory{MCPInitialized: true}
+	h := &contract.SessionHistory{MCPInitialized: true, MCPInitializedAt: handshakeAt}
 	h.Sentinel.Observed = true
+	h.Sentinel.ScannedAt = scannedAt
 
 	before := startSnapshot()
 	got := contract.RefreshFromHistory(before, h, clk)
@@ -61,11 +73,12 @@ func TestRefreshFromHistory_AnObservedHandshakeAndSentinelReplaceTheirPendingRow
 	require.True(t, mcpRow.OK)
 	require.Equal(t, "initialize-received", mcpRow.Observed)
 	require.Equal(t, "MCP server received initialize", mcpRow.Expected)
-	require.Greater(t, int64(mcpRow.TS), int64(1), "the refreshed row is dated when it was read")
+	require.Equal(t, handshakeAt, mcpRow.TS, "the refreshed row is dated by the handshake history.json recorded")
 
 	probeRow := rowOf(t, got, contract.CAdditionalContext)
 	require.True(t, probeRow.OK)
 	require.Equal(t, "sentinel-observed", probeRow.Observed)
+	require.Equal(t, scannedAt, probeRow.TS, "the refreshed row is dated by the scan that found the probe")
 
 	require.Equal(t, "first-session", rowOf(t, got, contract.CSessionStartFires).Observed)
 	require.Equal(t, "transcript-pending", rowOf(t, got, contract.CTranscriptReadable).Observed,
@@ -108,12 +121,16 @@ func TestRefreshFromHistory_AnUndeclaredProducerIsLeftAlone(t *testing.T) {
 }
 
 // TestRefreshFromHistory_MatchesWhatTheChecksRead: the rows a refresh substitutes are what the real
-// checks report from the same history, so the two can never spell an observation differently.
+// checks report from the same history, so the two can never spell an observation differently. The
+// one field that differs is TS, by design (D53(a)): a check run at a start is dated by that
+// evaluation, and a refreshed row by the observation history.json recorded.
 func TestRefreshFromHistory_MatchesWhatTheChecksRead(t *testing.T) {
 	declareAll(t)
 	clk := newFakeClock()
-	h := &contract.SessionHistory{MCPInitialized: true}
+	h := &contract.SessionHistory{MCPInitialized: true, MCPInitializedAt: handshakeAt}
 	h.Sentinel.Observed = true
+	h.Sentinel.ScannedAt = scannedAt
+	recorded := map[contract.ID]core.UnixMilli{contract.CMCPRegistered: handshakeAt, contract.CAdditionalContext: scannedAt}
 
 	got := contract.RefreshFromHistory(startSnapshot(), h, clk)
 	for _, a := range contract.StandardAssertions() {
@@ -121,6 +138,7 @@ func TestRefreshFromHistory_MatchesWhatTheChecksRead(t *testing.T) {
 			continue
 		}
 		want := a.Check(t.Context(), contract.Env{Clock: clk, History: h})
+		want.TS = recorded[a.ID]
 		row := rowOf(t, got, a.ID)
 		require.Equal(t, want, row, "%s", a.ID)
 		require.Equal(t, contract.StandingHolding, contract.StandingOf(row), "%s", a.ID)
@@ -148,6 +166,7 @@ func TestRefreshObservation_AnObservedProbeIsTheInjectionCapabilitysNewestWord(t
 	stale := ledgerEntry(t, contract.CAdditionalContext, "not-yet-observed")
 	h := &contract.SessionHistory{}
 	h.Sentinel.Observed = true
+	h.Sentinel.ScannedAt = scannedAt
 
 	got, changed := contract.RefreshObservation(stale, h, contract.DefaultCapabilityRegister(), newFakeClock())
 	require.True(t, changed)
@@ -157,7 +176,7 @@ func TestRefreshObservation_AnObservedProbeIsTheInjectionCapabilitysNewestWord(t
 	require.Equal(t, contract.CapInjection, got.Capability)
 	require.Equal(t, stale.Target, got.Target)
 	require.Equal(t, stale.Scope, got.Scope)
-	require.Greater(t, int64(got.TS), int64(stale.TS), "the refreshed entry is dated when it was read")
+	require.Equal(t, scannedAt, got.TS, "the refreshed entry is dated by the scan that found the probe (D53(a))")
 }
 
 // TestRefreshObservation_AnObservedHandshakeRefreshesItsEntry: the same for mcp.server_registered.
@@ -243,6 +262,7 @@ func TestRefreshFromHistory_SpentChancesTurnThePendingProbeRowFailing(t *testing
 
 	spent := &contract.SessionHistory{}
 	spent.Sentinel.Chances = 2
+	spent.Sentinel.ScannedAt = scannedAt
 	got := contract.RefreshFromHistory(startSnapshot(), spent, newFakeClock())
 
 	row := rowOf(t, got, contract.CAdditionalContext)
@@ -251,7 +271,7 @@ func TestRefreshFromHistory_SpentChancesTurnThePendingProbeRowFailing(t *testing
 	require.Equal(t, "sentinel not found after two chances", row.Observed)
 	require.Equal(t, contract.SevCritical, row.Severity, "the assertion's declared severity, as a start reports it")
 	require.Equal(t, "additionalContext reaches the transcript", row.Expected)
-	require.Greater(t, int64(row.TS), int64(1), "the refreshed row is dated when it was read")
+	require.Equal(t, scannedAt, row.TS, "the refreshed row is dated by the miss that spent the last chance (D53(a))")
 	require.Contains(t, row.Detail, "state/history.json", "the row says where the failure was read")
 	require.Contains(t, row.Detail, "next SessionStart", "the row says the mode is not changed by the read")
 	require.Equal(t, "initialize-pending", rowOf(t, got, contract.CMCPRegistered).Observed,
@@ -275,4 +295,60 @@ func TestRefreshObservation_SpentChancesReadAsAFailedInjection(t *testing.T) {
 	require.Equal(t, contract.CoverageNone, got.Coverage)
 	require.Equal(t, stale.Target, got.Target)
 	require.Equal(t, stale.Scope, got.Scope)
+}
+
+// TestRefreshFromHistory_AReadNeverRedatesARow: two refreshes of the same history at different
+// times return equal rows (D53(a); candidate 5's X01 live row read hook.additional_context_delivered
+// twice with nothing changed and got two TS values). A history that recorded no time for an
+// observation (one an older build wrote) dates the refreshed row by the start row it replaces.
+func TestRefreshFromHistory_AReadNeverRedatesARow(t *testing.T) {
+	declareAll(t)
+
+	stamped := &contract.SessionHistory{MCPInitialized: true, MCPInitializedAt: handshakeAt}
+	stamped.Sentinel.Chances = 2
+	stamped.Sentinel.ScannedAt = scannedAt
+	unstamped := &contract.SessionHistory{MCPInitialized: true}
+	unstamped.Sentinel.Observed = true
+
+	early := newFakeClock()
+	late := &fakeClock{now: early.now.Add(time.Hour)}
+	for name, h := range map[string]*contract.SessionHistory{"stamped": stamped, "unstamped": unstamped} {
+		first := contract.RefreshFromHistory(startSnapshot(), h, early)
+		second := contract.RefreshFromHistory(startSnapshot(), h, late)
+		require.Equal(t, first, second, "%s: a read an hour later must not change any row", name)
+		for _, id := range []contract.ID{contract.CMCPRegistered, contract.CAdditionalContext} {
+			require.NotEqual(t, contract.StandingPending, contract.StandingOf(rowOf(t, first, id)), "%s %s: fixture", name, id)
+		}
+	}
+	got := contract.RefreshFromHistory(startSnapshot(), unstamped, late)
+	require.Equal(t, rowOf(t, startSnapshot(), contract.CMCPRegistered).TS, rowOf(t, got, contract.CMCPRegistered).TS,
+		"no recorded time: the row keeps the time of the start's evaluation it refreshes")
+	require.Equal(t, rowOf(t, startSnapshot(), contract.CAdditionalContext).TS, rowOf(t, got, contract.CAdditionalContext).TS)
+}
+
+// TestRefreshObservation_AReadNeverRedatesAnEntry is the same for doctor's ledger entry.
+func TestRefreshObservation_AReadNeverRedatesAnEntry(t *testing.T) {
+	t.Parallel()
+
+	reg := contract.DefaultCapabilityRegister()
+	stale := ledgerEntry(t, contract.CAdditionalContext, "not-yet-observed")
+	early := newFakeClock()
+	late := &fakeClock{now: early.now.Add(time.Hour)}
+
+	unstamped := &contract.SessionHistory{}
+	unstamped.Sentinel.Observed = true
+	first, changed := contract.RefreshObservation(stale, unstamped, reg, early)
+	require.True(t, changed)
+	second, _ := contract.RefreshObservation(stale, unstamped, reg, late)
+	require.Equal(t, first, second)
+	require.Equal(t, stale.TS, first.TS, "no recorded time: the entry keeps its own")
+
+	stamped := &contract.SessionHistory{}
+	stamped.Sentinel.Chances = 2
+	stamped.Sentinel.ScannedAt = scannedAt
+	first, changed = contract.RefreshObservation(stale, stamped, reg, early)
+	require.True(t, changed)
+	second, _ = contract.RefreshObservation(stale, stamped, reg, late)
+	require.Equal(t, first, second)
+	require.Equal(t, scannedAt, first.TS)
 }

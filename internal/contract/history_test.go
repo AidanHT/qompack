@@ -224,3 +224,68 @@ func TestHistoryDegradedGolden_Decodes(t *testing.T) {
 	require.Equal(t, string(raw), string(round)+"\n",
 		"the fixture must round-trip losslessly through SessionHistory (Rule W-2)")
 }
+
+// TestRecordSentinelScanAt_DatesEveryScanThatCounts: a find and a counted miss each record when the
+// scan ran, which is what a refreshed status row is dated by (D53(a)); a miss by a delivery already
+// counted changes nothing, its time included; and the undated RecordSentinelScanOf records unknown.
+func TestRecordSentinelScanAt_DatesEveryScanThatCounts(t *testing.T) {
+	t.Parallel()
+
+	h := &contract.SessionHistory{}
+	h.RecordSentinelScanAt(false, "d1", 10)
+	require.Equal(t, core.UnixMilli(10), h.Sentinel.ScannedAt)
+	h.RecordSentinelScanAt(false, "d1", 20)
+	require.Equal(t, 1, h.Sentinel.Chances, "fixture: a delivery is one chance")
+	require.Equal(t, core.UnixMilli(10), h.Sentinel.ScannedAt, "a miss that does not count dates nothing")
+	h.RecordSentinelScanAt(false, "d2", 30)
+	require.Equal(t, 2, h.Sentinel.Chances)
+	require.Equal(t, core.UnixMilli(30), h.Sentinel.ScannedAt, "the miss that spent the newest chance")
+
+	found := &contract.SessionHistory{}
+	found.RecordSentinelScanAt(true, "d3", 40)
+	require.True(t, found.Sentinel.Observed)
+	require.Equal(t, core.UnixMilli(40), found.Sentinel.ScannedAt)
+
+	undated := &contract.SessionHistory{}
+	undated.Sentinel.ScannedAt = 50
+	undated.RecordSentinelScanOf(false, "")
+	require.Equal(t, 1, undated.Sentinel.Chances)
+	require.Zero(t, undated.Sentinel.ScannedAt, "a scan recorded without a time leaves no stale one behind")
+}
+
+// TestRecordMCPInitialized_KeepsTheFirstHandshakesTime: the handshake is recorded once, with its
+// time; a later one changes nothing, since MCPInitialized never resets.
+func TestRecordMCPInitialized_KeepsTheFirstHandshakesTime(t *testing.T) {
+	t.Parallel()
+
+	h := &contract.SessionHistory{}
+	require.True(t, h.RecordMCPInitialized(10))
+	require.True(t, h.MCPInitialized)
+	require.Equal(t, core.UnixMilli(10), h.MCPInitializedAt)
+	require.False(t, h.RecordMCPInitialized(20), "a second handshake changes nothing")
+	require.Equal(t, core.UnixMilli(10), h.MCPInitializedAt)
+
+	var nilH *contract.SessionHistory
+	require.False(t, nilH.RecordMCPInitialized(10))
+}
+
+// TestHistory_ObservationTimesRoundTrip: the two observation times survive SaveHistory/LoadHistory,
+// and a history without them (an older build's) loads them as unknown.
+func TestHistory_ObservationTimesRoundTrip(t *testing.T) {
+	t.Parallel()
+
+	path := contract.HistoryPath(t.TempDir())
+	h := &contract.SessionHistory{}
+	h.RecordMCPInitialized(10)
+	h.RecordSentinelScanAt(true, "d1", 20)
+	require.NoError(t, contract.SaveHistory(path, h))
+	got := contract.LoadHistory(path)
+	require.Equal(t, core.UnixMilli(10), got.MCPInitializedAt)
+	require.Equal(t, core.UnixMilli(20), got.Sentinel.ScannedAt)
+
+	require.NoError(t, contract.SaveHistory(path, &contract.SessionHistory{MCPInitialized: true}))
+	old := contract.LoadHistory(path)
+	require.True(t, old.MCPInitialized)
+	require.Zero(t, old.MCPInitializedAt)
+	require.Zero(t, old.Sentinel.ScannedAt)
+}

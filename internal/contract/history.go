@@ -59,6 +59,13 @@ type SentinelState struct {
 	// redelivery after a daemon restart — spends no second chance (RecordSentinelScanOf). It is reset
 	// wherever Chances is, and holds at most maxSentinelMissedBy entries.
 	MissedBy []string `json:"missed_by,omitempty"`
+	// ScannedAt is when the daemon recorded the scan that last changed Observed or Chances: the find
+	// that set Observed, or the miss that spent the newest counted Chance. A status or doctor read
+	// that refreshes the probe's row from this record dates the row by it, never by the read
+	// (D53(a)), so two reads of unchanged state agree. Zero is unknown (a history an older build
+	// wrote, or a scan recorded without a time), and the reader then keeps the time of the
+	// evaluation it refreshes (RefreshFromHistory).
+	ScannedAt core.UnixMilli `json:"scanned_at,omitempty"`
 }
 
 // maxSentinelMissedBy caps SentinelState.MissedBy. The assertion fails at the second counted miss;
@@ -138,6 +145,11 @@ type SessionHistory struct {
 	Sentinel SentinelState `json:"sentinel"`
 
 	MCPInitialized bool `json:"mcp_initialized"`
+	// MCPInitializedAt is when the `mcp` op recorded the handshake that set MCPInitialized
+	// (RecordMCPInitialized). It dates the row a status or doctor read refreshes from it, as
+	// SentinelState.ScannedAt does for the probe. Zero is unknown: a history an older build wrote,
+	// or a handshake only the daemon's own seam saw.
+	MCPInitializedAt core.UnixMilli `json:"mcp_initialized_at,omitempty"`
 
 	// MCPAwaitSession is the session whose start first found no MCP handshake on record: the host
 	// connects the MCP server beside a session's first start, not before it, so that start reports
@@ -285,7 +297,14 @@ func (h *SessionHistory) RecordSentinelScan(found bool) { h.RecordSentinelScanOf
 // hook's delivery nonce. A delivery is one chance, however many times the daemon handles it: a miss
 // by a delivery MissedBy already names changes nothing. A delivery with no name ("") counts every
 // time, as every scan did before deliveries were named. A find clears the record with the count.
+// It records no time (ScannedAt reads unknown); the daemon's scan uses RecordSentinelScanAt.
 func (h *SessionHistory) RecordSentinelScanOf(found bool, delivery string) {
+	h.RecordSentinelScanAt(found, delivery, 0)
+}
+
+// RecordSentinelScanAt is RecordSentinelScanOf for a scan the daemon ran at at: a scan that changes
+// the record (a find, or a miss that counts) also sets Sentinel.ScannedAt to at.
+func (h *SessionHistory) RecordSentinelScanAt(found bool, delivery string, at core.UnixMilli) {
 	if h == nil {
 		return
 	}
@@ -293,6 +312,7 @@ func (h *SessionHistory) RecordSentinelScanOf(found bool, delivery string) {
 		h.Sentinel.Observed = true
 		h.Sentinel.Chances = 0
 		h.Sentinel.MissedBy = nil
+		h.Sentinel.ScannedAt = at
 		return
 	}
 	if delivery != "" {
@@ -304,6 +324,19 @@ func (h *SessionHistory) RecordSentinelScanOf(found bool, delivery string) {
 		}
 	}
 	h.Sentinel.Chances++
+	h.Sentinel.ScannedAt = at
+}
+
+// RecordMCPInitialized records the MCP handshake the `mcp` op saw at at: MCPInitialized, and
+// MCPInitializedAt the first time it is set. A handshake already on record keeps its first time,
+// since MCPInitialized never resets. It reports whether it changed anything, so a caller saves the
+// history only when it did. A nil receiver is a no-op.
+func (h *SessionHistory) RecordMCPInitialized(at core.UnixMilli) bool {
+	if h == nil || h.MCPInitialized {
+		return false
+	}
+	h.MCPInitialized, h.MCPInitializedAt = true, at
+	return true
 }
 
 // applyCaps re-clamps every bound-checked field to its cap after an unmarshal, so a hand-edited,
