@@ -134,18 +134,18 @@ func withoutPassBudget(ctx context.Context) context.Context {
 // drainReadBufferBytes sizes the buffered reader Drain scans each spool file with.
 const drainReadBufferBytes = 64 << 10 // 64 KiB
 
-// The two filename families Drain (via ipc.SpoolFiles) distinguishes. (The blob-descriptor field
-// name and shape live in blob.go, shared with ingest.go's dispatch path.)
+// The WAL segment name's parts, which walSessionID takes apart to find the segment's session. Which
+// family a spool file is in is ipc.SpoolFileKindOf's to say. (The blob-descriptor field name and
+// shape live in blob.go, shared with ingest.go's dispatch path.)
 const (
-	drainWalPrefix    = "wal-"
-	drainClientPrefix = "client-"
-	drainFileExt      = ".ndjson"
+	drainWalPrefix = "wal-"
+	drainFileExt   = ".ndjson"
 )
 
 // isClientSpoolName reports whether base names a hook's client spool (ipc's client-<pid>.ndjson), as
 // opposed to one of the ingest's WAL segments or anything else in the spool directory.
 func isClientSpoolName(base string) bool {
-	return strings.HasPrefix(base, drainClientPrefix) && strings.HasSuffix(base, drainFileExt)
+	return ipc.SpoolFileKindOf(base) == ipc.SpoolFileClient
 }
 
 // drainDeferral says why the drain left a line it read for a later attempt instead of consuming it.
