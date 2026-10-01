@@ -354,6 +354,13 @@ type DrainConfig struct {
 	// It is called with the drain's mutex held, so it must not block or drain. A nil EndSession, or a
 	// nil Seen, replays every flush through Dispatch.
 	EndSession func(ctx context.Context, req ipc.Request, key core.Hash, lease deliveryLease) bool
+	// ClientSpoolRemoved is told the base name of every hook client spool a pass removed once it was
+	// fully replayed (removeCompletedFile), or found already gone when it went to remove it. The daemon
+	// wires its spool index's removed (spool_heads.go): a hook whose pid was reused can write the same
+	// name again at the same size and time, and the index must read that file, not serve the removed
+	// one's heads. It is called with the drain's mutex held, so it must not block or drain. A nil
+	// ClientSpoolRemoved tells nobody.
+	ClientSpoolRemoved func(base string)
 }
 
 // errSessionEndStarted is dispatchPending's answer for a leased flush EndSession took off the pass.
@@ -1174,6 +1181,9 @@ func (dr *drainer) removeCompletedFile(path, base string, fs *drainFileState, st
 	}
 	removed, err := remove(path, fs.Offset)
 	if removed || errors.Is(err, os.ErrNotExist) {
+		if isClientSpoolName(base) && dr.cfg.ClientSpoolRemoved != nil {
+			dr.cfg.ClientSpoolRemoved(base)
+		}
 		return nil // gone, and already forgotten on disk
 	}
 	st[base] = fs

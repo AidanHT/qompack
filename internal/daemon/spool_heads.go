@@ -29,11 +29,22 @@ import (
 // The settle indexes the files it reads, and so does the client-spool watcher, for every spool its
 // pass leaves behind (lookAtClientSpools): the backlog another session's spools form is then already
 // indexed, off the hook path, when a healthy session compacts, and its settle pays the listing alone.
+//
+// The size and time are not the file's identity, though. A drain releases client-<pid>.ndjson, and a
+// hook whose pid was reused can write the same name again, at the same size and, on the slow
+// filesystems spool submode is for (network shares, drvfs), at the same coarse modification time,
+// before any listing has shown the file gone. So the daemon's own removal of a client spool drops
+// its entry (removed, which the drain calls through DrainConfig.ClientSpoolRemoved), and a read under
+// way when an entry is dropped is not remembered: a recreated file is always read again. No stat is
+// added for it: the drain knows when it removes a file.
 
 // spoolHeadIndex is the daemon's memory of the client spools' line heads. The zero value is ready.
 type spoolHeadIndex struct {
 	mu    sync.Mutex
 	files map[string]spoolHeadFile
+	// removals counts the client spools the daemon has removed (removed). A read that began before
+	// one is not remembered, since the file it read may be the one removed.
+	removals uint64
 	// reads counts the client spool files read to index them, by every look: the settle's and the
 	// watcher's. A settle counts its own looks' reads (spoolScan.reads).
 	reads atomic.Int64
@@ -91,10 +102,11 @@ func listClientSpools(root string) []clientSpoolListing {
 // and otherwise read from root's spool now and remembered. read reports whether this call read the
 // file. When the file is not in memory and ctx has already ended, nothing is read and ok is false:
 // the caller counts the file as unread. A file gone since the listing has nothing to give and is not
-// remembered.
+// remembered, and neither is one read while the daemon removed a client spool (removed).
 func (x *spoolHeadIndex) heads(ctx context.Context, root string, l clientSpoolListing) (lines []spoolHeadLine, ok, read bool) {
 	x.mu.Lock()
 	f, hit := x.files[l.base]
+	removals := x.removals
 	x.mu.Unlock()
 	if hit && f.size == l.size && f.mod.Equal(l.mod) {
 		return f.lines, true, false
@@ -113,12 +125,25 @@ func (x *spoolHeadIndex) heads(ctx context.Context, root string, l clientSpoolLi
 	}
 	lines = parseSpoolHeads(b, l.base)
 	x.mu.Lock()
-	if x.files == nil {
-		x.files = map[string]spoolHeadFile{}
+	if x.removals == removals {
+		if x.files == nil {
+			x.files = map[string]spoolHeadFile{}
+		}
+		x.files[l.base] = spoolHeadFile{size: l.size, mod: l.mod, lines: lines}
 	}
-	x.files[l.base] = spoolHeadFile{size: l.size, mod: l.mod, lines: lines}
 	x.mu.Unlock()
 	return lines, true, true
+}
+
+// removed drops the client spool base from the index: the daemon has just removed it (the drain's
+// release of a fully replayed file, DrainConfig.ClientSpoolRemoved). A file of the same name listed
+// later is a new one, whatever its size and time, and is read again. A read under way now is not
+// remembered (heads), so it cannot put the removed file's heads back.
+func (x *spoolHeadIndex) removed(base string) {
+	x.mu.Lock()
+	defer x.mu.Unlock()
+	x.removals++
+	delete(x.files, base)
 }
 
 // forget drops every remembered file a complete listing no longer shows: released by a drain.
