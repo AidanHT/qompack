@@ -216,6 +216,32 @@ func ExternalizeThreshold(cfg config.Config) int {
 	return min(cfg.Runtime.HotPath.MaxPayloadBytes, MaxLineBytes)
 }
 
+// SpoolFileKind is what a file in the spool directory is, by its base name.
+type SpoolFileKind int
+
+const (
+	// SpoolFileOther is anything SpoolFiles does not return: a hook's externalized tool result
+	// (blob-<pid>-<n>.bin, which the daemon removes once the request naming it is published) or a
+	// stray file. No drain replays it.
+	SpoolFileOther SpoolFileKind = iota
+	// SpoolFileWAL is one of the daemon's WAL segments (wal-<session>.ndjson).
+	SpoolFileWAL
+	// SpoolFileClient is a hook's client spool (client-<pid>.ndjson).
+	SpoolFileClient
+)
+
+// SpoolFileKindOf classifies the spool directory entry base as SpoolFiles does.
+func SpoolFileKindOf(base string) SpoolFileKind {
+	switch {
+	case strings.HasPrefix(base, walFilePrefix) && strings.HasSuffix(base, spoolFileExt):
+		return SpoolFileWAL
+	case strings.HasPrefix(base, spoolFilePrefix) && strings.HasSuffix(base, spoolFileExt):
+		return SpoolFileClient
+	default:
+		return SpoolFileOther
+	}
+}
+
 // SpoolFiles returns every spool-tier file in dir, sorted with the daemon's WAL segments
 // (wal-*.ndjson) first and this package's own client spools (client-*.ndjson) after, each group by
 // name. The daemon's drain reads the WAL segments in this order and puts the client spools in host
@@ -238,11 +264,12 @@ func SpoolFiles(dir string) ([]string, error) {
 			continue
 		}
 		name := e.Name()
-		switch {
-		case strings.HasPrefix(name, walFilePrefix) && strings.HasSuffix(name, spoolFileExt):
+		switch SpoolFileKindOf(name) {
+		case SpoolFileWAL:
 			wal = append(wal, filepath.Join(dir, name))
-		case strings.HasPrefix(name, spoolFilePrefix) && strings.HasSuffix(name, spoolFileExt):
+		case SpoolFileClient:
 			client = append(client, filepath.Join(dir, name))
+		case SpoolFileOther:
 		}
 	}
 	sort.Strings(wal)

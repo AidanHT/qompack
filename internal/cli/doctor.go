@@ -902,7 +902,8 @@ func (s *doctorState) spoolRow() doctorRow {
 				"unknown rather than zero: " + s.l.Spool + ": " + err.Error(),
 		}
 	}
-	files, wal, bytes := 0, 0, int64(0)
+	files, bytes := 0, int64(0)
+	kinds := map[ipc.SpoolFileKind]int{}
 	for _, e := range entries {
 		if e.IsDir() {
 			continue
@@ -912,9 +913,7 @@ func (s *doctorState) spoolRow() doctorRow {
 			continue
 		}
 		files++
-		if strings.HasPrefix(e.Name(), doctorWALSpoolPrefix) {
-			wal++
-		}
+		kinds[ipc.SpoolFileKindOf(e.Name())]++
 		bytes += info.Size()
 	}
 	status := doctorOK
@@ -935,9 +934,10 @@ func (s *doctorState) spoolRow() doctorRow {
 		} else if s.lockAlive {
 			// Sync submode with a daemon serving keeps its verdict: the daemon replays these files
 			// within seconds, so files that stay here are the one sign the replay is not keeping up.
-			// What the user reads names the ordinary cause of each kind first (D53(c)), and does not
-			// call the daemon's own WAL segments client spools (D55, wave 16b).
-			detail = syncSpoolDetail(files-wal, wal)
+			// What the user reads names the ordinary cause of each kind first (D53(c)), and calls
+			// neither the daemon's own WAL segments nor the hooks' externalized tool results client
+			// spools (D55, wave 16b).
+			detail = syncSpoolDetail(kinds[ipc.SpoolFileClient], kinds[ipc.SpoolFileWAL], kinds[ipc.SpoolFileOther])
 		}
 	}
 	return doctorRow{
@@ -947,14 +947,11 @@ func (s *doctorState) spoolRow() doctorRow {
 	}
 }
 
-// doctorWALSpoolPrefix names the daemon's own WAL segments in the spool directory (wal-<session>.ndjson,
-// internal/ipc SpoolFiles); every other file there is a hook client spool (client-<pid>.ndjson).
-const doctorWALSpoolPrefix = "wal-"
-
 // syncSpoolDetail is spool.pending's detail in sync submode with a daemon serving, for client hook
-// client spool files and wal daemon WAL segments. The two kinds have different causes and are replayed by
-// different parts of the daemon, so each is counted and explained on its own.
-func syncSpoolDetail(client, wal int) string {
+// client spools, wal daemon WAL segments and other files (ipc.SpoolFileKindOf): the hooks'
+// externalized tool results, or anything else. The kinds have different causes and different parts
+// of the daemon clear them, so each is counted and explained on its own.
+func syncSpoolDetail(client, wal, other int) string {
 	var parts []string
 	if client > 0 {
 		parts = append(parts, fmt.Sprintf("%d hook client spool(s) the running daemon has not replayed yet: on a "+
@@ -965,6 +962,11 @@ func syncSpoolDetail(client, wal int) string {
 		parts = append(parts, fmt.Sprintf("%d daemon WAL segment(s) the running daemon has not finished "+
 			"publishing: captures it accepted and logged before publishing them, which its worker pool and "+
 			"drains replay", wal))
+	}
+	if other > 0 {
+		parts = append(parts, fmt.Sprintf("%d other spool file(s): tool results a hook externalized beside "+
+			"its request (blob-*.bin), which the daemon removes once it has published the request naming "+
+			"them, or files no replay reads", other))
 	}
 	return strings.Join(parts, "; ") + "; either way nothing is lost: run doctor again, and if the files stay " +
 		"the replay is not keeping up. To tune it: " + obs.SpoolSubmodeTune
