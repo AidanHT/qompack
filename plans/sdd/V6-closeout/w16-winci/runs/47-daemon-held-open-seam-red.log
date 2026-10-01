@@ -1,0 +1,6 @@
+# github.com/qompack/qompack/internal/daemon [github.com/qompack/qompack/internal/daemon.test]
+internal\daemon\spawn_stage_windows_test.go:202:12: undefined: stageBinaryVerifying
+internal\daemon\spawn_stage_windows_test.go:207:16: undefined: stageBinaryVerifying
+FAIL	github.com/qompack/qompack/internal/daemon [build failed]
+FAIL
+exit=1
