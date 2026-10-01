@@ -174,3 +174,12 @@ type CacheInfo struct {
 	// scheduler — §3.2).
 	TTLState string `json:"ttl_state"`
 }
+
+// DropKindUnreplayedCapture is the kind of the drop entry the daemon adds to a PreCompact seal for
+// each capture of the compacting session that was still waiting in a hook's client spool, or in the
+// session's ingest lane, when the seal could wait no longer (V6 close-out D53(c)). On a disk whose
+// durable writes are slow the hooks hand their captures to the spool, which the daemon replays; the
+// PreCompact route replays what it can first, inside its budget, and names what is left here, so a
+// checkpoint is never silently missing the newest tool results. The ID is the tool_use_id when the
+// capture has one, and the hook operation otherwise. Nothing is lost: the replay publishes it later.
+const DropKindUnreplayedCapture = "unreplayed_capture"

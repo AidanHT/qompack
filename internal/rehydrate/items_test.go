@@ -1470,6 +1470,32 @@ func TestDropReport_UnreadPinSetSurvivesATightReport(t *testing.T) {
 		"the unread pin set is the line a truncated report keeps")
 }
 
+// TestDropReport_UnreplayedCaptureIsNamedFirst: a PreCompact seal that could not wait for the
+// session's newest spooled captures names each in Checkpoint.Dropped (D53(c), internal/daemon
+// precompact_settle.go). The rehydration must say so by name, ahead of the operating-rule drops, and
+// a section-7 allowance too small for the whole report must still keep that line.
+func TestDropReport_UnreplayedCaptureIsNamedFirst(t *testing.T) {
+	d := Deps{Tokens: fakeEstimator{}}
+	unreplayed := checkpoint.DropEntry{
+		Kind: checkpoint.DropKindUnreplayedCapture, ID: "toolu_newest_read",
+		Detail: "captured before this compaction but still waiting to be replayed into the store",
+	}
+	entries := []checkpoint.DropEntry{{Kind: dropKindPathRule, ID: ".claude/rules/a.md"}, unreplayed}
+	for _, id := range []string{"n1", "n2", "n3"} {
+		entries = append(entries, checkpoint.DropEntry{Kind: "narrative", ID: id})
+	}
+	b := buildDropReport(entries)
+	require.Equal(t, dropLine(unreplayed), b.units[0].text, "an unreplayed capture sorts with the tier-1 drops")
+
+	priceUnits(d, b.units)
+	allowance := sectionCost(d, ItemDropReport, b).plus(unitCost(b.units[0])).
+		plus(unitCost(moreDropsUnit(d, len(b.units)-1)))
+	got := fillDropReport(d, b, allowance)
+	require.True(t, got.truncated, "fixture sanity: the allowance cannot hold the whole report")
+	require.Equal(t, []string{dropLine(unreplayed), "- … and 4 more; call dropped()\n"}, unitTexts(built{units: got.units}),
+		"the unreplayed capture is the line a truncated report keeps")
+}
+
 // TestDropReport_SortsByIDWithinAKind asserts the within-kind order is ID ascending, so the report
 // is stable across replays.
 func TestDropReport_SortsByIDWithinAKind(t *testing.T) {
