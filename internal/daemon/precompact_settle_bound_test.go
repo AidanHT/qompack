@@ -416,7 +416,7 @@ func TestSpoolHeadIndex_AReadTheDrainsRemovalOverlapsIsNotRemembered(t *testing.
 	require.Len(t, listed, 1)
 	dd.spoolHeads.read = func(_ context.Context, path string) ([]byte, error) {
 		b, err := paths.ReadFileShared(path)
-		dd.spoolHeads.removed(filepath.Base(path))
+		dd.spoolHeads.removing(filepath.Base(path))()
 		return b, err
 	}
 
@@ -431,4 +431,84 @@ func TestSpoolHeadIndex_AReadTheDrainsRemovalOverlapsIsNotRemembered(t *testing.
 	require.True(t, ok)
 	require.True(t, read, "the next look reads the file again")
 	require.True(t, spoolIndexed(dd, base), "control: a read no removal overlaps is remembered")
+}
+
+// TestSpoolHeadIndex_ASpoolRecreatedRightAfterTheDrainsUnlinkIsReadAgain (wave 16c, the settle2
+// review): the drain's removal of a released client spool and the index's forgetting of it are one
+// step to every look. Here a hook with the reused pid writes the name again, at the same size and
+// modification time, in the instant after the drain's unlink returned and before the drain went on
+// (the drainer's removeSpool seam does it, and looks, inside the removal), and a look made then
+// reads the new file: it is not served the removed one's heads. Neither is the next look after it,
+// and a look that read the old file just before the unlink did not put its heads back either.
+// Dropping the entry only after the unlink returned left that instant open.
+func TestSpoolHeadIndex_ASpoolRecreatedRightAfterTheDrainsUnlinkIsReadAgain(t *testing.T) {
+	dd, _, root := laneTestDaemon(t)
+	ctx := context.Background()
+	const sess core.SessionID = "sess-spool-index-unlink"
+	const base = "client-7676.ndjson"
+	first := liveOrderTool(dd, root, sess, 1)
+	second := liveOrderTool(dd, root, sess, 2) // the same length as first: the reused pid's next Read
+	path := paths.Long(filepath.Join(paths.Of(root).Spool, base))
+	writeHookSpool(t, root, base, first)
+	was, err := os.Stat(path)
+	require.NoError(t, err)
+	dd.indexClientSpools(ctx, map[string]bool{base: true})
+	require.True(t, spoolIndexed(dd, base), "fixture sanity: the watcher indexed the spool")
+
+	type look struct {
+		lines    []spoolHeadLine
+		ok, read bool
+	}
+	var before, during []look
+	dr := newDrainer(dd.drainConfig())
+	dr.removeSpool = func(p string, drained int64) (bool, error) {
+		if filepath.Base(p) == base { // a look at the released file just before its unlink
+			for _, l := range listClientSpools(root) {
+				if l.base == base {
+					lines, ok, read := dd.spoolHeads.heads(ctx, root, l)
+					before = append(before, look{lines, ok, read})
+				}
+			}
+		}
+		removed, err := removeIfUnchanged(p, drained)
+		if !removed || filepath.Base(p) != base {
+			return removed, err
+		}
+		writeHookSpool(t, root, base, second)
+		require.NoError(t, os.Chtimes(path, was.ModTime(), was.ModTime()))
+		for _, l := range listClientSpools(root) {
+			if l.base == base {
+				require.Equal(t, was.Size(), l.size, "fixture sanity: the recreated spool has the same size")
+				require.True(t, was.ModTime().Equal(l.mod), "fixture sanity: and the same modification time")
+				lines, ok, read := dd.spoolHeads.heads(ctx, root, l)
+				during = append(during, look{lines, ok, read})
+			}
+		}
+		return removed, err
+	}
+	dd.drain.Store(dr)
+	liveOrderWorkers(t, dd, 2, dd.runIngested)
+
+	_, err = dd.Drain(ctx)
+	require.NoError(t, err)
+	require.True(t, spoolWatchPublished(dd, first.Nonce), "fixture sanity: the drain published the first Read")
+	require.Len(t, before, 1, "fixture sanity: the seam looked at the released spool before its unlink")
+	require.True(t, before[0].read, "the removal dropped the entry before the unlink")
+	require.Len(t, before[0].lines, 1)
+	require.Equal(t, first.Nonce, before[0].lines[0].c.nonce, "fixture sanity: that look read the released file")
+	require.Len(t, during, 1, "fixture sanity: the seam recreated the spool and looked once")
+	require.True(t, during[0].ok)
+	require.True(t, during[0].read, "the look right after the unlink reads the recreated spool")
+	require.Len(t, during[0].lines, 1)
+	require.Equal(t, second.Nonce, during[0].lines[0].c.nonce, "and names its capture, not the removed one's")
+
+	l := listClientSpools(root)
+	require.Len(t, l, 1, "fixture sanity: the pass left the recreated spool for a later one")
+	lines, ok, read := dd.spoolHeads.heads(ctx, root, l[0])
+	require.True(t, ok)
+	require.True(t, read, "nothing a look read inside the removal was remembered")
+	require.Len(t, lines, 1)
+	require.Equal(t, second.Nonce, lines[0].c.nonce, "the next look names the recreated spool's capture")
+	_, _, read = dd.spoolHeads.heads(ctx, root, l[0])
+	require.False(t, read, "control: once the removal returned, the index remembers the file again")
 }

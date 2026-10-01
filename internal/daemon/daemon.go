@@ -1003,7 +1003,7 @@ func (d *daemon) drainConfig() DrainConfig {
 		// A leased flush a drain replays while the daemon serves is ended on its own (C1.15).
 		EndSession: d.endDrainedFlush,
 		// A released client spool leaves the PreCompact settle's spool index (spool_heads.go).
-		ClientSpoolRemoved: d.spoolHeads.removed,
+		ClientSpoolRemoving: d.spoolHeads.removing,
 	}
 }
 
