@@ -1,0 +1,56 @@
+RED: store test binary built from bb54c6ba (before the fix); run in internal/store
+store.test.exe -test.run '^$' -test.bench '^Benchmark(GetChunk|OpenSpan_4KB_of_4MB|Search_1000Roots|Search_1000Roots_DistinctChunks|PutBytes_100KB_Cold|PutBytes_100KB_Warm|PutObject_NovelChunk|CountFold_4MiB|GC_50kObjects|MarkEncoded_100|OpenStore_50kRoots|PutBytes_100KB_Cold_NoRedact|PutBytes_100KB_Warm_KeepRaw|PutBytes_100KB_Warm_NoRedact)$' -test.benchtime 100ms -test.benchmem -test.count 3  => EXIT 1
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/store
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkPutBytes_100KB_Warm_NoRedact-22       	      49	   2632404 ns/op	  38.90 MB/s	  902720 B/op	      16 allocs/op
+BenchmarkPutBytes_100KB_Warm_NoRedact-22       	      38	   2771016 ns/op	  36.95 MB/s	  902433 B/op	      15 allocs/op
+BenchmarkPutBytes_100KB_Warm_NoRedact-22       	      50	   2456110 ns/op	  41.69 MB/s	  902247 B/op	      15 allocs/op
+BenchmarkPutBytes_100KB_Cold_NoRedact-22       	       8	  14096125 ns/op	   7.26 MB/s	 1064018 B/op	     330 allocs/op
+BenchmarkPutBytes_100KB_Cold_NoRedact-22       	       8	  20761762 ns/op	   4.93 MB/s	 1060378 B/op	     321 allocs/op
+BenchmarkPutBytes_100KB_Cold_NoRedact-22       	       8	  14401700 ns/op	   7.11 MB/s	 1060584 B/op	     322 allocs/op
+BenchmarkPutBytes_100KB_Cold-22                	       7	  18015286 ns/op	   5.68 MB/s	 1172140 B/op	     350 allocs/op
+BenchmarkPutBytes_100KB_Cold-22                	       8	  13817375 ns/op	   7.41 MB/s	 1169071 B/op	     346 allocs/op
+BenchmarkPutBytes_100KB_Cold-22                	       7	  17052043 ns/op	   6.01 MB/s	 1175845 B/op	     364 allocs/op
+BenchmarkPutBytes_100KB_Warm-22                	      48	   3145752 ns/op	  32.55 MB/s	 1008528 B/op	      15 allocs/op
+BenchmarkPutBytes_100KB_Warm-22                	      39	   3202908 ns/op	  31.97 MB/s	 1008441 B/op	      15 allocs/op
+BenchmarkPutBytes_100KB_Warm-22                	      44	   3200516 ns/op	  31.99 MB/s	 1008995 B/op	      16 allocs/op
+BenchmarkPutBytes_100KB_Warm_KeepRaw/verbatim-22         	      43	   3018216 ns/op	  33.93 MB/s	 1008881 B/op	      16 allocs/op
+BenchmarkPutBytes_100KB_Warm_KeepRaw/verbatim-22         	      42	   2949150 ns/op	  34.72 MB/s	 1008618 B/op	      16 allocs/op
+BenchmarkPutBytes_100KB_Warm_KeepRaw/verbatim-22         	      40	   3123065 ns/op	  32.79 MB/s	 1008427 B/op	      15 allocs/op
+BenchmarkPutBytes_100KB_Warm_KeepRaw/delta-22            	      42	   3099164 ns/op	  33.05 MB/s	 1116455 B/op	      31 allocs/op
+BenchmarkPutBytes_100KB_Warm_KeepRaw/delta-22            	      34	   3460471 ns/op	  29.60 MB/s	 1116105 B/op	      31 allocs/op
+BenchmarkPutBytes_100KB_Warm_KeepRaw/delta-22            	      40	   3167670 ns/op	  32.34 MB/s	 1116363 B/op	      31 allocs/op
+BenchmarkPutBytes_100KB_Warm_KeepRaw/full-22             	     170	    681072 ns/op	 150.38 MB/s	  635263 B/op	      23 allocs/op
+BenchmarkPutBytes_100KB_Warm_KeepRaw/full-22             	     166	    671187 ns/op	 152.60 MB/s	  635258 B/op	      23 allocs/op
+BenchmarkPutBytes_100KB_Warm_KeepRaw/full-22             	     175	    802152 ns/op	 127.68 MB/s	  635148 B/op	      23 allocs/op
+BenchmarkPutObject_NovelChunk-22                         	     144	    852100 ns/op	   4.81 MB/s	    7026 B/op	      18 allocs/op
+BenchmarkPutObject_NovelChunk-22                         	     141	    847745 ns/op	   4.83 MB/s	    7027 B/op	      18 allocs/op
+BenchmarkPutObject_NovelChunk-22                         	     144	    948150 ns/op	   4.32 MB/s	    7021 B/op	      18 allocs/op
+BenchmarkGetChunk-22                                     	    1972	     54836 ns/op	   19756 B/op	       9 allocs/op
+BenchmarkGetChunk-22                                     	    2011	     56123 ns/op	   19608 B/op	       9 allocs/op
+BenchmarkGetChunk-22                                     	    2070	     54436 ns/op	   20040 B/op	       9 allocs/op
+BenchmarkOpenSpan_4KB_of_4MB-22                          	    1954	     62242 ns/op	   19980 B/op	      10 allocs/op
+BenchmarkOpenSpan_4KB_of_4MB-22                          	    2131	     59102 ns/op	   19944 B/op	      10 allocs/op
+BenchmarkOpenSpan_4KB_of_4MB-22                          	    2074	     57621 ns/op	   19966 B/op	      10 allocs/op
+BenchmarkOpenStore_50kRoots-22                           	       1	 303317900 ns/op	97417784 B/op	 1062674 allocs/op
+BenchmarkOpenStore_50kRoots-22                           	       1	 288966300 ns/op	97399544 B/op	 1062466 allocs/op
+BenchmarkOpenStore_50kRoots-22                           	       1	 287456200 ns/op	97399544 B/op	 1062465 allocs/op
+BenchmarkGC_50kObjects-22                                	       1	1320537200 ns/op	59740848 B/op	  560806 allocs/op
+BenchmarkGC_50kObjects-22                                	       1	1814494500 ns/op	59877320 B/op	  560818 allocs/op
+BenchmarkGC_50kObjects-22                                	       1	1312888200 ns/op	59605896 B/op	  560791 allocs/op
+BenchmarkCountFold_4MiB-22                               	      85	   1427902 ns/op	2937.39 MB/s	       0 B/op	       0 allocs/op
+BenchmarkCountFold_4MiB-22                               	      84	   1400004 ns/op	2995.92 MB/s	       0 B/op	       0 allocs/op
+BenchmarkCountFold_4MiB-22                               	      86	   1408650 ns/op	2977.53 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSearch_1000Roots-22                             	       1	 638518100 ns/op	 9404640 B/op	    7426 allocs/op
+BenchmarkSearch_1000Roots-22                             	       1	 198302900 ns/op	 9678512 B/op	    7569 allocs/op
+BenchmarkSearch_1000Roots-22                             	       1	 155937300 ns/op	 9882488 B/op	    7742 allocs/op
+BenchmarkSearch_1000Roots_DistinctChunks-22              	       1	1206844300 ns/op	13590024 B/op	   11508 allocs/op
+BenchmarkSearch_1000Roots_DistinctChunks-22              	       1	 439093500 ns/op	13808280 B/op	   11588 allocs/op
+BenchmarkSearch_1000Roots_DistinctChunks-22              	       1	 421933700 ns/op	13813944 B/op	   11592 allocs/op
+BenchmarkMarkEncoded_100-22                              	     532	    237408 ns/op	   16896 B/op	     301 allocs/op
+BenchmarkMarkEncoded_100-22                              	     494	    230931 ns/op	   16898 B/op	     301 allocs/op
+BenchmarkMarkEncoded_100-22                              	     502	    236784 ns/op	   16896 B/op	     301 allocs/op
+PASS
+pathstest: HOME is "C:\\Users\\Quant\\AppData\\Local\\Temp\\950747913\\001\\home" at the end of the run, not the isolated home "C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-test-home-257190558": a test changed it without restoring it, and every test after it ran against that directory
