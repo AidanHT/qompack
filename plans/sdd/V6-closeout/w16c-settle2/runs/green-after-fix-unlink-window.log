@@ -1,0 +1,19 @@
+$ go test -p 2 ./internal/daemon -run '^(TestSpoolHeadIndex_ASpoolRecreatedRightAfterTheDrainsUnlinkIsReadAgain|TestSpoolHeadIndex_AReadTheDrainsRemovalOverlapsIsNotRemembered|TestPreCompactSettle_ReadsASpoolTheDrainReleasedAndAHookRecreated|TestPreCompactSettle_CountsOnlyTheSpoolReadsOfItsOwnLooks|TestSpoolWatch_TheIdleTickKicksItInSpoolSubmode)$' -count=3 -v
+--- PASS: TestPreCompactSettle_CountsOnlyTheSpoolReadsOfItsOwnLooks (0.22s)
+--- PASS: TestPreCompactSettle_ReadsASpoolTheDrainReleasedAndAHookRecreated (0.94s)
+--- PASS: TestSpoolHeadIndex_AReadTheDrainsRemovalOverlapsIsNotRemembered (0.09s)
+--- PASS: TestSpoolHeadIndex_ASpoolRecreatedRightAfterTheDrainsUnlinkIsReadAgain (0.35s)
+--- PASS: TestSpoolWatch_TheIdleTickKicksItInSpoolSubmode (0.58s)
+--- PASS: TestPreCompactSettle_CountsOnlyTheSpoolReadsOfItsOwnLooks (0.20s)
+--- PASS: TestPreCompactSettle_ReadsASpoolTheDrainReleasedAndAHookRecreated (0.90s)
+--- PASS: TestSpoolHeadIndex_AReadTheDrainsRemovalOverlapsIsNotRemembered (0.08s)
+--- PASS: TestSpoolHeadIndex_ASpoolRecreatedRightAfterTheDrainsUnlinkIsReadAgain (0.32s)
+--- PASS: TestSpoolWatch_TheIdleTickKicksItInSpoolSubmode (0.55s)
+--- PASS: TestPreCompactSettle_CountsOnlyTheSpoolReadsOfItsOwnLooks (0.20s)
+--- PASS: TestPreCompactSettle_ReadsASpoolTheDrainReleasedAndAHookRecreated (0.88s)
+--- PASS: TestSpoolHeadIndex_AReadTheDrainsRemovalOverlapsIsNotRemembered (0.07s)
+--- PASS: TestSpoolHeadIndex_ASpoolRecreatedRightAfterTheDrainsUnlinkIsReadAgain (0.36s)
+--- PASS: TestSpoolWatch_TheIdleTickKicksItInSpoolSubmode (0.58s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	6.767s
+exit=0

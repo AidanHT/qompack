@@ -253,7 +253,7 @@ func TestShortNames_ATildeThatNamesNoShortNameJudgesDeletedFiles(t *testing.T) {
 
 	for _, rule := range []string{
 		"Read(**/CREDEN~1.SEC)", "Read(**/CREDEN~?.SEC)", "Read(**/CONFIG~*/**)",
-		"Read(**/CREDEN[~]1.SEC)", "Read(**/CREDEN[}-~]1.SEC)",
+		"Read(**/CREDEN[~]1.SEC)", "Read(**/CREDEN[}-~]1.SEC)", `Read(**/CREDEN[\]~]1.SEC)`,
 	} {
 		t.Run(rule, func(t *testing.T) {
 			s.deny(t, rule)

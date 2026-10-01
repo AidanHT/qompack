@@ -1,6 +1,7 @@
 package store_test
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"os"
@@ -43,7 +44,7 @@ func TestCompactDemandLog_ALogItCannotReadToTheEndIsLeftAlone(t *testing.T) {
 	seedDemand(t, l, 3)
 	f, err := os.OpenFile(l.Path(), os.O_WRONLY|os.O_APPEND, 0o600)
 	require.NoError(t, err)
-	_, err = f.Write(append(bytes.Repeat([]byte{'x'}, 1<<17), '\n'))
+	_, err = f.Write(append(bytes.Repeat([]byte{'x'}, bufio.MaxScanTokenSize+1), '\n'))
 	require.NoError(t, err)
 	require.NoError(t, f.Close())
 	before, err := os.ReadFile(l.Path())

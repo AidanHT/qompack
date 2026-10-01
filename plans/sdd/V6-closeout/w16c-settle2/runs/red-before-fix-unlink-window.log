@@ -1,0 +1,12 @@
+$ go test -p 2 ./internal/daemon -run '^TestSpoolHeadIndex_ASpoolRecreatedRightAfterTheDrainsUnlinkIsReadAgain$' -count=1 -v   # before the fix (removed() after the unlink)
+=== RUN   TestSpoolHeadIndex_ASpoolRecreatedRightAfterTheDrainsUnlinkIsReadAgain
+    precompact_settle_bound_test.go:488: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16c-settle2/internal/daemon/precompact_settle_bound_test.go:488
+        	Error:      	Should be true
+        	Test:       	TestSpoolHeadIndex_ASpoolRecreatedRightAfterTheDrainsUnlinkIsReadAgain
+        	Messages:   	the look right after the unlink reads the recreated spool
+--- FAIL: TestSpoolHeadIndex_ASpoolRecreatedRightAfterTheDrainsUnlinkIsReadAgain (0.34s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	0.746s
+FAIL
+exit=1
