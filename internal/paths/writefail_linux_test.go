@@ -8,13 +8,16 @@ package paths_test
 // it). It is the one way to make such a write fail that needs neither privilege nor a special mount,
 // so it means the same thing for root and for an ordinary user.
 //
-// The limit is process-wide, so it is held only around the one call under test, and only in tests
-// that never run in parallel: this package has no t.Parallel test, so no other test writes while it
-// is lowered.
+// The limit is process-wide, so it is held only around the one call under test, and only in a child
+// of this test binary that runs that one test and nothing else: no other test writes while it is
+// lowered, and the child keeps no test log (see delegatedToFileSizeChild).
 
 import (
+	"flag"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"syscall"
 	"testing"
@@ -24,10 +27,48 @@ import (
 	"github.com/qompack/qompack/internal/paths"
 )
 
+// fileSizeChildEnv names the top-level test a re-executed child of this binary is to run.
+const fileSizeChildEnv = "QOMPACK_PATHS_FSIZE_CHILD"
+
+// delegatedToFileSizeChild runs t, a top-level test that lowers RLIMIT_FSIZE, in a child of this test
+// binary and reports true once the child has run it and passed; the caller then returns. In that
+// child it reports false, and the caller runs its body.
+//
+// The limit cannot be lowered in the process go test started. A cacheable run (no -count, as the CI
+// test and cover jobs run it) hands the binary -test.testlogfile, a regular file the testing package
+// appends to through a 4 KiB buffer on every Open and Stat. A flush inside a window fails with EFBIG,
+// the error sticks, and at exit the binary reports "can't write testlog.txt" and exits 2 after every
+// test passed. The child is given no test log. It is given the parent's -test.gocoverdir, so its
+// coverage counters land where the parent merges its own into the profile.
+func delegatedToFileSizeChild(t *testing.T) bool {
+	t.Helper()
+	if os.Getenv(fileSizeChildEnv) == t.Name() {
+		return false
+	}
+	args := []string{"-test.run=^" + regexp.QuoteMeta(t.Name()) + "$", "-test.count=1", "-test.v"}
+	if f := flag.Lookup("test.gocoverdir"); f != nil && f.Value.String() != "" {
+		args = append(args, "-test.gocoverdir="+f.Value.String())
+	}
+	cmd := exec.CommandContext(t.Context(), os.Args[0], args...)
+	cmd.Env = append(os.Environ(), fileSizeChildEnv+"="+t.Name())
+	out, err := cmd.CombinedOutput()
+	require.NoError(t, err, "the child running %s failed:\n%s", t.Name(), out)
+	// A pattern that matched nothing would also exit 0; the child must have run this test and passed.
+	require.Regexp(t, `(?m)^--- PASS: `+regexp.QuoteMeta(t.Name())+` \(`, string(out),
+		"the child must run %s and pass it", t.Name())
+	return true
+}
+
 // withFileSizeLimit runs fn with RLIMIT_FSIZE lowered to limit bytes and restores the previous limit
-// before it returns, whatever fn does.
+// before it returns, whatever fn does. It runs only in the child delegatedToFileSizeChild starts.
 func withFileSizeLimit(t *testing.T, limit uint64, fn func()) {
 	t.Helper()
+	require.NotEmpty(t, os.Getenv(fileSizeChildEnv), "RLIMIT_FSIZE is lowered only in a delegated child")
+	// A flush of the test log under the lowered limit would fail the whole binary (see
+	// delegatedToFileSizeChild), so no test log may be open here.
+	tl := flag.Lookup("test.testlogfile")
+	require.NotNil(t, tl)
+	require.Empty(t, tl.Value.String(), "RLIMIT_FSIZE must not be lowered in a process that keeps a test log")
 	var old syscall.Rlimit
 	require.NoError(t, syscall.Getrlimit(syscall.RLIMIT_FSIZE, &old))
 	require.NoError(t, syscall.Setrlimit(syscall.RLIMIT_FSIZE, &syscall.Rlimit{Cur: limit, Max: old.Max}))
@@ -40,6 +81,9 @@ func withFileSizeLimit(t *testing.T, limit uint64, fn func()) {
 // TestWriteAtomic_AFailedWriteLeavesTheTargetAndNoStagingFile: WriteAtomic reports the failed write
 // and leaves the target as it was, with no staging file behind it.
 func TestWriteAtomic_AFailedWriteLeavesTheTargetAndNoStagingFile(t *testing.T) {
+	if delegatedToFileSizeChild(t) {
+		return
+	}
 	dir := t.TempDir()
 	p := filepath.Join(dir, "state.json")
 	require.NoError(t, os.WriteFile(p, []byte("old"), 0o600))
@@ -59,6 +103,9 @@ func TestWriteAtomic_AFailedWriteLeavesTheTargetAndNoStagingFile(t *testing.T) {
 // TestCreateNew_AFailedWriteIsNotSealed: CreateNew marks a file read-only only once its bytes are
 // written; a file whose write failed is reported and never presented as sealed.
 func TestCreateNew_AFailedWriteIsNotSealed(t *testing.T) {
+	if delegatedToFileSizeChild(t) {
+		return
+	}
 	p := filepath.Join(t.TempDir(), "0001.json")
 
 	var err error
@@ -73,6 +120,9 @@ func TestCreateNew_AFailedWriteIsNotSealed(t *testing.T) {
 // TestRestoreLog_ReportsAFailedWrite: a restored log whose bytes could not be written is an error,
 // never a restore reported done.
 func TestRestoreLog_ReportsAFailedWrite(t *testing.T) {
+	if delegatedToFileSizeChild(t) {
+		return
+	}
 	p := filepath.Join(t.TempDir(), "MANIFEST.jsonl")
 
 	var err error
@@ -83,6 +133,9 @@ func TestRestoreLog_ReportsAFailedWrite(t *testing.T) {
 // TestReplacePinsView_AFailedWriteKeepsTheViewAndCleansStaging: the pins view is replaced only by a
 // fully written staging file; a failed write keeps the old view and removes the staging file.
 func TestReplacePinsView_AFailedWriteKeepsTheViewAndCleansStaging(t *testing.T) {
+	if delegatedToFileSizeChild(t) {
+		return
+	}
 	l := paths.Of(t.TempDir())
 	require.NoError(t, paths.EnsureLayout(l))
 	view := filepath.Join(l.Pins, "invariants.json")
@@ -104,6 +157,9 @@ func TestReplacePinsView_AFailedWriteKeepsTheViewAndCleansStaging(t *testing.T) 
 // written at all the call fails as "nothing appended" — not ErrLineNotDurable, which means the line
 // is in the file — and the log is unchanged.
 func TestAppendLinesDurable_AFailedWriteAppendsNothingAndIsNotANotDurableLine(t *testing.T) {
+	if delegatedToFileSizeChild(t) {
+		return
+	}
 	p := filepath.Join(t.TempDir(), "roots.jsonl")
 	require.NoError(t, os.WriteFile(p, []byte("{\"n\":1}\n"), 0o600))
 
@@ -123,6 +179,9 @@ func TestAppendLinesDurable_AFailedWriteAppendsNothingAndIsNotANotDurableLine(t 
 // the next record is appended (F4-2). When the terminator itself cannot be written, both appenders
 // stop there and report it, rather than gluing the new record onto the torn one.
 func TestAppendersStopWhenTheTornTailCannotBeTerminated(t *testing.T) {
+	if delegatedToFileSizeChild(t) {
+		return
+	}
 	const torn = `{"n":1`
 	for name, appendOne := range map[string]func(p string) error{
 		"AppendJSONL":        func(p string) error { return paths.AppendJSONL(p, map[string]int{"n": 2}) },
