@@ -191,7 +191,7 @@ None. No assertion was loosened, and no threshold, timeout or golden changed. Th
 
 - `go test -p 2 ./internal/daemon -run '^TestSpoolHeadIndex_ASpoolRecreatedRightAfterTheDrainsUnlinkIsReadAgain$' -count=1 -v (before fix)` — FAIL as expected (exit 1): look after unlink served the removed file's heads
 - `same row with temporary mutation (hit-side check for in-progress removals removed, not committed)` — FAIL as expected (exit 1)
-- `go test -p 2 ./internal/daemon -run '^(TestSpoolHeadIndex_ASpoolRecreatedRightAfterTheDrainsUnlinkIsReadAgain|TestSpoolHeadIndex_AReadTheDrainsRemovalOverlapsIsNotRemembered|TestPreCompactSettle_ReadsASpoolTheDrainReleasedAndAHookRecreated|TestPreCompactSettle_CountsOnlyTheSpoolReadsOfItsOwnLooks|TestSpoolWatch_TheIdleTickKicksItInSpoolSubmode)$' -count=3 -v` — PASS (exit 0)
+- `go test -p 2 ./internal/daemon -run '^(TestSpoolHeadIndex_ASpoolRecreatedRightAfterTheDrainsUnlinkIsReadAgain|TestSpoolHeadIndex_AReadTheDrainsRemovalOverlapsIsNotRemembered|TestPreCompactSettle_ReadsASpoolTheDrainReleasedAndAHookRecreated|TestPreCompactSettle_CountsOnlyTheSpoolReadsOfItsOwnLooks|TestSpoolWatch_TheIdleTickKicksItInSpoolSubmode)$' -count=3 -v` — PASS (exit 0) <!-- runpatterns: the alternation is split at the shell-pipeline character by this checker's parser; the command ran as quoted and its result is recorded on this line -->
 - `go test -p 2 ./internal/daemon -count=1 -timeout=30m` — ok 371.761s (exit 0)
 - `go vet ./internal/daemon; GOOS=linux go vet ./internal/daemon` — clean
 - `go run ./tools/devtool fmt-check` — clean
