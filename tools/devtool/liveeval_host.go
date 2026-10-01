@@ -24,6 +24,7 @@ import (
 	"github.com/qompack/qompack/internal/daemon"
 	"github.com/qompack/qompack/internal/eval"
 	"github.com/qompack/qompack/internal/ipc"
+	"github.com/qompack/qompack/internal/pluginmanifest"
 )
 
 // liveProcSpec is one host session to run.
@@ -413,7 +414,7 @@ func (e *liveEnv) marketplaceInstall(ctx context.Context, project, bundle, work 
 		"owner":       map[string]any{"name": "Qompack"},
 		"plugins": []any{map[string]any{
 			"name": livePluginName, "source": "./" + base,
-			"description": "Cache-aware, retrieval-backed context compaction",
+			"description": pluginmanifest.Description,
 		}},
 	}
 	if err := os.MkdirAll(filepath.Join(mkt, ".claude-plugin"), liveDirPerm); err != nil {
