@@ -820,16 +820,17 @@ across files. SP-01 owns both, keeps them consistent, and validates them:
 {
   "name": "qompack",
   "version": "0.1.0",
-  "description": "Cache-aware, retrieval-backed context compaction",
+  "description": "Qompack keeps a local record of the session and restores the important parts after Claude Code compacts its context, with tools to recall anything left out.",
   "author": { "name": "Qompack" },
   "homepage": "https://github.com/qompack/qompack",
   "keywords": ["compaction", "context", "memory"]
 }
 ```
 
-**Keywords note (amended 2026-10-01, D53(e)).** The example listed a `"cache"` keyword; the shipped
-manifest (`pluginmanifest.Default`) dropped it in wave 16b because no supported feature backs it,
-so the example drops it too.
+**Description and keywords note (amended 2026-10-01, D53(e)).** The example listed a `"cache"` keyword
+and a "cache-aware ... compaction" description; the shipped manifest (`pluginmanifest.Default`) dropped
+both in waves 16 and 16b because no supported feature backs cache awareness and Qompack does not
+compact, so the example now carries the shipped description and keywords.
 
 `plugin/hooks/hooks.json` — the six hooks of §7.3, with `${CLAUDE_PLUGIN_ROOT}` resolution to the
 per-platform binary:
