@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -251,27 +250,30 @@ func TestPreCompactSettle_NamesFitTheirShareUnderTheSealsCalibratedEstimator(t *
 }
 
 // coldBacklogBound is the settle's bound in TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound:
-// long enough that, with the first look held until just past half of it, the replay of the session's
-// one spooled Read fits in what is left on a loaded machine (it is one line, and the row fails only
-// if that replay takes more than 45 % of it).
-const coldBacklogBound = 3 * time.Second
-
-// coldBacklogLeft is how much of coldBacklogBound the row's slow read leaves: just under half, so the
-// first look takes more than half of the bound and still leaves time for the replay.
-const coldBacklogLeft = coldBacklogBound * 45 / 100
+// the longest whose deadline the replay's line still carries. The drain gives each line its own
+// drainLineDeadline from the line's start (dispatchPending), which is later than the deadline of a
+// settle no longer than drainLineDeadline that began before it, so the row's Dispatch seam reads the
+// deadline the settle handed its replay exactly, whatever the first look cost. It is the row's
+// fixture, not a product number: the row fails only if the first look's twenty-one cold reads and
+// one replayed line together take longer than it.
+const coldBacklogBound = drainLineDeadline
 
 // TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound (wave 16b review): twenty client
-// spools of other sessions, none indexed yet, are listed before the session's own spool, and the
-// first look's read of the last of them is slow (a read seam holds it until less than half of the
-// bound is left). The first look still leaves time, so the session's own Read is replayed before the
-// seal and nothing is left over: the waits and the replay run to the bound's own deadline. Held back
-// by the first look's whole duration again, as they were, they would have had no time at all, and a
-// cold backlog of other sessions' spools would have cost this session its replay. The last look reads
-// nothing: the own spool is released by the replay, and the others it does not look at again.
+// spools of other sessions, none indexed yet, are listed before the session's own spool, and the first
+// look reads them all, cold, before it reaches the session's own. The waits and the replay run to the
+// bound's own deadline, the one the looks run to: the replay's line carries exactly that deadline, so
+// whatever the first look cost, the replay has the rest of the bound, and the session's own Read is
+// replayed before the seal with nothing left over. Held back by the first look's whole duration, as
+// they were (5fd55bdd), they had bound - 2*e1, and a cold backlog of other sessions' spools taking half
+// the bound cost this session its replay; the row reads that as a replay deadline earlier than the
+// looks' by the first look's duration, for any duration. The last look reads nothing: the own spool is
+// released by the replay, and the others it does not look at again.
+//
+// Wave 16e: the row held the backlog's last read until 45 % of a 3 s bound was left, which made the
+// first look's cost the clock's and left the replay 1.35 s of wall time on a co-loaded host. It now
+// reads the deadline the replay was given instead, which no load can move.
 func TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound(t *testing.T) {
 	dd, root := settleTestDaemon(t, coldBacklogBound)
-	dd.drain.Store(newDrainer(dd.drainConfig()))
-	liveOrderWorkers(t, dd, 2, dd.runIngested)
 	const sess core.SessionID = "sess-precompact-cold-backlog"
 	const backlog = 20
 	for i := range backlog {
@@ -280,29 +282,43 @@ func TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound(t *testin
 	}
 	own := liveOrderTool(dd, root, sess, 1)
 	writeHookSpool(t, root, "client-9999.ndjson", own) // listed after the backlog
-	slow := fmt.Sprintf("client-%d.ndjson", 10000+backlog-1)
-	var left atomic.Int64 // what the slow read left of the bound
-	dd.spoolHeads.read = func(ctx context.Context, path string) ([]byte, error) {
-		if dl, ok := ctx.Deadline(); ok && filepath.Base(path) == slow {
-			hold := time.NewTimer(time.Until(dl) - coldBacklogLeft)
-			select {
-			case <-hold.C:
-			case <-ctx.Done():
-			}
-			hold.Stop()
-			left.Store(int64(time.Until(dl)))
-		}
-		return paths.ReadFileShared(path)
+	var replay struct {
+		sync.Mutex
+		at       time.Time
+		deadline time.Time
+		bounded  bool
 	}
+	cfg := dd.drainConfig()
+	cfg.Dispatch = func(ctx context.Context, req ipc.Request) ipc.Response {
+		if req.Nonce == own.Nonce {
+			dl, ok := ctx.Deadline()
+			replay.Lock()
+			replay.at, replay.deadline, replay.bounded = time.Now(), dl, ok
+			replay.Unlock()
+		}
+		return dd.drainDispatch(ctx, req)
+	}
+	dd.drain.Store(newDrainer(cfg))
+	liveOrderWorkers(t, dd, 2, dd.runIngested)
+	looks := recordSettleLooks(dd)
 	probe := bindSealProbe(dd, own.Nonce)
 
 	pre := checkpointRequest(dd, sess, "nonce-precompact-cold-backlog")
 	pre.TS = own.TS + 1
+	before := time.Now()
 	require.True(t, dd.dispatchOp(context.Background(), pre).OK)
 
-	require.Positive(t, left.Load(), "fixture sanity: the first look ended before the bound")
-	require.Less(t, time.Duration(left.Load()), coldBacklogBound/2,
-		"fixture sanity: the first look took more than half of the bound")
+	looks.ranUnderTheBound(t, before, coldBacklogBound, backlog+1)
+	looks.mu.Lock()
+	look := looks.reads[len(looks.reads)-1]
+	looks.mu.Unlock()
+	replay.Lock()
+	defer replay.Unlock()
+	require.True(t, replay.bounded, "fixture sanity: the session's own Read was replayed under a deadline")
+	require.True(t, replay.at.After(look.at), "fixture sanity: the replay began after the first look's reads")
+	require.True(t, replay.deadline.Equal(look.deadline),
+		"the replay runs to the bound's own deadline, the looks' (%s), not one the first look's cost moved "+
+			"earlier (%s)", look.deadline.Format(time.StampMicro), replay.deadline.Format(time.StampMicro))
 	require.True(t, probe.published[own.Nonce],
 		"the first look left time, so the session's own spool is replayed before the seal")
 	require.Empty(t, probe.drops, "nothing of the session was left unreplayed")
