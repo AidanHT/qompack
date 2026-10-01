@@ -1,0 +1,35 @@
+run_id=cx-c3-w10-hotpath-pkg-race-0d06ab1-20261001T025720Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-cand
+rev=0d06ab12
+commit=0d06ab1233efb0fd5be8c99dc453e1aa2ee071af
+bundle_sha256=7374a868d46267e543e29c972b8e13a7af33d8b6ddb1e9d4b7601e034bf9091e
+host_started_utc=2026-10-01T02:57:26Z
+inner_args=--count 5 -- ./test/bench/hotpath
+/work/cx-c3-w10-hotpath-pkg-race-0d06ab1-20261001T025720Z.bundle: OK
+run_id=cx-c3-w10-hotpath-pkg-race-0d06ab1-20261001T025720Z
+commit=0d06ab1233efb0fd5be8c99dc453e1aa2ee071af
+tree=3815188b7ba9024ee6b64626c69278254424656d
+bundle_sha256=7374a868d46267e543e29c972b8e13a7af33d8b6ddb1e9d4b7601e034bf9091e
+started_utc=2026-10-01T02:57:30Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=5 timeout=30m gomaxprocs=4 coload=0
+run=
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+go: writing stat cache: open /go/pkg/mod/cache/download/github.com/qompack/qompack/@v/v0.0.0-20260930224215-0d06ab1233ef.info100456718.tmp: permission denied
+PASS      github.com/qompack/qompack/test/bench/hotpath  (pass=345 fail=0 skip=0)
+go_test_exit=0
+exit=0
+artifacts: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c5/linux/cx-c3-w10-hotpath-pkg-race-0d06ab1-20261001T025720Z-artifacts
+exit=0

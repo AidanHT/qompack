@@ -1,0 +1,6 @@
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/negknow
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkRecord-4   	   35011	     35743 ns/op	     30752 cpu-ns/op	   11575 B/op	      72 allocs/op
+PASS

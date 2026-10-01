@@ -1,0 +1,37 @@
+{
+  "id": "c52-win-r10-candidate-negknow-1s",
+  "cwd": "C:/Users/Quant/AppData/Local/Temp/tmp.MWJhl7jum3/src-candidate/internal/negknow",
+  "argv": [
+    "env",
+    "-u",
+    "QOMPACK_HOME",
+    "-u",
+    "CLAUDE_CONFIG_DIR",
+    "HOME=C:/Users/Quant/AppData/Local/Temp/tmp.MWJhl7jum3/home-candidate",
+    "USERPROFILE=C:/Users/Quant/AppData/Local/Temp/tmp.MWJhl7jum3/home-candidate",
+    "GOPATH=C:\\Users\\Quant\\go",
+    "GOMODCACHE=C:\\Users\\Quant\\go\\pkg\\mod",
+    "C:/Users/Quant/AppData/Local/Temp/tmp.MWJhl7jum3/bin-win/candidate/negknow.test.exe",
+    "-test.run",
+    "^$",
+    "-test.bench",
+    "^Benchmark(Record|IngestMCPRealStore)$",
+    "-test.benchtime",
+    "1s",
+    "-test.benchmem",
+    "-test.count",
+    "1",
+    "-test.timeout",
+    "90m"
+  ],
+  "source_head": "0d06ab1233efb0fd5be8c99dc453e1aa2ee071af",
+  "source_dirty": "",
+  "environment": {
+    "GOPATH": "C:\\Users\\Quant\\go"
+  },
+  "started_at": "2026-10-01T02:48:40-04:00",
+  "ended_at": "2026-10-01T02:48:43-04:00",
+  "exit_code": 0,
+  "log": "c52-win-r10-candidate-negknow-1s.log",
+  "log_sha256": "ce58b8aef0121f4f1d745d3a01bce30b206b319e72e59772917a7655a5a822d2"
+}

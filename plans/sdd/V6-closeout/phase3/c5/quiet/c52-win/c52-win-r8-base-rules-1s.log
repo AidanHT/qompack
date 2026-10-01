@@ -1,0 +1,6 @@
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/rules
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkPathScoped-22    	     950	   1147535 ns/op	  166954 B/op	    2006 allocs/op
+PASS

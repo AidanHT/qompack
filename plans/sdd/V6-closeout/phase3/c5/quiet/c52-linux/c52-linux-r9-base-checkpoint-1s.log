@@ -1,0 +1,13 @@
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/checkpoint
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkExtractDecisions-4   	     194	   5859839 ns/op	 7167044 B/op	   32646 allocs/op
+--- BENCH: BenchmarkExtractDecisions-4
+    decisions_test.go:659: graph: nodes=4780 edges=14702 explains=3127
+    decisions_test.go:659: graph: nodes=4780 edges=14702 explains=3127
+    decisions_test.go:659: graph: nodes=4780 edges=14702 explains=3127
+BenchmarkStripInjections-4    	    6062	    193406 ns/op	1355.41 MB/s	 1162116 B/op	      14 allocs/op
+BenchmarkTruncate-4           	    1096	   1138297 ns/op	  742197 B/op	    1571 allocs/op
+BenchmarkAdvanceSegment-4     	      60	  22216994 ns/op	 6859760 B/op	    6679 allocs/op
+PASS

@@ -1,0 +1,8 @@
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/observer
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkOnToolUse_TestOutput256KB/Deduped-22         	     200	  33661668 ns/op	      2235 dedup-x	        34.00 objects	        36.86 p50-ms	        45.06 p99-ms	11594013 B/op	   26798 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/Delta-22           	     200	  48410126 ns/op	       143.8 dedup-x	       435.0 objects	        49.15 p50-ms	        61.44 p99-ms	20986562 B/op	   29678 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/AllNovel-22        	     200	 109129396 ns/op	         3.753 dedup-x	     12209 objects	       106.5 p50-ms	       163.8 p99-ms	25422081 B/op	   34177 allocs/op
+PASS

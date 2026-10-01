@@ -1,0 +1,22 @@
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/store
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkPutBytes_100KB_Warm_NoRedact-4      	     640	   1932590 ns/op	  52.99 MB/s	  901798 B/op	      14 allocs/op
+BenchmarkPutBytes_100KB_Cold_NoRedact-4      	      64	  18849335 ns/op	   5.43 MB/s	 1044537 B/op	     315 allocs/op
+BenchmarkPutBytes_100KB_Cold-4               	      63	  19257127 ns/op	   5.32 MB/s	 1150388 B/op	     316 allocs/op
+BenchmarkPutBytes_100KB_Warm-4               	     519	   2332094 ns/op	  43.91 MB/s	 1008423 B/op	      16 allocs/op
+BenchmarkPutBytes_100KB_Warm_KeepRaw/verbatim-4         	     478	   2544777 ns/op	  40.24 MB/s	 1008464 B/op	      16 allocs/op
+BenchmarkPutBytes_100KB_Warm_KeepRaw/delta-4            	     465	   2536161 ns/op	  40.39 MB/s	 1115814 B/op	      31 allocs/op
+BenchmarkPutBytes_100KB_Warm_KeepRaw/full-4             	    1590	    729637 ns/op	 140.37 MB/s	  635107 B/op	      23 allocs/op
+BenchmarkPutObject_NovelChunk-4                         	   11082	    109800 ns/op	  37.30 MB/s	    5839 B/op	      18 allocs/op
+BenchmarkGetChunk-4                                     	   56022	     20060 ns/op	   19628 B/op	      10 allocs/op
+BenchmarkOpenSpan_4KB_of_4MB-4                          	   57450	     20840 ns/op	   19783 B/op	      11 allocs/op
+BenchmarkOpenStore_50kRoots-4                           	       4	 279786192 ns/op	97311840 B/op	 1062393 allocs/op
+BenchmarkGC_50kObjects-4                                	       3	 392925589 ns/op	36940104 B/op	  433658 allocs/op
+BenchmarkCountFold_4MiB-4                               	     870	   1414720 ns/op	2964.76 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSearch_1000Roots-4                             	     175	   6760673 ns/op	 9121100 B/op	    7750 allocs/op
+BenchmarkSearch_1000Roots_DistinctChunks-4              	     122	   9967941 ns/op	13276481 B/op	   12344 allocs/op
+BenchmarkMarkEncoded_100-4                              	    9830	    117297 ns/op	   16896 B/op	     301 allocs/op
+PASS
+pathstest: HOME is "/tmp/2974957428/001/home" at the end of the run, not the isolated home "/tmp/qompack-test-home-99215005": a test changed it without restoring it, and every test after it ran against that directory

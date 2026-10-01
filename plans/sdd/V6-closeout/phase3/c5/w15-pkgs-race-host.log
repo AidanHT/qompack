@@ -1,0 +1,39 @@
+run_id=cx-c3-w15-pkgs-race-0d06ab1-20261001T025839Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-cand
+rev=0d06ab12
+commit=0d06ab1233efb0fd5be8c99dc453e1aa2ee071af
+bundle_sha256=26d950d827ea84992090f429b7808164f5d1b4960e210a60e19327ffef86a1d4
+host_started_utc=2026-10-01T02:58:45Z
+inner_args=--timeout 60m -- ./internal/daemon ./internal/negknow ./internal/mcp ./internal/rehydrate ./internal/checkpoint ./internal/store
+/work/cx-c3-w15-pkgs-race-0d06ab1-20261001T025839Z.bundle: OK
+run_id=cx-c3-w15-pkgs-race-0d06ab1-20261001T025839Z
+commit=0d06ab1233efb0fd5be8c99dc453e1aa2ee071af
+tree=3815188b7ba9024ee6b64626c69278254424656d
+bundle_sha256=26d950d827ea84992090f429b7808164f5d1b4960e210a60e19327ffef86a1d4
+started_utc=2026-10-01T02:58:48Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=1 timeout=60m gomaxprocs=4 coload=0
+run=
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+PASS      github.com/qompack/qompack/internal/daemon  (pass=1628 fail=0 skip=1)
+PASS      github.com/qompack/qompack/internal/negknow  (pass=424 fail=0 skip=1)
+PASS      github.com/qompack/qompack/internal/mcp  (pass=439 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/rehydrate  (pass=239 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/checkpoint  (pass=480 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/store  (pass=899 fail=0 skip=4)
+go_test_exit=0
+exit=0
+artifacts: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c5/linux/cx-c3-w15-pkgs-race-0d06ab1-20261001T025839Z-artifacts
+exit=0

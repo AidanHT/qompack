@@ -1,0 +1,11 @@
+{
+ "packages": {
+  "github.com/qompack/qompack/internal/paths/pathstest": {
+   "result": "pass",
+   "passed": 80,
+   "failed": [],
+   "skipped": []
+  }
+ },
+ "unreported": []
+}

@@ -1,0 +1,42 @@
+{
+  "id": "c52-linux-r7-candidate-dag-1s",
+  "cwd": "C:/Users/Quant/AppData/Local/Temp/tmp.MWJhl7jum3/src-candidate",
+  "argv": [
+    "docker",
+    "exec",
+    "qompack-v6-linux-verification",
+    "runuser",
+    "-u",
+    "qompack-test",
+    "--",
+    "env",
+    "-i",
+    "sh",
+    "-c",
+    ". \"$0\"; cd \"$1\" || exit 2; shift; exec \"$@\"",
+    "/work/cx-quiet-quiet-c52-prep-candidate-0d06ab1-20261001T065203Z-artifacts/env.sh",
+    "/work/cx-quiet-quiet-c52-prep-candidate-0d06ab1-20261001T065203Z/internal/dag",
+    "/work/cx-quiet-quiet-c52-prep-candidate-0d06ab1-20261001T065203Z-artifacts/bin/dag.test",
+    "-test.run",
+    "^$",
+    "-test.bench",
+    "^Benchmark(CrossingEdges|BackwardSlice5000)$",
+    "-test.benchtime",
+    "1s",
+    "-test.benchmem",
+    "-test.count",
+    "1",
+    "-test.timeout",
+    "90m"
+  ],
+  "source_head": "0d06ab1233efb0fd5be8c99dc453e1aa2ee071af",
+  "source_dirty": "",
+  "environment": {
+    "GOPATH": "C:\\Users\\Quant\\go"
+  },
+  "started_at": "2026-10-01T05:01:41-04:00",
+  "ended_at": "2026-10-01T05:01:45-04:00",
+  "exit_code": 0,
+  "log": "c52-linux-r7-candidate-dag-1s.log",
+  "log_sha256": "b807f9dc51fc8cdb0fc32b633a75fb6e5a353c5d8c2be930cb104ec90a5c7668"
+}

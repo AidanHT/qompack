@@ -1,0 +1,37 @@
+{
+ "packages": {
+  "github.com/qompack/qompack/internal/store": {
+   "result": "pass",
+   "passed": 2,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/negknow": {
+   "result": "pass",
+   "passed": 7,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/mcp": {
+   "result": "pass",
+   "passed": 1,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/daemon": {
+   "result": "pass",
+   "passed": 1,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/test/integration": {
+   "result": "fail",
+   "passed": 0,
+   "failed": [
+    "TestIntegration_HotPathWarmWithRealResidentState"
+   ],
+   "skipped": []
+  }
+ },
+ "unreported": []
+}

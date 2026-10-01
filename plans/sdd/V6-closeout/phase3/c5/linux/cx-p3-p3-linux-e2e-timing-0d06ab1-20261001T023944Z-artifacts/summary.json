@@ -1,0 +1,23 @@
+{
+ "packages": {
+  "github.com/qompack/qompack/test/e2e": {
+   "result": "fail",
+   "passed": 326,
+   "failed": [
+    "TestDaemonIdleRunsSchedulerWork",
+    "TestV3_HotPathUnchangedWithLedgerResident",
+    "TestV5_ObserveToStatusRoundTrip/live",
+    "TestV5_ObserveToStatusRoundTrip/daemon_down_falls_back_to_persisted_snapshot",
+    "TestV5_ObserveToStatusRoundTrip",
+    "TestV5_ThrashWarningVisibleInStatusAndCheckpoint/sequitur_warning_is_warning_only_and_once_per_rule",
+    "TestV5_ThrashWarningVisibleInStatusAndCheckpoint"
+   ],
+   "skipped": [
+    "TestInstall_HostCLIInstallUpgradeUninstall",
+    "TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting",
+    "TestE2E_RequiredProductChildRaceInstrumentation"
+   ]
+  }
+ },
+ "unreported": []
+}

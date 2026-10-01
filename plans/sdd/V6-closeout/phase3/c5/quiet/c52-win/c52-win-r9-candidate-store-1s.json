@@ -1,0 +1,37 @@
+{
+  "id": "c52-win-r9-candidate-store-1s",
+  "cwd": "C:/Users/Quant/AppData/Local/Temp/tmp.MWJhl7jum3/src-candidate/internal/store",
+  "argv": [
+    "env",
+    "-u",
+    "QOMPACK_HOME",
+    "-u",
+    "CLAUDE_CONFIG_DIR",
+    "HOME=C:/Users/Quant/AppData/Local/Temp/tmp.MWJhl7jum3/home-candidate",
+    "USERPROFILE=C:/Users/Quant/AppData/Local/Temp/tmp.MWJhl7jum3/home-candidate",
+    "GOPATH=C:\\Users\\Quant\\go",
+    "GOMODCACHE=C:\\Users\\Quant\\go\\pkg\\mod",
+    "C:/Users/Quant/AppData/Local/Temp/tmp.MWJhl7jum3/bin-win/candidate/store.test.exe",
+    "-test.run",
+    "^$",
+    "-test.bench",
+    "^Benchmark(GetChunk|OpenSpan_4KB_of_4MB|Search_1000Roots|Search_1000Roots_DistinctChunks|PutBytes_100KB_Cold|PutBytes_100KB_Warm|PutObject_NovelChunk|CountFold_4MiB|GC_50kObjects|MarkEncoded_100|OpenStore_50kRoots|PutBytes_100KB_Cold_NoRedact|PutBytes_100KB_Warm_KeepRaw|PutBytes_100KB_Warm_NoRedact)$",
+    "-test.benchtime",
+    "1s",
+    "-test.benchmem",
+    "-test.count",
+    "1",
+    "-test.timeout",
+    "90m"
+  ],
+  "source_head": "0d06ab1233efb0fd5be8c99dc453e1aa2ee071af",
+  "source_dirty": "",
+  "environment": {
+    "GOPATH": "C:\\Users\\Quant\\go"
+  },
+  "started_at": "2026-10-01T02:18:55-04:00",
+  "ended_at": "2026-10-01T02:21:11-04:00",
+  "exit_code": 1,
+  "log": "c52-win-r9-candidate-store-1s.log",
+  "log_sha256": "a49ae34b00122d9e72207a46eb7b1d85f51f7c27871687527a9e981fc861b319"
+}

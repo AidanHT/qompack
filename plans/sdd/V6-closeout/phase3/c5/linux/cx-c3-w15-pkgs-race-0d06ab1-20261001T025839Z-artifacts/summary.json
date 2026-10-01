@@ -1,0 +1,50 @@
+{
+ "packages": {
+  "github.com/qompack/qompack/internal/daemon": {
+   "result": "pass",
+   "passed": 1628,
+   "failed": [],
+   "skipped": [
+    "TestDrainWindowsOpenBlobRetainsCleanupIntent"
+   ]
+  },
+  "github.com/qompack/qompack/internal/negknow": {
+   "result": "pass",
+   "passed": 424,
+   "failed": [],
+   "skipped": [
+    "TestRecordContractFixtures"
+   ]
+  },
+  "github.com/qompack/qompack/internal/mcp": {
+   "result": "pass",
+   "passed": 439,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/rehydrate": {
+   "result": "pass",
+   "passed": 239,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/checkpoint": {
+   "result": "pass",
+   "passed": 480,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/store": {
+   "result": "pass",
+   "passed": 899,
+   "failed": [],
+   "skipped": [
+    "TestStoreKey_CanonicalizesSpellingsOfOnePath/backslashes_become_slashes",
+    "TestStoreKey_CanonicalizesSpellingsOfOnePath/mixed_separators_and_..",
+    "TestStoreKey_CanonicalizesSpellingsOfOnePath/windows_absolute",
+    "TestRenameObject_ContentionIsRetriedThenReported"
+   ]
+  }
+ },
+ "unreported": []
+}

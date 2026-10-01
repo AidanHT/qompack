@@ -1,0 +1,96 @@
+{
+  "platform": "windows/amd64",
+  "n": 5000,
+  "b_a_method": "daemon status hook_controlled (observed + hotPathTailAllowance), p99 gated against obs.Budgets() B-A's limit (reported, not gated, under --under-coload — see the notes); see the B-A_spawn_estimate row for the wall-clock, floor-subtracted diagnostic (unbiased at p50, dispersion-contaminated at p99 — spec step 6 amended by controller ruling #29)",
+  "spawn_floor_ms": {
+    "n": 200,
+    "p50": 14.307,
+    "p99": 42.671
+  },
+  "notes": [
+    "B-C not measured in wave 1: the processing seams are stubs",
+    "hook_ack_rtt is REPORTED, never gated: it is the client-side ACK round trip of 64 in-process observe.tool deliveries, each with a fresh nonce and a real lease, timed through the same ipc.Client a hook uses. Design §7.5 sizes the ACK deadline from it as AckDeadlineMs = L0IngestMs + ceil(slack99), where slack99 = p99(hook_ack_rtt) - p99(B-B) over this same run. The timed samples are preceded by 2 DISCARDED warm-up requests on the same session: without them sample #0 paid a session-registry insertion and a WAL segment create on top of the round trip, and at 64 samples with nearest-rank percentiles p99 IS the maximum sample, so that one sample became the number the deadline was sized from. Its traffic IS real hot-path traffic, so all 66 requests do reach the daemon's l0_ingest and hook_controlled histograms — but this run reads both of those for the gated B-A and B-B rows BEFORE any of the tranche is sent, warm-ups included, so none of it is inside either gated population, and the B-B this row is differenced against contains none of its own deliveries. They are reconciled rather than ignored: a second status read after the tranche counts every one of them, warm-ups included, into the delivery ledger, so a deferral of this tranche's own cannot pass unnoticed. The in-process traffic that does sit inside the gated populations is the warm-up's, disclosed with its own computed proportion. A p99 over 64 samples is still that set's own top sample, which is why §7.5 takes the maximum across three runs rather than trusting one",
+    "daemon-observed hook_controlled_observed (recvTS-reqTS, strict lower bound, no hotPathTailAllowance): p50=3.072ms p99=6.144ms n=5064 — informational cross-check against the gated B-A row above, which adds the tail allowance",
+    "B-A's gated n=5064 includes 64 in-process warm-up observe.tool requests (Send-time TS, not a spawned process's main() entry) alongside 5000 real hook spawns from the B-A/B-D loop — the warm-up hot-path tranche (warmHotTranche=64, a small, fixed constant) is 1.3% of the gated population for this run; see B-A_spawn_estimate for the wall-clock diagnostic derived purely from real spawns",
+    "B-B's n includes the 64 warm-up hot-path (observe.tool) requests, not just the B-A/B-D measurement loop — the daemon's own l0_ingest count, reported verbatim (conservative for B-B: warm-up payloads run 4KB-256KB, larger than B-A/B-D's fixed representative payload). The other 1936 warm-up requests are admin.ping round trips and never reach l0_ingest at all (FIX ROUND 2, N-1)"
+  ],
+  "budgets": [
+    {
+      "budget_id": "B-A",
+      "n": 5064,
+      "p50": 20.48,
+      "p95": 26.624,
+      "p99": 30.72,
+      "p999": 49.152,
+      "max": 132,
+      "limit_ms": 50,
+      "pass": true
+    },
+    {
+      "budget_id": "B-B",
+      "n": 5064,
+      "p50": 13.312,
+      "p95": 18.432,
+      "p99": 22.528,
+      "p999": 40.96,
+      "max": 119.801,
+      "limit_ms": 50,
+      "pass": true
+    },
+    {
+      "budget_id": "B-D",
+      "n": 5000,
+      "p50": 34.641,
+      "p95": 60.597,
+      "p99": 71.89,
+      "p999": 88.876,
+      "max": 101.269,
+      "limit_ms": null,
+      "pass": null
+    },
+    {
+      "budget_id": "B-E",
+      "n": 50,
+      "p50": 134.548,
+      "p95": 157.984,
+      "p99": 161.954,
+      "p999": 161.954,
+      "max": 161.954,
+      "limit_ms": 2000,
+      "pass": true
+    },
+    {
+      "budget_id": "B-E_cpu",
+      "n": 50,
+      "p50": 15.625,
+      "p95": 31.25,
+      "p99": 31.25,
+      "p999": 31.25,
+      "max": 31.25,
+      "limit_ms": 2000,
+      "pass": true
+    },
+    {
+      "budget_id": "B-A_spawn_estimate",
+      "n": 5000,
+      "p50": 20.334,
+      "p95": 46.29,
+      "p99": 57.582,
+      "p999": 74.569,
+      "max": 86.961,
+      "limit_ms": null,
+      "pass": null
+    },
+    {
+      "budget_id": "hook_ack_rtt",
+      "n": 64,
+      "p50": 14.548,
+      "p95": 20.643,
+      "p99": 28.097,
+      "p999": 28.097,
+      "max": 28.097,
+      "limit_ms": null,
+      "pass": null
+    }
+  ]
+}

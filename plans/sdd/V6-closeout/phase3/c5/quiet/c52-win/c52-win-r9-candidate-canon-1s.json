@@ -1,0 +1,37 @@
+{
+  "id": "c52-win-r9-candidate-canon-1s",
+  "cwd": "C:/Users/Quant/AppData/Local/Temp/tmp.MWJhl7jum3/src-candidate/internal/canon",
+  "argv": [
+    "env",
+    "-u",
+    "QOMPACK_HOME",
+    "-u",
+    "CLAUDE_CONFIG_DIR",
+    "HOME=C:/Users/Quant/AppData/Local/Temp/tmp.MWJhl7jum3/home-candidate",
+    "USERPROFILE=C:/Users/Quant/AppData/Local/Temp/tmp.MWJhl7jum3/home-candidate",
+    "GOPATH=C:\\Users\\Quant\\go",
+    "GOMODCACHE=C:\\Users\\Quant\\go\\pkg\\mod",
+    "C:/Users/Quant/AppData/Local/Temp/tmp.MWJhl7jum3/bin-win/candidate/canon.test.exe",
+    "-test.run",
+    "^$",
+    "-test.bench",
+    "^Benchmark(Run_Bash100KB|Run_GoTest|Run_KeepDeltas|Restore_100KB)$",
+    "-test.benchtime",
+    "1s",
+    "-test.benchmem",
+    "-test.count",
+    "1",
+    "-test.timeout",
+    "90m"
+  ],
+  "source_head": "0d06ab1233efb0fd5be8c99dc453e1aa2ee071af",
+  "source_dirty": "",
+  "environment": {
+    "GOPATH": "C:\\Users\\Quant\\go"
+  },
+  "started_at": "2026-10-01T02:32:26-04:00",
+  "ended_at": "2026-10-01T02:32:32-04:00",
+  "exit_code": 0,
+  "log": "c52-win-r9-candidate-canon-1s.log",
+  "log_sha256": "f17a8ef4958941b16d195f637c79aee65167336897cf8b1247d9012daea11ca5"
+}

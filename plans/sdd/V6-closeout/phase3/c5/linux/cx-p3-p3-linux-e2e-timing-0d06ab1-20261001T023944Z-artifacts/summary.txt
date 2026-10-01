@@ -1,0 +1,8 @@
+FAIL      github.com/qompack/qompack/test/e2e  (pass=326 fail=7 skip=3)
+    FAIL TestDaemonIdleRunsSchedulerWork
+    FAIL TestV3_HotPathUnchangedWithLedgerResident
+    FAIL TestV5_ObserveToStatusRoundTrip/live
+    FAIL TestV5_ObserveToStatusRoundTrip/daemon_down_falls_back_to_persisted_snapshot
+    FAIL TestV5_ObserveToStatusRoundTrip
+    FAIL TestV5_ThrashWarningVisibleInStatusAndCheckpoint/sequitur_warning_is_warning_only_and_once_per_rule
+    FAIL TestV5_ThrashWarningVisibleInStatusAndCheckpoint

@@ -1,0 +1,119 @@
+{
+ "packages": {
+  "github.com/qompack/qompack/internal/canon": {
+   "result": "pass",
+   "passed": 0,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/checkpoint": {
+   "result": "pass",
+   "passed": 0,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/chunk": {
+   "result": "pass",
+   "passed": 0,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/cli": {
+   "result": "pass",
+   "passed": 0,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/config": {
+   "result": "pass",
+   "passed": 0,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/daemon": {
+   "result": "pass",
+   "passed": 0,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/dag": {
+   "result": "pass",
+   "passed": 0,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/eval": {
+   "result": "pass",
+   "passed": 0,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/hostperm": {
+   "result": "pass",
+   "passed": 0,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/negknow": {
+   "result": "pass",
+   "passed": 0,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/obs": {
+   "result": "pass",
+   "passed": 0,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/observer": {
+   "result": "pass",
+   "passed": 0,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/paths": {
+   "result": "pass",
+   "passed": 0,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/rules": {
+   "result": "pass",
+   "passed": 0,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/scheduler": {
+   "result": "pass",
+   "passed": 0,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/sketch": {
+   "result": "pass",
+   "passed": 0,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/skills": {
+   "result": "pass",
+   "passed": 0,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/store": {
+   "result": "pass",
+   "passed": 0,
+   "failed": [],
+   "skipped": []
+  },
+  "github.com/qompack/qompack/internal/symbols": {
+   "result": "pass",
+   "passed": 0,
+   "failed": [],
+   "skipped": []
+  }
+ },
+ "unreported": []
+}

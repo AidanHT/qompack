@@ -1,0 +1,73 @@
+package	benchmark	benchtime	candidate	base	source
+internal/store	BenchmarkGetChunk	1s	yes	yes	perfstore §4 (SP20-D2, C2.7); C5.2 "GetChunk"
+internal/store	BenchmarkOpenSpan_4KB_of_4MB	1s	yes	yes	perfstore §4 (SP20-D2 read)
+internal/store	BenchmarkSearch_1000Roots	1s	yes	yes	perfstore §4 (SP20-D2); C5.2 "search"
+internal/store	BenchmarkSearch_1000Roots_DistinctChunks	1s	yes	no	perfstore §4 (SP20-D2)
+internal/store	BenchmarkPutBytes_100KB_Cold	1s	yes	yes	perfstore §4 (SP06-D2, C2.6); C5.2 "store"
+internal/store	BenchmarkPutBytes_100KB_Warm	1s	yes	yes	perfstore §4 (SP06-D2, C2.6); C5.2 "store"
+internal/store	BenchmarkPutObject_NovelChunk	1s	yes	no	perfstore §4 (6f5f3ff, SP06-D2)
+internal/store	BenchmarkCountFold_4MiB	1s	yes	no	D37 1.16.11 (phase-7 store family)
+internal/store	BenchmarkGC_50kObjects	1s	yes	yes	D37 1.16.11 (phase-7 store family)
+internal/store	BenchmarkMarkEncoded_100	1s	yes	yes	D37 1.16.11 (phase-7 store family)
+internal/store	BenchmarkOpenStore_50kRoots	1s	yes	yes	D37 1.16.11 (phase-7 store family)
+internal/store	BenchmarkPutBytes_100KB_Cold_NoRedact	1s	yes	yes	D37 1.16.11 (phase-7 store family)
+internal/store	BenchmarkPutBytes_100KB_Warm_KeepRaw	1s	yes	yes	D37 1.16.11 (phase-7 store family)
+internal/store	BenchmarkPutBytes_100KB_Warm_NoRedact	1s	yes	yes	D37 1.16.11 (phase-7 store family)
+internal/observer	BenchmarkOnToolUse_TestOutput256KB	200x	yes	yes	perfobs §2/§6 (SP08-D1 B-C, C2.3; D20); C5.2 "OnToolUse 256 KB"
+internal/observer	BenchmarkOnToolUse_TestOutput256KB_Leased	200x	yes	no	inventory 1.8.13 (B-C, C5.2-mapped; perfobs's 200x)
+internal/observer	BenchmarkOnToolUse_FileRead64KB	1s	yes	yes	perfobs §8.1 (B-C's 64 KB payload class); inventory 1.8.13
+internal/observer	BenchmarkTombstone	1s	yes	yes	D37 1.8.2
+internal/checkpoint	BenchmarkFinalize	10x	yes	yes	perfobs §3/§6 (SP10-D1, C2.4); w6-ckptsync (D26); D37 1.10.17; C5.2 "Finalize"
+internal/checkpoint	BenchmarkAdvanceSegment	1s	yes	yes	D37 1.10.17
+internal/checkpoint	BenchmarkExtractDecisions	1s	yes	yes	D37 1.10.17
+internal/checkpoint	BenchmarkStripInjections	1s	yes	yes	D37 1.16.11 (phase-7 checkpoint family)
+internal/checkpoint	BenchmarkTruncate	1s	yes	yes	D37 1.16.11 (phase-7 checkpoint family)
+internal/negknow	BenchmarkOpen	10x	yes	yes	perfobs §4/§6 (SP09-D1, C2.5); C5.2 "negknow Open"
+internal/negknow	BenchmarkRecord	1s	yes	yes	w6-ckptsync Linux paired timing (control)
+internal/negknow	BenchmarkIngestMCPRealStore	1s	yes	no	w6-ckptsync Linux paired timing (D26 record_eliminated)
+internal/daemon	BenchmarkIngestAccept	1s	yes	yes	w6-ckptsync Linux paired timing (control)
+internal/daemon	BenchmarkIngestAcceptLeased	1s	yes	yes	w6-ckptsync Linux paired timing (control)
+internal/daemon	BenchmarkIngestAcceptExternalized	1s	yes	no	w6-ckptsync Linux paired timing (D26, 1 MiB payloads in B-B)
+internal/daemon	BenchmarkFeaturesFrom	1s	yes	yes	D37 1.12.17 (SP-12 scheduler benches, daemon half: scheduler_bench_test.go)
+internal/daemon	BenchmarkReclaimableIndexBuild_5000Blocks	1s	yes	yes	D37 1.12.17 (SP-12 scheduler benches, daemon half)
+internal/daemon	BenchmarkAssembleCandidates_2000ToolUses	1s	yes	yes	D37 1.12.17 (SP-12 scheduler benches, daemon half)
+internal/daemon	BenchmarkRuntimeEvaluate_2000ToolUses_32Candidates	1s	yes	yes	D37 1.12.17 (SP-12 scheduler benches, daemon half)
+internal/daemon	BenchmarkSchedulerTap_ObserveTool	1s	yes	yes	D37 1.12.17 (SP-12 scheduler benches, daemon half)
+internal/cli	BenchmarkHookNoop_InProcess	1s	yes	yes	D37 1.1.27 (SP-01 "Benchmarks with budgets": B-A headroom, < 3 ms/op)
+internal/canon	BenchmarkRun_Bash100KB	1s	yes	yes	perfobs §2/§6 (canon BenchmarkRun_*); D37 1.4.14
+internal/canon	BenchmarkRun_GoTest	1s	yes	yes	perfobs §2/§6 (canon BenchmarkRun_*); D37 1.4.14
+internal/canon	BenchmarkRun_KeepDeltas	1s	yes	yes	perfobs §2/§6 (canon BenchmarkRun_*); D37 1.4.14
+internal/canon	BenchmarkRestore_100KB	1s	yes	yes	D37 1.4.14 (canon family)
+internal/chunk	BenchmarkGearScan_1MiB	1s	yes	yes	D37 1.4.14 (chunk family)
+internal/chunk	BenchmarkRootHash_1000Chunks	1s	yes	yes	D37 1.4.14 (chunk family)
+internal/chunk	BenchmarkSplit_100KB	1s	yes	yes	D37 1.4.14 (chunk family)
+internal/chunk	BenchmarkSplit_1MiB	1s	yes	yes	D37 1.4.14 (chunk family)
+internal/chunk	BenchmarkSplitStream_4MiB	1s	yes	yes	D37 1.4.14 (chunk family)
+internal/symbols	BenchmarkEnclosing_100KB	1s	yes	yes	D37 1.4.14 (symbols family)
+internal/symbols	BenchmarkExtract_100KB	1s	yes	yes	D37 1.4.14 (symbols family)
+internal/symbols	BenchmarkReferences_100KB_50Names	1s	yes	yes	D37 1.4.14 (symbols family)
+internal/obs	BenchmarkHistogram_Observe	1s	yes	yes	D37 1.1.16; SP-01 "Benchmarks with budgets" (< 100 ns/op)
+internal/config	BenchmarkConfigLoad_ColdNoFiles	1s	yes	yes	D37 1.1.27; SP-01 "Benchmarks with budgets" (< 2 ms/op)
+internal/paths	BenchmarkIsHome_AProjectBelowHome	1s	yes	no	D37 1.1.27's package family (config/paths/core/devtool); not an SP-01 row
+internal/paths	BenchmarkPathsWriteAtomic_4KB	1s	yes	yes	D37 1.1.27; SP-01 "Benchmarks with budgets" (< 2 ms/op)
+internal/eval	BenchmarkBeladyDetail_400Turns	1s	yes	yes	D37 1.2.12 (E-1..E-5)
+internal/eval	BenchmarkBreakpointOPT_256Candidates	1s	yes	yes	D37 1.2.12 (E-1..E-5)
+internal/eval	BenchmarkCompare_400Actions	1s	yes	yes	D37 1.2.12 (E-1..E-5)
+internal/eval	BenchmarkSynthesize_320Turns	1s	yes	yes	D37 1.2.12 (E-1..E-5)
+internal/sketch	BenchmarkRebuildBloom5000	1s	yes	yes	D37 1.3.7
+internal/sketch	BenchmarkL0SketchUpdate	1s	yes	yes	inventory 1.3.16 (C5.2-mapped; 0-alloc hot-path sketch update)
+internal/dag	BenchmarkCrossingEdges	1s	yes	yes	D37 1.7.8
+internal/dag	BenchmarkBackwardSlice5000	1s	yes	yes	D37 1.7.10
+internal/hostperm	BenchmarkEvaluate	1s	yes	no	D37 1.12.17 (inventory-map.tsv's symbol; a name collision, kept as listed)
+internal/scheduler	BenchmarkEvaluate_64Candidates	1s	yes	yes	D37 1.12.17 and 1.16.11 (scheduler family)
+internal/scheduler	BenchmarkBOCDObserve_4Features	1s	yes	yes	D37 1.12.17 and 1.16.11 (scheduler family)
+internal/scheduler	BenchmarkBOCDMarshal	1s	yes	yes	D37 1.12.17 and 1.16.11 (scheduler family)
+internal/rules	BenchmarkPathScoped	1s	yes	yes	D37 1.11.16 (rehydrate/rules/skills family)
+internal/skills	BenchmarkIndex	1s	yes	yes	D37 1.11.16 (rehydrate/rules/skills family)
+internal/core	(no Benchmark func)	-	no	-	D37 1.1.27: family directory with no benchmark
+tools/devtool	(no Benchmark func)	-	no	-	D37 1.1.27: family directory with no benchmark
+test/replay	(no Benchmark func)	-	no	-	D37 1.2.12: family directory with no benchmark
+internal/pins	(no Benchmark func)	-	no	-	D37 1.10.17: family directory with no benchmark
+internal/rehydrate	(no Benchmark func)	-	no	-	D37 1.11.16: family directory with no benchmark
+internal/analyzer	(no Benchmark func)	-	no	-	D37 1.15.14: family directory with no benchmark
+internal/grammar	(no Benchmark func)	-	no	-	D37 1.15.14: family directory with no benchmark
