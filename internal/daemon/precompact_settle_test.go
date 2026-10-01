@@ -498,6 +498,96 @@ func TestPreCompactSettle_ReplaysThisSessionsSpoolBeforeOlderOnesOfOthers(t *tes
 	require.Empty(t, probe.drops)
 }
 
+// TestPreCompactSettle_DoesNotWaitBehindAWatcherPassItsOwnRequestKicked (wave 16f): every served
+// request kicks the client-spool watcher (noteServed), and a kicked watcher's pass covers every
+// session's spools, in host order, under the drain's mutex. Kicked by the PreCompact before its
+// settle, that pass took the mutex over another session's older spool, and the settle's replay of
+// the compacting session's own spool (DrainClientSpoolsWithin) waited behind it: other sessions'
+// backlog spent this session's bound. The PreCompact's own kick comes after its seal.
+//
+// The row runs no watcher until a kick is pending, and starts it then, as an idle watcher wakes on a
+// kick: the settle's first spool read starts it if the PreCompact's request has already kicked, and
+// holds until that pass has the other session's line in flight. That line, should it be in flight
+// before the seal, takes the whole bound (settleCut), as in
+// TestPreCompactSettle_ReplaysThisSessionsSpoolBeforeOlderOnesOfOthers. A pass already running for
+// another reason when the settle starts is still waited for, within the bound: the designed degrade
+// (D55), named in the drop report, nothing lost.
+func TestPreCompactSettle_DoesNotWaitBehindAWatcherPassItsOwnRequestKicked(t *testing.T) {
+	dd, root := settleTestDaemon(t, liveOrderBound)
+	ctx, cut := settleCut(t)
+	const sess, other core.SessionID = "sess-precompact-kick-own", "sess-precompact-kick-other"
+	sealed := make(chan struct{})
+	passHolds := make(chan struct{})
+	var holding sync.Once
+	cfg := dd.drainConfig()
+	cfg.Dispatch = func(lctx context.Context, req ipc.Request) ipc.Response {
+		if resolveEvent(req).SessionID == other {
+			select {
+			case <-sealed:
+			default:
+				holding.Do(func() { close(passHolds) })
+				cut() // the other session's slow line takes the whole bound
+				<-lctx.Done()
+				return ipc.Response{Err: lctx.Err().Error()}
+			}
+		}
+		return dd.drainDispatch(lctx, req)
+	}
+	dd.drain.Store(newDrainer(cfg))
+	liveOrderWorkers(t, dd, 2, dd.runIngested)
+	dd.applyHotPathTransition(ToSpool)
+
+	older := liveOrderTool(dd, root, other, 1)
+	own := liveOrderTool(dd, root, sess, 2)
+	own.TS = older.TS + 10
+	writeHookSpool(t, root, "client-7575.ndjson", older)
+	writeHookSpool(t, root, "client-7676.ndjson", own)
+	probe := bindSealProbe(dd, own.Nonce)
+	seal := dd.svc.PreCompact
+	dd.svc.PreCompact = func(sctx context.Context, ev hookio.Event) (hookio.Output, error) {
+		out, err := seal(sctx, ev)
+		close(sealed)
+		return out, err
+	}
+	var first sync.Once
+	dd.spoolHeads.read = func(_ context.Context, path string) ([]byte, error) {
+		first.Do(func() {
+			if len(dd.spool.kick) == 0 {
+				return // nothing kicked the watcher before the settle
+			}
+			startSpoolWatch(t, dd, spoolWatchTick, liveOrderBound)
+			if !liveOrderPollUntil(liveOrderBound, func() bool {
+				select {
+				case <-passHolds:
+					return true
+				default:
+					return false
+				}
+			}) {
+				t.Error("fixture sanity: the kicked watcher's pass never reached the other session's line")
+			}
+		})
+		return paths.ReadFileShared(path)
+	}
+	require.Empty(t, dd.spool.kick, "fixture sanity: nothing has kicked the watcher before the PreCompact")
+
+	pre := checkpointRequest(dd, sess, "nonce-precompact-kick-own")
+	pre.TS = own.TS + 1
+	require.True(t, dd.dispatchOp(ctx, pre).OK)
+
+	require.Equal(t, 1, probe.calls)
+	require.True(t, probe.published[own.Nonce],
+		"the settle replays the session's own spool without waiting behind a pass its own request kicked")
+	require.Empty(t, probe.drops)
+
+	// The PreCompact still kicks the watcher, after its seal, and the other session's spool gets its
+	// pass then.
+	require.Len(t, dd.spool.kick, 1, "the PreCompact kicks the watcher once it has sealed")
+	startSpoolWatch(t, dd, spoolWatchTick, liveOrderBound)
+	require.Eventually(t, func() bool { return spoolWatchPublished(dd, older.Nonce) },
+		liveOrderBound, liveOrderTick, "the kick after the seal lets the watcher publish the other session's spool")
+}
+
 // TestPreCompactSettle_ABacklogIsCountedInFullAndNamedWithinItsShare: a few hundred spooled Reads, one
 // hook process each as in spool submode, on a disk too slow to replay any of them inside the bound.
 // The summary counts every one; only the newest are named, within their share of

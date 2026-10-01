@@ -453,7 +453,7 @@ func TestSpoolWatch_DoesNothingWithoutAKick(t *testing.T) {
 	require.Zero(t, dd.m.Counter(counterSpoolWatchDrains).Value(), "no request served, so no look and no pass")
 	require.FileExists(t, filepath.Join(paths.Of(root).Spool, "client-7272.ndjson"))
 
-	dd.noteServed()
+	dd.noteServed(ipc.OpStatus)
 	require.Eventually(t, func() bool { return spoolWatchPublished(dd, spooled.Nonce) },
 		liveOrderBound, liveOrderTick, "a served request kicks the watcher, which publishes the spool")
 	require.Eventually(t, func() bool { return spoolWatchGone(root, "client-7272.ndjson") },

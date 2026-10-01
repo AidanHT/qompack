@@ -328,7 +328,8 @@ type daemon struct {
 	recoveryMu sync.Mutex
 
 	// spool is the client-spool watcher's configuration and kick (C1.13, spool_watch.go): every served
-	// request kicks it (noteServed). New creates it; nil on a daemon value that never went through New.
+	// request kicks it (noteServed; a PreCompact after its seal). New creates it; nil on a daemon value
+	// that never went through New.
 	spool *spoolWatcher
 	// spoolHeads remembers what each hook client spool holds, so the PreCompact settle reads a file
 	// once per version rather than on every compaction (spool_heads.go). The zero value is ready.
@@ -928,8 +929,17 @@ func (d *daemon) openForRequests() {
 //
 // It costs one already-completed sync.Once check per request (an atomic load) and never touches
 // the filesystem, so it is safe to leave on the B-A/B-B path.
-func (d *daemon) noteServed() {
+//
+// It also kicks the client-spool watcher (spool_watch.go), except for op ipc.OpCheckpoint, the
+// PreCompact: its route kicks the watcher after its seal (handleCheckpoint). Kicked here, the
+// watcher's pass over every session's spools could take the drain's mutex before the route's settle
+// did, and the settle's replay of the compacting session's own spools would wait behind it, spending
+// the settle's bound on other sessions' backlog (wave 16f).
+func (d *daemon) noteServed(op ipc.Op) {
 	d.firstServedOnce.Do(func() { close(d.firstServed) })
+	if op == ipc.OpCheckpoint {
+		return
+	}
 	d.kickSpoolWatch()
 }
 

@@ -23,8 +23,9 @@ import (
 // published ahead of it.
 //
 // The watcher closes that without polling an idle daemon. Every request the daemon serves kicks it
-// (noteServed), and so does Run's idle tick while the hot path is in spool submode, when no hook
-// request is served at all (kickSpoolWatchInSpoolSubmode). A kicked watcher looks at the spool
+// (noteServed; a PreCompact once it has sealed), and so does Run's idle tick while the hot path is in
+// spool submode, when no hook request is served at all (kickSpoolWatchInSpoolSubmode). A kicked
+// watcher looks at the spool
 // directory once per spoolCheckInterval for as long as kicks keep coming, and once more an interval
 // after they stop, so a spool file written just after the last hook (a late ACK spools after the
 // request was served) is still seen. A client spool that has stood unchanged across a whole interval
@@ -62,7 +63,8 @@ const counterSpoolWatchDrains = "l0_spool_watch_drains"
 // through setHorizon, while the watcher's own goroutine (watchClientSpools) reads it through
 // horizonNow.
 type spoolWatcher struct {
-	// kick is signalled by every served request (kickSpoolWatch). Capacity one: kicks merge.
+	// kick is signalled by every served request (kickSpoolWatch), a PreCompact's after its seal.
+	// Capacity one: kicks merge.
 	kick chan struct{}
 	// every is spoolCheckInterval.
 	every time.Duration
