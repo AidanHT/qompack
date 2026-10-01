@@ -230,6 +230,7 @@ func TestBEWallWaivedNote_NamesTheLimitItDidNotApply(t *testing.T) {
 	require.Contains(t, note, budgetIDBECPU)
 	require.Contains(t, note, "2000ms", "the waived limit must be named, not implied by a null")
 	require.Contains(t, note, "--under-coload")
+	requireHostedLanesReport(t, note)
 }
 
 // TestBAWallWaivedNote_NamesTheLimitItDidNotApply is baWallWaivedNote's counterpart of the test
@@ -257,6 +258,7 @@ func TestBAWallWaivedNote_NamesTheLimitItDidNotApply(t *testing.T) {
 	require.Contains(t, note, "--under-coload")
 	require.Contains(t, note, "bench-gate")
 	require.Contains(t, note, "test-e2e", "every run that still judges B-A must be named")
+	requireHostedLanesReport(t, note)
 	require.NotContains(t, note, budgetIDBECPU,
 		"B-A has no CPU row to point at; the note must not borrow B-E's")
 }
@@ -280,10 +282,24 @@ func TestBBWallWaivedNote_NamesTheLimitItDidNotApply(t *testing.T) {
 	for _, lane := range []string{"bench-gate", "bench-deep", "timing", "test-e2e"} {
 		require.Containsf(t, note, lane, "every lane that still judges B-B must be named: %s", lane)
 	}
+	requireHostedLanesReport(t, note)
 	require.Contains(t, note, "T9", "the co-load-immune structural gates that hold in THIS run must be named")
 	require.NotContains(t, note, budgetIDBECPU,
 		"B-B has no CPU row to point at; the note must not borrow B-E's, and test/integration "+
 			"and test/e2e read that id out of the notes to prove B-E's own waiver was disclosed")
+}
+
+// requireHostedLanesReport pins the qualifier every co-load waiver note carries on its list of
+// lanes that still judge the row: they judge it on a reference disk only, because their hosted
+// runs report it under QOMPACK_NONREFERENCE_DISK (D53(e), D55; ADR 0010 Addendum 2, which says no
+// hosted job gates B-A, B-B or B-E's wall row). A note that named the lanes without it would tell
+// a reader of a hosted JSON artifact that a hosted job gates the row.
+func requireHostedLanesReport(t *testing.T, note string) {
+	t.Helper()
+	require.Contains(t, note, "does NOT pass --under-coload, on a reference disk (the owner's quiet runs) — bench-gate",
+		"the lanes that still judge the row judge it on a reference disk only")
+	require.Contains(t, note, "hosted runs of these lanes report the row under "+obs.NonReferenceDiskEnv+
+		" (ADR 0010 Addendum 2)", "the note must say that hosted runs of those lanes report the row")
 }
 
 // TestGateFailed_ANilPassBARowNeverDecidesTheRun pins --under-coload's B-A half against the same

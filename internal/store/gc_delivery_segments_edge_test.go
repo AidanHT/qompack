@@ -286,9 +286,13 @@ func TestDsealSelect_AcceptsTwoValidSlotsOneSequenceApart(t *testing.T) {
 	require.False(t, dsealSelect(newerInB[:dsealFileSize-1], dsealAckChainDomain, dsealAckSeed), "not an image")
 }
 
-// TestDsealParsers_RefuseAnOversizedDocument: the v1 sidecar and the frozen segment-0 seal are both
-// bounded documents; one past the bound is refused unread.
-func TestDsealParsers_RefuseAnOversizedDocument(t *testing.T) {
+// TestDsealParsers_RefuseAnOversizedRunOfSpaces: both parsers refuse an input one byte past
+// dsealMaxLine. It does NOT pin the bound: a run of spaces is refused by json.Unmarshal anyway, and
+// no oversized input can be a canonical document (padding breaks the canonical re-encoding check),
+// so the bound changes no verdict and no test of a verdict can tell whether it works. dsealMaxLine
+// is a cost guard: it stops an oversized file from being decoded at all. This row only shows that
+// the oversized path answers false rather than panicking.
+func TestDsealParsers_RefuseAnOversizedRunOfSpaces(t *testing.T) {
 	big := bytes.Repeat([]byte{' '}, dsealMaxLine+1)
 	require.False(t, dsealParseV1(big, dsealAckSeed))
 	require.False(t, dsealParseFrozen(big, dsealAckSeed))
