@@ -13,7 +13,7 @@ import (
 // build or test time is listed with its identifier and an explicit statement that it is not in the
 // binary — the honest version of a notices file names its own boundary rather than leaving a
 // reader to assume every entry in go.mod ships.
-func renderNotices(projectLicense string, shipped []licenseModule, tooling []toolingRow) string {
+func renderNotices(projectLicense string, goLic goLicense, shipped []licenseModule, tooling []toolingRow) string {
 	var b strings.Builder
 
 	b.WriteString("# Third-party notices\n\n")
@@ -24,7 +24,9 @@ func renderNotices(projectLicense string, shipped []licenseModule, tooling []too
 	b.WriteString("the six release targets, intersected with the allow-list `devtool lint --only=bindeps`\n")
 	b.WriteString("enforces (00-ARCHITECTURE.md §2.5). Their licence texts are reproduced in full because\n")
 	b.WriteString("the released binary is a derived work that carries their code. §3 lists the remaining\n")
-	b.WriteString("direct dependencies, which are build-time or test-time only and reach no released byte.\n\n")
+	b.WriteString("direct dependencies, which are build-time or test-time only and reach no released byte.\n")
+	b.WriteString("§2 also reproduces the Go distribution's own licence: the Go runtime and standard library\n")
+	b.WriteString("are compiled into every released binary, so the binary redistributes them too.\n\n")
 
 	b.WriteString("## 1. Qompack\n\n")
 	b.WriteString("Qompack itself is MIT-licensed. The full text, as it appears in `LICENSE`:\n\n")
@@ -48,6 +50,10 @@ func renderNotices(projectLicense string, shipped []licenseModule, tooling []too
 			}
 		}
 	}
+	if len(shipped) == 0 {
+		b.WriteString("\n")
+	}
+	writeGoLicenseSection(&b, goLic)
 
 	b.WriteString("## 3. Build- and test-time dependencies, not redistributed\n\n")
 	b.WriteString("These are direct requirements of `go.mod` that no released binary links. The claim is\n")
@@ -57,10 +63,27 @@ func renderNotices(projectLicense string, shipped []licenseModule, tooling []too
 	for _, r := range tooling {
 		fmt.Fprintf(&b, "| `%s` | `%s` | %s | %s |\n", r.Path, r.Version, r.ID, r.Note)
 	}
-	b.WriteString("\nThe Go standard library ships with the Go toolchain and is not redistributed by this\n")
-	b.WriteString("repository; it is covered by the Go project's own BSD-3-Clause licence.\n")
 
 	return b.String()
+}
+
+// writeGoLicenseSection reproduces the Go distribution's LICENSE inside §2.
+//
+// Every released binary is a Go program: the compiler links the Go runtime and the standard library
+// packages it uses into it, so the binary redistributes them, and BSD-3-Clause's second condition
+// asks for the notice "in the documentation and/or other materials provided with the distribution".
+// The page used to say the standard library "is not redistributed by this repository", which was
+// false for every binary it described (V6 close-out audit F4, D53(e)).
+func writeGoLicenseSection(b *strings.Builder, goLic goLicense) {
+	b.WriteString("### The Go runtime and standard library\n\n")
+	b.WriteString("Every released binary is compiled by the Go toolchain and carries the Go runtime and the\n")
+	b.WriteString("standard library packages it uses, including the `golang.org/x` packages the standard\n")
+	b.WriteString("library vendors under the same licence. ")
+	fmt.Fprintf(b, "`go.mod` pins `toolchain %s`; each bundle's\n", goLic.Toolchain)
+	b.WriteString("`BUNDLE.json` names the toolchain that compiled it in its `go` field.\n\n")
+	b.WriteString("Licence: BSD-3-Clause\n\n")
+	b.WriteString("Reproduced from the Go distribution's `LICENSE`:\n\n")
+	writeIndented(b, goLic.Body)
 }
 
 // writeIndented emits a licence body as an indented block, then a blank line.
