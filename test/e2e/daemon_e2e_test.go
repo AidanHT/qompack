@@ -260,12 +260,20 @@ func e2eWaitDaemonUp(t *testing.T, root string) {
 // spool file and reaches the store through the drain, never the WAL; this line now tells that case
 // from a daemon that took the call and wrote it elsewhere.
 //
-// Both reds were inside cover's whole-tree pass, the one hosted job that still ran test/e2e beside
-// the rest of the tree (ADR 0010 decision 4 takes it out; `test-e2e` passed this row on all three
-// OSes in run 36816905394). There a hook's 5 ms dial (config.ConnectDeadlineMsPortable) is missed
-// by design and the delivery spools, as the same job's sibling row showed (job 103834108633: three
-// client spool files). The WAL count is a live-path property, so devtool cover now runs test/e2e
-// alone (tools/devtool/cover.go, coverPasses), and this row keeps its assertion and its bound.
+// The cause of those reds is INFERRED, not observed: both printed the pre-poll 0, so neither shows
+// what the WAL or the spool held. It is inferred from the differential and the mechanism. Both reds
+// were inside cover's whole-tree pass, the one hosted job that still ran test/e2e beside the rest
+// of the tree (ADR 0010 decision 4 takes it out; `test-e2e` passed this row on all three OSes in
+// run 36816905394). There a hook's 5 ms dial (config.ConnectDeadlineMsPortable) is missed by design
+// and the delivery spools; a sibling row in another cover run printed three client spool files (job
+// 103834108633); and ingest.Accept appends the WAL before it ACKs, so only a delivery that never
+// reached the daemon is missing from the WAL. The WAL count is a live-path property, so devtool
+// cover and devtool test now run test/e2e alone (tools/devtool/test.go, wholeTreePasses), and this
+// row keeps its assertion and its bound.
+//
+// The first red of this row under co-load that prints this diagnostic settles the inference. If
+// the missing deliveries are in client-*.ndjson files, it was the designed degrade. If the spool is
+// empty and the WAL is short, it is a product ingest race, and that must be fixed in the product.
 type walWaitDiag struct{ root string }
 
 func (d walWaitDiag) String() string {

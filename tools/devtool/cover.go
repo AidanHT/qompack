@@ -10,8 +10,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-
-	"github.com/qompack/qompack/internal/obs"
 )
 
 // coverProfileName is the coverage profile file `cover` writes at the repository root, matching
@@ -235,31 +233,24 @@ type coverPass struct {
 	profile string
 }
 
-// coverPasses splits pkgs into cover's passes (isolatedPasses). The shared pass is the co-loaded
-// whole-tree run, so it declares co-load and takes back a non-reference-disk declaration the job
-// may have made: one cause per run (test/guards' TestNonReferenceDisk_IsHostedCIOnly). Each
-// isolated package then runs alone with the co-load declaration taken back, exactly as ci.yml's
-// `test-e2e` job runs test/e2e (ADR 0010 decision 4), and inherits whatever the job declares of
-// its disk. Inside the whole-tree pass test/e2e's live-path rows were judged on a host where the
+// coverPasses splits pkgs into cover's passes (wholeTreePasses, the same passes and environments
+// `devtool test` uses) and gives each its profile. The shared pass is the co-loaded whole-tree
+// run, so it declares co-load and takes back a non-reference-disk declaration the job may have
+// made: one cause per run (test/guards' TestNonReferenceDisk_IsHostedCIOnly). Each isolated
+// package then runs alone with the co-load declaration taken back, exactly as ci.yml's `test-e2e`
+// job runs test/e2e (ADR 0010 decision 4), and inherits whatever the job declares of its disk.
+// Inside the whole-tree pass test/e2e's live-path rows were judged on a host where the
 // hooks take the designed degrade to the client spool (5 ms dial, config.ConnectDeadlineMsPortable)
 // — the condition TestE2EHookRoundTrip's WAL count is not defined for (runs 34804619564 and
 // 36816905394; the sibling row's diagnostic in job 103834108633 listed three client spool files).
 func coverPasses(pkgs []string) []coverPass {
 	var passes []coverPass
-	for i, p := range isolatedPasses(pkgs) {
-		if !isolatedPackages[p[0]] {
-			env := map[string]string{obs.NonReferenceDiskEnv: ""}
-			for k, v := range wholeTreeEnv {
-				env[k] = v
-			}
-			passes = append(passes, coverPass{pkgs: p, env: env, profile: coverProfileName})
-			continue
+	for i, p := range wholeTreePasses(pkgs) {
+		profile := coverProfileName
+		if isolatedPackages[p.pkgs[0]] {
+			profile = fmt.Sprintf("coverage-isolated-%d.out", i)
 		}
-		passes = append(passes, coverPass{
-			pkgs:    p,
-			env:     map[string]string{obs.UnderColoadEnv: ""},
-			profile: fmt.Sprintf("coverage-isolated-%d.out", i),
-		})
+		passes = append(passes, coverPass{pkgs: p.pkgs, env: p.env, profile: profile})
 	}
 	return passes
 }
