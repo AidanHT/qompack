@@ -343,3 +343,101 @@ func TestStartupPublicationAccounting_StopEndsAPausedPass(t *testing.T) {
 	require.EqualValues(t, 1, m.Counter(counterPublicationIncomplete).Value(),
 		"the stopped pass is counted as not finished")
 }
+
+// TestDispatchOp_HoldsTheCaptureGateForEveryHotPathOp (D53(d), X11's question): every op the hot path
+// sends — observe.tool, observe.stop and observe.prompt, each from its own hook process, back to back
+// — is capture work while dispatchOp serves it, so the startup publication pass never starts a unit
+// of I/O beside one. A second hook arriving while the first is still served adds to the count rather
+// than handing the pass a gap.
+func TestDispatchOp_HoldsTheCaptureGateForEveryHotPathOp(t *testing.T) {
+	dd := newGateDaemon(t, func() {})
+	during := map[ipc.Op]int{}
+	for _, op := range []ipc.Op{ipc.OpObserveTool, ipc.OpObserveStop, ipc.OpObservePrompt} {
+		require.True(t, op.HotPath())
+		dd.routes[op] = func(_ context.Context, req ipc.Request) ipc.Response {
+			during[req.Op] = dd.capture.inFlight()
+			return ipc.Response{OK: true}
+		}
+	}
+	for _, op := range []ipc.Op{ipc.OpObserveTool, ipc.OpObserveStop, ipc.OpObservePrompt, ipc.OpObserveTool} {
+		dd.dispatchOp(context.Background(), ipc.Request{Op: op, Session: "gate-hot", TS: core.NowMilli(dd.clk)})
+		require.Equal(t, 1, during[op], "%s is in flight while its route runs", op)
+		require.Zero(t, dd.capture.inFlight(), "and not once it has been answered")
+	}
+
+	// Two hooks overlapping: the second arrives while the first is still being served.
+	inner := false
+	dd.routes[ipc.OpObserveStop] = func(context.Context, ipc.Request) ipc.Response {
+		if !inner {
+			inner = true
+			dd.dispatchOp(context.Background(), ipc.Request{Op: ipc.OpObserveTool, Session: "gate-hot"})
+		}
+		return ipc.Response{OK: true}
+	}
+	dd.dispatchOp(context.Background(), ipc.Request{Op: ipc.OpObserveStop, Session: "gate-hot"})
+	require.Equal(t, 2, during[ipc.OpObserveTool], "the overlapping second hook counts on top of the first")
+	require.Zero(t, dd.capture.inFlight())
+}
+
+// TestStartupPublicationAccounting_APausedPassHoldsNothingARequestNeeds (D53(d)): while the background
+// pass is parked behind a request, it holds no store lock and blocks no write the request makes into
+// the very trees it walks: a request can put objects, index a tool use and write a capture sidecar,
+// and each finishes while the pass stays parked. A pass that kept the store's read lock, or a handle
+// that refused the writes, across its pause would hang this row instead.
+func TestStartupPublicationAccounting_APausedPassHoldsNothingARequestNeeds(t *testing.T) {
+	d, root, mp := newAuditDaemon(t)
+	m := *mp
+	d.publicationBound = time.Nanosecond
+	seedLiveRunSizedStore(t, d, root)
+	backdateCaptures(t, root)
+	parked := backgroundParkSignal(&d.capture)
+
+	d.capture.enter() // a hook request is being served
+	d.accountPublicationAtStartup(context.Background())
+	finished := passFinished(d)
+	select {
+	case <-parked:
+	case <-finished:
+		t.Fatal("the background publication pass finished beside a request in flight")
+	case <-time.After(liveOrderBound):
+		t.Fatal("the background publication pass neither parked nor finished")
+	}
+
+	wrote := make(chan error, 1)
+	go func() {
+		ctx := context.Background()
+		res, err := d.svc.Store.PutBytes(ctx, []byte("a tool result the request stores while the pass is parked"),
+			store.PutOptions{Tool: "Read", Path: "src/parked.go"})
+		if err == nil {
+			err = d.svc.Store.RecordToolUse(ctx, store.ToolUseRecord{
+				ID: "toolu_while_parked", Session: "sess", Turn: 1, TS: 1, Tool: "Read",
+				Root: res.Root.Hash, Path: "src/parked.go", Bytes: res.Root.RawBytes,
+			})
+		}
+		if err == nil {
+			err = store.WriteCaptureSidecar(root, store.CaptureSidecar{
+				ObservationID: core.ObservationID(core.HashBytes("daemon.audit.obs", []byte("while-parked")).String()),
+				Session:       "sess", Op: "observe.tool", Published: true, Outcome: core.OutcomeOK,
+				Bytes: []byte("captured while the pass is parked"),
+			})
+		}
+		wrote <- err
+	}()
+	select {
+	case err := <-wrote:
+		require.NoError(t, err)
+	case <-time.After(liveOrderBound):
+		t.Fatal("a request's store writes waited on the parked publication pass")
+	}
+	select {
+	case <-finished:
+		t.Fatal("the background publication pass finished beside a request in flight")
+	default:
+	}
+
+	d.capture.leave()
+	<-finished
+	require.Zero(t, m.Counter(counterPublicationUnpublishedCaptures).Value(),
+		"what the request wrote after the snapshot is live work, not a gap")
+	require.Zero(t, m.Counter(counterPublicationIncomplete).Value(), "and the resumed pass finishes")
+}

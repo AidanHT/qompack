@@ -95,6 +95,8 @@ const (
 	// dispatch, since an unacknowledged one is redelivered and would be counted twice.
 	counterPromptReplayedUncaptured = "l0_prompt_replayed_uncaptured"
 
+	// counterHotpathDegraded counts the switches to spool submode. Its name is a stable metric key and
+	// keeps the older word; what a user reads is msgHotPathToSpool.
 	counterHotpathDegraded = "hotpath_degraded"
 
 	// counterHotpathSampleInvalid counts a hot-path sample rejected by validHotPathTS (an absent,
@@ -435,6 +437,11 @@ func (d *daemon) persistHotMode(hot ipc.HotPathMode) {
 	}
 }
 
+// msgHotPathToSpool is the WARN and LOUD line of the switch to spool submode. It used to say the hot
+// path "degraded", which read as a failure in a session that loses nothing (D53(c), D45); its fields
+// carry the cause, what ends it and the keys that tune it (obs.SpoolSubmodeWhat and friends).
+const msgHotPathToSpool = "daemon: hot path switched to spool submode; nothing is lost"
+
 // applyHotPathTransition is §12.2's sync<->spool submode transition. Both directions log and
 // count regardless of spoolOnBreach; only the actual mode flip (WriteState + registry.SetHotMode)
 // is gated on it, so an operator who disabled the fallback still gets full visibility into every
@@ -452,10 +459,17 @@ func (d *daemon) applyHotPathTransition(t Transition) {
 		if d.m != nil {
 			d.m.Counter(counterHotpathDegraded).Add(1)
 		}
-		d.log.Warn("daemon: hot path degraded to spool submode",
-			"budget_ms", limit.Milliseconds(), "windows", need)
-		d.log.Loud("daemon: hot path degraded to spool submode",
-			"budget_ms", limit.Milliseconds(), "windows", need)
+		// Worded for the user (D53(c)): on a slow disk this is the designed behaviour of every long
+		// session and loses nothing, so the line says so, with what ends it and what tunes it. The
+		// budget_ms and windows fields keep their names and order (test/integration hotpath_test.go
+		// reads them); the rest are additive.
+		kv := []any{
+			"budget_ms", limit.Milliseconds(), "windows", need,
+			"l0_ingest_ms", cfg.Runtime.Budgets.L0IngestMs,
+			"cause", obs.SpoolSubmodeWhat, "until", obs.SpoolSubmodeUntil, "tune", obs.SpoolSubmodeTune,
+		}
+		d.log.Warn(msgHotPathToSpool, kv...)
+		d.log.Loud(msgHotPathToSpool, kv...)
 		if !cfg.Runtime.HotPath.SpoolOnBreach {
 			return
 		}
@@ -1222,8 +1236,17 @@ func (d *daemon) handleCheckpoint(ctx context.Context, req ipc.Request) ipc.Resp
 		// through New — unlike the ingest/drain layer's defensive "if i.m != nil" checks, which
 		// exist because those types are also constructible directly by tests without going
 		// through New.
+		//
+		// The seal waits first for the session's own captures, bounded (precompact_settle.go, D53(c)),
+		// and inside the B-E timing: B-E is PreCompact entry to exit, and the settle is on that path.
+		// A PreCompact a drain replays does not settle: the drain replaying it holds the drain's mutex,
+		// and the compaction it announced is already over.
 		_ = obs.Timed(d.m.Hist(histName(obs.BE)), func() error {
-			_, callErr = d.svc.PreCompact(ctx, *ev)
+			sealCtx := ctx
+			if !spoolReplay(ctx) {
+				sealCtx = withSealDrops(ctx, d.settleBeforeSeal(ctx, ev.SessionID, hookTime(req, now)))
+			}
+			_, callErr = d.svc.PreCompact(sealCtx, *ev)
 			return callErr
 		})
 		if callErr != nil {

@@ -956,30 +956,61 @@ Copies of versions no daemon is running are removed automatically when a new ver
 
 ---
 
-**Symptom.** `/qompack:status` (or `qompack status`) shows `hot path:    spool` for the rest of the
-session, with `daemon: hot path degraded to spool submode` among its recent loud lines.
+**Symptom.** On a slow disk — WSL2, a container or devcontainer, a network or encrypted filesystem —
+`/qompack:status` (or `qompack status`) shows `hot path:    spool` for the rest of a long session, with
+`daemon: hot path switched to spool submode; nothing is lost` among its recent loud lines. Hooks stay
+fast; recent tool results can reach `recall` a little later than usual.
 
-**Diagnose.** The loud line (also in `.qompack/logs/LOUD.log`) names the budget the daemon gated on
-(`budget_ms`) and how many consecutive over-budget windows it saw (`windows`); the counter
-`hotpath_degraded` counts the switches. `spool files:` on the same page counts what is waiting in
-`.qompack/spool/`.
+**Diagnose.** The loud line (also in `.qompack/logs/LOUD.log`, and at WARN in the day log) names the
+budget the daemon gated on (`budget_ms`), how many consecutive over-budget windows it saw
+(`windows`) and the durable-write budget (`l0_ingest_ms`); its `cause`, `until` and `tune` fields say
+the rest. The counter `hotpath_degraded` counts the switches (the metric keeps its older name).
+`status` prints the same explanation under the `hot path:` line, and `spool files:` counts what is
+waiting in `.qompack/spool/`. On the same page, `budget breaches` usually shows B-B (`l0_ingest`)
+over its limit: that is the disk. `qompack doctor` reports the submode in its `status.hotPath` row,
+and its `spool.pending` row reads `ok` while a daemon is serving (the files are the designed path),
+or `degraded` when the state file still says spool but no daemon is serving.
 
-**Meaning.** Hook deliveries were over the B-A budget (`runtime.hotPath.budgetMs`) for several
-sample windows in a row, usually because the machine was heavily loaded, so the daemon told hooks
-to stop waiting for it. Capture continues: each hook writes its event to the spool instead, and the
-daemon replays the spool into the store, so nothing is lost, although recent tool uses can reach
-the store a little later than usual. The switch lasts until a new session starts in this project or
-the daemon restarts; it does not switch back on its own during the session, and compacting the
-current session does not reset it while the same daemon is running.
+**Meaning.** This is the designed behaviour on a disk whose durable writes take longer than
+`runtime.budgets.l0IngestMs`, and it loses nothing. Every capture is made durable before the hook is
+told it was taken, so on such a disk each hook waits at most its ACK deadline
+(`runtime.daemon.ackDeadlineMs`) and then hands a copy of its capture to the spool. After
+`runtime.hotPath.breachWindows` consecutive sample windows (512 hook deliveries each) over
+`runtime.hotPath.budgetMs`, the daemon switches the hot path to spool submode: hooks stop waiting for
+it at all, write each capture to the spool, and the daemon replays the spool into the store. A
+heavily loaded machine can trigger it too, but on a slow disk it happens in every long session. The
+Linux defaults are 15 ms for both budgets; in a Docker Desktop/WSL2 container the close-out measured
+B-B (the daemon's durable ingest) at about 37 ms at the median, so there it is expected.
 
-**Action.** Nothing is required. To leave spool mode, start a new session: that is the reliable way
-out. Otherwise wait for the daemon's idle exit (below); the next daemon starts in sync mode. Do not
-end the daemon's process to get out of it: a killed daemon leaves the spool setting in place, hooks
-in spool mode do not start a daemon, and so nothing is replayed from the spool and spool mode lasts
-until the session is compacted or a new one starts. If it happens in every session, check the
-machine's load, and check that `runtime.hotPath.budgetMs` is not set below
-`runtime.budgets.l0IngestMs` (`qompack config print --provenance` shows both; when it is, the
-daemon's day log in `.qompack/logs/` has a `configuration warning` for `runtime.hotPath.budgetMs`).
+A compaction does not miss the session's newest captures: before it seals the checkpoint, the
+`PreCompact` hook replays this session's spooled captures (other sessions' spools are left to the
+daemon's usual replay), inside its own budget (B-E, `runtime.budgets.checkpointFinalizeMs`, less the
+seal's own window). A capture it could not replay in time is reported in the checkpoint's drop
+report: one `unreplayed_capture` line counts everything that was left and says how many tool results
+are named, and one `unreplayed_tool_result` line names the `tool_use_id` of each of the newest tool
+results, as many as fit in one twentieth of `checkpoint.budgetTokens`, so a long backlog never
+crowds the checkpoint's pointers out; the rehydration's section 7 carries both. On a very slow disk a
+replay that is still writing when the budget runs out is abandoned and its capture is reported this
+way too. The daemon replays them all afterwards, and `recall` and `expand` find them then.
+
+The switch lasts until a new session starts in this project or the daemon exits on idle (below); it
+does not switch back on its own during the session, and compacting the current session does not reset
+it while the same daemon is running. There is no stop command.
+
+**Action.** Nothing is required. To leave spool submode now, start a new session; otherwise the next
+daemon after the idle exit starts in sync submode. Do not end the daemon's process to get out of it:
+a killed daemon leaves the spool setting in place, hooks in spool submode do not start a daemon, and
+so nothing is replayed from the spool until a new session starts (doctor's `spool.pending` row reads
+`degraded` then). If you would rather keep hooks in sync submode on a slow disk, raise
+`runtime.budgets.l0IngestMs` to what the disk needs (status's `l0_ingest` p99 is the measure),
+`runtime.hotPath.budgetMs` to at least that, and `runtime.daemon.ackDeadlineMs` a little above it
+(the shipped default is `runtime.budgets.l0IngestMs` plus a measured slack, 15 + 2 ms on Linux), so a
+hook waits for the durable write instead of spooling; each hook then takes that much longer. See the
+[configuration reference](config-reference.md#runtime) for the defaults per platform. Keep
+`runtime.hotPath.budgetMs` at or above `runtime.budgets.l0IngestMs`: when it is below, every durable
+delivery is a breach, and the daemon's day log has a `configuration warning` for
+`runtime.hotPath.budgetMs` (`qompack config print --provenance` shows both values and where they
+came from).
 
 ---
 

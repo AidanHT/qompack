@@ -1,0 +1,5 @@
+    zz_diag_tmp_test.go:48: scale 1x round 0: pass 894.0543ms, 2383 units, unit p50 0s p99 12.2995ms max 15.2017ms
+    zz_diag_tmp_test.go:48: scale 1x round 1: pass 63.5923ms, 2383 units, unit p50 0s p99 537.9µs max 808.8µs
+    zz_diag_tmp_test.go:48: scale 10x round 0: pass 7.2990745s, 17152 units, unit p50 0s p99 12.0057ms max 17.7729ms
+    zz_diag_tmp_test.go:48: scale 10x round 1: pass 323.5469ms, 17152 units, unit p50 0s p99 546.8µs max 3.693ms
+ok  	github.com/qompack/qompack/internal/daemon	62.006s

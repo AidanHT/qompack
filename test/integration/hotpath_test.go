@@ -199,7 +199,7 @@ const (
 
 	// hotpathDegradedMsg is applyHotPathTransition's WARN/LOUD message, pinned verbatim (the same
 	// string internal/daemon's TestHotModeTransitionWritesStateAndNAKs pins).
-	hotpathDegradedMsg = "hot path degraded to spool submode"
+	hotpathDegradedMsg = "hot path switched to spool submode; nothing is lost"
 
 	// hotpathDegradedCounter is the transition counter the status payload must report
 	// (internal/daemon/handlers.go's counterHotpathDegraded).

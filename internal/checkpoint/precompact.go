@@ -75,6 +75,10 @@ const (
 	finalizeGuard = 400 * time.Millisecond
 	// maxPreCompact keeps us well inside budget B-E (2 s p99, Qompack.md §11.3 L4).
 	maxPreCompact = 1500 * time.Millisecond
+	// MaxPreCompactWindow is maxPreCompact, for the daemon's PreCompact route: the seal's own worst
+	// case inside B-E, which the route subtracts from B-E to bound what it may spend before the seal
+	// (internal/daemon precompactSettleBound, D53(c)).
+	MaxPreCompactWindow = maxPreCompact
 	// minFinalizeWindow is the floor. A host that hands us a deadline already inside finalizeGuard
 	// — or in the past — must still get a written checkpoint, because §12's PreCompact-timeout row
 	// says finalize as-is, not give up. With this floor, Finalize always has at least this much
