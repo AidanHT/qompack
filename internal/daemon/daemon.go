@@ -1004,6 +1004,8 @@ func (d *daemon) drainConfig() DrainConfig {
 		EndSession: d.endDrainedFlush,
 		// A released client spool leaves the PreCompact settle's spool index (spool_heads.go).
 		ClientSpoolRemoving: d.spoolHeads.removing,
+		// A hook's spooled copy of a prompt answered live re-arms the warning its reply carried.
+		SpooledPromptSettled: d.settleSpooledPrompt,
 	}
 }
 

@@ -353,6 +353,11 @@ type Services struct {
 	// retrieval's own record at the session's current turn and to report an open segment's live
 	// progress (mcpop.go resolveTurn and liveView).
 	SessionProgress func(core.SessionID) (observer.Progress, bool)
+
+	// PromptReplySpooled re-arms the thrash warning a live prompt reply carried when the drain
+	// settles a hook's spooled copy of that prompt: the hook gave up before the reply reached it
+	// (settleSpooledPrompt). WireObserver binds it; nil means no observer.
+	PromptReplySpooled func(s core.SessionID, nonce string) bool
 }
 
 // DeclareProducers is the bridge from a daemon's wired Services to the §12.1 not-yet-implemented

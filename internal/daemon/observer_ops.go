@@ -209,6 +209,9 @@ func WireObserver(o *Options) (observer.Observer, error) {
 		if pr, ok := obsv.(observer.ProgressReporter); ok {
 			s.SessionProgress = pr.Progress
 		}
+		if ra, ok := obsv.(observer.SpooledReplyRearmer); ok {
+			s.PromptReplySpooled = ra.PromptReplySpooled
+		}
 	})
 
 	return obsv, nil
