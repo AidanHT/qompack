@@ -34,8 +34,8 @@ import (
 type spoolHeadIndex struct {
 	mu    sync.Mutex
 	files map[string]spoolHeadFile
-	// reads counts the client spool files read to index them. The rows that pin what a settle costs
-	// count files read, not time.
+	// reads counts the client spool files read to index them, by every look: the settle's and the
+	// watcher's. A settle counts its own looks' reads (spoolScan.reads).
 	reads atomic.Int64
 	// read reads one client spool whole; nil reads it with paths.ReadFileShared. It is a test seam: a
 	// row makes the reads of a cold backlog slow, under the look's own context, without a clock.
@@ -88,27 +88,28 @@ func listClientSpools(root string) []clientSpoolListing {
 }
 
 // heads returns l's line heads: from memory when the index holds l at the size and time listed,
-// and otherwise read from root's spool now and remembered. When the file is not in memory and ctx
-// has already ended, nothing is read and ok is false: the caller counts the file as unread. A file
-// gone since the listing has nothing to give and is not remembered.
-func (x *spoolHeadIndex) heads(ctx context.Context, root string, l clientSpoolListing) (lines []spoolHeadLine, ok bool) {
+// and otherwise read from root's spool now and remembered. read reports whether this call read the
+// file. When the file is not in memory and ctx has already ended, nothing is read and ok is false:
+// the caller counts the file as unread. A file gone since the listing has nothing to give and is not
+// remembered.
+func (x *spoolHeadIndex) heads(ctx context.Context, root string, l clientSpoolListing) (lines []spoolHeadLine, ok, read bool) {
 	x.mu.Lock()
 	f, hit := x.files[l.base]
 	x.mu.Unlock()
 	if hit && f.size == l.size && f.mod.Equal(l.mod) {
-		return f.lines, true
+		return f.lines, true, false
 	}
 	if ctx.Err() != nil {
-		return nil, false
+		return nil, false, false
 	}
 	x.reads.Add(1)
-	read := x.read
-	if read == nil {
-		read = func(_ context.Context, path string) ([]byte, error) { return paths.ReadFileShared(path) }
+	readFile := x.read
+	if readFile == nil {
+		readFile = func(_ context.Context, path string) ([]byte, error) { return paths.ReadFileShared(path) }
 	}
-	b, err := read(ctx, filepath.Join(paths.Of(root).Spool, l.base))
+	b, err := readFile(ctx, filepath.Join(paths.Of(root).Spool, l.base))
 	if err != nil {
-		return nil, true // consumed and removed since the listing, or unreadable: nothing to name from it
+		return nil, true, true // consumed and removed since the listing, or unreadable: nothing to name from it
 	}
 	lines = parseSpoolHeads(b, l.base)
 	x.mu.Lock()
@@ -117,7 +118,7 @@ func (x *spoolHeadIndex) heads(ctx context.Context, root string, l clientSpoolLi
 	}
 	x.files[l.base] = spoolHeadFile{size: l.size, mod: l.mod, lines: lines}
 	x.mu.Unlock()
-	return lines, true
+	return lines, true, true
 }
 
 // forget drops every remembered file a complete listing no longer shows: released by a drain.

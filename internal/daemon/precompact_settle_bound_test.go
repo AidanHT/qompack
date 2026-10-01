@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -112,7 +113,7 @@ func TestPreCompactSettle_ALookPastTheBoundReadsNothingAndSaysSo(t *testing.T) {
 	// An earlier look with time to read it (the watcher's, or a PreCompact with a bound) indexes it.
 	listed := listClientSpools(root)
 	require.Len(t, listed, 1)
-	_, ok := dd.spoolHeads.heads(context.Background(), root, listed[0])
+	_, ok, _ := dd.spoolHeads.heads(context.Background(), root, listed[0])
 	require.True(t, ok)
 	pre = checkpointRequest(dd, sess, "nonce-precompact-no-bound-indexed")
 	pre.TS = own.TS + 1
@@ -307,4 +308,40 @@ func TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound(t *testin
 	require.Empty(t, probe.drops, "nothing of the session was left unreplayed")
 	require.Equal(t, int64(backlog+1), settleSpoolReads(dd),
 		"the first look reads every file once; the last look reads none")
+}
+
+// TestPreCompactSettle_CountsOnlyTheSpoolReadsOfItsOwnLooks (wave 16c, the w16b-settle review's
+// first nit): precompact_settle_spool_reads counts the client spool files the settle's own looks
+// read, not every read the spool index made while the settle ran. Here the client-spool watcher's
+// indexClientSpools runs on its own goroutine in the middle of the settle's first look (a read seam
+// starts it when the settle reads the one listed spool and waits for it to finish, so the overlap is
+// certain and no clock decides it), and reads a spool a hook wrote after the settle's listing. The
+// index reads two files in all; the settle read one, and counts one.
+func TestPreCompactSettle_CountsOnlyTheSpoolReadsOfItsOwnLooks(t *testing.T) {
+	dd, _, root := laneTestDaemon(t)
+	dd.drain.Store(newDrainer(dd.drainConfig()))
+	const other core.SessionID = "sess-precompact-reads-other"
+	const listed, written = "client-7272.ndjson", "client-7373.ndjson"
+	writeHookSpool(t, root, listed, liveOrderTool(dd, root, other, 1))
+	later := liveOrderTool(dd, root, other, 2)
+	var once sync.Once
+	dd.spoolHeads.read = func(_ context.Context, path string) ([]byte, error) {
+		if filepath.Base(path) == listed {
+			once.Do(func() {
+				writeHookSpool(t, root, written, later)
+				done := make(chan struct{})
+				go func() {
+					defer close(done)
+					dd.indexClientSpools(context.Background(), map[string]bool{written: true})
+				}()
+				<-done
+			})
+		}
+		return paths.ReadFileShared(path)
+	}
+
+	require.Nil(t, dd.settleBeforeSeal(context.Background(), "sess-precompact-reads-healthy", 0))
+	require.Equal(t, int64(2), dd.spoolHeads.reads.Load(),
+		"fixture sanity: the watcher's pass read the new spool while the settle ran")
+	require.Equal(t, int64(1), settleSpoolReads(dd), "the settle counts the one file its own look read")
 }
