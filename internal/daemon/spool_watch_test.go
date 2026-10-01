@@ -544,3 +544,41 @@ func TestSpoolRetryAfter_Doubles(t *testing.T) {
 	require.Equal(t, 8*spoolCheckInterval, spoolRetryAfter(spoolCheckInterval, 3))
 	require.Positive(t, spoolRetryAfter(spoolCheckInterval, 1<<20))
 }
+
+// TestSpoolWatch_TheIdleTickKicksItInSpoolSubmode (V6 close-out D55, wave 16b): in spool submode no
+// hot-path hook connects, so no served request kicks the watcher, and a session's spooled captures
+// waited for a non-hot request or the idle drain two quiet minutes later. Run's idle tick now kicks
+// it while the hot path is in spool submode (kickSpoolWatchInSpoolSubmode, which the tick calls), and
+// the watcher's ordinary look and pass publish the spool. In sync submode the tick does not kick: the
+// hooks' own requests do.
+func TestSpoolWatch_TheIdleTickKicksItInSpoolSubmode(t *testing.T) {
+	dd, _, root := laneTestDaemon(t)
+	dd.drain.Store(newDrainer(dd.drainConfig()))
+	liveOrderWorkers(t, dd, 2, dd.runIngested)
+
+	require.False(t, dd.kickSpoolWatchInSpoolSubmode(), "sync submode: the tick leaves the kicks to the hooks")
+	select {
+	case <-dd.spool.kick:
+		t.Fatal("a tick in sync submode kicked the watcher")
+	default:
+	}
+
+	startSpoolWatch(t, dd, spoolWatchTick, liveOrderBound)
+	dd.applyHotPathTransition(ToSpool)
+	require.Equal(t, ipc.HotSpool, dd.registry.HotMode(), "fixture sanity: the daemon is in spool submode")
+	const sess core.SessionID = "sess-spool-idle-tick"
+	spooled := liveOrderTool(dd, root, sess, 1)
+	writeHookSpool(t, root, "client-8181.ndjson", spooled)
+
+	quiet := time.NewTimer(10 * spoolWatchTick)
+	<-quiet.C
+	require.Zero(t, dd.m.Counter(counterSpoolWatchDrains).Value(),
+		"control: with no request served and no tick, nothing looks at the spool")
+	require.False(t, spoolWatchPublished(dd, spooled.Nonce))
+
+	require.True(t, dd.kickSpoolWatchInSpoolSubmode(), "spool submode: the idle tick kicks the watcher")
+	require.Eventually(t, func() bool { return spoolWatchPublished(dd, spooled.Nonce) },
+		liveOrderBound, liveOrderTick, "the tick's kick lets the watcher publish the spooled Read")
+	require.Eventually(t, func() bool { return spoolWatchGone(root, "client-8181.ndjson") },
+		liveOrderBound, liveOrderTick, "the consumed client spool is released")
+}
