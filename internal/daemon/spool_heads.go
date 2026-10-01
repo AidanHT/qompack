@@ -29,13 +29,30 @@ import (
 // The settle indexes the files it reads, and so does the client-spool watcher, for every spool its
 // pass leaves behind (lookAtClientSpools): the backlog another session's spools form is then already
 // indexed, off the hook path, when a healthy session compacts, and its settle pays the listing alone.
+//
+// The size and time are not the file's identity, though. A drain releases client-<pid>.ndjson, and a
+// hook whose pid was reused can write the same name again, at the same size and, on the slow
+// filesystems spool submode is for (network shares, drvfs), at the same coarse modification time,
+// before any listing has shown the file gone. So the daemon's own removal of a client spool brackets
+// its unlink in the index (removing, which the drain calls through DrainConfig.ClientSpoolRemoving):
+// the entry is dropped before the unlink and again after it returned, no look serves the name from
+// memory in between, and a read under way at either end is not remembered. A look that lists the
+// recreated file lists it after the unlink, so it finds no entry, or the bracket still open, and reads
+// the file: a recreated file is always read again. No stat is added for it, and no lock is held
+// across the unlink: the drain knows when it removes a file.
 
 // spoolHeadIndex is the daemon's memory of the client spools' line heads. The zero value is ready.
 type spoolHeadIndex struct {
 	mu    sync.Mutex
 	files map[string]spoolHeadFile
-	// reads counts the client spool files read to index them. The rows that pin what a settle costs
-	// count files read, not time.
+	// removals counts both ends of every removal of a client spool by the daemon (removing). A read
+	// that began before either is not remembered, since the file it read may be the one removed.
+	removals uint64
+	// unlinking counts, per base name, the daemon's removals of that client spool under way (removing):
+	// a look does not serve a name from memory while its unlink may be in progress.
+	unlinking map[string]int
+	// reads counts the client spool files read to index them, by every look: the settle's and the
+	// watcher's. A settle counts its own looks' reads (spoolScan.reads).
 	reads atomic.Int64
 	// read reads one client spool whole; nil reads it with paths.ReadFileShared. It is a test seam: a
 	// row makes the reads of a cold backlog slow, under the look's own context, without a clock.
@@ -88,36 +105,68 @@ func listClientSpools(root string) []clientSpoolListing {
 }
 
 // heads returns l's line heads: from memory when the index holds l at the size and time listed,
-// and otherwise read from root's spool now and remembered. When the file is not in memory and ctx
-// has already ended, nothing is read and ok is false: the caller counts the file as unread. A file
-// gone since the listing has nothing to give and is not remembered.
-func (x *spoolHeadIndex) heads(ctx context.Context, root string, l clientSpoolListing) (lines []spoolHeadLine, ok bool) {
+// and otherwise read from root's spool now and remembered. read reports whether this call read the
+// file. When the file is not in memory and ctx has already ended, nothing is read and ok is false:
+// the caller counts the file as unread. A file gone since the listing has nothing to give and is not
+// remembered, and neither is one read while the daemon removed a client spool (removing).
+func (x *spoolHeadIndex) heads(ctx context.Context, root string, l clientSpoolListing) (lines []spoolHeadLine, ok, read bool) {
 	x.mu.Lock()
 	f, hit := x.files[l.base]
+	hit = hit && x.unlinking[l.base] == 0
+	removals := x.removals
 	x.mu.Unlock()
 	if hit && f.size == l.size && f.mod.Equal(l.mod) {
-		return f.lines, true
+		return f.lines, true, false
 	}
 	if ctx.Err() != nil {
-		return nil, false
+		return nil, false, false
 	}
 	x.reads.Add(1)
-	read := x.read
-	if read == nil {
-		read = func(_ context.Context, path string) ([]byte, error) { return paths.ReadFileShared(path) }
+	readFile := x.read
+	if readFile == nil {
+		readFile = func(_ context.Context, path string) ([]byte, error) { return paths.ReadFileShared(path) }
 	}
-	b, err := read(ctx, filepath.Join(paths.Of(root).Spool, l.base))
+	b, err := readFile(ctx, filepath.Join(paths.Of(root).Spool, l.base))
 	if err != nil {
-		return nil, true // consumed and removed since the listing, or unreadable: nothing to name from it
+		return nil, true, true // consumed and removed since the listing, or unreadable: nothing to name from it
 	}
 	lines = parseSpoolHeads(b, l.base)
 	x.mu.Lock()
-	if x.files == nil {
-		x.files = map[string]spoolHeadFile{}
+	if x.removals == removals {
+		if x.files == nil {
+			x.files = map[string]spoolHeadFile{}
+		}
+		x.files[l.base] = spoolHeadFile{size: l.size, mod: l.mod, lines: lines}
 	}
-	x.files[l.base] = spoolHeadFile{size: l.size, mod: l.mod, lines: lines}
 	x.mu.Unlock()
-	return lines, true
+	return lines, true, true
+}
+
+// removing drops the client spool base from the index before the daemon removes it (the drain's
+// release of a fully replayed file, DrainConfig.ClientSpoolRemoving), and done, called once the
+// removal has returned, whether or not it removed the file, drops it again. In between no look serves
+// base from memory, so a file of the same name written right after the unlink is read, whatever its
+// size and time, by every look that lists it, and what a look stores in between (it may have read the
+// removed file) done drops. A read under way at either end is not remembered (heads), so it cannot put
+// the removed file's heads back. Neither end blocks: the index's lock is not held across the unlink.
+func (x *spoolHeadIndex) removing(base string) (done func()) {
+	x.mu.Lock()
+	defer x.mu.Unlock()
+	if x.unlinking == nil {
+		x.unlinking = map[string]int{}
+	}
+	x.unlinking[base]++
+	x.removals++
+	delete(x.files, base)
+	return func() {
+		x.mu.Lock()
+		defer x.mu.Unlock()
+		if x.unlinking[base]--; x.unlinking[base] == 0 {
+			delete(x.unlinking, base)
+		}
+		x.removals++
+		delete(x.files, base)
+	}
 }
 
 // forget drops every remembered file a complete listing no longer shows: released by a drain.

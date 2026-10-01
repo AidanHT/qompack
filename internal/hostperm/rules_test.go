@@ -382,19 +382,23 @@ func TestLiteralPatternsCleanTheirDotDots(t *testing.T) {
 // class can match the tilde itself), may name an 8.3 name; a backup-file tilde does not.
 func TestShortShaped_NamesAnEightDotThreeNameOnlyByShape(t *testing.T) {
 	for seg, want := range map[string]bool{
-		"creden~1.sec":     true,
-		"5b2e~1":           true,
-		"creden~?.sec":     true,
-		"config~*":         true,
-		"creden~[12].sec":  true,
-		"creden[~]1.sec":   true,
-		"creden[}-~]1.sec": true,
-		"*~":               false,
-		"*.txt~":           false,
-		"foo.txt~":         false,
-		"*.[ch]~":          false,
-		"~foo":             false,
-		"credentials":      false,
+		"creden~1.sec":      true,
+		"5b2e~1":            true,
+		"creden~?.sec":      true,
+		"config~*":          true,
+		"creden~[12].sec":   true,
+		"creden[~]1.sec":    true,
+		"creden[}-~]1.sec":  true,
+		`creden[\]~]1.sec`:  true,
+		`creden[\]-~]1.sec`: true,
+		`creden[\~]1.sec`:   true,
+		`creden\~1.sec`:     true,
+		"*~":                false,
+		"*.txt~":            false,
+		"foo.txt~":          false,
+		"*.[ch]~":           false,
+		"~foo":              false,
+		"credentials":       false,
 	} {
 		require.Equal(t, want, shortShaped(seg), "shortShaped(%q)", seg)
 	}

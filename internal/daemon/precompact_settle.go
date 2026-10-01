@@ -103,7 +103,9 @@ const counterPrecompactSettle = "precompact_settle"
 const counterPrecompactUnreplayed = "precompact_unreplayed_captures"
 
 // counterPrecompactSpoolReads counts the client spool files PreCompact settles read: the files the
-// spool index (spool_heads.go) did not already hold at their listed size and time.
+// spool index (spool_heads.go) did not already hold at their listed size and time when a settle's
+// own look reached them. The watcher's indexing, and another session's settle running at the same
+// time, read through the same index and are not counted here.
 const counterPrecompactSpoolReads = "precompact_settle_spool_reads"
 
 // unreplayedDetailFormat is the summary drop entry's detail, as the checkpoint and section 7 carry it:
@@ -216,15 +218,16 @@ func (d *daemon) settleBeforeSeal(ctx context.Context, sess core.SessionID, at c
 	bound := precompactSettleBound(cfg)
 	sctx, cancel := context.WithDeadline(ctx, time.Now().Add(bound))
 	defer cancel()
-	reads := d.spoolHeads.reads.Load()
+	var reads int64 // the files this settle's own looks read
 	defer func() {
 		if d.m != nil {
-			d.m.Counter(counterPrecompactSpoolReads).Add(d.spoolHeads.reads.Load() - reads)
+			d.m.Counter(counterPrecompactSpoolReads).Add(reads)
 		}
 	}()
 
 	upTo := d.leasedUpTo(sess)
 	first := d.scanClientSpools(sctx, sess, at, nil)
+	reads += first.reads
 	own := map[string]bool{}
 	for _, c := range first.caps {
 		own[c.file] = true
@@ -256,6 +259,7 @@ func (d *daemon) settleBeforeSeal(ctx context.Context, sess core.SessionID, at c
 	last := d.scanClientSpools(sctx, sess, at, func(base string) bool {
 		return own[base] || !first.listed[base] || first.unread[base]
 	})
+	reads += last.reads
 	left := d.unreplayedCaptures(sess, upTo, last.caps)
 	if len(left) == 0 && len(last.unread) == 0 {
 		return nil
@@ -313,11 +317,13 @@ func (d *daemon) awaitArrivals(ctx context.Context, sess core.SessionID, upTo ui
 }
 
 // spoolScan is one look at the client spools for a session: its captures found there, every client
-// spool listed, and the ones the look had to read but could not before its context ended.
+// spool listed, the ones the look had to read but could not before its context ended, and how many
+// it read.
 type spoolScan struct {
 	caps   []pendingCapture
 	listed map[string]bool
 	unread map[string]bool
+	reads  int64
 }
 
 // scanClientSpools looks at the hook client spools for sess's hot-path captures fired at or before
@@ -343,7 +349,10 @@ func (d *daemon) scanClientSpools(ctx context.Context, sess core.SessionID, at c
 		if look != nil && !look(l.base) {
 			continue
 		}
-		lines, ok := d.spoolHeads.heads(ctx, d.root, l)
+		lines, ok, read := d.spoolHeads.heads(ctx, d.root, l)
+		if read {
+			s.reads++
+		}
 		if !ok {
 			if s.unread == nil {
 				s.unread = map[string]bool{}

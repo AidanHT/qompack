@@ -849,14 +849,7 @@ func (d *daemon) Run(ctx context.Context) error {
 				_ = lock.Heartbeat()
 			}
 		case <-idleTicker.C:
-			d.idle.Notify(d.registry.LastActivity())
-			d.kickSpoolWatchInSpoolSubmode()
-			now := core.NowMilli(d.clk)
-			if d.idle.IsIdle(now) {
-				_, _ = d.idle.RunOnce(runCtx, idleRunBudget)
-			}
-			d.maybeReloadConfig(runCtx, config.Env{})
-
+			now := d.onIdleTick(runCtx)
 			if d.idleExitDue(now, &zeroLiveSince) {
 				cancel()
 				<-serveErrCh
@@ -865,6 +858,24 @@ func (d *daemon) Run(ctx context.Context) error {
 			}
 		}
 	}
+}
+
+// onIdleTick is the work of Run's idle tick before its exit decision, and returns the tick's own
+// timestamp for that decision (idleExitDue). It brings the idle controller up to the registry's last
+// activity, kicks the client-spool watcher while the hot path is in spool submode (no hot-path hook
+// connects then, so no served request kicks it: kickSpoolWatchInSpoolSubmode), runs the idle tasks
+// within idleRunBudget once the project is idle, and reloads the project's configuration if its file
+// changed. It is a method of its own so that a row can run the tick Run runs
+// (TestSpoolWatch_TheIdleTickKicksItInSpoolSubmode).
+func (d *daemon) onIdleTick(ctx context.Context) core.UnixMilli {
+	d.idle.Notify(d.registry.LastActivity())
+	d.kickSpoolWatchInSpoolSubmode()
+	now := core.NowMilli(d.clk)
+	if d.idle.IsIdle(now) {
+		_, _ = d.idle.RunOnce(ctx, idleRunBudget)
+	}
+	d.maybeReloadConfig(ctx, config.Env{})
+	return now
 }
 
 // idleExitDue is the idle tick's exit decision, taken out of Run's select loop so it can be
@@ -991,6 +1002,8 @@ func (d *daemon) drainConfig() DrainConfig {
 		Released:  d.ing.wakeSession,
 		// A leased flush a drain replays while the daemon serves is ended on its own (C1.15).
 		EndSession: d.endDrainedFlush,
+		// A released client spool leaves the PreCompact settle's spool index (spool_heads.go).
+		ClientSpoolRemoving: d.spoolHeads.removing,
 	}
 }
 
