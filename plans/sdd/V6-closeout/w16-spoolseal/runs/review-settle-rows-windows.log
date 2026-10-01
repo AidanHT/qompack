@@ -1,0 +1,17 @@
+# focused rows after the review fixes, Windows, -p 2, go test -count=1 -v (filtered to results)
+--- PASS: TestPreCompactSettle_ReplaysTheSpoolBeforeTheSeal (0.48s)
+--- PASS: TestPreCompactSettle_NamesWhatTheBoundLeftUnreplayed (0.78s)
+    precompact_settle_test.go:146: healthy settle: 171.092µs per PreCompact over 1000 rounds
+--- PASS: TestPreCompactSettle_AHealthySessionPaysNothing (0.51s)
+--- PASS: TestPreCompactSettle_AReplayedPreCompactDoesNotSettle (0.09s)
+--- PASS: TestPrecompactSettleBound_IsWhatBELeavesTheSeal (0.00s)
+--- PASS: TestDrainer_DrainClientSpoolsWithinGivesUpOnABusyMutex (0.06s)
+--- PASS: TestUnreplayedDrops_CountsEveryCaptureAndNamesEachToolResult (0.00s)
+--- PASS: TestPreCompactSettle_WaitsForALeasedArrivalStillPublishing (0.39s)
+--- PASS: TestPreCompactSettle_NamesALeasedArrivalOnceBesideItsSpoolCopy (2.26s)
+    precompact_settle_test.go:373: healthy settle beside another session's spool: 358.409µs per PreCompact over 200 rounds
+--- PASS: TestPreCompactSettle_AnotherSessionsSpoolCostsAHealthySessionNoDrain (0.42s)
+--- PASS: TestPreCompactSettle_ReplaysThisSessionsSpoolBeforeOlderOnesOfOthers (0.43s)
+--- PASS: TestPreCompactSettle_ABacklogIsCountedInFullAndNamedWithinItsShare (4.53s)
+--- PASS: TestSpoolLineHead_ReadsWhatDecodeRequestReads (0.05s)
+ok  	github.com/qompack/qompack/internal/daemon	10.318s

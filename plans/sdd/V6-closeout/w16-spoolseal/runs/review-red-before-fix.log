@@ -1,0 +1,23 @@
+# red before the review fix (session filter): the two rows run on the implementer's head 2f0bddbd
+--- FAIL: TestPreCompactSettle_AnotherSessionsSpoolCostsAHealthySessionNoDrain (0.87s)
+        	Error:      	Should be zero, but was 1
+        	Messages:   	another session's spool is no reason for this session's PreCompact to settle
+--- FAIL: TestPreCompactSettle_ReplaysThisSessionsSpoolBeforeOlderOnesOfOthers (0.75s)
+        	Error:      	Should be true
+        	Messages:   	the compacting session's own spooled Read is replayed first
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	1.905s
+FAIL
+
+# temporary diagnostic (not committed as a test): the implementer's drop report for a 300-capture backlog
+    zz_red_tmp_test.go:41: pre-fix: 301 drop entries, 11147 tokens of a 12000-token checkpoint budget
+        	Error:      	"300" is not less than "300"
+--- FAIL: TestTmpDiag_BacklogDropReportSize (3.75s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	4.047s
+FAIL
+
+# red before the doctor wording fix
+--- FAIL: TestDoctor_SpoolSubmodeIsInformational (0.99s)
+    --- FAIL: TestDoctor_SpoolSubmodeIsInformational/sync_submode_with_a_daemon_serving_says_why (0.27s)
+            	Error:      	"spool files the daemon has not drained; an observation, not a latency or health verdict" does not contain "ACK deadline"
