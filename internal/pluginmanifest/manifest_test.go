@@ -101,7 +101,7 @@ func TestManifest_PluginJSONShape(t *testing.T) {
 	require.NoError(t, json.Unmarshal(files["plugin/.claude-plugin/plugin.json"], &pj))
 	require.Equal(t, "qompack", pj["name"])
 	require.Equal(t, testVersion, pj["version"])
-	require.Equal(t, "Cache-aware, retrieval-backed context compaction", pj["description"])
+	require.Equal(t, pluginmanifest.Description, pj["description"])
 }
 
 func TestManifest_FilesAreStableBytes(t *testing.T) {

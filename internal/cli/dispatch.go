@@ -191,7 +191,9 @@ func extractSetFlags(args []string) (rest []string, set map[string]string, err e
 
 // writeUsage prints the subcommand table, hooks last since a user never types those.
 func writeUsage(cmds []Cmd, w io.Writer) {
-	fmt.Fprintf(w, "qompack %s — cache-aware, retrieval-backed context compaction\n\n", core.Version)
+	// The same claim as pluginmanifest.Description (V6 close-out audit F8): Qompack does not compact.
+	fmt.Fprintf(w, "qompack %s — keeps a local record of the session and restores the important parts "+
+		"after Claude Code compacts its context, with tools to recall anything left out\n\n", core.Version)
 	fmt.Fprintln(w, "usage: qompack <subcommand> [flags]")
 	fmt.Fprintln(w, "\ncommands:")
 

@@ -27,7 +27,7 @@ artifacts, and `/qompack:recall` with no query, look like that. Run the same
 |---|---|---|---|
 | `/qompack:status` | `qompack status` | `[--json]` | Qompack status — mode, contracts, store, latency, last decision |
 | `/qompack:recall` | `qompack recall` | `<query> [--k N]` | Search stored tool output and file versions by content |
-| `/qompack:pin` | `qompack pin` | `<text>` | Pin an invariant so it is never summarized away |
+| `/qompack:pin` | `qompack pin` | `<text>` | Pin an invariant to re-inject first after each compaction, within the 9,500-character cap; the host's summary can still drop it |
 | `/qompack:why` | `qompack why` | `<decision-id>` | Explain a recorded decision and the evidence behind it |
 | `/qompack:dropped` | `qompack dropped` | `[--json]` | Report what the last compaction dropped and how to get it back |
 | `/qompack:eval` | `qompack eval` | `[--corpus <path>]` | Report the latest replay and live evaluation results |
@@ -67,10 +67,10 @@ Allowed tools: `Bash(qompack recall:*)`
 
 ## `/qompack:pin`
 
-Pin an invariant so it is never summarized away
+Pin an invariant to re-inject first after each compaction, within the 9,500-character cap; the host's summary can still drop it
 
 ```
-qompack pin — Pin an invariant so it is never summarized away
+qompack pin — Pin an invariant to re-inject first after each compaction, within the 9,500-character cap; the host's summary can still drop it
 
 usage: qompack pin <text>
        /qompack:pin <text>
