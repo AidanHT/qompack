@@ -1,0 +1,39 @@
+=== RUN   TestPreCompactInSpoolSubmodeSealsTheSpooledReads
+DIAG    0.978s drain pass clientOnly=false only=map[] files=0 err=<nil>
+DIAG    1.031s drain pass clientOnly=false only=map[] files=0 err=<nil>
+DIAG    1.419s client spool op=observe.prompt from client.go:298
+DIAG    1.947s client spool op=observe.tool from client.go:217
+DIAG    1.975s client spool op=observe.tool from client.go:217
+DIAG    1.983s client spool op=observe.stop from client.go:217
+DIAG    2.134s precompact phase2 seam=true mayAct=true
+DIAG    2.134s precompact route replay=false sess=sess-c116-compact-under-ingest
+DIAG    2.156s settle start sess=sess-c116-compact-under-ingest at=1786530600000 bound=12s upTo=1
+DIAG    2.181s heads READ client-60052.ndjson listed size=6284 mod=1790883598346015200 got=6284 err=<nil>
+DIAG    2.183s settle first listed=map[client-60052.ndjson:true] unread=map[] reads=1 caps=4
+DIAG    2.183s settle first-cap op=observe.prompt tool= file=client-60052.ndjson ts=1786530600000
+DIAG    2.183s settle first-cap op=observe.tool tool=toolu_d53c_spooled_read_1 file=client-60052.ndjson ts=1786530600000
+DIAG    2.183s settle first-cap op=observe.tool tool=toolu_d53c_spooled_read_2 file=client-60052.ndjson ts=1786530600000
+DIAG    2.183s settle first-cap op=observe.stop tool= file=client-60052.ndjson ts=1786530600000
+DIAG    2.183s settle own=map[client-60052.ndjson:true] settled=true
+DIAG    2.183s drain pass clientOnly=true only=map[client-60052.ndjson:true] files=2 err=<nil>
+DIAG    2.290s drain file client-60052.ndjson n=0 err=<nil>
+DIAG    2.301s settle drain n=0 err=<nil>
+DIAG    2.301s heads HIT client-60052.ndjson size=6284 mod=1790883598346015200 lines=4
+DIAG    2.334s settle end left=4 lastUnread=map[] lastCaps=4 sctxErr=<nil>
+    precompact_spool_submode_test.go:142: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16d-sealrow/internal/cli/precompact_spool_submode_test.go:142
+        	Error:      	[]string(nil) does not contain "toolu_d53c_spooled_read_1"
+        	Test:       	TestPreCompactInSpoolSubmodeSealsTheSpooledReads
+        	Messages:   	PreCompact must replay the session's client-spooled captures before it seals (D53(c)); dropped: [{Kind:unreplayed_capture ID: Detail:4 capture(s) of this session (2 tool result(s), 1 prompt(s), 1 other) were still waiting to be replayed into the store when this checkpoint was sealed (durable writes on this disk were slower than their budget); the newest 2 tool result(s) are named by tool_use_id; nothing is lost: the daemon replays them, and recall or expand finds them then} {Kind:unreplayed_tool_result ID:toolu_d53c_spooled_read_1 Detail:} {Kind:unreplayed_tool_result ID:toolu_d53c_spooled_read_2 Detail:} {Kind:pointer_git_unavailable ID: Detail:checkpoint: no .git at the project root}]
+DIAG    2.876s drain pass clientOnly=false only=map[] files=2 err=<nil>
+DIAG    2.914s drain file wal-sess-c116-compact-under-ingest.ndjson n=0 err=<nil>
+DIAG    3.632s drain file client-60052.ndjson n=3 err=<nil>
+    precompact_spool_submode_test.go:95: qompack-20261001.log (read error <nil>):
+        ts=2026-10-01T19:39:57.3188903Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+        ts=2026-10-01T19:39:57.4483071Z level=info msg="observer: session registered" session=sess-c116-compact-under-ingest source=startup turn=0 segment=1
+        ts=2026-10-01T19:39:57.4488706Z level=info msg="scheduler: session bound" session=sess-c116-compact-under-ingest effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+        ts=2026-10-01T19:39:58.6958391Z level=warn msg="daemon: PreCompact sealed before some of the session's captures were replayed; the checkpoint's drop report counts them, and the daemon replays them next" session=sess-c116-compact-under-ingest captures=4 unread_spools=0 bound=12s
+    precompact_spool_submode_test.go:97: client spools left: []
+--- FAIL: TestPreCompactInSpoolSubmodeSealsTheSpooledReads (3.41s)
+FAIL
+coverage: 14.3% of statements
