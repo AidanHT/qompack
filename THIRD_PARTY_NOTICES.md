@@ -9,6 +9,8 @@ the six release targets, intersected with the allow-list `devtool lint --only=bi
 enforces (00-ARCHITECTURE.md §2.5). Their licence texts are reproduced in full because
 the released binary is a derived work that carries their code. §3 lists the remaining
 direct dependencies, which are build-time or test-time only and reach no released byte.
+§2 also reproduces the Go distribution's own licence: the Go runtime and standard library
+are compiled into every released binary, so the binary redistributes them too.
 
 ## 1. Qompack
 
@@ -827,6 +829,45 @@ Reproduced from `LICENSE`:
     (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+### The Go runtime and standard library
+
+Every released binary is compiled by the Go toolchain and carries the Go runtime and the
+standard library packages it uses, including the `golang.org/x` packages the standard
+library vendors under the same licence. `go.mod` pins `toolchain go1.26.6`; each bundle's
+`BUNDLE.json` names the toolchain that compiled it in its `go` field.
+
+Licence: BSD-3-Clause
+
+Reproduced from the Go distribution's `LICENSE`:
+
+    Copyright 2009 The Go Authors.
+
+    Redistribution and use in source and binary forms, with or without
+    modification, are permitted provided that the following conditions are
+    met:
+
+       * Redistributions of source code must retain the above copyright
+    notice, this list of conditions and the following disclaimer.
+       * Redistributions in binary form must reproduce the above
+    copyright notice, this list of conditions and the following disclaimer
+    in the documentation and/or other materials provided with the
+    distribution.
+       * Neither the name of Google LLC nor the names of its
+    contributors may be used to endorse or promote products derived from
+    this software without specific prior written permission.
+
+    THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+    "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+    LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+    A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+    OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+    SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+    LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+    DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+    THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+    (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+    OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
 ## 3. Build- and test-time dependencies, not redistributed
 
 These are direct requirements of `go.mod` that no released binary links. The claim is
@@ -839,6 +880,3 @@ on all six release targets and fails on any module outside §2's allow-list.
 | `github.com/stretchr/testify` | `v1.10.0` | MIT | test/tooling only, not shipped |
 | `golang.org/x/tools` | `v0.49.0` | BSD-3-Clause | test/tooling only, not shipped |
 | `pgregory.net/rapid` | `v1.1.0` | MPL-2.0 | test only, not shipped — `devtool lint --only=bindeps` proves it never reaches the binary on any of the six release targets, so its file-level copyleft is never triggered |
-
-The Go standard library ships with the Go toolchain and is not redistributed by this
-repository; it is covered by the Go project's own BSD-3-Clause licence.
