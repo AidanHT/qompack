@@ -991,6 +991,8 @@ func (d *daemon) drainConfig() DrainConfig {
 		Released:  d.ing.wakeSession,
 		// A leased flush a drain replays while the daemon serves is ended on its own (C1.15).
 		EndSession: d.endDrainedFlush,
+		// A released client spool leaves the PreCompact settle's spool index (spool_heads.go).
+		ClientSpoolRemoved: d.spoolHeads.removed,
 	}
 }
 

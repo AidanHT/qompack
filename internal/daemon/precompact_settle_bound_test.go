@@ -345,3 +345,90 @@ func TestPreCompactSettle_CountsOnlyTheSpoolReadsOfItsOwnLooks(t *testing.T) {
 		"fixture sanity: the watcher's pass read the new spool while the settle ran")
 	require.Equal(t, int64(1), settleSpoolReads(dd), "the settle counts the one file its own look read")
 }
+
+// TestPreCompactSettle_ReadsASpoolTheDrainReleasedAndAHookRecreated (wave 16c, the w16b-settle
+// review's second nit): the spool index keys a file version on its size and modification time, and a
+// drain can release client-<pid>.ndjson after which a hook with the same pid writes a new capture
+// under the same name, at the same size and, on a filesystem with coarse timestamps, the same time.
+// The daemon's own removal drops the index entry, so the settle reads the recreated file again and
+// names the capture it holds. Served from the released file's heads, the settle found only a
+// published Read and sealed with nothing named: the capture was silently missing from the report.
+func TestPreCompactSettle_ReadsASpoolTheDrainReleasedAndAHookRecreated(t *testing.T) {
+	dd, _, root := laneTestDaemon(t)
+	ctx := context.Background()
+	const sess core.SessionID = "sess-precompact-recreated"
+	const base = "client-7474.ndjson"
+	first := liveOrderTool(dd, root, sess, 1)
+	second := liveOrderTool(dd, root, sess, 2) // the same length as first: the reused pid's next Read
+	cfg := dd.drainConfig()
+	cfg.Dispatch = func(ctx context.Context, req ipc.Request) ipc.Response {
+		if req.Nonce == second.Nonce {
+			<-ctx.Done() // the disk that never finishes inside the bound
+			return ipc.Response{Err: ctx.Err().Error()}
+		}
+		return dd.drainDispatch(ctx, req)
+	}
+	dd.drain.Store(newDrainer(cfg))
+	liveOrderWorkers(t, dd, 2, dd.runIngested)
+	dd.applyHotPathTransition(ToSpool)
+
+	path := paths.Long(filepath.Join(paths.Of(root).Spool, base))
+	writeHookSpool(t, root, base, first)
+	was, err := os.Stat(path)
+	require.NoError(t, err)
+	dd.indexClientSpools(ctx, map[string]bool{base: true})
+	require.True(t, spoolIndexed(dd, base), "fixture sanity: the watcher indexed the spool")
+
+	_, err = dd.Drain(ctx)
+	require.NoError(t, err)
+	require.True(t, spoolWatchPublished(dd, first.Nonce), "fixture sanity: the drain published the Read")
+	require.True(t, spoolWatchGone(root, base), "fixture sanity: the drain released the spool")
+
+	writeHookSpool(t, root, base, second)
+	require.NoError(t, os.Chtimes(path, was.ModTime(), was.ModTime()))
+	now, err := os.Stat(path)
+	require.NoError(t, err)
+	require.Equal(t, was.Size(), now.Size(), "fixture sanity: the recreated spool has the same size")
+	require.True(t, was.ModTime().Equal(now.ModTime()), "fixture sanity: and the same modification time")
+
+	probe := bindSealProbe(dd, second.Nonce)
+	pre := checkpointRequest(dd, sess, "nonce-precompact-recreated")
+	pre.TS = second.TS + 1
+	require.True(t, dd.dispatchOp(ctx, pre).OK)
+
+	require.Equal(t, int64(1), settleSpoolReads(dd), "the settle reads the recreated spool again")
+	require.False(t, probe.published[second.Nonce], "fixture sanity: its replay could not finish in the bound")
+	require.Equal(t, []checkpoint.DropEntry{
+		{Kind: checkpoint.DropKindUnreplayedCapture, Detail: fmt.Sprintf(unreplayedDetailFormat, 1, 1, 0, 0, 1)},
+		{Kind: checkpoint.DropKindUnreplayedToolResult, ID: string(second.Event.ToolUseID)},
+	}, probe.drops, "the seal names the recreated spool's Read")
+}
+
+// TestSpoolHeadIndex_AReadTheDrainsRemovalOverlapsIsNotRemembered (wave 16c): a look that read a
+// client spool while the drain removed it may have read the removed file. The index does not keep
+// what it read, so a file recreated under the name at the same size and time cannot be served the
+// removed file's heads. The read seam calls removed in the middle of the read, as the drain would.
+func TestSpoolHeadIndex_AReadTheDrainsRemovalOverlapsIsNotRemembered(t *testing.T) {
+	dd, _, root := laneTestDaemon(t)
+	const base = "client-7575.ndjson"
+	writeHookSpool(t, root, base, liveOrderTool(dd, root, "sess-spool-index-removal", 1))
+	listed := listClientSpools(root)
+	require.Len(t, listed, 1)
+	dd.spoolHeads.read = func(_ context.Context, path string) ([]byte, error) {
+		b, err := paths.ReadFileShared(path)
+		dd.spoolHeads.removed(filepath.Base(path))
+		return b, err
+	}
+
+	lines, ok, read := dd.spoolHeads.heads(context.Background(), root, listed[0])
+	require.True(t, ok)
+	require.True(t, read)
+	require.Len(t, lines, 1, "the look still gets what it read")
+	require.False(t, spoolIndexed(dd, base), "but the index does not remember it")
+
+	dd.spoolHeads.read = nil
+	_, ok, read = dd.spoolHeads.heads(context.Background(), root, listed[0])
+	require.True(t, ok)
+	require.True(t, read, "the next look reads the file again")
+	require.True(t, spoolIndexed(dd, base), "control: a read no removal overlaps is remembered")
+}
