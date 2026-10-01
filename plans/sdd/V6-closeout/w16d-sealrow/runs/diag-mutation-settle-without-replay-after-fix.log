@@ -1,0 +1,10 @@
+--- FAIL: TestPreCompactInSpoolSubmodeSealsTheSpooledReads (1.15s)
+    precompact_spool_submode_test.go:120: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16d-sealrow/internal/cli/precompact_spool_submode_test.go:120
+        	Error:      	[]string(nil) does not contain "toolu_d53c_spooled_read_1"
+        	Test:       	TestPreCompactInSpoolSubmodeSealsTheSpooledReads
+        	Messages:   	PreCompact must replay the session's client-spooled captures before it seals (D53(c))
+FAIL
+coverage: 14.3% of statements
+FAIL	github.com/qompack/qompack/internal/cli	1.596s
+FAIL

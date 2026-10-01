@@ -1,0 +1,52 @@
+=== RUN   TestPreCompactInSpoolSubmodeSealsTheSpooledReads
+DIAG settle first-cap +17.1979ms [observe.tool toolu_d53c_spooled_read_1 client-60484.ndjson]
+DIAG settle first-cap +17.1979ms [observe.tool toolu_d53c_spooled_read_2 client-60484.ndjson]
+DIAG settle first-cap +17.1979ms [observe.stop  client-60484.ndjson]
+DIAG settle before-await +17.1979ms [own 1 upTo 2]
+DIAG settle after-await +24.9564ms []
+DIAG drain handler op=observe.tool took=112.0017ms
+DIAG drain line op=observe.tool took=262.7113ms err=<nil> ctxErr=<nil>
+DIAG drain handler op=observe.tool took=28.8191ms
+DIAG drain line op=observe.tool took=179.2627ms err=context deadline exceeded ctxErr=context deadline exceeded
+DIAG settle after-drain +526.1948ms [n 1 err context deadline exceeded]
+DIAG settle left +543.221ms [observe.tool toolu_d53c_spooled_read_2 client-60484.ndjson defccf839282385475f35db216cb3c61de263d2d3013944a93e40bb22b90b20f]
+DIAG settle left +543.221ms [observe.stop  client-60484.ndjson 5fd2b90f824c1ffec207d674550661b4132f8c5e55a40384fb4c49ad35a99f57]
+DIAG settle end +543.221ms [left 2 unread 0]
+    precompact_spool_submode_test.go:89: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16d-sealrow/internal/cli/precompact_spool_submode_test.go:89
+        	Error:      	[]string{"toolu_d53c_spooled_read_1"} does not contain "toolu_d53c_spooled_read_2"
+        	Test:       	TestPreCompactInSpoolSubmodeSealsTheSpooledReads
+        	Messages:   	PreCompact must replay the session's client-spooled captures before it seals (D53(c))
+DIAG drain handler op=observe.tool took=63.3799ms
+DIAG drain line op=observe.tool took=220.562ms err=<nil> ctxErr=<nil>
+DIAG drain handler op=observe.stop took=61.3454ms
+DIAG drain line op=observe.stop took=283.8997ms err=<nil> ctxErr=<nil>
+--- FAIL: TestPreCompactInSpoolSubmodeSealsTheSpooledReads (2.72s)
+=== RUN   TestPreCompactInSpoolSubmodeSealsTheSpooledReads
+DIAG settle first-cap +15.4958ms [observe.tool toolu_d53c_spooled_read_1 client-60484.ndjson]
+DIAG settle first-cap +15.4958ms [observe.tool toolu_d53c_spooled_read_2 client-60484.ndjson]
+DIAG settle first-cap +15.4958ms [observe.stop  client-60484.ndjson]
+DIAG settle before-await +15.4958ms [own 1 upTo 2]
+DIAG settle after-await +15.4958ms []
+DIAG drain handler op=observe.tool took=99.5699ms
+DIAG drain line op=observe.tool took=252.1618ms err=<nil> ctxErr=<nil>
+DIAG drain handler op=observe.tool took=89.453ms
+DIAG drain line op=observe.tool took=238.0785ms err=context deadline exceeded ctxErr=context deadline exceeded
+DIAG settle after-drain +565.676ms [n 1 err context deadline exceeded]
+DIAG settle left +569.8041ms [observe.tool toolu_d53c_spooled_read_2 client-60484.ndjson 72e18f800c9efa7f63acc99e91eccea363699ee3b3848300f83457fbf653a60c]
+DIAG settle left +569.8041ms [observe.stop  client-60484.ndjson 7111a5d2a20085aee406941039c5acdb4c757347dedca6317455e0cd3c3c359c]
+DIAG settle end +569.8041ms [left 2 unread 0]
+    precompact_spool_submode_test.go:89: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16d-sealrow/internal/cli/precompact_spool_submode_test.go:89
+        	Error:      	[]string{"toolu_d53c_spooled_read_1"} does not contain "toolu_d53c_spooled_read_2"
+        	Test:       	TestPreCompactInSpoolSubmodeSealsTheSpooledReads
+        	Messages:   	PreCompact must replay the session's client-spooled captures before it seals (D53(c))
+DIAG drain handler op=observe.tool took=64.2428ms
+DIAG drain line op=observe.tool took=210.9107ms err=<nil> ctxErr=<nil>
+DIAG drain handler op=observe.stop took=3.8082ms
+DIAG drain line op=observe.stop took=146.4237ms err=<nil> ctxErr=<nil>
+--- FAIL: TestPreCompactInSpoolSubmodeSealsTheSpooledReads (1.83s)
+FAIL
+coverage: 14.3% of statements
+FAIL	github.com/qompack/qompack/internal/cli	5.121s
+FAIL

@@ -1,0 +1,73 @@
+=== RUN   TestPreCompactInSpoolSubmodeSealsTheSpooledReads
+DIAG settle first-cap +18.3035ms [observe.tool toolu_d53c_spooled_read_1 client-32120.ndjson]
+DIAG settle first-cap +18.3035ms [observe.tool toolu_d53c_spooled_read_2 client-32120.ndjson]
+DIAG settle first-cap +18.3035ms [observe.stop  client-32120.ndjson]
+DIAG settle before-await +18.3035ms [own 1 upTo 2]
+DIAG settle after-await +29.957ms []
+DIAG drain handler op=observe.tool took=76.4639ms
+DIAG drain line op=observe.tool took=98.1217ms err=<nil> ctxErr=<nil>
+DIAG drain handler op=observe.tool took=79.077ms
+DIAG drain line op=observe.tool took=101.8449ms err=<nil> ctxErr=<nil>
+DIAG drain handler op=observe.stop took=0s
+DIAG drain line op=observe.stop took=229.4236ms err=context deadline exceeded ctxErr=context deadline exceeded
+DIAG settle after-drain +511.7149ms [n 2 err context deadline exceeded]
+DIAG settle left +524.942ms [observe.stop  client-32120.ndjson 55c59c34254b5510b7652e1d486f0a8c0bfd41d5f556bbf0e53232de65208940]
+DIAG settle end +524.942ms [left 1 unread 0]
+    precompact_spool_submode_test.go:93: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16d-sealrow/internal/cli/precompact_spool_submode_test.go:93
+        	Error:      	"unreplayed_capture" should not contain "unreplayed"
+        	Test:       	TestPreCompactInSpoolSubmodeSealsTheSpooledReads
+        	Messages:   	nothing was left unreplayed: {Kind:unreplayed_capture ID: Detail:1 capture(s) of this session (0 tool result(s), 0 prompt(s), 1 other) were still waiting to be replayed into the store when this checkpoint was sealed (durable writes on this disk were slower than their budget); the newest 0 tool result(s) are named by tool_use_id; nothing is lost: the daemon replays them, and recall or expand finds them then}
+DIAG drain handler op=observe.stop took=5.0671ms
+DIAG drain line op=observe.stop took=636.3829ms err=<nil> ctxErr=<nil>
+--- FAIL: TestPreCompactInSpoolSubmodeSealsTheSpooledReads (1.94s)
+=== RUN   TestPreCompactInSpoolSubmodeSealsTheSpooledReads
+DIAG settle first-cap +18.2366ms [observe.tool toolu_d53c_spooled_read_1 client-32120.ndjson]
+DIAG settle first-cap +18.2366ms [observe.tool toolu_d53c_spooled_read_2 client-32120.ndjson]
+DIAG settle first-cap +18.2366ms [observe.stop  client-32120.ndjson]
+DIAG settle before-await +18.2366ms [own 1 upTo 2]
+DIAG settle after-await +18.2366ms []
+DIAG drain handler op=observe.tool took=61.1045ms
+DIAG drain line op=observe.tool took=81.9527ms err=<nil> ctxErr=<nil>
+DIAG drain handler op=observe.tool took=83.1713ms
+DIAG drain line op=observe.tool took=103.4417ms err=<nil> ctxErr=<nil>
+DIAG drain handler op=observe.stop took=513.9µs
+DIAG drain line op=observe.stop took=257.1228ms err=context deadline exceeded ctxErr=context deadline exceeded
+DIAG settle after-drain +515.6105ms [n 2 err context deadline exceeded]
+DIAG settle left +517.2777ms [observe.stop  client-32120.ndjson e9c2fac458b1392f3edc4bd90fca95b3725289a3eb65e6c81b88bdd752c44a9f]
+DIAG settle end +517.2777ms [left 1 unread 0]
+    precompact_spool_submode_test.go:93: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16d-sealrow/internal/cli/precompact_spool_submode_test.go:93
+        	Error:      	"unreplayed_capture" should not contain "unreplayed"
+        	Test:       	TestPreCompactInSpoolSubmodeSealsTheSpooledReads
+        	Messages:   	nothing was left unreplayed: {Kind:unreplayed_capture ID: Detail:1 capture(s) of this session (0 tool result(s), 0 prompt(s), 1 other) were still waiting to be replayed into the store when this checkpoint was sealed (durable writes on this disk were slower than their budget); the newest 0 tool result(s) are named by tool_use_id; nothing is lost: the daemon replays them, and recall or expand finds them then}
+DIAG drain handler op=observe.stop took=4.9683ms
+DIAG drain line op=observe.stop took=634.0726ms err=<nil> ctxErr=<nil>
+--- FAIL: TestPreCompactInSpoolSubmodeSealsTheSpooledReads (1.90s)
+=== RUN   TestPreCompactInSpoolSubmodeSealsTheSpooledReads
+DIAG settle first-cap +15.9062ms [observe.tool toolu_d53c_spooled_read_1 client-32120.ndjson]
+DIAG settle first-cap +15.9062ms [observe.tool toolu_d53c_spooled_read_2 client-32120.ndjson]
+DIAG settle first-cap +15.9062ms [observe.stop  client-32120.ndjson]
+DIAG settle before-await +15.9062ms [own 1 upTo 2]
+DIAG settle after-await +17.0117ms []
+DIAG drain handler op=observe.tool took=73.481ms
+DIAG drain line op=observe.tool took=95.8731ms err=<nil> ctxErr=<nil>
+DIAG drain handler op=observe.tool took=105.687ms
+DIAG drain line op=observe.tool took=134.435ms err=<nil> ctxErr=<nil>
+DIAG drain handler op=observe.stop took=0s
+DIAG drain line op=observe.stop took=199.3333ms err=context deadline exceeded ctxErr=context deadline exceeded
+DIAG settle after-drain +517.2154ms [n 2 err context deadline exceeded]
+DIAG settle left +533.3639ms [observe.stop  client-32120.ndjson 06d4270f1965ac1451ac949b442617e4001141c8ee7d9ce91d23131a4af4038f]
+DIAG settle end +533.3639ms [left 1 unread 0]
+    precompact_spool_submode_test.go:93: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16d-sealrow/internal/cli/precompact_spool_submode_test.go:93
+        	Error:      	"unreplayed_capture" should not contain "unreplayed"
+        	Test:       	TestPreCompactInSpoolSubmodeSealsTheSpooledReads
+        	Messages:   	nothing was left unreplayed: {Kind:unreplayed_capture ID: Detail:1 capture(s) of this session (0 tool result(s), 0 prompt(s), 1 other) were still waiting to be replayed into the store when this checkpoint was sealed (durable writes on this disk were slower than their budget); the newest 0 tool result(s) are named by tool_use_id; nothing is lost: the daemon replays them, and recall or expand finds them then}
+DIAG drain handler op=observe.stop took=4.2845ms
+DIAG drain line op=observe.stop took=636.135ms err=<nil> ctxErr=<nil>
+--- FAIL: TestPreCompactInSpoolSubmodeSealsTheSpooledReads (2.05s)
+FAIL
+coverage: 14.3% of statements
+FAIL	github.com/qompack/qompack/internal/cli	6.381s
+FAIL
