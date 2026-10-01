@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -209,5 +210,34 @@ func TestParseTestEvents(t *testing.T) {
 	}
 	if events[2].Action != "skip" || events[2].Test != "T" {
 		t.Fatalf("unexpected last event: %+v", events[2])
+	}
+}
+
+// TestStubSkipsPasses_RunsE2EAloneAndDropsNothing pins how stubskips splits the tree into `go test`
+// passes. test/e2e runs in a pass of its own: inside the parallel whole-tree pass on windows-latest
+// its binary was killed past -timeout=30m (run 36816905394, lint-windows), so its skips were never
+// inspected, while the package alone takes about 20 minutes there (the test-e2e job, 1188 s).
+// Every listed package lands in exactly one pass, and no pass is empty.
+func TestStubSkipsPasses_RunsE2EAloneAndDropsNothing(t *testing.T) {
+	pkgs := []string{
+		modulePath + "/internal/core",
+		modulePath + "/test/e2e",
+		modulePath + "/internal/store",
+		modulePath + "/test/guards",
+	}
+	passes := stubskipsPasses(pkgs)
+	want := [][]string{
+		{modulePath + "/internal/core", modulePath + "/internal/store", modulePath + "/test/guards"},
+		{modulePath + "/test/e2e"},
+	}
+	if fmt.Sprint(passes) != fmt.Sprint(want) {
+		t.Fatalf("passes = %v, want %v", passes, want)
+	}
+
+	if got := stubskipsPasses([]string{modulePath + "/internal/core"}); fmt.Sprint(got) != fmt.Sprint([][]string{{modulePath + "/internal/core"}}) {
+		t.Fatalf("a tree without test/e2e is one pass; got %v", got)
+	}
+	if got := stubskipsPasses([]string{modulePath + "/test/e2e"}); fmt.Sprint(got) != fmt.Sprint([][]string{{modulePath + "/test/e2e"}}) {
+		t.Fatalf("a tree of test/e2e alone is one pass and never an empty one; got %v", got)
 	}
 }
