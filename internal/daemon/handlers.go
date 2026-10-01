@@ -599,7 +599,9 @@ func (d *daemon) handleObservePrompt(ctx context.Context, req ipc.Request) ipc.R
 // out empty, and a thrash warning held back for a later turn would describe a loop the agent may
 // since have left. The miss is counted (counterPromptReplyLate), never silent — but only when the
 // deadline is what ended the wait: a request cancelled from outside (Stop cancels the serving
-// context) is not an overrun, and neither is a panicking seam, which answers the wait at once.
+// context) is not an overrun, and neither is a panicking seam, which answers the wait at once. A
+// reply whose budget was already spent when this call began (spent, below) is counted late
+// whatever the seam then does, a panicking one included: no reply could have reached the hook.
 //
 // Discarded is not delivered (V6 close-out w16d). The observer drains a warning only through the
 // reply's claim (observer.WithPromptReplyClaim, promptReplyHandoff): the claim and this wait's
@@ -661,7 +663,12 @@ func (d *daemon) callObservePromptWithDeadline(ctx context.Context, ev *hookio.E
 	case <-wait.Done():
 		if !handoff.abandon() {
 			// The observer claimed this reply before the deadline and is handing its warning over
-			// now, with nothing left to wait on but the rendering: the reply carries it.
+			// now, with nothing left to wait on but the rendering: the reply carries it. Residual
+			// (w16d-warnlate, carried): a claim made just inside ts+promptReplyDeadline whose reply
+			// then reaches the hook after the hook's own give-up is spooled by the hook; no path
+			// that later handles the spooled copy delivers or re-arms a warning, so the rule stays
+			// warned though the host never saw the line. Closing it belongs to the drain path
+			// (re-arm when it settles a spooled prompt whose live reply carried a warning).
 			if r := <-ch; r.err == nil {
 				return r.out
 			}
