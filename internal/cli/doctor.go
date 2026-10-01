@@ -929,6 +929,14 @@ func (s *doctorState) spoolRow() doctorRow {
 				detail = "state.bin still says spool submode but no daemon is serving, so hooks spool without " +
 					"starting one and nothing replays these files until a new session starts in this project"
 			}
+		} else if s.lockAlive {
+			// Sync submode with a daemon serving keeps its verdict: the watcher replays a client spool
+			// within seconds, so files that stay here are the one sign the replay is not keeping up.
+			// What the user reads names the ordinary cause first (D53(c)).
+			detail = "client spools the running daemon has not replayed yet. On a slow disk a hook that waits " +
+				"out its ACK deadline hands its capture to the spool and the daemon replays it within seconds, " +
+				"so nothing is lost; run doctor again, and if the files stay the replay is not keeping up. " +
+				"To tune it: " + obs.SpoolSubmodeTune
 		}
 	}
 	return doctorRow{
