@@ -1087,9 +1087,10 @@ func TestIntegration_HotPathWarmWithRealResidentState(t *testing.T) {
 	// for breachWindows consecutive windows, so here (D39) a transition is reported, and what is still
 	// asserted is that it was loud, named the breach, and lost nothing (hotpathJudgeSpool). The
 	// isolated runs keep all four spool signs forbidden. All three wall-clock rows are still judged at
-	// their limits by every run that does NOT pass the flag: bench-gate's and nightly bench-deep's
-	// `devtool bench-hotpath` lines, and this test itself in the `timing` job, where every assertion
-	// below is the one bench-gate makes.
+	// their limits by every run that does NOT pass the flag, on a reference disk (the owner's quiet
+	// runs): bench-gate's and nightly bench-deep's `devtool bench-hotpath` lines, and this test itself
+	// in the `timing` job, where every assertion below is the one bench-gate makes. Hosted runs of
+	// these lanes report the rows under QOMPACK_NONREFERENCE_DISK (ADR 0010 Addendum 2).
 	underCoload := obs.UnderCoload()
 	// The other declaration, D53(e): a non-reference disk, honoured only on a GitHub Actions runner
 	// (obs.NonReferenceDiskEnv). It is not a flag: the harness reads it from the environment it
@@ -1232,8 +1233,10 @@ func TestIntegration_HotPathWarmWithRealResidentState(t *testing.T) {
 	//     waived on its own.
 	//
 	// B-B is in this block rather than gated unconditionally above because of the Q3 ruling; the
-	// gated arm below is the one bench-gate, nightly bench-deep, `timing` and `test-e2e` run, and
-	// it asserts exactly what the unconditional block asserted before the ruling.
+	// gated arm below is the one bench-gate, nightly bench-deep, `timing` and `test-e2e` run on a
+	// reference disk (the owner's quiet runs; hosted runs of these lanes report the rows under
+	// QOMPACK_NONREFERENCE_DISK, ADR 0010 Addendum 2), and it asserts exactly what the
+	// unconditional block asserted before the ruling.
 	beWall := hotpathRow(t, rep, string(obs.BE))
 	require.Equal(t, hotpathCheckpointSamples, beWall.N)
 	if waived {
