@@ -347,7 +347,7 @@ func TestBuildDaemonRows_UnderColoadReportsBothDaemonRows(t *testing.T) {
 		P999: 1100 * time.Microsecond, Max: 1900 * time.Microsecond,
 	}
 
-	ba, bb, notes := buildDaemonRows(cfg, baSnap, bbSnap, 0, 0, true)
+	ba, bb, notes := buildDaemonRows(cfg, baSnap, bbSnap, 0, 0, wallWaiver{coload: true})
 	require.Nil(t, ba.LimitMs, "--under-coload must leave B-A ungated")
 	require.Nil(t, ba.Pass)
 	require.InDelta(t, 2.0, ba.P99, 0.001, "the reported row still carries the number the gate would have read")
@@ -361,7 +361,7 @@ func TestBuildDaemonRows_UnderColoadReportsBothDaemonRows(t *testing.T) {
 		"", bbWallWaivedNote(budgetLimit(cfg, obs.BB)),
 	}, notes, "a clean co-loaded run owes exactly two notes — B-A's waiver and B-B's — in row order")
 
-	ba, bb, notes = buildDaemonRows(cfg, baSnap, bbSnap, 0, 0, false)
+	ba, bb, notes = buildDaemonRows(cfg, baSnap, bbSnap, 0, 0, wallWaiver{})
 	require.NotNil(t, ba.LimitMs, "without the declaration B-A is the hard gate it has always been")
 	require.InDelta(t, msf(budgetLimit(cfg, obs.BA)), *ba.LimitMs, 0.001)
 	require.NotNil(t, ba.Pass)
@@ -384,7 +384,7 @@ func TestBuildDaemonRows_UnderColoadKeepsTheShortfallAccounting(t *testing.T) {
 		N: 2063, P50: time.Millisecond, P95: 2 * time.Millisecond, P99: 3 * time.Millisecond,
 		P999: 22 * time.Millisecond, Max: 40 * time.Millisecond,
 	}
-	ba, bb, notes := buildDaemonRows(config.Defaults(), snap, snap, 1, 1, true)
+	ba, bb, notes := buildDaemonRows(config.Defaults(), snap, snap, 1, 1, wallWaiver{coload: true})
 	require.Nil(t, ba.Pass)
 	require.InDelta(t, 22.0, ba.P99, 0.001, "the reported field must carry the bound, exactly as the gated one would")
 	require.Nil(t, bb.Pass)
