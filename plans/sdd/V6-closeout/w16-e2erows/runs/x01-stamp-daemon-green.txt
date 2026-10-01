@@ -1,0 +1,10 @@
+=== RUN   TestStatus_ASpentProbeRowCarriesTheLastMissNotTheRead
+--- PASS: TestStatus_ASpentProbeRowCarriesTheLastMissNotTheRead (0.10s)
+=== RUN   TestStatus_AnObservedProbeRowCarriesTheScanThatFoundIt
+--- PASS: TestStatus_AnObservedProbeRowCarriesTheScanThatFoundIt (0.09s)
+=== RUN   TestStatus_AnObservedHandshakeRowCarriesTheHandshakeTime
+--- PASS: TestStatus_AnObservedHandshakeRowCarriesTheHandshakeTime (0.08s)
+=== RUN   TestStatus_AHandshakeOnlyTheSeamSawKeepsTheStartsTime
+--- PASS: TestStatus_AHandshakeOnlyTheSeamSawKeepsTheStartsTime (0.05s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	0.629s
