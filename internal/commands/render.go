@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/qompack/qompack/internal/contract"
+	"github.com/qompack/qompack/internal/obs"
 )
 
 // Rendering widths. They are layout constants, not tunable values: the columns are sized to the
@@ -66,6 +67,9 @@ func renderSnapshot(rw *errWriter, s DaemonStatus) {
 
 	rw.printf("mode:        %s\n", orUnknown(s.Mode))
 	rw.printf("hot path:    %s\n", orUnknown(s.Hot))
+	if s.Hot == hotSpool {
+		renderSpoolSubmode(rw)
+	}
 	rw.printf("sessions:    %d\n", len(s.Sessions))
 	rw.printf("spool files: %d\n", s.SpoolFiles)
 
@@ -91,6 +95,46 @@ func renderSnapshot(rw *errWriter, s DaemonStatus) {
 		}
 	}
 	rw.printf("\n")
+}
+
+// hotSpool is the daemon's status word for spool submode (internal/daemon hotModeString).
+const hotSpool = "spool"
+
+// renderSpoolSubmode explains a `hot path: spool` line where the user reads it (D53(c)): on a slow
+// disk it is the designed behaviour of a long session and loses nothing, so the page says what
+// happened, what ends it and what tunes it, rather than leaving a bare word next to the loud line.
+func renderSpoolSubmode(rw *errWriter) {
+	for _, part := range []string{
+		obs.SpoolSubmodeWhat + ".",
+		"It lasts until " + obs.SpoolSubmodeUntil + ".",
+		"To tune it: " + obs.SpoolSubmodeTune + ".",
+	} {
+		for _, line := range wrapWords(part, reasonWidth) {
+			rw.printf("  %s\n", line)
+		}
+	}
+}
+
+// wrapWords splits text into lines of at most width bytes at spaces; a word longer than width gets a
+// line of its own.
+func wrapWords(text string, width int) []string {
+	var lines []string
+	line := ""
+	for _, w := range strings.Fields(text) {
+		switch {
+		case line == "":
+			line = w
+		case len(line)+1+len(w) <= width:
+			line += " " + w
+		default:
+			lines = append(lines, line)
+			line = w
+		}
+	}
+	if line != "" {
+		lines = append(lines, line)
+	}
+	return lines
 }
 
 // renderContract prints the host-contract banner.
