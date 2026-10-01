@@ -1,0 +1,10 @@
+=== RUN   TestPreCompactSettle_ASpoolItCannotReadIsCountedNotTakenAsEmpty
+    precompact_settle_retry_test.go:120: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16f-settlekick/internal/daemon/precompact_settle_retry_test.go:120
+        	Error:      	"0 capture(s) of this session (0 tool result(s), 0 prompt(s), 0 other) were still waiting to be replayed into the store when this checkpoint was sealed (durable writes on this disk were slower than their budget); the newest 0 tool result(s) are named by tool_use_id; nothing is lost: the daemon replays them, and recall or expand finds them then; 1 hook client spool file(s) could not be read within the bound, so this session's captures in them, if any, are not counted here" does not contain "or failed to read"
+        	Test:       	TestPreCompactSettle_ASpoolItCannotReadIsCountedNotTakenAsEmpty
+        	Messages:   	the clause says the file failed to read, not only that the bound ended first (wave 16f)
+--- FAIL: TestPreCompactSettle_ASpoolItCannotReadIsCountedNotTakenAsEmpty (0.22s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	0.508s
+FAIL
