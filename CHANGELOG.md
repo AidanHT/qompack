@@ -7,79 +7,136 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+The release 0.3.0 entry (V6 close-out decision D1). It summarises the user-visible changes since
+`v0.2.0`, an internal verification tag that was never released, so this is the first release
+published from this repository. Release candidate: `verify/v6` commit `99d0b18` (candidate 6). At
+the release this heading becomes the version and its date (`docs/release.md` §1, step 2).
+
 ### Added
 
-- `devtool bundle` assembles a deterministic, versioned plugin bundle per release target, with a
-  `BUNDLE.json` identity and a `sha256sum`-format `checksums.txt`; see `packaging/README.md`.
-- `devtool bundle --archive` packs each bundle reproducibly into a `.zip` for every target (sorted
-  entries, the DOS-epoch mtime, normalised Unix modes with `bin/` at 0755, no extra fields) and
-  writes one `checksums.txt` over the archives — the files a release uploads.
-- `devtool marketplace` generates the release's `marketplace.json` from that `checksums.txt`: six
-  per-target `archive` entries, each pinned by sha256 to its release zip.
-- `devtool release-check` is the release gate: version agreement, `ci-local`'s own sequence,
-  `build-all`, the generated-doc checks, `test/guards`, govulncheck, the licence inventory,
-  real-binary determinism, the store rollback rehearsal and `plugin-validate`, stopping at the
-  first failure and writing `dist/release-check.json`.
-- `devtool release-scope` reports per release target and per acceptance row what a committed
-  evidence record establishes — `verified | unverified | excluded` — and never raises a status
-  from prose. Its Markdown rendering becomes the draft release's notes.
-- `devtool licenses --write | --check` generates and verifies `THIRD_PARTY_NOTICES.md` from the
-  modules `go list -deps ./cmd/qompack` actually reaches, intersected with the bindeps allow-list.
-- `qompack fsck` checks store, index, capture, checkpoint, pin, negative-knowledge, delivery,
-  spool, retention, migration and fidelity integrity, with five explicit repairs behind
-  `--repair --yes` and no destructive default.
-- `qompack doctor` reports version, host, capability, scope, recording and retrieval gaps and
-  disabled controls, and calls no storage ratio or timing target proof of health.
-- `docs/release.md`, `docs/install.md` and `docs/security.md`: the release procedure and gate list,
-  the install/upgrade/uninstall policy including the retained-data choice, and the trust
-  boundaries, bounds, recovery behaviour and known limitations.
-- `test/platform`, `test/security`, `test/fault` and `test/release`: the deployment-environment,
-  trust-and-privacy, fault-and-recovery and independent-switch matrices, each driving the shipped
-  bundle's own binary and each writing a per-case evidence record.
-- `.github/workflows/ci.yml` gains a `release-dry-run` job, so every push proves the release path
-  builds rather than discovering it on the day of a release.
-- Installation, upgrade, uninstall, rollback and unknown-schema rehearsal against the host CLI,
-  with committed evidence records under `commit8-install-windows-amd64/`.
+- **Checkpoints and rehydration.** `PreCompact` seals an immutable, verified checkpoint of the
+  session (with a manifest and a fallback to the previous checkpoint), and checkpoints are also
+  sealed on the checkpointer's own cadence. After the host compacts, `SessionStart` with
+  `source=compact` injects a rehydration block of at most 9,500 characters, inside the host's
+  10,000-character cap: the pinned invariants and the original request verbatim (with the
+  corrections made since rendered above it) first, then the session's other records in a fixed
+  priority order, whole or not at all, and a drop report naming whatever did not fit together with
+  the calls that retrieve it.
+- **Retrieval through an MCP server** (`qompack mcp`): `recall`, `expand`, `re_read`,
+  `already_tried`, `record_eliminated`, `timeline`, `why` and `dropped`, with minimal spans, paged
+  responses bounded by `runtime.mcp.maxResponseBytes`, `path:` globs and the host's own tool names
+  in `recall`, and Qompack's own records ranked after the original captures.
+- **Slash commands**: `status`, `recall`, `pin`, `why`, `dropped` and `eval`.
+- **Negative knowledge**: eliminations recorded with `record_eliminated` and queried with
+  `already_tried`, refreshed for staleness when read, and carried into checkpoints.
+- **Operator commands**: `qompack status`, `doctor`, `fsck` (five explicit repairs behind
+  `--repair --yes`, no destructive default), `self-test`, `config print` and `config schema`,
+  `backup create`, `backup verify` and `backup restore` (with the daemon stopped, into a fresh
+  destination, proven with the same build's reader and the integrity checks), and
+  `admin delivery-seal`.
+- **The host's saved Read rules** (`permissions.deny` and `permissions.ask` for `Read`, from the
+  managed, user, project and local settings files) are re-checked on every archived retrieval, and an
+  unreadable settings file makes path-bearing answers unavailable.
+- **Delivery-journal rollover**, on by default: every 65,536 deliveries the journal rotates, each
+  rotation is a loud line and a counter, and a project nearing its first rotation is warned once per
+  daemon run to take a backup.
+- **On Windows the daemon runs from a verified, read-only copy** under `~/.qompack/bin/<sha256>/`, so
+  a running daemon no longer holds the plugin directory during an update or uninstall.
+- **Packaging and release tooling**: `devtool bundle --archive` builds a reproducible bundle and
+  `.zip` for each of the six targets, each with `BUNDLE.json`, `checksums.txt`, `LICENSE` and
+  `THIRD_PARTY_NOTICES.md` (which now reproduces the Go runtime's licence); `devtool marketplace`
+  generates the six per-target `qompack-<os>-<arch>` marketplace entries pinned by sha256;
+  `devtool release-check` is the release gate, `devtool release-scope` reports what the committed
+  records establish, and `devtool licenses` keeps the notices in step with the dependency graph.
+- **Evaluation**: `devtool live-eval` drives real headless host sessions with and without Qompack
+  under a pre-registered protocol, and `/qompack:eval` reports the replay and live results with
+  failed trials counted.
 
 ### Changed
 
-- `.goreleaser.yaml` publishes and no longer builds: every build entry is skipped, the checksum
-  generator is disabled, and the release is a **draft** carrying the archives `devtool bundle
-  --archive` produced. One build path (`goBuildArgs`) now produces every shipped byte.
-- `.github/workflows/release.yml` runs `release-check` before anything is built or published,
-  uploads the host-validation record, and attests build provenance for the archives.
-- Hook commands in the generated manifest quote `${CLAUDE_PLUGIN_ROOT}`, so a plugin root
-  containing a space no longer word-splits under a shell launcher.
-- A configuration violation no longer disables capture wholesale: the hot-path loader applies the
-  same per-leaf fallback `config print` does and records the violation in
-  `state/config-violations.json`. An unknown key, a value of the wrong type or an unparseable
-  `QOMPACK_*`/`--set` value is now dropped with a warning on the hook path too, instead of making
-  every hook record nothing; only unreadable input and a `runtime.redact` or `runtime.mode` setting
-  that cannot be applied as written still refuse capture, and `qompack self-test` and
-  `qompack doctor` report that as `config.capture`.
-- A `runtime.mode` the hooks cannot apply as written — `"OFF"`, `false`, any value outside
-  `auto|full|passive|off` — now stops recording, as `off` would, instead of falling back to `auto`
-  and recording. `config print` and the other read commands still fall back and warn.
-- One nonfinite `QOMPACK_*`/`--set` float, or one integer an `int` cannot hold from any layer
-  (including a `QOMPACK_*`/`--set` value from 2^63-512 up, which rounds past the int64 maximum), no
-  longer resets every configuration layer to the defaults; it is a per-leaf warning like any other
-  bad value.
+- **Every hook and the MCP server are exec form**: the host starts the bundled binary directly, so no
+  shell parses the command and Windows no longer needs Git Bash. This needs **Claude Code 2.1.139 or
+  later**; installing from the marketplace needs 2.1.224 or later. Tested with 2.1.280.
+- **Hook output follows Claude Code 2.1.280's schema.** `PreCompact` answers the empty object: the
+  summarizer instructions Qompack used to return were rejected by the host, so they are retired.
+- **The rehydration fits the host's cap** instead of a token budget of up to about 12,000 tokens,
+  which the host would have replaced with a file path and a short preview.
+- **A compaction's `SessionStart` answers within 5 s**, and with a "rehydration deferred" note naming
+  the cause when the rehydration is late or cannot be built, instead of an empty answer.
+- **`session-start` ends inside its 15 s timeout**, and one daemon starts per project however many
+  hooks race to start it.
+- **The `SessionEnd` flush answers once its request is durable** and the daemon ends the session
+  afterwards, inside the host's shared 1.5 s budget for plugin `SessionEnd` hooks.
+- **The hot-path budget B-A is derived per platform**: 15 ms on Linux, 50 ms on Windows, 40 ms on
+  macOS, so a Windows session no longer trips the breach detector by default. A configured value
+  below the durable-ingest budget is warned about.
+- **On a slow disk the switch to spool submode says that nothing is lost**, `status` and `doctor`
+  explain it, and a `PreCompact` replays the session's spooled captures, within a 500 ms bound,
+  before it seals.
+- **Configuration**: a bad key falls back to its default and warns on the hook path too, instead of
+  stopping every capture; a `runtime.redact` or `runtime.mode` that cannot be applied as written
+  stops recording. A configuration reload says which changed keys need a daemon restart and which
+  have no effect in this build.
+- **A session whose project root is the home directory records nothing** and says so once.
+- **The startup publication pass runs in the background** and yields to capture work.
+- **The plugin and marketplace descriptions** no longer claim compaction or cache awareness, and
+  `/qompack:pin` describes what a pin does.
+
+### Removed
+
+- **`/qompack:checkpoint`**: it ran the `PreCompact` hook entry point, which wrote nothing and
+  reported nothing. Checkpoints are automatic.
 
 ### Fixed
 
-- Retrieval authorization resolves a path on disk before answering, so a directory replaced by a
-  link pointing outside the project root is refused rather than served from the archive.
-- `runtime.hotPath.maxPayloadBytes` is bounded from above at the hook capture cap; a higher value
-  is restored to the cap with a warning instead of silently refusing every delivery.
-- A quarantined or damaged object answers as the `unavailable` domain outcome on both address
-  forms, never as a protocol error and never as a miss.
-- The assignment redaction family matches an underscore-prefixed key and a bare `auth` key, and
-  the eval exporter's rule set no longer misses a long GitHub token or an operator pattern.
-- Append-only index writes are newline-guarded, so a torn tail no longer swallows the next record.
-- Checkpoint integrity failures — an orphan artifact, a MANIFEST entry without its artifact, a
-  digest mismatch — each Loud once and refuse the affected checkpoint.
-- Checkpoint pointer resolvability is decided on disk rather than from the in-memory chunk set.
-- An unparseable retention line and a refused startup drain each Loud once instead of reporting
-  only to the day log.
-- A project whose `.qompack/` cannot be written falls back to the user-level log directory and
-  says so, instead of degrading with no durable evidence at all.
+Defects of earlier development builds of this repository, found by the V6 verification and its
+live sessions:
+
+- **Capture**: events dispatched concurrently were stranded behind the same-session ordering gate
+  and never recovered by the drain; client spools are replayed in the order the host stamped them;
+  a thrash warning whose reply never reached the host is re-armed.
+- **Rehydration**: the first prompt is injected whole or named as overflow, never cut mid-word;
+  corrections reach the evolution of the original request and render above it; a forked session
+  keeps its parent's request; a pin made while the daemon runs reaches the next checkpoint;
+  decisions carry across checkpoints; a checkpoint fallback is named, never silent; checkpoint
+  pointers are never empty.
+- **Diagnostics**: a healthy session no longer reads as failing in `status`; `doctor` and `fsck`
+  agree; Qompack's own MCP records are filed at the current turn, so `fsck` no longer fails after an
+  MCP call; a refreshed contract row is dated by its observation.
+- **Recovery**: restore works after an idle exit, after store GC of an MCP root and on a store from
+  before an upgrade; `backup verify` restores into a scratch copy and runs the seal check.
+- **Retrieval**: a cut response always carries `next_span`, an explicit span pages like
+  `full: true`, and quarantined or damaged objects answer `unavailable`.
+
+### Security
+
+- On Windows, a Read rule can no longer be bypassed through an 8.3 short name: with a deny or ask rule
+  in force, a path with an unresolvable 8.3-shaped segment is refused.
+- The cached server-managed settings are read in full, so a deeply nested permissions block is no
+  longer dropped.
+- Rehydration pointers never show a path the host currently denies, a path outside the project, or a
+  home- or variable-rooted path; they point by hash.
+- Retrieval resolves a path on disk before answering, so a directory replaced by a link out of the
+  project is refused.
+
+### Known limits
+
+- **No claim of benefit.** No document, release note or description claims that Qompack improves
+  recovery after a compaction, task success or constraint retention
+  (`plans/sdd/V6-closeout/eval/preregistration.md`, amendment A8).
+- **Verified where the evidence says, and nowhere else.** Installed into Claude Code on windows/amd64
+  only. Linux fsync-bound timing rows (B-A, B-B) are not verified in target. Windows timings were
+  taken on the reference host with the store under a path excluded from Windows Defender scanning
+  (decisions D32, D53(h)). The executable bit after a marketplace install on Linux and macOS, and the
+  command and tool namespace under a `qompack-<os>-<arch>` entry, have not been observed.
+- **Binaries are not code-signed**, so Gatekeeper, SmartScreen and Defender may refuse or flag them
+  (`docs/install.md` §10).
+- **Accepted residuals**, each documented in `docs/cannot-do.md`: a 2.3 to 6.8 s capture pause at each
+  journal rotation and a GC halt past 65,536 carried leases (D6); the deferred note at the edge of
+  session-start's budget (D29); prompts captured out of host order are flagged, never renumbered
+  (D35(b), D38); a `SessionEnd` during a daemon stop waits for the next session (D35(c)); spool
+  submode lasts until the session or the daemon ends (D44); shorter pages beside redacted text
+  (D48); PutBytes and the 256 KB `OnToolUse` row miss their budgets after the hook's ACK (D54); a
+  `PreCompact` can wait behind a spool replay already running and then names what it left (D56(e)).
+- **Not in this build**: a manual checkpoint, `qompack bench`, an operator command that stops the
+  daemon, and any automatic downgrade of the store format.
