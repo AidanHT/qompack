@@ -1,0 +1,110 @@
+package daemon
+
+// SCRATCH, never committed: C7.2 review finding 1 reproduction.
+
+import (
+	"context"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/qompack/qompack/internal/core"
+	"github.com/qompack/qompack/internal/ipc"
+)
+
+type scratchRig struct {
+	dd      *daemon
+	root    string
+	entries map[string]*spoolWatchEntry
+	start   time.Time
+	passes  []time.Duration
+}
+
+func newScratchRig(t *testing.T, stall time.Duration) *scratchRig {
+	dd, _, root := laneTestDaemon(t)
+	dr := newDrainer(dd.drainConfig())
+	if stall > 0 {
+		sync := dr.syncFile
+		dr.syncFile = func(path string) error {
+			timer := time.NewTimer(stall)
+			defer timer.Stop()
+			<-timer.C
+			return sync(path)
+		}
+	}
+	dd.drain.Store(dr)
+	liveOrderWorkers(t, dd, 2, dd.runIngested)
+	dd.spool.every, dd.spool.horizon = spoolWatchTick, 50*spoolWatchTick
+	return &scratchRig{dd: dd, root: root, entries: map[string]*spoolWatchEntry{}, start: time.Now()}
+}
+
+func (r *scratchRig) blocked(t *testing.T, sess core.SessionID) ipc.Request {
+	_, ok := r.dd.ing.leaseDelivery(context.Background(), spD3Prompt(r.dd, r.root, sess, orderNonce(0), "lost"))
+	require.True(t, ok)
+	return spD3Prompt(r.dd, r.root, sess, orderNonce(1), "blocked")
+}
+
+func (r *scratchRig) looks(t *testing.T, n int) {
+	for i := 0; i <= n; i++ {
+		now := r.start.Add(time.Duration(i) * spoolWatchTick)
+		before := r.dd.m.Counter(counterSpoolWatchDrains).Value()
+		r.dd.lookAtClientSpools(context.Background(), r.entries, true, now)
+		if r.dd.m.Counter(counterSpoolWatchDrains).Value() > before {
+			r.passes = append(r.passes, now.Sub(r.start))
+		}
+	}
+	t.Logf("passes at %v", r.passes)
+}
+
+const scratchStall = idleRunBudget + spoolWatchTick
+
+// R1: a hook-format spool [blocked, consumable], every sync held past the pass budget.
+func TestScratchReview_R1_BlockedThenConsumable_Stalled(t *testing.T) {
+	r := newScratchRig(t, scratchStall)
+	writeHookSpool(t, r.root, "client-6363.ndjson", r.blocked(t, "sess-scratch-stuck"),
+		liveOrderTool(r.dd, r.root, "sess-scratch-other", 7))
+	r.looks(t, 7)
+	require.LessOrEqual(t, len(r.passes), 3, "a handful of passes, not one per look")
+}
+
+// R1 control: the blocked record alone, same stall on every pass.
+func TestScratchReview_R1Control_BlockedOnly_Stalled(t *testing.T) {
+	r := newScratchRig(t, scratchStall)
+	writeHookSpool(t, r.root, "client-6363.ndjson", r.blocked(t, "sess-scratch-stuck"))
+	r.looks(t, 4)
+	require.Equal(t, []time.Duration{20 * time.Millisecond, 60 * time.Millisecond}, r.passes)
+}
+
+// R1 control: [blocked, consumable] with no stall.
+func TestScratchReview_R1Control_BlockedThenConsumable_NoStall(t *testing.T) {
+	r := newScratchRig(t, 0)
+	writeHookSpool(t, r.root, "client-6363.ndjson", r.blocked(t, "sess-scratch-stuck"),
+		liveOrderTool(r.dd, r.root, "sess-scratch-other", 7))
+	r.looks(t, 4)
+	require.Equal(t, []time.Duration{20 * time.Millisecond, 60 * time.Millisecond}, r.passes)
+}
+
+// R2: starvation. X = [blocked, consumable] is first in host order; Y holds a fresh capture of a third
+// session, later in host order. Every sync held past the pass budget.
+func TestScratchReview_R2_LaterSpoolStarves_Stalled(t *testing.T) {
+	r := newScratchRig(t, scratchStall)
+	writeHookSpool(t, r.root, "client-6363.ndjson", r.blocked(t, "sess-scratch-stuck"),
+		liveOrderTool(r.dd, r.root, "sess-scratch-other", 7))
+	fresh := liveOrderTool(r.dd, r.root, "sess-scratch-later", 50)
+	writeHookSpool(t, r.root, "client-6364.ndjson", fresh)
+	r.looks(t, 3)
+	require.True(t, spoolWatchPublished(r.dd, fresh.Nonce),
+		"the later spool's fresh capture is published by one of %d passes", len(r.passes))
+}
+
+// R2 control: X = [blocked] alone, same stall.
+func TestScratchReview_R2Control_BlockedOnly_Stalled(t *testing.T) {
+	r := newScratchRig(t, scratchStall)
+	writeHookSpool(t, r.root, "client-6363.ndjson", r.blocked(t, "sess-scratch-stuck"))
+	fresh := liveOrderTool(r.dd, r.root, "sess-scratch-later", 50)
+	writeHookSpool(t, r.root, "client-6364.ndjson", fresh)
+	r.looks(t, 3)
+	require.True(t, spoolWatchPublished(r.dd, fresh.Nonce),
+		"the later spool's fresh capture is published by one of %d passes", len(r.passes))
+}
