@@ -1,0 +1,63 @@
+# product tree identity: prefreeze tree vs candidate 6
+$ git diff --stat 61b0cd66 99d0b18cf7d5991aa733e70ce52a542b80aa7710 -- . ":(exclude)plans"
+(empty: no file outside plans/ differs)
+
+$ git log --oneline 61b0cd66..9a56b305
+9a56b305 docs(v6): waive the w16f-hpdepth report's split -run alternations
+
+$ git diff --stat 61b0cd66 9a56b305
+ plans/sdd/V6-closeout/w16f-hpdepth/report.md | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+$ git rev-parse 99d0b18^2 (the merged integration head)
+9a56b30549d9762f6c8eb90df7779c962db3a2ac
+
+# C5.2 covered code: candidate 5 vs candidate 6, product files of each benchmarked package
+$ git diff --stat 0d06ab12 99d0b18 -- internal/store ':(exclude)internal/store/*_test.go'
+$ git diff --stat 0d06ab12 99d0b18 -- internal/negknow ':(exclude)internal/negknow/*_test.go'
+$ git diff --stat 0d06ab12 99d0b18 -- internal/canon ':(exclude)internal/canon/*_test.go'
+$ git diff --stat 0d06ab12 99d0b18 -- internal/chunk ':(exclude)internal/chunk/*_test.go'
+$ git diff --stat 0d06ab12 99d0b18 -- internal/symbols ':(exclude)internal/symbols/*_test.go'
+$ git diff --stat 0d06ab12 99d0b18 -- internal/dag ':(exclude)internal/dag/*_test.go'
+$ git diff --stat 0d06ab12 99d0b18 -- internal/sketch ':(exclude)internal/sketch/*_test.go'
+$ git diff --stat 0d06ab12 99d0b18 -- internal/eval ':(exclude)internal/eval/*_test.go'
+$ git diff --stat 0d06ab12 99d0b18 -- internal/config ':(exclude)internal/config/*_test.go'
+$ git diff --stat 0d06ab12 99d0b18 -- internal/paths ':(exclude)internal/paths/*_test.go'
+ internal/paths/pathstest/home.go               |   4 +
+ internal/paths/pathstest/privileges_other.go   |  19 ++++
+ internal/paths/pathstest/privileges_windows.go | 149 +++++++++++++++++++++++++
+ 3 files changed, 172 insertions(+)
+$ git diff --stat 0d06ab12 99d0b18 -- internal/scheduler ':(exclude)internal/scheduler/*_test.go'
+$ git diff --stat 0d06ab12 99d0b18 -- internal/rules ':(exclude)internal/rules/*_test.go'
+$ git diff --stat 0d06ab12 99d0b18 -- internal/skills ':(exclude)internal/skills/*_test.go'
+
+# packages with product changes, and the files the benchmarks run
+ internal/checkpoint/precompact.go                  |  14 ++
+ .../checkpoint/precompact_priced_drops_test.go     |  43 ++++++
+ internal/checkpoint/types.go                       |  18 +++
+ internal/cli/dispatch.go                           |   4 +-
+ internal/core/toolnames.go                         |  34 ++++
+ internal/core/toolnames_test.go                    |  39 +++++
+ internal/grammar/statewarn.go                      |  56 ++++++-
+ internal/grammar/statewarn_test.go                 |  21 +++
+ internal/ipc/spool.go                              |  33 +++-
+ internal/obs/nonrefdisk.go                         |  63 ++++++++
+ internal/obs/nonrefdisk_test.go                    |  36 +++++
+ internal/obs/spool_submode.go                      |  30 ++++
+ internal/observer/observer.go                      |  26 +++-
+ internal/observer/prompt.go                        |  15 +-
+ internal/observer/prompt_delivery.go               | 155 ++++++++++++++++++-
+ internal/observer/prompt_reply_claim_test.go       | 171 +++++++++++++++++++++
+ internal/observer/state.go                         |   4 +-
+ 17 files changed, 747 insertions(+), 15 deletions(-)
+
+$ git diff --stat 0d06ab12 99d0b18 -- internal/observer/tooluse.go internal/observer/tombstone.go internal/checkpoint/finalize.go internal/checkpoint/writer.go internal/checkpoint/decisions.go internal/checkpoint/inject.go internal/checkpoint/truncate.go internal/daemon/scheduler_*.go
+(empty)
+
+$ git diff --stat 0d06ab12 99d0b18 -- internal/store/bench_test.go internal/negknow/bench_test.go internal/obs/obs_test.go internal/config/bench_test.go internal/paths/bench_test.go internal/cli/bench_test.go internal/observer/tooluse_test.go internal/observer/tombstone_test.go internal/checkpoint/finalize_test.go internal/daemon/scheduler_bench_test.go
+(empty)
+
+$ git diff --stat 0d06ab12 99d0b18 -- internal/store/search_test.go internal/store/gc_test.go   # fixture plumbing only: newTestStore(b) instead of a zero testing.T
+ internal/store/gc_test.go     | 5 ++---
+ internal/store/search_test.go | 6 ++----
+ 2 files changed, 4 insertions(+), 7 deletions(-)
