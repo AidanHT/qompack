@@ -102,8 +102,9 @@ func reportCaptureConfig(root, home string, violations []config.Violation, warni
 			// is persisted below; that is not a reason to promote it. Logged Loud, it put one line in
 			// the never-rotated LOUD.log per hook for as long as a project stayed on a newer config
 			// (finding F-C7-C49-2: 18 lines in 30 s after a downgrade), when Loud is reserved for
-			// contract violations and degradation transitions. The running daemon's reload of a
-			// changed file still names it in LOUD.log, once; doctor reads the record below.
+			// contract violations and degradation transitions. Each daemon still names it in
+			// LOUD.log at its first config check after start, and again on each reload of a changed
+			// file or a forced admin.reload (daemon/reload.go); doctor reads the record below.
 			log.Warn("configuration warning", "key", v.Key, "message", v.Message)
 			continue
 		}

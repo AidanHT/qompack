@@ -531,7 +531,7 @@ likely to be the answer when nothing is being recorded.
 | invalid value | the leaf falls back to its default, loading continues | `config-violations.json`, `loud` in the day log |
 | wrong type — a string where a number belongs, an unparseable `QOMPACK_*` or `--set` value, a section that is not an object | that value is ignored with a warning, and the leaf keeps the value from the layer below: the default when no lower layer set it | `warn` in the day log only |
 | unknown key | a warning, never an error | `warn` in the day log only |
-| newer `settingsVersion` | the whole versioned block is reset to defaults, so unknown future switches stay off | `warn` in the day log; the hook path also records it in `config-violations.json` (§1). A running daemon that reloads the changed file names it once in `LOUD.log`, as `daemon: config reload warning` |
+| newer `settingsVersion` | the whole versioned block is reset to defaults, so unknown future switches stay off | `warn` in the day log; the hook path also records it in `config-violations.json` (§1). Each running daemon also names it in `LOUD.log`, as `daemon: config reload warning`: once at its first configuration check after it starts, and again whenever the file changes or `admin.reload` forces a reload |
 | retired meaning | the value is still applied, with a deprecation warning naming the file and line | `warn` in the day log only |
 
 On the hook path the first three rows do not apply inside `runtime.redact` or to `runtime.mode`: a

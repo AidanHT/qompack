@@ -71,7 +71,8 @@ func linesWith(log string, parts ...string) int {
 // contract violation or a degradation transition, and config.Load reports the same reset at warn
 // (LoadConfigAndReport), as troubleshooting §6's table says. Each hook therefore records it at warn
 // in the day log and in state/config-violations.json (which doctor and self-test read), and
-// LOUD.log stays clean of it; the running daemon's reload of a changed file is the one LOUD line.
+// LOUD.log stays clean of it. The daemon owns the loud report: one line at each daemon's first
+// config check after start, and one per reload of a changed file or forced admin.reload.
 func TestHookCapture_NewerSettingsVersionWarnsWithoutLoud(t *testing.T) {
 	root := t.TempDir()
 	day, loud := runPromptHooks(t, root, `{"runtime":{"migration":{"settingsVersion":99}}}`,
