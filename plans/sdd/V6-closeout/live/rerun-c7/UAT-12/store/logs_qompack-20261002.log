@@ -1,0 +1,11 @@
+ts=2026-10-02T19:34:21.4967384Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-10-02T19:34:21.5311371Z level=info msg="observer: session registered" session=0f040f87-5a4b-4588-b34c-8899ee865b0d source=startup turn=0 segment=1
+ts=2026-10-02T19:34:21.531672Z level=info msg="scheduler: session bound" session=0f040f87-5a4b-4588-b34c-8899ee865b0d effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+ts=2026-10-02T19:35:23.9364062Z level=info msg="observer: gc" scanned=83 deleted=0 freed=0 truncated=false
+ts=2026-10-02T19:36:36.8106472Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-10-02T19:36:36.8837697Z level=info msg="observer: session registered" session=2a4952b4-730f-41f8-954b-696d176baba8 source=startup turn=0 segment=3
+ts=2026-10-02T19:36:36.8837697Z level=info msg="scheduler: state from another session discarded" path=<scratch>\retrieval\c7\uat12\proj\.qompack\state\bocd.json file_session=0f040f87-5a4b-4588-b34c-8899ee865b0d session=2a4952b4-730f-41f8-954b-696d176baba8
+ts=2026-10-02T19:36:36.8843055Z level=info msg="scheduler: state from another session discarded" path=<scratch>\retrieval\c7\uat12\proj\.qompack\state\scheduler.json file_session=0f040f87-5a4b-4588-b34c-8899ee865b0d session=2a4952b4-730f-41f8-954b-696d176baba8
+ts=2026-10-02T19:36:36.8843055Z level=info msg="scheduler: session bound" session=2a4952b4-730f-41f8-954b-696d176baba8 effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+ts=2026-10-02T19:39:00.0055625Z level=info msg="observer: gc" scanned=529 deleted=0 freed=0 truncated=false
+ts=2026-10-02T19:40:28.7574469Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
