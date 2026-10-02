@@ -119,3 +119,90 @@ func TestBuild_ArgumentSummariesFailClosedWithoutHostRules(t *testing.T) {
 	require.Contains(t, section6, "- tool_use toolu_selector "+hashOf("s1").String()+" — "+withheldSummary)
 	require.Contains(t, section6, `{"query":"LUPINE-7731"}`, "a summary that names no path is not a path")
 }
+
+// TestBuild_JoinedArgumentPreviewsNeverShowAWithheldPath covers the summaries a built-in tool's
+// call leaves. The store's preview of one is not JSON: it is the values of file_path, path,
+// pattern, command and url joined by spaces (store.argsPreview), so nothing names the argument and
+// no token boundary marks where a path ends. A denied path with a space in it split into tokens no
+// rule refuses; recall's plain path: selector selects by path-segment suffix
+// (store.pathSelector.weight), so a basename names the file; Glob's preview is its directory then
+// its pattern; and a path with no dot or separator beside another argument was never judged
+// (w19-rehydrate review).
+func TestBuild_JoinedArgumentPreviewsNeverShowAWithheldPath(t *testing.T) {
+	root := privacyRoot(t)
+	cp := ckUAT05()
+	cp.Pointers.Files = []checkpoint.FilePointer{
+		{Path: "private/deny.txt", Hash: hashOf("deny"), Why: "referenced"},
+		{Path: "reports.py", Hash: hashOf("reports"), Why: "referenced"},
+	}
+	withheldTools := []checkpoint.ToolPointer{
+		// A Read of a denied path with a space in it: the preview is the file_path value alone.
+		{ToolUseID: "toolu_spaced", Hash: hashOf("j1"), Summary: "private/my secret.txt"},
+		// Grep's path, then its pattern.
+		{ToolUseID: "toolu_spacedgrep", Hash: hashOf("j2"), Summary: "private/my secret.txt apikey"},
+		// A command quoting it.
+		{ToolUseID: "toolu_spacedcmd", Hash: hashOf("j3"), Summary: `cat "private/my secret.txt"`},
+		// recall's plain selector, spelled by basename.
+		{ToolUseID: "toolu_basename", Hash: hashOf("j4"), Summary: `{"query":"path:deny.txt"}`},
+		// Glob's directory then pattern: a file the build records, and one Qompack never recorded.
+		{ToolUseID: "toolu_globpair", Hash: hashOf("j5"), Summary: "private deny.txt"},
+		{ToolUseID: "toolu_globunrecorded", Hash: hashOf("j6"), Summary: "vault keys.txt"},
+		// A path with no dot or separator, beside another argument.
+		{ToolUseID: "toolu_grepbare", Hash: hashOf("j7"), Summary: "credentials apikey"},
+		{ToolUseID: "toolu_catbare", Hash: hashOf("j8"), Summary: "cat credentials"},
+	}
+	allowedTools := []checkpoint.ToolPointer{
+		// A search inside the denied file's directory names the directory, which no rule refuses.
+		{ToolUseID: "toolu_ok_grepdir", Hash: hashOf("k1"), Summary: "private salary"},
+		{ToolUseID: "toolu_ok_cmd", Hash: hashOf("k2"), Summary: "cat data/meta.txt"},
+		{ToolUseID: "toolu_ok_selector", Hash: hashOf("k3"), Summary: `{"query":"path:reports.py"}`},
+		{ToolUseID: "toolu_ok_grep", Hash: hashOf("k4"), Summary: "src TODO"},
+		{ToolUseID: "toolu_ok_spaced", Hash: hashOf("k5"), Summary: "docs/my notes.md"},
+	}
+	cp.Pointers.Tools = append(append([]checkpoint.ToolPointer(nil), withheldTools...), allowedTools...)
+
+	d := uat05Deps(t, cp)
+	d.HostPaths = denyFiles(root, "private/deny.txt", "private/my secret.txt", "vault/keys.txt", "credentials")
+	r := requestFor(t, cp, maxBudget())
+	r.ProjectRoot = root
+
+	res, err := Build(context.Background(), r, d)
+	require.NoError(t, err)
+	requireInsideTheHostCeiling(t, res, cp.Session)
+	requireNoLeak(t, res, []string{"deny.txt", "secret.txt", "keys.txt", "credentials"})
+
+	section6 := sectionBody(res.Text, sectionHeading(ItemPointers))
+	for _, tp := range withheldTools {
+		require.Contains(t, section6, "- tool_use "+string(tp.ToolUseID)+" "+tp.Hash.String()+" — "+withheldSummary,
+			"a summary naming a withheld path is withheld, and the pointer still points by id and hash")
+	}
+	for _, tp := range allowedTools {
+		require.Contains(t, section6, "- tool_use "+string(tp.ToolUseID)+" "+tp.Hash.String()+" — "+tp.Summary,
+			"a summary that names no withheld path is shown as recorded")
+	}
+}
+
+// TestBuild_AnAbsolutePathIsJudgedAsTheOneFileItNames: a suffix names a withheld file only when it
+// is relative. recall's selector and Glob's pattern match at any depth, so `path:README.md` selects
+// a denied private/README.md; the store's preview of a Read is the absolute path of one file, and
+// the project's own README.md is not withheld because a file of the same name is.
+func TestBuild_AnAbsolutePathIsJudgedAsTheOneFileItNames(t *testing.T) {
+	root := privacyRoot(t)
+	cp := ckUAT05()
+	cp.Pointers.Files = []checkpoint.FilePointer{{Path: "private/README.md", Hash: hashOf("pr"), Why: "referenced"}}
+	rootReadme := filepath.Join(root, "README.md")
+	cp.Pointers.Tools = []checkpoint.ToolPointer{
+		{ToolUseID: "toolu_abs", Hash: hashOf("abs"), Summary: rootReadme},
+		{ToolUseID: "toolu_sel", Hash: hashOf("sel"), Summary: `{"query":"path:README.md"}`},
+	}
+	d := uat05Deps(t, cp)
+	d.HostPaths = denyFiles(root, "private/README.md")
+	r := requestFor(t, cp, maxBudget())
+	r.ProjectRoot = root
+
+	res, err := Build(context.Background(), r, d)
+	require.NoError(t, err)
+	section6 := sectionBody(res.Text, sectionHeading(ItemPointers))
+	require.Contains(t, section6, "- tool_use toolu_abs "+hashOf("abs").String()+" — "+rootReadme)
+	require.Contains(t, section6, "- tool_use toolu_sel "+hashOf("sel").String()+" — "+withheldSummary)
+}
