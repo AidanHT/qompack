@@ -17,10 +17,11 @@ decisions D52, D53 and D57, eight rows were re-run on candidate 7 (commit `d2030
 UAT-03, UAT-04, UAT-06, UAT-09 and UAT-10 pass, and UAT-05 and UAT-12 fail (decision D59). UAT-05
 fails because a compaction at a 150-token budget dropped material and injected no notice of it;
 UAT-12 fails because a tool pointer's argument summary in the rehydration block showed a path the
-host denies. Both are fixed for candidate 8, and both rows are re-run on it. Those eight Result
-blocks report candidate 7 and keep the earlier outcomes as history lines (UAT-10 was not re-run on
-candidate 4, and its candidate 4 line says so). UAT-02, UAT-07, UAT-08 and UAT-11 were not re-run
-on candidate 7: their Result blocks report candidate 4 and keep candidate 3's line. No human has
+host denies. Both have fixes ordered for candidate 8 (decision D59), and both rows are re-run on
+it. Those eight Result blocks report candidate 7 and keep the earlier outcomes as history lines
+(UAT-10 was not re-run on candidate 4, and its candidate 4 line says so). UAT-02, UAT-07, UAT-08
+and UAT-11 were not re-run on candidate 7: their Result blocks report candidate 4 and keep
+candidate 3's line. No human has
 run these scenarios, automated package and installation tests have separate evidence and do not
 fill these blocks, and no release has been published.
 
