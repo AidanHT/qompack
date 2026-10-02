@@ -1083,3 +1083,23 @@ The row's other two concerns are closed on both OSes. On Windows, GetChunk stays
 residual is the per-object file open, Lstat and fstat, which is NTFS cost, plus the content hash
 verify-on-read keeps on purpose (integrity, 16ecc77). The read buffer is presized (allocations 22 -> 9).
 Retrieval's user-facing envelope, B-F, is gated separately (quiet C5.1 B-F gate runs pass).
+
+---
+
+## V6-VERIFY candidate 6 confirmation (2026-10-02, C6.3)
+
+Candidate 6 is `verify/v6` `99d0b18`. Every `Test*` evidence test below ran green on it in the Windows whole tree (pre-freeze tree `61b0cd66`, product-identical, and the `-race` pass `phase3/c6/p3-win-race.log`) and in hosted ci.yml `36955046276` `test (ubuntu-latest)` (`-race`) and `test (macos-latest)`; codes and paths are in `sdd/V6-closeout/inventory-c6-map.md`. A `Benchmark*` evidence symbol exists on the candidate; `go test` does not execute benchmarks, and the measurement a row rests on is named in its row. Status is unchanged; `CARRIED-DEFECTS.tsv` remains the source of record.
+
+| row | status | ruling | on candidate 6 |
+|---|---|---|---|
+| SP06-D1 | `wontfix` | V3-VERIFY (option b, documented deadline scope) | no runtime symptom; the GC deadline rows pass in both isolated timing passes on candidate 6 |
+| SP05-D1 | `fixed` | V4-VERIFY (`66690d52`) | TestCarriedDefect_SP05D1_IdleBudgetExpiryLeavesInterruptedLinePending green |
+| SP06-D2 | `wontfix` | D54 (as SP08-D1) | PutBytes cold/warm: covered code unchanged since the candidate 5 measurement (`sdd/V6-closeout/w17-inventory/runs/unchanged-proofs.txt`) (no internal/store product file changed) |
+| SP05-D2 | `fixed` | V5 close-out (`e026cba6`) | BenchmarkIngestAcceptLeasedBurst exists; the quiet C5.1 run on candidate 6 (in progress) re-measures the hook path |
+| SP20-D1 | `fixed` | V5 close-out (`e026cba6`; B-B re-budget, fsync before ACK) | BenchmarkIngestAcceptLeased exists; Windows B-B is measured by quiet C5.1 on candidate 6 (in progress); Linux container B-B is not verified in target (D53(b)) |
+| SP20-D2 | `fixed` | D54 (budgets met on Linux; Windows GetChunk residual recorded) | BenchmarkGetChunk: covered code unchanged since the candidate 5 measurement (`sdd/V6-closeout/w17-inventory/runs/unchanged-proofs.txt`) (no internal/store product file changed) |
+| SP20-D3 | `fixed` | V5 close-out (`782652d1`) | TestPutBytes_SharedVolatileTokenRestoresBothRootsExactly green |
+| SP09-D1 | `fixed` | D54 | TestBudget_Open green in both isolated timing passes on candidate 6 (`phase3/c6/p3-win-timing.log`, the Linux timing artifacts); BenchmarkOpen: covered code unchanged since the candidate 5 measurement (`sdd/V6-closeout/w17-inventory/runs/unchanged-proofs.txt`) |
+| SP20-D4 | `fixed` | C1.10, D2, D6, D16 | TestCarriedDefect_SP20D4_CaptureContinuesPastTheOldEntryCapAcrossRestart green; rollover ships enabled |
+| SP20-D5 | `fixed` | V5 close-out (`e026cba6`) | TestDrainKeepsTheDurableBoundItRecordedWhenASegmentIsReopenedBelowIt green |
+| SP20-D6 | `fixed` | V6 remediation (`65bc8d77`; accounting, no universal timing claim) | TestCarriedDefect_SP20D6_GatedBASampleIncludesThePreACKHandler green |

@@ -301,3 +301,19 @@ owned by SP-10's checkpointer encode path (wave 3): the encode step is where a s
 re-serialized and where the delta-vs-full economics exist. canon.Decide stays as the seam SP-10
 consumes; store.nearDup keeps its own threshold (option (b) rejected - conflating near-dup
 detection with storage-format choice couples two unrelated policies).
+
+---
+
+## V6-VERIFY candidate 6 confirmation (2026-10-02, C6.3)
+
+Candidate 6 is `verify/v6` `99d0b18`. Every `Test*` evidence test below ran green on it in the Windows whole tree (pre-freeze tree `61b0cd66`, product-identical, and the `-race` pass `phase3/c6/p3-win-race.log`) and in hosted ci.yml `36955046276` `test (ubuntu-latest)` (`-race`) and `test (macos-latest)`; codes and paths are in `sdd/V6-closeout/inventory-c6-map.md`. A `Benchmark*` evidence symbol exists on the candidate; `go test` does not execute benchmarks, and the measurement a row rests on is named in its row. Status is unchanged; `CARRIED-DEFECTS.tsv` remains the source of record.
+
+| row | status | ruling | on candidate 6 |
+|---|---|---|---|
+| SP04-D1 | `fixed` | V2-VERIFY | TestCarriedDefect_SP04D1_EscapedTempPathIsStripped green |
+| SP04-D2 | `wontfix` | V3-VERIFY (fixed-point composition rejected) | TestKnownDeletionMediatedLimit green: the documented limit still holds as pinned |
+| SP04-D3 | `wontfix` | V3-VERIFY (travels with SP04-D2) | TestCarriedDefect_SP04D3_TimestampAndDurationEdges green |
+| SP04-D4 | `fixed` | V2-VERIFY | TestNightlyFuzz_LandedSubplansMirrorsCoverGo green (test/guards) |
+| SP04-D5 | `fixed` | V3-VERIFY (re-judged) | no runtime symptom; the canon benches were re-measured in quiet C5.2 on candidate 5, internal/canon unchanged since |
+| SP04-D6 | `fixed` | V3-VERIFY (confirmed stable) | no runtime symptom |
+| SP04-D7 | `fixed` | V3-VERIFY (owner assigned) | no runtime symptom |

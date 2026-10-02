@@ -653,3 +653,15 @@ user's hook does not wait on it, and the user-facing envelopes that do (B-A/B-B 
 host-seen hook latency in the live lane, D53(i)) are gated separately. Closing the gap needs batched object
 writes (a pack or group-commit design), which changes the store's crash model and is not taken at the
 release freeze. Revisit with SP06-D2 in post-0.3.0 performance work.
+
+---
+
+## V6-VERIFY candidate 6 confirmation (2026-10-02, C6.3)
+
+Candidate 6 is `verify/v6` `99d0b18`. Every `Test*` evidence test below ran green on it in the Windows whole tree (pre-freeze tree `61b0cd66`, product-identical, and the `-race` pass `phase3/c6/p3-win-race.log`) and in hosted ci.yml `36955046276` `test (ubuntu-latest)` (`-race`) and `test (macos-latest)`; codes and paths are in `sdd/V6-closeout/inventory-c6-map.md`. A `Benchmark*` evidence symbol exists on the candidate; `go test` does not execute benchmarks, and the measurement a row rests on is named in its row. Status is unchanged; `CARRIED-DEFECTS.tsv` remains the source of record.
+
+| row | status | ruling | on candidate 6 |
+|---|---|---|---|
+| SP08-D1 | `wontfix` | D54 (one durable object write per novel chunk, after the hook's ACK; a batched-write store format is post-0.3.0) | BenchmarkOnToolUse_TestOutput256KB: covered code unchanged since the candidate 5 measurement (`sdd/V6-closeout/w17-inventory/runs/unchanged-proofs.txt`); observer's candidate 6 changes are on the prompt path, `tooluse.go` is byte-unchanged |
+| SP08-D2 | `fixed` | V5 close-out (`b0bf68d2`) | TestCarriedDefect_SP08D2_ReusedLeaseRedeliveryIsNotIdempotent green |
+| SP08-D3 | `fixed` | D35, residuals D35(b) and D38 | TestCarriedDefect_SP08D3_SpooledHostFirstPromptLosesTurnZero green; the prompt-capture rows of the candidate 6 live lane (UAT-06) are pending |

@@ -227,3 +227,18 @@ already recorded; it does not answer whether the budget or the implementation is
 condition of the base, not a product of these dispositions, and this unit deliberately did not chase
 them: `test/guards` is outside its ownership. A V4 gate report must score them on their own evidence
 before treating the manifest as green.
+
+---
+
+## V6-VERIFY candidate 6 confirmation (2026-10-02, C6.3)
+
+Candidate 6 is `verify/v6` `99d0b18`. Every `Test*` evidence test below ran green on it in the Windows whole tree (pre-freeze tree `61b0cd66`, product-identical, and the `-race` pass `phase3/c6/p3-win-race.log`) and in hosted ci.yml `36955046276` `test (ubuntu-latest)` (`-race`) and `test (macos-latest)`; codes and paths are in `sdd/V6-closeout/inventory-c6-map.md`. A `Benchmark*` evidence symbol exists on the candidate; `go test` does not execute benchmarks, and the measurement a row rests on is named in its row. Status is unchanged; `CARRIED-DEFECTS.tsv` remains the source of record.
+
+| row | status | ruling | on candidate 6 |
+|---|---|---|---|
+| SP02-D1 | `fixed` | V4-VERIFY | TestCorpus_RaisesEveryDemandKind green |
+| SP02-D2 | `fixed` | V4-VERIFY | TestCarriedDefect_SP02D2_FileSetJaccardIsNotStructurallyOne green |
+| SP02-D3 | `fixed` | V4-VERIFY | TestCorpus_BeladyBudgetBinds green |
+| SP02-D4 | `fixed` | V4-VERIFY | TestCarriedDefect_SP02D4_PMinIsMeasuredOverCandidates green |
+| SP02-D5 | `fixed` | V4-VERIFY | TestCompare_DecisionPreservationIgnoresHorizonAgreement green |
+| SP02-D6 | `wontfix` | V5-VERIFY (`69d896b`; Qompack.md v1.5 retired section 2.4 step 7) | TestCarriedDefect_SP02D6_StockIgnoresSkillInvocations green; the hosted replay-gate on the candidate passes |
