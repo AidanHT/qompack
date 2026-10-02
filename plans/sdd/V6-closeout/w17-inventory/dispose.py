@@ -234,7 +234,8 @@ def c7_of(rid, r, res6, ev6):
             return "implemented_unverified", f"{chg}; test/docs on c7 pending (PRE7 testpkgs, P-CI7)" + lane
         tail = "; on c6: " + ev6.split("; ", 1)[1] if res6 == "partial_verified" and "; " in ev6 else ""
         return "partial_verified", (f"PRE7; {chg}; test/docs passes on Windows on c7's code (PRE7 testpkgs); "
-                                    f"the Linux tree and hosted docs job on c7 are pending (P-CI7)" + tail + lane)
+                                    f"hosted docs 110757119402 (test/docs and the gen-*-docs checks) is green on c7 in ci.yml "
+                                    f"36981590450; the Linux tree, test (ubuntu-latest), is pending (P-CI7)" + tail + lane)
     if rid == "1.1.1":
         ident = (f"candidate 7 identity: verify/v6 {FREEZE7} (code {C7_CODE})" if FREEZE7
                  else f"candidate 7 is not frozen yet; its code is closeout/integration {C7_CODE}")
@@ -245,6 +246,7 @@ def c7_of(rid, r, res6, ev6):
               "TestBundle_OnDiskMatchesGenerator and TestManifest_GoldenBytes: " + pre7("internal"))
         if BUNDLES7:
             ev += "; c7's bundles built and validated by the installed CLI (phase3/c7/host-validate.txt)"
+        ev += "; hosted plugin-validate 110757119388 green on c7 (ci.yml 36981590450)"
         return res6, ev
     if rid == "1.17.1":
         ev = ("C7-CARRY by the byte proof (D57(c), w17-release): c6's two builds are byte-identical (91 files) and "
