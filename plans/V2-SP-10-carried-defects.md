@@ -238,4 +238,4 @@ Candidate 6 is `verify/v6` `99d0b18`. Every `Test*` evidence test below ran gree
 
 | row | status | ruling | on candidate 6 |
 |---|---|---|---|
-| SP10-D1 | `fixed` | D54 (quiet C5.2 on candidate 5) | BenchmarkFinalize: covered code unchanged since the candidate 5 measurement (`sdd/V6-closeout/w17-inventory/runs/unchanged-proofs.txt`); `finalize.go` is byte-unchanged, and candidate 6's only checkpoint change is the nil-checked `PricedDrops` hook on `preCompact`, which Finalize does not enter |
+| SP10-D1 | `fixed` | D54 (quiet C5.2 on candidate 5) | BenchmarkFinalize: covered code unchanged since the candidate 5 measurement (`sdd/V6-closeout/w17-inventory/runs/unchanged-proofs.txt`); `finalize.go` is byte-unchanged, and candidate 6's checkpoint product changes are the nil-checked `PricedDrops` hook on `preCompact` and three new constants, none of which Finalize enters. The package-level diff is not empty (`sdd/V6-closeout/w17-inventory/runs/c52-package-diffs-c5-to-c6.txt`), so this carry rests on the executed-files reading, which awaits a coordinator ruling (`sdd/V6-closeout/inventory-c6-map.md`) |
