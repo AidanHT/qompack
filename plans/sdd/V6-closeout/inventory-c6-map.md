@@ -53,9 +53,9 @@ Paths are relative to `plans/sdd/V6-closeout/`. Job ids are GitHub Actions jobs 
 | code | artifact | state |
 |---|---|---|
 | `WIN` | Windows whole tree: `phase3/c6/prefreeze/internal.log`, `testpkgs.log`, `integration.log` (tree `61b0cd66`, product-identical); `phase3/c6/p3-win-race.log` (`99d0b18`, `devtool test-race`, every non-e2e package); `phase3/c6/p3-win-e2e-timing.log` (`99d0b18`, test/e2e, isolated) | green except `RED-X11` and `RED-FAULT` |
-| `LNX` | hosted `test (ubuntu-latest)` 110676058062: `-race`, whole tree but test/e2e, expected-failure reconciliation empty; `test (macos-latest)` 110676058123 likewise | green |
-| `LE2E` | hosted `test-e2e` ubuntu 110676058080, macos 110676058201, windows 110676058155 (under `QOMPACK_NONREFERENCE_DISK`); container `phase3/c6/linux/cx-p3-p3-linux-e2e-timing-99d0b18-20261002T035853Z-artifacts` (335 pass, 3 skip, 1 fail: X11, fsync-bound, D53(b)) | green but X11 |
-| `CHILD` | nightly `race-product-child` 110676054635 (ubuntu, `QOMPACK_REQUIRE_CHILD_RACE=1`) | green |
+| `LNX` | hosted `test (ubuntu-latest)` 110676058062: `-race`, whole tree but test/e2e, expected-failure reconciliation empty; `test (macos-latest)` 110676058123 likewise; container `phase3/c6/linux/cx-p3-p3-linux-tree-99d0b18-20261002T041733Z-artifacts` (non-root, `-race`, co-load declared: every package PASS, 0 fail) | green |
+| `LE2E` | hosted `test-e2e` ubuntu 110676058080, macos 110676058201, windows 110676058155 (under `QOMPACK_NONREFERENCE_DISK`); container `phase3/c6/linux/cx-p3-p3-linux-e2e-timing-99d0b18-20261002T035853Z-artifacts` (335 pass, 3 skip, 1 fail: X11, fsync-bound, D53(b)) and the container `-race` lane `cx-p3-p3-linux-e2e-99d0b18-20261002T044416Z-artifacts` (336 pass, 3 skip, 0 fail; X11 reports under co-load, D39). The three skips are TestInstall_HostCLIInstallUpgradeUninstall and TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting (no claude CLI in the container) and TestE2E_RequiredProductChildRaceInstrumentation (its own lane) | green but isolated X11 |
+| `CHILD` | nightly `race-product-child` 110676054635 (ubuntu, `QOMPACK_REQUIRE_CHILD_RACE=1`); container `cx-p3-p3-linux-child-99d0b18-20261002T052037Z-artifacts` (8 of 8 pass, `CGO_ENABLED=1 GOFLAGS=-race`) | green |
 | `WRACE` | `phase3/c6/p3-win-race.log` | green |
 | `FUZZ` | nightly fuzz matrix, 27 jobs | green |
 | `GATE` | `phase3/c6/prefreeze/gate.log` (build; vet for windows, linux, darwin; fmt-check; gen-config-docs and gen-mcp-docs `--check`; lint subset) and `runpatterns-after-waiver.log`; hosted `verify` 110676058066 (fmt-check, full `devtool lint`, vet, build) and `lint-windows` 110676058082 | green |
@@ -242,7 +242,8 @@ TestCarriedDefect_SP20D4_CaptureContinuesPastTheOldEntryCapAcrossRestart green o
 
 ## Evidence still landing
 
-At disposition time the chain was in its Linux `-race` lanes (container `linux-tree`, `linux-e2e`,
-`linux-child`), then quiet C5.1. The container lanes are supplementary to `LNX` and `LE2E` and change
-no row unless they go red; quiet C5.1 closes P-C51 for 1.5.12, 1.10.16, 1.12.14 and the B-A/B-E half of
-1.17.6 on Windows (Linux B-A/B-B stays not verified in target, D53(b)). The live lane closes P-LIVE.
+The chain's container `-race` lanes landed green after the first disposition pass (`linux race exit=0
+2026-10-02T05:25:05Z` in `phase3/c6/chain.log`) and are folded into `LNX`, `LE2E` and `CHILD` above;
+they changed no row. Quiet C5.1 (`phase3/c6/quiet`) was still running when this map was written. It
+closes P-C51 for 1.5.12, 1.10.16, 1.12.14 and the B-A/B-E half of 1.17.6 on Windows (Linux B-A/B-B
+stays not verified in target, D53(b)). The live lane closes P-LIVE.
