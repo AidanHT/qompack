@@ -146,7 +146,7 @@ build does not support is disabled, and can be seen to be disabled.
   `plugin/` prefix so the manifest sits at the bundle's root. The source tree's own
   `plugin/.claude-plugin/plugin.json` reads `0.1.0` until the release's version commit, and the
   repository's last git tag does not agree with it either; record all three as they stand
-  ([README.md](../README.md#status-pre-release)).
+  ([README.md](../README.md#status-release-candidate)).
 - Step 5's hook list is the seven events `plugin/hooks/hooks.json` declares — `PostToolUse`,
   `PreCompact`, `SessionEnd`, `SessionStart`, `Stop`, `SubagentStop`, `UserPromptSubmit` — each
   invoking `${CLAUDE_PLUGIN_ROOT}/bin/qompack` with its own subcommand and timeout (read from that

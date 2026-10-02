@@ -17,26 +17,54 @@ the inventory — this page does not restate a count.
 It is a sidecar in the strict sense. It does not rewrite the host's conversation history, does not
 evict anything from the native context, and performs no network I/O of any kind.
 
-## Status: pre-release
+## Status: release candidate
 
-Qompack has not been released. Two version numbers exist and they do not agree:
+Qompack has not been released. Release **0.3.0** (V6 close-out decision D1) is being cut from
+candidate 6, `verify/v6` commit `99d0b18` ("freeze close-out candidate 6"). Its six per-target
+bundles are stamped `0.3.0` at link time by `devtool bundle --version 0.3.0`, so an installed bundle
+reports `0.3.0` from `qompack version`, its `plugin.json` and its `BUNDLE.json` alike. Nothing has
+been tagged, published or listed in a marketplace; [docs/release.md](docs/release.md#1-procedure)
+§1 is the procedure, and each of its outward steps waits for the candidate's evidence to be
+complete.
 
-- the last git tag in this repository is `v0.2.0`;
-- `plugin/.claude-plugin/plugin.json` declares version `0.1.0`.
+The version numbers in this source tree do not agree yet, and are reported as they stand: the last
+git tag is `v0.2.0`, an internal verification checkpoint that was never a release, and
+`internal/core.Version` and `plugin/.claude-plugin/plugin.json` still declare `0.1.0`. Both move to
+`0.3.0` in the release's own version commit (release §1, step 1). Until that commit lands, a plain
+`go build ./cmd/qompack` prints `0.1.0`.
 
-Both are reported here as they stand. The owner has chosen **v0.3.0** as the release version (V6
-close-out decision D1): `internal/core.Version`, and with it the generated `plugin.json`, move to
-`0.3.0` in the release's own version commit ([docs/release.md](docs/release.md#1-procedure) §1).
-Until that commit lands, `qompack version` prints `0.1.0`.
+**What 0.3.0 is.** A local recorder and retriever for Claude Code sessions: it keeps a durable record
+of what the hooks deliver, seals a checkpoint when the host is about to compact, puts a bounded
+rehydration block (at most 9,500 characters, inside the host's 10,000-character cap) into the
+session after the host's compaction, names what did not fit, and answers recall, expansion and
+negative-knowledge questions through its MCP tools and slash commands. It runs on your machine
+only.
+
+**What 0.3.0 is not.**
+
+- **It does not compact anything.** Compaction is the host's. Qompack cannot request, veto, shape or
+  time a compaction, and it sends the host's summarizer no instructions: its `PreCompact` answer is
+  the empty object ([docs/cannot-do.md](docs/cannot-do.md)).
+- **It is not cache-aware.** It does not observe, model or manage the host's prompt cache, and it
+  infers no cache state from elapsed time.
+- **It makes no claim that it improves recovery after a compaction, task success or constraint
+  retention.** The release's pre-registered live evaluation can show that Qompack does not make work
+  after a compaction worse; a claim of improvement would need that outcome's 95 % lower bound above
+  zero (`plans/sdd/V6-closeout/eval/preregistration.md`, amendment A8). No page of these docs makes
+  such a claim.
+- **It makes no performance or storage promise** on your machine
+  ([docs/cannot-do.md §4](docs/cannot-do.md#4-guarantees-qompack-does-not-make)), and its binaries
+  are not code-signed
+  ([docs/install.md §10](docs/install.md#10-unsigned-binaries-gatekeeper-smartscreen-and-defender)).
 
 ## Supported environments
 
 **Claude Code 2.1.139 or later** is required for any install: every hook is exec form, and 2.1.139
 added the hook `args` field that form needs. Installing from the marketplace
-needs **2.1.224 or later**. See [docs/install.md](docs/install.md).
+needs **2.1.224 or later**. The host version this release was tested with is **Claude Code
+2.1.280**. See [docs/install.md](docs/install.md).
 
-The following checks are configured in `.github/workflows/ci.yml`; this table does not establish
-that the current candidate passed them. Go jobs pin
+The following checks are configured in `.github/workflows/ci.yml`. Go jobs pin
 `1.26.6` (the exact patch `go.mod`'s `toolchain` line names; a guard test fails the build if the two
 disagree):
 
@@ -50,26 +78,35 @@ disagree):
 | `bench-gate` | ubuntu-latest, macos-latest, windows-latest | the hot-path budget gate |
 | `crossbuild` | ubuntu-latest | `devtool build-all` — six targets: linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, windows/amd64, windows/arm64 |
 | `cover`, `replay-gate`, `plugin-validate`, `security`, `docs` | ubuntu-latest | coverage floors, the replay gate, the plugin bundle check, `govulncheck` and the import allowlist, and the generated-document drift check |
+| `release-dry-run` | ubuntu-latest | `devtool release-check` without a tag, then the six archives and the marketplace document |
 
-The workflow targets Linux, macOS and Windows on the runners' own architectures, and configures
-cross-compilation for six GOOS/GOARCH pairs. Candidate results remain separate from that configuration.
+`test-e2e`, `timing`, `cover` and `bench-gate` run with `QOMPACK_NONREFERENCE_DISK=1`: a hosted
+runner's disk is not the reference platform, so its fsync-bound timing rows are reported, not gated
+(owner decision Q1), while every structural check in those rows still gates.
 
-**What that does not cover.** Installed-host verification exists only where a committed record says
-so. On **windows/amd64** SP-17 installed the bundle into Claude Code 2.1.263 and the launcher
-resolved from the host's plugin cache, which is why that one target reads `installed-verified`
-([docs/release.md](docs/release.md#3-supported-scope) §3). The other five release targets have no
-install record and read `unknown`, so installed manifest resolution, `${CLAUDE_PLUGIN_ROOT}`
-expansion and launcher discovery are unverified there. No target has been exercised in a live
-session against a live model — the acceptance scenarios in [docs/uat.md](docs/uat.md) have not been
-executed. The generated scope table in [docs/release.md](docs/release.md#3-supported-scope) is the
-release's actual claim.
+**What is verified where, for candidate 6.**
 
-Packaging and release tooling shipped with SP-17: [docs/install.md](docs/install.md) and
+| Where | What the evidence shows |
+|---|---|
+| Hosted CI, ubuntu-latest (x86-64) and macos-latest (macOS 26, arm64) | `ci.yml` run `36955046276` on `99d0b18`: `test`, `test-e2e`, `timing` and `bench-gate` passed on both, as did `verify`, `lint-windows`, `cover`, `crossbuild`, `replay-gate`, `plugin-validate`, `security`, `docs`, and Windows' `test-e2e`, `timing` and `bench-gate`. Two jobs failed, `release-dry-run` and `test (windows-latest)`, and each must be fixed or dispositioned before the release (C7.2). The nightly run `36955043924` on the same commit passed all 31 jobs: the Windows race lane, the product-child race lane, the recorded replay, `bench-deep` on three OSes and 25 fuzz targets. |
+| Windows, the reference host | The quiet hot-path run (C5.1) passed against Windows' 50 ms budgets: B-A p99 30.7 ms, B-B p99 22.5 ms, measured on candidate 5 with the store under a path excluded from Windows Defender scanning (decisions D53(b), D53(h), D32). |
+| Linux | The fsync-bound rows, B-A and B-B, are **not verified in target** (D53(b)). The only local Linux is a Docker Desktop/WSL2 container whose fsync is about 40 times slower than a hosted ubuntu runner's at the median, and hosted runner figures never become constants (Q1). The Linux budget stays 15 ms. In the container the daemon degrades as designed: hooks switch to spool submode and nothing is lost ([docs/troubleshooting.md §7](docs/troubleshooting.md#7-daemon-problems)). |
+| Installed in Claude Code | windows/amd64 only, on Claude Code 2.1.280, in sessions run by an agent on the owner's machine (decision D3: agent-executed, never human UAT). No other target has been installed into Claude Code. |
+| macOS | The test suites run natively on hosted macos-latest (arm64), above. No Mac has installed the plugin into Claude Code, and darwin/amd64 is cross-compiled only. Whether the marketplace install keeps `bin/qompack` executable, and what Gatekeeper does with the unsigned binary, have not been observed. |
+| linux/arm64 and windows/arm64 | Cross-compiled and bundled; no test has run on either architecture and neither has been installed. |
+| Every target's bundle | Built twice from the candidate, byte-identical, and accepted by `claude plugin validate` (2.1.280) where it sits, which is a manifest check and not an install. |
+
+The generated scope table in [docs/release.md](docs/release.md#3-supported-scope) §3 is the
+release's per-target claim, raised only by committed records, and
+[the capability table beside it](docs/release.md#capability-status-at-030) gives every capability's
+0.3.0 status.
+
+Packaging and release tooling: [docs/install.md](docs/install.md) and
 [docs/security.md](docs/security.md) cover installing the bundle and its security and recovery
 posture, and [docs/release.md](docs/release.md) covers how a release is cut and what it claims. The
 bundle is assembled by `go run ./tools/devtool bundle`; no release has been published from this
-repository yet, and no release workflow has run ([docs/release.md](docs/release.md#7-not-claimed)
-§7).
+repository yet, and the tag-triggered release workflow has never run
+([docs/release.md](docs/release.md#7-not-claimed) §7).
 
 ## Building from source
 
