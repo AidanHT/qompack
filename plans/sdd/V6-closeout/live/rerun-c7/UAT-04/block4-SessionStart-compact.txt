@@ -1,0 +1,31 @@
+<!-- qompack:injected seq=3 ver=1 -->
+# Qompack rehydration — checkpoint 0003, session 07433964
+
+## 2. Original user intent (verbatim from L0 capture — never summarized)
+Evolution (most recent first):
+> Use the Read tool to read filler/f05.txt (the whole file) and reply with only the label of its last line.
+> Use the Read tool to read filler/f04.txt (the whole file) and reply with only the label of its last line.
+> Use the Read tool to read filler/f03.txt (the whole file) and reply with only the label of its last line.
+> Use the Read tool to read filler/f02.txt (the whole file) and reply with only the label of its last line.
+> Use the Read tool to read filler/f01.txt (the whole file) and reply with only the label of its last line.
+> In one sentence: what is the closing marker of the project brief I gave you in my first message? If it is not in your context, recover it with mcp__plugin_qompack_qompack__expand or mcp__plugin_qompack_qompack__recall, and say where you found it.
+
+## 5. Current work
+goal: Use the Read tool to read filler/f04.txt (the whole file) and reply with only the label of its last line.
+blocked on: none
+
+## 6. Pointers (paths and hashes — contents are NOT restored; use expand/re_read)
+- filler/f03.txt sha256:b7fd94db0a22841c914db5a15c7bfed3330871ddff6ad3f118e667bafd670e27 — referenced
+- filler/f04.txt sha256:107c55adfeae3e90964dc4096c3454902ce0022548c5d40147ad096e67c244fd — referenced
+- tool_use subagent_07433964-7577-4a82-9702-2cd85922e72a_12 sha256:a8d07118f962fdc6ac31e79b5c33d02d3b6518e921c5db24b8b3b87915136b6a — {"agent":"subagent","summary":"F02-0400"}
+- tool_use toolu_012DMfdehKv1JcAhqwAq6cMn sha256:b7fd94db0a22841c914db5a15c7bfed3330871ddff6ad3f118e667bafd670e27 — <scratch>\sessions\c7\uat04\proj\filler\f03.txt
+- tool_use toolu_01NpvGURWtL56ek3QoY2UZJV sha256:107c55adfeae3e90964dc4096c3454902ce0022548c5d40147ad096e67c244fd — <scratch>\sessions\c7\uat04\proj\filler\f04.txt
+
+## 7. No longer in context
+- user_intent tier1 — OVERFLOW: the verbatim original user intent did not fit the rehydration payload and is emitted whole or not at all; restore: expand(tool_use_id=prompt_07433964-7577-4a82-9702-2cd85922e72a_0)
+- user_intent_evolution 0 — did not fit the rehydration budget; restore: Read .qompack/checkpoints/0003.json (user_intent.evolution[0])
+
+## 8. Retrieval
+Qompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().
+<!-- /qompack:injected -->
+<!-- qompack-contract-probe qompack-contract-5d013c8a5426 -->

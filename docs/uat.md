@@ -576,38 +576,40 @@ stored records to reconcile a failure.
 **Result**
 
 ```text
-Result: pass — every compaction proceeded: 2 manual "/compact" and 14 automatic (forced with
-  CLAUDE_CODE_AUTO_COMPACT_WINDOW=100000 and CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=30), one host-failed
-  automatic compaction (compact_error too_few_groups, retried successfully; its checkpoint 0001
-  stays intact), and one with the PreCompact hook failing on an unparseable project config
-  (`{"runtime":`): that hook printed {} and exited 0, the compaction proceeded, no checkpoint was
-  written, and MANIFEST.jsonl kept its 16 lines with every artifact re-hashing (newest 0016 from the
-  last automatic compaction). The step-6 search over 112 Qompack outputs found no native-shrink
-  claim. Candidate 3's whole-record defect is fixed: with a 16,823-character first prompt every one
-  of the 15 compact injections (841-2,498 UTF-16 units, inline) carries no part of it and names it
-  first in section 7 as "user_intent tier1 — OVERFLOW: the verbatim original user intent did not
-  fit the rehydration payload and is emitted whole or not at all; restore:
-  expand(tool_use_id=prompt_…_0)" (state degraded true), no mid-record cut anywhere, and LOUD.log
-  has no intent_mismatch line. Findings: the forced threshold made the host thrash again ("Autocompact
-  is thrashing", two turns ended before the model answered, although expand had returned both the
-  brief's closing marker and the deleted key's value); with 7 later prompts the three oldest
-  evolution deltas were dropped by their 10% share (named, with pointers) while the payload used
-  599 of 12,000 tokens; LOUD.log carries "rehydrate: tier-1 material exceeds the hard budget cap"
-  on every compaction (15 lines) although section 7 already names the overflow (D50: logged once
-  per session); after the run, with the planted unparseable config still in place, fsck exits 1
-  on index.files "index/files.json is absent while its log carries 4 path(s)" (candidate 3 saw
-  the same row; whether the planted config causes it was not isolated; under investigation).
+Result: pass — with a finding. Every compaction proceeded: 3 manual "/compact" and 5 automatic,
+  forced only by CLAUDE_CODE_AUTO_COMPACT_WINDOW=100000 at the host's DEFAULT threshold percentage
+  (no CLAUDE_AUTOCOMPACT_PCT_OVERRIDE; each fired at 68.6k-73.8k tokens, 0 "thrash" lines, every
+  turn answered). The third manual one ran with the PreCompact hook failing on an unparseable
+  project config (`{"runtime":`): the hook prints {} and exits 0, the compaction proceeded, no
+  checkpoint was written, and MANIFEST.jsonl kept its 7 lines with 0007 newest and every artifact
+  re-hashing. The 16,858-character first prompt is never cut: every compact block (1,424-3,250
+  UTF-16 units, inline) names it first in section 7 as "user_intent tier1 — OVERFLOW: the verbatim
+  original user intent did not fit the rehydration payload and is emitted whole or not at all;
+  restore: expand(tool_use_id=prompt_…_0)", and LOUD.log carries "rehydrate: tier-1 material
+  exceeds the hard budget cap" exactly once (D50; the six later ones are info lines). fsck --json
+  exits 0 with the daemon up (index.files "not materialized yet ... at its next flush", ok) and
+  after the default idle exit with the planted config still in place (and with --seal-check).
+  The step-6 search over 70 hook responses and 62 outputs found no native-shrink claim. The model
+  recovered the brief's closing marker and, with data/keys.txt deleted, Q23 through recall/expand.
+  Finding: with the original a tier-1 overflow, block8 still names the 6 oldest of 13 evolution
+  entries "did not fit the rehydration budget" while the payload is 929 of 12,000 tokens and 2,950
+  of 9,400 characters (D49's unused room is not given to evolution while tier 1 is incomplete).
+  Observation: the abandoned session's 1.2 MB daemon WAL stays after the idle exit (doctor
+  spool.pending degraded; fsck ok), as on candidate 4.
+  Candidate 4 (9f6a2fad): pass — with findings: the forced 30%/100k threshold thrashed the host, LOUD
+  tier-1 on all 15 compactions, post-run fsck exit 1 on index.files, evidence
+  plans/sdd/V6-closeout/live/rerun-c4/UAT-04/
   Candidate 3 (d5598eb4): pass — with findings: the 17,774-character first prompt was injected cut
   at 8,192 bytes mid-word with a spurious intent_mismatch, evidence
   plans/sdd/V6-closeout/live/uat/UAT-04/
 Snapshot: qompack version 0.3.0; bundle BUNDLE.json sha256
-  aa7da0e17b7597562a6eba47fc48f1db81ff5e9bdc494b9997a323137625558d; commit
-  9f6a2fadf086eba8080af589a35dd9554ae6cab4; Windows 11 Home 25H2 build 10.0.26200.9457;
+  5212ae4eaa2e931266d52069e7d0c72ec2dfd2255d55421c87486ab083e1f395; commit
+  d20309c03ffc364e4cc48663be73cfbb1f2309b2; Windows 11 Home 25H2 build 10.0.26200.9457;
   Claude Code 2.1.280
-Date: 2026-09-29 (America/Toronto)
+Date: 2026-10-02 (America/Toronto)
 Executed by: Claude Code workflow subagent (Opus 5.5), agent-executed on the owner's real host
   per owner decision D3 — not human UAT
-Evidence: plans/sdd/V6-closeout/live/rerun-c4/UAT-04/ (notes.txt indexes it; also C4.3)
+Evidence: plans/sdd/V6-closeout/live/rerun-c7/UAT-04/ (notes.txt indexes it; also C4.3)
 Rollback verified: not applicable — initial state absent (recorded); the run is retained as
   evidence; no backup or restore was run in this row
 ```

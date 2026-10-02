@@ -1,0 +1,13 @@
+ts=2026-10-02T08:34:24.6897142Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-10-02T08:34:24.7361323Z level=info msg="observer: session registered" session=07433964-7577-4a82-9702-2cd85922e72a source=startup turn=0 segment=1
+ts=2026-10-02T08:34:24.7361323Z level=info msg="scheduler: session bound" session=07433964-7577-4a82-9702-2cd85922e72a effective_window=100000 max_output=0 window_source=3 host_trigger_absent=false regime=unknown changepoints=0
+ts=2026-10-02T08:34:55.2395486Z level=loud msg="rehydrate: tier-1 material exceeds the hard budget cap" budget=12000 spent=187 ceiling_chars=9400 spent_chars=538
+ts=2026-10-02T08:35:50.5534592Z level=info msg="rehydrate: tier-1 material exceeds the hard budget cap" budget=12000 spent=197 ceiling_chars=9400 spent_chars=575
+ts=2026-10-02T08:36:49.6032403Z level=info msg="rehydrate: tier-1 material exceeds the hard budget cap" budget=12000 spent=197 ceiling_chars=9400 spent_chars=575
+ts=2026-10-02T08:37:29.7448242Z level=info msg="rehydrate: tier-1 material exceeds the hard budget cap" budget=12000 spent=197 ceiling_chars=9400 spent_chars=575
+ts=2026-10-02T08:38:08.0340653Z level=info msg="rehydrate: tier-1 material exceeds the hard budget cap" budget=12000 spent=197 ceiling_chars=9400 spent_chars=575
+ts=2026-10-02T08:38:48.7876579Z level=info msg="rehydrate: tier-1 material exceeds the hard budget cap" budget=12000 spent=189 ceiling_chars=9400 spent_chars=543
+ts=2026-10-02T08:39:36.8917525Z level=info msg="rehydrate: tier-1 material exceeds the hard budget cap" budget=12000 spent=189 ceiling_chars=9400 spent_chars=543
+ts=2026-10-02T08:39:54.7158136Z level=loud msg="daemon: config reload warning" key="" message="unparseable config: unexpected end of JSON input" location=<scratch>\sessions\c7\uat04\proj\.qompack\config.json
+ts=2026-10-02T08:40:48.5354235Z level=loud msg="configuration unusable, using defaults" message="unparseable config: unexpected end of JSON input" location=<scratch>\sessions\c7\uat04\proj\.qompack\config.json
+ts=2026-10-02T09:09:54.7516133Z level=warn msg="daemon: ending abandoned session; no SessionEnd arrived and it has been silent past the idle-exit window" session=07433964-7577-4a82-9702-2cd85922e72a silentMs=1807148
