@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "command": "dropped",
+  "ok": true,
+  "data": {
+    "tool": "dropped",
+    "is_error": false,
+    "ephemeral": true,
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"count\":1,\"drops\":[{\"detail\":\"checkpoint 0002 does not verify and does not describe this rehydration; it was rebuilt from checkpoint 0001, so anything recorded after it (decisions, eliminations, pins, corrections to the request, current work) may be missing; restore: recall() and timeline() reach the later turns in the captured history, `qompack fsck` names the damaged artifact, and `qompack backup restore` restores a verified backup\",\"id\":\"0002\",\"kind\":\"checkpoint_fallback\"}]}"
+      }
+    ],
+    "meta": {
+      "elapsed_ms": 2,
+      "hash": "sha256:b2ab1b35b176e2dec3875c75cd446446ef9e5cf4f6227186327b36d93abf8713",
+      "tool_use_id": "qompack-mcp:9a3252d93ca8"
+    }
+  }
+}

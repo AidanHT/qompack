@@ -1,0 +1,21 @@
+{
+ "files": {
+  "handoff.md": {
+   "bytes": 816,
+   "sha256": "c27635c051a1587c78245c56363801defcf7d62f786fb4e8cea06b7b2c9a339c"
+  },
+  "README.md": {
+   "bytes": 81,
+   "sha256": "e33cd9882ba30f61e9267281bec5f200315ebb0dc9d1e6e4ef0caab3fe14719d"
+  },
+  "docs/plan.md": {
+   "bytes": 126,
+   "sha256": "350aaa046a93cfa171fc353ef4ed5a289d2d4294c3beb836c3166aa555efaaa2"
+  },
+  "src/app.py": {
+   "bytes": 186,
+   "sha256": "104e4bb90d7d182e4474acb9421656caf4c6161f0bb171dd83aa6d02ea25aebd"
+  }
+ },
+ "K17": "ALDER-4780-ROWAN"
+}

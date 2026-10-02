@@ -264,3 +264,61 @@ same  plugins/data/ (2 entries)
 same  .qompack/ (0 entries)
 real home fingerprint unchanged
 check exit 0
+
+# ==== Candidate 7 re-run (D52/D53/D57), sessions part (UAT-03, UAT-04, UAT-05, UAT-06; C4.3, C4.5)
+== sessions-c7 part start: homeguard snap taken at <scratch>/sessions/guard.json 2026-10-02 04:30:55 EDT (the candidate 4 snap renamed guard-c4.json, scratch only); self-tests homeguard_test.py 10 OK, live_driver_test.py 3 OK
+snap state: settings.json 265df1f32ede, installed_plugins.json 728f75591291, known_marketplaces.json 1b1eda7e17f0, plugins/cache 10 entries, plugins/marketplaces 2, plugins/data 2, ~/.qompack absent (0 entries); no qompack.exe running
+same  settings.json 265df1f32ede
+same  plugins/installed_plugins.json 728f75591291
+same  plugins/known_marketplaces.json 1b1eda7e17f0
+same  plugins/cache/ (10 entries)
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+same  .qompack/ (0 entries)
+real home fingerprint unchanged
+check exit 0
+== session 1 UAT-03 (plugin-dir) — 2026-10-02 04:32:43 Eastern Daylight Time
+removed run-created empty plugins/data/qompack-inline/
+same  settings.json 265df1f32ede
+same  plugins/installed_plugins.json 728f75591291
+same  plugins/known_marketplaces.json 1b1eda7e17f0
+same  plugins/cache/ (10 entries)
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+INFO  .qompack/ gained ['bin/', 'bin/ab8046bac3bad894c9a299c61fb38277f4179f4e33bfb088873e43edcbe33be7/'] (run-created; record, remove only if yours)
+real home fingerprint unchanged
+check exit 0
+== session 2 UAT-04 (plugin-dir) — 2026-10-02 04:40:47 Eastern Daylight Time
+removed run-created empty plugins/data/qompack-inline/
+same  settings.json 265df1f32ede
+same  plugins/installed_plugins.json 728f75591291
+same  plugins/known_marketplaces.json 1b1eda7e17f0
+same  plugins/cache/ (10 entries)
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+INFO  .qompack/ gained ['bin/', 'bin/ab8046bac3bad894c9a299c61fb38277f4179f4e33bfb088873e43edcbe33be7/'] (run-created; record, remove only if yours)
+real home fingerprint unchanged
+check exit 0
+== session 3 UAT-05 run 1 (plugin-dir) — 2026-10-02 04:43:00 Eastern Daylight Time
+removed run-created empty plugins/data/qompack-inline/
+same  settings.json 265df1f32ede
+same  plugins/installed_plugins.json 728f75591291
+same  plugins/known_marketplaces.json 1b1eda7e17f0
+same  plugins/cache/ (10 entries)
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+INFO  .qompack/ gained ['bin/', 'bin/ab8046bac3bad894c9a299c61fb38277f4179f4e33bfb088873e43edcbe33be7/'] (run-created; record, remove only if yours)
+real home fingerprint unchanged
+check exit 0
+== session 4 UAT-05 run 2 (plugin-dir) — VOID: started 2026-10-02 04:44 EDT and cut off by the operator account's usage limit (every turn after the third answered "You've hit your weekly limit"); this lane was interrupted before its guard step. The coordinator then ran homeguard clean (it removed the interrupted session's empty run-created plugins/data/qompack-inline/) and check: real home unchanged (not captured in this file).
+== RESUMED 2026-10-02 (afternoon, America/Toronto) by a new lane agent on the same snap (<scratch>/sessions/guard.json, taken 04:30:55 EDT; snap state as logged at the part start above: ~/.qompack absent at snap)
+== resume check before any further session — 2026-10-02 14:03:20 Eastern Daylight Time
+same  settings.json 265df1f32ede
+same  plugins/installed_plugins.json 728f75591291
+same  plugins/known_marketplaces.json 1b1eda7e17f0
+same  plugins/cache/ (10 entries)
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+INFO  .qompack/ gained ['bin/', 'bin/ab8046bac3bad894c9a299c61fb38277f4179f4e33bfb088873e43edcbe33be7/'] (run-created; record, remove only if yours)
+real home fingerprint unchanged
+check exit 0
