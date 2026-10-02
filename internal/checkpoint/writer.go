@@ -918,7 +918,11 @@ func (w *FileWriter) encodeSegmentLocked(ctx context.Context, d *Draft, seg stor
 	// Current work: skipped entirely once SetCurrentWork has spoken (§7). The derived form is
 	// one sentence of the most recent prompt, an empty NextStep and a nil BlockedOn — inventing
 	// a next step from tool history is exactly the drift this layer exists to eliminate (§8).
-	if !d.workExplicit && len(prompts) > 0 {
+	// A store that can enumerate the session's own prompts derives it from them at every refresh
+	// (deriveCurrentWorkLocked): the graph's userprompt nodes are shared across sessions by turn,
+	// and reading them here put a fork's parent's prompt in the fork's current work. Only a store
+	// without that capability keeps this earlier, graph-read form.
+	if _, capable := src.Store.(store.SessionPrompts); !capable && !d.workExplicit && len(prompts) > 0 {
 		if text, ok := readPromptText(ctx, src, prompts[len(prompts)-1]); ok && text != "" {
 			d.cp.CurrentWork = CurrentWork{Goal: truncRunes(firstSentence(text), goalMaxRunes)}
 		}
