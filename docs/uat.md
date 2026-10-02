@@ -746,8 +746,9 @@ Result: fail — read literally (D50), step 5's expectation is not met: at the t
   payload"), while this row expects a block that names the loss; the session hears nothing
   (candidate 4 injected the pin and "… and 14 more; call dropped()" at the same budget). The
   coordinator decides which document is right. Minor: LOUD 'tier-1 material exceeds the hard
-  budget cap' was logged twice in that session, once per daemon. In-session, the model skipped
-  the "/qompack:dropped --json" turn after the empty compaction; step 4 is the CLI capture.
+  budget cap' was logged twice in that session, once per daemon. In-session, /qompack:dropped
+  --json delivered the envelope (count 14) but the model did not echo it after the empty
+  compaction; the committed envelopes are CLI captures.
   No host-reported hook failure or timeout. No native-shrink claim.
   Candidate 4 (9f6a2fad): fail — under D50 the superseded semicolon original rendered above the
   TAB correction in section 2, evidence plans/sdd/V6-closeout/live/rerun-c4/UAT-05/

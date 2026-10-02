@@ -86,9 +86,11 @@ hooks.json 24 pairs, every hook_response success / exit 0), a fresh project, the
  of the same shape against 0002.json. There is no overflow/payload entry ("nothing was injected"), although nothing
  was injected.
  Step 4: run2r-blockA-dropped-json (exit 0, count 15, taken before the daemon was ended) and
- cli/run2r-dropped-json-after-blockB (exit 0, count 14). In-session, T9 "/qompack:dropped --json" did not run the
- command: the model, told nothing by Qompack, resumed "the pending task" from the host's summary, tried Edit and Write
- on billing.py (both denied by dontAsk) and asked for permission. Step 4's envelope is therefore the CLI capture.
+ cli/run2r-dropped-json-after-blockB (exit 0, count 14). In-session, T9 "/qompack:dropped --json": the command body
+ ran and its expanded message carried the envelope (count 14, three tier1 entries; host transcript at 18:11:35Z,
+ extracted facts in run2r-session/transcript-facts.json), but the model did not echo it: it resumed "the pending task"
+ from the host's summary, tried Edit and Write on billing.py (both denied by dontAsk) and asked for permission. The
+ committed envelopes are the CLI captures.
  LOUD.log (store-run2r/logs_LOUD.log): "rehydrate: tier-1 material exceeds the hard budget cap budget=150 spent=47
  ceiling_chars=9400 spent_chars=122" twice, once per daemon (pid 13832 at T6, pid 25168 at T8) in the one session.
  Store (run2r-store/): 0001.json and 0002.json re-hash to their MANIFEST lines (MATCH); pins hold inv_b91128913d77
@@ -145,8 +147,9 @@ Findings:
    once per daemon across the step-5 restart. D50's once-per-session rule covers a tier-1 overflow ALREADY NAMED IN
    THE PAYLOAD; here the payload named nothing, so this is recorded as an observation tied to F-C7-UAT05-1, not as a
    separate breach.
- Observation (host/model, not product): after the empty tiny-budget compaction the model ignored the
-   "/qompack:dropped --json" turn and resumed the export work from the host's summary.
+ Observation (host/model, not product): after the empty tiny-budget compaction the model received the
+   "/qompack:dropped --json" envelope (count 14) but did not echo it and resumed the export work from the host's
+   summary.
  Host-reported hook failures or timeouts (D53(i)): none — every hook_response in runs 1 and 2 re-run is success /
    exit 0 and both stderr.txt files are empty.
 
