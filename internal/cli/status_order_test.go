@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -24,6 +25,32 @@ import (
 // order at random per range statement, so with four sessions a base that lists them in map order
 // disagrees with itself within the first few reads; 30 agreeing by chance does not happen.
 const statusOrderCLIReads = 30
+
+// statusOrderEnvelope is the part of a `status --json` read this row inspects.
+type statusOrderEnvelope struct {
+	Data struct {
+		Primary struct {
+			Source string `json:"source"`
+			Reason string `json:"reason"`
+		} `json:"primary"`
+		Snapshot struct {
+			Sessions []struct {
+				ID core.SessionID `json:"ID"`
+			} `json:"sessions"`
+		} `json:"snapshot"`
+	} `json:"data"`
+}
+
+// statusOrderConfig gives the row's project a command-client connect budget of
+// bootstrapProbeTimeout, this file's existing dial budget for a daemon that is up but busy.
+//
+// The shipped Windows default (config.ConnectDeadlineMsWindows, 25 ms) buys only about three
+// named-pipe attempts, and 60 back-to-back reads each dial twice (daemonListening's probe, then the
+// request), so a dial can land while the listener is re-arming its next instance (ERROR_PIPE_BUSY)
+// and miss that budget. That read then answers source "none", which differs from the first read
+// for a reason that has nothing to do with order. Connect latency is not what this row tests.
+var statusOrderConfig = fmt.Sprintf(`{"runtime":{"daemon":{"connectDeadlineMs":%d}}}`,
+	bootstrapProbeTimeout.Milliseconds())
 
 // startStatusOrderSession sends root's daemon a SessionStart for id, as the hook client does.
 func startStatusOrderSession(t *testing.T, root string, id core.SessionID) {
@@ -52,6 +79,7 @@ func startStatusOrderSession(t *testing.T, root string, id core.SessionID) {
 // Not parallel: bootstrapDaemon resets the process-wide producer set.
 func TestStatus_RepeatedReadsOfUnchangedStateAgree(t *testing.T) {
 	root := bootstrapProject(t)
+	writeProjectConfig(t, root, statusOrderConfig)
 	stop := bootstrapDaemon(t, root)
 	defer stop()
 
@@ -69,29 +97,37 @@ func TestStatus_RepeatedReadsOfUnchangedStateAgree(t *testing.T) {
 		return out
 	}
 
-	firstJSON := read("status", "--json")
-	firstText := read("status")
+	// Every read must be the live daemon's before reads are compared: a read that missed the daemon
+	// (source "none") is a transport failure, and must not be reported as D53(a).
+	readJSON := func(n int) string {
+		t.Helper()
+		out := read("status", "--json")
+		var env statusOrderEnvelope
+		require.NoError(t, json.Unmarshal([]byte(out), &env), "stdout=%s", out)
+		require.Equal(t, "daemon", env.Data.Primary.Source,
+			"status --json read %d did not reach the daemon (a connect miss, not an order "+
+				"failure): %s", n, env.Data.Primary.Reason)
+		return out
+	}
+	readText := func(n int) string {
+		t.Helper()
+		out := read("status")
+		require.Contains(t, out, "\nsource: daemon (",
+			"status read %d did not reach the daemon (a connect miss, not an order failure)", n)
+		return out
+	}
+
+	firstJSON := readJSON(1)
+	firstText := readText(1)
 	for i := 1; i < statusOrderCLIReads; i++ {
-		require.Equal(t, firstJSON, read("status", "--json"),
+		require.Equal(t, firstJSON, readJSON(i+1),
 			"status --json read %d of unchanged state disagrees with the first (D53(a))", i+1)
-		require.Equal(t, firstText, read("status"),
+		require.Equal(t, firstText, readText(i+1),
 			"status read %d of unchanged state disagrees with the first (D53(a))", i+1)
 	}
 
-	var env struct {
-		Data struct {
-			Primary struct {
-				Source string `json:"source"`
-			} `json:"primary"`
-			Snapshot struct {
-				Sessions []struct {
-					ID core.SessionID `json:"ID"`
-				} `json:"sessions"`
-			} `json:"snapshot"`
-		} `json:"data"`
-	}
+	var env statusOrderEnvelope
 	require.NoError(t, json.Unmarshal([]byte(firstJSON), &env), "stdout=%s", firstJSON)
-	require.Equal(t, "daemon", env.Data.Primary.Source, "fixture: the reads must be the live daemon's")
 	got := make([]core.SessionID, 0, len(env.Data.Snapshot.Sessions))
 	for _, s := range env.Data.Snapshot.Sessions {
 		got = append(got, s.ID)
