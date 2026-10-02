@@ -259,12 +259,12 @@ Remove-Item -Recurse -Force $HOME\.qompack          # everything user-level
 **When staged copies are pruned.** A staged copy is filed under its binary's SHA-256, not under a
 version string. When a daemon spawn finds no copy of its own binary that verifies, it writes one
 and then removes every other directory under `~/.qompack/bin/` named by a SHA-256, except a copy a
-running daemon is executing, which Windows will not delete and which a later spawn removes once it
-is idle (`pruneStaged` in `internal/daemon/spawn_stage.go`). A spawn whose own copy already
-verifies prunes nothing. So two builds that both report version `0.3.0` remove each other's copy:
-the V6 live lane saw candidate 5's build and candidate 7's build, both 0.3.0, each prune the
-other's copy when its session started. Nothing depends on a pruned copy; the next spawn of that
-build makes it again.
+running daemon is executing, which Windows will not delete; the next spawn that writes a new copy
+removes it once that daemon has exited (`pruneStaged` in `internal/daemon/spawn_stage.go`). A
+spawn whose own copy already verifies prunes nothing. So two builds that both report version
+`0.3.0` remove each other's copy: the V6 live lane saw candidate 5's build and candidate 7's build,
+both 0.3.0, each prune the other's copy when its session started. Nothing depends on a pruned
+copy; the next spawn of that build makes it again.
 
 **No secure-erasure promise.** Those commands unlink files. They say nothing about backups you made,
 copies on other media, or a filesystem that snapshots. If a credential ever reached the store — see

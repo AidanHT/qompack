@@ -38,6 +38,19 @@ var closeoutC7StaleClaims = []staleClaim{
 		"docs/user-guide.md", "the rehydration shows them under the original, newest first",
 		"section 2 renders the evolution above the original (D50)",
 	},
+	{
+		"docs/uat.md", "Both are fixed for candidate 8",
+		"the fixes are ordered for candidate 8 (D59); a page states a fix only once it is merged",
+	},
+	{
+		"docs/install.md", "which a later spawn removes once it is idle",
+		"only a spawn that writes a new copy reaches pruneStaged; a verifying spawn prunes nothing",
+	},
+	{
+		"docs/release-notes/v0.3.0.md",
+		"`SessionStart` at startup, resume and fork arrived before the stream's init event and was not measured;",
+		"38 of 455 pairs were not measured, 19 of them UserPromptSubmit (rerun-c7/C5.6/summary.md)",
+	},
 }
 
 // TestCloseoutC7StaleClaimsAreGone asserts none of the sentences candidate 7's lane retired is back.
