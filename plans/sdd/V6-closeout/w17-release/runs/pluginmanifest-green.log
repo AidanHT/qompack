@@ -1,0 +1,24 @@
+=== RUN   TestManifest_GoldenBytes
+=== RUN   TestManifest_GoldenBytes/plugin/commands/why.md
+=== RUN   TestManifest_GoldenBytes/plugin/commands/dropped.md
+=== RUN   TestManifest_GoldenBytes/plugin/commands/status.md
+=== RUN   TestManifest_GoldenBytes/plugin/commands/recall.md
+=== RUN   TestManifest_GoldenBytes/plugin/commands/eval.md
+=== RUN   TestManifest_GoldenBytes/plugin/.claude-plugin/plugin.json
+=== RUN   TestManifest_GoldenBytes/plugin/hooks/hooks.json
+=== RUN   TestManifest_GoldenBytes/plugin/.mcp.json
+=== RUN   TestManifest_GoldenBytes/plugin/commands/pin.md
+--- PASS: TestManifest_GoldenBytes (0.02s)
+    --- PASS: TestManifest_GoldenBytes/plugin/commands/why.md (0.00s)
+    --- PASS: TestManifest_GoldenBytes/plugin/commands/dropped.md (0.00s)
+    --- PASS: TestManifest_GoldenBytes/plugin/commands/status.md (0.00s)
+    --- PASS: TestManifest_GoldenBytes/plugin/commands/recall.md (0.00s)
+    --- PASS: TestManifest_GoldenBytes/plugin/commands/eval.md (0.00s)
+    --- PASS: TestManifest_GoldenBytes/plugin/.claude-plugin/plugin.json (0.01s)
+    --- PASS: TestManifest_GoldenBytes/plugin/hooks/hooks.json (0.00s)
+    --- PASS: TestManifest_GoldenBytes/plugin/.mcp.json (0.00s)
+    --- PASS: TestManifest_GoldenBytes/plugin/commands/pin.md (0.00s)
+=== RUN   TestBundle_OnDiskMatchesGenerator
+--- PASS: TestBundle_OnDiskMatchesGenerator (0.00s)
+PASS
+ok  	github.com/qompack/qompack/internal/pluginmanifest	1.025s

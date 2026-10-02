@@ -1,0 +1,7 @@
+
+=== release-check: version agreement ===
+release-check: version agreement FAIL — `git describe --tags --exact-match` failed, so HEAD carries no tag: exit status 128
+fatal: no tag exactly matches 'c07cbe5280fca2e85349a9c1df00312094c5d4a7'
+
+devtool: release-check: release-check: version agreement FAILED
+exit status 1
