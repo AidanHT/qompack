@@ -9,7 +9,8 @@ type ID string
 // §12.1's table specifies, which is what SP-05 implements inside the corresponding Assertion.Check.
 const (
 	// CSessionStartFires: a marker written at SessionEnd/PreCompact is found by the next
-	// SessionStart; absence across two sessions is a failure.
+	// SessionStart; absence across two sessions is a failure. A later start of the same session
+	// (its compaction, or a resume keeping its id) that finds its own marker holds.
 	CSessionStartFires ID = "session_start.fires"
 	// CSessionStartSourceCompact: after a PreCompact is observed, the next SessionStart must
 	// arrive with source == "compact" within the same session id. Recorded in state/contract.json

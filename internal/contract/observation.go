@@ -140,8 +140,9 @@ var noObservationSpellings = map[string]bool{
 // able to notice a new spelling at all. Without it, a new "no observation" spelling would be
 // indistinguishable from a new success spelling and the guard would have nothing to fail on.
 var observedSpellings = map[string]bool{
-	"marker-found":      true, // checkSessionStartFires
-	"sentinel-observed": true, // checkAdditionalContextDelivered
+	"marker-found":                                true, // checkSessionStartFires
+	"same-session-restart":                        true, // checkSessionStartFires: own compaction/resume
+	"sentinel-observed":                           true, // checkAdditionalContextDelivered
 	"instruction phrase found in transcript tail": true, // checkPreCompactCustomInstr before C1.18 (unsupported mechanism)
 	"payload shape valid":                         true, // checkHookPayloadShape
 	"initialize-received":                         true, // checkMCPServerRegistered
