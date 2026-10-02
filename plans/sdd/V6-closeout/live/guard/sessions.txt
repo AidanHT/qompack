@@ -366,3 +366,31 @@ same  plugins/data/ (2 entries)
 INFO  .qompack/ gained ['bin/', 'bin/ab8046bac3bad894c9a299c61fb38277f4179f4e33bfb088873e43edcbe33be7/'] (run-created; record, remove only if yours)
 real home fingerprint unchanged
 check exit 0
+== sessions-c7 part end (resumed after the 15:00 EDT network outage; no new session) — 2026-10-02 15:11:16 EDT
+daemon pid 81524 (qompack.exe daemon --project <scratch>/sessions/c7/uat03/recovery/proj, started 14:04 EDT): not running at
+15:06 EDT — no qompack.exe process exists (Get-Process/tasklist), its run/daemon.lock is gone, and its log's last line is
+18:34:27Z 'daemon: ending abandoned session; no SessionEnd arrived and it has been silent past the idle-exit window'
+(the DEFAULT 1800 s idle exit); nothing to stop. UAT-05 run-2 daemon pid 25168 ended by the default idle exit at 14:57:45 EDT.
+$ tasklist qompack.exe
+INFO: No tasks are running which match the specified criteria.
+$ find ~/.qompack
+~/.qompack
+~/.qompack/bin
+~/.qompack/bin/ab8046bac3bad894c9a299c61fb38277f4179f4e33bfb088873e43edcbe33be7
+~/.qompack/bin/ab8046bac3bad894c9a299c61fb38277f4179f4e33bfb088873e43edcbe33be7/qompack.exe
+$ sha256sum ~/.qompack/bin/*/qompack.exe
+ab8046bac3bad894c9a299c61fb38277f4179f4e33bfb088873e43edcbe33be7 *~/.qompack/bin/ab8046bac3bad894c9a299c61fb38277f4179f4e33bfb088873e43edcbe33be7/qompack.exe
+frozen c7 bundle bin/qompack.exe sha256 ab8046bac3bad894c9a299c61fb38277f4179f4e33bfb088873e43edcbe33be7; homeguard has listed bin/ab8046ba.../ as gained since session 1
+$ powershell Remove-Item -Recurse -Force $HOME\.qompack\bin   (install.md section 6; the staged copy is sealed read-only)
+bin removed; ~/.qompack then held 0 entries and was absent at snap, so the empty run-created ~/.qompack was removed
+$ homeguard.py clean; homeguard.py check
+same  settings.json 265df1f32ede
+same  plugins/installed_plugins.json 728f75591291
+same  plugins/known_marketplaces.json 1b1eda7e17f0
+same  plugins/cache/ (10 entries)
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+same  .qompack/ (0 entries)
+real home fingerprint unchanged
+check exit 0
+== END of sessions-c7 part (after staged-copy cleanup) — 2026-10-02 15:11:27 EDT
