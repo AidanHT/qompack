@@ -82,7 +82,7 @@ The hosted proof that release-dry-run and test (windows-latest) now go green nee
 
 - `go test -p 2 -count=1 -run '^TestNonReferenceDisk_IsHostedCIOnly$' ./test/guards (before workflow edit)` — FAIL (expected red: release-dry-run and release.yml release undeclared) - runs/guard-nonrefdisk-red.log
 - `go test -p 2 -count=1 -run '^TestNonReferenceDisk_IsHostedCIOnly$' ./test/guards (after)` — ok 0.334s - runs/guard-nonrefdisk-green.log
-- `go test -p 2 -count=1 -v -run (the 12 workflow-pinning guard rows by exact name) ./test/guards` — all PASS, ok 49.131s - runs/guard-workflows-green.log
+- `go test -p 2 -count=1 -v -run (the 12 workflow-pinning guard rows by exact name) ./test/guards` — all PASS, ok 49.131s - runs/guard-workflows-green.log <!-- runpatterns: the -run argument is a placeholder naming the 12 workflow-pinning guard rows that the evidence log runs/guard-workflows-green.log lists by exact name, not a runnable pattern -->
 - `go test -p 2 -count=1 -v -run '^TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence$' ./test/fault (old read order)` — FAIL a_capture_published_mid_audit_is_not_dangling (reproduces hosted message) - runs/fault-audit-order-red.log
 - `go test -p 2 -count=1 -v -run '^TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence$' ./test/fault (fixed)` — PASS both subtests - runs/fault-audit-order-green.log
 - `go test -count=10 -p 1 -run '^TestFault_Lifecycle$' ./test/fault (base)` — ok 253.508s, no local repro - runs/lifecycle-base-count10.log
