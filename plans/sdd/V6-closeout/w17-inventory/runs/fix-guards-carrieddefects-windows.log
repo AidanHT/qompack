@@ -1,0 +1,77 @@
+=== RUN   TestCarriedDefects_ManifestIsWellFormed
+=== PAUSE TestCarriedDefects_ManifestIsWellFormed
+=== CONT  TestCarriedDefects_ManifestIsWellFormed
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP04-D1
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP04-D2
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP04-D3
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP04-D4
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP04-D5
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP04-D6
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP06-D1
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP05-D1
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP02-D1
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP02-D2
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP02-D3
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP02-D4
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP02-D5
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP02-D6
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP04-D7
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP06-D2
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP08-D1
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP10-D1
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP09-D1
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP20-D2
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP20-D3
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP08-D2
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP20-D1
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP05-D2
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP08-D3
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP20-D4
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP20-D5
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP20-D6
+--- PASS: TestCarriedDefects_ManifestIsWellFormed (0.06s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP04-D1 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP04-D2 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP04-D3 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP04-D4 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP04-D5 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP04-D6 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP06-D1 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP05-D1 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP02-D1 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP02-D2 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP02-D3 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP02-D4 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP02-D5 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP02-D6 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP04-D7 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP06-D2 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP08-D1 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP10-D1 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP09-D1 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP20-D2 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP20-D3 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP08-D2 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP20-D1 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP05-D2 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP08-D3 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP20-D4 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP20-D5 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP20-D6 (0.00s)
+PASS
+ok  	github.com/qompack/qompack/test/guards	0.375s
+exit=0
+=== RUN   TestCarriedDefects_OpenRowsHaveLivingEvidence
+=== PAUSE TestCarriedDefects_OpenRowsHaveLivingEvidence
+=== CONT  TestCarriedDefects_OpenRowsHaveLivingEvidence
+--- PASS: TestCarriedDefects_OpenRowsHaveLivingEvidence (0.05s)
+PASS
+ok  	github.com/qompack/qompack/test/guards	0.330s
+exit=0
+=== RUN   TestCarriedDefects_WaveReportRequiresResolution
+=== PAUSE TestCarriedDefects_WaveReportRequiresResolution
+=== CONT  TestCarriedDefects_WaveReportRequiresResolution
+--- PASS: TestCarriedDefects_WaveReportRequiresResolution (0.06s)
+PASS
+ok  	github.com/qompack/qompack/test/guards	0.331s
+exit=0
