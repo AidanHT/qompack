@@ -604,6 +604,21 @@ jobs:
         with: { fetch-depth: 0 }
       - uses: actions/setup-go@v5
         with: { go-version: '1.26.6', cache: true }
+      # The six bundles at the release's own version (core.Version's default, which release-check
+      # --tag requires the tag to equal), built before release-check so a red gate still leaves
+      # them. Before a tag is pushed the coordinator compares their bin/ bytes with the frozen
+      # candidate's (D53(h)(4)); bin/ does not depend on the commit (-buildvcs=false), so this
+      # proves the hosted build reproduces the frozen bytes before release.yml attests anything.
+      - name: bundle at the release version
+        run: |
+          v=$(sed -n 's/^var Version = "\(.*\)"$/\1/p' internal/core/version.go)
+          test -n "$v"
+          go run ./tools/devtool bundle --archive --version "$v" --out "$RUNNER_TEMP/release-bundles"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: release-version-bundles
+          path: ${{ runner.temp }}/release-bundles/
       - run: go run ./tools/devtool release-check --skip-vulncheck
       # The release path with a fixed dry-run version, as release.yml passes the tag's: the six
       # zips, checksums.txt, and the marketplace document generated from them.
