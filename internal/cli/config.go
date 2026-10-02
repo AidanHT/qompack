@@ -76,10 +76,11 @@ func LoadConfigAndReport(env config.Env, log logging.Logger, reg obs.Registry) (
 // It is deliberately narrower than LoadConfigAndReport. It runs on the hot path, so it does at most
 // one durable write and only where there is already somewhere durable to write: a project with no
 // .qompack directory has not opted in, and a hook must never conjure one out of a diagnostic. Each
-// violation is a Loud and each warning a Warn — LoadConfigAndReport's levels and fields — through the
-// hook logger, which materializes a file sink only if logs/ already exists and otherwise still
-// reaches the process-wide Loud ring. Only the violations are persisted: state/config-violations.json
-// is the §11.3 list, and an unknown key has never belonged in it. Nothing here can fail the delivery.
+// leaf violation is a Loud, and each warning and newer-settingsVersion reset a Warn —
+// LoadConfigAndReport's levels and fields — through the hook logger, which materializes a file sink
+// only if logs/ already exists and otherwise still reaches the process-wide Loud ring. Only the
+// violations are persisted: state/config-violations.json is the §11.3 list, and an unknown key has
+// never belonged in it. Nothing here can fail the delivery.
 func reportCaptureConfig(root, home string, violations []config.Violation, warnings []config.Warning) {
 	if len(violations)+len(warnings) == 0 || root == "" || !isDir(paths.Of(root).Dot) {
 		return
@@ -95,12 +96,35 @@ func reportCaptureConfig(root, home string, violations []config.Violation, warni
 		log.Warn("configuration warning", "key", w.Key, "message", w.Message, "location", w.Location)
 	}
 	for _, v := range violations {
+		if isVersionedReset(v) {
+			// LoadConfigAndReport's level for the same reset: config.Load returns it as a keyed
+			// Warning, not a §11.3 violation. LoadForCapture types it as a Violation only so that it
+			// is persisted below; that is not a reason to promote it. Logged Loud, it put one line in
+			// the never-rotated LOUD.log per hook for as long as a project stayed on a newer config
+			// (finding F-C7-C49-2: 18 lines in 30 s after a downgrade), when Loud is reserved for
+			// contract violations and degradation transitions. The running daemon's reload of a
+			// changed file still names it in LOUD.log, once; doctor reads the record below.
+			log.Warn("configuration warning", "key", v.Key, "message", v.Message)
+			continue
+		}
 		log.Loud("invalid configuration value, using default",
 			"key", v.Key, "got", v.Got, "want", v.Want, "message", v.Message)
 	}
 	if len(violations) > 0 {
 		persistViolations(root, violations, log)
 	}
+}
+
+// isVersionedReset reports whether v is LoadForCapture's record of a whole versioned block reset for
+// a newer settingsVersion. Such a record is keyed by the block's own path (config.VersionedSections),
+// which no §11.3 leaf violation ever is: those are keyed by a leaf.
+func isVersionedReset(v config.Violation) bool {
+	for _, s := range config.VersionedSections() {
+		if v.Key == s.Path {
+			return true
+		}
+	}
+	return false
 }
 
 // captureConfigDegradedSummary is the one-line account self-test and doctor give of a capture
