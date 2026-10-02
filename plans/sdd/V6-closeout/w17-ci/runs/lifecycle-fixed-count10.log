@@ -1,0 +1,1293 @@
+=== RUN   TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence
+=== RUN   TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence/a_capture_published_mid_audit_is_not_dangling
+=== RUN   TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence/an_evidence_claim_with_no_sidecar_is_still_dangling
+--- PASS: TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence (0.26s)
+    --- PASS: TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence/a_capture_published_mid_audit_is_not_dangling (0.14s)
+    --- PASS: TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence/an_evidence_claim_with_no_sidecar_is_still_dangling (0.13s)
+=== RUN   TestFault_Lifecycle
+=== RUN   TestFault_Lifecycle/startup
+    lifecycle_test.go:79: fault lifecycle_startup: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: SessionStart source: startup, then a turn
+          seed:     SessionStart(startup) + one turn (toolu_fault_startup_01) + SessionEnd
+          dangling: 0→0
+          detail:   audit before {tool_uses:0 roots:0 sidecars:0 checkpoints:0 dangling:0 reported:0}; after {tool_uses:2 roots:2 sidecars:3 checkpoints:0 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclestartup3820500351\001\lifecycle_startup.json
+=== RUN   TestFault_Lifecycle/resume
+    lifecycle_test.go:79: fault lifecycle_resume: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: SessionStart source: resume, then a turn
+          seed:     SessionStart(startup) + turn, SessionStart(resume) on the same id + turn (toolu_fault_resume_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:2 roots:2 sidecars:3 checkpoints:0 dangling:0 reported:0}; after {tool_uses:6 roots:5 sidecars:9 checkpoints:0 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleresume1835794351\001\lifecycle_resume.json
+=== RUN   TestFault_Lifecycle/fork
+    lifecycle_test.go:79: fault lifecycle_fork: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: SessionStart source: fork (a source the observer's own set does not name)
+          seed:     SessionStart(source:fork) + one turn; the hook exited 0 and the turn was indexed — `fork` is not one of the four sources internal/observer names, so the source is carried but not branched on
+          dangling: 0→0
+          detail:   audit before {tool_uses:6 roots:5 sidecars:9 checkpoints:0 dangling:0 reported:0}; after {tool_uses:8 roots:7 sidecars:12 checkpoints:0 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclefork2664942626\001\lifecycle_fork.json
+=== RUN   TestFault_Lifecycle/clear
+    lifecycle_test.go:79: fault lifecycle_clear: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: SessionStart source: clear
+          seed:     SessionStart(startup) + turn, SessionStart(clear) + turn (toolu_fault_clear_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:8 roots:7 sidecars:12 checkpoints:0 dangling:0 reported:0}; after {tool_uses:12 roots:10 sidecars:18 checkpoints:0 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleclear2937549174\001\lifecycle_clear.json
+=== RUN   TestFault_Lifecycle/compaction_manual
+    lifecycle_test.go:79: fault lifecycle_compaction_manual: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: PreCompact trigger: manual, then SessionStart source: compact
+          seed:     turn, PreCompact(trigger:manual), SessionStart(compact), turn (toolu_fault_compaction_manual_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:12 roots:10 sidecars:18 checkpoints:0 dangling:0 reported:0}; after {tool_uses:16 roots:13 sidecars:24 checkpoints:1 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclecompaction_manual2781685061\001\lifecycle_compaction_manual.json
+=== RUN   TestFault_Lifecycle/compaction_auto
+    lifecycle_test.go:79: fault lifecycle_compaction_auto: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: PreCompact trigger: auto, then SessionStart source: compact
+          seed:     turn, PreCompact(trigger:auto), SessionStart(compact), turn (toolu_fault_compaction_auto_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:16 roots:13 sidecars:24 checkpoints:1 dangling:0 reported:0}; after {tool_uses:20 roots:16 sidecars:30 checkpoints:2 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclecompaction_auto770144455\001\lifecycle_compaction_auto.json
+=== RUN   TestFault_Lifecycle/compaction_failed
+    lifecycle_test.go:79: fault lifecycle_compaction_failed: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: PreCompact with no compact SessionStart at all
+          seed:     turn, PreCompact(auto), NO SessionStart(compact), turn (toolu_fault_compaction_failed_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:20 roots:16 sidecars:30 checkpoints:2 dangling:0 reported:0}; after {tool_uses:24 roots:19 sidecars:36 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclecompaction_failed1329266397\001\lifecycle_compaction_failed.json
+=== RUN   TestFault_Lifecycle/compaction_crossed
+    lifecycle_test.go:79: fault lifecycle_compaction_crossed: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: PreCompact whose compact SessionStart arrives for ANOTHER session id
+          seed:     PreCompact on sess-fault-compaction-crossed, SessionStart(compact) on sess-fault-compaction-crossed-other, turn (toolu_fault_compaction_crossed_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:24 roots:19 sidecars:36 checkpoints:3 dangling:0 reported:0}; after {tool_uses:28 roots:22 sidecars:42 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 2
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclecompaction_crossed2794517563\001\lifecycle_compaction_crossed.json
+=== RUN   TestFault_Lifecycle/duplicate_tool_use
+    lifecycle_test.go:79: fault lifecycle_duplicate_tool_use: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: the same tool_use_id delivered twice
+          seed:     the identical PostToolUse payload for toolu_fault_duplicate_tool_use_01 delivered twice
+          dangling: 0→0
+          detail:   audit before {tool_uses:28 roots:22 sidecars:42 checkpoints:3 dangling:0 reported:0}; after {tool_uses:29 roots:23 sidecars:44 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleduplicate_tool_use42397177\001\lifecycle_duplicate_tool_use.json
+=== RUN   TestFault_Lifecycle/duplicate_precompact
+    lifecycle_test.go:79: fault lifecycle_duplicate_precompact: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: the same PreCompact delivered twice
+          seed:     the identical PreCompact payload delivered twice
+          dangling: 0→0
+          detail:   audit before {tool_uses:29 roots:23 sidecars:44 checkpoints:3 dangling:0 reported:0}; after {tool_uses:31 roots:25 sidecars:47 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleduplicate_precompact3998819118\001\lifecycle_duplicate_precompact.json
+=== RUN   TestFault_Lifecycle/missing_turn
+    lifecycle_test.go:79: fault lifecycle_missing_turn: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: a turn the host never delivered, followed by the next one
+          seed:     turn toolu_fault_missing_turn_01 and turn toolu_fault_missing_turn_03 delivered; the turn between them never was. An undelivered turn leaves no trace for the product to detect, so the row measures that the turns either side of the hole are intact rather than that the hole was noticed
+          dangling: 0→0
+          detail:   audit before {tool_uses:31 roots:25 sidecars:47 checkpoints:3 dangling:0 reported:0}; after {tool_uses:35 roots:28 sidecars:53 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclemissing_turn3030772290\001\lifecycle_missing_turn.json
+=== RUN   TestFault_Lifecycle/out_of_order_precompact
+    lifecycle_test.go:79: fault lifecycle_out_of_order_precompact: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: PreCompact before the tool events it would summarise
+          seed:     PreCompact before any tool event, then the turn (toolu_fault_out_of_order_precompact_01) it would have summarised
+          dangling: 0→0
+          detail:   audit before {tool_uses:35 roots:28 sidecars:53 checkpoints:3 dangling:0 reported:0}; after {tool_uses:37 roots:30 sidecars:56 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleout_of_order_precompact3679660333\001\lifecycle_out_of_order_precompact.json
+=== RUN   TestFault_Lifecycle/out_of_order_sessionend
+    lifecycle_test.go:79: fault lifecycle_out_of_order_sessionend: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: SessionEnd before Stop
+          seed:     tool event toolu_fault_out_of_order_sessionend_01, SessionEnd, then the Stop that should have come first
+          dangling: 0→0
+          detail:   audit before {tool_uses:37 roots:30 sidecars:56 checkpoints:3 dangling:0 reported:0}; after {tool_uses:38 roots:31 sidecars:58 checkpoints:3 dangling:0 reported:1}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleout_of_order_sessionend4147956090\001\lifecycle_out_of_order_sessionend.json
+=== RUN   TestFault_Lifecycle/frontier_state_is_explicit
+    lifecycle_test.go:148: fault lifecycle_frontier_state_is_explicit: recovered — the frontier state is explicit and self-consistent after thirteen lifecycle sequences: 3 checkpoint artifact(s), the same 3 recorded in MANIFEST.jsonl, and no dangling reference anywhere under .qompack/
+          boundary: the frontier and checkpoint state after the whole lifecycle matrix
+          seed:     status --json and self-test --json taken with the matrix's daemon still up, checkpoint List against the artifacts on disk, and a full store audit
+          dangling: 0→0
+          detail:   status gaps: [counter contract.degrade=7 loud_tail: ts=2026-10-02T04:35:13.0978734Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="critical host-contract failure: hook.additional_context_delivered (expected \"additionalContext reaches the transcript\", observed \"sentinel not found after two chances\")" failed=hook.additional_context_delivered/critical
+         loud_tail: ts=2026-10-02T04:35:14.2073796Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="critical host-contract failure: hook.additional_context_delivered (expected \"additionalContext reaches the transcript\", observed \"sentinel not found after two chances\")" failed=hook.additional_context_delivered/critical
+         loud_tail: ts=2026-10-02T04:35:15.5567509Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="critical host-contract failure: hook.additional_context_delivered (expected \"additionalContext reaches the transcript\", observed \"sentinel not found after two chances\")" failed=hook.additional_context_delivered/critical
+         loud_tail: ts=2026-10-02T04:35:16.9737762Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="critical host-contract failure: hook.additional_context_delivered (expected \"additionalContext reaches the transcript\", observed \"sentinel not found after two chances\")" failed=hook.additional_context_delivered/critical
+         loud_tail: ts=2026-10-02T04:35:18.3882318Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="critical host-contract failure: hook.additional_context_delivered (expected \"additionalContext reaches the transcript\", observed \"sentinel not found after two chances\")" failed=hook.additional_context_delivered/critical
+         spool_files=1]
+        self-test failures: []
+        loud lines: 7; day-log warnings: 8
+        checkpoint artifacts on disk: [0001.json 0003.json 0005.json]; manifest lists: [1 3 5] (err <nil>)
+        audit: {tool_uses:38 roots:31 sidecars:58 checkpoints:3 dangling:0 reported:0}
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclefrontier_state_is_explicit3166442119\001\lifecycle_frontier_state_is_explicit.json
+--- PASS: TestFault_Lifecycle (24.97s)
+    --- PASS: TestFault_Lifecycle/startup (1.09s)
+    --- PASS: TestFault_Lifecycle/resume (1.60s)
+    --- PASS: TestFault_Lifecycle/fork (1.07s)
+    --- PASS: TestFault_Lifecycle/clear (1.64s)
+    --- PASS: TestFault_Lifecycle/compaction_manual (1.77s)
+    --- PASS: TestFault_Lifecycle/compaction_auto (1.97s)
+    --- PASS: TestFault_Lifecycle/compaction_failed (1.71s)
+    --- PASS: TestFault_Lifecycle/compaction_crossed (2.12s)
+    --- PASS: TestFault_Lifecycle/duplicate_tool_use (1.07s)
+    --- PASS: TestFault_Lifecycle/duplicate_precompact (1.36s)
+    --- PASS: TestFault_Lifecycle/missing_turn (1.43s)
+    --- PASS: TestFault_Lifecycle/out_of_order_precompact (1.38s)
+    --- PASS: TestFault_Lifecycle/out_of_order_sessionend (1.03s)
+    --- PASS: TestFault_Lifecycle/frontier_state_is_explicit (0.42s)
+=== RUN   TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence
+=== RUN   TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence/a_capture_published_mid_audit_is_not_dangling
+=== RUN   TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence/an_evidence_claim_with_no_sidecar_is_still_dangling
+--- PASS: TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence (0.26s)
+    --- PASS: TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence/a_capture_published_mid_audit_is_not_dangling (0.14s)
+    --- PASS: TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence/an_evidence_claim_with_no_sidecar_is_still_dangling (0.12s)
+=== RUN   TestFault_Lifecycle
+=== RUN   TestFault_Lifecycle/startup
+    lifecycle_test.go:79: fault lifecycle_startup: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: SessionStart source: startup, then a turn
+          seed:     SessionStart(startup) + one turn (toolu_fault_startup_01) + SessionEnd
+          dangling: 0→0
+          detail:   audit before {tool_uses:0 roots:0 sidecars:0 checkpoints:0 dangling:0 reported:0}; after {tool_uses:2 roots:2 sidecars:3 checkpoints:0 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclestartup3033752080\001\lifecycle_startup.json
+=== RUN   TestFault_Lifecycle/resume
+    lifecycle_test.go:79: fault lifecycle_resume: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: SessionStart source: resume, then a turn
+          seed:     SessionStart(startup) + turn, SessionStart(resume) on the same id + turn (toolu_fault_resume_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:2 roots:2 sidecars:3 checkpoints:0 dangling:0 reported:0}; after {tool_uses:6 roots:5 sidecars:9 checkpoints:0 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleresume1158351523\001\lifecycle_resume.json
+=== RUN   TestFault_Lifecycle/fork
+    lifecycle_test.go:79: fault lifecycle_fork: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: SessionStart source: fork (a source the observer's own set does not name)
+          seed:     SessionStart(source:fork) + one turn; the hook exited 0 and the turn was indexed — `fork` is not one of the four sources internal/observer names, so the source is carried but not branched on
+          dangling: 0→0
+          detail:   audit before {tool_uses:6 roots:5 sidecars:9 checkpoints:0 dangling:0 reported:0}; after {tool_uses:8 roots:7 sidecars:12 checkpoints:0 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclefork2953440436\001\lifecycle_fork.json
+=== RUN   TestFault_Lifecycle/clear
+    lifecycle_test.go:79: fault lifecycle_clear: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: SessionStart source: clear
+          seed:     SessionStart(startup) + turn, SessionStart(clear) + turn (toolu_fault_clear_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:8 roots:7 sidecars:12 checkpoints:0 dangling:0 reported:0}; after {tool_uses:12 roots:10 sidecars:18 checkpoints:0 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleclear4174212781\001\lifecycle_clear.json
+=== RUN   TestFault_Lifecycle/compaction_manual
+    lifecycle_test.go:79: fault lifecycle_compaction_manual: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: PreCompact trigger: manual, then SessionStart source: compact
+          seed:     turn, PreCompact(trigger:manual), SessionStart(compact), turn (toolu_fault_compaction_manual_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:12 roots:10 sidecars:18 checkpoints:0 dangling:0 reported:0}; after {tool_uses:16 roots:13 sidecars:24 checkpoints:1 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclecompaction_manual4212382636\001\lifecycle_compaction_manual.json
+=== RUN   TestFault_Lifecycle/compaction_auto
+    lifecycle_test.go:79: fault lifecycle_compaction_auto: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: PreCompact trigger: auto, then SessionStart source: compact
+          seed:     turn, PreCompact(trigger:auto), SessionStart(compact), turn (toolu_fault_compaction_auto_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:16 roots:13 sidecars:24 checkpoints:1 dangling:0 reported:0}; after {tool_uses:20 roots:16 sidecars:30 checkpoints:2 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclecompaction_auto2673480252\001\lifecycle_compaction_auto.json
+=== RUN   TestFault_Lifecycle/compaction_failed
+    lifecycle_test.go:79: fault lifecycle_compaction_failed: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: PreCompact with no compact SessionStart at all
+          seed:     turn, PreCompact(auto), NO SessionStart(compact), turn (toolu_fault_compaction_failed_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:20 roots:16 sidecars:30 checkpoints:2 dangling:0 reported:0}; after {tool_uses:24 roots:19 sidecars:36 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclecompaction_failed2206476304\001\lifecycle_compaction_failed.json
+=== RUN   TestFault_Lifecycle/compaction_crossed
+    lifecycle_test.go:79: fault lifecycle_compaction_crossed: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: PreCompact whose compact SessionStart arrives for ANOTHER session id
+          seed:     PreCompact on sess-fault-compaction-crossed, SessionStart(compact) on sess-fault-compaction-crossed-other, turn (toolu_fault_compaction_crossed_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:24 roots:19 sidecars:36 checkpoints:3 dangling:0 reported:0}; after {tool_uses:28 roots:22 sidecars:42 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 2
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclecompaction_crossed3136259485\001\lifecycle_compaction_crossed.json
+=== RUN   TestFault_Lifecycle/duplicate_tool_use
+    lifecycle_test.go:79: fault lifecycle_duplicate_tool_use: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: the same tool_use_id delivered twice
+          seed:     the identical PostToolUse payload for toolu_fault_duplicate_tool_use_01 delivered twice
+          dangling: 0→0
+          detail:   audit before {tool_uses:28 roots:22 sidecars:42 checkpoints:3 dangling:0 reported:0}; after {tool_uses:29 roots:23 sidecars:44 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleduplicate_tool_use144632478\001\lifecycle_duplicate_tool_use.json
+=== RUN   TestFault_Lifecycle/duplicate_precompact
+    lifecycle_test.go:79: fault lifecycle_duplicate_precompact: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: the same PreCompact delivered twice
+          seed:     the identical PreCompact payload delivered twice
+          dangling: 0→0
+          detail:   audit before {tool_uses:29 roots:23 sidecars:44 checkpoints:3 dangling:0 reported:0}; after {tool_uses:31 roots:25 sidecars:47 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleduplicate_precompact735802076\001\lifecycle_duplicate_precompact.json
+=== RUN   TestFault_Lifecycle/missing_turn
+    lifecycle_test.go:79: fault lifecycle_missing_turn: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: a turn the host never delivered, followed by the next one
+          seed:     turn toolu_fault_missing_turn_01 and turn toolu_fault_missing_turn_03 delivered; the turn between them never was. An undelivered turn leaves no trace for the product to detect, so the row measures that the turns either side of the hole are intact rather than that the hole was noticed
+          dangling: 0→0
+          detail:   audit before {tool_uses:31 roots:25 sidecars:47 checkpoints:3 dangling:0 reported:0}; after {tool_uses:35 roots:28 sidecars:53 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclemissing_turn1913956054\001\lifecycle_missing_turn.json
+=== RUN   TestFault_Lifecycle/out_of_order_precompact
+    lifecycle_test.go:79: fault lifecycle_out_of_order_precompact: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: PreCompact before the tool events it would summarise
+          seed:     PreCompact before any tool event, then the turn (toolu_fault_out_of_order_precompact_01) it would have summarised
+          dangling: 0→0
+          detail:   audit before {tool_uses:35 roots:28 sidecars:53 checkpoints:3 dangling:0 reported:0}; after {tool_uses:37 roots:30 sidecars:56 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleout_of_order_precompact2206883381\001\lifecycle_out_of_order_precompact.json
+=== RUN   TestFault_Lifecycle/out_of_order_sessionend
+    lifecycle_test.go:79: fault lifecycle_out_of_order_sessionend: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: SessionEnd before Stop
+          seed:     tool event toolu_fault_out_of_order_sessionend_01, SessionEnd, then the Stop that should have come first
+          dangling: 0→0
+          detail:   audit before {tool_uses:37 roots:30 sidecars:56 checkpoints:3 dangling:0 reported:0}; after {tool_uses:38 roots:31 sidecars:58 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleout_of_order_sessionend157077870\001\lifecycle_out_of_order_sessionend.json
+=== RUN   TestFault_Lifecycle/frontier_state_is_explicit
+    lifecycle_test.go:148: fault lifecycle_frontier_state_is_explicit: recovered — the frontier state is explicit and self-consistent after thirteen lifecycle sequences: 3 checkpoint artifact(s), the same 3 recorded in MANIFEST.jsonl, and no dangling reference anywhere under .qompack/
+          boundary: the frontier and checkpoint state after the whole lifecycle matrix
+          seed:     status --json and self-test --json taken with the matrix's daemon still up, checkpoint List against the artifacts on disk, and a full store audit
+          dangling: 0→0
+          detail:   status gaps: [counter contract.degrade=7 loud_tail: ts=2026-10-02T04:35:35.705676Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="critical host-contract failure: hook.additional_context_delivered (expected \"additionalContext reaches the transcript\", observed \"sentinel not found after two chances\")" failed=hook.additional_context_delivered/critical
+         loud_tail: ts=2026-10-02T04:35:36.8204639Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="critical host-contract failure: hook.additional_context_delivered (expected \"additionalContext reaches the transcript\", observed \"sentinel not found after two chances\")" failed=hook.additional_context_delivered/critical
+         loud_tail: ts=2026-10-02T04:35:38.1725996Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="critical host-contract failure: hook.additional_context_delivered (expected \"additionalContext reaches the transcript\", observed \"sentinel not found after two chances\")" failed=hook.additional_context_delivered/critical
+         loud_tail: ts=2026-10-02T04:35:39.5130325Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="critical host-contract failure: hook.additional_context_delivered (expected \"additionalContext reaches the transcript\", observed \"sentinel not found after two chances\")" failed=hook.additional_context_delivered/critical
+         loud_tail: ts=2026-10-02T04:35:40.6479214Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="critical host-contract failure: hook.additional_context_delivered (expected \"additionalContext reaches the transcript\", observed \"sentinel not found after two chances\")" failed=hook.additional_context_delivered/critical
+         spool_files=1]
+        self-test failures: []
+        loud lines: 7; day-log warnings: 7
+        checkpoint artifacts on disk: [0001.json 0003.json 0005.json]; manifest lists: [1 3 5] (err <nil>)
+        audit: {tool_uses:38 roots:31 sidecars:58 checkpoints:3 dangling:0 reported:0}
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclefrontier_state_is_explicit465809472\001\lifecycle_frontier_state_is_explicit.json
+--- PASS: TestFault_Lifecycle (22.04s)
+    --- PASS: TestFault_Lifecycle/startup (1.58s)
+    --- PASS: TestFault_Lifecycle/resume (1.60s)
+    --- PASS: TestFault_Lifecycle/fork (1.16s)
+    --- PASS: TestFault_Lifecycle/clear (1.65s)
+    --- PASS: TestFault_Lifecycle/compaction_manual (1.85s)
+    --- PASS: TestFault_Lifecycle/compaction_auto (1.89s)
+    --- PASS: TestFault_Lifecycle/compaction_failed (1.75s)
+    --- PASS: TestFault_Lifecycle/compaction_crossed (2.06s)
+    --- PASS: TestFault_Lifecycle/duplicate_tool_use (1.13s)
+    --- PASS: TestFault_Lifecycle/duplicate_precompact (1.35s)
+    --- PASS: TestFault_Lifecycle/missing_turn (1.35s)
+    --- PASS: TestFault_Lifecycle/out_of_order_precompact (1.14s)
+    --- PASS: TestFault_Lifecycle/out_of_order_sessionend (1.04s)
+    --- PASS: TestFault_Lifecycle/frontier_state_is_explicit (0.44s)
+=== RUN   TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence
+=== RUN   TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence/a_capture_published_mid_audit_is_not_dangling
+=== RUN   TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence/an_evidence_claim_with_no_sidecar_is_still_dangling
+--- PASS: TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence (0.25s)
+    --- PASS: TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence/a_capture_published_mid_audit_is_not_dangling (0.12s)
+    --- PASS: TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence/an_evidence_claim_with_no_sidecar_is_still_dangling (0.13s)
+=== RUN   TestFault_Lifecycle
+=== RUN   TestFault_Lifecycle/startup
+    lifecycle_test.go:79: fault lifecycle_startup: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: SessionStart source: startup, then a turn
+          seed:     SessionStart(startup) + one turn (toolu_fault_startup_01) + SessionEnd
+          dangling: 0→0
+          detail:   audit before {tool_uses:0 roots:0 sidecars:0 checkpoints:0 dangling:0 reported:0}; after {tool_uses:2 roots:2 sidecars:3 checkpoints:0 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclestartup256422329\001\lifecycle_startup.json
+=== RUN   TestFault_Lifecycle/resume
+    lifecycle_test.go:79: fault lifecycle_resume: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: SessionStart source: resume, then a turn
+          seed:     SessionStart(startup) + turn, SessionStart(resume) on the same id + turn (toolu_fault_resume_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:2 roots:2 sidecars:3 checkpoints:0 dangling:0 reported:0}; after {tool_uses:6 roots:5 sidecars:9 checkpoints:0 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleresume3346943676\001\lifecycle_resume.json
+=== RUN   TestFault_Lifecycle/fork
+    lifecycle_test.go:79: fault lifecycle_fork: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: SessionStart source: fork (a source the observer's own set does not name)
+          seed:     SessionStart(source:fork) + one turn; the hook exited 0 and the turn was indexed — `fork` is not one of the four sources internal/observer names, so the source is carried but not branched on
+          dangling: 0→0
+          detail:   audit before {tool_uses:6 roots:5 sidecars:9 checkpoints:0 dangling:0 reported:0}; after {tool_uses:8 roots:7 sidecars:12 checkpoints:0 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclefork611410856\001\lifecycle_fork.json
+=== RUN   TestFault_Lifecycle/clear
+    lifecycle_test.go:79: fault lifecycle_clear: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: SessionStart source: clear
+          seed:     SessionStart(startup) + turn, SessionStart(clear) + turn (toolu_fault_clear_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:8 roots:7 sidecars:12 checkpoints:0 dangling:0 reported:0}; after {tool_uses:12 roots:10 sidecars:18 checkpoints:0 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleclear2844708545\001\lifecycle_clear.json
+=== RUN   TestFault_Lifecycle/compaction_manual
+    lifecycle_test.go:79: fault lifecycle_compaction_manual: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: PreCompact trigger: manual, then SessionStart source: compact
+          seed:     turn, PreCompact(trigger:manual), SessionStart(compact), turn (toolu_fault_compaction_manual_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:12 roots:10 sidecars:18 checkpoints:0 dangling:0 reported:0}; after {tool_uses:16 roots:13 sidecars:24 checkpoints:1 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclecompaction_manual2005914740\001\lifecycle_compaction_manual.json
+=== RUN   TestFault_Lifecycle/compaction_auto
+    lifecycle_test.go:79: fault lifecycle_compaction_auto: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: PreCompact trigger: auto, then SessionStart source: compact
+          seed:     turn, PreCompact(trigger:auto), SessionStart(compact), turn (toolu_fault_compaction_auto_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:16 roots:13 sidecars:24 checkpoints:1 dangling:0 reported:0}; after {tool_uses:20 roots:16 sidecars:30 checkpoints:2 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclecompaction_auto197254972\001\lifecycle_compaction_auto.json
+=== RUN   TestFault_Lifecycle/compaction_failed
+    lifecycle_test.go:79: fault lifecycle_compaction_failed: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: PreCompact with no compact SessionStart at all
+          seed:     turn, PreCompact(auto), NO SessionStart(compact), turn (toolu_fault_compaction_failed_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:20 roots:16 sidecars:30 checkpoints:2 dangling:0 reported:0}; after {tool_uses:24 roots:19 sidecars:36 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclecompaction_failed3447144339\001\lifecycle_compaction_failed.json
+=== RUN   TestFault_Lifecycle/compaction_crossed
+    lifecycle_test.go:79: fault lifecycle_compaction_crossed: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: PreCompact whose compact SessionStart arrives for ANOTHER session id
+          seed:     PreCompact on sess-fault-compaction-crossed, SessionStart(compact) on sess-fault-compaction-crossed-other, turn (toolu_fault_compaction_crossed_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:24 roots:19 sidecars:36 checkpoints:3 dangling:0 reported:0}; after {tool_uses:28 roots:22 sidecars:42 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 2
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclecompaction_crossed4058912571\001\lifecycle_compaction_crossed.json
+=== RUN   TestFault_Lifecycle/duplicate_tool_use
+    lifecycle_test.go:79: fault lifecycle_duplicate_tool_use: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: the same tool_use_id delivered twice
+          seed:     the identical PostToolUse payload for toolu_fault_duplicate_tool_use_01 delivered twice
+          dangling: 0→0
+          detail:   audit before {tool_uses:28 roots:22 sidecars:42 checkpoints:3 dangling:0 reported:0}; after {tool_uses:29 roots:23 sidecars:44 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleduplicate_tool_use798631394\001\lifecycle_duplicate_tool_use.json
+=== RUN   TestFault_Lifecycle/duplicate_precompact
+    lifecycle_test.go:79: fault lifecycle_duplicate_precompact: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: the same PreCompact delivered twice
+          seed:     the identical PreCompact payload delivered twice
+          dangling: 0→0
+          detail:   audit before {tool_uses:29 roots:23 sidecars:44 checkpoints:3 dangling:0 reported:0}; after {tool_uses:31 roots:25 sidecars:47 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleduplicate_precompact3774300584\001\lifecycle_duplicate_precompact.json
+=== RUN   TestFault_Lifecycle/missing_turn
+    lifecycle_test.go:79: fault lifecycle_missing_turn: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: a turn the host never delivered, followed by the next one
+          seed:     turn toolu_fault_missing_turn_01 and turn toolu_fault_missing_turn_03 delivered; the turn between them never was. An undelivered turn leaves no trace for the product to detect, so the row measures that the turns either side of the hole are intact rather than that the hole was noticed
+          dangling: 0→0
+          detail:   audit before {tool_uses:31 roots:25 sidecars:47 checkpoints:3 dangling:0 reported:0}; after {tool_uses:35 roots:28 sidecars:53 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclemissing_turn3632401492\001\lifecycle_missing_turn.json
+=== RUN   TestFault_Lifecycle/out_of_order_precompact
+    lifecycle_test.go:79: fault lifecycle_out_of_order_precompact: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: PreCompact before the tool events it would summarise
+          seed:     PreCompact before any tool event, then the turn (toolu_fault_out_of_order_precompact_01) it would have summarised
+          dangling: 0→0
+          detail:   audit before {tool_uses:35 roots:28 sidecars:53 checkpoints:3 dangling:0 reported:0}; after {tool_uses:37 roots:30 sidecars:56 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleout_of_order_precompact1819996757\001\lifecycle_out_of_order_precompact.json
+=== RUN   TestFault_Lifecycle/out_of_order_sessionend
+    lifecycle_test.go:79: fault lifecycle_out_of_order_sessionend: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: SessionEnd before Stop
+          seed:     tool event toolu_fault_out_of_order_sessionend_01, SessionEnd, then the Stop that should have come first
+          dangling: 0→0
+          detail:   audit before {tool_uses:37 roots:30 sidecars:56 checkpoints:3 dangling:0 reported:0}; after {tool_uses:38 roots:31 sidecars:58 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleout_of_order_sessionend2199967905\001\lifecycle_out_of_order_sessionend.json
+=== RUN   TestFault_Lifecycle/frontier_state_is_explicit
+    lifecycle_test.go:148: fault lifecycle_frontier_state_is_explicit: recovered — the frontier state is explicit and self-consistent after thirteen lifecycle sequences: 3 checkpoint artifact(s), the same 3 recorded in MANIFEST.jsonl, and no dangling reference anywhere under .qompack/
+          boundary: the frontier and checkpoint state after the whole lifecycle matrix
+          seed:     status --json and self-test --json taken with the matrix's daemon still up, checkpoint List against the artifacts on disk, and a full store audit
+          dangling: 0→0
+          detail:   status gaps: [counter contract.degrade=7 loud_tail: ts=2026-10-02T04:35:57.3447703Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="critical host-contract failure: hook.additional_context_delivered (expected \"additionalContext reaches the transcript\", observed \"sentinel not found after two chances\")" failed=hook.additional_context_delivered/critical
+         loud_tail: ts=2026-10-02T04:35:58.3339368Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="critical host-contract failure: hook.additional_context_delivered (expected \"additionalContext reaches the transcript\", observed \"sentinel not found after two chances\")" failed=hook.additional_context_delivered/critical
+         loud_tail: ts=2026-10-02T04:35:59.5318032Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="critical host-contract failure: hook.additional_context_delivered (expected \"additionalContext reaches the transcript\", observed \"sentinel not found after two chances\")" failed=hook.additional_context_delivered/critical
+         loud_tail: ts=2026-10-02T04:36:00.9121252Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="critical host-contract failure: hook.additional_context_delivered (expected \"additionalContext reaches the transcript\", observed \"sentinel not found after two chances\")" failed=hook.additional_context_delivered/critical
+         loud_tail: ts=2026-10-02T04:36:02.0374646Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="critical host-contract failure: hook.additional_context_delivered (expected \"additionalContext reaches the transcript\", observed \"sentinel not found after two chances\")" failed=hook.additional_context_delivered/critical
+         spool_files=1]
+        self-test failures: []
+        loud lines: 7; day-log warnings: 7
+        checkpoint artifacts on disk: [0001.json 0003.json 0005.json]; manifest lists: [1 3 5] (err <nil>)
+        audit: {tool_uses:38 roots:31 sidecars:58 checkpoints:3 dangling:0 reported:0}
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclefrontier_state_is_explicit2619630317\001\lifecycle_frontier_state_is_explicit.json
+--- PASS: TestFault_Lifecycle (21.13s)
+    --- PASS: TestFault_Lifecycle/startup (1.21s)
+    --- PASS: TestFault_Lifecycle/resume (1.59s)
+    --- PASS: TestFault_Lifecycle/fork (1.13s)
+    --- PASS: TestFault_Lifecycle/clear (1.67s)
+    --- PASS: TestFault_Lifecycle/compaction_manual (1.83s)
+    --- PASS: TestFault_Lifecycle/compaction_auto (1.84s)
+    --- PASS: TestFault_Lifecycle/compaction_failed (1.64s)
+    --- PASS: TestFault_Lifecycle/compaction_crossed (2.05s)
+    --- PASS: TestFault_Lifecycle/duplicate_tool_use (1.04s)
+    --- PASS: TestFault_Lifecycle/duplicate_precompact (1.18s)
+    --- PASS: TestFault_Lifecycle/missing_turn (1.38s)
+    --- PASS: TestFault_Lifecycle/out_of_order_precompact (1.13s)
+    --- PASS: TestFault_Lifecycle/out_of_order_sessionend (1.06s)
+    --- PASS: TestFault_Lifecycle/frontier_state_is_explicit (0.41s)
+=== RUN   TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence
+=== RUN   TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence/a_capture_published_mid_audit_is_not_dangling
+=== RUN   TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence/an_evidence_claim_with_no_sidecar_is_still_dangling
+--- PASS: TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence (0.25s)
+    --- PASS: TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence/a_capture_published_mid_audit_is_not_dangling (0.13s)
+    --- PASS: TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence/an_evidence_claim_with_no_sidecar_is_still_dangling (0.12s)
+=== RUN   TestFault_Lifecycle
+=== RUN   TestFault_Lifecycle/startup
+    lifecycle_test.go:79: fault lifecycle_startup: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: SessionStart source: startup, then a turn
+          seed:     SessionStart(startup) + one turn (toolu_fault_startup_01) + SessionEnd
+          dangling: 0→0
+          detail:   audit before {tool_uses:0 roots:0 sidecars:0 checkpoints:0 dangling:0 reported:0}; after {tool_uses:2 roots:2 sidecars:3 checkpoints:0 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclestartup772933008\001\lifecycle_startup.json
+=== RUN   TestFault_Lifecycle/resume
+    lifecycle_test.go:79: fault lifecycle_resume: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: SessionStart source: resume, then a turn
+          seed:     SessionStart(startup) + turn, SessionStart(resume) on the same id + turn (toolu_fault_resume_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:2 roots:2 sidecars:3 checkpoints:0 dangling:0 reported:0}; after {tool_uses:6 roots:5 sidecars:9 checkpoints:0 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleresume1185993559\001\lifecycle_resume.json
+=== RUN   TestFault_Lifecycle/fork
+    lifecycle_test.go:79: fault lifecycle_fork: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: SessionStart source: fork (a source the observer's own set does not name)
+          seed:     SessionStart(source:fork) + one turn; the hook exited 0 and the turn was indexed — `fork` is not one of the four sources internal/observer names, so the source is carried but not branched on
+          dangling: 0→0
+          detail:   audit before {tool_uses:6 roots:5 sidecars:9 checkpoints:0 dangling:0 reported:0}; after {tool_uses:8 roots:7 sidecars:12 checkpoints:0 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclefork3180450317\001\lifecycle_fork.json
+=== RUN   TestFault_Lifecycle/clear
+    lifecycle_test.go:79: fault lifecycle_clear: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: SessionStart source: clear
+          seed:     SessionStart(startup) + turn, SessionStart(clear) + turn (toolu_fault_clear_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:8 roots:7 sidecars:12 checkpoints:0 dangling:0 reported:0}; after {tool_uses:12 roots:10 sidecars:18 checkpoints:0 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleclear2410029779\001\lifecycle_clear.json
+=== RUN   TestFault_Lifecycle/compaction_manual
+    lifecycle_test.go:79: fault lifecycle_compaction_manual: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: PreCompact trigger: manual, then SessionStart source: compact
+          seed:     turn, PreCompact(trigger:manual), SessionStart(compact), turn (toolu_fault_compaction_manual_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:12 roots:10 sidecars:18 checkpoints:0 dangling:0 reported:0}; after {tool_uses:16 roots:13 sidecars:24 checkpoints:1 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclecompaction_manual3953803554\001\lifecycle_compaction_manual.json
+=== RUN   TestFault_Lifecycle/compaction_auto
+    lifecycle_test.go:79: fault lifecycle_compaction_auto: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: PreCompact trigger: auto, then SessionStart source: compact
+          seed:     turn, PreCompact(trigger:auto), SessionStart(compact), turn (toolu_fault_compaction_auto_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:16 roots:13 sidecars:24 checkpoints:1 dangling:0 reported:0}; after {tool_uses:20 roots:16 sidecars:30 checkpoints:2 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclecompaction_auto1467479438\001\lifecycle_compaction_auto.json
+=== RUN   TestFault_Lifecycle/compaction_failed
+    lifecycle_test.go:79: fault lifecycle_compaction_failed: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: PreCompact with no compact SessionStart at all
+          seed:     turn, PreCompact(auto), NO SessionStart(compact), turn (toolu_fault_compaction_failed_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:20 roots:16 sidecars:30 checkpoints:2 dangling:0 reported:0}; after {tool_uses:24 roots:19 sidecars:36 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclecompaction_failed1065169600\001\lifecycle_compaction_failed.json
+=== RUN   TestFault_Lifecycle/compaction_crossed
+    lifecycle_test.go:79: fault lifecycle_compaction_crossed: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: PreCompact whose compact SessionStart arrives for ANOTHER session id
+          seed:     PreCompact on sess-fault-compaction-crossed, SessionStart(compact) on sess-fault-compaction-crossed-other, turn (toolu_fault_compaction_crossed_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:24 roots:19 sidecars:36 checkpoints:3 dangling:0 reported:0}; after {tool_uses:28 roots:22 sidecars:42 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 2
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclecompaction_crossed1249033868\001\lifecycle_compaction_crossed.json
+=== RUN   TestFault_Lifecycle/duplicate_tool_use
+    lifecycle_test.go:79: fault lifecycle_duplicate_tool_use: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: the same tool_use_id delivered twice
+          seed:     the identical PostToolUse payload for toolu_fault_duplicate_tool_use_01 delivered twice
+          dangling: 0→0
+          detail:   audit before {tool_uses:28 roots:22 sidecars:42 checkpoints:3 dangling:0 reported:0}; after {tool_uses:29 roots:23 sidecars:44 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleduplicate_tool_use3323279264\001\lifecycle_duplicate_tool_use.json
+=== RUN   TestFault_Lifecycle/duplicate_precompact
+    lifecycle_test.go:79: fault lifecycle_duplicate_precompact: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: the same PreCompact delivered twice
+          seed:     the identical PreCompact payload delivered twice
+          dangling: 0→0
+          detail:   audit before {tool_uses:29 roots:23 sidecars:44 checkpoints:3 dangling:0 reported:0}; after {tool_uses:31 roots:25 sidecars:47 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleduplicate_precompact2806408721\001\lifecycle_duplicate_precompact.json
+=== RUN   TestFault_Lifecycle/missing_turn
+    lifecycle_test.go:79: fault lifecycle_missing_turn: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: a turn the host never delivered, followed by the next one
+          seed:     turn toolu_fault_missing_turn_01 and turn toolu_fault_missing_turn_03 delivered; the turn between them never was. An undelivered turn leaves no trace for the product to detect, so the row measures that the turns either side of the hole are intact rather than that the hole was noticed
+          dangling: 0→0
+          detail:   audit before {tool_uses:31 roots:25 sidecars:47 checkpoints:3 dangling:0 reported:0}; after {tool_uses:35 roots:28 sidecars:53 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclemissing_turn742123758\001\lifecycle_missing_turn.json
+=== RUN   TestFault_Lifecycle/out_of_order_precompact
+    lifecycle_test.go:79: fault lifecycle_out_of_order_precompact: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: PreCompact before the tool events it would summarise
+          seed:     PreCompact before any tool event, then the turn (toolu_fault_out_of_order_precompact_01) it would have summarised
+          dangling: 0→0
+          detail:   audit before {tool_uses:35 roots:28 sidecars:53 checkpoints:3 dangling:0 reported:0}; after {tool_uses:37 roots:30 sidecars:56 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleout_of_order_precompact655392221\001\lifecycle_out_of_order_precompact.json
+=== RUN   TestFault_Lifecycle/out_of_order_sessionend
+    lifecycle_test.go:79: fault lifecycle_out_of_order_sessionend: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: SessionEnd before Stop
+          seed:     tool event toolu_fault_out_of_order_sessionend_01, SessionEnd, then the Stop that should have come first
+          dangling: 0→0
+          detail:   audit before {tool_uses:37 roots:30 sidecars:56 checkpoints:3 dangling:0 reported:0}; after {tool_uses:38 roots:31 sidecars:58 checkpoints:3 dangling:0 reported:1}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleout_of_order_sessionend4102668768\001\lifecycle_out_of_order_sessionend.json
+=== RUN   TestFault_Lifecycle/frontier_state_is_explicit
+    lifecycle_test.go:148: fault lifecycle_frontier_state_is_explicit: recovered — the frontier state is explicit and self-consistent after thirteen lifecycle sequences: 3 checkpoint artifact(s), the same 3 recorded in MANIFEST.jsonl, and no dangling reference anywhere under .qompack/
+          boundary: the frontier and checkpoint state after the whole lifecycle matrix
+          seed:     status --json and self-test --json taken with the matrix's daemon still up, checkpoint List against the artifacts on disk, and a full store audit
+          dangling: 0→0
+          detail:   status gaps: [counter contract.degrade=7 loud_tail: ts=2026-10-02T04:36:19.6404598Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="critical host-contract failure: hook.additional_context_delivered (expected \"additionalContext reaches the transcript\", observed \"sentinel not found after two chances\")" failed=hook.additional_context_delivered/critical
+         loud_tail: ts=2026-10-02T04:36:20.7296334Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="critical host-contract failure: hook.additional_context_delivered (expected \"additionalContext reaches the transcript\", observed \"sentinel not found after two chances\")" failed=hook.additional_context_delivered/critical
+         loud_tail: ts=2026-10-02T04:36:22.0041224Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="critical host-contract failure: hook.additional_context_delivered (expected \"additionalContext reaches the transcript\", observed \"sentinel not found after two chances\")" failed=hook.additional_context_delivered/critical
+         loud_tail: ts=2026-10-02T04:36:23.5898974Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="critical host-contract failure: hook.additional_context_delivered (expected \"additionalContext reaches the transcript\", observed \"sentinel not found after two chances\")" failed=hook.additional_context_delivered/critical
+         loud_tail: ts=2026-10-02T04:36:24.9450921Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="critical host-contract failure: hook.additional_context_delivered (expected \"additionalContext reaches the transcript\", observed \"sentinel not found after two chances\")" failed=hook.additional_context_delivered/critical
+         spool_files=1]
+        self-test failures: []
+        loud lines: 7; day-log warnings: 7
+        checkpoint artifacts on disk: [0001.json 0003.json 0005.json]; manifest lists: [1 3 5] (err <nil>)
+        audit: {tool_uses:38 roots:31 sidecars:58 checkpoints:3 dangling:0 reported:0}
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclefrontier_state_is_explicit2688479891\001\lifecycle_frontier_state_is_explicit.json
+--- PASS: TestFault_Lifecycle (23.07s)
+    --- PASS: TestFault_Lifecycle/startup (1.26s)
+    --- PASS: TestFault_Lifecycle/resume (1.59s)
+    --- PASS: TestFault_Lifecycle/fork (1.21s)
+    --- PASS: TestFault_Lifecycle/clear (1.75s)
+    --- PASS: TestFault_Lifecycle/compaction_manual (1.86s)
+    --- PASS: TestFault_Lifecycle/compaction_auto (1.92s)
+    --- PASS: TestFault_Lifecycle/compaction_failed (1.98s)
+    --- PASS: TestFault_Lifecycle/compaction_crossed (2.26s)
+    --- PASS: TestFault_Lifecycle/duplicate_tool_use (1.09s)
+    --- PASS: TestFault_Lifecycle/duplicate_precompact (1.28s)
+    --- PASS: TestFault_Lifecycle/missing_turn (1.55s)
+    --- PASS: TestFault_Lifecycle/out_of_order_precompact (1.36s)
+    --- PASS: TestFault_Lifecycle/out_of_order_sessionend (1.15s)
+    --- PASS: TestFault_Lifecycle/frontier_state_is_explicit (0.44s)
+=== RUN   TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence
+=== RUN   TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence/a_capture_published_mid_audit_is_not_dangling
+=== RUN   TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence/an_evidence_claim_with_no_sidecar_is_still_dangling
+--- PASS: TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence (0.27s)
+    --- PASS: TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence/a_capture_published_mid_audit_is_not_dangling (0.14s)
+    --- PASS: TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence/an_evidence_claim_with_no_sidecar_is_still_dangling (0.12s)
+=== RUN   TestFault_Lifecycle
+=== RUN   TestFault_Lifecycle/startup
+    lifecycle_test.go:79: fault lifecycle_startup: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: SessionStart source: startup, then a turn
+          seed:     SessionStart(startup) + one turn (toolu_fault_startup_01) + SessionEnd
+          dangling: 0→0
+          detail:   audit before {tool_uses:0 roots:0 sidecars:0 checkpoints:0 dangling:0 reported:0}; after {tool_uses:2 roots:2 sidecars:3 checkpoints:0 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclestartup4094801906\001\lifecycle_startup.json
+=== RUN   TestFault_Lifecycle/resume
+    lifecycle_test.go:79: fault lifecycle_resume: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: SessionStart source: resume, then a turn
+          seed:     SessionStart(startup) + turn, SessionStart(resume) on the same id + turn (toolu_fault_resume_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:2 roots:2 sidecars:3 checkpoints:0 dangling:0 reported:0}; after {tool_uses:6 roots:5 sidecars:9 checkpoints:0 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleresume3792451583\001\lifecycle_resume.json
+=== RUN   TestFault_Lifecycle/fork
+    lifecycle_test.go:79: fault lifecycle_fork: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: SessionStart source: fork (a source the observer's own set does not name)
+          seed:     SessionStart(source:fork) + one turn; the hook exited 0 and the turn was indexed — `fork` is not one of the four sources internal/observer names, so the source is carried but not branched on
+          dangling: 0→0
+          detail:   audit before {tool_uses:6 roots:5 sidecars:9 checkpoints:0 dangling:0 reported:0}; after {tool_uses:8 roots:7 sidecars:12 checkpoints:0 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclefork1016551886\001\lifecycle_fork.json
+=== RUN   TestFault_Lifecycle/clear
+    lifecycle_test.go:79: fault lifecycle_clear: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: SessionStart source: clear
+          seed:     SessionStart(startup) + turn, SessionStart(clear) + turn (toolu_fault_clear_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:8 roots:7 sidecars:12 checkpoints:0 dangling:0 reported:0}; after {tool_uses:12 roots:10 sidecars:18 checkpoints:0 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleclear4093486585\001\lifecycle_clear.json
+=== RUN   TestFault_Lifecycle/compaction_manual
+    lifecycle_test.go:79: fault lifecycle_compaction_manual: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: PreCompact trigger: manual, then SessionStart source: compact
+          seed:     turn, PreCompact(trigger:manual), SessionStart(compact), turn (toolu_fault_compaction_manual_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:12 roots:10 sidecars:18 checkpoints:0 dangling:0 reported:0}; after {tool_uses:16 roots:13 sidecars:24 checkpoints:1 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclecompaction_manual1772236363\001\lifecycle_compaction_manual.json
+=== RUN   TestFault_Lifecycle/compaction_auto
+    lifecycle_test.go:79: fault lifecycle_compaction_auto: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: PreCompact trigger: auto, then SessionStart source: compact
+          seed:     turn, PreCompact(trigger:auto), SessionStart(compact), turn (toolu_fault_compaction_auto_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:16 roots:13 sidecars:24 checkpoints:1 dangling:0 reported:0}; after {tool_uses:20 roots:16 sidecars:30 checkpoints:2 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclecompaction_auto3266481144\001\lifecycle_compaction_auto.json
+=== RUN   TestFault_Lifecycle/compaction_failed
+    lifecycle_test.go:79: fault lifecycle_compaction_failed: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: PreCompact with no compact SessionStart at all
+          seed:     turn, PreCompact(auto), NO SessionStart(compact), turn (toolu_fault_compaction_failed_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:20 roots:16 sidecars:30 checkpoints:2 dangling:0 reported:0}; after {tool_uses:24 roots:19 sidecars:36 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclecompaction_failed833046879\001\lifecycle_compaction_failed.json
+=== RUN   TestFault_Lifecycle/compaction_crossed
+    lifecycle_test.go:79: fault lifecycle_compaction_crossed: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: PreCompact whose compact SessionStart arrives for ANOTHER session id
+          seed:     PreCompact on sess-fault-compaction-crossed, SessionStart(compact) on sess-fault-compaction-crossed-other, turn (toolu_fault_compaction_crossed_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:24 roots:19 sidecars:36 checkpoints:3 dangling:0 reported:0}; after {tool_uses:28 roots:22 sidecars:42 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 2
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclecompaction_crossed3849002636\001\lifecycle_compaction_crossed.json
+=== RUN   TestFault_Lifecycle/duplicate_tool_use
+    lifecycle_test.go:79: fault lifecycle_duplicate_tool_use: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: the same tool_use_id delivered twice
+          seed:     the identical PostToolUse payload for toolu_fault_duplicate_tool_use_01 delivered twice
+          dangling: 0→0
+          detail:   audit before {tool_uses:28 roots:22 sidecars:42 checkpoints:3 dangling:0 reported:0}; after {tool_uses:29 roots:23 sidecars:44 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleduplicate_tool_use4029649540\001\lifecycle_duplicate_tool_use.json
+=== RUN   TestFault_Lifecycle/duplicate_precompact
+    lifecycle_test.go:79: fault lifecycle_duplicate_precompact: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: the same PreCompact delivered twice
+          seed:     the identical PreCompact payload delivered twice
+          dangling: 0→0
+          detail:   audit before {tool_uses:29 roots:23 sidecars:44 checkpoints:3 dangling:0 reported:0}; after {tool_uses:31 roots:25 sidecars:47 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleduplicate_precompact1771459781\001\lifecycle_duplicate_precompact.json
+=== RUN   TestFault_Lifecycle/missing_turn
+    lifecycle_test.go:79: fault lifecycle_missing_turn: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: a turn the host never delivered, followed by the next one
+          seed:     turn toolu_fault_missing_turn_01 and turn toolu_fault_missing_turn_03 delivered; the turn between them never was. An undelivered turn leaves no trace for the product to detect, so the row measures that the turns either side of the hole are intact rather than that the hole was noticed
+          dangling: 0→0
+          detail:   audit before {tool_uses:31 roots:25 sidecars:47 checkpoints:3 dangling:0 reported:0}; after {tool_uses:35 roots:28 sidecars:53 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclemissing_turn3531797238\001\lifecycle_missing_turn.json
+=== RUN   TestFault_Lifecycle/out_of_order_precompact
+    lifecycle_test.go:79: fault lifecycle_out_of_order_precompact: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: PreCompact before the tool events it would summarise
+          seed:     PreCompact before any tool event, then the turn (toolu_fault_out_of_order_precompact_01) it would have summarised
+          dangling: 0→0
+          detail:   audit before {tool_uses:35 roots:28 sidecars:53 checkpoints:3 dangling:0 reported:0}; after {tool_uses:37 roots:30 sidecars:56 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleout_of_order_precompact4190954126\001\lifecycle_out_of_order_precompact.json
+=== RUN   TestFault_Lifecycle/out_of_order_sessionend
+    lifecycle_test.go:79: fault lifecycle_out_of_order_sessionend: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: SessionEnd before Stop
+          seed:     tool event toolu_fault_out_of_order_sessionend_01, SessionEnd, then the Stop that should have come first
+          dangling: 0→0
+          detail:   audit before {tool_uses:37 roots:30 sidecars:56 checkpoints:3 dangling:0 reported:0}; after {tool_uses:38 roots:31 sidecars:58 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleout_of_order_sessionend1597839374\001\lifecycle_out_of_order_sessionend.json
+=== RUN   TestFault_Lifecycle/frontier_state_is_explicit
+    lifecycle_test.go:148: fault lifecycle_frontier_state_is_explicit: recovered — the frontier state is explicit and self-consistent after thirteen lifecycle sequences: 3 checkpoint artifact(s), the same 3 recorded in MANIFEST.jsonl, and no dangling reference anywhere under .qompack/
+          boundary: the frontier and checkpoint state after the whole lifecycle matrix
+          seed:     status --json and self-test --json taken with the matrix's daemon still up, checkpoint List against the artifacts on disk, and a full store audit
+          dangling: 0→0
+          detail:   status gaps: [counter contract.degrade=7 loud_tail: ts=2026-10-02T04:36:42.2172159Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="critical host-contract failure: hook.additional_context_delivered (expected \"additionalContext reaches the transcript\", observed \"sentinel not found after two chances\")" failed=hook.additional_context_delivered/critical
+         loud_tail: ts=2026-10-02T04:36:43.2422883Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="critical host-contract failure: hook.additional_context_delivered (expected \"additionalContext reaches the transcript\", observed \"sentinel not found after two chances\")" failed=hook.additional_context_delivered/critical
+         loud_tail: ts=2026-10-02T04:36:44.4733651Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="critical host-contract failure: hook.additional_context_delivered (expected \"additionalContext reaches the transcript\", observed \"sentinel not found after two chances\")" failed=hook.additional_context_delivered/critical
+         loud_tail: ts=2026-10-02T04:36:45.8474164Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="critical host-contract failure: hook.additional_context_delivered (expected \"additionalContext reaches the transcript\", observed \"sentinel not found after two chances\")" failed=hook.additional_context_delivered/critical
+         loud_tail: ts=2026-10-02T04:36:47.0232397Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="critical host-contract failure: hook.additional_context_delivered (expected \"additionalContext reaches the transcript\", observed \"sentinel not found after two chances\")" failed=hook.additional_context_delivered/critical
+         spool_files=1]
+        self-test failures: []
+        loud lines: 7; day-log warnings: 7
+        checkpoint artifacts on disk: [0001.json 0003.json 0005.json]; manifest lists: [1 3 5] (err <nil>)
+        audit: {tool_uses:38 roots:31 sidecars:58 checkpoints:3 dangling:0 reported:0}
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclefrontier_state_is_explicit4027901220\001\lifecycle_frontier_state_is_explicit.json
+--- PASS: TestFault_Lifecycle (21.44s)
+    --- PASS: TestFault_Lifecycle/startup (1.17s)
+    --- PASS: TestFault_Lifecycle/resume (1.55s)
+    --- PASS: TestFault_Lifecycle/fork (1.10s)
+    --- PASS: TestFault_Lifecycle/clear (1.81s)
+    --- PASS: TestFault_Lifecycle/compaction_manual (1.83s)
+    --- PASS: TestFault_Lifecycle/compaction_auto (1.79s)
+    --- PASS: TestFault_Lifecycle/compaction_failed (1.72s)
+    --- PASS: TestFault_Lifecycle/compaction_crossed (1.98s)
+    --- PASS: TestFault_Lifecycle/duplicate_tool_use (1.02s)
+    --- PASS: TestFault_Lifecycle/duplicate_precompact (1.25s)
+    --- PASS: TestFault_Lifecycle/missing_turn (1.38s)
+    --- PASS: TestFault_Lifecycle/out_of_order_precompact (1.17s)
+    --- PASS: TestFault_Lifecycle/out_of_order_sessionend (1.00s)
+    --- PASS: TestFault_Lifecycle/frontier_state_is_explicit (0.42s)
+=== RUN   TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence
+=== RUN   TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence/a_capture_published_mid_audit_is_not_dangling
+=== RUN   TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence/an_evidence_claim_with_no_sidecar_is_still_dangling
+--- PASS: TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence (0.30s)
+    --- PASS: TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence/a_capture_published_mid_audit_is_not_dangling (0.17s)
+    --- PASS: TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence/an_evidence_claim_with_no_sidecar_is_still_dangling (0.13s)
+=== RUN   TestFault_Lifecycle
+=== RUN   TestFault_Lifecycle/startup
+    lifecycle_test.go:79: fault lifecycle_startup: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: SessionStart source: startup, then a turn
+          seed:     SessionStart(startup) + one turn (toolu_fault_startup_01) + SessionEnd
+          dangling: 0→0
+          detail:   audit before {tool_uses:0 roots:0 sidecars:0 checkpoints:0 dangling:0 reported:0}; after {tool_uses:2 roots:2 sidecars:3 checkpoints:0 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclestartup4068938018\001\lifecycle_startup.json
+=== RUN   TestFault_Lifecycle/resume
+    lifecycle_test.go:79: fault lifecycle_resume: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: SessionStart source: resume, then a turn
+          seed:     SessionStart(startup) + turn, SessionStart(resume) on the same id + turn (toolu_fault_resume_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:2 roots:2 sidecars:3 checkpoints:0 dangling:0 reported:0}; after {tool_uses:6 roots:5 sidecars:9 checkpoints:0 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleresume3546170258\001\lifecycle_resume.json
+=== RUN   TestFault_Lifecycle/fork
+    lifecycle_test.go:79: fault lifecycle_fork: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: SessionStart source: fork (a source the observer's own set does not name)
+          seed:     SessionStart(source:fork) + one turn; the hook exited 0 and the turn was indexed — `fork` is not one of the four sources internal/observer names, so the source is carried but not branched on
+          dangling: 0→0
+          detail:   audit before {tool_uses:6 roots:5 sidecars:9 checkpoints:0 dangling:0 reported:0}; after {tool_uses:8 roots:7 sidecars:12 checkpoints:0 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclefork2380960611\001\lifecycle_fork.json
+=== RUN   TestFault_Lifecycle/clear
+    lifecycle_test.go:79: fault lifecycle_clear: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: SessionStart source: clear
+          seed:     SessionStart(startup) + turn, SessionStart(clear) + turn (toolu_fault_clear_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:8 roots:7 sidecars:12 checkpoints:0 dangling:0 reported:0}; after {tool_uses:12 roots:10 sidecars:18 checkpoints:0 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleclear1480520147\001\lifecycle_clear.json
+=== RUN   TestFault_Lifecycle/compaction_manual
+    lifecycle_test.go:79: fault lifecycle_compaction_manual: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: PreCompact trigger: manual, then SessionStart source: compact
+          seed:     turn, PreCompact(trigger:manual), SessionStart(compact), turn (toolu_fault_compaction_manual_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:12 roots:10 sidecars:18 checkpoints:0 dangling:0 reported:0}; after {tool_uses:16 roots:13 sidecars:24 checkpoints:1 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclecompaction_manual1908439385\001\lifecycle_compaction_manual.json
+=== RUN   TestFault_Lifecycle/compaction_auto
+    lifecycle_test.go:79: fault lifecycle_compaction_auto: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: PreCompact trigger: auto, then SessionStart source: compact
+          seed:     turn, PreCompact(trigger:auto), SessionStart(compact), turn (toolu_fault_compaction_auto_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:16 roots:13 sidecars:24 checkpoints:1 dangling:0 reported:0}; after {tool_uses:20 roots:16 sidecars:30 checkpoints:2 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclecompaction_auto2833589329\001\lifecycle_compaction_auto.json
+=== RUN   TestFault_Lifecycle/compaction_failed
+    lifecycle_test.go:79: fault lifecycle_compaction_failed: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: PreCompact with no compact SessionStart at all
+          seed:     turn, PreCompact(auto), NO SessionStart(compact), turn (toolu_fault_compaction_failed_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:20 roots:16 sidecars:30 checkpoints:2 dangling:0 reported:0}; after {tool_uses:24 roots:19 sidecars:36 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclecompaction_failed2660392379\001\lifecycle_compaction_failed.json
+=== RUN   TestFault_Lifecycle/compaction_crossed
+    lifecycle_test.go:79: fault lifecycle_compaction_crossed: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: PreCompact whose compact SessionStart arrives for ANOTHER session id
+          seed:     PreCompact on sess-fault-compaction-crossed, SessionStart(compact) on sess-fault-compaction-crossed-other, turn (toolu_fault_compaction_crossed_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:24 roots:19 sidecars:36 checkpoints:3 dangling:0 reported:0}; after {tool_uses:28 roots:22 sidecars:42 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 2
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclecompaction_crossed3266733975\001\lifecycle_compaction_crossed.json
+=== RUN   TestFault_Lifecycle/duplicate_tool_use
+    lifecycle_test.go:79: fault lifecycle_duplicate_tool_use: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: the same tool_use_id delivered twice
+          seed:     the identical PostToolUse payload for toolu_fault_duplicate_tool_use_01 delivered twice
+          dangling: 0→0
+          detail:   audit before {tool_uses:28 roots:22 sidecars:42 checkpoints:3 dangling:0 reported:0}; after {tool_uses:29 roots:23 sidecars:44 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleduplicate_tool_use554418584\001\lifecycle_duplicate_tool_use.json
+=== RUN   TestFault_Lifecycle/duplicate_precompact
+    lifecycle_test.go:79: fault lifecycle_duplicate_precompact: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: the same PreCompact delivered twice
+          seed:     the identical PreCompact payload delivered twice
+          dangling: 0→0
+          detail:   audit before {tool_uses:29 roots:23 sidecars:44 checkpoints:3 dangling:0 reported:0}; after {tool_uses:31 roots:25 sidecars:47 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleduplicate_precompact3109651945\001\lifecycle_duplicate_precompact.json
+=== RUN   TestFault_Lifecycle/missing_turn
+    lifecycle_test.go:79: fault lifecycle_missing_turn: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: a turn the host never delivered, followed by the next one
+          seed:     turn toolu_fault_missing_turn_01 and turn toolu_fault_missing_turn_03 delivered; the turn between them never was. An undelivered turn leaves no trace for the product to detect, so the row measures that the turns either side of the hole are intact rather than that the hole was noticed
+          dangling: 0→0
+          detail:   audit before {tool_uses:31 roots:25 sidecars:47 checkpoints:3 dangling:0 reported:0}; after {tool_uses:35 roots:28 sidecars:53 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclemissing_turn3121467896\001\lifecycle_missing_turn.json
+=== RUN   TestFault_Lifecycle/out_of_order_precompact
+    lifecycle_test.go:79: fault lifecycle_out_of_order_precompact: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: PreCompact before the tool events it would summarise
+          seed:     PreCompact before any tool event, then the turn (toolu_fault_out_of_order_precompact_01) it would have summarised
+          dangling: 0→0
+          detail:   audit before {tool_uses:35 roots:28 sidecars:53 checkpoints:3 dangling:0 reported:0}; after {tool_uses:37 roots:30 sidecars:56 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleout_of_order_precompact1512342750\001\lifecycle_out_of_order_precompact.json
+=== RUN   TestFault_Lifecycle/out_of_order_sessionend
+    lifecycle_test.go:79: fault lifecycle_out_of_order_sessionend: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: SessionEnd before Stop
+          seed:     tool event toolu_fault_out_of_order_sessionend_01, SessionEnd, then the Stop that should have come first
+          dangling: 0→0
+          detail:   audit before {tool_uses:37 roots:30 sidecars:56 checkpoints:3 dangling:0 reported:0}; after {tool_uses:38 roots:31 sidecars:58 checkpoints:3 dangling:0 reported:1}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleout_of_order_sessionend2544177059\001\lifecycle_out_of_order_sessionend.json
+=== RUN   TestFault_Lifecycle/frontier_state_is_explicit
+    lifecycle_test.go:148: fault lifecycle_frontier_state_is_explicit: recovered — the frontier state is explicit and self-consistent after thirteen lifecycle sequences: 3 checkpoint artifact(s), the same 3 recorded in MANIFEST.jsonl, and no dangling reference anywhere under .qompack/
+          boundary: the frontier and checkpoint state after the whole lifecycle matrix
+          seed:     status --json and self-test --json taken with the matrix's daemon still up, checkpoint List against the artifacts on disk, and a full store audit
+          dangling: 0→0
+          detail:   status gaps: [counter contract.degrade=7 loud_tail: ts=2026-10-02T04:37:03.3003247Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="critical host-contract failure: hook.additional_context_delivered (expected \"additionalContext reaches the transcript\", observed \"sentinel not found after two chances\")" failed=hook.additional_context_delivered/critical
+         loud_tail: ts=2026-10-02T04:37:04.4011882Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="critical host-contract failure: hook.additional_context_delivered (expected \"additionalContext reaches the transcript\", observed \"sentinel not found after two chances\")" failed=hook.additional_context_delivered/critical
+         loud_tail: ts=2026-10-02T04:37:05.7100606Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="critical host-contract failure: hook.additional_context_delivered (expected \"additionalContext reaches the transcript\", observed \"sentinel not found after two chances\")" failed=hook.additional_context_delivered/critical
+         loud_tail: ts=2026-10-02T04:37:07.1791303Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="critical host-contract failure: hook.additional_context_delivered (expected \"additionalContext reaches the transcript\", observed \"sentinel not found after two chances\")" failed=hook.additional_context_delivered/critical
+         loud_tail: ts=2026-10-02T04:37:08.3929378Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="critical host-contract failure: hook.additional_context_delivered (expected \"additionalContext reaches the transcript\", observed \"sentinel not found after two chances\")" failed=hook.additional_context_delivered/critical
+         spool_files=1]
+        self-test failures: []
+        loud lines: 7; day-log warnings: 8
+        checkpoint artifacts on disk: [0001.json 0003.json 0005.json]; manifest lists: [1 3 5] (err <nil>)
+        audit: {tool_uses:38 roots:31 sidecars:58 checkpoints:3 dangling:0 reported:0}
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclefrontier_state_is_explicit2941275395\001\lifecycle_frontier_state_is_explicit.json
+--- PASS: TestFault_Lifecycle (21.11s)
+    --- PASS: TestFault_Lifecycle/startup (1.27s)
+    --- PASS: TestFault_Lifecycle/resume (1.55s)
+    --- PASS: TestFault_Lifecycle/fork (1.14s)
+    --- PASS: TestFault_Lifecycle/clear (1.44s)
+    --- PASS: TestFault_Lifecycle/compaction_manual (1.67s)
+    --- PASS: TestFault_Lifecycle/compaction_auto (1.66s)
+    --- PASS: TestFault_Lifecycle/compaction_failed (1.67s)
+    --- PASS: TestFault_Lifecycle/compaction_crossed (1.97s)
+    --- PASS: TestFault_Lifecycle/duplicate_tool_use (1.10s)
+    --- PASS: TestFault_Lifecycle/duplicate_precompact (1.30s)
+    --- PASS: TestFault_Lifecycle/missing_turn (1.49s)
+    --- PASS: TestFault_Lifecycle/out_of_order_precompact (1.16s)
+    --- PASS: TestFault_Lifecycle/out_of_order_sessionend (1.00s)
+    --- PASS: TestFault_Lifecycle/frontier_state_is_explicit (0.44s)
+=== RUN   TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence
+=== RUN   TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence/a_capture_published_mid_audit_is_not_dangling
+=== RUN   TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence/an_evidence_claim_with_no_sidecar_is_still_dangling
+--- PASS: TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence (0.26s)
+    --- PASS: TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence/a_capture_published_mid_audit_is_not_dangling (0.14s)
+    --- PASS: TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence/an_evidence_claim_with_no_sidecar_is_still_dangling (0.12s)
+=== RUN   TestFault_Lifecycle
+=== RUN   TestFault_Lifecycle/startup
+    lifecycle_test.go:79: fault lifecycle_startup: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: SessionStart source: startup, then a turn
+          seed:     SessionStart(startup) + one turn (toolu_fault_startup_01) + SessionEnd
+          dangling: 0→0
+          detail:   audit before {tool_uses:0 roots:0 sidecars:0 checkpoints:0 dangling:0 reported:0}; after {tool_uses:2 roots:2 sidecars:3 checkpoints:0 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclestartup4211315883\001\lifecycle_startup.json
+=== RUN   TestFault_Lifecycle/resume
+    lifecycle_test.go:79: fault lifecycle_resume: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: SessionStart source: resume, then a turn
+          seed:     SessionStart(startup) + turn, SessionStart(resume) on the same id + turn (toolu_fault_resume_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:2 roots:2 sidecars:3 checkpoints:0 dangling:0 reported:0}; after {tool_uses:6 roots:5 sidecars:9 checkpoints:0 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleresume1573975317\001\lifecycle_resume.json
+=== RUN   TestFault_Lifecycle/fork
+    lifecycle_test.go:79: fault lifecycle_fork: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: SessionStart source: fork (a source the observer's own set does not name)
+          seed:     SessionStart(source:fork) + one turn; the hook exited 0 and the turn was indexed — `fork` is not one of the four sources internal/observer names, so the source is carried but not branched on
+          dangling: 0→0
+          detail:   audit before {tool_uses:6 roots:5 sidecars:9 checkpoints:0 dangling:0 reported:0}; after {tool_uses:8 roots:7 sidecars:12 checkpoints:0 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclefork1044265038\001\lifecycle_fork.json
+=== RUN   TestFault_Lifecycle/clear
+    lifecycle_test.go:79: fault lifecycle_clear: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: SessionStart source: clear
+          seed:     SessionStart(startup) + turn, SessionStart(clear) + turn (toolu_fault_clear_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:8 roots:7 sidecars:12 checkpoints:0 dangling:0 reported:0}; after {tool_uses:12 roots:10 sidecars:18 checkpoints:0 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleclear552838701\001\lifecycle_clear.json
+=== RUN   TestFault_Lifecycle/compaction_manual
+    lifecycle_test.go:79: fault lifecycle_compaction_manual: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: PreCompact trigger: manual, then SessionStart source: compact
+          seed:     turn, PreCompact(trigger:manual), SessionStart(compact), turn (toolu_fault_compaction_manual_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:12 roots:10 sidecars:18 checkpoints:0 dangling:0 reported:0}; after {tool_uses:16 roots:13 sidecars:24 checkpoints:1 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclecompaction_manual455108120\001\lifecycle_compaction_manual.json
+=== RUN   TestFault_Lifecycle/compaction_auto
+    lifecycle_test.go:79: fault lifecycle_compaction_auto: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: PreCompact trigger: auto, then SessionStart source: compact
+          seed:     turn, PreCompact(trigger:auto), SessionStart(compact), turn (toolu_fault_compaction_auto_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:16 roots:13 sidecars:24 checkpoints:1 dangling:0 reported:0}; after {tool_uses:20 roots:16 sidecars:30 checkpoints:2 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclecompaction_auto2643560538\001\lifecycle_compaction_auto.json
+=== RUN   TestFault_Lifecycle/compaction_failed
+    lifecycle_test.go:79: fault lifecycle_compaction_failed: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: PreCompact with no compact SessionStart at all
+          seed:     turn, PreCompact(auto), NO SessionStart(compact), turn (toolu_fault_compaction_failed_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:20 roots:16 sidecars:30 checkpoints:2 dangling:0 reported:0}; after {tool_uses:24 roots:19 sidecars:36 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclecompaction_failed1559495947\001\lifecycle_compaction_failed.json
+=== RUN   TestFault_Lifecycle/compaction_crossed
+    lifecycle_test.go:79: fault lifecycle_compaction_crossed: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: PreCompact whose compact SessionStart arrives for ANOTHER session id
+          seed:     PreCompact on sess-fault-compaction-crossed, SessionStart(compact) on sess-fault-compaction-crossed-other, turn (toolu_fault_compaction_crossed_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:24 roots:19 sidecars:36 checkpoints:3 dangling:0 reported:0}; after {tool_uses:28 roots:22 sidecars:42 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 2
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclecompaction_crossed673075824\001\lifecycle_compaction_crossed.json
+=== RUN   TestFault_Lifecycle/duplicate_tool_use
+    lifecycle_test.go:79: fault lifecycle_duplicate_tool_use: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: the same tool_use_id delivered twice
+          seed:     the identical PostToolUse payload for toolu_fault_duplicate_tool_use_01 delivered twice
+          dangling: 0→0
+          detail:   audit before {tool_uses:28 roots:22 sidecars:42 checkpoints:3 dangling:0 reported:0}; after {tool_uses:29 roots:23 sidecars:44 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleduplicate_tool_use3010542932\001\lifecycle_duplicate_tool_use.json
+=== RUN   TestFault_Lifecycle/duplicate_precompact
+    lifecycle_test.go:79: fault lifecycle_duplicate_precompact: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: the same PreCompact delivered twice
+          seed:     the identical PreCompact payload delivered twice
+          dangling: 0→0
+          detail:   audit before {tool_uses:29 roots:23 sidecars:44 checkpoints:3 dangling:0 reported:0}; after {tool_uses:31 roots:25 sidecars:47 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleduplicate_precompact1294602878\001\lifecycle_duplicate_precompact.json
+=== RUN   TestFault_Lifecycle/missing_turn
+    lifecycle_test.go:79: fault lifecycle_missing_turn: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: a turn the host never delivered, followed by the next one
+          seed:     turn toolu_fault_missing_turn_01 and turn toolu_fault_missing_turn_03 delivered; the turn between them never was. An undelivered turn leaves no trace for the product to detect, so the row measures that the turns either side of the hole are intact rather than that the hole was noticed
+          dangling: 0→0
+          detail:   audit before {tool_uses:31 roots:25 sidecars:47 checkpoints:3 dangling:0 reported:0}; after {tool_uses:35 roots:28 sidecars:53 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclemissing_turn2854850132\001\lifecycle_missing_turn.json
+=== RUN   TestFault_Lifecycle/out_of_order_precompact
+    lifecycle_test.go:79: fault lifecycle_out_of_order_precompact: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: PreCompact before the tool events it would summarise
+          seed:     PreCompact before any tool event, then the turn (toolu_fault_out_of_order_precompact_01) it would have summarised
+          dangling: 0→0
+          detail:   audit before {tool_uses:35 roots:28 sidecars:53 checkpoints:3 dangling:0 reported:0}; after {tool_uses:37 roots:30 sidecars:56 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleout_of_order_precompact1087645458\001\lifecycle_out_of_order_precompact.json
+=== RUN   TestFault_Lifecycle/out_of_order_sessionend
+    lifecycle_test.go:79: fault lifecycle_out_of_order_sessionend: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: SessionEnd before Stop
+          seed:     tool event toolu_fault_out_of_order_sessionend_01, SessionEnd, then the Stop that should have come first
+          dangling: 0→0
+          detail:   audit before {tool_uses:37 roots:30 sidecars:56 checkpoints:3 dangling:0 reported:0}; after {tool_uses:38 roots:31 sidecars:58 checkpoints:3 dangling:0 reported:1}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleout_of_order_sessionend2319908074\001\lifecycle_out_of_order_sessionend.json
+=== RUN   TestFault_Lifecycle/frontier_state_is_explicit
+    lifecycle_test.go:148: fault lifecycle_frontier_state_is_explicit: recovered — the frontier state is explicit and self-consistent after thirteen lifecycle sequences: 3 checkpoint artifact(s), the same 3 recorded in MANIFEST.jsonl, and no dangling reference anywhere under .qompack/
+          boundary: the frontier and checkpoint state after the whole lifecycle matrix
+          seed:     status --json and self-test --json taken with the matrix's daemon still up, checkpoint List against the artifacts on disk, and a full store audit
+          dangling: 0→0
+          detail:   status gaps: [counter contract.degrade=7 loud_tail: ts=2026-10-02T04:37:24.4967506Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="critical host-contract failure: hook.additional_context_delivered (expected \"additionalContext reaches the transcript\", observed \"sentinel not found after two chances\")" failed=hook.additional_context_delivered/critical
+         loud_tail: ts=2026-10-02T04:37:25.4855514Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="critical host-contract failure: hook.additional_context_delivered (expected \"additionalContext reaches the transcript\", observed \"sentinel not found after two chances\")" failed=hook.additional_context_delivered/critical
+         loud_tail: ts=2026-10-02T04:37:26.7084568Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="critical host-contract failure: hook.additional_context_delivered (expected \"additionalContext reaches the transcript\", observed \"sentinel not found after two chances\")" failed=hook.additional_context_delivered/critical
+         loud_tail: ts=2026-10-02T04:37:28.8344365Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="critical host-contract failure: hook.additional_context_delivered (expected \"additionalContext reaches the transcript\", observed \"sentinel not found after two chances\")" failed=hook.additional_context_delivered/critical
+         loud_tail: ts=2026-10-02T04:37:33.1801517Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="critical host-contract failure: hook.additional_context_delivered (expected \"additionalContext reaches the transcript\", observed \"sentinel not found after two chances\")" failed=hook.additional_context_delivered/critical
+         spool_files=2]
+        self-test failures: []
+        loud lines: 7; day-log warnings: 7
+        checkpoint artifacts on disk: [0001.json 0003.json 0005.json]; manifest lists: [1 3 5] (err <nil>)
+        audit: {tool_uses:38 roots:31 sidecars:58 checkpoints:3 dangling:0 reported:0}
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclefrontier_state_is_explicit2276971433\001\lifecycle_frontier_state_is_explicit.json
+--- PASS: TestFault_Lifecycle (32.91s)
+    --- PASS: TestFault_Lifecycle/startup (1.05s)
+    --- PASS: TestFault_Lifecycle/resume (1.40s)
+    --- PASS: TestFault_Lifecycle/fork (1.00s)
+    --- PASS: TestFault_Lifecycle/clear (1.41s)
+    --- PASS: TestFault_Lifecycle/compaction_manual (1.71s)
+    --- PASS: TestFault_Lifecycle/compaction_auto (1.65s)
+    --- PASS: TestFault_Lifecycle/compaction_failed (1.66s)
+    --- PASS: TestFault_Lifecycle/compaction_crossed (2.28s)
+    --- PASS: TestFault_Lifecycle/duplicate_tool_use (1.00s)
+    --- PASS: TestFault_Lifecycle/duplicate_precompact (1.20s)
+    --- PASS: TestFault_Lifecycle/missing_turn (1.87s)
+    --- PASS: TestFault_Lifecycle/out_of_order_precompact (4.29s)
+    --- PASS: TestFault_Lifecycle/out_of_order_sessionend (4.36s)
+    --- PASS: TestFault_Lifecycle/frontier_state_is_explicit (2.67s)
+=== RUN   TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence
+=== RUN   TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence/a_capture_published_mid_audit_is_not_dangling
+=== RUN   TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence/an_evidence_claim_with_no_sidecar_is_still_dangling
+--- PASS: TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence (1.28s)
+    --- PASS: TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence/a_capture_published_mid_audit_is_not_dangling (0.47s)
+    --- PASS: TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence/an_evidence_claim_with_no_sidecar_is_still_dangling (0.80s)
+=== RUN   TestFault_Lifecycle
+=== RUN   TestFault_Lifecycle/startup
+    lifecycle_test.go:79: fault lifecycle_startup: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: SessionStart source: startup, then a turn
+          seed:     SessionStart(startup) + one turn (toolu_fault_startup_01) + SessionEnd
+          dangling: 0→0
+          detail:   audit before {tool_uses:0 roots:0 sidecars:0 checkpoints:0 dangling:0 reported:0}; after {tool_uses:2 roots:2 sidecars:3 checkpoints:0 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclestartup623307702\001\lifecycle_startup.json
+=== RUN   TestFault_Lifecycle/resume
+    lifecycle_test.go:79: fault lifecycle_resume: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: SessionStart source: resume, then a turn
+          seed:     SessionStart(startup) + turn, SessionStart(resume) on the same id + turn (toolu_fault_resume_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:2 roots:2 sidecars:3 checkpoints:0 dangling:0 reported:0}; after {tool_uses:6 roots:5 sidecars:9 checkpoints:0 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleresume3254955487\001\lifecycle_resume.json
+=== RUN   TestFault_Lifecycle/fork
+    lifecycle_test.go:79: fault lifecycle_fork: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: SessionStart source: fork (a source the observer's own set does not name)
+          seed:     SessionStart(source:fork) + one turn; the hook exited 0 and the turn was indexed — `fork` is not one of the four sources internal/observer names, so the source is carried but not branched on
+          dangling: 0→0
+          detail:   audit before {tool_uses:6 roots:5 sidecars:9 checkpoints:0 dangling:0 reported:0}; after {tool_uses:8 roots:7 sidecars:12 checkpoints:0 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclefork2795675349\001\lifecycle_fork.json
+=== RUN   TestFault_Lifecycle/clear
+    lifecycle_test.go:79: fault lifecycle_clear: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: SessionStart source: clear
+          seed:     SessionStart(startup) + turn, SessionStart(clear) + turn (toolu_fault_clear_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:8 roots:7 sidecars:12 checkpoints:0 dangling:0 reported:0}; after {tool_uses:12 roots:10 sidecars:18 checkpoints:0 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleclear3616988572\001\lifecycle_clear.json
+=== RUN   TestFault_Lifecycle/compaction_manual
+    lifecycle_test.go:79: fault lifecycle_compaction_manual: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: PreCompact trigger: manual, then SessionStart source: compact
+          seed:     turn, PreCompact(trigger:manual), SessionStart(compact), turn (toolu_fault_compaction_manual_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:12 roots:10 sidecars:18 checkpoints:0 dangling:0 reported:0}; after {tool_uses:16 roots:13 sidecars:24 checkpoints:1 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclecompaction_manual1647886443\001\lifecycle_compaction_manual.json
+=== RUN   TestFault_Lifecycle/compaction_auto
+    lifecycle_test.go:79: fault lifecycle_compaction_auto: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: PreCompact trigger: auto, then SessionStart source: compact
+          seed:     turn, PreCompact(trigger:auto), SessionStart(compact), turn (toolu_fault_compaction_auto_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:16 roots:13 sidecars:24 checkpoints:1 dangling:0 reported:0}; after {tool_uses:20 roots:16 sidecars:30 checkpoints:2 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclecompaction_auto634966218\001\lifecycle_compaction_auto.json
+=== RUN   TestFault_Lifecycle/compaction_failed
+    lifecycle_test.go:79: fault lifecycle_compaction_failed: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: PreCompact with no compact SessionStart at all
+          seed:     turn, PreCompact(auto), NO SessionStart(compact), turn (toolu_fault_compaction_failed_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:20 roots:16 sidecars:30 checkpoints:2 dangling:0 reported:0}; after {tool_uses:24 roots:19 sidecars:36 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclecompaction_failed2050310360\001\lifecycle_compaction_failed.json
+=== RUN   TestFault_Lifecycle/compaction_crossed
+    lifecycle_test.go:79: fault lifecycle_compaction_crossed: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: PreCompact whose compact SessionStart arrives for ANOTHER session id
+          seed:     PreCompact on sess-fault-compaction-crossed, SessionStart(compact) on sess-fault-compaction-crossed-other, turn (toolu_fault_compaction_crossed_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:24 roots:19 sidecars:36 checkpoints:3 dangling:0 reported:0}; after {tool_uses:28 roots:22 sidecars:42 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 2
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclecompaction_crossed2950789366\001\lifecycle_compaction_crossed.json
+=== RUN   TestFault_Lifecycle/duplicate_tool_use
+    lifecycle_test.go:79: fault lifecycle_duplicate_tool_use: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: the same tool_use_id delivered twice
+          seed:     the identical PostToolUse payload for toolu_fault_duplicate_tool_use_01 delivered twice
+          dangling: 0→0
+          detail:   audit before {tool_uses:28 roots:22 sidecars:42 checkpoints:3 dangling:0 reported:0}; after {tool_uses:29 roots:23 sidecars:44 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleduplicate_tool_use2724179847\001\lifecycle_duplicate_tool_use.json
+=== RUN   TestFault_Lifecycle/duplicate_precompact
+    lifecycle_test.go:79: fault lifecycle_duplicate_precompact: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: the same PreCompact delivered twice
+          seed:     the identical PreCompact payload delivered twice
+          dangling: 0→0
+          detail:   audit before {tool_uses:29 roots:23 sidecars:44 checkpoints:3 dangling:0 reported:0}; after {tool_uses:31 roots:25 sidecars:47 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleduplicate_precompact4189257845\001\lifecycle_duplicate_precompact.json
+=== RUN   TestFault_Lifecycle/missing_turn
+    lifecycle_test.go:79: fault lifecycle_missing_turn: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: a turn the host never delivered, followed by the next one
+          seed:     turn toolu_fault_missing_turn_01 and turn toolu_fault_missing_turn_03 delivered; the turn between them never was. An undelivered turn leaves no trace for the product to detect, so the row measures that the turns either side of the hole are intact rather than that the hole was noticed
+          dangling: 0→0
+          detail:   audit before {tool_uses:31 roots:25 sidecars:47 checkpoints:3 dangling:0 reported:0}; after {tool_uses:35 roots:28 sidecars:53 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclemissing_turn2407884523\001\lifecycle_missing_turn.json
+=== RUN   TestFault_Lifecycle/out_of_order_precompact
+    lifecycle_test.go:79: fault lifecycle_out_of_order_precompact: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: PreCompact before the tool events it would summarise
+          seed:     PreCompact before any tool event, then the turn (toolu_fault_out_of_order_precompact_01) it would have summarised
+          dangling: 0→0
+          detail:   audit before {tool_uses:35 roots:28 sidecars:53 checkpoints:3 dangling:0 reported:0}; after {tool_uses:37 roots:30 sidecars:56 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleout_of_order_precompact1576740734\001\lifecycle_out_of_order_precompact.json
+=== RUN   TestFault_Lifecycle/out_of_order_sessionend
+    lifecycle_test.go:79: fault lifecycle_out_of_order_sessionend: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: SessionEnd before Stop
+          seed:     tool event toolu_fault_out_of_order_sessionend_01, SessionEnd, then the Stop that should have come first
+          dangling: 0→0
+          detail:   audit before {tool_uses:37 roots:30 sidecars:56 checkpoints:3 dangling:0 reported:0}; after {tool_uses:38 roots:31 sidecars:58 checkpoints:3 dangling:0 reported:1}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleout_of_order_sessionend1694896769\001\lifecycle_out_of_order_sessionend.json
+=== RUN   TestFault_Lifecycle/frontier_state_is_explicit
+    lifecycle_test.go:148: fault lifecycle_frontier_state_is_explicit: recovered — the frontier state is explicit and self-consistent after thirteen lifecycle sequences: 3 checkpoint artifact(s), the same 3 recorded in MANIFEST.jsonl, and no dangling reference anywhere under .qompack/
+          boundary: the frontier and checkpoint state after the whole lifecycle matrix
+          seed:     status --json and self-test --json taken with the matrix's daemon still up, checkpoint List against the artifacts on disk, and a full store audit
+          dangling: 0→0
+          detail:   status gaps: [counter contract.degrade=7 loud_tail: ts=2026-10-02T04:38:10.8530516Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="critical host-contract failure: hook.additional_context_delivered (expected \"additionalContext reaches the transcript\", observed \"sentinel not found after two chances\")" failed=hook.additional_context_delivered/critical
+         loud_tail: ts=2026-10-02T04:38:11.8480076Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="critical host-contract failure: hook.additional_context_delivered (expected \"additionalContext reaches the transcript\", observed \"sentinel not found after two chances\")" failed=hook.additional_context_delivered/critical
+         loud_tail: ts=2026-10-02T04:38:13.0791162Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="critical host-contract failure: hook.additional_context_delivered (expected \"additionalContext reaches the transcript\", observed \"sentinel not found after two chances\")" failed=hook.additional_context_delivered/critical
+         loud_tail: ts=2026-10-02T04:38:14.5237519Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="critical host-contract failure: hook.additional_context_delivered (expected \"additionalContext reaches the transcript\", observed \"sentinel not found after two chances\")" failed=hook.additional_context_delivered/critical
+         loud_tail: ts=2026-10-02T04:38:16.1764535Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="critical host-contract failure: hook.additional_context_delivered (expected \"additionalContext reaches the transcript\", observed \"sentinel not found after two chances\")" failed=hook.additional_context_delivered/critical
+         spool_files=1]
+        self-test failures: []
+        loud lines: 7; day-log warnings: 7
+        checkpoint artifacts on disk: [0001.json 0003.json 0005.json]; manifest lists: [1 3 5] (err <nil>)
+        audit: {tool_uses:38 roots:31 sidecars:58 checkpoints:3 dangling:0 reported:0}
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclefrontier_state_is_explicit3205808445\001\lifecycle_frontier_state_is_explicit.json
+--- PASS: TestFault_Lifecycle (33.46s)
+    --- PASS: TestFault_Lifecycle/startup (1.47s)
+    --- PASS: TestFault_Lifecycle/resume (1.44s)
+    --- PASS: TestFault_Lifecycle/fork (1.06s)
+    --- PASS: TestFault_Lifecycle/clear (1.51s)
+    --- PASS: TestFault_Lifecycle/compaction_manual (4.55s)
+    --- PASS: TestFault_Lifecycle/compaction_auto (6.15s)
+    --- PASS: TestFault_Lifecycle/compaction_failed (4.24s)
+    --- PASS: TestFault_Lifecycle/compaction_crossed (2.35s)
+    --- PASS: TestFault_Lifecycle/duplicate_tool_use (0.98s)
+    --- PASS: TestFault_Lifecycle/duplicate_precompact (1.21s)
+    --- PASS: TestFault_Lifecycle/missing_turn (1.47s)
+    --- PASS: TestFault_Lifecycle/out_of_order_precompact (1.41s)
+    --- PASS: TestFault_Lifecycle/out_of_order_sessionend (1.39s)
+    --- PASS: TestFault_Lifecycle/frontier_state_is_explicit (0.42s)
+=== RUN   TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence
+=== RUN   TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence/a_capture_published_mid_audit_is_not_dangling
+=== RUN   TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence/an_evidence_claim_with_no_sidecar_is_still_dangling
+--- PASS: TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence (0.30s)
+    --- PASS: TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence/a_capture_published_mid_audit_is_not_dangling (0.13s)
+    --- PASS: TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence/an_evidence_claim_with_no_sidecar_is_still_dangling (0.17s)
+=== RUN   TestFault_Lifecycle
+=== RUN   TestFault_Lifecycle/startup
+    lifecycle_test.go:79: fault lifecycle_startup: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: SessionStart source: startup, then a turn
+          seed:     SessionStart(startup) + one turn (toolu_fault_startup_01) + SessionEnd
+          dangling: 0→0
+          detail:   audit before {tool_uses:0 roots:0 sidecars:0 checkpoints:0 dangling:0 reported:0}; after {tool_uses:2 roots:2 sidecars:3 checkpoints:0 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclestartup3829021813\001\lifecycle_startup.json
+=== RUN   TestFault_Lifecycle/resume
+    lifecycle_test.go:79: fault lifecycle_resume: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: SessionStart source: resume, then a turn
+          seed:     SessionStart(startup) + turn, SessionStart(resume) on the same id + turn (toolu_fault_resume_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:2 roots:2 sidecars:3 checkpoints:0 dangling:0 reported:0}; after {tool_uses:6 roots:5 sidecars:9 checkpoints:0 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleresume57422814\001\lifecycle_resume.json
+=== RUN   TestFault_Lifecycle/fork
+    lifecycle_test.go:79: fault lifecycle_fork: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: SessionStart source: fork (a source the observer's own set does not name)
+          seed:     SessionStart(source:fork) + one turn; the hook exited 0 and the turn was indexed — `fork` is not one of the four sources internal/observer names, so the source is carried but not branched on
+          dangling: 0→0
+          detail:   audit before {tool_uses:6 roots:5 sidecars:9 checkpoints:0 dangling:0 reported:0}; after {tool_uses:8 roots:7 sidecars:12 checkpoints:0 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclefork3379525975\001\lifecycle_fork.json
+=== RUN   TestFault_Lifecycle/clear
+    lifecycle_test.go:79: fault lifecycle_clear: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: SessionStart source: clear
+          seed:     SessionStart(startup) + turn, SessionStart(clear) + turn (toolu_fault_clear_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:8 roots:7 sidecars:12 checkpoints:0 dangling:0 reported:0}; after {tool_uses:12 roots:10 sidecars:18 checkpoints:0 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleclear3771204031\001\lifecycle_clear.json
+=== RUN   TestFault_Lifecycle/compaction_manual
+    lifecycle_test.go:79: fault lifecycle_compaction_manual: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: PreCompact trigger: manual, then SessionStart source: compact
+          seed:     turn, PreCompact(trigger:manual), SessionStart(compact), turn (toolu_fault_compaction_manual_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:12 roots:10 sidecars:18 checkpoints:0 dangling:0 reported:0}; after {tool_uses:16 roots:13 sidecars:24 checkpoints:1 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclecompaction_manual2958344391\001\lifecycle_compaction_manual.json
+=== RUN   TestFault_Lifecycle/compaction_auto
+    lifecycle_test.go:79: fault lifecycle_compaction_auto: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: PreCompact trigger: auto, then SessionStart source: compact
+          seed:     turn, PreCompact(trigger:auto), SessionStart(compact), turn (toolu_fault_compaction_auto_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:16 roots:13 sidecars:24 checkpoints:1 dangling:0 reported:0}; after {tool_uses:20 roots:16 sidecars:30 checkpoints:2 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclecompaction_auto2811323522\001\lifecycle_compaction_auto.json
+=== RUN   TestFault_Lifecycle/compaction_failed
+    lifecycle_test.go:79: fault lifecycle_compaction_failed: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: PreCompact with no compact SessionStart at all
+          seed:     turn, PreCompact(auto), NO SessionStart(compact), turn (toolu_fault_compaction_failed_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:20 roots:16 sidecars:30 checkpoints:2 dangling:0 reported:0}; after {tool_uses:24 roots:19 sidecars:36 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclecompaction_failed3111734134\001\lifecycle_compaction_failed.json
+=== RUN   TestFault_Lifecycle/compaction_crossed
+    lifecycle_test.go:79: fault lifecycle_compaction_crossed: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: PreCompact whose compact SessionStart arrives for ANOTHER session id
+          seed:     PreCompact on sess-fault-compaction-crossed, SessionStart(compact) on sess-fault-compaction-crossed-other, turn (toolu_fault_compaction_crossed_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:24 roots:19 sidecars:36 checkpoints:3 dangling:0 reported:0}; after {tool_uses:28 roots:22 sidecars:42 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 2
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclecompaction_crossed264103560\001\lifecycle_compaction_crossed.json
+=== RUN   TestFault_Lifecycle/duplicate_tool_use
+    lifecycle_test.go:79: fault lifecycle_duplicate_tool_use: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: the same tool_use_id delivered twice
+          seed:     the identical PostToolUse payload for toolu_fault_duplicate_tool_use_01 delivered twice
+          dangling: 0→0
+          detail:   audit before {tool_uses:28 roots:22 sidecars:42 checkpoints:3 dangling:0 reported:0}; after {tool_uses:29 roots:23 sidecars:44 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleduplicate_tool_use2831691750\001\lifecycle_duplicate_tool_use.json
+=== RUN   TestFault_Lifecycle/duplicate_precompact
+    lifecycle_test.go:79: fault lifecycle_duplicate_precompact: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: the same PreCompact delivered twice
+          seed:     the identical PreCompact payload delivered twice
+          dangling: 0→0
+          detail:   audit before {tool_uses:29 roots:23 sidecars:44 checkpoints:3 dangling:0 reported:0}; after {tool_uses:31 roots:25 sidecars:47 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleduplicate_precompact2102902180\001\lifecycle_duplicate_precompact.json
+=== RUN   TestFault_Lifecycle/missing_turn
+    lifecycle_test.go:79: fault lifecycle_missing_turn: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: a turn the host never delivered, followed by the next one
+          seed:     turn toolu_fault_missing_turn_01 and turn toolu_fault_missing_turn_03 delivered; the turn between them never was. An undelivered turn leaves no trace for the product to detect, so the row measures that the turns either side of the hole are intact rather than that the hole was noticed
+          dangling: 0→0
+          detail:   audit before {tool_uses:31 roots:25 sidecars:47 checkpoints:3 dangling:0 reported:0}; after {tool_uses:35 roots:28 sidecars:53 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclemissing_turn4094029606\001\lifecycle_missing_turn.json
+=== RUN   TestFault_Lifecycle/out_of_order_precompact
+    lifecycle_test.go:79: fault lifecycle_out_of_order_precompact: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: PreCompact before the tool events it would summarise
+          seed:     PreCompact before any tool event, then the turn (toolu_fault_out_of_order_precompact_01) it would have summarised
+          dangling: 0→0
+          detail:   audit before {tool_uses:35 roots:28 sidecars:53 checkpoints:3 dangling:0 reported:0}; after {tool_uses:37 roots:30 sidecars:56 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleout_of_order_precompact1122556474\001\lifecycle_out_of_order_precompact.json
+=== RUN   TestFault_Lifecycle/out_of_order_sessionend
+    lifecycle_test.go:79: fault lifecycle_out_of_order_sessionend: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: SessionEnd before Stop
+          seed:     tool event toolu_fault_out_of_order_sessionend_01, SessionEnd, then the Stop that should have come first
+          dangling: 0→0
+          detail:   audit before {tool_uses:37 roots:30 sidecars:56 checkpoints:3 dangling:0 reported:0}; after {tool_uses:38 roots:31 sidecars:58 checkpoints:3 dangling:0 reported:1}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleout_of_order_sessionend1919171005\001\lifecycle_out_of_order_sessionend.json
+=== RUN   TestFault_Lifecycle/frontier_state_is_explicit
+    lifecycle_test.go:148: fault lifecycle_frontier_state_is_explicit: recovered — the frontier state is explicit and self-consistent after thirteen lifecycle sequences: 3 checkpoint artifact(s), the same 3 recorded in MANIFEST.jsonl, and no dangling reference anywhere under .qompack/
+          boundary: the frontier and checkpoint state after the whole lifecycle matrix
+          seed:     status --json and self-test --json taken with the matrix's daemon still up, checkpoint List against the artifacts on disk, and a full store audit
+          dangling: 0→0
+          detail:   status gaps: [counter contract.degrade=7 loud_tail: ts=2026-10-02T04:38:32.8490522Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="critical host-contract failure: hook.additional_context_delivered (expected \"additionalContext reaches the transcript\", observed \"sentinel not found after two chances\")" failed=hook.additional_context_delivered/critical
+         loud_tail: ts=2026-10-02T04:38:33.8585989Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="critical host-contract failure: hook.additional_context_delivered (expected \"additionalContext reaches the transcript\", observed \"sentinel not found after two chances\")" failed=hook.additional_context_delivered/critical
+         loud_tail: ts=2026-10-02T04:38:35.0943601Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="critical host-contract failure: hook.additional_context_delivered (expected \"additionalContext reaches the transcript\", observed \"sentinel not found after two chances\")" failed=hook.additional_context_delivered/critical
+         loud_tail: ts=2026-10-02T04:38:36.4956277Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="critical host-contract failure: hook.additional_context_delivered (expected \"additionalContext reaches the transcript\", observed \"sentinel not found after two chances\")" failed=hook.additional_context_delivered/critical
+         loud_tail: ts=2026-10-02T04:38:38.0086843Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="critical host-contract failure: hook.additional_context_delivered (expected \"additionalContext reaches the transcript\", observed \"sentinel not found after two chances\")" failed=hook.additional_context_delivered/critical
+         spool_files=1]
+        self-test failures: []
+        loud lines: 7; day-log warnings: 7
+        checkpoint artifacts on disk: [0001.json 0003.json 0005.json]; manifest lists: [1 3 5] (err <nil>)
+        audit: {tool_uses:38 roots:31 sidecars:58 checkpoints:3 dangling:0 reported:0}
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclefrontier_state_is_explicit4244875123\001\lifecycle_frontier_state_is_explicit.json
+--- PASS: TestFault_Lifecycle (25.68s)
+    --- PASS: TestFault_Lifecycle/startup (1.08s)
+    --- PASS: TestFault_Lifecycle/resume (1.48s)
+    --- PASS: TestFault_Lifecycle/fork (1.12s)
+    --- PASS: TestFault_Lifecycle/clear (1.75s)
+    --- PASS: TestFault_Lifecycle/compaction_manual (1.68s)
+    --- PASS: TestFault_Lifecycle/compaction_auto (1.78s)
+    --- PASS: TestFault_Lifecycle/compaction_failed (1.68s)
+    --- PASS: TestFault_Lifecycle/compaction_crossed (1.99s)
+    --- PASS: TestFault_Lifecycle/duplicate_tool_use (1.01s)
+    --- PASS: TestFault_Lifecycle/duplicate_precompact (1.23s)
+    --- PASS: TestFault_Lifecycle/missing_turn (1.39s)
+    --- PASS: TestFault_Lifecycle/out_of_order_precompact (1.32s)
+    --- PASS: TestFault_Lifecycle/out_of_order_sessionend (3.53s)
+    --- PASS: TestFault_Lifecycle/frontier_state_is_explicit (1.38s)
+=== RUN   TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence
+=== RUN   TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence/a_capture_published_mid_audit_is_not_dangling
+=== RUN   TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence/an_evidence_claim_with_no_sidecar_is_still_dangling
+--- PASS: TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence (1.17s)
+    --- PASS: TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence/a_capture_published_mid_audit_is_not_dangling (0.73s)
+    --- PASS: TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence/an_evidence_claim_with_no_sidecar_is_still_dangling (0.44s)
+=== RUN   TestFault_Lifecycle
+=== RUN   TestFault_Lifecycle/startup
+    lifecycle_test.go:79: fault lifecycle_startup: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: SessionStart source: startup, then a turn
+          seed:     SessionStart(startup) + one turn (toolu_fault_startup_01) + SessionEnd
+          dangling: 0→0
+          detail:   audit before {tool_uses:0 roots:0 sidecars:0 checkpoints:0 dangling:0 reported:0}; after {tool_uses:2 roots:2 sidecars:3 checkpoints:0 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclestartup2314176286\001\lifecycle_startup.json
+=== RUN   TestFault_Lifecycle/resume
+    lifecycle_test.go:79: fault lifecycle_resume: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: SessionStart source: resume, then a turn
+          seed:     SessionStart(startup) + turn, SessionStart(resume) on the same id + turn (toolu_fault_resume_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:2 roots:2 sidecars:3 checkpoints:0 dangling:0 reported:0}; after {tool_uses:6 roots:5 sidecars:9 checkpoints:0 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleresume2844483608\001\lifecycle_resume.json
+=== RUN   TestFault_Lifecycle/fork
+    lifecycle_test.go:79: fault lifecycle_fork: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: SessionStart source: fork (a source the observer's own set does not name)
+          seed:     SessionStart(source:fork) + one turn; the hook exited 0 and the turn was indexed — `fork` is not one of the four sources internal/observer names, so the source is carried but not branched on
+          dangling: 0→0
+          detail:   audit before {tool_uses:6 roots:5 sidecars:9 checkpoints:0 dangling:0 reported:0}; after {tool_uses:8 roots:7 sidecars:12 checkpoints:0 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclefork3266741779\001\lifecycle_fork.json
+=== RUN   TestFault_Lifecycle/clear
+    lifecycle_test.go:79: fault lifecycle_clear: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: SessionStart source: clear
+          seed:     SessionStart(startup) + turn, SessionStart(clear) + turn (toolu_fault_clear_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:8 roots:7 sidecars:12 checkpoints:0 dangling:0 reported:0}; after {tool_uses:12 roots:10 sidecars:18 checkpoints:0 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleclear3305757580\001\lifecycle_clear.json
+=== RUN   TestFault_Lifecycle/compaction_manual
+    lifecycle_test.go:79: fault lifecycle_compaction_manual: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: PreCompact trigger: manual, then SessionStart source: compact
+          seed:     turn, PreCompact(trigger:manual), SessionStart(compact), turn (toolu_fault_compaction_manual_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:12 roots:10 sidecars:18 checkpoints:0 dangling:0 reported:0}; after {tool_uses:16 roots:13 sidecars:24 checkpoints:1 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclecompaction_manual1796844263\001\lifecycle_compaction_manual.json
+=== RUN   TestFault_Lifecycle/compaction_auto
+    lifecycle_test.go:79: fault lifecycle_compaction_auto: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: PreCompact trigger: auto, then SessionStart source: compact
+          seed:     turn, PreCompact(trigger:auto), SessionStart(compact), turn (toolu_fault_compaction_auto_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:16 roots:13 sidecars:24 checkpoints:1 dangling:0 reported:0}; after {tool_uses:20 roots:16 sidecars:30 checkpoints:2 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclecompaction_auto3375127491\001\lifecycle_compaction_auto.json
+=== RUN   TestFault_Lifecycle/compaction_failed
+    lifecycle_test.go:79: fault lifecycle_compaction_failed: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: PreCompact with no compact SessionStart at all
+          seed:     turn, PreCompact(auto), NO SessionStart(compact), turn (toolu_fault_compaction_failed_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:20 roots:16 sidecars:30 checkpoints:2 dangling:0 reported:0}; after {tool_uses:24 roots:19 sidecars:36 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclecompaction_failed858030162\001\lifecycle_compaction_failed.json
+=== RUN   TestFault_Lifecycle/compaction_crossed
+    lifecycle_test.go:79: fault lifecycle_compaction_crossed: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: PreCompact whose compact SessionStart arrives for ANOTHER session id
+          seed:     PreCompact on sess-fault-compaction-crossed, SessionStart(compact) on sess-fault-compaction-crossed-other, turn (toolu_fault_compaction_crossed_02)
+          dangling: 0→0
+          detail:   audit before {tool_uses:24 roots:19 sidecars:36 checkpoints:3 dangling:0 reported:0}; after {tool_uses:28 roots:22 sidecars:42 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 2
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclecompaction_crossed505402345\001\lifecycle_compaction_crossed.json
+=== RUN   TestFault_Lifecycle/duplicate_tool_use
+    lifecycle_test.go:79: fault lifecycle_duplicate_tool_use: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: the same tool_use_id delivered twice
+          seed:     the identical PostToolUse payload for toolu_fault_duplicate_tool_use_01 delivered twice
+          dangling: 0→0
+          detail:   audit before {tool_uses:28 roots:22 sidecars:42 checkpoints:3 dangling:0 reported:0}; after {tool_uses:29 roots:23 sidecars:44 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleduplicate_tool_use1390943543\001\lifecycle_duplicate_tool_use.json
+=== RUN   TestFault_Lifecycle/duplicate_precompact
+    lifecycle_test.go:79: fault lifecycle_duplicate_precompact: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: the same PreCompact delivered twice
+          seed:     the identical PreCompact payload delivered twice
+          dangling: 0→0
+          detail:   audit before {tool_uses:29 roots:23 sidecars:44 checkpoints:3 dangling:0 reported:0}; after {tool_uses:31 roots:25 sidecars:47 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleduplicate_precompact4071923296\001\lifecycle_duplicate_precompact.json
+=== RUN   TestFault_Lifecycle/missing_turn
+    lifecycle_test.go:79: fault lifecycle_missing_turn: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: a turn the host never delivered, followed by the next one
+          seed:     turn toolu_fault_missing_turn_01 and turn toolu_fault_missing_turn_03 delivered; the turn between them never was. An undelivered turn leaves no trace for the product to detect, so the row measures that the turns either side of the hole are intact rather than that the hole was noticed
+          dangling: 0→0
+          detail:   audit before {tool_uses:31 roots:25 sidecars:47 checkpoints:3 dangling:0 reported:0}; after {tool_uses:35 roots:28 sidecars:53 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclemissing_turn3156709026\001\lifecycle_missing_turn.json
+=== RUN   TestFault_Lifecycle/out_of_order_precompact
+    lifecycle_test.go:79: fault lifecycle_out_of_order_precompact: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: PreCompact before the tool events it would summarise
+          seed:     PreCompact before any tool event, then the turn (toolu_fault_out_of_order_precompact_01) it would have summarised
+          dangling: 0→0
+          detail:   audit before {tool_uses:35 roots:28 sidecars:53 checkpoints:3 dangling:0 reported:0}; after {tool_uses:37 roots:30 sidecars:56 checkpoints:3 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleout_of_order_precompact4017399488\001\lifecycle_out_of_order_precompact.json
+=== RUN   TestFault_Lifecycle/out_of_order_sessionend
+    lifecycle_test.go:79: fault lifecycle_out_of_order_sessionend: recovered — every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference
+          boundary: SessionEnd before Stop
+          seed:     tool event toolu_fault_out_of_order_sessionend_01, SessionEnd, then the Stop that should have come first
+          dangling: 0→0
+          detail:   audit before {tool_uses:37 roots:30 sidecars:56 checkpoints:3 dangling:0 reported:0}; after {tool_uses:38 roots:31 sidecars:58 checkpoints:3 dangling:0 reported:1}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 1
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecycleout_of_order_sessionend1995232836\001\lifecycle_out_of_order_sessionend.json
+=== RUN   TestFault_Lifecycle/frontier_state_is_explicit
+    lifecycle_test.go:148: fault lifecycle_frontier_state_is_explicit: recovered — the frontier state is explicit and self-consistent after thirteen lifecycle sequences: 3 checkpoint artifact(s), the same 3 recorded in MANIFEST.jsonl, and no dangling reference anywhere under .qompack/
+          boundary: the frontier and checkpoint state after the whole lifecycle matrix
+          seed:     status --json and self-test --json taken with the matrix's daemon still up, checkpoint List against the artifacts on disk, and a full store audit
+          dangling: 0→0
+          detail:   status gaps: [counter contract.degrade=7 loud_tail: ts=2026-10-02T04:39:07.555063Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="critical host-contract failure: hook.additional_context_delivered (expected \"additionalContext reaches the transcript\", observed \"sentinel not found after two chances\")" failed=hook.additional_context_delivered/critical
+         loud_tail: ts=2026-10-02T04:39:08.6506236Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="critical host-contract failure: hook.additional_context_delivered (expected \"additionalContext reaches the transcript\", observed \"sentinel not found after two chances\")" failed=hook.additional_context_delivered/critical
+         loud_tail: ts=2026-10-02T04:39:09.777672Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="critical host-contract failure: hook.additional_context_delivered (expected \"additionalContext reaches the transcript\", observed \"sentinel not found after two chances\")" failed=hook.additional_context_delivered/critical
+         loud_tail: ts=2026-10-02T04:39:11.1375842Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="critical host-contract failure: hook.additional_context_delivered (expected \"additionalContext reaches the transcript\", observed \"sentinel not found after two chances\")" failed=hook.additional_context_delivered/critical
+         loud_tail: ts=2026-10-02T04:39:12.2360621Z level=loud msg="contract: degrading to passive recording" mode=degraded-passive reason="critical host-contract failure: hook.additional_context_delivered (expected \"additionalContext reaches the transcript\", observed \"sentinel not found after two chances\")" failed=hook.additional_context_delivered/critical
+         spool_files=1]
+        self-test failures: []
+        loud lines: 7; day-log warnings: 7
+        checkpoint artifacts on disk: [0001.json 0003.json 0005.json]; manifest lists: [1 3 5] (err <nil>)
+        audit: {tool_uses:38 roots:31 sidecars:58 checkpoints:3 dangling:0 reported:0}
+          artifact: C:\Users\Quant\AppData\Local\Temp\TestFault_Lifecyclefrontier_state_is_explicit1433708240\001\lifecycle_frontier_state_is_explicit.json
+--- PASS: TestFault_Lifecycle (28.66s)
+    --- PASS: TestFault_Lifecycle/startup (3.77s)
+    --- PASS: TestFault_Lifecycle/resume (4.06s)
+    --- PASS: TestFault_Lifecycle/fork (1.45s)
+    --- PASS: TestFault_Lifecycle/clear (1.94s)
+    --- PASS: TestFault_Lifecycle/compaction_manual (1.87s)
+    --- PASS: TestFault_Lifecycle/compaction_auto (1.76s)
+    --- PASS: TestFault_Lifecycle/compaction_failed (1.62s)
+    --- PASS: TestFault_Lifecycle/compaction_crossed (1.96s)
+    --- PASS: TestFault_Lifecycle/duplicate_tool_use (1.10s)
+    --- PASS: TestFault_Lifecycle/duplicate_precompact (1.11s)
+    --- PASS: TestFault_Lifecycle/missing_turn (1.36s)
+    --- PASS: TestFault_Lifecycle/out_of_order_precompact (1.09s)
+    --- PASS: TestFault_Lifecycle/out_of_order_sessionend (0.93s)
+    --- PASS: TestFault_Lifecycle/frontier_state_is_explicit (0.45s)
+PASS
+ok  	github.com/qompack/qompack/test/fault	260.306s
+exit=0
