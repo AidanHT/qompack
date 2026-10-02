@@ -49,7 +49,7 @@ prepared for them here:
 | PutBytes (SP06-D2) and the 256 KB `OnToolUse` row (SP08-D1) miss their budgets | D54 | none: product-side |
 | A `PreCompact` waits behind a client-spool watcher pass already running | D56(e) | none: product-side |
 | Read rules that exist only in the running session are invisible to a plugin | D7 | yes: no interface lets a plugin ask whether a native Read would be allowed; no proposal prepared |
-| The host decides delivery of injected context (whole or not at all), re-attaches files after a compaction and decodes binary files itself; usage categories are not exposed | D45, D49 | proposal 1 (delivered context) and proposal 6 (usage categories); none prepared for re-attachment or decoding |
+| Host behaviours: the host hands a hook a tool's content whole or not at all, so a non-exact capture cannot arise live on 2.1.280 (UAT-02); it re-attaches files after a compaction and decodes binary files itself; usage categories are not exposed | D45, D49 | proposal 6 for usage categories; none prepared for the others |
 
 ## 1. Observability of delivered `additionalContext`
 
