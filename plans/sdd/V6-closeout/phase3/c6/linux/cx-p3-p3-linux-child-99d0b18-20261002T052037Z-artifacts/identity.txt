@@ -1,0 +1,21 @@
+run_id=cx-p3-p3-linux-child-99d0b18-20261002T052037Z
+commit=99d0b18cf7d5991aa733e70ce52a542b80aa7710
+tree=2a544bda820d90b89a398c21b1244940111bbbd4
+bundle_sha256=e29a373ed6f7b3c3db42454aeb839920b1942c9218dbaad5cc7af9bfc139dac8
+started_utc=2026-10-02T05:20:45Z
+uid=10001 user=qompack-test groups=qompack-test
+race=0 count=1 timeout=15m gomaxprocs=4 coload=0
+run=^(TestE2E_RequiredProductChildRaceInstrumentation|TestE2EHookRoundTrip|TestE2E_ObserverThroughDaemon|TestE2E_SupersessionVisibleAfterRestart|TestE2E_VerbatimPromptSurvivesRestart|TestE2E_SessionStartCompactRestoresCheckpointItems|TestStdioServerEndToEnd|TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently)$
+skip=
+extra_env= CGO_ENABLED=1 GOFLAGS=-race QOMPACK_REQUIRE_CHILD_RACE=1
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-race
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+finished_utc=2026-10-02T05:25:04Z

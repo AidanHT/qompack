@@ -1,0 +1,16 @@
+{
+  "name": "hook-launcher-forms",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6",
+    "host_cli_version": "unknown"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "017997ce74bcae6c44556dfc98975f557e9be19f09c09acc60bb47867d6ada35"
+  },
+  "outcome": "verified",
+  "reason": "the hook launcher matrix ran (8 launches); the shipped exec form passed every one it asserts",
+  "detail": "8 launches against \"/tmp/qompack-platform-1395783635/plugplain\" and \"/tmp/qompack-platform-1395783635/plug in ünï\""
+}

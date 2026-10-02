@@ -1,0 +1,5 @@
+{"Time":"2026-10-02T05:29:53.881793564Z","Action":"start","Package":"github.com/qompack/qompack/test/bench/hotpath"}
+{"Time":"2026-10-02T05:29:53.890108658Z","Action":"output","Package":"github.com/qompack/qompack/test/bench/hotpath","Output":"testing: warning: no tests to run\n"}
+{"Time":"2026-10-02T05:29:53.890150084Z","Action":"output","Package":"github.com/qompack/qompack/test/bench/hotpath","Output":"PASS\n"}
+{"Time":"2026-10-02T05:29:53.890563204Z","Action":"output","Package":"github.com/qompack/qompack/test/bench/hotpath","Output":"ok  \tgithub.com/qompack/qompack/test/bench/hotpath\t0.008s [no tests to run]\n"}
+{"Time":"2026-10-02T05:29:53.89058579Z","Action":"pass","Package":"github.com/qompack/qompack/test/bench/hotpath","Elapsed":0.009}

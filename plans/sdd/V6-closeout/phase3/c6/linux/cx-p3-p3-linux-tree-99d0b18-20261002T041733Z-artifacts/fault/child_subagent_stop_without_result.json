@@ -1,0 +1,20 @@
+{
+  "name": "child_subagent_stop_without_result",
+  "phase": "child",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "017997ce74bcae6c44556dfc98975f557e9be19f09c09acc60bb47867d6ada35"
+  },
+  "boundary": "`observe stop --subagent` for a subagent that never produced a result",
+  "seed_method": "a live session, then a SubagentStop with no preceding tool observation for that subagent at all",
+  "outcome": "recovered",
+  "reason": "the hook exited 0 with parseable stdout and left no dangling reference. The stop is NOT inert, and what it wrote is stated rather than denied: tool_use records 0→1, roots 0→1, capture sidecars 0→1. Every one of those records resolves — that is what the clean audit above means",
+  "detail": "audit before {tool_uses:0 roots:0 sidecars:0 checkpoints:0 dangling:0 reported:0}; after {tool_uses:1 roots:1 sidecars:1 checkpoints:0 dangling:0 reported:2}\nwhat the stop caused to be written: tool_use records 0→1, roots 0→1, capture sidecars 0→1",
+  "dangling_before": 0,
+  "dangling_after": 0
+}

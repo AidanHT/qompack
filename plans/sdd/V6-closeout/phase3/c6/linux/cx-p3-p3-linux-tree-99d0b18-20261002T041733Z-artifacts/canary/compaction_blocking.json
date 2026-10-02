@@ -1,0 +1,13 @@
+{
+  "name": "compaction_blocking",
+  "capability": "compaction_blocking",
+  "scope": "installed_session",
+  "outcome": "skipped",
+  "reason": "blocking a compaction cannot be probed in an active session (M0-03), and a working mechanism would still not establish a safe automatic veto: the recovery/proactive distinction is unverified. Fallback in force: automatic optimization veto off; manual compact never blocked",
+  "target": {
+    "provider": "unknown",
+    "platform": "linux/amd64",
+    "date": "2026-10-02T04:25:54Z"
+  },
+  "recorded_at": "2026-10-02T04:25:54Z"
+}

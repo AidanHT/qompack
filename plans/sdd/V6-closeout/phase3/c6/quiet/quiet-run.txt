@@ -1,0 +1,22 @@
+quiet.sh 2026-10-02T05:25:06Z
+candidate=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-cand head=99d0b18cf7d5991aa733e70ce52a542b80aa7710
+base=cf31e01 resolved=cf31e01f38f3d3ba4afd96c4c75db3e4b87d54cd
+steps=c51-win c51-linux
+iterations=5000 rounds=10 percall=1 benchtime=per row pkgs=all filter=none
+QOMPACK_UNDER_COLOAD unset; work=C:/Users/Quant/AppData/Local/Temp/tmp.ZfBAqdPY0V container=qompack-v6-linux-verification user=qompack-test
+go version go1.26.6 windows/amd64
+22
+candidate repo git status --porcelain (tracked changes refused above):
+  (clean)
+load before-c51-win 05:25:17Z: windows_cpu_pct=1 linux_loadavg=0.41 1.02 1.54 5/1249 10136
+load after-c51-win 05:28:53Z: windows_cpu_pct=13 linux_loadavg=0.24 0.70 1.30 5/1252 10142
+load after-c51-win-bf 05:29:38Z: windows_cpu_pct=4 linux_loadavg=0.11 0.60 1.24 3/1250 10148
+step c51-win exit=0
+gate prep quiet-c51-prep (candidate 99d0b18cf7d5) exit=0 run_id=cx-quiet-quiet-c51-prep-99d0b18-20261002T052939Z
+load before-c51-linux 05:29:56Z: windows_cpu_pct=0 linux_loadavg=0.63 0.68 1.26 5/1245 10766
+load after-c51-linux 05:31:11Z: windows_cpu_pct=0 linux_loadavg=2.97 1.41 1.47 4/1265 37650
+WARNING: host not idle at after-c51-linux (linux 1-min load 2.97 > 1.0); timings from here may not be quiet
+load after-c51-linux-bf 05:32:08Z: windows_cpu_pct=2 linux_loadavg=1.86 1.38 1.45 2/1247 38171
+WARNING: host not idle at after-c51-linux-bf (linux 1-min load 1.86 > 1.0); timings from here may not be quiet
+c51-linux B-F gate run exit=0 run_id=cx-quiet-quiet-c51-bf-99d0b18-20261002T053112Z
+step c51-linux exit=1

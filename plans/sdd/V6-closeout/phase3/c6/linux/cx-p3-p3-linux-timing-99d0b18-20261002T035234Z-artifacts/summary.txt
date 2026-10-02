@@ -1,0 +1,6 @@
+PASS      github.com/qompack/qompack/internal/store  (pass=2 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/negknow  (pass=7 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/mcp  (pass=1 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/daemon  (pass=1 fail=0 skip=0)
+FAIL      github.com/qompack/qompack/test/integration  (pass=0 fail=1 skip=0)
+    FAIL TestIntegration_HotPathWarmWithRealResidentState

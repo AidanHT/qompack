@@ -1,0 +1,37 @@
+{"Time":"2026-10-02T05:20:54.648937119Z","Action":"start","Package":"github.com/qompack/qompack/test/e2e"}
+{"Time":"2026-10-02T05:20:54.677631484Z","Action":"run","Package":"github.com/qompack/qompack/test/e2e","Test":"TestE2EHookRoundTrip"}
+{"Time":"2026-10-02T05:20:54.67767893Z","Action":"output","Package":"github.com/qompack/qompack/test/e2e","Test":"TestE2EHookRoundTrip","Output":"=== RUN   TestE2EHookRoundTrip\n"}
+{"Time":"2026-10-02T05:21:51.177904492Z","Action":"output","Package":"github.com/qompack/qompack/test/e2e","Test":"TestE2EHookRoundTrip","Output":"--- PASS: TestE2EHookRoundTrip (56.50s)\n"}
+{"Time":"2026-10-02T05:21:51.1780056Z","Action":"pass","Package":"github.com/qompack/qompack/test/e2e","Test":"TestE2EHookRoundTrip","Elapsed":56.5}
+{"Time":"2026-10-02T05:21:51.178078263Z","Action":"run","Package":"github.com/qompack/qompack/test/e2e","Test":"TestStdioServerEndToEnd"}
+{"Time":"2026-10-02T05:21:51.178084527Z","Action":"output","Package":"github.com/qompack/qompack/test/e2e","Test":"TestStdioServerEndToEnd","Output":"=== RUN   TestStdioServerEndToEnd\n"}
+{"Time":"2026-10-02T05:21:56.229730396Z","Action":"output","Package":"github.com/qompack/qompack/test/e2e","Test":"TestStdioServerEndToEnd","Output":"--- PASS: TestStdioServerEndToEnd (5.05s)\n"}
+{"Time":"2026-10-02T05:21:56.229769296Z","Action":"pass","Package":"github.com/qompack/qompack/test/e2e","Test":"TestStdioServerEndToEnd","Elapsed":5.05}
+{"Time":"2026-10-02T05:21:56.22981578Z","Action":"run","Package":"github.com/qompack/qompack/test/e2e","Test":"TestE2E_ObserverThroughDaemon"}
+{"Time":"2026-10-02T05:21:56.229819573Z","Action":"output","Package":"github.com/qompack/qompack/test/e2e","Test":"TestE2E_ObserverThroughDaemon","Output":"=== RUN   TestE2E_ObserverThroughDaemon\n"}
+{"Time":"2026-10-02T05:22:45.67226005Z","Action":"output","Package":"github.com/qompack/qompack/test/e2e","Test":"TestE2E_ObserverThroughDaemon","Output":"--- PASS: TestE2E_ObserverThroughDaemon (49.44s)\n"}
+{"Time":"2026-10-02T05:22:45.672295877Z","Action":"pass","Package":"github.com/qompack/qompack/test/e2e","Test":"TestE2E_ObserverThroughDaemon","Elapsed":49.44}
+{"Time":"2026-10-02T05:22:45.672310968Z","Action":"run","Package":"github.com/qompack/qompack/test/e2e","Test":"TestE2E_SupersessionVisibleAfterRestart"}
+{"Time":"2026-10-02T05:22:45.672313105Z","Action":"output","Package":"github.com/qompack/qompack/test/e2e","Test":"TestE2E_SupersessionVisibleAfterRestart","Output":"=== RUN   TestE2E_SupersessionVisibleAfterRestart\n"}
+{"Time":"2026-10-02T05:22:55.280751938Z","Action":"output","Package":"github.com/qompack/qompack/test/e2e","Test":"TestE2E_SupersessionVisibleAfterRestart","Output":"--- PASS: TestE2E_SupersessionVisibleAfterRestart (9.61s)\n"}
+{"Time":"2026-10-02T05:22:55.281182371Z","Action":"pass","Package":"github.com/qompack/qompack/test/e2e","Test":"TestE2E_SupersessionVisibleAfterRestart","Elapsed":9.61}
+{"Time":"2026-10-02T05:22:55.28127547Z","Action":"run","Package":"github.com/qompack/qompack/test/e2e","Test":"TestE2E_VerbatimPromptSurvivesRestart"}
+{"Time":"2026-10-02T05:22:55.281308221Z","Action":"output","Package":"github.com/qompack/qompack/test/e2e","Test":"TestE2E_VerbatimPromptSurvivesRestart","Output":"=== RUN   TestE2E_VerbatimPromptSurvivesRestart\n"}
+{"Time":"2026-10-02T05:23:01.506497561Z","Action":"output","Package":"github.com/qompack/qompack/test/e2e","Test":"TestE2E_VerbatimPromptSurvivesRestart","Output":"--- PASS: TestE2E_VerbatimPromptSurvivesRestart (6.23s)\n"}
+{"Time":"2026-10-02T05:23:01.506621383Z","Action":"pass","Package":"github.com/qompack/qompack/test/e2e","Test":"TestE2E_VerbatimPromptSurvivesRestart","Elapsed":6.23}
+{"Time":"2026-10-02T05:23:01.506950267Z","Action":"run","Package":"github.com/qompack/qompack/test/e2e","Test":"TestE2E_RequiredProductChildRaceInstrumentation"}
+{"Time":"2026-10-02T05:23:01.507006636Z","Action":"output","Package":"github.com/qompack/qompack/test/e2e","Test":"TestE2E_RequiredProductChildRaceInstrumentation","Output":"=== RUN   TestE2E_RequiredProductChildRaceInstrumentation\n"}
+{"Time":"2026-10-02T05:23:01.522274221Z","Action":"output","Package":"github.com/qompack/qompack/test/e2e","Test":"TestE2E_RequiredProductChildRaceInstrumentation","Output":"    race_instrumentation_test.go:36: instrumented product child: sha256=bf35398a155672f4867fd7bbf629f488970f2e48b3d11b4a4731b93cf91c3696 go=go1.26.6\n"}
+{"Time":"2026-10-02T05:23:01.522377766Z","Action":"output","Package":"github.com/qompack/qompack/test/e2e","Test":"TestE2E_RequiredProductChildRaceInstrumentation","Output":"--- PASS: TestE2E_RequiredProductChildRaceInstrumentation (0.02s)\n"}
+{"Time":"2026-10-02T05:23:01.522387198Z","Action":"pass","Package":"github.com/qompack/qompack/test/e2e","Test":"TestE2E_RequiredProductChildRaceInstrumentation","Elapsed":0.02}
+{"Time":"2026-10-02T05:23:01.52239785Z","Action":"run","Package":"github.com/qompack/qompack/test/e2e","Test":"TestE2E_SessionStartCompactRestoresCheckpointItems"}
+{"Time":"2026-10-02T05:23:01.522399825Z","Action":"output","Package":"github.com/qompack/qompack/test/e2e","Test":"TestE2E_SessionStartCompactRestoresCheckpointItems","Output":"=== RUN   TestE2E_SessionStartCompactRestoresCheckpointItems\n"}
+{"Time":"2026-10-02T05:23:05.08286186Z","Action":"output","Package":"github.com/qompack/qompack/test/e2e","Test":"TestE2E_SessionStartCompactRestoresCheckpointItems","Output":"--- PASS: TestE2E_SessionStartCompactRestoresCheckpointItems (3.56s)\n"}
+{"Time":"2026-10-02T05:23:05.08290622Z","Action":"pass","Package":"github.com/qompack/qompack/test/e2e","Test":"TestE2E_SessionStartCompactRestoresCheckpointItems","Elapsed":3.56}
+{"Time":"2026-10-02T05:23:05.083311115Z","Action":"run","Package":"github.com/qompack/qompack/test/e2e","Test":"TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently"}
+{"Time":"2026-10-02T05:23:05.083342925Z","Action":"output","Package":"github.com/qompack/qompack/test/e2e","Test":"TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently","Output":"=== RUN   TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently\n"}
+{"Time":"2026-10-02T05:25:03.834958333Z","Action":"output","Package":"github.com/qompack/qompack/test/e2e","Test":"TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently","Output":"--- PASS: TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently (118.76s)\n"}
+{"Time":"2026-10-02T05:25:03.835313239Z","Action":"pass","Package":"github.com/qompack/qompack/test/e2e","Test":"TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently","Elapsed":118.76}
+{"Time":"2026-10-02T05:25:03.835508706Z","Action":"output","Package":"github.com/qompack/qompack/test/e2e","Output":"PASS\n"}
+{"Time":"2026-10-02T05:25:04.842740768Z","Action":"output","Package":"github.com/qompack/qompack/test/e2e","Output":"ok  \tgithub.com/qompack/qompack/test/e2e\t250.204s\n"}
+{"Time":"2026-10-02T05:25:04.842807581Z","Action":"pass","Package":"github.com/qompack/qompack/test/e2e","Elapsed":250.205}

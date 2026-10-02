@@ -1,0 +1,39 @@
+run_id=cx-p3-p3-linux-timing-99d0b18-20261002T035234Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-cand
+rev=99d0b18c
+commit=99d0b18cf7d5991aa733e70ce52a542b80aa7710
+bundle_sha256=5080655998843cef63c9d42c7d5d2ac74e81dcc704a11b9ba202331857e64d5c
+host_started_utc=2026-10-02T03:52:55Z
+inner_args=--no-race --env GOFLAGS=-p=1 --timeout 30m --run ^(TestGC_DeadlineTruncatesAndResumes|TestGC_DeadlineOvershootIsBoundedByTheCheckInterval|TestBudget_QueryHit|TestBudget_QueryMiss|TestBudget_Record|TestBudget_RebuildBloom|TestBudget_RefreshStaleness|TestBudget_Open|TestBudget_DetectorScan|TestBudgetBF|TestIntegration_HotPathWarmWithRealResidentState|TestFeaturesFrom_LexicalCohesionShingleCap)$ -- ./internal/store ./internal/negknow ./internal/mcp ./internal/daemon ./test/integration
+/work/cx-p3-p3-linux-timing-99d0b18-20261002T035234Z.bundle: OK
+run_id=cx-p3-p3-linux-timing-99d0b18-20261002T035234Z
+commit=99d0b18cf7d5991aa733e70ce52a542b80aa7710
+tree=2a544bda820d90b89a398c21b1244940111bbbd4
+bundle_sha256=5080655998843cef63c9d42c7d5d2ac74e81dcc704a11b9ba202331857e64d5c
+started_utc=2026-10-02T03:53:12Z
+uid=10001 user=qompack-test groups=qompack-test
+race=0 count=1 timeout=30m gomaxprocs=4 coload=0
+run=^(TestGC_DeadlineTruncatesAndResumes|TestGC_DeadlineOvershootIsBoundedByTheCheckInterval|TestBudget_QueryHit|TestBudget_QueryMiss|TestBudget_Record|TestBudget_RebuildBloom|TestBudget_RefreshStaleness|TestBudget_Open|TestBudget_DetectorScan|TestBudgetBF|TestIntegration_HotPathWarmWithRealResidentState|TestFeaturesFrom_LexicalCohesionShingleCap)$
+skip=
+extra_env= GOFLAGS=-p=1
+go version go1.26.6 linux/amd64
+linux
+amd64
+0
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-p=1
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+PASS      github.com/qompack/qompack/internal/store  (pass=2 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/negknow  (pass=7 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/mcp  (pass=1 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/daemon  (pass=1 fail=0 skip=0)
+FAIL      github.com/qompack/qompack/test/integration  (pass=0 fail=1 skip=0)
+    FAIL TestIntegration_HotPathWarmWithRealResidentState
+go_test_exit=1
+exit=1
+artifacts: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c6/linux/cx-p3-p3-linux-timing-99d0b18-20261002T035234Z-artifacts
+exit=1

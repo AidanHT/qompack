@@ -1,0 +1,10 @@
+run_id=cx-p3-p3-linux-timing-99d0b18-20261002T035234Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-cand
+rev=99d0b18c
+commit=99d0b18cf7d5991aa733e70ce52a542b80aa7710
+bundle_sha256=5080655998843cef63c9d42c7d5d2ac74e81dcc704a11b9ba202331857e64d5c
+host_started_utc=2026-10-02T03:52:55Z
+inner_args=--no-race --env GOFLAGS=-p=1 --timeout 30m --run ^(TestGC_DeadlineTruncatesAndResumes|TestGC_DeadlineOvershootIsBoundedByTheCheckInterval|TestBudget_QueryHit|TestBudget_QueryMiss|TestBudget_Record|TestBudget_RebuildBloom|TestBudget_RefreshStaleness|TestBudget_Open|TestBudget_DetectorScan|TestBudgetBF|TestIntegration_HotPathWarmWithRealResidentState|TestFeaturesFrom_LexicalCohesionShingleCap)$ -- ./internal/store ./internal/negknow ./internal/mcp ./internal/daemon ./test/integration
+host_finished_utc=2026-10-02T03:58:52Z
+container_exit=1

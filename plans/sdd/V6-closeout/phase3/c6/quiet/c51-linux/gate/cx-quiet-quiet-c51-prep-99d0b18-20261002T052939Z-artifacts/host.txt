@@ -1,0 +1,10 @@
+run_id=cx-quiet-quiet-c51-prep-99d0b18-20261002T052939Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-cand
+rev=99d0b18cf7d5991aa733e70ce52a542b80aa7710
+commit=99d0b18cf7d5991aa733e70ce52a542b80aa7710
+bundle_sha256=e29a373ed6f7b3c3db42454aeb839920b1942c9218dbaad5cc7af9bfc139dac8
+host_started_utc=2026-10-02T05:29:44Z
+inner_args=--no-race --run ^$ --timeout 30m -- ./test/bench/hotpath
+host_finished_utc=2026-10-02T05:29:54Z
+container_exit=0

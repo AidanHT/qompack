@@ -1,0 +1,13 @@
+{
+  "name": "session_start_reinjection",
+  "capability": "injection",
+  "scope": "installed_session",
+  "outcome": "skipped",
+  "reason": "no disposable target session transcript supplied (QOMPACK_CANARY_TRANSCRIPT and QOMPACK_CANARY_SENTINEL); injection remains implemented_unverified. Probing the active session is forbidden by M0-03.",
+  "target": {
+    "provider": "unknown",
+    "platform": "linux/amd64",
+    "date": "2026-10-02T04:25:53Z"
+  },
+  "recorded_at": "2026-10-02T04:25:53Z"
+}

@@ -1,0 +1,271 @@
+=== RUN   TestV3_HotPathUnchangedWithLedgerResident
+    v3_x11_test.go:473: X11 resident state: ToolUses=2000 RawBytes=43120000 (41.1 MB) StoredBytes=3682837 DedupRatio=11.71; DAG Nodes=9041 Edges=17920; ledger Active=5000 Stale=0 FillRatio=0.306 tried.bloom=24056B
+    v3_x11_test.go:511: no-ledger run (the X11 corpus without the ledger): the bench harness took 1m59s; stdout:
+        hotpath: building C:\Users\Quant\AppData\Local\Temp\qompack-bench-build-3276751422\qompack.exe...
+        hotpath: starting daemon (\\.\pipe\qompack-bench-26444-e040171042dc0584)...
+        hotpath: daemon is reachable
+        hotpath: warming daemon (64 hot-path observe.tool + 1936 admin.ping)...
+        hotpath: warm-up sent ~1.1 MB across 64 hot-path requests (plus 1936 admin.ping round trips)
+        hotpath: measuring spawn floor (200 x qompack version)...
+        hotpath: measuring B-A/B-D (2000 x qompack [observe tool])...
+        hotpath: measuring B-E (50 x qompack checkpoint)...
+        hotpath: measuring hook ACK round trip (64 x in-process observe.tool)...
+        
+        hotpath bench summary (windows/amd64, n=2000)
+          spawn floor: p50=18.250ms p99=66.661ms (n=200)
+          b_a_method: daemon status hook_controlled (observed + hotPathTailAllowance), p99 gated against obs.Budgets() B-A's limit (reported, not gated, under --under-coload — see the notes); see the B-A_spawn_estimate row for the wall-clock, floor-subtracted diagnostic (unbiased at p50, dispersion-contaminated at p99 — spec step 6 amended by controller ruling #29)
+        
+          B-A                 n=2064  p50=  24.576ms p95=  30.720ms p99=  36.864ms p999=  73.728ms max=  162.000ms limit=50.000ms   [PASS]
+          B-B                 n=2064  p50=  14.336ms p95=  20.480ms p99=  24.576ms p999=  61.440ms max=  138.846ms limit=50.000ms   [PASS]
+          B-D                 n=2000  p50=  47.036ms p95=  56.385ms p99=  96.068ms p999= 109.009ms max=  125.659ms limit=n/a        [reported]
+          B-E                 n=50    p50= 164.587ms p95= 189.510ms p99= 215.226ms p999= 215.226ms max=  215.226ms limit=2000.000ms [PASS]
+          B-E_cpu             n=50    p50=  15.625ms p95=  46.875ms p99=  46.875ms p999=  46.875ms max=   46.875ms limit=2000.000ms [PASS]
+          B-A_spawn_estimate  n=2000  p50=  28.785ms p95=  38.134ms p99=  77.818ms p999=  90.759ms max=  107.408ms limit=n/a        [reported]
+          hook_ack_rtt        n=64    p50=  21.003ms p95=  27.318ms p99=  29.334ms p999=  29.334ms max=   29.334ms limit=n/a        [reported]
+        
+          note: B-C not measured in wave 1: the processing seams are stubs
+          note: hook_ack_rtt is REPORTED, never gated: it is the client-side ACK round trip of 64 in-process observe.tool deliveries, each with a fresh nonce and a real lease, timed through the same ipc.Client a hook uses. Design §7.5 sizes the ACK deadline from it as AckDeadlineMs = L0IngestMs + ceil(slack99), where slack99 = p99(hook_ack_rtt) - p99(B-B) over this same run. The timed samples are preceded by 2 DISCARDED warm-up requests on the same session: without them sample #0 paid a session-registry insertion and a WAL segment create on top of the round trip, and at 64 samples with nearest-rank percentiles p99 IS the maximum sample, so that one sample became the number the deadline was sized from. Its traffic IS real hot-path traffic, so all 66 requests do reach the daemon's l0_ingest and hook_controlled histograms — but this run reads both of those for the gated B-A and B-B rows BEFORE any of the tranche is sent, warm-ups included, so none of it is inside either gated population, and the B-B this row is differenced against contains none of its own deliveries. They are reconciled rather than ignored: a second status read after the tranche counts every one of them, warm-ups included, into the delivery ledger, so a deferral of this tranche's own cannot pass unnoticed. The in-process traffic that does sit inside the gated populations is the warm-up's, disclosed with its own computed proportion. A p99 over 64 samples is still that set's own top sample, which is why §7.5 takes the maximum across three runs rather than trusting one
+          note: daemon-observed hook_controlled_observed (recvTS-reqTS, strict lower bound, no hotPathTailAllowance): p50=5.120ms p99=8.192ms n=2064 — informational cross-check against the gated B-A row above, which adds the tail allowance
+          note: B-A's gated n=2064 includes 64 in-process warm-up observe.tool requests (Send-time TS, not a spawned process's main() entry) alongside 2000 real hook spawns from the B-A/B-D loop — the warm-up hot-path tranche (warmHotTranche=64, a small, fixed constant) is 3.1% of the gated population for this run; see B-A_spawn_estimate for the wall-clock diagnostic derived purely from real spawns
+          note: B-B's n includes the 64 warm-up hot-path (observe.tool) requests, not just the B-A/B-D measurement loop — the daemon's own l0_ingest count, reported verbatim (conservative for B-B: warm-up payloads run 4KB-256KB, larger than B-A/B-D's fixed representative payload). The other 1936 warm-up requests are admin.ping round trips and never reach l0_ingest at all (FIX ROUND 2, N-1)
+        
+    v3_x11_test.go:511: no-ledger run (the X11 corpus without the ledger): bench artifact C:\Users\Quant\AppData\Local\Temp\TestV3_HotPathUnchangedWithLedgerResident345334905\004\v3-hotpath.json:
+        {
+          "platform": "windows/amd64",
+          "n": 2000,
+          "b_a_method": "daemon status hook_controlled (observed + hotPathTailAllowance), p99 gated against obs.Budgets() B-A's limit (reported, not gated, under --under-coload — see the notes); see the B-A_spawn_estimate row for the wall-clock, floor-subtracted diagnostic (unbiased at p50, dispersion-contaminated at p99 — spec step 6 amended by controller ruling #29)",
+          "spawn_floor_ms": {
+            "n": 200,
+            "p50": 18.25,
+            "p99": 66.661
+          },
+          "notes": [
+            "B-C not measured in wave 1: the processing seams are stubs",
+            "hook_ack_rtt is REPORTED, never gated: it is the client-side ACK round trip of 64 in-process observe.tool deliveries, each with a fresh nonce and a real lease, timed through the same ipc.Client a hook uses. Design §7.5 sizes the ACK deadline from it as AckDeadlineMs = L0IngestMs + ceil(slack99), where slack99 = p99(hook_ack_rtt) - p99(B-B) over this same run. The timed samples are preceded by 2 DISCARDED warm-up requests on the same session: without them sample #0 paid a session-registry insertion and a WAL segment create on top of the round trip, and at 64 samples with nearest-rank percentiles p99 IS the maximum sample, so that one sample became the number the deadline was sized from. Its traffic IS real hot-path traffic, so all 66 requests do reach the daemon's l0_ingest and hook_controlled histograms — but this run reads both of those for the gated B-A and B-B rows BEFORE any of the tranche is sent, warm-ups included, so none of it is inside either gated population, and the B-B this row is differenced against contains none of its own deliveries. They are reconciled rather than ignored: a second status read after the tranche counts every one of them, warm-ups included, into the delivery ledger, so a deferral of this tranche's own cannot pass unnoticed. The in-process traffic that does sit inside the gated populations is the warm-up's, disclosed with its own computed proportion. A p99 over 64 samples is still that set's own top sample, which is why §7.5 takes the maximum across three runs rather than trusting one",
+            "daemon-observed hook_controlled_observed (recvTS-reqTS, strict lower bound, no hotPathTailAllowance): p50=5.120ms p99=8.192ms n=2064 — informational cross-check against the gated B-A row above, which adds the tail allowance",
+            "B-A's gated n=2064 includes 64 in-process warm-up observe.tool requests (Send-time TS, not a spawned process's main() entry) alongside 2000 real hook spawns from the B-A/B-D loop — the warm-up hot-path tranche (warmHotTranche=64, a small, fixed constant) is 3.1% of the gated population for this run; see B-A_spawn_estimate for the wall-clock diagnostic derived purely from real spawns",
+            "B-B's n includes the 64 warm-up hot-path (observe.tool) requests, not just the B-A/B-D measurement loop — the daemon's own l0_ingest count, reported verbatim (conservative for B-B: warm-up payloads run 4KB-256KB, larger than B-A/B-D's fixed representative payload). The other 1936 warm-up requests are admin.ping round trips and never reach l0_ingest at all (FIX ROUND 2, N-1)"
+          ],
+          "budgets": [
+            {
+              "budget_id": "B-A",
+              "n": 2064,
+              "p50": 24.576,
+              "p95": 30.72,
+              "p99": 36.864,
+              "p999": 73.728,
+              "max": 162,
+              "limit_ms": 50,
+              "pass": true
+            },
+            {
+              "budget_id": "B-B",
+              "n": 2064,
+              "p50": 14.336,
+              "p95": 20.48,
+              "p99": 24.576,
+              "p999": 61.44,
+              "max": 138.846,
+              "limit_ms": 50,
+              "pass": true
+            },
+            {
+              "budget_id": "B-D",
+              "n": 2000,
+              "p50": 47.036,
+              "p95": 56.385,
+              "p99": 96.068,
+              "p999": 109.009,
+              "max": 125.659,
+              "limit_ms": null,
+              "pass": null
+            },
+            {
+              "budget_id": "B-E",
+              "n": 50,
+              "p50": 164.587,
+              "p95": 189.51,
+              "p99": 215.226,
+              "p999": 215.226,
+              "max": 215.226,
+              "limit_ms": 2000,
+              "pass": true
+            },
+            {
+              "budget_id": "B-E_cpu",
+              "n": 50,
+              "p50": 15.625,
+              "p95": 46.875,
+              "p99": 46.875,
+              "p999": 46.875,
+              "max": 46.875,
+              "limit_ms": 2000,
+              "pass": true
+            },
+            {
+              "budget_id": "B-A_spawn_estimate",
+              "n": 2000,
+              "p50": 28.785,
+              "p95": 38.134,
+              "p99": 77.818,
+              "p999": 90.759,
+              "max": 107.408,
+              "limit_ms": null,
+              "pass": null
+            },
+            {
+              "budget_id": "hook_ack_rtt",
+              "n": 64,
+              "p50": 21.003,
+              "p95": 27.318,
+              "p99": 29.334,
+              "p999": 29.334,
+              "max": 29.334,
+              "limit_ms": null,
+              "pass": null
+            }
+          ]
+        }
+    v3_x11_test.go:512: X11 no-ledger run (the X11 corpus without the ledger) measured (platform windows/amd64, n=2000): B-A p99 = 36.864 ms (limit 50 ms; gated) | B-B p99=24.576ms (limit 50ms; gated) | B-E_cpu p99=46.875ms (limit 2000ms, n=50) | B-E wall p50=164.587ms p99=215.226ms (limit 2000ms; gated) | B-D p50=47.036ms p99=96.068ms max=125.659ms (n=2000) | spawn_floor p50=18.250ms p99=66.661ms (n=200) | b_a_method="daemon status hook_controlled (observed + hotPathTailAllowance), p99 gated against obs.Budgets() B-A's limit (reported, not gated, under --under-coload — see the notes); see the B-A_spawn_estimate row for the wall-clock, floor-subtracted diagnostic (unbiased at p50, dispersion-contaminated at p99 — spec step 6 amended by controller ruling #29)"
+    v3_x11_test.go:512: no-ledger run (the X11 corpus without the ledger) bench note: B-C not measured in wave 1: the processing seams are stubs
+    v3_x11_test.go:512: no-ledger run (the X11 corpus without the ledger) bench note: hook_ack_rtt is REPORTED, never gated: it is the client-side ACK round trip of 64 in-process observe.tool deliveries, each with a fresh nonce and a real lease, timed through the same ipc.Client a hook uses. Design §7.5 sizes the ACK deadline from it as AckDeadlineMs = L0IngestMs + ceil(slack99), where slack99 = p99(hook_ack_rtt) - p99(B-B) over this same run. The timed samples are preceded by 2 DISCARDED warm-up requests on the same session: without them sample #0 paid a session-registry insertion and a WAL segment create on top of the round trip, and at 64 samples with nearest-rank percentiles p99 IS the maximum sample, so that one sample became the number the deadline was sized from. Its traffic IS real hot-path traffic, so all 66 requests do reach the daemon's l0_ingest and hook_controlled histograms — but this run reads both of those for the gated B-A and B-B rows BEFORE any of the tranche is sent, warm-ups included, so none of it is inside either gated population, and the B-B this row is differenced against contains none of its own deliveries. They are reconciled rather than ignored: a second status read after the tranche counts every one of them, warm-ups included, into the delivery ledger, so a deferral of this tranche's own cannot pass unnoticed. The in-process traffic that does sit inside the gated populations is the warm-up's, disclosed with its own computed proportion. A p99 over 64 samples is still that set's own top sample, which is why §7.5 takes the maximum across three runs rather than trusting one
+    v3_x11_test.go:512: no-ledger run (the X11 corpus without the ledger) bench note: daemon-observed hook_controlled_observed (recvTS-reqTS, strict lower bound, no hotPathTailAllowance): p50=5.120ms p99=8.192ms n=2064 — informational cross-check against the gated B-A row above, which adds the tail allowance
+    v3_x11_test.go:512: no-ledger run (the X11 corpus without the ledger) bench note: B-A's gated n=2064 includes 64 in-process warm-up observe.tool requests (Send-time TS, not a spawned process's main() entry) alongside 2000 real hook spawns from the B-A/B-D loop — the warm-up hot-path tranche (warmHotTranche=64, a small, fixed constant) is 3.1% of the gated population for this run; see B-A_spawn_estimate for the wall-clock diagnostic derived purely from real spawns
+    v3_x11_test.go:512: no-ledger run (the X11 corpus without the ledger) bench note: B-B's n includes the 64 warm-up hot-path (observe.tool) requests, not just the B-A/B-D measurement loop — the daemon's own l0_ingest count, reported verbatim (conservative for B-B: warm-up payloads run 4KB-256KB, larger than B-A/B-D's fixed representative payload). The other 1936 warm-up requests are admin.ping round trips and never reach l0_ingest at all (FIX ROUND 2, N-1)
+    v3_x11_test.go:513: ledger-resident run (the X11 corpus with the 5 000-entry ledger): the bench harness took 1m59s; stdout:
+        hotpath: building C:\Users\Quant\AppData\Local\Temp\qompack-bench-build-2051169526\qompack.exe...
+        hotpath: starting daemon (\\.\pipe\qompack-bench-77864-5c87e5c2c80e5447)...
+        hotpath: daemon is reachable
+        hotpath: warming daemon (64 hot-path observe.tool + 1936 admin.ping)...
+        hotpath: warm-up sent ~1.1 MB across 64 hot-path requests (plus 1936 admin.ping round trips)
+        hotpath: measuring spawn floor (200 x qompack version)...
+        hotpath: measuring B-A/B-D (2000 x qompack [observe tool])...
+        hotpath: measuring B-E (50 x qompack checkpoint)...
+        hotpath: measuring hook ACK round trip (64 x in-process observe.tool)...
+        
+        hotpath bench summary (windows/amd64, n=2000)
+          spawn floor: p50=18.950ms p99=65.476ms (n=200)
+          b_a_method: daemon status hook_controlled (observed + hotPathTailAllowance), p99 gated against obs.Budgets() B-A's limit (reported, not gated, under --under-coload — see the notes); see the B-A_spawn_estimate row for the wall-clock, floor-subtracted diagnostic (unbiased at p50, dispersion-contaminated at p99 — spec step 6 amended by controller ruling #29)
+        
+          B-A                 n=2064  p50=  24.576ms p95=  30.720ms p99=  36.864ms p999=  45.056ms max=  153.000ms limit=50.000ms   [PASS]
+          B-B                 n=2064  p50=  14.336ms p95=  20.480ms p99=  22.528ms p999=  28.672ms max=  129.983ms limit=50.000ms   [PASS]
+          B-D                 n=2000  p50=  47.330ms p95=  57.023ms p99=  98.102ms p999= 107.222ms max=  118.185ms limit=n/a        [reported]
+          B-E                 n=50    p50= 160.673ms p95= 201.992ms p99= 399.246ms p999= 399.246ms max=  399.246ms limit=2000.000ms [PASS]
+          B-E_cpu             n=50    p50=  15.625ms p95=  46.875ms p99=  46.875ms p999=  46.875ms max=   46.875ms limit=2000.000ms [PASS]
+          B-A_spawn_estimate  n=2000  p50=  28.379ms p95=  38.072ms p99=  79.151ms p999=  88.271ms max=   99.235ms limit=n/a        [reported]
+          hook_ack_rtt        n=64    p50=  19.441ms p95=  25.518ms p99=  28.044ms p999=  28.044ms max=   28.044ms limit=n/a        [reported]
+        
+          note: B-C not measured in wave 1: the processing seams are stubs
+          note: hook_ack_rtt is REPORTED, never gated: it is the client-side ACK round trip of 64 in-process observe.tool deliveries, each with a fresh nonce and a real lease, timed through the same ipc.Client a hook uses. Design §7.5 sizes the ACK deadline from it as AckDeadlineMs = L0IngestMs + ceil(slack99), where slack99 = p99(hook_ack_rtt) - p99(B-B) over this same run. The timed samples are preceded by 2 DISCARDED warm-up requests on the same session: without them sample #0 paid a session-registry insertion and a WAL segment create on top of the round trip, and at 64 samples with nearest-rank percentiles p99 IS the maximum sample, so that one sample became the number the deadline was sized from. Its traffic IS real hot-path traffic, so all 66 requests do reach the daemon's l0_ingest and hook_controlled histograms — but this run reads both of those for the gated B-A and B-B rows BEFORE any of the tranche is sent, warm-ups included, so none of it is inside either gated population, and the B-B this row is differenced against contains none of its own deliveries. They are reconciled rather than ignored: a second status read after the tranche counts every one of them, warm-ups included, into the delivery ledger, so a deferral of this tranche's own cannot pass unnoticed. The in-process traffic that does sit inside the gated populations is the warm-up's, disclosed with its own computed proportion. A p99 over 64 samples is still that set's own top sample, which is why §7.5 takes the maximum across three runs rather than trusting one
+          note: daemon-observed hook_controlled_observed (recvTS-reqTS, strict lower bound, no hotPathTailAllowance): p50=5.120ms p99=8.192ms n=2064 — informational cross-check against the gated B-A row above, which adds the tail allowance
+          note: B-A's gated n=2064 includes 64 in-process warm-up observe.tool requests (Send-time TS, not a spawned process's main() entry) alongside 2000 real hook spawns from the B-A/B-D loop — the warm-up hot-path tranche (warmHotTranche=64, a small, fixed constant) is 3.1% of the gated population for this run; see B-A_spawn_estimate for the wall-clock diagnostic derived purely from real spawns
+          note: B-B's n includes the 64 warm-up hot-path (observe.tool) requests, not just the B-A/B-D measurement loop — the daemon's own l0_ingest count, reported verbatim (conservative for B-B: warm-up payloads run 4KB-256KB, larger than B-A/B-D's fixed representative payload). The other 1936 warm-up requests are admin.ping round trips and never reach l0_ingest at all (FIX ROUND 2, N-1)
+        
+    v3_x11_test.go:513: ledger-resident run (the X11 corpus with the 5 000-entry ledger): bench artifact C:\Users\Quant\AppData\Local\Temp\TestV3_HotPathUnchangedWithLedgerResident345334905\005\v3-hotpath.json:
+        {
+          "platform": "windows/amd64",
+          "n": 2000,
+          "b_a_method": "daemon status hook_controlled (observed + hotPathTailAllowance), p99 gated against obs.Budgets() B-A's limit (reported, not gated, under --under-coload — see the notes); see the B-A_spawn_estimate row for the wall-clock, floor-subtracted diagnostic (unbiased at p50, dispersion-contaminated at p99 — spec step 6 amended by controller ruling #29)",
+          "spawn_floor_ms": {
+            "n": 200,
+            "p50": 18.95,
+            "p99": 65.476
+          },
+          "notes": [
+            "B-C not measured in wave 1: the processing seams are stubs",
+            "hook_ack_rtt is REPORTED, never gated: it is the client-side ACK round trip of 64 in-process observe.tool deliveries, each with a fresh nonce and a real lease, timed through the same ipc.Client a hook uses. Design §7.5 sizes the ACK deadline from it as AckDeadlineMs = L0IngestMs + ceil(slack99), where slack99 = p99(hook_ack_rtt) - p99(B-B) over this same run. The timed samples are preceded by 2 DISCARDED warm-up requests on the same session: without them sample #0 paid a session-registry insertion and a WAL segment create on top of the round trip, and at 64 samples with nearest-rank percentiles p99 IS the maximum sample, so that one sample became the number the deadline was sized from. Its traffic IS real hot-path traffic, so all 66 requests do reach the daemon's l0_ingest and hook_controlled histograms — but this run reads both of those for the gated B-A and B-B rows BEFORE any of the tranche is sent, warm-ups included, so none of it is inside either gated population, and the B-B this row is differenced against contains none of its own deliveries. They are reconciled rather than ignored: a second status read after the tranche counts every one of them, warm-ups included, into the delivery ledger, so a deferral of this tranche's own cannot pass unnoticed. The in-process traffic that does sit inside the gated populations is the warm-up's, disclosed with its own computed proportion. A p99 over 64 samples is still that set's own top sample, which is why §7.5 takes the maximum across three runs rather than trusting one",
+            "daemon-observed hook_controlled_observed (recvTS-reqTS, strict lower bound, no hotPathTailAllowance): p50=5.120ms p99=8.192ms n=2064 — informational cross-check against the gated B-A row above, which adds the tail allowance",
+            "B-A's gated n=2064 includes 64 in-process warm-up observe.tool requests (Send-time TS, not a spawned process's main() entry) alongside 2000 real hook spawns from the B-A/B-D loop — the warm-up hot-path tranche (warmHotTranche=64, a small, fixed constant) is 3.1% of the gated population for this run; see B-A_spawn_estimate for the wall-clock diagnostic derived purely from real spawns",
+            "B-B's n includes the 64 warm-up hot-path (observe.tool) requests, not just the B-A/B-D measurement loop — the daemon's own l0_ingest count, reported verbatim (conservative for B-B: warm-up payloads run 4KB-256KB, larger than B-A/B-D's fixed representative payload). The other 1936 warm-up requests are admin.ping round trips and never reach l0_ingest at all (FIX ROUND 2, N-1)"
+          ],
+          "budgets": [
+            {
+              "budget_id": "B-A",
+              "n": 2064,
+              "p50": 24.576,
+              "p95": 30.72,
+              "p99": 36.864,
+              "p999": 45.056,
+              "max": 153,
+              "limit_ms": 50,
+              "pass": true
+            },
+            {
+              "budget_id": "B-B",
+              "n": 2064,
+              "p50": 14.336,
+              "p95": 20.48,
+              "p99": 22.528,
+              "p999": 28.672,
+              "max": 129.983,
+              "limit_ms": 50,
+              "pass": true
+            },
+            {
+              "budget_id": "B-D",
+              "n": 2000,
+              "p50": 47.33,
+              "p95": 57.023,
+              "p99": 98.102,
+              "p999": 107.222,
+              "max": 118.185,
+              "limit_ms": null,
+              "pass": null
+            },
+            {
+              "budget_id": "B-E",
+              "n": 50,
+              "p50": 160.673,
+              "p95": 201.992,
+              "p99": 399.246,
+              "p999": 399.246,
+              "max": 399.246,
+              "limit_ms": 2000,
+              "pass": true
+            },
+            {
+              "budget_id": "B-E_cpu",
+              "n": 50,
+              "p50": 15.625,
+              "p95": 46.875,
+              "p99": 46.875,
+              "p999": 46.875,
+              "max": 46.875,
+              "limit_ms": 2000,
+              "pass": true
+            },
+            {
+              "budget_id": "B-A_spawn_estimate",
+              "n": 2000,
+              "p50": 28.379,
+              "p95": 38.072,
+              "p99": 79.151,
+              "p999": 88.271,
+              "max": 99.235,
+              "limit_ms": null,
+              "pass": null
+            },
+            {
+              "budget_id": "hook_ack_rtt",
+              "n": 64,
+              "p50": 19.441,
+              "p95": 25.518,
+              "p99": 28.044,
+              "p999": 28.044,
+              "max": 28.044,
+              "limit_ms": null,
+              "pass": null
+            }
+          ]
+        }
+    v3_x11_test.go:514: X11 ledger-resident run (the X11 corpus with the 5 000-entry ledger) measured (platform windows/amd64, n=2000): B-A p99 = 36.864 ms (limit 50 ms; gated) | B-B p99=22.528ms (limit 50ms; gated) | B-E_cpu p99=46.875ms (limit 2000ms, n=50) | B-E wall p50=160.673ms p99=399.246ms (limit 2000ms; gated) | B-D p50=47.330ms p99=98.102ms max=118.185ms (n=2000) | spawn_floor p50=18.950ms p99=65.476ms (n=200) | b_a_method="daemon status hook_controlled (observed + hotPathTailAllowance), p99 gated against obs.Budgets() B-A's limit (reported, not gated, under --under-coload — see the notes); see the B-A_spawn_estimate row for the wall-clock, floor-subtracted diagnostic (unbiased at p50, dispersion-contaminated at p99 — spec step 6 amended by controller ruling #29)"
+    v3_x11_test.go:514: ledger-resident run (the X11 corpus with the 5 000-entry ledger) bench note: B-C not measured in wave 1: the processing seams are stubs
+    v3_x11_test.go:514: ledger-resident run (the X11 corpus with the 5 000-entry ledger) bench note: hook_ack_rtt is REPORTED, never gated: it is the client-side ACK round trip of 64 in-process observe.tool deliveries, each with a fresh nonce and a real lease, timed through the same ipc.Client a hook uses. Design §7.5 sizes the ACK deadline from it as AckDeadlineMs = L0IngestMs + ceil(slack99), where slack99 = p99(hook_ack_rtt) - p99(B-B) over this same run. The timed samples are preceded by 2 DISCARDED warm-up requests on the same session: without them sample #0 paid a session-registry insertion and a WAL segment create on top of the round trip, and at 64 samples with nearest-rank percentiles p99 IS the maximum sample, so that one sample became the number the deadline was sized from. Its traffic IS real hot-path traffic, so all 66 requests do reach the daemon's l0_ingest and hook_controlled histograms — but this run reads both of those for the gated B-A and B-B rows BEFORE any of the tranche is sent, warm-ups included, so none of it is inside either gated population, and the B-B this row is differenced against contains none of its own deliveries. They are reconciled rather than ignored: a second status read after the tranche counts every one of them, warm-ups included, into the delivery ledger, so a deferral of this tranche's own cannot pass unnoticed. The in-process traffic that does sit inside the gated populations is the warm-up's, disclosed with its own computed proportion. A p99 over 64 samples is still that set's own top sample, which is why §7.5 takes the maximum across three runs rather than trusting one
+    v3_x11_test.go:514: ledger-resident run (the X11 corpus with the 5 000-entry ledger) bench note: daemon-observed hook_controlled_observed (recvTS-reqTS, strict lower bound, no hotPathTailAllowance): p50=5.120ms p99=8.192ms n=2064 — informational cross-check against the gated B-A row above, which adds the tail allowance
+    v3_x11_test.go:514: ledger-resident run (the X11 corpus with the 5 000-entry ledger) bench note: B-A's gated n=2064 includes 64 in-process warm-up observe.tool requests (Send-time TS, not a spawned process's main() entry) alongside 2000 real hook spawns from the B-A/B-D loop — the warm-up hot-path tranche (warmHotTranche=64, a small, fixed constant) is 3.1% of the gated population for this run; see B-A_spawn_estimate for the wall-clock diagnostic derived purely from real spawns
+    v3_x11_test.go:514: ledger-resident run (the X11 corpus with the 5 000-entry ledger) bench note: B-B's n includes the 64 warm-up hot-path (observe.tool) requests, not just the B-A/B-D measurement loop — the daemon's own l0_ingest count, reported verbatim (conservative for B-B: warm-up payloads run 4KB-256KB, larger than B-A/B-D's fixed representative payload). The other 1936 warm-up requests are admin.ping round trips and never reach l0_ingest at all (FIX ROUND 2, N-1)
+    v3_x11_test.go:553: X11 pair (gated: PASS): hook_controlled_observed p50 no-ledger=5.120ms (p99 8.192ms, n=2064) | ledger=5.120ms (p99 8.192ms, n=2064) | ceiling 6.400ms (x1.25, floor one 1.024ms tick)
+    v3_x11_test.go:558: X11 B-A p99, REPORTED not gated against V2: no-ledger=36.864ms, ledger=36.864ms, V2 recorded 3.072ms — V2's B-A excluded the handler and its ingest was not durable, so the figures measure different quantities (D42); B-A is gated only against its obs.Budgets() limit (50ms)
+--- PASS: TestV3_HotPathUnchangedWithLedgerResident (607.34s)
+PASS
+ok  	github.com/qompack/qompack/test/e2e	607.650s

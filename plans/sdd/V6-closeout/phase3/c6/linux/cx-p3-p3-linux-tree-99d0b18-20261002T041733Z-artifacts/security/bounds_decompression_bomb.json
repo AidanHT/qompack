@@ -1,0 +1,17 @@
+{
+  "name": "bounds_decompression_bomb",
+  "capability": "bounds",
+  "scope": "installed_bundle",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "017997ce74bcae6c44556dfc98975f557e9be19f09c09acc60bb47867d6ada35"
+  },
+  "outcome": "verified",
+  "reason": "decompression_bomb was refused with core.ErrNotFound and moved to .qompack/tmp/quarantine/ (§12.3): a valid zstd frame expanding past store's 64 MiB maxDecodedSize.",
+  "detail": "read error: qompack: not found: object refused as damaged: object 36b7bb6c22ac failed to decode"
+}
