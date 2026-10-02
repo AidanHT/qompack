@@ -9,8 +9,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 The release 0.3.0 entry (V6 close-out decision D1). It summarises the user-visible changes since
 `v0.2.0`, an internal verification tag that was never released, so this is the first release
-published from this repository. Release candidate: `verify/v6` commit `99d0b18` (candidate 6). At
-the release this heading becomes the version and its date (`docs/release.md` §1, step 2).
+published from this repository. Release candidate: release candidate 7, whose commit and frozen
+bundles are recorded in `plans/sdd/V6-closeout/phase3/c7-CANDIDATE.md`. At the release this heading
+becomes the version and its date (`docs/release.md` §1, step 2).
 
 ### Added
 
@@ -48,6 +49,8 @@ the release this heading becomes the version and its date (`docs/release.md` §1
   generates the six per-target `qompack-<os>-<arch>` marketplace entries pinned by sha256;
   `devtool release-check` is the release gate, `devtool release-scope` reports what the committed
   records establish, and `devtool licenses` keeps the notices in step with the dependency graph.
+  A tag's release is drafted as a pre-release, with notes taken from `docs/release-notes/<tag>.md`
+  when that file exists.
 - **Evaluation**: `devtool live-eval` drives real headless host sessions with and without Qompack
   under a pre-registered protocol, and `/qompack:eval` reports the replay and live results with
   failed trials counted.
@@ -126,12 +129,17 @@ live sessions:
   (`plans/sdd/V6-closeout/eval/preregistration.md`, amendment A8).
 - **Verified where the evidence says, and nowhere else.** Installed into Claude Code on windows/amd64
   only, by the live lanes on candidates 3 and 4. Linux fsync-bound timing rows (B-A, B-B) are not
-  verified in target. On Windows the quiet hot-path run passed on candidate 5; candidate 6's
-  isolated timing pass failed the hot path with the ledger resident (X11: B-A p99 98.3 ms, B-B p99
-  81.9 ms against 50, 0 lost), which is not yet classified, and its quiet run has not reported.
-  Windows timings were taken on the reference host with the store under a path excluded from
-  Windows Defender scanning (decisions D32, D53(h)). The executable bit after a marketplace install on Linux and macOS, and the
-  command and tool namespace under a `qompack-<os>-<arch>` entry, have not been observed.
+  verified in target (D53(b)); in the Linux container the whole tree, `test/e2e` and the
+  product-child lane pass under `-race`. On Windows, candidate 6's quiet hot-path run passed on AC
+  (B-A p99 30.7 ms, B-B p99 24.6 ms against 50), and X11, the hot path with and without a resident
+  elimination ledger, passed 3 of 3 rounds on AC (B-A p99 36.9 ms, B-B p99 at most 24.6 ms against
+  50, nothing deferred). Runs taken on battery are not reference measurements (D57(d)); on battery
+  the hot path switches to spool submode and nothing is lost (D53(c)). Windows reference timings
+  were taken on AC with the store under a path excluded from Windows Defender scanning (decisions
+  D32, D53(h)). Candidate 6's evidence carries to candidate 7, whose binaries differ from it by one
+  unreferenced byte, plus darwin/arm64's ad-hoc signature hash (D57(c)). The executable bit after a
+  marketplace install on Linux and macOS, and the command and tool namespace under a
+  `qompack-<os>-<arch>` entry, have not been observed.
 - **Binaries are not code-signed**, so Gatekeeper, SmartScreen and Defender may refuse or flag them
   (`docs/install.md` §10).
 - **Accepted residuals**, each documented in `docs/cannot-do.md`: a 2.3 to 6.8 s capture pause at each
@@ -141,5 +149,8 @@ live sessions:
   submode lasts until the session or the daemon ends (D44); shorter pages beside redacted text
   (D48); PutBytes and the 256 KB `OnToolUse` row miss their budgets after the hook's ACK (D54); a
   `PreCompact` can wait behind a spool replay already running and then names what it left (D56(e)).
+- **`fsck` beside a running daemon** can report an evidence-class retention root that is not held
+  while the daemon is still publishing it. Stop the daemon and run `fsck` again; a result taken with
+  the daemon running is a snapshot (D57(b), `docs/troubleshooting.md` §9).
 - **Not in this build**: a manual checkpoint, `qompack bench`, an operator command that stops the
   daemon, and any automatic downgrade of the store format.
