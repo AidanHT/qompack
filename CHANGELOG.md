@@ -68,8 +68,8 @@ the release this heading becomes the version and its date (`docs/release.md` §1
 - **The `SessionEnd` flush answers once its request is durable** and the daemon ends the session
   afterwards, inside the host's shared 1.5 s budget for plugin `SessionEnd` hooks.
 - **The hot-path budget B-A is derived per platform**: 15 ms on Linux, 50 ms on Windows, 40 ms on
-  macOS, so a Windows session no longer trips the breach detector by default. A configured value
-  below the durable-ingest budget is warned about.
+  macOS, so B-B's own durable ingest no longer trips the breach detector systematically on Windows.
+  A configured value below the durable-ingest budget is warned about.
 - **On a slow disk the switch to spool submode says that nothing is lost**, `status` and `doctor`
   explain it, and a `PreCompact` replays the session's spooled captures, within a 500 ms bound,
   before it seals.
@@ -125,9 +125,12 @@ live sessions:
   recovery after a compaction, task success or constraint retention
   (`plans/sdd/V6-closeout/eval/preregistration.md`, amendment A8).
 - **Verified where the evidence says, and nowhere else.** Installed into Claude Code on windows/amd64
-  only. Linux fsync-bound timing rows (B-A, B-B) are not verified in target. Windows timings were
-  taken on the reference host with the store under a path excluded from Windows Defender scanning
-  (decisions D32, D53(h)). The executable bit after a marketplace install on Linux and macOS, and the
+  only, by the live lanes on candidates 3 and 4. Linux fsync-bound timing rows (B-A, B-B) are not
+  verified in target. On Windows the quiet hot-path run passed on candidate 5; candidate 6's
+  isolated timing pass failed the hot path with the ledger resident (X11: B-A p99 98.3 ms, B-B p99
+  81.9 ms against 50, 0 lost), which is not yet classified, and its quiet run has not reported.
+  Windows timings were taken on the reference host with the store under a path excluded from
+  Windows Defender scanning (decisions D32, D53(h)). The executable bit after a marketplace install on Linux and macOS, and the
   command and tool namespace under a `qompack-<os>-<arch>` entry, have not been observed.
 - **Binaries are not code-signed**, so Gatekeeper, SmartScreen and Defender may refuse or flag them
   (`docs/install.md` §10).
