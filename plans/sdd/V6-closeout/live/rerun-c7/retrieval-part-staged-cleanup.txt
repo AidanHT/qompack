@@ -1,0 +1,17 @@
+end-of-part staged-copy cleanup, retrieval part (install.md §6, D50) 2026-10-02 15:45:36 EDT
+snap state: ~/.qompack absent (0 entries) at 15:22:24 EDT; created 15:24 by this part's session 1 (D10 staged daemon copy)
+$ find ~/.qompack
+~/.qompack
+~/.qompack/bin
+~/.qompack/bin/ab8046bac3bad894c9a299c61fb38277f4179f4e33bfb088873e43edcbe33be7
+~/.qompack/bin/ab8046bac3bad894c9a299c61fb38277f4179f4e33bfb088873e43edcbe33be7/qompack.exe
+$ tasklist qompack.exe
+INFO: No tasks are running which match the specified criteria.
+$ sha256sum ~/.qompack/bin/*/qompack.exe
+ab8046bac3bad894c9a299c61fb38277f4179f4e33bfb088873e43edcbe33be7 *~/.qompack/bin/ab8046bac3bad894c9a299c61fb38277f4179f4e33bfb088873e43edcbe33be7/qompack.exe
+frozen c7 bin sha256 ab8046bac3bad894c9a299c61fb38277f4179f4e33bfb088873e43edcbe33be7 (equal: the only bundle this part used)
+$ powershell Remove-Item -Recurse -Force $HOME\.qompack\bin   (install.md §6; the staged copy is sealed read-only)
+bin removed
+$ ls -A ~/.qompack
+(entries: 0)
+removed the empty run-created ~/.qompack
