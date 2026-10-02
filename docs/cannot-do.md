@@ -376,15 +376,18 @@ host change could lift — as prepared proposals, none of which has been filed.
   15 ms limit that applied then (ADR 0010, Context table; B-A's Windows default is now 50 ms).
   Reference-platform rows remain open in `plans/V5-report.md` §29 item 2, which also records two
   known in-scope regressions awaiting a budget-versus-guarantee decision. For 0.3.0 the hot-path
-  rows were judged quietly on one Windows reference host, with the store under a path excluded from
-  Defender scanning; on Linux the fsync-bound rows (B-A, B-B) are not verified in target, because the
+  rows were judged quietly on one Windows reference host, on AC power, with the store under a path
+  excluded from Defender scanning (D32, D53(h)). A run taken there on battery is not a reference
+  measurement, neither a pass nor a fail, because on battery Windows applies slower CPU, PCIe and
+  NVMe power policies (D57(d)); the hot path then switches to spool submode and nothing is lost. On
+  Linux the fsync-bound rows (B-A, B-B) are not verified in target, because the
   only local Linux is a container whose fsync is far slower than a native disk's, and hosted runner
   figures never become budgets (owner decisions D53(b) and Q1).
 - **What Qompack does instead.** It measures what it can attribute and prints the availability word
   where it cannot — see the `unavailable` per-hook rows in
   [docs/troubleshooting.md §2](troubleshooting.md#2-unknown-capability-or-telemetry).
 - **Recorded at.** [ADR 0010](adr/0010-wall-clock-under-coload.md) (Context, "What this does not
-  decide", Addendum 1); `plans/V5-report.md` §29.
+  decide", Addendum 1); `plans/V5-report.md` §29; `plans/V6-CLOSEOUT-CHECKLIST.md` D53 and D57.
 
 ### No bounded delivery history on disk, and no downgrade across a rotation
 
@@ -558,6 +561,22 @@ host change could lift — as prepared proposals, none of which has been filed.
   taken, so no hook waits on it.
 - **Recorded at.** `plans/V6-CLOSEOUT-CHECKLIST.md` D54; `plans/CARRIED-DEFECTS.tsv` (SP06-D2,
   SP08-D1).
+
+### `fsck` beside a running daemon can report a retention root that is still being written
+
+- **Limit.** `qompack fsck` run while the project's daemon is running can report, on its
+  `retention` row, an evidence-class retention root "which is not held" although nothing is wrong.
+- **Why.** fsck reads the capture sidecars before `state/retention-roots.jsonl`, and a daemon still
+  publishing a capture writes its sidecar first and its retention root after it. A capture published
+  between those two reads leaves a root whose sidecar fsck did not see. A plain fsck (without
+  `--repair` or `--seal-check`) does not take the daemon's lock, so a result taken beside a running
+  daemon is a snapshot of a moving target, and its `daemon` row says so. Decision D57(b) records
+  this as a known limit for 0.3.0; a test that pins the daemon's sidecar-before-root order is later
+  work.
+- **What Qompack does instead.** Stop the daemon (let it reach its idle exit, or end the process
+  named in `daemon.lock`) and run `fsck` again; a root that is still reported then is a real defect.
+- **Recorded at.** `plans/V6-CLOSEOUT-CHECKLIST.md` D57(b);
+  [docs/troubleshooting.md §9](troubleshooting.md#9-backup-rollback-and-recovery).
 
 ### A delivery cut mid-publication can leave its decision-graph node out
 
