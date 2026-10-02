@@ -65,11 +65,19 @@ jobs:
           name: host-validation-evidence
           path: dist/evidence/
           if-no-files-found: error
-      # The draft release's notes ARE the supported-scope accounting: per target and per acceptance
-      # row, what a committed record establishes and what stays unverified.
+      # The draft release's notes. A tag whose version has hand-written notes in
+      # docs/release-notes/<tag>.md uses them: they cite the close-out evidence for that release,
+      # which release-scope's committed SP-17 records predate. Any other tag falls back to the
+      # supported-scope accounting: per target and per acceptance row, what a committed record
+      # establishes and what stays unverified. test/guards pins both branches.
       - name: release notes from the evidence
         run: |
-          go run ./tools/devtool release-scope --markdown > dist/release-notes.md
+          notes="docs/release-notes/${GITHUB_REF_NAME}.md"
+          if [ -f "$notes" ]; then
+            cp "$notes" dist/release-notes.md
+          else
+            go run ./tools/devtool release-scope --markdown > dist/release-notes.md
+          fi
       - uses: actions/attest-build-provenance@v2
         with:
           subject-path: |
