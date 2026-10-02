@@ -1,0 +1,71 @@
+# C5.2 carry: package-level non-test product diffs, candidate 5 0d06ab12 -> candidate 6 99d0b18
+# (review finding 2: the task's git diff --stat over each benchmarked package, not only the executed files)
+
+$ git diff --shortstat 0d06ab12 99d0b18 -- internal/obs ':(exclude)internal/obs/*_test.go'
+ 2 files changed, 93 insertions(+)
+
+$ git diff --shortstat 0d06ab12 99d0b18 -- internal/cli ':(exclude)internal/cli/*_test.go'
+ 2 files changed, 82 insertions(+), 3 deletions(-)
+
+$ git diff --shortstat 0d06ab12 99d0b18 -- internal/observer ':(exclude)internal/observer/*_test.go'
+ 4 files changed, 191 insertions(+), 9 deletions(-)
+
+$ git diff --shortstat 0d06ab12 99d0b18 -- internal/checkpoint ':(exclude)internal/checkpoint/*_test.go'
+ 2 files changed, 32 insertions(+)
+
+$ git diff --shortstat 0d06ab12 99d0b18 -- internal/daemon ':(exclude)internal/daemon/*_test.go'
+ 13 files changed, 1320 insertions(+), 80 deletions(-)
+
+$ git diff --shortstat 0d06ab12 99d0b18 -- internal/hostperm ':(exclude)internal/hostperm/*_test.go'
+ 6 files changed, 351 insertions(+), 70 deletions(-)
+
+$ git diff --shortstat 0d06ab12 99d0b18 -- internal/store ':(exclude)internal/store/*_test.go'
+(empty)
+
+$ git diff --shortstat 0d06ab12 99d0b18 -- internal/negknow ':(exclude)internal/negknow/*_test.go'
+(empty)
+
+$ git diff --shortstat 0d06ab12 99d0b18 -- internal/canon ':(exclude)internal/canon/*_test.go'
+(empty)
+
+$ git diff --shortstat 0d06ab12 99d0b18 -- internal/chunk ':(exclude)internal/chunk/*_test.go'
+(empty)
+
+$ git diff --shortstat 0d06ab12 99d0b18 -- internal/symbols ':(exclude)internal/symbols/*_test.go'
+(empty)
+
+$ git diff --shortstat 0d06ab12 99d0b18 -- internal/dag ':(exclude)internal/dag/*_test.go'
+(empty)
+
+$ git diff --shortstat 0d06ab12 99d0b18 -- internal/sketch ':(exclude)internal/sketch/*_test.go'
+(empty)
+
+$ git diff --shortstat 0d06ab12 99d0b18 -- internal/eval ':(exclude)internal/eval/*_test.go'
+(empty)
+
+$ git diff --shortstat 0d06ab12 99d0b18 -- internal/config ':(exclude)internal/config/*_test.go'
+(empty)
+
+$ git diff --shortstat 0d06ab12 99d0b18 -- internal/scheduler ':(exclude)internal/scheduler/*_test.go'
+(empty)
+
+$ git diff --shortstat 0d06ab12 99d0b18 -- internal/rules ':(exclude)internal/rules/*_test.go'
+(empty)
+
+$ git diff --shortstat 0d06ab12 99d0b18 -- internal/skills ':(exclude)internal/skills/*_test.go'
+(empty)
+
+$ git diff --shortstat 0d06ab12 99d0b18 -- internal/paths ':(exclude)internal/paths/*_test.go' ':(exclude)internal/paths/pathstest'
+(empty)
+
+# where the measured path touches a changed package, what changed (git diff 0d06ab12 99d0b18 -- <file>)
+internal/observer: tooluse.go:282 calls collectThrash only inside 'if o.opt.Grammar != nil'; benchHarness
+  (tooluse_test.go:469-480) wires no Grammar, so neither the call nor collectThrash's new ThrashFloor
+  branch (prompt.go) runs; sessionState gained two fields (ThrashFloor, ReplyWarning), appended.
+internal/checkpoint: BenchmarkFinalize runs FileWriter.Finalize; preCompact (precompact.go:136, the only
+  caller of the PricedDrops hook) is reached from PreCompact only; types.go adds two constants.
+internal/daemon: the scheduler benches run scheduler_*.go (unchanged); Services gained the
+  PromptReplySpooled func field (options.go), not read on their path.
+internal/cli: BenchmarkHookNoop_InProcess runs Dispatch(observe tool); the product changes are
+  writeUsage's text (dispatch.go) and doctor.go, neither on that path.
+internal/obs: two new files (nonrefdisk.go, spool_submode.go); BenchmarkHistogram_Observe runs neither.
