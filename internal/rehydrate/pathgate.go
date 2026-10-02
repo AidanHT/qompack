@@ -8,6 +8,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/qompack/qompack/internal/checkpoint"
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/paths"
 	"github.com/qompack/qompack/internal/rules"
@@ -30,6 +31,10 @@ import (
 // joined with a space (Glob), as a basename (recall's plain selector selects by path-segment
 // suffix), and as a glob that selects a withheld path. readSummary finds each, and summaryWithheld
 // judges it.
+//
+// The checkpointer's own drop entries are pointers too: five kinds are keyed by a file pointer's
+// path (checkpointPathDrops), and section 7 and dropped() name a withheld one by hash
+// (gateCheckpointDrops).
 
 // HostPaths, when set on Deps, returns this build's judgement of the host's current Read rules:
 // refuses(path) reports whether the rules deny, or ask before, reading path (as a pointer records
@@ -451,12 +456,80 @@ func (j pathJudge) key(p string) (string, bool) {
 	return paths.Key(strings.TrimPrefix(path.Clean(strings.ReplaceAll(p, `\`, "/")), "./")), true
 }
 
-// withheldPathLabel and withheldSummary replace what a withheld pointer would have shown. Neither
-// names the rule or the path: a rule spells the very path it protects.
+// withheldPathLabel, withheldSummary and withheldPathNote replace what a withheld pointer would have
+// shown. None names the rule or the path: a rule spells the very path it protects.
 const (
-	withheldPathLabel = "file (path withheld: the host's permission rules refuse it, or it is outside the project)"
+	withheldPathNote  = "path withheld: the host's permission rules refuse it, or it is outside the project"
+	withheldPathLabel = "file (" + withheldPathNote + ")"
 	withheldSummary   = "summary withheld: it names a path the host's permission rules refuse, or one outside the project"
+	// withheldDropID stands in for the path a checkpoint drop entry was keyed by when the
+	// checkpoint no longer holds the pointer's hash (gateCheckpointDrops).
+	withheldDropID = "(path withheld)"
 )
+
+// checkpointPathDrops are the drop kinds internal/checkpoint keys by a file pointer's path, as the
+// pointer recorded it: a pointer cut at the checkpoint's own budget (truncate.go cutFilePointers)
+// and the ground-truth checks finalize always runs (validate.go ValidatePointers). Every other kind
+// is keyed by an id, a record or nothing (TestCheckpointPathDrops_AreTheCheckpointersOwn).
+var checkpointPathDrops = map[string]bool{
+	"file_pointer":      true,
+	"pointer_missing":   true,
+	"pointer_invalid":   true,
+	"pointer_untracked": true,
+	"pointer_dirty":     true,
+}
+
+// gateCheckpointDrops returns r's checkpoint drop entries with every one keyed by a path the
+// payload may not show named the way section 6 names its pointer (D50, C4.6): by the pointer's hash
+// while the checkpoint still holds it (finalize keeps an untracked or a dirty pointer), and by
+// withheldDropID otherwise. The detail keeps the checkpointer's reason, without a re_read(path)
+// call re_read would refuse, says the path is withheld, and restores by hash when the hash is
+// known. Section 7 and dropped() both read the result. r's slice is never modified, and the host's
+// rules are consulted only when some entry is keyed by a path.
+func gateCheckpointDrops(r Request, d Deps) []checkpoint.DropEntry {
+	drops := r.Checkpoint.Dropped
+	keyed := false
+	for _, e := range drops {
+		keyed = keyed || (checkpointPathDrops[e.Kind] && e.ID != "")
+	}
+	if !keyed {
+		return drops
+	}
+	j := newPathRules(r, d)
+	out := make([]checkpoint.DropEntry, len(drops))
+	for i, e := range drops {
+		out[i] = e
+		if checkpointPathDrops[e.Kind] && j.withheld(e.ID) {
+			out[i] = withheldDrop(e, r.Checkpoint.Pointers.Files)
+		}
+	}
+	return out
+}
+
+// withheldDrop is e, a path-keyed checkpoint drop entry, with its path withheld.
+func withheldDrop(e checkpoint.DropEntry, files []checkpoint.FilePointer) checkpoint.DropEntry {
+	var h core.Hash
+	for _, f := range files {
+		if f.Path == e.ID {
+			h = f.Hash
+			break
+		}
+	}
+	id := withheldDropID
+	if h != (core.Hash{}) {
+		id = h.String()
+	}
+	// The checkpointer's details are a reason, then "; " and the call that resolves the path.
+	reason, _, _ := strings.Cut(e.Detail, "; ")
+	detail := withheldPathNote
+	if reason != "" {
+		detail = reason + "; " + detail
+	}
+	if p := hashPointer(h); p != "" {
+		detail += restorePrefix + p
+	}
+	return checkpoint.DropEntry{Kind: e.Kind, ID: id, Detail: detail}
+}
 
 // hashPointer is the restore call for content known only by its hash.
 func hashPointer(h core.Hash) string {
