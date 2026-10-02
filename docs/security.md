@@ -97,8 +97,24 @@ copied is never filed. The one exception is a copy another program holds open wi
 read: that proves nothing about its bytes and passes when the program lets go, so it is neither run
 nor removed — that one spawn starts the daemon from the plugin binary, and the next spawn checks
 the copy again. The boundary is the same one the plugin directory already has: a process running as
-the same user could replace either file; another user cannot write either. On Linux and macOS nothing is
-copied and the daemon runs from the plugin binary.
+the same user could replace either file; another user cannot write either. A window of microseconds
+remains between the last check and the process start, which owner decision D38 accepted. On Linux and
+macOS nothing is copied and the daemon runs from the plugin binary.
+
+**The store ignores itself in git, and that is all "self-ignore" means.** On first use Qompack writes
+`<project>/.qompack/.gitignore` containing `*` (`internal/paths/layout.go`, `EnsureLayout`), so git
+ignores everything in the store (captures, checkpoints, logs, backups) even in a project whose own
+`.gitignore` never mentions it, and committing the working tree does not commit recorded session
+content. It does not remove anything already committed, and a tool that does not read `.gitignore`
+files, such as an archiver, a sync client or a backup program, still sees the store. It is not a
+capture filter either: Qompack does not leave its own activity out of the record. A tool call that
+reads a file under `.qompack/` is captured like any other. While `retrieval.ephemeralResults` is on
+(the default), the answer of every Qompack tool except `record_eliminated` is written back as an
+ephemeral record of its own, filed under `mcp__qompack__<tool>` with an id that starts
+`qompack-mcp:`, and the host's capture of the model's call to a Qompack tool is recorded under
+the name the host gave the call, `mcp__plugin_<entry>_qompack__<tool>`. `recall` ranks both kinds of
+self-record after the original captures, whatever marketplace entry name the host put in that tool
+name (owner decisions D49 and D53(e)).
 
 ## 2. Redaction: what it covers, and what it does not
 
