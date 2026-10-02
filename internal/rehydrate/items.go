@@ -321,8 +321,11 @@ func restoreClause(pointer string) string {
 	if pointer == "" {
 		return "; call dropped() for the full accounting"
 	}
-	return "; restore: " + pointer
+	return restorePrefix + pointer
 }
+
+// restorePrefix introduces the pointer in a restore clause; originalRestorePointer reads it back.
+const restorePrefix = "; restore: "
 
 // tier1Overflow is the explicit-overflow entry for one fixed tier-1 record that could not be
 // emitted whole. ID "tier1" is what Overflowed recognizes; the detail names the record and the
