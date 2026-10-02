@@ -470,12 +470,14 @@ rehydration names either case when it happens
 ([docs/cannot-do.md](cannot-do.md#the-first-captured-prompt-is-not-always-the-first-prompt-the-host-sent)).
 
 What you say after that first prompt is carried too. Every checkpoint lists the session's later
-prompts, verbatim and in order, as the original's `user_intent.evolution`; the rehydration shows
-them under the original, newest first, so your latest correction is the first one Claude reads and
-the one a tight budget keeps. Each is a whole record: one that does not fit is left out and named
-in section 7 with where to read it, and the same holds for the original itself — a first prompt
-longer than the injected block can carry is named with its `expand(tool_use_id=…)` call rather
-than cut. A forked session (`claude --resume <id> --fork-session`) continues its parent's task: its
+prompts, verbatim and in order, as the original's `user_intent.evolution`; section 2 of the
+rehydration shows them above the original, newest first, under `Evolution (most recent first):`,
+and then the original, whole, under `Original:`. So your latest correction is the first one Claude
+reads, nothing older renders above it, and it is the one a tight budget keeps. Each is a whole
+record: one that does not fit is left out and named in section 7 with where to read it, and the
+same holds for the original itself — a first prompt longer than the injected block can carry is
+named with its `expand(tool_use_id=…)` call rather than cut. A forked session
+(`claude --resume <id> --fork-session`) continues its parent's task: its
 original is the parent's first prompt, labelled with the session it came from, and the fork's own
 prompts follow as evolution
 ([docs/cannot-do.md](cannot-do.md#a-forked-sessions-parent-is-inferred-not-reported-by-the-host)).
