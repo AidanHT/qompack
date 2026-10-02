@@ -1796,11 +1796,37 @@ type retentionLine struct {
 	Reason string `json:"reason"`
 }
 
-// auditRetentionBetweenReads, when set, runs between auditRetentionRoots' two reads of the project:
-// the retention-roots file and the capture-sidecar scan. It is nil except inside this package's own
-// audit test, which publishes a capture there to stand in for the live daemon the lifecycle matrix
-// audits beside.
-var auditRetentionBetweenReads func()
+// auditRetentionAfterRead, when set, runs as each of auditRetentionRoots' two reads of the project
+// finishes, with the read's name: retentionReadClaims for the retention-roots file,
+// retentionReadEvidence for the capture-sidecar scan. It is nil except inside this package's own
+// audit test, which records the order of the reads and publishes a capture after the first one to
+// stand in for the live daemon the lifecycle matrix audits beside. The call lives inside each read's
+// helper, so the reads cannot be reordered without reordering what the test observes.
+var auditRetentionAfterRead func(read string)
+
+// The two reads auditRetentionAfterRead names.
+const (
+	retentionReadClaims   = "claims"
+	retentionReadEvidence = "evidence"
+)
+
+// readRetentionClaims reads state/retention-roots.jsonl, the claims auditRetentionRoots checks.
+func readRetentionClaims(path string) ([][]byte, error) {
+	lines, err := readJSONLines(path)
+	if auditRetentionAfterRead != nil {
+		auditRetentionAfterRead(retentionReadClaims)
+	}
+	return lines, err
+}
+
+// readRetentionEvidence scans the capture sidecars, the evidence an evidence-class claim names.
+func readRetentionEvidence(root string) map[string]bool {
+	evidence := sidecarBytesHashes(root)
+	if auditRetentionAfterRead != nil {
+		auditRetentionAfterRead(retentionReadEvidence)
+	}
+	return evidence
+}
 
 // auditRetentionRoots checks that every hash a producer asked GC to retain is actually still held.
 //
@@ -1821,10 +1847,7 @@ var auditRetentionBetweenReads func()
 // (TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence).
 func auditRetentionRoots(ctx context.Context, res *auditResult, s store.Store, root string) {
 	path := store.RetentionRootsPath(root)
-	lines, err := readJSONLines(path)
-	if auditRetentionBetweenReads != nil {
-		auditRetentionBetweenReads()
-	}
+	lines, err := readRetentionClaims(path)
 	if err != nil {
 		if !errors.Is(err, fs.ErrNotExist) {
 			res.Dangling = append(res.Dangling, danglingRef{
@@ -1842,7 +1865,7 @@ func auditRetentionRoots(ctx context.Context, res *auditResult, s store.Store, r
 	// the object store reports every ordinary capture on a healthy project as a dangling reference.
 	// That is not a finding, it is the audit asking the wrong store; an evidence root resolves when
 	// a sidecar carrying that bytes_hash is on disk.
-	evidence := sidecarBytesHashes(root)
+	evidence := readRetentionEvidence(root)
 	for i, raw := range lines {
 		var rl retentionLine
 		if jsonErr := json.Unmarshal(raw, &rl); jsonErr != nil {

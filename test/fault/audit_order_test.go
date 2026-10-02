@@ -2,7 +2,9 @@ package fault
 
 import (
 	"context"
+	"fmt"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 
@@ -26,6 +28,12 @@ import (
 
 // TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence pins the read order: the claim first,
 // then the evidence, so every claim the audit sees was published after its sidecar was on disk.
+//
+// It observes the order directly (auditRetentionAfterRead names each read as it finishes) and
+// through its consequence: a capture is published after whichever read comes first. With the claims
+// read first that capture's claim is never seen, so nothing dangles; with the evidence read first
+// its claim is seen without its sidecar and dangles. A capture published before the audit keeps the
+// retention-roots file present, so both reads run and an earlier claim is resolved against the scan.
 func TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence(t *testing.T) {
 	sess := core.SessionID("audit-order")
 
@@ -35,10 +43,11 @@ func TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence(t *testing.T) {
 		if err != nil {
 			t.Fatalf("fault: observation id: %v", err)
 		}
+		// Distinct bytes per arrival, so each capture declares its own evidence root.
 		return store.CaptureSidecar{
 			ObservationID: id, Session: sess, Arrival: arrival, Op: "observe.stop",
 			Outcome: core.OutcomeOK, Fidelity: core.FidelityExact,
-			Bytes: []byte(`{"hook_event_name":"Stop","session_id":"audit-order"}`),
+			Bytes: []byte(fmt.Sprintf(`{"hook_event_name":"Stop","session_id":"audit-order","n":%d}`, arrival)),
 		}
 	}
 	openStore := func(t *testing.T, root string) store.Store {
@@ -54,34 +63,53 @@ func TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence(t *testing.T) {
 	t.Run("a_capture_published_mid_audit_is_not_dangling", func(t *testing.T) {
 		p := newProject(t, "proj")
 		s := openStore(t, p.Root)
-		sc := capture(t, 1)
-		// The live daemon's whole publication of one capture, in its own order, landing between the
-		// audit's two reads.
-		auditRetentionBetweenReads = func() {
-			if err := store.WriteCaptureSidecar(p.Root, sc); err != nil {
+		// A capture already complete when the audit starts: the retention-roots file exists, and its
+		// claim must resolve against the sidecar scan.
+		if err := store.WriteCaptureSidecar(p.Root, capture(t, 1)); err != nil {
+			t.Fatalf("fault: publishing the earlier capture: %v", err)
+		}
+		// The live daemon's whole publication of one more capture, in its own order, landing after the
+		// audit's first read and before its second.
+		mid := capture(t, 2)
+		var reads []string
+		auditRetentionAfterRead = func(read string) {
+			reads = append(reads, read)
+			if len(reads) != 1 {
+				return
+			}
+			if err := store.WriteCaptureSidecar(p.Root, mid); err != nil {
 				t.Errorf("fault: publishing the capture: %v", err)
 			}
 		}
-		t.Cleanup(func() { auditRetentionBetweenReads = nil })
+		t.Cleanup(func() { auditRetentionAfterRead = nil })
 
 		var res auditResult
 		auditRetentionRoots(context.Background(), &res, s, p.Root)
+		if want := []string{retentionReadClaims, retentionReadEvidence}; !slices.Equal(reads, want) {
+			t.Errorf("fault: auditRetentionRoots read %v, want %v: the claims must be read before the "+
+				"evidence they name", reads, want)
+		}
 		if len(res.Dangling) != 0 {
 			t.Fatalf("fault: a capture published while the audit ran was reported dangling, though its "+
 				"sidecar was on disk before its retention root was declared: %s", describeRefs(res.Dangling))
 		}
 
-		// Non-vacuity: the publication did declare the claim, and once it is complete the audit sees
-		// the claim and resolves it against the sidecar.
-		auditRetentionBetweenReads = nil
+		// Non-vacuity: the publication did declare both claims, and once it is complete the audit
+		// sees both and resolves each against its sidecar.
+		auditRetentionAfterRead = nil
 		declared, err := os.ReadFile(paths.Long(store.RetentionRootsPath(p.Root)))
-		if err != nil || !strings.Contains(string(declared), string(store.RetentionEvidence)) {
-			t.Fatalf("fault: the capture declared no evidence retention root (err %v): %s", err, declared)
+		if err != nil {
+			t.Fatalf("fault: reading the declared retention roots: %v", err)
+		}
+		for _, sc := range []store.CaptureSidecar{capture(t, 1), mid} {
+			if !strings.Contains(string(declared), string(sc.ObservationID)) {
+				t.Fatalf("fault: capture %s declared no evidence retention root: %s", sc.ObservationID, declared)
+			}
 		}
 		var settled auditResult
 		auditRetentionRoots(context.Background(), &settled, s, p.Root)
 		if len(settled.Dangling) != 0 {
-			t.Fatalf("fault: a complete capture audits dangling: %s", describeRefs(settled.Dangling))
+			t.Fatalf("fault: complete captures audit dangling: %s", describeRefs(settled.Dangling))
 		}
 	})
 
