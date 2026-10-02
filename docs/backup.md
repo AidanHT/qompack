@@ -20,7 +20,9 @@ whenever `qompack self-test`'s `config.capture` row is not `ok`. Maintenance run
 configuration as written (`internal/cli/backup.go`). The case that most often hits this is a plugin
 downgrade: a config file written by a newer build declares a `settingsVersion` this build does not
 understand, and its block is reset to defaults. Take the backup with the newer build before
-downgrading, or, after it, set the newer block aside and back up then, as
+downgrading, and verify or restore it with that same newer build (a restore by the downgraded build
+is not a supported cross-version path, as below), or, after the downgrade, set the newer block
+aside and back up then, as
 [troubleshooting §6](troubleshooting.md#6-configuration-and-schema-compatibility) ("After a plugin
 downgrade or upgrade") describes.
 

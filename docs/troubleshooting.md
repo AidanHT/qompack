@@ -625,7 +625,10 @@ names, from the project's file, the user-global file, a `QOMPACK_*` variable or 
 through, the first preferred:
 
 - **Before a downgrade**, take the backup with the build that wrote the file: stop the daemon, run
-  `qompack backup create` and `backup verify` with the newer binary, then downgrade.
+  `qompack backup create` and `backup verify` with the newer binary, then downgrade. Verify and, if
+  needed, restore that backup with the same newer build; a restore by the downgraded build is not a
+  supported cross-version path ([docs/backup.md](backup.md)), and the restored project would hold
+  the newer file again.
 - **After a downgrade**, copy the file that sets the newer `settingsVersion` (usually
   `.qompack/config.json`) to a place outside `.qompack/`, delete from it the block `config.capture`
   names (`runtime.migration` or `runtime.phase7`), and re-run `qompack self-test` until
