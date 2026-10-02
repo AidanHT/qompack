@@ -1,0 +1,900 @@
+{
+ "candidate": "d20309c03ffc364e4cc48663be73cfbb1f2309b2",
+ "bundle_sha256_BUNDLE_json": "5212ae4eaa2e931266d52069e7d0c72ec2dfd2255d55421c87486ab083e1f395",
+ "sessions": [
+  {
+   "evidence": "C4.8/sessionA",
+   "group": "previous-build",
+   "group_note": "candidate 5 bundle via --plugin-dir (C4.8/UAT-12 previous build)",
+   "resume": false,
+   "fork": false,
+   "turns": 5,
+   "exit": 0,
+   "wall_s": 52.302,
+   "store_bytes_before": 0,
+   "store_bytes_after": 362475,
+   "store_growth_bytes": 362475,
+   "daemon_turns_sampled": 5,
+   "daemon_turns_not_sampled": 0,
+   "not_sampled_reasons": [],
+   "daemon_pids": [
+    61276
+   ],
+   "ws_max_bytes": 78626816,
+   "ws_last_bytes": 78626816,
+   "peak_ws_max_bytes": 78626816,
+   "cpu_s_last_per_pid": {
+    "61276": 0.375
+   },
+   "cpu_s_sum_last_per_pid": 0.375,
+   "env_non_default": {
+    "QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS": "30"
+   },
+   "stderr_bytes": 0
+  },
+  {
+   "evidence": "C4.8/sessionB",
+   "group": "c7-bundle",
+   "group_note": "candidate 7 frozen bundle via --plugin-dir",
+   "resume": false,
+   "fork": false,
+   "turns": 4,
+   "exit": 0,
+   "wall_s": 42.41,
+   "store_bytes_before": 493474,
+   "store_bytes_after": 708658,
+   "store_growth_bytes": 215184,
+   "daemon_turns_sampled": 4,
+   "daemon_turns_not_sampled": 0,
+   "not_sampled_reasons": [],
+   "daemon_pids": [
+    78312
+   ],
+   "ws_max_bytes": 39882752,
+   "ws_last_bytes": 39882752,
+   "peak_ws_max_bytes": 39882752,
+   "cpu_s_last_per_pid": {
+    "78312": 0.34375
+   },
+   "cpu_s_sum_last_per_pid": 0.344,
+   "env_non_default": {
+    "QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS": "30"
+   },
+   "stderr_bytes": 0
+  },
+  {
+   "evidence": "C4.8/sessionC",
+   "group": "c7-bundle",
+   "group_note": "candidate 7 bundle installed at local scope from the qompack-live marketplace (no --plugin-dir; sessions.tsv)",
+   "resume": false,
+   "fork": false,
+   "turns": 2,
+   "exit": 0,
+   "wall_s": 18.081,
+   "store_bytes_before": 641724,
+   "store_bytes_after": 787753,
+   "store_growth_bytes": 146029,
+   "daemon_turns_sampled": 2,
+   "daemon_turns_not_sampled": 0,
+   "not_sampled_reasons": [],
+   "daemon_pids": [
+    18548
+   ],
+   "ws_max_bytes": 36438016,
+   "ws_last_bytes": 36438016,
+   "peak_ws_max_bytes": 36438016,
+   "cpu_s_last_per_pid": {
+    "18548": 0.1875
+   },
+   "cpu_s_sum_last_per_pid": 0.188,
+   "env_non_default": {
+    "QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS": "30"
+   },
+   "stderr_bytes": 0
+  },
+  {
+   "evidence": "C4.9/session1",
+   "group": "c7-bundle",
+   "group_note": "candidate 7 frozen bundle via --plugin-dir",
+   "resume": false,
+   "fork": false,
+   "turns": 6,
+   "exit": 0,
+   "wall_s": 53.315,
+   "store_bytes_before": 0,
+   "store_bytes_after": 309625,
+   "store_growth_bytes": 309625,
+   "daemon_turns_sampled": 6,
+   "daemon_turns_not_sampled": 0,
+   "not_sampled_reasons": [],
+   "daemon_pids": [
+    16388,
+    80600,
+    80972
+   ],
+   "ws_max_bytes": 36151296,
+   "ws_last_bytes": 36151296,
+   "peak_ws_max_bytes": 36151296,
+   "cpu_s_last_per_pid": {
+    "80972": 0.203125,
+    "16388": 0.140625,
+    "80600": 0.234375
+   },
+   "cpu_s_sum_last_per_pid": 0.578,
+   "env_non_default": {
+    "QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS": "30"
+   },
+   "stderr_bytes": 0
+  },
+  {
+   "evidence": "C4.9/session2",
+   "group": "c7-bundle",
+   "group_note": "candidate 7 frozen bundle via --plugin-dir",
+   "resume": false,
+   "fork": false,
+   "turns": 6,
+   "exit": 0,
+   "wall_s": 36.666,
+   "store_bytes_before": 206119,
+   "store_bytes_after": 489160,
+   "store_growth_bytes": 283041,
+   "daemon_turns_sampled": 6,
+   "daemon_turns_not_sampled": 0,
+   "not_sampled_reasons": [],
+   "daemon_pids": [
+    75712
+   ],
+   "ws_max_bytes": 40894464,
+   "ws_last_bytes": 40894464,
+   "peak_ws_max_bytes": 40894464,
+   "cpu_s_last_per_pid": {
+    "75712": 0.65625
+   },
+   "cpu_s_sum_last_per_pid": 0.656,
+   "env_non_default": {
+    "QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS": "30"
+   },
+   "stderr_bytes": 0
+  },
+  {
+   "evidence": "UAT-01/session",
+   "group": "c7-bundle",
+   "group_note": "candidate 7 bundle installed at local scope from the qompack-live marketplace (no --plugin-dir; sessions.tsv)",
+   "resume": false,
+   "fork": false,
+   "turns": 4,
+   "exit": 0,
+   "wall_s": 28.261,
+   "store_bytes_before": 0,
+   "store_bytes_after": 220643,
+   "store_growth_bytes": 220643,
+   "daemon_turns_sampled": 4,
+   "daemon_turns_not_sampled": 0,
+   "not_sampled_reasons": [],
+   "daemon_pids": [
+    16768
+   ],
+   "ws_max_bytes": 74321920,
+   "ws_last_bytes": 74321920,
+   "peak_ws_max_bytes": 74321920,
+   "cpu_s_last_per_pid": {
+    "16768": 0.28125
+   },
+   "cpu_s_sum_last_per_pid": 0.281,
+   "env_non_default": {},
+   "stderr_bytes": 0
+  },
+  {
+   "evidence": "UAT-03/session",
+   "group": "c7-bundle",
+   "group_note": "candidate 7 frozen bundle via --plugin-dir",
+   "resume": false,
+   "fork": false,
+   "turns": 7,
+   "exit": 0,
+   "wall_s": 73.66,
+   "store_bytes_before": 0,
+   "store_bytes_after": 263206,
+   "store_growth_bytes": 263206,
+   "daemon_turns_sampled": 7,
+   "daemon_turns_not_sampled": 0,
+   "not_sampled_reasons": [],
+   "daemon_pids": [
+    21876
+   ],
+   "ws_max_bytes": 39555072,
+   "ws_last_bytes": 39555072,
+   "peak_ws_max_bytes": 39555072,
+   "cpu_s_last_per_pid": {
+    "21876": 0.265625
+   },
+   "cpu_s_sum_last_per_pid": 0.266,
+   "env_non_default": {},
+   "stderr_bytes": 0
+  },
+  {
+   "evidence": "UAT-04/session",
+   "group": "c7-bundle",
+   "group_note": "candidate 7 frozen bundle via --plugin-dir",
+   "resume": false,
+   "fork": false,
+   "turns": 19,
+   "exit": 0,
+   "wall_s": 357.466,
+   "store_bytes_before": 0,
+   "store_bytes_after": 2724432,
+   "store_growth_bytes": 2724432,
+   "daemon_turns_sampled": 19,
+   "daemon_turns_not_sampled": 0,
+   "not_sampled_reasons": [],
+   "daemon_pids": [
+    41292
+   ],
+   "ws_max_bytes": 56205312,
+   "ws_last_bytes": 56205312,
+   "peak_ws_max_bytes": 56205312,
+   "cpu_s_last_per_pid": {
+    "41292": 1.953125
+   },
+   "cpu_s_sum_last_per_pid": 1.953,
+   "env_non_default": {
+    "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "100000"
+   },
+   "stderr_bytes": 0
+  },
+  {
+   "evidence": "UAT-05/run1-session",
+   "group": "c7-bundle",
+   "group_note": "candidate 7 frozen bundle via --plugin-dir",
+   "resume": false,
+   "fork": false,
+   "turns": 8,
+   "exit": 0,
+   "wall_s": 48.005,
+   "store_bytes_before": 0,
+   "store_bytes_after": 267476,
+   "store_growth_bytes": 267476,
+   "daemon_turns_sampled": 8,
+   "daemon_turns_not_sampled": 0,
+   "not_sampled_reasons": [],
+   "daemon_pids": [
+    72940
+   ],
+   "ws_max_bytes": 39030784,
+   "ws_last_bytes": 39030784,
+   "peak_ws_max_bytes": 39030784,
+   "cpu_s_last_per_pid": {
+    "72940": 0.359375
+   },
+   "cpu_s_sum_last_per_pid": 0.359,
+   "env_non_default": {},
+   "stderr_bytes": 0
+  },
+  {
+   "evidence": "UAT-05/run2-session",
+   "group": "c7-bundle",
+   "group_note": "candidate 7 frozen bundle via --plugin-dir",
+   "resume": false,
+   "fork": false,
+   "turns": 8,
+   "exit": 1,
+   "wall_s": 22.965,
+   "store_bytes_before": 269458,
+   "store_bytes_after": 360851,
+   "store_growth_bytes": 91393,
+   "daemon_turns_sampled": 8,
+   "daemon_turns_not_sampled": 0,
+   "not_sampled_reasons": [],
+   "daemon_pids": [
+    69148,
+    72940
+   ],
+   "ws_max_bytes": 43339776,
+   "ws_last_bytes": 29827072,
+   "peak_ws_max_bytes": 43339776,
+   "cpu_s_last_per_pid": {
+    "72940": 0.71875,
+    "69148": 0.15625
+   },
+   "cpu_s_sum_last_per_pid": 0.875,
+   "env_non_default": {},
+   "stderr_bytes": 0
+  },
+  {
+   "evidence": "UAT-05/run2r-session",
+   "group": "c7-bundle",
+   "group_note": "candidate 7 frozen bundle via --plugin-dir",
+   "resume": false,
+   "fork": false,
+   "turns": 9,
+   "exit": 0,
+   "wall_s": 118.376,
+   "store_bytes_before": 0,
+   "store_bytes_after": 341405,
+   "store_growth_bytes": 341405,
+   "daemon_turns_sampled": 9,
+   "daemon_turns_not_sampled": 0,
+   "not_sampled_reasons": [],
+   "daemon_pids": [
+    13832,
+    25168
+   ],
+   "ws_max_bytes": 42889216,
+   "ws_last_bytes": 40169472,
+   "peak_ws_max_bytes": 42889216,
+   "cpu_s_last_per_pid": {
+    "13832": 0.578125,
+    "25168": 0.515625
+   },
+   "cpu_s_sum_last_per_pid": 1.094,
+   "env_non_default": {},
+   "stderr_bytes": 0
+  },
+  {
+   "evidence": "UAT-06/sessionA",
+   "group": "c7-bundle",
+   "group_note": "candidate 7 frozen bundle via --plugin-dir",
+   "resume": false,
+   "fork": false,
+   "turns": 6,
+   "exit": 0,
+   "wall_s": 43.121,
+   "store_bytes_before": 0,
+   "store_bytes_after": 289149,
+   "store_growth_bytes": 289149,
+   "daemon_turns_sampled": 6,
+   "daemon_turns_not_sampled": 0,
+   "not_sampled_reasons": [],
+   "daemon_pids": [
+    76248
+   ],
+   "ws_max_bytes": 41660416,
+   "ws_last_bytes": 41660416,
+   "peak_ws_max_bytes": 41660416,
+   "cpu_s_last_per_pid": {
+    "76248": 0.8125
+   },
+   "cpu_s_sum_last_per_pid": 0.812,
+   "env_non_default": {},
+   "stderr_bytes": 0
+  },
+  {
+   "evidence": "UAT-06/sessionB-resume",
+   "group": "c7-bundle",
+   "group_note": "candidate 7 frozen bundle via --plugin-dir",
+   "resume": true,
+   "fork": false,
+   "turns": 4,
+   "exit": 0,
+   "wall_s": 35.858,
+   "store_bytes_before": 250509,
+   "store_bytes_after": 339835,
+   "store_growth_bytes": 89326,
+   "daemon_turns_sampled": 4,
+   "daemon_turns_not_sampled": 0,
+   "not_sampled_reasons": [],
+   "daemon_pids": [
+    76248
+   ],
+   "ws_max_bytes": 46448640,
+   "ws_last_bytes": 46448640,
+   "peak_ws_max_bytes": 46448640,
+   "cpu_s_last_per_pid": {
+    "76248": 1.15625
+   },
+   "cpu_s_sum_last_per_pid": 1.156,
+   "env_non_default": {},
+   "stderr_bytes": 0
+  },
+  {
+   "evidence": "UAT-06/sessionC-fork",
+   "group": "c7-bundle",
+   "group_note": "candidate 7 frozen bundle via --plugin-dir",
+   "resume": true,
+   "fork": true,
+   "turns": 7,
+   "exit": 0,
+   "wall_s": 83.735,
+   "store_bytes_before": 313831,
+   "store_bytes_after": 496860,
+   "store_growth_bytes": 183029,
+   "daemon_turns_sampled": 7,
+   "daemon_turns_not_sampled": 0,
+   "not_sampled_reasons": [],
+   "daemon_pids": [
+    76248
+   ],
+   "ws_max_bytes": 51539968,
+   "ws_last_bytes": 51539968,
+   "peak_ws_max_bytes": 51539968,
+   "cpu_s_last_per_pid": {
+    "76248": 2.046875
+   },
+   "cpu_s_sum_last_per_pid": 2.047,
+   "env_non_default": {},
+   "stderr_bytes": 0
+  },
+  {
+   "evidence": "UAT-09/session1",
+   "group": "c7-bundle",
+   "group_note": "candidate 7 frozen bundle via --plugin-dir",
+   "resume": false,
+   "fork": false,
+   "turns": 9,
+   "exit": 0,
+   "wall_s": 106.988,
+   "store_bytes_before": 0,
+   "store_bytes_after": 446848,
+   "store_growth_bytes": 446848,
+   "daemon_turns_sampled": 9,
+   "daemon_turns_not_sampled": 0,
+   "not_sampled_reasons": [],
+   "daemon_pids": [
+    26884
+   ],
+   "ws_max_bytes": 43294720,
+   "ws_last_bytes": 43294720,
+   "peak_ws_max_bytes": 43294720,
+   "cpu_s_last_per_pid": {
+    "26884": 0.71875
+   },
+   "cpu_s_sum_last_per_pid": 0.719,
+   "env_non_default": {
+    "QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS": "30"
+   },
+   "stderr_bytes": 0
+  },
+  {
+   "evidence": "UAT-09/session2-resume",
+   "group": "c7-bundle",
+   "group_note": "candidate 7 frozen bundle via --plugin-dir",
+   "resume": true,
+   "fork": false,
+   "turns": 10,
+   "exit": 0,
+   "wall_s": 95.804,
+   "store_bytes_before": 307469,
+   "store_bytes_after": 917975,
+   "store_growth_bytes": 610506,
+   "daemon_turns_sampled": 10,
+   "daemon_turns_not_sampled": 0,
+   "not_sampled_reasons": [],
+   "daemon_pids": [
+    60480
+   ],
+   "ws_max_bytes": 47013888,
+   "ws_last_bytes": 47013888,
+   "peak_ws_max_bytes": 47013888,
+   "cpu_s_last_per_pid": {
+    "60480": 1.109375
+   },
+   "cpu_s_sum_last_per_pid": 1.109,
+   "env_non_default": {
+    "QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS": "30"
+   },
+   "stderr_bytes": 0
+  },
+  {
+   "evidence": "UAT-09/session3-step5",
+   "group": "c7-bundle",
+   "group_note": "candidate 7 frozen bundle via --plugin-dir",
+   "resume": false,
+   "fork": false,
+   "turns": 3,
+   "exit": 0,
+   "wall_s": 16.802,
+   "store_bytes_before": 0,
+   "store_bytes_after": 201486,
+   "store_growth_bytes": 201486,
+   "daemon_turns_sampled": 3,
+   "daemon_turns_not_sampled": 0,
+   "not_sampled_reasons": [],
+   "daemon_pids": [
+    67644
+   ],
+   "ws_max_bytes": 33054720,
+   "ws_last_bytes": 33054720,
+   "peak_ws_max_bytes": 33054720,
+   "cpu_s_last_per_pid": {
+    "67644": 0.3125
+   },
+   "cpu_s_sum_last_per_pid": 0.312,
+   "env_non_default": {
+    "QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS": "30"
+   },
+   "stderr_bytes": 0
+  },
+  {
+   "evidence": "UAT-10/session",
+   "group": "c7-bundle",
+   "group_note": "candidate 7 frozen bundle via --plugin-dir",
+   "resume": false,
+   "fork": false,
+   "turns": 7,
+   "exit": 0,
+   "wall_s": 50.625,
+   "store_bytes_before": 0,
+   "store_bytes_after": 428181,
+   "store_growth_bytes": 428181,
+   "daemon_turns_sampled": 7,
+   "daemon_turns_not_sampled": 0,
+   "not_sampled_reasons": [],
+   "daemon_pids": [
+    31956
+   ],
+   "ws_max_bytes": 43069440,
+   "ws_last_bytes": 43069440,
+   "peak_ws_max_bytes": 43069440,
+   "cpu_s_last_per_pid": {
+    "31956": 0.546875
+   },
+   "cpu_s_sum_last_per_pid": 0.547,
+   "env_non_default": {},
+   "stderr_bytes": 0
+  },
+  {
+   "evidence": "UAT-12/sessionA",
+   "group": "c7-bundle",
+   "group_note": "candidate 7 frozen bundle via --plugin-dir",
+   "resume": false,
+   "fork": false,
+   "turns": 8,
+   "exit": 0,
+   "wall_s": 63.359,
+   "store_bytes_before": 0,
+   "store_bytes_after": 1796659,
+   "store_growth_bytes": 1796659,
+   "daemon_turns_sampled": 8,
+   "daemon_turns_not_sampled": 0,
+   "not_sampled_reasons": [],
+   "daemon_pids": [
+    67796
+   ],
+   "ws_max_bytes": 56680448,
+   "ws_last_bytes": 56680448,
+   "peak_ws_max_bytes": 56680448,
+   "cpu_s_last_per_pid": {
+    "67796": 1.140625
+   },
+   "cpu_s_sum_last_per_pid": 1.141,
+   "env_non_default": {
+    "QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS": "30"
+   },
+   "stderr_bytes": 0
+  },
+  {
+   "evidence": "UAT-12/sessionB",
+   "group": "c7-bundle",
+   "group_note": "candidate 7 frozen bundle via --plugin-dir",
+   "resume": false,
+   "fork": false,
+   "turns": 16,
+   "exit": 0,
+   "wall_s": 144.046,
+   "store_bytes_before": 1649327,
+   "store_bytes_after": 7245437,
+   "store_growth_bytes": 5596110,
+   "daemon_turns_sampled": 16,
+   "daemon_turns_not_sampled": 0,
+   "not_sampled_reasons": [],
+   "daemon_pids": [
+    9844
+   ],
+   "ws_max_bytes": 64876544,
+   "ws_last_bytes": 64303104,
+   "peak_ws_max_bytes": 65028096,
+   "cpu_s_last_per_pid": {
+    "9844": 3.578125
+   },
+   "cpu_s_sum_last_per_pid": 3.578,
+   "env_non_default": {
+    "QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS": "30"
+   },
+   "stderr_bytes": 0
+  }
+ ],
+ "groups": {
+  "c7-bundle": {
+   "sessions": 19,
+   "store_growth": {
+    "n": 19,
+    "median": 283041,
+    "p95": 5596110,
+    "max": 5596110,
+    "min": 89326,
+    "total": 14503728
+   },
+   "working_set": {
+    "n_sessions_sampled": 19,
+    "ws_max_median_bytes": 43069440,
+    "ws_max_max_bytes": 74321920,
+    "peak_ws_max_median_bytes": 43069440,
+    "peak_ws_max_max_bytes": 74321920
+   },
+   "cpu_s_at_last_sample": {
+    "n": 19,
+    "median": 0.719,
+    "max": 3.578
+   },
+   "hooks_per_event": [
+    {
+     "event": "PostToolUse",
+     "n_measured": 150,
+     "median_ms": 57.0,
+     "p95_ms": 147,
+     "max_ms": 251,
+     "not_measured": 0,
+     "not_measured_before_init": 0,
+     "not_measured_within_5ms": 0,
+     "not_measured_no_response": 0,
+     "outcome_not_success": 0
+    },
+    {
+     "event": "SessionStart:compact",
+     "n_measured": 22,
+     "median_ms": 107.5,
+     "p95_ms": 157,
+     "max_ms": 205,
+     "not_measured": 0,
+     "not_measured_before_init": 0,
+     "not_measured_within_5ms": 0,
+     "not_measured_no_response": 0,
+     "outcome_not_success": 0
+    },
+    {
+     "event": "SessionStart:fork",
+     "n_measured": 0,
+     "median_ms": null,
+     "p95_ms": null,
+     "max_ms": null,
+     "not_measured": 1,
+     "not_measured_before_init": 1,
+     "not_measured_within_5ms": 0,
+     "not_measured_no_response": 0,
+     "outcome_not_success": 0
+    },
+    {
+     "event": "SessionStart:resume",
+     "n_measured": 0,
+     "median_ms": null,
+     "p95_ms": null,
+     "max_ms": null,
+     "not_measured": 2,
+     "not_measured_before_init": 2,
+     "not_measured_within_5ms": 0,
+     "not_measured_no_response": 0,
+     "outcome_not_success": 0
+    },
+    {
+     "event": "SessionStart:startup",
+     "n_measured": 0,
+     "median_ms": null,
+     "p95_ms": null,
+     "max_ms": null,
+     "not_measured": 16,
+     "not_measured_before_init": 16,
+     "not_measured_within_5ms": 0,
+     "not_measured_no_response": 0,
+     "outcome_not_success": 0
+    },
+    {
+     "event": "Stop",
+     "n_measured": 119,
+     "median_ms": 54,
+     "p95_ms": 109,
+     "max_ms": 148,
+     "not_measured": 0,
+     "not_measured_before_init": 0,
+     "not_measured_within_5ms": 0,
+     "not_measured_no_response": 0,
+     "outcome_not_success": 0
+    },
+    {
+     "event": "SubagentStop",
+     "n_measured": 22,
+     "median_ms": 58.0,
+     "p95_ms": 91,
+     "max_ms": 200,
+     "not_measured": 0,
+     "not_measured_before_init": 0,
+     "not_measured_within_5ms": 0,
+     "not_measured_no_response": 0,
+     "outcome_not_success": 0
+    },
+    {
+     "event": "UserPromptSubmit",
+     "n_measured": 104,
+     "median_ms": 51.0,
+     "p95_ms": 100,
+     "max_ms": 173,
+     "not_measured": 19,
+     "not_measured_before_init": 19,
+     "not_measured_within_5ms": 0,
+     "not_measured_no_response": 0,
+     "outcome_not_success": 0
+    }
+   ],
+   "hooks_all_events": {
+    "n_measured": 417,
+    "median_ms": 56,
+    "p95_ms": 123,
+    "max_ms": 251,
+    "not_measured": 38,
+    "pairs_total": 455
+   },
+   "largest_measured_pair": [
+    251,
+    "UAT-12/sessionA",
+    "PostToolUse:Read"
+   ]
+  },
+  "previous-build": {
+   "sessions": 1,
+   "store_growth": {
+    "n": 1,
+    "median": 362475,
+    "p95": 362475,
+    "max": 362475,
+    "min": 362475,
+    "total": 362475
+   },
+   "working_set": {
+    "n_sessions_sampled": 1,
+    "ws_max_median_bytes": 78626816,
+    "ws_max_max_bytes": 78626816,
+    "peak_ws_max_median_bytes": 78626816,
+    "peak_ws_max_max_bytes": 78626816
+   },
+   "cpu_s_at_last_sample": {
+    "n": 1,
+    "median": 0.375,
+    "max": 0.375
+   },
+   "hooks_per_event": [
+    {
+     "event": "PostToolUse",
+     "n_measured": 8,
+     "median_ms": 56.5,
+     "p95_ms": 91,
+     "max_ms": 91,
+     "not_measured": 0,
+     "not_measured_before_init": 0,
+     "not_measured_within_5ms": 0,
+     "not_measured_no_response": 0,
+     "outcome_not_success": 0
+    },
+    {
+     "event": "SessionStart:compact",
+     "n_measured": 1,
+     "median_ms": 84,
+     "p95_ms": 84,
+     "max_ms": 84,
+     "not_measured": 0,
+     "not_measured_before_init": 0,
+     "not_measured_within_5ms": 0,
+     "not_measured_no_response": 0,
+     "outcome_not_success": 0
+    },
+    {
+     "event": "SessionStart:startup",
+     "n_measured": 0,
+     "median_ms": null,
+     "p95_ms": null,
+     "max_ms": null,
+     "not_measured": 1,
+     "not_measured_before_init": 1,
+     "not_measured_within_5ms": 0,
+     "not_measured_no_response": 0,
+     "outcome_not_success": 0
+    },
+    {
+     "event": "Stop",
+     "n_measured": 4,
+     "median_ms": 49.0,
+     "p95_ms": 53,
+     "max_ms": 53,
+     "not_measured": 0,
+     "not_measured_before_init": 0,
+     "not_measured_within_5ms": 0,
+     "not_measured_no_response": 0,
+     "outcome_not_success": 0
+    },
+    {
+     "event": "SubagentStop",
+     "n_measured": 1,
+     "median_ms": 49,
+     "p95_ms": 49,
+     "max_ms": 49,
+     "not_measured": 0,
+     "not_measured_before_init": 0,
+     "not_measured_within_5ms": 0,
+     "not_measured_no_response": 0,
+     "outcome_not_success": 0
+    },
+    {
+     "event": "UserPromptSubmit",
+     "n_measured": 3,
+     "median_ms": 43,
+     "p95_ms": 44,
+     "max_ms": 44,
+     "not_measured": 1,
+     "not_measured_before_init": 1,
+     "not_measured_within_5ms": 0,
+     "not_measured_no_response": 0,
+     "outcome_not_success": 0
+    }
+   ],
+   "hooks_all_events": {
+    "n_measured": 17,
+    "median_ms": 49,
+    "p95_ms": 91,
+    "max_ms": 91,
+    "not_measured": 2,
+    "pairs_total": 19
+   },
+   "largest_measured_pair": [
+    91,
+    "C4.8/sessionA",
+    "PostToolUse:ToolSearch"
+   ]
+  }
+ },
+ "d53i_host_reported_hook_failures": {
+  "total": 0,
+  "items": [],
+  "documented_in_cannot_do_or_upstream_issues": []
+ },
+ "host_errors_not_hook_events": [
+  {
+   "session": "UAT-05/run2-session",
+   "evidence_file": "rerun-c7/UAT-05/run2-session/stream.jsonl",
+   "kind": "compaction failed (host/account error, no hook event involved)",
+   "detail": "Error during compaction: You've hit your weekly limit \u00b7 resets 7am (America/Toronto)"
+  },
+  {
+   "session": "UAT-05/run2-session",
+   "evidence_file": "rerun-c7/UAT-05/run2-session/stream.jsonl",
+   "kind": "compaction failed (host/account error, no hook event involved)",
+   "detail": "Error during compaction: You've hit your weekly limit \u00b7 resets 7am (America/Toronto)"
+  }
+ ],
+ "sessions_tsv_c7": {
+  "install-c7": {
+   "sessions": 4,
+   "wall_s": 141.054,
+   "exit_nonzero": 0,
+   "models": [
+    "claude-haiku-4-5-20251001"
+   ]
+  },
+  "sessions-c7": {
+   "sessions": 8,
+   "wall_s": 783.186,
+   "exit_nonzero": 1,
+   "models": [
+    "claude-haiku-4-5-20251001"
+   ]
+  },
+  "retrieval-c7": {
+   "sessions": 5,
+   "wall_s": 426.999,
+   "exit_nonzero": 0,
+   "models": [
+    "claude-haiku-4-5-20251001"
+   ]
+  },
+  "resilience-c7": {
+   "sessions": 3,
+   "wall_s": 140.606,
+   "exit_nonzero": 0,
+   "models": [
+    "claude-haiku-4-5-20251001"
+   ]
+  }
+ },
+ "sessions_tsv_c7_total": {
+  "sessions": 20,
+  "wall_s": 1491.845,
+  "exit_nonzero": 1
+ }
+}
