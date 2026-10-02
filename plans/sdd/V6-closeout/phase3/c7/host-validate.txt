@@ -1,0 +1,124 @@
+bundle: qompack-plugin-0.3.0-linux-amd64 (12 file(s), version 0.3.0)
+bundle: qompack-plugin-0.3.0-linux-arm64 (12 file(s), version 0.3.0)
+bundle: qompack-plugin-0.3.0-darwin-amd64 (12 file(s), version 0.3.0)
+bundle: qompack-plugin-0.3.0-darwin-arm64 (12 file(s), version 0.3.0)
+bundle: qompack-plugin-0.3.0-windows-amd64 (12 file(s), version 0.3.0)
+bundle: qompack-plugin-0.3.0-windows-arm64 (12 file(s), version 0.3.0)
+bundle: packed qompack-plugin-0.3.0-linux-amd64.zip
+bundle: packed qompack-plugin-0.3.0-linux-arm64.zip
+bundle: packed qompack-plugin-0.3.0-darwin-amd64.zip
+bundle: packed qompack-plugin-0.3.0-darwin-arm64.zip
+bundle: packed qompack-plugin-0.3.0-windows-amd64.zip
+bundle: packed qompack-plugin-0.3.0-windows-arm64.zip
+bundle: checksums.txt covers 6 archive(s)
+{
+  "kind": "claude-plugin-validate",
+  "label": "Directory validation, not an installed-plugin canary: the bundle was validated where it sits. Installed manifest resolution, ${CLAUDE_PLUGIN_ROOT} expansion and launcher discovery remain unverified until the platform matrix covers them.",
+  "outcome": "accepted",
+  "host": {
+    "os": "windows",
+    "arch": "amd64"
+  },
+  "go": "go1.26.6",
+  "claudeCli": "2.1.280 (Claude Code)",
+  "command": [
+    "claude",
+    "plugin",
+    "validate",
+    "<out>\\qompack-plugin-0.3.0-windows-amd64",
+    "--strict",
+    "--json"
+  ],
+  "exitCode": 0,
+  "success": true,
+  "verdictSource": "the CLI's --json `success` field, together with its exit status",
+  "output": {
+    "success": true,
+    "strict": true,
+    "target": "<out>\\qompack-plugin-0.3.0-windows-amd64\\.claude-plugin\\plugin.json",
+    "manifest": {
+      "file": "<out>\\qompack-plugin-0.3.0-windows-amd64\\.claude-plugin\\plugin.json",
+      "type": "plugin",
+      "errors": [],
+      "warnings": [],
+      "notes": []
+    },
+    "contents": []
+  },
+  "bundle": {
+    "name": "qompack",
+    "version": "0.3.0",
+    "target": {
+      "os": "windows",
+      "arch": "amd64"
+    },
+    "go": "go1.26.6",
+    "source": {
+      "commit": "d20309c03ffc364e4cc48663be73cfbb1f2309b2",
+      "dirty": false
+    },
+    "files": [
+      {
+        "path": ".claude-plugin/plugin.json",
+        "sha256": "c9702f1c768ca374525534badc57f35ace82a300ac37c30e0969de0a8394d10d",
+        "bytes": 383
+      },
+      {
+        "path": ".mcp.json",
+        "sha256": "37d89da303e19dd551fe28e55679f613c2ffbb51c929a3a1fcbdafdc394ff268",
+        "bytes": 145
+      },
+      {
+        "path": "LICENSE",
+        "sha256": "2de438be8c5fefdd383d12e72e5439fda370f232ad26bf9853caaeb2d9f90bd9",
+        "bytes": 1077
+      },
+      {
+        "path": "THIRD_PARTY_NOTICES.md",
+        "sha256": "da3393004d503b5885fafcc81cc699daea2799503cab9597f1d5cd55d1a9c481",
+        "bytes": 49432
+      },
+      {
+        "path": "bin/qompack.exe",
+        "sha256": "ab8046bac3bad894c9a299c61fb38277f4179f4e33bfb088873e43edcbe33be7",
+        "bytes": 10416640
+      },
+      {
+        "path": "commands/dropped.md",
+        "sha256": "2fe3851069f017fbdcce72313b93cf2043fa24584d0194ac63354cd0981c912c",
+        "bytes": 257
+      },
+      {
+        "path": "commands/eval.md",
+        "sha256": "2e1ac0fd56b4cc89c0525f9721a5f45a5cef73f7cd3fe7c95ab6413b3f0cf280",
+        "bytes": 247
+      },
+      {
+        "path": "commands/pin.md",
+        "sha256": "cea512b0b011a9a0c5f0ba134d32a10a10f1fbc66f90387f4608300edd863c32",
+        "bytes": 308
+      },
+      {
+        "path": "commands/recall.md",
+        "sha256": "bd9a7a1d39f2e573054997caa2b51bb01db4ccc652ef1be977c8ec2e5e4f1667",
+        "bytes": 253
+      },
+      {
+        "path": "commands/status.md",
+        "sha256": "b002f0354d266a9d80492fd3db4687d9ea64f92cf2e0bcc1a4cf9e4a8be5eb67",
+        "bytes": 257
+      },
+      {
+        "path": "commands/why.md",
+        "sha256": "71aefa2f488b7734a9517b260b81eaea405f7be8253d4e1fc53b46a4b4a28729",
+        "bytes": 242
+      },
+      {
+        "path": "hooks/hooks.json",
+        "sha256": "9bc236ff32295961fe25d8e38c63278662ee25f96bc949ad5a6e4183cb6e0630",
+        "bytes": 2117
+      }
+    ]
+  }
+}
+bundle: `claude plugin validate --strict --json` accepted qompack-plugin-0.3.0-windows-amd64 (claude-plugin-validate, verdict from the CLI's --json `success` field, together with its exit status)

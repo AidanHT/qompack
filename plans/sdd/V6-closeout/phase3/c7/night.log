@@ -1,0 +1,17 @@
+start pid 64126 2026-10-02T06:07:04Z
+keep-awake held while C:\Users\Quant\Documents\Programming\Projects\qompack-v6\plans\sdd\V6-closeout\phase3\c7\keepawake.sentinel exists (pid 81284)
+keep-awake released
+n phase3/c6/x11-e1/summary.txt) 2026-10-02T07:37:13Z
+pre-freeze on integration b31d0753ff44c72b9278c2fd26404b3e4d8be2f7 2026-10-02T07:37:14Z
+pre-freeze passes 2026-10-02T07:59:34Z
+candidate 7 frozen at d20309c03ffc364e4cc48663be73cfbb1f2309b2 (integration b31d0753ff44c72b9278c2fd26404b3e4d8be2f7) 2026-10-02T07:59:43Z
+bin darwin-amd64 165be7b81de89a42a47265c5e144877d98a8952522a7fbe53f62bb5cdf8f1059 matches w17-release 2026-10-02T08:00:11Z
+bin darwin-arm64 e55d66ba34d9000d7cece456d0af14152be61c161d623decbd5c8307f6c2f78e matches w17-release 2026-10-02T08:00:11Z
+bin linux-amd64 f72206c3403fd06a05046950d9e475adf5489abf9d10f1b615dbb57d33f85b62 matches w17-release 2026-10-02T08:00:11Z
+bin linux-arm64 553e005493b2466bb3148f8a7dba92cc375717249aec9c520bc60de6419b5c29 matches w17-release 2026-10-02T08:00:11Z
+bin windows-amd64 ab8046bac3bad894c9a299c61fb38277f4179f4e33bfb088873e43edcbe33be7 matches w17-release 2026-10-02T08:00:11Z
+bin windows-arm64 c276cc9ec7e9bf6c295a0cc9d38525a86777ea956bcc58025e252b9e888cec38 matches w17-release 2026-10-02T08:00:11Z
+5212ae4eaa2e931266d52069e7d0c72ec2dfd2255d55421c87486ab083e1f395 */c/Users/Quant/Documents/Programming/Projects/qompack-bundles/c7/qompack-plugin-0.3.0-windows-amd64/BUNDLE.json
+bundles built and host-validated in /c/Users/Quant/Documents/Programming/Projects/qompack-bundles/c7 2026-10-02T08:00:11Z
+pushed verify/v6 d20309c03ffc364e4cc48663be73cfbb1f2309b2 2026-10-02T08:00:17Z
+done 2026-10-02T08:00:17Z

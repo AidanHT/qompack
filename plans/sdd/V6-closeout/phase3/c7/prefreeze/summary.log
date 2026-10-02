@@ -1,0 +1,8 @@
+head b31d0753ff44c72b9278c2fd26404b3e4d8be2f7 go=go1.26.6
+start gate 2026-10-02T07:37:14Z
+step gate exit=0 2026-10-02T07:39:20Z
+start testpkgs 2026-10-02T07:39:20Z
+step testpkgs exit=0 2026-10-02T07:48:15Z
+start internal 2026-10-02T07:48:15Z
+step internal exit=0 2026-10-02T07:59:34Z
+done 2026-10-02T07:59:34Z
