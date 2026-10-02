@@ -1,0 +1,24 @@
+== linux-amd64
+sizes: frozen=10301566 candidate=10301566
+differing ranges: 1, differing bytes: 1
+  @0x5fff18+1: frozen[ntfieldcharsflushstack0.1.0WriteMarchAprilmonthLo] candidate[ntfieldcharsflushstack0.3.0WriteMarchAprilmonthLo]
+== linux-arm64
+sizes: frozen=9371774 candidate=9371774
+differing ranges: 1, differing bytes: 1
+  @0x521c5e+1: frozen[ntfieldcharsflushstack0.1.0WriteMarchAprilmonthLo] candidate[ntfieldcharsflushstack0.3.0WriteMarchAprilmonthLo]
+== darwin-amd64
+sizes: frozen=10490560 candidate=10490560
+differing ranges: 1, differing bytes: 1
+  @0x508f3d+1: frozen[ntfieldcharsflushstack0.1.0WriteMarchAprilmonthLo] candidate[ntfieldcharsflushstack0.3.0WriteMarchAprilmonthLo]
+== darwin-arm64
+sizes: frozen=9544722 candidate=9544722
+differing ranges: 2, differing bytes: 33
+  @0x4268c3+1: frozen[ntfieldcharsflushstack0.1.0WriteMarchAprilmonthLo] candidate[ntfieldcharsflushstack0.3.0WriteMarchAprilmonthLo]
+== windows-amd64
+sizes: frozen=10416640 candidate=10416640
+differing ranges: 1, differing bytes: 1
+  @0x5ed16f+1: frozen[ntfieldcharsflushstack0.1.0WriteMarchApril+0530+0] candidate[ntfieldcharsflushstack0.3.0WriteMarchApril+0530+0]
+== windows-arm64
+sizes: frozen=9287168 candidate=9287168
+differing ranges: 1, differing bytes: 1
+  @0x508b20+1: frozen[ntfieldcharsflushstack0.1.0WriteMarchApril+0530+0] candidate[ntfieldcharsflushstack0.3.0WriteMarchApril+0530+0]
