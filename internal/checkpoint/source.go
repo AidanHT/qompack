@@ -180,6 +180,11 @@ type Draft struct {
 	// (deriveCurrentWorkLocked), so a refresh reads a prompt that the evolution did not cache — a
 	// paste past its read limit — once rather than at every refresh. In-memory only.
 	goalFrom core.ToolUseID
+	// promptsAnswered says whether the last refreshIntentLocked could list the session's own prompt
+	// records. While it cannot (a store without SessionPrompts, or one that failed — core.ErrDegraded
+	// past its scan limit), encodeSegmentLocked derives CurrentWork from the graph instead. In-memory
+	// only; false until the first refresh, which Begin runs.
+	promptsAnswered bool
 	// fork is the intent this session inherits as a fork of another (lineage.go), or nil. It is
 	// resolved at Begin — fresh or resumed — from the lineage record and the parent checkpoint.
 	fork *forkIntent
