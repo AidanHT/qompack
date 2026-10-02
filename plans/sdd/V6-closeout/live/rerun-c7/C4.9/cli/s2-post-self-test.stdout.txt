@@ -1,0 +1,20 @@
+CHECK                            OK    SEVERITY  OBSERVED
+config.load                      ok    info      loaded
+config.capture                   FAIL  warn      capture continues: 1 setting(s) fell back to the default, 0 key(s) not applied
+qompack.writable                 ok    info      writable
+paths.guard                      ok    info      refused
+ipc.resolve                      ok    info      \\.\pipe\qompack.47f5e4d8c42d
+daemon.reachable                 ok    info      was not running; spawned and reachable now
+admin.ping                       ok    info      OK
+ops.coverage                     ok    info      13 known ops
+session_start.fires              ok    info      marker-found
+session_start.source_compact     ok    info      no-precompact-pending
+hook.additional_context_delivered ok    info      not-yet-implemented
+precompact.has_time_to_write     ok    info      not-yet-implemented
+precompact.custom_instructions_accepted ok    info      not-yet-implemented
+hook.payload_shape               ok    info      payload shape valid
+mcp.server_registered            ok    info      not-yet-implemented
+transcript.readable              ok    info      no-transcript-path
+plugin.root_resolves             ok    info      unset
+
+mode: full
