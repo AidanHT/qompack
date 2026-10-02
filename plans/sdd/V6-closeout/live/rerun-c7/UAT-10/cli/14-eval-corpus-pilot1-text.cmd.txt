@@ -1,0 +1,6 @@
+cwd: <scratch>/resilience/uat10/proj
+argv: ["C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c7/qompack-plugin-0.3.0-windows-amd64/bin/qompack.exe", "eval", "--corpus", "C:/Users/Quant/Documents/Programming/Projects/qompack-cx-live/plans/sdd/V6-closeout/eval/runs/pilot1-plugin-dir"]
+env+: {}
+qompack_home: <scratch>/resilience/qhome
+wall_s: 0.055
+at: 2026-10-02T15:52:52-04:00

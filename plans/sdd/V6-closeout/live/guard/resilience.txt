@@ -1,0 +1,24 @@
+== resilience part (candidate 7, d20309c0) — guard snap at start — 2026-10-02 15:50:02 EDT
+homeguard.py snap <scratch>/resilience/guard.json: snap ok (exit 0); self-tests homeguard_test.py 10 OK, live_driver_test.py 3 OK
+snap state (check run immediately after snap):
+same  settings.json 265df1f32ede
+same  plugins/installed_plugins.json 728f75591291
+same  plugins/known_marketplaces.json 1b1eda7e17f0
+same  plugins/cache/ (10 entries)
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+same  .qompack/ (0 entries)
+real home fingerprint unchanged
+check exit 0
+~/.qompack absent at snap (0 entries); no qompack.exe running at snap
+== after session 1 (UAT-10) — 2026-10-02 15:51:35 Eastern Daylight Time
+removed run-created empty plugins/data/qompack-inline/
+same  settings.json 265df1f32ede
+same  plugins/installed_plugins.json 728f75591291
+same  plugins/known_marketplaces.json 1b1eda7e17f0
+same  plugins/cache/ (10 entries)
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+INFO  .qompack/ gained ['bin/', 'bin/ab8046bac3bad894c9a299c61fb38277f4179f4e33bfb088873e43edcbe33be7/'] (run-created; record, remove only if yours)
+real home fingerprint unchanged
+check exit 0

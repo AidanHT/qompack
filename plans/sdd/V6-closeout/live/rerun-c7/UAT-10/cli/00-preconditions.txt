@@ -1,0 +1,4 @@
+fresh project <scratch>/resilience/uat10/proj (git init, 3 files, see setup-facts.json); no .qompack/config.json; no user config;
+session env: ENABLE_CLAUDEAI_MCP_SERVERS=false, QOMPACK_HOME=<scratch>/resilience/qhome (moves calibration.json only);
+no QOMPACK_RUNTIME__* override: configuration defaults (runtime.telemetry.enabled false, idle exit 1800 s);
+.qompack present after the pre-run backup attempt: False
