@@ -221,7 +221,8 @@ second declaration beside co-load: `QOMPACK_NONREFERENCE_DISK` (`internal/obs.No
 - **Who makes it.** ci.yml's `bench-gate`, `timing`, `test-e2e`, `cover` and `release-dry-run`
   (whose `test/e2e` passes run alone; devtool takes the declaration back from their co-loaded
   pass), nightly's `bench-deep` (D55), and release.yml's `release`, whose `release-check --tag` runs
-  the same passes as `release-dry-run`. `release-dry-run` was missed when the declaration landed and
+  the same passes as `release-dry-run` (pending the owner's ruling, C7.2: it carries D53(e)/D55
+  from CI to the tag-time gate). `release-dry-run` was missed when the declaration landed and
   failed X11 on the hosted tail in run 36955046276 (C7.2). Never the whole-tree `test` job, whose
   declaration is co-load, and no job makes both; every hosted job that runs a fsync-bound row must
   make one of the two. The owner's quiet reference runs (quiet.sh, phase3.sh, overnight.sh) never make it and never
@@ -229,7 +230,8 @@ second declaration beside co-load: `QOMPACK_NONREFERENCE_DISK` (`internal/obs.No
 - **What is reported, not gated:** B-A, B-B and B-E's wall row, each with a note naming the
   declaration in the printed summary and the JSON artifact; and, in the hot-path tests that drive
   the harness (`TestIntegration_HotPathWarmWithRealResidentState`, X11), the §12.2 spool-submode
-  transition and the hook deferrals behind it. B-A is in the set although Q1's original
+  transition and the hook deferrals behind it; and X10's late or deferred prompt-reply recovery
+  branch, which is also written to the job summary (D56(a)). B-A is in the set although Q1's original
   recommendation kept it gated: B-A's sample contains B-B's durable ingest by construction (D41), so
   it carries the same fsync tail, and D55 rules it in.
 - **What stays gated:** B-E_cpu, the delivery-ledger identity check and 0 lost, the population
@@ -238,7 +240,7 @@ second declaration beside co-load: `QOMPACK_NONREFERENCE_DISK` (`internal/obs.No
 
 **What is lost, stated plainly.** No hosted job now gates B-A, B-B or B-E's wall row, the tag's
 hosted release gate included. The reference verdict on them is the owner's quiet runs on a
-reference disk (C5.1 and the isolated D28 rows) and the coordinator's local `release-check --tag`
-on the reference host, and nowhere else. A wall-clock regression in the durable path therefore surfaces in those
+reference disk (C5.1 and the isolated D28 rows) and the local `release-check` on the reference
+host that `docs/release.md` §1 step 3 requires before a tag, and nowhere else. A wall-clock regression in the durable path therefore surfaces in those
 runs, or as a reported figure in the hosted artifacts; the Consequences bullet above that names
 `timing` / `test-e2e` / `bench-gate` holds for the other wall-clock rows only.

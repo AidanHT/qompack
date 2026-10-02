@@ -27,10 +27,11 @@ jobs:
     # prompt-reply recovery branch are reported, each with a note naming the declaration; B-E_cpu,
     # the delivery ledger (identity, 0 lost), the population census, every structural check and
     # every other release-check step stay gated. It is honoured only where GITHUB_ACTIONS=true
-    # (internal/obs.NonReferenceDiskEnv), so the reference verdict at tag time is the coordinator's
-    # local `release-check --tag` on the reference host, which judges those rows at their limits;
-    # test/guards' TestNonReferenceDisk_IsHostedCIOnly pins this job as release.yml's only declaring
-    # job.
+    # (internal/obs.NonReferenceDiskEnv), so the reference verdict on those rows is the local
+    # release-check on the reference host that docs/release.md §1 step 3 requires before the tag.
+    # This declaration carries D53(e)/D55 to the tag-time gate and is pending the owner's ruling
+    # (C7.2). test/guards' TestNonReferenceDisk_IsHostedCIOnly pins this job as release.yml's only
+    # declaring job.
     env:
       QOMPACK_NONREFERENCE_DISK: '1'
     steps:
