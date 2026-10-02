@@ -1,0 +1,89 @@
+{
+ "args": [
+  "-p",
+  "--input-format",
+  "stream-json",
+  "--output-format",
+  "stream-json",
+  "--verbose",
+  "--include-hook-events",
+  "--model",
+  "claude-haiku-4-5-20251001",
+  "--max-turns",
+  "10",
+  "--setting-sources",
+  "project,local",
+  "--permission-mode",
+  "dontAsk",
+  "--plugin-dir",
+  "C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c7/qompack-plugin-0.3.0-windows-amd64",
+  "--allowedTools",
+  "Read,Bash(cat:*),mcp__plugin_qompack_qompack__recall,mcp__plugin_qompack_qompack__expand,mcp__plugin_qompack_qompack__re_read,mcp__plugin_qompack_qompack__already_tried,mcp__plugin_qompack_qompack__record_eliminated,mcp__plugin_qompack_qompack__timeline,mcp__plugin_qompack_qompack__why,mcp__plugin_qompack_qompack__dropped,Bash(qompack status:*),Bash(qompack recall:*),Bash(qompack pin:*),Bash(qompack why:*),Bash(qompack dropped:*),Bash(qompack eval:*)",
+  "--resume",
+  "0eaa2666-1cf2-4087-85c2-d3bab55ec39b"
+ ],
+ "turns": [
+  {
+   "msg": "/qompack:why dec_991dbff588ec",
+   "ok": true,
+   "wall_s": 6.634,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 76248,
+    "WorkingSet64": 44580864,
+    "PeakWorkingSet64": 44580864,
+    "CPU": 0.953125,
+    "StartTime": "/Date(1790964809357)/"
+   },
+   "store_bytes": 268735
+  },
+  {
+   "msg": "Use the Read tool to read docs/notes.md and summarize it in one sentence.",
+   "ok": true,
+   "wall_s": 3.209,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 76248,
+    "WorkingSet64": 45473792,
+    "PeakWorkingSet64": 45473792,
+    "CPU": 1.078125,
+    "StartTime": "/Date(1790964809357)/"
+   },
+   "store_bytes": 292771
+  },
+  {
+   "msg": "/compact",
+   "ok": true,
+   "wall_s": 19.246,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 76248,
+    "WorkingSet64": 46358528,
+    "PeakWorkingSet64": 46358528,
+    "CPU": 1.09375,
+    "StartTime": "/Date(1790964809357)/"
+   },
+   "store_bytes": 325872
+  },
+  {
+   "msg": "What is the current per-client rate limit requirement, and what was the original one? One sentence.",
+   "ok": true,
+   "wall_s": 2.206,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 76248,
+    "WorkingSet64": 46448640,
+    "PeakWorkingSet64": 46448640,
+    "CPU": 1.15625,
+    "StartTime": "/Date(1790964809357)/"
+   },
+   "store_bytes": 336057
+  }
+ ],
+ "store_bytes_before": 250509,
+ "started_ms": 1790964860207,
+ "pid": 37172,
+ "exit": 0,
+ "wall_s": 35.858,
+ "store_bytes_after": 339835
+}

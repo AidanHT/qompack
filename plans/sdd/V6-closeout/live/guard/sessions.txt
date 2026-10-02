@@ -322,3 +322,47 @@ same  plugins/data/ (2 entries)
 INFO  .qompack/ gained ['bin/', 'bin/ab8046bac3bad894c9a299c61fb38277f4179f4e33bfb088873e43edcbe33be7/'] (run-created; record, remove only if yours)
 real home fingerprint unchanged
 check exit 0
+== session 5 UAT-05 run 2 re-run (plugin-dir, fresh project uat05r) — 2026-10-02 14:12:00 Eastern Daylight Time
+removed run-created empty plugins/data/qompack-inline/
+same  settings.json 265df1f32ede
+same  plugins/installed_plugins.json 728f75591291
+same  plugins/known_marketplaces.json 1b1eda7e17f0
+same  plugins/cache/ (10 entries)
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+INFO  .qompack/ gained ['bin/', 'bin/ab8046bac3bad894c9a299c61fb38277f4179f4e33bfb088873e43edcbe33be7/'] (run-created; record, remove only if yours)
+real home fingerprint unchanged
+check exit 0
+== session 6 UAT-06 A (plugin-dir) — 2026-10-02 14:14:15 Eastern Daylight Time
+removed run-created empty plugins/data/qompack-inline/
+same  settings.json 265df1f32ede
+same  plugins/installed_plugins.json 728f75591291
+same  plugins/known_marketplaces.json 1b1eda7e17f0
+same  plugins/cache/ (10 entries)
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+INFO  .qompack/ gained ['bin/', 'bin/ab8046bac3bad894c9a299c61fb38277f4179f4e33bfb088873e43edcbe33be7/'] (run-created; record, remove only if yours)
+real home fingerprint unchanged
+check exit 0
+== session 7 UAT-06 B --resume A (plugin-dir) — 2026-10-02 14:14:56 Eastern Daylight Time
+removed run-created empty plugins/data/qompack-inline/
+same  settings.json 265df1f32ede
+same  plugins/installed_plugins.json 728f75591291
+same  plugins/known_marketplaces.json 1b1eda7e17f0
+same  plugins/cache/ (10 entries)
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+INFO  .qompack/ gained ['bin/', 'bin/ab8046bac3bad894c9a299c61fb38277f4179f4e33bfb088873e43edcbe33be7/'] (run-created; record, remove only if yours)
+real home fingerprint unchanged
+check exit 0
+== session 8 UAT-06 C --resume A --fork-session (plugin-dir) — 2026-10-02 14:16:29 Eastern Daylight Time
+removed run-created empty plugins/data/qompack-inline/
+same  settings.json 265df1f32ede
+same  plugins/installed_plugins.json 728f75591291
+same  plugins/known_marketplaces.json 1b1eda7e17f0
+same  plugins/cache/ (10 entries)
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+INFO  .qompack/ gained ['bin/', 'bin/ab8046bac3bad894c9a299c61fb38277f4179f4e33bfb088873e43edcbe33be7/'] (run-created; record, remove only if yours)
+real home fingerprint unchanged
+check exit 0

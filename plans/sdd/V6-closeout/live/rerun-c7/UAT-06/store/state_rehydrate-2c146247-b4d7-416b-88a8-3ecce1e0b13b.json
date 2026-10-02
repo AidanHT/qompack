@@ -1,0 +1,73 @@
+{
+  "session": "2c146247-b4d7-416b-88a8-3ecce1e0b13b",
+  "seq": 5,
+  "emitted": 1790964984230,
+  "tokens": 1137,
+  "budget": 12000,
+  "items": [
+    {
+      "kind": "user_intent",
+      "rank": 0,
+      "tokens": 464,
+      "truncated": false,
+      "units": 10,
+      "units_seen": 10
+    },
+    {
+      "kind": "eliminations",
+      "rank": 1,
+      "tokens": 99,
+      "truncated": false,
+      "units": 2,
+      "units_seen": 1
+    },
+    {
+      "kind": "decisions",
+      "rank": 2,
+      "tokens": 82,
+      "truncated": false,
+      "units": 1,
+      "units_seen": 1
+    },
+    {
+      "kind": "current_work",
+      "rank": 3,
+      "tokens": 59,
+      "truncated": false,
+      "units": 1,
+      "units_seen": 1
+    },
+    {
+      "kind": "pointers",
+      "rank": 4,
+      "tokens": 221,
+      "truncated": false,
+      "units": 3,
+      "units_seen": 3
+    },
+    {
+      "kind": "drop_report",
+      "rank": 5,
+      "tokens": 126,
+      "truncated": false,
+      "units": 1,
+      "units_seen": 1
+    },
+    {
+      "kind": "affordance",
+      "rank": 6,
+      "tokens": 86,
+      "truncated": false,
+      "units": 1,
+      "units_seen": 1
+    }
+  ],
+  "dropped": [
+    {
+      "kind": "user_intent_source",
+      "id": "fork",
+      "detail": "this session is a fork of session 0eaa2666-1cf2-4087-85c2-d3bab55ec39b (its newest checkpoint then: 0002), which Qompack inferred because the host names no parent; its original request is session 0eaa2666-1cf2-4087-85c2-d3bab55ec39b's first prompt, and its own first prompt is an evolution entry; restore: expand(tool_use_id=prompt_0eaa2666-1cf2-4087-85c2-d3bab55ec39b_0)"
+    }
+  ],
+  "degraded": false
+}

@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "command": "dropped",
+  "ok": true,
+  "data": {
+    "tool": "dropped",
+    "is_error": false,
+    "ephemeral": true,
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"count\":1,\"drops\":[{\"detail\":\"this session is a fork of session 0eaa2666-1cf2-4087-85c2-d3bab55ec39b (its newest checkpoint then: 0002), which Qompack inferred because the host names no parent; its original request is session 0eaa2666-1cf2-4087-85c2-d3bab55ec39b's first prompt, and its own first prompt is an evolution entry; restore: expand(tool_use_id=prompt_0eaa2666-1cf2-4087-85c2-d3bab55ec39b_0)\",\"id\":\"fork\",\"kind\":\"user_intent_source\"}]}"
+      }
+    ],
+    "meta": {
+      "elapsed_ms": 3,
+      "hash": "sha256:2b17661bd42bd412dd1548f3389a1b75d17ab7bdfc8e71839d93fd51f885d103",
+      "tool_use_id": "qompack-mcp:08aaed095564"
+    }
+  }
+}
