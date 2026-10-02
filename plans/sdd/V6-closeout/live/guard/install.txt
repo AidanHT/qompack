@@ -512,3 +512,74 @@ same  plugins/data/ (2 entries)
 INFO  .qompack/ gained ['bin/', 'bin/ab8046bac3bad894c9a299c61fb38277f4179f4e33bfb088873e43edcbe33be7/'] (run-created; record, remove only if yours)
 real home fingerprint unchanged
 check exit 0
+== C4.8 survival: after marketplace add --scope local in the C4.8 project (install window open) — 2026-10-02 04:20:38 EDT
+same  settings.json 265df1f32ede
+same  plugins/installed_plugins.json 728f75591291
+DIFF  plugins/known_marketplaces.json 1b1eda7e17f0 -> ed7c13e9c069
+same  plugins/cache/ (10 entries)
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+INFO  .qompack/ gained ['bin/', 'bin/ab8046bac3bad894c9a299c61fb38277f4179f4e33bfb088873e43edcbe33be7/'] (run-created; record, remove only if yours)
+REAL HOME CHANGED
+check exit 1
+== C4.8 survival: after install -s local (install window open) — 2026-10-02 04:20:40 EDT
+same  settings.json 265df1f32ede
+DIFF  plugins/installed_plugins.json 728f75591291 -> 12246cea6e00
+DIFF  plugins/known_marketplaces.json 1b1eda7e17f0 -> ed7c13e9c069
+DIFF  plugins/cache/ lost [] gained ['qompack-live/', 'qompack-live/qompack-windows-amd64/', 'qompack-live/qompack-windows-amd64/0.3.0/']
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+INFO  .qompack/ gained ['bin/', 'bin/ab8046bac3bad894c9a299c61fb38277f4179f4e33bfb088873e43edcbe33be7/'] (run-created; record, remove only if yours)
+REAL HOME CHANGED
+check exit 1
+== C4.8 survival: after uninstall #1 -s local (install window open: marketplace still added) — 2026-10-02 04:20:50 EDT
+same  settings.json 265df1f32ede
+same  plugins/installed_plugins.json 728f75591291
+DIFF  plugins/known_marketplaces.json 1b1eda7e17f0 -> ed7c13e9c069
+DIFF  plugins/cache/ lost [] gained ['qompack-live/', 'qompack-live/qompack-windows-amd64/', 'qompack-live/qompack-windows-amd64/0.3.0/']
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+INFO  .qompack/ gained ['bin/', 'bin/ab8046bac3bad894c9a299c61fb38277f4179f4e33bfb088873e43edcbe33be7/'] (run-created; record, remove only if yours)
+REAL HOME CHANGED
+check exit 1
+== C4.8 survival: after reinstall -s local (install window open) — 2026-10-02 04:20:52 EDT
+same  settings.json 265df1f32ede
+DIFF  plugins/installed_plugins.json 728f75591291 -> f6b9324f983e
+DIFF  plugins/known_marketplaces.json 1b1eda7e17f0 -> ed7c13e9c069
+DIFF  plugins/cache/ lost [] gained ['qompack-live/', 'qompack-live/qompack-windows-amd64/', 'qompack-live/qompack-windows-amd64/0.3.0/']
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+INFO  .qompack/ gained ['bin/', 'bin/ab8046bac3bad894c9a299c61fb38277f4179f4e33bfb088873e43edcbe33be7/'] (run-created; record, remove only if yours)
+REAL HOME CHANGED
+check exit 1
+== C4.8 survival: after session C (install-c7 n=4, reinstalled plugin at local scope; install window open) — 2026-10-02 04:21:32 EDT
+removed run-created empty plugins/data/qompack-windows-amd64-qompack-live/
+same  settings.json 265df1f32ede
+DIFF  plugins/installed_plugins.json 728f75591291 -> f6b9324f983e
+DIFF  plugins/known_marketplaces.json 1b1eda7e17f0 -> ed7c13e9c069
+DIFF  plugins/cache/ lost [] gained ['qompack-live/', 'qompack-live/qompack-windows-amd64/', 'qompack-live/qompack-windows-amd64/0.3.0/']
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+INFO  .qompack/ gained ['bin/', 'bin/ab8046bac3bad894c9a299c61fb38277f4179f4e33bfb088873e43edcbe33be7/'] (run-created; record, remove only if yours)
+REAL HOME CHANGED
+check exit 1
+== C4.8 survival: after the final uninstall -s local (install window open: marketplace still added) — 2026-10-02 04:22:04 EDT
+same  settings.json 265df1f32ede
+same  plugins/installed_plugins.json 728f75591291
+DIFF  plugins/known_marketplaces.json 1b1eda7e17f0 -> ed7c13e9c069
+DIFF  plugins/cache/ lost [] gained ['qompack-live/', 'qompack-live/qompack-windows-amd64/', 'qompack-live/qompack-windows-amd64/0.3.0/']
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+INFO  .qompack/ gained ['bin/', 'bin/ab8046bac3bad894c9a299c61fb38277f4179f4e33bfb088873e43edcbe33be7/'] (run-created; record, remove only if yours)
+REAL HOME CHANGED
+check exit 1
+== C4.8 survival: after marketplace remove + orphan cleanup (install window closed) — 2026-10-02 04:22:14 EDT
+same  settings.json 265df1f32ede
+same  plugins/installed_plugins.json 728f75591291
+same  plugins/known_marketplaces.json 1b1eda7e17f0
+same  plugins/cache/ (10 entries)
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+INFO  .qompack/ gained ['bin/', 'bin/ab8046bac3bad894c9a299c61fb38277f4179f4e33bfb088873e43edcbe33be7/'] (run-created; record, remove only if yours)
+real home fingerprint unchanged
+check exit 0

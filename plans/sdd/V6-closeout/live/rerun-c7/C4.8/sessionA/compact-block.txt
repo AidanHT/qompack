@@ -1,0 +1,42 @@
+<!-- qompack:injected seq=1 ver=1 -->
+# Qompack rehydration — checkpoint 0001, session e7d5bf37
+
+## 2. Original user intent (verbatim from L0 capture — never summarized)
+Evolution (most recent first):
+> Call the MCP tool mcp__plugin_qompack_qompack__record_eliminated with target "calc.py:parse_row", approach "pandas.read_csv with sep=','", reason "the data is semicolon-separated; a comma delimiter puts each row in one column and the totals come out wrong", scope "project" and depends_on ["data.txt"]. Then call mcp__plugin_qompack_qompack__recall with query "OSPREY-HALYARD", then mcp__plugin_qompack_qompack__timeline with no arguments. Reply in one sentence with the record_eliminated outcome, the recall hit count and the timeline segment count.
+> Use the Read tool to read data.txt. Then reply with only the number of data rows, not counting the header.
+Original:
+> Use the Read tool to read README.md, calc.py and notes.md, one after another. Then reply with just the project code word.
+
+## 3. Approaches already eliminated (top 1 of 1 by slice relevance)
+- calc.py:parse_row — "pandas.read_csv with sep=','" — the data is semicolon-separated; a comma delimiter puts each row in one column and the totals come out wrong [active] [evidence sha256:6abd4472b0454ba07bd57afaf0502e8e293ce542b79f6ad5d9bf93626f5e2aea]
+Before committing to an approach, call already_tried.
+
+## 4. Decisions
+- [dec_54f5f6a8b792] (turn 5) rejected "pandas.read_csv with sep=','" for calc.py:parse_row
+  why: the data is semicolon-separated; a comma delimiter puts each row in one column and the totals come out wrong
+  rejected: pandas.read_csv with sep=','
+  evidence: sha256:6abd4472b0454ba07bd57afaf0502e8e293ce542b79f6ad5d9bf93626f5e2aea
+
+## 5. Current work
+goal: Call the MCP tool mcp__plugin_qompack_qompack__record_eliminated with target "calc.py:parse_row", approach "pandas.read_csv with sep=','", reason "the data is s
+blocked on: none
+
+## 6. Pointers (paths and hashes — contents are NOT restored; use expand/re_read)
+- calc.py sha256:935803e052210e1920c1a13f94380f0f42071b393fab680ff33aca18a276eeef — referenced
+- data.txt sha256:1be7eb92e3fc811ca84a0da9feabdd1b8640c958da66258d7f06698421a1fe47 — referenced
+- notes.md sha256:ede481951a60878344dfde94ff6867043d1fe7850fcc8dda68aa0fad2f52c091 — referenced
+- readme.md sha256:ab10e750f6bf3d47ca148d1ad49440e0afcb5dff243c96da85f88cac768d5631 — referenced
+- tool_use toolu_012crCigej7JLW8vrEN1UhRY sha256:6c2e1381109c81b3131709e16983360db3afc3e369f334932816f5b0564c47b3 — {"max_results":5,"query":"select:mcp__plugin_qompack_qompack__record_eliminated,mcp__plugin_qompack_qompack__recall,m…
+- tool_use toolu_019joK2dL9UUu34KMeeeGG9S sha256:1be7eb92e3fc811ca84a0da9feabdd1b8640c958da66258d7f06698421a1fe47 — <scratch>\install\c7\c48\proj\data.txt
+- tool_use toolu_01BTwfbSxUx6HHm1MjCtqgPD sha256:935803e052210e1920c1a13f94380f0f42071b393fab680ff33aca18a276eeef — <scratch>\install\c7\c48\proj\calc.py
+- tool_use toolu_01FiziVF9rwYqPuaQefJ9uiN sha256:ab10e750f6bf3d47ca148d1ad49440e0afcb5dff243c96da85f88cac768d5631 — <scratch>\install\c7\c48\proj\README.md
+- tool_use toolu_01NsW11HrWsUCDcW4MGXs8nb sha256:332e8f30bfeb7df8854f1dbe28338db9a31a544158d1047f917789094caf1ec8 — {"query":"OSPREY-HALYARD"}
+- tool_use toolu_01RtScLY6yvnSn7Wz3T98afp sha256:90b15950f28cbe57087be70569cbe217d9caf98fc0de6d246c6e5a58d0dd4395 — {"approach":"pandas.read_csv with sep=','","depends_on":["data.txt"],"reason":"the data is semicolon-separated; a com…
+- tool_use toolu_01UCqudogR8CmFBd4wnCb2kh sha256:ede481951a60878344dfde94ff6867043d1fe7850fcc8dda68aa0fad2f52c091 — <scratch>\install\c7\c48\proj\notes.md
+- tool_use toolu_01X5Kuk4iC154u8k5y6vkeY2 sha256:1da6c3cc177b69ff869c7e1d99c83a2693c81f11992725f005bc1358d596d3f9 — {}
+
+## 8. Retrieval
+Qompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().
+<!-- /qompack:injected -->
+<!-- qompack-contract-probe qompack-contract-4cd38031c1d8 -->

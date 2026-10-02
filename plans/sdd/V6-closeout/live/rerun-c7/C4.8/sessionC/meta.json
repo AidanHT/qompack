@@ -1,0 +1,57 @@
+{
+ "args": [
+  "-p",
+  "--input-format",
+  "stream-json",
+  "--output-format",
+  "stream-json",
+  "--verbose",
+  "--include-hook-events",
+  "--model",
+  "claude-haiku-4-5-20251001",
+  "--max-turns",
+  "10",
+  "--setting-sources",
+  "project,local",
+  "--permission-mode",
+  "dontAsk",
+  "--allowedTools",
+  "Read,mcp__plugin_qompack_qompack__recall,mcp__plugin_qompack_qompack__expand,mcp__plugin_qompack_qompack__re_read,mcp__plugin_qompack_qompack__already_tried,mcp__plugin_qompack_qompack__record_eliminated,mcp__plugin_qompack_qompack__timeline,mcp__plugin_qompack_qompack__why,mcp__plugin_qompack_qompack__dropped,Bash(qompack status:*),Bash(qompack recall:*),Bash(qompack pin:*),Bash(qompack why:*),Bash(qompack dropped:*),Bash(qompack eval:*)"
+ ],
+ "turns": [
+  {
+   "msg": "Call mcp__plugin_qompack_qompack__re_read with path \"README.md\", then mcp__plugin_qompack_qompack__already_tried with target \"calc.py:parse_row\" and approach \"pandas.read_csv with sep=','\". Do not use the Read tool. Reply in one sentence with the code word re_read returned, the turn it reports, and the already_tried state.",
+   "ok": true,
+   "wall_s": 8.616,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 18548,
+    "WorkingSet64": 30560256,
+    "PeakWorkingSet64": 30560256,
+    "CPU": 0.15625,
+    "StartTime": "/Date(1790929266806)/"
+   },
+   "store_bytes": 763430
+  },
+  {
+   "msg": "Call mcp__plugin_qompack_qompack__recall with query \"OSPREY-HALYARD\". Then list every hit in rank order, one per line, as: rank, tool name, path (or tool_use_id if there is no path). Nothing else.",
+   "ok": true,
+   "wall_s": 8.014,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 18548,
+    "WorkingSet64": 36438016,
+    "PeakWorkingSet64": 36438016,
+    "CPU": 0.1875,
+    "StartTime": "/Date(1790929266806)/"
+   },
+   "store_bytes": 812183
+  }
+ ],
+ "store_bytes_before": 641724,
+ "started_ms": 1790929266177,
+ "pid": 8400,
+ "exit": 0,
+ "wall_s": 18.081,
+ "store_bytes_after": 787753
+}
