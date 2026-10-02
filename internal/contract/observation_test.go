@@ -104,6 +104,7 @@ func TestClassifyResult_Table(t *testing.T) {
 
 		// OK, and something really was observed.
 		{"marker-found", Result{ID: CSessionStartFires, OK: true, Observed: "marker-found"}, OutcomeObserved},
+		{"same-session-restart", Result{ID: CSessionStartFires, OK: true, Observed: "same-session-restart"}, OutcomeObserved},
 		{"source compact", Result{ID: CSessionStartSourceCompact, OK: true, Expected: "compact", Observed: "compact"}, OutcomeObserved},
 		{"sentinel-observed", Result{ID: CAdditionalContext, OK: true, Observed: "sentinel-observed"}, OutcomeObserved},
 		{"payload shape valid", Result{ID: CHookPayloadShape, OK: true, Observed: "payload shape valid"}, OutcomeObserved},
