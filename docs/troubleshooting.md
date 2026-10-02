@@ -1278,9 +1278,10 @@ the first 12 hex digits of the root.
 **Meaning.** It may be transient. fsck reads the capture sidecars before
 `state/retention-roots.jsonl`, and the daemon, publishing a capture, writes the sidecar first and
 its retention root after it, so a capture published between fsck's two reads leaves a root whose
-sidecar fsck did not see. fsck does not take the daemon's lock (only `--seal-check` does), so a
-result taken beside a running daemon is a snapshot, and its `daemon` row says `daemon running:
-results are a snapshot of a moving target`. This is a known limit of 0.3.0 (decision D57(b);
+sidecar fsck did not see. A plain fsck does not take the daemon's lock (only `--repair` and
+`--seal-check` attempt it), so a result taken beside a running daemon is a snapshot, and its
+`daemon` row says `daemon running: results are a snapshot of a moving target`. This is a known limit
+of 0.3.0 (decision D57(b);
 [cannot-do](cannot-do.md#fsck-beside-a-running-daemon-can-report-a-retention-root-that-is-still-being-written)).
 
 **Action.** Stop the daemon and run `fsck` again. This build has no stop command: let the daemon

@@ -137,8 +137,9 @@ live sessions:
   the hot path switches to spool submode and nothing is lost (D53(c)). Windows reference timings
   were taken on AC with the store under a path excluded from Windows Defender scanning (decisions
   D32, D53(h)). Candidate 6's evidence carries to candidate 7, whose binaries differ from it by one
-  unreferenced byte (D57(c)). The executable bit after a marketplace install on Linux and macOS,
-  and the command and tool namespace under a `qompack-<os>-<arch>` entry, have not been observed.
+  unreferenced byte, plus darwin/arm64's ad-hoc signature hash (D57(c)). The executable bit after a
+  marketplace install on Linux and macOS, and the command and tool namespace under a
+  `qompack-<os>-<arch>` entry, have not been observed.
 - **Binaries are not code-signed**, so Gatekeeper, SmartScreen and Defender may refuse or flag them
   (`docs/install.md` §10).
 - **Accepted residuals**, each documented in `docs/cannot-do.md`: a 2.3 to 6.8 s capture pause at each
