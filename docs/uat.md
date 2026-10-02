@@ -1511,30 +1511,48 @@ stored records to reconcile a failure.
 **Result**
 
 ```text
-Result: pass — upgrade leg (steps 1 and 6-10) re-run on candidate 7; steps 2-5 are re-run by
-  this lane's retrieval part (D52) and reported there. Step 1: initial state absent (recorded;
-  backup create exit 1 "source project has no existing store"); baseline c48-baseline taken
-  after the previous build's permitted captures, MCP calls (record_eliminated, recall,
-  timeline) and /compact, created and verified by the frozen candidate 7 CLI with the source
-  daemon stopped (77 files, consistent; verify's scratch restore: 22 roots, 15 tool refs,
-  integrity and seal check passed). Step 6: previous build candidate 5's frozen bundle
-  (0d06ab12; 0.3.0 has no earlier public release) -> the frozen candidate 7 bundle, both via
-  --plugin-dir; the new build read the old build's captures (re_read README.md answered turn 1
-  of session A from the store), its project-scope elimination (already_tried active) and its
-  checkpoint chain (0001 -> 0003); every pre-upgrade object, checkpoints/0001.json and
-  records/eliminations.jsonl byte-identical afterwards, every append-only log only appended
-  to. Step 7 (to be confirmed at execution): no version-block or retired-meaning warning (no
-  config file exists to carry either), and no WARN or LOUD line in the day log across the
-  upgrade; self-test config.capture "applied as written"; the layout reappeared after session
-  B's hooks (all success / exit 0). Step 8: restore of the pre-upgrade baseline into a fresh
-  recovery project exit 0, reader proof (22 roots, 15 tool refs) and integrity checks passed;
-  fsck --seal-check exit 0 on the recovery and on the source. Steps 9-10: the frozen bundle
-  installed at local scope through a local marketplace entry named qompack-windows-amd64,
-  uninstalled, reinstalled and uninstalled again; .qompack/ byte-identical across each step
-  (193 and 209 files, full sha256 listings) and still on disk; after the reinstall session C
-  re-read session A's old-build capture. Finding (diagnostics, minor): after the mid-session
-  compaction `qompack status` names session_start.fires pending "marker-absent-once" on a
-  healthy store (troubleshooting §1 says a healthy project reads 0 pending).
+Result: fail — D50's section-6 check (finding F1); every fail criterion listed above was
+  otherwise not hit. Candidate 7, two legs. Steps 2-5 and 8 (retrieval part, a fresh project, no
+  upgrade): step 1 initial state absent (recorded), baseline uat12-c7-baseline after the first
+  session's permitted captures and /compact (148 files, consistent, verify exit 0). Step 2: the
+  host refused the Read ("File is in a directory that is denied by your permission settings.");
+  recall (marker and path:), expand (tool_use_id and root hash), re_read and /qompack:recall all
+  answered denied or withheld the hit ("authorization denied: the host's current permission rules
+  deny reading the associated path") with no preview; out-of-project re_read answered "path
+  escapes the project root", and the out-of-project Read was never captured. Steps 3-5 on a
+  354,352-byte escape-heavy capture: minimal 8,039 bytes, then 18 contiguous pages to the end
+  (max 30,059); full: true 261,164 bytes ([0,217070], truncated, next_span 217070:137282), then
+  [217070,354352] 165,235 bytes, truncated false with no next_span; an explicit span 0:354352
+  pages identically to full: true; re_read full: true 261,172 bytes, continued with expand and its
+  hash. Every truncated page carries next_span, the last page is not truncated, every response is
+  within 262,144, no page holds U+FFFD, and no response carries fidelity or coverage. Binary: the
+  host delivers `cat` output as decoded text and an image as base64 JSON; both sidecars record
+  fidelity exact and Qompack decoded nothing (blob 2,947, png 2,395 bytes). Recall (D49): the
+  default k returned 5 permitted hits with "denied":1 counted apart; at k 20 the six original
+  captures come first and the four retrieval self-records last. No LOUD.log on this multi-session
+  store, so no 'publication accounting incomplete' line. Step 8: restore into a fresh recovery
+  project exit 0, reader proof (31 roots, 21 tool refs) and integrity with the seal check passed;
+  fsck --seal-check exit 0 on the recovery and the source; the source's later writes preserved.
+  Section 6 of both rehydration blocks points to the deny-ruled file by hash only ("path
+  withheld") and shows no absolute out-of-project path, BUT the second block also lists
+  `tool_use toolu_017m9djG... — {"query":"path:private/deny.txt"}`: a host-denied path in a
+  pointer's argument summary (F1; no content shown). Upgrade leg (steps 1 and 6-10, install
+  part): pass — baseline c48-baseline taken after the previous build's permitted captures, MCP
+  calls and /compact (77 files, consistent; verify: 22 roots, 15 tool refs, integrity and seal
+  check passed); previous build candidate 5's frozen bundle (0d06ab12; 0.3.0 has no earlier
+  public release) -> the frozen candidate 7 bundle, both via --plugin-dir; the new build read
+  the old build's captures, its project-scope elimination and its checkpoint chain (0001 ->
+  0003); every pre-upgrade object byte-identical afterwards. Step 7 (to be confirmed at
+  execution): no version-block or retired-meaning warning (no config file exists to carry
+  either), no WARN or LOUD line across the upgrade; self-test config.capture "applied as
+  written"; the layout reappeared after session B's hooks. Step 8: restore of the pre-upgrade
+  baseline exit 0, reader proof and integrity passed; fsck --seal-check exit 0 on the recovery
+  and the source. Steps 9-10: installed at local scope through a local marketplace entry named
+  qompack-windows-amd64, uninstalled, reinstalled and uninstalled again; .qompack/
+  byte-identical across each step (193 and 209 files) and still on disk; after the reinstall
+  session C re-read session A's old-build capture. Finding (diagnostics, minor): after the
+  mid-session compaction `qompack status` names session_start.fires pending
+  "marker-absent-once" on a healthy store.
   Candidate 4 (9f6a2fad): pass — deny, bound and binary steps held and the 0.2.99-prev
   upgrade, restore and uninstall kept .qompack/ intact, evidence
   plans/sdd/V6-closeout/live/rerun-c4/UAT-12/
@@ -1543,19 +1561,21 @@ Result: pass — upgrade leg (steps 1 and 6-10) re-run on candidate 7; steps 2-5
   plans/sdd/V6-closeout/live/uat/UAT-12/
 Snapshot: qompack version 0.3.0; bundle BUNDLE.json sha256
   5212ae4eaa2e931266d52069e7d0c72ec2dfd2255d55421c87486ab083e1f395; commit
-  d20309c03ffc364e4cc48663be73cfbb1f2309b2 (upgraded from candidate 5's bundle, BUNDLE.json
-  sha256 a1c59ec2d817d1837359033d6f047736470beb8bc1badfae836d9158b211a4ac, commit 0d06ab12);
-  Windows 11 Home 25H2 build 10.0.26200.9457; Claude Code 2.1.280
+  d20309c03ffc364e4cc48663be73cfbb1f2309b2 (the upgrade leg upgraded from candidate 5's bundle,
+  BUNDLE.json sha256 a1c59ec2d817d1837359033d6f047736470beb8bc1badfae836d9158b211a4ac, commit
+  0d06ab12); Windows 11 Home 25H2 build 10.0.26200.9457; Claude Code 2.1.280
 Date: 2026-10-02 (America/Toronto)
 Executed by: Claude Code workflow subagent (Opus 5.5), agent-executed on the owner's real host
   per owner decision D3 — not human UAT
-Evidence: plans/sdd/V6-closeout/live/rerun-c7/UAT-12/notes.txt (the data is in
+Evidence: plans/sdd/V6-closeout/live/rerun-c7/UAT-12/notes-retrieval.txt (steps 2-5 and 8, with
+  cli/, sessionA/, sessionB/ and store/ beside it) and
+  plans/sdd/V6-closeout/live/rerun-c7/UAT-12/notes.txt (the upgrade leg; its data is in
   plans/sdd/V6-closeout/live/rerun-c7/C4.8/)
-Rollback verified: unverified (missing step: the recovery was not activated) — backup
-  c48-baseline (77 files, consistent, frontier 0,
-  the legacy-import cursor) created and verified by the candidate CLI with the source writer
-  stopped; same-build restore into a fresh destination proved its reader and passed its
-  integrity checks and the delivery seal check; the source's later writes were preserved; the
+Rollback verified: unverified (missing step: neither recovery was activated) — both backups
+  (uat12-c7-baseline: 148 files; c48-baseline: 77 files, frontier 0, the legacy-import cursor)
+  were created and verified by the candidate CLI with the source writer stopped; each same-build
+  restore into a fresh destination proved its reader and passed its integrity checks and the
+  delivery seal check; the sources' later writes were preserved; for the upgrade leg the
   previous build's own reader (candidate 5) accepts the recovered baseline (fsck and fsck
   --seal-check exit 0)
 ```
