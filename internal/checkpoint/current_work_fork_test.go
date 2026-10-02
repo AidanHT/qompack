@@ -1,6 +1,7 @@
 package checkpoint_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -164,4 +165,44 @@ func TestExplicitCurrentWorkSurvivesAPromptRefresh(t *testing.T) {
 	cp := sealed(t, f, f.precompactAs(f.sess))
 	require.Equal(t, "Ship the limiter.", cp.CurrentWork.Goal)
 	require.Equal(t, []string{rateCorrection60}, cp.UserIntent.Evolution, "the intent itself is still refreshed")
+}
+
+// hiddenPromptsStore is the shipped store without the SessionPrompts capability: embedding the
+// interface exposes only store.Store's own methods.
+type hiddenPromptsStore struct{ store.Store }
+
+// degradedPromptsStore has the capability but cannot answer, the way FSStore.SessionPrompts is
+// core.ErrDegraded past its scan limit.
+type degradedPromptsStore struct{ store.Store }
+
+func (degradedPromptsStore) SessionPrompts(context.Context, core.SessionID) ([]store.ToolUseRecord, error) {
+	return nil, core.ErrDegraded
+}
+
+// TestCurrentWorkWithoutAnswerFromSessionPromptsComesFromTheGraph: when the session's own prompt
+// records cannot be listed — a store without the capability, or one whose SessionPrompts fails —
+// the goal still comes from the graph's userprompt nodes in the encoded segment, as before the
+// own-records derivation. Those nodes are shared across sessions by turn, so only one whose record
+// belongs to this session counts: another session's prompt at a turn inside the range is not this
+// session's current work (F-C7-UAT06-1's collision).
+func TestCurrentWorkWithoutAnswerFromSessionPromptsComesFromTheGraph(t *testing.T) {
+	for name, wrap := range map[string]func(store.Store) store.Store{
+		"without the capability": func(s store.Store) store.Store { return hiddenPromptsStore{s} },
+		"capability degraded":    func(s store.Store) store.Store { return degradedPromptsStore{s} },
+	} {
+		t.Run(name, func(t *testing.T) {
+			f := newFx(t)
+			const other = core.SessionID("sess_sp10_other")
+			f.src.Store = wrap(f.store)
+			promptAs(f, f.sess, 0, rateAsk)
+			promptAs(f, f.sess, 2, rateCorrection60)
+			promptAs(f, other, 3, "Build the CSV importer.")
+			closedSegAs(f, f.sess, 0, 3)
+
+			cp := sealed(t, f, f.precompactAs(f.sess))
+
+			require.Equal(t, "Correction: the limit must be 60 requests per minute per client, not 100.",
+				cp.CurrentWork.Goal)
+		})
+	}
 }

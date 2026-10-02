@@ -191,6 +191,7 @@ func recordCandidates(recs []store.ToolUseRecord) []intentCandidate {
 // evolution entry after them.
 func (d *Draft) refreshIntentLocked(ctx context.Context) {
 	own, ok := sessionPromptRecords(ctx, d.src.Store, d.session)
+	d.promptsAnswered = ok
 	if !ok {
 		return
 	}

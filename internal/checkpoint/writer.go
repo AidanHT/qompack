@@ -918,13 +918,19 @@ func (w *FileWriter) encodeSegmentLocked(ctx context.Context, d *Draft, seg stor
 	// Current work: skipped entirely once SetCurrentWork has spoken (§7). The derived form is
 	// one sentence of the most recent prompt, an empty NextStep and a nil BlockedOn — inventing
 	// a next step from tool history is exactly the drift this layer exists to eliminate (§8).
-	// A store that can enumerate the session's own prompts derives it from them at every refresh
-	// (deriveCurrentWorkLocked): the graph's userprompt nodes are shared across sessions by turn,
-	// and reading them here put a fork's parent's prompt in the fork's current work. Only a store
-	// without that capability keeps this earlier, graph-read form.
-	if _, capable := src.Store.(store.SessionPrompts); !capable && !d.workExplicit && len(prompts) > 0 {
-		if text, ok := readPromptText(ctx, src, prompts[len(prompts)-1]); ok && text != "" {
-			d.cp.CurrentWork = CurrentWork{Goal: truncRunes(firstSentence(text), goalMaxRunes)}
+	// While the session's own prompt records can be listed it is derived from them at every refresh
+	// (deriveCurrentWorkLocked). Only while they cannot — a store without SessionPrompts, or one
+	// whose last answer failed — is it read here from the graph, and then only from a prompt node
+	// of this session: the graph's userprompt nodes are shared across sessions by turn, and taking
+	// the segment's highest one put a fork's parent's prompt in the fork's current work.
+	if !d.promptsAnswered && !d.workExplicit {
+		if n, ok := ownNewestPrompt(ctx, src, d.session, prompts); ok {
+			if text, ok := readPromptText(ctx, src, n); ok && text != "" {
+				d.cp.CurrentWork = CurrentWork{Goal: truncRunes(firstSentence(text), goalMaxRunes)}
+				// The records-derived goal is no longer the one held, so the next refresh that
+				// can list them must set it again even when their newest is unchanged.
+				d.goalFrom = ""
+			}
 		}
 	}
 
@@ -1450,6 +1456,24 @@ func earliestPrompt(g dag.Graph) (dag.Node, bool) {
 		}
 	}
 	return best, true
+}
+
+// ownNewestPrompt returns the highest-turn node of prompts (ascending by turn) that is not another
+// session's: a node whose Ref resolves to a prompt record of a different session is skipped. A node
+// whose record cannot be read is not skipped — no evidence it is foreign — and readPromptText then
+// decides whether it has text, as the graph-read form always did.
+func ownNewestPrompt(ctx context.Context, src SourceSet, session core.SessionID, prompts []dag.Node) (dag.Node, bool) {
+	for i := len(prompts) - 1; i >= 0; i-- {
+		n := prompts[i]
+		if n.Ref != "" {
+			if rec, err := src.Store.ToolUse(ctx, core.ToolUseID(n.Ref)); err == nil &&
+				rec.Session != "" && rec.Session != session {
+				continue
+			}
+		}
+		return n, true
+	}
+	return dag.Node{}, false
 }
 
 // readPromptText resolves one user-prompt node to its stored text, through fromStore — every
