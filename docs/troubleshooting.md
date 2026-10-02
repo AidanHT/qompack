@@ -177,6 +177,14 @@ the spent chances, the row reports that outcome and says it was read from `state
 already failing at the start is never rewritten this way; the next `SessionStart` evaluates it
 again.
 
+`status --json` lists the sessions the daemon tracks under `data.snapshot.sessions`, most recent
+activity (`LastActivity`) first and ties by session id (`internal/daemon/registry.go`, `Snapshot`),
+so two reads of unchanged state list them in the same order; the text page prints only their count.
+What does change between two such reads is derived from the time of the read, not from the state:
+the `collected` line (`data.collected_at_ms`), the provenance's age when the page reads the persisted
+metrics file instead of a live daemon, and, in `qompack doctor`, the `delivery.rollover` row's
+`persisted 12s ago`.
+
 **Action.** No action; this is a recorded limit. See §2 for the `unavailable` latency rows.
 
 ### Qompack is inactive in the home directory
