@@ -45,8 +45,12 @@ only.
 - **It does not compact anything.** Compaction is the host's. Qompack cannot request, veto, shape or
   time a compaction, and it sends the host's summarizer no instructions: its `PreCompact` answer is
   the empty object ([docs/cannot-do.md](docs/cannot-do.md)).
-- **It is not cache-aware.** It does not observe, model or manage the host's prompt cache, and it
-  infers no cache state from elapsed time.
+- **It is not cache-aware in any way that reaches the host.** It cannot see, keep warm or change
+  the host's prompt cache. Its internal scheduler does estimate a cache state (warm, expiring or
+  cold) from the time since the last API request and the configured TTL, and uses that estimate
+  only to choose its own idle background work; the estimate is not an observation, and a
+  checkpoint records the cache state as `unknown`
+  ([docs/cannot-do.md](docs/cannot-do.md#no-inference-of-cache-state-from-arbitrary-elapsed-time)).
 - **It makes no claim that it improves recovery after a compaction, task success or constraint
   retention.** The release's pre-registered live evaluation can show that Qompack does not make work
   after a compaction worse; a claim of improvement would need that outcome's 95 % lower bound above

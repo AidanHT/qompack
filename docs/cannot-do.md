@@ -599,14 +599,21 @@ host change could lift — as prepared proposals, none of which has been filed.
 
 ### No inference of cache state from arbitrary elapsed time
 
-- **Limit.** Qompack cannot infer cache state from arbitrary elapsed time. It does not decide that a
-  prompt cache entry is warm or cold because a certain number of minutes passed.
+- **Limit.** Qompack cannot infer cache state from arbitrary elapsed time. It cannot know whether a
+  prompt cache entry is warm or cold, and nothing it reports or delivers claims to.
 - **Why.** The break-even arithmetic is scoped as a diagnostic, not an oracle: `Qompack.md`
   Appendix A prices it as "N > (w−r)/(1−r), assuming N identical uses, one write, later hits and
   r<1". The host exposes no cache-state signal to a plugin, so an elapsed-time guess would be a
   fabricated observation.
 - **What Qompack does instead.** It treats an unobserved quantity as `unknown` and leaves
-  cache-shaped decisions to the host. Where Qompack itself calls something a cache, it says so and
+  cache-shaped decisions to the host: a checkpoint records the cache state as `unknown`. Its
+  internal scheduler does keep an estimate, bounded by the TTL regime rather than by an arbitrary
+  number of minutes: `internal/scheduler/ttl.go` `ClassifyTTL` reads a gap since the last API
+  request shorter than half the shortest possible TTL as warm and a gap at or past the longest
+  possible TTL as cold, and everything between as expiring. The estimate only chooses Qompack's own
+  idle background work (a cold gap is when the Bloom rebuild, DAG compaction and GC run) and weights
+  the scheduler's internal rewrite-cost arithmetic; it reaches neither the host nor the session. Where Qompack
+  itself calls something a cache, it says so and
   bounds the consequence — [ADR 0009](adr/0009-negative-knowledge-bloom-as-cache.md) is about
   Qompack's own Bloom filter, not about the host's prompt cache.
 - **Recorded at.** `Qompack.md` v1.5 §12 and Appendix A; `plans/QOMPACK-ERRATA.md` v1.3 "What could
