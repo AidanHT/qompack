@@ -74,7 +74,10 @@ func historyOf(e Env) (*SessionHistory, bool) {
 // run/marker.json exists and names a session different from the current one -> OK. Absent (or
 // naming THIS session, which is the same absence of proof) -> StartsWithoutMarker++, failing only
 // once that reaches 2 ("absence across two sessions"). The very first session a project has ever
-// seen has no prior terminal hook to have left a marker, so it reports OK regardless.
+// seen has no prior terminal hook to have left a marker, so it reports OK regardless. A later start
+// of the session the history last saw — its compaction, or a --resume keeping its id — whose
+// marker names it, with no absence counted, is that session's own restart: same-session-restart,
+// holding, and nothing is counted or reset.
 //
 // The counter is bumped at most once per SESSION, keyed off History.LastSessionID: §12.1 says
 // "absence across two SESSIONS", not "across two RunAll calls", and a second RunAll inside one
@@ -114,6 +117,16 @@ func checkSessionStartFires(ctx context.Context, e Env) Result {
 			Observed: "no marker from a prior terminal hook across two consecutive sessions",
 			TS:       now(e),
 		}
+	}
+	if h.StartsWithoutMarker == 0 && err == nil && rec.Session != "" &&
+		rec.Session == e.Event.SessionID && h.LastSessionID == e.Event.SessionID {
+		// A start of the session this history last saw, whose marker that session's own terminal
+		// hook wrote: its compaction (PreCompact, then SessionStart source=compact) or a --resume
+		// that kept the id. That session's own start already settled the assertion and counted no
+		// absence, and this marker proves its hooks still fire, so nothing is pending (F-C48-1). A
+		// count of 1 stays marker-absent-once below: the absence its first start counted is still
+		// the one the next session's start decides.
+		return Result{OK: true, Expected: desc, Observed: "same-session-restart", TS: now(e)}
 	}
 	return Result{OK: true, Expected: desc, Observed: "marker-absent-once", TS: now(e)}
 }
