@@ -1,0 +1,47 @@
+--- FAIL: TestNonReferenceDisk_IsHostedCIOnly (0.12s)
+    --- FAIL: TestNonReferenceDisk_IsHostedCIOnly/ci_yml_sets_it_in_exactly_the_hosted_isolation_jobs (0.00s)
+        nonrefdisk_test.go:111: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w17-ci/test/guards/nonrefdisk_test.go:111
+            	Error:      	Not equal: 
+            	            	expected: []string{"bench-gate", "cover", "release-dry-run", "test-e2e", "timing"}
+            	            	actual  : []string{"bench-gate", "cover", "test-e2e", "timing"}
+            	            	
+            	            	Diff:
+            	            	--- Expected
+            	            	+++ Actual
+            	            	@@ -1,5 +1,4 @@
+            	            	-([]string) (len=5) {
+            	            	+([]string) (len=4) {
+            	            	  (string) (len=10) "bench-gate",
+            	            	  (string) (len=5) "cover",
+            	            	- (string) (len=15) "release-dry-run",
+            	            	  (string) (len=8) "test-e2e",
+            	Test:       	TestNonReferenceDisk_IsHostedCIOnly/ci_yml_sets_it_in_exactly_the_hosted_isolation_jobs
+            	Messages:   	ci.yml must declare QOMPACK_NONREFERENCE_DISK in exactly [bench-gate cover release-dry-run test-e2e timing]: the jobs that judge fsync-bound wall rows alone on a hosted runner. The whole-tree jobs declare co-load instead (QOMPACK_UNDER_COLOAD), and a job that declared both would hide which cause it meant
+    --- FAIL: TestNonReferenceDisk_IsHostedCIOnly/release_yml_declares_it_in_exactly_the_release_job (0.00s)
+        nonrefdisk_test.go:150: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w17-ci/test/guards/nonrefdisk_test.go:150
+            	Error:      	Not equal: 
+            	            	expected: []string{"release"}
+            	            	actual  : []string(nil)
+            	            	
+            	            	Diff:
+            	            	--- Expected
+            	            	+++ Actual
+            	            	@@ -1,4 +1,2 @@
+            	            	-([]string) (len=1) {
+            	            	- (string) (len=7) "release"
+            	            	-}
+            	            	+([]string) <nil>
+            	            	 
+            	Test:       	TestNonReferenceDisk_IsHostedCIOnly/release_yml_declares_it_in_exactly_the_release_job
+            	Messages:   	release.yml must declare QOMPACK_NONREFERENCE_DISK in exactly [release]: the tag's release-check runs X11 alone on a hosted runner, and a further declaring job needs its ruling recorded here first
+    --- FAIL: TestNonReferenceDisk_IsHostedCIOnly/every_hosted_fsync_bound_job_declares_its_cause (0.00s)
+        nonrefdisk_test.go:169: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w17-ci/test/guards/nonrefdisk_test.go:169
+            	Error:      	Should be true
+            	Test:       	TestNonReferenceDisk_IsHostedCIOnly/every_hosted_fsync_bound_job_declares_its_cause
+            	Messages:   	ci.yml's `release-dry-run` job runs "go run ./tools/devtool release-check --skip-vulncheck", which judges a fsync-bound hot-path row (X11, the harness), on a GitHub-hosted runner without declaring QOMPACK_NONREFERENCE_DISK or QOMPACK_UNDER_COLOAD: it gates the runner's disk rather than the product (owner Q1; run 36955046276's release-dry-run)
+FAIL
+FAIL	github.com/qompack/qompack/test/guards	0.397s
+FAIL

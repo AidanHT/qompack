@@ -1,0 +1,26 @@
+w17-docs fix seat, Windows, head f7891090, 2026-10-02T05:02:29Z
+chain.log window: after 'linux timing exit=', before 'linux race exit=' (-race window)
+$ go test -p 2 -count=1 ./test/docs
+ok  	github.com/qompack/qompack/test/docs	2.459s
+exit=0
+$ go run ./tools/devtool gen-config-docs --check
+gen-config-docs: docs/config-reference.md is up to date
+exit=0
+$ go run ./tools/devtool gen-command-docs --check
+gen-command-docs: docs/commands.md is up to date
+exit=0
+$ go run ./tools/devtool gen-mcp-docs --check
+gen-mcp-docs: docs/mcp-tools.md is up to date
+exit=0
+$ go run ./tools/devtool fmt-check
+exit=0
+$ go run ./tools/devtool lint --only=golangci-lint,nomagic,importgraph,testdeps,bindeps,sleepcheck,docmarkers,runpatterns (PASS/FAIL lines)
+PASS golangci-lint
+PASS nomagic
+PASS importgraph
+PASS testdeps
+PASS bindeps
+PASS sleepcheck
+PASS runpatterns
+PASS docmarkers
+exit=0

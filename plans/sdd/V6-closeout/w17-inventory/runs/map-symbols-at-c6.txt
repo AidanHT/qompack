@@ -1,0 +1,20 @@
+rows with a now-missing symbol: {
+ "1.14.5": [
+  "internal/commands:TestCheckpoint_NeverRequestsNativeCompaction",
+  "internal/commands:TestCheckpoint_TransportFailureStillReportsAndDoesNotClaimSuccess",
+  "internal/commands:TestCheckpoint_WithoutARouteIsUnavailable"
+ ],
+ "1.15.8": [
+  "internal/analyzer:Propose"
+ ]
+}
+rows naming a test with a build constraint or t.Skip:
+1.5.5 internal/daemon:TestLock_V6_ExitedUnreapedOwnerCanBeReplaced ['linux || darwin'] []
+1.5.19 internal/cli:TestFaultActive_UnsetIsInertForAllElevenSites ['!noinject'] []
+1.11.9 internal/rehydrate:TestBuild_InjectionTagging [''] ['ruleW1SkipMsg)']
+1.13.16 internal/mcp:TestBudgetBF [''] ['bigFixtureSkip)']
+1.17.11 internal/cli:TestFaultActive_PanicSiteNamesEmbedTheirOwnColon ['!noinject'] []
+1.17.11 internal/cli:TestFaultActive_ParsesBareSiteNames ['!noinject'] []
+1.17.11 internal/cli:TestFaultActive_ParsesSiteWithArgument ['!noinject'] []
+1.17.11 internal/cli:TestFaultActive_UnknownTokensAreIgnored ['!noinject'] []
+1.17.11 internal/cli:TestFaultActive_UnsetIsInertForAllElevenSites ['!noinject'] []

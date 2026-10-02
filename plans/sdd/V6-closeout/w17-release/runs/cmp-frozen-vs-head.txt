@@ -1,0 +1,38 @@
+DIFF              checksums.txt  frozen=ad478f9174f25726 candidate=042440fcb43bc017
+DIFF              qompack-plugin-0.3.0-darwin-amd64.zip  frozen=2497fea606191c14 candidate=9a5eeca7fbb3e55a
+DIFF              qompack-plugin-0.3.0-darwin-amd64/BUNDLE.json  frozen=f10bedda6bbed762 candidate=49eca0f549ed5625
+DIFF              qompack-plugin-0.3.0-darwin-amd64/bin/qompack  frozen=90d56455c4b96386 candidate=165be7b81de89a42
+DIFF              qompack-plugin-0.3.0-darwin-amd64/checksums.txt  frozen=ab34214eed867961 candidate=7bb5a8ce99fb1fa3
+DIFF              qompack-plugin-0.3.0-darwin-arm64.zip  frozen=16f9596d1a5df35d candidate=5170f18373114b46
+DIFF              qompack-plugin-0.3.0-darwin-arm64/BUNDLE.json  frozen=a241f53737f343bb candidate=6ffba4a979d92adb
+DIFF              qompack-plugin-0.3.0-darwin-arm64/bin/qompack  frozen=2886396cf89d7eca candidate=e55d66ba34d9000d
+DIFF              qompack-plugin-0.3.0-darwin-arm64/checksums.txt  frozen=ad7534391d33efc7 candidate=7e8571dd786c1ce7
+DIFF              qompack-plugin-0.3.0-linux-amd64.zip  frozen=c399d4f780fbac3d candidate=3ada71118882d4b3
+DIFF              qompack-plugin-0.3.0-linux-amd64/BUNDLE.json  frozen=257c0a517ddc7f2b candidate=d2bdf18386df0236
+DIFF              qompack-plugin-0.3.0-linux-amd64/bin/qompack  frozen=3b39d67dd67015b1 candidate=f72206c3403fd06a
+DIFF              qompack-plugin-0.3.0-linux-amd64/checksums.txt  frozen=8eb798068b3f28f4 candidate=55323826c8886577
+DIFF              qompack-plugin-0.3.0-linux-arm64.zip  frozen=1f89ff7fa16d075f candidate=394ce5c9a34a074c
+DIFF              qompack-plugin-0.3.0-linux-arm64/BUNDLE.json  frozen=9faddb711294ebc3 candidate=0770c19fa65a4587
+DIFF              qompack-plugin-0.3.0-linux-arm64/bin/qompack  frozen=dda35c7fd5c5c3ac candidate=553e005493b2466b
+DIFF              qompack-plugin-0.3.0-linux-arm64/checksums.txt  frozen=f77e459b88ab67e4 candidate=c31ae1aff2839d1e
+DIFF              qompack-plugin-0.3.0-windows-amd64.zip  frozen=d5e839107164565a candidate=ba88056b6a33d772
+DIFF              qompack-plugin-0.3.0-windows-amd64/BUNDLE.json  frozen=a55f4c6616b2b1c1 candidate=b7467372b13ef5fe
+DIFF              qompack-plugin-0.3.0-windows-amd64/bin/qompack.exe  frozen=2de82d25f502bcac candidate=ab8046bac3bad894
+DIFF              qompack-plugin-0.3.0-windows-amd64/checksums.txt  frozen=0a1e89a3f359c827 candidate=722e37261661e2e2
+DIFF              qompack-plugin-0.3.0-windows-arm64.zip  frozen=58908e2091a14dd8 candidate=182080aa98059675
+DIFF              qompack-plugin-0.3.0-windows-arm64/BUNDLE.json  frozen=0fbc0bb56a81f1bd candidate=31c93d69316b1804
+DIFF              qompack-plugin-0.3.0-windows-arm64/bin/qompack.exe  frozen=dd4dc8fa6f92cbad candidate=c276cc9ec7e9bf6c
+DIFF              qompack-plugin-0.3.0-windows-arm64/checksums.txt  frozen=7c984d426fe14fa6 candidate=db25c546e5e11c07
+files: 66 identical, 25 differ, 91 total
+zip qompack-plugin-0.3.0-darwin-amd64.zip: BUNDLE.json: compress_size,sha256; bin/qompack: sha256; checksums.txt: sha256
+zip qompack-plugin-0.3.0-darwin-arm64.zip: BUNDLE.json: compress_size,sha256; bin/qompack: sha256; checksums.txt: compress_size,sha256
+zip qompack-plugin-0.3.0-linux-amd64.zip: BUNDLE.json: sha256; bin/qompack: sha256; checksums.txt: compress_size,sha256
+zip qompack-plugin-0.3.0-linux-arm64.zip: BUNDLE.json: compress_size,sha256; bin/qompack: sha256; checksums.txt: compress_size,sha256
+zip qompack-plugin-0.3.0-windows-amd64.zip: BUNDLE.json: compress_size,sha256; bin/qompack.exe: sha256; checksums.txt: compress_size,sha256
+zip qompack-plugin-0.3.0-windows-arm64.zip: BUNDLE.json: compress_size,sha256; bin/qompack.exe: sha256; checksums.txt: sha256
+BUNDLE.json qompack-plugin-0.3.0-darwin-amd64/BUNDLE.json: differing top-level fields ['source', 'files']: source: {'commit': '99d0b18cf7d5991aa733e70ce52a542b80aa7710', 'dirty': False} -> {'commit': '4cfc19dbd8f535484ed9c8ae4208a4496292a8b0', 'dirty': False}
+BUNDLE.json qompack-plugin-0.3.0-darwin-arm64/BUNDLE.json: differing top-level fields ['source', 'files']: source: {'commit': '99d0b18cf7d5991aa733e70ce52a542b80aa7710', 'dirty': False} -> {'commit': '4cfc19dbd8f535484ed9c8ae4208a4496292a8b0', 'dirty': False}
+BUNDLE.json qompack-plugin-0.3.0-linux-amd64/BUNDLE.json: differing top-level fields ['source', 'files']: source: {'commit': '99d0b18cf7d5991aa733e70ce52a542b80aa7710', 'dirty': False} -> {'commit': '4cfc19dbd8f535484ed9c8ae4208a4496292a8b0', 'dirty': False}
+BUNDLE.json qompack-plugin-0.3.0-linux-arm64/BUNDLE.json: differing top-level fields ['source', 'files']: source: {'commit': '99d0b18cf7d5991aa733e70ce52a542b80aa7710', 'dirty': False} -> {'commit': '4cfc19dbd8f535484ed9c8ae4208a4496292a8b0', 'dirty': False}
+BUNDLE.json qompack-plugin-0.3.0-windows-amd64/BUNDLE.json: differing top-level fields ['source', 'files']: source: {'commit': '99d0b18cf7d5991aa733e70ce52a542b80aa7710', 'dirty': False} -> {'commit': '4cfc19dbd8f535484ed9c8ae4208a4496292a8b0', 'dirty': False}
+BUNDLE.json qompack-plugin-0.3.0-windows-arm64/BUNDLE.json: differing top-level fields ['source', 'files']: source: {'commit': '99d0b18cf7d5991aa733e70ce52a542b80aa7710', 'dirty': False} -> {'commit': '4cfc19dbd8f535484ed9c8ae4208a4496292a8b0', 'dirty': False}

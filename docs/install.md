@@ -1,11 +1,15 @@
 # Installing Qompack
 
-Task 8 rehearsed install, upgrade and uninstall on **windows/amd64** against `claude` 2.1.263,
-with `CLAUDE_CONFIG_DIR` pointed at a disposable home. The supported-scope table in
-`docs/release.md` §3 is generated from those records: today that host reads `installed-verified`;
-the other five targets have no install record.
+**Tested host version: Claude Code 2.1.280**, on Windows 11 (windows/amd64). Two sets of records
+stand behind this page. SP-17's Task 8 rehearsed install, upgrade and uninstall on **windows/amd64**
+against `claude` 2.1.263, with `CLAUDE_CONFIG_DIR` pointed at a disposable home; the supported-scope
+table in `docs/release.md` §3 is generated from those records, so that host reads
+`installed-verified` and the other five targets have no install record. The V6 close-out's live lane
+then installed its frozen windows/amd64 bundles into Claude Code 2.1.280 through a disposable local
+marketplace at **local** scope and ran real sessions in them (`plans/sdd/V6-closeout/live/`;
+agent-executed on the owner's machine under owner decision D3, not human UAT).
 
-Commands this page marks **rehearsed** are the ones Task 8 actually ran. Anything else stays
+Commands this page marks **rehearsed** are the ones those runs actually made. Anything else stays
 **recorded from host docs, not rehearsed**.
 
 **Host requirement: Claude Code 2.1.139 or later, for every install path** — `--plugin-dir`, a local
@@ -88,7 +92,11 @@ claude plugin install qompack@<marketplace> -s user -y
 `-s` selects the scope: `user` writes `enabledPlugins` in `~/.claude/settings.json`, `project`
 writes `.claude/settings.json`, `local` writes `.claude/settings.local.json`. `install` and
 `uninstall` take `user|project|local`; `update` also accepts `managed`. Task 8 rehearsed
-**user** scope only; project, local and managed are recorded from host docs, not rehearsed.
+**user** scope on 2.1.263. The V6 live lane rehearsed **local** scope on 2.1.280:
+`claude plugin marketplace add <dir> --scope local` ("(declared in local settings)"), then
+`claude plugin install qompack@<marketplace> -s local --json`, and `claude plugin list --json`
+reported the install with `scope: local` and the project it belongs to. Project and managed scope
+are recorded from host docs, not rehearsed.
 
 What an install writes, as observed on 2.1.263 (host-output observations, not test assertions,
 except where noted):
@@ -209,15 +217,23 @@ created by an install. A page that says the default uninstall deletes the payloa
 this version. An uninstall leaves `extraKnownMarketplaces` in place; removing the marketplace is a
 separate `claude plugin marketplace remove <name>` (host-output observation).
 
+**On Claude Code 2.1.280 the payload cache is still left behind**, observed by the V6 live lane at
+local scope: after `claude plugin uninstall qompack@<marketplace> -s local --json` (`"keptData":
+false`) and `claude plugin marketplace remove <marketplace>`, the host left
+`plugins/cache/<marketplace>/qompack/<version>/` in place, marked with an `.orphaned_at` file. The
+live session had created an empty `plugins/data/qompack-qompack-live/` directory, the
+`plugins/data/<id>/` of §3; the run removed it itself before the uninstall, so what an uninstall on
+2.1.280 does with that directory was not observed.
+
 **The policy, stated plainly:**
 
-| what | what uninstall does on 2.1.263 |
+| what | what uninstall does (observed on 2.1.263, and on 2.1.280 where stated) |
 | --- | --- |
 | the host integration (`enabledPlugins` entry, `plugin list`) | removed |
-| the bundle's binaries and manifest under the host's cache | **retained** on both paths |
+| the bundle's binaries and manifest under the host's cache | **retained** on both paths; on 2.1.280, left behind and marked `.orphaned_at` |
 | host-side plugin data under `~/.claude/plugins/data/<id>/` | not created by an install; once a live session has created it, removed unless `--keep-data` (CLI help, 2.1.280) |
 | **`<project>/.qompack/` and `~/.qompack/` — your recorded sessions** | **retained. Always.** |
-| `~/.qompack/bin/<sha256>/qompack.exe` — Windows only: the copy of the binary the daemon runs from ([architecture §1](architecture.md#1-process-model)) | retained; a copy is pruned only when a newer version is staged, which never happens after an uninstall |
+| `~/.qompack/bin/<sha256>/qompack.exe` — Windows only: the copy of the binary the daemon runs from ([architecture §1](architecture.md#1-process-model)) | retained; a copy is pruned only when a newer version is staged, which never happens after an uninstall, so remove them by hand (below) |
 
 The recorded-sessions row is deliberate and it is not an oversight. `.qompack/` is your data: the captures, the
 index, the checkpoints and the diagnostic evidence from your own sessions. Uninstalling a tool is
@@ -321,8 +337,16 @@ The entry name is what the host keys the install by: "When a marketplace entry l
 under a different name, the marketplace entry name is what `enabledPlugins` keys and `/plugin`
 use" (plugins-reference). Observed on 2.1.280 with a local probe marketplace, `claude plugin list
 --json` reports the install as `qompack-windows-amd64@qompack` while `claude plugin details` names
-the plugin `qompack`; the slash-command and MCP-tool namespace of a marketplace install has not been
-observed in a live session.
+the plugin `qompack`.
+
+**What a session shows.** Under an entry named `qompack`, which is how the V6 live lane's local
+marketplaces listed the plugin, a live session on 2.1.280 listed the MCP server as
+`plugin:qompack:qompack`, its tools as `mcp__plugin_qompack_qompack__<tool>` (for example
+`mcp__plugin_qompack_qompack__recall`) and the slash commands as `/qompack:<command>`. Under a
+release entry named `qompack-<os>-<arch>`, the namespace has **not** been observed in a live
+session, and the host may derive it from the entry name instead. These docs write
+`/qompack:<command>` throughout; if your session lists the commands or tools under another prefix,
+use the one it lists.
 
 **Checksums.** The host verifies every download against the entry's pin: "If the downloaded file
 doesn't match the pin, Claude Code refuses the install and reports `Plugin archive integrity check
@@ -358,3 +382,53 @@ action). If a hook reports `permission denied` there, `claude plugin list --json
 `installPath`, and `chmod +x <installPath>/bin/qompack` is the workaround until it is confirmed.
 `qompack doctor` run with `CLAUDE_PLUGIN_ROOT=<installPath>` reports this case on its own
 `version.pluginRoot` row: `degraded`, "set but the binary is not executable".
+
+## 10. Unsigned binaries: Gatekeeper, SmartScreen and Defender
+
+Qompack's binaries are not code-signed: no Authenticode signature on Windows, and no Apple
+Developer ID signature or notarization on macOS ([release §7](release.md#7-not-claimed)). What you
+can check instead is the digest: every release zip is listed in that release's `checksums.txt`,
+every file of a bundle in the bundle's own `checksums.txt` (§1), and the release workflow attests
+build provenance for the archives ([release §1](release.md#1-procedure), step 5). None of the
+behaviour below has been observed with a published Qompack release; it is what the two operating
+systems document for unsigned downloads. What Claude Code shows when the operating system refuses a
+hook's binary has not been observed either.
+
+**macOS: Gatekeeper.** macOS marks a file that a browser or another quarantine-aware app downloaded
+with the `com.apple.quarantine` extended attribute, and files extracted from such an archive carry it
+too. Gatekeeper refuses to run a quarantined executable that is not notarized, with a dialog saying
+that the file cannot be opened because Apple cannot check it for malicious software (the wording
+varies with the macOS version). A file without the attribute is not checked this way. Whether
+Claude Code's own download of a marketplace archive sets the attribute has not been observed; a zip
+you downloaded in a browser and extracted yourself does carry it. To allow the binary, first check
+its archive against the release's `checksums.txt`, then remove the attribute from the installed
+binary (`claude plugin list --json` gives the `installPath`):
+
+```sh
+shasum -a 256 qompack-plugin-<version>-darwin-arm64.zip   # compare with the release's checksums.txt
+xattr -l <installPath>/bin/qompack                         # lists com.apple.quarantine if it is set
+xattr -d com.apple.quarantine <installPath>/bin/qompack
+```
+
+Alternatively, after the first refusal, System Settings › Privacy & Security offers **Open Anyway**
+for the refused file. Either way the decision is yours: it tells macOS to run this one file without
+the notarization check. The executable-bit question of §9 is separate, and so is its workaround.
+
+**Windows: SmartScreen and Defender.** Windows adds a Mark of the Web to a file a browser downloads,
+and Explorer carries it to the files it extracts from such a zip. SmartScreen checks marked files
+when they are opened from Explorer, and an unsigned, rarely seen executable gets the "Windows
+protected your PC" screen. Whether a binary that Claude Code downloaded and starts itself is checked
+this way has not been observed. To clear the mark on a zip you have checked, before extracting it:
+
+```powershell
+Get-FileHash -Algorithm SHA256 .\qompack-plugin-<version>-windows-amd64.zip   # compare with checksums.txt
+Unblock-File -Path .\qompack-plugin-<version>-windows-amd64.zip
+```
+
+(the file's Properties dialog has the same **Unblock** box). Microsoft Defender Antivirus scans
+the binary whatever its mark, and its machine-learning detection has flagged development builds of
+Qompack as `Trojan:Win32/Bearfoos.A!ml` and `B!ml` (V6 close-out decision D32).
+[Troubleshooting §7](troubleshooting.md#windows-defender-flags-qompackexe) says how to recognise
+that, how to check the flagged file against the release's checksums, and how to report a false
+positive to Microsoft yourself. Qompack never adds a Defender exclusion and needs none, and this
+release makes no claim that Microsoft has reviewed or cleared its binaries.

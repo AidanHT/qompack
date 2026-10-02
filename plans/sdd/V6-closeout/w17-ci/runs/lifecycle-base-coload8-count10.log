@@ -1,0 +1,3 @@
+co-load: 8 busy sh loops (coload.sh, timeout 600 each) beside the linux -race chain; base audit order
+ok  	github.com/qompack/qompack/test/fault	224.021s
+exit=0

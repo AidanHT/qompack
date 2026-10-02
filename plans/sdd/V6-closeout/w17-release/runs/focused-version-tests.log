@@ -1,0 +1,19 @@
+ok  	github.com/qompack/qompack/internal/core	0.885s
+ok  	github.com/qompack/qompack/internal/pluginmanifest	0.915s
+ok  	github.com/qompack/qompack/tools/devtool	1.620s
+=== RUN   TestDoctor_NamesTheVersionAndDoesNotProbeTheHost
+=== PAUSE TestDoctor_NamesTheVersionAndDoesNotProbeTheHost
+=== CONT  TestDoctor_NamesTheVersionAndDoesNotProbeTheHost
+--- PASS: TestDoctor_NamesTheVersionAndDoesNotProbeTheHost (0.60s)
+PASS
+ok  	github.com/qompack/qompack/internal/cli	1.078s
+=== RUN   TestSpecs_PinInstalledSurface
+=== PAUSE TestSpecs_PinInstalledSurface
+=== CONT  TestSpecs_PinInstalledSurface
+--- PASS: TestSpecs_PinInstalledSurface (0.00s)
+PASS
+ok  	github.com/qompack/qompack/internal/commands	1.771s
+=== RUN   TestWriteInitializedObservable
+--- PASS: TestWriteInitializedObservable (0.05s)
+PASS
+ok  	github.com/qompack/qompack/internal/mcp	0.300s

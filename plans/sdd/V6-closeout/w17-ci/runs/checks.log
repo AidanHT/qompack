@@ -1,0 +1,19 @@
+== fmt-check
+exit=0
+== vet windows
+exit=0
+== vet linux
+exit=0
+== test/docs
+ok  	github.com/qompack/qompack/test/docs	3.740s
+exit=0
+== gen-config-docs --check
+gen-config-docs: docs/config-reference.md is up to date
+exit=0
+== gen-command-docs --check
+gen-command-docs: docs/commands.md is up to date
+exit=0
+== gen-mcp-docs --check
+gen-mcp-docs: docs/mcp-tools.md is up to date
+exit=0
+ok  	github.com/qompack/qompack/test/release	15.987s
