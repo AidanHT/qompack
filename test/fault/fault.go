@@ -1317,10 +1317,16 @@ const auditBound = 2 * time.Minute
 
 // auditProject walks root's `.qompack/` and reports every reference that does not resolve.
 //
-// It opens its own store.Store, which is safe here because every call site runs with the daemon
-// already stopped — the audit is the post-recovery question, never a concurrent one. A store that
-// cannot be opened at all is a Note rather than a fatal: half the rows here damage the very files
-// Open reads, and "the store will not open" is a finding, not a harness error.
+// It opens its own store.Store, read-only in effect. Most call sites run with the daemon already
+// stopped — the post-recovery question — but TestFault_Lifecycle audits beside its one live daemon
+// between rows, so a walk may race a publication. auditRetentionRoots reads each claim before the
+// evidence it names, in the producer's own order, so a capture published mid-walk is never a false
+// dangling reference; auditRoots and auditToolUses read their index lines before resolving what they
+// name. Two walks are not safe against a publication in flight, and the matrix's rows settle their
+// deliveries (waitIndexed, runFlush) before auditing for that reason: the store's roots are the ones
+// loaded at Open, and the orphan-checkpoint scan lists artifacts after reading the manifest. A store
+// that cannot be opened at all is a Note rather than a fatal: half the rows here damage the very
+// files Open reads, and "the store will not open" is a finding, not a harness error.
 func auditProject(t *testing.T, root string) auditResult {
 	t.Helper()
 
@@ -1790,6 +1796,12 @@ type retentionLine struct {
 	Reason string `json:"reason"`
 }
 
+// auditRetentionBetweenReads, when set, runs between auditRetentionRoots' two reads of the project:
+// the retention-roots file and the capture-sidecar scan. It is nil except inside this package's own
+// audit test, which publishes a capture there to stand in for the live daemon the lifecycle matrix
+// audits beside.
+var auditRetentionBetweenReads func()
+
 // auditRetentionRoots checks that every hash a producer asked GC to retain is actually still held.
 //
 // The direction matters: a retention root naming an absent object is not itself data loss — GC
@@ -1798,17 +1810,21 @@ type retentionLine struct {
 // retains everything on that line under the blanket `rollback` class. Collection is NOT stopped by
 // a bad file line — only an in-process source's failure does that — so the consequence of a rotted
 // file is over-retention and a claim nobody can read, which is worth naming either way.
+//
+// The claims are read BEFORE the evidence they name, and the order is load-bearing: the lifecycle
+// matrix audits beside a live daemon, and a capture is published sidecar first, retention root
+// second (store/capture_sidecar.go, writeCaptureSidecar). Read in that order, every claim this walk
+// sees was declared after its sidecar was on disk, so a claim that does not resolve is a real one.
+// Read the other way round, a capture published between the two reads is a claim without evidence:
+// run 36955046276's windows-latest test job reported exactly that for the Stop that
+// out_of_order_sessionend sends after SessionEnd, on a store whose stopped-daemon audit was clean
+// (TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence).
 func auditRetentionRoots(ctx context.Context, res *auditResult, s store.Store, root string) {
-	// An `evidence`-class root does NOT name an object. store/capture_sidecar.go registers the
-	// sidecar's BytesHash — the digest of the bytes the sidecar itself retains, which live under
-	// records/captures/ precisely so that GC cannot reach them (:22-26) — so resolving one against
-	// the object store reports every ordinary capture on a healthy project as a dangling reference.
-	// That is not a finding, it is the audit asking the wrong store; an evidence root resolves when
-	// a sidecar carrying that bytes_hash is on disk.
-	evidence := sidecarBytesHashes(root)
-
 	path := store.RetentionRootsPath(root)
 	lines, err := readJSONLines(path)
+	if auditRetentionBetweenReads != nil {
+		auditRetentionBetweenReads()
+	}
 	if err != nil {
 		if !errors.Is(err, fs.ErrNotExist) {
 			res.Dangling = append(res.Dangling, danglingRef{
@@ -1819,6 +1835,14 @@ func auditRetentionRoots(ctx context.Context, res *auditResult, s store.Store, r
 		}
 		return
 	}
+
+	// An `evidence`-class root does NOT name an object. store/capture_sidecar.go registers the
+	// sidecar's BytesHash — the digest of the bytes the sidecar itself retains, which live under
+	// records/captures/ precisely so that GC cannot reach them (:22-26) — so resolving one against
+	// the object store reports every ordinary capture on a healthy project as a dangling reference.
+	// That is not a finding, it is the audit asking the wrong store; an evidence root resolves when
+	// a sidecar carrying that bytes_hash is on disk.
+	evidence := sidecarBytesHashes(root)
 	for i, raw := range lines {
 		var rl retentionLine
 		if jsonErr := json.Unmarshal(raw, &rl); jsonErr != nil {
