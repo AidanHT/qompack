@@ -1,9 +1,9 @@
 > **Candidate 6 and 7 dispositions, 2026-10-02 (C6.2; supersede the dispositions below).** Every row
 > now carries `c6_result` and `c6_evidence`, from candidate 6 (`verify/v6` `99d0b18`) evidence, and
 > `c7_result` and `c7_evidence`, for candidate 7 (`verify/v6` `d20309c0`, code `b31d0753`), all appended
-> to `inventory-current.tsv`. Candidate 6: 252 `verified_in_target`, 33 `partial_verified`,
+> to `inventory-current.tsv`. Candidate 6: 251 `verified_in_target`, 34 `partial_verified`,
 > 1 `implemented_unverified`, 5 `failed`, 7 `unknown`, 3 `unsupported`, 3 `documented`. Candidate 7:
-> 248 `verified_in_target`, 41 `partial_verified`, 2 `implemented_unverified`, 7 `unknown`,
+> 251 `verified_in_target`, 39 `partial_verified`, 1 `implemented_unverified`, 7 `unknown`,
 > 3 `unsupported`, 3 `documented`. The seven
 > original columns are unchanged; the `result=` field inside `limitation` is the pre-close-out record.
 > Evidence codes, the rule, the pending rows with what closes each, the fourteen section 3

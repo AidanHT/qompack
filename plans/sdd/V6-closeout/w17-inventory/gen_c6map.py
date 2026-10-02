@@ -112,7 +112,9 @@ The file's own vocabulary: `verified_in_target`, `partial_verified`, `implemente
 - `partial_verified`: every automated step the row names is green on the candidate, and a further part is
   pending (the live lane, C5.5) or has no possible artifact, or is a Linux fsync-bound half that is not
   verified in target by rule; the cell names the part and what closes it. On candidate 7 it also covers a
-  row over changed code whose Windows re-run is green (PRE7) and whose named hosted run is pending (P-CI7).
+  row judged on candidate 7's own runs (changed code, or a candidate 6 red re-judged) when part of what it
+  needs has executed green on candidate 7 (PRE7, or the hosted jobs named in P-CI7) and the only steps
+  left are named runs that have not landed (P-CI7, P-REL7, P-TAG, C7.3); the cell names them.
 - `implemented_unverified`: nothing the row needs has executed on the candidate yet.
 - `failed`: an artifact of the candidate for the row's assertion is red. It stays on that candidate when
   the red later has a root cause and a fix: a later candidate that carries the fix is judged on its own runs.
@@ -158,7 +160,7 @@ Paths are relative to `plans/sdd/V6-closeout/`. Job ids are GitHub Actions jobs 
 | `C52` | quiet C5.2 on candidate 5 `0d06ab12` (`phase3/c5/quiet/c52-win/`, `c52-linux/`, `c52-names.tsv`; ten ABBA rounds against `cf31e01`, D54), carried by D57(e) (next section) | green as a measurement |
 | `C51` | quiet C5.1 on `99d0b18`, `phase3/c6/quiet/` (`quiet.sh` 05:25-05:32Z, `bench-hotpath --iterations 5000`, `quiet-run.txt`), Windows on AC. Windows (`c51-win.log`, `c51-win-hotpath.json`): B-A p99 30.72 ms and B-B 24.58 ms against 50 PASS, B-D 72.23 ms reported, B-E 170.75 ms (CPU 31.25 ms) against 2000 PASS, spawn floor p50 14.42 ms; B-F p99 73.73 ms against 250 PASS (`c51-win-bf.log`). Linux (`c51-linux/c51-linux.log`): B-A p99 65.54 ms and B-B 61.44 ms against 15 FAIL, 3591 of 5130 hot-path requests deferred to the client spool and 0 lost, fsync-bound, not verified in target (D53(b)); B-D 24.06 ms reported; B-E 384.11 ms (CPU 7.76 ms) PASS; B-F p99 20.48 ms PASS (`c51-linux/bf/.../test.jsonl`); quiet.sh warned the container was not idle after its run (1-min load 2.97). `homeguard-check.txt`: real home unchanged | Windows green; Linux B-A/B-B red (D53(b)) |
 | `X11-E1` | D53(d)'s decisive experiment e1 on candidate 6's tree on AC (`phase3/c6/x11-e1/summary.txt`, `runs.txt`; script `w17-x11win/runs/x11-decisive-v2.sh`; D57(g)): the bare harness, TestV3_HotPathUnchangedWithLedgerResident (X11) and TestIntegration_HotPathWarmWithRealResidentState, each alone after 5 idle minutes, three rounds, every run VALID (AC 100 %, no power transition). All nine passed, 0 deferred, n=2064 in each. X11's no-ledger and ledger-resident arms: B-A p99 36.9 ms, B-B p99 22.5-24.6 ms against 50; the D42 pair passed 3/3 (hook_controlled_observed p50 5.120 ms in both arms, ceiling 6.400). Harness alone: B-A p99 28.7-32.8 ms, B-B 22.5. Spawn floor p50 13-22 ms | green (Windows) |
-| `X11-BAT` | not evidence. X11's two candidate 6 Windows failures were its no-ledger arm, in both isolated executions (`p3-win-e2e-timing.log` B-A/B-B p99 81.9/57.3 ms, `p3-win-x11-alone.log` 98.3/81.9 ms; 593 deliveries deferred to the spool, spawn floor p50 29-30 ms; the test stops there, so the ledger phase is not reached). Both ran on battery (AC off 22:29:32 to 23:55:00 on 10-01, Kernel-Power event 105, `w17-x11win/report.md`). The pre-freeze `prefreeze/e2e.log` (X11's D42 pair at the ledger arm) and `prefreeze/hotpath.log` (the integration row, 593 deferred) reds on `61b0cd66` ran at below-normal priority beside the owner's evening load, not in an isolated timing pass (D28) | invalid as reference measurements (D57(d)), neither pass nor fail |
+| `X11-BAT` | not evidence. X11's two candidate 6 Windows failures were its no-ledger arm, in both isolated executions (`p3-win-e2e-timing.log` B-A/B-B p99 81.9/57.3 ms, `p3-win-x11-alone.log` 98.3/81.9 ms; 593 deliveries deferred to the spool, spawn floor p50 29-30 ms; the test stops there, so the ledger phase is not reached). Both ran on battery (AC off 22:29:32 to 23:55:00 on 10-01, Kernel-Power event 105, `w17-x11win/report.md`). Listed here for transparency, and not battery runs: the pre-freeze reds on `61b0cd66`, `phase3/c6/prefreeze/e2e.log` (X11's ledger-resident arm, B-A p99 57.3 ms against 50; the D42 pair is not reached) and `phase3/c6/prefreeze/hotpath.log` (the integration row, 593 deferred), ran on AC but at below-normal priority beside the owner's evening load, not in an isolated timing pass (D28) | the battery runs are invalid as reference measurements (D57(d)); the pre-freeze runs, on AC but not isolated, are not reference measurements (D28); neither is a pass or a fail |
 | `RED-FAULT` | hosted `test (windows-latest)` 110676058036: `-count=2`, the second pass of TestFault_Lifecycle/out_of_order_sessionend left a dangling retention root ("retention root ... names 158e3206c3f5, which is not held. Owner: internal/daemon"); the first pass, `WIN` and `LNX` passed. Root cause (D57(b)): test/fault's audit read the capture sidecars before `retention-roots.jsonl` beside a daemon still publishing a Stop, which writes the sidecar first and then its root; not a product defect. The test-only fix `dd8e9fd2` and its deterministic row `88626fdd` (TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence) are in candidate 7's code, not candidate 6's | red on c6; judged on c7 by PRE7 and P-CI7 |
 | `RED-RELDRY` | hosted `release-dry-run` 110676058084: release-check passed version (skipped, no tag), fmt-check, lint, vet, build and test, then failed in `ci-local cover` on X11 at the hosted fsync tail (ubuntu, B-B p99 49 ms against 15) without the non-reference-disk declaration (D57(a)); build-all, generated docs, guards, govulncheck, licenses, determinism, rollback rehearsal, plugin-validate and marketplace were not reached. Candidate 7's release-dry-run and release.yml's tag-time job declare QOMPACK_NONREFERENCE_DISK; the delivery ledger, B-E_cpu and every structural check stay gated | red on c6; judged on c7 by P-CI7 and P-REL7 |
 | `P-LIVE` | the live lane (D53(f); `coordinator/rerun-parts-c6.js`): C4.1 through a `qompack-windows-amd64` entry, C4.3, C4.4, C4.5, C4.6, C4.8 (upgrade from the c5 bundle), C4.9, C1.7 restore smoke, UAT-01, 03, 04, 05, 06, 09, 10, 12. D57(c) runs it on candidate 7's frozen bundles, so its verdicts close candidate 7's rows; candidate 6's rows keep `partial_verified` | pending |
@@ -166,8 +168,8 @@ Paths are relative to `plans/sdd/V6-closeout/`. Job ids are GitHub Actions jobs 
 | `CARRY-C4` | passed on candidate 4 `9f6a2fad` (`live/report-c4.md`) and not in the live lane: C4.2, UAT-02 (and UAT-07, 08, 11). Carry-forward note (D53(f)): 204 files changed since under internal/, cmd/ and plugin/ (`git diff --shortstat 9f6a2fad 99d0b18 -- internal cmd plugin`), 98 of them non-test product files, +5720/-654 (the same command with `':(exclude)*_test.go'`) | not re-run |
 | `C7-CARRY` | candidate 6's disposition and evidence carry to candidate 7: the row's covered code is unchanged between `99d0b18c` and `b31d0753` (`w17-inventory/runs/c7-carry-proof.txt`), and bin/ differs by one unreferenced byte (D57(c), `w17-release/report.md`) | as on c6 |
 | `PRE7` | candidate 7's pre-freeze check on `b31d0753`, `phase3/c7/prefreeze/` (`summary.log`, `gate.log`, `testpkgs.log`, `internal.log`): gate (build, vet on three OSes, fmt-check, gen-config-docs and gen-mcp-docs `--check`, lint subset with coverage floors), testpkgs (test/fault, security, platform, release, canary, dedup, replay, guards, docs, bench) and internal (`./internal/... ./tools/... ./cmd/...`), Windows, `-p 2 -count=1`; e2e and integration are carried from candidate 6 (`coordinator/c7-night.sh`) | @@PRE7STATE@@ |
-| `P-CI7` | hosted ci.yml run `36981590450` on candidate 7's head `d20309c0` (and nightly `36981711009`), started when `coordinator/c7-night.sh` pushed `verify/v6` (`night.log`: "pushed verify/v6 d20309c0..."); in progress when this map was written; already green on c7 then: docs 110757119402, plugin-validate 110757119388, crossbuild 110757119552, security 110757119490, replay-gate 110757119428, test-e2e ubuntu 110757119506 and macos 110757119550 (the jobs the rows wait on, test on three OSes and release-dry-run, were still running) | pending |
-| `P-C52R` | a quiet C5.2 re-run on candidate 7 of the benchmarks whose candidate 5 figure does not carry by D57(e): BenchmarkHookNoop_InProcess (1.1.27), BenchmarkTombstone (1.8.2), the three BenchmarkOnToolUse_* (1.8.13) and the five daemon scheduler benches (1.12.17, 1.16.11), or, for 1.8.2, 1.12.17 and 1.16.11, a coordinator ruling on `toolnames.go` (next section) | pending |
+| `P-CI7` | hosted ci.yml run `36981590450` on candidate 7's head `d20309c0` (and nightly `36981711009`), started when `coordinator/c7-night.sh` pushed `verify/v6` (`night.log`: "pushed verify/v6 d20309c0..."); still in progress at 2026-10-02 08:31Z (`gh run view 36981590450 --json jobs`), with 18 of its 21 jobs green on c7: verify 110757119417, cover 110757119172, docs 110757119402, plugin-validate 110757119388, crossbuild 110757119552, security 110757119490, replay-gate 110757119428, test (ubuntu-latest) 110757119503, test (macos-latest) 110757119443, test-e2e on ubuntu 110757119506, macos 110757119550 and windows 110757119540, and timing and bench-gate on all three OSes. Still running: test (windows-latest) 110757119316 (`-count=2`, RED-FAULT's job), lint-windows 110757119431 and release-dry-run 110757119491 (RED-RELDRY's job) | pending (3 jobs) |
+| `P-C52R` | a quiet C5.2 re-run on candidate 7 of the benchmarks whose candidate 5 figure does not carry by D57(e): BenchmarkHookNoop_InProcess (1.1.27), BenchmarkTombstone (1.8.2), the three BenchmarkOnToolUse_* (1.8.13), the five daemon scheduler benches (1.12.17, 1.16.11) and the internal/store set (1.6.19, 1.16.11), or, for 1.8.2, the daemon benches and the store benches named in reading (3), a coordinator ruling on unreached changes (next section) | pending |
 | `P-REL7` | `release-check --tag v0.3.0` on the reference host, required before the tag (`docs/release.md` section 1, D57(a)) | pending |
 | `P-TAG` | the release tag (C7.4): release.yml's release-check `--tag`, actionlint and the goreleaser run | pending |
 
@@ -177,32 +179,49 @@ D57(e): a candidate 5 C5.2 measurement counts as `verified_in_target` on candida
 file the benchmark executes is byte-unchanged, and the row's own cell names the carry. Every C5.2 row's
 cell now says whether its figure carries, and names the proof file.
 
-**The proof** is `w17-inventory/runs/c52-executed-files.txt`, written by `w17-inventory/c52exec.py`. It
-runs each benchmark the C5.2 rows rest on once (`-benchtime=1x`, an execution trace, not a measurement)
-under a set-mode coverage profile over every package of the module. It lists the files with an executed
-statement, setup included, and intersects them with the non-test `.go` files that differ between candidate
-5 (`0d06ab12`) and candidate 6 (`99d0b18c`). For each executed changed file it says whether the change is
-comment-only and, if not, whether an executed block covers a changed line. The earlier per-file argument
-(`runs/unchanged-proofs.txt`, `runs/c52-closure-c5-to-c6.txt`) had missed three of the files the trace
-found: `internal/core/toolnames.go`, `internal/pluginmanifest/manifest.go` and the test helper
-`internal/paths/pathstest/home.go`.
+**The proof has two halves.** (1) `w17-inventory/runs/c52-executed-files.txt`, written by
+`w17-inventory/c52exec.py`, covers the non-test files. It runs each benchmark the C5.2 rows rest on once
+(`-benchtime=1x`, an execution trace, not a measurement) under a set-mode coverage profile over every
+package of the module. It lists the non-test files with an executed statement, setup included, and
+intersects them with the non-test `.go` files that differ between candidate 5 (`0d06ab12`) and candidate
+6 (`99d0b18c`). For each executed changed file it says whether the change is comment-only and, if not,
+whether an executed block covers a changed line. (2) Go never instruments `_test.go` files, so the trace
+cannot see them. `w17-inventory/runs/c52-test-files.txt`, written by `w17-inventory/c52tests.py`, covers
+them statically from git objects. In the benchmark package's `_test.go` files it follows, by name, the
+functions reachable from each benchmark and from TestMain. It also lists every package-level initializer
+and `init()`, which the test binary runs for every benchmark. It intersects them with the `_test.go`
+files that changed c5->c6. Name matching can only widen the reached set. The earlier per-file argument
+(`runs/unchanged-proofs.txt`, `runs/c52-closure-c5-to-c6.txt`) had missed three non-test files that the
+trace found: `internal/core/toolnames.go`, `internal/pluginmanifest/manifest.go` and the test helper
+`internal/paths/pathstest/home.go`. The first version of this section also missed the store set's
+changed `_test.go` files.
 
 | benchmarks | rows | executed files changed c5->c6 | carries |
 |---|---|---|---|
-| obs, config, paths, symbols, dag, rules, skills, internal/scheduler | 1.1.16, 1.1.27 (config, paths), 1.4.14 (symbols), 1.7.8, 1.7.10, 1.11.16, 1.12.17 and 1.16.11 (scheduler) | none | yes |
-| eval, sketch, chunk, canon, store, negknow, checkpoint | 1.2.12, 1.3.7, 1.3.16, 1.4.14, 1.6.19, 1.9.12, 1.10.17, 1.16.11 (store, checkpoint) | `internal/paths/pathstest/home.go` only, a test helper whose change is four comment lines (no `//go:` directive) | yes, on the comment-only reading below |
-| internal/observer BenchmarkTombstone | 1.8.2 | `internal/core/toolnames.go` (gained CutHostPluginTool; no executed block covers a changed line) | no, pending P-C52R or a ruling |
-| internal/daemon scheduler_bench_test.go (five benches) | 1.12.17, 1.16.11 (daemon) | `internal/core/toolnames.go`, as above | no, pending P-C52R or a ruling |
+| obs, config, paths, symbols, dag, rules, skills, internal/scheduler | 1.1.16, 1.1.27 (config, paths), 1.4.14 (symbols), 1.7.8, 1.7.10, 1.11.16, 1.12.17 and 1.16.11 (scheduler) | none, product or `_test.go` | yes |
+| eval, sketch, chunk, canon, negknow, checkpoint | 1.2.12, 1.3.7, 1.3.16, 1.4.14, 1.9.12, 1.10.17, 1.16.11 (checkpoint) | `internal/paths/pathstest/home.go` only, a test helper whose change is four comment lines (no `//go:` directive); no changed `_test.go` file | yes, on the comment-only reading below |
+| internal/store: PutBytes*, PutObject_NovelChunk, GetChunk, OpenSpan_4KB_of_4MB, OpenStore_50kRoots | 1.6.19, 1.16.11 (store) | `pathstest/home.go` (comment-only); `testdouble_test.go` (changed; these benches reach its newFakeClock and storeOpt helpers, no changed line); the package initializer of `maint_edge_test.go`, new c5->c6 (errInjectedBarrier) | no, pending P-C52R or a ruling |
+| internal/store: CountFold_4MiB, MarkEncoded_100 | 1.16.11 (store) | as above, without `testdouble_test.go`; on candidate 5 both ran after BenchmarkGC_50kObjects had leaked HOME, and pathstest failed that binary after PASS (`phase3/c5/quiet/c52-win/c52-win-r*-candidate-store-1s.log`) | no, pending P-C52R |
+| internal/store: GC_50kObjects, Search_1000Roots, Search_1000Roots_DistinctChunks | 1.6.19, 1.16.11 (store) | changed lines in their own bodies (`gc_test.go`, `search_test.go`) and in `testdouble_test.go`'s newProject, newTestStore and openOver: the testing.TB fix of the zero testing.T that leaked HOME in candidate 5's own run | no, pending P-C52R |
+| internal/observer BenchmarkTombstone | 1.8.2 | `internal/core/toolnames.go` (gained CutHostPluginTool; no executed block covers a changed line); no changed `_test.go` file | no, pending P-C52R or a ruling |
+| internal/daemon scheduler_bench_test.go (five benches) | 1.12.17, 1.16.11 (daemon) | `internal/core/toolnames.go`, as above; the package initializer of `precompact_settle_retry_test.go`, new c5->c6 (errInjectedSpoolLock) | no, pending P-C52R or a ruling |
 | internal/observer BenchmarkOnToolUse_* (three) | 1.8.13 | `internal/observer/observer.go` (sessionState gained two fields, a layout change on the measured path), `toolnames.go` | no, pending P-C52R |
-| internal/cli BenchmarkHookNoop_InProcess | 1.1.27 (cli) | `internal/pluginmanifest/manifest.go` (executed changed lines 276 and 279, ForTarget's Description), `internal/cli/dispatch.go`, `doctor.go`, `internal/ipc/spool.go` | no, pending P-C52R |
+| internal/cli BenchmarkHookNoop_InProcess | 1.1.27 (cli) | `internal/pluginmanifest/manifest.go` (executed changed lines 276 and 279, ForTarget's Description), `internal/cli/dispatch.go`, `doctor.go`, `internal/ipc/spool.go`; two package initializers of `precompact_spool_submode_test.go`, new c5->c6 | no, pending P-C52R |
 
-**Two readings, for the owner.** (1) Comment-only: a file whose only change is comment lines compiles to
-the same code, so wave 17b counts it as unchanged for D57(e); seven benchmark sets rest on that. If the
+**Three readings, for the owner.** (1) Comment-only: a file whose only change is comment lines compiles
+to the same code, so wave 17b counts it as unchanged for D57(e); six benchmark sets rest on that. If the
 owner reads "byte-unchanged" literally instead, their rows move to `partial_verified`, pending P-C52R.
 (2) `toolnames.go`: it gained a function that no benchmark executes, and every executed block is
-unchanged. D57(e) as written asks for the file byte-unchanged, so 1.8.2, 1.12.17 and 1.16.11's daemon
-part do not carry; a ruling that an appended, unexecuted function leaves D57(e) met would carry them.
-1.8.13 and 1.1.27's cli bench do not carry under either reading.
+unchanged. D57(e) as written asks for the file byte-unchanged, so 1.8.2 does not carry. A ruling that an
+appended, unexecuted function leaves D57(e) met would carry it. (3) Unreached test-file changes: the
+store benches PutBytes*, PutObject, GetChunk, OpenSpan and OpenStore reach no changed line of a test
+function, and neither do the daemon scheduler benches. But each of their test binaries runs a
+package-level initializer that is new c5->c6 (an `errors.New` in `maint_edge_test.go` and in
+`precompact_settle_retry_test.go`), and `testdouble_test.go` is not byte-unchanged. A ruling covering
+readings (2) and (3) together would carry the daemon scheduler benches (1.12.17) and those store figures
+(SP06-D2's PutBytes, SP20-D2's GetChunk). 1.8.13, 1.1.27's cli bench, GC_50kObjects, both Search
+benches, CountFold and MarkEncoded do not carry under any reading. So 1.6.19 and 1.16.11 stay
+`partial_verified` until P-C52R either way.
 
 Other notes:
 - Taken over whole packages (`runs/c52-package-diffs-c5-to-c6.txt`), the non-test diff is empty for
@@ -260,7 +279,7 @@ same rule as the rows: C7-CARRY unless the identifier's cases changed.
 | 3.5 EphemeralRetrievalResultsAreEvictedFirst | TestPropose_ChoosesAtMostOneRepresentationPerItem; legacy TestV4_EphemeralRetrievalResultsRankFirstForEviction | `unsupported` | `unsupported` | native eviction retired (E-1); the replacement and the legacy row are green (WIN, LNX, LE2E); C7-CARRY |
 | 3.6 FsckRepairsSeededCorruption | internal/cli fsck tests, TestFault_AuditSeesADeletedObjectUnderALiveIndex, TestV6_FsckReportsUnpublishedCaptureWithoutDiscardingEvidence | `partial_verified` | `partial_verified` | WIN, LNX (these cases pass; RED-FAULT is another test/fault case); on c7 test/fault changed and its Windows run is @@PRE7FAULT@@, hosted P-CI7; publication accounting is detection, not recovery; product fsck beside a live daemon can report a transient dangling evidence retention root, a known limit for 0.3.0 (D57(b): stop the daemon and run fsck again); packaged fsck on a real store: P-LIVE (C1.7 restore smoke) |
 | 3.7 DoctorAgreesWithStatus+Subsystems | TestDoctor_AgreesWithStatusOnModeAndProvenance, TestDoctor_ReportsCapabilityEvidenceWithoutInventingIt | `verified_in_target` | `verified_in_target` | WIN, LNX; C7-CARRY |
-| 3.8 ConfigReferenceDescribesTheBinary | TestGenConfigDocs_LeavesMatchDefaultsOneToOne, TestUserGuideCoversEveryGeneratedCommandAndTool | `verified_in_target` | `@@R38@@` | WIN, LNX, GATE, DOCS on c6; on c7 docs/ changed, so the test/docs case re-runs: Windows @@PRE7DOCS@@, hosted docs 110757119402 green on c7, the Linux tree P-CI7; the generator case carries (tools/devtool and the generated references unchanged) |
+| 3.8 ConfigReferenceDescribesTheBinary | TestGenConfigDocs_LeavesMatchDefaultsOneToOne, TestUserGuideCoversEveryGeneratedCommandAndTool | `verified_in_target` | `@@R38@@` | WIN, LNX, GATE, DOCS on c6; on c7 docs/ changed, so the test/docs case re-runs: Windows @@PRE7DOCS@@, hosted docs 110757119402, test (ubuntu-latest) 110757119503 and test (macos-latest) 110757119443 green on c7; the generator case carries (tools/devtool and the generated references unchanged) |
 | 3.9 InstallUpgradeUninstallByteIdentical | TestInstall_HostCLIInstallUpgradeUninstall, TestRollbackOrderIsFixed, TestRollbackRehearsal_BeforeAndAfterTheFirstNewFormatWrite, internal/store TestMaintenance_* | `partial_verified` | `partial_verified` | WIN, LE2E; C7-CARRY; TestInstall_HostCLIInstallUpgradeUninstall skips without the claude CLI (container, hosted); the installed install/upgrade/uninstall: P-LIVE (C4.1, C4.8, UAT-01, UAT-12) |
 | 3.10 DegradedPassiveFromPackagedBundle | TestV5_DegradedPassiveIsStillCorrectWithEverySubsystemPresent, TestPlatform_UnknownSettingsVersion, TestPlatform_UnsupportedOptimizationsDisabled | `partial_verified` | `partial_verified` | WIN, LNX, LE2E; C7-CARRY; from the packaged bundle: P-LIVE (C4.9) |
 | 3.11 NoSecretAndNoNetworkFullPackaged | TestSecurity_NoSecretReachesAnyDurableSurface, TestSecurity_TelemetryCannotBeTurnedOn, TestSecurity_MCPServerNeverImportsOSExec, TestV6_ArchivedReadRetainsItsAuthorizationBoundary, TestV6_HashAddressesDoNotBypassPathAuthorization | `partial_verified` | `partial_verified` | WIN, LNX, SEC; C7-CARRY; the historical archive-authorization FAIL is cleared for the automated half; the full packaged session: P-LIVE (C4.6, UAT-12) |
@@ -331,7 +350,11 @@ stated fallback `implemented_unverified`, because C51 has executed its B-A and B
 split has no possible artifact (D37(c)). The verification round found that the 1.5.12 cell claimed
 "without and with the ledger" runs: both red artifacts were X11's no-ledger arm, and the cell now says
 so. It also found that five C5.2 rows (1.1.16, 1.1.27, 1.10.17, 1.12.17, 1.16.11) did not name their
-carry: every C5.2 row now names it and its proof files (D57(e)).
+carry: every C5.2 row now names it and its proof files (D57(e)). The fix round's review then found that
+the executed-files trace never saw `_test.go` files. The store set's benchmark helpers changed c5->c6, so
+1.6.19 moved to `partial_verified` and 1.16.11's store part does not carry (`runs/c52-test-files.txt`).
+The same review made 1.17.18 and 1.17.19 follow one candidate 7 rule (both `partial_verified`, see the
+vocabulary above), and corrected X11-BAT's account of the pre-freeze reds.
 
 Still to land: the live lane and C5.5 on candidate 7's frozen bundles (P-LIVE, P-C55), hosted CI on
 candidate 7 (P-CI7), the reference-host release-check (P-REL7) and the tag (P-TAG).

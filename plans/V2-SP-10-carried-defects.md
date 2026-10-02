@@ -238,7 +238,7 @@ Candidate 6 is `verify/v6` `99d0b18`. Every `Test*` evidence test below ran gree
 
 | row | status | ruling | on candidate 6 |
 |---|---|---|---|
-| SP10-D1 | `fixed` | D54 (quiet C5.2 on candidate 5) | BenchmarkFinalize: the candidate 5 measurement carries by D57(e). A coverage trace of the benchmark (`sdd/V6-closeout/w17-inventory/runs/c52-executed-files.txt`) shows the one executed file that changed since candidate 5 is the test helper `internal/paths/pathstest/home.go`, by comment lines only, so the executed code is byte-identical (the comment-only reading is the inventory's, for the owner to ratify). Candidate 6's checkpoint product changes are the nil-checked `PricedDrops` hook on `preCompact` and three new constants, none of which Finalize enters (`runs/c52-package-diffs-c5-to-c6.txt`) |
+| SP10-D1 | `fixed` | D54 (quiet C5.2 on candidate 5) | BenchmarkFinalize: the candidate 5 measurement carries by D57(e). A coverage trace of the benchmark (`sdd/V6-closeout/w17-inventory/runs/c52-executed-files.txt`) shows the one executed file that changed since candidate 5 is the test helper `internal/paths/pathstest/home.go`, by comment lines only, and the benchmark executes no changed `_test.go` file (`runs/c52-test-files.txt`), so the executed code is byte-identical (the comment-only reading is the inventory's, for the owner to ratify). Candidate 6's checkpoint product changes are the nil-checked `PricedDrops` hook on `preCompact` and three new constants, none of which Finalize enters (`runs/c52-package-diffs-c5-to-c6.txt`) |
 
 ## V6-VERIFY candidate 7 note (2026-10-02, C6.3)
 

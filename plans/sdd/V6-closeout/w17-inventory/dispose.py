@@ -98,13 +98,29 @@ def o(i, result, note=None, codes=None):
 # D57(e): a candidate 5 C5.2 measurement counts on candidates 6 and 7 when every file the benchmark
 # executes is byte-unchanged; the row's own cell names the carry and its proof file. Which files each
 # benchmark executes is measured, not inferred: runs/c52-executed-files.txt (c52exec.py, a coverage
-# trace of each benchmark at -benchtime=1x).
+# trace of each benchmark at -benchtime=1x, non-test files) and runs/c52-test-files.txt (c52tests.py,
+# the _test.go files the benchmark's test binary executes, which Go coverage never instruments).
 C52_EXEC = "runs/c52-executed-files.txt"
-C52_NOTE = ("C52 carry (D57(e)): measured on c5 0d06ab12; no file the benchmark executes changed c5->c6 ("
-            + C52_EXEC + ")")
+C52_TEST = "runs/c52-test-files.txt"
+C52_PROOFS = C52_EXEC + " and " + C52_TEST
+C52_NOTE = ("C52 carry (D57(e)): measured on c5 0d06ab12; no file the benchmark executes changed c5->c6, "
+            "product or _test.go (" + C52_PROOFS + ")")
 C52_COMMENT = ("C52 carry (D57(e)): measured on c5 0d06ab12; the one executed file that changed c5->c6 is the "
-               "test helper internal/paths/pathstest/home.go, by comment lines only, so the executed code is "
-               "byte-identical (" + C52_EXEC + "; the comment-only reading is wave 17b's, for the owner to ratify)")
+               "test helper internal/paths/pathstest/home.go, by comment lines only, and no changed _test.go "
+               "file is executed, so the executed code is byte-identical (" + C52_PROOFS + "; the "
+               "comment-only reading is wave 17b's, for the owner to ratify)")
+# The internal/store set does not carry (runs/c52-test-files.txt): its test binary executes _test.go
+# files that changed c5->c6, the fix of the zero testing.T that leaked HOME in candidate 5's own run.
+C52_STORE = ("the internal/store benches' c5 figures do not carry by D57(e): their test binary executes "
+             "_test.go files changed c5->c6 (" + C52_TEST + "). BenchmarkGC_50kObjects and both "
+             "BenchmarkSearch_1000Roots* execute changed lines (gc_test.go, search_test.go and the helpers in "
+             "testdouble_test.go now take testing.TB): the fix of the zero testing.T that leaked HOME in c5's "
+             "own run, where pathstest failed the store binary after PASS and every bench after GC ran "
+             "against the leaked home (phase3/c5/quiet/c52-win/c52-win-r*-candidate-store-1s.log). The other "
+             "store benches reach no changed line of a function (PutBytes*, PutObject, GetChunk, OpenSpan and "
+             "OpenStore reach testdouble_test.go's newFakeClock and storeOpt helpers), but the binary runs the "
+             "package initializer of maint_edge_test.go, new c5->c6 (errInjectedBarrier), and testdouble_test.go "
+             "is not byte-unchanged; CountFold and MarkEncoded ran after the leak on c5")
 C52_TOOLNAMES = ("internal/core/toolnames.go, which gained CutHostPluginTool c5->c6; no executed block covers a "
                  "changed line, but D57(e) asks for the file byte-unchanged, so the c5 figure does not carry")
 P_C52R = ("pending P-C52R (a quiet C5.2 re-run on c7)")
@@ -112,21 +128,21 @@ P_C52R = ("pending P-C52R (a quiet C5.2 re-run on c7)")
 o("1.1.1", "documented", "meta row: candidate 6 identity is FREEZE (99d0b18, bundle and exe sha256); no test exists by design")
 o("1.1.16", "verified_in_target", "C52 measured and reported (diagnostic); " + C52_NOTE + "; internal/obs's two new files are not executed by it (runs/c52-package-diffs-c5-to-c6.txt)")
 o("1.1.24", "verified_in_target", "test/guards green on c6 (WIN, LNX); F-1's historical guard-rename expectation is retired, D23 ratified TestGuard_EveryProductReadIsClassified as a standing guard")
-o("1.1.27", "partial_verified", "C52 measured config, paths and cli benches (reported, diagnostic); internal/core and tools/devtool have no benchmark (c52-names.tsv). The config and paths benches carry: " + C52_NOTE + ". BenchmarkHookNoop_InProcess does not: it executes changed lines of internal/pluginmanifest/manifest.go (ForTarget's Description, lines 276 and 279) and the changed internal/cli/dispatch.go, internal/cli/doctor.go and internal/ipc/spool.go; " + P_C52R + " of BenchmarkHookNoop_InProcess")
+o("1.1.27", "partial_verified", "C52 measured config, paths and cli benches (reported, diagnostic); internal/core and tools/devtool have no benchmark (c52-names.tsv). The config and paths benches carry: " + C52_NOTE + ". BenchmarkHookNoop_InProcess does not: it executes changed lines of internal/pluginmanifest/manifest.go (ForTarget's Description, lines 276 and 279) and the changed internal/cli/dispatch.go, internal/cli/doctor.go and internal/ipc/spool.go, and its test binary runs two package initializers of precompact_spool_submode_test.go, new c5->c6 (" + C52_TEST + "); " + P_C52R + " of BenchmarkHookNoop_InProcess")
 o("1.1.28", "documented", "retired E-3: Qompack.md is v1.8 with its Revision log (v1.6 D5, v1.7 D36, v1.8 D41); no test by design", codes="")
 o("1.2.8", "verified_in_target", "REPLAY: the replay-gate job log prints the breakpoint OPT line (4 markers, 161 candidates), a diagnostic only")
 o("1.5.12", "partial_verified", "Windows half verified on the designated quiet C5.1 run on AC (D57(e)): C51 B-A p99 30.72 ms, B-B 24.58 ms against 50; X11's own rows pass on AC on c6's tree (X11-E1: 3/3, 0 deferred, D57(g)), and the isolated hot-path row passes (WTIME, on AC); hosted bench-gate 110676058217, 110676058253, 110676058353 succeeded, report-only (Q1). Not counted (X11-BAT): X11's two c6 Windows failures, its no-ledger arm in both isolated executions (p3-win-e2e-timing.log B-A/B-B p99 81.9/57.3 ms, p3-win-x11-alone.log 98.3/81.9 ms; the ledger phase is not reached), ran on battery and are invalid as reference measurements, neither pass nor fail (D57(d)). Open half: Linux B-A/B-B fail in LTIME and C51, fsync-bound, not verified in target (D53(b))", codes="WTIME+LTIME+C51+X11-E1")
 o("1.5.15", "partial_verified", "producers and their tests green on c6; the real-observation half (F-2) needs a real session: CARRY-C4 (C4.2 passed on c4, not in the c6 lane); the c6 lane's status/doctor reads (P-LIVE) refresh it")
-o("1.6.19", "verified_in_target", "C52 measured and reported (superseded-guarantee): PutBytes cold/warm stay 6-8x over the 3 ms/400 us budgets, SP06-D2 wontfix for 0.3.0 (D54); " + C52_COMMENT)
+o("1.6.19", "partial_verified", "C52 measured on c5 (superseded-guarantee): PutBytes cold/warm 6-8x over the 3 ms/400 us budgets, SP06-D2 wontfix for 0.3.0 (D54); the store product files are unchanged c5->c6 (" + C52_EXEC + "), but " + C52_STORE + "; " + P_C52R + " of the store set, or, for the PutBytes, PutObject, GetChunk and OpenSpan figures (which ran before the leak on c5), a coordinator ruling that an executed _test.go file whose changes the benchmark does not reach, plus a new package-level initializer, leaves D57(e) met; BenchmarkSearch_1000Roots needs P-C52R under either reading")
 o("1.8.13", "implemented_unverified", "C52 measured on c5 (superseded-guarantee): OnToolUse 256 KB Delta p99 59-74 ms against B-C's soft 50 ms, SP08-D1 wontfix for 0.3.0 (D54). The figure does not carry by D57(e): the three BenchmarkOnToolUse_* execute internal/observer/observer.go, whose sessionState gained two fields (ThrashFloor, ReplyWarning), a layout change on the measured path, and " + C52_TOOLNAMES + " (" + C52_EXEC + "); " + P_C52R + " of the three BenchmarkOnToolUse_*", codes="")
-o("1.8.2", "partial_verified", "tombstone tests green (WIN, LNX). C52 measured BenchmarkTombstone on c5 (diagnostic); it executes " + C52_TOOLNAMES + " (" + C52_EXEC + "); " + P_C52R + " of BenchmarkTombstone, or a coordinator ruling that an appended, unexecuted function leaves D57(e) met")
+o("1.8.2", "partial_verified", "tombstone tests green (WIN, LNX). C52 measured BenchmarkTombstone on c5 (diagnostic); it executes " + C52_TOOLNAMES + " (" + C52_EXEC + "), and no changed _test.go file (" + C52_TEST + "); " + P_C52R + " of BenchmarkTombstone, or a coordinator ruling that an appended, unexecuted function leaves D57(e) met")
 o("1.9.12", "verified_in_target", "all seven TestBudget_* pass in WTIME and LTIME on c6 (TestBudget_DetectorScan, once a pre-existing red, passes on both); negknow Open 61.6/77.0 ms against 300 ms in C52 (SP09-D1 fixed, D54); " + C52_COMMENT)
 o("1.10.16", "verified_in_target", "quiet B-E passes on both OSes (C51: Windows p99 170.75 ms, CPU 31.25 ms, on AC; Linux 384.11 ms, CPU 7.76 ms; against 2000 ms). The B-E figures of X11's c6 Windows runs are not cited: those runs were on battery, invalid as reference measurements (X11-BAT, D57(d))", codes="C51")
 o("1.10.17", "verified_in_target", "C52 measured and reported (diagnostic); " + C52_COMMENT + "; checkpoint's own product changes (precompact.go, types.go) are not executed by its benchmarks (runs/c52-package-diffs-c5-to-c6.txt)")
 o("1.10.18", "unknown", "D37(c): no step runs the two replay --phase 4 runs with the frontier toggled; not verified in target, no new harness before release", codes="")
 o("1.11.16", "partial_verified", "C52 measured rules BenchmarkPathScoped and skills BenchmarkIndex; " + C52_NOTE + "; internal/rehydrate has no benchmark, so the rehydrate share of L5 latency has no artifact")
 o("1.12.14", "partial_verified", "structural half TestSchedulerNotOnHotPath green (WIN, LNX); Windows B-A half verified on the designated quiet C5.1 run on AC (D57(e)): C51 B-A p99 30.72 ms against 50, corroborated by X11-E1 (B-A p99 36.9 ms, 3/3); the c6 battery runs are not counted (X11-BAT, D57(d)). Open half: Linux B-A is not verified in target (D53(b))", codes="WIN+LNX+C51+X11-E1")
-o("1.12.17", "partial_verified", "C52 measured the internal/scheduler benches and the daemon's scheduler_bench_test.go benches on c5. The internal/scheduler benches carry: " + C52_NOTE + ". The five daemon benches execute " + C52_TOOLNAMES + " (" + C52_EXEC + "); " + P_C52R + " of the daemon scheduler benches, or a coordinator ruling on toolnames.go as for 1.8.2. The map's internal/hostperm BenchmarkEvaluate is a name collision, not a scheduler bench, and its c5 figure does not carry (hostperm/policy.go changed)")
+o("1.12.17", "partial_verified", "C52 measured the internal/scheduler benches and the daemon's scheduler_bench_test.go benches on c5. The internal/scheduler benches carry: " + C52_NOTE + ". The five daemon benches execute " + C52_TOOLNAMES + " (" + C52_EXEC + "), and their test binary runs the package initializer of precompact_settle_retry_test.go, new c5->c6 (errInjectedSpoolLock, " + C52_TEST + "); " + P_C52R + " of the daemon scheduler benches, or a coordinator ruling that covers both an appended, unexecuted function and a new, unreached package-level initializer in a test file. The map's internal/hostperm BenchmarkEvaluate is a name collision, not a scheduler bench, and its c5 figure does not carry (hostperm/policy.go changed)")
 o("1.13.4", "partial_verified", "the historical V6-AUTH FAIL is cleared for the automated half: test/security and the internal/mcp TestV6_* suites pass on c6 on Windows, Linux and macOS (WIN, LNX); the real-session half is pending")
 o("1.13.5", "partial_verified", "automated half green on c6 (D7 deny-rule honouring, capture-scope suites); the real-session half is pending")
 o("1.13.14", "partial_verified", "producer and seam tests green on c6; real mcp.server_registered observation (F-2) needs a real session: pending P-LIVE (C4.4 sessions run the MCP server)")
@@ -142,7 +158,7 @@ o("1.15.8", "verified_in_target", "the executed evidence is TestSequitur_Invaria
 o("1.15.14", "unknown", "C52: internal/analyzer and internal/grammar have no benchmark (c52-names.tsv), so the row has nothing to measure; not verified in target", codes="")
 o("1.16.5", "unknown", "D37(c): no test or step computes the warm-vs-cold O4 delta; not verified in target, no new harness before release", codes="")
 o("1.16.10", "unknown", "D37(c): TestPrefixReorderingNotAttempted is absent and no declaration exists (no docs/adr/0016; no file under docs/ or Qompack.md declares prefix-reorder non-delivery); not verified in target", codes="")
-o("1.16.11", "partial_verified", "C52 measured the phase-7 store, checkpoint and scheduler families on c5. The store and checkpoint benches carry (" + C52_COMMENT + "), and the internal/scheduler benches carry (no executed file changed). The daemon scheduler benches execute " + C52_TOOLNAMES + "; " + P_C52R + " of the daemon scheduler benches, or a coordinator ruling on toolnames.go as for 1.8.2")
+o("1.16.11", "partial_verified", "C52 measured the phase-7 store, checkpoint and scheduler families on c5. The checkpoint benches carry (" + C52_COMMENT + "), and the internal/scheduler benches carry (no executed file changed, product or _test.go). The phase-7 store benches (GC_50kObjects, CountFold_4MiB, MarkEncoded_100, OpenStore_50kRoots and the PutBytes NoRedact/KeepRaw variants) do not: " + C52_STORE + ". The daemon scheduler benches execute " + C52_TOOLNAMES + ", and their test binary runs the package initializer of precompact_settle_retry_test.go, new c5->c6 (errInjectedSpoolLock, " + C52_TEST + "); " + P_C52R + " of the store and daemon scheduler benches, or a coordinator ruling covering both kinds of unreached change")
 o("1.17.1", "verified_in_target", "two six-target bundle builds byte-identical on c6 (BUNDLES), assembler/archive determinism units green (WIN)")
 o("1.17.3", "unknown", "D37(c): no binary-size check exists; diagnostic only, the frozen c6 binaries measure 9.29-10.49 MB (windows-amd64 qompack.exe 10,416,640 B); not verified in target", codes="BUNDLES")
 o("1.17.4", "verified_in_target", "judged on TestPlatform_HookLauncherForms, renamed from TestPlatform_WindowsHookLauncherForms and now run on every OS (D37(b), inventory-map.tsv), with TestPlatform_PluginRootWithSpacesAndUnicode: green in WIN and LNX")
@@ -178,6 +194,14 @@ o("1.18.13", "verified_in_target", "generator determinism tests green (WIN, GATE
 # test/guards' nonrefdisk_test.go, the golden plugin.json, two workflows, .goreleaser.yaml and docs/
 # also changed (runs/c7-carry-proof.txt). A row whose covered code is unchanged carries its
 # candidate 6 disposition (C7-CARRY); a row over a changed path is judged on candidate 7's own runs.
+# ci.yml 36981590450 on d20309c0, read with `gh run view 36981590450 --json jobs` at CI7_AT; the
+# run was still in progress then.
+CI7_AT = "2026-10-02 08:31Z"
+CI7_GREEN = ("verify, cover, docs 110757119402, plugin-validate 110757119388, crossbuild, security, "
+             "replay-gate, test (ubuntu-latest) 110757119503, test (macos-latest) 110757119443, test-e2e on "
+             "ubuntu, macos and windows, timing and bench-gate on all three OSes")
+CI7_GREEN_N = "18"
+CI7_OPEN = "test (windows-latest) 110757119316, lint-windows 110757119431 and release-dry-run 110757119491"
 FAULT_ROWS = ("1.5.19", "1.17.11", "1.17.14")
 DOCS_CHG = ("1.18.1", "1.18.5", "1.18.6", "1.18.7", "1.18.8", "1.18.9", "1.18.10", "1.18.11", "1.18.12")
 GUARD_ROWS = ("1.1.23", "1.1.24", "1.5.20", "1.17.12")
@@ -195,9 +219,10 @@ def c7_of(rid, r, res6, ev6):
             res = "partial_verified"
             ev = ("PRE7; test/fault carries the claim-before-evidence fix (dd8e9fd2, 88626fdd; D57(b)) and passes "
                   "on Windows on c7's code (PRE7 testpkgs, -count=1), with "
-                  "TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence; closes when hosted "
-                  "test (windows-latest) at -count=2, the job that was red on c6, and test (ubuntu-latest) and "
-                  "test (macos-latest) are green on c7 (P-CI7)")
+                  "TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence; hosted test (ubuntu-latest) "
+                  "110757119503 and test (macos-latest) 110757119443, which run test/fault, are green on c7 "
+                  "(ci.yml 36981590450, at " + CI7_AT + "); closes when hosted test (windows-latest) at -count=2, "
+                  "the job that was red on c6, is green on c7 (P-CI7)")
         else:
             res = "implemented_unverified"
             ev = ("test/fault changed c6->c7 (dd8e9fd2, 88626fdd; D57(b)); its c7 runs are pending: PRE7 testpkgs "
@@ -215,16 +240,19 @@ def c7_of(rid, r, res6, ev6):
             "(w17-release), so the version agreement closes at the tag (P-TAG, C7.4)")
     if rid == "1.17.18":
         return "partial_verified", (
-            "C7-CARRY; TestReleaseCheckDeterminismVersion carries (tools/devtool and test/release unchanged "
-            "c6->c7); c7's release-dry-run declares QOMPACK_NONREFERENCE_DISK (D57(a)) and builds the six "
+            "PRE7; re-judged on c7 (c6's red, RED-RELDRY, is a workflow cause fixed in c7's ci.yml, D57(a)); "
+            "executed green on c7's code: release-check's own steps that PRE7 runs (gate: build, vet, "
+            "fmt-check, gen-config-docs and gen-mcp-docs --check, lint subset; testpkgs: test/release with "
+            "TestReleaseCheckDeterminismVersion); c7's release-dry-run declares QOMPACK_NONREFERENCE_DISK (D57(a)) and builds the six "
             "bundles at the release version (D57(c)); closes on a green release-check: hosted release-dry-run "
             "on c7 (P-CI7) and release-check --tag v0.3.0 on the reference host (P-REL7, docs/release.md "
             "section 1); actionlint and the goreleaser snapshot run only at the tag (P-TAG)")
     if rid == "1.17.19":
-        return "implemented_unverified", (
-            "ci.yml run 36981590450 on c7 (started when night.log records 'pushed verify/v6 d20309c0') was in "
-            "progress when this was written; closes when every ci.yml job is green on c7, including test (windows-latest) (RED-FAULT's "
-            "job, D57(b)) and release-dry-run (RED-RELDRY's job, D57(a)) (P-CI7), and branch protection is set "
+        return "partial_verified", (
+            "P-CI7; re-judged on c7: ci.yml run 36981590450 on c7 (started when night.log records 'pushed "
+            "verify/v6 d20309c0') had " + CI7_GREEN_N + " of its 21 jobs green at " + CI7_AT + " (" + CI7_GREEN +
+            "); closes when the rest are green on c7: " + CI7_OPEN + ", where test (windows-latest) is "
+            "RED-FAULT's job (D57(b)) and release-dry-run RED-RELDRY's (D57(a)), and branch protection is set "
             "on develop and main (C7.3)")
     if rid in DOCS_CHG:
         chg = "docs/ changed c6->c7 (wave 17 docs; runs/c7-carry-proof.txt)"
@@ -233,9 +261,12 @@ def c7_of(rid, r, res6, ev6):
         if not PRE7_GREEN:
             return "implemented_unverified", f"{chg}; test/docs on c7 pending (PRE7 testpkgs, P-CI7)" + lane
         tail = "; on c6: " + ev6.split("; ", 1)[1] if res6 == "partial_verified" and "; " in ev6 else ""
-        return "partial_verified", (f"PRE7; {chg}; test/docs passes on Windows on c7's code (PRE7 testpkgs); "
-                                    f"hosted docs 110757119402 (test/docs and the gen-*-docs checks) is green on c7 in ci.yml "
-                                    f"36981590450; the Linux tree, test (ubuntu-latest), is pending (P-CI7)" + tail + lane)
+        docs7 = (f"PRE7; {chg}; test/docs passes on Windows on c7's code (PRE7 testpkgs); hosted docs "
+                 f"110757119402 (test/docs and the gen-*-docs checks), test (ubuntu-latest) 110757119503 and "
+                 f"test (macos-latest) 110757119443 are green on c7 (ci.yml 36981590450, at {CI7_AT})")
+        if res6 == "verified_in_target":
+            return "verified_in_target", docs7 + lane
+        return "partial_verified", docs7 + tail + lane
     if rid == "1.1.1":
         ident = (f"candidate 7 identity: verify/v6 {FREEZE7} (code {C7_CODE})" if FREEZE7
                  else f"candidate 7 is not frozen yet; its code is closeout/integration {C7_CODE}")
