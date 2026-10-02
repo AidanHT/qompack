@@ -1,0 +1,87 @@
+diff --git a/internal/daemon/publication_audit.go b/internal/daemon/publication_audit.go
+index 6c5962b..74144dc 100644
+--- a/internal/daemon/publication_audit.go
++++ b/internal/daemon/publication_audit.go
+@@ -140,6 +140,8 @@ func (d *daemon) accountPublicationAtStartup(runCtx context.Context) {
+ 			"captures_scanned", rep.CapturesScanned, "objects_scanned", rep.ObjectsScanned)
+ 		d.goRun(func() {
+ 			full, err := d.accountPublication(runCtx, auditor, scanCap)
++			d.log.Info("DIAG: background publication pass ended", "captures_scanned", full.CapturesScanned,
++				"objects_scanned", full.ObjectsScanned, "incomplete", full.Incomplete, "err", err)
+ 			d.announcePublication(full, err != nil && runCtx.Err() != nil)
+ 		})
+ 		return
+diff --git a/test/bench/hotpath/main.go b/test/bench/hotpath/main.go
+index a996730..09eecd4 100644
+--- a/test/bench/hotpath/main.go
++++ b/test/bench/hotpath/main.go
+@@ -405,6 +405,7 @@ func runHarness(ctx context.Context, f flags, stdout, stderr io.Writer) (Report,
+ 		return Report{}, fmt.Errorf("%w (daemon stderr:\n%s)", err, dp.stderrString())
+ 	}
+ 	fmt.Fprintln(stdout, "hotpath: daemon is reachable")
++	fmt.Fprintf(stdout, "hotpath: DIAG at %s\n", time.Now().Format(time.RFC3339Nano))
+ 
+ 	if f.warmDaemon {
+ 		fmt.Fprintf(stdout, "hotpath: warming daemon (%d hot-path observe.tool + %d admin.ping)...\n",
+@@ -417,6 +418,7 @@ func runHarness(ctx context.Context, f flags, stdout, stderr io.Writer) (Report,
+ 			float64(bytesSent)/(1<<20), warmHotTranche, warmIterations-warmHotTranche)
+ 	}
+ 
++	fmt.Fprintf(stdout, "hotpath: DIAG at %s\n", time.Now().Format(time.RFC3339Nano))
+ 	fmt.Fprintf(stdout, "hotpath: measuring spawn floor (%d x qompack version)...\n", spawnFloorIterations)
+ 	floorSamples, err := measureSpawnFloor(ctx, binPath, spawnFloorIterations, childEnv)
+ 	if err != nil {
+@@ -428,6 +430,7 @@ func runHarness(ctx context.Context, f flags, stdout, stderr io.Writer) (Report,
+ 	if err != nil {
+ 		return Report{}, err
+ 	}
++	fmt.Fprintf(stdout, "hotpath: DIAG at %s\n", time.Now().Format(time.RFC3339Nano))
+ 	fmt.Fprintf(stdout, "hotpath: measuring B-A/B-D (%d x qompack %v)...\n", f.iterations, hArgs)
+ 	bdSamples, err := measureSpawns(ctx, binPath, hArgs, f.iterations, childEnv, func(seq int) []byte {
+ 		return representativeObservePayload(baSessionID, projectRoot, seq)
+@@ -437,6 +440,7 @@ func runHarness(ctx context.Context, f flags, stdout, stderr io.Writer) (Report,
+ 	}
+ 	baSamples := subtractFloor(bdSamples.Wall, floorP50)
+ 
++	fmt.Fprintf(stdout, "hotpath: DIAG at %s\n", time.Now().Format(time.RFC3339Nano))
+ 	fmt.Fprintf(stdout, "hotpath: measuring B-E (%d x qompack checkpoint)...\n", checkpointIterations)
+ 	beSamples, err := measureSpawns(ctx, binPath, []string{"checkpoint"}, checkpointIterations, childEnv, func(seq int) []byte {
+ 		return checkpointPayload(beSessionID, projectRoot, seq)
+@@ -467,6 +471,7 @@ func runHarness(ctx context.Context, f flags, stdout, stderr io.Writer) (Report,
+ 		return Report{}, fmt.Errorf("hotpath: reading B-A/B-B off the daemon's status op: %w", err)
+ 	}
+ 
++	fmt.Fprintf(stdout, "hotpath: DIAG at %s\n", time.Now().Format(time.RFC3339Nano))
+ 	fmt.Fprintf(stdout, "hotpath: measuring hook ACK round trip (%d x in-process observe.tool)...\n", ackRTTSamples)
+ 	ackRTT, err := measureAckRTT(ctx, addr, spool, projectRoot, ackRTTSamples)
+ 	if err != nil {
+diff --git a/test/e2e/v3_x11_test.go b/test/e2e/v3_x11_test.go
+index d377b19..8320134 100644
+--- a/test/e2e/v3_x11_test.go
++++ b/test/e2e/v3_x11_test.go
+@@ -597,6 +597,10 @@ func x11RunHarness(t *testing.T, p *testutil.Project, bench, root string, underC
+ 	cmd.Stderr = &stderr
+ 	started := time.Now()
+ 	runErr := cmd.Run()
++	if keep := os.Getenv("QOMPACK_DIAG_KEEP_LOGS"); keep != "" {
++		dst := filepath.Join(keep, strconv.FormatInt(time.Now().UnixNano(), 10)+"-"+filepath.Base(root))
++		_ = os.CopyFS(dst, os.DirFS(filepath.Join(root, ".qompack", "logs")))
++	}
+ 
+ 	t.Logf("%s: the bench harness took %s; stdout:\n%s", run, time.Since(started).Round(time.Second), stdout.String())
+ 	if raw, readErr := os.ReadFile(jsonPath); readErr == nil {
+diff --git a/test/integration/hotpath_test.go b/test/integration/hotpath_test.go
+index 26b0488..de82036 100644
+--- a/test/integration/hotpath_test.go
++++ b/test/integration/hotpath_test.go
+@@ -1121,6 +1121,10 @@ func TestIntegration_HotPathWarmWithRealResidentState(t *testing.T) {
+ 	cmd.Stdout = &stdout
+ 	cmd.Stderr = &stderr
+ 	runErr := cmd.Run()
++	if keep := os.Getenv("QOMPACK_DIAG_KEEP_LOGS"); keep != "" {
++		dst := filepath.Join(keep, strconv.FormatInt(time.Now().UnixNano(), 10)+"-"+filepath.Base(p.Root))
++		_ = os.CopyFS(dst, os.DirFS(filepath.Join(p.Root, ".qompack", "logs")))
++	}
+ 	close(pollStop)
+ 	pollWG.Wait()
+ 
