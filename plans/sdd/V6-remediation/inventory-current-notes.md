@@ -1,3 +1,14 @@
+> **Candidate 6 disposition, 2026-10-02 (C6.2; supersedes the dispositions below).** Every row now
+> carries `c6_result` and `c6_evidence`, appended to `inventory-current.tsv` from candidate 6
+> (`verify/v6` `99d0b18`) evidence: 257 `verified_in_target`, 28 `partial_verified`, 1
+> `implemented_unverified`, 5 `failed`, 7 `unknown`, 3 `unsupported`, 3 `documented`. The seven
+> original columns are unchanged; the `result=` field inside `limitation` is the pre-close-out record.
+> Evidence codes, the rule, the pending rows with what closes each, the fourteen section 3
+> identifiers and the SP19/20/21 switches are in `../V6-closeout/inventory-c6-map.md`. Two statements
+> below no longer hold: delivery-journal rollover is enabled by default (D2, C1.10; SP20-D4 `fixed`),
+> and the selection switches are `runtime.selection.submodularEnabled` and
+> `runtime.selection.loopWarningsEnabled`.
+
 > **Candidate reconciliation, 2026-09-22 (supersedes on snapshot identity).** The current
 > candidate snapshot is committed **HEAD `65bc8d7`** (`docs: record V6 recovery progress and
 > unresolved capacity gate`), 16 commits past the old `c95b7af` snapshot, and the **working tree is

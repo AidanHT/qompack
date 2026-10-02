@@ -4,6 +4,12 @@ Inputs: `plans/sdd/V6-remediation/inventory-current.tsv` (304 rows, not modified
 
 This file maps rows to evidence. It does not give dispositions, and no test was run to build it. Symbols were resolved against every `func Test*/Benchmark*/Fuzz*/Prop*` declaration in the tracked Go files. Renamed or moved tests were traced with `git log -S`. `evidence_step` names the Phase 3 step (`phase3.sh`), Phase 4 live-lane scenario, or Phase 5 item whose executed artifact the Phase 6 seat should cite. Final dispositions come from the frozen candidate's evidence.
 
+> **Candidate 6, 2026-10-02.** The dispositions this map prepared are given in
+> `inventory-c6-map.md` and the `c6_result`/`c6_evidence` columns of
+> `../V6-remediation/inventory-current.tsv`. Two notes below are out of date there: TestBudget_DetectorScan
+> and TestBudgetBF pass on candidate 6 in both isolated timing passes, and /qompack:checkpoint (1.14.5) no
+> longer ships (D36(a)).
+
 ## Rows per evidence step
 
 A row can name more than one step, so the counts add up to more than 304.
