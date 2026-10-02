@@ -1,0 +1,10 @@
+orphan cleanup 2026-10-02 04:10:20 EDT
+homeguard named cache/qompack-live/ as gained (absent at snap 04:04:29)
+$ find ~/.claude/plugins/cache/qompack-live -maxdepth 2
+~/.claude/plugins/cache/qompack-live
+~/.claude/plugins/cache/qompack-live/qompack-windows-amd64
+~/.claude/plugins/cache/qompack-live/qompack-windows-amd64/0.3.0
+version dir: .claude/plugins/cache/qompack-live/qompack-windows-amd64/0.3.0/
+  .orphaned_at: 1790928610939
+  BUNDLE.json identical to the frozen c7 bundle (sha256 5212ae4eaa2e931266d52069e7d0c72ec2dfd2255d55421c87486ab083e1f395)
+removed ~/.claude/plugins/cache/qompack-live (run-created; every version this run's bundle)

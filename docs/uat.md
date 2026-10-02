@@ -205,34 +205,53 @@ stored records to reconcile a failure.
 **Result**
 
 ```text
-Result: pass — frozen bundle installed through a disposable local marketplace at local scope
-  (real profile, no QOMPACK_* variables, no config file); the session's init listed
-  plugin:qompack:qompack connected with the eight documented tools and the six /qompack:
-  commands (no qompack:checkpoint); SessionStart, UserPromptSubmit, PostToolUse and Stop fired
-  (PreCompact, SubagentStop not exercised by a two-turn session; SessionEnd ran per the store but
-  has no host stream event); step 2 printed 0.3.0, exit 0; step 4's installed plugin.json reads
-  0.3.0 = step 2 = BUNDLE.json (source tree plugin/.claude-plugin/plugin.json reads 0.1.0, last
-  tag v0.2.0); all 108 leaves default, every gated switch false; self-test exit 0, no critical
-  row. Step 8 OBSERVED (to be confirmed at execution): hook.additional_context_delivered,
+Result: pass — frozen candidate 7 bundle installed the way a release user installs it: a disposable
+  local marketplace qompack-live whose one entry is named qompack-windows-amd64 (the release's
+  per-target entry; plugin.json still says qompack), at local scope in the real profile, no
+  QOMPACK_* variables, no config file (the same add/install/list/details/uninstall/remove also
+  ran in an isolated CLAUDE_CONFIG_DIR first, no model call). Namespace the host gave the release
+  entry (observed strings, D53(f)): `claude plugin list --json` id
+  qompack-windows-amd64@qompack-live, installPath
+  plugins/cache/qompack-live/qompack-windows-amd64/0.3.0; `claude plugin details qompack-windows-amd64` exit 1 "Plugin "qompack-windows-amd64" not found";
+  `details qompack` and `details qompack-windows-amd64@qompack-live` "qompack 0.3.0", Source
+  qompack-windows-amd64@qompack-live; session init: server plugin:qompack:qompack connected, tools
+  mcp__plugin_qompack_qompack__<tool> (the eight documented), slash_commands qompack:{dropped,eval,
+  pin,recall,status,why} (no qompack:checkpoint), plugins[] name qompack, source
+  qompack-windows-amd64@qompack-live, version 0.3.0. Command typed: /qompack:status (it ran;
+  `qompack` resolved for its body with no PATH change); MCP tool the host used:
+  mcp__plugin_qompack_qompack__recall. So the namespace comes from plugin.json's name, matching
+  docs/commands.md's /qompack:<command>; docs/install.md §9's "has not been observed ... may
+  derive it from the entry name" is stale (finding F1), and details by the bare entry name fails
+  (finding F2, minor). Recall after the session's own MCP calls (D49): the original FileRead and
+  prompt captures rank first; the host's records of the session's recall calls (filed under
+  mcp__plugin_qompack_qompack__recall) come after them and are withheld as pathless, counted in
+  denied (2 in session, 4 via the CLI), as docs/mcp-tools.md documents. Hooks: SessionStart,
+  UserPromptSubmit x4, PostToolUse x4, Stop x4, every one success / exit 0, stderr empty
+  (PreCompact, SubagentStop not exercised; SessionEnd ran per the store; 0 host-reported hook
+  failures or timeouts). Step 2 printed 0.3.0, exit 0; step 4's installed plugin.json reads
+  0.3.0 = step 2 = BUNDLE.json (source tree plugin/.claude-plugin/plugin.json at d20309c0 now
+  reads 0.3.0, C7.1's version commit; last tag v0.2.0); all 108 leaves default, every gated
+  switch false; self-test exit 0, no critical row. Step 8 OBSERVED (to be confirmed at
+  execution): the installed CLI self-test reads hook.additional_context_delivered,
   precompact.has_time_to_write, precompact.custom_instructions_accepted and
-  mcp.server_registered read not-yet-implemented in the installed CLI self-test; the daemon's
-  own snapshot, where the producers are declared, read not-yet-observed, timeout-unknown,
-  retired and initialize-pending. Candidate 3's findings re-checked after the MCP call: `qompack
-  fsck --json` exit 0 with the daemon live and stopped, and with --seal-check (the MCP record is
-  indexed at its call's turn 3); `qompack status` "host contract: 9 assertion(s), all holding";
-  `qompack doctor --json` exit 0, captures.unpublished "0 gap(s) across 7 sidecar(s)", agreeing
-  with fsck.
+  mcp.server_registered not-yet-implemented; the daemon's own snapshot, where the producers are
+  declared, read sentinel-observed, timeout-unknown, retired and initialize-received. `qompack
+  status` "9 assertion(s), none failing: 4 holding, 1 pending, 4 with nothing to judge";
+  doctor --json exit 0, captures.unpublished "0 gap(s) across 12 sidecar(s)"; fsck --json exit 0
+  with the daemon live and stopped, and fsck --seal-check exit 0.
+  Candidate 4 (9f6a2fad): pass — installed through an entry named qompack; fsck, status and
+  doctor agreed after the MCP call, evidence plans/sdd/V6-closeout/live/rerun-c4/UAT-01/
   Candidate 3 (d5598eb4): pass — with findings: fsck exit 1 (MCP record at turn 0), status
   "2 of 9 FAILING", doctor vs fsck disagreeing, evidence
   plans/sdd/V6-closeout/live/uat/UAT-01/
 Snapshot: qompack version 0.3.0; bundle BUNDLE.json sha256
-  aa7da0e17b7597562a6eba47fc48f1db81ff5e9bdc494b9997a323137625558d; commit
-  9f6a2fadf086eba8080af589a35dd9554ae6cab4; Windows 11 Home 25H2 build 10.0.26200.9457;
+  5212ae4eaa2e931266d52069e7d0c72ec2dfd2255d55421c87486ab083e1f395; commit
+  d20309c03ffc364e4cc48663be73cfbb1f2309b2; Windows 11 Home 25H2 build 10.0.26200.9457;
   Claude Code 2.1.280
-Date: 2026-09-29 (America/Toronto)
+Date: 2026-10-02 (America/Toronto)
 Executed by: Claude Code workflow subagent (Opus 5.5), agent-executed on the owner's real host
   per owner decision D3 — not human UAT
-Evidence: plans/sdd/V6-closeout/live/rerun-c4/UAT-01/ (notes.txt indexes it)
+Evidence: plans/sdd/V6-closeout/live/rerun-c7/UAT-01/ (notes.txt indexes it)
 Rollback verified: not applicable — initial state absent (no <project>/.qompack/, recorded);
   per the row's rule the run is retained as evidence and no pre-run store exists to restore;
   no backup or restore was run in this row

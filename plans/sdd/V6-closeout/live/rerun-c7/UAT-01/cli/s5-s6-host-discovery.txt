@@ -1,0 +1,21 @@
+steps 5-6 host discovery (session 4b53ad30-87a9-46fe-91ed-32687aef5b8b, init event)
+declared hooks (installed hooks/hooks.json):
+  PostToolUse -> [('${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe', ['observe', 'tool'], 5)]
+  PreCompact -> [('${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe', ['checkpoint'], 20)]
+  SessionEnd -> [('${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe', ['flush'], 20)]
+  SessionStart -> [('${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe', ['session-start'], 15)]
+  Stop -> [('${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe', ['observe', 'stop'], 5)]
+  SubagentStop -> [('${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe', ['observe', 'stop', '--subagent'], 10)]
+  UserPromptSubmit -> [('${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe', ['observe', 'prompt'], 5)]
+host hook_response events seen: ['PostToolUse', 'SessionStart', 'Stop', 'UserPromptSubmit']
+host hook_response names: {'SessionStart:startup': 1, 'UserPromptSubmit': 4, 'PostToolUse:Read': 1, 'Stop': 4, 'PostToolUse:ToolSearch': 1, 'PostToolUse:mcp__plugin_qompack_qompack__recall': 2}
+all outcomes success/exit 0: True
+events seen not declared: []
+declared not seen in stream: ['PreCompact', 'SessionEnd', 'SubagentStop'] (PreCompact/SubagentStop not exercised; SessionEnd has no host stream event)
+init mcp_servers (qompack): [{'name': 'plugin:qompack:qompack', 'status': 'connected', 'source': 'plugin'}]
+init tools (qompack): ['mcp__plugin_qompack_qompack__already_tried', 'mcp__plugin_qompack_qompack__dropped', 'mcp__plugin_qompack_qompack__expand', 'mcp__plugin_qompack_qompack__re_read', 'mcp__plugin_qompack_qompack__recall', 'mcp__plugin_qompack_qompack__record_eliminated', 'mcp__plugin_qompack_qompack__timeline', 'mcp__plugin_qompack_qompack__why']
+init slash_commands (qompack): ['qompack:dropped', 'qompack:eval', 'qompack:pin', 'qompack:recall', 'qompack:status', 'qompack:why']
+init plugins (qompack): [{'name': 'qompack', 'path': '<scratch>\\install\\c7\\mkt\\qompack-plugin-0.3.0-windows-amd64', 'source': 'qompack-windows-amd64@qompack-live', 'version': '0.3.0'}]
+docs/mcp-tools.md eight: ['already_tried', 'dropped', 'expand', 're_read', 'recall', 'record_eliminated', 'timeline', 'why']
+host eight (prefix stripped): ['already_tried', 'dropped', 'expand', 're_read', 'recall', 'record_eliminated', 'timeline', 'why'] ; match: True
+qompack:checkpoint present: False

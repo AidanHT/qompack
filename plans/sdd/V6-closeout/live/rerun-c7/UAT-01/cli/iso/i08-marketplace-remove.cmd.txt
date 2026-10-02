@@ -1,0 +1,2 @@
+$ sh <scratch>/install/c7/../tools/unset.sh env CLAUDE_CONFIG_DIR=<scratch>/install/c7/profile claude plugin marketplace remove qompack-live
+cwd: <scratch>/install/c7/uat01/iso-proj

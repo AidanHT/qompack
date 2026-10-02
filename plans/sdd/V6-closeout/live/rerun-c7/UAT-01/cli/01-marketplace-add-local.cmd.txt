@@ -1,0 +1,2 @@
+$ sh <scratch>/install/c7/../tools/unset.sh claude plugin marketplace add <scratch>/install/c7/mkt --scope local
+cwd: <scratch>/install/c7/uat01/proj

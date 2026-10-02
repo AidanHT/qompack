@@ -1,0 +1,17 @@
+precondition checks 2026-10-02 04:05:10 EDT
+$ test -e ~/.qompack/config.json
+exit 1 (1 = absent)
+$ test -e ~/.qompack
+exit 1 (1 = absent)
+$ test -e <project>/.qompack
+exit 1 (1 = absent)
+$ test -e <project>/.claude
+exit 1 (1 = absent)
+$ env | grep -c ^QOMPACK_  (under tools/unset.sh, as every step runs)
+0
+$ claude --version
+2.1.280 (Claude Code)
+$ tasklist qompack.exe
+INFO: No tasks are running which match the specified criteria.
+$ ver
+Microsoft Windows [Version 10.0.26200.9457]

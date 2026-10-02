@@ -1,0 +1,45 @@
+step 4 — 2026-10-02 04:08:39 EDT
+installed bundle root (plugin list installPath): ~/.claude/plugins/cache/qompack-live/qompack-windows-amd64/0.3.0
+$ cat <installPath>/.claude-plugin/plugin.json
+{
+  "name": "qompack",
+  "version": "0.3.0",
+  "description": "Qompack keeps a local record of the session and restores the important parts after Claude Code compacts its context, with tools to recall anything left out.",
+  "author": {
+    "name": "Qompack"
+  },
+  "homepage": "https://github.com/AidanHT/qompack",
+  "keywords": [
+    "compaction",
+    "context",
+    "memory"
+  ]
+}
+
+$ BUNDLE.json name/version/source (installed copy)
+qompack 0.3.0 {'commit': 'd20309c03ffc364e4cc48663be73cfbb1f2309b2', 'dirty': False}   (python json read of the installed copy; a first attempt with a /c/ path failed and was re-run)
+$ cmp installed BUNDLE.json / bin/qompack.exe against the frozen bundle
+BUNDLE.json identical
+bin/qompack.exe identical
+$ (cd <installPath> && sha256sum -c checksums.txt)
+.claude-plugin/plugin.json: OK
+.mcp.json: OK
+LICENSE: OK
+THIRD_PARTY_NOTICES.md: OK
+bin/qompack.exe: OK
+commands/dropped.md: OK
+commands/eval.md: OK
+commands/pin.md: OK
+commands/recall.md: OK
+commands/status.md: OK
+commands/why.md: OK
+hooks/hooks.json: OK
+$ git show d20309c0:plugin/.claude-plugin/plugin.json | grep version
+  "version": "0.3.0",
+$ git describe --tags --abbrev=0 d20309c0
+v0.2.0
+$ git describe --tags d20309c0
+v0.2.0-2005-gd20309c0
+$ sha256sum BUNDLE.json bin/qompack.exe (frozen bundle)
+5212ae4eaa2e931266d52069e7d0c72ec2dfd2255d55421c87486ab083e1f395 *BUNDLE.json
+ab8046bac3bad894c9a299c61fb38277f4179f4e33bfb088873e43edcbe33be7 *bin/qompack.exe

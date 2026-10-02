@@ -1,0 +1,20 @@
+[
+  {
+    "id": "qompack-windows-amd64@qompack-live",
+    "version": "0.3.0",
+    "scope": "local",
+    "enabled": true,
+    "installPath": "<scratch>\\install\\c7\\profile\\plugins\\cache\\qompack-live\\qompack-windows-amd64\\0.3.0",
+    "installedAt": "2026-10-02T08:05:22.619Z",
+    "lastUpdated": "2026-10-02T08:05:22.619Z",
+    "projectPath": "<scratch>\\install\\c7\\uat01\\iso-proj",
+    "mcpServers": {
+      "qompack": {
+        "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe",
+        "args": [
+          "mcp"
+        ]
+      }
+    }
+  }
+]
