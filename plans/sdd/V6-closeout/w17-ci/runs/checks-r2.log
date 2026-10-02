@@ -1,0 +1,6 @@
+== devtool fmt-check
+exit=0
+== go vet ./test/fault (windows)
+exit=0
+== GOOS=linux go vet ./test/fault
+exit=0

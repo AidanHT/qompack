@@ -1,0 +1,11 @@
+=== RUN   TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence
+=== RUN   TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence/a_capture_published_mid_audit_is_not_dangling
+    audit_order_test.go:89: fault: auditRetentionRoots read [evidence claims], want [claims evidence]: the claims must be read before the evidence they name
+    audit_order_test.go:93: fault: a capture published while the audit ran was reported dangling, though its sidecar was on disk before its retention root was declared: retention_root(764f68e39d27): retention root (class "evidence", "capture sidecar sha256:bafeddb8dee1e0bc16533ce15af273b69d7ec72cfc4895955454afb39aac324e") names 764f68e39d27, which is not held
+=== RUN   TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence/an_evidence_claim_with_no_sidecar_is_still_dangling
+--- FAIL: TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence (0.22s)
+    --- FAIL: TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence/a_capture_published_mid_audit_is_not_dangling (0.12s)
+    --- PASS: TestFault_AuditRetentionRootsReadsTheClaimBeforeItsEvidence/an_evidence_claim_with_no_sidecar_is_still_dangling (0.09s)
+FAIL
+FAIL	github.com/qompack/qompack/test/fault	1.481s
+FAIL

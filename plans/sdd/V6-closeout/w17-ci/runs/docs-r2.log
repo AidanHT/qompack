@@ -1,0 +1,36 @@
+== go test -count=1 ./test/docs
+ok  	github.com/qompack/qompack/test/docs	2.373s
+exit=0
+== guards
+=== RUN   TestColoadDeclarationIsPinnedToTheGoConstant
+=== PAUSE TestColoadDeclarationIsPinnedToTheGoConstant
+=== RUN   TestWorkflowGoVersionMatchesToolchain
+    goversion_test.go:85: 20 go-version pins across [ci.yml marketplace.yml nightly.yml release.yml] all equal go.mod's toolchain go1.26.6
+--- PASS: TestWorkflowGoVersionMatchesToolchain (0.02s)
+=== RUN   TestNonReferenceDisk_IsHostedCIOnly
+=== RUN   TestNonReferenceDisk_IsHostedCIOnly/ignored_outside_github_actions
+=== RUN   TestNonReferenceDisk_IsHostedCIOnly/ci_yml_sets_it_in_exactly_the_hosted_isolation_jobs
+=== RUN   TestNonReferenceDisk_IsHostedCIOnly/nightly_yml_declares_it_in_exactly_the_ruled_jobs
+=== RUN   TestNonReferenceDisk_IsHostedCIOnly/release_yml_declares_it_in_exactly_the_release_job
+=== RUN   TestNonReferenceDisk_IsHostedCIOnly/every_hosted_fsync_bound_job_declares_its_cause
+=== RUN   TestNonReferenceDisk_IsHostedCIOnly/reference_run_scripts_never_declare_it
+--- PASS: TestNonReferenceDisk_IsHostedCIOnly (0.05s)
+    --- PASS: TestNonReferenceDisk_IsHostedCIOnly/ignored_outside_github_actions (0.00s)
+    --- PASS: TestNonReferenceDisk_IsHostedCIOnly/ci_yml_sets_it_in_exactly_the_hosted_isolation_jobs (0.00s)
+    --- PASS: TestNonReferenceDisk_IsHostedCIOnly/nightly_yml_declares_it_in_exactly_the_ruled_jobs (0.00s)
+    --- PASS: TestNonReferenceDisk_IsHostedCIOnly/release_yml_declares_it_in_exactly_the_release_job (0.00s)
+    --- PASS: TestNonReferenceDisk_IsHostedCIOnly/every_hosted_fsync_bound_job_declares_its_cause (0.00s)
+    --- PASS: TestNonReferenceDisk_IsHostedCIOnly/reference_run_scripts_never_declare_it (0.00s)
+=== RUN   TestGoreleaserBuildsNothingAndDraftsTheRelease
+=== PAUSE TestGoreleaserBuildsNothingAndDraftsTheRelease
+=== RUN   TestReleaseWorkflowGatesGoreleaserBehindReleaseCheck
+=== PAUSE TestReleaseWorkflowGatesGoreleaserBehindReleaseCheck
+=== CONT  TestColoadDeclarationIsPinnedToTheGoConstant
+=== CONT  TestReleaseWorkflowGatesGoreleaserBehindReleaseCheck
+=== CONT  TestGoreleaserBuildsNothingAndDraftsTheRelease
+--- PASS: TestReleaseWorkflowGatesGoreleaserBehindReleaseCheck (0.05s)
+--- PASS: TestColoadDeclarationIsPinnedToTheGoConstant (0.05s)
+--- PASS: TestGoreleaserBuildsNothingAndDraftsTheRelease (0.05s)
+PASS
+ok  	github.com/qompack/qompack/test/guards	0.331s
+exit=0
