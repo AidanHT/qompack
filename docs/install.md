@@ -285,8 +285,13 @@ may work perfectly — nobody has measured it, and this page will not pretend ot
 
 **Status: nothing is published yet.** The marketplace below is generated and validated
 (`claude plugin validate --strict --json` accepted it on 2.1.280, 2026-09-22), but no release
-carrying it has been published, so installing through it has **not been rehearsed**. Everything in
-this section is recorded from the host docs and from that validation.
+carrying it has been published, so installing through it has **not been rehearsed**. Until 0.3.0
+is published the commands below have nothing to fetch: there is no release asset, and develop has
+no `.claude-plugin/marketplace.json` yet, so install from a local directory (§3) meanwhile. 0.3.0
+is published as a pre-release first; while it is one, only form (c) below, pinned to `v0.3.0`,
+reaches it, and forms (a) and (b) work once it is promoted to a full release and the marketplace
+pull request is merged ([release §1](release.md#1-procedure), step 7). Everything in this section
+is recorded from the host docs and from that validation.
 
 **What it is.** One marketplace, `qompack`, with six entries — one per release target — each an
 `archive` source: a zip on the GitHub Release, pinned by sha256.
