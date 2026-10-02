@@ -56,15 +56,20 @@ prepared for them here:
 - **Host limitation.** A plugin that returns `additionalContext` from a SessionStart hook with
   `source=compact` receives no signal about what happened to it: whether it was delivered to the
   model at all, and how much of it. No documented host surface reports this.
-- **Evidence.** `hook.additional_context_delivered` — the assertion whose job this is — has no
-  recorded observation. In `qompack self-test` it reports `not-yet-implemented`, the producer-absent
+- **Evidence.** `hook.additional_context_delivered` — the assertion whose job this is — observes
+  nothing in `qompack self-test`, where it reports `not-yet-implemented`, the producer-absent
   state, because self-test runs the standard assertions against a zero `daemon.Services`
   (`internal/cli/selftest.go` `selfTestContractAssertions`) and the producer is declared only when
   the rehydrate seam is bound (`internal/daemon/options.go` `DeclareProducers`); the gated wrapper
   then never runs the real check at all (`internal/contract/assertions.go`;
-  `internal/contract/ids.go` `CAdditionalContext`). What a live daemon's run would observe against
-  an installed host has never been recorded: installed-host verification is claimed nowhere
-  (`plans/V5-report.md` §24, B01; `plans/MIGRATION-EVIDENCE.md` "Capability register inputs"). The design it belongs to,
+  `internal/contract/ids.go` `CAdditionalContext`). A live daemon against an installed host has
+  now been recorded: in the candidate 4 live lane on Claude Code 2.1.280, the daemon's own contract
+  snapshot (`qompack status --json`) read `not-yet-observed` at a session's start
+  (`plans/sdd/V6-closeout/live/rerun-c4/UAT-01/cli/x4-status-json.stdout.txt`) and
+  `sentinel-observed` after a session that compacted
+  (`plans/sdd/V6-closeout/live/rerun-c4/UAT-02/cli/05-status-json.stdout.txt`). That documents one
+  delivery of Qompack's sentinel into the transcript, not how much of the block was delivered or
+  what the model did with it. The design it belongs to,
   [ADR 0011](adr/0011-rehydration-budget-and-item-order.md), can bound and order what Qompack emits
   but cannot observe what the host did with it, and `internal/contract/capability.go` records
   injection as `implemented_unverified` with the note that an observed sentinel "documents one
@@ -96,8 +101,12 @@ prepared for them here:
   hookSpecificOutput.hookEventName: expected one of "PreToolUse" | "UserPromptSubmit" | …", and it
   appended the whole rejection, instruction text included, to the post-compaction transcript
   ([evidence](../plans/sdd/V6-closeout/packaging/evidence/c1.12-host-rejection.txt)). Qompack now
-  answers PreCompact with the empty object and has retired the instruction (C1.18). `precompact.has_time_to_write` ("measured PreCompact
-  wall time vs. the manifest timeout") still has no installed-host observation recorded (B01).
+  answers PreCompact with the empty object and has retired the instruction (C1.18).
+  `precompact.has_time_to_write` ("measured PreCompact wall time vs. the manifest timeout") was
+  observed in the candidate 4 live lane as `p99=119ms timeout=20000ms` after a session that
+  compacted (`plans/sdd/V6-closeout/live/rerun-c4/UAT-02/cli/05-status-json.stdout.txt`): a
+  measurement against the manifest's own timeout, while how long the host actually waits is still
+  not documented as a guarantee.
 - **Proposal.** Give PreCompact a `hookSpecificOutput` that appends plugin-supplied focus text to
   the summarization request (the way the user's own `/compact <instructions>` does), and state the
   PreCompact timeout as a contract.
@@ -162,8 +171,14 @@ prepared for them here:
 - **Evidence.** `mcp.server_registered` — "the MCP server received initialize at least once this
   session" (`internal/contract/ids.go` `CMCPRegistered`) — reports `not-yet-implemented` in
   `qompack self-test`, which runs it against a zero `daemon.Services`; the producer is declared only
-  where the daemon binds `s.MCPInitialized` (`internal/daemon/mcpop.go`), and no installed-host run
-  has recorded what that assertion observes (B01). `internal/mcp`'s package comment records the related asymmetry: Claude Code "launches an MCP
+  where the daemon binds `s.MCPInitialized` (`internal/daemon/mcpop.go`). In the candidate 4 live
+  lane on Claude Code 2.1.280 the daemon's own snapshot read `initialize-pending` at a session's
+  start, every row stamped with the same start time
+  (`plans/sdd/V6-closeout/live/rerun-c4/UAT-01/cli/x4-status-json.stdout.txt`; that session's
+  `state/history.json` records `mcp_initialized` true), and `initialize-received` after a later
+  session (`plans/sdd/V6-closeout/live/rerun-c4/UAT-02/cli/05-status-json.stdout.txt`). Until a
+  client initializes the server, then, the row cannot tell a server the host never launched from
+  one that has not been initialized yet. `internal/mcp`'s package comment records the related asymmetry: Claude Code "launches an MCP
   server once per client and hands it no session_id", which is why the daemon, not the stdio
   process, resolves the session.
 - **Proposal.** Make registration observable to the plugin that declared the server: report whether

@@ -102,9 +102,12 @@ host change could lift — as prepared proposals, none of which has been filed.
   `selfTestContractAssertions`), so that assertion's producer is undeclared *there* and the row
   reports `ok / info / not-yet-implemented` — the producer-absent state, which means no assertion
   was made at all. A live daemon does declare the producer once its rehydrate seam is bound
-  (`internal/daemon/options.go` `DeclareProducers`, guarded by `s.Rehydrate`), but no run against an
-  installed Claude Code has ever been recorded here (B01), so there is no observed delivery figure
-  from that path either. A number nobody measured is `unknown`, not zero.
+  (`internal/daemon/options.go` `DeclareProducers`, guarded by `s.Rehydrate`). In the candidate 4
+  live lane on Claude Code 2.1.280 that live daemon's snapshot read `sentinel-observed` after a
+  session that compacted
+  (`plans/sdd/V6-closeout/live/rerun-c4/UAT-02/cli/05-status-json.stdout.txt`): one delivery of the
+  sentinel was seen, and no delivered size, so there is no observed delivery figure from that path
+  either. A number nobody measured is `unknown`, not zero.
 - **What Qompack does instead.** It counts its own emitted tokens against its own budget and prints
   the availability word rather than a borrowed number when there is no measurement —
   [docs/troubleshooting.md §1](troubleshooting.md#1-start-with-provenance) and

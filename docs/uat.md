@@ -138,8 +138,10 @@ build does not support is disabled, and can be seen to be disabled.
 
 **Expected observable result**
 
-- Step 2 prints the plugin version on a line of its own and exits `0` — `0.1.0` on this tree
-  (observed; the value is `core.Version`, so a later build prints its own).
+- Step 2 prints the plugin version on a line of its own and exits `0`: the stamped bundle version,
+  `0.3.0` for a release bundle (observed on candidate 4's bundle,
+  `plans/sdd/V6-closeout/live/rerun-c4/UAT-01/version.txt`), and `0.1.0` from a plain source build
+  until the release's version commit.
 - Step 4's `version` field is the version the bundle was stamped with: the same value step 2
   printed and the `version` in the bundle's `BUNDLE.json`, because `devtool bundle` stamps one
   version into the binary, `plugin.json` and `BUNDLE.json` alike, and strips the source tree's
