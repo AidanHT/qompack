@@ -78,8 +78,9 @@ frontier or activation check remains unverified; a clean integrity report cannot
 ## How to run a scenario
 
 1. **Record the snapshot before anything else.** `qompack version` prints the plugin version and
-   nothing else — on this tree, built from source, it printed `0.1.0` and exited `0` (observed in an
-   empty scratch directory outside the repository; it created no `.qompack/` there). Record beside
+   nothing else: the version the binary was stamped with, which is `0.3.0` for a release bundle and,
+   from the release's version commit on, for a plain source build too. It exits `0` and creates no
+   `.qompack/` (observed in an empty scratch directory outside the repository). Record beside
    it the git SHA the bundle was built from, the host OS and its version, and the Claude Code
    version, so the row names one build and not a family of them.
 2. **Take and verify a pre-run backup.** With the disposable project's daemon stopped, run
@@ -138,16 +139,17 @@ build does not support is disabled, and can be seen to be disabled.
 
 **Expected observable result**
 
-- Step 2 prints the plugin version on a line of its own and exits `0`: the stamped bundle version,
+- Step 2 prints the plugin version on a line of its own and exits `0`: the stamped version,
   `0.3.0` for a release bundle (observed on candidate 4's bundle,
-  `plans/sdd/V6-closeout/live/rerun-c4/UAT-01/version.txt`), and `0.1.0` from a plain source build
-  until the release's version commit.
+  `plans/sdd/V6-closeout/live/rerun-c4/UAT-01/version.txt`) and, from the release's version commit
+  on, for a plain source build as well.
 - Step 4's `version` field is the version the bundle was stamped with: the same value step 2
   printed and the `version` in the bundle's `BUNDLE.json`, because `devtool bundle` stamps one
   version into the binary, `plugin.json` and `BUNDLE.json` alike, and strips the source tree's
   `plugin/` prefix so the manifest sits at the bundle's root. The source tree's own
-  `plugin/.claude-plugin/plugin.json` reads `0.1.0` until the release's version commit, and the
-  repository's last git tag does not agree with it either; record all three as they stand
+  `plugin/.claude-plugin/plugin.json` reads `0.3.0` from the release's version commit on (it read
+  `0.1.0` before it, as the Result below records), and the repository's last git tag, `v0.2.0`,
+  was never a release; record all three as they stand
   ([README.md](../README.md#status-release-candidate)).
 - Step 5's hook list is the seven events `plugin/hooks/hooks.json` declares — `PostToolUse`,
   `PreCompact`, `SessionEnd`, `SessionStart`, `Stop`, `SubagentStop`, `UserPromptSubmit` — each
