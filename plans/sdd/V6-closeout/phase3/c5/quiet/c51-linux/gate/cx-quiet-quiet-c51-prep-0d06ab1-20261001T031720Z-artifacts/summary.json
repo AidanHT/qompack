@@ -1,0 +1,11 @@
+{
+ "packages": {
+  "github.com/qompack/qompack/test/bench/hotpath": {
+   "result": "pass",
+   "passed": 0,
+   "failed": [],
+   "skipped": []
+  }
+ },
+ "unreported": []
+}

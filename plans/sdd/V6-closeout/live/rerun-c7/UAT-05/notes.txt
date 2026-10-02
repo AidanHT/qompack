@@ -1,0 +1,168 @@
+UAT-05 re-run on candidate 7 (D52/D53) — a correction after the original requirement, a /qompack:pin made while the
+daemon runs, record_eliminated, then /compact: section 2 must render the correction ABOVE the superseded original
+(D50, read literally) with the pin; then step 5 as the current text states it (D49): a config change to
+runtime.rehydrate.* must reach the RUNNING daemon without a restart, then the doc's primary route (a daemon started
+after the edit). Also C4.3. Agent-executed on the owner's real host per owner decision D3 by a Claude Code workflow
+subagent (Opus 5.5) — not human UAT.
+
+Date 2026-10-02 America/Toronto: run 1 04:41-04:42 EDT; void run 2 04:44 EDT; run 2 re-run 14:09-14:12 EDT. The
+lane was interrupted by a usage limit (~04:50) and a network outage (~15:00); this row was judged afterwards from the
+evidence below, with no further session. Sessions used: 3 (sessions.tsv part sessions-c7 n=3 run 1, n=4 void run 2,
+n=5 run 2 re-run). Model claude-haiku-4-5-20251001, Claude Code 2.1.280, Windows 11 Home 25H2 build
+10.0.26200.9457, frozen bundle qompack-bundles/c7/qompack-plugin-0.3.0-windows-amd64 (BUNDLE.json sha256
+5212ae4eaa2e931266d52069e7d0c72ec2dfd2255d55421c87486ab083e1f395, bin/qompack.exe sha256 ab8046ba...3be7, commit
+d20309c03ffc364e4cc48663be73cfbb1f2309b2) via --plugin-dir; every CLI step used the bundle's bin/qompack.exe
+(cli/00-version: 0.3.0). Init in both sessions: plugin qompack 0.3.0 (qompack@inline), plugin:qompack:qompack
+connected, 8 MCP tools, the six /qompack: commands (dropped, eval, pin, recall, status, why; no qompack:checkpoint).
+
+Preconditions (cli/00-preconditions.txt; run2r-pre/cli/00-preconditions.txt): a fresh project each (run 1 uat05/proj:
+reports.py, data/meta.txt, README.md, billing.py, data/meta2.txt; run 2 re-run uat05r/proj: billing.py,
+README.md, data/meta2.txt; git init + add), defaults (no config file, no --set: rehydrate minTokens 8000 / maxTokens
+12000, eliminationsTopN 8, reinjection.sessionStartCompact true), DEFAULT idle exit (1800 s), QOMPACK_HOME moves
+calibration.json only. Initial absence recorded for both projects: 00-backup-create-absent exit 1 "source project has
+no existing store".
+
+Run 1 — normal budget (run1-session/stream.jsonl, meta.json exit 0, 48.0 s; stderr.txt empty; hooks.json 21 pairs,
+every hook_response success / exit 0):
+ T1 requirement "the export must use a semicolon (;)" + Read reports.py; T2 "/qompack:pin Never write to prod.db from
+ the export code." -> "pinned inv_8382970dffd4 (source: user)" with the daemon (pid 72940) running; T3 "Correction:
+ the export delimiter must be a TAB character, not a semicolon. The semicolon requirement is superseded." -> "Understood
+ — the CSV export will use a TAB character"; T4 record_eliminated -> elim_28bde5b2d2c2; T5 `cat data/meta.txt`; T6
+ "/compact" (manual, compact_result success); T7 (before: data/meta.txt deleted) the model answered the ticket
+ REL-5521-KESTREL "from the Read tool result displayed at the top of this turn" (the host's preserved context) and the
+ delimiter "TAB character — from the summary and Qompack rehydration section (user corrected it from semicolon)"; T8
+ /qompack:dropped --json -> {"count":0,"drops":[]}.
+ Step 2 (run1-block2-SessionStart-compact.txt): the compact additionalContext is 3,059 UTF-16 units (block + probe
+ line), inline (no <persisted-output>), delimited by "<!-- qompack:injected seq=1 ver=1 -->" ... "<!--
+ /qompack:injected -->", sections in the fixed order 1, 2, 3, 4, 5, 6, 8 (7 absent: nothing dropped; 6a/6b absent:
+ nothing to restore). Section 1 carries the pin verbatim. Section 2 reads "Evolution (most recent first):" with four
+ entries — the meta.txt prompt, the record_eliminated prompt, THEN the TAB correction, then the /qompack:pin prompt —
+ and below them "Original:" with the semicolon requirement whole. The correction renders ABOVE the superseded
+ original (D50 literal: met; candidate 4 rendered the original above it). Section 3: the eliminated "semicolon
+ delimiter" [active]; section 4: dec_dde1ccbde407 rejected "semicolon delimiter". Every record whole. No line claims
+ the host's restored context was reduced.
+ Step 3 (run1-state-rehydrate-fbc4b18c-....json): tokens 942, budget 12000 (within), 7 items, none truncated, dropped
+ [], degraded false.
+ Step 4: in-session /qompack:dropped --json (T8) and cli/run1-dropped-json (exit 0): {"count":0,"drops":[]}.
+ Store (run1-store/): 0001.json re-hashes to its MANIFEST line (MATCH); pins/invariants.json holds inv_8382970dffd4 and
+ cli/run1-pin-list-json agrees; cli/run1-fsck-json-live exit 0 with the daemon live, every check ok (pins ok,
+ checkpoints "the chain from 0001 verifies across 1 checkpoint(s)", negknow 1 active).
+
+Void run 2 (run2-session/, sessions.tsv n=4, exit 1): it ran in run 1's project after writing the 150/150 config
+(run2-config-edit.txt) and terminating run 1's daemon pid 72940 (lock pid, image qompack.exe and command line
+checked); from T3 on every turn returned "You've hit your weekly limit" and both "/compact" turns failed
+(compact_result failed). No step of this row is judged from it; its config-print capture (cli/run2-config-print-*)
+is kept only as the record of the void attempt. Its daemon pid 69148 is no longer running.
+
+Run 2 re-run — step 5, tiny budget (run2r-session/stream.jsonl, meta.json exit 0, 118.4 s; stderr.txt empty;
+hooks.json 24 pairs, every hook_response success / exit 0), a fresh project, the same shape of work:
+ T1 requirement "the export must quote every field with double quotes" + Read billing.py; T2 "/qompack:pin Never write
+ to prod.db from the billing export." -> "pinned inv_b91128913d77 (source: user)"; T3 correction "must NOT quote
+ fields; it must leave every field unquoted. The double-quote requirement is superseded."; T4 record_eliminated ->
+ elim_8782d60b4ddc (scope session, active); T5 `cat data/meta2.txt`.
+ Live reload (D49), run2r-before-steps.txt turn 6: with the session's daemon pid 13832 running, <project>/.qompack/
+ config.json was written at 14:10:23 EDT as {"runtime": {"rehydrate": {"minTokens": 150, "maxTokens": 150}}}; the
+ daemon logged 6 s later (store-run2r/logs_qompack-20261002.log line 4):
+   ts=2026-10-02T18:10:29.3090095Z level=info msg="daemon: config reloaded"
+   changed="[runtime.rehydrate.maxTokens runtime.rehydrate.minTokens]"
+ and the SAME daemon (pid 13832, unchanged after the wait) answered T6 "/compact": its state
+ (run2r-blockA-state-rehydrate-....json) reads budget 150 — the reload reached the running daemon without a restart
+ (F-C4-UAT05-2 fixed). cli/run2r-config-print-provenance: maxTokens 150 / minTokens 150 from the project
+ config.json:1, eliminationsTopN 8 default.
+ Primary route, turn 7: pid 13832 was terminated (lock pid, image qompack.exe, command line "daemon --project
+ <scratch>\sessions\c7\uat05r\proj" all checked; Stop-Process exit 0); T7 Read README.md started pid 25168 under the
+ edited file; T8 "/compact" was answered by it: state seq 2 (run2r-blockB-state-...) budget 150.
+ Step 2 — both tiny-budget compactions (run2r-block2-SessionStart-compact.txt, run2r-block3-...): the whole compact
+ additionalContext is ONLY the probe line "<!-- qompack-contract-probe qompack-contract-... -->" (61 UTF-16 units).
+ No qompack:injected block, no header, no section 7, no counted tail, no affordance line. The stream's hook_response
+ output confirms the hook returned exactly that (not a host truncation).
+ Step 3: both states read tokens 0, budget 150, items [], degraded true; block A's dropped lists 15 entries, tier-1
+ first: invariants/tier1 "OVERFLOW: pinned invariant inv_b91128913d77 did not fit the rehydration payload and is
+ emitted whole or not at all; restore: Read .qompack/checkpoints/0001.json (invariants)", user_intent/tier1
+ "OVERFLOW: the verbatim original user intent did not fit ...; restore:
+ expand(tool_use_id=prompt_dc87e76b-..._0)", four user_intent_evolution, the elimination (already_tried), the
+ decision (why), current_work, four pointers, and affordance/tier1 "OVERFLOW: tier-1 material did not fit the
+ rehydration budget and is emitted whole or not at all — call dropped() for the full accounting". Block B: 14 entries
+ of the same shape against 0002.json. There is no overflow/payload entry ("nothing was injected"), although nothing
+ was injected.
+ Step 4: run2r-blockA-dropped-json (exit 0, count 15, taken before the daemon was ended) and
+ cli/run2r-dropped-json-after-blockB (exit 0, count 14). In-session, T9 "/qompack:dropped --json": the command body
+ ran and its expanded message carried the envelope (count 14, three tier1 entries; host transcript at 18:11:35Z,
+ extracted facts in run2r-session/transcript-facts.json), but the model did not echo it: it resumed "the pending task"
+ from the host's summary, tried Edit and Write on billing.py (both denied by dontAsk) and asked for permission. The
+ committed envelopes are the CLI captures.
+ LOUD.log (store-run2r/logs_LOUD.log): "rehydrate: tier-1 material exceeds the hard budget cap budget=150 spent=47
+ ceiling_chars=9400 spent_chars=122" twice, once per daemon (pid 13832 at T6, pid 25168 at T8) in the one session.
+ Store (run2r-store/): 0001.json and 0002.json re-hash to their MANIFEST lines (MATCH); pins hold inv_b91128913d77
+ (cli/run2r-pin-list-json); cli/run2r-fsck-json-live exit 0, every check ok.
+ The daemon pid 25168 then ended by the DEFAULT idle exit (lock gone at 14:57:45 EDT, ~2,212 s after it started; no
+ termination).
+
+Judgement against the current expectation, field by field:
+ - Delimiters and fixed section order: run 1 met; run 2 (tiny budget) NOT met — there is no block at all.
+ - Size within budget: met in both (942/12000; 0/150 twice). Inline <= 9,500 units: met (3,059; 61).
+ - "Each record in the block is whole; what did not fit is named in section 7 with the call that restores it": run 1
+   met (nothing dropped); run 2 NOT met — 15 and 14 records did not fit and none is named in the payload.
+ - Current authority (D50 literal): run 1 met — the TAB correction renders above the superseded semicolon original,
+   the original still whole, with the pin in section 1. Run 2 renders no section 2 to judge.
+ - Overflow is explicit: met as the row defines it — the drop report (state file and dropped()) names every record
+   that could not be represented, in the row's second shape (id "tier1", the item's own kind, "is emitted whole or not
+   at all", ending in the restoring pointer), tier-1 entries first, and degraded is true. The row's first shape
+   (kind overflow, id payload, "nothing was injected") is for a wrapper that does not fit; here the wrapper fit
+   (LOUD: spent=47 of 150) and that entry is absent. The overflow is explicit on disk only: the session is told
+   nothing.
+ - No native-shrink claim: met.
+ - Step 5's D49 requirement: met — the running daemon applied the reload ("config reloaded changed=[...]" and the
+   next block's state at budget 150), and a daemon started after the edit did too.
+
+Why nothing was injected — the product does what ADR 0011 now says. docs/adr/0011-rehydration-budget-and-item-order.md
+(the D49/D50 section): "Tier 1 is one prefix over tier1Admission ... the retrieval line (item 8), then the pinned
+invariants, then item 2's tier-1 slice. The first record the budget cannot hold ends tier 1"; "when the refused record
+is the retrieval line, no share ... is offered any room"; and "a payload whose only admitted section would be item 7 is
+no payload, as a payload with no items already was". Run 1's retrieval line alone costs 86 tokens; with the 47-token
+wrapper and item 7's reserved floor it does not fit 150, so tier 1 ends at its first record and the payload is empty.
+This is the D49 fix of F-C4-UAT05-3 (at 150 the retrieval line was refused while the smaller pin got in) carried to
+its documented end. The row's expectation (a delimited block whose section 7 names what did not fit) and its scenario
+("says out loud when something could not be carried at all") assume a block exists; ADR 0011 now designs none at this
+budget. The two documents disagree, and the session-visible outcome is silence.
+
+Result: fail. Read literally (D50), the expected result is not met at the tiny budget: no delimited block, and the 15
+(then 14) records that did not fit are not "named in section 7 with the call that restores it"; the session hears
+nothing about them. The row's fail list, read literally, is NOT tripped: its last clause needs "no overflow/tier1
+entry, no degraded, no counted tail", and the store's report has tier1 entries and degraded true. The outcome is the
+behaviour ADR 0011 designs, so this is a fail against the row's expectation, not a code defect against the code's own
+ADR; the coordinator decides which document is right. Run 1 meets every field: the D50 order (correction above the
+superseded original) and the D49 live reload are fixed.
+
+Findings:
+ F-C7-UAT05-1 (design vs row, new on candidate 7): at runtime.rehydrate.minTokens = maxTokens = 150 the
+   SessionStart:compact additionalContext carries no Qompack block — only the contract probe line — while the state
+   records tokens 0, items [], degraded true and 15 (then 14) drops. Candidate 4 at the same 150 budget injected a
+   362-unit block with the pin in section 1 and section 7 "- … and 14 more; call dropped()"
+   (rerun-c4/UAT-05/run2-block-tiny-budget.txt). ADR 0011 (D49 section) designs the empty payload; docs/uat.md UAT-05
+   step 5's expected result and scenario assume a block that names the loss. Either the row or the ADR must change;
+   until then a session at a budget too small for the retrieval line loses every record without a word in its
+   context (the state and dropped() still name them).
+ F-C7-UAT05-2 (product, minor): 'tier-1 material exceeds the hard budget cap' was logged LOUD twice in one session,
+   once per daemon across the step-5 restart. D50's once-per-session rule covers a tier-1 overflow ALREADY NAMED IN
+   THE PAYLOAD; here the payload named nothing, so this is recorded as an observation tied to F-C7-UAT05-1, not as a
+   separate breach.
+ Observation (host/model, not product): after the empty tiny-budget compaction the model received the
+   "/qompack:dropped --json" envelope (count 14) but did not echo it and resumed the export work from the host's
+   summary.
+ Host-reported hook failures or timeouts (D53(i)): none — every hook_response in runs 1 and 2 re-run is success /
+   exit 0 and both stderr.txt files are empty.
+
+Rollback: initial state absent for both projects (recorded); the runs are retained as evidence; no backup or restore
+was run in this row (the doc's rule for an absent initial state: retain the run and use a fresh empty project, which
+run 2 re-run did). Cross-version and activation checks unverified. Daemons: run 1's pid 72940 was terminated by the
+void run 2 (checked), run 2's pid 13832 was terminated for step 5's primary route (checked), pid 25168 and the void
+run's pid 69148 ended on their own; no qompack.exe is running at the time of judging (15:06 EDT).
+
+Evidence index: cli/ (version, preconditions, absent backup, run 1 and run 2r dropped/pin/fsck/config-print);
+run1-session/, run1-block{1,2}-*.txt, run1-state-rehydrate-*.json, run1-store/, run1-daemon-info.txt,
+setup-facts.json; run2-session/ + run2-config-edit.txt (void); run2r-pre/cli/, run2r-session/,
+run2r-before-steps.txt, run2r-block{1,2,3}-*.txt, run2r-blockA-*, run2r-blockB-*, run2r-store/, store-run2r/
+(config.json, index, pins, records, state, logs incl. LOUD.log), run2r-daemon-info.txt, run2r-setup-facts.json.
+Candidate 4 (9f6a2fad): fail — under D50 the superseded semicolon original rendered above the TAB correction in
+section 2, evidence plans/sdd/V6-closeout/live/rerun-c4/UAT-05/

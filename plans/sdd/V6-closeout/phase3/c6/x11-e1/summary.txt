@@ -1,0 +1,102 @@
+== e1-0207-r1-t1-ctl arm=stock row=ctl exit=0 power AC 100 -> AC 100 transitions=[] VALID
+  spawn floor: p50=13.149ms p99=49.811ms (n=200)
+  B-A                 n=2064  p50=  18.432ms p95=  26.624ms p99=  28.672ms p999=  49.152ms max=  121.000ms limit=50.000ms   [PASS]
+  B-B                 n=2064  p50=  13.312ms p95=  20.480ms p99=  22.528ms p999=  45.056ms max=  105.105ms limit=50.000ms   [PASS]
+  B-D                 n=2000  p50=  32.133ms p95=  41.330ms p99=  69.111ms p999=  74.608ms max=  103.501ms limit=n/a        [reported]
+  note: daemon-observed hook_controlled_observed (recvTS-reqTS, strict lower bound, no hotPathTailAllowance): p50=3.072ms p99=4.096ms n=2064 — informational cross-check against the gated B-A row above, which adds the tail allowance
+== e1-0207-r1-t1-x11 arm=stock row=x11 exit=0 power AC 100 -> AC 100 transitions=[] VALID
+          spawn floor: p50=18.250ms p99=66.661ms (n=200)
+          B-A                 n=2064  p50=  24.576ms p95=  30.720ms p99=  36.864ms p999=  73.728ms max=  162.000ms limit=50.000ms   [PASS]
+          B-B                 n=2064  p50=  14.336ms p95=  20.480ms p99=  24.576ms p999=  61.440ms max=  138.846ms limit=50.000ms   [PASS]
+          B-D                 n=2000  p50=  47.036ms p95=  56.385ms p99=  96.068ms p999= 109.009ms max=  125.659ms limit=n/a        [reported]
+          note: daemon-observed hook_controlled_observed (recvTS-reqTS, strict lower bound, no hotPathTailAllowance): p50=5.120ms p99=8.192ms n=2064 — informational cross-check against the gated B-A row above, which adds the tail allowanc
+            "daemon-observed hook_controlled_observed (recvTS-reqTS, strict lower bound, no hotPathTailAllowance): p50=5.120ms p99=8.192ms n=2064 — informational cross-check against the gated B-A row above, which adds the tail allowance",
+    v3_x11_test.go:512: no-ledger run (the X11 corpus without the ledger) bench note: daemon-observed hook_controlled_observed (recvTS-reqTS, strict lower bound, no hotPathTailAllowance): p50=5.120ms p99=8.192ms n=2064 — informational cro
+          spawn floor: p50=18.950ms p99=65.476ms (n=200)
+          B-A                 n=2064  p50=  24.576ms p95=  30.720ms p99=  36.864ms p999=  45.056ms max=  153.000ms limit=50.000ms   [PASS]
+          B-B                 n=2064  p50=  14.336ms p95=  20.480ms p99=  22.528ms p999=  28.672ms max=  129.983ms limit=50.000ms   [PASS]
+          B-D                 n=2000  p50=  47.330ms p95=  57.023ms p99=  98.102ms p999= 107.222ms max=  118.185ms limit=n/a        [reported]
+          note: daemon-observed hook_controlled_observed (recvTS-reqTS, strict lower bound, no hotPathTailAllowance): p50=5.120ms p99=8.192ms n=2064 — informational cross-check against the gated B-A row above, which adds the tail allowanc
+            "daemon-observed hook_controlled_observed (recvTS-reqTS, strict lower bound, no hotPathTailAllowance): p50=5.120ms p99=8.192ms n=2064 — informational cross-check against the gated B-A row above, which adds the tail allowance",
+    v3_x11_test.go:514: ledger-resident run (the X11 corpus with the 5 000-entry ledger) bench note: daemon-observed hook_controlled_observed (recvTS-reqTS, strict lower bound, no hotPathTailAllowance): p50=5.120ms p99=8.192ms n=2064 — in
+    v3_x11_test.go:553: X11 pair (gated: PASS): hook_controlled_observed p50 no-ledger=5.120ms (p99 8.192ms, n=2064) | ledger=5.120ms (p99 8.192ms, n=2064) | ceiling 6.400ms (x1.25, floor one 1.024ms tick)
+--- PASS: TestV3_HotPathUnchangedWithLedgerResident (607.34s)
+ok  	github.com/qompack/qompack/test/e2e	607.650s
+== e1-0207-r1-t1-int arm=stock row=int exit=0 power AC 100 -> AC 100 transitions=[] VALID
+          spawn floor: p50=18.578ms p99=63.171ms (n=200)
+          B-A                 n=2064  p50=  24.576ms p95=  30.720ms p99=  36.864ms p999=  49.152ms max=  143.000ms limit=50.000ms   [PASS]
+          B-B                 n=2064  p50=  14.336ms p95=  20.480ms p99=  24.576ms p999=  36.864ms max=  131.411ms limit=50.000ms   [PASS]
+          B-D                 n=2000  p50=  47.188ms p95=  56.284ms p99=  95.685ms p999= 100.968ms max=  109.021ms limit=n/a        [reported]
+          note: daemon-observed hook_controlled_observed (recvTS-reqTS, strict lower bound, no hotPathTailAllowance): p50=5.120ms p99=8.192ms n=2064 — informational cross-check against the gated B-A row above, which adds the tail allowanc
+            "daemon-observed hook_controlled_observed (recvTS-reqTS, strict lower bound, no hotPathTailAllowance): p50=5.120ms p99=8.192ms n=2064 — informational cross-check against the gated B-A row above, which adds the tail allowance",
+    hotpath_test.go:1361: bench note: daemon-observed hook_controlled_observed (recvTS-reqTS, strict lower bound, no hotPathTailAllowance): p50=5.120ms p99=8.192ms n=2064 — informational cross-check against the gated B-A row above, which 
+--- PASS: TestIntegration_HotPathWarmWithRealResidentState (162.61s)
+ok  	github.com/qompack/qompack/test/integration	162.910s
+== e1-0207-r2-t1-ctl arm=stock row=ctl exit=0 power AC 100 -> AC 100 transitions=[] VALID
+  spawn floor: p50=20.139ms p99=64.531ms (n=200)
+  B-A                 n=2064  p50=  22.528ms p95=  28.672ms p99=  32.768ms p999=  61.440ms max=  133.000ms limit=50.000ms   [PASS]
+  B-B                 n=2064  p50=  13.312ms p95=  20.480ms p99=  22.528ms p999=  53.248ms max=  107.358ms limit=50.000ms   [PASS]
+  B-D                 n=2000  p50=  46.167ms p95=  58.740ms p99=  97.367ms p999= 106.166ms max=  123.166ms limit=n/a        [reported]
+  note: daemon-observed hook_controlled_observed (recvTS-reqTS, strict lower bound, no hotPathTailAllowance): p50=4.096ms p99=8.192ms n=2064 — informational cross-check against the gated B-A row above, which adds the tail allowance
+== e1-0207-r2-t1-x11 arm=stock row=x11 exit=0 power AC 100 -> AC 100 transitions=[] VALID
+          spawn floor: p50=18.718ms p99=59.965ms (n=200)
+          B-A                 n=2064  p50=  24.576ms p95=  30.720ms p99=  36.864ms p999=  57.344ms max=  168.000ms limit=50.000ms   [PASS]
+          B-B                 n=2064  p50=  14.336ms p95=  20.480ms p99=  24.576ms p999=  53.248ms max=  144.282ms limit=50.000ms   [PASS]
+          B-D                 n=2000  p50=  47.384ms p95=  56.043ms p99=  95.502ms p999= 103.629ms max=  122.320ms limit=n/a        [reported]
+          note: daemon-observed hook_controlled_observed (recvTS-reqTS, strict lower bound, no hotPathTailAllowance): p50=5.120ms p99=8.192ms n=2064 — informational cross-check against the gated B-A row above, which adds the tail allowanc
+            "daemon-observed hook_controlled_observed (recvTS-reqTS, strict lower bound, no hotPathTailAllowance): p50=5.120ms p99=8.192ms n=2064 — informational cross-check against the gated B-A row above, which adds the tail allowance",
+    v3_x11_test.go:512: no-ledger run (the X11 corpus without the ledger) bench note: daemon-observed hook_controlled_observed (recvTS-reqTS, strict lower bound, no hotPathTailAllowance): p50=5.120ms p99=8.192ms n=2064 — informational cro
+          spawn floor: p50=17.640ms p99=64.994ms (n=200)
+          B-A                 n=2064  p50=  24.576ms p95=  30.720ms p99=  36.864ms p999=  73.728ms max=  153.000ms limit=50.000ms   [PASS]
+          B-B                 n=2064  p50=  14.336ms p95=  20.480ms p99=  22.528ms p999=  57.344ms max=  131.108ms limit=50.000ms   [PASS]
+          B-D                 n=2000  p50=  47.715ms p95=  56.397ms p99=  97.622ms p999= 103.285ms max=  119.140ms limit=n/a        [reported]
+          note: daemon-observed hook_controlled_observed (recvTS-reqTS, strict lower bound, no hotPathTailAllowance): p50=5.120ms p99=8.192ms n=2064 — informational cross-check against the gated B-A row above, which adds the tail allowanc
+            "daemon-observed hook_controlled_observed (recvTS-reqTS, strict lower bound, no hotPathTailAllowance): p50=5.120ms p99=8.192ms n=2064 — informational cross-check against the gated B-A row above, which adds the tail allowance",
+    v3_x11_test.go:514: ledger-resident run (the X11 corpus with the 5 000-entry ledger) bench note: daemon-observed hook_controlled_observed (recvTS-reqTS, strict lower bound, no hotPathTailAllowance): p50=5.120ms p99=8.192ms n=2064 — in
+    v3_x11_test.go:553: X11 pair (gated: PASS): hook_controlled_observed p50 no-ledger=5.120ms (p99 8.192ms, n=2064) | ledger=5.120ms (p99 8.192ms, n=2064) | ceiling 6.400ms (x1.25, floor one 1.024ms tick)
+--- PASS: TestV3_HotPathUnchangedWithLedgerResident (615.51s)
+ok  	github.com/qompack/qompack/test/e2e	615.816s
+== e1-0207-r2-t1-int arm=stock row=int exit=0 power AC 100 -> AC 100 transitions=[] VALID
+          spawn floor: p50=15.601ms p99=59.484ms (n=200)
+          B-A                 n=2064  p50=  24.576ms p95=  30.720ms p99=  32.768ms p999=  53.248ms max=  142.000ms limit=50.000ms   [PASS]
+          B-B                 n=2064  p50=  14.336ms p95=  20.480ms p99=  22.528ms p999=  45.056ms max=  132.203ms limit=50.000ms   [PASS]
+          B-D                 n=2000  p50=  44.665ms p95=  53.867ms p99=  92.585ms p999= 103.347ms max=  104.933ms limit=n/a        [reported]
+          note: daemon-observed hook_controlled_observed (recvTS-reqTS, strict lower bound, no hotPathTailAllowance): p50=4.096ms p99=8.192ms n=2064 — informational cross-check against the gated B-A row above, which adds the tail allowanc
+            "daemon-observed hook_controlled_observed (recvTS-reqTS, strict lower bound, no hotPathTailAllowance): p50=4.096ms p99=8.192ms n=2064 — informational cross-check against the gated B-A row above, which adds the tail allowance",
+    hotpath_test.go:1361: bench note: daemon-observed hook_controlled_observed (recvTS-reqTS, strict lower bound, no hotPathTailAllowance): p50=4.096ms p99=8.192ms n=2064 — informational cross-check against the gated B-A row above, which 
+--- PASS: TestIntegration_HotPathWarmWithRealResidentState (156.38s)
+ok  	github.com/qompack/qompack/test/integration	156.705s
+== e1-0207-r3-t1-ctl arm=stock row=ctl exit=0 power AC 100 -> AC 100 transitions=[] VALID
+  spawn floor: p50=20.733ms p99=64.022ms (n=200)
+  B-A                 n=2064  p50=  22.528ms p95=  28.672ms p99=  32.768ms p999=  53.248ms max=  125.000ms limit=50.000ms   [PASS]
+  B-B                 n=2064  p50=  13.312ms p95=  20.480ms p99=  22.528ms p999=  45.056ms max=   99.388ms limit=50.000ms   [PASS]
+  B-D                 n=2000  p50=  45.503ms p95=  53.068ms p99=  92.538ms p999= 100.641ms max=  124.641ms limit=n/a        [reported]
+  note: daemon-observed hook_controlled_observed (recvTS-reqTS, strict lower bound, no hotPathTailAllowance): p50=4.096ms p99=8.192ms n=2064 — informational cross-check against the gated B-A row above, which adds the tail allowance
+== e1-0207-r3-t1-x11 arm=stock row=x11 exit=0 power AC 100 -> AC 100 transitions=[] VALID
+          spawn floor: p50=17.260ms p99=61.505ms (n=200)
+          B-A                 n=2064  p50=  24.576ms p95=  30.720ms p99=  36.864ms p999=  45.056ms max=  158.000ms limit=50.000ms   [PASS]
+          B-B                 n=2064  p50=  14.336ms p95=  20.480ms p99=  24.576ms p999=  26.624ms max=  137.546ms limit=50.000ms   [PASS]
+          B-D                 n=2000  p50=  48.140ms p95=  56.186ms p99=  92.358ms p999= 102.541ms max=  117.736ms limit=n/a        [reported]
+          note: daemon-observed hook_controlled_observed (recvTS-reqTS, strict lower bound, no hotPathTailAllowance): p50=5.120ms p99=8.192ms n=2064 — informational cross-check against the gated B-A row above, which adds the tail allowanc
+            "daemon-observed hook_controlled_observed (recvTS-reqTS, strict lower bound, no hotPathTailAllowance): p50=5.120ms p99=8.192ms n=2064 — informational cross-check against the gated B-A row above, which adds the tail allowance",
+    v3_x11_test.go:512: no-ledger run (the X11 corpus without the ledger) bench note: daemon-observed hook_controlled_observed (recvTS-reqTS, strict lower bound, no hotPathTailAllowance): p50=5.120ms p99=8.192ms n=2064 — informational cro
+          spawn floor: p50=18.783ms p99=55.262ms (n=200)
+          B-A                 n=2064  p50=  24.576ms p95=  30.720ms p99=  36.864ms p999=  61.440ms max=  136.000ms limit=50.000ms   [PASS]
+          B-B                 n=2064  p50=  13.312ms p95=  20.480ms p99=  22.528ms p999=  53.248ms max=  115.821ms limit=50.000ms   [PASS]
+          B-D                 n=2000  p50=  46.275ms p95=  54.321ms p99=  92.430ms p999= 101.083ms max=  119.891ms limit=n/a        [reported]
+          note: daemon-observed hook_controlled_observed (recvTS-reqTS, strict lower bound, no hotPathTailAllowance): p50=5.120ms p99=8.192ms n=2064 — informational cross-check against the gated B-A row above, which adds the tail allowanc
+            "daemon-observed hook_controlled_observed (recvTS-reqTS, strict lower bound, no hotPathTailAllowance): p50=5.120ms p99=8.192ms n=2064 — informational cross-check against the gated B-A row above, which adds the tail allowance",
+    v3_x11_test.go:514: ledger-resident run (the X11 corpus with the 5 000-entry ledger) bench note: daemon-observed hook_controlled_observed (recvTS-reqTS, strict lower bound, no hotPathTailAllowance): p50=5.120ms p99=8.192ms n=2064 — in
+    v3_x11_test.go:553: X11 pair (gated: PASS): hook_controlled_observed p50 no-ledger=5.120ms (p99 8.192ms, n=2064) | ledger=5.120ms (p99 8.192ms, n=2064) | ceiling 6.400ms (x1.25, floor one 1.024ms tick)
+--- PASS: TestV3_HotPathUnchangedWithLedgerResident (606.61s)
+ok  	github.com/qompack/qompack/test/e2e	606.894s
+== e1-0207-r3-t1-int arm=stock row=int exit=0 power AC 100 -> AC 100 transitions=[] VALID
+          spawn floor: p50=22.129ms p99=70.743ms (n=200)
+          B-A                 n=2064  p50=  24.576ms p95=  30.720ms p99=  36.864ms p999=  57.344ms max=  135.000ms limit=50.000ms   [PASS]
+          B-B                 n=2064  p50=  14.336ms p95=  20.480ms p99=  22.528ms p999=  49.152ms max=  125.131ms limit=50.000ms   [PASS]
+          B-D                 n=2000  p50=  48.060ms p95=  94.839ms p99= 101.378ms p999= 106.366ms max=  133.831ms limit=n/a        [reported]
+          note: daemon-observed hook_controlled_observed (recvTS-reqTS, strict lower bound, no hotPathTailAllowance): p50=5.120ms p99=8.192ms n=2064 — informational cross-check against the gated B-A row above, which adds the tail allowanc
+            "daemon-observed hook_controlled_observed (recvTS-reqTS, strict lower bound, no hotPathTailAllowance): p50=5.120ms p99=8.192ms n=2064 — informational cross-check against the gated B-A row above, which adds the tail allowance",
+    hotpath_test.go:1361: bench note: daemon-observed hook_controlled_observed (recvTS-reqTS, strict lower bound, no hotPathTailAllowance): p50=5.120ms p99=8.192ms n=2064 — informational cross-check against the gated B-A row above, which 
+--- PASS: TestIntegration_HotPathWarmWithRealResidentState (176.69s)
+ok  	github.com/qompack/qompack/test/integration	176.993s

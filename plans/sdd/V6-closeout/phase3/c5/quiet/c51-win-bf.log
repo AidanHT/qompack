@@ -1,0 +1,5 @@
+=== RUN   TestBudgetBF
+    bench_test.go:141: B-F over 2000 tool uses: limit=250ms n=200 p50=40.96ms p95=65.536ms p99=73.728ms max=2.865957s
+--- PASS: TestBudgetBF (44.34s)
+PASS
+ok  	github.com/qompack/qompack/internal/mcp	48.790s

@@ -1,0 +1,15 @@
+Step 4: the daemon ended by the DEFAULT idle exit (runtime.daemon.idleExitSeconds 1800, no override, no termination).
+Session 1 ended 2026-10-02 04:32:43 EDT (guard line); the day log's last line is 08:32:38Z (observer gc).
+The daemon's shutdown writes (state/*.json) carry mtime 2026-10-02T05:02:56-04:00, i.e. ~1800 s after the last session activity;
+run/daemon.lock is absent (removed on exit): run/ = ['marker.json'].
+This lane was interrupted at ~04:50 EDT by a usage limit and resumed at ~14:00 EDT; nothing touched the project between.
+No qompack.exe was running at resume (tasklist). daemon_info now: {"lock": "unreadable: [Errno 2] No such file or directory: '<scratch>/sessions/c7/uat03/proj\\\\.qompack\\\\run\\\\daemon.lock'"}
+Newest state mtimes:
+  2026-10-02T05:02:56-04:00  store.json
+  2026-10-02T05:02:56-04:00  scheduler.json
+  2026-10-02T05:02:56-04:00  observer.json
+  2026-10-02T05:02:56-04:00  drain.json
+  2026-10-02T05:02:56-04:00  delivery-lease-position.json
+  2026-10-02T05:02:56-04:00  delivery-ack-position.json
+  2026-10-02T05:02:56-04:00  bocd.json
+  2026-10-02T04:34:56-04:00  draft-d8d6f167-82da-4a52-abea-e8e4f340b39e.json

@@ -1,0 +1,132 @@
+{
+ "args": [
+  "-p",
+  "--input-format",
+  "stream-json",
+  "--output-format",
+  "stream-json",
+  "--verbose",
+  "--include-hook-events",
+  "--model",
+  "claude-haiku-4-5-20251001",
+  "--max-turns",
+  "10",
+  "--setting-sources",
+  "project,local",
+  "--permission-mode",
+  "dontAsk",
+  "--plugin-dir",
+  "C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c7/qompack-plugin-0.3.0-windows-amd64",
+  "--allowedTools",
+  "Read,Bash(cat:*),mcp__plugin_qompack_qompack__recall,mcp__plugin_qompack_qompack__expand,mcp__plugin_qompack_qompack__re_read,mcp__plugin_qompack_qompack__already_tried,mcp__plugin_qompack_qompack__record_eliminated,mcp__plugin_qompack_qompack__timeline,mcp__plugin_qompack_qompack__why,mcp__plugin_qompack_qompack__dropped,Bash(qompack status:*),Bash(qompack recall:*),Bash(qompack pin:*),Bash(qompack why:*),Bash(qompack dropped:*),Bash(qompack eval:*)",
+  "--resume",
+  "0eaa2666-1cf2-4087-85c2-d3bab55ec39b",
+  "--fork-session"
+ ],
+ "turns": [
+  {
+   "msg": "Use the Read tool to read docs/design.md and summarize it in one sentence.",
+   "ok": true,
+   "wall_s": 5.212,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 76248,
+    "WorkingSet64": 47046656,
+    "PeakWorkingSet64": 47046656,
+    "CPU": 1.4375,
+    "StartTime": "/Date(1790964809357)/"
+   },
+   "store_bytes": 343125
+  },
+  {
+   "msg": "/compact",
+   "ok": true,
+   "wall_s": 29.472,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 76248,
+    "WorkingSet64": 47648768,
+    "PeakWorkingSet64": 47648768,
+    "CPU": 1.59375,
+    "StartTime": "/Date(1790964809357)/"
+   },
+   "store_bytes": 381552
+  },
+  {
+   "msg": "Call mcp__plugin_qompack_qompack__already_tried with target \"per-client rate limit\" and approach \"100 requests per minute\". Report the raw result in one line.",
+   "ok": true,
+   "wall_s": 5.814,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 76248,
+    "WorkingSet64": 48189440,
+    "PeakWorkingSet64": 48189440,
+    "CPU": 1.734375,
+    "StartTime": "/Date(1790964809357)/"
+   },
+   "store_bytes": 421533
+  },
+  {
+   "msg": "/qompack:why dec_991dbff588ec",
+   "ok": true,
+   "wall_s": 6.614,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 76248,
+    "WorkingSet64": 48406528,
+    "PeakWorkingSet64": 48406528,
+    "CPU": 1.8125,
+    "StartTime": "/Date(1790964809357)/"
+   },
+   "store_bytes": 436867
+  },
+  {
+   "msg": "Correction: the limit must be 45 requests per minute per client, not 60. The 60 figure is superseded. Acknowledge in one sentence.",
+   "ok": true,
+   "wall_s": 1.603,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 76248,
+    "WorkingSet64": 48697344,
+    "PeakWorkingSet64": 48697344,
+    "CPU": 1.828125,
+    "StartTime": "/Date(1790964809357)/"
+   },
+   "store_bytes": 447633
+  },
+  {
+   "msg": "/compact",
+   "ok": true,
+   "wall_s": 25.065,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 76248,
+    "WorkingSet64": 51462144,
+    "PeakWorkingSet64": 51462144,
+    "CPU": 1.984375,
+    "StartTime": "/Date(1790964809357)/"
+   },
+   "store_bytes": 482502
+  },
+  {
+   "msg": "What is the current per-client rate limit requirement, and what was the original one? One sentence.",
+   "ok": true,
+   "wall_s": 2.207,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 76248,
+    "WorkingSet64": 51539968,
+    "PeakWorkingSet64": 51539968,
+    "CPU": 2.046875,
+    "StartTime": "/Date(1790964809357)/"
+   },
+   "store_bytes": 492485
+  }
+ ],
+ "store_bytes_before": 313831,
+ "started_ms": 1790964905374,
+ "pid": 54148,
+ "exit": 0,
+ "wall_s": 83.735,
+ "store_bytes_after": 496860
+}

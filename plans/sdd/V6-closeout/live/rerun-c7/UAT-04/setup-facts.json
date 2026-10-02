@@ -1,0 +1,63 @@
+{
+ "files": {
+  "notes.md": {
+   "bytes": 84,
+   "sha256": "cbdb9d8f5307a29fab742c0876ee5cd040b093d3aec3e3540cb29cd3214b976b"
+  },
+  "data/keys.txt": {
+   "bytes": 833,
+   "sha256": "518d467ba80daeb89099c6dde71c5e2888edd89fa5d198924522a5b7ef5594b4"
+  },
+  "filler/f01.txt": {
+   "bytes": 40427,
+   "sha256": "d49a66f015c4b96a6a5abc78dd4f7a09207a59f584c245b129ed5ef4aab1de5b"
+  },
+  "filler/f02.txt": {
+   "bytes": 40361,
+   "sha256": "56eccccd80a9fbda857d47fb6f8cc3d94f489b722ae0fc1d5e537b31d93e764e"
+  },
+  "filler/f03.txt": {
+   "bytes": 40414,
+   "sha256": "2260c866a185dc7c6bfff7595abc4c9a97aa3c48184ab670409ce4354e576a3d"
+  },
+  "filler/f04.txt": {
+   "bytes": 40417,
+   "sha256": "384d92b1d8fd837caf363ebe3d2abed1bb2f19a4d8847e4d1d20164c7948b90b"
+  },
+  "filler/f05.txt": {
+   "bytes": 40366,
+   "sha256": "e3a110a61e74524ae0e41e982a1af9391d66864349c4549b6021c4f7328ee616"
+  },
+  "filler/f06.txt": {
+   "bytes": 40392,
+   "sha256": "cc2ca5a62cb9038fcc86f513cf4762a45625eb3435f2356a310616e661fc3bad"
+  },
+  "filler/f07.txt": {
+   "bytes": 40321,
+   "sha256": "c7064f609adbb36a8c7108a04384afd2ddc859a7556305fea6c78177c9e586f3"
+  },
+  "filler/f08.txt": {
+   "bytes": 40376,
+   "sha256": "56c96d82cdba469b96523ade229ab44719921e3ba6aef092df558cfe90dc74f6"
+  },
+  "filler/f09.txt": {
+   "bytes": 40444,
+   "sha256": "e1729cfc0fd5125a8b2310f19469bd6edd589289273f2d29d43185a47cf91d7f"
+  },
+  "filler/f10.txt": {
+   "bytes": 40383,
+   "sha256": "8de3f55595647e15c202767d7dc77028e5db685670b161eb1ec512e8d7ddf450"
+  },
+  "src/ledger.py": {
+   "bytes": 100,
+   "sha256": "e398ae3e8d49b389401d95064500a354397671b5f9f41391b102573073251bdc"
+  }
+ },
+ "first_prompt_chars": 16858,
+ "first_prompt_utf16_units": 16858,
+ "first_prompt_utf8_bytes": 16858,
+ "first_prompt_sha256": "176d3f500ee634fad12696f3c559fe72b927e7b6d99fb1f1ed0dd4051c80e137",
+ "first_prompt_last_requirement": "R151",
+ "Q23": "TEAK-5825-WILLOW",
+ "auto_compaction_setting": "CLAUDE_CODE_AUTO_COMPACT_WINDOW=100000, host default threshold percentage (no CLAUDE_AUTOCOMPACT_PCT_OVERRIDE)"
+}

@@ -1,0 +1,35 @@
+<!-- qompack:injected seq=1 ver=1 -->
+# Qompack rehydration — checkpoint 0001, session a85ba99c
+
+## 2. Original user intent (verbatim from L0 capture — never summarized)
+Evolution (most recent first):
+> Call mcp__plugin_qompack_qompack__record_eliminated to record that the approach "raise the retry count to 10" for the target "worker timeouts in src/batch.go" was eliminated, with the reason "worker.log shows the timeouts come from the upstream lock ledger-7, not from too few retries", depends_on ["worker.log"], scope "project". Report the id it returns.
+Original:
+> Use the Read tool to read src/batch.go and worker.log. Tell me in one sentence what Run in batch.go does, and how many ERROR lines worker.log has.
+
+## 3. Approaches already eliminated (top 1 of 1 by slice relevance)
+- worker timeouts in src/batch.go — "raise the retry count to 10" — worker.log shows the timeouts come from the upstream lock ledger-7, not from too few retries [active] [evidence sha256:46afe3e011cb7e05be9bddc1ffe319ade4172b6be1864065e2ea633abdbd75c4]
+Before committing to an approach, call already_tried.
+
+## 4. Decisions
+- [dec_35c3947c6c2e] (turn 3) rejected "raise the retry count to 10" for worker timeouts in src/batch.go
+  why: worker.log shows the timeouts come from the upstream lock ledger-7, not from too few retries
+  rejected: raise the retry count to 10
+  evidence: sha256:46afe3e011cb7e05be9bddc1ffe319ade4172b6be1864065e2ea633abdbd75c4
+
+## 5. Current work
+goal: Call mcp__plugin_qompack_qompack__record_eliminated to record that the approach "raise the retry count to 10" for the target "worker timeouts in src/batch.go" w
+blocked on: none
+
+## 6. Pointers (paths and hashes — contents are NOT restored; use expand/re_read)
+- src/batch.go sha256:42b95b1c09a2bd7e4e529d3d1eb31e272c217d0f4ed37b5dd82fef3093542c26 — referenced
+- worker.log sha256:d46d7b17aa2d1bbe693b2df098c262451734bf8a191526e341a6dbee85ef6e34 — referenced
+- tool_use toolu_015teMXpy2XLPfNdrdtvtHur sha256:d46d7b17aa2d1bbe693b2df098c262451734bf8a191526e341a6dbee85ef6e34 — <scratch>\resilience\uat10\proj\worker.log
+- tool_use toolu_016tpV9436nBnkrPEBce1u9P sha256:c5993a950d61f3d1de93def526c7d990a269d09d840d9e56b4de5fc6030acbb0 — {"approach":"raise the retry count to 10","depends_on":["worker.log"],"reason":"worker.log shows the timeouts come fr…
+- tool_use toolu_01LGo1MSsT1S1MKDpeBV4zwM sha256:42b95b1c09a2bd7e4e529d3d1eb31e272c217d0f4ed37b5dd82fef3093542c26 — <scratch>\resilience\uat10\proj\src\batch.go
+- tool_use toolu_01RXjj48eZgN8EUYSWJneu9d sha256:1146bcb981c0cb2ad00a4ee882f53d77282d57e527bd0176b4237afa4b9c5e3b — {"max_results":1,"query":"select:mcp__plugin_qompack_qompack__record_eliminated"}
+
+## 8. Retrieval
+Qompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().
+<!-- /qompack:injected -->
+<!-- qompack-contract-probe qompack-contract-251d6b97c6c8 -->

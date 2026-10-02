@@ -1,0 +1,12 @@
+ts=2026-10-02T18:13:29.4283038Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-10-02T18:13:29.4808199Z level=info msg="observer: session registered" session=0eaa2666-1cf2-4087-85c2-d3bab55ec39b source=startup turn=0 segment=1
+ts=2026-10-02T18:13:29.4808199Z level=info msg="scheduler: session bound" session=0eaa2666-1cf2-4087-85c2-d3bab55ec39b effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+ts=2026-10-02T18:14:11.199824Z level=info msg="observer: gc" scanned=12 deleted=0 freed=0 truncated=false
+ts=2026-10-02T18:14:22.0444278Z level=info msg="observer: session registered" session=0eaa2666-1cf2-4087-85c2-d3bab55ec39b source=resume turn=7 segment=3
+ts=2026-10-02T18:14:56.0489903Z level=info msg="observer: gc" scanned=18 deleted=0 freed=0 truncated=false
+ts=2026-10-02T18:15:06.7878384Z level=info msg="checkpoint: forked session recorded" session=2c146247-b4d7-416b-88a8-3ecce1e0b13b parent_session=0eaa2666-1cf2-4087-85c2-d3bab55ec39b parent_seq=2 origin_session=0eaa2666-1cf2-4087-85c2-d3bab55ec39b
+ts=2026-10-02T18:15:06.8122661Z level=info msg="observer: session registered" session=2c146247-b4d7-416b-88a8-3ecce1e0b13b source=fork turn=0 segment=5
+ts=2026-10-02T18:15:06.8129117Z level=info msg="scheduler: state from another session discarded" path=<scratch>\sessions\c7\uat06\proj\.qompack\state\bocd.json file_session=0eaa2666-1cf2-4087-85c2-d3bab55ec39b session=2c146247-b4d7-416b-88a8-3ecce1e0b13b
+ts=2026-10-02T18:15:06.8129117Z level=info msg="scheduler: state from another session discarded" path=<scratch>\sessions\c7\uat06\proj\.qompack\state\scheduler.json file_session=0eaa2666-1cf2-4087-85c2-d3bab55ec39b session=2c146247-b4d7-416b-88a8-3ecce1e0b13b
+ts=2026-10-02T18:15:06.8135054Z level=info msg="scheduler: session bound" session=2c146247-b4d7-416b-88a8-3ecce1e0b13b effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+ts=2026-10-02T18:16:29.1145416Z level=info msg="observer: gc" scanned=30 deleted=0 freed=0 truncated=false

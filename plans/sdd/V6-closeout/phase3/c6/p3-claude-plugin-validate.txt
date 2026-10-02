@@ -1,0 +1,30 @@
+== /c/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c6/bundleA/qompack-plugin-0.3.0-darwin-amd64/
+Validating plugin manifest: C:\Users\Quant\Documents\Programming\Projects\qompack-v6\plans\sdd\V6-closeout\phase3\c6\bundleA\qompack-plugin-0.3.0-darwin-amd64\.claude-plugin\plugin.json
+
+✔ Validation passed
+exit=0
+== /c/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c6/bundleA/qompack-plugin-0.3.0-darwin-arm64/
+Validating plugin manifest: C:\Users\Quant\Documents\Programming\Projects\qompack-v6\plans\sdd\V6-closeout\phase3\c6\bundleA\qompack-plugin-0.3.0-darwin-arm64\.claude-plugin\plugin.json
+
+✔ Validation passed
+exit=0
+== /c/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c6/bundleA/qompack-plugin-0.3.0-linux-amd64/
+Validating plugin manifest: C:\Users\Quant\Documents\Programming\Projects\qompack-v6\plans\sdd\V6-closeout\phase3\c6\bundleA\qompack-plugin-0.3.0-linux-amd64\.claude-plugin\plugin.json
+
+✔ Validation passed
+exit=0
+== /c/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c6/bundleA/qompack-plugin-0.3.0-linux-arm64/
+Validating plugin manifest: C:\Users\Quant\Documents\Programming\Projects\qompack-v6\plans\sdd\V6-closeout\phase3\c6\bundleA\qompack-plugin-0.3.0-linux-arm64\.claude-plugin\plugin.json
+
+✔ Validation passed
+exit=0
+== /c/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c6/bundleA/qompack-plugin-0.3.0-windows-amd64/
+Validating plugin manifest: C:\Users\Quant\Documents\Programming\Projects\qompack-v6\plans\sdd\V6-closeout\phase3\c6\bundleA\qompack-plugin-0.3.0-windows-amd64\.claude-plugin\plugin.json
+
+✔ Validation passed
+exit=0
+== /c/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c6/bundleA/qompack-plugin-0.3.0-windows-arm64/
+Validating plugin manifest: C:\Users\Quant\Documents\Programming\Projects\qompack-v6\plans\sdd\V6-closeout\phase3\c6\bundleA\qompack-plugin-0.3.0-windows-arm64\.claude-plugin\plugin.json
+
+✔ Validation passed
+exit=0

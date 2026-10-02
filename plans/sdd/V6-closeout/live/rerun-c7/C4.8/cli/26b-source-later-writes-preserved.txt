@@ -1,0 +1,2 @@
+compared 114 vs 114 files outside backup/, tmp/, run/
+diff exit 0 (0 = identical)

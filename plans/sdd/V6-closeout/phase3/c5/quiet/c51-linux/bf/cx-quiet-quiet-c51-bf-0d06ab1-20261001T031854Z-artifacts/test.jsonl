@@ -1,0 +1,9 @@
+{"Time":"2026-10-01T03:19:06.063853082Z","Action":"start","Package":"github.com/qompack/qompack/internal/mcp"}
+{"Time":"2026-10-01T03:19:06.074346836Z","Action":"run","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestBudgetBF"}
+{"Time":"2026-10-01T03:19:06.074375584Z","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestBudgetBF","Output":"=== RUN   TestBudgetBF\n"}
+{"Time":"2026-10-01T03:19:43.520193233Z","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestBudgetBF","Output":"    bench_test.go:141: B-F over 2000 tool uses: limit=250ms n=200 p50=240µs p95=18.432ms p99=20.48ms max=24.489ms\n"}
+{"Time":"2026-10-01T03:19:43.520268934Z","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestBudgetBF","Output":"--- PASS: TestBudgetBF (37.45s)\n"}
+{"Time":"2026-10-01T03:19:43.520274468Z","Action":"pass","Package":"github.com/qompack/qompack/internal/mcp","Test":"TestBudgetBF","Elapsed":37.45}
+{"Time":"2026-10-01T03:19:43.520347394Z","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Output":"PASS\n"}
+{"Time":"2026-10-01T03:19:43.953780058Z","Action":"output","Package":"github.com/qompack/qompack/internal/mcp","Output":"ok  \tgithub.com/qompack/qompack/internal/mcp\t37.892s\n"}
+{"Time":"2026-10-01T03:19:43.95383618Z","Action":"pass","Package":"github.com/qompack/qompack/internal/mcp","Elapsed":37.893}

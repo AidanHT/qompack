@@ -1,0 +1,61 @@
+C4.6 on candidate 7 - privacy in a real session: planted secrets never reach any durable surface; out-of-project
+and deny-ruled archived reads are refused by every retrieval form (and, per D50, the rehydration block's pointers
+show no host-denied path and no absolute out-of-project path). Judged from UAT-12's retrieval-part run:
+../UAT-12/notes-retrieval.txt (sessions retrieval-c7 n=4 and n=5, ids 0f040f87 and 2a4952b4, 2026-10-02 15:34-15:45
+America/Toronto). Agent-executed on the owner's real host per owner decision D3 (Claude Code workflow subagent,
+Opus 5.5) - not human UAT. Build: qompack 0.3.0, frozen c7 bundle (BUNDLE.json sha256 5212ae4e...f395), commit
+d20309c0, Claude Code 2.1.280, Windows 11 build 10.0.26200.9457.
+
+PLANTED SECRETS (../UAT-12/setup-facts.json): two credential-shaped strings built at run time from split parts and
+fresh random characters, written only to the project file deploy_notes.md and to <scratch>/retrieval/secrets.json
+(outside every git work tree); every session used "secrets_file"; every other output went through lane.write's
+filter; every commit passed `live_driver.py scan-staged` (exit 0).
+ @@SEC_PLANTED_1@@ aws_access_key_id shape (AKIA + 16), sha256 in setup-facts.json
+ @@SEC_PLANTED_2@@ github token shape (ghp_ + 36), sha256 in setup-facts.json
+Session A read deploy_notes.md (the host's Read delivered both secrets; the capture sidecar records fidelity
+"redacted", redacted true: ../UAT-12/store/capture-sidecars-metadata.json).
+
+Durable-surface scan (literal, JSON-escaped, base64 and sha256-hex forms, plus every 10-character fragment; zstd
+objects decompressed and base64 JSON fields decoded):
+ <project>/.qompack (1,011 files incl. objects, index, records, checkpoints 0001/0003, state/rehydrate-* and drafts,
+   logs, spool, backup/uat12-c7-baseline, tmp)   0 hits, 0 fragment hits; 8 redaction placeholders   (cli/40)
+ <recovery>/.qompack (the restored baseline, 148 files)   0 hits, 0 fragment hits; 4 placeholders    (cli/41)
+ ~/.qompack (only bin/<sha256>/qompack.exe; no logs/ written there)   0 hits                          (cli/42)
+ QOMPACK_HOME=<scratch>/retrieval/c7/qhome (never created)   nothing to scan                         (cli/43)
+ Session streams: the only @@SEC_PLANTED placeholder is the host's own Read tool_result in session A (and the
+   tool-calls.txt derived from it); no MCP result, no SessionStart payload (both rehydration blocks), no slash
+   command output and no probe response carries one (cli/20, cli/21 probes: none).
+ Host surface (not Qompack's, recorded): session A's host transcript holds both secrets (4 occurrences each: the Read
+   result); session B's transcript and its persisted tool-result files hold neither.
+=> PASS for "planted secrets never reach any durable Qompack surface".
+
+REFUSALS (session B, deny rule {"permissions":{"deny":["Read(./private/deny.txt)"]}} in the project settings):
+ form                                    deny-ruled private/deny.txt                        out-of-project file
+ host Read                               refused by the host: "File is in a directory      (read in session A; the hook
+                                         that is denied by your permission settings."      fired; Qompack captured nothing)
+ recall (MCP: marker and path:)          no hit carries deny.txt; "denied" 3 and 1          -
+ expand (tool_use_id and root hash)      {"found":false,"denied":true,"reason":             expand toolu_0197ZU1q...:
+                                         "authorization denied: the host's current           {"found":false,"searched":
+                                         permission rules deny reading the associated path"} "tool_use index"}
+ re_read                                 the same denied answer                             absolute path and ../ form:
+                                                                                            tool error "path escapes the
+                                                                                            project root" (path not echoed)
+ /qompack:recall (slash, CLI)            no deny.txt hit, "denied":5                        -
+ rehydration block section 6 (A and B)   "file (path withheld ...)" by hash; tool pointers  absent (never captured); no
+                                         "summary withheld" - EXCEPT one pointer in B:      absolute out-of-project path
+                                         {"query":"path:private/deny.txt"} (F1)             in section 6
+ no-model stdio probe (cli/20)           every form as above                                as above
+No response, page, summary or pointer carried any of deny.txt's own text (salary table, "PRIVATE" header); the
+SubagentStop capture recall returns for the marker holds only the model's quote of a recall query/result.
+
+FINDING F1 (privacy, minor): session B's rehydration block section 6 shows the host-denied path in a tool pointer's
+argument summary: `- tool_use toolu_017m9djGav7vcngkniobgwim sha256:f29d6a64... - {"query":"path:private/deny.txt"}`
+(../UAT-12/sessionB/injected-2-SessionStart-compact.txt). The value of recall's path: selector escapes the pointer path
+gate that wave 15 (rehydrate item 5) added for D50. No content is disclosed.
+Observation: section 2 (verbatim user intent) carries the user's own prompts naming the out-of-project absolute path
+and private/deny.txt (session A's block); D50 names pointers.
+
+Result: fail on candidate 7 - F1 (the rehydration block shows a host-denied path in one pointer); the planted-secret
+half passes, and every retrieval form refuses the deny-ruled and out-of-project reads.
+Candidate 3 (d5598eb4): pass - evidence plans/sdd/V6-closeout/live/c4/C4.6/ (candidate 4 did not re-run C4.6; its
+UAT-12 audit raised section 6's absolute and denied paths, F4, which D50 routed to wave 15).

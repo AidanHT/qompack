@@ -1,0 +1,37 @@
+{
+  "id": "c52-win-r7-base-obs-1s",
+  "cwd": "C:/Users/Quant/AppData/Local/Temp/tmp.MWJhl7jum3/src-base/internal/obs",
+  "argv": [
+    "env",
+    "-u",
+    "QOMPACK_HOME",
+    "-u",
+    "CLAUDE_CONFIG_DIR",
+    "HOME=C:/Users/Quant/AppData/Local/Temp/tmp.MWJhl7jum3/home-base",
+    "USERPROFILE=C:/Users/Quant/AppData/Local/Temp/tmp.MWJhl7jum3/home-base",
+    "GOPATH=C:\\Users\\Quant\\go",
+    "GOMODCACHE=C:\\Users\\Quant\\go\\pkg\\mod",
+    "C:/Users/Quant/AppData/Local/Temp/tmp.MWJhl7jum3/bin-win/base/obs.test.exe",
+    "-test.run",
+    "^$",
+    "-test.bench",
+    "^Benchmark(Histogram_Observe)$",
+    "-test.benchtime",
+    "1s",
+    "-test.benchmem",
+    "-test.count",
+    "1",
+    "-test.timeout",
+    "90m"
+  ],
+  "source_head": "cf31e01f38f3d3ba4afd96c4c75db3e4b87d54cd",
+  "source_dirty": "",
+  "environment": {
+    "GOPATH": "C:\\Users\\Quant\\go"
+  },
+  "started_at": "2026-10-01T01:58:17-04:00",
+  "ended_at": "2026-10-01T01:58:19-04:00",
+  "exit_code": 0,
+  "log": "c52-win-r7-base-obs-1s.log",
+  "log_sha256": "17c97856df34e43549f3dc833f35821882fe69de58de7cc4bd171419b895b464"
+}

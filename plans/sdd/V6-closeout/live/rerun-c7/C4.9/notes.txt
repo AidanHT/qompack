@@ -1,0 +1,139 @@
+C4.9 re-run on candidate 7 (d20309c03ffc364e4cc48663be73cfbb1f2309b2) — degraded paths in real host
+sessions: (a) the scenario's own daemon ended mid-session, (b) a newer settingsVersion in the project
+config, plus the unavailable-object wording recorded in a host session. (c) passed on candidate 4 and
+is not repeated (decisions D52/D53). Agent-executed on the owner's real host per owner decision D3 by a
+Claude Code workflow subagent (Opus 5.5) — not human UAT.
+
+Date 2026-10-02 15:52-15:58 America/Toronto. Sessions used: 2 (resilience-c7 n=2 session1/, n=3
+session2/, sessions.tsv). Model claude-haiku-4-5-20251001, Claude Code 2.1.280, Windows 11 Home 25H2
+build 10.0.26200.9457, frozen bundle qompack-plugin-0.3.0-windows-amd64 (BUNDLE.json sha256
+5212ae4eaa2e931266d52069e7d0c72ec2dfd2255d55421c87486ab083e1f395, bin/qompack.exe sha256
+ab8046bac3bad894c9a299c61fb38277f4179f4e33bfb088873e43edcbe33be7) via --plugin-dir; `qompack version`
+0.3.0 (cli/00-version). Project <scratch>/resilience/c49/proj, fresh (setup-facts.json); pre-run
+`backup create` exit 1 "source project has no existing store" (initial absence,
+cli/00-backup-create-absent). Session env: QOMPACK_HOME (calibration only) and
+QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS=30 (cli/00-preconditions.txt). Every daemon this scenario did
+not terminate on purpose ended by that idle exit.
+
+Index
+- session1/, session2/: driver config, stream.jsonl, stderr.txt (both empty), meta.json (per-turn
+  daemon pid/working set/CPU and before-step output), hooks.json.
+- slash-commands-s1.json, slash-commands-s2.json: the host's expansion of each /qompack:status.
+- injected/: every hook's additionalContext (startup probes only; no compaction in this row).
+- cli/s1-kill-before-t3.txt, cli/s1-kill-before-t4.txt: the verified terminations.
+- cli/s2-writecfg-before-t2.txt, cli/s2-unavail.txt: the config write and the object move/restore.
+- cli/s1-post-*, cli/s2-post-*, cli/b*: fsck, doctor, self-test, config print, status, backup.
+- store-s1/, store-s2/: the project's day log and LOUD.log copies, and the settingsVersion 99 file.
+
+(a) Daemon ended mid-session — session1/
+Turns: T1 Read data.txt; T2 MCP recall "codeword"; [kill] T3 Read notes.md; [kill] T4 /qompack:status;
+T5 MCP recall "export runs nightly" and "codeword"; T6 /qompack:status.
+- Each kill (kd.py -> lane.kill_daemon) read <project>/.qompack/run/daemon.lock, checked the pid's image
+  (qompack.exe, the D10 staged copy ~/.qompack/bin/ab8046ba.../qompack.exe) and command line
+  ("daemon --project <this project>"), then Stop-Process: "RESULT: stopped pid 80972" (15:53:36) and
+  "RESULT: stopped pid 16388" (15:53:42). Only daemons this scenario's own session had started.
+- The next hook recovered at once, with no stale-lock wait: T3's UserPromptSubmit started daemon 16388
+  at 19:53:39.3Z, 3 s after the first kill; the day log has "daemon: took over the project from a
+  daemon that ended without releasing its lock" pid=80972 version=0.3.0 started=19:53:25Z and
+  "daemon: replayed spooled deliveries at start" deliveries=1. After the second kill, daemon 80600 took
+  over at 19:53:46.8Z with the same takeover line naming pid=16388 (store-s1/logs_qompack-20261002.log,
+  meta.json turns[2..5].daemon). Candidate 3's ~90 s stale-lock window (F-C49-4) did not occur.
+- The host session never broke: 6/6 turns answered, exit 0, stderr empty, every hook_response
+  success/exit 0 (19 pairs: SessionStart 1, UserPromptSubmit 6, PostToolUse 6, Stop 6).
+- T4 /qompack:status, run right after the second kill: the `!qompack status` expansion ran before any
+  hook had restarted a daemon and read "source: none (error, age unknown)" / "daemon: no daemon
+  answered: none is listening for this project yet. This command asked one to start unless
+  runtime.daemon.enabled is false / run status again once it is up", then "disk: reading
+  ...\.qompack\metrics\latency.json: ... The system cannot find the file specified." (killed daemons
+  never persisted metrics). Every latency and budget cell reads `unavailable` with that reason; no 0.
+  Candidate 3's empty reason "status refused: " (F-C49-1) is gone.
+- T5: MCP recall answered normally: "export runs nightly" 2 hits incl. notes.md (FileRead
+  toolu_016Crk3b..., ts 19:53:40Z, captured by the hooks of the turn right after the first kill);
+  "codeword" 4 hits incl. data.txt. Nothing captured during the outage was lost.
+- T6 /qompack:status: "source: daemon (available, 0µs old)", "host contract: no assertions reported":
+  the restarted daemon never saw this session's SessionStart, so it holds no assertions (the same
+  reading candidate 3 recorded). Honest, but the banner does not say why (observation O1).
+- After the session's idle exit: doctor exit 0. fsck --json exit 1: index.files "index/files.json is
+  absent while its log carries 2 path(s); the view is derived and --repair regenerates it" (severity
+  warn) — FINDING F-C7-C49-1 below. The view reappeared only at the next session's flush
+  (s2-post-fsck-json-object-restored: index.files ok, scanned 4).
+- No act.advance_frontier warning in any daemon's day log (F-C4-C49-3 gone): the only
+  advance_frontier mentions are the five "idle work registered" lines.
+Result (a): PASS — the host session never broke, each next hook recovered at once, retrieval
+answered, no capture was lost; finding F-C7-C49-1.
+
+(b) Newer settingsVersion — session2/ (same project, after session 1's daemon exited on idle)
+Turns: T1 Read app.py; [write config] T2 Read README.md; T3 /qompack:status; [move app.py's object
+aside] T4 MCP re_read/recall/expand of app.py; T5 Read data.txt; T6 MCP recall "codeword".
+- Before T2, writecfg.py created <project>/.qompack/config.json = {"runtime": {"migration":
+  {"settingsVersion": 99}}} (52 bytes, sha256 413f853e..., cli/s2-writecfg-before-t2.txt).
+- The running daemon reloaded it within a second: LOUD "daemon: config reload warning"
+  key=runtime.migration message="settingsVersion 99 is newer than this build understands (1); the
+  whole runtime.migration block is reset to defaults so unknown switches stay off"
+  location=<project>\.qompack\config.json:1 (19:55:35Z). T3's in-session /qompack:status shows that
+  line under "recent loud lines" (slash-commands-s2.json), counter loud.total 1.
+- Hook path: state/config-violations.json holds exactly one entry, Key "runtime.migration", the same
+  Message, Got null, Want null (cli/s2-post-config-violations.json) — the text troubleshooting §1
+  quotes. self-test config.capture "FAIL warn capture continues: 1 setting(s) fell back to the
+  default, 0 key(s) not applied", exit 0; doctor config.violations and config.capture degraded naming
+  runtime.migration; `config print --provenance` marks every runtime.migration leaf "default reset:
+  newer settingsVersion". release.md §4 and troubleshooting §6 ("the whole versioned block is reset to
+  defaults ... unknown future switches stay off") match.
+- No broken session: 6/6 turns answered, exit 0, stderr empty, 21 hook pairs all success/exit 0;
+  captures continued under the reset config (README.md, data.txt in the index; T6 recall 5 hits).
+- FINDING F-C7-C49-2: every hook process logged the reset at LOUD ("invalid configuration value,
+  using default" key=runtime.migration ...): 18 lines in LOUD.log and the day log between 19:55:34Z
+  and 19:56:04Z, one per hook invocation, while troubleshooting §6's table says "`warn` in the day
+  log; the hook path also records it in config-violations.json". LOUD.log is append-only and never
+  rotated, so a project left on a newer config gains one LOUD line per hook (store-s2/logs_LOUD.log).
+- FINDING F-C7-C49-3: with the newer settingsVersion in force, `backup create`, `verify` and `restore`
+  all refuse, exit 1: "backup: resolve configuration violations and warnings before maintenance"
+  (cli/b1-b3). This is intended in internal/cli/backup.go ("Maintenance runs only on the
+  configuration exactly as written") but docs/backup.md and troubleshooting §6's "After a plugin
+  downgrade or upgrade" do not say it, and that is the case where a user most wants a backup. After
+  the file was moved aside (cli/b5), create/verify/restore exit 0 (b6-b8: OpenedOK, 35 content roots,
+  33 tool refs, 0 tombstoned, integrity ok incl. the dual-reader seal check) and fsck of source and
+  destination exit 0 (b9).
+
+Unavailable-object wording in a host session (session2/ T4)
+- Before T4, unavail.py moved the one chunk object (4b3d70b9...) of app.py's capture
+  (toolu_015uLZnM..., root c17d2832...) out of this disposable project's objects/ (cli/s2-unavail.txt).
+- re_read(path app.py) and expand(hash of that root) both answered, not as a tool error:
+  {"found":false,"available":false,"reason":"the stored object is missing: the index records it, but
+  its bytes are no longer in the store, so it cannot be served; `qompack fsck` reports it"}.
+  recall still listed the capture (summary empty). The session continued (T5, T6 normal).
+- fsck after the session, object still aside (cli/s2-post-fsck-json-object-aside), exit 1: index.roots
+  "root c17d2832c210 names chunk 4b3d70b90561, which the object store does not hold" and "root
+  e22efa1c8a2b's base pointer c17d2832c210 does not resolve"; index.tool_use "tool_use
+  toolu_015uLZnMMMGVAsehqM6nt6f4 points at root c17d2832c210, which cannot be materialized"; captures
+  "published capture sidecar ... names root c17d2832c210, which does not resolve". The object was then
+  moved back and fsck exit 0 (cli/s2-post-fsck-json-object-restored).
+
+Findings
+- F-C7-C49-1 (store, minor): after a daemon is terminated mid-session, the daemon that takes over and
+  later exits cleanly on idle does not materialize index/files.json, so fsck after that clean exit
+  reports index.files defective, exit 1 ("absent while its log carries 2 path(s) ... --repair
+  regenerates it"). Terminating the process is a supported way to end a daemon (troubleshooting §7).
+  Nothing is lost (the log is the truth); the next session's flush wrote the view. Evidence:
+  cli/s1-post-fsck-json-after-idle-exit.stdout.txt, cli/s1-post-listing.txt (no index/files.json).
+- F-C7-C49-2 (logging/doc, minor): a newer settingsVersion logs LOUD once per hook invocation (18
+  lines in 30 s), against §6's "warn in the day log". Evidence: store-s2/logs_LOUD.log.
+- F-C7-C49-3 (doc, minor): backup create/verify/restore refuse while a newer settingsVersion is in
+  force; not documented. Evidence: cli/b1-b3.
+- O1 (observation): after a mid-session takeover, status reads "host contract: no assertions
+  reported" until the next SessionStart, without saying the daemon was restarted.
+- O2 (observation): status's provenance block wraps the metrics path mid-word ("...\.qompack\m" /
+  "etrics\latency.json") in the text form (slash-commands-s1.json, first status).
+
+Gone since candidate 3/4: F-C49-1 (empty "status refused: " reason), F-C49-4 (~90 s stale-lock window
+after a kill), F-C4-C49-3 (act.advance_frontier warnings with no ledger), F-C49-3 (missing object
+called "damaged").
+
+Overall C4.9 (a)/(b) on candidate 7: PASS for "the host session is never broken" (both sessions, both
+degraded paths, 40 hook pairs all success), with findings F-C7-C49-1..3. D53(i): 0 host-reported hook
+failures or timeouts in either session.
+Rollback: initial state absent (recorded); the run is retained as evidence. Same-build backup
+c49-after taken after the last idle exit (with the settingsVersion 99 file moved aside, F-C7-C49-3),
+verified and restored into <scratch>/resilience/c49/recovered: exit 0, reader proof OK, integrity ok,
+fsck of the destination exit 0; the destination was not activated; cross-version and activation
+checks unverified.

@@ -1,0 +1,40 @@
+{
+ "bin": "C:/Users/Quant/AppData/Roaming/npm/node_modules/@anthropic-ai/claude-code/bin/claude.exe",
+ "args": [
+  "-p",
+  "--input-format",
+  "stream-json",
+  "--output-format",
+  "stream-json",
+  "--verbose",
+  "--include-hook-events",
+  "--model",
+  "claude-haiku-4-5-20251001",
+  "--max-turns",
+  "10",
+  "--setting-sources",
+  "project,local",
+  "--permission-mode",
+  "dontAsk",
+  "--allowedTools",
+  "Read,mcp__plugin_qompack_qompack__recall,mcp__plugin_qompack_qompack__expand,mcp__plugin_qompack_qompack__re_read,mcp__plugin_qompack_qompack__already_tried,mcp__plugin_qompack_qompack__record_eliminated,mcp__plugin_qompack_qompack__timeline,mcp__plugin_qompack_qompack__why,mcp__plugin_qompack_qompack__dropped,Bash(qompack status:*),Bash(qompack recall:*),Bash(qompack pin:*),Bash(qompack why:*),Bash(qompack dropped:*),Bash(qompack eval:*)",
+  "--plugin-dir",
+  "C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c5/qompack-plugin-0.3.0-windows-amd64"
+ ],
+ "cwd": "<scratch>/install/c7/c48/proj",
+ "out": "<scratch>/install/c7/c48/sA",
+ "env": {
+  "ENABLE_CLAUDEAI_MCP_SERVERS": "false",
+  "QOMPACK_HOME": "<scratch>/install/c7/qhome",
+  "QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS": "30"
+ },
+ "messages": [
+  "Use the Read tool to read README.md, calc.py and notes.md, one after another. Then reply with just the project code word.",
+  "Use the Read tool to read data.txt. Then reply with only the number of data rows, not counting the header.",
+  "Call the MCP tool mcp__plugin_qompack_qompack__record_eliminated with target \"calc.py:parse_row\", approach \"pandas.read_csv with sep=','\", reason \"the data is semicolon-separated; a comma delimiter puts each row in one column and the totals come out wrong\", scope \"project\" and depends_on [\"data.txt\"]. Then call mcp__plugin_qompack_qompack__recall with query \"OSPREY-HALYARD\", then mcp__plugin_qompack_qompack__timeline with no arguments. Reply in one sentence with the record_eliminated outcome, the recall hit count and the timeline segment count.",
+  "/compact",
+  "Without reading any file, answer from your context if you can: what is the project code word, and which delimiter must the parser keep? If either is missing from your context, call mcp__plugin_qompack_qompack__recall with query \"code word\" or mcp__plugin_qompack_qompack__already_tried with target \"calc.py:parse_row\" and approach \"pandas.read_csv with sep=','\". Reply in one sentence and say where each answer came from."
+ ],
+ "timeout_s": 1200,
+ "scrub": "<scratch>"
+}

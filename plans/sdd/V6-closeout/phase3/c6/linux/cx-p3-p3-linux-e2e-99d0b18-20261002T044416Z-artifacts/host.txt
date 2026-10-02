@@ -1,0 +1,10 @@
+run_id=cx-p3-p3-linux-e2e-99d0b18-20261002T044416Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-cand
+rev=99d0b18c
+commit=99d0b18cf7d5991aa733e70ce52a542b80aa7710
+bundle_sha256=0394b1ac307fe913a34d97e1f5fddaea20bb55cf7de55978af6387c98b9478ef
+host_started_utc=2026-10-02T04:44:28Z
+inner_args=--coload --timeout 150m -- ./test/e2e
+host_finished_utc=2026-10-02T05:20:36Z
+container_exit=0

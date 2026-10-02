@@ -1,0 +1,22 @@
+{
+  "id": "c52-win-build-candidate-scheduler",
+  "cwd": "C:/Users/Quant/AppData/Local/Temp/tmp.MWJhl7jum3/src-candidate",
+  "argv": [
+    "go",
+    "test",
+    "-c",
+    "-o",
+    "C:/Users/Quant/AppData/Local/Temp/tmp.MWJhl7jum3/bin-win/candidate/scheduler.test.exe",
+    "./internal/scheduler"
+  ],
+  "source_head": "0d06ab1233efb0fd5be8c99dc453e1aa2ee071af",
+  "source_dirty": "",
+  "environment": {
+    "GOPATH": "C:\\Users\\Quant\\go"
+  },
+  "started_at": "2026-09-30T23:21:52-04:00",
+  "ended_at": "2026-09-30T23:21:54-04:00",
+  "exit_code": 0,
+  "log": "c52-win-build-candidate-scheduler.log",
+  "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

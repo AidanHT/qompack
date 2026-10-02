@@ -1,0 +1,51 @@
+run_id=cx-quiet-quiet-c52-prep-base-cf31e01-20261001T065119Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-cand
+rev=cf31e01f38f3d3ba4afd96c4c75db3e4b87d54cd
+commit=cf31e01f38f3d3ba4afd96c4c75db3e4b87d54cd
+bundle_sha256=e3a87c3ed8ca4bd3afb1cbcf695c024156e063237cadc16a52cc04596ae83b28
+host_started_utc=2026-10-01T06:51:22Z
+inner_args=--no-race --run ^$ --timeout 30m -- ./internal/canon ./internal/checkpoint ./internal/chunk ./internal/cli ./internal/config ./internal/daemon ./internal/dag ./internal/eval ./internal/negknow ./internal/obs ./internal/observer ./internal/paths ./internal/rules ./internal/scheduler ./internal/sketch ./internal/skills ./internal/store ./internal/symbols
+/work/cx-quiet-quiet-c52-prep-base-cf31e01-20261001T065119Z.bundle: OK
+run_id=cx-quiet-quiet-c52-prep-base-cf31e01-20261001T065119Z
+commit=cf31e01f38f3d3ba4afd96c4c75db3e4b87d54cd
+tree=d139e4cabc5f1d96007241e70eec0895d592ecbf
+bundle_sha256=e3a87c3ed8ca4bd3afb1cbcf695c024156e063237cadc16a52cc04596ae83b28
+started_utc=2026-10-01T06:51:24Z
+uid=10001 user=qompack-test groups=qompack-test
+race=0 count=1 timeout=30m gomaxprocs=4 coload=0
+run=^$
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+0
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+PASS      github.com/qompack/qompack/internal/canon  (pass=0 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/checkpoint  (pass=0 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/chunk  (pass=0 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/cli  (pass=0 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/config  (pass=0 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/daemon  (pass=0 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/dag  (pass=0 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/eval  (pass=0 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/negknow  (pass=0 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/obs  (pass=0 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/observer  (pass=0 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/paths  (pass=0 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/rules  (pass=0 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/scheduler  (pass=0 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/sketch  (pass=0 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/skills  (pass=0 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/store  (pass=0 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/symbols  (pass=0 fail=0 skip=0)
+go_test_exit=0
+exit=0
+artifacts: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c5/quiet/c52-linux/gate/cx-quiet-quiet-c52-prep-base-cf31e01-20261001T065119Z-artifacts
+exit=0

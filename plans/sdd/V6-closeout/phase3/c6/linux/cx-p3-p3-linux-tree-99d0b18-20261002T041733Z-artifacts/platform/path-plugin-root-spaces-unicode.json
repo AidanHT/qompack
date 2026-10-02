@@ -1,0 +1,16 @@
+{
+  "name": "path-plugin-root-spaces-unicode",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6",
+    "host_cli_version": "unknown"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "017997ce74bcae6c44556dfc98975f557e9be19f09c09acc60bb47867d6ada35"
+  },
+  "outcome": "verified",
+  "reason": "plugin root containing a space and non-ASCII characters",
+  "detail": "CLAUDE_PLUGIN_ROOT=\"/tmp/qompack-platform-35703953/plug in ünï\"; six hooks exit 0 with parseable output; self-test --json exit 0 with plugin.root_resolves ok=true observed=\"resolved\"; 14 bundle files byte-identical afterwards"
+}

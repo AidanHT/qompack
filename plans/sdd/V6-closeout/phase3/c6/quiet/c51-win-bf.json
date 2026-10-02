@@ -1,0 +1,26 @@
+{
+  "id": "c51-win-bf",
+  "cwd": "C:/Users/Quant/AppData/Local/Temp/tmp.ZfBAqdPY0V/src-candidate",
+  "argv": [
+    "go",
+    "test",
+    "-p",
+    "1",
+    "-count=1",
+    "-timeout=30m",
+    "-run",
+    "^TestBudgetBF$",
+    "-v",
+    "./internal/mcp"
+  ],
+  "source_head": "99d0b18cf7d5991aa733e70ce52a542b80aa7710",
+  "source_dirty": "",
+  "environment": {
+    "GOPATH": "C:\\Users\\Quant\\go"
+  },
+  "started_at": "2026-10-02T01:28:53-04:00",
+  "ended_at": "2026-10-02T01:29:36-04:00",
+  "exit_code": 0,
+  "log": "c51-win-bf.log",
+  "log_sha256": "e754b1df9bf87513ec982ce61a920309a1b0647cb1f2016e0d753ee5376e4df2"
+}

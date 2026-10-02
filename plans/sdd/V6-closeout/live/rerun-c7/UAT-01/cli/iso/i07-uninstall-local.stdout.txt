@@ -1,0 +1,1 @@
+{"command":"uninstall","outcome":"ok","plugin":"qompack-windows-amd64@qompack-live","pluginId":"qompack-windows-amd64@qompack-live","scope":"local","keptData":false,"message":"Successfully uninstalled plugin: qompack-windows-amd64 (scope: local)"}

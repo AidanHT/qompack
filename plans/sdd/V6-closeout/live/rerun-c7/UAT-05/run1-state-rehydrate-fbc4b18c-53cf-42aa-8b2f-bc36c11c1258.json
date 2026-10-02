@@ -1,0 +1,67 @@
+{
+  "session": "fbc4b18c-53cf-42aa-8b2f-bc36c11c1258",
+  "seq": 1,
+  "emitted": 1790930564243,
+  "tokens": 942,
+  "budget": 12000,
+  "items": [
+    {
+      "kind": "invariants",
+      "rank": 0,
+      "tokens": 91,
+      "truncated": false,
+      "units": 1,
+      "units_seen": 1
+    },
+    {
+      "kind": "user_intent",
+      "rank": 1,
+      "tokens": 253,
+      "truncated": false,
+      "units": 5,
+      "units_seen": 5
+    },
+    {
+      "kind": "eliminations",
+      "rank": 2,
+      "tokens": 97,
+      "truncated": false,
+      "units": 2,
+      "units_seen": 1
+    },
+    {
+      "kind": "decisions",
+      "rank": 3,
+      "tokens": 80,
+      "truncated": false,
+      "units": 1,
+      "units_seen": 1
+    },
+    {
+      "kind": "current_work",
+      "rank": 4,
+      "tokens": 43,
+      "truncated": false,
+      "units": 1,
+      "units_seen": 1
+    },
+    {
+      "kind": "pointers",
+      "rank": 5,
+      "tokens": 292,
+      "truncated": false,
+      "units": 5,
+      "units_seen": 5
+    },
+    {
+      "kind": "affordance",
+      "rank": 6,
+      "tokens": 86,
+      "truncated": false,
+      "units": 1,
+      "units_seen": 1
+    }
+  ],
+  "dropped": [],
+  "degraded": false
+}

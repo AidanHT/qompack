@@ -1,0 +1,42 @@
+{
+  "id": "c52-linux-r9-base-daemon-1s",
+  "cwd": "C:/Users/Quant/AppData/Local/Temp/tmp.MWJhl7jum3/src-base",
+  "argv": [
+    "docker",
+    "exec",
+    "qompack-v6-linux-verification",
+    "runuser",
+    "-u",
+    "qompack-test",
+    "--",
+    "env",
+    "-i",
+    "sh",
+    "-c",
+    ". \"$0\"; cd \"$1\" || exit 2; shift; exec \"$@\"",
+    "/work/cx-quiet-quiet-c52-prep-base-cf31e01-20261001T065119Z-artifacts/env.sh",
+    "/work/cx-quiet-quiet-c52-prep-base-cf31e01-20261001T065119Z/internal/daemon",
+    "/work/cx-quiet-quiet-c52-prep-base-cf31e01-20261001T065119Z-artifacts/bin/daemon.test",
+    "-test.run",
+    "^$",
+    "-test.bench",
+    "^Benchmark(IngestAccept|IngestAcceptLeased|IngestAcceptExternalized|FeaturesFrom|ReclaimableIndexBuild_5000Blocks|AssembleCandidates_2000ToolUses|RuntimeEvaluate_2000ToolUses_32Candidates|SchedulerTap_ObserveTool)$",
+    "-test.benchtime",
+    "1s",
+    "-test.benchmem",
+    "-test.count",
+    "1",
+    "-test.timeout",
+    "90m"
+  ],
+  "source_head": "cf31e01f38f3d3ba4afd96c4c75db3e4b87d54cd",
+  "source_dirty": "",
+  "environment": {
+    "GOPATH": "C:\\Users\\Quant\\go"
+  },
+  "started_at": "2026-10-01T05:35:47-04:00",
+  "ended_at": "2026-10-01T05:36:01-04:00",
+  "exit_code": 0,
+  "log": "c52-linux-r9-base-daemon-1s.log",
+  "log_sha256": "522b40a37cf1d76deb79e4234914b16530f6b881c3973be34db5f2a18c49d7db"
+}

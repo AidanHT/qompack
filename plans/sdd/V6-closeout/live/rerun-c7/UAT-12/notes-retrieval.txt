@@ -1,0 +1,132 @@
+UAT-12 - retrieval part re-run on candidate 7 (D52, D53, D57): steps 1-5 and 8 WITHOUT the upgrade leg, plus the
+D49/D50 checks the brief names; also the evidence for C4.6 (../C4.6/notes.txt). The upgrade leg (steps 1, 6-10)
+was run by this lane's install part and is recorded in notes.txt beside this file (data in ../C4.8/); this file and
+cli/, sessionA/, sessionB/, store/ and setup-facts.json here are the retrieval part's. Agent-executed on the owner's
+real host per owner decision D3 by a Claude Code workflow subagent (Opus 5.5) - not human UAT.
+
+Build: qompack version 0.3.0, frozen bundle qompack-bundles/c7/qompack-plugin-0.3.0-windows-amd64 (BUNDLE.json sha256
+5212ae4eaa2e931266d52069e7d0c72ec2dfd2255d55421c87486ab083e1f395, bin sha256 ab8046ba...3be7), commit d20309c0,
+Windows 11 Home build 10.0.26200.9457, Claude Code 2.1.280, --plugin-dir the frozen bundle, claude-haiku-4-5-20251001.
+Date 2026-10-02 15:34-15:45 America/Toronto. Sessions retrieval-c7 n=4 (sessionA, id 0f040f87, 8 turns, 63 s) and
+n=5 (sessionB, id 2a4952b4, 16 turns, 144 s), both exit 0, both with "secrets_file".
+
+Setup (setup-facts.json): disposable project <scratch>/retrieval/c7/uat12/proj (git init + one commit): README.md
+(code word HERON-43), calc.py, notes-a/b/c.md (all four plus README carry the shared marker LUPINE-7731),
+private/deny.txt (ORCHID-DENY-8842, LUPINE-7731, a fictional salary table), big.log 317,200 B / 1,300 lines (every
+other line escape-heavy with multi-byte UTF-8; stored 354,352 B as the host's JSON delivery), blob.bin 3,000 random
+bytes with NULs, pixel.png 24x24, deploy_notes.md with two planted credential-shaped strings (@@SEC_PLANTED_1@@ an
+aws_access_key_id shape, @@SEC_PLANTED_2@@ a ghp_ token shape; built at run time from split parts and fresh random
+characters, literal list only in <scratch>/retrieval/secrets.json, sha256 in setup-facts.json); out-of-project file
+<scratch>/retrieval/c7/uat12/outside/outside.txt. Config: defaults (runtime.redact.enabled true,
+runtime.mcp.maxResponseBytes 262144, retention default; no config file). Env: QOMPACK_HOME=<scratch>/retrieval/c7/qhome,
+QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS=30; host-only CLAUDE_CODE_FILE_READ_MAX_OUTPUT_TOKENS, MAX_MCP_OUTPUT_TOKENS,
+BASH_MAX_OUTPUT_LENGTH=150000.
+
+STEP 1: initial absence recorded (cli/00: backup create exit 1 "source project has no existing store"). After session
+A's permitted captures and its /compact, with its daemon gone by the idle exit: backup create --id uat12-c7-baseline
+exit 0 (148 files, consistent true, frontier 0) and backup verify exit 0 (scratch restore OpenedOK, 31 content roots, 21
+tool refs, 0 tombstoned, integrity exit 0) (cli/01, cli/02).
+
+SESSION A (sessionA/): Read README.md, calc.py, notes-a/b/c.md, private/deny.txt (toolu_014Fp8LZ..., root
+sha256:8f27c5c3...), big.log whole (toolu_01W7rmDM..., 1,300 lines), Bash `cat blob.bin` (toolu_01N8TrsJ...), Read
+pixel.png (toolu_01HEVRKt...), Read of the out-of-project file (toolu_0197ZU1q...: the hook fired and Qompack did not
+capture it - no tool_use, root or sidecar names it, as security.md section 2 says), Read deploy_notes.md (sidecar
+fidelity "redacted", redacted true; store/capture-sidecars-metadata.json). Before turn 6 the deny rule
+{"permissions":{"deny":["Read(./private/deny.txt)"]}} was written to the PROJECT .claude/settings.json (the operator's
+settings untouched); the very next recall "ORCHID-DENY-8842" already answered "denied":1 with only the user's prompt as
+a hit (Qompack reads the host's current rules). /compact: checkpoint 0001, SessionStart:compact injected 4,596 chars
+(sessionA/injected-2-SessionStart-compact.txt). Section 6 there: deny.txt appears ONLY as "file (path withheld: the
+host's permission rules refuse it, or it is outside the project) sha256:8f27c5c3..." and as tool_use toolu_014Fp8LZ...
+"summary withheld"; the out-of-project file appears nowhere in section 6 (it was never captured); every other file
+pointer is project-relative. D50 met in this block. The model then answered the code word HERON-43.
+
+SESSION B (sessionB/, the deny rule in force from the start):
+ STEP 2: host Read of private/deny.txt -> is_error "File is in a directory that is denied by your permission
+   settings." (the project settings took effect; no PostToolUse fired). recall "ORCHID-DENY-8842": 3 hits (a
+   SubagentStop capture holding the model's quote of session A's recall result, and two user prompts), "denied":3, no
+   deny.txt content; recall "path:private/deny.txt": 0 hits, "denied":1; expand tool_use_id toolu_014Fp8LZ..., expand
+   hash sha256:8f27c5c3... and re_read private/deny.txt -> {"found":false,"denied":true,"reason":"authorization denied:
+   the host's current permission rules deny reading the associated path"}; /qompack:recall ORCHID-DENY-8842 (host ran
+   `qompack recall` through the plugin's bin/ on PATH) -> the same three non-file hits, "denied":5, no content.
+   Out-of-project: re_read of the absolute path and of ../outside/outside.txt -> tool error "path escapes the project
+   root" (path not echoed); expand toolu_0197ZU1q... -> {"found":false,"searched":"tool_use index"}.
+ STEPS 3-5 in the session: expand big.log minimal span [0,6437] truncated true next_span 6437:16384; full:true
+   [0,217070] truncated true next_span 217070:137282; the next page (span 217070:137282) [217070,354352] truncated
+   FALSE, no next_span (candidate 4: truncated true with no cursor); explicit span 0:354352 -> [0,217070] truncated
+   true next_span 217070:137282 - the same as full:true (candidate 4: 217070:16384); re_read big.log full:true
+   [0,217070] next_span 217070:137282. Fields: found, hash, path, tool, span, total_bytes, truncated, next_span (when
+   truncated), widened, expansions, promoted, content - no fidelity or coverage field. The host persisted the large
+   results to its own files and showed the model a 2 KB preview, from which it read the fields.
+   Binary: expand of the Bash blob capture (span [0,2134], truncated false) is the host-decoded text (NUL and U+FFFD;
+   the model called it not readable) and the PNG capture is the host's image JSON with base64; both sidecars record
+   fidelity "exact" of the host delivery and Qompack decoded nothing (documented host behaviour: user-guide.md
+   "Binary files are decoded by the host, not by Qompack", cannot-do.md, troubleshooting.md).
+ D49 recall: recall "LUPINE-7731" at the default k: count 5 - the prompt, notes-c, notes-b, notes-a, calc.py, all
+   permitted - "denied":1 counted apart. k 20: count 10, "denied":3; the six original captures (prompt, notes-c/b/a,
+   calc.py, readme.md) first, then the four retrieval self-records (mcp__plugin_qompack_qompack__re_read and
+   mcp__qompack__re_read for notes-a.md and readme.md) LAST although their scores (0.36) exceed the originals' (0.25).
+   Candidate 4 F1 (k counted withheld hits; self-records ranked first) is FIXED.
+ /qompack:status: "host contract: 9 assertion(s), none failing: 6 holding, 1 pending, 2 with nothing to judge; pending:
+   transcript.readable (transcript-pending)" (observation for C4.5, not this row).
+ /compact: checkpoint 0003 (chain 0001 -> 0003, 2 checkpoints; fsck verifies it), SessionStart:compact injected 9,239
+   chars (sessionB/injected-2-SessionStart-compact.txt). Section 6: deny.txt again only as the hash-only "file (path
+   withheld...)" line and "summary withheld" tool pointers (toolu_014Fp8LZ..., toolu_0195CkwW..., and session A's
+   SubagentStop capture), BUT ONE POINTER SHOWS THE DENIED PATH:
+     - tool_use toolu_017m9djGav7vcngkniobgwim sha256:f29d6a64... - {"query":"path:private/deny.txt"}
+   (the args of session B's recall with the path: selector). FINDING F1 below. No absolute out-of-project path in
+   section 6. The model recovered HERON-43 afterwards.
+
+NO-MODEL PROBE of the frozen `qompack mcp` (cli/20-mcp-probe-paging-and-refusals.json, cli/21-...-re_read-continuation;
+sizes are the result text's UTF-8 bytes, which runtime.mcp.maxResponseBytes 262,144 bounds):
+   expand minimal, following next_span to the end: 18 pages, contiguous, max 30,059 B, first 8,039, last [330907,354352]
+     28,428 B truncated false, no next_span.
+   expand full:true: 2 pages - [0,217070] 261,164 B truncated true next_span 217070:137282; [217070,354352] 165,235 B
+     truncated false, no next_span.
+   expand span 0:354352: 2 pages, IDENTICAL to full:true page by page (span, truncated, next_span, bytes) - D50 met.
+   re_read big.log full:true [0,217070] 261,172 B next_span 217070:137282; re_read takes no span (the probe's attempt is
+     the documented tool error "/span: unknown property"); continuing with expand(hash, span 217070:137282) gives
+     [217070,354352] 165,200 B truncated false (mcp-tools.md: continue a re_read page with expand and its hash).
+   Every page: truncated exactly when it stops before the end, next_span exactly when truncated, within the bound, no
+     U+FFFD in any big.log page (the JSON-RPC line of a full page is 349,254 B: transport escaping, outside the bound).
+   blob expand 2,948 / full 2,947 B; png full 2,395 B; denied answers 131 B; refusals 29 B.
+   Denied / out-of-project forms answer as in the session; recall LUPINE-7731 default k 5 hits "denied":1, k 20 ten hits
+     "denied":6 with self-records last. Session A's SubagentStop capture (full, 1,054 B) contains the marker
+     ORCHID-DENY-8842 only inside the model's quote of a recall query/result, none of deny.txt's own text.
+
+LOUD.log: the multi-session store (sessions A and B, the probe's daemon, three daemon starts in all, plus the verify
+scratch restore) has NO logs/LOUD.log file at all, so no "publication accounting incomplete" line (candidate 4 F2:
+two such lines). Day log (store/logs_qompack-20261002.log): no WARN or LOUD line; no abandoned-session line (both
+sessions delivered SessionEnd). Hooks: 30 + 52 pairs, all outcome success exit 0, measured arrival deltas at most
+251 ms; stderr.txt empty in both sessions; no host-reported hook failure or timeout.
+
+STEP 8 (cli/30-32): the source writer stopped (the probe daemon's idle exit; no qompack.exe running), backup restore
+--id uat12-c7-baseline into the fresh recovery project <scratch>/retrieval/c7/uat12/recovery: exit 0, reader proof
+OpenedOK, 31 content roots, 21 tool refs, 0 tombstoned, same build; integrity exit 0 with "the chain from 0001
+verifies across 1 checkpoint(s)" and "the full dual-reader seal check passed". fsck --seal-check exit 0 on the
+recovery and on the source ("the chain from 0003 verifies across 2 checkpoint(s)"). The source .qompack/ outside tmp/
+is byte-identical before and after the restore (1,011 files); the source's later writes (session B, checkpoint 0003)
+are preserved. Project-file snapshot: 11 files' sha256 kept in scratch (project-files-before-restore.json); the
+restore writes only .qompack/. Not done: no previous-build reader (no upgrade in this leg) and no activation.
+
+Expected-result fields: step 2 denied, no preview/summary/excerpt of content, denied not absent - met for every
+retrieval form; steps 3-5 every response within 262,144, full returns the whole available object paged by next_span,
+truncated with next_span on every cut page, no fidelity/coverage field - met; binary capture opaque, fidelity on the
+sidecar, nothing decoded by Qompack - met (host decoding documented); step 8 reader proof and integrity pass - met.
+D49 recall checks - met. D49/D51 LOUD check - met. D50 paging - met. D50 section 6 - NOT met (F1).
+
+FINDING F1 (privacy, minor; D50 / C4.6): the rehydration block's section 6 shows a host-denied path inside a tool
+pointer's argument summary: `- tool_use toolu_017m9djGav7vcngkniobgwim sha256:f29d6a64... - {"query":"path:private/
+deny.txt"}` (sessionB/injected-2-SessionStart-compact.txt, section 6). The path is the one the deny rule names; it
+reached the summary as the value of recall's `path:` selector, which the pointer's path gate (wave 15 rehydrate item
+5: "a tool pointer's summary is withheld when any path-like piece in it ... is refused") does not recognise. No
+content of the file is shown; the same block withholds every other pointer that names it. Evidence: the block, and
+sessionB/tool-calls.txt (T2).
+Observations: (O-1) section 2 of session A's block carries the user's verbatim prompts, including the absolute
+out-of-project path and "private/deny.txt"; section 2 is verbatim user intent by contract and D50 names pointers.
+(O-2) Section 6 pointers show the user-typed denied marker {"query":"ORCHID-DENY-8842"}. (O-3) /qompack:status read
+1 pending row (transcript.readable) mid-session.
+
+Result (this part's steps 2-5, 8 and the D49/D50 checks): fail - F1, the D50 section-6 check; every fail criterion
+uat.md lists for UAT-12 was otherwise not hit. Rollback verified: unverified (missing: activation of the recovery and
+any previous-build reader; this leg has no upgrade) - consistent backup with the writer stopped, same-build restore
+with reader proof, integrity and seal check, later writes preserved.

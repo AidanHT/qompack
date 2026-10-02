@@ -1,0 +1,8 @@
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/symbols
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkExtract_100KB-22               	     890	   1335565 ns/op	  76.96 MB/s	  313816 B/op	    2325 allocs/op
+BenchmarkEnclosing_100KB-22             	     919	   1379074 ns/op	  74.53 MB/s	  313169 B/op	    2325 allocs/op
+BenchmarkReferences_100KB_50Names-22    	    4810	    252136 ns/op	 407.67 MB/s	    4128 B/op	       8 allocs/op
+PASS

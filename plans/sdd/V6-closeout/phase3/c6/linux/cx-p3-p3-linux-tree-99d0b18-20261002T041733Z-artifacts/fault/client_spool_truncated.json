@@ -1,0 +1,20 @@
+{
+  "name": "client_spool_truncated",
+  "phase": "publication",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "017997ce74bcae6c44556dfc98975f557e9be19f09c09acc60bb47867d6ada35"
+  },
+  "boundary": "client spool truncated",
+  "seed_method": "a spool/client-*.ndjson file is truncated inside a record; a 6-delivery burst was cut by killing the daemon (killed=true) and the heartbeat aged past daemon.staleAfter so the next daemon may reclaim the lock, leaving 1 wal-* and 6 client-* spool file(s)",
+  "outcome": "explicit_incomplete",
+  "reason": "the cut introduced no silently dangling reference; what it did leave, the audit can name as reported: drain_gap(client-41393.ndjson): pending: 6259 spool bytes not yet replayed; drain_gap(client-39431.ndjson): pending: 406 spool bytes not yet replayed",
+  "detail": "cut: truncated client-41393.ndjson from 6283 to 6259 bytes\neverything the surfaces gained: status[1]: spool_files=3; surfaces status --json\nof which naming this cut (drain, spool, client): status[1]: spool_files=3; surfaces status --json\naudit before {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:0}\naudit after  {tool_uses:10 roots:5 sidecars:10 checkpoints:0 dangling:0 reported:2}\ndegradation (new since the cut): status[1]: spool_files=3; surfaces status --json\nnewly dangling: none\nnewly reported: drain_gap(client-41393.ndjson): pending: 6259 spool bytes not yet replayed; drain_gap(client-39431.ndjson): pending: 406 spool bytes not yet replayed\nremaining dangling after recovery: none",
+  "dangling_before": 0,
+  "dangling_after": 0
+}

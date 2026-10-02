@@ -1,0 +1,35 @@
+run_id=cx-quiet-quiet-c51-prep-0d06ab1-20261001T031720Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-cand
+rev=0d06ab1233efb0fd5be8c99dc453e1aa2ee071af
+commit=0d06ab1233efb0fd5be8c99dc453e1aa2ee071af
+bundle_sha256=c5cb2783878fae9c049a62f1a7dade7cd98a3a8b630dcf24333b77c89ec16d38
+host_started_utc=2026-10-01T03:17:26Z
+inner_args=--no-race --run ^$ --timeout 30m -- ./test/bench/hotpath
+/work/cx-quiet-quiet-c51-prep-0d06ab1-20261001T031720Z.bundle: OK
+run_id=cx-quiet-quiet-c51-prep-0d06ab1-20261001T031720Z
+commit=0d06ab1233efb0fd5be8c99dc453e1aa2ee071af
+tree=3815188b7ba9024ee6b64626c69278254424656d
+bundle_sha256=c5cb2783878fae9c049a62f1a7dade7cd98a3a8b630dcf24333b77c89ec16d38
+started_utc=2026-10-01T03:17:30Z
+uid=10001 user=qompack-test groups=qompack-test
+race=0 count=1 timeout=30m gomaxprocs=4 coload=0
+run=^$
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+0
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+go: writing stat cache: open /go/pkg/mod/cache/download/github.com/qompack/qompack/@v/v0.0.0-20260930224215-0d06ab1233ef.info712149238.tmp: permission denied
+PASS      github.com/qompack/qompack/test/bench/hotpath  (pass=0 fail=0 skip=0)
+go_test_exit=0
+exit=0
+artifacts: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c5/quiet/c51-linux/gate/cx-quiet-quiet-c51-prep-0d06ab1-20261001T031720Z-artifacts
+exit=0

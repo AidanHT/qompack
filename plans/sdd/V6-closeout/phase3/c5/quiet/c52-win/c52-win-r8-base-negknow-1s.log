@@ -1,0 +1,6 @@
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/negknow
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkRecord-22    	   39902	     27219 ns/op	     32110 cpu-ns/op	   11568 B/op	      72 allocs/op
+PASS

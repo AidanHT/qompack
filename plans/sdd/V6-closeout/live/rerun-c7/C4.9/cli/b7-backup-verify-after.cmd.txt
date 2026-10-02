@@ -1,0 +1,6 @@
+cwd: <scratch>/resilience/c49/proj
+argv: ["C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c7/qompack-plugin-0.3.0-windows-amd64/bin/qompack.exe", "backup", "verify", "--project", "<scratch>/resilience/c49/proj", "--id", "c49-after", "--json"]
+env+: {}
+qompack_home: <scratch>/resilience/qhome
+wall_s: 0.948
+at: 2026-10-02T15:57:46-04:00

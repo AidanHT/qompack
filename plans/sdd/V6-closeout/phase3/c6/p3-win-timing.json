@@ -1,0 +1,29 @@
+{
+  "id": "p3-win-timing",
+  "cwd": "C:/Users/Quant/Documents/Programming/Projects/qompack-cx-cand",
+  "argv": [
+    "go",
+    "test",
+    "-p",
+    "1",
+    "-count=1",
+    "-timeout=30m",
+    "-run",
+    "^(TestGC_DeadlineTruncatesAndResumes|TestGC_DeadlineOvershootIsBoundedByTheCheckInterval|TestBudget_QueryHit|TestBudget_QueryMiss|TestBudget_Record|TestBudget_RebuildBloom|TestBudget_RefreshStaleness|TestBudget_Open|TestBudget_DetectorScan|TestBudgetBF|TestIntegration_HotPathWarmWithRealResidentState|TestFeaturesFrom_LexicalCohesionShingleCap)$",
+    "./internal/store",
+    "./internal/negknow",
+    "./internal/mcp",
+    "./internal/daemon",
+    "./test/integration"
+  ],
+  "source_head": "99d0b18cf7d5991aa733e70ce52a542b80aa7710",
+  "source_dirty": "",
+  "environment": {
+    "GOPATH": "C:\\Users\\Quant\\go"
+  },
+  "started_at": "2026-10-01T22:18:53-04:00",
+  "ended_at": "2026-10-01T22:23:42-04:00",
+  "exit_code": 0,
+  "log": "p3-win-timing.log",
+  "log_sha256": "0907d7978b0cc868310ac46539a0028527324417b5ccde0d6df37ffa5141633e"
+}

@@ -1,0 +1,5 @@
+The session ended 04:40:47 EDT (guard line). With the planted unparseable config in place the session's SessionEnd
+could not reach the daemon (hook-quiet log: 'capture configuration unavailable'), so the daemon ended the session as
+abandoned at 09:09:54Z ('no SessionEnd arrived and it has been silent past the idle-exit window', silentMs=1807148)
+and then exited by the DEFAULT idle exit (1800 s, no override, no termination): its shutdown writes carry mtime 2026-10-02T05:39:54-04:00;
+run/ = ['marker.json']. No qompack.exe was running at resume. daemon_info now: {"lock": "unreadable: [Errno 2] No such file or directory: '<scratch>/sessions/c7/uat04/proj\\\\.qompack\\\\run\\\\daemon.lock'"}

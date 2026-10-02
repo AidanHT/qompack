@@ -1,0 +1,21 @@
+{
+  "id": "p3-win-e2e-timing",
+  "cwd": "C:/Users/Quant/Documents/Programming/Projects/qompack-cx-cand",
+  "argv": [
+    "go",
+    "test",
+    "-count=1",
+    "-timeout=30m",
+    "./test/e2e"
+  ],
+  "source_head": "0d06ab1233efb0fd5be8c99dc453e1aa2ee071af",
+  "source_dirty": "",
+  "environment": {
+    "GOPATH": "C:\\Users\\Quant\\go"
+  },
+  "started_at": "2026-09-30T22:09:01-04:00",
+  "ended_at": "2026-09-30T22:34:24-04:00",
+  "exit_code": 1,
+  "log": "p3-win-e2e-timing.log",
+  "log_sha256": "b52a18ec6c25429d3e56b71bf9f290500ed573ffed18ba9f3be2cf0e49b727e8"
+}

@@ -1,0 +1,8 @@
+DIFF  settings.json e15855d7e46a -> eaee1ba9ed39
+same  plugins/installed_plugins.json 728f75591291
+same  plugins/known_marketplaces.json 1b1eda7e17f0
+same  plugins/cache/ (10 entries)
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+same  .qompack/ (0 entries)
+REAL HOME CHANGED

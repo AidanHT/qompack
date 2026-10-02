@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "command": "why",
+  "ok": true,
+  "data": {
+    "tool": "why",
+    "is_error": false,
+    "ephemeral": true,
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"alternatives_rejected\":[\"100 requests per minute\"],\"checkpoint_seq\":5,\"decision_id\":\"dec_991dbff588ec\",\"evidence\":\"sha256:9dc92adf93c6cd9437ded678a9dddc2a37d5c713cb8d208761681f32d140b25f\",\"evidence_bytes\":50,\"found\":true,\"hint\":\"call expand with hash=sha256:9dc92adf93c6cd9437ded678a9dddc2a37d5c713cb8d208761681f32d140b25f to read the evidence\",\"turn\":5,\"what\":\"rejected \\\"100 requests per minute\\\" for per-client rate limit\",\"why\":\"superseded by the user's correction: 60 per minute\"}"
+      }
+    ],
+    "meta": {
+      "elapsed_ms": 0,
+      "hash": "sha256:bceb79ac0770ca9647b3f6eaf8e1aea2f5a6ac2c30d3822211f23fb676742234",
+      "tool_use_id": "qompack-mcp:5de5b7ef1aef"
+    }
+  }
+}

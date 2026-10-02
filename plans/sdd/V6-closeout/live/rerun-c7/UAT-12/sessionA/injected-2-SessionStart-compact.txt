@@ -1,0 +1,46 @@
+# stream line 132, hook SessionStart:compact, exit 0, 4477 chars
+<!-- qompack:injected seq=1 ver=1 -->
+# Qompack rehydration — checkpoint 0001, session 0f040f87
+
+## 2. Original user intent (verbatim from L0 capture — never summarized)
+Evolution (most recent first):
+> Call the MCP tool mcp__plugin_qompack_qompack__recall with query "ORCHID-DENY-8842". Report the raw result word for word.
+> Use the Read tool to read deploy_notes.md. Reply with only its Marker value; do not quote anything else from the file.
+> Use the Read tool to read the file <scratch>/retrieval/c7/uat12/outside/outside.txt and reply with the marker it contains.
+> Use the Bash tool to run exactly this command: cat blob.bin
+> Then use the Read tool to read pixel.png. Then reply with just the word done.
+> Use the Read tool to read big.log with offset 1 and limit 1300 (the whole file). Then reply with only the number of lines you received.
+Original:
+> Use the Read tool to read these files, one after another: README.md, calc.py, notes-a.md, notes-b.md, notes-c.md and private/deny.txt. Then reply with just the word done.
+
+## 5. Current work
+goal: Call the MCP tool mcp__plugin_qompack_qompack__recall with query "ORCHID-DENY-8842".
+blocked on: none
+
+## 6. Pointers (paths and hashes — contents are NOT restored; use expand/re_read)
+- big.log sha256:20cfc2ab38ff9deb904afe9037fb8ec927ec2f9c04186c675b24e2057c7d4a7a — referenced
+- calc.py sha256:5b276910aabf7f89fbc02c3ef9f6c5a540a2e3925cbe36f98a06dfe3ea405454 — referenced
+- deploy_notes.md sha256:4086bc260283c11984515194f50f51bf1dd055aab5dad5feb38520a1219b4780 — referenced
+- notes-a.md sha256:c087c391d643a85632c874193aeb590cb9b6584306a2497eaa6bb534384d7ccc — referenced
+- notes-b.md sha256:770cb83a64dacfc0a90b6866f796442eca26fcde5fa63008d6f71a9feaf72699 — referenced
+- notes-c.md sha256:4a9e92bd0957bc294af7752cf57411d68c03ca0ab2ee82fe8e39312e6067624f — referenced
+- pixel.png sha256:23f552a52c854fe83fc5591d88f2128321f7de53e675fe89982b8dd541c95018 — referenced
+- file (path withheld: the host's permission rules refuse it, or it is outside the project) sha256:8f27c5c308b20a8902231b576998559534517441f964be182a95a94fd3abe08e
+- readme.md sha256:053889383e4d94ab03390e0e63a2fe41a09ef86c397d763029c31f7523ecad27 — referenced
+- tool_use toolu_011zXZbXU4mY7cXEv2iutZDX sha256:c087c391d643a85632c874193aeb590cb9b6584306a2497eaa6bb534384d7ccc — <scratch>\retrieval\c7\uat12\proj\notes-a.md
+- tool_use toolu_014B2XRrK3C6FXD6negaip7J sha256:e542e417b56d007711f7d595fcd92492ed40babe9cd82a1e97380e53987edbca — {"max_results":1,"query":"select:mcp__plugin_qompack_qompack__recall"}
+- tool_use toolu_014Fp8LZ7nZMwTEvpSZYYM6F sha256:8f27c5c308b20a8902231b576998559534517441f964be182a95a94fd3abe08e — summary withheld: it names a path the host's permission rules refuse, or one outside the project
+- tool_use toolu_0151dDKt7HtDjJ4EY3WA5cbU sha256:8590afad1dfd1a78ced64121e4ee42fc85008512ef6e4176b1f80693f0a18bd3 — {"query":"ORCHID-DENY-8842"}
+- tool_use toolu_01HEVRKtzeug2PfsLDHVLqV8 sha256:23f552a52c854fe83fc5591d88f2128321f7de53e675fe89982b8dd541c95018 — <scratch>\retrieval\c7\uat12\proj\pixel.png
+- tool_use toolu_01N8TrsJRWX8Zh2g8F4uCg7k sha256:eb87e0339b807a494dd9149ddc24d218c81f4b6decab123a3d4f0f8bb2b2b803 — cat blob.bin
+- tool_use toolu_01RLkKhYqum3diYnt8FmgVnZ sha256:053889383e4d94ab03390e0e63a2fe41a09ef86c397d763029c31f7523ecad27 — <scratch>\retrieval\c7\uat12\proj\README.md
+- tool_use toolu_01T7qReiqjzsAv4i8NvEGcZc sha256:5b276910aabf7f89fbc02c3ef9f6c5a540a2e3925cbe36f98a06dfe3ea405454 — <scratch>\retrieval\c7\uat12\proj\calc.py
+- tool_use toolu_01TZ4Qw9jd8uAvXzuGC3W1Bj sha256:770cb83a64dacfc0a90b6866f796442eca26fcde5fa63008d6f71a9feaf72699 — <scratch>\retrieval\c7\uat12\proj\notes-b.md
+- tool_use toolu_01UYKCyJQDKpiKcYunkmWcQC sha256:4086bc260283c11984515194f50f51bf1dd055aab5dad5feb38520a1219b4780 — <scratch>\retrieval\c7\uat12\proj\deploy_notes.md
+- tool_use toolu_01W7rmDMN8B7eYL4my4h5iyv sha256:20cfc2ab38ff9deb904afe9037fb8ec927ec2f9c04186c675b24e2057c7d4a7a — <scratch>\retrieval\c7\uat12\proj\big.log
+- tool_use toolu_01WKjyoARC36GgwnRoncx7CC sha256:4a9e92bd0957bc294af7752cf57411d68c03ca0ab2ee82fe8e39312e6067624f — <scratch>\retrieval\c7\uat12\proj\notes-c.md
+
+## 8. Retrieval
+Qompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().
+<!-- /qompack:injected -->
+<!-- qompack-contract-probe qompack-contract-2c5d7151fd74 -->

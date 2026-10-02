@@ -1,0 +1,20 @@
+plans=e1 COND=bat-post STOCK=/c/Users/Quant/Documents/Programming/Projects/qompack-cx-w17-x11win TRACE= NOPASS= OLD= 2026-10-02T02:07:04
+start e1-0207-r1-t1-ctl arm=stock row=ctl power=AC 100 2026-10-02T02:12:05 head=99d0b18c
+end e1-0207-r1-t1-ctl exit=0 power=AC 100 transitions=[] VALID 2026-10-02T02:13:45
+start e1-0207-r1-t1-x11 arm=stock row=x11 power=AC 100 2026-10-02T02:18:46 head=99d0b18c
+end e1-0207-r1-t1-x11 exit=0 power=AC 100 transitions=[] VALID 2026-10-02T02:29:02
+start e1-0207-r1-t1-int arm=stock row=int power=AC 100 2026-10-02T02:34:02 head=99d0b18c
+end e1-0207-r1-t1-int exit=0 power=AC 100 transitions=[] VALID 2026-10-02T02:36:52
+start e1-0207-r2-t1-ctl arm=stock row=ctl power=AC 100 2026-10-02T02:41:53 head=99d0b18c
+end e1-0207-r2-t1-ctl exit=0 power=AC 100 transitions=[] VALID 2026-10-02T02:43:55
+start e1-0207-r2-t1-x11 arm=stock row=x11 power=AC 100 2026-10-02T02:48:56 head=99d0b18c
+end e1-0207-r2-t1-x11 exit=0 power=AC 100 transitions=[] VALID 2026-10-02T02:59:16
+start e1-0207-r2-t1-int arm=stock row=int power=AC 100 2026-10-02T03:04:17 head=99d0b18c
+end e1-0207-r2-t1-int exit=0 power=AC 100 transitions=[] VALID 2026-10-02T03:06:59
+start e1-0207-r3-t1-ctl arm=stock row=ctl power=AC 100 2026-10-02T03:12:00 head=99d0b18c
+end e1-0207-r3-t1-ctl exit=0 power=AC 100 transitions=[] VALID 2026-10-02T03:13:58
+start e1-0207-r3-t1-x11 arm=stock row=x11 power=AC 100 2026-10-02T03:18:59 head=99d0b18c
+end e1-0207-r3-t1-x11 exit=0 power=AC 100 transitions=[] VALID 2026-10-02T03:29:11
+start e1-0207-r3-t1-int arm=stock row=int power=AC 100 2026-10-02T03:34:11 head=99d0b18c
+end e1-0207-r3-t1-int exit=0 power=AC 100 transitions=[] VALID 2026-10-02T03:37:13
+done 2026-10-02T03:37:13

@@ -1,0 +1,67 @@
+== resilience part (candidate 7, d20309c0) — guard snap at start — 2026-10-02 15:50:02 EDT
+homeguard.py snap <scratch>/resilience/guard.json: snap ok (exit 0); self-tests homeguard_test.py 10 OK, live_driver_test.py 3 OK
+snap state (check run immediately after snap):
+same  settings.json 265df1f32ede
+same  plugins/installed_plugins.json 728f75591291
+same  plugins/known_marketplaces.json 1b1eda7e17f0
+same  plugins/cache/ (10 entries)
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+same  .qompack/ (0 entries)
+real home fingerprint unchanged
+check exit 0
+~/.qompack absent at snap (0 entries); no qompack.exe running at snap
+== after session 1 (UAT-10) — 2026-10-02 15:51:35 Eastern Daylight Time
+removed run-created empty plugins/data/qompack-inline/
+same  settings.json 265df1f32ede
+same  plugins/installed_plugins.json 728f75591291
+same  plugins/known_marketplaces.json 1b1eda7e17f0
+same  plugins/cache/ (10 entries)
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+INFO  .qompack/ gained ['bin/', 'bin/ab8046bac3bad894c9a299c61fb38277f4179f4e33bfb088873e43edcbe33be7/'] (run-created; record, remove only if yours)
+real home fingerprint unchanged
+check exit 0
+== after session 2 (C4.9 session 1) — 2026-10-02 15:54:21 Eastern Daylight Time
+removed run-created empty plugins/data/qompack-inline/
+same  settings.json 265df1f32ede
+same  plugins/installed_plugins.json 728f75591291
+same  plugins/known_marketplaces.json 1b1eda7e17f0
+same  plugins/cache/ (10 entries)
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+INFO  .qompack/ gained ['bin/', 'bin/ab8046bac3bad894c9a299c61fb38277f4179f4e33bfb088873e43edcbe33be7/'] (run-created; record, remove only if yours)
+real home fingerprint unchanged
+check exit 0
+== after session 3 (C4.9 session 2) — 2026-10-02 15:56:05 Eastern Daylight Time
+removed run-created empty plugins/data/qompack-inline/
+same  settings.json 265df1f32ede
+same  plugins/installed_plugins.json 728f75591291
+same  plugins/known_marketplaces.json 1b1eda7e17f0
+same  plugins/cache/ (10 entries)
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+INFO  .qompack/ gained ['bin/', 'bin/ab8046bac3bad894c9a299c61fb38277f4179f4e33bfb088873e43edcbe33be7/'] (run-created; record, remove only if yours)
+real home fingerprint unchanged
+check exit 0
+== resilience part end — staged-copy cleanup under install.md §6 (D50) — 2026-10-02 16:22:52 EDT
+running qompack.exe:
+INFO: No tasks are running which match the specified criteria.
+~/.qompack before:
+~/.qompack
+~/.qompack/bin
+~/.qompack/bin/ab8046bac3bad894c9a299c61fb38277f4179f4e33bfb088873e43edcbe33be7
+~/.qompack/bin/ab8046bac3bad894c9a299c61fb38277f4179f4e33bfb088873e43edcbe33be7/qompack.exe
+staged copy sha256: ab8046bac3bad894c9a299c61fb38277f4179f4e33bfb088873e43edcbe33be7
+bundle bin sha256:  ab8046bac3bad894c9a299c61fb38277f4179f4e33bfb088873e43edcbe33be7
+removed with PowerShell: Remove-Item -Recurse -Force $HOME\.qompack\bin (sha256 equals the c7 bundle's bin, no qompack.exe running), then the now-empty ~/.qompack (absent at snap); ~/.qompack exists now: no
+== final check — resilience part end (candidate 7), after the staged-copy cleanup — 2026-10-02 16:23:00 Eastern Daylight Time
+same  settings.json 265df1f32ede
+same  plugins/installed_plugins.json 728f75591291
+same  plugins/known_marketplaces.json 1b1eda7e17f0
+same  plugins/cache/ (10 entries)
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+same  .qompack/ (0 entries)
+real home fingerprint unchanged
+check exit 0

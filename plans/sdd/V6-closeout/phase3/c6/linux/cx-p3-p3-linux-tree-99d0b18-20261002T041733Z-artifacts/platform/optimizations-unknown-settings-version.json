@@ -1,0 +1,16 @@
+{
+  "name": "optimizations-unknown-settings-version",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6",
+    "host_cli_version": "unknown"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "017997ce74bcae6c44556dfc98975f557e9be19f09c09acc60bb47867d6ada35"
+  },
+  "outcome": "verified",
+  "reason": "a configuration from a newer plugin has its whole runtime.migration block reset to defaults",
+  "detail": "project config declared runtime.migration.settingsVersion=99 with all four gated switches true; the shipped binary reports settingsVersion=1 and map[runtime.migration.capture.rawEvidence:false runtime.migration.experiments.enabled:false runtime.migration.publication.durableFrontier:false runtime.migration.replacement.newResult:false], and all six hooks still exit 0 (hook stderr 0 bytes). The mechanism is internal/config/migration.go's applyVersionedSection: a wholesale block reset plus a Warning, not a per-leaf fallback and not a load error"
+}

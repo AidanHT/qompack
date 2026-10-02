@@ -1,0 +1,56 @@
+UAT-12 - upgrade leg only (steps 1 and 6-10), candidate 7 re-run (decisions D52, D53(f), D57), commit
+d20309c0. Steps 2-5 (denied read, oversized and binary expand, response sizes) belong to this lane's
+retrieval part under D52 and are not run here. Agent-executed on the owner's real host per owner
+decision D3 by a Claude Code workflow subagent (Opus 5.5) - not human UAT.
+
+Date 2026-10-02 04:13-04:23 America/Toronto. The run is shared with C4.8: every file named below is in
+../C4.8/ (cli/, cli2/, sessionA/B/C/, store/), and ../C4.8/notes.txt has the full account. Sessions: the
+three C4.8 sessions (install-c7 n=2, 3, 4).
+
+Configuration: defaults, which the row's preconditions require (runtime.redact.enabled true,
+runtime.mcp.maxResponseBytes 262144, store.retention.* default); no config file; the only overrides are
+QOMPACK_HOME (calibration only) and QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS=30 on the sessions. The
+deny-ruled, oversized and binary files of the preconditions serve steps 2-5 only and were not planted.
+
+Step 1 (backup): initial state absent, recorded (C4.8/cli/01: no .qompack/; backup create exit 1 "source
+  project has no existing store"). Non-vacuous baseline after the old build's permitted captures, MCP
+  calls and /compact, before the upgrade: backup create --id c48-baseline exit 0 (77 files, consistent),
+  backup verify exit 0 (scratch restore: 22 roots, 15 tool refs, integrity exit 0 with the seal check),
+  both by the frozen candidate 7 CLI with the source daemon stopped (C4.8/cli/05, 06).
+Step 6 (upgrade): candidate 5's frozen bundle (session A) -> candidate 7's (session B), both via
+  --plugin-dir. 0.3.0 has no earlier public release; candidate 5 is the previous installable build.
+Step 7 (to be confirmed at execution): a hook run under the new build (session B: SessionStart,
+  UserPromptSubmit, PostToolUse, Stop, SubagentStop, SessionStart:compact, all success / exit 0) and the
+  layout is still there (C4.8/cli/18 listing: checkpoints/, index/, objects/, records/, state/ ...). Day
+  log across the upgrade (C4.8/cli/16, store/logs_qompack-20261002.log): no version-block warning, no
+  retired-meaning warning (no config file exists to carry either), no LOUD line, no WARN line at all.
+  `qompack self-test` after the upgrade: config.capture ok "applied as written" (C4.8/cli/14).
+Step 8 (restore): the source writer stopped (its idle exit), backup restore --id c48-baseline into a
+  fresh recovery project exit 0: reader proof OpenedOK, 22 content roots, 15 tool refs, 0 tombstoned;
+  integrity exit 0 including "the chain from 0001 verifies across 1 checkpoint(s)" and "the full
+  dual-reader seal check passed" (C4.8/cli/22). fsck --seal-check exit 0 on the recovery and on the
+  source (cli/24, cli/25). The project-file snapshot beside the recovery matches the pre-run hashes
+  (cli/23). The source's later writes were preserved (cli/26b). Intended rollback reader, validated
+  separately: candidate 5's own fsck and fsck --seal-check on the recovered baseline exit 0 (cli/27,
+  cli/29). Not done: the recovery was not activated (no session ran in it).
+Step 9 (uninstall): the frozen candidate 7 bundle installed at local scope through the qompack-live
+  marketplace (entry qompack-windows-amd64), uninstalled, reinstalled, used by session C, and
+  uninstalled again (C4.8/cli2/31-45).
+Step 10: <project>/.qompack/ byte-identical across each install, uninstall and reinstall (full sha256
+  listings: 193 files at the first uninstall and the reinstall, 209 at the final uninstall) and still on
+  disk afterwards; session C read session A's old-build capture after the reinstall. Nothing but
+  deleting the directory removes it (not done: the store stays as evidence).
+
+Expected-result fields: step 7 - capture still loads (config.capture ok) and the layout reappears after a
+hook run: met; the three warning kinds are not applicable without a config file (recorded, not
+exercised). Step 8 - restore reader proof and integrity checks pass: met. Step 10 - .qompack/ survives
+with everything recorded in it: met. No fail criterion of the upgrade leg was hit.
+
+Rollback verified: the engine-supported backup (consistent, created and verified with the source writer
+stopped), a same-build restore into a fresh destination with its reader proof and integrity checks, the
+delivery seal check, the source's later writes preserved, and the previous build's reader (candidate 5)
+accepting the recovered baseline. Missing: activation of the recovery; frontier 0 is the legacy-import
+cursor (no import).
+
+Finding carried from C4.8 (minor, diagnostics): after the mid-session compaction status reads
+session_start.fires pending "marker-absent-once" on a healthy store (C4.8/notes.txt F1).

@@ -1,0 +1,7 @@
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/paths
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkPathsWriteAtomic_4KB-22        	     288	   3906375 ns/op	   1.05 MB/s	    3002 B/op	      29 allocs/op
+BenchmarkIsHome_AProjectBelowHome-22    	   21530	     55698 ns/op	    1552 B/op	      11 allocs/op
+PASS

@@ -1,0 +1,2 @@
+$ sh <scratch>/install/c7/../tools/unset.sh claude plugin uninstall qompack-windows-amd64@qompack-live -s local --json
+cwd: <scratch>/install/c7/c48/proj

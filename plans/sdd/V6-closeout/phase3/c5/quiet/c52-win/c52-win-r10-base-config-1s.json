@@ -1,0 +1,37 @@
+{
+  "id": "c52-win-r10-base-config-1s",
+  "cwd": "C:/Users/Quant/AppData/Local/Temp/tmp.MWJhl7jum3/src-base/internal/config",
+  "argv": [
+    "env",
+    "-u",
+    "QOMPACK_HOME",
+    "-u",
+    "CLAUDE_CONFIG_DIR",
+    "HOME=C:/Users/Quant/AppData/Local/Temp/tmp.MWJhl7jum3/home-base",
+    "USERPROFILE=C:/Users/Quant/AppData/Local/Temp/tmp.MWJhl7jum3/home-base",
+    "GOPATH=C:\\Users\\Quant\\go",
+    "GOMODCACHE=C:\\Users\\Quant\\go\\pkg\\mod",
+    "C:/Users/Quant/AppData/Local/Temp/tmp.MWJhl7jum3/bin-win/base/config.test.exe",
+    "-test.run",
+    "^$",
+    "-test.bench",
+    "^Benchmark(ConfigLoad_ColdNoFiles)$",
+    "-test.benchtime",
+    "1s",
+    "-test.benchmem",
+    "-test.count",
+    "1",
+    "-test.timeout",
+    "90m"
+  ],
+  "source_head": "cf31e01f38f3d3ba4afd96c4c75db3e4b87d54cd",
+  "source_dirty": "",
+  "environment": {
+    "GOPATH": "C:\\Users\\Quant\\go"
+  },
+  "started_at": "2026-10-01T02:50:07-04:00",
+  "ended_at": "2026-10-01T02:50:08-04:00",
+  "exit_code": 0,
+  "log": "c52-win-r10-base-config-1s.log",
+  "log_sha256": "a07605aa3a66206e6a0dbadc7c5785eaf8a5b95422c991d01c21d5365eab1e04"
+}

@@ -1,0 +1,1 @@
+{"command":"install","outcome":"ok","plugin":"qompack-windows-amd64@qompack-live","pluginId":"qompack-windows-amd64@qompack-live","scope":"local","message":"Successfully installed plugin: qompack-windows-amd64@qompack-live (scope: local)"}

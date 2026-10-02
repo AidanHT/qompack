@@ -1,0 +1,37 @@
+{
+  "id": "c52-win-r2-base-checkpoint-10x",
+  "cwd": "C:/Users/Quant/AppData/Local/Temp/tmp.MWJhl7jum3/src-base/internal/checkpoint",
+  "argv": [
+    "env",
+    "-u",
+    "QOMPACK_HOME",
+    "-u",
+    "CLAUDE_CONFIG_DIR",
+    "HOME=C:/Users/Quant/AppData/Local/Temp/tmp.MWJhl7jum3/home-base",
+    "USERPROFILE=C:/Users/Quant/AppData/Local/Temp/tmp.MWJhl7jum3/home-base",
+    "GOPATH=C:\\Users\\Quant\\go",
+    "GOMODCACHE=C:\\Users\\Quant\\go\\pkg\\mod",
+    "C:/Users/Quant/AppData/Local/Temp/tmp.MWJhl7jum3/bin-win/base/checkpoint.test.exe",
+    "-test.run",
+    "^$",
+    "-test.bench",
+    "^Benchmark(Finalize)$",
+    "-test.benchtime",
+    "10x",
+    "-test.benchmem",
+    "-test.count",
+    "1",
+    "-test.timeout",
+    "90m"
+  ],
+  "source_head": "cf31e01f38f3d3ba4afd96c4c75db3e4b87d54cd",
+  "source_dirty": "",
+  "environment": {
+    "GOPATH": "C:\\Users\\Quant\\go"
+  },
+  "started_at": "2026-10-01T00:04:42-04:00",
+  "ended_at": "2026-10-01T00:05:50-04:00",
+  "exit_code": 0,
+  "log": "c52-win-r2-base-checkpoint-10x.log",
+  "log_sha256": "45c73ec50f878454bbf440d13926b38d948e080494df345fff1d722a78dcc7b5"
+}

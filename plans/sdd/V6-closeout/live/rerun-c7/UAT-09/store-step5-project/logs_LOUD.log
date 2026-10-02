@@ -1,0 +1,2 @@
+ts=2026-10-02T19:30:03.2366527Z level=loud msg="negknow: elimination records unreadable; already_tried will answer unavailable for everything" path=<scratch>\retrieval\c7\uat09s5\proj\.qompack\records\eliminations.jsonl err="read <scratch>\\retrieval\\c7\\uat09s5\\proj\\.qompack\\records\\eliminations.jsonl: Incorrect function."
+ts=2026-10-02T19:30:09.1155226Z level=loud msg="mcp: could not record an elimination" err="qompack: running in degraded mode: negknow: the elimination log is not appendable"

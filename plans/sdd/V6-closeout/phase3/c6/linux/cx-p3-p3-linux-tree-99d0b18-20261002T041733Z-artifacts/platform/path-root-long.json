@@ -1,0 +1,16 @@
+{
+  "name": "path-root-long",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6",
+    "host_cli_version": "unknown"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "017997ce74bcae6c44556dfc98975f557e9be19f09c09acc60bb47867d6ada35"
+  },
+  "outcome": "verified",
+  "reason": "a project root whose absolute path exceeds MAX_PATH",
+  "detail": "root=\"/tmp/qompack-platform-3580027768/ddddddddddddddddddddddddd/ddddddddddddddddddddddddd/ddddddddddddddddddddddddd/ddddddddddddddddddddddddd/ddddddddddddddddddddddddd/ddddddddddddddddddddddddd/ddddddddddddddddddddddddd/ddddddddddddddddddddddddd/ddddddddddddddddddddddddd/ddddddddddddddddddddddddd/ddddddddddddddddddddddddd/ddddddddddddddddddddddddd\" (344 chars); six hooks exit 0 with parseable hookio.Output; /tmp/qompack-platform-3580027768/ddddddddddddddddddddddddd/ddddddddddddddddddddddddd/ddddddddddddddddddddddddd/ddddddddddddddddddddddddd/ddddddddddddddddddddddddd/ddddddddddddddddddddddddd/ddddddddddddddddddddddddd/ddddddddddddddddddddddddd/ddddddddddddddddddddddddd/ddddddddddddddddddddddddd/ddddddddddddddddddddddddd/ddddddddddddddddddddddddd/.qompack exists; daemon reachable at /tmp/qompack-10001/fa626875269e.sock; admin.ping answered (mode=degraded-passive hot=sync); within the project root and HOME trees (the only two walked) nothing was written outside [/tmp/qompack-platform-3580027768/ddddddddddddddddddddddddd/ddddddddddddddddddddddddd/ddddddddddddddddddddddddd/ddddddddddddddddddddddddd/ddddddddddddddddddddddddd/ddddddddddddddddddddddddd/ddddddddddddddddddddddddd/ddddddddddddddddddddddddd/ddddddddddddddddddddddddd/ddddddddddddddddddddddddd/ddddddddddddddddddddddddd/ddddddddddddddddddddddddd/.qompack/ /tmp/qompack-platform-3580027768/home/.qompack/]"
+}

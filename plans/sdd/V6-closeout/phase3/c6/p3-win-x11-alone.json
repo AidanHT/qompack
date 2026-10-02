@@ -1,0 +1,24 @@
+{
+  "id": "p3-win-x11-alone",
+  "cwd": "C:/Users/Quant/Documents/Programming/Projects/qompack-cx-cand",
+  "argv": [
+    "go",
+    "test",
+    "-count=1",
+    "-timeout=30m",
+    "-v",
+    "-run",
+    "^TestV3_HotPathUnchangedWithLedgerResident$",
+    "./test/e2e"
+  ],
+  "source_head": "99d0b18cf7d5991aa733e70ce52a542b80aa7710",
+  "source_dirty": "",
+  "environment": {
+    "GOPATH": "C:\\Users\\Quant\\go"
+  },
+  "started_at": "2026-10-01T22:49:17-04:00",
+  "ended_at": "2026-10-01T23:00:11-04:00",
+  "exit_code": 1,
+  "log": "p3-win-x11-alone.log",
+  "log_sha256": "02954b32ac61713b513afb4f880433cf783dc3d019064b0135546439e94d785d"
+}

@@ -1,0 +1,2 @@
+# stream line 2, hook SessionStart:startup, exit 0, 61 chars
+<!-- qompack-contract-probe qompack-contract-6ac12018ec41 -->

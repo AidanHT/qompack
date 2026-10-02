@@ -1,0 +1,27 @@
+{
+  "id": "c51-win",
+  "cwd": "C:/Users/Quant/AppData/Local/Temp/tmp.MWJhl7jum3/src-candidate",
+  "argv": [
+    "go",
+    "run",
+    "./tools/devtool",
+    "bench-hotpath",
+    "--iterations",
+    "5000",
+    "--hook",
+    "observe-tool",
+    "--warm-daemon",
+    "--json",
+    "C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c5/quiet/c51-win-hotpath.json"
+  ],
+  "source_head": "0d06ab1233efb0fd5be8c99dc453e1aa2ee071af",
+  "source_dirty": "",
+  "environment": {
+    "GOPATH": "C:\\Users\\Quant\\go"
+  },
+  "started_at": "2026-09-30T23:12:06-04:00",
+  "ended_at": "2026-09-30T23:16:06-04:00",
+  "exit_code": 0,
+  "log": "c51-win.log",
+  "log_sha256": "bfe906e529349323c7663582fb42fe338c9de2fe157c5ac524a94738768eb778"
+}

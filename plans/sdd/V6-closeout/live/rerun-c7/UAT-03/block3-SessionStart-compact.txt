@@ -1,0 +1,23 @@
+<!-- qompack:injected seq=2 ver=1 -->
+# Qompack rehydration — checkpoint 0002, session d8d6f167
+
+## 2. Original user intent (verbatim from L0 capture — never summarized)
+Evolution (most recent first):
+> Use the Read tool to read docs/plan.md and tell me in one sentence when the cut-over happens.
+> Use the Read tool to read src/app.py and tell me in one sentence what migrate() does.
+Original:
+> We are preparing the Tern key migration. Use the Read tool to read handoff.md and tell me how many keys it lists. Do not repeat the key values.
+
+## 5. Current work
+goal: Use the Read tool to read docs/plan.md and tell me in one sentence when the cut-over happens.
+blocked on: none
+
+## 6. Pointers (paths and hashes — contents are NOT restored; use expand/re_read)
+- docs/plan.md sha256:728eb93a0d3b8d6c8de1308b81c2d31e7444e5a4dd9e1fad37cd8d8aa38735f8 — referenced
+- tool_use subagent_d8d6f167-82da-4a52-abea-e8e4f340b39e_4 sha256:e341a3900430664f2ba1bbefce9e4275bfb67eaf63d7212d2cd3c609115879d6 — {"agent":"subagent","summary":"The `migrate()` function copies all key-value pairs from a source vault to a destinati…
+- tool_use toolu_01KXftbDXBzpnVRstkf9m5Hr sha256:728eb93a0d3b8d6c8de1308b81c2d31e7444e5a4dd9e1fad37cd8d8aa38735f8 — <scratch>\sessions\c7\uat03\proj\docs\plan.md
+
+## 8. Retrieval
+Qompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().
+<!-- /qompack:injected -->
+<!-- qompack-contract-probe qompack-contract-57141f3ef7e6 -->

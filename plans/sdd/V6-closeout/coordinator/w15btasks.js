@@ -1,0 +1,19 @@
+const LIM15B = `EVIDENCE: the candidate 4 live re-run's audit (plans/sdd/V6-closeout/live/report-c4.md, section "Independent audit") and its evidence under plans/sdd/V6-closeout/live/rerun-c4/ are on your base, with wave 15 (docs, ledger) and wave 15a (paging, snapshot) merged. Coordinator decision D50 in the ledger fixes the dispositions: read D46, D49 and D50 first.
+MACHINE LIMITS FOR THIS SEAT (override the general rules): DAYTIME, the owner is using this laptop and other seats run at once. Use \`-p 2\`, no load generators, no hot-path rows, no whole test/integration or test/e2e packages. The Linux container is STOPPED: do not start it. No real Claude Code sessions.
+Other seats running now: wave 15 rehydrate (internal/rehydrate) and services (daemon reload, mcp recall, store publication accounting, fsck). Do not edit their files.`
+
+const WS = []
+
+WS.push({ ws: 'docsb', cid: 'C4.10', effort: 'medium', reviewEffort: 'medium', task: `TASK — the D50 documentation and evidence-record items, plus two nits from wave 15a. Only docs, evidence records, one code comment and the live driver script.
+${LIM15B}
+(1) docs/uat.md page header: it must say the eleven re-run rows report candidate 4 (9f6a2fad) under D47 with the candidate 4 tally, and that UAT-10 still stands on candidate 3 and is re-run on the next candidate (D50). Check what wave 15 docs already wrote there and correct it, do not duplicate.
+(2) UAT-05 Result block (docs/uat.md ~680) and rerun-c4/UAT-05/notes.txt: under D50 the expectation is read literally, so UAT-05 is a FAIL on candidate 4 (the superseded original renders above the correction in section 2). Change the candidate 4 verdict line to fail with that one-line reason citing D50; do not edit the expectation.
+(3) C4.4: rerun-c4/C4.4/tool-matrix.md:25 labels it partial; D50 says failed on candidate 4 (R4-1). Relabel with the reason.
+(4) UAT-02 Result: label it 'pass on fail criteria; row capability host-limited (D49)' (keep wave 15's note if present).
+(5) UAT-04 Result: add the post-run fsck exit 1 (index.files 'absent while its log carries 4 path(s)'; see the wave 15 services seat's finding if its report is merged, otherwise say it is under investigation) and the per-compaction LOUD 'tier-1 material exceeds the hard budget cap' (D50 routes it to once per session).
+(6) UAT-06 Result: reword 'the block's only statement of the limit is the superseded one' to: the correction record itself is absent; 60 appears only inside an echoed record_eliminated prompt.
+(7) UAT-12 Result: add F4 (section 6 lists the deny-ruled file's absolute path and root hash and the out-of-project absolute path; D50 routes it to a fix) and the paging semantics note (candidate 4: final page truncated:true with no next_span; explicit span paged differently from full:true; fixed in wave 15a).
+(8) plans/sdd/V6-closeout/live/recovery/C1.6/notes.txt: add a dated candidate 4 note citing the interrupted startup accounting (UAT-12 and UAT-05 LOUD logs) and that D49's fix is a C1.6 precondition.
+(9) The live driver's scrub (find it: live_driver.py or similar under plans/sdd/V6-closeout/live/ or coordinator/): also scrub the JSON-escaped Windows form of the scratch prefix (C:\\Users\\...\\qompack-live). Add a tiny self-check if the script has one; the committed history is accepted (D50).
+(10) Wave 15a nits: (a) tools/devtool/genmcpdocs.go paging text: the range an explicit span is served over is the one it resolves to, ending on the next chunk boundary, and once it is served a page short of the object's end continues in store.chunk.max-sized steps; regenerate docs/mcp-tools.md with gen-mcp-docs. (b) internal/contract/refresh.go historyRead comment: Chances is reset by a start's mint, by the withdrawal of a lost start's probe, and by a found scan.
+Run go test ./test/docs, gen-mcp-docs --check, go vet ./internal/contract ./tools/devtool, and the runpatterns/docmarkers lint.` })

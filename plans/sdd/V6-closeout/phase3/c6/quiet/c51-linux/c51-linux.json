@@ -1,0 +1,40 @@
+{
+  "id": "c51-linux",
+  "cwd": "C:/Users/Quant/AppData/Local/Temp/tmp.ZfBAqdPY0V/src-candidate",
+  "argv": [
+    "docker",
+    "exec",
+    "qompack-v6-linux-verification",
+    "runuser",
+    "-u",
+    "qompack-test",
+    "--",
+    "env",
+    "-i",
+    "sh",
+    "-c",
+    ". \"$0\"; cd \"$1\" || exit 2; shift; exec \"$@\"",
+    "/work/cx-quiet-quiet-c51-prep-99d0b18-20261002T052939Z-artifacts/env.sh",
+    "/work/cx-quiet-quiet-c51-prep-99d0b18-20261002T052939Z",
+    "go",
+    "run",
+    "./test/bench/hotpath",
+    "--iterations",
+    "5000",
+    "--hook",
+    "observe-tool",
+    "--warm-daemon",
+    "--json",
+    "/work/cx-quiet-quiet-c51-prep-99d0b18-20261002T052939Z-artifacts/c51-linux-hotpath.json"
+  ],
+  "source_head": "99d0b18cf7d5991aa733e70ce52a542b80aa7710",
+  "source_dirty": "",
+  "environment": {
+    "GOPATH": "C:\\Users\\Quant\\go"
+  },
+  "started_at": "2026-10-02T01:29:56-04:00",
+  "ended_at": "2026-10-02T01:31:09-04:00",
+  "exit_code": 1,
+  "log": "c51-linux.log",
+  "log_sha256": "ebb2ebeaa097f7e0b26219351fc49f48e33692824bf21a89a4c7164203dc3d1f"
+}

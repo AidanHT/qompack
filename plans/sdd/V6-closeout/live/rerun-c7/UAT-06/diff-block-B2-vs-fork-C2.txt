@@ -1,0 +1,49 @@
+--- B-block2 (resumed parent, 0002)
++++ C-block2 (fork's first block, 0004)
+@@ -1,15 +1,17 @@
+-<!-- qompack:injected seq=2 ver=1 -->
+-# Qompack rehydration — checkpoint 0002, session 0eaa2666
++<!-- qompack:injected seq=4 ver=1 -->
++# Qompack rehydration — checkpoint 0004, session 2c146247
+ 
+ ## 2. Original user intent (verbatim from L0 capture — never summarized)
+ Evolution (most recent first):
++> Use the Read tool to read docs/design.md and summarize it in one sentence.
++> What is the current per-client rate limit requirement, and what was the original one? One sentence.
+ > Use the Read tool to read docs/notes.md and summarize it in one sentence.
+ > /qompack:why dec_991dbff588ec
+-> What is the current per-client rate limit requirement, and what was the original one? One sentence.
+ > Use the Read tool to read src/limiter.py and summarize it in one sentence.
+ > Call mcp__plugin_qompack_qompack__record_eliminated with target "per-client rate limit", approach "100 requests per minute" and reason "superseded by the user's correction: 60 per minute". Report the raw result in one line.
+ > Correction: the limit must be 60 requests per minute per client, not 100. The 100 figure is superseded. Acknowledge in one sentence.
+ Original:
++(forked session: the original request of session 0eaa2666, which this session continues)
+ > We are building a rate limiter for the Kite API gateway. Requirement: allow 100 requests per minute per client. First, run the Bash command `cat config/limits.txt` and tell me how many entries it lists. Do not repeat any values.
+ 
+ ## 3. Approaches already eliminated (top 1 of 1 by slice relevance)
+@@ -23,17 +25,18 @@
+   evidence: sha256:9dc92adf93c6cd9437ded678a9dddc2a37d5c713cb8d208761681f32d140b25f
+ 
+ ## 5. Current work
+-goal: Use the Read tool to read docs/notes.md and summarize it in one sentence.
++goal: Use the Read tool to read docs/design.md and summarize it in one sentence.
+ blocked on: none
+ 
+ ## 6. Pointers (paths and hashes — contents are NOT restored; use expand/re_read)
+-- docs/notes.md sha256:8235dd1f43284f74b24aa24bfd4d63063db9828aeaa0fe4bd90a1173d17a167b — referenced
+-- src/limiter.py sha256:bae64e64b6ca23c15f149d77e615bf8259c969f21d3dcb42adc25d34640c5205 — referenced
+-- tool_use subagent_0eaa2666-1cf2-4087-85c2-d3bab55ec39b_8 sha256:f51ec16d73bccdfa432d5ec79ba24899cf5af3bbe81cf5d2a90113c770c25a0e — {"agent":"subagent","summary":"The file defines a `TokenBucket` class that implements a token bucket rate limiter, in…
+-- tool_use toolu_016uRicNA6rJS7Tdy5S5L6jr sha256:bae64e64b6ca23c15f149d77e615bf8259c969f21d3dcb42adc25d34640c5205 — <scratch>\sessions\c7\uat06\proj\src\limiter.py
+-- tool_use toolu_01R6VYRuy1CLe955yCi3GSSQ sha256:8235dd1f43284f74b24aa24bfd4d63063db9828aeaa0fe4bd90a1173d17a167b — <scratch>\sessions\c7\uat06\proj\docs\notes.md
++- docs/design.md sha256:5f6e1beeaeb590327aef11631b7c67cc50257d77f15811ce5cf26a52dd7a4f98 — referenced
++- tool_use toolu_018ekF7MeAp4vkTQHqrLJ68N sha256:d88856d2f134163a56b3296cef87ac093bcdc248cd79a919657421b1dfcee9c4 — cat config/limits.txt
++- tool_use toolu_01E16DwP2HvKfiH9CaHNJxoE sha256:5f6e1beeaeb590327aef11631b7c67cc50257d77f15811ce5cf26a52dd7a4f98 — <scratch>\sessions\c7\uat06\proj\docs\design.md
++
++## 7. No longer in context
++- user_intent_source fork — this session is a fork of session 0eaa2666-1cf2-4087-85c2-d3bab55ec39b (its newest checkpoint then: 0002), which Qompack inferred because the host names no parent; its original request is session 0eaa2666-1cf2-4087-85c2-d3bab55ec39b's first prompt, and its own first prompt is an evolution entry; restore: expand(tool_use_id=prompt_0eaa2666-1cf2-4087-85c2-d3bab55ec39b_0)
+ 
+ ## 8. Retrieval
+ Qompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().
+ <!-- /qompack:injected -->
+-<!-- qompack-contract-probe qompack-contract-0b0f9bc48c3d -->
++<!-- qompack-contract-probe qompack-contract-7389f6ba7e2b -->

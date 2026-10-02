@@ -1,0 +1,10 @@
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/chunk
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkSplit_100KB-4           	   13405	     87900 ns/op	1164.96 MB/s	    4992 B/op	       2 allocs/op
+BenchmarkGearScan_1MiB-4         	    3055	    399505 ns/op	2624.69 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSplit_1MiB-4            	    1303	    927071 ns/op	1131.06 MB/s	   57472 B/op	       2 allocs/op
+BenchmarkSplitStream_4MiB-4      	     273	   4338511 ns/op	 966.76 MB/s	   33000 B/op	       6 allocs/op
+BenchmarkRootHash_1000Chunks-4   	   57535	     21346 ns/op	      32 B/op	       1 allocs/op
+PASS

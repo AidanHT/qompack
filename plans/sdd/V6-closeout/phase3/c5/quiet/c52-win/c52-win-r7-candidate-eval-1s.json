@@ -1,0 +1,37 @@
+{
+  "id": "c52-win-r7-candidate-eval-1s",
+  "cwd": "C:/Users/Quant/AppData/Local/Temp/tmp.MWJhl7jum3/src-candidate/internal/eval",
+  "argv": [
+    "env",
+    "-u",
+    "QOMPACK_HOME",
+    "-u",
+    "CLAUDE_CONFIG_DIR",
+    "HOME=C:/Users/Quant/AppData/Local/Temp/tmp.MWJhl7jum3/home-candidate",
+    "USERPROFILE=C:/Users/Quant/AppData/Local/Temp/tmp.MWJhl7jum3/home-candidate",
+    "GOPATH=C:\\Users\\Quant\\go",
+    "GOMODCACHE=C:\\Users\\Quant\\go\\pkg\\mod",
+    "C:/Users/Quant/AppData/Local/Temp/tmp.MWJhl7jum3/bin-win/candidate/eval.test.exe",
+    "-test.run",
+    "^$",
+    "-test.bench",
+    "^Benchmark(BeladyDetail_400Turns|BreakpointOPT_256Candidates|Compare_400Actions|Synthesize_320Turns)$",
+    "-test.benchtime",
+    "1s",
+    "-test.benchmem",
+    "-test.count",
+    "1",
+    "-test.timeout",
+    "90m"
+  ],
+  "source_head": "0d06ab1233efb0fd5be8c99dc453e1aa2ee071af",
+  "source_dirty": "",
+  "environment": {
+    "GOPATH": "C:\\Users\\Quant\\go"
+  },
+  "started_at": "2026-10-01T01:58:39-04:00",
+  "ended_at": "2026-10-01T01:58:46-04:00",
+  "exit_code": 0,
+  "log": "c52-win-r7-candidate-eval-1s.log",
+  "log_sha256": "7e2eabff132c43e2307a2f548d2a623112957c83d4dad35305531d8d0b9cce37"
+}

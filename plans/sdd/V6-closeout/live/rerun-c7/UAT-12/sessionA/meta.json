@@ -1,0 +1,155 @@
+{
+ "args": [
+  "-p",
+  "--input-format",
+  "stream-json",
+  "--output-format",
+  "stream-json",
+  "--verbose",
+  "--include-hook-events",
+  "--model",
+  "claude-haiku-4-5-20251001",
+  "--max-turns",
+  "10",
+  "--setting-sources",
+  "project,local",
+  "--permission-mode",
+  "dontAsk",
+  "--plugin-dir",
+  "C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c7/qompack-plugin-0.3.0-windows-amd64",
+  "--allowedTools",
+  "Read,Bash(cat:*),mcp__plugin_qompack_qompack__recall,mcp__plugin_qompack_qompack__expand,mcp__plugin_qompack_qompack__re_read,mcp__plugin_qompack_qompack__already_tried,mcp__plugin_qompack_qompack__record_eliminated,mcp__plugin_qompack_qompack__timeline,mcp__plugin_qompack_qompack__why,mcp__plugin_qompack_qompack__dropped,Bash(qompack status:*),Bash(qompack recall:*),Bash(qompack pin:*),Bash(qompack why:*),Bash(qompack dropped:*),Bash(qompack eval:*)"
+ ],
+ "turns": [
+  {
+   "msg": "Use the Read tool to read these files, one after another: README.md, calc.py, notes-a.md, notes-b.md, notes-c.md and private/deny.txt. Then reply with just the word done.",
+   "ok": true,
+   "wall_s": 12.705,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 67796,
+    "WorkingSet64": 33599488,
+    "PeakWorkingSet64": 33599488,
+    "CPU": 0.453125,
+    "StartTime": "/Date(1790969661436)/"
+   },
+   "store_bytes": 165371
+  },
+  {
+   "msg": "Use the Read tool to read big.log with offset 1 and limit 1300 (the whole file). Then reply with only the number of lines you received.",
+   "ok": true,
+   "wall_s": 4.208,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 67796,
+    "WorkingSet64": 52916224,
+    "PeakWorkingSet64": 52916224,
+    "CPU": 0.75,
+    "StartTime": "/Date(1790969661436)/"
+   },
+   "store_bytes": 1512479
+  },
+  {
+   "msg": "Use the Bash tool to run exactly this command: cat blob.bin\nThen use the Read tool to read pixel.png. Then reply with just the word done.",
+   "ok": true,
+   "wall_s": 4.608,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 67796,
+    "WorkingSet64": 53202944,
+    "PeakWorkingSet64": 53202944,
+    "CPU": 0.78125,
+    "StartTime": "/Date(1790969661436)/"
+   },
+   "store_bytes": 1585568
+  },
+  {
+   "msg": "Use the Read tool to read the file <scratch>/retrieval/c7/uat12/outside/outside.txt and reply with the marker it contains.",
+   "ok": true,
+   "wall_s": 2.813,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 67796,
+    "WorkingSet64": 53346304,
+    "PeakWorkingSet64": 53346304,
+    "CPU": 0.796875,
+    "StartTime": "/Date(1790969661436)/"
+   },
+   "store_bytes": 1596178
+  },
+  {
+   "msg": "Use the Read tool to read deploy_notes.md. Reply with only its Marker value; do not quote anything else from the file.",
+   "ok": true,
+   "wall_s": 2.404,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 67796,
+    "WorkingSet64": 53530624,
+    "PeakWorkingSet64": 53530624,
+    "CPU": 0.875,
+    "StartTime": "/Date(1790969661436)/"
+   },
+   "store_bytes": 1621086
+  },
+  {
+   "before": {
+    "argv": [
+     "python",
+     "<scratch>/retrieval/c7/writefile.py",
+     "<scratch>/retrieval/c7/uat12/proj/.claude/settings.json",
+     "{\"permissions\":{\"deny\":[\"Read(./private/deny.txt)\"]}}\n",
+     "<scratch>/retrieval/c7/uat12/snap/project-settings.json"
+    ],
+    "exit": 0,
+    "stdout": "writefile.py: wrote 54 bytes to <scratch>/retrieval/c7/uat12/proj/.claude/settings.json: {\"permissions\":{\"deny\":[\"Read(./private/deny.txt)\"]}}\n",
+    "stderr": ""
+   },
+   "msg": "Call the MCP tool mcp__plugin_qompack_qompack__recall with query \"ORCHID-DENY-8842\". Report the raw result word for word.",
+   "ok": true,
+   "wall_s": 5.615,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 67796,
+    "WorkingSet64": 54054912,
+    "PeakWorkingSet64": 54054912,
+    "CPU": 0.921875,
+    "StartTime": "/Date(1790969661436)/"
+   },
+   "store_bytes": 1663129
+  },
+  {
+   "msg": "/compact",
+   "ok": true,
+   "wall_s": 21.27,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 67796,
+    "WorkingSet64": 56619008,
+    "PeakWorkingSet64": 56619008,
+    "CPU": 1.109375,
+    "StartTime": "/Date(1790969661436)/"
+   },
+   "store_bytes": 1711206
+  },
+  {
+   "msg": "What is this project's code word? If it is not in your context, call mcp__plugin_qompack_qompack__recall with query \"code word\". Reply in one sentence.",
+   "ok": true,
+   "wall_s": 2.605,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 67796,
+    "WorkingSet64": 56680448,
+    "PeakWorkingSet64": 56680448,
+    "CPU": 1.140625,
+    "StartTime": "/Date(1790969661436)/"
+   },
+   "store_bytes": 1721816
+  }
+ ],
+ "store_bytes_before": 0,
+ "started_ms": 1790969660662,
+ "pid": 516,
+ "exit": 0,
+ "wall_s": 63.359,
+ "store_bytes_after": 1796659
+}

@@ -1,0 +1,6 @@
+at 2026-10-02T15:53:42.637-04:00
+{"lock": {"pid": 16388, "started": 1790970819362, "addr": "\\\\.\\pipe\\qompack.47f5e4d8c42d", "version": "0.3.0", "owner": "2cf36a2a4555380298d9d1e3ab8f568082a045376a41104b933acd648fdcd81b", "root": "<scratch>\\resilience\\c49\\proj"}, "pid": 16388, "proc": {"Name": "qompack.exe", "Path": "C:\\Users\\Quant\\.qompack\\bin\\ab8046bac3bad894c9a299c61fb38277f4179f4e33bfb088873e43edcbe33be7\\qompack.exe", "Cmd": "C:\\Users\\Quant\\.qompack\\bin\\ab8046bac3bad894c9a299c61fb38277f4179f4e33bfb088873e43edcbe33be7\\qompack.exe daemon --project <scratch>\\resilience\\c49\\proj"}}
+check image qompack.exe: True | check cmdline daemon+project: True
+Stop-Process exit 0  | still alive: False
+RESULT: stopped pid 16388
+exit 0

@@ -1,0 +1,10 @@
+{
+ "root": ".qompack",
+ "files_scanned": 1011,
+ "zstd_decompressed": 823,
+ "base64_fields_decoded": 1011,
+ "forms_per_secret": "literal, JSON-escaped, base64, sha256-hex; plus every 10-char fragment",
+ "hits": [],
+ "fragment_hits": [],
+ "redaction_placeholders_seen": 8
+}

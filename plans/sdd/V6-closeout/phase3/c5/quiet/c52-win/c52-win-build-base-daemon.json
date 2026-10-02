@@ -1,0 +1,22 @@
+{
+  "id": "c52-win-build-base-daemon",
+  "cwd": "C:/Users/Quant/AppData/Local/Temp/tmp.MWJhl7jum3/src-base",
+  "argv": [
+    "go",
+    "test",
+    "-c",
+    "-o",
+    "C:/Users/Quant/AppData/Local/Temp/tmp.MWJhl7jum3/bin-win/base/daemon.test.exe",
+    "./internal/daemon"
+  ],
+  "source_head": "cf31e01f38f3d3ba4afd96c4c75db3e4b87d54cd",
+  "source_dirty": "",
+  "environment": {
+    "GOPATH": "C:\\Users\\Quant\\go"
+  },
+  "started_at": "2026-09-30T23:21:01-04:00",
+  "ended_at": "2026-09-30T23:21:05-04:00",
+  "exit_code": 0,
+  "log": "c52-win-build-base-daemon.log",
+  "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

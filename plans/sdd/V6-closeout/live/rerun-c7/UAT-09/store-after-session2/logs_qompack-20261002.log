@@ -1,0 +1,12 @@
+ts=2026-10-02T19:24:06.6034805Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-10-02T19:24:06.6477356Z level=info msg="observer: session registered" session=042883ea-847f-47c8-958a-6d43aee99948 source=startup turn=0 segment=1
+ts=2026-10-02T19:24:06.6477356Z level=info msg="scheduler: session bound" session=042883ea-847f-47c8-958a-6d43aee99948 effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+ts=2026-10-02T19:24:42.6376557Z level=info msg="daemon: config reloaded" changed=[eliminations.staleResponse]
+ts=2026-10-02T19:25:45.6240281Z level=warn msg="daemon: ending abandoned session; no SessionEnd arrived and it has been silent past the idle-exit window" session=042883ea-847f-47c8-958a-6d43aee99948 silentMs=30099
+ts=2026-10-02T19:25:51.2052076Z level=info msg="observer: gc" scanned=27 deleted=0 freed=0 truncated=false
+ts=2026-10-02T19:27:37.4916052Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-10-02T19:27:37.5910461Z level=info msg="observer: session registered" session=042883ea-847f-47c8-958a-6d43aee99948 source=resume turn=13 segment=3
+ts=2026-10-02T19:27:37.5915833Z level=info msg="scheduler: session bound" session=042883ea-847f-47c8-958a-6d43aee99948 effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+ts=2026-10-02T19:27:46.5402303Z level=info msg="daemon: config reloaded" changed=[eliminations.staleResponse]
+ts=2026-10-02T19:28:05.122129Z level=warn msg="mcp: recall search failed" err="qompack: store: the path selector is not a valid glob: \"src/[\""
+ts=2026-10-02T19:29:11.2996399Z level=info msg="observer: gc" scanned=74 deleted=0 freed=0 truncated=false

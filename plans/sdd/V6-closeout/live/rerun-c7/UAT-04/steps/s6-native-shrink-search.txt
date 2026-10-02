@@ -1,0 +1,5 @@
+step 6: python re (case-insensitive)
+(reduc|shrink|smaller|saved|compress)\w*\s+(the\s+)?(host|native|prompt|input|context)|(host|native|prompt|input|context)('s)?\s+\w*\s*(was|were|is)?\s*(reduc|shrunk|shrink|smaller)
+over 70 hook_response events in session/stream.jsonl and 62 evidence files (cli/*, block*.txt, store/* incl. logs, rehydrate state, checkpoints copies in steps/)
+0 match(es)
+(none)

@@ -1,0 +1,4 @@
+lock before termination: {"pid":16768,"started":1790928397233,"addr":"\\.\pipe\qompack.445b2ea6810e","version":"0.3.0","owner":"c91084e9d72b54267ea46746c2aa70c067660f89e51e8dc0cf6581bb2297ce58","root":"<scratch>\install\c7\uat01\proj"}
+verified pid 16768 image qompack.exe cmdline C:\Users\Quant\.qompack\bin\ab8046bac3bad894c9a299c61fb38277f4179f4e33bfb088873e43edcbe33be7\qompack.exe daemon --project <scratch>\install\c7\uat01\proj
+terminated pid 16768
+daemon.lock still present after termination (stale lock left for the staleness protocol)

@@ -1,0 +1,37 @@
+{
+  "id": "c52-win-r1-candidate-observer-1s",
+  "cwd": "C:/Users/Quant/AppData/Local/Temp/tmp.MWJhl7jum3/src-candidate/internal/observer",
+  "argv": [
+    "env",
+    "-u",
+    "QOMPACK_HOME",
+    "-u",
+    "CLAUDE_CONFIG_DIR",
+    "HOME=C:/Users/Quant/AppData/Local/Temp/tmp.MWJhl7jum3/home-candidate",
+    "USERPROFILE=C:/Users/Quant/AppData/Local/Temp/tmp.MWJhl7jum3/home-candidate",
+    "GOPATH=C:\\Users\\Quant\\go",
+    "GOMODCACHE=C:\\Users\\Quant\\go\\pkg\\mod",
+    "C:/Users/Quant/AppData/Local/Temp/tmp.MWJhl7jum3/bin-win/candidate/observer.test.exe",
+    "-test.run",
+    "^$",
+    "-test.bench",
+    "^Benchmark(OnToolUse_FileRead64KB|Tombstone)$",
+    "-test.benchtime",
+    "1s",
+    "-test.benchmem",
+    "-test.count",
+    "1",
+    "-test.timeout",
+    "90m"
+  ],
+  "source_head": "0d06ab1233efb0fd5be8c99dc453e1aa2ee071af",
+  "source_dirty": "",
+  "environment": {
+    "GOPATH": "C:\\Users\\Quant\\go"
+  },
+  "started_at": "2026-09-30T23:35:50-04:00",
+  "ended_at": "2026-09-30T23:35:57-04:00",
+  "exit_code": 0,
+  "log": "c52-win-r1-candidate-observer-1s.log",
+  "log_sha256": "9a9721094142105032f89c18a8d6d197bc2d4ff5f6a41b8663bca720a3ba01fd"
+}

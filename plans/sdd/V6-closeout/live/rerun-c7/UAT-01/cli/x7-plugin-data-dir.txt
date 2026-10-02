@@ -1,0 +1,5 @@
+2026-10-02 04:10:03 EDT plugins/data/qompack-windows-amd64-qompack-live after the session:
+total 4
+drwxr-xr-x 1 Quant 197609 0 Oct  2 04:06 .
+drwxr-xr-x 1 Quant 197609 0 Oct  2 04:06 ..
+entries: 0

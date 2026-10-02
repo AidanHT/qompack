@@ -1,0 +1,99 @@
+{
+  "version": 1,
+  "session": "dc87e76b-e10b-4ed9-a247-a9083ae3f28d",
+  "seq": 2,
+  "created": "2026-10-02T18:11:02.387Z",
+  "parent": "0001.json",
+  "encoded_segments": [
+    2
+  ],
+  "invariants": [
+    {
+      "id": "inv_b91128913d77",
+      "text": "Never write to prod.db from the billing export.",
+      "source": "user",
+      "pinned": 1790964607109
+    }
+  ],
+  "user_intent": {
+    "original": "We are adding a CSV export to the billing module. Requirement: the export must quote every field with double quotes. Use the Read tool to read billing.py and tell me in one sentence where the export function should go.",
+    "evolution": [
+      "/qompack:pin Never write to prod.db from the billing export.",
+      "Correction: the billing export must NOT quote fields; it must leave every field unquoted. The double-quote requirement is superseded. Acknowledge in one sentence.",
+      "Call mcp__plugin_qompack_qompack__record_eliminated with target \"billing export quoting\", approach \"double-quote every field\" and reason \"superseded by the user's correction: fields stay unquoted\". Report the raw result in one line.",
+      "Run the Bash command `cat data/meta2.txt` and tell me only that you read it; do not repeat its contents.",
+      "Use the Read tool to read README.md and summarize it in one sentence."
+    ]
+  },
+  "eliminated": [
+    {
+      "id": "elim_8782d60b4ddc",
+      "session": "dc87e76b-e10b-4ed9-a247-a9083ae3f28d",
+      "ts": 1790964615797,
+      "target": "billing export quoting",
+      "approach": "double-quote every field",
+      "reason": "superseded by the user's correction: fields stay unquoted",
+      "descriptor": {
+        "normalized_path": "billing export quoting",
+        "symbol": "",
+        "approach_class": "double-quote-every-field",
+        "reason_hash": "sha256:854dfe6acab843a51883855c9719ca7e3da3ce869cbe6cd0967349636cfcd5e6"
+      },
+      "evidence": "sha256:3d9a14eade82d3397488773bf084978d8e3e3d70932a44aeca89e51e29d96472",
+      "depends_on": [],
+      "scope": "session",
+      "status": "active",
+      "source": 0
+    }
+  ],
+  "decisions": [
+    {
+      "id": "dec_bb7b288523c4",
+      "what": "rejected \"double-quote every field\" for billing export quoting",
+      "why": "superseded by the user's correction: fields stay unquoted",
+      "alternatives_rejected": [
+        "double-quote every field"
+      ],
+      "evidence": "sha256:3d9a14eade82d3397488773bf084978d8e3e3d70932a44aeca89e51e29d96472",
+      "turn": 7
+    }
+  ],
+  "open_questions": [],
+  "current_work": {
+    "goal": "Use the Read tool to read README.md and summarize it in one sentence.",
+    "next_step": "",
+    "blocked_on": null
+  },
+  "pointers": {
+    "files": [
+      {
+        "path": "readme.md",
+        "hash": "sha256:42c71a1387dec302d09c32c6c20dd457a3494bf27a8b93ca674b2dc8f4759ad5",
+        "why": "referenced"
+      }
+    ],
+    "tools": [
+      {
+        "tool_use_id": "toolu_01CRGuUN7DoqNnLmBn26BnLr",
+        "hash": "sha256:42c71a1387dec302d09c32c6c20dd457a3494bf27a8b93ca674b2dc8f4759ad5",
+        "summary": "<scratch>\\sessions\\c7\\uat05r\\proj\\README.md"
+      },
+      {
+        "tool_use_id": "subagent_dc87e76b-e10b-4ed9-a247-a9083ae3f28d_10",
+        "hash": "sha256:91f65f551d38ec4f82e8295bd443a584754c9db176b92b13339ff570fdf24b8a",
+        "summary": "{\"agent\":\"subagent\",\"summary\":\"I've read it.\"}"
+      }
+    ]
+  },
+  "narrative": "seg 2 turns 10-12: 2 tool uses over 1 files; gap_seconds=0.00, lexical_cohesion=0.00, path_jaccard=0.00, prob_changepoint=0.00, todo_transition=0.00, tool_shift=0.00\n",
+  "sketch_refs": {
+    "touch": "touch.cms",
+    "tried": "tried.bloom"
+  },
+  "dropped": [],
+  "cache": {
+    "p_chosen": 0,
+    "rewrite_tokens": 0,
+    "ttl_state": "unknown"
+  }
+}

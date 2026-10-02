@@ -1,0 +1,1960 @@
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/canon
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkRun_Bash100KB-4    	     615	   2070096 ns/op	  49.47 MB/s	 1061420 B/op	      36 allocs/op
+BenchmarkRun_GoTest-4       	    1941	    623458 ns/op	  19.13 MB/s	  512949 B/op	     168 allocs/op
+BenchmarkRun_KeepDeltas-4   	     525	   2025673 ns/op	  50.56 MB/s	 1061561 B/op	      37 allocs/op
+BenchmarkRestore_100KB-4    	   80881	     14810 ns/op	6914.65 MB/s	  106496 B/op	       1 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/checkpoint
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkFinalize-4   	      10	  46041669 ns/op	 3343189 B/op	   15821 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/checkpoint
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkExtractDecisions-4   	     208	   5752215 ns/op	 7456996 B/op	   32481 allocs/op
+--- BENCH: BenchmarkExtractDecisions-4
+    decisions_test.go:659: graph: nodes=4780 edges=14702 explains=3127
+    decisions_test.go:659: graph: nodes=4780 edges=14702 explains=3127
+    decisions_test.go:659: graph: nodes=4780 edges=14702 explains=3127
+BenchmarkStripInjections-4    	    8846	    129135 ns/op	2030.00 MB/s	 1162112 B/op	      14 allocs/op
+BenchmarkTruncate-4           	    1184	   1024091 ns/op	  736929 B/op	    1562 allocs/op
+BenchmarkAdvanceSegment-4     	      50	  20767427 ns/op	 5827591 B/op	    5656 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/chunk
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkSplit_100KB-4           	   13555	     88152 ns/op	1161.63 MB/s	    4992 B/op	       2 allocs/op
+BenchmarkGearScan_1MiB-4         	    2923	    404705 ns/op	2590.96 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSplit_1MiB-4            	    1311	    916952 ns/op	1143.55 MB/s	   57472 B/op	       2 allocs/op
+BenchmarkSplitStream_4MiB-4      	     268	   4273460 ns/op	 981.48 MB/s	   33000 B/op	       6 allocs/op
+BenchmarkRootHash_1000Chunks-4   	   58122	     21136 ns/op	      32 B/op	       1 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/cli
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkHookNoop_InProcess-4   	    1993	    544798 ns/op	  266394 B/op	    3795 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/config
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkConfigLoad_ColdNoFiles-4   	    5391	    218246 ns/op	  101553 B/op	    2031 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/daemon
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkIngestAccept-4                                	     166	   7395050 ns/op	     384 B/op	       9 allocs/op
+BenchmarkIngestAcceptLeased-4                          	      64	  18569870 ns/op	    8947 B/op	      76 allocs/op
+BenchmarkIngestAcceptExternalized-4                    	      80	  15665063 ns/op	    1799 B/op	      25 allocs/op
+BenchmarkFeaturesFrom-4                                	   68395	     17559 ns/op	   17056 B/op	      39 allocs/op
+BenchmarkReclaimableIndexBuild_5000Blocks-4            	    3504	    337073 ns/op	  364593 B/op	      17 allocs/op
+BenchmarkAssembleCandidates_2000ToolUses/cold-4        	    1017	   1187016 ns/op	  930707 B/op	     536 allocs/op
+BenchmarkAssembleCandidates_2000ToolUses/warm-4        	  348049	      3875 ns/op	    9970 B/op	      11 allocs/op
+BenchmarkRuntimeEvaluate_2000ToolUses_32Candidates/warm-4         	   88316	     12632 ns/op	   46351 B/op	      25 allocs/op
+BenchmarkRuntimeEvaluate_2000ToolUses_32Candidates/cold-4         	     600	   1969011 ns/op	 1759150 B/op	    1970 allocs/op
+BenchmarkSchedulerTap_ObserveTool-4                               	   39386	     30747 ns/op	   20034 B/op	      73 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/dag
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkBackwardSlice5000-4   	    3927	    289454 ns/op	  132056 B/op	    1435 allocs/op
+BenchmarkCrossingEdges-4       	12300069	        95.08 ns/op	       0 B/op	       0 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/eval
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkBeladyDetail_400Turns-4         	    1540	    784235 ns/op	  682916 B/op	    7598 allocs/op
+BenchmarkBreakpointOPT_256Candidates-4   	    1926	    551467 ns/op	  778795 B/op	    5751 allocs/op
+BenchmarkCompare_400Actions-4            	    2350	    511757 ns/op	  186912 B/op	      48 allocs/op
+BenchmarkSynthesize_320Turns-4           	    4034	    292806 ns/op	  274702 B/op	    2999 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/hostperm
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkEvaluate-4   	  179582	      6637 ns/op	    1944 B/op	      32 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/negknow
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkOpen-4   	      10	  76907718 ns/op	  62063100 cpu-ns/op	35701511 B/op	  260512 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/negknow
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkRecord-4               	   35552	     33885 ns/op	     28216 cpu-ns/op	   11529 B/op	      70 allocs/op
+BenchmarkIngestMCPRealStore-4   	      28	  36708889 ns/op	   70330 B/op	     279 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/obs
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkHistogram_Observe-4   	126677239	         9.556 ns/op	       0 B/op	       0 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/observer
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkTombstone-4                	 4110867	       302.1 ns/op	     272 B/op	       6 allocs/op
+BenchmarkOnToolUse_FileRead64KB/Deduped-4         	     165	   7217019 ns/op	     27261 dedup-x	         5.000 objects	         7.168 p50-ms	        11.26 p99-ms	 1313590 B/op	     284 allocs/op
+BenchmarkOnToolUse_FileRead64KB/Delta-4           	      52	  23185270 ns/op	       670.0 dedup-x	        56.00 objects	        24.58 p50-ms	        36.86 p99-ms	 1357463 B/op	     435 allocs/op
+BenchmarkOnToolUse_FileRead64KB/AllNovel-4        	      49	  23970001 ns/op	        66.20 dedup-x	       218.0 objects	        24.58 p50-ms	        32.77 p99-ms	 1403294 B/op	     544 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/observer
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkOnToolUse_TestOutput256KB_Leased/Deduped-4         	     200	 131277457 ns/op	      2235 dedup-x	        34.00 objects	       131.1 p50-ms	       196.6 p99-ms	10288547 B/op	    8788 allocs/op
+BenchmarkOnToolUse_TestOutput256KB_Leased/Delta-4           	     200	 178808628 ns/op	       143.8 dedup-x	       435.0 objects	       180.2 p50-ms	       229.4 p99-ms	10489405 B/op	    9976 allocs/op
+BenchmarkOnToolUse_TestOutput256KB_Leased/AllNovel-4        	     200	 661648691 ns/op	         3.753 dedup-x	     12209 objects	       720.9 p50-ms	       852.0 p99-ms	11025926 B/op	   13119 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/Deduped-4                	     200	  26389930 ns/op	      2235 dedup-x	        34.00 objects	        26.62 p50-ms	        32.77 p99-ms	 6682945 B/op	    5995 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/Delta-4                  	     200	  58368665 ns/op	       143.8 dedup-x	       435.0 objects	        57.34 p50-ms	        73.73 p99-ms	 6868977 B/op	    7197 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/AllNovel-4               	     200	  79131881 ns/op	         3.753 dedup-x	     12209 objects	        81.92 p50-ms	        98.30 p99-ms	 6610368 B/op	    7720 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/paths
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkPathsWriteAtomic_4KB-4       	      73	  14982660 ns/op	   0.27 MB/s	    1216 B/op	      16 allocs/op
+BenchmarkIsHome_AProjectBelowHome-4   	  650626	      1593 ns/op	     544 B/op	       4 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/rules
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkPathScoped-4   	    4668	    253966 ns/op	  151561 B/op	    1979 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/scheduler
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkEvaluate_64Candidates-4   	  391310	      3013 ns/op	    3736 B/op	       6 allocs/op
+BenchmarkBOCDObserve_4Features/full_posterior-4         	   49534	     23864 ns/op	    4128 B/op	       2 allocs/op
+BenchmarkBOCDObserve_4Features/steady_state-4           	  757102	      1619 ns/op	     302 B/op	       2 allocs/op
+BenchmarkBOCDMarshal-4                                  	   75757	     17152 ns/op	   73728 B/op	       1 allocs/op
+--- BENCH: BenchmarkBOCDMarshal-4
+    bocd_test.go:669: serialized size at 512×4: 69687 bytes
+    bocd_test.go:669: serialized size at 512×4: 69687 bytes
+    bocd_test.go:669: serialized size at 512×4: 69687 bytes
+    bocd_test.go:669: serialized size at 512×4: 69687 bytes
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/sketch
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkL0SketchUpdate-4     	 3085141	       391.1 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRebuildBloom5000-4   	    1449	    851817 ns/op	   12400 B/op	       4 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/skills
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkIndex-4   	    3994	    318080 ns/op	  186758 B/op	     740 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/store
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkPutBytes_100KB_Warm_NoRedact-4      	     636	   1933408 ns/op	  52.96 MB/s	  901839 B/op	      14 allocs/op
+BenchmarkPutBytes_100KB_Cold_NoRedact-4      	      67	  19315067 ns/op	   5.30 MB/s	 1045138 B/op	     317 allocs/op
+BenchmarkPutBytes_100KB_Cold-4               	      63	  20191177 ns/op	   5.07 MB/s	 1149999 B/op	     315 allocs/op
+BenchmarkPutBytes_100KB_Warm-4               	     502	   2357649 ns/op	  43.43 MB/s	 1008465 B/op	      16 allocs/op
+BenchmarkPutBytes_100KB_Warm_KeepRaw/verbatim-4         	     460	   2582932 ns/op	  39.64 MB/s	 1008419 B/op	      16 allocs/op
+BenchmarkPutBytes_100KB_Warm_KeepRaw/delta-4            	     451	   2582625 ns/op	  39.66 MB/s	 1115762 B/op	      31 allocs/op
+BenchmarkPutBytes_100KB_Warm_KeepRaw/full-4             	    1563	    739488 ns/op	 138.50 MB/s	  635041 B/op	      23 allocs/op
+BenchmarkPutObject_NovelChunk-4                         	   11190	    105566 ns/op	  38.80 MB/s	    5838 B/op	      18 allocs/op
+BenchmarkGetChunk-4                                     	   58514	     20864 ns/op	   19650 B/op	      10 allocs/op
+BenchmarkOpenSpan_4KB_of_4MB-4                          	   56228	     21521 ns/op	   19791 B/op	      11 allocs/op
+BenchmarkOpenStore_50kRoots-4                           	       4	 292615090 ns/op	97311804 B/op	 1062393 allocs/op
+BenchmarkGC_50kObjects-4                                	       3	 388407526 ns/op	36940189 B/op	  433659 allocs/op
+BenchmarkCountFold_4MiB-4                               	     808	   1576011 ns/op	2661.34 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSearch_1000Roots-4                             	     176	   7077723 ns/op	 9119886 B/op	    7750 allocs/op
+BenchmarkSearch_1000Roots_DistinctChunks-4              	     121	   9616621 ns/op	13269968 B/op	   12341 allocs/op
+BenchmarkMarkEncoded_100-4                              	   10000	    121760 ns/op	   16896 B/op	     301 allocs/op
+PASS
+pathstest: HOME is "/tmp/360400775/001/home" at the end of the run, not the isolated home "/tmp/qompack-test-home-2332057623": a test changed it without restoring it, and every test after it ran against that directory
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/symbols
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkExtract_100KB-4              	    1084	   1134610 ns/op	  90.59 MB/s	  311785 B/op	    2325 allocs/op
+BenchmarkEnclosing_100KB-4            	    1010	   1104675 ns/op	  93.05 MB/s	  312150 B/op	    2325 allocs/op
+BenchmarkReferences_100KB_50Names-4   	    7171	    169685 ns/op	 605.76 MB/s	    4128 B/op	       8 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/canon
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkRun_Bash100KB-4    	     601	   1972531 ns/op	  51.92 MB/s	 1061137 B/op	      36 allocs/op
+BenchmarkRun_GoTest-4       	    1922	    623653 ns/op	  19.12 MB/s	  513099 B/op	     168 allocs/op
+BenchmarkRun_KeepDeltas-4   	     583	   2042724 ns/op	  50.13 MB/s	 1061382 B/op	      36 allocs/op
+BenchmarkRestore_100KB-4    	   81535	     17877 ns/op	5728.36 MB/s	  106496 B/op	       1 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/checkpoint
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkFinalize-4   	      10	  44471932 ns/op	 3407320 B/op	   15825 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/checkpoint
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkExtractDecisions-4   	     202	   5742623 ns/op	 7458425 B/op	   32481 allocs/op
+--- BENCH: BenchmarkExtractDecisions-4
+    decisions_test.go:659: graph: nodes=4780 edges=14702 explains=3127
+    decisions_test.go:659: graph: nodes=4780 edges=14702 explains=3127
+    decisions_test.go:659: graph: nodes=4780 edges=14702 explains=3127
+BenchmarkStripInjections-4    	    9626	    128765 ns/op	2035.84 MB/s	 1162112 B/op	      14 allocs/op
+BenchmarkTruncate-4           	    1098	    993189 ns/op	  737063 B/op	    1562 allocs/op
+BenchmarkAdvanceSegment-4     	      56	  21714069 ns/op	 6490222 B/op	    6256 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/chunk
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkSplit_100KB-4           	   13494	     89515 ns/op	1143.94 MB/s	    4992 B/op	       2 allocs/op
+BenchmarkGearScan_1MiB-4         	    3096	    395837 ns/op	2649.01 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSplit_1MiB-4            	    1256	    947678 ns/op	1106.47 MB/s	   57472 B/op	       2 allocs/op
+BenchmarkSplitStream_4MiB-4      	     274	   4320600 ns/op	 970.77 MB/s	   33000 B/op	       6 allocs/op
+BenchmarkRootHash_1000Chunks-4   	   57082	     20407 ns/op	      32 B/op	       1 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/cli
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkHookNoop_InProcess-4   	    2298	    517074 ns/op	  265953 B/op	    3795 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/config
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkConfigLoad_ColdNoFiles-4   	    4754	    217200 ns/op	  101500 B/op	    2031 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/daemon
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkIngestAccept-4                                	     157	   7632365 ns/op	     384 B/op	       9 allocs/op
+BenchmarkIngestAcceptLeased-4                          	      64	  18711885 ns/op	    8930 B/op	      76 allocs/op
+BenchmarkIngestAcceptExternalized-4                    	      78	  16245972 ns/op	    1798 B/op	      25 allocs/op
+BenchmarkFeaturesFrom-4                                	   64137	     18374 ns/op	   17056 B/op	      39 allocs/op
+BenchmarkReclaimableIndexBuild_5000Blocks-4            	    3462	    362643 ns/op	  364592 B/op	      17 allocs/op
+BenchmarkAssembleCandidates_2000ToolUses/cold-4        	    1009	   1178231 ns/op	  931036 B/op	     536 allocs/op
+BenchmarkAssembleCandidates_2000ToolUses/warm-4        	  347842	      4996 ns/op	    9972 B/op	      11 allocs/op
+BenchmarkRuntimeEvaluate_2000ToolUses_32Candidates/warm-4         	   86281	     15768 ns/op	   46292 B/op	      25 allocs/op
+BenchmarkRuntimeEvaluate_2000ToolUses_32Candidates/cold-4         	     584	   2183566 ns/op	 1709128 B/op	    1970 allocs/op
+BenchmarkSchedulerTap_ObserveTool-4                               	   38317	     31898 ns/op	   20036 B/op	      73 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/dag
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkBackwardSlice5000-4   	    4330	    288395 ns/op	  132056 B/op	    1435 allocs/op
+BenchmarkCrossingEdges-4       	12899834	        96.32 ns/op	       0 B/op	       0 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/eval
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkBeladyDetail_400Turns-4         	    1356	    779222 ns/op	  682916 B/op	    7598 allocs/op
+BenchmarkBreakpointOPT_256Candidates-4   	    2113	    516858 ns/op	  778795 B/op	    5751 allocs/op
+BenchmarkCompare_400Actions-4            	    2422	    498146 ns/op	  186912 B/op	      48 allocs/op
+BenchmarkSynthesize_320Turns-4           	    4173	    297042 ns/op	  274705 B/op	    2999 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/hostperm
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkEvaluate-4   	  180231	      6627 ns/op	    1960 B/op	      32 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/negknow
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkOpen-4   	      10	  73394715 ns/op	  56440700 cpu-ns/op	35701736 B/op	  260512 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/negknow
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkRecord-4               	   37350	     36913 ns/op	     28797 cpu-ns/op	   11356 B/op	      70 allocs/op
+BenchmarkIngestMCPRealStore-4   	      31	  37604282 ns/op	   33146 B/op	     273 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/obs
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkHistogram_Observe-4   	128828733	         9.308 ns/op	       0 B/op	       0 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/observer
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkTombstone-4                	 4072749	       302.2 ns/op	     272 B/op	       6 allocs/op
+BenchmarkOnToolUse_FileRead64KB/Deduped-4         	     163	   7155328 ns/op	     26931 dedup-x	         5.000 objects	         7.168 p50-ms	         9.216 p99-ms	 1315628 B/op	     286 allocs/op
+BenchmarkOnToolUse_FileRead64KB/Delta-4           	      45	  23255636 ns/op	       664.7 dedup-x	        49.00 objects	        24.58 p50-ms	        30.72 p99-ms	 1358336 B/op	     434 allocs/op
+BenchmarkOnToolUse_FileRead64KB/AllNovel-4        	      48	  23795284 ns/op	        66.49 dedup-x	       213.0 objects	        24.58 p50-ms	        30.72 p99-ms	 1409499 B/op	     548 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/observer
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkOnToolUse_TestOutput256KB_Leased/Deduped-4         	     200	 133357772 ns/op	      2235 dedup-x	        34.00 objects	       131.1 p50-ms	       213.0 p99-ms	10279221 B/op	    8784 allocs/op
+BenchmarkOnToolUse_TestOutput256KB_Leased/Delta-4           	     200	 180459516 ns/op	       143.8 dedup-x	       435.0 objects	       180.2 p50-ms	       262.1 p99-ms	10477825 B/op	    9984 allocs/op
+BenchmarkOnToolUse_TestOutput256KB_Leased/AllNovel-4        	     200	 668227754 ns/op	         3.753 dedup-x	     12209 objects	       720.9 p50-ms	       852.0 p99-ms	11036466 B/op	   13118 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/Deduped-4                	     200	  25937873 ns/op	      2235 dedup-x	        34.00 objects	        26.62 p50-ms	        30.72 p99-ms	 6684037 B/op	    5996 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/Delta-4                  	     200	  57010948 ns/op	       143.8 dedup-x	       435.0 objects	        57.34 p50-ms	        73.73 p99-ms	 6868255 B/op	    7196 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/AllNovel-4               	     200	  77357027 ns/op	         3.753 dedup-x	     12209 objects	        81.92 p50-ms	        98.30 p99-ms	 6610367 B/op	    7719 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/paths
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkPathsWriteAtomic_4KB-4       	      79	  14736328 ns/op	   0.28 MB/s	    1216 B/op	      16 allocs/op
+BenchmarkIsHome_AProjectBelowHome-4   	  772394	      1536 ns/op	     544 B/op	       4 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/rules
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkPathScoped-4   	    3981	    275622 ns/op	  151612 B/op	    1979 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/scheduler
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkEvaluate_64Candidates-4   	  403216	      3124 ns/op	    3736 B/op	       6 allocs/op
+BenchmarkBOCDObserve_4Features/full_posterior-4         	   50815	     24322 ns/op	    4128 B/op	       2 allocs/op
+BenchmarkBOCDObserve_4Features/steady_state-4           	  704560	      1627 ns/op	     302 B/op	       2 allocs/op
+BenchmarkBOCDMarshal-4                                  	   65450	     16130 ns/op	   73728 B/op	       1 allocs/op
+--- BENCH: BenchmarkBOCDMarshal-4
+    bocd_test.go:669: serialized size at 512×4: 69687 bytes
+    bocd_test.go:669: serialized size at 512×4: 69687 bytes
+    bocd_test.go:669: serialized size at 512×4: 69687 bytes
+    bocd_test.go:669: serialized size at 512×4: 69687 bytes
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/sketch
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkL0SketchUpdate-4     	 3106196	       382.5 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRebuildBloom5000-4   	    1466	    824388 ns/op	   12403 B/op	       4 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/skills
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkIndex-4   	    3495	    318773 ns/op	  186757 B/op	     740 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/store
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkPutBytes_100KB_Warm_NoRedact-4      	     596	   1878892 ns/op	  54.50 MB/s	  901793 B/op	      14 allocs/op
+BenchmarkPutBytes_100KB_Cold_NoRedact-4      	      62	  18326064 ns/op	   5.59 MB/s	 1044156 B/op	     314 allocs/op
+BenchmarkPutBytes_100KB_Cold-4               	      64	  19621259 ns/op	   5.22 MB/s	 1150587 B/op	     317 allocs/op
+BenchmarkPutBytes_100KB_Warm-4               	     510	   2339628 ns/op	  43.77 MB/s	 1008433 B/op	      16 allocs/op
+BenchmarkPutBytes_100KB_Warm_KeepRaw/verbatim-4         	     459	   2610781 ns/op	  39.22 MB/s	 1008354 B/op	      16 allocs/op
+BenchmarkPutBytes_100KB_Warm_KeepRaw/delta-4            	     458	   2776605 ns/op	  36.89 MB/s	 1115836 B/op	      31 allocs/op
+BenchmarkPutBytes_100KB_Warm_KeepRaw/full-4             	    1531	    762734 ns/op	 134.28 MB/s	  635101 B/op	      23 allocs/op
+BenchmarkPutObject_NovelChunk-4                         	   11448	    108310 ns/op	  37.82 MB/s	    5839 B/op	      18 allocs/op
+BenchmarkGetChunk-4                                     	   57882	     20611 ns/op	   19635 B/op	      10 allocs/op
+BenchmarkOpenSpan_4KB_of_4MB-4                          	   56643	     21355 ns/op	   19790 B/op	      11 allocs/op
+BenchmarkOpenStore_50kRoots-4                           	       4	 287687106 ns/op	97311796 B/op	 1062393 allocs/op
+BenchmarkGC_50kObjects-4                                	       4	 315007570 ns/op	36936082 B/op	  433657 allocs/op
+BenchmarkCountFold_4MiB-4                               	     864	   1374595 ns/op	3051.30 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSearch_1000Roots-4                             	     163	   7295631 ns/op	 9114842 B/op	    7746 allocs/op
+BenchmarkSearch_1000Roots_DistinctChunks-4              	     100	  10558468 ns/op	13270720 B/op	   12341 allocs/op
+BenchmarkMarkEncoded_100-4                              	pathstest: HOME is "/tmp/766487306/001/home" at the end of the run, not the isolated home "/tmp/qompack-test-home-1934621259": a test changed it without restoring it, and every test after it ran against that directory
+   10000	    125073 ns/op	   16896 B/op	     301 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/symbols
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkExtract_100KB-4              	    1033	   1109400 ns/op	  92.65 MB/s	  312169 B/op	    2325 allocs/op
+BenchmarkEnclosing_100KB-4            	    1093	   1119415 ns/op	  91.82 MB/s	  312239 B/op	    2325 allocs/op
+BenchmarkReferences_100KB_50Names-4   	    6877	    172919 ns/op	 594.43 MB/s	    4128 B/op	       8 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/canon
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkRun_Bash100KB-4    	     615	   1949888 ns/op	  52.52 MB/s	 1061338 B/op	      36 allocs/op
+BenchmarkRun_GoTest-4       	    2023	    620585 ns/op	  19.22 MB/s	  512449 B/op	     168 allocs/op
+BenchmarkRun_KeepDeltas-4   	     610	   1979075 ns/op	  51.75 MB/s	 1061264 B/op	      36 allocs/op
+BenchmarkRestore_100KB-4    	   80120	     14872 ns/op	6885.79 MB/s	  106496 B/op	       1 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/checkpoint
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkFinalize-4   	      10	  44526395 ns/op	 3362516 B/op	   15824 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/checkpoint
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkExtractDecisions-4   	     210	   5612987 ns/op	 7457450 B/op	   32481 allocs/op
+--- BENCH: BenchmarkExtractDecisions-4
+    decisions_test.go:659: graph: nodes=4780 edges=14702 explains=3127
+    decisions_test.go:659: graph: nodes=4780 edges=14702 explains=3127
+    decisions_test.go:659: graph: nodes=4780 edges=14702 explains=3127
+BenchmarkStripInjections-4    	    8550	    137441 ns/op	1907.32 MB/s	 1162113 B/op	      14 allocs/op
+BenchmarkTruncate-4           	    1179	   1027794 ns/op	  737065 B/op	    1562 allocs/op
+BenchmarkAdvanceSegment-4     	      58	  21691749 ns/op	 6664740 B/op	    6457 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/chunk
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkSplit_100KB-4           	   13804	     86921 ns/op	1178.08 MB/s	    4992 B/op	       2 allocs/op
+BenchmarkGearScan_1MiB-4         	    3110	    399182 ns/op	2626.81 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSplit_1MiB-4            	    1282	    934189 ns/op	1122.44 MB/s	   57472 B/op	       2 allocs/op
+BenchmarkSplitStream_4MiB-4      	     285	   4226554 ns/op	 992.37 MB/s	   33000 B/op	       6 allocs/op
+BenchmarkRootHash_1000Chunks-4   	   59320	     20754 ns/op	      32 B/op	       1 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/cli
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkHookNoop_InProcess-4   	    2378	    512254 ns/op	  266145 B/op	    3795 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/config
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkConfigLoad_ColdNoFiles-4   	    5606	    215492 ns/op	  101537 B/op	    2031 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/daemon
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkIngestAccept-4                                	     154	   7297958 ns/op	     384 B/op	       9 allocs/op
+BenchmarkIngestAcceptLeased-4                          	      67	  18316557 ns/op	    8933 B/op	      76 allocs/op
+BenchmarkIngestAcceptExternalized-4                    	      74	  15814499 ns/op	    1798 B/op	      25 allocs/op
+BenchmarkFeaturesFrom-4                                	   70059	     17514 ns/op	   17056 B/op	      39 allocs/op
+BenchmarkReclaimableIndexBuild_5000Blocks-4            	    3432	    361172 ns/op	  364593 B/op	      17 allocs/op
+BenchmarkAssembleCandidates_2000ToolUses/cold-4        	     937	   1151086 ns/op	  933779 B/op	     536 allocs/op
+BenchmarkAssembleCandidates_2000ToolUses/warm-4        	  358687	      3502 ns/op	    9920 B/op	      11 allocs/op
+BenchmarkRuntimeEvaluate_2000ToolUses_32Candidates/warm-4         	   82974	     13497 ns/op	   46339 B/op	      25 allocs/op
+BenchmarkRuntimeEvaluate_2000ToolUses_32Candidates/cold-4         	     608	   2135418 ns/op	 1751956 B/op	    1970 allocs/op
+BenchmarkSchedulerTap_ObserveTool-4                               	   37504	     31292 ns/op	   20038 B/op	      73 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/dag
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkBackwardSlice5000-4   	    4160	    292086 ns/op	  132056 B/op	    1435 allocs/op
+BenchmarkCrossingEdges-4       	13076608	        94.92 ns/op	       0 B/op	       0 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/eval
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkBeladyDetail_400Turns-4         	    1537	    769479 ns/op	  682916 B/op	    7598 allocs/op
+BenchmarkBreakpointOPT_256Candidates-4   	    2233	    543851 ns/op	  778794 B/op	    5751 allocs/op
+BenchmarkCompare_400Actions-4            	    2407	    505877 ns/op	  186912 B/op	      48 allocs/op
+BenchmarkSynthesize_320Turns-4           	    4411	    299846 ns/op	  274709 B/op	    2999 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/hostperm
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkEvaluate-4   	  175251	      6678 ns/op	    1960 B/op	      32 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/negknow
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkOpen-4   	      10	  79713157 ns/op	  63843300 cpu-ns/op	35702935 B/op	  260513 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/negknow
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkRecord-4               	   36721	     34910 ns/op	     28814 cpu-ns/op	   11423 B/op	      70 allocs/op
+BenchmarkIngestMCPRealStore-4   	      27	  37461341 ns/op	   71798 B/op	     279 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/obs
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkHistogram_Observe-4   	126145557	         9.524 ns/op	       0 B/op	       0 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/observer
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkTombstone-4                	 4054328	       295.8 ns/op	     272 B/op	       6 allocs/op
+BenchmarkOnToolUse_FileRead64KB/Deduped-4         	     168	   7019538 ns/op	     27757 dedup-x	         5.000 objects	         7.168 p50-ms	        10.24 p99-ms	 1316643 B/op	     285 allocs/op
+BenchmarkOnToolUse_FileRead64KB/Delta-4           	      52	  22179665 ns/op	       670.0 dedup-x	        56.00 objects	        22.53 p50-ms	        26.62 p99-ms	 1358846 B/op	     435 allocs/op
+BenchmarkOnToolUse_FileRead64KB/AllNovel-4        	      52	  23718243 ns/op	        66.31 dedup-x	       231.0 objects	        24.58 p50-ms	        45.06 p99-ms	 1403787 B/op	     544 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/observer
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkOnToolUse_TestOutput256KB_Leased/Deduped-4         	     200	 131909982 ns/op	      2235 dedup-x	        34.00 objects	       131.1 p50-ms	       163.8 p99-ms	10285222 B/op	    8789 allocs/op
+BenchmarkOnToolUse_TestOutput256KB_Leased/Delta-4           	     200	 175348480 ns/op	       143.8 dedup-x	       435.0 objects	       180.2 p50-ms	       262.1 p99-ms	10452590 B/op	    9978 allocs/op
+BenchmarkOnToolUse_TestOutput256KB_Leased/AllNovel-4        	     200	 660450499 ns/op	         3.753 dedup-x	     12209 objects	       655.4 p50-ms	       852.0 p99-ms	11034079 B/op	   13118 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/Deduped-4                	     200	  26448194 ns/op	      2235 dedup-x	        34.00 objects	        26.62 p50-ms	        32.77 p99-ms	 6685345 B/op	    5996 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/Delta-4                  	     200	  58591683 ns/op	       143.8 dedup-x	       435.0 objects	        61.44 p50-ms	        73.73 p99-ms	 6869077 B/op	    7196 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/AllNovel-4               	     200	  79372061 ns/op	         3.753 dedup-x	     12209 objects	        81.92 p50-ms	       106.5 p99-ms	 6609528 B/op	    7719 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/paths
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkPathsWriteAtomic_4KB-4       	      76	  14913626 ns/op	   0.27 MB/s	    1216 B/op	      16 allocs/op
+BenchmarkIsHome_AProjectBelowHome-4   	  773301	      1561 ns/op	     544 B/op	       4 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/rules
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkPathScoped-4   	    4648	    258933 ns/op	  151619 B/op	    1979 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/scheduler
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkEvaluate_64Candidates-4   	  396981	      3104 ns/op	    3736 B/op	       6 allocs/op
+BenchmarkBOCDObserve_4Features/full_posterior-4         	   51072	     23447 ns/op	    4128 B/op	       2 allocs/op
+BenchmarkBOCDObserve_4Features/steady_state-4           	  764540	      1586 ns/op	     302 B/op	       2 allocs/op
+BenchmarkBOCDMarshal-4                                  	   71641	     16019 ns/op	   73728 B/op	       1 allocs/op
+--- BENCH: BenchmarkBOCDMarshal-4
+    bocd_test.go:669: serialized size at 512×4: 69687 bytes
+    bocd_test.go:669: serialized size at 512×4: 69687 bytes
+    bocd_test.go:669: serialized size at 512×4: 69687 bytes
+    bocd_test.go:669: serialized size at 512×4: 69687 bytes
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/sketch
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkL0SketchUpdate-4     	 3135910	       389.9 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRebuildBloom5000-4   	    1395	    847431 ns/op	   12400 B/op	       4 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/skills
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkIndex-4   	    3583	    324287 ns/op	  186758 B/op	     740 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/store
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkPutBytes_100KB_Warm_NoRedact-4      	     624	   1917151 ns/op	  53.41 MB/s	  901836 B/op	      14 allocs/op
+BenchmarkPutBytes_100KB_Cold_NoRedact-4      	      66	  18802928 ns/op	   5.45 MB/s	 1044670 B/op	     316 allocs/op
+BenchmarkPutBytes_100KB_Cold-4               	      67	  19928499 ns/op	   5.14 MB/s	 1150381 B/op	     316 allocs/op
+BenchmarkPutBytes_100KB_Warm-4               	     484	   2373090 ns/op	  43.15 MB/s	 1008309 B/op	      15 allocs/op
+BenchmarkPutBytes_100KB_Warm_KeepRaw/verbatim-4         	     481	   2542973 ns/op	  40.27 MB/s	 1008448 B/op	      16 allocs/op
+BenchmarkPutBytes_100KB_Warm_KeepRaw/delta-4            	     450	   2563062 ns/op	  39.96 MB/s	 1115842 B/op	      31 allocs/op
+BenchmarkPutBytes_100KB_Warm_KeepRaw/full-4             	    1557	    777137 ns/op	 131.79 MB/s	  635095 B/op	      23 allocs/op
+BenchmarkPutObject_NovelChunk-4                         	   10665	    107635 ns/op	  38.05 MB/s	    5843 B/op	      18 allocs/op
+BenchmarkGetChunk-4                                     	   57578	     20732 ns/op	   19622 B/op	      10 allocs/op
+BenchmarkOpenSpan_4KB_of_4MB-4                          	   55766	     21384 ns/op	   19782 B/op	      11 allocs/op
+BenchmarkOpenStore_50kRoots-4                           	       4	 297657376 ns/op	97311868 B/op	 1062393 allocs/op
+BenchmarkGC_50kObjects-4                                	       4	 462358201 ns/op	36938136 B/op	  433658 allocs/op
+BenchmarkCountFold_4MiB-4                               	     837	   1419686 ns/op	2954.38 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSearch_1000Roots-4                             	     162	   7789339 ns/op	 9113220 B/op	    7745 allocs/op
+BenchmarkSearch_1000Roots_DistinctChunks-4              	     100	  12035265 ns/op	13266641 B/op	   12339 allocs/op
+BenchmarkMarkEncoded_100-4                              	   10000	    143943 ns/op	   16896 B/op	     301 allocs/op
+PASS
+pathstest: HOME is "/tmp/3430838114/001/home" at the end of the run, not the isolated home "/tmp/qompack-test-home-1101472913": a test changed it without restoring it, and every test after it ran against that directory
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/symbols
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkExtract_100KB-4              	    1087	   1112529 ns/op	  92.39 MB/s	  312120 B/op	    2325 allocs/op
+BenchmarkEnclosing_100KB-4            	    1045	   1099400 ns/op	  93.49 MB/s	  311787 B/op	    2325 allocs/op
+BenchmarkReferences_100KB_50Names-4   	    7573	    167216 ns/op	 614.70 MB/s	    4128 B/op	       8 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/canon
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkRun_Bash100KB-4    	     579	   2065676 ns/op	  49.58 MB/s	 1061473 B/op	      36 allocs/op
+BenchmarkRun_GoTest-4       	    1893	    657250 ns/op	  18.15 MB/s	  513893 B/op	     168 allocs/op
+BenchmarkRun_KeepDeltas-4   	     578	   2065167 ns/op	  49.59 MB/s	 1061476 B/op	      36 allocs/op
+BenchmarkRestore_100KB-4    	   67280	     16151 ns/op	6340.51 MB/s	  106496 B/op	       1 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/checkpoint
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkFinalize-4   	      10	  46057752 ns/op	 3317596 B/op	   15823 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/checkpoint
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkExtractDecisions-4   	     217	   5721844 ns/op	 7457756 B/op	   32481 allocs/op
+--- BENCH: BenchmarkExtractDecisions-4
+    decisions_test.go:659: graph: nodes=4780 edges=14702 explains=3127
+    decisions_test.go:659: graph: nodes=4780 edges=14702 explains=3127
+    decisions_test.go:659: graph: nodes=4780 edges=14702 explains=3127
+BenchmarkStripInjections-4    	    8682	    140553 ns/op	1865.09 MB/s	 1162112 B/op	      14 allocs/op
+BenchmarkTruncate-4           	    1182	   1027015 ns/op	  737154 B/op	    1562 allocs/op
+BenchmarkAdvanceSegment-4     	      45	  22553428 ns/op	 5247041 B/op	    5153 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/chunk
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkSplit_100KB-4           	   13477	     90527 ns/op	1131.15 MB/s	    4992 B/op	       2 allocs/op
+BenchmarkGearScan_1MiB-4         	    2696	    413203 ns/op	2537.68 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSplit_1MiB-4            	    1254	    938406 ns/op	1117.40 MB/s	   57472 B/op	       2 allocs/op
+BenchmarkSplitStream_4MiB-4      	     282	   4466613 ns/op	 939.03 MB/s	   33000 B/op	       6 allocs/op
+BenchmarkRootHash_1000Chunks-4   	   56636	     21052 ns/op	      32 B/op	       1 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/cli
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkHookNoop_InProcess-4   	    2088	    562762 ns/op	  266195 B/op	    3795 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/config
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkConfigLoad_ColdNoFiles-4   	    4850	    234147 ns/op	  101549 B/op	    2031 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/daemon
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkIngestAccept-4                                	     139	   8267320 ns/op	     384 B/op	       9 allocs/op
+BenchmarkIngestAcceptLeased-4                          	      56	  20742776 ns/op	    9034 B/op	      76 allocs/op
+BenchmarkIngestAcceptExternalized-4                    	      74	  18398493 ns/op	    1798 B/op	      25 allocs/op
+BenchmarkFeaturesFrom-4                                	   67242	     18552 ns/op	   17056 B/op	      39 allocs/op
+BenchmarkReclaimableIndexBuild_5000Blocks-4            	    3321	    373260 ns/op	  364593 B/op	      17 allocs/op
+BenchmarkAssembleCandidates_2000ToolUses/cold-4        	     898	   1188510 ns/op	  935715 B/op	     536 allocs/op
+BenchmarkAssembleCandidates_2000ToolUses/warm-4        	  352598	      5162 ns/op	    9948 B/op	      11 allocs/op
+BenchmarkRuntimeEvaluate_2000ToolUses_32Candidates/warm-4         	   89091	     13381 ns/op	   46698 B/op	      25 allocs/op
+BenchmarkRuntimeEvaluate_2000ToolUses_32Candidates/cold-4         	     582	   2076090 ns/op	 1719031 B/op	    1970 allocs/op
+BenchmarkSchedulerTap_ObserveTool-4                               	   37824	     32382 ns/op	   20037 B/op	      73 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/dag
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkBackwardSlice5000-4   	    3979	    299007 ns/op	  132056 B/op	    1435 allocs/op
+BenchmarkCrossingEdges-4       	12528618	        99.22 ns/op	       0 B/op	       0 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/eval
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkBeladyDetail_400Turns-4         	    1420	    822041 ns/op	  682920 B/op	    7598 allocs/op
+BenchmarkBreakpointOPT_256Candidates-4   	    2162	    563916 ns/op	  778794 B/op	    5751 allocs/op
+BenchmarkCompare_400Actions-4            	    2246	    533091 ns/op	  186912 B/op	      48 allocs/op
+BenchmarkSynthesize_320Turns-4           	    4136	    305176 ns/op	  274707 B/op	    2999 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/hostperm
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkEvaluate-4   	  164569	      7134 ns/op	    1944 B/op	      32 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/negknow
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkOpen-4   	      10	  86531298 ns/op	  65173700 cpu-ns/op	35702849 B/op	  260512 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/negknow
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkRecord-4               	   35056	     37038 ns/op	     29336 cpu-ns/op	   11574 B/op	      70 allocs/op
+BenchmarkIngestMCPRealStore-4   	      26	  46521481 ns/op	   75041 B/op	     281 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/obs
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkHistogram_Observe-4   	122276025	         9.618 ns/op	       0 B/op	       0 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/observer
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkTombstone-4                	 3792181	       294.6 ns/op	     272 B/op	       6 allocs/op
+BenchmarkOnToolUse_FileRead64KB/Deduped-4         	     165	   7059985 ns/op	     27261 dedup-x	         5.000 objects	         7.168 p50-ms	        12.29 p99-ms	 1313466 B/op	     284 allocs/op
+BenchmarkOnToolUse_FileRead64KB/Delta-4           	      49	  22134217 ns/op	       668.1 dedup-x	        53.00 objects	        22.53 p50-ms	        26.62 p99-ms	 1358609 B/op	     435 allocs/op
+BenchmarkOnToolUse_FileRead64KB/AllNovel-4        	      55	  23773487 ns/op	        65.61 dedup-x	       246.0 objects	        24.58 p50-ms	        36.86 p99-ms	 1404078 B/op	     543 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/observer
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkOnToolUse_TestOutput256KB_Leased/Deduped-4         	     200	 214252216 ns/op	      2235 dedup-x	        34.00 objects	       213.0 p50-ms	       360.4 p99-ms	10290501 B/op	    8791 allocs/op
+BenchmarkOnToolUse_TestOutput256KB_Leased/Delta-4           	     200	 249178903 ns/op	       143.8 dedup-x	       435.0 objects	       245.8 p50-ms	       393.2 p99-ms	10461643 B/op	    9975 allocs/op
+BenchmarkOnToolUse_TestOutput256KB_Leased/AllNovel-4        	     200	 752412878 ns/op	         3.753 dedup-x	     12209 objects	       786.4 p50-ms	       983.0 p99-ms	11024840 B/op	   13120 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/Deduped-4                	     200	  26302132 ns/op	      2235 dedup-x	        34.00 objects	        26.62 p50-ms	        32.77 p99-ms	 6682954 B/op	    5995 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/Delta-4                  	     200	  59941677 ns/op	       143.8 dedup-x	       435.0 objects	        61.44 p50-ms	        81.92 p99-ms	 6869136 B/op	    7197 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/AllNovel-4               	     200	  80967156 ns/op	         3.753 dedup-x	     12209 objects	        81.92 p50-ms	       106.5 p99-ms	 6611956 B/op	    7721 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/paths
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkPathsWriteAtomic_4KB-4       	      48	  22625525 ns/op	   0.18 MB/s	    1217 B/op	      16 allocs/op
+BenchmarkIsHome_AProjectBelowHome-4   	  728823	      1645 ns/op	     544 B/op	       4 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/rules
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkPathScoped-4   	    4226	    264550 ns/op	  151593 B/op	    1979 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/scheduler
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkEvaluate_64Candidates-4   	  384769	      3133 ns/op	    3736 B/op	       6 allocs/op
+BenchmarkBOCDObserve_4Features/full_posterior-4         	   47578	     25525 ns/op	    4128 B/op	       2 allocs/op
+BenchmarkBOCDObserve_4Features/steady_state-4           	  703669	      1694 ns/op	     302 B/op	       2 allocs/op
+BenchmarkBOCDMarshal-4                                  	   66093	     17937 ns/op	   73728 B/op	       1 allocs/op
+--- BENCH: BenchmarkBOCDMarshal-4
+    bocd_test.go:669: serialized size at 512×4: 69687 bytes
+    bocd_test.go:669: serialized size at 512×4: 69687 bytes
+    bocd_test.go:669: serialized size at 512×4: 69687 bytes
+    bocd_test.go:669: serialized size at 512×4: 69687 bytes
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/sketch
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkL0SketchUpdate-4     	 2961625	       402.4 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRebuildBloom5000-4   	    1377	    870272 ns/op	   12400 B/op	       4 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/skills
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkIndex-4   	    3829	    330519 ns/op	  186785 B/op	     740 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/store
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkPutBytes_100KB_Warm_NoRedact-4      	     582	   1882582 ns/op	  54.39 MB/s	  901873 B/op	      15 allocs/op
+BenchmarkPutBytes_100KB_Cold_NoRedact-4      	      63	  18580445 ns/op	   5.51 MB/s	 1044385 B/op	     314 allocs/op
+BenchmarkPutBytes_100KB_Cold-4               	      63	  19168106 ns/op	   5.34 MB/s	 1150299 B/op	     316 allocs/op
+BenchmarkPutBytes_100KB_Warm-4               	     513	   2316079 ns/op	  44.21 MB/s	 1008408 B/op	      16 allocs/op
+BenchmarkPutBytes_100KB_Warm_KeepRaw/verbatim-4         	     471	   2557917 ns/op	  40.03 MB/s	 1008370 B/op	      16 allocs/op
+BenchmarkPutBytes_100KB_Warm_KeepRaw/delta-4            	     469	   2603290 ns/op	  39.35 MB/s	 1115849 B/op	      31 allocs/op
+BenchmarkPutBytes_100KB_Warm_KeepRaw/full-4             	    1634	    727546 ns/op	 140.77 MB/s	  635047 B/op	      23 allocs/op
+BenchmarkPutObject_NovelChunk-4                         	   10495	    114213 ns/op	  35.86 MB/s	    5839 B/op	      18 allocs/op
+BenchmarkGetChunk-4                                     	   59596	     19759 ns/op	   19653 B/op	      10 allocs/op
+BenchmarkOpenSpan_4KB_of_4MB-4                          	   51351	     21061 ns/op	   19783 B/op	      11 allocs/op
+BenchmarkOpenStore_50kRoots-4                           	       4	 269496870 ns/op	97311796 B/op	 1062393 allocs/op
+BenchmarkGC_50kObjects-4                                	       4	 323444716 ns/op	36940126 B/op	  433659 allocs/op
+BenchmarkCountFold_4MiB-4                               	     882	   1425085 ns/op	2943.19 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSearch_1000Roots-4                             	     168	   6966014 ns/op	 9114373 B/op	    7746 allocs/op
+BenchmarkSearch_1000Roots_DistinctChunks-4              	     100	  11125938 ns/op	13272322 B/op	   12341 allocs/op
+BenchmarkMarkEncoded_100-4                              	   10000	    121684 ns/op	   16896 B/op	     301 allocs/op
+PASS
+pathstest: HOME is "/tmp/2768512412/001/home" at the end of the run, not the isolated home "/tmp/qompack-test-home-1018763912": a test changed it without restoring it, and every test after it ran against that directory
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/symbols
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkExtract_100KB-4              	    1090	   1145907 ns/op	  89.70 MB/s	  312451 B/op	    2325 allocs/op
+BenchmarkEnclosing_100KB-4            	    1046	   1167352 ns/op	  88.05 MB/s	  312493 B/op	    2325 allocs/op
+BenchmarkReferences_100KB_50Names-4   	    6592	    170059 ns/op	 604.42 MB/s	    4128 B/op	       8 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/canon
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkRun_Bash100KB-4    	     570	   2033909 ns/op	  50.35 MB/s	 1061425 B/op	      36 allocs/op
+BenchmarkRun_GoTest-4       	    1963	    618930 ns/op	  19.27 MB/s	  513804 B/op	     168 allocs/op
+BenchmarkRun_KeepDeltas-4   	     618	   2048074 ns/op	  50.00 MB/s	 1061407 B/op	      36 allocs/op
+BenchmarkRestore_100KB-4    	   77300	     15172 ns/op	6750.01 MB/s	  106496 B/op	       1 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/checkpoint
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkFinalize-4   	      10	  47691261 ns/op	 3407456 B/op	   15827 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/checkpoint
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkExtractDecisions-4   	     210	   5611561 ns/op	 7457130 B/op	   32481 allocs/op
+--- BENCH: BenchmarkExtractDecisions-4
+    decisions_test.go:659: graph: nodes=4780 edges=14702 explains=3127
+    decisions_test.go:659: graph: nodes=4780 edges=14702 explains=3127
+    decisions_test.go:659: graph: nodes=4780 edges=14702 explains=3127
+BenchmarkStripInjections-4    	    9222	    131670 ns/op	1990.92 MB/s	 1162112 B/op	      14 allocs/op
+BenchmarkTruncate-4           	    1226	   1010424 ns/op	  736921 B/op	    1562 allocs/op
+BenchmarkAdvanceSegment-4     	      50	  20440843 ns/op	 5774610 B/op	    5656 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/chunk
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkSplit_100KB-4           	   13650	     90642 ns/op	1129.72 MB/s	    4992 B/op	       2 allocs/op
+BenchmarkGearScan_1MiB-4         	    3115	    414185 ns/op	2531.66 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSplit_1MiB-4            	    1312	    963690 ns/op	1088.08 MB/s	   57472 B/op	       2 allocs/op
+BenchmarkSplitStream_4MiB-4      	     278	   4506327 ns/op	 930.76 MB/s	   33000 B/op	       6 allocs/op
+BenchmarkRootHash_1000Chunks-4   	   58455	     20503 ns/op	      32 B/op	       1 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/cli
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkHookNoop_InProcess-4   	    2250	    519848 ns/op	  266130 B/op	    3795 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/config
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkConfigLoad_ColdNoFiles-4   	    5006	    223855 ns/op	  101567 B/op	    2031 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/daemon
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkIngestAccept-4                                	     159	   7878427 ns/op	     384 B/op	       9 allocs/op
+BenchmarkIngestAcceptLeased-4                          	      63	  18989868 ns/op	    9082 B/op	      76 allocs/op
+BenchmarkIngestAcceptExternalized-4                    	      66	  15884269 ns/op	    1798 B/op	      25 allocs/op
+BenchmarkFeaturesFrom-4                                	   69003	     18263 ns/op	   17056 B/op	      39 allocs/op
+BenchmarkReclaimableIndexBuild_5000Blocks-4            	    3471	    360024 ns/op	  364593 B/op	      17 allocs/op
+BenchmarkAssembleCandidates_2000ToolUses/cold-4        	     984	   1204153 ns/op	  931650 B/op	     536 allocs/op
+BenchmarkAssembleCandidates_2000ToolUses/warm-4        	  334746	      3904 ns/op	   10038 B/op	      11 allocs/op
+BenchmarkRuntimeEvaluate_2000ToolUses_32Candidates/warm-4         	   79381	     14282 ns/op	   46421 B/op	      25 allocs/op
+BenchmarkRuntimeEvaluate_2000ToolUses_32Candidates/cold-4         	     577	   2050776 ns/op	 1716616 B/op	    1970 allocs/op
+BenchmarkSchedulerTap_ObserveTool-4                               	   37876	     31268 ns/op	   20038 B/op	      73 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/dag
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkBackwardSlice5000-4   	    4111	    292300 ns/op	  132056 B/op	    1435 allocs/op
+BenchmarkCrossingEdges-4       	12954128	        96.71 ns/op	       0 B/op	       0 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/eval
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkBeladyDetail_400Turns-4         	    1598	    776332 ns/op	  682916 B/op	    7598 allocs/op
+BenchmarkBreakpointOPT_256Candidates-4   	    2199	    569065 ns/op	  778794 B/op	    5751 allocs/op
+BenchmarkCompare_400Actions-4            	    2268	    523526 ns/op	  186912 B/op	      48 allocs/op
+BenchmarkSynthesize_320Turns-4           	    4094	    315246 ns/op	  274696 B/op	    2999 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/hostperm
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkEvaluate-4   	  181887	      6772 ns/op	    1944 B/op	      32 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/negknow
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkOpen-4   	      10	  75456084 ns/op	  59253600 cpu-ns/op	35702558 B/op	  260512 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/negknow
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkRecord-4               	   38229	     34575 ns/op	     28238 cpu-ns/op	   11251 B/op	      70 allocs/op
+BenchmarkIngestMCPRealStore-4   	      32	  36650706 ns/op	   37176 B/op	     277 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/obs
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkHistogram_Observe-4   	127278205	         9.175 ns/op	       0 B/op	       0 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/observer
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkTombstone-4                	 4116478	       292.0 ns/op	     272 B/op	       6 allocs/op
+BenchmarkOnToolUse_FileRead64KB/Deduped-4         	     162	   7167069 ns/op	     26766 dedup-x	         5.000 objects	         7.168 p50-ms	        10.24 p99-ms	 1312787 B/op	     284 allocs/op
+BenchmarkOnToolUse_FileRead64KB/Delta-4           	      45	  22461145 ns/op	       664.7 dedup-x	        49.00 objects	        22.53 p50-ms	        32.77 p99-ms	 1362375 B/op	     437 allocs/op
+BenchmarkOnToolUse_FileRead64KB/AllNovel-4        	      51	  22582931 ns/op	        66.58 dedup-x	       226.0 objects	        22.53 p50-ms	        26.62 p99-ms	 1409408 B/op	     548 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/observer
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkOnToolUse_TestOutput256KB_Leased/Deduped-4         	     200	 129759313 ns/op	      2235 dedup-x	        34.00 objects	       131.1 p50-ms	       196.6 p99-ms	10278630 B/op	    8782 allocs/op
+BenchmarkOnToolUse_TestOutput256KB_Leased/Delta-4           	     200	 176854402 ns/op	       143.8 dedup-x	       435.0 objects	       180.2 p50-ms	       262.1 p99-ms	10510684 B/op	    9983 allocs/op
+BenchmarkOnToolUse_TestOutput256KB_Leased/AllNovel-4        	     200	 647957531 ns/op	         3.753 dedup-x	     12209 objects	       655.4 p50-ms	       786.4 p99-ms	11041336 B/op	   13117 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/Deduped-4                	     200	  26337799 ns/op	      2235 dedup-x	        34.00 objects	        26.62 p50-ms	        32.77 p99-ms	 6684843 B/op	    5996 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/Delta-4                  	     200	  57063056 ns/op	       143.8 dedup-x	       435.0 objects	        57.34 p50-ms	        73.73 p99-ms	 6869097 B/op	    7196 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/AllNovel-4               	     200	  76989680 ns/op	         3.753 dedup-x	     12209 objects	        81.92 p50-ms	        90.11 p99-ms	 6612601 B/op	    7722 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/paths
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkPathsWriteAtomic_4KB-4       	      70	  15660999 ns/op	   0.26 MB/s	    1216 B/op	      16 allocs/op
+BenchmarkIsHome_AProjectBelowHome-4   	  726662	      1542 ns/op	     544 B/op	       4 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/rules
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkPathScoped-4   	    4574	    255411 ns/op	  151594 B/op	    1979 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/scheduler
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkEvaluate_64Candidates-4   	  408842	      3088 ns/op	    3736 B/op	       6 allocs/op
+BenchmarkBOCDObserve_4Features/full_posterior-4         	   49803	     23642 ns/op	    4128 B/op	       2 allocs/op
+BenchmarkBOCDObserve_4Features/steady_state-4           	  776492	      1602 ns/op	     302 B/op	       2 allocs/op
+BenchmarkBOCDMarshal-4                                  	   71457	     15958 ns/op	   73728 B/op	       1 allocs/op
+--- BENCH: BenchmarkBOCDMarshal-4
+    bocd_test.go:669: serialized size at 512×4: 69687 bytes
+    bocd_test.go:669: serialized size at 512×4: 69687 bytes
+    bocd_test.go:669: serialized size at 512×4: 69687 bytes
+    bocd_test.go:669: serialized size at 512×4: 69687 bytes
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/sketch
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkL0SketchUpdate-4     	 2974080	       401.2 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRebuildBloom5000-4   	    1351	    862316 ns/op	   12400 B/op	       4 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/skills
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkIndex-4   	    3616	    333678 ns/op	  186750 B/op	     740 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/store
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkPutBytes_100KB_Warm_NoRedact-4      	     591	   1884911 ns/op	  54.33 MB/s	  901886 B/op	      15 allocs/op
+BenchmarkPutBytes_100KB_Cold_NoRedact-4      	      62	  18989894 ns/op	   5.39 MB/s	 1044631 B/op	     315 allocs/op
+BenchmarkPutBytes_100KB_Cold-4               	      63	  19297769 ns/op	   5.31 MB/s	 1150944 B/op	     318 allocs/op
+BenchmarkPutBytes_100KB_Warm-4               	     502	   2295183 ns/op	  44.62 MB/s	 1008369 B/op	      16 allocs/op
+BenchmarkPutBytes_100KB_Warm_KeepRaw/verbatim-4         	     471	   2521737 ns/op	  40.61 MB/s	 1008382 B/op	      16 allocs/op
+BenchmarkPutBytes_100KB_Warm_KeepRaw/delta-4            	     470	   2529671 ns/op	  40.49 MB/s	 1115808 B/op	      31 allocs/op
+BenchmarkPutBytes_100KB_Warm_KeepRaw/full-4             	    1574	    723422 ns/op	 141.58 MB/s	  635114 B/op	      23 allocs/op
+BenchmarkPutObject_NovelChunk-4                         	   10537	    113077 ns/op	  36.22 MB/s	    5841 B/op	      18 allocs/op
+BenchmarkGetChunk-4                                     	   58092	     20098 ns/op	   19651 B/op	      10 allocs/op
+BenchmarkOpenSpan_4KB_of_4MB-4                          	   57390	     20834 ns/op	   19793 B/op	      11 allocs/op
+BenchmarkOpenStore_50kRoots-4                           	       4	 283109235 ns/op	97311840 B/op	 1062393 allocs/op
+BenchmarkGC_50kObjects-4                                	       4	 322079885 ns/op	36933936 B/op	  433656 allocs/op
+BenchmarkCountFold_4MiB-4                               	     858	   1352383 ns/op	3101.41 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSearch_1000Roots-4                             	     164	   7319926 ns/op	 9116373 B/op	    7747 allocs/op
+BenchmarkSearch_1000Roots_DistinctChunks-4              	     100	  10655576 ns/op	13264179 B/op	   12337 allocs/op
+BenchmarkMarkEncoded_100-4                              	   10000	    119206 ns/op	   16896 B/op	     301 allocs/op
+PASS
+pathstest: HOME is "/tmp/1925223897/001/home" at the end of the run, not the isolated home "/tmp/qompack-test-home-963714756": a test changed it without restoring it, and every test after it ran against that directory
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/symbols
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkExtract_100KB-4              	    1090	   1117466 ns/op	  91.98 MB/s	  312183 B/op	    2325 allocs/op
+BenchmarkEnclosing_100KB-4            	    1077	   1115239 ns/op	  92.17 MB/s	  312312 B/op	    2325 allocs/op
+BenchmarkReferences_100KB_50Names-4   	    7048	    167810 ns/op	 612.53 MB/s	    4128 B/op	       8 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/canon
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkRun_Bash100KB-4    	     558	   1995030 ns/op	  51.33 MB/s	 1061307 B/op	      36 allocs/op
+BenchmarkRun_GoTest-4       	    1846	    613830 ns/op	  19.43 MB/s	  513288 B/op	     168 allocs/op
+BenchmarkRun_KeepDeltas-4   	     604	   2018912 ns/op	  50.72 MB/s	 1061321 B/op	      36 allocs/op
+BenchmarkRestore_100KB-4    	   85472	     15252 ns/op	6714.35 MB/s	  106496 B/op	       1 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/checkpoint
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkFinalize-4   	      10	  47755778 ns/op	 3381496 B/op	   15827 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/checkpoint
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkExtractDecisions-4   	     212	   5855546 ns/op	 7458041 B/op	   32481 allocs/op
+--- BENCH: BenchmarkExtractDecisions-4
+    decisions_test.go:659: graph: nodes=4780 edges=14702 explains=3127
+    decisions_test.go:659: graph: nodes=4780 edges=14702 explains=3127
+    decisions_test.go:659: graph: nodes=4780 edges=14702 explains=3127
+BenchmarkStripInjections-4    	    8156	    137107 ns/op	1911.97 MB/s	 1162112 B/op	      14 allocs/op
+BenchmarkTruncate-4           	    1225	    997925 ns/op	  737248 B/op	    1562 allocs/op
+BenchmarkAdvanceSegment-4     	      57	  21617071 ns/op	 6516664 B/op	    6356 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/chunk
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkSplit_100KB-4           	   13456	     91385 ns/op	1120.53 MB/s	    4992 B/op	       2 allocs/op
+BenchmarkGearScan_1MiB-4         	    3068	    407347 ns/op	2574.16 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSplit_1MiB-4            	    1225	    922875 ns/op	1136.21 MB/s	   57472 B/op	       2 allocs/op
+BenchmarkSplitStream_4MiB-4      	     272	   4284125 ns/op	 979.03 MB/s	   33000 B/op	       6 allocs/op
+BenchmarkRootHash_1000Chunks-4   	   58520	     21126 ns/op	      32 B/op	       1 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/cli
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkHookNoop_InProcess-4   	    2281	    521842 ns/op	  265935 B/op	    3795 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/config
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkConfigLoad_ColdNoFiles-4   	    5362	    219639 ns/op	  101574 B/op	    2031 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/daemon
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkIngestAccept-4                                	     168	   7249627 ns/op	     384 B/op	       9 allocs/op
+BenchmarkIngestAcceptLeased-4                          	      64	  17972147 ns/op	    8955 B/op	      76 allocs/op
+BenchmarkIngestAcceptExternalized-4                    	      81	  15729471 ns/op	    1799 B/op	      25 allocs/op
+BenchmarkFeaturesFrom-4                                	   62862	     18200 ns/op	   17056 B/op	      39 allocs/op
+BenchmarkReclaimableIndexBuild_5000Blocks-4            	    3247	    356685 ns/op	  364593 B/op	      17 allocs/op
+BenchmarkAssembleCandidates_2000ToolUses/cold-4        	     982	   1216898 ns/op	  931735 B/op	     536 allocs/op
+BenchmarkAssembleCandidates_2000ToolUses/warm-4        	  350422	      3824 ns/op	    9959 B/op	      11 allocs/op
+BenchmarkRuntimeEvaluate_2000ToolUses_32Candidates/warm-4         	   77571	     14267 ns/op	   46465 B/op	      25 allocs/op
+BenchmarkRuntimeEvaluate_2000ToolUses_32Candidates/cold-4         	     608	   2064998 ns/op	 1751956 B/op	    1970 allocs/op
+BenchmarkSchedulerTap_ObserveTool-4                               	   37406	     31139 ns/op	   20039 B/op	      73 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/dag
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkBackwardSlice5000-4   	    4106	    296502 ns/op	  132056 B/op	    1435 allocs/op
+BenchmarkCrossingEdges-4       	12715540	        95.04 ns/op	       0 B/op	       0 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/eval
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkBeladyDetail_400Turns-4         	    1543	    810325 ns/op	  682917 B/op	    7598 allocs/op
+BenchmarkBreakpointOPT_256Candidates-4   	    2324	    545363 ns/op	  778794 B/op	    5751 allocs/op
+BenchmarkCompare_400Actions-4            	    2316	    503442 ns/op	  186912 B/op	      48 allocs/op
+BenchmarkSynthesize_320Turns-4           	    3976	    299623 ns/op	  274708 B/op	    2999 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/hostperm
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkEvaluate-4   	  184514	      6517 ns/op	    1944 B/op	      32 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/negknow
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkOpen-4   	      10	  77039491 ns/op	  60660200 cpu-ns/op	35703207 B/op	  260513 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/negknow
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkRecord-4               	   37948	     33465 ns/op	     28187 cpu-ns/op	   11241 B/op	      70 allocs/op
+BenchmarkIngestMCPRealStore-4   	      33	  36408107 ns/op	   33138 B/op	     273 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/obs
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkHistogram_Observe-4   	127382598	         9.485 ns/op	       0 B/op	       0 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/observer
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkTombstone-4                	 4107768	       292.8 ns/op	     272 B/op	       6 allocs/op
+BenchmarkOnToolUse_FileRead64KB/Deduped-4         	     164	   7148218 ns/op	     27096 dedup-x	         5.000 objects	         7.168 p50-ms	        15.36 p99-ms	 1314880 B/op	     285 allocs/op
+BenchmarkOnToolUse_FileRead64KB/Delta-4           	      51	  21818348 ns/op	       669.5 dedup-x	        55.00 objects	        22.53 p50-ms	        26.62 p99-ms	 1360746 B/op	     437 allocs/op
+BenchmarkOnToolUse_FileRead64KB/AllNovel-4        	      52	  22794859 ns/op	        66.31 dedup-x	       231.0 objects	        24.58 p50-ms	        26.62 p99-ms	 1406912 B/op	     546 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/observer
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkOnToolUse_TestOutput256KB_Leased/Deduped-4         	     200	 132329900 ns/op	      2235 dedup-x	        34.00 objects	       131.1 p50-ms	       245.8 p99-ms	10279255 B/op	    8782 allocs/op
+BenchmarkOnToolUse_TestOutput256KB_Leased/Delta-4           	     200	 174213520 ns/op	       143.8 dedup-x	       435.0 objects	       180.2 p50-ms	       213.0 p99-ms	10467953 B/op	    9976 allocs/op
+BenchmarkOnToolUse_TestOutput256KB_Leased/AllNovel-4        	     200	 648451069 ns/op	         3.753 dedup-x	     12209 objects	       655.4 p50-ms	       786.4 p99-ms	11029035 B/op	   13117 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/Deduped-4                	     200	  26143929 ns/op	      2235 dedup-x	        34.00 objects	        26.62 p50-ms	        32.77 p99-ms	 6683557 B/op	    5996 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/Delta-4                  	     200	  57635675 ns/op	       143.8 dedup-x	       435.0 objects	        57.34 p50-ms	        98.30 p99-ms	 6867604 B/op	    7195 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/AllNovel-4               	     200	  78050912 ns/op	         3.753 dedup-x	     12209 objects	        81.92 p50-ms	        90.11 p99-ms	 6609164 B/op	    7718 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/paths
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkPathsWriteAtomic_4KB-4       	      80	  15668908 ns/op	   0.26 MB/s	    1216 B/op	      16 allocs/op
+BenchmarkIsHome_AProjectBelowHome-4   	  697992	      1564 ns/op	     544 B/op	       4 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/rules
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkPathScoped-4   	    4436	    265946 ns/op	  151607 B/op	    1979 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/scheduler
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkEvaluate_64Candidates-4   	  367892	      3069 ns/op	    3736 B/op	       6 allocs/op
+BenchmarkBOCDObserve_4Features/full_posterior-4         	   50971	     23593 ns/op	    4128 B/op	       2 allocs/op
+BenchmarkBOCDObserve_4Features/steady_state-4           	  737486	      1635 ns/op	     302 B/op	       2 allocs/op
+BenchmarkBOCDMarshal-4                                  	   69501	     16993 ns/op	   73728 B/op	       1 allocs/op
+--- BENCH: BenchmarkBOCDMarshal-4
+    bocd_test.go:669: serialized size at 512×4: 69687 bytes
+    bocd_test.go:669: serialized size at 512×4: 69687 bytes
+    bocd_test.go:669: serialized size at 512×4: 69687 bytes
+    bocd_test.go:669: serialized size at 512×4: 69687 bytes
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/sketch
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkL0SketchUpdate-4     	 3108164	       391.8 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRebuildBloom5000-4   	    1497	    850135 ns/op	   12400 B/op	       4 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/skills
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkIndex-4   	    3679	    318936 ns/op	  186735 B/op	     740 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/store
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkPutBytes_100KB_Warm_NoRedact-4      	     607	   1955160 ns/op	  52.37 MB/s	  901807 B/op	      14 allocs/op
+BenchmarkPutBytes_100KB_Cold_NoRedact-4      	      64	  20320266 ns/op	   5.04 MB/s	 1044620 B/op	     316 allocs/op
+BenchmarkPutBytes_100KB_Cold-4               	      63	  19104100 ns/op	   5.36 MB/s	 1150608 B/op	     316 allocs/op
+BenchmarkPutBytes_100KB_Warm-4               	     501	   2321772 ns/op	  44.10 MB/s	 1008381 B/op	      16 allocs/op
+BenchmarkPutBytes_100KB_Warm_KeepRaw/verbatim-4         	     459	   2711763 ns/op	  37.76 MB/s	 1008314 B/op	      15 allocs/op
+BenchmarkPutBytes_100KB_Warm_KeepRaw/delta-4            	     469	   2588072 ns/op	  39.58 MB/s	 1115823 B/op	      31 allocs/op
+BenchmarkPutBytes_100KB_Warm_KeepRaw/full-4             	    1569	    740636 ns/op	 138.29 MB/s	  635048 B/op	      23 allocs/op
+BenchmarkPutObject_NovelChunk-4                         	    9322	    116095 ns/op	  35.28 MB/s	    5843 B/op	      18 allocs/op
+BenchmarkGetChunk-4                                     	   58323	     20531 ns/op	   19637 B/op	      10 allocs/op
+BenchmarkOpenSpan_4KB_of_4MB-4                          	   56910	     21442 ns/op	   19788 B/op	      11 allocs/op
+BenchmarkOpenStore_50kRoots-4                           	       4	 280923774 ns/op	97332916 B/op	 1062394 allocs/op
+BenchmarkGC_50kObjects-4                                	       3	 391576454 ns/op	36934616 B/op	  433656 allocs/op
+BenchmarkCountFold_4MiB-4                               	     867	   1414440 ns/op	2965.34 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSearch_1000Roots-4                             	     159	   6876255 ns/op	 9109776 B/op	    7744 allocs/op
+BenchmarkSearch_1000Roots_DistinctChunks-4              	     100	  10754160 ns/op	13270214 B/op	   12340 allocs/op
+BenchmarkMarkEncoded_100-4                              	    9700	    120840 ns/op	   16896 B/op	     301 allocs/op
+PASS
+pathstest: HOME is "/tmp/3768425099/001/home" at the end of the run, not the isolated home "/tmp/qompack-test-home-1296488687": a test changed it without restoring it, and every test after it ran against that directory
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/symbols
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkExtract_100KB-4              	    1026	   1085021 ns/op	  94.73 MB/s	  312294 B/op	    2325 allocs/op
+BenchmarkEnclosing_100KB-4            	    1129	   1080127 ns/op	  95.16 MB/s	  311565 B/op	    2325 allocs/op
+BenchmarkReferences_100KB_50Names-4   	    7180	    163815 ns/op	 627.46 MB/s	    4128 B/op	       8 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/canon
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkRun_Bash100KB-4    	     577	   2001567 ns/op	  51.16 MB/s	 1061256 B/op	      36 allocs/op
+BenchmarkRun_GoTest-4       	    2002	    601357 ns/op	  19.83 MB/s	  514559 B/op	     168 allocs/op
+BenchmarkRun_KeepDeltas-4   	     600	   2013119 ns/op	  50.87 MB/s	 1061320 B/op	      36 allocs/op
+BenchmarkRestore_100KB-4    	   77970	     17331 ns/op	5908.83 MB/s	  106496 B/op	       1 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/checkpoint
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkFinalize-4   	      10	  45290228 ns/op	 3355880 B/op	   15825 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/checkpoint
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkExtractDecisions-4   	     200	   5652878 ns/op	 7457970 B/op	   32481 allocs/op
+--- BENCH: BenchmarkExtractDecisions-4
+    decisions_test.go:659: graph: nodes=4780 edges=14702 explains=3127
+    decisions_test.go:659: graph: nodes=4780 edges=14702 explains=3127
+    decisions_test.go:659: graph: nodes=4780 edges=14702 explains=3127
+BenchmarkStripInjections-4    	    7840	    131295 ns/op	1996.61 MB/s	 1162113 B/op	      14 allocs/op
+BenchmarkTruncate-4           	    1149	   1033752 ns/op	  737048 B/op	    1562 allocs/op
+BenchmarkAdvanceSegment-4     	      57	  22107601 ns/op	 6666640 B/op	    6358 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/chunk
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkSplit_100KB-4           	   13747	     87348 ns/op	1172.32 MB/s	    4992 B/op	       2 allocs/op
+BenchmarkGearScan_1MiB-4         	    2907	    399309 ns/op	2625.97 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSplit_1MiB-4            	    1261	    923139 ns/op	1135.88 MB/s	   57472 B/op	       2 allocs/op
+BenchmarkSplitStream_4MiB-4      	     253	   4406838 ns/op	 951.77 MB/s	   33000 B/op	       6 allocs/op
+BenchmarkRootHash_1000Chunks-4   	   57154	     20551 ns/op	      32 B/op	       1 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/cli
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkHookNoop_InProcess-4   	    2263	    524973 ns/op	  266102 B/op	    3795 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/config
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkConfigLoad_ColdNoFiles-4   	    5367	    221648 ns/op	  101511 B/op	    2031 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/daemon
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkIngestAccept-4                                	     154	   7937620 ns/op	     384 B/op	       9 allocs/op
+BenchmarkIngestAcceptLeased-4                          	      63	  19523640 ns/op	    8952 B/op	      76 allocs/op
+BenchmarkIngestAcceptExternalized-4                    	      70	  17723178 ns/op	    1798 B/op	      25 allocs/op
+BenchmarkFeaturesFrom-4                                	   62322	     18125 ns/op	   17056 B/op	      39 allocs/op
+BenchmarkReclaimableIndexBuild_5000Blocks-4            	    3292	    349317 ns/op	  364593 B/op	      17 allocs/op
+BenchmarkAssembleCandidates_2000ToolUses/cold-4        	    1011	   1200030 ns/op	  930953 B/op	     536 allocs/op
+BenchmarkAssembleCandidates_2000ToolUses/warm-4        	  331993	      3884 ns/op	   10053 B/op	      11 allocs/op
+BenchmarkRuntimeEvaluate_2000ToolUses_32Candidates/warm-4         	   74456	     14533 ns/op	   46546 B/op	      25 allocs/op
+BenchmarkRuntimeEvaluate_2000ToolUses_32Candidates/cold-4         	     550	   2058314 ns/op	 1726542 B/op	    1970 allocs/op
+BenchmarkSchedulerTap_ObserveTool-4                               	   33134	     33681 ns/op	   20027 B/op	      73 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/dag
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkBackwardSlice5000-4   	    3964	    293197 ns/op	  132056 B/op	    1435 allocs/op
+BenchmarkCrossingEdges-4       	12214437	        95.57 ns/op	       0 B/op	       0 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/eval
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkBeladyDetail_400Turns-4         	    1554	    796769 ns/op	  682916 B/op	    7598 allocs/op
+BenchmarkBreakpointOPT_256Candidates-4   	    2260	    530934 ns/op	  778795 B/op	    5751 allocs/op
+BenchmarkCompare_400Actions-4            	    2319	    514956 ns/op	  186912 B/op	      48 allocs/op
+BenchmarkSynthesize_320Turns-4           	    3951	    301672 ns/op	  274702 B/op	    2999 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/hostperm
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkEvaluate-4   	  181196	      6717 ns/op	    1960 B/op	      32 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/negknow
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkOpen-4   	      10	  76775984 ns/op	  59770400 cpu-ns/op	35702016 B/op	  260512 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/negknow
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkRecord-4               	   38040	     34522 ns/op	     29568 cpu-ns/op	   11287 B/op	      70 allocs/op
+BenchmarkIngestMCPRealStore-4   	      30	  38895242 ns/op	   68363 B/op	     279 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/obs
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkHistogram_Observe-4   	127625808	         9.337 ns/op	       0 B/op	       0 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/observer
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkTombstone-4                	 4037036	       289.2 ns/op	     272 B/op	       6 allocs/op
+BenchmarkOnToolUse_FileRead64KB/Deduped-4         	     154	   7169476 ns/op	     25444 dedup-x	         5.000 objects	         7.168 p50-ms	        10.24 p99-ms	 1313532 B/op	     283 allocs/op
+BenchmarkOnToolUse_FileRead64KB/Delta-4           	      54	  22556869 ns/op	       671.5 dedup-x	        58.00 objects	        22.53 p50-ms	        32.77 p99-ms	 1357065 B/op	     434 allocs/op
+BenchmarkOnToolUse_FileRead64KB/AllNovel-4        	      51	  23385218 ns/op	        66.58 dedup-x	       226.0 objects	        24.58 p50-ms	        30.72 p99-ms	 1406149 B/op	     546 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/observer
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkOnToolUse_TestOutput256KB_Leased/Deduped-4         	     200	 128115530 ns/op	      2235 dedup-x	        34.00 objects	       131.1 p50-ms	       163.8 p99-ms	10300103 B/op	    8791 allocs/op
+BenchmarkOnToolUse_TestOutput256KB_Leased/Delta-4           	     200	 177564989 ns/op	       143.8 dedup-x	       435.0 objects	       180.2 p50-ms	       262.1 p99-ms	10435758 B/op	    9973 allocs/op
+BenchmarkOnToolUse_TestOutput256KB_Leased/AllNovel-4        	     200	 653951672 ns/op	         3.753 dedup-x	     12209 objects	       655.4 p50-ms	       852.0 p99-ms	11037596 B/op	   13120 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/Deduped-4                	     200	  26246225 ns/op	      2235 dedup-x	        34.00 objects	        26.62 p50-ms	        32.77 p99-ms	 6684140 B/op	    5995 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/Delta-4                  	     200	  59370425 ns/op	       143.8 dedup-x	       435.0 objects	        57.34 p50-ms	       106.5 p99-ms	 6869630 B/op	    7196 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/AllNovel-4               	     200	  79084309 ns/op	         3.753 dedup-x	     12209 objects	        81.92 p50-ms	        98.30 p99-ms	 6613776 B/op	    7722 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/paths
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkPathsWriteAtomic_4KB-4       	      84	  14532429 ns/op	   0.28 MB/s	    1184 B/op	      16 allocs/op
+BenchmarkIsHome_AProjectBelowHome-4   	  755710	      1581 ns/op	     544 B/op	       4 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/rules
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkPathScoped-4   	    4534	    278254 ns/op	  151587 B/op	    1979 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/scheduler
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkEvaluate_64Candidates-4   	  395976	      3052 ns/op	    3736 B/op	       6 allocs/op
+BenchmarkBOCDObserve_4Features/full_posterior-4         	   50004	     24020 ns/op	    4128 B/op	       2 allocs/op
+BenchmarkBOCDObserve_4Features/steady_state-4           	  704282	      1630 ns/op	     302 B/op	       2 allocs/op
+BenchmarkBOCDMarshal-4                                  	   74298	     16393 ns/op	   73728 B/op	       1 allocs/op
+--- BENCH: BenchmarkBOCDMarshal-4
+    bocd_test.go:669: serialized size at 512×4: 69687 bytes
+    bocd_test.go:669: serialized size at 512×4: 69687 bytes
+    bocd_test.go:669: serialized size at 512×4: 69687 bytes
+    bocd_test.go:669: serialized size at 512×4: 69687 bytes
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/sketch
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkL0SketchUpdate-4     	 3136419	       400.1 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRebuildBloom5000-4   	    1429	    877214 ns/op	   12400 B/op	       4 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/skills
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkIndex-4   	    3201	    321023 ns/op	  186798 B/op	     740 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/store
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkPutBytes_100KB_Warm_NoRedact-4      	     640	   1932590 ns/op	  52.99 MB/s	  901798 B/op	      14 allocs/op
+BenchmarkPutBytes_100KB_Cold_NoRedact-4      	      64	  18849335 ns/op	   5.43 MB/s	 1044537 B/op	     315 allocs/op
+BenchmarkPutBytes_100KB_Cold-4               	      63	  19257127 ns/op	   5.32 MB/s	 1150388 B/op	     316 allocs/op
+BenchmarkPutBytes_100KB_Warm-4               	     519	   2332094 ns/op	  43.91 MB/s	 1008423 B/op	      16 allocs/op
+BenchmarkPutBytes_100KB_Warm_KeepRaw/verbatim-4         	     478	   2544777 ns/op	  40.24 MB/s	 1008464 B/op	      16 allocs/op
+BenchmarkPutBytes_100KB_Warm_KeepRaw/delta-4            	     465	   2536161 ns/op	  40.39 MB/s	 1115814 B/op	      31 allocs/op
+BenchmarkPutBytes_100KB_Warm_KeepRaw/full-4             	    1590	    729637 ns/op	 140.37 MB/s	  635107 B/op	      23 allocs/op
+BenchmarkPutObject_NovelChunk-4                         	   11082	    109800 ns/op	  37.30 MB/s	    5839 B/op	      18 allocs/op
+BenchmarkGetChunk-4                                     	   56022	     20060 ns/op	   19628 B/op	      10 allocs/op
+BenchmarkOpenSpan_4KB_of_4MB-4                          	   57450	     20840 ns/op	   19783 B/op	      11 allocs/op
+BenchmarkOpenStore_50kRoots-4                           	       4	 279786192 ns/op	97311840 B/op	 1062393 allocs/op
+BenchmarkGC_50kObjects-4                                	       3	 392925589 ns/op	36940104 B/op	  433658 allocs/op
+BenchmarkCountFold_4MiB-4                               	     870	   1414720 ns/op	2964.76 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSearch_1000Roots-4                             	     175	   6760673 ns/op	 9121100 B/op	    7750 allocs/op
+BenchmarkSearch_1000Roots_DistinctChunks-4              	     122	   9967941 ns/op	13276481 B/op	   12344 allocs/op
+BenchmarkMarkEncoded_100-4                              	    9830	    117297 ns/op	   16896 B/op	     301 allocs/op
+PASS
+pathstest: HOME is "/tmp/2974957428/001/home" at the end of the run, not the isolated home "/tmp/qompack-test-home-99215005": a test changed it without restoring it, and every test after it ran against that directory
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/symbols
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkExtract_100KB-4              	    1108	   1108833 ns/op	  92.70 MB/s	  312371 B/op	    2325 allocs/op
+BenchmarkEnclosing_100KB-4            	    1083	   1101003 ns/op	  93.36 MB/s	  312365 B/op	    2325 allocs/op
+BenchmarkReferences_100KB_50Names-4   	    7369	    168376 ns/op	 610.47 MB/s	    4128 B/op	       8 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/canon
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkRun_Bash100KB-4    	     603	   1994830 ns/op	  51.34 MB/s	 1061537 B/op	      37 allocs/op
+BenchmarkRun_GoTest-4       	    1906	    603478 ns/op	  19.76 MB/s	  513016 B/op	     168 allocs/op
+BenchmarkRun_KeepDeltas-4   	     610	   2046945 ns/op	  50.03 MB/s	 1061623 B/op	      37 allocs/op
+BenchmarkRestore_100KB-4    	   85383	     16791 ns/op	6099.04 MB/s	  106496 B/op	       1 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/checkpoint
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkFinalize-4   	      10	  44912160 ns/op	 3355816 B/op	   15826 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/checkpoint
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkExtractDecisions-4   	     207	   5717670 ns/op	 7456911 B/op	   32480 allocs/op
+--- BENCH: BenchmarkExtractDecisions-4
+    decisions_test.go:659: graph: nodes=4780 edges=14702 explains=3127
+    decisions_test.go:659: graph: nodes=4780 edges=14702 explains=3127
+    decisions_test.go:659: graph: nodes=4780 edges=14702 explains=3127
+BenchmarkStripInjections-4    	    9092	    130663 ns/op	2006.26 MB/s	 1162112 B/op	      14 allocs/op
+BenchmarkTruncate-4           	    1182	   1016039 ns/op	  737255 B/op	    1562 allocs/op
+BenchmarkAdvanceSegment-4     	      61	  22430118 ns/op	 7046005 B/op	    6759 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/chunk
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkSplit_100KB-4           	   13405	     87900 ns/op	1164.96 MB/s	    4992 B/op	       2 allocs/op
+BenchmarkGearScan_1MiB-4         	    3055	    399505 ns/op	2624.69 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSplit_1MiB-4            	    1303	    927071 ns/op	1131.06 MB/s	   57472 B/op	       2 allocs/op
+BenchmarkSplitStream_4MiB-4      	     273	   4338511 ns/op	 966.76 MB/s	   33000 B/op	       6 allocs/op
+BenchmarkRootHash_1000Chunks-4   	   57535	     21346 ns/op	      32 B/op	       1 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/cli
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkHookNoop_InProcess-4   	    2276	    526038 ns/op	  266395 B/op	    3795 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/config
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkConfigLoad_ColdNoFiles-4   	    5190	    228513 ns/op	  101510 B/op	    2031 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/daemon
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkIngestAccept-4                                	     162	   7248185 ns/op	     384 B/op	       9 allocs/op
+BenchmarkIngestAcceptLeased-4                          	      70	  18199753 ns/op	    8888 B/op	      76 allocs/op
+BenchmarkIngestAcceptExternalized-4                    	      72	  15052234 ns/op	    1798 B/op	      25 allocs/op
+BenchmarkFeaturesFrom-4                                	   64848	     17958 ns/op	   17056 B/op	      39 allocs/op
+BenchmarkReclaimableIndexBuild_5000Blocks-4            	    3418	    346024 ns/op	  364593 B/op	      17 allocs/op
+BenchmarkAssembleCandidates_2000ToolUses/cold-4        	     999	   1180378 ns/op	  931012 B/op	     536 allocs/op
+BenchmarkAssembleCandidates_2000ToolUses/warm-4        	  342684	      4528 ns/op	    9997 B/op	      11 allocs/op
+BenchmarkRuntimeEvaluate_2000ToolUses_32Candidates/warm-4         	   79730	     14522 ns/op	   46413 B/op	      25 allocs/op
+BenchmarkRuntimeEvaluate_2000ToolUses_32Candidates/cold-4         	     603	   2052815 ns/op	 1753925 B/op	    1970 allocs/op
+BenchmarkSchedulerTap_ObserveTool-4                               	   37198	     30355 ns/op	   20018 B/op	      73 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/dag
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkBackwardSlice5000-4   	    4126	    311735 ns/op	  132056 B/op	    1435 allocs/op
+BenchmarkCrossingEdges-4       	12509706	        97.58 ns/op	       0 B/op	       0 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/eval
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkBeladyDetail_400Turns-4         	    1348	    799242 ns/op	  682920 B/op	    7598 allocs/op
+BenchmarkBreakpointOPT_256Candidates-4   	    2066	    539895 ns/op	  778794 B/op	    5751 allocs/op
+BenchmarkCompare_400Actions-4            	    2359	    527207 ns/op	  186912 B/op	      48 allocs/op
+BenchmarkSynthesize_320Turns-4           	    3878	    311923 ns/op	  274704 B/op	    2999 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/hostperm
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkEvaluate-4   	  179116	      6777 ns/op	    1944 B/op	      32 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/negknow
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkOpen-4   	      10	  75180682 ns/op	  58037800 cpu-ns/op	35701230 B/op	  260512 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/negknow
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkRecord-4               	   36852	     33375 ns/op	     28194 cpu-ns/op	   11397 B/op	      70 allocs/op
+BenchmarkIngestMCPRealStore-4   	      33	  36247495 ns/op	   34463 B/op	     274 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/obs
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkHistogram_Observe-4   	121484151	         9.680 ns/op	       0 B/op	       0 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/observer
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkTombstone-4                	 3993362	       291.7 ns/op	     272 B/op	       6 allocs/op
+BenchmarkOnToolUse_FileRead64KB/Deduped-4         	     164	   7186848 ns/op	     27096 dedup-x	         5.000 objects	         7.168 p50-ms	         9.216 p99-ms	 1315725 B/op	     286 allocs/op
+BenchmarkOnToolUse_FileRead64KB/Delta-4           	      54	  22553687 ns/op	       671.5 dedup-x	        58.00 objects	        22.53 p50-ms	        30.72 p99-ms	 1360621 B/op	     437 allocs/op
+BenchmarkOnToolUse_FileRead64KB/AllNovel-4        	      52	  23128173 ns/op	        66.31 dedup-x	       231.0 objects	        24.58 p50-ms	        30.72 p99-ms	 1408456 B/op	     547 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/observer
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkOnToolUse_TestOutput256KB_Leased/Deduped-4         	     200	 129047288 ns/op	      2235 dedup-x	        34.00 objects	       131.1 p50-ms	       213.0 p99-ms	10263158 B/op	    8784 allocs/op
+BenchmarkOnToolUse_TestOutput256KB_Leased/Delta-4           	     200	 173141515 ns/op	       143.8 dedup-x	       435.0 objects	       180.2 p50-ms	       213.0 p99-ms	10427302 B/op	    9971 allocs/op
+BenchmarkOnToolUse_TestOutput256KB_Leased/AllNovel-4        	     200	 649873924 ns/op	         3.753 dedup-x	     12209 objects	       655.4 p50-ms	       852.0 p99-ms	11023320 B/op	   13116 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/Deduped-4                	     200	  26293227 ns/op	      2235 dedup-x	        34.00 objects	        26.62 p50-ms	        32.77 p99-ms	 6682569 B/op	    5994 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/Delta-4                  	     200	  57165305 ns/op	       143.8 dedup-x	       435.0 objects	        57.34 p50-ms	        73.73 p99-ms	 6868166 B/op	    7195 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/AllNovel-4               	     200	  78692880 ns/op	         3.753 dedup-x	     12209 objects	        81.92 p50-ms	        90.11 p99-ms	 6610943 B/op	    7721 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/paths
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkPathsWriteAtomic_4KB-4       	      78	  15545232 ns/op	   0.26 MB/s	    1184 B/op	      16 allocs/op
+BenchmarkIsHome_AProjectBelowHome-4   	  767588	      1634 ns/op	     544 B/op	       4 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/rules
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkPathScoped-4   	    4166	    263292 ns/op	  151633 B/op	    1979 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/scheduler
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkEvaluate_64Candidates-4   	  390400	      3251 ns/op	    3736 B/op	       6 allocs/op
+BenchmarkBOCDObserve_4Features/full_posterior-4         	   49119	     24194 ns/op	    4128 B/op	       2 allocs/op
+BenchmarkBOCDObserve_4Features/steady_state-4           	  733915	      1648 ns/op	     302 B/op	       2 allocs/op
+BenchmarkBOCDMarshal-4                                  	   67077	     16027 ns/op	   73728 B/op	       1 allocs/op
+--- BENCH: BenchmarkBOCDMarshal-4
+    bocd_test.go:669: serialized size at 512×4: 69687 bytes
+    bocd_test.go:669: serialized size at 512×4: 69687 bytes
+    bocd_test.go:669: serialized size at 512×4: 69687 bytes
+    bocd_test.go:669: serialized size at 512×4: 69687 bytes
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/sketch
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkL0SketchUpdate-4     	 2940156	       400.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRebuildBloom5000-4   	    1404	    856865 ns/op	   12400 B/op	       4 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/skills
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkIndex-4   	    3753	    334152 ns/op	  186745 B/op	     740 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/store
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkPutBytes_100KB_Warm_NoRedact-4      	     622	   1997289 ns/op	  51.27 MB/s	  901886 B/op	      15 allocs/op
+BenchmarkPutBytes_100KB_Cold_NoRedact-4      	      66	  19076370 ns/op	   5.37 MB/s	 1044624 B/op	     315 allocs/op
+BenchmarkPutBytes_100KB_Cold-4               	      55	  19549029 ns/op	   5.24 MB/s	 1150414 B/op	     316 allocs/op
+BenchmarkPutBytes_100KB_Warm-4               	     460	   2463528 ns/op	  41.57 MB/s	 1008459 B/op	      16 allocs/op
+BenchmarkPutBytes_100KB_Warm_KeepRaw/verbatim-4         	     466	   2546885 ns/op	  40.21 MB/s	 1008517 B/op	      16 allocs/op
+BenchmarkPutBytes_100KB_Warm_KeepRaw/delta-4            	     448	   2591977 ns/op	  39.52 MB/s	 1115806 B/op	      31 allocs/op
+BenchmarkPutBytes_100KB_Warm_KeepRaw/full-4             	    1562	    740322 ns/op	 138.35 MB/s	  635037 B/op	      23 allocs/op
+BenchmarkPutObject_NovelChunk-4                         	   10632	    111018 ns/op	  36.89 MB/s	    5842 B/op	      18 allocs/op
+BenchmarkGetChunk-4                                     	   58465	     20732 ns/op	   19634 B/op	      10 allocs/op
+BenchmarkOpenSpan_4KB_of_4MB-4                          	   55322	     21373 ns/op	   19801 B/op	      11 allocs/op
+BenchmarkOpenStore_50kRoots-4                           	       4	 280475938 ns/op	97311876 B/op	 1062393 allocs/op
+BenchmarkGC_50kObjects-4                                	       3	 402224998 ns/op	36940056 B/op	  433658 allocs/op
+BenchmarkCountFold_4MiB-4                               	     880	   1461528 ns/op	2869.80 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSearch_1000Roots-4                             	     158	   7221733 ns/op	 9116641 B/op	    7747 allocs/op
+BenchmarkSearch_1000Roots_DistinctChunks-4              	     100	  11035694 ns/op	13263744 B/op	   12338 allocs/op
+BenchmarkMarkEncoded_100-4                              	    9259	    119982 ns/op	   16896 B/op	     301 allocs/op
+PASS
+pathstest: HOME is "/tmp/426110959/001/home" at the end of the run, not the isolated home "/tmp/qompack-test-home-2219520244": a test changed it without restoring it, and every test after it ran against that directory
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/symbols
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkExtract_100KB-4              	    1054	   1117717 ns/op	  91.96 MB/s	  312721 B/op	    2325 allocs/op
+BenchmarkEnclosing_100KB-4            	    1066	   1113857 ns/op	  92.28 MB/s	  312059 B/op	    2325 allocs/op
+BenchmarkReferences_100KB_50Names-4   	    7084	    176917 ns/op	 580.99 MB/s	    4128 B/op	       8 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/canon
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkRun_Bash100KB-4    	     609	   2050126 ns/op	  49.95 MB/s	 1061225 B/op	      36 allocs/op
+BenchmarkRun_GoTest-4       	    1933	    610825 ns/op	  19.53 MB/s	  512938 B/op	     168 allocs/op
+BenchmarkRun_KeepDeltas-4   	     578	   2016229 ns/op	  50.79 MB/s	 1061362 B/op	      36 allocs/op
+BenchmarkRestore_100KB-4    	   85908	     15076 ns/op	6792.58 MB/s	  106496 B/op	       1 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/checkpoint
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkFinalize-4   	      10	  46233084 ns/op	 3433715 B/op	   15828 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/checkpoint
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkExtractDecisions-4   	     204	   5884719 ns/op	 7457670 B/op	   32481 allocs/op
+--- BENCH: BenchmarkExtractDecisions-4
+    decisions_test.go:659: graph: nodes=4780 edges=14702 explains=3127
+    decisions_test.go:659: graph: nodes=4780 edges=14702 explains=3127
+    decisions_test.go:659: graph: nodes=4780 edges=14702 explains=3127
+BenchmarkStripInjections-4    	    9159	    126701 ns/op	2069.00 MB/s	 1162112 B/op	      14 allocs/op
+BenchmarkTruncate-4           	    1153	    996338 ns/op	  737171 B/op	    1562 allocs/op
+BenchmarkAdvanceSegment-4     	      60	  22325838 ns/op	 6887452 B/op	    6658 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/chunk
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkSplit_100KB-4           	   13368	     87917 ns/op	1164.73 MB/s	    4992 B/op	       2 allocs/op
+BenchmarkGearScan_1MiB-4         	    3062	    401851 ns/op	2609.37 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSplit_1MiB-4            	    1273	    917698 ns/op	1142.62 MB/s	   57472 B/op	       2 allocs/op
+BenchmarkSplitStream_4MiB-4      	     285	   4384854 ns/op	 956.54 MB/s	   33000 B/op	       6 allocs/op
+BenchmarkRootHash_1000Chunks-4   	   59299	     20510 ns/op	      32 B/op	       1 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/cli
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkHookNoop_InProcess-4   	    2419	    516997 ns/op	  265893 B/op	    3795 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/config
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkConfigLoad_ColdNoFiles-4   	    5522	    219850 ns/op	  101579 B/op	    2031 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/daemon
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkIngestAccept-4                                	     166	   7587263 ns/op	     384 B/op	       9 allocs/op
+BenchmarkIngestAcceptLeased-4                          	      68	  18073380 ns/op	    8927 B/op	      76 allocs/op
+BenchmarkIngestAcceptExternalized-4                    	      79	  15497637 ns/op	    1798 B/op	      25 allocs/op
+BenchmarkFeaturesFrom-4                                	   66628	     17973 ns/op	   17056 B/op	      39 allocs/op
+BenchmarkReclaimableIndexBuild_5000Blocks-4            	    3291	    357051 ns/op	  364593 B/op	      17 allocs/op
+BenchmarkAssembleCandidates_2000ToolUses/cold-4        	     963	   1216793 ns/op	  932575 B/op	     536 allocs/op
+BenchmarkAssembleCandidates_2000ToolUses/warm-4        	  378744	      3864 ns/op	   10239 B/op	      11 allocs/op
+BenchmarkRuntimeEvaluate_2000ToolUses_32Candidates/warm-4         	   77598	     13951 ns/op	   46465 B/op	      25 allocs/op
+BenchmarkRuntimeEvaluate_2000ToolUses_32Candidates/cold-4         	     608	   2043507 ns/op	 1751956 B/op	    1970 allocs/op
+BenchmarkSchedulerTap_ObserveTool-4                               	   36961	     32981 ns/op	   20019 B/op	      73 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/dag
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkBackwardSlice5000-4   	    3753	    283634 ns/op	  132056 B/op	    1435 allocs/op
+BenchmarkCrossingEdges-4       	12498183	        94.46 ns/op	       0 B/op	       0 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/eval
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkBeladyDetail_400Turns-4         	    1419	    797581 ns/op	  682916 B/op	    7598 allocs/op
+BenchmarkBreakpointOPT_256Candidates-4   	    2245	    530805 ns/op	  778795 B/op	    5751 allocs/op
+BenchmarkCompare_400Actions-4            	    2358	    518501 ns/op	  186912 B/op	      48 allocs/op
+BenchmarkSynthesize_320Turns-4           	    3896	    297414 ns/op	  274704 B/op	    2999 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/hostperm
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkEvaluate-4   	  174608	      6658 ns/op	    1960 B/op	      32 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/negknow
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkOpen-4   	      10	  78760708 ns/op	  60983900 cpu-ns/op	35702868 B/op	  260512 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/negknow
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkRecord-4               	   36764	     34220 ns/op	     27997 cpu-ns/op	   11414 B/op	      70 allocs/op
+BenchmarkIngestMCPRealStore-4   	      30	  36844412 ns/op	   68189 B/op	     278 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/obs
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkHistogram_Observe-4   	125970784	         9.493 ns/op	       0 B/op	       0 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/observer
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkTombstone-4                	 3897375	       297.5 ns/op	     272 B/op	       6 allocs/op
+BenchmarkOnToolUse_FileRead64KB/Deduped-4         	     154	   7258651 ns/op	     25444 dedup-x	         5.000 objects	         7.168 p50-ms	        11.26 p99-ms	 1314049 B/op	     284 allocs/op
+BenchmarkOnToolUse_FileRead64KB/Delta-4           	      49	  22429598 ns/op	       668.1 dedup-x	        53.00 objects	        22.53 p50-ms	        26.62 p99-ms	 1360474 B/op	     436 allocs/op
+BenchmarkOnToolUse_FileRead64KB/AllNovel-4        	      50	  23073200 ns/op	        66.86 dedup-x	       221.0 objects	        24.58 p50-ms	        26.62 p99-ms	 1411204 B/op	     551 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/observer
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkOnToolUse_TestOutput256KB_Leased/Deduped-4         	     200	 127186484 ns/op	      2235 dedup-x	        34.00 objects	       131.1 p50-ms	       213.0 p99-ms	10291735 B/op	    8783 allocs/op
+BenchmarkOnToolUse_TestOutput256KB_Leased/Delta-4           	     200	 173857465 ns/op	       143.8 dedup-x	       435.0 objects	       180.2 p50-ms	       229.4 p99-ms	10444281 B/op	    9971 allocs/op
+BenchmarkOnToolUse_TestOutput256KB_Leased/AllNovel-4        	     200	 655447254 ns/op	         3.753 dedup-x	     12209 objects	       655.4 p50-ms	       852.0 p99-ms	11031583 B/op	   13115 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/Deduped-4                	     200	  26327265 ns/op	      2235 dedup-x	        34.00 objects	        26.62 p50-ms	        36.86 p99-ms	 6683159 B/op	    5995 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/Delta-4                  	     200	  57078791 ns/op	       143.8 dedup-x	       435.0 objects	        57.34 p50-ms	        73.73 p99-ms	 6866759 B/op	    7194 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/AllNovel-4               	     200	  77847440 ns/op	         3.753 dedup-x	     12209 objects	        81.92 p50-ms	        90.11 p99-ms	 6612163 B/op	    7722 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/paths
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkPathsWriteAtomic_4KB-4       	      82	  14400269 ns/op	   0.28 MB/s	    1216 B/op	      16 allocs/op
+BenchmarkIsHome_AProjectBelowHome-4   	  759579	      1580 ns/op	     544 B/op	       4 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/rules
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkPathScoped-4   	    4627	    258484 ns/op	  151607 B/op	    1979 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/scheduler
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkEvaluate_64Candidates-4   	  404647	      2994 ns/op	    3736 B/op	       6 allocs/op
+BenchmarkBOCDObserve_4Features/full_posterior-4         	   50163	     23944 ns/op	    4128 B/op	       2 allocs/op
+BenchmarkBOCDObserve_4Features/steady_state-4           	  758782	      1586 ns/op	     302 B/op	       2 allocs/op
+BenchmarkBOCDMarshal-4                                  	   68994	     17010 ns/op	   73728 B/op	       1 allocs/op
+--- BENCH: BenchmarkBOCDMarshal-4
+    bocd_test.go:669: serialized size at 512×4: 69687 bytes
+    bocd_test.go:669: serialized size at 512×4: 69687 bytes
+    bocd_test.go:669: serialized size at 512×4: 69687 bytes
+    bocd_test.go:669: serialized size at 512×4: 69687 bytes
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/sketch
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkL0SketchUpdate-4     	 3108582	       388.5 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRebuildBloom5000-4   	    1467	    847536 ns/op	   12400 B/op	       4 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/skills
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkIndex-4   	    3667	    321269 ns/op	  186741 B/op	     740 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/store
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkPutBytes_100KB_Warm_NoRedact-4      	     604	   1860641 ns/op	  55.03 MB/s	  901808 B/op	      14 allocs/op
+BenchmarkPutBytes_100KB_Cold_NoRedact-4      	      63	  18752852 ns/op	   5.46 MB/s	 1044637 B/op	     315 allocs/op
+BenchmarkPutBytes_100KB_Cold-4               	      56	  19470191 ns/op	   5.26 MB/s	 1150919 B/op	     317 allocs/op
+BenchmarkPutBytes_100KB_Warm-4               	     500	   2334721 ns/op	  43.86 MB/s	 1008394 B/op	      16 allocs/op
+BenchmarkPutBytes_100KB_Warm_KeepRaw/verbatim-4         	     459	   2556947 ns/op	  40.05 MB/s	 1008421 B/op	      16 allocs/op
+BenchmarkPutBytes_100KB_Warm_KeepRaw/delta-4            	     418	   2603343 ns/op	  39.35 MB/s	 1115765 B/op	      31 allocs/op
+BenchmarkPutBytes_100KB_Warm_KeepRaw/full-4             	    1503	    739000 ns/op	 138.59 MB/s	  635115 B/op	      23 allocs/op
+BenchmarkPutObject_NovelChunk-4                         	   10462	    119438 ns/op	  34.29 MB/s	    5840 B/op	      18 allocs/op
+BenchmarkGetChunk-4                                     	   57290	     20111 ns/op	   19644 B/op	      10 allocs/op
+BenchmarkOpenSpan_4KB_of_4MB-4                          	   57421	     20927 ns/op	   19776 B/op	      11 allocs/op
+BenchmarkOpenStore_50kRoots-4                           	       4	 287167268 ns/op	97311756 B/op	 1062393 allocs/op
+BenchmarkGC_50kObjects-4                                	       3	 390198288 ns/op	36940394 B/op	  433660 allocs/op
+BenchmarkCountFold_4MiB-4                               	     825	   1445963 ns/op	2900.70 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSearch_1000Roots-4                             	     163	   6859686 ns/op	 9125356 B/op	    7752 allocs/op
+BenchmarkSearch_1000Roots_DistinctChunks-4              	     100	  10075201 ns/op	13276116 B/op	   12344 allocs/op
+BenchmarkMarkEncoded_100-4                              	    9760	    118309 ns/op	   16896 B/op	     301 allocs/op
+PASS
+pathstest: HOME is "/tmp/3178765180/001/home" at the end of the run, not the isolated home "/tmp/qompack-test-home-1482751880": a test changed it without restoring it, and every test after it ran against that directory
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/symbols
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkExtract_100KB-4              	    1077	   1094963 ns/op	  93.87 MB/s	  312249 B/op	    2325 allocs/op
+BenchmarkEnclosing_100KB-4            	    1093	   1078606 ns/op	  95.30 MB/s	  311798 B/op	    2325 allocs/op
+BenchmarkReferences_100KB_50Names-4   	    7504	    167302 ns/op	 614.38 MB/s	    4128 B/op	       8 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/canon
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkRun_Bash100KB-4    	     578	   2101393 ns/op	  48.73 MB/s	 1061517 B/op	      37 allocs/op
+BenchmarkRun_GoTest-4       	    1780	    633170 ns/op	  18.84 MB/s	  513522 B/op	     168 allocs/op
+BenchmarkRun_KeepDeltas-4   	     588	   2104174 ns/op	  48.67 MB/s	 1061351 B/op	      36 allocs/op
+BenchmarkRestore_100KB-4    	   72956	     17203 ns/op	5952.91 MB/s	  106496 B/op	       1 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/checkpoint
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkFinalize-4   	      10	  46301926 ns/op	 3370112 B/op	   15826 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/checkpoint
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkExtractDecisions-4   	     201	   5970647 ns/op	 7457472 B/op	   32482 allocs/op
+--- BENCH: BenchmarkExtractDecisions-4
+    decisions_test.go:659: graph: nodes=4780 edges=14702 explains=3127
+    decisions_test.go:659: graph: nodes=4780 edges=14702 explains=3127
+    decisions_test.go:659: graph: nodes=4780 edges=14702 explains=3127
+BenchmarkStripInjections-4    	    8876	    126457 ns/op	2072.99 MB/s	 1162112 B/op	      14 allocs/op
+BenchmarkTruncate-4           	    1024	   1013263 ns/op	  736981 B/op	    1562 allocs/op
+BenchmarkAdvanceSegment-4     	      51	  22037647 ns/op	 5862414 B/op	    5755 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/chunk
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkSplit_100KB-4           	   13044	     89166 ns/op	1148.42 MB/s	    4992 B/op	       2 allocs/op
+BenchmarkGearScan_1MiB-4         	    2803	    436249 ns/op	2403.62 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSplit_1MiB-4            	    1213	    948680 ns/op	1105.30 MB/s	   57472 B/op	       2 allocs/op
+BenchmarkSplitStream_4MiB-4      	     279	   4445037 ns/op	 943.59 MB/s	   33000 B/op	       6 allocs/op
+BenchmarkRootHash_1000Chunks-4   	   57806	     21202 ns/op	      32 B/op	       1 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/cli
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkHookNoop_InProcess-4   	    2203	    536858 ns/op	  266192 B/op	    3795 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/config
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkConfigLoad_ColdNoFiles-4   	    5187	    213830 ns/op	  101502 B/op	    2031 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/daemon
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkIngestAccept-4                                	     164	   8008042 ns/op	     384 B/op	       9 allocs/op
+BenchmarkIngestAcceptLeased-4                          	      67	  19712277 ns/op	    8936 B/op	      76 allocs/op
+BenchmarkIngestAcceptExternalized-4                    	      73	  16319475 ns/op	    1798 B/op	      25 allocs/op
+BenchmarkFeaturesFrom-4                                	   67033	     17829 ns/op	   17056 B/op	      39 allocs/op
+BenchmarkReclaimableIndexBuild_5000Blocks-4            	    3334	    356127 ns/op	  364593 B/op	      17 allocs/op
+BenchmarkAssembleCandidates_2000ToolUses/cold-4        	     908	   1218554 ns/op	  935203 B/op	     536 allocs/op
+BenchmarkAssembleCandidates_2000ToolUses/warm-4        	  353654	      4717 ns/op	    9943 B/op	      11 allocs/op
+BenchmarkRuntimeEvaluate_2000ToolUses_32Candidates/warm-4         	   69787	     14394 ns/op	   46219 B/op	      25 allocs/op
+BenchmarkRuntimeEvaluate_2000ToolUses_32Candidates/cold-4         	     578	   2249078 ns/op	 1716266 B/op	    1970 allocs/op
+BenchmarkSchedulerTap_ObserveTool-4                               	   36414	     32372 ns/op	   20020 B/op	      73 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/dag
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkBackwardSlice5000-4   	    3852	    312162 ns/op	  132056 B/op	    1435 allocs/op
+BenchmarkCrossingEdges-4       	12966922	        95.03 ns/op	       0 B/op	       0 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/eval
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkBeladyDetail_400Turns-4         	    1356	    792283 ns/op	  682919 B/op	    7598 allocs/op
+BenchmarkBreakpointOPT_256Candidates-4   	    2262	    531649 ns/op	  778795 B/op	    5751 allocs/op
+BenchmarkCompare_400Actions-4            	    2359	    542558 ns/op	  186912 B/op	      48 allocs/op
+BenchmarkSynthesize_320Turns-4           	    3765	    300082 ns/op	  274701 B/op	    2999 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/hostperm
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkEvaluate-4   	  176913	      6744 ns/op	    1960 B/op	      32 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/negknow
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkOpen-4   	      10	  78535453 ns/op	  62465400 cpu-ns/op	35702045 B/op	  260512 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/negknow
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkRecord-4               	   36206	     35751 ns/op	     30427 cpu-ns/op	   11461 B/op	      70 allocs/op
+BenchmarkIngestMCPRealStore-4   	      30	  37552638 ns/op	   68364 B/op	     279 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/obs
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkHistogram_Observe-4   	126446527	         9.316 ns/op	       0 B/op	       0 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/observer
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkTombstone-4                	 4057773	       301.4 ns/op	     272 B/op	       6 allocs/op
+BenchmarkOnToolUse_FileRead64KB/Deduped-4         	     168	   7530589 ns/op	     27757 dedup-x	         5.000 objects	         7.168 p50-ms	        12.29 p99-ms	 1317615 B/op	     286 allocs/op
+BenchmarkOnToolUse_FileRead64KB/Delta-4           	      52	  22470892 ns/op	       670.0 dedup-x	        56.00 objects	        22.53 p50-ms	        30.72 p99-ms	 1356310 B/op	     433 allocs/op
+BenchmarkOnToolUse_FileRead64KB/AllNovel-4        	      52	  22697154 ns/op	        66.31 dedup-x	       231.0 objects	        22.53 p50-ms	        30.72 p99-ms	 1406022 B/op	     546 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/observer
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkOnToolUse_TestOutput256KB_Leased/Deduped-4         	     200	 129599054 ns/op	      2235 dedup-x	        34.00 objects	       131.1 p50-ms	       229.4 p99-ms	10251942 B/op	    8779 allocs/op
+BenchmarkOnToolUse_TestOutput256KB_Leased/Delta-4           	     200	 173189909 ns/op	       143.8 dedup-x	       435.0 objects	       180.2 p50-ms	       229.4 p99-ms	10467234 B/op	    9974 allocs/op
+BenchmarkOnToolUse_TestOutput256KB_Leased/AllNovel-4        	     200	 662727258 ns/op	         3.753 dedup-x	     12209 objects	       720.9 p50-ms	       852.0 p99-ms	11027533 B/op	   13116 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/Deduped-4                	     200	  26129297 ns/op	      2235 dedup-x	        34.00 objects	        26.62 p50-ms	        32.77 p99-ms	 6684431 B/op	    5995 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/Delta-4                  	     200	  59195848 ns/op	       143.8 dedup-x	       435.0 objects	        61.44 p50-ms	        73.73 p99-ms	 6870060 B/op	    7197 allocs/op
+BenchmarkOnToolUse_TestOutput256KB/AllNovel-4               	     200	  79142234 ns/op	         3.753 dedup-x	     12209 objects	        81.92 p50-ms	        98.30 p99-ms	 6611451 B/op	    7720 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/paths
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkPathsWriteAtomic_4KB-4       	      78	  14731154 ns/op	   0.28 MB/s	    1216 B/op	      16 allocs/op
+BenchmarkIsHome_AProjectBelowHome-4   	  745501	      1599 ns/op	     544 B/op	       4 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/rules
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkPathScoped-4   	    4521	    267272 ns/op	  151637 B/op	    1979 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/scheduler
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkEvaluate_64Candidates-4   	  345836	      3192 ns/op	    3736 B/op	       6 allocs/op
+BenchmarkBOCDObserve_4Features/full_posterior-4         	   50757	     23720 ns/op	    4128 B/op	       2 allocs/op
+BenchmarkBOCDObserve_4Features/steady_state-4           	  753441	      1605 ns/op	     302 B/op	       2 allocs/op
+BenchmarkBOCDMarshal-4                                  	   70183	     18494 ns/op	   73728 B/op	       1 allocs/op
+--- BENCH: BenchmarkBOCDMarshal-4
+    bocd_test.go:669: serialized size at 512×4: 69687 bytes
+    bocd_test.go:669: serialized size at 512×4: 69687 bytes
+    bocd_test.go:669: serialized size at 512×4: 69687 bytes
+    bocd_test.go:669: serialized size at 512×4: 69687 bytes
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/sketch
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkL0SketchUpdate-4     	 2991231	       389.9 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRebuildBloom5000-4   	    1446	    855536 ns/op	   12403 B/op	       4 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/skills
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkIndex-4   	    3632	    340705 ns/op	  186749 B/op	     740 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/store
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkPutBytes_100KB_Warm_NoRedact-4      	     636	   1903189 ns/op	  53.80 MB/s	  901857 B/op	      15 allocs/op
+BenchmarkPutBytes_100KB_Cold_NoRedact-4      	      67	  19095691 ns/op	   5.36 MB/s	 1045747 B/op	     318 allocs/op
+BenchmarkPutBytes_100KB_Cold-4               	      60	  19294413 ns/op	   5.31 MB/s	 1150614 B/op	     317 allocs/op
+BenchmarkPutBytes_100KB_Warm-4               	     471	   2375722 ns/op	  43.10 MB/s	 1008358 B/op	      16 allocs/op
+BenchmarkPutBytes_100KB_Warm_KeepRaw/verbatim-4         	     454	   2603535 ns/op	  39.33 MB/s	 1008384 B/op	      16 allocs/op
+BenchmarkPutBytes_100KB_Warm_KeepRaw/delta-4            	     454	   2604550 ns/op	  39.33 MB/s	 1115839 B/op	      31 allocs/op
+BenchmarkPutBytes_100KB_Warm_KeepRaw/full-4             	    1566	    766326 ns/op	 133.65 MB/s	  635093 B/op	      23 allocs/op
+BenchmarkPutObject_NovelChunk-4                         	    9506	    116593 ns/op	  35.13 MB/s	    5843 B/op	      18 allocs/op
+BenchmarkGetChunk-4                                     	   58641	     20345 ns/op	   19636 B/op	      10 allocs/op
+BenchmarkOpenSpan_4KB_of_4MB-4                          	   56114	     21082 ns/op	   19781 B/op	      11 allocs/op
+BenchmarkOpenStore_50kRoots-4                           	       4	 281352980 ns/op	97311848 B/op	 1062393 allocs/op
+BenchmarkGC_50kObjects-4                                	       3	 402927690 ns/op	36948314 B/op	  433660 allocs/op
+BenchmarkCountFold_4MiB-4                               	     883	   1411631 ns/op	2971.24 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSearch_1000Roots-4                             	     171	   6621553 ns/op	 9121042 B/op	    7750 allocs/op
+BenchmarkSearch_1000Roots_DistinctChunks-4              	     122	   9919547 ns/op	13278656 B/op	   12345 allocs/op
+BenchmarkMarkEncoded_100-4                              	    9648	    116667 ns/op	   16896 B/op	     301 allocs/op
+PASS
+pathstest: HOME is "/tmp/454528945/001/home" at the end of the run, not the isolated home "/tmp/qompack-test-home-2142291653": a test changed it without restoring it, and every test after it ran against that directory
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/symbols
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkExtract_100KB-4              	    1028	   1100175 ns/op	  93.43 MB/s	  312258 B/op	    2325 allocs/op
+BenchmarkEnclosing_100KB-4            	    1046	   1144871 ns/op	  89.78 MB/s	  312387 B/op	    2325 allocs/op
+BenchmarkReferences_100KB_50Names-4   	    7086	    172625 ns/op	 595.44 MB/s	    4128 B/op	       8 allocs/op
+PASS

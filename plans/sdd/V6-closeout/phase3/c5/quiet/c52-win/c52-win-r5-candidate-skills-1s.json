@@ -1,0 +1,37 @@
+{
+  "id": "c52-win-r5-candidate-skills-1s",
+  "cwd": "C:/Users/Quant/AppData/Local/Temp/tmp.MWJhl7jum3/src-candidate/internal/skills",
+  "argv": [
+    "env",
+    "-u",
+    "QOMPACK_HOME",
+    "-u",
+    "CLAUDE_CONFIG_DIR",
+    "HOME=C:/Users/Quant/AppData/Local/Temp/tmp.MWJhl7jum3/home-candidate",
+    "USERPROFILE=C:/Users/Quant/AppData/Local/Temp/tmp.MWJhl7jum3/home-candidate",
+    "GOPATH=C:\\Users\\Quant\\go",
+    "GOMODCACHE=C:\\Users\\Quant\\go\\pkg\\mod",
+    "C:/Users/Quant/AppData/Local/Temp/tmp.MWJhl7jum3/bin-win/candidate/skills.test.exe",
+    "-test.run",
+    "^$",
+    "-test.bench",
+    "^Benchmark(Index)$",
+    "-test.benchtime",
+    "1s",
+    "-test.benchmem",
+    "-test.count",
+    "1",
+    "-test.timeout",
+    "90m"
+  ],
+  "source_head": "0d06ab1233efb0fd5be8c99dc453e1aa2ee071af",
+  "source_dirty": "",
+  "environment": {
+    "GOPATH": "C:\\Users\\Quant\\go"
+  },
+  "started_at": "2026-10-01T01:23:29-04:00",
+  "ended_at": "2026-10-01T01:23:32-04:00",
+  "exit_code": 0,
+  "log": "c52-win-r5-candidate-skills-1s.log",
+  "log_sha256": "6f7fc33f18d0e1856be3fe43176aeee61f2e52a46cc54d26c17a6ada2948a4dc"
+}

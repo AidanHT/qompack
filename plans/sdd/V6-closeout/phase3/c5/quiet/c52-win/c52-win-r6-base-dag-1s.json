@@ -1,0 +1,37 @@
+{
+  "id": "c52-win-r6-base-dag-1s",
+  "cwd": "C:/Users/Quant/AppData/Local/Temp/tmp.MWJhl7jum3/src-base/internal/dag",
+  "argv": [
+    "env",
+    "-u",
+    "QOMPACK_HOME",
+    "-u",
+    "CLAUDE_CONFIG_DIR",
+    "HOME=C:/Users/Quant/AppData/Local/Temp/tmp.MWJhl7jum3/home-base",
+    "USERPROFILE=C:/Users/Quant/AppData/Local/Temp/tmp.MWJhl7jum3/home-base",
+    "GOPATH=C:\\Users\\Quant\\go",
+    "GOMODCACHE=C:\\Users\\Quant\\go\\pkg\\mod",
+    "C:/Users/Quant/AppData/Local/Temp/tmp.MWJhl7jum3/bin-win/base/dag.test.exe",
+    "-test.run",
+    "^$",
+    "-test.bench",
+    "^Benchmark(CrossingEdges|BackwardSlice5000)$",
+    "-test.benchtime",
+    "1s",
+    "-test.benchmem",
+    "-test.count",
+    "1",
+    "-test.timeout",
+    "90m"
+  ],
+  "source_head": "cf31e01f38f3d3ba4afd96c4c75db3e4b87d54cd",
+  "source_dirty": "",
+  "environment": {
+    "GOPATH": "C:\\Users\\Quant\\go"
+  },
+  "started_at": "2026-10-01T01:41:39-04:00",
+  "ended_at": "2026-10-01T01:41:42-04:00",
+  "exit_code": 0,
+  "log": "c52-win-r6-base-dag-1s.log",
+  "log_sha256": "a09d9cfee5496181d6a423166b2331f32a5a93d551342dd528e5e8efa2332d4c"
+}

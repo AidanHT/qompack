@@ -1,0 +1,107 @@
+{
+ "initialize": {
+  "serverInfo": {
+   "name": "qompack",
+   "version": "0.3.0"
+  },
+  "protocolVersion": "2025-06-18"
+ },
+ "calls": [
+  {
+   "tool": "re_read",
+   "args": {
+    "path": "big.log",
+    "full": true
+   },
+   "jsonrpc_line_bytes": 349280,
+   "isError": false,
+   "error": null,
+   "text_bytes": 261172,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 21,
+     "ephemeral": true,
+     "expansions": 24,
+     "hash": "sha256:7ad307efb926f1cf02de3a3744c417935375db2f776ea7738e4edc6b8783a77a",
+     "next_span": "217070:137282",
+     "path": "big.log",
+     "promoted": true,
+     "source": "store",
+     "span": [
+      0,
+      217070
+     ],
+     "tool_use_id": "qompack-mcp:6f18d26cb7e3",
+     "total_bytes": 354352,
+     "truncated": true,
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "found": true,
+     "hash": "sha256:20cfc2ab38ff9deb904afe9037fb8ec927ec2f9c04186c675b24e2057c7d4a7a",
+     "path": "big.log",
+     "source": "store",
+     "turn": 3,
+     "span": [
+      0,
+      217070
+     ],
+     "total_bytes": 354352,
+     "truncated": true,
+     "next_span": "217070:137282",
+     "widened": false,
+     "expansions": 24,
+     "promoted": true,
+     "content": "{\"type\":\"text\",\"file\":{\"filePath\":\"<tmp>\",\"content\":\"L0001 big-log MAGPIE-0001 {\\\"path\\\": \\\"C:\\\\\\\\work\\\\\\\\build\\\\\\\\out-0001.obj\\\", \\\"note\\\": \\\"café → 漢字 \\\\\\\"quoted\\\\\\\"\\\",\\t\\\"k\\\": \\\"\\\\\\\\\\\\\\\\srv\\\\\\\\share\\\"} L0001 big-log MAGPIE-0001 {\\\"path\\\": \\\"C:\\\\\\\\work\\\\\\\\build\\\\\\\\out-0001.obj\\\", \\\"note\\\": \\\"café ...[211491 chars total]"
+    }
+   ]
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "hash": "sha256:20cfc2ab38ff9deb904afe9037fb8ec927ec2f9c04186c675b24e2057c7d4a7a",
+    "span": "217070:137282"
+   },
+   "jsonrpc_line_bytes": 221000,
+   "isError": false,
+   "error": null,
+   "text_bytes": 165200,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 21,
+     "ephemeral": true,
+     "expansions": 25,
+     "hash": "sha256:ca007a61905ad0a456f9a6271c86501ac9919a8848c8fc9df2e17653486e55b9",
+     "promoted": true,
+     "span": [
+      217070,
+      354352
+     ],
+     "tool_use_id": "qompack-mcp:1f7881a185f1",
+     "total_bytes": 354352,
+     "truncated": false,
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "found": true,
+     "hash": "sha256:20cfc2ab38ff9deb904afe9037fb8ec927ec2f9c04186c675b24e2057c7d4a7a",
+     "span": [
+      217070,
+      354352
+     ],
+     "total_bytes": 354352,
+     "truncated": false,
+     "widened": false,
+     "expansions": 25,
+     "promoted": true,
+     "content": "\\\\\\\"quoted\\\\\\\"\\\",\\t\\\"k\\\": \\\"\\\\\\\\\\\\\\\\srv\\\\\\\\share\\\"} L0797 big-log MAGPIE-0797 {\\\"path\\\": \\\"C:\\\\\\\\work\\\\\\\\build\\\\\\\\out-0797.obj\\\", \\\"note\\\": \\\"café → 漢字 \\\\\\\"quoted\\\\\\\"\\\",\\t\\\"k\\\": \\\"\\\\\\\\\\\\\\\\srv\\nL0798 big-log MAGPIE-0798 lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet ...[133761 chars total]"
+    }
+   ]
+  }
+ ],
+ "stderr_tail": ""
+}

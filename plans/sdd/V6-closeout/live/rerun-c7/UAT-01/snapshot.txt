@@ -1,0 +1,7 @@
+qompack version: 0.3.0 (bundle CLI qompack-bundles/c7/qompack-plugin-0.3.0-windows-amd64/bin/qompack.exe, exit 0)
+bundle: BUNDLE.json sha256 5212ae4eaa2e931266d52069e7d0c72ec2dfd2255d55421c87486ab083e1f395; bin/qompack.exe sha256
+  ab8046bac3bad894c9a299c61fb38277f4179f4e33bfb088873e43edcbe33be7; source commit
+  d20309c03ffc364e4cc48663be73cfbb1f2309b2, dirty false (candidate 7)
+host OS: Windows 11 Home 25H2, build 10.0.26200.9457 (the registry's ProductName string reads "Windows 10 Home",
+  CurrentBuild 26200 / UBR 9457); on AC power (Win32_Battery BatteryStatus 2, 100 %)
+Claude Code: 2.1.280 (claude --version; init event claude_code_version 2.1.280)

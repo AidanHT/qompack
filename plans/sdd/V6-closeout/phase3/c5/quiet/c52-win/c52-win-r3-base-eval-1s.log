@@ -1,0 +1,9 @@
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/eval
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkBeladyDetail_400Turns-22          	     940	   1333713 ns/op	  682929 B/op	    7598 allocs/op
+BenchmarkBreakpointOPT_256Candidates-22    	    1137	    925831 ns/op	  778798 B/op	    5751 allocs/op
+BenchmarkCompare_400Actions-22             	    1320	    806305 ns/op	  186912 B/op	      48 allocs/op
+BenchmarkSynthesize_320Turns-22            	    2038	    580330 ns/op	  275289 B/op	    3000 allocs/op
+PASS

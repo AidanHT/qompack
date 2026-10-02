@@ -1,0 +1,11 @@
+ts=2026-10-02T19:53:25.4686365Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-10-02T19:53:25.5133031Z level=info msg="observer: session registered" session=9044b24c-1ffa-4440-af86-602b464dc816 source=startup turn=0 segment=1
+ts=2026-10-02T19:53:25.5133031Z level=info msg="scheduler: session bound" session=9044b24c-1ffa-4440-af86-602b464dc816 effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+ts=2026-10-02T19:53:39.3825648Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-10-02T19:53:39.3836174Z level=info msg="daemon: took over the project from a daemon that ended without releasing its lock" pid=80972 version=0.3.0 started=2026-10-02T19:53:25Z
+ts=2026-10-02T19:53:39.5247565Z level=info msg="daemon: replayed spooled deliveries at start" deliveries=1
+ts=2026-10-02T19:53:40.8205314Z level=info msg="scheduler: session bound" session=9044b24c-1ffa-4440-af86-602b464dc816 effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+ts=2026-10-02T19:53:46.8602475Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-10-02T19:53:46.8602475Z level=info msg="daemon: took over the project from a daemon that ended without releasing its lock" pid=16388 version=0.3.0 started=2026-10-02T19:53:39Z
+ts=2026-10-02T19:53:46.9915969Z level=info msg="scheduler: session bound" session=9044b24c-1ffa-4440-af86-602b464dc816 effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+ts=2026-10-02T19:54:17.771182Z level=info msg="observer: gc" scanned=19 deleted=0 freed=0 truncated=false

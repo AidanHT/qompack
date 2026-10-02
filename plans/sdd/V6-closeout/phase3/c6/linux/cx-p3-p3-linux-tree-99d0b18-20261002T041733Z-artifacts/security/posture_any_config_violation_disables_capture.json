@@ -1,0 +1,17 @@
+{
+  "name": "posture_any_config_violation_disables_capture",
+  "capability": "posture",
+  "scope": "installed_bundle",
+  "target": {
+    "os": "linux",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "0.1.0",
+    "binary_sha256": "017997ce74bcae6c44556dfc98975f557e9be19f09c09acc60bb47867d6ada35"
+  },
+  "outcome": "verified",
+  "reason": "an invalid configuration key was clamped and reported — `config print` reports the default and state/config-violations.json names the key — and an ordinary capture under the same configuration was still retained.",
+  "detail": "config print reports runtime.telemetry.enabled=false and the §11.3 list names it afterwards=true; violations recorded by the hook path alone=1; ordinary capture retained=true; daemon reachable within 10s=true"
+}

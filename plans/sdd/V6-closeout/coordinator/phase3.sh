@@ -6,6 +6,7 @@
 #   win-race    go run ./tools/devtool test-race, QOMPACK_UNDER_COLOAD=1 (C3.3)
 #   win-timing  ci.yml's timing lane, -p 1, alone, no co-load   (D28: wall-clock rows judged in isolation)
 #   win-e2e-timing  test/e2e alone, no -race, no co-load        (D28: ci.yml's test-e2e job)
+#   win-x11-alone  X11 (TestV3_HotPathUnchangedWithLedgerResident) by itself, -v (D53(d): its spawn floor)
 #   lint        fmt-check, full devtool lint incl. stubskips, go vet (C3.5)
 #   cover       go run ./tools/devtool cover, QOMPACK_UNDER_COLOAD=1 (C3.6: a coverage gate, not a
 #               timing gate, so it may run beside the Linux lane)
@@ -46,6 +47,7 @@ for step in "$@"; do
     win-race) rec p3-win-race -- env QOMPACK_UNDER_COLOAD=1 go run ./tools/devtool test-race ;;
     win-timing) rec p3-win-timing -- go test -p 1 -count=1 -timeout=30m -run "$tpat" $tpkgs ;;
     win-e2e-timing) rec p3-win-e2e-timing -- go test -count=1 -timeout=30m ./test/e2e ;;
+    win-x11-alone) rec p3-win-x11-alone -- go test -count=1 -timeout=30m -v -run '^TestV3_HotPathUnchangedWithLedgerResident$' ./test/e2e ;;
     lint) rec p3-fmt-check -- go run ./tools/devtool fmt-check
           rec p3-lint -- go run ./tools/devtool lint
           rec p3-vet -- go vet ./... ;;

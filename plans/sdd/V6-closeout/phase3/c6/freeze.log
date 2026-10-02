@@ -1,0 +1,13 @@
+armed, waiting for prefreeze pid 79204 2026-10-02T02:02:33Z
+prefreeze functional steps pass; e2e and hotpath are wall-clock rows judged overnight 2026-10-02T02:17:14Z
+waived 3
+integration 9a56b30549d9762f6c8eb90df7779c962db3a2ac 2026-10-02T02:17:40Z
+candidate 6 frozen at 99d0b18cf7d5991aa733e70ce52a542b80aa7710 2026-10-02T02:18:00Z
+a55f4c6616b2b1c17de3dbe58fe74ceb4256eb7c6dad457000faefc9d801de34 */c/Users/Quant/Documents/Programming/Projects/qompack-bundles/c6/qompack-plugin-0.3.0-windows-amd64/BUNDLE.json
+2de82d25f502bcac98a6fdd6c4ee923d9c0f5fbf40512db36b31426c90bde4dc */c/Users/Quant/Documents/Programming/Projects/qompack-bundles/c6/qompack-plugin-0.3.0-windows-amd64/bin/qompack.exe
+bundles built and host-validated in /c/Users/Quant/Documents/Programming/Projects/qompack-bundles/c6 2026-10-02T02:18:45Z
+pushed verify/v6 99d0b18cf7d5991aa733e70ce52a542b80aa7710 2026-10-02T02:18:49Z
+https://github.com/AidanHT/qompack/actions/runs/36955043924
+nightly dispatched 2026-10-02T02:18:51Z
+starting overnight-c6.sh 2026-10-02T02:18:51Z
+overnight finished exit=0 2026-10-02T05:32:13Z

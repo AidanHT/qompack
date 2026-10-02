@@ -1,0 +1,2 @@
+$ sh <scratch>/install/c7/../tools/unset.sh C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c7/qompack-plugin-0.3.0-windows-amd64/bin/qompack.exe status --json
+cwd: <scratch>/install/c7/uat01/proj

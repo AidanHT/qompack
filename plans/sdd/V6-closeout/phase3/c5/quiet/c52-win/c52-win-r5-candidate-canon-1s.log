@@ -1,0 +1,9 @@
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/canon
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkRun_Bash100KB-22     	     450	   2285509 ns/op	  44.81 MB/s	 1062504 B/op	      37 allocs/op
+BenchmarkRun_GoTest-22        	    2138	    712719 ns/op	  16.73 MB/s	  516859 B/op	     169 allocs/op
+BenchmarkRun_KeepDeltas-22    	     537	   2261206 ns/op	  45.29 MB/s	 1062592 B/op	      37 allocs/op
+BenchmarkRestore_100KB-22     	   62079	     27011 ns/op	3791.33 MB/s	  106496 B/op	       1 allocs/op
+PASS

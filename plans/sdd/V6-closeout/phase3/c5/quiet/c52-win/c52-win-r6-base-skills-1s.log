@@ -1,0 +1,6 @@
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/skills
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkIndex-22    	     373	   3415989 ns/op	  276032 B/op	    1225 allocs/op
+PASS

@@ -1,0 +1,4 @@
+at 2026-10-02T15:55:34.154-04:00
+config.json existed before: False
+wrote <project>/.qompack/config.json (52 bytes, sha256 413f853e08cd2287ae02a1bb046a41307f54ccb773949d25f3d870893ff7ecb2):
+{"runtime": {"migration": {"settingsVersion": 99}}}

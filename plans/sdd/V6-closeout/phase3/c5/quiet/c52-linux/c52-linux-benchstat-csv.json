@@ -1,0 +1,24 @@
+{
+  "id": "c52-linux-benchstat-csv",
+  "cwd": "C:/Users/Quant/Documents/Programming/Projects/qompack-cx-cand",
+  "argv": [
+    "go",
+    "run",
+    "-modfile=tools/pinned/go.mod",
+    "golang.org/x/perf/cmd/benchstat",
+    "-format",
+    "csv",
+    "base=C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c5/quiet/c52-linux/base.txt",
+    "candidate=C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c5/quiet/c52-linux/candidate.txt"
+  ],
+  "source_head": "0d06ab1233efb0fd5be8c99dc453e1aa2ee071af",
+  "source_dirty": "",
+  "environment": {
+    "GOPATH": "C:\\Users\\Quant\\go"
+  },
+  "started_at": "2026-10-01T05:56:24-04:00",
+  "ended_at": "2026-10-01T05:56:24-04:00",
+  "exit_code": 0,
+  "log": "c52-linux-benchstat-csv.log",
+  "log_sha256": "eb6988375f16aebb480c46dd1db5595f726496ac1280d753ec5cd9c018f9b9c8"
+}

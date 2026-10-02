@@ -1,0 +1,5 @@
+github.com/qompack/qompack/internal/store
+github.com/qompack/qompack/internal/negknow
+github.com/qompack/qompack/internal/mcp
+github.com/qompack/qompack/internal/daemon
+github.com/qompack/qompack/test/integration

@@ -1,0 +1,10 @@
+run_id=cx-quiet-quiet-c52-prep-base-cf31e01-20261001T065119Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-cand
+rev=cf31e01f38f3d3ba4afd96c4c75db3e4b87d54cd
+commit=cf31e01f38f3d3ba4afd96c4c75db3e4b87d54cd
+bundle_sha256=e3a87c3ed8ca4bd3afb1cbcf695c024156e063237cadc16a52cc04596ae83b28
+host_started_utc=2026-10-01T06:51:22Z
+inner_args=--no-race --run ^$ --timeout 30m -- ./internal/canon ./internal/checkpoint ./internal/chunk ./internal/cli ./internal/config ./internal/daemon ./internal/dag ./internal/eval ./internal/negknow ./internal/obs ./internal/observer ./internal/paths ./internal/rules ./internal/scheduler ./internal/sketch ./internal/skills ./internal/store ./internal/symbols
+host_finished_utc=2026-10-01T06:51:41Z
+container_exit=0

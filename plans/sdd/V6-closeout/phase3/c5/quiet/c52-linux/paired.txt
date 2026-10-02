@@ -1,0 +1,91 @@
+C5.2 paired comparison (linux): per round, candidate/base of the median ns/op within the call.
+geomean < 1 means the candidate is faster; "faster k/n" counts rounds; p is the exact two-sided sign test.
+benchmark                                                  pairs        base   candidate  geomean  faster  sign p base allocs cand allocs  base p99  cand p99
+BenchmarkAdvanceSegment                                       10    21.72 ms    21.88 ms    0.994    4/10   0.754       6678       6306         -         -
+BenchmarkAssembleCandidates_2000ToolUses/cold                 10    1.199 ms    1.194 ms    0.989    6/10   0.754        536        536         -         -
+BenchmarkAssembleCandidates_2000ToolUses/warm                 10    4.371 us    3.894 us    0.979    6/10   0.754         11         11         -         -
+BenchmarkBOCDMarshal                                          10    16.95 us    16.69 us    0.987    5/10   1.000          1          1         -         -
+BenchmarkBOCDObserve_4Features/full_posterior                 10    24.12 us     23.9 us    0.992    5/10   1.000          2          2         -         -
+BenchmarkBOCDObserve_4Features/steady_state                   10    1.627 us    1.623 us    0.998    5/10   1.000          2          2         -         -
+BenchmarkBackwardSlice5000                                    10    293.8 us    292.7 us    1.006    4/10   0.754       1435       1435         -         -
+BenchmarkBeladyDetail_400Turns                                10    790.4 us    794.5 us    1.003    3/10   0.344       7598       7598         -         -
+BenchmarkBreakpointOPT_256Candidates                          10    546.7 us    541.9 us    0.991    7/10   0.344       5751       5751         -         -
+BenchmarkCompare_400Actions                                   10    514.7 us    516.7 us    1.011    4/10   0.754         48         48         -         -
+BenchmarkConfigLoad_ColdNoFiles                               10    215.1 us    219.7 us    1.022    3/10   0.344       2012       2031         -         -
+BenchmarkCountFold_4MiB                                    candidate only: no sample on base cf31e01f38f3, so no quiet before/after
+BenchmarkCrossingEdges                                        10    93.42 ns    95.32 ns    1.030    1/10   0.021          0          0         -         -
+BenchmarkEnclosing_100KB                                      10    1.104 ms    1.109 ms    1.007    5/10   1.000       2325       2325         -         -
+BenchmarkEvaluate                                          candidate only: no sample on base cf31e01f38f3, so no quiet before/after
+BenchmarkEvaluate_64Candidates                                10    3.096 us    3.096 us    1.001    3/10   0.344          6          6         -         -
+BenchmarkExtractDecisions                                     10    5.902 ms    5.732 ms    0.977    8/10   0.109      32646      32481         -         -
+BenchmarkExtract_100KB                                        10     1.11 ms    1.111 ms    1.001    4/10   0.754       2325       2325         -         -
+BenchmarkFeaturesFrom                                         10    18.03 us    18.05 us    0.994    5/10   1.000         39         39         -         -
+BenchmarkFinalize                                             10    34.37 ms    46.05 ms    1.331    0/10   0.002    22493.5    15825.5         -         -
+BenchmarkGC_50kObjects                                        10    375.1 ms    390.9 ms    1.029    5/10   1.000     495348     433658         -         -
+BenchmarkGearScan_1MiB                                        10    408.2 us    403.3 us    0.991    7/10   0.344          0          0         -         -
+BenchmarkGetChunk                                             10    23.37 us    20.44 us    0.866   10/10   0.002         15         10         -         -
+BenchmarkHistogram_Observe                                    10    9.751 ns    9.489 ns    0.966   10/10   0.002          0          0         -         -
+BenchmarkHookNoop_InProcess                                   10    565.1 us    523.4 us    0.938    9/10   0.021       4156       3795         -         -
+BenchmarkIndex                                                10    327.8 us    322.8 us    0.991    5/10   1.000        740        740         -         -
+BenchmarkIngestAccept                                         10    7.502 ms     7.61 ms    1.002    4/10   0.754          9          9         -         -
+BenchmarkIngestAcceptExternalized                          candidate only: no sample on base cf31e01f38f3, so no quiet before/after
+BenchmarkIngestAcceptLeased                                   10    18.67 ms    18.64 ms    0.998    6/10   0.754         72         76         -         -
+BenchmarkIngestMCPRealStore                                candidate only: no sample on base cf31e01f38f3, so no quiet before/after
+BenchmarkIsHome_AProjectBelowHome                          candidate only: no sample on base cf31e01f38f3, so no quiet before/after
+BenchmarkL0SketchUpdate                                       10    392.4 ns    391.5 ns    0.998    4/10   0.754          0          0         -         -
+BenchmarkMarkEncoded_100                                       9    122.2 us      120 us    0.996     7/9   0.180        301        301         -         -
+BenchmarkOnToolUse_FileRead64KB/AllNovel                      10    26.82 ms    23.26 ms    0.859   10/10   0.002      12622        546     36.86     30.72
+BenchmarkOnToolUse_FileRead64KB/Deduped                       10    10.68 ms    7.168 ms    0.672   10/10   0.002    15665.5      284.5     15.36     10.75
+BenchmarkOnToolUse_FileRead64KB/Delta                         10    25.78 ms    22.47 ms    0.869   10/10   0.002      12266        435     36.86     30.72
+BenchmarkOnToolUse_TestOutput256KB/AllNovel                   10    93.57 ms    78.89 ms    0.842   10/10   0.002      30983     7720.5     114.7      98.3
+BenchmarkOnToolUse_TestOutput256KB/Deduped                    10    39.53 ms     26.3 ms    0.664   10/10   0.002      26782       5995     49.15     32.77
+BenchmarkOnToolUse_TestOutput256KB/Delta                      10    71.41 ms       58 ms    0.812   10/10   0.002      28675       7196     90.11     73.73
+BenchmarkOnToolUse_TestOutput256KB_Leased/AllNovel         candidate only: no sample on base cf31e01f38f3, so no quiet before/after
+BenchmarkOnToolUse_TestOutput256KB_Leased/Deduped          candidate only: no sample on base cf31e01f38f3, so no quiet before/after
+BenchmarkOnToolUse_TestOutput256KB_Leased/Delta            candidate only: no sample on base cf31e01f38f3, so no quiet before/after
+BenchmarkOpen                                                 10    58.21 ms    76.97 ms    1.331    0/10   0.002     400437     260512         -         -
+BenchmarkOpenSpan_4KB_of_4MB                                  10    23.84 us    21.22 us    0.888   10/10   0.002         16         11         -         -
+BenchmarkOpenStore_50kRoots                                   10    291.4 ms    282.2 ms    0.975    9/10   0.021 1.0625e+06 1.06239e+06         -         -
+BenchmarkPathScoped                                           10    265.5 us    263.9 us    0.998    6/10   0.754       1979       1979         -         -
+BenchmarkPathsWriteAtomic_4KB                                 10    15.26 ms    14.95 ms    1.019    7/10   0.344         55         16         -         -
+BenchmarkPutBytes_100KB_Cold                                  10    23.89 ms    19.38 ms    0.818   10/10   0.002        687        316         -         -
+BenchmarkPutBytes_100KB_Cold_NoRedact                         10    23.49 ms    18.92 ms    0.809   10/10   0.002      685.5        315         -         -
+BenchmarkPutBytes_100KB_Warm                                  10    6.156 ms    2.337 ms    0.379   10/10   0.002         20         16         -         -
+BenchmarkPutBytes_100KB_Warm_KeepRaw/delta                    10    6.663 ms     2.59 ms    0.390   10/10   0.002         35         31         -         -
+BenchmarkPutBytes_100KB_Warm_KeepRaw/full                     10    786.9 us    739.9 us    0.943   10/10   0.002         24         23         -         -
+BenchmarkPutBytes_100KB_Warm_KeepRaw/verbatim                 10    6.624 ms    2.557 ms    0.387   10/10   0.002       19.5         16         -         -
+BenchmarkPutBytes_100KB_Warm_NoRedact                         10     5.73 ms     1.91 ms    0.333   10/10   0.002         17         14         -         -
+BenchmarkPutObject_NovelChunk                              candidate only: no sample on base cf31e01f38f3, so no quiet before/after
+BenchmarkRebuildBloom5000                                     10    843.4 us    853.7 us    1.005    4/10   0.754          4          4         -         -
+BenchmarkReclaimableIndexBuild_5000Blocks                     10    352.2 us    356.9 us    1.009    4/10   0.754         17         17         -         -
+BenchmarkRecord                                               10    35.55 us    34.55 us    0.975    9/10   0.021         72         70         -         -
+BenchmarkReferences_100KB_50Names                             10    170.1 us      169 us    1.010    4/10   0.754          8          8         -         -
+BenchmarkRestore_100KB                                        10    15.19 us     15.7 us    1.036    4/10   0.754          1          1         -         -
+BenchmarkRootHash_1000Chunks                                  10    20.86 us     20.9 us    0.997    5/10   1.000          1          1         -         -
+BenchmarkRun_Bash100KB                                        10     2.64 ms    2.018 ms    0.767   10/10   0.002         38         36         -         -
+BenchmarkRun_GoTest                                           10    846.1 us    619.8 us    0.732   10/10   0.002        285        168         -         -
+BenchmarkRun_KeepDeltas                                       10     2.65 ms    2.034 ms    0.770   10/10   0.002       38.5         36         -         -
+BenchmarkRuntimeEvaluate_2000ToolUses_32Candidates/cold       10     2.09 ms    2.062 ms    0.997    6/10   0.754       1970       1970         -         -
+BenchmarkRuntimeEvaluate_2000ToolUses_32Candidates/warm       10    13.47 us    14.27 us    1.035    2/10   0.109         25         25         -         -
+BenchmarkSchedulerTap_ObserveTool                             10    31.67 us    31.59 us    0.970    6/10   0.754         73         73         -         -
+BenchmarkSearch_1000Roots                                     10    14.73 ms    7.022 ms    0.477   10/10   0.002    25637.5       7747         -         -
+BenchmarkSearch_1000Roots_DistinctChunks                   candidate only: no sample on base cf31e01f38f3, so no quiet before/after
+BenchmarkSplitStream_4MiB                                     10    4.389 ms    4.362 ms    0.992    6/10   0.754          6          6         -         -
+BenchmarkSplit_100KB                                          10    89.06 us    88.66 us    0.993    6/10   0.754          2          2         -         -
+BenchmarkSplit_1MiB                                           10    925.1 us    930.6 us    1.002    4/10   0.754          2          2         -         -
+BenchmarkStripInjections                                      10    209.3 us      131 us    0.629   10/10   0.002         14         14         -         -
+BenchmarkSynthesize_320Turns                                  10    300.3 us      300 us    1.007    4/10   0.754       2999       2999         -         -
+BenchmarkTombstone                                            10    300.1 ns    295.2 ns    0.986    9/10   0.021          6          6         -         -
+BenchmarkTruncate                                             10    1.155 ms    1.015 ms    0.868   10/10   0.002       1571       1562         -         -
+
+Completeness (10 ns/op samples expected per side and full name; NO-RESULT/SHORT fail the step):
+BenchmarkSearch_1000Roots_DistinctChunks                   not on base cf31e01f38f3: candidate only, no quiet before/after
+BenchmarkPutObject_NovelChunk                              not on base cf31e01f38f3: candidate only, no quiet before/after
+BenchmarkCountFold_4MiB                                    not on base cf31e01f38f3: candidate only, no quiet before/after
+BenchmarkMarkEncoded_100                                   SHORT on candidate (BenchmarkMarkEncoded_100=9)
+BenchmarkOnToolUse_TestOutput256KB_Leased                  not on base cf31e01f38f3: candidate only, no quiet before/after
+BenchmarkIngestMCPRealStore                                not on base cf31e01f38f3: candidate only, no quiet before/after
+BenchmarkIngestAcceptExternalized                          not on base cf31e01f38f3: candidate only, no quiet before/after
+BenchmarkIsHome_AProjectBelowHome                          not on base cf31e01f38f3: candidate only, no quiet before/after
+BenchmarkEvaluate                                          not on base cf31e01f38f3: candidate only, no quiet before/after
+1 incomplete side(s)

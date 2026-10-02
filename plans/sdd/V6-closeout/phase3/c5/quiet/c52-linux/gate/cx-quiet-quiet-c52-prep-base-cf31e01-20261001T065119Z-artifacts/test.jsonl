@@ -1,0 +1,90 @@
+{"Time":"2026-10-01T06:51:29.730169747Z","Action":"start","Package":"github.com/qompack/qompack/internal/canon"}
+{"Time":"2026-10-01T06:51:29.737148787Z","Action":"output","Package":"github.com/qompack/qompack/internal/canon","Output":"testing: warning: no tests to run\n"}
+{"Time":"2026-10-01T06:51:29.737282965Z","Action":"output","Package":"github.com/qompack/qompack/internal/canon","Output":"PASS\n"}
+{"Time":"2026-10-01T06:51:29.737767655Z","Action":"output","Package":"github.com/qompack/qompack/internal/canon","Output":"ok  \tgithub.com/qompack/qompack/internal/canon\t0.007s [no tests to run]\n"}
+{"Time":"2026-10-01T06:51:29.737826014Z","Action":"pass","Package":"github.com/qompack/qompack/internal/canon","Elapsed":0.008}
+{"Time":"2026-10-01T06:51:30.658448651Z","Action":"start","Package":"github.com/qompack/qompack/internal/checkpoint"}
+{"Time":"2026-10-01T06:51:30.665386805Z","Action":"output","Package":"github.com/qompack/qompack/internal/checkpoint","Output":"testing: warning: no tests to run\n"}
+{"Time":"2026-10-01T06:51:30.665470325Z","Action":"output","Package":"github.com/qompack/qompack/internal/checkpoint","Output":"PASS\n"}
+{"Time":"2026-10-01T06:51:30.6659899Z","Action":"output","Package":"github.com/qompack/qompack/internal/checkpoint","Output":"ok  \tgithub.com/qompack/qompack/internal/checkpoint\t0.007s [no tests to run]\n"}
+{"Time":"2026-10-01T06:51:30.666029777Z","Action":"pass","Package":"github.com/qompack/qompack/internal/checkpoint","Elapsed":0.008}
+{"Time":"2026-10-01T06:51:30.863177355Z","Action":"start","Package":"github.com/qompack/qompack/internal/chunk"}
+{"Time":"2026-10-01T06:51:30.870704831Z","Action":"output","Package":"github.com/qompack/qompack/internal/chunk","Output":"testing: warning: no tests to run\n"}
+{"Time":"2026-10-01T06:51:30.870802905Z","Action":"output","Package":"github.com/qompack/qompack/internal/chunk","Output":"PASS\n"}
+{"Time":"2026-10-01T06:51:30.871376261Z","Action":"output","Package":"github.com/qompack/qompack/internal/chunk","Output":"ok  \tgithub.com/qompack/qompack/internal/chunk\t0.008s [no tests to run]\n"}
+{"Time":"2026-10-01T06:51:30.871410773Z","Action":"pass","Package":"github.com/qompack/qompack/internal/chunk","Elapsed":0.008}
+{"Time":"2026-10-01T06:51:32.300779431Z","Action":"start","Package":"github.com/qompack/qompack/internal/cli"}
+{"Time":"2026-10-01T06:51:32.305092615Z","Action":"output","Package":"github.com/qompack/qompack/internal/cli","Output":"testing: warning: no tests to run\n"}
+{"Time":"2026-10-01T06:51:32.305161697Z","Action":"output","Package":"github.com/qompack/qompack/internal/cli","Output":"PASS\n"}
+{"Time":"2026-10-01T06:51:32.305469653Z","Action":"output","Package":"github.com/qompack/qompack/internal/cli","Output":"ok  \tgithub.com/qompack/qompack/internal/cli\t0.005s [no tests to run]\n"}
+{"Time":"2026-10-01T06:51:32.305492243Z","Action":"pass","Package":"github.com/qompack/qompack/internal/cli","Elapsed":0.005}
+{"Time":"2026-10-01T06:51:32.307213244Z","Action":"start","Package":"github.com/qompack/qompack/internal/config"}
+{"Time":"2026-10-01T06:51:32.310334743Z","Action":"output","Package":"github.com/qompack/qompack/internal/config","Output":"testing: warning: no tests to run\n"}
+{"Time":"2026-10-01T06:51:32.310397979Z","Action":"output","Package":"github.com/qompack/qompack/internal/config","Output":"PASS\n"}
+{"Time":"2026-10-01T06:51:32.310860406Z","Action":"output","Package":"github.com/qompack/qompack/internal/config","Output":"ok  \tgithub.com/qompack/qompack/internal/config\t0.004s [no tests to run]\n"}
+{"Time":"2026-10-01T06:51:32.310895849Z","Action":"pass","Package":"github.com/qompack/qompack/internal/config","Elapsed":0.004}
+{"Time":"2026-10-01T06:51:36.679122675Z","Action":"start","Package":"github.com/qompack/qompack/internal/daemon"}
+{"Time":"2026-10-01T06:51:36.683808185Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Output":"testing: warning: no tests to run\n"}
+{"Time":"2026-10-01T06:51:36.68388451Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Output":"PASS\n"}
+{"Time":"2026-10-01T06:51:36.684367411Z","Action":"output","Package":"github.com/qompack/qompack/internal/daemon","Output":"ok  \tgithub.com/qompack/qompack/internal/daemon\t0.005s [no tests to run]\n"}
+{"Time":"2026-10-01T06:51:36.684398286Z","Action":"pass","Package":"github.com/qompack/qompack/internal/daemon","Elapsed":0.005}
+{"Time":"2026-10-01T06:51:36.686958925Z","Action":"start","Package":"github.com/qompack/qompack/internal/dag"}
+{"Time":"2026-10-01T06:51:36.689999836Z","Action":"output","Package":"github.com/qompack/qompack/internal/dag","Output":"testing: warning: no tests to run\n"}
+{"Time":"2026-10-01T06:51:36.690057896Z","Action":"output","Package":"github.com/qompack/qompack/internal/dag","Output":"PASS\n"}
+{"Time":"2026-10-01T06:51:36.690605895Z","Action":"output","Package":"github.com/qompack/qompack/internal/dag","Output":"ok  \tgithub.com/qompack/qompack/internal/dag\t0.004s [no tests to run]\n"}
+{"Time":"2026-10-01T06:51:36.690628133Z","Action":"pass","Package":"github.com/qompack/qompack/internal/dag","Elapsed":0.004}
+{"Time":"2026-10-01T06:51:36.691517325Z","Action":"start","Package":"github.com/qompack/qompack/internal/eval"}
+{"Time":"2026-10-01T06:51:36.696955021Z","Action":"output","Package":"github.com/qompack/qompack/internal/eval","Output":"testing: warning: no tests to run\n"}
+{"Time":"2026-10-01T06:51:36.69700294Z","Action":"output","Package":"github.com/qompack/qompack/internal/eval","Output":"PASS\n"}
+{"Time":"2026-10-01T06:51:36.697286387Z","Action":"output","Package":"github.com/qompack/qompack/internal/eval","Output":"ok  \tgithub.com/qompack/qompack/internal/eval\t0.006s [no tests to run]\n"}
+{"Time":"2026-10-01T06:51:36.697312499Z","Action":"pass","Package":"github.com/qompack/qompack/internal/eval","Elapsed":0.006}
+{"Time":"2026-10-01T06:51:36.698504486Z","Action":"start","Package":"github.com/qompack/qompack/internal/negknow"}
+{"Time":"2026-10-01T06:51:36.704262601Z","Action":"output","Package":"github.com/qompack/qompack/internal/negknow","Output":"testing: warning: no tests to run\n"}
+{"Time":"2026-10-01T06:51:36.704324606Z","Action":"output","Package":"github.com/qompack/qompack/internal/negknow","Output":"PASS\n"}
+{"Time":"2026-10-01T06:51:36.705012113Z","Action":"output","Package":"github.com/qompack/qompack/internal/negknow","Output":"ok  \tgithub.com/qompack/qompack/internal/negknow\t0.006s [no tests to run]\n"}
+{"Time":"2026-10-01T06:51:36.705036484Z","Action":"pass","Package":"github.com/qompack/qompack/internal/negknow","Elapsed":0.007}
+{"Time":"2026-10-01T06:51:36.70716401Z","Action":"start","Package":"github.com/qompack/qompack/internal/obs"}
+{"Time":"2026-10-01T06:51:36.711074977Z","Action":"output","Package":"github.com/qompack/qompack/internal/obs","Output":"testing: warning: no tests to run\n"}
+{"Time":"2026-10-01T06:51:36.71124641Z","Action":"output","Package":"github.com/qompack/qompack/internal/obs","Output":"PASS\n"}
+{"Time":"2026-10-01T06:51:36.711460844Z","Action":"output","Package":"github.com/qompack/qompack/internal/obs","Output":"ok  \tgithub.com/qompack/qompack/internal/obs\t0.004s [no tests to run]\n"}
+{"Time":"2026-10-01T06:51:36.711488976Z","Action":"pass","Package":"github.com/qompack/qompack/internal/obs","Elapsed":0.004}
+{"Time":"2026-10-01T06:51:36.712654165Z","Action":"start","Package":"github.com/qompack/qompack/internal/observer"}
+{"Time":"2026-10-01T06:51:36.719418706Z","Action":"output","Package":"github.com/qompack/qompack/internal/observer","Output":"testing: warning: no tests to run\n"}
+{"Time":"2026-10-01T06:51:36.719523039Z","Action":"output","Package":"github.com/qompack/qompack/internal/observer","Output":"PASS\n"}
+{"Time":"2026-10-01T06:51:36.720238931Z","Action":"output","Package":"github.com/qompack/qompack/internal/observer","Output":"ok  \tgithub.com/qompack/qompack/internal/observer\t0.008s [no tests to run]\n"}
+{"Time":"2026-10-01T06:51:36.720293959Z","Action":"pass","Package":"github.com/qompack/qompack/internal/observer","Elapsed":0.008}
+{"Time":"2026-10-01T06:51:36.723418502Z","Action":"start","Package":"github.com/qompack/qompack/internal/paths"}
+{"Time":"2026-10-01T06:51:36.729880297Z","Action":"output","Package":"github.com/qompack/qompack/internal/paths","Output":"testing: warning: no tests to run\n"}
+{"Time":"2026-10-01T06:51:36.730057398Z","Action":"output","Package":"github.com/qompack/qompack/internal/paths","Output":"PASS\n"}
+{"Time":"2026-10-01T06:51:36.730605559Z","Action":"output","Package":"github.com/qompack/qompack/internal/paths","Output":"ok  \tgithub.com/qompack/qompack/internal/paths\t0.007s [no tests to run]\n"}
+{"Time":"2026-10-01T06:51:36.730673369Z","Action":"pass","Package":"github.com/qompack/qompack/internal/paths","Elapsed":0.007}
+{"Time":"2026-10-01T06:51:36.733121107Z","Action":"start","Package":"github.com/qompack/qompack/internal/rules"}
+{"Time":"2026-10-01T06:51:36.737653166Z","Action":"output","Package":"github.com/qompack/qompack/internal/rules","Output":"testing: warning: no tests to run\n"}
+{"Time":"2026-10-01T06:51:36.737787258Z","Action":"output","Package":"github.com/qompack/qompack/internal/rules","Output":"PASS\n"}
+{"Time":"2026-10-01T06:51:36.738422075Z","Action":"output","Package":"github.com/qompack/qompack/internal/rules","Output":"ok  \tgithub.com/qompack/qompack/internal/rules\t0.005s [no tests to run]\n"}
+{"Time":"2026-10-01T06:51:36.738483027Z","Action":"pass","Package":"github.com/qompack/qompack/internal/rules","Elapsed":0.005}
+{"Time":"2026-10-01T06:51:36.741152496Z","Action":"start","Package":"github.com/qompack/qompack/internal/scheduler"}
+{"Time":"2026-10-01T06:51:36.747020618Z","Action":"output","Package":"github.com/qompack/qompack/internal/scheduler","Output":"testing: warning: no tests to run\n"}
+{"Time":"2026-10-01T06:51:36.747185472Z","Action":"output","Package":"github.com/qompack/qompack/internal/scheduler","Output":"PASS\n"}
+{"Time":"2026-10-01T06:51:36.747460246Z","Action":"output","Package":"github.com/qompack/qompack/internal/scheduler","Output":"ok  \tgithub.com/qompack/qompack/internal/scheduler\t0.006s [no tests to run]\n"}
+{"Time":"2026-10-01T06:51:36.747505855Z","Action":"pass","Package":"github.com/qompack/qompack/internal/scheduler","Elapsed":0.006}
+{"Time":"2026-10-01T06:51:40.294641959Z","Action":"start","Package":"github.com/qompack/qompack/internal/sketch"}
+{"Time":"2026-10-01T06:51:40.29488171Z","Action":"start","Package":"github.com/qompack/qompack/internal/skills"}
+{"Time":"2026-10-01T06:51:40.297951611Z","Action":"output","Package":"github.com/qompack/qompack/internal/skills","Output":"testing: warning: no tests to run\n"}
+{"Time":"2026-10-01T06:51:40.298126812Z","Action":"output","Package":"github.com/qompack/qompack/internal/skills","Output":"PASS\n"}
+{"Time":"2026-10-01T06:51:40.298387968Z","Action":"output","Package":"github.com/qompack/qompack/internal/skills","Output":"ok  \tgithub.com/qompack/qompack/internal/skills\t0.003s [no tests to run]\n"}
+{"Time":"2026-10-01T06:51:40.298427822Z","Action":"pass","Package":"github.com/qompack/qompack/internal/skills","Elapsed":0.004}
+{"Time":"2026-10-01T06:51:40.299797888Z","Action":"output","Package":"github.com/qompack/qompack/internal/sketch","Output":"testing: warning: no tests to run\n"}
+{"Time":"2026-10-01T06:51:40.299881151Z","Action":"output","Package":"github.com/qompack/qompack/internal/sketch","Output":"PASS\n"}
+{"Time":"2026-10-01T06:51:40.300352002Z","Action":"output","Package":"github.com/qompack/qompack/internal/sketch","Output":"ok  \tgithub.com/qompack/qompack/internal/sketch\t0.006s [no tests to run]\n"}
+{"Time":"2026-10-01T06:51:40.300375401Z","Action":"pass","Package":"github.com/qompack/qompack/internal/sketch","Elapsed":0.006}
+{"Time":"2026-10-01T06:51:41.165617185Z","Action":"start","Package":"github.com/qompack/qompack/internal/store"}
+{"Time":"2026-10-01T06:51:41.165671691Z","Action":"start","Package":"github.com/qompack/qompack/internal/symbols"}
+{"Time":"2026-10-01T06:51:41.169103047Z","Action":"output","Package":"github.com/qompack/qompack/internal/symbols","Output":"testing: warning: no tests to run\n"}
+{"Time":"2026-10-01T06:51:41.169148304Z","Action":"output","Package":"github.com/qompack/qompack/internal/symbols","Output":"PASS\n"}
+{"Time":"2026-10-01T06:51:41.169532907Z","Action":"output","Package":"github.com/qompack/qompack/internal/symbols","Output":"ok  \tgithub.com/qompack/qompack/internal/symbols\t0.004s [no tests to run]\n"}
+{"Time":"2026-10-01T06:51:41.169547804Z","Action":"pass","Package":"github.com/qompack/qompack/internal/symbols","Elapsed":0.004}
+{"Time":"2026-10-01T06:51:41.170451775Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Output":"testing: warning: no tests to run\n"}
+{"Time":"2026-10-01T06:51:41.170490438Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Output":"PASS\n"}
+{"Time":"2026-10-01T06:51:41.170838938Z","Action":"output","Package":"github.com/qompack/qompack/internal/store","Output":"ok  \tgithub.com/qompack/qompack/internal/store\t0.005s [no tests to run]\n"}
+{"Time":"2026-10-01T06:51:41.170857988Z","Action":"pass","Package":"github.com/qompack/qompack/internal/store","Elapsed":0.005}

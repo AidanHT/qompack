@@ -1,0 +1,18 @@
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/store
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkPutBytes_100KB_Warm_NoRedact-22    	     154	   9168677 ns/op	  11.17 MB/s	  910840 B/op	      18 allocs/op
+BenchmarkPutBytes_100KB_Cold_NoRedact-22    	      25	  51754908 ns/op	   1.98 MB/s	 9305834 B/op	    1136 allocs/op
+BenchmarkPutBytes_100KB_Cold-22             	      24	  57578408 ns/op	   1.78 MB/s	 6911805 B/op	    1212 allocs/op
+BenchmarkPutBytes_100KB_Warm-22             	      63	  16775151 ns/op	   6.10 MB/s	 1009050 B/op	      16 allocs/op
+BenchmarkPutBytes_100KB_Warm_KeepRaw/verbatim-22         	      78	  18264338 ns/op	   5.61 MB/s	 1011294 B/op	      16 allocs/op
+BenchmarkPutBytes_100KB_Warm_KeepRaw/delta-22            	      57	  18440781 ns/op	   5.55 MB/s	 1117247 B/op	      31 allocs/op
+BenchmarkPutBytes_100KB_Warm_KeepRaw/full-22             	     602	   2060196 ns/op	  49.71 MB/s	  636102 B/op	      24 allocs/op
+BenchmarkGetChunk-22                                     	    3366	    353762 ns/op	   22298 B/op	      22 allocs/op
+BenchmarkOpenSpan_4KB_of_4MB-22                          	    3001	    346362 ns/op	   22527 B/op	      23 allocs/op
+BenchmarkOpenStore_50kRoots-22                           	       2	 868100550 ns/op	97470884 B/op	 1062889 allocs/op
+BenchmarkGC_50kObjects-22                                	       1	5281859200 ns/op	63738088 B/op	  621165 allocs/op
+BenchmarkSearch_1000Roots-22                             	       8	 157200312 ns/op	18625279 B/op	   36474 allocs/op
+BenchmarkMarkEncoded_100-22                              	    3049	    432386 ns/op	   16897 B/op	     301 allocs/op
+PASS

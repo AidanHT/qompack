@@ -1,0 +1,35 @@
+{
+ "bin": "C:/Users/Quant/AppData/Roaming/npm/node_modules/@anthropic-ai/claude-code/bin/claude.exe",
+ "args": [
+  "-p",
+  "--input-format",
+  "stream-json",
+  "--output-format",
+  "stream-json",
+  "--verbose",
+  "--include-hook-events",
+  "--model",
+  "claude-haiku-4-5-20251001",
+  "--max-turns",
+  "10",
+  "--setting-sources",
+  "project,local",
+  "--permission-mode",
+  "dontAsk",
+  "--allowedTools",
+  "Read,mcp__plugin_qompack_qompack__recall,mcp__plugin_qompack_qompack__expand,mcp__plugin_qompack_qompack__re_read,mcp__plugin_qompack_qompack__already_tried,mcp__plugin_qompack_qompack__record_eliminated,mcp__plugin_qompack_qompack__timeline,mcp__plugin_qompack_qompack__why,mcp__plugin_qompack_qompack__dropped,Bash(qompack status:*),Bash(qompack recall:*),Bash(qompack pin:*),Bash(qompack why:*),Bash(qompack dropped:*),Bash(qompack eval:*)"
+ ],
+ "cwd": "<scratch>/install/c7/c48/proj",
+ "out": "<scratch>/install/c7/c48/sC",
+ "env": {
+  "ENABLE_CLAUDEAI_MCP_SERVERS": "false",
+  "QOMPACK_HOME": "<scratch>/install/c7/qhome",
+  "QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS": "30"
+ },
+ "messages": [
+  "Call mcp__plugin_qompack_qompack__re_read with path \"README.md\", then mcp__plugin_qompack_qompack__already_tried with target \"calc.py:parse_row\" and approach \"pandas.read_csv with sep=','\". Do not use the Read tool. Reply in one sentence with the code word re_read returned, the turn it reports, and the already_tried state.",
+  "Call mcp__plugin_qompack_qompack__recall with query \"OSPREY-HALYARD\". Then list every hit in rank order, one per line, as: rank, tool name, path (or tool_use_id if there is no path). Nothing else."
+ ],
+ "timeout_s": 1200,
+ "scrub": "<scratch>"
+}

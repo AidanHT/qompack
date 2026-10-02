@@ -1,0 +1,71 @@
+quiet.sh 2026-10-01T03:11:54Z
+candidate=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-cand head=0d06ab1233efb0fd5be8c99dc453e1aa2ee071af
+base=cf31e01 resolved=cf31e01f38f3d3ba4afd96c4c75db3e4b87d54cd
+steps=c51-win c51-linux c52-win c52-linux
+iterations=5000 rounds=10 percall=1 benchtime=per row pkgs=all filter=none
+QOMPACK_UNDER_COLOAD unset; work=C:/Users/Quant/AppData/Local/Temp/tmp.MWJhl7jum3 container=qompack-v6-linux-verification user=qompack-test
+go version go1.26.6 windows/amd64
+22
+candidate repo git status --porcelain (tracked changes refused above):
+  (clean)
+load before-c51-win 03:12:05Z: windows_cpu_pct=39 linux_loadavg=3.67 4.06 3.34 2/1270 50004
+WARNING: host not idle at before-c51-win (windows_cpu_pct 39 > 15; linux 1-min load 3.67 > 1.0); timings from here may not be quiet
+load after-c51-win 03:16:08Z: windows_cpu_pct=14 linux_loadavg=0.88 2.10 2.68 3/1271 50010
+load after-c51-win-bf 03:17:19Z: windows_cpu_pct=14 linux_loadavg=0.65 1.78 2.53 5/1268 50016
+step c51-win exit=0
+gate prep quiet-c51-prep (candidate 0d06ab1233ef) exit=0 run_id=cx-quiet-quiet-c51-prep-0d06ab1-20261001T031720Z
+load before-c51-linux 03:17:38Z: windows_cpu_pct=11 linux_loadavg=1.70 1.94 2.56 2/1269 50634
+WARNING: host not idle at before-c51-linux (linux 1-min load 1.70 > 1.0); timings from here may not be quiet
+load after-c51-linux 03:18:53Z: windows_cpu_pct=5 linux_loadavg=2.82 2.30 2.64 2/1274 77454
+WARNING: host not idle at after-c51-linux (linux 1-min load 2.82 > 1.0); timings from here may not be quiet
+load after-c51-linux-bf 03:19:47Z: windows_cpu_pct=22 linux_loadavg=2.25 2.21 2.59 3/1269 77967
+WARNING: host not idle at after-c51-linux-bf (windows_cpu_pct 22 > 15; linux 1-min load 2.25 > 1.0); timings from here may not be quiet
+c51-linux B-F gate run exit=0 run_id=cx-quiet-quiet-c51-bf-0d06ab1-20261001T031854Z
+step c51-linux exit=1
+c52-win: base has none of internal/hostperm's benchmarks; not built
+load before-c52-win 03:22:32Z: windows_cpu_pct=1 linux_loadavg=0.27 1.34 2.19 2/1270 77973
+load after-c52-win-round-1 03:43:28Z: windows_cpu_pct=27 linux_loadavg=0.20 0.34 0.80 5/1271 77979
+WARNING: host not idle at after-c52-win-round-1 (windows_cpu_pct 27 > 15); timings from here may not be quiet
+load after-c52-win-round-2 04:11:16Z: windows_cpu_pct=10 linux_loadavg=0.21 0.68 0.84 5/1273 77986
+load after-c52-win-round-3 04:34:56Z: windows_cpu_pct=0 linux_loadavg=1.08 0.69 0.70 2/1270 77992
+WARNING: host not idle at after-c52-win-round-3 (linux 1-min load 1.08 > 1.0); timings from here may not be quiet
+load after-c52-win-round-4 05:03:24Z: windows_cpu_pct=24 linux_loadavg=0.66 0.39 0.45 3/1269 77998
+WARNING: host not idle at after-c52-win-round-4 (windows_cpu_pct 24 > 15); timings from here may not be quiet
+load after-c52-win-round-5 05:23:34Z: windows_cpu_pct=6 linux_loadavg=0.33 0.47 0.61 2/1273 78004
+load after-c52-win-round-6 05:42:14Z: windows_cpu_pct=18 linux_loadavg=0.07 0.30 0.45 4/1272 78010
+WARNING: host not idle at after-c52-win-round-6 (windows_cpu_pct 18 > 15); timings from here may not be quiet
+load after-c52-win-round-7 05:59:35Z: windows_cpu_pct=4 linux_loadavg=0.45 0.38 0.35 3/1275 78016
+load after-c52-win-round-8 06:16:53Z: windows_cpu_pct=17 linux_loadavg=0.11 0.12 0.18 3/1273 78022
+WARNING: host not idle at after-c52-win-round-8 (windows_cpu_pct 17 > 15); timings from here may not be quiet
+load after-c52-win-round-9 06:34:08Z: windows_cpu_pct=12 linux_loadavg=0.10 0.45 0.47 5/1272 78028
+load after-c52-win-round-10 06:51:09Z: windows_cpu_pct=0 linux_loadavg=0.17 0.41 0.42 2/1273 78034
+c52-win paired analysis and completeness exit=0
+step c52-win exit=1
+gate prep quiet-c52-prep-base (base cf31e01f38f3) exit=0 run_id=cx-quiet-quiet-c52-prep-base-cf31e01-20261001T065119Z
+gate prep quiet-c52-prep-candidate (candidate 0d06ab1233ef) exit=0 run_id=cx-quiet-quiet-c52-prep-candidate-0d06ab1-20261001T065203Z
+load before-c52-linux 06:53:16Z: windows_cpu_pct=15 linux_loadavg=2.29 1.30 0.75 9/1287 84666
+WARNING: host not idle at before-c52-linux (linux 1-min load 2.29 > 1.0); timings from here may not be quiet
+load after-c52-linux-round-1 07:11:00Z: windows_cpu_pct=0 linux_loadavg=1.19 1.75 1.55 4/1282 85311
+WARNING: host not idle at after-c52-linux-round-1 (linux 1-min load 1.19 > 1.0); timings from here may not be quiet
+load after-c52-linux-round-2 07:29:38Z: windows_cpu_pct=8 linux_loadavg=1.12 1.63 1.75 3/1271 85957
+WARNING: host not idle at after-c52-linux-round-2 (linux 1-min load 1.12 > 1.0); timings from here may not be quiet
+load after-c52-linux-round-3 07:48:28Z: windows_cpu_pct=6 linux_loadavg=1.20 1.74 1.92 5/1272 86603
+WARNING: host not idle at after-c52-linux-round-3 (linux 1-min load 1.20 > 1.0); timings from here may not be quiet
+load after-c52-linux-round-4 08:07:44Z: windows_cpu_pct=1 linux_loadavg=1.26 1.76 1.96 4/1271 87251
+WARNING: host not idle at after-c52-linux-round-4 (linux 1-min load 1.26 > 1.0); timings from here may not be quiet
+load after-c52-linux-round-5 08:26:00Z: windows_cpu_pct=16 linux_loadavg=1.29 1.72 1.86 4/1272 87897
+WARNING: host not idle at after-c52-linux-round-5 (windows_cpu_pct 16 > 15; linux 1-min load 1.29 > 1.0); timings from here may not be quiet
+load after-c52-linux-round-6 08:44:09Z: windows_cpu_pct=3 linux_loadavg=1.37 1.70 1.82 1/1270 88542
+WARNING: host not idle at after-c52-linux-round-6 (linux 1-min load 1.37 > 1.0); timings from here may not be quiet
+load after-c52-linux-round-7 09:02:10Z: windows_cpu_pct=7 linux_loadavg=1.15 1.82 2.02 3/1272 89189
+WARNING: host not idle at after-c52-linux-round-7 (linux 1-min load 1.15 > 1.0); timings from here may not be quiet
+load after-c52-linux-round-8 09:20:18Z: windows_cpu_pct=15 linux_loadavg=1.52 1.90 1.98 1/1274 89834
+WARNING: host not idle at after-c52-linux-round-8 (linux 1-min load 1.52 > 1.0); timings from here may not be quiet
+load after-c52-linux-round-9 09:38:04Z: windows_cpu_pct=14 linux_loadavg=1.15 1.74 1.91 1/1272 90481
+WARNING: host not idle at after-c52-linux-round-9 (linux 1-min load 1.15 > 1.0); timings from here may not be quiet
+load after-c52-linux-round-10 09:56:07Z: windows_cpu_pct=10 linux_loadavg=1.35 1.66 1.82 7/1273 91126
+WARNING: host not idle at after-c52-linux-round-10 (linux 1-min load 1.35 > 1.0); timings from here may not be quiet
+c52-linux paired analysis and completeness exit=1
+c52-linux: incomplete rows, see C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c5/quiet/c52-linux/completeness.tsv (diagnostics: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c5/quiet/c52-linux/c52-linux-diag-*.log)
+step c52-linux exit=1
+WARNING: homeguard check reports a real-home difference; read C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c5/quiet/homeguard-check.txt

@@ -1,0 +1,36 @@
+<!-- qompack:injected seq=1 ver=1 -->
+# Qompack rehydration — checkpoint 0001, session 0eaa2666
+
+## 2. Original user intent (verbatim from L0 capture — never summarized)
+Evolution (most recent first):
+> Use the Read tool to read src/limiter.py and summarize it in one sentence.
+> Call mcp__plugin_qompack_qompack__record_eliminated with target "per-client rate limit", approach "100 requests per minute" and reason "superseded by the user's correction: 60 per minute". Report the raw result in one line.
+> Correction: the limit must be 60 requests per minute per client, not 100. The 100 figure is superseded. Acknowledge in one sentence.
+Original:
+> We are building a rate limiter for the Kite API gateway. Requirement: allow 100 requests per minute per client. First, run the Bash command `cat config/limits.txt` and tell me how many entries it lists. Do not repeat any values.
+
+## 3. Approaches already eliminated (top 1 of 1 by slice relevance)
+- per-client rate limit — "100 requests per minute" — superseded by the user's correction: 60 per minute [active] [evidence sha256:9dc92adf93c6cd9437ded678a9dddc2a37d5c713cb8d208761681f32d140b25f]
+Before committing to an approach, call already_tried.
+
+## 4. Decisions
+- [dec_991dbff588ec] (turn 5) rejected "100 requests per minute" for per-client rate limit
+  why: superseded by the user's correction: 60 per minute
+  rejected: 100 requests per minute
+  evidence: sha256:9dc92adf93c6cd9437ded678a9dddc2a37d5c713cb8d208761681f32d140b25f
+
+## 5. Current work
+goal: Use the Read tool to read src/limiter.py and summarize it in one sentence.
+blocked on: none
+
+## 6. Pointers (paths and hashes — contents are NOT restored; use expand/re_read)
+- src/limiter.py sha256:bae64e64b6ca23c15f149d77e615bf8259c969f21d3dcb42adc25d34640c5205 — referenced
+- tool_use toolu_012GBDKuGBdAWktJ3XTJ6CE5 sha256:1146bcb981c0cb2ad00a4ee882f53d77282d57e527bd0176b4237afa4b9c5e3b — {"max_results":1,"query":"select:mcp__plugin_qompack_qompack__record_eliminated"}
+- tool_use toolu_016uRicNA6rJS7Tdy5S5L6jr sha256:bae64e64b6ca23c15f149d77e615bf8259c969f21d3dcb42adc25d34640c5205 — <scratch>\sessions\c7\uat06\proj\src\limiter.py
+- tool_use toolu_018ekF7MeAp4vkTQHqrLJ68N sha256:d88856d2f134163a56b3296cef87ac093bcdc248cd79a919657421b1dfcee9c4 — cat config/limits.txt
+- tool_use toolu_01T7JpbfsrLas4VefWxqQeEC sha256:dd1a9abde2b00186f596111013d001781a66a5c957748b441df9b1bff0f942ab — {"approach":"100 requests per minute","reason":"superseded by the user's correction: 60 per minute","target":"per-cli…
+
+## 8. Retrieval
+Qompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().
+<!-- /qompack:injected -->
+<!-- qompack-contract-probe qompack-contract-21c5eea55794 -->

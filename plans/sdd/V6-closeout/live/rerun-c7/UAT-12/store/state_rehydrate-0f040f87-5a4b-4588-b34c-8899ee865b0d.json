@@ -1,0 +1,43 @@
+{
+  "session": "0f040f87-5a4b-4588-b34c-8899ee865b0d",
+  "seq": 1,
+  "emitted": 1790969719568,
+  "tokens": 1501,
+  "budget": 12000,
+  "items": [
+    {
+      "kind": "user_intent",
+      "rank": 0,
+      "tokens": 348,
+      "truncated": false,
+      "units": 6,
+      "units_seen": 6
+    },
+    {
+      "kind": "current_work",
+      "rank": 1,
+      "tokens": 38,
+      "truncated": false,
+      "units": 1,
+      "units_seen": 1
+    },
+    {
+      "kind": "pointers",
+      "rank": 2,
+      "tokens": 1029,
+      "truncated": false,
+      "units": 21,
+      "units_seen": 21
+    },
+    {
+      "kind": "affordance",
+      "rank": 3,
+      "tokens": 86,
+      "truncated": false,
+      "units": 1,
+      "units_seen": 1
+    }
+  ],
+  "dropped": [],
+  "degraded": false
+}

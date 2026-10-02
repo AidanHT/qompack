@@ -1,0 +1,8 @@
+{"v":1,"op":"open","id":1,"s":"d8d6f167-82da-4a52-abea-e8e4f340b39e","st":0,"sts":1790929886800}
+{"v":1,"op":"close","id":1,"et":3,"ets":1790929894126,"tok":558,"feat":{"gap_seconds":0,"lexical_cohesion":0,"path_jaccard":0,"prob_changepoint":0.0000034221108677987452,"todo_transition":0,"tool_shift":0}}
+{"v":1,"op":"open","id":2,"s":"d8d6f167-82da-4a52-abea-e8e4f340b39e","st":4,"sts":1790929894126}
+{"v":1,"op":"encode","id":1,"seq":1,"ts":1790929894155}
+{"v":1,"op":"close","id":2,"et":6,"ets":1790929912393,"tok":99,"feat":{"gap_seconds":0,"lexical_cohesion":0,"path_jaccard":0,"prob_changepoint":0.0000016986885903366764,"todo_transition":0,"tool_shift":0}}
+{"v":1,"op":"open","id":3,"s":"d8d6f167-82da-4a52-abea-e8e4f340b39e","st":7,"sts":1790929912393}
+{"v":1,"op":"encode","id":2,"seq":2,"ts":1790929912406}
+{"v":1,"op":"close","id":3,"et":12,"ets":1790929958001,"tok":261}

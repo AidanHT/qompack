@@ -1,0 +1,85 @@
+{
+ "args": [
+  "-p",
+  "--input-format",
+  "stream-json",
+  "--output-format",
+  "stream-json",
+  "--verbose",
+  "--include-hook-events",
+  "--model",
+  "claude-haiku-4-5-20251001",
+  "--max-turns",
+  "8",
+  "--setting-sources",
+  "project,local",
+  "--permission-mode",
+  "dontAsk",
+  "--allowedTools",
+  "Read,mcp__plugin_qompack_qompack__recall,mcp__plugin_qompack_qompack__expand,mcp__plugin_qompack_qompack__re_read,mcp__plugin_qompack_qompack__already_tried,mcp__plugin_qompack_qompack__record_eliminated,mcp__plugin_qompack_qompack__timeline,mcp__plugin_qompack_qompack__why,mcp__plugin_qompack_qompack__dropped,mcp__plugin_qompack-windows-amd64_qompack,mcp__plugin_qompack_windows_amd64_qompack,Bash(qompack status:*),Bash(qompack recall:*),Bash(qompack pin:*),Bash(qompack why:*),Bash(qompack dropped:*),Bash(qompack eval:*)"
+ ],
+ "turns": [
+  {
+   "msg": "Read README.md and tell me the project's code word, in one sentence.",
+   "ok": true,
+   "wall_s": 6.011,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 16768,
+    "WorkingSet64": 29417472,
+    "PeakWorkingSet64": 29417472,
+    "CPU": 0.0625,
+    "StartTime": "/Date(1790928397201)/"
+   },
+   "store_bytes": 97246
+  },
+  {
+   "msg": "/qompack:status",
+   "ok": true,
+   "wall_s": 10.018,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 16768,
+    "WorkingSet64": 68870144,
+    "PeakWorkingSet64": 68870144,
+    "CPU": 0.125,
+    "StartTime": "/Date(1790928397201)/"
+   },
+   "store_bytes": 116534
+  },
+  {
+   "msg": "Call Qompack's recall MCP tool with the query \"KESTREL\". Reply in one sentence: how many hits it returned and the tool name of the top hit.",
+   "ok": true,
+   "wall_s": 4.809,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 16768,
+    "WorkingSet64": 73011200,
+    "PeakWorkingSet64": 73011200,
+    "CPU": 0.1875,
+    "StartTime": "/Date(1790928397201)/"
+   },
+   "store_bytes": 159077
+  },
+  {
+   "msg": "Call Qompack's recall MCP tool again with exactly the same query \"KESTREL\". Then list every hit in rank order, one per line, as: rank, tool name, path (or tool_use_id if there is no path). Nothing else.",
+   "ok": true,
+   "wall_s": 4.609,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 16768,
+    "WorkingSet64": 74321920,
+    "PeakWorkingSet64": 74321920,
+    "CPU": 0.28125,
+    "StartTime": "/Date(1790928397201)/"
+   },
+   "store_bytes": 192185
+  }
+ ],
+ "store_bytes_before": 0,
+ "started_ms": 1790928394466,
+ "pid": 78652,
+ "exit": 0,
+ "wall_s": 28.261,
+ "store_bytes_after": 220643
+}

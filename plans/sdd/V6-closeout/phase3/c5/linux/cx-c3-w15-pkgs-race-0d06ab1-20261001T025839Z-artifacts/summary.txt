@@ -1,0 +1,6 @@
+PASS      github.com/qompack/qompack/internal/daemon  (pass=1628 fail=0 skip=1)
+PASS      github.com/qompack/qompack/internal/negknow  (pass=424 fail=0 skip=1)
+PASS      github.com/qompack/qompack/internal/mcp  (pass=439 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/rehydrate  (pass=239 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/checkpoint  (pass=480 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/store  (pass=899 fail=0 skip=4)

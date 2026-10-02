@@ -1,0 +1,15 @@
+goos: linux
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/daemon
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkIngestAccept-4                                	     162	   7248185 ns/op	     384 B/op	       9 allocs/op
+BenchmarkIngestAcceptLeased-4                          	      70	  18199753 ns/op	    8888 B/op	      76 allocs/op
+BenchmarkIngestAcceptExternalized-4                    	      72	  15052234 ns/op	    1798 B/op	      25 allocs/op
+BenchmarkFeaturesFrom-4                                	   64848	     17958 ns/op	   17056 B/op	      39 allocs/op
+BenchmarkReclaimableIndexBuild_5000Blocks-4            	    3418	    346024 ns/op	  364593 B/op	      17 allocs/op
+BenchmarkAssembleCandidates_2000ToolUses/cold-4        	     999	   1180378 ns/op	  931012 B/op	     536 allocs/op
+BenchmarkAssembleCandidates_2000ToolUses/warm-4        	  342684	      4528 ns/op	    9997 B/op	      11 allocs/op
+BenchmarkRuntimeEvaluate_2000ToolUses_32Candidates/warm-4         	   79730	     14522 ns/op	   46413 B/op	      25 allocs/op
+BenchmarkRuntimeEvaluate_2000ToolUses_32Candidates/cold-4         	     603	   2052815 ns/op	 1753925 B/op	    1970 allocs/op
+BenchmarkSchedulerTap_ObserveTool-4                               	   37198	     30355 ns/op	   20018 B/op	      73 allocs/op
+PASS

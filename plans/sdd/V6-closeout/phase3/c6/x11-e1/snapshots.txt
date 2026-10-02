@@ -1,0 +1,136 @@
+== e1-0207-r1-t1-ctl 2026-10-02T02:12:05-0400 power=AC 100
+supabase_studio_promptly Up 10 hours (healthy)
+supabase_pg_meta_promptly Up 10 hours (healthy)
+supabase_storage_promptly Up 10 hours (healthy)
+supabase_rest_promptly Up 10 hours
+supabase_realtime_promptly Up 10 hours (healthy)
+supabase_inbucket_promptly Up 10 hours (healthy)
+supabase_auth_promptly Up 10 hours (healthy)
+supabase_kong_promptly Up 10 hours (healthy)
+supabase_vector_promptly Restarting (0) 52 seconds ago
+supabase_analytics_promptly Up 10 hours (healthy)
+supabase_db_promptly Up 10 hours (healthy)
+freeMB=7860
+proc vmmemWSL pid=5876 start= wsMB=6753
+C: usedGB=1786 freeGB=120
+Power Scheme GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (Balanced)== e1-0207-r1-t1-x11 2026-10-02T02:18:46-0400 power=AC 100
+supabase_studio_promptly Up 10 hours (healthy)
+supabase_pg_meta_promptly Up 10 hours (healthy)
+supabase_storage_promptly Up 10 hours (healthy)
+supabase_rest_promptly Up 10 hours
+supabase_realtime_promptly Up 10 hours (healthy)
+supabase_inbucket_promptly Up 10 hours (healthy)
+supabase_auth_promptly Up 10 hours (healthy)
+supabase_kong_promptly Up 10 hours (healthy)
+supabase_vector_promptly Restarting (0) 31 seconds ago
+supabase_analytics_promptly Up 10 hours (healthy)
+supabase_db_promptly Up 10 hours (healthy)
+freeMB=7863
+proc vmmemWSL pid=5876 start= wsMB=6729
+C: usedGB=1787 freeGB=120
+Power Scheme GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (Balanced)== e1-0207-r1-t1-int 2026-10-02T02:34:02-0400 power=AC 100
+supabase_studio_promptly Up 10 hours (healthy)
+supabase_pg_meta_promptly Up 10 hours (healthy)
+supabase_storage_promptly Up 10 hours (healthy)
+supabase_rest_promptly Up 10 hours
+supabase_realtime_promptly Up 10 hours (healthy)
+supabase_inbucket_promptly Up 10 hours (healthy)
+supabase_auth_promptly Up 10 hours (healthy)
+supabase_kong_promptly Up 10 hours (healthy)
+supabase_vector_promptly Restarting (0) 38 seconds ago
+supabase_analytics_promptly Up 10 hours (healthy)
+supabase_db_promptly Up 10 hours (healthy)
+freeMB=7737
+proc vmmemWSL pid=5876 start= wsMB=6744
+C: usedGB=1787 freeGB=120
+Power Scheme GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (Balanced)== e1-0207-r2-t1-ctl 2026-10-02T02:41:53-0400 power=AC 100
+supabase_studio_promptly Up 10 hours (healthy)
+supabase_pg_meta_promptly Up 10 hours (healthy)
+supabase_storage_promptly Up 10 hours (healthy)
+supabase_rest_promptly Up 10 hours
+supabase_realtime_promptly Up 10 hours (healthy)
+supabase_inbucket_promptly Up 10 hours (healthy)
+supabase_auth_promptly Up 10 hours (healthy)
+supabase_kong_promptly Up 10 hours (healthy)
+supabase_vector_promptly Restarting (0) 25 seconds ago
+supabase_analytics_promptly Up 10 hours (healthy)
+supabase_db_promptly Up 10 hours (healthy)
+freeMB=7799
+proc vmmemWSL pid=5876 start= wsMB=6746
+C: usedGB=1787 freeGB=120
+Power Scheme GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (Balanced)== e1-0207-r2-t1-x11 2026-10-02T02:48:56-0400 power=AC 100
+supabase_studio_promptly Up 11 hours (healthy)
+supabase_pg_meta_promptly Up 11 hours (healthy)
+supabase_storage_promptly Up 11 hours (healthy)
+supabase_rest_promptly Up 11 hours
+supabase_realtime_promptly Up 11 hours (healthy)
+supabase_inbucket_promptly Up 11 hours (healthy)
+supabase_auth_promptly Up 11 hours (healthy)
+supabase_kong_promptly Up 11 hours (healthy)
+supabase_vector_promptly Restarting (0) 24 seconds ago
+supabase_analytics_promptly Up 11 hours (healthy)
+supabase_db_promptly Up 11 hours (healthy)
+freeMB=7791
+proc vmmemWSL pid=5876 start= wsMB=6752
+C: usedGB=1787 freeGB=120
+Power Scheme GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (Balanced)== e1-0207-r2-t1-int 2026-10-02T03:04:17-0400 power=AC 100
+supabase_studio_promptly Up 11 hours (healthy)
+supabase_pg_meta_promptly Up 11 hours (healthy)
+supabase_storage_promptly Up 11 hours (healthy)
+supabase_rest_promptly Up 11 hours
+supabase_realtime_promptly Up 11 hours (healthy)
+supabase_inbucket_promptly Up 11 hours (healthy)
+supabase_auth_promptly Up 11 hours (healthy)
+supabase_kong_promptly Up 11 hours (healthy)
+supabase_vector_promptly Restarting (0) 37 seconds ago
+supabase_analytics_promptly Up 11 hours (healthy)
+supabase_db_promptly Up 11 hours (healthy)
+freeMB=8085
+proc vmmemWSL pid=5876 start= wsMB=6781
+C: usedGB=1787 freeGB=120
+Power Scheme GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (Balanced)== e1-0207-r3-t1-ctl 2026-10-02T03:12:00-0400 power=AC 100
+supabase_studio_promptly Up 11 hours (healthy)
+supabase_pg_meta_promptly Up 11 hours (healthy)
+supabase_storage_promptly Up 11 hours (healthy)
+supabase_rest_promptly Up 11 hours
+supabase_realtime_promptly Up 11 hours (healthy)
+supabase_inbucket_promptly Up 11 hours (healthy)
+supabase_auth_promptly Up 11 hours (healthy)
+supabase_kong_promptly Up 11 hours (healthy)
+supabase_vector_promptly Restarting (0) 16 seconds ago
+supabase_analytics_promptly Up 11 hours (healthy)
+supabase_db_promptly Up 11 hours (healthy)
+freeMB=8034
+proc vmmemWSL pid=5876 start= wsMB=6784
+C: usedGB=1787 freeGB=120
+Power Scheme GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (Balanced)== e1-0207-r3-t1-x11 2026-10-02T03:18:59-0400 power=AC 100
+supabase_studio_promptly Up 11 hours (healthy)
+supabase_pg_meta_promptly Up 11 hours (healthy)
+supabase_storage_promptly Up 11 hours (healthy)
+supabase_rest_promptly Up 11 hours
+supabase_realtime_promptly Up 11 hours (healthy)
+supabase_inbucket_promptly Up 11 hours (healthy)
+supabase_auth_promptly Up 11 hours (healthy)
+supabase_kong_promptly Up 11 hours (healthy)
+supabase_vector_promptly Restarting (0) 11 seconds ago
+supabase_analytics_promptly Up 11 hours (healthy)
+supabase_db_promptly Up 11 hours (healthy)
+freeMB=7040
+proc vmmemWSL pid=5876 start= wsMB=6809
+C: usedGB=1787 freeGB=120
+Power Scheme GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (Balanced)== e1-0207-r3-t1-int 2026-10-02T03:34:12-0400 power=AC 100
+supabase_studio_promptly Up 11 hours (healthy)
+supabase_pg_meta_promptly Up 11 hours (healthy)
+supabase_storage_promptly Up 11 hours (healthy)
+supabase_rest_promptly Up 11 hours
+supabase_realtime_promptly Up 11 hours (healthy)
+supabase_inbucket_promptly Up 11 hours (healthy)
+supabase_auth_promptly Up 11 hours (healthy)
+supabase_kong_promptly Up 11 hours (healthy)
+supabase_vector_promptly Restarting (0) 15 seconds ago
+supabase_analytics_promptly Up 11 hours (healthy)
+supabase_db_promptly Up 11 hours (healthy)
+freeMB=7983
+proc vmmemWSL pid=5876 start= wsMB=6809
+C: usedGB=1787 freeGB=120
+Power Scheme GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (Balanced)

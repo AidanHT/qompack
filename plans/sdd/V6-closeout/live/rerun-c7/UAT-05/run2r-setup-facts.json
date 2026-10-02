@@ -1,0 +1,16 @@
+{
+ "files": {
+  "billing.py": {
+   "bytes": 107,
+   "sha256": "99540ac509cf2440ba8a202e2cfb62564470b7c6f6589349a1b2bdfc3c0652f6"
+  },
+  "README.md": {
+   "bytes": 90,
+   "sha256": "e9ddff95a26005c4e85d649514827fa3b9494e0b571c309d7c5173c026a5fba7"
+  },
+  "data/meta2.txt": {
+   "bytes": 52,
+   "sha256": "a51f1673e9d3bc62125448d381547225a653184115a82a7dc8f1b11334b3ab29"
+  }
+ }
+}

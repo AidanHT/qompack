@@ -1,0 +1,8 @@
+{"Time":"2026-10-01T02:58:28.45441333Z","Action":"start","Package":"github.com/qompack/qompack/test/guards"}
+{"Time":"2026-10-01T02:58:28.48325437Z","Action":"run","Package":"github.com/qompack/qompack/test/guards","Test":"TestGuard_EveryHomeReachingTestPackageIsolatesHome"}
+{"Time":"2026-10-01T02:58:28.48328258Z","Action":"output","Package":"github.com/qompack/qompack/test/guards","Test":"TestGuard_EveryHomeReachingTestPackageIsolatesHome","Output":"=== RUN   TestGuard_EveryHomeReachingTestPackageIsolatesHome\n"}
+{"Time":"2026-10-01T02:58:37.066380509Z","Action":"output","Package":"github.com/qompack/qompack/test/guards","Test":"TestGuard_EveryHomeReachingTestPackageIsolatesHome","Output":"--- PASS: TestGuard_EveryHomeReachingTestPackageIsolatesHome (8.58s)\n"}
+{"Time":"2026-10-01T02:58:37.066437613Z","Action":"pass","Package":"github.com/qompack/qompack/test/guards","Test":"TestGuard_EveryHomeReachingTestPackageIsolatesHome","Elapsed":8.58}
+{"Time":"2026-10-01T02:58:37.06644527Z","Action":"output","Package":"github.com/qompack/qompack/test/guards","Output":"PASS\n"}
+{"Time":"2026-10-01T02:58:38.09025161Z","Action":"output","Package":"github.com/qompack/qompack/test/guards","Output":"ok  \tgithub.com/qompack/qompack/test/guards\t9.636s\n"}
+{"Time":"2026-10-01T02:58:38.090316331Z","Action":"pass","Package":"github.com/qompack/qompack/test/guards","Elapsed":9.637}

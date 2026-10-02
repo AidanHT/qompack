@@ -1,0 +1,42 @@
+{
+  "id": "c52-linux-r4-candidate-scheduler-1s",
+  "cwd": "C:/Users/Quant/AppData/Local/Temp/tmp.MWJhl7jum3/src-candidate",
+  "argv": [
+    "docker",
+    "exec",
+    "qompack-v6-linux-verification",
+    "runuser",
+    "-u",
+    "qompack-test",
+    "--",
+    "env",
+    "-i",
+    "sh",
+    "-c",
+    ". \"$0\"; cd \"$1\" || exit 2; shift; exec \"$@\"",
+    "/work/cx-quiet-quiet-c52-prep-candidate-0d06ab1-20261001T065203Z-artifacts/env.sh",
+    "/work/cx-quiet-quiet-c52-prep-candidate-0d06ab1-20261001T065203Z/internal/scheduler",
+    "/work/cx-quiet-quiet-c52-prep-candidate-0d06ab1-20261001T065203Z-artifacts/bin/scheduler.test",
+    "-test.run",
+    "^$",
+    "-test.bench",
+    "^Benchmark(Evaluate_64Candidates|BOCDObserve_4Features|BOCDMarshal)$",
+    "-test.benchtime",
+    "1s",
+    "-test.benchmem",
+    "-test.count",
+    "1",
+    "-test.timeout",
+    "90m"
+  ],
+  "source_head": "0d06ab1233efb0fd5be8c99dc453e1aa2ee071af",
+  "source_dirty": "",
+  "environment": {
+    "GOPATH": "C:\\Users\\Quant\\go"
+  },
+  "started_at": "2026-10-01T04:07:22-04:00",
+  "ended_at": "2026-10-01T04:07:27-04:00",
+  "exit_code": 0,
+  "log": "c52-linux-r4-candidate-scheduler-1s.log",
+  "log_sha256": "46808a777a7fa1e7c8ff1f8042154a0a92b392f945e91fc70e9ea32c671f9774"
+}
