@@ -1,3 +1,11 @@
+> **Superseded for candidate 6, 2026-10-02.** The gates below were listed against `65bc8d7`. Candidate
+> 6 (`verify/v6` `99d0b18`) has run them: the Windows whole tree, `-race`, isolated timing and
+> reproducible six-target bundles in its overnight chain (`../V6-closeout/phase3/c6/`), and hosted
+> ci.yml `36955046276` and nightly `36955043924` on the same head. The inventory's per-row result is in
+> `inventory-current.tsv` (`c6_result`, `c6_evidence`) and `../V6-closeout/inventory-c6-map.md`, which
+> lists the open reds (TestFault_Lifecycle on hosted Windows, X11, release-dry-run), the quiet C5.1
+> result and the pending live and evaluation steps. This page is kept as history.
+
 > Coordinator execution update, 2026-09-22: `rc1-linux-child-race` passed all eight
 > selected cases on candidate source 65bc8d7. Its executed-source record verifies all 2,376
 > source files; child SHA256 is `5b0151bac4771ecb16bd78815465673e4951004f829d3f2f3d20fea3d6d4842d`.

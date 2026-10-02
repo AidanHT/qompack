@@ -1,0 +1,81 @@
+$ go test -p 2 -count=1 -v -run '^TestCarriedDefects_ManifestIsWellFormed$' ./test/guards/
+=== RUN   TestCarriedDefects_ManifestIsWellFormed
+=== PAUSE TestCarriedDefects_ManifestIsWellFormed
+=== CONT  TestCarriedDefects_ManifestIsWellFormed
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP04-D1
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP04-D2
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP04-D3
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP04-D4
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP04-D5
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP04-D6
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP06-D1
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP05-D1
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP02-D1
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP02-D2
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP02-D3
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP02-D4
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP02-D5
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP02-D6
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP04-D7
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP06-D2
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP08-D1
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP10-D1
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP09-D1
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP20-D2
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP20-D3
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP08-D2
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP20-D1
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP05-D2
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP08-D3
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP20-D4
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP20-D5
+=== RUN   TestCarriedDefects_ManifestIsWellFormed/SP20-D6
+--- PASS: TestCarriedDefects_ManifestIsWellFormed (0.07s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP04-D1 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP04-D2 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP04-D3 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP04-D4 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP04-D5 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP04-D6 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP06-D1 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP05-D1 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP02-D1 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP02-D2 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP02-D3 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP02-D4 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP02-D5 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP02-D6 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP04-D7 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP06-D2 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP08-D1 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP10-D1 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP09-D1 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP20-D2 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP20-D3 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP08-D2 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP20-D1 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP05-D2 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP08-D3 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP20-D4 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP20-D5 (0.00s)
+    --- PASS: TestCarriedDefects_ManifestIsWellFormed/SP20-D6 (0.00s)
+PASS
+ok  	github.com/qompack/qompack/test/guards	0.321s
+exit=0
+$ go test -p 2 -count=1 -v -run '^TestCarriedDefects_OpenRowsHaveLivingEvidence$' ./test/guards/
+=== RUN   TestCarriedDefects_OpenRowsHaveLivingEvidence
+=== PAUSE TestCarriedDefects_OpenRowsHaveLivingEvidence
+=== CONT  TestCarriedDefects_OpenRowsHaveLivingEvidence
+--- PASS: TestCarriedDefects_OpenRowsHaveLivingEvidence (0.05s)
+PASS
+ok  	github.com/qompack/qompack/test/guards	0.278s
+exit=0
+$ go test -p 2 -count=1 -v -run '^TestCarriedDefects_WaveReportRequiresResolution$' ./test/guards/
+=== RUN   TestCarriedDefects_WaveReportRequiresResolution
+=== PAUSE TestCarriedDefects_WaveReportRequiresResolution
+=== CONT  TestCarriedDefects_WaveReportRequiresResolution
+--- PASS: TestCarriedDefects_WaveReportRequiresResolution (0.05s)
+PASS
+ok  	github.com/qompack/qompack/test/guards	0.326s
+exit=0
+head 9a56b30549d9762f6c8eb90df7779c962db3a2ac + working tree (this commit's TSV and docs)
