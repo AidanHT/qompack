@@ -64,7 +64,11 @@ var errPassBudgetSpent = fmt.Errorf("daemon: drain: the pass's budget is spent: 
 // bookkeeping outlasted the budget on such a host (listing, progress state and the spool syncs
 // before its first line) reached no line at all, however often it was asked again. A budgeted pass
 // therefore always consumes a line when it can, and runs past its budget by that bookkeeping and at
-// most one line's drainLineDeadline. Cancelling ctx still ends the pass, and the line in it, at once.
+// most one line's drainLineDeadline. Consuming a line means making progress (notePassConsumed): a pass
+// that only consumes again what an earlier pass consumed behind a spool's waiting head has consumed
+// none, so that bookkeeping includes such spools. While that counted, every pass on a slow host
+// stopped inside such a spool, and no budgeted pass reached a spool after it (V6 close-out C1.13).
+// Cancelling ctx still ends the pass, and the line in it, at once.
 // The budget is on real time, as a context deadline is, never on the daemon's clock. It is the pass's
 // alone: what the pass hands a line to runs without it (withoutPassBudget).
 func withPassBudget(ctx context.Context, budget time.Duration) context.Context {
@@ -93,7 +97,11 @@ func passStopped(ctx context.Context) error {
 }
 
 // notePassConsumed records that the pass ctx carries has consumed a line, which lets its budget end it
-// (passStopped). A pass without a budget ignores it.
+// (passStopped). A pass without a budget ignores it. Only progress counts: drainFile calls it when a
+// spool's consumed front advances, and when the pass itself publishes or retires a line ahead of that
+// front. A line consumed out of order is remembered only for the rest of its pass, so every later pass
+// reads it and consumes it again while the head ahead of it waits; absorbing or skipping it again is
+// not progress, and does not count.
 func notePassConsumed(ctx context.Context) {
 	if b, _ := ctx.Value(passBudgetKey{}).(*passBudget); b != nil {
 		b.consumed.Store(true)
@@ -709,8 +717,12 @@ func (dr *drainer) drainFile(ctx context.Context, path string, st drainState, ga
 	processed := map[int64]int64{}
 	var deferred []deferredLine
 
+	// consume counts as the pass consuming a line (notePassConsumed) only when the front advances. A
+	// line consumed out of order is remembered in processed for the rest of this call alone, so every
+	// later pass reads it and consumes it again while the prefix ahead of it waits, and doing that is no
+	// progress. A line the pass itself publishes or retires out of order is progress, and its caller
+	// counts it (C1.13, D31).
 	consume := func(start, next int64) {
-		notePassConsumed(ctx)
 		if start != offset {
 			// Consumed out of order; the front rolls over it later. Bounded (item 3): past the roll-
 			// forward memory cap we stop recording it — the line is already dispatched and ACKED, so a
@@ -721,6 +733,7 @@ func (dr *drainer) drainFile(ctx context.Context, path string, st drainState, ga
 			}
 			return
 		}
+		notePassConsumed(ctx)
 		offset = next
 		for {
 			n, ok := processed[offset]
@@ -844,6 +857,9 @@ func (dr *drainer) drainFile(ctx context.Context, path string, st drainState, ga
 					continue
 				}
 				dl := deferred[idx]
+				if changed {
+					notePassConsumed(ctx) // published or retired by this pass, in order or not
+				}
 				consume(dl.start, dl.next)
 				settledSpooledPrompt(dl.req)
 				if changed && dl.leased {
@@ -932,6 +948,9 @@ readLoop:
 			if _, blob, blobErr := readBlob(dr.cfg.Root, req); blobErr == nil && blob != "" {
 				fs.PendingBlobs = append(fs.PendingBlobs, blob)
 			}
+			if retiredHere {
+				notePassConsumed(ctx) // retired by this pass, in order or not
+			}
 			consume(lineStart, nextOffset)
 			if retiredHere {
 				dr.released(retired)
@@ -999,6 +1018,9 @@ readLoop:
 			continue
 		}
 		if done {
+			if changed {
+				notePassConsumed(ctx) // published or retired by this pass, in order or not
+			}
 			consume(lineStart, nextOffset)
 			settledSpooledPrompt(dl.req)
 			if changed && dl.leased {
