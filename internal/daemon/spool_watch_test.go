@@ -205,31 +205,37 @@ func TestSpoolWatch_AnUnconsumableSpoolIsRetriedWithBackoffNotEveryTick(t *testi
 	spoolWatchBackoffRow(t, 0)
 }
 
-// TestSpoolWatch_AnUnconsumableSpoolsBackoffHoldsWhenAPassOutlastsTheHorizon (V6 close-out C7.2) is
-// the backoff row with the watcher's first pass held, in real time, past both the retry horizon and
-// the pass's own budget (idleRunBudget), as an fsync queue on a loaded host can hold it. The row read
-// its schedule on the wall clock with the horizon compressed to 50 ticks (1 s), half of one pass's
-// budget, and the watcher stamps a spool's first pass with the time of the look that ran it, before
-// the pass. So a first pass longer than the horizon closed the retry window before any second pass:
-// hosted windows-latest, candidate 7, failed "the unconsumed spool is passed again" after 30.60 s,
-// and the row's body as it stood fails the same way here, deterministically. Its spool also carried
-// a blank line a pass consumes, so a pass longer than its budget stopped on it, left the spool due
-// at the next look, and broke the doubling wait. On the watcher's own clock, with the spool a hook
-// writes, the pass's length moves nothing: the schedule is the one the row asserts with no stall.
-func TestSpoolWatch_AnUnconsumableSpoolsBackoffHoldsWhenAPassOutlastsTheHorizon(t *testing.T) {
+// TestSpoolWatch_APassThatOverranItsBudgetWithoutConsumingKeepsTheBackoff (V6 close-out C7.2) is the
+// backoff row with the first pass held, in real time, inside its sync of the spool file for longer
+// than the pass's own budget (idleRunBudget) and the row's retry horizon, as an fsync queue on a
+// loaded host can hold it. It pins two things. The pass consumed no line, so its budget could not
+// stop it (D31: a budget ends a pass only once the pass has consumed a line); it finished the spool
+// and found it unconsumable, so the spool keeps the doubling wait instead of being due at the next
+// look. And the schedule is read from the clock the look is handed (lookAtClientSpools' now), never
+// from how long the pass took in real time.
+//
+// It pins no retry after a first look that outlasted the horizon, because the live loop makes none.
+// watchClientSpools hands each look time.Now() taken before the pass, so a first look longer than
+// the horizon closes the retry window before any second pass, and by design the requested, flush,
+// idle and restart drains take the spool (spool_watch.go's doc). Against the product's horizon
+// (DetectAfterSeconds, 120 s) and interval (2 s) that takes a first look of nearly two minutes.
+// Against this row's compressed horizon (50 ticks, 1 s) one slow look was enough: when the row still
+// ran on the wall clock, hosted windows-latest failed it on candidate 7 with "the unconsumed spool is
+// passed again" after 30.60 s.
+func TestSpoolWatch_APassThatOverranItsBudgetWithoutConsumingKeepsTheBackoff(t *testing.T) {
 	spoolWatchBackoffRow(t, idleRunBudget+spoolWatchTick)
 }
 
-// spoolWatchBackoffRow is the backoff row. A positive firstPassStall holds the watcher's first pass
-// that long, in real time, inside its sync of the spool file (drainer.syncFile) before the real sync.
+// spoolWatchBackoffRow is the backoff row. A positive firstPassStall holds the first pass that long,
+// in real time, inside its sync of the spool file (drainer.syncFile) before the real sync.
 //
-// The row drives the watcher's look (lookAtClientSpools, which watchClientSpools runs) on the
-// watcher's own clock, one tick per look, every look kicked as a hook every tick kicks it, while a
-// busy session's hooks really are served and published beside it. Every pass is a real one. Its
-// subject is the schedule — the doubling wait and the stop at the horizon — which the watcher decides
-// on that clock alone, so no length of a pass on a loaded host can exhaust it. On the wall clock it
-// could: the row's 1 s horizon is half of one pass's idleRunBudget, and a first look slower than it
-// left no second pass. The live loop retrying an unconsumed spool with no further hook is
+// The row drives the watcher's look (lookAtClientSpools, which watchClientSpools runs) on the look's
+// injected clock, one tick per look, every look kicked as a hook every tick kicks it, while a busy
+// session's hooks really are served and published beside it. Every pass is a real one. Its subject
+// is the schedule — the doubling wait and the stop at the horizon — which the look decides from the
+// clock it is handed alone, so no length of a pass on a loaded host can exhaust it. On the wall clock
+// it could: the row's 1 s horizon is half of one pass's idleRunBudget, and a first look slower than
+// it left no second pass (C7.2). The live loop retrying an unconsumed spool with no further hook is
 // TestSpoolWatch_ASpoolWaitingOnItsSessionIsRetriedWithNoFurtherHook's subject, under liveOrderBound;
 // spoolRetryAfter's own values are TestSpoolRetryAfter_Doubles'.
 func spoolWatchBackoffRow(t *testing.T, firstPassStall time.Duration) {
@@ -268,17 +274,19 @@ func spoolWatchBackoffRow(t *testing.T, firstPassStall time.Duration) {
 	_, ok := dd.ing.leaseDelivery(ctx, lost)
 	require.True(t, ok)
 	blocked := spD3Prompt(dd, root, stuck, orderNonce(1), "blocked")
-	// As a hook writes it: no blank line after the record. A pass consumes a blank line, and a pass that
-	// has consumed a line can be stopped by its budget (idleRunBudget) once a slow host has spent it; a
-	// spool a budget-stopped pass leaves unfinished is due again at the next look
+	// As a hook writes it, and one record: no blank line after it and no other line behind it. A pass
+	// that has consumed a line can be stopped by its budget (idleRunBudget) once a slow host has spent
+	// it, and a spool a budget-stopped pass leaves unfinished is due again at the next look
 	// (TestSpoolWatch_APassItsBudgetCutShortDoesNotBackOffTheSpoolsItLeft), which is not this row's
-	// schedule. With the record alone no pass consumes anything, so none can stop on its budget.
+	// schedule. A pass consumes a blank line, and it can consume a line behind the blocked one too:
+	// another delivery a reused pid's hook appended, or a corrupt line. With the record alone no pass
+	// consumes anything, so none can stop on its budget in this spool.
 	writeHookSpool(t, root, "client-6161.ndjson", blocked)
 
 	stop := spoolWatchRunTraffic(t, dd, root, "sess-spool-busy", 1)
 	entries := map[string]*spoolWatchEntry{}
 	start := time.Now()
-	var passedAt []time.Duration // when each pass ran, on the watcher's clock, from its first look
+	var passedAt []time.Duration // when each pass ran, on the look's injected clock, from the first look
 	look := func(now time.Time, kicked bool) bool {
 		before := dd.m.Counter(counterSpoolWatchDrains).Value()
 		_, more := dd.lookAtClientSpools(ctx, entries, kicked, now)
