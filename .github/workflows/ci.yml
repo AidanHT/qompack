@@ -619,6 +619,9 @@ jobs:
         with:
           name: release-version-bundles
           path: ${{ runner.temp }}/release-bundles/
+          # .mcp.json and .claude-plugin/ are bundle files too; upload-artifact skips hidden files
+          # unless told otherwise, and the byte comparison needs every file.
+          include-hidden-files: true
       - run: go run ./tools/devtool release-check --skip-vulncheck
       # The release path with a fixed dry-run version, as release.yml passes the tag's: the six
       # zips, checksums.txt, and the marketplace document generated from them.
