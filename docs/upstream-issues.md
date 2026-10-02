@@ -32,6 +32,25 @@ capability it cannot verify.
 | 6 | Usage telemetry per request category | `not filed` |
 | 7 | A supported compaction request/veto or marker API | `not filed` |
 
+**Residuals accepted for 0.3.0, and which of them a host change could lift.** The V6 close-out
+accepted a set of known limits by recorded decision (`plans/V6-CLOSEOUT-CHECKLIST.md`); each is on
+[docs/cannot-do.md](cannot-do.md) or in [docs/release.md](release.md#capability-status-at-030)'s
+capability table. Most are product limits, which no host change would lift, so no proposal is
+prepared for them here:
+
+| Residual | Decision | Host side |
+|---|---|---|
+| A rotation's capture pause, and the halt of store GC past the carried-lease bound | D6, D16 | none: product-side |
+| A compaction at the edge of session-start's budget gets the deferred note | D29 | none prepared |
+| A prompt captured out of host order (live-versus-spool race, hook pid reuse) | D35(b), D38 | none: product-side |
+| A `SessionEnd` that arrives while the daemon is stopping waits for the next session | D35(c) | partly: plugin `SessionEnd` hooks share one 1.5 s host budget; no proposal prepared |
+| Spool submode does not switch back within a session | D44 | none: product-side |
+| A page beside interleaved redacted regions is shorter than it could be | D48 | none: product-side |
+| PutBytes (SP06-D2) and the 256 KB `OnToolUse` row (SP08-D1) miss their budgets | D54 | none: product-side |
+| A `PreCompact` waits behind a client-spool watcher pass already running | D56(e) | none: product-side |
+| Read rules that exist only in the running session are invisible to a plugin | D7 | yes: no interface lets a plugin ask whether a native Read would be allowed; no proposal prepared |
+| The host decides delivery of injected context (whole or not at all), re-attaches files after a compaction and decodes binary files itself; usage categories are not exposed | D45, D49 | proposal 1 (delivered context) and proposal 6 (usage categories); none prepared for re-attachment or decoding |
+
 ## 1. Observability of delivered `additionalContext`
 
 - **Host limitation.** A plugin that returns `additionalContext` from a SessionStart hook with
