@@ -2,9 +2,11 @@
 > 6 (`verify/v6` `99d0b18`) has run them: the Windows whole tree, `-race`, isolated timing and
 > reproducible six-target bundles in its overnight chain (`../V6-closeout/phase3/c6/`), and hosted
 > ci.yml `36955046276` and nightly `36955043924` on the same head. The inventory's per-row result is in
-> `inventory-current.tsv` (`c6_result`, `c6_evidence`) and `../V6-closeout/inventory-c6-map.md`, which
-> lists the open reds (TestFault_Lifecycle on hosted Windows, X11, release-dry-run), the quiet C5.1
-> result and the pending live and evaluation steps. This page is kept as history.
+> `inventory-current.tsv` (`c6_result`, `c6_evidence`, and `c7_result`, `c7_evidence` for candidate 7)
+> and `../V6-closeout/inventory-c6-map.md`, which lists candidate 6's two hosted reds
+> (TestFault_Lifecycle on hosted Windows, D57(b); release-dry-run, D57(a)), X11's disposition on AC
+> (D57(d), D57(g)), the quiet C5.1 result, what candidate 7 carries and what it re-runs, and the pending
+> live and evaluation steps. This page is kept as history.
 
 > Coordinator execution update, 2026-09-22: `rc1-linux-child-race` passed all eight
 > selected cases on candidate source 65bc8d7. Its executed-source record verifies all 2,376
