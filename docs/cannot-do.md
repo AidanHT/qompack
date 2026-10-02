@@ -302,7 +302,8 @@ host change could lift — as prepared proposals, none of which has been filed.
   file, and a file shared by two hooks through pid reuse keeps its own record order. Captured turns
   are never renumbered, because every later artifact is numbered against them. The V6 close-out's
   owner decision D35 ruled the live race out of the host-order guarantee and specified the
-  file-by-file order.
+  file-by-file order. Owner decision D38 accepted the pid-reuse case for 0.3.0 as documented and
+  flagged; closing it needs a spool-name or per-record merge redesign.
 - **What Qompack does instead.** Every prompt record carries the host's timestamp. Any capture that
   lands behind a turn its host sent later, from either source, is counted
   (`observer.prompt_out_of_host_order`) and logged as a Warn naming the turn it came in behind. A
@@ -314,7 +315,8 @@ host change could lift — as prepared proposals, none of which has been filed.
   that a pid-reusing hook appended to after a drain had begun it is placed by the record the next
   drain replays from it, so reuse reorders prompts only when both hooks spooled before one pass.
 - **Recorded at.** `plans/V2-SP-08-carried-defects.md` (SP08-D3, with the D35 close-out note);
-  `plans/CARRIED-DEFECTS.tsv`; [docs/architecture.md §7](architecture.md#7-checkpoint-and-rehydration).
+  `plans/CARRIED-DEFECTS.tsv`; `plans/V6-CLOSEOUT-CHECKLIST.md` D35(b) and D38;
+  [docs/architecture.md §7](architecture.md#7-checkpoint-and-rehydration).
 
 ### A forked session's parent is inferred, not reported by the host
 
@@ -726,10 +728,12 @@ These are the limits that can move. Each names the gate or the owner that would 
   bundle into Claude Code 2.1.263 and the launcher resolved from the host's plugin cache, which is the
   record that makes that one target read `installed-verified`
   ([docs/release.md](release.md#3-supported-scope) §3), and the V6 close-out's live lane installed
-  its frozen bundles into Claude Code 2.1.280 and ran real sessions against a live model. Those
-  sessions were run by an agent on the owner's machine (owner decision D3), never as human UAT. No
-  other release target has been installed into a host: macOS and windows/arm64 have no runner, and
-  Linux sessions with a model could not run in the container, which has no login (D34(c)).
+  the frozen bundles of candidates 3 and 4 into Claude Code 2.1.280 and ran real sessions against a
+  live model. Those sessions were run by an agent on the owner's machine (owner decision D3), never
+  as human UAT. No other release target has been installed into a host: no macOS or windows/arm64
+  machine with Claude Code installed was available to the live lane (macOS runs the test suites on
+  hosted runners, which install nothing into Claude Code), and Linux sessions with a model could not
+  run in the container, which has no login (D34(c)).
 - **Why.** A host install needs a host of that platform. Separately, `qompack self-test` runs the host
   contracts against a zero `daemon.Services`, so `hook.additional_context_delivered`,
   `precompact.has_time_to_write`, `precompact.custom_instructions_accepted` and
