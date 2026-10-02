@@ -1,0 +1,91 @@
+# Candidate 7 carry: candidate 6 (verify/v6 99d0b18c) vs candidate 7's code (closeout/integration b31d0753)
+# D57(c): candidate 6's machine evidence carries to candidate 7 where the covered code is unchanged.
+
+$ git diff --stat 99d0b18c b31d0753 -- . ":(exclude)plans"
+ .github/workflows/ci.yml                          |  34 +++-
+ .github/workflows/release.yml                     |  18 ++
+ .goreleaser.yaml                                  |   4 +
+ CHANGELOG.md                                      | 196 +++++++++++++--------
+ README.md                                         | 103 +++++++----
+ docs/adr/0010-wall-clock-under-coload.md          |  22 ++-
+ docs/cannot-do.md                                 | 198 +++++++++++++++++-----
+ docs/install.md                                   |  98 +++++++++--
+ docs/release.md                                   | 116 +++++++++++--
+ docs/security.md                                  |  20 ++-
+ docs/troubleshooting.md                           |  39 ++++-
+ docs/uat.md                                       |   8 +-
+ docs/upstream-issues.md                           |  52 +++++-
+ internal/core/version.go                          |   2 +-
+ plugin/.claude-plugin/plugin.json                 |   2 +-
+ test/fault/audit_order_test.go                    | 133 +++++++++++++++
+ test/fault/fault.go                               |  73 ++++++--
+ test/guards/nonrefdisk_test.go                    |  80 ++++++++-
+ testdata/golden/plugin/.claude-plugin/plugin.json |   2 +-
+ 19 files changed, 986 insertions(+), 214 deletions(-)
+
+$ git diff --stat 99d0b18c b31d0753 -- internal cmd plugin ":(exclude)*_test.go"   # product code
+ internal/core/version.go          | 2 +-
+ plugin/.claude-plugin/plugin.json | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+$ git diff 99d0b18c b31d0753 -- internal/core/version.go plugin/.claude-plugin/plugin.json
+diff --git a/internal/core/version.go b/internal/core/version.go
+index 4b424d27..43a3db85 100644
+--- a/internal/core/version.go
++++ b/internal/core/version.go
+@@ -3,4 +3,4 @@ package core
+ // Version is the plugin version. It is overridden at link time by SP-17's release build via
+ // -X github.com/qompack/qompack/internal/core.Version=<tag>, and is the single source the
+ // plugin manifest, the MCP server handshake and `qompack version` all read.
+-var Version = "0.1.0"
++var Version = "0.3.0"
+diff --git a/plugin/.claude-plugin/plugin.json b/plugin/.claude-plugin/plugin.json
+index 261bd3a0..bfa648a0 100644
+--- a/plugin/.claude-plugin/plugin.json
++++ b/plugin/.claude-plugin/plugin.json
+@@ -1,6 +1,6 @@
+ {
+   "name": "qompack",
+-  "version": "0.1.0",
++  "version": "0.3.0",
+   "description": "Qompack keeps a local record of the session and restores the important parts after Claude Code compacts its context, with tools to recall anything left out.",
+   "author": {
+     "name": "Qompack"
+
+$ git diff --stat 99d0b18c b31d0753 -- internal cmd tools test/e2e test/integration test/security test/platform test/release test/canary test/dedup test/replay test/bench ":(exclude)internal/core/version.go"
+(empty: every Go package and test package other than test/fault and test/guards is byte-unchanged
+ apart from core.Version's default literal)
+
+$ git diff --stat 99d0b18c b31d0753 -- test/fault test/guards testdata
+ test/fault/audit_order_test.go                    | 133 ++++++++++++++++++++++
+ test/fault/fault.go                               |  73 +++++++++---
+ test/guards/nonrefdisk_test.go                    |  80 +++++++++++--
+ testdata/golden/plugin/.claude-plugin/plugin.json |   2 +-
+ 4 files changed, 266 insertions(+), 22 deletions(-)
+
+$ git diff --stat 99d0b18c b31d0753 -- docs README.md CHANGELOG.md .github .goreleaser.yaml
+ .github/workflows/ci.yml                 |  34 +++++-
+ .github/workflows/release.yml            |  18 +++
+ .goreleaser.yaml                         |   4 +
+ CHANGELOG.md                             | 196 +++++++++++++++++++-----------
+ README.md                                | 103 +++++++++++-----
+ docs/adr/0010-wall-clock-under-coload.md |  22 ++--
+ docs/cannot-do.md                        | 198 +++++++++++++++++++++++++------
+ docs/install.md                          |  98 +++++++++++++--
+ docs/release.md                          | 116 +++++++++++++++---
+ docs/security.md                         |  20 +++-
+ docs/troubleshooting.md                  |  39 +++++-
+ docs/uat.md                              |   8 +-
+ docs/upstream-issues.md                  |  52 ++++++--
+ 13 files changed, 718 insertions(+), 190 deletions(-)
+
+$ git merge-base --is-ancestor dd8e9fd2 b31d0753; git merge-base --is-ancestor 88626fdd b31d0753
+dd8e9fd2 (fix(fault): read retention claims before the sidecars they name): ancestor of b31d0753
+88626fdd (test(fault): observe the retention audit's read order directly): ancestor of b31d0753
+dd8e9fd2: not in candidate 6
+
+# Candidate 7 freeze (phase3/c7/night.log: "candidate 7 frozen at d20309c03ffc364e4cc48663be73cfbb1f2309b2")
+$ git rev-parse d20309c0^2
+b31d0753ff44c72b9278c2fd26404b3e4d8be2f7
+$ git diff --stat b31d0753 d20309c0 -- . ":(exclude)plans"
+(empty: candidate 7's tree differs from b31d0753 only under plans/)
