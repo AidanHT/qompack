@@ -1,0 +1,29 @@
+# hosted ci.yml run 36981590450 (verify/v6 d20309c0), job release-dry-run, artifact release-version-bundles
+# compared file by file with qompack-bundles/c7 (sha256); BUNDLE.json, checksums and zips name the commit or archive it
+DIFF ./qompack-plugin-0.3.0-darwin-amd64/.claude-plugin/plugin.json frozen=c9702f1c768ca374525534badc57f35ace82a300ac37c30e0969de0a8394d10d hosted=missing
+DIFF ./qompack-plugin-0.3.0-darwin-amd64/.mcp.json frozen=90277ce38e85f33f2f65e7bb654e9cf05bdb8a37496a68ed2889c94e14c67e64 hosted=missing
+DIFF ./qompack-plugin-0.3.0-darwin-arm64/.claude-plugin/plugin.json frozen=c9702f1c768ca374525534badc57f35ace82a300ac37c30e0969de0a8394d10d hosted=missing
+DIFF ./qompack-plugin-0.3.0-darwin-arm64/.mcp.json frozen=90277ce38e85f33f2f65e7bb654e9cf05bdb8a37496a68ed2889c94e14c67e64 hosted=missing
+DIFF ./qompack-plugin-0.3.0-linux-amd64/.claude-plugin/plugin.json frozen=c9702f1c768ca374525534badc57f35ace82a300ac37c30e0969de0a8394d10d hosted=missing
+DIFF ./qompack-plugin-0.3.0-linux-amd64/.mcp.json frozen=90277ce38e85f33f2f65e7bb654e9cf05bdb8a37496a68ed2889c94e14c67e64 hosted=missing
+DIFF ./qompack-plugin-0.3.0-linux-arm64/.claude-plugin/plugin.json frozen=c9702f1c768ca374525534badc57f35ace82a300ac37c30e0969de0a8394d10d hosted=missing
+DIFF ./qompack-plugin-0.3.0-linux-arm64/.mcp.json frozen=90277ce38e85f33f2f65e7bb654e9cf05bdb8a37496a68ed2889c94e14c67e64 hosted=missing
+DIFF ./qompack-plugin-0.3.0-windows-amd64/.claude-plugin/plugin.json frozen=c9702f1c768ca374525534badc57f35ace82a300ac37c30e0969de0a8394d10d hosted=missing
+DIFF ./qompack-plugin-0.3.0-windows-amd64/.mcp.json frozen=37d89da303e19dd551fe28e55679f613c2ffbb51c929a3a1fcbdafdc394ff268 hosted=missing
+DIFF ./qompack-plugin-0.3.0-windows-arm64/.claude-plugin/plugin.json frozen=c9702f1c768ca374525534badc57f35ace82a300ac37c30e0969de0a8394d10d hosted=missing
+DIFF ./qompack-plugin-0.3.0-windows-arm64/.mcp.json frozen=37d89da303e19dd551fe28e55679f613c2ffbb51c929a3a1fcbdafdc394ff268 hosted=missing
+bin ./qompack-plugin-0.3.0-darwin-amd64/bin/qompack 165be7b81de89a42a47265c5e144877d98a8952522a7fbe53f62bb5cdf8f1059 identical
+bin ./qompack-plugin-0.3.0-darwin-arm64/bin/qompack e55d66ba34d9000d7cece456d0af14152be61c161d623decbd5c8307f6c2f78e identical
+bin ./qompack-plugin-0.3.0-linux-amd64/bin/qompack f72206c3403fd06a05046950d9e475adf5489abf9d10f1b615dbb57d33f85b62 identical
+bin ./qompack-plugin-0.3.0-linux-arm64/bin/qompack 553e005493b2466bb3148f8a7dba92cc375717249aec9c520bc60de6419b5c29 identical
+bin ./qompack-plugin-0.3.0-windows-amd64/bin/qompack.exe ab8046bac3bad894c9a299c61fb38277f4179f4e33bfb088873e43edcbe33be7 identical
+bin ./qompack-plugin-0.3.0-windows-arm64/bin/qompack.exe c276cc9ec7e9bf6c295a0cc9d38525a86777ea956bcc58025e252b9e888cec38 identical
+same=73 differ=12
+# zips (they carry the hidden .mcp.json and .claude-plugin/plugin.json that upload-artifact leaves out of the unpacked trees above):
+zip qompack-plugin-0.3.0-darwin-amd64.zip 4aab0887f3818cdb7d93c8048c5648f37710b07a6519101433ca007335aeb036 identical
+zip qompack-plugin-0.3.0-darwin-arm64.zip 3acdc832f1711fca21474b07dc6d01633e77a406f2ee953c0a62b58e9773689f identical
+zip qompack-plugin-0.3.0-linux-amd64.zip 29fe8893f429ac3a7a33d530d6c2f746ae0ce0d501305545a4fee24d16a7b6c2 identical
+zip qompack-plugin-0.3.0-linux-arm64.zip 55c60b4e0f76496d88c4600f0c1103746de149002e59074e38c91b90fd079582 identical
+zip qompack-plugin-0.3.0-windows-amd64.zip 403aec1bf707853974531133afefca59f29aa8420efc3738cd6f2798cc388fd0 identical
+zip qompack-plugin-0.3.0-windows-arm64.zip f139ea1b8bc73d248cd18f7868640c50d225fa5dba4015420d3f975d676a4366 identical
+checksums.txt 96dcef5e94734803ad942943d7750893a2002ec8bc7ba374f5c2ed651b9962f5 identical
