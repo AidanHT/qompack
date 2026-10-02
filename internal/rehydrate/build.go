@@ -3,6 +3,7 @@ package rehydrate
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/qompack/qompack/internal/checkpoint"
@@ -110,6 +111,10 @@ func BuildWithStats(ctx context.Context, r Request, d Deps) (Result, []ItemStat,
 	}
 
 	// ── 2. build every item ──────────────────────────────────────────────────────────────────
+	//
+	// The checkpointer's path-keyed drop entries pass section 6's gate first, so section 7 and
+	// dropped() never show a path the payload withholds (D50).
+	r.Checkpoint.Dropped = gateCheckpointDrops(r, d)
 	sc := sliceScores(r, d)
 	all := buildAll(ctx, r, d, sc)
 	priceAll(d, all)
@@ -486,6 +491,11 @@ func dropReportToFloor(d Deps, items []Item, stats []ItemStat, dropped []checkpo
 func normalizeDeps(d Deps) Deps {
 	if d.Log == nil {
 		d.Log = logging.Nop()
+	}
+	if d.HostPaths != nil {
+		// One snapshot of the host's rules per build: section 6 and the checkpoint's drop entries
+		// are judged against the same rules, and an unavailable policy is reported once.
+		d.HostPaths = sync.OnceValue(d.HostPaths)
 	}
 	return d
 }

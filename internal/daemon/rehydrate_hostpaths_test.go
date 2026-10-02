@@ -91,3 +91,42 @@ func TestRehydrateHostPaths_ASelectorNamingADeniedFileIsWithheld(t *testing.T) {
 		core.Hash(sha256.Sum256([]byte("selector"))).String()+" — summary withheld")
 	require.Contains(t, res.Text, `{"query":"ORCHID-DENY-8842"}`, "a summary that names no path is shown")
 }
+
+// TestRehydrateHostPaths_EverySpellingOfADeniedFileIsWithheld is the same deny rule through the real
+// host rules, for the spellings the review found still shown after the selector fix: recall's plain
+// path: selector by basename (it selects by path-segment suffix), Glob's directory-then-pattern
+// preview, and the checkpointer's own drop entry for the pointer (a gitignored file is untracked).
+func TestRehydrateHostPaths_EverySpellingOfADeniedFileIsWithheld(t *testing.T) {
+	root := t.TempDir()
+	writeProjectSettings(t, root, `{"permissions":{"deny":["Read(./private/deny.txt)"]}}`)
+
+	denied := core.Hash(sha256.Sum256([]byte("denied")))
+	var cp checkpoint.Checkpoint
+	cp.Version = checkpoint.SchemaVersion
+	cp.Session = core.SessionID("2a4952b4-730f-41f8-954b-696d176baba8")
+	cp.Seq = core.CheckpointSeq(3)
+	cp.Pointers.Files = []checkpoint.FilePointer{{Path: "private/deny.txt", Hash: denied, Why: "referenced"}}
+	cp.Pointers.Tools = []checkpoint.ToolPointer{
+		{ToolUseID: "toolu_basename", Hash: core.Hash(sha256.Sum256([]byte("b"))), Summary: `{"query":"path:deny.txt"}`},
+		{ToolUseID: "toolu_glob", Hash: core.Hash(sha256.Sum256([]byte("g"))), Summary: "private deny.txt"},
+		{ToolUseID: "toolu_marker", Hash: core.Hash(sha256.Sum256([]byte("m"))), Summary: `{"query":"ORCHID-DENY-8842"}`},
+	}
+	cp.Dropped = []checkpoint.DropEntry{{Kind: "pointer_untracked", ID: "private/deny.txt", Detail: "not tracked by git"}}
+	req := rehydrate.Request{
+		Session: cp.Session, Source: "compact", ProjectRoot: root, Checkpoint: cp, Cfg: testConfig(),
+		Ref: checkpoint.Ref{Seq: cp.Seq, Path: filepath.Join(root, ".qompack", "checkpoints", "0003.json")},
+	}
+	deps := rehydrate.Deps{HostPaths: rehydrateHostPaths(mcpOpHostPolicy(t, root), root, logging.Nop())}
+
+	res, err := rehydrate.Build(context.Background(), req, deps)
+	require.NoError(t, err)
+	require.NotContains(t, res.Text, "deny.txt", "the payload shows the denied path")
+	for _, e := range res.Dropped {
+		require.NotContains(t, e.ID+" "+e.Detail, "deny.txt", "the drop report shows the denied path: %+v", e)
+	}
+	for _, id := range []string{"toolu_basename", "toolu_glob"} {
+		require.Regexp(t, "- tool_use "+id+" sha256:[0-9a-f]+ — summary withheld", res.Text)
+	}
+	require.Contains(t, res.Text, "- pointer_untracked "+denied.String()+" — not tracked by git")
+	require.Contains(t, res.Text, `{"query":"ORCHID-DENY-8842"}`, "a summary that names no path is shown")
+}
