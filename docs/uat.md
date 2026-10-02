@@ -1275,31 +1275,48 @@ stored records to reconcile a failure.
 **Result**
 
 ```text
-Result: pass — no latency or budget cell printed 0 without an instrument (per-hook rows read
-  `unavailable` with their reason, B-D says no instrument records it because it measures host
-  process creation), `age_ms` was 0 only for a live daemon source and after the daemon stopped the
-  text read "source: none (error, age unknown)", `/qompack:eval --json` exited 1 with
-  `no evaluation artifacts` naming both `dist/live-eval` and `testdata/bench-replay.json`, and no
-  telemetry is enabled. The status envelope is {schema, command, ok, data{primary, snapshot, hooks,
-  budgets}}; dropped read {"count":0,"drops":[]}; the digest's `[active]` elimination agreed with
-  `already_tried` (active). Usage categories: not reachable from a user project; via `qompack eval
-  --corpus` on the committed C5.4 pilot run the six names appear only as arm totals
-  {known, known_records, unknown_records} in alphabetical order, and cost reads "unavailable: no
+Result: pass — no latency or budget cell printed 0 without an instrument (the six per-hook rows
+  without one read `unavailable` with their reason; B-D says no instrument records it because it
+  measures host process creation); `age_ms` was 0 only beside a live daemon source, read 3331 from
+  the persisted file after the default idle exit, and a status read with no daemon and no metrics
+  file said "source: none (error, age unknown)" (C4.9); in-session `/qompack:eval --json` got the
+  host's own "Shell command failed" line and in a terminal `qompack eval --json` exited 1 with
+  `no evaluation artifacts` naming both `dist/live-eval` and `testdata/bench-replay.json`; no
+  telemetry is enabled (hardwired off). The status envelope is {schema, command, ok, data{primary,
+  snapshot, hooks, budgets}}; dropped read {"count":0,"drops":[]} with no coverage value; the
+  digest's `[active]` elimination agreed with `already_tried` (active, same reason, evidence and
+  depends_on); no uncertainty marking appeared. Candidate 3's two findings are gone: the banner
+  reads "9 assertion(s), none failing: 7 holding, 1 pending, 1 with nothing to judge" with
+  mcp.server_registered initialize-received (the one pending row, session_start.fires
+  marker-absent-once after the same-session /compact, is D58(d)'s F-C48-1), and no displayed
+  percentile exceeds its max (B-A p95 128.00 ms = max 128.00 ms); the raw data.snapshot.latency
+  histogram in --json still carries bucket bounds above Max (observation). Still as on candidate 3:
+  usage categories are reachable only through `qompack eval --corpus` on the C5.4 pilot run, as arm
+  totals {known, known_records, unknown_records} in alphabetical order with cost "unavailable: no
   request ledger was recorded for this run", so the canonical order and the {"known":false} +
-  `missing` form were not observed (finding). Other findings: the contract banner reads "1 of 9
-  assertion(s) FAILING" (mcp.server_registered initialize-not-received) while MCP answered; p95/p99
-  print above the max (106.50 ms vs max 99.00 ms); the refusal after a daemon stop has an empty
-  reason; no "recent loud lines" section appears when the tail is empty.
+  `missing` form were not observed (finding, unchanged); no "recent loud lines" section appears when
+  the tail is empty. 19 hook pairs, all success, exit 0.
+  Candidate 4 (9f6a2fad): not re-run — D47 re-ran the eleven other rows and D50 moved UAT-10 to the
+  next candidate; no rerun-c4/UAT-10/ evidence exists
+  Candidate 3 (d5598eb4): pass — with findings: banner "1 of 9 assertion(s) FAILING"
+  (mcp.server_registered initialize-not-received) while MCP answered, p95/p99 printed above the max
+  (106.50 ms vs 99.00 ms), an empty refusal reason after a daemon stop, the canonical usage-category
+  form unobserved, evidence plans/sdd/V6-closeout/live/uat/UAT-10/
 Snapshot: qompack version 0.3.0; bundle BUNDLE.json sha256
-  32600778ae6463cd47736fc6b0a8614ad782e5bbd0ef0440f4e2c3937ccf4505; commit
-  d5598eb4445954120ee795560c2ea46640772f43; Windows 11 Home 25H2 build 10.0.26200.9457;
+  5212ae4eaa2e931266d52069e7d0c72ec2dfd2255d55421c87486ab083e1f395; commit
+  d20309c03ffc364e4cc48663be73cfbb1f2309b2; Windows 11 Home 25H2 build 10.0.26200.9457;
   Claude Code 2.1.280
-Date: 2026-09-29 (America/Toronto)
+Date: 2026-10-02 (America/Toronto)
 Executed by: Claude Code workflow subagent (Opus 5.5), agent-executed on the owner's real host
   per owner decision D3 — not human UAT
-Evidence: plans/sdd/V6-closeout/live/uat/UAT-10/ (notes.txt indexes it)
-Rollback verified: not applicable — initial state absent (recorded: `backup create` exit 1 "no
-  existing store"); per the row's rule the run is retained as evidence; no restore was run
+Evidence: plans/sdd/V6-closeout/live/rerun-c7/UAT-10/ (notes.txt indexes it; also C5.6)
+Rollback verified: initial state absent (recorded: `backup create` exit 1 "source project has no
+  existing store"); the run is retained as evidence. After the default idle exit (no termination),
+  backup uat10-after-idle was created (exit 0, consistent) and verified (exit 0) and restored into
+  a fresh destination: exit 0, same-build reader proof OK (18 content roots, 15 tool refs, 0
+  tombstoned), integrity all ok including the dual-reader seal check, fsck of the destination
+  exit 0; the source's later writes untouched; the destination was not activated; cross-version and
+  activation checks unverified
 ```
 
 ---
