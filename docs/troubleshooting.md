@@ -470,6 +470,10 @@ covering what you asked for, widened to a symbol boundary where one is known
 **Action.** Page with the `next_span` in the response, or pass `full: true` when you genuinely need
 the whole object. Note that `full: true` returns the whole *available* object — the capture's
 fidelity, recorded on its sidecar and not in the response ([§3](#3-capture-gaps)), still qualifies it.
+A page cut at `runtime.mcp.maxResponseBytes` never ends inside a redacted region, and beside
+interleaved redacted regions it can end earlier than the largest page that would fit; `next_span`
+still continues exactly where it stopped
+([cannot-do](cannot-do.md#a-page-near-redacted-text-can-be-shorter-than-it-could-be)).
 
 ---
 
@@ -953,6 +957,9 @@ holds the directory until it exits.
 the update or removal. If the LOUD line is there, fix what stopped the copy — the directory
 `%USERPROFILE%\.qompack\bin` must be writable by you — and the next daemon start uses a copy.
 Copies of versions no daemon is running are removed automatically when a new version is staged.
+After an uninstall nothing stages a new version, so the copies under `%USERPROFILE%\.qompack\bin`
+stay until you remove them by hand, once no daemon is running from them
+([install §6](install.md#6-uninstalling-and-what-happens-to-your-data)).
 
 ---
 
@@ -999,7 +1006,8 @@ not read. The daemon replays them all afterwards, and `recall` and `expand` find
 
 The switch lasts until a new session starts in this project or the daemon exits on idle (below); it
 does not switch back on its own during the session, and compacting the current session does not reset
-it while the same daemon is running. There is no stop command.
+it while the same daemon is running. There is no stop command. Owner decision D44 accepted this for
+0.3.0 ([cannot-do](cannot-do.md#spool-submode-lasts-until-the-session-or-the-daemon-ends)).
 
 **Action.** Nothing is required. To leave spool submode now, start a new session; otherwise the next
 daemon after the idle exit starts in sync submode. Do not end the daemon's process to get out of it:
@@ -1015,6 +1023,35 @@ hook waits for the durable write instead of spooling; each hook then takes that 
 delivery is a breach, and the daemon's day log has a `configuration warning` for
 `runtime.hotPath.budgetMs` (`qompack config print --provenance` shows both values and where they
 came from).
+
+---
+
+**Symptom.** After a compaction, the rehydration's section 7 or `dropped()` lists an
+`unreplayed_capture` entry (and perhaps `unreplayed_tool_result` entries) although the session lost
+nothing and was not necessarily in spool submode.
+
+**Diagnose.** The project's day log (`.qompack/logs/qompack-YYYYMMDD.log`) has the Warn line `daemon:
+PreCompact sealed before some of the session's captures were replayed; the checkpoint's drop report
+counts them, and the daemon replays them next`, with the session, the number of captures, the number
+of unread spool files and the bound. The daemon's counters (`qompack status --json`, while it runs)
+include `precompact_settle`, the seals that found something of their session to settle, and
+`precompact_unreplayed_captures`, the captures the seals reported as unreplayed.
+
+**Meaning.** Before it seals, the `PreCompact` replays this session's spooled captures, within
+`precompactSettleBound`: B-E (`runtime.budgets.checkpointFinalizeMs`) less the seal's own worst-case
+window, 500 ms with the defaults. The replay takes the same lock the client-spool watcher's passes
+take. The `PreCompact`'s own request no longer starts such a pass (its kick of the watcher comes
+after the seal), but a pass that is **already running for another reason** when the `PreCompact`
+arrives, started by an earlier request, by the idle tick in spool submode or by a drain the ingest
+lanes asked for, makes the replay wait behind it. On a slow disk the bound can run out first. The
+seal then goes ahead at the bound, so the host's compaction waits no longer than B-E allows, and the
+captures still in the spool are counted and named in the drop report exactly as in the slow-disk
+entry above. This is a known limit of 0.3.0 (owner decision D56(e), the degrade D55 approved): it
+costs the rehydration those captures, never the captures themselves.
+
+**Action.** Nothing is required. The daemon replays the named captures afterwards, and `recall` and
+`expand` find them then. If it happens at most compactions, the disk is the usual cause: the
+slow-disk entry above describes it.
 
 ---
 

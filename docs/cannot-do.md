@@ -102,9 +102,12 @@ host change could lift — as prepared proposals, none of which has been filed.
   `selfTestContractAssertions`), so that assertion's producer is undeclared *there* and the row
   reports `ok / info / not-yet-implemented` — the producer-absent state, which means no assertion
   was made at all. A live daemon does declare the producer once its rehydrate seam is bound
-  (`internal/daemon/options.go` `DeclareProducers`, guarded by `s.Rehydrate`), but no run against an
-  installed Claude Code has ever been recorded here (B01), so there is no observed delivery figure
-  from that path either. A number nobody measured is `unknown`, not zero.
+  (`internal/daemon/options.go` `DeclareProducers`, guarded by `s.Rehydrate`). In the candidate 4
+  live lane on Claude Code 2.1.280 that live daemon's snapshot read `sentinel-observed` after a
+  session that compacted
+  (`plans/sdd/V6-closeout/live/rerun-c4/UAT-02/cli/05-status-json.stdout.txt`): one delivery of the
+  sentinel was seen, and no delivered size, so there is no observed delivery figure from that path
+  either. A number nobody measured is `unknown`, not zero.
 - **What Qompack does instead.** It counts its own emitted tokens against its own budget and prints
   the availability word rather than a borrowed number when there is no measurement —
   [docs/troubleshooting.md §1](troubleshooting.md#1-start-with-provenance) and
@@ -302,7 +305,8 @@ host change could lift — as prepared proposals, none of which has been filed.
   file, and a file shared by two hooks through pid reuse keeps its own record order. Captured turns
   are never renumbered, because every later artifact is numbered against them. The V6 close-out's
   owner decision D35 ruled the live race out of the host-order guarantee and specified the
-  file-by-file order.
+  file-by-file order. Owner decision D38 accepted the pid-reuse case for 0.3.0 as documented and
+  flagged; closing it needs a spool-name or per-record merge redesign.
 - **What Qompack does instead.** Every prompt record carries the host's timestamp. Any capture that
   lands behind a turn its host sent later, from either source, is counted
   (`observer.prompt_out_of_host_order`) and logged as a Warn naming the turn it came in behind. A
@@ -314,7 +318,8 @@ host change could lift — as prepared proposals, none of which has been filed.
   that a pid-reusing hook appended to after a drain had begun it is placed by the record the next
   drain replays from it, so reuse reorders prompts only when both hooks spooled before one pass.
 - **Recorded at.** `plans/V2-SP-08-carried-defects.md` (SP08-D3, with the D35 close-out note);
-  `plans/CARRIED-DEFECTS.tsv`; [docs/architecture.md §7](architecture.md#7-checkpoint-and-rehydration).
+  `plans/CARRIED-DEFECTS.tsv`; `plans/V6-CLOSEOUT-CHECKLIST.md` D35(b) and D38;
+  [docs/architecture.md §7](architecture.md#7-checkpoint-and-rehydration).
 
 ### A forked session's parent is inferred, not reported by the host
 
@@ -370,7 +375,11 @@ host change could lift — as prepared proposals, none of which has been filed.
   p99 of 3.072 ms in the isolated lane and 18.432 ms in the whole-tree job — a failure against the
   15 ms limit that applied then (ADR 0010, Context table; B-A's Windows default is now 50 ms).
   Reference-platform rows remain open in `plans/V5-report.md` §29 item 2, which also records two
-  known in-scope regressions awaiting a budget-versus-guarantee decision.
+  known in-scope regressions awaiting a budget-versus-guarantee decision. For 0.3.0 the hot-path
+  rows were judged quietly on one Windows reference host, with the store under a path excluded from
+  Defender scanning; on Linux the fsync-bound rows (B-A, B-B) are not verified in target, because the
+  only local Linux is a container whose fsync is far slower than a native disk's, and hosted runner
+  figures never become budgets (owner decisions D53(b) and Q1).
 - **What Qompack does instead.** It measures what it can attribute and prints the availability word
   where it cannot — see the `unavailable` per-hook rows in
   [docs/troubleshooting.md §2](troubleshooting.md#2-unknown-capability-or-telemetry).
@@ -466,6 +475,105 @@ host change could lift — as prepared proposals, none of which has been filed.
 - **Recorded at.** `plans/V6-CLOSEOUT-CHECKLIST.md` D35(c); `plans/sdd/V6-closeout/w7-spawnclaim/report.md`
   (open issues).
 
+### A compaction at the edge of session-start's budget can get the deferred note
+
+- **Limit.** A compaction's `SessionStart` that finds the daemon only at the end of the time
+  `session-start` may borrow for starting it, or that meets a daemon spawned so late that it keeps
+  its 1.5 s grace, can run out of reply time. The hook client then answers with the "rehydration
+  deferred" note naming "the Qompack daemon did not answer in time", and the rehydration does not
+  reach the model at that compaction.
+- **Why.** The host gives `session-start` 15 s in all, and the start of a daemon, the wait for its
+  answer and the hook's own exit reserve all come out of that one budget. A compaction may take up to
+  5 s of it, and borrowing more for the start would push the hook past the host's timeout, after
+  which the host keeps nothing the hook says. Owner decision D29 accepted this edge as it is, with no
+  extra allowance for transit.
+- **What Qompack does instead.** The note lists the recovery calls (`expand` of the first prompt,
+  `recall`, `dropped()`), the request is spooled and replayed, and the replay records the
+  rehydration as undelivered, so `dropped()` says the whole rehydration never reached the model.
+- **Recorded at.** `plans/V6-CLOSEOUT-CHECKLIST.md` D21 and D29;
+  [docs/troubleshooting.md §7](troubleshooting.md#7-daemon-problems).
+
+### Spool submode lasts until the session or the daemon ends
+
+- **Limit.** Once a long session's hooks have switched to spool submode on a slow disk, they stay
+  there for the rest of the session. The switch does not reverse itself while the same daemon runs,
+  and there is no command that ends it.
+- **Why.** In spool submode the hooks no longer wait for the daemon, so the breach detector gets no
+  clean sample windows from which to decide that the disk has recovered. Owner decision D44 accepted
+  this for 0.3.0 once D41 made the Windows budget platform-derived, which removed the systematic
+  trigger on Windows.
+- **What Qompack does instead.** Nothing is lost: every capture is spooled and replayed, a
+  compaction replays the session's own spooled captures before it seals, and `status` and `doctor`
+  say the submode is the designed path. A new session in the project, or the daemon's idle exit,
+  starts again in sync submode.
+- **Recorded at.** `plans/V6-CLOSEOUT-CHECKLIST.md` D41 and D44;
+  [docs/troubleshooting.md §7](troubleshooting.md#7-daemon-problems).
+
+### A compaction can wait behind a spool replay already running
+
+- **Limit.** Before it seals the checkpoint, a `PreCompact` replays this session's spooled captures
+  within a bound of 500 ms by default. If a client-spool watcher pass is already running for another
+  reason when the `PreCompact` arrives, the replay waits for that pass, and on a slow disk the bound
+  can run out first. The seal then goes ahead without the captures still in the spool.
+- **Why.** The watcher pass and the replay share one lock, so that no spooled line is replayed
+  twice, and the bound is what B-E (`runtime.budgets.checkpointFinalizeMs`) leaves after the seal's
+  own window, so a longer wait would make the host's compaction wait past B-E. The `PreCompact` no
+  longer starts such a pass itself (its own kick of the watcher comes after the seal); a pass started
+  by an earlier request, by the idle tick in spool submode, or by a drain the ingest lanes ask for is
+  the remaining case. Owner decision D56(e) documents it as a known limit for 0.3.0, the degrade
+  D55 approved.
+- **What Qompack does instead.** The checkpoint's drop report counts every capture the bound left
+  and names the newest tool results among them, the rehydration's section 7 carries the report, the
+  day log has a Warn line, and the daemon replays the captures afterwards, so `recall` and `expand`
+  find them then. Nothing is lost.
+- **Recorded at.** `plans/V6-CLOSEOUT-CHECKLIST.md` D55 and D56(e);
+  `plans/sdd/V6-closeout/w16f-settlekick/report.md`;
+  [docs/troubleshooting.md §7](troubleshooting.md#7-daemon-problems).
+
+### A page near redacted text can be shorter than it could be
+
+- **Limit.** When `expand` or `re_read` has to cut a response at `runtime.mcp.maxResponseBytes`, the
+  page never ends inside a redacted region. Where separate redacted regions interleave with raw text,
+  the cut it picks can be earlier than the largest page that would fit.
+- **Why.** Finding the largest safe cut in that case would need many more redaction passes per page.
+  Owner decision D48 accepted the current cut: never unsafe, never a spurious refusal, and a bounded
+  number of redaction passes per region.
+- **What Qompack does instead.** The page says `truncated: true` and carries `next_span`, which
+  continues exactly where it stopped, so nothing is skipped; you page once more.
+- **Recorded at.** `plans/V6-CLOSEOUT-CHECKLIST.md` D48;
+  [docs/user-guide.md](user-guide.md#mcp-tools).
+
+### Two store write rows miss their budgets after the hook's ACK
+
+- **Limit.** Two carried performance rows do not meet their budgets in 0.3.0. Writing a novel object
+  (PutBytes, SP06-D2) took 17 to 19 ms cold and 2.3 to 3.3 ms warm against budgets of 3 ms and
+  400 µs, and capturing a 256 KB tool result (`OnToolUse`, SP08-D1) had a p99 of 59 to 74 ms against
+  B-C's soft 50 ms. Both were measured in a quiet, balanced run on candidate 5, on the Windows
+  reference host and in the Linux container.
+- **Why.** The cost is one durable object write per novel chunk. The fix is a batched-write store
+  format, a change to the crash model rather than a freeze-time edit, so owner decision D54 recorded
+  both as `wontfix` for 0.3.0. Every one of these rows was faster than the earlier base on both OSes,
+  in 10 of 10 rounds.
+- **What Qompack does instead.** The write happens after the hook has been told its capture was
+  taken, so no hook waits on it.
+- **Recorded at.** `plans/V6-CLOSEOUT-CHECKLIST.md` D54; `plans/CARRIED-DEFECTS.tsv` (SP06-D2,
+  SP08-D1).
+
+### A delivery cut mid-publication can leave its decision-graph node out
+
+- **Limit.** If a capture's first publication is cut between its index record and the link that
+  joins it to its capture record (a `Stop`, a failure or a daemon stop at that moment), the replay
+  completes the link but does not add that delivery's node to the persisted decision graph.
+- **Why.** The replay takes the redelivery path, which by design recomputes none of the first run's
+  derived state: computed from the replaying process's view, a graph edge would be built from the
+  wrong predecessor, which is wrong data rather than the same data twice
+  (`internal/observer/tooluse.go`, step 6c). Repairing the graph beyond preserving and reporting is
+  post-0.3.0 work (the ledger's defaults).
+- **What Qompack does instead.** The capture itself is preserved and retrievable by `recall` and
+  `expand`; only the derived graph node is missing.
+- **Recorded at.** `plans/V6-CLOSEOUT-CHECKLIST.md`, the defaults under the decisions table;
+  `plans/sdd/V6-closeout/w4-e2eflakes/report.md`.
+
 ### No cost or price guarantee
 
 - **Limit.** Qompack cannot tell you what a session cost. Reported usage is not an estimated price,
@@ -496,14 +604,21 @@ host change could lift — as prepared proposals, none of which has been filed.
 
 ### No inference of cache state from arbitrary elapsed time
 
-- **Limit.** Qompack cannot infer cache state from arbitrary elapsed time. It does not decide that a
-  prompt cache entry is warm or cold because a certain number of minutes passed.
+- **Limit.** Qompack cannot infer cache state from arbitrary elapsed time. It cannot know whether a
+  prompt cache entry is warm or cold, and nothing it reports or delivers claims to.
 - **Why.** The break-even arithmetic is scoped as a diagnostic, not an oracle: `Qompack.md`
   Appendix A prices it as "N > (w−r)/(1−r), assuming N identical uses, one write, later hits and
   r<1". The host exposes no cache-state signal to a plugin, so an elapsed-time guess would be a
   fabricated observation.
 - **What Qompack does instead.** It treats an unobserved quantity as `unknown` and leaves
-  cache-shaped decisions to the host. Where Qompack itself calls something a cache, it says so and
+  cache-shaped decisions to the host: a checkpoint records the cache state as `unknown`. Its
+  internal scheduler does keep an estimate, bounded by the TTL regime rather than by an arbitrary
+  number of minutes: `internal/scheduler/ttl.go` `ClassifyTTL` reads a gap since the last API
+  request shorter than half the shortest possible TTL as warm and a gap at or past the longest
+  possible TTL as cold, and everything between as expiring. The estimate only chooses Qompack's own
+  idle background work (a cold gap is when the Bloom rebuild, DAG compaction and GC run) and weights
+  the scheduler's internal rewrite-cost arithmetic; it reaches neither the host nor the session. Where Qompack
+  itself calls something a cache, it says so and
   bounds the consequence — [ADR 0009](adr/0009-negative-knowledge-bloom-as-cache.md) is about
   Qompack's own Bloom filter, not about the host's prompt cache.
 - **Recorded at.** `Qompack.md` v1.5 §12 and Appendix A; `plans/QOMPACK-ERRATA.md` v1.3 "What could
@@ -588,46 +703,53 @@ These are the limits that can move. Each names the gate or the owner that would 
   `internal/pluginmanifest/manifest.go` (`commandSpecs`); `plans/V5-report.md` §29 item 3 (the
   SP-14 handoff edge H3 this closes by not shipping the command).
 
-### No operator backup, restore or rollback command; `bench` unimplemented
+### No rollback command and no automatic downgrade; `bench` unimplemented
 
-- **Limit.** No command takes a backup, restores one, or performs a rollback. The store carries the
-  machinery — `TakeBackup`, `VerifyBackup`, `RestoreBackup` and `RehearseRollback`
-  (`internal/store/backup.go`) — but it is reachable only from Go, through a migrator the closed
-  `store.migrate.legacyImportCutover` build gate refuses to construct. `qompack bench` is also
-  unimplemented and prints `qompack bench: not implemented in this build`.
+- **Limit.** No command rolls a store back to an older release's format, and nothing in this build
+  downgrades a format on its own. The store's legacy migration and rollback API — `TakeBackup`,
+  `VerifyBackup`, `RestoreBackup` and `RehearseRollback` (`internal/store/backup.go`) — is reachable
+  only from Go, through a migrator the closed `store.migrate.legacyImportCutover` build gate refuses
+  to construct. `qompack bench` is also unimplemented and prints
+  `qompack bench: not implemented in this build`.
 - **Why.** The migration/rollback path stays behind a build gate that has no config key until its
   acceptance evidence lands (`internal/config/migration.go`), and `bench` is carried as an open row
   for a later subplan (`plans/V5-report.md` §29 item 7).
-- **What Qompack does instead.** SP-17 shipped the read-only diagnostics `qompack fsck` and `qompack
-  doctor`. `fsck` is the recovery **check** — it reports on backup and migration state and, with
-  `--repair --yes`, performs five explicit additive repairs that never delete data — and `doctor`
-  reports capability, scope and control rows. The interim rollback procedure is
-  [docs/release.md §5](release.md#5-rollback).
-- **Recorded at.** [docs/user-guide.md](user-guide.md#operator-commands);
+- **What Qompack does instead.** The operator commands `qompack backup create`, `backup verify` and
+  `backup restore` take a consistent backup with the daemon stopped and restore it into a fresh
+  destination, proving it with the same build's reader and the packaged integrity checks
+  ([docs/backup.md](backup.md)); they do not establish that an older release can read the result.
+  `qompack fsck` is the recovery **check**, and with `--repair --yes` performs five explicit
+  additive repairs that never delete data; `qompack doctor` reports capability, scope and control
+  rows. The rollback procedure is [docs/release.md §5](release.md#5-rollback).
+- **Recorded at.** [docs/backup.md](backup.md); [docs/user-guide.md](user-guide.md#operator-commands);
   [docs/troubleshooting.md §9](troubleshooting.md#9-backup-rollback-and-recovery);
   [docs/release.md §5](release.md#5-rollback); `plans/V5-report.md` §29 item 7.
 
-### Installation rehearsed on windows/amd64; live sessions unverified
+### Installed in Claude Code on windows/amd64 only
 
-- **Limit.** Installed-host verification exists for **windows/amd64 only**, and only at the install
-  and launcher-resolution level. On that one target SP-17 installed the bundle into Claude Code
-  2.1.263 and the launcher resolved from the host's plugin cache, so it reads `installed-verified`
-  ([docs/release.md](release.md#3-supported-scope) §3). The other five release targets read
-  `unknown`, and no target has been exercised in a live session against a live model.
-- **Why.** SP-17's record raises only windows/amd64, from a directory install and a launcher that
-  resolved in the host's cache; `${CLAUDE_PLUGIN_ROOT}` expansion in a live session and the four host
-  contracts below stay unobserved. `qompack self-test` runs them against a zero `daemon.Services`, so
-  `hook.additional_context_delivered`, `precompact.has_time_to_write`,
-  `precompact.custom_instructions_accepted` and `mcp.server_registered` report `not-yet-implemented`;
-  a live daemon declares each of those producers only when the matching seam is bound
-  (`internal/daemon/options.go` `DeclareProducers`, guarded by `s.PreCompact`/`s.Checkpoints`,
-  `s.Rehydrate` and `s.MCPInitialized`), and what such a run would observe against an installed host
-  has never been recorded.
+- **Limit.** Installed-host evidence exists for **windows/amd64 only**. There, SP-17 installed the
+  bundle into Claude Code 2.1.263 and the launcher resolved from the host's plugin cache, which is the
+  record that makes that one target read `installed-verified`
+  ([docs/release.md](release.md#3-supported-scope) §3), and the V6 close-out's live lane installed
+  the frozen bundles of candidates 3 and 4 into Claude Code 2.1.280 and ran real sessions against a
+  live model. Those sessions were run by an agent on the owner's machine (owner decision D3), never
+  as human UAT. No other release target has been installed into a host: no macOS or windows/arm64
+  machine with Claude Code installed was available to the live lane (macOS runs the test suites on
+  hosted runners, which install nothing into Claude Code), and Linux sessions with a model could not
+  run in the container, which has no login (D34(c)).
+- **Why.** A host install needs a host of that platform. Separately, `qompack self-test` runs the host
+  contracts against a zero `daemon.Services`, so `hook.additional_context_delivered`,
+  `precompact.has_time_to_write`, `precompact.custom_instructions_accepted` and
+  `mcp.server_registered` report `not-yet-implemented` there; a live daemon declares each of those
+  producers only when the matching seam is bound (`internal/daemon/options.go` `DeclareProducers`,
+  guarded by `s.PreCompact`/`s.Checkpoints`, `s.Rehydrate` and `s.MCPInitialized`), so only the
+  daemon's own snapshot, which `qompack status` reads, carries what they observed.
 - **What Qompack does instead.** It reports the producer-absent state honestly instead of reading it
   as success, and pins that reading with a test over `internal/contract/observation.go`'s spellings
   table.
 - **Recorded at.** `plans/V5-report.md` §24; `plans/MIGRATION-EVIDENCE.md` "Capability register
-  inputs"; [docs/troubleshooting.md §1](troubleshooting.md#1-start-with-provenance).
+  inputs"; `plans/V6-CLOSEOUT-CHECKLIST.md` D3 and D34;
+  [docs/troubleshooting.md §1](troubleshooting.md#1-start-with-provenance).
 
 ### The enabled-surface rows that are "mechanism only"
 

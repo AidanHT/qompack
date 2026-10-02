@@ -1,0 +1,47 @@
+# w17-docs checks (Windows, go1.26.6), worktree closeout/w17-docs
+# base 9a56b305; docs-only commits; run in the overnight chain's Linux -race window
+
+## go test -p 2 -count=1 ./test/docs (at 48ad91ca)
+ok  	github.com/qompack/qompack/test/docs	5.119s
+exit=0
+
+## gen-*-docs --check (at 48ad91ca)
+gen-config-docs: docs/config-reference.md is up to date
+gen-config-docs exit=0
+gen-command-docs: docs/commands.md is up to date
+gen-command-docs exit=0
+gen-mcp-docs: docs/mcp-tools.md is up to date
+gen-mcp-docs exit=0
+
+## devtool fmt-check (at 48ad91ca)
+exit=0
+
+## devtool lint --only=docmarkers,runpatterns (at 48ad91ca)
+== devtool lint: runpatterns ==
+runpatterns: plans/V2-VERIFY-primitives-store-dag-and-baseline.md:530: -run "TestUnixSocketPermissions|TestStaleUnixSocketReclaimed" is declared in ./internal/ipc but excluded by a build constraint on windows/amd64 — not checked here
+runpatterns: plans/sdd/V5-VERIFY/inventory-SP-05.md:70: -run "TestUnixSocketPermissions|TestStaleUnixSocketReclaimed|TestListenReturnsErrAddrInUse" is declared in ./internal/ipc but excluded by a build constraint on windows/amd64 — not checked here
+runpatterns: 1967 -run patterns parsed, 1460 of 1460 checkable resolved against 77 packages, 10 skipped (package not in tree yet), 7 skipped (unlanded wave and the package's test set is not settled), 2 platform-excluded, 177 waived
+runpatterns: waivers in force:
+PASS runpatterns
+== devtool lint: docmarkers ==
+docmarkers: 365 plan document(s) scanned
+PASS docmarkers
+
+## devtool lint --only=golangci-lint,nomagic,importgraph,testdeps,bindeps,sleepcheck,docmarkers,runpatterns (at e8e33249; later commits touch docs/README only)
+== devtool lint: golangci-lint ==
+PASS golangci-lint
+== devtool lint: nomagic ==
+PASS nomagic
+== devtool lint: importgraph ==
+PASS importgraph
+== devtool lint: testdeps ==
+PASS testdeps
+== devtool lint: bindeps ==
+PASS bindeps
+== devtool lint: sleepcheck ==
+PASS sleepcheck
+== devtool lint: runpatterns ==
+PASS runpatterns
+== devtool lint: docmarkers ==
+PASS docmarkers
+lint exit=0
