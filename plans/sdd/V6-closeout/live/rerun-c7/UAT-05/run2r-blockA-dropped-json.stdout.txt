@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "command": "dropped",
+  "ok": true,
+  "data": {
+    "tool": "dropped",
+    "is_error": false,
+    "ephemeral": true,
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"count\":15,\"drops\":[{\"detail\":\"OVERFLOW: pinned invariant inv_b91128913d77 did not fit the rehydration payload and is emitted whole or not at all; restore: Read .qompack/checkpoints/0001.json (invariants)\",\"id\":\"tier1\",\"kind\":\"invariants\"},{\"detail\":\"OVERFLOW: the verbatim original user intent did not fit the rehydration payload and is emitted whole or not at all; restore: expand(tool_use_id=prompt_dc87e76b-e10b-4ed9-a247-a9083ae3f28d_0)\",\"id\":\"tier1\",\"kind\":\"user_intent\"},{\"detail\":\"did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[3])\",\"id\":\"3\",\"kind\":\"user_intent_evolution\"},{\"detail\":\"did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[2])\",\"id\":\"2\",\"kind\":\"user_intent_evolution\"},{\"detail\":\"did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[1])\",\"id\":\"1\",\"kind\":\"user_intent_evolution\"},{\"detail\":\"did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[0])\",\"id\":\"0\",\"kind\":\"user_intent_evolution\"},{\"detail\":\"did not fit the rehydration budget; call already_tried(target=\\\"billing export quoting\\\", approach=\\\"double-quote every field\\\")\",\"id\":\"elim_8782d60b4ddc\",\"kind\":\"elimination\"},{\"detail\":\"did not fit the rehydration budget; call why(dec_bb7b288523c4)\",\"id\":\"dec_bb7b288523c4\",\"kind\":\"decision\"},{\"detail\":\"did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (current_work)\",\"id\":\"current_work\",\"kind\":\"current_work\"},{\"detail\":\"did not fit the rehydration budget; call re_read(billing.py)\",\"id\":\"billing.py\",\"kind\":\"pointer\"},{\"detail\":\"did not fit the rehydration budget; call expand(tool_use_id=toolu_0163DF6h7yjwvYCpdNwmzsYN)\",\"id\":\"toolu_0163DF6h7yjwvYCpdNwmzsYN\",\"kind\":\"pointer\"},{\"detail\":\"did not fit the rehydration budget; call expand(tool_use_id=toolu_01FpBPVGWtBMXbsYoRwDKTmN)\",\"id\":\"toolu_01FpBPVGWtBMXbsYoRwDKTmN\",\"kind\":\"pointer\"},{\"detail\":\"did not fit the rehydration budget; call expand(tool_use_id=toolu_01HTJgna4gvEsHdURGFRPBxL)\",\"id\":\"toolu_01HTJgna4gvEsHdURGFRPBxL\",\"kind\":\"pointer\"},{\"detail\":\"did not fit the rehydration budget; call expand(tool_use_id=toolu_01M3pd5Tvs1JSXQXcvikuzwj)\",\"id\":\"toolu_01M3pd5Tvs1JSXQXcvikuzwj\",\"kind\":\"pointer\"},{\"detail\":\"OVERFLOW: tier-1 material did not fit the rehydration budget and is emitted whole or not at all — call dropped() for the full accounting\",\"id\":\"tier1\",\"kind\":\"affordance\"}]}"
+      }
+    ],
+    "meta": {
+      "elapsed_ms": 38,
+      "hash": "sha256:25a1112c8aba2410f8a7271be2751f7f82fc81180bdbafff5acb6937d4651df8",
+      "tool_use_id": "qompack-mcp:e2435add3ce7"
+    }
+  }
+}

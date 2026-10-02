@@ -1,0 +1,11 @@
+ts=2026-10-02T18:09:59.2778926Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-10-02T18:09:59.3343019Z level=info msg="observer: session registered" session=dc87e76b-e10b-4ed9-a247-a9083ae3f28d source=startup turn=0 segment=1
+ts=2026-10-02T18:09:59.3343019Z level=info msg="scheduler: session bound" session=dc87e76b-e10b-4ed9-a247-a9083ae3f28d effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+ts=2026-10-02T18:10:29.3090095Z level=info msg="daemon: config reloaded" changed="[runtime.rehydrate.maxTokens runtime.rehydrate.minTokens]"
+ts=2026-10-02T18:10:52.2363801Z level=loud msg="rehydrate: tier-1 material exceeds the hard budget cap" budget=150 spent=47 ceiling_chars=9400 spent_chars=122
+ts=2026-10-02T18:10:57.467564Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-10-02T18:10:57.4688639Z level=info msg="daemon: took over the project from a daemon that ended without releasing its lock" pid=13832 version=0.3.0 started=2026-10-02T18:09:59Z
+ts=2026-10-02T18:10:57.6869149Z level=info msg="daemon: replayed spooled deliveries at start" deliveries=1
+ts=2026-10-02T18:10:58.9761049Z level=info msg="scheduler: session bound" session=dc87e76b-e10b-4ed9-a247-a9083ae3f28d effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+ts=2026-10-02T18:11:32.8986261Z level=loud msg="rehydrate: tier-1 material exceeds the hard budget cap" budget=150 spent=47 ceiling_chars=9400 spent_chars=122
+ts=2026-10-02T18:11:56.0656853Z level=info msg="observer: gc" scanned=19 deleted=0 freed=0 truncated=false
