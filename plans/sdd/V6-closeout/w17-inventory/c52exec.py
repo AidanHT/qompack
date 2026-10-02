@@ -8,6 +8,8 @@ that set with the non-test .go files that differ between candidate 5 (0d06ab12) 
 (99d0b18c). Setup code counts as executed, which can only widen the set. For each executed changed file
 it says whether the change is comment-only, and otherwise whether an executed block covers a changed
 line (a type or struct change has no executable line, so "none" there does not prove the code equal).
+Go never instruments _test.go files, so this half sees non-test files only; the _test.go files each
+benchmark's test binary executes are c52tests.py's half (runs/c52-test-files.txt).
 
 Run from the repository root on a tree whose Go code equals candidate 6's (candidate 7's code
 differs only in core.Version's default literal, a file with no executable statement):
