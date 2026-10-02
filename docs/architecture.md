@@ -594,7 +594,13 @@ the standing `already_tried` query, and the checkpointer's own drops keep its de
 bounded prefix plus a counted tail (`… and N more; call
 dropped()`), and its smallest form is reserved before anything else is admitted, so the report on
 what is missing always fits. The complete list is persisted for `dropped()` regardless
-([ADR 0011 §21](adr/0011-rehydration-budget-and-item-order.md)).
+([ADR 0011 §21](adr/0011-rehydration-budget-and-item-order.md)). A budget too small for any section
+(below the retrieval line, which tier 1 admits first) is never silent when something was dropped: the
+block is then a loss notice in section 7 alone, priced like any section, naming how many items did
+not fit, `dropped()` (the user's `/qompack:dropped`) and the original request's restore call when
+that was left out. Only a budget that cannot hold even `- N items dropped; call dropped()` injects
+nothing, and its drop report says so (D59,
+[ADR 0011 §23](adr/0011-rehydration-budget-and-item-order.md)).
 
 **What "the verbatim original intent" guarantees (SP08-D3, owner decision D35).** Item 2 injects the
 L0 capture `prompt_<session>_0`, resolved by derived id: the session's first *captured* prompt,

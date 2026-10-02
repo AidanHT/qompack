@@ -81,6 +81,8 @@ type rehydrateService struct {
 	// tier1Loud names the sessions that have logged a tier-1 overflow Loud (D50: once per
 	// session, not on every compaction). Guarded by mu. It holds one entry per session this
 	// daemon has seen overflow, and a daemon serves one project's sessions until it idles out.
+	// It is not persisted, so the rule is once per session per daemon (ADR 0011 §23.3): a daemon
+	// started after another one ended logs a session's overflow Loud once more (F-C7-UAT05-2).
 	tier1Loud map[core.SessionID]bool
 }
 

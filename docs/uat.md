@@ -685,15 +685,21 @@ carried at all.
   `intent_mismatch` records the disagreement.
 - **Overflow is explicit.** In step 5 the drop report names what could not be represented. Two
   shapes exist and both are recognized by `Overflowed` (`internal/rehydrate/budget.go`): an entry
-  with kind `overflow` and id `payload`, whose detail begins `OVERFLOW: the injection wrapper alone
-  (… tokens) exceeds the rehydration budget (… tokens); nothing was injected`; and a tier-1 entry
+  with kind `overflow` and id `payload`, whose detail begins `OVERFLOW:` and says nothing was
+  injected (`the injection wrapper alone (… tokens) exceeds the rehydration budget (… tokens)`, or
+  the budget `cannot hold even the notice naming what was dropped`); and a tier-1 entry
   whose id is `tier1`, whose detail begins `OVERFLOW:`, names the record (for example `pinned
   invariant inv_…` or `the verbatim original user intent`), says it `is emitted whole or not at all`
   and ends with the pointer that restores it (`restore: expand(tool_use_id=prompt_…_0)`, or `restore:
   Read .qompack/checkpoints/NNNN.json (…)`). A tier-1 entry sorts first in section 7. The state
   file's `degraded` field is `true` in both.
   Section 7 may itself be cut to the counted tail `- … and N more; call dropped()`, while the
-  complete report stays in the state file and is what step 4 returns.
+  complete report stays in the state file and is what step 4 returns. When the budget admits no
+  section at all (it cannot hold the retrieval line), the block is still delimited and is a loss
+  notice in section 7 alone: `- N items did not fit the rehydration budget; call dropped() …`
+  (or its smallest form `- N items dropped; call dropped()`), N counting every entry step 4 lists,
+  plus `- the original request, verbatim: expand(tool_use_id=prompt_…_0)` when the original was
+  left out (decision D59, [ADR 0011 §23](adr/0011-rehydration-budget-and-item-order.md)).
 - Nothing in the block claims the host's restored context was reduced.
 
 **Evidence to record**
@@ -707,7 +713,8 @@ transcript showing the correction.
 A **fail** is: a block larger than the budget; a compact `additionalContext` over 9,500 characters,
 or one the session receives as a saved-file path and preview; a record cut mid-record; an older
 statement rendered above the correction that superseded it; an overflow that appears nowhere — no `overflow`/`tier1` entry, no `degraded`, no
-counted tail — while content is missing. A **skip** is: no host session, leaving budget adherence and
+counted tail — while content is missing; a compaction that dropped material and injected no block
+while its state file carries no `overflow`/`payload` entry (D59). A **skip** is: no host session, leaving budget adherence and
 authority order unverified end to end.
 
 Rollback: stop the verified disposable-project writer and follow the shared backup/restore

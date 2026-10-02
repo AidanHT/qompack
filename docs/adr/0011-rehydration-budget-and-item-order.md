@@ -1,8 +1,10 @@
 # ADR 0011 — Rehydration budget, item order, and whole-rule restoration
 
 - **Status:** accepted; amended 2026-09-22 by §21 (owner decision D5: the payload fits the host's
-  10,000-character additionalContext cap) and 2026-09-30 by §22 (owner decisions D49 and D50:
-  current authority, tier-1 order, fallbacks and pointer privacy)
+  10,000-character additionalContext cap), 2026-09-30 by §22 (owner decisions D49 and D50:
+  current authority, tier-1 order, fallbacks and pointer privacy) and 2026-10-02 by §23
+  (coordinator decision D59 and D50: a loss is never silent, and argument summaries are judged as
+  arguments)
 - **Date:** 2026-09-06
 - **Subplan:** SP-11 (L5 rehydrator)
 - **Design:** `Qompack.md` §8.6, §8.7, §6.9, §4.4, §12; `plans/00-ARCHITECTURE.md` §5.15, §11.5, §11.6, §12.1
@@ -480,7 +482,8 @@ band exposed them:
 Two smaller consequences of the same shift: item 6b is offered the share carry before item 7, since
 it outranks it (a tenth of the ceiling alone would cut a skill index the payload has room for); and a
 payload whose only admitted section would be item 7 is no payload, as a payload with no items
-already was — the floor exists so that an omission can be named next to what did fit.
+already was — the floor exists so that an omission can be named next to what did fit. (§23.1
+replaces that last clause when material was dropped: the payload is then the loss notice.)
 
 **Pointers.** Every record the budget or the ceiling leaves out is named with the call that brings
 it back: `why(<decision id>)` for a decision, `re_read(<path>)` for a file pointer,
@@ -589,7 +592,8 @@ and §19.
    pointers point by hash only. When the host's rules cannot be established, every path is withheld.
 8. *A named tier-1 overflow is Loud once per session* (D50, UAT-04). The payload names it on every
    compaction. The Loud line "tier-1 material exceeds the hard budget cap" is logged once per
-   session (`Request.Tier1OverflowReported`) and at Info after that.
+   session (`Request.Tier1OverflowReported`) and at Info after that. §23.3 states the scope: once
+   per session per daemon.
 
 **Evidence.** `internal/rehydrate`: `TestBuild_Tier1FollowsTheAdmissionOrderAtTinyBudgets`,
 `TestBuild_TinyBudgetNeverKeepsTheInvariantWithoutTheRetrievalLine`,
@@ -603,6 +607,77 @@ and §19.
 `TestService_Tier1OverflowIsLoudOncePerSession`. The `degraded`, `full-12k`, `full-8k` and
 `token-bound` goldens and `state.json` were re-recorded after reading each diff: they gain the newest
 restatement, the unused-room deltas and the evolution-first order.
+
+## 23. Amendment (2026-10-02, coordinator decision D59 and owner decision D50): a loss is never silent, and argument summaries are judged as arguments
+
+**What changed.** The candidate 7 live lane (`plans/sdd/V6-closeout/live/rerun-c7/`) found one
+silence and one leak in what §21 and §22 record, plus a log line whose scope the docs overstated.
+
+1. *A degraded compaction that dropped material is never silent* (D59, UAT-05 F-C7-UAT05-1). At
+   UAT-05's `runtime.rehydrate.minTokens` = `maxTokens` = 150 the retrieval line (86 tokens) does
+   not fit beside the 47-token wrapper and item 7's floor, so §22.1 ends tier 1 at its first record,
+   the shares are closed, and §21's "a payload whose only admitted section would be item 7 is no
+   payload" left nothing: the compact injection was only the contract probe, while the state file
+   named 15 drops, the pin and the original request among them. The session was told nothing. Since
+   D59, when no section is admitted and material was dropped, the payload is a **loss notice**:
+   section 7 alone, rendered and priced like any section (the token budget on the assembled
+   payload, the host ceiling exactly), saying how many items did not fit, that `dropped()` lists
+   each with the call that restores it (the user's `/qompack:dropped` shows the same list), and the
+   verbatim original's restore call when the original is a tier-1 overflow. When that does not fit
+   it falls to `- N items dropped; call dropped()` with the original's line, then to that line
+   alone. A budget that cannot hold even the smallest form injects nothing, and the drop report
+   then says so with the wrapper-alone case's shape: kind `overflow`, id `payload`, a detail that
+   begins `OVERFLOW:` and says nothing was injected, and a Loud line.
+   *Why a notice and not the report.* The report's lines are calls into the retrieval tools whose
+   line the budget refused, and §22.1 keeps records without that line out for the same reason. The
+   count, `dropped()` and the original request's restore call are what a model needs to ask for the
+   rest, and they are the cheapest true statement of the loss. A compaction answered with nothing is
+   what owner decision D11 already rules out for a build that failed, and D49 for a checkpoint
+   fallback; a budget that is merely small is not a reason to be quieter than a failure.
+   *What does not change.* The token budget stays a hard cap (§3): the notice is never emitted over
+   it, and the inherited suite still holds `Result.Tokens` within `Request.Budget` at a budget of 1,
+   where even the wrapper does not fit. "No payload" still holds when nothing was dropped (a build
+   that admitted nothing has always named the refused retrieval line, so that case is the notice's
+   own rule). Tier-1 order, the closure, the shares, unused room and the hard-cap eviction are as
+   §22 records them. `TestBuild_Tier1ThatCannotFitIsDroppedWhole` asserted the empty payload at 60
+   tokens; it now asserts the notice and no tier-1 record (criterion change, D59).
+2. *Argument summaries are judged as arguments* (D50, C4.6; UAT-12 F1 on candidate 7). With the
+   deny rule `Read(./private/deny.txt)` in force, section 6 showed
+   `{"query":"path:private/deny.txt"}`, the arguments of a `recall` call whose `path:` selector named
+   the denied file: §22.7's gate split the summary into tokens and judged `path:private/deny.txt`
+   as a path, which no rule refuses. A tool pointer's summary is the call's arguments (the store's
+   preview), and the gate now reads it that way. It judges the value behind a selector prefix
+   (`path:`, and any `name:` token whose value is not a URL's `//` authority), every value of an
+   argument named for a path (`path`, `file_path`, `notebook_path`, `filepath`, `paths`, `file`,
+   `dir`, `cwd` and their kin) whatever its shape, a summary that is one bare word (the preview of a
+   path argument is its value alone), and each JSON string argument decoded, so an escaped quote
+   cannot hide a path. A glob is withheld when, as written, it is outside the project or refused, or
+   when it selects a path the build withholds: a file pointer's, or one another summary names
+   (`rules.Match`, a separator-free glob matching at any depth as `recall`'s selector does). A path
+   outside the project, behind a selector or in a glob, is withheld by containment as before. Two
+   limits are deliberate. A glob that selects only files Qompack never recorded is judged as
+   written: Build reads no files, so it has no listing to match against. And sections 3 and 4 are
+   unchanged: they render `record_eliminated`'s target, approach and reason, and the decisions
+   minted from them, as records, the same text `already_tried` and `why` return; withholding them
+   would break the `already_tried(target, approach)` call that restores them. Section 6 is the only
+   section that prints argument summaries.
+3. *Loud once per session per daemon* (F-C7-UAT05-2). §22.8's marker is the daemon's memory
+   (`rehydrateService.tier1Loud`). In UAT-05's step 5 the line was logged twice in one session, once
+   by the daemon that answered the first tiny-budget compaction and once by the daemon started after
+   it was ended. No persisted marker exists: the state file is rewritten on every compaction and
+   reset by a clear, so it records the last rehydration, not whether this session was ever Loud, and
+   persisting one would add a durable write to the compaction's answer path for a log line. The rule
+   is therefore once per session per daemon, which is what the code does: a restarted daemon (idle
+   exit, crash, an operator ending it) reports the condition it finds once more, and every payload
+   names the loss either way (item 1 above).
+
+**Evidence.** `internal/rehydrate`: `TestBuild_ATinyBudgetThatDroppedMaterialIsNeverSilent`,
+`TestBuild_TheLossNoticeShrinksToItsSmallestForm`, `TestLossNotice_NothingDroppedStaysEmpty`,
+`TestBuild_ArgumentSummariesNeverShowAWithheldPath`,
+`TestBuild_ArgumentSummariesFailClosedWithoutHostRules`; `internal/daemon`:
+`TestRehydrateHostPaths_ASelectorNamingADeniedFileIsWithheld` (the real host rules with the UAT-12
+deny rule). No golden changed: no golden payload is built at a budget below the retrieval line, and
+none carries a summary the refined gate withholds.
 
 ## Consequences
 
