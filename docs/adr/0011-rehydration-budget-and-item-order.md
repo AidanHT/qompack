@@ -3,8 +3,8 @@
 - **Status:** accepted; amended 2026-09-22 by §21 (owner decision D5: the payload fits the host's
   10,000-character additionalContext cap), 2026-09-30 by §22 (owner decisions D49 and D50:
   current authority, tier-1 order, fallbacks and pointer privacy) and 2026-10-02 by §23
-  (coordinator decision D59 and D50: a loss is never silent, and argument summaries are judged as
-  arguments)
+  (coordinator decision D59 and D50: a loss is never silent, and argument summaries and checkpoint
+  drop entries are judged as paths)
 - **Date:** 2026-09-06
 - **Subplan:** SP-11 (L5 rehydrator)
 - **Design:** `Qompack.md` §8.6, §8.7, §6.9, §4.4, §12; `plans/00-ARCHITECTURE.md` §5.15, §11.5, §11.6, §12.1
@@ -636,7 +636,14 @@ silence and one leak in what §21 and §22 record, plus a log line whose scope t
    fallback; a budget that is merely small is not a reason to be quieter than a failure.
    *What does not change.* The token budget stays a hard cap (§3): the notice is never emitted over
    it, and the inherited suite still holds `Result.Tokens` within `Request.Budget` at a budget of 1,
-   where even the wrapper does not fit. "No payload" still holds when nothing was dropped (a build
+   where even the wrapper does not fit. D59's fallback clause ("emit the smallest form … and record
+   the overrun as the existing overflow rules do") is read with that cap, under D33: the smallest
+   form is emitted when it fits, and when it does not the overrun is recorded the way the existing
+   overflow rules record the wrapper's, named and Loud but not injected. A budget below the smallest
+   form (69 tokens on UAT-05's fixture with the shipped estimator) therefore still injects nothing
+   in the session. Emitting over the cap would make §3's guarantee, the suite's bound and UAT-05's
+   "a block larger than the budget" fail each carry an exception, for budgets no default reaches.
+   The coordinator may rule the literal reading instead; this sentence then changes with the code. "No payload" still holds when nothing was dropped (a build
    that admitted nothing has always named the refused retrieval line, so that case is the notice's
    own rule). Tier-1 order, the closure, the shares, unused room and the hard-cap eviction are as
    §22 records them. `TestBuild_Tier1ThatCannotFitIsDroppedWhole` asserted the empty payload at 60
@@ -646,21 +653,46 @@ silence and one leak in what §21 and §22 record, plus a log line whose scope t
    `{"query":"path:private/deny.txt"}`, the arguments of a `recall` call whose `path:` selector named
    the denied file: §22.7's gate split the summary into tokens and judged `path:private/deny.txt`
    as a path, which no rule refuses. A tool pointer's summary is the call's arguments (the store's
-   preview), and the gate now reads it that way. It judges the value behind a selector prefix
-   (`path:`, and any `name:` token whose value is not a URL's `//` authority), every value of an
-   argument named for a path (`path`, `file_path`, `notebook_path`, `filepath`, `paths`, `file`,
-   `dir`, `cwd` and their kin) whatever its shape, a summary that is one bare word (the preview of a
-   path argument is its value alone), and each JSON string argument decoded, so an escaped quote
-   cannot hide a path. A glob is withheld when, as written, it is outside the project or refused, or
-   when it selects a path the build withholds: a file pointer's, or one another summary names
-   (`rules.Match`, a separator-free glob matching at any depth as `recall`'s selector does). A path
-   outside the project, behind a selector or in a glob, is withheld by containment as before. Two
-   limits are deliberate. A glob that selects only files Qompack never recorded is judged as
-   written: Build reads no files, so it has no listing to match against. And sections 3 and 4 are
-   unchanged: they render `record_eliminated`'s target, approach and reason, and the decisions
-   minted from them, as records, the same text `already_tried` and `why` return; withholding them
-   would break the `already_tried(target, approach)` call that restores them. Section 6 is the only
-   section that prints argument summaries.
+   preview), and the gate now reads it that way. For a built-in tool that preview is not JSON: it
+   is the values of `file_path`, `path`, `pattern`, `command` and `url` joined by spaces
+   (`store.argsPreview`), so no name marks a path and no token boundary marks where it ends. The
+   gate reads these pieces:
+   - the value behind a selector prefix (`path:`, and any `name:` token whose value is not a URL's
+     `//` authority);
+   - every value of an argument named for a path (`path`, `file_path`, `notebook_path`, `filepath`,
+     `paths`, `file`, `dir`, `cwd` and their kin), and a summary that is one bare word (the preview
+     of a path argument is its value alone);
+   - each JSON string argument, decoded, so an escaped quote cannot hide a path;
+   - every word, every run of consecutive words (a path with a space in it), and every join of a
+     segment's words at one space by a separator (Glob's and Grep's directory-then-pattern
+     preview, `private deny.txt`, read as the path the pattern selects there).
+
+   When the host's rules are established, every piece is judged, whatever its shape: a file needs
+   no dot or separator (`credentials apikey` is Grep's path, then its pattern). A relative piece
+   is also withheld when it is a path the build withholds or a path-segment suffix of one, because
+   `recall`'s plain selector selects by equality and by suffix (`store.pathSelector.weight`), so
+   `path:deny.txt` selects `private/deny.txt`. A rooted piece names one file and is judged as
+   written, so a Read of the project's `README.md` is not withheld because `private/README.md` is.
+   A glob is withheld when, as written, it is outside the project or refused, or when it selects a
+   path the build withholds: a file pointer's, or one another summary names (`rules.Match`, a
+   separator-free glob matching at any depth as `recall`'s selector does). A path outside the
+   project, behind a selector or in a glob, is withheld by containment as before. When the rules
+   cannot be established, every path is withheld as before, and only a piece named as a path or
+   shaped like one (rooted, or carrying a separator, a dot or `*`) is asked about; a run or a join
+   is not, because each of its words is asked on its own. Runs and joins are read only in a segment
+   no wider than a rendered line (`maxOneLineRunes`, the width of the store's preview), which keeps
+   the reading linear in a longer summary that Qompack did not write.
+
+   Three limits are deliberate. A glob pattern that selects only files Qompack never recorded is
+   judged as written: Build reads no files, so it has no listing to match against. A summary is
+   withheld when a word in it is an absolute path outside the project, so in a project whose own
+   path contains a space every absolute summary is withheld, because the first word of each is cut
+   at that space. This over-withholds and leaks nothing, and it predates §23 (§22.7 split on
+   whitespace too). And sections 3 and 4 are unchanged: they render `record_eliminated`'s target,
+   approach and reason, and the decisions minted from them, as records, the same text
+   `already_tried` and `why` return; withholding them would break the
+   `already_tried(target, approach)` call that restores them. Section 6 is the only section that
+   prints argument summaries.
 3. *Loud once per session per daemon* (F-C7-UAT05-2). §22.8's marker is the daemon's memory
    (`rehydrateService.tier1Loud`). In UAT-05's step 5 the line was logged twice in one session, once
    by the daemon that answered the first tiny-budget compaction and once by the daemon started after
@@ -670,14 +702,33 @@ silence and one leak in what §21 and §22 record, plus a log line whose scope t
    is therefore once per session per daemon, which is what the code does: a restarted daemon (idle
    exit, crash, an operator ending it) reports the condition it finds once more, and every payload
    names the loss either way (item 1 above).
+4. *The checkpointer's drop entries pass the same gate* (D50, C4.6). Five checkpoint drop kinds are
+   keyed by a file pointer's path as recorded: `file_pointer` (a pointer cut at the checkpoint's
+   own budget) and `pointer_missing`, `pointer_invalid`, `pointer_untracked` and `pointer_dirty`
+   (the ground-truth checks finalize always runs). Section 7 rendered them verbatim, so a path
+   section 6 withholds reached the payload one section later, most likely as
+   `pointer_untracked .env — not tracked by git` for a gitignored, host-denied file, whose pointer
+   finalize keeps. Each withheld one is now named the way section 6 names the pointer: by its hash
+   while the checkpoint still holds it, with `restore: expand(hash=…)`, and as `(path withheld)`
+   otherwise. It keeps the checkpointer's reason, drops the `re_read(path)` call that would be
+   refused, and says the path is withheld. `Result.Dropped`, and so the state file and `dropped()`,
+   carry the same entry: `dropped()` already withheld a host-denied captured path, and now also
+   withholds one outside the project, as `re_read` does. Every other checkpoint kind is keyed by an
+   id, a record or nothing, which `TestCheckpointPathDrops_AreTheCheckpointersOwn` pins against the
+   real `ValidatePointers` and `Truncate`. One snapshot of the host's rules serves a whole build.
 
 **Evidence.** `internal/rehydrate`: `TestBuild_ATinyBudgetThatDroppedMaterialIsNeverSilent`,
 `TestBuild_TheLossNoticeShrinksToItsSmallestForm`, `TestLossNotice_NothingDroppedStaysEmpty`,
 `TestBuild_ArgumentSummariesNeverShowAWithheldPath`,
-`TestBuild_ArgumentSummariesFailClosedWithoutHostRules`; `internal/daemon`:
-`TestRehydrateHostPaths_ASelectorNamingADeniedFileIsWithheld` (the real host rules with the UAT-12
+`TestBuild_ArgumentSummariesFailClosedWithoutHostRules`,
+`TestBuild_JoinedArgumentPreviewsNeverShowAWithheldPath`,
+`TestBuild_AnAbsolutePathIsJudgedAsTheOneFileItNames`,
+`TestBuild_CheckpointDropsNeverShowAWithheldPath`, `TestCheckpointPathDrops_AreTheCheckpointersOwn`,
+`TestBuild_HostRulesAreEstablishedOncePerBuild`; `internal/daemon`:
+`TestRehydrateHostPaths_ASelectorNamingADeniedFileIsWithheld` and
+`TestRehydrateHostPaths_EverySpellingOfADeniedFileIsWithheld` (the real host rules with the UAT-12
 deny rule). No golden changed: no golden payload is built at a budget below the retrieval line, and
-none carries a summary the refined gate withholds.
+none carries a summary or a checkpoint drop the refined gate withholds.
 
 ## Consequences
 
