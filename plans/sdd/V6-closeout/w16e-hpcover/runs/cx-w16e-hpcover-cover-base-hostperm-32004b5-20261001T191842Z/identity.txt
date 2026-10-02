@@ -1,0 +1,21 @@
+run_id=cx-w16e-hpcover-cover-base-hostperm-32004b5-20261001T191842Z
+commit=32004b524f3f2357e156c7208808a14a504b417b
+tree=cfcdb6f047236a412ee88994b32b8e30c63cc38c
+bundle_sha256=74d754cef96b42d976e3bf55312cb01f4234f10584d09548854041cbe8a043b5
+started_utc=2026-10-01T19:19:44Z
+uid=10001 user=qompack-test groups=qompack-test
+race=0 count=1 timeout=30m gomaxprocs=2 coload=0
+run=
+skip=
+extra_env= GOFLAGS=-coverprofile=/tmp/cx-w16e-hpcover-base.out
+go version go1.26.6 linux/amd64
+linux
+amd64
+0
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-coverprofile=/tmp/cx-w16e-hpcover-base.out
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+finished_utc=2026-10-01T19:20:00Z

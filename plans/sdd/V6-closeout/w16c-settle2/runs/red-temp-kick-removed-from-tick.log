@@ -1,0 +1,11 @@
+=== RUN   TestSpoolWatch_TheIdleTickKicksItInSpoolSubmode
+    spool_watch_test.go:585: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16c-settle2/internal/daemon/spool_watch_test.go:585
+        	Error:      	Condition never satisfied
+        	Test:       	TestSpoolWatch_TheIdleTickKicksItInSpoolSubmode
+        	Messages:   	the tick's kick lets the watcher publish the spooled Read
+--- FAIL: TestSpoolWatch_TheIdleTickKicksItInSpoolSubmode (30.47s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	30.799s
+FAIL
+exit=1

@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"slices"
 
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/dag"
+	"github.com/qompack/qompack/internal/grammar"
 	"github.com/qompack/qompack/internal/hookio"
 	"github.com/qompack/qompack/internal/store"
 	"github.com/qompack/qompack/internal/tokens"
@@ -179,22 +181,171 @@ func promptReplyOnly(ctx context.Context) bool {
 // its first hook) waits for the worker's capture of the same prompt.
 func PromptReplyOnly(ctx context.Context) bool { return promptReplyOnly(ctx) }
 
+// promptReplyClaimKey carries the reply's claim (WithPromptReplyClaim).
+type promptReplyClaimKey struct{}
+
+// WithPromptReplyClaim attaches the reply path's claim: a function the observer calls, under the
+// session lock and only when it has a warning to hand over, to learn whether the reply it is
+// answering will still reach the hook. True means the caller has committed to sending what this call
+// returns; false means the caller has stopped waiting (its deadline ran out first), so nothing this
+// call returns will be seen.
+//
+// The daemon's reply path is the one caller (internal/daemon callObservePromptWithDeadline): it
+// answers the claim and its own deadline under one lock, so a claim that returns true is a reply that
+// goes out carrying the warning, and one that returns false is a reply that already went out empty.
+// A context without a claim — the direct observer API, the tests — is always claimed.
+func WithPromptReplyClaim(ctx context.Context, claim func() bool) context.Context {
+	if claim == nil {
+		return ctx
+	}
+	return context.WithValue(ctx, promptReplyClaimKey{}, claim)
+}
+
+// promptReplyClaimed asks ctx's claim, or answers true when it carries none.
+func promptReplyClaimed(ctx context.Context) bool {
+	claim, _ := ctx.Value(promptReplyClaimKey{}).(func() bool)
+	return claim == nil || claim()
+}
+
+// promptReplyNonceKey carries the nonce of the prompt the reply answers (WithPromptReplyNonce).
+type promptReplyNonceKey struct{}
+
+// WithPromptReplyNonce attaches the nonce of the prompt the reply-only path is answering. A reply
+// that carries a warning is remembered under it (sessionState.ReplyWarning), so that if the hook gave
+// up on that reply after all and spooled the prompt, the daemon can name the warning to re-arm when
+// it settles the spooled copy (PromptReplySpooled). An empty nonce attaches nothing.
+func WithPromptReplyNonce(ctx context.Context, nonce string) context.Context {
+	if nonce == "" {
+		return ctx
+	}
+	return context.WithValue(ctx, promptReplyNonceKey{}, nonce)
+}
+
+func promptReplyNonce(ctx context.Context) string {
+	v, _ := ctx.Value(promptReplyNonceKey{}).(string)
+	return v
+}
+
+// replyWarning is the warning one claimed reply carried: the rules it drained, at the multiplicity
+// they were queued with, and the nonce of the prompt it answered.
+type replyWarning struct {
+	Nonce string
+	Rules []grammar.Rule
+}
+
+// counterThrashUndelivered counts the thrash warnings a reply drained but could not deliver, each
+// re-armed for the loop's next occurrence: a refused claim (rearmUndelivered), and a claimed reply
+// whose hook gave up and spooled the prompt (PromptReplySpooled).
+const counterThrashUndelivered = "observer.thrash_undelivered"
+
 // promptReplyOutput is the reply-only path's whole job: the queued thrash warning, and only in
 // ModeFull (§12 forbids injection while the contract is degraded). It drains the queue — a warning is
 // shown once — and does not touch the store, the DAG, the grammar or the turn: those belong to the
 // authoritative worker/replay capture. The caller holds st.mu.
-func (o *observer) promptReplyOutput(st *sessionState) Output {
+//
+// A warning counts as shown only when the reply that carries it is still being waited for: the queue
+// is drained into the reply only when ctx's claim succeeds. When it fails, the reply has already gone
+// out empty — the daemon's deadline ran out while this call waited for the session lock, or the hook
+// had stopped waiting before the daemon had even made the prompt durable — and the warning is
+// re-armed instead (rearmUndelivered).
+func (o *observer) promptReplyOutput(ctx context.Context, st *sessionState) Output {
 	out := hookio.Empty()
-	if o.mode() != ModeFull {
+	if o.mode() != ModeFull || len(st.PendingThrash) == 0 {
 		return out
 	}
+	if !promptReplyClaimed(ctx) {
+		o.rearmUndelivered(st)
+		return out
+	}
+	drained := st.PendingThrash
 	if lines := o.pendingThrashAt(st, st.WarningTurn); len(lines) > 0 {
 		out.HookSpecificOutput = &hookio.HSO{
 			HookEventName:     userPromptSubmit,
 			AdditionalContext: boundThrashWarning(lines),
 		}
+		// Remembered, not yet known delivered: a claim only means the daemon will send the reply.
+		// The hook may still have given up before it arrives (PromptReplySpooled). The latest
+		// warning replaces any earlier one, which bounds this to one per session.
+		if nonce := promptReplyNonce(ctx); nonce != "" {
+			st.ReplyWarning = replyWarning{Nonce: nonce, Rules: drained}
+		}
 	}
 	return out
+}
+
+// PromptReplySpooled is the second way a drained warning turns out undelivered. The reply's claim
+// succeeded, so the daemon sent the warning, but the hook had stopped waiting by the time it arrived
+// and spooled the prompt instead; the daemon learns this only when its drain settles the spooled
+// copy of a prompt it already answered live. The rules that reply carried are re-armed exactly as a
+// refused claim re-arms them (rearmRules): out of WarnedRules, held at the multiplicity they have
+// now, and queued again only once the loop occurs again. A warning queued since, for another rule, is
+// a different reply's and is left queued. It does not create state for a session it has never seen.
+func (o *observer) PromptReplySpooled(s core.SessionID, nonce string) bool {
+	if nonce == "" {
+		return false
+	}
+	o.once.Do(o.loadState)
+
+	o.mu.Lock()
+	st, ok := o.sess[s]
+	o.mu.Unlock()
+	if !ok {
+		return false
+	}
+
+	st.mu.Lock()
+	defer st.mu.Unlock()
+	w := st.ReplyWarning
+	if w.Nonce != nonce {
+		return false
+	}
+	st.ReplyWarning = replyWarning{}
+	o.rearmRules(st, w.Rules,
+		"observer: thrash warning's reply reached no hook (prompt spooled); re-armed for the loop's next occurrence")
+	// The rules leave the queue too, should one be there: a stale warning is never replayed.
+	rearmed := make(map[grammar.RuleID]bool, len(w.Rules))
+	for _, rule := range w.Rules {
+		rearmed[rule.ID] = true
+	}
+	st.PendingThrash = slices.DeleteFunc(st.PendingThrash, func(r grammar.Rule) bool { return rearmed[r.ID] })
+	return len(w.Rules) > 0
+}
+
+// rearmUndelivered handles the queued warnings a reply could not deliver. The host never saw them, so
+// they must not count as delivered: each rule leaves WarnedRules and may be reported again. But the
+// warning itself is not kept for a later prompt. It described the loop as it stood when this prompt
+// arrived, and a later turn may have left it (the design callObservePromptWithDeadline documents), so
+// the queue is cleared and each rule is held at the multiplicity it has now (ThrashFloor):
+// collectThrash queues it again only once Sequitur reports it referenced MORE often — the loop has
+// occurred again since. The caller holds st.mu.
+func (o *observer) rearmUndelivered(st *sessionState) {
+	o.rearmRules(st, st.PendingThrash, "observer: thrash warning not delivered; re-armed for the loop's next occurrence")
+	st.PendingThrash = nil
+}
+
+// rearmRules takes each rule out of WarnedRules and holds it at the larger of the multiplicity its
+// warning carried and the one Sequitur reports now (ThrashFloor), counting and logging each at Info
+// with msg. The caller holds st.mu.
+func (o *observer) rearmRules(st *sessionState, rules []grammar.Rule, msg string) {
+	if len(rules) == 0 {
+		return
+	}
+	now := map[grammar.RuleID]int{}
+	if o.opt.Grammar != nil {
+		for _, rule := range o.opt.Grammar.Thrash(thrashMinUses) {
+			now[rule.ID] = rule.Uses
+		}
+	}
+	if st.ThrashFloor == nil {
+		st.ThrashFloor = make(map[grammar.RuleID]int, len(rules))
+	}
+	for _, rule := range rules {
+		floor := max(rule.Uses, now[rule.ID])
+		delete(st.WarnedRules, rule.ID)
+		st.ThrashFloor[rule.ID] = floor
+		o.count(counterThrashUndelivered)
+		o.opt.Log.Info(msg, "rule", int(rule.ID), "uses", floor)
+	}
 }
 
 // recordPromptDurable publishes the verbatim record and observation link before

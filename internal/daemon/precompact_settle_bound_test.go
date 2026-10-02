@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -112,7 +113,7 @@ func TestPreCompactSettle_ALookPastTheBoundReadsNothingAndSaysSo(t *testing.T) {
 	// An earlier look with time to read it (the watcher's, or a PreCompact with a bound) indexes it.
 	listed := listClientSpools(root)
 	require.Len(t, listed, 1)
-	_, ok := dd.spoolHeads.heads(context.Background(), root, listed[0])
+	_, ok, _ := dd.spoolHeads.heads(context.Background(), root, listed[0])
 	require.True(t, ok)
 	pre = checkpointRequest(dd, sess, "nonce-precompact-no-bound-indexed")
 	pre.TS = own.TS + 1
@@ -249,28 +250,40 @@ func TestPreCompactSettle_NamesFitTheirShareUnderTheSealsCalibratedEstimator(t *
 		"priced with the identity, the names overrun their share as the seal measures them")
 }
 
-// coldBacklogBound is the settle's bound in TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound:
-// long enough that, with the first look held until just past half of it, the replay of the session's
-// one spooled Read fits in what is left on a loaded machine (it is one line, and the row fails only
-// if that replay takes more than 45 % of it).
-const coldBacklogBound = 3 * time.Second
+// coldBacklogLeft is how much of the settle's bound the slow first look of
+// TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound leaves: drainLineDeadline, the
+// most one replayed line can ever be given (dispatchPending hands each line its own drainLineDeadline
+// from its start). Left no more than that, the replay's line carries the settle's own deadline, so
+// the row's Dispatch seam reads exactly the deadline the settle handed its replay; and the replay has
+// as much wall time as any line can have, whatever the cold reads before the hold cost.
+const coldBacklogLeft = drainLineDeadline
 
-// coldBacklogLeft is how much of coldBacklogBound the row's slow read leaves: just under half, so the
-// first look takes more than half of the bound and still leaves time for the replay.
-const coldBacklogLeft = coldBacklogBound * 45 / 100
+// coldBacklogBound is that row's settle bound: twice what the slow first look leaves, so the first
+// look takes at least half of the bound before the replay starts. Both are the row's fixture, not
+// product numbers: the row fails on time only if the session's one replayed line takes longer than
+// coldBacklogLeft, or the cold journal and the twenty-one cold reads before the hold take longer
+// than coldBacklogBound - coldBacklogLeft (the fixture-sanity check on the hold says which).
+const coldBacklogBound = 2 * coldBacklogLeft
 
 // TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound (wave 16b review): twenty client
-// spools of other sessions, none indexed yet, are listed before the session's own spool, and the
-// first look's read of the last of them is slow (a read seam holds it until less than half of the
-// bound is left). The first look still leaves time, so the session's own Read is replayed before the
-// seal and nothing is left over: the waits and the replay run to the bound's own deadline. Held back
-// by the first look's whole duration again, as they were, they would have had no time at all, and a
-// cold backlog of other sessions' spools would have cost this session its replay. The last look reads
-// nothing: the own spool is released by the replay, and the others it does not look at again.
+// spools of other sessions, none indexed yet, are listed before the session's own spool, and the first
+// look reads them all, cold, before it reaches the session's own; its read of the last of them is slow
+// (a read seam holds it until coldBacklogLeft of the bound is left), so the first look takes at least
+// half of the bound. The waits and the replay run to the bound's own deadline, the one the looks run
+// to: the replay's line carries exactly that deadline, so the replay has the rest of the bound, and
+// the session's own Read is replayed before the seal with nothing left over. Held back by the first
+// look's whole duration, as they were (5fd55bdd), they had bound - 2*e1, nothing here, and a cold
+// backlog of other sessions' spools taking half the bound cost this session its replay; the row reads
+// that as a replay deadline earlier than the looks' and as a drop. A settle that decided from the time
+// left (skipping the replay once less than half the bound remains) fails it the same way. The last
+// look reads nothing: the own spool is released by the replay, and the others it does not look at
+// again.
+//
+// Wave 16e: the hold left the replay 45 % of a 3 s bound (1.35 s of wall time on a co-loaded host)
+// and nothing checked the replay's deadline. The replay now has drainLineDeadline, and the row reads
+// the deadline it was given, which no load can move.
 func TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound(t *testing.T) {
 	dd, root := settleTestDaemon(t, coldBacklogBound)
-	dd.drain.Store(newDrainer(dd.drainConfig()))
-	liveOrderWorkers(t, dd, 2, dd.runIngested)
 	const sess core.SessionID = "sess-precompact-cold-backlog"
 	const backlog = 20
 	for i := range backlog {
@@ -281,8 +294,10 @@ func TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound(t *testin
 	writeHookSpool(t, root, "client-9999.ndjson", own) // listed after the backlog
 	slow := fmt.Sprintf("client-%d.ndjson", 10000+backlog-1)
 	var left atomic.Int64 // what the slow read left of the bound
+	var reads settleLooks
 	dd.spoolHeads.read = func(ctx context.Context, path string) ([]byte, error) {
-		if dl, ok := ctx.Deadline(); ok && filepath.Base(path) == slow {
+		dl, ok := ctx.Deadline()
+		if ok && filepath.Base(path) == slow {
 			hold := time.NewTimer(time.Until(dl) - coldBacklogLeft)
 			select {
 			case <-hold.C:
@@ -291,20 +306,263 @@ func TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound(t *testin
 			hold.Stop()
 			left.Store(int64(time.Until(dl)))
 		}
+		reads.mu.Lock()
+		reads.reads = append(reads.reads, settleLookRead{at: time.Now(), deadline: dl, bounded: ok})
+		reads.mu.Unlock()
 		return paths.ReadFileShared(path)
 	}
+	var replay struct {
+		sync.Mutex
+		at       time.Time
+		deadline time.Time
+		bounded  bool
+	}
+	cfg := dd.drainConfig()
+	cfg.Dispatch = func(ctx context.Context, req ipc.Request) ipc.Response {
+		if req.Nonce == own.Nonce {
+			dl, ok := ctx.Deadline()
+			replay.Lock()
+			replay.at, replay.deadline, replay.bounded = time.Now(), dl, ok
+			replay.Unlock()
+		}
+		return dd.drainDispatch(ctx, req)
+	}
+	dd.drain.Store(newDrainer(cfg))
+	liveOrderWorkers(t, dd, 2, dd.runIngested)
 	probe := bindSealProbe(dd, own.Nonce)
 
 	pre := checkpointRequest(dd, sess, "nonce-precompact-cold-backlog")
 	pre.TS = own.TS + 1
+	before := time.Now()
 	require.True(t, dd.dispatchOp(context.Background(), pre).OK)
 
 	require.Positive(t, left.Load(), "fixture sanity: the first look ended before the bound")
-	require.Less(t, time.Duration(left.Load()), coldBacklogBound/2,
-		"fixture sanity: the first look took more than half of the bound")
+	require.LessOrEqual(t, time.Duration(left.Load()), coldBacklogLeft,
+		"fixture sanity: the first look took at least half of the bound")
+	reads.ranUnderTheBound(t, before, coldBacklogBound, backlog+1)
+	reads.mu.Lock()
+	look := reads.reads[len(reads.reads)-1]
+	reads.mu.Unlock()
+	replay.Lock()
+	defer replay.Unlock()
+	require.True(t, replay.bounded, "the settle replayed the session's own Read, under a deadline")
+	require.True(t, replay.at.After(look.at), "fixture sanity: the replay began after the first look's reads")
+	require.True(t, replay.deadline.Equal(look.deadline),
+		"the replay runs to the bound's own deadline, the looks' (%s), not one the first look's cost moved "+
+			"earlier (%s)", look.deadline.Format(time.StampMicro), replay.deadline.Format(time.StampMicro))
 	require.True(t, probe.published[own.Nonce],
 		"the first look left time, so the session's own spool is replayed before the seal")
 	require.Empty(t, probe.drops, "nothing of the session was left unreplayed")
 	require.Equal(t, int64(backlog+1), settleSpoolReads(dd),
 		"the first look reads every file once; the last look reads none")
+}
+
+// TestPreCompactSettle_CountsOnlyTheSpoolReadsOfItsOwnLooks (wave 16c, the w16b-settle review's
+// first nit): precompact_settle_spool_reads counts the client spool files the settle's own looks
+// read, not every read the spool index made while the settle ran. Here the client-spool watcher's
+// indexClientSpools runs on its own goroutine in the middle of the settle's first look (a read seam
+// starts it when the settle reads the one listed spool and waits for it to finish, so the overlap is
+// certain and no clock decides it), and reads a spool a hook wrote after the settle's listing. The
+// index reads two files in all; the settle read one, and counts one. The settle's bound is one no
+// co-loaded host can exhaust: with the default 500 ms the cold journal open and the listing could
+// end it before the look's read began (wave 16e), and the row counts reads, not time.
+func TestPreCompactSettle_CountsOnlyTheSpoolReadsOfItsOwnLooks(t *testing.T) {
+	dd, root := settleTestDaemon(t, liveOrderBound)
+	dd.drain.Store(newDrainer(dd.drainConfig()))
+	const other core.SessionID = "sess-precompact-reads-other"
+	const listed, written = "client-7272.ndjson", "client-7373.ndjson"
+	writeHookSpool(t, root, listed, liveOrderTool(dd, root, other, 1))
+	later := liveOrderTool(dd, root, other, 2)
+	var once sync.Once
+	dd.spoolHeads.read = func(_ context.Context, path string) ([]byte, error) {
+		if filepath.Base(path) == listed {
+			once.Do(func() {
+				writeHookSpool(t, root, written, later)
+				done := make(chan struct{})
+				go func() {
+					defer close(done)
+					dd.indexClientSpools(context.Background(), map[string]bool{written: true})
+				}()
+				<-done
+			})
+		}
+		return paths.ReadFileShared(path)
+	}
+
+	require.Nil(t, dd.settleBeforeSeal(context.Background(), "sess-precompact-reads-healthy", 0))
+	require.Equal(t, int64(2), dd.spoolHeads.reads.Load(),
+		"fixture sanity: the watcher's pass read the new spool while the settle ran")
+	require.Equal(t, int64(1), settleSpoolReads(dd), "the settle counts the one file its own look read")
+}
+
+// TestPreCompactSettle_ReadsASpoolTheDrainReleasedAndAHookRecreated (wave 16c, the w16b-settle
+// review's second nit): the spool index keys a file version on its size and modification time, and a
+// drain can release client-<pid>.ndjson after which a hook with the same pid writes a new capture
+// under the same name, at the same size and, on a filesystem with coarse timestamps, the same time.
+// The daemon's own removal drops the index entry, so the settle reads the recreated file again and
+// names the capture it holds. Served from the released file's heads, the settle found only a
+// published Read and sealed with nothing named: the capture was silently missing from the report.
+// The row, not the clock, ends the settle (settleCut), once the recreated spool's Read is in its
+// replay: the bound is one no co-loaded host can exhaust, so the look's read of the recreated spool is
+// never the cut, as it could be with the default 500 ms (wave 16e).
+func TestPreCompactSettle_ReadsASpoolTheDrainReleasedAndAHookRecreated(t *testing.T) {
+	dd, root := settleTestDaemon(t, liveOrderBound)
+	ctx := context.Background()
+	settle, cut := settleCut(t)
+	const sess core.SessionID = "sess-precompact-recreated"
+	const base = "client-7474.ndjson"
+	first := liveOrderTool(dd, root, sess, 1)
+	second := liveOrderTool(dd, root, sess, 2) // the same length as first: the reused pid's next Read
+	cfg := dd.drainConfig()
+	cfg.Dispatch = func(lctx context.Context, req ipc.Request) ipc.Response {
+		if req.Nonce == second.Nonce {
+			cut()         // the bound ends while the recreated spool's Read is in its replay
+			<-lctx.Done() // the disk that never finishes inside the bound
+			return ipc.Response{Err: lctx.Err().Error()}
+		}
+		return dd.drainDispatch(lctx, req)
+	}
+	dd.drain.Store(newDrainer(cfg))
+	liveOrderWorkers(t, dd, 2, dd.runIngested)
+	dd.applyHotPathTransition(ToSpool)
+
+	path := paths.Long(filepath.Join(paths.Of(root).Spool, base))
+	writeHookSpool(t, root, base, first)
+	was, err := os.Stat(path)
+	require.NoError(t, err)
+	dd.indexClientSpools(ctx, map[string]bool{base: true})
+	require.True(t, spoolIndexed(dd, base), "fixture sanity: the watcher indexed the spool")
+
+	_, err = dd.Drain(ctx)
+	require.NoError(t, err)
+	require.True(t, spoolWatchPublished(dd, first.Nonce), "fixture sanity: the drain published the Read")
+	require.True(t, spoolWatchGone(root, base), "fixture sanity: the drain released the spool")
+
+	writeHookSpool(t, root, base, second)
+	require.NoError(t, os.Chtimes(path, was.ModTime(), was.ModTime()))
+	now, err := os.Stat(path)
+	require.NoError(t, err)
+	require.Equal(t, was.Size(), now.Size(), "fixture sanity: the recreated spool has the same size")
+	require.True(t, was.ModTime().Equal(now.ModTime()), "fixture sanity: and the same modification time")
+
+	probe := bindSealProbe(dd, second.Nonce)
+	pre := checkpointRequest(dd, sess, "nonce-precompact-recreated")
+	pre.TS = second.TS + 1
+	require.True(t, dd.dispatchOp(settle, pre).OK)
+
+	require.Equal(t, int64(1), settleSpoolReads(dd), "the settle reads the recreated spool again")
+	require.False(t, probe.published[second.Nonce], "fixture sanity: its replay could not finish in the bound")
+	require.Equal(t, []checkpoint.DropEntry{
+		{Kind: checkpoint.DropKindUnreplayedCapture, Detail: fmt.Sprintf(unreplayedDetailFormat, 1, 1, 0, 0, 1)},
+		{Kind: checkpoint.DropKindUnreplayedToolResult, ID: string(second.Event.ToolUseID)},
+	}, probe.drops, "the seal names the recreated spool's Read")
+}
+
+// TestSpoolHeadIndex_AReadTheDrainsRemovalOverlapsIsNotRemembered (wave 16c): a look that read a
+// client spool while the drain removed it may have read the removed file. The index does not keep
+// what it read, so a file recreated under the name at the same size and time cannot be served the
+// removed file's heads. The read seam calls removed in the middle of the read, as the drain would.
+func TestSpoolHeadIndex_AReadTheDrainsRemovalOverlapsIsNotRemembered(t *testing.T) {
+	dd, _, root := laneTestDaemon(t)
+	const base = "client-7575.ndjson"
+	writeHookSpool(t, root, base, liveOrderTool(dd, root, "sess-spool-index-removal", 1))
+	listed := listClientSpools(root)
+	require.Len(t, listed, 1)
+	dd.spoolHeads.read = func(_ context.Context, path string) ([]byte, error) {
+		b, err := paths.ReadFileShared(path)
+		dd.spoolHeads.removing(filepath.Base(path))()
+		return b, err
+	}
+
+	lines, ok, read := dd.spoolHeads.heads(context.Background(), root, listed[0])
+	require.True(t, ok)
+	require.True(t, read)
+	require.Len(t, lines, 1, "the look still gets what it read")
+	require.False(t, spoolIndexed(dd, base), "but the index does not remember it")
+
+	dd.spoolHeads.read = nil
+	_, ok, read = dd.spoolHeads.heads(context.Background(), root, listed[0])
+	require.True(t, ok)
+	require.True(t, read, "the next look reads the file again")
+	require.True(t, spoolIndexed(dd, base), "control: a read no removal overlaps is remembered")
+}
+
+// TestSpoolHeadIndex_ASpoolRecreatedRightAfterTheDrainsUnlinkIsReadAgain (wave 16c, the settle2
+// review): the drain's removal of a released client spool and the index's forgetting of it are one
+// step to every look. Here a hook with the reused pid writes the name again, at the same size and
+// modification time, in the instant after the drain's unlink returned and before the drain went on
+// (the drainer's removeSpool seam does it, and looks, inside the removal), and a look made then
+// reads the new file: it is not served the removed one's heads. Neither is the next look after it,
+// and a look that read the old file just before the unlink did not put its heads back either.
+// Dropping the entry only after the unlink returned left that instant open.
+func TestSpoolHeadIndex_ASpoolRecreatedRightAfterTheDrainsUnlinkIsReadAgain(t *testing.T) {
+	dd, _, root := laneTestDaemon(t)
+	ctx := context.Background()
+	const sess core.SessionID = "sess-spool-index-unlink"
+	const base = "client-7676.ndjson"
+	first := liveOrderTool(dd, root, sess, 1)
+	second := liveOrderTool(dd, root, sess, 2) // the same length as first: the reused pid's next Read
+	path := paths.Long(filepath.Join(paths.Of(root).Spool, base))
+	writeHookSpool(t, root, base, first)
+	was, err := os.Stat(path)
+	require.NoError(t, err)
+	dd.indexClientSpools(ctx, map[string]bool{base: true})
+	require.True(t, spoolIndexed(dd, base), "fixture sanity: the watcher indexed the spool")
+
+	type look struct {
+		lines    []spoolHeadLine
+		ok, read bool
+	}
+	var before, during []look
+	dr := newDrainer(dd.drainConfig())
+	dr.removeSpool = func(p string, drained int64) (bool, error) {
+		if filepath.Base(p) == base { // a look at the released file just before its unlink
+			for _, l := range listClientSpools(root) {
+				if l.base == base {
+					lines, ok, read := dd.spoolHeads.heads(ctx, root, l)
+					before = append(before, look{lines, ok, read})
+				}
+			}
+		}
+		removed, err := removeIfUnchanged(p, drained)
+		if !removed || filepath.Base(p) != base {
+			return removed, err
+		}
+		writeHookSpool(t, root, base, second)
+		require.NoError(t, os.Chtimes(path, was.ModTime(), was.ModTime()))
+		for _, l := range listClientSpools(root) {
+			if l.base == base {
+				require.Equal(t, was.Size(), l.size, "fixture sanity: the recreated spool has the same size")
+				require.True(t, was.ModTime().Equal(l.mod), "fixture sanity: and the same modification time")
+				lines, ok, read := dd.spoolHeads.heads(ctx, root, l)
+				during = append(during, look{lines, ok, read})
+			}
+		}
+		return removed, err
+	}
+	dd.drain.Store(dr)
+	liveOrderWorkers(t, dd, 2, dd.runIngested)
+
+	_, err = dd.Drain(ctx)
+	require.NoError(t, err)
+	require.True(t, spoolWatchPublished(dd, first.Nonce), "fixture sanity: the drain published the first Read")
+	require.Len(t, before, 1, "fixture sanity: the seam looked at the released spool before its unlink")
+	require.True(t, before[0].read, "the removal dropped the entry before the unlink")
+	require.Len(t, before[0].lines, 1)
+	require.Equal(t, first.Nonce, before[0].lines[0].c.nonce, "fixture sanity: that look read the released file")
+	require.Len(t, during, 1, "fixture sanity: the seam recreated the spool and looked once")
+	require.True(t, during[0].ok)
+	require.True(t, during[0].read, "the look right after the unlink reads the recreated spool")
+	require.Len(t, during[0].lines, 1)
+	require.Equal(t, second.Nonce, during[0].lines[0].c.nonce, "and names its capture, not the removed one's")
+
+	l := listClientSpools(root)
+	require.Len(t, l, 1, "fixture sanity: the pass left the recreated spool for a later one")
+	lines, ok, read := dd.spoolHeads.heads(ctx, root, l[0])
+	require.True(t, ok)
+	require.True(t, read, "nothing a look read inside the removal was remembered")
+	require.Len(t, lines, 1)
+	require.Equal(t, second.Nonce, lines[0].c.nonce, "the next look names the recreated spool's capture")
+	_, _, read = dd.spoolHeads.heads(ctx, root, l[0])
+	require.False(t, read, "control: once the removal returned, the index remembers the file again")
 }

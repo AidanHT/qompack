@@ -1,0 +1,14 @@
+=== RUN   TestV5_ThrashWarningVisibleInStatusAndCheckpoint
+=== RUN   TestV5_ThrashWarningVisibleInStatusAndCheckpoint/sequitur_warning_is_warning_only_and_once_per_rule
+=== RUN   TestV5_ThrashWarningVisibleInStatusAndCheckpoint/degraded_passive_records_the_loop_and_says_nothing_until_restored
+=== RUN   TestV5_ThrashWarningVisibleInStatusAndCheckpoint/state_aware_detector_is_progress_aware_and_cannot_feed_itself
+=== RUN   TestV5_ThrashWarningVisibleInStatusAndCheckpoint/a_late_reply_does_not_count_as_delivered_and_the_loop_warns_afresh
+    v5_x10_test.go:820: LATE OR DEFERRED PROMPT REPLY (forced by the arm's reply hold (x10v5ReplyHold)): the reply to "still red — try the exact same fix again" carried no warning; late l0_prompt_reply_late 0 -> 1, hook deferred it to its client spool: false, observer.thrash_undelivered now 1. Recovery attempt 1 of 3 replays one more loop cycle and requires the next prompt to carry the warning.
+    v5_x10_test.go:820: RECOVERED: "still red after one more try" carried the warning after the lost reply (re-armed: true): "[qompack] possible loop: FileRead→FileEdit→Bash repeated 12× (turns 3) — consider a different approach"
+--- PASS: TestV5_ThrashWarningVisibleInStatusAndCheckpoint (101.83s)
+    --- PASS: TestV5_ThrashWarningVisibleInStatusAndCheckpoint/sequitur_warning_is_warning_only_and_once_per_rule (36.96s)
+    --- PASS: TestV5_ThrashWarningVisibleInStatusAndCheckpoint/degraded_passive_records_the_loop_and_says_nothing_until_restored (27.49s)
+    --- PASS: TestV5_ThrashWarningVisibleInStatusAndCheckpoint/state_aware_detector_is_progress_aware_and_cannot_feed_itself (0.10s)
+    --- PASS: TestV5_ThrashWarningVisibleInStatusAndCheckpoint/a_late_reply_does_not_count_as_delivered_and_the_loop_warns_afresh (37.29s)
+PASS
+ok  	github.com/qompack/qompack/test/e2e	102.315s

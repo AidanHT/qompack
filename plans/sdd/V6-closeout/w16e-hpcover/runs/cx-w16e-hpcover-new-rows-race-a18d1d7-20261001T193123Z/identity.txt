@@ -1,0 +1,21 @@
+run_id=cx-w16e-hpcover-new-rows-race-a18d1d7-20261001T193123Z
+commit=a18d1d7bc58eebb4d775280790962eb21b149d3c
+tree=e1d905f983e09aae0a097f4fa2b0492e01b2f2d8
+bundle_sha256=b7c702e14725deb379c2e866398a9d1077446022bbeeb64785e7b7c021b74369
+started_utc=2026-10-01T19:31:47Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=1 timeout=30m gomaxprocs=2 coload=0
+run=^(TestASettingsFileThatCannotBeExaminedFailsClosed|TestALinkCycleInARulesPathNeitherHangsNorDropsTheRule|TestARuleThroughARelativeDirectoryLinkAppliesAtItsRealLocation|TestAManagedDropInDirectoryThatCannotBeListedFailsClosed|TestNegation_ALeadingSlashCarveOutIsAnchoredAtTheWorkingDirectory|TestNegation_AnAbsoluteOrHomeCarveOutCarvesNothing|TestARuleNamingTheWorkingDirectoryRefusesEverythingInIt|TestAnUnknownHomeDirectoryFailsClosed|TestAMainCheckoutsGitDirectoryReadsOnlyItsOwnLocalSettings|TestServerManagedRulesInsideAnArrayApply)$
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+finished_utc=2026-10-01T19:31:57Z

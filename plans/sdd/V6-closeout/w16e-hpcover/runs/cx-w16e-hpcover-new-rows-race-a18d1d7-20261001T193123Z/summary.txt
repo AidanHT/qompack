@@ -1,0 +1,1 @@
+PASS      github.com/qompack/qompack/internal/hostperm  (pass=16 fail=0 skip=0)

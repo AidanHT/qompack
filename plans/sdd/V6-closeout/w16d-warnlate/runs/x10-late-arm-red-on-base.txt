@@ -1,0 +1,13 @@
+=== RUN   TestV5_ThrashWarningVisibleInStatusAndCheckpoint
+=== RUN   TestV5_ThrashWarningVisibleInStatusAndCheckpoint/a_late_reply_does_not_count_as_delivered_and_the_loop_warns_afresh
+    v5_x10_test.go:745: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16d-warnlate/test/e2e/v5_x10_test.go:472
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16d-warnlate/test/e2e/v5_x10_test.go:745
+        	Error:      	Condition never satisfied
+        	Test:       	TestV5_ThrashWarningVisibleInStatusAndCheckpoint/a_late_reply_does_not_count_as_delivered_and_the_loop_warns_afresh
+        	Messages:   	a late reply's warning must be re-armed (observer.thrash_undelivered), not consumed
+--- FAIL: TestV5_ThrashWarningVisibleInStatusAndCheckpoint (90.80s)
+    --- FAIL: TestV5_ThrashWarningVisibleInStatusAndCheckpoint/a_late_reply_does_not_count_as_delivered_and_the_loop_warns_afresh (90.80s)
+FAIL
+FAIL	github.com/qompack/qompack/test/e2e	91.362s
+FAIL

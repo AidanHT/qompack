@@ -40,7 +40,7 @@
 # What it settles for the hosted Windows leg (run 36816905394, internal/daemon killed at 1800 s
 # under -count=2): the package alone neither hangs nor nears 30 minutes at -count=2 here, so the
 # hosted kill is the whole-tree co-load on a two-core windows-latest runner stretching two passes
-# past one pass's budget (nightly's -race run of the package alone took 1203 s there), or a
+# past one pass's budget (internal/daemon took 1203 s inside nightly's whole-tree -race run there), or a
 # hosted-only hang. The hosted log named no test still running at the kill (the reconciliation
 # then dropped unfinished tests; c697ed1e now prints them). D55 sets the Windows leg to
 # -timeout 60m = 2 x wholeTreeTestTimeout, one per-pass budget per -count iteration; a real hang is

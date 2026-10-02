@@ -1,0 +1,54 @@
+=== RUN   TestObservePromptRepliesWithinDeadline
+=== PAUSE TestObservePromptRepliesWithinDeadline
+=== RUN   TestObservePromptBlockingVariantTimesOut
+=== PAUSE TestObservePromptBlockingVariantTimesOut
+=== RUN   TestObservePromptWALFailureIsObservable
+=== PAUSE TestObservePromptWALFailureIsObservable
+=== RUN   TestObservePrompt_PassiveModeInvokesSeamButEmitsNothing
+=== PAUSE TestObservePrompt_PassiveModeInvokesSeamButEmitsNothing
+=== RUN   TestObservePrompt_ModeOffNeverInvokesTheSeam
+=== PAUSE TestObservePrompt_ModeOffNeverInvokesTheSeam
+=== RUN   TestObservePrompt_RecordingOutlivesTheReplyDeadline
+=== PAUSE TestObservePrompt_RecordingOutlivesTheReplyDeadline
+=== RUN   TestObservePrompt_CancelledRequestIsNotAnOverrun
+=== PAUSE TestObservePrompt_CancelledRequestIsNotAnOverrun
+=== RUN   TestObservePrompt_PanickingSeamIsRecovered
+=== PAUSE TestObservePrompt_PanickingSeamIsRecovered
+=== RUN   TestObservePrompt_StopJoinsAnInFlightRecording
+=== PAUSE TestObservePrompt_StopJoinsAnInFlightRecording
+=== RUN   TestObservePrompt_StopCancelsARecordingThatOutlivesItsGrace
+=== PAUSE TestObservePrompt_StopCancelsARecordingThatOutlivesItsGrace
+=== RUN   TestObservePrompt_StopAbandonsACaptureThatIgnoresCancellation
+=== PAUSE TestObservePrompt_StopAbandonsACaptureThatIgnoresCancellation
+=== RUN   TestObservePrompt_RealObserverCaptureLandsBehindAHeldSessionLock
+--- PASS: TestObservePrompt_RealObserverCaptureLandsBehindAHeldSessionLock (0.38s)
+=== RUN   TestPromptWarning_DeliveredReplyCountsOnce
+--- PASS: TestPromptWarning_DeliveredReplyCountsOnce (0.26s)
+=== RUN   TestPromptWarning_LateReplyDoesNotConsumeTheRule
+--- PASS: TestPromptWarning_LateReplyDoesNotConsumeTheRule (0.46s)
+=== RUN   TestPromptWarning_SlowDurableAcceptIsLateForTheClient
+--- PASS: TestPromptWarning_SlowDurableAcceptIsLateForTheClient (0.48s)
+=== CONT  TestObservePromptRepliesWithinDeadline
+=== CONT  TestObservePrompt_CancelledRequestIsNotAnOverrun
+=== CONT  TestObservePrompt_RecordingOutlivesTheReplyDeadline
+=== CONT  TestObservePrompt_StopAbandonsACaptureThatIgnoresCancellation
+=== CONT  TestObservePrompt_PassiveModeInvokesSeamButEmitsNothing
+=== CONT  TestObservePromptWALFailureIsObservable
+=== CONT  TestObservePrompt_ModeOffNeverInvokesTheSeam
+=== CONT  TestObservePrompt_StopCancelsARecordingThatOutlivesItsGrace
+=== CONT  TestObservePromptBlockingVariantTimesOut
+=== CONT  TestObservePrompt_StopJoinsAnInFlightRecording
+=== CONT  TestObservePrompt_PanickingSeamIsRecovered
+--- PASS: TestObservePromptRepliesWithinDeadline (0.08s)
+--- PASS: TestObservePromptWALFailureIsObservable (0.09s)
+--- PASS: TestObservePrompt_CancelledRequestIsNotAnOverrun (0.12s)
+--- PASS: TestObservePrompt_PassiveModeInvokesSeamButEmitsNothing (0.11s)
+--- PASS: TestObservePrompt_PanickingSeamIsRecovered (0.11s)
+--- PASS: TestObservePrompt_ModeOffNeverInvokesTheSeam (0.14s)
+--- PASS: TestObservePrompt_RecordingOutlivesTheReplyDeadline (0.33s)
+--- PASS: TestObservePromptBlockingVariantTimesOut (0.36s)
+--- PASS: TestObservePrompt_StopAbandonsACaptureThatIgnoresCancellation (0.39s)
+--- PASS: TestObservePrompt_StopCancelsARecordingThatOutlivesItsGrace (0.55s)
+--- PASS: TestObservePrompt_StopJoinsAnInFlightRecording (0.56s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	2.656s

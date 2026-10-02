@@ -1,0 +1,29 @@
+=== RUN   TestPreCompactInSpoolSubmodeSealsTheSpooledReads
+DIAG    0.211s drain pass clientOnly=false only=map[] files=0 err=<nil>
+DIAG    0.232s drain pass clientOnly=false only=map[] files=0 err=<nil>
+DIAG    0.549s client spool op=observe.prompt from client.go:298
+DIAG    0.869s client spool op=observe.tool from client.go:217
+DIAG    0.875s client spool op=observe.tool from client.go:217
+DIAG    0.877s client spool op=observe.stop from client.go:217
+DIAG    0.913s precompact route replay=false sess=sess-c116-compact-under-ingest
+DIAG    0.914s settle start sess=sess-c116-compact-under-ingest at=1786530600000 bound=12s upTo=1
+DIAG    0.927s heads READ client-28792.ndjson listed size=6284 got=6284 err=<nil>
+DIAG    0.928s settle first listed=map[client-28792.ndjson:true] unread=map[] reads=1 caps=4
+DIAG    0.928s settle first-cap op=observe.prompt tool= file=client-28792.ndjson ts=1786530600000
+DIAG    0.928s settle first-cap op=observe.tool tool=toolu_d53c_spooled_read_1 file=client-28792.ndjson ts=1786530600000
+DIAG    0.928s settle first-cap op=observe.tool tool=toolu_d53c_spooled_read_2 file=client-28792.ndjson ts=1786530600000
+DIAG    0.928s settle first-cap op=observe.stop tool= file=client-28792.ndjson ts=1786530600000
+DIAG    0.928s settle own=map[client-28792.ndjson:true] settled=true
+DIAG    0.928s drain pass clientOnly=true only=map[client-28792.ndjson:true] files=2 err=<nil>
+DIAG    1.002s drain file client-28792.ndjson n=0 err=<nil>
+DIAG    1.023s settle replay n=0 err=<nil> upToNow=5
+DIAG    1.023s heads HIT client-28792.ndjson size=6284 lines=4
+DIAG    1.086s drain pass clientOnly=true only=map[client-28792.ndjson:true] files=2 err=<nil>
+DIAG    1.352s drain file client-28792.ndjson n=3 err=<nil>
+DIAG    1.362s settle replay n=3 err=<nil> upToNow=5
+DIAG    1.363s settle end left=0 lastUnread=map[] lastCaps=0 sctxErr=<nil> upToNow=5
+DIAG    1.579s drain pass clientOnly=false only=map[] files=1 err=<nil>
+DIAG    1.602s drain file wal-sess-c116-compact-under-ingest.ndjson n=0 err=<nil>
+--- PASS: TestPreCompactInSpoolSubmodeSealsTheSpooledReads (1.62s)
+PASS
+coverage: 14.3% of statements

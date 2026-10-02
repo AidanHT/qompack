@@ -1,0 +1,13 @@
+# TEMPORARY DIAGNOSTIC (fix round): same arm forced=false, QOMPACK_UNDER_COLOAD=1, GITHUB_STEP_SUMMARY=<scratch>/summary.md.
+# Expected green, and the branch appended to the job summary file (contents after the run log).
+=== RUN   TestV5_ThrashWarningVisibleInStatusAndCheckpoint
+=== RUN   TestV5_ThrashWarningVisibleInStatusAndCheckpoint/a_late_reply_does_not_count_as_delivered_and_the_loop_warns_afresh
+    v5_x10_test.go:806: LATE OR DEFERRED PROMPT REPLY (co-loaded run declared via QOMPACK_UNDER_COLOAD (ADR 0010)): the reply to "still red — try the exact same fix again" carried no warning; late l0_prompt_reply_late 0 -> 1, hook deferred it to its client spool: false, observer.thrash_undelivered now 1. Recovery attempt 1 of 3 replays one more loop cycle and requires the next prompt to carry the warning.
+    v5_x10_test.go:806: RECOVERED: "still red after one more try" carried the warning after the lost reply (re-armed: true): "[qompack] possible loop: FileRead→FileEdit→Bash repeated 12× (turns 3) — consider a different approach"
+--- PASS: TestV5_ThrashWarningVisibleInStatusAndCheckpoint (27.99s)
+    --- PASS: TestV5_ThrashWarningVisibleInStatusAndCheckpoint/a_late_reply_does_not_count_as_delivered_and_the_loop_warns_afresh (27.99s)
+PASS
+ok  	github.com/qompack/qompack/test/e2e	28.285s
+# ---- summary.md ----
+- X10 `TestV5_ThrashWarningVisibleInStatusAndCheckpoint/a_late_reply_does_not_count_as_delivered_and_the_loop_warns_afresh`: LATE OR DEFERRED PROMPT REPLY (co-loaded run declared via QOMPACK_UNDER_COLOAD (ADR 0010)): the reply to "still red — try the exact same fix again" carried no warning; late l0_prompt_reply_late 0 -> 1, hook deferred it to its client spool: false, observer.thrash_undelivered now 1. Recovery attempt 1 of 3 replays one more loop cycle and requires the next prompt to carry the warning.
+- X10 `TestV5_ThrashWarningVisibleInStatusAndCheckpoint/a_late_reply_does_not_count_as_delivered_and_the_loop_warns_afresh`: RECOVERED: "still red after one more try" carried the warning after the lost reply (re-armed: true): "[qompack] possible loop: FileRead→FileEdit→Bash repeated 12× (turns 3) — consider a different approach"

@@ -23,8 +23,9 @@ import (
 // published ahead of it.
 //
 // The watcher closes that without polling an idle daemon. Every request the daemon serves kicks it
-// (noteServed), and so does Run's idle tick while the hot path is in spool submode, when no hook
-// request is served at all (kickSpoolWatchInSpoolSubmode). A kicked watcher looks at the spool
+// (noteServed; a PreCompact once it has sealed), and so does Run's idle tick while the hot path is in
+// spool submode, when no hook request is served at all (kickSpoolWatchInSpoolSubmode). A kicked
+// watcher looks at the spool
 // directory once per spoolCheckInterval for as long as kicks keep coming, and once more an interval
 // after they stop, so a spool file written just after the last hook (a late ACK spools after the
 // request was served) is still seen. A client spool that has stood unchanged across a whole interval
@@ -62,7 +63,8 @@ const counterSpoolWatchDrains = "l0_spool_watch_drains"
 // through setHorizon, while the watcher's own goroutine (watchClientSpools) reads it through
 // horizonNow.
 type spoolWatcher struct {
-	// kick is signalled by every served request (kickSpoolWatch). Capacity one: kicks merge.
+	// kick is signalled by every served request (kickSpoolWatch), a PreCompact's after its seal.
+	// Capacity one: kicks merge.
 	kick chan struct{}
 	// every is spoolCheckInterval.
 	every time.Duration
@@ -121,8 +123,8 @@ func (d *daemon) kickSpoolWatch() {
 	}
 }
 
-// kickSpoolWatchInSpoolSubmode kicks the watcher from Run's idle tick while the hot path is in spool
-// submode, and reports whether it did (V6 close-out D55, wave 16b). In spool submode no hot-path hook
+// kickSpoolWatchInSpoolSubmode kicks the watcher from Run's idle tick (onIdleTick) while the hot path
+// is in spool submode (V6 close-out D55, wave 16b). In spool submode no hot-path hook
 // connects (ipc client.go Send step 3), so no served request kicks the watcher, and a session's tool
 // results, prompts and Stops waited in their client spools for a non-hot request or for the idle
 // drain, DetectAfterSeconds after the last served request: recall lagged by minutes. The tick is
@@ -132,12 +134,11 @@ func (d *daemon) kickSpoolWatch() {
 // interval, each pass bounded by idleRunBudget as a pass budget, and the retry backoff and horizon
 // for a spool its passes cannot consume. No new number. In sync submode the tick does not kick: the
 // hooks' own requests do.
-func (d *daemon) kickSpoolWatchInSpoolSubmode() bool {
+func (d *daemon) kickSpoolWatchInSpoolSubmode() {
 	if d.registry == nil || d.registry.HotMode() != ipc.HotSpool {
-		return false
+		return
 	}
 	d.kickSpoolWatch()
-	return true
 }
 
 // spoolWatchEntry is what the watcher remembers about one client spool between two looks.

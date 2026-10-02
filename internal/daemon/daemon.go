@@ -328,7 +328,8 @@ type daemon struct {
 	recoveryMu sync.Mutex
 
 	// spool is the client-spool watcher's configuration and kick (C1.13, spool_watch.go): every served
-	// request kicks it (noteServed). New creates it; nil on a daemon value that never went through New.
+	// request kicks it (noteServed; a PreCompact after its seal). New creates it; nil on a daemon value
+	// that never went through New.
 	spool *spoolWatcher
 	// spoolHeads remembers what each hook client spool holds, so the PreCompact settle reads a file
 	// once per version rather than on every compaction (spool_heads.go). The zero value is ready.
@@ -849,14 +850,7 @@ func (d *daemon) Run(ctx context.Context) error {
 				_ = lock.Heartbeat()
 			}
 		case <-idleTicker.C:
-			d.idle.Notify(d.registry.LastActivity())
-			d.kickSpoolWatchInSpoolSubmode()
-			now := core.NowMilli(d.clk)
-			if d.idle.IsIdle(now) {
-				_, _ = d.idle.RunOnce(runCtx, idleRunBudget)
-			}
-			d.maybeReloadConfig(runCtx, config.Env{})
-
+			now := d.onIdleTick(runCtx)
 			if d.idleExitDue(now, &zeroLiveSince) {
 				cancel()
 				<-serveErrCh
@@ -865,6 +859,24 @@ func (d *daemon) Run(ctx context.Context) error {
 			}
 		}
 	}
+}
+
+// onIdleTick is the work of Run's idle tick before its exit decision, and returns the tick's own
+// timestamp for that decision (idleExitDue). It brings the idle controller up to the registry's last
+// activity, kicks the client-spool watcher while the hot path is in spool submode (no hot-path hook
+// connects then, so no served request kicks it: kickSpoolWatchInSpoolSubmode), runs the idle tasks
+// within idleRunBudget once the project is idle, and reloads the project's configuration if its file
+// changed. It is a method of its own so that a row can run the tick Run runs
+// (TestSpoolWatch_TheIdleTickKicksItInSpoolSubmode).
+func (d *daemon) onIdleTick(ctx context.Context) core.UnixMilli {
+	d.idle.Notify(d.registry.LastActivity())
+	d.kickSpoolWatchInSpoolSubmode()
+	now := core.NowMilli(d.clk)
+	if d.idle.IsIdle(now) {
+		_, _ = d.idle.RunOnce(ctx, idleRunBudget)
+	}
+	d.maybeReloadConfig(ctx, config.Env{})
+	return now
 }
 
 // idleExitDue is the idle tick's exit decision, taken out of Run's select loop so it can be
@@ -917,8 +929,17 @@ func (d *daemon) openForRequests() {
 //
 // It costs one already-completed sync.Once check per request (an atomic load) and never touches
 // the filesystem, so it is safe to leave on the B-A/B-B path.
-func (d *daemon) noteServed() {
+//
+// It also kicks the client-spool watcher (spool_watch.go), except for op ipc.OpCheckpoint, the
+// PreCompact: its route kicks the watcher as it returns, after its seal or a panic (handleCheckpoint).
+// Kicked here, the watcher's pass over every session's spools could take the drain's mutex before the
+// route's settle did, and the settle's replay of the compacting session's own spools would wait
+// behind it, spending the settle's bound on other sessions' backlog (wave 16f).
+func (d *daemon) noteServed(op ipc.Op) {
 	d.firstServedOnce.Do(func() { close(d.firstServed) })
+	if op == ipc.OpCheckpoint {
+		return
+	}
 	d.kickSpoolWatch()
 }
 
@@ -991,6 +1012,10 @@ func (d *daemon) drainConfig() DrainConfig {
 		Released:  d.ing.wakeSession,
 		// A leased flush a drain replays while the daemon serves is ended on its own (C1.15).
 		EndSession: d.endDrainedFlush,
+		// A released client spool leaves the PreCompact settle's spool index (spool_heads.go).
+		ClientSpoolRemoving: d.spoolHeads.removing,
+		// A hook's spooled copy of a prompt answered live re-arms the warning its reply carried.
+		SpooledPromptSettled: d.settleSpooledPrompt,
 	}
 }
 

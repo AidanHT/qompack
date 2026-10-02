@@ -7,7 +7,10 @@ import "os"
 // tail no wall-clock budget priced on a reference host survives. It is the owner's Q1 ruling, third
 // option (plans/V6-CLOSEOUT-CHECKLIST.md: "C7.2 hosted runners report-only for fsync-bound rows"),
 // applied by coordinator decision D53(e): ci.yml reports hosted fsync-bound rows without gating
-// them, keeps the structural ledger checks gated, and names a reason other than co-load.
+// them, keeps the structural ledger checks gated, and names a reason other than co-load. D55
+// extended it: the declaration reports B-A as well as B-B and B-E's wall row (B-A contains B-B's
+// ingest, D41), and nightly.yml's bench-deep declares it too, so no hosted job gates those three
+// rows (ADR 0010 Addendum 2); they are judged on a reference disk, the owner's quiet runs.
 //
 // The evidence is CI's own. Alone on their runners in run 36816905394's bench-gate, ubuntu-latest
 // measured B-B at p50 0.576 ms but p99 40.960 ms against 15, and windows-latest at p50 45.056 ms
@@ -25,7 +28,13 @@ import "os"
 //   - the hot-path tests that drive the harness (test/integration's
 //     TestIntegration_HotPathWarmWithRealResidentState, test/e2e's X11) REPORT the §12.2 spool
 //     submode transition, and the hook deferrals that follow it, instead of forbidding them, and
-//     still require a loud, named transition and a delivery ledger that adds up with 0 lost.
+//     still require a loud, named transition and a delivery ledger that adds up with 0 lost;
+//   - test/e2e's X10 (TestV5_ThrashWarningVisibleInStatusAndCheckpoint) answers a prompt reply that
+//     was observably late (l0_prompt_reply_late) or deferred to the hook's client spool with a
+//     proof of RECOVERY — the warning re-armed, and carried by the prompt after one more loop
+//     cycle — instead of failing on first-prompt delivery. A reply that was on time and carried
+//     nothing still fails, every other property of the warning is asserted as before, and the
+//     branch is written to the job summary, so a green run still says it took it (w16d-warnlate).
 //
 // B-E_cpu, the delivery-ledger identity check, 0 lost, the population census and every structural
 // check stay gated exactly as before. The reference verdict on those wall rows is the owner's quiet

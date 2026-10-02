@@ -1,0 +1,42 @@
+=== RUN   TestPreCompactSettle_ASpoolItCannotReadIsCountedNotTakenAsEmpty
+--- PASS: TestPreCompactSettle_ASpoolItCannotReadIsCountedNotTakenAsEmpty (0.27s)
+=== RUN   TestPreCompactSettle_DoesNotWaitBehindAWatcherPassItsOwnRequestKicked
+--- PASS: TestPreCompactSettle_DoesNotWaitBehindAWatcherPassItsOwnRequestKicked (0.52s)
+=== RUN   TestPreCompactSettle_ASpoolItCannotReadIsCountedNotTakenAsEmpty
+--- PASS: TestPreCompactSettle_ASpoolItCannotReadIsCountedNotTakenAsEmpty (0.18s)
+=== RUN   TestPreCompactSettle_DoesNotWaitBehindAWatcherPassItsOwnRequestKicked
+--- PASS: TestPreCompactSettle_DoesNotWaitBehindAWatcherPassItsOwnRequestKicked (0.51s)
+=== RUN   TestPreCompactSettle_ASpoolItCannotReadIsCountedNotTakenAsEmpty
+--- PASS: TestPreCompactSettle_ASpoolItCannotReadIsCountedNotTakenAsEmpty (0.18s)
+=== RUN   TestPreCompactSettle_DoesNotWaitBehindAWatcherPassItsOwnRequestKicked
+--- PASS: TestPreCompactSettle_DoesNotWaitBehindAWatcherPassItsOwnRequestKicked (0.55s)
+=== RUN   TestPreCompactSettle_ASpoolItCannotReadIsCountedNotTakenAsEmpty
+--- PASS: TestPreCompactSettle_ASpoolItCannotReadIsCountedNotTakenAsEmpty (0.21s)
+=== RUN   TestPreCompactSettle_DoesNotWaitBehindAWatcherPassItsOwnRequestKicked
+--- PASS: TestPreCompactSettle_DoesNotWaitBehindAWatcherPassItsOwnRequestKicked (0.57s)
+=== RUN   TestPreCompactSettle_ASpoolItCannotReadIsCountedNotTakenAsEmpty
+--- PASS: TestPreCompactSettle_ASpoolItCannotReadIsCountedNotTakenAsEmpty (0.21s)
+=== RUN   TestPreCompactSettle_DoesNotWaitBehindAWatcherPassItsOwnRequestKicked
+--- PASS: TestPreCompactSettle_DoesNotWaitBehindAWatcherPassItsOwnRequestKicked (0.50s)
+=== RUN   TestPreCompactSettle_ASpoolItCannotReadIsCountedNotTakenAsEmpty
+--- PASS: TestPreCompactSettle_ASpoolItCannotReadIsCountedNotTakenAsEmpty (0.18s)
+=== RUN   TestPreCompactSettle_DoesNotWaitBehindAWatcherPassItsOwnRequestKicked
+--- PASS: TestPreCompactSettle_DoesNotWaitBehindAWatcherPassItsOwnRequestKicked (0.52s)
+=== RUN   TestPreCompactSettle_ASpoolItCannotReadIsCountedNotTakenAsEmpty
+--- PASS: TestPreCompactSettle_ASpoolItCannotReadIsCountedNotTakenAsEmpty (0.19s)
+=== RUN   TestPreCompactSettle_DoesNotWaitBehindAWatcherPassItsOwnRequestKicked
+--- PASS: TestPreCompactSettle_DoesNotWaitBehindAWatcherPassItsOwnRequestKicked (0.51s)
+=== RUN   TestPreCompactSettle_ASpoolItCannotReadIsCountedNotTakenAsEmpty
+--- PASS: TestPreCompactSettle_ASpoolItCannotReadIsCountedNotTakenAsEmpty (0.19s)
+=== RUN   TestPreCompactSettle_DoesNotWaitBehindAWatcherPassItsOwnRequestKicked
+--- PASS: TestPreCompactSettle_DoesNotWaitBehindAWatcherPassItsOwnRequestKicked (0.53s)
+=== RUN   TestPreCompactSettle_ASpoolItCannotReadIsCountedNotTakenAsEmpty
+--- PASS: TestPreCompactSettle_ASpoolItCannotReadIsCountedNotTakenAsEmpty (0.18s)
+=== RUN   TestPreCompactSettle_DoesNotWaitBehindAWatcherPassItsOwnRequestKicked
+--- PASS: TestPreCompactSettle_DoesNotWaitBehindAWatcherPassItsOwnRequestKicked (0.49s)
+=== RUN   TestPreCompactSettle_ASpoolItCannotReadIsCountedNotTakenAsEmpty
+--- PASS: TestPreCompactSettle_ASpoolItCannotReadIsCountedNotTakenAsEmpty (0.18s)
+=== RUN   TestPreCompactSettle_DoesNotWaitBehindAWatcherPassItsOwnRequestKicked
+--- PASS: TestPreCompactSettle_DoesNotWaitBehindAWatcherPassItsOwnRequestKicked (0.48s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	7.432s

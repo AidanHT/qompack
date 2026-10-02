@@ -142,6 +142,17 @@ type ProgressReporter interface {
 	Progress(s core.SessionID) (Progress, bool)
 }
 
+// SpooledReplyRearmer is how the daemon reports that a prompt's reply reached no hook although the
+// observer handed it a warning: the hook gave up waiting and spooled the prompt, and the drain is now
+// settling that spooled copy. The value New returns ALWAYS satisfies it; like ProgressReporter it is a
+// separate interface, so the §5.21 Observer interface is unchanged and a caller asserts for it.
+type SpooledReplyRearmer interface {
+	// PromptReplySpooled re-arms the warning the reply to the prompt with this nonce carried, as a
+	// refused claim does (rearmUndelivered), and reports whether there was one. A nonce whose reply
+	// carried no warning, or that this observer does not remember, changes nothing.
+	PromptReplySpooled(s core.SessionID, nonce string) bool
+}
+
 // Options is the collaborator set New assembles an Observer from.
 //
 // 00-ARCHITECTURE.md §5.21 declares the Observer interface without a constructor, so Options is
@@ -319,6 +330,14 @@ type sessionState struct {
 	PendingThrash []grammar.Rule
 	// WarningTurn is fixed when the queue becomes nonempty, before worker/reply scheduling.
 	WarningTurn core.TurnIndex
+	// ThrashFloor holds each rule whose warning a reply drained but could not deliver, at the
+	// reference count it had then (rearmUndelivered). collectThrash queues such a rule again only
+	// once Sequitur reports it referenced more often. Not persisted, like WarnedRules.
+	ThrashFloor map[grammar.RuleID]int
+	// ReplyWarning is the latest warning a claimed reply carried, keyed by that prompt's nonce, so a
+	// spooled copy of the prompt can re-arm it (PromptReplySpooled). One per session, in memory only:
+	// not persisted, like WarnedRules.
+	ReplyWarning replyWarning
 }
 
 // observer is the real L0 implementation.
@@ -381,9 +400,10 @@ type observer struct {
 
 // The value New returns satisfies both seams.
 var (
-	_ Observer         = (*observer)(nil)
-	_ Persister        = (*observer)(nil)
-	_ ProgressReporter = (*observer)(nil)
+	_ Observer            = (*observer)(nil)
+	_ Persister           = (*observer)(nil)
+	_ ProgressReporter    = (*observer)(nil)
+	_ SpooledReplyRearmer = (*observer)(nil)
 )
 
 // New returns an Observer built from o.

@@ -1,0 +1,87 @@
+--- FAIL: TestPreCompactSettle_ReplaysAgainOnceALiveCopyAheadOfItPublishes (0.48s)
+    precompact_settle_retry_test.go:81: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16d-sealrow/internal/daemon/precompact_settle_retry_test.go:81
+        	Error:      	Should be true
+        	Test:       	TestPreCompactSettle_ReplaysAgainOnceALiveCopyAheadOfItPublishes
+        	Messages:   	the seal waited for the live Read's publication
+--- FAIL: TestPreCompactSettle_ASpoolItCannotReadIsCountedNotTakenAsEmpty (0.32s)
+    precompact_settle_retry_test.go:115: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16d-sealrow/internal/daemon/precompact_settle_retry_test.go:115
+        	Error:      	Not equal: 
+        	            	expected: []checkpoint.DropEntry{checkpoint.DropEntry{Kind:"unreplayed_capture", ID:"", Detail:"0 capture(s) of this session (0 tool result(s), 0 prompt(s), 0 other) were still waiting to be replayed into the store when this checkpoint was sealed (durable writes on this disk were slower than their budget); the newest 0 tool result(s) are named by tool_use_id; nothing is lost: the daemon replays them, and recall or expand finds them then; 1 hook client spool file(s) could not be read within the bound, so this session's captures in them, if any, are not counted here"}}
+        	            	actual  : []checkpoint.DropEntry(nil)
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,8 +1,2 @@
+        	            	-([]checkpoint.DropEntry) (len=1) {
+        	            	- (checkpoint.DropEntry) {
+        	            	-  Kind: (string) (len=18) "unreplayed_capture",
+        	            	-  ID: (string) "",
+        	            	-  Detail: (string) (len=474) "0 capture(s) of this session (0 tool result(s), 0 prompt(s), 0 other) were still waiting to be replayed into the store when this checkpoint was sealed (durable writes on this disk were slower than their budget); the newest 0 tool result(s) are named by tool_use_id; nothing is lost: the daemon replays them, and recall or expand finds them then; 1 hook client spool file(s) could not be read within the bound, so this session's captures in them, if any, are not counted here"
+        	            	- }
+        	            	-}
+        	            	+([]checkpoint.DropEntry) <nil>
+        	            	 
+        	Test:       	TestPreCompactSettle_ASpoolItCannotReadIsCountedNotTakenAsEmpty
+        	Messages:   	the seal says a spool went unread rather than silently counting nothing
+--- FAIL: TestPreCompactSettle_ReplaysAgainOnceALiveCopyAheadOfItPublishes (0.40s)
+    precompact_settle_retry_test.go:81: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16d-sealrow/internal/daemon/precompact_settle_retry_test.go:81
+        	Error:      	Should be true
+        	Test:       	TestPreCompactSettle_ReplaysAgainOnceALiveCopyAheadOfItPublishes
+        	Messages:   	the seal waited for the live Read's publication
+--- FAIL: TestPreCompactSettle_ASpoolItCannotReadIsCountedNotTakenAsEmpty (0.28s)
+    precompact_settle_retry_test.go:115: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16d-sealrow/internal/daemon/precompact_settle_retry_test.go:115
+        	Error:      	Not equal: 
+        	            	expected: []checkpoint.DropEntry{checkpoint.DropEntry{Kind:"unreplayed_capture", ID:"", Detail:"0 capture(s) of this session (0 tool result(s), 0 prompt(s), 0 other) were still waiting to be replayed into the store when this checkpoint was sealed (durable writes on this disk were slower than their budget); the newest 0 tool result(s) are named by tool_use_id; nothing is lost: the daemon replays them, and recall or expand finds them then; 1 hook client spool file(s) could not be read within the bound, so this session's captures in them, if any, are not counted here"}}
+        	            	actual  : []checkpoint.DropEntry(nil)
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,8 +1,2 @@
+        	            	-([]checkpoint.DropEntry) (len=1) {
+        	            	- (checkpoint.DropEntry) {
+        	            	-  Kind: (string) (len=18) "unreplayed_capture",
+        	            	-  ID: (string) "",
+        	            	-  Detail: (string) (len=474) "0 capture(s) of this session (0 tool result(s), 0 prompt(s), 0 other) were still waiting to be replayed into the store when this checkpoint was sealed (durable writes on this disk were slower than their budget); the newest 0 tool result(s) are named by tool_use_id; nothing is lost: the daemon replays them, and recall or expand finds them then; 1 hook client spool file(s) could not be read within the bound, so this session's captures in them, if any, are not counted here"
+        	            	- }
+        	            	-}
+        	            	+([]checkpoint.DropEntry) <nil>
+        	            	 
+        	Test:       	TestPreCompactSettle_ASpoolItCannotReadIsCountedNotTakenAsEmpty
+        	Messages:   	the seal says a spool went unread rather than silently counting nothing
+--- FAIL: TestPreCompactSettle_ReplaysAgainOnceALiveCopyAheadOfItPublishes (0.44s)
+    precompact_settle_retry_test.go:81: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16d-sealrow/internal/daemon/precompact_settle_retry_test.go:81
+        	Error:      	Should be true
+        	Test:       	TestPreCompactSettle_ReplaysAgainOnceALiveCopyAheadOfItPublishes
+        	Messages:   	the seal waited for the live Read's publication
+--- FAIL: TestPreCompactSettle_ASpoolItCannotReadIsCountedNotTakenAsEmpty (0.30s)
+    precompact_settle_retry_test.go:115: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16d-sealrow/internal/daemon/precompact_settle_retry_test.go:115
+        	Error:      	Not equal: 
+        	            	expected: []checkpoint.DropEntry{checkpoint.DropEntry{Kind:"unreplayed_capture", ID:"", Detail:"0 capture(s) of this session (0 tool result(s), 0 prompt(s), 0 other) were still waiting to be replayed into the store when this checkpoint was sealed (durable writes on this disk were slower than their budget); the newest 0 tool result(s) are named by tool_use_id; nothing is lost: the daemon replays them, and recall or expand finds them then; 1 hook client spool file(s) could not be read within the bound, so this session's captures in them, if any, are not counted here"}}
+        	            	actual  : []checkpoint.DropEntry(nil)
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,8 +1,2 @@
+        	            	-([]checkpoint.DropEntry) (len=1) {
+        	            	- (checkpoint.DropEntry) {
+        	            	-  Kind: (string) (len=18) "unreplayed_capture",
+        	            	-  ID: (string) "",
+        	            	-  Detail: (string) (len=474) "0 capture(s) of this session (0 tool result(s), 0 prompt(s), 0 other) were still waiting to be replayed into the store when this checkpoint was sealed (durable writes on this disk were slower than their budget); the newest 0 tool result(s) are named by tool_use_id; nothing is lost: the daemon replays them, and recall or expand finds them then; 1 hook client spool file(s) could not be read within the bound, so this session's captures in them, if any, are not counted here"
+        	            	- }
+        	            	-}
+        	            	+([]checkpoint.DropEntry) <nil>
+        	            	 
+        	Test:       	TestPreCompactSettle_ASpoolItCannotReadIsCountedNotTakenAsEmpty
+        	Messages:   	the seal says a spool went unread rather than silently counting nothing
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	2.486s
+FAIL

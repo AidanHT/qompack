@@ -33,8 +33,9 @@ import (
 // So before it seals, the route settles the session the way a session end does (settleSession,
 // C1.13): it waits for the session's ingest lane to publish every arrival leased before the
 // PreCompact, replays the client spools that hold this session's captures (only those: another
-// session's backlog, older in host order, must not spend this session's bound), and waits for the
-// lane once more for the successors the replay unparked. All of it, the looks at the spool included,
+// session's backlog, older in host order, must not spend this session's bound), waits for the lane
+// once more for the successors the replay unparked and for a live delivery still publishing, and
+// replays again while that can advance (replayOwnSpools). All of it, the looks at the spool included,
 // runs inside the bound below (settleBeforeSeal), and a capture still unpublished when the bound
 // expires is counted in the checkpoint's drop report (checkpoint.DropKindUnreplayedCapture), the
 // newest tool results among them named by tool_use_id (DropKindUnreplayedToolResult) within their
@@ -47,6 +48,14 @@ import (
 // one listing of the spool directory, lookups in that index and two in the journal; it reads only
 // the client spools the index does not yet hold (a spool written since the watcher last passed, or
 // any when no watcher has run), each once, and only while the bound lasts.
+//
+// The settle's replay takes the drain's mutex within the bound (DrainClientSpoolsWithin), so a
+// client-spool watcher pass, which covers every session's spools under that mutex, would make it wait.
+// The PreCompact's own request therefore kicks the watcher only after the seal (noteServed,
+// handleCheckpoint): it cannot start a pass that holds the mutex against its own settle. A pass
+// already running for another reason (an earlier request's kick, the idle tick, a drain the lanes ask
+// for) is waited for, within the bound, and what the bound then leaves is named in the drop report
+// and replayed afterwards (D55): nothing is lost.
 
 // precompactSettleBound is how long the PreCompact route may spend settling the session before it
 // seals: B-E (runtime.budgets.checkpointFinalizeMs, the gated p99 for PreCompact entry to exit) less
@@ -103,7 +112,9 @@ const counterPrecompactSettle = "precompact_settle"
 const counterPrecompactUnreplayed = "precompact_unreplayed_captures"
 
 // counterPrecompactSpoolReads counts the client spool files PreCompact settles read: the files the
-// spool index (spool_heads.go) did not already hold at their listed size and time.
+// spool index (spool_heads.go) did not already hold at their listed size and time when a settle's
+// own look reached them. The watcher's indexing, and another session's settle running at the same
+// time, read through the same index and are not counted here.
 const counterPrecompactSpoolReads = "precompact_settle_spool_reads"
 
 // unreplayedDetailFormat is the summary drop entry's detail, as the checkpoint and section 7 carry it:
@@ -114,16 +125,17 @@ const unreplayedDetailFormat = "%d capture(s) of this session (%d tool result(s)
 	"were slower than their budget); the newest %d tool result(s) are named by tool_use_id; nothing is lost: " +
 	"the daemon replays them, and recall or expand finds them then"
 
-// unreadSpoolsClauseFormat is added to the summary's detail when the settle's bound ended before it
-// had read every client spool it had to look at: those files were listed but not read, so the
-// summary cannot count this session's captures in them, if there are any.
-const unreadSpoolsClauseFormat = "; %d hook client spool file(s) could not be read within the bound, so this " +
-	"session's captures in them, if any, are not counted here"
+// unreadSpoolsClauseFormat is added to the summary's detail when the settle's looks left a client
+// spool they had to look at unread: the bound ended before they could read it, or reading it failed
+// (a sharing violation, an anti-virus lock, an I/O error; spool_heads.go). Those files were listed but
+// not read, so the summary cannot count this session's captures in them, if there are any.
+const unreadSpoolsClauseFormat = "; %d hook client spool file(s) could not be read within the bound or " +
+	"failed to read, so this session's captures in them, if any, are not counted here"
 
 // sealReport is what the settle hands the seal: the captures it left unreplayed, how many client
-// spools it could not read within its bound, and the names' share of the checkpoint's budget. The
-// seal prices the names with its own estimator (drops), the one its Truncate measures the document
-// with.
+// spools it could not read within its bound or failed to read, and the names' share of the
+// checkpoint's budget. The seal prices the names with its own estimator (drops), the one its Truncate
+// measures the document with.
 type sealReport struct {
 	left      []pendingCapture
 	unread    int
@@ -197,8 +209,9 @@ func captureOf(req ipc.Request) pendingCapture {
 // with the spool runs against it:
 //   - the first look at the client spools (scanClientSpools): a listing, and a read of each file the
 //     spool index does not hold at its listed size and time, each started only before the deadline;
-//   - the waits for the session's lane and the replay of the files holding its captures, which run to
-//     the same deadline: no time is held back for the last look, so a first look slowed by other
+//   - the waits for the session's lane and the replays of the files holding its captures, with the
+//     looks at those files between replays (replayOwnSpools), which run to the same deadline: no
+//     time is held back for the last look, so a first look slowed by other
 //     sessions' cold spools leaves the replay whatever it did not use;
 //   - the last look, which keeps the first look's result and reads again only the files that look
 //     named and the ones listed since it (or left unread by it), again only before the deadline. Most
@@ -209,22 +222,23 @@ func captureOf(req ipc.Request) pendingCapture {
 //
 // What can run past the deadline is fixed work: a file read already under way, the spool listings,
 // the drain's progress file and the pricing of the names, which the seal does (namesWithin measures a
-// handful of candidate reports, whatever the backlog). A file a look could not read in time is
-// counted in the summary as not read.
+// handful of candidate reports, whatever the backlog). A file a look could not read in time, or
+// failed to read, is counted in the summary as not read.
 func (d *daemon) settleBeforeSeal(ctx context.Context, sess core.SessionID, at core.UnixMilli) *sealReport {
 	cfg := d.currentCfg()
 	bound := precompactSettleBound(cfg)
 	sctx, cancel := context.WithDeadline(ctx, time.Now().Add(bound))
 	defer cancel()
-	reads := d.spoolHeads.reads.Load()
+	var reads int64 // the files this settle's own looks read
 	defer func() {
 		if d.m != nil {
-			d.m.Counter(counterPrecompactSpoolReads).Add(d.spoolHeads.reads.Load() - reads)
+			d.m.Counter(counterPrecompactSpoolReads).Add(reads)
 		}
 	}()
 
 	upTo := d.leasedUpTo(sess)
 	first := d.scanClientSpools(sctx, sess, at, nil)
+	reads += first.reads
 	own := map[string]bool{}
 	for _, c := range first.caps {
 		own[c.file] = true
@@ -242,13 +256,7 @@ func (d *daemon) settleBeforeSeal(ctx context.Context, sess core.SessionID, at c
 	d.awaitArrivals(sctx, sess, upTo)
 	if len(own) > 0 && sctx.Err() == nil {
 		if dr := d.drain.Load(); dr != nil {
-			// A replay is capture work, as every drain is (D51).
-			d.capture.enter()
-			_, err := dr.DrainClientSpoolsWithin(sctx, own)
-			d.capture.leave()
-			if err != nil && sctx.Err() == nil {
-				d.log.Debug("daemon: PreCompact: the client-spool replay before the seal ended early", "err", err)
-			}
+			reads += d.replayOwnSpools(sctx, dr, sess, at, own)
 		}
 		d.awaitArrivals(sctx, sess, upTo)
 	}
@@ -256,6 +264,7 @@ func (d *daemon) settleBeforeSeal(ctx context.Context, sess core.SessionID, at c
 	last := d.scanClientSpools(sctx, sess, at, func(base string) bool {
 		return own[base] || !first.listed[base] || first.unread[base]
 	})
+	reads += last.reads
 	left := d.unreplayedCaptures(sess, upTo, last.caps)
 	if len(left) == 0 && len(last.unread) == 0 {
 		return nil
@@ -267,6 +276,76 @@ func (d *daemon) settleBeforeSeal(ctx context.Context, sess core.SessionID, at c
 		"the checkpoint's drop report counts them, and the daemon replays them next",
 		"session", string(sess), "captures", len(left), "unread_spools", len(last.unread), "bound", bound.String())
 	return &sealReport{left: left, unread: len(last.unread), allowance: unreplayedNamesAllowance(cfg)}
+}
+
+// replayOwnSpools replays own, the client spools holding sess's captures, within ctx, and replays
+// them again while that can advance. It returns how many client spool files its looks read.
+//
+// One replay is not always enough (w16d-sealrow). A hook whose ACK deadline lapsed spools a copy of a
+// delivery the daemon may still be taking: leased only after the settle looked at the session's leases
+// (leasedUpTo), and publishing when the replay meets its copy. The replay leaves the copy to the live
+// publication, and the session's later captures to the ordering gate behind it, so it can publish
+// nothing with nearly all of the bound left. So after a replay the settle looks at own again (from the
+// spool index, unless a hook appended) and, while a capture of sess is left there, waits for the lane
+// to publish every arrival of sess up to the earliest capture left, that one included (the live
+// delivery a copy stands for), and replays again once every predecessor of that capture is
+// acknowledged. Anything else ends the loop: no capture left, a file the look could not read, a
+// capture the replay did not lease, a replay that ended early, a predecessor still unpublished when
+// the lane went quiet, or a replay that published nothing while held at the same capture as the one
+// before, so the loop never spins on a line only a later pass can take.
+func (d *daemon) replayOwnSpools(ctx context.Context, dr *drainer, sess core.SessionID, at core.UnixMilli,
+	own map[string]bool,
+) (reads int64) {
+	var held uint64 // the earliest capture left by the last replay that published nothing
+	for ctx.Err() == nil {
+		// A replay is capture work, as every drain is (D51).
+		d.capture.enter()
+		n, err := dr.DrainClientSpoolsWithin(ctx, own)
+		d.capture.leave()
+		if err != nil || ctx.Err() != nil {
+			if err != nil && ctx.Err() == nil {
+				d.log.Debug("daemon: PreCompact: the client-spool replay before the seal ended early", "err", err)
+			}
+			return reads
+		}
+		rest := d.scanClientSpools(ctx, sess, at, func(base string) bool { return own[base] })
+		reads += rest.reads
+		if len(rest.caps) == 0 || len(rest.unread) > 0 {
+			return reads
+		}
+		earliest, ok := d.earliestLeasedArrival(rest.caps)
+		if !ok || (n == 0 && earliest == held) {
+			return reads
+		}
+		if n == 0 {
+			held = earliest
+		}
+		d.awaitArrivals(ctx, sess, earliest+1)
+		if delivered, _ := d.sessionDelivered(sess, earliest); !delivered {
+			return reads
+		}
+	}
+	return reads
+}
+
+// earliestLeasedArrival is the lowest arrival among caps' leases. ok is false when one of them holds
+// no lease the journal can read.
+func (d *daemon) earliestLeasedArrival(caps []pendingCapture) (uint64, bool) {
+	j, err := d.deliveryJournal()
+	if err != nil || j == nil {
+		return 0, false
+	}
+	var earliest uint64
+	for _, c := range caps {
+		l, held, err := j.leaseHeld(c.nonce)
+		if err != nil || !held {
+			return 0, false
+		}
+		if earliest == 0 || l.ArrivalSeq < earliest {
+			earliest = l.ArrivalSeq
+		}
+	}
+	return earliest, earliest > 0
 }
 
 // leasedUpTo is one past sess's newest leased arrival, 0 when the journal cannot say.
@@ -313,11 +392,13 @@ func (d *daemon) awaitArrivals(ctx context.Context, sess core.SessionID, upTo ui
 }
 
 // spoolScan is one look at the client spools for a session: its captures found there, every client
-// spool listed, and the ones the look had to read but could not before its context ended.
+// spool listed, the ones the look had to read but could not before its context ended, and how many
+// it read.
 type spoolScan struct {
 	caps   []pendingCapture
 	listed map[string]bool
 	unread map[string]bool
+	reads  int64
 }
 
 // scanClientSpools looks at the hook client spools for sess's hot-path captures fired at or before
@@ -343,7 +424,10 @@ func (d *daemon) scanClientSpools(ctx context.Context, sess core.SessionID, at c
 		if look != nil && !look(l.base) {
 			continue
 		}
-		lines, ok := d.spoolHeads.heads(ctx, d.root, l)
+		lines, ok, read := d.spoolHeads.heads(ctx, d.root, l)
+		if read {
+			s.reads++
+		}
 		if !ok {
 			if s.unread == nil {
 				s.unread = map[string]bool{}

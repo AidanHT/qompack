@@ -1,0 +1,10 @@
+=== RUN   TestPreCompactSettle_ReplaysThisSessionsSpoolBeforeOlderOnesOfOthers
+    precompact_settle_test.go:497: 
+        	Error Trace:	
+        	Error:      	Should be true
+        	Test:       	TestPreCompactSettle_ReplaysThisSessionsSpoolBeforeOlderOnesOfOthers
+        	Messages:   	the compacting session's own spooled Read is replayed first
+--- FAIL: TestPreCompactSettle_ReplaysThisSessionsSpoolBeforeOlderOnesOfOthers (1.20s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	1.884s
+FAIL

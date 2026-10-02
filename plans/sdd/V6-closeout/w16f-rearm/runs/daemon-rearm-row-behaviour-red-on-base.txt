@@ -1,0 +1,14 @@
+# TEMPORARY DIAGNOSTIC on base product 8fe6c1f4: the new row with its counter assertion removed,
+# so it reaches the behavioural assertion (the loop continues; the rule must warn again)
+=== RUN   TestPromptWarning_ClaimedReplyTheHookSpooledIsReArmed
+    prompt_warning_delivery_test.go:365: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16f-rearm/internal/daemon/prompt_warning_delivery_test.go:192
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16f-rearm/internal/daemon/prompt_warning_delivery_test.go:365
+        	Error:      	Expected value not to be nil.
+        	Test:       	TestPromptWarning_ClaimedReplyTheHookSpooledIsReArmed
+        	Messages:   	a warning the host never received must not count as delivered once the loop continues
+--- FAIL: TestPromptWarning_ClaimedReplyTheHookSpooledIsReArmed (0.37s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	0.672s
+FAIL
+go test exit: 1

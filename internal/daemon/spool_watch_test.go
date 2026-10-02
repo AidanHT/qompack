@@ -453,7 +453,7 @@ func TestSpoolWatch_DoesNothingWithoutAKick(t *testing.T) {
 	require.Zero(t, dd.m.Counter(counterSpoolWatchDrains).Value(), "no request served, so no look and no pass")
 	require.FileExists(t, filepath.Join(paths.Of(root).Spool, "client-7272.ndjson"))
 
-	dd.noteServed()
+	dd.noteServed(ipc.OpStatus)
 	require.Eventually(t, func() bool { return spoolWatchPublished(dd, spooled.Nonce) },
 		liveOrderBound, liveOrderTick, "a served request kicks the watcher, which publishes the spool")
 	require.Eventually(t, func() bool { return spoolWatchGone(root, "client-7272.ndjson") },
@@ -548,15 +548,19 @@ func TestSpoolRetryAfter_Doubles(t *testing.T) {
 // TestSpoolWatch_TheIdleTickKicksItInSpoolSubmode (V6 close-out D55, wave 16b): in spool submode no
 // hot-path hook connects, so no served request kicks the watcher, and a session's spooled captures
 // waited for a non-hot request or the idle drain two quiet minutes later. Run's idle tick now kicks
-// it while the hot path is in spool submode (kickSpoolWatchInSpoolSubmode, which the tick calls), and
-// the watcher's ordinary look and pass publish the spool. In sync submode the tick does not kick: the
-// hooks' own requests do.
+// it while the hot path is in spool submode, and the watcher's ordinary look and pass publish the
+// spool. In sync submode the tick does not kick: the hooks' own requests do. The row runs the tick
+// Run runs (onIdleTick, wave 16c), with the project active, so the tick's idle tasks (the idle drain
+// among them) do not run and only its kick can publish the spool: without the kick the row fails.
 func TestSpoolWatch_TheIdleTickKicksItInSpoolSubmode(t *testing.T) {
 	dd, _, root := laneTestDaemon(t)
 	dd.drain.Store(newDrainer(dd.drainConfig()))
 	liveOrderWorkers(t, dd, 2, dd.runIngested)
+	ctx := context.Background()
+	// The project is active: a session's hooks ran just now, so the tick runs no idle task.
+	dd.idle.Notify(core.NowMilli(dd.clk))
 
-	require.False(t, dd.kickSpoolWatchInSpoolSubmode(), "sync submode: the tick leaves the kicks to the hooks")
+	dd.onIdleTick(ctx)
 	select {
 	case <-dd.spool.kick:
 		t.Fatal("a tick in sync submode kicked the watcher")
@@ -576,7 +580,8 @@ func TestSpoolWatch_TheIdleTickKicksItInSpoolSubmode(t *testing.T) {
 		"control: with no request served and no tick, nothing looks at the spool")
 	require.False(t, spoolWatchPublished(dd, spooled.Nonce))
 
-	require.True(t, dd.kickSpoolWatchInSpoolSubmode(), "spool submode: the idle tick kicks the watcher")
+	require.False(t, dd.idle.IsIdle(dd.onIdleTick(ctx)),
+		"fixture sanity: the project is active, so the tick ran no idle drain; its kick is all it did")
 	require.Eventually(t, func() bool { return spoolWatchPublished(dd, spooled.Nonce) },
 		liveOrderBound, liveOrderTick, "the tick's kick lets the watcher publish the spooled Read")
 	require.Eventually(t, func() bool { return spoolWatchGone(root, "client-8181.ndjson") },

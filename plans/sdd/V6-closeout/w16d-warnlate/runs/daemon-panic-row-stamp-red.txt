@@ -1,0 +1,17 @@
+# TEMPORARY DIAGNOSTIC (fix round): TestObservePrompt_PanickingSeamIsRecovered with its request stamped 300 ms
+# before dispatch, standing in for a WAL/lease fsync of 300 ms in ingest.Accept. Red on 8991abca: the row
+# asserted late==0 while depending on Accept's latency through req.TS.
+=== RUN   TestObservePrompt_PanickingSeamIsRecovered
+=== PAUSE TestObservePrompt_PanickingSeamIsRecovered
+=== CONT  TestObservePrompt_PanickingSeamIsRecovered
+    prompt_record_test.go:232: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16d-warnlate/internal/daemon/prompt_record_test.go:232
+        	Error:      	Not equal: 
+        	            	expected: 0
+        	            	actual  : 1
+        	Test:       	TestObservePrompt_PanickingSeamIsRecovered
+        	Messages:   	a panicking seam answers the wait at once; it is not a reply that ran out its deadline
+--- FAIL: TestObservePrompt_PanickingSeamIsRecovered (0.01s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	0.248s
+FAIL

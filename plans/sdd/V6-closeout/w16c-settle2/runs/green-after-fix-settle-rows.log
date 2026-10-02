@@ -1,0 +1,15 @@
+=== RUN   TestPreCompactSettle_CountsOnlyTheSpoolReadsOfItsOwnLooks
+--- PASS: TestPreCompactSettle_CountsOnlyTheSpoolReadsOfItsOwnLooks (0.27s)
+=== RUN   TestPreCompactSettle_ReadsASpoolTheDrainReleasedAndAHookRecreated
+--- PASS: TestPreCompactSettle_ReadsASpoolTheDrainReleasedAndAHookRecreated (0.95s)
+=== RUN   TestPreCompactSettle_CountsOnlyTheSpoolReadsOfItsOwnLooks
+--- PASS: TestPreCompactSettle_CountsOnlyTheSpoolReadsOfItsOwnLooks (0.23s)
+=== RUN   TestPreCompactSettle_ReadsASpoolTheDrainReleasedAndAHookRecreated
+--- PASS: TestPreCompactSettle_ReadsASpoolTheDrainReleasedAndAHookRecreated (0.93s)
+=== RUN   TestPreCompactSettle_CountsOnlyTheSpoolReadsOfItsOwnLooks
+--- PASS: TestPreCompactSettle_CountsOnlyTheSpoolReadsOfItsOwnLooks (0.18s)
+=== RUN   TestPreCompactSettle_ReadsASpoolTheDrainReleasedAndAHookRecreated
+--- PASS: TestPreCompactSettle_ReadsASpoolTheDrainReleasedAndAHookRecreated (1.17s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	4.173s
+exit=0

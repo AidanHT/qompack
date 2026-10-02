@@ -1,0 +1,10 @@
+=== RUN   TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound
+    precompact_settle_bound_test.go:319: 
+        	Error Trace:	
+        	Error:      	Should be true
+        	Test:       	TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound
+        	Messages:   	the replay runs to the bound's own deadline, the looks' (Oct  1 15:34:36.132853), not one the first look's cost moved earlier (Oct  1 15:34:35.640075)
+--- FAIL: TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound (0.82s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	1.225s
+FAIL

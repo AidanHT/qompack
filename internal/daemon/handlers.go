@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strconv"
+	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -74,11 +75,12 @@ const (
 	counterL0AcceptError = "l0_accept_error"
 
 	// counterPromptReplyLate counts an observe.prompt reply that went out empty because
-	// promptReplyDeadline EXPIRED while the verbatim capture it started was still running. The
-	// capture itself is not lost — it finishes on its own context (startPromptRecording) — but
-	// whatever it would have said back (a thrash warning) never reaches the host, and this is the
-	// only record that it did not. A request cancelled for another reason (shutdown cancels the
-	// serving context) and a capture that panicked are not overruns and are not counted here.
+	// promptReplyDeadline EXPIRED while the reply-only call it started was still running. The call
+	// itself is not lost — it finishes on its own context (startPromptRecording), and the prompt's
+	// verbatim capture is runIngested's (SP08-D3) — but whatever it would have said back (a thrash
+	// warning) never reaches the host, and this is the only record that it did not. A request
+	// cancelled for another reason (shutdown cancels the serving context) and a call that panicked
+	// are not overruns and are not counted here.
 	counterPromptReplyLate = "l0_prompt_reply_late"
 
 	// counterPromptCaptureRefused counts an observe.prompt whose verbatim capture was never started
@@ -86,13 +88,11 @@ const (
 	// G2.3 capture, so it is countable on its own rather than only a Warn in a log nobody reads.
 	counterPromptCaptureRefused = "l0_prompt_capture_refused"
 
-	// counterPromptReplayedUncaptured counts an observe.prompt delivery a drain replayed through
-	// runIngested, whose prompt arm runs only the sentinel scan: the delivery is acknowledged and its
-	// spool copy released with no verbatim capture made (SP08-D3, carried to V6). It is an UPPER
-	// bound on lost G2.3 captures, not an exact count: a live line the full ring refused, and a line
-	// whose live capture landed before a crash, replay the same way and cannot be told apart. It is
-	// counted in drainDispatch only (the live worker shares runIngested) and only on an acknowledged
-	// dispatch, since an unacknowledged one is redelivered and would be counted twice.
+	// counterPromptReplayedUncaptured counted an observe.prompt delivery a drain replayed through
+	// runIngested when that path ran only the sentinel scan, so the delivery was acknowledged with no
+	// verbatim capture made. SP08-D3 (Option A) closed that: runIngested now captures a replayed
+	// prompt under its leased observation identity, and the counter is retired at zero, its name kept
+	// for dashboards (drainDispatch).
 	counterPromptReplayedUncaptured = "l0_prompt_replayed_uncaptured"
 
 	// counterHotpathDegraded counts the switches to spool submode. Its name is a stable metric key and
@@ -242,7 +242,7 @@ func (d *daemon) dispatchOp(ctx context.Context, req ipc.Request) ipc.Response {
 	// replays before Run dispatches any request, and spending the signal there would run the
 	// re-drain before the cold-start window it exists to cover has closed.
 	if !spoolReplay(ctx) {
-		d.noteServed()
+		d.noteServed(req.Op)
 	}
 	ctx = withServices(ctx, d.svc)
 	ctx = withRegistry(ctx, d.registry)
@@ -532,12 +532,15 @@ func (d *daemon) acceptHotPathEvent(ctx context.Context, req ipc.Request) ipc.Re
 //
 // The two mode gates are DIFFERENT gates, and collapsing them is a silent data-loss bug. §12.1
 // says ModeDegradedPassive keeps "L0 and L1 running (observe, chunk, store, sketches, DAG,
-// verbatim capture …)" and turns only ACTING off, but the ObservePrompt seam does both jobs in one
-// call: G2.3's verbatim prompt capture is recording, and the hookio.Output it returns is acting.
-// So MayRecord gates the WAL append and the CALL, exactly as it does on observe.tool/observe.stop,
-// while MayAct gates only whether the returned Output reaches the reply. Gating the call itself on
-// MayAct — which this route used to do — stopped the verbatim capture the moment the contract
-// degraded, with no error, no counter and a reply indistinguishable from a healthy passive one.
+// verbatim capture …)" and turns only ACTING off. Since SP08-D3 G2.3's verbatim prompt capture is
+// runIngested's, through the WAL line this route appends, and that append is recording. The
+// ObservePrompt call is reply-only (observer.WithPromptReplyOnly): it records nothing, and drains
+// the queued warning into the reply or, under a refused claim, re-arms it. So MayRecord gates the
+// WAL append and the CALL, exactly as it does on observe.tool/observe.stop, while MayAct gates
+// only whether the returned Output reaches the reply (a !MayAct reply's claim is refused, so its
+// warning is re-armed, not consumed). Gating the append on MayAct, as this route once gated the
+// then-recording call, would stop the verbatim capture the moment the contract degraded, with no
+// error, no counter and a reply indistinguishable from a healthy passive one.
 func (d *daemon) handleObservePrompt(ctx context.Context, req ipc.Request) ipc.Response {
 	ev := resolveEvent(req)
 	now := core.NowMilli(d.clk)
@@ -569,9 +572,10 @@ func (d *daemon) handleObservePrompt(ctx context.Context, req ipc.Request) ipc.R
 
 	out := hookio.Empty()
 	if d.svc.ObservePrompt != nil {
-		// The call is recording, so it runs under the MayRecord check above; only what it hands
-		// back is acting, and under !MayAct the reply stays the empty output.
-		produced := d.callObservePromptWithDeadline(ctx, ev)
+		// The call is reply-only and records nothing (the capture is runIngested's, from the WAL
+		// line above); it runs under the MayRecord check above with the append, and what it hands
+		// back is acting, so under !MayAct its claim is refused and the reply stays empty.
+		produced := d.callObservePromptWithDeadline(ctx, ev, req.TS, req.Nonce, mode.MayAct())
 		if mode.MayAct() {
 			out = produced
 		}
@@ -584,24 +588,58 @@ func (d *daemon) handleObservePrompt(ctx context.Context, req ipc.Request) ipc.R
 // against the deadline and falls back to hookio.Empty() if the deadline wins — a prompt is never
 // blocked on the daemon (task-5-spec.md handlers.go).
 //
-// The seam does two jobs in one call (see handleObservePrompt): G2.3's verbatim capture, which is
-// recording, and the Output it returns, which is acting. Only the second is the hook's to wait for.
-// The call used to run under a context DERIVED from the deadline, so a capture that overran it —
-// the observer's session lock held by ingest workers draining a tool backlog, or a slow disk —
-// reached store.PutBytes with a dead context and was soft-dropped into observer.err.prompt.put.
-// Nothing records it later: the WAL line this route appended replays through runIngested, which
-// for observe.prompt runs only the sentinel scan. So the capture now runs on a context of its own
-// (startPromptRecording), governed by the daemon's lifetime rather than by this reply, and the
+// The seam once did two jobs in one call: G2.3's verbatim capture, which is recording, and the
+// Output it returns, which is acting. Only the second is the hook's to wait for. The call used to
+// run under a context DERIVED from the deadline, so a capture that overran it — the observer's
+// session lock held by ingest workers draining a tool backlog, or a slow disk — reached
+// store.PutBytes with a dead context and was soft-dropped into observer.err.prompt.put. Since
+// SP08-D3 the verbatim capture is not this call's: the WAL line this route appended runs through
+// runIngested, which captures the prompt under its leased observation identity, as it does a
+// drained or spooled copy. This call is reply-only (observer.WithPromptReplyOnly): it drains the
+// pending warning under the session lock and records nothing. It still runs on a context of its
+// own (startPromptRecording), governed by the daemon's lifetime rather than by this reply, and the
 // deadline bounds only the wait below.
 //
-// A capture that finishes after the deadline has its Output discarded: the reply has already gone
+// A call that finishes after the deadline has its Output discarded: the reply has already gone
 // out empty, and a thrash warning held back for a later turn would describe a loop the agent may
 // since have left. The miss is counted (counterPromptReplyLate), never silent — but only when the
 // deadline is what ended the wait: a request cancelled from outside (Stop cancels the serving
-// context) is not an overrun, and neither is a panicking seam, which answers the wait at once.
-func (d *daemon) callObservePromptWithDeadline(ctx context.Context, ev *hookio.Event) hookio.Output {
-	wait, cancel := context.WithTimeout(ctx, promptReplyDeadline)
+// context) is not an overrun, and neither is a panicking seam, which answers the wait at once. A
+// reply whose budget was already spent when this call began (spent, below) is counted late
+// whatever the seam then does, a panicking one included: no reply could have reached the hook.
+//
+// Discarded is not delivered (V6 close-out w16d). The observer drains a warning only through the
+// reply's claim (observer.WithPromptReplyClaim, promptReplyHandoff): the claim and this wait's
+// deadline are decided under one lock, so a warning is drained only into a reply that goes out
+// carrying it. A claim refused because the wait had already ended makes the observer re-arm the
+// rule instead of consuming it — it warns afresh once the loop occurs again — so a loop on a slow
+// disk is not silenced for the session by a reply nobody received. A reply the daemon may not act
+// on (!mayAct) can deliver nothing, so its claim is refused from the start.
+//
+// A claim that succeeds is still not proof of delivery: the hook's own wait may run out while the
+// claimed reply is rendered and written, and the hook then spools the prompt. So the reply call
+// carries the prompt's nonce (observer.WithPromptReplyNonce), the observer remembers which nonce's
+// reply carried a warning, and the drain re-arms that warning when it settles the spooled copy
+// (settleSpooledPrompt).
+//
+// The deadline is the hook's, measured from ts — ipc.Request.TS, the hook's first statement, which
+// precedes the instant its own reply wait starts — and not from this call. The wait used to start
+// here, after ingest.Accept had made the prompt durable, so on a slow disk the daemon was still
+// waiting, and still handing the warning over, after the hook had given up and printed nothing
+// (promptReplyBudget).
+func (d *daemon) callObservePromptWithDeadline(ctx context.Context, ev *hookio.Event, ts core.UnixMilli, nonce string,
+	mayAct bool,
+) hookio.Output {
+	budget := d.promptReplyBudget(ts)
+	wait, cancel := context.WithTimeout(ctx, budget)
 	defer cancel()
+
+	handoff := new(promptReplyHandoff)
+	// Spent before the call starts: no reply can reach the hook any more, so nothing may be claimed.
+	spent := budget <= 0 && ctx.Err() == nil
+	if spent || !mayAct {
+		handoff.abandon()
+	}
 
 	type result struct {
 		out hookio.Output
@@ -619,9 +657,16 @@ func (d *daemon) callObservePromptWithDeadline(ctx context.Context, ev *hookio.E
 		// worker/replay's, under the leased observation identity, so a prompt no daemon captured
 		// live is still captured and a later live prompt cannot take a turn 0 the replay owed. The
 		// reply-only marker makes ObservePrompt drain the pending warning under the session lock and
-		// record nothing.
-		r.out, r.err = d.svc.ObservePrompt(observer.WithPromptReplyOnly(rec), e)
+		// record nothing; the claim is how it learns whether this reply still goes out, and the nonce
+		// is what a later spooled copy of this prompt is matched by (settleSpooledPrompt).
+		replyCtx := observer.WithPromptReplyNonce(
+			observer.WithPromptReplyClaim(observer.WithPromptReplyOnly(rec), handoff.claim), nonce)
+		r.out, r.err = d.svc.ObservePrompt(replyCtx, e)
 	}) {
+		return hookio.Empty()
+	}
+	if spent {
+		d.countPromptReplyLate()
 		return hookio.Empty()
 	}
 
@@ -631,11 +676,101 @@ func (d *daemon) callObservePromptWithDeadline(ctx context.Context, ev *hookio.E
 			return r.out
 		}
 	case <-wait.Done():
-		if d.m != nil && errors.Is(wait.Err(), context.DeadlineExceeded) {
-			d.m.Counter(counterPromptReplyLate).Add(1)
+		if !handoff.abandon() {
+			// The observer claimed this reply before the deadline and is handing its warning over
+			// now, with nothing left to wait on but the rendering: the reply carries it. A claim made
+			// just inside ts+promptReplyDeadline can still reach the hook after the hook's own
+			// give-up; the hook then spools the prompt, and the drain re-arms the warning when it
+			// settles that spooled copy (settleSpooledPrompt, V6 close-out w16f).
+			if r := <-ch; r.err == nil {
+				return r.out
+			}
+			return hookio.Empty()
+		}
+		if errors.Is(wait.Err(), context.DeadlineExceeded) {
+			d.countPromptReplyLate()
 		}
 	}
 	return hookio.Empty()
+}
+
+// settleSpooledPrompt is the drain's report (DrainConfig.SpooledPromptSettled) that it has settled a
+// hook's client-spooled observe.prompt. A hook spools a reply request only when no reply reached it —
+// it could not send it, or its own wait ran out — so if the daemon answered that nonce live with a
+// warning, the host never saw the warning. The observer re-arms it (observer.SpooledReplyRearmer),
+// counted in observer.thrash_undelivered and logged at Info; a nonce whose live reply carried no
+// warning, or that was never answered live, changes nothing.
+//
+// The observer remembers the nonce when the reply's claim succeeds, and the claim is decided before
+// ts+promptReplyDeadline, which is no later than the hook's own give-up: so the warning is remembered
+// before the hook can have spooled the prompt, and before any drain can settle the copy.
+func (d *daemon) settleSpooledPrompt(req ipc.Request) {
+	if req.Op != ipc.OpObservePrompt || req.Nonce == "" || d.svc.PromptReplySpooled == nil {
+		return
+	}
+	d.svc.PromptReplySpooled(req.Session, req.Nonce)
+}
+
+// countPromptReplyLate counts one reply that went out empty because its deadline ran out.
+func (d *daemon) countPromptReplyLate() {
+	if d.m != nil {
+		d.m.Counter(counterPromptReplyLate).Add(1)
+	}
+}
+
+// promptReplyBudget is what is left of promptReplyDeadline for a prompt the hook stamped at ts.
+//
+// The hook waits promptReplyDeadline for its reply from the instant it has written the request
+// (internal/cli hookclient.go's mirror of the constant; ipc client.awaitReply), and ts is its first
+// statement, before that. So ts + promptReplyDeadline is no later than the hook's own give-up
+// instant, by the hook's work before the write, and a reply decided after it may reach nobody.
+// Measuring from ts never waits past the hook. It costs a reference host little: what the hook
+// does before its write is part of B-A, whose Windows budget is 50 ms.
+//
+// A ts this daemon cannot trust as a hot-path stamp (validHotPathTS: absent, from the future, or
+// implausibly old) gets the whole deadline from now, the behaviour before ts was used, and a stamp
+// a few milliseconds ahead of the daemon's clock counts as no time spent. No new number: the
+// deadline is promptReplyDeadline, and the stamp checks are validHotPathTS's.
+func (d *daemon) promptReplyBudget(ts core.UnixMilli) time.Duration {
+	now := core.NowMilli(d.clk)
+	if !validHotPathTS(ts, now) {
+		return promptReplyDeadline
+	}
+	elapsed := max(time.Duration(int64(now)-int64(ts))*time.Millisecond, 0)
+	return promptReplyDeadline - elapsed
+}
+
+// promptReplyHandoff decides, once, whether a reply hands over what the observer drains for it: the
+// observer's claim (observer.WithPromptReplyClaim) and the end of the reply wait race for it under
+// mu. A claim first means the wait takes the observer's Output whatever the clock says by then; an
+// abandoned wait first means every later claim is refused.
+type promptReplyHandoff struct {
+	mu        sync.Mutex
+	claimed   bool
+	abandoned bool
+}
+
+// claim is the observer's side: it reports whether the reply will carry the warning.
+func (h *promptReplyHandoff) claim() bool {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.abandoned {
+		return false
+	}
+	h.claimed = true
+	return true
+}
+
+// abandon is the wait's side: it reports whether the reply goes out without the observer's
+// Output, which is false only once the observer has claimed it.
+func (h *promptReplyHandoff) abandon() bool {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.claimed {
+		return false
+	}
+	h.abandoned = true
+	return true
 }
 
 // errPromptCapturePanicked is the result a panicking ObservePrompt seam hands the reply wait. It
@@ -1186,6 +1321,13 @@ func (d *daemon) handleCheckpoint(ctx context.Context, req ipc.Request) ipc.Resp
 	ev := resolveEvent(req)
 	now := core.NowMilli(d.clk)
 	routeStart := d.clk.Now()
+	// The served-request kick of the client-spool watcher, which noteServed leaves to this route: when
+	// the route returns, after the seal, so the watcher's pass over every session's spools cannot hold
+	// the drain's mutex against the settle (wave 16f). Deferred, it also runs when the route panics
+	// and callHandler refuses the request, as the kick noteServed made before the route did.
+	if !spoolReplay(ctx) {
+		defer d.kickSpoolWatch()
+	}
 
 	// Phase 1 (locked): record the PreCompact observation — this package's own file I/O only,
 	// no seam call — and save immediately, matching the spec's own ordering (history observation,
@@ -1253,7 +1395,6 @@ func (d *daemon) handleCheckpoint(ctx context.Context, req ipc.Request) ipc.Resp
 			d.log.Warn("daemon: PreCompact failed", "err", callErr)
 		}
 	}
-
 	// Phase 3 (re-locked): re-load — a concurrent route may have saved its own changes while
 	// phase 2 ran unlocked — then apply this route's remaining mutations and save.
 	d.historyMu.Lock()

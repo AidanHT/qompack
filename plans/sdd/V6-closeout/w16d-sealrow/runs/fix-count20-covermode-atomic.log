@@ -1,0 +1,43 @@
+=== RUN   TestPreCompactInSpoolSubmodeSealsTheSpooledReads
+--- PASS: TestPreCompactInSpoolSubmodeSealsTheSpooledReads (0.97s)
+=== RUN   TestPreCompactInSpoolSubmodeSealsTheSpooledReads
+--- PASS: TestPreCompactInSpoolSubmodeSealsTheSpooledReads (0.97s)
+=== RUN   TestPreCompactInSpoolSubmodeSealsTheSpooledReads
+--- PASS: TestPreCompactInSpoolSubmodeSealsTheSpooledReads (0.86s)
+=== RUN   TestPreCompactInSpoolSubmodeSealsTheSpooledReads
+--- PASS: TestPreCompactInSpoolSubmodeSealsTheSpooledReads (1.06s)
+=== RUN   TestPreCompactInSpoolSubmodeSealsTheSpooledReads
+--- PASS: TestPreCompactInSpoolSubmodeSealsTheSpooledReads (0.88s)
+=== RUN   TestPreCompactInSpoolSubmodeSealsTheSpooledReads
+--- PASS: TestPreCompactInSpoolSubmodeSealsTheSpooledReads (1.02s)
+=== RUN   TestPreCompactInSpoolSubmodeSealsTheSpooledReads
+--- PASS: TestPreCompactInSpoolSubmodeSealsTheSpooledReads (1.07s)
+=== RUN   TestPreCompactInSpoolSubmodeSealsTheSpooledReads
+--- PASS: TestPreCompactInSpoolSubmodeSealsTheSpooledReads (1.08s)
+=== RUN   TestPreCompactInSpoolSubmodeSealsTheSpooledReads
+--- PASS: TestPreCompactInSpoolSubmodeSealsTheSpooledReads (1.63s)
+=== RUN   TestPreCompactInSpoolSubmodeSealsTheSpooledReads
+--- PASS: TestPreCompactInSpoolSubmodeSealsTheSpooledReads (0.99s)
+=== RUN   TestPreCompactInSpoolSubmodeSealsTheSpooledReads
+--- PASS: TestPreCompactInSpoolSubmodeSealsTheSpooledReads (1.02s)
+=== RUN   TestPreCompactInSpoolSubmodeSealsTheSpooledReads
+--- PASS: TestPreCompactInSpoolSubmodeSealsTheSpooledReads (1.01s)
+=== RUN   TestPreCompactInSpoolSubmodeSealsTheSpooledReads
+--- PASS: TestPreCompactInSpoolSubmodeSealsTheSpooledReads (1.10s)
+=== RUN   TestPreCompactInSpoolSubmodeSealsTheSpooledReads
+--- PASS: TestPreCompactInSpoolSubmodeSealsTheSpooledReads (1.58s)
+=== RUN   TestPreCompactInSpoolSubmodeSealsTheSpooledReads
+--- PASS: TestPreCompactInSpoolSubmodeSealsTheSpooledReads (1.16s)
+=== RUN   TestPreCompactInSpoolSubmodeSealsTheSpooledReads
+--- PASS: TestPreCompactInSpoolSubmodeSealsTheSpooledReads (1.20s)
+=== RUN   TestPreCompactInSpoolSubmodeSealsTheSpooledReads
+--- PASS: TestPreCompactInSpoolSubmodeSealsTheSpooledReads (1.26s)
+=== RUN   TestPreCompactInSpoolSubmodeSealsTheSpooledReads
+--- PASS: TestPreCompactInSpoolSubmodeSealsTheSpooledReads (1.22s)
+=== RUN   TestPreCompactInSpoolSubmodeSealsTheSpooledReads
+--- PASS: TestPreCompactInSpoolSubmodeSealsTheSpooledReads (1.30s)
+=== RUN   TestPreCompactInSpoolSubmodeSealsTheSpooledReads
+--- PASS: TestPreCompactInSpoolSubmodeSealsTheSpooledReads (1.20s)
+PASS
+coverage: 14.3% of statements
+ok  	github.com/qompack/qompack/internal/cli	22.939s	coverage: 14.3% of statements

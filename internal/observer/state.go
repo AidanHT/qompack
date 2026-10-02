@@ -21,8 +21,8 @@ import (
 // state/ is daemon-persisted scratch rather than an append-only log, so this is a whole-file
 // WriteAtomic rather than an append. What is deliberately NOT here is as important as what is:
 // Recent is a feature window that legitimately restarts cold after a daemon restart, and
-// WarnedRules and PendingThrash are warning-dedup state whose worst failure is one repeated
-// thrash line.
+// WarnedRules, PendingThrash, ThrashFloor and ReplyWarning are warning-dedup state whose worst
+// failure is one repeated thrash line.
 const (
 	// stateVersion is the on-disk schema version. Any other value is treated exactly like a
 	// corrupt file — rename and start fresh — which is the migration path for a future field.

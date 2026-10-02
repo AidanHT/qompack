@@ -1087,9 +1087,10 @@ func TestIntegration_HotPathWarmWithRealResidentState(t *testing.T) {
 	// for breachWindows consecutive windows, so here (D39) a transition is reported, and what is still
 	// asserted is that it was loud, named the breach, and lost nothing (hotpathJudgeSpool). The
 	// isolated runs keep all four spool signs forbidden. All three wall-clock rows are still judged at
-	// their limits by every run that does NOT pass the flag: bench-gate's and nightly bench-deep's
-	// `devtool bench-hotpath` lines, and this test itself in the `timing` job, where every assertion
-	// below is the one bench-gate makes.
+	// their limits by every run that does NOT pass the flag, on a reference disk (the owner's quiet
+	// runs): bench-gate's and nightly bench-deep's `devtool bench-hotpath` lines, and this test itself
+	// in the `timing` job, where every assertion below is the one bench-gate makes. Hosted runs of
+	// these lanes report the rows under QOMPACK_NONREFERENCE_DISK (ADR 0010 Addendum 2).
 	underCoload := obs.UnderCoload()
 	// The other declaration, D53(e): a non-reference disk, honoured only on a GitHub Actions runner
 	// (obs.NonReferenceDiskEnv). It is not a flag: the harness reads it from the environment it
@@ -1216,9 +1217,9 @@ func TestIntegration_HotPathWarmWithRealResidentState(t *testing.T) {
 		"§4.6: the checkpoint's own cost — the CPU its process actually consumed — must stay under "+
 			"%.0fms with the real store/DAG/sketches resident", beLimit)
 
-	// The three wall-clock rows a co-loaded host inflates — B-A, B-B and B-E's wall-clock row — are
-	// judged by the job that can judge them and asserted waived by the job that cannot, and in
-	// neither mode is anything assumed:
+	// The three wall-clock rows a co-loaded host or a non-reference disk inflates — B-A, B-B and
+	// B-E's wall-clock row — are judged by the run that can judge them and asserted waived by the
+	// run that cannot, and in no mode is anything assumed:
 	//
 	//   - co-loaded (ci.yml's `test` job, QOMPACK_UNDER_COLOAD set): all three rows must come back
 	//     REPORTED (limit_ms/pass both null, exactly B-D's shape), and the harness's own
@@ -1226,14 +1227,21 @@ func TestIntegration_HotPathWarmWithRealResidentState(t *testing.T) {
 	//     limit it did not apply and where it still applies (B-E's also names the row that still
 	//     enforces the limit here). A null pass field is not an explanation; a reader must be able
 	//     to see from the artifact alone which limit went unjudged on which row.
-	//   - not co-loaded (ci.yml's `timing` job, which runs this test alone; bench-gate's shape):
-	//     all three gated at their obs.Budgets() limits, pass=true, p99 under the limit — and the
-	//     waiver notes ABSENT, because a note present without the flag would mean the harness had
-	//     waived on its own.
+	//   - non-reference disk (QOMPACK_NONREFERENCE_DISK set, as every hosted run of `timing`,
+	//     `test-e2e`, bench-gate and nightly bench-deep sets it; ADR 0010 Addendum 2): all three rows
+	//     come back REPORTED, and the notes must carry one non-reference-disk disclosure per row
+	//     (B-E's naming the row that still enforces the limit) — the nonrefDisk branch below.
+	//   - neither (not co-loaded, on a reference disk: the owner's quiet runs, in `timing`'s
+	//     isolation shape — this test alone; bench-gate's shape): all three gated at their
+	//     obs.Budgets() limits, pass=true, p99 under the limit — and both kinds of waiver note
+	//     ABSENT, because a note present without its flag would mean the harness had waived on its
+	//     own.
 	//
 	// B-B is in this block rather than gated unconditionally above because of the Q3 ruling; the
-	// gated arm below is the one bench-gate, nightly bench-deep, `timing` and `test-e2e` run, and
-	// it asserts exactly what the unconditional block asserted before the ruling.
+	// gated arm below is the one bench-gate, nightly bench-deep, `timing` and `test-e2e` run on a
+	// reference disk (the owner's quiet runs; hosted runs of these lanes report the rows under
+	// QOMPACK_NONREFERENCE_DISK, ADR 0010 Addendum 2), and it asserts exactly what the
+	// unconditional block asserted before the ruling.
 	beWall := hotpathRow(t, rep, string(obs.BE))
 	require.Equal(t, hotpathCheckpointSamples, beWall.N)
 	if waived {

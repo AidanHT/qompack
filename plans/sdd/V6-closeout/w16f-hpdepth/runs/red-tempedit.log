@@ -1,0 +1,26 @@
+=== RUN   TestADeepServerManagedDocumentWithoutPermissionsStaysEnforced
+    depth_test.go:67: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16f-hpdepth/internal/hostperm/policy_test.go:76
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16f-hpdepth/internal/hostperm/depth_test.go:67
+        	Error:      	Received unexpected error:
+        	            	host permission policy unavailable: C:\Users\Quant\AppData\Local\Temp\TestADeepServerManagedDocumentWithoutPermissionsStaysEnforced4061994374\002\.claude\remote-settings.json: TEMP red check: too deep
+        	Test:       	TestADeepServerManagedDocumentWithoutPermissionsStaysEnforced
+--- FAIL: TestADeepServerManagedDocumentWithoutPermissionsStaysEnforced (0.01s)
+=== RUN   TestAServerManagedHooksBlockAtDepthSevenParses
+    depth_test.go:76: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16f-hpdepth/internal/hostperm/policy_test.go:76
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16f-hpdepth/internal/hostperm/depth_test.go:76
+        	Error:      	Received unexpected error:
+        	            	host permission policy unavailable: C:\Users\Quant\AppData\Local\Temp\TestAServerManagedHooksBlockAtDepthSevenParses810822901\002\.claude\remote-settings.json: TEMP red check: too deep
+        	Test:       	TestAServerManagedHooksBlockAtDepthSevenParses
+--- FAIL: TestAServerManagedHooksBlockAtDepthSevenParses (0.01s)
+=== RUN   TestAServerManagedDocumentPastTheJSONNestingLimitFailsClosed
+    depth_test.go:84: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w16f-hpdepth/internal/hostperm/depth_test.go:84
+        	Error:      	Should be true
+        	Test:       	TestAServerManagedDocumentPastTheJSONNestingLimitFailsClosed
+        	Messages:   	<nil>
+--- FAIL: TestAServerManagedDocumentPastTheJSONNestingLimitFailsClosed (0.03s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/hostperm	1.163s
+FAIL
