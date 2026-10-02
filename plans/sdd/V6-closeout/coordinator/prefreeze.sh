@@ -4,7 +4,8 @@
 # owner's daytime use wins: test/e2e alone, test/integration's hot-path rows alone and the rest of
 # it apart, the fault/security/platform/release (and other test/) packages, then every internal
 # package and tools/devtool. Hosted ci.yml on the same tree covers Linux and macOS.
-# Steps: gate e2e hotpath integration testpkgs internal (default: all, in that order); gate is build,
+# Steps: gate e2e hotpath integration testpkgs internal (default: all, in that order), and e2efunc
+# (test/e2e without its wall-clock X11 row, which the chain judges on AC); gate is build,
 # vet on three OSes, fmt, the generated-docs checks and the lint subset.
 # Each step writes <step>.log and appends "step <name> exit=<code> <utc>" to summary.log.
 set -u
@@ -24,6 +25,7 @@ for s in $steps; do
             go run ./tools/devtool gen-mcp-docs --check &&
             go run ./tools/devtool lint --only=golangci-lint,nomagic,importgraph,testdeps,bindeps,sleepcheck,docmarkers,runpatterns,coveragefloors' ;;
     e2e) run e2e go test -p 1 -count=1 -timeout 90m ./test/e2e ;;
+    e2efunc) run e2efunc go test -p 1 -count=1 -timeout 90m -skip '^TestV3_HotPath' ./test/e2e ;;
     hotpath) run hotpath go test -p 1 -count=1 -timeout 30m -run "$hp" ./test/integration ;;
     integration) run integration go test -p 2 -count=1 -timeout 60m -skip "$hp" ./test/integration ;;
     testpkgs) run testpkgs go test -p 2 -count=1 -timeout 60m ./test/fault/... ./test/security/... ./test/platform/... \
