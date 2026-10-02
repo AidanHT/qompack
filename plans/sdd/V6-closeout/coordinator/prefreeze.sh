@@ -4,11 +4,12 @@
 # owner's daytime use wins: test/e2e alone, test/integration's hot-path rows alone and the rest of
 # it apart, the fault/security/platform/release (and other test/) packages, then every internal
 # package and tools/devtool. Hosted ci.yml on the same tree covers Linux and macOS.
-# Steps: e2e hotpath integration testpkgs internal (default: all, in that order).
+# Steps: gate e2e hotpath integration testpkgs internal (default: all, in that order); gate is build,
+# vet on three OSes, fmt, the generated-docs checks and the lint subset.
 # Each step writes <step>.log and appends "step <name> exit=<code> <utc>" to summary.log.
 set -u
 R=$1; E=$2; shift 2
-steps=${*:-e2e hotpath integration testpkgs internal}
+steps=${*:-gate e2e hotpath integration testpkgs internal}
 mkdir -p "$E"
 hp='^(TestIntegration_HotPath|TestV3_HotPath)'
 run() { name=$1; shift
@@ -18,6 +19,10 @@ run() { name=$1; shift
 echo "head $(git -C "$R" rev-parse HEAD) go=$(go env GOVERSION)" >> "$E/summary.log"
 for s in $steps; do
   case $s in
+    gate) run gate sh -c 'go build ./... && go vet ./... && GOOS=linux go vet ./... && GOOS=darwin go vet ./... &&
+            go run ./tools/devtool fmt-check && go run ./tools/devtool gen-config-docs --check &&
+            go run ./tools/devtool gen-mcp-docs --check &&
+            go run ./tools/devtool lint --only=golangci-lint,nomagic,importgraph,testdeps,bindeps,sleepcheck,docmarkers,runpatterns,coveragefloors' ;;
     e2e) run e2e go test -p 1 -count=1 -timeout 90m ./test/e2e ;;
     hotpath) run hotpath go test -p 1 -count=1 -timeout 30m -run "$hp" ./test/integration ;;
     integration) run integration go test -p 2 -count=1 -timeout 60m -skip "$hp" ./test/integration ;;
