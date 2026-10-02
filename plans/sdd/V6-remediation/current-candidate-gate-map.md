@@ -3,8 +3,8 @@
 > reproducible six-target bundles in its overnight chain (`../V6-closeout/phase3/c6/`), and hosted
 > ci.yml `36955046276` and nightly `36955043924` on the same head. The inventory's per-row result is in
 > `inventory-current.tsv` (`c6_result`, `c6_evidence`) and `../V6-closeout/inventory-c6-map.md`, which
-> lists the open reds (TestFault_Lifecycle on hosted Windows, X11, release-dry-run) and the pending live,
-> quiet and evaluation steps. This page is kept as history.
+> lists the open reds (TestFault_Lifecycle on hosted Windows, X11, release-dry-run), the quiet C5.1
+> result and the pending live and evaluation steps. This page is kept as history.
 
 > Coordinator execution update, 2026-09-22: `rc1-linux-child-race` passed all eight
 > selected cases on candidate source 65bc8d7. Its executed-source record verifies all 2,376

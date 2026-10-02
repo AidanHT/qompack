@@ -50,7 +50,7 @@ def steps_of(cell):
         elif base == "release":
             out.append(("release", raw))
         elif base in ("C5.1",):
-            out.append(("pending", "P-C51"))
+            out.append(("c51", "C51"))  # landed; Windows green, Linux B-A/B-B red (D53(b)): per-row override
         elif base == "C5.5":
             out.append(("pending", "P-C55"))
         elif base == "none":
@@ -89,22 +89,26 @@ o("1.1.24", "verified_in_target", "test/guards green on c6 (WIN, LNX); F-1's his
 o("1.1.27", "verified_in_target", "C52 measured config, paths and cli benches (reported, diagnostic); internal/core and tools/devtool have no benchmark (c52-names.tsv)")
 o("1.1.28", "documented", "retired E-3: Qompack.md is v1.8 with its Revision log (v1.6 D5, v1.7 D36, v1.8 D41); no test by design", codes="")
 o("1.2.8", "verified_in_target", "REPLAY: the replay-gate job log prints the breakpoint OPT line (4 markers, 161 candidates), a diagnostic only")
-o("1.5.12", "partial_verified", "Windows: the isolated hot-path row passes (WTIME). Linux: the container row fails on B-A/B-B, fsync-bound, not verified in target (D53(b)); hosted timing is report-only (Q1). RED-X11 measures the same B-A/B-B on Windows and is red on c6, open with w17 x11win. Closes with P-C51 (quiet C5.1 on both OSes) and X11's disposition")
+o("1.5.12", "failed", "RED-X11: X11's bench-hotpath runs (without and with the ledger) breach B-A/B-B on Windows in isolation on c6, and D28 names X11 in this row's map note; the quiet run passes on Windows (C51: B-A p99 30.72 ms, B-B 24.58 ms against 50) and so does the isolated hot-path row (WTIME); Linux B-A/B-B fail in LTIME and C51, fsync-bound, not verified in target (D53(b)); hosted timing is report-only (Q1). Clears when w17 x11win records a root cause and fix, or a disposition; it then returns to partial_verified, because the Linux half stays not verified in target", codes="WTIME+LTIME+C51")
 o("1.5.15", "partial_verified", "producers and their tests green on c6; the real-observation half (F-2) needs a real session: CARRY-C4 (C4.2 passed on c4, not in the c6 lane); the c6 lane's status/doctor reads (P-LIVE) refresh it")
 o("1.6.19", "verified_in_target", "C52 measured and reported (superseded-guarantee): PutBytes cold/warm stay 6-8x over the 3 ms/400 us budgets, SP06-D2 wontfix for 0.3.0 (D54)")
-o("1.8.13", "verified_in_target", "C52 measured and reported (superseded-guarantee): OnToolUse 256 KB Delta p99 59-74 ms against B-C's soft 50 ms, SP08-D1 wontfix for 0.3.0 (D54); internal/observer's c5->c6 changes are on the prompt path only (tooluse.go unchanged)")
-o("1.8.2", "verified_in_target", None)  # default codes + C52 note added below
+OBS_C52 = ("OnToolUse calls the changed collectThrash only when a Grammar is wired, and the benchmark harness "
+           "wires none, so the measured path is unchanged; sessionState gained two fields (ThrashFloor, ReplyWarning); "
+           "the carry rests on interpretation 2, executed files rather than the whole package "
+           "(runs/c52-package-diffs-c5-to-c6.txt), which awaits a coordinator ruling")
+o("1.8.13", "verified_in_target", "C52 measured and reported (superseded-guarantee): OnToolUse 256 KB Delta p99 59-74 ms against B-C's soft 50 ms, SP08-D1 wontfix for 0.3.0 (D54); " + OBS_C52)
+o("1.8.2", "verified_in_target", "C52 measured and reported (diagnostic): BenchmarkTombstone runs the pure Tombstone function of tombstone.go, byte-unchanged c5->c6; internal/observer's product changes (observer.go, prompt.go, prompt_delivery.go, state.go) are not on its path; the carry rests on interpretation 2, executed files rather than the whole package (runs/c52-package-diffs-c5-to-c6.txt), which awaits a coordinator ruling")
 o("1.9.12", "verified_in_target", "all seven TestBudget_* pass in WTIME and LTIME on c6 (TestBudget_DetectorScan, once a pre-existing red, passes on both); negknow Open 61.6/77.0 ms against 300 ms in C52 (SP09-D1 fixed, D54)")
-o("1.10.16", "partial_verified", "Windows B-E measured PASS on c6 inside X11's isolated harness runs (p3-win-e2e-timing.log: B-E p99 825 ms and, in p3-win-x11-alone.log, 786 ms, against 2000 ms); the designated quiet run is pending P-C51", codes="WIN")
+o("1.10.16", "verified_in_target", "quiet B-E passes on both OSes (C51: Windows p99 170.75 ms, CPU 31.25 ms; Linux 384.11 ms, CPU 7.76 ms; against 2000 ms); also inside X11's isolated runs on Windows (p3-win-e2e-timing.log 825 ms, p3-win-x11-alone.log 786 ms)", codes="C51")
 o("1.10.18", "unknown", "D37(c): no step runs the two replay --phase 4 runs with the frontier toggled; not verified in target, no new harness before release", codes="")
 o("1.11.16", "partial_verified", "C52 measured rules BenchmarkPathScoped and skills BenchmarkIndex; internal/rehydrate has no benchmark, so the rehydrate share of L5 latency has no artifact")
-o("1.12.14", "partial_verified", "structural half TestSchedulerNotOnHotPath green (WIN, LNX); the B-A half is pending P-C51, and Linux B-A is not verified in target (D53(b))")
+o("1.12.14", "failed", "structural half TestSchedulerNotOnHotPath green (WIN, LNX); the B-A half has a red c6 artifact: RED-X11's bench-hotpath runs breach B-A on Windows in isolation, while the quiet run passes (C51: B-A p99 30.72 ms against 50); Linux B-A is not verified in target (D53(b)). Clears with RED-X11's root cause and fix or disposition, then partial_verified (the Linux half)", codes="WIN+LNX+C51")
 o("1.12.17", "verified_in_target", "C52 measured the internal/scheduler benches and the daemon's scheduler_bench_test.go benches (covered code unchanged c5->c6); the map's internal/hostperm BenchmarkEvaluate is a name collision, not a scheduler bench, and its c5 figure does not carry (hostperm/policy.go changed)")
 o("1.13.4", "partial_verified", "the historical V6-AUTH FAIL is cleared for the automated half: test/security and the internal/mcp TestV6_* suites pass on c6 on Windows, Linux and macOS (WIN, LNX); the real-session half is pending")
 o("1.13.5", "partial_verified", "automated half green on c6 (D7 deny-rule honouring, capture-scope suites); the real-session half is pending")
 o("1.13.14", "partial_verified", "producer and seam tests green on c6; real mcp.server_registered observation (F-2) needs a real session: pending P-LIVE (C4.4 sessions run the MCP server)")
 o("1.13.16", "verified_in_target", "TestBudgetBF passes in WTIME and LTIME on c6 (a pre-existing red on develop, now green on both)")
-o("1.13.17", "verified_in_target", "generator and drift tests green (WIN), gen-mcp-docs --check clean (GATE, DOCS); the installed-host half of every tool is C4.4's (P-LIVE), not this row's")
+o("1.13.17", "partial_verified", "generator and drift tests green (WIN), gen-mcp-docs --check clean (GATE, DOCS); the installed-host half, every documented tool checked against the installed host, is pending P-LIVE (C4.4)")
 o("1.14.1", "verified_in_target", "D36: six commands ship; wantCommands in internal/commands is the six (status, recall, pin, why, dropped, eval)")
 o("1.14.5", "unsupported", "retired by D36(a): 0.3.0 ships no manual checkpoint, /qompack:checkpoint is removed with exit criterion SP14-M3-01 and its three TestCheckpoint_* tests; TestAll_CoversEverySlashCommand pins the six on c6 (WIN, LNX); the c6 lane's C4.5 (P-LIVE) runs the six in a real session")
 o("1.14.6", "partial_verified", "reporting-rule unit tests green (WIN, LNX); the live trials are pending P-C55 (D53(g))")
@@ -117,8 +121,9 @@ o("1.16.10", "unknown", "D37(c): TestPrefixReorderingNotAttempted is absent and 
 o("1.16.11", "verified_in_target", "C52 measured the phase-7 store, checkpoint and scheduler families (covered code unchanged c5->c6)")
 o("1.17.1", "verified_in_target", "two six-target bundle builds byte-identical on c6 (BUNDLES), assembler/archive determinism units green (WIN)")
 o("1.17.3", "unknown", "D37(c): no binary-size check exists; diagnostic only, the frozen c6 binaries measure 9.29-10.49 MB (windows-amd64 qompack.exe 10,416,640 B); not verified in target", codes="BUNDLES")
-o("1.17.5", "unknown", "D37(c): bench-hotpath has no --bundle universal/native mode, so the launcher-overhead split cannot run as written; not verified in target", codes="")
-o("1.17.6", "implemented_unverified", "the launcher split cannot run (see 1.17.5, D37(c)); the B-A/B-E half is pending P-C51, and Linux B-A is not verified in target (D53(b))", codes="")
+o("1.17.4", "verified_in_target", "judged on TestPlatform_HookLauncherForms, renamed from TestPlatform_WindowsHookLauncherForms and now run on every OS (D37(b), inventory-map.tsv), with TestPlatform_PluginRootWithSpacesAndUnicode: green in WIN and LNX")
+o("1.17.5", "unknown", "D37(c): bench-hotpath has no --bundle universal/native mode, so the launcher-overhead split cannot run as written; not verified in target. Diagnostic only: quiet B-D p99 72.23 ms on Windows, 24.06 ms on Linux, reported without a limit (C51)", codes="")
+o("1.17.6", "failed", "the launcher split cannot run (see 1.17.5, D37(c)); the B-A half has a red c6 artifact (RED-X11 breaches B-A on Windows in isolation) though the quiet run passes B-A and B-E on Windows (C51: 30.72 ms against 50, 170.75 ms against 2000); Linux B-A is not verified in target (D53(b)), Linux B-E passes (384.11 ms). Clears with RED-X11's root cause and fix or disposition, then implemented_unverified (the split stays unrunnable)", codes="C51")
 o("1.17.7", "partial_verified", codes="WIN+LE2E", note="backup/maintenance units and test/e2e install tests green (WIN, LE2E); TestInstall_HostCLIInstallUpgradeUninstall skips without the claude CLI (container and hosted runs), RED-RELDRY stopped release-check before its rollback-rehearsal step (the step's two tests pass in the e2e lanes)")
 o("1.17.8", "partial_verified", codes="WIN+LE2E", note="maintenance/backup units green (WIN); TestRollbackRehearsal_BeforeAndAfterTheFirstNewFormatWrite passes in the e2e lanes (WIN, LE2E); release-check's rollback step not reached (RED-RELDRY); the installed upgrade/uninstall is pending")
 o("1.17.9", "partial_verified", codes="WIN+LNX", note="schema-bump units green (WIN, LNX); TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting skips without the claude CLI (container, hosted) and the Windows chain log is non-verbose, so its execution on c6 is unproven; the old-released-reader matrix has no artifact (D37 map); C4.8 upgrade from the c5 bundle is pending")
@@ -162,8 +167,14 @@ for r, m in zip(inv[1:], mp[1:]):
             pass  # handled by the per-row overrides (1.17.7/8/9/17/18)
         elif kind == "none":
             none = True
+        elif kind == "c51":
+            assert rid in O, f"{rid}: a C5.1 row needs a per-row decision"
     if rid in ("1.5.19", "1.17.11", "1.17.14"):
         red.append("RED-FAULT")
+    if rid in ("1.5.12", "1.12.14", "1.17.6"):
+        red.append("RED-X11")
+    if rid in O and O[rid][0] == "failed":
+        assert red or rid in ("1.17.18", "1.17.19"), rid
     seen = []
     for c in codes:
         for p in c.split("+"):
