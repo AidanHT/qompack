@@ -1,0 +1,100 @@
+UAT-09 re-run on candidate 7 (D52, D53, D57) - retrieval part. Agent-executed on the owner's real host per owner
+decision D3 by a Claude Code workflow subagent (Opus 5.5) - not human UAT.
+
+Build: qompack version 0.3.0 (frozen bundle qompack-bundles/c7/qompack-plugin-0.3.0-windows-amd64, BUNDLE.json sha256
+5212ae4eaa2e931266d52069e7d0c72ec2dfd2255d55421c87486ab083e1f395, bin sha256 ab8046ba...3be7), commit
+d20309c03ffc364e4cc48663be73cfbb1f2309b2, Windows 11 Home build 10.0.26200.9457, Claude Code 2.1.280, --plugin-dir the
+frozen bundle, model claude-haiku-4-5-20251001. Date 2026-10-02 15:23-15:31 America/Toronto. Sessions: retrieval-c7
+n=1, 2, 3 (sessions.tsv). Candidate 4's evidence stays at ../../rerun-c4/UAT-09/ (not touched).
+
+Project uat09 (<scratch>/retrieval/c7/uat09/proj; setup-facts.json): README.md, src/pool.go, config/pool.yaml, git
+init. Precondition "UAT-08 complete in the same project" is met inside session 1 (turns 1-4, UAT-08 steps 1-5 with
+the row's defaults). Pre-run backup: initial state absent, recorded (cli/00: backup create exit 1 "source project has
+no existing store"). Config: defaults (cli/01: requireEvidence true, defaultScope session, staleResponse flag,
+rebuildOnStale nextIdle); env QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS=30 on every session and CLI step (not a row
+precondition key), QOMPACK_HOME=<scratch>/retrieval/c7/qhome. No QOMPACK_* key the row names was set.
+
+SESSION 1 (session1/, id 042883ea, 9 turns, 107 s, exit 0):
+ T1 Read src/pool.go, config/pool.yaml (files/*.at-record).
+ T2 record_eliminated scope session, depends_on [src/pool.go, config/pool.yaml]: id elim_7b0b1650d98e, descriptor,
+    scope session, evidence sha256:af7fcd07..., both depends_on resolved, depends_on_unresolved [], status active
+    (snap/eliminations.after-record.jsonl).
+ T3 already_tried -> state active with reason, evidence, scope, recorded_at 2026-10-02T19:24:16Z, depends_on; no
+    stale_because.   T4 a different approach -> {"state":"absent"}.
+ T5 STEP 1: the model edited config/pool.yaml (max_idle 4 -> 16; snap/pool.yaml.before-edit, .after-edit).
+ T6 STEPS 2-3: {"state":"stale", reason, note "previously eliminated, but the evidence has changed since -
+    re-verification may be warranted", evidence, scope session, recorded_at, depends_on, "stale_because":
+    ["config/pool.yaml: dependency hash changed from sha256:9f2751eac830"]} - names the changed file, the record's
+    fields still attached. The ledger appended {"op":"stale",...} (snap/eliminations.after-stale.jsonl).
+ T7 D49 (mid-session change reaches the running daemon): before the turn, cfgwait.py wrote
+    {"eliminations":{"staleResponse":"drop"}} (snap/config.drop.json) and saw the running daemon (pid 26884) log
+    "daemon: config reloaded" changed=[eliminations.staleResponse] 1.0 s later (session1/meta.json turn 7 before).
+    already_tried then answered {"state":"uncertain","reason":"a matching elimination is stale and
+    eliminations.staleResponse is \"drop\", so its current applicability is not disclosed","note":"set
+    eliminations.staleResponse to \"flag\" to see the staleness detail, or re-verify the approach directly"}.
+    Candidate 4 (T09 there) still answered the flag form: FIXED.
+ T8 /compact: checkpoint 0001 (snap/checkpoints.after-compact1/0001.json) carries the elimination with status
+    "stale", stale_because, stale_since; decision dec_e760c8bbf50a. SessionStart:compact injected 4,427 chars
+    (session1/injected-2-SessionStart-compact.txt).
+ T9 known-gap check: the block has NO elimination line in [active] form. With staleResponse drop in force at that
+    compaction the block has no section 3 at all (the stale record is not disclosed, consistent with drop); section 4
+    lists the decision "[dec_e760c8bbf50a] (turn 3) rejected "widen pool timeout" for src/pool.go:DialPool" with no
+    staleness mark (observation O-3 below). The known gap (V5-report section 22 item 26, an [active] digest beside a
+    stale answer) was not reproduced.
+ Session end: the day log shows WARN "daemon: ending abandoned session; no SessionEnd arrived and it has been silent
+ past the idle-exit window" silentMs=30099 at 19:25:45Z (store-after-session1/logs_qompack-20261002.log); the
+ sessions.jsonl end equals the last prompt's ts, no flush latency was recorded (metrics), no client spool exists,
+ and the host's stderr.txt is empty (no "SessionEnd hook ... failed"). Observation O-1 below.
+
+RESTART: S1's daemon (pid 26884) exited by the 30 s idle exit; cli/04 shows the lock gone and no qompack.exe running
+before session 2. cli/03: staleResponse "drop" from the project config at that point.
+
+SESSION 2 (session2-resume/, --resume 042883ea = the same session id, 10 turns, 96 s, exit 0): a NEW daemon
+(pid 60480, staged copy ~/.qompack/bin/ab8046ba.../qompack.exe; meta.json turn 2 before) loaded the drop config.
+ T1 STEP 4 after the restart: {"state":"uncertain", same reason/note as S1 T7} - never absent (candidate 4: absent).
+ T2 R4-1 + D49 the other way: cfgwait.py wrote {"eliminations":{"staleResponse":"flag"}} (snap/config.flag.json);
+    the running daemon logged config reloaded changed=[eliminations.staleResponse] 1.0 s later; already_tried
+    answered {"state":"stale", reason, note, evidence, scope session, recorded_at 2026-10-02T19:24:16Z, depends_on,
+    stale_because ["config/pool.yaml: dependency hash changed from sha256:9f2751eac830"]}: the stale record answers
+    stale after a daemon restart, not absent. R4-1 is FIXED.
+ T3-T10: C4.4's eight tools (see ../C4.4/tool-matrix.md).
+ SessionEnd: delivered this time (no abandoned line; the daemon exited by idle exit ~20 s after the session).
+
+SESSION 3, STEP 5 (session3-step5/, project uat09s5, id 14c7a918, 3 turns, 17 s, exit 0): step5-setup-facts.json,
+step5-cli/00 (initial absence, backup create exit 1), step5-cli/01 (the only thing under .qompack/ before the session
+is records/eliminations.jsonl, created as an empty DIRECTORY - the step's reachable form).
+ T1, T3 already_tried -> {"state":"unavailable","reason":"the elimination ledger is in blind mode:
+    records/eliminations.jsonl could not be read","note":"repair or restore the elimination log and restart; this is
+    not evidence the approach is untried","degraded":true} - nothing about a record disclosed.
+ T2 record_eliminated -> host is_error "cannot record elimination: qompack: running in degraded mode: negknow: the
+    elimination log is not appendable". LOUD.log names both (store-step5-project/logs_LOUD.log).
+STEP 6: no response prohibits the approach - stale carries "re-verification may be warranted", uncertain says
+"re-verify the approach directly", unavailable says "this is not evidence the approach is untried". Haiku's own
+one-sentence judgements in the streams agree for every call.
+
+Step 4's substituted strings (to be confirmed at execution), observed: reason "a matching elimination is stale and
+eliminations.staleResponse is \"drop\", so its current applicability is not disclosed"; note "set
+eliminations.staleResponse to \"flag\" to see the staleness detail, or re-verify the approach directly".
+
+After the sessions (daemon stopped): fsck --json exit 0, fsck --seal-check --json exit 0, doctor --json exit 0
+(cli/10-12). Every hook pair in the three sessions: outcome success, exit 0 (29, 46 and 11 pairs; measured
+arrival deltas at most 147 ms); no host-reported hook failure or timeout.
+
+Expected-result fields: step 2 stale with stale_because naming config/pool.yaml and reason/evidence/scope/recorded_at
+attached - met; step 4 uncertain (in the running daemon after a mid-session change AND in a new daemon after a
+restart) - met; restart: stale, never absent - met; step 5 unavailable + degraded + reason + note, nothing disclosed -
+met; step 6 no prohibition - met; known gap not reproduced. No fail criterion hit.
+
+Observations (none is a fail criterion of this row):
+ O-1 (host/daemon, recorded for D53(i)): session 1's SessionEnd never reached the daemon; the daemon ended the
+     session through its abandoned-session path 30 s after the last prompt (the documented troubleshooting entry for
+     a short idleExitSeconds). The host reported no hook failure (stderr empty, no hook event; the host's stream
+     never carries SessionEnd). Sessions 2 and 3 delivered SessionEnd normally. Cause not established.
+ O-2 (timeline, see ../C4.4/tool-matrix.md): after the restart the resumed session's open segment 3 starts at turn 13
+     (the frontier) and overlaps closed segment 2 (turns 14-17, closed by the first daemon after the session went
+     quiet); segments are listed 1, 3, 2.
+ O-3 (rehydration under drop): section 4 keeps the rejection decision dec_e760c8bbf50a without any staleness mark
+     while section 3 is withheld by drop.
+
+Result: pass. Rollback verified: not applicable - initial state absent (recorded); the run is retained as evidence;
+no restore was run.

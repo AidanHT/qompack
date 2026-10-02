@@ -1149,37 +1149,41 @@ stored records to reconcile a failure.
 **Result**
 
 ```text
-Result: fail — step 4: with `drop` loaded by a new daemon, already_tried in the resumed
-  recording session (the same session id, the call filed under it) answered `{"state":"absent"}`
-  for the stale record — the row's "drop configuration that turns staleness into absent". A second
-  resume with `flag` also answered `absent`, so drop is not the cause: after a daemon restart a
-  stale elimination is missing from the query filter, which is built from active records only
-  (internal/negknow), and the query answers absent before reading the record. Reached and
-  passing: steps 1-3 in the recording session — seconds after the model edited config/pool.yaml,
-  already_tried answered `stale` with reason, note, evidence, scope, recorded_at, depends_on and
-  stale_because ["config/pool.yaml: dependency hash changed from sha256:9f2751eac830"]; the
-  injected block after the next compaction showed it `[stale: ...]` (known gap not reproduced).
-  Step 5, with records/eliminations.jsonl made unreadable (created as a directory):
-  `{"state":"unavailable","reason":"the elimination ledger is in blind mode:
-  records/eliminations.jsonl could not be read","note":"repair or restore the elimination log and
-  restart; this is not evidence the approach is untried","degraded":true}`, and record_eliminated
-  a tool error. The step's "reachable form" (a project with no ledger yet) now answers a correct
-  `absent`, because the ledger opens on first use: that sentence is out of date. Step 6: no
-  response prohibits the approach. Step 4's reason/note strings were not reachable on this run.
-  A `drop` written mid-session did not reach the running daemon's already_tried.
+Result: pass — re-run on candidate 7 (D52). Steps 1-3 in the recording session: seconds after
+  the model edited config/pool.yaml, already_tried answered `stale` with reason, note, evidence,
+  scope, recorded_at, depends_on and stale_because ["config/pool.yaml: dependency hash changed
+  from sha256:9f2751eac830"]. Step 4, in the running daemon (D49): `drop` written mid-session was
+  reloaded 1.0 s later ("config reloaded" changed=[eliminations.staleResponse]) and the next
+  already_tried answered `{"state":"uncertain"}` with the strings (to be confirmed at execution)
+  reason "a matching elimination is stale and eliminations.staleResponse is \"drop\", so its
+  current applicability is not disclosed" and note "set eliminations.staleResponse to \"flag\"
+  to see the staleness detail, or re-verify the approach directly". After a daemon restart (the
+  30 s idle exit; a new daemon, --resume of the same session): `uncertain` under drop, then,
+  after a mid-session reload to flag, `stale` with every field — never `absent` (R4-1 fixed).
+  The injected block after the compaction shows no `[active]` elimination (drop withheld section
+  3; section 4 keeps the rejection decision unmarked): the known gap was not reproduced. Step 5,
+  in a second project whose records/eliminations.jsonl was created as a directory before any
+  session: `{"state":"unavailable","reason":"the elimination ledger is in blind mode:
+  records/eliminations.jsonl could not be read","note":"repair or restore the elimination log
+  and restart; this is not evidence the approach is untried","degraded":true}`, and
+  record_eliminated a tool error. Step 6: no response prohibits the approach. Observation: the
+  recording session's SessionEnd never reached the daemon, which ended it as abandoned 30 s
+  later (no host-reported hook failure; the next two sessions delivered SessionEnd).
+  Candidate 4 (9f6a2fad): fail — step 4: after a daemon restart already_tried answered `absent`
+  for a stale record (R4-1), evidence plans/sdd/V6-closeout/live/rerun-c4/UAT-09/
   Candidate 3 (d5598eb4): fail — staleness was not refreshed in the recording session and the
   no-ledger query never answered unavailable, evidence plans/sdd/V6-closeout/live/uat/UAT-09/
 Snapshot: qompack version 0.3.0; bundle BUNDLE.json sha256
-  aa7da0e17b7597562a6eba47fc48f1db81ff5e9bdc494b9997a323137625558d; commit
-  9f6a2fadf086eba8080af589a35dd9554ae6cab4; Windows 11 Home 25H2 build 10.0.26200.9457;
+  5212ae4eaa2e931266d52069e7d0c72ec2dfd2255d55421c87486ab083e1f395; commit
+  d20309c03ffc364e4cc48663be73cfbb1f2309b2; Windows 11 Home 25H2 build 10.0.26200.9457;
   Claude Code 2.1.280
-Date: 2026-09-29 (America/Toronto)
+Date: 2026-10-02 (America/Toronto)
 Executed by: Claude Code workflow subagent (Opus 5.5), agent-executed on the owner's real host
   per owner decision D3 — not human UAT
-Evidence: plans/sdd/V6-closeout/live/rerun-c4/UAT-09/ (notes.txt indexes it; steps 1-3 in
-  ../UAT-08/session1/)
-Rollback verified: not applicable — initial state absent before UAT-08 (recorded: `backup create`
-  exit 1 "no existing store"); the run is retained as evidence; no restore was run
+Evidence: plans/sdd/V6-closeout/live/rerun-c7/UAT-09/ (notes.txt indexes it; UAT-08's record
+  is made in session1/)
+Rollback verified: not applicable — initial state absent (recorded: `backup create` exit 1
+  "source project has no existing store"); the run is retained as evidence; no restore was run
 ```
 
 ---

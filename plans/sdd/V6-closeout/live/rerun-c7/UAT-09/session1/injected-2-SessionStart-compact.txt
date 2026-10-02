@@ -1,0 +1,44 @@
+# stream line 132, hook SessionStart:compact, exit 0, 4427 chars
+<!-- qompack:injected seq=1 ver=1 -->
+# Qompack rehydration — checkpoint 0001, session 042883ea
+
+## 2. Original user intent (verbatim from L0 capture — never summarized)
+Evolution (most recent first):
+> Call mcp__plugin_qompack_qompack__already_tried with {"target": "src/pool.go:DialPool", "approach": "widen pool timeout"}. Reply with the tool result's text verbatim, then say in one sentence whether anything in it forbids trying the approach.
+> Use the Edit tool to change `max_idle: 4` to `max_idle: 16` in config/pool.yaml. Reply only 'done'.
+> Call mcp__plugin_qompack_qompack__already_tried with {"target": "src/pool.go:DialPool", "approach": "add a connection retry loop"}. Reply with the tool result's text verbatim, then say in one sentence whether anything in it forbids trying the approach.
+> Call mcp__plugin_qompack_qompack__record_eliminated with {"target": "src/pool.go:DialPool", "approach": "widen pool timeout", "reason": "the stall comes from the server-side max_idle cap in config/pool.yaml, not from the client timeout; a longer timeout only delays the same failure", "scope": "session", "depends_on": ["src/pool.go", "config/pool.yaml"]}. Reply with the tool result's text verbatim.
+Original:
+> Use the Read tool to read src/pool.go and then config/pool.yaml. Reply only 'done'.
+
+## 4. Decisions
+- [dec_e760c8bbf50a] (turn 3) rejected "widen pool timeout" for src/pool.go:DialPool
+  why: the stall comes from the server-side max_idle cap in config/pool.yaml, not from the client timeout; a longer timeout only delays the same failure
+  rejected: widen pool timeout
+  evidence: sha256:af7fcd075e130e83c74f8e7a5cbd3b37edafbb65ba609473e540ef85b112b0bf
+
+## 5. Current work
+goal: Call mcp__plugin_qompack_qompack__already_tried with {"target": "src/pool.go:DialPool", "approach": "widen pool timeout"}.
+blocked on: none
+
+## 6. Pointers (paths and hashes — contents are NOT restored; use expand/re_read)
+- config/pool.yaml sha256:259204dd59dea3f99ebeb05621d34621c57792d6ab871511be29b3039473ec64 — touched at turn 9 via FileEdit
+- src/pool.go sha256:c10864c97164759167c41a627a4c7988b2e61e857f816d304fbaa25adeb05e65 — referenced
+- tool_use toolu_017RasXd9BXjAKt2pEJkP9je sha256:259204dd59dea3f99ebeb05621d34621c57792d6ab871511be29b3039473ec64 — <scratch>\retrieval\c7\uat09\proj\config\pool.yaml
+- tool_use toolu_018xB8ozjKFqCaiGic9r2k8N sha256:7a6fd9713b07dad92cebd32163a4e4f67b2f70524973cf1a88114ff30958a6e2 — {"approach":"widen pool timeout","depends_on":["src/pool.go","config/pool.yaml"],"reason":"the stall comes from the s…
+- tool_use toolu_01BY35vEF5S9SRJ4Jc5bpH3e sha256:1146bcb981c0cb2ad00a4ee882f53d77282d57e527bd0176b4237afa4b9c5e3b — {"max_results":1,"query":"select:mcp__plugin_qompack_qompack__record_eliminated"}
+- tool_use toolu_01D5myPBV7CH9ZzkDAbgALSP sha256:5c5c52e4ac94d36b24c66626786f573d46e1191b3738af63d37e86f0cb60ed0d — {"approach":"widen pool timeout","target":"src/pool.go:DialPool"}
+- tool_use toolu_01FbAdKwJMhV2MLCib2xFZsu sha256:7a8f9bb57eba815a2fa6fae865025aed93feaa3bef4c6ef0923bfed693c08a83 — {"approach":"widen pool timeout","target":"src/pool.go:DialPool"}
+- tool_use toolu_01HYukQCEAnsGKsD3SAkT4o8 sha256:c10864c97164759167c41a627a4c7988b2e61e857f816d304fbaa25adeb05e65 — <scratch>\retrieval\c7\uat09\proj\src\pool.go
+- tool_use toolu_01HnnoSjhVbEJfN8AfHZfrM2 sha256:80fe85d81c8476ce848275e83bbf2206b446e6daf46653222be395863503ee72 — {"approach":"add a connection retry loop","target":"src/pool.go:DialPool"}
+- tool_use toolu_01MeTn8QHR9B3mbzuY2ubL4D sha256:2448df98924b133331e90f6336f66e71cf8ce4283389d5e83149452602dff61f — {"approach":"widen pool timeout","target":"src/pool.go:DialPool"}
+- tool_use toolu_01MuXWe3rzecLQ3RJvRivSrk sha256:1a01d476c671d233ce9b40f29279ce750a1d02b11427b67942e8d6f559dc5502 — {"max_results":1,"query":"select:mcp__plugin_qompack_qompack__already_tried"}
+- tool_use toolu_01N4AqrmbGVdHmR8mNNydmu7 sha256:9f2751eac830ec5327fbd626f86ff5f728882230a55dfcf30fcb0f4c189a36c7 — <scratch>\retrieval\c7\uat09\proj\config\pool.yaml
+
+## 7. No longer in context
+- pointer_dirty config/pool.yaml — modified since index on master
+
+## 8. Retrieval
+Qompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().
+<!-- /qompack:injected -->
+<!-- qompack-contract-probe qompack-contract-89e4e6a4d6c4 -->

@@ -1,0 +1,63 @@
+{
+ "session_id": "042883ea-847f-47c8-958a-6d43aee99948",
+ "found": true,
+ "project_slug_is_scratch": true,
+ "bytes": 845076,
+ "lines": 424,
+ "entry_types": {
+  "queue-operation": 38,
+  "attachment": 142,
+  "user": 69,
+  "atis-latch": 18,
+  "last-prompt": 18,
+  "assistant": 110,
+  "system": 19,
+  "cost-state": 2,
+  "mode": 8
+ },
+ "tool_uses": {
+  "Read": 2,
+  "ToolSearch": 10,
+  "mcp__plugin_qompack_qompack__record_eliminated": 3,
+  "mcp__plugin_qompack_qompack__already_tried": 9,
+  "Edit": 1,
+  "mcp__plugin_qompack_qompack__recall": 5,
+  "mcp__plugin_qompack_qompack__expand": 4,
+  "mcp__plugin_qompack_qompack__re_read": 4,
+  "mcp__plugin_qompack_qompack__timeline": 4,
+  "mcp__plugin_qompack_qompack__why": 3,
+  "mcp__plugin_qompack_qompack__dropped": 2
+ },
+ "attachment_types": {
+  "hook_success": 56,
+  "hook_additional_context": 3,
+  "environment": 2,
+  "model": 2,
+  "deferred_tools_delta": 2,
+  "agent_listing_delta": 2,
+  "mcp_instructions_delta": 2,
+  "skill_listing": 2,
+  "total_tokens_reminder": 45,
+  "session_context": 2,
+  "date": 2,
+  "remote_session_change": 2,
+  "prompt_snapshot": 4,
+  "deferred_tools_record": 9,
+  "task_reminder": 5,
+  "file": 2
+ },
+ "hook_attachments": {
+  "hook_success/SessionStart": 3,
+  "hook_additional_context/SessionStart": 3,
+  "hook_success/PostToolUse": 35,
+  "hook_success/Stop": 18
+ },
+ "main_chain_user_text_entries": 20,
+ "compact_boundaries": [
+  {
+   "trigger": "manual",
+   "preTokens": 31404
+  }
+ ],
+ "sidechain_markers": []
+}
