@@ -1,0 +1,32 @@
+Files of the pre-upgrade store (after session A on candidate 5, plus the baseline backup): 158
+after session B on candidate 7: unchanged 131, missing 0, changed 27, new 35
+missing: []
+unchanged includes every object, checkpoints/0001.json, records/eliminations.jsonl and the backup: True
+changed files, compared with the baseline backup's copy of the same file (append-only = old bytes are a prefix of the new file):
+  checkpoints/MANIFEST.jsonl               old    130 B new    260 B prefix=True
+  dag/deps.jsonl                           old  15355 B new  25510 B prefix=True
+  index/observations.jsonl                 old  18800 B new  32939 B prefix=True
+  index/roots.jsonl                        old  22785 B new  42336 B prefix=True
+  index/segments.jsonl                     old    520 B new   1042 B prefix=True
+  index/sessions.jsonl                     old    196 B new    393 B prefix=True
+  index/tool_use.jsonl                     old  21160 B new  41611 B prefix=True
+  logs/qompack-20261002.log                not in the backup (the backup copies checkpoints, dag, index, objects, pins, records, sketches and state only)
+  metrics/latency.json                     not in the backup (the backup copies checkpoints, dag, index, objects, pins, records, sketches and state only)
+  run/marker.json                          not in the backup (the backup copies checkpoints, dag, index, objects, pins, records, sketches and state only)
+  sketches/explore.hll                     old   2102 B new   2102 B prefix=False
+  sketches/touch.cms                       old  54474 B new  54474 B prefix=False
+  sketches/tried.bloom                     old  12072 B new  12072 B prefix=False
+  state/bocd.json                          old   2641 B new   2097 B prefix=False
+  state/chunktokens.bin                    old    592 B new   1096 B prefix=False
+  state/delivery-ack-position.json         old    113 B new    113 B prefix=False
+  state/delivery-acks.jsonl                old   4644 B new   8256 B prefix=True
+  state/delivery-lease-position.json       old    113 B new    114 B prefix=False
+  state/delivery-leases.jsonl              old   5805 B new  10318 B prefix=True
+  state/gc-live.bin                        old   1696 B new   2880 B prefix=False
+  state/history.json                       old    560 B new    563 B prefix=False
+  state/mcp.json                           old    206 B new    207 B prefix=False
+  state/observations.json                  old   6956 B new  13819 B prefix=False
+  state/precompact.json                    old    162 B new    162 B prefix=False
+  state/retention-roots.jsonl              old   3417 B new   6030 B prefix=True
+  state/scheduler.json                     old    900 B new    893 B prefix=False
+  state/store.json                         old     79 B new     81 B prefix=False

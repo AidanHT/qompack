@@ -1,0 +1,2 @@
+$ sh <scratch>/install/c7/../tools/unset.sh env QOMPACK_HOME=<scratch>/install/c7/qhome C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c7/qompack-plugin-0.3.0-windows-amd64/bin/qompack.exe fsck --project <scratch>/install/c7/c48/recovery1 --seal-check --json
+cwd: <scratch>/install/c7/c48/recovery1

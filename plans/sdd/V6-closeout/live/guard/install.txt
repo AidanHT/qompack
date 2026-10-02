@@ -490,3 +490,25 @@ same  plugins/data/ (2 entries)
 INFO  .qompack/ gained ['bin/', 'bin/ab8046bac3bad894c9a299c61fb38277f4179f4e33bfb088873e43edcbe33be7/'] (run-created; record, remove only if yours)
 real home fingerprint unchanged
 check exit 0
+== C4.8/UAT-12 after session A (install-c7 n=2, previous build c5 via --plugin-dir) — 2026-10-02 04:16:00 EDT
+removed run-created empty plugins/data/qompack-inline/
+same  settings.json 265df1f32ede
+same  plugins/installed_plugins.json 728f75591291
+same  plugins/known_marketplaces.json 1b1eda7e17f0
+same  plugins/cache/ (10 entries)
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+INFO  .qompack/ gained ['bin/', 'bin/08a513369c0ef65901fcc6ad330e42b62b8c46d77e7444a76f672ad6e3308d25/'] (run-created; record, remove only if yours)
+real home fingerprint unchanged
+check exit 0
+== C4.8/UAT-12 after session B (install-c7 n=3, frozen candidate 7 via --plugin-dir = the upgrade) — 2026-10-02 04:18:03 EDT
+removed run-created empty plugins/data/qompack-inline/
+same  settings.json 265df1f32ede
+same  plugins/installed_plugins.json 728f75591291
+same  plugins/known_marketplaces.json 1b1eda7e17f0
+same  plugins/cache/ (10 entries)
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+INFO  .qompack/ gained ['bin/', 'bin/ab8046bac3bad894c9a299c61fb38277f4179f4e33bfb088873e43edcbe33be7/'] (run-created; record, remove only if yours)
+real home fingerprint unchanged
+check exit 0
