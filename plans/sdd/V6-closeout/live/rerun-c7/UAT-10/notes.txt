@@ -1,0 +1,109 @@
+UAT-10 re-run on candidate 7 (d20309c03ffc364e4cc48663be73cfbb1f2309b2) — ask the installation what
+it observed about itself. Re-run under D50/D52/D53 (candidate 4 did not re-run it; its last result is
+candidate 3's, plans/sdd/V6-closeout/live/uat/UAT-10/). Agent-executed on the owner's real host per
+owner decision D3 by a Claude Code workflow subagent (Opus 5.5) — not human UAT.
+
+Date 2026-10-02 15:50-15:51 America/Toronto (session), rollback steps after the default idle exit.
+Sessions used: 1 (resilience-c7 n=1, session/). Model claude-haiku-4-5-20251001, Claude Code 2.1.280,
+Windows 11 Home 25H2 build 10.0.26200.9457, frozen bundle qompack-plugin-0.3.0-windows-amd64
+(BUNDLE.json sha256 5212ae4eaa2e931266d52069e7d0c72ec2dfd2255d55421c87486ab083e1f395) via --plugin-dir;
+`qompack version` 0.3.0, exit 0, nothing created in the empty directory (cli/00-version*).
+Project <scratch>/resilience/uat10/proj (src/batch.go, worker.log 23,951 B with 11 ERROR lines,
+README.md; setup-facts.json). Configuration: defaults — no config file, no QOMPACK_* but
+QOMPACK_HOME (moves calibration.json only); runtime.telemetry.enabled false, idle exit 1800 s
+(cli/13-config-print-provenance). Pre-run `backup create` exit 1 "backup: source project has no
+existing store" (initial absence, cli/00-backup-create-absent). The daemon ended by its default idle
+exit; nothing was terminated.
+
+Session turns: T1 Read src/batch.go and worker.log; T2 record_eliminated (target "worker timeouts in
+src/batch.go", approach "raise the retry count to 10", depends_on worker.log, project scope) ->
+elim_a0271847f6ca active; T3 /compact; T4 /qompack:status --json; (before T5: `qompack status` text,
+cli/10-status-text-same-moment) T5 /qompack:dropped --json; T6 /qompack:eval --json; T7 already_tried.
+slash-commands.json is the host's expansion of each command (or its failure line); status.json,
+dropped.json and eval.json are split from it. injected/ holds every hook's additionalContext.
+7/7 turns answered, exit 0, stderr empty; 19 hook pairs, all success/exit 0 (D53(i): 0).
+
+Step 1 (status.json; cli/10-status-text-same-moment, cli/11-status-*-after): envelope {"schema":1,
+ "command":"status","ok":true,"data":{schema, collected_at_ms, primary, snapshot, hooks, budgets}} —
+ the documented shape.
+Step 2: primary {source daemon, status available, age_ms 0} (a live daemon answering, 0 µs old). Hook
+ rows: PostToolUse, UserPromptSubmit, SessionStart, Stop, SubagentStop and SessionEnd have latency
+ null and provenance {source daemon, status unavailable, age_ms 0, reason "no per-hook instrument:
+ <event> is folded into the hook_controlled aggregate, which mixes every delivering hook and cannot be
+ attributed to one"}; PreCompact (B-E) is available, measure observed, n=1. Budgets: B-A estimated;
+ B-B, B-C, B-E, B-F observed; B-D unavailable "no instrument records this histogram in this build; it
+ measures host process creation, which the created process cannot observe"; B-G unavailable
+ "hook_degraded: no samples recorded in the observed window". No latency or budget cell prints 0 for
+ a missing instrument; the text page prints the word `unavailable` with each reason. age_ms is 0 only
+ beside a live daemon source (the after-idle reading below shows a real disk age, and the unknown-age
+ reading is cited there).
+ Candidate 3's FAILING banner: GONE. The text banner reads "host contract: 9 assertion(s), none
+ failing: 7 holding, 1 pending, 1 with nothing to judge" with "pending: session_start.fires
+ (marker-absent-once)"; mcp.server_registered reads initialize-received and
+ hook.additional_context_delivered sentinel-observed in a session whose MCP server answered. The one
+ pending row after this same-session /compact is D58(d)'s F-C48-1 (fixed for candidate 8), seen again
+ here on candidate 7 (observation O1, not new).
+ Candidate 3's p95 > max: GONE on every displayed value. Every text row and every JSON hooks/budgets
+ latency has p95 and p99 <= max (e.g. B-A "p95 128.00ms p99 128.00ms max 128.00ms"; JSON B-A
+ p95_us 128000 = max_us 128000). Observation O2: the raw histogram in data.snapshot.latency still
+ carries bucket upper bounds above the exact max (hook_controlled P95 131072000 ns vs Max 128000000 ns,
+ l0_ingest P95 131072000 vs Max 124691000); troubleshooting §1's clamp statement is about the page's
+ displayed values, which hold.
+Usage categories (the row's middle bullet): not reachable from a user project, as the row says. T6
+ /qompack:eval --json in the session: the host printed only its own line, `Shell command failed for
+ pattern "!`qompack eval --json`": [stderr] {"schema":1,"command":"eval","ok":false,"error":{"kind":
+ "unavailable","message":"eval: qompack: unavailable: no evaluation artifacts: no live-eval run under
+ <project>\dist\live-eval and no replay report at <project>\testdata\bench-replay.json. ..."}}`, and
+ the turn ended without an answer, as docs/commands.md describes (eval.json). The same command in a
+ terminal exits 1 with that message naming both paths (cli/12-eval-json-terminal, exit 1). That is
+ the row's pass. For continuity with candidate 3, `qompack eval --corpus` on the committed C5.4 pilot
+ run (cli/14-*) shows the six category names only as arm totals {known, known_records,
+ unknown_records} in alphabetical key order, cost "unavailable: no request ledger was recorded for this
+ run"; the canonical order and the {"known":false} + `missing` form are still not observable on any
+ reachable surface (candidate 3's F3, unchanged; every figure shown names its category and its
+ known/unknown record counts, so the fail condition did not occur).
+Step 3 (dropped.json): {"schema":1,"command":"dropped","ok":true,"data":{"tool":"dropped",
+ "is_error":false,"ephemeral":true,"content":[{"type":"text","text":"{\"count\":0,\"drops\":[]}"}],...}}
+ — nothing dropped in a session this small, no coverage value anywhere. Observation O3: the model's
+ paraphrase of that report ("The Qompack archive has captured all relevant material from the previous
+ session with no omissions") claims more than the report establishes; that is model text, not
+ product output, and docs/mcp-tools.md already says the report does not establish what remains in
+ native context.
+Step 5: .qompack/logs/qompack-20261002.log: info lines only (idle work registered, session
+ registered, session bound, gc), no warn, no loud; no LOUD.log; loud_tail []; the text status has no
+ "recent loud lines" section when the tail is empty (as on candidate 3; C4.9 session 2 shows the
+ section appears once a loud line exists).
+Step 6: the block injected after T3 (injected/injected-2-SessionStart-compact.txt) lists the
+ elimination "worker timeouts in src/batch.go — "raise the retry count to 10" — ... [active]" with
+ "Before committing to an approach, call already_tried.", and decision dec_35c3947c6c2e. T7
+ already_tried answered state "active", the same reason, evidence sha256:46afe3e0..., scope project,
+ recorded_at 2026-10-02T19:50:48Z, depends_on worker.log sha256:d46d7b17... — they agree. No
+ uncertainty marking appeared in the digest, so the recorded partials (V5-report §24 uncertainty gate,
+ §29 item 11 pin stamping) were neither exercised nor contradicted.
+Telemetry: runtime.telemetry.enabled false (doctor: "hardwired off — a true value is a Validate
+ violation, not a setting"); nothing in this run sent data anywhere Qompack controls.
+Model behaviour (observation O4): on T4 the model answered "Session resumed..." instead of reporting
+ the status output verbatim; the host had injected the full output (slash-commands.json), which is
+ what status.json is taken from.
+Live store checks (daemon running): doctor exit 0; fsck exit 0 (cli/13-*).
+
+Result: PASS. No instrument-less cell printed 0, ages are honest, eval reported unavailable naming both
+paths with exit 1, usage figures always carry category and known/unknown counts, no telemetry.
+Candidate 3's FAILING banner and p95>max findings are gone. Observations O1-O4 above; the canonical
+usage-category serialization remains unverified on a reachable surface.
+
+After the default idle exit (the daemon left at 20:21:41Z, about 30 min after SessionEnd; nothing was
+terminated):
+- `qompack status` with QOMPACK_RUNTIME__DAEMON__ENABLED=false (so the read starts no daemon;
+  cli/20-*): "source: disk (available, 3.31s old)" with the reason "daemon: no daemon answered: none
+  is listening for this project yet ..."; JSON primary {source disk, status available, age_ms 3331,
+  reason ...}; every hook and budget row carries the same disk provenance and age; percentiles still
+  <= max. An unknown age was seen in C4.9 session 1 (rerun-c7/C4.9/slash-commands-s1.json): "source:
+  none (error, age unknown)". No age_ms 0 stood for an unknown age anywhere.
+- fsck --json exit 0, doctor exit 0 (cli/21-*); day log copied to store/.
+Rollback (cli/22-25): backup uat10-after-idle created (exit 0, manifest consistent true), verified
+(exit 0) and restored into <scratch>/resilience/uat10/recovered (exit 0: OpenedOK, 18 content roots,
+15 tool refs proven, 0 tombstoned, SameBuildOnly, integrity all ok including the dual-reader seal
+check); fsck of the destination exit 0. The source's store is kept as evidence; the destination was not
+activated; cross-version and activation checks unverified. Initial state was absent (recorded), so per
+the row's rule the run is retained as evidence.
