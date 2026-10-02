@@ -1492,59 +1492,53 @@ stored records to reconcile a failure.
 **Result**
 
 ```text
-Result: pass — step 2: the host refused the direct Read ("File is in a directory that is denied
-  by your permission settings." — observed string) and recall (marker and path:), expand
-  (tool_use_id and root hash), re_read, /qompack:recall and a direct stdio probe all answered
-  denied ("authorization denied: the host's current permission rules deny reading the associated
-  path" — observed string) with no preview; out-of-project re_read refused ("path escapes the
-  project root", no path echoed), expand of the outside capture denied. Steps 3-5: every expand
-  and re_read result text is within runtime.mcp.maxResponseBytes 262,144 on a 354,352-byte
-  escape-heavy capture: minimal 8,038 bytes (span [0,6437], next_span 6437:16384); full: true
-  261,163 (span [0,217070], truncated true, next_span 217070:137282); that next_span passed back
-  165,233 (span [217070,354352], contiguous, to the end); re_read full: true 261,172; an explicit
-  span wins over full; no page ends inside a multi-byte character; each response reports span,
-  total_bytes, truncated and next_span and carries no fidelity or coverage field (as revised
-  under D46). Step 4: no binary bytes reach Qompack on this host — Bash `cat` delivers the
-  3,000-byte file as 2,134 bytes of host-decoded text and Read delivers a PNG as a base64 image
-  block; both capture sidecars record fidelity exact (the captured host delivery), expand returns
-  what was captured, recall does not find the blob's magic; Qompack decoded nothing. Step 6:
-  upgrade 0.2.99-prev (built from 301a8e9; the v0.2.0 tag has no bundle task) to 0.3.0 left
-  .qompack/ byte-identical. Step 7 (to be confirmed at execution): no version-block or
-  retired-meaning warning (no config file); no LOUD line at the first post-upgrade daemon start;
-  config.capture "applied as written"; the layout reappeared after session B's hooks. Step 8:
-  restore of the pre-upgrade backup exit 0, reader proof and integrity checks passed. Steps 9-10:
-  .qompack/ byte-identical across the uninstall (791 files); after the reinstall re_read answered
-  from the old build's capture. Findings (not fail criteria): a default k=5 recall answered 2 hits
-  with denied 3 while more permitted hits existed (withheld hits use up k); later daemon starts
-  logged LOUD "publication accounting incomplete" (250 ms startup bound); troubleshooting §3 still
-  tells the reader to read fidelity through expand; F4: section 6 of the rehydration block lists
-  pointers carrying the deny-ruled file's absolute path and root hash and the out-of-project
-  file's absolute path, with no content (D50 routes it to a fix: pointers never show a denied path
-  or an absolute path outside the project); paging semantics on candidate 4: the final page
-  answers truncated true with no next_span, and an explicit span 0:354352 cut at 217070 answers
-  next_span 217070:16384 where full: true answers 217070:137282 (fixed after candidate 4 under D50: a
-  truncated page always carries next_span, and an explicit span pages like full: true). ORDER: steps 2-5 ran after step 6, on the
-  candidate, because 301a8e9 predates the C1.9 deny-rule support; the baseline was taken after
-  the old build's permitted captures, MCP calls and /compact (initial state absent).
+Result: pass — upgrade leg (steps 1 and 6-10) re-run on candidate 7; steps 2-5 are re-run by
+  this lane's retrieval part (D52) and reported there. Step 1: initial state absent (recorded;
+  backup create exit 1 "source project has no existing store"); baseline c48-baseline taken
+  after the previous build's permitted captures, MCP calls (record_eliminated, recall,
+  timeline) and /compact, created and verified by the frozen candidate 7 CLI with the source
+  daemon stopped (77 files, consistent; verify's scratch restore: 22 roots, 15 tool refs,
+  integrity and seal check passed). Step 6: previous build candidate 5's frozen bundle
+  (0d06ab12; 0.3.0 has no earlier public release) -> the frozen candidate 7 bundle, both via
+  --plugin-dir; the new build read the old build's captures (re_read README.md answered turn 1
+  of session A from the store), its project-scope elimination (already_tried active) and its
+  checkpoint chain (0001 -> 0003); every pre-upgrade object, checkpoints/0001.json and
+  records/eliminations.jsonl byte-identical afterwards, every append-only log only appended
+  to. Step 7 (to be confirmed at execution): no version-block or retired-meaning warning (no
+  config file exists to carry either), and no WARN or LOUD line in the day log across the
+  upgrade; self-test config.capture "applied as written"; the layout reappeared after session
+  B's hooks (all success / exit 0). Step 8: restore of the pre-upgrade baseline into a fresh
+  recovery project exit 0, reader proof (22 roots, 15 tool refs) and integrity checks passed;
+  fsck --seal-check exit 0 on the recovery and on the source. Steps 9-10: the frozen bundle
+  installed at local scope through a local marketplace entry named qompack-windows-amd64,
+  uninstalled, reinstalled and uninstalled again; .qompack/ byte-identical across each step
+  (193 and 209 files, full sha256 listings) and still on disk; after the reinstall session C
+  re-read session A's old-build capture. Finding (diagnostics, minor): after the mid-session
+  compaction `qompack status` names session_start.fires pending "marker-absent-once" on a
+  healthy store (troubleshooting §1 says a healthy project reads 0 pending).
+  Candidate 4 (9f6a2fad): pass — deny, bound and binary steps held and the 0.2.99-prev
+  upgrade, restore and uninstall kept .qompack/ intact, evidence
+  plans/sdd/V6-closeout/live/rerun-c4/UAT-12/
   Candidate 3 (d5598eb4): fail — full: true responses of 263,559 / 263,567 bytes over
   the bound and a pre-upgrade restore failing its integrity checks, evidence
   plans/sdd/V6-closeout/live/uat/UAT-12/
 Snapshot: qompack version 0.3.0; bundle BUNDLE.json sha256
-  aa7da0e17b7597562a6eba47fc48f1db81ff5e9bdc494b9997a323137625558d; commit
-  9f6a2fadf086eba8080af589a35dd9554ae6cab4 (upgraded from 0.2.99-prev built from 301a8e9);
+  5212ae4eaa2e931266d52069e7d0c72ec2dfd2255d55421c87486ab083e1f395; commit
+  d20309c03ffc364e4cc48663be73cfbb1f2309b2 (upgraded from candidate 5's bundle, BUNDLE.json
+  sha256 a1c59ec2d817d1837359033d6f047736470beb8bc1badfae836d9158b211a4ac, commit 0d06ab12);
   Windows 11 Home 25H2 build 10.0.26200.9457; Claude Code 2.1.280
-Date: 2026-09-29 (America/Toronto)
+Date: 2026-10-02 (America/Toronto)
 Executed by: Claude Code workflow subagent (Opus 5.5), agent-executed on the owner's real host
   per owner decision D3 — not human UAT
-Evidence: plans/sdd/V6-closeout/live/rerun-c4/UAT-12/ (notes.txt indexes it; C4.8 notes under
-  plans/sdd/V6-closeout/live/rerun-c4/C4.8/)
-Rollback verified: unverified — backup uat12-c4-baseline (136 files, consistent, frontier 0)
-  created and verified by the candidate CLI with the source daemon stopped; same-build restore
-  into a fresh destination proved its reader (27 roots, 19 tool refs) and passed its integrity
-  checks and the delivery seal check (fsck --seal-check of the recovery and of the source exit
-  0); the source's later writes were preserved (only the stale run/ lock was reclaimed); the
-  previous-build (301a8e9) reader's fsck on the recovered baseline exits 1 on its own build's
-  turn-0 MCP rule; the recovery was not activated
+Evidence: plans/sdd/V6-closeout/live/rerun-c7/UAT-12/notes.txt (the data is in
+  plans/sdd/V6-closeout/live/rerun-c7/C4.8/)
+Rollback verified: unverified (missing step: the recovery was not activated) — backup
+  c48-baseline (77 files, consistent, frontier 0,
+  the legacy-import cursor) created and verified by the candidate CLI with the source writer
+  stopped; same-build restore into a fresh destination proved its reader and passed its
+  integrity checks and the delivery seal check; the source's later writes were preserved; the
+  previous build's own reader (candidate 5) accepts the recovered baseline (fsck and fsck
+  --seal-check exit 0)
 ```
 
 ---
