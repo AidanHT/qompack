@@ -1,7 +1,13 @@
+# go run ./tools/devtool release-check --tag v0.3.0, run 2026-10-02T04:48Z with HEAD detached at
+# 4cfc19dbd8f535484ed9c8ae4208a4496292a8b0 (chore(release): set the version to 0.3.0), untagged.
+# An earlier copy of this log named c07cbe52, the pre-amend commit with an identical tree
+# (message-only amend); it was replaced by this re-run so the quoted SHA resolves.
+
 
 === release-check: version agreement ===
 release-check: version agreement FAIL — `git describe --tags --exact-match` failed, so HEAD carries no tag: exit status 128
-fatal: no tag exactly matches 'c07cbe5280fca2e85349a9c1df00312094c5d4a7'
+fatal: no tag exactly matches '4cfc19dbd8f535484ed9c8ae4208a4496292a8b0'
 
 devtool: release-check: release-check: version agreement FAILED
 exit status 1
+exit=1
