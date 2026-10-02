@@ -568,10 +568,11 @@ host change could lift — as prepared proposals, none of which has been filed.
   `retention` row, an evidence-class retention root "which is not held" although nothing is wrong.
 - **Why.** fsck reads the capture sidecars before `state/retention-roots.jsonl`, and a daemon still
   publishing a capture writes its sidecar first and its retention root after it. A capture published
-  between those two reads leaves a root whose sidecar fsck did not see. fsck does not take the
-  daemon's lock without `--seal-check`, so a result taken beside a running daemon is a snapshot of a
-  moving target, and its `daemon` row says so. Decision D57(b) records this as a known limit for
-  0.3.0; a test that pins the daemon's sidecar-before-root order is later work.
+  between those two reads leaves a root whose sidecar fsck did not see. A plain fsck (without
+  `--repair` or `--seal-check`) does not take the daemon's lock, so a result taken beside a running
+  daemon is a snapshot of a moving target, and its `daemon` row says so. Decision D57(b) records
+  this as a known limit for 0.3.0; a test that pins the daemon's sidecar-before-root order is later
+  work.
 - **What Qompack does instead.** Stop the daemon (let it reach its idle exit, or end the process
   named in `daemon.lock`) and run `fsck` again; a root that is still reported then is a real defect.
 - **Recorded at.** `plans/V6-CLOSEOUT-CHECKLIST.md` D57(b);
