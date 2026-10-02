@@ -87,6 +87,22 @@ func denyNonce(admit func(ipc.Request) admissionVerdict, nonce string) func(ipc.
 	}
 }
 
+// denyNonceAtDispatch is admit with the policy changing its mind about the delivery that carries nonce
+// between a pass reading its line and dispatching it: it admits that delivery's first admission, the
+// one the read loop makes, and denies every later one, such as dispatchPending's. A leased line the
+// pass reads is then retired at dispatch (errReplayDenied), not by the read loop's denial branch. It
+// returns how many admissions of that delivery it has answered.
+func denyNonceAtDispatch(admit func(ipc.Request) admissionVerdict, nonce string,
+) (func(ipc.Request) admissionVerdict, *atomic.Int32) {
+	var calls atomic.Int32
+	return func(req ipc.Request) admissionVerdict {
+		if req.Nonce == nonce && calls.Add(1) > 1 {
+			return admissionVerdict{Request: req, Denied: true, Reason: "test policy denial at dispatch"}
+		}
+		return admit(req)
+	}, &calls
+}
+
 // publishLiveFirst is admit with one side effect: the first time a pass reads the delivery that
 // carries nonce, the ingest first publishes that delivery's own queued job, as a worker would. Its live
 // copy then reaches the committed frontier while the pass is reading the spool that holds its spooled
@@ -168,13 +184,26 @@ func TestDrainClientSpools_ReconsumingALineBehindABlockedHeadDoesNotEndASpentPas
 // pass consuming a line behind a blocked head is a line the pass itself publishes or retires, although
 // the consumed front cannot move over it. Once it has one, a spent budget ends the pass (D31: it runs
 // past its budget by at most that line), and the fresh capture in the next spool waits for the next
-// pass. Three ways in: the line behind the head is published as it is read; it is retired by a policy
-// denial as it is read; or it waits on its own session's earlier arrival, whose live copy publishes
-// while the pass reads on, and the pass's look-ahead publishes it once the pass has consumed the
-// spooled copy of that arrival. Consuming that copy is no progress (its live copy is published), so it
-// must not end the pass before the look-ahead's publication.
+// pass. Five ways in. The line behind the head is published as it is read; it is retired by a policy
+// denial as it is read (the read loop's denial branch); or the policy admits it as it is read and
+// denies it at dispatch, which retires it without publishing it (processOne's changed without
+// dispatched). Or it waits on its own session's earlier arrival, whose live copy publishes while the
+// pass reads on, and the pass's look-ahead publishes it, or retires it at dispatch, once the pass has
+// consumed the spooled copy of that arrival. Consuming that copy is no progress (its live copy is
+// published), so it must not end the pass before the look-ahead's publication or retirement.
 func TestDrainClientSpools_ALinePublishedOrRetiredBehindABlockedHeadEndsASpentPass(t *testing.T) {
-	for _, how := range []string{"published as it is read", "retired as it is read", "published by the look-ahead"} {
+	retiredAt := func(t *testing.T, dd *daemon, lease deliveryLease) func() bool {
+		return func() bool {
+			j, err := dd.deliveryJournal()
+			require.NoError(t, err)
+			denied, err := j.terminalDenied(lease)
+			return err == nil && denied
+		}
+	}
+	for _, how := range []string{
+		"published as it is read", "retired as it is read", "retired as it is dispatched",
+		"published by the look-ahead", "retired by the look-ahead at dispatch",
+	} {
 		t.Run(how, func(t *testing.T) {
 			dd, _, root := laneTestDaemon(t)
 			ctx := context.Background()
@@ -193,13 +222,21 @@ func TestDrainClientSpools_ALinePublishedOrRetiredBehindABlockedHeadEndsASpentPa
 				require.True(t, ok)
 				cfg.Admit = denyNonce(cfg.Admit, other.Nonce)
 				lines = append(lines, hookSpoolLine(t, other))
+				consumed = retiredAt(t, dd, lease)
+			case "retired as it is dispatched":
+				other := liveOrderTool(dd, root, "sess-progress-other", 7)
+				lease, ok := dd.ing.leaseDelivery(ctx, other)
+				require.True(t, ok)
+				admit, admissions := denyNonceAtDispatch(cfg.Admit, other.Nonce)
+				cfg.Admit = admit
+				lines = append(lines, hookSpoolLine(t, other))
 				consumed = func() bool {
-					j, err := dd.deliveryJournal()
-					require.NoError(t, err)
-					denied, err := j.terminalDenied(lease)
-					return err == nil && denied
+					require.Equal(t, int32(2), admissions.Load(),
+						"fixture: the policy admitted the line as it was read and denied it at dispatch")
+					require.False(t, spoolWatchPublished(dd, other.Nonce), "fixture: it was retired, not published")
+					return retiredAt(t, dd, lease)()
 				}
-			case "published by the look-ahead":
+			case "published by the look-ahead", "retired by the look-ahead at dispatch":
 				const sess core.SessionID = "sess-progress-ahead"
 				p0 := spD3Prompt(dd, root, sess, orderNonce(10), "p0")
 				acceptPrompt(t, dd, p0) // leased, arrival 0 of sess; its job waits for a worker, and none runs
@@ -211,6 +248,19 @@ func TestDrainClientSpools_ALinePublishedOrRetiredBehindABlockedHeadEndsASpentPa
 				consumed = func() bool {
 					require.True(t, spoolWatchPublished(dd, p0.Nonce), "fixture: p0's live copy published")
 					return spoolWatchPublished(dd, p1.Nonce)
+				}
+				if how == "retired by the look-ahead at dispatch" {
+					lease, ok := dd.ing.leaseDelivery(ctx, p1) // arrival 1 of sess, after p0
+					require.True(t, ok)
+					admit, admissions := denyNonceAtDispatch(cfg.Admit, p1.Nonce)
+					cfg.Admit = admit
+					consumed = func() bool {
+						require.True(t, spoolWatchPublished(dd, p0.Nonce), "fixture: p0's live copy published")
+						require.Equal(t, int32(2), admissions.Load(),
+							"fixture: the policy admitted p1 as it was read and denied it at the look-ahead's dispatch")
+						require.False(t, spoolWatchPublished(dd, p1.Nonce), "fixture: p1 was retired, not published")
+						return retiredAt(t, dd, lease)()
+					}
 				}
 			}
 			dr := newDrainer(cfg)
