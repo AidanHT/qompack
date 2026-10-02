@@ -457,37 +457,38 @@ stored records to reconcile a failure.
 **Result**
 
 ```text
-Result: fail — the incomplete-outcome probe met the row's fail criterion: with the newest
-  checkpoint 0002 corrupted (one byte) in a restored copy, the rehydration was built from the older
-  0001 and presented as current ("# Qompack rehydration — checkpoint 0001"; state seq 1, dropped
-  [], degraded false; no section 7), with no statement in the payload, the state or the drop
-  report that a fallback happened; the logs say only "checkpoint artifact does not match its
-  MANIFEST digest; the checkpoint is refused artifact=0002.json" and "checkpoint manifest
-  mismatch", never that 0001 took its place ("checkpoint 0002 does not verify; rolled back to
-  0001" appears nowhere). This is the first live run with an older checkpoint to fall back to.
-  The round trip itself passes, and candidate 3's findings are fixed: after two real "/compact"
-  turns 0001 and 0002 exist and the manifest's last line names 0002 with a matching sha256; the
-  artifacts carry encoded_segments [1]/[2] and pointers.files/pointers.tools with sha256
-  addresses; after the DEFAULT idle exit (1800 s, no override, no termination) no segment names an
-  unwritten checkpoint and fsck --json (and --seal-check) exits 0; `qompack status` brought a daemon
-  back, saying "no daemon answered: none is listening for this project yet. This command asked one
-  to start", and the re-read of the listing, manifest and both artifacts is byte-identical. The
-  gated durable frontier is unverified by this row.
+Result: pass — the round trip and the incomplete-outcome probe both meet the row. After two real
+  "/compact" turns 0001 and 0002 exist, the manifest's last line names 0002 with a matching sha256,
+  and both artifacts carry encoded_segments [1]/[2], pointers.files/pointers.tools with sha256
+  addresses and every field the row names; after the DEFAULT idle exit (1800 s, no override, no
+  termination) fsck --json and --seal-check exit 0; `qompack status` brought a daemon back ("no
+  daemon answered: none is listening for this project yet. This command asked one to start") and
+  the re-read of the listing, the manifest and both artifacts is byte-identical. With the newest
+  checkpoint 0002 corrupted by one byte in a restored copy, the hand-run SessionStart(compact) is
+  built from 0001 and says so everywhere (D49): the header reads "checkpoint 0001 (rolled back
+  from 0002)"; section 7 and the drop report lead with "checkpoint_fallback 0002 — checkpoint 0002
+  does not verify and does not describe this rehydration; it was rebuilt from checkpoint 0001, so
+  anything recorded after it ... may be missing; restore: recall() and timeline() ..."; the state
+  has degraded true and degraded_reason "checkpoint 0002 does not verify; rolled back to 0001";
+  LOUD.log says "rehydrate: newest checkpoint refused; rolled back to 0001". The gated durable
+  frontier is unverified by this row.
+  Candidate 4 (9f6a2fad): fail — a corrupted newest checkpoint fell back to 0001 with no statement
+  of the fallback anywhere, evidence plans/sdd/V6-closeout/live/rerun-c4/UAT-03/
   Candidate 3 (d5598eb4): pass — with findings: empty checkpoint pointers, restore integrity
   FAILED after a clean idle exit (segments named an unwritten 0002), evidence
   plans/sdd/V6-closeout/live/uat/UAT-03/
 Snapshot: qompack version 0.3.0; bundle BUNDLE.json sha256
-  aa7da0e17b7597562a6eba47fc48f1db81ff5e9bdc494b9997a323137625558d; commit
-  9f6a2fadf086eba8080af589a35dd9554ae6cab4; Windows 11 Home 25H2 build 10.0.26200.9457;
+  5212ae4eaa2e931266d52069e7d0c72ec2dfd2255d55421c87486ab083e1f395; commit
+  d20309c03ffc364e4cc48663be73cfbb1f2309b2; Windows 11 Home 25H2 build 10.0.26200.9457;
   Claude Code 2.1.280
-Date: 2026-09-29 (America/Toronto)
+Date: 2026-10-02 (America/Toronto)
 Executed by: Claude Code workflow subagent (Opus 5.5), agent-executed on the owner's real host
   per owner decision D3 — not human UAT
-Evidence: plans/sdd/V6-closeout/live/rerun-c4/UAT-03/ (notes.txt indexes it; also C4.3)
+Evidence: plans/sdd/V6-closeout/live/rerun-c7/UAT-03/ (notes.txt indexes it; also C4.3, C4.5)
 Rollback verified: initial state absent (recorded); the run is retained as evidence. With the
   daemon gone by its default idle exit, backup uat03-after-idle was created (exit 0, consistent)
   and verified (exit 0, scratch restore and integrity passed) and restored into a fresh
-  destination: exit 0, same-build reader proof OK (12 content roots, 9 tool refs, 0 tombstoned),
+  destination: exit 0, same-build reader proof OK (13 content roots, 10 tool refs, 0 tombstoned),
   integrity all ok including the dual-reader seal check, fsck of the destination exit 0; the
   source's later writes untouched; the destination was not activated; cross-version and
   activation checks unverified
