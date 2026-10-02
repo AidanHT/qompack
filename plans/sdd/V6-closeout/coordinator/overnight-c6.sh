@@ -4,7 +4,8 @@
 # Hosted CI on the same commit (ci.yml and nightly.yml on verify/v6) supplies the native-platform
 # whole tree, lint, cover, gens/docs/security, replay, plugin-validate, release-dry-run and the fuzz
 # matrix; this chain runs what only the reference host can:
-#   1. D28 isolated timing on Windows (win-timing, win-e2e-timing), container stopped;
+#   1. D28 isolated timing on Windows (win-timing, win-e2e-timing, and X11 by itself for D53(d)),
+#      our container stopped;
 #   2. Windows -race whole tree (C3.3) and reproducible bundles over six targets (C3.11);
 #   3. container started (8 CPUs / 8 GiB caps): D28 isolated timing on Linux, then the non-root
 #      -race whole tree, -race test/e2e and the product-child race lane (C3.3/C3.4);
@@ -23,7 +24,7 @@ log "start candidate=$H"
 engine_was_up=0; docker ps > /dev/null 2>&1 && engine_was_up=1; log "engine up at start=$engine_was_up"
 docker ps --format "{{.Names}} {{.Status}}" >> "$E/chain.log" 2>&1
 docker stop qompack-v6-linux-verification > /dev/null 2>&1
-sh "$here/phase3.sh" "$C" "$E" win-timing win-e2e-timing >> "$E/chain.log" 2>&1; log "windows timing exit=$?"
+sh "$here/phase3.sh" "$C" "$E" win-timing win-e2e-timing win-x11-alone >> "$E/chain.log" 2>&1; log "windows timing exit=$?"
 GOFLAGS=-p=4 sh "$here/phase3.sh" "$C" "$E" win-race bundles >> "$E/chain.log" 2>&1; log "windows race+bundles exit=$?"
 
 docker desktop start > /dev/null 2>&1; docker start qompack-v6-linux-verification > /dev/null && docker update --cpus 8 --memory 8g --memory-swap 8g qompack-v6-linux-verification > /dev/null; log "container start exit=$?"
