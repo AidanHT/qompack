@@ -240,6 +240,7 @@ func TestStandingOf_CountsOnlyObservationsAsHolding(t *testing.T) {
 		{contract.Result{OK: true, Severity: contract.SevInfo, Observed: "not-yet-implemented"}, contract.StandingIdle},
 		{contract.Result{OK: true, Observed: "sentinel-observed"}, contract.StandingHolding},
 		{contract.Result{OK: true, Observed: "initialize-received"}, contract.StandingHolding},
+		{contract.Result{OK: true, Observed: "same-session-restart"}, contract.StandingHolding},
 		{contract.Result{OK: false, Observed: "initialize-not-received"}, contract.StandingFailing},
 		{contract.Result{OK: false, Observed: "not-yet-observed"}, contract.StandingFailing},
 	}
