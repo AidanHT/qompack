@@ -1,0 +1,141 @@
+# D57(e) executed-files proof. Tree: b31d0753ff44c72b9278c2fd26404b3e4d8be2f7 (Go code equal to candidate 6 99d0b18c except core.Version's literal).
+# Non-test .go files changed 0d06ab12 -> 99d0b18c: 56.
+# For each benchmark set: the command, the number of product files with an executed statement,
+# and which of them changed c5 -> c6 (none means D57(e) holds for that set).
+
+## rows 1.1.16: internal/obs
+$ go test -p 2 -count=1 -run '^$' -bench '^BenchmarkHistogram_Observe$' -benchtime=1x -covermode=set -coverpkg=github.com/qompack/qompack/... -coverprofile=<tmp> ./internal/obs
+exit 0; benchmarks run: BenchmarkHistogram_Observe
+product files executed: 8; in internal/obs: hist.go, registry.go
+changed c5->c6 among the executed files: none
+
+## rows 1.1.27: internal/config
+$ go test -p 2 -count=1 -run '^$' -bench '^BenchmarkConfigLoad_ColdNoFiles$' -benchtime=1x -covermode=set -coverpkg=github.com/qompack/qompack/... -coverprofile=<tmp> ./internal/config
+exit 0; benchmarks run: BenchmarkConfigLoad_ColdNoFiles
+product files executed: 11; in internal/config: config.go, deadlines.go, defaults.go, load.go, migration.go, validate.go
+changed c5->c6 among the executed files: none
+
+## rows 1.1.27: internal/paths
+$ go test -p 2 -count=1 -run '^$' -bench '^(BenchmarkIsHome_AProjectBelowHome|BenchmarkPathsWriteAtomic_4KB)$' -benchtime=1x -covermode=set -coverpkg=github.com/qompack/qompack/... -coverprofile=<tmp> ./internal/paths
+exit 0; benchmarks run: BenchmarkIsHome_AProjectBelowHome, BenchmarkPathsWriteAtomic_4KB
+product files executed: 7; in internal/paths: atomic.go, home.go, home_windows.go, long_windows.go, norm.go, protected_names.go, replace_windows.go
+changed c5->c6 among the executed files: none
+
+## rows 1.1.27: internal/cli
+$ go test -p 2 -count=1 -run '^$' -bench '^BenchmarkHookNoop_InProcess$' -benchtime=1x -covermode=set -coverpkg=github.com/qompack/qompack/... -coverprofile=<tmp> ./internal/cli
+exit 0; benchmarks run: BenchmarkHookNoop_InProcess
+product files executed: 74; in internal/cli: admin.go, backup.go, capture_admission.go, commands.go, config.go, dispatch.go, doctor.go, fault.go, fsck.go, homeroot.go, hookbudget.go, hookclient.go, hooks.go, osdir.go, qompack_commands.go, recover.go, register_eval.go
+changed c5->c6 among the executed files: internal/cli/dispatch.go, internal/cli/doctor.go, internal/ipc/spool.go, internal/paths/pathstest/home.go, internal/pluginmanifest/manifest.go
+  internal/cli/dispatch.go: code change; executed blocks over changed lines: none
+  internal/cli/doctor.go: code change; executed blocks over changed lines: none
+  internal/ipc/spool.go: code change; executed blocks over changed lines: none
+  internal/paths/pathstest/home.go: comment-only change
+  internal/pluginmanifest/manifest.go: code change; executed blocks over changed lines: 276, 279
+
+## rows 1.2.12: internal/eval
+$ go test -p 2 -count=1 -run '^$' -bench '^(BenchmarkBeladyDetail_400Turns|BenchmarkBreakpointOPT_256Candidates|BenchmarkCompare_400Actions|BenchmarkSynthesize_320Turns)$' -benchtime=1x -covermode=set -coverpkg=github.com/qompack/qompack/... -coverprofile=<tmp> ./internal/eval
+exit 0; benchmarks run: BenchmarkBeladyDetail_400Turns, BenchmarkBreakpointOPT_256Candidates, BenchmarkCompare_400Actions, BenchmarkSynthesize_320Turns
+product files executed: 38; in internal/eval: belady.go, blocks.go, breakpoint.go, corpus.go, divergence.go, harness.go, hostconst.go, policy.go, synth.go
+changed c5->c6 among the executed files: internal/paths/pathstest/home.go
+  internal/paths/pathstest/home.go: comment-only change
+
+## rows 1.3.7, 1.3.16: internal/sketch
+$ go test -p 2 -count=1 -run '^$' -bench '^(BenchmarkRebuildBloom5000|BenchmarkL0SketchUpdate)$' -benchtime=1x -covermode=set -coverpkg=github.com/qompack/qompack/... -coverprofile=<tmp> ./internal/sketch
+exit 0; benchmarks run: BenchmarkL0SketchUpdate, BenchmarkRebuildBloom5000
+product files executed: 33; in internal/sketch: bloom.go, cms.go, hash.go, hll.go, util.go
+changed c5->c6 among the executed files: internal/paths/pathstest/home.go
+  internal/paths/pathstest/home.go: comment-only change
+
+## rows 1.4.14: internal/chunk
+$ go test -p 2 -count=1 -run '^$' -bench '^(BenchmarkGearScan_1MiB|BenchmarkRootHash_1000Chunks|BenchmarkSplit_100KB|BenchmarkSplit_1MiB|BenchmarkSplitStream_4MiB)$' -benchtime=1x -covermode=set -coverpkg=github.com/qompack/qompack/... -coverprofile=<tmp> ./internal/chunk
+exit 0; benchmarks run: BenchmarkGearScan_1MiB, BenchmarkRootHash_1000Chunks, BenchmarkSplitStream_4MiB, BenchmarkSplit_100KB, BenchmarkSplit_1MiB
+product files executed: 32; in internal/chunk: fastcdc.go, gear.go, params.go, roothash.go, stream.go
+changed c5->c6 among the executed files: internal/paths/pathstest/home.go
+  internal/paths/pathstest/home.go: comment-only change
+
+## rows 1.4.14: internal/canon
+$ go test -p 2 -count=1 -run '^$' -bench '^(BenchmarkRun_Bash100KB|BenchmarkRun_GoTest|BenchmarkRun_KeepDeltas|BenchmarkRestore_100KB)$' -benchtime=1x -covermode=set -coverpkg=github.com/qompack/qompack/... -coverprofile=<tmp> ./internal/canon
+exit 0; benchmarks run: BenchmarkRestore_100KB, BenchmarkRun_Bash100KB, BenchmarkRun_GoTest, BenchmarkRun_KeepDeltas
+product files executed: 39; in internal/canon: apply.go, builtins.go, classes.go, default.go, generic.go, match.go, numeric.go, registry.go, restore.go, tools.go
+changed c5->c6 among the executed files: internal/paths/pathstest/home.go
+  internal/paths/pathstest/home.go: comment-only change
+
+## rows 1.4.14: internal/symbols
+$ go test -p 2 -count=1 -run '^$' -bench '^(BenchmarkEnclosing_100KB|BenchmarkExtract_100KB|BenchmarkReferences_100KB_50Names)$' -benchtime=1x -covermode=set -coverpkg=github.com/qompack/qompack/... -coverprofile=<tmp> ./internal/symbols
+exit 0; benchmarks run: BenchmarkEnclosing_100KB, BenchmarkExtract_100KB, BenchmarkReferences_100KB_50Names
+product files executed: 5; in internal/symbols: dialect.go, extract.go, extractor.go, references.go, span.go
+changed c5->c6 among the executed files: none
+
+## rows 1.6.19, 1.16.11: internal/store
+$ go test -p 2 -count=1 -run '^$' -bench '^Benchmark(GetChunk|OpenSpan_4KB_of_4MB|Search_1000Roots|Search_1000Roots_DistinctChunks|PutBytes_100KB_Cold|PutBytes_100KB_Warm|PutObject_NovelChunk|CountFold_4MiB|GC_50kObjects|MarkEncoded_100|OpenStore_50kRoots|PutBytes_100KB_Cold_NoRedact|PutBytes_100KB_Warm_KeepRaw|PutBytes_100KB_Warm_NoRedact)$' -benchtime=1x -covermode=set -coverpkg=github.com/qompack/qompack/... -coverprofile=<tmp> ./internal/store
+exit 0; benchmarks run: BenchmarkCountFold_4MiB, BenchmarkGC_50kObjects, BenchmarkGetChunk, BenchmarkMarkEncoded_100, BenchmarkOpenSpan_4KB_of_4MB, BenchmarkOpenStore_50kRoots, BenchmarkPutBytes_100KB_Cold, BenchmarkPutBytes_100KB_Cold_NoRedact, BenchmarkPutBytes_100KB_Warm, BenchmarkPutBytes_100KB_Warm_KeepRaw/delta, BenchmarkPutBytes_100KB_Warm_KeepRaw/full, BenchmarkPutBytes_100KB_Warm_KeepRaw/verbatim, BenchmarkPutBytes_100KB_Warm_NoRedact, BenchmarkPutObject_NovelChunk, BenchmarkSearch_1000Roots, BenchmarkSearch_1000Roots_DistinctChunks
+product files executed: 82; in internal/store: compress.go, files.go, flush.go, fsstore.go, gc_delivery_segments.go, gcgate.go, gcrun.go, lifecycle.go, maintenance.go, object_open_windows.go, objects.go, observation_guards.go, observation_publication.go, open.go, put.go, read.go, roots.go, search.go, segments.go, tooluseindex.go
+changed c5->c6 among the executed files: internal/paths/pathstest/home.go
+  internal/paths/pathstest/home.go: comment-only change
+
+## rows 1.7.8, 1.7.10: internal/dag
+$ go test -p 2 -count=1 -run '^$' -bench '^(BenchmarkCrossingEdges|BenchmarkBackwardSlice5000)$' -benchtime=1x -covermode=set -coverpkg=github.com/qompack/qompack/... -coverprofile=<tmp> ./internal/dag
+exit 0; benchmarks run: BenchmarkBackwardSlice5000, BenchmarkCrossingEdges
+product files executed: 24; in internal/dag: edge.go, graph.go, index.go, kinds.go, log.go, node.go, nodeid.go, slice.go, traverse.go, wire.go
+changed c5->c6 among the executed files: none
+
+## rows 1.8.2: internal/observer
+$ go test -p 2 -count=1 -run '^$' -bench '^BenchmarkTombstone$' -benchtime=1x -covermode=set -coverpkg=github.com/qompack/qompack/... -coverprofile=<tmp> ./internal/observer
+exit 0; benchmarks run: BenchmarkTombstone
+product files executed: 18; in internal/observer: tombstone.go
+changed c5->c6 among the executed files: internal/core/toolnames.go, internal/paths/pathstest/home.go
+  internal/core/toolnames.go: code change; executed blocks over changed lines: none
+  internal/paths/pathstest/home.go: comment-only change
+
+## rows 1.8.13: internal/observer
+$ go test -p 2 -count=1 -run '^$' -bench '^(BenchmarkOnToolUse_TestOutput256KB|BenchmarkOnToolUse_TestOutput256KB_Leased|BenchmarkOnToolUse_FileRead64KB)$' -benchtime=1x -covermode=set -coverpkg=github.com/qompack/qompack/... -coverprofile=<tmp> ./internal/observer
+exit 0; benchmarks run: BenchmarkOnToolUse_FileRead64KB/AllNovel, BenchmarkOnToolUse_FileRead64KB/Deduped, BenchmarkOnToolUse_FileRead64KB/Delta, BenchmarkOnToolUse_TestOutput256KB/AllNovel, BenchmarkOnToolUse_TestOutput256KB/Deduped, BenchmarkOnToolUse_TestOutput256KB/Delta, BenchmarkOnToolUse_TestOutput256KB_Leased/AllNovel, BenchmarkOnToolUse_TestOutput256KB_Leased/Deduped, BenchmarkOnToolUse_TestOutput256KB_Leased/Delta
+product files executed: 97; in internal/observer: features.go, graph.go, identity.go, observer.go, session.go, signals.go, sketches.go, state.go, supersede.go, tombstone.go, tooluse.go
+changed c5->c6 among the executed files: internal/core/toolnames.go, internal/observer/observer.go, internal/observer/state.go, internal/paths/pathstest/home.go
+  internal/core/toolnames.go: code change; executed blocks over changed lines: none
+  internal/observer/observer.go: code change; executed blocks over changed lines: none
+  internal/observer/state.go: comment-only change
+  internal/paths/pathstest/home.go: comment-only change
+
+## rows 1.9.12: internal/negknow
+$ go test -p 2 -count=1 -run '^$' -bench '^BenchmarkOpen$' -benchtime=1x -covermode=set -coverpkg=github.com/qompack/qompack/... -coverprofile=<tmp> ./internal/negknow
+exit 0; benchmarks run: BenchmarkOpen
+product files executed: 56; in internal/negknow: bloom.go, classify.go, descriptor.go, inherit.go, ledger.go, log.go, logline.go, record.go, scope.go, types.go
+changed c5->c6 among the executed files: internal/paths/pathstest/home.go
+  internal/paths/pathstest/home.go: comment-only change
+
+## rows 1.10.17, 1.16.11: internal/checkpoint
+$ go test -p 2 -count=1 -run '^$' -bench '^(BenchmarkFinalize|BenchmarkAdvanceSegment|BenchmarkExtractDecisions|BenchmarkStripInjections|BenchmarkTruncate)$' -benchtime=1x -covermode=set -coverpkg=github.com/qompack/qompack/... -coverprofile=<tmp> ./internal/checkpoint
+exit 0; benchmarks run: BenchmarkAdvanceSegment, BenchmarkExtractDecisions, BenchmarkFinalize, BenchmarkStripInjections, BenchmarkTruncate
+product files executed: 123; in internal/checkpoint: decisions.go, draft.go, finalize.go, gitindex.go, inject.go, intent.go, lineage.go, manifest.go, migrate.go, obs.go, reader.go, schema.go, source.go, truncate.go, validate.go, writer.go
+changed c5->c6 among the executed files: internal/paths/pathstest/home.go
+  internal/paths/pathstest/home.go: comment-only change
+
+## rows 1.11.16: internal/rules
+$ go test -p 2 -count=1 -run '^$' -bench '^BenchmarkPathScoped$' -benchtime=1x -covermode=set -coverpkg=github.com/qompack/qompack/... -coverprofile=<tmp> ./internal/rules
+exit 0; benchmarks run: BenchmarkPathScoped
+product files executed: 6; in internal/rules: frontmatter.go, glob.go, scanner.go
+changed c5->c6 among the executed files: none
+
+## rows 1.11.16: internal/skills
+$ go test -p 2 -count=1 -run '^$' -bench '^BenchmarkIndex$' -benchtime=1x -covermode=set -coverpkg=github.com/qompack/qompack/... -coverprofile=<tmp> ./internal/skills
+exit 0; benchmarks run: BenchmarkIndex
+product files executed: 11; in internal/skills: frontmatter.go, indexer.go
+changed c5->c6 among the executed files: none
+
+## rows 1.12.17, 1.16.11: internal/scheduler
+$ go test -p 2 -count=1 -run '^$' -bench '^(BenchmarkEvaluate_64Candidates|BenchmarkBOCDObserve_4Features|BenchmarkBOCDMarshal)$' -benchtime=1x -covermode=set -coverpkg=github.com/qompack/qompack/... -coverprofile=<tmp> ./internal/scheduler
+exit 0; benchmarks run: BenchmarkBOCDMarshal, BenchmarkBOCDObserve_4Features/full_posterior, BenchmarkBOCDObserve_4Features/steady_state, BenchmarkEvaluate_64Candidates
+product files executed: 13; in internal/scheduler: bocd.go, detector.go, evaluate.go, gate.go, pselect.go, thresholds.go, ttl.go, youngdaly.go
+changed c5->c6 among the executed files: none
+
+## rows 1.12.17, 1.16.11: internal/daemon
+$ go test -p 2 -count=1 -run '^$' -bench '^(BenchmarkFeaturesFrom|BenchmarkReclaimableIndexBuild_5000Blocks|BenchmarkAssembleCandidates_2000ToolUses|BenchmarkRuntimeEvaluate_2000ToolUses_32Candidates|BenchmarkSchedulerTap_ObserveTool)$' -benchtime=1x -covermode=set -coverpkg=github.com/qompack/qompack/... -coverprofile=<tmp> ./internal/daemon
+exit 0; benchmarks run: BenchmarkAssembleCandidates_2000ToolUses/cold, BenchmarkAssembleCandidates_2000ToolUses/warm, BenchmarkFeaturesFrom, BenchmarkReclaimableIndexBuild_5000Blocks, BenchmarkRuntimeEvaluate_2000ToolUses_32Candidates/cold, BenchmarkRuntimeEvaluate_2000ToolUses_32Candidates/warm, BenchmarkSchedulerTap_ObserveTool
+product files executed: 55; in internal/daemon: delivery_radix.go, scheduler_candidates.go, scheduler_droppable.go, scheduler_features.go, scheduler_runtime.go, scheduler_state.go, scheduler_tap.go
+changed c5->c6 among the executed files: internal/core/toolnames.go, internal/paths/pathstest/home.go
+  internal/core/toolnames.go: code change; executed blocks over changed lines: none
+  internal/paths/pathstest/home.go: comment-only change
+
+# sets whose executed changed files are all comment-only: 7
+# sets with an executed changed file, a failed run or no benchmark run: 11

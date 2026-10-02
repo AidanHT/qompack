@@ -242,3 +242,7 @@ Candidate 6 is `verify/v6` `99d0b18`. Every `Test*` evidence test below ran gree
 | SP02-D4 | `fixed` | V4-VERIFY | TestCarriedDefect_SP02D4_PMinIsMeasuredOverCandidates green |
 | SP02-D5 | `fixed` | V4-VERIFY | TestCompare_DecisionPreservationIgnoresHorizonAgreement green |
 | SP02-D6 | `wontfix` | V5-VERIFY (`69d896b`; Qompack.md v1.5 retired section 2.4 step 7) | TestCarriedDefect_SP02D6_StockIgnoresSkillInvocations green; the hosted replay-gate on the candidate passes |
+
+## V6-VERIFY candidate 7 note (2026-10-02, C6.3)
+
+Candidate 7 is `verify/v6` `d20309c0`, the freeze of `closeout/integration` `b31d0753`. Against candidate 6 its only product change is core.Version's default literal and `plugin.json`'s version; test/fault, test/guards' `nonrefdisk_test.go`, the golden `plugin.json`, two workflows, `.goreleaser.yaml` and docs also changed (`sdd/V6-closeout/w17-inventory/runs/c7-carry-proof.txt`). None of the evidence tests or benchmarks above is in a changed file, so the candidate 6 confirmation above carries to candidate 7 (D57(c)); candidate 7's pre-freeze check (`phase3/c7/prefreeze/summary.log`) ran the Windows tree, except test/e2e and test/integration, green. Status is unchanged.

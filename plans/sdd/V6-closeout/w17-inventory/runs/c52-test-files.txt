@@ -1,0 +1,133 @@
+# D57(e) test-file proof (c52tests.py), read from git objects at candidate 6 99d0b18c.
+# _test.go files changed 0d06ab12 -> 99d0b18c: 88.
+# For each benchmark set: the changed _test.go files of its package that the test binary executes
+# for that set (a reached function, a package-level initializer or init()), and whether a changed
+# line lies inside a reached function. 'none' means D57(e) holds for the set's test files.
+
+## rows 1.1.16: internal/obs
+benchmarks: BenchmarkHistogram_Observe
+changed _test.go files in internal/obs: 1
+  executed changed _test.go files: none
+
+## rows 1.1.27: internal/config
+benchmarks: BenchmarkConfigLoad_ColdNoFiles
+changed _test.go files in internal/config: 0
+  executed changed _test.go files: none
+
+## rows 1.1.27: internal/paths
+benchmarks: BenchmarkIsHome_AProjectBelowHome, BenchmarkPathsWriteAtomic_4KB
+changed _test.go files in internal/paths: 7
+  executed changed _test.go files: none
+
+## rows 1.1.27: internal/cli
+benchmarks: BenchmarkHookNoop_InProcess; TestMain present
+changed _test.go files in internal/cli: 4
+  internal/cli/precompact_spool_submode_test.go: package initialization: var spoolSubmodeRowConfig at line 49 (changed), var spoolSubmodeReadIDs at line 53 (changed)
+  per benchmark (package initialization above applies to all):
+    BenchmarkHookNoop_InProcess: no changed _test.go function reached
+
+## rows 1.2.12: internal/eval
+benchmarks: BenchmarkBeladyDetail_400Turns, BenchmarkBreakpointOPT_256Candidates, BenchmarkCompare_400Actions, BenchmarkSynthesize_320Turns; TestMain present
+changed _test.go files in internal/eval: 0
+  executed changed _test.go files: none
+
+## rows 1.3.7, 1.3.16: internal/sketch
+benchmarks: BenchmarkL0SketchUpdate, BenchmarkRebuildBloom5000; TestMain present
+changed _test.go files in internal/sketch: 0
+  executed changed _test.go files: none
+
+## rows 1.4.14: internal/chunk
+benchmarks: BenchmarkGearScan_1MiB, BenchmarkRootHash_1000Chunks, BenchmarkSplitStream_4MiB, BenchmarkSplit_100KB, BenchmarkSplit_1MiB; TestMain present
+changed _test.go files in internal/chunk: 0
+  executed changed _test.go files: none
+
+## rows 1.4.14: internal/canon
+benchmarks: BenchmarkRestore_100KB, BenchmarkRun_Bash100KB, BenchmarkRun_GoTest, BenchmarkRun_KeepDeltas; TestMain present
+changed _test.go files in internal/canon: 0
+  executed changed _test.go files: none
+
+## rows 1.4.14: internal/symbols
+benchmarks: BenchmarkEnclosing_100KB, BenchmarkExtract_100KB, BenchmarkReferences_100KB_50Names
+changed _test.go files in internal/symbols: 0
+  executed changed _test.go files: none
+
+## rows 1.6.19, 1.16.11: internal/store
+benchmarks: BenchmarkCountFold_4MiB, BenchmarkGC_50kObjects, BenchmarkGetChunk, BenchmarkMarkEncoded_100, BenchmarkOpenSpan_4KB_of_4MB, BenchmarkOpenStore_50kRoots, BenchmarkPutBytes_100KB_Cold, BenchmarkPutBytes_100KB_Cold_NoRedact, BenchmarkPutBytes_100KB_Warm, BenchmarkPutBytes_100KB_Warm_KeepRaw, BenchmarkPutBytes_100KB_Warm_NoRedact, BenchmarkPutObject_NovelChunk, BenchmarkSearch_1000Roots, BenchmarkSearch_1000Roots_DistinctChunks; TestMain present
+changed _test.go files in internal/store: 15
+  internal/store/gc_test.go: reached BenchmarkGC_50kObjects; changed lines inside BenchmarkGC_50kObjects | package initialization: var forceCollect at line 81 (unchanged), var gcQuietModel at line 914 (unchanged)
+  internal/store/maint_edge_test.go: package initialization: var errInjectedBarrier at line 22 (changed)
+  internal/store/search_test.go: reached BenchmarkSearch_1000Roots, BenchmarkSearch_1000Roots_DistinctChunks; changed lines inside BenchmarkSearch_1000Roots, BenchmarkSearch_1000Roots_DistinctChunks
+  internal/store/testdouble_test.go: reached withGranularChunker, Run, Redact, newFakeClock, newProject, withCanon, newTestStore, openOver, objectPaths; changed lines inside newProject, newTestStore, objectPaths, openOver | package initialization: var gearTable at line 54 (unchanged), var testEpoch at line 299 (unchanged)
+  per benchmark (package initialization above applies to all):
+    BenchmarkCountFold_4MiB: no changed _test.go function reached
+    BenchmarkGC_50kObjects: gc_test.go (changed lines in BenchmarkGC_50kObjects); testdouble_test.go (changed lines in newProject, newTestStore, objectPaths, openOver)
+    BenchmarkGetChunk: testdouble_test.go (no changed line reached)
+    BenchmarkMarkEncoded_100: no changed _test.go function reached
+    BenchmarkOpenSpan_4KB_of_4MB: testdouble_test.go (no changed line reached)
+    BenchmarkOpenStore_50kRoots: testdouble_test.go (no changed line reached)
+    BenchmarkPutBytes_100KB_Cold: testdouble_test.go (no changed line reached)
+    BenchmarkPutBytes_100KB_Cold_NoRedact: testdouble_test.go (no changed line reached)
+    BenchmarkPutBytes_100KB_Warm: testdouble_test.go (no changed line reached)
+    BenchmarkPutBytes_100KB_Warm_KeepRaw: testdouble_test.go (no changed line reached)
+    BenchmarkPutBytes_100KB_Warm_NoRedact: testdouble_test.go (no changed line reached)
+    BenchmarkPutObject_NovelChunk: testdouble_test.go (no changed line reached)
+    BenchmarkSearch_1000Roots: search_test.go (changed lines in BenchmarkSearch_1000Roots); testdouble_test.go (changed lines in newProject, newTestStore, openOver)
+    BenchmarkSearch_1000Roots_DistinctChunks: search_test.go (changed lines in BenchmarkSearch_1000Roots_DistinctChunks); testdouble_test.go (changed lines in newProject, newTestStore, openOver)
+
+## rows 1.7.8, 1.7.10: internal/dag
+benchmarks: BenchmarkBackwardSlice5000, BenchmarkCrossingEdges
+changed _test.go files in internal/dag: 0
+  executed changed _test.go files: none
+
+## rows 1.8.2: internal/observer
+benchmarks: BenchmarkTombstone; TestMain present
+changed _test.go files in internal/observer: 1
+  executed changed _test.go files: none
+
+## rows 1.8.13: internal/observer
+benchmarks: BenchmarkOnToolUse_FileRead64KB, BenchmarkOnToolUse_TestOutput256KB, BenchmarkOnToolUse_TestOutput256KB_Leased; TestMain present
+changed _test.go files in internal/observer: 1
+  executed changed _test.go files: none
+
+## rows 1.9.12: internal/negknow
+benchmarks: BenchmarkOpen; TestMain present
+changed _test.go files in internal/negknow: 0
+  executed changed _test.go files: none
+
+## rows 1.10.17, 1.16.11: internal/checkpoint
+benchmarks: BenchmarkAdvanceSegment, BenchmarkExtractDecisions, BenchmarkFinalize, BenchmarkStripInjections, BenchmarkTruncate; TestMain present
+changed _test.go files in internal/checkpoint: 1
+  executed changed _test.go files: none
+
+## rows 1.11.16: internal/rules
+benchmarks: BenchmarkPathScoped
+changed _test.go files in internal/rules: 0
+  executed changed _test.go files: none
+
+## rows 1.11.16: internal/skills
+benchmarks: BenchmarkIndex
+changed _test.go files in internal/skills: 0
+  executed changed _test.go files: none
+
+## rows 1.12.17, 1.16.11: internal/scheduler
+benchmarks: BenchmarkBOCDMarshal, BenchmarkBOCDObserve_4Features, BenchmarkEvaluate_64Candidates; TestMain present
+changed _test.go files in internal/scheduler: 0
+  executed changed _test.go files: none
+
+## rows 1.12.17, 1.16.11: internal/daemon
+benchmarks: BenchmarkAssembleCandidates_2000ToolUses, BenchmarkFeaturesFrom, BenchmarkReclaimableIndexBuild_5000Blocks, BenchmarkRuntimeEvaluate_2000ToolUses_32Candidates, BenchmarkSchedulerTap_ObserveTool; TestMain present
+changed _test.go files in internal/daemon: 13
+  internal/daemon/daemon_test.go: package initialization: var allOps at line 86 (unchanged)
+  internal/daemon/precompact_settle_retry_test.go: package initialization: var errInjectedSpoolLock at line 138 (changed)
+  internal/daemon/prompt_warning_delivery_test.go: reached tool; changed lines inside tool
+  per benchmark (package initialization above applies to all):
+    BenchmarkAssembleCandidates_2000ToolUses: no changed _test.go function reached
+    BenchmarkFeaturesFrom: prompt_warning_delivery_test.go (changed lines in tool)
+    BenchmarkReclaimableIndexBuild_5000Blocks: no changed _test.go function reached
+    BenchmarkRuntimeEvaluate_2000ToolUses_32Candidates: no changed _test.go function reached
+    BenchmarkSchedulerTap_ObserveTool: no changed _test.go function reached
+
+# sets with an executed changed _test.go file:
+#   internal/cli (rows 1.1.27): precompact_spool_submode_test.go
+#   internal/store (rows 1.6.19, 1.16.11): gc_test.go, maint_edge_test.go, search_test.go, testdouble_test.go
+#   internal/daemon (rows 1.12.17, 1.16.11): daemon_test.go, precompact_settle_retry_test.go, prompt_warning_delivery_test.go
