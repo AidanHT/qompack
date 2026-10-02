@@ -416,12 +416,22 @@ func BuildWithStats(ctx context.Context, r Request, d Deps) (Result, []ItemStat,
 		res.Degraded = true
 	}
 	if len(res.Items) == 0 || onlyDropReport(res.Items) {
-		// A payload with nothing left but the report on what it lost is no payload: render's own
-		// rule, re-applied after eviction.
+		// A payload with nothing left but the report on what it lost does not inject that report:
+		// render's own rule, re-applied after eviction. It is not silent either (D59): when material
+		// was dropped, the payload is the loss notice, priced against the same budget and ceiling,
+		// and only a budget that cannot hold even its smallest form injects nothing, named as an
+		// overflow.
 		res.Items, stats = nil, nil
 		res.Text = ""
 		res.Tokens = 0
 		res.Degraded = true
+		if notice, nstats := lossNotice(r, d, res.Dropped, limit); notice.Text != "" {
+			res.Items, res.Text, res.Tokens, stats = notice.Items, notice.Text, notice.Tokens, nstats
+		} else if len(res.Dropped) > 0 {
+			res.Dropped = append(res.Dropped, noticeOverflow(int(budget)))
+			d.Log.Loud("rehydrate: budget cannot hold the notice naming what was dropped",
+				"budget", int(budget), "dropped", len(res.Dropped)-1)
+		}
 	}
 	return res, stats, nil
 }
