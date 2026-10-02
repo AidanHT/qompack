@@ -278,9 +278,11 @@ func spoolWatchBackoffRow(t *testing.T, firstPassStall time.Duration) {
 	// that has consumed a line can be stopped by its budget (idleRunBudget) once a slow host has spent
 	// it, and a spool a budget-stopped pass leaves unfinished is due again at the next look
 	// (TestSpoolWatch_APassItsBudgetCutShortDoesNotBackOffTheSpoolsItLeft), which is not this row's
-	// schedule. A pass consumes a blank line, and it can consume a line behind the blocked one too:
-	// another delivery a reused pid's hook appended, or a corrupt line. With the record alone no pass
-	// consumes anything, so none can stop on its budget in this spool.
+	// schedule. A line behind the blocked one, such as another delivery a reused pid's hook appended,
+	// is published by the first pass, which its budget can then stop inside the spool; the passes after
+	// it only consume that line again, which is no progress (notePassConsumed). That schedule is
+	// TestSpoolWatch_ABlockedSpoolWithAConsumedLineBehindItsHeadKeepsTheBackoff's. With the record
+	// alone no pass consumes anything, so none can stop on its budget in this spool.
 	writeHookSpool(t, root, "client-6161.ndjson", blocked)
 
 	stop := spoolWatchRunTraffic(t, dd, root, "sess-spool-busy", 1)
