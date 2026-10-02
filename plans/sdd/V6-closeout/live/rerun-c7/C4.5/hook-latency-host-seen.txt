@@ -1,0 +1,7 @@
+host-seen hook arrival deltas (live_driver hooks.json, measured pairs only; approximate, can under-read when the host batches output)
+sessions: UAT-03/session, UAT-04/session, UAT-05/run1-session, UAT-05/run2r-session, UAT-06/sessionA, UAT-06/sessionB-resume, UAT-06/sessionC-fork; pairs not measured (before init or <=5 ms): 14
+PostToolUse        n= 41 p50    63 ms  p95   130 ms  max   155 ms
+SessionStart       n= 17 p50   112 ms  p95   205 ms  max   205 ms
+Stop               n= 48 p50    60 ms  p95   113 ms  max   148 ms
+SubagentStop       n= 17 p50    61 ms  p95   200 ms  max   200 ms
+UserPromptSubmit   n= 41 p50    51 ms  p95   104 ms  max   132 ms

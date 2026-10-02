@@ -1,0 +1,42 @@
+C4.5 on candidate 7 (D50, D53(a)) — after an MCP call in a real session, `qompack status` and `doctor --json`: the
+banner must not count a pending row as holding; mcp.server_registered and hook.additional_context_delivered must read
+what state/history.json records; two reads of unchanged state must agree exactly. Agent-executed on the owner's real
+host per owner decision D3 by a Claude Code workflow subagent (Opus 5.5) — not human UAT. Frozen bundle c7 (BUNDLE.json
+sha256 5212ae4e...f395, commit d20309c0), bundle bin/qompack.exe for every CLI read; Claude Code 2.1.280; 2026-10-02.
+
+Sample 1 (cli/, store/, daemon-info.txt) — UAT-05 run 1's project (session fbc4b18c, sessions-c7 n=3), after its
+record_eliminated MCP call, with the session ended and its daemon (pid 72940, image qompack.exe, this project's
+command line) still up; reads at 08:43:27Z and 08:43:32Z (5 s apart), nothing else running against the project:
+ - status text: identical except the "qompack status — collected <time>" header line (the read's own time);
+   status --json: identical except data.collected_at_ms; doctor --json: byte-identical; history.json identical.
+ - Banner: "host contract: 9 assertion(s), none failing: 7 holding, 1 pending, 1 with nothing to judge" with
+   "pending: session_start.fires (marker-absent-once)" — the pending row is NOT counted as holding (D50).
+ - mcp.server_registered observed "initialize-received" = history.json mcp_initialized true;
+   hook.additional_context_delivered observed "sentinel-observed" = history.json sentinel.observed true (D50).
+ - Every contract row's ts is the same in both reads (1790930564241): no re-stamp with the read time (the D53(a)
+   X01 defect does not recur).
+ - doctor: exit 0; status.primary/mode/schema agree with status; no degraded row.
+
+Sample 2 (uat06/) — UAT-06's project after the fork's already_tried and why calls (two sessions registered), daemon
+up and idle; reads at 18:19:11Z and 18:19:16Z:
+ - Banner, contract rows (same ts in both reads) and history.json (identical) as in sample 1.
+ - FINDING F-C7-C45-1 (D53(a), two reads of unchanged state disagree): status --json's data.snapshot.sessions lists
+   the same two sessions in a different ORDER — read 1 (0eaa2666, 2c146247), read 2 (2c146247, 0eaa2666) — with every
+   field equal (uat06/cli/status-json-read1/2.stdout.txt). The order is not a time effect; nothing changed between the
+   reads (history.json identical, the sessions' fields identical).
+ - Observation: doctor --json differs only in delivery.rollover's relative age "persisted 12s ago" vs "persisted 18s
+   ago" (internal/cli/doctor.go:1167), derived from the read time like status's "collected" line.
+
+Command resolution (the first attempt, PATH not pre-fixed): `qompack` is not on the operator's PATH (`which -a qompack`
+finds none), yet every command body ran through the host's Bash with its `!` line: /qompack:status (UAT-03 T7, printed
+the status), /qompack:pin (UAT-05 run 1 and run 2: "pinned inv_..."), /qompack:dropped --json (UAT-05 run 1 printed
+the envelope; run 2's envelope reached the model, per the host transcript, which then did not echo it), /qompack:why
+(UAT-06 B and C, attributed records). The host resolves `qompack` from the plugin's bin/ (it prepends plugin bin
+directories to the Bash PATH). The init event lists exactly the six commands (dropped, eval, pin, recall, status, why);
+no qompack:checkpoint.
+
+Host-reported hook outcomes across this part's sessions: every hook_response is success/exit 0 and every stderr.txt is
+empty (no "Hook cancelled"), so D53(i) records 0 host-reported hook failures or timeouts here.
+
+Result: fail — D53(a): two reads of unchanged state disagree on status --json's sessions order (sample 2). The D50
+items pass (pending not counted as holding; both contract rows read what history.json records; no contract re-stamp).
