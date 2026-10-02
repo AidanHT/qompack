@@ -20,7 +20,11 @@ current failure records.
    `go run ./tools/devtool plugin-validate --write`'s regenerated `plugin/` tree; the gate's
    `plugin-validate` step fails until it does.
 2. **Fill `CHANGELOG.md`'s `[Unreleased]` section** and rename it to the version.
-3. **Run the gate locally** — `go run ./tools/devtool release-check` — and fix whatever it stops on.
+3. **Run the gate locally, on the reference host** — `go run ./tools/devtool release-check` — fix
+   whatever it stops on, and keep the run's `dist/release-check.json` as the release's record of the
+   fsync-bound rows. The hosted gate at step 5 reports those rows instead of gating them (§2), so
+   this run is the only one that judges them at their limits before the tag, and a run on a
+   GitHub-hosted runner or any other non-reference disk does not stand in for it.
 4. **Tag and push the tag.** `.github/workflows/release.yml` is tag-triggered on `v*`.
 5. The workflow runs `release-check --tag "$GITHUB_REF_NAME"`, assembles and archives the six
    bundles (a `.zip` each), generates `dist/bundle/marketplace.json` from their `checksums.txt`
@@ -81,6 +85,19 @@ byte-identical, and `checksums.txt` is only meaningful because of them.
 `--skip-vulncheck` because the `security` job already scans that commit) and then
 `bundle --archive --version 0.0.0-dryrun` and `marketplace --tag v0.0.0-dryrun`, on every push. A release path first exercised on the day of a release is a
 release path nobody has tested.
+
+Both hosted jobs that run this gate, `release-dry-run` and `release.yml`'s `release`, declare
+`QOMPACK_NONREFERENCE_DISK` (ADR 0010, Addendum 2, which holds the complete list): a GitHub-hosted
+disk's fsync tail is not a product figure, so on those runners three things are reported with a
+note naming the declaration instead of gated — the fsync-bound wall rows (B-A, B-B, B-E's wall
+row), the §12.2 spool-submode transition in the hot-path tests (X11 and
+`TestIntegration_HotPathWarmWithRealResidentState`), and X10's late or deferred prompt-reply
+recovery branch, which is also written to the job summary (D56(a)). B-E_cpu, the delivery ledger
+(identity, 0 lost), the population census and every structural check stay gated. The declaration
+is honoured only where `GITHUB_ACTIONS=true`, so the local run of §1 step 3 on the reference host
+is the gate that judges those rows at their limits. The `release` job's declaration carries
+D53(e)/D55 from CI to the tag-time gate and is pending the owner's ruling (C7.2); until it is
+recorded, read this paragraph and step 3 as the proposed procedure.
 
 ## 3. Supported scope
 
