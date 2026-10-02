@@ -30,8 +30,8 @@ complete.
 The version numbers in this source tree do not agree yet, and are reported as they stand: the last
 git tag is `v0.2.0`, an internal verification checkpoint that was never a release, and
 `internal/core.Version` and `plugin/.claude-plugin/plugin.json` still declare `0.1.0`. Both move to
-`0.3.0` in the release's own version commit (release §1, step 1). Until that commit lands, a plain
-`go build ./cmd/qompack` prints `0.1.0`.
+`0.3.0` in the release's own version commit (release §1, step 1). Until that commit lands, a binary
+from a plain `go build ./cmd/qompack` reports `0.1.0` from `qompack version`.
 
 **What 0.3.0 is.** A local recorder and retriever for Claude Code sessions: it keeps a durable record
 of what the hooks deliver, seals a checkpoint when the host is about to compact, puts a bounded
