@@ -21,7 +21,9 @@ import (
 // turns 2-4 found the PARENT's turn-2 and turn-4 prompts beside its own turn-3 one and took the
 // highest turn; and a prompt in the still-open segment (the 45 correction) was never read at all.
 // Current work now comes from the same source as the user's intent: the session's own prompt
-// records, newest first, refreshed at every Begin, Advance and PreCompact.
+// records — the newest one that gives a goal, walking back past a slash-command invocation, a blank
+// prompt or one whose bytes cannot be read — refreshed at every Begin, Advance and PreCompact
+// (current_work_test.go pins those edges).
 
 // The rest of the UAT-06 conversation, verbatim in shape.
 const (

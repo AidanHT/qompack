@@ -921,16 +921,21 @@ func (w *FileWriter) encodeSegmentLocked(ctx context.Context, d *Draft, seg stor
 	// While the session's own prompt records can be listed it is derived from them at every refresh
 	// (deriveCurrentWorkLocked). Only while they cannot — a store without SessionPrompts, or one
 	// whose last answer failed — is it read here from the graph, and then only from a prompt node
-	// of this session: the graph's userprompt nodes are shared across sessions by turn, and taking
-	// the segment's highest one put a fork's parent's prompt in the fork's current work.
+	// of this session that gives a goal (goalOf): the graph's userprompt nodes are shared across
+	// sessions by turn, and taking the segment's highest one put a fork's parent's prompt in the
+	// fork's current work.
+	//
+	// It replaces the goal held only with a prompt at a LATER turn than the one that goal was read
+	// from. The segment encoded here is closed, and the open segment's prompts are newer, so while a
+	// failing list (core.ErrDegraded, or the context running out inside the idle Advance budget)
+	// left the records-derived goal in place, this fallback used to move current work back to an
+	// older prompt, and a compaction inside that window sealed it so. A later prompt it does take
+	// is one the records had not listed when they last answered, so their newest has changed by the
+	// time they answer again and deriveCurrentWorkLocked derives afresh: goalFrom needs no reset.
 	if !d.promptsAnswered && !d.workExplicit {
-		if n, ok := ownNewestPrompt(ctx, src, d.session, prompts); ok {
-			if text, ok := readPromptText(ctx, src, n); ok && text != "" {
-				d.cp.CurrentWork = CurrentWork{Goal: truncRunes(firstSentence(text), goalMaxRunes)}
-				// The records-derived goal is no longer the one held, so the next refresh that
-				// can list them must set it again even when their newest is unchanged.
-				d.goalFrom = ""
-			}
+		if turn, goal, ok := ownNewestGoal(ctx, src, d.session, prompts); ok && (!d.goalTurnSet || turn > d.goalTurn) {
+			d.cp.CurrentWork = CurrentWork{Goal: goal}
+			d.goalTurn, d.goalTurnSet = turn, true
 		}
 	}
 
@@ -1458,12 +1463,15 @@ func earliestPrompt(g dag.Graph) (dag.Node, bool) {
 	return best, true
 }
 
-// ownNewestPrompt returns the highest-turn node of prompts (ascending by turn) that is not another
-// session's: a node whose Ref resolves to a prompt record of a different session is skipped. A node
+// ownNewestGoal returns the goal (goalOf) of the highest-turn node of prompts (ascending by turn)
+// that is not another session's and gives one, with its turn, looking at most goalWalkLimit nodes
+// back. A node whose Ref resolves to a prompt record of a different session is skipped. A node
 // whose record cannot be read is not skipped — no evidence it is foreign — and readPromptText then
 // decides whether it has text, as the graph-read form always did.
-func ownNewestPrompt(ctx context.Context, src SourceSet, session core.SessionID, prompts []dag.Node) (dag.Node, bool) {
-	for i := len(prompts) - 1; i >= 0; i-- {
+func ownNewestGoal(ctx context.Context, src SourceSet, session core.SessionID, prompts []dag.Node) (core.TurnIndex,
+	string, bool,
+) {
+	for i := len(prompts) - 1; i >= 0 && len(prompts)-i <= goalWalkLimit; i-- {
 		n := prompts[i]
 		if n.Ref != "" {
 			if rec, err := src.Store.ToolUse(ctx, core.ToolUseID(n.Ref)); err == nil &&
@@ -1471,9 +1479,15 @@ func ownNewestPrompt(ctx context.Context, src SourceSet, session core.SessionID,
 				continue
 			}
 		}
-		return n, true
+		text, ok := readPromptText(ctx, src, n)
+		if !ok {
+			continue
+		}
+		if goal, ok := goalOf(text); ok {
+			return n.Turn, goal, true
+		}
 	}
-	return dag.Node{}, false
+	return 0, "", false
 }
 
 // readPromptText resolves one user-prompt node to its stored text, through fromStore — every

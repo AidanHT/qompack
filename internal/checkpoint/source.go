@@ -176,13 +176,25 @@ type Draft struct {
 	// reads a prompt's bytes once per draft rather than at every refresh. In-memory only: a
 	// resumed draft reads them again once.
 	promptText map[core.ToolUseID]string
-	// goalFrom is the prompt record the derived CurrentWork.Goal was last taken from
-	// (deriveCurrentWorkLocked), so a refresh reads a prompt that the evolution did not cache — a
-	// paste past its read limit — once rather than at every refresh. In-memory only.
+	// goalFrom is the session's newest prompt record when the derived CurrentWork.Goal was last
+	// derived from the records (deriveCurrentWorkLocked), whether or not that derivation found a
+	// goal, so a refresh walks the newest prompts — reading one the evolution did not cache, a paste
+	// past its read limit, whole — once per new prompt rather than at every refresh. In-memory only.
 	goalFrom core.ToolUseID
+	// goalTurn is the turn of the prompt the derived CurrentWork.Goal was read from, by either
+	// derivation, and goalTurnSet whether there is one. The graph fallback in encodeSegmentLocked
+	// replaces the goal only with a prompt at a later turn, so a window in which the records cannot
+	// be listed never moves current work back to an older prompt. In-memory only: a resumed draft
+	// derives its goal again (deriveCurrentWorkLocked).
+	goalTurn    core.TurnIndex
+	goalTurnSet bool
+	// oversized is the prompt record the last refresh's evolution walk found past evolutionReadLimit
+	// (it stops at the first), so the next refresh knows that without reading the record's first
+	// evolutionReadLimit+1 bytes again. A record's bytes never change. In-memory only.
+	oversized core.ToolUseID
 	// promptsAnswered says whether the last refreshIntentLocked could list the session's own prompt
 	// records. While it cannot (a store without SessionPrompts, or one that failed — core.ErrDegraded
-	// past its scan limit), encodeSegmentLocked derives CurrentWork from the graph instead. In-memory
+	// past its scan limit), encodeSegmentLocked may derive CurrentWork from the graph instead. In-memory
 	// only; false until the first refresh, which Begin runs.
 	promptsAnswered bool
 	// fork is the intent this session inherits as a fork of another (lineage.go), or nil. It is
