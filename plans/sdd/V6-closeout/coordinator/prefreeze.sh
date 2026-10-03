@@ -1,38 +1,98 @@
 #!/bin/sh
 # prefreeze.sh <repo> <evidence-dir> [step...]
-# D53(a)'s pre-freeze merged-tree check on Windows, sequential, at below-normal priority so the
-# owner's daytime use wins: test/e2e alone, test/integration's hot-path rows alone and the rest of
-# it apart, the fault/security/platform/release (and other test/) packages, then every internal
-# package and tools/devtool. Hosted ci.yml on the same tree covers Linux and macOS.
-# Steps: gate e2e hotpath integration testpkgs internal (default: all, in that order), and e2efunc
-# (test/e2e without its wall-clock X11 row, which the chain judges on AC); gate is build,
-# vet on three OSes, fmt, the generated-docs checks and the lint subset.
-# Each step writes <step>.log and appends "step <name> exit=<code> <utc>" to summary.log.
+# D53(a)'s pre-freeze merged-tree check on Windows, strictly sequential, at normal priority (it runs
+# only with the owner's go). Hosted ci.yml on the same tree covers Linux and macOS. Steps (default:
+# gate e2e hotpath integration testpkgs internal, in that order):
+#   gate         build, vet on three OSes, fmt-check, gen-config-docs / gen-mcp-docs / gen-command-docs
+#                --check, licenses --check, the lint subset, then govulncheck. A vulnerability or any
+#                other govulncheck error fails the gate; a vulnerability database (or module proxy)
+#                that cannot be reached does not: gate.log then carries GOVULNCHECK-UNREACHABLE and the
+#                tree was NOT checked locally (hosted ci.yml's security job checks the pushed tree).
+#   e2e          test/e2e alone, -p 1, no co-load: its wall-clock rows are judged
+#   e2efunc      the same without X11 (TestV3_HotPath*), which the night judges alone on AC
+#   hotpath      test/integration's hot-path rows (TestIntegration_HotPath*) alone, no co-load
+#   integration  test/integration without the timing lane's wall-clock row
+#                (TestIntegration_HotPathWarmWithRealResidentState, judged alone on AC by the night),
+#                so its three functional hot-path rows run here and must each pass; -p 2 with
+#                QOMPACK_UNDER_COLOAD=1, as ci.yml's test job runs it
+#   testpkgs     the fault/security/platform/release (and other test/) packages, -p 2, co-load declared
+#   internal     every internal package, tools/ and cmd/, -p 2, co-load declared
+# The strict steps (e2e, e2efunc, hotpath) take back an inherited QOMPACK_UNDER_COLOAD, and no step
+# inherits QOMPACK_NONREFERENCE_DISK (a hosted-only declaration).
+# Each run starts a fresh summary.log, and PREFREEZE_RUN (default: a UTC stamp and the pid) tags each
+# of its lines, so a reader accepts only this run's verdicts. Each step writes <step>.log and
+#   start <name> run=<id> power=<reading> <utc>
+#   step <name> exit=<code> run=<id> <utc> power=<verdict>
+# where <verdict> is power.sh's VALID, INVALID-POWER <events> or NOT-REFERENCE <reason> over the step.
 set -u
+[ $# -ge 2 ] || { echo "usage: prefreeze.sh <repo> <evidence-dir> [step...]" >&2; exit 2; }
 R=$1; E=$2; shift 2
+here=$(cd "$(dirname "$0")" && pwd)
+. "$here/power.sh"
 steps=${*:-gate e2e hotpath integration testpkgs internal}
-mkdir -p "$E"
-hp='^(TestIntegration_HotPath|TestV3_HotPath)'
+RUN=${PREFREEZE_RUN:-$(date -u +%Y%m%dT%H%M%SZ)-$$}
+case $RUN in *[!A-Za-z0-9._-]*|'') echo "prefreeze.sh: PREFREEZE_RUN may hold only [A-Za-z0-9._-]" >&2; exit 2 ;; esac
+unset QOMPACK_NONREFERENCE_DISK
+mkdir -p "$E" || exit 2
+hpwall='^TestIntegration_HotPathWarmWithRealResidentState$'
+hpfunc="DegradesRatherThanBlocks BAPopulationIsTheDaemonHistogram SpoolTransitionJudgedPerMode"
+S="$E/summary.log"
+: > "$S"
 run() { name=$1; shift
-  echo "start $name $(date -u +%FT%TZ)" >> "$E/summary.log"
+  r_t0=$(date +%s); r_p0=$(power_read)
+  echo "start $name run=$RUN power=$r_p0 $(date -u +%FT%TZ)" >> "$S"
   (cd "$R" && "$@") > "$E/$name.log" 2>&1
-  echo "step $name exit=$? $(date -u +%FT%TZ)" >> "$E/summary.log"; }
-echo "head $(git -C "$R" rev-parse HEAD) go=$(go env GOVERSION)" >> "$E/summary.log"
+  r_rc=$?
+  r_t1=$(date +%s)
+  if r_ev=$(power_events_since "$r_t0"); then r_ok=1; else r_ok=0; r_ev=""; fi
+  r_pv=$(power_verdict "$r_p0" "$r_ok" "$(power_events_window "$r_t0" "$r_t1" "$r_ev")")
+  echo "step $name exit=$r_rc run=$RUN $(date -u +%FT%TZ) power=$r_pv" >> "$S"; }
+gate_body() {
+  go build ./... && go vet ./... && GOOS=linux go vet ./... && GOOS=darwin go vet ./... &&
+    go run ./tools/devtool fmt-check && go run ./tools/devtool gen-config-docs --check &&
+    go run ./tools/devtool gen-mcp-docs --check && go run ./tools/devtool gen-command-docs --check &&
+    go run ./tools/devtool licenses --check &&
+    go run ./tools/devtool lint --only=golangci-lint,nomagic,importgraph,testdeps,bindeps,sleepcheck,docmarkers,runpatterns,coveragefloors ||
+    return 1
+  vuln_check
+}
+vuln_check() {
+  v_out=$(go run -modfile=tools/pinned/go.mod golang.org/x/vuln/cmd/govulncheck ./... 2>&1); v_rc=$?
+  printf '%s\n' "$v_out"
+  [ "$v_rc" -eq 0 ] && return 0
+  if printf '%s\n' "$v_out" | grep -qE 'Vulnerability #|Your code is affected|vulnerabilit(y|ies) found'; then
+    echo "govulncheck: vulnerabilities reported (exit $v_rc)"; return 1
+  fi
+  if printf '%s\n' "$v_out" | grep -qiE '(vuln\.go\.dev|proxy\.golang\.org|sum\.golang\.org).*(dial tcp|no such host|i/o timeout|connection (refused|reset)|TLS handshake timeout|network is unreachable|context deadline exceeded)|(dial tcp|no such host|lookup).*(vuln\.go\.dev|proxy\.golang\.org|sum\.golang\.org)'; then
+    echo "GOVULNCHECK-UNREACHABLE: the vulnerability database or the module proxy could not be reached (exit $v_rc); govulncheck did NOT check this tree. Reported, not fatal: hosted ci.yml's security job runs it on the pushed candidate."
+    return 0
+  fi
+  echo "govulncheck: failed (exit $v_rc) for a reason other than an unreachable database"; return 1
+}
+integration_body() {
+  i_out=$(mktemp) || return 2
+  QOMPACK_UNDER_COLOAD=1 go test -p 2 -count=1 -timeout 60m -v -skip "$hpwall" ./test/integration > "$i_out" 2>&1
+  i_rc=$?
+  cat "$i_out"
+  for i_n in $hpfunc; do   # -skip must not have taken a functional row with it
+    grep -q "^--- PASS: TestIntegration_HotPath$i_n " "$i_out" ||
+      { echo "prefreeze: TestIntegration_HotPath$i_n did not pass (or did not run) in this step"; i_rc=1; }
+  done
+  rm -f "$i_out"; return "$i_rc"
+}
+echo "head $(git -C "$R" rev-parse HEAD) go=$(go env GOVERSION) run=$RUN steps=$steps" >> "$S"
 for s in $steps; do
   case $s in
-    gate) run gate sh -c 'go build ./... && go vet ./... && GOOS=linux go vet ./... && GOOS=darwin go vet ./... &&
-            go run ./tools/devtool fmt-check && go run ./tools/devtool gen-config-docs --check &&
-            go run ./tools/devtool gen-mcp-docs --check &&
-            go run ./tools/devtool lint --only=golangci-lint,nomagic,importgraph,testdeps,bindeps,sleepcheck,docmarkers,runpatterns,coveragefloors' ;;
-    e2e) run e2e go test -p 1 -count=1 -timeout 90m ./test/e2e ;;
-    e2efunc) run e2efunc go test -p 1 -count=1 -timeout 90m -skip '^TestV3_HotPath' ./test/e2e ;;
-    hotpath) run hotpath go test -p 1 -count=1 -timeout 30m -run "$hp" ./test/integration ;;
-    integration) run integration go test -p 2 -count=1 -timeout 60m -skip "$hp" ./test/integration ;;
-    testpkgs) run testpkgs go test -p 2 -count=1 -timeout 60m ./test/fault/... ./test/security/... ./test/platform/... \
-                ./test/release/... ./test/canary/... ./test/dedup/... ./test/replay/... \
+    gate) run gate gate_body ;;
+    e2e) run e2e env -u QOMPACK_UNDER_COLOAD go test -p 1 -count=1 -timeout 90m ./test/e2e ;;
+    e2efunc) run e2efunc env -u QOMPACK_UNDER_COLOAD go test -p 1 -count=1 -timeout 90m -skip '^TestV3_HotPath' ./test/e2e ;;
+    hotpath) run hotpath env -u QOMPACK_UNDER_COLOAD go test -p 1 -count=1 -timeout 30m -v -run '^TestIntegration_HotPath' ./test/integration ;;
+    integration) run integration integration_body ;;
+    testpkgs) run testpkgs env QOMPACK_UNDER_COLOAD=1 go test -p 2 -count=1 -timeout 60m ./test/fault/... ./test/security/... \
+                ./test/platform/... ./test/release/... ./test/canary/... ./test/dedup/... ./test/replay/... \
                 ./test/guards/... ./test/docs/... ./test/bench/... ;;
-    internal) run internal go test -p 2 -count=1 -timeout 60m ./internal/... ./tools/... ./cmd/... ;;
-    *) echo "unknown step $s" >> "$E/summary.log" ;;
+    internal) run internal env QOMPACK_UNDER_COLOAD=1 go test -p 2 -count=1 -timeout 60m ./internal/... ./tools/... ./cmd/... ;;
+    *) echo "unknown step $s run=$RUN" >> "$S" ;;
   esac
 done
-echo "done $(date -u +%FT%TZ)" >> "$E/summary.log"
+echo "done run=$RUN $(date -u +%FT%TZ)" >> "$S"
