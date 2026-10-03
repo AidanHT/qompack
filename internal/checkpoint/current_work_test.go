@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -15,14 +16,16 @@ import (
 	"github.com/qompack/qompack/internal/checkpoint"
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/dag"
+	"github.com/qompack/qompack/internal/obs"
 	"github.com/qompack/qompack/internal/paths"
 	"github.com/qompack/qompack/internal/store"
 )
 
 // The derived current work (§8: one sentence of the session's most recent prompt) across the edges
 // the V6 close-out's wave-20 audit found (D59): a one-prompt session, a prompt list that fails for a
-// while, Qompack's own slash commands, an unreadable or oversized newest prompt, prompts published
-// out of host order, and a draft persisted by an earlier build.
+// while (across a daemon restart too), Qompack's own slash commands, a blank, unreadable or
+// oversized newest prompt, prompts published out of host order, and a draft persisted by an earlier
+// build.
 
 const (
 	rateAskGoal          = "We are building a rate limiter for the Kite API gateway."
@@ -38,13 +41,22 @@ type promptProbeStore struct {
 	mu       sync.Mutex
 	degraded bool
 	reads    map[core.Hash][]int64
+	// failing is how many more Opens of each object fail, the way a transient read error does.
+	failing map[core.Hash]int
 	// cancel, when set, is called once right after the next SessionPrompts answers: the context
 	// running out between the list and the reads that follow it.
 	cancel context.CancelFunc
 }
 
 func newPromptProbeStore(s store.Store) *promptProbeStore {
-	return &promptProbeStore{Store: s, reads: map[core.Hash][]int64{}}
+	return &promptProbeStore{Store: s, reads: map[core.Hash][]int64{}, failing: map[core.Hash]int{}}
+}
+
+// failOpens makes the next n Opens of root fail.
+func (s *promptProbeStore) failOpens(root core.Hash, n int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.failing[root] = n
 }
 
 func (s *promptProbeStore) setDegraded(v bool) {
@@ -79,6 +91,15 @@ func (s *promptProbeStore) cancelAfterNextList(cancel context.CancelFunc) {
 }
 
 func (s *promptProbeStore) Open(ctx context.Context, root core.Hash) (io.ReadCloser, error) {
+	s.mu.Lock()
+	fail := s.failing[root] > 0
+	if fail {
+		s.failing[root]--
+	}
+	s.mu.Unlock()
+	if fail {
+		return nil, fmt.Errorf("probe: transient read failure of %s", root)
+	}
 	rc, err := s.Store.Open(ctx, root)
 	if err != nil {
 		return nil, err
@@ -135,6 +156,29 @@ func promptStamped(f *fx, s core.SessionID, turn core.TurnIndex, ts core.UnixMil
 	require.NoError(f.t, dag.BuildUserPrompt(f.graph, dag.ObservedPrompt{
 		Turn: turn, TS: f.now(), Pos: f.nextPos(), Tokens: core.Tokens(len(text) / 4), Ref: string(id),
 	}))
+}
+
+// lostPromptAs records a prompt of session s at turn, with its graph node, whose bytes were never
+// stored: the shape of a prompt whose object GC collected, or whose every read fails.
+func lostPromptAs(f *fx, s core.SessionID, turn core.TurnIndex) {
+	f.t.Helper()
+	lost := core.HashBytes(core.DomainChunk, []byte(fmt.Sprintf("bytes never stored: %s %d", s, int(turn))))
+	id := core.ToolUseID(fmt.Sprintf("prompt_%s_%d", s, int(turn)))
+	require.NoError(f.t, f.store.RecordToolUse(f.ctx(), store.ToolUseRecord{
+		ID: id, Session: s, Turn: turn, TS: f.now(), Tool: "UserPromptSubmit", Root: lost,
+	}))
+	require.NoError(f.t, dag.BuildUserPrompt(f.graph, dag.ObservedPrompt{
+		Turn: turn, TS: f.now(), Pos: f.nextPos(), Tokens: 8, Ref: string(id),
+	}))
+}
+
+// restartWriter replaces f's writer with a second one over the same root, the way a daemon restart
+// does: nothing in memory, and the session's draft resumed from its file at the next Begin.
+func restartWriter(t *testing.T, f *fx) {
+	t.Helper()
+	w, err := checkpoint.OpenWriter(f.p.Root, f.p.Cfg, f.p.Log, obs.New(f.p.Clock), f.p.Clock)
+	require.NoError(t, err)
+	f.w = w
 }
 
 // TestTransientPromptListFailureNeverMovesCurrentWorkBackwards: a goal taken from the session's
@@ -225,6 +269,137 @@ func TestInterruptedGoalWalkIsWalkedAgain(t *testing.T) {
 	require.Equal(t, rateCorrection45Goal, cp.CurrentWork.Goal)
 }
 
+// TestInterruptedGoalWalkKeepsTheGoalItHas: a refresh whose context runs out after the prompt list
+// answered cannot read the records it has not cached, and the goal's own record is one of them
+// when it is a paste past the evolution's read limit. Such a walk would reach only the cached
+// original; it changes nothing, so the goal does not step back to the original in the meantime.
+func TestInterruptedGoalWalkKeepsTheGoalItHas(t *testing.T) {
+	limit := checkpoint.EvolutionReadLimitForTest
+	filler := strings.Repeat(" The limiter keeps one bucket per client.", int(limit)/40+1)
+	f := newFx(t)
+	ps := newPromptProbeStore(f.store)
+	f.src.Store = ps
+	promptAs(f, f.sess, 0, rateAsk)
+	promptAs(f, f.sess, 2, rateCorrection45+filler)
+	d := f.begin()
+	promptAs(f, f.sess, 4, "/qompack:status")
+
+	ctx, cancel := context.WithCancel(f.ctx())
+	defer cancel()
+	ps.cancelAfterNextList(cancel)
+	_, err := f.w.Advance(ctx, d, nil)
+	require.NoError(t, err)
+
+	_, cp := f.persisted()
+	require.Equal(t, rateCorrection45Goal, cp.CurrentWork.Goal)
+}
+
+// TestTransientReadFailureOfTheNewestPromptIsReadAgain: a refresh that cannot read the newest
+// prompt's bytes (a transient Open failure, the context still live) takes the newest readable
+// prompt's goal for now, but does not remember that walk as done: the next refresh reads the newest
+// prompt again, and the sealed goal agrees with the evolution's last entry.
+func TestTransientReadFailureOfTheNewestPromptIsReadAgain(t *testing.T) {
+	f := newFx(t)
+	ps := newPromptProbeStore(f.store)
+	f.src.Store = ps
+	promptAs(f, f.sess, 0, rateAsk)
+	promptAs(f, f.sess, 2, rateCorrection60)
+	d := f.begin()
+	promptAs(f, f.sess, 4, rateCorrection45)
+	root := f.put(rateCorrection45, "UserPromptSubmit", "", true)
+
+	// Both of one refresh's reads of it fail: the evolution's bounded read and the goal walk's.
+	ps.failOpens(root, 2)
+	f.advance(d)
+	_, cp := f.persisted()
+	require.Equal(t, rateCorrection60Goal, cp.CurrentWork.Goal, "fixture sanity: the failing refresh")
+	f.advance(d)
+
+	got := sealed(t, f, f.precompactAs(f.sess))
+	require.Equal(t, rateCorrection45Goal, got.CurrentWork.Goal)
+	require.Equal(t, []string{rateCorrection60, rateCorrection45}, got.UserIntent.Evolution)
+}
+
+// TestResumedDraftNeverMovesCurrentWorkBackwardsWhileThePromptListFails: the daemon restarts while
+// the prompt list cannot be read. The resumed draft keeps the goal its newest prompt gave, and the
+// graph fallback does not replace it with the older prompt of the closed segment it encodes: the
+// turn the goal came from survives the restart.
+func TestResumedDraftNeverMovesCurrentWorkBackwardsWhileThePromptListFails(t *testing.T) {
+	f := newFx(t)
+	ps := newPromptProbeStore(f.store)
+	f.src.Store = ps
+	promptAs(f, f.sess, 0, rateAsk)
+	promptAs(f, f.sess, 2, rateCorrection60)
+	f.closedSeg(1, 0, 3)
+	promptAs(f, f.sess, 4, rateCorrection45)
+	f.begin()
+	_, cp := f.persisted()
+	require.Equal(t, rateCorrection45Goal, cp.CurrentWork.Goal, "fixture sanity: the newest prompt")
+
+	ps.setDegraded(true)
+	restartWriter(t, f)
+	d := f.begin()
+	_, cp = f.persisted()
+	require.Equal(t, rateCorrection45Goal, cp.CurrentWork.Goal, "fixture sanity: the resumed goal")
+	f.advance(d)
+	f.advance(d, 1)
+	_, cp = f.persisted()
+	require.Equal(t, rateCorrection45Goal, cp.CurrentWork.Goal,
+		"the closed segment's newest prompt is older than the goal held")
+
+	got := sealed(t, f, f.precompactAs(f.sess))
+	require.Equal(t, rateCorrection45Goal, got.CurrentWork.Goal)
+}
+
+// TestResumedDraftKeepsTheTurnOfAnUnchangedGoal: a refresh can move the goal to a newer prompt
+// without changing its text or anything else the draft holds: the user repeats the correction,
+// with the original restated just before it, so the evolution lists the same entries. The turn the
+// goal now comes from is still persisted, so after a restart into a failing prompt list the graph
+// fallback does not take the restated original (newer than the first correction, older than the
+// repeat) as current work.
+func TestResumedDraftKeepsTheTurnOfAnUnchangedGoal(t *testing.T) {
+	f := newFx(t)
+	ps := newPromptProbeStore(f.store)
+	f.src.Store = ps
+	promptAs(f, f.sess, 0, rateAsk)
+	promptAs(f, f.sess, 2, rateCorrection60)
+	f.closedSeg(1, 0, 3)
+	d := f.begin()
+	promptAs(f, f.sess, 3, rateAsk)
+	promptAs(f, f.sess, 4, rateCorrection60)
+	f.advance(d)
+	_, cp := f.persisted()
+	require.Equal(t, rateCorrection60Goal, cp.CurrentWork.Goal, "fixture sanity: the repeated correction")
+	require.Equal(t, []string{rateCorrection60}, cp.UserIntent.Evolution, "fixture sanity: unchanged")
+
+	ps.setDegraded(true)
+	restartWriter(t, f)
+	d = f.begin()
+	f.advance(d, 1)
+
+	_, cp = f.persisted()
+	require.Equal(t, rateCorrection60Goal, cp.CurrentWork.Goal)
+}
+
+// TestResumedCandidateSevenForkDraftTakesItsOwnGoalFromTheGraph: a fork's draft persisted by
+// candidate 7, with its parent's prompt as its goal and no goal_turn, resumed while the prompt
+// list cannot be read. Candidate 7 derived that goal from a segment the draft had encoded, so the
+// fork's closed segment encoded now lies past it: the fallback replaces it with the fork's own
+// prompt, which is never a move backwards.
+func TestResumedCandidateSevenForkDraftTakesItsOwnGoalFromTheGraph(t *testing.T) {
+	f := newFx(t)
+	liveShapeParent(t, f)
+	f.noteFork(f.sess)
+	promptAs(f, f.sess, 1, rateCorrection45)
+	closedSegAs(f, f.sess, 0, 2)
+	plantDerivedGoal(t, f, rateReadLimiter)
+
+	f.src.Store = degradedPromptsStore{f.store}
+	cp := sealed(t, f, f.precompactAs(f.sess))
+
+	require.Equal(t, rateCorrection45Goal, cp.CurrentWork.Goal)
+}
+
 // The prompts a session's current work skips: a slash-command invocation is not a statement of
 // the task. Claude Code hands UserPromptSubmit the prompt as typed, so a plugin command arrives as
 // "/qompack:why dec_..." (the C7 UAT-06 store holds exactly that), while a built-in such as
@@ -243,6 +418,7 @@ func TestSlashCommandPromptIsNotCurrentWork(t *testing.T) {
 		},
 		{"a bare command", "/compact", rateCorrection60Goal},
 		{"a bare namespaced command with whitespace", "  /frontend:review\n", rateCorrection60Goal},
+		{"a dash after the slash is not a command name", "/-flag", "/-flag"},
 		{
 			"another command with arguments", "/fix-issue 42 the login form drops the session.",
 			"/fix-issue 42 the login form drops the session.",
@@ -268,6 +444,40 @@ func TestSlashCommandPromptIsNotCurrentWork(t *testing.T) {
 	}
 }
 
+// TestBlankPromptIsNotCurrentWork: a prompt of only whitespace states no task either; the goal
+// comes from the newest prompt before it. The intent skips a blank prompt too, and its refresh
+// caches one as no text; the second case is one the evolution never read, because it stopped at a
+// newer prompt past its read limit (a pasted injection block, which gives no goal), so the goal
+// walk reads the blank prompt's whitespace itself.
+func TestBlankPromptIsNotCurrentWork(t *testing.T) {
+	limit := checkpoint.EvolutionReadLimitForTest
+	injected := checkpoint.OpenTag(4) + "\n" + strings.Repeat("stale summary line\n", int(limit)/19+1) +
+		checkpoint.InjectionCloseTag
+	const blank = " \u00a0\n\t\u2003 "
+	for _, tc := range []struct {
+		name  string
+		newer []string
+	}{
+		{"the newest prompt", nil},
+		{"one the evolution never read", []string{injected}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newFx(t)
+			openSegment(f, f.sess, 0)
+			promptAs(f, f.sess, 0, rateAsk)
+			promptAs(f, f.sess, 2, rateCorrection60)
+			promptAs(f, f.sess, 4, blank)
+			for i, p := range tc.newer {
+				promptAs(f, f.sess, core.TurnIndex(6+2*i), p)
+			}
+
+			cp := sealed(t, f, f.precompactAs(f.sess))
+
+			require.Equal(t, rateCorrection60Goal, cp.CurrentWork.Goal)
+		})
+	}
+}
+
 // TestSlashCommandPromptIsNotCurrentWorkFromTheGraph: the graph fallback skips one too.
 func TestSlashCommandPromptIsNotCurrentWorkFromTheGraph(t *testing.T) {
 	f := newFx(t)
@@ -280,6 +490,77 @@ func TestSlashCommandPromptIsNotCurrentWorkFromTheGraph(t *testing.T) {
 	cp := sealed(t, f, f.precompactAs(f.sess))
 
 	require.Equal(t, rateCorrection60Goal, cp.CurrentWork.Goal)
+}
+
+// TestSlashCommandWalkReadsExactlyItsBound: a fresh draft's walk back past skipped prompts reads
+// the goalWalkLimit newest records, the last of them included, and not one more.
+func TestSlashCommandWalkReadsExactlyItsBound(t *testing.T) {
+	const limit = checkpoint.GoalWalkLimitForTest
+	for _, tc := range []struct {
+		name     string
+		commands int
+		goal     string
+	}{
+		{"the bound's last record", limit - 1, rateCorrection60Goal},
+		{"one past the bound", limit, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newFx(t)
+			openSegment(f, f.sess, 0)
+			promptAs(f, f.sess, 0, rateAsk)
+			promptAs(f, f.sess, 2, rateCorrection60)
+			for i := range tc.commands {
+				promptAs(f, f.sess, core.TurnIndex(4+i), "/qompack:status")
+			}
+
+			cp := sealed(t, f, f.precompactAs(f.sess))
+
+			require.Equal(t, tc.goal, cp.CurrentWork.Goal)
+		})
+	}
+}
+
+// TestUnreadableNewestPromptFallsBackToTheNewestReadableOneFromTheGraph: the graph fallback walks
+// back past a prompt node whose bytes cannot be read, as the records walk does.
+func TestUnreadableNewestPromptFallsBackToTheNewestReadableOneFromTheGraph(t *testing.T) {
+	f := newFx(t)
+	f.src.Store = degradedPromptsStore{f.store}
+	promptAs(f, f.sess, 0, rateAsk)
+	promptAs(f, f.sess, 2, rateCorrection60)
+	lostPromptAs(f, f.sess, 4)
+	closedSegAs(f, f.sess, 0, 5)
+
+	cp := sealed(t, f, f.precompactAs(f.sess))
+
+	require.Equal(t, rateCorrection60Goal, cp.CurrentWork.Goal)
+}
+
+// TestSlashCommandWalkFromTheGraphReadsExactlyItsBound: the graph fallback's walk back past
+// skipped prompt nodes is bounded the same way: the goalWalkLimit newest nodes, and not one more.
+func TestSlashCommandWalkFromTheGraphReadsExactlyItsBound(t *testing.T) {
+	const limit = checkpoint.GoalWalkLimitForTest
+	for _, tc := range []struct {
+		name     string
+		commands int
+		goal     string
+	}{
+		{"the bound's last node", limit - 1, rateAskGoal},
+		{"one past the bound", limit, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newFx(t)
+			f.src.Store = degradedPromptsStore{f.store}
+			promptAs(f, f.sess, 0, rateAsk)
+			for i := range tc.commands {
+				promptAs(f, f.sess, core.TurnIndex(1+i), "/qompack:status")
+			}
+			closedSegAs(f, f.sess, 0, core.TurnIndex(tc.commands+1))
+
+			cp := sealed(t, f, f.precompactAs(f.sess))
+
+			require.Equal(t, tc.goal, cp.CurrentWork.Goal)
+		})
+	}
 }
 
 // TestSlashCommandWalkIsBounded: the walk back past skipped prompts reads at most as many records as
@@ -399,6 +680,10 @@ func TestResumedDraftReDerivesCurrentWork(t *testing.T) {
 	}{
 		{"no prompt of its own", nil, ""},
 		{"only a slash command of its own", []string{forkWhy}, ""},
+		{
+			"exactly the walk's bound of slash commands of its own",
+			slices.Repeat([]string{forkWhy}, checkpoint.GoalWalkLimitForTest), "",
+		},
 		{"a prompt of its own", []string{forkWhy, rateCorrection45}, rateCorrection45Goal},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -419,7 +704,8 @@ func TestResumedDraftReDerivesCurrentWork(t *testing.T) {
 }
 
 // plantDerivedGoal leaves session f.sess with a persisted draft whose derived goal is goal, the way
-// a candidate-7 daemon left a fork's draft, and no live draft, the way a restart leaves it.
+// a candidate-7 daemon left a fork's draft (no goal_turn key), and no live draft, the way a restart
+// leaves it.
 func plantDerivedGoal(t *testing.T, f *fx, goal string) {
 	t.Helper()
 	require.NoError(t, f.w.SetSources(f.src))
@@ -430,6 +716,7 @@ func plantDerivedGoal(t *testing.T, f *fx, goal string) {
 	raw, err := checkpoint.Marshal(cp)
 	require.NoError(t, err)
 	wire.Checkpoint = raw
+	wire.GoalTurn = nil // candidate 7 wrote none
 	b, err := json.Marshal(wire)
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(paths.Long(f.draftPath()), b, 0o600))

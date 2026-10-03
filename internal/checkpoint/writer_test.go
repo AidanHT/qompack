@@ -122,6 +122,7 @@ type draftWire struct {
 	Started       core.UnixMilli     `json:"started"`
 	WorkExplicit  bool               `json:"work_explicit"`
 	UserQuestions []string           `json:"user_questions"`
+	GoalTurn      *core.TurnIndex    `json:"goal_turn,omitempty"`
 	Checkpoint    json.RawMessage    `json:"checkpoint"`
 }
 
