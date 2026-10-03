@@ -36,6 +36,12 @@ type Options struct {
 	// started with and never reports a flag it dropped as a changed key. A zero CfgEnv (no
 	// ProjectRoot) means the process's own: ProjectRoot, the user's home and os.Getenv.
 	CfgEnv config.Env
+	// CfgStamp is the project config.json as the composition root found it just BEFORE it loaded
+	// Cfg (StampConfigFile). The daemon's reload starts from it, so its first configuration check
+	// reloads, and Louds the warnings of, only a file that changed after that load; a change in the
+	// moment between the stamp and the load is reloaded too. The zero value (an embedder that never
+	// stamped) makes that first check load the file once, whatever it holds.
+	CfgStamp ConfigFileStamp
 	// HostPolicy is the host's permission policy the rehydration judges section 6's pointers
 	// against, as re_read does (D50). Nil means the machine's own rules for ProjectRoot, which is
 	// what the daemon runs with; a test supplies a hermetic one.

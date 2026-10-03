@@ -14,7 +14,9 @@ import (
 
 	"github.com/qompack/qompack/internal/config"
 	"github.com/qompack/qompack/internal/hookio"
+	"github.com/qompack/qompack/internal/ipc"
 	"github.com/qompack/qompack/internal/logging"
+	"github.com/qompack/qompack/internal/obs"
 	"github.com/qompack/qompack/internal/paths"
 )
 
@@ -278,4 +280,43 @@ func TestLoadConfigAndReport_RecordFollowsTheLoad(t *testing.T) {
 	load(`{}`)
 	_, err = os.Lstat(violationsRecord(root))
 	require.True(t, os.IsNotExist(err), "a clean command load removes the record: %v", err)
+}
+
+// TestDaemonStart_ReportsAnUnchangedConfigOnce is the composition root's half of the re-Loud
+// finding, through the real runDaemon. A daemon's startup LoadConfigAndReport is its one report of
+// the configuration it starts on: each §11.3 violation Loud, each keyed warning at warn. Its first
+// configuration check (here the session.start route, which runs it before answering) used to reload
+// the same unchanged file and Loud every warning again, so the violation reached LOUD.log twice per
+// daemon start and the unknown key, a warning everywhere else, once. runDaemon now stamps the file
+// before its load and hands the stamp to the daemon (daemon.Options.CfgStamp).
+func TestDaemonStart_ReportsAnUnchangedConfigOnce(t *testing.T) {
+	root := bootstrapProject(t)
+	writeReloadConfig(t, root, `{"runtime":{"telemetry":{"enabled":true},"notAKey":1}}`)
+	stop := bootstrapDaemon(t, root)
+	defer stop()
+
+	addr, err := ipc.Resolve(root)
+	require.NoError(t, err)
+	client := ipc.NewClientWithOptions(addr, nopSpool{}, logging.Nop(), obs.New(testClock()),
+		ipc.ClientOptions{
+			ProjectRoot: root, ConnectDeadline: bootstrapCallDeadline, AckDeadline: bootstrapCallDeadline,
+			Clock: testClock(),
+		})
+	defer func() { _ = client.Close() }()
+	ev := &hookio.Event{
+		HookEventName: hookio.EventSessionStart, SessionID: "sess-w20-start", Source: "startup",
+		CWD: root, TranscriptPath: filepath.Join(root, "transcript.jsonl"),
+	}
+	req := ipc.Request{Op: ipc.OpSessionStart, Session: ev.SessionID, TS: 1, Reply: true, Event: ev}
+	_, err = client.Send(context.Background(), req, bootstrapCallDeadline)
+	require.NoError(t, err)
+	stop() // releases the log handles, so LOUD.log can be read whole.
+
+	loud := bootstrapLoudLog(t, root)
+	require.Equal(t, 1, linesWith(loud, "key=runtime.telemetry.enabled"),
+		"the violation is Loud once per daemon start:\n%s", loud)
+	require.Zero(t, linesWith(loud, "daemon: config reload warning"),
+		"the first check does not reload the file the daemon started on:\n%s", loud)
+	require.Zero(t, linesWith(loud, "key=runtime.notAKey"),
+		"an unchanged unknown key stays a warning at start:\n%s", loud)
 }

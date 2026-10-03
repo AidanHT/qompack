@@ -32,6 +32,25 @@ func configPendingPath(root string) string {
 	return filepath.Join(paths.Of(root).State, configPendingFileName)
 }
 
+// ConfigFileStamp is the project config.json's modification time and size: what reloadConfigKeys
+// compares to decide that the file changed. The zero value is "no file seen".
+type ConfigFileStamp struct {
+	ModTime time.Time
+	Size    int64
+}
+
+// StampConfigFile stats root's .qompack/config.json the way a reload does, returning the zero stamp
+// when there is no such file. A composition root calls it before loading the configuration it hands
+// the daemon (Options.CfgStamp): taken in that order, a file that changes between the two is newer
+// than the stamp and is reloaded at the first check, and an unchanged one is not.
+func StampConfigFile(root string) ConfigFileStamp {
+	fi, err := os.Stat(paths.Long(configJSONPath(root)))
+	if err != nil {
+		return ConfigFileStamp{}
+	}
+	return ConfigFileStamp{ModTime: fi.ModTime(), Size: fi.Size()}
+}
+
 // maybeReloadConfig is reload.go's entry point from Run's idle tick and from the session.start
 // route: it stats config.json and reloads only if its mtime or size changed since the last load.
 // A missing config.json (no project config file at all) is not an error and not a reload — the
