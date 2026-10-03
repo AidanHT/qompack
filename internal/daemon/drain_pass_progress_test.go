@@ -28,23 +28,27 @@ import (
 // captures waited for an unbudgeted drain. Only progress counts now: the consumed front advancing, or
 // a line the pass itself published or retired.
 
-// slowSpoolSyncs holds every sync dr makes of a client spool (drainer.syncFile) past a whole pass
-// budget before the real sync, as a deep fsync queue on a slow host can. A budgeted pass has then spent
-// its budget by the time it reads the first line of any spool it had to sync. It returns how many syncs
-// it has held.
-func slowSpoolSyncs(dr *drainer) *atomic.Int32 {
-	sync := dr.syncFile
+// slowWaitingHead is admit holding every admission of the delivery that carries nonce past a whole pass
+// budget, in real time, before deciding it, as a loaded host can hold the scope check every admission
+// makes. The delivery is a spool's waiting head (blockedSpoolHead), which every pass reads and admits
+// again, so every pass has spent its budget by the time it reads any line behind that head. It returns
+// how many admissions it has held.
+//
+// It used to hold every sync of a client spool instead, but a pass no longer syncs a spool it has synced
+// before and finds unchanged (spoolMemo), so only the first pass over a blocked spool would have spent
+// its budget there: the passes after it, the subject of these rows, would not.
+func slowWaitingHead(admit func(ipc.Request) admissionVerdict, nonce string,
+) (func(ipc.Request) admissionVerdict, *atomic.Int32) {
 	var held atomic.Int32
-	dr.syncFile = func(path string) error {
-		if isClientSpoolName(filepath.Base(path)) {
+	return func(req ipc.Request) admissionVerdict {
+		if req.Nonce == nonce {
 			held.Add(1)
 			timer := time.NewTimer(idleRunBudget + spoolWatchTick)
 			defer timer.Stop()
 			<-timer.C
 		}
-		return sync(path)
-	}
-	return &held
+		return admit(req)
+	}, &held
 }
 
 // blockedSpoolHead returns arrival 1 of sess, a delivery that can never pass the ordering gate: its
@@ -310,29 +314,31 @@ func TestDrainClientSpools_ASpentPassStartsNoLineAfterItsFrontAdvanced(t *testin
 
 // TestDrain_ARequestedPassIsNotEndedByReconsumingALineBehindABlockedHead is the same defect in a
 // drain the ingest's lanes ask for (drainOnRequest), which runs under the same pass budget and asks for
-// the next pass itself when its budget ended one (passLeftWork). Every client spool's sync outlasts the
-// budget here. The first pass publishes the line behind the blocked head and stops on its budget after
-// that progress, so it asks again. The next only consumes that line again: it must finish the spool
+// the next pass itself when its budget ended one (passLeftWork). Every pass outlasts its budget at the
+// blocked head here (slowWaitingHead). The first pass publishes the line behind the blocked head and
+// stops on its budget after that progress, so it asks again. The next only consumes that line again: it must finish the spool
 // and must not ask again. Before the fix it stopped on its budget and asked again after every such
 // pass, for as long as the host stayed slow. Once a fresh capture lands in a later spool, the next
 // requested pass reaches it past the blocked spool and publishes it.
 func TestDrain_ARequestedPassIsNotEndedByReconsumingALineBehindABlockedHead(t *testing.T) {
 	dd, _, root := laneTestDaemon(t)
-	dr := newDrainer(dd.drainConfig())
-	held := slowSpoolSyncs(dr)
-	dd.drain.Store(dr)
 	blocked := blockedSpoolHead(t, dd, root, "sess-requested-reconsume-stuck", 0)
+	cfg := dd.drainConfig()
+	admit, held := slowWaitingHead(cfg.Admit, blocked.Nonce)
+	cfg.Admit = admit
+	dd.drain.Store(newDrainer(cfg))
 	behind := liveOrderTool(dd, root, "sess-requested-reconsume-other", 7)
 	writeHookSpool(t, root, "client-8821.ndjson", blocked, behind)
 	ctx := context.Background()
 
 	dd.requestedDrainPass(ctx)
-	require.Positive(t, held.Load(), "fixture: the pass's sync of the spool was held past its budget")
+	require.Equal(t, int32(1), held.Load(), "fixture: the pass's admission of the blocked head was held past its budget")
 	require.True(t, spoolWatchPublished(dd, behind.Nonce), "fixture: the first pass published the line behind the head")
 	require.Equal(t, 1, len(dd.ing.drainKick), "fixture: its budget ended it after that progress, so it asks again")
 	<-dd.ing.drainKick // the requester takes it, as drainOnRequest does
 
 	dd.requestedDrainPass(ctx)
+	require.Equal(t, int32(2), held.Load(), "fixture: so was the next pass's, which spent its budget there too")
 	require.Zero(t, len(dd.ing.drainKick),
 		"a pass that only consumed again the line an earlier pass published made no progress: its budget must "+
 			"not end it in the blocked spool, and it must not ask for another pass")
@@ -348,16 +354,17 @@ func TestDrain_ARequestedPassIsNotEndedByReconsumingALineBehindABlockedHead(t *t
 }
 
 // TestIdleDrain_AnIdlePassIsNotEndedByReconsumingALineBehindABlockedHead is the same defect in the
-// idle drain, which RunOnce runs under a pass budget too (registerPaced). Every client spool's sync
-// outlasts the budget here. The first idle pass publishes the line behind the blocked head and its
+// idle drain, which RunOnce runs under a pass budget too (registerPaced). Every pass outlasts its budget
+// at the blocked head here (slowWaitingHead). The first idle pass publishes the line behind the blocked head and its
 // budget ends it there, before the next spool. The second only consumes that line again, and must go
 // on to publish the next spool's capture. Before the fix every idle pass stopped where the first did.
 func TestIdleDrain_AnIdlePassIsNotEndedByReconsumingALineBehindABlockedHead(t *testing.T) {
 	dd, _, root := laneTestDaemon(t)
-	dr := newDrainer(dd.drainConfig())
-	held := slowSpoolSyncs(dr)
-	dd.drain.Store(dr)
 	blocked := blockedSpoolHead(t, dd, root, "sess-idle-reconsume-stuck", 0)
+	cfg := dd.drainConfig()
+	admit, held := slowWaitingHead(cfg.Admit, blocked.Nonce)
+	cfg.Admit = admit
+	dd.drain.Store(newDrainer(cfg))
 	behind := liveOrderTool(dd, root, "sess-idle-reconsume-other", 7)
 	writeHookSpool(t, root, "client-8831.ndjson", blocked, behind)
 	fresh := liveOrderTool(dd, root, "sess-idle-reconsume-later", 50)
@@ -367,13 +374,14 @@ func TestIdleDrain_AnIdlePassIsNotEndedByReconsumingALineBehindABlockedHead(t *t
 	ran, err := dd.idle.RunOnce(ctx, idleRunBudget)
 	require.NoError(t, err)
 	require.Contains(t, ran, idleTaskDrain, "fixture: the idle pass ran the drain")
-	require.Positive(t, held.Load(), "fixture: the pass's sync of the spool was held past its budget")
+	require.Equal(t, int32(1), held.Load(), "fixture: the pass's admission of the blocked head was held past its budget")
 	require.True(t, spoolWatchPublished(dd, behind.Nonce), "fixture: the first idle pass published the line behind the head")
 	require.False(t, spoolWatchPublished(dd, fresh.Nonce), "fixture: and its budget ended it there, before the next spool")
 
 	ran, err = dd.idle.RunOnce(ctx, idleRunBudget)
 	require.NoError(t, err)
 	require.Contains(t, ran, idleTaskDrain, "fixture: the idle pass ran the drain")
+	require.Equal(t, int32(2), held.Load(), "fixture: so was the second pass's, which spent its budget there too")
 	require.True(t, spoolWatchPublished(dd, fresh.Nonce),
 		"an idle pass that only consumed again the line behind the blocked head went on and published the "+
 			"next spool's capture")
