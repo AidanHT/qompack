@@ -233,7 +233,7 @@ live session had created an empty `plugins/data/qompack-qompack-live/` directory
 | the bundle's binaries and manifest under the host's cache | **retained** on both paths; on 2.1.280, left behind and marked `.orphaned_at` |
 | host-side plugin data under `~/.claude/plugins/data/<id>/` | not created by an install; once a live session has created it, removed unless `--keep-data` (CLI help, 2.1.280) |
 | **`<project>/.qompack/` and `~/.qompack/` — your recorded sessions** | **retained. Always.** |
-| `~/.qompack/bin/<sha256>/qompack.exe` — Windows only: the copy of the binary the daemon runs from ([architecture §1](architecture.md#1-process-model)) | retained; a copy is pruned only when a newer version is staged, which never happens after an uninstall, so remove them by hand (below) |
+| `~/.qompack/bin/<sha256>/qompack.exe` — Windows only: the copy of the binary the daemon runs from ([architecture §1](architecture.md#1-process-model)) | retained; a spawn that has to write a new copy prunes every other copy no daemon is running, which never happens after an uninstall, so remove them by hand (below) |
 
 The recorded-sessions row is deliberate and it is not an oversight. `.qompack/` is your data: the captures, the
 index, the checkpoints and the diagnostic evidence from your own sessions. Uninstalling a tool is
@@ -255,6 +255,16 @@ executable cannot be deleted. The staged copies are sealed read-only, so PowerSh
 Remove-Item -Recurse -Force $HOME\.qompack\bin     # only the daemon's staged executables
 Remove-Item -Recurse -Force $HOME\.qompack          # everything user-level
 ```
+
+**When staged copies are pruned.** A staged copy is filed under its binary's SHA-256, not under a
+version string. When a daemon spawn finds no copy of its own binary that verifies, it writes one
+and then removes every other directory under `~/.qompack/bin/` named by a SHA-256, except a copy a
+running daemon is executing, which Windows will not delete; the next spawn that writes a new copy
+removes it once that daemon has exited (`pruneStaged` in `internal/daemon/spawn_stage.go`). A
+spawn whose own copy already verifies prunes nothing. So two builds that both report version
+`0.3.0` remove each other's copy: the V6 live lane saw candidate 5's build and candidate 7's build,
+both 0.3.0, each prune the other's copy when its session started. Nothing depends on a pruned
+copy; the next spawn of that build makes it again.
 
 **No secure-erasure promise.** Those commands unlink files. They say nothing about backups you made,
 copies on other media, or a filesystem that snapshots. If a credential ever reached the store — see
@@ -344,14 +354,31 @@ use" (plugins-reference). Observed on 2.1.280 with a local probe marketplace, `c
 --json` reports the install as `qompack-windows-amd64@qompack` while `claude plugin details` names
 the plugin `qompack`.
 
-**What a session shows.** Under an entry named `qompack`, which is how the V6 live lane's local
-marketplaces listed the plugin, a live session on 2.1.280 listed the MCP server as
-`plugin:qompack:qompack`, its tools as `mcp__plugin_qompack_qompack__<tool>` (for example
-`mcp__plugin_qompack_qompack__recall`) and the slash commands as `/qompack:<command>`. Under a
-release entry named `qompack-<os>-<arch>`, the namespace has **not** been observed in a live
-session, and the host may derive it from the entry name instead. These docs write
-`/qompack:<command>` throughout; if your session lists the commands or tools under another prefix,
-use the one it lists.
+**`claude plugin details` takes the plugin's name, not the entry's.** On 2.1.280, `claude plugin
+details qompack-windows-amd64` exits 1 with `Plugin "qompack-windows-amd64" not found`. Give it the
+plugin name, `claude plugin details qompack`, or the entry qualified by its marketplace, `claude
+plugin details qompack-windows-amd64@qompack`; both print the same page. Its `Description:` line is
+the marketplace **entry's** description (it ends "Install this entry on Windows, x86-64."), not
+`plugin.json`'s, and its `Source:` line is the entry, `qompack-windows-amd64@<marketplace>`
+(observed by the V6 live lane on candidate 7 through a local marketplace holding that one entry).
+
+**What a session shows.** The namespace comes from `plugin.json`'s name, `qompack`, not from the
+entry's name. The V6 live lane installed candidate 7 on 2.1.280 through a local marketplace whose
+one entry is named `qompack-windows-amd64`, the release entry's name, and a live session listed:
+
+| what | observed under the `qompack-windows-amd64` entry |
+| --- | --- |
+| MCP server | `plugin:qompack:qompack` |
+| tools | `mcp__plugin_qompack_qompack__<tool>`, for example `mcp__plugin_qompack_qompack__recall` |
+| slash commands | `/qompack:<command>`: `/qompack:dropped`, `eval`, `pin`, `recall`, `status`, `why` |
+| plugin id (`claude plugin list --json`) | `qompack-windows-amd64@<marketplace>` |
+| install path | `~/.claude/plugins/cache/<marketplace>/qompack-windows-amd64/0.3.0` |
+
+So the entry's name appears only in the install id, the cache path and the session's
+`plugins[].source`; the server, tools and commands are the same as under an entry named `qompack`.
+These docs write `/qompack:<command>` throughout. That was observed on Windows from a local
+marketplace, not yet from the published marketplace on every target; if your session lists the
+commands or tools under another prefix, use the one it lists.
 
 **Checksums.** The host verifies every download against the entry's pin: "If the downloaded file
 doesn't match the pin, Claude Code refuses the install and reports `Plugin archive integrity check

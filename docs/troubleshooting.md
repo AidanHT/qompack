@@ -525,6 +525,28 @@ shows a `<persisted-output>` note with a file path, or `.qompack/logs/LOUD.log` 
 "hook output exceeds the host's per-field cap", that is a defect: the rehydration is built never to
 reach the cap. Report it with that log line.
 
+---
+
+**Symptom.** After a compaction, section 7 names your original request first, as a `tier1` entry
+whose detail begins `OVERFLOW:`, and also names older `user_intent_evolution` entries as "did not
+fit", although the block is far below its budget (`Tokens` well under `Budget` in
+`.qompack/state/rehydrate-<session>.json`).
+
+**Meaning.** This is the designed order, not a lost record. Your first prompt is longer than the
+block can carry, so it is emitted whole or not at all and is named with its
+`expand(tool_use_id=…)` call instead. While that tier-1 record is outside the block, section 2 is
+incomplete, and its older evolution entries are not re-admitted into the room the block leaves
+unused: the original comes before every restatement in the authority order, so nothing older than
+the newest restatement is added after it ([ADR 0011](adr/0011-rehydration-budget-and-item-order.md),
+the D49 amendments). The newest restatement is still carried. The V6 live lane saw this on
+candidate 7 with a 16,858-character first prompt: the 6 oldest of 13 evolution entries were named
+while the payload used 929 of 12,000 tokens (finding F-C7-UAT04-1). It is a known limit of 0.3.0
+([cannot-do](cannot-do.md#evolution-entries-are-not-re-admitted-while-the-original-request-overflows)).
+
+**Action.** Call `dropped()` for the full list and the call that restores each entry, or
+`expand(tool_use_id=…)` with the id section 7 gives for the original. Nothing was deleted: every
+prompt stays in the capture log.
+
 ## 6. Configuration and schema compatibility
 
 There are five ways a configuration value can be *accepted and not applied*. Both loaders treat them
@@ -1323,6 +1345,25 @@ of 0.3.0 (decision D57(b);
 reach its idle exit, or end the process whose `pid` is in that project's `daemon.lock`
 ([§7](#7-daemon-problems)). A root still reported with no daemon running is a real defect; keep
 the report and do not edit `state/retention-roots.jsonl` by hand.
+
+**Symptom.** With no daemon running, `fsck` exits 1 on its `index.files` row: `index/files.json is
+absent while its log carries N path(s); the view is derived and --repair regenerates it`. Earlier in
+the session the daemon had been killed or had ended without releasing its lock, and another daemon
+took the project over.
+
+**Meaning.** `index/files.json` is a view derived from the append-only `index/files.jsonl`, written
+when a daemon flushes at a session's end or its stop. After a daemon is killed mid-session, the
+daemon that takes the project over can reach its idle exit without writing the view, so a later
+`fsck` finds the log but not the view. Nothing is lost: the log holds every file version, and
+retrieval reads it. The V6 live lane saw this on candidate 7 after two verified kills (finding
+F-C7-C49-1). It is a known limit of 0.3.0
+([cannot-do](cannot-do.md#after-a-daemon-takeover-fsck-can-find-the-files-view-missing)). With a
+daemon running, the same state is only a note ("not materialized yet"), because that daemon writes
+the view at its next flush.
+
+**Action.** Run `qompack fsck --repair --yes` to regenerate the view, or start the next session in
+the project: its flush writes the view. `fsck` then exits 0 on that row. Do not write
+`index/files.json` by hand.
 
 Startup publication accounting surfaces incomplete captures and object candidates through status
 counters and LOUD diagnostics. A bounded scan can be incomplete; zero observed gaps then means

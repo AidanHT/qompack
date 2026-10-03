@@ -12,11 +12,18 @@ against the packaged `0.3.0` bundle that SP-17's `go run ./tools/devtool bundle`
 (commit `d5598eb4`), six passing and six failing, with the findings routed by decision D45; under
 decision D47 the eleven other rows were re-run on candidate 4 (commit `9f6a2fad`), seven passing
 and four failing (UAT-03, UAT-05, UAT-06, UAT-09; UAT-05 fails because decision D50 reads its
-authority-order expectation literally), with the findings routed by decisions D49 and D50. Those
-eleven Result blocks report candidate 4 and keep candidate 3's outcome as a history line. UAT-10
-was not re-run: its Result block still reports candidate 3, and it is re-run on the next candidate
-(D50). No human has run these scenarios, automated package and installation tests have separate
-evidence and do not fill these blocks, and no release has been published.
+authority-order expectation literally), with the findings routed by decisions D49 and D50. Under
+decisions D52, D53 and D57, eight rows were re-run on candidate 7 (commit `d20309c0`): UAT-01,
+UAT-03, UAT-04, UAT-06, UAT-09 and UAT-10 pass, and UAT-05 and UAT-12 fail (decision D59). UAT-05
+fails because a compaction at a 150-token budget dropped material and injected no notice of it;
+UAT-12 fails because a tool pointer's argument summary in the rehydration block showed a path the
+host denies. Both have fixes ordered for candidate 8 (decision D59), and both rows are re-run on
+it. Those eight Result blocks report candidate 7 and keep the earlier outcomes as history lines
+(UAT-10 was not re-run on candidate 4, and its candidate 4 line says so). UAT-02, UAT-07, UAT-08
+and UAT-11 were not re-run on candidate 7: their Result blocks report candidate 4 and keep
+candidate 3's line. No human has
+run these scenarios, automated package and installation tests have separate evidence and do not
+fill these blocks, and no release has been published.
 
 What the commands, slash commands and MCP tools *are* is [docs/user-guide.md](user-guide.md); what
 each observation does and does not license you to conclude is
@@ -214,7 +221,8 @@ Result: pass — frozen candidate 7 bundle installed the way a release user inst
   ran in an isolated CLAUDE_CONFIG_DIR first, no model call). Namespace the host gave the release
   entry (observed strings, D53(f)): `claude plugin list --json` id
   qompack-windows-amd64@qompack-live, installPath
-  plugins/cache/qompack-live/qompack-windows-amd64/0.3.0; `claude plugin details qompack-windows-amd64` exit 1 "Plugin "qompack-windows-amd64" not found";
+  plugins/cache/qompack-live/qompack-windows-amd64/0.3.0; `claude plugin details
+  qompack-windows-amd64` exit 1 "Plugin "qompack-windows-amd64" not found";
   `details qompack` and `details qompack-windows-amd64@qompack-live` "qompack 0.3.0", Source
   qompack-windows-amd64@qompack-live; session init: server plugin:qompack:qompack connected, tools
   mcp__plugin_qompack_qompack__<tool> (the eight documented), slash_commands qompack:{dropped,eval,
@@ -230,7 +238,8 @@ Result: pass — frozen candidate 7 bundle installed the way a release user inst
   denied (2 in session, 4 via the CLI), as docs/mcp-tools.md documents. Hooks: SessionStart,
   UserPromptSubmit x4, PostToolUse x4, Stop x4, every one success / exit 0, stderr empty
   (PreCompact, SubagentStop not exercised; SessionEnd ran per the store; 0 host-reported hook
-  failures or timeouts). Step 2 printed 0.3.0, exit 0; step 4's installed plugin.json reads
+  failures or timeouts); the installed hooks.json declares the seven events, exec form
+  (cli/s5-installed-hooks.json). Step 2 printed 0.3.0, exit 0; step 4's installed plugin.json reads
   0.3.0 = step 2 = BUNDLE.json (source tree plugin/.claude-plugin/plugin.json at d20309c0 now
   reads 0.3.0, C7.1's version commit; last tag v0.2.0); all 108 leaves default, every gated
   switch false; self-test exit 0, no critical row. Step 8 OBSERVED (to be confirmed at
@@ -800,9 +809,12 @@ current one, and nothing in the flow waits for a post-compaction event the host 
 
 **Expected observable result**
 
-- Section 2's first unit is the **verbatim original intent from L0 capture**, never a summary: the
-  heading says so, and the original is resolved by derived id from the verbatim first prompt rather
-  than by relevance search ([docs/user-guide.md](user-guide.md#current-authority-corrections)).
+- Section 2 carries the **verbatim original intent from L0 capture**, never a summary: the heading
+  says so, and the original is resolved by derived id from the verbatim first prompt rather than by
+  relevance search ([docs/user-guide.md](user-guide.md#current-authority-corrections)). Under
+  decision D50 the section renders the evolution first, newest first under `Evolution (most recent
+  first):`, and the original last, whole, under `Original:`, so no correction has an older
+  statement above it.
 - Across steps 2, 3, 4 and 5, the newest correction stays above the older ones and no superseded
   restatement is ever promoted to the top. Repeat compaction, resume and fork do not reorder it.
 - `/qompack:why` returns an attributed record of a decision — what, why, the alternatives rejected
@@ -1555,7 +1567,12 @@ Result: fail — D50's section-6 check (finding F1); every fail criterion listed
   Section 6 of both rehydration blocks points to the deny-ruled file by hash only ("path
   withheld") and shows no absolute out-of-project path, BUT the second block also lists
   `tool_use toolu_017m9djG... — {"query":"path:private/deny.txt"}`: a host-denied path in a
-  pointer's argument summary (F1; no content shown). Upgrade leg (steps 1 and 6-10, install
+  pointer's argument summary (F1; no content shown). Observation O-1 (notes-retrieval.txt):
+  section 2, the verbatim user intent, carries the user's own prompts, which name the
+  out-of-project file by its absolute path (sessionA/injected-2-SessionStart-compact.txt) and
+  "private/deny.txt" (both blocks; session B's Original is "Use the Read tool to read
+  private/deny.txt ..."); no file content is shown. D50's rule names pointers only, and whether
+  section 2 is in its scope is left to the coordinator. Upgrade leg (steps 1 and 6-10, install
   part): pass — baseline c48-baseline taken after the previous build's permitted captures, MCP
   calls and /compact (77 files, consistent; verify: 22 roots, 15 tool refs, integrity and seal
   check passed); previous build candidate 5's frozen bundle (0d06ab12; 0.3.0 has no earlier

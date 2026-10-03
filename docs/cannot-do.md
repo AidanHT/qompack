@@ -578,6 +578,41 @@ host change could lift — as prepared proposals, none of which has been filed.
 - **Recorded at.** `plans/V6-CLOSEOUT-CHECKLIST.md` D57(b);
   [docs/troubleshooting.md §9](troubleshooting.md#9-backup-rollback-and-recovery).
 
+### After a daemon takeover, `fsck` can find the files view missing
+
+- **Limit.** After a daemon is killed mid-session, the daemon that takes the project over can reach
+  its idle exit without writing `index/files.json`. A later `fsck`, with no daemon running, then
+  exits 1 on its `index.files` row: "index/files.json is absent while its log carries N path(s);
+  the view is derived and --repair regenerates it".
+- **Why.** The view is derived from the append-only `index/files.jsonl` and written when a daemon
+  flushes. The V6 live lane found the taking-over daemon's idle exit skipping that write on
+  candidate 7, after two verified kills in one session (finding F-C7-C49-1); decision D59 records
+  it as a known limit for 0.3.0.
+- **What Qompack does instead.** Nothing is lost: every file version is in the log, and retrieval
+  reads the log. `qompack fsck --repair --yes` regenerates the view, and the next session's flush
+  writes it too.
+- **Recorded at.** `plans/V6-CLOSEOUT-CHECKLIST.md` D59;
+  `plans/sdd/V6-closeout/live/rerun-c7/C4.9/notes.txt`;
+  [docs/troubleshooting.md §9](troubleshooting.md#9-backup-rollback-and-recovery).
+
+### Evolution entries are not re-admitted while the original request overflows
+
+- **Limit.** When your first prompt is too long for the rehydration block, it is named in section 7
+  as a tier-1 overflow with its `expand(tool_use_id=…)` call, and the block's unused room is not
+  given to older evolution entries (your later prompts). They are named "did not fit" even when the
+  block is far below its budget: on candidate 7, the 6 oldest of 13 entries were named while the
+  payload used 929 of 12,000 tokens (finding F-C7-UAT04-1).
+- **Why.** Authority order comes first. The original precedes every restatement in tier 1, and
+  while a tier-1 record is outside the block, item 2 is re-admitted nowhere later: not its older
+  deltas, not by min-fill and not by the unused-room step
+  ([ADR 0011](adr/0011-rehydration-budget-and-item-order.md), the D49 amendments). Decision D59
+  keeps this design for 0.3.0.
+- **What Qompack does instead.** The newest restatement is still carried, every entry left out is
+  named in section 7, and `dropped()` lists them all with the call that restores each.
+- **Recorded at.** `plans/V6-CLOSEOUT-CHECKLIST.md` D59;
+  `plans/sdd/V6-closeout/live/rerun-c7/UAT-04/notes.txt`;
+  [docs/troubleshooting.md §5](troubleshooting.md#5-retrieval-that-looks-wrong).
+
 ### A delivery cut mid-publication can leave its decision-graph node out
 
 - **Limit.** If a capture's first publication is cut between its index record and the link that
@@ -750,9 +785,13 @@ These are the limits that can move. Each names the gate or the owner that would 
   bundle into Claude Code 2.1.263 and the launcher resolved from the host's plugin cache, which is the
   record that makes that one target read `installed-verified`
   ([docs/release.md](release.md#3-supported-scope) §3), and the V6 close-out's live lane installed
-  the frozen bundles of candidates 3 and 4 into Claude Code 2.1.280 and ran real sessions against a
-  live model. Those sessions were run by an agent on the owner's machine (owner decision D3), never
-  as human UAT. No other release target has been installed into a host: no macOS or windows/arm64
+  the frozen bundles of candidates 3, 4 and 7 into Claude Code 2.1.280 and ran real sessions
+  against a live model. Candidate 7's lane also installed through a local marketplace entry named
+  `qompack-windows-amd64`, the release entry's name, and the session listed the same
+  `/qompack:<name>` commands and `mcp__plugin_qompack_qompack__<tool>` tools as under an entry
+  named `qompack` ([docs/install.md §9](install.md#9-installing-from-the-public-marketplace)).
+  Those sessions were run by an agent on the owner's machine (owner decision D3), never as human
+  UAT. No other release target has been installed into a host: no macOS or windows/arm64
   machine with Claude Code installed was available to the live lane (macOS runs the test suites on
   hosted runners, which install nothing into Claude Code), and Linux sessions with a model could not
   run in the container, which has no login (D34(c)).
