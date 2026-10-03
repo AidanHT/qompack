@@ -32,6 +32,12 @@ func BenchmarkHookNoop_InProcess(b *testing.B) {
 
 	cmds := All()
 	argv := []string{"qompack", "observe", "tool"}
+	// The project is dir, named the way a host-spawned hook's environment names it. With no root in
+	// the environment the hook's first root is the process cwd, inside the checkout. The client's
+	// scope guard cannot place this payload (a FileRead with no tool_input) in any project, and a
+	// refused record keeps that first root, so every iteration appended a line to the checkout's own
+	// .qompack/spool.
+	getenv := envWith(map[string]string{"QOMPACK_PROJECT_ROOT": dir})
 	ctx := context.Background()
 
 	// io.Discard would let the compiler elide the response encoding, which is part of what the
@@ -45,7 +51,7 @@ func BenchmarkHookNoop_InProcess(b *testing.B) {
 		out.Reset()
 		errw.Reset()
 		code := Dispatch(ctx, cmds, argv, Env{
-			Getenv:  noEnv,
+			Getenv:  getenv,
 			Stdin:   bytes.NewReader(payload),
 			Clock:   testClock(),
 			HomeDir: home,
