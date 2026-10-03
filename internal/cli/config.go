@@ -1,8 +1,11 @@
 package cli
 
 import (
+	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -62,8 +65,15 @@ func LoadConfigAndReport(env config.Env, log logging.Logger, reg obs.Registry) (
 		}
 	}
 
-	if len(violations) > 0 && env.ProjectRoot != "" {
-		persistViolations(env.ProjectRoot, violations, log)
+	// config.Load reports a newer-settingsVersion reset as a keyed warning, not a violation, so it
+	// is not in this list; the hook path records it (reportCaptureConfig). A load that found neither
+	// leaves nothing to record and removes a record an earlier load left, which is what lets doctor's
+	// config.violations agree with self-test once an operator has fixed the file (troubleshooting
+	// §6). A load with a reset in force but no violation keeps whatever a hook recorded.
+	if env.ProjectRoot != "" && (len(violations) > 0 || !anyVersionedReset(warns)) {
+		if err := syncViolationsRecord(env.ProjectRoot, violations); err != nil {
+			log.Warn("could not update config violations", "err", err.Error())
+		}
 	}
 	return cfg, prov, nil
 }
@@ -74,54 +84,99 @@ func LoadConfigAndReport(env config.Env, log logging.Logger, reg obs.Registry) (
 // silent configuration change.
 //
 // It is deliberately narrower than LoadConfigAndReport. It runs on the hot path, so it does at most
-// one durable write and only where there is already somewhere durable to write: a project with no
-// .qompack directory has not opted in, and a hook must never conjure one out of a diagnostic. Each
-// leaf violation is a Loud, and each warning and newer-settingsVersion reset a Warn —
-// LoadConfigAndReport's levels and fields — through the hook logger, which materializes a file sink
-// only if logs/ already exists and otherwise still reaches the process-wide Loud ring. Only the
-// violations are persisted: state/config-violations.json is the §11.3 list, and an unknown key has
-// never belonged in it. Nothing here can fail the delivery.
+// one durable write, only when the §11.3 list differs from the one on record, and only where there
+// is already somewhere durable to write: a project with no .qompack directory has not opted in, and
+// a hook must never conjure one out of a diagnostic. A list identical to the record costs one read,
+// and a load with no violation removes the record, which costs one Lstat when there is none. Wave
+// 20 measured the write it saves: a hook that rewrote an unchanged record paid a staging file, a
+// write, an fsync, a rename and a directory fsync every time, about 19 ms on Windows.
+//
+// Every warning, newer-settingsVersion reset and leaf violation is a Warn here, through the hook
+// logger, which materializes a file sink only if logs/ already exists. That is D59's rule for a
+// persistent configuration condition: the daemon reports it loudly, once per start (its own
+// LoadConfigAndReport) and once per reload of a changed file or forced admin.reload
+// (daemon/reload.go), and a hook logs it at warn. Logged Loud here, the same unchanged condition put
+// one line per hook process in the never-rotated LOUD.log (finding F-C7-C49-2: 18 lines in 30 s
+// after a downgrade), and those lines never reached status, which prints only the daemon's ring.
+// Only the violations are persisted: state/config-violations.json is the §11.3 list, and an unknown
+// key has never belonged in it. Nothing here can fail the delivery.
 func reportCaptureConfig(root, home string, violations []config.Violation, warnings []config.Warning) {
-	if len(violations)+len(warnings) == 0 || root == "" || !isDir(paths.Of(root).Dot) {
+	if root == "" {
 		return
 	}
+	if len(violations) == 0 {
+		// Nothing to record: remove what an earlier load recorded. With no .qompack this is one
+		// failed Lstat, and it creates nothing.
+		if err := syncViolationsRecord(root, nil); err != nil && isDir(paths.Of(root).Dot) {
+			withHookLogger(root, home, func(log logging.Logger) {
+				log.Warn("could not update config violations", "err", err.Error())
+			})
+		}
+		if len(warnings) == 0 {
+			return
+		}
+	}
+	if !isDir(paths.Of(root).Dot) {
+		return
+	}
+	withHookLogger(root, home, func(log logging.Logger) {
+		for _, w := range warnings {
+			log.Warn("configuration warning", "key", w.Key, "message", w.Message, "location", w.Location)
+		}
+		for _, v := range violations {
+			if isVersionedReset(v) {
+				// config.Load returns this reset as a keyed Warning, not a §11.3 violation, and
+				// LoadConfigAndReport logs it as one; LoadForCapture types it as a Violation only so
+				// that it is recorded below.
+				log.Warn("configuration warning", "key", v.Key, "message", v.Message)
+				continue
+			}
+			log.Warn("invalid configuration value, using default",
+				"key", v.Key, "got", v.Got, "want", v.Want, "message", v.Message)
+		}
+		if len(violations) > 0 {
+			if err := syncViolationsRecord(root, violations); err != nil {
+				log.Warn("could not update config violations", "err", err.Error())
+			}
+		}
+	})
+}
+
+// withHookLogger runs fn with a hook logger for root and releases the logger's file handles when fn
+// returns, rather than relying on process exit: admission also runs in process, from tests and from
+// any future in-process caller, and an unreleased handle is a directory nobody can clean up on
+// Windows.
+func withHookLogger(root, home string, fn func(logging.Logger)) {
 	log := newHookLoggerWithHome(root, home)
-	// This logger exists for the length of this call, so it releases its file handles here rather
-	// than relying on process exit: admission also runs in process, from tests and from any future
-	// in-process caller, and an unreleased handle is a directory nobody can clean up on Windows.
 	if hl, ok := log.(*hookLogger); ok {
 		defer hl.closeSink()
 	}
-	for _, w := range warnings {
-		log.Warn("configuration warning", "key", w.Key, "message", w.Message, "location", w.Location)
-	}
-	for _, v := range violations {
-		if isVersionedReset(v) {
-			// LoadConfigAndReport's level for the same reset: config.Load returns it as a keyed
-			// Warning, not a §11.3 violation. LoadForCapture types it as a Violation only so that it
-			// is persisted below; that is not a reason to promote it. Logged Loud, it put one line in
-			// the never-rotated LOUD.log per hook for as long as a project stayed on a newer config
-			// (finding F-C7-C49-2: 18 lines in 30 s after a downgrade), when Loud is reserved for
-			// contract violations and degradation transitions. Each daemon still names it in
-			// LOUD.log at its first config check after start, and again on each reload of a changed
-			// file or a forced admin.reload (daemon/reload.go); doctor reads the record below.
-			log.Warn("configuration warning", "key", v.Key, "message", v.Message)
-			continue
-		}
-		log.Loud("invalid configuration value, using default",
-			"key", v.Key, "got", v.Got, "want", v.Want, "message", v.Message)
-	}
-	if len(violations) > 0 {
-		persistViolations(root, violations, log)
-	}
+	fn(log)
 }
 
 // isVersionedReset reports whether v is LoadForCapture's record of a whole versioned block reset for
 // a newer settingsVersion. Such a record is keyed by the block's own path (config.VersionedSections),
 // which no §11.3 leaf violation ever is: those are keyed by a leaf.
 func isVersionedReset(v config.Violation) bool {
+	return isVersionedSection(v.Key)
+}
+
+// anyVersionedReset reports whether config.Load's warnings include a whole versioned block reset for
+// a newer settingsVersion. config.Load keys that warning by the block's own path, exactly as
+// LoadForCapture keys the Violation it records for the same reset.
+func anyVersionedReset(warns []config.Warning) bool {
+	for _, w := range warns {
+		if isVersionedSection(w.Key) {
+			return true
+		}
+	}
+	return false
+}
+
+// isVersionedSection reports whether key is a versioned block's own path.
+func isVersionedSection(key string) bool {
 	for _, s := range config.VersionedSections() {
-		if v.Key == s.Path {
+		if key == s.Path {
 			return true
 		}
 	}
@@ -149,22 +204,41 @@ func captureConfigKeys(violations []config.Violation, warnings []config.Warning)
 	return strings.Join(parts, "; ")
 }
 
-// persistViolations writes the typed §11.3 list to state/config-violations.json.
-func persistViolations(projectRoot string, violations []config.Violation, log logging.Logger) {
+// syncViolationsRecord brings state/config-violations.json in line with one load's typed §11.3 list.
+// An empty list removes the record. A list whose encoding is byte-for-byte the record's leaves it
+// alone: the read is cheap, and the durable write it replaces is not (reportCaptureConfig). Any other
+// list is written atomically. A record that cannot be read, including one being renamed over on
+// Windows at that moment, is simply written again.
+func syncViolationsRecord(projectRoot string, violations []config.Violation) error {
 	l := paths.Of(projectRoot)
-	if err := os.MkdirAll(paths.Long(l.State), 0o700); err != nil {
-		log.Warn("could not create state directory for config violations", "err", err.Error())
-		return
+	p := filepath.Join(l.State, configViolationsFile)
+	if len(violations) == 0 {
+		if _, err := os.Lstat(paths.Long(p)); err != nil {
+			if errors.Is(err, fs.ErrNotExist) {
+				return nil
+			}
+			return fmt.Errorf("checking %s: %w", p, err)
+		}
+		if err := os.Remove(paths.Long(p)); err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return fmt.Errorf("removing %s: %w", p, err)
+		}
+		return nil
 	}
 	b, err := json.MarshalIndent(violations, "", "  ")
 	if err != nil {
-		log.Warn("could not encode config violations", "err", err.Error())
-		return
+		return fmt.Errorf("encoding config violations: %w", err)
 	}
-	p := filepath.Join(l.State, configViolationsFile)
-	if err := paths.WriteAtomic(p, append(b, '\n'), 0o600); err != nil {
-		log.Warn("could not persist config violations", "path", p, "err", err.Error())
+	b = append(b, '\n')
+	if cur, readErr := paths.ReadFileShared(p); readErr == nil && bytes.Equal(cur, b) {
+		return nil
 	}
+	if err := os.MkdirAll(paths.Long(l.State), 0o700); err != nil {
+		return fmt.Errorf("creating the state directory: %w", err)
+	}
+	if err := paths.WriteAtomic(p, b, 0o600); err != nil {
+		return fmt.Errorf("writing %s: %w", p, err)
+	}
+	return nil
 }
 
 // homeDir resolves the user-global layer's home, preferring an explicitly injected value so tests
