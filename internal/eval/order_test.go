@@ -1,6 +1,7 @@
 package eval_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -95,4 +96,29 @@ func TestEvalValidators_NameTheSameProblemEveryRead(t *testing.T) {
 		})
 		require.Regexp(t, `^the earlier baseline's .*\nthe later baseline's `, got)
 	})
+}
+
+// TestAccountHostStream_NamesBesideProblemsInModelOrder is D53(a) for the live account's problems:
+// a turn in which two models' running totals both fall leaves one "main-loop … exceeds" line per
+// model in SessionAccount.Problems, and those lines come in the same (model) order on every read
+// (w20 status review nit). beside() ranged over the turn's Delta map, so the two lines swapped from
+// run to run while the "decreased" lines before them, already sorted, did not.
+func TestAccountHostStream_NamesBesideProblemsInModelOrder(t *testing.T) {
+	const modelA, modelB = "model-a", "model-b"
+	base := eval.AccountBaseline{ModelUsage: map[string]eval.HostModelUsage{
+		modelA: {InputTokens: 100}, modelB: {InputTokens: 100},
+	}}
+	s := eval.HostStream{Turns: []eval.HostTurn{{
+		Index: 0,
+		Result: &eval.HostResult{ModelUsage: map[string]eval.HostModelUsage{
+			modelA: {InputTokens: 10}, modelB: {InputTokens: 10},
+		}},
+	}}}
+	got := requireSameEveryRead(t, func() string {
+		a := eval.AccountHostStream(s, base)
+		require.False(t, a.Consistent)
+		return strings.Join(a.Problems, "\n")
+	})
+	require.Regexp(t, `exceeds the turn's model-a running-total change\n.*exceeds the turn's model-b `, got,
+		"the beside lines are in model order")
 }

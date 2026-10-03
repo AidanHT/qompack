@@ -325,10 +325,12 @@ func usageModels(m map[string]UsageTotals) []string {
 	return out
 }
 
-// beside computes Delta − MainLoop and attributes it.
+// beside computes Delta − MainLoop and attributes it. It walks the models in sorted order, so the
+// problems it reports come in the same order on every run (D53(a)).
 func beside(t HostTurn, ta TurnAccount, problem func(string, ...any)) (map[string]UsageTotals, RequestKind) {
 	out := map[string]UsageTotals{}
-	for model, d := range ta.Delta {
+	for _, model := range usageModels(ta.Delta) {
+		d := ta.Delta[model]
 		rest := d
 		if model == ta.MainModel {
 			// The TTL split of the main loop is known; the running total never carries one, so
