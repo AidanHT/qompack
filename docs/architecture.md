@@ -175,9 +175,16 @@ must still wait for an earlier delivery of its session (C1.13); the startup, flu
 operator drains replay whatever is left. The idle drain runs once the project has had no activity
 for `scheduler.idle.detectAfterSeconds` (120 s by default), looked at on a tick of at most 30 s.
 The watcher's passes, the idle drain and a drain the ingest's lanes ask for share a soft 2 s pass
-budget (owner decision D31, `idleRunBudget`): once it is spent a pass starts no new line, and the
-line in progress finishes under its own 5 s `drainLineDeadline` rather than being cut. The drains a
-session end runs for itself are not budgeted.
+budget (owner decision D31, `idleRunBudget`). Once it is spent, a pass that has made progress (it
+advanced a spool's consumed front, or published or retired a line) starts no new line, and the line
+in progress finishes under its own 5 s `drainLineDeadline` rather than being cut. A pass that has
+made no progress is not stopped by the budget: it reads on until it makes progress or reaches the end
+of the spool, so a spool whose head waits for an earlier delivery of its session cannot starve the
+spools after it (D58(c)). Such a pass is bounded by the spool, not the clock. It admits again, and
+checks against the committed frontier again, each line that still waits; a line an earlier pass of
+the same daemon consumed behind such a head costs only its read; and a spool file unchanged since the
+daemon synced it is neither synced nor has its progress rewritten again. The drains a session end
+runs for itself are not budgeted.
 
 A replayed request is one whose hook has already answered the host without the daemon, so a replay
 does the request's bookkeeping and nothing the host would have to see. A replayed `SessionStart`
