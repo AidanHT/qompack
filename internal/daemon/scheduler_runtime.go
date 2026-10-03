@@ -234,13 +234,13 @@ type schedRuntime struct {
 	// delivery is never dispatched again, so the one delivery of a session that can be replayed after
 	// the tap applied it is the last one applied. One entry per session is therefore the whole of
 	// what recognizing a replay needs. The map is not session-scoped state: a rebind keeps its
-	// entries (resetSessionLocked only drops the closes they owe), because a replay of another
-	// session's delivery is still a replay. The bound session's identity is persisted with the
-	// account it describes (schedulerStateDoc.LastAppliedObservation), and a runtime constructed
-	// unbound seeds it from that document (seedApplied), so a delivery the previous daemon applied,
-	// persisted and never committed is recognized when the restarted daemon's drain replays it. The
-	// map holds one entry per session this daemon applied a delivery of, as the observer's
-	// per-session state does, for the daemon's lifetime.
+	// entries (resetSessionLocked only releases what they say about the account), because a replay of
+	// another session's delivery is still a replay. The entries the account holds are persisted with
+	// it (schedulerStateDoc.LastAppliedObservations), and a runtime constructed unbound seeds the map
+	// from that document (seedApplied), so a delivery the previous daemon applied, persisted and never
+	// committed is recognized when the restarted daemon's drain replays it. The map holds one entry
+	// per session this daemon saw a delivery of, as the observer's per-session state does, for the
+	// daemon's lifetime.
 	applied map[core.SessionID]appliedDelivery
 
 	// Additive to the seat contract (documented in the C1 report):
@@ -1007,6 +1007,10 @@ func (r *schedRuntime) addOpenSegmentTokensLocked(tok core.Tokens) {
 type appliedDelivery struct {
 	// obs is the delivery's observation identity.
 	obs core.ObservationID
+	// held reports that the account this runtime holds includes the delivery's application: it was
+	// claimed since the bind that started the account, or restored with the account from
+	// state/scheduler.json. The held identities are the ones persisted with the account.
+	held bool
 	// owed is the segment close the delivery's application has yet to make, nil once it is made or
 	// when it needs none. A replay of the delivery makes it (closeOwed). It is not persisted, and a
 	// rebind drops it (releaseAccountLocked).
@@ -1029,12 +1033,12 @@ type owedClose struct {
 
 // claimDeliveryLocked reports whether the delivery identified by obs, of session sess, is one the
 // tap has not applied yet, and records it as the session's last applied delivery when so (applied
-// says why one per session is enough). The new entry inherits nothing from the one it replaces:
-// under the ordering gate that delivery was acknowledged, so a close it owed cannot come back with
-// it. A delivery with no identity, from an in-process caller or a delivery the daemon could not
-// lease, has nothing to recognize it by and is always applied, as every delivery was before. It
-// never rejects a delivery it has not seen: the worst an unexpected order could do is apply a
-// replay again, which is what happened before this check existed.
+// says why one per session is enough). The new entry is held, and inherits nothing from the one it
+// replaces: under the ordering gate that delivery was acknowledged, so a close it owed cannot come
+// back with it. A delivery with no identity, from an in-process caller or a delivery the daemon
+// could not lease, has nothing to recognize it by and is always applied, as every delivery was
+// before. It never rejects a delivery it has not seen: the worst an unexpected order could do is
+// apply a replay again, which is what happened before this check existed.
 func (r *schedRuntime) claimDeliveryLocked(sess core.SessionID, obs core.ObservationID) bool {
 	if obs == "" {
 		return true
@@ -1042,7 +1046,7 @@ func (r *schedRuntime) claimDeliveryLocked(sess core.SessionID, obs core.Observa
 	if r.applied[sess].obs == obs {
 		return false
 	}
-	r.applied[sess] = appliedDelivery{obs: obs}
+	r.applied[sess] = appliedDelivery{obs: obs, held: true}
 	r.dirty = true
 	return true
 }
@@ -1080,12 +1084,68 @@ func (r *schedRuntime) closeOwed(ctx context.Context, sess core.SessionID, obs c
 	return nil
 }
 
-// releaseAccountLocked is resetSessionLocked's part of applied. The closes the entries owed would
-// close the bound session's open segment, which is now another session's, so they are dropped. The
-// identities stay, to recognize a replay.
+// releaseAccountLocked is resetSessionLocked's part of applied. The account the held entries
+// described is gone, so none is held any more. The closes they owed would close the bound
+// session's open segment, which is now another session's, so they are dropped. The identities stay,
+// to recognize a replay.
 func (r *schedRuntime) releaseAccountLocked() {
 	for s, d := range r.applied {
-		d.owed = nil
+		d.held, d.owed = false, nil
+		r.applied[s] = d
+	}
+}
+
+// heldLocked lists the sessions whose applied entry the account holds.
+func (r *schedRuntime) heldLocked() []core.SessionID {
+	var out []core.SessionID
+	for s, d := range r.applied {
+		if d.held {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+// holdLocked marks the applied entries of sessions as held by the account.
+func (r *schedRuntime) holdLocked(sessions []core.SessionID) {
+	for _, s := range sessions {
+		if d, ok := r.applied[s]; ok {
+			d.held = true
+			r.applied[s] = d
+		}
+	}
+}
+
+// heldObservationsLocked is the part of applied a persist writes with the account: the identity of
+// every held entry, nil when there is none.
+func (r *schedRuntime) heldObservationsLocked() map[core.SessionID]core.ObservationID {
+	var out map[core.SessionID]core.ObservationID
+	for s, d := range r.applied {
+		if !d.held || d.obs == "" {
+			continue
+		}
+		if out == nil {
+			out = make(map[core.SessionID]core.ObservationID)
+		}
+		out[s] = d.obs
+	}
+	return out
+}
+
+// restoreAppliedLocked holds the identities a restored account carries. An entry this runtime
+// already has for a session is kept, and held: only this daemon writes the document while it runs,
+// from its own entries, so its entry is the document's or a later one, and under the ordering gate
+// the delivery the document names was acknowledged before a later one of its session ran.
+func (r *schedRuntime) restoreAppliedLocked(ids map[core.SessionID]core.ObservationID) {
+	for s, id := range ids {
+		if s == "" || id == "" {
+			continue
+		}
+		d := r.applied[s]
+		if d.obs == "" {
+			d.obs = id
+		}
+		d.held = true
 		r.applied[s] = d
 	}
 }

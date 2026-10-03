@@ -352,9 +352,10 @@ adds no detector observation and moves no request-start anchor (`sched.tap.redel
 thing a replay does is make a segment close the first run owed and did not make: a task-boundary
 or changepoint close that the same cancel failed along with the ack. The ordering gate holds a
 session's next delivery until every earlier one is acknowledged, so the last delivery applied for a
-session is the only one that can come back. The tap therefore keeps one identity per session, and
-persists the bound session's identity in `state/scheduler.json` with the account it describes, so a
-restarted daemon's drain does not fold it again.
+session is the only one that can come back. The tap therefore keeps one identity per session. The
+tap folds every session's tool use into the bound account, so it persists in `state/scheduler.json`
+the identity of every session whose delivery reached that account, and a restarted daemon's drain
+folds none of them again.
 
 [ADR 0014](adr/0014-delivery-group-commit-and-ab-seal.md) records the delivery path's group commit
 and the format-2 A/B seal as they are implemented and merged — it documents decisions already taken
