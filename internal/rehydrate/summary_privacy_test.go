@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -439,4 +440,116 @@ func TestBuild_TheProjectRootFollowedByMoreWordsIsShown(t *testing.T) {
 				[]string{"deny.txt", "proj2", "old" + sep + "x.txt", strings.ReplaceAll("old"+sep+"x.txt", `\`, `\\`)})
 		})
 	}
+}
+
+// TestBuild_ShellQuotingAndEscapesNeverShowADeniedPath is the w19 round-2 review's second finding.
+// A Bash or PowerShell command names a path the way its shell reads it: PowerShell doubles an
+// apostrophe inside a single-quoted string and escapes with a backtick, a POSIX shell escapes a
+// space, an apostrophe or a parenthesis with a backslash and honours `\"` inside double quotes, and
+// `&&` ends a word without a space. Read as written, none of those spells the denied path, and the
+// quoted segment after an escaped quote pairs the wrong quotes, so section 6 showed each of these
+// while the file pointer for the same path was withheld. Each is withheld relative and absolute,
+// and the same shapes naming allowed files are shown.
+func TestBuild_ShellQuotingAndEscapesNeverShowADeniedPath(t *testing.T) {
+	root := previewRoot("proj")
+	slash := strings.ReplaceAll(root, `\`, "/")
+	relative := func(dir, ext string) []string {
+		return []string{
+			`Get-Content -LiteralPath '` + dir + `/John''s notes` + ext + `'`,
+			`Get-Content ` + dir + "/my` secret" + ext,
+			`cat ` + dir + `/John\'s\ notes` + ext,
+			`cat ` + dir + `/my\ secret` + ext,
+			`cat ` + dir + `/deny\(2\)` + ext,
+			`echo "a\"b" && cat "` + dir + `/deny (1)` + ext + `"`,
+			`grep -c "it\"s" "` + dir + `/a,b` + ext + `"`,
+			`wc -l ` + dir + `/a,b` + ext + `&&echo`,
+			`cat ` + dir + `/plain` + ext + `&&ls`,
+		}
+	}
+	absolute := func(dir, ext string) []string {
+		return []string{
+			`Get-Content '` + filepath.Join(root, dir, "John''s notes"+ext) + `'`,
+			"Get-Content " + slash + "/" + dir + "/my` secret" + ext,
+			`cat ` + slash + `/` + dir + `/John\'s\ notes` + ext,
+			`cat ` + slash + `/` + dir + `/my\ secret` + ext,
+			`echo "a\"b" && cat "` + slash + `/` + dir + `/deny (1)` + ext + `"`,
+			`grep -c "it\"s" "` + slash + `/` + dir + `/a,b` + ext + `"`,
+		}
+	}
+	denied := []string{
+		"private/John's notes.txt", "private/my secret.txt", "private/deny(2).txt", "private/deny (1).txt",
+		"private/a,b.txt", "private/plain.txt",
+	}
+	leaks := []string{
+		"John''s notes.txt", `John\'s\ notes.txt`, "my` secret.txt", `my\ secret.txt`, `deny\(2\).txt`,
+		"deny (1).txt", "a,b.txt", "plain.txt",
+	}
+	// No file pointer records these paths: each shape is withheld by the host's rules on the path
+	// its shell reads, not by a path the build already knows (which
+	// TestBuild_AKnownWithheldPathIsFoundAnywhereInAText covers).
+	for _, tc := range []struct {
+		name   string
+		shapes func(dir, ext string) []string
+	}{{"relative", relative}, {"absolute", absolute}} {
+		t.Run(tc.name, func(t *testing.T) {
+			requireSummaries(t, root, denied, nil, tc.shapes("docs", ".md"), tc.shapes("private", ".txt"), leaks)
+		})
+	}
+}
+
+// TestBuild_AKnownWithheldPathIsFoundAnywhereInAText is the w19 round-2 review's third finding: a
+// path with a space that no producer delimits, in the middle of a free-text argument or a command,
+// is read word by word, and no word spells it. Every path the build withholds and records is
+// looked for in each text whole, between word boundaries, wherever its spaces fall; a path Qompack
+// never recorded stays a documented limit (ADR 0011 §23.2).
+func TestBuild_AKnownWithheldPathIsFoundAnywhereInAText(t *testing.T) {
+	root := previewRoot("proj")
+	slash := strings.ReplaceAll(root, `\`, "/")
+	withheld := []string{
+		`{"query":"find private/my secret.txt usages"}`,
+		`(cat private/my secret.txt)`,
+		`cp private/my secret.txt backup/`,
+		`{"query":"where is my secret.txt used"}`,
+		`cp ` + slash + `/private/my secret.txt backup/`,
+		`{"query":"see @private/deny.txt first"}`,
+		`{"query":"PRIVATE/MY SECRET.TXT and more"}`,
+	}
+	shown := []string{
+		`{"query":"find docs/my notes.md usages"}`,
+		`cp docs/my notes.md backup/`,
+		`{"query":"not my secret.txt.bak at all"}`,
+		`{"query":"see @docs/guide.md first"}`,
+	}
+	if runtime.GOOS != "windows" && runtime.GOOS != "darwin" {
+		// A path folds case only where the platform's filesystem does (paths.Key).
+		shown = append(shown, withheld[len(withheld)-1])
+		withheld = withheld[:len(withheld)-1]
+	}
+	deny := []string{"private/my secret.txt", "private/deny.txt"}
+	requireSummaries(t, root, deny, deny, shown, withheld, []string{"my secret.txt usages", "deny.txt first"})
+}
+
+// TestBuild_APathSelectorIsJudgedByWhatItSelects is the w19 round-2 review's fourth finding.
+// recall's plain path: selector selects a record by equality, by path-segment suffix and by
+// containment, and a glob selector by path.Match against the whole key and against each of its
+// path-segment suffixes (store.pathSelector.weight). The gate judged a plain selector by equality
+// and suffix alone and a glob as rules.Match anchors it, so a selector that selects a withheld file
+// by containment or by a glob suffix was shown, spelling most of the path.
+func TestBuild_APathSelectorIsJudgedByWhatItSelects(t *testing.T) {
+	root := previewRoot("proj")
+	withheld := []string{
+		`{"query":"path:private/deny.tx"}`,
+		`{"query":"path:rivate/deny.txt"}`,
+		`{"query":"path:deny"}`,
+		`{"query":"path:keep/*.txt"}`,
+		`{"query":"path:keep/a.* retry"}`,
+	}
+	shown := []string{
+		`{"query":"path:reports"}`,
+		`{"query":"path:src/*.go"}`,
+		`{"query":"path:docs/*.md symbol:deny"}`,
+	}
+	deny := []string{"private/deny.txt", "private/keep/a.txt"}
+	requireSummaries(t, root, deny, append([]string{"reports.py"}, deny...), shown, withheld,
+		[]string{"deny.tx", "rivate", "path:deny", "keep/"})
 }
