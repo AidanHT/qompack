@@ -289,3 +289,70 @@ func TestBuild_DelimiterCharactersInADeniedPathNeverShowIt(t *testing.T) {
 		})
 	}
 }
+
+// TestBuild_AProjectPathWithASpaceShowsItsOwnAbsolutePaths is round 1's open issue, ruled on in
+// D60: in a project whose own path has a space in it (C:\Users\John Smith\proj), every absolute
+// summary was withheld, because its first word, cut at that space, is an absolute path outside the
+// project. The project's own absolute paths are shown, in every shape the store's preview takes,
+// while a denied one, one outside the project, and one that merely starts like the project's path
+// are still withheld.
+func TestBuild_AProjectPathWithASpaceShowsItsOwnAbsolutePaths(t *testing.T) {
+	base := previewRoot()
+	root := filepath.Join(base, "John Smith", "proj")
+	src := filepath.Join(root, "src", "main.go")
+	deny := filepath.Join(root, "private", "deny.txt")
+	sibling := filepath.Join(base, "John Smith", "other", "x.txt")
+	shown := []string{
+		src,
+		strings.ReplaceAll(src, `\`, "/"),
+		src + " TODO",
+		filepath.Join(root, "src") + " *.go",
+		`cat "` + src + `"`,
+		`{"notebook_path":"` + strings.ReplaceAll(src, `\`, `\\`) + `"}`,
+	}
+	withheld := []string{
+		deny,
+		deny + " apikey",
+		filepath.Join(root, "private") + " deny.txt",
+		`cat "` + deny + `"`,
+		sibling,
+		`cat "` + sibling + `"`,
+		filepath.Join(base, "John Smith", "proj2", "x.txt"),
+		"ls " + filepath.Join(base, "John"),
+	}
+	for _, s := range append(append([]string(nil), shown...), withheld...) {
+		require.LessOrEqual(t, len(s), previewWidth, "fixture: %q is wider than a store preview", s)
+	}
+	cp := ckUAT05()
+	cp.Pointers.Files = nil
+	cp.Pointers.Tools = nil
+	for i, s := range shown {
+		cp.Pointers.Tools = append(cp.Pointers.Tools, checkpoint.ToolPointer{
+			ToolUseID: core.ToolUseID(fmt.Sprintf("toolu_ok_%d", i)), Hash: hashOf("ok" + s), Summary: s,
+		})
+	}
+	for i, s := range withheld {
+		cp.Pointers.Tools = append(cp.Pointers.Tools, checkpoint.ToolPointer{
+			ToolUseID: core.ToolUseID(fmt.Sprintf("toolu_no_%d", i)), Hash: hashOf("no" + s), Summary: s,
+		})
+	}
+	d := uat05Deps(t, cp)
+	d.HostPaths = denyFiles(root, "private/deny.txt")
+	r := requestFor(t, cp, maxBudget())
+	r.ProjectRoot = root
+
+	res, err := Build(context.Background(), r, d)
+	require.NoError(t, err)
+	requireInsideTheHostCeiling(t, res, cp.Session)
+	requireNoLeak(t, res, []string{"deny.txt", filepath.Join("John Smith", "other"), "proj2", "ls " + filepath.Join(base, "John")})
+
+	section6 := sectionBody(res.Text, sectionHeading(ItemPointers))
+	for i, s := range shown {
+		require.Contains(t, section6, pointerLine(fmt.Sprintf("tool_use toolu_ok_%d", i), hashOf("ok"+s), s),
+			"an absolute path inside the project is shown although the project's path has a space")
+	}
+	for i, s := range withheld {
+		require.Contains(t, section6, fmt.Sprintf("- tool_use toolu_no_%d %s — %s", i, hashOf("no"+s), withheldSummary),
+			"%q names a denied path or one outside the project", s)
+	}
+}

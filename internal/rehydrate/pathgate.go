@@ -5,6 +5,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"unicode/utf8"
 
@@ -49,6 +50,9 @@ type pathJudge struct {
 	root    string
 	host    bool
 	refuses func(string) bool
+	// rootSpelling finds the project root spelled in a summary when the root holds a character the
+	// reading splits at (protectRoot), and is nil otherwise.
+	rootSpelling *regexp.Regexp
 	// known holds every concrete path this build's pointers record that withheld() refuses inside
 	// the project — a file pointer's own, one a tool summary names, and one a path-keyed checkpoint
 	// drop names — in project-relative paths.Key form. A glob in a summary is withheld when it
@@ -64,7 +68,9 @@ type pathJudge struct {
 
 // newPathRules is a judge with the host's rules and no known paths: enough for withheld().
 func newPathRules(r Request, d Deps) pathJudge {
-	j := pathJudge{root: r.ProjectRoot, judged: make(map[string]bool)}
+	j := pathJudge{
+		root: r.ProjectRoot, judged: make(map[string]bool), rootSpelling: rootSpellingOf(r.ProjectRoot),
+	}
 	if d.HostPaths != nil {
 		j.host = true
 		j.refuses = d.HostPaths()
@@ -312,11 +318,11 @@ func (j pathJudge) readSummary(s string) (texts []string, pieces []summaryPiece)
 			pieces = append(pieces, summaryPiece{text: strings.TrimSpace(a.value), kind: pieceNamed})
 		}
 	}
-	if toks := nonEmptyTokens(texts[0]); len(toks) == 1 {
-		pieces = append(pieces, summaryPiece{text: toks[0], kind: pieceNamed})
+	if toks := nonEmptyTokens(j.protectRoot(texts[0])); len(toks) == 1 {
+		pieces = append(pieces, summaryPiece{text: restoreRoot(toks[0]), kind: pieceNamed})
 	}
 	for _, t := range texts {
-		pieces = textPieces(pieces, t)
+		pieces = textPieces(pieces, j.protectRoot(t))
 	}
 	return texts, pieces
 }
@@ -328,6 +334,8 @@ func (j pathJudge) readSummary(s string) (texts []string, pieces []summaryPiece)
 // delimits — unquoted between two other words of a command — is read word by word, as the shell
 // that ran the command read it (ADR 0011 §23.5). A wider t is never the store's preview
 // (store.argsPreviewMax), and its prefixes, suffixes and joins are not read: each is as wide as t.
+// t's own spellings of the project root are protected (protectRoot), so no piece cuts the root
+// apart.
 func textPieces(pieces []summaryPiece, t string) []summaryPiece {
 	pieces = appendPiece(pieces, t, pieceSpan)
 	for _, tok := range summaryTokens.Split(t, -1) {
@@ -382,11 +390,12 @@ func quotedSegments(t string) []string {
 	return out
 }
 
-// appendPiece appends text, its trailing sentence punctuation cut, and the value behind its selector
-// prefix: named when the selector is named for a path, and read as text was otherwise. A join's
-// value stays a join, since the join is not a spelling found in the summary.
+// appendPiece appends text, its project-root spellings restored (restoreRoot) and its trailing
+// sentence punctuation cut, and the value behind its selector prefix: named when the selector is
+// named for a path, and read as text was otherwise. A join's value stays a join, since the join is
+// not a spelling found in the summary.
 func appendPiece(pieces []summaryPiece, text string, kind pieceKind) []summaryPiece {
-	if text = strings.TrimRight(strings.TrimSpace(text), ".:"); text == "" {
+	if text = strings.TrimRight(restoreRoot(strings.TrimSpace(text)), ".:"); text == "" {
 		return pieces
 	}
 	pieces = append(pieces, summaryPiece{text: text, kind: kind})
@@ -410,6 +419,64 @@ func nonEmptyTokens(t string) []string {
 	}
 	return out
 }
+
+// The project root is often spelled with a space in it (C:\Users\John Smith\proj), and then the
+// first word of every absolute summary in the project is the root cut at that space: an absolute
+// path outside the project, which withheld every such summary (D60, round 1's open issue). So the
+// reading never cuts the root apart: protectRoot swaps each character of a root spelling that the
+// reading splits at for a control character no store preview carries (store.previewString strips
+// them), and appendPiece swaps it back, so every piece is judged in the summary's own spelling.
+// Text that is only part of the root's spelling (C:\Users\John alone) is not a spelling of it, and
+// text that runs past it into a sibling (C:\Users\John Smith\proj2) is one word with it; either is
+// judged, and withheld, as the path outside the project it is.
+var (
+	rootProtect = strings.NewReplacer(
+		" ", "\x01", "\t", "\x02", `"`, "\x03", "'", "\x04", "`", "\x05", ",", "\x06", ";", "\x07",
+		"(", "\x08", ")", "\x0e", "{", "\x0f", "}", "\x10", "[", "\x11", "]", "\x12", "<", "\x13",
+		">", "\x14", "|", "\x15", "=", "\x16")
+	rootRestore = strings.NewReplacer(
+		"\x01", " ", "\x02", "\t", "\x03", `"`, "\x04", "'", "\x05", "`", "\x06", ",", "\x07", ";",
+		"\x08", "(", "\x0e", ")", "\x0f", "{", "\x10", "}", "\x11", "[", "\x12", "]", "\x13", "<",
+		"\x14", ">", "\x15", "|", "\x16", "=")
+)
+
+// rootSplitChars are the characters the reading splits a summary at: whitespace, quotes and
+// summaryTokens' delimiters.
+const rootSplitChars = " \t\"'`,;(){}[]<>|="
+
+// rootSpellingOf matches root as a summary spells it, or is nil when root holds no character the
+// reading splits at, so that no piece could cut it apart. On Windows a separator is either slash and
+// the match ignores case, as the filesystem and filepath.Rel do; elsewhere it is exact.
+func rootSpellingOf(root string) *regexp.Regexp {
+	if root == "" || !strings.ContainsAny(root, rootSplitChars) {
+		return nil
+	}
+	var b strings.Builder
+	sep := "/"
+	if runtime.GOOS == "windows" {
+		b.WriteString("(?i)")
+		sep = `[\\/]`
+	}
+	for _, r := range filepath.Clean(root) {
+		if r == '/' || r == filepath.Separator {
+			b.WriteString(sep)
+			continue
+		}
+		b.WriteString(regexp.QuoteMeta(string(r)))
+	}
+	return regexp.MustCompile(b.String())
+}
+
+// protectRoot is t with each spelling of the project root made one unsplittable word.
+func (j pathJudge) protectRoot(t string) string {
+	if j.rootSpelling == nil {
+		return t
+	}
+	return j.rootSpelling.ReplaceAllStringFunc(t, rootProtect.Replace)
+}
+
+// restoreRoot undoes protectRoot.
+func restoreRoot(t string) string { return rootRestore.Replace(t) }
 
 // summarySelector splits a `name:value` token: a recall selector (`path:`, `symbol:`, `tool:`) or
 // any prefix a query is spelled with the same way. The name is two characters or more, so a Windows
