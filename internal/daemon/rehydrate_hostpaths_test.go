@@ -334,3 +334,50 @@ func TestRehydrateHostPaths_ADeniedPathWithDelimitersIsWithheld(t *testing.T) {
 			"%q names an allowed file", tp.Summary)
 	}
 }
+
+// TestRehydrateHostPaths_AProjectPathWithASpaceShowsItsOwnPaths is D60's ruling on round 1's open
+// issue, through the real host rules: in a project whose own path has a space in it, its absolute
+// paths are shown, and a denied one or one outside the project is still withheld.
+func TestRehydrateHostPaths_AProjectPathWithASpaceShowsItsOwnPaths(t *testing.T) {
+	base := shortProjectDir(t)
+	root := filepath.Join(base, "John Smith", "proj")
+	writeProjectSettings(t, root, `{"permissions":{"deny":["Read(./private/deny.txt)"]}}`)
+	writeProjectFile(t, root, "private/deny.txt")
+	writeProjectFile(t, root, "src/main.go")
+	src := filepath.Join(root, "src", "main.go")
+	deny := filepath.Join(root, "private", "deny.txt")
+	tools := []checkpoint.ToolPointer{
+		{
+			ToolUseID: "toolu_ok_read", Hash: core.Hash(sha256.Sum256([]byte("r"))),
+			Summary: storePreview(t, map[string]string{"file_path": src}),
+		},
+		{
+			ToolUseID: "toolu_ok_grep", Hash: core.Hash(sha256.Sum256([]byte("g"))),
+			Summary: storePreview(t, map[string]string{"path": src, "pattern": "TODO"}),
+		},
+		{
+			ToolUseID: "toolu_no_deny", Hash: core.Hash(sha256.Sum256([]byte("d"))),
+			Summary: storePreview(t, map[string]string{"file_path": deny}),
+		},
+		{
+			ToolUseID: "toolu_no_glob", Hash: core.Hash(sha256.Sum256([]byte("j"))),
+			Summary: storePreview(t, map[string]string{"path": filepath.Join(root, "private"), "pattern": "deny.txt"}),
+		},
+		{
+			ToolUseID: "toolu_no_sibling", Hash: core.Hash(sha256.Sum256([]byte("s"))),
+			Summary: storePreview(t, map[string]string{"file_path": filepath.Join(base, "John Smith", "other", "x.txt")}),
+		},
+	}
+	deps := rehydrate.Deps{HostPaths: rehydrateHostPaths(mcpOpHostPolicy(t, root), root, logging.Nop())}
+
+	res, err := rehydrate.Build(context.Background(), toolPointerRequest(root, tools), deps)
+	require.NoError(t, err)
+	for _, id := range []string{"toolu_ok_read", "toolu_ok_grep"} {
+		require.Regexp(t, "- tool_use "+id+" sha256:[0-9a-f]+ — [^s]", res.Text, "the project's own path is shown")
+		require.NotRegexp(t, "- tool_use "+id+" sha256:[0-9a-f]+ — summary withheld", res.Text)
+	}
+	for _, id := range []string{"toolu_no_deny", "toolu_no_glob", "toolu_no_sibling"} {
+		require.Regexp(t, "- tool_use "+id+" sha256:[0-9a-f]+ — summary withheld", res.Text)
+	}
+	require.NotContains(t, res.Text, "deny.txt")
+}
