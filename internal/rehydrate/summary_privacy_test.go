@@ -2,6 +2,8 @@ package rehydrate
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -9,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/qompack/qompack/internal/checkpoint"
+	"github.com/qompack/qompack/internal/core"
 )
 
 // Privacy in argument summaries (owner decision D50, C4.6; UAT-12 F1 on candidate 7,
@@ -21,6 +24,17 @@ import (
 // judged the piece "path:private/deny.txt" as a path, and no host rule refuses that spelling. A path
 // reaches a summary in more shapes than a bare token: behind a selector prefix, as the value of a
 // path-style argument with neither a dot nor a separator in it, and as a glob that selects it.
+
+// previewWidth is the width of the store's preview of a call's arguments (store.argsPreviewMax),
+// which every summary a checkpoint records stays within: the store cuts a longer one.
+const previewWidth = 120
+
+// previewRoot is an absolute project root short enough that the absolute summaries a row builds
+// under it stay within previewWidth, as real previews do. Build reads no files, so it need not exist.
+func previewRoot(elem ...string) string {
+	vol := filepath.VolumeName(os.TempDir()) + string(filepath.Separator)
+	return filepath.Join(append([]string{vol, "q"}, elem...)...)
+}
 
 // denyFiles stands in for host permissions.deny Read rules on exact files (the UAT-12 rule was
 // Read(./private/deny.txt)): it refuses each named project file, in any spelling of its path, and
@@ -205,4 +219,73 @@ func TestBuild_AnAbsolutePathIsJudgedAsTheOneFileItNames(t *testing.T) {
 	section6 := sectionBody(res.Text, sectionHeading(ItemPointers))
 	require.Contains(t, section6, "- tool_use toolu_abs "+hashOf("abs").String()+" — "+rootReadme)
 	require.Contains(t, section6, "- tool_use toolu_sel "+hashOf("sel").String()+" — "+withheldSummary)
+}
+
+// TestBuild_DelimiterCharactersInADeniedPathNeverShowIt is the w19 verifier's V2. The store's
+// preview of a Read, Write or Edit is the file_path value alone, and Grep's is its path then its
+// pattern (store.argsPreview), so a denied path holding a parenthesis, an apostrophe, a comma or an
+// equals sign is the whole preview or its first words, and a command quotes it whole. Round 1 read
+// paths only inside segments it split at those very characters, so it never judged the path whole
+// and section 6 showed it, while the file pointer for the same path was withheld.
+func TestBuild_DelimiterCharactersInADeniedPathNeverShowIt(t *testing.T) {
+	for _, tc := range []struct {
+		denied, allowed, leak string
+		// unquoted: the path needs no quoting in a command, so it may be an option's value there.
+		unquoted bool
+	}{
+		{"private/deny (1).txt", "docs/draft (1).md", "deny (1)", false},
+		{"private/deny(2).txt", "docs/draft(2).md", "deny(2)", true},
+		{"private/John's notes.txt", "docs/John's notes.md", "John's notes.txt", false},
+		{"private/a,b.txt", "docs/a,b.md", "a,b.txt", true},
+		{"private/k=v.txt", "docs/k=v.md", "k=v.txt", true},
+	} {
+		t.Run(tc.denied, func(t *testing.T) {
+			root := previewRoot("proj")
+			spellings := func(rel string) []string {
+				abs := filepath.Join(root, filepath.FromSlash(rel))
+				out := []string{rel, abs, rel + " apikey", abs + " apikey", `cat "` + rel + `"`, `cat "` + abs + `"`}
+				if tc.unquoted {
+					out = append(out, "sort --output="+rel+" data.txt")
+				}
+				for _, s := range out {
+					require.LessOrEqual(t, len(s), previewWidth, "fixture: %q is wider than a store preview", s)
+				}
+				return out
+			}
+			cp := ckUAT05()
+			cp.Pointers.Files = []checkpoint.FilePointer{{Path: tc.denied, Hash: hashOf("deny"), Why: "referenced"}}
+			var withheld, allowed []checkpoint.ToolPointer
+			for i, s := range spellings(tc.denied) {
+				withheld = append(withheld, checkpoint.ToolPointer{
+					ToolUseID: core.ToolUseID(fmt.Sprintf("toolu_denied_%d", i)), Hash: hashOf("d" + s), Summary: s,
+				})
+			}
+			for i, s := range spellings(tc.allowed) {
+				allowed = append(allowed, checkpoint.ToolPointer{
+					ToolUseID: core.ToolUseID(fmt.Sprintf("toolu_ok_%d", i)), Hash: hashOf("a" + s), Summary: s,
+				})
+			}
+			cp.Pointers.Tools = append(append([]checkpoint.ToolPointer(nil), withheld...), allowed...)
+
+			d := uat05Deps(t, cp)
+			d.HostPaths = denyFiles(root, tc.denied)
+			r := requestFor(t, cp, maxBudget())
+			r.ProjectRoot = root
+
+			res, err := Build(context.Background(), r, d)
+			require.NoError(t, err)
+			requireInsideTheHostCeiling(t, res, cp.Session)
+			requireNoLeak(t, res, []string{tc.leak})
+
+			section6 := sectionBody(res.Text, sectionHeading(ItemPointers))
+			for _, tp := range withheld {
+				require.Contains(t, section6, "- tool_use "+string(tp.ToolUseID)+" "+tp.Hash.String()+" — "+withheldSummary,
+					"a summary naming the denied path %q is withheld", tp.Summary)
+			}
+			for _, tp := range allowed {
+				require.Contains(t, section6, pointerLine("tool_use "+string(tp.ToolUseID), tp.Hash, tp.Summary),
+					"a summary naming an allowed path of the same shape is shown as recorded")
+			}
+		})
+	}
 }

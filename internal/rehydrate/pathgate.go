@@ -17,20 +17,21 @@ import (
 // Section 6's pointers never show a path the host currently refuses or a path outside the project
 // (owner decision D50, C4.6; UAT-12 F4). re_read refuses a path the host's permission rules deny or
 // ask about, and withholds one outside the project; the rehydration payload is another way the same
-// path reaches the model, so it follows the same two rules and points by hash instead.
+// path reaches the model, so it follows the same two rules and points by hash instead. D50 covers
+// pointers: file and tool pointers, their summaries, and section 7's drop entries (D60(i)).
 //
 // Containment is decided here, against Request.ProjectRoot. The host's rules are the daemon's to
 // load (this package may not import hostperm): Deps.HostPaths hands Build one judgement for the
 // whole build.
 //
-// A tool pointer's summary is the call's arguments, and a path reaches them in more shapes than a
-// bare token (UAT-12 F1 on candidate 7: `{"query":"path:private/deny.txt"}` passed the gate under the
-// deny rule Read(./private/deny.txt)): behind a selector prefix, as the value of an argument named
-// for a path whatever its spelling, as a summary that is the path argument's value alone, as
-// several words (a path with a space in it), as a directory and a pattern the store's preview
-// joined with a space (Glob), as a basename (recall's plain selector selects by path-segment
-// suffix), and as a glob that selects a withheld path. readSummary finds each, and summaryWithheld
-// judges it.
+// A tool pointer's summary is the call's arguments as the store previews them (store.argsPreview):
+// the values of file_path, path, pattern, command and url joined by spaces, or the canonical JSON of
+// a call that has none of them. readSummary reads its pieces from those shapes (ADR 0011 §23.5),
+// which keeps the reading linear in the summary's words: the whole summary (a Read's preview is its
+// path alone), each word, each prefix and suffix of its words (Grep's and Glob's path then pattern,
+// either with spaces in it), each directory/pattern join (Glob), each quoted segment (a command
+// quotes a path with a space), each decoded JSON string, each selector's value and each named path
+// argument's value. summaryWithheld judges each piece, and a glob by what it selects.
 //
 // The checkpointer's own drop entries are pointers too: five kinds are keyed by a file pointer's
 // path (checkpointPathDrops), and section 7 and dropped() name a withheld one by hash
@@ -40,7 +41,7 @@ import (
 // refuses(path) reports whether the rules deny, or ask before, reading path (as a pointer records
 // it: project-relative or absolute). A nil refuses means the rules could not be established, and
 // every path is then withheld (re_read fails closed the same way). A nil HostPaths applies
-// containment alone.
+// containment alone. One build calls refuses for every piece it reads, from one goroutine.
 type HostPaths func() (refuses func(path string) bool)
 
 // pathJudge decides, for one build, which recorded paths the payload may show.
@@ -84,7 +85,7 @@ func newPathJudge(r Request, d Deps) pathJudge {
 		}
 	}
 	for _, t := range r.Checkpoint.Pointers.Tools {
-		_, pieces := readSummary(t.Summary)
+		_, pieces := j.readSummary(t.Summary)
 		for _, p := range pieces {
 			// A join is a reading of the preview, not a spelling found in it, so it names no path.
 			if p.kind != pieceJoin && !isGlob(p.text) && j.judgedByRules(p) && j.withheld(p.text) {
@@ -165,12 +166,7 @@ var homeOrVarRoot = regexp.MustCompile(
 // arguments — into the tokens that could each name a path.
 var summaryTokens = regexp.MustCompile("[\\s\"'`,;(){}\\[\\]<>|=]+")
 
-// summarySegments is summaryTokens without the whitespace: it splits a summary where no path the
-// gate reads continues, so that within a segment whitespace may be part of a path, or the space the
-// store's preview joined two arguments with (store.argsPreview).
-var summarySegments = regexp.MustCompile("[\"'`,;(){}\\[\\]<>|=]+")
-
-// summaryWord is one whitespace-separated word of a segment.
+// summaryWord is one whitespace-separated word of a summary.
 var summaryWord = regexp.MustCompile(`\S+`)
 
 // summaryHomeOrVar finds a home- or variable-rooted path anywhere in a summary, before it is split:
@@ -185,7 +181,7 @@ var summaryHomeOrVar = regexp.MustCompile(
 // glob that selects one (globWithheld). A home- or variable-rooted path anywhere in it withholds it
 // whole (summaryHomeOrVar).
 func (j pathJudge) summaryWithheld(s string) bool {
-	texts, pieces := readSummary(s)
+	texts, pieces := j.readSummary(s)
 	for _, t := range texts {
 		if summaryHomeOrVar.MatchString(t) {
 			return true
@@ -203,7 +199,7 @@ func (j pathJudge) summaryWithheld(s string) bool {
 // rules refuse it, it lies outside the project, it is (or is a path-segment suffix of) a path the
 // build withholds (namesKnown), or it is a glob that selects one (globWithheld).
 func (j pathJudge) pieceWithheld(p summaryPiece) bool {
-	if p.text == "" || ((p.kind == pieceRun || p.kind == pieceJoin) && !j.rulesKnown()) {
+	if p.text == "" || ((p.kind == pieceSpan || p.kind == pieceJoin) && !j.rulesKnown()) {
 		return false
 	}
 	if isGlob(p.text) {
@@ -216,7 +212,7 @@ func (j pathJudge) pieceWithheld(p summaryPiece) bool {
 // is: a file needs no dot, separator or `*`, and the store's preview of a built-in tool names no
 // argument, so neither shape nor position marks every path (`credentials apikey` is Grep's path
 // then its pattern). Failing closed, withheld() refuses whatever it is asked, so it is asked only
-// about a piece named as a path or shaped like one, as before; a run or a join is never asked
+// about a piece named as a path or shaped like one, as before; a span or a join is never asked
 // then, because every path in it is judged by its own words.
 func (j pathJudge) judgedByRules(p summaryPiece) bool {
 	if p.text == "" {
@@ -259,18 +255,21 @@ type summaryPiece struct {
 type pieceKind uint8
 
 const (
-	// pieceToken is one token of a summary.
+	// pieceToken is one word of a summary, one token of it (summaryTokens), or the value after a
+	// word's first `=`.
 	pieceToken pieceKind = iota
 	// pieceNamed is a path by position rather than by shape — the value of an argument named for a
 	// path, the value of a selector so named, or a summary that is one bare word (the store's
 	// preview of a Read or a path argument is the value alone) — so it is judged even when it carries
 	// no separator, dot or `*`: a file needs none of them.
 	pieceNamed
-	// pieceRun is two or more consecutive words of a segment read as one: a path with a space in it
-	// (`private/my secret.txt`), which no single token spells.
-	pieceRun
-	// pieceJoin is a whole segment's words joined at one space by a separator: the store's preview of
-	// Glob or Grep is its directory, a space and its pattern, and the join is the path that pattern
+	// pieceSpan is a stretch of a summary read whole where its producer delimits an argument: the
+	// whole summary or JSON string, a prefix or a suffix of its words (Grep's and Glob's path, then
+	// pattern, either of which may hold a space), or a quoted segment. A path with a space or a
+	// delimiter in it (`private/deny (1).txt`) is one span, and no token spells it.
+	pieceSpan
+	// pieceJoin is a summary's words joined at one space by a separator: the store's preview of Glob
+	// or Grep is its directory, a space and its pattern, and the join is the path that pattern
 	// selects there (`private deny.txt` → `private/deny.txt`). It is a reading of the preview, not a
 	// spelling in it, so it never becomes a known path, and it is judged only against established
 	// rules.
@@ -282,10 +281,10 @@ const (
 // an escaped quote inside a value is read the way the tool read it; a summary is often a JSON object
 // cut at the preview's width, so its arguments are found by pattern (jsonArgs) rather than by a
 // decoder that would refuse the cut. pieces are what could each name a path: every value of an
-// argument named for a path, the summary itself when it is one bare word, and for every text each
-// token, each run of words and each directory-pattern join of a segment (segmentPieces), with the
-// value behind each one's selector prefix (`path:private/deny.txt`).
-func readSummary(s string) (texts []string, pieces []summaryPiece) {
+// argument named for a path, the summary itself when it is one bare word, and every piece
+// textPieces reads from each text, with the value behind each one's selector prefix
+// (`path:private/deny.txt`).
+func (j pathJudge) readSummary(s string) (texts []string, pieces []summaryPiece) {
 	args := jsonArgs(s)
 	texts = []string{strings.ReplaceAll(s, `\\`, `\`)}
 	for _, a := range args {
@@ -298,46 +297,77 @@ func readSummary(s string) (texts []string, pieces []summaryPiece) {
 		pieces = append(pieces, summaryPiece{text: toks[0], kind: pieceNamed})
 	}
 	for _, t := range texts {
-		pieces = segmentPieces(pieces, t)
+		pieces = textPieces(pieces, t)
 	}
 	return texts, pieces
 }
 
-// segmentPieces appends the pieces of t's segments: every word (the tokens summaryTokens splits),
-// and, in a segment no wider than maxOneLineRunes, every run of two or more consecutive words and
-// every join of its words at one space by a separator. A wider segment is read word by word only:
-// a summary is shown cut to that width, and the store's preview is never wider
-// (store.argsPreviewMax), so only a summary Qompack did not write reaches that case, and the
-// reading stays linear in the summary's length rather than quadratic in a segment's.
-func segmentPieces(pieces []summaryPiece, t string) []summaryPiece {
-	for _, seg := range summarySegments.Split(t, -1) {
-		words := summaryWord.FindAllStringIndex(seg, -1)
-		for _, w := range words {
-			pieces = appendPiece(pieces, seg[w[0]:w[1]], pieceToken)
-		}
-		n := len(words)
-		if n < 2 || utf8.RuneCountInString(seg) > maxOneLineRunes {
-			continue
-		}
-		for i := 0; i < n; i++ {
-			for k := i + 1; k < n; k++ {
-				pieces = appendPiece(pieces, seg[words[i][0]:words[k][1]], pieceRun)
-			}
-		}
-		for k := 1; k < n; k++ {
-			dir := seg[words[0][0]:words[k-1][1]]
-			pattern := seg[words[k][0]:words[n-1][1]]
-			pieces = appendPiece(pieces, dir+"/"+pattern, pieceJoin)
+// textPieces appends the pieces of t, read from the shapes the store's preview takes: t whole, each
+// token (summaryTokens), each quoted segment whole, each word and the value after its first `=`,
+// and, for a t no wider than maxOneLineRunes, each proper prefix and suffix of its words and each
+// join of its words at one space. That is linear in t's words: a path whose spaces no producer
+// delimits — unquoted between two other words of a command — is read word by word, as the shell
+// that ran the command read it (ADR 0011 §23.5). A wider t is never the store's preview
+// (store.argsPreviewMax), and its prefixes, suffixes and joins are not read: each is as wide as t.
+func textPieces(pieces []summaryPiece, t string) []summaryPiece {
+	pieces = appendPiece(pieces, t, pieceSpan)
+	for _, tok := range summaryTokens.Split(t, -1) {
+		pieces = appendPiece(pieces, tok, pieceToken)
+	}
+	for _, q := range quotedSegments(t) {
+		pieces = appendPiece(pieces, q, pieceSpan)
+	}
+	words := summaryWord.FindAllStringIndex(t, -1)
+	for _, w := range words {
+		word := t[w[0]:w[1]]
+		pieces = appendPiece(pieces, word, pieceToken)
+		if _, v, ok := strings.Cut(word, "="); ok {
+			pieces = appendPiece(pieces, v, pieceToken)
 		}
 	}
+	n := len(words)
+	if n < 2 || utf8.RuneCountInString(t) > maxOneLineRunes {
+		return pieces
+	}
+	for k := 1; k < n; k++ {
+		head := t[words[0][0]:words[k-1][1]]
+		tail := t[words[k][0]:words[n-1][1]]
+		pieces = appendPiece(pieces, head, pieceSpan)
+		pieces = appendPiece(pieces, tail, pieceSpan)
+		pieces = appendPiece(pieces, head+"/"+tail, pieceJoin)
+	}
 	return pieces
+}
+
+// quotedSegments returns the text inside each pair of matching quotes (double quotes, apostrophes
+// or backticks) in t, left to right. A quote with no partner later in t, such as the apostrophe in
+// an unquoted `John's notes.txt`, opens nothing. Backslashes escape nothing: on Windows they are
+// separators.
+func quotedSegments(t string) []string {
+	var out []string
+	unpaired := map[byte]bool{}
+	for i := 0; i < len(t); i++ {
+		q := t[i]
+		if (q != '"' && q != '\'' && q != '`') || unpaired[q] {
+			continue
+		}
+		end := strings.IndexByte(t[i+1:], q)
+		if end < 0 {
+			// No later quote of this kind, so none of the later ones has a partner either.
+			unpaired[q] = true
+			continue
+		}
+		out = append(out, t[i+1:i+1+end])
+		i += 1 + end
+	}
+	return out
 }
 
 // appendPiece appends text, its trailing sentence punctuation cut, and the value behind its selector
 // prefix: named when the selector is named for a path, and read as text was otherwise. A join's
 // value stays a join, since the join is not a spelling found in the summary.
 func appendPiece(pieces []summaryPiece, text string, kind pieceKind) []summaryPiece {
-	if text = strings.TrimRight(text, ".:"); text == "" {
+	if text = strings.TrimRight(strings.TrimSpace(text), ".:"); text == "" {
 		return pieces
 	}
 	pieces = append(pieces, summaryPiece{text: text, kind: kind})

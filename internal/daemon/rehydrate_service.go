@@ -756,7 +756,21 @@ func hostPolicyFor(o *Options) *hostperm.Policy {
 // cannot ask), judged as recorded and as the project's resolved root spells it — the two spellings
 // internal/mcp's authorizeHost judges. Rules that cannot be established return nil, and rehydrate
 // then withholds every path, as re_read withholds path-bearing content (fail closed).
+//
+// A build judges every piece of every tool summary (ADR 0011 §23.5), a few thousand for a few dozen
+// Bash pointers, so each build judges through one hostperm.Evaluator: it reads each link once per
+// build, and judges a piece whose first segment names nothing in the project without the disk.
+// Each judgement is the one RuleSet.Evaluate would give (w19 verifier V1: through Evaluate, 80
+// Bash previews took 16 s, three times compactAnswerBudget).
 func rehydrateHostPaths(p *hostperm.Policy, root string, log logging.Logger) rehydrate.HostPaths {
+	return rehydrateHostPathsObserved(p, root, log, nil)
+}
+
+// rehydrateHostPathsObserved is rehydrateHostPaths handing each build's evaluator to observe, when
+// set, so a test can read how many of the build's judgements reached the disk.
+func rehydrateHostPathsObserved(p *hostperm.Policy, root string, log logging.Logger,
+	observe func(*hostperm.Evaluator),
+) rehydrate.HostPaths {
 	return func() func(string) bool {
 		rules, err := p.Snapshot()
 		if err != nil {
@@ -771,19 +785,23 @@ func rehydrateHostPaths(p *hostperm.Policy, root string, log logging.Logger) reh
 		if r, err := filepath.EvalSymlinks(root); err == nil {
 			resolved = r
 		}
+		ev := rules.Evaluator(root, resolved)
+		if observe != nil {
+			observe(ev)
+		}
 		return func(path string) bool {
 			abs := path
 			if !filepath.IsAbs(abs) {
 				abs = filepath.Join(root, filepath.FromSlash(path))
 			}
-			if rules.Evaluate(abs).Effect != hostperm.Allow {
+			if ev.Evaluate(abs).Effect != hostperm.Allow {
 				return true
 			}
 			rel, err := filepath.Rel(root, abs)
 			if err != nil || resolved == root {
 				return false
 			}
-			return rules.Evaluate(filepath.Join(resolved, rel)).Effect != hostperm.Allow
+			return ev.Evaluate(filepath.Join(resolved, rel)).Effect != hostperm.Allow
 		}
 	}
 }
