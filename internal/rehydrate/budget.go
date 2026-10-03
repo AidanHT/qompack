@@ -488,8 +488,9 @@ func mergeIntent(base, add *admitted) *admitted {
 // budget truncation dropped.
 //
 // The result is Result.Dropped in full — the rendered section 7 may be truncated to a counted
-// line, but the state file and therefore the `dropped` tool always get everything.
-func collectDrops(r Request, all map[ItemKind]built, fills map[ItemKind]*admitted) []checkpoint.DropEntry {
+// line, but the state file and therefore the `dropped` tool always get everything. No reason in it
+// shows an absolute path outside the project or a path the build withholds (gateDropReasons, D61).
+func collectDrops(r Request, d Deps, all map[ItemKind]built, fills map[ItemKind]*admitted) []checkpoint.DropEntry {
 	out := make([]checkpoint.DropEntry, 0, len(r.Checkpoint.Dropped)+8)
 	if fellBack(r) {
 		out = append(out, fallbackDrop(r))
@@ -510,7 +511,7 @@ func collectDrops(r Request, all map[ItemKind]built, fills map[ItemKind]*admitte
 			kept = append(kept, e)
 		}
 	}
-	return kept
+	return gateDropReasons(kept, pathJudgeFor(r, d))
 }
 
 // minFill re-admits previously dropped units toward cfg.MinTokens.

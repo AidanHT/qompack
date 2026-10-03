@@ -7,17 +7,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 	"time"
-	"unicode/utf8"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/qompack/qompack/internal/checkpoint"
 	"github.com/qompack/qompack/internal/core"
-	"github.com/qompack/qompack/internal/hostperm"
 	"github.com/qompack/qompack/internal/logging"
 	"github.com/qompack/qompack/internal/paths"
 	"github.com/qompack/qompack/internal/rehydrate"
@@ -40,7 +37,7 @@ func TestRehydrateHostPaths_RefusesWhatTheHostDenies(t *testing.T) {
 	root := t.TempDir()
 	writeProjectSettings(t, root, `{"permissions":{"deny":["Read(./private/**)"],"ask":["Read(./ask/**)"]}}`)
 
-	refuses := rehydrateHostPaths(mcpOpHostPolicy(t, root), root, logging.Nop())()
+	refuses := rehydrateHostPaths(mcpOpHostPolicy(t, root), root, logging.Nop())().Refuses
 	require.NotNil(t, refuses)
 	require.True(t, refuses("private/deny.txt"), "a deny rule refuses the relative spelling")
 	require.True(t, refuses(filepath.Join(root, "private", "deny.txt")), "and the absolute one")
@@ -52,8 +49,33 @@ func TestRehydrateHostPaths_UnreadableRulesFailClosed(t *testing.T) {
 	root := t.TempDir()
 	writeProjectSettings(t, root, `{"permissions":`)
 
-	require.Nil(t, rehydrateHostPaths(mcpOpHostPolicy(t, root), root, logging.Nop())(),
+	require.Nil(t, rehydrateHostPaths(mcpOpHostPolicy(t, root), root, logging.Nop())().Refuses,
 		"rules that cannot be established withhold every path, as re_read does")
+}
+
+// TestRehydrateHostPaths_HandsTheBuildTheRulePatterns pins what the free-text screen reads
+// (coordinator decision D61, ADR 0011 §23.5): every Read deny and ask rule's specifier, as the
+// settings spell it, from the same snapshot Refuses judges against; none when no rule is in force,
+// and none, with no Refuses, when the rules cannot be established.
+func TestRehydrateHostPaths_HandsTheBuildTheRulePatterns(t *testing.T) {
+	root := t.TempDir()
+	writeProjectSettings(t, root,
+		`{"permissions":{"deny":["Read(./private/deny.txt)","Read(./.env)","Read(./secrets/**)"],"ask":["Read(**/*.pem)"]}}`)
+	got := rehydrateHostPaths(mcpOpHostPolicy(t, root), root, logging.Nop())()
+	require.NotNil(t, got.Refuses)
+	require.Equal(t, []string{"./private/deny.txt", "./.env", "./secrets/**", "**/*.pem"}, got.Patterns)
+
+	empty := t.TempDir()
+	writeProjectSettings(t, empty, `{"permissions":{"deny":["Edit(./src/**)"]}}`)
+	got = rehydrateHostPaths(mcpOpHostPolicy(t, empty), empty, logging.Nop())()
+	require.NotNil(t, got.Refuses)
+	require.Empty(t, got.Patterns, "no Read rule: nothing to screen by")
+
+	broken := t.TempDir()
+	writeProjectSettings(t, broken, `{"permissions":`)
+	got = rehydrateHostPaths(mcpOpHostPolicy(t, broken), broken, logging.Nop())()
+	require.Nil(t, got.Refuses)
+	require.Empty(t, got.Patterns)
 }
 
 func TestWireRehydrator_InstallsTheHostPathRules(t *testing.T) {
@@ -160,38 +182,20 @@ func toolPointerRequest(root string, tools []checkpoint.ToolPointer) rehydrate.R
 	}
 }
 
-// The cost row's fixture (the w19 verifier's V1 probe): N Bash previews of rehydrateCostWords words,
-// each distinct, each naming two real project files, in a project with three Read deny rules.
+// The cost rows' fixture (the w19 verifier's V1 probe, re-derived for coordinator decision D61): a
+// project with the verifier's three Read deny rules and rehydrateCostPointers free-text summaries,
+// beside rehydrateCostFiles file pointers and rehydrateCostReads structured summaries (the store's
+// preview of a Read: its file_path alone).
 const (
 	rehydrateCostPointers = 80
 	rehydrateCostWords    = 17
+	// rehydrateCostFiles and rehydrateCostReads are the file pointers and the structured summaries
+	// each cost build carries: enough that the bound below is not met by a build that judges nothing.
+	rehydrateCostFiles = 10
+	rehydrateCostReads = 10
 	// rehydrateCostPreviewMax is the width of the store's preview (store.argsPreviewMax), which
 	// every fixture preview stays within, as a real one does.
 	rehydrateCostPreviewMax = 120
-	// maxJudgementsPerSummary bounds the host judgements one fixture preview may cost. Section 6's
-	// gate reads a summary's pieces from the shapes its producer writes (ADR 0011 §23.5): the whole
-	// summary, each word, each proper prefix and suffix of its words, and each directory/pattern
-	// join at a space. A preview of w words with no quote, escape, delimiter, selector or assignment
-	// has at most 1 + w + 2(w-1) + (w-1) = 4w-2 of them (its shell readings yield its own words, and
-	// the search for known paths asks the host nothing), each judged at most once per build: 66 at
-	// w=17. 4bad4cef also judged every run of two or more consecutive words, w(w-1)/2 = 136 more,
-	// and with the joins and the words that is 169 pieces, and the verifier measured 134 judgements
-	// per summary once the words the summaries share were judged once.
-	maxJudgementsPerSummary = 4*rehydrateCostWords - 2
-	// maxDiskJudgementsPerSummary bounds the judgements of one fixture preview that reach the disk:
-	// none. The build's hostperm.Evaluator judges a piece on disk only when a walk down the
-	// directories it names meets an entry that could respell it (a link or another reparse point,
-	// an entry named by its 8.3 alias, a segment the Win32 layer trims to an existing name, or a
-	// non-ASCII name a listed name may equal). In the fixture no entry is any of those: a piece
-	// either stops naming entries at some segment (`git log …` names nothing in the project) or
-	// names plain entries throughout (`src/mod1/file1.go`). 4bad4cef judged every piece on disk.
-	maxDiskJudgementsPerSummary = 0
-	// linkedDiskJudgementsPerSummary is the disk judgements of one preview in the linked-directory
-	// variant, where both file words name entries through the link lib (to src): a piece is judged
-	// on disk when its walk meets lib, and the pieces whose first segment is lib are the two file
-	// words and the two suffixes of the preview's words that start at them (each prefix, join and
-	// the whole preview starts at `git`). So 2 file words x {the word, the suffix from it} = 4.
-	linkedDiskJudgementsPerSummary = 2 * 2
 )
 
 // rehydrateCostPreview is the fixture's i-th Bash preview.
@@ -202,7 +206,7 @@ func rehydrateCostPreview(i int) string {
 
 // costProject is a project for the cost rows: short enough that a preview naming its root fits the
 // store's preview width uncut (shortProjectDir), its root canonical (filepath.EvalSymlinks) so that
-// the adapter judges each piece once rather than once more under a second spelling of the root,
+// the adapter judges each path once rather than once more under a second spelling of the root,
 // with the verifier's three Read deny rules and their files.
 func costProject(t *testing.T) string {
 	t.Helper()
@@ -225,113 +229,70 @@ func costPointers(t *testing.T, previews []string) []checkpoint.ToolPointer {
 	for i, s := range previews {
 		require.LessOrEqual(t, len(s), rehydrateCostPreviewMax, "fixture: %q", s)
 		tools = append(tools, checkpoint.ToolPointer{
-			ToolUseID: core.ToolUseID(fmt.Sprintf("toolu_cost_%02d", i+1)),
+			ToolUseID: core.ToolUseID(fmt.Sprintf("toolu_cost_%03d", i+1)),
 			Hash:      core.Hash(sha256.Sum256([]byte(s))), Summary: s,
 		})
 	}
 	return tools
 }
 
-// costBuild builds the rehydration of tools in root through the real adapter and the real host
-// rules, and returns its result, the host judgements section 6 asked for, how many of them were of
-// a piece holding a non-ASCII rune, how many reached the disk, and the build's wall time.
-func costBuild(t *testing.T, root string, tools []checkpoint.ToolPointer) (
-	res rehydrate.Result, judgements, wide, disk int, elapsed time.Duration,
-) {
+// costBuild builds the rehydration of root's checkpoint, with the cost fixture's file pointers and
+// structured summaries beside the free-text previews, through the real adapter and the real host
+// rules, and returns its result and how many host judgements (Refuses calls) the build made.
+func costBuild(t *testing.T, root string, previews []string) (rehydrate.Result, int) {
 	t.Helper()
-	var ev *hostperm.Evaluator
-	hp := rehydrateHostPathsObserved(mcpOpHostPolicy(t, root), root, logging.Nop(),
-		func(e *hostperm.Evaluator) { ev = e })
-	deps := rehydrate.Deps{HostPaths: func() func(string) bool {
-		refuses := hp()
-		require.NotNil(t, refuses, "fixture: the host's rules are established")
-		return func(p string) bool {
+	var reads []string
+	files := make([]checkpoint.FilePointer, 0, rehydrateCostFiles)
+	for i := 1; i <= rehydrateCostFiles; i++ {
+		rel := fmt.Sprintf("pkg/f%d.go", i)
+		writeProjectFile(t, root, rel)
+		files = append(files, checkpoint.FilePointer{Path: rel, Hash: core.Hash(sha256.Sum256([]byte(rel))), Why: "referenced"})
+	}
+	for i := 1; i <= rehydrateCostReads; i++ {
+		rel := fmt.Sprintf("pkg/r%d.go", i)
+		writeProjectFile(t, root, rel)
+		reads = append(reads, storePreview(t, map[string]string{"file_path": filepath.Join(root, filepath.FromSlash(rel))}))
+	}
+	req := toolPointerRequest(root, costPointers(t, append(reads, previews...)))
+	req.Checkpoint.Pointers.Files = files
+
+	judgements := 0
+	hp := rehydrateHostPaths(mcpOpHostPolicy(t, root), root, logging.Nop())
+	deps := rehydrate.Deps{HostPaths: func() rehydrate.HostRules {
+		rules := hp()
+		require.NotNil(t, rules.Refuses, "fixture: the host's rules are established")
+		refuses := rules.Refuses
+		rules.Refuses = func(p string) bool {
 			judgements++
-			if strings.IndexFunc(p, func(r rune) bool { return r >= utf8.RuneSelf }) >= 0 {
-				wide++
-			}
 			return refuses(p)
 		}
+		return rules
 	}}
 	start := time.Now()
-	res, err := rehydrate.Build(context.Background(), toolPointerRequest(root, tools), deps)
-	elapsed = time.Since(start)
+	res, err := rehydrate.Build(context.Background(), req, deps)
 	require.NoError(t, err)
-	require.NotNil(t, ev, "the build judged through one evaluator")
-	t.Logf("%d summaries: %d host judgements, %d on disk, %v", len(tools), judgements, ev.DiskEvaluations(), elapsed)
-	return res, judgements, wide, ev.DiskEvaluations(), elapsed
-}
-
-// TestRehydrateHostPaths_SummaryJudgementsAreLinearInTheirWords is the w19 verifier's V1 through the
-// real adapter and the real host rules. Round 1 sent every run of consecutive words of every tool
-// summary to the host's judgement, and the adapter's judgement does on-disk work for each (the
-// path's full and long names and a Readlink of every component), so a project with any Read deny
-// or ask rule paid seconds for a few dozen Bash pointers: 80 previews took 16 s on the verifier's
-// idle machine, three times compactAnswerBudget, and the session would have received the deferred
-// note instead of its rehydration. The pass criterion is the number of judgements and of disk
-// judgements; the wall clock is a sanity bound only.
-func TestRehydrateHostPaths_SummaryJudgementsAreLinearInTheirWords(t *testing.T) {
-	root := costProject(t)
-	previews := make([]string, 0, rehydrateCostPointers)
-	for i := 1; i <= rehydrateCostPointers; i++ {
-		writeProjectFile(t, root, fmt.Sprintf("src/mod%d/file%d.go", i, i))
-		writeProjectFile(t, root, fmt.Sprintf("docs/guide%d.md", i))
-		s := rehydrateCostPreview(i)
-		require.Len(t, strings.Fields(s), rehydrateCostWords, "fixture: %q", s)
-		previews = append(previews, s)
+	t.Logf("%d free-text summaries, %d structured, %d file pointers: %d host judgements in %v (logged, not judged)",
+		len(previews), len(reads), len(files), judgements, time.Since(start))
+	for _, s := range reads {
+		require.Contains(t, res.Text, " — "+s+"\n", "fixture: an in-project Read preview is shown")
 	}
-
-	res, judgements, _, disk, elapsed := costBuild(t, root, costPointers(t, previews))
-	require.LessOrEqual(t, judgements, rehydrateCostPointers*maxJudgementsPerSummary,
-		"section 6 judged %d pieces of %d summaries of %d words: more than %d per summary",
-		judgements, rehydrateCostPointers, rehydrateCostWords, maxJudgementsPerSummary)
-	require.LessOrEqual(t, disk, rehydrateCostPointers*maxDiskJudgementsPerSummary,
-		"%d of the build's judgements reached the disk", disk)
-	require.NotContains(t, res.Text, "summary withheld", "no fixture preview names a denied path")
-	require.Contains(t, res.Text, " — git log --oneline -n ", "fixture: the previews reach section 6")
-	// A sanity bound, not the pass criterion: the whole build inside the compaction's answer budget.
-	require.Less(t, elapsed, compactAnswerBudget(), "the build would have been answered with the deferred note")
+	return res, judgements
 }
 
-// TestRehydrateHostPaths_APieceThroughALinkIsJudgedOnDisk is the cost row's fixture with both file
-// words naming entries through a directory link (lib, to src), which the w19 round-2 review found
-// the row's disk bound had not been derived for. A piece whose walk meets the link is judged on
-// disk, exactly the pieces whose first segment is lib: linkedDiskJudgementsPerSummary per preview,
-// no more, and each still judged right (the files are allowed, so nothing is withheld).
-func TestRehydrateHostPaths_APieceThroughALinkIsJudgedOnDisk(t *testing.T) {
-	root := costProject(t)
-	previews := make([]string, 0, rehydrateCostPointers)
-	for i := 1; i <= rehydrateCostPointers; i++ {
-		writeProjectFile(t, root, fmt.Sprintf("src/mod%d/file%d.go", i, i))
-		writeProjectFile(t, root, fmt.Sprintf("src/guide%d.md", i))
-		s := fmt.Sprintf("git log --oneline -n %d --stat lib/mod%d/file%d.go lib/guide%d.md and grep for TODO in the diff then stop",
-			i, i, i, i)
-		require.Len(t, strings.Fields(s), rehydrateCostWords, "fixture: %q", s)
-		previews = append(previews, s)
-	}
-	require.NoError(t, makeDirLink(filepath.Join(root, "lib"), filepath.Join(root, "src")))
-	t.Cleanup(func() { _ = os.Remove(paths.Long(filepath.Join(root, "lib"))) })
+// maxCostJudgements bounds a cost build's host judgements (D61(4)): one for each file pointer and
+// one for each structured summary, every path judged once per build, and none for free text.
+const maxCostJudgements = rehydrateCostFiles + rehydrateCostReads
 
-	res, judgements, _, disk, elapsed := costBuild(t, root, costPointers(t, previews))
-	require.LessOrEqual(t, judgements, rehydrateCostPointers*maxJudgementsPerSummary)
-	require.Equal(t, rehydrateCostPointers*linkedDiskJudgementsPerSummary, disk,
-		"a piece is judged on disk exactly when its walk meets the link")
-	require.NotContains(t, res.Text, "summary withheld", "no fixture preview names a denied path")
-	require.Less(t, elapsed, compactAnswerBudget(), "the build would have been answered with the deferred note")
-}
-
-// TestRehydrateHostPaths_EveryPreviewShapeIsJudgedWithoutTheDisk is the w19 round-2 review's
-// finding that the round-2 evaluator kept the disk-free judgement for colon-free ASCII pieces only.
-// A piece holding a colon (a stream, a drive spelled mid-command, a URL, `TODO:`, every word of a
-// canonical-JSON preview) or a non-ASCII rune (an em dash, any non-English text) went to the full
-// on-disk evaluation, about 2-3 judgements per word, so a few dozen MCP, Task, curl or commit
-// previews cost seconds again. Each shape below, 80 distinct previews of it as the store records
-// them, is judged with no disk judgement at all (maxDiskJudgementsPerSummary: the fixture names no
-// link, alias or entry a trailing dot or space trims to, and no listed name is non-ASCII), and none
-// is withheld: they name no denied path, and the ones naming the project root are its own paths.
-// On macOS, whose filesystems also equate Unicode normalizations, a piece holding a non-ASCII rune
-// is judged on disk by design, so there the disk judgements are exactly those pieces.
-func TestRehydrateHostPaths_EveryPreviewShapeIsJudgedWithoutTheDisk(t *testing.T) {
+// TestRehydrateHostPaths_HostJudgementsAreStructuredSummariesAndFilePointers is the cost row,
+// re-derived for coordinator decision D61(4) through the real adapter and the real host rules.
+// Round 1 sent every run of words of every summary to the host's judgement (80 Bash previews took
+// 16 s on the w19 verifier's idle machine), and round 2 every word, prefix, suffix and join (4w-2 per
+// summary) through an evaluator that still judged a canonical-JSON or URL piece on disk. Free text
+// now costs no host judgement at all, in any shape: Bash previews of seventeen words, canonical JSON
+// and URLs (the round-2 cost review's first gap), and commands spelling the project root
+// absolutely (its second). A build judges exactly its file pointers and its structured summaries,
+// once each. The pass criterion is the count; the wall time is logged, never judged.
+func TestRehydrateHostPaths_HostJudgementsAreStructuredSummariesAndFilePointers(t *testing.T) {
 	root := costProject(t)
 	slash := strings.ReplaceAll(root, `\`, "/")
 	bash := func(cmd string) string { return storePreview(t, map[string]string{"command": cmd}) }
@@ -339,45 +300,85 @@ func TestRehydrateHostPaths_EveryPreviewShapeIsJudgedWithoutTheDisk(t *testing.T
 		name    string
 		preview func(i int) string
 	}{
-		{"Task JSON", func(i int) string {
-			return storePreview(t, map[string]string{
-				"description": fmt.Sprintf("run tests %d", i),
-				"prompt":      fmt.Sprintf("go test ./mod%d/... then report failures in file%d.go", i, i),
-			})
+		{"Bash", func(i int) string {
+			s := rehydrateCostPreview(i)
+			require.Len(t, strings.Fields(s), rehydrateCostWords, "fixture: %q", s)
+			return s
 		}},
-		{"recall JSON", func(i int) string {
-			return storePreview(t, map[string]string{"query": fmt.Sprintf("path:src/mod%d/file%d.go TODO retry", i, i)})
+		{"canonical JSON and URLs", func(i int) string {
+			switch i % 4 {
+			case 0:
+				return storePreview(t, map[string]string{
+					"description": fmt.Sprintf("run tests %d", i),
+					"prompt":      fmt.Sprintf("go test ./mod%d/... then report failures in file%d.go", i, i),
+				})
+			case 1:
+				return storePreview(t, map[string]string{"query": fmt.Sprintf("path:src/mod%d/file%d.go TODO retry", i, i)})
+			case 2:
+				return bash(fmt.Sprintf("curl -s https://example.com/api/v%d/items?page=%d | jq .items > out%d.json", i, i, i))
+			}
+			return storePreview(t, map[string]string{"url": fmt.Sprintf("https://example.com/docs/v%d/guide.html", i)})
 		}},
-		{"URL", func(i int) string {
-			return bash(fmt.Sprintf("curl -s https://example.com/api/v%d/items?page=%d | jq .items > out%d.json", i, i, i))
+		{"absolute paths", func(i int) string {
+			switch i % 3 {
+			case 0:
+				return bash(fmt.Sprintf("cd %s && go test ./mod%d/... -run TestFile%d", slash, i, i))
+			case 1:
+				return bash(fmt.Sprintf("git -C %s log --oneline -n %d", root, i))
+			}
+			return bash(fmt.Sprintf("diff %s src/b%d.go", filepath.Join(root, "src", fmt.Sprintf("a%d.go", i)), i))
 		}},
-		{"colons", func(i int) string {
-			return bash(fmt.Sprintf("git commit -m 'fix(mod%d): handle file%d.go errors: TODO: retry'", i, i))
-		}},
-		{"em dash", func(i int) string {
-			return bash(fmt.Sprintf("git commit -m 'fix %d — never cut the root of mod%d'", i, i))
-		}},
-		{"Cyrillic", func(i int) string { return bash(fmt.Sprintf("echo 'Привет мир %d' > docs/guide%d.md", i, i)) }},
-		{"absolute root, forward slashes", func(i int) string {
-			return bash(fmt.Sprintf("cd %s && go test ./mod%d/... -run TestFile%d", slash, i, i))
-		}},
-		{"absolute root", func(i int) string { return bash(fmt.Sprintf("cd %s && git log --oneline -n %d", root, i)) }},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			previews := make([]string, 0, rehydrateCostPointers)
 			for i := 1; i <= rehydrateCostPointers; i++ {
 				previews = append(previews, tc.preview(i))
 			}
-			res, _, wide, disk, elapsed := costBuild(t, root, costPointers(t, previews))
-			want := rehydrateCostPointers * maxDiskJudgementsPerSummary
-			if runtime.GOOS == "darwin" {
-				want += wide
-			}
-			require.Equal(t, want, disk, "%d of the build's judgements reached the disk", disk)
+			res, judgements := costBuild(t, root, previews)
+			require.Equal(t, maxCostJudgements, judgements,
+				"a build judges each file pointer and structured summary once, and no free text")
 			require.NotContains(t, res.Text, "summary withheld", "no fixture preview names a denied path")
-			require.Less(t, elapsed, compactAnswerBudget(), "the build would have been answered with the deferred note")
+			require.Contains(t, res.Text, " — "+previews[0]+"\n", "fixture: the previews reach section 6")
 		})
 	}
+}
+
+// TestRehydrateHostPaths_UsefulSummariesAreShownUnderTheUAT12Rules is D61's usefulness row through
+// the real host rules: UAT-12's three deny rules in a project whose path has a space in it. The
+// summaries a session leaves every day are shown, the round-2 verifier's fourth finding among them:
+// on Windows a git revision word (`HEAD~1`) is 8.3-shaped, and judged as a path under any Read rule
+// it was refused (hostperm's fail-closed unresolved short name), so every such command was withheld;
+// and `cd <root> && …` and `git -C <root> …` were read as siblings of the root. The summaries that
+// name a denied file are withheld.
+func TestRehydrateHostPaths_UsefulSummariesAreShownUnderTheUAT12Rules(t *testing.T) {
+	root := shortProjectDir(t, "John Smith", "proj")
+	writeProjectSettings(t, root,
+		`{"permissions":{"deny":["Read(./private/deny.txt)","Read(./.env)","Read(./secrets/**)"]}}`)
+	for _, f := range []string{"private/deny.txt", ".env", "secrets/token.txt", "src/main.go"} {
+		writeProjectFile(t, root, f)
+	}
+	bash := func(cmd string) string { return storePreview(t, map[string]string{"command": cmd}) }
+	res := requireToolSummaries(t, root,
+		[]string{
+			bash("cd " + root + " && go test ./..."),
+			bash("git diff HEAD~1"),
+			bash("git log --oneline HEAD~3..HEAD"),
+			bash("git -C " + root + " status"),
+			bash("npm test"),
+			bash("go test -run TestX ./internal/..."),
+			storePreview(t, map[string]string{"query": "path:src/main.go retry"}),
+			storePreview(t, map[string]string{"description": "run the tests", "prompt": "go test ./... and report the failures"}),
+			bash("grep -rn TODO src/"),
+			storePreview(t, map[string]string{"file_path": filepath.Join(root, "src", "main.go")}),
+		},
+		[]string{
+			bash("cat .env"),
+			bash("cat secrets/token.txt"),
+			storePreview(t, map[string]string{"query": "path:private/deny.txt"}),
+			storePreview(t, map[string]string{"file_path": filepath.Join(root, "private", "deny.txt")}),
+		})
+	require.NotContains(t, res.Text, "deny.txt")
+	require.NotContains(t, res.Text, "token.txt")
 }
 
 // shortProjectDir is a fresh project directory short enough that the previews a row builds of
