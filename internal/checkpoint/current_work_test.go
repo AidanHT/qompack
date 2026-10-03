@@ -248,8 +248,8 @@ func TestCurrentWorkMovesForwardAroundAPromptListFailure(t *testing.T) {
 }
 
 // TestInterruptedGoalWalkIsWalkedAgain: a refresh whose context runs out after the prompt list
-// answered cannot read the new newest prompt; it is not remembered as walked, so the next refresh
-// reads it and the goal moves to it.
+// answered cannot read the new newest prompt; it changes nothing, so the next refresh reads it and
+// the goal moves to it.
 func TestInterruptedGoalWalkIsWalkedAgain(t *testing.T) {
 	f := newFx(t)
 	ps := newPromptProbeStore(f.store)
@@ -296,8 +296,8 @@ func TestInterruptedGoalWalkKeepsTheGoalItHas(t *testing.T) {
 
 // TestTransientReadFailureOfTheNewestPromptIsReadAgain: a refresh that cannot read the newest
 // prompt's bytes (a transient Open failure, the context still live) takes the newest readable
-// prompt's goal for now, but does not remember that walk as done: the next refresh reads the newest
-// prompt again, and the sealed goal agrees with the evolution's last entry.
+// prompt's goal for now; the next refresh reads the newest prompt again, and the sealed goal agrees
+// with the evolution's last entry.
 func TestTransientReadFailureOfTheNewestPromptIsReadAgain(t *testing.T) {
 	f := newFx(t)
 	ps := newPromptProbeStore(f.store)
@@ -400,6 +400,137 @@ func TestResumedCandidateSevenForkDraftTakesItsOwnGoalFromTheGraph(t *testing.T)
 	require.Equal(t, rateCorrection45Goal, cp.CurrentWork.Goal)
 }
 
+// TestResumedCandidateSevenDraftKeepsTheUngatedFallback: the same decision where it differs from a
+// gate at turn 0. A draft file without goal_turn but holding a derived goal (candidate 7) resumed
+// while the prompt list cannot be read takes the goal of the session's prompt at turn 0 from the
+// closed segment the fallback encodes, rather than keeping the goal it was persisted with.
+func TestResumedCandidateSevenDraftKeepsTheUngatedFallback(t *testing.T) {
+	f := newFx(t)
+	promptAs(f, f.sess, 0, rateAsk)
+	f.closedSeg(1, 0, 1)
+	plantDerivedGoal(t, f, rateReadLimiter)
+
+	f.src.Store = degradedPromptsStore{f.store}
+	cp := sealed(t, f, f.precompactAs(f.sess))
+
+	require.Equal(t, rateAskGoal, cp.CurrentWork.Goal)
+}
+
+// TestResumedDraftWithNoGoalTakesATurnZeroPromptFromTheGraph: a draft that holds no derived goal
+// persists no goal_turn, so after a restart into a failing prompt list the graph fallback takes
+// the goal of a prompt at turn 0, the session's first.
+func TestResumedDraftWithNoGoalTakesATurnZeroPromptFromTheGraph(t *testing.T) {
+	f := newFx(t)
+	ps := newPromptProbeStore(f.store)
+	f.src.Store = ps
+	f.begin()
+	wire, cp := f.persisted()
+	require.Empty(t, cp.CurrentWork.Goal, "fixture sanity: no prompt yet")
+	require.Nil(t, wire.GoalTurn, "no derived goal, so no turn it came from")
+
+	promptAs(f, f.sess, 0, rateAsk)
+	f.closedSeg(1, 0, 1)
+	ps.setDegraded(true)
+	restartWriter(t, f)
+	d := f.begin()
+	f.advance(d, 1)
+
+	_, cp = f.persisted()
+	require.Equal(t, rateAskGoal, cp.CurrentWork.Goal)
+}
+
+// TestResumedDraftKeepsItsGoalWhileItsPromptIsUnreadable: a resumed draft reads its prompts again,
+// and the only one that gives its goal cannot be read for a while. A walk that could not read
+// every record it passed does not clear the goal it holds; a compaction in that window seals it.
+func TestResumedDraftKeepsItsGoalWhileItsPromptIsUnreadable(t *testing.T) {
+	f := newFx(t)
+	ps := newPromptProbeStore(f.store)
+	f.src.Store = ps
+	promptAs(f, f.sess, 0, "/qompack:status")
+	promptAs(f, f.sess, 2, rateCorrection45)
+	root := f.put(rateCorrection45, "UserPromptSubmit", "", true)
+	f.begin()
+	_, cp := f.persisted()
+	require.Equal(t, rateCorrection45Goal, cp.CurrentWork.Goal, "fixture sanity: the goal held")
+
+	restartWriter(t, f)
+	ps.failOpens(root, 1<<20)
+	f.begin()
+	_, cp = f.persisted()
+	require.Equal(t, rateCorrection45Goal, cp.CurrentWork.Goal, "the refresh that cannot read it")
+	got := sealed(t, f, f.precompactAs(f.sess))
+	require.Equal(t, rateCorrection45Goal, got.CurrentWork.Goal, "sealed in that window")
+}
+
+// TestResumedDraftNeverMovesCurrentWorkBackwardsWhileItsPromptIsUnreadable: the same restart, with
+// an older prompt that gives a goal too. A walk that cannot read the record its goal came from
+// finds the older prompt first; it does not step back to it, because the goal held came from a
+// later turn. A compaction in that window seals the newer goal.
+func TestResumedDraftNeverMovesCurrentWorkBackwardsWhileItsPromptIsUnreadable(t *testing.T) {
+	f := newFx(t)
+	ps := newPromptProbeStore(f.store)
+	f.src.Store = ps
+	promptAs(f, f.sess, 0, rateAsk)
+	promptAs(f, f.sess, 2, rateCorrection60)
+	promptAs(f, f.sess, 4, rateCorrection45)
+	root := f.put(rateCorrection45, "UserPromptSubmit", "", true)
+	f.begin()
+	_, cp := f.persisted()
+	require.Equal(t, rateCorrection45Goal, cp.CurrentWork.Goal, "fixture sanity: the goal held")
+
+	restartWriter(t, f)
+	ps.failOpens(root, 1<<20)
+	f.begin()
+	_, cp = f.persisted()
+	require.Equal(t, rateCorrection45Goal, cp.CurrentWork.Goal, "the refresh that cannot read it")
+	got := sealed(t, f, f.precompactAs(f.sess))
+	require.Equal(t, rateCorrection45Goal, got.CurrentWork.Goal, "sealed in that window")
+}
+
+// TestResumedDraftWithAGoalTurnNoRecordReachesTakesTheRecordsGoal: a draft file whose goal_turn
+// lies past every prompt record the store lists — the store restored from an older backup than
+// the state directory — resumes into a walk that reads every record. The records have the last
+// word: the goal is their newest, not the one the draft was persisted with.
+func TestResumedDraftWithAGoalTurnNoRecordReachesTakesTheRecordsGoal(t *testing.T) {
+	f := newFx(t)
+	promptAs(f, f.sess, 0, rateAsk)
+	promptAs(f, f.sess, 2, rateCorrection60)
+	past := core.TurnIndex(9)
+	plantDerivedGoalAt(t, f, rateReadLimiter, &past)
+
+	cp := sealed(t, f, f.precompactAs(f.sess))
+
+	require.Equal(t, rateCorrection60Goal, cp.CurrentWork.Goal)
+}
+
+// TestUnreadableNewestPromptLeavesAnOversizedGoalReadOnce: the newest prompt's bytes are gone for
+// good, so no walk reads every record it passes, and every refresh walks again. The goal prompt
+// behind it, a paste past the evolution's read limit that the evolution does not cache, is still
+// read whole once per draft, not at every refresh: the unreadable record costs a failed Open.
+func TestUnreadableNewestPromptLeavesAnOversizedGoalReadOnce(t *testing.T) {
+	limit := checkpoint.EvolutionReadLimitForTest
+	big := rateCorrection45 + strings.Repeat(" The limiter keeps one bucket per client.", int(limit)/40+1)
+	f := newFx(t)
+	ps := newPromptProbeStore(f.store)
+	f.src.Store = ps
+	promptAs(f, f.sess, 0, rateAsk)
+	promptAs(f, f.sess, 2, big)
+	lostPromptAs(f, f.sess, 4)
+	root := f.put(big, "UserPromptSubmit", "", true)
+
+	d := f.begin()
+	for range 5 {
+		f.advance(d)
+	}
+	d.RefreshIntent(f.ctx()) // PreCompact's refresh, without the successor its seal opens
+	_, got := f.persisted()
+
+	require.Equal(t, rateCorrection45Goal, got.CurrentWork.Goal)
+	whole, bounded := ps.readsOf(root, limit)
+	require.Equal(t, 1, whole, "read whole once, for the goal")
+	require.Equal(t, 1, bounded, "read bounded once, to learn it is past the limit")
+}
+
 // The prompts a session's current work skips: a slash-command invocation is not a statement of
 // the task. Claude Code hands UserPromptSubmit the prompt as typed, so a plugin command arrives as
 // "/qompack:why dec_..." (the C7 UAT-06 store holds exactly that), while a built-in such as
@@ -412,6 +543,7 @@ func TestSlashCommandPromptIsNotCurrentWork(t *testing.T) {
 		{"qompack status", "/qompack:status", rateCorrection60Goal},
 		{"qompack why with an id", "/qompack:why dec_991dbff588ec", rateCorrection60Goal},
 		{"qompack dropped with a flag", "/qompack:dropped --json", rateCorrection60Goal},
+		{"qompack why after whitespace", " /qompack:why dec_991dbff588ec\n", rateCorrection60Goal},
 		{
 			"qompack pin with its invariant", "/qompack:pin Never write to prod.db from the export code.",
 			rateCorrection60Goal,
@@ -708,6 +840,12 @@ func TestResumedDraftReDerivesCurrentWork(t *testing.T) {
 // leaves it.
 func plantDerivedGoal(t *testing.T, f *fx, goal string) {
 	t.Helper()
+	plantDerivedGoalAt(t, f, goal, nil)
+}
+
+// plantDerivedGoalAt is plantDerivedGoal with the draft file's goal_turn set to turn (nil: none).
+func plantDerivedGoalAt(t *testing.T, f *fx, goal string, turn *core.TurnIndex) {
+	t.Helper()
 	require.NoError(t, f.w.SetSources(f.src))
 	f.begin()
 	wire, cp := f.persisted()
@@ -716,7 +854,7 @@ func plantDerivedGoal(t *testing.T, f *fx, goal string) {
 	raw, err := checkpoint.Marshal(cp)
 	require.NoError(t, err)
 	wire.Checkpoint = raw
-	wire.GoalTurn = nil // candidate 7 wrote none
+	wire.GoalTurn = turn
 	b, err := json.Marshal(wire)
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(paths.Long(f.draftPath()), b, 0o600))

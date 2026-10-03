@@ -176,13 +176,13 @@ type Draft struct {
 	// reads a prompt's bytes once per draft rather than at every refresh. In-memory only: a
 	// resumed draft reads them again once.
 	promptText map[core.ToolUseID]string
-	// goalFrom is the session's newest prompt record when the derived CurrentWork.Goal was last
-	// derived from the records (deriveCurrentWorkLocked) by a walk that read every record it passed,
-	// whether or not it found a goal, so a refresh walks the newest prompts — reading one the
-	// evolution did not cache, a paste past its read limit, whole — once per new prompt rather than
-	// at every refresh. A walk that skipped a record it could not read is not remembered: the read
-	// may have failed only for now. In-memory only: a resumed draft derives its goal again.
-	goalFrom core.ToolUseID
+	// goalSeen is what the last goal walk (deriveCurrentWorkLocked, at every refresh) learned from
+	// each prompt record it read whole: the goal it gives, empty when it gives none. A record's bytes
+	// never change, so a walk reads each record once per draft while the record stays in its reach,
+	// a goal prompt past the evolution's read limit (which the evolution does not cache) included,
+	// and one that passes a record whose bytes are gone for good costs that record's failed Open and
+	// no bytes. At most goalWalkLimit entries. In-memory only: a resumed draft reads them again once.
+	goalSeen map[core.ToolUseID]string
 	// goalTurn is the turn of the prompt the derived CurrentWork.Goal was read from, by either
 	// derivation, and goalTurnSet whether there is one. The graph fallback in encodeSegmentLocked
 	// replaces the goal only with a prompt at a later turn, so a window in which the records cannot
