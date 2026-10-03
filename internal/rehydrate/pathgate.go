@@ -50,8 +50,9 @@ type pathJudge struct {
 	host    bool
 	refuses func(string) bool
 	// known holds every concrete path this build's pointers record that withheld() refuses inside
-	// the project — a file pointer's own, and one a tool summary names — in project-relative
-	// paths.Key form. A glob in a summary is withheld when it selects one of them (globWithheld).
+	// the project — a file pointer's own, one a tool summary names, and one a path-keyed checkpoint
+	// drop names — in project-relative paths.Key form. A glob in a summary is withheld when it
+	// selects one of them (globWithheld).
 	known []string
 	// tails holds every known path and each of its path-segment suffixes (`private/deny.txt`,
 	// `deny.txt`): a summary piece that spells one names the withheld file (namesKnown).
@@ -71,6 +72,10 @@ func newPathRules(r Request, d Deps) pathJudge {
 	return j
 }
 
+// newPathJudge is the build's judge. It must read r's checkpoint drop entries before
+// gateCheckpointDrops withholds their paths: a withheld path the checkpoint records only as a drop
+// (a pointer_missing file, a file_pointer cut at the checkpoint's budget) is still a path a selector
+// or a glob in a summary may select (w19 verifier V3).
 func newPathJudge(r Request, d Deps) pathJudge {
 	j := newPathRules(r, d)
 	var known []string
@@ -82,6 +87,11 @@ func newPathJudge(r Request, d Deps) pathJudge {
 	for _, f := range r.Checkpoint.Pointers.Files {
 		if !isGlob(f.Path) && j.withheld(f.Path) {
 			note(f.Path)
+		}
+	}
+	for _, e := range r.Checkpoint.Dropped {
+		if checkpointPathDrops[e.Kind] && !isGlob(e.ID) && j.withheld(e.ID) {
+			note(e.ID)
 		}
 	}
 	for _, t := range r.Checkpoint.Pointers.Tools {
@@ -104,6 +114,15 @@ func newPathJudge(r Request, d Deps) pathJudge {
 		}
 	}
 	return j
+}
+
+// pathJudgeFor is the judge Build made for d's build, or a new one for r when the item is built on
+// its own.
+func pathJudgeFor(r Request, d Deps) pathJudge {
+	if d.judge != nil {
+		return *d.judge
+	}
+	return newPathJudge(r, d)
 }
 
 // rulesKnown reports whether withheld() is a judgement rather than the fail-closed answer: the
@@ -514,9 +533,9 @@ var checkpointPathDrops = map[string]bool{
 // while the checkpoint still holds it (finalize keeps an untracked or a dirty pointer), and by
 // withheldDropID otherwise. The detail keeps the checkpointer's reason, without a re_read(path)
 // call re_read would refuse, says the path is withheld, and restores by hash when the hash is
-// known. Section 7 and dropped() both read the result. r's slice is never modified, and the host's
-// rules are consulted only when some entry is keyed by a path.
-func gateCheckpointDrops(r Request, d Deps) []checkpoint.DropEntry {
+// known. Section 7 and dropped() both read the result. r's slice is never modified. j is the build's
+// judge (newPathJudge), which read these entries' paths before this withholds them.
+func gateCheckpointDrops(r Request, j pathJudge) []checkpoint.DropEntry {
 	drops := r.Checkpoint.Dropped
 	keyed := false
 	for _, e := range drops {
@@ -525,7 +544,6 @@ func gateCheckpointDrops(r Request, d Deps) []checkpoint.DropEntry {
 	if !keyed {
 		return drops
 	}
-	j := newPathRules(r, d)
 	out := make([]checkpoint.DropEntry, len(drops))
 	for i, e := range drops {
 		out[i] = e
