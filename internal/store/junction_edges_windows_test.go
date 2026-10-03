@@ -49,16 +49,14 @@ func junctionInPlaceOf(t *testing.T, p string) {
 	makeJunction(t, p, t.TempDir())
 }
 
-// TestGC_HaltsOnAJunctionWhereARetentionSourceBelongs: checkpoints/, the generation store and
-// delivery-segments/ are each read only as themselves; a junction in their place halts the pass and
-// nothing is swept. (The delivery head is a file, which a junction cannot stand in for; its row is
-// the unix symlink one.)
+// TestGC_HaltsOnAJunctionWhereARetentionSourceBelongs: checkpoints/ and delivery-segments/ are each
+// read only as themselves; a junction in their place halts the pass and nothing is swept. (The
+// delivery head is a file, which a junction cannot stand in for; its row is the unix symlink one.
+// The generation store is never read, only tested for presence, and a plain directory there halts
+// the pass just as a junction does, so its row is TestDsegMigrationEvidence_NamesAJunctionedGenStore.)
 func TestGC_HaltsOnAJunctionWhereARetentionSourceBelongs(t *testing.T) {
 	cases := map[string]func(t *testing.T, tp *testProject){
 		"checkpoints": func(t *testing.T, tp *testProject) { junctionInPlaceOf(t, paths.Of(tp.Root).Checkpoints) },
-		"generation store": func(t *testing.T, tp *testProject) {
-			junctionInPlaceOf(t, filepath.Join(paths.Of(tp.Root).State, dsegGensDir))
-		},
 		"delivery-segments beside an authority": func(t *testing.T, tp *testProject) {
 			installSegAuthority(t, tp, []segSpec{{0, ""}})
 			junctionInPlaceOf(t, filepath.Join(paths.Of(tp.Root).State, dsegDir))
@@ -79,6 +77,25 @@ func TestGC_HaltsOnAJunctionWhereARetentionSourceBelongs(t *testing.T) {
 			require.NoError(t, err)
 		})
 	}
+}
+
+// TestDsegMigrationEvidence_NamesAJunctionedGenStore: the generation store's presence alone is
+// migration evidence (the control, a plain directory, is reported as evidence and nothing more), but
+// a junction in its place is refused by the no-follow confinement as the reparse point it is, before
+// anything inspects it as a directory.
+func TestDsegMigrationEvidence_NamesAJunctionedGenStore(t *testing.T) {
+	tp := newTestStore(t)
+	gens := filepath.Join(paths.Of(tp.Root).State, dsegGensDir)
+	require.NoError(t, os.MkdirAll(gens, 0o700))
+	evidence, err := tp.Store.dsegMigrationEvidence()
+	require.NoError(t, err)
+	require.True(t, evidence, "control: a plain generation store is migration evidence")
+
+	junctionInPlaceOf(t, gens)
+	evidence, err = tp.Store.dsegMigrationEvidence()
+	require.ErrorIs(t, err, errRetentionRootsUnavailable)
+	require.Contains(t, err.Error(), "is a symlink or reparse point")
+	require.False(t, evidence)
 }
 
 // TestAuditPublication_NotesJunctionsItWillNotTraverse: a junction in the pending registry, at an
@@ -118,14 +135,16 @@ func TestAuditPublication_NotesJunctionsItWillNotTraverse(t *testing.T) {
 
 // TestObservationGuards_JunctionedIndexRefused: an index/ that is a junction to a directory outside
 // the project, holding an observations file of its own, leaves the observation sidecar uncertain;
-// the reader never takes the outside file for the project's.
+// the reader never takes the outside file for the project's. The outside file is empty, which a
+// reader that followed the junction would load cleanly (uncertain stays false): only the refusal
+// itself can make the row pass.
 func TestObservationGuards_JunctionedIndexRefused(t *testing.T) {
 	tp := newTestStore(t)
 	require.NoError(t, tp.Store.Close())
 	index := paths.Of(tp.Root).Index
 	require.NoError(t, os.Rename(index, index+"-original"))
 	destination := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(destination, observationsFile), []byte("external sentinel"), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(destination, observationsFile), nil, 0o600))
 	makeJunction(t, index, destination)
 
 	tp.Store.mu.Lock()
