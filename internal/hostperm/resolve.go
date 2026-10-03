@@ -18,6 +18,8 @@ const maxLinkHops = 64
 // same anchor directories: without it a build paid one Readlink per anchor component per rule, and
 // the first request after an edit to a large rule list waited seconds for it. A nil memo reads the
 // disk every time, which is what Evaluate uses, because a request must see links as they are now.
+// An Evaluator holds one for the life of the one request it serves, which sees the links as they
+// were when it began.
 type linkMemo map[string]linkAnswer
 
 // linkAnswer is one cached Readlink result.
