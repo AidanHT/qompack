@@ -775,9 +775,9 @@ func (ls *dispatchLanes) claimReady() (sess core.SessionID, ok, more bool) {
 // a lane parked on a head only a drain can now publish, or jobs the lanes or the ring could not
 // hold. Without it those waited for a flush, admin.drain, a restart or DetectAfterSeconds of
 // project-wide idleness. Each pass gets the idle drain's own budget (idleRunBudget) as a pass budget
-// (withPassBudget): once the budget is spent and it has consumed a line it starts no other, and a
+// (withPassBudget): once the budget is spent and it has made progress it starts no other line, and a
 // line it started keeps its own drainLineDeadline, so it always finishes the line it started and
-// consumes one when it can. The requester then rests as long as the pass took, so requested passes
+// makes progress when it can. The requester then rests as long as the pass took, so requested passes
 // take at most half of its time however often the lanes ask: a session whose head fails on every
 // retry can make it drain again and again, but never back to back. Requests made during a pass or its
 // rest merge into the next one. The pass's release of the sessions it
@@ -823,8 +823,8 @@ func (d *daemon) requestedDrainPass(ctx context.Context) {
 }
 
 // passLeftWork reports whether a budgeted pass that published n lines and ended with err stopped with
-// work left that is worth another pass. A pass its budget ended (errPassBudgetSpent) has consumed a
-// line by then, and stopped only because the budget was spent. A pass a line's own drainLineDeadline
+// work left that is worth another pass. A pass its budget ended (errPassBudgetSpent) has made
+// progress by then, and stopped only because the budget was spent. A pass a line's own drainLineDeadline
 // ended (the line's dispatch, context.DeadlineExceeded as well) is worth another only if it published
 // a line first: a line whose dispatch never finishes ends every pass that reaches it that way, and a
 // requester that asked again after each of those ran pass after pass for as long as the daemon lived,
@@ -854,4 +854,8 @@ type deferredLine struct {
 	key    core.Hash
 	start  int64
 	next   int64
+	// sum and gaps are what the drain remembers of the line once it is consumed out of order: its bytes'
+	// sum, and the gaps reading it added before it was deferred (drainFile's consumedLine).
+	sum  uint64
+	gaps []gapNote
 }
