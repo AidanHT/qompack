@@ -25,10 +25,14 @@ import (
 // drive that through the real status command and the real ipc client's answer to a missed connect:
 // a real client aimed at an address nothing listens on, swapped in through newCommandIPCClient.
 //
-// None of them times a real dial for its verdict (D61). fetchDaemonStatus's sends are timed on
-// statusSendClock, which these rows replace with a stepClock; daemonListening's dial is
+// No row's verdict rests on a timing margin of its own choosing (D61). fetchDaemonStatus's sends are
+// timed on statusSendClock, which these rows replace with a stepClock; daemonListening's dial is
 // statusProbeDial, which they replace where a probe is not what the row is about; and a connect that
 // succeeds late is a modelled transport (lateConnectClient), not a listener raced against a budget.
+// Three rows still use the real transport where it is what they prove, so they still need a real
+// connect inside commandConnectDeadline, the product's own budget: the transient-miss row (its
+// resend and its second read reach a real daemon), the call-deadline row (a real probe and connect
+// to a real server) and TestStatus_RepeatedReadsOfUnchangedStateAgree (status_order_test.go).
 
 // stepClock is a Clock that moves only when a row advances it.
 type stepClock struct {
