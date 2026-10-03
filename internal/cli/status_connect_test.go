@@ -228,6 +228,33 @@ func (c countingClient) Send(ctx context.Context, req ipc.Request, d time.Durati
 func TestStatus_DaemonDisabledIsNamedNotMissed(t *testing.T) {
 	root := bootstrapProject(t)
 	writeProjectConfig(t, root, `{"runtime":{"daemon":{"enabled":false}}}`)
+	requireStatusNamesTheDisabledDaemon(t, root)
+}
+
+// TestStatus_StaleStateBinDisabledIsNamed is the wave 19c review's nit. The command client's
+// DaemonEnabled is state.bin's AND the configuration's (daemonClientState), so it is also false when
+// the configuration says true but state.bin says false: a daemon reloaded runtime.daemon.enabled
+// false, rewrote state.bin, and died without a clean stop before the key was set back. The reason
+// must not then claim only the configuration: it must name state.bin as the other place the key
+// can be false. Otherwise the row is TestStatus_DaemonDisabledIsNamedNotMissed's.
+//
+// Not parallel: it swaps newCommandIPCClient, statusProbeDial and statusSendClock.
+func TestStatus_StaleStateBinDisabledIsNamed(t *testing.T) {
+	root := bootstrapProject(t)
+	st := ipc.StateFromConfig(config.Defaults())
+	require.True(t, st.DaemonEnabled, "the project's configuration enables the daemon")
+	st.DaemonEnabled = false // what a daemon that reloaded enabled=false wrote before it died
+	require.NoError(t, ipc.WriteState(root, st))
+	env := requireStatusNamesTheDisabledDaemon(t, root)
+	require.Contains(t, env.Data.Primary.Reason, "state.bin",
+		"the configuration says true, so the reason must also name the state.bin that says false")
+}
+
+// requireStatusNamesTheDisabledDaemon runs status --json over root, whose command client must be
+// built with the daemon disabled, against a probe that reports a listener, and requires the
+// disabled-daemon answer: one send, no probe, and statusDaemonDisabledReason alone.
+func requireStatusNamesTheDisabledDaemon(t *testing.T, root string) statusOrderEnvelope {
+	t.Helper()
 	var probes atomic.Int64
 	useStatusProbe(t, func(ipc.Addr, time.Duration) bool {
 		probes.Add(1)
@@ -256,6 +283,7 @@ func TestStatus_DaemonDisabledIsNamedNotMissed(t *testing.T) {
 	require.NotContains(t, env.Data.Primary.Reason, statusConnectMissReason, "no dial was made")
 	require.NotContains(t, env.Data.Primary.Reason, statusSilentDaemonReason, "no call deadline ran")
 	require.NotContains(t, env.Data.Primary.Reason, statusNoDaemonReason)
+	return env
 }
 
 // lateConnectClient is the transport to a listener that accepts a connection only readyAt after a

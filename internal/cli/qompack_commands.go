@@ -280,8 +280,12 @@ var statusConnectMissReason = fmt.Sprintf("a daemon is listening for this projec
 // for this project, in its loaded configuration or in the state.bin its daemon last wrote. The
 // command client then never dials (ipc.Client.Send, step 2): it answers OK false with no text at
 // once, which is neither a connect miss nor an absent daemon, so status says why no daemon was asked.
-const statusDaemonDisabledReason = "runtime.daemon.enabled is false for this project, so this " +
-	"command does not ask a daemon, even one that is still running"
+// The text names both places because daemonClientState ANDs them: a daemon that reloaded the key to
+// false rewrote state.bin, and if it then died without a clean stop, state.bin still says false
+// after the configuration is set back to true.
+const statusDaemonDisabledReason = "runtime.daemon.enabled is false for this project (in its " +
+	"configuration, or in the state.bin its daemon last wrote), so this command does not ask a " +
+	"daemon, even one that is still running"
 
 // statusProbeTimeout bounds the dial daemonListening makes. It is the command client's own connect
 // budget, not a new number. fetchDaemonStatus resends a fast failure only when this probe saw a

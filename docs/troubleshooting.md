@@ -130,7 +130,9 @@ start unless `runtime.daemon.enabled` is `false`, so run `status` again once it 
 the page falls back to the persisted metrics file (`source: disk`) if there is one. With
 `runtime.daemon.enabled` `false`, status neither asks nor looks for a daemon, not even one started
 before the change and still running: the line reads `daemon: runtime.daemon.enabled is false for
-this project, so this command does not ask a daemon, even one that is still running`. If a daemon
+this project (in its configuration, or in the state.bin its daemon last wrote), so this command
+does not ask a daemon, even one that is still running`. The `state.bin` case is a daemon that
+reloaded the key to `false` and then died without a clean stop. If a daemon
 is listening, the line names what went wrong. When it took the request but no answer came within
 the 10-second call deadline, the line reads `daemon: a daemon is listening for this project but did
 not answer within 10s`: it is up but busy or stuck. When the request failed sooner, the line reads
