@@ -72,12 +72,15 @@ func historyOf(e Env) (*SessionHistory, bool) {
 
 // checkSessionStartFires is CSessionStartFires's real observation (task-4-spec.md's table):
 // run/marker.json exists and names a session different from the current one -> OK. Absent (or
-// naming THIS session, which is the same absence of proof) -> StartsWithoutMarker++, failing only
-// once that reaches 2 ("absence across two sessions"). The very first session a project has ever
-// seen has no prior terminal hook to have left a marker, so it reports OK regardless. A later start
-// of the session the history last saw — its compaction, or a --resume keeping its id — whose
-// marker names it, with no absence counted, is that session's own restart: same-session-restart,
-// holding, and nothing is counted or reset.
+// naming THIS session when the start is not its own restart, described below, which is the same
+// absence of proof) -> StartsWithoutMarker++, failing only once that reaches 2 ("absence across two
+// sessions"). The very first session a project has ever seen has no prior terminal hook to have
+// left a marker, so it reports OK regardless. A session's
+// own restart is a start whose marker names it and which is either a start of the session the
+// history last saw or a compaction or --resume (sessionRestartSource) of any session: with two
+// sessions open in one project, the one that started first restarts while LastSessionID names the
+// other. A restart counts nothing and moves neither field; it reads same-session-restart (holding)
+// when no absence is counted, and otherwise the counted absence's own reading.
 //
 // The counter is bumped at most once per SESSION, keyed off History.LastSessionID: §12.1 says
 // "absence across two SESSIONS", not "across two RunAll calls", and a second RunAll inside one
@@ -107,7 +110,10 @@ func checkSessionStartFires(ctx context.Context, e Env) Result {
 		h.LastSessionID = e.Event.SessionID
 		return Result{OK: true, Expected: desc, Observed: "marker-found", TS: now(e)}
 	}
-	if h.LastSessionID != e.Event.SessionID {
+	ownMarker := err == nil && rec.Session != "" && rec.Session == e.Event.SessionID
+	restart := ownMarker &&
+		(h.LastSessionID == e.Event.SessionID || sessionRestartSource(e.Event.Source))
+	if !restart && h.LastSessionID != e.Event.SessionID {
 		h.StartsWithoutMarker++
 		h.LastSessionID = e.Event.SessionID
 	}
@@ -118,17 +124,30 @@ func checkSessionStartFires(ctx context.Context, e Env) Result {
 			TS:       now(e),
 		}
 	}
-	if h.StartsWithoutMarker == 0 && err == nil && rec.Session != "" &&
-		rec.Session == e.Event.SessionID && h.LastSessionID == e.Event.SessionID {
-		// A start of the session this history last saw, whose marker that session's own terminal
-		// hook wrote: its compaction (PreCompact, then SessionStart source=compact) or a --resume
-		// that kept the id. That session's own start already settled the assertion and counted no
-		// absence, and this marker proves its hooks still fire, so nothing is pending (F-C48-1). A
-		// count of 1 stays marker-absent-once below: the absence its first start counted is still
-		// the one the next session's start decides.
+	if h.StartsWithoutMarker == 0 && restart {
+		// A session's own restart, whose marker that session's own terminal hook wrote: its
+		// compaction (PreCompact, then SessionStart source=compact) or a --resume that kept the id,
+		// whether or not another session started in between. No absence is counted and this marker
+		// proves the session's hooks still fire, so nothing is pending (F-C48-1). A count of 1
+		// stays marker-absent-once below: that absence is still the one the next new session's
+		// start decides.
 		return Result{OK: true, Expected: desc, Observed: "same-session-restart", TS: now(e)}
 	}
 	return Result{OK: true, Expected: desc, Observed: "marker-absent-once", TS: now(e)}
+}
+
+// SessionStart sources (hookio.Event.Source) that keep the session id the host already ran.
+const (
+	sessionSourceCompact = "compact"
+	sessionSourceResume  = "resume"
+)
+
+// sessionRestartSource reports whether a SessionStart source restarts a session the host already
+// ran: a compaction or a --resume keeps the session id. A startup or clear carries an id the host
+// has just minted, so a marker already naming it proves no prior terminal hook fired and stays an
+// absence unless the history last saw that very session.
+func sessionRestartSource(source string) bool {
+	return source == sessionSourceCompact || source == sessionSourceResume
 }
 
 // checkSessionStartSourceCompact is CSessionStartSourceCompact's real observation: when a

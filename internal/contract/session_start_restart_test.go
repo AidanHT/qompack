@@ -11,9 +11,10 @@ import (
 	"github.com/qompack/qompack/internal/hookio"
 )
 
-// sessionRestartObserved is what session_start.fires reports for a start of the session the history
-// last saw whose marker that same session's own terminal hook wrote: a compaction's
-// SessionStart(source=compact), or a --resume of the same session id (F-C48-1).
+// sessionRestartObserved is what session_start.fires reports for a session's own restart, with no
+// absence counted: a start whose marker that same session's own terminal hook wrote, either of the
+// session the history last saw or a compaction's SessionStart(source=compact) or a --resume of any
+// session (F-C48-1; the two-window case, w20 status audit).
 const sessionRestartObserved = "same-session-restart"
 
 // startFires runs session_start.fires once for a SessionStart of sess with the given source, the
@@ -158,4 +159,110 @@ func TestSessionStartFires_GenuineAbsenceKeepsItsBehaviour(t *testing.T) {
 	require.False(t, r.OK)
 	require.Equal(t, contract.StandingFailing, contract.StandingOf(r))
 	require.Equal(t, 2, h2.StartsWithoutMarker)
+}
+
+// TestSessionStartFires_OverlappingSessionsRestartsHold is the two-window case (w20 status audit):
+// two sessions open in one project share run/marker.json and state/history.json, so the session
+// that started second is the one History.LastSessionID names. The OTHER session's compaction, or a
+// --resume of it, still finds the marker its own PreCompact or SessionEnd just wrote. That is its
+// own restart: it holds, counts nothing, and leaves LastSessionID alone. Before the fix the first
+// session's compaction counted an absence (pending) and the second's made it two (SevCritical, the
+// project degraded on a store where every hook fired).
+func TestSessionStartFires_OverlappingSessionsRestartsHold(t *testing.T) {
+	contract.DeclareProducer(contract.CSessionStartFires)
+	t.Cleanup(contract.ResetProducers)
+
+	root := t.TempDir()
+	h := &contract.SessionHistory{SessionCount: 1, LastSessionID: "sess-z"}
+	require.NoError(t, contract.WriteMarker(root, "sess-z", 1)) // session z's SessionEnd
+
+	r := startFires(t, root, h, "sess-a", "startup")
+	require.Equal(t, "marker-found", r.Observed)
+	r = startFires(t, root, h, "sess-b", "startup") // a second window, while a is still open
+	require.Equal(t, "marker-found", r.Observed)
+	require.Equal(t, core.SessionID("sess-b"), h.LastSessionID)
+
+	steps := []struct {
+		sess   core.SessionID
+		source string
+	}{
+		{"sess-a", "compact"}, // a, not the last-started session, compacts
+		{"sess-b", "compact"}, // then b compacts
+		{"sess-a", "compact"}, // interleaved again
+		{"sess-a", "resume"},  // a's SessionEnd, then a --resume keeping its id
+		{"sess-b", "resume"},
+	}
+	for i, s := range steps {
+		require.NoError(t, contract.WriteMarker(root, s.sess, core.UnixMilli(2+i)))
+		r = startFires(t, root, h, s.sess, s.source)
+		require.True(t, r.OK, "step %d (%s %s)", i+1, s.sess, s.source)
+		require.Equal(t, sessionRestartObserved, r.Observed, "step %d (%s %s)", i+1, s.sess, s.source)
+		require.Equal(t, contract.StandingHolding, contract.StandingOf(r), "step %d", i+1)
+		require.Equal(t, 0, h.StartsWithoutMarker, "step %d: an own restart counts nothing", i+1)
+	}
+	require.Equal(t, core.SessionID("sess-b"), h.LastSessionID,
+		"a restart is no new session: LastSessionID still names the last-started one")
+
+	// The next new session reads the marker the restarts left.
+	r = startFires(t, root, h, "sess-c", "startup")
+	require.Equal(t, "marker-found", r.Observed)
+	require.Equal(t, 0, h.StartsWithoutMarker)
+}
+
+// TestSessionStartFires_OverlappingRestartKeepsACountedAbsence: the other session's own restart takes
+// nothing from an absence a start counted. The row stays marker-absent-once (pending) at a count of
+// one and failing at two; the restart neither adds to the count nor clears it, and the next new
+// session's start still decides it.
+func TestSessionStartFires_OverlappingRestartKeepsACountedAbsence(t *testing.T) {
+	contract.DeclareProducer(contract.CSessionStartFires)
+	t.Cleanup(contract.ResetProducers)
+
+	root := t.TempDir()
+	h := &contract.SessionHistory{SessionCount: 2, LastSessionID: "sess-a"}
+
+	// Session b starts beside a with no marker at all: a genuine absence.
+	r := startFires(t, root, h, "sess-b", "startup")
+	require.Equal(t, "marker-absent-once", r.Observed)
+	require.Equal(t, 1, h.StartsWithoutMarker)
+
+	// Session a compacts: its own restart, but the absence b's start counted is still undecided.
+	require.NoError(t, contract.WriteMarker(root, "sess-a", 1))
+	r = startFires(t, root, h, "sess-a", "compact")
+	require.True(t, r.OK)
+	require.Equal(t, "marker-absent-once", r.Observed)
+	require.Equal(t, contract.StandingPending, contract.StandingOf(r))
+	require.Equal(t, 1, h.StartsWithoutMarker)
+	require.Equal(t, core.SessionID("sess-b"), h.LastSessionID)
+
+	// At a count of two the other session's restart stays failing.
+	h2 := &contract.SessionHistory{SessionCount: 3, LastSessionID: "sess-b", StartsWithoutMarker: 2}
+	r = startFires(t, root, h2, "sess-a", "compact")
+	require.False(t, r.OK)
+	require.Equal(t, contract.StandingFailing, contract.StandingOf(r))
+	require.Equal(t, 2, h2.StartsWithoutMarker)
+
+	// The next new session finds a's marker and decides the absence.
+	r = startFires(t, root, h, "sess-c", "startup")
+	require.Equal(t, "marker-found", r.Observed)
+	require.Equal(t, 0, h.StartsWithoutMarker)
+}
+
+// TestSessionStartFires_FreshStartNamingItselfStillCounts: only a compact or resume start is a
+// restart of a session the history did not last see. A startup or clear carries a session id the
+// host has just minted, so a marker that already names it is no proof any prior terminal hook
+// fired; it counts as an absence, as it always did.
+func TestSessionStartFires_FreshStartNamingItselfStillCounts(t *testing.T) {
+	contract.DeclareProducer(contract.CSessionStartFires)
+	t.Cleanup(contract.ResetProducers)
+
+	for _, source := range []string{"startup", "clear"} {
+		root := t.TempDir()
+		h := &contract.SessionHistory{SessionCount: 2, LastSessionID: "sess-a"}
+		require.NoError(t, contract.WriteMarker(root, "sess-b", 1))
+		r := startFires(t, root, h, "sess-b", source)
+		require.True(t, r.OK, source)
+		require.Equal(t, "marker-absent-once", r.Observed, source)
+		require.Equal(t, 1, h.StartsWithoutMarker, source)
+		require.Equal(t, core.SessionID("sess-b"), h.LastSessionID, source)
+	}
 }
