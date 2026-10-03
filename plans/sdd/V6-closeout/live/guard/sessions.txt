@@ -394,3 +394,7 @@ same  .qompack/ (0 entries)
 real home fingerprint unchanged
 check exit 0
 == END of sessions-c7 part (after staged-copy cleanup) — 2026-10-02 15:11:27 EDT
+== NOTE (wave 19 docs seat, 2026-10-02, added after the lane; no check was run for this note): the 14:03:20 EDT
+resume check above is the post-session check for sessions-c7 n=4, the void UAT-05 run 2 session. No session ran
+between n=4's end and that check, and it reads 'real home fingerprint unchanged', check exit 0. The coordinator's
+own clean and check after n=4 was not captured in this file.

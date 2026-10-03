@@ -593,3 +593,12 @@ same  plugins/data/ (2 entries)
 same  .qompack/ (0 entries)
 real home fingerprint unchanged
 check exit 0
+== NOTE (wave 19 docs seat, 2026-10-02, added after the lane; no check was run for this note): in the candidate 7
+install part, a check taken inside an open local-scope install window (after install-c7 n=1 at 04:10:03 and after
+n=4 at 04:21:32, and every other '(install window open)' check) reads check exit 1 by design. It differs only in
+plugins/installed_plugins.json, plugins/known_marketplaces.json and plugins/cache/qompack-live, which the run's own
+marketplace add and install create, plus the run-created INFO .qompack/bin copy. settings.json reads 'same'
+throughout. The passing check for those sessions is the window-close check after marketplace remove and orphan
+cleanup: 04:10:20 EDT for n=1 and 04:22:14 EDT for n=4, both 'real home fingerprint unchanged', check exit 0.
+Sessions n=2 and n=3 ran via --plugin-dir outside any install window, and their own checks (04:16:00 and
+04:18:03 EDT) pass.

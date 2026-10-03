@@ -128,7 +128,7 @@ live sessions:
   recovery after a compaction, task success or constraint retention
   (`plans/sdd/V6-closeout/eval/preregistration.md`, amendment A8).
 - **Verified where the evidence says, and nowhere else.** Installed into Claude Code on windows/amd64
-  only, by the live lanes on candidates 3 and 4. Linux fsync-bound timing rows (B-A, B-B) are not
+  only, by the live lanes on candidates 3, 4 and 7. Linux fsync-bound timing rows (B-A, B-B) are not
   verified in target (D53(b)); in the Linux container the whole tree, `test/e2e` and the
   product-child lane pass under `-race`. On Windows, candidate 6's quiet hot-path run passed on AC
   (B-A p99 30.7 ms, B-B p99 24.6 ms against 50), and X11, the hot path with and without a resident
@@ -138,8 +138,18 @@ live sessions:
   were taken on AC with the store under a path excluded from Windows Defender scanning (decisions
   D32, D53(h)). Candidate 6's evidence carries to candidate 7, whose binaries differ from it by one
   unreferenced byte, plus darwin/arm64's ad-hoc signature hash (D57(c)). The executable bit after a
-  marketplace install on Linux and macOS, and the command and tool namespace under a
-  `qompack-<os>-<arch>` entry, have not been observed.
+  marketplace install on Linux and macOS has not been observed, nor has an install from the
+  published marketplace. Under an entry named `qompack-windows-amd64`, installed from a local
+  marketplace on candidate 7, a session listed the server `plugin:qompack:qompack`, the tools
+  `mcp__plugin_qompack_qompack__<tool>` and the commands `/qompack:<name>`: the namespace comes
+  from `plugin.json`'s name, not from the entry's (D59; `docs/install.md` §9).
+- **After a daemon is killed mid-session**, the daemon that takes the project over can reach its
+  idle exit without writing `index/files.json`, so a later `fsck` exits 1 naming `index.files`
+  absent. Nothing is lost: `fsck --repair --yes` regenerates the view, and the next session's flush
+  writes it (D59, `docs/troubleshooting.md` §9).
+- **When the original request overflows the rehydration block**, older evolution entries are not
+  re-admitted into the room the block leaves unused: authority order comes first (ADR 0011). They
+  are named in section 7, and `dropped()` lists them (D59, `docs/troubleshooting.md` §5).
 - **Binaries are not code-signed**, so Gatekeeper, SmartScreen and Defender may refuse or flag them
   (`docs/install.md` §10).
 - **Accepted residuals**, each documented in `docs/cannot-do.md`: a 2.3 to 6.8 s capture pause at each

@@ -1,0 +1,527 @@
+{
+ "results": [
+  {
+   "key": "install",
+   "budget": 4,
+   "r": {
+    "status": "done",
+    "head": "3e6680760c84a0992b91fca98f0f59c747b3bc62",
+    "commits": [
+     "f5d074ad test(live): re-run UAT-01 and C4.1 on candidate 7",
+     "44987db7 test(live): record the c4.8 upgrade and restore on candidate 7",
+     "3d316581 test(live): re-run c4.8, the uat-12 upgrade leg and c1.7 on c7",
+     "3e668076 test(live): log the install part's end on candidate 7"
+    ],
+    "sessions_used": 4,
+    "scenarios": [
+     {
+      "id": "UAT-01",
+      "result": "pass",
+      "evidence": "plans/sdd/V6-closeout/live/rerun-c7/UAT-01/ (notes.txt indexes it; 1 Haiku session, sessions.tsv install-c7 n=1, 28.3 s, exit 0, stderr empty). The frozen c7 bundle was installed through a local marketplace qompack-live whose one entry is named qompack-windows-amd64, at local scope in the real profile, with no QOMPACK_* variables and no config file. The same flow (add/install/list/details/uninstall/remove) ran first in an isolated CLAUDE_CONFIG_DIR with no model call (cli/iso/). Steps 2-8: version 0.3.0, exit 0. The installed plugin.json, step 2 and BUNDLE.json all read 0.3.0. As it stands, the source tree's plugin.json at d20309c0 now reads 0.3.0 (C7.1's version commit) and the last tag is v0.2.0. The seven hooks are exec form. The host's 8 tools equal docs/mcp-tools.md. All 108 config leaves are default and every gated switch is false. self-test exits 0 with no critical row; the CLI self-test rows read not-yet-implemented, while the daemon snapshot reads sentinel-observed, timeout-unknown, retired and initialize-received. After the MCP calls: status reads '9 assertion(s), none failing: 4 holding, 1 pending, 4 with nothing to judge'; doctor exits 0 with '0 gap(s) across 12 sidecar(s)'; fsck exits 0 with the daemon live and stopped; fsck --seal-check exits 0. The Result block is replaced in docs/uat.md, with candidate 4's history line added and candidate 3's kept.",
+      "findings": [
+       "F1 (doc): docs/install.md section 9 (around line 343) says the namespace under a qompack-<os>-<arch> release entry 'has not been observed in a live session, and the host may derive it from the entry name instead'. That is now stale. Observed under entry qompack-windows-amd64: server plugin:qompack:qompack, tools mcp__plugin_qompack_qompack__<tool>, slash_commands qompack:{dropped,eval,pin,recall,status,why}, plugins[] name qompack with source qompack-windows-amd64@qompack-live. The namespace comes from plugin.json's name and matches docs/commands.md. The sentence is not marked 'to be confirmed at execution', so it was not edited.",
+       "F2 (doc, minor): `claude plugin details qompack-windows-amd64` exits 1 with 'Plugin \"qompack-windows-amd64\" not found'. `details qompack` and `details qompack-windows-amd64@qompack-live` work, and they show the marketplace ENTRY's description, not plugin.json's. No doc says this. Evidence: cli/04, cli/04b, cli/04c, cli/iso/i06*.",
+       "O1 (for UAT-10's owner): status --json's raw latency.hook_controlled reports P95 212,992,000 ns, above Max 206,000,000 ns. The text banner clamps it to 206.00 ms. Evidence: cli/x4-status-json.",
+       "Brief premise stale, no change needed: install.md section 3 already records that 2.1.280 accepts --json on install/update/uninstall. Install and uninstall --json each printed one JSON line again."
+      ]
+     },
+     {
+      "id": "C4.1",
+      "result": "pass",
+      "evidence": "plans/sdd/V6-closeout/live/rerun-c7/UAT-01/ (cli/iso/ isolated-profile install; cli/01-04 real-profile local scope; session/stream.jsonl init). The install was discovered under the release entry name: plugin list id qompack-windows-amd64@qompack-live, installPath plugins/cache/qompack-live/qompack-windows-amd64/0.3.0. Hooks fired: SessionStart, UserPromptSubmit x4, PostToolUse x4, Stop x4, all success / exit 0. MCP server plugin:qompack:qompack connected with the 8 tools. The six /qompack: commands are listed and qompack:checkpoint is absent. The typed /qompack:status ran, and the host resolved `qompack` for the command body with no PATH change. The host used mcp__plugin_qompack_qompack__recall. Recall ranking (D49, wave 16 relhyg): the original FileRead and prompt captures rank first. The host's records of the session's own recall calls, filed under mcp__plugin_qompack_qompack__recall, come after them and are withheld as pathless, counted in denied (2 in session, 4 via the CLI), as docs/mcp-tools.md documents. The session created an empty plugins/data/qompack-windows-amd64-qompack-live/; homeguard clean removed it before the uninstall. Cleanup: uninstall -s local --json, marketplace remove, orphaned cache removed (BUNDLE.json compared first). The guard was unchanged afterwards.",
+      "findings": [
+       "Same doc findings as UAT-01 (F1 stale namespace sentence in install.md section 9, F2 details by bare entry name fails)."
+      ]
+     },
+     {
+      "id": "C4.8",
+      "result": "pass",
+      "evidence": "plans/sdd/V6-closeout/live/rerun-c7/C4.8/ (notes.txt; cli/, cli2/, sessionA/B/C/, store/). 3 Haiku sessions (install-c7 n=2-4), all exit 0 with empty stderr; every daemon ended by its 30 s idle exit. Previous build is candidate 5's frozen bundle (0d06ab12) via --plugin-dir. Session A: Reads, record_eliminated (project scope), recall, timeline and a /compact that sealed checkpoint 0001. The frozen c7 CLI ran backup create and verify on the stopped source: exit 0/0, 77 files, verify's scratch restore 22 roots / 15 tool refs, integrity and seal check passed. Both builds' fsck exit 0 before the upgrade. Upgrade: session B via --plugin-dir of the c7 bundle. It re-read session A's capture (turn 1), already_tried answered active, the timeline showed 3 segments, and /compact sealed 0003; the block carried A's elimination and decision. Post-upgrade status, doctor --json and fsck --json all exit 0, and fsck --seal-check exits 0 after the idle exit. Every pre-upgrade object, checkpoints/0001.json and eliminations.jsonl is byte-identical; append-only logs were only appended to. Restore of the pre-upgrade baseline into a fresh destination: exit 0, reader proof and integrity passed, fsck --seal-check exit 0 on the recovery and on the source, and later writes were preserved. Candidate 5's own fsck and fsck --seal-check on the recovery exit 0. Survival, through the local marketplace (entry qompack-windows-amd64, c7 bundle, local scope): .qompack/ stayed byte-identical across install, uninstall, reinstall and the final uninstall (193 and 209 files, full sha256 listings). Session C on the reinstalled plugin re-read session A's old-build capture; recall at the default k returned 5 permitted hits, including A's README. A post-upgrade backup, verify and restore, plus fsck --seal-check, all exit 0. The day log has no WARN or LOUD line across 3 daemon starts.",
+      "findings": [
+       "F-C48-1 (diagnostics, minor; new): after a mid-session compaction, `qompack status` reports session_start.fires as pending 'marker-absent-once': host contract 'none failing: 7 holding, 1 pending, 1 with nothing to judge'. That happens on a healthy store: run/marker.json names the current session and state/history.json has starts_without_marker 0. internal/contract/assertions.go checkSessionStartFires returns marker-absent-once for any start whose marker is missing or names the current session, including a same-session compact start. docs/troubleshooting.md section 1 says a healthy project reads '0 pending'. Evidence: rerun-c7/C4.8/cli/10-status.stdout.txt, cli/13-status-json.stdout.txt.",
+       "O1 (observation): D10 staging prunes the other build's staged copy even at the same version string. Candidate 5's session removed candidate 7's ~/.qompack/bin copy, and candidate 7's session removed candidate 5's. install.md section 6 says a copy is pruned 'only when a newer version is staged'. Evidence: guard/install.txt INFO lines after sessions A and B.",
+       "O2: the old build's draft number makes candidate 7's first checkpoint 0003 (chain 0001 -> 0003), as on candidate 4. fsck and doctor accept it."
+      ]
+     },
+     {
+      "id": "UAT-12",
+      "result": "pass (upgrade leg only: steps 1 and 6-10; steps 2-5 belong to this lane's retrieval part under D52)",
+      "evidence": "plans/sdd/V6-closeout/live/rerun-c7/UAT-12/notes.txt, with data in plans/sdd/V6-closeout/live/rerun-c7/C4.8/. Step 1: initial absence was recorded and a non-vacuous baseline (c48-baseline) was taken after the old build's captures, MCP calls and /compact. Step 6: c5 bundle -> c7 bundle. Step 7 (to be confirmed at execution): no version-block or retired-meaning warning, because no config file exists to carry either; no WARN or LOUD line in the day log; self-test config.capture reads 'applied as written'; the layout reappeared after session B's hooks. Step 8: restore exit 0, reader proof and integrity passed, fsck --seal-check exit 0 on the recovery and on the source. Steps 9-10: .qompack/ byte-identical across uninstall and reinstall and still on disk. The Result block is replaced in docs/uat.md, with candidate 4's history line added and candidate 3's kept. Rollback verified: unverified (missing step: the recovery was not activated), with everything else in place, including the previous build's reader accepting the recovered baseline.",
+      "findings": [
+       "F-C48-1 carried here: after a compaction status shows session_start.fires pending 'marker-absent-once' on a healthy store."
+      ]
+     },
+     {
+      "id": "C1.7",
+      "result": "pass",
+      "evidence": "plans/sdd/V6-closeout/live/rerun-c7/C1.7/notes.txt, with data in rerun-c7/C4.8/cli/ and cli2/. No separate session. Pre-new-write: the baseline created on the candidate 5 store was verified and restored into fresh recovery1, all exit 0; fsck --seal-check exits 0 on recovery1 and on the source; the source's later writes are untouched (114 = 114); the project-file snapshot matches; candidate 5's reader also accepts recovery1. Post-new-write: backup c48-after-c (128 files) was verified and restored into fresh recovery2, all exit 0, and fsck --seal-check exits 0 on recovery2 and on the source. Not exercised here: the two refusals and a GC-tombstoned root (tombstoned 0); candidate 4's run covers the refusals.",
+      "findings": []
+     }
+    ],
+    "summary": "I re-ran the install part on candidate 7 (d20309c0) with the frozen c7 bundle. It used 4 of the 4 allowed real sessions, all claude-haiku-4-5-20251001. All five rows pass: UAT-01, C4.1, C4.8, the UAT-12 upgrade leg and C1.7. All runs were agent-executed on the owner's host under D3; none is human UAT.\n\nThe main D53(f) result: the release entry name qompack-windows-amd64 does not change the namespace. The host keeps plugin.json's name: plugin:qompack:qompack, mcp__plugin_qompack_qompack__<tool> and /qompack:<command>. The entry name appears only in the install id, the cache path and plugins[].source. This matches docs/commands.md. One sentence in install.md \u00a79, which says this namespace has not been observed and may come from the entry name, is now stale. Recall ranks the host's records of the session's own MCP calls after the original captures, and withholds them as pathless, counted in denied (D49).\n\nThe upgrade from candidate 5's bundle kept the project's work. The pre-upgrade backup restores with its reader proof, integrity checks and seal check passing. Candidate 5's own fsck also accepts the restored copy. .qompack/ stayed byte-identical across install, uninstall, reinstall and the final uninstall. A post-upgrade backup, verify and restore also pass. Host-reported hook failures or timeouts: 0 across 57 hook pairs, and stderr was empty in all four sessions.\n\nIn docs/uat.md I replaced the UAT-01 and UAT-12 Result blocks. Each now has a candidate 4 history line and keeps candidate 3's. go test ./test/docs passes. Evidence is under plans/sdd/V6-closeout/live/rerun-c7/{UAT-01,C4.8,UAT-12,C1.7}/. sessions.tsv has 4 install-c7 lines, and guard/install.txt is updated. The run-created ~/.qompack staged copy was removed (its sha256 equals the bundle bin, and no qompack.exe was running), and the final guard check passes. Commits: f5d074ad, 44987db7, 3d316581, 3e668076. Nothing was pushed.",
+    "defects": [
+     "New (minor, diagnostics): after a mid-session compaction, `qompack status` reports session_start.fires as pending 'marker-absent-once' on a healthy store. internal/contract/assertions.go checkSessionStartFires returns marker-absent-once for a same-session compact start: run/marker.json names the current session and history has starts_without_marker 0. docs/troubleshooting.md \u00a71 says a healthy project reads '0 pending'. Evidence: plans/sdd/V6-closeout/live/rerun-c7/C4.8/cli/10-status.stdout.txt and cli/13-status-json.stdout.txt.",
+     "Doc: in docs/install.md \u00a79, the sentence saying the namespace under a qompack-<os>-<arch> entry 'has not been observed in a live session, and the host may derive it from the entry name instead' is stale. Observed: plugin:qompack:qompack, mcp__plugin_qompack_qompack__<tool>, /qompack:<command>. Evidence: rerun-c7/UAT-01/session/stream.jsonl init and cli/s5-s6-host-discovery.txt.",
+     "Doc (minor): `claude plugin details qompack-windows-amd64` exits 1 'not found'. details takes `qompack` or `qompack-windows-amd64@<mkt>`, and shows the entry's description. Undocumented. Evidence: rerun-c7/UAT-01/cli/04*.txt."
+    ],
+    "guard": "Snap taken 2026-10-02 04:04:29 EDT (logged under '# ==== Candidate 7 re-run (D52/D53/D57), install part' in plans/sdd/V6-closeout/live/guard/install.txt). ~/.qompack was absent at snap time. After every session and every plugin CLI step I ran homeguard clean, then check. Differences appeared only inside my own open local-scope install windows: installed_plugins.json, known_marketplaces.json and cache/qompack-live. homeguard clean also removed run-created empty plugins/data/qompack-windows-amd64-qompack-live and qompack-inline directories. The isolated-profile rehearsal left the real home unchanged. Sessions A and B (--plugin-dir) read 'real home fingerprint unchanged'. The only directories I deleted under ~/.claude were the two orphaned cache/qompack-live trees this run created, each time after confirming every version's BUNDLE.json equals the frozen c7 bundle. The run-created ~/.qompack/bin/ab8046ba... copy and the empty ~/.qompack were removed at the end. Final check at 04:25:33 EDT: every file and tree 'same', .qompack/ 0 entries, 'real home fingerprint unchanged', check exit 0. guard.json is not committed.",
+    "guard_ok": true,
+    "open_issues": [
+     "The docs/uat.md header paragraph (outside the Result blocks, which is all I may edit) still says the eleven re-run rows report candidate 4. UAT-01 and UAT-12 now report candidate 7. The coordinator should reword it.",
+     "UAT-12's Result block covers only the upgrade leg (steps 1 and 6-10). The retrieval part re-runs steps 2-5 and will need to merge its result into the same block.",
+     "Step 4's expectation text still says the source tree's plugin.json 'reads 0.1.0 until the release's version commit'. At d20309c0 it reads 0.3.0. I recorded this as it stands and did not edit the expectation.",
+     "What uninstall does with plugins/data/<entry>-<marketplace>/ on 2.1.280 is still unobserved. The lane rule (homeguard clean after each session) removes that empty directory before any uninstall.",
+     "Not covered: a public v0.2.0 -> 0.3.0 installed upgrade, because no earlier public installable build exists. The recovery projects were not activated, so UAT-12's 'Rollback verified' stays unverified for that step only.",
+     "Scratch copies remain under C:/Users/Quant/AppData/Local/Temp/claude/qompack-live/install/c7/: the uat01 and c48 projects, recovery1 and recovery2, the marketplace copy mkt/, the isolated profile and the raw outputs. Candidate 4's scratch was moved to install/c4/. No secrets were planted in this part, so no install/secrets.json exists; scan-staged was run against c3's secrets file before each commit and found nothing. The host's own transcripts of my 4 sessions remain under ~/.claude/projects/ and were not touched. Only extracted facts were committed (transcript-facts*.json)."
+    ]
+   }
+  },
+  {
+   "key": "sessions",
+   "budget": 8,
+   "r": {
+    "status": "done",
+    "head": "1f1bf5bf20c3fd9a012fc04b289f11ca58c5827e",
+    "commits": [
+     "056c030f test(live): re-run UAT-03 on candidate 7, rollback now named",
+     "29099cc2 test(live): re-run UAT-04 on candidate 7 without the thrash setting",
+     "8231c050 test(live): re-run UAT-06 on candidate 7, the fork keeps authority",
+     "dc3f02d6 test(live): record C4.5 on candidate 7, sessions order differs",
+     "a1aa1e0b test(live): judge UAT-05 on candidate 7, tiny budget injects none",
+     "d0310dc3 test(live): judge C4.3 on candidate 7 from this part's rows",
+     "49194010 test(live): log the sessions part's end on candidate 7",
+     "1f1bf5bf test(live): correct UAT-05's in-session dropped observation"
+    ],
+    "sessions_used": 8,
+    "scenarios": [
+     {
+      "id": "UAT-03",
+      "result": "pass",
+      "evidence": "plans/sdd/V6-closeout/live/rerun-c7/UAT-03/ (notes.txt; 1 session, sessions-c7 n=1); committed 056c030f",
+      "findings": [
+       "None against the row. Two real /compact turns wrote 0001/0002. The manifest's last line names 0002 with a matching sha256. After the DEFAULT idle exit and a qompack status restart, the re-read is byte-identical.",
+       "D49 met: with the newest checkpoint 0002 corrupted, every surface names the rollback. The header reads 'checkpoint 0001 (rolled back from 0002)'. Section 7 and the drop report lead with checkpoint_fallback 0002. The state reads degraded true, degraded_reason 'checkpoint 0002 does not verify; rolled back to 0001'. LOUD.log says 'rehydrate: newest checkpoint refused; rolled back to 0001' (F-C4-UAT03-1 fixed).",
+       "Backup uat03-after-idle: create, verify and restore all exit 0; fsck of the destination exits 0. The gated durable frontier is unverified by this row."
+      ]
+     },
+     {
+      "id": "UAT-04",
+      "result": "pass \u2014 with a finding",
+      "evidence": "plans/sdd/V6-closeout/live/rerun-c7/UAT-04/ (notes.txt; 1 session, sessions-c7 n=2); committed 29099cc2",
+      "findings": [
+       "No-thrash setting: CLAUDE_CODE_AUTO_COMPACT_WINDOW=100000 at the host's DEFAULT percentage, with no CLAUDE_AUTOCOMPACT_PCT_OVERRIDE. The run had 3 manual and 5 automatic compactions and 0 thrash lines.",
+       "The 16,858-character original is never cut. Every block names it as a tier1 OVERFLOW with restore expand(tool_use_id=prompt_\u2026_0). LOUD 'tier-1 material exceeds the hard budget cap' appears exactly once (D50).",
+       "fsck --json exits 0 with the daemon up and again after the default idle exit, including --seal-check.",
+       "F-C7-UAT04-1: with the original a tier-1 overflow, block8 still names the 6 oldest of 13 evolution entries 'did not fit'. The payload uses 929 of 12,000 tokens, so D49's unused room does not go to evolution while tier 1 is incomplete. ADR 0011 says item 2 is re-admitted nowhere while tier 1 is incomplete, so this is a design question.",
+       "Observation: the abandoned session's 1.2 MB daemon WAL stays after the idle exit. doctor reports spool.pending degraded; fsck is ok."
+      ]
+     },
+     {
+      "id": "UAT-05",
+      "result": "fail",
+      "evidence": "plans/sdd/V6-closeout/live/rerun-c7/UAT-05/ (notes.txt indexes it). 3 sessions: sessions-c7 n=3 run 1; n=4 void run 2 (usage limit, exit 1); n=5 run 2 re-run in a fresh project. Committed a1aa1e0b + 1f1bf5bf.",
+      "findings": [
+       "Run 1 meets every field. The block is 3,059 UTF-16 units, 942 of 12,000 tokens, inline, with delimiters and the fixed order. The pin is in section 1. The TAB correction renders ABOVE the superseded semicolon original, which stays whole (D50 literal met). The elimination is in section 3 and its decision in section 4. dropped() returns count 0. fsck exits 0 with pins ok.",
+       "D49 met: the config edit reached the RUNNING daemon. Pid 13832 logged 'daemon: config reloaded changed=[runtime.rehydrate.maxTokens runtime.rehydrate.minTokens]' 6 s after the 14:10:23 EDT edit. The same daemon's next rehydration state reads budget 150. The doc's primary route also used budget 150: the daemon was terminated after its lock pid, image and command line were checked, and a new one was started after the edit.",
+       "F-C7-UAT05-1 (design vs row, new on candidate 7): at minTokens = maxTokens = 150, both compact injections are ONLY the contract-probe line (61 units). There is no qompack:injected block, no section 7 and no counted tail. Both states read tokens 0, items [], degraded true, with 15 and then 14 drops, tier1 entries first.",
+       "On F-C7-UAT05-1: ADR 0011's D49 section designs this empty payload. Tier 1 ends at the refused retrieval line, and 'a payload whose only admitted section would be item 7 is no payload'. The UAT-05 expectation and scenario assume a block that names the loss. Candidate 4 injected the pin and '\u2026 and 14 more; call dropped()' at the same budget.",
+       "Verdict basis: the row's fail list, read literally, is not tripped, because tier1 entries and degraded exist on disk. The expected result, read literally, is not met. The coordinator must decide whether the row or the ADR changes.",
+       "F-C7-UAT05-2 (minor, tied to F-C7-UAT05-1): LOUD 'tier-1 material exceeds the hard budget cap' was logged twice in one session, once per daemon across the step-5 restart. D50's once-per-session rule covers an overflow already named in the payload, and here the payload named nothing.",
+       "Observation: in-session, /qompack:dropped --json delivered the envelope (count 14, per the host transcript; extracted facts in run2r-session/transcript-facts.json), but the model did not echo it and resumed editing billing.py. The committed envelopes are CLI captures.",
+       "0 host-reported hook failures or timeouts; every stderr.txt is empty."
+      ]
+     },
+     {
+      "id": "UAT-06",
+      "result": "pass \u2014 with a finding",
+      "evidence": "plans/sdd/V6-closeout/live/rerun-c7/UAT-06/ (notes.txt; 3 sessions, sessions-c7 n=6 A, n=7 --resume, n=8 --resume --fork-session); committed 8231c050",
+      "findings": [
+       "The fork's first block carries the parent's verbatim original AND the 60 correction above it. It also carries the parent's session-scoped elimination and decision dec_991dbff588ec. already_tried in the fork answers active with scope session, and why() finds the decision (F-C4-UAT06-1 fixed).",
+       "After --resume, the session's second checkpoint 0002 still carries the decision (F-C4-UAT06-2 fixed). In every block the newest correction renders above the older one and above the original.",
+       "F-C7-UAT06-1: the fork's second checkpoint (0005) derives 'Current work' from an inherited parent prompt, the record_eliminated instruction cut at the 160-rune goal cap, instead of the fork's newest prompt.",
+       "Doc finding: 'Section 2's first unit is the verbatim original' disagrees with the D50 render order the product follows."
+      ]
+     },
+     {
+      "id": "C4.3",
+      "result": "pass \u2014 with findings",
+      "evidence": "plans/sdd/V6-closeout/live/rerun-c7/C4.3/notes.txt (judged from UAT-03, 04, 05 and 06); committed d0310dc3",
+      "findings": [
+       "Bounded payloads: every SessionStart:compact injection is inline and within its budget, from 61 to 3,833 units. None is a saved-file preview and no record is cut mid-record. Every compaction checkpoint re-hashes.",
+       "Current authority is correct in every block that carries one: UAT-05 run 1's D50 order and UAT-06's fork. UAT-03's rollback is named on every surface.",
+       "Qompack-sourced recovery: in UAT-04, OSPREY-END-7731 came via expand, and Q23=TEAK-5825-WILLOW via recall + expand after the file was deleted. In UAT-05 run 1 the delimiter came from the rehydration section. UAT-03's K17 and UAT-05's ticket id came from the host's preserved context.",
+       "Carried findings: F-C7-UAT05-1 (the session is told nothing at a tiny budget; still bounded at 0/150), F-C7-UAT06-1 and F-C7-UAT04-1.",
+       "0 host-reported hook failures or timeouts across the 8 sessions (D53(i))."
+      ]
+     },
+     {
+      "id": "C4.5",
+      "result": "fail",
+      "evidence": "plans/sdd/V6-closeout/live/rerun-c7/C4.5/notes.txt (sample 1 from the UAT-05 run 1 project; sample 2 in uat06/); committed dc3f02d6",
+      "findings": [
+       "F-C7-C45-1 (D53(a)): two reads of unchanged state, 5 s apart, disagree. status --json's data.snapshot.sessions lists the same two sessions in a different order, with every field equal and history.json identical (uat06/cli/status-json-read1/2).",
+       "D50 items pass. The banner reads '7 holding, 1 pending, 1 with nothing to judge' and does not count pending as holding. mcp.server_registered reads 'initialize-received', matching history.json mcp_initialized true. hook.additional_context_delivered reads 'sentinel-observed', matching sentinel.observed true. Contract row ts are not re-stamped.",
+       "Observation: doctor --json differs only in delivery.rollover's relative age ('persisted 12s ago' vs '18s ago').",
+       "PATH resolution: qompack is not on the operator's PATH, yet every command body ran because the host puts the plugin's bin/ on the Bash PATH. Init lists exactly the six commands and no qompack:checkpoint."
+      ]
+     }
+    ],
+    "summary": "The sessions part on candidate 7 is complete. No new session ran on resume, so the total stays at 8 real sessions, all on claude-haiku-4-5-20251001.\n\nUAT-05 and C4.3 were judged from existing evidence, their Result blocks and notes were written, and both were committed.\n\nUAT-05 is a fail. Run 1 meets the row: the correction renders above the superseded original with the pin (D50), and a runtime.rehydrate.* change reached the running daemon without a restart. The reload line was logged and the next state read budget 150 (D49). At the tiny 150-token budget, though, both compactions inject only the contract-probe line: no block and no section 7. ADR 0011's D49 section designs that empty payload; the row expects a block that names what was lost. This conflict (F-C7-UAT05-1) needs a coordinator decision. The row's fail list, read literally, is not tripped, because the tier1 entries and degraded=true exist on disk.\n\nC4.3 is a pass with findings: payloads are bounded and inline, current authority is correct, and recovery came from Qompack.\n\nUAT-03 (pass), UAT-04 (pass with a finding), UAT-06 (pass with a finding) and C4.5 (fail, D53(a) sessions order) are taken from their committed Result blocks and notes.\n\nEnd steps:\n- The daemon the brief named, pid 81524 in uat03/recovery, was already gone: no qompack.exe was running, and its last log line (18:34:27Z) says it ended its abandoned session past the default idle-exit window. Nothing was stopped.\n- The run-created ~/.qompack/bin/ab8046ba.../qompack.exe had the same sha256 as the c7 bundle bin. It was removed under install.md section 6, and then the empty ~/.qompack, which was absent at snap time.\n- homeguard clean and check passed (exit 0, real home fingerprint unchanged). The output is logged in plans/sdd/V6-closeout/live/guard/sessions.txt.\n\nEvery commit passed scan-staged with \"no planted secret in the index\".",
+    "defects": [
+     "F-C7-UAT05-1 (design vs row): at runtime.rehydrate.minTokens=maxTokens=150 the SessionStart:compact additionalContext is only the contract-probe line. There is no Qompack block, no section 7 and no counted tail, while the state reads tokens 0, items [], degraded true, with 15/14 drops. ADR 0011's D49 section designs the empty payload; docs/uat.md UAT-05 expects a block naming the loss. Evidence: rerun-c7/UAT-05/run2r-block2/3-SessionStart-compact.txt, run2r-blockA/B-state-*.json, store-run2r/logs_LOUD.log.",
+     "F-C7-UAT05-2 (minor): LOUD 'tier-1 material exceeds the hard budget cap' was logged twice in one session, once per daemon across a restart, while the payload named nothing (store-run2r/logs_LOUD.log).",
+     "F-C7-C45-1 (D53(a)): status --json data.snapshot.sessions order differs between two reads of unchanged state (rerun-c7/C4.5/uat06/cli/status-json-read1/2.stdout.txt).",
+     "F-C7-UAT06-1: the fork's second checkpoint takes an inherited parent prompt as Current work (rerun-c7/UAT-06).",
+     "F-C7-UAT04-1: with the original a tier-1 overflow, the 6 oldest evolution entries are named 'did not fit' with ~11,000 tokens unused (rerun-c7/UAT-04)."
+    ],
+    "guard": "At part end, homeguard.py check on C:/Users/Quant/AppData/Local/Temp/claude/qompack-live/sessions/guard.json reported settings.json, installed_plugins.json and known_marketplaces.json the same, plugins/cache 10, marketplaces 2, data 2, and .qompack/ 0 entries: real home fingerprint unchanged, check exit 0. The run-created ~/.qompack/bin/ab8046bac3bad894c9a299c61fb38277f4179f4e33bfb088873e43edcbe33be7/qompack.exe (sha256 = the c7 bundle bin; homeguard listed it as gained) was removed under install.md section 6 with no qompack.exe running, followed by the empty run-created ~/.qompack (absent at snap). Logged in plans/sdd/V6-closeout/live/guard/sessions.txt (commit 49194010).",
+    "guard_ok": true,
+    "open_issues": [
+     "Coordinator decision on F-C7-UAT05-1: either UAT-05's step-5 expectation and scenario change to accept ADR 0011's empty payload at a budget too small for the retrieval line, or the product must inject at least section 7 or the retrieval line. Until then UAT-05 stays fail on candidate 7.",
+     "C4.5 fail on D53(a) (the sessions order is not deterministic) needs a product fix routed.",
+     "UAT-04's F-C7-UAT04-1 and UAT-06's F-C7-UAT06-1 stay open as findings on passing rows.",
+     "The void UAT-05 run 2 (session 4) wrote a 150/150 config into run 1's scratch project and restarted its daemon; that project is scratch only and not used for judging.",
+     "plans/sdd/V6-closeout/coordinator/__pycache__/ is untracked in the worktree (left uncommitted)."
+    ]
+   }
+  },
+  {
+   "key": "retrieval",
+   "budget": 5,
+   "r": {
+    "status": "done",
+    "head": "de504a882c04e512d93d0758eb1936c0d989e7d0",
+    "commits": [
+     "7bf32b98caff3a684b1a2249e7cb4d1b16954b77 test(live): re-run UAT-09 and C4.4 on candidate 7",
+     "f0bb2a81f1f34b4778422b38ba626da44ac33757 test(live): re-run UAT-12 retrieval leg and C4.6 on candidate 7",
+     "de504a882c04e512d93d0758eb1936c0d989e7d0 test(live): log the retrieval part's end on candidate 7"
+    ],
+    "sessions_used": 5,
+    "scenarios": [
+     {
+      "id": "UAT-09",
+      "result": "pass",
+      "evidence": "plans/sdd/V6-closeout/live/rerun-c7/UAT-09/ (notes.txt indexes it; session1/, session2-resume/, session3-step5/, cli/, snap/, store-after-session1/2/, store-step5-project/); sessions retrieval-c7 n=1 (id 042883ea, 107 s), n=2 (--resume 042883ea, 96 s), n=3 (id 14c7a918, 17 s), all Haiku, exit 0; docs/uat.md UAT-09 Result block replaced, with a Candidate 4 history line added",
+      "findings": [
+       "Steps 1-3: seconds after the model edited config/pool.yaml, already_tried answered stale with reason, note, evidence, scope, recorded_at, depends_on and stale_because naming config/pool.yaml.",
+       "D49 is fixed. A drop setting written mid-session was reloaded by the running daemon 1.0 s later, and the next already_tried answered uncertain. Observed strings: reason 'a matching elimination is stale and eliminations.staleResponse is \"drop\", so its current applicability is not disclosed'; note 'set eliminations.staleResponse to \"flag\" to see the staleness detail, or re-verify the approach directly'.",
+       "R4-1 is fixed. After a 30 s idle-exit restart (new daemon pid 60480 replacing 26884; --resume of the same session id), already_tried answered uncertain under drop, then stale with every field after a mid-session reload to flag. It never answered absent.",
+       "Known gap not reproduced: the post-/compact block shows no [active] elimination. Drop withheld section 3.",
+       "Step 5 (a second project whose records/eliminations.jsonl was a directory before any session): unavailable, degraded true, with reason and note. record_eliminated returned a tool error. Step 6: no response prohibits the approach.",
+       "fsck, fsck --seal-check and doctor all exit 0 after the sessions. Every hook pair succeeded with exit 0 (29/46/11 pairs).",
+       "Observation O-1: session 1's SessionEnd never reached the daemon. The day log shows WARN 'ending abandoned session; no SessionEnd arrived', silentMs 30099. The host reported nothing (stderr empty), and sessions 2 and 3 delivered SessionEnd normally. Cause not established.",
+       "Observation O-3: under drop, section 4 keeps the rejection decision dec_e760c8bbf50a with no staleness mark while section 3 is withheld."
+      ]
+     },
+     {
+      "id": "UAT-12",
+      "result": "fail",
+      "evidence": "plans/sdd/V6-closeout/live/rerun-c7/UAT-12/notes-retrieval.txt (this part: setup-facts.json, cli/00-43, sessionA/, sessionB/, store/); the install part's upgrade leg stays in notes.txt beside it (data in ../C4.8/); sessions retrieval-c7 n=4 (id 0f040f87, 63 s) and n=5 (id 2a4952b4, 144 s), Haiku, exit 0; docs/uat.md UAT-12 Result block replaced with both legs, and the existing Candidate 4/3 history lines kept",
+      "findings": [
+       "F1 (privacy, minor; D50): section 6 of session B's rehydration block contains `tool_use toolu_017m9djGav7vcngkniobgwim sha256:f29d6a64... \u2014 {\"query\":\"path:private/deny.txt\"}`, a host-denied path in a tool pointer's argument summary. The value of recall's path: selector gets past wave 15's pointer path gate. No file content is shown, and every other pointer naming the file is hash-only or 'summary withheld'. Evidence: sessionB/injected-2-SessionStart-compact.txt. UAT-12's own fail criteria were not otherwise hit; the row fails on this check from the brief.",
+       "Step 2: the host refused the Read ('File is in a directory that is denied by your permission settings.'). recall (marker and path:), expand (tool_use_id and root hash), re_read and /qompack:recall answered denied or withheld the hit, with no preview. Out-of-project re_read answered 'path escapes the project root', and the out-of-project Read was never captured (as security.md section 2 says).",
+       "D50 paging is fixed. In the no-model probe cli/20, full:true gave [0,217070] at 261,164 B, truncated, next_span 217070:137282, then [217070,354352] at 165,235 B, truncated false with no next_span. Explicit span 0:354352 paged identically, page by page. The minimal span took 18 contiguous pages, max 30,059 B. re_read full is 261,172 B, continued via expand(hash). Every response is within 262,144 B, no page contains U+FFFD, and no response carries a fidelity or coverage field.",
+       "Binary: the host delivers `cat` output as decoded text and images as base64 JSON. The sidecars record fidelity exact, and Qompack decoded nothing (documented host behaviour).",
+       "D49 recall: at the default k, 5 permitted hits with denied:1 counted separately. At k 20, the six original captures come first and the four retrieval self-records come last, although their scores are higher.",
+       "D49/D51: no LOUD.log at all on this multi-session store (three daemon starts plus a verify scratch restore), so no 'publication accounting incomplete' line.",
+       "Step 1/8: the initial absence was recorded. Baseline uat12-c7-baseline: 148 files, consistent, verify exit 0. Restore into a fresh project exited 0 with reader proof (31 roots, 21 tool refs), integrity and seal check passing. fsck --seal-check exits 0 on the recovery and on the source, and the source's later writes were preserved. Rollback verified: unverified, because no activation was done and this leg has no previous-build reader.",
+       "Section 6 of session A's block shows deny.txt only by hash ('path withheld'), and neither block shows an absolute out-of-project path in section 6.",
+       "Observation: section 2 (verbatim user intent) carries the user's own prompts naming the out-of-project absolute path and private/deny.txt. D50 names pointers only.",
+       "Observation: /qompack:status mid-session read 'none failing: 6 holding, 1 pending (transcript.readable), 2 with nothing to judge'. That belongs to C4.5, not this row.",
+       "Documentation finding stated in the brief, not re-checked here: install.md section 3 vs --json acceptance belongs to the install part."
+      ]
+     },
+     {
+      "id": "C4.4",
+      "result": "pass",
+      "evidence": "plans/sdd/V6-closeout/live/rerun-c7/C4.4/tool-matrix.md (shared with UAT-09 session 2 at ../UAT-09/session2-resume/tool-calls.txt; plus session 1 and session 3)",
+      "findings": [
+       "Every success and error call of the eight tools is correct against docs/mcp-tools.md. This includes already_tried after a daemon restart (uncertain under drop, stale under flag; candidate 4 answered absent, R4-1), record_eliminated with project scope and the scope 'global' error, the recall k 0 / empty / bad glob errors, expand sha256:zz, {} and the unknown id, re_read nope / ../ / bad 'at', the timeline bad from and from>to refusals, why found and not found, and the dropped unknown-property error.",
+       "The init event lists plugin:qompack:qompack connected, the eight mcp__plugin_qompack_qompack__* tools and exactly six slash commands. qompack:checkpoint is absent, as D36 expects.",
+       "Minor observation (no documented contract): after the restart, the resumed session's open segment 3 starts at turn 13 and overlaps closed segment 2 (turns 14-17), and timeline lists the segments in the order 1, 3, 2. This sits next to D46's wave-14 follow-up on segments after a mid-session daemon restart."
+      ]
+     },
+     {
+      "id": "C4.6",
+      "result": "fail",
+      "evidence": "plans/sdd/V6-closeout/live/rerun-c7/C4.6/notes.txt (judged from UAT-12; secret scans in ../UAT-12/cli/40-43)",
+      "findings": [
+       "F1: the rehydration block shows a host-denied path in one tool pointer's argument summary ({\"query\":\"path:private/deny.txt\"}). That breaks D50's rule that pointers never show a denied path. No content is disclosed.",
+       "Planted secrets pass. Two secrets were planted (aws_access_key_id shape and ghp_ token shape, sha256 in UAT-12/setup-facts.json). The scan covered the literal, JSON-escaped, base64 and sha256-hex forms and every 10-character fragment, with zstd decompressed. Results: 0 hits in <project>/.qompack (1,011 files, incl. backup and tmp), 0 in the restored recovery (148), 0 in ~/.qompack. The deploy_notes sidecar is fidelity 'redacted'. No MCP result, rehydration payload, slash output or probe response carries a secret. The host's own transcript of session A holds both secrets (the Read result); that is a host surface.",
+       "Every retrieval form refuses the deny-ruled file (recall, expand by id and hash, re_read, /qompack:recall, stdio probe) and the out-of-project file (re_read absolute and ../ forms are tool errors; the capture was never made)."
+      ]
+     }
+    ],
+    "summary": "I re-ran the retrieval part on candidate 7 (d20309c0, frozen c7 bundle via --plugin-dir, Claude Code 2.1.280). All 5 sessions in the budget were used, all on claude-haiku-4-5-20251001 and all exit 0. The runs were agent-executed on the owner's real host per owner decision D3, not human UAT.\n\nResults:\n- **UAT-09: pass.** R4-1 is fixed: after an idle-exit restart, the stale record answers uncertain under drop and stale under flag, never absent. D49 is fixed: a mid-session staleResponse change reaches the running daemon within about 1 s. Step 5 answers unavailable with degraded true.\n- **C4.4: pass.** All eight tools' success and error calls are correct, including already_tried after a restart.\n- **UAT-12: fail, on one finding (F1).** D50 paging is fixed: an explicit span 0:total pages exactly like full:true, and the last page is not truncated. The D49 recall checks hold: k counts permitted hits, denied hits are counted apart, and self-records rank last. The multi-session store has no LOUD.log at all. The step 2 refusals, the step 8 restore with reader proof and integrity, and section 6 of the first rehydration block all hold. F1: section 6 of the second rehydration block shows the denied path inside a recall pointer's argument summary, {\"query\":\"path:private/deny.txt\"}. No file content is shown.\n- **C4.6: fail, on the same F1.** Planted secrets: 0 hits on every durable Qompack surface. Every retrieval form refuses the deny-ruled and out-of-project reads.\n\ndocs/uat.md: I replaced the UAT-09 and UAT-12 Result blocks, keeping the history lines and adding the Candidate 4 line to UAT-09. The UAT-12 block now covers both legs: the install part's upgrade leg, which passed, and this part's steps 2-5 and 8. I first overwrote the install part's committed rerun-c7/UAT-12/notes.txt by accident and restored it byte-identically from git before any commit; my notes are in notes-retrieval.txt beside it.\n\nCleanup: at the part's end I removed the run-created ~/.qompack staged copy under install.md \u00a76 (sha256 ab8046ba\u2026 equals the c7 bundle's bin, and no qompack.exe was running), then the empty ~/.qompack, which did not exist at snap time. Every guard check passed.",
+    "defects": [
+     "F1 (privacy, minor; D50/C4.6): the rehydration block's section 6 shows a host-denied path inside a tool pointer's argument summary, `- tool_use toolu_017m9djGav7vcngkniobgwim sha256:f29d6a64... \u2014 {\"query\":\"path:private/deny.txt\"}`. The value of recall's path: selector gets past the pointer path gate added in wave 15 (rehydrate item 5). No file content is disclosed. Evidence: plans/sdd/V6-closeout/live/rerun-c7/UAT-12/sessionB/injected-2-SessionStart-compact.txt, section 6; sessionB/tool-calls.txt T2."
+    ],
+    "guard": "Snap at part start, 2026-10-02 15:22:24 EDT: ~/.qompack absent (0 entries), no qompack.exe running. Candidate 4's old guard.json was moved aside to <scratch>/retrieval/c4/guard-c4-retrieval.json. I ran homeguard clean + check after each of the 5 sessions; every check exited 0 with 'real home fingerprint unchanged'. The only INFO line was ~/.qompack gaining bin/ab8046ba\u2026, the D10 staged copy this run created. No plugin CLI step was run and nothing under ~/.claude was touched. At the end I removed the staged copy under install.md \u00a76 (sha256 equals the c7 bin, no qompack.exe running) and the empty ~/.qompack, logged in plans/sdd/V6-closeout/live/rerun-c7/retrieval-part-staged-cleanup.txt. The final check at 15:45:41 EDT passed (.qompack/ 0 entries, check exit 0). The log is plans/sdd/V6-closeout/live/guard/retrieval.txt.",
+    "guard_ok": true,
+    "open_issues": [
+     "Route F1: the pointer path gate needs to recognise a denied path inside a selector-prefixed value, such as recall's path:<glob>. Until then, D50's section-6 rule fails for that shape, and UAT-12 and C4.6 stay failed on candidate 7.",
+     "O-1 (D53(i) context): in UAT-09 session 1, which ended after a /compact turn, SessionEnd never reached the daemon. The day log shows 'ending abandoned session; no SessionEnd arrived', but the host reported no hook failure and stderr was empty. The other four sessions delivered SessionEnd. Cause not established. This is not a host-reported failure, but the coordinator may want to look.",
+     "Timeline observation (C4.4, no documented contract broken): after a mid-session daemon restart, the resumed session's open segment overlaps the previous closed segment (13-31 vs 14-17), and the list is ordered 1, 3, 2.",
+     "Observation: section 2 of the rehydration block (verbatim user intent) carries user prompts that name the out-of-project absolute path and private/deny.txt. D50 covers pointers only, so the coordinator should decide whether section 2 is in scope.",
+     "Observation for C4.5: /qompack:status mid-session read 1 pending row (transcript.readable).",
+     "Scratch: the raw copies remain under C:/Users/Quant/AppData/Local/Temp/claude/qompack-live/retrieval/c7/ (uat09, uat09s5, uat12 incl. recovery, scripts). <scratch>/retrieval/secrets.json now holds this run's two secrets, and the earlier run's file was moved to <scratch>/retrieval/secrets-before-c7.json. The host's transcripts for the 5 sessions remain under ~/.claude/projects/C--Users-Quant-AppData-Local-Temp-claude-qompack-live-retrieval-c7-*/ and were left untouched.",
+     "The uat.md page header still describes the candidate 4 state. Editing it was outside this part's scope (Result blocks only)."
+    ]
+   }
+  },
+  {
+   "key": "resilience",
+   "budget": 3,
+   "r": {
+    "status": "done",
+    "head": "a1529fc179317b0ea9b5fffc4b1564e24e64818c",
+    "commits": [
+     "81ca789703108f5314748ffc411857b91408fad4 test(live): record the UAT-10 session on candidate 7",
+     "1a469b30f732495b5c18ddaeddd6e9bcd986d171 test(live): record C4.9 (a) daemon ended mid-session on c7",
+     "8bd9ae577f91af39c6ec25996e64b6fe63407d1c test(live): re-run C4.9 (a)/(b) on candidate 7",
+     "7cd74165ce2b4bf74b2939468e704e1f9c25102a test(live): aggregate C5.6 resource cost over candidate 7 lane",
+     "5402eaed5cc579f94bcb5d04ce9530c72af1a6d9 test(live): re-run UAT-10 on candidate 7, banner and p95 fixed",
+     "a1529fc179317b0ea9b5fffc4b1564e24e64818c test(live): log the resilience part's end on candidate 7"
+    ],
+    "sessions_used": 3,
+    "scenarios": [
+     {
+      "id": "UAT-10",
+      "result": "pass",
+      "evidence": "plans/sdd/V6-closeout/live/rerun-c7/UAT-10/ (notes.txt indexes it: session/, slash-commands.json, status.json, dropped.json, eval.json, injected/, cli/00-25, store/). Session 1 of 3 (resilience-c7 n=1, 50.6 s, exit 0, 7 turns, 19 hook pairs all success/exit 0, stderr empty). The docs/uat.md Result block was replaced. Candidate 3's line was kept as history, and a candidate 4 line says 'not re-run' (no rerun-c4/UAT-10/ exists).",
+      "findings": [
+       "Candidate 3's FAILING banner is GONE. It now reads 'host contract: 9 assertion(s), none failing: 7 holding, 1 pending, 1 with nothing to judge', and mcp.server_registered reads initialize-received (cli/10-status-text-same-moment.stdout.txt).",
+       "Candidate 3's p95>max is GONE on every displayed value: B-A p95 128.00 ms = max 128.00 ms, and JSON hooks/budgets p95_us <= max_us. Observation: the raw data.snapshot.latency histogram in --json still carries bucket upper bounds above Max (hook_controlled P95 131072000 ns vs Max 128000000 ns; status.json).",
+       "O1: the one pending row after the same-session /compact is session_start.fires 'marker-absent-once'. That is D58(d)'s F-C48-1, already fixed for candidate 8, and it shows again here on candidate 7.",
+       "Step 4 matches the row. In the session, /qompack:eval --json got only the host's 'Shell command failed for pattern' line (eval.json). In a terminal, qompack eval --json exits 1 with 'no evaluation artifacts', naming dist\\live-eval and testdata\\bench-replay.json (cli/12-eval-json-terminal).",
+       "Unchanged from candidate 3: the canonical usage-category order and the {\"known\":false}+missing form are still not observable on any reachable surface. eval --corpus on the C5.4 pilot run shows alphabetical {known, known_records, unknown_records}, and cost is unavailable because no request ledger was recorded (cli/14-*).",
+       "Unchanged from candidate 3: the text status has no 'recent loud lines' section when the loud tail is empty.",
+       "Age readings are honest. After the default idle exit, status read 'source: disk (available, 3.31s old)' with JSON age_ms 3331 (cli/20-*). The unknown-age reading 'source: none (error, age unknown)' was seen in C4.9.",
+       "O3/O4 (model text, not product): the model paraphrased dropped's report as 'captured all relevant material ... with no omissions'. On the status --json turn it answered 'Session resumed...' instead of reporting the output verbatim. The host did inject the full output.",
+       "Rollback: initial state absent. After the default idle exit, backup uat10-after-idle was created, verified and restored to a fresh destination (all exit 0, reader proof OK, integrity ok), and fsck of the destination exits 0 (cli/22-25)."
+      ]
+     },
+     {
+      "id": "C4.9",
+      "result": "pass",
+      "evidence": "plans/sdd/V6-closeout/live/rerun-c7/C4.9/ (notes.txt indexes it: session1/, session2/, slash-commands-s1/s2.json, cli/s1-kill-before-t3/t4.txt, s2-writecfg, s2-unavail, s1-post-*, s2-post-*, b1-b9, store-s1/, store-s2/). Sessions 2 and 3 of 3 (53.3 s and 36.7 s, exit 0, 6 turns each, 40 hook pairs all success/exit 0, stderr empty). Item (c) was not repeated.",
+      "findings": [
+       "(a) PASS. Two verified kills ran mid-session: lock pid, image qompack.exe (the staged ~/.qompack/bin copy) and command line 'daemon --project <this project>', then Stop-Process on pids 80972 and 16388. Each next hook took the lock over at once, 3 s after the kill. The day log has 'daemon: took over the project from a daemon that ended without releasing its lock' (pid/version/started) and 'daemon: replayed spooled deliveries at start' deliveries=1. The notes.md Read captured during the outage was recalled. The host session never broke.",
+       "Gone since candidates 3/4: F-C49-1 (status now says 'no daemon answered: none is listening for this project yet. This command asked one to start ...' instead of the empty 'status refused: '), F-C49-4 (no ~90 s stale-lock window), and F-C4-C49-3 (no act.advance_frontier warnings in any day log).",
+       "(b) PASS. The daemon live-reloaded settingsVersion 99 within 1 s: LOUD 'daemon: config reload warning' with key, message and file:line, which is visible in the in-session /qompack:status 'recent loud lines'. config-violations.json has exactly the documented entry. self-test config.capture shows 'FAIL warn capture continues: 1 setting(s) fell back'. doctor shows config.violations/config.capture as degraded. config print --provenance marks the runtime.migration leaves 'default reset: newer settingsVersion'. Captures and retrieval continued.",
+       "Unavailable-object wording recorded in a host session (session2 T4). After app.py's chunk object was moved aside, re_read and expand both answered {\"found\":false,\"available\":false,\"reason\":\"the stored object is missing: the index records it, but its bytes are no longer in the store, so it cannot be served; `qompack fsck` reports it\"}. fsck names the chunk, root, tool_use and sidecar. After the object was moved back, fsck exits 0.",
+       "F-C7-C49-1 (store, minor). After mid-session terminations, the daemon that took over exited cleanly on idle without materializing index/files.json. fsck --json after that clean exit returns exit 1: index.files 'index/files.json is absent while its log carries 2 path(s); the view is derived and --repair regenerates it'. The next session's flush wrote the view, and nothing was lost. Evidence: cli/s1-post-fsck-json-after-idle-exit.stdout.txt, cli/s1-post-listing.txt.",
+       "F-C7-C49-2 (logging/doc, minor). A newer settingsVersion logs LOUD 'invalid configuration value, using default' once per hook invocation: 18 lines in 30 s in the append-only, never-rotated LOUD.log. docs/troubleshooting.md \u00a76's table says 'warn in the day log'. Evidence: store-s2/logs_LOUD.log.",
+       "F-C7-C49-3 (doc, minor). While the newer settingsVersion is in force, backup create, verify and restore all refuse with exit 1: 'backup: resolve configuration violations and warnings before maintenance' (cli/b1-b3). This is intended in internal/cli/backup.go, but docs/backup.md and troubleshooting \u00a76's downgrade guidance do not say so. With the file moved aside, create, verify and restore exit 0 and fsck of the destination is clean (cli/b5-b9).",
+       "O1: after a mid-session takeover, status reads 'host contract: no assertions reported' until the next SessionStart and does not say why. O2: the text status wraps the metrics path mid-word ('...\\.qompack\\m' / 'etrics\\latency.json')."
+      ]
+     },
+     {
+      "id": "C5.6",
+      "result": "done (numbers only, no budget proposed)",
+      "evidence": "plans/sdd/V6-closeout/live/rerun-c7/C5.6/summary.md and data.json. They cover all 20 rerun-c7 sessions with meta.json/hooks.json from every part (install-c7 4, sessions-c7 8, retrieval-c7 5, resilience-c7 3), taken as resources/C5.6/summary.md's 'How each number was taken'. The 19 candidate 7 bundle sessions are kept apart from the 1 previous-build session (C4.8/sessionA, candidate 5 bundle).",
+      "findings": [
+       "Store growth per session (c7 bundle, n=19): median 283041 B, p95 5596110 B, max 5596110 B (UAT-12/sessionB), min 89326 B, total 14503728 B. Previous build (C4.8/sessionA): 362475 B.",
+       "Daemon working set per session (max over sampled turns, c7 bundle, 19/19 sampled): median 41.1 MiB, max 70.9 MiB (UAT-01). Peak working set gives the same median and max. CPU seconds at the last sample, summed over pids: median 0.719, max 3.578. Previous build: 75.0 MiB, 0.375 s.",
+       "Host-seen hook arrival delta, c7 bundle, measured pairs only (approximate): PostToolUse n=150 median 57 p95 147 max 251 ms; SessionStart:compact n=22 median 107.5 p95 157 max 205; Stop n=119 median 54 p95 109 max 148; SubagentStop n=22 median 58 p95 91 max 200; UserPromptSubmit n=104 median 51 p95 100 max 173; all events n=417 median 56 p95 123 max 251. Not measured: 38 of 455 pairs, all before init (SessionStart:startup 16, resume 2, fork 1, UserPromptSubmit 19). There is no PreCompact or SessionEnd stream pair. Previous build: n=17, median 49, p95 91, max 91, with 2 of 19 not measured.",
+       "D53(i): 0 host-reported hook failures or timeouts across all 20 sessions. All 474 hook_response events are success/exit 0, every hook_started has its response, all 20 stderr.txt files are 0 bytes, and every /compact line reads 'PreCompact [...] completed successfully'. So nothing needs to be documented in cannot-do.md or upstream-issues.md.",
+       "Not hook events, listed apart: UAT-05/run2-session had 2 compaction failures from the account's weekly usage limit ('Error during compaction: You've hit your weekly limit'). This is that session's sessions.tsv exit 1."
+      ]
+     }
+    ],
+    "summary": "This was the resilience part of the candidate 7 live re-run, on the frozen bundle (BUNDLE.json sha256 5212ae4e\u2026e1f395, commit d20309c0). It used 3 of 3 real Haiku sessions, all exit 0. I ran both self-tests first; homeguard_test passed 10 tests and live_driver_test passed 3. The guard snap was logged at the start, and clean plus check ran after every session. The final check shows the real home fingerprint unchanged, and ~/.qompack is back to absent.\n\nUAT-10 passes. Candidate 3's FAILING banner is gone: the banner now reads 'none failing: 7 holding, 1 pending', with initialize-received. Its p95>max finding is gone on every displayed value. Eval is unavailable with exit 1 and names both paths. No cell prints 0 without an instrument. Rollback after the default idle exit: backup created, verified and restored, and fsck is clean.\n\nC4.9 (a) and (b) pass, and the host session never broke. After each verified kill, the next hook took the lock over at once, with the documented takeover and replay log lines. The settingsVersion 99 file was live-reloaded, and the reset is recorded exactly as the docs state. The unavailable-object wording was recorded in a host session: 'the stored object is missing: the index records it, but its bytes are no longer in the store\u2026'. Three new minor findings: F-C7-C49-1, a missing files.json view after a takeover; F-C7-C49-2, one LOUD line per hook for a newer settingsVersion; and F-C7-C49-3, an undocumented backup refusal while that config is in force.\n\nC5.6 covers 20 sessions, with the previous-build session kept apart. D53(i) counts 0 host-reported hook failures. The UAT-10 Result block in docs/uat.md was replaced, and candidate 3's line was kept as history. I added no install.md --json documentation finding, because this part ran no plugin CLI step.",
+    "defects": [
+     "F-C7-C49-1 (store, minor): after a daemon is terminated mid-session, the daemon that takes over later exits cleanly on idle without materializing index/files.json. fsck --json after that clean exit returns exit 1: index.files 'index/files.json is absent while its log carries 2 path(s); the view is derived and --repair regenerates it'. The next session's flush wrote the view, and nothing was lost. Evidence: plans/sdd/V6-closeout/live/rerun-c7/C4.9/cli/s1-post-fsck-json-after-idle-exit.stdout.txt and s1-post-listing.txt.",
+     "F-C7-C49-2 (logging/doc, minor): with a newer runtime.migration.settingsVersion, every hook process logs LOUD 'invalid configuration value, using default' key=runtime.migration: 18 lines in 30 s in the append-only, never-rotated LOUD.log. docs/troubleshooting.md \u00a76's table says 'warn in the day log'. Evidence: rerun-c7/C4.9/store-s2/logs_LOUD.log.",
+     "F-C7-C49-3 (doc, minor): while a newer settingsVersion is in force, backup create, verify and restore all refuse with exit 1: 'backup: resolve configuration violations and warnings before maintenance'. This is intended per internal/cli/backup.go, but docs/backup.md and troubleshooting \u00a76's 'After a plugin downgrade or upgrade' do not say so. Evidence: rerun-c7/C4.9/cli/b1-b3."
+    ],
+    "guard": "Snap at 15:50:02 EDT on <scratch>/resilience/guard.json, logged in plans/sdd/V6-closeout/live/guard/resilience.txt. At snap, settings.json, installed_plugins.json and known_marketplaces.json were as recorded, cache had 10 entries, marketplaces 2, data 2, and ~/.qompack was absent (0 entries). homeguard clean plus check ran after each of the 3 sessions, and every check exited 0. Clean removed the host's empty run-created plugins/data/qompack-inline/ after session 1. The only gain was ~/.qompack/bin/ab8046ba\u2026/ (the D10 staged copy). At the end, no qompack.exe was running and the copy's sha256 equals the c7 bundle's bin/qompack.exe. I removed it with Remove-Item -Recurse -Force $HOME\\.qompack\\bin under install.md \u00a76 (D50), then removed the now-empty ~/.qompack, which was absent at snap. Final check at 16:23:00 EDT: 'real home fingerprint unchanged', .qompack/ 0 entries, exit 0. No plugin CLI command was run and nothing under ~/.claude was written by hand.",
+    "guard_ok": true,
+    "open_issues": [
+     "docs/uat.md's header paragraph still says UAT-10 'was not re-run: its Result block still reports candidate 3'. That is stale now that the block reports candidate 7. Header edits were outside this part's remit (Result blocks only).",
+     "UAT-10 O1: on candidate 7, status still reads session_start.fires 'marker-absent-once' (pending) after a same-session /compact. This is D58(d)'s F-C48-1, ordered fixed for candidate 8; the candidate 8 re-check should confirm it.",
+     "The canonical usage-category serialization (canonical order, {\"known\":false} plus missing) is still unverified on any reachable surface. Every committed eval run lacks a request ledger, and C5.5 may be the first chance to observe it.",
+     "Observation: status's raw data.snapshot.latency in --json keeps histogram bucket bounds above Max, while the displayed rows are clamped. Coordinator to decide whether that matters.",
+     "C4.9 O1/O2: after a mid-session takeover, the banner reads 'no assertions reported' until the next SessionStart without saying why. The text status wraps the metrics path mid-word.",
+     "The aggregated C5.6 data was committed before UAT-10's rollback steps. Those steps ran no sessions, so the numbers are final. A later part that adds rerun-c7 sessions would need it re-run (script: <scratch>/resilience/c56c7.py).",
+     "The host transcripts of this part's 3 sessions are still under ~/.claude/projects/C--Users-Quant-AppData-Local-Temp-claude-qompack-live-resilience-*. They were left untouched under the never-edit-~/.claude rule. Scratch projects, recovered copies and helper scripts remain under C:/Users/Quant/AppData/Local/Temp/claude/qompack-live/resilience/. No secrets.json was needed: no scenario in this part plants secrets."
+    ]
+   }
+  }
+ ],
+ "audit": {
+  "verdict": "needs-fixes",
+  "coverage": [
+   {
+    "item": "C4.1 install through the real marketplace flow; hooks, MCP server and six commands discovered",
+    "status": "evidenced",
+    "evidence": "rerun-c7/UAT-01/cli/iso/i01-i08 (isolated CLAUDE_CONFIG_DIR, no model call), cli/01-04 (real profile, local scope), session/stream.jsonl init (plugin:qompack:qompack connected, eight mcp__plugin_qompack_qompack__* tools, slash_commands qompack:{dropped,eval,pin,recall,status,why}, no qompack:checkpoint), session/hooks.json. Re-checked: cli/04-plugin-details exits 1 'not found', cli/s2-version 0.3.0, x1-status '4 holding, 1 pending, 4 with nothing to judge', x2-doctor '0 gap(s) across 12 sidecar(s)', x3-fsck exit 0. The namespace matches docs/commands.md. docs/install.md:346-347 is stale (F1)."
+   },
+   {
+    "item": "C4.3 real compaction round trip, bounded payload, model recovers pre-compaction facts",
+    "status": "evidenced",
+    "evidence": "rerun-c7/C4.3/notes.txt, judged from UAT-03/04/05/06. UAT-04: 8 compact_boundary events (3 manual, 5 auto), 0 thrash lines, 1 LOUD tier-1 line, MANIFEST 7 lines. Facts recovered through Qompack in UAT-04 (expand, recall + expand). In UAT-03 and UAT-05 the recovery came from the host's own context, and the notes say so. Findings carried: F-C7-UAT05-1 (no block at a tiny budget), F-C7-UAT04-1, F-C7-UAT06-1."
+   },
+   {
+    "item": "C4.4 the real model uses each of the eight MCP tools with correct results and errors",
+    "status": "evidenced",
+    "evidence": "rerun-c7/C4.4/tool-matrix.md, UAT-09/session2-resume/tool-calls.txt plus sessions 1 and 3. Re-checked: stale_because 'dependency hash changed from sha256:9f2751eac830'; 12 'current applicability is not disclosed' (uncertain under drop); blind-mode unavailable. The only 'absent' answers are for a different approach (session1/tool-calls.txt:5, session2-resume/tool-calls.txt:3), so R4-1 does not recur."
+   },
+   {
+    "item": "C4.5 slash commands run in a real session and match docs/commands.md",
+    "status": "failed",
+    "evidence": "rerun-c7/C4.5/notes.txt:41. All six commands ran across the lane (status UAT-03/01, pin and dropped UAT-05, why UAT-06, recall UAT-12, eval UAT-10). eval's in-session 'Shell command failed' line is documented at docs/commands.md:20. The row fails on D53(a): uat06/cli/status-json-read1 vs read2 have data.snapshot.sessions in the order [0eaa2666, 2c146247] then [2c146247, 0eaa2666] with the same set of entries. I re-verified this."
+   },
+   {
+    "item": "C4.6 privacy: planted secrets reach no durable surface; deny-ruled and out-of-project reads refused by every retrieval form",
+    "status": "failed",
+    "evidence": "rerun-c7/UAT-12/sessionB/injected-2-SessionStart-compact.txt:36 shows a pointer argument summary {\"query\":\"path:private/deny.txt\"}, which D50 forbids. The secrets half passes: my git grep of committed rerun-c7, guard and uat.md found no AKIA/ASIA/ghp_/github_pat/sk-ant/private-key/JWT shapes and no partial prefixes, and only @@SEC_PLANTED_1@@ and @@SEC_PLANTED_2@@ appear (6 each). No guard.json or credential file is committed."
+   },
+   {
+    "item": "C4.8 upgrade from the previous build, uninstall, reinstall; project work preserved; backup, restore and fsck certified",
+    "status": "evidenced",
+    "evidence": "rerun-c7/C4.8/notes.txt:22-95, cli/ and cli2/. I re-compared the sha256 listings: cli2/30=33=35=37 (193 lines) and cli2/42=44 (209 lines) are identical. Restore and verify files are cli/05,06,22-29 and cli2/51-56b. The upgrade ran through --plugin-dir from candidate 5 to candidate 7 at the same 0.3.0 version string, so the host's own plugin-update path was not exercised. The notes disclose this at line 87."
+   },
+   {
+    "item": "C4.9 degraded paths (daemon killed mid-session, unknown schema, unavailable object); the host session is never broken",
+    "status": "evidenced",
+    "evidence": "rerun-c7/C4.9/notes.txt. store-s1 day log has two 'took over the project from a daemon that ended without releasing its lock' lines (pids 80972 and 16388). store-s2/logs_LOUD.log has 18 'invalid configuration value' lines (F-C7-C49-2). cli/s1-post-fsck-json-after-idle-exit names index.files absent (F-C7-C49-1, minor). Session 2 T4 shows the unavailable-object wording. Both sessions exit 0 with every hook successful."
+   },
+   {
+    "item": "C1.7 operator backup/verify/restore, pre- and post-new-write, on the packaged bundle",
+    "status": "evidenced",
+    "evidence": "rerun-c7/C1.7/notes.txt, with data in C4.8/cli/05,06,22-29 (pre-new-write: c48-baseline, recovery1, the candidate 5 reader accepts it) and C4.8/cli2/51-56b (post-new-write: c48-after-c, recovery2). The two refusals and a tombstoned root were not exercised here. The notes say so and point to candidate 4's run."
+   },
+   {
+    "item": "C1.6 automatic startup accounting and fsck gap detection; 'automatic recovery' stated honestly",
+    "status": "partial",
+    "evidence": "No C1.6 run on candidate 7. The checklist note (V6-CLOSEOUT-CHECKLIST.md:237) says the live lane re-confirms it after wave 15c rewrote the publication pass. The honest statement is unchanged: docs/backup.md:79-83 'discovers incomplete state; it does not reconstruct' and troubleshooting.md:1274-1276. Candidate 7 adds indirect evidence only: no 'publication accounting incomplete' line in UAT-12 or C4.8, and C4.9 startup replay plus fsck naming index.files. No publication-gap cut was re-run on candidate 7."
+   },
+   {
+    "item": "D53(i) host-reported hook failures and timeouts = 0 apart from documented host behaviour",
+    "status": "evidenced",
+    "evidence": "I recounted all 20 rerun-c7 stream.jsonl files: 474 hook_started and 474 hook_response, 0 non-success or non-zero exits. All 20 stderr.txt files are 0 bytes. There are 18 'PreCompact [...] completed successfully' lines and no 'Hook cancelled' or timed-out string. The two compaction failures in UAT-05 run2-session came from the account's usage limit, not a hook, and C5.6/summary.md lists them separately."
+   },
+   {
+    "item": "docs/uat.md Result blocks UAT-01/03/04/05/06/09/10/12 (C4.10 subset): evidence exists, deviations recorded, no expectation edited, Executed by honest",
+    "status": "partial",
+    "evidence": "Every diff hunk in docs/uat.md starts at an old 'Result:' line (208, 441, 559, 699, 805, 1118, 1240, 1476), so no Scenario, Steps, Expected or Fail text was edited. All eight blocks say 'agent-executed on the owner's real host per owner decision D3 \u2014 not human UAT'. Each has a Candidate 4 history line (UAT-10 honestly says 'not re-run') and a Candidate 3 line. The claims I spot-checked (UAT-03 rollback strings, UAT-05 probe-only injections and state, UAT-09 strings, UAT-10 banner, UAT-12 F1) match the evidence. Gaps: the file header (lines 8-19) is stale; the UAT-03 committed checkpoint copies do not re-hash; UAT-12 omits observation O-1."
+   },
+   {
+    "item": "Budgets per part (claude processes vs budget)",
+    "status": "evidenced",
+    "evidence": "sessions.tsv has install-c7 4/4, sessions-c7 8/8 (n=4 void, exit 1, counted), retrieval-c7 5/5 and resilience-c7 3/3: 20 sessions. There are 20 meta.json files under rerun-c7, one per sessions.tsv row."
+   },
+   {
+    "item": "Guard: passing check after every session and at each part's end",
+    "status": "partial",
+    "evidence": "Every part ends with 'real home fingerprint unchanged', check exit 0: install.txt:586, sessions.txt (END 15:11:27), retrieval.txt (15:45:41), resilience.txt (16:23:00). Retrieval and resilience pass after every session. Exceptions: install-c7 n=1 and n=4 read exit 1 (install.txt:462 and 555, an install window was open), and the next passing check comes after the marketplace is removed. Sessions-c7 n=4 (void) has no check in the file (sessions.txt:313)."
+   },
+   {
+    "item": "Commit hygiene d20309c0..HEAD",
+    "status": "evidenced",
+    "evidence": "21 commits, every subject in the 'test(live): ...' form. A grep for Co-Authored-By, Claude-Session and Signed-off-by finds nothing. Outside rerun-c7 the commits touch only docs/uat.md, guard/*.txt and sessions.tsv. Every SHA quoted in uat.md and the lane output is an ancestor of HEAD."
+   }
+  ],
+  "findings": [
+   {
+    "severity": "major",
+    "location": "plans/sdd/V6-closeout/live/rerun-c7/UAT-12/sessionB/injected-2-SessionStart-compact.txt:36",
+    "issue": "Confirmed product defect (C4.6 / UAT-12 F1). The rehydration block's section 6 shows a host-denied path inside a tool pointer's argument summary. D50 says pointers never show a path the host currently denies.",
+    "evidence": "Line 36: `- tool_use toolu_017m9djGav7vcngkniobgwim sha256:f29d6a64... \u2014 {\"query\":\"path:private/deny.txt\"}`. The lane recorded it correctly as a fail in docs/uat.md:1531,1553-1556 and C4.6/notes.txt.",
+    "fix": "Route to the rehydrate pointer gate so that path selectors inside argument summaries are withheld, or the summary is replaced by a hash. Re-run C4.6 and UAT-12 section 6 on the next candidate."
+   },
+   {
+    "severity": "major",
+    "location": "docs/uat.md:684-694 vs rerun-c7/UAT-05/run2r-block2-SessionStart-compact.txt, run2r-block3-SessionStart-compact.txt",
+    "issue": "F-C7-UAT05-1: at a budget of 150/150 the compact injection is only the contract-probe line. The session is told nothing, even though the state reads degraded true with 15 and 14 drops. The row (a block naming the loss, a tier-1 entry first in section 7) and ADR 0011's D49 design disagree.",
+    "evidence": "Both run2r blocks contain only `<!-- qompack-contract-probe ... -->`. blockB state: tokens 0, budget 150, degraded True, 14 drops, the first two tier1. Marking the row fail while its literal fail list is not tripped is disclosed in uat.md:743. That is conservative and honest, not papered over.",
+    "fix": "The coordinator decides whether ADR 0011 or the UAT-05 expectation changes, and records it as a D-decision. Do not edit the expectation from within the lane."
+   },
+   {
+    "severity": "minor",
+    "location": "docs/uat.md:8-19",
+    "issue": "The uat.md header is stale after this lane. It says the eleven re-run Result blocks report candidate 4 and that UAT-10 'was not re-run: its Result block still reports candidate 3'. Eight blocks now report candidate 7, and UAT-10 reports candidate 7.",
+    "evidence": "There is no diff hunk before line 208. The header still names commit 9f6a2fad and the D47 outcome '7 passing and 4 failing'. UAT-01/03/04/05/06/09/10/12 now say 'Candidate 7 ... d20309c0'.",
+    "fix": "Update the header to name candidate 7 (d20309c0) for the eight re-run rows with their outcomes (pass 01/03/04/06/09/10; fail 05/12), and candidate 4 for UAT-02/07/08/11."
+   },
+   {
+    "severity": "minor",
+    "location": "plans/sdd/V6-closeout/live/rerun-c7/UAT-03/notes.txt:29; steps/s2-pre-0002.json",
+    "issue": "The 'manifest's last line names 0002 with a matching sha256' claim cannot be reproduced from the committed evidence. The committed checkpoint copies were path-scrubbed, so they no longer hash to MANIFEST, and nothing says so.",
+    "evidence": "MANIFEST records 0002 at sha256:a76f42d6...cadace8 and 2072 bytes. The committed steps/s2-pre-0002.json is 2021 bytes with sha256 abcc6266... (it contains '<scratch>'). 0001 is 1951 bytes, also not the manifest's size. The diff in s5-diff.txt compares two scrubbed copies.",
+    "fix": "Add a line to notes.txt saying the committed artifacts are scrubbed copies and the MATCH was computed on the unscrubbed store. Or commit the hash computed before the scrub beside each copy."
+   },
+   {
+    "severity": "minor",
+    "location": "plans/sdd/V6-closeout/live/guard/sessions.txt:313",
+    "issue": "No guard check is recorded after sessions-c7 n=4, the void UAT-05 run 2 session. The coordinator's clean and check is described as 'not captured in this file'.",
+    "evidence": "sessions.txt:313 says '...check: real home unchanged (not captured in this file)'. The next recorded check is at the 14:03:20 resume ('real home fingerprint unchanged', exit 0), so the gap is bounded.",
+    "fix": "Append the coordinator's homeguard output for that check, or state that the 14:03:20 resume check is the post-session check for n=4."
+   },
+   {
+    "severity": "minor",
+    "location": "plans/sdd/V6-closeout/live/guard/install.txt:462,555",
+    "issue": "The guard reads check exit 1 right after install-c7 sessions n=1 and n=4. This is by design: those sessions ran inside an open local-scope install window. A passing check exists only once the marketplace is removed. The audit criterion 'passing check after every session' is therefore met only at window close.",
+    "evidence": "The differences are limited to installed_plugins.json, known_marketplaces.json and cache/qompack-live, plus the run-created .qompack/bin. settings.json is the same. Window-close checks at 04:10:20 and 04:22:14 read 'real home fingerprint unchanged', exit 0.",
+    "fix": "No product change. In the lane report, state that post-session guard checks inside an install window are expected to differ in those three entries, and cite the window-close check as the session's passing check."
+   },
+   {
+    "severity": "minor",
+    "location": "docs/uat.md:1553-1556 vs rerun-c7/UAT-12/notes-retrieval.txt:124-125",
+    "issue": "The UAT-12 Result block leaves out observation O-1: section 2 of the block carries the user's verbatim prompts, including the absolute out-of-project path and 'private/deny.txt'. The block only says that section 6 shows no absolute out-of-project path.",
+    "evidence": "notes-retrieval.txt:124-125 records O-1. sessionB/injected-2:12 shows a section 2 entry 'Use the Read tool to read private/deny.txt...'. D50 previously required Result blocks to gain the findings they omitted.",
+    "fix": "Add the O-1 observation to the UAT-12 Result block and leave the privacy judgement on section 2 to the coordinator."
+   },
+   {
+    "severity": "minor",
+    "location": "plans/V6-CLOSEOUT-CHECKLIST.md:237 (C1.6)",
+    "issue": "The checklist says candidate 6's live lane re-confirms C1.6 after wave 15c rewrote the publication pass. This candidate 7 lane did not re-run a publication-gap cut, so automatic startup accounting and fsck gap detection were not re-exercised on the rewritten pass.",
+    "evidence": "There is no C1.6 directory under rerun-c7, and a git grep for C1.6 or 'automatic recovery' in rerun-c7 finds nothing. The docs wording is still honest: docs/backup.md:79-83 'discovers incomplete state; it does not reconstruct missing content'.",
+    "fix": "Either run the C1.6 cut on the frozen candidate 7 or 8 bundle, or record a carry-forward note naming the files that changed since candidate 3's C1.6 (D53(f) carry-forward rule)."
+   },
+   {
+    "severity": "minor",
+    "location": "docs/uat.md:801-803, 857-860 (UAT-06)",
+    "issue": "UAT-06 passes while its expectation 'Section 2's first unit is the verbatim original' is literally not met, because the product renders the evolution first under D50. The lane records this as a doc finding, not a deviation, which is reasonable under D50 but leaves a contradictory expectation in place. Separately, the fork's final block puts a stale parent instruction under 'Current work'. That is close to the fail criterion 'obsolete intent appearing as the current one'. It does not literally meet it, because the cut text omits the superseded figure.",
+    "evidence": "UAT-06/C-block3-SessionStart-compact.txt: section 2 lists 'Evolution (most recent first)' before 'Original:'. Section 5 reads 'goal: Call mcp__plugin_qompack_qompack__record_eliminated ... reason \"superseded by the user's' (cut at 160 runes), while the newest prompt is the 45/min correction.",
+    "fix": "The coordinator amends UAT-06's expectation to D50's order through a recorded decision, and routes F-C7-UAT06-1 (current work from the fork's newest prompt)."
+   },
+   {
+    "severity": "minor",
+    "location": "docs/install.md:346-347, 339, 236",
+    "issue": "Doc findings confirmed. (1) \u00a79 says the namespace under a qompack-<os>-<arch> entry 'has not been observed' and 'may derive it from the entry name'. It was observed, and it comes from plugin.json's name. (2) `claude plugin details <entry-name>` fails; only `qompack` or `<entry>@<mkt>` work. (3) The staged-copy row says a copy is pruned 'only when a newer version is staged', but another build at the same version also pruned it.",
+    "evidence": "UAT-01/session/stream.jsonl init, cli/04-plugin-details.stdout.txt ('Plugin \"qompack-windows-amd64\" not found'), cli/04b and 04c exit 0, guard/install.txt INFO lines after C4.8 sessions A and B. These are already batched under D58(f).",
+    "fix": "Apply D58(f)'s batched doc edits."
+   },
+   {
+    "severity": "minor",
+    "location": "plans/sdd/V6-closeout/live/rerun-c7/C4.5/uat06/cli/status-json-read1.stdout.txt, status-json-read2.stdout.txt",
+    "issue": "F-C7-C45-1 confirmed: status --json's data.snapshot.sessions order is not deterministic across two reads of unchanged state (D53(a)).",
+    "evidence": "Read 1 IDs are [0eaa2666..., 2c146247...]; read 2 are [2c146247..., 0eaa2666...]. As sets the entries are equal (I re-verified this with JSON comparison).",
+    "fix": "Sort the snapshot sessions by a stable key (session ID or start time) in the status collector, and add a determinism test."
+   },
+   {
+    "severity": "minor",
+    "location": "plans/sdd/V6-closeout/live/rerun-c7/C4.9/cli/s1-post-fsck-json-after-idle-exit.stdout.txt",
+    "issue": "F-C7-C49-1 confirmed. After daemons are terminated mid-session, the daemon that takes over later exits cleanly on idle without writing index/files.json, so a clean-exit fsck reports exit 1. F-C7-C49-2 is also confirmed: 18 LOUD 'invalid configuration value' lines in about 30 s, while troubleshooting \u00a76 says 'warn in the day log'.",
+    "evidence": "fsck text: 'index/files.json is absent while its log carries 2 path(s); the view is derived and --repair regenerates it'. `grep -c 'invalid configuration value' store-s2/logs_LOUD.log` = 18.",
+    "fix": "Flush the files view on idle exit after a takeover. Log the settingsVersion fallback once per process lifetime or per config mtime, and reconcile troubleshooting \u00a76 and backup.md with the maintenance refusal (F-C7-C49-3)."
+   },
+   {
+    "severity": "nit",
+    "location": "plans/sdd/V6-closeout/live/rerun-c7/C4.8/notes.txt:86-88; docs/uat.md:1559-1561",
+    "issue": "The upgrade leg switched --plugin-dir from the candidate 5 bundle to the candidate 7 bundle at the same 0.3.0 version string. The host's own marketplace update path, which candidate 4 exercised from 0.2.99-prev, was not exercised on candidate 7. This is disclosed, but C4.8's 'upgrade' is weaker than candidate 4's.",
+    "evidence": "notes.txt:87 says 'No plugin-update step exists on that path'. Both bundles are 0.3.0, and the D10 prune observation (O1) follows from this.",
+    "fix": "None required for candidate 7. If a release-path upgrade must be evidenced, run `claude plugin update` from a lower stamped version on candidate 8."
+   },
+   {
+    "severity": "nit",
+    "location": "docs/uat.md:215, 205-258",
+    "issue": "The UAT-01 Result block has one 155-character line, unlike the file's ~100-column wrap. Its step 5 record lists only the hooks the host fired, not the seven events hooks.json declares (they are in notes.txt).",
+    "evidence": "An awk length check on the added lines flags line 215 at 155 characters. Notes item '5 cli/s5-installed-hooks.json' lists the seven exec-form events.",
+    "fix": "Rewrap line 215, and add 'hooks.json declares the seven events, exec form' to the step 5 record."
+   }
+  ]
+ }
+}

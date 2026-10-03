@@ -73,3 +73,13 @@ The gated durable frontier (runtime.migration.publication.durableFrontier false)
 Rollback: initial state absent (recorded). Same-build backup/restore of the post-idle store verified (above); the
 destination was not activated; the source's later writes untouched; cross-version and activation checks unverified.
 Guard: plans/sdd/V6-closeout/live/guard/sessions.txt ("session 1 UAT-03", "resume check").
+
+Note (wave 19 docs seat, 2026-10-02, added after the lane at the independent audit's request): the committed
+checkpoint copies under steps/ (s2-pre-0001.json, s2-pre-0002.json, s5-post-0001.json, s5-post-0002.json) are
+path-scrubbed: the live driver replaced the scratch path with '<scratch>' before commit. Their sizes and sha256
+therefore differ from MANIFEST.jsonl (0001: 1,951 bytes committed vs 2,053 in MANIFEST; 0002: 2,021 bytes, sha256
+abcc6266..., vs 2,072 bytes, sha256:a76f42d6...cadace8). The step 2 MATCH (each artifact re-hashes to its MANIFEST
+line) was computed on the unscrubbed store in the scratch project, before the copies were scrubbed
+(s2-pre-checkpoints.txt records the store's own sizes, 2,053 and 2,072, with their hashes), so re-hashing the
+committed copies cannot reproduce it. s5-diff.txt's IDENTICAL lines compare the pre-idle and post-restart
+copies as committed, both scrubbed the same way.
