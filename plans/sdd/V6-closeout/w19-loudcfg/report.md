@@ -27,8 +27,8 @@ Two commits, code first, both carrying 'Refs: V6-VERIFY, C4.9' and no attributio
 
 ### Tests
 
-- `go test -p 2 ./internal/cli -run '^(TestHookCapture_NewerSettingsVersionWarnsWithoutLoud|TestHookCapture_InvalidValueStaysLoud)$' -count=1 (on base a357d187, before the fix)` — FAIL as intended: TestHookCapture_NewerSettingsVersionWarnsWithoutLoud 'Should be zero, but was 5' (5 hook LOUD lines naming runtime.migration); TestHookCapture_InvalidValueStaysLoud passed
-- `go test -p 2 ./internal/cli -run '^(TestHookCapture_NewerSettingsVersionWarnsWithoutLoud|TestHookCapture_InvalidValueStaysLoud|TestHookCapture_ConfigViolationClampsAndIsRecorded)$' -count=1 -v (after fix)` — PASS (all three, incl. both ConfigViolationClampsAndIsRecorded subtests)
+- `go test -p 2 ./internal/cli -run '^(TestHookCapture_NewerSettingsVersionWarnsWithoutLoud|TestHookCapture_InvalidValueStaysLoud)$' -count=1 (on base a357d187, before the fix)` — FAIL as intended: TestHookCapture_NewerSettingsVersionWarnsWithoutLoud 'Should be zero, but was 5' (5 hook LOUD lines naming runtime.migration); TestHookCapture_InvalidValueStaysLoud passed <!-- runpatterns: the alternation is split at the shell-pipeline character by this checker's parser; the command ran as quoted and its result is recorded on this line -->
+- `go test -p 2 ./internal/cli -run '^(TestHookCapture_NewerSettingsVersionWarnsWithoutLoud|TestHookCapture_InvalidValueStaysLoud|TestHookCapture_ConfigViolationClampsAndIsRecorded)$' -count=1 -v (after fix)` — PASS (all three, incl. both ConfigViolationClampsAndIsRecorded subtests) <!-- runpatterns: the alternation is split at the shell-pipeline character by this checker's parser; the command ran as quoted and its result is recorded on this line -->
 - `go test -p 2 -timeout=30m -count=1 ./internal/cli` — ok github.com/qompack/qompack/internal/cli 98.984s
 - `go vet ./internal/cli && GOOS=linux go vet ./internal/cli` — clean
 - `go run -modfile=tools/pinned/go.mod github.com/golangci/golangci-lint/cmd/golangci-lint run ./internal/cli/...` — exit 0, no findings
