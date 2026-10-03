@@ -178,6 +178,22 @@ func daemonClientState(root string, cfg config.Config) ipc.State {
 	return st
 }
 
+// commandConnectDeadline bounds a command client's dial to the daemon: status, doctor and every
+// other `qompack` frontend that asks the daemon (D60(e)). It is deliberately not
+// runtime.daemon.connectDeadlineMs. That budget is the hot path's, tuned for a hook and a warm
+// daemon (25 ms on Windows, about three named-pipe attempts), and one dial landing while the
+// listener re-arms its next pipe instance (ERROR_PIPE_BUSY) can miss it. A command is a person at a
+// terminal, not a hook mid-turn. It is the same non-hot-path dial floor session-start, checkpoint,
+// flush and self-test's admin.ping already use (hookConnectDeadlineFloor, whose derivation is in
+// hookclient.go), not a new number. An absent daemon still fails the dial at once: a missing pipe or
+// socket is refused, not waited on.
+const commandConnectDeadline = hookConnectDeadlineFloor
+
+// newCommandIPCClient is the constructor newCommandClient builds its transport with. It is a
+// variable only so a test can make a real client miss its connect, by aiming one at an address
+// nothing listens on, while a real daemon listens at the project's own.
+var newCommandIPCClient = ipc.NewClientWithOptions
+
 // newCommandClient builds the transport the frontends reach the daemon over.
 //
 // It is the same lazy-spawn seam `qompack mcp` uses, and for the same reason: the daemon owns the
@@ -187,12 +203,14 @@ func newCommandClient(root string, cfg config.Config, env Env,
 	log logging.Logger, reg obs.Registry, clk core.Clock,
 ) ipc.Client {
 	addr, _ := ipc.Resolve(root)
-	return ipc.NewClientWithOptions(addr, nopSpool{}, log, reg, ipc.ClientOptions{
+	return newCommandIPCClient(addr, nopSpool{}, log, reg, ipc.ClientOptions{
 		ProjectRoot: root,
 		State:       daemonClientState(root, cfg),
 		Self:        env.Self,
 		Spawn:       spawnDaemon,
 		Clock:       clk,
+
+		ConnectDeadline: commandConnectDeadline,
 	})
 }
 
@@ -231,11 +249,22 @@ func commandStatusSources(_ context.Context, root string, client ipc.Client) com
 const statusNoDaemonReason = "no daemon answered: none is listening for this project yet. This command " +
 	"asked one to start unless runtime.daemon.enabled is false; run status again once it is up"
 
-// statusSilentDaemonReason is why status has no live answer when a daemon was listening but its reply
-// never came: the command client's read deadline passed, or the connection broke mid-reply.
+// statusSilentDaemonReason is why status has no live answer when a daemon was listening and accepted
+// the request but its reply never came: the send took commandCallDeadline or longer, so the
+// command client's read deadline passed. A send that failed sooner is statusConnectMissReason.
 var statusSilentDaemonReason = fmt.Sprintf("a daemon is listening for this project but did not answer "+
 	"within %s: it may be busy or stuck. Run status again; if it stays silent, see "+
 	"docs/troubleshooting.md, section 7", commandCallDeadline)
+
+// statusConnectMissReason is why status has no live answer when a daemon was listening but both of
+// fetchDaemonStatus's attempts failed before commandCallDeadline: the client could not connect
+// within commandConnectDeadline, or the connection closed before a reply. The client reports both
+// the same way (OK false, no text), so the reason names both, and never the call deadline, which
+// did not expire.
+var statusConnectMissReason = fmt.Sprintf("a daemon is listening for this project but did not "+
+	"answer this command: on both of two attempts, no connection to it was made within the %s "+
+	"connect budget or the connection closed before a reply. Run status again; if it keeps "+
+	"failing, see docs/troubleshooting.md, section 7", commandConnectDeadline)
 
 // statusProbeTimeout bounds the dial daemonListening makes. It is self-test's own liveness dial bound,
 // not a new number: both ask only whether anything accepts a connection at the project's address.
@@ -259,25 +288,47 @@ func daemonListening(root string) func() bool {
 // listening is asked before the request is sent, because the client answers OK false with no error
 // text both when nothing listened and when a listening daemon never replied: only the dial tells the
 // two apart, and asking it after the send would see the daemon the send's own lazy spawn started.
+//
+// With a daemon listening, the time the send took tells the rest apart, because the client's read
+// deadline starts only after its connect, which commandConnectDeadline bounds well inside
+// commandCallDeadline: a send that took commandCallDeadline or longer expired that deadline; one
+// that failed sooner missed its connect or lost its connection before a reply. Only the second is
+// sent once more. A status read changes nothing, so resending it is safe, and a connect miss is not
+// always one the dial budget could absorb (go-winio's dial returns any CreateFile error but
+// ERROR_PIPE_BUSY at once). A daemon that let the call deadline expire is not asked twice.
 func fetchDaemonStatus(
 	ctx context.Context, client ipc.Client, listening func() bool,
 ) (commands.DaemonStatus, time.Time, error) {
 	wasListening := listening != nil && listening()
-	resp, err := client.Send(ctx, ipc.Request{
-		Op: ipc.OpStatus, Reply: true, TS: core.NowMilli(core.SystemClock()),
-	}, commandCallDeadline)
+	send := func() (ipc.Response, time.Duration, error) {
+		start := time.Now()
+		resp, err := client.Send(ctx, ipc.Request{
+			Op: ipc.OpStatus, Reply: true, TS: core.NowMilli(core.SystemClock()),
+		}, commandCallDeadline)
+		return resp, time.Since(start), err
+	}
+	noAnswer := func(resp ipc.Response) bool { return !resp.OK && resp.Err == "" }
+
+	resp, took, err := send()
+	if err == nil && noAnswer(resp) && wasListening && took < commandCallDeadline && ctx.Err() == nil {
+		resp, took, err = send()
+	}
 	if err != nil {
 		return commands.DaemonStatus{}, time.Time{}, fmt.Errorf("status round trip: %w", err)
 	}
-	if !resp.OK && resp.Err == "" {
+	if noAnswer(resp) {
 		// The client's answer for a request no daemon answered: nothing listened at the project's
-		// address, runtime.daemon.enabled is false, or a listening daemon's reply never came. It
-		// carries no text of its own, and quoting it as a refusal printed "status refused: " with
-		// nothing after the colon (V6 close-out F-UAT03-3, F-C49-1).
-		if wasListening {
+		// address, runtime.daemon.enabled is false, a listening daemon's connect missed, or its
+		// reply never came. It carries no text of its own, and quoting it as a refusal printed
+		// "status refused: " with nothing after the colon (V6 close-out F-UAT03-3, F-C49-1).
+		switch {
+		case !wasListening:
+			return commands.DaemonStatus{}, time.Time{}, errors.New(statusNoDaemonReason)
+		case took >= commandCallDeadline:
 			return commands.DaemonStatus{}, time.Time{}, errors.New(statusSilentDaemonReason)
+		default:
+			return commands.DaemonStatus{}, time.Time{}, errors.New(statusConnectMissReason)
 		}
-		return commands.DaemonStatus{}, time.Time{}, errors.New(statusNoDaemonReason)
 	}
 	if !resp.OK {
 		return commands.DaemonStatus{}, time.Time{}, fmt.Errorf("status refused: %s", resp.Err)
