@@ -316,3 +316,48 @@ func TestBuild_HostRulesAreEstablishedOncePerBuild(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, calls)
 }
+
+// TestBuild_APathKnownOnlyFromACheckpointDropIsNamedByNoSelector is the w19 verifier's V3. A
+// denied path the checkpoint records only as a path-keyed drop (pointer_missing: the file is gone
+// from the working tree; file_pointer: the checkpoint cut the pointer at its own budget) never
+// entered the paths a selector or a glob is matched against, so `path:deny.txt` (recall's plain
+// selector selects by path-segment suffix) and `path:**/deny.txt` were shown in section 6 while
+// section 7 withheld the same path.
+func TestBuild_APathKnownOnlyFromACheckpointDropIsNamedByNoSelector(t *testing.T) {
+	root := privacyRoot(t)
+	cp := ckUAT05()
+	cp.Dropped = append(append([]checkpoint.DropEntry(nil), cp.Dropped...),
+		checkpoint.DropEntry{Kind: "pointer_missing", ID: "private/deny.txt", Detail: "file no longer exists in the working tree"},
+		checkpoint.DropEntry{Kind: "file_pointer", ID: "vault/keys.txt", Detail: "truncated at budget; re_read(path) still resolves"},
+	)
+	withheld := []checkpoint.ToolPointer{
+		{ToolUseID: "toolu_basename", Hash: hashOf("b1"), Summary: `{"query":"path:deny.txt"}`},
+		{ToolUseID: "toolu_globsel", Hash: hashOf("b2"), Summary: `{"query":"path:**/deny.txt"}`},
+		{ToolUseID: "toolu_glob", Hash: hashOf("b3"), Summary: "**/deny.txt"},
+		{ToolUseID: "toolu_cutbasename", Hash: hashOf("b4"), Summary: `{"query":"path:keys.txt"}`},
+		{ToolUseID: "toolu_cutglob", Hash: hashOf("b5"), Summary: "**/keys.*"},
+	}
+	allowed := []checkpoint.ToolPointer{
+		{ToolUseID: "toolu_ok_selector", Hash: hashOf("c1"), Summary: `{"query":"path:reports.py"}`},
+		{ToolUseID: "toolu_ok_glob", Hash: hashOf("c2"), Summary: "**/*.py"},
+	}
+	cp.Pointers.Tools = append(append([]checkpoint.ToolPointer(nil), withheld...), allowed...)
+
+	d := uat05Deps(t, cp)
+	d.HostPaths = denyFiles(root, "private/deny.txt", "vault/keys.txt")
+	r := requestFor(t, cp, maxBudget())
+	r.ProjectRoot = root
+
+	res, err := Build(context.Background(), r, d)
+	require.NoError(t, err)
+	requireNoLeak(t, res, []string{"deny.txt", "keys.txt", "keys.*"})
+
+	section6 := sectionBody(res.Text, sectionHeading(ItemPointers))
+	for _, tp := range withheld {
+		require.Contains(t, section6, "- tool_use "+string(tp.ToolUseID)+" "+tp.Hash.String()+" — "+withheldSummary,
+			"%s names a path section 7 withholds", tp.Summary)
+	}
+	for _, tp := range allowed {
+		require.Contains(t, section6, "- tool_use "+string(tp.ToolUseID)+" "+tp.Hash.String()+" — "+tp.Summary)
+	}
+}

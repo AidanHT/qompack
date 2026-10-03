@@ -1106,7 +1106,7 @@ func buildPointers(_ context.Context, r Request, d Deps, sc map[dag.NodeID]float
 		}
 		return files[i].Path < files[j].Path
 	})
-	judge := newPathJudge(r, d)
+	judge := pathJudgeFor(r, d)
 	for _, f := range files {
 		b.seen++
 		if judge.withheld(f.Path) {

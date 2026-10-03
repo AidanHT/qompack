@@ -113,8 +113,12 @@ func BuildWithStats(ctx context.Context, r Request, d Deps) (Result, []ItemStat,
 	// ── 2. build every item ──────────────────────────────────────────────────────────────────
 	//
 	// The checkpointer's path-keyed drop entries pass section 6's gate first, so section 7 and
-	// dropped() never show a path the payload withholds (D50).
-	r.Checkpoint.Dropped = gateCheckpointDrops(r, d)
+	// dropped() never show a path the payload withholds (D50). The build's one judge reads them
+	// before they are gated, so a withheld path they alone record is one no selector or glob in a
+	// summary may select either, and section 6 is judged with the same rules and memo.
+	judge := newPathJudge(r, d)
+	r.Checkpoint.Dropped = gateCheckpointDrops(r, judge)
+	d.judge = &judge
 	sc := sliceScores(r, d)
 	all := buildAll(ctx, r, d, sc)
 	priceAll(d, all)

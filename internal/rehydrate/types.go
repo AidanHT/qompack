@@ -161,4 +161,7 @@ type Deps struct {
 	// HostPaths judges recorded paths against the host's current Read rules, so section 6 never
 	// shows one re_read would refuse (D50). Nil applies containment alone; see HostPaths.
 	HostPaths HostPaths
+
+	// judge is the build's path judge, which Build makes once and item 6 reads (pathJudgeFor).
+	judge *pathJudge
 }
