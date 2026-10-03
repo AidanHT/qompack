@@ -19,7 +19,128 @@ session's scratchpad. None of them ships; they drive the close-out.
 | `recrun.sh` | Records a run the V6 way: `sh recrun.sh <repo> <evidence-dir> <run-id> -- <command…>` writes `<id>.json` (argv, head, dirty, env, times, exit, log sha256) and `<id>.log`, and refuses to overwrite. |
 | `shacheck.sh` | `sh shacheck.sh <worktree> <file>`: every quoted SHA must be reachable from HEAD (report-SHA reachability). |
 | `rpwaive.py` | Applies `runpatterns` inline waivers from `devtool lint --only=runpatterns` output. It auto-handles alternations the checker splits at a bare pipe and `<placeholder>` patterns, and takes an explicit `file:line=reason` for anything else. Correct a quote instead when its only problem is trailing punctuation. |
+| `c8-night.sh` | Candidate 8's night: preconditions, the merged-tree check, the pre-freeze check, the freeze, bundles, push, then `overnight-c8.sh`. See "Candidate 8" below. |
+| `overnight-c8.sh` | The frozen candidate's local night: AC-gated Windows timing with D57(d)'s power verdicts and per-try records, Windows -race and bundles, the Linux lanes, quiet C5.1 and C5.2, and release-check in an isolated scratch clone. Its header states every rule. |
+| `prefreeze.sh` | `sh prefreeze.sh <repo> <evidence-dir> [step…]`: D53(a)'s pre-freeze check (gate, e2e, e2efunc, hotpath, integration, testpkgs, internal). A fresh `summary.log` per run, every line tagged with `PREFREEZE_RUN`, and a power verdict per step. |
+| `power.sh` | Sourced by the three scripts above: the power reading, the System log's power events (Kernel-Power 105 and 506), the VALID / INVALID-POWER / NOT-REFERENCE verdict, the bounded AC wait and the deadline. |
+| `stamped.sh` | `sh stamped.sh <command…>`: prefixes each output line with its epoch second and keeps the command's exit status; release-check's AC-sensitive windows are read from it. |
+| `nightharness.sh` | `sh nightharness.sh [case…]` (`-l` lists them): the dry harness for everything above. Stubs for powershell, pwsh, docker, go, claude, gh, timeout, date and sleep, real git on scratch repositories, a fake clock; no real process is started and nothing outside its temporary directory is touched. Run it after any change to a night script. |
+| `mkrecheck8.py` | `python mkrecheck8.py live-rerun-c7.js <out.js> <candidate-sha> <bundle-dir>`: generates candidate 8's live re-check from candidate 7's lane. It refuses a candidate without ADR 0011 section 23, a bundle without BUNDLE.json, and an output that keeps a candidate 7 string, reads the clock or does not parse. |
 
 Conventions: Linux gates use `plans/sdd/V6-closeout/linux/linux-nonroot-gate.sh` with Windows-style
 paths for `--repo` and `--out` (a POSIX `/c/...` path is refused). Never SendMessage a running
 workflow agent: it resumes a duplicate in the same worktree.
+
+## Candidate 8
+
+Candidate 8 is frozen and tested by `c8-night.sh` (D60(f), D61). Everything below is the
+coordinator's procedure; no agent launches or aborts the night.
+
+### Before launch
+
+1. The owner has said go: the night uses the whole machine, and no other seat runs a test.
+   `tasklist | grep -iE 'go\.exe|\.test\.exe|devtool'` shows nothing of the coordinator's.
+2. Wave 19b, wave 19c and every wave 20 branch are merged into `closeout/integration`.
+   `c8-night.sh` refuses otherwise. It checks `closeout/w19-rehydrate`, `closeout/w19b-cmdconnect`
+   and every `closeout/w19c-*` and `closeout/w20-*` tip. A branch deliberately left out goes in
+   `C8_EXEMPT` (space-separated), and each exemption is logged with its tip.
+3. `qompack-cx-int` is clean. `qompack-v6` is on `verify/v6` with no tracked change, because the
+   freeze commit lands there. `qompack-cx-cand` is clean, and `qompack-bundles/c8` does not exist.
+   An earlier refused run's `phase3/c8/prefreeze` is moved aside automatically to
+   `prefreeze.run-<n>`, and is never read as this run's.
+4. `sh nightharness.sh` passes. It is dry and takes about 40 minutes, with no Go, Docker or Claude
+   Code process. Re-run it after any change to a night script.
+5. The laptop lid is open and the charger is connected. Docker Desktop may be up or down, and the
+   container `qompack-v6-linux-verification` must exist.
+6. Choose the deadline. `NIGHT_DEADLINE` (local `HH:MM`, default `08:00`) is the time after which
+   no step and no AC wait starts. release-check starts only if `RC_EST_S` (3 h) lets it end by
+   then. `AC_WAIT_BUDGET_MIN` (default 180) bounds the whole night's waiting for AC, counted in
+   one-minute polls.
+
+### Launch
+
+From a PowerShell window, not a Claude Code background shell. The reaper would stop the night.
+
+```powershell
+$env:NIGHT_DEADLINE = '08:00'          # optional; AC_WAIT_BUDGET_MIN and C8_EXEMPT likewise
+Start-Process -FilePath 'C:\Program Files\Git\bin\bash.exe' -WindowStyle Hidden -ArgumentList @(
+  'C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/coordinator/c8-night.sh')
+```
+
+Launch through `Git\bin\bash.exe`, never `Git\usr\bin\sh.exe`, which starts without `/usr/bin` on
+PATH. The script sends its own output to `night.log`. Do not edit any night script while the night
+runs, because sh reads its script from a byte offset.
+
+### Watch
+
+All evidence is under `plans/sdd/V6-closeout/phase3/c8/`:
+
+- `night.log`: every decision, and the first line `start pid <msys> winpid <windows-pid>`.
+- `merged-tree.txt`, then `prefreeze/summary.log`. Each step line there carries its exit code,
+  `run=<id>` and `power=<verdict>`.
+- After the freeze: `host-validate.txt`, then `chain.log` for overnight's steps.
+- `power.tsv`: one row per power-checked try.
+- `overnight-outcome.txt`: the counts. night.log's last lines repeat them.
+
+The power verdicts:
+
+- VALID means started on AC with no power event during the run.
+- INVALID-POWER is neither a pass nor a fail. Try 1's records move to `<step>.invalid-power-1/`
+  and the step is retried once.
+- NOT-REFERENCE means no AC within the budget, or an unreadable power history. The step still
+  ran, but its timings are not a reference measurement.
+- SKIPPED means the deadline passed before the step could start.
+
+### Abort
+
+1. Take the Windows pid from night.log's first line. Then stop exactly that process tree, deepest
+   first, and nothing else:
+
+   ```powershell
+   $tree = @(<winpid>); $all = Get-CimInstance Win32_Process; $i = 0
+   while ($i -lt $tree.Count) { $tree += @($all | Where-Object { $_.ParentProcessId -eq $tree[$i] } | ForEach-Object { $_.ProcessId }); $i++ }
+   [array]::Reverse($tree); $tree | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue }
+   ```
+
+   Then look again for orphans: `go.exe`, `*.test.exe` or `devtool` whose command line names
+   `qompack-cx-cand`, `qompack-cx-int` or the scratch clone paths from step 4. A killed shell can
+   leave its Go children behind. Stop only those.
+2. Delete `phase3/c8/keepawake.sentinel`. keepawake.ps1 then releases within 30 s. A normal end,
+   a refusal and a catchable signal already delete it through the exit trap.
+3. Docker. If chain.log has `container start exit=0` but no `container stopped`, run
+   `docker stop qompack-v6-linux-verification`. If it has `engine started by this chain` but no
+   `engine stopped`, run `docker desktop stop`. Never stop an engine the chain did not start,
+   because the owner's stack runs on it (D56(g)).
+4. Scratch. Delete the paths night.log names (`merged-tree scratch clone <path>`) and chain.log
+   names (`release-check clone <path>`) if they survived a hard kill. The v0.3.0 tag only ever
+   existed in that clone. `git tag -l v0.3.0` in any worktree must print nothing.
+5. Remove any `phase3/c8/quiet*/.quiet.lock` a hard kill left behind.
+6. Git. If night.log has `candidate 8 frozen at <sha>` but no `pushed verify/v6`, then `verify/v6`
+   holds an unpushed freeze commit. Its pre-freeze head is on the `integration <H>, verify/v6 <V>`
+   line. Resetting to `<V>` is a coordinator decision, and it is recorded in the ledger. If the push
+   happened, the candidate stands and only the overnight part is re-run.
+7. Re-run.
+   - Before the freeze: relaunch `c8-night.sh` as above.
+   - After the freeze: run the night on the frozen candidate into a fresh evidence directory.
+     `qompack-bundles/c8` exists, so `c8-night.sh` would refuse.
+
+     ```sh
+     sh plans/sdd/V6-closeout/coordinator/overnight-c8.sh ../qompack-cx-cand <sha> plans/sdd/V6-closeout/phase3/c8-rerun-<n>
+     ```
+
+     Launch it the same detached way.
+
+### The live re-check
+
+After the night, generate the re-check and syntax-check it. The generator does both and refuses
+a candidate whose ADR 0011 lacks section 23, so wave 19c's ADR must be in the candidate:
+
+```sh
+python plans/sdd/V6-closeout/coordinator/mkrecheck8.py plans/sdd/V6-closeout/coordinator/live-rerun-c7.js \
+  plans/sdd/V6-closeout/coordinator/live-recheck-c8.js <sha> \
+  C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c8/qompack-plugin-0.3.0-windows-amd64
+```
+
+Then follow the generated script's header. It creates or verifies branch `closeout/live8` at the
+candidate in `../qompack-cx-live` and checks the bundle. Launch the script as a Workflow only with
+the owner's go. It runs 23 real sessions in four parts.
