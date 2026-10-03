@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -34,6 +35,23 @@ const configViolationsFile = "config-violations.json"
 // both surface it. A failure to persist is itself logged but never propagated: a hook that dies
 // over a diagnostic write has traded observability for nothing.
 func LoadConfigAndReport(env config.Env, log logging.Logger, reg obs.Registry) (config.Config, config.Provenance, error) {
+	return loadConfigAndReport(env, log, reg, false)
+}
+
+// loadDaemonConfig is LoadConfigAndReport for the daemon's start, its one report of the
+// configuration it starts on. It differs in one level: a newer-settingsVersion block reset is Loud
+// rather than a Warn. That reset is the persistent condition D59 is about (a plugin downgrade), and
+// D59's rule is that the daemon reports such a condition loudly once per start or change while hooks
+// and commands log it at warn. Every other keyed warning (an unknown key) stays a Warn at start, and
+// the daemon's reload of a changed file Louds every warning (daemon/reload.go). runDaemon stamps the
+// file before this load (daemon.Options.CfgStamp), so the first reload check does not repeat it.
+func loadDaemonConfig(env config.Env, log logging.Logger, reg obs.Registry) (config.Config, config.Provenance, error) {
+	return loadConfigAndReport(env, log, reg, true)
+}
+
+// loadConfigAndReport is the body of LoadConfigAndReport and loadDaemonConfig; loudResets selects
+// the daemon start's level for a newer-settingsVersion reset.
+func loadConfigAndReport(env config.Env, log logging.Logger, reg obs.Registry, loudResets bool) (config.Config, config.Provenance, error) {
 	cfg, prov, warns, err := config.Load(env)
 	if err != nil {
 		return cfg, prov, err
@@ -47,14 +65,18 @@ func LoadConfigAndReport(env config.Env, log logging.Logger, reg obs.Registry) (
 	// the default. That is finding F4-6: it reached the day log at Warn
 	// and nothing stronger, so a corrupt .qompack/config.json stopped the daemon while LOUD.log,
 	// self-test and status all stayed clean. §13 invariant 10 makes it Loud. A warning that NAMES a
-	// key is the ordinary per-leaf case and stays a Warn; the §11.3 violations below are the ones
-	// that Loud individually.
+	// key is the ordinary per-leaf case and stays a Warn, apart from a block reset at the daemon's
+	// start (loadDaemonConfig); the §11.3 violations below are the ones that Loud individually.
 	for _, w := range warns {
-		if w.Key == "" {
+		switch {
+		case w.Key == "":
 			log.Loud("configuration unusable, using defaults", "message", w.Message, "location", w.Location)
-			continue
+		case loudResets && isVersionedSection(w.Key):
+			log.Loud("configuration block reset to defaults", "key", w.Key, "message", w.Message,
+				"location", w.Location)
+		default:
+			log.Warn("configuration warning", "key", w.Key, "message", w.Message, "location", w.Location)
 		}
-		log.Warn("configuration warning", "key", w.Key, "message", w.Message, "location", w.Location)
 	}
 
 	for _, v := range violations {
@@ -65,17 +87,32 @@ func LoadConfigAndReport(env config.Env, log logging.Logger, reg obs.Registry) (
 		}
 	}
 
-	// config.Load reports a newer-settingsVersion reset as a keyed warning, not a violation, so it
-	// is not in this list; the hook path records it (reportCaptureConfig). A load that found neither
-	// leaves nothing to record and removes a record an earlier load left, which is what lets doctor's
-	// config.violations agree with self-test once an operator has fixed the file (troubleshooting
-	// §6). A load with a reset in force but no violation keeps whatever a hook recorded.
-	if env.ProjectRoot != "" && (len(violations) > 0 || !anyVersionedReset(warns)) {
-		if err := syncViolationsRecord(env.ProjectRoot, violations); err != nil {
+	// The record holds what the hook path records (config.LoadForCapture): the §11.3 leaves, then a
+	// Violation for each newer-settingsVersion reset, which config.Load reports as a keyed warning
+	// instead. The same list encodes to the same bytes, so a command run after a hook leaves the
+	// hook's record alone (syncViolationsRecord) rather than dropping the resets for the next hook to
+	// write back. A load that found nothing removes a record an earlier load left, which is what lets
+	// doctor's config.violations agree with self-test once an operator has fixed the file
+	// (troubleshooting §6).
+	if env.ProjectRoot != "" {
+		if err := syncViolationsRecord(env.ProjectRoot, recordedViolations(violations, warns)); err != nil {
 			log.Warn("could not update config violations", "err", err.Error())
 		}
 	}
 	return cfg, prov, nil
+}
+
+// recordedViolations is config.Load's result in the shape config.LoadForCapture returns it: the
+// §11.3 leaf violations, followed by one Violation{Key, Message} per newer-settingsVersion block
+// reset in the order config.Load reported them, which is VersionedSections order for both loaders.
+func recordedViolations(violations []config.Violation, warns []config.Warning) []config.Violation {
+	out := violations
+	for _, w := range warns {
+		if isVersionedSection(w.Key) {
+			out = append(out, config.Violation{Key: w.Key, Message: w.Message})
+		}
+	}
+	return out
 }
 
 // reportCaptureConfig is the hook path's half of §11.3, and it is the second half of finding S-7
@@ -94,7 +131,7 @@ func LoadConfigAndReport(env config.Env, log logging.Logger, reg obs.Registry) (
 // Every warning, newer-settingsVersion reset and leaf violation is a Warn here, through the hook
 // logger, which materializes a file sink only if logs/ already exists. That is D59's rule for a
 // persistent configuration condition: the daemon reports it loudly, once per start (its own
-// LoadConfigAndReport) and once per reload of a changed file or forced admin.reload
+// loadDaemonConfig) and once per reload of a changed file or forced admin.reload
 // (daemon/reload.go), and a hook logs it at warn. Logged Loud here, the same unchanged condition put
 // one line per hook process in the never-rotated LOUD.log (finding F-C7-C49-2: 18 lines in 30 s
 // after a downgrade), and those lines never reached status, which prints only the daemon's ring.
@@ -161,18 +198,6 @@ func isVersionedReset(v config.Violation) bool {
 	return isVersionedSection(v.Key)
 }
 
-// anyVersionedReset reports whether config.Load's warnings include a whole versioned block reset for
-// a newer settingsVersion. config.Load keys that warning by the block's own path, exactly as
-// LoadForCapture keys the Violation it records for the same reset.
-func anyVersionedReset(warns []config.Warning) bool {
-	for _, w := range warns {
-		if isVersionedSection(w.Key) {
-			return true
-		}
-	}
-	return false
-}
-
 // isVersionedSection reports whether key is a versioned block's own path.
 func isVersionedSection(key string) bool {
 	for _, s := range config.VersionedSections() {
@@ -208,7 +233,8 @@ func captureConfigKeys(violations []config.Violation, warnings []config.Warning)
 // An empty list removes the record. A list whose encoding is byte-for-byte the record's leaves it
 // alone: the read is cheap, and the durable write it replaces is not (reportCaptureConfig). Any other
 // list is written atomically. A record that cannot be read, including one being renamed over on
-// Windows at that moment, is simply written again.
+// Windows at that moment, is simply written again, and so is anything at that path that is not a
+// plain file of the new encoding's size (recordHolds).
 func syncViolationsRecord(projectRoot string, violations []config.Violation) error {
 	l := paths.Of(projectRoot)
 	p := filepath.Join(l.State, configViolationsFile)
@@ -229,7 +255,7 @@ func syncViolationsRecord(projectRoot string, violations []config.Violation) err
 		return fmt.Errorf("encoding config violations: %w", err)
 	}
 	b = append(b, '\n')
-	if cur, readErr := paths.ReadFileShared(p); readErr == nil && bytes.Equal(cur, b) {
+	if recordHolds(p, b) {
 		return nil
 	}
 	if err := os.MkdirAll(paths.Long(l.State), 0o700); err != nil {
@@ -239,6 +265,27 @@ func syncViolationsRecord(projectRoot string, violations []config.Violation) err
 		return fmt.Errorf("writing %s: %w", p, err)
 	}
 	return nil
+}
+
+// recordHolds reports whether the file at p is a plain file holding exactly want. It runs on every
+// hook while a violation is in force, so it must never block and never read more than want: the
+// open is paths.OpenSharedLeaf (no-follow, and non-blocking off Windows, so a FIFO planted at p opens
+// at once instead of hanging the hook until the host kills it), the opened handle must be a regular
+// file of len(want) bytes, and the read is bounded to one byte past that. Anything else, a link, a
+// FIFO, a device, a directory or a file of another size, is reported false without a read, and the
+// caller's atomic write replaces it, as the unconditional write before wave 20 did.
+func recordHolds(p string, want []byte) bool {
+	f, err := paths.OpenSharedLeaf(p)
+	if err != nil {
+		return false
+	}
+	defer func() { _ = f.Close() }()
+	fi, err := f.Stat()
+	if err != nil || !fi.Mode().IsRegular() || fi.Size() != int64(len(want)) {
+		return false
+	}
+	cur, err := io.ReadAll(io.LimitReader(f, int64(len(want))+1))
+	return err == nil && bytes.Equal(cur, want)
 }
 
 // homeDir resolves the user-global layer's home, preferring an explicitly injected value so tests
