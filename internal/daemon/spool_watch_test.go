@@ -47,14 +47,19 @@ func startSpoolWatch(t *testing.T, dd *daemon, every, horizon time.Duration) {
 }
 
 // spoolWatchTraffic keeps sess's hooks arriving through the served path — each one a live, leased
-// tool delivery the worker pool publishes — until stop is closed, one every tick.
+// tool delivery the worker pool publishes — until stop is closed, one every tick. It runs on a
+// goroutine of its own (spoolWatchRunTraffic), so a hook the daemon does not serve fails the test with
+// t.Errorf and ends the traffic: t.FailNow, which require calls, must run on the test's own goroutine.
 func spoolWatchTraffic(t *testing.T, dd *daemon, root string, sess core.SessionID, first int, stop <-chan struct{}) {
 	t.Helper()
 	tick := time.NewTicker(spoolWatchTick)
 	defer tick.Stop()
 	for i := first; ; i++ {
 		req := liveOrderTool(dd, root, sess, i)
-		require.True(t, dd.dispatchOp(context.Background(), req).OK)
+		if resp := dd.dispatchOp(context.Background(), req); !resp.OK {
+			t.Errorf("fixture: the busy session's hook %d was not served: %+v", i, resp)
+			return
+		}
 		select {
 		case <-stop:
 			return
@@ -227,7 +232,8 @@ func TestSpoolWatch_APassThatOverranItsBudgetWithoutConsumingKeepsTheBackoff(t *
 }
 
 // spoolWatchBackoffRow is the backoff row. A positive firstPassStall holds the first pass that long,
-// in real time, inside its sync of the spool file (drainer.syncFile) before the real sync.
+// in real time, inside its sync of the spool file (drainer.syncFile) before the real sync, and the row
+// checks that it did.
 //
 // The row drives the watcher's look (lookAtClientSpools, which watchClientSpools runs) on the look's
 // injected clock, one tick per look, every look kicked as a hook every tick kicks it, while a busy
@@ -242,11 +248,12 @@ func spoolWatchBackoffRow(t *testing.T, firstPassStall time.Duration) {
 	t.Helper()
 	dd, _, root := laneTestDaemon(t)
 	dr := newDrainer(dd.drainConfig())
+	const spool = "client-6161.ndjson"
+	var stalled atomic.Bool // the first sync of spool was held for firstPassStall
 	if firstPassStall > 0 {
 		sync := dr.syncFile
-		var syncs atomic.Int32
 		dr.syncFile = func(path string) error {
-			if syncs.Add(1) == 1 { // the first pass's sync of the one client spool there is
+			if filepath.Base(path) == spool && stalled.CompareAndSwap(false, true) {
 				timer := time.NewTimer(firstPassStall)
 				defer timer.Stop()
 				<-timer.C
@@ -283,7 +290,7 @@ func spoolWatchBackoffRow(t *testing.T, firstPassStall time.Duration) {
 	// it only consume that line again, which is no progress (notePassConsumed). That schedule is
 	// TestSpoolWatch_ABlockedSpoolWithAConsumedLineBehindItsHeadKeepsTheBackoff's. With the record
 	// alone no pass consumes anything, so none can stop on its budget in this spool.
-	writeHookSpool(t, root, "client-6161.ndjson", blocked)
+	writeHookSpool(t, root, spool, blocked)
 
 	stop := spoolWatchRunTraffic(t, dd, root, "sess-spool-busy", 1)
 	entries := map[string]*spoolWatchEntry{}
@@ -302,6 +309,9 @@ func spoolWatchBackoffRow(t *testing.T, firstPassStall time.Duration) {
 	for ; now.Sub(start) <= 3*horizon; now = now.Add(spoolWatchTick) {
 		look(now, true)
 	}
+	require.Equal(t, firstPassStall > 0, stalled.Load(),
+		"fixture: the first pass's sync of the spool was held past its budget and the horizon exactly when the row "+
+			"asks for it")
 	require.GreaterOrEqual(t, len(passedAt), 2, "the unconsumed spool is passed again")
 	require.LessOrEqual(t, len(passedAt), maxPasses,
 		"an unconsumable spool is passed at a doubling wait inside the horizon (at most %d passes), not "+
@@ -322,7 +332,7 @@ func spoolWatchBackoffRow(t *testing.T, firstPassStall time.Duration) {
 	require.False(t, look(now, false),
 		"past the horizon, with no kick, the watcher has nothing left to look for: it polls nothing")
 	stop()
-	require.FileExists(t, filepath.Join(paths.Of(root).Spool, "client-6161.ndjson"),
+	require.FileExists(t, filepath.Join(paths.Of(root).Spool, spool),
 		"nothing of it was lost: it stays for a drain that can publish it")
 	require.False(t, spoolWatchPublished(dd, blocked.Nonce), "control: its predecessor never published")
 }
@@ -436,9 +446,11 @@ func TestSpoolWatch_APassItsBudgetCutShortDoesNotBackOffTheSpoolsItLeft(t *testi
 // judge the spools it never finished, which are due again at the next look, but it did judge the ones
 // it reached and finished: a spool whose line waits on an arrival nothing publishes keeps the doubling
 // wait. The watcher set every due spool due again after such a pass, and under load nearly every pass
-// ends on its budget, so a blocked spool was re-read and its file re-synced at every look until the
-// horizon, the fsync pressure the back-off exists to spare a loaded host. Here a blocked spool comes
-// first, then one whose publication outlasts the pass's budget, then one the pass never reaches.
+// ends on its budget, so a blocked spool made a pass due at every look until the horizon. The back-off
+// limits the passes a spool makes due; a pass another spool makes due still reads the blocked one, as
+// every pass reads every client spool (spool_watch.go), though without syncing it again while it is
+// unchanged. Here a blocked spool comes first, then one whose publication outlasts the pass's budget,
+// then one the pass never reaches.
 func TestSpoolWatch_ABudgetStopKeepsTheBackoffOfTheSpoolsItReached(t *testing.T) {
 	dd, _, root := laneTestDaemon(t)
 	ctx := context.Background()
