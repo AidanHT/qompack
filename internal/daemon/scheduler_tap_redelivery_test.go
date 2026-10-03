@@ -458,3 +458,76 @@ func TestWrapServices_ARedeliveryMakesTheChangepointCloseItsCutRunMissed(t *test
 	require.Equal(t, int64(1), twice.counter(counterSegmentClosedPrefix+causeChangepoint))
 	require.Equal(t, int64(1), twice.counter(counterTapRedelivery))
 }
+
+// TestWrapServices_AnotherSessionsRedeliveryAfterARestartIsNotFoldedAgain: the tap folds every
+// session's tool use into the bound runtime's account, so the previous daemon's persisted account
+// holds a read of another session too. That read's commit was cut and the restarted daemon's drain
+// replays it: it is in the persisted account already, whether the replay reaches the restarted
+// runtime before the live session binds it or after.
+func TestWrapServices_AnotherSessionsRedeliveryAfterARestartIsNotFoldedAgain(t *testing.T) {
+	t.Parallel()
+	const (
+		other     core.SessionID = "sess-other-live"
+		otherRead core.ToolUseID = "toolu_other_session"
+		live      core.ToolUseID = "toolu_live_after_restart"
+	)
+	otherEvent := tapToolEvent(otherRead, "Read", "", "")
+	otherEvent.SessionID = other
+	restarted := func(t *testing.T) (*rtFixture, *Services) {
+		t.Helper()
+		ctx := context.Background()
+		prev := newRTFixture(t)
+		prev.bind(rtSession)
+		tapRecord(prev, tapToolUseID, "Read", 700)
+		prev.store.put(store.ToolUseRecord{
+			ID: otherRead, Session: other, Turn: 3, TS: prev.now() + 7_000, Tool: "Read",
+			ArgsPreview: "read src/c.go", Path: "src/c.go", Tokens: 300,
+		})
+		ps := allSeams()
+		WrapServicesForScheduler(ps, prev.rt, prev.options())
+		require.NoError(t, ps.ObserveTool(delivered(t, 1), tapToolEvent(tapToolUseID, "Read", "", "")))
+		require.NoError(t, ps.ObserveTool(deliveredFor(t, other, 1), otherEvent))
+		require.Equal(t, core.Tokens(1_000), openTokens(prev.rt), "fixture sanity: both reads are in the account")
+		require.NoError(t, prev.rt.Persist(ctx))
+
+		fx := newRTFixture(t, withRoot(prev))
+		require.Empty(t, fx.rt.session, "fixture sanity: the restarted runtime starts unbound")
+		putRead(fx, live, tapToolUseTurn+2, 100)
+		s := allSeams()
+		WrapServicesForScheduler(s, fx.rt, fx.options())
+		return fx, s
+	}
+	replay := func(t *testing.T, s *Services) {
+		t.Helper()
+		require.NoError(t, s.ObserveTool(deliveredFor(t, other, 1), otherEvent))
+	}
+
+	t.Run("replayed before the live session binds", func(t *testing.T) {
+		t.Parallel()
+		fx, s := restarted(t)
+		reg := NewSessionRegistry()
+		fx.rt.mu.Lock()
+		fx.rt.d = &registryDaemon{reg: reg}
+		fx.rt.mu.Unlock()
+
+		replay(t, s)
+		require.Empty(t, fx.rt.session, "fixture sanity: a session no hook touched does not bind")
+		reg.Touch(rtSession, fx.now())
+		require.NoError(t, s.ObserveTool(delivered(t, 2), tapToolEvent(live, "Read", "", "")))
+
+		require.Equal(t, rtSession, fx.rt.session)
+		require.Equal(t, core.Tokens(1_100), openTokens(fx.rt), "the persisted 1000 and the live read's 100")
+	})
+	t.Run("replayed after a SessionStart binds", func(t *testing.T) {
+		t.Parallel()
+		fx, s := restarted(t)
+
+		_, err := s.SessionStart(context.Background(), tapEvent("SessionStart", rtSession))
+		require.NoError(t, err)
+		replay(t, s)
+		require.Equal(t, core.Tokens(1_000), openTokens(fx.rt), "the persisted account already holds it")
+		require.NoError(t, s.ObserveTool(delivered(t, 2), tapToolEvent(live, "Read", "", "")))
+
+		require.Equal(t, core.Tokens(1_100), openTokens(fx.rt), "the persisted 1000 and the live read's 100")
+	})
+}
