@@ -102,13 +102,13 @@ func TestBuild_AnEnvironmentVariablePathIsWithheld(t *testing.T) {
 // file it names alone, and a locator (`#`, `@`) is not part of a plain path.
 func TestBuild_APathNamedArgumentHoldingMoreThanAPathIsScreened(t *testing.T) {
 	root := previewRoot("proj")
-	jsonRoot := strings.ReplaceAll(root, `\`, `\\`)
+	jsonMain := strings.ReplaceAll(filepath.Join(root, "src", "main.go"), `\`, `\\`)
 	sep := string(filepath.Separator)
 	requireScreened(t, root, hostRules(root, "./private/deny.txt", "./.env"), nil,
 		[]string{
 			`{"path":"src/main.go"}`,
 			`{"paths":["src/a.go","src/b.go"]}`,
-			`{"file_path":"` + jsonRoot + `\\src\\main.go"}`,
+			`{"file_path":"` + jsonMain + `"}`,
 			`{"relative_path":"src/main.go#L4"}`,
 			`{"path":"src/a.go,src/b.go"}`,
 		},
