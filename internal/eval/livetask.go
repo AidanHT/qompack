@@ -12,10 +12,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"os"
 	"path"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -432,10 +434,8 @@ func cleanRelative(p string) error {
 	return nil
 }
 
+// keysOfBool lists m's keys in sorted order, so an error message naming them reads the same on
+// every run (D53(a)).
 func keysOfBool(m map[string]bool) []string {
-	out := make([]string, 0, len(m))
-	for k := range m {
-		out = append(out, k)
-	}
-	return out
+	return slices.Sorted(maps.Keys(m))
 }
