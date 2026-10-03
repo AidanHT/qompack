@@ -758,10 +758,15 @@ func hostPolicyFor(o *Options) *hostperm.Policy {
 // then withholds every path, as re_read withholds path-bearing content (fail closed).
 //
 // A build judges every piece of every tool summary (ADR 0011 §23.5), a few thousand for a few dozen
-// Bash pointers, so each build judges through one hostperm.Evaluator: it reads each link once per
-// build, and judges a piece whose first segment names nothing in the project without the disk.
-// Each judgement is the one RuleSet.Evaluate would give (w19 verifier V1: through Evaluate, 80
-// Bash previews took 16 s, three times compactAnswerBudget).
+// Bash pointers, so each build judges through one hostperm.Evaluator: it lists each directory a
+// piece walks into once per build, reads each link once, and judges without the disk every piece
+// whose walk down the directories it names meets no link, 8.3 alias or other respelling (JSON,
+// URLs, colons, and non-ASCII text included). Each judgement is the one RuleSet.Evaluate would give
+// (w19 verifier V1: through Evaluate, 80 Bash previews took 16 s, three times compactAnswerBudget).
+// The evaluator walks from the project root and from its parent: a summary that names the root
+// followed by more words (`cd <root> && go test ./...`) has a stretch that, read whole, is a
+// sibling of the root, which section 6 judges by the host's rules alone (pieceRefused), and the
+// parent's listing settles it without the disk.
 func rehydrateHostPaths(p *hostperm.Policy, root string, log logging.Logger) rehydrate.HostPaths {
 	return rehydrateHostPathsObserved(p, root, log, nil)
 }
@@ -785,7 +790,7 @@ func rehydrateHostPathsObserved(p *hostperm.Policy, root string, log logging.Log
 		if r, err := filepath.EvalSymlinks(root); err == nil {
 			resolved = r
 		}
-		ev := rules.Evaluator(root, resolved)
+		ev := rules.Evaluator(root, resolved, filepath.Dir(root), filepath.Dir(resolved))
 		if observe != nil {
 			observe(ev)
 		}
