@@ -274,3 +274,33 @@ func TestRegistryTouchRevivesAnAbandonedSessionButNotAnEndedOne(t *testing.T) {
 	r.Touch("sess-lunch", 126_000)
 	require.False(t, r.IsLive("sess-lunch"), "SessionEnd after an abandonment is final")
 }
+
+// TestRegistrySnapshotIsOrderedByActivityThenID pins the snapshot's order, which status prints as
+// data.snapshot.sessions (C4.5, D53(a)): most recent LastActivity first, ties by session id, the
+// same on every call however the map underneath happens to iterate.
+func TestRegistrySnapshotIsOrderedByActivityThenID(t *testing.T) {
+	t.Parallel()
+
+	r := NewSessionRegistry()
+	r.Ensure(&hookio.Event{SessionID: "e"}, 100)
+	r.Ensure(&hookio.Event{SessionID: "c"}, 100)
+	r.Ensure(&hookio.Event{SessionID: "b"}, 200)
+	r.Ensure(&hookio.Event{SessionID: "a"}, 200)
+	r.Ensure(&hookio.Event{SessionID: "d"}, 300)
+	r.End("d", 400) // ending is not activity: d keeps its place
+
+	ids := func() []core.SessionID {
+		snap := r.Snapshot()
+		out := make([]core.SessionID, 0, len(snap))
+		for _, s := range snap {
+			out = append(out, s.ID)
+		}
+		return out
+	}
+	first := ids()
+	for i := 1; i < 30; i++ {
+		require.Equal(t, first, ids(), "snapshot %d of unchanged state disagrees with the first", i+1)
+	}
+	require.Equal(t, []core.SessionID{"d", "a", "b", "c", "e"}, first,
+		"most recent activity first, ties by session id")
+}

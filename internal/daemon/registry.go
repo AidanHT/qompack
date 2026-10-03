@@ -1,6 +1,8 @@
 package daemon
 
 import (
+	"cmp"
+	"slices"
 	"sync"
 	"time"
 
@@ -326,7 +328,12 @@ func (r *SessionRegistry) Live() int {
 	return n
 }
 
-// Snapshot returns a defensive copy of every tracked session, for /qompack:status and tests.
+// Snapshot returns a defensive copy of every tracked session, for /qompack:status and tests, most
+// recent LastActivity first and ties by session id. The order is part of the answer: status prints
+// it as data.snapshot.sessions, and two reads of unchanged state must agree exactly (D53(a)). The
+// sessions live in a map, whose iteration order Go randomizes, and listing them in that order put
+// the same two sessions in opposite orders on two reads five seconds apart (the candidate 7 live
+// lane's C4.5, F-C7-C45-1).
 func (r *SessionRegistry) Snapshot() []SessionState {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -334,6 +341,9 @@ func (r *SessionRegistry) Snapshot() []SessionState {
 	for _, s := range r.sessions {
 		out = append(out, *s)
 	}
+	slices.SortFunc(out, func(a, b SessionState) int {
+		return cmp.Or(cmp.Compare(b.LastActivity, a.LastActivity), cmp.Compare(a.ID, b.ID))
+	})
 	return out
 }
 
