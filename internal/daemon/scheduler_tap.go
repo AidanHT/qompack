@@ -47,6 +47,10 @@ const (
 	// counterTapBindNotLive counts hooks that found the runtime unbound but named a session the
 	// daemon's registry does not hold live (a replayed delivery), which therefore did not bind.
 	counterTapBindNotLive = "sched.tap.bind.not_live"
+	// counterTapRedelivery counts deliveries the tap recognized as a replay of one it had already
+	// applied (schedRuntime.applied) and therefore left alone: no token fold, no detector
+	// observation, no anchor moved to the instant of the replay.
+	counterTapRedelivery = "sched.tap.redelivery"
 
 	msgTapPanic = "scheduler tap panicked; inner seam result returned unchanged"
 )
@@ -178,6 +182,13 @@ func (t *schedTap) sessionStart(e hookio.Event) {
 // FeaturesFrom + Observe, the timestamp work, the token fold, and a segment close on a
 // task-boundary signal. A missing record (core.ErrNotFound) is counted and skips the BOCD update;
 // the timestamp work still happens, anchored on the clock instead of the record.
+//
+// Delivery is at least once, and this runs inside the handler, before the delivery's commit: a
+// commit that fails replays the same delivery through here (schedRuntime.applied). So a delivery
+// whose record the store holds is applied once, by its observation identity, in one critical
+// section with that identity (applyToolUse), and a replay of it is counted and left alone. The
+// no-record path claims nothing: it folds nothing, and a replay that finds the record the first run
+// could not publish must still apply it.
 func (t *schedTap) observeTool(ctx context.Context, e hookio.Event) {
 	t.r.bindOnFirstHook(e.SessionID)
 	sig := observer.ExtractSignals(e)
@@ -194,43 +205,55 @@ func (t *schedTap) observeTool(ctx context.Context, e hookio.Event) {
 		t.r.NoteEffort(e)
 		return
 	}
-	f := t.r.observeToolUse(ctx, sig, rec)
-	t.r.NotifyActivity(rec.TS)
-	t.r.NoteRequestStart(rec.TS)
-	t.r.NoteEffort(e)
-	t.r.AddOpenSegmentTokens(rec.Tokens)
+	f, applied := t.r.applyToolUse(ctx, e, observer.ObservationFrom(ctx), sig, rec)
+	if !applied {
+		t.count(counterTapRedelivery)
+		return
+	}
 	t.closeOnBoundary(ctx, rec.Turn, f, sig)
 }
 
 // observeStop is ObserveTool minus the record lookup and the token fold (a Stop carries neither),
 // plus the round boundary — §2.6's "new assistant message.id", and Stop is the one hook that
 // fires once per assistant turn. It never anchors the request start: Stop fires after
-// generation. A subagent's Stop is activity but not a main-agent round or observation.
+// generation. A subagent's Stop is activity but not a main-agent round or observation. A replay of
+// a Stop already applied is left alone, as a tool use's is.
 func (t *schedTap) observeStop(ctx context.Context, e hookio.Event, subagent bool) {
 	t.r.bindOnFirstHook(e.SessionID)
 	now := t.r.nowMS()
-	t.r.NotifyActivity(now)
-	t.r.NoteEffort(e)
+	var sig observer.Signals
+	if !subagent {
+		sig = observer.ExtractSignals(e)
+	}
+	f, turn, applied := t.r.applyStop(ctx, e, observer.ObservationFrom(ctx), subagent, sig, now)
+	if !applied {
+		t.count(counterTapRedelivery)
+		return
+	}
 	if subagent {
 		return
 	}
-	sig := observer.ExtractSignals(e)
-	f, turn := t.r.observeStop(ctx, sig, now)
-	t.r.NoteAPIRound(turn)
 	t.closeOnBoundary(ctx, turn, f, sig)
 }
 
 // observePrompt runs twice per prompt: synchronously inside SP-05's 250 ms reply deadline, and on
 // the ingest worker that captures the prompt. Both record activity and the request-start anchor
 // only — no store I/O, no BOCD update. The worker's call also binds a session on its first hook
-// (bindOnFirstHook), which reads the session's state files; the reply path never does.
+// (bindOnFirstHook), which reads the session's state files; the reply path never does. The worker's
+// call is the prompt's delivery, so a replay of one already applied is left alone rather than
+// claiming the prompt started at the instant of the replay. The reply path is not a delivery: it
+// claims no identity.
 func (t *schedTap) observePrompt(ctx context.Context, e hookio.Event) {
-	if !observer.PromptReplyOnly(ctx) {
-		t.r.bindOnFirstHook(e.SessionID)
+	if observer.PromptReplyOnly(ctx) {
+		now := t.r.nowMS()
+		t.r.NotifyActivity(now)
+		t.r.NoteRequestStart(now)
+		return
 	}
-	now := t.r.nowMS()
-	t.r.NotifyActivity(now)
-	t.r.NoteRequestStart(now)
+	t.r.bindOnFirstHook(e.SessionID)
+	if !t.r.applyPrompt(e.SessionID, observer.ObservationFrom(ctx), t.r.nowMS()) {
+		t.count(counterTapRedelivery)
+	}
 }
 
 // sessionEnd persists, then closes the runtime (flush op, 20 s hook timeout).
@@ -289,24 +312,67 @@ func (t *schedTap) count(name string) {
 	}
 }
 
-// observeToolUse stages the record's ArgsPreview for the lexical channel, derives the feature
-// vector and folds it into the detector at the record's turn — all under the lock, because
-// FeatureHistory and the assembler are not goroutine-safe.
-func (r *schedRuntime) observeToolUse(ctx context.Context, sig observer.Signals, rec store.ToolUseRecord) scheduler.Features {
+// applyToolUse applies one delivered tool use whose record the store holds, unless obs names the
+// session's last applied delivery (claimDeliveryLocked), in which case it changes nothing and
+// reports false. Applying stages the record's ArgsPreview for the lexical channel, derives the
+// feature vector and folds it into the detector at the record's turn, records the activity and the
+// request-start anchor at the record's instant, notes the effort level, and folds the record's
+// tokens into the open segment. All of it, the claim included, happens under one hold of the lock:
+// FeatureHistory and the assembler are not goroutine-safe, and a Persist snapshotting between the
+// claim and the fold would write an identity whose tokens the account does not hold.
+func (r *schedRuntime) applyToolUse(ctx context.Context, e hookio.Event, obs core.ObservationID,
+	sig observer.Signals, rec store.ToolUseRecord,
+) (scheduler.Features, bool) {
+	level := effortLevel(e, r.getenv)
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if !r.claimDeliveryLocked(e.SessionID, obs) {
+		return scheduler.Features{}, false
+	}
 	observeText(r.hist, rec.ArgsPreview)
 	f := FeaturesFrom(r.hist, sig, rec.Tool, rec.TS)
 	r.observeLocked(ctx, f, rec.Turn)
-	return f
+	r.notifyActivityLocked(rec.TS)
+	r.noteRequestStartLocked(rec.TS)
+	r.noteEffortLocked(level)
+	r.addOpenSegmentTokensLocked(rec.Tokens)
+	return f, true
 }
 
-// observeStop derives a Stop's feature vector (no tool, the clock's timestamp) and folds it in
-// at the highest turn seen, returning both.
-func (r *schedRuntime) observeStop(ctx context.Context, sig observer.Signals, ts core.UnixMilli) (scheduler.Features, core.TurnIndex) {
+// applyStop applies one delivered Stop at ts, unless obs names the session's last applied delivery.
+// Applying records the activity and the effort level, and for a main-agent Stop derives its feature
+// vector (no tool, the clock's timestamp), folds it in at the highest turn seen and records that
+// turn as an API-round boundary, returning both. As in applyToolUse, the claim and the state it
+// guards change under one hold of the lock.
+func (r *schedRuntime) applyStop(ctx context.Context, e hookio.Event, obs core.ObservationID, subagent bool,
+	sig observer.Signals, ts core.UnixMilli,
+) (scheduler.Features, core.TurnIndex, bool) {
+	level := effortLevel(e, r.getenv)
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if !r.claimDeliveryLocked(e.SessionID, obs) {
+		return scheduler.Features{}, 0, false
+	}
+	r.notifyActivityLocked(ts)
+	r.noteEffortLocked(level)
+	if subagent {
+		return scheduler.Features{}, 0, true
+	}
 	f := FeaturesFrom(r.hist, sig, "", ts)
 	r.observeLocked(ctx, f, r.maxTurn)
-	return f, r.maxTurn
+	r.noteAPIRoundLocked(r.maxTurn)
+	return f, r.maxTurn, true
+}
+
+// applyPrompt applies one delivered prompt capture at ts (the activity and the request-start
+// anchor) unless obs names the session's last applied delivery, and reports whether it did.
+func (r *schedRuntime) applyPrompt(sess core.SessionID, obs core.ObservationID, ts core.UnixMilli) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if !r.claimDeliveryLocked(sess, obs) {
+		return false
+	}
+	r.notifyActivityLocked(ts)
+	r.noteRequestStartLocked(ts)
+	return true
 }
