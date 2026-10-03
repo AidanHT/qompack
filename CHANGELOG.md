@@ -136,16 +136,17 @@ live sessions:
 - The cached server-managed settings are read in full, so a deeply nested permissions block is no
   longer dropped.
 - The rehydration block's pointers do not show a path the host's saved Read rules deny or an
-  absolute path outside the project (D50). A file pointer, and a structured tool-argument summary
-  (the store's preview of a path argument), is judged whole, as `re_read` judges a path, and points
-  by hash; a file pointer's home- or variable-rooted path is withheld too. A free-text summary (a
-  command line, a search query) is screened: it is withheld when it contains a Read deny or ask
-  rule's literal, the name or relative path of a path this build withholds, or an absolute path
-  outside the project, and whenever the host's rules cannot be read. Section 7's drop entries never
-  show such a path (D60(c), D61(b)). Documented limits: aliases (8.3 names and links), globs and
-  names built at run time are not resolved in free text, and free text that only mentions a rule's
-  literal is withheld; the records in sections 2 to 4, your own prompts and the model's own earlier
-  text, are outside D50 (D60(c)(i); `docs/cannot-do.md` §5).
+  absolute path outside the project (D50). A file pointer is judged whole, as `re_read` judges a
+  path, and points by hash; its home- or variable-rooted path is withheld too. A structured
+  tool-argument summary (the store's preview of a path argument) is judged whole the same way and,
+  when refused, is replaced by a "summary withheld" note. A free-text summary (a command line, a
+  search query) is screened: it is withheld when it contains a Read deny or ask rule's literal, the
+  name or relative path of a path this build withholds, or an absolute path outside the project, and
+  whenever the host's rules cannot be read. Section 7's drop entries never show such a path (D60(c),
+  D61(b)). Documented limits: aliases (8.3 names and links), globs and names built at run time are
+  not resolved in free text, and free text that only mentions a rule's literal is withheld; the
+  records in sections 2 to 4, your own prompts and the model's own earlier text, are outside D50
+  (D60(c)(i); `docs/cannot-do.md` §5).
 - Retrieval resolves a path on disk before answering, so a directory replaced by a link out of the
   project is refused.
 
@@ -154,23 +155,24 @@ live sessions:
 - **No claim of benefit.** No document, release note or description claims that Qompack improves
   recovery after a compaction, task success or constraint retention
   (`plans/sdd/V6-closeout/eval/preregistration.md`, amendment A8).
-- **Verified where the evidence says, and nowhere else.** Installed into Claude Code on windows/amd64
-  only, by the live lanes on candidates 3, 4 and 7. Linux fsync-bound timing rows (B-A, B-B) are not
-  verified in target (D53(b)); in the Linux container the whole tree, `test/e2e` and the
-  product-child lane pass under `-race`. On Windows, candidate 6's quiet hot-path run passed on AC
-  (B-A p99 30.7 ms, B-B p99 24.6 ms against 50), and X11, the hot path with and without a resident
-  elimination ledger, passed 3 of 3 rounds on AC (B-A p99 36.9 ms, B-B p99 at most 24.6 ms against
-  50, nothing deferred). Runs taken on battery are not reference measurements (D57(d)); on battery
-  the hot path switches to spool submode and nothing is lost (D53(c)). Windows reference timings
-  were taken on AC with the store under a path excluded from Windows Defender scanning (decisions
-  D32, D53(h)). Those figures are candidate 6's. Candidate 8 changes product code, so no byte
-  comparison carries them to it: candidate 8's own night chain, hosted `ci.yml` and `nightly.yml`,
-  live re-check and C5.5 supply the release's evidence, and they are owed (`docs/release.md`, release
-  status). The executable bit after a marketplace install on Linux and macOS has not been observed,
-  nor has an install from the published marketplace. Under an entry named `qompack-windows-amd64`, installed from a local
-  marketplace on candidate 7, a session listed the server `plugin:qompack:qompack`, the tools
-  `mcp__plugin_qompack_qompack__<tool>` and the commands `/qompack:<name>`: the namespace comes
-  from `plugin.json`'s name, not from the entry's (D59; `docs/install.md` §9).
+- **Verified where the evidence says, and nowhere else.** Installed into Claude Code on
+  windows/amd64 only, by the live lanes on candidates 3, 4 and 7. Linux fsync-bound timing rows
+  (B-A, B-B) are not verified in target (D53(b)); in the Linux container the whole tree, `test/e2e`
+  and the product-child lane pass under `-race`. On Windows, candidate 6's quiet hot-path run passed
+  on AC (B-A p99 30.7 ms, B-B p99 24.6 ms against 50), and X11, the hot path with and without a
+  resident elimination ledger, passed 3 of 3 rounds on AC (B-A p99 36.9 ms, B-B p99 at most 24.6 ms
+  against 50, nothing deferred). Runs taken on battery are not reference measurements (D57(d)); on
+  battery the hot path switches to spool submode and nothing is lost (D53(c)). Windows reference
+  timings were taken on AC with the store under a path excluded from Windows Defender scanning
+  (decisions D32, D53(h)). Those figures are candidate 6's. Candidate 8 changes product code, so no
+  byte comparison carries them to it: candidate 8's own night chain, hosted `ci.yml` and
+  `nightly.yml`, live re-check and C5.5 supply the release's evidence, and they are owed
+  (`docs/release.md`, release status). The executable bit after a marketplace install on Linux and
+  macOS has not been observed, nor has an install from the published marketplace. Under an entry
+  named `qompack-windows-amd64`, installed from a local marketplace on candidate 7, a session listed
+  the server `plugin:qompack:qompack`, the tools `mcp__plugin_qompack_qompack__<tool>` and the
+  commands `/qompack:<name>`: the namespace comes from `plugin.json`'s name, not from the entry's
+  (D59; `docs/install.md` §9).
 - **After a daemon is killed mid-session**, the daemon that takes the project over can reach its
   idle exit without writing `index/files.json`, so a later `fsck` exits 1 naming `index.files`
   absent. Nothing is lost: `fsck --repair --yes` regenerates the view, and the next session's flush

@@ -71,6 +71,31 @@ var closeoutC8StaleClaims = []staleClaim{
 		"the entry's name appears only in the plugin id, `qompack-windows-amd64@<marketplace>`, and the install path",
 		"it also appears in the session's plugins[].source (install.md §9, UAT-01)",
 	},
+	{
+		"CHANGELOG.md",
+		"(the store's preview of a path argument), is judged whole, as `re_read` judges a path, and points by hash",
+		"only a file pointer points by hash; a refused summary is replaced by a \"summary withheld\" note " +
+			"(D61(b)(1) rules how a summary is judged, not how it is rendered; rehydrate withheldSummary)",
+	},
+	{
+		"docs/cannot-do.md",
+		"are judged whole against the host's saved Read rules, as `re_read` judges a path, and point by hash",
+		"only a file pointer points by hash; a refused summary is replaced by a \"summary withheld\" note " +
+			"(D61(b)(1); rehydrate withheldSummary)",
+	},
+	{
+		"docs/release-notes/v0.3.0.md", "candidates 6's and 7's",
+		"the published notes say candidate 6's and candidate 7's",
+	},
+	{
+		"README.md", "Candidate 7's live lane ran: 20 real sessions on its frozen bundles",
+		"UAT-12's upgrade leg ran candidate 5's bundle as the previous build: 19 of the 20 sessions ran " +
+			"candidate 7's bundles (release notes, uat.md UAT-12 Snapshot)",
+	},
+	{
+		"README.md", "Its rows carry to candidate 8 by the diff, confirmed by the live re-check",
+		"the live re-check on candidate 8 is owed, so it has confirmed nothing yet (D58(e), D60(f))",
+	},
 }
 
 // TestCloseoutC8StaleClaimsAreGone asserts none of the sentences candidate 8's identity retired is

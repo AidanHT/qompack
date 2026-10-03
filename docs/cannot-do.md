@@ -745,9 +745,10 @@ host change could lift — as prepared proposals, none of which has been filed.
   spellings while opening others or withholding harmless commands (decision D61(b)). A free-text
   summary costs no host evaluation, so a project with Read rules still gets its rehydration within
   the compaction answer's budget.
-- **What Qompack does instead.** A file pointer and a structured summary (the store's preview of a
-  path argument) are judged whole against the host's saved Read rules, as `re_read` judges a path,
-  and point by hash. A free-text summary is withheld when, decoded and normalized, it contains a
+- **What Qompack does instead.** A file pointer is judged whole against the host's saved Read
+  rules, as `re_read` judges a path, and points by hash. A structured summary (the store's preview
+  of a path argument) is judged whole the same way and, when refused, is replaced by a "summary
+  withheld" note. A free-text summary is withheld when, decoded and normalized, it contains a
   Read deny or ask rule's literal, the name or relative path of a path this build withholds, or an
   absolute path outside the project; when the host's rules cannot be read; and when a cut summary
   ends in the start of one of those. Section 7's drop entries never show such a path, and `dropped()`
