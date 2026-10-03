@@ -139,3 +139,59 @@ func TestReleaseNotesFilesAreNamedForTheirTagAndFilled(t *testing.T) {
 		"%s/%s is missing: internal/core.Version is %s, and a tag for it must publish notes "+
 			"written for it rather than release-scope's SP-17 table", releaseNotesDir, want, core.Version)
 }
+
+// releaseNotesInterimRE matches the sentence a candidate's notes carry while the figures they cite
+// are an earlier candidate's (docs/release.md §1, step 2): it must be gone from the tag's notes,
+// rewritten from the tagged candidate's own recorded evidence, before the tag is pushed.
+var releaseNotesInterimRE = regexp.MustCompile(`until candidate [0-9]+'s are recorded`)
+
+// releaseNotesInterimProblems reports what is wrong with a tag's notes text when the run is a tag
+// push (refType "tag", GitHub's GITHUB_REF_TYPE). On a branch push, and on the local
+// `release-check --tag` rehearsal, which sets no GITHUB_REF_TYPE, the interim sentence is true of
+// the tree and nothing is reported.
+func releaseNotesInterimProblems(text, refType string) []string {
+	if refType != "tag" {
+		return nil
+	}
+	var problems []string
+	for _, m := range releaseNotesInterimRE.FindAllString(strings.Join(strings.Fields(text), " "), -1) {
+		problems = append(problems, "the notes still say their figures stand "+m)
+	}
+	return problems
+}
+
+// TestReleaseNotesForAPushedTagCarryNoInterimSentence runs inside release.yml's release-check
+// (its guards step) on the tag push: the published notes may not still say their figures stand
+// until the candidate's own are recorded.
+func TestReleaseNotesForAPushedTagCarryNoInterimSentence(t *testing.T) {
+	t.Parallel()
+
+	refType, tag := os.Getenv("GITHUB_REF_TYPE"), os.Getenv("GITHUB_REF_NAME")
+	if refType != "tag" {
+		tag = "v" + core.Version
+	}
+	b, err := os.ReadFile(filepath.Join(repoRoot(t), filepath.FromSlash(releaseNotesDir), tag+".md"))
+	if os.IsNotExist(err) {
+		return // no hand-written notes for this tag; release.yml publishes release-scope's table
+	}
+	require.NoError(t, err)
+	require.Empty(t, releaseNotesInterimProblems(string(b), refType),
+		"%s/%s.md: rewrite the verified-where paragraph and table from the tagged candidate's "+
+			"recorded evidence before the tag (docs/release.md §1, step 2)", releaseNotesDir, tag)
+}
+
+// TestReleaseNotesInterimGuardFiresOnlyOnATagPush is the negative of the live check.
+func TestReleaseNotesInterimGuardFiresOnlyOnATagPush(t *testing.T) {
+	t.Parallel()
+
+	const interim = "The figures in the table below are candidate 6's and candidate 7's and stand\n" +
+		"until candidate 8's are recorded; the release is not published before they are."
+	require.NotEmpty(t, releaseNotesInterimProblems(interim, "tag"),
+		"a pushed tag's notes that still carry the interim sentence must fail")
+	require.Empty(t, releaseNotesInterimProblems(interim, "branch"),
+		"on a branch push the interim sentence is true of the tree")
+	require.Empty(t, releaseNotesInterimProblems(interim, ""),
+		"the local release-check rehearsal sets no GITHUB_REF_TYPE")
+	require.Empty(t, releaseNotesInterimProblems("Candidate 8's night chain passed.", "tag"),
+		"notes rewritten from the candidate's own evidence must pass")
+}
