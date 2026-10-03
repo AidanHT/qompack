@@ -187,3 +187,11 @@ func TestStatus_CallDeadlineExpiryStillSaysSilent(t *testing.T) {
 	require.Equal(t, statusSilentDaemonReason, err.Error())
 	require.Equal(t, int64(1), calls.Load(), "an expired call deadline must not be retried")
 }
+
+// TestStatusProbe_HasTheCommandConnectBudget: daemonListening's dial gets the command client's own
+// connect budget. A smaller probe budget makes the probe the weakest dial on the status path, and a
+// probe miss on a live daemon is reported as "none is listening" and never resent.
+func TestStatusProbe_HasTheCommandConnectBudget(t *testing.T) {
+	require.Equal(t, commandConnectDeadline, statusProbeTimeout,
+		"the liveness probe must dial with the same budget as the command client")
+}

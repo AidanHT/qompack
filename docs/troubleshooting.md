@@ -139,7 +139,8 @@ it never resends one whose call deadline expired. In both cases see
 
 `status`, `doctor` and the other slash-command frontends (`recall`, `why`, `dropped`, ...) dial the
 daemon with a connect budget of their own: 250 ms (`commandConnectDeadline`, in
-`internal/cli/qompack_commands.go`). `runtime.daemon.connectDeadlineMs` (5 ms, or 25 ms on Windows)
+`internal/cli/qompack_commands.go`), and `status` checks whether a daemon is listening within the
+same 250 ms. `runtime.daemon.connectDeadlineMs` (5 ms, or 25 ms on Windows)
 is the hooks' hot-path budget. It does not bound these commands' dial, so raising it does not change
 what they wait for.
 

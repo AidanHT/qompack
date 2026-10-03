@@ -266,9 +266,13 @@ var statusConnectMissReason = fmt.Sprintf("a daemon is listening for this projec
 	"connect budget or the connection closed before a reply. Run status again; if it keeps "+
 	"failing, see docs/troubleshooting.md, section 7", commandConnectDeadline)
 
-// statusProbeTimeout bounds the dial daemonListening makes. It is self-test's own liveness dial bound,
-// not a new number: both ask only whether anything accepts a connection at the project's address.
-const statusProbeTimeout = selfTestProbeTimeout
+// statusProbeTimeout bounds the dial daemonListening makes. It is the command client's own connect
+// budget, not a new number. fetchDaemonStatus resends a fast failure only when this probe saw a
+// listener, so a probe that gives up sooner than the send's dial would makes a live daemon read as
+// absent ("none is listening") and its read is never resent. A go-winio listener between instances
+// keeps its pipe name, so the probe meets ERROR_PIPE_BUSY there and needs the same budget to outlast
+// it. An absent daemon still fails the probe at once: a missing pipe or socket is refused.
+const statusProbeTimeout = commandConnectDeadline
 
 // daemonListening reports whether anything accepts a connection at root's daemon address (ipc.Probe).
 func daemonListening(root string) func() bool {
