@@ -344,6 +344,16 @@ Acknowledgement is idempotent by the persisted `ObservationID`: lease → handle
 interrupted drain re-delivers the same observation instead of consuming it or minting a second
 identity.
 
+Every consumer of a delivery therefore has to tolerate seeing it twice, because the handler runs
+before the ack: a Stop or a bounded drain that cuts the ack replays the same delivery through the
+same handler. The observer absorbs the replay (`observer.redelivery_absorbed`). The scheduler tap
+applies each delivery once by its `ObservationID`, so a replay folds no tokens into the open segment,
+adds no detector observation and moves no request-start anchor (`sched.tap.redelivery`). The
+ordering gate holds a session's next delivery until every earlier one is acknowledged, so the last
+delivery applied for a session is the only one that can come back. The tap therefore keeps one
+identity per session, and persists the bound session's identity in `state/scheduler.json` with the
+account it describes, so a restarted daemon's drain does not fold it again.
+
 [ADR 0014](adr/0014-delivery-group-commit-and-ab-seal.md) records the delivery path's group commit
 and the format-2 A/B seal as they are implemented and merged — it documents decisions already taken
 rather than proposing new ones, and settles four of the twelve questions SP20-D1's design put to the
