@@ -754,59 +754,43 @@ func hostPolicyFor(o *Options) *hostperm.Policy {
 // rehydrateHostPaths adapts the host's permission policy to rehydrate.HostPaths: one rule snapshot
 // per build, and a path refused when a Read deny or ask rule matches it (an archived rehydration
 // cannot ask), judged as recorded and as the project's resolved root spells it — the two spellings
-// internal/mcp's authorizeHost judges. Rules that cannot be established return nil, and rehydrate
-// then withholds every path, as re_read withholds path-bearing content (fail closed).
+// internal/mcp's authorizeHost judges. Rules that cannot be established hand rehydrate no Refuses,
+// and it then withholds every path and every free-text summary, as re_read withholds path-bearing
+// content (fail closed).
 //
-// A build judges every piece of every tool summary (ADR 0011 §23.5), a few thousand for a few dozen
-// Bash pointers, so each build judges through one hostperm.Evaluator: it lists each directory a
-// piece walks into once per build, reads each link once, and judges without the disk every piece
-// whose walk down the directories it names meets no link, 8.3 alias or other respelling (JSON,
-// URLs, colons, and non-ASCII text included). Each judgement is the one RuleSet.Evaluate would give
-// (w19 verifier V1: through Evaluate, 80 Bash previews took 16 s, three times compactAnswerBudget).
-// The evaluator walks from the project root and from its parent: a summary that names the root
-// followed by more words (`cd <root> && go test ./...`) has a stretch that, read whole, is a
-// sibling of the root, which section 6 judges by the host's rules alone (pieceRefused), and the
-// parent's listing settles it without the disk.
+// The snapshot also hands rehydrate every rule's path specifier (RuleSet.ReadRulePatterns), which
+// its free-text screen reads with no host judgement (coordinator decision D61, ADR 0011 §23.5):
+// Refuses is asked only about file pointers, path-keyed checkpoint drops and structured summaries,
+// once each per build, so a build costs at most two Evaluates for each of those, whatever its
+// commands and queries say.
 func rehydrateHostPaths(p *hostperm.Policy, root string, log logging.Logger) rehydrate.HostPaths {
-	return rehydrateHostPathsObserved(p, root, log, nil)
-}
-
-// rehydrateHostPathsObserved is rehydrateHostPaths handing each build's evaluator to observe, when
-// set, so a test can read how many of the build's judgements reached the disk.
-func rehydrateHostPathsObserved(p *hostperm.Policy, root string, log logging.Logger,
-	observe func(*hostperm.Evaluator),
-) rehydrate.HostPaths {
-	return func() func(string) bool {
+	return func() rehydrate.HostRules {
 		rules, err := p.Snapshot()
 		if err != nil {
 			log.Loud("rehydrate: host permission policy unavailable; section 6 withholds every path",
 				"err", err.Error())
-			return nil
+			return rehydrate.HostRules{}
 		}
 		if rules.Empty() {
-			return func(string) bool { return false }
+			return rehydrate.HostRules{Refuses: func(string) bool { return false }}
 		}
 		resolved := root
 		if r, err := filepath.EvalSymlinks(root); err == nil {
 			resolved = r
 		}
-		ev := rules.Evaluator(root, resolved, filepath.Dir(root), filepath.Dir(resolved))
-		if observe != nil {
-			observe(ev)
-		}
-		return func(path string) bool {
+		return rehydrate.HostRules{Patterns: rules.ReadRulePatterns(), Refuses: func(path string) bool {
 			abs := path
 			if !filepath.IsAbs(abs) {
 				abs = filepath.Join(root, filepath.FromSlash(path))
 			}
-			if ev.Evaluate(abs).Effect != hostperm.Allow {
+			if rules.Evaluate(abs).Effect != hostperm.Allow {
 				return true
 			}
 			rel, err := filepath.Rel(root, abs)
 			if err != nil || resolved == root {
 				return false
 			}
-			return ev.Evaluate(filepath.Join(resolved, rel)).Effect != hostperm.Allow
-		}
+			return rules.Evaluate(filepath.Join(resolved, rel)).Effect != hostperm.Allow
+		}}
 	}
 }

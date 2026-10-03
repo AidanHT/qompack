@@ -28,17 +28,18 @@ func privacyRoot(t *testing.T) string {
 	return filepath.Join(t.TempDir(), "proj")
 }
 
-// denyPrivate stands in for a host permissions.deny Read rule on private/**: it refuses every
-// spelling of a path under <root>/private, relative or absolute.
-func denyPrivate(root string) func() func(string) bool {
-	return func() func(string) bool {
-		return func(p string) bool {
+// denyPrivate stands in for a host permissions.deny Read rule on private/**, Read(./private/**): it
+// refuses every spelling of a path under <root>/private, relative or absolute, and hands the build
+// the rule's pattern.
+func denyPrivate(root string) HostPaths {
+	return func() HostRules {
+		return HostRules{Patterns: []string{"./private/**"}, Refuses: func(p string) bool {
 			if !filepath.IsAbs(p) {
 				p = filepath.Join(root, filepath.FromSlash(p))
 			}
 			rel, err := filepath.Rel(filepath.Join(root, "private"), p)
 			return err == nil && !strings.HasPrefix(rel, "..")
-		}
+		}}
 	}
 }
 
@@ -138,7 +139,7 @@ func TestBuild_UnavailableHostRulesWithholdEveryPath(t *testing.T) {
 	root := privacyRoot(t)
 	cp, _ := privacyCheckpoint(root)
 	d := uat05Deps(t, cp)
-	d.HostPaths = func() func(string) bool { return nil }
+	d.HostPaths = func() HostRules { return HostRules{} }
 	r := requestFor(t, cp, maxBudget())
 	r.ProjectRoot = root
 
@@ -177,7 +178,7 @@ func TestBuild_PointersNeverShowAHomeOrVariablePath(t *testing.T) {
 	}
 	leaks := []string{"id_rsa", ".netrc", "credentials", "hosts.yml", "vault", "deploy_key"}
 	d := uat05Deps(t, cp)
-	d.HostPaths = func() func(string) bool { return func(string) bool { return false } }
+	d.HostPaths = func() HostRules { return HostRules{Refuses: func(string) bool { return false }} }
 	r := requestFor(t, cp, maxBudget())
 	r.ProjectRoot = root
 
@@ -308,7 +309,7 @@ func TestBuild_HostRulesAreEstablishedOncePerBuild(t *testing.T) {
 	d := uat05Deps(t, cp)
 	calls := 0
 	deny := denyPrivate(root)
-	d.HostPaths = func() func(string) bool { calls++; return deny() }
+	d.HostPaths = func() HostRules { calls++; return deny() }
 	r := requestFor(t, cp, maxBudget())
 	r.ProjectRoot = root
 

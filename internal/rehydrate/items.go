@@ -1299,10 +1299,19 @@ func buildRestoredInstructions(ctx context.Context, r Request, d Deps, match mat
 	sortRulesByPath(pathRules)
 	sortRulesByPath(nested)
 
+	// A rule's drop names the first pointer it matched, and only a pointer section 6 may show: a
+	// rule scoped to a withheld file's directory must not name that file in section 7 (D61(3)).
+	judge := pathJudgeFor(r, d)
+	shown := make([]string, 0, len(pointers))
+	for _, p := range pointers {
+		if !judge.withheld(p) {
+			shown = append(shown, p)
+		}
+	}
 	for _, rule := range pathRules {
 		b.seen++
 		detail := "did not fit the rehydration budget"
-		if p := firstMatchingPointer(rule, pointers, match); p != "" {
+		if p := firstMatchingPointer(rule, shown, match); p != "" {
 			detail = "matched " + p + "; " + detail
 		}
 		b.units = append(b.units, unit{

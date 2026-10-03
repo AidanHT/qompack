@@ -284,7 +284,7 @@ func BuildWithStats(ctx context.Context, r Request, d Deps) (Result, []ItemStat,
 	// smaller. Never while tier 1 is incomplete: this room is item 2's alone (step 9).
 	if !incomplete {
 		held := reserveDrop
-		if b := buildDropReport(collectDrops(r, all, fills)); len(b.units) > 0 {
+		if b := buildDropReport(collectDrops(r, d, all, fills)); len(b.units) > 0 {
 			priceUnits(d, b.units)
 			allowance := reserveDrop.plus(carry).atLeast(floor).atMost(limit.minus(spent))
 			held = fillDropReport(d, b, allowance).used.atLeast(floor)
@@ -311,7 +311,7 @@ func BuildWithStats(ctx context.Context, r Request, d Deps) (Result, []ItemStat,
 	// answer for what section 7 could not show. Its allowance is its reserve plus whatever the
 	// shares carried forward, never less than the floor held since step 3, and never more than the
 	// payload has left.
-	drops := collectDrops(r, all, fills)
+	drops := collectDrops(r, d, all, fills)
 	if b := buildDropReport(drops); len(b.units) > 0 {
 		priceUnits(d, b.units)
 		// Item 7 is the one item Build constructs itself rather than through buildAll, because it

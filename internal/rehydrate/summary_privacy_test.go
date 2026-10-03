@@ -39,19 +39,22 @@ func previewRoot(elem ...string) string {
 
 // denyFiles stands in for host permissions.deny Read rules on exact files (the UAT-12 rule was
 // Read(./private/deny.txt)): it refuses each named project file, in any spelling of its path, and
-// nothing else — not its directory and not a sibling.
-func denyFiles(root string, rels ...string) func() func(string) bool {
+// nothing else — not its directory and not a sibling. It hands the build each rule's pattern,
+// Read(./<file>).
+func denyFiles(root string, rels ...string) HostPaths {
 	denied := make(map[string]bool, len(rels))
+	patterns := make([]string, 0, len(rels))
 	for _, r := range rels {
 		denied[filepath.Clean(filepath.Join(root, filepath.FromSlash(r)))] = true
+		patterns = append(patterns, "./"+r)
 	}
-	return func() func(string) bool {
-		return func(p string) bool {
+	return func() HostRules {
+		return HostRules{Patterns: patterns, Refuses: func(p string) bool {
 			if !filepath.IsAbs(p) {
 				p = filepath.Join(root, filepath.FromSlash(p))
 			}
 			return denied[filepath.Clean(p)]
-		}
+		}}
 	}
 }
 
@@ -115,6 +118,10 @@ func TestBuild_ArgumentSummariesNeverShowAWithheldPath(t *testing.T) {
 
 // TestBuild_ArgumentSummariesFailClosedWithoutHostRules: when the host's rules cannot be established,
 // a path behind a selector is withheld like every other path (re_read fails closed the same way).
+// Criterion change (coordinator decision D61(2)(d)): so is every free-text summary. Round 2 showed
+// `{"query":"LUPINE-7731"}` because no word of it looked like a path; free text is now screened by
+// the rules' literals, which an unavailable policy does not supply, so no free text can be told
+// apart from one naming a refused file, and none is shown.
 func TestBuild_ArgumentSummariesFailClosedWithoutHostRules(t *testing.T) {
 	root := privacyRoot(t)
 	cp := ckUAT05()
@@ -123,7 +130,7 @@ func TestBuild_ArgumentSummariesFailClosedWithoutHostRules(t *testing.T) {
 		{ToolUseID: "toolu_query", Hash: hashOf("s2"), Summary: `{"query":"LUPINE-7731"}`},
 	}
 	d := uat05Deps(t, cp)
-	d.HostPaths = func() func(string) bool { return nil }
+	d.HostPaths = func() HostRules { return HostRules{} }
 	r := requestFor(t, cp, maxBudget())
 	r.ProjectRoot = root
 
@@ -132,7 +139,9 @@ func TestBuild_ArgumentSummariesFailClosedWithoutHostRules(t *testing.T) {
 	section6 := sectionBody(res.Text, sectionHeading(ItemPointers))
 	require.NotContains(t, section6, "Makefile", "a selector's value is a path, dot or none")
 	require.Contains(t, section6, "- tool_use toolu_selector "+hashOf("s1").String()+" — "+withheldSummary)
-	require.Contains(t, section6, `{"query":"LUPINE-7731"}`, "a summary that names no path is not a path")
+	require.Contains(t, section6, "- tool_use toolu_query "+hashOf("s2").String()+" — "+withheldSummary,
+		"without the rules' literals no free text can be screened")
+	require.NotContains(t, section6, "LUPINE-7731")
 }
 
 // TestBuild_JoinedArgumentPreviewsNeverShowAWithheldPath covers the summaries a built-in tool's
@@ -500,8 +509,13 @@ func TestBuild_ShellQuotingAndEscapesNeverShowADeniedPath(t *testing.T) {
 // TestBuild_AKnownWithheldPathIsFoundAnywhereInAText is the w19 round-2 review's third finding: a
 // path with a space that no producer delimits, in the middle of a free-text argument or a command,
 // is read word by word, and no word spells it. Every path the build withholds and records is
-// looked for in each text whole, between word boundaries, wherever its spaces fall; a path Qompack
-// never recorded stays a documented limit (ADR 0011 §23.2).
+// looked for in each text whole, wherever its spaces fall; a path Qompack never recorded stays a
+// documented limit (ADR 0011 §23.2).
+//
+// Criterion change (coordinator decision D61(2)(a)-(b)): `{"query":"not my secret.txt.bak at
+// all"}` was shown, because the withheld name was followed by a further `.bak`. Free text is now
+// withheld when it contains a rule's literal or a withheld path's basename at all; D61 accepts that
+// a text which merely mentions the name is withheld (ADR 0011 §23.2), and the row now requires it.
 func TestBuild_AKnownWithheldPathIsFoundAnywhereInAText(t *testing.T) {
 	root := previewRoot("proj")
 	slash := strings.ReplaceAll(root, `\`, "/")
@@ -512,12 +526,12 @@ func TestBuild_AKnownWithheldPathIsFoundAnywhereInAText(t *testing.T) {
 		`{"query":"where is my secret.txt used"}`,
 		`cp ` + slash + `/private/my secret.txt backup/`,
 		`{"query":"see @private/deny.txt first"}`,
+		`{"query":"not my secret.txt.bak at all"}`,
 		`{"query":"PRIVATE/MY SECRET.TXT and more"}`,
 	}
 	shown := []string{
 		`{"query":"find docs/my notes.md usages"}`,
 		`cp docs/my notes.md backup/`,
-		`{"query":"not my secret.txt.bak at all"}`,
 		`{"query":"see @docs/guide.md first"}`,
 	}
 	if runtime.GOOS != "windows" && runtime.GOOS != "darwin" {
