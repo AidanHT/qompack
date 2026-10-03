@@ -12,8 +12,10 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -793,7 +795,12 @@ func (s *fsckScan) resolveRootLine(row *fsckRowBuilder, rl fsckRootLine) {
 		row.defect("root %s names chunk %s, which the object store does not hold",
 			fsckShortHash(rl.Root), fsckShortHash(c.H))
 	}
-	for label, ptr := range map[string]string{"deltas": rl.Deltas, "base": rl.Base, "orig": rl.Orig} {
+	// A fixed order, never a map literal: the lines are the row's detail, and two reads of one
+	// store must list them alike (D53(a)).
+	for _, lp := range [...]struct{ label, ptr string }{
+		{"deltas", rl.Deltas}, {"base", rl.Base}, {"orig", rl.Orig},
+	} {
+		label, ptr := lp.label, lp.ptr
 		if ptr == "" || fsckIsZeroHash(ptr) || s.fsckHashHeld(ptr) {
 			continue
 		}
@@ -1046,8 +1053,11 @@ func (s *fsckScan) checkFiles() fsckCheck {
 		row.defect("index/files.json declares view version %d, which this build does not read",
 			view.doc.Version)
 	}
+	// Every detail list below walks its map in sorted key order: two reads of one store list the
+	// same lines in the same order, and the fsckMaxDetail cap keeps the same members (D53(a)).
 	behind := 0
-	for path, want := range log {
+	for _, path := range slices.Sorted(maps.Keys(log)) {
+		want := log[path]
 		got, ok := view.doc.Files[path]
 		switch {
 		case (!ok || len(got) < len(want)) && live && fsckVersionsWithin(got, want):
@@ -1064,7 +1074,7 @@ func (s *fsckScan) checkFiles() fsckCheck {
 		row.note("index/files.json is behind its log for %d path(s); the running daemon materializes "+
 			"it at its next flush (a session's end or its stop)", behind)
 	}
-	for path := range view.doc.Files {
+	for _, path := range slices.Sorted(maps.Keys(view.doc.Files)) {
 		if _, ok := log[path]; !ok {
 			row.defect("index/files.json records %q, which the log never mentions", path)
 		}
@@ -1779,12 +1789,12 @@ func (s *fsckScan) comparePinsView(row *fsckRowBuilder, live map[string]bool) {
 		}
 		return
 	}
-	for id := range live {
+	for _, id := range slices.Sorted(maps.Keys(live)) { // sorted: D53(a), as in checkFiles
 		if !viewIDs[id] {
 			row.defect("pins/invariants.json omits live invariant %q; the view is stale", id)
 		}
 	}
-	for id := range viewIDs {
+	for _, id := range slices.Sorted(maps.Keys(viewIDs)) {
 		if !live[id] {
 			row.defect("pins/invariants.json still carries %q, which the log has retired", id)
 		}
@@ -2107,8 +2117,8 @@ func (s *fsckScan) checkSpool() fsckCheck {
 	}
 	row.scan(len(state))
 
-	for base, rec := range state {
-		s.checkOneDrainRecord(row, base, rec)
+	for _, base := range slices.Sorted(maps.Keys(state)) { // sorted: D53(a), as in checkFiles
+		s.checkOneDrainRecord(row, base, state[base])
 	}
 	return row.build()
 }
@@ -2342,7 +2352,7 @@ func (s *fsckScan) checkFidelity() fsckCheck {
 	defer func() { _ = opened.Close() }()
 
 	resolved := 0
-	for text := range s.roots {
+	for _, text := range slices.Sorted(maps.Keys(s.roots)) { // sorted: D53(a), as in checkFiles
 		if s.ctx.Err() != nil {
 			row.note("the scan was cancelled after %d root(s)", resolved)
 			break
