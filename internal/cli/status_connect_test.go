@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -10,7 +11,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/qompack/qompack/internal/config"
+	"github.com/qompack/qompack/internal/contract"
 	"github.com/qompack/qompack/internal/core"
+	"github.com/qompack/qompack/internal/daemon"
 	"github.com/qompack/qompack/internal/ipc"
 	"github.com/qompack/qompack/internal/logging"
 	"github.com/qompack/qompack/internal/obs"
@@ -19,8 +22,57 @@ import (
 // Wave 19 statusorder's review (C4.5, D53(a)): on Windows one command-client connect miss inside
 // the hot path's 25 ms runtime.daemon.connectDeadlineMs made `qompack status` answer source none and
 // say the daemon "did not answer within 10s", for a read that failed in milliseconds. The rows below
-// drive that through a real daemon and the real ipc client. The miss is real too: a real client
-// aimed at an address nothing listens on, swapped in through newCommandIPCClient.
+// drive that through the real status command and the real ipc client's answer to a missed connect:
+// a real client aimed at an address nothing listens on, swapped in through newCommandIPCClient.
+//
+// None of them times a real dial for its verdict (D61). fetchDaemonStatus's sends are timed on
+// statusSendClock, which these rows replace with a stepClock; daemonListening's dial is
+// statusProbeDial, which they replace where a probe is not what the row is about; and a connect that
+// succeeds late is a modelled transport (lateConnectClient), not a listener raced against a budget.
+
+// stepClock is a Clock that moves only when a row advances it.
+type stepClock struct {
+	mu sync.Mutex
+	t  time.Time
+}
+
+func newStepClock() *stepClock {
+	return &stepClock{t: time.Date(2026, 10, 3, 12, 0, 0, 0, time.UTC)}
+}
+
+func (c *stepClock) Now() time.Time {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.t
+}
+
+func (c *stepClock) Since(t time.Time) time.Duration { return c.Now().Sub(t) }
+
+func (c *stepClock) Advance(d time.Duration) {
+	c.mu.Lock()
+	c.t = c.t.Add(d)
+	c.mu.Unlock()
+}
+
+// useStatusSendClock makes clk time fetchDaemonStatus's sends for the rest of t.
+func useStatusSendClock(t *testing.T, clk core.Clock) {
+	t.Helper()
+	prev := statusSendClock
+	statusSendClock = clk
+	t.Cleanup(func() { statusSendClock = prev })
+}
+
+// useStatusProbe makes probe stand in for daemonListening's dial for the rest of t.
+func useStatusProbe(t *testing.T, probe func(ipc.Addr, time.Duration) bool) {
+	t.Helper()
+	prev := statusProbeDial
+	statusProbeDial = probe
+	t.Cleanup(func() { statusProbeDial = prev })
+}
+
+// probeSeesAListener is a statusProbeDial for a row where a daemon is listening and the probe is not
+// what the row is about.
+func probeSeesAListener(ipc.Addr, time.Duration) bool { return true }
 
 // connectMissClient sends through miss, a real client whose connect cannot succeed, while misses
 // stays positive, and through the real command client after that. misses is shared by every client
@@ -100,21 +152,21 @@ func TestCommandClient_HasItsOwnConnectBudget(t *testing.T) {
 		"fetchDaemonStatus tells a connect miss from a call-deadline expiry by the time a send took")
 }
 
-// TestStatus_ConnectMissNamesTheConnectBudget: when every connect misses while a real daemon
-// listens, status names a connect miss within commandConnectDeadline, and does not claim the
-// daemon "did not answer within 10s": that deadline never ran.
+// TestStatus_ConnectMissNamesTheConnectBudget: when every connect misses while a daemon listens,
+// status names a connect miss within commandConnectDeadline, and does not claim the daemon "did not
+// answer within 10s": that deadline never ran. The misses are the real client's own answer to a
+// connect that fails; the listener the probe sees and the time the sends take are fixed by the row.
 //
-// Not parallel: bootstrapDaemon resets the process-wide producer set, and the row swaps
-// newCommandIPCClient.
+// Not parallel: it swaps newCommandIPCClient, statusProbeDial and statusSendClock.
 func TestStatus_ConnectMissNamesTheConnectBudget(t *testing.T) {
 	root := bootstrapProject(t)
-	stop := bootstrapDaemon(t, root)
-	defer stop()
+	useStatusProbe(t, probeSeesAListener)
+	useStatusSendClock(t, newStepClock())
 	misses, _ := injectCommandConnectMisses(t, 1<<30)
 
 	out, env := statusConnectRead(t, root)
 	require.NotEqual(t, "daemon", env.Data.Primary.Source, "every connect missed: stdout=%s", out)
-	require.Less(t, misses.Load(), int64(1<<30), "the injected miss must have been reached")
+	require.Equal(t, int64(1<<30-2), misses.Load(), "both of status's sends must have missed")
 	require.NotContains(t, env.Data.Primary.Reason, statusSilentDaemonReason,
 		"no call deadline expired, so status must not say the daemon did not answer within it")
 	require.Contains(t, env.Data.Primary.Reason, statusConnectMissReason,
@@ -123,10 +175,11 @@ func TestStatus_ConnectMissNamesTheConnectBudget(t *testing.T) {
 
 // TestStatus_TransientConnectMissStillReadsTheDaemon: with two sessions registered and a single
 // connect miss on the first read, two `status --json` reads of unchanged state agree, both from the
-// live daemon (D53(a)).
+// live daemon (D53(a)). The miss is resent because the send took less than commandCallDeadline on
+// the row's own clock, not because a real one happened to return quickly.
 //
 // Not parallel: bootstrapDaemon resets the process-wide producer set, and the row swaps
-// newCommandIPCClient.
+// newCommandIPCClient, statusProbeDial and statusSendClock.
 func TestStatus_TransientConnectMissStillReadsTheDaemon(t *testing.T) {
 	root := bootstrapProject(t)
 	stop := bootstrapDaemon(t, root)
@@ -134,6 +187,8 @@ func TestStatus_TransientConnectMissStillReadsTheDaemon(t *testing.T) {
 	for _, id := range []core.SessionID{"sess-miss-b", "sess-miss-a"} {
 		startStatusOrderSession(t, root, id)
 	}
+	useStatusProbe(t, probeSeesAListener)
+	useStatusSendClock(t, newStepClock())
 	misses, _ := injectCommandConnectMisses(t, 1)
 
 	first, env1 := statusConnectRead(t, root)
@@ -146,10 +201,125 @@ func TestStatus_TransientConnectMissStillReadsTheDaemon(t *testing.T) {
 	require.Equal(t, first, second, "two status --json reads of unchanged state disagree (D53(a))")
 }
 
+// lateConnectClient is the transport to a listener that accepts a connection only readyAt after a
+// dial starts: busy until then, as a go-winio listener is while it re-arms. A dial whose budget
+// reaches readyAt connects and is answered with answer; one whose budget falls short gives up when
+// the budget runs out and gets the real client's answer to a missed connect (OK false, no text).
+// Time passes on clk alone, by as much as the real dial would have waited, so no verdict depends on
+// how fast this machine runs.
+type lateConnectClient struct {
+	budget  time.Duration
+	readyAt time.Duration
+	clk     *stepClock
+	sends   *atomic.Int64
+	answer  ipc.Response
+}
+
+func (c lateConnectClient) Send(_ context.Context, req ipc.Request, _ time.Duration) (ipc.Response, error) {
+	if req.Op != ipc.OpStatus {
+		return ipc.Response{OK: false, Err: "lateConnectClient answers only " + string(ipc.OpStatus)}, nil
+	}
+	c.sends.Add(1)
+	if c.budget < c.readyAt {
+		c.clk.Advance(c.budget)
+		return ipc.Response{OK: false}, nil
+	}
+	c.clk.Advance(c.readyAt)
+	return c.answer, nil
+}
+
+func (lateConnectClient) Close() error { return nil }
+
+// TestCommandClient_LateConnectWithinItsBudgetReadsTheDaemon is the wave 19b review's nit: a
+// connect that succeeds only after the hot path's runtime.daemon.connectDeadlineMs, but within
+// commandConnectDeadline, reads the daemon for a command client. The same listener reached with the
+// hot path's budget, as command clients dialed before D60(e), and a listener that stays busy past
+// commandConnectDeadline itself, both read as a connect miss that names the 250 ms budget: sent twice,
+// never reported as "did not answer within 10s" and never as "none is listening".
+//
+// Not parallel: it swaps newCommandIPCClient, statusProbeDial and statusSendClock.
+func TestCommandClient_LateConnectWithinItsBudgetReadsTheDaemon(t *testing.T) {
+	root := bootstrapProject(t)
+	hotPath := time.Duration(config.Defaults().Runtime.Daemon.ConnectDeadlineMs) * time.Millisecond
+	// Halfway between the two budgets: too late for the hot path's, in time for a command's.
+	inBudget := hotPath + (commandConnectDeadline-hotPath)/2
+	require.Less(t, hotPath, inBudget)
+	require.Less(t, inBudget, commandConnectDeadline)
+
+	snap, err := json.Marshal(daemon.StatusSnapshot{Mode: contract.ModeFull.String(), Hot: "sync"})
+	require.NoError(t, err)
+
+	var probed []time.Duration
+	useStatusProbe(t, func(_ ipc.Addr, d time.Duration) bool {
+		probed = append(probed, d)
+		return true // the listener was free when the probe dialed; the request's dial is what is late
+	})
+
+	for _, tc := range []struct {
+		name     string
+		readyAt  time.Duration
+		hotPath  bool // dial with the hooks' budget, as command clients did before D60(e)
+		wantLive bool
+	}{
+		{name: "command budget, accepted after the hot path's", readyAt: inBudget, wantLive: true},
+		{name: "hot path budget, the same listener", readyAt: inBudget, hotPath: true},
+		{name: "command budget, busy past it", readyAt: commandConnectDeadline + hotPath},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			clk := newStepClock()
+			useStatusSendClock(t, clk)
+			probed = probed[:0]
+			var sends atomic.Int64
+			var budgets []time.Duration
+			prev := newCommandIPCClient
+			newCommandIPCClient = func(_ ipc.Addr, _ ipc.SpoolWriter, _ logging.Logger, _ obs.Registry,
+				o ipc.ClientOptions,
+			) ipc.Client {
+				budget := o.ConnectDeadline
+				if tc.hotPath {
+					budget = time.Duration(o.State.ConnectDeadlineMs) * time.Millisecond
+				}
+				budgets = append(budgets, budget)
+				return lateConnectClient{
+					budget: budget, readyAt: tc.readyAt, clk: clk, sends: &sends,
+					answer: ipc.Response{OK: true, Data: snap},
+				}
+			}
+			t.Cleanup(func() { newCommandIPCClient = prev })
+			start := clk.Now()
+
+			out, env := statusConnectRead(t, root)
+			require.Len(t, budgets, 1, "one command client per status run")
+			require.Equal(t, []time.Duration{statusProbeTimeout}, probed, "one probe, at its own budget")
+			if tc.hotPath {
+				require.Equal(t, hotPath, budgets[0], "the hot path's budget as state.bin carries it")
+			} else {
+				require.Equal(t, commandConnectDeadline, budgets[0])
+			}
+
+			if tc.wantLive {
+				require.Equal(t, "daemon", env.Data.Primary.Source,
+					"a connect accepted within the command budget must read the daemon: %s", out)
+				require.Equal(t, int64(1), sends.Load(), "an answered read is not resent")
+				require.Equal(t, tc.readyAt, clk.Since(start))
+				return
+			}
+			require.NotEqual(t, "daemon", env.Data.Primary.Source, "stdout=%s", out)
+			require.Equal(t, int64(2), sends.Load(), "a connect miss is resent once")
+			require.Equal(t, 2*budgets[0], clk.Since(start), "each send waited out its dial budget")
+			require.Contains(t, env.Data.Primary.Reason, statusConnectMissReason,
+				"a late connect must read as a connect miss naming the command budget")
+			require.NotContains(t, env.Data.Primary.Reason, statusSilentDaemonReason)
+			require.NotContains(t, env.Data.Primary.Reason, statusNoDaemonReason)
+		})
+	}
+}
+
 // TestStatus_CallDeadlineExpiryStillSaysSilent: a daemon that accepts the status request and never
 // replies still reads as statusSilentDaemonReason, because there commandCallDeadline did expire,
 // and the request is sent once: an expired call deadline is not retried. It waits out the real
-// commandCallDeadline once.
+// commandCallDeadline once. The verdict needs no margin: the client arms its read deadline after
+// the send starts, so on the monotonic clock the send cannot take less than commandCallDeadline.
 func TestStatus_CallDeadlineExpiryStillSaysSilent(t *testing.T) {
 	root := mcpCmdRoot(t)
 	addr, err := ipc.Resolve(root)

@@ -187,11 +187,16 @@ func daemonClientState(root string, cfg config.Config) ipc.State {
 // flush and self-test's admin.ping already use (hookConnectDeadlineFloor, whose derivation is in
 // hookclient.go), not a new number. An absent daemon still fails the dial at once: a missing pipe or
 // socket is refused, not waited on.
+//
+// `qompack mcp` does not use it (D61(e)). It is a long-lived server, not a one-shot command: its
+// client keeps runtime.daemon.connectDeadlineMs and rides out a miss with its own retry loop,
+// mcpRetryAttempts tries mcpRetryDelay apart (cmd_mcp.go), which a person at a terminal would not
+// wait through for one status read.
 const commandConnectDeadline = hookConnectDeadlineFloor
 
 // newCommandIPCClient is the constructor newCommandClient builds its transport with. It is a
-// variable only so a test can make a real client miss its connect, by aiming one at an address
-// nothing listens on, while a real daemon listens at the project's own.
+// variable only so a test can see the options a command client is built with and stand in a
+// transport whose connect misses or succeeds late, without timing a real dial.
 var newCommandIPCClient = ipc.NewClientWithOptions
 
 // newCommandClient builds the transport the frontends reach the daemon over.
@@ -274,11 +279,19 @@ var statusConnectMissReason = fmt.Sprintf("a daemon is listening for this projec
 // it. An absent daemon still fails the probe at once: a missing pipe or socket is refused.
 const statusProbeTimeout = commandConnectDeadline
 
+// statusProbeDial is the dial daemonListening makes. It is a variable only so a test can stand in a
+// listener that accepts late without racing a real one against the probe's budget.
+var statusProbeDial = ipc.Probe
+
+// statusSendClock times fetchDaemonStatus's sends. It is a variable only so a test can decide how
+// long a send took, instead of depending on how fast a real one returns.
+var statusSendClock = core.SystemClock()
+
 // daemonListening reports whether anything accepts a connection at root's daemon address (ipc.Probe).
 func daemonListening(root string) func() bool {
 	return func() bool {
 		addr, err := ipc.Resolve(root)
-		return err == nil && ipc.Probe(addr, statusProbeTimeout)
+		return err == nil && statusProbeDial(addr, statusProbeTimeout)
 	}
 }
 
@@ -305,11 +318,11 @@ func fetchDaemonStatus(
 ) (commands.DaemonStatus, time.Time, error) {
 	wasListening := listening != nil && listening()
 	send := func() (ipc.Response, time.Duration, error) {
-		start := time.Now()
+		start := statusSendClock.Now()
 		resp, err := client.Send(ctx, ipc.Request{
 			Op: ipc.OpStatus, Reply: true, TS: core.NowMilli(core.SystemClock()),
 		}, commandCallDeadline)
-		return resp, time.Since(start), err
+		return resp, statusSendClock.Since(start), err
 	}
 	noAnswer := func(resp ipc.Response) bool { return !resp.OK && resp.Err == "" }
 
