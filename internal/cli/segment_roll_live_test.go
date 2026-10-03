@@ -113,10 +113,14 @@ func rigGraph(t *testing.T, root string) (map[string]depsLine, map[[2]string]boo
 	return nodes, edges
 }
 
-// rigReadAndSettle makes one Read of rel, a Stop, and waits until the daemon has observed both: the
-// Read indexed, and a reply-bearing prompt answered after it (the daemon publishes a session's
-// leased arrivals in order, so that answer is the point by which the Read's observer and the
-// scheduler's tap have run).
+// rigReadAndSettle makes one Read of rel, a Stop, and a reply-bearing prompt, after waiting until
+// the Read is indexed. Indexed means the Read's handler has run (the observer writes the index
+// inside it, and the scheduler's tap runs in the same call); it does not mean the delivery is
+// committed. The prompt's answer is synchronous and does not wait for that commit either, so a stop
+// or restart that follows can land between the Read's handler and its commit, and Stop's drain or
+// the next daemon's startup drain then replays the Read. The rows below hold under either
+// interleaving because the tap applies a delivery once (internal/daemon's
+// scheduler_tap_redelivery_test.go pins that, with the commit cut where Stop cuts it).
 func rigReadAndSettle(t *testing.T, r *compactLoadRig, id, rel, content, next string) {
 	t.Helper()
 	require.NoError(t, os.MkdirAll(filepath.Join(r.root, "src"), 0o700))
@@ -200,6 +204,11 @@ func readSchedulerDoc(t *testing.T, root string) schedulerDoc {
 // predecessor persisted, so its own shutdown persists the session's account with the new Read in it.
 // Unbound, it persisted nothing and the state file still described the session as the first daemon
 // left it.
+//
+// Each Read is in the account once whether either daemon's stop lands before or inside that Read's
+// commit. When it lands inside, the Read is replayed (by Stop's drain, or by the restarted daemon's
+// startup drain) and the tap recognizes the replay. Before that fix this row failed intermittently
+// with 12 or 16, the replayed Read folded a second time (V6 close-out wave 20).
 func TestARestartedDaemonBindsTheLiveSessionOnItsFirstHook(t *testing.T) {
 	r, stop := newCompactLoadRig(t)
 	defer stop()
