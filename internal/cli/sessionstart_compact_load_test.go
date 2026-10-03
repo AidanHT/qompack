@@ -367,12 +367,17 @@ func TestSessionStartCompact_UnderSameSessionIngest(t *testing.T) {
 }
 
 // requireReadsReachedTheRig checks, once the rig's daemon has stopped, that the same-session load
-// was really applied to the rig's project: every Read readPayload built is in the rig's
-// index/tool_use.jsonl or still in its spool, and the index holds at least one of them, so the
-// daemon observed the load rather than every Read waiting in a spool. A Read a hook delivered under
-// any other root is in neither.
+// was delivered to the rig's project and to no other root: every Read readPayload built is in the
+// rig's index/tool_use.jsonl or in a file of its spool directory, and the index holds at least one
+// of them. A Read a hook delivered under any other root is in neither.
 //
-// It reads files only after stop, which drained the spool and the WAL, so nothing in it waits.
+// It does not show that the daemon indexed the load. The spool directory holds the daemon's
+// session WAL, which keeps every Read the daemon received, indexed or not, beside any client spool
+// a hook fell back to; so the check proves routing plus at least one ingest. The log line splits
+// the Reads into indexed, in the daemon's WAL only, and in a client spool, the ratio a C1.16
+// re-measurement can cite.
+//
+// It reads files only after stop returned, when no hook or daemon of the rig writes any more.
 func (r *compactLoadRig) requireReadsReachedTheRig(t *testing.T) {
 	t.Helper()
 	r.readsMu.Lock()
@@ -382,21 +387,28 @@ func (r *compactLoadRig) requireReadsReachedTheRig(t *testing.T) {
 
 	index, err := os.ReadFile(paths.Long(filepath.Join(paths.Of(r.root).Index, "tool_use.jsonl")))
 	require.NoError(t, err, "the rig's daemon indexed no tool use at all")
-	var spooled strings.Builder
+	var wal, client strings.Builder
 	files, err := filepath.Glob(filepath.Join(paths.Of(r.root).Spool, "*.ndjson"))
 	require.NoError(t, err)
 	for _, f := range files {
 		b, rerr := os.ReadFile(f)
 		require.NoError(t, rerr)
-		spooled.Write(b)
+		if strings.HasPrefix(filepath.Base(f), "wal-") {
+			wal.Write(b)
+		} else {
+			client.Write(b)
+		}
 	}
-	indexed := 0
+	indexed, inWAL, inClient := 0, 0, 0
 	var missing []string
 	for _, id := range ids {
 		switch {
 		case strings.Contains(string(index), `"id":"`+id+`"`):
 			indexed++
-		case strings.Contains(spooled.String(), `"`+id+`"`):
+		case strings.Contains(client.String(), `"`+id+`"`):
+			inClient++
+		case strings.Contains(wal.String(), `"`+id+`"`):
+			inWAL++
 		default:
 			missing = append(missing, id)
 		}
@@ -404,7 +416,8 @@ func (r *compactLoadRig) requireReadsReachedTheRig(t *testing.T) {
 	require.Zero(t, len(missing), "%d of the rig's %d Reads reached neither its index nor its spool, "+
 		"the first %v", len(missing), len(ids), missing[:min(len(missing), 3)])
 	require.Positive(t, indexed, "none of the rig's %d Reads was indexed by its daemon", len(ids))
-	t.Logf("the rig's daemon indexed %d of its %d Reads", indexed, len(ids))
+	t.Logf("of the rig's %d Reads: %d indexed, %d in its daemon's WAL only, %d in a client spool",
+		len(ids), indexed, inWAL, inClient)
 }
 
 func envInt(name string, def int) int {
