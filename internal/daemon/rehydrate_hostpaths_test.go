@@ -601,3 +601,101 @@ func TestRehydrateHostPaths_AShellEscapedDeniedPathIsWithheld(t *testing.T) {
 	require.NotContains(t, res.Text, "notes.txt")
 	require.NotContains(t, res.Text, "secret.txt")
 }
+
+// storePreviewOf is storePreview for arguments of any JSON shape (an array value among them).
+func storePreviewOf(t *testing.T, args map[string]any) string {
+	t.Helper()
+	raw, err := json.Marshal(args)
+	require.NoError(t, err)
+	_, preview := store.ArgsDigest(raw)
+	require.NotContains(t, preview, "…", "fixture: the store cut the preview of %v", args)
+	return preview
+}
+
+// uat12Project is a project under shortProjectDir(elem...) with UAT-12's three Read deny rules, their
+// files and src/main.go.
+func uat12Project(t *testing.T, elem ...string) string {
+	t.Helper()
+	root := shortProjectDir(t, elem...)
+	writeProjectSettings(t, root,
+		`{"permissions":{"deny":["Read(./private/deny.txt)","Read(./.env)","Read(./secrets/**)"]}}`)
+	for _, f := range []string{"private/deny.txt", ".env", "secrets/token.txt", "src/main.go"} {
+		writeProjectFile(t, root, f)
+	}
+	return root
+}
+
+// TestRehydrateHostPaths_APathArgumentHoldingMoreThanAPathIsWithheld is the w19c round-1 review's
+// path-named-argument finding through the real host rules: a value of a path-named JSON argument
+// that holds more than one path (a list, a line locator, a glob) went to the host as one whole path,
+// which refuses nothing, and section 6 showed the denied name in it. On Linux and macOS hostperm
+// cuts no `:10` stream suffix, so `{"file":"private/deny.txt:10"}` was shown there too. Each is now
+// screened as free text as well; the same shapes naming allowed files are shown.
+func TestRehydrateHostPaths_APathArgumentHoldingMoreThanAPathIsWithheld(t *testing.T) {
+	root := uat12Project(t, "proj")
+	res := requireToolSummaries(t, root,
+		[]string{
+			storePreviewOf(t, map[string]any{"files": "src/main.go src/util.go"}),
+			storePreviewOf(t, map[string]any{"paths": []string{"src/*.go"}}),
+			storePreviewOf(t, map[string]any{"relative_path": "src/main.go#L4"}),
+			storePreviewOf(t, map[string]any{"file": "src/main.go:10"}),
+			storePreview(t, map[string]string{"file_path": filepath.Join(root, "src", "main.go")}),
+		},
+		[]string{
+			storePreviewOf(t, map[string]any{"files": "src/main.go private/deny.txt"}),
+			storePreviewOf(t, map[string]any{"paths": []string{"**/deny.txt"}}),
+			storePreviewOf(t, map[string]any{"relative_path": "private/deny.txt#L4"}),
+			storePreviewOf(t, map[string]any{"file": "private/deny.txt:10"}),
+			storePreview(t, map[string]string{"file_path": filepath.Join(root, "private", "deny.txt") + "#L4"}),
+		})
+	require.NotContains(t, res.Text, "deny.txt")
+}
+
+// TestRehydrateHostPaths_ARootedPathWithASpaceIsJudgedByTheHost is the review's link finding through
+// the real host rules: with a Read deny rule on private/**, a directory link `my docs` into private/
+// made the Read preview `<root>/my docs/x2.txt` several words, screened as free text alone, and the
+// host, which resolves links, never judged it. It is judged whole now, as the one-word `mydocs` link
+// always was; a real directory with a space is shown.
+func TestRehydrateHostPaths_ARootedPathWithASpaceIsJudgedByTheHost(t *testing.T) {
+	root := shortProjectDir(t, "proj")
+	writeProjectSettings(t, root, `{"permissions":{"deny":["Read(./private/**)"]}}`)
+	writeProjectFile(t, root, "private/x1.txt")
+	writeProjectFile(t, root, "private/x2.txt")
+	writeProjectFile(t, root, "my notes/x.txt")
+	require.NoError(t, makeDirLink(filepath.Join(root, "mydocs"), filepath.Join(root, "private")))
+	require.NoError(t, makeDirLink(filepath.Join(root, "my docs"), filepath.Join(root, "private")))
+	res := requireToolSummaries(t, root,
+		[]string{storePreview(t, map[string]string{"file_path": filepath.Join(root, "my notes", "x.txt")})},
+		[]string{
+			storePreview(t, map[string]string{"file_path": filepath.Join(root, "mydocs", "x1.txt")}),
+			storePreview(t, map[string]string{"file_path": filepath.Join(root, "my docs", "x2.txt")}),
+		})
+	require.NotContains(t, res.Text, "x2.txt")
+}
+
+// TestRehydrateHostPaths_CommonIdiomsAreShownUnderTheUAT12Rules extends D61's usefulness row with the
+// review's everyday idioms, through the real host rules in a project whose path has a space in it: a
+// search for a comment marker, a redirect to /dev/null and a Docker bind mount of the project are
+// shown. The review's leaks are withheld: an absolute path glued to a flag, PowerShell's environment
+// variables, and a home directory's variable ending a word.
+func TestRehydrateHostPaths_CommonIdiomsAreShownUnderTheUAT12Rules(t *testing.T) {
+	root := uat12Project(t, "John Smith", "proj")
+	bash := func(cmd string) string { return storePreview(t, map[string]string{"command": cmd}) }
+	res := requireToolSummaries(t, root,
+		[]string{
+			bash(`grep -rn "// TODO" internal/`),
+			bash(`rg -n "//nolint" internal/`),
+			bash("ls -la src/ 2>/dev/null || true"),
+			bash("go build ./... >/dev/null && echo ok"),
+			bash(`docker run -v "` + root + `:/src" -w /src img go test ./...`),
+		},
+		[]string{
+			bash("git -C/home/u/other status"),
+			bash(`Get-Content $env:USERPROFILE\.aws\credentials`),
+			bash("cd $HOME && cat .ssh/id_rsa"),
+			bash(`7z x -oD:\stash a.zip`),
+		})
+	for _, leak := range []string{"/home/u", "credentials", "id_rsa", "stash"} {
+		require.NotContains(t, res.Text, leak)
+	}
+}

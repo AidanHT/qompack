@@ -454,10 +454,15 @@ func TestBuild_AShortWithheldNameNeverRedactsAnUnrelatedReason(t *testing.T) {
 // TestBuild_AWithheldAnchorPoisonsNoFreeText: a structured summary that is only an anchor (`~`, a
 // bare drive `D:`, `$HOME`) is withheld as outside the project, but it names no file, so it adds no
 // name to the free-text screen; were `~` a withheld name, every `HEAD~1` would be withheld.
+//
+// Criterion change (w19c round-1 review): `echo $HOME is set` was the `$HOME` case's shown text. A
+// home directory's variable ending a word is now that directory, as `~` alone is (D61(2)(c);
+// `cd $HOME && cat .ssh/id_rsa`), so it is withheld for what it says, not as poisoning;
+// `echo $HOMEPAGE is set` holds `$home` where a name starts and keeps the poisoning check.
 func TestBuild_AWithheldAnchorPoisonsNoFreeText(t *testing.T) {
 	root := previewRoot("proj")
 	requireScreened(t, root, hostRules(root, "./private/deny.txt"), nil,
-		[]string{"git diff HEAD~1", "git commit -m added: tests", "echo $HOME is set"},
+		[]string{"git diff HEAD~1", "git commit -m added: tests", "echo $HOMEPAGE is set"},
 		[]string{"~", "D:", "$HOME"},
 		nil)
 }
