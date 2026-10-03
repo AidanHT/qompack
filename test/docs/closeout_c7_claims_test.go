@@ -1,6 +1,9 @@
 package docs
 
 import (
+	"fmt"
+	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -78,17 +81,65 @@ func TestInstallDocumentsPluginDetailsArgument(t *testing.T) {
 	}
 }
 
-// TestUATIntroNamesCandidate7 asserts the page's opening names the candidate the eight re-run
-// Result blocks now report, and the decision that ruled their outcome.
-func TestUATIntroNamesCandidate7(t *testing.T) {
+// uatIntroCandidateRE matches the introduction's naming of a re-run candidate and its commit.
+var uatIntroCandidateRE = regexp.MustCompile("candidate ([0-9]+) \\(commit `([0-9a-f]{8})`\\)")
+
+// uatIntroCandidateFloor is the oldest candidate the introduction may name as its newest re-run:
+// candidate 7's re-run (D59) is on this page, so an introduction whose newest candidate is older
+// has dropped it. A newer candidate's re-check (D59, D60(f)) raises what the introduction names.
+const uatIntroCandidateFloor = 7
+
+// uatIntroRulingFloor is the oldest decision that can have ruled the newest re-run's outcome:
+// D59 ruled candidate 7's.
+const uatIntroRulingFloor = 59
+
+// uatCandidateCommits are the frozen commits of the candidates this page has reported, from the
+// coordinator's records (plans/sdd/V6-closeout/phase3/cN-CANDIDATE.md). A candidate not listed
+// here is held to its Result blocks' Snapshot lines instead.
+var uatCandidateCommits = map[int]string{3: "d5598eb4", 4: "9f6a2fad", 7: "d20309c0"}
+
+// TestUATIntroNamesItsNewestCandidate asserts the page's opening names the newest candidate whose
+// re-run the Result blocks report, by its commit, says those blocks report it, and names the
+// decision that ruled the outcome; and that a Result block's Snapshot names that same commit.
+func TestUATIntroNamesItsNewestCandidate(t *testing.T) {
 	body := normalized(readDoc(t, repoRoot(t), uatPath))
 	end := strings.Index(body, "## The isolation rule")
 	if end < 0 {
 		t.Fatalf("%s: the isolation rule heading was not found", uatPath)
 	}
-	for _, want := range []string{"`d20309c0`", "D59"} {
-		if !strings.Contains(body[:end], want) {
-			t.Errorf("%s introduction does not name candidate 7's re-run: missing %s", uatPath, want)
+	intro := body[:end]
+	newest, commit := 0, ""
+	for _, m := range uatIntroCandidateRE.FindAllStringSubmatch(intro, -1) {
+		if n, _ := strconv.Atoi(m[1]); n > newest {
+			newest, commit = n, m[2]
 		}
+	}
+	if newest == 0 {
+		t.Fatalf("%s introduction names no candidate by its commit (\"candidate N (commit `abcdef12`)\")", uatPath)
+	}
+	if newest < uatIntroCandidateFloor {
+		t.Errorf("%s introduction's newest candidate is %d; candidate %d's re-run is on this page",
+			uatPath, newest, uatIntroCandidateFloor)
+	}
+	if want, ok := uatCandidateCommits[newest]; ok && commit != want {
+		t.Errorf("%s introduction names candidate %d as commit %s; its frozen commit is %s",
+			uatPath, newest, commit, want)
+	}
+	if !strings.Contains(intro, fmt.Sprintf("report candidate %d", newest)) {
+		t.Errorf("%s introduction does not say which Result blocks report candidate %d", uatPath, newest)
+	}
+	ruled := 0
+	for _, d := range decisionRE.FindAllStringSubmatch(intro, -1) {
+		if n, _ := strconv.Atoi(d[1]); n > ruled {
+			ruled = n
+		}
+	}
+	if ruled < uatIntroRulingFloor {
+		t.Errorf("%s introduction names no decision from D%d on, so nothing rules candidate %d's re-run",
+			uatPath, uatIntroRulingFloor, newest)
+	}
+	if !strings.Contains(body[end:], "commit "+commit) {
+		t.Errorf("%s: no Result block's Snapshot names commit %s, the introduction's candidate %d",
+			uatPath, commit, newest)
 	}
 }
