@@ -615,7 +615,8 @@ silence and one leak in what §21 and §22 record, plus a log line whose scope t
 Items 1 to 4 record the first round of fixes. The w19 verifier then found the first round's summary
 gate too slow to answer a compaction in a project with any Read deny or ask rule, still leaking
 paths that hold a delimiter, and blind to paths the checkpoint records only as drops. Items 5 to 7
-record the second round and the coordinator's rulings on it (D60).
+record the second round and the coordinator's rulings on it (D60), and item 8 the fixes the
+second round's own review asked for.
 
 1. *A degraded compaction that dropped material is never silent* (D59, UAT-05 F-C7-UAT05-1). At
    UAT-05's `runtime.rehydrate.minTokens` = `maxTokens` = 150 the retrieval line (86 tokens) does
@@ -665,10 +666,14 @@ record the second round and the coordinator's rulings on it (D60).
 
    When the host's rules are established, every piece is judged, whatever its shape: a file needs
    no dot or separator (`credentials apikey` is Grep's path, then its pattern). A relative piece
-   is also withheld when it is a path the build withholds or a path-segment suffix of one, because
-   `recall`'s plain selector selects by equality and by suffix (`store.pathSelector.weight`), so
-   `path:deny.txt` selects `private/deny.txt`. A rooted piece names one file and is judged as
-   written, so a Read of the project's `README.md` is not withheld because `private/README.md` is.
+   is also withheld when it is a path the build withholds or a path-segment suffix of one (a
+   basename names the file). The value of `recall`'s `path:` selector is withheld when the store's
+   own selector would select a path the build withholds (`store.pathSelector.weight`): a plain
+   value selects a key it equals, is a path-segment suffix of, or is a substring of
+   (`path:deny.txt`, `path:rivate/deny.txt` and `path:deny` all select `private/deny.txt`), and a
+   glob selects a key `path.Match` matches whole or at any path-segment suffix (`path:keep/*.txt`
+   selects `private/keep/a.txt`; item 8). A rooted piece names one file and is judged as written,
+   so a Read of the project's `README.md` is not withheld because `private/README.md` is.
    A glob is withheld when, as written, it is outside the project or refused, or when it selects a
    path the build withholds: a file pointer's, one another summary names, or one a path-keyed
    checkpoint drop names (item 6) (`rules.Match`, a separator-free glob matching at any depth as
@@ -685,16 +690,30 @@ record the second round and the coordinator's rulings on it (D60).
    withholding them would break the `already_tried(target, approach)` call that restores them.
    Section 6 is the only section that prints argument summaries.
 
-   *Deliberate limits.* Four remain, each recorded so that no one reads the gate as stronger than
+   *Deliberate limits.* Six remain, each recorded so that no one reads the gate as stronger than
    it is.
    - A glob pattern that selects only files Qompack never recorded is judged as written: Build reads
      no files, so it has no listing to match against (D60(iv)).
    - The store's preview collapses runs of whitespace (`store.previewString`), so a denied path
      holding two spaces or a tab is recorded with one space, and the gate judges that spelling, which
      names no file (D60(iv)).
-   - A path with a space that its producer does not delimit, unquoted between two other words of a
-     command (`cp private/my secret.txt backup/`), is read word by word, as the shell that ran the
-     command read it (item 5). Quoted, or as a Read's, Grep's or Glob's argument, it is read whole.
+   - A path with a space that its producer does not delimit, between two other words of a command
+     or of a free-text argument (`cp private/my secret.txt backup/`,
+     `{"query":"find private/my secret.txt usages"}`), and that Qompack never recorded, is read word
+     by word (item 5). A withheld path the build records (a file pointer's, one a summary names
+     whole, one a checkpoint drop names) is found anywhere in a summary, wherever its spaces fall
+     (item 8). Quoted, escaped the way a POSIX shell or PowerShell reads it, or as a Read's, Grep's
+     or Glob's argument, any path is read whole.
+   - A summary that names the project root followed by more words, unquoted (`<root> TODO`, Grep's
+     preview with the root as its path; `cd <root> && go test ./...`), is judged word by word for
+     containment, and the stretch from the root on by the host's rules alone (item 8). So an
+     unquoted preview naming a sibling of the root whose name is the root's own last segment, a
+     space and more (`C:\Users\me\proj - Copy\notes.txt`, the name Windows gives a copied folder)
+     is shown unless a host rule refuses it. Quoted, or as a path-named JSON argument, it is
+     withheld as outside the project.
+   - The shell readings model a POSIX shell and PowerShell, the shells Claude Code's Bash and
+     PowerShell tools run. Another shell's escapes (cmd.exe's `^`) are read as written, which
+     matters only for a path Qompack never recorded.
    - The store cuts a preview longer than its width (120 bytes) with `…`, and the cut leaves a
      prefix of the last argument. When the cut falls inside a denied path, the gate judges the
      prefix, which no exact-file rule refuses, so a long enough absolute path can show most of a
@@ -757,13 +776,12 @@ record the second round and the coordinator's rulings on it (D60).
    is never the store's preview. A 17-word preview yields at most 4w-2 = 66 distinct pieces where
    the first round judged 169. Each judgement is then made cheap in the daemon: one
    `hostperm.Evaluator` serves the build. It gives exactly the answer `RuleSet.Evaluate` gives, and
-   judges a piece without the disk when a walk down the project's directories, each listed once per
+   judges a piece without the disk when a walk down the directories it names, each listed once per
    build, shows that nothing can respell it: each segment names an entry by its own name and the
-   entry is not a link or another reparse point, up to the first segment that names nothing. Any
-   other piece (through a link, an 8.3 alias, a reserved device name, a trailing dot, space or
-   stream, a non-ASCII segment) is judged on disk as before, with link reads memoized for the
-   build. On the verifier's fixture the build makes 3,145 judgements, none on disk, in 50 to 70 ms
-   on a loaded development machine, where 4bad4cef made 9,096, all on disk, in 11.6 s.
+   entry is not a link or another reparse point, up to the first segment that names nothing.
+   Item 8 records which pieces still reach the disk. On the verifier's fixture the build makes
+   3,145 judgements, none on disk, in 50 to 70 ms on a loaded development machine, where 4bad4cef
+   made 9,096, all on disk, in 11.6 s.
 6. *A withheld path the checkpoint records only as a drop is known* (D50, w19 verifier V3). The
    paths a selector or a glob is matched against came from file pointers and summaries only, so a
    denied path the checkpoint records only as a path-keyed drop (`pointer_missing`, a
@@ -780,6 +798,68 @@ record the second round and the coordinator's rulings on it (D60).
    A path that is only part of the root's spelling (`C:\Users\John` alone), or runs past it into
    a sibling (`C:\Users\John Smith\proj2`), is still judged, and withheld, as the path outside the
    project it is. The same holds for a root holding a comma, an apostrophe, `=` or another delimiter.
+8. *The second round's review* (w19 round-2 review, D50, D60). Eight findings; seven were fixed and
+   one (a bound's derivation) corrected.
+   - *The project root followed by more words was withheld in every project.* Read whole, a stretch
+     that starts at the root and runs on into the next word (`C:\q\proj TODO`, Grep's preview with
+     the root as its path, or the suffix `C:\q\proj && go test ./...` of a `cd`) is the root's own
+     name with a space and more after it, a sibling outside the project, so section 6 withheld
+     Grep and Glob over the root, `cd <root> && …` and `git -C <root> …`, with or without host
+     rules, and item 7's spaced root did not change that. An unquoted span or join whose first word
+     is inside the project, and which only as a whole runs outside it, is now judged by the host's
+     rules alone: each of its words is judged for containment on its own. A quoted segment, a
+     path-named argument and a single word keep their containment, and the residual case is the
+     second new limit in item 2.
+   - *Shell quoting and escapes.* A command names a path the way its shell reads it: PowerShell
+     doubles an apostrophe inside `'…'` and escapes with a backtick, a POSIX shell escapes a space,
+     an apostrophe or a parenthesis with a backslash and honours `\"` inside `"…"`, and `&&` ends a
+     word without a space. None of those spellings is the path, and an escaped quote mis-paired
+     every later quoted segment, so section 6 showed `Get-Content 'private/John''s notes.txt'`,
+     `cat private/my\ secret.txt` and `echo "a\"b" && cat "private/deny (1).txt"` while the file
+     pointer was withheld. Each text is now also read as a POSIX shell and as PowerShell read it,
+     in linear time, and each word that reading yields and the plain words do not is judged like a
+     word.
+   - *A recorded withheld path in free text.* Every path the build withholds and records, and each
+     of its path-segment suffixes, and the whole path below the root's absolute spelling, is looked
+     for in each text, with a word boundary on either side (whitespace, a quote, a delimiter, `:`,
+     `@`, or a closing `.`, `!` or `?`); a separator is not a boundary, so another directory's
+     `README.md` does not match. This asks the host nothing and costs the number of such paths times
+     the text's length.
+   - *Selectors.* As item 2 now states: a `path:` value is judged by what the store's selector
+     selects, containment and glob suffixes included.
+   - *Colon and non-ASCII pieces went to the disk.* The evaluator judged on disk every piece holding
+     a colon (every word, prefix, suffix and join of a canonical-JSON preview, a URL, `TODO:`, a
+     drive spelled mid-command, a conventional commit's `type(scope):`) or a non-ASCII rune (an em
+     dash, any non-English text): 80 Task-shaped JSON previews made 2,722 disk judgements in about
+     2 s, and the review measured 13,645 disk judgements and 8.3 s for 400. The evaluator now walks
+     a piece both as written and as the Win32 layer normalizes it (`syscall.FullPath`, a string
+     operation), each segment by the entry name it opens (a stream's colon cut on Windows; on POSIX
+     a colon is a name's own), and builds exactly `Evaluate`'s spellings: the base's own spellings
+     joined to the rest as written and as normalized, the resolved ones the way `resolveLinks` joins
+     them (on Windows `filepath.Join` puts no separator after a segment ending in a colon), and
+     `osAlias`'s 8.3 verdict on the segments it keeps. A segment ending in a dot or a space may only
+     end the walk, naming nothing either as written or trimmed, since the Win32 layer trims it where
+     it ends a prefix that `GetLongPathNameW` or `Readlink` opens (`cd \x` opens `cd\x` when `cd`
+     exists). A non-ASCII segment is compared with a Windows listing under any volume's case table
+     (same UTF-16 length, the same ASCII letters, a non-ASCII unit matching anything) and judged on
+     disk on any match; on macOS, whose filesystems also equate Unicode normalizations, it is judged
+     on disk. The adapter also gives the evaluator the root's parent, so the sibling stretch of the
+     first finding is settled from the parent's listing.
+     `TestEvaluator_LexicalCandidatesAreEvaluatesSpellings` pins the spellings, one for one, against
+     `spellings`. What still reaches the disk: a piece through a link or another reparse point, one
+     naming an entry by its 8.3 alias, one through a directory that cannot be listed, a segment
+     with a trailing dot or space that names an entry either way, a non-ASCII name a listed name may
+     equal (Windows) or any non-ASCII name (macOS), a device name the Win32 layer turns into a
+     device path, a kept `..`, a piece outside the root and its parent, and every piece while a rule
+     names an 8.3 name it could not expand. On the review's shapes (Task and recall JSON, a URL,
+     colons, an em dash, Cyrillic, `cd <root> && …` in either slash) 80 previews each make no disk
+     judgement on Windows and Linux (on macOS, exactly their non-ASCII pieces), in 25 to 90 ms each
+     on a loaded development machine.
+   - *The cost row's disk bound.* `maxDiskJudgementsPerSummary` was 2, derived as "two file words";
+     a suffix that starts at a file word walks the same first segment, so through links the
+     fixture costs 4. The link-free fixture's bound is now 0, which is what it costs, and a
+     linked-directory variant must cost exactly 2 file words x {the word, the suffix from it} = 4
+     per preview.
 
 **Evidence.** `internal/rehydrate`: `TestBuild_ATinyBudgetThatDroppedMaterialIsNeverSilent`,
 `TestBuild_TheLossNoticeShrinksToItsSmallestForm`, `TestLossNotice_NothingDroppedStaysEmpty`,
@@ -791,14 +871,24 @@ record the second round and the coordinator's rulings on it (D60).
 `TestBuild_HostRulesAreEstablishedOncePerBuild`,
 `TestBuild_DelimiterCharactersInADeniedPathNeverShowIt` (item 5),
 `TestBuild_APathKnownOnlyFromACheckpointDropIsNamedByNoSelector` (item 6),
-`TestBuild_AProjectPathWithASpaceShowsItsOwnAbsolutePaths` (item 7); `internal/daemon`:
+`TestBuild_AProjectPathWithASpaceShowsItsOwnAbsolutePaths` (item 7),
+`TestBuild_TheProjectRootFollowedByMoreWordsIsShown`,
+`TestBuild_ShellQuotingAndEscapesNeverShowADeniedPath`,
+`TestBuild_AKnownWithheldPathIsFoundAnywhereInAText` and
+`TestBuild_APathSelectorIsJudgedByWhatItSelects` (item 8); `internal/daemon`:
 `TestRehydrateHostPaths_ASelectorNamingADeniedFileIsWithheld` and
 `TestRehydrateHostPaths_EverySpellingOfADeniedFileIsWithheld` (the real host rules with the UAT-12
 deny rule), `TestRehydrateHostPaths_SummaryJudgementsAreLinearInTheirWords` (item 5's cost, through
 the real adapter: judgements bounded by 4w-2 per summary, none on disk),
 `TestRehydrateHostPaths_ADeniedPathWithDelimitersIsWithheld` (item 5, the store's own previews) and
-`TestRehydrateHostPaths_AProjectPathWithASpaceShowsItsOwnPaths` (item 7); `internal/hostperm`:
-`TestEvaluator_AgreesWithEvaluate` and `TestEvaluator_JudgesOnDiskOnlyWhatTheDiskCouldRespell`.
+`TestRehydrateHostPaths_AProjectPathWithASpaceShowsItsOwnPaths` (item 7),
+`TestRehydrateHostPaths_TheProjectRootFollowedByMoreWordsIsShown`,
+`TestRehydrateHostPaths_AShellEscapedDeniedPathIsWithheld`,
+`TestRehydrateHostPaths_EveryPreviewShapeIsJudgedWithoutTheDisk` and
+`TestRehydrateHostPaths_APieceThroughALinkIsJudgedOnDisk` (item 8); `internal/hostperm`:
+`TestEvaluator_AgreesWithEvaluate`, `TestEvaluator_JudgesOnDiskOnlyWhatTheDiskCouldRespell`,
+`TestEvaluator_LexicalCandidatesAreEvaluatesSpellings` and
+`TestEvaluator_ANameAListedNonASCIINameMayEqualIsJudgedOnDisk` (item 8).
 No golden changed: no golden payload is built at a budget below the retrieval line, and none
 carries a summary or a checkpoint drop the refined gate withholds.
 

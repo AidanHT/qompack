@@ -69,8 +69,10 @@ require a separate authorized expansion.
 **The rehydration block follows the same rules for its pointers.** After a compaction, a file or
 tool pointer, a tool call's argument summary, or a drop entry that names a path these rules deny or
 ask about, or a path outside the project, points by content hash instead, and a summary is read as
-the arguments it records: a path behind a selector such as `path:`, a basename that selector would
-match, a path with a space or a delimiter in it, and a glob that selects a withheld path all count.
+the arguments it records: a `path:` selector that would select a withheld path (by equality,
+suffix, substring or glob, as `recall` selects), a path with a space or a delimiter in it, a path
+escaped or quoted the way a POSIX shell or PowerShell reads it, a withheld path Qompack recorded
+spelled anywhere in the summary, and a glob that selects a withheld path all count.
 A checkpoint drop entry keyed by such a path stays in `dropped()` with the path replaced by the
 pointer's hash or `(path withheld)`. The limits of that reading, and the block's records of
 eliminated approaches and decisions, which are the model's own earlier text and are not gated, are
