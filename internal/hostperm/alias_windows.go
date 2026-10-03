@@ -3,6 +3,7 @@
 package hostperm
 
 import (
+	"errors"
 	"path/filepath"
 	"strings"
 	"syscall"
@@ -143,5 +144,52 @@ func win32ShortPathName(p string) (string, bool) {
 			return trimLong(syscall.UTF16ToString(buf[:n]), in != p), true
 		}
 		buf = make([]uint16, n)
+	}
+}
+
+// respelled reports whether the Win32 layer would open the clean absolute path p under another
+// spelling without consulting the disk: GetFullPathNameW rewrites it (a reserved device name, a
+// trailing dot or space), or a segment below the volume carries a stream suffix (stripStreams).
+// Such a path is judged on disk by an Evaluator, as osAlias judges it.
+func respelled(p string) bool {
+	full, err := syscall.FullPath(p)
+	return err != nil || full != p || strings.Contains(p[len(filepath.VolumeName(p)):], ":")
+}
+
+// listNames returns what dir's listing says about each name in it (Evaluator): each entry's own
+// name and its 8.3 alias, case-folded (the Win32 layer opens an entry by either, in any case), and
+// whether it is a reparse point (a symlink, a junction, a mount point or any other, which a path
+// through it may be redirected by). It is nil when dir cannot be listed. os.ReadDir reports no 8.3
+// names, so the directory is read with FindFirstFileW.
+func listNames(dir string, _ bool) map[string]entryKind {
+	pattern, err := syscall.UTF16PtrFromString(paths.Long(dir) + `\*`)
+	if err != nil {
+		return nil
+	}
+	var fd syscall.Win32finddata
+	h, err := syscall.FindFirstFile(pattern, &fd)
+	if err != nil {
+		return nil
+	}
+	defer func() { _ = syscall.FindClose(h) }()
+	names := map[string]entryKind{}
+	for {
+		var link entryKind
+		if fd.FileAttributes&syscall.FILE_ATTRIBUTE_REPARSE_POINT != 0 {
+			link = entryLink
+		}
+		own := strings.ToLower(syscall.UTF16ToString(fd.FileName[:]))
+		if own != "." && own != ".." {
+			names[own] |= entryOwn | link
+			if alias := strings.ToLower(syscall.UTF16ToString(fd.AlternateFileName[:])); alias != "" && alias != own {
+				names[alias] |= entryAlias | link
+			}
+		}
+		if err := syscall.FindNextFile(h, &fd); err != nil {
+			if errors.Is(err, syscall.ERROR_NO_MORE_FILES) {
+				return names
+			}
+			return nil
+		}
 	}
 }
