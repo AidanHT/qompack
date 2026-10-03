@@ -618,7 +618,14 @@ paths that hold a delimiter, and blind to paths the checkpoint records only as d
 second round answered those by reading more shapes of more text, and its own verifier found more
 leaks and new over-withholding. Coordinator decision D61 then replaced the search for paths inside
 free text with a bounded screen. Items 5 to 10 record the gate as D61 rules it; the second round's
-reading and its record are superseded, except where an item says a part of it carries.
+reading and its record are superseded, except where an item says a part of it carries. The review
+of D61's first implementation (w19c) found spellings the screen did not read (a path glued to a
+short option, PowerShell's `$env:` variables, a path-named argument holding more than one path, a
+line continuation inside a word, a cut command that starts like JSON) and summaries it withheld that
+name no withheld path (a rule anchored outside the project whose literal merely occurs in the root's
+path, a withheld name matched inside another word, a cut path argument read as a whole path, a
+comment marker read as a UNC share, `2>/dev/null`, a Docker bind mount of the project); items 6 to
+10 record the gate after that review.
 
 1. *A degraded compaction that dropped material is never silent* (D59, UAT-05 F-C7-UAT05-1). At
    UAT-05's `runtime.rehydrate.minTokens` = `maxTokens` = 150 the retrieval line (86 tokens) does
@@ -678,17 +685,31 @@ reading and its record are superseded, except where an item says a part of it ca
    *Deliberate limits* (D61(5), D60(iv)). Each is recorded so that no one reads the gate as
    stronger than it is.
    - Aliases and globs typed in free text are not resolved. A command that names a denied file by
-     its 8.3 short name (`PRIVAT~1\deny.txt`), through a link, or by a glob or a regular
-     expression (`cat private/den*`, a Grep for `priv.*deny`) does not spell the rule's literal and
+     its 8.3 short name (`PRIVAT~1\deny.txt`), through a link, by a Unicode normalization variant
+     of its name (an NFD spelling of an NFC literal, which APFS opens as the same file; the screen
+     folds case only), or by a glob, a brace expansion or a regular expression (`cat private/den*`,
+     `cat private/{deny,other}.txt`, a Grep for `priv.*deny`) does not spell the rule's literal and
      is shown; a rule written through an 8.3 name screens by that name. File pointers and
      structured summaries are judged by the host's rules, which resolve aliases and links.
-   - Names assembled at run time cannot be seen: a variable (`cat $F`), a concatenation
-     (`"pri"+"vate"`), a command substitution, ANSI-C quoting (`$'\x70rivate'`), or any encoding the
-     screen does not undo (it undoes quotes, escapes, JSON strings and percent-encoding).
-   - Free text that merely mentions a rule's literal or a withheld path's basename is withheld
-     (`kubectl get secrets` under `Read(./secrets/**)`; `not my secret.txt.bak at all` beside a
-     withheld `private/my secret.txt`), and a literal or basename of a character or two withholds
-     most free text. D61 accepts that over-withholding.
+   - Names assembled at run time cannot be seen: a variable other than a home directory's
+     (`cat $F`; item 7(c)), a concatenation (`"pri"+"vate"`), a command substitution, ANSI-C
+     quoting (`$'\x70rivate'`), or any encoding the screen does not undo (it undoes quotes, escapes,
+     line continuations, JSON strings and percent-encoding).
+   - A name relative to a directory an earlier command changed to is not resolved: the shell's
+     working directory persists between calls, so after `cd secrets` a later `cat token.txt` is
+     shown under `Read(./secrets/**)` unless a file pointer recorded the file (item 7(b)); cmd.exe's
+     `cd..`, glued, is not read as `..` either.
+   - Free text that merely mentions a rule's literal or a withheld path's name where a name starts
+     is withheld (`kubectl get secrets` under `Read(./secrets/**)`; `process.env.NODE_ENV` under
+     `Read(./.env)`; `git config user.email` under a user rule `Read(~/.kube/config)`, or beside a
+     withheld out-of-project `~/.ssh/config`; `git diff README.md` beside a withheld module-cache
+     README.md; `not my secret.txt.bak at all` beside a withheld `private/my secret.txt`), and a
+     literal or name of a character or two withholds most free text. D61 accepts that
+     over-withholding. So is a stretch inside a URL after `=`, `:` or `@` that reads as a
+     drive-relative path (`?q=a:b`), cmd.exe switches glued into a POSIX path (`dir /s/b`), a POSIX
+     library id or container path of two segments (`/vercel/next.js`, `-v <root>:/app/data`), and,
+     on Windows, a summary that starts below the root whose words the host refuses as an 8.3 name it
+     cannot resolve (a Grep preview `<root>\src HEAD~1`).
    - A glob that selects only files Qompack never recorded is judged as written: Build reads no
      files, so it has no listing to match against (D60(iv)). A structured glob, and recall's `path:`
      selector, are withheld when they select a path the build records as withheld (items 6 and 7).
@@ -699,7 +720,8 @@ reading and its record are superseded, except where an item says a part of it ca
      argument, it is withheld (item 8).
    - A drop entry's reason that names a path a rule refuses but the build never recorded (a rule or
      skill scan error naming an in-project file) is screened for paths outside the project and for
-     the paths the build withholds, not for the rules' literals (item 9).
+     the whole spellings of the paths the build withholds, not for the rules' literals or a bare
+     basename (item 9).
    The store's preview collapses runs of whitespace (D60(iv)); the screen collapses a rule's literal
    the same way, so a denied name holding two spaces is found in a command that spells it.
 3. *Loud once per session per daemon* (F-C7-UAT05-2). §22.8's marker is the daemon's memory
@@ -749,55 +771,92 @@ reading and its record are superseded, except where an item says a part of it ca
 6. *A structured summary is judged whole, as a file pointer is* (D61(1)). A tool pointer does not
    carry its tool's name (`checkpoint.ToolPointer`), so the shape decides. A structured value is a
    summary of one word, once the project root's own spelling is held together (item 8), that is not
-   a URL: a Read's, Write's or Edit's `file_path`, a lone Glob or Grep argument, an LS path. So is
-   each value of a path-named argument of a canonical-JSON preview (`path`, `file_path`,
-   `notebook_path`, `paths`, `file`, `dir`, `cwd` and their kin, each element of an array). A value
-   is withheld when the build withholds it as it would a file pointer's path (containment, and the
-   host's rules once per build), when it spells an absolute, home or variable path outside the
-   project in any form item 7 reads (a file URL, `D:secret.txt`), or when it is a glob that selects
-   a path the build withholds (`rules.Match`; a glob without a separator matches at any depth).
-   Read, Write and Edit take an absolute `file_path`, so a rooted plain word is the one file a file
-   pointer would name and is judged only so: the project's `README.md` is shown although
-   `private/README.md` is withheld. A relative word, which is a Glob or Grep argument and may spell
-   a withheld file's name or a rule's literal, and a word holding a character no plain path does (a
-   command glued without spaces: `cat<x`, `a=b`, `path:x`), are also screened as free text.
+   a URL: a Read's, Write's or Edit's `file_path`, a lone Glob or Grep argument, an LS path. So is a
+   summary that starts at the root and goes on below it with a space: a Read of `<root>/my
+   docs/x.txt`, or Grep's path then its pattern; without that judgement a link or an 8.3 name in
+   such a path went unresolved (w19c review). So is each value of a path-named argument of a
+   canonical-JSON preview (`path`, `file_path`, `notebook_path`, `paths`, `file`, `dir`, `cwd` and
+   their kin, each element of an array), when everything outside the preview's strings is JSON's own
+   grammar (item 7). A value is withheld when the build withholds it as it would a file pointer's
+   path (containment, and the host's rules once per build), when it spells an absolute, home or
+   variable path outside the project in any form item 7 reads (a file URL, `D:secret.txt`), or when
+   it is a glob that selects a path the build withholds (`rules.Match`; a glob without a separator
+   matches at any depth). Read, Write and Edit take an absolute `file_path`, so a rooted plain path
+   is the one file a file pointer would name and is judged only so: the project's `README.md` is
+   shown although `private/README.md` is withheld. Every other value is also screened as free text:
+   a relative one, which is a Glob or Grep argument and may spell a withheld file's name or a rule's
+   literal, and one holding a character no plain path does: a list (`a.go b.go`, `a.go,b.go`), a
+   line locator (`x.go#L4`, `x.go:10`, `x.go@rev`; `#` and `@` are a locator's more often than a
+   name's), or a command glued without spaces (`cat<x`, `a=b`, `path:x`). A JSON path argument named
+   `file` is therefore no less protected than one named `target`. A value the store's cut fell
+   inside is item 9's.
 7. *Free text is screened and asks the host nothing* (D61(2)). Every other summary, and every other
    string of a JSON preview (keys included), is free text: a Bash or PowerShell command, an MCP
-   query, a prompt, any other argument. It is read as recorded, as each decoded JSON string, and
-   each of those percent-decoded, with control characters dropped and whitespace runs collapsed as
-   the store's preview collapses them (`store.previewString`), the project root's spellings held
-   together (item 8). It is withheld when:
+   query, a prompt, any other argument. A summary that starts like JSON (`{"` or `["`) and was cut
+   is read as JSON only when every byte outside its strings is JSON's own grammar; a command of that
+   shape (`{"x":1} && cat …`) is one free text, its strings beside it. It is read as recorded, as
+   each decoded JSON string, and each of those percent-decoded, with control characters dropped and
+   whitespace runs collapsed as the store's preview collapses them (`store.previewString`), the
+   project root's spellings held together (item 8). It is withheld when:
    - (a) with `'` `"` `` ` `` `\` `^` removed and case folded where the platform's paths fold
-     (Windows, macOS), it contains a rule's screen literal. A Read deny or ask rule's literal
-     (`screenLiteral`, over the specifiers `hostperm.RuleSet.ReadRulePatterns` lists) is its last
-     segment when that has no glob syntax (`deny.txt`, `.env`, `John's notes.txt`), else the
-     nearest all-literal segment before it (`secrets` for `./secrets/**`, `private` for
+     (Windows, macOS), or with those escape characters read as separators, or with an escape
+     character before a space removed together with the space (a line continuation inside a word,
+     `de\`, `de^` or ``de` `` before a newline, which the store's preview collapsed to `de\ ny`), it
+     contains a rule's screen literal. A Read deny or ask rule's literal (`screenLiteral`, over the
+     specifiers `hostperm.RuleSet.ReadRulePatterns` lists, `..` resolved as hostperm resolves it) is
+     its last segment when that has no glob syntax (`deny.txt`, `.env`, `John's notes.txt`), else
+     the nearest all-literal segment before it (`secrets` for `./secrets/**`, `private` for
      `./private/*.txt`), else the longest literal run of the last segment (`.env` for `**/*.env`,
      `.pem` for `*.pem`). Every path the rule refuses spells it, so every spelling of such a path in
      a command, however it is quoted, escaped, nested in another shell or glued to an operator,
      holds it once those characters are gone;
-   - (b) in the same form, it contains the basename or the relative path of a path this build
-     withholds: a file pointer's, a path-keyed checkpoint drop's (item 4) or a structured summary's
-     (item 6), and never a fragment, word or span of another summary, so no free text poisons
-     another, nor an anchor that names no file (`~`, a bare `D:`, `$HOME`), which would withhold
-     every `HEAD~1`;
-   - (c) with quotes removed and separators kept, it holds an absolute path outside the project: a
-     drive path, absolute or drive-relative; a UNC share; a `file://` URL other than one naming the
-     project's own path; a POSIX absolute path of two segments or more (a single segment, such as
-     the flag `/c`, is not one); a home- or variable-rooted path (`~/.ssh/key`, `$HOME/.aws/x`,
-     `%USERPROFILE%\x`, or glued to a flag as in `-i~/.ssh/key`); the root's spelling followed by
-     `..` segments that leave it; or a relative path whose `..` leaves the project. An http(s) or
-     other URL is not a path. A path starts the text or follows whitespace, a shell delimiter, `=`,
-     `:` or `@`;
-   - recall's `path:` selector in it names a path outside the project or selects a path the build
-     withholds by the store's own rule (`store.pathSelector.weight`: a plain value by equality,
-     path-segment suffix or substring; a glob by `path.Match` on the whole key or any path-segment
-     suffix), as round 2 judged it, with no host judgement;
+   - (b) in the same forms, it contains the basename or the relative path of a path this build
+     withholds where a name starts (at the start, or after a byte that does not continue a name; a
+     name glued to a preceding name character is another file, `layout.txt` is not `out.txt`, and
+     what follows is not judged, so `my secret.txt.bak` holds `my secret.txt`): a file pointer's, a
+     path-keyed checkpoint drop's (item 4) or a structured summary's (item 6) that is whole (the
+     store's cut fell outside it), concrete, and rooted or holding a separator. Never a fragment,
+     word or span of another summary, so no free text poisons another; nor a one-word relative value
+     with no separator, which is a Glob or Grep argument and often no path (a git revision `HEAD~1`,
+     which the host may refuse on Windows as an 8.3 name it cannot resolve); nor an anchor that
+     names no file (`~`, a bare `D:`, `$HOME`), which would withhold every `HEAD~1`;
+   - (c) with quotes removed and separators kept, and also with a POSIX shell's `.\.` read as `..`,
+     it holds an absolute path outside the project: a drive path, absolute or drive-relative; a UNC
+     share, which needs a host and a share (`\\host\share`; two separators and a word alone, a
+     comment marker such as `// TODO`, `//nolint` or `//go:build`, are no path), or a `\\?\` or
+     `\\.\` device path; a `file://` URL other than one naming the project's own path; a POSIX
+     absolute path of two segments or more (a single segment, such as the flag `/c`, is not one, and
+     neither are the standard devices `/dev/null`, `/dev/stdin`, `/dev/stdout`, `/dev/stderr`,
+     `/dev/tty`, `/dev/zero`, `/dev/random`, `/dev/urandom` and `/dev/fd/N`, which hold no file
+     content); a home- or variable-rooted path (`~/.ssh/key`, `$HOME/.aws/x`, `%USERPROFILE%\x`,
+     PowerShell's `$env:USERPROFILE\x` and `${env:LOCALAPPDATA}\x`, cmd.exe's `!USERPROFILE!\x` and
+     chained `%HOMEDRIVE%%HOMEPATH%\x`, or glued to a flag as in `-i~/.ssh/key`); a home directory's
+     variable alone, ending a word, which is that directory as `~` alone is (`cd $HOME && cat
+     .ssh/id_rsa`, `cd %USERPROFILE% && …`; `HOME`, `USERPROFILE`, `HOMEPATH`, `APPDATA`,
+     `LOCALAPPDATA`, `ONEDRIVE`, `XDG_*_HOME`, in any of those spellings); the root's spelling
+     followed by `..` segments that leave it; or a relative path whose `..` leaves the project. A
+     path starts the text or follows whitespace, a shell delimiter, `=`, `:` or `@`, or is glued to
+     a short option (`-I/opt/include`, `-oD:\stash`, `git -C/home/u/other`). An http(s) or other URL
+     is not a path, but a stretch inside it after `=`, `:` or `@` is read as one;
+   - recall's `path:` selector in it, at the start or after whitespace, `(`, a quote or `=`
+     (`qompack recall "path:x"`, `--query=path:x`), names a path outside the project or selects a
+     path the build withholds by the store's own rule (`store.pathSelector.weight`: a plain value by
+     equality, path-segment suffix or substring; a glob by `path.Match` on the whole key or any
+     path-segment suffix), as round 2 judged it, with no host judgement;
    - or (d) the host's rules are unavailable: then every free text is withheld, as `re_read` fails
      closed. So is every free text while one rule's literal cannot tell texts apart: a rule with no
-     literal part (`Read`, `./**`, `~/**`), or one measured from outside the project (`//`, `/`,
-     `~`, a drive, `..`) whose literal lies in the project's own path (`//c/Users/me/**` for a
-     project under it), which may refuse every project path.
+     literal part (`Read`, `./**`, `~/**`), or a rule anchored outside the project (`//`, `/`, `~`,
+     a drive, `..`) that may refuse the root or a path below it whose relative spelling need hold no
+     literal. Such a rule is matched against the root segment by segment (`rootCover`; a glob
+     segment by `path.Match`, `**` across segments, from the filesystem root for `//` and a drive
+     and at every alignment for a home or settings anchor, which Build does not know): it covers the
+     project when it ends, or ends in a wholly unliteral glob, at or above the root
+     (`//c/Users/me/**` or `~/config/**` for a project under them). One that reaches project paths
+     only through what follows the root (`~/Documents/**/*.key` for a project under Documents)
+     screens that part's literal (`.key`) as well; one that refuses nothing in the project, though
+     its literal occurs in the root's path as a segment or a substring (`~/Documents/*.pdf` for a
+     project under Documents, `~/.kube/config` beside `config-service`, `//etc/**` beside
+     `fetcher`), withholds nothing more than its literal does.
 8. *The project root is held together* (round 1's open issue, ruled on in D60(c); D61(2)(c)). In a
    project whose path has a space, a comma or an apostrophe in it (`C:\Users\John Smith\proj`),
    splitting a summary cut the root apart and withheld every absolute summary as outside the
@@ -807,47 +866,64 @@ reading and its record are superseded, except where an item says a part of it ca
    `/mnt/c/…` and the `\\?\` prefix) and holds it together as one mark. Its literals are never
    looked for in the root's own name, an absolute summary from the root is one word, and a path from
    the root is judged from the root on, so `cd <root> && go test ./...` and `git -C <root> status`
-   are shown. A spelling glued to a name character on either side (`proj2`, `proj.bak`, `proj,x`,
-   `"<root>"x`, which a shell joins into `projx`) is not the root and reads as the path outside the
-   project it is. One that runs on into more words inside one quoted argument (`cat "<root>
-   old\x.txt"`, by a POSIX shell's, PowerShell's or cmd.exe's reading of the quotes), or through an
-   escaped space (`<root>\ old/x.txt`), names a sibling, and the summary is withheld.
+   are shown. So is the root glued to a short option (`gcc -I<root>/include`) and the root followed
+   by a colon and a path, a quote or the end, which ends the root's word (a Docker bind mount, `-v
+   "<root>:/src"`; what follows the colon is read as a path of its own). A spelling glued to a name
+   character on either side (`proj2`, `proj.bak`, `proj,x`, `"<root>"x`, which a shell joins into
+   `projx`) is not the root and reads as the path outside the project it is. One that runs on into
+   more words inside one quoted argument (`cat "<root> old\x.txt"`, by a POSIX shell's, PowerShell's
+   or cmd.exe's reading of the quotes), or through an escaped space (`<root>\ old/x.txt`), names a
+   sibling, and the summary is withheld.
 9. *A cut summary, and section 7's reasons* (D61(2), D61(3)). The store cuts a preview at 120 bytes
    with `…` (`store.argsPreviewMax`), and a cut inside a denied path left a prefix no exact-file
    rule refuses. A cut summary is withheld when it ends, at a word or path-segment boundary, in the
    first three bytes or more (`minCutPrefix`) of a rule's literal, of a withheld path's basename or
-   relative path, or of a rule's specifier, read with escape characters removed and read as
-   separators (`private\den…`, `my\ sec…`); a summary the rendering would cut (`pointerLine`) is
-   judged as rendered too. No drop entry's reason, in section 7 or in `dropped()`, shows an
-   absolute path outside the project or names a withheld path as a word or path segment. The
-   checkpointer's `pointer_git_unavailable` carries the git error verbatim, which in a linked
-   worktree names its gitdir (`checkpoint: git index unsupported: reading index:
-   GetFileAttributesEx <gitdir>\index: …`), and a rule or skill scan error can name a directory
-   above the project. A reason is read as an error chain joined by `": "`: the parts before the one
-   that shows the path stay, that part becomes `(path withheld)`, and the later parts that hold no
-   separator (the system's message) stay. A path-scoped rule's drop names the pointer it matched
-   only when section 6 may show that pointer. Entries whose reason is the model's own text (item 2)
-   and section 6's own pointer drops, whose path withheld() has judged, are left as they are. The
-   redaction is made where rehydrate reads the entries, so a checkpoint written before it is gated
-   too, and `internal/checkpoint` is unchanged.
+   relative path, or of a rule's specifier, read in each of item 7(a)'s forms (`private\den…`, `my\
+   sec…`); a literal taken from a glob run with `*`, `?` or a class before it (`.env` for
+   `**/*.env`) begins inside a name, so its prefix counts with no boundary (`config/prod.en…`). A
+   summary the rendering would cut (`pointerLine`) is judged as rendered too. The piece the cut fell
+   inside is the start of what was written, never a whole path or name: a stretch from a path's
+   start to the cut that begins the root's own spelling is the root (a command naming the root
+   twice, cut inside the second); a cut structured value (NotebookEdit's `notebook_path`, which
+   sorts after `new_source`, cut inside the root's spelling or below it) is the project when it
+   begins the root's spelling, and is otherwise judged by the directory it spells whole (one host
+   judgement), its last, cut segment left to the screen; and it is never a withheld name, so a cut
+   basename (`Jo`, `to`) poisons no free text. No drop entry's reason, in section 7 or in
+   `dropped()`, shows an absolute path outside the project or names a withheld path by its whole
+   spelling (relative for one in the project, after `<root>/` or `./`, or at a word's start; as
+   written for one outside it) where a path starts. A bare basename does not count: an allowed
+   `README.md` or `src/CLAUDE.md` beside a withheld `private/README.md` or `~/.claude/CLAUDE.md` is
+   another file, and its restore clause stays. The checkpointer's `pointer_git_unavailable` carries
+   the git error verbatim, which in a linked worktree names its gitdir (`checkpoint: git index
+   unsupported: reading index: GetFileAttributesEx <gitdir>\index: …`), and a rule or skill scan
+   error can name a directory above the project. A reason is read as an error chain joined by `":
+   "`, each part as clauses joined by `"; "`: the parts before the one that shows the path stay; in
+   that part the clause that shows it becomes `(path withheld)`, the clauses before it stay and
+   those after it stay while they hold no separator; and the later parts that hold no separator (the
+   system's message) stay. A path-scoped rule's drop names the pointer it matched only when section
+   6 may show that pointer. Entries whose reason is the model's own text (item 2) and section 6's
+   own pointer drops, whose path withheld() has judged, are left as they are. The redaction is made
+   where rehydrate reads the entries, so a checkpoint written before it is gated too, and
+   `internal/checkpoint` is unchanged.
 10. *Cost, and hostperm* (D61(4)). A build calls the host's judgement once for each distinct file
-    pointer path, path-keyed checkpoint drop and structured summary, and never for free text.
-    Through the real adapter, 80 Bash previews of 17 words, 80 canonical-JSON and URL previews, and
-    80 commands spelling the project root absolutely each cost exactly the build's 10 file pointers
-    and 10 structured summaries, 20 judgements; on 1dd7b00d the same 80 free-text previews alone
-    cost 3,145, 1,967 and 1,058. A judgement is `RuleSet.Evaluate` on the path and, when the root
-    resolves elsewhere, on its resolved spelling, each of which may read the disk; so a build costs
-    at most two Evaluates per file pointer, path-keyed drop and structured summary. The round-2
-    `hostperm.Evaluator` (ed27b4ce, 565415ee) is reverted with its rows: hostperm is
-    security-critical, every path through it is risk, and nothing it bought is still needed.
-    `internal/hostperm` is byte for byte its a357d187 code plus one read-only accessor,
-    `RuleSet.ReadRulePatterns`, which hands the screen the rules' specifiers: a357d187's RuleSet
-    exposes no view of its rules, and the only alternative, re-reading the host's settings sources
-    outside hostperm, would duplicate its source discovery.
+    pointer path, path-keyed checkpoint drop and structured summary (for a cut one, once for the
+    directory it spells whole), and never for free text. Through the real adapter, 80 Bash previews
+    of 17 words, 80 canonical-JSON and URL previews, and 80 commands spelling the project root
+    absolutely each cost exactly the build's 10 file pointers and 10 structured summaries, 20
+    judgements; on 1dd7b00d the same 80 free-text previews alone cost 3,145, 1,967 and 1,058. A
+    judgement is `RuleSet.Evaluate` on the path and, when the root resolves elsewhere, on its
+    resolved spelling, each of which may read the disk; so a build costs at most two Evaluates per
+    file pointer, path-keyed drop and structured summary. The round-2 `hostperm.Evaluator`
+    (ed27b4ce, 565415ee) is reverted with its rows: hostperm is security-critical, every path
+    through it is risk, and nothing it bought is still needed. `internal/hostperm` is byte for byte
+    its a357d187 code plus one read-only accessor, `RuleSet.ReadRulePatterns`, which hands the
+    screen the rules' specifiers: a357d187's RuleSet exposes no view of its rules, and the only
+    alternative, re-reading the host's settings sources outside hostperm, would duplicate its source
+    discovery.
 
 **Evidence.** `internal/rehydrate`: `TestBuild_ATinyBudgetThatDroppedMaterialIsNeverSilent`,
-`TestBuild_TheLossNoticeShrinksToItsSmallestForm`, `TestLossNotice_NothingDroppedStaysEmpty`
-(item 1); `TestBuild_ArgumentSummariesNeverShowAWithheldPath`,
+`TestBuild_TheLossNoticeShrinksToItsSmallestForm`, `TestLossNotice_NothingDroppedStaysEmpty` (item
+1); `TestBuild_ArgumentSummariesNeverShowAWithheldPath`,
 `TestBuild_ArgumentSummariesFailClosedWithoutHostRules`,
 `TestBuild_JoinedArgumentPreviewsNeverShowAWithheldPath`,
 `TestBuild_AnAbsolutePathIsJudgedAsTheOneFileItNames`,
@@ -864,36 +940,56 @@ and `TestBuild_APathKnownOnlyFromACheckpointDropIsNamedByNoSelector` (item 4);
 `TestBuild_FileURLsAndDriveRelativePathsAreWithheld`,
 `TestBuild_AOneWordArgumentIsJudgedByItsShape`,
 `TestBuild_ARuleOverTheWholeProjectWithholdsEveryFreeText`,
-`TestBuild_AWithheldAnchorPoisonsNoFreeText`,
-`TestBuild_UsefulSummariesAreShownUnderTheUAT12Rules` and
-`TestScreenLiteral_IsTheRulePatternsLiteralPart` (items 6 and 7);
+`TestBuild_AWithheldAnchorPoisonsNoFreeText`, `TestBuild_UsefulSummariesAreShownUnderTheUAT12Rules`
+and `TestScreenLiteral_IsTheRulePatternsLiteralPart` (items 6 and 7);
 `TestBuild_AProjectPathWithASpaceShowsItsOwnAbsolutePaths` and
 `TestBuild_TheProjectRootFollowedByMoreWordsIsShown` (item 8);
 `TestBuild_ATruncatedSummaryNeverShowsTheCutPrefixOfADeniedPath`,
 `TestBuild_ADropReasonNeverShowsAnOutsideOrWithheldPath` and
 `TestBuild_AShortWithheldNameNeverRedactsAnUnrelatedReason` (item 9);
-`TestBuild_FreeTextAsksTheHostNothing` (item 10). `internal/daemon`, through the real adapter and
-the real host rules: `TestRehydrateHostPaths_ASelectorNamingADeniedFileIsWithheld`,
+`TestBuild_FreeTextAsksTheHostNothing` (item 10). The w19c review's rows, each red on 69860c1d:
+`TestBuild_AnAbsolutePathGluedToAFlagIsWithheld`, `TestBuild_AnEnvironmentVariablePathIsWithheld`,
+`TestBuild_APathNamedArgumentHoldingMoreThanAPathIsScreened`,
+`TestBuild_ACutCommandThatStartsLikeJSONIsScreened`,
+`TestBuild_AnEscapedLineBreakNeverSplitsADeniedName`,
+`TestBuild_APathSelectorAfterAQuoteOrEqualsIsJudged`,
+`TestBuild_ARuleAnchoredOutsideTheProjectWithholdsOnlyWhatItCovers`,
+`TestBuild_AWithheldNameIsMatchedOnlyWhereANameStarts`, `TestBuild_ACommentMarkerIsNotAUNCShare`,
+`TestBuild_ADevicePathIsNotOutsideTheProject`, `TestBuild_AOneWordRevisionPoisonsNoFreeText` and
+`TestScreenLiteral_ResolvesDotDotAsTheHostDoes` (items 6 and 7);
+`TestBuild_ARootedPathWithASpaceIsJudgedByTheHost` (item 6);
+`TestBuild_ADockerBindMountOfTheProjectIsShown` (item 8);
+`TestBuild_ATruncatedSummaryNeverShowsTheCutPrefixOfAGlobRulesName`,
+`TestBuild_ACutPathArgumentIsAFragmentNotAPath`,
+`TestBuild_ACutInsideASecondSpellingOfTheRootIsShown` and
+`TestBuild_AReasonKeepsItsRestoreBesideAWithheldNamesake` (item 9). `internal/daemon`, through the
+real adapter and the real host rules: `TestRehydrateHostPaths_ASelectorNamingADeniedFileIsWithheld`,
 `TestRehydrateHostPaths_EverySpellingOfADeniedFileIsWithheld`,
 `TestRehydrateHostPaths_ADeniedPathWithDelimitersIsWithheld`,
 `TestRehydrateHostPaths_AShellEscapedDeniedPathIsWithheld`,
 `TestRehydrateHostPaths_AProjectPathWithASpaceShowsItsOwnPaths`,
 `TestRehydrateHostPaths_TheProjectRootFollowedByMoreWordsIsShown`,
-`TestRehydrateHostPaths_UsefulSummariesAreShownUnderTheUAT12Rules` (`git diff HEAD~1` and
-`cd <root> && go test ./...` among them, in a root with a space),
+`TestRehydrateHostPaths_UsefulSummariesAreShownUnderTheUAT12Rules` (`git diff HEAD~1` and `cd <root>
+&& go test ./...` among them, in a root with a space),
+`TestRehydrateHostPaths_CommonIdiomsAreShownUnderTheUAT12Rules`,
+`TestRehydrateHostPaths_APathArgumentHoldingMoreThanAPathIsWithheld`,
+`TestRehydrateHostPaths_ARootedPathWithASpaceIsJudgedByTheHost` (a real directory link),
 `TestRehydrateHostPaths_HandsTheBuildTheRulePatterns` and
 `TestRehydrateHostPaths_HostJudgementsAreStructuredSummariesAndFilePointers` (item 10's count, the
 pass criterion; the wall time is logged, never judged). `internal/hostperm`:
-`TestRuleSet_ReadRulePatternsListsEveryReadRule`. The round-2 rows that pinned the evaluator's
-disk work (`TestRehydrateHostPaths_SummaryJudgementsAreLinearInTheirWords`,
+`TestRuleSet_ReadRulePatternsListsEveryReadRule`. The round-2 rows that pinned the evaluator's disk
+work (`TestRehydrateHostPaths_SummaryJudgementsAreLinearInTheirWords`,
 `TestRehydrateHostPaths_APieceThroughALinkIsJudgedOnDisk`,
-`TestRehydrateHostPaths_EveryPreviewShapeIsJudgedWithoutTheDisk` and hostperm's
-`TestEvaluator_*`) went with it. Criterion changes (D61): under unavailable host rules
-`TestBuild_ArgumentSummariesFailClosedWithoutHostRules` now requires a free-text summary that
-names no path to be withheld (D61(2)(d)), and `TestBuild_AKnownWithheldPathIsFoundAnywhereInAText`
-moves `{"query":"not my secret.txt.bak at all"}` from shown to withheld (the accepted
-over-withholding of item 2's limits). No golden changed: no golden payload carries a summary or a
-drop reason the screen withholds.
+`TestRehydrateHostPaths_EveryPreviewShapeIsJudgedWithoutTheDisk` and hostperm's `TestEvaluator_*`)
+went with it. Criterion changes (D61): under unavailable host rules
+`TestBuild_ArgumentSummariesFailClosedWithoutHostRules` now requires a free-text summary that names
+no path to be withheld (D61(2)(d)), and `TestBuild_AKnownWithheldPathIsFoundAnywhereInAText` moves
+`{"query":"not my secret.txt.bak at all"}` from shown to withheld (the accepted over-withholding of
+item 2's limits). After the w19c review, `TestBuild_AWithheldAnchorPoisonsNoFreeText` shows `echo
+$HOMEPAGE is set` in place of `echo $HOME is set`: a home directory's variable ending a word is now
+that directory (item 7(c)), withheld for what it says; `$HOMEPAGE` still holds `$home` where a name
+starts, and keeps the row's poisoning check. No golden changed: no golden payload carries a summary
+or a drop reason the screen withholds.
 
 ## Consequences
 
