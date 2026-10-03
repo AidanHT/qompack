@@ -191,9 +191,11 @@ func recordCandidates(recs []store.ToolUseRecord) []intentCandidate {
 // evolution entry after them.
 func (d *Draft) refreshIntentLocked(ctx context.Context) {
 	own, ok := sessionPromptRecords(ctx, d.src.Store, d.session)
+	d.promptsAnswered = ok
 	if !ok {
 		return
 	}
+	newest := own
 	original := d.cp.UserIntent.Original
 	var first *store.ToolUseRecord
 	var cands []intentCandidate
@@ -226,6 +228,37 @@ func (d *Draft) refreshIntentLocked(ctx context.Context) {
 	evo, el := d.selectEvolutionLocked(ctx, original, cands, keep)
 	d.promptText = keep
 	d.setIntentLocked(original, evo, el)
+	d.deriveCurrentWorkLocked(ctx, newest)
+}
+
+// deriveCurrentWorkLocked sets the derived CurrentWork — one sentence of the session's most recent
+// prompt, an empty NextStep and a nil BlockedOn (§8) — from own, the session's OWN prompt records
+// in turn order, at every refresh: the open segment's prompts included, and for a fork only the
+// fork's own, never one it inherited. It used to be derived while encoding a closed segment, from
+// the graph's userprompt nodes in the segment's turn range; those are keyed by turn alone, so a
+// fork's segment found its parent's prompts at the turns the two shared and took the highest
+// (F-C7-UAT06-1), and the open segment's prompts never counted. A session with no readable prompt
+// of its own yet — a fork before its user says anything — keeps the CurrentWork it has. Once
+// SetCurrentWork has spoken nothing is derived (§7). Caller holds d.mu.
+func (d *Draft) deriveCurrentWorkLocked(ctx context.Context, own []store.ToolUseRecord) {
+	if d.workExplicit || len(own) == 0 {
+		return
+	}
+	rec := own[len(own)-1]
+	if rec.ID == d.goalFrom {
+		return
+	}
+	text, st := d.promptTextLocked(ctx, rec, 0)
+	if st != textWhole || text == "" {
+		return
+	}
+	d.goalFrom = rec.ID
+	w := CurrentWork{Goal: truncRunes(firstSentence(text), goalMaxRunes)}
+	if d.cp.CurrentWork.Goal == w.Goal && d.cp.CurrentWork.NextStep == "" && d.cp.CurrentWork.BlockedOn == nil {
+		return
+	}
+	d.cp.CurrentWork = w
+	d.dirty = true
 }
 
 // elision is what the evolution bounds left out of one refresh: how many candidates, and the
