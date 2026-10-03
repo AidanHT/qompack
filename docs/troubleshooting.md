@@ -17,8 +17,8 @@ What the commands, the slash commands and the MCP tools *are* is
 > start that project's daemon. Running one in a directory that has never been used with Qompack is a
 > write, in that directory. (§6 and §8 cover the configurations under which a hook writes nothing.)
 > `qompack config print` does not create the layout
-> ([docs/user-guide.md](user-guide.md#operator-commands)), but it does write
-> `.qompack/state/config-violations.json` into one that already exists (observed on this tree). The
+> ([docs/user-guide.md](user-guide.md#operator-commands)), but it does write, or remove,
+> `.qompack/state/config-violations.json` in one that already exists (observed on this tree). The
 > full write set is [docs/architecture.md §2](architecture.md#2-write-set-and-retention). The one
 > exception is a project root that is your home directory: there none of them writes anything
 > ([below](#qompack-is-inactive-in-the-home-directory)).
@@ -250,9 +250,10 @@ ways a value is accepted and not applied.
 **Diagnose.** Read the file. It is the §11.3 record of every leaf-level fallback
 (`internal/cli/config.go`, `configViolationsFile`), written by any command that loads configuration
 through `LoadConfigAndReport` with a project root, and by every hook whose project already has a
-`.qompack/` (`reportCaptureConfig`). A whole-block reset for a newer `settingsVersion` is written
-here by the hook path only; `config print` reports it as a day-log warning — see
-[§6](#6-configuration-and-schema-compatibility). On this tree, a project file
+`.qompack/` (`reportCaptureConfig`). Both write the same list, a whole-block reset for a newer
+`settingsVersion` included — see [§6](#6-configuration-and-schema-compatibility). The file exists
+only while something is in force: a load that finds no invalid value and no reset removes it, so a
+missing file means nothing is recorded. On this tree, a project file
 setting `runtime.mode` to `sideways` and `runtime.phase7.reuse.scopedCandidates` to `true` produced
 exactly two entries:
 
@@ -280,8 +281,8 @@ written refuses capture instead of falling back (§6).
 **Meaning.** This file carries two of §6's classes only. The first is an invalid value that fell
 back (`internal/config/validate.go`, `ViolationsFromWarnings`, which selects warnings whose message
 begins `invalid value, using default: `). A refused gated switch is recorded here as an invalid
-value, which is why the second entry reads `true not in false`. The second, written by the hook
-path only, is a newer-`settingsVersion` reset: on this tree a project setting
+value, which is why the second entry reads `true not in false`. The second is a
+newer-`settingsVersion` reset, listed after the invalid values: on this tree a project setting
 `runtime.migration.settingsVersion` to `99` gained an entry whose `Key` is `runtime.migration`,
 whose `Message` begins `settingsVersion 99 is newer than this build understands (1); the whole
 runtime.migration block is reset to defaults`, and whose `Got` and `Want` are `null`. Unknown keys,
@@ -299,7 +300,8 @@ hooks made of the same files.
 project). Every configuration warning is written there at `warn` level. A violation is written at
 `loud` level by a daemon when it starts and by the commands that log (`internal/cli/config.go`,
 `LoadConfigAndReport`), and at `warn` by a hook (`reportCaptureConfig`, which writes only once
-`logs/` exists); a newer-`settingsVersion` reset is a `warn` from all of them. A daemon that reloads
+`logs/` exists). A newer-`settingsVersion` reset is written at `loud` by a daemon when it starts
+(`configuration block reset to defaults`) and at `warn` by hooks and commands. A daemon that reloads
 a changed `config.json` logs every warning at `loud` (§6). `internal/logging/logger.go`
 documents that a `Loud` call also appends to `LOUD.log` in the same directory — append-only and
 never rotated — and to a process-wide ring that `qompack status` prints as `recent loud lines`.
@@ -562,16 +564,18 @@ likely to be the answer when nothing is being recorded.
 | invalid value | the leaf falls back to its default, loading continues | `config-violations.json`; `loud` once from each daemon when it starts (`invalid configuration value, using default`), and from `qompack mcp` and the `/qompack:` commands each time they load the configuration; `warn` from every hook |
 | wrong type — a string where a number belongs, an unparseable `QOMPACK_*` or `--set` value, a section that is not an object | that value is ignored with a warning, and the leaf keeps the value from the layer below: the default when no lower layer set it | `warn` in the day log |
 | unknown key | a warning, never an error | `warn` in the day log |
-| newer `settingsVersion` | the whole versioned block is reset to defaults, so unknown future switches stay off | `warn` in the day log; the hook path also records it in `config-violations.json` (§1) |
+| newer `settingsVersion` | the whole versioned block is reset to defaults, so unknown future switches stay off | `config-violations.json` (§1); `loud` once from each daemon when it starts (`configuration block reset to defaults`); `warn` from every hook and from the commands that load the configuration |
 | retired meaning | the value is still applied, with a deprecation warning naming the file and line | `warn` in the day log |
 
 Every class is also `loud` when a running daemon reloads `.qompack/config.json`: it does so when the
 file has changed since it last loaded it, at its next session start or idle tick, and whenever
 `admin.reload` forces a reload, and it names every warning that load returned in `LOUD.log` and
 `qompack status`'s recent loud lines as `daemon: config reload warning`, whatever its class. A daemon
-that starts on a file nobody has changed since does not reload it, so an unchanged warning stays at
-`warn`; an unchanged invalid value is the startup `loud` line in the table, once per daemon start
-(D59: a persistent condition is loud once per start or change, and a hook logs it at `warn`).
+that starts on a file nobody has changed since does not reload it, so an unchanged unknown key,
+wrong type or retired meaning stays at `warn`; an unchanged invalid value or newer `settingsVersion`
+is the startup `loud` line in the table, once per daemon start, which is also how `qompack status`
+shows it (D59: a persistent condition is loud once per start or change, and a hook logs it at
+`warn`).
 `config-violations.json` is the record of what is in force now: a load that finds no invalid value
 and no reset removes it, whether a hook's or a command's such as `self-test`.
 
