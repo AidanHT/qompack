@@ -14,6 +14,18 @@ qompack backup verify --project <source-project> --id before-change --json
 qompack backup restore --project <source-project> --id before-change --destination <recovery-project> --json
 ```
 
+All three commands also refuse, exit 1, with `backup: resolve configuration violations and warnings
+before maintenance` while the source project's configuration does not load exactly as written:
+whenever `qompack self-test`'s `config.capture` row is not `ok`. Maintenance runs only on the
+configuration as written (`internal/cli/backup.go`). The case that most often hits this is a plugin
+downgrade: a config file written by a newer build declares a `settingsVersion` this build does not
+understand, and its block is reset to defaults. Take the backup with the newer build before
+downgrading, and verify or restore it with that same newer build (a restore by the downgraded build
+is not a supported cross-version path, as below), or, after the downgrade, set the newer block
+aside and back up then, as
+[troubleshooting §6](troubleshooting.md#6-configuration-and-schema-compatibility) ("After a plugin
+downgrade or upgrade") describes.
+
 Restore requires the destination's `.qompack` to be absent. It stages on that filesystem, validates
 the manifest and copied bytes, reads content with the same build, and publishes without replacing
 an existing destination. Unsupported no-replace filesystem operations fail closed. The command
