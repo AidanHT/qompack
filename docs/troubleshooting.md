@@ -128,10 +128,20 @@ With no daemon listening, the provenance line says so rather than quoting an emp
 `daemon: no daemon answered: none is listening for this project yet`. The command asks one to
 start unless `runtime.daemon.enabled` is `false`, so run `status` again once it is up; until then
 the page falls back to the persisted metrics file (`source: disk`) if there is one. If a daemon
-is listening but its answer did not come in time, or its connection broke mid-reply, the line reads
-`daemon: a daemon is listening for this project but did not answer within 10s` instead: it is up
-but busy or stuck; see [section 7](#7-daemon-problems) (`internal/cli/qompack_commands.go`,
-`fetchDaemonStatus`).
+is listening, the line names what went wrong. When it took the request but no answer came within
+the 10-second call deadline, the line reads `daemon: a daemon is listening for this project but did
+not answer within 10s`: it is up but busy or stuck. When the request failed sooner, the line reads
+`daemon: a daemon is listening for this project but did not answer this command: on both of two
+attempts, no connection to it was made within the 250ms connect budget or the connection closed
+before a reply`. Status sends a request that failed early once more before it reports this, and
+it never resends one whose call deadline expired. In both cases see
+[section 7](#7-daemon-problems) (`internal/cli/qompack_commands.go`, `fetchDaemonStatus`).
+
+`status`, `doctor` and the other slash-command frontends (`recall`, `why`, `dropped`, ...) dial the
+daemon with a connect budget of their own: 250 ms (`commandConnectDeadline`, in
+`internal/cli/qompack_commands.go`). `runtime.daemon.connectDeadlineMs` (5 ms, or 25 ms on Windows)
+is the hooks' hot-path budget. It does not bound these commands' dial, so raising it does not change
+what they wait for.
 
 Latency percentiles are never printed above the `max` on the same line. The histogram reports a
 percentile as its bucket's upper bound, which can sit up to about 9% above the samples in it, so the
