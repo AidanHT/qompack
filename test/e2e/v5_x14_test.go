@@ -334,13 +334,18 @@ func TestV5_EveryContractAssertionHasARealProducer(t *testing.T) {
 		require.Empty(t, out2.SystemMessage)
 		// F-C48-1: status read between the compaction and the next session (where the live lane
 		// read it) counts session_start.fires as holding, so the banner's "0 pending" stays true.
+		// The row must be on the read at all: a status answer without it would assert nothing.
+		fires := false
 		for _, res := range e2eStatus(t, p.Root).Contract {
 			if res.ID == contract.CSessionStartFires {
 				require.Equal(t, "same-session-restart", res.Observed)
 				require.Equal(t, contract.StandingHolding, contract.StandingOf(res),
 					"a compaction must not leave the status banner one pending")
+				fires = true
 			}
 		}
+		require.True(t, fires, "the status read between the compaction and session B must report %s",
+			contract.CSessionStartFires)
 		out3 := x14v5Start(t, r, x14v5StartPayload(t, p.Root, x14v5SessionB, "startup", transcript))
 		require.Empty(t, out3.SystemMessage)
 
