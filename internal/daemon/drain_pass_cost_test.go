@@ -34,24 +34,26 @@ import (
 // 1 + 3 + 3 = 7. What it must not cost is a re-attempt of every waiting line per line consumed.
 const journalQueriesPerLine = 7
 
-// drainCost counts what a drainer's passes did: admissions by session, delivery-journal queries, and
-// syncs of spool files.
+// drainCost counts what a drainer's passes did: admissions by session, delivery-journal queries, syncs
+// of spool files, scans of spool files for blob references, and reads of blob bodies.
 type drainCost struct {
-	mu       sync.Mutex
-	admitted map[core.SessionID]int
-	journal  atomic.Int64
-	syncs    atomic.Int64
+	mu        sync.Mutex
+	admitted  map[core.SessionID]int
+	journal   atomic.Int64
+	syncs     atomic.Int64
+	scans     atomic.Int64
+	blobReads atomic.Int64
 }
 
 // drainCostTaken is one reading of a drainCost, taken and reset at once (drainCost.take).
 type drainCostTaken struct {
-	admitted       map[core.SessionID]int
-	admittedTotal  int
-	journal, syncs int64
+	admitted                         map[core.SessionID]int
+	admittedTotal                    int
+	journal, syncs, scans, blobReads int64
 }
 
 // meterDrainCost counts every admission and every delivery-journal query cfg's drainer makes. It
-// returns the meter; meterSyncs adds the drainer's syncs once the drainer exists.
+// returns the meter; meterDrainer adds the drainer's own operations once the drainer exists.
 func meterDrainCost(cfg *DrainConfig) *drainCost {
 	m := &drainCost{admitted: map[core.SessionID]int{}}
 	admit, journal := cfg.Admit, cfg.Journal
@@ -71,12 +73,24 @@ func meterDrainCost(cfg *DrainConfig) *drainCost {
 	return m
 }
 
-// meterSyncs counts every sync dr makes of a spool file, keeping the real one.
-func (m *drainCost) meterSyncs(dr *drainer) {
-	sync := dr.syncFile
+// meterDrainer counts every sync dr makes of a spool file, every spool file it scans for blob
+// references and every blob body it reads, or tries to, keeping what each of them does.
+func (m *drainCost) meterDrainer(dr *drainer) {
+	sync, scan, read := dr.syncFile, dr.scanBlobRefs, dr.readBlobBody
 	dr.syncFile = func(path string) error {
 		m.syncs.Add(1)
 		return sync(path)
+	}
+	dr.scanBlobRefs = func(path string, fs *drainFileState, pending, refs map[string]bool) error {
+		m.scans.Add(1)
+		return scan(path, fs, pending, refs)
+	}
+	dr.readBlobBody = func(root string, req ipc.Request) (ipc.Request, string, error) {
+		resolved, blob, err := read(root, req)
+		if blob != "" || err != nil { // readBlob answers "" and nil only for a line that names no blob
+			m.blobReads.Add(1)
+		}
+		return resolved, blob, err
 	}
 }
 
@@ -84,7 +98,10 @@ func (m *drainCost) meterSyncs(dr *drainer) {
 func (m *drainCost) take() drainCostTaken {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	got := drainCostTaken{admitted: m.admitted, journal: m.journal.Swap(0), syncs: m.syncs.Swap(0)}
+	got := drainCostTaken{
+		admitted: m.admitted, journal: m.journal.Swap(0), syncs: m.syncs.Swap(0), scans: m.scans.Swap(0),
+		blobReads: m.blobReads.Swap(0),
+	}
 	for _, n := range m.admitted {
 		got.admittedTotal += n
 	}
@@ -131,7 +148,7 @@ func TestDrainClientSpools_ALineConsumedBehindAWaitingHeadCostsALaterPassOnlyIts
 	cfg.Dispatch = func(context.Context, ipc.Request) ipc.Response { return ipc.Response{OK: true} }
 	meter := meterDrainCost(&cfg)
 	dr := newDrainer(cfg)
-	meter.meterSyncs(dr)
+	meter.meterDrainer(dr)
 	dd.drain.Store(dr)
 
 	const stuck, other core.SessionID = "sess-cost-stuck", "sess-cost-other"
@@ -181,7 +198,14 @@ func TestDrainClientSpools_ALineConsumedBehindAWaitingHeadCostsALaterPassOnlyIts
 // finishes every one (D31, C1.13). On candidate 8 it paid a sync of each file and a rewrite of
 // state/drain.json for each, and re-admitted each line behind each head; candidate 7 stopped in the
 // first. None of the four has changed since the earlier pass synced it, so this pass syncs nothing and
-// rewrites nothing, and only the four heads are admitted again.
+// rewrites nothing, and only the four heads are admitted again; nor does any pass after it.
+//
+// Each line behind a head is a blob line, so each file holds a cleanup intent that must wait while its
+// line is ahead of the front, and each pass checks the spool for references to it
+// (cleanupAcknowledged). It did so at the pass's start and again after every file it finished, so a
+// pass over F such spools read and decoded the whole spool F+1 times. A file whose front and intents
+// the pass did not change cannot have released an intent, so the pass reads each file for references
+// once, at its start, and reads no blob's body: each blob was named when its line was consumed.
 func TestDrainClientSpools_APassOverBlockedSpoolsItHasReadSyncsAndWritesNothing(t *testing.T) {
 	const spools = 4
 	dd, _, root := laneTestDaemon(t)
@@ -189,13 +213,14 @@ func TestDrainClientSpools_APassOverBlockedSpoolsItHasReadSyncsAndWritesNothing(
 	cfg := dd.drainConfig()
 	meter := meterDrainCost(&cfg)
 	dr := newDrainer(cfg)
-	meter.meterSyncs(dr)
+	meter.meterDrainer(dr)
 	dd.drain.Store(dr)
 	var heads []ipc.Request
 	var bases []string
 	for i := range spools {
 		head := blockedSpoolHead(t, dd, root, core.SessionID(fmt.Sprintf("sess-blocked-%d", i)), 10*i)
-		behind := liveOrderTool(dd, root, core.SessionID(fmt.Sprintf("sess-behind-%d", i)), 70+i)
+		behind := blobSpoolLine(t, root, liveOrderTool(dd, root, core.SessionID(fmt.Sprintf("sess-behind-%d", i)), 70+i),
+			fmt.Sprintf("blob-87%02d-1.bin", i))
 		base := fmt.Sprintf("client-87%02d.ndjson", i)
 		writeHookSpool(t, root, base, head, behind)
 		heads, bases = append(heads, head), append(bases, base)
@@ -204,24 +229,32 @@ func TestDrainClientSpools_APassOverBlockedSpoolsItHasReadSyncsAndWritesNothing(
 	n, err := dr.DrainClientSpools(ctx)
 	require.NoError(t, err)
 	require.Equal(t, spools, n, "fixture: the first pass published the line behind each head")
-	meter.take()
+	require.Equal(t, int64(spools), meter.take().blobReads, "fixture: each publication read its blob")
 
-	before := drainStateStat(t, root)
-	pass, budget := newPassBudget(ctx, 0)
-	n, err = dr.DrainClientSpools(pass)
-	cost := meter.take()
-	require.NoError(t, err, "fixture: the pass made no progress, so its spent budget did not end it")
-	require.Zero(t, n)
-	for _, base := range bases {
-		require.False(t, budget.leftUnfinished(base), "it finished %s, so the watcher keeps that spool's back-off", base)
+	for pass := 2; pass <= 3; pass++ {
+		before := drainStateStat(t, root)
+		passCtx, budget := newPassBudget(ctx, 0)
+		n, err = dr.DrainClientSpools(passCtx)
+		cost := meter.take()
+		require.NoError(t, err, "fixture: pass %d made no progress, so its spent budget did not end it", pass)
+		require.Zero(t, n)
+		for _, base := range bases {
+			require.False(t, budget.leftUnfinished(base), "pass %d finished %s, so the watcher keeps its back-off", pass, base)
+		}
+		require.Zero(t, cost.syncs, "pass %d: no blocked spool has changed since the first pass synced it", pass)
+		require.False(t, drainStateRewritten(t, root, before), "pass %d changed no progress, so it rewrote none", pass)
+		require.Equal(t, spools, cost.admittedTotal,
+			"pass %d: only the heads, which still wait, are admitted again; the lines behind them were consumed (%v)",
+			pass, cost.admitted)
+		require.Equal(t, int64(spools), cost.scans,
+			"pass %d reads each spool file for blob references once, at its start, not again after each file", pass)
+		require.Zero(t, cost.blobReads, "pass %d reads no blob", pass)
 	}
-	require.Zero(t, cost.syncs, "no blocked spool has changed since the earlier pass synced it")
-	require.False(t, drainStateRewritten(t, root, before), "the pass changed no progress, so it rewrote none")
-	require.Equal(t, spools, cost.admittedTotal,
-		"only the heads, which still wait, are admitted again; the lines behind them were consumed (%v)", cost.admitted)
 	for i, head := range heads {
 		require.False(t, spoolWatchPublished(dd, head.Nonce), "control: head %d never publishes", i)
 		require.FileExists(t, filepath.Join(paths.Of(root).Spool, bases[i]), "nothing of the blocked spool is lost")
+		require.FileExists(t, filepath.Join(paths.Of(root).Spool, fmt.Sprintf("blob-87%02d-1.bin", i)),
+			"the blob stays while its line is ahead of the consumed front")
 	}
 }
 
@@ -245,17 +278,25 @@ func blobSpoolLine(t *testing.T, root string, req ipc.Request, name string) ipc.
 // blob, consumed out of order behind a head that waits, leaves the blob's name in its file's cleanup
 // intents (drainFileState.PendingBlobs), and the blob stays while the line is still ahead of the
 // consumed front. Every later pass consumed the line again and appended the name again, so
-// state/drain.json grew by one entry per pass, for as long as the head waited. A later pass leaves the
-// one intent, whether it skips the line or, after the file has grown, consumes it again.
+// state/drain.json grew by one entry per pass, for as long as the head waited, and each time it read
+// the whole blob only to learn its name. Here one blob line is published and one is denied by policy.
+// A later pass leaves each its one intent, whether it skips the line or, in a daemon that remembers
+// nothing of the spool, consumes it again. Only the publication reads a blob's body: a denied line's
+// blob, and an absorbed one's, is named from the line's descriptor.
 func TestDrainClientSpools_ABlobLineBehindAWaitingHeadLeavesOneCleanupIntent(t *testing.T) {
 	dd, _, root := laneTestDaemon(t)
 	ctx := context.Background()
-	dr := newDrainer(dd.drainConfig())
-	dd.drain.Store(dr)
-	const base, blob = "client-8851.ndjson", "blob-8851-1.bin"
+	const base, blob, deniedBlob = "client-8851.ndjson", "blob-8851-1.bin", "blob-8851-2.bin"
 	head := blockedSpoolHead(t, dd, root, "sess-blob-stuck", 0)
 	other := blobSpoolLine(t, root, liveOrderTool(dd, root, "sess-blob-other", 7), blob)
-	writeHookSpool(t, root, base, head, other)
+	denied := blobSpoolLine(t, root, liveOrderTool(dd, root, "sess-blob-denied", 8), deniedBlob)
+	cfg := dd.drainConfig()
+	cfg.Admit = denyNonce(cfg.Admit, denied.Nonce)
+	meter := meterDrainCost(&cfg)
+	dr := newDrainer(cfg)
+	meter.meterDrainer(dr)
+	dd.drain.Store(dr)
+	writeHookSpool(t, root, base, head, other, denied)
 
 	intents := func() []string {
 		t.Helper()
@@ -268,29 +309,37 @@ func TestDrainClientSpools_ABlobLineBehindAWaitingHeadLeavesOneCleanupIntent(t *
 		_, err := dr.DrainClientSpools(ctx)
 		require.NoError(t, err)
 		require.True(t, spoolWatchPublished(dd, other.Nonce), "fixture: the first pass published the blob line")
-		require.Equal(t, []string{blob}, intents(), "after pass %d the blob has one cleanup intent", pass)
+		require.Equal(t, []string{blob, deniedBlob}, intents(), "after pass %d each blob has one cleanup intent", pass)
+		reads := int64(0)
+		if pass == 1 {
+			reads = 1
+		}
+		require.Equal(t, reads, meter.take().blobReads,
+			"pass %d reads the body of the blob it publishes and no other: the denied line's blob is named, not read", pass)
 	}
 
-	// The file grows (a later arrival of the waiting session, which waits too): a pass reads it as a file
-	// it has not seen, and consumes the blob line again.
-	w, err := paths.AppendOnly(filepath.Join(paths.Of(root).Spool, base))
+	// A new daemon remembers nothing of the spool: it consumes both lines again, finding the published one
+	// on the committed frontier and absorbing it, and denying the other again. Each intent is already in
+	// the progress, and stays there once; neither blob is read.
+	restarted := newDrainer(cfg)
+	meter.meterDrainer(restarted)
+	dd.drain.Store(restarted)
+	_, err := restarted.DrainClientSpools(ctx)
 	require.NoError(t, err)
-	_, err = w.Write(hookSpoolLine(t, liveOrderTool(dd, root, "sess-blob-stuck", 8)))
-	require.NoError(t, err)
-	require.NoError(t, w.Close())
-	_, err = dr.DrainClientSpools(ctx)
-	require.NoError(t, err)
-	require.Equal(t, []string{blob}, intents(), "consuming the line again leaves the one intent it already left")
-	require.FileExists(t, filepath.Join(paths.Of(root).Spool, blob),
-		"the blob stays while its line is still ahead of the consumed front")
+	require.Equal(t, []string{blob, deniedBlob}, intents(), "consuming the lines again leaves the intents they already left")
+	require.Zero(t, meter.take().blobReads, "an absorbed line's blob and a denied line's are named from their descriptors")
+	for _, name := range []string{blob, deniedBlob} {
+		require.FileExists(t, filepath.Join(paths.Of(root).Spool, name),
+			"the blob stays while its line is still ahead of the consumed front")
+	}
 
 	// Progress this drainer did not write: an operator removes state/drain.json. What the drainer
 	// remembers of the file rests on the intents that file held, so it reads the file in full again, and
-	// the intent is recorded again rather than lost with the file it was in.
+	// the intents are recorded again rather than lost with the file they were in.
 	require.NoError(t, os.Remove(paths.Long(drainStatePath(root))))
-	_, err = dr.DrainClientSpools(ctx)
+	_, err = restarted.DrainClientSpools(ctx)
 	require.NoError(t, err)
-	require.Equal(t, []string{blob}, intents(), "the blob's intent is recorded again in the new progress")
+	require.Equal(t, []string{blob, deniedBlob}, intents(), "the blobs' intents are recorded again in the new progress")
 }
 
 // TestDrainClientSpools_ALineRewrittenInPlaceBehindAWaitingHeadIsReadAgain: a later pass skips a line
