@@ -20,7 +20,7 @@ import (
 // seams, and the PreCompact seam for the compaction boundary, through SP-05's own late-binding
 // hook, so no SP-05 or SP-08 file is edited.
 
-// The tap's instruments and the causes it hands CloseSegmentOn.
+// The tap's instruments and the causes it closes segments with.
 const (
 	counterTapNoRecord       = "sched.tap.no_record"
 	counterTapPanic          = "sched.tap.panic"
@@ -186,12 +186,14 @@ func (t *schedTap) sessionStart(e hookio.Event) {
 // Delivery is at least once, and this runs inside the handler, before the delivery's commit: a
 // commit that fails replays the same delivery through here (schedRuntime.applied). So a delivery
 // whose record the store holds is applied once, by its observation identity, in one critical
-// section with that identity (applyToolUse), and a replay of it is counted and left alone. The
+// section with that identity (applyToolUse), and a replay of it is counted and changes nothing,
+// except that it makes the segment close the first run owed and did not make (closeOwed). The
 // no-record path claims nothing: it folds nothing, and a replay that finds the record the first run
 // could not publish must still apply it.
 func (t *schedTap) observeTool(ctx context.Context, e hookio.Event) {
 	t.r.bindOnFirstHook(e.SessionID)
 	sig := observer.ExtractSignals(e)
+	obs := observer.ObservationFrom(ctx)
 	now := t.r.nowMS()
 	rec, err := t.r.st.ToolUse(ctx, e.ToolUseID)
 	if err != nil {
@@ -205,35 +207,35 @@ func (t *schedTap) observeTool(ctx context.Context, e hookio.Event) {
 		t.r.NoteEffort(e)
 		return
 	}
-	f, applied := t.r.applyToolUse(ctx, e, observer.ObservationFrom(ctx), sig, rec)
-	if !applied {
+	owed, applied := t.r.applyToolUse(ctx, e, obs, sig, rec)
+	if applied {
+		t.countBoundary(sig)
+	} else {
 		t.count(counterTapRedelivery)
-		return
 	}
-	t.closeOnBoundary(ctx, rec.Turn, f, sig)
+	t.closeOwed(ctx, e.SessionID, obs, owed)
 }
 
 // observeStop is ObserveTool minus the record lookup and the token fold (a Stop carries neither),
 // plus the round boundary — §2.6's "new assistant message.id", and Stop is the one hook that
 // fires once per assistant turn. It never anchors the request start: Stop fires after
 // generation. A subagent's Stop is activity but not a main-agent round or observation. A replay of
-// a Stop already applied is left alone, as a tool use's is.
+// a Stop already applied changes nothing but the close it owes, as a tool use's does.
 func (t *schedTap) observeStop(ctx context.Context, e hookio.Event, subagent bool) {
 	t.r.bindOnFirstHook(e.SessionID)
+	obs := observer.ObservationFrom(ctx)
 	now := t.r.nowMS()
 	var sig observer.Signals
 	if !subagent {
 		sig = observer.ExtractSignals(e)
 	}
-	f, turn, applied := t.r.applyStop(ctx, e, observer.ObservationFrom(ctx), subagent, sig, now)
-	if !applied {
+	owed, applied := t.r.applyStop(ctx, e, obs, subagent, sig, now)
+	if applied {
+		t.countBoundary(sig)
+	} else {
 		t.count(counterTapRedelivery)
-		return
 	}
-	if subagent {
-		return
-	}
-	t.closeOnBoundary(ctx, turn, f, sig)
+	t.closeOwed(ctx, e.SessionID, obs, owed)
 }
 
 // observePrompt runs twice per prompt: synchronously inside SP-05's 250 ms reply deadline, and on
@@ -277,18 +279,42 @@ func (t *schedTap) preCompact(ctx context.Context, e hookio.Event) {
 	}
 }
 
-// closeOnBoundary closes the segment on the first boundary signal set (todo, test, commit — the
-// non-changepoint members of §8.5's safe points plus G1.5's git commit), counting which one.
-func (t *schedTap) closeOnBoundary(ctx context.Context, at core.TurnIndex, f scheduler.Features, sig observer.Signals) {
+// countBoundary counts the first boundary signal set (todo, test, commit — the non-changepoint
+// members of §8.5's safe points plus G1.5's git commit) of a delivery the tap has just applied. The
+// close the signal calls for is the delivery's owed close (owedFor), made by closeOwed.
+func (t *schedTap) countBoundary(sig observer.Signals) {
 	cause := boundaryCause(sig)
 	if cause == "" {
 		return
 	}
 	t.count(counterTapBoundary)
 	t.count(counterTapBoundaryPrefix + cause)
-	if err := t.r.CloseSegmentOn(ctx, at, f, cause); err != nil {
-		t.log.Debug("scheduler tap: segment close on boundary failed", "cause", cause, "turn", int(at), "err", err.Error())
+}
+
+// closeOwed makes the segment close a delivery owes, if any: on the run that applied it, and again
+// on each replay until one run makes it (schedRuntime.closeOwed). A failure is logged at Debug, as
+// the boundary close always was; a changepoint's own first attempt has already logged at Warn.
+func (t *schedTap) closeOwed(ctx context.Context, sess core.SessionID, obs core.ObservationID, c *owedClose) {
+	if c == nil {
+		return
 	}
+	if err := t.r.closeOwed(ctx, sess, obs, *c); err != nil {
+		t.log.Debug("scheduler tap: segment close failed", "cause", c.cause, "turn", int(c.at), "err", err.Error())
+	}
+}
+
+// owedFor is the segment close a delivery applied at turn at owes: the changepoint its observation
+// declared when that close failed (cpErr), else the boundary its signals name, else none. carry is
+// what the delivery folded into the open segment after observing, which a changepoint close leaves
+// to the successor.
+func owedFor(cpErr error, at core.TurnIndex, f scheduler.Features, sig observer.Signals, carry core.Tokens) *owedClose {
+	if cpErr != nil {
+		return &owedClose{at: at, f: f, cause: causeChangepoint, carry: carry}
+	}
+	if cause := boundaryCause(sig); cause != "" {
+		return &owedClose{at: at, f: f, cause: cause}
+	}
+	return nil
 }
 
 // boundaryCause maps signals to a close cause; first true wins.
@@ -313,55 +339,58 @@ func (t *schedTap) count(name string) {
 }
 
 // applyToolUse applies one delivered tool use whose record the store holds, unless obs names the
-// session's last applied delivery (claimDeliveryLocked), in which case it changes nothing and
-// reports false. Applying stages the record's ArgsPreview for the lexical channel, derives the
-// feature vector and folds it into the detector at the record's turn, records the activity and the
-// request-start anchor at the record's instant, notes the effort level, and folds the record's
-// tokens into the open segment. All of it, the claim included, happens under one hold of the lock:
-// FeatureHistory and the assembler are not goroutine-safe, and a Persist snapshotting between the
-// claim and the fold would write an identity whose tokens the account does not hold.
+// session's last applied delivery (claimDeliveryLocked), in which case it changes nothing, reports
+// false, and returns the close that delivery still owes. Applying stages the record's ArgsPreview
+// for the lexical channel, derives the feature vector and folds it into the detector at the
+// record's turn, records the activity and the request-start anchor at the record's instant, notes
+// the effort level, and folds the record's tokens into the open segment; it returns the segment
+// close the delivery owes (owedFor). All of it, the claim included, happens under one hold of the
+// lock: FeatureHistory and the assembler are not goroutine-safe, and a Persist snapshotting between
+// the claim and the fold would write an identity whose tokens the account does not hold.
 func (r *schedRuntime) applyToolUse(ctx context.Context, e hookio.Event, obs core.ObservationID,
 	sig observer.Signals, rec store.ToolUseRecord,
-) (scheduler.Features, bool) {
+) (*owedClose, bool) {
 	level := effortLevel(e, r.getenv)
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if !r.claimDeliveryLocked(e.SessionID, obs) {
-		return scheduler.Features{}, false
+		return r.applied[e.SessionID].owed, false
 	}
 	observeText(r.hist, rec.ArgsPreview)
 	f := FeaturesFrom(r.hist, sig, rec.Tool, rec.TS)
-	r.observeLocked(ctx, f, rec.Turn)
+	_, cpErr := r.observeLocked(ctx, f, rec.Turn)
 	r.notifyActivityLocked(rec.TS)
 	r.noteRequestStartLocked(rec.TS)
 	r.noteEffortLocked(level)
 	r.addOpenSegmentTokensLocked(rec.Tokens)
-	return f, true
+	return r.oweLocked(e.SessionID, obs, owedFor(cpErr, rec.Turn, f, sig, rec.Tokens)), true
 }
 
-// applyStop applies one delivered Stop at ts, unless obs names the session's last applied delivery.
-// Applying records the activity and the effort level, and for a main-agent Stop derives its feature
-// vector (no tool, the clock's timestamp), folds it in at the highest turn seen and records that
-// turn as an API-round boundary, returning both. As in applyToolUse, the claim and the state it
-// guards change under one hold of the lock.
+// applyStop applies one delivered Stop at ts, unless obs names the session's last applied delivery,
+// in which case it returns the close that delivery still owes. Applying records the activity and
+// the effort level, and for a main-agent Stop derives its feature vector (no tool, the clock's
+// timestamp), folds it in at the highest turn seen, records that turn as an API-round boundary and
+// returns the segment close the Stop owes (owedFor; a Stop folds no tokens, so it carries none). As
+// in applyToolUse, the claim and the state it guards change under one hold of the lock.
 func (r *schedRuntime) applyStop(ctx context.Context, e hookio.Event, obs core.ObservationID, subagent bool,
 	sig observer.Signals, ts core.UnixMilli,
-) (scheduler.Features, core.TurnIndex, bool) {
+) (*owedClose, bool) {
 	level := effortLevel(e, r.getenv)
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if !r.claimDeliveryLocked(e.SessionID, obs) {
-		return scheduler.Features{}, 0, false
+		return r.applied[e.SessionID].owed, false
 	}
 	r.notifyActivityLocked(ts)
 	r.noteEffortLocked(level)
 	if subagent {
-		return scheduler.Features{}, 0, true
+		return nil, true
 	}
 	f := FeaturesFrom(r.hist, sig, "", ts)
-	r.observeLocked(ctx, f, r.maxTurn)
-	r.noteAPIRoundLocked(r.maxTurn)
-	return f, r.maxTurn, true
+	turn := r.maxTurn
+	_, cpErr := r.observeLocked(ctx, f, turn)
+	r.noteAPIRoundLocked(turn)
+	return r.oweLocked(e.SessionID, obs, owedFor(cpErr, turn, f, sig, 0)), true
 }
 
 // applyPrompt applies one delivered prompt capture at ts (the activity and the request-start

@@ -348,11 +348,13 @@ Every consumer of a delivery therefore has to tolerate seeing it twice, because 
 before the ack: a Stop or a bounded drain that cuts the ack replays the same delivery through the
 same handler. The observer absorbs the replay (`observer.redelivery_absorbed`). The scheduler tap
 applies each delivery once by its `ObservationID`, so a replay folds no tokens into the open segment,
-adds no detector observation and moves no request-start anchor (`sched.tap.redelivery`). The
-ordering gate holds a session's next delivery until every earlier one is acknowledged, so the last
-delivery applied for a session is the only one that can come back. The tap therefore keeps one
-identity per session, and persists the bound session's identity in `state/scheduler.json` with the
-account it describes, so a restarted daemon's drain does not fold it again.
+adds no detector observation and moves no request-start anchor (`sched.tap.redelivery`). The one
+thing a replay does is make a segment close the first run owed and did not make: a task-boundary
+or changepoint close that the same cancel failed along with the ack. The ordering gate holds a
+session's next delivery until every earlier one is acknowledged, so the last delivery applied for a
+session is the only one that can come back. The tap therefore keeps one identity per session, and
+persists the bound session's identity in `state/scheduler.json` with the account it describes, so a
+restarted daemon's drain does not fold it again.
 
 [ADR 0014](adr/0014-delivery-group-commit-and-ab-seal.md) records the delivery path's group commit
 and the format-2 A/B seal as they are implemented and merged — it documents decisions already taken

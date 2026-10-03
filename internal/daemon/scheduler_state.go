@@ -264,7 +264,7 @@ func (r *schedRuntime) saveStateLocked() (stateFiles, error) {
 		LastCheckpointSeq:     r.lastCheckpointSeq,
 		LastDecision:          decisionToDoc(r.lastDecision),
 
-		LastAppliedObservation: r.applied[r.session],
+		LastAppliedObservation: r.applied[r.session].obs,
 	})
 	if err != nil {
 		return stateFiles{}, fmt.Errorf("encode %s: %w", stateFileScheduler, err)
@@ -319,7 +319,7 @@ func (r *schedRuntime) seedApplied() {
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.applied[doc.Session] = doc.LastAppliedObservation
+	r.applied[doc.Session] = appliedDelivery{obs: doc.LastAppliedObservation}
 }
 
 // loadStateFile reads p for a bind, reporting false (and logging) when there is nothing usable.
@@ -450,8 +450,9 @@ func (r *schedRuntime) restoreSchedulerLocked(raw []byte, p string) {
 	r.lastDecision = docToDecision(doc.LastDecision)
 	// The document's applied identity fills a session this runtime has none for. One it has is its
 	// own, and newer: this process applied it after whatever process wrote the document.
-	if _, ok := r.applied[r.session]; !ok && doc.LastAppliedObservation != "" {
-		r.applied[r.session] = doc.LastAppliedObservation
+	if d := r.applied[r.session]; d.obs == "" && doc.LastAppliedObservation != "" {
+		d.obs = doc.LastAppliedObservation
+		r.applied[r.session] = d
 	}
 	if futureStamps+negativeCounters+unmeasuredEWMAs > 0 {
 		r.log.Warn(msgStateRepaired, "path", p, "future_timestamps", futureStamps,
