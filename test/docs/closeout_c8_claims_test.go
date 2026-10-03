@@ -96,6 +96,22 @@ var closeoutC8StaleClaims = []staleClaim{
 		"README.md", "Its rows carry to candidate 8 by the diff, confirmed by the live re-check",
 		"the live re-check on candidate 8 is owed, so it has confirmed nothing yet (D58(e), D60(f))",
 	},
+	{
+		"docs/release.md", "The rehydration block's pointers never show a path the host denies",
+		"D61(b)(5): aliases, globs and run-time names in free text are not resolved, so a free-text " +
+			"summary can show a denied file by another name; only the saved Read rules are consulted (D7)",
+	},
+	{
+		"docs/release-notes/v0.3.0.md", "The rehydration block shows no path your saved Read rules deny",
+		"D61(b)(5): the screen does not resolve aliases or globs in free text or see run-time names, " +
+			"so the lead may say what the block withholds, not that no denied path shows",
+	},
+	{
+		"CHANGELOG.md",
+		"`doctor` and the other commands that call the daemon have a connect budget of their own",
+		"`qompack mcp` also calls the daemon and keeps runtime.daemon.connectDeadlineMs and its " +
+			"10-attempt retry loop (D61(c)); only the slash-command frontends get the command budget",
+	},
 }
 
 // TestCloseoutC8StaleClaimsAreGone asserts none of the sentences candidate 8's identity retired is
