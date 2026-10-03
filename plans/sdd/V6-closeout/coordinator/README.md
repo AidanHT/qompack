@@ -48,7 +48,7 @@ coordinator's procedure; no agent launches or aborts the night.
    freeze commit lands there. `qompack-cx-cand` is clean, and `qompack-bundles/c8` does not exist.
    An earlier refused run's `phase3/c8/prefreeze` is moved aside automatically to
    `prefreeze.run-<n>`, and is never read as this run's.
-4. `sh nightharness.sh` passes. It is dry and takes about 40 minutes, with no Go, Docker or Claude
+4. `sh nightharness.sh` passes (39 cases). It is dry and takes about 25 minutes, with no Go, Docker or Claude
    Code process. Re-run it after any change to a night script.
 5. The laptop lid is open and the charger is connected. Docker Desktop may be up or down, and the
    container `qompack-v6-linux-verification` must exist.
@@ -93,8 +93,9 @@ The power verdicts:
 
 ### Abort
 
-1. Take the Windows pid from night.log's first line. Then stop exactly that process tree, deepest
-   first, and nothing else:
+1. Take the Windows pid from night.log's latest `start pid … winpid <pid>` line (night.log is
+   appended across relaunches). Then stop exactly that process tree, deepest first, and nothing
+   else:
 
    ```powershell
    $tree = @(<winpid>); $all = Get-CimInstance Win32_Process; $i = 0
@@ -122,13 +123,18 @@ The power verdicts:
 7. Re-run.
    - Before the freeze: relaunch `c8-night.sh` as above.
    - After the freeze: run the night on the frozen candidate into a fresh evidence directory.
-     `qompack-bundles/c8` exists, so `c8-night.sh` would refuse.
+     `c8-night.sh` would refuse, because `qompack-bundles/c8` exists. overnight-c8.sh holds no
+     keep-awake of its own, so start one beside it. Delete the sentinel when chain.log's
+     `done:` line appears.
 
-     ```sh
-     sh plans/sdd/V6-closeout/coordinator/overnight-c8.sh ../qompack-cx-cand <sha> plans/sdd/V6-closeout/phase3/c8-rerun-<n>
+     ```powershell
+     $co = 'C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/coordinator'
+     $e  = 'C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8-rerun-<n>'
+     New-Item -ItemType Directory $e | Out-Null; New-Item -ItemType File "$e/keepawake.sentinel" | Out-Null
+     Start-Process pwsh -WindowStyle Hidden -ArgumentList @('-NoProfile', '-File', "$co/keepawake.ps1", "$e/keepawake.sentinel")
+     Start-Process -FilePath 'C:\Program Files\Git\bin\bash.exe' -WindowStyle Hidden -ArgumentList @(
+       "$co/overnight-c8.sh", 'C:/Users/Quant/Documents/Programming/Projects/qompack-cx-cand', '<sha>', $e)
      ```
-
-     Launch it the same detached way.
 
 ### The live re-check
 
