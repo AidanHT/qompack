@@ -13,26 +13,27 @@ bundles. Its version commit is in: `internal/core.Version`, `plugin.json` and th
 evaluation evidence is complete and every red in it is fixed or carries a recorded disposition (V6
 close-out decision D33; the gates are Phases 3 to 7 of `plans/V6-CLOSEOUT-CHECKLIST.md`).
 
-Candidate 8 changes product code (the drain pass budget, the session registry, the checkpoint
-writer, the hook configuration path, the contract reading, the rehydration block and the command
-client; D58(e), D60(f), D61), so earlier candidates' machine evidence does not carry to it by a byte
-comparison. Already recorded for candidate 7: hosted `ci.yml` run `36981590450`, green except
-`test (windows-latest)`, a wall-clock margin in a spool-watcher test that now runs on an injected
-clock (D58(a), D58(b)); hosted `nightly.yml` run `36981711009`, green; the hosted release-version
-bundles byte-identical to candidate 7's frozen ones (D58(a)); and candidate 7's live lane, 20 real
-sessions with 474 hook calls and no hook failure or timeout (D59). Still owed before the tag, all on
-candidate 8: its night chain on the frozen tree
+Candidate 8 changes product code (among them the drain pass budget, the session registry, the
+checkpoint writer, the hook configuration path, the contract reading, the rehydration block and the
+command client; D58(e), D60(f), D61), so earlier candidates' machine evidence does not carry to it
+by a byte comparison. Already recorded for candidate 7: hosted `ci.yml` run `36981590450`, green
+except `test (windows-latest)`, a wall-clock margin in a spool-watcher test that now runs on an
+injected clock (D58(a), D58(b)); hosted `nightly.yml` run `36981711009`, green; the hosted
+release-version bundles byte-identical to candidate 7's frozen ones (D58(a)); and candidate 7's live
+lane, 20 real sessions with 474 hook calls and no hook failure or timeout (D59). Still owed before
+the tag, all on candidate 8: its night chain on the frozen tree
 (`plans/sdd/V6-closeout/coordinator/c8-night.sh`: the AC-gated Windows timing and X11, the Windows
-and Linux `-race` lanes, two reproducible bundle builds and the quiet C5.1 run); hosted `ci.yml` and `nightly.yml` (C7.2), including the hosted `release-dry-run`
-bundles compared byte for byte with candidate 8's frozen ones (D53(h)(4), D58(e)); its short live
-re-check (D59, D60(f)); the pre-registered live evaluation, C5.5, on its frozen bundles, whose
-verdict decides the release under amendment A8 (D58(e)); and the local `release-check --tag` on the
-reference host, on AC power, which the night chain runs against a local tag it deletes afterwards
-(§1, step 3; D57(a), D57(d)). After the tag come the pre-release, the install rehearsal from it
-(D53(h)(3)), the check that the published `bin/` bytes equal the frozen bundles, and only then the
-promotion. The generated SP-17 scope table in §3 is evidence for its named artifacts only; the
-capability table beside it states what 0.3.0 ships and what it does not claim. A successful
-`release-check` can include skipped steps, so read its record before tagging.
+and Linux `-race` lanes, two reproducible bundle builds and the quiet C5.1 run); hosted `ci.yml` and
+`nightly.yml` (C7.2), including the hosted `release-dry-run` bundles compared byte for byte with
+candidate 8's frozen ones (D53(h)(4), D58(e)); its short live re-check (D59, D60(f)); the
+pre-registered live evaluation, C5.5, on its frozen bundles, whose verdict decides the release under
+amendment A8 (D58(e)); and the local `release-check --tag` on the reference host, on AC power, which
+the night chain runs against a local tag it deletes afterwards (§1, step 3; D57(a), D57(d)). After
+the tag come the pre-release, the install rehearsal from it (D53(h)(3)), the check that the
+published `bin/` bytes equal the frozen bundles, and only then the promotion. The generated SP-17
+scope table in §3 is evidence for its named artifacts only; the capability table beside it states
+what 0.3.0 ships and what it does not claim. A successful `release-check` can include skipped steps,
+so read its record before tagging.
 
 ## 1. Procedure
 
@@ -42,7 +43,15 @@ capability table beside it states what 0.3.0 ships and what it does not claim. A
    generated from the same constant (`internal/pluginmanifest`), so the same commit carries
    `go run ./tools/devtool plugin-validate --write`'s regenerated `plugin/` tree; the gate's
    `plugin-validate` step fails until it does.
-2. **Fill `CHANGELOG.md`'s `[Unreleased]` section** and rename it to the version.
+2. **Fill `CHANGELOG.md`'s `[Unreleased]` section** and rename it to the version. In the same
+   docs-only commit (a descendant of the candidate whose changes reach no bundle, D58(e)), rewrite
+   the evidence a candidate's pages carry while its own is still owed, from the tagged candidate's
+   recorded evidence (its `plans/sdd/V6-closeout/phase3/cN-CANDIDATE.md`, its night chain, hosted
+   runs, live re-check and C5.5): `docs/release-notes/<tag>.md`'s verified-where paragraph and
+   table, `README.md`'s verified-where paragraph and table, `CHANGELOG.md`'s Known limits, and
+   this page's release status. release.yml publishes the notes verbatim, and on the tag push the
+   `guards` step of `release-check` fails while they still say their figures stand until the
+   candidate's own are recorded (`test/guards/releasenotes_test.go`).
 3. **Run the gate locally, on the reference host** — `go run ./tools/devtool release-check` — fix
    whatever it stops on, and keep the run's `dist/release-check.json` as the release's record of the
    fsync-bound rows. The hosted gate at step 5 reports those rows instead of gating them (§2), so

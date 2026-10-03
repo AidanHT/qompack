@@ -91,19 +91,19 @@ fsync-bound timing rows are reported, not gated (owner decision Q1), while every
 those rows still gates.
 
 **What is verified where, and for which candidate.** Candidate 8 is candidate 7 (`d20309c0`) plus
-product fixes in the drain pass budget, the session registry, the checkpoint writer, the hook
-configuration path, the contract reading, the rehydration block and the command client, with their
-tests (decisions D58(e), D60(f), D61). Its binaries are therefore new: no byte comparison carries
-earlier candidates' machine evidence to it, as candidate 7's one-byte comparison with candidate 6
-did (D57(c)). The table below records what candidates 6 and 7 established. Candidate 8's own
-evidence is still owed and is recorded in `plans/sdd/V6-closeout/phase3/c8-CANDIDATE.md` as it
+product fixes, with their tests, among them the drain pass budget, the session registry, the
+checkpoint writer, the hook configuration path, the contract reading, the rehydration block and the
+command client (decisions D58(e), D60(f), D61). Its binaries are therefore new: no byte comparison
+carries earlier candidates' machine evidence to it, as candidate 7's one-byte comparison with
+candidate 6 did (D57(c)). The table below records what candidates 6 and 7 established. Candidate 8's
+own evidence is still owed and is recorded in `plans/sdd/V6-closeout/phase3/c8-CANDIDATE.md` as it
 arrives: its night chain on the frozen tree (the AC-gated Windows timing and X11, the Windows and
 Linux `-race` lanes, two reproducible bundle builds, the quiet C5.1 run and `release-check --tag`),
 hosted `ci.yml` and `nightly.yml` on it, with the hosted release-version bundles compared byte for
 byte with its frozen ones, its short live re-check (D59, D60(f)), and the pre-registered live
 evaluation, C5.5, which runs on its frozen bundles (D58(e)). Candidate 7's live lane ran: 20 real
-sessions on its frozen bundles (D59). Its rows carry to candidate 8 by the diff, confirmed by the
-live re-check, and its host-seen hook timings stay candidate 7's (D58(e)).
+sessions, 19 of them on its frozen bundles (D59). Its rows carry to candidate 8 by the diff, which
+the owed live re-check is to confirm, and its host-seen hook timings stay candidate 7's (D58(e)).
 
 | Where | What the evidence shows |
 |---|---|
