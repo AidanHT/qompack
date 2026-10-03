@@ -66,6 +66,16 @@ and the required owner corrections are recorded in `plans/sdd/V6-VERIFY/`,
 reasons receive retrieval-time redaction too; evidence hashes remain metadata, and their contents
 require a separate authorized expansion.
 
+**The rehydration block follows the same rules for its pointers.** After a compaction, a file or
+tool pointer, a tool call's argument summary, or a drop entry that names a path these rules deny or
+ask about, or a path outside the project, points by content hash instead, and a summary is read as
+the arguments it records: a path behind a selector such as `path:`, a basename that selector would
+match, a path with a space or a delimiter in it, and a glob that selects a withheld path all count.
+A checkpoint drop entry keyed by such a path stays in `dropped()` with the path replaced by the
+pointer's hash or `(path withheld)`. The limits of that reading, and the block's records of
+eliminated approaches and decisions, which are the model's own earlier text and are not gated, are
+in [ADR 0011 §23](adr/0011-rehydration-budget-and-item-order.md).
+
 **A refusal is not an oracle.** The refusal sentence never echoes the offending path, so denials
 cannot be used to probe what exists outside the project. Measured across three escape shapes and
 three tools: no response echoed an escaping path or an absolute path outside the root.

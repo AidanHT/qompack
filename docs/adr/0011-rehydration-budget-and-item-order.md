@@ -608,10 +608,14 @@ and §19.
 `token-bound` goldens and `state.json` were re-recorded after reading each diff: they gain the newest
 restatement, the unused-room deltas and the evolution-first order.
 
-## 23. Amendment (2026-10-02, coordinator decision D59 and owner decision D50): a loss is never silent, and argument summaries are judged as arguments
+## 23. Amendment (2026-10-02 and 2026-10-03, coordinator decisions D59 and D60, owner decision D50): a loss is never silent, and argument summaries are judged as arguments
 
 **What changed.** The candidate 7 live lane (`plans/sdd/V6-closeout/live/rerun-c7/`) found one
 silence and one leak in what §21 and §22 record, plus a log line whose scope the docs overstated.
+Items 1 to 4 record the first round of fixes. The w19 verifier then found the first round's summary
+gate too slow to answer a compaction in a project with any Read deny or ask rule, still leaking
+paths that hold a delimiter, and blind to paths the checkpoint records only as drops. Items 5 to 7
+record the second round and the coordinator's rulings on it (D60).
 
 1. *A degraded compaction that dropped material is never silent* (D59, UAT-05 F-C7-UAT05-1). At
    UAT-05's `runtime.rehydrate.minTokens` = `maxTokens` = 150 the retrieval line (86 tokens) does
@@ -637,17 +641,18 @@ silence and one leak in what §21 and §22 record, plus a log line whose scope t
    *What does not change.* The token budget stays a hard cap (§3): the notice is never emitted over
    it, and the inherited suite still holds `Result.Tokens` within `Request.Budget` at a budget of 1,
    where even the wrapper does not fit. D59's fallback clause ("emit the smallest form … and record
-   the overrun as the existing overflow rules do") is read with that cap, under D33: the smallest
-   form is emitted when it fits, and when it does not the overrun is recorded the way the existing
-   overflow rules record the wrapper's, named and Loud but not injected. A budget below the smallest
-   form (69 tokens on UAT-05's fixture with the shipped estimator) therefore still injects nothing
-   in the session. Emitting over the cap would make §3's guarantee, the suite's bound and UAT-05's
-   "a block larger than the budget" fail each carry an exception, for budgets no default reaches.
-   The coordinator may rule the literal reading instead; this sentence then changes with the code. "No payload" still holds when nothing was dropped (a build
-   that admitted nothing has always named the refused retrieval line, so that case is the notice's
-   own rule). Tier-1 order, the closure, the shares, unused room and the hard-cap eviction are as
-   §22 records them. `TestBuild_Tier1ThatCannotFitIsDroppedWhole` asserted the empty payload at 60
-   tokens; it now asserts the notice and no tier-1 record (criterion change, D59).
+   the overrun as the existing overflow rules do") is read with that cap, and D60(ii) rules that
+   reading: the smallest form is emitted when it fits, and when it does not the overrun is recorded
+   the way the existing overflow rules record the wrapper's, as the `overflow`/`payload` drop entry
+   and one Loud line, and nothing is injected. A budget below the smallest form (69 tokens on
+   UAT-05's fixture with the shipped estimator) therefore still injects nothing in the session, and
+   the drop report and the Loud line keep that from being silent. Emitting over the cap would make
+   §3's guarantee, the suite's bound and UAT-05's "a block larger than the budget" fail each carry an
+   exception, for budgets no default reaches. "No payload" still holds when nothing was dropped (a
+   build that admitted nothing has always named the refused retrieval line, so that case is the
+   notice's own rule). Tier-1 order, the closure, the shares, unused room and the hard-cap eviction
+   are as §22 records them. `TestBuild_Tier1ThatCannotFitIsDroppedWhole` asserted the empty payload
+   at 60 tokens; it now asserts the notice and no tier-1 record (criterion change, D59).
 2. *Argument summaries are judged as arguments* (D50, C4.6; UAT-12 F1 on candidate 7). With the
    deny rule `Read(./private/deny.txt)` in force, section 6 showed
    `{"query":"path:private/deny.txt"}`, the arguments of a `recall` call whose `path:` selector named
@@ -655,17 +660,8 @@ silence and one leak in what §21 and §22 record, plus a log line whose scope t
    as a path, which no rule refuses. A tool pointer's summary is the call's arguments (the store's
    preview), and the gate now reads it that way. For a built-in tool that preview is not JSON: it
    is the values of `file_path`, `path`, `pattern`, `command` and `url` joined by spaces
-   (`store.argsPreview`), so no name marks a path and no token boundary marks where it ends. The
-   gate reads these pieces:
-   - the value behind a selector prefix (`path:`, and any `name:` token whose value is not a URL's
-     `//` authority);
-   - every value of an argument named for a path (`path`, `file_path`, `notebook_path`, `filepath`,
-     `paths`, `file`, `dir`, `cwd` and their kin), and a summary that is one bare word (the preview
-     of a path argument is its value alone);
-   - each JSON string argument, decoded, so an escaped quote cannot hide a path;
-   - every word, every run of consecutive words (a path with a space in it), and every join of a
-     segment's words at one space by a separator (Glob's and Grep's directory-then-pattern
-     preview, `private deny.txt`, read as the path the pattern selects there).
+   (`store.argsPreview`), so no name marks a path and no token boundary marks where it ends. Item 5
+   lists the pieces the gate reads.
 
    When the host's rules are established, every piece is judged, whatever its shape: a file needs
    no dot or separator (`credentials apikey` is Grep's path, then its pattern). A relative piece
@@ -674,25 +670,36 @@ silence and one leak in what §21 and §22 record, plus a log line whose scope t
    `path:deny.txt` selects `private/deny.txt`. A rooted piece names one file and is judged as
    written, so a Read of the project's `README.md` is not withheld because `private/README.md` is.
    A glob is withheld when, as written, it is outside the project or refused, or when it selects a
-   path the build withholds: a file pointer's, or one another summary names (`rules.Match`, a
-   separator-free glob matching at any depth as `recall`'s selector does). A path outside the
-   project, behind a selector or in a glob, is withheld by containment as before. When the rules
-   cannot be established, every path is withheld as before, and only a piece named as a path or
-   shaped like one (rooted, or carrying a separator, a dot or `*`) is asked about; a run or a join
-   is not, because each of its words is asked on its own. Runs and joins are read only in a segment
-   no wider than a rendered line (`maxOneLineRunes`, the width of the store's preview), which keeps
-   the reading linear in a longer summary that Qompack did not write.
+   path the build withholds: a file pointer's, one another summary names, or one a path-keyed
+   checkpoint drop names (item 6) (`rules.Match`, a separator-free glob matching at any depth as
+   `recall`'s selector does). A path outside the project, behind a selector or in a glob, is
+   withheld by containment as before. When the rules cannot be established, every path is withheld
+   as before, and only a piece named as a path or shaped like one (rooted, or carrying a separator,
+   a dot or `*`) is asked about; a span or a join (item 5) is not, because each of its words is
+   asked on its own.
 
-   Three limits are deliberate. A glob pattern that selects only files Qompack never recorded is
-   judged as written: Build reads no files, so it has no listing to match against. A summary is
-   withheld when a word in it is an absolute path outside the project, so in a project whose own
-   path contains a space every absolute summary is withheld, because the first word of each is cut
-   at that space. This over-withholds and leaks nothing, and it predates §23 (§22.7 split on
-   whitespace too). And sections 3 and 4 are unchanged: they render `record_eliminated`'s target,
-   approach and reason, and the decisions minted from them, as records, the same text
-   `already_tried` and `why` return; withholding them would break the
-   `already_tried(target, approach)` call that restores them. Section 6 is the only section that
-   prints argument summaries.
+   *What D50 covers* (D60(i)). D50 covers pointers: file and tool pointers, their summaries, and
+   section 7's drop entries. Sections 3 and 4 are outside it, deliberately: they render
+   `record_eliminated`'s target, approach and reason, and the decisions minted from them, which are
+   the model's own earlier text, the same text `already_tried` and `why` return ungated, and
+   withholding them would break the `already_tried(target, approach)` call that restores them.
+   Section 6 is the only section that prints argument summaries.
+
+   *Deliberate limits.* Four remain, each recorded so that no one reads the gate as stronger than
+   it is.
+   - A glob pattern that selects only files Qompack never recorded is judged as written: Build reads
+     no files, so it has no listing to match against (D60(iv)).
+   - The store's preview collapses runs of whitespace (`store.previewString`), so a denied path
+     holding two spaces or a tab is recorded with one space, and the gate judges that spelling, which
+     names no file (D60(iv)).
+   - A path with a space that its producer does not delimit, unquoted between two other words of a
+     command (`cp private/my secret.txt backup/`), is read word by word, as the shell that ran the
+     command read it (item 5). Quoted, or as a Read's, Grep's or Glob's argument, it is read whole.
+   - The store cuts a preview longer than its width (120 bytes) with `…`, and the cut leaves a
+     prefix of the last argument. When the cut falls inside a denied path, the gate judges the
+     prefix, which no exact-file rule refuses, so a long enough absolute path can show most of a
+     denied file's name. A rule on the file's directory refuses the prefix too. This was found in
+     the second round and is listed for a ruling.
 3. *Loud once per session per daemon* (F-C7-UAT05-2). §22.8's marker is the daemon's memory
    (`rehydrateService.tier1Loud`). In UAT-05's step 5 the line was logged twice in one session, once
    by the daemon that answered the first tiny-budget compaction and once by the daemon started after
@@ -713,9 +720,66 @@ silence and one leak in what §21 and §22 record, plus a log line whose scope t
    otherwise. It keeps the checkpointer's reason, drops the `re_read(path)` call that would be
    refused, and says the path is withheld. `Result.Dropped`, and so the state file and `dropped()`,
    carry the same entry: `dropped()` already withheld a host-denied captured path, and now also
-   withholds one outside the project, as `re_read` does. Every other checkpoint kind is keyed by an
-   id, a record or nothing, which `TestCheckpointPathDrops_AreTheCheckpointersOwn` pins against the
-   real `ValidatePointers` and `Truncate`. One snapshot of the host's rules serves a whole build.
+   withholds one outside the project, as `re_read` does. D60(iii) accepts that shape: `dropped()`
+   returns such an entry with its path redacted, by hash or as `(path withheld)`, rather than
+   leaving it out, so the loss stays counted and restorable by hash. Every other checkpoint kind is
+   keyed by an id, a record or nothing, which `TestCheckpointPathDrops_AreTheCheckpointersOwn` pins
+   against the real `ValidatePointers` and `Truncate`. One judge, with one snapshot of the host's
+   rules and one memo, serves a whole build.
+5. *Summaries are read from their producer's shapes, in linear time* (D60(c), w19 verifier V1 and
+   V2). The first round read every word, every run of two or more consecutive words and every
+   directory/pattern join of each summary, and against established rules judged every piece. A run
+   is quadratic in a summary's words: a 17-word Bash preview cost 134 host judgements, and the
+   daemon's judgement did on-disk work for each (the path's full and long names and a Readlink of
+   every component, with no memo, up to twice per path). On the verifier's idle machine 80 such
+   pointers took 16 s, three times `compactAnswerBudget` (5 s), so any project with a Read deny or
+   ask rule, UAT-12's own setup included, would have received the deferred note instead of its
+   rehydration. And the runs were read only inside segments split at `"` `'` `` ` `` `,` `;` `(`
+   `)` `{` `}` `[` `]` `<` `>` `|` `=`, so a denied path holding one of them (`private/deny (1).txt`,
+   `private/John's notes.txt`, `private/a,b.txt`, `private/k=v.txt`) was never judged whole, and
+   section 6 showed it while the file pointer for the same path was withheld.
+   The gate now reads a summary's pieces from the shapes the store writes, which is linear in its
+   words:
+   - the whole summary, and each decoded JSON string in it (a Read's, Write's or Edit's preview is
+     the path alone, delimiters and all);
+   - each word, each token split at the delimiters above, and the value after a word's first `=`;
+   - each proper prefix and suffix of its words (Grep's and Glob's preview is the path, a space and
+     the pattern, and either may hold a space), and each join of its words at one space by a
+     separator (Glob's directory and pattern, `private deny.txt` read as `private/deny.txt`);
+   - each quoted segment, whole (a command quotes a path with a space or an apostrophe);
+   - the value behind a selector prefix (`path:`, and any `name:` piece whose value is not a URL's
+     `//` authority), and every value of an argument named for a path (`path`, `file_path`,
+     `notebook_path`, `filepath`, `paths`, `file`, `dir`, `cwd` and their kin), and a summary that
+     is one bare word.
+
+   Prefixes, suffixes and joins are read only in a summary no wider than a rendered line
+   (`maxOneLineRunes`, the store's preview width), since each is as wide as the summary; a wider one
+   is never the store's preview. A 17-word preview yields at most 4w-2 = 66 distinct pieces where
+   the first round judged 169. Each judgement is then made cheap in the daemon: one
+   `hostperm.Evaluator` serves the build. It gives exactly the answer `RuleSet.Evaluate` gives, and
+   judges a piece without the disk when a walk down the project's directories, each listed once per
+   build, shows that nothing can respell it: each segment names an entry by its own name and the
+   entry is not a link or another reparse point, up to the first segment that names nothing. Any
+   other piece (through a link, an 8.3 alias, a reserved device name, a trailing dot, space or
+   stream, a non-ASCII segment) is judged on disk as before, with link reads memoized for the
+   build. On the verifier's fixture the build makes 3,145 judgements, none on disk, in 50 to 70 ms
+   on a loaded development machine, where 4bad4cef made 9,096, all on disk, in 11.6 s.
+6. *A withheld path the checkpoint records only as a drop is known* (D50, w19 verifier V3). The
+   paths a selector or a glob is matched against came from file pointers and summaries only, so a
+   denied path the checkpoint records only as a path-keyed drop (`pointer_missing`, a
+   `file_pointer` cut at the checkpoint's budget) let `{"query":"path:deny.txt"}` and
+   `{"query":"path:**/deny.txt"}` through section 6 while section 7 withheld the same path. The
+   build's one judge now reads those entries before they are gated (item 4), and each one the
+   payload may not show inside the project is known like a file pointer's path.
+7. *A project path with a space in it* (D60, the first round's open issue). In a project whose own
+   path has a space (`C:\Users\John Smith\proj`, common on Windows), every absolute summary was
+   withheld: its first word, cut at that space, is an absolute path outside the project. That
+   over-withheld and leaked nothing. The reading now never cuts the project root apart: each
+   spelling of the root in a summary (either slash and any case on Windows, exactly elsewhere) is
+   one unsplittable stretch, so the whole in-project path is one piece and is judged as itself.
+   A path that is only part of the root's spelling (`C:\Users\John` alone), or runs past it into
+   a sibling (`C:\Users\John Smith\proj2`), is still judged, and withheld, as the path outside the
+   project it is. The same holds for a root holding a comma, an apostrophe, `=` or another delimiter.
 
 **Evidence.** `internal/rehydrate`: `TestBuild_ATinyBudgetThatDroppedMaterialIsNeverSilent`,
 `TestBuild_TheLossNoticeShrinksToItsSmallestForm`, `TestLossNotice_NothingDroppedStaysEmpty`,
@@ -724,11 +788,19 @@ silence and one leak in what §21 and §22 record, plus a log line whose scope t
 `TestBuild_JoinedArgumentPreviewsNeverShowAWithheldPath`,
 `TestBuild_AnAbsolutePathIsJudgedAsTheOneFileItNames`,
 `TestBuild_CheckpointDropsNeverShowAWithheldPath`, `TestCheckpointPathDrops_AreTheCheckpointersOwn`,
-`TestBuild_HostRulesAreEstablishedOncePerBuild`; `internal/daemon`:
+`TestBuild_HostRulesAreEstablishedOncePerBuild`,
+`TestBuild_DelimiterCharactersInADeniedPathNeverShowIt` (item 5),
+`TestBuild_APathKnownOnlyFromACheckpointDropIsNamedByNoSelector` (item 6),
+`TestBuild_AProjectPathWithASpaceShowsItsOwnAbsolutePaths` (item 7); `internal/daemon`:
 `TestRehydrateHostPaths_ASelectorNamingADeniedFileIsWithheld` and
 `TestRehydrateHostPaths_EverySpellingOfADeniedFileIsWithheld` (the real host rules with the UAT-12
-deny rule). No golden changed: no golden payload is built at a budget below the retrieval line, and
-none carries a summary or a checkpoint drop the refined gate withholds.
+deny rule), `TestRehydrateHostPaths_SummaryJudgementsAreLinearInTheirWords` (item 5's cost, through
+the real adapter: judgements bounded by 4w-2 per summary, none on disk),
+`TestRehydrateHostPaths_ADeniedPathWithDelimitersIsWithheld` (item 5, the store's own previews) and
+`TestRehydrateHostPaths_AProjectPathWithASpaceShowsItsOwnPaths` (item 7); `internal/hostperm`:
+`TestEvaluator_AgreesWithEvaluate` and `TestEvaluator_JudgesOnDiskOnlyWhatTheDiskCouldRespell`.
+No golden changed: no golden payload is built at a budget below the retrieval line, and none
+carries a summary or a checkpoint drop the refined gate withholds.
 
 ## Consequences
 
