@@ -263,19 +263,27 @@ func (d *Draft) deriveCurrentWorkLocked(ctx context.Context, own []store.ToolUse
 			return
 		}
 	}
-	goal, turn, found, exhaustive := d.newestGoalLocked(ctx, own)
+	goal, turn, found, complete := d.newestGoalLocked(ctx, own)
 	if ctx.Err() != nil {
 		// An interrupted walk cannot tell a prompt it failed to read from one with no bytes: it
 		// changes nothing and is not remembered, so the next refresh walks again.
 		return
 	}
-	d.goalFrom = newest
+	if complete {
+		// Only a walk that read every record it passed is remembered. One that skipped a record it
+		// could not read installs what it found, but the next refresh walks again: a read that
+		// failed only for now would otherwise hold current work on an older prompt, behind the
+		// evolution beside it, until the user typed another prompt. A record whose bytes are gone
+		// for good costs one failed Open per refresh, and no bytes.
+		d.goalFrom = newest
+	}
 	switch {
 	case found:
-		d.goalTurn, d.goalTurnSet = turn, true
+		d.setGoalTurnLocked(turn, true)
 		d.setDerivedWorkLocked(goal)
-	case exhaustive:
-		d.goalTurnSet = false
+	case complete && len(own) <= goalWalkLimit:
+		// Every one of the session's prompts was read and none gives a goal.
+		d.setGoalTurnLocked(0, false)
 		d.setDerivedWorkLocked("")
 	}
 }
@@ -289,24 +297,38 @@ func (d *Draft) deriveCurrentWorkLocked(ctx context.Context, own []store.ToolUse
 const goalWalkLimit = maxIntentEvolution
 
 // newestGoalLocked walks own (turn order) from the newest record, at most goalWalkLimit of them,
-// and returns the goal the first one that gives one gives, with its turn. exhaustive reports that
-// nothing was found AND every record of own was read whole, so none can give a goal. Caller holds
-// d.mu.
+// and returns the goal the first one that gives one gives, with its turn. complete reports that
+// every record the walk passed — up to the one it found, or to the walk's end — was read whole.
+// Caller holds d.mu.
 func (d *Draft) newestGoalLocked(ctx context.Context, own []store.ToolUseRecord) (goal string, turn core.TurnIndex,
-	found, exhaustive bool,
+	found, complete bool,
 ) {
-	exhaustive = len(own) <= goalWalkLimit
+	complete = true
 	for i := len(own) - 1; i >= 0 && len(own)-i <= goalWalkLimit; i-- {
 		text, st := d.promptTextLocked(ctx, own[i], 0)
 		if st != textWhole {
-			exhaustive = false
+			complete = false
 			continue
 		}
 		if g, ok := goalOf(text); ok {
-			return g, own[i].Turn, true, false
+			return g, own[i].Turn, true, complete
 		}
 	}
-	return "", 0, false, exhaustive
+	return "", 0, false, complete
+}
+
+// setGoalTurnLocked records the turn the derived goal was read from (set false: there is none),
+// marking the draft dirty when it changes, so the persisted goal_turn never lags the goal: two
+// prompts with the same first sentence give the same goal from different turns. Caller holds d.mu.
+func (d *Draft) setGoalTurnLocked(turn core.TurnIndex, set bool) {
+	if !set {
+		turn = 0
+	}
+	if d.goalTurnSet == set && d.goalTurn == turn {
+		return
+	}
+	d.goalTurn, d.goalTurnSet = turn, set
+	d.dirty = true
 }
 
 // setDerivedWorkLocked installs the derived CurrentWork for goal (empty clears it), marking the

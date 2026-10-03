@@ -177,15 +177,18 @@ type Draft struct {
 	// resumed draft reads them again once.
 	promptText map[core.ToolUseID]string
 	// goalFrom is the session's newest prompt record when the derived CurrentWork.Goal was last
-	// derived from the records (deriveCurrentWorkLocked), whether or not that derivation found a
-	// goal, so a refresh walks the newest prompts — reading one the evolution did not cache, a paste
-	// past its read limit, whole — once per new prompt rather than at every refresh. In-memory only.
+	// derived from the records (deriveCurrentWorkLocked) by a walk that read every record it passed,
+	// whether or not it found a goal, so a refresh walks the newest prompts — reading one the
+	// evolution did not cache, a paste past its read limit, whole — once per new prompt rather than
+	// at every refresh. A walk that skipped a record it could not read is not remembered: the read
+	// may have failed only for now. In-memory only: a resumed draft derives its goal again.
 	goalFrom core.ToolUseID
 	// goalTurn is the turn of the prompt the derived CurrentWork.Goal was read from, by either
 	// derivation, and goalTurnSet whether there is one. The graph fallback in encodeSegmentLocked
 	// replaces the goal only with a prompt at a later turn, so a window in which the records cannot
-	// be listed never moves current work back to an older prompt. In-memory only: a resumed draft
-	// derives its goal again (deriveCurrentWorkLocked).
+	// be listed never moves current work back to an older prompt. It survives a restart through the
+	// draft file's goal_turn key (setGoalTurnLocked marks the draft dirty when it changes): a daemon
+	// that restarts while the records cannot be listed must not lose the gate.
 	goalTurn    core.TurnIndex
 	goalTurnSet bool
 	// oversized is the prompt record the last refresh's evolution walk found past evolutionReadLimit

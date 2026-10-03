@@ -517,6 +517,12 @@ func (w *FileWriter) resumeDraft(s core.SessionID, p string, parent core.Checkpo
 			src:          src,
 			started:      df.Started.Time(),
 			workExplicit: df.WorkExplicit,
+			// The fallback's turn gate (encodeSegmentLocked) survives the restart. A file without
+			// goal_turn holding a derived goal was written by candidate 7 or earlier, whose goal came
+			// from a segment the draft had already encoded; any segment the fallback encodes later
+			// lies past it, so taking its prompt is never a move backwards, and for a fork whose
+			// candidate-7 goal was its parent's prompt it is the fix.
+			goalTurnSet: df.GoalTurn != nil,
 			// A resumed draft is written back once, unconditionally: the file on disk was produced
 			// by whatever build wrote it last, and normalizing it here is what keeps a later
 			// resume reading this version's shape.
@@ -526,6 +532,9 @@ func (w *FileWriter) resumeDraft(s core.SessionID, p string, parent core.Checkpo
 			derivedOQ: derived,
 			fileTurn:  map[string]core.TurnIndex{},
 			toolTurn:  map[core.ToolUseID]core.TurnIndex{},
+		}
+		if df.GoalTurn != nil {
+			d.goalTurn = *df.GoalTurn
 		}
 		if parent != 0 {
 			d.parent = parent
@@ -930,12 +939,17 @@ func (w *FileWriter) encodeSegmentLocked(ctx context.Context, d *Draft, seg stor
 	// failing list (core.ErrDegraded, or the context running out inside the idle Advance budget)
 	// left the records-derived goal in place, this fallback used to move current work back to an
 	// older prompt, and a compaction inside that window sealed it so. A later prompt it does take
-	// is one the records had not listed when they last answered, so their newest has changed by the
-	// time they answer again and deriveCurrentWorkLocked derives afresh: goalFrom needs no reset.
+	// is one the records had not listed when they last answered with a walk that read every record
+	// it passed (goalFrom is remembered only then): such a walk reaches that prompt's record before
+	// the older goal's, reads the same text, and would have taken it instead. So the list has grown
+	// by the time they answer again. If its newest record changed, deriveCurrentWorkLocked derives
+	// afresh; if not (the new record was published out of host order behind it), the walk that
+	// took the older goal found nothing newer giving one, and the later prompt is what the records
+	// give too. Either way goalFrom needs no reset. The gate survives a restart (goal_turn).
 	if !d.promptsAnswered && !d.workExplicit {
 		if turn, goal, ok := ownNewestGoal(ctx, src, d.session, prompts); ok && (!d.goalTurnSet || turn > d.goalTurn) {
 			d.cp.CurrentWork = CurrentWork{Goal: goal}
-			d.goalTurn, d.goalTurnSet = turn, true
+			d.setGoalTurnLocked(turn, true)
 		}
 	}
 
