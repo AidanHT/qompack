@@ -201,6 +201,59 @@ func TestStatus_TransientConnectMissStillReadsTheDaemon(t *testing.T) {
 	require.Equal(t, first, second, "two status --json reads of unchanged state disagree (D53(a))")
 }
 
+// countingClient counts the Sends that reach the client it wraps.
+type countingClient struct {
+	ipc.Client
+	sends *atomic.Int64
+}
+
+func (c countingClient) Send(ctx context.Context, req ipc.Request, d time.Duration) (ipc.Response, error) {
+	c.sends.Add(1)
+	return c.Client.Send(ctx, req, d)
+}
+
+// TestStatus_DaemonDisabledIsNamedNotMissed is the wave 19b fix round's finding: with
+// runtime.daemon.enabled false and a daemon still listening (the configuration changed while it
+// ran), the command client never dials (ipc.Client.Send, step 2) and answers OK false with no text
+// at once. Status resent that and reported a connect miss within the 250 ms budget, though no dial
+// was ever made. It must name the disabled daemon instead: one send, no probe, no resend, and
+// neither the connect-miss, the call-deadline nor the "none is listening" reason. The client is the
+// real command client; the probe stands in for the listener that is still running.
+//
+// Not parallel: it swaps newCommandIPCClient, statusProbeDial and statusSendClock.
+func TestStatus_DaemonDisabledIsNamedNotMissed(t *testing.T) {
+	root := bootstrapProject(t)
+	writeProjectConfig(t, root, `{"runtime":{"daemon":{"enabled":false}}}`)
+	var probes atomic.Int64
+	useStatusProbe(t, func(ipc.Addr, time.Duration) bool {
+		probes.Add(1)
+		return true // a daemon started before the configuration changed is still listening
+	})
+	useStatusSendClock(t, newStepClock())
+	var sends atomic.Int64
+	var built []ipc.ClientOptions
+	prev := newCommandIPCClient
+	newCommandIPCClient = func(addr ipc.Addr, sp ipc.SpoolWriter, log logging.Logger, m obs.Registry,
+		o ipc.ClientOptions,
+	) ipc.Client {
+		built = append(built, o)
+		return countingClient{Client: prev(addr, sp, log, m, o), sends: &sends}
+	}
+	t.Cleanup(func() { newCommandIPCClient = prev })
+
+	out, env := statusConnectRead(t, root)
+	require.Len(t, built, 1, "one command client per status run")
+	require.False(t, built[0].State.DaemonEnabled, "the command client is built with the daemon disabled")
+	require.NotEqual(t, "daemon", env.Data.Primary.Source, "stdout=%s", out)
+	require.Equal(t, int64(1), sends.Load(), "a client that never dials is asked once, not resent")
+	require.Zero(t, probes.Load(), "with the daemon disabled, whether one listens decides nothing")
+	require.Contains(t, env.Data.Primary.Reason, statusDaemonDisabledReason,
+		"the reason must say the daemon is disabled for this project")
+	require.NotContains(t, env.Data.Primary.Reason, statusConnectMissReason, "no dial was made")
+	require.NotContains(t, env.Data.Primary.Reason, statusSilentDaemonReason, "no call deadline ran")
+	require.NotContains(t, env.Data.Primary.Reason, statusNoDaemonReason)
+}
+
 // lateConnectClient is the transport to a listener that accepts a connection only readyAt after a
 // dial starts: busy until then, as a go-winio listener is while it re-arms. A dial whose budget
 // reaches readyAt connects and is answered with answer; one whose budget falls short gives up when
@@ -352,7 +405,7 @@ func TestStatus_CallDeadlineExpiryStillSaysSilent(t *testing.T) {
 	client := newCommandClient(root, cfg, Env{}, logging.Nop(), obs.New(testClock()), testClock())
 	t.Cleanup(func() { _ = client.Close() })
 
-	_, _, err = fetchDaemonStatus(context.Background(), client, daemonListening(root))
+	_, _, err = fetchDaemonStatus(context.Background(), client, true, daemonListening(root))
 	require.Error(t, err)
 	require.Equal(t, statusSilentDaemonReason, err.Error())
 	require.Equal(t, int64(1), calls.Load(), "an expired call deadline must not be retried")

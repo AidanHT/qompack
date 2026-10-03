@@ -1330,7 +1330,7 @@ func (s *doctorState) statusRows() []doctorRow {
 	} else {
 		client := newCommandClient(s.root, s.cfg, doctorNoSpawnEnv(s.env), logging.Nop(), obs.New(s.clk), s.clk)
 		defer func() { _ = client.Close() }()
-		rep = commands.CollectStatus(s.ctx, commandStatusSources(s.ctx, s.root, client), s.clk.Now())
+		rep = commands.CollectStatus(s.ctx, commandStatusSources(s.ctx, s.root, s.cfg, client), s.clk.Now())
 	}
 
 	mode := doctorUnknown

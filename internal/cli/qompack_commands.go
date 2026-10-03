@@ -138,7 +138,7 @@ func buildCommandDeps(ctx context.Context, env Env, errw io.Writer) (commands.De
 
 	client := newCommandClient(root, deps.Cfg, env, log, reg, clk)
 	deps.MCP = buildCommandMCPProxy(deps.Cfg, client, log)
-	deps.Status = commandStatusSources(ctx, root, client)
+	deps.Status = commandStatusSources(ctx, root, deps.Cfg, client)
 
 	return deps, func() {
 		_ = client.Close()
@@ -238,11 +238,16 @@ func buildCommandMCPProxy(cfg config.Config, client ipc.Client, log logging.Logg
 	return srv
 }
 
-// commandStatusSources binds the two places a status observation comes from.
-func commandStatusSources(_ context.Context, root string, client ipc.Client) commands.StatusSources {
+// commandStatusSources binds the two places a status observation comes from. cfg is the
+// configuration client was built with (newCommandClient), so the daemon source knows, as the client
+// does, whether runtime.daemon.enabled lets it dial at all (daemonClientState).
+func commandStatusSources(
+	_ context.Context, root string, cfg config.Config, client ipc.Client,
+) commands.StatusSources {
+	enabled := daemonClientState(root, cfg).DaemonEnabled
 	return commands.StatusSources{
 		Daemon: func(ctx context.Context) (commands.DaemonStatus, time.Time, error) {
-			return fetchDaemonStatus(ctx, client, daemonListening(root))
+			return fetchDaemonStatus(ctx, client, enabled, daemonListening(root))
 		},
 		Disk: func(context.Context) (obs.Snapshot, error) {
 			return readPersistedMetrics(paths.Of(root))
@@ -270,6 +275,13 @@ var statusConnectMissReason = fmt.Sprintf("a daemon is listening for this projec
 	"answer this command: on both of two attempts, no connection to it was made within the %s "+
 	"connect budget or the connection closed before a reply. Run status again; if it keeps "+
 	"failing, see docs/troubleshooting.md, section 7", commandConnectDeadline)
+
+// statusDaemonDisabledReason is why status has no live answer when runtime.daemon.enabled is false
+// for this project, in its loaded configuration or in the state.bin its daemon last wrote. The
+// command client then never dials (ipc.Client.Send, step 2): it answers OK false with no text at
+// once, which is neither a connect miss nor an absent daemon, so status says why no daemon was asked.
+const statusDaemonDisabledReason = "runtime.daemon.enabled is false for this project, so this " +
+	"command does not ask a daemon, even one that is still running"
 
 // statusProbeTimeout bounds the dial daemonListening makes. It is the command client's own connect
 // budget, not a new number. fetchDaemonStatus resends a fast failure only when this probe saw a
@@ -302,6 +314,10 @@ func daemonListening(root string) func() bool {
 // COMPILE error here as well as a test failure: a member the daemon adds and the mirror lacks
 // stops this function building.
 //
+// enabled is the client's own DaemonEnabled (daemonClientState). A client built with it false never
+// dials (ipc.Client.Send, step 2), so its OK false says nothing about a listener: status sends once,
+// neither probes nor resends, and names the disabled daemon (statusDaemonDisabledReason).
+//
 // listening is asked before the request is sent, because the client answers OK false with no error
 // text both when nothing listened and when a listening daemon never replied: only the dial tells the
 // two apart, and asking it after the send would see the daemon the send's own lazy spawn started.
@@ -314,9 +330,9 @@ func daemonListening(root string) func() bool {
 // always one the dial budget could absorb (go-winio's dial returns any CreateFile error but
 // ERROR_PIPE_BUSY at once). A daemon that let the call deadline expire is not asked twice.
 func fetchDaemonStatus(
-	ctx context.Context, client ipc.Client, listening func() bool,
+	ctx context.Context, client ipc.Client, enabled bool, listening func() bool,
 ) (commands.DaemonStatus, time.Time, error) {
-	wasListening := listening != nil && listening()
+	wasListening := enabled && listening != nil && listening()
 	send := func() (ipc.Response, time.Duration, error) {
 		start := statusSendClock.Now()
 		resp, err := client.Send(ctx, ipc.Request{
@@ -339,6 +355,8 @@ func fetchDaemonStatus(
 		// reply never came. It carries no text of its own, and quoting it as a refusal printed
 		// "status refused: " with nothing after the colon (V6 close-out F-UAT03-3, F-C49-1).
 		switch {
+		case !enabled:
+			return commands.DaemonStatus{}, time.Time{}, errors.New(statusDaemonDisabledReason)
 		case !wasListening:
 			return commands.DaemonStatus{}, time.Time{}, errors.New(statusNoDaemonReason)
 		case took >= commandCallDeadline:
