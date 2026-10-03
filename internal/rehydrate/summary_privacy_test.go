@@ -356,3 +356,87 @@ func TestBuild_AProjectPathWithASpaceShowsItsOwnAbsolutePaths(t *testing.T) {
 			"%q names a denied path or one outside the project", s)
 	}
 }
+
+// requireSummaries builds a payload whose checkpoint records files and one tool pointer for each
+// summary in shown and withheld, judged against exact-file host rules on deny, and requires
+// section 6 to show each of shown as recorded and to withhold each of withheld, with none of leaks
+// anywhere in the payload or the drop report.
+func requireSummaries(t *testing.T, root string, deny, files, shown, withheld, leaks []string) {
+	t.Helper()
+	for _, s := range append(append([]string(nil), shown...), withheld...) {
+		require.LessOrEqual(t, len(s), previewWidth, "fixture: %q is wider than a store preview", s)
+	}
+	cp := ckUAT05()
+	cp.Pointers.Files = nil
+	for _, f := range files {
+		cp.Pointers.Files = append(cp.Pointers.Files, checkpoint.FilePointer{Path: f, Hash: hashOf("file " + f), Why: "referenced"})
+	}
+	cp.Pointers.Tools = nil
+	for i, s := range shown {
+		cp.Pointers.Tools = append(cp.Pointers.Tools, checkpoint.ToolPointer{
+			ToolUseID: core.ToolUseID(fmt.Sprintf("toolu_ok_%d", i)), Hash: hashOf("ok" + s), Summary: s,
+		})
+	}
+	for i, s := range withheld {
+		cp.Pointers.Tools = append(cp.Pointers.Tools, checkpoint.ToolPointer{
+			ToolUseID: core.ToolUseID(fmt.Sprintf("toolu_no_%d", i)), Hash: hashOf("no" + s), Summary: s,
+		})
+	}
+	d := uat05Deps(t, cp)
+	d.HostPaths = denyFiles(root, deny...)
+	r := requestFor(t, cp, maxBudget())
+	r.ProjectRoot = root
+
+	res, err := Build(context.Background(), r, d)
+	require.NoError(t, err)
+	requireInsideTheHostCeiling(t, res, cp.Session)
+	requireNoLeak(t, res, leaks)
+
+	section6 := sectionBody(res.Text, sectionHeading(ItemPointers))
+	for i, s := range shown {
+		require.Contains(t, section6, pointerLine(fmt.Sprintf("tool_use toolu_ok_%d", i), hashOf("ok"+s), s),
+			"%q names no withheld path, so it is shown as recorded", s)
+	}
+	for i, s := range withheld {
+		require.Contains(t, section6, fmt.Sprintf("- tool_use toolu_no_%d %s — %s", i, hashOf("no"+s), withheldSummary),
+			"%q names a withheld path", s)
+	}
+}
+
+// TestBuild_TheProjectRootFollowedByMoreWordsIsShown is the w19 round-2 review's first finding.
+// The store's preview of a Grep or a Glob whose path is the project root is the root, a space and
+// the pattern, and a command names the root as one of its words (`cd <root> && go test ./...`,
+// `git -C <root> status`). Read whole, a stretch that starts at the root and runs on into the next
+// word is the root's own name with more after it, a sibling of the root outside the project, so
+// every such summary was withheld, in every project, with or without host rules, while D60 rules
+// that the project's own absolute paths are shown. Each word is judged on its own, and the root is
+// in the project. A quoted path, a path-named argument and a word that runs past the root into a
+// sibling are still judged, and withheld, as the paths outside the project they are.
+func TestBuild_TheProjectRootFollowedByMoreWordsIsShown(t *testing.T) {
+	for _, elem := range [][]string{{"proj"}, {"John Smith", "proj"}} {
+		t.Run(filepath.Join(elem...), func(t *testing.T) {
+			root := previewRoot(elem...)
+			slash := strings.ReplaceAll(root, `\`, "/")
+			sep := string(filepath.Separator)
+			shown := []string{
+				root + " TODO",
+				root + " **/*.go",
+				slash + " TODO",
+				root + " func main",
+				"cd " + root + " && go test ./...",
+				"cd " + slash + " && git log --oneline -n 5",
+				"git -C " + root + " status --short",
+				"go test ./... && cd " + root,
+			}
+			withheld := []string{
+				root + "2" + sep + "x.txt",
+				`cat "` + root + " old" + sep + `x.txt"`,
+				`{"file_path":"` + strings.ReplaceAll(root+" old"+sep+"x.txt", `\`, `\\`) + `"}`,
+				"cd " + root + " && cat private/deny.txt",
+				root + sep + "private deny.txt",
+			}
+			requireSummaries(t, root, []string{"private/deny.txt"}, nil, shown, withheld,
+				[]string{"deny.txt", "proj2", "old" + sep + "x.txt", strings.ReplaceAll("old"+sep+"x.txt", `\`, `\\`)})
+		})
+	}
+}
