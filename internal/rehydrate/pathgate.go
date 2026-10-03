@@ -61,8 +61,9 @@ type pathJudge struct {
 	// tails holds every known path and each of its path-segment suffixes (`private/deny.txt`,
 	// `deny.txt`): a summary piece that spells one names the withheld file (namesKnown).
 	tails map[string]bool
-	// judged memoizes withheld() for the build: a path is named by a file pointer and again by the
-	// summaries that read it, and each host judgement may consult the filesystem.
+	// judged memoizes the host's judgement (hostRefuses) for the build: a path is named by a file
+	// pointer and again by the summaries that read it, and each host judgement may consult the
+	// filesystem.
 	judged map[string]bool
 }
 
@@ -140,18 +141,51 @@ func (j pathJudge) rulesKnown() bool { return !j.host || j.refuses != nil }
 // withheld reports whether path may not be shown: it lies outside the project, or the host's rules
 // refuse it, or they could not be established.
 func (j pathJudge) withheld(path string) bool {
-	p := strings.TrimSpace(strings.ReplaceAll(path, `\\`, `\`))
-	if p == "" {
+	p := judgedSpelling(path)
+	return p != "" && (!j.inside(p) || j.hostRefuses(p))
+}
+
+// judgedSpelling is path as withheld() judges it: JSON's doubled backslash undone, and trimmed.
+func judgedSpelling(path string) string {
+	return strings.TrimSpace(strings.ReplaceAll(path, `\\`, `\`))
+}
+
+// hostRefuses reports whether the host's rules refuse p (a judgedSpelling), or could not be
+// established; with no host rules in force it is false. Each answer is memoized for the build.
+func (j pathJudge) hostRefuses(p string) bool {
+	if !j.host {
 		return false
+	}
+	if j.refuses == nil {
+		return true
 	}
 	if w, ok := j.judged[p]; ok {
 		return w
 	}
-	w := !j.inside(p) || (j.host && (j.refuses == nil || j.refuses(p)))
+	w := j.refuses(p)
 	if j.judged != nil {
 		j.judged[p] = w
 	}
 	return w
+}
+
+// pieceRefused is withheld() for a piece, except that an unquoted span or join that starts at a
+// word inside the project, and only as a whole runs outside it, is judged by the host's rules
+// alone. Such a stretch is the project root followed by more words (`<root> TODO`, Grep's preview
+// with the root as its path, or `<root> && go test ./...` in a command): read whole it is the
+// root's own name with a space and more after it, a sibling of the root, which is an artifact of
+// reading words together, not a path anyone wrote, and every word of it is judged on its own
+// (w19 round-2 review). A quoted segment, a path-named argument and a single word keep their
+// containment, and a sibling that really holds a space after the root's own name
+// (`<root> - Copy\x`) is the limit ADR 0011 §23.2 records.
+func (j pathJudge) pieceRefused(p summaryPiece) bool {
+	if p.lead != "" {
+		text, lead := judgedSpelling(p.text), judgedSpelling(p.lead)
+		if text != "" && absLike(text) && !j.inside(text) && absLike(lead) && j.inside(lead) {
+			return j.hostRefuses(text)
+		}
+	}
+	return j.withheld(p.text)
 }
 
 // inside reports whether p, absolute or project-relative, names something within the project.
@@ -228,9 +262,9 @@ func (j pathJudge) pieceWithheld(p summaryPiece) bool {
 		return false
 	}
 	if isGlob(p.text) {
-		return j.judgedByRules(p) && j.globWithheld(p.text)
+		return j.judgedByRules(p) && j.globWithheld(p)
 	}
-	return j.namesKnown(p.text) || (j.judgedByRules(p) && j.withheld(p.text))
+	return j.namesKnown(p.text) || (j.judgedByRules(p) && j.pieceRefused(p))
 }
 
 // judgedByRules reports whether withheld() is asked about p. Against established rules every piece
@@ -273,6 +307,9 @@ func (j pathJudge) namesKnown(p string) bool {
 type summaryPiece struct {
 	text string
 	kind pieceKind
+	// lead is the first word of an unquoted span or join, which decides whether the stretch's own
+	// containment is judged (pieceRefused); it is empty for every other piece.
+	lead string
 }
 
 // pieceKind is how a piece was read from a summary, which decides when it is judged
@@ -291,7 +328,8 @@ const (
 	// pieceSpan is a stretch of a summary read whole where its producer delimits an argument: the
 	// whole summary or JSON string, a prefix or a suffix of its words (Grep's and Glob's path, then
 	// pattern, either of which may hold a space), or a quoted segment. A path with a space or a
-	// delimiter in it (`private/deny (1).txt`) is one span, and no token spells it.
+	// delimiter in it (`private/deny (1).txt`) is one span, and no token spells it. An unquoted
+	// span carries its first word as its lead (pieceRefused).
 	pieceSpan
 	// pieceJoin is a summary's words joined at one space by a separator: the store's preview of Glob
 	// or Grep is its directory, a space and its pattern, and the join is the path that pattern
@@ -337,20 +375,20 @@ func (j pathJudge) readSummary(s string) (texts []string, pieces []summaryPiece)
 // t's own spellings of the project root are protected (protectRoot), so no piece cuts the root
 // apart.
 func textPieces(pieces []summaryPiece, t string) []summaryPiece {
-	pieces = appendPiece(pieces, t, pieceSpan)
+	words := summaryWord.FindAllStringIndex(t, -1)
+	if len(words) == 0 {
+		return pieces
+	}
+	lead := func(k int) string { return t[words[k][0]:words[k][1]] }
+	pieces = appendPiece(pieces, summaryPiece{text: t, kind: pieceSpan, lead: lead(0)})
 	for _, tok := range summaryTokens.Split(t, -1) {
-		pieces = appendPiece(pieces, tok, pieceToken)
+		pieces = appendPiece(pieces, summaryPiece{text: tok, kind: pieceToken})
 	}
 	for _, q := range quotedSegments(t) {
-		pieces = appendPiece(pieces, q, pieceSpan)
+		pieces = appendPiece(pieces, summaryPiece{text: q, kind: pieceSpan})
 	}
-	words := summaryWord.FindAllStringIndex(t, -1)
 	for _, w := range words {
-		word := t[w[0]:w[1]]
-		pieces = appendPiece(pieces, word, pieceToken)
-		if _, v, ok := strings.Cut(word, "="); ok {
-			pieces = appendPiece(pieces, v, pieceToken)
-		}
+		pieces = appendWord(pieces, t[w[0]:w[1]])
 	}
 	n := len(words)
 	if n < 2 || utf8.RuneCountInString(t) > maxOneLineRunes {
@@ -359,9 +397,18 @@ func textPieces(pieces []summaryPiece, t string) []summaryPiece {
 	for k := 1; k < n; k++ {
 		head := t[words[0][0]:words[k-1][1]]
 		tail := t[words[k][0]:words[n-1][1]]
-		pieces = appendPiece(pieces, head, pieceSpan)
-		pieces = appendPiece(pieces, tail, pieceSpan)
-		pieces = appendPiece(pieces, head+"/"+tail, pieceJoin)
+		pieces = appendPiece(pieces, summaryPiece{text: head, kind: pieceSpan, lead: lead(0)})
+		pieces = appendPiece(pieces, summaryPiece{text: tail, kind: pieceSpan, lead: lead(k)})
+		pieces = appendPiece(pieces, summaryPiece{text: head + "/" + tail, kind: pieceJoin, lead: lead(0)})
+	}
+	return pieces
+}
+
+// appendWord appends one word of a text and the value after its first `=` (an option's value).
+func appendWord(pieces []summaryPiece, word string) []summaryPiece {
+	pieces = appendPiece(pieces, summaryPiece{text: word, kind: pieceToken})
+	if _, v, ok := strings.Cut(word, "="); ok {
+		pieces = appendPiece(pieces, summaryPiece{text: v, kind: pieceToken})
 	}
 	return pieces
 }
@@ -390,21 +437,22 @@ func quotedSegments(t string) []string {
 	return out
 }
 
-// appendPiece appends text, its project-root spellings restored (restoreRoot) and its trailing
+// appendPiece appends p, its text's project-root spellings restored (restoreRoot) and its trailing
 // sentence punctuation cut, and the value behind its selector prefix: named when the selector is
-// named for a path, and read as text was otherwise. A join's value stays a join, since the join is
-// not a spelling found in the summary.
-func appendPiece(pieces []summaryPiece, text string, kind pieceKind) []summaryPiece {
-	if text = strings.TrimRight(restoreRoot(strings.TrimSpace(text)), ".:"); text == "" {
+// named for a path, and read as p was otherwise. A join's value stays a join, since the join is not
+// a spelling found in the summary.
+func appendPiece(pieces []summaryPiece, p summaryPiece) []summaryPiece {
+	if p.text = strings.TrimRight(restoreRoot(strings.TrimSpace(p.text)), ".:"); p.text == "" {
 		return pieces
 	}
-	pieces = append(pieces, summaryPiece{text: text, kind: kind})
-	if m := summarySelector.FindStringSubmatch(text); m != nil && !strings.HasPrefix(m[2], "//") {
-		sel := kind
-		if kind != pieceJoin && pathArgName.MatchString(m[1]) {
-			sel = pieceNamed
+	p.lead = strings.TrimSpace(restoreRoot(p.lead))
+	pieces = append(pieces, p)
+	if m := summarySelector.FindStringSubmatch(p.text); m != nil && !strings.HasPrefix(m[2], "//") {
+		sel := summaryPiece{text: m[2], kind: p.kind}
+		if p.kind != pieceJoin && pathArgName.MatchString(m[1]) {
+			sel.kind = pieceNamed
 		}
-		pieces = append(pieces, summaryPiece{text: m[2], kind: sel})
+		pieces = append(pieces, sel)
 	}
 	return pieces
 }
@@ -539,8 +587,9 @@ func isGlob(p string) bool { return strings.ContainsAny(p, globMeta) }
 // is refused (withheld), or it selects a path this build withholds (pathJudge.known). A glob without
 // a separator matches at any depth (rules.Match), as recall's path: selector does. Only the paths the
 // build records are known, so a glob that selects nothing Qompack recorded is judged as written.
-func (j pathJudge) globWithheld(g string) bool {
-	if j.withheld(g) {
+func (j pathJudge) globWithheld(p summaryPiece) bool {
+	g := p.text
+	if j.pieceRefused(p) {
 		return true
 	}
 	k, ok := j.key(g)
