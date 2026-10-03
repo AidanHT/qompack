@@ -144,6 +144,11 @@ same 250 ms. `runtime.daemon.connectDeadlineMs` (5 ms, or 25 ms on Windows)
 is the hooks' hot-path budget. It does not bound these commands' dial, so raising it does not change
 what they wait for.
 
+Known limit: when the dial `status` (or another frontend that may start a daemon; `doctor` never
+does) makes to a running daemon misses its connect budget, the command also asks a daemon to start,
+as it would if none were listening; the second daemon finds the running one's lock and exits, and
+nothing is lost (`internal/ipc/client.go`, `lazySpawn`; `internal/daemon/daemon.go`, `Run`).
+
 Latency percentiles are never printed above the `max` on the same line. The histogram reports a
 percentile as its bucket's upper bound, which can sit up to about 9% above the samples in it, so the
 page clamps each percentile to the exact maximum; the value stays an upper bound on the true
