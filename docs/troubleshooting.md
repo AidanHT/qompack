@@ -529,18 +529,19 @@ reach the cap. Report it with that log line.
 
 **Symptom.** After a compaction, section 7 names your original request first, as a `tier1` entry
 whose detail begins `OVERFLOW:`, and also names older `user_intent_evolution` entries as "did not
-fit", although the block is far below its budget (`Tokens` well under `Budget` in
+fit", although the block is far below its budget (`tokens` well under `budget` in
 `.qompack/state/rehydrate-<session>.json`).
 
 **Meaning.** This is the designed order, not a lost record. Your first prompt is longer than the
 block can carry, so it is emitted whole or not at all and is named with its
 `expand(tool_use_id=…)` call instead. While that tier-1 record is outside the block, section 2 is
-incomplete, and its older evolution entries are not re-admitted into the room the block leaves
-unused: the original comes before every restatement in the authority order, so nothing older than
-the newest restatement is added after it ([ADR 0011](adr/0011-rehydration-budget-and-item-order.md),
-the D49 amendments). The newest restatement is still carried. The V6 live lane saw this on
-candidate 7 with a 16,858-character first prompt: the 6 oldest of 13 evolution entries were named
-while the payload used 929 of 12,000 tokens (finding F-C7-UAT04-1). It is a known limit of 0.3.0
+incomplete: the evolution entries that fit section 2's share of the budget are carried, newest first,
+and the older entries that share left out are not re-admitted into the room the block leaves unused,
+because the original comes before every restatement in the authority order
+([ADR 0011](adr/0011-rehydration-budget-and-item-order.md), the D49 amendments). The V6 live lane
+saw this on candidate 7 with a 16,858-character first prompt: the newest 7 of 13 evolution entries
+were carried and the 6 oldest were named, while the payload used 929 of 12,000 tokens (finding
+F-C7-UAT04-1). It is a known limit of 0.3.0
 ([cannot-do](cannot-do.md#evolution-entries-are-not-re-admitted-while-the-original-request-overflows)).
 
 **Action.** Call `dropped()` for the full list and the call that restores each entry, or

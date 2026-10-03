@@ -20,8 +20,9 @@ evict anything from the native context, and performs no network I/O of any kind.
 ## Status: release candidate
 
 Qompack has not been released. Release **0.3.0** (V6 close-out decision D1) is being cut from
-release candidate 7, whose commit and frozen bundles are recorded in
-`plans/sdd/V6-closeout/phase3/c7-CANDIDATE.md`. Its six per-target bundles are stamped `0.3.0` at
+release candidate 8 (decision D58(e)), whose commit and frozen bundles are recorded in
+`plans/sdd/V6-closeout/phase3/c8-CANDIDATE.md` when it is frozen. The release tags candidate 8, or a
+descendant whose changes reach no bundle. Its six per-target bundles are stamped `0.3.0` at
 link time by `devtool bundle --version 0.3.0`, so an installed bundle reports `0.3.0` from
 `qompack version`, its `plugin.json` and its `BUNDLE.json` alike. Nothing has been tagged,
 published or listed in a marketplace; [docs/release.md](docs/release.md#1-procedure) §1 is the
@@ -35,9 +36,10 @@ repository's last git tag, `v0.2.0`, was an internal verification checkpoint and
 **What 0.3.0 is.** A local recorder and retriever for Claude Code sessions: it keeps a durable record
 of what the hooks deliver, seals a checkpoint when the host is about to compact, puts a bounded
 rehydration block (at most 9,500 characters, inside the host's 10,000-character cap) into the
-session after the host's compaction, names what did not fit, and answers recall, expansion and
-negative-knowledge questions through its MCP tools and slash commands. It runs on your machine
-only.
+session after the host's compaction, names what did not fit (in the block, or, at a configured
+budget too small for even the shortest loss notice, in the drop report and `LOUD.log`, with nothing
+injected), and answers recall, expansion and negative-knowledge questions through its MCP tools and
+slash commands. It runs on your machine only.
 
 **What 0.3.0 is not.**
 
@@ -88,24 +90,30 @@ disagree):
 fsync-bound timing rows are reported, not gated (owner decision Q1), while every structural check in
 those rows still gates.
 
-**What is verified where, as of release candidate 7.** Candidate 7 is candidate 6 (`verify/v6`
-commit `99d0b18`) plus the version commit (`internal/core.Version` and `plugin.json` at `0.3.0`) and
-test, workflow and docs changes. Each bundled `bin/` differs from candidate 6's by one byte, an
-unreferenced copy of the old version string the linker keeps, plus darwin/arm64's ad-hoc signature
-hash; builds use `-buildvcs=false`, so `bin/` does not depend on the commit. Candidate 6's machine
-evidence below carries to candidate 7 by that byte comparison
-(`plans/sdd/V6-closeout/w17-release/report.md`, decision D57(c)). The live lane and the live
-evaluation run on candidate 7's frozen bundles and have not run yet.
+**What is verified where, and for which candidate.** Candidate 8 is candidate 7 (`d20309c0`) plus
+product fixes in the drain pass budget, the session registry, the checkpoint writer, the hook
+configuration path, the contract reading, the rehydration block and the command client, with their
+tests (decisions D58(e), D60(f), D61). Its binaries are therefore new: no byte comparison carries
+earlier candidates' machine evidence to it, as candidate 7's one-byte comparison with candidate 6
+did (D57(c)). The table below records what candidates 6 and 7 established. Candidate 8's own
+evidence is still owed and is recorded in `plans/sdd/V6-closeout/phase3/c8-CANDIDATE.md` as it
+arrives: its night chain on the frozen tree (the AC-gated Windows timing and X11, the Windows and
+Linux `-race` lanes, two reproducible bundle builds, the quiet C5.1 run and `release-check --tag`),
+hosted `ci.yml` and `nightly.yml` on it, with the hosted release-version bundles compared byte for
+byte with its frozen ones, its short live re-check (D59, D60(f)), and the pre-registered live
+evaluation, C5.5, which runs on its frozen bundles (D58(e)). Candidate 7's live lane ran: 20 real
+sessions on its frozen bundles (D59). Its rows carry to candidate 8 by the diff, confirmed by the
+live re-check, and its host-seen hook timings stay candidate 7's (D58(e)).
 
 | Where | What the evidence shows |
 |---|---|
-| Hosted CI, ubuntu-latest (x86-64) and macos-latest (macOS 26, arm64) | On candidate 6, `ci.yml` run `36955046276`: `test`, `test-e2e`, `timing` and `bench-gate` passed on both, as did `verify`, `lint-windows`, `cover`, `crossbuild`, `replay-gate`, `plugin-validate`, `security`, `docs`, and Windows' `test-e2e`, `timing` and `bench-gate`. Two jobs failed, and each has a recorded disposition. `release-dry-run` failed only X11, inside `release-check`, on the hosted runner's fsync tail (B-B p99 49 ms against 15 with p50 0.58 ms) after the same package had passed in its test step; that job, like the other hosted timing jobs, now declares `QOMPACK_NONREFERENCE_DISK` (D57(a)). `test (windows-latest)` failed on a read-order race in `test/fault`'s own audit, fixed in the test (D57(b)). Neither job has been re-run on candidate 7 yet. The nightly run `36955043924` on candidate 6 passed all 31 jobs: the Windows race lane, the product-child race lane, the recorded replay, `bench-deep` on three OSes and 25 fuzz targets. |
+| Hosted CI, ubuntu-latest (x86-64) and macos-latest (macOS 26, arm64) | On candidate 6, `ci.yml` run `36955046276`: `test`, `test-e2e`, `timing` and `bench-gate` passed on both, as did `verify`, `lint-windows`, `cover`, `crossbuild`, `replay-gate`, `plugin-validate`, `security`, `docs`, and Windows' `test-e2e`, `timing` and `bench-gate`. Two jobs failed, and each has a recorded disposition. `release-dry-run` failed only X11, inside `release-check`, on the hosted runner's fsync tail (B-B p99 49 ms against 15 with p50 0.58 ms) after the same package had passed in its test step; that job, like the other hosted timing jobs, now declares `QOMPACK_NONREFERENCE_DISK` (D57(a)). `test (windows-latest)` failed on a read-order race in `test/fault`'s own audit, fixed in the test (D57(b)). The nightly run `36955043924` on candidate 6 passed all 31 jobs: the Windows race lane, the product-child race lane, the recorded replay, `bench-deep` on three OSes and 25 fuzz targets. On candidate 7 (D58(a)), `ci.yml` run `36981590450` passed every job but `test (windows-latest)`, including `release-dry-run` and `lint-windows`; that red was a wall-clock margin in a spool-watcher test on a loaded runner, and the test now drives its retry horizon on an injected clock (D58(b)). Its hosted release-version bundles were byte-identical to candidate 7's frozen ones (every `bin/`, every zip and `checksums.txt`), and the nightly run `36981711009` passed all 31 jobs. Neither workflow has run on candidate 8 yet. |
 | Windows, the reference host | Candidate 6's quiet hot-path run (C5.1, `plans/sdd/V6-closeout/phase3/c6/quiet/`, on AC power) passed: B-A p99 30.7 ms and B-B p99 24.6 ms against 50, B-E p99 170.8 ms against 2,000 (B-E_cpu p99 31.3 ms), and B-F p99 73.7 ms against 250 over 2,000 tool uses (n=200). The whole tree passed under `-race`, as did the isolated wall-clock rows in `internal/store`, `internal/negknow`, `internal/mcp`, `internal/daemon` and `test/integration`. X11 (`TestV3_HotPathUnchangedWithLedgerResident`, the hot path over a project holding 2,000 tool uses and 40 MB of tool output, with and without a 5,000-entry elimination ledger) passed 3 of 3 rounds on candidate 6's tree on AC, run alone after five idle minutes with no power transition, alongside the bare harness and `TestIntegration_HotPathWarmWithRealResidentState`, each 3 of 3 with nothing deferred (n=2,064 per run): both X11 legs read B-A p99 36.9 ms and B-B p99 22.5 to 24.6 ms against 50, and the ledger left the daemon-observed hook p50 unchanged (5.1 ms in both legs, ceiling 6.4 ms) (`plans/sdd/V6-closeout/phase3/c6/x11-e1/summary.txt`). Every strict X11 failure at normal priority since decision D41 ran with the laptop on battery, including candidate 6's isolated X11 runs inside `test/e2e` and alone: on battery Windows applies slower CPU, PCIe and NVMe power policies, so a battery run is not a reference measurement, neither a pass nor a fail (D57(d)). On battery the hot path switches to spool submode as designed and nothing is lost (D53(c)). Windows reference timings are taken on AC with the store under a path excluded from Windows Defender scanning (decisions D32, D53(h)). |
 | Linux | In the local Docker Desktop/WSL2 container, as a non-root user, the whole tree, `test/e2e` and the product-child lane passed under `-race` on candidate 6. The fsync-bound rows, B-A and B-B, are **not verified in target** (D53(b)): the container's fsync is about 40 times slower than a hosted ubuntu runner's at the median, its quiet run failed B-A and B-B because their p99s could not be certified (3,591 of 5,130 hot-path requests were deferred to the client spool, 0 lost; the delivered samples alone read B-A p99 65.5 ms and B-B p99 61.4 ms against 15, which are lower bounds, `plans/sdd/V6-closeout/phase3/c6/quiet/c51-linux/c51-linux.log`) while B-E passed, and hosted runner figures never become constants (Q1). The Linux budget stays 15 ms. In the container the daemon degrades as designed: hooks switch to spool submode and nothing is lost ([docs/troubleshooting.md §7](docs/troubleshooting.md#7-daemon-problems)). |
 | Installed in Claude Code | windows/amd64 only: the live lanes on candidates 3, 4 and 7 installed those candidates' frozen bundles into Claude Code 2.1.280 and ran sessions there, run by an agent on the owner's machine (decision D3: agent-executed, never human UAT). No other target has been installed into Claude Code. |
 | macOS | The test suites run natively on hosted macos-latest (arm64), above. No Mac has installed the plugin into Claude Code, and darwin/amd64 is cross-compiled only. Whether the marketplace install keeps `bin/qompack` executable, and what Gatekeeper does with the unsigned binary, have not been observed. |
 | linux/arm64 and windows/arm64 | Cross-compiled and bundled; no test has run on either architecture and neither has been installed. |
-| Every target's bundle | Candidate 6's six bundles were built twice, byte-identical across all 91 files, and accepted by `claude plugin validate` (2.1.280) where they sit, which is a manifest check and not an install. Candidate 7's bundles are compared with them as above. |
+| Every target's bundle | Candidate 6's six bundles were built twice, byte-identical across all 91 files, and accepted by `claude plugin validate` (2.1.280) where they sit, which is a manifest check and not an install. Candidate 7's bundles differed from candidate 6's by one unreferenced byte, plus darwin/arm64's signature hash (D57(c)). Candidate 8's bundles are built and host-validated at its freeze, and its night builds them twice for the reproducibility check; that record is owed. |
 
 The generated scope table in [docs/release.md](docs/release.md#3-supported-scope) §3 is the
 release's per-target claim, raised only by committed records, and

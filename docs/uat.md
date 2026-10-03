@@ -18,7 +18,9 @@ UAT-03, UAT-04, UAT-06, UAT-09 and UAT-10 pass, and UAT-05 and UAT-12 fail (deci
 fails because a compaction at a 150-token budget dropped material and injected no notice of it;
 UAT-12 fails because a tool pointer's argument summary in the rehydration block showed a path the
 host denies. Both have fixes ordered for candidate 8 (decision D59), and both rows are re-run on
-it. Those eight Result blocks report candidate 7 and keep the earlier outcomes as history lines
+it. The question each of those two Result blocks left to the coordinator has since been ruled
+(decisions D59(b), D60(c)(i) and D61(b)), and each block carries its ruling line. Those eight
+Result blocks report candidate 7 and keep the earlier outcomes as history lines
 (UAT-10 was not re-run on candidate 4, and its candidate 4 line says so). UAT-02, UAT-07, UAT-08
 and UAT-11 were not re-run on candidate 7: their Result blocks report candidate 4 and keep
 candidate 3's line. No human has
@@ -761,6 +763,11 @@ Result: fail — read literally (D50), step 5's expectation is not met: at the t
   --json delivered the envelope (count 14) but the model did not echo it after the empty
   compaction; the committed envelopes are CLI captures.
   No host-reported hook failure or timeout. No native-shrink claim.
+  Ruling (D59(b), after this run): a degraded compaction that dropped material is never silent;
+  when the budget admits no section, the payload is a minimal loss notice naming the loss and the
+  restore route, and ADR 0011 is amended. Below the smallest loss notice nothing is injected, and
+  the overflow drop entry plus one LOUD line name the loss (D60(c)(ii)). The verdict above
+  stands; candidate 8's live re-check re-runs run 2 (D59).
   Candidate 4 (9f6a2fad): fail — under D50 the superseded semicolon original rendered above the
   TAB correction in section 2, evidence plans/sdd/V6-closeout/live/rerun-c4/UAT-05/
   Candidate 3 (d5598eb4): fail — the correction never reached a checkpoint or block, a pin made with
@@ -1589,6 +1596,13 @@ Result: fail — D50's section-6 check (finding F1); every fail criterion listed
   session C re-read session A's old-build capture. Finding (diagnostics, minor): after the
   mid-session compaction `qompack status` names session_start.fires pending
   "marker-absent-once" on a healthy store.
+  Ruling (D60(c)(i), D61(b), after this run): D50 covers pointers only: file and tool pointers,
+  their argument summaries and section 7's drop entries. The records in sections 3 and 4, the
+  model's own earlier text, stay outside it by name, and section 2's verbatim intent, the user's
+  own prompts, is not a pointer either, so O-1 is not a D50 failure. F1 stands, and D61(b) rules
+  its remedy: a structured path preview is judged whole, as a file pointer's path is, and free
+  text is screened. The verdict above stands; candidate 8's live re-check re-runs sessions A and B
+  with C4.6 (D59, D60(f)).
   Candidate 4 (9f6a2fad): pass — deny, bound and binary steps held and the 0.2.99-prev
   upgrade, restore and uninstall kept .qompack/ intact, evidence
   plans/sdd/V6-closeout/live/rerun-c4/UAT-12/

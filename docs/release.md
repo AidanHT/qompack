@@ -5,18 +5,32 @@ it deliberately does not claim. Configuration keys are named but never described
 `docs/config-reference.md` is generated from the schema and owns every default.
 
 **Release status: 0.3.0 candidate, not released.** Release 0.3.0 is being cut from release candidate
-7, whose commit and frozen bundles are recorded in `plans/sdd/V6-closeout/phase3/c7-CANDIDATE.md`.
-Its version commit is in: `internal/core.Version`, `plugin.json` and the bundles all say `0.3.0`
-(§1, step 1). Nothing is tagged or published until the candidate's verification, live and evaluation
-evidence is complete and every red in it is fixed or carries a recorded disposition (V6 close-out
-decision D33; the gates are Phases 3 to 7 of `plans/V6-CLOSEOUT-CHECKLIST.md`). Still owed before
-the tag: the live lane on candidate 7's frozen bundles (D53(f)); the pre-registered live evaluation,
-C5.5, whose verdict decides the release under amendment A8; hosted `ci.yml` and `nightly.yml` on
-candidate 7 (C7.2), including the hosted `release-dry-run` bundles compared byte for byte with the
-frozen ones (D53(h)(4), D57(c)); and the local `release-check --tag` on the reference host, on AC
-power (§1, step 3; D57(a), D57(d)). After the tag come the pre-release, the install rehearsal from
-it (D53(h)(3)), the check that the published `bin/` bytes equal the frozen bundles, and only then
-the promotion. The generated SP-17 scope table in §3 is evidence for its named artifacts only; the
+8 (decision D58(e)), whose commit and frozen bundles are recorded in
+`plans/sdd/V6-closeout/phase3/c8-CANDIDATE.md` when it is frozen. The release tags candidate 8 or a
+descendant whose changes reach no bundle, and the published `bin/` must equal candidate 8's frozen
+bundles. Its version commit is in: `internal/core.Version`, `plugin.json` and the bundles all say
+`0.3.0` (§1, step 1). Nothing is tagged or published until the candidate's verification, live and
+evaluation evidence is complete and every red in it is fixed or carries a recorded disposition (V6
+close-out decision D33; the gates are Phases 3 to 7 of `plans/V6-CLOSEOUT-CHECKLIST.md`).
+
+Candidate 8 changes product code (the drain pass budget, the session registry, the checkpoint
+writer, the hook configuration path, the contract reading, the rehydration block and the command
+client; D58(e), D60(f), D61), so earlier candidates' machine evidence does not carry to it by a byte
+comparison. Already recorded for candidate 7: hosted `ci.yml` run `36981590450`, green except
+`test (windows-latest)`, a wall-clock margin in a spool-watcher test that now runs on an injected
+clock (D58(a), D58(b)); hosted `nightly.yml` run `36981711009`, green; the hosted release-version
+bundles byte-identical to candidate 7's frozen ones (D58(a)); and candidate 7's live lane, 20 real
+sessions with 474 hook calls and no hook failure or timeout (D59). Still owed before the tag, all on
+candidate 8: its night chain on the frozen tree
+(`plans/sdd/V6-closeout/coordinator/c8-night.sh`: the AC-gated Windows timing and X11, the Windows
+and Linux `-race` lanes, two reproducible bundle builds and the quiet C5.1 run); hosted `ci.yml` and `nightly.yml` (C7.2), including the hosted `release-dry-run`
+bundles compared byte for byte with candidate 8's frozen ones (D53(h)(4), D58(e)); its short live
+re-check (D59, D60(f)); the pre-registered live evaluation, C5.5, on its frozen bundles, whose
+verdict decides the release under amendment A8 (D58(e)); and the local `release-check --tag` on the
+reference host, on AC power, which the night chain runs against a local tag it deletes afterwards
+(§1, step 3; D57(a), D57(d)). After the tag come the pre-release, the install rehearsal from it
+(D53(h)(3)), the check that the published `bin/` bytes equal the frozen bundles, and only then the
+promotion. The generated SP-17 scope table in §3 is evidence for its named artifacts only; the
 capability table beside it states what 0.3.0 ships and what it does not claim. A successful
 `release-check` can include skipped steps, so read its record before tagging.
 
@@ -181,7 +195,7 @@ the deployment level** and is shipped as such.
 ## Capability status at 0.3.0
 
 Written by hand from the V6 close-out ledger (`plans/V6-CLOSEOUT-CHECKLIST.md`, owner decisions D1 to
-D57 and the defaults paragraph under them) and the release candidate 7 tree. It states what the
+D61 and the defaults paragraph under them) and the release candidate 8 tree. It states what the
 release ships; it is not a test result. The statuses are:
 
 - **shipped**: on in the default configuration;
@@ -199,10 +213,11 @@ release ships; it is not a test result. The statuses are:
 | Client spools and the spool submode on a slow disk (nothing lost; the transition says so) | shipped (D53(c), D55) | [troubleshooting §7](troubleshooting.md#7-daemon-problems) |
 | Hot-path budget B-A derived per platform: Linux 15 ms, Windows 50 ms, macOS 40 ms | shipped (D41) | [config reference](config-reference.md#runtime) |
 | Checkpoint at `PreCompact`, sealed after this session's spooled captures are replayed within a 500 ms bound | shipped (D53(c), D55) | [troubleshooting §7](troubleshooting.md#7-daemon-problems) |
-| Rehydration after a compaction, at most 9,500 characters, with the rest named as overflow and pointers for the MCP tools | shipped (D5) | [user guide](user-guide.md#additional-context-budget-and-overflow), [cannot-do](cannot-do.md#the-host-delivers-at-most-10000-characters-of-injected-context-whole) |
+| Rehydration after a compaction, at most 9,500 characters, with the rest named as overflow and pointers for the MCP tools; a compaction that dropped material and fits no section gets a loss notice naming the loss and the restore route, never silence | shipped (D5, D59(b)) | [user guide](user-guide.md#additional-context-budget-and-overflow), [cannot-do](cannot-do.md#the-host-delivers-at-most-10000-characters-of-injected-context-whole) |
 | A compact `SessionStart` answers within 5 s, with a "rehydration deferred" note when the rehydration is late or cannot be built | shipped (D9, D11) | [troubleshooting §7](troubleshooting.md#7-daemon-problems) |
 | The MCP retrieval tools, paged responses bounded by `runtime.mcp.maxResponseBytes`, recall ranking Qompack's own records last | shipped (D46, D49, D50) | [MCP tools](mcp-tools.md), [user guide](user-guide.md#mcp-tools) |
 | The host's saved Read deny and ask rules re-checked on every archived retrieval, failing closed | shipped (D7, D55, D56(d)) | [security §1](security.md#1-trust-boundaries) |
+| The rehydration block's pointers never show a path the host denies or an absolute path outside the project: file pointers and structured tool-argument summaries are judged whole, free-text summaries are screened, and section 7's drop entries are withheld or redacted | shipped (D50, D60(c), D61(b)) | [cannot-do §5](cannot-do.md#the-rehydration-blocks-screen-of-free-text-summaries-has-limits) |
 | Six slash commands: status, recall, pin, why, dropped, eval | shipped (D36) | [commands](commands.md) |
 | Operator commands: `status`, `doctor`, `fsck` (repairs only behind `--repair --yes`), `self-test`, `config print`, `backup create`, `backup verify`, `backup restore`, `admin delivery-seal` | shipped | [user guide](user-guide.md#operator-commands), [backup](backup.md) |
 | Delivery-journal rollover | shipped, on by default (D2) | [troubleshooting §7](troubleshooting.md#7-daemon-problems) |
@@ -226,7 +241,11 @@ release ships; it is not a test result. The statuses are:
 | PutBytes (SP06-D2) and the 256 KB `OnToolUse` row (SP08-D1) miss their budgets; the cost is after the hook's ACK | accepted residual (D54, wontfix for 0.3.0) | [cannot-do §4](cannot-do.md#two-store-write-rows-miss-their-budgets-after-the-hooks-ack) |
 | A `PreCompact` that arrives while a client-spool watcher pass is already running waits behind it; the seal goes ahead at the 500 ms bound and names what it left | accepted residual (D56(e)) | [troubleshooting §7](troubleshooting.md#7-daemon-problems), [cannot-do §4](cannot-do.md#a-compaction-can-wait-behind-a-spool-replay-already-running) |
 | `fsck` run beside a live daemon can report an evidence-class retention root as not held while the daemon is still publishing it; stop the daemon and run it again | accepted residual (D57(b)) | [troubleshooting §9](troubleshooting.md#9-backup-rollback-and-recovery), [cannot-do §4](cannot-do.md#fsck-beside-a-running-daemon-can-report-a-retention-root-that-is-still-being-written) |
-| After a daemon is killed mid-session, the daemon that takes over can reach its idle exit without writing `index/files.json`, so `fsck` exits 1 until `fsck --repair --yes` or the next session's flush writes it (nothing lost); with a tier-1 original over the cap, older evolution entries are not re-admitted into unused room (authority order first; `dropped()` lists them) | accepted residual (D59) | [troubleshooting §5](troubleshooting.md#5-retrieval-that-looks-wrong), [§9](troubleshooting.md#9-backup-rollback-and-recovery), [cannot-do §4](cannot-do.md#after-a-daemon-takeover-fsck-can-find-the-files-view-missing) |
+| After a daemon is killed mid-session, the daemon that takes over can reach its idle exit without writing `index/files.json`, so `fsck` exits 1 until `fsck --repair --yes` or the next session's flush writes it (nothing lost) | accepted residual (D59) | [troubleshooting §9](troubleshooting.md#9-backup-rollback-and-recovery), [cannot-do §4](cannot-do.md#after-a-daemon-takeover-fsck-can-find-the-files-view-missing) |
+| With a tier-1 original over the cap, older evolution entries are not re-admitted into unused room (authority order first; `dropped()` lists them) | accepted residual (D59) | [troubleshooting §5](troubleshooting.md#5-retrieval-that-looks-wrong), [cannot-do §4](cannot-do.md#evolution-entries-are-not-re-admitted-while-the-original-request-overflows) |
+| `backup create`, `backup verify` and `backup restore` refuse while a newer `settingsVersion` is in force (after a plugin downgrade); take the backup with the newer build first | accepted residual (D59) | [backup](backup.md), [troubleshooting §6](troubleshooting.md#6-configuration-and-schema-compatibility) |
+| Below the smallest loss notice, nothing is injected: a rehydration budget (`runtime.rehydrate.maxTokens`) too small for even "N items dropped; call dropped()" gets no block, the drop report records the overflow, and `LOUD.log` gets one line, so it is not silent | accepted residual (D59(b), D60(c)(ii)) | [cannot-do §4](cannot-do.md#below-the-smallest-loss-notice-a-compaction-injects-nothing) |
+| The free-text screen of tool summaries does not resolve aliases (8.3 names, links) or globs, cannot see names built at run time, and withholds free text that only mentions a rule's literal; the records in sections 2 to 4, your own prompts and the model's own earlier text, are outside D50 | accepted residual (D60(c)(i), D61(b)) | [cannot-do §5](cannot-do.md#the-rehydration-blocks-screen-of-free-text-summaries-has-limits) |
 | Windows directory sync is a no-op on the NTFS-journaling premise; a backup reported certified can revert after a power cut | accepted residual (D24, D26) | [security §8](security.md#8-known-limitations) |
 | Read rules that exist only in the running session (session-only rules, CLI flags, hook policies) | accepted residual (D7) | [cannot-do §5](cannot-do.md#it-cannot-see-every-host-permission-rule) |
 | Host behaviours: file re-attachment after a compaction, binary files decoded by the host, usage categories not exposed, and tool content handed to the hook whole or not at all, so non-exact fidelity is covered by tests rather than a live session (UAT-02) | accepted residual (D45, D49) | [cannot-do](cannot-do.md), [upstream issues](upstream-issues.md) |
@@ -333,11 +352,23 @@ asserting.
   delete `dist/bundle/**` or `dist/release-notes.md`) and the host-validation upload
   (`--evidence dist/evidence/host-validation.json`, `if-no-files-found: error`) are YAML shape
   only. The tag-triggered draft and host-validation upload remain unverified here: `release.yml` has
-  never run. The other workflows have run on candidate 6, whose machine evidence carries to
-  candidate 7 (D57(c)): `ci.yml` run `36955046276` passed every job but `release-dry-run` and
-  `test (windows-latest)`, whose failures are dispositioned by D57(a) (X11 on the hosted fsync tail;
-  the job now declares `QOMPACK_NONREFERENCE_DISK`) and D57(b) (a read-order race in `test/fault`'s
-  audit, fixed in the test), and the nightly run `36955043924` passed all 31 of its jobs (README,
-  "Supported environments"). Neither workflow has run on candidate 7 yet. `release-dry-run` runs the
-  same `release-check` the release workflow runs, so its result on the release commit is the nearest
-  evidence for this path.
+  never run. The other workflows have run on candidate 6 and on candidate 7. On candidate 6,
+  `ci.yml` run `36955046276` passed every job but `release-dry-run` and `test (windows-latest)`,
+  whose failures are dispositioned by D57(a) (X11 on the hosted fsync tail; the job now declares
+  `QOMPACK_NONREFERENCE_DISK`) and D57(b) (a read-order race in `test/fault`'s audit, fixed in the
+  test), and the nightly run `36955043924` passed all 31 of its jobs. On candidate 7, `ci.yml` run
+  `36981590450` passed every job but `test (windows-latest)`, a wall-clock margin in a
+  spool-watcher test, which now runs its retry horizon on an injected clock (D58(a), D58(b));
+  `release-dry-run` passed, and its release-version bundles were byte-identical to candidate 7's
+  frozen ones. The nightly run `36981711009` passed all 31 of its jobs (README, "Supported
+  environments"). Neither workflow has run on candidate 8 yet, and candidate 8 changes product code,
+  so its own runs are owed before the tag. `release-dry-run` runs the same `release-check` the
+  release workflow runs, so its result on the release commit is the nearest evidence for this path.
+- **The hosted Linux image changes on 2026-10-19.** GitHub moves the `ubuntu-latest` label to
+  Ubuntu 26 from that date (the annotation on run `36981590450`;
+  `actions/runner-images` issue 14748). `ci.yml`'s Linux jobs, `release-dry-run` among them, and
+  `release.yml`'s `release` job run on `ubuntu-latest`, and no run of this repository has been green
+  on Ubuntu 26. A tag pushed, or a `release-dry-run` re-run, after that date runs on an image with
+  no green run behind it: either tag before then, or first get one green hosted run on the new image
+  (or pin those jobs to `ubuntu-24.04`). A red that appears only on the new image needs its own
+  recorded disposition before the tag, like any other red (D33).
