@@ -138,8 +138,47 @@ func TestUATIntroNamesItsNewestCandidate(t *testing.T) {
 		t.Errorf("%s introduction names no decision from D%d on, so nothing rules candidate %d's re-run",
 			uatPath, uatIntroRulingFloor, newest)
 	}
-	if !strings.Contains(body[end:], "commit "+commit) {
+	if !uatSnapshotNamesCommit(body[end:], commit) {
 		t.Errorf("%s: no Result block's Snapshot names commit %s, the introduction's candidate %d",
 			uatPath, commit, newest)
+	}
+}
+
+// uatSnapshotNamesCommit reports whether a Snapshot line in body, normalized text from the Result
+// blocks, names commit. A Snapshot runs from "Snapshot:" to the block's next "Date:" line; the
+// commit named in a history line, a note or prose elsewhere does not count.
+func uatSnapshotNamesCommit(body, commit string) bool {
+	for rest := body; ; {
+		at := strings.Index(rest, "Snapshot:")
+		if at < 0 {
+			return false
+		}
+		rest = rest[at+len("Snapshot:"):]
+		snapshot := rest
+		if end := strings.Index(rest, "Date:"); end >= 0 {
+			snapshot = rest[:end]
+		}
+		if strings.Contains(snapshot, "commit "+commit) {
+			return true
+		}
+	}
+}
+
+// TestUATSnapshotCommitCheckReadsOnlySnapshots is the negative of the Snapshot cross-check: a commit
+// named only outside a Snapshot does not satisfy it.
+func TestUATSnapshotCommitCheckReadsOnlySnapshots(t *testing.T) {
+	const snap = "Snapshot: qompack version 0.3.0; bundle BUNDLE.json sha256 5212; commit " +
+		"d20309c03ffc; Windows 11 Date: 2026-10-02 "
+	if !uatSnapshotNamesCommit(snap, "d20309c0") {
+		t.Errorf("a Snapshot naming commit d20309c0 must satisfy the check")
+	}
+	for name, body := range map[string]string{
+		"history line": "Candidate 7 (commit d20309c0): pass. Snapshot: bundle 5212; commit 0d06ab12; Date: x ",
+		"note after":   "Snapshot: bundle 5212; commit 0d06ab12; Date: 2026-10-02 Notes: commit d20309c0 ",
+		"no snapshot":  "Result: pass on commit d20309c0 Date: 2026-10-02 ",
+	} {
+		if uatSnapshotNamesCommit(body, "d20309c0") {
+			t.Errorf("%s: a commit named outside every Snapshot must not satisfy the check", name)
+		}
 	}
 }
