@@ -607,11 +607,29 @@ host change could lift — as prepared proposals, none of which has been filed.
   deltas, not by min-fill and not by the unused-room step
   ([ADR 0011](adr/0011-rehydration-budget-and-item-order.md), the D49 amendments). Decision D59
   keeps this design for 0.3.0.
-- **What Qompack does instead.** The newest restatement is still carried, every entry left out is
-  named in section 7, and `dropped()` lists them all with the call that restores each.
+- **What Qompack does instead.** The newest entries that fit section 2's share of the budget are
+  still carried (7 of 13 in that case), every entry left out is named in section 7, and `dropped()`
+  lists them all with the call that restores each.
 - **Recorded at.** `plans/V6-CLOSEOUT-CHECKLIST.md` D59;
   `plans/sdd/V6-closeout/live/rerun-c7/UAT-04/notes.txt`;
   [docs/troubleshooting.md §5](troubleshooting.md#5-retrieval-that-looks-wrong).
+
+### Below the smallest loss notice, a compaction injects nothing
+
+- **Limit.** When a compaction dropped material and the rehydration budget
+  (`runtime.rehydrate.maxTokens`, and `minTokens` below it) is too small for even the shortest loss
+  notice, "N items dropped; call dropped()", no block is injected into the session.
+- **Why.** The budget's hard cap is never exceeded, not even by the notice (decision D60(c)(ii),
+  D59(b)'s fallback reading). On candidate 7, a 150-token budget injected nothing while 15 records
+  were dropped (UAT-05, finding F-C7-UAT05-1); that is what decision D59(b) changed.
+- **What Qompack does instead.** Above that budget, a compaction that dropped material is never
+  silent: when the budget admits no section, the block is a loss notice naming the loss and the
+  restore route (`dropped()`, `/qompack:dropped`, and the original's restore call when it is the
+  overflow). Below it, the drop report records the overflow of the payload and `LOUD.log` gets one
+  line, and `dropped()` lists every record left out. Nothing dropped still means no block.
+- **Recorded at.** `plans/V6-CLOSEOUT-CHECKLIST.md` D59(b) and D60(c)(ii);
+  [ADR 0011](adr/0011-rehydration-budget-and-item-order.md);
+  `plans/sdd/V6-closeout/live/rerun-c7/UAT-05/notes.txt`.
 
 ### A delivery cut mid-publication can leave its decision-graph node out
 
@@ -713,6 +731,30 @@ host change could lift — as prepared proposals, none of which has been filed.
   — [docs/security.md §1](security.md#1-trust-boundaries).
 - **Recorded at.** `internal/hostperm`'s package comment; the evidence under
   `plans/sdd/V6-closeout/hostperm/runs/`.
+
+### The rehydration block's screen of free-text summaries has limits
+
+- **Limit.** Section 6 of the rehydration block lists tool pointers, each with a short summary of
+  the call's arguments. A free-text summary (a command line, a search query) is screened, not
+  resolved: aliases (8.3 short names and links) and globs typed in it are not resolved, names a
+  command builds at run time cannot be seen, and free text that only mentions a Read rule's literal
+  is withheld even when it reads nothing. The records in sections 2 to 4 are not screened: they are
+  your own prompts and the model's own earlier text (which `already_tried` and `why` return as
+  well), and decision D50's rule covers pointers (decision D60(c)(i)).
+- **Why.** Two rounds tried to find every path inside arbitrary text, and each closed some
+  spellings while opening others or withholding harmless commands (decision D61(b)). A free-text
+  summary costs no host evaluation, so a project with Read rules still gets its rehydration within
+  the compaction answer's budget.
+- **What Qompack does instead.** A file pointer and a structured summary (the store's preview of a
+  path argument) are judged whole against the host's saved Read rules, as `re_read` judges a path,
+  and point by hash. A free-text summary is withheld when, decoded and normalized, it contains a
+  Read deny or ask rule's literal, the name or relative path of a path this build withholds, or an
+  absolute path outside the project; when the host's rules cannot be read; and when a cut summary
+  ends in the start of one of those. Section 7's drop entries never show such a path, and `dropped()`
+  redacts one instead of hiding the entry (decision D60(c)(iii)).
+- **Recorded at.** `plans/V6-CLOSEOUT-CHECKLIST.md` D50, D60(c) and D61(b);
+  [ADR 0011](adr/0011-rehydration-budget-and-item-order.md);
+  `plans/sdd/V6-closeout/live/rerun-c7/UAT-12/`.
 
 ### Redaction is applied at capture, and telemetry is hardwired off
 
