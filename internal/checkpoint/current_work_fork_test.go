@@ -20,8 +20,9 @@ import (
 // turn range. Those nodes are keyed by turn alone (promptAs explains), so a fork's segment spanning
 // turns 2-4 found the PARENT's turn-2 and turn-4 prompts beside its own turn-3 one and took the
 // highest turn; and a prompt in the still-open segment (the 45 correction) was never read at all.
-// Current work now comes from the same source as the user's intent: the session's own prompt
-// records, newest first, refreshed at every Begin, Advance and PreCompact.
+// Current work now comes from the same source as the user's intent: the session's newest own prompt
+// record (an unreadable newest record leaves the goal as it was), refreshed at every Begin, Advance
+// and PreCompact.
 
 // The rest of the UAT-06 conversation, verbatim in shape.
 const (
