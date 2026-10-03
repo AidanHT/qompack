@@ -49,9 +49,12 @@ so read its record before tagging.
    recorded evidence (its `plans/sdd/V6-closeout/phase3/cN-CANDIDATE.md`, its night chain, hosted
    runs, live re-check and C5.5): `docs/release-notes/<tag>.md`'s verified-where paragraph and
    table, `README.md`'s verified-where paragraph and table, `CHANGELOG.md`'s Known limits, and
-   this page's release status. release.yml publishes the notes verbatim, and on the tag push the
-   `guards` step of `release-check` fails while they still say their figures stand until the
-   candidate's own are recorded (`test/guards/releasenotes_test.go`).
+   this page's release status. release.yml publishes the notes verbatim. On the tag push the
+   `guards` step of `release-check` fails while any of the four pages still carries one of the
+   interim sentences it lists (`releaseInterimMarkers` in `test/guards/releasenotes_test.go`), such
+   as the notes' figures standing until the candidate's own are recorded or the hosted runs not yet
+   run. It catches only those exact sentences: rewriting the rest, the candidate 6 and 7 rows of
+   both tables among it, stays this step's manual duty.
 3. **Run the gate locally, on the reference host** — `go run ./tools/devtool release-check` — fix
    whatever it stops on, and keep the run's `dist/release-check.json` as the release's record of the
    fsync-bound rows. The hosted gate at step 5 reports those rows instead of gating them (§2), so
