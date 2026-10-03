@@ -226,6 +226,23 @@ type schedRuntime struct {
 	dirty             bool
 	tapPanicLogged    bool // one Loud per session from the tap's recover
 
+	// applied names, per session, the observation identity of the last delivery the tap applied
+	// (claimDeliveryLocked). Delivery is at least once: the ingest worker and the drain run the
+	// handler, and the tap inside it, before they commit the delivery's frontier record, so a commit
+	// that fails leaves the delivery to be replayed through the same handler. The ordering gate
+	// (delivery_order.go) lets a session's next leased delivery run only once every earlier one is
+	// acknowledged, and an acknowledged delivery is never dispatched again, so the one delivery of a
+	// session that can be replayed after the tap applied it is the last one applied. One identity per
+	// session is therefore the whole of what recognizing a replay needs. It is not session-scoped
+	// state: a rebind keeps it (resetSessionLocked does not clear it), because a replay of another
+	// session's delivery is still a replay. The bound session's entry is persisted with the account
+	// it describes (schedulerStateDoc.LastAppliedObservation), and a runtime constructed unbound
+	// seeds it from that document (seedApplied), so a delivery the previous daemon applied, persisted
+	// and never committed is recognized when the restarted daemon's drain replays it. The map holds
+	// one entry per session this daemon applied a delivery of, as the observer's per-session state
+	// does, for the daemon's lifetime.
+	applied map[core.SessionID]core.ObservationID
+
 	// Additive to the seat contract (documented in the C1 report):
 	//   persistMu serializes Persist end to end so two concurrent persists cannot write an older
 	//   snapshot over a newer one; it is taken BEFORE mu and mu is released before the writes.
@@ -287,11 +304,14 @@ func NewSchedulerRuntime(o SchedulerRuntimeOptions) (scheduler.Runtime, error) {
 		det:      scheduler.NewBOCD(cp.HazardRate, cp.Features),
 		hist:     NewFeatureHistory(defaultFeatureWindow),
 		rounds:   map[core.TurnIndex]struct{}{},
+		applied:  map[core.SessionID]core.ObservationID{},
 	}
 	r.asm = newCandidateAssembler(o.Graph, r.segs, o.Log, o.Metrics)
 	r.sessionStartTS = r.nowMS()
 	if o.Session != "" {
 		r.BindSession(o.Session, nil)
+	} else {
+		r.seedApplied()
 	}
 	scheduler.EnablePSelection()
 	r.count(counterPSelectionEnabled)
@@ -757,6 +777,11 @@ func (r *schedRuntime) deltaPtr() *float64 {
 func (r *schedRuntime) NotifyActivity(ts core.UnixMilli) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	r.notifyActivityLocked(ts)
+}
+
+// notifyActivityLocked is NotifyActivity under r.mu, for a caller that already holds it.
+func (r *schedRuntime) notifyActivityLocked(ts core.UnixMilli) {
 	if ts <= r.lastActivity {
 		return
 	}
@@ -873,6 +898,11 @@ func (r *schedRuntime) Close() error {
 func (r *schedRuntime) NoteAPIRound(at core.TurnIndex) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	r.noteAPIRoundLocked(at)
+}
+
+// noteAPIRoundLocked is NoteAPIRound under r.mu, for a caller that already holds it.
+func (r *schedRuntime) noteAPIRoundLocked(at core.TurnIndex) {
 	r.maxTurn = max(r.maxTurn, at)
 	r.rounds[at] = struct{}{}
 	r.dirty = true
@@ -891,6 +921,11 @@ func (r *schedRuntime) NoteAPIRound(at core.TurnIndex) {
 func (r *schedRuntime) NoteRequestStart(ts core.UnixMilli) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	r.noteRequestStartLocked(ts)
+}
+
+// noteRequestStartLocked is NoteRequestStart under r.mu, for a caller that already holds it.
+func (r *schedRuntime) noteRequestStartLocked(ts core.UnixMilli) {
 	r.lastRequestStartTS = ts
 	r.dirty = true
 }
@@ -906,6 +941,15 @@ func (r *schedRuntime) NoteEffort(e hookio.Event) {
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	r.noteEffortLocked(level)
+}
+
+// noteEffortLocked is NoteEffort under r.mu for a level the caller read with effortLevel, which
+// reads the environment and so runs before the lock is taken. An empty level is no observation.
+func (r *schedRuntime) noteEffortLocked(level string) {
+	if level == "" {
+		return
+	}
 	if r.lastEffort != "" && level != r.lastEffort {
 		r.effortChanged = true
 		r.dirty = true
@@ -939,9 +983,35 @@ func (r *schedRuntime) AddOpenSegmentTokens(tok core.Tokens) {
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	r.addOpenSegmentTokensLocked(tok)
+}
+
+// addOpenSegmentTokensLocked is AddOpenSegmentTokens under r.mu, for a caller that already holds it.
+func (r *schedRuntime) addOpenSegmentTokensLocked(tok core.Tokens) {
+	if tok <= 0 {
+		return
+	}
 	r.openSegTokens += tok
 	r.contextTokens += tok
 	r.dirty = true
+}
+
+// claimDeliveryLocked reports whether the delivery identified by obs, of session sess, is one the
+// tap has not applied yet, and records it as the session's last applied delivery when so (applied
+// says why one per session is enough). A delivery with no identity — an in-process caller, or a
+// delivery the daemon could not lease — has nothing to recognize it by and is always applied, as
+// every delivery was before. It never rejects a delivery it has not seen: the worst an unexpected
+// order could do is apply a replay again, which is what happened before this check existed.
+func (r *schedRuntime) claimDeliveryLocked(sess core.SessionID, obs core.ObservationID) bool {
+	if obs == "" {
+		return true
+	}
+	if r.applied[sess] == obs {
+		return false
+	}
+	r.applied[sess] = obs
+	r.dirty = true
+	return true
 }
 
 // RecordCompactionCost folds a measured compaction wall-clock into the Young–Daly δ EWMA
