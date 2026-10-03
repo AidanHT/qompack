@@ -21,7 +21,8 @@ import (
 // statusOrderReads is how many status reads a row compares. Go randomizes a map's iteration order
 // per range statement, so a base that lists the five sessions below in map order disagrees with
 // itself within a few reads: on candidate 7's tree this row and its registry twin went red in 10 of
-// 10 runs, each by the fourth read. Thirty reads leave no realistic chance of agreeing by luck.
+// 10 runs, each within the first few reads. Thirty reads leave no realistic chance of agreeing by
+// luck.
 const statusOrderReads = 30
 
 // statusOrderSessions starts five sessions at known times, two pairs of them tied, and returns the
