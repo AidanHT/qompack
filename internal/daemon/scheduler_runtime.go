@@ -1005,7 +1005,8 @@ func (r *schedRuntime) addOpenSegmentTokensLocked(tok core.Tokens) {
 // appliedDelivery is what the tap keeps about the last delivery it applied for one session
 // (schedRuntime.applied).
 type appliedDelivery struct {
-	// obs is the delivery's observation identity.
+	// obs is the delivery's observation identity. It is empty while the session has had a delivery
+	// noted without a record (anchored) and none applied.
 	obs core.ObservationID
 	// held reports that the account this runtime holds includes the delivery's application: it was
 	// claimed since the bind that started the account, or restored with the account from
@@ -1015,6 +1016,10 @@ type appliedDelivery struct {
 	// when it needs none. A replay of the delivery makes it (closeOwed). It is not persisted, and a
 	// rebind drops it (releaseAccountLocked).
 	owed *owedClose
+	// anchored is the identity of the session's last delivery whose tool-use record the store did
+	// not hold. Its activity, request start and effort level were noted at the clock without a claim
+	// (anchorUnrecorded), and a replay of it notes nothing again.
+	anchored core.ObservationID
 }
 
 // owedClose is a segment close an applied delivery has yet to make: the task boundary its signals
@@ -1034,11 +1039,12 @@ type owedClose struct {
 // claimDeliveryLocked reports whether the delivery identified by obs, of session sess, is one the
 // tap has not applied yet, and records it as the session's last applied delivery when so (applied
 // says why one per session is enough). The new entry is held, and inherits nothing from the one it
-// replaces: under the ordering gate that delivery was acknowledged, so a close it owed cannot come
-// back with it. A delivery with no identity, from an in-process caller or a delivery the daemon
-// could not lease, has nothing to recognize it by and is always applied, as every delivery was
-// before. It never rejects a delivery it has not seen: the worst an unexpected order could do is
-// apply a replay again, which is what happened before this check existed.
+// replaces: under the ordering gate that delivery was acknowledged, so neither a close it owed nor
+// an unrecorded delivery before it can come back. A delivery with no identity, from an in-process
+// caller or a delivery the daemon could not lease, has nothing to recognize it by and is always
+// applied, as every delivery was before. It never rejects a delivery it has not seen: the worst an
+// unexpected order could do is apply a replay again, which is what happened before this check
+// existed.
 func (r *schedRuntime) claimDeliveryLocked(sess core.SessionID, obs core.ObservationID) bool {
 	if obs == "" {
 		return true

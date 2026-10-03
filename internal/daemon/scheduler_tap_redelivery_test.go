@@ -531,3 +531,37 @@ func TestWrapServices_AnotherSessionsRedeliveryAfterARestartIsNotFoldedAgain(t *
 		require.Equal(t, core.Tokens(1_100), openTokens(fx.rt), "the persisted 1000 and the live read's 100")
 	})
 }
+
+// TestWrapServices_ARedeliveryOfAnUnrecordedToolUseMovesNoAnchor: a tool use the store holds no
+// record of (a capture refused by its scope never gets one) still notes the activity and the
+// request start, at the clock. Its replay does not move them to the instant of the replay. It claims
+// nothing either: a replay that finds the record the first run could not publish still applies it.
+func TestWrapServices_ARedeliveryOfAnUnrecordedToolUseMovesNoAnchor(t *testing.T) {
+	t.Parallel()
+	fx := newRTFixture(t)
+	fx.bind(rtSession)
+	s := allSeams()
+	WrapServicesForScheduler(s, fx.rt, fx.options())
+	const refused core.ToolUseID = "toolu_unrecorded"
+	ev := tapToolEvent(refused, "Read", "", "")
+	anchors := func() [2]core.UnixMilli {
+		return tapReadOnly(fx.rt, func(r *schedRuntime) [2]core.UnixMilli {
+			return [2]core.UnixMilli{r.lastRequestStartTS, r.lastActivity}
+		})
+	}
+
+	require.NoError(t, s.ObserveTool(delivered(t, 1), ev))
+	first := anchors()
+	require.Equal(t, [2]core.UnixMilli{fx.now(), fx.now()}, first, "fixture sanity: anchored at the clock")
+	fx.clock.Advance(time.Minute)
+	require.NoError(t, s.ObserveTool(delivered(t, 1), ev))
+
+	require.Equal(t, first, anchors(), "the replay moves neither anchor to the instant of the replay")
+	require.Equal(t, int64(2), fx.counter(counterTapNoRecord))
+	require.Equal(t, int64(1), fx.counter(counterTapRedelivery))
+
+	putRead(fx, refused, tapToolUseTurn, 400)
+	require.NoError(t, s.ObserveTool(delivered(t, 1), ev))
+	require.Equal(t, core.Tokens(400), openTokens(fx.rt), "a replay that finds the record still applies it")
+	require.Equal(t, int64(1), fx.counter(counterTapRedelivery))
+}
