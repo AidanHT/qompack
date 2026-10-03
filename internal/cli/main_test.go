@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/qompack/qompack/internal/paths"
@@ -16,10 +17,10 @@ import (
 // links a package that resolves the home, and no test may read or write the real ~/.qompack or
 // ~/.claude (test/guards' TestGuard_EveryHomeReachingTestPackageIsolatesHome).
 //
-// It also fails the run when any test spooled a hook delivery into the checkout's own store
-// (checkoutSpoolGuard): an in-process hook whose Env pins no QOMPACK_PROJECT_ROOT takes its first
-// project root from the process cwd, which under go test is inside the checkout, and a degraded
-// delivery is never re-rooted to the payload's cwd.
+// It also fails the run when any test wrote into the checkout's own store (checkoutSpoolGuard): an
+// in-process hook whose Env pins no QOMPACK_PROJECT_ROOT takes its first project root from the
+// process cwd, which under go test is inside the checkout, and a degraded delivery is never
+// re-rooted to the payload's cwd.
 func TestMain(m *testing.M) {
 	guard, err := newCheckoutSpoolGuard()
 	if err != nil {
@@ -36,14 +37,19 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-// checkoutSpoolGuard watches the one file an in-process hook of this test binary appends to when it
-// lands in the checkout: <root>/.qompack/spool/client-<this pid>.ndjson, where root is what the
-// hook client's first resolution gives with no environment (resolveProjectRoot with an empty
-// Getenv and no Event). It names this process's file only, so a real Qompack session working in
-// the same checkout, whose hooks are other processes, can never make it fail.
+// checkoutSpoolGuard watches the checkout's store, <root>/.qompack, where root is what the hook
+// client's first resolution gives with no environment (resolveProjectRoot with an empty Getenv and
+// no Event). When the store did not exist before the run, any store the run leaves behind fails
+// it, whatever wrote it: a spooled delivery, an externalized blob, a log, a daemon spawned at the
+// checkout root. When it did exist, a real Qompack session may be working in the same checkout, so
+// the guard watches only the one file an in-process hook of this test binary appends to there,
+// <root>/.qompack/spool/client-<this pid>.ndjson; that session's hooks are other processes and can
+// never make it fail.
 type checkoutSpoolGuard struct {
-	path   string
-	before int64 // the file's size before the run; -1 when it did not exist
+	dot        string
+	dotExisted bool // whether <root>/.qompack existed before the run
+	path       string
+	before     int64 // the file's size before the run; -1 when it did not exist
 }
 
 func newCheckoutSpoolGuard() (checkoutSpoolGuard, error) {
@@ -51,16 +57,32 @@ func newCheckoutSpoolGuard() (checkoutSpoolGuard, error) {
 	if root == "" {
 		return checkoutSpoolGuard{}, errors.New("the process cwd resolves to no project root")
 	}
+	return newCheckoutSpoolGuardAt(root)
+}
+
+// newCheckoutSpoolGuardAt is newCheckoutSpoolGuard for a given root.
+func newCheckoutSpoolGuardAt(root string) (checkoutSpoolGuard, error) {
+	layout := paths.Of(root)
 	g := checkoutSpoolGuard{
-		path: filepath.Join(paths.Of(root).Spool, fmt.Sprintf("client-%d.ndjson", os.Getpid())),
+		dot:  layout.Dot,
+		path: filepath.Join(layout.Spool, fmt.Sprintf("client-%d.ndjson", os.Getpid())),
+	}
+	if _, err := os.Lstat(g.dot); err == nil {
+		g.dotExisted = true
+	} else if !errors.Is(err, fs.ErrNotExist) {
+		return g, err
 	}
 	size, err := fileSizeOrAbsent(g.path)
 	g.before = size
 	return g, err
 }
 
-// check reports a spool file of this process that appeared or grew during the run.
+// check reports a store the run created, or a spool file of this process that appeared or grew
+// during the run.
 func (g checkoutSpoolGuard) check() error {
+	if !g.dotExisted {
+		return g.checkNoStore()
+	}
 	after, err := fileSizeOrAbsent(g.path)
 	if err != nil {
 		return err
@@ -82,4 +104,33 @@ func fileSizeOrAbsent(p string) (int64, error) {
 		return 0, err
 	}
 	return fi.Size(), nil
+}
+
+// checkNoStore reports a store the run created where there was none, naming every file in it.
+func (g checkoutSpoolGuard) checkNoStore() error {
+	if _, err := os.Lstat(g.dot); errors.Is(err, fs.ErrNotExist) {
+		return nil
+	} else if err != nil {
+		return err
+	}
+	var inside []string
+	walkErr := filepath.WalkDir(g.dot, func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.IsDir() {
+			rel, relErr := filepath.Rel(g.dot, p)
+			if relErr != nil {
+				return relErr
+			}
+			inside = append(inside, filepath.ToSlash(rel))
+		}
+		return nil
+	})
+	if walkErr != nil {
+		inside = append(inside, fmt.Sprintf("(listing stopped: %v)", walkErr))
+	}
+	return fmt.Errorf("a test created the checkout's store %s, which did not exist before the run; "+
+		"it holds %s. Pin QOMPACK_PROJECT_ROOT to the test's temp project in its Env, then delete "+
+		"the directory", g.dot, strings.Join(inside, ", "))
 }
