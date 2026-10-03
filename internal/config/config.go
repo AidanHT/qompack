@@ -270,6 +270,12 @@ type Warning struct {
 	// Warning describes something Load dropped or replaced; consumers that treat warnings as "your
 	// config was not honoured" must skip both.
 	Deprecated bool
+	// VersionedReset marks the one Warning applyVersionedSection returns for a block it reset to
+	// defaults because the merged document declares a settingsVersion newer than this build. Its Key
+	// is the block's own path (VersionedSections), which is not enough to tell it apart: the merge
+	// also keys a warning by that path when the block is not an object. Consumers that record or
+	// escalate a reset (cli.LoadConfigAndReport, the daemon's start report) select on this field.
+	VersionedReset bool
 }
 
 // Violation is one rule failure from Validate(): the leaf that failed, why, what was found, and

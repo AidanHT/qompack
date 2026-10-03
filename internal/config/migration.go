@@ -266,8 +266,9 @@ func applyVersionedSection(merged, defaults map[string]any, prov Provenance, sec
 		}
 	}
 	return Warning{
-		Key:      section,
-		Location: loc,
+		Key:            section,
+		Location:       loc,
+		VersionedReset: true,
 		Message: fmt.Sprintf("settingsVersion %v is newer than this build understands (%d); "+
 			"the whole %s block is reset to defaults so unknown switches stay off",
 			v, build, section),

@@ -392,3 +392,50 @@ func TestDaemonStart_ReportsAnUnchangedConfigOnce(t *testing.T) {
 		"configuration block reset to defaults", "key=runtime.migration"),
 		"the reset reaches the ring status reads its recent loud lines from")
 }
+
+// TestLoadConfigAndReport_WrongTypeBlockIsNotAReset is the review finding on round 2's writer
+// match. config.Load's merge also keys a warning by a versioned block's own path when the block is
+// not an object ("expected an object"), and a reset was identified by that key alone. A command
+// load then recorded the warning as a §11.3 setting, every hook (LoadForCapture, which classifies it
+// correctly) removed the record again, doctor's verdict depended on which ran last, and each daemon
+// start Louded "configuration block reset to defaults" for a block nothing reset. A reset is the
+// warning config.Load marks as one (config.Warning.VersionedReset); a wrong-type block is an
+// ordinary keyed warning, which none of the three loads records and the daemon logs at warn.
+func TestLoadConfigAndReport_WrongTypeBlockIsNotAReset(t *testing.T) {
+	for _, s := range config.VersionedSections() {
+		t.Run(s.Path, func(t *testing.T) {
+			root := t.TempDir()
+			require.NoError(t, os.MkdirAll(paths.Of(root).Logs, 0o700))
+			parts := strings.Split(s.Path, ".")
+			var doc any = 5
+			for i := len(parts) - 1; i >= 0; i-- {
+				doc = map[string]any{parts[i]: doc}
+			}
+			b, err := json.Marshal(doc)
+			require.NoError(t, err)
+			body := string(b)
+			writeAdmissionConfig(t, root, body)
+			env := config.Env{ProjectRoot: root, HomeDir: t.TempDir(), Getenv: noEnv}
+			noRecord := func(msg string) {
+				t.Helper()
+				_, statErr := os.Lstat(violationsRecord(root))
+				require.True(t, os.IsNotExist(statErr), "%s: %v", msg, statErr)
+			}
+
+			log := &bootstrapLogger{}
+			_, _, err = loadDaemonConfig(env, log, nil)
+			require.NoError(t, err)
+			require.Zero(t, log.countLouds("configuration block reset to defaults"),
+				"a daemon start does not report a block it did not reset: %v", log.louds)
+			require.Contains(t, log.warns, "configuration warning", "the wrong type stays a warning")
+			noRecord("a daemon start records no setting for a wrong-type block")
+
+			_, _, err = LoadConfigAndReport(env, logging.Nop(), nil)
+			require.NoError(t, err)
+			noRecord("a command load records no setting for a wrong-type block")
+
+			runPromptHooks(t, root, body, 1)
+			noRecord("a hook records no setting for a wrong-type block")
+		})
+	}
+}

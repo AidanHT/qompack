@@ -42,9 +42,10 @@ func LoadConfigAndReport(env config.Env, log logging.Logger, reg obs.Registry) (
 // configuration it starts on. It differs in one level: a newer-settingsVersion block reset is Loud
 // rather than a Warn. That reset is the persistent condition D59 is about (a plugin downgrade), and
 // D59's rule is that the daemon reports such a condition loudly once per start or change while hooks
-// and commands log it at warn. Every other keyed warning (an unknown key) stays a Warn at start, and
-// the daemon's reload of a changed file Louds every warning (daemon/reload.go). runDaemon stamps the
-// file before this load (daemon.Options.CfgStamp), so the first reload check does not repeat it.
+// and commands log it at warn. Every other keyed warning (an unknown key, a block that is not an
+// object) stays a Warn at start, and the daemon's reload of a changed file Louds every warning
+// (daemon/reload.go). runDaemon stamps the file before this load (daemon.Options.CfgStamp), so the
+// first reload check does not repeat it.
 func loadDaemonConfig(env config.Env, log logging.Logger, reg obs.Registry) (config.Config, config.Provenance, error) {
 	return loadConfigAndReport(env, log, reg, true)
 }
@@ -71,7 +72,7 @@ func loadConfigAndReport(env config.Env, log logging.Logger, reg obs.Registry, l
 		switch {
 		case w.Key == "":
 			log.Loud("configuration unusable, using defaults", "message", w.Message, "location", w.Location)
-		case loudResets && isVersionedSection(w.Key):
+		case loudResets && w.VersionedReset:
 			log.Loud("configuration block reset to defaults", "key", w.Key, "message", w.Message,
 				"location", w.Location)
 		default:
@@ -105,10 +106,13 @@ func loadConfigAndReport(env config.Env, log logging.Logger, reg obs.Registry, l
 // recordedViolations is config.Load's result in the shape config.LoadForCapture returns it: the
 // §11.3 leaf violations, followed by one Violation{Key, Message} per newer-settingsVersion block
 // reset in the order config.Load reported them, which is VersionedSections order for both loaders.
+// A reset is the warning config.Load marks as one (config.Warning.VersionedReset), not any warning
+// keyed by a block's path: a block that is not an object is keyed the same way, and LoadForCapture
+// keeps that one a warning too.
 func recordedViolations(violations []config.Violation, warns []config.Warning) []config.Violation {
 	out := violations
 	for _, w := range warns {
-		if isVersionedSection(w.Key) {
+		if w.VersionedReset {
 			out = append(out, config.Violation{Key: w.Key, Message: w.Message})
 		}
 	}
