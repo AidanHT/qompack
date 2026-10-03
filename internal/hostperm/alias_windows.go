@@ -3,7 +3,6 @@
 package hostperm
 
 import (
-	"errors"
 	"path/filepath"
 	"strings"
 	"syscall"
@@ -144,73 +143,5 @@ func win32ShortPathName(p string) (string, bool) {
 			return trimLong(syscall.UTF16ToString(buf[:n]), in != p), true
 		}
 		buf = make([]uint16, n)
-	}
-}
-
-// osFullPath is the Win32 full path of the clean absolute path p (GetFullPathNameW, a string
-// operation): the spelling osAlias normalizes p to before it cuts streams and expands 8.3 names. It
-// drops a last segment's trailing dots and spaces and any segment's single trailing dot, and may
-// turn a reserved device name into a device path.
-func osFullPath(p string) (string, bool) {
-	full, err := syscall.FullPath(p)
-	return full, err == nil
-}
-
-// entryName is the name of the entry the path segment seg opens: seg up to its first colon, which
-// below the volume only ever introduces a stream of the file named before it (stripStreams).
-func entryName(seg string) string {
-	if i := strings.IndexByte(seg, ':'); i >= 0 {
-		return seg[:i]
-	}
-	return seg
-}
-
-// trimmedName is name without the trailing dots and spaces the Win32 layer drops from the last
-// segment of a path it opens.
-func trimmedName(name string) string { return strings.TrimRight(name, ". ") }
-
-// unexpandable reports whether osAlias, keeping the segment seg because it names nothing, would
-// report it unresolved: it is shaped like an 8.3 name, whose long name cannot be read.
-func unexpandable(seg string) bool { return shortShaped(seg) }
-
-// listNames returns what dir's listing says about each name in it (Evaluator): each entry's own
-// name and its 8.3 alias, case-folded (the Win32 layer opens an entry by either, in any case), and
-// whether it is a reparse point (a symlink, a junction, a mount point or any other, which a path
-// through it may be redirected by), and, as wide, every listed name holding a non-ASCII rune. It is
-// nil when dir cannot be listed. os.ReadDir reports no 8.3 names, so the directory is read with
-// FindFirstFileW.
-func listNames(dir string, _ bool) (names map[string]entryKind, wide []string) {
-	pattern, err := syscall.UTF16PtrFromString(paths.Long(dir) + `\*`)
-	if err != nil {
-		return nil, nil
-	}
-	var fd syscall.Win32finddata
-	h, err := syscall.FindFirstFile(pattern, &fd)
-	if err != nil {
-		return nil, nil
-	}
-	defer func() { _ = syscall.FindClose(h) }()
-	names = map[string]entryKind{}
-	for {
-		var link entryKind
-		if fd.FileAttributes&syscall.FILE_ATTRIBUTE_REPARSE_POINT != 0 {
-			link = entryLink
-		}
-		own := strings.ToLower(syscall.UTF16ToString(fd.FileName[:]))
-		if own != "." && own != ".." {
-			names[own] |= entryOwn | link
-			if !isASCII(own) {
-				wide = append(wide, own)
-			}
-			if alias := strings.ToLower(syscall.UTF16ToString(fd.AlternateFileName[:])); alias != "" && alias != own {
-				names[alias] |= entryAlias | link
-			}
-		}
-		if err := syscall.FindNextFile(h, &fd); err != nil {
-			if errors.Is(err, syscall.ERROR_NO_MORE_FILES) {
-				return names, wide
-			}
-			return nil, nil
-		}
 	}
 }

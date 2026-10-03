@@ -273,14 +273,7 @@ func (rs *RuleSet) Evaluate(abs string) Decision {
 	if rs.Empty() || abs == "" {
 		return Decision{Effect: Allow}
 	}
-	return rs.evaluate(abs, nil)
-}
-
-// evaluate is Evaluate for a non-empty abs under rules that are in force, reading links through
-// memo: nil reads the disk every time (Evaluate), and an Evaluator passes the one its request
-// shares.
-func (rs *RuleSet) evaluate(abs string, memo linkMemo) Decision {
-	cands, natives, unresolved := spellings(abs, rs.goos, rs.fold, rs.resolve, memo)
+	cands, natives, unresolved := spellings(abs, rs.goos, rs.fold, rs.resolve, nil)
 	if unresolved {
 		return Decision{Effect: Deny, Rule: unresolvedShortName}
 	}
@@ -290,12 +283,6 @@ func (rs *RuleSet) evaluate(abs string, memo linkMemo) Decision {
 			return Decision{Effect: Deny, Rule: unknownShortName}
 		}
 	}
-	return rs.decide(cands, alts)
-}
-
-// decide matches a path's candidate spellings, and their 8.3 spellings when alts is not nil,
-// against every deny list and then every ask list.
-func (rs *RuleSet) decide(cands, alts [][]string) Decision {
 	var sc scratch
 	for _, l := range rs.deny {
 		if rule, ok := l.match(cands, alts, &sc); ok {
