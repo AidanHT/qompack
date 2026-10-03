@@ -296,10 +296,11 @@ hooks made of the same files.
 **Symptom.** You want the warnings that did not reach a file you have read yet.
 
 **Diagnose.** `.qompack/logs/qompack-YYYYMMDD.log` (observed: `qompack-20260914.log` in the scratch
-project). Every configuration warning is written there at `warn` level and every violation at
-`loud` level, except a newer-`settingsVersion` reset, which hooks and commands log at `warn`
-(`internal/cli/config.go`, `LoadConfigAndReport`, and `reportCaptureConfig` for a
-hook, which writes only once `logs/` exists). `internal/logging/logger.go`
+project). Every configuration warning is written there at `warn` level. A violation is written at
+`loud` level by a daemon when it starts and by the commands that log (`internal/cli/config.go`,
+`LoadConfigAndReport`), and at `warn` by a hook (`reportCaptureConfig`, which writes only once
+`logs/` exists); a newer-`settingsVersion` reset is a `warn` from all of them. A daemon that reloads
+a changed `config.json` logs every warning at `loud` (§6). `internal/logging/logger.go`
 documents that a `Loud` call also appends to `LOUD.log` in the same directory — append-only and
 never rotated — and to a process-wide ring that `qompack status` prints as `recent loud lines`.
 
@@ -558,11 +559,21 @@ likely to be the answer when nothing is being recorded.
 
 | Class | What happens | Where you see it |
 |---|---|---|
-| invalid value | the leaf falls back to its default, loading continues | `config-violations.json`, `loud` in the day log |
-| wrong type — a string where a number belongs, an unparseable `QOMPACK_*` or `--set` value, a section that is not an object | that value is ignored with a warning, and the leaf keeps the value from the layer below: the default when no lower layer set it | `warn` in the day log only |
-| unknown key | a warning, never an error | `warn` in the day log only |
-| newer `settingsVersion` | the whole versioned block is reset to defaults, so unknown future switches stay off | `warn` in the day log; the hook path also records it in `config-violations.json` (§1). Each running daemon also names it in `LOUD.log`, as `daemon: config reload warning`: once at its first configuration check after it starts, and again whenever the file changes or `admin.reload` forces a reload |
-| retired meaning | the value is still applied, with a deprecation warning naming the file and line | `warn` in the day log only |
+| invalid value | the leaf falls back to its default, loading continues | `config-violations.json`; `loud` once from each daemon when it starts (`invalid configuration value, using default`), and from `qompack mcp` and the `/qompack:` commands each time they load the configuration; `warn` from every hook |
+| wrong type — a string where a number belongs, an unparseable `QOMPACK_*` or `--set` value, a section that is not an object | that value is ignored with a warning, and the leaf keeps the value from the layer below: the default when no lower layer set it | `warn` in the day log |
+| unknown key | a warning, never an error | `warn` in the day log |
+| newer `settingsVersion` | the whole versioned block is reset to defaults, so unknown future switches stay off | `warn` in the day log; the hook path also records it in `config-violations.json` (§1) |
+| retired meaning | the value is still applied, with a deprecation warning naming the file and line | `warn` in the day log |
+
+Every class is also `loud` when a running daemon reloads `.qompack/config.json`: it does so when the
+file has changed since it last loaded it, at its next session start or idle tick, and whenever
+`admin.reload` forces a reload, and it names every warning that load returned in `LOUD.log` and
+`qompack status`'s recent loud lines as `daemon: config reload warning`, whatever its class. A daemon
+that starts on a file nobody has changed since does not reload it, so an unchanged warning stays at
+`warn`; an unchanged invalid value is the startup `loud` line in the table, once per daemon start
+(D59: a persistent condition is loud once per start or change, and a hook logs it at `warn`).
+`config-violations.json` is the record of what is in force now: a load that finds no invalid value
+and no reset removes it, whether a hook's or a command's such as `self-test`.
 
 On the hook path the first three rows do not apply inside `runtime.redact` or to `runtime.mode`: a
 problem there refuses capture instead (below). `config print` and every other read command still
@@ -650,9 +661,11 @@ While a file written by a newer build is in force, `qompack backup create`, `bac
 `backup restore` all refuse, exit 1, with `backup: resolve configuration violations and warnings
 before maintenance`. That is intended (`internal/cli/backup.go`): maintenance runs only on the
 configuration exactly as written, and a reset block is not as written. `backup` refuses whenever
-`self-test`'s `config.capture` row is not `ok`, so the same refusal follows any key that row
-names, from the project's file, the user-global file, a `QOMPACK_*` variable or a `--set`. Two ways
-through, the first preferred:
+`self-test`'s `config.capture` row is not `ok`, so the same refusal follows any key that row names
+as a warning, from the project's file, the user-global file, a `QOMPACK_*` variable or a `--set`.
+When that row fails critically instead (the refusals in the table above), the message is `backup:
+configuration unavailable: …`, ending with the class the row names. Two ways through a reset
+block, the first preferred:
 
 - **Before a downgrade**, take the backup with the build that wrote the file: stop the daemon, run
   `qompack backup create` and `backup verify` with the newer binary, then downgrade. Verify and, if
@@ -660,12 +673,16 @@ through, the first preferred:
   supported cross-version path ([docs/backup.md](backup.md)), and the restored project would hold
   the newer file again.
 - **After a downgrade**, copy the file that sets the newer `settingsVersion` (usually
-  `.qompack/config.json`) to a place outside `.qompack/`, delete from it the block `config.capture`
-  names (`runtime.migration` or `runtime.phase7`), and re-run `qompack self-test` until
-  `config.capture` reads `ok`. This build was already running that block at its defaults, so nothing
-  the daemon or hooks do changes. Then run the backup, and keep the copy for the build that
-  understands it. A backup copies `.qompack/config.json` as it is at that moment, so this backup holds
-  the edited file, not the newer one.
+  `.qompack/config.json`) to a place outside `.qompack/`, and leave that copy as it is: it is the one
+  to keep for the build that understands it. Then delete the block `config.capture` names
+  (`runtime.migration` or `runtime.phase7`) from the original file, not from the copy, and re-run
+  `qompack self-test` until `config.capture` reads `ok`. This build was already running that block at
+  its defaults, so nothing the daemon or hooks do changes. The same `self-test` run removes the
+  reset's entry from `.qompack/state/config-violations.json`, so `doctor`'s `config.violations` row
+  reads `ok` as well. Then stop the project's daemon if one is running (§7, "A daemon is running and
+  you want it to stop"), or the backup refuses with `backup: stop the source daemon before
+  maintenance`, and run the backup. A backup copies `.qompack/config.json` as it is at that moment,
+  so this backup holds the edited file, not the newer one.
 
 ### A config change that did not take effect
 
