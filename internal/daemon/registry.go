@@ -363,9 +363,10 @@ func (r *SessionRegistry) LastActivity() core.UnixMilli {
 }
 
 // evictLocked drops the ended session with the oldest EndedTS once the tracked count exceeds
-// r.maxSessions. If every tracked session is live, nothing is evicted — refusing a session is
-// never an option (§7.1) — and a single Loud line fires once per registry lifetime. mu must be
-// held.
+// r.maxSessions; of ended sessions that share that EndedTS, the smallest session id goes, so the
+// choice never depends on the map's randomized iteration order. If every tracked session is live,
+// nothing is evicted — refusing a session is never an option (§7.1) — and a single Loud line fires
+// once per registry lifetime. mu must be held.
 func (r *SessionRegistry) evictLocked() {
 	limit := r.maxSessions
 	if limit <= 0 {
@@ -382,7 +383,7 @@ func (r *SessionRegistry) evictLocked() {
 		if s.Live {
 			continue
 		}
-		if !found || s.EndedTS < oldestEnded {
+		if !found || s.EndedTS < oldestEnded || (s.EndedTS == oldestEnded && id < oldestID) {
 			oldestID, oldestEnded, found = id, s.EndedTS, true
 		}
 	}
