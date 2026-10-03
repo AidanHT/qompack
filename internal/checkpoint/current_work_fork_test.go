@@ -153,6 +153,21 @@ func TestResumedSessionCurrentWorkIsItsNewestPrompt(t *testing.T) {
 	require.Equal(t, []string{rateCorrection60, forkWhy, rateCorrection45}, second.UserIntent.Evolution)
 }
 
+// TestOnePromptSessionCurrentWorkIsItsPrompt: the most common first compaction — a session that has
+// said one thing, still in its open segment. Its only prompt is both the Original and the current
+// work; leaving the Original out of the evolution must not leave it out of the goal.
+func TestOnePromptSessionCurrentWorkIsItsPrompt(t *testing.T) {
+	f := newFx(t)
+	openSegment(f, f.sess, 0)
+	promptAs(f, f.sess, 0, rateAsk)
+
+	cp := sealed(t, f, f.precompactAs(f.sess))
+
+	require.Equal(t, "We are building a rate limiter for the Kite API gateway.", cp.CurrentWork.Goal)
+	require.Equal(t, rateAsk, cp.UserIntent.Original)
+	require.Empty(t, cp.UserIntent.Evolution)
+}
+
 // TestExplicitCurrentWorkSurvivesAPromptRefresh: SetCurrentWork stops every derivation for good
 // (§7), the prompt-record refresh at PreCompact included.
 func TestExplicitCurrentWorkSurvivesAPromptRefresh(t *testing.T) {
