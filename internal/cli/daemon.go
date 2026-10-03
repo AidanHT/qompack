@@ -116,7 +116,7 @@ func runDaemon(ctx context.Context, env Env, args []string, out, errw io.Writer)
 	// Stamped BEFORE the load: this load is the daemon's one report of the configuration at start,
 	// and the stamp keeps the first reload check from loading and re-Louding the same file.
 	cfgStamp := daemon.StampConfigFile(root)
-	cfg, _, cfgErr := LoadConfigAndReport(cfgEnv, log, reg)
+	cfg, _, cfgErr := loadDaemonConfig(cfgEnv, log, reg)
 	if cfgErr != nil {
 		cfg = config.Defaults()
 		log.Loud("daemon: could not load configuration, using defaults", "err", cfgErr.Error())
