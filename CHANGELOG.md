@@ -118,10 +118,11 @@ live sessions:
 - **Diagnostics**: a healthy session no longer reads as failing in `status`; after a compaction or
   resume in the same session, `status` reads `session_start.fires` as holding
   (`same-session-restart`), not pending (D58(d)); `status --json` lists sessions in one stable order,
-  as do the other lists in `status` and `doctor` (D59(c)); `status`, `doctor` and the other commands
-  that call the daemon have a connect budget of their own, and a connect miss is reported as one,
-  never as "did not answer within 10s" (D60(e)); while a newer `settingsVersion` is in force, hooks
-  log the reset at `warn` instead of a `LOUD.log` line per hook (D59); `doctor` and `fsck` agree;
+  as do the other lists in `status` and `doctor` (D59(c)); `status`, `doctor` and the other
+  slash-command frontends that call the daemon have a connect budget of their own (`qompack mcp`
+  keeps the hooks' budget and its retry loop, D61(c)), and a connect miss is reported as one, never
+  as "did not answer within 10s" (D60(e)); while a newer `settingsVersion` is in force, hooks log
+  the reset at `warn` instead of a `LOUD.log` line per hook (D59); `doctor` and `fsck` agree;
   Qompack's own MCP records are filed at the current turn, so `fsck` no longer fails after an MCP
   call; a refreshed contract row is dated by its observation.
 - **Recovery**: restore works after an idle exit, after store GC of an MCP root and on a store from
