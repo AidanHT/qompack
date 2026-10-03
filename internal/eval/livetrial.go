@@ -9,7 +9,9 @@ package eval
 
 import (
 	"fmt"
+	"maps"
 	"math"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -602,16 +604,21 @@ func (s *LiveSummary) StopEarly(ran, planned int, why string) {
 //   - inconclusive otherwise.
 //
 // Any trial whose plugin state contradicted its arm makes the verdict not-applicable: the arms
-// were not the arms the rule is about. A trial's plugin state is the plugin list its host reported
+// were not the arms the rule is about. The reason names every such arm, in arm order, so it reads
+// the same on every run (D53(a)). A trial's plugin state is the plugin list its host reported
 // at start-up; a trial whose host reported none is a harness failure, scored as a failure on every
 // outcome like any other (preregistration section 8 and amendment A2), not a mismatch.
 func DecideLive(a LiveAnalysis, s LiveSummary) LiveDecision {
-	for _, arm := range s.Arms {
-		if arm.PluginMismatch > 0 {
-			return LiveDecision{
-				Verdict: "not-applicable",
-				Reason:  fmt.Sprintf("%d %s trial(s) ran with the wrong plugin state", arm.PluginMismatch, arm.Arm),
-			}
+	var mismatched []string
+	for _, name := range slices.Sorted(maps.Keys(s.Arms)) {
+		if arm := s.Arms[name]; arm.PluginMismatch > 0 {
+			mismatched = append(mismatched, fmt.Sprintf("%d %s", arm.PluginMismatch, arm.Arm))
+		}
+	}
+	if len(mismatched) > 0 {
+		return LiveDecision{
+			Verdict: "not-applicable",
+			Reason:  strings.Join(mismatched, " and ") + " trial(s) ran with the wrong plugin state",
 		}
 	}
 	d := s.TaskSuccessDiff

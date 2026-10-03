@@ -122,3 +122,20 @@ func TestAccountHostStream_NamesBesideProblemsInModelOrder(t *testing.T) {
 	require.Regexp(t, `exceeds the turn's model-a running-total change\n.*exceeds the turn's model-b `, got,
 		"the beside lines are in model order")
 }
+
+// TestDecideLive_NamesEveryMismatchedArmInOrder is D53(a) for the live trial's decision: when both
+// arms ran trials with the wrong plugin state, the not-applicable reason names both, in arm order,
+// on every read (w20 status review round 2). DecideLive ranged over the Arms map and returned the
+// first mismatched arm it met, so the summary's reason named qompack on some runs and stock on others.
+func TestDecideLive_NamesEveryMismatchedArmInOrder(t *testing.T) {
+	s := eval.LiveSummary{Arms: map[string]eval.ArmSummary{
+		eval.ArmQompack: {Arm: eval.ArmQompack, PluginMismatch: 1},
+		eval.ArmStock:   {Arm: eval.ArmStock, PluginMismatch: 2},
+	}}
+	got := requireSameEveryRead(t, func() string {
+		d := eval.DecideLive(eval.LiveAnalysis{}, s)
+		require.Equal(t, "not-applicable", d.Verdict)
+		return d.Reason
+	})
+	require.Equal(t, "1 qompack and 2 stock trial(s) ran with the wrong plugin state", got)
+}
