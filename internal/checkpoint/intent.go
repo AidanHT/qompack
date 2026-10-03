@@ -247,6 +247,15 @@ func (d *Draft) refreshIntentLocked(ctx context.Context) {
 // its user says anything — when a derived goal held cannot have come from this session's prompts
 // and is cleared: a draft persisted by candidate 7 held its parent's prompt there.
 //
+// It never moves the goal back on a walk that could not read every record it passed (the context
+// running out included): one whose bytes cannot be read, for now or for good, may be the very
+// record the goal held came from (a resumed draft has read none of them yet), so a goal the walk
+// found at an earlier turn than that one (goalTurn) replaces it only when the walk read them all.
+// Then the records have the last word, even over a goal_turn none of them reaches (a store
+// restored from an older backup than the draft). A walk is repeated at every refresh; each record
+// it read whole is read once per draft (newestGoalLocked), so a repeat costs a failed Open for
+// each unreadable record and no bytes.
+//
 // "Newest" is the captured turn, not the record's host stamp. A prompt that reached only a hook's
 // client spool can be published behind one its host sent later (observer.prompt_out_of_host_order);
 // captured turns are the canonical order and are never renumbered (D35(b)), the evolution lists the
@@ -256,33 +265,14 @@ func (d *Draft) deriveCurrentWorkLocked(ctx context.Context, own []store.ToolUse
 	if d.workExplicit {
 		return
 	}
-	var newest core.ToolUseID
-	if len(own) > 0 {
-		newest = own[len(own)-1].ID
-		if newest == d.goalFrom {
-			return
-		}
-	}
 	goal, turn, found, complete := d.newestGoalLocked(ctx, own)
-	if ctx.Err() != nil {
-		// An interrupted walk cannot tell a prompt it failed to read from one with no bytes: it
-		// changes nothing and is not remembered, so the next refresh walks again.
-		return
-	}
-	if complete {
-		// Only a walk that read every record it passed is remembered. One that skipped a record it
-		// could not read installs what it found, but the next refresh walks again: a read that
-		// failed only for now would otherwise hold current work on an older prompt, behind the
-		// evolution beside it, until the user typed another prompt. A record whose bytes are gone
-		// for good costs one failed Open per refresh, and no bytes.
-		d.goalFrom = newest
-	}
 	switch {
-	case found:
+	case found && (complete || !d.goalTurnSet || turn >= d.goalTurn):
 		d.setGoalTurnLocked(turn, true)
 		d.setDerivedWorkLocked(goal)
 	case complete && len(own) <= goalWalkLimit:
-		// Every one of the session's prompts was read and none gives a goal.
+		// Every one of the session's prompts was read and none gives a goal (a walk that found one
+		// and read every record it passed took the case above).
 		d.setGoalTurnLocked(0, false)
 		d.setDerivedWorkLocked("")
 	}
@@ -299,18 +289,27 @@ const goalWalkLimit = maxIntentEvolution
 // newestGoalLocked walks own (turn order) from the newest record, at most goalWalkLimit of them,
 // and returns the goal the first one that gives one gives, with its turn. complete reports that
 // every record the walk passed — up to the one it found, or to the walk's end — was read whole.
-// Caller holds d.mu.
+// What each record it read whole gives (d.goalSeen) replaces what the previous walk kept, so a
+// record is read once while it stays in the walk's reach, whatever the walk ends on. Caller holds
+// d.mu.
 func (d *Draft) newestGoalLocked(ctx context.Context, own []store.ToolUseRecord) (goal string, turn core.TurnIndex,
 	found, complete bool,
 ) {
 	complete = true
+	seen := make(map[core.ToolUseID]string, min(len(own), goalWalkLimit))
+	defer func() { d.goalSeen = seen }()
 	for i := len(own) - 1; i >= 0 && len(own)-i <= goalWalkLimit; i-- {
-		text, st := d.promptTextLocked(ctx, own[i], 0)
-		if st != textWhole {
-			complete = false
-			continue
+		g, ok := d.goalSeen[own[i].ID]
+		if !ok {
+			text, st := d.promptTextLocked(ctx, own[i], 0)
+			if st != textWhole {
+				complete = false
+				continue
+			}
+			g, _ = goalOf(text) // "" exactly when the prompt gives no goal
 		}
-		if g, ok := goalOf(text); ok {
+		seen[own[i].ID] = g
+		if g != "" {
 			return g, own[i].Turn, true, complete
 		}
 	}

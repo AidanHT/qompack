@@ -938,14 +938,11 @@ func (w *FileWriter) encodeSegmentLocked(ctx context.Context, d *Draft, seg stor
 	// from. The segment encoded here is closed, and the open segment's prompts are newer, so while a
 	// failing list (core.ErrDegraded, or the context running out inside the idle Advance budget)
 	// left the records-derived goal in place, this fallback used to move current work back to an
-	// older prompt, and a compaction inside that window sealed it so. A later prompt it does take
-	// is one the records had not listed when they last answered with a walk that read every record
-	// it passed (goalFrom is remembered only then): such a walk reaches that prompt's record before
-	// the older goal's, reads the same text, and would have taken it instead. So the list has grown
-	// by the time they answer again. If its newest record changed, deriveCurrentWorkLocked derives
-	// afresh; if not (the new record was published out of host order behind it), the walk that
-	// took the older goal found nothing newer giving one, and the later prompt is what the records
-	// give too. Either way goalFrom needs no reset. The gate survives a restart (goal_turn).
+	// older prompt, and a compaction inside that window sealed it so. Once the records answer again
+	// they have the last word: deriveCurrentWorkLocked walks them at every refresh, and the prompt
+	// taken here is one of them, listed then. A walk that reads it finds it, or a newer prompt that
+	// gives a goal, before any older one; a walk that cannot read it does not step back past its turn
+	// (goalTurn) either. The gate survives a restart (goal_turn).
 	if !d.promptsAnswered && !d.workExplicit {
 		if turn, goal, ok := ownNewestGoal(ctx, src, d.session, prompts); ok && (!d.goalTurnSet || turn > d.goalTurn) {
 			d.cp.CurrentWork = CurrentWork{Goal: goal}
