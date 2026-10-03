@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"errors"
+	"net"
 	"os"
 	"testing"
 	"time"
@@ -59,34 +60,49 @@ func TestStatusProbe_OutlastsAListenerThatIsReArming(t *testing.T) {
 	require.ErrorIs(t, err, os.ErrNotExist, "with no listener the dial is refused, not waited on")
 	require.False(t, errors.Is(err, winio.ErrTimeout))
 
-	// The busy dial is waited on until Accept, not abandoned. Each wait ends on the other side's
-	// outcome or on the row's own failure (cancel, then the listener's Close), never on a timer.
+	// The busy dial is waited on until Accept, not abandoned. The client end stays open until Accept
+	// has returned: go-winio's listener creates a pipe instance clients can already reach and only then
+	// calls ConnectNamedPipe on it, so a client that connected and closed in between leaves it
+	// ERROR_NO_DATA, and the listener waits for another client that never comes (wave 19c review:
+	// 33 of 3000 passes hung with the conn closed at once, none with it held). Held open, Accept is
+	// sure to return. Neither wait ends on a timer: a failed dial closes the listener, so Accept
+	// returns, and a failed Accept cancels the dial, before the row fails.
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
-	dialed := make(chan error, 1)
+	type outcome struct {
+		c   net.Conn
+		err error
+	}
+	dialed := make(chan outcome, 1)
 	go func() {
 		c, derr := winio.DialPipeContext(ctx, addr.Path)
-		if c != nil {
-			_ = c.Close()
-		}
-		dialed <- derr
+		dialed <- outcome{c, derr}
 	}()
-	accepted := make(chan error, 1)
+	accepted := make(chan outcome, 1)
 	go func() {
 		c, aerr := ln.Accept()
-		if c != nil {
-			_ = c.Close()
-		}
-		accepted <- aerr
+		accepted <- outcome{c, aerr}
 	}()
+	var dial, acc outcome
 	for range 2 {
 		select {
-		case derr := <-dialed:
-			require.NoError(t, derr, "a dial with no budget of its own must connect once Accept runs")
-		case aerr := <-accepted:
-			require.NoError(t, aerr, "the listener must accept the waiting dial")
+		case dial = <-dialed:
+			if dial.err != nil {
+				_ = ln.Close() // no client is coming: let Accept return
+			}
+		case acc = <-accepted:
+			if acc.err != nil {
+				cancel() // nothing will accept: let the dial return
+			}
 		}
 	}
+	for _, o := range []outcome{dial, acc} {
+		if o.c != nil {
+			_ = o.c.Close()
+		}
+	}
+	require.NoError(t, dial.err, "a dial with no budget of its own must connect once Accept runs")
+	require.NoError(t, acc.err, "the listener must accept the waiting dial")
 
 	rearm := 2 * selfTestProbeTimeout
 	accepts := func(d time.Duration) bool { return d >= rearm } // busy until rearm, then accepted
