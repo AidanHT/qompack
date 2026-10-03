@@ -10,8 +10,10 @@ package daemon
 // red of TestARestartedDaemonBindsTheLiveSessionOnItsFirstHook).
 //
 // These rows pin "one delivery, one application" at the tap, across a restart, and through the
-// real worker and drain with the commit cut where Stop cuts it. None waits on a clock: the cut is a
-// context cancelled between the handler and the commit, which is the exact interleaving Stop makes.
+// real worker and drain with the commit cut where Stop cuts it. They also pin the one effect a replay
+// must still have: the segment close its cut run owed and did not make. None waits on a clock: the
+// cut is a context cancelled between the handler and the commit, which is the exact interleaving Stop
+// makes.
 
 import (
 	"context"
@@ -26,15 +28,33 @@ import (
 	"github.com/qompack/qompack/internal/ipc"
 	"github.com/qompack/qompack/internal/observer"
 	"github.com/qompack/qompack/internal/scheduler"
+	"github.com/qompack/qompack/internal/store"
 )
 
 // delivered is ctx carrying the observation identity the ingest worker and the drain give the
 // delivery leased with arrival in rtSession.
 func delivered(t *testing.T, arrival uint64) context.Context {
 	t.Helper()
-	id, err := core.NewObservationID(rtSession, arrival)
+	return deliveredFor(t, rtSession, arrival)
+}
+
+// deliveredFor is delivered for a delivery of sess.
+func deliveredFor(t *testing.T, sess core.SessionID, arrival uint64) context.Context {
+	t.Helper()
+	id, err := core.NewObservationID(sess, arrival)
 	require.NoError(t, err)
 	return observer.WithObservation(context.Background(), id)
+}
+
+// cutDelivery is delivered with its context already cancelled: Stop's runCancel landing while the
+// tap runs. The tap's only context-sensitive step is the segment close (the record lookup and the
+// claim ignore ctx), so a context cancelled before the tap starts is the same interleaving as one
+// cancelled after the claim and before the close.
+func cutDelivery(t *testing.T, arrival uint64) context.Context {
+	t.Helper()
+	ctx, cancel := context.WithCancel(delivered(t, arrival))
+	cancel()
+	return ctx
 }
 
 // detectorState is the runtime's BOCD posterior, encoded.
@@ -309,4 +329,132 @@ func TestDrain_AnInterruptedCommitFoldsTheReplayedReadOnce(t *testing.T) {
 
 	require.True(t, journal.acknowledged(req.Nonce), "fixture sanity: the next pass replayed and committed it")
 	require.Equal(t, rec.Tokens, openTokens(r), "the replayed Read is in the account once")
+}
+
+// segmentOf reads one segment of fx's log.
+func segmentOf(t *testing.T, fx *rtFixture, id core.SegmentID) store.Segment {
+	t.Helper()
+	seg, err := fx.store.segs.Get(context.Background(), id)
+	require.NoError(t, err)
+	return seg
+}
+
+// closeAttempts counts the SegmentLog.Close calls fx's log has seen, failed ones included.
+func closeAttempts(fx *rtFixture) int {
+	fx.store.segs.mu.Lock()
+	defer fx.store.segs.mu.Unlock()
+	return len(fx.store.segs.closeCalls)
+}
+
+// TestWrapServices_ARedeliveryMakesTheBoundaryCloseItsCutRunMissed: a git commit's delivery is
+// applied, and Stop's runCancel lands before the tap's segment close, so the close fails and the
+// commit with it. The replay is recognized and folds nothing, but the close the first run owed is
+// made: the segment ends at the commit's turn with the commit's tokens counted once, exactly as one
+// uncut run leaves it. A further replay finds nothing owed and closes nothing.
+func TestWrapServices_ARedeliveryMakesTheBoundaryCloseItsCutRunMissed(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	fx := newRTFixture(t)
+	fx.bind(rtSession)
+	open, err := fx.store.segs.Open(ctx, store.Segment{Session: rtSession, StartTurn: 0})
+	require.NoError(t, err)
+	const commit core.ToolUseID = "toolu_commit_cut"
+	tapRecord(fx, commit, "Bash", 50)
+	s := allSeams()
+	WrapServicesForScheduler(s, fx.rt, fx.options())
+	ev := tapToolEvent(commit, "Bash", `{"command":"git commit -m \"feat: x\""}`,
+		`"[main 1a2b3c] feat: x\n 1 file changed"`)
+
+	require.NoError(t, s.ObserveTool(cutDelivery(t, 1), ev))
+	require.False(t, segmentOf(t, fx, open).Closed, "fixture sanity: the cut run's close failed")
+	require.Equal(t, core.Tokens(50), openTokens(fx.rt), "fixture sanity: the cut run folded the commit")
+
+	require.NoError(t, s.ObserveTool(delivered(t, 1), ev))
+
+	seg := segmentOf(t, fx, open)
+	require.True(t, seg.Closed, "the replay makes the close the cut run owed")
+	require.Equal(t, tapToolUseTurn, seg.EndTurn)
+	require.Equal(t, core.Tokens(50), seg.Tokens, "with the commit's tokens counted once")
+	cur, err := fx.store.segs.Current(ctx, rtSession)
+	require.NoError(t, err)
+	require.Equal(t, tapToolUseTurn+1, cur.StartTurn, "and its successor is open")
+	require.Zero(t, openTokens(fx.rt), "the successor starts empty")
+	require.Equal(t, int64(1), fx.counter(counterTapRedelivery))
+	require.Equal(t, int64(1), fx.counter(counterTapBoundaryPrefix+causeCommit), "the commit signal is counted once")
+	require.Equal(t, int64(1), fx.counter(counterSegmentClosedPrefix+causeCommit))
+
+	attempts := closeAttempts(fx)
+	require.NoError(t, s.ObserveTool(delivered(t, 1), ev))
+	require.Equal(t, attempts, closeAttempts(fx), "a close already made is not owed again")
+	require.Equal(t, int64(2), fx.counter(counterTapRedelivery))
+}
+
+// declaringDetector is the runtime's own detector made to declare a changepoint on its declareAt-th
+// observation: the posterior is the real one, only the decision is scripted, so a row can put a
+// changepoint on the delivery it needs one on.
+type declaringDetector struct {
+	scheduler.Detector
+	declareAt, seen int
+}
+
+func (d *declaringDetector) Observe(f scheduler.Features) scheduler.ChangepointState {
+	st := d.Detector.Observe(f)
+	d.seen++
+	if d.seen == d.declareAt {
+		st.AtChangepoint = true
+	}
+	return st
+}
+
+// TestWrapServices_ARedeliveryMakesTheChangepointCloseItsCutRunMissed: the delivery's observation
+// declares a changepoint, whose close fails under Stop's runCancel, and the delivery's own tokens
+// are then folded into the segment that should have closed before them. The replay neither observes
+// the detector again nor folds again, and makes the owed close as an uncut run makes it: the segment
+// ends at the changepoint's turn with what preceded the delivery, and the delivery's tokens open the
+// successor.
+func TestWrapServices_ARedeliveryMakesTheChangepointCloseItsCutRunMissed(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	const before core.ToolUseID = "toolu_before_changepoint"
+	setup := func(t *testing.T) (*rtFixture, *Services, core.SegmentID, *declaringDetector) {
+		t.Helper()
+		fx := newRTFixture(t)
+		fx.bind(rtSession)
+		open, err := fx.store.segs.Open(ctx, store.Segment{Session: rtSession, StartTurn: 0})
+		require.NoError(t, err)
+		putRead(fx, before, tapToolUseTurn-1, 300)
+		tapRecord(fx, tapToolUseID, "Read", 700)
+		s := allSeams()
+		WrapServicesForScheduler(s, fx.rt, fx.options())
+		require.NoError(t, s.ObserveTool(delivered(t, 1), tapToolEvent(before, "Read", "", "")))
+		fx.rt.mu.Lock()
+		det := &declaringDetector{Detector: fx.rt.det, declareAt: 1}
+		fx.rt.det = det
+		fx.rt.mu.Unlock()
+		return fx, s, open, det
+	}
+	read := tapToolEvent(tapToolUseID, "Read", "", "")
+
+	once, sOnce, openOnce, _ := setup(t)
+	require.NoError(t, sOnce.ObserveTool(delivered(t, 2), read))
+	require.True(t, segmentOf(t, once, openOnce).Closed, "fixture sanity: an uncut run closes at the changepoint")
+
+	twice, sTwice, open, det := setup(t)
+	require.NoError(t, sTwice.ObserveTool(cutDelivery(t, 2), read))
+	require.False(t, segmentOf(t, twice, open).Closed, "fixture sanity: the cut run's close failed")
+	require.Equal(t, core.Tokens(1_000), openTokens(twice.rt), "fixture sanity: the read was folded into it")
+
+	require.NoError(t, sTwice.ObserveTool(delivered(t, 2), read))
+
+	seg, segOnce := segmentOf(t, twice, open), segmentOf(t, once, openOnce)
+	require.True(t, seg.Closed, "the replay makes the changepoint close the cut run owed")
+	require.Equal(t, segOnce.EndTurn, seg.EndTurn)
+	require.Equal(t, core.Tokens(300), segOnce.Tokens, "fixture sanity: an uncut run closes before the read")
+	require.Equal(t, segOnce.Tokens, seg.Tokens, "the closed segment holds what preceded the read")
+	require.Equal(t, core.Tokens(700), openTokens(once.rt), "fixture sanity: the read opens the successor")
+	require.Equal(t, openTokens(once.rt), openTokens(twice.rt), "the read's tokens open the successor, once")
+	require.Equal(t, 1, det.seen, "the detector observed the delivery once")
+	require.Equal(t, detectorState(t, once.rt), detectorState(t, twice.rt))
+	require.Equal(t, int64(1), twice.counter(counterSegmentClosedPrefix+causeChangepoint))
+	require.Equal(t, int64(1), twice.counter(counterTapRedelivery))
 }

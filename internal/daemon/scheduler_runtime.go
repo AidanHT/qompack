@@ -226,22 +226,22 @@ type schedRuntime struct {
 	dirty             bool
 	tapPanicLogged    bool // one Loud per session from the tap's recover
 
-	// applied names, per session, the observation identity of the last delivery the tap applied
-	// (claimDeliveryLocked). Delivery is at least once: the ingest worker and the drain run the
-	// handler, and the tap inside it, before they commit the delivery's frontier record, so a commit
-	// that fails leaves the delivery to be replayed through the same handler. The ordering gate
-	// (delivery_order.go) lets a session's next leased delivery run only once every earlier one is
-	// acknowledged, and an acknowledged delivery is never dispatched again, so the one delivery of a
-	// session that can be replayed after the tap applied it is the last one applied. One identity per
-	// session is therefore the whole of what recognizing a replay needs. It is not session-scoped
-	// state: a rebind keeps it (resetSessionLocked does not clear it), because a replay of another
-	// session's delivery is still a replay. The bound session's entry is persisted with the account
-	// it describes (schedulerStateDoc.LastAppliedObservation), and a runtime constructed unbound
-	// seeds it from that document (seedApplied), so a delivery the previous daemon applied, persisted
-	// and never committed is recognized when the restarted daemon's drain replays it. The map holds
-	// one entry per session this daemon applied a delivery of, as the observer's per-session state
-	// does, for the daemon's lifetime.
-	applied map[core.SessionID]core.ObservationID
+	// applied holds, per session, the last delivery the tap applied (claimDeliveryLocked). Delivery
+	// is at least once: the ingest worker and the drain run the handler, and the tap inside it,
+	// before they commit the delivery's frontier record, so a commit that fails leaves the delivery
+	// to be replayed through the same handler. The ordering gate (delivery_order.go) lets a session's
+	// next leased delivery run only once every earlier one is acknowledged, and an acknowledged
+	// delivery is never dispatched again, so the one delivery of a session that can be replayed after
+	// the tap applied it is the last one applied. One entry per session is therefore the whole of
+	// what recognizing a replay needs. The map is not session-scoped state: a rebind keeps its
+	// entries (resetSessionLocked only drops the closes they owe), because a replay of another
+	// session's delivery is still a replay. The bound session's identity is persisted with the
+	// account it describes (schedulerStateDoc.LastAppliedObservation), and a runtime constructed
+	// unbound seeds it from that document (seedApplied), so a delivery the previous daemon applied,
+	// persisted and never committed is recognized when the restarted daemon's drain replays it. The
+	// map holds one entry per session this daemon applied a delivery of, as the observer's
+	// per-session state does, for the daemon's lifetime.
+	applied map[core.SessionID]appliedDelivery
 
 	// Additive to the seat contract (documented in the C1 report):
 	//   persistMu serializes Persist end to end so two concurrent persists cannot write an older
@@ -304,7 +304,7 @@ func NewSchedulerRuntime(o SchedulerRuntimeOptions) (scheduler.Runtime, error) {
 		det:      scheduler.NewBOCD(cp.HazardRate, cp.Features),
 		hist:     NewFeatureHistory(defaultFeatureWindow),
 		rounds:   map[core.TurnIndex]struct{}{},
-		applied:  map[core.SessionID]core.ObservationID{},
+		applied:  map[core.SessionID]appliedDelivery{},
 	}
 	r.asm = newCandidateAssembler(o.Graph, r.segs, o.Log, o.Metrics)
 	r.sessionStartTS = r.nowMS()
@@ -508,6 +508,7 @@ func (r *schedRuntime) resetSessionLocked() {
 	r.frontierRuns, r.frontierPlannedAt, r.frontierSkipTicks = 0, 0, 0
 	r.frontier, r.residual, r.lastCheckpointSeq = 0, 0, 0
 	r.residualWarned, r.dirty, r.tapPanicLogged = false, false, false
+	r.releaseAccountLocked()
 }
 
 // resolveWindowLocked is the §2.5 ladder, read through getenv at bind:
@@ -614,21 +615,26 @@ func hostEnvTruthy(v string) bool {
 func (r *schedRuntime) Observe(ctx context.Context, f scheduler.Features, at core.TurnIndex) scheduler.ChangepointState {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	return r.observeLocked(ctx, f, at)
+	st, _ := r.observeLocked(ctx, f, at)
+	return st
 }
 
-func (r *schedRuntime) observeLocked(ctx context.Context, f scheduler.Features, at core.TurnIndex) scheduler.ChangepointState {
+// observeLocked is Observe under r.mu. Its error is the changepoint close's, already logged: nil
+// when the observation declared nothing or its close was made.
+func (r *schedRuntime) observeLocked(ctx context.Context, f scheduler.Features, at core.TurnIndex) (scheduler.ChangepointState, error) {
 	st := r.det.Observe(f)
 	r.maxTurn = max(r.maxTurn, at)
 	r.dirty = true
+	var closeErr error
 	if st.AtChangepoint {
 		r.recordChangepointLocked(at)
 		r.count(counterChangepoint)
 		if err := r.closeSegmentLocked(ctx, at, f, causeChangepoint); err != nil {
 			r.log.Warn("scheduler: segment close at changepoint failed", "turn", int(at), "err", err.Error())
+			closeErr = err
 		}
 	}
-	return st
+	return st, closeErr
 }
 
 // recordChangepointLocked inserts at into cpTurns keeping it ascending and duplicate-free — the
@@ -996,22 +1002,92 @@ func (r *schedRuntime) addOpenSegmentTokensLocked(tok core.Tokens) {
 	r.dirty = true
 }
 
+// appliedDelivery is what the tap keeps about the last delivery it applied for one session
+// (schedRuntime.applied).
+type appliedDelivery struct {
+	// obs is the delivery's observation identity.
+	obs core.ObservationID
+	// owed is the segment close the delivery's application has yet to make, nil once it is made or
+	// when it needs none. A replay of the delivery makes it (closeOwed). It is not persisted, and a
+	// rebind drops it (releaseAccountLocked).
+	owed *owedClose
+}
+
+// owedClose is a segment close an applied delivery has yet to make: the task boundary its signals
+// name, or a changepoint its observation declared whose close failed. Both closes run inside the
+// delivery's handler, before its commit and with its context, so Stop's runCancel can fail the close
+// and the commit together. The replay that follows has to make the close the first run did not, or
+// it is never made. carry is the part of the open segment's tokens the delivery folded after the
+// close's point, which belongs to the successor: a changepoint is closed before the delivery's own
+// tokens are folded, a boundary after them.
+type owedClose struct {
+	at    core.TurnIndex
+	f     scheduler.Features
+	cause string
+	carry core.Tokens
+}
+
 // claimDeliveryLocked reports whether the delivery identified by obs, of session sess, is one the
 // tap has not applied yet, and records it as the session's last applied delivery when so (applied
-// says why one per session is enough). A delivery with no identity — an in-process caller, or a
-// delivery the daemon could not lease — has nothing to recognize it by and is always applied, as
-// every delivery was before. It never rejects a delivery it has not seen: the worst an unexpected
-// order could do is apply a replay again, which is what happened before this check existed.
+// says why one per session is enough). The new entry inherits nothing from the one it replaces:
+// under the ordering gate that delivery was acknowledged, so a close it owed cannot come back with
+// it. A delivery with no identity, from an in-process caller or a delivery the daemon could not
+// lease, has nothing to recognize it by and is always applied, as every delivery was before. It
+// never rejects a delivery it has not seen: the worst an unexpected order could do is apply a
+// replay again, which is what happened before this check existed.
 func (r *schedRuntime) claimDeliveryLocked(sess core.SessionID, obs core.ObservationID) bool {
 	if obs == "" {
 		return true
 	}
-	if r.applied[sess] == obs {
+	if r.applied[sess].obs == obs {
 		return false
 	}
-	r.applied[sess] = obs
+	r.applied[sess] = appliedDelivery{obs: obs}
 	r.dirty = true
 	return true
+}
+
+// oweLocked records c as the segment close the delivery obs of sess owes, and returns it. A
+// delivery with no identity keeps no entry: its close is attempted once, by the run that applied it.
+func (r *schedRuntime) oweLocked(sess core.SessionID, obs core.ObservationID, c *owedClose) *owedClose {
+	if d := r.applied[sess]; obs != "" && d.obs == obs {
+		d.owed = c
+		r.applied[sess] = d
+	}
+	return c
+}
+
+// closeOwed makes the segment close c that the delivery obs of sess owes. It does nothing once the
+// close has been made, or once a later delivery of the session has been applied, by which time obs
+// was acknowledged and is not replayed again. The close is closeSegmentLocked's, which is idempotent
+// at its turn: once made, the successor starts past that turn and a second attempt has nothing to
+// close. The tokens the delivery folded after the close's point (carry) stay out of the closed
+// segment and in its successor, where a run whose close did not fail leaves them.
+func (r *schedRuntime) closeOwed(ctx context.Context, sess core.SessionID, obs core.ObservationID, c owedClose) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if d := r.applied[sess]; obs != "" && (d.obs != obs || d.owed == nil) {
+		return nil
+	}
+	carried := min(max(c.carry, 0), r.openSegTokens)
+	r.openSegTokens -= carried
+	err := r.closeSegmentLocked(ctx, c.at, c.f, c.cause)
+	r.openSegTokens += carried
+	if err != nil {
+		return err
+	}
+	r.oweLocked(sess, obs, nil)
+	return nil
+}
+
+// releaseAccountLocked is resetSessionLocked's part of applied. The closes the entries owed would
+// close the bound session's open segment, which is now another session's, so they are dropped. The
+// identities stay, to recognize a replay.
+func (r *schedRuntime) releaseAccountLocked() {
+	for s, d := range r.applied {
+		d.owed = nil
+		r.applied[s] = d
+	}
 }
 
 // RecordCompactionCost folds a measured compaction wall-clock into the Young–Daly δ EWMA

@@ -17,9 +17,11 @@ import (
 // closed-and-unencoded segments into the local checkpoint draft. This does not shorten the
 // host's native summary request or establish a committed publication frontier.
 //
-// Two entry points reach closeSegmentLocked and together cover every boundary event the design
-// names: Observe (scheduler_runtime.go) with cause "changepoint" when the detector declares, and
-// CloseSegmentOn, called by the tap, for todo completion, a passing test run and a git commit.
+// Two paths reach closeSegmentLocked and together cover every boundary event the design names:
+// Observe (scheduler_runtime.go) with cause "changepoint" when the detector declares, and the tap's
+// owed close (closeOwed, scheduler_runtime.go) for todo completion, a passing test run and a git
+// commit, which also makes a changepoint close that failed when a replay of its delivery comes.
+// CloseSegmentOn is the same close taken under the lock, for a caller that holds no delivery.
 
 // The frontier's instruments and log lines.
 const (
@@ -63,8 +65,8 @@ const (
 )
 
 // CloseSegmentOn closes the session's current segment at turn at with cause ∈ {todo, test,
-// commit} — the tap's task-boundary signals — and rolls its successor open. It takes the lock and
-// delegates to closeSegmentLocked.
+// commit} — the task-boundary signals, which the tap closes through its owed close (closeOwed) —
+// and rolls its successor open. It takes the lock and delegates to closeSegmentLocked.
 func (r *schedRuntime) CloseSegmentOn(ctx context.Context, at core.TurnIndex, f scheduler.Features, cause string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
