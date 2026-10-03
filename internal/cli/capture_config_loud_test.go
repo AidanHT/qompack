@@ -264,6 +264,27 @@ func TestHookCapture_ResolvedConfigRemovesViolationsRecord(t *testing.T) {
 	}
 }
 
+// TestDoctor_ViolationInBothSourcesCountsOnce is the review nit on the reworded row: doctor's
+// config.violations joins its own load's §11.3 list with the persisted record, and one invalid leaf
+// that is in both read "2 setting(s) fell back to the default" with the key listed twice. A setting
+// is counted once; the live entry, which carries got and want, is the one shown.
+func TestDoctor_ViolationInBothSourcesCountsOnce(t *testing.T) {
+	root := t.TempDir()
+	runPromptHooks(t, root, `{"runtime":{"telemetry":{"enabled":true}}}`, 1)
+	raw, err := os.ReadFile(violationsRecord(root))
+	require.NoError(t, err, "the hook records the leaf first")
+	require.Contains(t, string(raw), `"Key": "runtime.telemetry.enabled"`)
+
+	code, doc, errw := doctorJSON(t, root)
+	require.Equal(t, ExitOK, code, "stderr=%s", errw)
+	row := doctorFindRow(t, doc, "controls", "config.violations")
+	require.Equal(t, "degraded", row["status"], "row=%v", row)
+	require.Equal(t, "1 setting(s) fell back to the default", row["observed"], "row=%v", row)
+	detail, _ := row["detail"].(string)
+	require.Equal(t, 1, strings.Count(detail, "runtime.telemetry.enabled"), "row=%v", row)
+	require.NotContains(t, detail, "from state/config-violations.json", "row=%v", row)
+}
+
 // TestHookCapture_NoRecordNoQompackStaysUntouched pins the clean path's other edge: a project with
 // no .qompack is not one the hook path may create anything in, and removing a record that is not
 // there creates nothing either.

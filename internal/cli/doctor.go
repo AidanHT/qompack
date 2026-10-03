@@ -723,14 +723,25 @@ func (s *doctorState) switchRow(key string, gate *doctorGate) doctorRow {
 // configViolationsRow reports every setting that fell back to its default, from this run's own
 // tolerant load and from the list a previous run persisted. A "setting" is a §11.3 violation: a leaf
 // Validate refused or, in the persisted list, a whole versioned block reset for a newer
-// settingsVersion, which is not a leaf (captureConfigDegradedSummary uses the same word).
+// settingsVersion, which is not a leaf (captureConfigDegradedSummary uses the same word). A setting
+// in both lists is counted once, as the live entry, which carries got and want: the record a hook
+// wrote for the same file this run loaded names the same leaves.
 func (s *doctorState) configViolationsRow() doctorRow {
 	live := config.ViolationsFromWarnings(s.warnings)
 	// Only a project's own state/ holds a persisted list. With no root, or a refused one (D18), the
 	// layout is empty and its State would be a path relative to the working directory.
 	var persisted []config.Violation
 	if s.l.State != "" {
-		persisted = doctorPersistedViolations(s.l)
+		seen := make(map[string]bool, len(live))
+		for _, v := range live {
+			seen[v.Key] = true
+		}
+		for _, v := range doctorPersistedViolations(s.l) {
+			if !seen[v.Key] {
+				seen[v.Key] = true
+				persisted = append(persisted, v)
+			}
+		}
 	}
 
 	if len(live) == 0 && len(persisted) == 0 {
