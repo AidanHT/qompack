@@ -8,7 +8,8 @@ import (
 // The audit of the D63 whitelist's extensions (ADR 0011 §23 item 7): each extension of D63(2)'s list
 // is pinned by an adversarial row that would show a path if its completeness argument failed. The rows
 // for the apostrophe, the quoted root before an operator and the single `%` are red on f3196046, whose
-// extensions those arguments could not complete; the others pin arguments that hold.
+// extensions those arguments could not complete; the others pin arguments that hold, and fail on
+// f3196046 only on their PowerShell-drive and `#` spellings, which the final verify's findings close.
 
 // TestBuild_ARootLedGlobPreviewNamesOnlyWhatTheHostJudged pins the root-led Glob preview: its
 // directory is read by the Glob tool exactly as the host judged it (a shell would run it as a

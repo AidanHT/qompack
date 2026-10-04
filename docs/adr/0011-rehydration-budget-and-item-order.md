@@ -1560,13 +1560,16 @@ that a JSON preview's keys go unjudged are corrected; `notedValues` loses a toke
 `recordedPath`'s one-word rule already made. Red-first: with pathgate.go of f3196046 overlaid on the
 new tests, the four finding rows and the apostrophe, quoted-root and single-`%` audit rows fail on
 the spellings their findings name, `TestBuild_ABackslashInsideTheRootsSpellingIsNoRoot` on Windows and
-in a Linux container alike; the other audit rows fail there only on their PowerShell-drive and `#`
-spellings (`Temp:*`, `{Temp:,x}*`, `a||#/etc/passwd`, `{"Temp:secret.txt":true}`, `#~/.ssh/id_rsa`),
-and hold on every spelling their own extension admits. On the w19d corpus of 274 previews (seven
-scenarios, the Windows build) f3196046 shows 196 and withholds 78 under UAT-12's rules, with 0 leaks
-and 50 over-withheld; the final fixes show 193 and withhold 81, with 0 leaks and 53 over-withheld,
-the three flips being `git log --pretty=format:%h -n 3`, `sleep 5 && curl localhost:3000` and
-`{"skill":"superpowers:brainstorming"}`.
+in a Linux container alike; the glob, brace, operator, parentheses, comment and JSON-key audit rows
+fail there only on their PowerShell-drive and `#` spellings (`<root>\src Temp:*`, `<root>\src
+#/etc/*`, `{Temp:,x}*`, `a|Temp:secret.txt`, `a||#/etc/passwd`, `cat "(Temp:secret.txt)"`,
+`#~/.ssh/id_rsa`, `{"Temp:secret.txt":true}`) and hold on every spelling their own extension admits,
+and the null-device, root-before-a-pipe and `..` rows pass there. On the w19d corpus of 274 previews
+(seven scenarios) f3196046 shows 196 and withholds 78 under UAT-12's rules in the Windows build, with
+0 leaks and 50 over-withheld, and 195 and 79, with 0 leaks and 51 over-withheld, in the Linux build;
+the final fixes show 193 and withhold 81 (0 leaks, 53 over-withheld) on Windows and 192 and 82 (0
+leaks, 54 over-withheld) on Linux, the three flips on both being `git log --pretty=format:%h -n 3`,
+`sleep 5 && curl localhost:3000` and `{"skill":"superpowers:brainstorming"}`.
 
 ## Consequences
 
