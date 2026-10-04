@@ -615,6 +615,9 @@ wrong type or retired meaning stays at `warn`; an unchanged invalid value or new
 is the startup `loud` line in the table, once per daemon start, which is also how `qompack status`
 shows it (D59: a persistent condition is loud once per start or change, and a hook logs it at
 `warn`).
+To find where an invalid value is set, read the `location=` field of the daemon's start line or of a
+command's `warn` line: a file and line, a `QOMPACK_*` variable, or `--set`. A hook's `warn` line does
+not carry one, and `config print --provenance` shows the key as `fallback after violation`.
 `config-violations.json` is the record of what is in force now: a load that finds no invalid value
 and no reset removes it, whether a hook's or a command's such as `self-test`.
 
