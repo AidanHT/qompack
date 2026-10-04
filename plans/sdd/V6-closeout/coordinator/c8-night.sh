@@ -107,8 +107,10 @@ log "precondition: $n_old other closeout/w* branches are already in candidate 7 
 # 3. the merged tree
 M=$(winpath "$(mktemp -d)") || stop "no scratch directory for the merged-tree check"
 log "merged-tree scratch clone $M (removed when the check ends, and by the exit trap)"
+# core.longpaths in the clone only: the longest tracked path is 181 characters, which leaves a
+# mktemp clone barely 24 under Windows' MAX_PATH, and the checkout must not fail on the next one.
 merged_tree() {
-  git clone -q --no-local --no-checkout --no-tags "$V6" "$M/repo" &&
+  git clone -q -c core.longpaths=true --no-local --no-checkout --no-tags "$V6" "$M/repo" &&
     git -C "$M/repo" remote set-url origin "$NOPUSH_URL" &&
     git -C "$M/repo" remote set-url --push origin "$NOPUSH_URL" &&
     git -C "$M/repo" -c advice.detachedHead=false checkout -q --detach "$V" &&

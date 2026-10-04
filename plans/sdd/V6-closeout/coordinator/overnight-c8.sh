@@ -307,8 +307,8 @@ c52_derive() {
 }
 
 # ---- release-check -------------------------------------------------------------------------------
-rc_prepare() {
-  git clone -q --no-local --no-checkout --no-tags "$C" "$RCT/repo" &&
+rc_prepare() {   # core.longpaths in the clone only, as c8-night.sh's merged-tree clone
+  git clone -q -c core.longpaths=true --no-local --no-checkout --no-tags "$C" "$RCT/repo" &&
     git -C "$RCT/repo" remote set-url origin "$NOPUSH_URL" &&
     git -C "$RCT/repo" remote set-url --push origin "$NOPUSH_URL" || return 1
   git -C "$RCT/repo" cat-file -e "$H^{commit}" 2> /dev/null || git -C "$RCT/repo" fetch -q --no-tags "$C" "$H" || return 1

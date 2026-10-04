@@ -60,7 +60,7 @@ coordinator's procedure; no agent launches or aborts the night.
    `c8-night.sh` checks all of these before anything runs. An earlier refused run's
    `phase3/c8/prefreeze` is moved aside automatically to `prefreeze.run-<n>`, and is never read as
    this run's.
-4. `sh nightharness.sh` passes (59 cases). It is dry and takes up to about 2 hours (57 cases took
+4. `sh nightharness.sh` passes (60 cases). It is dry and takes up to about 2 hours (57 cases took
    6512 s on 2026-10-03 with other seats running), with no Go, Docker or Claude Code process (K1
    starts the real pwsh once, with nothing to hold). Re-run it after any change to a night script,
    and `python c52derive.py --selftest`.

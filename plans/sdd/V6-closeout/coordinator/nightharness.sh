@@ -906,6 +906,21 @@ case_N18_verify_v6_product_path_refuses() {
   check "nothing frozen" test "$(git -C "$P/qompack-v6" rev-parse HEAD)" = "$v0"
   check "no pre-freeze ran" test ! -e "$E8/prefreeze"
 }
+case_N20_long_paths_in_the_scratch_clones() {
+  # A tracked path that leaves a mktemp clone past Windows' MAX_PATH (260): git for Windows ships
+  # with core.longpaths unset, so the merged-tree and release-check clones must set it themselves.
+  # The scratch repository sets it for its own worktrees, as the real one would have to.
+  git -C "$P/qompack" config core.longpaths true
+  lp="plans/sdd/$(printf '%0100d' 0 | tr 0 a)/$(printf '%0100d' 0 | tr 0 b).md"
+  (cd "$P/qompack-cx-int" && mkdir -p "$(dirname "$lp")" && echo long > "$lp" && git add . &&
+    git -c user.name=h -c user.email=h@i commit -q -m "a long path")
+  night; rc=$?
+  check "exit 0" test "$rc" = 0
+  check "the merged tree was made" has "$E8/night.log" "passes plan lint"
+  check "frozen" has "$E8/night.log" "candidate 8 frozen at"
+  check "release-check ran in its clone" test "$(row8 release-check 1)" = VALID
+}
+row8() { awk -F'\t' -v s="$1" -v n="$2" '$1 == s && $2 == n { print $4 }' "$E8/power.tsv"; }
 case_N19_far_deadline_refuses() {
   export NIGHT_DEADLINE=21:00          # 23 h after the 22:00 launch: a daytime launch
   night; rc=$?
