@@ -47,6 +47,14 @@ var closeoutW22StaleClaims = []staleClaim{
 		"D62 (sessionend): UAT-09 O-1 is by design; SessionEnd was delivered and ended the session",
 	},
 	{
+		"CHANGELOG.md", "a glob that selects only files the block never recorded is judged as written",
+		"free text withholds every glob (D67(l)); the unrecorded-glob limit is a structured glob's (D60(c)(iv))",
+	},
+	{
+		"docs/cannot-do.md", "judges a glob that selects only files the block never recorded",
+		"free text withholds every glob (D67(l)); the unrecorded-glob limit is a structured glob's (D60(c)(iv))",
+	},
+	{
 		"docs/adr/0010-wall-clock-under-coload.md", "pending the owner's ruling, C7.2",
 		"D57(a) records release.yml's declaration of QOMPACK_NONREFERENCE_DISK",
 	},
@@ -86,6 +94,37 @@ func TestReleasePagesDescribeTheD63Whitelist(t *testing.T) {
 			if !strings.Contains(body, want) {
 				t.Errorf("%s describes the free-text screen without %q (D63, D64, D67(l))", page, want)
 			}
+		}
+	}
+}
+
+// unrecordedGlobLimitRe matches the D60(c)(iv) limit stated as ADR 0011 §23 and docs/security.md
+// state it: it belongs to a structured glob, and its point is that the glob reaches a refused file
+// without spelling the rule's literal.
+var unrecordedGlobLimitRe = regexp.MustCompile(`structured glob[^;]{0,80}? that selects a refused file ` +
+	`the block never recorded, without spelling its literal[^;]{0,40}? is judged as written \(D60\(c\)\(iv\)\)`)
+
+// bareGlobLimitRe matches the limit paraphrased without its subject: "a glob that selects only
+// files ...", which in a paragraph about free text contradicts D67(l)'s "every glob is withheld".
+var bareGlobLimitRe = regexp.MustCompile(`(?i)\bglob that selects only files`)
+
+// TestReleasePagesAttachTheUnrecordedGlobLimitToStructuredGlobs asserts every release page that
+// describes the free-text whitelist states D60(c)(iv)'s unrecorded-glob limit, and states it of a
+// structured glob (a lone Glob or recall pattern), never of the whitelist: in free text every glob is
+// withheld (D67(l)).
+func TestReleasePagesAttachTheUnrecordedGlobLimitToStructuredGlobs(t *testing.T) {
+	root := repoRoot(t)
+	for _, page := range append(append([]string{}, whitelistPages...), "docs/uat.md", "README.md") {
+		body := normalized(readDoc(t, root, page))
+		if loc := bareGlobLimitRe.FindStringIndex(body); loc != nil {
+			t.Errorf("%s states the unrecorded-glob limit without its structured subject: %q",
+				page, body[max(0, loc[0]-80):min(len(body), loc[1]+80)])
+		}
+	}
+	for _, page := range whitelistPages {
+		if !unrecordedGlobLimitRe.MatchString(normalized(readDoc(t, root, page))) {
+			t.Errorf("%s does not state that a structured glob selecting a refused file the block never "+
+				"recorded, without spelling its literal, is judged as written (D60(c)(iv))", page)
 		}
 	}
 }
