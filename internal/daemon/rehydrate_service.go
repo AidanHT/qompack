@@ -811,7 +811,10 @@ func rehydrateHostPaths(p *hostperm.Policy, root string, log logging.Logger) reh
 // (rehydrate.RootRelative: an ASCII letter's case folded where paths fold, nothing else), which places
 // the project paths rehydrate shows (on macOS filepath.Rel folds nothing, and a root spelled in
 // another ASCII case would put the judged spelling outside the resolved root); its broad reading
-// (rehydrate.RootRelativeBroad: case folded by Unicode, as the host's rules fold a path); and
+// (rehydrate.RootRelativeBroad: case folded by Unicode, as filepath.Rel on Windows and the host's
+// rules fold a path; it also pairs the long s with `s`, which the host's lower-casing does not, so
+// the long s's spelling of a root that resolves elsewhere is refused wherever the host refuses the
+// project's file, over-withheld where the volume keeps that folder beside the root); and
 // filepath.Rel's, for a path outside the root too (`..\x`). Most paths have one reading.
 func rootRelatives(root, abs string) []string {
 	var out []string

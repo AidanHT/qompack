@@ -33,8 +33,12 @@ import (
 // lower-cases a path and a rule by Unicode, strings.ToLower). The Latin capital A with ring above
 // (U+00C5) is folded onto `å` by NTFS, Unicode's simple folding and the host; the Kelvin sign
 // (U+212A) and the Angstrom sign (U+212B) by Unicode's simple folding and the host, not NTFS; the
-// long s (U+017F) by Unicode's simple folding alone, so the host refuses nothing under it and it
-// teaches no project-relative name; and the capital I with dot above (U+0130) by the host alone.
+// long s (U+017F) by Unicode's simple folding alone, so the host, judging the recorded spelling,
+// refuses nothing under it and it teaches no project-relative name; and the capital I with dot above
+// (U+0130) by the host alone. hostFoldRules judges the recorded spelling alone, as the daemon's
+// adapter does while the root resolves to itself; under a root that resolves elsewhere the adapter
+// also judges the broad reading's place below the resolved root, so it refuses the long s's spelling
+// wherever the host refuses the project's file (ADR 0011 §23).
 var unicodeCaseSpellings = []struct {
 	name, seg, variant string
 	hostFolds          bool
