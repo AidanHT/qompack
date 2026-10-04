@@ -82,9 +82,10 @@ var errPassBudgetSpent = fmt.Errorf("daemon: drain: the pass's budget is spent: 
 // an earlier arrival of its session. A line an earlier pass of this daemon consumed behind such a head
 // costs it that line's read and nothing more, for up to orderingProcessedCap such lines per file; past
 // that bound the line is consumed again in full, though not counted or announced again unless a pass
-// left an unleased line ahead of it unannounced (spoolMemo says what else the memo leaves out). A file unchanged since this daemon synced it is not synced, nor its
-// progress rewritten, again. And while a cleanup intent waits, the pass reads each file's unconsumed
-// lines once more, at its start, for references to the intent's blob (cleanupAcknowledged).
+// left an unleased line ahead of it unannounced (spoolMemo says what else the memo leaves out). A file
+// unchanged since this daemon synced it is not synced, nor its progress rewritten, again. And while a
+// cleanup intent waits, the pass reads each file's unconsumed lines once more, at its start, for
+// references to the intent's blob (cleanupAcknowledged).
 //
 // Cancelling ctx still ends the pass, and the line in it, at once.
 // The budget is on real time, as a context deadline is, never on the daemon's clock. It is the pass's
