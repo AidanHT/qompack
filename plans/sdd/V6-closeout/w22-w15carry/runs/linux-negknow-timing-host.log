@@ -1,0 +1,35 @@
+run_id=cx-w22-w15carry-negknow-timing-0f02a4f-20261004T192821Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w22-w15carry
+rev=0f02a4fc
+commit=0f02a4fc5175ac8e02d4a186c197657663907302
+bundle_sha256=e588baa9024cdad43ff04e8d5f02bd730d036fe63a3c4dc45356e59d5507fa75
+host_started_utc=2026-10-04T19:28:51Z
+inner_args=--no-race --gomaxprocs 2 --env GOFLAGS=-p=1 --timeout 30m --run ^(TestBudget_QueryHit|TestBudget_QueryMiss|TestBudget_QueryHitThroughLineage|TestBudget_QueryMissThroughLineage|TestBudget_Record|TestBudget_RebuildBloom|TestBudget_RefreshStaleness|TestBudget_Open|TestBudget_DetectorScan)$ -- ./internal/negknow
+/work/cx-w22-w15carry-negknow-timing-0f02a4f-20261004T192821Z.bundle: OK
+run_id=cx-w22-w15carry-negknow-timing-0f02a4f-20261004T192821Z
+commit=0f02a4fc5175ac8e02d4a186c197657663907302
+tree=765970afd663503e0ac95fd0e6ba5d5b9a81e143
+bundle_sha256=e588baa9024cdad43ff04e8d5f02bd730d036fe63a3c4dc45356e59d5507fa75
+started_utc=2026-10-04T19:29:05Z
+uid=10001 user=qompack-test groups=qompack-test
+race=0 count=1 timeout=30m gomaxprocs=2 coload=0
+run=^(TestBudget_QueryHit|TestBudget_QueryMiss|TestBudget_QueryHitThroughLineage|TestBudget_QueryMissThroughLineage|TestBudget_Record|TestBudget_RebuildBloom|TestBudget_RefreshStaleness|TestBudget_Open|TestBudget_DetectorScan)$
+skip=
+extra_env= GOFLAGS=-p=1
+go version go1.26.6 linux/amd64
+linux
+amd64
+0
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-p=1
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+PASS      github.com/qompack/qompack/internal/negknow  (pass=13 fail=0 skip=0)
+go_test_exit=0
+exit=0
+artifacts: C:/Users/Quant/AppData/Local/Temp/claude/qompack-audit/wave22/linux-w15carry/cx-w22-w15carry-negknow-timing-0f02a4f-20261004T192821Z-artifacts
+exit=0
+exit=0

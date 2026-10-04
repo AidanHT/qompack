@@ -1,0 +1,60 @@
+# every overlay generated from HEAD 3f50b4ee by plans/sdd/V6-closeout/w22-w15carry/mkoverlays.py; Windows; each row must FAIL
+## negknow-both: -overlay=negknow-both-prefix.json -run '^(TestBudget_QueryHitThroughLineage|TestBudget_QueryMissThroughLineage)$' ./internal/negknow
+        	Messages:   	BenchmarkQueryHitThroughLineage/fork: 131.684µs CPU/op exceeds the §11.2 budget of 50µs
+--- FAIL: TestBudget_QueryHitThroughLineage (16.70s)
+    --- PASS: TestBudget_QueryHitThroughLineage/not_a_fork (2.68s)
+    --- FAIL: TestBudget_QueryHitThroughLineage/fork (14.02s)
+        	Messages:   	BenchmarkQueryMissThroughLineage/not_a_fork: 23.415µs CPU/op exceeds the §11.2 budget of 5µs
+        	Messages:   	BenchmarkQueryMissThroughLineage/fork: 136.257µs CPU/op exceeds the §11.2 budget of 5µs
+--- FAIL: TestBudget_QueryMissThroughLineage (27.05s)
+    --- FAIL: TestBudget_QueryMissThroughLineage/not_a_fork (11.12s)
+    --- FAIL: TestBudget_QueryMissThroughLineage/fork (15.92s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/negknow	45.147s
+FAIL
+exit=1
+## negknow-filtermiss: -overlay=negknow-ledger-prefix.json -run '^TestQuery_FilterMissAsksNoAncestry$' ./internal/negknow
+        	Messages:   	a filter miss is absent for every viewer: it resolves no ancestry
+--- FAIL: TestQuery_FilterMissAsksNoAncestry (0.06s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/negknow	0.587s
+FAIL
+exit=1
+## checkpoint-asminted: -overlay=checkpoint-decisions-prefix.json -run '^(TestCarriedDecisionRegainsItsAlternativeAfterATruncatedSeal|TestDecisionTruncatedAwayIsCarriedAgain)$' ./internal/checkpoint
+        	Messages:   	the decision's alternative is back once the budget has room: [{ID:dec_109287b68d9e What:rejected "100 requests per minute" for per-client rate limit Why:superseded by the user's correction AlternativesRejected:[] Evidence:sha256:2f5ce645e1cde297540e8c327d2edcad5107cda79deb4795d2e933cb623f660d Turn:12} {ID:dec_8351d77688eb What:keep the limiter in-process Why:a shared store adds a network hop AlternativesRejected:[] Evidence:sha256:0000000000000000000000000000000000000000000000000000000000000000 Turn:0}]
+--- FAIL: TestCarriedDecisionRegainsItsAlternativeAfterATruncatedSeal (0.93s)
+        	Messages:   	a decision cut at budget is carried again while it holds: [{ID:dec_8351d77688eb What:keep the limiter in-process Why:a shared store adds a network hop AlternativesRejected:[] Evidence:sha256:0000000000000000000000000000000000000000000000000000000000000000 Turn:13}]
+--- FAIL: TestDecisionTruncatedAwayIsCarriedAgain (0.71s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/checkpoint	2.122s
+FAIL
+exit=1
+## checkpoint-forkpoint: -overlay=checkpoint-writer-prefix.json -run '^TestForkCarriesItsParentsDecisionsFromTheForkPoint$' ./internal/checkpoint
+        	Messages:   	the fork carries its parent's decision: [{ID:dec_5917e66864db What:rejected "a global mutex" for src/fork.go:limiter Why:the fork's own finding AlternativesRejected:[a global mutex] Evidence:sha256:73e068835a58fd9cb4f8af763d4a83c31f8861895c67ea59cc6c0db36b6fb23e Turn:1}]
+--- FAIL: TestForkCarriesItsParentsDecisionsFromTheForkPoint (0.60s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/checkpoint	1.264s
+FAIL
+exit=1
+## checkpoint-forkrank: -overlay=checkpoint-writer-norank.json -run '^TestForkCarriesItsParentsDecisionsFromTheForkPoint$' ./internal/checkpoint
+        	Messages:   	the fork's own decision ranks first, although the inherited one has the higher turn: [{ID:dec_ee5c2c708dfc What:changed src/limiter.go Why:Moved the limiter into the gateway process. A shared store would add a network hop. AlternativesRejected:[] Evidence:sha256:5a060a751ca17e1f3538653d1d6dfe66fb4e3314221211b79f41981e014c9cfe Turn:11} {ID:dec_5917e66864db What:rejected "a global mutex" for src/fork.go:limiter Why:the fork's own finding AlternativesRejected:[a global mutex] Evidence:sha256:73e068835a58fd9cb4f8af763d4a83c31f8861895c67ea59cc6c0db36b6fb23e Turn:1}]
+--- FAIL: TestForkCarriesItsParentsDecisionsFromTheForkPoint (0.39s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/checkpoint	0.849s
+FAIL
+exit=1
+## store-vanished: -overlay=store-publication-audit-prefix.json -run '^TestAuditPublication_SnapshotCountsVanishedEntriesAsLiveWork$' ./internal/store
+        	Messages:   	a file removed while the pass runs is live work, not unreadable: [capture sidecar unreadable pending-write marker unreadable]
+--- FAIL: TestAuditPublication_SnapshotCountsVanishedEntriesAsLiveWork (0.15s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/store	1.999s
+FAIL
+exit=1
+## fault-matcher: -overlay=fault-v6-fsck-prefix.json -run '^TestFault_StartupGapOnStatusIgnoresTheContinuedCounter$' ./test/fault
+        	Messages:   	a pass that continued in the background named no gap
+--- FAIL: TestFault_StartupGapOnStatusIgnoresTheContinuedCounter (0.00s)
+FAIL
+FAIL	github.com/qompack/qompack/test/fault	1.964s
+FAIL
+exit=1
+all-done
