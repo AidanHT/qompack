@@ -15,21 +15,27 @@
 #      records; closeout/w19-rehydrate and closeout/w19b-cmdconnect exist, and the tip of EVERY
 #      closeout/w* branch that is not already in candidate 7 (C8_PREV_CANDIDATE, default d20309c0)
 #      is merged into integration (C8_EXEMPT, a space-separated list, names a branch the coordinator
-#      deliberately leaves out; each exemption is logged with its tip);
+#      deliberately leaves out; each exemption is logged with its tip); e2efunc's skip list of
+#      test/e2e's timing rows matches integration's test/e2e and ci.yml (prefreeze.sh --e2e-skips);
+#      C8_C52_ONLY is not set (it belongs to the C5.2 night, which runs overnight-c8.sh alone);
 #   3. the MERGED tree (verify/v6 + integration, merged in a scratch clone that cannot push) passes plan
 #      lint (runpatterns, docmarkers, coveragefloors), test/guards and test/docs: verify/v6 carries
 #      plans integration lacks, and the freeze must not reveal them in release-check hours later. The
 #      product suites below run on integration's tree, so verify/v6 may add nothing outside plans/;
 #   4. the pre-freeze check of integration (prefreeze.sh under a fresh run id, so no earlier run's line
 #      can pass it): gate, integration (with its functional hot-path rows), testpkgs, internal, then
-#      e2efunc (test/e2e without X11). An e2efunc red whose power verdict is not VALID is re-run once on
-#      AC (D57(d): a battery run is neither a pass nor a fail); a VALID red refuses;
+#      e2efunc (test/e2e without its timing rows: X11, TestE2E_SessionStartLatency and X10, which
+#      overnight-c8.sh's win-e2e-timing judges alone on AC). An e2efunc red whose power verdict is
+#      not VALID is re-run once on AC (D57(d): a battery run is neither a pass nor a fail); a VALID
+#      red refuses;
 #   5. only if all of that passes: freeze candidate 8 on verify/v6 (its tree must equal the tree that was
 #      linted), build and host-validate qompack-bundles/c8 (outcome "accepted"; "unverified" means
 #      built but not validated, and refuses), push verify/v6 (hosted ci.yml; no prompt, bounded) and,
 #      once pushed, dispatch nightly.yml (D4);
-#   6. overnight-c8.sh on the frozen candidate, with this night's deadline passed as an epoch; its
-#      outcome counts are copied into night.log.
+#   6. overnight-c8.sh on the frozen candidate, with this night's deadline passed as an epoch,
+#      through release-check; its outcome counts are copied into night.log. C5.2 (the full list,
+#      D62(b)) and the C1.16 rig are the following C5.2 night's (D62(c); README.md "The C5.2
+#      night").
 # NIGHT_DEADLINE (local HH:MM, default 08:00) is the time after which no overnight step and no AC wait
 # starts; the freeze, bundles and push still run when the pre-freeze passes late (minutes, and the
 # candidate is then frozen). AC_WAIT_BUDGET_MIN (default 180) is one budget for the whole night; the
@@ -66,6 +72,10 @@ cleanup() {
 trap cleanup EXIT; trap 'exit 130' INT; trap 'exit 143' TERM; trap 'exit 129' HUP
 stop() { log "REFUSED: $*"; exit 1; }
 case $AC_WAIT_BUDGET_MIN in ''|*[!0-9]*) stop "AC_WAIT_BUDGET_MIN must be a whole number of minutes" ;; esac
+# A C5.2 night's switch left in the launching window would turn this night's overnight part into a
+# C5.2 night after the freeze; C8_C52_SET only picks a C5.2 night's set.
+[ -z "${C8_C52_ONLY:-}" ] || stop "C8_C52_ONLY is set ('$C8_C52_ONLY'): it belongs to the C5.2 night, which runs overnight-c8.sh alone (README.md \"The C5.2 night\"); remove it (Remove-Item Env:C8_C52_ONLY) and relaunch"
+unset C8_C52_SET
 deadline=$(deadline_epoch "$NIGHT_DEADLINE") || stop "NIGHT_DEADLINE must be HH:MM, not '$NIGHT_DEADLINE'"
 NIGHT_DEADLINE_EPOCH=$deadline; export NIGHT_DEADLINE_EPOCH   # overnight-c8.sh never recomputes it
 : > "$sentinel"
@@ -103,6 +113,11 @@ for b in $(git -C "$INT" for-each-ref --format='%(refname:short)' refs/heads/clo
   log "precondition: $b ($t) is merged"
 done
 log "precondition: $n_old other closeout/w* branches are already in candidate 7 ($C8_PREV_CANDIDATE)"
+# e2efunc's skip list must match integration's test/e2e and ci.yml's timing lane now, not an hour
+# into the pre-freeze (prefreeze.sh, "test/e2e's timing rows").
+ES=$(sh "$here/prefreeze.sh" --e2e-skips "$INT") ||
+  stop "precondition: e2efunc's skip list of test/e2e's timing rows has drifted from integration $H (the reasons are above); update prefreeze.sh's E2E_TIMING_ROWS to the tree's classification"
+log "precondition: e2efunc will skip -skip '$ES' (test/e2e's timing rows; overnight's win-e2e-timing judges them alone on AC)"
 
 # 3. the merged tree
 M=$(winpath "$(mktemp -d)") || stop "no scratch directory for the merged-tree check"

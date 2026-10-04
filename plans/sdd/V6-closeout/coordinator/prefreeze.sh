@@ -1,5 +1,6 @@
 #!/bin/sh
 # prefreeze.sh <repo> <evidence-dir> [step...]
+# prefreeze.sh --e2e-skips <repo>
 # D53(a)'s pre-freeze merged-tree check on Windows, strictly sequential, at normal priority (it runs
 # only with the owner's go). Hosted ci.yml on the same tree covers Linux and macOS. Steps (default:
 # gate e2e hotpath integration testpkgs internal, in that order):
@@ -9,7 +10,8 @@
 #                that cannot be reached does not: gate.log then carries GOVULNCHECK-UNREACHABLE and the
 #                tree was NOT checked locally (hosted ci.yml's security job checks the pushed tree).
 #   e2e          test/e2e alone, -p 1, no co-load: its wall-clock rows are judged
-#   e2efunc      the same without X11 (TestV3_HotPath*), which the night judges alone on AC
+#   e2efunc      the same without test/e2e's timing rows (below), which the night judges alone on AC
+#                after the freeze; it does not run when its skip list has drifted (exit 2)
 #   hotpath      test/integration's hot-path rows (TestIntegration_HotPath*) alone, no co-load
 #   integration  test/integration without the timing lane's wall-clock row
 #                (TestIntegration_HotPathWarmWithRealResidentState, judged alone on AC by the night),
@@ -25,7 +27,54 @@
 #   step <name> exit=<code> run=<id> <utc> power=<verdict>
 # where <verdict> is power.sh's VALID, INVALID-POWER <events> or NOT-REFERENCE <reason> over the step
 # (its start and end readings and the System log's power, standby, sleep and resume events).
+#
+# test/e2e's timing rows, which e2efunc skips. They are wall-clock judgements, made alone on AC
+# after the freeze: overnight-c8.sh's win-e2e-timing runs all of test/e2e, as ci.yml's test-e2e does
+# (ci.yml judges test/e2e's wall-clock rows there: its timing job names none of them), and
+# win-x11-alone runs X11 by itself. Named exactly:
+#   TestV3_HotPath*                                    X11, every row with the prefix
+#   TestE2E_SessionStartLatency                        a warm compact start's p99 over 30 spawns
+#                                                      (scLatencyP99, 1.5 s)
+#   TestV5_ThrashWarningVisibleInStatusAndCheckpoint   X10: a late or deferred first-prompt reply
+#                                                      fails it on a reference disk unless a
+#                                                      declaration licenses recovery
+# and every test/e2e row ci.yml's timing lane names (phase3.sh's win-timing reads that lane and
+# judges it alone on AC), so a row moved there is skipped here by construction. A named row that
+# test/e2e no longer defines, or a timing lane this script cannot read, is drift: e2efunc then does
+# not run (exit 2), and --e2e-skips, which c8-night.sh runs among its preconditions, prints the
+# reasons and exits 2; otherwise --e2e-skips prints the -skip pattern e2efunc uses.
 set -u
+E2E_X11_PREFIX=TestV3_HotPath
+E2E_TIMING_ROWS="TestE2E_SessionStartLatency TestV5_ThrashWarningVisibleInStatusAndCheckpoint"
+# e2e_skips <repo>: the -skip pattern on stdout, or the drift on stderr and exit 2.
+e2e_skips() {
+  es_r=$1; es_bad=0
+  es_def() { grep -qE "^func $1\(t \*testing\.T\)" "$es_r"/test/e2e/*_test.go 2> /dev/null; }
+  grep -qE "^func $E2E_X11_PREFIX[A-Za-z0-9_]*\(t \*testing\.T\)" "$es_r"/test/e2e/*_test.go 2> /dev/null ||
+    { echo "prefreeze: test/e2e defines no $E2E_X11_PREFIX* row (X11): E2E_X11_PREFIX has drifted" >&2; es_bad=1; }
+  for es_n in $E2E_TIMING_ROWS; do
+    es_def "$es_n" || { echo "prefreeze: test/e2e no longer defines $es_n: E2E_TIMING_ROWS has drifted from the tree" >&2; es_bad=1; }
+  done
+  # ci.yml's timing lane, read as phase3.sh reads it: -run '^(A|B|...)$' and its packages.
+  es_l=$(grep -E "^ *- run: go test -p 1 " "$es_r/.github/workflows/ci.yml" 2> /dev/null | head -n 1)
+  es_p=$(printf '%s' "$es_l" | sed -n -E "s/.*-run '\^\(([^']*)\)\\$'.*/\1/p")
+  case $es_p in
+    *TestBudgetBF*) ;;
+    *) echo "prefreeze: cannot read ci.yml's timing lane (-run '^(...)\$' naming TestBudgetBF): '$es_l'" >&2; es_bad=1 ;;
+  esac
+  es_x=""
+  for es_n in $(printf '%s' "$es_p" | tr '|' ' '); do
+    case " $E2E_TIMING_ROWS " in *" $es_n "*) continue ;; esac
+    case $es_n in "$E2E_X11_PREFIX"*) continue ;; esac
+    es_def "$es_n" && es_x="$es_x $es_n"
+  done
+  [ "$es_bad" = 0 ] || return 2
+  printf '^(%s.*|%s)$\n' "$E2E_X11_PREFIX" "$(echo $E2E_TIMING_ROWS $es_x | tr ' ' '|')"
+}
+if [ "${1:-}" = --e2e-skips ]; then
+  [ $# -eq 2 ] || { echo "usage: prefreeze.sh --e2e-skips <repo>" >&2; exit 2; }
+  e2e_skips "$2"; exit
+fi
 [ $# -ge 2 ] || { echo "usage: prefreeze.sh <repo> <evidence-dir> [step...]" >&2; exit 2; }
 R=$1; E=$2; shift 2
 here=$(cd "$(dirname "$0")" && pwd)
@@ -81,12 +130,17 @@ integration_body() {
   done
   rm -f "$i_out"; return "$i_rc"
 }
+e2efunc_body() {   # run() has already changed into the repository
+  ef_skip=$(e2e_skips .) || { echo "prefreeze: e2efunc did not run: its skip list has drifted (above)"; return 2; }
+  echo "prefreeze: e2efunc skips test/e2e's timing rows, judged alone on AC by the night: -skip '$ef_skip'"
+  env -u QOMPACK_UNDER_COLOAD go test -p 1 -count=1 -timeout 90m -skip "$ef_skip" ./test/e2e
+}
 echo "head $(git -C "$R" rev-parse HEAD) go=$(go env GOVERSION) run=$RUN steps=$steps" >> "$S"
 for s in $steps; do
   case $s in
     gate) run gate gate_body ;;
     e2e) run e2e env -u QOMPACK_UNDER_COLOAD go test -p 1 -count=1 -timeout 90m ./test/e2e ;;
-    e2efunc) run e2efunc env -u QOMPACK_UNDER_COLOAD go test -p 1 -count=1 -timeout 90m -skip '^TestV3_HotPath' ./test/e2e ;;
+    e2efunc) run e2efunc e2efunc_body ;;
     hotpath) run hotpath env -u QOMPACK_UNDER_COLOAD go test -p 1 -count=1 -timeout 30m -v -run '^TestIntegration_HotPath' ./test/integration ;;
     integration) run integration integration_body ;;
     testpkgs) run testpkgs env QOMPACK_UNDER_COLOAD=1 go test -p 2 -count=1 -timeout 60m ./test/fault/... ./test/security/... \
