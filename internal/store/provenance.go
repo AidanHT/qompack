@@ -1,7 +1,9 @@
 package store
 
 import (
+	"cmp"
 	"context"
+	"slices"
 
 	"github.com/qompack/qompack/internal/core"
 )
@@ -25,6 +27,11 @@ const maxProvenanceEntries = 65536
 
 // ContentOrigins resolves a root or chunk address without reading its payload.
 // All recorded origins are returned, including restrictive ones after dedup.
+//
+// They are returned in one order, by path and then tool (compareOrigins), whatever order the root
+// index, the tool-use index and the file history, which are maps, give them in. A consumer that
+// reports the first refused origin, as MCP's authorizeHash does, then names the same one on every
+// read of unchanged state (D53(a), audit 2 #13).
 func (s *FSStore) ContentOrigins(ctx context.Context, hash core.Hash) ([]ContentOrigin, error) {
 	if err := s.use(); err != nil {
 		return nil, err
@@ -92,5 +99,12 @@ func (s *FSStore) ContentOrigins(ctx context.Context, hash core.Hash) ([]Content
 	if len(origins) == 0 {
 		return nil, core.ErrNotFound
 	}
+	slices.SortFunc(origins, compareOrigins)
 	return origins, nil
+}
+
+// compareOrigins orders content origins by path, then tool. A pathless origin (a shell capture, a
+// prompt) sorts first.
+func compareOrigins(a, b ContentOrigin) int {
+	return cmp.Or(cmp.Compare(a.Path, b.Path), cmp.Compare(a.Tool, b.Tool))
 }
