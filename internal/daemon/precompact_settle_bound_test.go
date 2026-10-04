@@ -147,7 +147,7 @@ func TestPreCompactSettle_TheLastLookReadsOnlyNamedAndNewSpools(t *testing.T) {
 			writeHookSpool(t, root, "client-7676.ndjson", late)
 			appendHookSpool(t, root, "client-7575.ndjson", theirsToo)
 		}
-		return dd.drainDispatch(ctx, req)
+		return settleReplay(dd)(ctx, req)
 	}
 	dd.drain.Store(newDrainer(cfg))
 	liveOrderWorkers(t, dd, 2, dd.runIngested)
@@ -420,7 +420,7 @@ func TestPreCompactSettle_ReadsASpoolTheDrainReleasedAndAHookRecreated(t *testin
 			<-lctx.Done() // the disk that never finishes inside the bound
 			return ipc.Response{Err: lctx.Err().Error()}
 		}
-		return dd.drainDispatch(lctx, req)
+		return settleReplay(dd)(lctx, req)
 	}
 	dd.drain.Store(newDrainer(cfg))
 	liveOrderWorkers(t, dd, 2, dd.runIngested)
