@@ -250,6 +250,8 @@ func TestDoctor_PersistedRecordReadIsBounded(t *testing.T) {
 		root := t.TempDir()
 		writeAdmissionConfig(t, root, `{}`)
 		pad := strings.Repeat("x", 1<<20) // over the 1 MiB bound
+		require.Greater(t, len(pad), violationsRecordMaxBytes-len(`[{"Key":"selection.persistedOnly","Message":""}]`),
+			"the record this case writes is over doctor's bound")
 		writeRecord(t, root, `[{"Key":"selection.persistedOnly","Message":"`+pad+`"}]`)
 		row := doctorViolationsRow(t, root)
 		require.Equal(t, "ok", row["status"], "row=%v", row)
