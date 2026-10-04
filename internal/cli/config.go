@@ -70,10 +70,19 @@ func loadConfigAndReport(env config.Env, log logging.Logger, reg obs.Registry, d
 	violations := config.ViolationsFromWarnings(warns)
 	// A §11.3 violation is also one of config.Load's keyed warnings. It is logged once, below, as the
 	// violation that carries got and want; logging the warning as well put every invalid value in the
-	// day log twice.
-	isViolation := make(map[config.Warning]bool, len(violations))
+	// day log twice. The warning is the only place the value's location survives (config.Violation has
+	// none, and after the fallback the key's provenance reads "fallback after violation"), so the
+	// violation line takes it from here: without it no log says whether the bad value sits in the
+	// user-global file, the project file, a QOMPACK_* variable or a --set flag.
+	violationAt := make(map[config.Warning]string, len(violations))
 	for _, v := range violations {
-		isViolation[config.Warning{Key: v.Key, Message: v.Message}] = true
+		violationAt[config.Warning{Key: v.Key, Message: v.Message}] = ""
+	}
+	for _, w := range warns {
+		id := config.Warning{Key: w.Key, Message: w.Message}
+		if _, ok := violationAt[id]; ok {
+			violationAt[id] = w.Location
+		}
 	}
 
 	// A KEYLESS warning is a whole layer that is not in effect — config.Load's two keyless producers
@@ -91,8 +100,8 @@ func loadConfigAndReport(env config.Env, log logging.Logger, reg obs.Registry, d
 		case daemonStart && w.VersionedReset:
 			log.Loud("configuration block reset to defaults", "key", w.Key, "message", w.Message,
 				"location", w.Location)
-		case isViolation[config.Warning{Key: w.Key, Message: w.Message}]:
-			// Reported below, as the violation.
+		case isViolationWarning(violationAt, w):
+			// Reported below, as the violation, with this warning's location.
 		default:
 			log.Warn("configuration warning", "key", w.Key, "message", w.Message, "location", w.Location)
 		}
@@ -104,7 +113,8 @@ func loadConfigAndReport(env config.Env, log logging.Logger, reg obs.Registry, d
 	}
 	for _, v := range violations {
 		report("invalid configuration value, using default",
-			"key", v.Key, "got", v.Got, "want", v.Want, "message", v.Message)
+			"key", v.Key, "got", v.Got, "want", v.Want, "message", v.Message,
+			"location", violationAt[config.Warning{Key: v.Key, Message: v.Message}])
 	}
 
 	// The record holds what the hook path records (config.LoadForCapture): the §11.3 leaves, then a
@@ -125,6 +135,13 @@ func loadConfigAndReport(env config.Env, log logging.Logger, reg obs.Registry, d
 		}
 	}
 	return cfg, prov, nil
+}
+
+// isViolationWarning reports whether w is the keyed warning config.Load wrote for one of the §11.3
+// violations in violationAt, which loadConfigAndReport logs as the violation instead.
+func isViolationWarning(violationAt map[config.Warning]string, w config.Warning) bool {
+	_, ok := violationAt[config.Warning{Key: w.Key, Message: w.Message}]
+	return ok
 }
 
 // recordedViolations is config.Load's result in the shape config.LoadForCapture returns it: the

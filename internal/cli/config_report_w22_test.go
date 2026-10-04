@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -169,33 +170,89 @@ func readDayAndLoud(t *testing.T, dir string) (day, loud string) {
 // and the daemon's start is its one loud report. Each load also logged the same leaf twice, once as a
 // "configuration warning" and once as the violation; the violation line, which carries got and want,
 // is now the only one.
+//
+// That one line must also say where the value came from. The warning it replaced was the only line
+// with a location, and after the fallback `config print --provenance` shows the key as "fallback
+// after violation", so without it no log or command could tell the user-global file, the project
+// file, a QOMPACK_* variable and a --set flag apart (fix round 1 of wave 22). Each layer is a case.
 func TestCommandLoad_InvalidValueIsWarnOnceAndDaemonStartLoudOnce(t *testing.T) {
-	root := t.TempDir()
-	writeAdmissionConfig(t, root, `{"eval":{"minSessions":-3}}`)
-	env := config.Env{ProjectRoot: root, HomeDir: t.TempDir(), Getenv: noEnv}
 	const key = "key=eval.minSessions"
+	for _, tc := range []struct {
+		name     string
+		project  string
+		user     string
+		env      map[string]string
+		flags    map[string]string
+		location func(root, home string) string
+	}{
+		{
+			name: "project file", project: `{"eval":{"minSessions":-3}}`,
+			location: func(root, _ string) string { return config.ProjectConfigPath(root) + ":1" },
+		},
+		{
+			name: "user-global file", user: `{"eval":{"minSessions":-3}}`,
+			location: func(_, home string) string { return config.UserConfigPath(home) + ":1" },
+		},
+		{
+			name: "environment", env: map[string]string{"QOMPACK_EVAL__MINSESSIONS": "-3"},
+			location: func(_, _ string) string { return "QOMPACK_EVAL__MINSESSIONS" },
+		},
+		{
+			name: "--set", flags: map[string]string{"eval.minSessions": "-3"},
+			location: func(_, _ string) string { return "--set" },
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			root := t.TempDir()
+			home := t.TempDir()
+			writeAdmissionConfig(t, root, `{}`)
+			if tc.project != "" {
+				writeAdmissionConfig(t, root, tc.project)
+			}
+			if tc.user != "" {
+				require.NoError(t, os.MkdirAll(filepath.Dir(config.UserConfigPath(home)), 0o700))
+				require.NoError(t, os.WriteFile(config.UserConfigPath(home), []byte(tc.user), 0o600))
+			}
+			env := config.Env{ProjectRoot: root, HomeDir: home, Getenv: envWith(tc.env), Flags: tc.flags}
+			location := "location=" + logFieldValue(tc.location(root, home))
 
-	load := func(loadFn func(config.Env, logging.Logger, obs.Registry) (config.Config, config.Provenance, error)) (string, string) {
-		t.Helper()
-		dir := t.TempDir()
-		log, closer, err := logging.New(dir, logging.Info)
-		require.NoError(t, err)
-		_, _, err = loadFn(env, log, nil)
-		require.NoError(t, closer.Close())
-		require.NoError(t, err)
-		return readDayAndLoud(t, dir)
+			load := func(loadFn func(config.Env, logging.Logger, obs.Registry) (config.Config, config.Provenance, error)) (string, string) {
+				t.Helper()
+				dir := t.TempDir()
+				log, closer, err := logging.New(dir, logging.Info)
+				require.NoError(t, err)
+				_, _, err = loadFn(env, log, nil)
+				require.NoError(t, closer.Close())
+				require.NoError(t, err)
+				return readDayAndLoud(t, dir)
+			}
+
+			day, loud := load(LoadConfigAndReport)
+			require.Zero(t, linesWith(loud, key), "a command does not write a persistent fallback to LOUD.log:\n%s", loud)
+			require.Zero(t, linesWith(day, "level=loud", key), "a command logs the fallback at warn:\n%s", day)
+			require.Equal(t, 1, linesWith(day, "level=warn", key), "once, as the violation:\n%s", day)
+			require.Equal(t, 1, linesWith(day, "level=warn", "invalid configuration value, using default", key), day)
+			require.Equal(t, 1, linesWith(day, "invalid configuration value, using default", key, location),
+				"the violation line names where the value came from (%s):\n%s", location, day)
+
+			day, loud = load(loadDaemonConfig)
+			require.Equal(t, 1, linesWith(loud, "invalid configuration value, using default", key),
+				"the daemon's start is the one loud report:\n%s", loud)
+			require.Equal(t, 1, linesWith(loud, "invalid configuration value, using default", key, location),
+				"and it names where the value came from (%s):\n%s", location, loud)
+			require.Equal(t, 1, linesWith(day, key), "and the day log carries it once:\n%s", day)
+			require.Equal(t, 1, linesWith(day, key, location), "with its location (%s):\n%s", location, day)
+		})
 	}
+}
 
-	day, loud := load(LoadConfigAndReport)
-	require.Zero(t, linesWith(loud, key), "a command does not write a persistent fallback to LOUD.log:\n%s", loud)
-	require.Zero(t, linesWith(day, "level=loud", key), "a command logs the fallback at warn:\n%s", day)
-	require.Equal(t, 1, linesWith(day, "level=warn", key), "once, as the violation:\n%s", day)
-	require.Equal(t, 1, linesWith(day, "level=warn", "invalid configuration value, using default", key), day)
-
-	day, loud = load(loadDaemonConfig)
-	require.Equal(t, 1, linesWith(loud, "invalid configuration value, using default", key),
-		"the daemon's start is the one loud report:\n%s", loud)
-	require.Equal(t, 1, linesWith(day, key), "and the day log carries it once:\n%s", day)
+// logFieldValue is v as the logger writes a field value (logging's writeValue): quoted when it is
+// empty or holds a space or '=', bare otherwise.
+func logFieldValue(v string) string {
+	if v == "" || strings.ContainsAny(v, " =") {
+		return strconv.Quote(v)
+	}
+	return v
 }
 
 // TestHookCapture_ModeOffWritesNothing is finding #20. troubleshooting §8 Step 3 says that with
