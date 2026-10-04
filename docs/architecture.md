@@ -202,8 +202,10 @@ the replay is of a request the daemon did answer, too late for its hook, it with
 answer carried and owes its banner again (the hook's delivery nonce identifies the request). A replayed
 `SessionStart` the host fired before a pending `PreCompact` does not resolve
 `session_start.source_compact`, which stays pending for the start that follows the `PreCompact`. A
-replayed `PreCompact` still seals its checkpoint, but re-arms that obligation only if no `SessionStart`
-of the session has arrived since the hook fired. A prompt counts as a miss for the current probe
+replayed `PreCompact` re-arms that obligation only if no `SessionStart` of the session has arrived
+since the hook fired. It seals its checkpoint unless it is a hook's spooled copy of one this daemon
+already sealed, which is acknowledged without a second seal, without the scheduler's compaction
+close and without a second wall-time sample. A prompt counts as a miss for the current probe
 only if it is a prompt of the session the probe was minted for, sent after it was minted: a replayed
 prompt from before the probe, another window's prompt, or a prompt of a session whose own start was
 replayed and minted nothing never had a chance to find it. A prompt is one chance however often its
