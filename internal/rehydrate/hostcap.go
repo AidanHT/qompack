@@ -130,12 +130,15 @@ func sectionChars(k ItemKind, b built) int {
 	if k == ItemEliminations {
 		h = eliminationsHeading(eliminationsShown(b), b.seen)
 	}
+	if l := sectionLegend(k, b); l != "" {
+		h += "\n" + l
+	}
 	return 1 + hostChars(h) + 1
 }
 
-// sectionCost is sectionChars plus the token price headingCost already charges for the same line.
+// sectionCost is sectionChars plus the token price headingCost already charges for the same lines.
 func sectionCost(d Deps, k ItemKind, b built) cost {
-	return cost{tok: headingCost(d, k), chars: sectionChars(k, b)}
+	return cost{tok: headingCost(d, k, b), chars: sectionChars(k, b)}
 }
 
 // wrapperChars is the injection wrapper's exact host-character cost: the open tag, the document

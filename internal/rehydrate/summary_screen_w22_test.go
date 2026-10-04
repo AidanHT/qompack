@@ -265,6 +265,77 @@ func TestBuild_ToolSearchsSelectorIsShown(t *testing.T) {
 	}
 }
 
+// pointersLegend is the one line under section 6's heading that explains a withheld pointer.
+const pointersLegendW22 = "Withheld entries name a path the host's permission rules refuse, or one outside the project; " +
+	"restore them by hash."
+
+// TestBuild_AWithheldPointerIsExplainedOnceInItsSection is audit 2's finding 30: every withheld
+// pointer line repeated a 97-character explanation (a withheld file's label about 84), charged to the
+// payload's fixed character ceiling, so the boilerplate pushed real pointers out of section 6. The
+// explanation is one line under the section's heading, present only when the section holds a withheld
+// pointer, and each withheld line reads `(summary withheld)` or `file (path withheld)`. The line is
+// priced exactly: the character ceiling never sets off the hard cap's re-truncation, and no token
+// budget is exceeded.
+func TestBuild_AWithheldPointerIsExplainedOnceInItsSection(t *testing.T) {
+	root := privacyRoot(t)
+	cp := ckUAT05()
+	cp.Pointers.Files = append(cp.Pointers.Files,
+		checkpoint.FilePointer{Path: "private/deny.txt", Hash: hashOf("deny"), Why: "referenced"})
+	cp.Pointers.Tools = []checkpoint.ToolPointer{
+		{ToolUseID: "toolu_ok", Hash: hashOf("ok"), Summary: "cat data/meta.txt"},
+		{ToolUseID: "toolu_w1", Hash: hashOf("w1"), Summary: "cat private/deny.txt"},
+		{ToolUseID: "toolu_w2", Hash: hashOf("w2"), Summary: "cat ../outside/x.txt"},
+	}
+	for i := 0; i < 120; i++ {
+		cp.Pointers.Tools = append(cp.Pointers.Tools, checkpoint.ToolPointer{
+			ToolUseID: core.ToolUseID(fmt.Sprintf("toolu_zz_%03d", i)), Hash: hashOf(fmt.Sprint("many", i)),
+			Summary: fmt.Sprintf("cat ../outside/%d.txt", i),
+		})
+	}
+	build := func(budget core.Tokens) (Result, *spyLogger) {
+		d := uat05Deps(t, cp)
+		d.HostPaths = denyFiles(root, "private/deny.txt")
+		log := &spyLogger{}
+		d.Log = log
+		r := requestFor(t, cp, budget)
+		r.ProjectRoot = root
+		res, err := Build(context.Background(), r, d)
+		require.NoError(t, err)
+		return res, log
+	}
+
+	res, log := build(0)
+	requireInsideTheHostCeiling(t, res, cp.Session)
+	for _, m := range log.msgs {
+		require.NotContains(t, m, "re-truncating", "the legend is priced exactly against the ceiling")
+	}
+	section6 := sectionBody(res.Text, sectionHeading(ItemPointers))
+	require.True(t, strings.HasPrefix(section6, pointersLegendW22+"\n"), "the legend opens section 6:\n%s", section6)
+	require.Equal(t, 1, strings.Count(res.Text, pointersLegendW22), "the explanation is given once")
+	require.Contains(t, section6, "- file (path withheld) "+hashOf("deny").String()+"\n")
+	require.Contains(t, section6, "- tool_use toolu_w1 "+hashOf("w1").String()+" — (summary withheld)\n")
+	require.Contains(t, section6, "- tool_use toolu_w2 "+hashOf("w2").String()+" — (summary withheld)\n")
+	require.Contains(t, section6, "- tool_use toolu_ok "+hashOf("ok").String()+" — cat data/meta.txt\n")
+
+	for _, budget := range []core.Tokens{300, 600, 900, 1500, 2500} {
+		res, _ := build(budget)
+		require.LessOrEqual(t, res.Tokens, budget, "budget %d", budget)
+		requireInsideTheHostCeiling(t, res, cp.Session)
+	}
+
+	// Nothing withheld: no legend.
+	plain := ckUAT05()
+	plain.Pointers.Tools = []checkpoint.ToolPointer{{ToolUseID: "toolu_ok", Hash: hashOf("ok"), Summary: "cat data/meta.txt"}}
+	d := uat05Deps(t, plain)
+	d.HostPaths = denyFiles(root, "private/deny.txt")
+	r := requestFor(t, plain, maxBudget())
+	r.ProjectRoot = root
+	res, err := Build(context.Background(), r, d)
+	require.NoError(t, err)
+	require.NotContains(t, res.Text, pointersLegendW22)
+	require.Contains(t, sectionBody(res.Text, sectionHeading(ItemPointers)), "- reports.py ")
+}
+
 // summaryVerdict builds root's rehydration under hp with one tool pointer whose summary is s, beside a
 // file pointer at private/deny.txt, and reports how section 6 renders s: "withheld" or "shown". The
 // payload and the drop report must name none of leaks.

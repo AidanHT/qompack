@@ -101,14 +101,27 @@ func eliminationsHeading(shown, seen int) string {
 // forces Build's re-truncation loop to fire.
 const headingCountWidthSample = 99999
 
-// headingCost prices one item's heading line, including its newline. It is charged to the item
-// alongside its units so that Result.Tokens is the true sum over Items.
-func headingCost(d Deps, k ItemKind) core.Tokens {
+// headingCost prices one item's heading line, including its newline, and item 6's legend line when b
+// holds a withheld pointer (sectionLegend). It is charged to the item alongside its units so that
+// Result.Tokens is the true sum over Items.
+func headingCost(d Deps, k ItemKind, b built) core.Tokens {
 	h := sectionHeading(k)
 	if k == ItemEliminations {
 		h = eliminationsHeading(headingCountWidthSample, headingCountWidthSample)
 	}
+	if l := sectionLegend(k, b); l != "" {
+		h += "\n" + l
+	}
 	return estimate(d, h+"\n")
+}
+
+// sectionLegend is the line a section carries under its heading: pointersLegend for item 6 when b
+// holds a withheld pointer, which explains each withheld line once; "" otherwise.
+func sectionLegend(k ItemKind, b built) string {
+	if k == ItemPointers && b.withheld {
+		return pointersLegend
+	}
+	return ""
 }
 
 // itemText renders one item's section: its heading line, then the admitted unit texts in order.
@@ -238,6 +251,9 @@ func render(r Request, d Deps, fills map[ItemKind]*admitted, all map[ItemKind]bu
 		}
 		texts := sectionTexts(k, a.units)
 		b := all[k]
+		if l := sectionLegend(k, b); l != "" {
+			texts = append([]string{l + "\n"}, texts...)
+		}
 		text := itemText(k, eliminationsShown(b), b.seen, texts)
 		if text == "" {
 			continue

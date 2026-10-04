@@ -2936,12 +2936,18 @@ func jsonUnquote(s string) string {
 }
 
 // withheldPathLabel, withheldSummary and withheldPathNote replace what a withheld pointer would have
-// shown. None names the rule or the path: a rule spells the very path it protects.
+// shown. None names the rule or the path: a rule spells the very path it protects. Section 6 explains
+// a withheld pointer once, in pointersLegend under its heading, so each withheld line there carries
+// only its short label (audit 2's finding 30: the 97-character explanation on every withheld line,
+// charged to the payload's fixed character ceiling, pushed real pointers out of the section). A drop
+// entry keeps withheldPathNote, since dropped() returns it without section 6's legend.
 const (
 	withheldPathNote  = "path withheld: the host's permission rules refuse it, or it is outside the project"
-	withheldPathLabel = "file (" + withheldPathNote + ")"
-	withheldSummary   = "summary withheld: it names a path the host's permission rules refuse, " +
-		"or one outside the project"
+	withheldPathLabel = "file (path withheld)"
+	withheldSummary   = "(summary withheld)"
+	// pointersLegend is the line under section 6's heading when the section holds a withheld pointer.
+	pointersLegend = "Withheld entries name a path the host's permission rules refuse, or one outside the " +
+		"project; restore them by hash."
 	// withheldDropID stands in for the path a checkpoint drop entry was keyed by when the
 	// checkpoint no longer holds the pointer's hash (gateCheckpointDrops), and for the path a drop
 	// entry's reason named (redactReason).
