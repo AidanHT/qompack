@@ -163,7 +163,7 @@ func TestSessionStartCompact_AnswerDoesNotWaitForTheSessionsIngest(t *testing.T)
 	t.Cleanup(gate.open)
 	select {
 	case <-gate.entered:
-	case <-time.After(compactTestBound):
+	case <-hangGuard(t):
 		t.Fatal("the Stop never reached the graph flush it holds the session lock across")
 	}
 
@@ -182,7 +182,7 @@ func TestSessionStartCompact_AnswerDoesNotWaitForTheSessionsIngest(t *testing.T)
 	select {
 	case err := <-stopDone:
 		require.NoError(t, err)
-	case <-time.After(compactTestBound):
+	case <-hangGuard(t):
 		t.Fatal("the held Stop never finished")
 	}
 	joinReplyWork(t, dd)
@@ -276,7 +276,7 @@ func TestSessionStartCompact_LateRehydrationIsAnsweredWithTheDeferredNote(t *tes
 	f.open()
 	select {
 	case <-finished:
-	case <-time.After(compactTestBound):
+	case <-hangGuard(t):
 		t.Fatal("the late rehydration never finished")
 	}
 }

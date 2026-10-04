@@ -5,7 +5,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -70,7 +69,7 @@ func TestSessionEnd_GCPassesQueueBehindTheIdleSchedulersPass(t *testing.T) {
 	go func() { idleDone <- idle.gcTask(context.Background()) }()
 	select {
 	case <-probe.first:
-	case <-time.After(liveOrderBound):
+	case <-hangGuard(t):
 		require.FailNow(t, "the idle scheduler's GC pass never reached its harvest hook")
 	}
 
@@ -92,7 +91,7 @@ func TestSessionEnd_GCPassesQueueBehindTheIdleSchedulersPass(t *testing.T) {
 	select {
 	case err := <-idleDone:
 		require.NoError(t, err)
-	case <-time.After(liveOrderBound):
+	case <-hangGuard(t):
 		require.FailNow(t, "the idle scheduler's GC task never returned")
 	}
 	flushAsyncAwait(t, dd)

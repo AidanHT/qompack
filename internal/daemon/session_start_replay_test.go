@@ -69,7 +69,7 @@ func TestSessionStartCompact_ReplayedRequestRecordsItsRehydrationUndelivered(t *
 	case o := <-got:
 		require.False(t, o.delivered, "a replayed request's rehydration is never delivered")
 		require.Equal(t, undeliveredReplayed, o.why, "and its drop report says why")
-	case <-time.After(compactTestBound):
+	case <-hangGuard(t):
 		t.Fatal("the replay never ran the rehydration, so nothing corrects the drop report")
 	}
 	require.Zero(t, f.dd.m.Snapshot().Counters[counterCompactDeferred],

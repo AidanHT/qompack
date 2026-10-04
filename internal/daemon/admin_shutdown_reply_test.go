@@ -64,12 +64,12 @@ func TestAdminShutdownReplyReachesTheCallerOverTheTransport(t *testing.T) {
 	select {
 	case err := <-errCh:
 		require.NoError(t, err)
-	case <-time.After(shutdownReplyBound):
+	case <-hangGuard(t):
 		t.Fatal("admin.shutdown did not stop the running daemon")
 	}
 	select {
 	case <-dd.stopDone:
-	case <-time.After(shutdownReplyBound):
+	case <-hangGuard(t):
 		t.Fatal("Stop's cleanup did not finish")
 	}
 }

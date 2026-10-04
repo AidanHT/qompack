@@ -689,7 +689,7 @@ func TestDeliveryOrder_FlushSettlesQueuedSessionEventsBeforeSessionEnd(t *testin
 	if !returned {
 		select {
 		case resp = <-flushed:
-		case <-time.After(liveOrderBound):
+		case <-hangGuard(t):
 			require.FailNow(t, "the flush never returned")
 		}
 	}

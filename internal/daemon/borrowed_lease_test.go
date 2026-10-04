@@ -35,7 +35,7 @@ func TestBorrowedLease_SurvivesDaemonUntilCallerClosesWriters(t *testing.T) {
 	select {
 	case err := <-done:
 		require.NoError(t, err)
-	case <-time.After(15 * time.Second):
+	case <-hangGuard(t):
 		t.Fatal("daemon did not stop")
 	}
 	require.NoError(t, lease.Heartbeat())

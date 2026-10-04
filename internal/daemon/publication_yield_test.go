@@ -186,7 +186,7 @@ func TestLaunchSessionEnd_HoldsTheCaptureGateUntilTheEndFinishes(t *testing.T) {
 		"the answered flush's session end holds the gate from before the request left")
 	select {
 	case <-hold.entered:
-	case <-time.After(liveOrderBound):
+	case <-hangGuard(t):
 		require.FailNow(t, "the flush's session end never reached SessionEnd")
 	}
 	require.Equal(t, 1, dd.capture.inFlight(), "the end, held in SessionEnd, is the one piece of capture work")
@@ -289,7 +289,7 @@ func TestStartupPublicationAccounting_BackgroundPassPausesWhileARequestIsInFligh
 	case <-parked:
 	case <-finished:
 		t.Fatal("the background publication pass finished beside a request in flight")
-	case <-time.After(liveOrderBound):
+	case <-hangGuard(t):
 		t.Fatal("the background publication pass neither parked nor finished")
 	}
 	// The pass is parked on the gate's idle channel, which only the request's leave closes, so it
@@ -332,7 +332,7 @@ func TestStartupPublicationAccounting_StopEndsAPausedPass(t *testing.T) {
 	case <-parked:
 	case <-finished:
 		t.Fatal("the background publication pass finished beside a request in flight")
-	case <-time.After(liveOrderBound):
+	case <-hangGuard(t):
 		t.Fatal("the background publication pass neither parked nor finished")
 	}
 	cancel()
@@ -399,7 +399,7 @@ func TestStartupPublicationAccounting_APausedPassHoldsNothingARequestNeeds(t *te
 	case <-parked:
 	case <-finished:
 		t.Fatal("the background publication pass finished beside a request in flight")
-	case <-time.After(liveOrderBound):
+	case <-hangGuard(t):
 		t.Fatal("the background publication pass neither parked nor finished")
 	}
 
@@ -426,7 +426,7 @@ func TestStartupPublicationAccounting_APausedPassHoldsNothingARequestNeeds(t *te
 	select {
 	case err := <-wrote:
 		require.NoError(t, err)
-	case <-time.After(liveOrderBound):
+	case <-hangGuard(t):
 		t.Fatal("a request's store writes waited on the parked publication pass")
 	}
 	select {

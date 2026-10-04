@@ -416,10 +416,10 @@ func TestNAKDuplicateIsDedupedOnDrain(t *testing.T) {
 	require.True(t, os.IsNotExist(statErr), "the client spool file must be consumed")
 }
 
-// drainDeadlockGuard bounds how long a Drain call under test is allowed to take before it is
-// presumed permanently wedged — generous relative to the sub-second work these tests actually do,
-// tight enough that a genuine self-deadlock (fix round 1, Critical C-1) fails the test instead of
-// hanging the whole suite (and, under `go test`, eventually the test binary's own timeout).
+// drainDeadlockGuard bounds the polls and Run contexts of the rows below — generous relative to the
+// sub-second work these tests actually do. Their waits on a channel (a Drain or a Run that must
+// return) are bounded by hangGuard instead, so a genuine self-deadlock (fix round 1, Critical C-1)
+// still fails the test with its own name, and a slow host does not (wave 22).
 const drainDeadlockGuard = 10 * time.Second
 
 // TestDrainOfSpooledFlushLineDoesNotDeadlock is the Critical C-1 regression: a flush line
@@ -467,7 +467,7 @@ func TestDrainOfSpooledFlushLineDoesNotDeadlock(t *testing.T) {
 	case r := <-done:
 		require.NoError(t, r.err)
 		require.Equal(t, 1, r.n)
-	case <-time.After(drainDeadlockGuard):
+	case <-hangGuard(t):
 		t.Fatal("Drain of a spooled flush line did not return — self-deadlock on drainer.Drain's own mutex")
 	}
 
@@ -523,7 +523,7 @@ func TestStartupDrainOfSpooledFlushLineDoesNotWedgeRun(t *testing.T) {
 	cancel()
 	select {
 	case <-errCh:
-	case <-time.After(drainDeadlockGuard):
+	case <-hangGuard(t):
 		t.Fatal("Run did not shut down after cancellation")
 	}
 }
@@ -650,7 +650,7 @@ func TestRedrainOnFirstServedRequest(t *testing.T) {
 		select {
 		case s := <-observed:
 			got = append(got, s)
-		case <-time.After(drainDeadlockGuard):
+		case <-hangGuard(t):
 			t.Fatalf("only %d of the 2 spooled observe.tool events were ever dispatched: %v", len(got), got)
 		}
 	}
@@ -660,7 +660,7 @@ func TestRedrainOnFirstServedRequest(t *testing.T) {
 	cancel()
 	select {
 	case <-errCh:
-	case <-time.After(drainDeadlockGuard):
+	case <-hangGuard(t):
 		t.Fatal("Run did not shut down after cancellation")
 	}
 }
@@ -1013,7 +1013,7 @@ func TestRunReturnsNilWhenLockHeld(t *testing.T) {
 	cancelA()
 	select {
 	case <-errChA:
-	case <-time.After(5 * time.Second):
+	case <-hangGuard(t):
 		t.Fatal("daemon A did not shut down")
 	}
 }
@@ -1047,7 +1047,7 @@ func TestAdminShutdownStopsTheDaemon(t *testing.T) {
 	select {
 	case err := <-errCh:
 		require.NoError(t, err)
-	case <-time.After(8 * time.Second):
+	case <-hangGuard(t):
 		t.Fatal("admin.shutdown did not stop the running daemon")
 	}
 
@@ -1060,7 +1060,7 @@ func TestAdminShutdownStopsTheDaemon(t *testing.T) {
 	// "directory is not empty" (shutdown-race fix, intermittent on Windows).
 	select {
 	case <-dd.stopDone:
-	case <-time.After(8 * time.Second):
+	case <-hangGuard(t):
 		t.Fatal("Stop's cleanup did not finish")
 	}
 }
@@ -1125,7 +1125,7 @@ func TestRunReturnsOnlyAfterAsyncStopHasFinished(t *testing.T) {
 	select {
 	case runErr := <-errCh:
 		require.NoError(t, runErr)
-	case <-time.After(drainDeadlockGuard):
+	case <-hangGuard(t):
 		t.Fatal("admin.shutdown did not stop the running daemon")
 	}
 
@@ -1204,13 +1204,13 @@ func TestServeFailureTakesTheStopPath(t *testing.T) {
 	select {
 	case runErr := <-errCh:
 		require.NoError(t, runErr, "a Close-driven Serve return is nil by ipc.Server's contract, and this arm reports it verbatim")
-	case <-time.After(drainDeadlockGuard):
+	case <-hangGuard(t):
 		t.Fatal("Run never returned after its server was closed out from under it — the FR-4 arm is missing or wedged")
 	}
 
 	select {
 	case <-dd.stopDone:
-	case <-time.After(drainDeadlockGuard):
+	case <-hangGuard(t):
 		t.Fatal("Run returned but Stop's cleanup never finished — the arm returned without taking the Stop path")
 	}
 
@@ -1383,7 +1383,7 @@ func TestRunCtxDoneGoesThroughStop(t *testing.T) {
 	select {
 	case err := <-errCh:
 		require.NoError(t, err)
-	case <-time.After(8 * time.Second):
+	case <-hangGuard(t):
 		t.Fatal("Run did not return after ctx cancellation")
 	}
 

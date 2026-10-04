@@ -337,7 +337,7 @@ func TestPromptWarning_ClaimedReplyTheHookSpooledIsReArmed(t *testing.T) {
 	var resp ipc.Response
 	select {
 	case resp = <-replied:
-	case <-time.After(promptRecordWait):
+	case <-hangGuard(t):
 		require.FailNow(t, "the claimed reply never went out")
 	}
 	r.held.Store(nil)
