@@ -19,7 +19,7 @@ fails because a compaction at a 150-token budget dropped material and injected n
 UAT-12 fails because a tool pointer's argument summary in the rehydration block showed a path the
 host denies. Both have fixes ordered for candidate 8 (decision D59), and both rows are re-run on
 it. The question each of those two Result blocks left to the coordinator has since been ruled
-(decisions D59(b), D60(c)(i) and D61(b)), and each block carries its ruling line. Those eight
+(decisions D59(b), D60(c)(i), D62(f) and D63), and each block carries its ruling line. Those eight
 Result blocks report candidate 7 and keep the earlier outcomes as history lines
 (UAT-10 was not re-run on candidate 4, and its candidate 4 line says so). UAT-02, UAT-07, UAT-08
 and UAT-11 were not re-run on candidate 7: their Result blocks report candidate 4 and keep
@@ -676,7 +676,7 @@ carried at all.
   (`internal/rehydrate/render.go`; the exact heading strings are in that file).
 - Its size is within the budget. The budget is a hard cap that is never raised — a caller's budget
   may be lowered, never raised, not even to the configured minimum
-  ([ADR 0011](adr/0011-rehydration-budget-and-item-order.md)). `Tokens` and `Budget` in the state
+  ([ADR 0011](adr/0011-rehydration-budget-and-item-order.md)). `tokens` and `budget` in the state
   file from step 3 are the numbers to compare.
 - **It arrives inline.** The whole compact `additionalContext` — the block plus the
   `<!-- qompack-contract-probe … -->` line after it — is at most 9,500 characters (UTF-16 code units,
@@ -1195,8 +1195,11 @@ Result: pass — re-run on candidate 7 (D52). Steps 1-3 in the recording session
   records/eliminations.jsonl could not be read","note":"repair or restore the elimination log
   and restart; this is not evidence the approach is untried","degraded":true}`, and
   record_eliminated a tool error. Step 6: no response prohibits the approach. Observation: the
-  recording session's SessionEnd never reached the daemon, which ended it as abandoned 30 s
-  later (no host-reported hook failure; the next two sessions delivered SessionEnd).
+  abandoned-session WARN fired during T9's 34.5 s reply with no tool call
+  (idleExitSeconds=30); the turn's Stop revived the session and its SessionEnd ended it at
+  19:25:51 (segment 2 close, observer: gc). No host-reported hook failure. Ruled by design
+  (D62, sessionend): SessionEnd was delivered, and the sweep is the documented quiet-session
+  limit (docs/cannot-do.md §4).
   Candidate 4 (9f6a2fad): fail — step 4: after a daemon restart already_tried answered `absent`
   for a stale record (R4-1), evidence plans/sdd/V6-closeout/live/rerun-c4/UAT-09/
   Candidate 3 (d5598eb4): fail — staleness was not refreshed in the recording session and the
@@ -1603,13 +1606,14 @@ Result: fail — D50's section-6 check (finding F1); every fail criterion listed
   session C re-read session A's old-build capture. Finding (diagnostics, minor): after the
   mid-session compaction `qompack status` names session_start.fires pending
   "marker-absent-once" on a healthy store.
-  Ruling (D60(c)(i), D61(b), after this run): D50 covers pointers only: file and tool pointers,
-  their argument summaries and section 7's drop entries. The records in sections 3 and 4, the
-  model's own earlier text, stay outside it by name, and section 2's verbatim intent, the user's
-  own prompts, is not a pointer either, so O-1 is not a D50 failure. F1 stands, and D61(b) rules
-  its remedy: a structured path preview is judged whole, as a file pointer's path is, and free
-  text is screened. The verdict above stands; candidate 8's live re-check re-runs sessions A and B
-  with C4.6 (D59, D60(f)).
+  Ruling (D60(c)(i), D62(f), D61(b)(1), D63, after this run): D50 covers pointers only: file and
+  tool pointers, their argument summaries and section 7's drop entries. The records in sections 3
+  and 4, the model's own earlier text, stay outside it by name (D60(c)(i)), and section 2's
+  verbatim intent, the user's own prompts, is outside it too (D62(f)), so O-1 is not a D50
+  failure. F1 stands, and its remedy is ruled: a structured path preview is judged whole, as a
+  file pointer's path is (D61(b)(1)), and a free-text summary is shown only when a whitelist
+  proves it safe (D63, D64). The verdict above stands; candidate 8's live re-check re-runs
+  sessions A and B with C4.6 (D59, D60(f)).
   Candidate 4 (9f6a2fad): pass — deny, bound and binary steps held and the 0.2.99-prev
   upgrade, restore and uninstall kept .qompack/ intact, evidence
   plans/sdd/V6-closeout/live/rerun-c4/UAT-12/
