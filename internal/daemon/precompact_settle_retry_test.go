@@ -30,7 +30,9 @@ import (
 // at once, naming both Reads as unreplayed with nearly all of its bound unused.
 func TestPreCompactSettle_ReplaysAgainOnceALiveCopyAheadOfItPublishes(t *testing.T) {
 	dd, root := settleTestDaemon(t, liveOrderBound)
-	dr := newDrainer(dd.drainConfig())
+	cfg := dd.drainConfig()
+	cfg.Dispatch = settleReplay(dd)
+	dr := newDrainer(cfg)
 	dd.drain.Store(dr)
 	const sess core.SessionID = "sess-precompact-live-copy-ahead"
 	first := liveOrderTool(dd, root, sess, 1)

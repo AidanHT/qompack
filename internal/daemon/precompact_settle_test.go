@@ -53,7 +53,9 @@ func bindSealProbe(dd *daemon, watch ...string) *sealProbe {
 // and one durable replay). What the bound cuts is TestPreCompactSettle_NamesWhatTheBoundLeftUnreplayed's.
 func TestPreCompactSettle_ReplaysTheSpoolBeforeTheSeal(t *testing.T) {
 	dd, root := settleTestDaemon(t, liveOrderBound)
-	dd.drain.Store(newDrainer(dd.drainConfig()))
+	cfg := dd.drainConfig()
+	cfg.Dispatch = settleReplay(dd)
+	dd.drain.Store(newDrainer(cfg))
 	liveOrderWorkers(t, dd, 2, dd.runIngested)
 	const sess core.SessionID = "sess-precompact-spooled"
 
@@ -325,6 +327,22 @@ func settleTestDaemon(t *testing.T, bound time.Duration) (*daemon, string) {
 	return dd, root
 }
 
+// settleReplay is dd.drainDispatch with the replayed line's drainLineDeadline lifted, for the rows
+// that assert WHAT a settle's replay publishes, not how fast: the line's 5 s is the one wall-clock
+// limit left on their path once settleTestDaemon has given the settle a bound no co-loaded host can
+// exhaust. A host stalled for longer than that (the full internal/daemon run that took 11.73 s for a
+// row that takes 0.6 s) cancelled the line, and the product then did what it must: the replay
+// published nothing, and the seal named the capture as unreplayed for the watcher and the idle drain
+// to finish (audit 2 #64). The settle's own deadline still bounds every look and wait, and a row's cut
+// (settleCut) still ends the settle. A line the deadline cuts is the subject of the drain's own rows
+// (TestDeliveryOrder_ARequestedPassAsksAgainOnlyWhileItMakesProgress) and of
+// TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound, which keep it.
+func settleReplay(dd *daemon) func(context.Context, ipc.Request) ipc.Response {
+	return func(ctx context.Context, req ipc.Request) ipc.Response {
+		return dd.drainDispatch(context.WithoutCancel(ctx), req)
+	}
+}
+
 // settleGate holds the lane's publication of one delivery until it is opened. The caller registers
 // open as a cleanup after starting the worker pool, so it runs before the pool is joined.
 func settleGate(dd *daemon, nonce string) (func(context.Context, ipc.Request) ipc.Response, func()) {
@@ -476,7 +494,7 @@ func TestPreCompactSettle_ReplaysThisSessionsSpoolBeforeOlderOnesOfOthers(t *tes
 			<-lctx.Done()
 			return ipc.Response{Err: lctx.Err().Error()}
 		}
-		return dd.drainDispatch(lctx, req)
+		return settleReplay(dd)(lctx, req)
 	}
 	dd.drain.Store(newDrainer(cfg))
 	liveOrderWorkers(t, dd, 2, dd.runIngested)
@@ -531,7 +549,7 @@ func TestPreCompactSettle_DoesNotWaitBehindAWatcherPassItsOwnRequestKicked(t *te
 				return ipc.Response{Err: lctx.Err().Error()}
 			}
 		}
-		return dd.drainDispatch(lctx, req)
+		return settleReplay(dd)(lctx, req)
 	}
 	dd.drain.Store(newDrainer(cfg))
 	liveOrderWorkers(t, dd, 2, dd.runIngested)
