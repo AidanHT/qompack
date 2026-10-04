@@ -42,6 +42,16 @@ type fakeStore struct {
 	// time.Sleep: §6.1 bans those outright, _test.go files included (devtool lint's sleepcheck
 	// scans them, unlike golangci-lint's forbidigo rule).
 	blockChangedSince time.Duration
+	// stallAfterCancel, when > 0, is how long a blocked ChangedSince waits AFTER its context is done
+	// before it returns: a goroutine the scheduler does not run again promptly on a co-loaded host.
+	stallAfterCancel time.Duration
+	// changedDeadline, changedHadDeadline and changedCalledAt record the context deadline of the most
+	// recent ChangedSince call and the wall-clock instant it was entered; changedEndedBy records
+	// why a blocked call returned (its context's error, or nil when its own timer fired first).
+	changedDeadline    time.Time
+	changedHadDeadline bool
+	changedCalledAt    time.Time
+	changedEndedBy     error
 
 	// changedCalls records every ChangedSince argument, in call order. Its length IS the
 	// "exactly one call" assertion.
@@ -96,7 +106,9 @@ func (f *fakeStore) ChangedSince(ctx context.Context, deps []core.Dep) ([]core.D
 	recorded := make([]core.Dep, len(deps))
 	copy(recorded, deps)
 	f.changedCalls = append(f.changedCalls, recorded)
-	block, scripted, err := f.blockChangedSince, f.changed, f.changedErr
+	f.changedCalledAt = time.Now()
+	f.changedDeadline, f.changedHadDeadline = ctx.Deadline()
+	block, stall, scripted, err := f.blockChangedSince, f.stallAfterCancel, f.changed, f.changedErr
 	f.mu.Unlock()
 
 	if block > 0 {
@@ -104,6 +116,12 @@ func (f *fakeStore) ChangedSince(ctx context.Context, deps []core.Dep) ([]core.D
 		defer t.Stop()
 		select {
 		case <-ctx.Done():
+			f.mu.Lock()
+			f.changedEndedBy = ctx.Err()
+			f.mu.Unlock()
+			if stall > 0 {
+				<-time.After(stall)
+			}
 			return nil, ctx.Err()
 		case <-t.C:
 		}
