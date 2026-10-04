@@ -7,7 +7,6 @@ import (
 	"runtime"
 	"strings"
 	"testing"
-	"unicode"
 
 	"github.com/stretchr/testify/require"
 
@@ -27,12 +26,14 @@ import (
 // admit (D64(1)) and that this platform allows in a directory's name: a quote of either kind or a
 // typographic one, a backtick, `$ ! ; & ( ) [ ] { } ^ % ~`, the `,` PowerShell and cmd.exe split an
 // argument at, the `=` cmd.exe splits at, the `+` cmd.exe's copy splits at, the `#` zsh's
-// EXTENDED_GLOB reads, a Unicode space, and on Linux and macOS also `" | < > * ?`, a `:` past the
+// EXTENDED_GLOB reads, a Unicode space, a run of ASCII spaces (which the store's preview spells as
+// one, so no text spells the root exactly), and on Linux and macOS also `" | < > * ?`, a `:` past the
 // drive, a backslash and a control character.
 func d64ExcludedRootSegments() []string {
 	segs := []string{
 		"o'brien", "a`b", "a$b", "a!b", "a;b", "a&b", "a(b)", "a[b]", "a{b}", "a^b", "a%b",
 		"PROGRA~1", "a,b", "a=b", "a+b", "a#b", "a\u00a0b", "a\u3000b", "o\u2019brien",
+		"a  b",
 	}
 	if runtime.GOOS != "windows" {
 		segs = append(segs, `a"b`, "a|b", "a<b>", "a*b", "a?b", "a:b", `a\b`, "a\tb")
@@ -69,7 +70,9 @@ func notebookPreview(t *testing.T, p string) string {
 // tab matched a sibling spelled with an ASCII space. A root holding any character outside the unit's
 // set has no unit, so a summary spelling it is judged as the free text it is and withheld. A
 // path-named JSON value is still a structured value (it reaches no shell), and a root built from
-// letters, marks, digits, `- _ . @`, its separators and spaces keeps its unit.
+// letters, marks, digits, `- _ . @`, its separators and single spaces keeps its unit. Since the
+// round-2 verify of D64, a root with a run of spaces (the store's preview spells it as one space, so
+// a sibling spelled with one space reads as the root) has none either.
 func TestBuild_ARootOutsideTheWhitelistHoldsNoRootUnit(t *testing.T) {
 	for _, seg := range d64ExcludedRootSegments() {
 		t.Run(seg, func(t *testing.T) {
@@ -81,12 +84,7 @@ func TestBuild_ARootOutsideTheWhitelistHoldsNoRootUnit(t *testing.T) {
 				// project, so even the structured value is withheld (ADR 0011 §23 item 6).
 				shown, withheld = nil, append(withheld, structured)
 			}
-			if sib := strings.Map(func(r rune) rune {
-				if unicode.IsSpace(r) {
-					return ' '
-				}
-				return r
-			}, root); sib != root {
+			if sib := whitespaceSibling(root); sib != root {
 				withheld = append(withheld, "cd "+sib+" && go test ./...", "cat "+filepath.Join(sib, "notes.txt"))
 			}
 			requireScreened(t, root, hostRules(root, uat12Rules...), nil, shown, withheld, []string{"deny.txt"})
@@ -104,9 +102,10 @@ func TestBuild_ARootOutsideTheWhitelistHoldsNoRootUnit(t *testing.T) {
 
 // TestBuild_AReasonHoldsTheRootASummaryDoesNot pins D64(1)'s scope: a drop entry's reason is
 // Qompack's own error prose, not a shell command, and its screen keeps holding the root together
-// whatever the root holds, which is what finds a withheld project path named absolutely (a root left
-// unheld would read `<root>/private/deny.txt` as the tail of a longer path and show it) and keeps
-// an allowed one, in a root with an apostrophe, a `;` and a space.
+// whatever characters the root holds, which is what finds a withheld project path named absolutely
+// (a root left unheld would read `<root>/private/deny.txt` as the tail of a longer path and show it)
+// and keeps an allowed one, in a root with an apostrophe, a `;` and a space. It holds only a root a
+// sanitized text spells exactly (TestBuild_ARootNoTextSpellsExactlyIsNeverHeld).
 func TestBuild_AReasonHoldsTheRootASummaryDoesNot(t *testing.T) {
 	for _, elem := range [][]string{{"o'brien", "proj"}, {"John O'Brien", "proj"}, {"a;b c", "proj"}} {
 		t.Run(filepath.Join(elem...), func(t *testing.T) {
@@ -137,6 +136,65 @@ func TestBuild_AReasonHoldsTheRootASummaryDoesNot(t *testing.T) {
 			require.Len(t, details, 2, "every git drop is still reported: %v", res.Dropped)
 			require.Contains(t, details, index, "a project path is shown")
 			require.Contains(t, details, "rules: "+withheldDropID+": Access is denied.")
+		})
+	}
+}
+
+// whitespaceSibling is root as a sanitized text spells it (sanitize, the store's preview): every run
+// of whitespace, a tab or a Unicode space among it, one ASCII space, and the ends trimmed. When root's
+// own spelling has any other whitespace it is a directory beside the project.
+func whitespaceSibling(root string) string { return strings.Join(strings.Fields(root), " ") }
+
+// TestBuild_ARootNoTextSpellsExactlyIsNeverHeld is the round-2 verify of D64(1). A drop entry's
+// reason held the root together whatever it held (holdRoot), and holdRoot found the root by its
+// spelling with every run of whitespace folded to one ASCII space, as a sanitized text spells it. So
+// under a root with a Unicode space, a tab, a run of spaces or a trailing space, a reason that named
+// the sibling spelled with one space, outside the project (a linked worktree's gitdir, a rule file
+// a scan could not read), read it as the root and showed it; and under a root with a run of spaces or
+// a trailing space, which kept its unit, a summary naming that sibling was shown too. A root that no
+// sanitized text spells exactly is held in neither: a reason then splits at the root's own whitespace,
+// whose first piece is outside the project, so a reason naming a path under such a root is redacted
+// as well (it fails closed), and every summary that spells the root is withheld.
+func TestBuild_ARootNoTextSpellsExactlyIsNeverHeld(t *testing.T) {
+	roots := [][]string{{"a b", "proj"}, {"a　b", "proj"}, {"a  b", "proj"}}
+	if runtime.GOOS != "windows" {
+		roots = append(roots, []string{"a\tb", "proj"}, []string{"a", "proj "})
+	}
+	for _, elem := range roots {
+		t.Run(filepath.Join(elem...), func(t *testing.T) {
+			root := previewRoot(elem...)
+			sib := whitespaceSibling(root)
+			require.NotEqual(t, root, sib, "fixture: the sibling is another directory")
+			requireScreened(t, root, hostRules(root, uat12Rules...), nil, nil,
+				append(rootSummaries(root), "cd "+sib+" && go test ./...", "cat "+filepath.Join(sib, "notes.txt")),
+				[]string{"deny.txt"})
+
+			gitdir := "checkpoint: git worktree gitdir at " + filepath.Join(sib, ".git", "worktrees", "wt") + " is unreadable"
+			rules := "skills: reading rules at " + filepath.Join(sib, "notes", "x.md") + " failed"
+			index := "checkpoint: git index unsupported: reading index: open " + filepath.Join(root, ".git", "index") + ": gone"
+			cp := ckUAT05()
+			cp.Dropped = append(append([]checkpoint.DropEntry(nil), cp.Dropped...),
+				checkpoint.DropEntry{Kind: "pointer_git_unavailable", Detail: gitdir},
+				checkpoint.DropEntry{Kind: "pointer_git_unavailable", Detail: rules},
+				checkpoint.DropEntry{Kind: "pointer_git_unavailable", Detail: index})
+			d := uat05Deps(t, cp)
+			d.HostPaths = hostRules(root, uat12Rules...)
+			r := requestFor(t, cp, maxBudget())
+			r.ProjectRoot = root
+
+			res, err := Build(context.Background(), r, d)
+			require.NoError(t, err)
+			requireNoLeak(t, res, []string{filepath.Join(sib, ".git"), filepath.Join(sib, "notes")})
+			var details []string
+			for _, e := range res.Dropped {
+				if e.Kind == "pointer_git_unavailable" {
+					details = append(details, e.Detail)
+				}
+			}
+			require.Len(t, details, 3, "every git drop is still reported: %v", res.Dropped)
+			require.NotContains(t, details, gitdir, "the sibling's gitdir is outside the project")
+			require.NotContains(t, details, rules, "the sibling's rule file is outside the project")
+			require.NotContains(t, details, index, "a path under a root no text spells exactly is redacted")
 		})
 	}
 }

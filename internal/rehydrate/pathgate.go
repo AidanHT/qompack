@@ -60,7 +60,8 @@ import (
 //     withholds the summary. A cut summary's last token is judged as a prefix (cutTokenUnsafe,
 //     cutPrefixNamed), and one that ends right after a drive's `:` as if a name followed it
 //     (cutAtDriveColon, D64(2)). The project root is held together as one unit only when its own
-//     spelling has no character a shell splits or reinterprets a word at (rootUnitAdmitted, D64(1)).
+//     spelling has no character a shell splits or reinterprets a word at and a sanitized text spells
+//     it exactly (rootUnitAdmitted, rootSpelledExactly, D64(1)).
 //     When the host's rules are unavailable, or a rule covers the whole project, every free text is
 //     withheld, as re_read fails closed.
 //
@@ -103,6 +104,9 @@ type pathJudge struct {
 	// rootUnit is set when the root's own spelling admits the root unit in a summary
 	// (rootUnitAdmitted, D64(1)); markRoot holds the root together only then.
 	rootUnit bool
+	// rootExact is set when a sanitized text can spell the root exactly (rootSpelledExactly); a drop
+	// reason holds the root together only then (reasonWithheld).
+	rootExact bool
 	// rootKey is the project root cleaned, slash-separated and in screen form (screenText), and
 	// rootSegs its segments: a rule anchored outside the project is matched against them (rootCover),
 	// and a cut stretch that begins rootKey is the root (rootPrefix).
@@ -253,6 +257,7 @@ func newPathJudge(r Request, d Deps) pathJudge {
 	j := pathJudge{
 		root: r.ProjectRoot, judged: make(map[string]bool),
 		rootSpelling: rootSpellingOf(r.ProjectRoot), rootUnit: rootUnitAdmitted(r.ProjectRoot),
+		rootExact: rootSpelledExactly(r.ProjectRoot),
 	}
 	if r.ProjectRoot != "" {
 		j.rootKey = screenText(filepath.ToSlash(filepath.Clean(r.ProjectRoot)), true)
@@ -334,8 +339,10 @@ func (j pathJudge) notedValues(summary string) []string {
 // unrelated free text with a fragment (w19c reviews): a git revision such as HEAD~1, a stretch of a
 // command, a Grep preview of a directory then its pattern. The recorded files not learned are those
 // whose path has a space, which a rule's literal screens instead (item 7(a)). The root is held
-// together here whatever it holds (holdRoot): learning a withheld path's names only ever withholds
-// more, so D64(1)'s root unit, which decides what a summary may show, does not narrow it.
+// together here whatever it holds (holdRoot), even when no text spells it exactly: learning a
+// withheld path's names only ever withholds more, so neither D64(1)'s root unit, which decides what
+// a summary may show, nor rootSpelledExactly, which decides how a reason is read, narrows it (a
+// withheld path under a root `a  b` would otherwise keep its space and go unlearned).
 func (j pathJudge) recordedPath(v string) bool {
 	if isGlob(v) || isURL(v) || fileScheme(v) {
 		return false
@@ -2125,10 +2132,11 @@ func sanitize(t string) string {
 // control character no sanitized text carries, so the tokenizer never splits the root at its own
 // space and the screen never reads the root's own name as a withheld name. In a summary it does so
 // only for a root whose spelling admits the unit (markRoot, rootUnitAdmitted, D64(1)): a root with a
-// comma, an apostrophe or any other character a shell splits or reinterprets a word at has none. A
-// spelling glued to a name character on either side (proj2, xC:\q\proj) is not the root and is judged
-// as the path outside the project it is; a spelling glued to a short option is the root as the
-// option's value (-I<root>/include).
+// comma, an apostrophe or any other character a shell splits or reinterprets a word at has none,
+// and so has one that no sanitized text spells exactly (rootSpelledExactly). A spelling glued to a
+// name character on either side (proj2, xC:\q\proj) is not the root and is judged as the path
+// outside the project it is; a spelling glued to a short option is the root as the option's value
+// (-I<root>/include).
 const rootMark = '\x01'
 
 // rootSpellingOf matches root as a text spells it: its separators repeated or not (a JSON escape
@@ -2179,20 +2187,21 @@ func rootSegments(rest, sep string) string {
 }
 
 // rootUnitAdmitted reports whether root's own spelling admits the root unit in a summary
-// (coordinator decision D64(1)): cleaned and slash-separated, every character of it is a Unicode
-// letter, mark or digit, one of `- _ . @`, the separator `/`, an ASCII space, or, on Windows, the
-// drive's `:` after its letter. These are the free-text whitelist's characters at which no shell
-// splits or reinterprets a word in its middle. The whitelist's other characters are left out: `,`
-// (PowerShell splits a bare argument into an array there, and cmd.exe's built-in commands split at
-// it), `=` (cmd.exe's built-in commands split at it), `+` (cmd.exe's copy starts its next source
-// there), `#` (zsh's EXTENDED_GLOB repeats the character before it) and a `:` past the drive
-// (PowerShell reads a name before a `:` as a drive; a list's reader splits at it). So is every
-// character the whitelist rejects: a quote of any kind, a backtick,
+// (coordinator decision D64(1)): a sanitized text spells it exactly (rootSpelledExactly), and,
+// cleaned and slash-separated, every character of it is a Unicode letter, mark or digit, one of
+// `- _ . @`, the separator `/`, an ASCII space, or, on Windows, the drive's `:` after its letter.
+// These are the free-text whitelist's characters at which no shell splits or reinterprets a word in
+// its middle. The whitelist's other characters are left out: `,` (PowerShell splits a bare argument
+// into an array there, and cmd.exe's built-in commands split at it), `=` (cmd.exe's built-in commands
+// split at it), `+` (cmd.exe's copy starts its next source there), `#` (zsh's EXTENDED_GLOB repeats
+// the character before it) and a `:` past the drive (PowerShell reads a name before a `:` as a drive;
+// a list's reader splits at it). So is every character the whitelist rejects: a quote of any kind, a
+// backtick,
 // `$ ! ; & | ( ) [ ] { } < > ^ % ~ * ?`, a backslash that is no separator (a POSIX shell drops it), a
-// control character and a Unicode space. A root holding any of them has no unit: a summary spelling
-// it is judged as the free text it is, and withheld. An empty root admits nothing.
+// control character and a Unicode space. A root holding any of them, or a run of spaces, has no unit:
+// a summary spelling it is judged as the free text it is, and withheld. An empty root admits nothing.
 func rootUnitAdmitted(root string) bool {
-	if root == "" {
+	if root == "" || !rootSpelledExactly(root) {
 		return false
 	}
 	clean := filepath.ToSlash(filepath.Clean(root))
@@ -2212,6 +2221,19 @@ func rootUnitAdmitted(root string) bool {
 // and keep its unit (rootUnitAdmitted).
 const rootUnitChars = "-_.@"
 
+// rootSpelledExactly reports whether a sanitized text (sanitize, the store's preview) can spell root
+// exactly, as rootSpellingOf finds it: cleaned and slash-separated, it holds no control character and
+// no whitespace but single ASCII spaces between other characters. rootSpellingOf folds each run of
+// whitespace in the root, a tab or a Unicode space among it, to one ASCII space, as sanitize folds a
+// text's, so under any other root what it finds may be a sibling spelled with one space (`a b` beside
+// a root `a  b`, `a<U+00A0>b` or `a<TAB>b`, or `proj` beside a root `proj `). Such a root is held in
+// no text: neither in a summary (rootUnitAdmitted) nor in a drop reason (reasonWithheld), where the
+// root's own whitespace then splits a path under it and its first piece is outside the project.
+func rootSpelledExactly(root string) bool {
+	clean := filepath.ToSlash(filepath.Clean(root))
+	return sanitize(clean) == clean && strings.Join(strings.Fields(clean), " ") == clean
+}
+
 // markRoot is t, a sanitized summary text, with the project root held together as one rootMark
 // (holdRoot) when the root's own spelling admits the unit (rootUnitAdmitted, D64(1)), and t as it is
 // otherwise, so that a summary spelling such a root is judged as the free text it is.
@@ -2227,7 +2249,8 @@ func (j pathJudge) markRoot(t string) string {
 // option's letters (the root as the option's value, flagBefore); and a spelling is the root only when
 // it ends the text or is followed by what ends a path's root (rootEndsAt). Any other spelling is
 // judged as the path outside the project it is. A summary holds the root only through markRoot; a
-// drop reason (reasonWithheld) and the learning of a withheld path (recordedPath) hold it always.
+// drop reason (reasonWithheld) holds it whenever a text can spell it exactly (rootSpelledExactly);
+// and the learning of a withheld path (recordedPath) holds it always.
 func (j pathJudge) holdRoot(t string) string {
 	if j.rootSpelling == nil {
 		return t
@@ -2495,8 +2518,14 @@ func (j pathJudge) reasonWithheld(detail string) bool {
 	// The root is held together (holdRoot), as D63(1) holds it in a summary, so the first piece of a
 	// root with a space (`C:\q\John`) is not read as a path outside the project, and a withheld path
 	// named absolutely (`<root>/private/x`) starts a path run (pathRunStart). A reason is no shell
-	// command, so D64(1)'s summary rule does not apply: the root is held whatever it holds.
-	marked := j.holdRoot(t)
+	// command, so D64(1)'s character set does not apply: the root is held whatever characters it
+	// holds, but only when the text can spell it exactly (rootSpelledExactly). Otherwise what holdRoot
+	// finds may be a sibling spelled with one space, and the reason is judged with the root unheld,
+	// which fails closed: the root's own whitespace splits a path under it, outside the project.
+	marked := t
+	if j.rootExact {
+		marked = j.holdRoot(t)
+	}
 	for _, w := range strings.Fields(marked) {
 		// A path names a directory, so it holds a separator; a bare `~36800` or `25000-token` is an
 		// approximate count, not a home path, though homeOrVarRoot would match the leading `~`.
