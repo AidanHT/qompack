@@ -1,11 +1,17 @@
 #!/bin/sh
 # overnight-c8.sh <candidate-repo> <candidate-sha> <evidence-dir>
 # Candidate 8's local night (D57-D61), strictly sequential, nothing else measuring. Progress goes to
-# <evidence-dir>/chain.log, every step's power record to power.tsv, and the outcome counts to
+# <evidence-dir>/chain.log (its first line carries this shell's MSYS and Windows pids, for
+# nightabort.ps1), every step's power record to power.tsv, and the outcome counts to
 # overnight-outcome.txt (c8-night.sh copies them into night.log). Exit 0 only when every step ran,
-# passed and, where power matters, was VALID. It refuses (exit 2, before writing anything) an
-# evidence directory that already holds a night's records: recrun.sh never overwrites a record, so a
-# second night there would fail every step in seconds and could be read as a real run.
+# passed (or, for a report-only step, recorded its measurement) and, where power matters, was VALID.
+# It refuses (exit 2, before writing anything):
+#   - a <candidate-sha> that is not a full 40-character SHA, a <candidate-repo> whose HEAD is not
+#     that commit, or one that is not clean (`git status --porcelain`, untracked files included):
+#     every step runs in that checkout and every verdict is logged as that candidate, so a checkout
+#     at candidate 7 would let c52derive.py compare candidate 7 with itself and carry every row;
+#   - an evidence directory that already holds a night's records: recrun.sh never overwrites a
+#     record, so a second night there would fail every step in seconds and could be read as a run.
 #
 # Power (D57(d), power.sh). Every step's power is recorded: t0 is taken before its last power check,
 # and it is judged over [t0, end] against the System log (Kernel-Power 105, a source change; 506,
@@ -14,41 +20,62 @@
 #   INVALID-POWER  an event during it: neither;
 #   NOT-REFERENCE  it could get no AC within the night's wait budget, ran on battery, or the power
 #                  history could not be read: not a reference measurement, not a pass, not a fail;
-#   SKIPPED        the deadline passed before it could start.
-# The AC-gated Windows steps (queued until AC) are win-timing (ci.yml's timing lane plus the three
-# functional integration hot-path rows, D53(a)), win-e2e-timing, win-x11-alone, quiet c51-win (C5.1)
-# and C5.2's c52-win and c52-linux. An INVALID-POWER try moves its new records to
-# <step>.invalid-power-1/ and the step is retried once. The AC-independent steps (c52-derive,
-# win-race, bundles, the Linux lanes) are never waited for; for the Linux *-timing lanes, wall-clock
-# judgements, only a VALID run counts as a pass or a fail, and the others count by exit status.
+#   SKIPPED        the deadline passed before it could start, or its estimate would end after it.
+# The AC-gated steps (queued until AC) are win-timing (ci.yml's timing lane plus the three
+# functional integration hot-path rows, D53(a)), win-e2e-timing, win-x11-alone, quiet C5.1 on both
+# OSes (c51-win; c51-linux, report only, below) and C5.2's c52-win and c52-linux. An INVALID-POWER
+# try moves its new records to <step>.invalid-power-1/ and the step is retried once. The
+# AC-independent steps (c52-derive, win-race, bundles, the Linux lanes) are never waited for; for the
+# Linux *-timing lanes, wall-clock judgements, only a VALID run counts as a pass or a fail, and the
+# others count by exit status.
 # Order: a gated step runs when AC is present; otherwise it waits in a queue while the AC-independent
 # work runs, whose load also drains the battery toward the charger's restore point (about 35-40 %,
 # D57(d)). Waiting for AC is bounded night-wide by AC_WAIT_BUDGET_MIN one-minute polls
 # (NIGHT_AC_WAITED_MIN carries what c8-night.sh already spent) and by the deadline: no step and no
-# wait starts after it. c8-night.sh passes its deadline as NIGHT_DEADLINE_EPOCH, so a pre-freeze that
-# ends late cannot carry the night to the next day; run alone, the next NIGHT_DEADLINE (local HH:MM,
-# default 08:00) is used, and refused when it is more than NIGHT_MAX_AHEAD_H (16) hours away (a
-# daytime launch) unless NIGHT_ALLOW_FAR=1.
+# wait starts after it, and a step with an estimate (release-check, c52-derive, c52-win, c52-linux)
+# starts only when the estimate lets it end by the deadline. c8-night.sh passes its deadline as
+# NIGHT_DEADLINE_EPOCH, so a pre-freeze that ends late cannot carry the night to the next day; run
+# alone, the next NIGHT_DEADLINE (local HH:MM, default 08:00) is used, and refused when it is more
+# than NIGHT_MAX_AHEAD_H (16) hours away (a daytime launch) unless NIGHT_ALLOW_FAR=1.
+# The night's order: the Windows timing steps, win-race, bundles, the Linux lanes, C5.1 on both
+# OSes, release-check (C3.12 and D57(a)'s local reference run: a release gate), then C5.2, a
+# measurement a later night can repeat. With C8_C52_ONLY=1 the night runs only c52-derive, c52-win
+# and c52-linux (a C5.2 night after one that SKIPPED them, README.md "Candidate 8").
 #
-# C5.2 (D57(e)). c52-derive (c52derive.py) traces every C5.2 benchmark once on the candidate and
-# selects those whose executed product files, own benchmark file or fixtures changed since candidate
-# 7 (C8_PREV_CANDIDATE, default d20309c0); c52-win and c52-linux then measure exactly that set
-# against cf31e01, logged in chain.log. When the derivation cannot run at all, the static floor (the
-# rows the 2026-10-03 diff reaches) is measured and the derivation counts as a failed step.
-# c52-linux brings the container up for itself and stops it afterwards. Docker Desktop is started
-# only when its engine was down at the night's start and is not answering (three probes), and only
-# an engine this chain started is stopped (D56(g)).
+# C5.1 on Linux (c51-linux, report only). quiet.sh c51-linux in its own container window: B-D, B-E
+# and B-F are recorded for inventory rows 1.10.16, 1.17.5 and 1.17.6, whose Linux halves cite
+# candidate 6, while candidate 8 changes checkpoint and drain code B-E runs. Its exit status is
+# neither a pass nor a fail: the container's fsync-bound B-A and B-B are not verified in target
+# (D53(b)) and fail it on every candidate. A VALID run counts as "reported" when it wrote its
+# harness JSON, and as failed when it did not (nothing was measured); its power is judged as any
+# gated step's.
+#
+# C5.2 (D57(e)). c52-derive (c52derive.py) traces every C5.2 benchmark on the candidate at its own
+# listed benchtime and selects those whose executed product files, the other changed .go files of
+# a package they execute (declarations have no coverage block), own benchmark file, fixtures or
+# adjacent assets changed since candidate 7 (C8_PREV_CANDIDATE, default d20309c0); c52-win and
+# c52-linux then measure exactly that set against cf31e01, logged in chain.log. When the derivation
+# cannot run at all, the static floor (the rows the 2026-10-03 diff reaches) is measured and the
+# derivation counts as a failed step. Each of c52-win and c52-linux starts only when its estimate
+# (C52_EST_WIN / C52_EST_LINUX below) ends by the deadline; otherwise it is SKIPPED and its derived
+# set stays in c52-derive/ for a C5.2 night. c51-linux and c52-linux bring the container up for
+# themselves and stop it afterwards. Docker Desktop is started only when its engine was down at the
+# night's start and is not answering (three probes), and only an engine this chain started is
+# stopped (D56(g)).
 #
 # release-check --tag v0.3.0 (C3.12/C7.4) runs in an ISOLATED scratch clone: git clone --no-local of
 # the candidate, origin and its push URL set to an unreachable path, the tag created only there, the
 # clone removed by an EXIT trap. No v0.3.0 tag ever exists in the shared ref store (a pushed v* tag
 # would cut a real release, D57(c)). Its output is time-stamped (stamped.sh), and its power validity
 # is judged only over its AC-sensitive windows: the isolated test/e2e pass of `ci-local test` and of
-# `ci-local cover` (every other pass declares co-load or holds no timing judgement). A run whose log
+# `ci-local cover` (every other pass declares co-load or holds no timing judgement). A window with a
+# power event is INVALID-POWER; one that ran wholly on battery is NOT-REFERENCE. A run whose log
 # shows no window is VALID only when it failed before `ci-local test` began; otherwise it is
 # NOT-REFERENCE. It is retried once, in a fresh clone, only when an event fell inside a window or a
-# window ran on battery, AC is present (or returns within the budget), and a second run of the same
-# length can end before the deadline. It starts only when RC_EST_S lets it end by the deadline.
+# window ran on battery, AC is present (or returns within the budget), and a second run can end
+# before the deadline: one as long as try 1 when try 1 passed (a whole run), and RC_EST_S when it
+# failed (release-check stops at its first FAIL, so a red try's length says nothing about a green
+# one's). It starts only when RC_EST_S lets it end by the deadline.
 # Hosted ci.yml and nightly.yml on the same commit supply the native-platform lanes.
 set -u
 [ $# -eq 3 ] || { echo "usage: overnight-c8.sh <candidate-repo> <candidate-sha> <evidence-dir>" >&2; exit 2; }
@@ -56,6 +83,13 @@ C=$1; H=$2; E=$3
 here=$(cd "$(dirname "$0")" && pwd)
 . "$here/power.sh"
 refuse() { echo "overnight-c8.sh: REFUSED: $*" >&2; exit 2; }
+# The checkout every step runs in must be the candidate every verdict is logged as, and clean.
+case $H in ''|*[!0-9a-f]*) refuse "<candidate-sha> must be the full 40-character SHA in lower case, not '$H'" ;; esac
+[ ${#H} -eq 40 ] || refuse "<candidate-sha> must be the full 40-character SHA, not '$H'"
+ch=$(git -C "$C" rev-parse -q --verify 'HEAD^{commit}') || refuse "$C is not a git checkout"
+[ "$ch" = "$H" ] || refuse "$C is at $ch, not the candidate $H (detach it there first: git -C $C checkout --detach $H)"
+cs=$(git -C "$C" status --porcelain) || refuse "cannot read the status of $C"
+[ -z "$cs" ] || refuse "$C is not clean: $(printf '%s\n' "$cs" | head -n 3 | tr '\n' ' ')"
 mkdir -p "$E" || exit 2
 # A night's records: refuse rather than append to them or have recrun.sh refuse every step.
 for f in chain.log power.tsv overnight-outcome.txt; do
@@ -82,7 +116,25 @@ PREV_CANDIDATE=${C8_PREV_CANDIDATE:-d20309c03ffc364e4cc48663be73cfbb1f2309b2}   
 # config/migration and daemon's scheduler_runtime/state/tap), by w17-inventory's executed-file sets.
 C52_FLOOR_PKGS="checkpoint cli config daemon"
 C52_FLOOR_FILTER='^Benchmark(Finalize|AdvanceSegment|ExtractDecisions|StripInjections|Truncate|HookNoop_InProcess|ConfigLoad_ColdNoFiles|FeaturesFrom|ReclaimableIndexBuild_5000Blocks|AssembleCandidates_2000ToolUses|RuntimeEvaluate_2000ToolUses_32Candidates|SchedulerTap_ObserveTool)$'
-C52_PKGS=$C52_FLOOR_PKGS; C52_FILTER=$C52_FLOOR_FILTER
+C52_PKGS=$C52_FLOOR_PKGS; C52_FILTER=$C52_FLOOR_FILTER; C52_STATE=none
+# C5.2's end-by-deadline estimates, per package, in seconds: candidate 5's measured run time of ALL
+# that package's listed rows over its 10 ABBA rounds, both sides (the started_at/ended_at of every
+# phase3/c5/quiet/c52-{win,linux}/c52-*-r<round>-*.json record, summed per package), rounded up to
+# the minute. A package measured for a subset of its rows takes no longer than for all of them, so
+# the estimate of a selection is an upper bound on its run time; a package not in the table counts
+# as the table's largest entry. C52_EST_OVERHEAD_S per step covers the builds, warm-up runs,
+# benchstat and gate preparation: candidate 5 spent 430 s (Windows) and about 330 s (Linux, its gate
+# preparation included) outside the measured runs, rounded up to 10 min. The whole list is then
+# 13320 s (3 h 42 min) on Windows and 11760 s (3 h 16 min) on Linux, against candidate 5's 3 h 29 min
+# and 3 h 03 min.
+C52_EST_WIN="observer:4980 store:3300 checkpoint:2520 daemon:360 chunk:180 scheduler:180 canon:180 rules:120 eval:120 negknow:120 symbols:120 dag:120 paths:60 sketch:60 skills:60 obs:60 cli:60 config:60 hostperm:60"
+C52_EST_LINUX="store:3660 observer:3060 checkpoint:2760 daemon:300 chunk:180 canon:120 scheduler:120 eval:120 negknow:120 symbols:120 dag:120 sketch:60 obs:60 paths:60 rules:60 cli:60 config:60 skills:60 hostperm:60"
+C52_EST_OVERHEAD_S=600
+# C52_DERIVE_EST_S: c52derive.py traces each listed row once at its own benchtime with coverage on.
+# One round of every listed row took 612 s on candidate 5 (12250 s / 20 runs); with set-mode
+# coverage (up to about 1.5x), a coverage-instrumented link per row (about 10 s x 65) and the first
+# instrumented build of the module (about 3 min), about 30 min; 45 min with margin.
+C52_DERIVE_EST_S=2700
 NOPUSH_URL=file:///nonexistent/qompack-release-check-scratch-clone-never-pushes
 DOCKER_START_TIMEOUT_S=600; DOCKER_STOP_TIMEOUT_S=300   # docker desktop's own --timeout (default: none)
 waited=${NIGHT_AC_WAITED_MIN:-0}
@@ -107,10 +159,11 @@ cleanup() {
 trap cleanup EXIT; trap 'exit 130' INT; trap 'exit 143' TERM; trap 'exit 129' HUP
 
 # ---- outcome -------------------------------------------------------------------------------------
-n_pass=0; n_fail=0; n_inv=0; n_nref=0; n_nref_red=0; n_skip=0; failed=""
-count() { # count <pass|fail|invalid|nref|skip> <step> [exit]
+n_pass=0; n_fail=0; n_inv=0; n_nref=0; n_nref_red=0; n_skip=0; n_rep=0; failed=""
+count() { # count <pass|fail|invalid|nref|skip|report> <step> [exit]
   case $1 in
     pass) n_pass=$((n_pass + 1)) ;;
+    report) n_rep=$((n_rep + 1)) ;;
     fail) n_fail=$((n_fail + 1)); failed="$failed $2" ;;
     invalid) n_inv=$((n_inv + 1)) ;;
     nref) n_nref=$((n_nref + 1)); [ "${3:-0}" = 0 ] || n_nref_red=$((n_nref_red + 1)) ;;
@@ -184,6 +237,15 @@ gated_cmd() {
   case $1 in
     win-timing|win-e2e-timing|win-x11-alone) sh "$here/phase3.sh" "$C" "$E" "$1" ;;
     c51-win) sh "$here/quiet.sh" "$C" "$QUIET_BASE" "$E/quiet" c51-win ;;
+    c51-linux)   # its own top-level directory, so an INVALID-POWER try's records move aside whole
+      if container_up; then
+        log "container start exit=0 (c51-linux)"
+        sh "$here/quiet.sh" "$C" "$QUIET_BASE" "$E/quiet-c51-linux" c51-linux
+        gc_rc=$?
+      else
+        log "container start failed: c51-linux did not run"; gc_rc=2
+      fi
+      container_down; return "$gc_rc" ;;
     c52-win) QUIET_PKGS=$C52_PKGS QUIET_BENCH_FILTER=$C52_FILTER sh "$here/quiet.sh" "$C" "$QUIET_BASE" "$E/quiet-c52" c52-win ;;
     c52-linux)
       if container_up; then
@@ -199,22 +261,39 @@ gated_cmd() {
 }
 tries_of() { eval "echo \${tries_$(printf '%s' "$1" | tr -c 'A-Za-z0-9' '_'):-0}"; }
 set_tries() { eval "tries_$(printf '%s' "$1" | tr -c 'A-Za-z0-9' '_')=$2"; }
+# c52_est_s <table> <packages>: seconds (see C52_EST_WIN)
+c52_est_s() {
+  printf '%s\n' $1 | awk -F: -v pk="$2" -v oh="$C52_EST_OVERHEAD_S" '
+    { t[$1] = $2 + 0; if ($2 + 0 > mx) mx = $2 + 0 }
+    END { s = oh; n = split(pk, a, " "); for (i = 1; i <= n; i++) s += (a[i] in t) ? t[a[i]] : mx; print s }'
+}
+gated_est() { # gated_est <step>: its end-by-deadline estimate in seconds, or nothing
+  case $1 in
+    c52-win) c52_est_s "$C52_EST_WIN" "$C52_PKGS" ;;
+    c52-linux) c52_est_s "$C52_EST_LINUX" "$C52_PKGS" ;;
+  esac
+}
 
 # run_gated <step> <now|wait>: 0 once the step has its final verdict, 1 while it stays queued. "now"
 # runs it only if AC is present; "wait" waits for AC within the budget, else runs it NOT-REFERENCE.
+# A step with an estimate starts (and is retried) only when the estimate lets it end by the deadline.
 run_gated() {
-  g_s=$1; g_mode=$2; g_n=$(( $(tries_of "$g_s") + 1 )); g_note=""
-  while :; do
+  g_s=$1; g_mode=$2; g_n=$(( $(tries_of "$g_s") + 1 )); g_note=""; g_est=$(gated_est "$g_s"); g_noac=0
+  while :; do   # the deadline and the estimate are checked again after every wait
     if past_deadline; then
       record "$g_s" "$g_n" - SKIPPED - - - - "the deadline $DL passed before it could start"
       count skip "$g_s"; return 0
     fi
+    if [ -n "$g_est" ] && [ $(( $(date +%s) + g_est )) -gt "$deadline" ]; then
+      record "$g_s" "$g_n" - SKIPPED - - - - "it needs about $(( (g_est + 59) / 60 )) min (C52_EST_*: candidate 5's time for its packages) and would end after the deadline $DL; its derived set waits in c52-derive/selection.tsv for a C5.2 night (C8_C52_ONLY=1)"
+      count skip "$g_s"; return 0
+    fi
     g_t0=$(date +%s); g_p0=$(power_read)      # t0 before the last power check (D57(d))
     case $g_p0 in "AC "*) break ;; esac
+    [ "$g_noac" = 1 ] && break                # the wait budget is spent: it runs, NOT-REFERENCE
     [ "$g_mode" = now ] && return 1
     if ! power_wait_ac waited "$AC_WAIT_BUDGET_MIN" "$deadline" log; then
-      past_deadline && continue
-      g_note="no AC within the night's wait budget"; g_t0=$(date +%s); g_p0=$(power_read); break
+      g_note="no AC within the night's wait budget"; g_noac=1
     fi
   done
   g_sf=$(mktemp); snap "$g_sf"
@@ -232,7 +311,16 @@ run_gated() {
         return 1
       fi
       count invalid "$g_s" ;;
-    VALID) if [ "$g_rc" -eq 0 ]; then count pass "$g_s"; else count fail "$g_s"; fi ;;
+    VALID)
+      if [ "$g_s" = c51-linux ]; then   # report only (header): recorded, never judged by its exit
+        if [ -s "$E/quiet-c51-linux/c51-linux/c51-linux-hotpath.json" ]; then
+          count report "$g_s"
+          g_note="${g_note:+$g_note; }report only: B-D, B-E and B-F are recorded in quiet-c51-linux/; its exit status is neither a pass nor a fail (the container's B-A and B-B are not verified in target, D53(b))"
+        else
+          count fail "$g_s"
+          g_note="${g_note:+$g_note; }report only, but it wrote no quiet-c51-linux/c51-linux/c51-linux-hotpath.json: nothing was measured"
+        fi
+      elif [ "$g_rc" -eq 0 ]; then count pass "$g_s"; else count fail "$g_s"; fi ;;
     *) count nref "$g_s" "$g_rc" ;;
   esac
   rm -f "$g_sf"
@@ -296,13 +384,30 @@ linux_lanes() {
 }
 
 # ---- C5.2's set (D57(e)) -------------------------------------------------------------------------
-c52_derive() {
+c52_derive() { # sets C52_STATE: skipped, derived or floor
+  C52_STATE=skipped
+  if past_deadline; then skipped c52-derive "the deadline $DL passed"; return 0; fi
+  if [ $(( $(date +%s) + C52_DERIVE_EST_S )) -gt "$deadline" ]; then
+    skipped c52-derive "it needs about $((C52_DERIVE_EST_S / 60)) min (C52_DERIVE_EST_S) and would end after the deadline $DL, so C5.2 cannot run tonight either (a C5.2 night, C8_C52_ONLY=1, measures it)"
+    return 0
+  fi
   step c52-derive python "$here/c52derive.py" "$(winpath "$C")" "$PREV_CANDIDATE" "$(winpath "$E/c52-derive")"
   if [ -f "$E/c52-derive/pkgs.txt" ] && [ -f "$E/c52-derive/filter.txt" ]; then
-    C52_PKGS=$(cat "$E/c52-derive/pkgs.txt"); C52_FILTER=$(cat "$E/c52-derive/filter.txt")
+    C52_STATE=derived; C52_PKGS=$(cat "$E/c52-derive/pkgs.txt"); C52_FILTER=$(cat "$E/c52-derive/filter.txt")
     log "c52: derived set (D57(e), executed files changed since $PREV_CANDIDATE): QUIET_PKGS='$C52_PKGS' QUIET_BENCH_FILTER='$C52_FILTER' (c52-derive/report.txt)"
   else
+    C52_STATE=floor
     log "c52: the derivation produced no selection, so the static floor is measured: QUIET_PKGS='$C52_PKGS' QUIET_BENCH_FILTER='$C52_FILTER'"
+  fi
+}
+c52_queue() { # queues c52-win and c52-linux for this night's set, or records why they do not run
+  if [ "$C52_STATE" = skipped ]; then
+    for cq_s in c52-win c52-linux; do skipped "$cq_s" "no C5.2 derivation tonight (c52-derive SKIPPED)"; done
+  elif [ -n "$C52_FILTER" ]; then
+    log "c52: c52-win needs about $(( ($(gated_est c52-win) + 59) / 60 )) min, c52-linux about $(( ($(gated_est c52-linux) + 59) / 60 )) min (C52_EST_*: candidate 5's time for every package with a selected row, plus $((C52_EST_OVERHEAD_S / 60)) min); each starts only if it can end by $DL"
+    queue="$queue c52-win c52-linux"
+  else
+    log "c52: no C5.2 benchmark executes a file changed since $PREV_CANDIDATE, so every candidate 5 C5.2 row carries (D57(e)); c52-win and c52-linux are not needed (c52-derive/report.txt)"
   fi
 }
 
@@ -368,25 +473,26 @@ rc_verdict() {
     fi
     return 0
   fi
-  rv_bad=""; rv_unknown=""
+  rv_bad=""; rv_nref=""
   while read -r rv_w rv_sec rv_ws rv_we rv_how; do
     rv_st=$(printf '%s\n' "$3" | awk -v ws="$rv_ws" -v s="${1%% *}" '
       $1 ~ /^[0-9]+$/ && $1 + 0 < ws + 0 && $2 ~ /^AC=/ { s = ($2 == "AC=1") ? "AC" : "BAT" } END { print s }')
     rv_in=$(power_events_window "$rv_ws" "$rv_we" "$3" | tr '\n' ' ' | sed 's/ *$//')
-    if [ -n "$rv_in" ]; then rv_bad="$rv_bad $rv_sec:events[$rv_in]"
-    elif [ "$rv_st" = BAT ]; then rv_bad="$rv_bad $rv_sec:on-battery"
-    elif [ "$rv_st" != AC ]; then rv_unknown="$rv_unknown $rv_sec:power-unknown"
+    if [ -n "$rv_in" ]; then rv_bad="$rv_bad $rv_sec:events[$rv_in]"     # an event during it
+    elif [ "$rv_st" = BAT ]; then rv_nref="$rv_nref $rv_sec:on-battery"  # wholly on battery
+    elif [ "$rv_st" != AC ]; then rv_nref="$rv_nref $rv_sec:power-unknown"
     fi
   done < "$4"
   if [ -n "$rv_bad" ]; then echo "INVALID-POWER$rv_bad"
-  elif [ -n "$rv_unknown" ]; then echo "NOT-REFERENCE$rv_unknown"
+  elif [ -n "$rv_nref" ]; then echo "NOT-REFERENCE$rv_nref"
   elif [ -z "$3" ] && case $7 in "AC "*) false ;; *) true ;; esac; then
     echo "NOT-REFERENCE ended on $7 with no power event recorded"
   else echo "VALID"
   fi
 }
-# rc_retry_blocker <try-1 seconds>: sets rc_why to the reason a second try cannot run, or "". A retry
-# needs AC (a battery run would void it again) within the night's budget, and time to finish.
+# rc_retry_blocker <seconds> <why that length>: sets rc_why to the reason a second try cannot run, or
+# "". A retry needs AC (a battery run would void it again) within the night's budget, and time to end
+# by the deadline.
 rc_retry_blocker() {
   rc_why=""
   case $(power_read) in
@@ -394,7 +500,7 @@ rc_retry_blocker() {
     *) power_wait_ac waited "$AC_WAIT_BUDGET_MIN" "$deadline" log || rc_why="no AC for a second run" ;;
   esac
   if [ -z "$rc_why" ] && [ $(( $(date +%s) + $1 )) -gt "$deadline" ]; then
-    rc_why="a second $(( $1 / 60 ))-min run would end after the deadline"
+    rc_why="a second run of about $(( ($1 + 59) / 60 )) min ($2) would end after the deadline"
   fi
   return 0
 }
@@ -428,9 +534,15 @@ release_check() {
       "$E/p3-release-check-tag.log" "$rc_p1"); rm -f "$rc_wf"
     rc_note="events during the run: [$(power_events_window "$rc_t0" "$rc_t1" "$rc_ev" | tr '\n' ' ' | sed 's/ *$//')]"
     case $rc_v in
-      INVALID-POWER*)
+      INVALID-POWER*|NOT-REFERENCE*:on-battery*)
         if [ "$rc_try" -lt 2 ]; then
-          rc_retry_blocker $((rc_t1 - rc_t0))
+          # A green try 1 ran the whole release-check, so its length is the estimate; a red one stopped
+          # at its first FAIL, so a green try 2 may need the full RC_EST_S.
+          rc_len=$((rc_t1 - rc_t0))
+          if [ "$rc_rc" -eq 0 ]; then rc_retry_blocker "$rc_len" "try 1's length"
+          elif [ "$rc_len" -ge "$RC_EST_S" ]; then rc_retry_blocker "$rc_len" "try 1's length, over RC_EST_S"
+          else rc_retry_blocker "$RC_EST_S" "RC_EST_S: try 1 failed, so its length is no estimate"
+          fi
           if [ -z "$rc_why" ]; then
             rc_d=$(move_aside release-check "$rc_try" "$rc_sf"); rm -f "$rc_sf"
             record release-check "$rc_try" "$rc_rc" "$rc_v" "$rc_p0" "$rc_p1" "$rc_t0" "$rc_t1" "$rc_note; neither a pass nor a fail; its records moved to $rc_d; retried once in a fresh clone"
@@ -440,7 +552,7 @@ release_check() {
           fi
           rc_note="$rc_note; not retried: $rc_why"
         fi
-        count invalid release-check ;;
+        case $rc_v in INVALID-POWER*) count invalid release-check ;; *) count nref release-check "$rc_rc" ;; esac ;;
       VALID*) if [ "$rc_rc" -eq 0 ]; then count pass release-check; else count fail release-check; fi ;;
       *) count nref release-check "$rc_rc" ;;
     esac
@@ -459,31 +571,34 @@ release_check() {
 }
 
 # ---- the night -----------------------------------------------------------------------------------
-log "start candidate=$H deadline=$DL${NIGHT_DEADLINE_EPOCH:+ (from c8-night.sh)} ac_wait_budget=${AC_WAIT_BUDGET_MIN}min used=${waited}min prev_candidate=$PREV_CANDIDATE power=$(power_read)"
+if [ "${C8_C52_ONLY:-}" = 1 ]; then plan="mode=c52-only"
+else plan="release-check must start by $(date -d "@$((deadline - RC_EST_S))" +%FT%T) (RC_EST_S)"; fi
+log "start candidate=$H pid $$ winpid $(cat "/proc/$$/winpid" 2> /dev/null || echo '?') deadline=$DL${NIGHT_DEADLINE_EPOCH:+ (from c8-night.sh)} $plan ac_wait_budget=${AC_WAIT_BUDGET_MIN}min used=${waited}min prev_candidate=$PREV_CANDIDATE power=$(power_read)"
 timeout -k 10 60 docker ps > /dev/null 2>&1 && engine_up_at_start=1
 log "engine up at start=$engine_up_at_start (only an engine down now and started by this chain is ever stopped)"
 timeout -k 10 60 docker ps --format "{{.Names}} {{.Status}}" >> "$E/chain.log" 2>&1
 timeout -k 10 120 docker stop qompack-v6-linux-verification > /dev/null 2>&1
 
-queue="win-timing win-e2e-timing win-x11-alone"
-run_queue now
-c52_derive
-step win-race env GOFLAGS=-p=4 sh "$here/phase3.sh" "$C" "$E" win-race
-step bundles sh "$here/phase3.sh" "$C" "$E" bundles
-run_queue now
-linux_lanes
-queue="$queue c51-win"
-if [ -n "$C52_FILTER" ]; then
-  queue="$queue c52-win c52-linux"
+if [ "${C8_C52_ONLY:-}" = 1 ]; then
+  log "C8_C52_ONLY=1: a C5.2 night, only c52-derive, c52-win and c52-linux run"
 else
-  log "c52: no C5.2 benchmark executes a file changed since $PREV_CANDIDATE, so every candidate 5 C5.2 row carries (D57(e)); c52-win and c52-linux are not needed (c52-derive/report.txt)"
+  queue="win-timing win-e2e-timing win-x11-alone"
+  run_queue now
+  step win-race env GOFLAGS=-p=4 sh "$here/phase3.sh" "$C" "$E" win-race
+  step bundles sh "$here/phase3.sh" "$C" "$E" bundles
+  run_queue now
+  linux_lanes
+  queue="$queue c51-win c51-linux"
+  run_queue now
+  release_check   # C3.12 and D57(a): a release gate, so before C5.2, a measurement a later night repeats
+  run_queue now
 fi
-run_queue now
-release_check
+c52_derive
+c52_queue
 run_queue wait
 
-total=$((n_pass + n_fail + n_inv + n_nref + n_skip))
-outcome="steps=$total passed=$n_pass failed=$n_fail${failed:+ [${failed# }]} invalid_power=$n_inv not_reference=$n_nref (of which $n_nref_red exited non-zero) skipped=$n_skip ac_wait_used=${waited}min"
+total=$((n_pass + n_fail + n_inv + n_nref + n_skip + n_rep))
+outcome="steps=$total passed=$n_pass failed=$n_fail${failed:+ [${failed# }]} invalid_power=$n_inv not_reference=$n_nref (of which $n_nref_red exited non-zero) skipped=$n_skip reported=$n_rep ac_wait_used=${waited}min"
 echo "$outcome" > "$E/overnight-outcome.txt"
 log "done: $outcome"
 [ $((n_fail + n_inv + n_nref + n_skip)) -eq 0 ]

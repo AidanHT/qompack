@@ -1,18 +1,20 @@
 #!/bin/sh
 # nightharness.sh [case...]
 # A dry harness for candidate 8's night: c8-night.sh, overnight-c8.sh, prefreeze.sh, phase3.sh's
-# multi-command arms, power.sh, stamped.sh, c52derive.py and keepawake.ps1. It exercises every
-# branch the night can take (AC, battery, a power change, Modern Standby, sleep or resume during a
-# step, the wait budget, the deadline, refusals, the release-check clone and its tag, a signal
-# mid-run, the C5.2 derivation) with no real night: powershell, pwsh, docker, go, claude, gh,
-# timeout, date and sleep are stubs on PATH; git and python are real, on scratch repositories under
-# a temporary directory; phase3.sh and quiet.sh are stubs beside the copied night scripts
-# (phase3.sh's own arms are run for real against stubs in the P cases). Time is a fake clock: a file
-# the date and sleep stubs and stamped.sh's STAMP_CLOCK_FILE seam read, so no case waits on, or
-# depends on, the wall clock. The one real process outside the stubs is K1's: keepawake.ps1 under
-# the real pwsh with a sentinel that does not exist, which must end without holding anything. It
-# never touches the real repository, ~/.claude or ~/.qompack, and starts no Docker, Claude Code or
-# Go process.
+# multi-command arms, power.sh, stamped.sh, c52derive.py, keepawake.ps1 and nightabort.ps1. It
+# exercises every branch the night can take (AC, battery, a power change, Modern Standby, sleep or
+# resume during a step, the wait budget, the deadline, each step's estimate, refusals, the
+# release-check clone and its tag, a signal mid-run, the C5.2 derivation, an abort) with no real
+# night: powershell, pwsh, docker, go, claude, gh, timeout, date and sleep are stubs on PATH; git
+# and python are real, on scratch repositories under a temporary directory; phase3.sh and quiet.sh
+# are stubs beside the copied night scripts (phase3.sh's own arms are run for real against stubs in
+# the P cases). Time is a fake clock: a file the date and sleep stubs and stamped.sh's
+# STAMP_CLOCK_FILE seam read, so no case waits on, or depends on, the wall clock. The real
+# processes outside the stubs are K1's, keepawake.ps1 under the real pwsh with a sentinel that does
+# not exist, which must end without holding anything, and K2's, a probe tree (sh, sleep, cmd, ping)
+# under a shell named c8-night.sh that the real nightabort.ps1 must list and stop whole. It never
+# touches the real repository, ~/.claude or ~/.qompack, and starts no Docker, Claude Code or Go
+# process.
 # Prints PASS/FAIL per case and a total; exits 1 if any case fails. Cases: run with -l to list.
 set -u
 here=$(cd "$(dirname "$0")" && pwd)
@@ -263,6 +265,10 @@ for step in "$@"; do
   [ -e "$ev/$step.json" ] && { echo "refusing to overwrite $step"; exit 1; }
   sc="$SCEN_DIR/q.$step.$n"; if [ -f "$sc" ]; then run_script "$sc" > "$ev/$step.log"; else adv "$(kv "dur_$step" 300)"; echo "ran" > "$ev/$step.log"; fi
   echo '{}' > "$ev/$step.json"
+  # quiet.sh's c51-linux lands its harness JSON here; kv c51_linux_noart=1 is a run that measured nothing.
+  if [ "$step" = c51-linux ] && [ "$(kv c51_linux_noart 0)" != 1 ]; then
+    mkdir -p "$ev/c51-linux" && echo '{"rows": []}' > "$ev/c51-linux/c51-linux-hotpath.json"
+  fi
   exit "$(kv "rc_${step}_$n" "$(kv "rc_$step" 0)")"
 done
 EOF
@@ -466,15 +472,63 @@ case_K1_keepawake_never_creates_its_sentinel() {
   check "it ends by itself" test "$alive" = 0
   check "and says it does not hold" has "$W/ka.log" "not holding"
 }
+# ---- K2: nightabort.ps1 (the real script, under the real pwsh, on a real process tree) ------------
+# An MSYS shell's children record a dead Windows parent (the fork stub exits after exec), so a
+# ParentProcessId walk from the night's shell finds the shell alone. The tree here is a shell named
+# c8-night.sh running a child shell, which runs an MSYS sleep and a native cmd whose own child is a
+# native ping: every kind of descendant the night has. Waits are for events (the listing shows the
+# native grandchild; the processes are gone), polled; the outer timeouts are only hang guards.
+case_K2_nightabort_stops_exactly_the_night() {
+  check "pwsh is installed" test -n "$REALPWSH"
+  [ -n "$REALPWSH" ] || return 0
+  k="$W/k2"; mkdir -p "$k"; ab=$(cygpath -w "$here/nightabort.ps1")
+  printf '#!/bin/sh\n/usr/bin/sleep 173 &\ncmd //c "ping -n 173 127.0.0.1 > nul" &\nwait\n' > "$k/child.sh"
+  # As c8-night.sh logs them: its own pids, read inside the script (after exec, which gives an MSYS
+  # pid a new Windows pid).
+  printf '#!/bin/sh\nsh "%s/child.sh" &\necho $$ > "%s/pids.tmp"; cat /proc/$$/winpid >> "%s/pids.tmp"; mv "%s/pids.tmp" "%s/pids"\nwait\n' \
+    "$k" "$k" "$k" "$k" "$k" > "$k/c8-night.sh"
+  printf '%s\n' '@(Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match "k2/c8-night\.sh|k2/child\.sh|ping -n 173|sleep\.exe"" 173" }).Count' > "$k/count.ps1"
+  left() { "$REALPWSH" -NoProfile -File "$(cygpath -w "$k/count.ps1")" | tr -d '\r'; }
+  sh "$k/c8-night.sh" &
+  "$REALTIMEOUT" 60 sh -c 'until [ -s "$1" ]; do /usr/bin/sleep 0.2; done' sh "$k/pids"
+  mp=$(sed -n 1p "$k/pids"); wp=$(sed -n 2p "$k/pids")
+  check "the probe logged its pids" test -n "$mp" -a -n "$wp"
+  "$REALPWSH" -NoProfile -File "$ab" -MsysPid "$mp" -WinPid $((wp + 1)) > "$k/refuse.txt" 2>&1; rc=$?
+  check "a Windows pid that is not the root's: exit 2" test "$rc" = 2
+  check "and nothing stopped" kill -0 "$mp"
+  "$REALPWSH" -NoProfile -File "$ab" -MsysPid "$$" -WinPid "$(cat /proc/$$/winpid)" > "$k/refuse2.txt" 2>&1; rc=$?
+  check "a shell that is not a night script: exit 2" test "$rc" = 2
+  "$REALTIMEOUT" 120 sh -c 'until "$1" -NoProfile -File "$2" -MsysPid "$3" -WinPid "$4" > "$5" 2>&1 && grep -q PING.EXE "$5"; do /usr/bin/sleep 0.5; done' \
+    sh "$REALPWSH" "$ab" "$mp" "$wp" "$k/list.txt"
+  check "the child shell is listed" has "$k/list.txt" "k2/child.sh"
+  check "its MSYS child is listed" has "$k/list.txt" "sleep.exe"
+  check "its native child is listed" has "$k/list.txt" "cmd.exe"
+  check "and that one's native child" has "$k/list.txt" "PING.EXE"
+  check "nothing above the root" lacks "$k/list.txt" "nightharness.sh"
+  check "listing stops nothing" kill -0 "$mp"
+  "$REALPWSH" -NoProfile -File "$ab" -MsysPid "$mp" -WinPid "$wp" -Stop > "$k/stop.txt" 2>&1; rc=$?
+  check "stop: exit 0" test "$rc" = 0
+  "$REALTIMEOUT" 120 sh -c 'until [ "$("$1" -NoProfile -File "$2" | tr -d "\r")" = 0 ]; do /usr/bin/sleep 0.5; done' sh "$REALPWSH" "$(cygpath -w "$k/count.ps1")"
+  n=$(left)
+  check "every process of the tree is gone" test "$n" = 0
+  wait "$mp" 2> /dev/null
+  [ "$n" = 0 ] || "$REALPWSH" -NoProfile -Command '@(Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match "k2/c8-night\.sh|k2/child\.sh|ping -n 173|sleep\.exe"" 173" }) | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }' > /dev/null 2>&1
+  return 0
+}
 
 # ---- O: overnight-c8.sh ---------------------------------------------------------------------------
 case_O1_all_ac() {
   overnight; rc=$?
   check "exit 0" test "$rc" = 0
-  for s in win-timing win-e2e-timing win-x11-alone c51-win c52-win c52-linux release-check linux-timing linux-tree c52-derive; do
+  for s in win-timing win-e2e-timing win-x11-alone c51-win c51-linux c52-win c52-linux release-check linux-timing linux-tree c52-derive; do
     check "$s VALID" test "$(row "$s" 1)" = VALID
   done
-  check "outcome counts" has "$W/ev/overnight-outcome.txt" "failed=0 invalid_power=0 not_reference=0 (of which 0 exited non-zero) skipped=0"
+  check "outcome counts" has "$W/ev/overnight-outcome.txt" "failed=0 invalid_power=0 not_reference=0 (of which 0 exited non-zero) skipped=0 reported=1"
+  # C3.12 is a release gate and C5.2 a measurement a later night can repeat: release-check first.
+  check "release-check runs before C5.2" sh -c 'a=$(grep -n "step release-check try 1 start" "$1" | cut -d: -f1); b=$(grep -n "step c52-win try 1 start" "$1" | cut -d: -f1); [ -n "$a" ] && [ -n "$b" ] && [ "$a" -lt "$b" ]' sh "$W/ev/chain.log"
+  check "C5.1 on Linux in its own container window" hasre "$CALLS" "quiet .* cf31e01 .*/quiet-c51-linux c51-linux"
+  check "the C5.2 estimates are logged" hasre "$W/ev/chain.log" "c52: c52-win needs about [0-9]+ min, c52-linux about [0-9]+ min"
+  check "the start line carries the Windows pid" hasre "$W/ev/chain.log" "^start candidate=.* winpid "
   check "release-check saw its tag on HEAD" has "$W/ev/p3-release-check-tag.log" "TAG=v0.3.0"
   check "the clone cannot push" has "$W/ev/p3-release-check-tag.log" "ORIGIN=file:///nonexistent/"
   check "the shared ref store never held v0.3.0" sh -c '! git -C "$1" rev-parse -q --verify refs/tags/v0.3.0' sh "$P/qompack"
@@ -491,7 +545,7 @@ case_O1_all_ac() {
   check "the derived set is logged" has "$W/ev/chain.log" "c52: derived set"
   check "the derivation's selection is kept" sh -c '[ "$(tail -n +2 "$1" | wc -l)" = 3 ]' sh "$W/ev/c52-derive/selection.tsv"
   check "an unchanged row is not measured" lacks "$W/ev/c52-derive/selection.tsv" "PutBytes_100KB_Warm"
-  check "the container is started for the lanes and again for c52-linux" sh -c '[ "$(grep -c "^docker start qompack-v6-linux-verification" "$1")" = 2 ]' sh "$CALLS"
+  check "the container is started for the lanes, c51-linux and c52-linux" sh -c '[ "$(grep -c "^docker start qompack-v6-linux-verification" "$1")" = 3 ]' sh "$CALLS"
   check "docker calls are bounded" hasre "$CALLS" "^timeout -k 10 300 docker start qompack-v6-linux-verification"
   check "the owner's engine is left alone" lacks "$CALLS" "docker desktop"
   check "timing steps run before win-race" sh -c 'a=$(grep -n "step win-timing try 1 start" "$1" | cut -d: -f1); b=$(grep -n "step win-race start" "$1" | cut -d: -f1); [ "$a" -lt "$b" ]' sh "$W/ev/chain.log"
@@ -514,15 +568,16 @@ case_O3_battery_night_is_never_valid() {
   overnight; rc=$?
   check "exit 1" test "$rc" = 1
   check "AC-independent work first" sh -c 'a=$(grep -n "step win-race start" "$1" | cut -d: -f1); b=$(grep -n "step win-timing try 1 start" "$1" | cut -d: -f1); [ "$a" -lt "$b" ]' sh "$W/ev/chain.log"
-  for s in win-timing win-e2e-timing win-x11-alone c51-win c52-win c52-linux linux-timing linux-e2e-timing; do
+  for s in win-timing win-e2e-timing win-x11-alone c51-win c51-linux c52-win c52-linux linux-timing linux-e2e-timing; do
     check "$s NOT-REFERENCE" sh -c 'case "$1" in NOT-REFERENCE*) ;; *) exit 1 ;; esac' sh "$(row "$s" 1)"
   done
   check "no step is VALID" sh -c '[ -s "$1" ] && ! awk -F"\t" "\$4 == \"VALID\"" "$1" | grep -q .' sh "$W/ev/power.tsv"
   check "no VALID verdict on battery in chain.log" sh -c '[ -s "$1" ] && ! grep -qE "VALID power=BAT" "$1"' sh "$W/ev/chain.log"
-  check "release-check's windows ran on battery" sh -c 'case "$1" in INVALID-POWER*on-battery*) ;; *) exit 1 ;; esac' sh "$(row release-check 1)"
+  # A window wholly on battery is NOT-REFERENCE (the header's taxonomy), not INVALID-POWER (an event).
+  check "release-check's windows ran on battery" sh -c 'case "$1" in NOT-REFERENCE*on-battery*) ;; *) exit 1 ;; esac' sh "$(row release-check 1)"
   check "release-check is not retried without AC" test -z "$(row release-check 2)"
   check "and says why" has "$W/ev/chain.log" "not retried: no AC for a second run"
-  check "outcome" has "$W/ev/overnight-outcome.txt" "invalid_power=1 not_reference=8"
+  check "outcome" has "$W/ev/overnight-outcome.txt" "invalid_power=0 not_reference=10"
   check "the budget is named" has "$W/ev/chain.log" "wait budget is spent (5 of 5 min"
 }
 case_O4_ac_returns_mid_night() {
@@ -669,7 +724,11 @@ case_O22_c52_every_trace_failing_falls_back_to_floor() {
   check "no selection is written" test ! -e "$W/ev/c52-derive/filter.txt"
 }
 case_O23_c52_stray_go_file_refused() {
+  # A git-ignored stray (as dist/ holds in a real worktree): overnight-c8.sh's own clean check reads
+  # `git status --porcelain`, which lists untracked files but not ignored ones, so c52derive.py's
+  # guard is the one that must see it.
   mkdir -p "$P/qompack-cx-cand/internal/stray" && echo 'package stray' > "$P/qompack-cx-cand/internal/stray/x.go"
+  echo 'internal/stray/' >> "$P/qompack/.git/info/exclude"      # shared by every worktree
   overnight; rc=$?
   check "exit 1" test "$rc" = 1
   check "the derivation refuses" hasre "$W/ev/chain.log" "step c52-derive finished exit=2"
@@ -705,8 +764,140 @@ case_O20_rc_retry_uses_a_fresh_clone() {
 case_O21_rc_not_retried_on_battery() {
   timeline "0 BAT"; export AC_WAIT_BUDGET_MIN=600
   overnight
-  check "try 1 INVALID-POWER on battery" sh -c 'case "$1" in INVALID-POWER*on-battery*) ;; *) exit 1 ;; esac' sh "$(row release-check 1)"
+  check "try 1 NOT-REFERENCE on battery" sh -c 'case "$1" in NOT-REFERENCE*on-battery*) ;; *) exit 1 ;; esac' sh "$(row release-check 1)"
   check "no second try on battery" sh -c '! grep -q "step release-check try 2 start power=BAT" "$1"' sh "$W/ev/chain.log"
+}
+case_O24_candidate_checkout_must_be_the_candidate() {
+  # Run alone (README Abort step 7), every verdict is logged as candidate <sha>, so the checkout the
+  # steps run in must be exactly that commit, and clean.
+  on() { sh "$COORD/overnight-c8.sh" "$P/qompack-cx-cand" "$1" "$W/$2" 2> "$W/$2.err"; }
+  on "$(printf '%s' "$CAND_SHA" | cut -c1-12)" ev1; rc=$?
+  check "a short SHA: exit 2" test "$rc" = 2
+  check "a short SHA: refused" has "$W/ev1.err" "full 40-character SHA"
+  check "a short SHA: nothing written" test ! -e "$W/ev1/chain.log"
+  git -C "$P/qompack-cx-cand" checkout -q --detach main          # candidate 7
+  on "$CAND_SHA" ev2; rc=$?
+  check "a checkout at another commit: exit 2" test "$rc" = 2
+  check "refused by name" has "$W/ev2.err" "not the candidate $CAND_SHA"
+  check "nothing written" test ! -e "$W/ev2/chain.log"
+  check "no step ran" sh -c '! grep -qE "^(phase3|quiet|go) " "$1"' sh "$CALLS"
+  git -C "$P/qompack-cx-cand" checkout -q --detach "$CAND_SHA"
+  echo dirty >> "$P/qompack-cx-cand/base.txt"
+  on "$CAND_SHA" ev3; rc=$?
+  check "a tracked change: exit 2" test "$rc" = 2
+  check "a tracked change: refused" has "$W/ev3.err" "is not clean"
+  git -C "$P/qompack-cx-cand" checkout -q -- base.txt
+  echo stray > "$P/qompack-cx-cand/stray.txt"
+  on "$CAND_SHA" ev4; rc=$?
+  check "an untracked file: exit 2" test "$rc" = 2
+  check "an untracked file: refused" has "$W/ev4.err" "is not clean"
+  check "no step ran in any of them" sh -c '! grep -qE "^(phase3|quiet|go) " "$1"' sh "$CALLS"
+}
+case_O25_rc_retry_after_a_red_try_needs_a_full_run() {
+  # release-check stops at its first FAIL, so a red try 1 says nothing about a green try 2's length.
+  # rc starts at 23:00:00 on the fake clock (3 Windows timing steps, win-race, bundles, five Linux
+  # lanes and both C5.1 steps at 300 s each); try 1 goes red after 630 s with a source change in its
+  # e2e window. A retry sized by try 1 (10.5 min) would fit before 00:10; one sized by RC_EST_S
+  # (60 min) would end at 00:10:30, after it.
+  export RC_EST_S=3600 NIGHT_DEADLINE=00:10
+  printf '%s\n' 'say === release-check: version agreement ===' tag 'say release-check: version agreement PASS' \
+    'say === release-check: ci-local test ===' 'adv 300' 'say ok  	github.com/qompack/qompack/internal/store	300.1s' \
+    'flip BAT' 'adv 30' 'flip AC' 'adv 300' 'say FAIL	github.com/qompack/qompack/test/e2e	330.0s' \
+    'say release-check: ci-local test FAIL' > "$SCEN_DIR/rc.1"
+  kv rc_release_1 1
+  overnight
+  check "try 1 INVALID-POWER in its e2e window" sh -c 'case "$1" in "INVALID-POWER ci-local-test:events"*) ;; *) exit 1 ;; esac' sh "$(row release-check 1)"
+  check "not retried" test -z "$(row release-check 2)"
+  check "sized by RC_EST_S, not by the red try's length" has "$W/ev/chain.log" "not retried: a second run of about 60 min (RC_EST_S: try 1 failed, so its length is no estimate) would end after the deadline"
+  check "no try ran past the deadline" sh -c '! grep -q "step release-check try 2 start" "$1"' sh "$W/ev/chain.log"
+}
+rc_short() { # a short green release-check with both AC-sensitive windows (about 1000 s)
+  printf '%s\n' 'say === release-check: version agreement ===' tag 'say release-check: version agreement PASS' \
+    'say === release-check: ci-local test ===' 'adv 200' 'say ok  	github.com/qompack/qompack/internal/store	200.1s' \
+    'adv 300' 'say ok  	github.com/qompack/qompack/test/e2e	300.5s' 'say release-check: ci-local test PASS' \
+    'say === release-check: ci-local cover ===' 'adv 200' 'say ok  	github.com/qompack/qompack/internal/store	200.0s' \
+    'adv 300' 'say ok  	github.com/qompack/qompack/test/e2e	300.0s' 'say release-check: ci-local cover PASS'
+}
+case_O26_c52_skipped_when_it_cannot_end_by_the_deadline() {
+  # release-check runs 23:00:00-23:16:40. The derivation (C52_DERIVE_EST_S, 45 min) fits before
+  # 00:10; c52-win (checkpoint 2520 s + daemon 360 s + 600 s) and c52-linux (2760 + 300 + 600) do not.
+  export RC_EST_S=3600 NIGHT_DEADLINE=00:10
+  rc_short > "$SCEN_DIR/rc.1"
+  overnight; rc=$?
+  check "exit 1" test "$rc" = 1
+  check "release-check ran, VALID" test "$(row release-check 1)" = VALID
+  check "the derivation ran" test "$(row c52-derive 1)" = VALID
+  check "c52-win SKIPPED" test "$(row c52-win 1)" = SKIPPED
+  check "c52-linux SKIPPED" test "$(row c52-linux 1)" = SKIPPED
+  check "the reason names the estimate" hasre "$W/ev/chain.log" "step c52-win try 1 exit=- SKIPPED .*needs about 58 min .*would end after the deadline"
+  check "and where the set waits for a later night" has "$W/ev/chain.log" "c52-derive/selection.tsv"
+  check "no C5.2 measurement started" sh -c '! grep -qE "^quiet .*c52-(win|linux)$" "$1"' sh "$CALLS"
+  check "the skips are counted" has "$W/ev/overnight-outcome.txt" "skipped=2"
+}
+case_O27_c52_derivation_skipped_near_the_deadline() {
+  # As O26, with 00:00: release-check still fits (23:00 + 60 min), the derivation does not
+  # (23:16:40 + 45 min), so neither it nor C5.2 starts, and no static floor is claimed.
+  export RC_EST_S=3600 NIGHT_DEADLINE=00:00
+  rc_short > "$SCEN_DIR/rc.1"
+  overnight; rc=$?
+  check "exit 1" test "$rc" = 1
+  check "release-check ran" test "$(row release-check 1)" = VALID
+  check "c52-derive SKIPPED" test "$(row c52-derive 1)" = SKIPPED
+  check "c52-win SKIPPED, no derivation" hasre "$W/ev/chain.log" "step c52-win SKIPPED: no C5.2 derivation tonight"
+  check "c52-linux SKIPPED" test "$(row c52-linux 1)" = SKIPPED
+  check "no trace ran" lacks "$CALLS" "go-cov "
+  check "no static floor claimed" lacks "$W/ev/chain.log" "static floor is measured"
+}
+case_O28_c51_linux_is_report_only() {
+  # The container's quiet C5.1 exits 1 on its fsync-bound B-A/B-B (D53(b)): recorded, never judged.
+  kv rc_c51-linux 1
+  overnight; rc=$?
+  check "exit 0" test "$rc" = 0
+  check "c51-linux VALID" test "$(row c51-linux 1)" = VALID
+  check "counted as a report" has "$W/ev/overnight-outcome.txt" "reported=1"
+  check "not as a failure" has "$W/ev/overnight-outcome.txt" "failed=0"
+  check "the note says why" has "$W/ev/chain.log" "report only"
+  check "measured in its own evidence directory" test -s "$W/ev/quiet-c51-linux/c51-linux/c51-linux-hotpath.json"
+  # A run that measured nothing is a failure, whatever its exit status.
+  : > "$SCEN_DIR/kv"; kv c51_linux_noart 1; echo "$START" > "$FAKE_CLOCK"
+  sh "$COORD/overnight-c8.sh" "$P/qompack-cx-cand" "$CAND_SHA" "$W/ev2"; rc=$?
+  check "no C5.1 Linux record: exit 1" test "$rc" = 1
+  check "no C5.1 Linux record is a failure" hasre "$W/ev2/overnight-outcome.txt" "failed=1 \[c51-linux\]"
+}
+case_O29_c52_only_night() {
+  # A C5.2 night after one that SKIPPED it: the derivation and both C5.2 steps, nothing else.
+  export C8_C52_ONLY=1
+  overnight; rc=$?
+  check "exit 0" test "$rc" = 0
+  check "only C5.2's steps" test "$(awk -F'\t' 'NR > 1 { print $1 }' "$W/ev/power.tsv" | sort -u | tr '\n' ' ')" = "c52-derive c52-linux c52-win "
+  check "no phase3 step" lacks "$CALLS" "phase3 "
+  check "no release-check" lacks "$W/ev/chain.log" "release-check"
+  check "the derived set is measured" has "$CALLS" "quiet PKGS=checkpoint daemon FILTER=^Benchmark(Finalize|ExtractDecisions|SchedulerTap_ObserveTool)\$"
+  check "the mode is logged" has "$W/ev/chain.log" "C8_C52_ONLY=1"
+}
+case_O31_estimate_rechecked_after_the_ac_wait() {
+  # On battery, c52-win fits before its wait (22:00 + 58 min against 01:30) but not after the wait
+  # has spent the budget (00:50 + 58 min): it must be SKIPPED, not started on battery to run past
+  # the deadline.
+  timeline "0 BAT"; export C8_C52_ONLY=1 AC_WAIT_BUDGET_MIN=170 NIGHT_DEADLINE=01:30
+  overnight; rc=$?
+  check "exit 1" test "$rc" = 1
+  check "the wait spent the budget" has "$W/ev/chain.log" "wait budget is spent (170 of 170 min"
+  check "c52-win SKIPPED after the wait" test "$(row c52-win 1)" = SKIPPED
+  check "c52-linux SKIPPED" test "$(row c52-linux 1)" = SKIPPED
+  check "no C5.2 measurement started" sh -c '! grep -qE "^quiet .*c52-(win|linux)$" "$1"' sh "$CALLS"
+}
+case_O30_c52_declarations_and_benchtime() {
+  # ExtractDecisions' trace reaches only checkpoint's other.go; intent.go changed in the same package.
+  # A declaration-only change (a struct field, a const) has no coverage block, so a changed file in a
+  # package the benchmark executes selects it. Each row is traced at its own listed benchtime.
+  kv cov_ExtractDecisions internal/checkpoint/other.go
+  overnight
+  check "a changed file in an executed package selects it" hasre "$W/ev/c52-derive/selection.tsv" "BenchmarkExtractDecisions	.*a changed file in a package it executes internal/checkpoint/intent.go"
+  check "Finalize traced at 10x" hasre "$CALLS" "-bench \^BenchmarkFinalize\\$ -benchtime=10x "
+  check "ExtractDecisions traced at 1s" hasre "$CALLS" "-bench \^BenchmarkExtractDecisions\\$ -benchtime=1s "
+  check "line-level evidence is reported" hasre "$W/ev/c52-derive/report.txt" "internal/checkpoint/intent.go: executed blocks over changed lines: none \(changed lines 3\)"
+  check "the owner's question is counted" has "$W/ev/c52-derive/report.txt" "# selected with no executed block on a changed line"
 }
 
 # ---- N: c8-night.sh ------------------------------------------------------------------------------
@@ -1005,6 +1196,19 @@ case_P7_win_timing_needs_the_hotpath_rows() {
   check "exit 1" test "$rc" = 1
   check "named" has "$W/p3.out" "TestIntegration_HotPathBAPopulationIsTheDaemonHistogram did not pass"
   check "its own record" test -s "$PE/p3-win-hotpath.json"
+}
+case_P8_linux_child_declares_coload_as_nightly() {
+  # nightly.yml's race-product-child sets QOMPACK_UNDER_COLOAD=1 for the same eight rows under
+  # -race; the local lane that mirrors it must declare the same, or a race-slowed wall-clock row is
+  # judged as if it ran alone.
+  p3_world; mkdir -p "$PR/plans/sdd/V6-closeout/linux"
+  printf '#!/bin/sh\n. "$HB/_lib.sh"; call "gate $*"\n' > "$PR/plans/sdd/V6-closeout/linux/linux-nonroot-gate.sh"
+  p3 linux-child; rc=$?
+  check "exit 0" test "$rc" = 0
+  check "the child lane declares co-load" hasre "$CALLS" "^gate .* p3-linux-child --no-race --coload --env CGO_ENABLED=1 --env GOFLAGS=-race --env QOMPACK_REQUIRE_CHILD_RACE=1 "
+  p3 linux-timing; rc=$?
+  check "linux-timing exit 0" test "$rc" = 0
+  check "the timing lane still judges alone" sh -c 'grep -q "^gate .* p3-linux-timing " "$1" && ! grep -q "^gate .* p3-linux-timing .*--coload" "$1"' sh "$CALLS"
 }
 
 # ---- driver --------------------------------------------------------------------------------------

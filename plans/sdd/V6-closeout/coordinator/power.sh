@@ -29,11 +29,12 @@
 #                               deadline_epoch gave tomorrow's HH:MM: the night would run into the
 #                               owner's day.
 #
-# NIGHT_MAX_AHEAD_H (16): a whole night is about 9.5 h (README "Candidate 8": the pre-freeze about
-# 1 h, the overnight steps before release-check about 5.5 h, release-check 3 h), plus up to
-# AC_WAIT_BUDGET_MIN's 3 h of waiting. 16 h still admits an evening launch (from 16:00 for an 08:00
-# deadline), and refuses every launch made after the deadline's hour, which deadline_epoch would
-# carry into the next day.
+# NIGHT_MAX_AHEAD_H (16): a night through release-check is about 7.25 h, and one that also fits
+# C5.2 about 15 h (README "Candidate 8": the pre-freeze about 1 h, the steps before release-check
+# about 3.25 h, release-check 3 h, the C5.2 derivation 45 min and C5.2 about 7 h on the two OSes),
+# plus whatever AC_WAIT_BUDGET_MIN's 3 h of waiting takes. 16 h admits an afternoon launch (from
+# 16:00 for an 08:00 deadline) and refuses every launch made after the deadline's hour, which
+# deadline_epoch would carry into the next day.
 NIGHT_MAX_AHEAD_H=${NIGHT_MAX_AHEAD_H:-16}
 
 power_ps() { powershell -NoProfile -NonInteractive -Command "$1" 2>&1 | tr -d '\r'; }
