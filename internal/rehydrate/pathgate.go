@@ -94,10 +94,11 @@ type HostRules struct {
 
 // HostPaths, when set on Deps, returns this build's snapshot of the host's current Read rules. A nil
 // HostPaths applies containment alone. Build calls it once per build, and calls Refuses once for
-// each distinct path among the file pointers, the path-keyed checkpoint drops, the structured
-// summaries (one path each), the instruction and skill files items 6a and 6b would restore, and,
-// while a rule anchored outside the project is in force, rootProbe (screenBy), from one goroutine;
-// free text never reaches it.
+// each distinct path among the file pointers, the structured summaries (one path each), the
+// instruction and skill files items 6a and 6b would restore, and, while a rule anchored outside the
+// project is in force, rootProbe (screenBy), and, while a Read rule's pattern is in force, for at
+// most maxDropJudgements of the path-keyed checkpoint drops' other paths (dropJudgements), from one
+// goroutine; free text never reaches it.
 type HostPaths func() HostRules
 
 // pathJudge decides, for one build, which recorded paths and summaries the payload may show.
@@ -148,7 +149,33 @@ type pathJudge struct {
 	// judged memoizes the host's judgement (hostRefuses) for the build: a path is named by a file
 	// pointer and again by a summary, and each host judgement may consult the filesystem.
 	judged map[string]bool
+	// drops counts the host judgements made while newPathJudge reads the path-keyed checkpoint drops
+	// (dropJudgements); nil outside a judge newPathJudge made.
+	drops *dropJudgements
 }
+
+// dropJudgements bounds the host judgements a build makes for its path-keyed checkpoint drops (audit
+// 2's finding 28, ADR 0011 §23 item 10). The checkpointer keeps every file a session touched as a
+// pointer and names each one its budget cuts, so their number grows with the session, while each
+// host judgement may read the disk (about a millisecond on Windows, and more under load): a thousand
+// drops took a build towards the compaction answer's budget. While reading is set and a Read rule's
+// pattern is in force (bounded: with none the host's rules are empty, refuse nothing and read no
+// file, hostperm's RuleSet.Empty, so there is nothing to bound), hostRefuses judges at most
+// maxDropJudgements fresh paths, in the order the checkpoint lists the drops, and answers every
+// later fresh path as refused without a judgement, memoized, so section 7, dropped() and every later
+// judgement of the path withhold it (fail closed). Such a path is in skipped: the build learns it as
+// a withheld path only when its spelling names a rule's literal; any other is to the free-text
+// screen a path Qompack never recorded, whose names the rules' literals screen (D61, D60(iv)).
+type dropJudgements struct {
+	reading, bounded bool
+	made             int
+	skipped          map[string]bool
+}
+
+// maxDropJudgements is the most host judgements a build makes for its path-keyed checkpoint drops
+// (dropJudgements). With the daemon's adapter, which may Evaluate a path more than once, it keeps the
+// drops' term near a tenth of a second on an idle Windows host, whatever the session's length.
+const maxDropJudgements = 64
 
 // screenBy adds each rule pattern's literal and specifier to the build's screens (D63(4), kept from
 // D61(2)(a)). A rule with no literal refuses everything it is anchored at; a rule anchored outside
@@ -367,7 +394,7 @@ func globSegMatch(pat, seg string) bool {
 // a glob or a selector may name (w19 verifier V3).
 func newPathJudge(r Request, d Deps) pathJudge {
 	j := pathJudge{
-		root: r.ProjectRoot, judged: make(map[string]bool),
+		root: r.ProjectRoot, judged: make(map[string]bool), drops: &dropJudgements{},
 		rootSpelling: rootSpellingOf(r.ProjectRoot), rootUnit: rootUnitAdmitted(r.ProjectRoot),
 		rootExact: rootSpelledExactly(r.ProjectRoot),
 	}
@@ -381,17 +408,27 @@ func newPathJudge(r Request, d Deps) pathJudge {
 		if h.Refuses != nil {
 			j.screenBy(h.Patterns)
 		}
+		j.drops.bounded = len(h.Patterns) > 0
 	}
 	for _, f := range r.Checkpoint.Pointers.Files {
 		if j.withheld(f.Path) {
 			j.note(f.Path)
 		}
 	}
+	// The drops' host judgements are bounded (dropJudgements); a file pointer's path among them was
+	// judged above and costs nothing more. A drop past the bound is withheld unjudged, and learned only
+	// when its spelling names a rule's literal.
+	j.drops.reading = true
 	for _, e := range r.Checkpoint.Dropped {
-		if checkpointPathDrops[e.Kind] && j.withheld(e.ID) {
-			j.note(e.ID)
+		if !checkpointPathDrops[e.Kind] || !j.withheld(e.ID) {
+			continue
 		}
+		if p := judgedSpelling(e.ID); j.drops.skipped[p] && !j.textNamesWithheld(j.markRoot(sanitize(p)), screenExact) {
+			continue
+		}
+		j.note(e.ID)
 	}
+	j.drops.reading = false
 	for _, t := range r.Checkpoint.Pointers.Tools {
 		for _, v := range j.notedValues(t.Summary) {
 			if !j.recordedPath(v) {
@@ -573,6 +610,18 @@ func (j pathJudge) hostRefuses(p string) bool {
 	}
 	if w, ok := j.judged[p]; ok {
 		return w
+	}
+	if j.drops != nil && j.drops.reading && j.drops.bounded {
+		if j.drops.made >= maxDropJudgements {
+			// Past the drops' bound: refused without a judgement, and remembered so (fail closed).
+			j.judged[p] = true
+			if j.drops.skipped == nil {
+				j.drops.skipped = make(map[string]bool)
+			}
+			j.drops.skipped[p] = true
+			return true
+		}
+		j.drops.made++
 	}
 	w := j.refuses(p)
 	if j.judged != nil {
