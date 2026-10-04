@@ -45,8 +45,12 @@ func TestDaemonClients_HonourDisabledDaemonOverStaleState(t *testing.T) {
 	t.Cleanup(func() { spawnDaemon = prev })
 
 	ctors := map[string]func(string, config.Config, Env, logging.Logger, obs.Registry, core.Clock) ipc.Client{
-		"mcp":      newMCPClient,
-		"commands": newCommandClient,
+		"mcp": newMCPClient,
+		"commands": func(root string, cfg config.Config, env Env, log logging.Logger, reg obs.Registry,
+			clk core.Clock,
+		) ipc.Client {
+			return newCommandClient(root, cfg, env, log, reg, clk)
+		},
 	}
 	for name, ctor := range ctors {
 		for _, enabled := range []bool{false, true} {
