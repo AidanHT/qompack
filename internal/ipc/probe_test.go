@@ -1,7 +1,7 @@
 package ipc
 
 import (
-	"io"
+	"context"
 	"testing"
 	"time"
 
@@ -40,11 +40,15 @@ func TestProbe_FalseWhenNothingListens(t *testing.T) {
 }
 
 // TestProbe_DoesNotWaitForAResponse pins Ruling #22: Probe reports alive on a successful dial
-// alone — it never writes a request and never waits on a response. Proven against a peer that
-// accepts, reads, and never answers: Probe must still return true, the peer must see the
-// connection closed with not one byte written to it, and neither judgement reads a clock — the
-// only timer is probeHangGuard, which a Probe that waited for a response would run into because
-// its own budget is probeSilentPeerTimeout.
+// alone — it never writes a request and never waits on a handler's response. Proven against a
+// server whose handler would hang forever if it were ever reached: Probe must still return true,
+// because it never gets far enough to invoke the handler at all.
+//
+// The verdict reads no clock. Probe's own budget is probeSilentPeerTimeout, an hour, so a Probe
+// that waited for any response would wait for the hour, and the only timer here is
+// probeHangGuard. Whether the server ever sees the connection is not judged: on Windows go-winio
+// discards a pipe client that connects and disconnects before its ConnectNamedPipe completes, so
+// Accept may never return for a Probe that did everything right.
 func TestProbe_DoesNotWaitForAResponse(t *testing.T) {
 	t.Parallel()
 
@@ -52,22 +56,17 @@ func TestProbe_DoesNotWaitForAResponse(t *testing.T) {
 	addr, err := Resolve(root)
 	require.NoError(t, err)
 
-	ln, err := listen(addr, logging.Nop(), MaxLineBytes)
+	srv, err := NewServer(addr, logging.Nop(), nil, 0)
 	require.NoError(t, err)
-	t.Cleanup(func() { _ = ln.Close() })
-
-	// The peer: accept one connection and read it until the prober closes it, answering nothing.
-	// It reports how many bytes the prober wrote before closing.
-	wrote := make(chan int, 1)
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(func() {
+		cancel()
+		_ = srv.Close()
+	})
 	go func() {
-		conn, aerr := ln.Accept()
-		if aerr != nil {
-			wrote <- -1
-			return
-		}
-		defer func() { _ = conn.Close() }()
-		n, _ := io.Copy(io.Discard, conn)
-		wrote <- int(n)
+		_ = srv.Serve(ctx, func(context.Context, Request) Response {
+			select {} // a handler that hangs forever: Probe must never reach it
+		})
 	}()
 
 	returned := make(chan bool, 1)
@@ -77,16 +76,9 @@ func TestProbe_DoesNotWaitForAResponse(t *testing.T) {
 	defer guard.Stop()
 	select {
 	case alive := <-returned:
-		require.True(t, alive, "an accepting listener counts as alive even though it never answers")
+		require.True(t, alive, "an accepting listener counts as alive even if its handler would hang")
 	case <-guard.C:
-		t.Fatalf("Probe had not returned after %s against a peer that never answers: it is waiting for "+
-			"a response, which Ruling #22 says it never does", probeHangGuard)
-	}
-
-	select {
-	case n := <-wrote:
-		require.Zero(t, n, "Probe must close the connection without writing a request")
-	case <-guard.C:
-		t.Fatalf("the peer never saw Probe close its connection within %s", probeHangGuard)
+		t.Fatalf("Probe had not returned after %s against a server that never answers: it is waiting "+
+			"for a response, which Ruling #22 says it never does", probeHangGuard)
 	}
 }
