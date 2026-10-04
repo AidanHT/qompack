@@ -598,6 +598,10 @@ func x10v5RequireRecoveredLoopWarning(t *testing.T, ac string) {
 // loop crossed the threshold.
 const x10v5DeliveredWith = "still red — try the exact same fix again"
 
+// x10v5GoalPath is where x10v5RequireWarningOnlyAsEchoedPrompts's walk meets the sealed
+// checkpoint's current_work.goal (checkpoint.CurrentWork's json tags).
+const x10v5GoalPath = ".current_work.goal"
+
 // x10v5RequireWarningOnlyAsEchoedPrompts holds the sealed checkpoint raw to what this row protects:
 // Qompack never puts its own warning on a durable surface.
 //
@@ -611,6 +615,15 @@ const x10v5DeliveredWith = "still red — try the exact same fix again"
 // late reply made the row prove recovery), whose entry must be that prompt's own words and nothing
 // more. Every string in the artifact is checked, so a warning that Qompack wrote into
 // any field still fails here.
+//
+// Criterion change (wave 21, after C4.3's 84b6f802): current_work.goal is now derived from the
+// session's own newest prompt record (its first sentence, capped at 160 runes), the open segment's
+// included, and no longer from closed segments' graph nodes. The arm's last prompts before the seal
+// are the echoes, so the goal is the user's newest words, which quote the warning. That is D53(a)'s
+// ruling for evolution, reached by a second field that carries a user's prompt, and the row failed
+// on base 738d67c7 and on f905ec9c for that reason alone. So current_work.goal may also be EXACTLY
+// an echoed prompt (ac, which has no sentence break and is under the cap). A goal that holds the
+// warning in any other form, or any other field that holds it, still fails.
 func x10v5RequireWarningOnlyAsEchoedPrompts(t *testing.T, raw []byte, ac, deliveredWith string) {
 	t.Helper()
 	var doc map[string]any
@@ -650,6 +663,9 @@ func x10v5RequireWarningOnlyAsEchoedPrompts(t *testing.T, raw []byte, ac, delive
 				walk(fmt.Sprintf("%s[%d]", path, i), c)
 			}
 		case string:
+			if path == x10v5GoalPath && v == ac {
+				return // the goal derived from the newest prompt, an echo, verbatim: the user's words
+			}
 			require.NotContains(t, v, x10v5WarningPrefix,
 				"a warning is transient by design: Qompack must not write it into %s of the sealed checkpoint", path)
 		}
