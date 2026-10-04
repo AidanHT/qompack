@@ -710,10 +710,11 @@ answered without it. The hook client writes the same note when no answer arrives
 deadline, an unreachable daemon), wherever a rehydration was due; under degraded-passive or
 `runtime.mode` off or passive, with the daemon disabled, or with the reinjection switch below off,
 `{}` stays the answer, because nothing was due.
-Measured with `internal/cli`'s `TestSessionStartCompact_UnderSameSessionIngest` under concurrent
-same-session ingest and an fsync co-load, the compact answer's p99 went from 1.85 s to 0.66 s
-(`plans/sdd/V6-closeout/w2-lifetime/runs/`); the route's phases are in `metrics/latency.json` as
-`session_start.*` and `rehydrate.*`.
+`internal/cli`'s `TestSessionStartCompact_UnderSameSessionIngest` measures the compact answer under
+concurrent same-session ingest. The figures under `plans/sdd/V6-closeout/w2-lifetime/runs/` (p99 from
+1.85 s to 0.66 s) were taken before `3f2da1b3`, when that rig's reads never reached the daemon, so they
+do not measure the shipped route; candidate 8's C5.2 night re-measures it (D62(c)). The route's phases
+are in `metrics/latency.json` as `session_start.*` and `rehydrate.*`.
 
 Injection has an independent kill switch: `runtime.migration.reinjection.sessionStartCompact`
 (default `true`). Setting it false disables injection without touching recording. It names the one
