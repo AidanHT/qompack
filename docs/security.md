@@ -108,7 +108,15 @@ a separator, a delimiter or a word's end (cmd.exe's `cd..` included; a range suc
 is not one), or, inside a quoted argument, the project root followed by a space and another name or
 an operator where the argument's path starts (a sibling folder). The project root's own spelling is
 read with `/` alone on Linux and macOS, and with one slash style throughout on Windows, since a POSIX
-shell drops a backslash between two of its segments and reads a sibling of an ancestor.
+shell drops a backslash between two of its segments and reads a sibling of an ancestor; and it is
+held together as one unit only when it holds nothing but letters, marks, digits, `- _ . @ +`, its
+separators and spaces (coordinator decision D64). A root with any other character (an apostrophe, a
+comma, a `;`, a `$`, a `~`, a Unicode space, and the like) is one a shell can split or reinterpret, so
+a summary spelling it is judged as the free text it is and withheld. A store cut right after a drive
+or provider name's `:` (`Temp:…`) is withheld, since the cut may hide the file after it; a bare
+drive or provider name with nothing after its `:` (`Get-ChildItem Temp:`, a commit message's `fix:`)
+names a drive root, reveals no file and is shown, while a bare single-letter drive (`cd C:`) stays
+withheld.
 Every free-text summary is also withheld while the rules cannot be read, or while a rule covers the
 whole project through any spelling of its root the host resolves (a link, a junction, an 8.3 name).
 The whitelist is complete for privacy by construction — the only ways a shell can transform a
