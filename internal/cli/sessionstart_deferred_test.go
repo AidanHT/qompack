@@ -88,6 +88,7 @@ func TestSessionStartCompact_UnansweredNoteOnlyWhereARehydrationWasDue(t *testin
 		})
 	}
 	t.Run("daemon disabled", func(t *testing.T) {
+		useStateDaemonAlive(t, true) // the daemon that wrote DaemonEnabled=false is still running (D67(c))
 		root := unansweredProject(t, func(s *ipc.State) { s.DaemonEnabled = false })
 		require.Equal(t, "{}\n", string(runSessionStartWith(t, root, "compact")))
 	})

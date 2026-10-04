@@ -164,18 +164,58 @@ func projectEstablished(l paths.Layout) bool {
 var spawnDaemon = daemon.SpawnDetached
 
 // daemonClientState is the State a lazily spawning client of `qompack mcp` or the command frontends
-// is built with: state.bin as ipc.ReadState reads it, with DaemonEnabled also requiring the loaded
-// configuration's runtime.daemon.enabled, exactly as the hook path does (doHook, FR-6).
+// is built with: state.bin as ipc.ReadState reads it, with DaemonEnabled decided by daemonEnabledFor,
+// exactly as the hook path decides it (doHook, FR-6).
 //
-// state.bin records the DaemonEnabled of the daemon that wrote it, and a daemon that died without a
-// clean stop leaves it behind. Trusting it alone let a record written while the daemon was enabled
-// spawn a daemon for a project whose configuration has since disabled it, which docs/release.md §4
-// promises never happens ("no resident process and no lock file"). A client whose State says the
-// daemon is disabled never dials and never spawns (ipc.Client.Send, step 2).
+// A client whose State says the daemon is disabled never dials and never spawns (ipc.Client.Send,
+// step 2).
 func daemonClientState(root string, cfg config.Config) ipc.State {
 	st := ipc.ReadState(root, cfg)
-	st.DaemonEnabled = st.DaemonEnabled && cfg.Runtime.Daemon.Enabled
+	st.DaemonEnabled = daemonEnabledFor(root, st.DaemonEnabled, cfg)
 	return st
+}
+
+// daemonEnabledFor is whether a client may use root's daemon, given the DaemonEnabled its state.bin
+// read gave (stateEnabled) and the loaded configuration: the configuration's runtime.daemon.enabled,
+// and state.bin's false only while the daemon that wrote it is alive (D67(c)).
+//
+// state.bin records the DaemonEnabled of the daemon that wrote it, and a daemon that died without a
+// clean stop leaves it behind, saying either value:
+//
+//   - A record written while the daemon was enabled, in a project whose configuration has since
+//     disabled it: trusting the record let a client spawn a daemon docs/release.md §4 promises is
+//     never started ("no resident process and no lock file"), so the configuration's false always
+//     decides.
+//   - A record written by a daemon that reloaded runtime.daemon.enabled false and then died: trusted
+//     for good, it kept every hook spooling, and session-start from ever starting the daemon that
+//     would rewrite it, after the key was set back to true (audit 2, #15 and #67). So it is trusted
+//     only while a daemon holds the project's lock or answers at its address (stateDaemonAlive);
+//     otherwise the configuration decides. The check runs only in that case, a false record beside
+//     a configuration that says true, so no other read pays for it.
+func daemonEnabledFor(root string, stateEnabled bool, cfg config.Config) bool {
+	if !cfg.Runtime.Daemon.Enabled {
+		return false
+	}
+	return stateEnabled || !stateDaemonAlive(root)
+}
+
+// stateDaemonProbeTimeout bounds stateDaemonAlive's dial. It is the non-hot-path dial floor the
+// command client and session-start already use (hookConnectDeadlineFloor), not a new number. An
+// absent daemon fails the dial at once: a missing pipe or socket is refused, not waited on.
+const stateDaemonProbeTimeout = hookConnectDeadlineFloor
+
+// stateDaemonAlive reports whether a daemon is alive for root, which is when its state.bin may still
+// speak for it: a daemon holds root's lock — a lock written for this project whose holder reported
+// in within the staleness window, the lock protocol's own test of a live holder (daemon.StaleAfter)
+// — or one accepts a connection at root's address. A daemon that died uncleanly is taken for alive
+// for at most that window, as long as the lock protocol itself keeps its lock from being taken.
+// It is a variable only so a row can stand in a live or a dead daemon without starting one.
+var stateDaemonAlive = func(root string) bool {
+	if h := daemon.DescribeLockHolder(root, nil); h.Present && !h.Foreign && h.HeartbeatAge <= daemon.StaleAfter() {
+		return true
+	}
+	addr, err := ipc.Resolve(root)
+	return err == nil && ipc.Probe(addr, stateDaemonProbeTimeout)
 }
 
 // commandConnectDeadline bounds a command client's dial to the daemon: status, doctor and every
@@ -299,9 +339,10 @@ var statusConnectMissReason = fmt.Sprintf("a daemon is listening for this projec
 // for this project, in its loaded configuration or in the state.bin its daemon last wrote. The
 // command client then never dials (ipc.Client.Send, step 2): it answers OK false with no text at
 // once, which is neither a connect miss nor an absent daemon, so status says why no daemon was asked.
-// The text names both places because daemonClientState ANDs them: a daemon that reloaded the key to
-// false rewrote state.bin, and if it then died without a clean stop, state.bin still says false
-// after the configuration is set back to true.
+// The text names both places because either can say false (daemonEnabledFor): a daemon that
+// reloaded the key to false rewrote state.bin, and that record speaks for the project while the
+// daemon is alive, even after the configuration is set back to true. Once it is gone the
+// configuration decides.
 const statusDaemonDisabledReason = "runtime.daemon.enabled is false for this project (in its " +
 	"configuration, or in the state.bin its daemon last wrote), so this command does not ask a " +
 	"daemon, even one that is still running"

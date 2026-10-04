@@ -232,15 +232,17 @@ func TestStatus_DaemonDisabledIsNamedNotMissed(t *testing.T) {
 }
 
 // TestStatus_StaleStateBinDisabledIsNamed is the wave 19c review's nit. The command client's
-// DaemonEnabled is state.bin's AND the configuration's (daemonClientState), so it is also false when
-// the configuration says true but state.bin says false: a daemon reloaded runtime.daemon.enabled
-// false, rewrote state.bin, and died without a clean stop before the key was set back. The reason
-// must not then claim only the configuration: it must name state.bin as the other place the key
-// can be false. Otherwise the row is TestStatus_DaemonDisabledIsNamedNotMissed's.
+// DaemonEnabled is also false when the configuration says true but state.bin says false while the
+// daemon that wrote it is alive (daemonEnabledFor, D67(c)): a daemon reloaded runtime.daemon.enabled
+// false, rewrote state.bin, and is still running after the key was set back. The reason must not then
+// claim only the configuration: it must name state.bin as the other place the key can be false.
+// Otherwise the row is TestStatus_DaemonDisabledIsNamedNotMissed's. Once that daemon is gone the
+// configuration decides: TestStatus_DeadDaemonsDisabledStateIsNotReportedDisabled.
 //
-// Not parallel: it swaps newCommandIPCClient, statusProbeDial and statusSendClock.
+// Not parallel: it swaps newCommandIPCClient, statusProbeDial, statusSendClock and stateDaemonAlive.
 func TestStatus_StaleStateBinDisabledIsNamed(t *testing.T) {
 	root := bootstrapProject(t)
+	useStateDaemonAlive(t, true) // the daemon that wrote state.bin is still running
 	st := ipc.StateFromConfig(config.Defaults())
 	require.True(t, st.DaemonEnabled, "the project's configuration enables the daemon")
 	st.DaemonEnabled = false // what a daemon that reloaded enabled=false wrote before it died
@@ -258,9 +260,10 @@ func TestStatus_StaleStateBinDisabledIsNamed(t *testing.T) {
 // connect miss for one that never dialed. The seam rewrites state.bin from inside client
 // construction, after the client's State was read and before status builds its sources, so the row
 // does not race anything. The client is the real command client aimed at an address nothing
-// listens on, with spawning off; the probe stands in for a listener.
+// listens on, with spawning off; the probe stands in for a listener, and stateDaemonAlive for the
+// running daemon that rewrites state.bin, whose false record therefore speaks for the project.
 //
-// Not parallel: it swaps newCommandIPCClient, statusProbeDial and statusSendClock.
+// Not parallel: it swaps newCommandIPCClient, statusProbeDial, statusSendClock and stateDaemonAlive.
 func TestStatus_ReasonUsesTheStateTheClientWasBuiltWith(t *testing.T) {
 	for _, tc := range []struct {
 		name       string
@@ -282,6 +285,7 @@ func TestStatus_ReasonUsesTheStateTheClientWasBuiltWith(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			root := bootstrapProject(t)
+			useStateDaemonAlive(t, true)
 			st := ipc.StateFromConfig(config.Defaults())
 			require.True(t, st.DaemonEnabled, "the project's configuration enables the daemon")
 			st.DaemonEnabled = tc.builtWith
