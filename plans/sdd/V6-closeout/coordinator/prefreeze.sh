@@ -126,10 +126,11 @@ vuln_check() {
   v_out=$(go run -modfile=tools/pinned/go.mod golang.org/x/vuln/cmd/govulncheck ./... 2>&1); v_rc=$?
   printf '%s\n' "$v_out"
   [ "$v_rc" -eq 0 ] && return 0
-  if printf '%s\n' "$v_out" | grep -qE 'Vulnerability #|Your code is affected|vulnerabilit(y|ies) found'; then
+  # The two patterns are power.sh's, which overnight-c8.sh uses to read a red release-check.
+  if printf '%s\n' "$v_out" | grep -qE "$GOVULN_FOUND_ERE"; then
     echo "govulncheck: vulnerabilities reported (exit $v_rc)"; return 1
   fi
-  if printf '%s\n' "$v_out" | grep -qiE '(vuln\.go\.dev|proxy\.golang\.org|sum\.golang\.org).*(dial tcp|no such host|i/o timeout|connection (refused|reset)|TLS handshake timeout|network is unreachable|context deadline exceeded)|(dial tcp|no such host|lookup).*(vuln\.go\.dev|proxy\.golang\.org|sum\.golang\.org)'; then
+  if printf '%s\n' "$v_out" | grep -qiE "$GOVULN_UNREACHABLE_ERE"; then
     echo "GOVULNCHECK-UNREACHABLE: the vulnerability database or the module proxy could not be reached (exit $v_rc); govulncheck did NOT check this tree. Reported, not fatal: hosted ci.yml's security job runs it on the pushed candidate."
     return 0
   fi
@@ -163,7 +164,9 @@ e2efunc_body() {   # run() has already changed into the repository
   done
   rm -f "$ef_out"; return "$ef_rc"
 }
-echo "head $(git -C "$R" rev-parse HEAD) go=$(go env GOVERSION) run=$RUN steps=$steps" >> "$S"
+# The toolchain is read in <repo>: its go.mod pins one (toolchain, with GOTOOLCHAIN=auto), and a
+# launch from outside a module would record the local default while every step runs on the pin.
+echo "head $(git -C "$R" rev-parse HEAD) go=$(cd "$R" && go env GOVERSION) run=$RUN steps=$steps" >> "$S"
 for s in $steps; do
   case $s in
     gate) run gate gate_body ;;

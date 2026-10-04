@@ -21,13 +21,27 @@
 #   power_wait_ac <budget-var> <budget-min> <deadline-epoch> <log-fn>
 #                               polls once a minute until AC; returns 0 on AC, 1 when the minutes in
 #                               the named counter reach the budget or the deadline passes. The
-#                               counter counts polls, not wall time.
+#                               counter counts polls, not wall time. A budget of "-" is no budget:
+#                               only the deadline ends the wait (a C5.2 chunk, D65(c)), and the
+#                               counter still counts its polls.
 #   deadline_epoch <HH:MM>      the epoch of the next local HH:MM after now (today's, or tomorrow's
 #                               once today's has passed); exit 1 on a malformed time
 #   deadline_near <epoch>       exit 0 when <epoch> is at most NIGHT_MAX_AHEAD_H hours away, or
 #                               NIGHT_ALLOW_FAR=1. A farther one means a daytime launch, for which
 #                               deadline_epoch gave tomorrow's HH:MM: the night would run into the
 #                               owner's day.
+#   disk_free_ok <log-fn> <dir...>   exit 0 when every <dir>'s drive has at least NIGHT_MIN_FREE_GB
+#                               (40) GiB free; otherwise, or when df cannot read a drive, it logs why
+#                               through <log-fn> and exits 1
+#   govuln_unreachable <file>   exit 0 when <file>'s govulncheck output says the vulnerability
+#                               database or the module proxy could not be reached and reports no
+#                               vulnerability (GOVULN_FOUND_ERE, GOVULN_UNREACHABLE_ERE below)
+#
+# Every PowerShell query is bounded (POWER_PS_TIMEOUT_S, 120 s, then a kill 10 s later): a hung WMI
+# or event-log query must not hold the night past its deadline. A query that timed out printed
+# nothing, so power_read reads "UNKNOWN ?" and power_events_since returns 1 (unreadable, so
+# NOT-REFERENCE), as for any other failed query. Measured under load: power_read 0.8 s,
+# power_events_since over an hour 2.8 s.
 #
 # NIGHT_MAX_AHEAD_H (16): candidate 8's night, through release-check, is about 7.25 h (README
 # "Candidate 8": the pre-freeze about 1 h, the steps before release-check about 3.25 h,
@@ -38,8 +52,24 @@
 # a C5.2 night) and refuses every launch made after the deadline's hour, which deadline_epoch would
 # carry into the next day.
 NIGHT_MAX_AHEAD_H=${NIGHT_MAX_AHEAD_H:-16}
+# RC_EST_S: how long a local release-check is expected to take, shared by c8-night.sh (its launch
+# checks) and overnight-c8.sh (release-check's latest start). SP-17's record is 8451 s on a smaller
+# tree and w17-release estimates 2.5-3 h on this laptop; rounded up to 3 h. It has never been
+# measured with release-check's current step list, so overnight-c8.sh also stops a run still going
+# at the deadline plus RC_GRACE_S (its header).
+RC_EST_S=${RC_EST_S:-10800}
+# NIGHT_MIN_FREE_GB: the night's clones (merged tree, release-check, quiet.sh's base and candidate
+# clones with their test binaries) and the whole-tree test binaries in GOCACHE need room. One
+# quiet.sh work directory was 879 MB, and the drive had 65 GB free (97 % used) on 2026-10-04.
+NIGHT_MIN_FREE_GB=${NIGHT_MIN_FREE_GB:-40}
+POWER_PS_TIMEOUT_S=${POWER_PS_TIMEOUT_S:-120}
+# govulncheck's own verdict lines (a reported vulnerability fails), and the network failures that
+# mean it never checked the tree. prefreeze.sh's gate and overnight-c8.sh's reading of a red
+# release-check use the same two patterns.
+GOVULN_FOUND_ERE='Vulnerability #|Your code is affected|vulnerabilit(y|ies) found'
+GOVULN_UNREACHABLE_ERE='(vuln\.go\.dev|proxy\.golang\.org|sum\.golang\.org).*(dial tcp|no such host|i/o timeout|connection (refused|reset)|TLS handshake timeout|network is unreachable|context deadline exceeded)|(dial tcp|no such host|lookup).*(vuln\.go\.dev|proxy\.golang\.org|sum\.golang\.org)'
 
-power_ps() { powershell -NoProfile -NonInteractive -Command "$1" 2>&1 | tr -d '\r'; }
+power_ps() { timeout -k 10 "$POWER_PS_TIMEOUT_S" powershell -NoProfile -NonInteractive -Command "$1" 2>&1 | tr -d '\r'; }
 
 power_read() {
   _pr=$(power_ps '$ErrorActionPreference = "Stop"
@@ -94,8 +124,12 @@ power_wait_ac() {
     case $_pw_p in "AC "*) return 0 ;; esac
     [ "$(date +%s)" -ge "$_pw_deadline" ] && { "$_pw_log" "power: no AC before the deadline ($_pw_p)"; return 1; }
     eval "_pw_used=\${$_pw_var:-0}"
-    [ "$_pw_used" -ge "$_pw_budget" ] && { "$_pw_log" "power: the night's AC wait budget is spent ($_pw_used of $_pw_budget min; $_pw_p)"; return 1; }
-    [ $((_pw_used % 15)) -eq 0 ] && "$_pw_log" "power: waiting for AC ($_pw_p; $_pw_used of $_pw_budget min of the night's wait budget used)"
+    if [ "$_pw_budget" = - ]; then
+      [ $((_pw_used % 15)) -eq 0 ] && "$_pw_log" "power: waiting for AC until $(date -d "@$_pw_deadline" +%FT%T) ($_pw_p; $_pw_used min waited tonight; no budget applies, D65(c))"
+    else
+      [ "$_pw_used" -ge "$_pw_budget" ] && { "$_pw_log" "power: the night's AC wait budget is spent ($_pw_used of $_pw_budget min; $_pw_p)"; return 1; }
+      [ $((_pw_used % 15)) -eq 0 ] && "$_pw_log" "power: waiting for AC ($_pw_p; $_pw_used of $_pw_budget min of the night's wait budget used)"
+    fi
     sleep 60
     eval "$_pw_var=\$((_pw_used + 1))"
   done
@@ -115,4 +149,27 @@ deadline_near() {
   case ${1:-} in ''|*[!0-9]*) return 1 ;; esac
   [ "${NIGHT_ALLOW_FAR:-}" = 1 ] && return 0
   [ $(( $1 - $(date +%s) )) -le $(( NIGHT_MAX_AHEAD_H * 3600 )) ]
+}
+
+disk_free_ok() {
+  _df_log=$1; shift; _df_bad=0
+  for _df_d in "$@"; do
+    [ -n "$_df_d" ] || continue
+    if command -v cygpath > /dev/null 2>&1; then _df_d=$(cygpath -u "$_df_d"); fi
+    _df_k=$(df -Pk "$_df_d" 2> /dev/null | awk 'NR == 2 && $4 ~ /^[0-9]+$/ { print $4 }')
+    case $_df_k in
+      ''|*[!0-9]*) "$_df_log" "disk: cannot read the free space of $_df_d"; _df_bad=1 ;;
+      *) if [ "$_df_k" -lt $((NIGHT_MIN_FREE_GB * 1048576)) ]; then
+           "$_df_log" "disk: $_df_d has $((_df_k / 1048576)) GiB free, under NIGHT_MIN_FREE_GB=$NIGHT_MIN_FREE_GB"; _df_bad=1
+         else
+           "$_df_log" "disk: $_df_d has $((_df_k / 1048576)) GiB free (NIGHT_MIN_FREE_GB=$NIGHT_MIN_FREE_GB)"
+         fi ;;
+    esac
+  done
+  return "$_df_bad"
+}
+
+govuln_unreachable() {
+  grep -qE "$GOVULN_FOUND_ERE" "$1" 2> /dev/null && return 1
+  grep -qiE "$GOVULN_UNREACHABLE_ERE" "$1" 2> /dev/null
 }

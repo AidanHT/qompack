@@ -13,6 +13,10 @@
 #      except the PreCompact replay, which C5.1's B-E row covers).
 # Progress lines go to <evidence-dir>/chain.log. Launch through overnight-at.sh (own keep-awake).
 set -u
+# Retired (wave 22, audit 2 #47): candidate 6's night decided whether it owned the Docker engine from one
+# docker ps probe and then stopped an engine it thought it had started, which could stop the owner's
+# engine and their stack. Candidate 8 runs c8-night.sh and overnight-c8.sh. Kept as the record of what ran.
+echo "overnight-c6.sh: retired: use c8-night.sh / overnight-c8.sh (README.md, Candidate 8)" >&2; exit 2
 C=$1; H=$2; E=$3
 here=$(cd "$(dirname "$0")" && pwd)
 mkdir -p "$E"

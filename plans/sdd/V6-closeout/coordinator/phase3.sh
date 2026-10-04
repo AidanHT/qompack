@@ -8,6 +8,10 @@
 #               then test/integration's three functional hot-path rows alone (D53(a): the hot-path rows
 #               run alone; ci.yml's lane names only TestIntegration_HotPathWarmWithRealResidentState)
 #   win-e2e-timing  test/e2e alone, no -race, no co-load        (D28: ci.yml's test-e2e job)
+#               -timeout=45m, not 30m: the whole binary took 1513-1529 s on candidates 5 and 6 (84-85 % of
+#               1800 s) and has hit 1800 s before; a timeout says nothing about any wall-clock budget.
+#               Audit 2's #84 (wave 22's cliwork seat) gives ci.yml's test-e2e job the same 45m; that
+#               seat's commit was not visible when this copy was set, so compare the two before launch.
 #   win-x11-alone  X11 (TestV3_HotPathUnchangedWithLedgerResident) by itself, -v (D53(d): its spawn floor)
 #   c116-rig    C1.16's load rig (D62(c)), w2-lifetime's procedure (its runs/08-17 and 36):
 #               internal/cli's TestSessionStartCompact_UnderSameSessionIngest, -v, 30 compaction
@@ -81,7 +85,7 @@ for step in "$@"; do
               { echo "p3-win-hotpath: TestIntegration_HotPath$n did not pass (or did not run)"; r=1; }
           done
           [ $r -eq 0 ] ;;
-    win-e2e-timing) rec p3-win-e2e-timing -- go test -count=1 -timeout=30m ./test/e2e ;;
+    win-e2e-timing) rec p3-win-e2e-timing -- go test -count=1 -timeout=45m ./test/e2e ;;
     win-x11-alone) rec p3-win-x11-alone -- go test -count=1 -timeout=30m -v -run '^TestV3_HotPathUnchangedWithLedgerResident$' ./test/e2e ;;
     c116-rig) r=0
           rec p3-c116-rig-noextra -- env QOMPACK_C116_ROUNDS=$C116_ROUNDS QOMPACK_C116_WORKERS=$C116_WORKERS \

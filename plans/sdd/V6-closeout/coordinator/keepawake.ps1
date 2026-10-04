@@ -19,7 +19,12 @@ if (-not (Test-Path $Sentinel)) {
   Write-Output "keep-awake not holding: $Sentinel was deleted while this process started (pid $PID)"
   exit 0
 }
-[Win32.Power]::SetThreadExecutionState($ES_CONTINUOUS -bor $ES_SYSTEM_REQUIRED) | Out-Null
+# SetThreadExecutionState returns the previous state, or 0 when it failed: say so, so a caller that
+# waits for "keep-awake held" (c8-night.sh) knows the request is not in force.
+if ([Win32.Power]::SetThreadExecutionState($ES_CONTINUOUS -bor $ES_SYSTEM_REQUIRED) -eq 0) {
+  Write-Output "keep-awake FAILED: SetThreadExecutionState returned 0 (pid $PID)"
+  exit 1
+}
 Write-Output "keep-awake held while $Sentinel exists (pid $PID)"
 while (Test-Path $Sentinel) { Start-Sleep -Seconds 30 }
 [Win32.Power]::SetThreadExecutionState($ES_CONTINUOUS) | Out-Null

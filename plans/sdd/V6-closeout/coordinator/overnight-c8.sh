@@ -15,8 +15,11 @@
 #     record, so a second night there would fail every step in seconds and could be read as a run;
 #   - C8_C52_ONLY other than empty or 1 (a mistyped switch would run candidate 8's night, with
 #     release-check, on the frozen candidate), C8_C52_SET other than full or derived, C8_C52_STEPS
-#     naming anything but a C5.2 night step or set without C8_C52_ONLY=1, and in a C5.2 night a
-#     quiet.sh whose benches() list cannot be read (the C5.2 chunks are made from it).
+#     naming anything but a C5.2 night step or set without C8_C52_ONLY=1, C8_NIGHT1_C52 other than
+#     empty, 0 or 1, and in a C5.2 night a quiet.sh whose benches() list cannot be read (the C5.2
+#     chunks are made from it);
+#   - a drive (TMPDIR's, where every scratch clone goes, or GOCACHE's) with less than
+#     NIGHT_MIN_FREE_GB (power.sh, 40 GiB) free, or one df cannot read.
 #
 # Power (D57(d), power.sh). Every step's power is recorded: t0 is taken before its last power check,
 # and it is judged over [t0, end] against the System log (Kernel-Power 105, a source change; 506,
@@ -40,8 +43,11 @@
 # work runs, whose load also drains the battery toward the charger's restore point (about 35-40 %,
 # D57(d)). Waiting for AC is bounded night-wide by AC_WAIT_BUDGET_MIN one-minute polls
 # (NIGHT_AC_WAITED_MIN carries what c8-night.sh already spent) and by the deadline: no step and no
-# wait starts after it, and a step with an estimate (release-check, c116-rig, c52-derive, each C5.2
-# chunk) starts only when the estimate lets it end by the deadline. c8-night.sh passes its
+# wait starts after it, and every step starts only when its estimate lets it end by the deadline
+# (release-check RC_EST_S, c116-rig, c52-derive, each C5.2 chunk; the others STEP_EST below, from
+# candidate 6's night). A C5.2 chunk never runs on battery (D65(c)): it waits for AC past the
+# budget, until its latest start (the deadline minus its estimate), and is otherwise SKIPPED, left
+# for the next C5.2 night; it is never run NOT-REFERENCE. c8-night.sh passes its
 # deadline as NIGHT_DEADLINE_EPOCH, so a pre-freeze that ends late cannot carry the night to the
 # next day; run alone, the next NIGHT_DEADLINE (local HH:MM, default 08:00) is used, and refused
 # when it is more than NIGHT_MAX_AHEAD_H (16) hours away (a daytime launch) unless
@@ -49,8 +55,14 @@
 # Two nights (D62(c)):
 #   - candidate 8's night (the default): the Windows timing steps, win-race, bundles, the Linux
 #     lanes, C5.1 on both OSes, then release-check (C3.12 and D57(a)'s local reference run: a
-#     release gate). C5.2 and the C1.16 rig are not part of it: overnight-outcome.txt names them
-#     as pending for the C5.2 night, and they count neither for nor against its exit status;
+#     release gate). The C1.16 rig is not part of it. Then, only with time left (C8_NIGHT1_C52,
+#     default 1; 0 turns it off): the C5.2 chunks, full list, in order (each a self-contained ABBA
+#     comparison, D65(b)), each started only when the machine is on AC at that moment (no wait)
+#     and its estimate ends by the deadline. A chunk that ran VALID with exit 0 is done and counts
+#     as passed; a VALID red counts as failed (a real red, to classify before it is measured
+#     again); a chunk that did not fit, had no AC, or ended INVALID-POWER on both tries is left
+#     for the C5.2 night and counts neither for nor against the night. overnight-outcome.txt names
+#     what is left (pending_c52_night=[c116-rig ...]), so the C5.2 night may not be needed;
 #   - the C5.2 night (C8_C52_ONLY=1, README.md "Candidate 8", "The C5.2 night"): c116-rig, then
 #     the C5.2 chunks on Windows, then on Linux (in derived mode c52-derive first), nothing else;
 #     C8_C52_STEPS limits it to the steps it names.
@@ -98,9 +110,23 @@
 # packages) ends by the deadline; otherwise it is SKIPPED and the next chunk is tried. C8_C52_STEPS
 # (space-separated, default all) runs only the C5.2 night steps it names (c116-rig and the chunks),
 # so a later C5.2 night measures what an earlier one voided, skipped or ran off AC. c51-linux and
-# each c52-linux-* chunk bring the container up for themselves and stop it afterwards. Docker
-# Desktop is started only when its engine was down at the night's start and is not answering (three
-# probes), and only an engine this chain started is stopped (D56(g)).
+# each c52-linux-* chunk bring the container up for themselves and stop it afterwards.
+#
+# Docker (D56(g): never stop the owner's engine, which runs their supabase stack). Whether the
+# engine was up at the night's start is decided by three probes, 30 s apart, as everywhere else
+# (one failed `docker ps` is not an engine that is down). When the engine then does not answer
+# three probes, Docker Desktop is asked to start it; this chain counts the engine as its own only
+# when the engine was down at the start AND `docker desktop status`, read just before the start,
+# said stopped. An engine this chain started is stopped afterwards only when `docker ps` lists no
+# container but the night's own; when other containers run (the owner started theirs) or the
+# listing fails, it is left running, and chain.log says why.
+#
+# Signals. Every long child (each step, release-check, quiet.sh) runs in the background and the
+# shell waits for it, so a TERM, INT or HUP runs the trap at once: it stops that child (TERM to
+# its pid), removes the release-check clone, and exits 143, 130 or 129; no step starts after it.
+# A plain foreground child would hold the trap until it ended, up to release-check's 3 h. The
+# child's own children (go test binaries, docker exec) may outlive it: only nightabort.ps1 stops
+# the whole tree, and README.md's Abort steps 1-5 still apply.
 #
 # The C1.16 rig (c116-rig, Windows, AC-gated, D62(c)): phase3.sh's c116-rig arm, w2-lifetime's
 # procedure (plans/sdd/V6-closeout/w2-lifetime/runs/08-17 and 36) on the frozen candidate:
@@ -124,7 +150,15 @@
 # window ran on battery, AC is present (or returns within the budget), and a second run can end
 # before the deadline: one as long as try 1 when try 1 passed (a whole run), and RC_EST_S when it
 # failed (release-check stops at its first FAIL, so a red try's length says nothing about a green
-# one's). It starts only when RC_EST_S lets it end by the deadline.
+# one's). It starts only when RC_EST_S lets it end by the deadline; on battery it first waits for AC
+# (within the night's budget) until its latest start, the deadline minus RC_EST_S, then runs either
+# way. RC_EST_S (power.sh, 3 h) has never been measured with release-check's current step list, so
+# a run still going at the deadline plus RC_GRACE_S (30 min) is stopped (timeout, then a kill 60 s
+# later) and recorded SKIPPED-OVERRUN: neither a pass nor a fail, never retried. A red run whose
+# govulncheck section says the vulnerability database or the module proxy could not be reached
+# (power.sh's patterns, the ones prefreeze.sh's gate uses) is labelled so and counts NOT-REFERENCE,
+# not failed: it is not a product red, but release-check stopped there, so its later steps never
+# ran and it is no pass either.
 # Hosted ci.yml and nightly.yml on the same commit supply the native-platform lanes.
 set -u
 [ $# -eq 3 ] || { echo "usage: overnight-c8.sh <candidate-repo> <candidate-sha> <evidence-dir>" >&2; exit 2; }
@@ -153,16 +187,19 @@ winpath() { if command -v cygpath > /dev/null 2>&1; then cygpath -m "$1"; else p
 
 NIGHT_DEADLINE=${NIGHT_DEADLINE:-08:00}
 AC_WAIT_BUDGET_MIN=${AC_WAIT_BUDGET_MIN:-180}   # D57(d)'s 180-minute AC wait, now one budget per night
-# RC_EST_S: how long a local release-check is expected to take. SP-17's record is 8451 s on a smaller
-# tree and w17-release estimates 2.5-3 h on this laptop; rounded up to 3 h. Used only to decide whether
-# it can start before the deadline; a retry is sized by try 1's own duration instead.
-RC_EST_S=${RC_EST_S:-10800}
+# RC_EST_S (power.sh, 3 h): release-check's estimate, for its latest start; a retry is sized by try
+# 1's own duration instead. RC_GRACE_S: how long past the deadline a release-check still running is
+# allowed before it is stopped (header).
+RC_GRACE_S=${RC_GRACE_S:-1800}
 QUIET_BASE=cf31e01                              # quiet.sh's pre-Phase-2 base (its header)
 PREV_CANDIDATE=${C8_PREV_CANDIDATE:-d20309c03ffc364e4cc48663be73cfbb1f2309b2}   # candidate 7 (phase3/c7-CANDIDATE.md)
 # The night's plan (header, "Two nights"): only an empty switch or exactly 1, so a mistyped one
 # cannot run candidate 8's night, release-check included, on the frozen candidate.
 case ${C8_C52_ONLY:-} in ''|1) ;; *) refuse "C8_C52_ONLY must be empty or 1, not '$C8_C52_ONLY'" ;; esac
 c52only() { [ "${C8_C52_ONLY:-}" = 1 ]; }
+# C8_NIGHT1_C52 (header, "Two nights"): candidate 8's night runs C5.2 chunks after release-check when
+# time and AC allow; 0 turns that off.
+case ${C8_NIGHT1_C52:-} in ''|0|1) ;; *) refuse "C8_NIGHT1_C52 must be empty, 0 or 1, not '$C8_NIGHT1_C52'" ;; esac
 # C5.2's set (header): full, the whole list (D62(b), candidate 8's), or derived (D57(e) by
 # c52derive.py, whose failure measures the whole list too).
 C52_SET=${C8_C52_SET:-full}
@@ -225,10 +262,22 @@ C52_DERIVE_EST_S=2700
 # 18-50 s each (w2-lifetime/runs/08-17, 36), but those Reads never reached the daemon (3f2da1b3), so
 # no measured time exists for the rig as it now runs.
 C116_EST_S=3900
+# STEP_EST: the end-by-deadline estimates of every other step, in minutes, from candidate 6's night
+# (phase3/c6/chain.log and its records, 2026-10-02), rounded up with margin:
+#   win-timing 15 (p3-win-timing 4 min 49 s, then the three hot-path rows alone); win-e2e-timing 35
+#   (25 min 33 s, candidate 5's 25 min 14 s; its hard stop is -timeout=45m); win-x11-alone 15
+#   (10 min 54 s); win-race 50 and bundles 15 (52 min 19 s together); linux-timing 15 and
+#   linux-e2e-timing 30 (25 min together); linux-tree 45, linux-e2e 40 and linux-child 15 (67 min
+#   33 s together); c51-win 10 (4 min 21 s); c51-linux 20 (2 min 29 s, plus a container start that
+#   may first wait for the engine).
+STEP_EST="win-timing:15 win-e2e-timing:35 win-x11-alone:15 win-race:50 bundles:15 linux-timing:15 linux-e2e-timing:30 linux-tree:45 linux-e2e:40 linux-child:15 c51-win:10 c51-linux:20"
+step_est() { # step_est <step>: its STEP_EST in seconds, or nothing
+  for se_p in $STEP_EST; do [ "${se_p%%:*}" = "$1" ] && { echo $(( ${se_p#*:} * 60 )); return 0; }; done
+}
 NOPUSH_URL=file:///nonexistent/qompack-release-check-scratch-clone-never-pushes
 DOCKER_START_TIMEOUT_S=600; DOCKER_STOP_TIMEOUT_S=300   # docker desktop's own --timeout (default: none)
 waited=${NIGHT_AC_WAITED_MIN:-0}
-for v in "$AC_WAIT_BUDGET_MIN" "$RC_EST_S" "$waited"; do
+for v in "$AC_WAIT_BUDGET_MIN" "$RC_EST_S" "$RC_GRACE_S" "$waited"; do
   case $v in ''|*[!0-9]*) refuse "not a whole number: '$v'" ;; esac
 done
 if [ -n "${NIGHT_DEADLINE_EPOCH:-}" ]; then
@@ -240,13 +289,30 @@ else
 fi
 DL=$(date -d "@$deadline" +%FT%T)
 past_deadline() { [ "$(date +%s)" -ge "$deadline" ]; }
+# The night's room (header): the last refusal, so a refused launch has run nothing but these reads.
+d_msgs=""; dmsg() { d_msgs="$d_msgs${d_msgs:+; }$*"; }
+disk_free_ok dmsg "${TMPDIR:-/tmp}" "$(go env GOCACHE 2> /dev/null)" ||
+  refuse "not enough room for the night's clones and test binaries: $d_msgs"
 
 RCT=""
 cleanup() {
-  if [ -n "$RCT" ] && [ -d "$RCT" ]; then rm -rf "$RCT" && log "release-check scratch clone $RCT removed"; fi
+  if [ -n "$RCT" ] && [ -d "$RCT" ]; then
+    if rm -rf "$RCT"; then log "release-check scratch clone $RCT removed"
+    else log "release-check scratch clone $RCT could NOT be removed (a process still runs in it? README.md Abort steps 1 and 4)"; fi
+  fi
   RCT=""
 }
-trap cleanup EXIT; trap 'exit 130' INT; trap 'exit 143' TERM; trap 'exit 129' HUP
+# fg <command...>: runs a long child in the background and waits for it, so a signal's trap runs at
+# once instead of when the child ends (header, "Signals"); its exit status is the child's.
+FG=""
+fg() { "$@" & FG=$!; wait "$FG"; fg_rc=$?; FG=""; return "$fg_rc"; }
+on_signal() {
+  if [ -n "$FG" ] && kill -TERM "$FG" 2> /dev/null; then
+    log "signal: stopped the running child (pid $FG); its own children may outlive it (README.md Abort step 1, nightabort.ps1)"
+  fi
+  FG=""; exit "$1"
+}
+trap cleanup EXIT; trap 'on_signal 130' INT; trap 'on_signal 143' TERM; trap 'on_signal 129' HUP
 
 # ---- outcome -------------------------------------------------------------------------------------
 n_pass=0; n_fail=0; n_inv=0; n_nref=0; n_nref_red=0; n_skip=0; n_rep=0; failed=""
@@ -282,7 +348,7 @@ move_aside() { # move_aside <step> <try> <snapshot>: prints the directory
   echo "$ma_d"
 }
 
-# ---- docker --------------------------------------------------------------------------------------
+# ---- docker (header, "Docker") -------------------------------------------------------------------
 engine_up_at_start=0; cs_started=0
 docker_answers() { # three probes, 30 s apart: one failed probe is not an engine that is down
   da_n=0
@@ -292,16 +358,32 @@ docker_answers() { # three probes, 30 s apart: one failed probe is not an engine
     sleep 30
   done
 }
-container_up() { # 0 when the container runs; cs_started=1 when this chain started the engine
+docker_desktop_state() { # Docker Desktop's own status word (running, stopped, starting, ...), or unknown
+  dds=$(timeout -k 10 60 docker desktop status 2> /dev/null | tr -d '\r' |
+    sed -n 's/^Status[[:space:]][[:space:]]*\([A-Za-z-][A-Za-z-]*\).*/\1/p' | head -n 1)
+  echo "${dds:-unknown}"
+}
+others_running() { # the running containers other than the night's, one per line; 1 when unlisted
+  orl=$(timeout -k 10 60 docker ps --format '{{.Names}}' 2> /dev/null) || return 1
+  printf '%s\n' "$orl" | tr -d '\r' | grep -vx -e 'qompack-v6-linux-verification' -e ''
+  return 0
+}
+docker_desktop_start() {
+  timeout -k 30 $((DOCKER_START_TIMEOUT_S + 60)) docker desktop start --timeout "$DOCKER_START_TIMEOUT_S" > /dev/null 2>&1
+}
+container_up() { # 0 when the container runs; cs_started=1 only when this chain started the engine
   cs_started=0
   if ! docker_answers; then
+    cu_st=$(docker_desktop_state)
     if [ "$engine_up_at_start" = 1 ]; then
-      log "docker engine not answering (3 probes) though it was up at the night's start: it is the owner's engine, so this chain asks Docker Desktop to start it but never stops it (D56(g))"
-      timeout -k 30 $((DOCKER_START_TIMEOUT_S + 60)) docker desktop start --timeout "$DOCKER_START_TIMEOUT_S" > /dev/null 2>&1
-      log "engine start (the owner's engine) exit=$?"
+      log "docker engine not answering (3 probes) though it was up at the night's start (Docker Desktop status: $cu_st): it is the owner's engine, so this chain asks Docker Desktop to start it but never stops it (D56(g))"
+      docker_desktop_start; log "engine start (the owner's engine) exit=$?"
+    elif [ "$cu_st" != stopped ]; then
+      log "docker engine not answering (3 probes), but Docker Desktop's status is '$cu_st', not stopped: this chain asks Docker Desktop to start it, and since it did not find the engine stopped, never stops it (D56(g))"
+      docker_desktop_start; log "engine start (not started by this chain: it was not stopped) exit=$?"
     else
-      log "docker engine not answering (3 probes): starting it (docker desktop start --timeout $DOCKER_START_TIMEOUT_S)"
-      if timeout -k 30 $((DOCKER_START_TIMEOUT_S + 60)) docker desktop start --timeout "$DOCKER_START_TIMEOUT_S" > /dev/null 2>&1; then
+      log "docker engine not answering (3 probes) and Docker Desktop's status is stopped: starting it (docker desktop start --timeout $DOCKER_START_TIMEOUT_S)"
+      if docker_desktop_start; then
         cs_started=1; log "engine started by this chain"
       else
         log "engine start failed or timed out exit=$?"
@@ -314,8 +396,14 @@ container_up() { # 0 when the container runs; cs_started=1 when this chain start
 container_down() {
   timeout -k 10 120 docker stop qompack-v6-linux-verification > /dev/null 2>&1; log "container stopped exit=$?"
   if [ "$cs_started" = 1 ] && [ "$engine_up_at_start" = 0 ]; then
-    timeout -k 30 $((DOCKER_STOP_TIMEOUT_S + 60)) docker desktop stop --timeout "$DOCKER_STOP_TIMEOUT_S" > /dev/null 2>&1
-    log "engine stopped exit=$?"
+    if ! cd_o=$(others_running); then
+      log "engine left running: its containers could not be listed, so this chain cannot tell that nothing else runs on it (D56(g))"
+    elif [ -n "$cd_o" ]; then
+      log "engine left running: other containers run on it ($(printf '%s' "$cd_o" | tr '\n' ' ' | sed 's/ *$//')), so it is not this chain's alone (D56(g))"
+    else
+      timeout -k 30 $((DOCKER_STOP_TIMEOUT_S + 60)) docker desktop stop --timeout "$DOCKER_STOP_TIMEOUT_S" > /dev/null 2>&1
+      log "engine stopped exit=$?"
+    fi
   else
     log "engine left as found (D56(g))"
   fi
@@ -377,16 +465,18 @@ c52_group_pkgs() {
 c52_isect() { # c52_isect <words> <set>: the words that are in the set, in their own order
   for ci_w in $1; do case " $2 " in *" $ci_w "*) printf '%s\n' "$ci_w" ;; esac; done | tr '\n' ' ' | sed 's/ $//'
 }
-gated_est() { # gated_est <step>: its end-by-deadline estimate in seconds, or nothing
+gated_est() { # gated_est <step>: its end-by-deadline estimate in seconds
   case $1 in
     c116-rig) echo "$C116_EST_S" ;;
     c52-win-*) c52_est_s "$C52_EST_WIN" "$(c52pk_of "$1")" ;;
     c52-linux-*) c52_est_s "$C52_EST_LINUX" "$(c52pk_of "$1")" ;;
+    *) step_est "$1" ;;
   esac
 }
 gated_skip_note() { # gated_skip_note <step>: what a step SKIPPED for its estimate leaves behind
   case $1 in
     c116-rig) echo "C116_EST_S: its two runs' -timeout=30m plus the build; a later C5.2 night (C8_C52_ONLY=1, C8_C52_STEPS naming it) re-runs it" ;;
+    win-*|c51-*) echo "STEP_EST: candidate 6's time for it; re-run it on this candidate (README.md Abort step 7)" ;;
     c52-*)
       case $C52_STATE in
         derived) echo "C52_EST_*: candidate 5's time for its packages; its rows of c52-derive/selection.tsv wait for a later C5.2 night (C8_C52_ONLY=1, C8_C52_STEPS naming it)" ;;
@@ -406,20 +496,28 @@ run_gated() {
       count skip "$g_s"; return 0
     fi
     if [ -n "$g_est" ] && [ $(( $(date +%s) + g_est )) -gt "$deadline" ]; then
-      record "$g_s" "$g_n" - SKIPPED - - - - "it needs about $(( (g_est + 59) / 60 )) min ($(gated_skip_note "$g_s")) and would end after the deadline $DL"
+      record "$g_s" "$g_n" - SKIPPED - - - - "${g_note:+$g_note; }it needs about $(( (g_est + 59) / 60 )) min ($(gated_skip_note "$g_s")) and would end after the deadline $DL"
       count skip "$g_s"; return 0
     fi
     g_t0=$(date +%s); g_p0=$(power_read)      # t0 before the last power check (D57(d))
     case $g_p0 in "AC "*) break ;; esac
     [ "$g_noac" = 1 ] && break                # the wait budget is spent: it runs, NOT-REFERENCE
     [ "$g_mode" = now ] && return 1
-    if ! power_wait_ac waited "$AC_WAIT_BUDGET_MIN" "$deadline" log; then
-      g_note="no AC within the night's wait budget"; g_noac=1
-    fi
+    case $g_s in
+      c52-*)   # D65(c): never on battery; wait for AC past the budget until its latest start
+        if ! power_wait_ac waited - "$((deadline - g_est))" log; then
+          record "$g_s" "$g_n" - SKIPPED - - - - "no AC by its latest start $(date -d "@$((deadline - g_est))" +%FT%T) (D65(c): a C5.2 chunk never runs on battery; it needs about $(( (g_est + 59) / 60 )) min and the deadline is $DL); $(gated_skip_note "$g_s")"
+          count skip "$g_s"; return 0
+        fi ;;
+      *)
+        if ! power_wait_ac waited "$AC_WAIT_BUDGET_MIN" "$deadline" log; then
+          g_note="no AC within the night's wait budget"; g_noac=1
+        fi ;;
+    esac
   done
   g_sf=$(mktemp); snap "$g_sf"
   log "step $g_s try $g_n start power=$g_p0"
-  gated_cmd "$g_s" >> "$E/chain.log" 2>&1; g_rc=$?
+  fg gated_cmd "$g_s" >> "$E/chain.log" 2>&1; g_rc=$?
   g_t1=$(date +%s); g_p1=$(power_read)
   if g_ev=$(power_events_since "$g_t0"); then g_ok=1; else g_ok=0; g_ev=""; fi
   g_v=$(power_verdict "$g_p0" "$g_ok" "$(power_events_window "$g_t0" "$g_t1" "$g_ev")" "$g_p1")
@@ -467,9 +565,14 @@ run_queue() { # run_queue <now|wait>
 step() { # step <name> <command...>: never waits for AC; its power is recorded all the same (D57(d))
   s_name=$1; shift
   if past_deadline; then skipped "$s_name" "the deadline $DL passed"; return 0; fi
+  s_est=$(step_est "$s_name")
+  if [ -n "$s_est" ] && [ $(( $(date +%s) + s_est )) -gt "$deadline" ]; then
+    skipped "$s_name" "it needs about $((s_est / 60)) min (STEP_EST: candidate 6's time for it) and would end after the deadline $DL"
+    return 0
+  fi
   s_t0=$(date +%s); s_p0=$(power_read)
   log "step $s_name start power=$s_p0"
-  "$@" >> "$E/chain.log" 2>&1; s_rc=$?
+  fg "$@" >> "$E/chain.log" 2>&1; s_rc=$?
   s_t1=$(date +%s); s_p1=$(power_read)
   log "step $s_name finished exit=$s_rc"
   if s_ev=$(power_events_since "$s_t0"); then s_ok=1; else s_ok=0; s_ev=""; fi
@@ -492,6 +595,12 @@ linux_lanes() {
   ll_steps="linux-timing linux-e2e-timing linux-tree linux-e2e linux-child"
   if past_deadline; then
     for ll_s in $ll_steps; do skipped "$ll_s" "the deadline $DL passed"; done
+    return 0
+  fi
+  ll_fit=0   # the container starts only if at least one lane can end by the deadline
+  for ll_s in $ll_steps; do [ $(( $(date +%s) + $(step_est "$ll_s") )) -le "$deadline" ] && ll_fit=1; done
+  if [ "$ll_fit" = 0 ]; then
+    for ll_s in $ll_steps; do skipped "$ll_s" "it needs about $(( $(step_est "$ll_s") / 60 )) min (STEP_EST: candidate 6's time for it) and would end after the deadline $DL"; done
     return 0
   fi
   if container_up; then
@@ -654,8 +763,30 @@ rc_retry_blocker() {
   fi
   return 0
 }
+# rc_govuln_unreachable <stamped log>: release-check stopped in its govulncheck step, and that
+# section says the database or proxy could not be reached (power.sh's govuln_unreachable).
+rc_govuln_unreachable() {
+  rgu_f=$(mktemp) || return 1
+  awk '{ l = $0; sub(/^[0-9]+ [^ ]+ /, "", l) }
+       l ~ /^=== release-check: .* ===$/ { in_v = (l == "=== release-check: govulncheck ===") ; next }
+       in_v { print l }' "$1" > "$rgu_f" 2> /dev/null
+  if [ -s "$rgu_f" ] && govuln_unreachable "$rgu_f"; then rm -f "$rgu_f"; return 0; fi
+  rm -f "$rgu_f"; return 1
+}
 release_check() {
   if [ $(( $(date +%s) + RC_EST_S )) -gt "$deadline" ]; then
+    log "step release-check SKIPPED: it needs about $((RC_EST_S / 60)) min (RC_EST_S) and would end after the deadline $DL"
+    tsv release-check 1 - SKIPPED - - - -; count skip release-check; return 0
+  fi
+  # On battery, wait for AC until its latest start (header), within the night's budget, then run.
+  rc_latest=$((deadline - RC_EST_S))
+  case $(power_read) in
+    "AC "*) ;;
+    *) log "release-check: not on AC; waiting for AC until its latest start $(date -d "@$rc_latest" +%FT%T) (the deadline minus RC_EST_S), within the night's wait budget"
+       power_wait_ac waited "$AC_WAIT_BUDGET_MIN" "$rc_latest" log ||
+         log "release-check: no AC by its latest start or within the budget; it runs now, and its AC-sensitive windows say what the run is worth" ;;
+  esac
+  if past_deadline || [ $(( $(date +%s) + RC_EST_S )) -gt "$deadline" ]; then
     log "step release-check SKIPPED: it needs about $((RC_EST_S / 60)) min (RC_EST_S) and would end after the deadline $DL"
     tsv release-check 1 - SKIPPED - - - -; count skip release-check; return 0
   fi
@@ -670,12 +801,18 @@ release_check() {
   rc_try=1
   while :; do
     rc_t0=$(date +%s); rc_p0=$(power_read); rc_sf=$(mktemp); snap "$rc_sf"
-    log "step release-check try $rc_try start power=$rc_p0"
-    sh "$here/recrun.sh" "$RCT/repo" "$E" p3-release-check-tag -- sh "$here/stamped.sh" \
+    rc_lim=$((deadline + RC_GRACE_S - rc_t0))   # the watchdog (header): stopped at the deadline plus RC_GRACE_S
+    log "step release-check try $rc_try start power=$rc_p0 (stopped if still running at $(date -d "@$((deadline + RC_GRACE_S))" +%FT%T), the deadline plus RC_GRACE_S)"
+    fg sh "$here/recrun.sh" "$RCT/repo" "$E" p3-release-check-tag -- timeout -k 60 "$rc_lim" sh "$here/stamped.sh" \
       go run ./tools/devtool release-check --tag v0.3.0 --evidence-copy "$(winpath "$E")/release-check.json" \
       >> "$E/chain.log" 2>&1
     rc_rc=$?
     rc_t1=$(date +%s); rc_p1=$(power_read)
+    if [ "$rc_rc" -eq 124 ]; then   # the watchdog stopped it: neither a pass nor a fail, never retried
+      rm -f "$rc_sf"
+      record release-check "$rc_try" "$rc_rc" SKIPPED-OVERRUN "$rc_p0" "$rc_p1" "$rc_t0" "$rc_t1" "still running at the deadline $DL plus RC_GRACE_S ($((RC_GRACE_S / 60)) min), so it was stopped: neither a pass nor a fail, not retried; its log ends where it stopped, and RC_EST_S ($((RC_EST_S / 60)) min) is too small for this tree"
+      count skip release-check; break
+    fi
     if rc_ev=$(power_events_since "$rc_t0"); then rc_ok=1; else rc_ok=0; rc_ev=""; fi
     rc_wf=$(mktemp)
     rc_windows "$E/p3-release-check-tag.log" "$rc_t1" > "$rc_wf" 2> /dev/null
@@ -703,8 +840,20 @@ release_check() {
           rc_note="$rc_note; not retried: $rc_why"
         fi
         case $rc_v in INVALID-POWER*) count invalid release-check ;; *) count nref release-check "$rc_rc" ;; esac ;;
-      VALID*) if [ "$rc_rc" -eq 0 ]; then count pass release-check; else count fail release-check; fi ;;
+      VALID*)
+        if [ "$rc_rc" -eq 0 ]; then count pass release-check
+        elif rc_govuln_unreachable "$E/p3-release-check-tag.log"; then
+          count nref release-check "$rc_rc"
+          rc_note="$rc_note; govulncheck could not reach its database or the module proxy (network), not a product red: release-check stopped there, so the steps after it never ran (neither a pass nor a fail; hosted ci.yml's security job checks the pushed candidate)"
+          log "release-check: govulncheck unreachable (network), not a product red"
+        else count fail release-check; fi ;;
       *) count nref release-check "$rc_rc" ;;
+    esac
+    case $rc_v in
+      VALID*) ;;
+      *) if [ "$rc_rc" -ne 0 ] && rc_govuln_unreachable "$E/p3-release-check-tag.log"; then
+           rc_note="$rc_note; its red is govulncheck's unreachable database or module proxy (network), not a product red"
+         fi ;;
     esac
     rm -f "$rc_sf"
     record release-check "$rc_try" "$rc_rc" "$rc_v" "$rc_p0" "$rc_p1" "$rc_t0" "$rc_t1" "$rc_note"
@@ -720,12 +869,68 @@ release_check() {
   cleanup
 }
 
+# ---- C5.2 chunks in candidate 8's night (header, "Two nights") -----------------------------------
+# c52_night1: after release-check, the full list's chunks in order, each only on AC at that moment
+# and only when its estimate ends by the deadline. Sets c52_left to the chunks still owed to the C5.2
+# night. A chunk that is not done counts neither for nor against this night, except a VALID red.
+c52_night1() {
+  c52_left=""
+  if [ "${C8_NIGHT1_C52:-1}" = 0 ]; then
+    log "c52 in this night: off (C8_NIGHT1_C52=0); every chunk is the C5.2 night's"
+    c52_left=$C52_CHUNKS; return 0
+  fi
+  if [ -z "$(c52_list 1)" ]; then   # the chunks are made from the list; the C5.2 night refuses without it
+    log "c52 in this night: cannot read quiet.sh's benches() list ($here/quiet.sh), so no chunk runs; every chunk is the C5.2 night's"
+    c52_left=$C52_CHUNKS; return 0
+  fi
+  C52_STATE=full; C52_FILTER=""
+  log "c52 in this night (D65(b)): each chunk of the full list, in order, runs now if the machine is on AC and its estimate ends by $DL; the rest are the C5.2 night's"
+  for cn_s in $C52_CHUNKS; do
+    cn_pk=$(c52_group_pkgs "${cn_s##*-}")
+    if [ -z "$cn_pk" ]; then log "c52: $cn_s: quiet.sh's list has no package in its group, so it has nothing to measure"; continue; fi
+    set_c52pk "$cn_s" "$cn_pk"
+    cn_e=$(gated_est "$cn_s")
+    if past_deadline || [ $(( $(date +%s) + cn_e )) -gt "$deadline" ]; then
+      log "c52: $cn_s needs about $(( (cn_e + 59) / 60 )) min (C52_EST_*) and would end after the deadline $DL: left for the C5.2 night"
+      c52_left="$c52_left $cn_s"; continue
+    fi
+    cn_p=$(power_read)
+    case $cn_p in
+      "AC "*) ;;
+      *) log "c52: $cn_s: not on AC ($cn_p), and a chunk never runs on battery (D65(c)): left for the C5.2 night"
+         c52_left="$c52_left $cn_s"; continue ;;
+    esac
+    log "c52: $cn_s measures QUIET_PKGS='$cn_pk' QUIET_BENCH_FILTER='' into quiet-$cn_s/, about $(( (cn_e + 59) / 60 )) min"
+    cn_pass=$n_pass; cn_fail=$n_fail; cn_inv=$n_inv; cn_nref=$n_nref; cn_skip=$n_skip; cn_nred=$n_nref_red
+    while :; do
+      cn_t=$(tries_of "$cn_s")
+      run_gated "$cn_s" now && break                 # its final verdict
+      [ "$(tries_of "$cn_s")" != "$cn_t" ] && continue # INVALID-POWER try 1: retried at once, if on AC
+      break                                          # no AC for its retry
+    done
+    if [ "$n_pass" -gt "$cn_pass" ]; then
+      log "c52: $cn_s done (VALID, exit 0)"
+    elif [ "$n_fail" -gt "$cn_fail" ]; then
+      log "c52: $cn_s is a VALID red: classify it in the ledger before the C5.2 night measures it again"
+      c52_left="$c52_left $cn_s"
+    else   # not measured as a reference: it is owed, not counted
+      n_inv=$cn_inv; n_nref=$cn_nref; n_skip=$cn_skip; n_nref_red=$cn_nred
+      log "c52: $cn_s was not measured VALID (power.tsv has its tries): left for the C5.2 night, counted neither way"
+      c52_left="$c52_left $cn_s"
+    fi
+  done
+  c52_left=${c52_left# }
+}
+
 # ---- the night -----------------------------------------------------------------------------------
 if c52only; then plan="mode=c52-only c52_set=$C52_SET steps=[$C52_SEL]"
 else plan="release-check must start by $(date -d "@$((deadline - RC_EST_S))" +%FT%T) (RC_EST_S)"; fi
-log "start candidate=$H pid $$ winpid $(cat "/proc/$$/winpid" 2> /dev/null || echo '?') deadline=$DL${NIGHT_DEADLINE_EPOCH:+ (from c8-night.sh)} $plan ac_wait_budget=${AC_WAIT_BUDGET_MIN}min used=${waited}min prev_candidate=$PREV_CANDIDATE power=$(power_read)"
-timeout -k 10 60 docker ps > /dev/null 2>&1 && engine_up_at_start=1
-log "engine up at start=$engine_up_at_start (only an engine down now and started by this chain is ever stopped)"
+log "start candidate=$H pid $$ winpid $(cat "/proc/$$/winpid" 2> /dev/null || echo '?') deadline=$DL${NIGHT_DEADLINE_EPOCH:+ (from c8-night.sh)} $plan ac_wait_budget=${AC_WAIT_BUDGET_MIN}min used=${waited}min prev_candidate=$PREV_CANDIDATE go=$(cd "$C" && go env GOVERSION 2> /dev/null) power=$(power_read)"
+log "$d_msgs"
+docker_answers && engine_up_at_start=1      # three probes, as everywhere (header, "Docker")
+# Docker Desktop's status is read only for an engine that is not answering: an up engine is left
+# wholly alone.
+log "engine up at start=$engine_up_at_start (three probes$([ "$engine_up_at_start" = 1 ] || echo "; Docker Desktop status: $(docker_desktop_state)")); an engine is stopped only when it was down now, Docker Desktop said stopped, this chain started it, and nothing else runs on it"
 timeout -k 10 60 docker ps --format "{{.Names}} {{.Status}}" >> "$E/chain.log" 2>&1
 timeout -k 10 120 docker stop qompack-v6-linux-verification > /dev/null 2>&1
 
@@ -750,8 +955,9 @@ else
   run_queue now
   release_check   # C3.12 and D57(a): a release gate
   run_queue wait
-  pending=$C52_NIGHT
-  log "not in this night (D62(c)): $pending, the C5.2 night's (C8_C52_ONLY=1 on this candidate, README.md \"The C5.2 night\"): the C1.16 rig and the full C5.2 list (D62(b)) in its chunks"
+  c52_night1
+  pending="c116-rig${c52_left:+ $c52_left}"
+  log "left for the C5.2 night (D62(c); C8_C52_ONLY=1 on this candidate, README.md \"The C5.2 night\", with C8_C52_STEPS naming these): $pending"
 fi
 
 total=$((n_pass + n_fail + n_inv + n_nref + n_skip + n_rep))
