@@ -97,7 +97,10 @@ or ask rule's literal (`secrets` for `Read(./secrets/**)`, `deny.txt` for
 `Read(./private/deny.txt)`), no name of a path the block withholds, and no `recall` `path:` selector
 that selects a withheld path. Anything else withholds the summary: a `$`, a second `%` or one before
 two hex digits, a backtick, a caret, a glob or regex metacharacter, a quote elsewhere, a Unicode space
-or quote, a `=` that starts a word (zsh expands `=name` to a command's path), a `#` inside a word (a
+or quote, a letter or mark that Windows' ANSI best-fit conversion turns into ASCII punctuation (the
+Spacing Modifier Letters block and a few combining marks: a program reading an ANSI command line
+receives U+02BA as `"` and U+0303 as `~`), a `=` that starts a word (zsh expands `=name` to a
+command's path), a `#` inside a word (a
 zsh extended-glob operator), a whole `@name` (a PowerShell splat), a backslash that ends a token (an
 escaped space or a collapsed line continuation) or doubles, an absolute path at any place a path may
 start (the token's start, after `=`, `:`, `,`, `@`, an apostrophe, a parenthesis, a `+` (where
@@ -110,13 +113,18 @@ is not one), or, inside a quoted argument, the project root followed by a space 
 an operator where the argument's path starts (a sibling folder). The project root's own spelling is
 read with `/` alone on Linux and macOS, and with one slash style throughout on Windows, since a POSIX
 shell drops a backslash between two of its segments and reads a sibling of an ancestor; and it is
-held together as one unit only when it holds nothing but letters, marks, digits, `- _ .`, its
-separators and single spaces (coordinator decision D64). A root with any other character (an
-apostrophe, a comma, a `+`, an `@`, a `;`, a `$`, a `~`, a Unicode space, and the like) is one a
-shell can split or reinterpret, and one with a run of spaces or a tab is one no preview spells
-exactly, so a summary spelling it is judged as the free text it is and withheld; a drop reason holds
-only a root that a preview spells exactly, and under any other root redacts every path it names
-below the root. A store cut right after a drive
+held together as one unit only when it holds nothing but letters, marks and digits (none of those
+best-fit characters), `- _ .`, its separators and single spaces, and no word of it starts with `-`
+after a space (coordinator decision D64; PowerShell binds such a word as a parameter, and a lone
+`-`, as in `OneDrive - Contoso`, counts too). A root with any other character (an apostrophe, a
+comma, a `+`, an `@`, a `;`, a `$`, a `~`, a Unicode space, and the like) is one a shell can split
+or reinterpret, and one with a run of spaces or a tab is one no preview spells exactly, so a
+summary spelling it is judged as the free text it is and withheld; a drop reason holds a root that
+a preview spells exactly whatever its characters, and under any other root redacts every path it
+names below the root. A store cut inside a path-named value is the project only when what is left
+starts the root's own spelling byte for byte (an ASCII letter's case aside on Windows and macOS),
+so a cut sibling that differs from the root only by a quote or a doubled space is withheld. A store
+cut right after a drive
 or provider name's `:` (`Temp:…`) is withheld, since the cut may hide the file after it; a bare
 drive or provider name with nothing after its `:` (`Get-ChildItem Temp:`, a commit message's `fix:`)
 names a drive root, reveals no file and is shown, while a bare single-letter drive (`cd C:`) stays
@@ -127,7 +135,8 @@ The whitelist is complete for privacy by construction — the only ways a shell 
 whitelisted token are a backslash, which the screen reads both ways, the removal of quotes, which the
 screen reads too, the quoted span an apostrophe opens, which joins words but after which no project
 root may stand, and a nested shell's reading of a quoted run's parentheses, which the screen reads
-with them removed — but it over-withholds: a command that uses a variable, globs, runs a regular
+with them removed; Windows' ANSI best fit could turn a letter into punctuation, so no such letter is
+whitelisted — but it over-withholds: a command that uses a variable, globs, runs a regular
 expression or puts a name and a `:` where a path may start (`localhost:3000`, `HEAD:x`, a PowerShell
 drive's shape) is withheld whether or not it names a denied file. A checkpoint drop entry keyed by a
 withheld path stays in `dropped()` with the path replaced by the pointer's hash or `(path withheld)`,
