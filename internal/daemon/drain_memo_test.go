@@ -95,35 +95,78 @@ func TestDrain_ACorruptLineAheadOfAFrontHoldsBackOnlyTheBlobsItNames(t *testing.
 // from the line's descriptor (pendingBlobOf), which a hostile spool line writes. A name that leaves the
 // spool directory must leave no intent: the progress refuses an unsafe intent, so every later pass would
 // fail before reading a spool file, and nothing outside the spool may be removed.
+//
+// pendingBlobOf repeats every check readBlob makes before it reads a body, so a line names an intent
+// only for a blob readBlob would have read (audit 2 #2): not for a directory under a blob's name (a
+// non-empty one would fail removeBlob, and with it every pass's cleanup), not for a file whose size is
+// not the descriptor's, and not for a descriptor with no event. Each case is consumed as denied behind
+// a waiting head, and the entry it names survives.
 func TestDrainClientSpools_ADeniedLineNamingABlobOutsideTheSpoolLeavesNoCleanupIntent(t *testing.T) {
-	dd, _, root := laneTestDaemon(t)
-	ctx := context.Background()
-	const base = "client-8981.ndjson"
-	hostile := liveOrderTool(dd, root, "sess-outside", 9)
-	cfg := dd.drainConfig()
-	cfg.Admit = denyNonce(cfg.Admit, hostile.Nonce)
-	dr := newDrainer(cfg)
-	dd.drain.Store(dr)
-	outside := filepath.Join(paths.Of(root).Spool, "..", "outside.bin")
 	body := []byte("hostile")
-	require.NoError(t, os.MkdirAll(paths.Long(paths.Of(root).Spool), 0o700))
-	require.NoError(t, os.WriteFile(paths.Long(outside), body, 0o600))
-	ref, err := json.Marshal(blobRef{Blob: "../outside.bin", Bytes: len(body), Field: drainBlobToolResponse, X: hostile.Raw})
-	require.NoError(t, err)
-	ev := *hostile.Event
-	ev.ToolResponse = nil
-	hostile.Event, hostile.Raw = &ev, ref
-	head := blockedSpoolHead(t, dd, root, "sess-outside-stuck", 0)
-	writeHookSpool(t, root, base, head, hostile)
+	for _, c := range []struct {
+		name string
+		// blob is the descriptor's name for the blob, and entry what the row puts there, relative to
+		// the spool directory.
+		blob, entry string
+		// dir makes entry a non-empty directory; otherwise it is a file holding body.
+		dir bool
+		// bytes is the descriptor's size relative to the entry's own: 0 names the entry's size.
+		bytes int
+		// noEvent strips the line's event, so only its descriptor is left.
+		noEvent bool
+	}{
+		{name: "a name outside the spool directory", blob: "../outside.bin", entry: filepath.Join("..", "outside.bin")},
+		{name: "a directory under a blob's name", blob: "blob-8981-1.bin", entry: "blob-8981-1.bin", dir: true},
+		{name: "a blob whose size is not the descriptor's", blob: "blob-8981-2.bin", entry: "blob-8981-2.bin", bytes: 1},
+		{name: "a descriptor with no event", blob: "blob-8981-3.bin", entry: "blob-8981-3.bin", noEvent: true},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			dd, _, root := laneTestDaemon(t)
+			ctx := context.Background()
+			const base = "client-8981.ndjson"
+			hostile := liveOrderTool(dd, root, "sess-outside", 9)
+			cfg := dd.drainConfig()
+			cfg.Admit = denyNonce(cfg.Admit, hostile.Nonce)
+			dr := newDrainer(cfg)
+			dd.drain.Store(dr)
+			spool := paths.Of(root).Spool
+			entry := filepath.Join(spool, c.entry)
+			require.NoError(t, os.MkdirAll(paths.Long(spool), 0o700))
+			if c.dir {
+				require.NoError(t, os.MkdirAll(paths.Long(entry), 0o700))
+				require.NoError(t, os.WriteFile(paths.Long(filepath.Join(entry, "inside")), body, 0o600))
+			} else {
+				require.NoError(t, os.WriteFile(paths.Long(entry), body, 0o600))
+			}
+			fi, err := os.Lstat(paths.Long(entry))
+			require.NoError(t, err)
+			ref, err := json.Marshal(blobRef{
+				Blob: c.blob, Bytes: int(fi.Size()) + c.bytes, Field: drainBlobToolResponse, X: hostile.Raw,
+			})
+			require.NoError(t, err)
+			ev := *hostile.Event
+			ev.ToolResponse = nil
+			hostile.Event, hostile.Raw = &ev, ref
+			if c.noEvent {
+				hostile.Event = nil
+			}
+			head := blockedSpoolHead(t, dd, root, "sess-outside-stuck", 0)
+			writeHookSpool(t, root, base, head, hostile)
 
-	for pass := 1; pass <= 2; pass++ {
-		_, err = dr.DrainClientSpools(ctx)
-		require.NoError(t, err, "pass %d loads its progress", pass)
+			for pass := 1; pass <= 2; pass++ {
+				_, err = dr.DrainClientSpools(ctx)
+				require.NoError(t, err, "pass %d loads its progress and cleans up", pass)
+			}
+			st, err := dr.loadState()
+			require.NoError(t, err)
+			require.Contains(t, st, base, "fixture: the spool stays behind its waiting head")
+			require.Equal(t, int64(len(hookSpoolLine(t, head))+len(hookSpoolLine(t, hostile))), st[base].Size,
+				"fixture: both passes read the whole spool")
+			require.Empty(t, st[base].PendingBlobs, "a blob readBlob would not have read is no cleanup intent")
+			_, err = os.Lstat(paths.Long(entry))
+			require.NoError(t, err, "the entry the line names survives")
+		})
 	}
-	st, err := dr.loadState()
-	require.NoError(t, err)
-	require.Empty(t, st[base].PendingBlobs, "a name outside the spool directory is no cleanup intent")
-	require.FileExists(t, outside)
 }
 
 // TestDrainClientSpools_AFailedProgressWriteForgetsWhatThePassRemembered: a pass remembers the lines it
@@ -280,6 +323,9 @@ func TestDrainClientSpools_ALineReadAndLeftIsAnnouncedWhenALaterPassSkipsIt(t *t
 		journalFailsOnce bool
 		// heldElsewhere has another handler hold the line's delivery through pass 1.
 		heldElsewhere bool
+		// first puts the line at the start of the spool, with no waiting head ahead of it: another
+		// session's line follows it instead.
+		first bool
 		// What pass 1 does with the line: whether it fails, how often it admits the line, and whether it
 		// finds the refused line's delivery identity unresolved (drain_leased_deny_pending).
 		pass1Err        bool
@@ -290,6 +336,12 @@ func TestDrainClientSpools_ALineReadAndLeftIsAnnouncedWhenALaterPassSkipsIt(t *t
 		{name: "its lease could not be taken", admittedFirst: true, journalFailsOnce: true, pass1Err: true, pass1Admissions: 1},
 		{name: "its dispatch failed with no lease", noNonce: true, admittedFirst: true, pass1Err: true, pass1Admissions: 2},
 		{name: "it waited with no lease", noNonce: true, admittedFirst: true, heldElsewhere: true, pass1Admissions: 1},
+		// Audit 2 #1: readTo's stop at offset 0 itself. A one-line client spool whose lease lookup
+		// meets a rotating journal leaves its line exactly there.
+		{
+			name: "its lease lookup failed at the spool's first line", journalFailsOnce: true, first: true,
+			pass1Admissions: 1, pass1Unresolved: 1,
+		},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			dd, _, root := laneTestDaemon(t)
@@ -326,9 +378,13 @@ func TestDrainClientSpools_ALineReadAndLeftIsAnnouncedWhenALaterPassSkipsIt(t *t
 			}
 			dr := newDrainer(cfg)
 			dd.drain.Store(dr)
-			head := blockedSpoolHead(t, dd, root, "sess-left-stuck", 0)
 			line := hookSpoolLine(t, x)
-			writeRawSpool(t, root, "client-8811.ndjson", hookSpoolLine(t, head), line)
+			if c.first {
+				writeRawSpool(t, root, "client-8811.ndjson", line, hookSpoolLine(t, liveOrderTool(dd, root, "sess-left-other", 3)))
+			} else {
+				head := blockedSpoolHead(t, dd, root, "sess-left-stuck", 0)
+				writeRawSpool(t, root, "client-8811.ndjson", hookSpoolLine(t, head), line)
+			}
 			key := deliveryIdentityKey(deliveryLease{}, false, bytes.TrimSuffix(line, []byte{'\n'}))
 			if c.heldElsewhere {
 				_, acquired := cfg.Seen.begin(key)
@@ -624,6 +680,66 @@ func TestDrainClientSpools_ASpoolReplacedUnderItsNameIsSyncedAndReadAgain(t *tes
 	cost := meter.take()
 	require.Equal(t, int64(1), cost.syncs, "nothing is known of the replacement's durability, so it is synced")
 	require.Equal(t, 1, cost.admitted[other], "nothing of the replacement's lines is known consumed, so they are read")
+}
+
+// TestDrain_AHeldSegmentReleasedUnchangedIsSyncedBeforeItsTailIsRead: a drainer skips the sync of a
+// file it finds unchanged only when its own sync covered that file (spoolMemo's synced). A WAL segment
+// the ingest held during a pass was not synced by the drain: the pass read it only up to the ingest's
+// synced size, and its memo says so. Released afterwards with no write (the ingest closed it after a
+// failed Sync, say), the segment is unchanged by size and time, but the bytes past that synced size
+// were never made durable by anyone. The next pass must sync it before it reads that tail, or it
+// leases lines a machine crash can still take: the orphan lease durableEnd exists to prevent. Audit 2
+// #0: dropping the memo's synced condition, or calling a held segment synced, left every row green.
+func TestDrain_AHeldSegmentReleasedUnchangedIsSyncedBeforeItsTailIsRead(t *testing.T) {
+	dd, _, root := laneTestDaemon(t)
+	ctx := context.Background()
+	const sess core.SessionID = "sess-held-released"
+	base := "wal-" + string(sess) + ".ndjson"
+	path := filepath.Join(paths.Of(root).Spool, base)
+	var held atomic.Bool
+	held.Store(true)
+	var syncedSize atomic.Int64
+	cfg := dd.drainConfig()
+	cfg.SyncedWAL = func(p string) (int64, bool) {
+		if filepath.Base(p) != base || !held.Load() {
+			return 0, false
+		}
+		return syncedSize.Load(), true
+	}
+	cfg.HoldsWAL = func(p string) bool { return filepath.Base(p) == base && held.Load() }
+	cfg.IsLive = func(core.SessionID) bool { return true }
+	dr := newDrainer(cfg)
+	var syncs atomic.Int64
+	syncFile := dr.syncFile
+	dr.syncFile = func(p string) error {
+		if filepath.Base(p) == base {
+			syncs.Add(1)
+		}
+		return syncFile(p)
+	}
+	dd.drain.Store(dr)
+	head := blockedSpoolHead(t, dd, root, sess, 0)
+	behind := liveOrderTool(dd, root, sess, 7) // the same session: it waits behind the head
+	lines := [][]byte{hookSpoolLine(t, head), hookSpoolLine(t, behind)}
+	writeRawSpool(t, root, base, lines...)
+	before, err := os.Stat(paths.Long(path))
+	require.NoError(t, err)
+	// The ingest's Sync covered only the head; the second line is its unsynced tail.
+	syncedSize.Store(int64(len(lines[0])))
+
+	_, err = dr.Drain(ctx)
+	require.NoError(t, err)
+	require.Zero(t, syncs.Load(), "fixture: the drain does not sync a segment the ingest holds")
+
+	held.Store(false) // released, with no write since
+	after, err := os.Stat(paths.Long(path))
+	require.NoError(t, err)
+	require.True(t, before.Size() == after.Size() && before.ModTime().Equal(after.ModTime()),
+		"fixture: the released segment is unchanged by size and modification time")
+	_, err = dr.Drain(ctx)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), syncs.Load(),
+		"a segment only the ingest's Syncs covered, and only to its synced size, is synced once it is released")
 }
 
 // TestDrainer_ReadsABlobBodyOnlyThroughItsSeam: the cost rows count the blob bodies a pass reads through
