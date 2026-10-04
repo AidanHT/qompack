@@ -498,6 +498,13 @@ func TestResumedDraftWithAGoalTurnNoRecordReachesTakesTheRecordsGoal(t *testing.
 	past := core.TurnIndex(9)
 	plantDerivedGoalAt(t, f, rateReadLimiter, &past)
 
+	// One refresh is enough: the resuming Begin's own walk reads every record and replaces the
+	// goal, rather than clearing it for a later refresh to restore (audit 2's M06 nit).
+	require.NoError(t, f.w.SetSources(f.src))
+	f.begin()
+	_, resumed := f.persisted()
+	require.Equal(t, rateCorrection60Goal, resumed.CurrentWork.Goal, "after the resuming Begin alone")
+
 	cp := sealed(t, f, f.precompactAs(f.sess))
 
 	require.Equal(t, rateCorrection60Goal, cp.CurrentWork.Goal)
