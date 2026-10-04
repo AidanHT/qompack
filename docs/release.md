@@ -383,7 +383,11 @@ asserting.
   `110757119491`, image version 20260927.320.1), and `test/guards`'
   `TestReleaseJobsPinTheirRunnerImage` keeps them there (D62(h)): the tag-time gate and the release
   build run on the image their hosted evidence came from whenever the tag is pushed. `ci.yml`'s
-  other Linux jobs and `nightly.yml`'s stay on `ubuntu-latest`, and no run of this repository has
-  been green on Ubuntu 26, so a red that appears only there after that date needs its own recorded
-  disposition before the tag, like any other red (D33). Moving the release jobs off `ubuntu-24.04`
-  takes a green hosted run on the new image first.
+  other Linux jobs, `nightly.yml`'s and `marketplace.yml`'s `pin` job stay on `ubuntu-latest`, and
+  no run of this repository has been green on Ubuntu 26, so a red that appears only there after that
+  date needs its own recorded disposition before the tag, like any other red (D33). The `pin` job is
+  on the release path but is not pinned: it runs only after a full release exists (step 7), changes
+  no release asset, re-verifies the served zips, compares bytes and opens a pull request, and a red
+  there is re-run or recorded, not a rebuilt release. A full release promoted after 2026-10-19
+  therefore runs that job on Ubuntu 26, the first run of it on that image. Moving the release jobs
+  off `ubuntu-24.04` takes a green hosted run on the new image first.
