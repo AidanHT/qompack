@@ -78,6 +78,35 @@ func TestQuery_ForkSeesItsParentsEliminationsUpToTheForkPoint(t *testing.T) {
 	require.Equal(t, AnswerAbsent, proj.State, "a session-scoped record is still not a project-scoped one")
 }
 
+// TestQuery_FilterMissAsksNoAncestry (wave 22, D67(a), ca0b7caa's Query half): a question the
+// filter has never seen is absent for every viewer, so Query answers it before it resolves who is
+// asking. The daemon's Deps.Ancestry reads state/lineage-<session>.json, so a miss that resolved
+// the viewer paid that read on every already_tried. The budget rows measure the cost; this row pins
+// the order, by counting the ancestry lookups a miss makes.
+func TestQuery_FilterMissAsksNoAncestry(t *testing.T) {
+	root, cfg := newProject(t)
+	deps := testDeps("", newMetrics())
+	asked := 0
+	deps.Ancestry = func(s core.SessionID) []Inherited {
+		asked++
+		return forkAncestry(s)
+	}
+	l := openLedger(t, root, cfg, nil, deps)
+	recordAt(t, l, inheritParent, inheritForkAt-1, inheritApproach, inheritReason)
+	asked = 0
+
+	miss, err := l.Query(asCaller(inheritFork, 9), "src/never/recorded.go:limiter", "a global mutex", ScopeSession)
+	require.NoError(t, err)
+	require.Equal(t, AnswerAbsent, miss.State)
+	require.False(t, miss.BloomOnly)
+	require.Zero(t, asked, "a filter miss is absent for every viewer: it resolves no ancestry")
+
+	hit, err := l.Query(asCaller(inheritFork, 9), inheritTarget, inheritApproach, ScopeSession)
+	require.NoError(t, err)
+	require.Equal(t, AnswerActive, hit.State, "the fork still sees its parent's record on a filter hit")
+	require.Equal(t, 1, asked, "a filter hit resolves the viewer once")
+}
+
 // TestActive_ForkListsItsParentsEliminationsUpToTheForkPoint: the rehydration's section 3 reads
 // Active/TopActive for the fork.
 func TestActive_ForkListsItsParentsEliminationsUpToTheForkPoint(t *testing.T) {
