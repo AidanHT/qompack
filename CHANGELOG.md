@@ -223,7 +223,7 @@ live sessions:
   for section 2; `docs/cannot-do.md` §5).
 - **On macOS, Qompack assumes the default case-insensitive volume**: it compares paths and the Read
   rules' patterns without regard to letter case. On a case-sensitive APFS volume, two names that
-  differ only in case are two files, which Qompack reads as one (D67(m), `docs/security.md`).
+  differ only in case are two files, which Qompack reads as one (D67(m), `docs/cannot-do.md` §5).
 - **The recorded-corpus tier of the replay evaluation is not exercised in 0.3.0.** No recorded
   corpus is committed and no test reads real transcripts; the replay evidence is the replay gate's
   (D67(g)).
