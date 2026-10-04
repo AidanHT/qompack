@@ -2132,9 +2132,9 @@ func sanitize(t string) string {
 // control character no sanitized text carries, so the tokenizer never splits the root at its own
 // space and the screen never reads the root's own name as a withheld name. In a summary it does so
 // only for a root whose spelling admits the unit (markRoot, rootUnitAdmitted, D64(1)): a root with a
-// comma, an apostrophe or any other character a shell splits or reinterprets a word at has none,
-// and so has one that no sanitized text spells exactly (rootSpelledExactly). A spelling glued to a
-// name character on either side (proj2, xC:\q\proj) is not the root and is judged as the path
+// comma, an apostrophe, an `@` or any other character a shell splits or reinterprets a word at has
+// none, and so has one that no sanitized text spells exactly (rootSpelledExactly). A spelling glued
+// to a name character on either side (proj2, xC:\q\proj) is not the root and is judged as the path
 // outside the project it is; a spelling glued to a short option is the root as the option's value
 // (-I<root>/include).
 const rootMark = '\x01'
@@ -2189,14 +2189,14 @@ func rootSegments(rest, sep string) string {
 // rootUnitAdmitted reports whether root's own spelling admits the root unit in a summary
 // (coordinator decision D64(1)): a sanitized text spells it exactly (rootSpelledExactly), and,
 // cleaned and slash-separated, every character of it is a Unicode letter, mark or digit, one of
-// `- _ . @`, the separator `/`, an ASCII space, or, on Windows, the drive's `:` after its letter.
-// These are the free-text whitelist's characters at which no shell splits or reinterprets a word in
-// its middle. The whitelist's other characters are left out: `,` (PowerShell splits a bare argument
-// into an array there, and cmd.exe's built-in commands split at it), `=` (cmd.exe's built-in commands
-// split at it), `+` (cmd.exe's copy starts its next source there), `#` (zsh's EXTENDED_GLOB repeats
-// the character before it) and a `:` past the drive (PowerShell reads a name before a `:` as a drive;
-// a list's reader splits at it). So is every character the whitelist rejects: a quote of any kind, a
-// backtick,
+// `- _ .`, the separator `/`, an ASCII space, or, on Windows, the drive's `:` after its letter. These
+// are the free-text whitelist's characters at which no shell splits or reinterprets a word. The
+// whitelist's other characters are left out: `,` (PowerShell splits a bare argument into an array
+// there, and cmd.exe's built-in commands split at it), `=` (cmd.exe's built-in commands split at it),
+// `+` (cmd.exe's copy starts its next source there), `#` (zsh's EXTENDED_GLOB repeats the character
+// before it), `@` (PowerShell splats a word of the root that is a whole `@name`, as in a root ending
+// in ` @Work`) and a `:` past the drive (PowerShell reads a name before a `:` as a drive; a list's
+// reader splits at it). So is every character the whitelist rejects: a quote of any kind, a backtick,
 // `$ ! ; & | ( ) [ ] { } < > ^ % ~ * ?`, a backslash that is no separator (a POSIX shell drops it), a
 // control character and a Unicode space. A root holding any of them, or a run of spaces, has no unit:
 // a summary spelling it is judged as the free text it is, and withheld. An empty root admits nothing.
@@ -2219,7 +2219,7 @@ func rootUnitAdmitted(root string) bool {
 
 // rootUnitChars are the ASCII characters besides `/` and the space that a root's spelling may hold
 // and keep its unit (rootUnitAdmitted).
-const rootUnitChars = "-_.@"
+const rootUnitChars = "-_."
 
 // rootSpelledExactly reports whether a sanitized text (sanitize, the store's preview) can spell root
 // exactly, as rootSpellingOf finds it: cleaned and slash-separated, it holds no control character and

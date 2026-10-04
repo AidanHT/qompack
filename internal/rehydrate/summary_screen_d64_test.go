@@ -26,14 +26,15 @@ import (
 // admit (D64(1)) and that this platform allows in a directory's name: a quote of either kind or a
 // typographic one, a backtick, `$ ! ; & ( ) [ ] { } ^ % ~`, the `,` PowerShell and cmd.exe split an
 // argument at, the `=` cmd.exe splits at, the `+` cmd.exe's copy splits at, the `#` zsh's
-// EXTENDED_GLOB reads, a Unicode space, a run of ASCII spaces (which the store's preview spells as
-// one, so no text spells the root exactly), and on Linux and macOS also `" | < > * ?`, a `:` past the
-// drive, a backslash and a control character.
+// EXTENDED_GLOB reads, the `@` PowerShell splats a word of the root at (`John @Work`), a Unicode
+// space, a run of ASCII spaces (which the store's preview spells as one, so no text spells the root
+// exactly), and on Linux and macOS also `" | < > * ?`, a `:` past the drive, a backslash and a
+// control character.
 func d64ExcludedRootSegments() []string {
 	segs := []string{
 		"o'brien", "a`b", "a$b", "a!b", "a;b", "a&b", "a(b)", "a[b]", "a{b}", "a^b", "a%b",
 		"PROGRA~1", "a,b", "a=b", "a+b", "a#b", "a\u00a0b", "a\u3000b", "o\u2019brien",
-		"a  b",
+		"a@b", "John @Work", "a  b",
 	}
 	if runtime.GOOS != "windows" {
 		segs = append(segs, `a"b`, "a|b", "a<b>", "a*b", "a?b", "a:b", `a\b`, "a\tb")
@@ -70,15 +71,18 @@ func notebookPreview(t *testing.T, p string) string {
 // tab matched a sibling spelled with an ASCII space. A root holding any character outside the unit's
 // set has no unit, so a summary spelling it is judged as the free text it is and withheld. A
 // path-named JSON value is still a structured value (it reaches no shell), and a root built from
-// letters, marks, digits, `- _ . @`, its separators and single spaces keeps its unit. Since the
-// round-2 verify of D64, a root with a run of spaces (the store's preview spells it as one space, so
-// a sibling spelled with one space reads as the root) has none either.
+// letters, marks, digits, `- _ .`, its separators and single spaces keeps its unit. Since the
+// round-2 verify of D64, a root with an `@` (PowerShell splats a word of the root that is a whole
+// `@name`) or a run of spaces (the store's preview spells it as one space, so a sibling spelled with
+// one space reads as the root) has none either.
 func TestBuild_ARootOutsideTheWhitelistHoldsNoRootUnit(t *testing.T) {
 	for _, seg := range d64ExcludedRootSegments() {
 		t.Run(seg, func(t *testing.T) {
 			root := previewRoot(seg, "proj")
 			structured := notebookPreview(t, filepath.Join(root, "src", "x.ipynb"))
-			shown, withheld := []string{structured}, rootSummaries(root)
+			shown := []string{structured}
+			withheld := append(rootSummaries(root),
+				"cd "+root+" && cat private/deny.txt", filepath.Join(root+"2", "x.txt"))
 			if classReading(root) != root {
 				// A glob class in the root's own spelling reads as another path (`a[b]` as `ab`), outside the
 				// project, so even the structured value is withheld (ADR 0011 §23 item 6).
@@ -90,7 +94,7 @@ func TestBuild_ARootOutsideTheWhitelistHoldsNoRootUnit(t *testing.T) {
 			requireScreened(t, root, hostRules(root, uat12Rules...), nil, shown, withheld, []string{"deny.txt"})
 		})
 	}
-	for _, seg := range []string{"a@b", "a-b_c.d", "John Smith", "José"} {
+	for _, seg := range []string{"a-b_c.d", "John Smith", "José"} {
 		t.Run(seg, func(t *testing.T) {
 			root := previewRoot(seg, "proj")
 			requireScreened(t, root, hostRules(root, uat12Rules...), nil, rootSummaries(root),

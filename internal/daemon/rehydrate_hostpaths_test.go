@@ -918,7 +918,10 @@ func TestRehydrateHostPaths_RootedCommandsAndRegularExpressionsAreShownUnderTheU
 // starts its next source there) and reads another path. A root holding a character outside the
 // unit's set has no unit, so each is withheld (criterion change for `o'brien`, whose rows were shown
 // since the w19c round-2 review); a path-named JSON value is still judged as the structured value it
-// is, and a root of letters, digits, `@`, `-` and `.` keeps its unit.
+// is, and a root of letters, digits, `-`, `_` and `.` keeps its unit. Since the round-2 verify of
+// D64 a root with an `@` has none either (PowerShell splats a word of the root that is a whole
+// `@name`, so `git -C C:\q\John @Work status` hands git `C:\q\John` and the splatted array), and the
+// control root `a@b-c.d`, shown until then, is withheld (criterion change).
 func TestRehydrateHostPaths_ARootOutsideTheWhitelistHoldsNoRootUnit(t *testing.T) {
 	bash := func(cmd string) string { return storePreview(t, map[string]string{"command": cmd}) }
 	rootSummaries := func(root string) []string {
@@ -930,7 +933,7 @@ func TestRehydrateHostPaths_ARootOutsideTheWhitelistHoldsNoRootUnit(t *testing.T
 			storePreview(t, map[string]string{"file_path": filepath.Join(root, "src", "main.go")}),
 		}
 	}
-	for _, seg := range []string{"o'brien", "a;b", "a,b", "a$b", "a+b"} {
+	for _, seg := range []string{"o'brien", "a;b", "a,b", "a$b", "a+b", "a@b-c.d", "John @Work"} {
 		t.Run(seg, func(t *testing.T) {
 			root := uat12Project(t, seg, "proj")
 			res := requireToolSummaries(t, root,
@@ -942,8 +945,8 @@ func TestRehydrateHostPaths_ARootOutsideTheWhitelistHoldsNoRootUnit(t *testing.T
 			require.NotContains(t, res.Text, "deny.txt")
 		})
 	}
-	t.Run("a@b-c.d", func(t *testing.T) {
-		root := uat12Project(t, "a@b-c.d", "proj")
+	t.Run("a-b_c.d", func(t *testing.T) {
+		root := uat12Project(t, "a-b_c.d", "proj")
 		res := requireToolSummaries(t, root, rootSummaries(root),
 			[]string{bash("cd " + root + " && cat private/deny.txt")})
 		require.NotContains(t, res.Text, "deny.txt")
