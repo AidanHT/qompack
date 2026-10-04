@@ -235,34 +235,44 @@ func TestServerConcurrentClients(t *testing.T) {
 	require.EqualValues(t, goroutines*perGoroutine, handled.Load())
 }
 
-// shutdownTestBound is how long TestServerCloseWithLiveConnection (and the N-2a stress test)
-// gives Close/Serve to return. The real, working case returns in low single-digit milliseconds —
-// Close closes every registered connection itself, unblocking handleConn's pending read
-// immediately — so this bound stays well below serverCloseWait (2s) itself, not merely below some
-// multiple of it: a regression that fell back to waitForConns' own internal serverCloseWait timer
-// (because closing tracked connections had silently stopped happening) would blow straight through
-// this bound and fail loudly, rather than sneaking under a looser one. N-2b (fix round 3).
+// shutdownHangGuard bounds TestServerCloseWithLiveConnection's waits for Close and for Serve to
+// return. It is a hang guard and decides nothing else: Close is capped at 2*serverCloseWait by
+// construction (closeListenerBounded, then waitForConns), and a minute is far past that.
 //
-// It is therefore the one bound in this file that is deliberately SMALLER than the thing it waits
-// for — Close is internally capped at serverCloseWait for closeListenerBounded and again for
-// waitForConns — and that is stated here rather than left to be rediscovered (V2-MERGE-25 ②). The
-// cost is real and known: on Windows under load, go-winio v0.6.2's own listener Close can consume
-// most of closeListenerBounded's cap on its own (see that method's doc comment), and this test
-// flakes when it does. Loosening the bound would not distinguish that from the regression it
-// exists to catch — both land at roughly serverCloseWait — so the honest fix is a newer go-winio
-// or a cancellable-Accept redesign, and it is carried as known-deferred (§2.5a E), not papered
-// over here.
-const shutdownTestBound = serverCloseWait / 2
+// The row used to assert that Close returned within serverCloseWait/2. That bound could not tell
+// the regression it existed for (Close no longer closing tracked connections, so waitForConns
+// waits out its own serverCloseWait timer) from go-winio's own listener Close consuming
+// closeListenerBounded's cap under load — both land near serverCloseWait — and it flaked on the
+// second (§2.5a E). The row now asks the question directly: when Close returns, is the live
+// connection's handler gone?
+const shutdownHangGuard = time.Minute
+
+// trackedConns reports how many connections s is tracking: registered by Serve, not yet
+// unregistered by their handleConn.
+func trackedConns(s *server) int {
+	s.connsMu.Lock()
+	defer s.connsMu.Unlock()
+	return len(s.conns)
+}
 
 // TestServerCloseWithLiveConnection is I-4: a connection that is accepted but never sends
 // anything and never closes must not prevent Close — or a cancellation-driven Serve — from
 // returning. Close must close every accepted connection itself (unblocking handleConn's pending
 // read) rather than waiting out connIdleTimeout or hanging forever.
+//
+// The verdict reads no clock: by the time Close returns, the live connection's handler has
+// finished and unregistered it. A Close that stopped closing tracked connections returns with the
+// handler still blocked in its read (waitForConns gives up at serverCloseWait; connIdleTimeout is
+// ten minutes), so the connection is still tracked. The listener's own Close is made slow, 1.2 s,
+// the way go-winio's is under load: it is not what this row judges, and it must not fail it.
 func TestServerCloseWithLiveConnection(t *testing.T) {
 	addr, err := Resolve(t.TempDir())
 	require.NoError(t, err)
 	srv, err := NewServer(addr, logging.Nop(), obs.New(core.SystemClock()), MaxLineBytes)
 	require.NoError(t, err)
+	s, ok := srv.(*server)
+	require.True(t, ok, "NewServer returns the package's own server")
+	s.ln = slowCloseListener{Listener: s.ln, delay: 1200 * time.Millisecond}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
@@ -272,9 +282,12 @@ func TestServerCloseWithLiveConnection(t *testing.T) {
 	}()
 
 	// Connect and deliberately write nothing: handleConn is now blocked in ReadLine, exactly the
-	// "peer that never sends and never disconnects" case I-4 describes.
+	// "peer that never sends and never disconnects" case I-4 describes. Wait until Serve has
+	// registered it, so Close has a live tracked connection to deal with rather than racing Accept.
 	conn := newRawClient(t, addr)
 	t.Cleanup(func() { _ = conn.Close() })
+	require.Eventually(t, func() bool { return trackedConns(s) == 1 }, shutdownHangGuard, time.Millisecond,
+		"fixture: Serve never registered the live connection")
 
 	closeDone := make(chan error, 1)
 	go func() { closeDone <- srv.Close() }()
@@ -282,16 +295,32 @@ func TestServerCloseWithLiveConnection(t *testing.T) {
 	select {
 	case err := <-closeDone:
 		require.NoError(t, err)
-	case <-time.After(shutdownTestBound):
-		t.Fatalf("Close did not return within %s with a live, silent connection open", shutdownTestBound)
+	case <-time.After(shutdownHangGuard):
+		t.Fatalf("Close did not return within %s with a live, silent connection open", shutdownHangGuard)
 	}
+	require.Zero(t, trackedConns(s),
+		"Close returned with the live connection's handler still blocked: it must close every tracked "+
+			"connection itself, not wait out serverCloseWait for it")
 
 	select {
 	case err := <-serveDone:
 		require.NoError(t, err, "Serve must return cleanly once Close has finished")
-	case <-time.After(shutdownTestBound):
-		t.Fatalf("Serve did not return within %s after Close, with a live, silent connection open", shutdownTestBound)
+	case <-time.After(shutdownHangGuard):
+		t.Fatalf("Serve did not return within %s after Close, with a live, silent connection open", shutdownHangGuard)
 	}
+}
+
+// slowCloseListener is a listener whose Close takes delay before closing the real one: go-winio
+// v0.6.2's win32PipeListener.Close racing a fresh Accept (closeListenerBounded's doc comment), or a
+// host that descheduled the close.
+type slowCloseListener struct {
+	net.Listener
+	delay time.Duration
+}
+
+func (l slowCloseListener) Close() error {
+	<-time.After(l.delay)
+	return l.Listener.Close()
 }
 
 // TestServerConcurrentDialVsClose is the N-2a regression test: it repeatedly races a client dial
@@ -309,7 +338,7 @@ func TestServerCloseWithLiveConnection(t *testing.T) {
 // for Close/Serve), and 100 iterations is enough to give the OS scheduler and the race detector
 // many independent opportunities to interleave the accept/close race differently.
 //
-// stressTestBound, not shutdownTestBound: creating and tearing down 100 servers back to back
+// stressTestBound, not a tight bound: creating and tearing down 100 servers back to back
 // under -race is real, cumulative system load, and this test's primary regression signal does
 // not depend on how tight this bound is. If registerConn's atomic decision regresses, the
 // "Add called concurrently with Wait" panic crashes the whole test binary unconditionally, on
