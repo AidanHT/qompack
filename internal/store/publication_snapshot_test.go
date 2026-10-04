@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -151,4 +152,56 @@ func TestAuditPublication_SnapshotCountsResidueWrittenJustBeforeIt(t *testing.T)
 	require.Equal(t, 1, a.UnpublishedCaptures)
 	require.Equal(t, 1, a.UnindexedObjectCandidates)
 	require.Zero(t, a.PostSnapshotEntries)
+}
+
+// TestAuditPublication_SnapshotCountsVanishedEntriesAsLiveWork: a pass against a snapshot runs while
+// the daemon serves, so a Put can retire its pending-write marker, and the store can remove a
+// capture sidecar or an object, between the pass listing the entry and reading it. The file is gone
+// from the store the pass accounts for: that is live work, never an unreadable record, so a healthy
+// store's background pass stays complete (w15-services review). On Linux and macOS DirEntry.Info is
+// a lazy lstat that fails for the removed entry; on Windows it is cached from the listing and the
+// read that follows fails instead. Either way the pass must not note it.
+func TestAuditPublication_SnapshotCountsVanishedEntriesAsLiveWork(t *testing.T) {
+	tp := newTestStore(t)
+	earlier := time.Now().Add(-time.Hour)
+
+	marker, err := tp.Store.beginPendingWrite(core.HashBytes(core.DomainChunk, []byte("root")),
+		[]ChunkRef{{Hash: core.HashBytes(core.DomainChunk, []byte("the marker's chunk"))}})
+	require.NoError(t, err)
+	setModTime(t, marker.path, earlier)
+	seedCapture(t, tp.Root, "vanishing", auditOpObserveTool, false, core.OutcomeOK, []byte("captured"))
+	sidecar, err := CaptureSidecarPath(tp.Root, auditObsID("vanishing"))
+	require.NoError(t, err)
+	setModTime(t, sidecar, earlier)
+	h := core.HashBytes(core.DomainChunk, []byte("an object removed mid-pass"))
+	writeBareObject(t, tp, h)
+	object := tp.Store.objectPath(h)
+	setModTime(t, object, earlier)
+
+	snap, err := tp.Store.SnapshotPublication(context.Background())
+	require.NoError(t, err)
+
+	vanish := map[string]bool{filepath.Base(marker.path): true, filepath.Base(sidecar): true, filepath.Base(object): true}
+	removed := 0
+	hook := func(parent *os.Root, dirName string, e os.DirEntry) {
+		if vanish[e.Name()] {
+			require.NoError(t, parent.Remove(filepath.Join(dirName, e.Name())))
+			removed++
+		}
+	}
+	prev := publicationEntryHook.Swap(&hook)
+	t.Cleanup(func() { publicationEntryHook.Store(prev) })
+
+	scanCap := DefaultPublicationScanCap()
+	scanCap.Snapshot = &snap
+	a, err := tp.Store.AuditPublication(context.Background(), scanCap)
+	require.NoError(t, err)
+	require.Equal(t, 3, removed, "the hook removed each file between listing and classifying it")
+	require.False(t, a.Incomplete, "a file removed while the pass runs is live work, not unreadable: %v", a.Notes)
+	require.Zero(t, a.UnpublishedCaptures, "a removed sidecar is not in the store the pass accounts for")
+	// The object is judged by what the listing handed the pass: on Windows the cached listing time
+	// places it before the snapshot, which is residue the snapshot saw; on Linux and macOS the stat
+	// fails and it is live work. The marker and the sidecar fail their read on every OS.
+	require.GreaterOrEqual(t, a.PostSnapshotEntries, 2)
+	require.Equal(t, 3, a.PostSnapshotEntries+a.UnindexedObjectCandidates)
 }
