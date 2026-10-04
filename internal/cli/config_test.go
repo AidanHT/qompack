@@ -135,7 +135,9 @@ func TestSetFlagParsing_MalformedIsUsageErrorButHooksStillExitZero(t *testing.T)
 // TestCLI_ConfigViolationsAreLoudAndPersisted is the cli half of §11.3. config.Load does the
 // per-leaf fallback and returns the evidence; it neither logs nor persists, because §3.2 keeps logging
 // out of its allow-set {core, paths} and it writes no file by design. This test asserts the
-// reporting half actually happens.
+// reporting half actually happens: the daemon's start Louds each violation, a command logs each one
+// at warn (D59; audit 2's finding #19 moved a command's line from Loud to Warn), and the typed list
+// is persisted.
 func TestCLI_ConfigViolationsAreLoudAndPersisted(t *testing.T) {
 	dir := t.TempDir()
 
@@ -160,10 +162,19 @@ func TestCLI_ConfigViolationsAreLoudAndPersisted(t *testing.T) {
 	require.InDelta(t, defs.Scheduler.SoftFloorPct, cfg.Scheduler.SoftFloorPct, 1e-9)
 	require.Equal(t, defs.Eval.MinSessions, cfg.Eval.MinSessions)
 
-	// A Loud line per violation.
-	loud := strings.Join(logging.LastLoud(), "\n")
-	require.Contains(t, loud, "scheduler.softFloorPct")
-	require.Contains(t, loud, "eval.minSessions")
+	// A command logs each violation at warn, and Louds none of them.
+	require.NoError(t, closer.Close())
+	day, loud := readDayAndLoud(t, logDir)
+	for _, key := range []string{"scheduler.softFloorPct", "eval.minSessions"} {
+		require.Equal(t, 1, linesWith(day, "level=warn", "invalid configuration value, using default", "key="+key), day)
+		require.Zero(t, linesWith(loud, "key="+key), "a command's load is not a loud report:\n%s", loud)
+	}
+
+	// A Loud line per violation from the daemon's start, its one loud report of the configuration.
+	startLog := &bootstrapLogger{}
+	_, _, err = loadDaemonConfig(config.Env{ProjectRoot: dir, HomeDir: t.TempDir(), Getenv: noEnv}, startLog, nil)
+	require.NoError(t, err)
+	require.Equal(t, 2, startLog.countLouds("invalid configuration value, using default"), "louds=%v", startLog.louds)
 
 	// And the typed list on disk, where /qompack:status and the next SessionStart can find it.
 	p := filepath.Join(paths.Of(dir).State, configViolationsFile)
