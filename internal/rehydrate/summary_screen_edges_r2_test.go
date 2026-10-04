@@ -95,20 +95,24 @@ func TestBuild_AQuoteGluedAfterTheRootStillNamesASibling(t *testing.T) {
 		nil)
 }
 
-// TestBuild_AnApostropheInTheRootIsNotAnOpenQuote: the quote readers were handed the text up to the
-// end of the root's spelling, the root's own apostrophe included, which every reader took for an
-// open quote, so in a project under `o'brien` or `John's projects` every summary where the root is
-// followed by a space was withheld as a sibling: the store's Grep and Glob previews, `cd <root> &&
-// go test ./...` and `git -C <root> status`, and the POSIX-escaped `o\'brien`. The quote state is
-// read without the root's own characters; a sibling stays withheld.
-func TestBuild_AnApostropheInTheRootIsNotAnOpenQuote(t *testing.T) {
+// TestBuild_AnApostropheInTheRootHoldsNoRootUnit (renamed from
+// TestBuild_AnApostropheInTheRootIsNotAnOpenQuote by D64): the w19c round-2 review found the root's
+// own apostrophe read as an open quote, so in a project under `o'brien` or `John's projects` every
+// summary where the root is followed by a space was withheld as a sibling, and the fix held the root
+// together as one unit, apostrophe included. Coordinator decision D64(1) rules that unit out for a
+// root holding any character outside its set: a shell does read the root's apostrophe as a quote,
+// which pairs with a later one (`C:/q/o'brien/proj/notes.tx't`), so the unit stood for a path the
+// shell does not read. Every summary that spells such a root as free text is withheld, the Grep and
+// Glob previews of the root, `cd <root> && …` and `git -C <root> …` among them (criterion change,
+// D64), and a sibling stays withheld.
+func TestBuild_AnApostropheInTheRootHoldsNoRootUnit(t *testing.T) {
 	for _, elem := range [][]string{{"o'brien", "proj"}, {"John's projects", "proj"}} {
 		t.Run(filepath.Join(elem...), func(t *testing.T) {
 			root := previewRoot(elem...)
 			slash := strings.ReplaceAll(root, `\`, "/")
 			escaped := strings.NewReplacer("'", `\'`, " ", `\ `).Replace(slash)
 			sep := string(filepath.Separator)
-			requireScreened(t, root, hostRules(root, "./private/deny.txt"), nil,
+			requireScreened(t, root, hostRules(root, "./private/deny.txt"), nil, nil,
 				[]string{
 					root + " TODO",
 					root + " **/*.go",
@@ -117,14 +121,10 @@ func TestBuild_AnApostropheInTheRootIsNotAnOpenQuote(t *testing.T) {
 					"cd " + slash + " && git log --oneline -n 5",
 					"git -C " + root + " status --short",
 					`git -C "` + root + `" status`,
-				},
-				[]string{
 					`cat "` + root + ` old` + sep + `x.txt"`,
 					`cat ` + root + `" old"` + sep + `x.txt`,
 					root + "2" + sep + "x.txt",
 					"cd " + root + " && cat private/deny.txt",
-					// D63 over-withholds a `!=` operator and an escaped apostrophe (`\'`); the apostrophe in the
-					// root is still not an open quote, so the shown rows above are shown.
 					root + " err != nil",
 					"cd " + escaped + " && go test ./...",
 				},
