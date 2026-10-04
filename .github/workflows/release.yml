@@ -15,7 +15,7 @@ env:
 
 jobs:
   release:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # ── Non-reference disk (owner Q1, third option; D53(e), D55) ─────────────────────────────────
     # The gate below is release-check, the same one ci.yml's release-dry-run runs on every push, and
     # it runs test/e2e's X11 alone on this hosted runner twice (ci-local's test and cover steps). A
