@@ -31,6 +31,15 @@ import (
 // the denied file (`private/d*`, `private/de?y.txt`, `private/i?`) was shown. Where the host refuses
 // the recorded spelling each glob is withheld; under the long s, and where paths do not fold, the
 // recorded spelling names another file the host does not refuse, and the globs are shown.
+//
+// The long s's answer holds only while the root resolves to itself, so the row makes it canonical on
+// every platform (filepath.EvalSymlinks, as costProject's root is): macOS spells its temporary
+// directory below /var, a link to /private/var, and shortProjectDir resolves it only on Windows.
+// Where the root resolves elsewhere the adapter also judges each reading of the recorded path's place
+// below the resolved root, and the broad one (and on Windows filepath.Rel's) places the long s's
+// spelling at the project's denied file, which the host refuses there; the spelling is then refused
+// and teaches its project-relative names, which over-withholds where the volume keeps the long s's
+// folder beside the root and is the safe direction wherever it does not (ADR 0011 §23).
 func TestRehydrateHostPaths_AWithheldPathUnderAUnicodeCaseSpellingOfTheRootTeachesItsNames(t *testing.T) {
 	fold := runtime.GOOS == "windows" || runtime.GOOS == "darwin"
 	type shape struct {
@@ -59,7 +68,10 @@ func TestRehydrateHostPaths_AWithheldPathUnderAUnicodeCaseSpellingOfTheRootTeach
 				if sh.spaced {
 					seg, vseg = seg+" berg", vseg+" berg"
 				}
-				root := shortProjectDir(t, seg, "proj")
+				dir := shortProjectDir(t, seg, "proj")
+				require.NoError(t, os.MkdirAll(paths.Long(dir), 0o700))
+				root, err := filepath.EvalSymlinks(dir)
+				require.NoError(t, err)
 				writeProjectSettings(t, root,
 					`{"permissions":{"deny":["Read(./private/deny.txt)","Read(./private/id)"]}}`)
 				for _, f := range []string{"private/deny.txt", "private/id", "src/main.go"} {
