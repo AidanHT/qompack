@@ -1,10 +1,15 @@
 package daemon
 
 import (
+	"encoding/json"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/qompack/qompack/internal/store"
 )
 
 // Wave 22's daemon rows over audit 2's rehydrate findings (coordinator decisions D66 and D67).
@@ -46,5 +51,37 @@ func TestRehydrateHostPaths_APathNamedValueHoldingSeveralPathsIsJudgedPieceByPie
 				require.NotContains(t, res.Text, leak)
 			}
 		})
+	}
+}
+
+// longestTempBase is the longest temporary directory a hosted runner hands this platform's tests,
+// with os.MkdirTemp's longest suffix (a uint32's ten digits) under it: on macOS the TMPDIR
+// /var/folders/36/tjdph2t965j8snz9_vkdnw0r0000gn/T (48 characters, read from hosted logs, ci
+// 36981590450 and nightly 36981711009), which every POSIX row is held to; on Windows windows-latest's
+// TEMP in its long form, C:\Users\runneradmin\AppData\Local\Temp, where JSON's doubled backslash is
+// the tighter limit. audit 2's finding 36: shortProjectDir spelled a macOS root from TMPDIR, and the
+// Docker fixture's preview, about 113 characters plus the suffix, passed the store's 120-character
+// width only for a suffix of seven digits or fewer.
+func longestTempBase() string {
+	if runtime.GOOS == "windows" {
+		return `C:\Users\runneradmin\AppData\Local\Temp\q4294967295`
+	}
+	return "/var/folders/36/tjdph2t965j8snz9_vkdnw0r0000gn/T/q4294967295"
+}
+
+// TestRehydrateHostPaths_RootPreviewsFitUnderTheLongestTemporaryDirectory is finding 36's regression
+// row: the UAT-12 rows' previews that spell the project root, built under the longest temporary
+// directory a hosted runner spells, are each uncut, so a row cannot pass on a short local temporary
+// directory and fail on a hosted runner. storePreview and storePreviewOf hold every other row's
+// previews to the same directory.
+func TestRehydrateHostPaths_RootPreviewsFitUnderTheLongestTemporaryDirectory(t *testing.T) {
+	root := filepath.Join(longestTempBase(), "John Smith", "proj")
+	shown, withheld := commonIdiomPreviews(root)
+	us, uw := usefulSummaryPreviews(root)
+	for _, args := range append(append(append(shown, withheld...), us...), uw...) {
+		raw, err := json.Marshal(args)
+		require.NoError(t, err)
+		_, preview := store.ArgsDigest(raw)
+		require.False(t, strings.HasSuffix(preview, "…"), "the store cuts the preview of %v", args)
 	}
 }

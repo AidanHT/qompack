@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -441,47 +442,66 @@ func TestRehydrateHostPaths_UsefulSummariesAreShownUnderTheUAT12Rules(t *testing
 	for _, f := range []string{"private/deny.txt", ".env", "secrets/token.txt", "src/main.go"} {
 		writeProjectFile(t, root, f)
 	}
-	bash := func(cmd string) string { return storePreview(t, map[string]string{"command": cmd}) }
-	res := requireToolSummaries(t, root,
-		[]string{
-			bash("cd " + root + " && go test ./..."),
-			bash("git diff HEAD~1"),
-			bash("git log --oneline HEAD~3..HEAD"),
-			bash("git -C " + root + " status"),
-			bash("npm test"),
-			bash("go test -run TestX ./internal/..."),
-			bash(`git commit -m "fix the bug"`),
-			storePreview(t, map[string]string{"query": "path:src/main.go"}),
-			storePreview(t, map[string]string{"query": "path:src/main.go retry"}),
-			storePreview(t, map[string]string{"url": "https://example.com/a"}),
-			storePreview(t, map[string]string{"url": "https://example.com/search?a=1&b=2", "prompt": "list the results"}),
-			storePreview(t, map[string]string{"description": "run the tests", "prompt": "go test ./... and report the failures"}),
-			bash("grep -rn TODO src/"),
-			storePreview(t, map[string]string{"file_path": filepath.Join(root, "src", "main.go")}),
-			storePreview(t, map[string]string{"path": filepath.Join(root, "src"), "pattern": "**/*_test.go"}),
-			storePreview(t, map[string]string{"pattern": "**/*.{ts,tsx}"}),
-			storePreview(t, map[string]string{"pattern": "TODO|FIXME"}),
-			bash("go test ./... > test.log 2>&1; tail -n 50 test.log"),
-			bash(`git commit -m "feat(api): add users endpoint"`),
-			bash(`sed -n '1,50p' src/main.go`),
-			bash("git log --format=%h -n 3"),
-			storePreview(t, map[string]string{"query": "what's the owner's ruling"}),
-		},
-		[]string{
-			bash("cat .env"),
-			bash("cat secrets/token.txt"),
-			storePreview(t, map[string]string{"query": "path:private/deny.txt"}),
-			storePreview(t, map[string]string{"file_path": filepath.Join(root, "private", "deny.txt")}),
-			storePreview(t, map[string]string{"path": filepath.Join(root, "secrets"), "pattern": "*.txt"}),
-			storePreview(t, map[string]string{"pattern": "**/*.{go,env}"}),
-			bash(`cat 'secrets/token.txt'`),
-			storePreviewOf(t, map[string]any{"paths": []string{"file:///etc/passwd", "src/main.go"}}),
-			// Criterion change (wave 19d final verify): `--pretty=format` before a `:` is a name PowerShell
-			// accepts for a drive, so git's `format:` spelling is over-withheld; `--format=%h` is shown.
-			bash("git log --pretty=format:%h -n 3"),
-		})
+	shown, withheld := usefulSummaryPreviews(root)
+	res := requireToolSummaries(t, root, storePreviews(t, shown), storePreviews(t, withheld))
 	require.NotContains(t, res.Text, "deny.txt")
 	require.NotContains(t, res.Text, "token.txt")
+}
+
+// usefulSummaryPreviews are TestRehydrateHostPaths_UsefulSummariesAreShownUnderTheUAT12Rules's calls
+// in a project at root, as the arguments the store previews: those section 6 shows, and those it
+// withholds. TestRehydrateHostPaths_RootPreviewsFitUnderTheLongestTemporaryDirectory builds them
+// under the longest temporary directory a hosted runner spells.
+func usefulSummaryPreviews(root string) (shown, withheld []map[string]any) {
+	bash := func(cmd string) map[string]any { return map[string]any{"command": cmd} }
+	shown = []map[string]any{
+		bash("cd " + root + " && go test ./..."),
+		bash("git diff HEAD~1"),
+		bash("git log --oneline HEAD~3..HEAD"),
+		bash("git -C " + root + " status"),
+		bash("npm test"),
+		bash("go test -run TestX ./internal/..."),
+		bash(`git commit -m "fix the bug"`),
+		{"query": "path:src/main.go"},
+		{"query": "path:src/main.go retry"},
+		{"url": "https://example.com/a"},
+		{"url": "https://example.com/search?a=1&b=2", "prompt": "list the results"},
+		{"description": "run the tests", "prompt": "go test ./... and report the failures"},
+		bash("grep -rn TODO src/"),
+		{"file_path": filepath.Join(root, "src", "main.go")},
+		{"path": filepath.Join(root, "src"), "pattern": "**/*_test.go"},
+		{"pattern": "**/*.{ts,tsx}"},
+		{"pattern": "TODO|FIXME"},
+		bash("go test ./... > test.log 2>&1; tail -n 50 test.log"),
+		bash(`git commit -m "feat(api): add users endpoint"`),
+		bash(`sed -n '1,50p' src/main.go`),
+		bash("git log --format=%h -n 3"),
+		{"query": "what's the owner's ruling"},
+	}
+	withheld = []map[string]any{
+		bash("cat .env"),
+		bash("cat secrets/token.txt"),
+		{"query": "path:private/deny.txt"},
+		{"file_path": filepath.Join(root, "private", "deny.txt")},
+		{"path": filepath.Join(root, "secrets"), "pattern": "*.txt"},
+		{"pattern": "**/*.{go,env}"},
+		bash(`cat 'secrets/token.txt'`),
+		{"paths": []string{"file:///etc/passwd", "src/main.go"}},
+		// Criterion change (wave 19d final verify): `--pretty=format` before a `:` is a name PowerShell
+		// accepts for a drive, so git's `format:` spelling is over-withheld; `--format=%h` is shown.
+		bash("git log --pretty=format:%h -n 3"),
+	}
+	return shown, withheld
+}
+
+// storePreviews is storePreviewOf of each of args.
+func storePreviews(t *testing.T, args []map[string]any) []string {
+	t.Helper()
+	out := make([]string, 0, len(args))
+	for _, a := range args {
+		out = append(out, storePreviewOf(t, a))
+	}
+	return out
 }
 
 // TestRehydrateHostPaths_AFileURLInAPathNamedValueIsOutsideTheProject is the D63 review's file-URL
@@ -536,10 +556,17 @@ func TestRehydrateHostPaths_AnOutsideNamesakeNeverWithholdsAProjectPath(t *testi
 
 // shortProjectDir is a fresh project directory short enough that the previews a row builds of
 // absolute paths under it fit the store's preview width uncut, as a project's often do. t.TempDir
-// spells the test's name into the path, which alone can exceed it.
+// spells the test's name into the path, which alone can exceed it. Off Windows it is made in /tmp,
+// not in TMPDIR: macOS hands a test a 48-character TMPDIR, under which a root-spelling preview the
+// row requires uncut was cut (audit 2's finding 36); storePreview holds every preview to the longest
+// temporary directory a hosted runner spells all the same (longestTempBase).
 func shortProjectDir(t *testing.T, elem ...string) string {
 	t.Helper()
-	base, err := os.MkdirTemp("", "q")
+	dir := ""
+	if runtime.GOOS != "windows" {
+		dir = "/tmp"
+	}
+	base, err := os.MkdirTemp(dir, "q")
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = os.RemoveAll(paths.Long(base)) })
 	if runtime.GOOS == "windows" {
@@ -550,18 +577,81 @@ func shortProjectDir(t *testing.T, elem ...string) string {
 		require.NoError(t, err)
 		base = long
 	}
+	projectBases.Lock()
+	projectBases.dirs = append(projectBases.dirs, base)
+	projectBases.Unlock()
 	return filepath.Join(append([]string{base}, elem...)...)
 }
 
+// projectBases are the directories shortProjectDir made, which storePreview and storePreviewOf
+// replace with longestTempBase to hold each preview to a hosted runner's temporary directory.
+var projectBases struct {
+	sync.Mutex
+	dirs []string
+}
+
 // storePreview is the summary the checkpointer records for a call with these arguments: the store's
-// own preview (store.ArgsDigest), which the row requires to be uncut.
+// own preview (store.ArgsDigest), which the row requires to be uncut, here and under the longest
+// temporary directory a hosted runner spells (requireUncutOnAHostedRunner).
 func storePreview(t *testing.T, args map[string]string) string {
 	t.Helper()
 	raw, err := json.Marshal(args)
 	require.NoError(t, err)
 	_, preview := store.ArgsDigest(raw)
 	require.NotContains(t, preview, "…", "fixture: the store cut the preview of %v", args)
+	vals := make(map[string]any, len(args))
+	for k, v := range args {
+		vals[k] = v
+	}
+	requireUncutOnAHostedRunner(t, vals)
 	return preview
+}
+
+// requireUncutOnAHostedRunner requires the store's preview of args to be uncut with every directory
+// shortProjectDir made, in either slash style, spelled as longestTempBase instead (audit 2's finding
+// 36): a row's previews fit the store's width on the runner that tests it, not only on a machine with
+// a short temporary directory.
+func requireUncutOnAHostedRunner(t *testing.T, args map[string]any) {
+	t.Helper()
+	projectBases.Lock()
+	dirs := append([]string(nil), projectBases.dirs...)
+	projectBases.Unlock()
+	long := longestTempBase()
+	var swap func(v any) any
+	swap = func(v any) any {
+		switch x := v.(type) {
+		case string:
+			for _, d := range dirs {
+				x = strings.ReplaceAll(x, d, long)
+				x = strings.ReplaceAll(x, filepath.ToSlash(d), filepath.ToSlash(long))
+			}
+			return x
+		case []string:
+			out := make([]string, len(x))
+			for i, s := range x {
+				out[i], _ = swap(s).(string)
+			}
+			return out
+		case []any:
+			out := make([]any, len(x))
+			for i, e := range x {
+				out[i] = swap(e)
+			}
+			return out
+		case map[string]any:
+			out := make(map[string]any, len(x))
+			for k, e := range x {
+				out[k] = swap(e)
+			}
+			return out
+		}
+		return v
+	}
+	raw, err := json.Marshal(swap(args))
+	require.NoError(t, err)
+	_, preview := store.ArgsDigest(raw)
+	require.NotContains(t, preview, "…",
+		"fixture: under a hosted runner's temporary directory (%s) the store cuts the preview of %v", long, args)
 }
 
 // TestRehydrateHostPaths_ADeniedPathWithDelimitersIsWithheld is the w19 verifier's V2 through the
@@ -781,6 +871,7 @@ func storePreviewOf(t *testing.T, args map[string]any) string {
 	require.NoError(t, err)
 	_, preview := store.ArgsDigest(raw)
 	require.NotContains(t, preview, "…", "fixture: the store cut the preview of %v", args)
+	requireUncutOnAHostedRunner(t, args)
 	return preview
 }
 
@@ -852,26 +943,37 @@ func TestRehydrateHostPaths_ARootedPathWithASpaceIsJudgedByTheHost(t *testing.T)
 // directory's variable ending a word.
 func TestRehydrateHostPaths_CommonIdiomsAreShownUnderTheUAT12Rules(t *testing.T) {
 	root := uat12Project(t, "John Smith", "proj")
-	bash := func(cmd string) string { return storePreview(t, map[string]string{"command": cmd}) }
-	res := requireToolSummaries(t, root,
-		[]string{
-			bash("ls -la src/ 2>/dev/null || true"),
-			bash("go build ./... >/dev/null && echo ok"),
-		},
-		[]string{
-			// Criterion change (D63): a comment marker (`//`) and a Docker bind mount (`:/src`, `-w /src`)
-			// read as absolute paths, so they are over-withheld along with the leaks.
-			bash(`grep -rn "// TODO" internal/`),
-			bash(`rg -n "//nolint" internal/`),
-			bash(`docker run -v "` + root + `:/src" -w /src img go test ./...`),
-			bash("git -C/home/u/other status"),
-			bash(`Get-Content $env:USERPROFILE\.aws\credentials`),
-			bash("cd $HOME && cat .ssh/id_rsa"),
-			bash(`7z x -oD:\stash a.zip`),
-		})
+	shown, withheld := commonIdiomPreviews(root)
+	res := requireToolSummaries(t, root, storePreviews(t, shown), storePreviews(t, withheld))
 	for _, leak := range []string{"/home/u", "credentials", "id_rsa", "stash"} {
 		require.NotContains(t, res.Text, leak)
 	}
+}
+
+// commonIdiomPreviews are TestRehydrateHostPaths_CommonIdiomsAreShownUnderTheUAT12Rules's calls in a
+// project at root, as the arguments the store previews: those section 6 shows, and those it
+// withholds. TestRehydrateHostPaths_RootPreviewsFitUnderTheLongestTemporaryDirectory builds them
+// under the longest temporary directory a hosted runner spells.
+func commonIdiomPreviews(root string) (shown, withheld []map[string]any) {
+	bash := func(cmd string) map[string]any { return map[string]any{"command": cmd} }
+	shown = []map[string]any{
+		bash("ls -la src/ 2>/dev/null || true"),
+		bash("go build ./... >/dev/null && echo ok"),
+	}
+	withheld = []map[string]any{
+		// Criterion change (D63): a comment marker (`//`) and a Docker bind mount (`:/src`) read as
+		// absolute paths, so they are over-withheld along with the leaks. The bind mount's command is
+		// short enough to stay uncut under a hosted runner's temporary directory (audit 2's finding
+		// 36); `:/src` alone withholds it, as `-w /src` did.
+		bash(`grep -rn "// TODO" internal/`),
+		bash(`rg -n "//nolint" internal/`),
+		bash(`docker run -v "` + root + `:/src" img`),
+		bash("git -C/home/u/other status"),
+		bash(`Get-Content $env:USERPROFILE\.aws\credentials`),
+		bash("cd $HOME && cat .ssh/id_rsa"),
+		bash(`7z x -oD:\stash a.zip`),
+	}
+	return shown, withheld
 }
 
 // TestRehydrateHostPaths_RootedCommandsAndRegularExpressionsAreShownUnderTheUAT12Rules extends D61's
