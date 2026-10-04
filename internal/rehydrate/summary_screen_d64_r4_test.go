@@ -4,11 +4,13 @@ import (
 	"context"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/qompack/qompack/internal/checkpoint"
+	"github.com/qompack/qompack/internal/paths"
 )
 
 // Wave 19g's final verify of D64 (ADR 0011 §23). The project root was found in a text by a regular
@@ -18,7 +20,11 @@ import (
 // NTFS keeps each of those a directory beside the one spelled with the letter. So a summary, a file
 // pointer or a drop reason naming such a sibling was read as the project and shown. The root is now
 // compared with an ASCII letter's case folded where the platform's paths fold, and nothing else
-// folded. Each row below is red on 71e5133d on Windows.
+// folded. And a rule anchored outside the project was matched against the root in screen form, which
+// deletes ' " ` \ ^, so a rule whose `?`, negated class or escape stood for one of them refused
+// project files at the host while the screen never learned its literal; the root is now matched as
+// the host matches it. Each row below is red on 71e5133d on Windows, and the rule row in a Linux
+// build too; the Kelvin rule row pins the host's own case rule.
 
 // unicodeCaseRoots are root segments holding a letter that Unicode's simple case folding pairs with
 // another code point, each beside its sibling spelled with that code point, which NTFS keeps a
@@ -118,6 +124,78 @@ func TestBuild_AUnicodeCaseVariantOfTheRootIsADirectoryBesideItForPointersAndRea
 			require.Len(t, details, 1, "the git drop is still reported: %v", res.Dropped)
 			require.NotContains(t, details[0], ".git", "the sibling's gitdir is outside the project")
 			requireNoLeak(t, res, []string{rc.sib})
+		})
+	}
+}
+
+// hostSpec is root as a rule anchored at the filesystem root spells it (`//c/q/proj` on Windows,
+// `//q/proj` elsewhere), with its segment seg spelled as pat.
+func hostSpec(t *testing.T, root, seg, pat string) string {
+	t.Helper()
+	p := filepath.ToSlash(root)
+	if vol := filepath.VolumeName(root); vol != "" {
+		p = "/" + strings.ToLower(vol[:1]) + p[len(vol):]
+	}
+	require.Contains(t, p, "/"+seg+"/", "fixture: %q holds the segment %q", p, seg)
+	return "/" + strings.Replace(p, "/"+seg+"/", "/"+pat+"/", 1)
+}
+
+// keyRule stands in for one Read deny rule, spec, that refuses every `.key` file in root's project
+// (`//<root>/**/*.key`, with one of the root's segments spelled as a pattern) where on is set, and
+// refuses nothing otherwise (the rule does not match the root on this platform).
+func keyRule(root, spec string, on bool) HostPaths {
+	return func() HostRules {
+		return HostRules{Patterns: []string{spec}, Refuses: func(p string) bool {
+			if !filepath.IsAbs(p) {
+				p = filepath.Join(root, filepath.FromSlash(p))
+			}
+			rel, err := filepath.Rel(root, filepath.Clean(p))
+			if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+				return false
+			}
+			return on && strings.HasSuffix(paths.Key(rel), ".key")
+		}}
+	}
+}
+
+// TestBuild_ARuleOverTheRootIsMatchedAsTheHostMatchesIt: a rule anchored outside the project that
+// refuses project files through the path below the root (`//<root>/**/*.key`) adds that part's
+// literal (`.key`) to the screen (rootCover). The host matches the rule's raw segments against the
+// root's with path.Match, its case folded where the platform's paths fold, but the screen matched
+// them in screen form, which deletes ' " ` \ ^ from both: a rule that spells a root segment with a `?`
+// for one of those (`o?brien` for `o'brien`), with a negated class whose `^` the screen form deleted
+// (`[^x]brien` for `obrien`), or with an escape (`o\'brien`) refused the project's `.key` files at
+// the host and never matched the root in the screen, so `cat certs/server.key` was shown. The root
+// is matched as the host matches it. A rule spelled with the Kelvin sign for the root's `k` matches
+// it where the host folds case, by Unicode, as the host's own rule reads it (a pin: the host's rules,
+// unlike a path's spelling of the root, fold by Unicode, so the screen must too).
+func TestBuild_ARuleOverTheRootIsMatchedAsTheHostMatchesIt(t *testing.T) {
+	fold := runtime.GOOS == "windows" || runtime.GOOS == "darwin"
+	type row struct {
+		name, seg, pat string
+		on             bool
+	}
+	rows := []row{
+		{"a question mark for an apostrophe", "o'brien", "o?brien", true},
+		{"a question mark for a backtick", "a`b", "a?b", true},
+		{"a question mark for a caret", "a^b", "a?b", true},
+		{"a negated class", "obrien", "[^x]brien", true},
+		{"an escaped apostrophe", "o'brien", `o\'brien`, true},
+		{"the Kelvin sign for k", "kate", "\u212Aate", fold},
+	}
+	if fold {
+		rows = append(rows, row{"a question mark in another case", "o'brien", "O?BRIEN", true})
+	}
+	for _, tc := range rows {
+		t.Run(tc.name, func(t *testing.T) {
+			root := previewRoot(tc.seg, "proj")
+			spec := hostSpec(t, root, tc.seg, tc.pat) + "/**/*.key"
+			shown := []string{"cat src/main.go", "go vet ./src/main.go"}
+			withheld := []string{"cat certs/server.key", "openssl x509 -in certs/server.key"}
+			if !tc.on {
+				shown, withheld = append(shown, withheld...), nil
+			}
+			requireScreened(t, root, keyRule(root, spec, tc.on), nil, shown, withheld, nil)
 		})
 	}
 }

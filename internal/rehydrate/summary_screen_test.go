@@ -347,7 +347,7 @@ func TestBuild_ARuleOverTheWholeProjectWithholdsEveryFreeText(t *testing.T) {
 // specifier measured from outside the project (`//`, `/`, `~`, a drive, `..`), whose literal may lie
 // in the project's own path.
 func screenLiteral(spec string) (lit string, anchored bool) {
-	segs, anchored, _ := ruleSegments(spec)
+	segs, anchored := ruleSegments(spec)
 	lit, _ = literalOf(segs)
 	return lit, anchored
 }
