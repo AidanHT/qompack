@@ -224,6 +224,25 @@ func (w *FileWriter) claimSeq() core.CheckpointSeq {
 	return seq
 }
 
+// releaseSeq gives back seq, which claimSeq handed to a fresh draft that Begin then could not
+// begin: it failed before the draft was persisted or published, so no draft, draft file or encode
+// record holds the number. It is given back only while it is still the newest number this writer
+// has handed out, and never below the number before it, which a claim made since, a resumed draft
+// or loadClaimFloor's floor may hold. When another claim came after it the number stays a gap,
+// which costs nothing but its spelling.
+//
+// Without it a failed Begin cost the session a number. Finalize opens the successor draft on
+// PreCompact's context, and a PreCompact that has spent its wall-clock budget hands it an expired
+// one, so the successor's read of the checkpoint just sealed fails; the session's next checkpoint
+// was then sealed two numbers after the last (wave 22, D67(a)).
+func (w *FileWriter) releaseSeq(seq core.CheckpointSeq) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.issuedSeq == seq {
+		w.issuedSeq = seq - 1
+	}
+}
+
 // noteSeq records a sequence number this writer did not allocate — a resumed draft's — so a later
 // claimSeq cannot hand the same number to a second draft.
 func (w *FileWriter) noteSeq(seq core.CheckpointSeq) {
@@ -465,12 +484,16 @@ func (w *FileWriter) Begin(ctx context.Context, s core.SessionID, parent core.Ch
 		Cache:      CacheInfo{TTLState: ttlStateUnknown},
 	}
 
+	// Until the draft is persisted no draft, draft file or encode record holds d.seq, so a Begin
+	// that fails before then gives its number back (releaseSeq).
 	if err := w.seedTierOne(ctx, d, parent, src); err != nil {
+		w.releaseSeq(d.seq)
 		return nil, err
 	}
 
 	fr, err := src.Segments.Frontier(ctx, s)
 	if err != nil {
+		w.releaseSeq(d.seq)
 		return nil, fmt.Errorf("checkpoint: begin: frontier: %w", err)
 	}
 	d.frontier = fr
