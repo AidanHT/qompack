@@ -3051,7 +3051,7 @@ func (j pathJudge) gatedReasonOf(detail string) gatedReason {
 // allowed README.md or src/CLAUDE.md beside a withheld private/README.md or ~/.claude/CLAUDE.md is a
 // different file, which section 6 may show too.
 func (j pathJudge) reasonWithheld(detail string) bool {
-	t := sanitize(detail)
+	t := unslashCommands(sanitize(detail))
 	if t == "" {
 		return false
 	}
@@ -3078,6 +3078,39 @@ func (j pathJudge) reasonWithheld(detail string) bool {
 		}
 	}
 	return j.namesKnownIn(screenText(strings.ReplaceAll(marked, `\`, "/"), false))
+}
+
+// unslashCommands is t, a sanitized drop reason, with the leading `/` taken from each word that is one
+// of Qompack's own slash commands (qompackCommand), so the reason screen reads it as the command it
+// is, not as an absolute path outside the project: the checkpointer's recovery instruction for pins
+// it could not re-read at the seal (`run /qompack:pin --list: <err>`) was redacted to `(path
+// withheld): <err>` (audit 2's finding 27). Only the screen reads the result; a redacted reason is
+// cut from the reason as written, which keeps the command. Any other word led by `/`, a single
+// segment or more, is still judged as a path.
+func unslashCommands(t string) string {
+	if !strings.Contains(t, "/"+qompackCommandPrefix) {
+		return t
+	}
+	words := strings.Split(t, " ")
+	for i, w := range words {
+		if qompackCommand(strings.TrimRight(w, ".,;:")) {
+			words[i] = w[1:]
+		}
+	}
+	return strings.Join(words, " ")
+}
+
+// qompackCommandPrefix is what every one of Qompack's own slash commands starts with after its `/`
+// (internal/commands).
+const qompackCommandPrefix = "qompack:"
+
+// qompackCommand reports whether w is one of Qompack's own slash commands: `/qompack:` and a command
+// name of lower-case ASCII letters, digits and `-` (`/qompack:pin`, `/qompack:status`).
+func qompackCommand(w string) bool {
+	name, ok := strings.CutPrefix(w, "/"+qompackCommandPrefix)
+	return ok && name != "" && strings.IndexFunc(name, func(r rune) bool {
+		return !(r >= 'a' && r <= 'z' || r >= '0' && r <= '9' || r == '-')
+	}) < 0
 }
 
 // operationOutside reports whether a part of t, a reason read as an error chain joined by ": ", is a

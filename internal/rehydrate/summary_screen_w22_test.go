@@ -159,6 +159,54 @@ func TestBuild_PathKeyedCheckpointDropsCostABoundedNumberOfHostJudgements(t *tes
 	})
 }
 
+// TestBuild_AQompackCommandInADropReasonIsNoPath is audit 2's finding 27: the drop-reason screen read
+// every whitespace token led by `/` as an absolute path outside the project, so the checkpointer's
+// own recovery instruction for pins it could not re-read at the seal (`run /qompack:pin --list`)
+// was redacted to `(path withheld)`, with the error after it. One of Qompack's own slash commands
+// is no path; a real absolute path in a reason, of one segment or more, is still withheld.
+func TestBuild_AQompackCommandInADropReasonIsNoPath(t *testing.T) {
+	pins := checkpoint.DropEntry{
+		Kind: "invariants", ID: "pins",
+		Detail: "pins could not be re-read at the seal, so pins made after the draft began may be missing; " +
+			"run /qompack:pin --list: pins: store closed",
+	}
+	redacted := []checkpoint.DropEntry{
+		{Kind: "pointer_git_unavailable", ID: "git1", Detail: "checkpoint: git unavailable: not a git repository: /repo.git"},
+		{Kind: "pointer_git_unavailable", ID: "git2", Detail: "checkpoint: git index unsupported: cannot read /secrets.txt now"},
+		{Kind: "pointer_git_unavailable", ID: "git3", Detail: "checkpoint: git index unsupported: see /etc/qompack/x.conf"},
+		{Kind: "pointer_git_unavailable", ID: "git4", Detail: "checkpoint: run /qompack:pin/../../etc/passwd"},
+	}
+	for _, tc := range []struct {
+		name string
+		host func(root string) HostPaths
+	}{
+		{"no host rules", func(string) HostPaths { return nil }},
+		{"a deny rule", func(root string) HostPaths { return denyFiles(root, "private/deny.txt") }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			root := privacyRoot(t)
+			cp := ckUAT05()
+			cp.Dropped = append(append(append([]checkpoint.DropEntry(nil), cp.Dropped...), pins), redacted...)
+			d := uat05Deps(t, cp)
+			d.HostPaths = tc.host(root)
+			r := requestFor(t, cp, maxBudget())
+			r.ProjectRoot = root
+
+			res, err := Build(context.Background(), r, d)
+			require.NoError(t, err)
+			got, ok := dropForKind(res.Dropped, pins.Kind, pins.ID)
+			require.True(t, ok)
+			require.Equal(t, pins.Detail, got.Detail, "the recovery instruction and its error are kept")
+			for _, e := range redacted {
+				got, ok := dropForKind(res.Dropped, e.Kind, e.ID)
+				require.True(t, ok)
+				require.Contains(t, got.Detail, withheldDropID, "%q names a path outside the project", e.Detail)
+			}
+			requireNoLeak(t, res, []string{"/repo.git", "/secrets.txt", "/etc/qompack", "passwd"})
+		})
+	}
+}
+
 // summaryVerdict builds root's rehydration under hp with one tool pointer whose summary is s, beside a
 // file pointer at private/deny.txt, and reports how section 6 renders s: "withheld" or "shown". The
 // payload and the drop report must name none of leaks.
