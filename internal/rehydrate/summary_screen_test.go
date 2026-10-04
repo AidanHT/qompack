@@ -18,11 +18,12 @@ import (
 	"github.com/qompack/qompack/internal/rules"
 )
 
-// The tool-summary gate as coordinator decision D61 rules it (C4.6, D50; ADR 0011 §23.5). Rounds 1
-// and 2 tried to find every path inside arbitrary text, and each round closed some spellings and
-// opened others. A structured summary, the store's preview of one path argument, is judged whole as
-// a file pointer is. Free text is screened, with no host judgement, for each Read rule's literal,
-// for the paths the build withholds, and for absolute paths outside the project.
+// The tool-summary gate as coordinator decision D63 rules it (C4.6, D50; ADR 0011 §23 items 5 to 10).
+// Rounds 1 and 2 tried to find every path inside arbitrary text, and D61's screen tried to undo every
+// shell's quoting; each closed some spellings and opened others. A structured summary, the store's
+// preview of one path argument, is judged whole as a file pointer is. Free text costs no host
+// judgement and is shown only when a whitelist proves every token safe, no token names an absolute or
+// escaping path, and the text names no Read rule's literal and no path the build withholds.
 
 // hostRules stands in for the host's Read deny rules written as these patterns: `./a/b.txt`
 // refuses that project file and `./dir/**` everything under the project directory dir, in any
@@ -101,14 +102,12 @@ func requireScreened(t *testing.T, root string, hp HostPaths, files, shown, with
 	return res
 }
 
-// TestBuild_NestedShellsNeverShowADeniedPath is the round-2 verifier's first finding: a command
-// that runs another shell (`powershell -Command`, `bash -c`, `sh -c`, `wsl -e`) quotes the inner
-// command, and the inner command quotes or escapes the path again, so no reading of the outer
-// command's words spells the path, and section 6 showed it while the file pointer for the same path
-// was withheld. So did a bash escape inside the inner command, an escaped quote that mis-pairs the
-// quotes after it, and a path glued to `&&` or `&`. Each spelling holds the denied file's name once
-// its quotes and escapes are removed, and is withheld; the same commands naming allowed files are
-// shown.
+// TestBuild_NestedShellsNeverShowADeniedPath, under D63, no longer models what each shell's quoting
+// means: a command that runs another shell (`powershell -Command`, `bash -c`, `sh -c`, `wsl -e`)
+// quotes the inner command with single quotes, backticks or escapes, and every such token is outside
+// the whitelist (a quote, a backtick, a `\` inside a double-quoted run, a `&` glued to a word), so
+// the whole summary is withheld — whether it names a denied file or an allowed one (accepted
+// over-withholding, ADR 0011 §23). The privacy guarantee holds: no denied path reaches section 6.
 func TestBuild_NestedShellsNeverShowADeniedPath(t *testing.T) {
 	root := previewRoot("proj")
 	commands := func(dir, john, secret, paren, plain string) []string {
@@ -126,9 +125,9 @@ func TestBuild_NestedShellsNeverShowADeniedPath(t *testing.T) {
 		}
 	}
 	denied := []string{"private/John's notes.txt", "private/my secret.txt", "private/deny (1).txt", "private/deny.txt"}
-	requireScreened(t, root, hostRules(root, prefixed("./", denied)...), nil,
-		commands("docs", "John's notes.md", "my notes.md", "draft (1).md", "guide.md"),
-		commands("private", "John's notes.txt", "my secret.txt", "deny (1).txt", "deny.txt"),
+	withheld := append(commands("docs", "John's notes.md", "my notes.md", "draft (1).md", "guide.md"),
+		commands("private", "John's notes.txt", "my secret.txt", "deny (1).txt", "deny.txt")...)
+	requireScreened(t, root, hostRules(root, prefixed("./", denied)...), nil, nil, withheld,
 		[]string{"John''s notes.txt", "my secret.txt", `my\\ secret.txt`, "deny (1).txt", "deny.txt"})
 }
 
@@ -171,10 +170,11 @@ func TestBuild_ADirectoryRuleNeverPoisonsAnUnrelatedSummary(t *testing.T) {
 		[]string{"private/main.go", "private/config"})
 }
 
-// TestBuild_FileURLsAndDriveRelativePathsAreWithheld is the round-2 verifier's seventh finding: a
-// file:// URL and a drive-relative Windows path (`D:secret.txt`, the file secret.txt in drive D's
-// current directory) name paths outside the project, and section 6 showed them. A file URL naming
-// a path inside the project, and an http(s) URL, are shown.
+// TestBuild_FileURLsAndDriveRelativePathsAreWithheld: a file:// URL (D63(3) names it outright) and a
+// drive-relative Windows path (`D:secret.txt`, the file secret.txt in drive D's current directory)
+// name paths outside the project, and are withheld. Under D63 a file URL is withheld even when it
+// names a path inside the project (over-withholding, since `file://` is never a whitelist-safe URL);
+// an http(s) URL is shown.
 func TestBuild_FileURLsAndDriveRelativePathsAreWithheld(t *testing.T) {
 	root := previewRoot("proj")
 	slash := strings.TrimPrefix(filepath.ToSlash(root), "/")
@@ -182,7 +182,6 @@ func TestBuild_FileURLsAndDriveRelativePathsAreWithheld(t *testing.T) {
 		[]string{
 			"https://example.com/docs/index.html",
 			"curl -s https://example.com/api/v1/items?page=2",
-			"file:///" + slash + "/src/main.go",
 		},
 		[]string{
 			"file:///etc/passwd",
@@ -192,6 +191,7 @@ func TestBuild_FileURLsAndDriveRelativePathsAreWithheld(t *testing.T) {
 			"D:secret.txt",
 			"type D:secret.txt",
 			`Get-Content "D:notes\secret.txt"`,
+			"file:///" + slash + "/src/main.go",
 		},
 		[]string{"passwd", "/etc/hosts", "payroll", "secret.txt"})
 }
@@ -295,10 +295,18 @@ func TestBuild_UsefulSummariesAreShownUnderTheUAT12Rules(t *testing.T) {
 			"git -C " + root + " status",
 			"npm test",
 			"go test -run TestX ./internal/...",
-			`{"query":"path:src/main.go retry"}`,
-			`{"description":"run the tests","prompt":"go test ./... and report the failures"}`,
 			"grep -rn TODO src/",
+			`git commit -m "fix the bug"`,
+			`{"query":"path:src/main.go"}`,
+			`{"query":"path:src/main.go retry"}`,
+			`{"url":"https://example.com/a"}`,
+			"https://example.com/search?a=1&b=2",
+			`{"description":"run the tests","prompt":"go test ./... and report the failures"}`,
 			filepath.Join(root, "src", "main.go"),
+			filepath.Join(root, "src", "main.go") + " TODO",
+			`cat "` + filepath.Join(root, "src", "main.go") + `"`,
+			"ls src/ 2>/dev/null",
+			"café/sub/x.txt",
 		},
 		[]string{"cat .env", "cat secrets/token.txt", `{"query":"path:private/deny.txt"}`, "ls " + filepath.Join(root, "secrets")},
 		[]string{"deny.txt", "token.txt"})
@@ -380,9 +388,10 @@ func TestScreenLiteral_IsTheRulePatternsLiteralPart(t *testing.T) {
 	}
 }
 
-// TestBuild_FreeTextAsksTheHostNothing is D61(4) inside the package: a build asks the host about
-// each file pointer, path-keyed checkpoint drop and structured summary once, and about no free
-// text, whatever its shape.
+// TestBuild_FreeTextAsksTheHostNothing is D63's cost rule inside the package (ADR 0011 §23 item 10):
+// a build asks the host about each file pointer, path-keyed checkpoint drop and structured summary
+// once (a cut one by its directory), and about no free text, whatever its shape: a one-word URL with a
+// query string and a cut value among several path-named values are free text too.
 func TestBuild_FreeTextAsksTheHostNothing(t *testing.T) {
 	root := previewRoot("proj")
 	cp := ckUAT05()
@@ -395,12 +404,17 @@ func TestBuild_FreeTextAsksTheHostNothing(t *testing.T) {
 	structured := []string{
 		filepath.Join(root, "src", "b.go"), "**/*.go", "src", `{"notebook_path":"nb/x.ipynb","cell_id":"c1"}`,
 		filepath.Join(root, "src", "a.go"),
+		// A cut path-named value that is its preview's only one: its directory is judged once.
+		cutJSONArg(t, "file_path", "docs/guide.md", len("docs/gui")),
 	}
 	free := []string{
 		"git log --oneline -n 5 --stat src/a.go docs/guide.md and grep for TODO in the diff then stop",
 		"cd " + root + " && go test ./...", "git diff HEAD~1", `{"query":"path:src/a.go retry"}`,
 		`{"description":"run tests","prompt":"go test ./... then report failures"}`,
 		"curl -s https://example.com/api/v1/items?page=2", "file:///etc/passwd", "D:secret.txt",
+		// A one-word URL with a query string, and a cut value among several path-named values.
+		"https://example.com/a?b=c", "https://example.com/search?a=1&b=2",
+		cutPathArray(t, []string{"mod1/aaaa.go", "mod1/bbbb.go", "mod1/cccc.go"}, "mod7/hhhh.go", len("mod7/hh")),
 	}
 	cp.Pointers.Tools = nil
 	for i, s := range append(append([]string(nil), structured...), free...) {
@@ -425,21 +439,26 @@ func TestBuild_FreeTextAsksTheHostNothing(t *testing.T) {
 	want := map[string]int{
 		"src/a.go": 1, "private/deny.txt": 1, "src/gone.go": 1, // file pointers and the path-keyed drop
 		filepath.Join(root, "src", "b.go"): 1, "**/*.go": 1, "src": 1, "nb/x.ipynb": 1, // structured
-		filepath.Join(root, "src", "a.go"): 1,
+		filepath.Join(root, "src", "a.go"): 1, "docs": 1,
 	}
 	require.Equal(t, want, asked, "each path is judged once per build, and no free text is judged")
 }
 
-// TestBuild_AOneWordArgumentIsJudgedByItsShape: Read, Write and Edit take an absolute file_path,
-// so a rooted one-word summary is the one file a file pointer would name and is judged as written;
-// a relative one is a Glob or Grep argument, judged as a path and screened as free text, so a Grep
-// for a withheld file's name or a rule's literal is withheld; and a word glued from a command
-// (`path:…`, `cat<…`) is screened too.
+// TestBuild_AOneWordArgumentIsJudgedByItsShape: a one-word summary is judged whole as the one file a
+// Read, Write or Edit names AND must pass the free-text whitelist (D63). So a word glued from a
+// command (`path:…`, `cat<…`) is screened, and a relative Grep argument spelling a withheld file's
+// name or a rule's literal is withheld. `<root>/docs/deny.md` is shown: the rule's literal is
+// `deny.txt`, which a `.md` sibling does not hold. Criterion change (D63): the whitelist's name screen
+// cannot tell the project's own `<root>/README.md` from the denied `private/README.md`, whose rule's
+// literal is `README.md`, so the absolute path is withheld too.
 func TestBuild_AOneWordArgumentIsJudgedByItsShape(t *testing.T) {
 	root := previewRoot("proj")
 	requireScreened(t, root, hostRules(root, "./private/README.md", "./private/deny.txt"), []string{"private/README.md"},
-		[]string{filepath.Join(root, "README.md"), filepath.Join(root, "docs", "deny.md"), "docs/guide.md", "TODO"},
-		[]string{"README.md", "deny.txt", "path:private/deny.txt", "cat<private/deny.txt", "x=private/deny.txt"},
+		[]string{filepath.Join(root, "docs", "deny.md"), "docs/guide.md", "TODO"},
+		[]string{
+			filepath.Join(root, "README.md"), "README.md", "deny.txt", "path:private/deny.txt",
+			"cat<private/deny.txt", "x=private/deny.txt",
+		},
 		[]string{"private/deny.txt", "private/README.md"})
 }
 
@@ -470,14 +489,14 @@ func TestBuild_AShortWithheldNameNeverRedactsAnUnrelatedReason(t *testing.T) {
 // bare drive `D:`, `$HOME`) is withheld as outside the project, but it names no file, so it adds no
 // name to the free-text screen; were `~` a withheld name, every `HEAD~1` would be withheld.
 //
-// Criterion change (w19c round-1 review): `echo $HOME is set` was the `$HOME` case's shown text. A
-// home directory's variable ending a word is now that directory, as `~` alone is (D61(2)(c);
-// `cd $HOME && cat .ssh/id_rsa`), so it is withheld for what it says, not as poisoning;
-// `echo $HOMEPAGE is set` holds `$home` where a name starts and keeps the poisoning check.
+// Criterion change (D63): `echo $HOMEPAGE is set` is no longer a shown row, because under the
+// whitelist any `$` at a token start makes the summary unsafe (a variable cannot be proven inert), so
+// it is withheld for its `$`, not as poisoning. The `~`, `D:` and `$HOME` anchors stay withheld and
+// still poison nothing (`git diff HEAD~1` is shown).
 func TestBuild_AWithheldAnchorPoisonsNoFreeText(t *testing.T) {
 	root := previewRoot("proj")
 	requireScreened(t, root, hostRules(root, "./private/deny.txt"), nil,
-		[]string{"git diff HEAD~1", "git commit -m added: tests", "echo $HOMEPAGE is set"},
-		[]string{"~", "D:", "$HOME"},
+		[]string{"git diff HEAD~1", "git commit -m added: tests"},
+		[]string{"~", "D:", "$HOME", "echo $HOMEPAGE is set"},
 		nil)
 }

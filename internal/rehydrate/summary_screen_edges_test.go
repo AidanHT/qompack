@@ -54,8 +54,10 @@ func cutJSONArg(t *testing.T, name, value string, keep int) string {
 func TestBuild_AnAbsolutePathGluedToAFlagIsWithheld(t *testing.T) {
 	root := previewRoot("proj")
 	requireScreened(t, root, hostRules(root, "./private/deny.txt"), nil,
-		[]string{"cmd /c dir", "go test ./...", "gcc -I" + filepath.Join(root, "include") + " -c x.c", "ls -la src/"},
+		// `cmd /c dir` is over-withheld by D63: `/c` reads as a single-segment absolute path.
+		[]string{"go test ./...", "gcc -I" + filepath.Join(root, "include") + " -c x.c", "ls -la src/"},
 		[]string{
+			"cmd /c dir",
 			"git -C/home/u/other status",
 			"gcc -I/opt/homebrew/include -L/opt/homebrew/lib x.c",
 			"go build -o/usr/local/bin/x .",
@@ -77,8 +79,11 @@ func TestBuild_AnAbsolutePathGluedToAFlagIsWithheld(t *testing.T) {
 func TestBuild_AnEnvironmentVariablePathIsWithheld(t *testing.T) {
 	root := previewRoot("proj")
 	requireScreened(t, root, hostRules(root, "./private/deny.txt"), nil,
-		[]string{"echo $PATH", "go test $PKG", "echo $HOMEPAGE is set", "npm run build && echo done"},
+		// Criterion change (D63): any `$` at a token start is unsafe (a variable cannot be proven
+		// inert), so `echo $PATH`, `go test $PKG` and `echo $HOMEPAGE is set` are over-withheld.
+		[]string{"npm run build && echo done"},
 		[]string{
+			"echo $PATH", "go test $PKG", "echo $HOMEPAGE is set",
 			`Get-Content $env:USERPROFILE\.aws\credentials`,
 			`Get-Content "$env:USERPROFILE\.ssh\id_rsa"`,
 			`type $env:APPDATA\Claude\settings.json`,
@@ -187,12 +192,18 @@ func TestBuild_ACutCommandThatStartsLikeJSONIsScreened(t *testing.T) {
 // TestBuild_AnEscapedLineBreakNeverSplitsADeniedName: a line continuation inside a word (`\`, `^` or
 // a backtick before a newline) joins the word, and the store's preview collapses the newline to a
 // space, so the screen read `de\ ny` as `de ny`, which spells no literal. A POSIX shell reads `.\.`
-// as `..`, which the screen read as two `.` segments. Each is read both ways.
+// as `..`, which the screen read as two `.` segments. Under D63 a backslash that ends a token (an
+// escaped space or a collapsed continuation) makes the summary unsafe, a caret or a backtick is
+// outside the whitelist, and the path check reads a backslash both as a separator and removed, so
+// each is withheld.
+//
+// Criterion change (D63): `cat docs/my\ notes.md`, an allowed file behind an escaped space, is
+// over-withheld with them, since a token-final backslash is never proven inert.
 func TestBuild_AnEscapedLineBreakNeverSplitsADeniedName(t *testing.T) {
 	root := previewRoot("proj")
 	slash := strings.ReplaceAll(root, `\`, "/")
 	requireScreened(t, root, hostRules(root, "./private/deny.txt", "./.env"), nil,
-		[]string{`cat docs/my\ notes.md`, `cat ./src/a.go`, `type .\src\a.go`, `cat ` + slash + `/./src/a.go`},
+		[]string{`cat ./src/a.go`, `type .\src\a.go`, `cat ` + slash + `/./src/a.go`},
 		[]string{
 			`cat private/de\ ny.txt`,
 			`type private\de^ ny.txt`,
@@ -200,6 +211,7 @@ func TestBuild_AnEscapedLineBreakNeverSplitsADeniedName(t *testing.T) {
 			"Get-Content private/de` ny.txt",
 			`cat .\./outside/x.txt`,
 			`cat ` + slash + `/.\./x.txt`,
+			`cat docs/my\ notes.md`,
 		},
 		nil)
 }
@@ -288,12 +300,13 @@ func TestBuild_ACutPathArgumentIsAFragmentNotAPath(t *testing.T) {
 	})
 }
 
-// TestBuild_ACutInsideASecondSpellingOfTheRootIsShown: a command naming two of the project's absolute
-// paths, cut by the store inside the second spelling of the root, ended in a drive or POSIX path
-// that is not the whole root, read as a path outside the project, and was withheld. A stretch from a
-// path's start to the cut that begins the root's own spelling is the root; one that begins another
-// path outside the project is still withheld.
-func TestBuild_ACutInsideASecondSpellingOfTheRootIsShown(t *testing.T) {
+// TestBuild_ACutInsideASecondSpellingOfTheRootIsWithheld: a command naming two of the project's
+// absolute paths, cut by the store inside the second spelling of the root, ends in a drive fragment
+// that is not the whole root; D63 no longer reassembles a cut root (deleted cutRoot machinery), so the
+// fragment reads as a path outside the project and the summary is over-withheld (the first, complete
+// root is still held together, but the cut fragment's `C:\q\John` token is a drive path). A cut inside
+// a real sibling stays withheld.
+func TestBuild_ACutInsideASecondSpellingOfTheRootIsWithheld(t *testing.T) {
 	root := previewRoot("John Smith", "proj")
 	cutAfter := func(head, rest string, keep int) string {
 		pad := previewWidth - len(previewEllipsis) - len(head) - keep
@@ -305,11 +318,12 @@ func TestBuild_ACutInsideASecondSpellingOfTheRootIsShown(t *testing.T) {
 	head := "cat " + filepath.Join(root, "src", "main.go") + " "
 	other := previewRoot("John Smith", "other", "secret.txt")
 	requireScreened(t, root, hostRules(root, "./private/deny.txt"), nil,
+		nil,
 		[]string{
 			cutAfter(head, filepath.Join(root, "pkg", "x1.go"), len(root)-3),
 			cutAfter(head, filepath.Join(root, "pkg", "x1.go"), len(root)/2),
+			cutAfter(head, other, len(other)-6),
 		},
-		[]string{cutAfter(head, other, len(other)-6)},
 		nil)
 }
 
@@ -331,44 +345,53 @@ func TestBuild_AWithheldNameIsMatchedOnlyWhereANameStarts(t *testing.T) {
 		nil)
 }
 
-// TestBuild_ACommentMarkerIsNotAUNCShare: a token that starts with two separators was a UNC share
-// whatever followed, so a search for a Go or C comment (`// TODO`, `//nolint`, `//go:build`) was
-// withheld everywhere. A share needs a host and a share name; the `\\?\` and `\\.\` device prefixes
-// stay outside the project.
-func TestBuild_ACommentMarkerIsNotAUNCShare(t *testing.T) {
+// TestBuild_ACommentMarkerIsWithheld: under D63 a token led by `/` names an absolute path, so a
+// comment marker (`// TODO`, `//nolint`, `//go:build`) is over-withheld along with the UNC shares and
+// device prefixes it used to be confused with. The privacy guarantee is unchanged: no outside path is
+// shown.
+func TestBuild_ACommentMarkerIsWithheld(t *testing.T) {
 	root := previewRoot("proj")
 	requireScreened(t, root, hostRules(root, "./private/deny.txt"), nil,
-		[]string{`grep -rn "// TODO" internal/`, `rg -n "//nolint" internal/`, root + " //go:build", "// Deprecated: use X"},
-		[]string{"//fileserver/share/payroll.xlsx", `type \\fileserver\share\x.txt`, `type \\?\C:\x\y.txt`, "cat //etc/passwd"},
+		nil,
+		[]string{
+			`grep -rn "// TODO" internal/`, `rg -n "//nolint" internal/`, root + " //go:build",
+			"// Deprecated: use X",
+			"//fileserver/share/payroll.xlsx", `type \\fileserver\share\x.txt`, `type \\?\C:\x\y.txt`, "cat //etc/passwd",
+		},
 		[]string{"payroll", "fileserver", "passwd"})
 }
 
 // TestBuild_ADevicePathIsNotOutsideTheProject: `/dev/null` and the other standard devices name no
 // file content, and `2>/dev/null` withheld ordinary commands as naming an absolute path outside the
-// project. A fixed list of device paths is exempt; any other path under /dev is not.
+// project. A fixed list of device paths is exempt; any other path under /dev is not. Under D63 the
+// exemption is a whitelist of whole tokens (nullDevices: the null device's redirects and the three
+// standard streams).
+//
+// Criterion change (D63): `exec 3>/dev/fd/3` is withheld, since a descriptor path is not on the list.
 func TestBuild_ADevicePathIsNotOutsideTheProject(t *testing.T) {
 	root := previewRoot("proj")
 	requireScreened(t, root, hostRules(root, "./private/deny.txt"), nil,
 		[]string{
 			"ls -la src/ 2>/dev/null || true", "which go node python3 2>/dev/null",
-			"go build ./... >/dev/null && echo ok", "cat /dev/stdin | wc -l", "exec 3>/dev/fd/3",
+			"go build ./... >/dev/null && echo ok", "cat /dev/stdin | wc -l",
 		},
-		[]string{"cat /dev/disk/by-id/x", "cat /devices/x/y"},
+		[]string{"cat /dev/disk/by-id/x", "cat /devices/x/y", "exec 3>/dev/fd/3"},
 		nil)
 }
 
-// TestBuild_ADockerBindMountOfTheProjectIsShown: the root followed by `:` read as a name continuing
-// the root, so `-v "<root>:/src"`, the project mounted into a container, was withheld as a path
-// outside the project. The root followed by `:` and a separator, a quote or the end is the root.
-func TestBuild_ADockerBindMountOfTheProjectIsShown(t *testing.T) {
+// TestBuild_ADockerBindMountIsWithheld: a bind mount names a container path (`:/src`, `-w /src`) that
+// reads as an absolute path, so under D63 a Docker bind mount of the project is over-withheld. The
+// mount of a path outside the project stays withheld. No outside path is shown.
+func TestBuild_ADockerBindMountIsWithheld(t *testing.T) {
 	root := previewRoot("proj")
 	slash := strings.ReplaceAll(root, `\`, "/")
 	requireScreened(t, root, hostRules(root, "./private/deny.txt"), nil,
+		nil,
 		[]string{
 			`docker run --rm -v "` + root + `:/src" -w /src golang:1.23 go test ./...`,
 			`docker run --rm -v "` + slash + `:/app" node:20 npm test`,
+			`docker run -v "` + root + `2:/src" img`, "docker run -v /home/u/data:/data img",
 		},
-		[]string{`docker run -v "` + root + `2:/src" img`, "docker run -v /home/u/data:/data img"},
 		[]string{"/home/u"})
 }
 

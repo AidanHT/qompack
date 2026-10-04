@@ -32,8 +32,11 @@ var uat12Rules = []string{"./private/deny.txt", "./.env", "./secrets/**"}
 func TestBuild_AnEnvDriveSpelledInAnyCaseIsWithheld(t *testing.T) {
 	root := previewRoot("proj")
 	requireScreened(t, root, hostRules(root, "./private/deny.txt"), nil,
-		[]string{"echo $Env:PATH", "go env GOPATH", `$Env:GOFLAGS = "-count=1"`},
+		// Criterion change (D63): any `$` at a token start is unsafe, so `echo $Env:PATH` and
+		// `$Env:GOFLAGS = …` are over-withheld; `go env GOPATH` (no `$`) is shown.
+		[]string{"go env GOPATH"},
 		[]string{
+			"echo $Env:PATH", `$Env:GOFLAGS = "-count=1"`,
 			`Get-Content $Env:USERPROFILE\.ssh\id_rsa`,
 			`Get-Content $ENV:APPDATA\Claude\settings.json`,
 			`$p = "$Env:USERPROFILE\.ssh\id_rsa"; Get-Content $p`,
@@ -74,28 +77,37 @@ func TestBuild_AnANSICQuoteOrAnUndecodedEscapeNeverHidesARuleLiteral(t *testing.
 			`cat ` + dir + `$'\057'` + name,
 		}
 	}
-	// Two builds, so that section 6's share of the budget holds every pointer of each.
+	// Criterion change (D63): an ANSI-C quote (`$'...'`), a locale quote, a character code, a
+	// twice percent-encoded separator and a backslash-before-quote are all unsafe under the
+	// whitelist (a `$`, a `%` or a quote), so each shape is withheld — whether it names a denied file or
+	// an allowed one. The screen no longer decodes anything; it withholds the whole class. Two builds,
+	// so section 6's share holds every pointer of each.
 	allowed, denied := spell("src", "main.go", "x.txt", "assets"), spell("private", "deny.txt", ".env", "secrets")
 	for _, half := range [][2]int{{0, 8}, {8, len(denied)}} {
 		t.Run("rules", func(t *testing.T) {
-			requireScreened(t, root, hostRules(root, uat12Rules...), nil,
-				append(allowed[half[0]:half[1]:half[1]], `echo $'hello world'`, `git log --format=$'%h %s'`),
-				denied[half[0]:half[1]],
+			var withheld []string
+			withheld = append(withheld, allowed[half[0]:half[1]]...)
+			withheld = append(withheld, denied[half[0]:half[1]]...)
+			withheld = append(withheld, `echo $'hello world'`, `git log --format=$'%h %s'`)
+			requireScreened(t, root, hostRules(root, uat12Rules...), nil, nil, withheld,
 				[]string{"deny.txt", ".env", "secrets"})
 		})
 	}
 	t.Run("an apostrophe ANSI-C quoted", func(t *testing.T) {
 		requireScreened(t, root, hostRules(root, "./private/John's notes.txt"), nil,
-			[]string{`cat docs/$'John\'s notes.md'`},
-			[]string{`cat private/$'John\'s notes.txt'`},
+			nil,
+			[]string{`cat docs/$'John\'s notes.md'`, `cat private/$'John\'s notes.txt'`},
 			[]string{"notes.txt"})
 	})
 	t.Run("a recorded withheld file", func(t *testing.T) {
 		deny := denyFiles(root, "private/deny.txt")
 		noLiterals := func() HostRules { h := deny(); h.Patterns = nil; return h }
 		requireScreened(t, root, noLiterals, []string{"private/deny.txt"},
-			[]string{`cat src/$'main.go'`},
-			[]string{`cat private/$'deny.txt'`, `type "private\"deny.txt`, `curl http://h/x?f=private%252Fdeny.txt`},
+			nil,
+			[]string{
+				`cat src/$'main.go'`, `cat private/$'deny.txt'`, `type "private\"deny.txt`,
+				`curl http://h/x?f=private%252Fdeny.txt`,
+			},
 			[]string{"deny.txt"})
 	})
 }
@@ -107,8 +119,12 @@ func TestBuild_AnANSICQuoteOrAnUndecodedEscapeNeverHidesARuleLiteral(t *testing.
 func TestBuild_AnOutsidePathAfterATypographicQuoteOrAUnicodeSpaceIsWithheld(t *testing.T) {
 	root := previewRoot("proj")
 	requireScreened(t, root, hostRules(root), nil,
-		[]string{"echo “done”", "echo «ok»", "git commit -m ‘fix typo’", "echo\u00a0ok"},
+		// Criterion change (D63): a typographic quote, a guillemet and a Unicode space are all outside
+		// the whitelist (non-ASCII, non-letter), and ASCII whitespace is the only token separator, so
+		// `echo “done”`, `echo «ok»`, `git commit -m ‘fix typo’` and `echo\u00a0ok` are over-withheld.
+		nil,
 		[]string{
+			"echo “done”", "echo «ok»", "git commit -m ‘fix typo’", "echo\u00a0ok",
 			"Get-Content “D:\\secret.txt”",
 			"Get-Content ‘D:\\secret.txt’",
 			"Get-Content “/etc/passwd”",
@@ -143,13 +159,15 @@ func TestBuild_ACutInsideAnEncodedOrQuotedNameNeverShowsItsPrefix(t *testing.T) 
 	root := previewRoot("proj")
 	t.Run("rules", func(t *testing.T) {
 		requireScreened(t, root, hostRules(root, uat12Rules...), nil,
+			// A cut token that is plain ASCII and no rule prefix is shown; one that is percent-encoded or
+			// typographic is over-withheld (unsafe), so a cut inside such a name never shows its prefix.
 			[]string{
-				cutAfter(t, "curl ", " https://x.example/?f=src%2Fmai"),
 				cutAfter(t, `{"script":"`, ` x\nmai`),
-				cutAfter(t, "cat ", " cat “mai"),
 				cutAfter(t, "tar ", " tar -C.ve"),
 			},
 			[]string{
+				cutAfter(t, "curl ", " https://x.example/?f=src%2Fmai"),
+				cutAfter(t, "cat ", " cat “mai"),
 				cutAfter(t, "curl ", " https://x.example/?f=private%2Fden"),
 				cutAfter(t, `{"script":"`, ` x\nden`),
 				cutAfter(t, `{"script":"`, ` x\tsecr`),
@@ -163,8 +181,11 @@ func TestBuild_ACutInsideAnEncodedOrQuotedNameNeverShowsItsPrefix(t *testing.T) 
 	t.Run("a file URL in the project", func(t *testing.T) {
 		url := "file:///" + strings.TrimPrefix(filepath.ToSlash(root), "/")
 		requireScreened(t, root, hostRules(root, "./private/my secret.txt"), nil,
-			[]string{cutAfter(t, "x ", " "+url+"/private/my%20not")},
-			[]string{cutAfter(t, "x ", " "+url+"/private/my%20sec")},
+			nil,
+			[]string{
+				cutAfter(t, "x ", " "+url+"/private/my%20not"),
+				cutAfter(t, "x ", " "+url+"/private/my%20sec"),
+			},
 			nil)
 	})
 }
@@ -176,8 +197,12 @@ func TestBuild_AQuoteThenAnEscapedSpaceAfterTheRootNamesASibling(t *testing.T) {
 	root := previewRoot("proj")
 	fwd := filepath.ToSlash(root)
 	requireScreened(t, root, hostRules(root, uat12Rules...), nil,
-		[]string{`cat "` + fwd + `"/x.txt`, `cd "` + root + `" && make`, `cat '` + fwd + `' old/x.txt`},
+		[]string{`cd "` + root + `" && make`},
 		[]string{
+			// D63 over-withholds a closing quote glued to more of a path (`"<root>"/x.txt`) and a single
+			// quote anywhere; the escaped-space siblings stay withheld by the same unsafe characters.
+			`cat "` + fwd + `"/x.txt`,
+			`cat '` + fwd + `' old/x.txt`,
 			`cat "` + fwd + `"\ old/x.txt`,
 			`cat '` + fwd + `'\ old/x.txt`,
 			"Get-Content \"" + root + "\"` old" + string(filepath.Separator) + "x.txt",
@@ -298,7 +323,9 @@ func TestBuild_ARootedWordThatIsNoPathPoisonsNoFreeText(t *testing.T) {
 	cases := []struct{ poison, victim string }{
 		{"/review", "git log --grep=review"},
 		{"/compact", `{"query":"compact summary"}`},
-		{`\.test\.ts`, `find src -name "*.ts"`},
+		// The victim holds no glob of its own (a `*` would withhold it under D63 regardless), so a shown
+		// victim proves the backslash-led poison noted nothing.
+		{`\.test\.ts`, "grep -rn TestParse src/"},
 	}
 	if runtime.GOOS == "windows" {
 		cases = append(cases,
@@ -324,11 +351,12 @@ func TestBuild_AnEarlierSpellingOfTheRootKeepsItsQuotes(t *testing.T) {
 			root := previewRoot(elem...)
 			p := root[:len(root)-len("proj")]
 			requireScreened(t, root, hostRules(root, uat12Rules...), nil,
+				// Criterion change (D63): a quote that splits the root's own spelling (`C:\q\"proj"`) makes
+				// the token unsafe, so every spelling here is over-withheld. No quote state is tracked.
+				nil,
 				[]string{
 					`cd ` + p + `"proj" && make`,
 					`type ` + p + `"proj` + sep + `a.txt" & cd ` + root + ` && dir`,
-				},
-				[]string{
 					`cat ` + p + `"proj` + sep + `a.txt" ` + p + `"proj old` + sep + `x.txt"`,
 					`type ` + p + `"proj` + sep + `a.txt" & type ` + p + `"proj old` + sep + `x.txt"`,
 					`cd ` + p + `"proj" && cat "` + p + `proj old` + sep + `x.txt"`,
@@ -345,8 +373,11 @@ func TestBuild_AnEarlierSpellingOfTheRootKeepsItsQuotes(t *testing.T) {
 func TestBuild_ACaretEscapedSeparatorIsASeparator(t *testing.T) {
 	root := previewRoot("proj")
 	requireScreened(t, root, hostRules(root), nil,
-		[]string{`^\s*func\b`, `^/api/v1/users`, `rg "^\s*//" src/`, `echo a^&b`},
+		// Criterion change (D63): a caret is outside the whitelist, so a caret-escaped path and a
+		// caret-anchored regular expression are both over-withheld. No caret handling remains.
+		nil,
 		[]string{
+			`^\s*func\b`, `^/api/v1/users`, `rg "^\s*//" src/`, `echo a^&b`,
 			`type ^\Users^\Quant^\.ssh^\id_rsa`,
 			`type ..^\..^\outside.txt`,
 			`type %USERPROFILE%^\.ssh^\id_rsa`,
@@ -393,13 +424,15 @@ func TestBuild_ANestedShellThatChangesToTheRootIsShown(t *testing.T) {
 			requireScreened(t, root, hostRules(root, uat12Rules...), nil,
 				[]string{
 					`bash -c "cd ` + fwd + ` && go test ./..."`,
-					`cmd /c "cd /d ` + root + ` && go test ./..."`,
 					`sh -c "cd ` + fwd + ` || exit 1"`,
 				},
 				[]string{
 					`bash -c "cat ` + fwd + ` old/x.txt"`,
 					`cat "` + root + ` & co` + sep + `x.txt"`,
 					`bash -c "cd ` + fwd + ` && cat private/deny.txt"`,
+					// Criterion change (D63): `cmd /c "cd /d <root> …"` is over-withheld, since `/c` and `/d`
+					// are tokens led by a separator, which D63(3) reads as absolute paths.
+					`cmd /c "cd /d ` + root + ` && go test ./..."`,
 				},
 				[]string{"deny.txt"})
 		})
@@ -415,11 +448,13 @@ func TestBuild_ANestedShellThatChangesToTheRootIsShown(t *testing.T) {
 func TestBuild_ADriveLessGlobOutsideTheProjectIsWithheld(t *testing.T) {
 	root := previewRoot("proj")
 	requireScreened(t, root, hostRules(root, "./private/deny.txt"), nil,
+		// Criterion change (D63): a backslash-led regular expression is over-withheld along with the
+		// drive-less glob paths (both start with `\`, an absolute separator); no regex is mistaken for a
+		// path, and none is shown.
+		nil,
 		[]string{
 			`\bConfigLoader\b`, `\w+Error\b`, `\s*func`, `\.Evaluate\(`, `\[DEBUG\]`, `\s+$`, `\d+\.\d+`, `\d?`,
 			`grep -E "\s*TODO\b" -r src/`,
-		},
-		[]string{
 			`dir \Users\someone\.ssh\*`,
 			`Get-ChildItem \Users\someone\.aws\*`,
 			`Get-ChildItem \Users\someone\.ssh\id_*`,

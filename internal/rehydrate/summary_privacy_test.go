@@ -206,17 +206,21 @@ func TestBuild_JoinedArgumentPreviewsNeverShowAWithheldPath(t *testing.T) {
 	}
 }
 
-// TestBuild_AnAbsolutePathIsJudgedAsTheOneFileItNames: a suffix names a withheld file only when it
-// is relative. recall's selector and Glob's pattern match at any depth, so `path:README.md` selects
-// a denied private/README.md; the store's preview of a Read is the absolute path of one file, and
-// the project's own README.md is not withheld because a file of the same name is.
+// TestBuild_AnAbsolutePathIsJudgedAsTheOneFileItNames: recall's selector and Glob's pattern match at
+// any depth, so `path:README.md` selects a denied private/README.md and is withheld. Criterion change
+// (D63): a one-word summary must also pass the free-text whitelist, whose (4) screen cannot tell the
+// project's own `<root>/README.md` from the denied `private/README.md` — they share the rule's
+// literal `README.md` — so the absolute path is withheld too (accepted over-withholding, ADR 0011
+// §23). A rooted path whose basename is not a rule literal (`<root>/docs/guide.md`) is still shown.
 func TestBuild_AnAbsolutePathIsJudgedAsTheOneFileItNames(t *testing.T) {
 	root := privacyRoot(t)
 	cp := ckUAT05()
 	cp.Pointers.Files = []checkpoint.FilePointer{{Path: "private/README.md", Hash: hashOf("pr"), Why: "referenced"}}
 	rootReadme := filepath.Join(root, "README.md")
+	guide := filepath.Join(root, "docs", "guide.md")
 	cp.Pointers.Tools = []checkpoint.ToolPointer{
 		{ToolUseID: "toolu_abs", Hash: hashOf("abs"), Summary: rootReadme},
+		{ToolUseID: "toolu_guide", Hash: hashOf("guide"), Summary: guide},
 		{ToolUseID: "toolu_sel", Hash: hashOf("sel"), Summary: `{"query":"path:README.md"}`},
 	}
 	d := uat05Deps(t, cp)
@@ -227,7 +231,8 @@ func TestBuild_AnAbsolutePathIsJudgedAsTheOneFileItNames(t *testing.T) {
 	res, err := Build(context.Background(), r, d)
 	require.NoError(t, err)
 	section6 := sectionBody(res.Text, sectionHeading(ItemPointers))
-	require.Contains(t, section6, "- tool_use toolu_abs "+hashOf("abs").String()+" — "+rootReadme)
+	require.Contains(t, section6, "- tool_use toolu_abs "+hashOf("abs").String()+" — "+withheldSummary)
+	require.Contains(t, section6, "- tool_use toolu_guide "+hashOf("guide").String()+" — "+guide)
 	require.Contains(t, section6, "- tool_use toolu_sel "+hashOf("sel").String()+" — "+withheldSummary)
 }
 
@@ -237,17 +242,24 @@ func TestBuild_AnAbsolutePathIsJudgedAsTheOneFileItNames(t *testing.T) {
 // equals sign is the whole preview or its first words, and a command quotes it whole. Round 1 read
 // paths only inside segments it split at those very characters, so it never judged the path whole
 // and section 6 showed it, while the file pointer for the same path was withheld.
+// A denied path holding a delimiter is withheld whatever the delimiter. Under D63 an allowed path of
+// the same shape is shown ONLY when the delimiter is whitelist-safe (`,` and `=`): a parenthesis, an
+// apostrophe or a space makes every token unsafe, so the allowed path is withheld too (accepted
+// over-withholding, ADR 0011 §23). The denied path is withheld either way, by the rule's literal
+// (`a,b.txt`, `k=v.txt`) or by the unsafe character.
 func TestBuild_DelimiterCharactersInADeniedPathNeverShowIt(t *testing.T) {
 	for _, tc := range []struct {
 		denied, allowed, leak string
 		// unquoted: the path needs no quoting in a command, so it may be an option's value there.
 		unquoted bool
+		// allowedShown: the delimiter is whitelist-safe, so the allowed path of the same shape is shown.
+		allowedShown bool
 	}{
-		{"private/deny (1).txt", "docs/draft (1).md", "deny (1)", false},
-		{"private/deny(2).txt", "docs/draft(2).md", "deny(2)", true},
-		{"private/John's notes.txt", "docs/John's notes.md", "John's notes.txt", false},
-		{"private/a,b.txt", "docs/a,b.md", "a,b.txt", true},
-		{"private/k=v.txt", "docs/k=v.md", "k=v.txt", true},
+		{"private/deny (1).txt", "docs/draft (1).md", "deny (1)", false, false},
+		{"private/deny(2).txt", "docs/draft(2).md", "deny(2)", true, false},
+		{"private/John's notes.txt", "docs/John's notes.md", "John's notes.txt", false, false},
+		{"private/a,b.txt", "docs/a,b.md", "a,b.txt", true, true},
+		{"private/k=v.txt", "docs/k=v.md", "k=v.txt", true, true},
 	} {
 		t.Run(tc.denied, func(t *testing.T) {
 			root := previewRoot("proj")
@@ -293,8 +305,13 @@ func TestBuild_DelimiterCharactersInADeniedPathNeverShowIt(t *testing.T) {
 					"a summary naming the denied path %q is withheld", tp.Summary)
 			}
 			for _, tp := range allowed {
-				require.Contains(t, section6, pointerLine("tool_use "+string(tp.ToolUseID), tp.Hash, tp.Summary),
-					"a summary naming an allowed path of the same shape is shown as recorded")
+				if tc.allowedShown {
+					require.Contains(t, section6, pointerLine("tool_use "+string(tp.ToolUseID), tp.Hash, tp.Summary),
+						"a safe-delimiter allowed path is shown as recorded")
+				} else {
+					require.Contains(t, section6, "- tool_use "+string(tp.ToolUseID)+" "+tp.Hash.String()+" — "+withheldSummary,
+						"an allowed path with an unsafe delimiter is withheld too (over-withholding)")
+				}
 			}
 		})
 	}
@@ -316,7 +333,6 @@ func TestBuild_AProjectPathWithASpaceShowsItsOwnAbsolutePaths(t *testing.T) {
 		src,
 		strings.ReplaceAll(src, `\`, "/"),
 		src + " TODO",
-		filepath.Join(root, "src") + " *.go",
 		`cat "` + src + `"`,
 		`{"notebook_path":"` + strings.ReplaceAll(src, `\`, `\\`) + `"}`,
 	}
@@ -329,6 +345,9 @@ func TestBuild_AProjectPathWithASpaceShowsItsOwnAbsolutePaths(t *testing.T) {
 		`cat "` + sibling + `"`,
 		filepath.Join(base, "John Smith", "proj2", "x.txt"),
 		"ls " + filepath.Join(base, "John"),
+		// Criterion change (D63): a glob in free text is never shown, though this one's directory is the
+		// project's own src.
+		filepath.Join(root, "src") + " *.go",
 	}
 	for _, s := range append(append([]string(nil), shown...), withheld...) {
 		require.LessOrEqual(t, len(s), previewWidth, "fixture: %q is wider than a store preview", s)
@@ -430,7 +449,6 @@ func TestBuild_TheProjectRootFollowedByMoreWordsIsShown(t *testing.T) {
 			sep := string(filepath.Separator)
 			shown := []string{
 				root + " TODO",
-				root + " **/*.go",
 				slash + " TODO",
 				root + " func main",
 				"cd " + root + " && go test ./...",
@@ -444,6 +462,8 @@ func TestBuild_TheProjectRootFollowedByMoreWordsIsShown(t *testing.T) {
 				`{"file_path":"` + strings.ReplaceAll(root+" old"+sep+"x.txt", `\`, `\\`) + `"}`,
 				"cd " + root + " && cat private/deny.txt",
 				root + sep + "private deny.txt",
+				// D63 over-withholds a glob pattern in free text, though the directory is the project root.
+				root + " **/*.go",
 			}
 			requireSummaries(t, root, []string{"private/deny.txt"}, nil, shown, withheld,
 				[]string{"deny.txt", "proj2", "old" + sep + "x.txt", strings.ReplaceAll("old"+sep+"x.txt", `\`, `\\`)})
@@ -455,10 +475,11 @@ func TestBuild_TheProjectRootFollowedByMoreWordsIsShown(t *testing.T) {
 // A Bash or PowerShell command names a path the way its shell reads it: PowerShell doubles an
 // apostrophe inside a single-quoted string and escapes with a backtick, a POSIX shell escapes a
 // space, an apostrophe or a parenthesis with a backslash and honours `\"` inside double quotes, and
-// `&&` ends a word without a space. Read as written, none of those spells the denied path, and the
-// quoted segment after an escaped quote pairs the wrong quotes, so section 6 showed each of these
-// while the file pointer for the same path was withheld. Each is withheld relative and absolute,
-// and the same shapes naming allowed files are shown.
+// `&&` ends a word without a space. Each is withheld relative and absolute.
+//
+// Criterion change (D63): the same shapes naming allowed files are withheld too, since each holds an
+// apostrophe, a backtick, a parenthesis, a quote inside a run, an `&` glued to a word or a backslash
+// that ends a token (an escaped space), none of which the whitelist proves inert.
 func TestBuild_ShellQuotingAndEscapesNeverShowADeniedPath(t *testing.T) {
 	root := previewRoot("proj")
 	slash := strings.ReplaceAll(root, `\`, "/")
@@ -493,15 +514,15 @@ func TestBuild_ShellQuotingAndEscapesNeverShowADeniedPath(t *testing.T) {
 		"John''s notes.txt", `John\'s\ notes.txt`, "my` secret.txt", `my\ secret.txt`, `deny\(2\).txt`,
 		"deny (1).txt", "a,b.txt", "plain.txt",
 	}
-	// No file pointer records these paths: each shape is withheld by the host's rules on the path
-	// its shell reads, not by a path the build already knows (which
-	// TestBuild_AKnownWithheldPathIsFoundAnywhereInAText covers).
+	// No file pointer records these paths: each denied shape is withheld by the host's rule literal on
+	// the path, not by a path the build already knows.
 	for _, tc := range []struct {
 		name   string
 		shapes func(dir, ext string) []string
 	}{{"relative", relative}, {"absolute", absolute}} {
 		t.Run(tc.name, func(t *testing.T) {
-			requireSummaries(t, root, denied, nil, tc.shapes("docs", ".md"), tc.shapes("private", ".txt"), leaks)
+			withheld := append(tc.shapes("docs", ".md"), tc.shapes("private", ".txt")...)
+			requireSummaries(t, root, denied, nil, nil, withheld, leaks)
 		})
 	}
 }
@@ -559,11 +580,13 @@ func TestBuild_APathSelectorIsJudgedByWhatItSelects(t *testing.T) {
 		`{"query":"path:deny"}`,
 		`{"query":"path:keep/*.txt"}`,
 		`{"query":"path:keep/a.* retry"}`,
+		// Criterion change (D63): a glob selector in free text holds `*`, which makes the token unsafe,
+		// so it is withheld even when it selects nothing withheld (over-withholding of globs).
+		`{"query":"path:src/*.go"}`,
+		`{"query":"path:docs/*.md symbol:deny"}`,
 	}
 	shown := []string{
 		`{"query":"path:reports"}`,
-		`{"query":"path:src/*.go"}`,
-		`{"query":"path:docs/*.md symbol:deny"}`,
 	}
 	deny := []string{"private/deny.txt", "private/keep/a.txt"}
 	requireSummaries(t, root, deny, append([]string{"reports.py"}, deny...), shown, withheld,

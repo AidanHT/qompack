@@ -82,8 +82,11 @@ func TestBuild_AnInstructionFileTheHostRefusesIsNeverRestored(t *testing.T) {
 func TestBuild_AQuoteGluedAfterTheRootStillNamesASibling(t *testing.T) {
 	root := previewRoot("proj")
 	requireScreened(t, root, hostRules(root, "./private/deny.txt"), nil,
-		[]string{`cat "` + root + `"/notes.txt`, `cd "` + root + `" && make`, `cat "` + root + `" "old/notes.txt"`},
+		[]string{`cd "` + root + `" && make`, `cat "` + root + `" "old/notes.txt"`},
 		[]string{
+			// D63 over-withholds a closing quote glued to more of a path: a token with a `"` that does not
+			// wrap the whole token is unsafe.
+			`cat "` + root + `"/notes.txt`,
 			`cat ` + root + `" old"/notes.txt`,
 			`cat ` + root + `' old'/notes.txt`,
 			`cat "` + root + `"" old/notes.txt"`,
@@ -108,13 +111,10 @@ func TestBuild_AnApostropheInTheRootIsNotAnOpenQuote(t *testing.T) {
 			requireScreened(t, root, hostRules(root, "./private/deny.txt"), nil,
 				[]string{
 					root + " TODO",
-					root + " **/*.go",
 					slash + " TODO",
-					root + " err != nil",
 					"cd " + root + " && go test ./...",
 					"cd " + slash + " && git log --oneline -n 5",
 					"git -C " + root + " status --short",
-					"cd " + escaped + " && go test ./...",
 					`git -C "` + root + `" status`,
 				},
 				[]string{
@@ -122,6 +122,11 @@ func TestBuild_AnApostropheInTheRootIsNotAnOpenQuote(t *testing.T) {
 					`cat ` + root + `" old"` + sep + `x.txt`,
 					root + "2" + sep + "x.txt",
 					"cd " + root + " && cat private/deny.txt",
+					// D63 over-withholds a glob (`*`), a `!=` operator, and an escaped apostrophe (`\'`); the
+					// apostrophe in the root is still not an open quote, so the shown rows above are shown.
+					root + " **/*.go",
+					root + " err != nil",
+					"cd " + escaped + " && go test ./...",
 				},
 				[]string{"deny.txt"})
 		})
@@ -141,11 +146,16 @@ func TestBuild_ARegularExpressionIsNeitherAPathNorAWithheldName(t *testing.T) {
 	root := previewRoot("proj")
 	requireScreened(t, root, hostRules(root, "./private/deny.txt"), []string{previewRoot("other", "b")},
 		[]string{
-			`\bConfigLoader\b`, `\w+Error\b`, `\s`, `\.Evaluate\(`, filepath.Join(root, "internal") + ` \bretryBackoff\b`,
-			`^\s*//\s*TODO`, `^\s*func\b`, `src \d+\.\d+\.\d+`, `\s+$`, `grep -E "\bfoo\b" -r src/`,
-			"go build ./...", "git branch -a", "git status", "ls src/", "echo (done)", "npm run build", "bash scripts/x.sh",
+			"go build ./...", "git branch -a", "git status", "ls src/", "npm run build", "bash scripts/x.sh",
 		},
-		[]string{`type \Users\me\.ssh\id_rsa`, `\Users\me\.aws\credentials`, "cat /etc/passwd"},
+		[]string{
+			// Criterion change (D63): a backslash-led or caret-anchored regular expression, and `echo
+			// (done)`, are over-withheld (a leading `\`, a `^` or a `(` is unsafe). They are no longer
+			// mistaken for paths, and — the point of this row — they poison none of the shown commands.
+			`\bConfigLoader\b`, `\w+Error\b`, `\s`, `\.Evaluate\(`, filepath.Join(root, "internal") + ` \bretryBackoff\b`,
+			`^\s*//\s*TODO`, `^\s*func\b`, `src \d+\.\d+\.\d+`, `\s+$`, `grep -E "\bfoo\b" -r src/`, "echo (done)",
+			`type \Users\me\.ssh\id_rsa`, `\Users\me\.aws\credentials`, "cat /etc/passwd",
+		},
 		[]string{"id_rsa", "credentials", "passwd"})
 }
 
@@ -247,9 +257,10 @@ func TestBuild_ACommandRunFromTheRootIsJudgedOnlyThroughItsPath(t *testing.T) {
 	requireScreened(t, root, hp, nil,
 		[]string{
 			lint + " --since HEAD~1", src + " HEAD~1", run + " --fast -n 3 && echo ok",
-			"git diff src HEAD~1", "pwsh tools/lint.ps1 --since HEAD~2 -Fix", "git diff HEAD~1", "go test ./... --since ~2 days",
+			"git diff src HEAD~1", "pwsh tools/lint.ps1 --since HEAD~2 -Fix", "git diff HEAD~1",
 		},
-		[]string{linked + " --since HEAD~1"},
+		// `go test ./... --since ~2 days` is over-withheld: `~2` at a token start reads as a home path.
+		[]string{linked + " --since HEAD~1", "go test ./... --since ~2 days"},
 		nil)
 	require.Equal(t, map[string]int{lint: 1, src: 1, run: 1, linked: 1}, asked,
 		"the host judges each rooted summary's path once, never its arguments")
