@@ -33,7 +33,7 @@ func strayClaimThenStop(t *testing.T) (root string, clk core.Clock) {
 	t.Setenv("USERPROFILE", home)
 	root = t.TempDir()
 	t.Setenv("QOMPACK_IPC_ADDR", uniqueTestAddr(t))
-	cfg := testConfig()
+	cfg := runTestConfig()
 	clk = core.SystemClock()
 
 	dA, err := New(Options{ProjectRoot: root, Cfg: cfg, Log: logging.Nop(), Clock: clk})
@@ -104,7 +104,7 @@ func TestSpawnClaim_AFlushAfterTheRunningDaemonExitsStartsExactlyOneDaemon(t *te
 	errChC := make(chan error, 1)
 	spawn := func(r, _ string) error {
 		spawns.Add(1)
-		dC, err := New(Options{ProjectRoot: r, Cfg: testConfig(), Log: logging.Nop(), Clock: clk})
+		dC, err := New(Options{ProjectRoot: r, Cfg: runTestConfig(), Log: logging.Nop(), Clock: clk})
 		if err != nil {
 			return err
 		}

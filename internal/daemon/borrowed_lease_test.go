@@ -22,7 +22,7 @@ func TestBorrowedLease_SurvivesDaemonUntilCallerClosesWriters(t *testing.T) {
 	s, err := store.Open(root, config.Defaults(), store.Deps{})
 	require.NoError(t, err)
 	defer func() { _ = s.Close() }()
-	o := NewOptions(root, config.Defaults())
+	o := NewOptions(root, runTestConfig())
 	o.Store = s
 	d, err := NewWithLease(o, lease)
 	require.NoError(t, err)

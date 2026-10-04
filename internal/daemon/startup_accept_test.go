@@ -60,7 +60,7 @@ func TestRun_AcceptsDialsWhileItsStartupDrainRuns(t *testing.T) {
 	liveSeen := make(chan struct{})
 	var o Options
 	o.ProjectRoot = root
-	o.Cfg = testConfig()
+	o.Cfg = runTestConfig()
 	o.Log = logging.Nop()
 	o.Clock = core.SystemClock()
 	o.Bind(func(s *Services) {
