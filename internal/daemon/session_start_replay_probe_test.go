@@ -156,6 +156,11 @@ func TestSessionStartReplay_OwesTheBannerItsLostAnswerCarried(t *testing.T) {
 
 	dd.drainDispatch(context.Background(), lost)
 
+	// The session ends without a terminal hook, so the next start fails session_start.fires too (a
+	// second absence) and the project is still degraded when the banner is owed. Before wave 22 the
+	// next start failed it while this session was still running, which was audit 2's #8 false
+	// critical; the replay's own clean run would otherwise begin the restore.
+	abandonAll(dd)
 	next := dd.dispatchOp(context.Background(), startRequest(dd, "sess-next", "startup", "", "nonce-next"))
 	require.NotNil(t, next.Output)
 	require.Contains(t, next.Output.SystemMessage, "Qompack: degraded to passive recording",

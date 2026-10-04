@@ -63,9 +63,16 @@ type Env struct {
 	History History
 	// SessionLive reports whether the caller still tracks a session as live: the daemon binds its
 	// session registry. mcp.server_registered and transcript.readable read it to keep an earlier
-	// session's late observable pending while that session is still running. Nil, and a session the
-	// caller does not know (a restarted daemon forgets its sessions), read as not live.
+	// session's late observable pending while that session is still running, and
+	// session_start.fires to count no absent marker while the session it would come from is still
+	// running. Nil, and a session the caller does not know (a restarted daemon forgets its sessions),
+	// read as not live.
 	SessionLive func(core.SessionID) bool
+	// StartTS is when the host fired the SessionStart being evaluated: the hook's own timestamp,
+	// which for a start replayed from a spool is earlier than the evaluation. session_start.fires
+	// reads it to tell a marker the starting session's own later terminal hook wrote from one that
+	// was there when the session started. Zero is unknown.
+	StartTS core.UnixMilli
 }
 
 // sessionLive is e.SessionLive's reading of sess, false when the caller bound none.

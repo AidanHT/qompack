@@ -77,10 +77,21 @@ func historyOf(e Env) (*SessionHistory, bool) {
 // sessions"). The very first session a project has ever seen has no prior terminal hook to have
 // left a marker, so it reports OK regardless. A session's
 // own restart is a start whose marker names it and which is either a start of the session the
-// history last saw or a compaction or --resume (sessionRestartSource) of any session: with two
-// sessions open in one project, the one that started first restarts while LastSessionID names the
-// other. A restart counts nothing and moves neither field; it reads same-session-restart (holding)
-// when no absence is counted, and otherwise the counted absence's own reading.
+// history last saw, a compaction or --resume (sessionRestartSource) of any session, or a start the
+// host fired before that marker was written (ownMarkerAfterStart): with two sessions open in one
+// project, the one that started first restarts while LastSessionID names the other, and a startup
+// replayed from a spool after its own session's PreCompact finds the marker that PreCompact wrote.
+// A restart counts nothing and moves neither field; it reads same-session-restart (holding) when no
+// absence is counted, and otherwise the counted absence's own reading.
+//
+// An absence is counted only once the session the history last saw start (LastSessionID) is no
+// longer live (Env.SessionLive): a session still running has had no terminal hook yet, so its
+// marker cannot be due, and windows opened together on a project that has never had a terminal hook
+// would otherwise fail the assertion at the third start (audit 2, #8). Such a start counts nothing,
+// leaves LastSessionID naming the running session, whose terminal hook the next start still awaits,
+// and reads prior-session-live (nothing to judge) when no absence is counted. A session the caller
+// does not know reads as not live (a restarted daemon forgets its sessions), so an absence after a
+// restart still counts, as it always did.
 //
 // The counter is bumped at most once per SESSION, keyed off History.LastSessionID: §12.1 says
 // "absence across two SESSIONS", not "across two RunAll calls", and a second RunAll inside one
@@ -111,11 +122,16 @@ func checkSessionStartFires(ctx context.Context, e Env) Result {
 		return Result{OK: true, Expected: desc, Observed: "marker-found", TS: now(e)}
 	}
 	ownMarker := err == nil && rec.Session != "" && rec.Session == e.Event.SessionID
-	restart := ownMarker &&
-		(h.LastSessionID == e.Event.SessionID || sessionRestartSource(e.Event.Source))
+	restart := ownMarker && (h.LastSessionID == e.Event.SessionID ||
+		sessionRestartSource(e.Event.Source) || ownMarkerAfterStart(rec, e))
+	priorLive := false
 	if !restart && h.LastSessionID != e.Event.SessionID {
-		h.StartsWithoutMarker++
-		h.LastSessionID = e.Event.SessionID
+		if sessionLive(e, h.LastSessionID) {
+			priorLive = true
+		} else {
+			h.StartsWithoutMarker++
+			h.LastSessionID = e.Event.SessionID
+		}
 	}
 	if h.StartsWithoutMarker >= 2 {
 		return Result{
@@ -133,7 +149,22 @@ func checkSessionStartFires(ctx context.Context, e Env) Result {
 		// start decides.
 		return Result{OK: true, Expected: desc, Observed: "same-session-restart", TS: now(e)}
 	}
+	if h.StartsWithoutMarker == 0 && priorLive {
+		// The session the history last saw start is still running, so no terminal hook of it is
+		// due and this start observed nothing either way (audit 2, #8).
+		return Result{OK: true, Expected: desc, Observed: "prior-session-live", TS: now(e)}
+	}
 	return Result{OK: true, Expected: desc, Observed: "marker-absent-once", TS: now(e)}
+}
+
+// ownMarkerAfterStart reports whether rec, a marker naming the starting session itself, was written
+// at or after the host fired this start (Env.StartTS): by that session's own terminal hook, which
+// ran after its start. That happens to a start replayed from a spool after its session's PreCompact
+// or SessionEnd was handled live (audit 2, #10). Its marker is no absence: it proves a terminal hook
+// of this project fired, and it overwrote the marker the start would have read when the host fired
+// it. An unknown start time decides nothing, so such a start counts as it always did.
+func ownMarkerAfterStart(rec markerRecord, e Env) bool {
+	return e.StartTS > 0 && rec.TS >= e.StartTS
 }
 
 // SessionStart sources (hookio.Event.Source) that keep the session id the host already ran.
@@ -145,7 +176,8 @@ const (
 // sessionRestartSource reports whether a SessionStart source restarts a session the host already
 // ran: a compaction or a --resume keeps the session id. A startup or clear carries an id the host
 // has just minted, so a marker already naming it proves no prior terminal hook fired and stays an
-// absence unless the history last saw that very session.
+// absence unless the history last saw that very session, or the marker was written after the host
+// fired the start (ownMarkerAfterStart).
 func sessionRestartSource(source string) bool {
 	return source == sessionSourceCompact || source == sessionSourceResume
 }
