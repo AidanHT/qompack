@@ -23,7 +23,8 @@
 # of its lines, so a reader accepts only this run's verdicts. Each step writes <step>.log and
 #   start <name> run=<id> power=<reading> <utc>
 #   step <name> exit=<code> run=<id> <utc> power=<verdict>
-# where <verdict> is power.sh's VALID, INVALID-POWER <events> or NOT-REFERENCE <reason> over the step.
+# where <verdict> is power.sh's VALID, INVALID-POWER <events> or NOT-REFERENCE <reason> over the step
+# (its start and end readings and the System log's power, standby, sleep and resume events).
 set -u
 [ $# -ge 2 ] || { echo "usage: prefreeze.sh <repo> <evidence-dir> [step...]" >&2; exit 2; }
 R=$1; E=$2; shift 2
@@ -43,9 +44,9 @@ run() { name=$1; shift
   echo "start $name run=$RUN power=$r_p0 $(date -u +%FT%TZ)" >> "$S"
   (cd "$R" && "$@") > "$E/$name.log" 2>&1
   r_rc=$?
-  r_t1=$(date +%s)
+  r_t1=$(date +%s); r_p1=$(power_read)
   if r_ev=$(power_events_since "$r_t0"); then r_ok=1; else r_ok=0; r_ev=""; fi
-  r_pv=$(power_verdict "$r_p0" "$r_ok" "$(power_events_window "$r_t0" "$r_t1" "$r_ev")")
+  r_pv=$(power_verdict "$r_p0" "$r_ok" "$(power_events_window "$r_t0" "$r_t1" "$r_ev")" "$r_p1")
   echo "step $name exit=$r_rc run=$RUN $(date -u +%FT%TZ) power=$r_pv" >> "$S"; }
 gate_body() {
   go build ./... && go vet ./... && GOOS=linux go vet ./... && GOOS=darwin go vet ./... &&

@@ -6,15 +6,20 @@
 #   Start-Process -FilePath 'C:\Program Files\Git\bin\bash.exe' -ArgumentList @('<this file>')
 # Normal priority, strictly sequential, nothing else measuring. Every decision goes to
 # phase3/c8/night.log (the script also sends its own stdout and stderr there); any refusal stops it.
-#   1. keep-awake while it runs (keepawake.ps1; it changes no power setting), released by an EXIT trap
-#      on every way out, a refusal included;
-#   2. preconditions: qompack-v6 on verify/v6 with no tracked change; qompack-cx-int clean; the tips of
-#      closeout/w19-rehydrate, closeout/w19b-cmdconnect and every closeout/w19c-* and w20-* merged into
-#      integration (C8_EXEMPT, a space-separated list, names a branch the coordinator deliberately
-#      leaves out; each exemption is logged with its tip);
+#   1. keep-awake while it runs (keepawake.ps1; it changes no power setting and never creates its
+#      sentinel), released on every way out, a refusal included: the EXIT trap deletes the sentinel
+#      and stops the keep-awake process itself (its pid is logged);
+#   2. preconditions, all checked before anything runs: the deadline is near (NIGHT_MAX_AHEAD_H, a
+#      daytime launch refuses); qompack-v6 on verify/v6 with no tracked change; qompack-cx-int and
+#      qompack-cx-cand clean; qompack-bundles/c8 absent; phase3/c8 holds no earlier overnight's
+#      records; closeout/w19-rehydrate and closeout/w19b-cmdconnect exist, and the tip of EVERY
+#      closeout/w* branch that is not already in candidate 7 (C8_PREV_CANDIDATE, default d20309c0)
+#      is merged into integration (C8_EXEMPT, a space-separated list, names a branch the coordinator
+#      deliberately leaves out; each exemption is logged with its tip);
 #   3. the MERGED tree (verify/v6 + integration, merged in a scratch clone that cannot push) passes plan
 #      lint (runpatterns, docmarkers, coveragefloors), test/guards and test/docs: verify/v6 carries
-#      plans integration lacks, and the freeze must not reveal them in release-check hours later;
+#      plans integration lacks, and the freeze must not reveal them in release-check hours later. The
+#      product suites below run on integration's tree, so verify/v6 may add nothing outside plans/;
 #   4. the pre-freeze check of integration (prefreeze.sh under a fresh run id, so no earlier run's line
 #      can pass it): gate, integration (with its functional hot-path rows), testpkgs, internal, then
 #      e2efunc (test/e2e without X11). An e2efunc red whose power verdict is not VALID is re-run once on
@@ -23,9 +28,12 @@
 #      linted), build and host-validate qompack-bundles/c8 (outcome "accepted"; "unverified" means
 #      built but not validated, and refuses), push verify/v6 (hosted ci.yml; no prompt, bounded) and,
 #      once pushed, dispatch nightly.yml (D4);
-#   6. overnight-c8.sh on the frozen candidate; its outcome counts are copied into night.log.
-# NIGHT_DEADLINE (local HH:MM, default 08:00) and AC_WAIT_BUDGET_MIN (default 180) pass through to
-# overnight-c8.sh; the AC wait spent here counts against the night's one budget.
+#   6. overnight-c8.sh on the frozen candidate, with this night's deadline passed as an epoch; its
+#      outcome counts are copied into night.log.
+# NIGHT_DEADLINE (local HH:MM, default 08:00) is the time after which no overnight step and no AC wait
+# starts; the freeze, bundles and push still run when the pre-freeze passes late (minutes, and the
+# candidate is then frozen). AC_WAIT_BUDGET_MIN (default 180) is one budget for the whole night; the
+# AC wait spent here counts against it.
 set -u
 here=$(cd "$(dirname "$0")" && pwd)
 root=$(cd "$here/../../../../.." && pwd)            # .../Projects
@@ -38,34 +46,63 @@ unset QOMPACK_UNDER_COLOAD QOMPACK_NONREFERENCE_DISK
 log() { echo "$* $(date -u +%FT%TZ)"; }
 winpath() { if command -v cygpath > /dev/null 2>&1; then cygpath -m "$1"; else printf '%s' "$1"; fi; }
 NIGHT_DEADLINE=${NIGHT_DEADLINE:-08:00}; AC_WAIT_BUDGET_MIN=${AC_WAIT_BUDGET_MIN:-180}
-export NIGHT_DEADLINE AC_WAIT_BUDGET_MIN
+C8_PREV_CANDIDATE=${C8_PREV_CANDIDATE:-d20309c03ffc364e4cc48663be73cfbb1f2309b2}   # candidate 7 (phase3/c7-CANDIDATE.md)
+export NIGHT_DEADLINE AC_WAIT_BUDGET_MIN C8_PREV_CANDIDATE
 PUSH_TIMEOUT_S=300; GH_TIMEOUT_S=120   # a credential prompt or a stalled network must not hold the night
 NOPUSH_URL=file:///nonexistent/qompack-c8-night-scratch-clone-never-pushes
-sentinel="$E8/keepawake.sentinel"; M=""
-cleanup() { rm -f "$sentinel"; if [ -n "$M" ] && [ -d "$M" ]; then rm -rf "$M"; fi; }
+sentinel="$E8/keepawake.sentinel"; M=""; kp=""
+cleanup() {
+  rm -f "$sentinel"
+  # keepawake.ps1 exits on its own once the sentinel is gone, but a pwsh that is still starting has not
+  # looked yet: stop it here, so no refusal, however early, can leave the machine held awake. Only
+  # while it is still this shell's running job: after it ends, its pid may belong to someone else.
+  if [ -n "$kp" ]; then
+    case " $(jobs -p | tr '\n' ' ') " in
+      *" $kp "*) kill "$kp" 2> /dev/null && echo "keep-awake pid $kp stopped $(date -u +%FT%TZ)" ;;
+    esac
+  fi
+  if [ -n "$M" ] && [ -d "$M" ]; then rm -rf "$M"; fi
+}
 trap cleanup EXIT; trap 'exit 130' INT; trap 'exit 143' TERM; trap 'exit 129' HUP
 stop() { log "REFUSED: $*"; exit 1; }
 case $AC_WAIT_BUDGET_MIN in ''|*[!0-9]*) stop "AC_WAIT_BUDGET_MIN must be a whole number of minutes" ;; esac
 deadline=$(deadline_epoch "$NIGHT_DEADLINE") || stop "NIGHT_DEADLINE must be HH:MM, not '$NIGHT_DEADLINE'"
+NIGHT_DEADLINE_EPOCH=$deadline; export NIGHT_DEADLINE_EPOCH   # overnight-c8.sh never recomputes it
 : > "$sentinel"
 pwsh -NoProfile -File "$(cygpath -w "$here/keepawake.ps1")" "$(cygpath -w "$sentinel")" > "$E8/keepawake.log" 2>&1 &
-log "start pid $$ winpid $(cat "/proc/$$/winpid" 2> /dev/null || echo '?') deadline=$(date -d "@$deadline" +%FT%T) ac_wait_budget=${AC_WAIT_BUDGET_MIN}min power=$(power_read)"
+kp=$!
+log "start pid $$ winpid $(cat "/proc/$$/winpid" 2> /dev/null || echo '?') keep-awake pid $kp deadline=$(date -d "@$deadline" +%FT%T) ac_wait_budget=${AC_WAIT_BUDGET_MIN}min power=$(power_read)"
+deadline_near "$deadline" ||
+  stop "the deadline $(date -d "@$deadline" +%FT%T) is more than $NIGHT_MAX_AHEAD_H h away: a daytime launch would run the night into the owner's day (set NIGHT_DEADLINE, or NIGHT_ALLOW_FAR=1)"
 
 # 2. preconditions
 [ "$(git -C "$V6" symbolic-ref -q --short HEAD)" = verify/v6 ] || stop "qompack-v6 is not on branch verify/v6"
 [ -z "$(git -C "$V6" status --porcelain --untracked-files=no)" ] || stop "verify/v6 has tracked changes"
 [ -z "$(git -C "$INT" status --porcelain)" ] || stop "the integration worktree is not clean"
+[ -z "$(git -C "$CAND" status --porcelain)" ] || stop "the candidate worktree $CAND is not clean"
+B="$root/qompack-bundles/c8"
+[ -e "$B" ] && stop "$B already exists"
+for f in chain.log power.tsv overnight-outcome.txt; do
+  [ -e "$E8/$f" ] && stop "$E8 already holds an earlier overnight's records ($f): keep them, and re-run the night as README.md's Abort step 7 says"
+done
 H=$(git -C "$INT" rev-parse HEAD) || stop "cannot read integration's HEAD"
 V=$(git -C "$V6" rev-parse HEAD) || stop "cannot read verify/v6's HEAD"
 log "integration $H, verify/v6 $V"
-for b in closeout/w19-rehydrate closeout/w19b-cmdconnect $(git -C "$INT" for-each-ref --format='%(refname:short)' 'refs/heads/closeout/w19c-*' 'refs/heads/closeout/w20-*'); do
-  t=$(git -C "$INT" rev-parse -q --verify "refs/heads/$b^{commit}") || stop "precondition: branch $b does not exist"
+git -C "$INT" cat-file -e "$C8_PREV_CANDIDATE^{commit}" 2> /dev/null || stop "candidate 7 ($C8_PREV_CANDIDATE) is not a commit here"
+for b in closeout/w19-rehydrate closeout/w19b-cmdconnect; do
+  git -C "$INT" rev-parse -q --verify "refs/heads/$b^{commit}" > /dev/null || stop "precondition: branch $b does not exist"
+done
+n_old=0
+for b in $(git -C "$INT" for-each-ref --format='%(refname:short)' refs/heads/closeout/ | grep '^closeout/w'); do
+  t=$(git -C "$INT" rev-parse -q --verify "refs/heads/$b^{commit}") || stop "precondition: cannot read branch $b"
+  if git -C "$INT" merge-base --is-ancestor "$t" "$C8_PREV_CANDIDATE"; then n_old=$((n_old + 1)); continue; fi
   case " ${C8_EXEMPT:-} " in
     *" $b "*) log "precondition: $b ($t) EXEMPT: left out of candidate 8 by the coordinator (C8_EXEMPT)"; continue ;;
   esac
-  git -C "$INT" merge-base --is-ancestor "$t" "$H" || stop "precondition: $b ($t) is not merged into integration $H"
+  git -C "$INT" merge-base --is-ancestor "$t" "$H" || stop "precondition: $b ($t) is not merged into integration $H (merge it, or name it in C8_EXEMPT)"
   log "precondition: $b ($t) is merged"
 done
+log "precondition: $n_old other closeout/w* branches are already in candidate 7 ($C8_PREV_CANDIDATE)"
 
 # 3. the merged tree
 M=$(winpath "$(mktemp -d)") || stop "no scratch directory for the merged-tree check"
@@ -80,6 +117,10 @@ merged_tree() {
 }
 merged_tree > "$E8/merged-tree.txt" 2>&1 || stop "the merged tree (verify/v6 $V + integration $H) could not be made (merged-tree.txt)"
 MT=$(git -C "$M/repo" rev-parse 'HEAD^{tree}') || stop "cannot read the merged tree"
+# The pre-freeze suites run on integration's tree; they stand for the frozen tree only while
+# verify/v6 adds nothing outside plans/.
+np=$(git -C "$M/repo" diff --name-only "$H" HEAD | grep -v '^plans/')
+[ -z "$np" ] || stop "verify/v6 adds paths outside plans/ that the pre-freeze check (run on integration) never tested: $(printf '%s' "$np" | head -n 5 | tr '\n' ' ')"
 (cd "$M/repo" && go run ./tools/devtool lint --only=runpatterns,docmarkers,coveragefloors && go test -count=1 ./test/guards ./test/docs) \
   >> "$E8/merged-tree.txt" 2>&1 || stop "the merged tree $MT fails plan lint, test/guards or test/docs (merged-tree.txt)"
 log "merged tree $MT passes plan lint (runpatterns, docmarkers, coveragefloors), test/guards and test/docs"
@@ -123,6 +164,8 @@ fi
 [ "$(git -C "$INT" rev-parse HEAD)" = "$H" ] || stop "integration moved during the pre-freeze check"
 [ "$(git -C "$V6" rev-parse HEAD)" = "$V" ] || stop "verify/v6 moved during the pre-freeze check"
 [ -z "$(git -C "$V6" status --porcelain --untracked-files=no)" ] || stop "verify/v6 has tracked changes"
+[ -z "$(git -C "$CAND" status --porcelain)" ] || stop "the candidate worktree $CAND is not clean"
+[ -e "$B" ] && stop "$B appeared during the pre-freeze check"
 log "pre-freeze passes"
 
 # 5. freeze, bundles, push
@@ -135,8 +178,6 @@ log "candidate 8 frozen at $SHA (integration $H, tree $FT)"
 git -C "$CAND" checkout -q --detach "$SHA" || stop "candidate worktree checkout failed"
 [ -z "$(git -C "$CAND" status --porcelain)" ] || stop "candidate worktree not clean"
 
-B="$root/qompack-bundles/c8"
-[ -e "$B" ] && stop "$B already exists"
 (cd "$CAND" && go run ./tools/devtool bundle -archive -version 0.3.0 -host-validate -out "$(winpath "$B")") > "$E8/host-validate.txt" 2>&1 ||
   stop "bundle build or host validation failed (host-validate.txt)"
 hv=$(sed -n 's/^ *"outcome": *"\([a-z-]*\)".*/\1/p' "$E8/host-validate.txt" | head -n 1)
@@ -164,8 +205,8 @@ else
 fi
 
 # 6. the night
-log "starting overnight-c8.sh"
+log "starting overnight-c8.sh (deadline $(date -d "@$deadline" +%FT%T), passed as NIGHT_DEADLINE_EPOCH)"
 sh "$here/overnight-c8.sh" "$CAND" "$SHA" "$E8"
 orc=$?
-log "overnight finished exit=$orc: $(cat "$E8/overnight-outcome.txt" 2> /dev/null || echo 'no outcome file: overnight-c8.sh ended early (read chain.log)')"
+log "overnight finished exit=$orc: $(cat "$E8/overnight-outcome.txt" 2> /dev/null || echo 'no outcome file: overnight-c8.sh ended early (read chain.log, and this log for its refusal)')"
 log "done"

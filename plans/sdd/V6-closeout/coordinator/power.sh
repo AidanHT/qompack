@@ -7,19 +7,34 @@
 #                               printed no recognisable line, or the host has no battery instance;
 #                               <pct> is "?" when the charge is not reported)
 #   power_events_since <epoch>  the System log's power events at or after <epoch>, oldest first, one
-#                               per line: "<epoch> AC=1|0" (Kernel-Power 105, the source changed) or
-#                               "<epoch> STANDBY" (Kernel-Power 506, Modern Standby entered, which
-#                               freezes a run and its go test kill timer). Exit 0 when the log was
-#                               read (no line = no event), 1 when it could not be read.
+#                               per line: "<epoch> AC=1|0" (Kernel-Power 105, the source changed),
+#                               "<epoch> STANDBY" (506, Modern Standby entered, which freezes a run
+#                               and its go test kill timer), "<epoch> SLEEP" (42, sleep or hibernate
+#                               entered) or "<epoch> RESUME" (107, resumed from sleep). Exit 0 when
+#                               the log was read (no line = no event), 1 when it could not be read.
 #   power_events_window <first> <last> <events>   the events with <first> <= epoch <= <last>
-#   power_verdict <start-reading> <events-ok 0|1> <events in the window>
-#                               "VALID", "INVALID-POWER <events>" or "NOT-REFERENCE <reason>"
+#   power_verdict <start-reading> <events-ok 0|1> <events in the window> [<end-reading>]
+#                               "VALID" (started on AC, no event, and, when given, ended on AC),
+#                               "INVALID-POWER <events>" or "NOT-REFERENCE <reason>". An end reading
+#                               that is not AC with no event to explain it is NOT-REFERENCE: the
+#                               record contradicts itself, so it cannot be a reference.
 #   power_wait_ac <budget-var> <budget-min> <deadline-epoch> <log-fn>
 #                               polls once a minute until AC; returns 0 on AC, 1 when the minutes in
 #                               the named counter reach the budget or the deadline passes. The
 #                               counter counts polls, not wall time.
 #   deadline_epoch <HH:MM>      the epoch of the next local HH:MM after now (today's, or tomorrow's
 #                               once today's has passed); exit 1 on a malformed time
+#   deadline_near <epoch>       exit 0 when <epoch> is at most NIGHT_MAX_AHEAD_H hours away, or
+#                               NIGHT_ALLOW_FAR=1. A farther one means a daytime launch, for which
+#                               deadline_epoch gave tomorrow's HH:MM: the night would run into the
+#                               owner's day.
+#
+# NIGHT_MAX_AHEAD_H (16): a whole night is about 9.5 h (README "Candidate 8": the pre-freeze about
+# 1 h, the overnight steps before release-check about 5.5 h, release-check 3 h), plus up to
+# AC_WAIT_BUDGET_MIN's 3 h of waiting. 16 h still admits an evening launch (from 16:00 for an 08:00
+# deadline), and refuses every launch made after the deadline's hour, which deadline_epoch would
+# carry into the next day.
+NIGHT_MAX_AHEAD_H=${NIGHT_MAX_AHEAD_H:-16}
 
 power_ps() { powershell -NoProfile -NonInteractive -Command "$1" 2>&1 | tr -d '\r'; }
 
@@ -41,13 +56,14 @@ power_events_since() {
   case ${1:-} in ''|*[!0-9]*) return 1 ;; esac
   _pe=$(power_ps "\$ErrorActionPreference = 'Stop'
 \$from = [DateTimeOffset]::FromUnixTimeSeconds($1).LocalDateTime
-try { \$ev = @(Get-WinEvent -FilterHashtable @{LogName='System'; ProviderName='Microsoft-Windows-Kernel-Power'; Id=105,506; StartTime=\$from}) }
+try { \$ev = @(Get-WinEvent -FilterHashtable @{LogName='System'; ProviderName='Microsoft-Windows-Kernel-Power'; Id=105,506,42,107; StartTime=\$from}) }
 catch { if (\$_.FullyQualifiedErrorId -like 'NoMatchingEventsFound*') { \$ev = @() } else { 'EVENTS ERROR'; exit 0 } }
-\$ev | Sort-Object TimeCreated | ForEach-Object { if (\$_.Id -eq 105) { 'EVENT {0} AC={1}' -f ([DateTimeOffset]\$_.TimeCreated).ToUnixTimeSeconds(), \$(if (\$_.Properties[0].Value) {1} else {0}) } else { 'EVENT {0} STANDBY' -f ([DateTimeOffset]\$_.TimeCreated).ToUnixTimeSeconds() } }
+\$kind = @{ 506 = 'STANDBY'; 42 = 'SLEEP'; 107 = 'RESUME' }
+\$ev | Sort-Object TimeCreated | ForEach-Object { \$t = ([DateTimeOffset]\$_.TimeCreated).ToUnixTimeSeconds(); if (\$_.Id -eq 105) { 'EVENT {0} AC={1}' -f \$t, \$(if (\$_.Properties[0].Value) {1} else {0}) } else { 'EVENT {0} {1}' -f \$t, \$kind[[int]\$_.Id] } }
 'EVENTS END'")
   printf '%s\n' "$_pe" | grep -qx 'EVENTS END' || return 1
   printf '%s\n' "$_pe" | grep -qx 'EVENTS ERROR' && return 1
-  printf '%s\n' "$_pe" | sed -n 's/^EVENT \([0-9][0-9]*\) \(AC=[01]\|STANDBY\)$/\1 \2/p'
+  printf '%s\n' "$_pe" | sed -n 's/^EVENT \([0-9][0-9]*\) \(AC=[01]\|STANDBY\|SLEEP\|RESUME\)$/\1 \2/p'
   return 0
 }
 
@@ -59,8 +75,12 @@ power_verdict() {
   [ "${2:-0}" = 1 ] || { echo "NOT-REFERENCE the power history could not be read"; return 0; }
   if [ -n "${3:-}" ]; then echo "INVALID-POWER $(printf '%s' "$3" | tr '\n' ' ' | sed 's/ *$//')"; return 0; fi
   case ${1:-} in
+    "AC "*) ;;
+    *) echo "NOT-REFERENCE started on ${1:-UNKNOWN ?} and the source did not change"; return 0 ;;
+  esac
+  case ${4-AC } in
     "AC "*) echo "VALID" ;;
-    *) echo "NOT-REFERENCE started on ${1:-UNKNOWN ?} and the source did not change" ;;
+    *) echo "NOT-REFERENCE ended on ${4:-UNKNOWN ?} with no power event recorded" ;;
   esac
 }
 
@@ -86,4 +106,10 @@ deadline_epoch() {
     _de=$(date -d "$(date -d "$_de_day +1 day" +%F) $1" +%s) || return 1
   fi
   echo "$_de"
+}
+
+deadline_near() {
+  case ${1:-} in ''|*[!0-9]*) return 1 ;; esac
+  [ "${NIGHT_ALLOW_FAR:-}" = 1 ] && return 0
+  [ $(( $1 - $(date +%s) )) -le $(( NIGHT_MAX_AHEAD_H * 3600 )) ]
 }
