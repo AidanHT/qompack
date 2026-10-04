@@ -349,6 +349,11 @@ func TestDrainClientSpools_LinesPastTheMemoCapBehindAWaitingHeadAreAnnouncedOnce
 	require.ErrorIs(t, err, errPassBudgetSpent, "fixture: the pass made progress, and its spent budget stopped it")
 	require.True(t, spoolWatchPublished(dd, next.Nonce), "fixture: the stopped pass published the line p0 released")
 	require.Zero(t, meter.take().admitted[undecided], "fixture: the stopped pass read nothing past that line")
+	// The memo carries forward what earlier passes remembered past the stop, still within the cap.
+	memo := dr.memo["client-8831.ndjson"]
+	require.NotNil(t, memo, "fixture: the stopped pass remembers the spool")
+	require.LessOrEqual(t, len(memo.consumed), orderingProcessedCap,
+		"a memo holds at most orderingProcessedCap lines per file, across a pass that stopped early")
 	_, err = dr.DrainClientSpools(ctx)
 	require.NoError(t, err)
 	announcedOnce("after a pass that stopped early and the pass after it,")
