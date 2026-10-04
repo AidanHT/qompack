@@ -110,11 +110,13 @@ is not one), or, inside a quoted argument, the project root followed by a space 
 an operator where the argument's path starts (a sibling folder). The project root's own spelling is
 read with `/` alone on Linux and macOS, and with one slash style throughout on Windows, since a POSIX
 shell drops a backslash between two of its segments and reads a sibling of an ancestor; and it is
-held together as one unit only when it holds nothing but letters, marks, digits, `- _ . @`, its
-separators and spaces (coordinator decision D64). A root with any other character (an apostrophe, a
-comma, a `+`, a `;`, a `$`, a `~`, a Unicode space, and the like) is one a shell can split or
-reinterpret, so
-a summary spelling it is judged as the free text it is and withheld. A store cut right after a drive
+held together as one unit only when it holds nothing but letters, marks, digits, `- _ .`, its
+separators and single spaces (coordinator decision D64). A root with any other character (an
+apostrophe, a comma, a `+`, an `@`, a `;`, a `$`, a `~`, a Unicode space, and the like) is one a
+shell can split or reinterpret, and one with a run of spaces or a tab is one no preview spells
+exactly, so a summary spelling it is judged as the free text it is and withheld; a drop reason holds
+only a root that a preview spells exactly, and under any other root redacts every path it names
+below the root. A store cut right after a drive
 or provider name's `:` (`Temp:…`) is withheld, since the cut may hide the file after it; a bare
 drive or provider name with nothing after its `:` (`Get-ChildItem Temp:`, a commit message's `fix:`)
 names a drive root, reveals no file and is shown, while a bare single-letter drive (`cd C:`) stays

@@ -741,7 +741,17 @@ a.txt+\Windows\win.ini out.txt` reads the drive-rooted file, measured on the Win
 screen read `+` as continuing a name, so neither a path nor a name started after it and both that
 command and `copy a.txt+.env out.txt` were shown. A path and a name now start after a `+` (item 7(b)
 and (c)), and `+` is outside the root unit's set (item 8); this is the stricter reading, recorded for
-the coordinator's ratification with D64.
+the coordinator's ratification with D64. The round-2 verify of those fixes found two more gaps, and
+both are closed under D64(1)'s STRICT reading. `@` stood in the unit's set, though PowerShell splats
+a word that is a whole `@name` and a space in the root starts a word (with `$Work` an array, `f
+C:\q\John @Work` hands `f` the two arguments `C:\q\John` and the array's element, measured with
+PowerShell 7 and 5.1), so `git -C <root> status` was shown in a root ending in ` @Work`; `@` is now
+outside the set (item 8). And a drop reason held the root by its spelling with every run of
+whitespace folded to one ASCII space, so under a root with a Unicode space, a tab, a run of spaces or
+a trailing space it read a sibling spelled with one space as the root and showed that sibling's path,
+outside the project (D50; f2171654 did the same, and the round-2 verify measured it on Windows and
+Linux). A root that no sanitized text spells exactly is now held in no text, neither a summary nor a
+reason, and a reason that names a path under it is redacted (items 8 and 9).
 
 1. *A degraded compaction that dropped material is never silent* (D59, UAT-05 F-C7-UAT05-1). At
    UAT-05's `runtime.rehydrate.minTokens` = `maxTokens` = 150 the retrieval line (86 tokens) does
@@ -1219,10 +1229,12 @@ the coordinator's ratification with D64.
      - *A JSON preview's keys.* A key is a decoded string, screened as free text as every string but a
        path-named value is (`TestBuild_AJSONKeyIsScreenedAsAString`).
    - *The root's unit* (D64(1)). The unit hides the root's own characters from the token checks, so it
-     is held only for a root whose characters no shell splits or reinterprets in a word's middle (item
-     8's set); any other root has no unit, and its spelling is judged character by character as the
-     free text it is (`TestBuild_ARootOutsideTheWhitelistHoldsNoRootUnit`,
-     `TestRehydrateHostPaths_ARootOutsideTheWhitelistHoldsNoRootUnit`). A store cut right after a
+     is held only for a root whose characters no shell splits or reinterprets anywhere in a word (item
+     8's set) and that a sanitized text spells exactly; any other root has no unit, and its spelling is
+     judged character by character as the free text it is
+     (`TestBuild_ARootOutsideTheWhitelistHoldsNoRootUnit`,
+     `TestRehydrateHostPaths_ARootOutsideTheWhitelistHoldsNoRootUnit`,
+     `TestBuild_ARootNoTextSpellsExactlyIsNeverHeld`). A store cut right after a
      drive's `:` is judged as if a name followed it (item 9,
      `TestBuild_ACutRightAfterAProviderDriveColonIsWithheld`).
    - *What the model reads.* The model sees the text, so (c) reads both backslash readings, strips
@@ -1250,11 +1262,12 @@ the coordinator's ratification with D64.
    apostrophe outside a quoted run, and a `%` before a digit (`printf %5d`); D64(4) accepts the three
    of these that wave 19e flipped from shown (`git log --pretty=format:%h`, `curl localhost:3000`,
    `{"skill":"plugin:name"}`). Since D64 so is every summary that spells a root whose own spelling has
-   no unit (item 8: a root with an apostrophe, a comma, a `~` or any other character outside the unit's
-   set), and a store cut right after a drive's `:` (item 9). On the w19d corpus of 274 previews that is
-   about one in five everyday summaries that name nothing private (53 of 246 under UAT-12's rules, 50
-   at f3196046, and 53 again at f2171654 and after D64's fix, whose corpus roots all keep their unit);
-   each still points by id and hash. Aliases, 8.3 names, links and
+   no unit (item 8: a root with an apostrophe, a comma, an `@`, a `~` or any other character outside
+   the unit's set, or with a run of spaces), and a store cut right after a drive's `:` (item 9). On
+   the w19d corpus of 274 previews that is about one in five everyday summaries that name nothing
+   private (53 of 246 under UAT-12's rules, 50 at f3196046, and 53 again at f2171654, after D64's fix
+   and after its round-2 fixes, whose corpus roots all keep their unit); each still points by id and
+   hash. Aliases, 8.3 names, links and
    Unicode normalization or compatibility variants typed in free text are not resolved, and a name
    relative to a `cd` cannot be seen (item
    2). Inside a quoted run the root is held together too, although a nested shell (`bash -c "cd
@@ -1270,12 +1283,16 @@ the coordinator's ratification with D64.
    root at its own space and the screen never reads the root's own name as a withheld name.
    *Which roots have a unit* (D64(1), STRICT). The unit stands for the root only if every shell reads
    the root's spelling as that one path, so it is held only when the root's own spelling, cleaned and
-   slash-separated, consists of Unicode letters, marks and digits, `- _ . @`, its separators, ASCII
-   spaces and, on Windows, the drive's `:` (`rootUnitAdmitted`). These are the free-text whitelist's
-   characters at which no shell splits or reinterprets a word in its middle: `@` is a splat only as a
-   whole `@name` and an extglob only before `(`, and cannot start the root's spelling, which begins at
-   a separator or a drive; a space is the case the unit exists for, read by the sibling rules below.
-   The whitelist's other characters are left out: `,` (PowerShell splits a bare argument into an
+   slash-separated, consists of Unicode letters, marks and digits, `- _ .`, its separators, single
+   ASCII spaces between other characters and, on Windows, the drive's `:` (`rootUnitAdmitted`). These
+   are the free-text whitelist's characters at which no shell splits or reinterprets a word; a space
+   is the case the unit exists for, read by the sibling rules below.
+   The whitelist's other characters are left out: `@` (PowerShell splats a word that is a whole
+   `@name`, and a space in the root starts a word: with `$Work` an array, `f C:\q\John @Work` hands
+   `f` the two arguments `C:\q\John` and the array's element, measured with PowerShell 7 and 5.1, so
+   in a root ending in ` @Work` `git -C <root> status` runs on another path; the round-2 verify of
+   D64 found it, and D64(1) leaves out a character any shell reinterprets the root at, wherever in the
+   root it stands), `,` (PowerShell splits a bare argument into an
    array at it, so `C:\q\a,b\proj` is `C:\q\a` and `b\proj`, and cmd.exe's built-in commands split at
    it: `type a,b` types `a` and `b`, measured), `=` (cmd.exe's built-in commands split at it the same
    way), `+` (cmd.exe's `copy` starts its next source at it, so `C:\q\a+b\proj\x.txt` is `C:\q\a` and
@@ -1287,14 +1304,25 @@ the coordinator's ratification with D64.
    ; & | ( ) [ ] { } < > ^ % ~ * ?` (`/q/x;y/proj` runs `/q/x`; zsh's EXTENDED_GLOB reads the `~` of an
    8.3 name), a backslash that is no separator (on Linux and macOS a POSIX shell drops it), a control
    character, and a Unicode space (folded to an ASCII space in the root's spelling, so the unit matched
-   a sibling spelled with one). A root holding any of them has no unit: a summary spelling it is judged
-   as the free text it is and withheld, `cd <root> && …`, `git -C <root> …`, the root's Grep and Glob
-   previews and a one-word Read under it among them. A path-named JSON value under such a root is still
-   a structured value (item 6), which no shell reads. A drop reason is Qompack's own error prose, not a
-   shell command, so its screen (item 9) still holds such a root together: that is what finds a
-   withheld project path named absolutely (`<root>/private/deny.txt`, which an unheld root would leave
-   as the tail of a longer path) and keeps an allowed one; so does the learning of a withheld path's
-   names (`recordedPath`), since learning more only withholds more. A POSIX
+   a sibling spelled with one). So is a run of spaces, or a space at either end of the root: the
+   store's preview and the screen (`sanitize`) spell each run of whitespace as one space, so no text
+   spells such a root exactly, and its folded spelling matches a sibling spelled with one space (`a b`
+   beside a root `a  b`, `proj` beside a root `proj `; `rootSpelledExactly`). A root holding any of
+   them has no unit: a summary spelling it is judged as the free text it is and withheld, `cd <root>
+   && …`, `git -C <root> …`, the root's Grep and Glob previews and a one-word Read under it among
+   them. A path-named JSON value under such a root is still a structured value (item 6), which no
+   shell reads. A drop reason is Qompack's own error prose, not a shell command, so its screen (item 9)
+   still holds the root together whatever characters it holds, but only a root that a sanitized text
+   spells exactly: that is what finds a withheld project path named absolutely
+   (`<root>/private/deny.txt`, which an unheld root would leave as the tail of a longer path) and keeps
+   an allowed one. A root with a Unicode space, a tab or another control character, a run of spaces or
+   a space at either end is held in no reason (the round-2 verify of D64): its folded spelling matched
+   a sibling spelled with one ASCII space and showed that sibling's path, outside the project
+   (`checkpoint: git worktree gitdir at C:\q\a b\proj\.git\worktrees\wt is unreadable` under a root
+   `C:\q\a<U+00A0>b\proj`). Unheld, such a root's own whitespace or control character splits a path
+   under it, whose first piece is outside the project, so the reason fails closed: one that names a
+   path under the root is redacted too. The learning of a withheld path's names (`recordedPath`) holds
+   the root whatever its spelling, exact or not, since learning more only withholds more. A POSIX
    shell, Git Bash on Windows included, drops a backslash between two of the root's segments and joins
    them (`/home\u/proj` is `/homeu/proj`, `C:/q\proj` is `C:/qproj`, a sibling of an ancestor of the
    root), so a spelling with one there is not the root, and its text is judged as the free text it is
@@ -1347,13 +1375,16 @@ the coordinator's ratification with D64.
    `/repo.git` is outside), a whitespace token that is an absolute path outside the project, or a
    withheld path's whole spelling at a path boundary (`<root>/private/deny.txt` included). The root is
    held together first (item 8), as in a summary, so in a root with a space its first piece is not
-   read as a path outside the project. A bare basename or a rule literal does not redact a reason: an
-   allowed `README.md` or `src/CLAUDE.md` beside a withheld `private/README.md` or
-   `~/.claude/CLAUDE.md` keeps its restore clause. An approximate count (`~36800 tokens`) is not a home
-   path. A reason is read as an error chain joined by `": "`, each part as clauses joined by `"; "`: the
-   clause that shows the path becomes `(path withheld)`, the clauses before it stay, and those after it
-   stay while they hold no separator. *Why the reason screen still reads an error chain.* D63 asked for
-   whitespace tokens; but a Go or Windows error names its path whole after its operation
+   read as a path outside the project; a root that no sanitized text spells exactly (a Unicode space,
+   a tab, a run of spaces) is not held, since its folded spelling would match a sibling, and the reason
+   fails closed (`TestBuild_ARootNoTextSpellsExactlyIsNeverHeld`). A bare basename or a rule literal
+   does not redact a reason: an allowed `README.md` or `src/CLAUDE.md` beside a withheld
+   `private/README.md` or `~/.claude/CLAUDE.md` keeps its restore clause. An approximate count
+   (`~36800 tokens`) is not a home path. A reason is read as an error chain joined by `": "`, each
+   part as clauses joined by `"; "`: the clause that shows the path becomes `(path withheld)`, the
+   clauses before it stay, and those after it stay while they hold no separator. *Why the reason
+   screen still reads an error chain.* D63 asked for whitespace tokens; but a Go or Windows error
+   names its path whole after its operation
    (`CreateFile <path>: Access is denied.`), and a path with a space (`<root>
    main\.git\worktrees\wt\index`, a linked worktree's gitdir beside the project) spans whitespace
    tokens, so a rule over whitespace tokens alone would show `proj main`
@@ -1376,7 +1407,8 @@ the coordinator's ratification with D64.
     a value among several path-named values, cut or not. Under a root with no unit (item 8, D64(1)) a
     Glob preview of the root and a rooted summary's path part are free text, and a one-word value that
     spells the root is withheld by the whitelist before the host is asked, so such a root costs fewer
-    judgements, never more (the corpus's 48 judgements under UAT-12's rules are 39 under `o'brien`). Through the real adapter, 80 Bash previews of
+    judgements, never more (the corpus's 48 judgements under UAT-12's rules are 39 under `o'brien` and
+    under `John @Work`). Through the real adapter, 80 Bash previews of
     17 words, 80 canonical-JSON and URL previews (a bare URL summary included), 80 path-named JSON
     arrays of six values each, and 80 arrays of twelve values that the store cut inside a value cost
     exactly the build's 10 file pointers and 10 structured summaries, 20 judgements; 80 commands run
@@ -1395,9 +1427,10 @@ the coordinator's ratification with D64.
     and the Unicode boundary guesses be deleted, and they are; but `internal/rehydrate/pathgate.go` is
     not smaller than at e65ada8f. Measured with the pinned gocyclo v0.6.0 and gocognit v1.2.0: lines
     2059 (e65ada8f), 1949 (f708c693), 2410 after the round-2 fixes (f3196046), 2580 after the final
-    verify's (f2171654), 2658 after D64's; non-blank non-comment lines 1401, 1346, 1639, 1737, 1767;
-    functions 91, 87, 105, 112, 115; gocyclo total 646, 572, 722, 765, 784, maximum 26 throughout
-    (`jsonStrings`); gocognit total 590, 563, 691, 732, 741, maximum 38 throughout. The whitelist's
+    verify's (f2171654), 2658 after D64's (ee280d3a), 2687 after its round-2 fixes; non-blank
+    non-comment lines 1401, 1346, 1639, 1737, 1767, 1776; functions 91, 87, 105, 112, 115, 116;
+    gocyclo total 646, 572, 722, 765, 784, 788, maximum 26 throughout (`jsonStrings`); gocognit total
+    590, 563, 691, 732, 741, 744, maximum 38 throughout. The whitelist's
     completeness checks
     (path starts, `..` edges, both backslash readings, quoted runs, glob containment) replaced the
     state machines roughly line for line, and the extensions that recover everyday summaries (item
@@ -1495,7 +1528,8 @@ extension's argument in item 7: `TestBuild_ARootLedGlobPreviewNamesOnlyWhatTheHo
 `TestBuild_TheRootBeforeAPipeOrSemicolonIsTheRoot`, `TestBuild_AJSONKeyIsScreenedAsAString` and
 `TestBuild_ADotDotRangeAndAGoPatternNeverClimb`. The D64 rows:
 `TestBuild_ARootOutsideTheWhitelistHoldsNoRootUnit` and `TestBuild_AReasonHoldsTheRootASummaryDoesNot`
-(item 8), `TestBuild_ACutRightAfterAProviderDriveColonIsWithheld` (item 9),
+(item 8), `TestBuild_ARootNoTextSpellsExactlyIsNeverHeld` (items 8 and 9, the round-2 verify),
+`TestBuild_ACutRightAfterAProviderDriveColonIsWithheld` (item 9),
 `TestBuild_ABareDriveNameNamesADriveRoot` (item 7(b)) and `TestBuild_APathOrNameAfterAPlusIsJudged`
 (item 7(b) and (c)). `internal/daemon`, through
 the real adapter and the real host rules: `TestRehydrateHostPaths_ASelectorNamingADeniedFileIsWithheld`,
@@ -1679,12 +1713,13 @@ withheld beside its six withheld ones), and its `internal/daemon` twin
 `TestRehydrateHostPaths_AnApostropheInTheRootIsNotAnOpenQuote` is
 `TestRehydrateHostPaths_ARootOutsideTheWhitelistHoldsNoRootUnit`, which withholds the root's Grep and
 Glob previews, `cd <root> && …`, `git -C <root> …` and a one-word Read under roots holding `'`, `;`,
-`,`, `$` and `+`, shows a path-named JSON value under them, and keeps a root of letters, digits, `@`,
-`-` and `.` shown; earlier criterion-change paragraphs and the evidence list name both rows by their new
-names. The fixture `shortProjectDir` of `internal/daemon` now spells its temporary base by its long
-names on Windows (`filepath.EvalSymlinks`): a hosted Windows runner's temporary directory is spelled
-with an 8.3 name (`C:\Users\RUNNER~1\AppData\Local\Temp`), whose `~` would leave every root under it
-without a unit; with `TMP` and `TEMP` set to an 8.3 spelling, ten `internal/daemon` rehydrate rows fail
+`,`, `$` and `+`, shows a path-named JSON value under them, and kept a root of letters, digits, `@`,
+`-` and `.` shown until the round-2 verify (next paragraph); earlier criterion-change paragraphs and
+the evidence list name both rows by their new names. The fixture `shortProjectDir` of
+`internal/daemon` now spells its temporary base by its long names on Windows
+(`filepath.EvalSymlinks`): a hosted Windows runner's temporary directory is spelled with an 8.3
+name (`C:\Users\RUNNER~1\AppData\Local\Temp`), whose `~` would leave every root under it without a
+unit; with `TMP` and `TEMP` set to an 8.3 spelling, ten `internal/daemon` rehydrate rows fail
 on the D64 gate without that change, and all pass with it. No golden changed. Red-first: with
 pathgate.go of f2171654 overlaid on the new tests, `TestBuild_ARootOutsideTheWhitelistHoldsNoRootUnit`
 fails on every excluded root (19 on Windows; 27 in a Linux container, where `" | < > * ?`, a `:`, a
@@ -1704,6 +1739,52 @@ over-withheld), and 192 and 82 (0 leaks, 54 over-withheld) in the Linux build, s
 root keeps its unit. Run under a root of `o'brien` or of `a,b`, the same corpus shows 149 and
 withholds 125 after the fix (0 leaks, 97 over-withheld), against f2171654's 193 and 81: the 44 flips
 are D64(1)'s accepted cost in such a root.
+
+*Criterion changes (the round-2 verify of D64).* No row that asserted a WITHHELD spelling changed,
+and no golden changed. `@` leaves the root unit's set and a root that no sanitized text spells
+exactly (`rootSpelledExactly`: a Unicode space, a tab or another control character, a run of spaces,
+a space at either end) loses its unit and is held in no drop reason (item 8). In
+`TestBuild_ARootOutsideTheWhitelistHoldsNoRootUnit` the admitted root `a@b` moves to the excluded
+roots, so its six summaries flip from SHOWN to WITHHELD, and `John @Work` and `a  b` join the excluded
+roots; the two spellings it withheld under each admitted root (`cd <root> && cat private/deny.txt`
+and `<root>2/x.txt`) are now withheld under every excluded root too, so `a@b` keeps them; and the
+sibling it withholds is the root's spelling with each run of whitespace folded to one space, as
+`sanitize` folds it (it was each whitespace character mapped to one space). In
+`TestRehydrateHostPaths_ARootOutsideTheWhitelistHoldsNoRootUnit` the control root `a@b-c.d` moves to
+the excluded roots, so its five summaries (the root's Grep and Glob previews, `cd <root> && go test
+./...`, `git -C <root> status --short` and a one-word Read under it) flip from SHOWN to WITHHELD,
+`John @Work` joins them, and `a-b_c.d` is the new control root, shown. The new row
+`TestBuild_ARootNoTextSpellsExactlyIsNeverHeld` withholds every summary that spells such a root or
+its one-space sibling, and redacts a git drop reason naming the sibling's gitdir, a rule-scan reason
+naming the sibling's file, and, failing closed, a reason naming the root's own `.git\index`, which
+an exactly spelled root keeps (`TestBuild_AReasonHoldsTheRootASummaryDoesNot`): that redaction of a
+project path under such a root is the fix's accepted cost. `recordedPath` keeps holding the root
+whatever its spelling: the verifier suggested gating it too, for consistency, but it decides only
+whether a withheld path's names are learned, and learning withholds more, so the gate would leave a
+withheld path under a root `a  b` unlearned (its space survives) and weaken the screen. Red-first: on
+ee280d3a, `TestBuild_ARootOutsideTheWhitelistHoldsNoRootUnit` fails on `a@b`, `John @Work` and `a  b`
+(each on a summary spelling the root shown under the unit) and passes on its 19 earlier excluded roots
+(27 in a Linux container) and its three admitted ones; `TestBuild_ARootNoTextSpellsExactlyIsNeverHeld`
+fails on every root, three on Windows (`a<U+00A0>b`, `a<U+3000>b`, `a  b`) and five in the container
+(with `a<TAB>b` and `proj `), the Unicode-space and tab roots on the reason that shows the sibling's
+gitdir and the others on a summary that spells the root, shown under the unit; with only the reason
+gate reverted (`rootSpelledExactly` forced true in `reasonWithheld`) it fails on every root on the
+reason, on both platforms; `TestRehydrateHostPaths_ARootOutsideTheWhitelistHoldsNoRootUnit` fails on
+`a@b-c.d` and `John @Work` and passes on the rest, on both;
+`TestBuild_AReasonHoldsTheRootASummaryDoesNot` passes there, a pin of what the round leaves as it
+is. On the w19d corpus nothing flips: f2171654,
+ee280d3a and the round-2 fixes (66d243a5, 1a89183c) all show 193 and withhold 81 under UAT-12's
+rules in the Windows build (0 leaks, 53 over-withheld), and 192 and 82 (0 leaks, 54 over-withheld)
+in the Linux build. Run under a root of `John @Work`, the same corpus shows 149 and withholds 125
+after the fix (0 leaks, 97 over-withheld), against ee280d3a's 193 and 81 on Windows (44 flips) and
+192 and 82 on Linux (43), and under a root of `a  b` 149 and 125, against 166 and 108 (17 flips)
+and 165 and 109 (16): every flip
+is from SHOWN to WITHHELD and names nothing private, D64(1)'s accepted cost in such a root. A `-`
+that starts a word of the root after its space (a root ending in ` -Force`) binds as a parameter of a
+PowerShell cmdlet or advanced function (`g C:\q\John -Force` sets `g`'s `-Force`, measured with
+PowerShell 7 and 5.1), while a lone `-` (`OneDrive - Contoso`, the folder OneDrive for Business
+creates) is passed as text; D64 lists `-` among the unit's characters and did not ask for it to be
+decided, so `-` stays in the set, and that shape is open for a coordinator ruling.
 
 ## Consequences
 
