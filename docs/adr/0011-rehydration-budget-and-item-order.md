@@ -1062,16 +1062,33 @@ screened; it now also matches the raw segments as `hostperm` does (item 7(d)).
      tool splits (`{"paths":"src/a.ts /etc/passwd"}`, `{"file":"src/a.ts,C:\\x"}`), and judged whole
      a list whose first piece is relative was a relative path the host, joining it under the root,
      refused nothing about. So each piece of every path-named value, split at whitespace, a comma, a
-     semicolon or a bar, is also judged for a path outside the project, with no host judgement: not
-     inside the project (an absolute path, a home, a variable, a drive-relative path, a climb), a
-     PowerShell drive- or provider-qualified path (a drive letter's is containment's), or, after a
-     `:`, `=` or `@` inside the piece, a rooted path outside the project or a PowerShell drive
-     (`valueNamesOutside`). Where a piece may start, the root's own spelling as containment compares
-     it is read whole (`rootSpanAt`), so a project path under a root with a space, a comma or a
-     semicolon stays one piece whatever else the root holds (a value is no shell input, so D64(1)'s
-     set does not apply), and a single project path with a space in it is shown. A cut value's last
-     piece is the start of a piece: from a piece start that begins the root's own spelling byte for
-     byte to the cut it is the project (D64(8)).
+     semicolon or a bar, is also judged for a path outside the project, with no host judgement,
+     wherever a reader starts a path in it (`valuePathStart`): at the piece's start; after an opening
+     quote or bracket (`"`, `'`, a backtick, `(`, `[`, `{`, `<`), a `:` other than a drive's, `=` or
+     `@`, anywhere in it; after a character outside ASCII that is no letter, mark or digit (a
+     zero-width space hides a path's start from a reader); after a run of punctuation that leads the
+     piece (`>/etc/passwd`, `!/x`, `+\x`, `#/x`, `)/x`); and after a leading short option (`-I/x`).
+     Inside a piece most punctuation is a name's own (`c++`, `C#`, SvelteKit's `+page`, Next.js's
+     `(auth)` and `[id]`), so only an opener starts a path there. From each such place, what runs to
+     the piece's end names a path outside the project when it is not inside the project (an absolute
+     path, a home, a variable, a drive-relative path, a `file:` URL, or a climb, which containment
+     resolves, so `--out=../../x` and `"../x"` climb out while `src/../a.ts` stays in), with or
+     without the closing quotes and brackets it ends in (`".."` is the parent); when, not rooted, it
+     climbs out in either other reading of its backslashes (`..\x` on Linux, `.\./x`); or when it is a
+     PowerShell drive- or provider-qualified path (a drive letter's is containment's), unless another
+     place a path starts lies inside the name before its `:` (`"C:\q\proj"` and `--out=C:\q\proj`
+     name no drive `"C` or `--out=C`; `--out=Temp:x` names Temp). An http(s) URL that starts there is
+     judged as free text judges one, up to a quote or an angle bracket (`valueNamesOutside`,
+     `pieceOutside`, `restOutside`). Wave 22's verify found the first version, which judged only a
+     piece's start and a rooted path after an inner `:`, `=` or `@`, still showing a quoted later
+     piece (`"src/a.ts" "/etc/passwd"`, `'~/.ssh/id_rsa'`) and a climb after an option's `=` or an
+     `@` (`--out=..` is one segment the next `..` removes), all shown at eca33155 too. Where a path
+     may start, the root's own spelling as containment compares it is read whole (`rootSpanAt`) and
+     none of its characters starts a path, so a project path under a root with a space, a comma, a
+     semicolon or a parenthesis stays one piece whatever else the root holds (a value is no shell
+     input, so D64(1)'s set does not apply), and a single project path with a space in it, quoted or
+     not, is shown. A cut value's last piece is the start of a piece: from a place a path starts
+     that begins the root's own spelling byte for byte to the cut it is the project (D64(8)).
 7. *Free text is shown only when the whitelist vouches for every token* (D63(2)-(4)). Every other
    summary, and every other string of a JSON preview, is free text; an object's keys are screened as
    free text too: D63(1) judges a preview by its decoded strings, and a key is one, which may carry a

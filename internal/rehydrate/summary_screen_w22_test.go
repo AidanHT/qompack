@@ -25,13 +25,24 @@ import (
 // judged for a path outside the project, cut or not, and so is a lone value's PowerShell drive; a
 // single in-project path with a space in it, and the project root's own spelling with one, are still
 // shown.
+//
+// Wave 22's verify found the class open in two ways, both shown at eca33155: a path that starts
+// inside a piece after a quote, a parenthesis, a bracket, a brace or an angle bracket was read as
+// relative (`"/etc/passwd"`, `'~/.ssh/id_rsa'`), and a climb after an inner `=`, `@` or `:` was
+// cleaned away by containment of the whole piece (`--out=../../x` is one segment the next `..`
+// removes). A path may start wherever a reader starts one, so each is judged there, a climb
+// included, in both readings of a backslash; the names a project's paths hold (`[id]`, `(auth)`,
+// `+page`, `c++`, `C#`) and a quoted project path are still shown. The verdicts hold under a plain
+// root, one with a space and one whose own name holds an apostrophe and parentheses (none of the
+// root's characters starts a path), with the host's rules in force and with none.
 func TestBuild_APathNamedValueHoldingSeveralPathsIsJudgedPieceByPiece(t *testing.T) {
 	esc := func(s string) string { return strings.ReplaceAll(s, `\`, `\\`) }
-	for _, elem := range [][]string{{"proj"}, {"John Smith", "proj"}} {
+	for _, elem := range [][]string{{"proj"}, {"John Smith", "proj"}, {"O'Brien (x)", "proj"}} {
 		t.Run(filepath.Join(elem...), func(t *testing.T) {
 			root := previewRoot(elem...)
 			out := esc(previewRoot("outside", "x.txt"))
 			sibling := esc(filepath.Join(filepath.Dir(root), "other", "x.txt"))
+			inRoot := func(elem ...string) string { return esc(filepath.Join(append([]string{root}, elem...)...)) }
 			withheld := []string{
 				// The audit's eight shapes.
 				`{"paths":"src/a.ts,` + out + `"}`,
@@ -56,6 +67,52 @@ func TestBuild_APathNamedValueHoldingSeveralPathsIsJudgedPieceByPiece(t *testing
 				`{"path":"Temp:secret.txt"}`,
 				`{"path":"HKCU:\\Software\\Vendor"}`,
 				`{"cell_id":"c1","paths":"src/a.ts ` + esc(previewRoot("outside", "secret")) + `…`,
+				// Wave 22's verify: a path that starts after a quote, a parenthesis, a bracket, a brace,
+				// an angle bracket or a backtick, in a later piece or a lone value.
+				`{"paths":"\"src/a.ts\" \"/etc/passwd\""}`,
+				`{"paths":"src/a.ts '/etc/passwd'"}`,
+				`{"paths":"src/a.ts,\"/etc/passwd\""}`,
+				`{"paths":["src/a.ts","\"/etc/passwd\""]}`,
+				`{"paths":"src/a.ts '~/.ssh/id_rsa'"}`,
+				`{"paths":"src/a.ts \"$HOME/.aws/credentials\""}`,
+				`{"paths":"src/a.ts (/etc/passwd)"}`,
+				`{"paths":"src/a.ts [/etc/passwd]"}`,
+				`{"paths":"src/a.ts {/etc/passwd}"}`,
+				`{"paths":"src/a.ts </etc/passwd>"}`,
+				"{\"paths\":\"src/a.ts `/etc/passwd`\"}",
+				`{"path":"\"/etc/passwd\""}`,
+				`{"path":"'/etc/passwd'"}`,
+				`{"path":"\"~/.ssh/id_rsa\""}`,
+				`{"paths":"src/a.ts \"` + out + `\""}`,
+				`{"paths":"src/a.ts '` + sibling + `'"}`,
+				`{"paths":"src/a.ts \"C:secret.txt\""}`,
+				`{"paths":"src/a.ts 'Temp:secret.txt'"}`,
+				`{"paths":"src/a.ts \"%USERPROFILE%\\.aws\\credentials\""}`,
+				`{"paths":"src/a.ts \"../outside/x.txt\""}`,
+				`{"paths":"src/a.ts \"..\""}`,
+				`{"paths":"src/a.ts \"` + esc(previewRoot("outside", "secret")) + `…`,
+				// A path a run of punctuation leads, a short option's value and an invisible format
+				// character before a path.
+				`{"paths":"src/a.ts +/etc/passwd"}`,
+				`{"paths":"src/a.ts #/etc/passwd"}`,
+				`{"paths":"src/a.ts !/etc/passwd"}`,
+				`{"paths":"src/a.ts >/etc/passwd"}`,
+				`{"paths":"src/a.ts -I/etc/passwd"}`,
+				`{"file":"src/a.ts` + "\u200b" + `/etc/passwd"}`,
+				// A climb after an inner `=`, `@` or `:`, inert prefixes' among them, in a later piece
+				// or a lone value, and a climb in either reading of a backslash.
+				`{"paths":"src/a.ts --out=../../outside/x.txt"}`,
+				`{"paths":"src/a.ts @../outside/x.txt"}`,
+				`{"paths":"src/a.ts:../outside/x.txt"}`,
+				`{"paths":"src/a.ts select:../outside/x.txt"}`,
+				`{"paths":"src/a.ts sha256:../outside/x.txt"}`,
+				`{"paths":"src/a.ts path:../outside/x.txt"}`,
+				`{"paths":"src/a.ts=../../outside/x.txt"}`,
+				`{"path":"--out=../outside/x.txt"}`,
+				`{"path":"x=../outside/x.txt"}`,
+				`{"paths":"src/a.ts ..\\..\\outside\\x.txt"}`,
+				`{"paths":"src/a.ts .\\./outside/x.txt"}`,
+				`{"path":"..\\outside\\x.txt"}`,
 			}
 			shown := []string{
 				`{"file":"src/my notes.txt"}`,
@@ -66,17 +123,40 @@ func TestBuild_APathNamedValueHoldingSeveralPathsIsJudgedPieceByPiece(t *testing
 				`{"notebook_path":"` + esc(filepath.Join(root, "nb", "my notes.ipynb")) + `"}`,
 				`{"paths":"` + esc(filepath.Join(root, "src", "a.ts")) + ` ` + esc(filepath.Join(root, "src", "b.ts")) + `"}`,
 				`{"paths":"src/a.ts ` + esc(filepath.Join(root, "docs", "b.md")) + `"}`,
+				// The names a project's paths hold, a quoted or bracketed project path, the root's own
+				// spelling after a quote, a parenthesis or an option's `=`, and a climb that stays in.
+				`{"file":"app/(auth)/login/page.tsx"}`,
+				`{"file":"pages/[slug].tsx"}`,
+				`{"paths":["app/api/users/[id]/route.ts","src/routes/+page.svelte"]}`,
+				`{"file":"lib/c++/vector.h"}`,
+				`{"file":"docs/C#/intro.md"}`,
+				`{"file":"docs/it's here.md"}`,
+				`{"file":"data/export (1).csv"}`,
+				`{"file":"assets/logo@2x.png"}`,
+				`{"file":"src/a.ts#L10"}`,
+				`{"paths":"\"src/a.ts\" \"src/b.ts\""}`,
+				`{"paths":"'docs/design notes.md' (src/a.ts)"}`,
+				`{"notebook_path":"\"` + inRoot("nb", "my notes.ipynb") + `\""}`,
+				`{"paths":"src/a.ts (` + inRoot("docs", "b.md") + `)"}`,
+				`{"paths":"src/a.ts --out=` + inRoot("docs", "b.md") + `"}`,
+				`{"paths":"src/a.ts --out=docs/b.md"}`,
+				`{"file":"src/../src/a.ts"}`,
+				`{"file":"src\\a.ts"}`,
 			}
-			leaks := []string{"passwd", "id_rsa", "credentials", "secret.txt", "Vendor", "../outside"}
+			leaks := []string{"passwd", "id_rsa", "credentials", "secret.txt", "Vendor", "../outside", `..\\outside`, "./outside"}
 			for _, p := range []string{filepath.Join("outside", "x.txt"), filepath.Join("other", "x.txt"), filepath.Join("outside", "secret")} {
 				leaks = append(leaks, p, esc(p))
 			}
-			hp := denyFiles(root, "private/deny.txt")
-			for _, s := range withheld {
-				require.Equal(t, "withheld", summaryVerdict(t, root, hp, s, leaks), "%q holds a path outside the project", s)
-			}
-			for _, s := range shown {
-				require.Equal(t, "shown", summaryVerdict(t, root, hp, s, leaks), "%q names only project paths", s)
+			for _, h := range []struct {
+				name string
+				hp   HostPaths
+			}{{"host rules", denyFiles(root, "private/deny.txt")}, {"no host", nil}} {
+				for _, s := range withheld {
+					require.Equal(t, "withheld", summaryVerdict(t, root, h.hp, s, leaks), "%s: %q holds a path outside the project", h.name, s)
+				}
+				for _, s := range shown {
+					require.Equal(t, "shown", summaryVerdict(t, root, h.hp, s, leaks), "%s: %q names only project paths", h.name, s)
+				}
 			}
 		})
 	}

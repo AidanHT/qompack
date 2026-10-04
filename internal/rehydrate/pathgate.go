@@ -42,8 +42,12 @@ import (
 //     pathNamedWithheld). Containment reads a glob as a glob (globClimbs, classReading) and a `file:`
 //     URL as outside. Several path-named values, and a cut one among them, ask the host nothing:
 //     containment and the screen judge them, and a glob among them is judged by what it selects
-//     (globSelectsKnown). A one-word summary must ALSO pass the free-text whitelist (so a one-word
-//     `$HOME/.ssh/id_rsa` can never be shown), a pattern one-word its pattern rules (patternWithheld);
+//     (globSelectsKnown). Every path-named value is also judged, with no host judgement, for a path
+//     outside the project wherever a reader starts one in it: each piece of a list, after an opening
+//     quote or bracket, a `:`, `=` or `@`, and a run of punctuation that leads a piece
+//     (valueNamesOutside, audit 2's finding 26). A one-word summary must ALSO pass the free-text
+//     whitelist (so a one-word `$HOME/.ssh/id_rsa` can never be shown), a pattern one-word its
+//     pattern rules (patternWithheld);
 //     a structured value's names are whole names (screenWhole), so the project's `.env.example` is
 //     not the denied `.env`, and a rooted value in one separator style is screened by the rules'
 //     literals alone (screenExact), so an outside README.md never withholds the project's own.
@@ -1302,78 +1306,125 @@ func (j pathJudge) pathNamedWithheld(v string, cut, host bool) bool {
 // a path outside the project in any of its pieces (audit 2's finding 26). A path-named value is
 // judged whole, as one path, by containment and the host, and is exempt from the free-text whitelist;
 // but a value may hold several paths, as a list a tool splits at whitespace, a comma, a semicolon or
-// a bar (valueListSep), or as a piece that goes on after a `:`, `=` or `@` (valuePathDelims: a
-// PATH-style list, an option's value, an scp address), and judged whole, a list whose first piece is
-// relative is a relative path the host, joining it under the root, refuses nothing about. So each
-// piece is judged for a path outside the project. Where a piece may start (valuePieceStart), the
-// project root's own spelling, as containment compares it (RootRelative: the cleaned root, `/` read
-// as the platform's separator, an ASCII letter's case folded where paths fold), is read whole
+// a bar (valueListSep), and judged whole, a list whose first piece is relative is a relative path the
+// host, joining it under the root, refuses nothing about. So each piece is judged for a path outside
+// the project wherever a path may start in it (valuePathStart, pieceOutside). Where a path may start,
+// the project root's own spelling, as containment compares it (RootRelative: the cleaned root, `/`
+// read as the platform's separator, an ASCII letter's case folded where paths fold), is read whole
 // (rootSpanAt), so a project path under a root with a space, a comma or a semicolon stays one piece
-// whatever else the root holds: a value is no shell input, so D64(1)'s character set does not apply.
-// A piece names a path outside the project when it is not inside the project (inside: an absolute
-// path, a home, a variable, a drive-relative path or a climb), when it is a PowerShell drive- or
-// provider-qualified path (providerPath; a drive letter's is containment's to judge), or when, after
-// a `:`, `=` or `@` inside it, a rooted path outside the project (absLike) or a PowerShell drive
-// starts. An http(s) URL piece is judged as free text judges one (urlOutside). The store's cut leaves
-// only the start of the last piece: from a piece start that begins the root's own spelling byte for
-// byte (rootPrefix, D64(8)) to the cut it is the project, and a last piece that ends right after a
-// PowerShell drive's `:` is judged as if a name followed (D64(2)). A single project path with a space
-// in it is pieces that all stay in the project, and is shown. It asks the host nothing.
+// whatever else the root holds, and no character of the root starts a path: a value is no shell
+// input, so D64(1)'s character set does not apply. The store's cut leaves only the start of the last
+// piece: from a path start that begins the root's own spelling byte for byte (rootPrefix, D64(8)) to
+// the cut it is the project. A single project path with a space in it is pieces that all stay in the
+// project, and is shown. It asks the host nothing.
 func (j pathJudge) valueNamesOutside(v string, cut bool) bool {
 	t := strings.TrimSpace(v)
 	if cut {
-		for k := 0; k < len(t); k++ {
-			if valuePieceStart(t, k) && j.rootPrefix(t[k:]) {
-				t, cut = t[:k], false
+		start := 0
+		for i := 0; i < len(t); {
+			if valuePathStart(t, start, i) && j.rootPrefix(t[i:]) {
+				t, cut = t[:i], false
 				break
 			}
+			r, size := utf8.DecodeRuneInString(t[i:])
+			if valueListSep(r) {
+				start = i + size
+			}
+			i += size
 		}
 	}
-	var pieces []string
+	var held []bool
 	start := 0
 	for i := 0; i < len(t); {
-		if valuePieceStart(t, i) {
+		if valuePathStart(t, start, i) {
 			if n := j.rootSpanAt(t, i); n > 0 {
+				if held == nil {
+					held = make([]bool, len(t))
+				}
+				for k := i; k < i+n; k++ {
+					held[k] = true
+				}
 				i += n
 				continue
 			}
 		}
 		r, size := utf8.DecodeRuneInString(t[i:])
 		if valueListSep(r) {
-			if i > start {
-				pieces = append(pieces, t[start:i])
+			if i > start && j.pieceOutside(t[start:i], heldIn(held, start, i), false) {
+				return true
 			}
 			start = i + size
 		}
 		i += size
 	}
-	if start < len(t) {
-		pieces = append(pieces, t[start:])
+	return start < len(t) && j.pieceOutside(t[start:], heldIn(held, start, len(t)), cut)
+}
+
+// heldIn is held[from:to], or nil when no root was held.
+func heldIn(held []bool, from, to int) []bool {
+	if held == nil {
+		return nil
 	}
-	for i, pc := range pieces {
-		if j.pieceOutside(pc, cut && i == len(pieces)-1) {
-			return true
-		}
-	}
-	return false
+	return held[from:to]
 }
 
 // valueListSep reports a character a tool that takes a list of paths in one value may split it at
 // (valueNamesOutside): whitespace of any kind, a comma, a semicolon or a bar.
 func valueListSep(r rune) bool { return unicode.IsSpace(r) || r == ',' || r == ';' || r == '|' }
 
-// valuePathDelims are the characters after which a path may start inside one piece of a path-named
-// value (valueNamesOutside): a PATH-style list's or an scp address's `:`, an option's `=`, and `@`.
-const valuePathDelims = ":=@"
+// valueOpeners are the characters after which a path may start anywhere in a piece of a path-named
+// value (valuePathStart): a PATH-style list's or an scp address's `:`, an option's `=`, `@` (a
+// response file, a user's host), and what opens a quoted or bracketed stretch, which a reader reads
+// a path inside (`"/etc/passwd"`, `(~/.ssh/id_rsa)`, `<…>`; wave 22's verify of finding 26).
+const valueOpeners = ":=@\"'`([{<"
 
-// valuePieceStart reports whether a path may start at i in t, a path-named value: at its start, or
-// after a list separator (valueListSep) or a valuePathDelims character.
-func valuePieceStart(t string, i int) bool {
-	if i == 0 {
+// valueLeaders are the ASCII characters after which a path may start when they lead a piece
+// (valuePathStart): every punctuation character but a name's (`. _ - ~ $ %`, the last three also a
+// home's or a variable's, which containment reads at a path start), a separator, a glob's wildcard
+// (`* ?`, as in `*/x.go`) and the list separators. Inside a piece most of them are a name's own
+// characters, which a project's paths hold (`c++`, `C#`, SvelteKit's `+page`, Next.js's `(auth)` and
+// `[id]`), so only an opener (valueOpeners) starts a path there; leading a piece they are a
+// redirect, a negation, cmd.exe's next copy source, a comment or a closing bracket before the path
+// (`>/etc/passwd`, `!/etc/passwd`, `+\Windows\win.ini`, `#/etc/passwd`, `)/etc/passwd`), as free
+// text reads them (pathStartDelims).
+const valueLeaders = "!\"#&'()+:<=>@[]^`{}"
+
+// valuePathStart reports whether a path may start at i in t, a path-named value, within the piece
+// that starts at start (valueNamesOutside): at the piece's start; after an opener (valueOpeners)
+// other than a drive's `:` (one ASCII letter at a path start: `C:\q\proj`, `--dir=C:\x`); after a
+// character outside ASCII that is no letter, mark or digit (an invisible format character such as a
+// zero-width space, which hides the start of a path from a reader, a symbol, a punctuation mark);
+// after a run of leaders that leads the piece (valueLeaders); and after a short option that leads it,
+// after its first letter and after all its letters (`-I/opt`, `-C../x`), as free text reads one
+// (pathStarts).
+func valuePathStart(t string, start, i int) bool {
+	if i == start {
 		return true
 	}
-	r, _ := utf8.DecodeLastRuneInString(t[:i])
-	return valueListSep(r) || strings.ContainsRune(valuePathDelims, r)
+	r, size := utf8.DecodeLastRuneInString(t[start:i])
+	switch {
+	case r == ':':
+		k := i - size - 1
+		return k < start || !asciiLetter(t[k]) || !valuePathStart(t, start, k)
+	case r < utf8.RuneSelf && strings.IndexByte(valueOpeners, byte(r)) >= 0:
+		return true
+	case r >= utf8.RuneSelf:
+		return !(unicode.IsLetter(r) || unicode.IsMark(r) || unicode.IsDigit(r))
+	}
+	if strings.IndexFunc(t[start:i], notValueLeader) < 0 {
+		return true
+	}
+	k := shortOptionEnd(t[start:])
+	return k > 0 && (i-start == 2 || i-start == k)
+}
+
+// notValueLeader reports a character that is no leader of a piece (valuePathStart): neither one of
+// valueLeaders nor a character outside ASCII that is no letter, mark or digit.
+func notValueLeader(c rune) bool {
+	if c >= utf8.RuneSelf {
+		return unicode.IsLetter(c) || unicode.IsMark(c) || unicode.IsDigit(c)
+	}
+	return !strings.ContainsRune(valueLeaders, c)
 }
 
 // rootSpanAt is the length of the project root's own spelling at t[i:], as containment compares it
@@ -1396,20 +1447,79 @@ func (j pathJudge) rootSpanAt(t string, i int) int {
 }
 
 // pieceOutside reports whether pc, one piece of a path-named value (cut: the store's cut fell inside
-// it), names a path outside the project (valueNamesOutside).
-func (j pathJudge) pieceOutside(pc string, cut bool) bool {
-	if isURL(pc) {
-		return urlOutside(pc)
-	}
-	if !j.inside(pc) || (providerPath(pc) && !driveLetter(pc)) ||
-		(cut && strings.HasSuffix(pc, ":") && !driveLetter(pc) && providerPath(pc+"x")) {
-		return true
-	}
-	for i := 0; i+1 < len(pc); i++ {
-		if strings.IndexByte(valuePathDelims, pc[i]) < 0 || (i == 1 && driveLetter(pc)) {
+// it; held: which of its bytes spell the project root, read whole, or nil), names a path outside the
+// project (valueNamesOutside) at any place a path may start in it (valuePathStart) but inside the
+// root's own spelling: what runs from there to the piece's end names a path outside the project
+// (restOutside). An http(s) URL that starts there is judged as free text judges one (urlOutside), up
+// to a quote or an angle bracket, after which a path may start again.
+func (j pathJudge) pieceOutside(pc string, held []bool, cut bool) bool {
+	for s := 0; s < len(pc); {
+		_, size := utf8.DecodeRuneInString(pc[s:])
+		if (s > 0 && held != nil && held[s-1]) || !valuePathStart(pc, 0, s) {
+			s += size
 			continue
 		}
-		if rest := pc[i+1:]; (absLike(rest) && !j.inside(rest)) || (providerPath(rest) && !driveLetter(rest)) {
+		rest := pc[s:]
+		if isURL(rest) {
+			e := strings.IndexAny(rest, "\"'`<>")
+			if e < 0 {
+				e = len(rest)
+			}
+			if urlOutside(rest[:e]) {
+				return true
+			}
+			s += e
+			continue
+		}
+		if j.restOutside(rest, cut, namesDrive(pc, held, s)) {
+			return true
+		}
+		s += size
+	}
+	return false
+}
+
+// namesDrive reports whether the name before the first `:` of pc[s:], a piece of a path-named value
+// from a place a path may start in it, may be a PowerShell drive's or provider's whole name: no other
+// place a path may start lies inside it outside the root's own spelling (held). One that does is the
+// name of none: a reader reads the path that starts there, whose own name restOutside judges
+// (`"C:\q\proj"` and `--out=C:\q\proj` are no drive named `"C` or `--out=C`; `--out=Temp:x` names Temp).
+func namesDrive(pc string, held []bool, s int) bool {
+	colon := strings.IndexByte(pc[s:], ':')
+	for k := s + 1; colon > 0 && k < s+colon; k++ {
+		if (held == nil || !held[k-1]) && valuePathStart(pc, 0, k) {
+			return false
+		}
+	}
+	return true
+}
+
+// restOutside reports whether rest, a piece of a path-named value from a place a path may start in it
+// to the piece's end (cut: the store's cut fell inside it), names a path outside the project: it is
+// not inside the project (inside: an absolute path, a home, a variable, a drive-relative path, a
+// `file:` URL or a climb, which containment resolves, so `--out=../../x` and `"../x"` climb out while
+// `src/../a.ts` stays in), with or without the closing quotes and brackets it ends in (`".."` is the
+// parent); when drive is set (namesDrive), it is a PowerShell drive- or provider-qualified path
+// (providerPath; a drive letter's is containment's to judge), or, when the cut fell right after its
+// `:`, would be one with a name after it (D64(2)); or, when it is not rooted, it climbs out in either other reading of its backslashes,
+// as a separator wherever the value was recorded and as a POSIX shell's escape (`..\x` on Linux,
+// `.\./x`).
+func (j pathJudge) restOutside(rest string, cut, drive bool) bool {
+	if !j.inside(rest) {
+		return true
+	}
+	if drive && !driveLetter(rest) && (providerPath(rest) || (cut && strings.HasSuffix(rest, ":") && providerPath(rest+"x"))) {
+		return true
+	}
+	readings := []string{rest}
+	if !absLike(rest) && strings.Contains(rest, `\`) {
+		readings = append(readings, strings.ReplaceAll(rest, `\`, "/"), strings.ReplaceAll(rest, `\`, ""))
+	}
+	for _, r := range readings {
+		if !j.inside(r) {
+			return true
+		}
+		if c := strings.TrimRight(r, "\"'`)]}>"); c != r && c != "" && !j.inside(c) {
 			return true
 		}
 	}
