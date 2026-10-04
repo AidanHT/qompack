@@ -18,8 +18,10 @@ import (
 // is held together only when the root's own spelling is built from characters no shell splits or
 // reinterprets it at, and a store cut right after a PowerShell drive's or provider's `:` is withheld
 // as a single-letter drive there already is. A bare drive or provider name with nothing after its
-// `:` names a drive root and reveals no file, so it stays inert. The root rows and the cut row are
-// red on f2171654, on Windows and in a Linux container alike.
+// `:` names a drive root and reveals no file, so it stays inert. Deciding `+` for the root unit found
+// that a path and a name may start after a `+` in free text too (cmd.exe's copy). The root rows, the
+// cut row and the `+` row are red on f2171654, on Windows and in a Linux container alike; the reason
+// and bare-drive rows pin what D64 leaves as it is.
 
 // d64ExcludedRootSegments are root segments that each hold one character the root unit does not
 // admit (D64(1)) and that this platform allows in a directory's name: a quote of either kind or a
