@@ -116,7 +116,10 @@ func headingCost(d Deps, k ItemKind, b built) core.Tokens {
 }
 
 // sectionLegend is the line a section carries under its heading: pointersLegend for item 6 when b
-// holds a withheld pointer, which explains each withheld line once; "" otherwise.
+// was built from a withheld pointer, which explains each withheld line once; "" otherwise. It is
+// decided on the section's candidates, before the budget admits any, so that the heading the fill
+// prices is the heading render writes; a section whose withheld candidates the budget all cut still
+// carries it, the price of an exact account.
 func sectionLegend(k ItemKind, b built) string {
 	if k == ItemPointers && b.withheld {
 		return pointersLegend

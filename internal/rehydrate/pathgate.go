@@ -2945,7 +2945,8 @@ const (
 	withheldPathNote  = "path withheld: the host's permission rules refuse it, or it is outside the project"
 	withheldPathLabel = "file (path withheld)"
 	withheldSummary   = "(summary withheld)"
-	// pointersLegend is the line under section 6's heading when the section holds a withheld pointer.
+	// pointersLegend is the line under section 6's heading when a pointer the section was built from
+	// is withheld (sectionLegend).
 	pointersLegend = "Withheld entries name a path the host's permission rules refuse, or one outside the " +
 		"project; restore them by hash."
 	// withheldDropID stands in for the path a checkpoint drop entry was keyed by when the

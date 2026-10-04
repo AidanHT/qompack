@@ -1638,7 +1638,7 @@ screened; it now also matches the raw segments as `hostperm` does (item 7(d)).
       (`TestBuild_AQompackCommandInADropReasonIsNoPath`).
     - *Section 6 explains a withheld pointer once* (finding 30). Each withheld line repeated a
       97-character explanation (a withheld file's label about 84), charged to the payload's fixed
-      character ceiling. A section 6 that holds a withheld pointer now carries one legend line under
+      character ceiling. A section 6 built from a withheld pointer now carries one legend line under
       its heading, priced with the heading in both dimensions; a withheld summary reads `(summary
       withheld)` and a withheld file `file (path withheld)`. A drop entry keeps the full note, since
       `dropped()` returns it without the legend
