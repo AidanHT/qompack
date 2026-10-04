@@ -651,15 +651,21 @@ func TestUserIntent_FirstPromptIDMatchesObserver(t *testing.T) {
 
 // TestE2E_SessionStartLatency grades a warm compact start against §11.2's first-turn-after budget.
 //
-// IT IS GUARDED, and the guard is not optional: the number is a wall-clock p99 over 30 process
-// spawns on a machine this suite shares with every other test in the tree, so under co-load it
-// reports the host rather than the code. `go test -short` skips it; CI runs it only where the
-// suite has the machine to itself.
+// It is a timing row, and it is gated the way the other intrinsically wall-clock rows are (ADR
+// 0010 decision 2, obs.UnderColoadEnv). The number is a wall-clock p99 over 30 process spawns,
+// each a whole hook process and its round trip to the daemon, so no CPU clock stands in for it.
+// Run alone, as ci.yml's test-e2e and the pre-freeze e2e and e2efunc steps run test/e2e, it is
+// judged against scLatencyP99. In a run that declares co-load it is measured and reported, with
+// the limit it does not apply and where that limit is still applied, as X11 reports B-A. It is
+// not fsync-bound: the rehydration state file's durable write follows the answer (C1.16,
+// scStateRecordBound), so a non-reference disk declaration leaves it gated.
+//
+// Criterion change (wave 21, D53(a)): the row used to skip itself under -short, a guard nothing
+// ran and ADR 0010 rules out, and it gated even under a declared co-load. Wave 20's status
+// verifier measured p99 1.53 s in an undeclared daytime co-loaded run, while a quiet run on AC
+// measured 76 to 190 ms a sample (p99 190 ms). So the row now runs under -short, reports under the
+// declaration, and always logs its measurement. The budget and the statistic are unchanged.
 func TestE2E_SessionStartLatency(t *testing.T) {
-	if testing.Short() {
-		t.Skip("wall-clock latency is unreliable under co-load; -short skips it")
-	}
-
 	bin := Build(t)
 	p := scProject(t)
 	t.Cleanup(func() { e2eShutdownIfReachable(t, p.Root) })
@@ -680,6 +686,14 @@ func TestE2E_SessionStartLatency(t *testing.T) {
 	idx := (99*len(samples)+99)/100 - 1
 	p99 := samples[min(max(idx, 0), len(samples)-1)]
 
+	t.Logf("SessionStart latency: p99 of %d warm compact session-starts = %s against the %s budget "+
+		"(samples: %s)", len(samples), p99, scLatencyP99, fmt.Sprint(samples))
+	if obs.UnderCoload() {
+		t.Logf("%s is set: this co-loaded run reports the p99 above and does not apply the %s budget "+
+			"(ADR 0010 decision 2). test/e2e run alone without it applies it: ci.yml's test-e2e job "+
+			"and the pre-freeze e2e and e2efunc steps", obs.UnderColoadEnv, scLatencyP99)
+		return
+	}
 	require.Less(t, p99, scLatencyP99,
 		"p99 of %d warm compact session-starts was %s, over the %s budget (samples: %s)",
 		len(samples), p99, scLatencyP99, fmt.Sprint(samples))
