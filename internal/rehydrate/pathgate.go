@@ -152,6 +152,41 @@ type pathJudge struct {
 	// drops counts the host judgements made while newPathJudge reads the path-keyed checkpoint drops
 	// (dropJudgements); nil outside a judge newPathJudge made.
 	drops *dropJudgements
+	// rootTail is the last segment of the root's spelling as rootSpelling matches it, its ASCII
+	// letters lower-cased where the platform's paths fold: every match holds it (held's prefilter);
+	// "" when the root has no last segment.
+	rootTail string
+	// memo is the build's memory of the screen's answers (buildMemo); nil outside a judge newPathJudge
+	// made.
+	memo *buildMemo
+}
+
+// buildMemo is a judge's memory of the screen's answers for one build, shared by every copy of the
+// judge (pathJudge is passed by value), as judged is (audit 2's finding 33: Build's CPU rose 2.6-2.9x
+// with the D63 screen, which ran the root's expression two to four times on each text and screened
+// every drop's reason, twice per build, though most share one reason). Each entry is keyed by
+// everything its answer depends on besides the judge, whose root, readings of the root, rules and
+// learned paths are fixed once newPathJudge returns: held by the root-spelling expression (one for
+// each reading of the root, so each fold has its own entries) and the text; summaries and reasons
+// by the text alone, made only when newPathJudge returns, so no answer computed while it was still
+// learning withheld paths is ever kept.
+type buildMemo struct {
+	held      map[heldKey]string
+	summaries map[string]bool
+	reasons   map[string]gatedReason
+}
+
+// heldKey keys buildMemo.held: the expression that finds the root (a reading of it) and the text.
+type heldKey struct {
+	spelling *regexp.Regexp
+	text     string
+}
+
+// gatedReason is a drop reason's screen answer (gateDropReasons): whether it shows a path the build
+// withholds, and its redacted text when it does.
+type gatedReason struct {
+	withheld bool
+	text     string
 }
 
 // dropJudgements bounds the host judgements a build makes for its path-keyed checkpoint drops (audit
@@ -396,7 +431,8 @@ func newPathJudge(r Request, d Deps) pathJudge {
 	j := pathJudge{
 		root: r.ProjectRoot, judged: make(map[string]bool), drops: &dropJudgements{},
 		rootSpelling: rootSpellingOf(r.ProjectRoot), rootUnit: rootUnitAdmitted(r.ProjectRoot),
-		rootExact: rootSpelledExactly(r.ProjectRoot),
+		rootExact: rootSpelledExactly(r.ProjectRoot), rootTail: rootTailOf(r.ProjectRoot),
+		memo: &buildMemo{held: make(map[heldKey]string)},
 	}
 	if r.ProjectRoot != "" {
 		j.rootSegs = hostRootSegments(r.ProjectRoot)
@@ -443,6 +479,9 @@ func newPathJudge(r Request, d Deps) pathJudge {
 			}
 		}
 	}
+	// Answers that depend on the withheld paths learned above are memoized only now that learning ends.
+	j.memo.summaries = make(map[string]bool)
+	j.memo.reasons = make(map[string]gatedReason)
 	return j
 }
 
@@ -799,8 +838,21 @@ var homeOrVarRoot = regexp.MustCompile(
 // as one structured glob (rootGlobWithheld); every other summary is free text, and one that starts at
 // the project root and goes on below it with a space also has its path part judged by the host
 // (rootStretch) once the free text has passed, so the host is never asked about a summary the
-// whitelist withholds.
+// whitelist withholds. Each distinct summary is judged once per build (buildMemo.summaries).
 func (j pathJudge) summaryWithheld(s string) bool {
+	if j.memo != nil && j.memo.summaries != nil {
+		if w, ok := j.memo.summaries[s]; ok {
+			return w
+		}
+		w := j.judgeSummary(s)
+		j.memo.summaries[s] = w
+		return w
+	}
+	return j.judgeSummary(s)
+}
+
+// judgeSummary is summaryWithheld's judgement of s, unmemoized.
+func (j pathJudge) judgeSummary(s string) bool {
 	t := strings.TrimSpace(s)
 	if t == "" {
 		return false
@@ -2220,8 +2272,13 @@ func endsWithPrefixOf(text, name string, bounded bool) bool {
 	return false
 }
 
-// selectorValues returns the value of each recall path: selector in t, unquoted.
+// selectorValues returns the value of each recall path: selector in t, unquoted. A text that does
+// not hold `path:` in any ASCII case holds none: no character outside ASCII folds onto those letters
+// under RE2's `(?i)`, so the expression is not run on it.
 func selectorValues(t string) []string {
+	if !containsFolded(t, recallPathSelector+":", true) {
+		return nil
+	}
 	var out []string
 	for _, m := range pathSelector.FindAllStringSubmatch(t, -1) {
 		v := strings.Trim(m[1], `"'`)
@@ -2642,13 +2699,83 @@ func (j pathJudge) markRoot(t string) string {
 // judged as the path outside the project it is. A summary holds the root only through markRoot; a
 // drop reason (reasonWithheld) holds it whenever a text can spell it exactly (rootSpelledExactly);
 // and the learning of a withheld path (recordedPath) holds it always.
-func (j pathJudge) holdRoot(t string) string {
-	if j.rootSpelling == nil {
+func (j pathJudge) holdRoot(t string) string { return j.held(j.rootSpelling, t) }
+
+// held is holdWith(spelling, t) memoized for the build (buildMemo.held, keyed by the expression, one
+// for each reading of the root, and the text). A text that cannot hold rootSpelling's match, because
+// it does not hold the root's last segment folded as rootSpelling folds it (rootTail: an ASCII
+// letter's case where the platform's paths fold, no other character's), is returned as it is without
+// running the expression; another reading's expression is always run.
+func (j pathJudge) held(spelling *regexp.Regexp, t string) string {
+	if spelling == nil {
+		return t
+	}
+	if spelling == j.rootSpelling && j.rootTail != "" && !containsFolded(t, j.rootTail, paths.DefaultFold()) {
+		return t
+	}
+	if j.memo == nil {
+		return holdWith(spelling, t)
+	}
+	k := heldKey{spelling, t}
+	if s, ok := j.memo.held[k]; ok {
+		return s
+	}
+	s := holdWith(spelling, t)
+	j.memo.held[k] = s
+	return s
+}
+
+// rootTailOf is root's rootTail: the last segment of the spelling rootSpellingOf matches, an ASCII
+// letter lower-cased where the platform's paths fold; "" for no root, or one with no last segment.
+func rootTailOf(root string) string {
+	if root == "" {
+		return ""
+	}
+	clean := strings.Join(strings.Fields(filepath.ToSlash(filepath.Clean(root))), " ")
+	tail := clean[strings.LastIndexByte(clean, '/')+1:]
+	if strings.Contains(tail, ":") {
+		return "" // a drive alone (`C:`), whose spellings rootSpellingOf varies
+	}
+	if paths.DefaultFold() {
+		tail = asciiLower(tail)
+	}
+	return tail
+}
+
+// asciiLower is s with each ASCII letter lower-cased and every other byte as it is.
+func asciiLower(s string) string {
+	b := []byte(s)
+	for i, c := range b {
+		if c >= 'A' && c <= 'Z' {
+			b[i] = c + ('a' - 'A')
+		}
+	}
+	return string(b)
+}
+
+// containsFolded reports whether t holds sub, sub's ASCII letters lower-case, an ASCII letter's case
+// folded when fold is set and no other character's (asciiFoldEqual).
+func containsFolded(t, sub string, fold bool) bool {
+	if !fold {
+		return strings.Contains(t, sub)
+	}
+	for i := 0; i+len(sub) <= len(t); i++ {
+		if asciiFoldEqual(t[i:i+len(sub)], sub, true) {
+			return true
+		}
+	}
+	return false
+}
+
+// holdWith is t with each spelling of the root that spelling finds, and holdRoot's rules leave the
+// root, replaced by rootMark; t when spelling is nil.
+func holdWith(spelling *regexp.Regexp, t string) string {
+	if spelling == nil {
 		return t
 	}
 	var b strings.Builder
 	last := 0
-	for _, m := range j.rootSpelling.FindAllStringIndex(t, -1) {
+	for _, m := range spelling.FindAllStringIndex(t, -1) {
 		a, e := m[0], m[1]
 		if a > 0 && nameByte(t[a-1]) && !flagBefore(t, a) {
 			continue
@@ -2871,22 +2998,47 @@ func gateCheckpointDrops(r Request, j pathJudge) []checkpoint.DropEntry {
 // section 6 show it (buildPointers). The path goes and the error kind stays: pointer_git_unavailable
 // carries the checkpointer's git error verbatim, which in a linked worktree names its gitdir outside
 // the project, and a rule or skill scan error can name a directory above it. drops is never
-// modified.
+// modified. Each distinct reason is screened once per build (gatedReasonOf): Build gates the drop
+// list at step 9a and again at step 10, where it differs only by what min-fill re-admitted between
+// them, and most drops share one reason.
 func gateDropReasons(drops []checkpoint.DropEntry, j pathJudge) []checkpoint.DropEntry {
 	var out []checkpoint.DropEntry
 	for i, e := range drops {
-		if modelTextDrops[e.Kind] || e.Kind == dropKindPointer || !j.reasonWithheld(e.Detail) {
+		if modelTextDrops[e.Kind] || e.Kind == dropKindPointer {
+			continue
+		}
+		g := j.gatedReasonOf(e.Detail)
+		if !g.withheld {
 			continue
 		}
 		if out == nil {
 			out = append([]checkpoint.DropEntry(nil), drops...)
 		}
-		out[i].Detail = j.redactReason(e.Detail)
+		out[i].Detail = g.text
 	}
 	if out == nil {
 		return drops
 	}
 	return out
+}
+
+// gatedReasonOf is detail's screen answer: whether it shows a path the build withholds
+// (reasonWithheld) and, when it does, its redacted text (redactReason), memoized for the build
+// (buildMemo.reasons).
+func (j pathJudge) gatedReasonOf(detail string) gatedReason {
+	if j.memo != nil && j.memo.reasons != nil {
+		if g, ok := j.memo.reasons[detail]; ok {
+			return g
+		}
+	}
+	var g gatedReason
+	if j.reasonWithheld(detail) {
+		g = gatedReason{withheld: true, text: j.redactReason(detail)}
+	}
+	if j.memo != nil && j.memo.reasons != nil {
+		j.memo.reasons[detail] = g
+	}
+	return g
 }
 
 // reasonWithheld reports whether a drop entry's reason shows an absolute path outside the project or
