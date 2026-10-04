@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/qompack/qompack/internal/checkpoint"
+	"github.com/qompack/qompack/internal/core"
 )
 
 // Wave 22's rows over audit 2's rehydrate findings (coordinator decisions D66 and D67).
@@ -203,6 +204,63 @@ func TestBuild_AQompackCommandInADropReasonIsNoPath(t *testing.T) {
 				require.Contains(t, got.Detail, withheldDropID, "%q names a path outside the project", e.Detail)
 			}
 			requireNoLeak(t, res, []string{"/repo.git", "/secrets.txt", "/etc/qompack", "passwd"})
+		})
+	}
+}
+
+// TestBuild_ToolSearchsSelectorIsShown is audit 2's finding 31 under coordinator decision D67(l):
+// ToolSearch's documented selector, `select:`, reads as a PowerShell drive named select, so the
+// call Claude Code makes to load a deferred tool, Qompack's own among them, was withheld in every
+// project. `select` joins the inert prefixes, with the same accepted limit as `path` (a drive a user
+// names so). Another name, and a path after the selector's colon, are still withheld.
+func TestBuild_ToolSearchsSelectorIsShown(t *testing.T) {
+	shown := []string{
+		`{"max_results":1,"query":"select:mcp__plugin_qompack_qompack__record_eliminated"}`,
+		`{"max_results":3,"query":"select:Read,Edit,Grep"}`,
+		"select:Read",
+	}
+	withheld := []string{
+		`{"query":"select:/etc/passwd"}`,
+		`{"query":"select:../outside/x.txt"}`,
+		`{"query":"selector:mcp__x"}`,
+		`{"query":"select:C:\\x"}`,
+	}
+	for _, tc := range []struct {
+		name string
+		host func(root string) HostPaths
+	}{
+		{"no host rules", func(string) HostPaths { return nil }},
+		{"UAT-12 rules", func(root string) HostPaths { return denyFiles(root, "private/deny.txt", ".env") }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			root := privacyRoot(t)
+			cp := ckUAT05()
+			cp.Pointers.Tools = nil
+			for i, s := range append(append([]string(nil), shown...), withheld...) {
+				id := fmt.Sprintf("toolu_ok_%02d", i)
+				if i >= len(shown) {
+					id = fmt.Sprintf("toolu_no_%02d", i)
+				}
+				cp.Pointers.Tools = append(cp.Pointers.Tools, checkpoint.ToolPointer{
+					ToolUseID: core.ToolUseID(id), Hash: hashOf(id), Summary: s,
+				})
+			}
+			d := uat05Deps(t, cp)
+			d.HostPaths = tc.host(root)
+			r := requestFor(t, cp, maxBudget())
+			r.ProjectRoot = root
+
+			res, err := Build(context.Background(), r, d)
+			require.NoError(t, err)
+			section6 := sectionBody(res.Text, sectionHeading(ItemPointers))
+			for _, tp := range cp.Pointers.Tools {
+				line := "- tool_use " + string(tp.ToolUseID) + " " + tp.Hash.String() + " — "
+				if strings.HasPrefix(string(tp.ToolUseID), "toolu_no_") {
+					require.Contains(t, section6, line+withheldSummary+"\n", "%q", tp.Summary)
+					continue
+				}
+				require.Contains(t, section6, line+tp.Summary+"\n", "%q", tp.Summary)
+			}
 		})
 	}
 }
