@@ -722,36 +722,52 @@ func (s *doctorState) switchRow(key string, gate *doctorGate) doctorRow {
 
 // configViolationsRow reports every setting that fell back to its default, from this run's own
 // tolerant load and from the list a previous run persisted. A "setting" is a §11.3 violation: a leaf
-// Validate refused or, in the persisted list, a whole versioned block reset for a newer
-// settingsVersion, which is not a leaf (captureConfigDegradedSummary uses the same word). A setting
-// in both lists is counted once, as the live entry, which carries got and want: the record a hook
-// wrote for the same file this run loaded names the same leaves.
+// Validate refused or a whole versioned block reset for a newer settingsVersion, which is not a leaf
+// (captureConfigDegradedSummary uses the same word). The live list is selected exactly as the writers
+// select what they record (recordedViolations), so a reset counts whether or not a hook or a command
+// has written the record yet: before audit 2's finding #16 the row read "none" on a project nothing
+// had loaded, while config.capture in the same report named the reset. A setting in both lists is
+// counted once, as the live entry: the record a hook wrote for the same file this run loaded names
+// the same settings. A record doctor could not read is no persisted list, and the detail says why.
 func (s *doctorState) configViolationsRow() doctorRow {
-	live := config.ViolationsFromWarnings(s.warnings)
+	live := recordedViolations(config.ViolationsFromWarnings(s.warnings), s.warnings)
 	// Only a project's own state/ holds a persisted list. With no root, or a refused one (D18), the
 	// layout is empty and its State would be a path relative to the working directory.
 	var persisted []config.Violation
+	var note string
 	if s.l.State != "" {
 		seen := make(map[string]bool, len(live))
 		for _, v := range live {
 			seen[v.Key] = true
 		}
-		for _, v := range doctorPersistedViolations(s.l) {
+		var recorded []config.Violation
+		recorded, note = doctorPersistedViolations(s.l)
+		for _, v := range recorded {
 			if !seen[v.Key] {
 				seen[v.Key] = true
 				persisted = append(persisted, v)
 			}
 		}
 	}
+	withNote := func(detail string) string {
+		if note == "" {
+			return detail
+		}
+		return detail + "; " + note
+	}
 
 	if len(live) == 0 && len(persisted) == 0 {
 		return doctorRow{
 			ID: "config.violations", Status: doctorOK, Observed: "none",
-			Detail: "every configured leaf is within its domain",
+			Detail: withNote("every configured leaf is within its domain"),
 		}
 	}
 	keys := make([]string, 0, len(live)+len(persisted))
 	for _, v := range live {
+		if isVersionedReset(v) {
+			keys = append(keys, v.Key+" (block reset: newer settingsVersion)")
+			continue
+		}
 		keys = append(keys, fmt.Sprintf("%s (got %v, want %v)", v.Key, v.Got, v.Want))
 	}
 	for _, v := range persisted {
@@ -760,22 +776,41 @@ func (s *doctorState) configViolationsRow() doctorRow {
 	return doctorRow{
 		ID: "config.violations", Status: doctorDegraded,
 		Observed: fmt.Sprintf("%d setting(s) fell back to the default", len(live)+len(persisted)),
-		Detail:   strings.Join(keys, "; "),
+		Detail:   withNote(strings.Join(keys, "; ")),
 	}
 }
 
 // doctorPersistedViolations reads state/config-violations.json, the §11.3 record a previous load
-// wrote. doctor never writes it: see this file's header, rule 2.
-func doctorPersistedViolations(l paths.Layout) []config.Violation {
-	raw, err := paths.ReadFileShared(filepath.Join(l.State, configViolationsFile))
-	if err != nil {
-		return nil
+// wrote. doctor never writes it: see this file's header, rule 2. It opens the record the way the
+// writers' own compare does (openViolationsRecord: no-follow, non-blocking, a regular file only) and
+// reads at most violationsRecordMaxBytes of it. An absent record is no list and no note; anything
+// else it cannot use is no list, and note says why, for the row's detail.
+func doctorPersistedViolations(l paths.Layout) (out []config.Violation, note string) {
+	const what = "state/config-violations.json not read: "
+	f, size, err := openViolationsRecord(filepath.Join(l.State, configViolationsFile))
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
+		return nil, ""
+	case errors.Is(err, errRecordNotRegular):
+		return nil, what + "not a regular file"
+	case err != nil:
+		return nil, what + "it could not be opened (" + err.Error() + ")"
 	}
-	var out []config.Violation
-	if json.Unmarshal(raw, &out) != nil {
-		return nil
+	defer func() { _ = f.Close() }()
+	tooLarge := fmt.Sprintf("larger than %d bytes", violationsRecordMaxBytes)
+	if size > violationsRecordMaxBytes {
+		return nil, what + tooLarge
 	}
-	return out
+	raw, err := io.ReadAll(io.LimitReader(f, violationsRecordMaxBytes+1))
+	switch {
+	case err != nil:
+		return nil, what + "it could not be read (" + err.Error() + ")"
+	case len(raw) > violationsRecordMaxBytes:
+		return nil, what + tooLarge
+	case json.Unmarshal(raw, &out) != nil:
+		return nil, what + "not a JSON list of settings"
+	}
+	return out, ""
 }
 
 // ── 6. recording gaps ──────────────────────────────────────────────────────────────────────────

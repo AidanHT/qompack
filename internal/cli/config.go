@@ -30,35 +30,51 @@ const configViolationsFile = "config-violations.json"
 // reporting half therefore belongs to whoever called Load — and putting it here, rather than at
 // each call site, is what stops a caller from forgetting it.
 //
-// Every violation is reported through logging.Loud (§12: nothing degrades silently) and the typed
-// list is persisted to state/config-violations.json so /qompack:status and the next SessionStart
-// both surface it. A failure to persist is itself logged but never propagated: a hook that dies
-// over a diagnostic write has traded observability for nothing.
+// Every violation is logged, counted in the config.violations metric and persisted to
+// state/config-violations.json, so /qompack:status, doctor and the next SessionStart all surface it.
+// A command logs a violation at Warn and the daemon's start Louds it (loadDaemonConfig): see
+// loadConfigAndReport for D59's rule. A failure to persist is itself logged but never propagated:
+// a hook that dies over a diagnostic write has traded observability for nothing.
 func LoadConfigAndReport(env config.Env, log logging.Logger, reg obs.Registry) (config.Config, config.Provenance, error) {
 	return loadConfigAndReport(env, log, reg, false)
 }
 
 // loadDaemonConfig is LoadConfigAndReport for the daemon's start, its one report of the
-// configuration it starts on. It differs in one level: a newer-settingsVersion block reset is Loud
-// rather than a Warn. That reset is the persistent condition D59 is about (a plugin downgrade), and
-// D59's rule is that the daemon reports such a condition loudly once per start or change while hooks
-// and commands log it at warn. Every other keyed warning (an unknown key, a block that is not an
-// object) stays a Warn at start, and the daemon's reload of a changed file Louds every warning
-// (daemon/reload.go). runDaemon stamps the file before this load (daemon.Options.CfgStamp), so the
-// first reload check does not repeat it.
+// configuration it starts on. It differs in level only: each §11.3 leaf violation and each
+// newer-settingsVersion block reset is Loud here and a Warn in every other load. Both are persistent
+// conditions (an invalid value an operator has not fixed yet, a plugin downgrade), and D59's rule is
+// that the daemon reports such a condition loudly once per start or change while hooks and commands
+// log it at warn. Every other keyed warning (an unknown key, a block that is not an object) stays a
+// Warn at start, and the daemon's reload of a changed file Louds every warning (daemon/reload.go).
+// runDaemon stamps the file before this load (daemon.Options.CfgStamp), so the first reload check
+// does not repeat it.
 func loadDaemonConfig(env config.Env, log logging.Logger, reg obs.Registry) (config.Config, config.Provenance, error) {
 	return loadConfigAndReport(env, log, reg, true)
 }
 
-// loadConfigAndReport is the body of LoadConfigAndReport and loadDaemonConfig; loudResets selects
-// the daemon start's level for a newer-settingsVersion reset.
-func loadConfigAndReport(env config.Env, log logging.Logger, reg obs.Registry, loudResets bool) (config.Config, config.Provenance, error) {
+// loadConfigAndReport is the body of LoadConfigAndReport and loadDaemonConfig; daemonStart selects
+// the daemon start's Loud level for a §11.3 violation and a newer-settingsVersion reset.
+//
+// Before audit 2's finding #19 a command Louded every leaf violation each time it loaded, so
+// `qompack mcp` at every session start and each /qompack: command put one line in the never-rotated
+// LOUD.log for an unchanged file: finding F-C7-C49-2's class at session or command frequency. A
+// command's line is now a Warn in the day log, as a hook's is, and the condition still reaches
+// state/config-violations.json, doctor, self-test's config.capture and, through the daemon's start,
+// status's recent loud lines.
+func loadConfigAndReport(env config.Env, log logging.Logger, reg obs.Registry, daemonStart bool) (config.Config, config.Provenance, error) {
 	cfg, prov, warns, err := config.Load(env)
 	if err != nil {
 		return cfg, prov, err
 	}
 
 	violations := config.ViolationsFromWarnings(warns)
+	// A §11.3 violation is also one of config.Load's keyed warnings. It is logged once, below, as the
+	// violation that carries got and want; logging the warning as well put every invalid value in the
+	// day log twice.
+	isViolation := make(map[config.Warning]bool, len(violations))
+	for _, v := range violations {
+		isViolation[config.Warning{Key: v.Key, Message: v.Message}] = true
+	}
 
 	// A KEYLESS warning is a whole layer that is not in effect — config.Load's two keyless producers
 	// are `unparseable config: …` and `unreadable config: …`, a file that exists and cannot be read
@@ -67,25 +83,28 @@ func loadConfigAndReport(env config.Env, log logging.Logger, reg obs.Registry, l
 	// and nothing stronger, so a corrupt .qompack/config.json stopped the daemon while LOUD.log,
 	// self-test and status all stayed clean. §13 invariant 10 makes it Loud. A warning that NAMES a
 	// key is the ordinary per-leaf case and stays a Warn, apart from a block reset at the daemon's
-	// start (loadDaemonConfig); the §11.3 violations below are the ones that Loud individually.
+	// start; the §11.3 violations are reported below.
 	for _, w := range warns {
 		switch {
 		case w.Key == "":
 			log.Loud("configuration unusable, using defaults", "message", w.Message, "location", w.Location)
-		case loudResets && w.VersionedReset:
+		case daemonStart && w.VersionedReset:
 			log.Loud("configuration block reset to defaults", "key", w.Key, "message", w.Message,
 				"location", w.Location)
+		case isViolation[config.Warning{Key: w.Key, Message: w.Message}]:
+			// Reported below, as the violation.
 		default:
 			log.Warn("configuration warning", "key", w.Key, "message", w.Message, "location", w.Location)
 		}
 	}
 
+	report := log.Warn
+	if daemonStart {
+		report = log.Loud
+	}
 	for _, v := range violations {
-		log.Loud("invalid configuration value, using default",
+		report("invalid configuration value, using default",
 			"key", v.Key, "got", v.Got, "want", v.Want, "message", v.Message)
-		if reg != nil {
-			reg.Counter("config.violations").Add(1)
-		}
 	}
 
 	// The record holds what the hook path records (config.LoadForCapture): the §11.3 leaves, then a
@@ -94,9 +113,14 @@ func loadConfigAndReport(env config.Env, log logging.Logger, reg obs.Registry, l
 	// hook's record alone (syncViolationsRecord) rather than dropping the resets for the next hook to
 	// write back. A load that found nothing removes a record an earlier load left, which is what lets
 	// doctor's config.violations agree with self-test once an operator has fixed the file
-	// (troubleshooting §6).
+	// (troubleshooting §6). The config.violations counter counts the same list, so status counts a
+	// reset as a setting, as the record, doctor and self-test do (audit 2's finding #17).
+	recorded := recordedViolations(violations, warns)
+	if reg != nil && len(recorded) > 0 {
+		reg.Counter("config.violations").Add(int64(len(recorded)))
+	}
 	if env.ProjectRoot != "" {
-		if err := syncViolationsRecord(env.ProjectRoot, recordedViolations(violations, warns)); err != nil {
+		if err := syncViolationsRecord(env.ProjectRoot, recorded); err != nil {
 			log.Warn("could not update config violations", "err", err.Error())
 		}
 	}
@@ -239,9 +263,19 @@ func captureConfigKeys(violations []config.Violation, warnings []config.Warning)
 // list is written atomically. A record that cannot be read, including one being renamed over on
 // Windows at that moment, is simply written again, and so is anything at that path that is not a
 // plain file of the new encoding's size (recordHolds).
+//
+// A list is written only where the project already has a .qompack directory. A project without one
+// has not opted in, and no load may conjure the layout to hold a diagnostic: before audit 2's
+// finding #18 a command's load (`qompack config print`, status, mcp, self-test's config.load) created
+// .qompack/state, the record and .qompack/tmp in a directory never used with Qompack whenever a layer
+// other than the project's own held an invalid leaf or a newer settingsVersion. The hook path always
+// had this rule (reportCaptureConfig); it now holds here, for every writer.
 func syncViolationsRecord(projectRoot string, violations []config.Violation) error {
 	l := paths.Of(projectRoot)
 	p := filepath.Join(l.State, configViolationsFile)
+	if len(violations) > 0 && !isDir(l.Dot) {
+		return nil
+	}
 	if len(violations) == 0 {
 		if _, err := os.Lstat(paths.Long(p)); err != nil {
 			if errors.Is(err, fs.ErrNotExist) {
@@ -273,23 +307,60 @@ func syncViolationsRecord(projectRoot string, violations []config.Violation) err
 
 // recordHolds reports whether the file at p is a plain file holding exactly want. It runs on every
 // hook while a violation is in force, so it must never block and never read more than want: the
-// open is paths.OpenSharedLeaf (no-follow, and non-blocking off Windows, so a FIFO planted at p opens
-// at once instead of hanging the hook until the host kills it), the opened handle must be a regular
-// file of len(want) bytes, and the read is bounded to one byte past that. Anything else, a link, a
-// FIFO, a device, a directory or a file of another size, is reported false without a read, and the
+// open is openViolationsRecord's (no-follow, and non-blocking off Windows, so a FIFO planted at p
+// opens at once instead of hanging the hook until the host kills it, and only a regular file), the
+// file must be len(want) bytes, and the read is bounded to one byte past that. Anything else, a link,
+// a FIFO, a device, a directory or a file of another size, is reported false without a read, and the
 // caller's atomic write replaces it, as the unconditional write before wave 20 did.
 func recordHolds(p string, want []byte) bool {
-	f, err := paths.OpenSharedLeaf(p)
+	f, size, err := openViolationsRecord(p)
 	if err != nil {
 		return false
 	}
 	defer func() { _ = f.Close() }()
-	fi, err := f.Stat()
-	if err != nil || !fi.Mode().IsRegular() || fi.Size() != int64(len(want)) {
+	if size != int64(len(want)) {
 		return false
 	}
 	cur, err := io.ReadAll(io.LimitReader(f, int64(len(want))+1))
 	return err == nil && bytes.Equal(cur, want)
+}
+
+// violationsRecordMaxBytes bounds doctor's read of state/config-violations.json. A real record is a
+// few hundred bytes per setting, so the bound only ever meets a file somebody else put there.
+// //nomagic:allow a read bound for a diagnostic file, the capture config file's own 1 MiB bound
+// (config.captureConfigMaxBytes), not a budget and not a config default (§11.6).
+const violationsRecordMaxBytes = 1 << 20
+
+// errRecordNotRegular is openViolationsRecord's answer for anything at the record path that is not a
+// regular file: a link, a FIFO, a device or a directory.
+var errRecordNotRegular = errors.New("not a regular file")
+
+// openViolationsRecord opens state/config-violations.json the one way both of its readers (the
+// writers' compare-first recordHolds and doctor's doctorPersistedViolations) may: through
+// paths.OpenSharedLeaf, which does not follow a link and, off Windows, does not block on a FIFO, and
+// only when the opened handle is a regular file. It returns the file and its size. Before audit 2's
+// findings #22, #82 and #86 doctor read the record with a plain, unbounded, link-following open, so
+// a FIFO there hung doctor on Linux and macOS and a link to a large file was read whole.
+func openViolationsRecord(p string) (*os.File, int64, error) {
+	f, err := paths.OpenSharedLeaf(p)
+	if err != nil {
+		// A link is refused by the open itself; name it the way the opened case below would. The
+		// Lstat neither follows the path nor opens it, so it cannot block either.
+		if fi, lerr := os.Lstat(paths.Long(p)); lerr == nil && !fi.Mode().IsRegular() {
+			return nil, 0, errRecordNotRegular
+		}
+		return nil, 0, err
+	}
+	fi, err := f.Stat()
+	if err != nil {
+		_ = f.Close()
+		return nil, 0, err
+	}
+	if !fi.Mode().IsRegular() {
+		_ = f.Close()
+		return nil, 0, errRecordNotRegular
+	}
+	return f, fi.Size(), nil
 }
 
 // homeDir resolves the user-global layer's home, preferring an explicitly injected value so tests
