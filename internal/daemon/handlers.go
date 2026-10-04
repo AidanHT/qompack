@@ -978,6 +978,9 @@ func (d *daemon) handleSessionStart(ctx context.Context, req ipc.Request) ipc.Re
 	// never close on this session's very first request (fix round 1, I-7/I-8). The existence
 	// check happens BEFORE Ensure so "new" means what registry.Ensure itself means.
 	_, existedBefore := d.registry.Get(ev.SessionID)
+	// Whether the session was live is read before Ensure too, since Ensure marks it live, an ended
+	// one included: the scheduler's bind for a replayed start asks (schedRuntime.bindOnReplayedStart).
+	ctx = withLiveBeforeStart(ctx, d.registry.IsLive(ev.SessionID))
 	d.registry.Ensure(ev, now)
 	// When the host fired this start, which for a replay is long before now: the checkpoint route
 	// asks it whether a PreCompact it replays was already followed by a start (handleCheckpoint).

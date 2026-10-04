@@ -448,7 +448,8 @@ func (r *schedRuntime) bindSessionLocked(id core.SessionID, e *hookio.Event) {
 // with no registry, every session counts as live.
 //
 // A runtime already bound to any session is left alone, whichever session the hook names.
-// Rebinding is a SessionStart's decision (BindSession).
+// Rebinding is a SessionStart's decision: a live one's (BindSession), or a replayed one's when the
+// session the runtime is bound to is no longer live (bindOnReplayedStart).
 func (r *schedRuntime) bindOnFirstHook(sess core.SessionID) {
 	if sess == "" {
 		return
@@ -461,19 +462,81 @@ func (r *schedRuntime) bindOnFirstHook(sess core.SessionID) {
 	}
 	// The registry is asked without r.mu held: its lock is independent of this one, and nothing
 	// here should wait on the registry while the tap's other seams wait on r.mu.
-	if d != nil {
-		if reg := d.Registry(); reg != nil && !reg.IsLive(sess) {
-			r.count(counterTapBindNotLive)
-			return
-		}
+	if !sessionLive(d, sess) {
+		r.count(counterTapBindNotLive)
+		return
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if r.session != "" {
 		return // another hook bound it in between
 	}
-	r.bindUnboundLocked(sess)
+	r.bindUnboundLocked(sess, nil)
 	r.count(counterTapBindFirstHook)
+}
+
+// bindOnReplayedStart is the bind of a SessionStart a drain replays from a hook's spool
+// (schedTap.sessionStart): a start the host fired and no answer of this daemon reached in time. It
+// binds as that start would have, except that the replay's instant moves no anchor, when two things
+// hold.
+//
+// sess was live before the session.start route registered the replay (wasLive, which the route
+// reports: liveBeforeStart). The route's registry.Ensure marks every session it registers live, one
+// that ended included, so the registry's answer after it says nothing about whether the session is
+// still running.
+//
+// And the runtime is bound to no session, or to one the registry no longer holds live. A runtime
+// a live session holds is that session's, and a replay never takes it.
+//
+// So the live session whose start was spooled while the runtime was still bound to a session that
+// had ended takes the runtime from it, as its start would have, rather than running on the ended
+// session's account with p-selection off until its next compaction. A replayed start of a session
+// that ended, or that no hook has touched since this daemon started (a leftover of another session in
+// a drained spool), binds nothing: binding it would leave the live session on the stale one's account
+// until a SessionStart rebinds it. A bind of an unbound runtime keeps what it observed while unbound,
+// as a first hook's does (bindUnboundLocked). e is the replayed start, whose model and subagent hints
+// the bind reads. With no daemon attached, or one with no registry, every session counts as live
+// (sessionLive), so a runtime bound to any session is left alone.
+func (r *schedRuntime) bindOnReplayedStart(sess core.SessionID, e *hookio.Event, wasLive bool) {
+	if sess == "" {
+		return
+	}
+	r.mu.Lock()
+	cur, d := r.session, r.d
+	r.mu.Unlock()
+	switch {
+	case cur == sess:
+		return
+	case !wasLive:
+		if cur == "" {
+			r.count(counterTapBindNotLive)
+		}
+		return
+	case cur != "" && sessionLive(d, cur): // asked without r.mu held, as bindOnFirstHook asks
+		return
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.session != cur {
+		return // a live start or hook moved the binding in between, and it is theirs
+	}
+	if cur == "" {
+		r.bindUnboundLocked(sess, e)
+	} else {
+		r.bindSessionLocked(sess, e)
+		r.restoredApplied = nil // only bindUnboundLocked dedupes against it
+	}
+	r.count(counterTapBindReplayedStart)
+}
+
+// sessionLive is the answer of d's registry for sess. With no daemon, or one with no registry, every
+// session counts as live.
+func sessionLive(d Daemon, sess core.SessionID) bool {
+	if d == nil {
+		return true
+	}
+	reg := d.Registry()
+	return reg == nil || reg.IsLive(sess)
 }
 
 // noteBindingEventLocked reads the model id and the subagent marker off a SessionStart payload.

@@ -45,8 +45,13 @@ const (
 	// session: a daemon restarted in the middle of the session, which gets no SessionStart for it.
 	counterTapBindFirstHook = "sched.tap.bind.first_hook"
 	// counterTapBindNotLive counts hooks that found the runtime unbound but named a session the
-	// daemon's registry does not hold live (a replayed delivery), which therefore did not bind.
+	// daemon's registry does not hold live (a replayed delivery), which therefore did not bind, and
+	// replayed SessionStarts that found it unbound but named a session that was not live before the
+	// route registered the replay (bindOnReplayedStart).
 	counterTapBindNotLive = "sched.tap.bind.not_live"
+	// counterTapBindReplayedStart counts binds and rebinds made by a replayed SessionStart of a session
+	// that was live (bindOnReplayedStart).
+	counterTapBindReplayedStart = "sched.tap.bind.replayed_start"
 	// counterTapRedelivery counts deliveries the tap recognized as a replay of one it had already
 	// applied (schedRuntime.applied) and therefore left alone: no token fold, no detector
 	// observation, no anchor moved to the instant of the replay.
@@ -178,18 +183,43 @@ func (t *schedTap) guard(seam string, fn func()) {
 // replay is not when it happened: the route spools a start whose reply missed the hook's deadline,
 // which this daemon may well have handled, and replays one it never saw at a later drain or the next
 // start. So a replayed start moves no anchor — not the Young–Daly clock's last compaction a compact
-// start sets (bindSessionLocked), not the activity — and rebinds nothing: binding is the live
-// session's, and a replayed start binds only what that session's first hook would (bindOnFirstHook),
-// an unbound runtime to a live session. A compaction the daemon never saw live therefore leaves the
-// last compaction where it was, earlier than the host's, which can only make the Young–Daly clause
-// fire sooner, never later.
+// start sets (bindSessionLocked), not the activity. And binding is the live session's: a replayed
+// start binds the runtime only when its session was live before the route registered the replay,
+// and only a runtime bound to no session or to one that is no longer live (bindOnReplayedStart). A
+// compaction the daemon never saw live therefore leaves the last compaction where it was, earlier
+// than the host's, which can only make the Young–Daly clause fire sooner, never later.
 func (t *schedTap) sessionStart(ctx context.Context, e hookio.Event) {
 	if spoolReplay(ctx) {
-		t.r.bindOnFirstHook(e.SessionID)
+		t.r.bindOnReplayedStart(e.SessionID, &e, t.r.liveBeforeStart(ctx, e.SessionID))
 		return
 	}
 	t.r.BindSession(e.SessionID, &e)
 	t.r.NotifyActivity(t.r.nowMS())
+}
+
+// liveBeforeStartKey carries, on a session.start request's context, whether the start's session was
+// live in the daemon's registry before the route registered the start (handleSessionStart). The
+// route's registry.Ensure marks every session it registers live, so for a replayed start, whose
+// session may long have ended, the registry's answer after it is no evidence (bindOnReplayedStart).
+type liveBeforeStartKey struct{}
+
+// withLiveBeforeStart is ctx reporting that the start's session was, or was not, live before the
+// route registered it.
+func withLiveBeforeStart(ctx context.Context, live bool) context.Context {
+	return context.WithValue(ctx, liveBeforeStartKey{}, live)
+}
+
+// liveBeforeStart is whether sess was live before the session.start route registered the start ctx
+// carries: the route's report (withLiveBeforeStart), or, for a caller that reaches the seam without
+// the route, the registry's answer now (sessionLive).
+func (r *schedRuntime) liveBeforeStart(ctx context.Context, sess core.SessionID) bool {
+	if live, ok := ctx.Value(liveBeforeStartKey{}).(bool); ok {
+		return live
+	}
+	r.mu.Lock()
+	d := r.d
+	r.mu.Unlock()
+	return sessionLive(d, sess)
 }
 
 // observeTool is the B-C path (worker pool, 50 ms): signals, the record SP-08 just wrote, one
