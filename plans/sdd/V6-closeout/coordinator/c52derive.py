@@ -29,8 +29,8 @@ Changed _test.go files of its package other than (c) are listed in the report bu
 they may hold its helpers, and coverage cannot see test files.
 A benchmark whose trace fails (go test exits non-zero, writes no profile, or never runs it) is
 selected, fail-closed, and the exit status is 1. When EVERY trace fails, the derivation itself is
-broken (a flag, the toolchain), and selecting every row would put the whole C5.2 list (about 3.5 h
-per OS) into the night: it exits 2 instead, and overnight-c8.sh measures its static floor. go test
+broken (a flag, the toolchain), and selecting every row would hide that the derivation never ran:
+it exits 2 instead, and overnight-c8.sh measures the full C5.2 list (D62(b)). go test
 runs with -p 1 and -timeout 10m (its own default, made explicit) and without QOMPACK_UNDER_COLOAD.
 An untracked or git-ignored .go file in the candidate tree (outside testdata/ and _ or . dirs)
 refuses the run (exit 2): -coverpkg=<module>/... would compile it into every trace.
