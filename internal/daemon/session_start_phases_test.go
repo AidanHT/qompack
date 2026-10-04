@@ -3,7 +3,6 @@ package daemon
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -32,9 +31,9 @@ func TestSessionStartRoute_RecordsItsPhases(t *testing.T) {
 	ev := &hookio.Event{HookEventName: "SessionStart", SessionID: "sess-phases", CWD: root, Source: "compact"}
 	resp := dd.dispatchOp(ctx, ipc.Request{Op: ipc.OpSessionStart, Session: "sess-phases", Reply: true, Event: ev})
 	require.True(t, resp.OK)
-	stopCtx, cancel := context.WithTimeout(ctx, compactPhasesJoinBound)
-	defer cancel()
-	dd.stopPromptRecordings(stopCtx) // joins any work the route left running
+	// Joins any work the route left running, with no clock: a grace that ended would cancel that work
+	// before it recorded the phases this row counts (joinReplyWork). A hang is left to go test -timeout.
+	dd.stopPromptRecordings(ctx)
 
 	hists := dd.m.Snapshot().Hists
 	for _, name := range []string{
@@ -44,6 +43,3 @@ func TestSessionStartRoute_RecordsItsPhases(t *testing.T) {
 		require.EqualValues(t, 1, hists[name].N, "%s must be recorded once per compact start", name)
 	}
 }
-
-// compactPhasesJoinBound bounds the join above; headroom, not an expectation.
-const compactPhasesJoinBound = 10 * time.Second

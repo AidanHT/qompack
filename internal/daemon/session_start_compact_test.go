@@ -103,12 +103,14 @@ func dispatchWithin(t *testing.T, dd *daemon, req ipc.Request, bound time.Durati
 	}
 }
 
-// joinReplyWork waits for every goroutine startReplyWork launched, as Stop does.
+// joinReplyWork waits for every goroutine startReplyWork launched, as Stop does, with no clock: the
+// grace never ends, so the join never cancels the work (promptCancel) before it has finished on its
+// own. The rows go on to assert what that work recorded (drops, histograms, the sentinel), and a grace
+// a stalled host outlasted turned them red on a cancelled record (wave 22). A hang is left to go test
+// -timeout. t is kept for the call sites' symmetry with the other join helpers.
 func joinReplyWork(t *testing.T, dd *daemon) {
 	t.Helper()
-	ctx, cancel := context.WithTimeout(context.Background(), compactTestBound)
-	defer cancel()
-	dd.stopPromptRecordings(ctx)
+	dd.stopPromptRecordings(context.Background())
 }
 
 // additionalContext is out's additionalContext, or "".
