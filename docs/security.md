@@ -69,22 +69,28 @@ require a separate authorized expansion.
 **The rehydration block follows the same rules for its pointers.** After a compaction, a file or
 tool pointer whose path these rules deny or ask about, or which lies outside the project, points by
 content hash instead. A tool call's argument summary that is one path argument (a Read's file, a
-Glob's or Grep's lone argument, a path-named JSON argument) is judged as that path; one that holds
-more than a path (a list, a line locator such as `#L4`) is screened as free text as well. Any other
-summary (a command, a query, a prompt) is free text: it is withheld when it contains the literal
-part of a Read deny or ask rule (`secrets` for `Read(./secrets/**)`, `deny.txt` for
-`Read(./private/deny.txt)`) or the name of a path the block withholds, once quotes, escapes and
-line continuations are removed, or an absolute path outside the project (a home directory or an
-environment variable in any shell's spelling included, and a path glued to a flag), or a `recall`
-`path:` selector that selects a withheld path; and every free-text summary is withheld while the
-rules cannot be read. A checkpoint drop entry keyed by a withheld path stays in `dropped()` with the
-path replaced by the pointer's hash or `(path withheld)`, and no drop reason, the checkpointer's own
-git or scan errors included, shows such a path or one outside the project. Drop entries that carry
-the model's own text (an `already_tried` call, an open question) are not gated, nor are the block's
-records of eliminated approaches and decisions, which are the model's own earlier text too. The
-screen's limits (names built at run time or relative to an earlier `cd`, and 8.3 aliases, links,
-globs and brace expansions typed in a command, are not resolved; a text that merely mentions a
-rule's literal is withheld) are in [ADR 0011 §23](adr/0011-rehydration-budget-and-item-order.md).
+Glob's or Grep's lone argument, the one path-named JSON argument) is judged as that path, and one
+that starts at the project root is judged through its path part (never a command's arguments);
+one that holds more than a path (a list, a line locator such as `#L4`, several path-named values)
+is screened as free text as well, or alone. Any other summary (a command, a query, a prompt) is
+free text: it is withheld when it holds, where a name starts, the literal part of a Read deny or
+ask rule (`secrets` for `Read(./secrets/**)`, `deny.txt` for `Read(./private/deny.txt)`) or the
+name of a path the block withholds, once quotes, escapes and line continuations are removed, or an
+absolute path outside the project (a home directory or an environment variable in any shell's
+spelling included, and a path glued to a flag), or a `recall` `path:` selector that selects a
+withheld path; and every free-text summary is withheld while the rules cannot be read. A checkpoint
+drop entry keyed by a withheld path stays in `dropped()` with the path replaced by the pointer's
+hash or `(path withheld)`, and no drop reason, the checkpointer's own git or scan errors included,
+shows such a path or one outside the project. The block restores no `paths:` rule or nested
+CLAUDE.md file these rules deny or ask about, or that lies outside the project, and names none in
+its drop report; nor does it look for nested CLAUDE.md files above a withheld pointer. Drop entries
+that carry the model's own text (an `already_tried` call, an open question) are not gated, nor are
+the block's records of eliminated approaches and decisions, which are the model's own earlier text
+too. The screen's limits (names built at run time or relative to a `cd`, and 8.3 aliases, links,
+globs and brace expansions typed in a command, are not resolved; a drop reason naming an in-project
+path the block never recorded, such as a scan error's, is not screened for the rules' literals; a
+text that merely mentions a rule's literal is withheld) are in
+[ADR 0011 §23](adr/0011-rehydration-budget-and-item-order.md).
 
 **A refusal is not an oracle.** The refusal sentence never echoes the offending path, so denials
 cannot be used to probe what exists outside the project. Measured across three escape shapes and
