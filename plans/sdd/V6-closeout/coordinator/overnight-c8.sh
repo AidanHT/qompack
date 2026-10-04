@@ -12,7 +12,11 @@
 #     every step runs in that checkout and every verdict is logged as that candidate, so a checkout
 #     at candidate 7 would let c52derive.py compare candidate 7 with itself and carry every row;
 #   - an evidence directory that already holds a night's records: recrun.sh never overwrites a
-#     record, so a second night there would fail every step in seconds and could be read as a run.
+#     record, so a second night there would fail every step in seconds and could be read as a run;
+#   - C8_C52_ONLY other than empty or 1 (a mistyped switch would run candidate 8's night, with
+#     release-check, on the frozen candidate), C8_C52_SET other than full or derived, C8_C52_STEPS
+#     naming anything but a C5.2 night step or set without C8_C52_ONLY=1, and in a C5.2 night a
+#     quiet.sh whose benches() list cannot be read (the C5.2 chunks are made from it).
 #
 # Power (D57(d), power.sh). Every step's power is recorded: t0 is taken before its last power check,
 # and it is judged over [t0, end] against the System log (Kernel-Power 105, a source change; 506,
@@ -25,8 +29,9 @@
 # The AC-gated steps (queued until AC) are win-timing (ci.yml's timing lane plus the three
 # functional integration hot-path rows, D53(a)), win-e2e-timing (all of test/e2e alone, as ci.yml's
 # test-e2e job: this is where test/e2e's timing rows are judged, the ones prefreeze.sh's e2efunc
-# skips), win-x11-alone, quiet C5.1 on both OSes (c51-win; c51-linux, report only, below), and in a
-# C5.2 night c116-rig, c52-win and c52-linux. An INVALID-POWER try moves its new records to
+# skips), win-x11-alone (X11 by itself), quiet C5.1 on both
+# OSes (c51-win; c51-linux, report only, below), and in a C5.2 night c116-rig and the C5.2 chunks
+# (c52-win-<group>, c52-linux-<group>, below). An INVALID-POWER try moves its new records to
 # <step>.invalid-power-1/ and the step is retried once. The AC-independent steps (win-race,
 # bundles, the Linux lanes, c52-derive) are never waited for; for the Linux *-timing lanes,
 # wall-clock judgements, only a VALID run counts as a pass or a fail, and the others count by exit
@@ -35,8 +40,8 @@
 # work runs, whose load also drains the battery toward the charger's restore point (about 35-40 %,
 # D57(d)). Waiting for AC is bounded night-wide by AC_WAIT_BUDGET_MIN one-minute polls
 # (NIGHT_AC_WAITED_MIN carries what c8-night.sh already spent) and by the deadline: no step and no
-# wait starts after it, and a step with an estimate (release-check, c116-rig, c52-derive, c52-win,
-# c52-linux) starts only when the estimate lets it end by the deadline. c8-night.sh passes its
+# wait starts after it, and a step with an estimate (release-check, c116-rig, c52-derive, each C5.2
+# chunk) starts only when the estimate lets it end by the deadline. c8-night.sh passes its
 # deadline as NIGHT_DEADLINE_EPOCH, so a pre-freeze that ends late cannot carry the night to the
 # next day; run alone, the next NIGHT_DEADLINE (local HH:MM, default 08:00) is used, and refused
 # when it is more than NIGHT_MAX_AHEAD_H (16) hours away (a daytime launch) unless
@@ -47,7 +52,8 @@
 #     release gate). C5.2 and the C1.16 rig are not part of it: overnight-outcome.txt names them
 #     as pending for the C5.2 night, and they count neither for nor against its exit status;
 #   - the C5.2 night (C8_C52_ONLY=1, README.md "Candidate 8", "The C5.2 night"): c116-rig, then
-#     c52-win and c52-linux (in derived mode c52-derive first), nothing else.
+#     the C5.2 chunks on Windows, then on Linux (in derived mode c52-derive first), nothing else;
+#     C8_C52_STEPS limits it to the steps it names.
 #
 # C5.1 on Linux (c51-linux, report only). quiet.sh c51-linux in its own container window: B-D, B-E
 # and B-F are recorded for inventory rows 1.10.16, 1.17.5 and 1.17.6, whose Linux halves cite
@@ -57,11 +63,23 @@
 # harness JSON, and as failed when it did not (nothing was measured); its power is judged as any
 # gated step's.
 #
-# C5.2 (D62(b)). c52-win and c52-linux measure a set against cf31e01 in quiet.sh's ABBA rounds;
-# C8_C52_SET (default full) picks it, and chain.log logs it:
+# C5.2 (D62(b)) is measured against cf31e01 in quiet.sh's ABBA rounds, in chunks: one AC-gated step
+# per OS and package group, c52-<os>-<group>, for each <group> of C52_GROUPS (observer, store and
+# checkpoint, the three longest packages, one chunk each) and "other" (every other package of
+# quiet.sh's benches() list, read from that list). A chunk runs quiet.sh with QUIET_PKGS set to its
+# packages, into its own quiet-<step>/ directory, with its own 10 ABBA rounds: a row's base and
+# candidate sides alternate inside its chunk, so a chunk's evidence stands on its own, whichever
+# night measured it. Why chunks: the charger cuts AC unattended (D57(d)). The System log
+# (Kernel-Power 105) shows the last three nights' on-AC stretches under load: 1 h 26 min
+# (2026-10-01 21:03-22:29), 6 h 6 min (23:55-06:01) and 2 h 57 min (2026-10-03 20:23-23:20); the
+# two cuts inside a loaded night were followed by 1 h 26 min and 1 h 18 min on battery. Two of the
+# three stretches are shorter than either OS's whole list (about 4.2 h and 3.8 h, below). A power
+# event voids one chunk (at most about 93 min), retried once as any gated step, not an OS's list.
+# C8_C52_SET (default full) picks the rows, and chain.log logs every chunk's packages and filter:
 #   full     the FULL C5.2 list: every row of quiet.sh's benches() list (65 rows in 19 packages),
-#            with QUIET_PKGS and QUIET_BENCH_FILTER empty, which is quiet.sh's whole list by its
-#            own construction. D57(e) is file-level (D62(b)), and candidate 8 changes
+#            the chunks' packages together exactly the list's (other is the list's packages outside
+#            C52_GROUPS, so no listed package can be left out by a copy kept here), and
+#            QUIET_BENCH_FILTER empty. D57(e) is file-level (D62(b)), and candidate 8 changes
 #            internal/config/config.go, which runs at package init (var globalSchema =
 #            buildSchemaIndex()) in every benchmark binary that links internal/config: about 59 of
 #            the 65 rows execute a changed file, so D62(b) re-measures all of them;
@@ -69,16 +87,20 @@
 #            (c52derive.py) traces every listed row on the candidate at its own listed benchtime and
 #            selects those whose executed product files, the other changed .go files of a package
 #            they execute (declarations have no coverage block), own benchmark file, fixtures or
-#            adjacent assets changed since C8_PREV_CANDIDATE (default candidate 7, d20309c0), and
-#            c52-win and c52-linux measure exactly that selection. When the derivation cannot run at
-#            all, the FULL C5.2 list is measured, as in full mode (a file-level rule with no
-#            execution trace knows no row that keeps its carry), and the derivation counts as a
-#            failed step.
-# Each of c52-win and c52-linux starts only when its estimate (C52_EST_WIN / C52_EST_LINUX below)
-# ends by the deadline; otherwise it is SKIPPED, for a later C5.2 night. c51-linux and c52-linux
-# bring the container up for themselves and stop it afterwards. Docker Desktop is started only when
-# its engine was down at the night's start and is not answering (three probes), and only an engine
-# this chain started is stopped (D56(g)).
+#            adjacent assets changed since C8_PREV_CANDIDATE (default candidate 7, d20309c0); each
+#            chunk measures its packages' selected rows (QUIET_PKGS its packages among the
+#            selection's, QUIET_BENCH_FILTER the selection's), and a chunk with none is not needed.
+#            When the derivation cannot run at all, the FULL C5.2 list is measured, as in full mode
+#            (a file-level rule with no execution trace knows no row that keeps its carry), and the
+#            derivation counts as a failed step.
+# A chunk never runs with an empty QUIET_PKGS, which quiet.sh reads as its whole list: gated_cmd
+# refuses one. Each chunk starts only when its estimate (C52_EST_WIN / C52_EST_LINUX below, over its
+# packages) ends by the deadline; otherwise it is SKIPPED and the next chunk is tried. C8_C52_STEPS
+# (space-separated, default all) runs only the C5.2 night steps it names (c116-rig and the chunks),
+# so a later C5.2 night measures what an earlier one voided, skipped or ran off AC. c51-linux and
+# each c52-linux-* chunk bring the container up for themselves and stop it afterwards. Docker
+# Desktop is started only when its engine was down at the night's start and is not answering (three
+# probes), and only an engine this chain started is stopped (D56(g)).
 #
 # The C1.16 rig (c116-rig, Windows, AC-gated, D62(c)): phase3.sh's c116-rig arm, w2-lifetime's
 # procedure (plans/sdd/V6-closeout/w2-lifetime/runs/08-17 and 36) on the frozen candidate:
@@ -137,23 +159,58 @@ AC_WAIT_BUDGET_MIN=${AC_WAIT_BUDGET_MIN:-180}   # D57(d)'s 180-minute AC wait, n
 RC_EST_S=${RC_EST_S:-10800}
 QUIET_BASE=cf31e01                              # quiet.sh's pre-Phase-2 base (its header)
 PREV_CANDIDATE=${C8_PREV_CANDIDATE:-d20309c03ffc364e4cc48663be73cfbb1f2309b2}   # candidate 7 (phase3/c7-CANDIDATE.md)
+# The night's plan (header, "Two nights"): only an empty switch or exactly 1, so a mistyped one
+# cannot run candidate 8's night, release-check included, on the frozen candidate.
+case ${C8_C52_ONLY:-} in ''|1) ;; *) refuse "C8_C52_ONLY must be empty or 1, not '$C8_C52_ONLY'" ;; esac
+c52only() { [ "${C8_C52_ONLY:-}" = 1 ]; }
 # C5.2's set (header): full, the whole list (D62(b), candidate 8's), or derived (D57(e) by
-# c52derive.py, whose failure measures the whole list too). The whole list is QUIET_PKGS and
-# QUIET_BENCH_FILTER both empty: quiet.sh then measures every row of its own benches() list, so no
-# package or row can be left out by a copy of the list kept here.
+# c52derive.py, whose failure measures the whole list too).
 C52_SET=${C8_C52_SET:-full}
 case $C52_SET in full|derived) ;; *) refuse "C8_C52_SET must be full or derived, not '$C52_SET'" ;; esac
 C52_PKGS=""; C52_FILTER=""; C52_STATE=none
+# C5.2's chunks (header): C52_GROUPS' packages one chunk each, and "other" for the rest of the list.
+# The three are the longest packages in C52_EST_WIN and C52_EST_LINUX below (observer 83 and 51 min,
+# store 55 and 61, checkpoint 42 and 46); the other 16 take 32 min on Windows and 28 on Linux. So
+# every chunk, with C52_EST_OVERHEAD_S, is at most 93 min (observer on Windows), and a power event
+# costs no more than that chunk.
+C52_GROUPS="observer store checkpoint"
+C52_CHUNKS=""
+for o in win linux; do for g in $C52_GROUPS other; do C52_CHUNKS="$C52_CHUNKS c52-$o-$g"; done; done
+C52_CHUNKS=${C52_CHUNKS# }
+C52_NIGHT="c116-rig $C52_CHUNKS"                # the C5.2 night's steps, in order
+# c52_list <field>: quiet.sh's benches() list, as c52derive.py reads it (the heredoc after
+# "benches() { cat <<'<delim>'" up to <delim>): field 1 prints each row's package, 0 the rows.
+c52_list() {
+  awk -v fld="$1" '
+    d == "" && /^benches\(\) \{ cat <<'\''[A-Za-z0-9_]+'\''[ \t]*$/ { d = $0; sub(/^[^'\'']*'\''/, "", d); sub(/'\''.*$/, "", d); next }
+    d != "" && $0 == d { exit }
+    d != "" && NF >= 2 { print (fld == 0 ? $0 : $fld) }' "$here/quiet.sh"
+}
+# C8_C52_STEPS: the C5.2 night's steps to run (default all), so a later night runs only what an
+# earlier one left; a name outside the plan, or the variable outside a C5.2 night, is a mistake.
+if [ -n "${C8_C52_STEPS:-}" ]; then
+  c52only || refuse "C8_C52_STEPS ('$C8_C52_STEPS') belongs to a C5.2 night (C8_C52_ONLY=1)"
+  for s in $C8_C52_STEPS; do
+    case " $C52_NIGHT " in *" $s "*) ;; *) refuse "C8_C52_STEPS: '$s' is not a C5.2 night step ($C52_NIGHT)" ;; esac
+  done
+fi
+sel() { case " ${C8_C52_STEPS:-$C52_NIGHT} " in *" $1 "*) return 0 ;; esac; return 1; }
+C52_SEL=""; for s in $C52_NIGHT; do sel "$s" && C52_SEL="$C52_SEL $s"; done
+C52_SEL=${C52_SEL# }                             # the steps a C5.2 night runs, in the plan's order
+if c52only && [ -z "$(c52_list 1)" ]; then
+  refuse "cannot read quiet.sh's benches() list ($here/quiet.sh): the C5.2 chunks are made from it"
+fi
 # C5.2's end-by-deadline estimates, per package, in seconds: candidate 5's measured run time of ALL
 # that package's listed rows over its 10 ABBA rounds, both sides (the started_at/ended_at of every
 # phase3/c5/quiet/c52-{win,linux}/c52-*-r<round>-*.json record, summed per package), rounded up to
 # the minute. A package measured for a subset of its rows takes no longer than for all of them, so
 # the estimate of a selection is an upper bound on its run time; a package not in the table counts
-# as the table's largest entry. C52_EST_OVERHEAD_S per step covers the builds, warm-up runs,
+# as the table's largest entry. C52_EST_OVERHEAD_S per chunk covers the builds, warm-up runs,
 # benchstat and gate preparation: candidate 5 spent 430 s (Windows) and about 330 s (Linux, its gate
-# preparation included) outside the measured runs, rounded up to 10 min. The whole list is then
-# 13320 s (3 h 42 min) on Windows and 11760 s (3 h 16 min) on Linux, against candidate 5's 3 h 29 min
-# and 3 h 03 min.
+# preparation included) outside the measured runs of the whole list, rounded up to 10 min. A chunk
+# builds a subset of those packages and repeats the fixed part once, so the whole list's overhead
+# bounds a chunk's. The chunks then sum to 15120 s (4 h 12 min) on Windows and 13560 s (3 h 46 min)
+# on Linux, against candidate 5's unchunked 3 h 29 min and 3 h 03 min.
 C52_EST_WIN="observer:4980 store:3300 checkpoint:2520 daemon:360 chunk:180 scheduler:180 canon:180 rules:120 eval:120 negknow:120 symbols:120 dag:120 paths:60 sketch:60 skills:60 obs:60 cli:60 config:60 hostperm:60"
 C52_EST_LINUX="store:3660 observer:3060 checkpoint:2760 daemon:300 chunk:180 canon:120 scheduler:120 eval:120 negknow:120 symbols:120 dag:120 sketch:60 obs:60 paths:60 rules:60 cli:60 config:60 skills:60 hostperm:60"
 C52_EST_OVERHEAD_S=600
@@ -279,58 +336,61 @@ gated_cmd() {
         log "container start failed: c51-linux did not run"; gc_rc=2
       fi
       container_down; return "$gc_rc" ;;
-    c52-win) QUIET_PKGS=$C52_PKGS QUIET_BENCH_FILTER=$C52_FILTER sh "$here/quiet.sh" "$C" "$QUIET_BASE" "$E/quiet-c52" c52-win ;;
-    c52-linux)
-      if container_up; then
-        log "container start exit=0 (c52-linux)"
-        QUIET_PKGS=$C52_PKGS QUIET_BENCH_FILTER=$C52_FILTER sh "$here/quiet.sh" "$C" "$QUIET_BASE" "$E/quiet-c52-linux" c52-linux
-        gc_rc=$?
-      else
-        log "container start failed: c52-linux did not run"; gc_rc=2
+    c52-win-*|c52-linux-*)   # a C5.2 chunk, into its own top-level directory quiet-<step>/
+      gc_pk=$(c52pk_of "$1")
+      if [ -z "$gc_pk" ]; then   # quiet.sh reads an empty QUIET_PKGS as its whole list
+        echo "overnight-c8.sh: $1 has no packages to measure, so it did not run"; return 2
       fi
-      container_down; return "$gc_rc" ;;
+      case $1 in
+        c52-win-*) QUIET_PKGS=$gc_pk QUIET_BENCH_FILTER=$C52_FILTER sh "$here/quiet.sh" "$C" "$QUIET_BASE" "$E/quiet-$1" c52-win ;;
+        *)
+          if container_up; then
+            log "container start exit=0 ($1)"
+            QUIET_PKGS=$gc_pk QUIET_BENCH_FILTER=$C52_FILTER sh "$here/quiet.sh" "$C" "$QUIET_BASE" "$E/quiet-$1" c52-linux
+            gc_rc=$?
+          else
+            log "container start failed: $1 did not run"; gc_rc=2
+          fi
+          container_down; return "$gc_rc" ;;
+      esac ;;
     *) echo "overnight-c8.sh: unknown gated step $1" >&2; return 2 ;;
   esac
 }
 tries_of() { eval "echo \${tries_$(printf '%s' "$1" | tr -c 'A-Za-z0-9' '_'):-0}"; }
 set_tries() { eval "tries_$(printf '%s' "$1" | tr -c 'A-Za-z0-9' '_')=$2"; }
+c52pk_of() { eval "echo \"\${c52pk_$(printf '%s' "$1" | tr -c 'A-Za-z0-9' '_'):-}\""; }   # a chunk's QUIET_PKGS
+set_c52pk() { eval "c52pk_$(printf '%s' "$1" | tr -c 'A-Za-z0-9' '_')=\"\$2\""; }
 # c52_est_s <table> <packages>: seconds (see C52_EST_WIN)
 c52_est_s() {
   printf '%s\n' $1 | awk -F: -v pk="$2" -v oh="$C52_EST_OVERHEAD_S" '
     { t[$1] = $2 + 0; if ($2 + 0 > mx) mx = $2 + 0 }
     END { s = oh; n = split(pk, a, " "); for (i = 1; i <= n; i++) s += (a[i] in t) ? t[a[i]] : mx; print s }'
 }
-# c52_list <field>: quiet.sh's benches() list, as c52derive.py reads it (the heredoc after
-# "benches() { cat <<'<delim>'" up to <delim>): field 1 prints each row's package, 0 the rows.
-c52_list() {
-  awk -v fld="$1" '
-    d == "" && /^benches\(\) \{ cat <<'\''[A-Za-z0-9_]+'\''[ \t]*$/ { d = $0; sub(/^[^'\'']*'\''/, "", d); sub(/'\''.*$/, "", d); next }
-    d != "" && $0 == d { exit }
-    d != "" && NF >= 2 { print (fld == 0 ? $0 : $fld) }' "$here/quiet.sh"
+# c52_group_pkgs <group>: a chunk's packages from quiet.sh's list, in its order: the group's own
+# package, or for "other" every listed package outside C52_GROUPS. Empty when none is listed.
+c52_group_pkgs() {
+  c52_list 1 | awk -v g="$1" -v named="$C52_GROUPS" '
+    BEGIN { n = split(named, a, " "); for (i = 1; i <= n; i++) nm[a[i]] = 1 }
+    seen[$0]++ { next }
+    (g == "other" && !($0 in nm)) || $0 == g { printf "%s%s", sp, $0; sp = " " }'
 }
-# c52_full_pkgs <table>: the packages the whole list is estimated over: every package of the list,
-# and every package of the table, so an unreadable list still costs the whole table.
-c52_full_pkgs() {
-  { c52_list 1; printf '%s\n' $1 | cut -d: -f1; } | sort -u | tr '\n' ' '
+c52_isect() { # c52_isect <words> <set>: the words that are in the set, in their own order
+  for ci_w in $1; do case " $2 " in *" $ci_w "*) printf '%s\n' "$ci_w" ;; esac; done | tr '\n' ' ' | sed 's/ $//'
 }
 gated_est() { # gated_est <step>: its end-by-deadline estimate in seconds, or nothing
   case $1 in
     c116-rig) echo "$C116_EST_S" ;;
-    c52-win|c52-linux)
-      ge_t=$C52_EST_WIN; [ "$1" = c52-linux ] && ge_t=$C52_EST_LINUX
-      case $C52_STATE in
-        full|fallback) c52_est_s "$ge_t" "$(c52_full_pkgs "$ge_t")" ;;
-        *) c52_est_s "$ge_t" "$C52_PKGS" ;;
-      esac ;;
+    c52-win-*) c52_est_s "$C52_EST_WIN" "$(c52pk_of "$1")" ;;
+    c52-linux-*) c52_est_s "$C52_EST_LINUX" "$(c52pk_of "$1")" ;;
   esac
 }
 gated_skip_note() { # gated_skip_note <step>: what a step SKIPPED for its estimate leaves behind
   case $1 in
-    c116-rig) echo "C116_EST_S: its two runs' -timeout=30m plus the build; a later C5.2 night (C8_C52_ONLY=1) re-runs it" ;;
+    c116-rig) echo "C116_EST_S: its two runs' -timeout=30m plus the build; a later C5.2 night (C8_C52_ONLY=1, C8_C52_STEPS naming it) re-runs it" ;;
     c52-*)
       case $C52_STATE in
-        derived) echo "C52_EST_*: candidate 5's time for its packages; its derived set waits in c52-derive/selection.tsv for a C5.2 night (C8_C52_ONLY=1)" ;;
-        *) echo "C52_EST_*: candidate 5's time for the whole list; a later C5.2 night (C8_C52_ONLY=1) measures the full list" ;;
+        derived) echo "C52_EST_*: candidate 5's time for its packages; its rows of c52-derive/selection.tsv wait for a later C5.2 night (C8_C52_ONLY=1, C8_C52_STEPS naming it)" ;;
+        *) echo "C52_EST_*: candidate 5's time for its packages; a later C5.2 night (C8_C52_ONLY=1, C8_C52_STEPS naming it) measures it" ;;
       esac ;;
   esac
 }
@@ -447,8 +507,8 @@ linux_lanes() {
 # ---- C5.2's set (D62(b); D57(e) in derived mode) -------------------------------------------------
 c52_full_note() { # the whole list, as chain.log names it
   cf_n=$(c52_list 0 | wc -l | tr -d ' ')
-  case $cf_n in 0|'') cf_n="the (uncounted)" ;; *) cf_n="all $cf_n" ;; esac
-  echo "$cf_n rows of quiet.sh's benches() list, with QUIET_PKGS and QUIET_BENCH_FILTER empty"
+  cf_p=$(c52_list 1 | sort -u | wc -l | tr -d ' ')
+  echo "all $cf_n rows of quiet.sh's benches() list ($cf_p packages), in chunks whose packages together are exactly the list's ($C52_GROUPS one chunk each, other the rest), with QUIET_BENCH_FILTER empty${C8_C52_STEPS:+; tonight only C8_C52_STEPS: $C8_C52_STEPS}"
 }
 c52_set() { # sets C52_STATE: full, derived, fallback (the whole list after a failed derivation) or skipped
   if [ "$C52_SET" = full ]; then
@@ -471,21 +531,34 @@ c52_set() { # sets C52_STATE: full, derived, fallback (the whole list after a fa
     log "c52: the derivation produced no selection, so the FULL C5.2 list is measured: $(c52_full_note) (D62(b): D57(e) is file-level, and with no execution trace no row is known to keep its carry)"
   fi
 }
-c52_queue() { # queues c52-win and c52-linux for this night's set, or records why they do not run
+c52_queue() { # queues this night's C5.2 chunks, each with its packages, or records why one does not run
   case $C52_STATE in
     skipped)
-      for cq_s in c52-win c52-linux; do skipped "$cq_s" "no C5.2 derivation tonight (c52-derive SKIPPED)"; done ;;
-    full|fallback)
-      log "c52: c52-win needs about $(( ($(gated_est c52-win) + 59) / 60 )) min, c52-linux about $(( ($(gated_est c52-linux) + 59) / 60 )) min (C52_EST_*: candidate 5's time for every listed package, plus $((C52_EST_OVERHEAD_S / 60)) min); each starts only if it can end by $DL"
-      queue="$queue c52-win c52-linux" ;;
-    *)
-      if [ -n "$C52_FILTER" ]; then
-        log "c52: c52-win needs about $(( ($(gated_est c52-win) + 59) / 60 )) min, c52-linux about $(( ($(gated_est c52-linux) + 59) / 60 )) min (C52_EST_*: candidate 5's time for every package with a selected row, plus $((C52_EST_OVERHEAD_S / 60)) min); each starts only if it can end by $DL"
-        queue="$queue c52-win c52-linux"
-      else
-        log "c52: no C5.2 benchmark executes a file changed since $PREV_CANDIDATE, so every candidate 5 C5.2 row carries (D57(e)); c52-win and c52-linux are not needed (c52-derive/report.txt)"
+      for cq_s in $C52_CHUNKS; do sel "$cq_s" && skipped "$cq_s" "no C5.2 derivation tonight (c52-derive SKIPPED)"; done
+      return 0 ;;
+    derived)
+      if [ -z "$C52_FILTER" ]; then
+        log "c52: no C5.2 benchmark executes a file changed since $PREV_CANDIDATE, so every candidate 5 C5.2 row carries (D57(e)); no chunk is needed (c52-derive/report.txt)"
+        return 0
       fi ;;
   esac
+  cq_w=0; cq_l=0
+  for cq_s in $C52_CHUNKS; do
+    sel "$cq_s" || continue
+    cq_pk=$(c52_group_pkgs "${cq_s##*-}")
+    [ "$C52_STATE" = derived ] && cq_pk=$(c52_isect "$cq_pk" "$C52_PKGS")
+    if [ -z "$cq_pk" ]; then
+      if [ "$C52_STATE" = derived ]; then log "c52: $cq_s: no selected row in its packages (D57(e)), so it is not needed"
+      else log "c52: $cq_s: quiet.sh's list has no package in its group, so it has nothing to measure"; fi
+      continue
+    fi
+    set_c52pk "$cq_s" "$cq_pk"
+    cq_e=$(gated_est "$cq_s")
+    case $cq_s in c52-win-*) cq_w=$((cq_w + cq_e)) ;; *) cq_l=$((cq_l + cq_e)) ;; esac
+    log "c52: $cq_s measures QUIET_PKGS='$cq_pk' QUIET_BENCH_FILTER='$C52_FILTER' into quiet-$cq_s/, about $(( (cq_e + 59) / 60 )) min"
+    queue="$queue $cq_s"
+  done
+  log "c52: tonight's chunks need about $(( (cq_w + 59) / 60 )) min on Windows and $(( (cq_l + 59) / 60 )) min on Linux (C52_EST_*: candidate 5's time for each chunk's packages, plus $((C52_EST_OVERHEAD_S / 60)) min a chunk); each starts only if it can end by $DL"
 }
 
 # ---- release-check -------------------------------------------------------------------------------
@@ -648,7 +721,7 @@ release_check() {
 }
 
 # ---- the night -----------------------------------------------------------------------------------
-if [ "${C8_C52_ONLY:-}" = 1 ]; then plan="mode=c52-only c52_set=$C52_SET"
+if c52only; then plan="mode=c52-only c52_set=$C52_SET steps=[$C52_SEL]"
 else plan="release-check must start by $(date -d "@$((deadline - RC_EST_S))" +%FT%T) (RC_EST_S)"; fi
 log "start candidate=$H pid $$ winpid $(cat "/proc/$$/winpid" 2> /dev/null || echo '?') deadline=$DL${NIGHT_DEADLINE_EPOCH:+ (from c8-night.sh)} $plan ac_wait_budget=${AC_WAIT_BUDGET_MIN}min used=${waited}min prev_candidate=$PREV_CANDIDATE power=$(power_read)"
 timeout -k 10 60 docker ps > /dev/null 2>&1 && engine_up_at_start=1
@@ -657,14 +730,14 @@ timeout -k 10 60 docker ps --format "{{.Names}} {{.Status}}" >> "$E/chain.log" 2
 timeout -k 10 120 docker stop qompack-v6-linux-verification > /dev/null 2>&1
 
 pending=""
-if [ "${C8_C52_ONLY:-}" = 1 ]; then
-  log "C8_C52_ONLY=1: a C5.2 night (D62(c)): only c116-rig, then c52-win and c52-linux run$([ "$C52_SET" = derived ] && echo ', after c52-derive')"
-  # The rig goes first, so C1.16's re-run never waits behind C5.2's 7 h. Without AC it stays
+if c52only; then
+  log "C8_C52_ONLY=1: a C5.2 night (D62(c)): only these steps run, in this order: $C52_SEL$([ "$C52_SET" = derived ] && echo ' (the chunks after c52-derive)')"
+  # The rig goes first, so C1.16's re-run never waits behind C5.2's 8 h. Without AC it stays
   # queued (in derived mode while the derivation, which needs none, runs).
-  queue="c116-rig"
+  queue=""; sel c116-rig && queue="c116-rig"
   run_queue now
-  c52_set
-  c52_queue
+  c52_any=0; for s in $C52_CHUNKS; do sel "$s" && c52_any=1; done
+  if [ "$c52_any" = 1 ]; then c52_set; c52_queue; fi
   run_queue wait
 else
   queue="win-timing win-e2e-timing win-x11-alone"
@@ -677,8 +750,8 @@ else
   run_queue now
   release_check   # C3.12 and D57(a): a release gate
   run_queue wait
-  pending="c116-rig c52-win c52-linux"
-  log "not in this night (D62(c)): $pending, the C5.2 night's (C8_C52_ONLY=1 on this candidate, README.md \"The C5.2 night\"): the C1.16 rig and the full C5.2 list (D62(b))"
+  pending=$C52_NIGHT
+  log "not in this night (D62(c)): $pending, the C5.2 night's (C8_C52_ONLY=1 on this candidate, README.md \"The C5.2 night\"): the C1.16 rig and the full C5.2 list (D62(b)) in its chunks"
 fi
 
 total=$((n_pass + n_fail + n_inv + n_nref + n_skip + n_rep))

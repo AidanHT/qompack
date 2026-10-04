@@ -31,11 +31,12 @@
 #
 # NIGHT_MAX_AHEAD_H (16): candidate 8's night, through release-check, is about 7.25 h (README
 # "Candidate 8": the pre-freeze about 1 h, the steps before release-check about 3.25 h,
-# release-check 3 h), and the C5.2 night at most about 8 h (the C1.16 rig within its 65 min bound,
-# then C5.2's full list, about 3.7 h on Windows and 3.3 h on Linux; D62(c) keeps the two apart),
-# each plus whatever AC_WAIT_BUDGET_MIN's 3 h of waiting takes. 16 h leaves room for an earlier
-# launch the owner allows (from 16:00 for an 08:00 deadline) and refuses every launch made after the
-# deadline's hour, which deadline_epoch would carry into the next day.
+# release-check 3 h), and the C5.2 night at most about 9 h (the C1.16 rig within its 65 min bound,
+# then C5.2's full list in its chunks, about 4.2 h on Windows and 3.8 h on Linux; D62(c) keeps the
+# two apart), each plus whatever AC_WAIT_BUDGET_MIN's 3 h of waiting takes. 16 h leaves room for an
+# earlier launch the owner allows (from 16:00 for an 08:00 deadline, which also absorbs an AC cut in
+# a C5.2 night) and refuses every launch made after the deadline's hour, which deadline_epoch would
+# carry into the next day.
 NIGHT_MAX_AHEAD_H=${NIGHT_MAX_AHEAD_H:-16}
 
 power_ps() { powershell -NoProfile -NonInteractive -Command "$1" 2>&1 | tr -d '\r'; }

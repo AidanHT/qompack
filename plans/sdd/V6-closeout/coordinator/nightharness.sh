@@ -5,7 +5,7 @@
 # exercises every branch the night can take (AC, battery, a power change, Modern Standby, sleep or
 # resume during a step, the wait budget, the deadline, each step's estimate, refusals, the
 # release-check clone and its tag, a signal mid-run, the C5.2 night with the full list or the
-# derivation, the C1.16 rig, e2efunc's timing-row skips and their drift, an abort) with no real
+# derivation, the C5.2 chunks, the C1.16 rig, e2efunc's skips and their drift, an abort) with no real
 # night: powershell, pwsh, docker, go, claude, gh, timeout, date and sleep are stubs on PATH; git
 # and python are real, on scratch repositories under a temporary directory; phase3.sh and quiet.sh
 # are stubs beside the copied night scripts (phase3.sh's own arms are run for real against stubs in
@@ -234,6 +234,16 @@ if [ "$1" = test ]; then
       [ "$(kv omit_row __none__)" = "$r" ] || echo "--- PASS: TestIntegration_HotPath$r (1.00s)"
     done ;;
   esac
+  # A test/e2e run of one subtest (-run '^Row$/^arm$'), as prefreeze.sh's e2efunc runs a timing
+  # row's functional arm: its PASS line, unless kv omit_arm names the arm.
+  if [ "$key" = e2e ]; then
+    rp=""; prev=""; for a in "$@"; do [ "$prev" = -run ] && rp=$a; prev=$a; done
+    case $rp in
+      ^*'$/^'*'$')
+        arow=${rp#^}; arow=${arow%%\$/*}; aarm=${rp#*\$/^}; aarm=${aarm%\$}
+        [ "$(kv omit_arm __none__)" = "$aarm" ] || echo "    --- PASS: $arow/$aarm (0.10s)" ;;
+    esac
+  fi
   rc=$(kv "rc_${key}_$n" "$(kv "rc_$key" 0)")
   [ "$rc" = 0 ] && echo "ok  	github.com/qompack/qompack/$key	1.0s" || echo "FAIL	github.com/qompack/qompack/$key	1.0s"
   exit "$rc"
@@ -264,6 +274,7 @@ cat > "$1/quiet.sh" <<'EOF'
 #!/bin/sh
 # The benchmark list in quiet.sh's own format; c52derive.py reads it from this file.
 benches() { cat <<'EOS'
+observer OnToolUse_TestOutput256KB 200x perfobs (SP08-D1)
 checkpoint Finalize 10x perfobs (SP10-D1)
 checkpoint ExtractDecisions 1s D37 1.10.17
 daemon SchedulerTap_ObserveTool 1s D37 1.12.17
@@ -299,8 +310,9 @@ new_case() {
   mkfifo "$SCEN_DIR/ready.fifo" "$SCEN_DIR/go.fifo"
   G="git -c user.name=harness -c user.email=harness@invalid -c init.defaultBranch=main -c advice.detachedHead=false"
   R="$P/qompack"
-  # main is "candidate 7" (C8_PREV_CANDIDATE): a module whose four packages define the benchmarks
-  # the quiet.sh stub lists. Two wave branches change product code (checkpoint's intent.go and
+  # main is "candidate 7" (C8_PREV_CANDIDATE): a module whose five packages define the benchmarks
+  # the quiet.sh stub lists (observer, store and checkpoint are C52_GROUPS' chunks; daemon and cli
+  # make the "other" chunk). Two wave branches change product code (checkpoint's intent.go and
   # daemon's scheduler_tap.go), so c52derive.py finds exactly the checkpoint and daemon rows.
   # FROZEN is verify/v6 merged with integration, as c8-night.sh freezes it; qompack-cx-cand sits
   # there for the overnight-only cases.
@@ -308,18 +320,20 @@ new_case() {
     $G init -q "$R" && cd "$R" && echo base > base.txt &&
     printf 'module github.com/qompack/qompack\n\ngo 1.26\n' > go.mod &&
     for pf in checkpoint:intent:Finalize:ExtractDecisions daemon:scheduler_tap:SchedulerTap_ObserveTool \
-              store:put:PutBytes_100KB_Warm cli:config:HookNoop_InProcess; do
+              store:put:PutBytes_100KB_Warm cli:config:HookNoop_InProcess observer:tap:OnToolUse_TestOutput256KB; do
       pk=${pf%%:*}; rest=${pf#*:}; fl=${rest%%:*}; bn=${rest#*:}
       mkdir -p "internal/$pk" && printf 'package %s\n\nfunc f() int { return 1 }\n' "$pk" > "internal/$pk/$fl.go" &&
         printf 'package %s\n\n// other.go is never changed\nfunc g() int { return 2 }\n' "$pk" > "internal/$pk/other.go" &&
         { printf 'package %s\n\nimport "testing"\n' "$pk"; for x in $(echo "$bn" | tr ':' ' '); do printf 'func Benchmark%s(b *testing.B) {}\n' "$x"; done; } > "internal/$pk/bench_test.go" || return 1
     done &&
-    # test/e2e's rows as prefreeze.sh's e2efunc reads them (its timing rows and a functional one),
-    # and a ci.yml timing lane in phase3.sh's format naming no test/e2e row, as the real one does.
+    # test/e2e's rows as prefreeze.sh's e2efunc reads them (its three timing rows, X10's detector
+    # arm and a functional row), and a ci.yml timing lane in phase3.sh's format naming no test/e2e
+    # row, as the real one does.
     mkdir -p test/e2e .github/workflows &&
     { printf 'package e2e\n\nimport "testing"\n\n'
       for x in TestE2EHookRoundTrip TestV3_HotPathUnchangedWithLedgerResident TestE2E_SessionStartLatency \
                TestV5_ThrashWarningVisibleInStatusAndCheckpoint; do printf 'func %s(t *testing.T) {}\n' "$x"; done
+      printf 'func x10Arms(t *testing.T) {\n\tt.Run("state_aware_detector_is_progress_aware_and_cannot_feed_itself", nil)\n}\n'
     } > test/e2e/rows_test.go &&
     printf "jobs:\n  timing:\n    steps:\n      - run: go test -p 1 -count=1 -timeout=30m -run '^(TestBudgetBF|TestIntegration_HotPathWarmWithRealResidentState)\$' ./internal/mcp ./test/integration\n" > .github/workflows/ci.yml &&
     $G add . && $G commit -q -m base &&
@@ -547,10 +561,10 @@ case_O1_all_ac() {
   done
   check "outcome counts" has "$W/ev/overnight-outcome.txt" "failed=0 invalid_power=0 not_reference=0 (of which 0 exited non-zero) skipped=0 reported=1"
   # D62(c): candidate 8's night ends with release-check; C5.2 and the C1.16 rig run the next night.
-  for s in c52-derive c52-win c52-linux c116-rig; do check "$s is not in this night" test -z "$(row "$s" 1)"; done
+  for s in c52-derive c116-rig $C52_ALL; do check "$s is not in this night" test -z "$(row "$s" 1)"; done
   check "no C5.2 measurement, no trace, no rig" sh -c '! grep -qE "^(quiet .*c52-(win|linux)$|go-cov |go-c116 |phase3 .* c116-rig$)" "$1"' sh "$CALLS"
-  check "the outcome names them as pending" has "$W/ev/overnight-outcome.txt" "pending_c52_night=[c116-rig c52-win c52-linux]"
-  check "the chain says why" has "$W/ev/chain.log" "not in this night (D62(c)): c116-rig c52-win c52-linux"
+  check "the outcome names them as pending" has "$W/ev/overnight-outcome.txt" "pending_c52_night=[c116-rig $C52_ALL]"
+  check "the chain says why" has "$W/ev/chain.log" "not in this night (D62(c)): c116-rig $C52_ALL"
   check "C5.1 on Linux in its own container window" hasre "$CALLS" "quiet .* cf31e01 .*/quiet-c51-linux c51-linux"
   check "the start line carries the Windows pid" hasre "$W/ev/chain.log" "^start candidate=.* winpid "
   check "release-check saw its tag on HEAD" has "$W/ev/p3-release-check-tag.log" "TAG=v0.3.0"
@@ -715,20 +729,29 @@ case_O15_owner_engine_never_stopped() {
   check "nor started" lacks "$CALLS" "docker desktop start"
   check "the lanes ran" has "$W/ev/chain.log" "container start exit=0"
 }
+# The C5.2 chunks (overnight-c8.sh's header): one step per OS and package group, each calling
+# quiet.sh with its own non-empty QUIET_PKGS into its own quiet-<step>/ directory. The stub lists
+# observer, checkpoint, daemon, store and cli: the "other" chunk is daemon and cli, in list order.
 # The derived set (C8_C52_SET=derived, D57(e)) in a C5.2 night. A derivation that cannot run at all
-# measures the FULL C5.2 list (D62(b): file-level, and no trace knows a row that keeps its carry):
-# quiet.sh is called with QUIET_PKGS and QUIET_BENCH_FILTER empty, its whole list.
-full_c52() { # full_c52 <step>: quiet.sh was called for <step> with the whole list
-  grep -qE "^quiet PKGS= FILTER= .* cf31e01 .*/quiet-c52(-linux)? $1\$" "$CALLS"
+# measures the FULL C5.2 list (D62(b): file-level, and no trace knows a row that keeps its carry).
+C52_ALL="c52-win-observer c52-win-store c52-win-checkpoint c52-win-other c52-linux-observer c52-linux-store c52-linux-checkpoint c52-linux-other"
+chunk_call() { # chunk_call <chunk>: "PKGS=<pkgs> FILTER=<filter>" as quiet.sh got them for the chunk
+  sed -n "s#^quiet \(PKGS=.* FILTER=[^ ]*\) [^ ]* cf31e01 [^ ]*/quiet-$1 c52-[a-z]*\$#\1#p" "$CALLS" | tail -n 1
+}
+full_c52() { # full_c52 <os> [<packages, sorted>]: the os's chunks measured the whole list, unfiltered
+  fc_want=${2:-checkpoint cli daemon observer store}
+  fc_got=$(for g in observer store checkpoint other; do chunk_call "c52-$1-$g"; done |
+    sed -n 's/^PKGS=\(.*\) FILTER=$/\1/p' | tr ' ' '\n' | sed '/^$/d' | sort | tr '\n' ' ' | sed 's/ $//')
+  [ "$fc_got" = "$fc_want" ] && ! grep -qE "^quiet PKGS= " "$CALLS"
 }
 case_O16_c52_derivation_failure_measures_the_full_list() {
   export C8_C52_ONLY=1 C8_C52_SET=derived C8_PREV_CANDIDATE=0000000000000000000000000000000000000000
   overnight; rc=$?
   check "exit 1" test "$rc" = 1
   check "the derivation is a failed step" hasre "$W/ev/chain.log" "step c52-derive finished exit=[1-9]"
-  check "the chain says why, and what is measured" has "$W/ev/chain.log" "c52: the derivation produced no selection, so the FULL C5.2 list is measured: all 6 rows of quiet.sh's benches() list, with QUIET_PKGS and QUIET_BENCH_FILTER empty"
-  check "c52-win measures the full list" full_c52 c52-win
-  check "c52-linux measures the full list" full_c52 c52-linux
+  check "the chain says why, and what is measured" has "$W/ev/chain.log" "c52: the derivation produced no selection, so the FULL C5.2 list is measured: all 7 rows of quiet.sh's benches() list (5 packages), in chunks whose packages together are exactly the list's"
+  check "the Windows chunks measure the full list" full_c52 win
+  check "the Linux chunks measure the full list" full_c52 linux
   check "no static floor" lacks "$W/ev/chain.log" "floor"
 }
 case_O17_c52_trace_failure_is_selected() {
@@ -737,7 +760,8 @@ case_O17_c52_trace_failure_is_selected() {
   overnight; rc=$?
   check "exit 1" test "$rc" = 1
   check "the derivation fails" hasre "$W/ev/chain.log" "step c52-derive finished exit=1"
-  check "the untraced row is measured, fail-closed" has "$CALLS" "quiet PKGS=checkpoint daemon store FILTER=^Benchmark(Finalize|ExtractDecisions|SchedulerTap_ObserveTool|PutBytes_100KB_Warm)\$"
+  check "the untraced row is measured, fail-closed" test "$(chunk_call c52-win-store)" = 'PKGS=store FILTER=^Benchmark(Finalize|ExtractDecisions|SchedulerTap_ObserveTool|PutBytes_100KB_Warm)$'
+  check "the derived set is logged whole" has "$W/ev/chain.log" "QUIET_PKGS='checkpoint daemon store'"
   check "the report says why" has "$W/ev/c52-derive/selection.tsv" "trace failed"
 }
 case_O22_c52_every_trace_failing_measures_the_full_list() {
@@ -746,8 +770,8 @@ case_O22_c52_every_trace_failing_measures_the_full_list() {
   overnight; rc=$?
   check "exit 1" test "$rc" = 1
   check "the derivation is a failed step" hasre "$W/ev/chain.log" "step c52-derive finished exit=2"
-  check "the full list is measured on Windows" full_c52 c52-win
-  check "and on Linux" full_c52 c52-linux
+  check "the full list is measured on Windows" full_c52 win
+  check "and on Linux" full_c52 linux
   check "the report says why" has "$W/ev/c52-derive/report.txt" "every trace failed"
   check "no selection is written" test ! -e "$W/ev/c52-derive/filter.txt"
 }
@@ -762,7 +786,7 @@ case_O23_c52_stray_go_file_refused() {
   check "exit 1" test "$rc" = 1
   check "the derivation refuses" hasre "$W/ev/chain.log" "step c52-derive finished exit=2"
   check "and names the file" has "$W/ev/chain.log" "internal/stray/x.go"
-  check "the full list is measured" full_c52 c52-win
+  check "the full list is measured" full_c52 win
 }
 case_O18_linux_steps_record_power() {
   printf 'adv 100\nflip BAT\nadv 100\nflip AC\nadv 100\n' > "$SCEN_DIR/p3.linux-timing.1"
@@ -848,21 +872,26 @@ rc_short() { # a short green release-check with both AC-sensitive windows (about
     'adv 300' 'say ok  	github.com/qompack/qompack/test/e2e	300.0s' 'say release-check: ci-local cover PASS'
 }
 case_O26_c52_skipped_when_it_cannot_end_by_the_deadline() {
-  # A C5.2 night with the full list (the default). The rig runs 22:00-22:05. The full list's
-  # estimates count every listed package and every package of the tables (C52_EST_WIN 13320 s,
-  # 222 min; C52_EST_LINUX 11760 s, 196 min), however few rows the stub lists: c52-win fits before
-  # 02:00 (22:05 + 222 min = 01:47) and runs two hours; c52-linux, at 00:05, would end at 03:21.
-  export C8_C52_ONLY=1 NIGHT_DEADLINE=02:00
-  kv dur_c52-win 7200
+  # A C5.2 night with the full list (the default), deadline 23:40. Each chunk's estimate is its
+  # packages' C52_EST_* plus 600 s: Windows observer 93 min, store 65, checkpoint 52, other (daemon
+  # and cli) 17; Linux observer 61, store 71, checkpoint 56, other 16. Every step runs 5 min. The
+  # rig runs 22:00-22:05, c52-win-observer fits (22:05 + 93 min = 23:38) and the other Windows
+  # chunks follow; at 22:30 c52-linux-store would end at 23:41, so it is SKIPPED, and the smaller
+  # chunks after it still run.
+  export C8_C52_ONLY=1 NIGHT_DEADLINE=23:40
   overnight; rc=$?
   check "exit 1" test "$rc" = 1
   check "the rig ran, VALID" test "$(row c116-rig 1)" = VALID
-  check "c52-win ran, VALID" test "$(row c52-win 1)" = VALID
-  check "c52-linux SKIPPED" test "$(row c52-linux 1)" = SKIPPED
-  check "the estimates are the whole list's" has "$W/ev/chain.log" "c52: c52-win needs about 222 min, c52-linux about 196 min"
-  check "the reason names the estimate and the later night" hasre "$W/ev/chain.log" "step c52-linux try 1 exit=- SKIPPED .*needs about 196 min \(C52_EST_\*: candidate 5's time for the whole list; a later C5.2 night \(C8_C52_ONLY=1\) measures the full list\) and would end after the deadline"
-  check "c52-win measured the full list" full_c52 c52-win
-  check "no C5.2 Linux measurement started" sh -c '! grep -qE "^quiet .*c52-linux$" "$1"' sh "$CALLS"
+  for s in c52-win-observer c52-win-store c52-win-checkpoint c52-win-other c52-linux-observer c52-linux-checkpoint c52-linux-other; do
+    check "$s ran, VALID" test "$(row "$s" 1)" = VALID
+  done
+  check "c52-linux-store SKIPPED" test "$(row c52-linux-store 1)" = SKIPPED
+  check "each chunk's estimate is logged" has "$W/ev/chain.log" "c52: c52-win-observer measures QUIET_PKGS='observer' QUIET_BENCH_FILTER='' into quiet-c52-win-observer/, about 93 min"
+  check "the other chunk's too" has "$W/ev/chain.log" "c52: c52-linux-other measures QUIET_PKGS='daemon cli' QUIET_BENCH_FILTER='' into quiet-c52-linux-other/, about 16 min"
+  check "the night's total" has "$W/ev/chain.log" "c52: tonight's chunks need about 227 min on Windows and 204 min on Linux"
+  check "the reason names the estimate and the later night" hasre "$W/ev/chain.log" "step c52-linux-store try 1 exit=- SKIPPED .*needs about 71 min \(C52_EST_\*: candidate 5's time for its packages; a later C5.2 night \(C8_C52_ONLY=1, C8_C52_STEPS naming it\) measures it\) and would end after the deadline"
+  check "the Windows chunks measured the full list" full_c52 win
+  check "the skipped chunk never started" sh -c '! grep -qE "^quiet .*/quiet-c52-linux-store c52-linux$" "$1"' sh "$CALLS"
   check "the skip is counted" has "$W/ev/overnight-outcome.txt" "skipped=1"
 }
 case_O27_c52_derivation_skipped_near_the_deadline() {
@@ -875,11 +904,11 @@ case_O27_c52_derivation_skipped_near_the_deadline() {
   check "exit 1" test "$rc" = 1
   check "the rig ran first" test "$(row c116-rig 1)" = VALID
   check "c52-derive SKIPPED" test "$(row c52-derive 1)" = SKIPPED
-  check "c52-win SKIPPED, no derivation" hasre "$W/ev/chain.log" "step c52-win SKIPPED: no C5.2 derivation tonight"
-  check "c52-linux SKIPPED" test "$(row c52-linux 1)" = SKIPPED
+  for s in $C52_ALL; do check "$s SKIPPED" test "$(row "$s" 1)" = SKIPPED; done
+  check "for want of a derivation" hasre "$W/ev/chain.log" "step c52-win-observer SKIPPED: no C5.2 derivation tonight"
   check "no trace ran" lacks "$CALLS" "go-cov "
   check "no list claimed as measured" lacks "$W/ev/chain.log" "list is measured"
-  check "the skips are counted" has "$W/ev/overnight-outcome.txt" "skipped=3"
+  check "the skips are counted" has "$W/ev/overnight-outcome.txt" "skipped=9"
 }
 case_O28_c51_linux_is_report_only() {
   # The container's quiet C5.1 exits 1 on its fsync-bound B-A/B-B (D53(b)): recorded, never judged.
@@ -899,20 +928,26 @@ case_O28_c51_linux_is_report_only() {
 }
 case_O29_c52_only_night() {
   # The C5.2 night (D62(c)), default set (D62(b)): the C1.16 rig, then the full C5.2 list on both
-  # OSes, nothing else.
+  # OSes in its chunks, nothing else.
   export C8_C52_ONLY=1
   overnight; rc=$?
   check "exit 0" test "$rc" = 0
-  check "only the C5.2 night's steps" test "$(awk -F'\t' 'NR > 1 { print $1 }' "$W/ev/power.tsv" | sort -u | tr '\n' ' ')" = "c116-rig c52-linux c52-win "
+  check "only the C5.2 night's steps, in order" test "$(awk -F'\t' 'NR > 1 { print $1 }' "$W/ev/power.tsv" | tr '\n' ' ')" = "c116-rig $C52_ALL "
   check "every step VALID" sh -c '[ "$(awk -F"\t" "NR > 1 && \$4 != \"VALID\"" "$1" | wc -l)" = 0 ]' sh "$W/ev/power.tsv"
   check "the only phase3 step is the rig" sh -c '[ "$(grep "^phase3 " "$1")" = "phase3 $2 $3 c116-rig" ]' sh "$CALLS" "$P/qompack-cx-cand" "$W/ev"
   check "no release-check" lacks "$W/ev/chain.log" "release-check"
-  check "c52-win measures the full list" full_c52 c52-win
-  check "c52-linux measures the full list" full_c52 c52-linux
-  check "and says what it is" has "$W/ev/chain.log" "c52: the FULL C5.2 list is measured: all 6 rows of quiet.sh's benches() list, with QUIET_PKGS and QUIET_BENCH_FILTER empty (C8_C52_SET=full, D62(b)"
+  check "the Windows chunks measure the full list" full_c52 win
+  check "the Linux chunks measure the full list" full_c52 linux
+  for o in win linux; do
+    for g in observer store checkpoint; do check "c52-$o-$g measures $g alone" test "$(chunk_call "c52-$o-$g")" = "PKGS=$g FILTER="; done
+    check "c52-$o-other measures the rest, in list order" test "$(chunk_call "c52-$o-other")" = "PKGS=daemon cli FILTER="
+    check "c52-$o-other's evidence in its own directory" test -s "$W/ev/quiet-c52-$o-other/c52-$o.json"
+  done
+  check "and says what it is" has "$W/ev/chain.log" "c52: the FULL C5.2 list is measured: all 7 rows of quiet.sh's benches() list (5 packages), in chunks whose packages together are exactly the list's (observer store checkpoint one chunk each, other the rest), with QUIET_BENCH_FILTER empty (C8_C52_SET=full, D62(b)"
   check "no derivation" sh -c '! grep -q "go-cov " "$1" && [ ! -e "$2" ]' sh "$CALLS" "$W/ev/c52-derive"
-  check "the rig before C5.2" sh -c 'a=$(grep -n "step c116-rig try 1 start" "$1" | cut -d: -f1); b=$(grep -n "step c52-win try 1 start" "$1" | cut -d: -f1); [ -n "$a" ] && [ -n "$b" ] && [ "$a" -lt "$b" ]' sh "$W/ev/chain.log"
-  check "the mode is logged" hasre "$W/ev/chain.log" "^start candidate=.* mode=c52-only c52_set=full "
+  check "the rig before C5.2" sh -c 'a=$(grep -n "step c116-rig try 1 start" "$1" | cut -d: -f1); b=$(grep -n "step c52-win-observer try 1 start" "$1" | cut -d: -f1); [ -n "$a" ] && [ -n "$b" ] && [ "$a" -lt "$b" ]' sh "$W/ev/chain.log"
+  check "the container is started for each Linux chunk" sh -c '[ "$(grep -c "^docker start qompack-v6-linux-verification" "$1")" = 4 ]' sh "$CALLS"
+  check "the mode is logged" hasre "$W/ev/chain.log" "^start candidate=.* mode=c52-only c52_set=full steps=\[c116-rig $C52_ALL\] "
   check "nothing pending" lacks "$W/ev/overnight-outcome.txt" "pending"
 }
 case_O31_estimate_rechecked_after_the_ac_wait() {
@@ -925,8 +960,7 @@ case_O31_estimate_rechecked_after_the_ac_wait() {
   check "the wait spent the budget" has "$W/ev/chain.log" "wait budget is spent (60 of 60 min"
   check "the rig SKIPPED after the wait" test "$(row c116-rig 1)" = SKIPPED
   check "for its estimate" has "$W/ev/chain.log" "needs about 65 min (C116_EST_S"
-  check "c52-win SKIPPED" test "$(row c52-win 1)" = SKIPPED
-  check "c52-linux SKIPPED" test "$(row c52-linux 1)" = SKIPPED
+  for s in $C52_ALL; do check "$s SKIPPED" test "$(row "$s" 1)" = SKIPPED; done
   check "the rig never started" lacks "$CALLS" "phase3 "
   check "no C5.2 measurement started" sh -c '! grep -qE "^quiet .*c52-(win|linux)$" "$1"' sh "$CALLS"
 }
@@ -949,15 +983,22 @@ case_O32_c52_night_derived_set() {
   export C8_C52_ONLY=1 C8_C52_SET=derived
   overnight; rc=$?
   check "exit 0" test "$rc" = 0
-  for s in c116-rig c52-derive c52-win c52-linux; do check "$s VALID" test "$(row "$s" 1)" = VALID; done
-  check "c52-win measures the derived set" has "$CALLS" "quiet PKGS=checkpoint daemon FILTER=^Benchmark(Finalize|ExtractDecisions|SchedulerTap_ObserveTool)\$"
-  check "c52-win against cf31e01" hasre "$CALLS" "quiet .* cf31e01 .*/quiet-c52 c52-win"
-  check "c52-linux measures the same set" hasre "$CALLS" "quiet PKGS=checkpoint daemon FILTER=\^Benchmark\(Finalize\|ExtractDecisions\|SchedulerTap_ObserveTool\)\\$ .* cf31e01 .*/quiet-c52-linux c52-linux"
+  for s in c116-rig c52-derive c52-win-checkpoint c52-win-other c52-linux-checkpoint c52-linux-other; do check "$s VALID" test "$(row "$s" 1)" = VALID; done
+  f='FILTER=^Benchmark(Finalize|ExtractDecisions|SchedulerTap_ObserveTool)$'
+  for o in win linux; do
+    check "c52-$o-checkpoint measures its selected rows" test "$(chunk_call "c52-$o-checkpoint")" = "PKGS=checkpoint $f"
+    check "c52-$o-other measures daemon's" test "$(chunk_call "c52-$o-other")" = "PKGS=daemon $f"
+    for g in observer store; do
+      check "c52-$o-$g has no selected row" test -z "$(row "c52-$o-$g" 1)"
+      check "and says so" has "$W/ev/chain.log" "c52: c52-$o-$g: no selected row in its packages (D57(e)), so it is not needed"
+    done
+  done
+  check "against cf31e01" hasre "$CALLS" "quiet .* cf31e01 .*/quiet-c52-win-checkpoint c52-win"
   check "the derived set is logged" has "$W/ev/chain.log" "c52: derived set (C8_C52_SET=derived"
-  check "the derived estimates are logged" has "$W/ev/chain.log" "candidate 5's time for every package with a selected row"
+  check "the derived estimates are logged" has "$W/ev/chain.log" "c52: tonight's chunks need about"
   check "the derivation's selection is kept" sh -c '[ "$(tail -n +2 "$1" | wc -l)" = 3 ]' sh "$W/ev/c52-derive/selection.tsv"
   check "an unchanged row is not measured" lacks "$W/ev/c52-derive/selection.tsv" "PutBytes_100KB_Warm"
-  check "the container is started for c52-linux alone" sh -c '[ "$(grep -c "^docker start qompack-v6-linux-verification" "$1")" = 1 ]' sh "$CALLS"
+  check "the container is started for the two Linux chunks" sh -c '[ "$(grep -c "^docker start qompack-v6-linux-verification" "$1")" = 2 ]' sh "$CALLS"
 }
 case_O33_unknown_c52_set_refused() {
   export C8_C52_ONLY=1 C8_C52_SET=floor
@@ -977,6 +1018,79 @@ case_O34_c116_rig_invalid_power_retried() {
   check "try 2 VALID" test "$(row c116-rig 2)" = VALID
   check "try 1's records moved aside" test -s "$W/ev/c116-rig.invalid-power-1/p3-c116-rig.json"
   check "try 2's record" test -s "$W/ev/p3-c116-rig.json"
+}
+case_O35_c52_switches_are_exact() {
+  # A mistyped C5.2 night switch must not run candidate 8's night (release-check included) on the
+  # frozen candidate, and C8_C52_STEPS must name C5.2 night steps, in a C5.2 night.
+  try() { # try <dir> <expected refusal>: exit 2, the refusal, nothing written, no step
+    overnight_in "$1" 2> "$W/$1.err"; t_rc=$?
+    check "$1: exit 2" test "$t_rc" = 2
+    check "$1: refused by name" has "$W/$1.err" "$2"
+    check "$1: nothing written" test ! -e "$W/$1/chain.log"
+  }
+  overnight_in() { sh "$COORD/overnight-c8.sh" "$P/qompack-cx-cand" "$CAND_SHA" "$W/$1"; }
+  export C8_C52_ONLY=true; try ev1 "C8_C52_ONLY must be empty or 1, not 'true'"
+  export C8_C52_ONLY=' 1'; try ev2 "C8_C52_ONLY must be empty or 1, not ' 1'"
+  export C8_C52_ONLY=1 C8_C52_STEPS="c52-win-store c52-win"; try ev3 "C8_C52_STEPS: 'c52-win' is not a C5.2 night step"
+  unset C8_C52_ONLY; export C8_C52_STEPS=c52-win-store; try ev4 "C8_C52_STEPS ('c52-win-store') belongs to a C5.2 night (C8_C52_ONLY=1)"
+  check "no step ran in any of them" sh -c '! grep -qE "^(phase3|quiet|go) " "$1"' sh "$CALLS"
+}
+case_O36_c52_night_runs_only_the_named_steps() {
+  # A later C5.2 night measures only what an earlier one left: C8_C52_STEPS names those steps,
+  # in any order; they run in the plan's.
+  export C8_C52_ONLY=1 C8_C52_STEPS="c52-linux-other c52-win-store"
+  overnight; rc=$?
+  check "exit 0" test "$rc" = 0
+  check "exactly the named steps ran" test "$(awk -F'\t' 'NR > 1 { print $1 }' "$W/ev/power.tsv" | tr '\n' ' ')" = "c52-win-store c52-linux-other "
+  check "both VALID" sh -c '[ "$(awk -F"\t" "NR > 1 && \$4 != \"VALID\"" "$1" | wc -l)" = 0 ]' sh "$W/ev/power.tsv"
+  check "no rig" lacks "$CALLS" "phase3 "
+  check "the store chunk's packages" test "$(chunk_call c52-win-store)" = "PKGS=store FILTER="
+  check "the other chunk's packages" test "$(chunk_call c52-linux-other)" = "PKGS=daemon cli FILTER="
+  check "two quiet.sh calls" sh -c '[ "$(grep -c "^quiet " "$1")" = 2 ]' sh "$CALLS"
+  check "the steps are logged" hasre "$W/ev/chain.log" "^start candidate=.* steps=\[c52-win-store c52-linux-other\] "
+  check "and what tonight measures of the list" has "$W/ev/chain.log" "tonight only C8_C52_STEPS: c52-linux-other c52-win-store"
+  check "in the plan's order" has "$W/ev/chain.log" "only these steps run, in this order: c52-win-store c52-linux-other"
+}
+case_O37_c52_power_event_voids_one_chunk() {
+  # A source change during one chunk (Windows store, quiet.sh's second c52-win call) voids that
+  # chunk alone: it is retried, and every other chunk keeps its own VALID try.
+  export C8_C52_ONLY=1
+  printf 'adv 60\nflip BAT\nadv 60\nflip AC\nadv 60\n' > "$SCEN_DIR/q.c52-win.2"
+  overnight; rc=$?
+  check "exit 0" test "$rc" = 0
+  check "c52-win-store try 1 INVALID-POWER" sh -c 'case "$1" in INVALID-POWER*) ;; *) exit 1 ;; esac' sh "$(row c52-win-store 1)"
+  check "c52-win-store try 2 VALID" test "$(row c52-win-store 2)" = VALID
+  check "try 1's chunk directory moved aside" test -s "$W/ev/c52-win-store.invalid-power-1/quiet-c52-win-store/c52-win.json"
+  check "try 2's chunk directory" test -s "$W/ev/quiet-c52-win-store/c52-win.json"
+  for s in c52-win-observer c52-win-checkpoint c52-win-other c52-linux-store; do
+    check "$s: one VALID try" sh -c '[ "$(awk -F"\t" -v s="$2" "\$1 == s" "$1" | cut -f4 | tr "\n" " ")" = "VALID " ]' sh "$W/ev/power.tsv" "$s"
+  done
+  check "the chunk before it was not moved" test -s "$W/ev/quiet-c52-win-observer/c52-win.json"
+}
+case_O38_c52_group_missing_from_the_list() {
+  # quiet.sh's list decides the chunks: a group with no listed package has no chunk, and the
+  # chunks still measure exactly the list.
+  export C8_C52_ONLY=1
+  sed -i '/^observer OnToolUse_TestOutput256KB /d' "$COORD/quiet.sh"
+  overnight; rc=$?
+  check "exit 0" test "$rc" = 0
+  check "no observer chunk ran" sh -c '[ -z "$(awk -F"\t" "\$1 ~ /observer/" "$1")" ]' sh "$W/ev/power.tsv"
+  check "and says why" has "$W/ev/chain.log" "c52: c52-win-observer: quiet.sh's list has no package in its group, so it has nothing to measure"
+  check "the Windows chunks measure the list" full_c52 win "checkpoint cli daemon store"
+  check "the Linux chunks measure the list" full_c52 linux "checkpoint cli daemon store"
+}
+case_O39_c52_night_needs_a_readable_list() {
+  # The chunks are made from quiet.sh's benches() list: a C5.2 night refuses without it, before
+  # writing anything; candidate 8's night does not read it.
+  sed -i "s/^benches() { cat <<'EOS'\$/benchez() { cat <<'EOS'/" "$COORD/quiet.sh"
+  export C8_C52_ONLY=1
+  overnight 2> "$W/err"; rc=$?
+  check "exit 2" test "$rc" = 2
+  check "refused by name" has "$W/err" "cannot read quiet.sh's benches() list"
+  check "nothing written" test ! -e "$W/ev/chain.log"
+  unset C8_C52_ONLY
+  sh "$COORD/overnight-c8.sh" "$P/qompack-cx-cand" "$CAND_SHA" "$W/ev2"; rc=$?
+  check "candidate 8's night runs without it" test "$rc" = 0
 }
 
 # ---- N: c8-night.sh ------------------------------------------------------------------------------
@@ -999,10 +1113,11 @@ case_N1_happy_night() {
   check "integration under co-load" hasre "$CALLS" "^go COLOAD=1 .* test -p 2 .* -v -skip \^TestIntegration_HotPathWarmWithRealResidentState\\$ ./test/integration"
   check "testpkgs under co-load" hasre "$CALLS" "^go COLOAD=1 .* ./test/fault/"
   check "internal under co-load" hasre "$CALLS" "^go COLOAD=1 .* ./internal/\.\.\."
-  check "e2efunc strict, without test/e2e's timing rows" has "$CALLS" " -skip ^(TestV3_HotPath.*|TestE2E_SessionStartLatency|TestV5_ThrashWarningVisibleInStatusAndCheckpoint)\$ ./test/e2e"
+  check "e2efunc strict, without test/e2e's timing rows" has "$CALLS" " -skip ^(TestV3_HotPathUnchangedWithLedgerResident|TestE2E_SessionStartLatency|TestV5_ThrashWarningVisibleInStatusAndCheckpoint)\$ ./test/e2e"
   check "e2efunc under no declaration" hasre "$CALLS" "^go COLOAD=unset NONREF=unset .* -skip .* ./test/e2e$"
-  check "the skip list is a precondition" has "$L8" "precondition: e2efunc will skip -skip '^(TestV3_HotPath.*|TestE2E_SessionStartLatency|TestV5_ThrashWarningVisibleInStatusAndCheckpoint)\$'"
-  check "the overnight part ends with release-check" has "$L8" "pending_c52_night=[c116-rig c52-win c52-linux]"
+  check "then X10's detector arm by itself" has "$CALLS" " -run ^TestV5_ThrashWarningVisibleInStatusAndCheckpoint\$/^state_aware_detector_is_progress_aware_and_cannot_feed_itself\$ ./test/e2e"
+  check "the skip list is a precondition" has "$L8" "precondition: e2efunc will skip -skip '^(TestV3_HotPathUnchangedWithLedgerResident|TestE2E_SessionStartLatency|TestV5_ThrashWarningVisibleInStatusAndCheckpoint)\$'"
+  check "the overnight part ends with release-check" has "$L8" "pending_c52_night=[c116-rig $C52_ALL]"
   for g in gen-command-docs licenses; do check "gate runs $g" hasre "$CALLS" "run ./tools/devtool $g --check"; done
   check "gate runs govulncheck" has "$CALLS" "golang.org/x/vuln/cmd/govulncheck ./..."
 }
@@ -1195,14 +1310,14 @@ case_N20_long_paths_in_the_scratch_clones() {
 }
 row8() { awk -F'\t' -v s="$1" -v n="$2" '$1 == s && $2 == n { print $4 }' "$E8/power.tsv"; }
 case_N21_e2e_skip_drift_refuses_before_anything() {
-  # The e2e seat renames X10 on integration: e2efunc's named skip list no longer matches the tree,
-  # and the night refuses among its preconditions, not an hour into the pre-freeze.
-  (cd "$P/qompack-cx-int" && sed -i 's/TestV5_ThrashWarningVisibleInStatusAndCheckpoint/TestV5_ThrashWarningRenamed/' test/e2e/rows_test.go &&
-    git -c user.name=h -c user.email=h@i commit -q -am "rename X10")
+  # X11 is renamed on integration: e2efunc's named skip list no longer matches the tree, and the
+  # night refuses among its preconditions, not an hour into the pre-freeze.
+  (cd "$P/qompack-cx-int" && sed -i 's/TestV3_HotPathUnchangedWithLedgerResident/TestV3_HotPathRenamed/' test/e2e/rows_test.go &&
+    git -c user.name=h -c user.email=h@i commit -q -am "rename X11")
   v0=$(git -C "$P/qompack-v6" rev-parse HEAD)
   night; rc=$?
   check "exit 1" test "$rc" = 1
-  check "the drift is named" has "$E8/night.log" "test/e2e no longer defines TestV5_ThrashWarningVisibleInStatusAndCheckpoint"
+  check "the drift is named" has "$E8/night.log" "test/e2e no longer defines TestV3_HotPathUnchangedWithLedgerResident"
   check "refused as a precondition" has "$E8/night.log" "REFUSED: precondition: e2efunc's skip list of test/e2e's timing rows has drifted"
   check "no merged tree, no pre-freeze" sh -c '! grep -q "merged-tree scratch clone" "$1" && [ ! -e "$2" ]' sh "$E8/night.log" "$E8/prefreeze"
   check "nothing frozen" test "$(git -C "$P/qompack-v6" rev-parse HEAD)" = "$v0"
@@ -1255,14 +1370,26 @@ case_F4_fresh_summary_and_declarations() {
 }
 
 e2e_call() { grep -E "^go COLOAD=[^ ]* NONREF=[^ ]* test .* \./test/e2e$" "$CALLS"; }   # e2efunc's go test, if it ran
+E2E_SKIP='^(TestV3_HotPathUnchangedWithLedgerResident|TestE2E_SessionStartLatency|TestV5_ThrashWarningVisibleInStatusAndCheckpoint)$'
+X10_ARM_RUN='^TestV5_ThrashWarningVisibleInStatusAndCheckpoint$/^state_aware_detector_is_progress_aware_and_cannot_feed_itself$'
+e2e_main() { e2e_call | grep -e ' -skip '; }   # e2efunc's main pass
+e2e_arm() { e2e_call | grep -e ' -run '; }     # e2efunc's functional-arm passes
 case_F5_e2efunc_skips_exactly_the_timing_rows() {
+  # e2efunc skips test/e2e's three timing rows by their exact names, then runs X10's detector arm,
+  # which judges no wall clock, by itself.
   pf r1 e2efunc
   check "e2efunc passes" has "$W/pf/summary.log" "step e2efunc exit=0 run=r1 "
-  check "the go call skips X11, the latency row and X10, nothing else" test "$(e2e_call)" = 'go COLOAD=unset NONREF=unset test -p 1 -count=1 -timeout 90m -skip ^(TestV3_HotPath.*|TestE2E_SessionStartLatency|TestV5_ThrashWarningVisibleInStatusAndCheckpoint)$ ./test/e2e'
-  check "the log names the pattern" has "$W/pf/e2efunc.log" "-skip '^(TestV3_HotPath.*|TestE2E_SessionStartLatency|TestV5_ThrashWarningVisibleInStatusAndCheckpoint)\$'"
+  check "the main pass skips the timing rows, nothing else" test "$(e2e_main)" = "go COLOAD=unset NONREF=unset test -p 1 -count=1 -timeout 90m -skip $E2E_SKIP ./test/e2e"
+  check "then the detector arm alone, undeclared" test "$(e2e_arm)" = "go COLOAD=unset NONREF=unset test -p 1 -count=1 -timeout 30m -v -run $X10_ARM_RUN ./test/e2e"
+  check "the log names the pattern" has "$W/pf/e2efunc.log" "-skip '$E2E_SKIP'"
+  check "and the arm's own PASS" has "$W/pf/e2efunc.log" "--- PASS: TestV5_ThrashWarningVisibleInStatusAndCheckpoint/state_aware_detector_is_progress_aware_and_cannot_feed_itself "
   out=$(sh "$COORD/prefreeze.sh" --e2e-skips "$P/qompack-cx-int"); rc=$?
   check "--e2e-skips: exit 0" test "$rc" = 0
-  check "--e2e-skips prints the same pattern" test "$out" = '^(TestV3_HotPath.*|TestE2E_SessionStartLatency|TestV5_ThrashWarningVisibleInStatusAndCheckpoint)$'
+  check "--e2e-skips prints the same pattern" test "$out" = "$E2E_SKIP"
+  # Every row e2efunc skips is judged alone by the night: X11 by win-x11-alone's exact -run, the
+  # others by win-e2e-timing, which runs all of test/e2e with no -run or -skip.
+  check "X11 by itself" grep -qF -- "-run '^TestV3_HotPathUnchangedWithLedgerResident\$' ./test/e2e" "$here/phase3.sh"
+  check "the rest in all of test/e2e" grep -qxF -- "    win-e2e-timing) rec p3-win-e2e-timing -- go test -count=1 -timeout=30m ./test/e2e ;;" "$here/phase3.sh"
 }
 case_F6_e2efunc_named_row_drift_does_not_run() {
   sed -i 's/TestE2E_SessionStartLatency/TestE2E_SessionStartLatencyRenamed/' "$P/qompack-cx-int/test/e2e/rows_test.go"
@@ -1275,7 +1402,24 @@ case_F6_e2efunc_named_row_drift_does_not_run() {
   check "--e2e-skips prints no pattern" test ! -s "$W/out"
   : > "$CALLS"; sed -i 's/TestV3_HotPathUnchangedWithLedgerResident/TestV3_HotRenamed/; s/TestE2E_SessionStartLatencyRenamed/TestE2E_SessionStartLatency/' "$P/qompack-cx-int/test/e2e/rows_test.go"
   pf r2 e2efunc
-  check "no X11 row is drift too" has "$W/pf/e2efunc.log" "test/e2e defines no TestV3_HotPath* row"
+  check "X11 by its exact name is drift too" has "$W/pf/e2efunc.log" "test/e2e no longer defines TestV3_HotPathUnchangedWithLedgerResident"
+  check "and test/e2e did not run" test -z "$(e2e_call)"
+}
+case_F8_e2efunc_functional_arm_must_pass_and_exist() {
+  # The arm's -run would exit 0 matching nothing, so its own PASS line is required; and an arm
+  # test/e2e no longer holds is drift, as a renamed row is.
+  kv omit_arm state_aware_detector_is_progress_aware_and_cannot_feed_itself
+  pf r1 e2efunc
+  check "no PASS line: e2efunc fails" has "$W/pf/summary.log" "step e2efunc exit=1 run=r1 "
+  check "and names the arm" has "$W/pf/e2efunc.log" "TestV5_ThrashWarningVisibleInStatusAndCheckpoint/state_aware_detector_is_progress_aware_and_cannot_feed_itself did not pass (or did not run)"
+  : > "$SCEN_DIR/kv"; : > "$CALLS"; rm -f "$SCEN_DIR/count.test_e2e"; kv rc_e2e_2 1   # call 2: the arm
+  pf r2 e2efunc
+  check "a red arm run: e2efunc fails" has "$W/pf/summary.log" "step e2efunc exit=1 run=r2 "
+  : > "$SCEN_DIR/kv"; : > "$CALLS"
+  sed -i 's/state_aware_detector_is_progress_aware_and_cannot_feed_itself/state_aware_detector_renamed/' "$P/qompack-cx-int/test/e2e/rows_test.go"
+  pf r3 e2efunc
+  check "a renamed arm is drift: exit 2" has "$W/pf/summary.log" "step e2efunc exit=2 run=r3 "
+  check "named" has "$W/pf/e2efunc.log" "test/e2e no longer holds the arm t.Run(\"state_aware_detector_is_progress_aware_and_cannot_feed_itself\", ...)"
   check "and test/e2e did not run" test -z "$(e2e_call)"
 }
 case_F7_e2efunc_follows_ci_yml_timing_lane() {
@@ -1285,7 +1429,7 @@ case_F7_e2efunc_follows_ci_yml_timing_lane() {
     > "$P/qompack-cx-int/.github/workflows/ci.yml"
   pf r1 e2efunc
   check "e2efunc passes" has "$W/pf/summary.log" "step e2efunc exit=0 run=r1 "
-  check "the lane's test/e2e row is skipped, after the named ones" has "$CALLS" " -skip ^(TestV3_HotPath.*|TestE2E_SessionStartLatency|TestV5_ThrashWarningVisibleInStatusAndCheckpoint|TestE2EHookRoundTrip)\$ ./test/e2e"
+  check "the lane's test/e2e row is skipped, after the named ones" has "$CALLS" " -skip ^(TestV3_HotPathUnchangedWithLedgerResident|TestE2E_SessionStartLatency|TestV5_ThrashWarningVisibleInStatusAndCheckpoint|TestE2EHookRoundTrip)\$ ./test/e2e"
   check "a lane row outside test/e2e is not" lacks "$CALLS" "TestNotInE2E"
   printf "jobs:\n  timing:\n    steps:\n      - run: go test -p 2 ./...\n" > "$P/qompack-cx-int/.github/workflows/ci.yml"
   : > "$CALLS"; pf r2 e2efunc
