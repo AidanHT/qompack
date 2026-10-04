@@ -100,6 +100,7 @@ const (
 //	prior-session-live                        — checkSessionStartFires: the session it awaits still runs
 //	no-precompact-pending                     — checkSessionStartSourceCompact: nothing to resolve
 //	precompact-pending-for-another-session     — checkSessionStartSourceCompact: wrong session starting
+//	precompact-not-completed                  — checkSessionStartSourceCompact: the session went on first
 //	not-yet-observed                          — checkAdditionalContextDelivered: fewer than two chances
 //	timeout-unknown                           — checkPreCompactTiming: no manifest timeout recorded
 //	no-samples                                — checkPreCompactTiming: no wall-time samples yet
@@ -120,6 +121,7 @@ var noObservationSpellings = map[string]bool{
 	"prior-session-live":                        true,
 	"no-precompact-pending":                     true,
 	"precompact-pending-for-another-session":    true,
+	"precompact-not-completed":                  true,
 	"not-yet-observed":                          true,
 	"timeout-unknown":                           true,
 	"no-samples":                                true,

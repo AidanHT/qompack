@@ -187,6 +187,14 @@ func sessionRestartSource(source string) bool {
 // OF THAT SAME SESSION must arrive with source=="compact". The flag is cleared either way, because
 // it is only ever evaluated once, on the next start.
 //
+// A compaction the user cancels, or one that fails, after its PreCompact hook ran starts no
+// session at all, and the session goes on: it prompts, or it ends, and is later resumed. So a start
+// that is no compaction fails the assertion only when nothing of its session came between: once the
+// session prompted or ended after its PreCompact (History.CompactStartLapsed, recorded by
+// SessionHistory.NoteCompactLapse), its next start reads precompact-not-completed, with nothing to
+// judge, because a cancelled compaction and a compact start the host never sent look the same from
+// here, and neither can be shown to be the host's (audit 2, #9).
+//
 // The session-id half is not decoration. 00-ARCHITECTURE §12.1 states the observable as "the next
 // SessionStart carries source=compact within the same session id", and a pending flag alone cannot
 // express it: a PreCompact in session X followed by a SessionStart of an unrelated session Y —
@@ -208,16 +216,20 @@ func checkSessionStartSourceCompact(ctx context.Context, e Env) Result {
 		// compacted and this start says nothing about it, so the flag is dropped rather than
 		// resolved: keeping it would let the NEXT start of any session inherit a stale obligation,
 		// which is the same wrong-session failure one step later.
-		h.AwaitingCompactStart = false
+		h.AwaitingCompactStart, h.CompactStartLapsed = false, false
 		return Result{
 			OK: true, Expected: desc,
 			Observed: "precompact-pending-for-another-session",
 			TS:       now(e),
 		}
 	}
-	h.AwaitingCompactStart = false
+	lapsed := h.CompactStartLapsed
+	h.AwaitingCompactStart, h.CompactStartLapsed = false, false
 	if e.Event.Source == "compact" {
 		return Result{OK: true, Expected: "compact", Observed: e.Event.Source, TS: now(e)}
+	}
+	if lapsed {
+		return Result{OK: true, Expected: desc, Observed: "precompact-not-completed", TS: now(e)}
 	}
 	return Result{OK: false, Expected: "compact", Observed: e.Event.Source, TS: now(e)}
 }
