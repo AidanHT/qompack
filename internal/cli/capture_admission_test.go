@@ -33,7 +33,10 @@ func TestHookCapture_RedactsBeforeEveryLegacySpoolMode(t *testing.T) {
 				case "hot spool":
 					st.Hot = ipc.HotSpool
 				case "daemon disabled":
+					// Send's step 2, which needs the record's daemon alive to speak for the project
+					// (D67(c)); with it gone the configuration decides and this is "connect failure".
 					st.DaemonEnabled = false
+					useStateDaemonAlive(t, true)
 				}
 				require.NoError(t, os.MkdirAll(paths.Of(root).Run, 0o700))
 				require.NoError(t, ipc.WriteState(root, st))

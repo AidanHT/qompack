@@ -421,7 +421,11 @@ func doHook(spec hookSpec) func(ctx context.Context, env Env, args []string, out
 		if !isDir(root) {
 			return hookio.WriteOutput(out, hookio.Empty())
 		}
-		st.DaemonEnabled = st.DaemonEnabled && cfg.Runtime.Daemon.Enabled
+		// The configuration's runtime.daemon.enabled, and state.bin's false only while the daemon that
+		// wrote it is alive (daemonEnabledFor, D67(c)): a daemon that reloaded the key to false and
+		// died must not keep every hook spooling, and session-start from starting a daemon, after the
+		// key is set back to true.
+		st.DaemonEnabled = daemonEnabledFor(root, st.DaemonEnabled, cfg)
 		st.SpoolOnBreach = st.SpoolOnBreach && cfg.Runtime.HotPath.SpoolOnBreach
 
 		// The nonce is minted here, once, before any transport attempt: it labels this host
