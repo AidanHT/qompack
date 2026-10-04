@@ -15,7 +15,8 @@ What the commands, the slash commands and the MCP tools *are* is
 > **These diagnostics write.** Under a default configuration, `qompack status`, `qompack self-test`
 > and every hook entry point create `<project>/.qompack/` in the project directory they resolve, and
 > start that project's daemon. Running one in a directory that has never been used with Qompack is a
-> write, in that directory. (§6 and §8 cover the configurations under which a hook writes nothing.)
+> write, in that directory. (§6 and §8 cover the configurations under which a hook records nothing,
+> and the one log line it can still write there.)
 > `qompack config print` does not create the layout
 > ([docs/user-guide.md](user-guide.md#operator-commands)), but it does write, or remove,
 > `.qompack/state/config-violations.json` in one that already exists (observed on this tree). The
@@ -1308,10 +1309,17 @@ itself. `RunAll` returns before running a single assertion; `ipc.Client.Send`'s 
 dial, no spool write"; and `internal/cli/capture_admission.go` returns an empty capture before any
 payload bytes are admitted.
 
-**What keeps being written.** Nothing from the hook path, not even the configuration diagnostics: a
-hook under `off` neither writes nor removes `state/config-violations.json` and logs nothing, even when
-the same file holds an invalid value, which `self-test` and `doctor` still report. Observed on this tree: with
-`{"runtime":{"mode":"off"}}` as the only project config, `qompack checkpoint` with empty stdin
+**What keeps being written.** Almost nothing from the hook path: a hook under `off` spools nothing,
+never writes or removes `state/config-violations.json`, and writes no configuration line to the day
+log, even when the same file holds an invalid value, which `self-test` and `doctor` still report.
+One exception remains (a known issue): when the hook's own read of the delivery fails — the delivery
+is over the read bound, the host stops writing part way, or stdin cannot be read at all — a project
+whose `.qompack/logs/` exists gets one line in `logs/hook-quiet-YYYYMMDD.jsonl` naming that read
+error (`hook input exceeds capture bound` or `hook input unavailable`). The hook logs a read error
+whatever `config.json` sets the mode to (`internal/cli/hookclient.go`, `doHook`), unless the mode
+the project's daemon last wrote to `.qompack/run/state.bin` is already `off`; then the hook returns
+before it reads anything. Observed on this tree: with `{"runtime":{"mode":"off"}}` as the only
+project config, `qompack checkpoint` with empty stdin
 printed `{}`, exited 0, and created no `.qompack/` layout at all. Read commands you run by hand
 still write — `qompack status` and `qompack self-test` create the layout and start a daemon
 whatever the mode says, because you asked them to.
