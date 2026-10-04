@@ -13,9 +13,11 @@ import (
 )
 
 // Coordinator decision D64's rulings on wave 19f's open items (ADR 0011 §23): a cut path-named value
-// is the project root only when it is the start of the root's own spelling, byte for byte; and a
+// is the project root only when it is the start of the root's own spelling, byte for byte; a
 // character that Windows' ANSI best-fit conversion turns into ASCII punctuation is outside the
-// free-text whitelist and the root unit on every platform. The rows are red on 895d41f4.
+// free-text whitelist and the root unit on every platform; and a root with a word that starts with
+// `-` after one of its spaces has no root unit. The cut, best-fit and dash rows are red on 895d41f4;
+// the learning row pins what the rulings leave as it is.
 
 // bestFitANSI are the code points the free-text whitelist read as letters, marks or digits that
 // Windows' ANSI best-fit conversion (WideCharToMultiByte without WC_NO_BEST_FIT_CHARS) maps to one
@@ -238,6 +240,47 @@ func TestBuild_ABestFitRootHoldsNoRootUnit(t *testing.T) {
 				[]string{notebookPreview(t, filepath.Join(root, "src", "x.ipynb"))},
 				append(rootSummaries(root), "cd "+root+" && cat private/deny.txt"),
 				[]string{"deny.txt"})
+		})
+	}
+}
+
+// TestBuild_ARootWithADashWordHoldsNoRootUnit is D64's ruling on the round-2 verify's open shape: a
+// word of the root that starts with `-` after one of its spaces binds as a parameter of a PowerShell
+// cmdlet or advanced function (`g C:\q\John -Force\proj` sets `-Force`), so a root with one, a lone
+// `-` among them (`OneDrive - Contoso`), has no unit. A `-` inside a word, or starting a segment after
+// a separator, keeps it.
+func TestBuild_ARootWithADashWordHoldsNoRootUnit(t *testing.T) {
+	for _, seg := range []string{"John -Force", "a -b", "OneDrive - Contoso", "x --y", "a -"} {
+		t.Run(seg, func(t *testing.T) {
+			root := previewRoot(seg, "proj")
+			requireScreened(t, root, hostRules(root, uat12Rules...), nil,
+				[]string{notebookPreview(t, filepath.Join(root, "src", "x.ipynb"))},
+				append(rootSummaries(root), "cd "+root+" && cat private/deny.txt", filepath.Join(root+"2", "x.txt")),
+				[]string{"deny.txt"})
+		})
+	}
+	for _, seg := range []string{"John Smith-Jones", "-x", "a-b c"} {
+		t.Run(seg, func(t *testing.T) {
+			root := previewRoot(seg, "proj")
+			requireScreened(t, root, hostRules(root, uat12Rules...), nil, rootSummaries(root),
+				[]string{"cd " + root + " && cat private/deny.txt", filepath.Join(root+"2", "x.txt")},
+				[]string{"deny.txt"})
+		})
+	}
+}
+
+// TestBuild_AWithheldPathIsLearnedUnderEveryRoot pins D64's ratification that recordedPath keeps
+// holding the project root whatever its spelling: learning a withheld path's names only ever
+// withholds more, so a withheld one-word Read under a root with no unit (an apostrophe, a run of
+// spaces, a word that starts with `-`, a best-fit character) still teaches the screen its basename,
+// and a free text naming that file alone is withheld.
+func TestBuild_AWithheldPathIsLearnedUnderEveryRoot(t *testing.T) {
+	for _, seg := range []string{"John O'Brien", "a  b", "John -Force", "a \u02BAb", "John Smith"} {
+		t.Run(seg, func(t *testing.T) {
+			root := previewRoot(seg, "proj")
+			requireScreened(t, root, hostRules(root, "./secrets/**"), nil, []string{"go test ./..."},
+				[]string{filepath.Join(root, "secrets", "token.txt"), "type token.txt"},
+				[]string{"token.txt"})
 		})
 	}
 }

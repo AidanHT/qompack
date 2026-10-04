@@ -953,6 +953,41 @@ func TestRehydrateHostPaths_ARootOutsideTheWhitelistHoldsNoRootUnit(t *testing.T
 	})
 }
 
+// TestRehydrateHostPaths_ABestFitOrDashRootHoldsNoRootUnit is D64's rulings on wave 19f's open items
+// through the real host rules and the store's own previews: a root holding a code point that
+// Windows' ANSI best-fit conversion turns into ASCII punctuation (U+02BA into `"`, U+02BC into `'`,
+// U+0303 into `~`), or a word that starts with `-` after one of its spaces (PowerShell binds
+// `-Force` as a parameter, and a lone `-` too is withheld), has no root unit, so the root's Grep and
+// Glob previews, `cd <root> && …`, `git -C <root> …` and a one-word Read under it are withheld,
+// while a path-named JSON value is still shown. A `-` inside a word keeps the unit.
+func TestRehydrateHostPaths_ABestFitOrDashRootHoldsNoRootUnit(t *testing.T) {
+	bash := func(cmd string) string { return storePreview(t, map[string]string{"command": cmd}) }
+	rootSummaries := func(root string) []string {
+		return []string{
+			storePreview(t, map[string]string{"path": root, "pattern": "TODO"}),
+			storePreview(t, map[string]string{"path": root, "pattern": "**/*.go"}),
+			bash("cd " + root + " && go test ./..."),
+			bash("git -C " + root + " status --short"),
+			storePreview(t, map[string]string{"file_path": filepath.Join(root, "src", "main.go")}),
+		}
+	}
+	for _, seg := range []string{"a\u02BAb", "a\u02BCb", "a\u0303b", "John -Force", "OneDrive - Contoso"} {
+		t.Run(seg, func(t *testing.T) {
+			root := uat12Project(t, seg, "proj")
+			res := requireToolSummaries(t, root,
+				[]string{storePreviewOf(t, map[string]any{"notebook_path": filepath.Join(root, "src", "x.ipynb")})},
+				append(rootSummaries(root), bash("cd "+root+" && cat private/deny.txt")))
+			require.NotContains(t, res.Text, "deny.txt")
+		})
+	}
+	t.Run("John Smith-Jones", func(t *testing.T) {
+		root := uat12Project(t, "John Smith-Jones", "proj")
+		res := requireToolSummaries(t, root, rootSummaries(root),
+			[]string{bash("cd " + root + " && cat private/deny.txt")})
+		require.NotContains(t, res.Text, "deny.txt")
+	})
+}
+
 // TestRehydrateHostPaths_ACutValueIsTheRootOnlyInItsOwnSpelling is D64's ruling on wave 19f's final
 // verify through the real host rules and the store's own cut: a NotebookEdit's notebook_path sorts
 // after its new_source, so a long cell cuts the path. A cut inside the root's own spelling is the
