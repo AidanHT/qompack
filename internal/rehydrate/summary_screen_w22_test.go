@@ -168,12 +168,11 @@ func TestBuild_APathNamedValueHoldingSeveralPathsIsJudgedPieceByPiece(t *testing
 // the checkpointer keeps every touched file as a pointer and its budget cut names each pointer it
 // cuts, so a long session handed the build a thousand of them and the build's cost grew without
 // bound towards the compaction answer's budget. While a Read rule is in force the build judges at
-// most dropJudgementsBound of them by the host, in the order the checkpoint lists them, and withholds
-// every later one unjudged, by hash or as a withheld path, still accounted for (fail closed). A drop
-// past the bound whose spelling names a rule's literal is learned as a withheld path, so a selector
-// naming it by its basename is withheld; any other is to the free-text screen a path Qompack never
-// recorded (ADR 0011 §23 item 2's limits). With no Read rule in force the host's answer costs nothing
-// and every drop is judged and shown as before.
+// most dropJudgementsBound of them by the host, first those a summary or a reason names, then in the
+// order the checkpoint lists them, and withholds every later one unjudged, by hash or as a withheld
+// path, still accounted for, and learned as withheld whatever its spelling, so a text that names it,
+// even by a part of its path, is withheld (fail closed; wave 22's verify). With no Read rule in force
+// the host's answer costs nothing and every drop is judged and shown as before.
 func TestBuild_PathKeyedCheckpointDropsCostABoundedNumberOfHostJudgements(t *testing.T) {
 	const dropJudgementsBound = 64 // ADR 0011 §23 item 10
 	const n = 1000
@@ -190,6 +189,7 @@ func TestBuild_PathKeyedCheckpointDropsCostABoundedNumberOfHostJudgements(t *tes
 	cp.Pointers.Tools = append(cp.Pointers.Tools,
 		checkpoint.ToolPointer{ToolUseID: "toolu_literal", Hash: hashOf("literal"), Summary: `{"query":"path:key999.txt"}`},
 		checkpoint.ToolPointer{ToolUseID: "toolu_within", Hash: hashOf("within"), Summary: `{"query":"path:pkg/sub0/file0.go"}`},
+		checkpoint.ToolPointer{ToolUseID: "toolu_part", Hash: hashOf("part"), Summary: `{"query":"path:file99"}`},
 	)
 	build := func(t *testing.T, hp HostPaths) (Result, int) {
 		calls := 0
@@ -221,15 +221,20 @@ func TestBuild_PathKeyedCheckpointDropsCostABoundedNumberOfHostJudgements(t *tes
 	t.Run("UAT-12 rules", func(t *testing.T) {
 		res, calls := build(t, hostRules(root, uat12Rules...))
 		// ckUAT05's one file pointer, reports.py (its one-word summary is the same path, judged once),
-		// then the drops up to the bound: the denied one and the first 63 of the thousand.
+		// then the drops up to the bound: first the two a summary names (key999.txt, which the host
+		// refuses, and file0.go), then in checkpoint order the denied one and the next 61 of the thousand.
 		require.Equal(t, 1+dropJudgementsBound, calls, "a build judges a bounded number of path-keyed drops")
 		requireNoLeak(t, res, []string{"deny.txt", "file999.go", "file63.go", "key999.txt", "secrets/"})
-		_, ok := dropForKind(res.Dropped, "file_pointer", "pkg/sub12/file62.go")
+		_, ok := dropForKind(res.Dropped, "file_pointer", "pkg/sub11/file61.go")
 		require.True(t, ok, "a drop the host judged and allows is shown as recorded")
-		require.Equal(t, 1+(n-(dropJudgementsBound-1))+1, withheldDrops(res),
-			"the denied drop and every drop past the bound are withheld, and still accounted for")
+		_, ok = dropForKind(res.Dropped, "file_pointer", "pkg/sub12/file62.go")
+		require.False(t, ok, "the next drop is past the bound, withheld unjudged")
+		require.Equal(t, 2+(n-(dropJudgementsBound-2)), withheldDrops(res),
+			"the denied drop, the refused key999.txt and every drop past the bound are withheld, and still accounted for")
 		require.Contains(t, section6(res), "- tool_use toolu_literal "+hashOf("literal").String()+" — "+withheldSummary+"\n",
-			"a drop past the bound that names a rule's literal is learned, so its basename is withheld")
+			"a drop a summary names is judged first, and the refused one is learned, so its basename is withheld")
+		require.Contains(t, section6(res), "- tool_use toolu_part "+hashOf("part").String()+" — "+withheldSummary+"\n",
+			"a drop past the bound is learned as withheld whatever its spelling: a selector of a part of its path is withheld")
 		require.Contains(t, section6(res), within, "a selector naming a judged, allowed drop is shown")
 	})
 	t.Run("no Read rules", func(t *testing.T) {
@@ -237,7 +242,93 @@ func TestBuild_PathKeyedCheckpointDropsCostABoundedNumberOfHostJudgements(t *tes
 		require.Equal(t, 1+n+2, calls, "with no rule in force every drop is judged, at no cost")
 		require.Zero(t, withheldDrops(res), "and none is withheld")
 		require.Contains(t, section6(res), within)
+		require.Contains(t, section6(res), "- tool_use toolu_part "+hashOf("part").String()+` — {"query":"path:file99"}`+"\n")
 	})
+}
+
+// TestBuild_ADropPastTheJudgementBoundIsWithheldWhereverItIsNamed is wave 22's verify of finding 28:
+// a path-keyed drop past the bound was withheld in sections 6 and 7 but learned as a withheld path
+// only when its spelling held a rule's literal, so a drop the host refuses only through a link, a
+// junction or an 8.3 name (lnk/token.txt, lnk a link to secrets, under Read(./secrets/**)) went
+// unlearned after 64 fresh drop paths, and every text that named it was shown: a free text, a
+// selector by basename or by a part of its path, a glob that selects it, a cut summary that ends in
+// the start of its path, and a drop reason. eca33155 judged every drop and withheld them all. A drop
+// past the bound is learned as withheld whatever its spelling, so each is withheld again, and the
+// drops a text names are judged first, so a named drop the host allows is shown, in section 6 and in
+// section 7. The host's judgements stay bounded: a thousand drops cost what seventy do.
+func TestBuild_ADropPastTheJudgementBoundIsWithheldWhereverItIsNamed(t *testing.T) {
+	root := previewRoot("proj")
+	hp := func(calls *int) HostPaths {
+		return func() HostRules {
+			return HostRules{Patterns: []string{"./secrets/**"}, Refuses: func(p string) bool {
+				*calls++
+				if !filepath.IsAbs(p) {
+					p = filepath.Join(root, filepath.FromSlash(p))
+				}
+				rel, err := filepath.Rel(root, filepath.Clean(p))
+				if err != nil {
+					return false
+				}
+				// The host resolves the link lnk -> secrets, as hostperm does.
+				rel = filepath.ToSlash(rel)
+				return strings.HasPrefix(rel, "secrets/") || strings.HasPrefix(rel, "lnk/")
+			}}
+		}
+	}
+	withheld := []string{
+		"cat lnk/token.txt",
+		`{"query":"path:token.txt"}`,
+		`{"query":"path:lnk/tok"}`,
+		"**/tok*.txt",
+		"cat lnk/tok…",
+	}
+	const named = "cat pkg/f69.go"
+	reason := checkpoint.DropEntry{
+		Kind: "pointer_git_unavailable", Detail: "checkpoint: git index unsupported: open lnk/token.txt: Access is denied.",
+	}
+	build := func(t *testing.T, fillers int) (Result, int) {
+		cp := ckUAT05()
+		cp.Dropped = nil
+		for i := 0; i < fillers; i++ {
+			cp.Dropped = append(cp.Dropped, checkpoint.DropEntry{
+				Kind: "file_pointer", ID: fmt.Sprintf("pkg/f%d.go", i), Detail: "truncated at budget; re_read(path) still resolves",
+			})
+		}
+		cp.Dropped = append(cp.Dropped,
+			checkpoint.DropEntry{Kind: "file_pointer", ID: "lnk/token.txt", Detail: "truncated at budget; re_read(path) still resolves"},
+			reason)
+		cp.Pointers.Tools = nil
+		for i, s := range append(append([]string(nil), withheld...), named) {
+			cp.Pointers.Tools = append(cp.Pointers.Tools, checkpoint.ToolPointer{
+				ToolUseID: core.ToolUseID(fmt.Sprintf("toolu_w22_%02d", i)), Hash: hashOf(s), Summary: s,
+			})
+		}
+		calls := 0
+		d := uat05Deps(t, cp)
+		d.HostPaths = hp(&calls)
+		r := requestFor(t, cp, maxBudget())
+		r.ProjectRoot = root
+		res, err := Build(context.Background(), r, d)
+		require.NoError(t, err)
+		section6 := sectionBody(res.Text, sectionHeading(ItemPointers))
+		for i, s := range withheld {
+			line := "- tool_use " + fmt.Sprintf("toolu_w22_%02d", i) + " " + hashOf(s).String() + " — "
+			require.Contains(t, section6, line+withheldSummary+"\n", "%d fillers: %q names the refused drop", fillers, s)
+		}
+		requireNoLeak(t, res, []string{"lnk/token.txt", "token.txt"})
+		if fillers > 69 {
+			line := "- tool_use " + fmt.Sprintf("toolu_w22_%02d", len(withheld)) + " " + hashOf(named).String() + " — "
+			require.Contains(t, section6, line+named+"\n", "%d fillers: a named drop the host allows is judged and shown", fillers)
+			_, ok := dropForKind(res.Dropped, "file_pointer", "pkg/f69.go")
+			require.True(t, ok, "%d fillers: section 7 names the judged, allowed drop as recorded", fillers)
+		}
+		return res, calls
+	}
+	_, calls0 := build(t, 0)
+	_, calls70 := build(t, 70)
+	_, calls1000 := build(t, 1000)
+	require.Equal(t, calls70, calls1000, "past the bound, more drops cost no more host judgements")
+	require.Less(t, calls70, calls0+70, "the bound holds with seventy drops")
 }
 
 // TestBuild_AQompackCommandInADropReasonIsNoPath is audit 2's finding 27: the drop-reason screen read

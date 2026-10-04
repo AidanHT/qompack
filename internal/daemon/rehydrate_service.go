@@ -766,8 +766,9 @@ func hostPolicyFor(o *Options) *hostperm.Policy {
 // that holds a separator, which may include an argument that holds one), the instruction and skill
 // files items 6a and 6b would restore, while a rule anchored outside the project is in force one
 // fresh name below the root, and at most 64 of the path-keyed checkpoint drops' other paths
-// (rehydrate's maxDropJudgements: the rest are withheld unjudged, audit 2's finding 28; with no Read
-// rule in force Refuses reads nothing and every drop is asked), once each per build, so a build costs
+// (rehydrate's maxDropJudgements, those a summary or a reason names first: the rest are withheld
+// unjudged and learned as withheld, audit 2's finding 28; with no Read rule in force Refuses reads
+// nothing and every drop is asked), once each per build, so a build costs
 // at most two Evaluates for each of those, whatever its commands and queries say. The file pointers
 // and structured summaries are bounded by the checkpoint's own budget and the instruction and skill
 // files by the project's configuration; the drops, whose number grows with the session, by the cap.

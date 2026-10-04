@@ -912,9 +912,11 @@ screened; it now also matches the raw segments as `hostperm` does (item 7(d)).
      the project, which a summary may then show; Qompack does not detect the volume's case
      sensitivity.
    - A path-keyed checkpoint drop past the bound on host judgements (item 10) is withheld unjudged
-     and is learned as a withheld path only when its spelling names a rule's literal; to the
-     free-text screen any other such path is one Qompack never recorded, so a name of it that a rule
-     refuses only through a link or an 8.3 name is the first bullet's limit.
+     and learned as withheld whatever its spelling (item 12), so a text that names one the host
+     would allow is withheld too: accepted over-withholding (coordinator decision D66(e)). The
+     drops a text names are judged first, so it touches only a session where more than 64 named
+     drops need a fresh judgement, or a text that names a drop in a way the build's ordering does not
+     read as a name (a cut prefix, a part of a path, a glob).
    - Free text that mentions a rule's literal or a withheld path's name where a name starts is
      withheld, whatever follows the name (`kubectl get secrets` under `Read(./secrets/**)`; `cat
      .env.local` under `Read(./.env)`; `git diff README.md` beside a withheld module-cache README.md;
@@ -1621,16 +1623,30 @@ screened; it now also matches the raw segments as `hostperm` does (item 7(d)).
       keeps every touched file as a pointer and its budget cut names each pointer it cuts, so 1000
       drops cost 1020 judgements and about 2.5 s through the real adapter on Windows, half the
       compaction answer's budget. While a Read rule's pattern is in force, the judge asks the host
-      about at most 64 fresh drop paths, in the order the checkpoint lists them (`maxDropJudgements`;
-      a file pointer's path among them was judged already and costs nothing), and answers every later
-      fresh path as refused without asking, memoized, so section 7, `dropped()` and every later
-      judgement of it withhold it (fail closed). It is learned as a withheld path only when its
-      spelling names a rule's literal (item 2's limits); learning every one would put a thousand
-      names into the free-text screen, withhold most summaries in such a session and make the
-      screen's cost quadratic. With no Read rule in force the host's rules are empty and read no
-      file (hostperm's `RuleSet.Empty`), and every drop is asked as before. The cap lives in
-      `hostRefuses` while the judge reads the drops, so any judgement made on a drop's behalf counts.
-      The same 1000 drops now cost 84 judgements in about 0.16 s
+      about at most 64 fresh drop paths (`maxDropJudgements`; a file pointer's path among them was
+      judged already and costs nothing): first each drop a tool summary or a drop reason names by its
+      basename or its path, then the rest in the order the checkpoint lists them (`dropOrder`,
+      `textNames`). It answers every later fresh path as refused without asking, memoized, so section
+      7, `dropped()` and every later judgement of it withhold it, and learns it as withheld like any
+      refused path, whatever its spelling, so every text that names it is withheld (fail closed).
+      Wave 22's verify found the first version, which learned such a drop only when its spelling held
+      a rule's literal, showing a drop the host refuses only through a link, a junction or an 8.3 name
+      (`lnk/token.txt`, `lnk` a link to `secrets`, under `Read(./secrets/**)`) wherever a free text, a
+      selector, a glob, a cut summary or a reason named it after 64 fresh drops, where eca33155, which
+      judged every drop, withheld them all; and it withheld in section 7 a drop past the bound that a
+      summary named, which eca33155 showed. Judging the named drops first keeps both answers
+      eca33155's in such a session (`TestBuild_ADropPastTheJudgementBoundIsWithheldWhereverItIsNamed`
+      passes there but for its bound); the over-withholding left is item 2's limit. Learning a
+      thousand paths put a thousand names before every summary, reading and reason: the screen reads
+      the learned paths through one index once learning ends (`learnedIndex`, a byte trie for the
+      names and the reasons' paths, and for selectors and globs the keys between NUL bytes, a glob
+      asking only the keys that hold its literal), whose every answer is the per-path loop's
+      (`TestLearnedIndex_AnswersAsTheLoopsDo`, `TestLearnedIndex_AJudgeAnswersAsItsListsDo`), and
+      `appendDistinct` stops scanning a list past 64 entries, which the index holds once each. With
+      no Read rule in force the host's rules are empty and read no file (hostperm's
+      `RuleSet.Empty`), and every drop is asked as before. The cap lives in `hostRefuses` while the
+      judge reads the drops, so any judgement made on a drop's behalf counts. The same 1000 drops
+      now cost 84 judgements in about 0.11 to 0.16 s
       (`TestBuild_PathKeyedCheckpointDropsCostABoundedNumberOfHostJudgements`, the drops variant of
       `TestRehydrateHostPaths_HostJudgementsAreStructuredSummariesAndFilePointers`). The file
       pointers and structured summaries the build judges are bounded by the checkpoint's own budget,

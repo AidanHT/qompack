@@ -163,6 +163,9 @@ type pathJudge struct {
 	// memo is the build's memory of the screen's answers (buildMemo); nil outside a judge newPathJudge
 	// made.
 	memo *buildMemo
+	// learned indexes known, knownText and knownPaths once learning ends (learnedIndex); nil while
+	// they are short, or outside a judge newPathJudge made, and the screen then reads each list.
+	learned *learnedIndex
 }
 
 // buildMemo is a judge's memory of the screen's answers for one build, shared by every copy of the
@@ -200,15 +203,17 @@ type gatedReason struct {
 // drops took a build towards the compaction answer's budget. While reading is set and a Read rule's
 // pattern is in force (bounded: with none the host's rules are empty, refuse nothing and read no
 // file, hostperm's RuleSet.Empty, so there is nothing to bound), hostRefuses judges at most
-// maxDropJudgements fresh paths, in the order the checkpoint lists the drops, and answers every
-// later fresh path as refused without a judgement, memoized, so section 7, dropped() and every later
-// judgement of the path withhold it (fail closed). Such a path is in skipped: the build learns it as
-// a withheld path only when its spelling names a rule's literal; any other is to the free-text
-// screen a path Qompack never recorded, whose names the rules' literals screen (D61, D60(iv)).
+// maxDropJudgements fresh paths, in dropOrder's order (first the drops a text names, then the rest as
+// the checkpoint lists them), and answers every later fresh path as refused without a judgement,
+// memoized, so section 7, dropped() and every later judgement of the path withhold it, and the build
+// learns it as withheld like any refused path, whatever its spelling, so every text that names it is
+// withheld too (fail closed; wave 22's verify: learning only a drop whose spelling held a rule's
+// literal showed a drop the host refuses through a link, a junction or an 8.3 name wherever a text
+// named it, which eca33155 withheld). The screen reads the learned paths through learnedIndex, so
+// learning a long session's drops costs it a pass over each text, not one per drop.
 type dropJudgements struct {
 	reading, bounded bool
 	made             int
-	skipped          map[string]bool
 }
 
 // maxDropJudgements is the most host judgements a build makes for its path-keyed checkpoint drops
@@ -456,17 +461,14 @@ func newPathJudge(r Request, d Deps) pathJudge {
 		}
 	}
 	// The drops' host judgements are bounded (dropJudgements); a file pointer's path among them was
-	// judged above and costs nothing more. A drop past the bound is withheld unjudged, and learned only
-	// when its spelling names a rule's literal.
+	// judged above and costs nothing more. The drops a text names are judged first (dropOrder), and a
+	// drop past the bound is withheld unjudged and learned as withheld like any refused path, so every
+	// text that names it is withheld (fail closed).
 	j.drops.reading = true
-	for _, e := range r.Checkpoint.Dropped {
-		if !checkpointPathDrops[e.Kind] || !j.withheld(e.ID) {
-			continue
+	for _, e := range dropOrder(r.Checkpoint, j) {
+		if j.withheld(e.ID) {
+			j.note(e.ID)
 		}
-		if p := judgedSpelling(e.ID); j.drops.skipped[p] && !j.textNamesWithheld(j.markRoot(sanitize(p)), screenExact) {
-			continue
-		}
-		j.note(e.ID)
 	}
 	j.drops.reading = false
 	for _, t := range r.Checkpoint.Pointers.Tools {
@@ -483,10 +485,110 @@ func newPathJudge(r Request, d Deps) pathJudge {
 			}
 		}
 	}
-	// Answers that depend on the withheld paths learned above are memoized only now that learning ends.
+	// Answers that depend on the withheld paths learned above are memoized, and the paths indexed, only
+	// now that learning ends.
 	j.memo.summaries = make(map[string]bool)
 	j.memo.reasons = make(map[string]gatedReason)
+	j.learned = newLearnedIndex(j.known, j.knownText, j.knownPaths)
 	return j
+}
+
+// dropOrder is cp's path-keyed drop entries in the order newPathJudge asks the host about them: while
+// the drops' judgements are bounded (dropJudgements) and they outnumber the bound, first each one a
+// text the build screens names by its basename or its path (textNames, dropNamed), then the rest,
+// each group in checkpoint order; otherwise checkpoint order. A drop past the bound is withheld
+// unjudged and learned as withheld, so every text that names it is withheld (fail closed); judging
+// first the drops a text names keeps that over-withholding off the texts the payload shows, and a
+// named drop the host allows is shown, in section 6 and in section 7, as eca33155 showed it (wave
+// 22's verify of finding 28).
+func dropOrder(cp checkpoint.Checkpoint, j pathJudge) []checkpoint.DropEntry {
+	var drops []checkpoint.DropEntry
+	for _, e := range cp.Dropped {
+		if checkpointPathDrops[e.Kind] {
+			drops = append(drops, e)
+		}
+	}
+	if j.drops == nil || !j.drops.bounded || len(drops) <= maxDropJudgements {
+		return drops
+	}
+	names := textNames(cp)
+	first := make([]checkpoint.DropEntry, 0, len(drops))
+	var rest []checkpoint.DropEntry
+	for _, e := range drops {
+		if j.dropNamed(e.ID, names) {
+			first = append(first, e)
+		} else {
+			rest = append(rest, e)
+		}
+	}
+	return append(first, rest...)
+}
+
+// textNames is the set of names the texts a build screens spell (dropOrder): each tool summary and
+// each checkpoint drop's reason but the model's own (modelTextDrops), in each screen form
+// (screenForms) and, for a canonical-JSON preview, each of its decoded strings too, each distinct text
+// read once (most drops share one reason), split at every
+// ASCII character a file name rarely holds, each word with its trailing dots dropped and with each of
+// its tails after a `/`. It only orders the drops' judgements, so a name it misses costs
+// over-withholding, never a path shown.
+func textNames(cp checkpoint.Checkpoint) map[string]bool {
+	names := make(map[string]bool)
+	seen := make(map[string]bool)
+	add := func(t string) {
+		if seen[t] {
+			return
+		}
+		seen[t] = true
+		for _, form := range screenForms(sanitize(t)) {
+			for _, w := range strings.FieldsFunc(form, notNameRune) {
+				for w = strings.TrimRight(w, "."); w != ""; {
+					names[w] = true
+					k := strings.IndexByte(w, '/')
+					if k < 0 {
+						break
+					}
+					w = w[k+1:]
+				}
+			}
+		}
+	}
+	for _, tp := range cp.Pointers.Tools {
+		add(tp.Summary)
+		if jsonShaped(tp.Summary) {
+			strs, _ := jsonStrings(tp.Summary)
+			for _, s := range strs {
+				add(s.value)
+			}
+		}
+	}
+	for _, e := range cp.Dropped {
+		if !modelTextDrops[e.Kind] {
+			add(e.Detail)
+		}
+	}
+	return names
+}
+
+// notNameRune reports an ASCII character other than a letter, a digit or one of `. _ - ~ $ % # + @ /`
+// (textNames).
+func notNameRune(r rune) bool {
+	return r < utf8.RuneSelf && !asciiLetter(byte(r)) && !(r >= '0' && r <= '9') && !strings.ContainsRune("._-~$%#+@/", r)
+}
+
+// dropNamed reports whether id, a path-keyed drop's path, is in names (textNames) by its basename,
+// its project-relative path or its whole cleaned spelling, in screen form.
+func (j pathJudge) dropNamed(id string, names map[string]bool) bool {
+	p := judgedSpelling(id)
+	slash := strings.TrimRight(strings.ReplaceAll(p, `\`, "/"), "/")
+	if names[screenText(path.Base(slash), true)] || names[screenText(path.Clean(slash), true)] {
+		return true
+	}
+	// A relative path's key is its cleaned spelling, asked above.
+	if !absLike(p) {
+		return false
+	}
+	k, ok := j.key(p)
+	return ok && names[screenText(k, true)]
 }
 
 // notedValues are the structured path values of summary the build judges WHOLE, and so may learn to
@@ -605,10 +707,17 @@ func namesAFile(base string) bool {
 	return homeOrVarRoot.FindString(base) != base
 }
 
-// appendDistinct appends s to set unless it is empty or already there.
+// appendDistinct appends s to set unless it is empty or, while set holds at most distinctScanMax
+// entries, already there. A longer set is a learned list a long session grew (a drop past the host's
+// bound is learned whatever its spelling), whose readers ask only whether some entry matches and read
+// it through the build's learnedIndex, which holds each entry once: a scan on every append made
+// learning quadratic in the drops (wave 22's verify of audit 2's finding 28).
 func appendDistinct(set []string, s string) []string {
 	if s == "" {
 		return set
+	}
+	if len(set) > distinctScanMax {
+		return append(set, s)
 	}
 	for _, e := range set {
 		if e == s {
@@ -617,6 +726,10 @@ func appendDistinct(set []string, s string) []string {
 	}
 	return append(set, s)
 }
+
+// distinctScanMax is the longest set appendDistinct scans for a repeat; it is past learnedIndexMin,
+// so every list that may hold a repeat is read through the index.
+const distinctScanMax = 2 * learnedIndexMin
 
 // pathJudgeFor is the judge Build made for d's build, or a new one for r when the item is built on
 // its own.
@@ -658,10 +771,6 @@ func (j pathJudge) hostRefuses(p string) bool {
 		if j.drops.made >= maxDropJudgements {
 			// Past the drops' bound: refused without a judgement, and remembered so (fail closed).
 			j.judged[p] = true
-			if j.drops.skipped == nil {
-				j.drops.skipped = make(map[string]bool)
-			}
-			j.drops.skipped[p] = true
 			return true
 		}
 		j.drops.made++
@@ -1630,7 +1739,7 @@ func asciiFoldEqual(a, b string, fold bool) bool {
 // where a name ends. With mode screenExact the withheld names are not read.
 func (j pathJudge) textNamesWithheld(marked string, mode nameScreen) bool {
 	sets := [][]string{j.screens}
-	if mode != screenExact {
+	if mode != screenExact && j.learned == nil {
 		sets = append(sets, j.knownText)
 	}
 	for _, form := range screenForms(marked) {
@@ -1650,6 +1759,9 @@ func (j pathJudge) textNamesWithheld(marked string, mode nameScreen) bool {
 					return true
 				}
 			}
+		}
+		if mode != screenExact && j.learned != nil && j.learned.text.namedAt(form, mode == screenFree) {
+			return true
 		}
 	}
 	return false
@@ -1747,13 +1859,20 @@ func cutAtDriveColon(w string, inRun bool) bool {
 // inside a glob run (`.env` for `**/*.env`) may begin inside a name, so its prefix counts with no
 // boundary.
 func (j pathJudge) cutPrefixNamed(marked string) bool {
+	sets := [][]string{j.screens, j.openScreens, j.knownText, j.rulePaths}
+	if j.learned != nil {
+		sets[2] = nil
+	}
 	for _, form := range screenForms(marked) {
-		for _, set := range [][]string{j.screens, j.openScreens, j.knownText, j.rulePaths} {
+		for _, set := range sets {
 			for _, name := range set {
 				if endsWithPrefixOf(form, name, true) {
 					return true
 				}
 			}
+		}
+		if j.learned != nil && j.learned.text.endsWithPrefix(form, true) {
+			return true
 		}
 		for _, name := range j.midScreens {
 			if endsWithPrefixOf(form, name, false) {
@@ -2432,6 +2551,9 @@ func (j pathJudge) selectsKnown(v string) bool {
 	if k == "" {
 		return false
 	}
+	if j.learned != nil && strings.IndexByte(k, 0) < 0 {
+		return j.learned.selectsLearned(k, j.known)
+	}
 	glob := isGlob(k)
 	for _, w := range j.known {
 		switch {
@@ -2495,6 +2617,9 @@ func (j pathJudge) globSelectsKnown(g string) bool {
 	k, ok := j.key(g)
 	if !ok {
 		return false
+	}
+	if j.learned != nil {
+		return j.learned.matchesLearned(k, j.known, rules.Match)
 	}
 	for _, w := range j.known {
 		if rules.Match(k, w) {
@@ -3262,6 +3387,9 @@ func notOperationRune(r rune) bool { return r >= utf8.RuneSelf || !asciiLetter(b
 // withholds (knownPaths) as a path of its own: it starts where a path starts (pathRunStart) and ends
 // at a word or path-segment boundary (a closing `.` before a boundary counts as one).
 func (j pathJudge) namesKnownIn(t string) bool {
+	if j.learned != nil {
+		return j.learned.paths.namesPathIn(t)
+	}
 	for _, k := range j.knownPaths {
 		for from := 0; from+len(k) <= len(t); {
 			i := strings.Index(t[from:], k)
@@ -3269,9 +3397,7 @@ func (j pathJudge) namesKnownIn(t string) bool {
 				break
 			}
 			start, end := from+i, from+i+len(k)
-			after := end == len(t) || strings.IndexByte(reasonBoundary, t[end]) >= 0 ||
-				(t[end] == '.' && (end+1 == len(t) || strings.IndexByte(reasonBoundary, t[end+1]) >= 0))
-			if after && pathRunStart(t, start) {
+			if reasonEndsAt(t, end) && pathRunStart(t, start) {
 				return true
 			}
 			from = start + 1
