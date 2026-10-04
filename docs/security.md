@@ -69,48 +69,60 @@ require a separate authorized expansion.
 **The rehydration block follows the same rules for its pointers.** After a compaction, a file or
 tool pointer whose path these rules deny or ask about, or which lies outside the project, points by
 content hash instead. A tool call's argument summary that is one path argument (a Read's file, a
-Glob's or Grep's lone argument, the one path-named JSON argument) is judged as that path, and one
-that starts at the project root is judged through its path part (the stretch from the root to the
-last word that holds a separator, which may include an argument that holds one); several path-named
-values, and a value the preview's cut fell inside, are judged by containment and the screen below,
-and a glob among them is withheld when it selects a withheld path. A one-word summary must also pass
-the free-text screen, reading whole names (the project's own `.env.example` is not the denied
-`.env`; `.env.`, `.env:stream` and `deny.txt#L4` are). Any other summary (a command, a query, a
-prompt, a URL) is free text, and is SHOWN only when a whitelist proves it safe (coordinator decision
-D63): every whitespace-delimited token must be built only from letters, digits and a small safe
-punctuation set (a few shell operators, the null device's redirects and a simple double-quoted run
-allowed whole; a backslash only before a character other than a backslash), must name no absolute or
+Glob's or Grep's lone argument, the one path-named JSON argument) is judged as that path, a Glob of a
+directory under the project root is judged as one glob (its directory by these rules, its pattern by
+what it selects), and one that starts at the project root is judged through its path part (the
+stretch from the root to the last word that holds a separator, which may include an argument that
+holds one); several path-named values, and a value the preview's cut fell inside, are judged by
+containment and the screen below, and a glob among them is withheld when it selects a withheld
+path. Containment reads a glob as a glob: a class, a `?` or a leading dot that may match `..`, and a
+class that may match a separator (`[/]etc[/]passwd`), name a path outside the project, and so does a
+`file:` URL wherever it stands. A one-word summary must also pass the free-text screen, reading whole
+names (the project's own `.env.example` is not the denied `.env`; `.env.`, `.env:stream` and
+`deny.txt#L4` are); a rule's literal that starts a glob segment (`secret` for `Read(./secret*)`)
+counts whatever follows it; and a rooted path spelled in one separator style is screened by the
+rules' literals alone, so a Read outside the project never withholds the project's own file of the
+same name. Any other summary (a command, a query, a prompt, a URL) is free text, and is SHOWN only
+when a whitelist proves it safe (coordinator decision D63): every whitespace-delimited token must be
+built only from letters, digits and a small safe punctuation set (a few shell operators, the null
+device's redirects, a simple double-quoted run, which may hold parentheses, and a simple
+single-quoted run allowed whole; an apostrophe only between two letters; a backslash only before a
+character other than a backslash; a `;`, `|`, `&&` or `||` glued to a word splits it into pieces
+judged alike; a single `%` only where no escape or variable can use it), must name no absolute or
 escaping path in either reading of its backslashes (as cmd.exe and PowerShell read it, a separator,
 and as a POSIX shell reads it, an escape), and the text must hold, where a name starts, no Read deny
 or ask rule's literal (`secrets` for `Read(./secrets/**)`, `deny.txt` for
 `Read(./private/deny.txt)`), no name of a path the block withholds, and no `recall` `path:` selector
-that selects a withheld path. Anything else withholds the summary: a quote, a `$`, a `%`, a
-backtick, a caret, a glob or regex metacharacter, a Unicode space or quote, a backslash that ends a
-token (an escaped space or a collapsed line continuation) or doubles, an absolute path at any place
-a path may start (the token's start, after `=`, `:`, `,` or `@`, or after a short option: a home
-directory, a drive, a UNC share, a `file:` URL), a `..` beside a separator, a delimiter or a word's
-end (cmd.exe's `cd..` included; a range such as `HEAD~3..HEAD` is not one), or, inside a quoted
-argument, the project root followed by a space and another name (a sibling folder). Every free-text
-summary is also withheld while the rules cannot be read, or while a rule covers the whole project
-through any spelling of its root the host resolves (a link, a junction, an 8.3 name). The whitelist
-is complete for privacy by construction — the only way a shell can transform a whitelisted token is
-a backslash, which the screen reads both ways, since the caret and the backtick are themselves
-rejected, and a quoted run's content reaches every shell verbatim — but it over-withholds: a command
-that quotes with single quotes, uses a variable, globs, or runs a regular expression is withheld
-whether or not it names a denied file. A checkpoint drop entry keyed by a withheld path stays in
-`dropped()` with the path replaced by the pointer's hash or `(path withheld)`, and no drop reason,
-the checkpointer's own git or scan errors included, shows such a path or one outside the project.
-The block restores no `paths:` rule, nested CLAUDE.md file or skill these rules deny or ask about,
-or that lies outside the project (every one while the rules cannot be read), and names none in its
-drop report; nor does it look for nested CLAUDE.md files above a withheld pointer. Drop entries that
-carry the model's own text (an `already_tried` call, an open question) are not gated, nor are the
-block's records of eliminated approaches and decisions, which are the model's own earlier text too.
-The screen's limits (aliases, 8.3 names, links and Unicode normalization or compatibility variants
-of a name — an NFD spelling of an NFC literal, a fullwidth spelling that a code page's best-fit
-mapping reads as ASCII — are never resolved in free text, nor are names built at run time or
-relative to a `cd`; a drop reason naming an in-project path the block never recorded is screened for
-outside paths and withheld paths, not for the rules' literals) are in [ADR 0011
-§23](adr/0011-rehydration-budget-and-item-order.md).
+that selects a withheld path. Anything else withholds the summary: a `$`, a second `%` or one before
+two hex digits, a backtick, a caret, a glob or regex metacharacter, a quote elsewhere, a Unicode space
+or quote, a `=` that starts a word (zsh expands `=name` to a command's path), a `#` inside a word (a
+zsh extended-glob operator), a whole `@name` (a PowerShell splat), a backslash that ends a token (an
+escaped space or a collapsed line continuation) or doubles, an absolute path at any place a path may
+start (the token's start, after `=`, `:`, `,`, `@`, an apostrophe or a parenthesis, or after a short
+option: a home directory, a drive, a UNC share, a `file:` URL), a `..` beside a separator, a
+delimiter or a word's end (cmd.exe's `cd..` included; a range such as `HEAD~3..HEAD` is not one), or,
+inside a quoted argument, the project root followed by a space and another name (a sibling folder).
+Every free-text summary is also withheld while the rules cannot be read, or while a rule covers the
+whole project through any spelling of its root the host resolves (a link, a junction, an 8.3 name).
+The whitelist is complete for privacy by construction — the only ways a shell can transform a
+whitelisted token are a backslash, which the screen reads both ways, the removal of quotes, which the
+screen reads too, and a nested shell's reading of a quoted run's parentheses, which the screen reads
+with them removed — but it over-withholds: a command that uses a variable, globs, or runs a regular
+expression is withheld whether or not it names a denied file. A checkpoint drop entry keyed by a
+withheld path stays in `dropped()` with the path replaced by the pointer's hash or `(path withheld)`,
+and no drop reason, the checkpointer's own git or scan errors included, shows such a path or one
+outside the project. The block restores no `paths:` rule, nested CLAUDE.md file or skill these rules
+deny or ask about, or that lies outside the project (every one while the rules cannot be read), and
+names none in its drop report; nor does it look for nested CLAUDE.md files above a withheld pointer.
+Drop entries that carry the model's own text (an `already_tried` call, an open question) are not
+gated, nor are the block's records of eliminated approaches and decisions, which are the model's own
+earlier text too. The screen's limits (aliases, 8.3 names, links and Unicode normalization or
+compatibility variants of a name — an NFD spelling of an NFC literal, a fullwidth spelling that a
+code page's best-fit mapping reads as ASCII — are never resolved in free text, nor are names built at
+run time or relative to a `cd`; a glob that selects a refused file the block never recorded without
+spelling its literal is judged as written; a drop reason naming an in-project path the block never
+recorded is screened for outside paths and withheld paths, not for the rules' literals) are in [ADR
+0011 §23](adr/0011-rehydration-budget-and-item-order.md).
 
 **A refusal is not an oracle.** The refusal sentence never echoes the offending path, so denials
 cannot be used to probe what exists outside the project. Measured across three escape shapes and
