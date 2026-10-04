@@ -304,3 +304,33 @@ func TestRegistrySnapshotIsOrderedByActivityThenID(t *testing.T) {
 	require.Equal(t, []core.SessionID{"d", "a", "b", "c", "e"}, first,
 		"most recent activity first, ties by session id")
 }
+
+// TestRegistryEvictionBreaksAnEndedTSTieBySessionID pins evictLocked's tie-break: when the ended
+// sessions over the limit share their EndedTS, the one with the smallest session id is evicted,
+// the same on every run. Picking by map range alone left a tie to Go's randomized iteration order.
+func TestRegistryEvictionBreaksAnEndedTSTieBySessionID(t *testing.T) {
+	t.Parallel()
+
+	ended := []core.SessionID{"e", "c", "a", "d", "b"} // registered out of id order on purpose
+	for trial := 1; trial <= 30; trial++ {
+		r := NewSessionRegistry()
+		r.SetMaxSessions(len(ended) + 1)
+		r.Ensure(&hookio.Event{SessionID: "live"}, 100)
+		for _, id := range ended {
+			r.Ensure(&hookio.Event{SessionID: id}, 100)
+			r.End(id, 500) // every ended session shares one EndedTS
+		}
+
+		// One more session takes the tracked count over the limit: exactly one ended session goes.
+		r.Ensure(&hookio.Event{SessionID: "new"}, 600)
+
+		require.Equal(t, len(ended)+1, r.Len(), "trial %d: exactly one session is evicted", trial)
+		_, ok := r.Get("a")
+		require.False(t, ok, "trial %d: of the ended sessions tied at one EndedTS, the smallest id "+
+			"(a) must be the one evicted", trial)
+		for _, id := range []core.SessionID{"b", "c", "d", "e", "live", "new"} {
+			_, ok := r.Get(id)
+			require.True(t, ok, "trial %d: %s must be kept", trial, id)
+		}
+	}
+}

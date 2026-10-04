@@ -22,7 +22,7 @@ func TestStatusSource_NoDaemonNamesTheReason(t *testing.T) {
 	client := mcpCmdOfflineClient(t, root)
 	t.Cleanup(func() { _ = client.Close() })
 
-	_, _, err := fetchDaemonStatus(context.Background(), client, daemonListening(root))
+	_, _, err := fetchDaemonStatus(context.Background(), client, true, daemonListening(root))
 	require.Error(t, err)
 	msg := err.Error()
 	require.False(t, strings.HasSuffix(strings.TrimSpace(msg), ":"), "the reason must not be empty: %q", msg)
@@ -57,7 +57,7 @@ func TestStatusSource_ASilentDaemonIsNotReportedAbsent(t *testing.T) {
 	client := mcpCmdOfflineClient(t, root)
 	t.Cleanup(func() { _ = client.Close() })
 
-	_, _, err = fetchDaemonStatus(context.Background(), client, daemonListening(root))
+	_, _, err = fetchDaemonStatus(context.Background(), client, true, daemonListening(root))
 	require.Error(t, err)
 	msg := err.Error()
 	require.NotContains(t, msg, "none is listening", "a daemon is listening: %q", msg)

@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -41,17 +40,6 @@ type statusOrderEnvelope struct {
 	} `json:"data"`
 }
 
-// statusOrderConfig gives the row's project a command-client connect budget of
-// bootstrapProbeTimeout, this file's existing dial budget for a daemon that is up but busy.
-//
-// The shipped Windows default (config.ConnectDeadlineMsWindows, 25 ms) buys only about three
-// named-pipe attempts, and 60 back-to-back reads each dial twice (daemonListening's probe, then the
-// request), so a dial can land while the listener is re-arming its next instance (ERROR_PIPE_BUSY)
-// and miss that budget. That read then answers source "none", which differs from the first read
-// for a reason that has nothing to do with order. Connect latency is not what this row tests.
-var statusOrderConfig = fmt.Sprintf(`{"runtime":{"daemon":{"connectDeadlineMs":%d}}}`,
-	bootstrapProbeTimeout.Milliseconds())
-
 // startStatusOrderSession sends root's daemon a SessionStart for id, as the hook client does.
 func startStatusOrderSession(t *testing.T, root string, id core.SessionID) {
 	t.Helper()
@@ -78,8 +66,11 @@ func startStatusOrderSession(t *testing.T, root string, id core.SessionID) {
 //
 // Not parallel: bootstrapDaemon resets the process-wide producer set.
 func TestStatus_RepeatedReadsOfUnchangedStateAgree(t *testing.T) {
+	// The project runs on the shipped configuration. The row's 60 back-to-back reads each dial twice
+	// (daemonListening's probe, then the request), and once needed a 250 ms connectDeadlineMs in the
+	// project's config to stay off connect misses under the hot path's 25 ms Windows budget. Command
+	// clients now dial with commandConnectDeadline (D60(e)), so the row needs no such override.
 	root := bootstrapProject(t)
-	writeProjectConfig(t, root, statusOrderConfig)
 	stop := bootstrapDaemon(t, root)
 	defer stop()
 
