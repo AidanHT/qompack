@@ -122,6 +122,7 @@ type draftWire struct {
 	Started       core.UnixMilli     `json:"started"`
 	WorkExplicit  bool               `json:"work_explicit"`
 	UserQuestions []string           `json:"user_questions"`
+	GoalTurn      *core.TurnIndex    `json:"goal_turn,omitempty"`
 	Checkpoint    json.RawMessage    `json:"checkpoint"`
 }
 
@@ -435,7 +436,11 @@ func TestAdvanceStripsInjectionsFromStoredPrompts(t *testing.T) {
 		require.NotContains(t, e, "stale summary", "an injected body must never re-enter a checkpoint")
 		require.NotContains(t, e, "qompack:injected")
 	}
-	require.NotContains(t, cp.CurrentWork.Goal, "stale summary")
+	// The goal is the stripped remainder's first sentence — here all of it, which has no sentence
+	// break — exactly: an empty goal would pass a NotContains as well.
+	stripped, _ := checkpoint.StripInjectionsCount(injected)
+	require.NotContains(t, stripped, "stale summary")
+	require.Equal(t, stripped, cp.CurrentWork.Goal)
 }
 
 // TestAdvanceReadsPromptTextThroughToolUseRecordFallback pins the fallback the shipped observer

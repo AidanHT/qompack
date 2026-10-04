@@ -20,9 +20,10 @@ import (
 // turn range. Those nodes are keyed by turn alone (promptAs explains), so a fork's segment spanning
 // turns 2-4 found the PARENT's turn-2 and turn-4 prompts beside its own turn-3 one and took the
 // highest turn; and a prompt in the still-open segment (the 45 correction) was never read at all.
-// Current work now comes from the same source as the user's intent: the session's newest own prompt
-// record (an unreadable newest record leaves the goal as it was), refreshed at every Begin, Advance
-// and PreCompact.
+// Current work now comes from the same source as the user's intent: the session's own prompt
+// records — the newest one that gives a goal, walking back past a slash-command invocation, a blank
+// prompt or one whose bytes cannot be read — refreshed at every Begin, Advance and PreCompact
+// (current_work_test.go pins those edges).
 
 // The rest of the UAT-06 conversation, verbatim in shape.
 const (
@@ -152,6 +153,21 @@ func TestResumedSessionCurrentWorkIsItsNewestPrompt(t *testing.T) {
 	require.Equal(t, rateCorrection45Goal, second.CurrentWork.Goal)
 	require.Equal(t, rateAsk, second.UserIntent.Original)
 	require.Equal(t, []string{rateCorrection60, forkWhy, rateCorrection45}, second.UserIntent.Evolution)
+}
+
+// TestOnePromptSessionCurrentWorkIsItsPrompt: the most common first compaction — a session that has
+// said one thing, still in its open segment. Its only prompt is both the Original and the current
+// work; leaving the Original out of the evolution must not leave it out of the goal.
+func TestOnePromptSessionCurrentWorkIsItsPrompt(t *testing.T) {
+	f := newFx(t)
+	openSegment(f, f.sess, 0)
+	promptAs(f, f.sess, 0, rateAsk)
+
+	cp := sealed(t, f, f.precompactAs(f.sess))
+
+	require.Equal(t, "We are building a rate limiter for the Kite API gateway.", cp.CurrentWork.Goal)
+	require.Equal(t, rateAsk, cp.UserIntent.Original)
+	require.Empty(t, cp.UserIntent.Evolution)
 }
 
 // TestExplicitCurrentWorkSurvivesAPromptRefresh: SetCurrentWork stops every derivation for good

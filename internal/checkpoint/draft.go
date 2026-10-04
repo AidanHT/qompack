@@ -327,7 +327,10 @@ type draftFile struct {
 	Started       core.UnixMilli     `json:"started"`
 	WorkExplicit  bool               `json:"work_explicit,omitempty"`
 	UserQuestions []string           `json:"user_questions,omitempty"`
-	Checkpoint    json.RawMessage    `json:"checkpoint"`
+	// GoalTurn is the turn the derived CurrentWork.Goal was read from (Draft.goalTurn), absent when
+	// there is none. A file without it was written by candidate 7 or earlier, or holds no such goal.
+	GoalTurn   *core.TurnIndex `json:"goal_turn,omitempty"`
+	Checkpoint json.RawMessage `json:"checkpoint"`
 }
 
 // persist writes the draft to its state file UNCONDITIONALLY. It is the entry point for the two
@@ -366,6 +369,11 @@ func (d *Draft) persistLocked() error {
 	if err != nil {
 		return fmt.Errorf("checkpoint: draft %s: %w", d.session, err)
 	}
+	var goalTurn *core.TurnIndex
+	if d.goalTurnSet {
+		t := d.goalTurn
+		goalTurn = &t
+	}
 	b, err := json.Marshal(draftFile{
 		Session:       d.session,
 		Seq:           d.seq,
@@ -375,6 +383,7 @@ func (d *Draft) persistLocked() error {
 		Started:       core.UnixMilli(d.started.UnixMilli()),
 		WorkExplicit:  d.workExplicit,
 		UserQuestions: d.userOQ,
+		GoalTurn:      goalTurn,
 		Checkpoint:    raw,
 	})
 	if err != nil {

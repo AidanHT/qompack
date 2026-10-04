@@ -39,3 +39,11 @@ func DraftScansForTest(w *FileWriter) int {
 	defer w.claimFloorMu.Unlock()
 	return w.draftScans
 }
+
+// EvolutionReadLimitForTest is how many bytes of one restatement a refresh reads
+// (current_work_test.go tells a bounded read from a whole one by it).
+const EvolutionReadLimitForTest = evolutionReadLimit
+
+// GoalWalkLimitForTest is how many of the session's newest prompt records one derivation of the
+// current-work goal looks at.
+const GoalWalkLimitForTest = goalWalkLimit
