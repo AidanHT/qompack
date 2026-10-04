@@ -4,6 +4,8 @@ package checkpoint
 // where every test of Finalize lives. It is a _test.go file, so nothing here ships in a binary.
 
 import (
+	"time"
+
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/paths"
 )
@@ -47,3 +49,10 @@ const EvolutionReadLimitForTest = evolutionReadLimit
 // GoalWalkLimitForTest is how many of the session's newest prompt records one derivation of the
 // current-work goal looks at.
 const GoalWalkLimitForTest = goalWalkLimit
+
+// SetWallNowForTest replaces the wall-clock reading PreCompact anchors its context deadline to
+// (FileWriter.wallNow). Nil restores time.Now.
+func SetWallNowForTest(w *FileWriter, now func() time.Time) { w.wallNow = now }
+
+// MinFinalizeWindowForTest is PreCompact's budget floor; MaxPreCompactWindow is its cap.
+const MinFinalizeWindowForTest = minFinalizeWindow
