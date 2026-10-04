@@ -43,10 +43,21 @@ func logCount(log *recordingLogger, level, msg string) int {
 // and logged one for each file it finished, and no blob was ever collected: the corrupt line, announced
 // once, was reported again on every pass by another route. A line that does not decode is never
 // dispatched; it holds back the blobs it names, in case a binary that can decode it replays it, and no
-// others.
+// others. It names a blob as an encoder writes the name, which escapes the & a blob's name may carry.
 func TestDrain_ACorruptLineAheadOfAFrontHoldsBackOnlyTheBlobsItNames(t *testing.T) {
-	for _, names := range []bool{false, true} {
-		t.Run(fmt.Sprintf("names the blob=%v", names), func(t *testing.T) {
+	const blob = "blob-8891-1&a.bin"
+	encoded, err := json.Marshal(blob)
+	require.NoError(t, err)
+	require.NotContains(t, string(encoded), blob, "fixture: the encoder escapes the name's &")
+	for _, c := range []struct {
+		name, corrupt string
+		names         bool
+	}{
+		{"names no blob", "not a request\n", false},
+		{"names the blob", `not a request, though it names "` + blob + "\"\n", true},
+		{"names the blob as an encoder escapes it", "not a request, though it names " + string(encoded) + "\n", true},
+	} {
+		t.Run(c.name, func(t *testing.T) {
 			dd, _, root := laneTestDaemon(t)
 			ctx := context.Background()
 			cfg := dd.drainConfig()
@@ -54,13 +65,9 @@ func TestDrain_ACorruptLineAheadOfAFrontHoldsBackOnlyTheBlobsItNames(t *testing.
 			cfg.Log = log
 			dr := newDrainer(cfg)
 			dd.drain.Store(dr)
-			const blob, done = "blob-8891-1.bin", "client-8891.ndjson"
-			corrupt := []byte("not a request\n")
-			if names {
-				corrupt = []byte(`not a request, though it names "` + blob + "\"\n")
-			}
+			const done = "client-8891.ndjson"
 			head := blockedSpoolHead(t, dd, root, "sess-refs-stuck", 0)
-			writeRawSpool(t, root, "client-8890.ndjson", hookSpoolLine(t, head), corrupt)
+			writeRawSpool(t, root, "client-8890.ndjson", hookSpoolLine(t, head), []byte(c.corrupt))
 			published := blobSpoolLine(t, root, liveOrderTool(dd, root, "sess-refs-blob", 7), blob)
 			writeHookSpool(t, root, done, published)
 
@@ -73,7 +80,7 @@ func TestDrain_ACorruptLineAheadOfAFrontHoldsBackOnlyTheBlobsItNames(t *testing.
 				"the corrupt line is counted once, and nothing else is a file error")
 			require.Zero(t, logCount(log, logWarn, "daemon: drain: file error"))
 			blobPath := filepath.Join(paths.Of(root).Spool, blob)
-			if names {
+			if c.names {
 				require.FileExists(t, blobPath, "a blob a line ahead of a front names stays, though the line does not decode")
 				return
 			}
@@ -345,6 +352,55 @@ func TestDrainClientSpools_ALineReadAndLeftIsAnnouncedWhenALaterPassSkipsIt(t *t
 			require.Equal(t, 1, logCount(log, logLoud, "daemon: drain: capture not admitted; record skipped"),
 				"and announced once")
 		})
+	}
+}
+
+// TestDrainClientSpools_ALineReleasedAtTheEndOfItsFileIsRememberedWithItsOwnGaps: the end-of-file
+// re-attempt publishes a line that waited on an earlier arrival of its session, released by that
+// arrival's live copy while the pass read on. A line published out of order behind a waiting head is
+// remembered with the gaps consuming it added (consumedLine.gaps), which every later pass reports again.
+// The re-attempt collects each line's gaps from that line's own start (gapRecorder.startLine): collected
+// from where the last line the pass read began, the released line's memo took that line's gap too, here
+// a refused line's whose lease is held, and every later pass reported it twice.
+func TestDrainClientSpools_ALineReleasedAtTheEndOfItsFileIsRememberedWithItsOwnGaps(t *testing.T) {
+	dd, _, root := laneTestDaemon(t)
+	ctx := context.Background()
+	cfg := dd.drainConfig()
+	const base = "client-8921.ndjson"
+	const sess core.SessionID = "sess-end-gaps"
+	p0 := spD3Prompt(dd, root, sess, orderNonce(10), "p0")
+	acceptPrompt(t, dd, p0) // leased; its job waits on the ring for a worker, and none runs
+	p1 := liveOrderTool(dd, root, sess, 1)
+	refused := liveOrderTool(dd, root, "sess-end-gaps-refused", 2)
+	_, ok := dd.ing.leaseDelivery(ctx, refused)
+	require.True(t, ok, "fixture: the refused line's lease is held")
+	admit := publishQueuedFirst(t, dd, cfg.Admit, refused.Nonce, 1)
+	cfg.Admit = func(req ipc.Request) admissionVerdict {
+		verdict := admit(req)
+		if req.Nonce == refused.Nonce {
+			return admissionVerdict{Request: req, Failed: true, Reason: "test policy unavailable"}
+		}
+		return verdict
+	}
+	dr := newDrainer(cfg)
+	dd.drain.Store(dr)
+	head := blockedSpoolHead(t, dd, root, "sess-end-gaps-stuck", 20)
+	writeHookSpool(t, root, base, head, p1, refused)
+
+	_, err := dr.DrainClientSpools(ctx)
+	require.NoError(t, err)
+	require.True(t, spoolWatchPublished(dd, p0.Nonce), "fixture: p0's live copy published during the pass")
+	require.True(t, spoolWatchPublished(dd, p1.Nonce), "fixture: the end-of-file re-attempt published p1")
+	for pass := 2; pass <= 3; pass++ {
+		_, err = dr.Drain(ctx)
+		require.NoError(t, err, "pass %d", pass)
+		held := 0
+		for _, g := range dr.GapState().Gaps {
+			if g.File == base && g.Kind == DrainGapUnadmitted {
+				held += g.Count
+			}
+		}
+		require.Equal(t, 1, held, "pass %d reports the refused line's gap once", pass)
 	}
 }
 
