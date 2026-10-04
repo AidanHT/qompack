@@ -25,6 +25,16 @@ import (
 // head (spoolMemo), and what a pass that skips such lines must still get right. The cost rows are in
 // drain_pass_cost_test.go.
 
+// memoDrainConfig is dd.drainConfig() for the rows below, whose assertions are about what a pass
+// publishes, remembers and holds back, never about how fast: each delivery runs without the line's
+// drainLineDeadline (withoutLineDeadline), so a stalled host cannot cancel a line a row expects
+// published. A pass budget a row sets (withPassBudget) still applies.
+func memoDrainConfig(dd *daemon) DrainConfig {
+	cfg := dd.drainConfig()
+	cfg.Dispatch = withoutLineDeadline(cfg.Dispatch)
+	return cfg
+}
+
 // logCount is how many entries at level carry msg.
 func logCount(log *recordingLogger, level, msg string) int {
 	n := 0
@@ -60,7 +70,7 @@ func TestDrain_ACorruptLineAheadOfAFrontHoldsBackOnlyTheBlobsItNames(t *testing.
 		t.Run(c.name, func(t *testing.T) {
 			dd, _, root := laneTestDaemon(t)
 			ctx := context.Background()
-			cfg := dd.drainConfig()
+			cfg := memoDrainConfig(dd)
 			log := newRecordingLogger()
 			cfg.Log = log
 			dr := newDrainer(cfg)
@@ -112,7 +122,7 @@ func TestDrain_ATrailingPartialLineHoldsBackOnlyTheBlobsItNames(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			dd, _, root := laneTestDaemon(t)
 			ctx := context.Background()
-			cfg := dd.drainConfig()
+			cfg := memoDrainConfig(dd)
 			log := newRecordingLogger()
 			cfg.Log = log
 			dr := newDrainer(cfg)
@@ -176,7 +186,7 @@ func TestDrainClientSpools_ADeniedLineNamingABlobOutsideTheSpoolLeavesNoCleanupI
 			ctx := context.Background()
 			const base = "client-8981.ndjson"
 			hostile := liveOrderTool(dd, root, "sess-outside", 9)
-			cfg := dd.drainConfig()
+			cfg := memoDrainConfig(dd)
 			cfg.Admit = denyNonce(cfg.Admit, hostile.Nonce)
 			dr := newDrainer(cfg)
 			dd.drain.Store(dr)
@@ -235,7 +245,7 @@ func TestDrainClientSpools_AFailedProgressWriteForgetsWhatThePassRemembered(t *t
 	tmp := paths.Long(paths.Of(root).Tmp)
 	var broke atomic.Bool
 	var breakErr error
-	cfg := dd.drainConfig()
+	cfg := memoDrainConfig(dd)
 	dispatch := cfg.Dispatch
 	cfg.Dispatch = func(c context.Context, req ipc.Request) ipc.Response {
 		resp := dispatch(c, req)
@@ -284,7 +294,7 @@ func TestDrainClientSpools_LinesPastTheMemoCapBehindAWaitingHeadAreAnnouncedOnce
 	const pastCap = 3
 	dd, _, root := laneTestDaemon(t)
 	ctx := context.Background()
-	cfg := dd.drainConfig()
+	cfg := memoDrainConfig(dd)
 	log := newRecordingLogger()
 	cfg.Log = log
 	const undecided, released, held core.SessionID = "sess-cap-undecided", "sess-cap-released", "sess-cap-held"
@@ -402,7 +412,7 @@ func TestDrainClientSpools_ALineReadAndLeftIsAnnouncedWhenALaterPassSkipsIt(t *t
 		t.Run(c.name, func(t *testing.T) {
 			dd, _, root := laneTestDaemon(t)
 			ctx := context.Background()
-			cfg := dd.drainConfig()
+			cfg := memoDrainConfig(dd)
 			log := newRecordingLogger()
 			cfg.Log = log
 			const sess core.SessionID = "sess-left"
@@ -477,7 +487,7 @@ func TestDrainClientSpools_ALineReadAndLeftIsAnnouncedWhenALaterPassSkipsIt(t *t
 func TestDrainClientSpools_ALineReleasedAtTheEndOfItsFileIsRememberedWithItsOwnGaps(t *testing.T) {
 	dd, _, root := laneTestDaemon(t)
 	ctx := context.Background()
-	cfg := dd.drainConfig()
+	cfg := memoDrainConfig(dd)
 	const base = "client-8921.ndjson"
 	const sess core.SessionID = "sess-end-gaps"
 	p0 := spD3Prompt(dd, root, sess, orderNonce(10), "p0")
@@ -524,7 +534,7 @@ func TestDrainClientSpools_ALineReleasedAtTheEndOfItsFileIsRememberedWithItsOwnG
 func TestDrainClientSpools_APassThatStopsEarlyKeepsWhatItRemembersPastItsStop(t *testing.T) {
 	dd, _, root := laneTestDaemon(t)
 	ctx := context.Background()
-	cfg := dd.drainConfig()
+	cfg := memoDrainConfig(dd)
 	meter := meterDrainCost(&cfg)
 	dr := newDrainer(cfg)
 	dd.drain.Store(dr)
@@ -575,7 +585,7 @@ func TestDrainClientSpools_APassThatStopsEarlyKeepsWhatItRemembersPastItsStop(t 
 func TestDrain_ALineAbsorbedBeforeItsAcknowledgementIsNotReportedUnacknowledgedOnceItLands(t *testing.T) {
 	dd, _, root := laneTestDaemon(t)
 	ctx := context.Background()
-	dr := newDrainer(dd.drainConfig())
+	dr := newDrainer(memoDrainConfig(dd))
 	dd.drain.Store(dr)
 	head := blockedSpoolHead(t, dd, root, "sess-unack-stuck", 0)
 	line := liveOrderTool(dd, root, "sess-unack-done", 7)
@@ -611,7 +621,7 @@ func TestDrain_ALineAbsorbedBeforeItsAcknowledgementIsNotReportedUnacknowledgedO
 func TestDrainClientSpools_ASpoolThatGrowsBehindAWaitingHeadIsNotConsumedAgain(t *testing.T) {
 	dd, _, root := laneTestDaemon(t)
 	ctx := context.Background()
-	cfg := dd.drainConfig()
+	cfg := memoDrainConfig(dd)
 	meter := meterDrainCost(&cfg)
 	dr := newDrainer(cfg)
 	meter.meterDrainer(dr)
@@ -651,7 +661,7 @@ func TestDrainClientSpools_ASpoolThatGrowsBehindAWaitingHeadIsNotConsumedAgain(t
 func TestDrainClientSpools_ARememberedBlobLineIsReleasedWithItsSpoolOnceTheHeadPublishes(t *testing.T) {
 	dd, _, root := laneTestDaemon(t)
 	ctx := context.Background()
-	dr := newDrainer(dd.drainConfig())
+	dr := newDrainer(memoDrainConfig(dd))
 	dd.drain.Store(dr)
 	const base, blob = "client-8801.ndjson", "blob-8801-1.bin"
 	const waiting core.SessionID = "sess-release-waiting"
@@ -693,7 +703,7 @@ func TestDrainClientSpools_ARememberedBlobLineIsReleasedWithItsSpoolOnceTheHeadP
 func TestDrainClientSpools_ASpoolReplacedUnderItsNameIsSyncedAndReadAgain(t *testing.T) {
 	dd, _, root := laneTestDaemon(t)
 	ctx := context.Background()
-	cfg := dd.drainConfig()
+	cfg := memoDrainConfig(dd)
 	meter := meterDrainCost(&cfg)
 	dr := newDrainer(cfg)
 	meter.meterDrainer(dr)
@@ -755,7 +765,7 @@ func TestDrain_AHeldSegmentReleasedUnchangedIsSyncedBeforeItsTailIsRead(t *testi
 	var held atomic.Bool
 	held.Store(true)
 	var syncedSize atomic.Int64
-	cfg := dd.drainConfig()
+	cfg := memoDrainConfig(dd)
 	cfg.SyncedWAL = func(p string) (int64, bool) {
 		if filepath.Base(p) != base || !held.Load() {
 			return 0, false
