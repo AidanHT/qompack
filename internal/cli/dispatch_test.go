@@ -92,7 +92,13 @@ func TestDispatch_HookAlwaysExitsZero(t *testing.T) {
 		{
 			name: "unreadable stdin",
 			setup: func(t *testing.T, _ string) (Env, []Cmd) {
-				return Env{Getenv: noEnv, Stdin: errReader{}, Clock: testClock()}, nil
+				// The root is pinned to a temp project: with no override the hook's first root is
+				// the process cwd, which under `go test` resolves to this checkout (see the
+				// missing-root case below).
+				return Env{
+					Getenv: envWith(map[string]string{"QOMPACK_PROJECT_ROOT": t.TempDir()}),
+					Stdin:  errReader{}, Clock: testClock(), HomeDir: t.TempDir(),
+				}, nil
 			},
 		},
 		{
@@ -141,10 +147,16 @@ func TestDispatch_HookAlwaysExitsZero(t *testing.T) {
 				// not stop writes on Windows, so a permission bit would make this case silently
 				// pass there; a file-where-a-directory-must-be fails MkdirAll with ENOTDIR on
 				// every platform, which is the condition the hook actually has to survive.
+				//
+				// The root is pinned to dir. With no override the hook took its first root from the
+				// process cwd, which under `go test` is this checkout; the payload (a FileRead with no
+				// tool_input) is degraded, so the hook never re-rooted to its cwd and spooled a record
+				// into the checkout's own .qompack/spool, never meeting the unwritable store at all
+				// (w20 status audit).
 				dir := t.TempDir()
 				require.NoError(t, os.WriteFile(filepath.Join(dir, ".qompack"), []byte("not a dir"), 0o600))
 				return Env{
-					Getenv:  noEnv,
+					Getenv:  envWith(map[string]string{"QOMPACK_PROJECT_ROOT": dir}),
 					Stdin:   validPayload(t, dir),
 					Clock:   testClock(),
 					HomeDir: t.TempDir(),
@@ -170,7 +182,7 @@ func TestDispatch_HookAlwaysExitsZero(t *testing.T) {
 					cmds = append(cmds, c)
 				}
 				return Env{
-					Getenv:  noEnv,
+					Getenv:  envWith(map[string]string{"QOMPACK_PROJECT_ROOT": dir}),
 					Stdin:   validPayload(t, dir),
 					Clock:   testClock(),
 					HomeDir: t.TempDir(),
@@ -183,6 +195,7 @@ func TestDispatch_HookAlwaysExitsZero(t *testing.T) {
 		for _, f := range faults {
 			t.Run(hook+"/"+f.name, func(t *testing.T) {
 				env, cmds := f.setup(t, hook)
+				requireRootOutsideCheckout(t, env)
 				if cmds == nil {
 					cmds = All()
 				}
@@ -200,6 +213,29 @@ func TestDispatch_HookAlwaysExitsZero(t *testing.T) {
 			})
 		}
 	}
+}
+
+// requireRootOutsideCheckout fails when a hook run under env would take its first project root
+// (resolveProjectRoot before stdin is read) inside this source checkout: such a run writes the
+// checkout's own .qompack instead of the test's temp project.
+func requireRootOutsideCheckout(t *testing.T, env Env) {
+	t.Helper()
+	wd, err := currentDir()
+	require.NoError(t, err)
+	checkout := wd
+	for {
+		if _, statErr := os.Stat(filepath.Join(checkout, "go.mod")); statErr == nil {
+			break
+		}
+		parent := filepath.Dir(checkout)
+		require.NotEqual(t, checkout, parent, "no go.mod above %s", wd)
+		checkout = parent
+	}
+	root := resolveProjectRoot(env, nil)
+	rel, err := filepath.Rel(checkout, root)
+	require.True(t, err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)),
+		"the hook's first project root %s lies inside the checkout %s; pin QOMPACK_PROJECT_ROOT "+
+			"to a temp project", root, checkout)
 }
 
 // TestDispatch_NonHookErrorExitsOne proves the other half of the exit-code policy: an ordinary

@@ -53,6 +53,9 @@ type compactLoadRig struct {
 	root string
 	home string
 	seq  atomic.Int64
+
+	readsMu sync.Mutex
+	reads   []string // the tool_use_id of every Read readPayload built, in the order it built them
 }
 
 func newCompactLoadRig(t *testing.T) (*compactLoadRig, func()) {
@@ -90,9 +93,18 @@ func (r *compactLoadRig) hookE(args []string, payload map[string]any) (hookio.Ou
 	}
 	var out, errw bytes.Buffer
 	start := time.Now()
+	// The hooks take their project from QOMPACK_PROJECT_ROOT, exactly as a host-spawned hook whose
+	// environment names it does. With no root in the environment the hook's first root is the test
+	// process's cwd, inside the checkout: a delivery admission refuses there (a Read of a file under
+	// r.root is outside that project) is never re-rooted to the payload's cwd, so it was spooled into
+	// the checkout's own .qompack and never reached this rig's daemon. No hook parses a --project
+	// flag, so passing one changed nothing.
 	code := Dispatch(context.Background(), hookCmds(),
-		append(append([]string{"qompack"}, args...), "--project", r.root),
-		Env{Getenv: noEnv, Stdin: bytes.NewReader(raw), Clock: testClock(), HomeDir: r.home},
+		append([]string{"qompack"}, args...),
+		Env{
+			Getenv: envWith(map[string]string{"QOMPACK_PROJECT_ROOT": r.root}),
+			Stdin:  bytes.NewReader(raw), Clock: testClock(), HomeDir: r.home,
+		},
 		&out, &errw)
 	took := time.Since(start)
 	if code != ExitOK {
@@ -132,8 +144,12 @@ func (r *compactLoadRig) readPayload(size int) (map[string]any, error) {
 		return nil, err
 	}
 	p := r.base("PostToolUse")
+	id := fmt.Sprintf("toolu_c116_%06d", n)
 	p["tool_name"] = "Read"
-	p["tool_use_id"] = fmt.Sprintf("toolu_c116_%06d", n)
+	p["tool_use_id"] = id
+	r.readsMu.Lock()
+	r.reads = append(r.reads, id)
+	r.readsMu.Unlock()
 	p["tool_input"] = map[string]any{"file_path": abs}
 	p["tool_response"] = map[string]any{"type": "text", "file": map[string]any{"filePath": abs, "content": body}}
 	return p, nil
@@ -342,11 +358,66 @@ func TestSessionStartCompact_UnderSameSessionIngest(t *testing.T) {
 	colo.Wait()
 	stop()
 	require.Nil(t, loadErr.Load(), "a load worker failed")
+	r.requireReadsReachedTheRig(t)
 	compactLoadReport(t, r.root, lat, kinds)
 	for kind, n := range kinds {
 		require.Contains(t, []string{"rehydration", "deferred-note"}, kind,
 			"%d compact SessionStart(s) answered with neither the rehydration nor the deferred note", n)
 	}
+}
+
+// requireReadsReachedTheRig checks, once the rig's daemon has stopped, that the same-session load
+// was delivered to the rig's project and to no other root: every Read readPayload built is in the
+// rig's index/tool_use.jsonl or in a file of its spool directory, and the index holds at least one
+// of them. A Read a hook delivered under any other root is in neither.
+//
+// It does not show that the daemon indexed the load. The spool directory holds the daemon's
+// session WAL, which keeps every Read the daemon received, indexed or not, beside any client spool
+// a hook fell back to; so the check proves routing plus at least one ingest. The log line splits
+// the Reads into indexed, in the daemon's WAL only, and in a client spool, the ratio a C1.16
+// re-measurement can cite.
+//
+// It reads files only after stop returned, when no hook or daemon of the rig writes any more.
+func (r *compactLoadRig) requireReadsReachedTheRig(t *testing.T) {
+	t.Helper()
+	r.readsMu.Lock()
+	ids := append([]string(nil), r.reads...)
+	r.readsMu.Unlock()
+	require.NotEmpty(t, ids, "the rig built no Read")
+
+	index, err := os.ReadFile(paths.Long(filepath.Join(paths.Of(r.root).Index, "tool_use.jsonl")))
+	require.NoError(t, err, "the rig's daemon indexed no tool use at all")
+	var wal, client strings.Builder
+	files, err := filepath.Glob(filepath.Join(paths.Of(r.root).Spool, "*.ndjson"))
+	require.NoError(t, err)
+	for _, f := range files {
+		b, rerr := os.ReadFile(f)
+		require.NoError(t, rerr)
+		if strings.HasPrefix(filepath.Base(f), "wal-") {
+			wal.Write(b)
+		} else {
+			client.Write(b)
+		}
+	}
+	indexed, inWAL, inClient := 0, 0, 0
+	var missing []string
+	for _, id := range ids {
+		switch {
+		case strings.Contains(string(index), `"id":"`+id+`"`):
+			indexed++
+		case strings.Contains(client.String(), `"`+id+`"`):
+			inClient++
+		case strings.Contains(wal.String(), `"`+id+`"`):
+			inWAL++
+		default:
+			missing = append(missing, id)
+		}
+	}
+	require.Zero(t, len(missing), "%d of the rig's %d Reads reached neither its index nor its spool, "+
+		"the first %v", len(missing), len(ids), missing[:min(len(missing), 3)])
+	require.Positive(t, indexed, "none of the rig's %d Reads was indexed by its daemon", len(ids))
+	t.Logf("of the rig's %d Reads: %d indexed, %d in its daemon's WAL only, %d in a client spool",
+		len(ids), indexed, inWAL, inClient)
 }
 
 func envInt(name string, def int) int {

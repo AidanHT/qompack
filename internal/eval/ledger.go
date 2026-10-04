@@ -29,8 +29,10 @@ package eval
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"math"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/qompack/qompack/internal/core"
@@ -288,9 +290,12 @@ func (r RequestRecord) Validate() error {
 	return r.validateMoney()
 }
 
-// validateCategories enforces the two-views rule over Reported and Missing.
+// validateCategories enforces the two-views rule over Reported and Missing. Reported is walked in
+// sorted order, as is every map a validator here ranges over, so one malformed input draws the same
+// error on every run (D53(a)).
 func (r RequestRecord) validateCategories() error {
-	for c, tc := range r.Reported {
+	for _, c := range slices.Sorted(maps.Keys(r.Reported)) {
+		tc := r.Reported[c]
 		if !knownCategory(c) {
 			return fmt.Errorf("eval: request %s reports unknown usage category %q", r.ID, c)
 		}
@@ -334,7 +339,11 @@ func (r RequestRecord) validateCategories() error {
 
 // validateMoney checks that every amount names a currency.
 func (r RequestRecord) validateMoney() error {
-	for name, m := range map[string]*Money{"estimate": r.Estimate, "invoice": r.Invoice} {
+	for _, a := range [...]struct {
+		name string
+		m    *Money
+	}{{"estimate", r.Estimate}, {"invoice", r.Invoice}} {
+		name, m := a.name, a.m
 		if m != nil && m.Currency == "" {
 			return fmt.Errorf("eval: request %s has an %s with no currency", r.ID, name)
 		}
@@ -379,18 +388,23 @@ type RateSchedule struct {
 
 // Validate checks that the schedule states its provenance and carries usable multipliers.
 func (s RateSchedule) Validate() error {
-	for name, v := range map[string]string{
-		"provider": s.Provider, "model": s.Model, "date": s.Date, "source": s.Source,
+	for _, f := range [...]struct{ name, v string }{
+		{"provider", s.Provider}, {"model", s.Model}, {"date", s.Date}, {"source", s.Source},
 	} {
+		name, v := f.name, f.v
 		if strings.TrimSpace(v) == "" {
 			return fmt.Errorf("eval: rate schedule has no %s; a rate with no provenance is not a rate", name)
 		}
 	}
-	for name, m := range map[string]float64{
-		"cache read multiplier":     s.CacheReadMultiplier,
-		"cache write 5m multiplier": s.CacheWrite5mMultiplier,
-		"cache write 1h multiplier": s.CacheWrite1hMultiplier,
+	for _, f := range [...]struct {
+		name string
+		m    float64
+	}{
+		{"cache read multiplier", s.CacheReadMultiplier},
+		{"cache write 5m multiplier", s.CacheWrite5mMultiplier},
+		{"cache write 1h multiplier", s.CacheWrite1hMultiplier},
 	} {
+		name, m := f.name, f.m
 		if !(m > 0) || math.IsInf(m, 0) {
 			return fmt.Errorf("eval: rate schedule %s is %v; it must be a positive finite number", name, m)
 		}
@@ -413,7 +427,7 @@ func (s RateSchedule) Validate() error {
 			return fmt.Errorf("eval: rate schedule mixes currencies %s and %s", currency, m.Currency)
 		}
 	}
-	for c := range s.PerMillion {
+	for _, c := range slices.Sorted(maps.Keys(s.PerMillion)) {
 		if !knownCategory(c) {
 			return fmt.Errorf("eval: rate schedule prices unknown usage category %q", c)
 		}

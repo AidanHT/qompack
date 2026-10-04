@@ -149,18 +149,21 @@ func (p BaselineProvenance) Validate() error {
 	if p.Corpus.Sessions <= 0 {
 		return fmt.Errorf("eval: baseline provenance records %d corpus sessions", p.Corpus.Sessions)
 	}
-	for name, v := range map[string]string{
-		"generator":        p.Generator,
-		"snapshot":         p.Snapshot,
-		"latency mode":     p.Latency,
-		"corpus path":      p.Corpus.Path,
-		"corpus tier":      p.Corpus.Tier,
-		"corpus generator": p.Corpus.Generator,
-		"seed":             p.Seed,
-		"model":            p.Model,
-		"provider":         p.Provider,
-		"date":             p.Date,
+	// A fixed order, never a map literal: a record missing several fields draws the same error on
+	// every run (D53(a)).
+	for _, f := range [...]struct{ name, v string }{
+		{"generator", p.Generator},
+		{"snapshot", p.Snapshot},
+		{"latency mode", p.Latency},
+		{"corpus path", p.Corpus.Path},
+		{"corpus tier", p.Corpus.Tier},
+		{"corpus generator", p.Corpus.Generator},
+		{"seed", p.Seed},
+		{"model", p.Model},
+		{"provider", p.Provider},
+		{"date", p.Date},
 	} {
+		name, v := f.name, f.v
 		if strings.TrimSpace(v) == "" {
 			return fmt.Errorf("eval: baseline provenance records no %s", name)
 		}
@@ -302,7 +305,11 @@ func Comparable(prev, next BaselineProvenance) (bool, []string) {
 	}
 	reasons = append(reasons, metricDeltas(prev, next)...)
 
-	for label, p := range map[string]BaselineProvenance{"earlier": prev, "later": next} {
+	for _, b := range [...]struct {
+		label string
+		p     BaselineProvenance
+	}{{"earlier", prev}, {"later", next}} {
+		label, p := b.label, b.p
 		if strings.TrimSpace(p.DirtyChanges) == "" || p.DirtyChanges == unknownDirtyState {
 			caveats = append(caveats, fmt.Sprintf(
 				"the %s baseline's dirty_changes is %q: the working tree state when that artifact "+

@@ -152,14 +152,18 @@ none failing: 4 holding, 1 pending, 4 with nothing to judge` and names each pend
 `session_start.fires` reads `marker-absent-once` when a new session started without the marker the
 previous session's SessionEnd or PreCompact leaves in `.qompack/run/marker.json`; the next session's
 start decides it. A compaction's own start, or a `--resume` that keeps the session id, finds the
-marker that session's PreCompact or SessionEnd just wrote and reads `same-session-restart`, which
-holds (`internal/contract/assertions.go`, `checkSessionStartFires`). A row has
+marker that session's PreCompact or SessionEnd just wrote. That is the session's own restart, also
+when another session in the same project started after it, and it counts nothing. It reads
+`same-session-restart`, which holds, only while the project has no counted absence
+(`starts_without_marker` is 0 in `.qompack/state/history.json`). With one absence counted it stays
+`marker-absent-once` (pending) until the next new session's start decides it; with two it stays
+failing (`internal/contract/assertions.go`, `checkSessionStartFires`). A row has
 nothing to judge when it reads `not-yet-implemented` or another "nothing was seen" spelling from §1,
 such as `first-session` or `retired`. The standard nine always include one such row:
 `precompact.custom_instructions_accepted` reads `retired` (or `not-yet-implemented`). So the
 standard set never reads `all holding`, and a healthy project reads `none failing` with `0 pending`,
 for example `host contract: 9 assertion(s), none failing: 7 holding, 0 pending, 2 with nothing to
-judge`. That stays true after a compaction or a `--resume` of the session.
+judge`. That stays true after a compaction or a `--resume` of any of its sessions.
 
 The rows come from the last `SessionStart`, which runs before the MCP handshake and before the probe
 reaches the transcript. So `status` reads `.qompack/state/history.json` too. Once it records the

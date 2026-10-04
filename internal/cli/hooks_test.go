@@ -43,8 +43,12 @@ func TestHooks_AllSixExitZeroWithValidJSON(t *testing.T) {
 	for _, hook := range hookNames {
 		t.Run(hook, func(t *testing.T) {
 			var out, errw bytes.Buffer
+			// The root is pinned to dir: with none in the environment the hook's first root is the
+			// process cwd, inside the checkout. The client's scope guard cannot place this payload (a
+			// FileRead with no tool_input) in any project, so it records it as unavailable, and a
+			// refused record keeps that first root: it was spooled into the checkout's own .qompack.
 			code := Dispatch(context.Background(), All(), argvFor(hook), Env{
-				Getenv:  noEnv,
+				Getenv:  envWith(map[string]string{"QOMPACK_PROJECT_ROOT": dir}),
 				Stdin:   bytes.NewReader(payload),
 				Clock:   testClock(),
 				HomeDir: home,
