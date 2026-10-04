@@ -155,8 +155,10 @@ withheld path stays in `dropped()` with the path replaced by the pointer's hash 
 and no drop reason, the checkpointer's own git or scan errors included, shows such a path or one
 outside the project (Qompack's own slash commands in a reason, such as `/qompack:pin`, are kept).
 While a Read deny or ask rule is in force a build asks these rules about at most 64 of its path-keyed
-drop entries, whose number grows with a session; every later one is withheld the same way without
-being judged, so a long session costs a bounded number of judgements. The block restores no
+drop entries, whose number grows with a session, first those a summary or a drop reason names; every
+later one is withheld the same way without being judged, and so is every text that names it, so a
+long session costs a bounded number of judgements and shows nothing the rules would refuse, at the
+cost of withholding a few texts that name a drop they would allow. The block restores no
 `paths:` rule, nested CLAUDE.md file or skill these rules deny or ask about, or that lies outside the
 project (every one while the rules cannot be read), and
 names none in its drop report; nor does it look for nested CLAUDE.md files above a withheld pointer.
