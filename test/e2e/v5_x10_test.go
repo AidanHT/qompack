@@ -598,6 +598,12 @@ func x10v5RequireRecoveredLoopWarning(t *testing.T, ac string) {
 // loop crossed the threshold.
 const x10v5DeliveredWith = "still red — try the exact same fix again"
 
+// x10v5GoalPrompt is the ordinary prompt the full-mode arm sends after the echoes, so it is the
+// session's newest prompt when the checkpoint is sealed. Since C4.3 (84b6f802) current_work.goal is
+// derived from that prompt: its first sentence (no sentence break occurs here, so the whole text)
+// capped at 160 runes (this is shorter), so the goal must equal it exactly.
+const x10v5GoalPrompt = "let me read the token store tests before the next build"
+
 // x10v5RequireWarningOnlyAsEchoedPrompts holds the sealed checkpoint raw to what this row protects:
 // Qompack never puts its own warning on a durable surface.
 //
@@ -611,6 +617,11 @@ const x10v5DeliveredWith = "still red — try the exact same fix again"
 // late reply made the row prove recovery), whose entry must be that prompt's own words and nothing
 // more. Every string in the artifact is checked, so a warning that Qompack wrote into
 // any field still fails here.
+//
+// current_work.goal has no exemption. Since C4.3 (84b6f802) it is derived from the session's newest
+// prompt, and this row failed on 738d67c7 and f905ec9c because the arm sealed right after the
+// echoes, which made the goal an echo. The arm now ends on an ordinary prompt (x10v5GoalPrompt),
+// so a warning in the goal fails here like a warning in any other field (wave 21).
 func x10v5RequireWarningOnlyAsEchoedPrompts(t *testing.T, raw []byte, ac, deliveredWith string) {
 	t.Helper()
 	var doc map[string]any
@@ -773,6 +784,15 @@ func x10v5FullModeArm(t *testing.T) {
 	require.Equal(t, before+x10v5EchoPrompts, x10v5PromptRecords(p.Root),
 		"every echoed prompt is still captured verbatim — suppression is about the grammar, not recording")
 
+	// ── The user moves on: the newest prompt is the user's own, and it is not an echo ────────────
+	// current_work.goal is derived from the newest prompt (x10v5GoalPrompt). Were the arm to seal on
+	// an echo, the goal would be the user's quote of the warning, byte for byte the warning itself,
+	// and no check of the artifact could tell that apart from a warning Qompack wrote into the goal.
+	// Ending on an ordinary prompt keeps current_work.goal under the same no-warning rule as every
+	// other field, and the goal is checked to be that prompt, so the rule is not met vacuously.
+	out = f.prompt(x10v5GoalPrompt)
+	require.Nil(t, out.HookSpecificOutput, "the rule was reported once: an ordinary prompt after it gets nothing")
+
 	// ── The checkpoint: the warning lands on no durable surface ──────────────────────────────────
 	// Criterion change (C1.18): the route's reply used to carry a focus instruction this row held
 	// free of the warning. The instruction is retired — no host accepts one — so the reply is the
@@ -783,6 +803,10 @@ func x10v5FullModeArm(t *testing.T) {
 	raw, err := os.ReadFile(paths.Long(paths.CheckpointPath(paths.Of(p.Root), x10v5SealedSeq)))
 	require.NoError(t, err)
 	x10v5RequireWarningOnlyAsEchoedPrompts(t, raw, ac, delivered.with)
+	var sealed checkpoint.Checkpoint
+	require.NoError(t, json.Unmarshal(raw, &sealed), "the sealed checkpoint must decode:\n%s", raw)
+	require.Equal(t, x10v5GoalPrompt, sealed.CurrentWork.Goal,
+		"current_work.goal is the session's newest prompt, the ordinary one sent after the echoes (C4.3)")
 	require.Zero(t, x10v5EliminationLines(t, p.Root),
 		"opening the ledger on the first PreCompact must not have turned the warning into a record")
 	// testutil's append-only probe seeds checkpoints/0001.json itself, so it belongs to the arm
