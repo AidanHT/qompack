@@ -2,6 +2,7 @@ package rehydrate
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -78,6 +79,84 @@ func TestBuild_APathNamedValueHoldingSeveralPathsIsJudgedPieceByPiece(t *testing
 			}
 		})
 	}
+}
+
+// TestBuild_PathKeyedCheckpointDropsCostABoundedNumberOfHostJudgements is audit 2's finding 28. Each
+// path-keyed checkpoint drop (file_pointer, pointer_missing, pointer_invalid, pointer_untracked,
+// pointer_dirty) cost one host judgement, uncached on disk, and their number grows with the session:
+// the checkpointer keeps every touched file as a pointer and its budget cut names each pointer it
+// cuts, so a long session handed the build a thousand of them and the build's cost grew without
+// bound towards the compaction answer's budget. While a Read rule is in force the build judges at
+// most dropJudgementsBound of them by the host, in the order the checkpoint lists them, and withholds
+// every later one unjudged, by hash or as a withheld path, still accounted for (fail closed). A drop
+// past the bound whose spelling names a rule's literal is learned as a withheld path, so a selector
+// naming it by its basename is withheld; any other is to the free-text screen a path Qompack never
+// recorded (ADR 0011 §23 item 2's limits). With no Read rule in force the host's answer costs nothing
+// and every drop is judged and shown as before.
+func TestBuild_PathKeyedCheckpointDropsCostABoundedNumberOfHostJudgements(t *testing.T) {
+	const dropJudgementsBound = 64 // ADR 0011 §23 item 10
+	const n = 1000
+	root := privacyRoot(t)
+	truncated := "truncated at budget; re_read(path) still resolves"
+	cp := ckUAT05()
+	cp.Dropped = append(append([]checkpoint.DropEntry(nil), cp.Dropped...),
+		checkpoint.DropEntry{Kind: "file_pointer", ID: "private/deny.txt", Detail: truncated})
+	for i := 0; i < n; i++ {
+		cp.Dropped = append(cp.Dropped,
+			checkpoint.DropEntry{Kind: "file_pointer", ID: fmt.Sprintf("pkg/sub%d/file%d.go", i%50, i), Detail: truncated})
+	}
+	cp.Dropped = append(cp.Dropped, checkpoint.DropEntry{Kind: "file_pointer", ID: "secrets/k/key999.txt", Detail: truncated})
+	cp.Pointers.Tools = append(cp.Pointers.Tools,
+		checkpoint.ToolPointer{ToolUseID: "toolu_literal", Hash: hashOf("literal"), Summary: `{"query":"path:key999.txt"}`},
+		checkpoint.ToolPointer{ToolUseID: "toolu_within", Hash: hashOf("within"), Summary: `{"query":"path:pkg/sub0/file0.go"}`},
+	)
+	build := func(t *testing.T, hp HostPaths) (Result, int) {
+		calls := 0
+		d := uat05Deps(t, cp)
+		d.HostPaths = func() HostRules {
+			h := hp()
+			refuses := h.Refuses
+			h.Refuses = func(p string) bool { calls++; return refuses(p) }
+			return h
+		}
+		r := requestFor(t, cp, maxBudget())
+		r.ProjectRoot = root
+		res, err := Build(context.Background(), r, d)
+		require.NoError(t, err)
+		return res, calls
+	}
+	withheldDrops := func(res Result) int {
+		k := 0
+		for _, e := range res.Dropped {
+			if e.Kind == "file_pointer" && e.ID == withheldDropID {
+				k++
+			}
+		}
+		return k
+	}
+	section6 := func(res Result) string { return sectionBody(res.Text, sectionHeading(ItemPointers)) }
+	within := `- tool_use toolu_within ` + hashOf("within").String() + ` — {"query":"path:pkg/sub0/file0.go"}` + "\n"
+
+	t.Run("UAT-12 rules", func(t *testing.T) {
+		res, calls := build(t, hostRules(root, uat12Rules...))
+		// ckUAT05's one file pointer, reports.py (its one-word summary is the same path, judged once),
+		// then the drops up to the bound: the denied one and the first 63 of the thousand.
+		require.Equal(t, 1+dropJudgementsBound, calls, "a build judges a bounded number of path-keyed drops")
+		requireNoLeak(t, res, []string{"deny.txt", "file999.go", "file63.go", "key999.txt", "secrets/"})
+		_, ok := dropForKind(res.Dropped, "file_pointer", "pkg/sub12/file62.go")
+		require.True(t, ok, "a drop the host judged and allows is shown as recorded")
+		require.Equal(t, 1+(n-(dropJudgementsBound-1))+1, withheldDrops(res),
+			"the denied drop and every drop past the bound are withheld, and still accounted for")
+		require.Contains(t, section6(res), "- tool_use toolu_literal "+hashOf("literal").String()+" — "+withheldSummary+"\n",
+			"a drop past the bound that names a rule's literal is learned, so its basename is withheld")
+		require.Contains(t, section6(res), within, "a selector naming a judged, allowed drop is shown")
+	})
+	t.Run("no Read rules", func(t *testing.T) {
+		res, calls := build(t, func() HostRules { return HostRules{Refuses: func(string) bool { return false }} })
+		require.Equal(t, 1+n+2, calls, "with no rule in force every drop is judged, at no cost")
+		require.Zero(t, withheldDrops(res), "and none is withheld")
+		require.Contains(t, section6(res), within)
+	})
 }
 
 // summaryVerdict builds root's rehydration under hp with one tool pointer whose summary is s, beside a

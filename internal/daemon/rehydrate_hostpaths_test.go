@@ -257,7 +257,7 @@ func costPointers(t *testing.T, previews []string) []checkpoint.ToolPointer {
 // paths it judged. With instructions > 0 the project also holds that many `paths:` rule files
 // scoped to the file pointers and that many skills, which items 6a and 6b restore through the real
 // rule scanner and skill indexer.
-func costBuild(t *testing.T, root string, previews []string, instructions int) (rehydrate.Result, int, []string) {
+func costBuild(t *testing.T, root string, previews []string, instructions, drops int) (rehydrate.Result, int, []string) {
 	t.Helper()
 	var reads []string
 	files := make([]checkpoint.FilePointer, 0, rehydrateCostFiles)
@@ -273,6 +273,14 @@ func costBuild(t *testing.T, root string, previews []string, instructions int) (
 	}
 	req := toolPointerRequest(root, costPointers(t, append(reads, previews...)))
 	req.Checkpoint.Pointers.Files = files
+	for i := 0; i < drops; i++ {
+		// The checkpointer's budget cut names each file pointer it cuts (truncate.go cutFilePointers),
+		// so a long session's checkpoint carries a drop like this for every file it touched.
+		req.Checkpoint.Dropped = append(req.Checkpoint.Dropped, checkpoint.DropEntry{
+			Kind: "file_pointer", ID: fmt.Sprintf("vendor/m%d/z%d.go", i%50, i),
+			Detail: "truncated at budget; re_read(path) still resolves",
+		})
+	}
 
 	judgements := 0
 	var judged []string
@@ -301,8 +309,8 @@ func costBuild(t *testing.T, root string, previews []string, instructions int) (
 	start := time.Now()
 	res, err := rehydrate.Build(context.Background(), req, deps)
 	require.NoError(t, err)
-	t.Logf("%d previews, %d Read previews, %d file pointers: %d host judgements in %v (logged, not judged)",
-		len(previews), len(reads), len(files), judgements, time.Since(start))
+	t.Logf("%d previews, %d Read previews, %d file pointers, %d path-keyed drops: %d host judgements in %v (logged, not judged)",
+		len(previews), len(reads), len(files), drops, judgements, time.Since(start))
 	for _, s := range reads {
 		require.Contains(t, res.Text, " — "+s+"\n", "fixture: an in-project Read preview is shown")
 	}
@@ -313,6 +321,14 @@ func costBuild(t *testing.T, root string, previews []string, instructions int) (
 // file pointer and one for each structured summary, every path judged once per build, and none for
 // free text.
 const maxCostJudgements = rehydrateCostFiles + rehydrateCostReads
+
+// rehydrateCostDrops is how many path-keyed checkpoint drops the drops variant carries (audit 2's
+// finding 28: on eca33155 the build judged every one, about 2.5 s through this adapter on Windows),
+// and costDropJudgements how many of them a build judges at most (ADR 0011 §23 item 10).
+const (
+	rehydrateCostDrops = 1000
+	costDropJudgements = 64
+)
 
 // TestRehydrateHostPaths_HostJudgementsAreStructuredSummariesAndFilePointers is the cost row,
 // re-derived for coordinator decisions D61(4) and D63 through the real adapter and the real host
@@ -344,12 +360,15 @@ func TestRehydrateHostPaths_HostJudgementsAreStructuredSummariesAndFilePointers(
 		// instructions is how many `paths:` rule files and skills the project holds (costBuild): each
 		// rule file item 6a would restore and each skill file item 6b would index is judged once.
 		instructions int
+		// drops is how many path-keyed checkpoint drops the checkpoint carries (costBuild): at most
+		// costDropJudgements of them are judged, whatever their number (audit 2's finding 28).
+		drops int
 	}{
 		{"Bash", func(i int) string {
 			s := rehydrateCostPreview(i)
 			require.Len(t, strings.Fields(s), rehydrateCostWords, "fixture: %q", s)
 			return s
-		}, 0, 0},
+		}, 0, 0, 0},
 		{"canonical JSON and URLs", func(i int) string {
 			switch i % 4 {
 			case 0:
@@ -363,7 +382,7 @@ func TestRehydrateHostPaths_HostJudgementsAreStructuredSummariesAndFilePointers(
 				return bash(fmt.Sprintf("curl -s https://example.com/api/v%d/items?page=%d | jq .items > out%d.json", i, i, i))
 			}
 			return storePreview(t, map[string]string{"url": fmt.Sprintf("https://example.com/docs/v%d/guide.html", i)})
-		}, 0, 0},
+		}, 0, 0, 0},
 		{"absolute paths", func(i int) string {
 			switch i % 3 {
 			case 0:
@@ -372,14 +391,14 @@ func TestRehydrateHostPaths_HostJudgementsAreStructuredSummariesAndFilePointers(
 				return bash(fmt.Sprintf("git -C %s log --oneline -n %d", root, i))
 			}
 			return bash(fmt.Sprintf("diff %s src/b%d.go", filepath.Join(root, "src", fmt.Sprintf("a%d.go", i)), i))
-		}, 0, 0},
+		}, 0, 0, 0},
 		{"path-named arrays", func(i int) string {
 			var values []string
 			for _, c := range "abcdef" {
 				values = append(values, fmt.Sprintf("s/%c%d.go", c, i))
 			}
 			return storePreviewOf(t, map[string]any{"paths": values})
-		}, 0, 0},
+		}, 0, 0, 0},
 		{"cut path-named arrays", func(i int) string {
 			var values []string
 			for _, c := range "abcdefghijkl" {
@@ -390,20 +409,22 @@ func TestRehydrateHostPaths_HostJudgementsAreStructuredSummariesAndFilePointers(
 			_, preview := store.ArgsDigest(raw)
 			require.True(t, strings.HasSuffix(preview, "…"), "fixture: the store cuts %q", preview)
 			return preview
-		}, 0, 0},
+		}, 0, 0, 0},
 		{"commands run from the root", func(i int) string {
 			return bash(fmt.Sprintf("%s --since HEAD~%d && echo ok", filepath.Join(root, "tools", fmt.Sprintf("lint%d.ps1", i)), i))
-		}, rehydrateCostPointers, 0},
-		{"instruction and skill files", rehydrateCostPreview, 0, rehydrateCostInstructions},
+		}, rehydrateCostPointers, 0, 0},
+		{"instruction and skill files", rehydrateCostPreview, 0, rehydrateCostInstructions, 0},
+		{"path-keyed checkpoint drops", rehydrateCostPreview, 0, 0, rehydrateCostDrops},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			previews := make([]string, 0, rehydrateCostPointers)
 			for i := 1; i <= rehydrateCostPointers; i++ {
 				previews = append(previews, tc.preview(i))
 			}
-			res, judgements, judged := costBuild(t, root, previews, tc.instructions)
-			require.Equal(t, maxCostJudgements+tc.rooted+2*tc.instructions, judgements,
-				"a build judges each file pointer, structured summary, rule file and skill file once, and no free text")
+			res, judgements, judged := costBuild(t, root, previews, tc.instructions, tc.drops)
+			require.Equal(t, maxCostJudgements+tc.rooted+2*tc.instructions+min(tc.drops, costDropJudgements), judgements,
+				"a build judges each file pointer, structured summary, rule file and skill file once, a bounded "+
+					"number of path-keyed checkpoint drops, and no free text")
 			for _, p := range judged {
 				require.NotContains(t, p, " ", "no fixture command's arguments reach the host")
 			}
