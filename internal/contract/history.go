@@ -110,7 +110,8 @@ type SessionHistory struct {
 
 	// LastSessionID is OWNED by the session_start.fires Check (checkSessionStartFires,
 	// assertions.go) and by nothing else. It is the session id that last advanced
-	// StartsWithoutMarker, and it is how that Check tells "a second RunAll inside the session
+	// StartsWithoutMarker or found a marker; while that session is still live, a start of another
+	// session leaves it in place, since no terminal hook of it is due yet. It is how that Check tells "a second RunAll inside the session
 	// already counted" from "a genuinely new session, count it too" (Important I1's fix). The
 	// daemon (this task's next one) MUST NEVER write this field itself — in particular, never
 	// pre-set it to the incoming session's id at SessionStart before RunAll runs. Doing so would
