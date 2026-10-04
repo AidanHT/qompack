@@ -514,8 +514,10 @@ func TestBuild_ShellQuotingAndEscapesNeverShowADeniedPath(t *testing.T) {
 //
 // Criterion change (coordinator decision D61(2)(a)-(b)): `{"query":"not my secret.txt.bak at
 // all"}` was shown, because the withheld name was followed by a further `.bak`. Free text is now
-// withheld when it contains a rule's literal or a withheld path's basename at all; D61 accepts that
-// a text which merely mentions the name is withheld (ADR 0011 §23.2), and the row now requires it.
+// withheld when it holds a rule's literal or a withheld path's basename where a name starts
+// (namedAt); what follows the name is not judged, so `my secret.txt.bak` holds `my secret.txt`. D61
+// accepts that a text which merely mentions the name is withheld (ADR 0011 §23.2), and the row now
+// requires it.
 func TestBuild_AKnownWithheldPathIsFoundAnywhereInAText(t *testing.T) {
 	root := previewRoot("proj")
 	slash := strings.ReplaceAll(root, `\`, "/")
