@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -8,6 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/qompack/qompack/internal/commands"
+	"github.com/qompack/qompack/internal/ipc"
+	"github.com/qompack/qompack/internal/logging"
 	"github.com/qompack/qompack/internal/obs"
 	"github.com/qompack/qompack/internal/paths"
 )
@@ -31,11 +34,34 @@ func writeSpoolFile(t *testing.T, root, base string) {
 	require.NoError(t, os.WriteFile(paths.Long(filepath.Join(spool, base)), []byte("{}\n"), 0o600))
 }
 
+// awaitDaemonStartup returns once the daemon serving root has finished its startup, by making one
+// status round trip: serveOp holds every request until Run's startup is done.
+//
+// bootstrapDaemon returns as soon as the daemon is dialable, and Run starts its accept loop BEFORE
+// its startup writes state.bin from its own state (daemon.go, "The accept loop starts now"). A test
+// that writes state.bin itself right after bootstrapDaemon races that write: on Linux at
+// GOMAXPROCS=2 the daemon's sync record overwrote enterSpoolSubmode's in 5 and 6 of 20 runs, and
+// doctor then judged a sync-submode spool. After this round trip the startup write is behind us.
+// Its deadlines are hang guards, not margins: the startup they wait for has no bound of its own.
+func awaitDaemonStartup(t *testing.T, root string) {
+	t.Helper()
+	addr, err := ipc.Resolve(root)
+	require.NoError(t, err)
+	c := ipc.NewClientWithOptions(addr, nopSpool{}, logging.Nop(), obs.New(testClock()), ipc.ClientOptions{
+		ConnectDeadline: bootstrapUpBound, AckDeadline: bootstrapUpBound, Clock: testClock(),
+	})
+	defer func() { _ = c.Close() }()
+	resp, err := c.Send(context.Background(), ipc.Request{Op: ipc.OpStatus, Reply: true}, bootstrapUpBound)
+	require.NoError(t, err)
+	require.True(t, resp.OK, "fixture: the daemon must answer a status request once its startup is done; err=%q", resp.Err)
+}
+
 func TestDoctor_SpoolSubmodeIsInformational(t *testing.T) {
 	t.Run("a daemon is serving", func(t *testing.T) {
 		p := seedFsckProject(t)
 		stop := bootstrapDaemon(t, p.Root)
 		defer stop()
+		awaitDaemonStartup(t, p.Root)
 		enterSpoolSubmode(t, p.Root)
 		writeClientSpool(t, p.Root)
 
