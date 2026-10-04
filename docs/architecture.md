@@ -185,8 +185,9 @@ spools after it (D58(c)). Such a pass is bounded by the spool, not the clock. It
 checks against the committed frontier again, each line that still waits. A line an earlier pass of
 the same daemon consumed behind such a head costs only its read, for up to `orderingProcessedCap`
 (4096) such lines per spool file, while the file is the same file and has only grown. Past that bound
-such a line is admitted and checked again on every pass, though it is counted and announced only once,
-and a restarted daemon consumes every such line in full once more. A spool file unchanged since the
+such a line is admitted and checked again on every pass, though it is counted and announced only once
+unless a pass left an unleased line ahead of it unconsumed, and a restarted daemon consumes every such
+line in full once more. A spool file unchanged since the
 daemon synced it is neither synced nor has its progress rewritten again. While a blob's cleanup waits
 on a line still ahead of a front, the pass also reads each spool file's unconsumed lines once, at its
 start, for references to that blob. The drains a session end runs for itself are not budgeted.
