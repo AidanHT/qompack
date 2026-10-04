@@ -338,8 +338,19 @@ func settleTestDaemon(t *testing.T, bound time.Duration) (*daemon, string) {
 // (TestDeliveryOrder_ARequestedPassAsksAgainOnlyWhileItMakesProgress) and of
 // TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound, which keep it.
 func settleReplay(dd *daemon) func(context.Context, ipc.Request) ipc.Response {
+	return withoutLineDeadline(dd.drainDispatch)
+}
+
+// withoutLineDeadline is dispatch with the drain's per-line drainLineDeadline (and any other
+// cancellation of the line's context) lifted, keeping the context's values: the observation and the
+// replayed delivery the drain attaches. It is for a drain row whose assertions are about what a pass
+// publishes, holds or remembers, never about how fast: the line's 5 s is a wall-clock limit on a
+// dispatch that does real I/O, and a host stalled past it cancels the line, which the drain then
+// rightly leaves unpublished (audit 2 #64; TestRequestedDrainPass_HoldsTheCaptureGateBetweenDeliveries
+// on the wave 22 Linux gate). Rows whose subject is a line the deadline cuts keep it.
+func withoutLineDeadline(dispatch func(context.Context, ipc.Request) ipc.Response) func(context.Context, ipc.Request) ipc.Response {
 	return func(ctx context.Context, req ipc.Request) ipc.Response {
-		return dd.drainDispatch(context.WithoutCancel(ctx), req)
+		return dispatch(context.WithoutCancel(ctx), req)
 	}
 }
 
