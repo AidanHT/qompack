@@ -775,6 +775,24 @@ behaviours are ratified with no code change: the `+` path start, name start and 
 reason is a product string and not shell input; and `recordedPath` keeps holding every root, since
 learning only withholds more (items 7(b), 8 and 9).
 
+Wave 19g's final verify found three more gaps, closed strictly. (1) The root's spelling was found
+with RE2's `(?i)` and containment went through `filepath.Rel`, and on Windows both fold case by
+Unicode's simple folding, while NTFS keeps a name spelled with the Kelvin sign (U+212A), the long s
+(U+017F) or the Angstrom sign (U+212B) beside the one spelled with `k`, `s` or `å`. So a summary
+naming a file in such a sibling of the root (an uncut path-named value, free text, a value cut past
+the end of the root), a file pointer at one and a drop reason naming one were read as the project
+and shown. Every comparison of a path with the root's spelling, and containment, now folds an ASCII
+letter's case alone, on Windows and macOS (items 6, 8 and 9), and the daemon's host adapter reads a
+path's place below the root by the same rule; `rootCover`, which asks what the host's rules refuse,
+folds as `hostperm` does, by Unicode lower-casing, since folding more there only adds screens. (2)
+Item 9 and the criterion changes for wave 19f's open items said a cut sibling differing from the
+root by a non-ASCII case was withheld; that held only for a cut inside the root's own spelling, and
+both now say what the code does. (3) `rootCover` matched a rule anchored outside the project against
+the root in screen form, which deletes `` ' " ` \ ^ ``, while `hostperm` matches raw segments with
+`path.Match`, so a rule that spelled a root segment with a `?` for one of those characters, with a
+negated class or with an escape refused project files at the host while its literal was never
+screened; it now also matches the raw segments as `hostperm` does (item 7(d)).
+
 1. *A degraded compaction that dropped material is never silent* (D59, UAT-05 F-C7-UAT05-1). At
    UAT-05's `runtime.rehydrate.minTokens` = `maxTokens` = 150 the retrieval line (86 tokens) does
    not fit beside the 47-token wrapper and item 7's floor, so §22.1 ends tier 1 at its first record,
@@ -973,7 +991,12 @@ learning only withholds more (items 7(b), 8 and 9).
    8, once the summary's free text has passed item 7). It is withheld when the build withholds it as a
    file pointer's path (containment, and the host's rules once per build), or when it is a glob that
    selects a path the build withholds (`rules.Match`; a glob without a separator matches at any
-   depth).
+   depth). Containment compares an absolute path with the root byte for byte once both are
+   cleaned, an ASCII letter's case folded only where the platform's paths fold (Windows and macOS)
+   and no other character folded (`RootRelative`, since wave 19g's final verify of D64): it went
+   through `filepath.Rel`, which folds by Unicode on Windows and folds nothing on macOS, so a
+   directory spelled with the Kelvin sign (U+212A), the long s (U+017F) or the Angstrom sign
+   (U+212B) where the root has `k`, `s` or `å`, which NTFS keeps beside the root, was the project.
    - *Containment reads a glob as a glob.* A segment that path.Match matches against `..` and that
      holds a class, a `?` or an escape (`[.][.]`, `?.`, `.?`, `\.\.`), or that starts with an
      explicit `.` (`.*`, `.[.]`, which a shell without globskipdots matches against `..`), is a parent
@@ -1120,7 +1143,16 @@ learning only withholds more (items 7(b), 8 and 9).
      literal part (`Read`, `./**`), or a rule anchored outside the project covers the root or a path
      below it whose relative spelling need hold no literal (`rootCover`, with the host asked once about
      a fresh name below the root when the root may resolve through a link, junction or 8.3 name,
-     `rootProbe`), every free text is withheld, as `re_read` fails closed.
+     `rootProbe`), every free text is withheld, as `re_read` fails closed. `rootCover` matches the
+     rule against the root as the host does (`hostperm`'s raw segments with `path.Match`, a `\` an
+     escape in its segment, and, on every platform, the alias that reads a `\` as a separator, which
+     `hostperm` adds on Windows; the case lower-cased by Unicode where paths fold, as `hostperm` folds
+     a rule and a path), and also in screen form, as it did before wave 19g's final verify of D64,
+     since each extra reading can only add screens. Screen form alone deletes `` ' " ` \ ^ `` from
+     both, so a rule whose root segment used a `?` for one of them (`o?brien` for a root `o'brien`),
+     a negated class whose `^` it deleted (`[^x]brien` for `obrien`) or an escape (`o\'brien`)
+     refused project files at the host while the screen never learned the literal of what follows
+     the root (`.key` for `//<root>/**/*.key`).
 
    *Why this is complete.* The claim is that no shown free-text summary spells, in any way a shell or
    the model reads it, an absolute or escaping path, a Read rule's literal or a withheld name. Each
@@ -1326,9 +1358,16 @@ learning only withholds more (items 7(b), 8 and 9).
    a space in it (`C:\Users\John Smith\proj`), splitting a summary on whitespace would cut the root
    apart. The screen finds each contiguous spelling of the root (its separators `/` alone
    on Linux and macOS, and on Windows one style throughout, every one `/` or every one `\`, repeated or
-   not; any case where the platform folds; the MSYS and WSL drive spellings `/c/…` and `/mnt/c/…` and
+   not; an ASCII letter in either case where the platform's paths fold, and no other character in
+   another case; the MSYS and WSL drive spellings `/c/…` and `/mnt/c/…` and
    the `\\?\` prefix on Windows) and marks it as one token-safe unit, so the tokenizer never splits the
-   root at its own space and the screen never reads the root's own name as a withheld name.
+   root at its own space and the screen never reads the root's own name as a withheld name. Until
+   wave 19g's final verify of D64 the spelling was matched with RE2's `(?i)`, which folds by Unicode's
+   simple folding and so found the root in a directory spelled with the Kelvin sign, the long s or
+   the Angstrom sign where the root has `k`, `s` or `å`, which NTFS keeps beside the root; each ASCII
+   letter is now a class of its two cases (`foldLiteral`). The root spelled with another non-ASCII
+   letter in another case that NTFS does fold (`Åsa`, U+00C5, for a root `åsa`) is no longer held
+   either, and is over-withheld.
    *Which roots have a unit* (D64(1), STRICT). The unit stands for the root only if every shell reads
    the root's spelling as that one path, so it is held only when the root's own spelling, cleaned and
    slash-separated, consists of Unicode letters, marks and digits the whitelist admits (none whose
@@ -1439,8 +1478,18 @@ learning only withholds more (items 7(b), 8 and 9).
    (`<q>/John'athan`, `<q>/John^athan` or `<q>/John  Smith` beside the root, `<q>/obrien` beside a
    root `<q>/o'brien`, on Linux `/q\Johnathan`, the entry `q\Johnathan` of `/`, and the Kelvin sign
    beside a root `kate`, which NTFS does not fold to `k`) showed a directory beside the project. Any
-   other value is judged by the directory it spells, outside the project; a repeated separator,
-   which names the root, is over-withheld.
+   other value is judged by the directory it spells, by containment (item 6) and, when it is its
+   preview's one path-named value, by the host. A cut sibling that differs from the root only by a
+   quote, a caret, a backslash or a whitespace run is outside the project wherever the cut falls,
+   since containment never folded those. One that differs by a letter that Unicode's simple folding
+   pairs with the root's (the Kelvin sign, the long s, the Angstrom sign for `k`, `s`, `å`) was
+   withheld only when the cut fell inside the root's own spelling: cut past its end, the directory
+   it spells went to containment, which folded case by Unicode on Windows, found it inside, and
+   showed it. Since wave 19g's final verify containment folds an ASCII letter's case alone
+   (`RootRelative`), so such a sibling is withheld wherever the cut falls, on every platform. A
+   repeated separator in a value cut inside the root's spelling, which names the root, is
+   over-withheld, and so is the root spelled with another non-ASCII letter in another case that NTFS
+   does fold (`Åsa`, U+00C5, for a root `åsa`).
    No drop entry's reason, in section 7 or in `dropped()`, shows an absolute path outside the project or
    names a path the build withholds. A reason is Qompack's own error prose, not a shell command, so the
    screen is a product-string rule (D63): a part of the error chain that is a path outside the
@@ -1611,7 +1660,10 @@ extension's argument in item 7: `TestBuild_ARootLedGlobPreviewNamesOnlyWhatTheHo
 `TestBuild_ABestFitCharacterIsOutsideTheWhitelist` and, on Windows,
 `TestWhitelist_NoANSIBestFitToPunctuationIsSafe` (item 7(a)), `TestBuild_ABestFitRootHoldsNoRootUnit`,
 `TestBuild_ARootWithADashWordHoldsNoRootUnit` and `TestBuild_AWithheldPathIsLearnedUnderEveryRoot`
-(item 8). `internal/daemon`, through
+(item 8). The rows of wave 19g's final verify:
+`TestBuild_AUnicodeCaseVariantOfTheRootIsADirectoryBesideIt` and
+`TestBuild_AUnicodeCaseVariantOfTheRootIsADirectoryBesideItForPointersAndReasons` (items 6, 8 and
+9), and `TestBuild_ARuleOverTheRootIsMatchedAsTheHostMatchesIt` (item 7(d)). `internal/daemon`, through
 the real adapter and the real host rules: `TestRehydrateHostPaths_ASelectorNamingADeniedFileIsWithheld`,
 `TestRehydrateHostPaths_EverySpellingOfADeniedFileIsWithheld`,
 `TestRehydrateHostPaths_ADeniedPathWithDelimitersIsWithheld`,
@@ -1627,6 +1679,8 @@ the real adapter and the real host rules: `TestRehydrateHostPaths_ASelectorNamin
 `TestRehydrateHostPaths_ARootOutsideTheWhitelistHoldsNoRootUnit`,
 `TestRehydrateHostPaths_ABestFitOrDashRootHoldsNoRootUnit`,
 `TestRehydrateHostPaths_ACutValueIsTheRootOnlyInItsOwnSpelling` (the store's own cut),
+`TestRehydrateHostPaths_AUnicodeCaseVariantOfTheRootIsADirectoryBesideIt` (real sibling
+directories), `TestRehydrateHostPaths_ARuleOverTheRootIsMatchedAsTheHostMatchesIt`,
 `TestRehydrateHostPaths_EscapedAndCaseFoldedSpellingsAreWithheldUnderTheUAT12Rules`,
 `TestRehydrateHostPaths_ARuleOverTheProjectThroughALinkWithholdsEveryFreeText` (a real directory
 link or junction), `TestRehydrateHostPaths_AFileURLInAPathNamedValueIsOutsideTheProject`,
@@ -1876,8 +1930,11 @@ Windows (where one skips by platform) and in a Linux container run as an unprivi
 root, `TestService_StateWriteFailureStillEmits` writes through the 0500 directory it sets up, on
 895d41f4 too). No golden changed. The behaviour changes with no earlier row: a cut
 path-named value is the project only when it starts the root's own spelling byte for byte (item 9),
-so a cut sibling that differs from the root by a quote, a caret, a backslash, a whitespace run or a
-non-ASCII case is withheld, and so is a repeated separator, which names the root (over-withheld);
+so a cut sibling that differs from the root by a quote, a caret, a backslash or a whitespace run is
+withheld, one that differs by a non-ASCII case (the Kelvin sign for `k`) is withheld when the cut
+falls inside the root's own spelling (cut past its end, containment's Unicode fold still showed it
+until wave 19g's final verify, next paragraph), and so is a repeated separator, which names the
+root (over-withheld);
 a letter, mark or digit whose ANSI best fit is ASCII punctuation is unsafe in free text and leaves
 the root unit (items 7(a) and 8), so a word holding one (the Hawaiian ʻokina U+02BB, the U+0300 of
 a decomposed `è`) is over-withheld; and a root with a word that starts with `-` after a space has
@@ -1903,6 +1960,43 @@ Linux build. Run under a root of `OneDrive - Contoso`, `John -Force` or `aʼb` (
 corpus shows 149 and withholds 125 after the fixes (0 leaks, 97 over-withheld), against 895d41f4's
 193 and 81 on Windows (44 flips each) and 192 and 82 on Linux (43). Every flip is from SHOWN to
 WITHHELD and names nothing private: D64's accepted cost in such a root.
+
+*Criterion changes (wave 19g's final verify of D64).* No row that asserted a WITHHELD spelling
+changed, and no row that asserted a SHOWN one: `internal/rehydrate` and its `rehydratetest`
+package, and the 82 earlier `internal/daemon` rehydrate rows, pass unchanged on Windows (where
+`TestService_StateWriteFailureStillEmits` skips by platform) and in a Linux container run as an
+unprivileged user. No golden changed. One test helper changed shape with the code it reads:
+`screenLiteral` takes `ruleSegments`' two results, the third (`fromStart`) having moved to
+`hostReadings`. The behaviour changes with no earlier row: a path in a directory beside the root
+spelled with the Kelvin sign, the long s or the Angstrom sign is outside the project in every
+judgement on Windows, as it already was on Linux, and on macOS, where the root's spelling read it
+as the root in free text, it is withheld too (over-withheld wherever the volume's own case folding
+pairs it with the root); on macOS an absolute path spelled with the root in
+another ASCII case is now the project in containment too, as the root's spelling and `rootPrefix`
+already read it there (it was over-withheld; no macOS host ran it, and `go vet` for darwin passes);
+the root spelled with another non-ASCII letter in another case that NTFS folds (`Åsa`, U+00C5, for a
+root `åsa`) is no longer held and is over-withheld; and a rule anchored outside the project whose raw
+segments match the root adds the literal of what follows it to the screens. Red-first: on
+71e5133d, with the new rows overlaid, `TestBuild_AUnicodeCaseVariantOfTheRootIsADirectoryBesideIt`
+fails on all three of its roots (`kate`, `sam`, `åsa`) on Windows, where a probe of the same builds
+shows all 18 sibling summaries at 71e5133d and none after, and passes in a Linux container, where
+paths do not fold;
+`TestBuild_AUnicodeCaseVariantOfTheRootIsADirectoryBesideItForPointersAndReasons` fails on all three
+on Windows, the sibling's file pointer shown by its path, and passes in the container;
+`TestBuild_ARuleOverTheRootIsMatchedAsTheHostMatchesIt` fails on six of its seven subtests on
+Windows and on five of its six in the container (the upper-case rule is a folding platform's
+subtest), its Kelvin-sign rule passing on both, as a pin of the host's Unicode case rule. The daemon
+twins, through the real `hostperm` and real NTFS sibling directories, fail on Windows on all three
+roots and all three rule shapes, and in the container on the three rule shapes, the case row passing
+there. Each fix is separable (measured on Windows): with only the root regex's `(?i)` restored the
+summary row alone fails, on its three roots; with only containment's `filepath.Rel` restored the
+summary row and the pointer-and-reason row fail and the rule row passes; with only `rootCover`'s
+raw comparison removed the rule row alone fails, on five subtests (the escape shape is caught by the
+raw split alone). On the w19d corpus nothing flips: 71e5133d and these fixes (c16b21d5,
+28a9ea39) both show 193 and withhold 81 under UAT-12's rules in the Windows build (0 leaks, 53
+over-withheld), 192 and 82 (0 leaks, 54 over-withheld) in the Linux build, and 149 and 125 (0
+leaks, 97 over-withheld) under the `OneDrive - Contoso`, `John -Force` and `aʼb` roots in both,
+with the same host-call counts.
 
 ## Consequences
 
