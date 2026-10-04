@@ -69,9 +69,10 @@ import (
 //     two-fold rule, ADR 0011 §23): one that decides a thing is SHOWN (containment, the root's unit, a
 //     cut value's start) folds an ASCII letter's case where the platform's paths fold, and no other
 //     character's (foldLiteral, asciiFoldEqual, RootRelative); one that LEARNS or WITHHOLDS (a
-//     withheld path's relative names, recordedPath's hold of the root) also reads the root with case
-//     folded by Unicode, as filepath.Rel, RE2's `(?i)` and paths.Key fold it, and learns or withholds
-//     under the union (RootRelativeBroad, broadRootSpellingOf). A rule anchored outside the project is matched against the root as the
+//     withheld path's relative names, recordedPath's hold of the root, a drop reason's screen, the
+//     daemon's host adapter) also reads the root with case folded by Unicode, as filepath.Rel, RE2's
+//     `(?i)` and paths.Key fold it, and learns or withholds under the union (RootRelativeBroad,
+//     broadRootSpellingOf). A rule anchored outside the project is matched against the root as the
 //     host matches it, its case folded as the host folds it (rootCover).
 //     When the host's rules are unavailable, or a rule covers the whole project, every free text is
 //     withheld, as re_read fails closed.
@@ -678,7 +679,8 @@ func RootRelative(root, p string) (string, bool) {
 // than any of those readings alone, and so may only decide what is learned or withheld, never what is
 // shown: `C:\q\Åsa\proj\x` is below a root `C:\q\åsa\proj` (NTFS and the host fold U+00C5 onto
 // U+00E5), and so are the root's spellings with the Kelvin sign, the long s and the Angstrom sign,
-// which NTFS keeps beside it, and with U+0130 for `i`, which only the host's lower-casing folds.
+// which NTFS keeps beside it, and with U+0130 for `i`, which only the host's lower-casing folds. The
+// daemon's host adapter judges each reading's place below the resolved root.
 func RootRelativeBroad(root, p string) (string, bool) {
 	if rel, ok := RootRelative(root, p); ok || root == "" || !paths.DefaultFold() {
 		return rel, ok
@@ -2573,14 +2575,14 @@ func (j pathJudge) markRoot(t string) string {
 // it ends the text or is followed by what ends a path's root (rootEndsAt). Any other spelling is
 // judged as the path outside the project it is. A summary holds the root only through markRoot; a
 // drop reason (reasonWithheld) holds it whenever a text can spell it exactly (rootSpelledExactly);
-// and the learning of a withheld path (recordedPath) holds it always, under the broad reading too
-// (holdRootBroad).
+// and the learning of a withheld path (recordedPath) holds it always. The last two, which learn or
+// withhold, also hold it under the broad reading (holdRootBroad).
 func (j pathJudge) holdRoot(t string) string { return holdWith(j.rootSpelling, t) }
 
 // holdRootBroad is holdRoot under the broad reading of the root (broadRootSpellingOf): t lower-cased
 // by paths.Key, with each spelling of the root that Unicode's case folding pairs with its own held as
 // one rootMark. Where the platform's paths do not fold it is holdRoot. Only a judgement that learns or
-// withholds reads it (recordedPath; the two-fold rule).
+// withholds reads it (recordedPath, reasonWithheld; the two-fold rule).
 func (j pathJudge) holdRootBroad(t string) string {
 	if j.broadSpelling == nil {
 		return j.holdRoot(t)
@@ -2861,10 +2863,21 @@ func (j pathJudge) reasonWithheld(detail string) bool {
 	// holds, but only when the text can spell it exactly (rootSpelledExactly). Otherwise what holdRoot
 	// finds may be a sibling spelled with one space, and the reason is judged with the root unheld,
 	// which fails closed: the root's own whitespace splits a path under it, outside the project.
-	marked := t
-	if j.rootExact {
-		marked = j.holdRoot(t)
+	// The judgement withholds, so the reason is withheld when it is under either reading of the root
+	// (the two-fold rule): with the root held as its own spelling folds ASCII letters, and as the broad
+	// reading folds case by Unicode (holdRootBroad), where `path=C:\q\Åsa\proj\private\deny.txt` names
+	// the withheld private/deny.txt of a root `C:\q\åsa\proj`.
+	if !j.rootExact {
+		return j.reasonNamesWithheld(t)
 	}
+	return j.reasonNamesWithheld(j.holdRoot(t)) ||
+		(j.broadSpelling != nil && j.reasonNamesWithheld(j.holdRootBroad(t)))
+}
+
+// reasonNamesWithheld reports whether marked, a sanitized drop reason with the project root held as
+// rootMark under one reading of the root (reasonWithheld), holds a whitespace-delimited token that is
+// an absolute path outside the project, or names a withheld path's whole spelling (namesKnownIn).
+func (j pathJudge) reasonNamesWithheld(marked string) bool {
 	for _, w := range strings.Fields(marked) {
 		// A path names a directory, so it holds a separator; a bare `~36800` or `25000-token` is an
 		// approximate count, not a home path, though homeOrVarRoot would match the leading `~`.

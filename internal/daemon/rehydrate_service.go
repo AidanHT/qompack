@@ -766,7 +766,9 @@ func hostPolicyFor(o *Options) *hostperm.Policy {
 // root through its last word that holds a separator, which may include an argument that holds one),
 // the instruction and skill files items 6a and 6b would restore, and, while a rule anchored outside
 // the project is in force, one fresh name below the root, once each per build, so a build costs at
-// most two Evaluates for each of those, whatever its commands and queries say.
+// most three Evaluates for each of those (the recorded spelling, and the resolved root's spelling of
+// each distinct reading of the path's place below the root, rootRelatives: two at most, one for a
+// path every reading places alike), whatever its commands and queries say.
 func rehydrateHostPaths(p *hostperm.Policy, root string, log logging.Logger) rehydrate.HostPaths {
 	return func() rehydrate.HostRules {
 		rules, err := p.Snapshot()
@@ -793,21 +795,42 @@ func rehydrateHostPaths(p *hostperm.Policy, root string, log logging.Logger) reh
 			if resolved == root {
 				return false
 			}
-			// The path's place below the root is read as rehydrate's containment reads it
-			// (rehydrate.RootRelative: an ASCII letter's case folded where paths fold, nothing
-			// else), so the resolved spelling judged is the project path containment found; on
-			// macOS filepath.Rel folds nothing, and a root spelled in another ASCII case would put
-			// the judged spelling outside the resolved root. Rehydrate asks only about such paths;
-			// any other keeps filepath.Rel's reading, which can only judge one more spelling.
-			rel, ok := rehydrate.RootRelative(root, abs)
-			if !ok {
-				r, err := filepath.Rel(root, abs)
-				if err != nil {
-					return false
+			for _, rel := range rootRelatives(root, abs) {
+				if rules.Evaluate(filepath.Join(resolved, rel)).Effect != hostperm.Allow {
+					return true
 				}
-				rel = r
 			}
-			return rules.Evaluate(filepath.Join(resolved, rel)).Effect != hostperm.Allow
+			return false
 		}}
 	}
+}
+
+// rootRelatives are the distinct readings of abs's place relative to root that the adapter judges
+// below the root's resolved spelling. A refusal withholds, so every reading is judged and the path is
+// refused when any is refused (the two-fold rule, ADR 0011 §23): rehydrate's strict containment
+// (rehydrate.RootRelative: an ASCII letter's case folded where paths fold, nothing else), which places
+// the project paths rehydrate shows (on macOS filepath.Rel folds nothing, and a root spelled in
+// another ASCII case would put the judged spelling outside the resolved root); its broad reading
+// (rehydrate.RootRelativeBroad: case folded by Unicode, as the host's rules fold a path); and
+// filepath.Rel's, for a path outside the root too (`..\x`). Most paths have one reading.
+func rootRelatives(root, abs string) []string {
+	var out []string
+	add := func(rel string) {
+		for _, r := range out {
+			if r == rel {
+				return
+			}
+		}
+		out = append(out, rel)
+	}
+	if rel, ok := rehydrate.RootRelative(root, abs); ok {
+		add(rel)
+	}
+	if rel, ok := rehydrate.RootRelativeBroad(root, abs); ok {
+		add(rel)
+	}
+	if rel, err := filepath.Rel(root, abs); err == nil {
+		add(rel)
+	}
+	return out
 }
