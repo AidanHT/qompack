@@ -123,7 +123,10 @@ summary spelling it is judged as the free text it is and withheld; a drop reason
 a preview spells exactly whatever its characters, and under any other root redacts every path it
 names below the root. A store cut inside a path-named value is the project only when what is left
 starts the root's own spelling byte for byte (an ASCII letter's case aside on Windows and macOS),
-so a cut sibling that differs from the root only by a quote or a doubled space is withheld. A store
+so a cut sibling that differs from the root only by a quote or a doubled space is withheld. The
+root's spelling and the project's bounds fold an ASCII letter's case and no other character's, so a
+folder beside the project spelled with the Kelvin sign, the long s or the Angstrom sign where the
+root has `k`, `s` or `å` (NTFS keeps each a separate folder) is outside it. A store
 cut right after a drive
 or provider name's `:` (`Temp:…`) is withheld, since the cut may hide the file after it; a bare
 drive or provider name with nothing after its `:` (`Get-ChildItem Temp:`, a commit message's `fix:`)
