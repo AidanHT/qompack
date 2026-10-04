@@ -912,13 +912,13 @@ func TestRehydrateHostPaths_RootedCommandsAndRegularExpressionsAreShownUnderTheU
 // TestRehydrateHostPaths_ARootOutsideTheWhitelistHoldsNoRootUnit (renamed from
 // TestRehydrateHostPaths_AnApostropheInTheRootIsNotAnOpenQuote by D64) is coordinator decision
 // D64(1) through the real host rules and the store's own previews: the root's spelling was held
-// together as one unit whatever it held, so in a project under `o'brien`, `a;b`, `a,b` or `a$b`
-// the Grep and Glob previews of the root, `cd <root> && …` and `git -C <root> …` were shown, though
-// a shell splits or reinterprets the root at its own `'`, `;`, `,` or `$` and reads another path. A
-// root holding a character outside the unit's set has no unit, so each is withheld (criterion change
-// for `o'brien`, whose rows were shown since the w19c round-2 review); a path-named JSON value is
-// still judged as the structured value it is, and a root of letters, digits, `@` and `+` keeps its
-// unit.
+// together as one unit whatever it held, so in a project under `o'brien`, `a;b`, `a,b`, `a$b` or
+// `a+b` the Grep and Glob previews of the root, `cd <root> && …` and `git -C <root> …` were shown,
+// though a shell splits or reinterprets the root at its own `'`, `;`, `,`, `$` or `+` (cmd.exe's copy
+// starts its next source there) and reads another path. A root holding a character outside the
+// unit's set has no unit, so each is withheld (criterion change for `o'brien`, whose rows were shown
+// since the w19c round-2 review); a path-named JSON value is still judged as the structured value it
+// is, and a root of letters, digits, `@`, `-` and `.` keeps its unit.
 func TestRehydrateHostPaths_ARootOutsideTheWhitelistHoldsNoRootUnit(t *testing.T) {
 	bash := func(cmd string) string { return storePreview(t, map[string]string{"command": cmd}) }
 	rootSummaries := func(root string) []string {
@@ -930,7 +930,7 @@ func TestRehydrateHostPaths_ARootOutsideTheWhitelistHoldsNoRootUnit(t *testing.T
 			storePreview(t, map[string]string{"file_path": filepath.Join(root, "src", "main.go")}),
 		}
 	}
-	for _, seg := range []string{"o'brien", "a;b", "a,b", "a$b"} {
+	for _, seg := range []string{"o'brien", "a;b", "a,b", "a$b", "a+b"} {
 		t.Run(seg, func(t *testing.T) {
 			root := uat12Project(t, seg, "proj")
 			res := requireToolSummaries(t, root,
@@ -942,8 +942,8 @@ func TestRehydrateHostPaths_ARootOutsideTheWhitelistHoldsNoRootUnit(t *testing.T
 			require.NotContains(t, res.Text, "deny.txt")
 		})
 	}
-	t.Run("a@b+c", func(t *testing.T) {
-		root := uat12Project(t, "a@b+c", "proj")
+	t.Run("a@b-c.d", func(t *testing.T) {
+		root := uat12Project(t, "a@b-c.d", "proj")
 		res := requireToolSummaries(t, root, rootSummaries(root),
 			[]string{bash("cd " + root + " && cat private/deny.txt")})
 		require.NotContains(t, res.Text, "deny.txt")

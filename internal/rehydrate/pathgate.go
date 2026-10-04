@@ -1496,10 +1496,12 @@ const pathDelims = "=:,@"
 
 // pathStartDelims are pathDelims and the other characters a safe word may hold where an argument may
 // begin: an apostrophe between letters (a quoted span may start an argument there for PowerShell),
-// inside a quoted run a parenthesis (a nested shell's subshell, PowerShell's subexpression), and the
-// `#` that starts a token (a comment, whose text still names its path to the model: `#/home/u/x` names
-// /home/u/x as `# /home/u/x` does). A path may start after each, and a `..` that touches one may climb.
-const pathStartDelims = pathDelims + "'()#"
+// inside a quoted run a parenthesis (a nested shell's subshell, PowerShell's subexpression), the `#`
+// that starts a token (a comment, whose text still names its path to the model: `#/home/u/x` names
+// /home/u/x as `# /home/u/x` does), and `+`, where cmd.exe's copy starts its next source (`copy
+// a.txt+\Windows\win.ini out` reads the drive-rooted file; found deciding `+` for the root unit under
+// D64(1)). A path may start after each, and a `..` that touches one may climb.
+const pathStartDelims = pathDelims + "'()#+"
 
 // plainTokenSafe reports whether tok, a plain token, is built only from the whitelist (D63(2)):
 // Unicode letters, marks and digits, the project root's mark, the ASCII set `- _ . , : @ + /`, `=`
@@ -1803,10 +1805,11 @@ func flagBefore(t string, i int) bool {
 
 // nameByte reports a byte that continues a file name: an ASCII letter or digit, any byte of a
 // non-ASCII character (in a whitelisted token, a Unicode letter, mark or digit), or one of
-// `. _ - ~ $ % + #`.
+// `. _ - ~ $ % #`. A `+` does not: cmd.exe's copy starts its next source after one (`copy
+// a.txt+.env out`), so a name may start there (pathStartDelims).
 func nameByte(c byte) bool {
 	return c >= utf8.RuneSelf || c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' ||
-		strings.IndexByte("._-~$%+#", c) >= 0
+		strings.IndexByte("._-~$%#", c) >= 0
 }
 
 // minCutPrefix is the shortest tail of a cut summary that counts as the start of a withheld name: D63
@@ -2177,13 +2180,14 @@ func rootSegments(rest, sep string) string {
 
 // rootUnitAdmitted reports whether root's own spelling admits the root unit in a summary
 // (coordinator decision D64(1)): cleaned and slash-separated, every character of it is a Unicode
-// letter, mark or digit, one of `- _ . @ +`, the separator `/`, an ASCII space, or, on Windows, the
+// letter, mark or digit, one of `- _ . @`, the separator `/`, an ASCII space, or, on Windows, the
 // drive's `:` after its letter. These are the free-text whitelist's characters at which no shell
 // splits or reinterprets a word in its middle. The whitelist's other characters are left out: `,`
 // (PowerShell splits a bare argument into an array there, and cmd.exe's built-in commands split at
-// it), `=` (cmd.exe's built-in commands split at it), `#` (zsh's EXTENDED_GLOB repeats the character
-// before it) and a `:` past the drive (PowerShell reads a name before a `:` as a drive; a list's
-// reader splits at it). So is every character the whitelist rejects: a quote of any kind, a backtick,
+// it), `=` (cmd.exe's built-in commands split at it), `+` (cmd.exe's copy starts its next source
+// there), `#` (zsh's EXTENDED_GLOB repeats the character before it) and a `:` past the drive
+// (PowerShell reads a name before a `:` as a drive; a list's reader splits at it). So is every
+// character the whitelist rejects: a quote of any kind, a backtick,
 // `$ ! ; & | ( ) [ ] { } < > ^ % ~ * ?`, a backslash that is no separator (a POSIX shell drops it), a
 // control character and a Unicode space. A root holding any of them has no unit: a summary spelling
 // it is judged as the free text it is, and withheld. An empty root admits nothing.
@@ -2206,7 +2210,7 @@ func rootUnitAdmitted(root string) bool {
 
 // rootUnitChars are the ASCII characters besides `/` and the space that a root's spelling may hold
 // and keep its unit (rootUnitAdmitted).
-const rootUnitChars = "-_.@+"
+const rootUnitChars = "-_.@"
 
 // markRoot is t, a sanitized summary text, with the project root held together as one rootMark
 // (holdRoot) when the root's own spelling admits the unit (rootUnitAdmitted, D64(1)), and t as it is
