@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"testing"
 
@@ -150,11 +151,14 @@ const releaseNotesPage = "docs/release-notes/<tag>.md"
 // runs not yet run, its evidence owed, the notes' figures standing "until candidate N's are
 // recorded". Step 2 rewrites these pages from the tagged candidate's recorded evidence in a
 // docs-only descendant (D58(e)), so none may still be there when the tag is pushed. The list is
-// the markers these pages carry today; a reworded interim sentence is step 2's manual duty.
+// the markers these pages carry today, and TestReleaseInterimMarkersStillMatchTheirPages keeps it
+// so until the release is prepared: a reworded interim sentence fails that check instead of
+// silently disabling its marker. Every page here is checked on the tag push.
 var releaseInterimMarkers = map[string][]*regexp.Regexp{
 	releaseNotesPage: {
 		regexp.MustCompile(`until candidate [0-9]+'s are recorded`),
 		regexp.MustCompile(`the release is not published before they are`),
+		regexp.MustCompile(`once candidate [0-9]+'s last fixes are verified`),
 	},
 	"README.md": {
 		regexp.MustCompile("-CANDIDATE\\.md` when it is frozen"),
@@ -163,12 +167,17 @@ var releaseInterimMarkers = map[string][]*regexp.Regexp{
 		regexp.MustCompile(`that record is owed`),
 	},
 	"CHANGELOG.md": {
+		regexp.MustCompile("-CANDIDATE\\.md` when it is frozen"),
 		regexp.MustCompile(`supply the release's evidence, and they are owed`),
+		regexp.MustCompile(`once candidate [0-9]+'s last fixes are verified`),
 	},
 	"docs/release.md": {
 		regexp.MustCompile("-CANDIDATE\\.md` when it is frozen"),
 		regexp.MustCompile(`Still owed before the tag, all on candidate [0-9]+`),
 		regexp.MustCompile(`Neither workflow has run on candidate [0-9]+ yet`),
+	},
+	"docs/architecture.md": {
+		regexp.MustCompile(`C5\.2 night re-measures it`),
 	},
 }
 
@@ -215,15 +224,29 @@ func TestReleaseNotesForAPushedTagCarryNoInterimSentence(t *testing.T) {
 			"recorded evidence before the tag (docs/release.md §1, step 2)", releaseNotesDir, tag)
 }
 
-// TestReleasePagesForAPushedTagCarryNoInterimText is the same check, on the tag push, for the
-// three other pages step 2 rewrites: README.md, CHANGELOG.md and docs/release.md ship in the
-// tagged tree and may not still say the candidate's evidence is owed.
+// releaseInterimPages lists the pages releaseInterimMarkers names other than the tag's notes,
+// sorted, so a page added to the table is checked without a second list to keep in step.
+func releaseInterimPages() []string {
+	var pages []string
+	for page := range releaseInterimMarkers {
+		if page != releaseNotesPage {
+			pages = append(pages, page)
+		}
+	}
+	sort.Strings(pages)
+	return pages
+}
+
+// TestReleasePagesForAPushedTagCarryNoInterimText is the same check, on the tag push, for every
+// other page step 2 rewrites (README.md, CHANGELOG.md, docs/release.md and docs/architecture.md's
+// C1.16 paragraph among them): they ship in the tagged tree and may not still say the candidate's
+// evidence is owed.
 func TestReleasePagesForAPushedTagCarryNoInterimText(t *testing.T) {
 	t.Parallel()
 
 	refType := os.Getenv("GITHUB_REF_TYPE")
 	root := repoRoot(t)
-	for _, page := range []string{"README.md", "CHANGELOG.md", "docs/release.md"} {
+	for _, page := range releaseInterimPages() {
 		b, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(page)))
 		require.NoError(t, err)
 		for _, p := range releasePageInterimProblems(page, string(b), refType) {
@@ -231,6 +254,67 @@ func TestReleasePagesForAPushedTagCarryNoInterimText(t *testing.T) {
 				"(docs/release.md §1, step 2)", p)
 		}
 	}
+}
+
+// releasePrepared reports whether CHANGELOG.md already carries the version's own heading, which
+// docs/release.md §1 step 2 writes in the same docs-only commit that rewrites the interim text.
+func releasePrepared(changelog, version string) bool {
+	return strings.Contains(changelog, "\n## ["+version+"]")
+}
+
+// releaseInterimMarkersMissing reports the markers of page that no longer match its text. A
+// marker that matches nothing guards nothing on the tag push.
+func releaseInterimMarkersMissing(page, text string) []string {
+	flat := strings.Join(strings.Fields(text), " ")
+	var missing []string
+	for _, re := range releaseInterimMarkers[page] {
+		if !re.MatchString(flat) {
+			missing = append(missing, page+": the interim marker "+re.String()+" matches nothing")
+		}
+	}
+	return missing
+}
+
+// TestReleaseInterimMarkersStillMatchTheirPages keeps releaseInterimMarkers live while the release
+// is not yet prepared: every marker must still match its page. A reworded interim sentence would
+// otherwise disable its marker silently, and the tag-push check would pass over text that is still
+// interim. Once step 2 has written the version's CHANGELOG heading the pages are meant to be free
+// of interim text, and the tag-push checks above take over.
+func TestReleaseInterimMarkersStillMatchTheirPages(t *testing.T) {
+	t.Parallel()
+
+	if os.Getenv("GITHUB_REF_TYPE") == "tag" {
+		return // on the tag push the markers must match nothing; the checks above assert that
+	}
+	root := repoRoot(t)
+	changelog, err := os.ReadFile(filepath.Join(root, "CHANGELOG.md"))
+	require.NoError(t, err)
+	if releasePrepared(string(changelog), core.Version) {
+		return
+	}
+	pages := map[string]string{releaseNotesPage: releaseNotesDir + "/v" + core.Version + ".md"}
+	for _, page := range releaseInterimPages() {
+		pages[page] = page
+	}
+	for page, file := range pages {
+		b, readErr := os.ReadFile(filepath.Join(root, filepath.FromSlash(file)))
+		require.NoError(t, readErr, "%s: a page releaseInterimMarkers names must exist", file)
+		for _, p := range releaseInterimMarkersMissing(page, string(b)) {
+			t.Errorf("%s; update releaseInterimMarkers with the page's current interim sentence", p)
+		}
+	}
+}
+
+// TestReleaseInterimMarkersLivenessRejectsAReword is the negative of the liveness check.
+func TestReleaseInterimMarkersLivenessRejectsAReword(t *testing.T) {
+	t.Parallel()
+
+	require.NotEmpty(t, releaseInterimMarkersMissing("docs/architecture.md",
+		"candidate 8's night re-runs the rig"), "a reworded interim sentence must be reported")
+	require.Empty(t, releaseInterimMarkersMissing("docs/architecture.md",
+		"candidate 8's C5.2 night\nre-measures it (D62(c))"), "the current sentence must match")
+	require.False(t, releasePrepared("# Changelog\n\n## [Unreleased]\n", "0.3.0"))
+	require.True(t, releasePrepared("# Changelog\n\n## [0.3.0] - 2026-10-05\n", "0.3.0"))
 }
 
 // TestReleaseNotesInterimGuardFiresOnlyOnATagPush is the negative of the live check.
@@ -249,15 +333,16 @@ func TestReleaseNotesInterimGuardFiresOnlyOnATagPush(t *testing.T) {
 		"notes rewritten from the candidate's own evidence must pass")
 }
 
-// TestReleasePagesInterimGuardFiresOnlyOnATagPush is the negative of the live check on the three
-// pages besides the notes that step 2 rewrites.
+// TestReleasePagesInterimGuardFiresOnlyOnATagPush is the negative of the live check on the pages
+// besides the notes that step 2 rewrites.
 func TestReleasePagesInterimGuardFiresOnlyOnATagPush(t *testing.T) {
 	t.Parallel()
 
 	interim := map[string]string{
-		"README.md":       "Neither workflow has run on\ncandidate 8 yet.",
-		"CHANGELOG.md":    "live re-check and C5.5 supply the release's evidence, and they are\nowed",
-		"docs/release.md": "recorded in `plans/sdd/V6-closeout/phase3/c8-CANDIDATE.md` when it\nis frozen.",
+		"README.md":            "Neither workflow has run on\ncandidate 8 yet.",
+		"CHANGELOG.md":         "live re-check and C5.5 supply the release's evidence, and they are\nowed",
+		"docs/release.md":      "recorded in `plans/sdd/V6-closeout/phase3/c8-CANDIDATE.md` when it\nis frozen.",
+		"docs/architecture.md": "candidate 8's C5.2 night\nre-measures it (D62(c)).",
 	}
 	for page, text := range interim {
 		require.NotEmpty(t, releasePageInterimProblems(page, text, "tag"),

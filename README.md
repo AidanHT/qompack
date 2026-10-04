@@ -99,11 +99,15 @@ candidate 6 did (D57(c)). The table below records what candidates 6 and 7 establ
 own evidence is still owed and is recorded in `plans/sdd/V6-closeout/phase3/c8-CANDIDATE.md` as it
 arrives: its night chain on the frozen tree (the AC-gated Windows timing and X11, the Windows and
 Linux `-race` lanes, two reproducible bundle builds, the quiet C5.1 run and `release-check --tag`),
-hosted `ci.yml` and `nightly.yml` on it, with the hosted release-version bundles compared byte for
-byte with its frozen ones, its short live re-check (D59, D60(f)), and the pre-registered live
-evaluation, C5.5, which runs on its frozen bundles (D58(e)). Candidate 7's live lane ran: 20 real
-sessions, 19 of them on its frozen bundles (D59). Its rows carry to candidate 8 by the diff, which
-the owed live re-check is to confirm, and its host-seen hook timings stay candidate 7's (D58(e)).
+the C5.2 night, which re-measures every benchmark in full against `cf31e01` in package chunks that
+may span more than one night (D62(b), D65(b)), the C1.16 rig re-measure on that night, whose figure
+[docs/architecture.md](docs/architecture.md#7-checkpoint-and-rehydration) then restates (D62(c),
+D65(a)), hosted `ci.yml` and `nightly.yml` on it, with the hosted release-version bundles compared
+byte for byte with its frozen ones, its short live re-check (D59, D60(f)), and the pre-registered
+live evaluation, C5.5, which runs on its frozen bundles (D58(e)). Candidate 7's live lane ran: 20
+real sessions, 19 of them on its frozen bundles (D59). Its rows carry to candidate 8 by the diff,
+which the owed live re-check is to confirm, and its host-seen hook timings stay candidate 7's
+(D58(e)).
 
 | Where | What the evidence shows |
 |---|---|

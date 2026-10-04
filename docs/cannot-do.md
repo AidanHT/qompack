@@ -317,6 +317,8 @@ host change could lift — as prepared proposals, none of which has been filed.
   2 s each, so only a live prompt sent inside that window can come in ahead of it. A spool file
   that a pid-reusing hook appended to after a drain had begun it is placed by the record the next
   drain replays from it, so reuse reorders prompts only when both hooks spooled before one pass.
+  Current work follows the same captured order: its goal is the newest captured prompt that can
+  give one, not the newest by the host's timestamp (D35(b)).
 - **Recorded at.** `plans/V2-SP-08-carried-defects.md` (SP08-D3, with the D35 close-out note);
   `plans/CARRIED-DEFECTS.tsv`; `plans/V6-CLOSEOUT-CHECKLIST.md` D35(b) and D38;
   [docs/architecture.md §7](architecture.md#7-checkpoint-and-rehydration).
@@ -500,7 +502,27 @@ host change could lift — as prepared proposals, none of which has been filed.
 - **Recorded at.** [Troubleshooting §7](troubleshooting.md#7-daemon-problems) (the abandoned-session
   entry); `internal/daemon/registry.go` (`EndAbandoned`, `Touch`);
   `plans/sdd/V6-closeout/live/rerun-c7/UAT-09/` (`store-after-session1/`: the day log and
-  `index_segments.jsonl`).
+  `index_segments.jsonl`); `plans/V6-CLOSEOUT-CHECKLIST.md` D62 (sessionend: UAT-09 O-1 is by
+  design).
+
+### Another session's tool use can close the bound session's segment
+
+- **Limit.** In a project with two live sessions, the scheduler does not keep their accounts apart.
+  A daemon's scheduler is bound to one session, and every live session's tool use is folded into
+  that bound account; when a tool use owes a segment close (a task boundary or a changepoint), the
+  close is made on the bound session's open segment, even when the tool use came from the other
+  session. An owed close is also lost when a delivery's first run, the daemon stop's replay of it
+  and that replay's commit are all cut, and the restarted daemon replays it after a session has
+  bound the scheduler.
+- **Why.** The scheduler keeps one account per daemon by design. Keeping one per session is a change
+  to the scheduler's state format, not a fix for this release (decision D67(b)).
+- **What Qompack does instead.** The effect is on scheduling only: the bound session's token count
+  and where its segments end, which decide when the scheduler seals a checkpoint of its own. What
+  each session captures, its `PreCompact` checkpoint, which closes only that session's segment, and
+  retrieval are per session and are not affected, and nothing is lost. A redelivered tool use is
+  applied once, for every session (`state/scheduler.json`'s applied identities).
+- **Recorded at.** `plans/V6-CLOSEOUT-CHECKLIST.md` D67(b); `internal/daemon/scheduler_tap.go`
+  (`observeTool`, `closeOwed`); `plans/sdd/V6-closeout/w20-redeliver/report.md` (open issues).
 
 ### A compaction at the edge of session-start's budget can get the deferred note
 
@@ -756,29 +778,68 @@ host change could lift — as prepared proposals, none of which has been filed.
 - **Recorded at.** `internal/hostperm`'s package comment; the evidence under
   `plans/sdd/V6-closeout/hostperm/runs/`.
 
+### On macOS, a case-sensitive volume is treated as case-insensitive
+
+- **Limit.** On macOS, Qompack assumes the default case-insensitive volume: it compares and keys
+  paths, and matches the Read rules' patterns, without regard to letter case. On a case-sensitive
+  APFS volume, two files whose names differ only in case are two files, which Qompack treats as one
+  wherever it compares paths.
+- **Why.** macOS's default APFS volume is case-insensitive, and Qompack folds case on macOS as it
+  does on Windows. Telling the volumes apart path by path is not done in 0.3.0; owner decision
+  D67(m) accepted the assumption as a known limit.
+- **What Qompack does instead.** For the Read rules the folding errs toward refusing: a deny or ask
+  rule written for one spelling also refuses the other, so a file a rule names is not served under
+  another spelling. On the default volume the two spellings are one file, and nothing is affected.
+- **Recorded at.** `plans/V6-CLOSEOUT-CHECKLIST.md` D67(m); `internal/hostperm/policy.go` (`New`,
+  the platform's `fold`); `internal/paths/norm.go` (`DefaultFold`).
+
 ### The rehydration block's screen of free-text summaries has limits
 
 - **Limit.** Section 6 of the rehydration block lists tool pointers, each with a short summary of
-  the call's arguments. A free-text summary (a command line, a search query) is screened, not
-  resolved: aliases (8.3 short names and links) and globs typed in it are not resolved, names a
-  command builds at run time cannot be seen, and free text that only mentions a Read rule's literal
-  is withheld even when it reads nothing. The records in sections 2 to 4 are not screened: they are
-  your own prompts and the model's own earlier text (which `already_tried` and `why` return as
-  well), and decision D50's rule covers pointers (decision D60(c)(i)).
+  the call's arguments. A free-text summary (a command line, a search query) is shown only when a
+  whitelist proves it safe (decisions D63 and D64), so it withholds more than it must, by design
+  (D64(4)): a command that uses a variable (`echo $HOME`), a glob (`find . -name "*.go"`), a regular
+  expression, a `%` escape (`echo a%41`) or a `name:` shape where a path may start, such as
+  `localhost:3000` in `curl localhost:3000` or `format:%h` in `git log --pretty=format:%h`, is
+  withheld even when it names no denied file, and so is free text that only mentions a Read rule's
+  literal where a name starts (`kubectl get secrets` under `Read(./secrets/**)`). Globs in
+  free text stay withheld (D67(l)). The project root is held together as one root unit, so
+  `cd <root> && go test` is shown, only when its spelling is plain: letters, marks, digits, `-`,
+  `_`, `.`, its separators and single spaces, with no word starting with `-`; a root with any other
+  character (an apostrophe, a `+`, an `@`, a `$`, a Unicode space, a run of spaces) has no root
+  unit, so every summary that spells it is withheld (D64(1)). The whitelist does not resolve
+  aliases (8.3 short names, links, Unicode normalization variants of a name) and cannot see names a
+  command builds at run time or names relative to a `cd`. Outside free text, a structured glob (a
+  lone Glob or recall pattern) that selects a refused file the block never recorded, without
+  spelling its literal (`private/d*`), is judged as written (D60(c)(iv)). The store's preview
+  collapses runs of whitespace, so a summary is judged as collapsed, not as the command spelled it
+  (D60(c)(iv)). A program that reads its command line through the Windows ANSI code page receives a
+  letter that code page cannot hold as `?`, which a program that globs its arguments reads as a
+  wildcard (D67(l)). The records in sections 2 to 4 are not screened: they are your own prompts and
+  the model's own earlier text (which `already_tried` and `why` return as well), and decision D50's
+  rule covers pointers (decision D60(c)(i) for sections 3 and 4, D62(f) for section 2, your
+  verbatim prompts).
 - **Why.** Two rounds tried to find every path inside arbitrary text, and each closed some
-  spellings while opening others or withholding harmless commands (decision D61(b)). A free-text
-  summary costs no host evaluation, so a project with Read rules still gets its rehydration within
-  the compaction answer's budget.
+  spellings while opening others or withholding harmless commands (decision D61(b)). A third, D61's
+  blacklist screen, did not converge either: undoing shell quoting cannot be made complete, so D63
+  shows only what a whitelist can prove safe, and D64 closed its remaining gaps by making it
+  stricter. A free-text summary costs no host evaluation, so a project with Read rules still gets
+  its rehydration within the compaction answer's budget.
 - **What Qompack does instead.** A file pointer is judged whole against the host's saved Read
   rules, as `re_read` judges a path, and points by hash. A structured summary (the store's preview
   of a path argument) is judged whole the same way and, when refused, is replaced by a "summary
-  withheld" note. A free-text summary is withheld when, decoded and normalized, it contains a
-  Read deny or ask rule's literal, the name or relative path of a path this build withholds, or an
-  absolute path outside the project; when the host's rules cannot be read; and when a cut summary
-  ends in the start of one of those. Section 7's drop entries never show such a path, and `dropped()`
-  redacts one instead of hiding the entry (decision D60(c)(iii)).
-- **Recorded at.** `plans/V6-CLOSEOUT-CHECKLIST.md` D50, D60(c) and D61(b);
-  [ADR 0011](adr/0011-rehydration-budget-and-item-order.md);
+  withheld" note; a path-named value holding several paths is judged piece by piece. A free-text
+  summary is shown only when every whitespace-delimited token is built from letters, marks, digits
+  and a small set of safe punctuation (a few shell operators, a simple quoted run, an http(s) URL),
+  no token names an absolute path or one that escapes the project, and no Read deny or ask rule's
+  literal and no name of a path this build withholds stands where a name starts, in the text as
+  written and with its backslashes, carets and backticks removed. The string values of a JSON
+  preview are each judged that way, and a one-word summary must pass too. Every free-text summary
+  is withheld while the host's rules cannot be read. Section 7's drop entries never show such a
+  path, and `dropped()` redacts one instead of hiding the entry (decision D60(c)(iii)). The full
+  rule is in [docs/security.md §1](security.md#1-trust-boundaries).
+- **Recorded at.** `plans/V6-CLOSEOUT-CHECKLIST.md` D50, D60(c), D61(b), D62(f), D63, D64 and
+  D67(l); [ADR 0011 §23](adr/0011-rehydration-budget-and-item-order.md);
   `plans/sdd/V6-closeout/live/rerun-c7/UAT-12/`.
 
 ### Redaction is applied at capture, and telemetry is hardwired off

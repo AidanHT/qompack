@@ -221,11 +221,11 @@ second declaration beside co-load: `QOMPACK_NONREFERENCE_DISK` (`internal/obs.No
 - **Who makes it.** ci.yml's `bench-gate`, `timing`, `test-e2e`, `cover` and `release-dry-run`
   (whose `test/e2e` passes run alone; devtool takes the declaration back from their co-loaded
   pass), nightly's `bench-deep` (D55), and release.yml's `release`, whose `release-check --tag` runs
-  the same passes as `release-dry-run` (pending the owner's ruling, C7.2: it carries D53(e)/D55
-  from CI to the tag-time gate). `release-dry-run` was missed when the declaration landed and
-  failed X11 on the hosted tail in run 36955046276 (C7.2). Never the whole-tree `test` job, whose
-  declaration is co-load, and no job makes both; every hosted job that runs a fsync-bound row must
-  make one of the two. The owner's quiet reference runs (quiet.sh, phase3.sh, overnight.sh) never make it and never
+  the same passes as `release-dry-run` (recorded by D57(a), which carries D53(e)/D55 from CI to the
+  tag-time gate). `release-dry-run` was missed when the declaration landed and failed X11 on the
+  hosted tail in run 36955046276 (C7.2); D57(a) records its declaration too. Never the whole-tree
+  `test` job, whose declaration is co-load, and no job makes both; every hosted job that runs a
+  fsync-bound row must make one of the two. The owner's quiet reference runs (quiet.sh, phase3.sh, overnight.sh) never make it and never
   claim to be GitHub Actions. `test/guards`' `TestNonReferenceDisk_IsHostedCIOnly` pins all of this.
 - **What is reported, not gated:** B-A, B-B and B-E's wall row, each with a note naming the
   declaration in the printed summary and the JSON artifact; and, in the hot-path tests that drive
