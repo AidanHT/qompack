@@ -175,9 +175,22 @@ must still wait for an earlier delivery of its session (C1.13); the startup, flu
 operator drains replay whatever is left. The idle drain runs once the project has had no activity
 for `scheduler.idle.detectAfterSeconds` (120 s by default), looked at on a tick of at most 30 s.
 The watcher's passes, the idle drain and a drain the ingest's lanes ask for share a soft 2 s pass
-budget (owner decision D31, `idleRunBudget`): once it is spent a pass starts no new line, and the
-line in progress finishes under its own 5 s `drainLineDeadline` rather than being cut. The drains a
-session end runs for itself are not budgeted.
+budget (owner decision D31, `idleRunBudget`). Once it is spent, a pass that has made progress (it
+advanced a spool's consumed front, or published or retired a line) starts no new line. The line in
+progress finishes rather than being cut: its dispatch to the handler runs under its own 5 s
+`drainLineDeadline`, and its admission, lease and journal checks under no deadline. A pass that has
+made no progress is not stopped by the budget: it reads on until it makes progress or reaches the end
+of the spool, so a spool whose head waits for an earlier delivery of its session cannot starve the
+spools after it (D58(c)). Such a pass is bounded by the spool, not the clock. It admits again, and
+checks against the committed frontier again, each line that still waits. A line an earlier pass of
+the same daemon consumed behind such a head costs only its read, for up to `orderingProcessedCap`
+(4096) such lines per spool file, while the file is the same file and has only grown. Past that bound
+such a line is admitted and checked again on every pass, though it is counted and announced only once
+unless a pass left an unleased line ahead of it unconsumed, and a restarted daemon consumes every such
+line in full once more. A spool file unchanged since the
+daemon synced it is neither synced nor has its progress rewritten again. While a blob's cleanup waits
+on a line still ahead of a front, the pass also reads each spool file's unconsumed lines once, at its
+start, for references to that blob. The drains a session end runs for itself are not budgeted.
 
 A replayed request is one whose hook has already answered the host without the daemon, so a replay
 does the request's bookkeeping and nothing the host would have to see. A replayed `SessionStart`

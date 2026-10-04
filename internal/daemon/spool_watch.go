@@ -37,14 +37,23 @@ import (
 // A spool a pass could not consume — its line waits on an earlier arrival of its session that is
 // still publishing, which is the usual reason, or on one nothing will ever publish — is passed over
 // again after twice the previous wait (spoolRetryAfter): 2, 4, 8, ... intervals. A pass that stopped
-// because its budget was spent (withPassBudget: it finishes the line it started, then starts no
-// other) judged nothing about the spools it left unfinished, so those are due again at the next look;
-// the ones it reached and finished keep the doubling wait. The retries end once
-// the spool has been waiting for its first pass for longer than the idle drain's own horizon
-// (DetectAfterSeconds): past it the idle drain, a drain the lanes ask for (the pass leased the line,
-// so its session's next arrival parks behind it and asks), the session's flush or a restart takes
-// it, exactly as before. So a spool that can never publish costs a handful of passes, not one every
-// interval, and a watcher with no kick and no retry due does nothing at all.
+// because its budget was spent (withPassBudget: once the budget is spent and the pass has made
+// progress, it finishes the line it is on and starts no other) judged nothing about the spools it left
+// unfinished, so those are due again at the next look; the ones it reached and finished keep the
+// doubling wait. The retries end once the spool has been waiting for its first pass for longer than the
+// idle drain's own horizon (DetectAfterSeconds): past it the idle drain, a drain the lanes ask for (the
+// pass leased the line, so its session's next arrival parks behind it and asks), the session's flush or
+// a restart takes it, exactly as before. So a spool that can never publish costs a handful of passes,
+// not one every interval, and a watcher with no kick and no retry due does nothing at all. The back-off
+// limits the passes the spool itself makes due; a pass another spool makes due reads it too, as every
+// pass reads every client spool. Once a pass has read it, a later one does not redo what it consumed
+// there, nor, while the spool is unchanged, sync it again: it pays the spool's read and its waiting
+// lines, within the bounds spoolMemo states, and, while a blob's cleanup waits, one more read of the
+// spool for references to that blob (cleanupAcknowledged).
+//
+// The first retry is due two intervals after the first pass, so a horizon of two intervals or less
+// (scheduler.idle.detectAfterSeconds of 4 or less, against spoolCheckInterval's 2 s) leaves the
+// watcher no retry at all: a spool its first pass cannot consume waits for those other drains.
 
 // spoolCheckInterval is how often, at most, the watcher looks at the spool while requests keep
 // arriving, and how long a client spool must stand unchanged before it gets a pass. It is the pass's
