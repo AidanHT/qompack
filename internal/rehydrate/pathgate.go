@@ -58,8 +58,11 @@ import (
 //     provider drive (providerPath) or a `..` anywhere, the root after an apostrophe outside a quoted
 //     run (rootInApostropheSpan), a URL character a shell splits at (urlTokenSafe), a rule's literal —
 //     withholds the summary. A cut summary's last token is judged as a prefix (cutTokenUnsafe,
-//     cutPrefixNamed). When the host's rules are unavailable, or a rule covers the whole project,
-//     every free text is withheld, as re_read fails closed.
+//     cutPrefixNamed), and one that ends right after a drive's `:` as if a name followed it
+//     (cutAtDriveColon, D64(2)). The project root is held together as one unit only when its own
+//     spelling has no character a shell splits or reinterprets a word at (rootUnitAdmitted, D64(1)).
+//     When the host's rules are unavailable, or a rule covers the whole project, every free text is
+//     withheld, as re_read fails closed.
 //
 // The checkpointer's own drop entries are pointers too: five kinds are keyed by a file pointer's
 // path (checkpointPathDrops), and section 7 and dropped() name a withheld one by hash
@@ -94,9 +97,12 @@ type pathJudge struct {
 	root    string
 	host    bool
 	refuses func(string) bool
-	// rootSpelling finds the project root spelled in a text (rootSpellingOf), which markRoot holds
+	// rootSpelling finds the project root spelled in a text (rootSpellingOf), which holdRoot holds
 	// together as one rootMark; nil when there is no root.
 	rootSpelling *regexp.Regexp
+	// rootUnit is set when the root's own spelling admits the root unit in a summary
+	// (rootUnitAdmitted, D64(1)); markRoot holds the root together only then.
+	rootUnit bool
 	// rootKey is the project root cleaned, slash-separated and in screen form (screenText), and
 	// rootSegs its segments: a rule anchored outside the project is matched against them (rootCover),
 	// and a cut stretch that begins rootKey is the root (rootPrefix).
@@ -244,7 +250,10 @@ func segMatch(pat, seg string) bool {
 // (a pointer_missing file, a file_pointer cut at the checkpoint's budget) is still a path free text,
 // a glob or a selector may name (w19 verifier V3).
 func newPathJudge(r Request, d Deps) pathJudge {
-	j := pathJudge{root: r.ProjectRoot, judged: make(map[string]bool), rootSpelling: rootSpellingOf(r.ProjectRoot)}
+	j := pathJudge{
+		root: r.ProjectRoot, judged: make(map[string]bool),
+		rootSpelling: rootSpellingOf(r.ProjectRoot), rootUnit: rootUnitAdmitted(r.ProjectRoot),
+	}
 	if r.ProjectRoot != "" {
 		j.rootKey = screenText(filepath.ToSlash(filepath.Clean(r.ProjectRoot)), true)
 		j.rootSegs = strings.FieldsFunc(j.rootKey, func(c rune) bool { return c == '/' })
@@ -324,7 +333,9 @@ func (j pathJudge) notedValues(summary string) []string {
 // `\.test\.ts`), nor a URL (http, https or file). Learning the names of any other value would withhold
 // unrelated free text with a fragment (w19c reviews): a git revision such as HEAD~1, a stretch of a
 // command, a Grep preview of a directory then its pattern. The recorded files not learned are those
-// whose path has a space, which a rule's literal screens instead (item 7(a)).
+// whose path has a space, which a rule's literal screens instead (item 7(a)). The root is held
+// together here whatever it holds (holdRoot): learning a withheld path's names only ever withholds
+// more, so D64(1)'s root unit, which decides what a summary may show, does not narrow it.
 func (j pathJudge) recordedPath(v string) bool {
 	if isGlob(v) || isURL(v) || fileScheme(v) {
 		return false
@@ -335,7 +346,7 @@ func (j pathJudge) recordedPath(v string) bool {
 	if t := strings.TrimSpace(v); len(t) > 0 && isSep(t[0]) && (len(t) == 1 || !isSep(t[1])) && !driveLessPath(t) {
 		return false
 	}
-	return !strings.Contains(j.markRoot(sanitize(v)), " ")
+	return !strings.Contains(j.holdRoot(sanitize(v)), " ")
 }
 
 // driveLessPath reports whether v, a value led by one separator, is a path on this platform: a POSIX
@@ -1198,7 +1209,8 @@ func cutTokenUnsafe(tk string) bool {
 }
 
 // cutWordUnsafe reports whether w, the word the store's cut fell inside (a word of a quoted run when
-// inRun), is unsafe or names an outside path once a backslash the cut left last is dropped.
+// inRun), is unsafe or names an outside path once a backslash the cut left last is dropped, or ends
+// right after a drive's or provider's `:` (cutAtDriveColon).
 func cutWordUnsafe(w string, inRun bool) bool {
 	if strings.HasSuffix(w, `\`) && !strings.HasSuffix(w, `\\`) {
 		w = w[:len(w)-1]
@@ -1207,9 +1219,19 @@ func cutWordUnsafe(w string, inRun bool) bool {
 		return false
 	}
 	if inRun {
-		return !wordSafe(w, true) || wordOutside(w, true)
+		return !wordSafe(w, true) || wordOutside(w, true) || cutAtDriveColon(w, true)
 	}
-	return !tokenSafe(w) || tokenOutside(w)
+	return !tokenSafe(w) || tokenOutside(w) || cutAtDriveColon(w, false)
+}
+
+// cutAtDriveColon reports whether w, the word the store's cut fell inside, ends right after the `:`
+// of a PowerShell drive or provider name at a path start (`Temp:`, `HKCU:`, `x,Env:`, `--dir=Temp:`;
+// coordinator decision D64(2)): the cut may have hidden the file after it (`Temp:secret.txt`), so w is
+// judged as if a name followed its `:`, as a single-letter drive there already is (startsOutside). An
+// uncut bare name (`Temp:`, `fix:`) names a drive root and reveals no file, so providerPath lets it
+// stand (D64(3)); an inert prefix (`path:`, `sha256:`) stays inert here too.
+func cutAtDriveColon(w string, inRun bool) bool {
+	return strings.HasSuffix(w, ":") && wordOutside(w+"x", inRun)
 }
 
 // cutPrefixNamed reports whether marked, the end of a text the store's cut fell inside, ends in the
@@ -1624,10 +1646,14 @@ func startsOutside(rest string, inner bool) bool {
 // as a provider, optionally module-qualified (`Registry::HKEY_CURRENT_USER`,
 // `Microsoft.PowerShell.Core\FileSystem::x`). A drive's name holds no separator, `.` or `~` (both
 // PowerShell 5.1 and 7 refuse such a name; `git@github.com:org/x` and `127.0.0.1:8080` name no
-// drive), and a provider's holds no `/`; a name with nothing after its `:` (`fix:` ending a word)
-// names no path. Every other such name is a path outside the project unless it is an inert prefix
-// (inertPrefixes), or an http(s) URL's scheme before its `//` (isURL), which the URL rule judges
-// (urlTokenSafe, urlOutside).
+// drive), and a provider's holds no `/`. A bare name with nothing after its `:` (`Temp:`, `Env:`,
+// `HKCU:`, a conventional commit's `fix:` and `feat:`) names a drive root and reveals no file, which
+// coordinator decision D64(3) rules inert: it is no path outside the project under D50 and D63, and
+// withholding it would hide every conventional commit message. A single-letter bare drive (`C:`) is
+// still withheld (startsOutside), and a store cut right after any drive's `:` is withheld
+// (cutAtDriveColon). Every other such name is a path outside the project unless it is an inert
+// prefix (inertPrefixes), or an http(s) URL's scheme before its `//` (isURL), which the URL rule
+// judges (urlTokenSafe, urlOutside).
 func providerPath(rest string) bool {
 	if isURL(rest) {
 		return false
@@ -2070,7 +2096,7 @@ func screenText(t string, trim bool) string {
 
 // sanitize is t as the store's preview spells text (store.previewString): control characters
 // dropped, whitespace runs collapsed to one space, outer spaces trimmed. It also guarantees that no
-// rootMark reaches markRoot except the ones markRoot writes.
+// rootMark reaches holdRoot except the ones holdRoot writes.
 func sanitize(t string) string {
 	var b strings.Builder
 	b.Grow(len(t))
@@ -2091,13 +2117,15 @@ func sanitize(t string) string {
 	return strings.TrimRight(b.String(), " ")
 }
 
-// The project root is often spelled with a space, a comma or an apostrophe in it
-// (C:\Users\John Smith\proj), with either slash and any case on Windows. markRoot holds each such
-// spelling in a text together as one rootMark, a control character no sanitized text carries, so the
-// tokenizer never splits the root at its own space and the screen never reads the root's own name as
-// a withheld name. A spelling glued to a name character on either side (proj2, xC:\q\proj) is not the
-// root and is judged as the path outside the project it is; a spelling glued to a short option is the
-// root as the option's value (-I<root>/include).
+// The project root is often spelled with a space in it (C:\Users\John Smith\proj), with either slash
+// and any case on Windows. holdRoot holds each such spelling in a text together as one rootMark, a
+// control character no sanitized text carries, so the tokenizer never splits the root at its own
+// space and the screen never reads the root's own name as a withheld name. In a summary it does so
+// only for a root whose spelling admits the unit (markRoot, rootUnitAdmitted, D64(1)): a root with a
+// comma, an apostrophe or any other character a shell splits or reinterprets a word at has none. A
+// spelling glued to a name character on either side (proj2, xC:\q\proj) is not the root and is judged
+// as the path outside the project it is; a spelling glued to a short option is the root as the
+// option's value (-I<root>/include).
 const rootMark = '\x01'
 
 // rootSpellingOf matches root as a text spells it: its separators repeated or not (a JSON escape
@@ -2147,12 +2175,56 @@ func rootSegments(rest, sep string) string {
 	return b.String()
 }
 
-// markRoot is t, a sanitized text, with each contiguous spelling of the project root replaced by
+// rootUnitAdmitted reports whether root's own spelling admits the root unit in a summary
+// (coordinator decision D64(1)): cleaned and slash-separated, every character of it is a Unicode
+// letter, mark or digit, one of `- _ . @ +`, the separator `/`, an ASCII space, or, on Windows, the
+// drive's `:` after its letter. These are the free-text whitelist's characters at which no shell
+// splits or reinterprets a word in its middle. The whitelist's other characters are left out: `,`
+// (PowerShell splits a bare argument into an array there, and cmd.exe's built-in commands split at
+// it), `=` (cmd.exe's built-in commands split at it), `#` (zsh's EXTENDED_GLOB repeats the character
+// before it) and a `:` past the drive (PowerShell reads a name before a `:` as a drive; a list's
+// reader splits at it). So is every character the whitelist rejects: a quote of any kind, a backtick,
+// `$ ! ; & | ( ) [ ] { } < > ^ % ~ * ?`, a backslash that is no separator (a POSIX shell drops it), a
+// control character and a Unicode space. A root holding any of them has no unit: a summary spelling
+// it is judged as the free text it is, and withheld. An empty root admits nothing.
+func rootUnitAdmitted(root string) bool {
+	if root == "" {
+		return false
+	}
+	clean := filepath.ToSlash(filepath.Clean(root))
+	for i, r := range clean {
+		switch {
+		case unicode.IsLetter(r) || unicode.IsMark(r) || unicode.IsDigit(r):
+		case r == '/' || r == ' ' || strings.ContainsRune(rootUnitChars, r):
+		case r == ':' && i == 1 && runtime.GOOS == "windows" && asciiLetter(clean[0]):
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+// rootUnitChars are the ASCII characters besides `/` and the space that a root's spelling may hold
+// and keep its unit (rootUnitAdmitted).
+const rootUnitChars = "-_.@+"
+
+// markRoot is t, a sanitized summary text, with the project root held together as one rootMark
+// (holdRoot) when the root's own spelling admits the unit (rootUnitAdmitted, D64(1)), and t as it is
+// otherwise, so that a summary spelling such a root is judged as the free text it is.
+func (j pathJudge) markRoot(t string) string {
+	if !j.rootUnit {
+		return t
+	}
+	return j.holdRoot(t)
+}
+
+// holdRoot is t, a sanitized text, with each contiguous spelling of the project root replaced by
 // rootMark. A spelling glued to a name character before it is not the root, unless that is a short
 // option's letters (the root as the option's value, flagBefore); and a spelling is the root only when
 // it ends the text or is followed by what ends a path's root (rootEndsAt). Any other spelling is
-// judged as the path outside the project it is.
-func (j pathJudge) markRoot(t string) string {
+// judged as the path outside the project it is. A summary holds the root only through markRoot; a
+// drop reason (reasonWithheld) and the learning of a withheld path (recordedPath) hold it always.
+func (j pathJudge) holdRoot(t string) string {
 	if j.rootSpelling == nil {
 		return t
 	}
@@ -2416,9 +2488,11 @@ func (j pathJudge) reasonWithheld(detail string) bool {
 	if j.operationOutside(t) {
 		return true
 	}
-	// The root is held together (markRoot), as D63(1) holds it in a summary, so the first piece of a
-	// root with a space (`C:\q\John`) is not read as a path outside the project.
-	marked := j.markRoot(t)
+	// The root is held together (holdRoot), as D63(1) holds it in a summary, so the first piece of a
+	// root with a space (`C:\q\John`) is not read as a path outside the project, and a withheld path
+	// named absolutely (`<root>/private/x`) starts a path run (pathRunStart). A reason is no shell
+	// command, so D64(1)'s summary rule does not apply: the root is held whatever it holds.
+	marked := j.holdRoot(t)
 	for _, w := range strings.Fields(marked) {
 		// A path names a directory, so it holds a separator; a bare `~36800` or `25000-token` is an
 		// approximate count, not a home path, though homeOrVarRoot would match the leading `~`.

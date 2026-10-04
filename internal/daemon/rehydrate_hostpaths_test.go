@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -541,6 +542,14 @@ func shortProjectDir(t *testing.T, elem ...string) string {
 	base, err := os.MkdirTemp("", "q")
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = os.RemoveAll(paths.Long(base)) })
+	if runtime.GOOS == "windows" {
+		// A hosted Windows runner spells its temporary directory with an 8.3 name
+		// (C:\Users\RUNNER~1\AppData\Local\Temp), and a root holding a `~` has no root unit (D64(1)),
+		// so the base is spelled by its long names, as a session's working directory is.
+		long, err := filepath.EvalSymlinks(base)
+		require.NoError(t, err)
+		base = long
+	}
 	return filepath.Join(append([]string{base}, elem...)...)
 }
 
@@ -900,25 +909,43 @@ func TestRehydrateHostPaths_RootedCommandsAndRegularExpressionsAreShownUnderTheU
 	require.NotContains(t, res.Text, "rotate.sh")
 }
 
-// TestRehydrateHostPaths_AnApostropheInTheRootIsNotAnOpenQuote is the w19c round-2 review's
-// apostrophe finding through the real host rules and the store's own previews: in a project under
-// `o'brien`, the root's own apostrophe was read as an open quote, so Grep and Glob with the root as
-// their path, `cd <root> && …` and `git -C <root> …` were withheld as siblings of the root. They are
-// shown; a denied file and a quoted sibling are still withheld.
-func TestRehydrateHostPaths_AnApostropheInTheRootIsNotAnOpenQuote(t *testing.T) {
-	root := uat12Project(t, "o'brien", "proj")
+// TestRehydrateHostPaths_ARootOutsideTheWhitelistHoldsNoRootUnit (renamed from
+// TestRehydrateHostPaths_AnApostropheInTheRootIsNotAnOpenQuote by D64) is coordinator decision
+// D64(1) through the real host rules and the store's own previews: the root's spelling was held
+// together as one unit whatever it held, so in a project under `o'brien`, `a;b`, `a,b` or `a$b`
+// the Grep and Glob previews of the root, `cd <root> && …` and `git -C <root> …` were shown, though
+// a shell splits or reinterprets the root at its own `'`, `;`, `,` or `$` and reads another path. A
+// root holding a character outside the unit's set has no unit, so each is withheld (criterion change
+// for `o'brien`, whose rows were shown since the w19c round-2 review); a path-named JSON value is
+// still judged as the structured value it is, and a root of letters, digits, `@` and `+` keeps its
+// unit.
+func TestRehydrateHostPaths_ARootOutsideTheWhitelistHoldsNoRootUnit(t *testing.T) {
 	bash := func(cmd string) string { return storePreview(t, map[string]string{"command": cmd}) }
-	res := requireToolSummaries(t, root,
-		[]string{
+	rootSummaries := func(root string) []string {
+		return []string{
 			storePreview(t, map[string]string{"path": root, "pattern": "TODO"}),
-			// A Glob preview of the root is one structured glob (ADR 0011 §23 item 6).
 			storePreview(t, map[string]string{"path": root, "pattern": "**/*.go"}),
 			bash("cd " + root + " && go test ./..."),
 			bash("git -C " + root + " status --short"),
-		},
-		[]string{
-			bash("cd " + root + " && cat private/deny.txt"),
-			bash(`cat "` + filepath.Join(root+" old", "x.txt") + `"`),
+			storePreview(t, map[string]string{"file_path": filepath.Join(root, "src", "main.go")}),
+		}
+	}
+	for _, seg := range []string{"o'brien", "a;b", "a,b", "a$b"} {
+		t.Run(seg, func(t *testing.T) {
+			root := uat12Project(t, seg, "proj")
+			res := requireToolSummaries(t, root,
+				[]string{storePreviewOf(t, map[string]any{"notebook_path": filepath.Join(root, "src", "x.ipynb")})},
+				append(rootSummaries(root),
+					bash("cd "+root+" && cat private/deny.txt"),
+					bash(`cat "`+filepath.Join(root+" old", "x.txt")+`"`),
+				))
+			require.NotContains(t, res.Text, "deny.txt")
 		})
-	require.NotContains(t, res.Text, "deny.txt")
+	}
+	t.Run("a@b+c", func(t *testing.T) {
+		root := uat12Project(t, "a@b+c", "proj")
+		res := requireToolSummaries(t, root, rootSummaries(root),
+			[]string{bash("cd " + root + " && cat private/deny.txt")})
+		require.NotContains(t, res.Text, "deny.txt")
+	})
 }
