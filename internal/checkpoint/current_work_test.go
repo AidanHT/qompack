@@ -894,6 +894,53 @@ func TestOversizedNewestPromptIsReadOncePerDraft(t *testing.T) {
 	}
 }
 
+// TestPreCompactReadsAnOversizedNewestPromptOnce (audit 2's #25): Finalize opens the successor
+// draft inside PreCompact, on the hook path, and the successor is not a new reader of a newest
+// prompt past the evolution's read limit (a long paste, up to the hook's 4 MiB capture): the sealed
+// draft hands on what its walks learned of each record, with the texts it kept, because a record's
+// bytes never change. Warm, the live draft read the paste at Begin, so a compaction reads none of it;
+// cold (a daemon restart, no live draft), it reads it whole once, for the goal, and bounded once,
+// for the evolution, instead of twice each. The successor derives the same current work and intent
+// from what it was handed as the sealed checkpoint carries.
+func TestPreCompactReadsAnOversizedNewestPromptOnce(t *testing.T) {
+	limit := checkpoint.EvolutionReadLimitForTest
+	big := rateCorrection45 + strings.Repeat(" The limiter keeps one bucket per client.", 4*int(limit)/40+1)
+	for _, tc := range []struct {
+		name                   string
+		restart                bool
+		wantWhole, wantBounded int
+	}{
+		{name: "warm", wantWhole: 0, wantBounded: 0},
+		{name: "cold", restart: true, wantWhole: 1, wantBounded: 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newFx(t)
+			ps := newPromptProbeStore(f.store)
+			f.src.Store = ps
+			promptAs(f, f.sess, 0, rateAsk)
+			promptAs(f, f.sess, 2, big)
+			root := f.put(big, "UserPromptSubmit", "", true)
+			f.begin()
+			whole0, bounded0 := ps.readsOf(root, limit)
+			require.Equal(t, 1, whole0, "fixture sanity: Begin read it whole, for the goal")
+			require.Equal(t, 1, bounded0, "fixture sanity: and bounded, for the evolution")
+			if tc.restart {
+				restartWriter(t, f)
+			}
+
+			got := sealed(t, f, f.precompactAs(f.sess))
+
+			whole, bounded := ps.readsOf(root, limit)
+			require.Equal(t, tc.wantWhole, whole-whole0, "whole reads of the paste by the compaction")
+			require.Equal(t, tc.wantBounded, bounded-bounded0, "bounded reads of the paste by the compaction")
+			require.Equal(t, rateCorrection45Goal, got.CurrentWork.Goal)
+			_, next := f.persisted() // the successor draft the seal opened
+			require.Equal(t, got.CurrentWork, next.CurrentWork)
+			require.Equal(t, got.UserIntent, next.UserIntent)
+		})
+	}
+}
+
 // TestResumedDraftReDerivesCurrentWork: a draft persisted by an earlier build is resumed with
 // whatever goal that build derived. Candidate 7 gave a fork its PARENT's prompt (F-C7-UAT06-1), so
 // a resumed draft's derived goal is derived again from the session's own prompts: replaced by its
