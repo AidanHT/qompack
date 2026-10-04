@@ -29,10 +29,46 @@ import (
 // timed on statusSendClock, which these rows replace with a stepClock; daemonListening's dial is
 // statusProbeDial, which they replace where a probe is not what the row is about; and a connect that
 // succeeds late is a modelled transport (lateConnectClient), not a listener raced against a budget.
-// Three rows still use the real transport where it is what they prove, so they still need a real
-// connect inside commandConnectDeadline, the product's own budget: the transient-miss row (its
-// resend and its second read reach a real daemon), the call-deadline row (a real probe and connect
-// to a real server) and TestStatus_RepeatedReadsOfUnchangedStateAgree (status_order_test.go).
+//
+// Four rows use the real transport because a real daemon's or server's answer is what they prove:
+// the transient-miss row (its resend and its second read reach a real daemon), the call-deadline
+// row (a real probe and connect to a server that never replies),
+// TestStatus_RepeatedReadsOfUnchangedStateAgree (status_order_test.go) and
+// TestStatusSource_ASilentDaemonIsNotReportedAbsent (status_reason_test.go). None of them is about
+// the connect budget's value: TestCommandClient_HasItsOwnConnectBudget, the late-connect row and
+// TestStatusProbe_HasTheCommandConnectBudget pin that without a real dial. They dial with a hang
+// guard instead (useHangGuardedStatusDials), so no verdict needs a real connect to land inside the
+// product's 250 ms: a host on which a connect takes longer read every one of them red before (D61(c),
+// audit 2's #80).
+
+// statusDialHangGuard is the connect, write and probe budget useHangGuardedStatusDials gives the
+// real transport. It is a hang guard, not a margin: a dial that has not connected by then is a hung
+// listener, not a slow one. It is the same bound the rows' other admin round trips already use
+// (bootstrapCallDeadline: startStatusOrderSession, bootstrapCall), not a new number.
+const statusDialHangGuard = bootstrapCallDeadline
+
+// useHangGuardedStatusDials makes every command client built for the rest of t dial and write its
+// request within statusDialHangGuard instead of commandConnectDeadline and the hooks' ack deadline,
+// and daemonListening's probe dial within it too. Everything else about the client (its State, its
+// spawn seam, its call deadline) is the product's. A row that injects misses
+// (injectCommandConnectMisses) or wraps the client calls this first, so the wrapper sees the
+// options newCommandClient built and wraps the hang-guarded transport.
+func useHangGuardedStatusDials(t *testing.T) {
+	t.Helper()
+	prevClient := newCommandIPCClient
+	newCommandIPCClient = func(addr ipc.Addr, sp ipc.SpoolWriter, log logging.Logger, m obs.Registry,
+		o ipc.ClientOptions,
+	) ipc.Client {
+		o.ConnectDeadline, o.AckDeadline = statusDialHangGuard, statusDialHangGuard
+		return prevClient(addr, sp, log, m, o)
+	}
+	prevProbe := statusProbeDial
+	statusProbeDial = func(a ipc.Addr, _ time.Duration) bool { return prevProbe(a, statusDialHangGuard) }
+	t.Cleanup(func() {
+		newCommandIPCClient = prevClient
+		statusProbeDial = prevProbe
+	})
+}
 
 // stepClock is a Clock that moves only when a row advances it.
 type stepClock struct {
@@ -180,7 +216,8 @@ func TestStatus_ConnectMissNamesTheConnectBudget(t *testing.T) {
 // TestStatus_TransientConnectMissStillReadsTheDaemon: with two sessions registered and a single
 // connect miss on the first read, two `status --json` reads of unchanged state agree, both from the
 // live daemon (D53(a)). The miss is resent because the send took less than commandCallDeadline on
-// the row's own clock, not because a real one happened to return quickly.
+// the row's own clock, not because a real one happened to return quickly, and the resend reaches
+// the daemon through a hang-guarded dial (useHangGuardedStatusDials), not a race against 250 ms.
 //
 // Not parallel: bootstrapDaemon resets the process-wide producer set, and the row swaps
 // newCommandIPCClient, statusProbeDial and statusSendClock.
@@ -191,6 +228,7 @@ func TestStatus_TransientConnectMissStillReadsTheDaemon(t *testing.T) {
 	for _, id := range []core.SessionID{"sess-miss-b", "sess-miss-a"} {
 		startStatusOrderSession(t, root, id)
 	}
+	useHangGuardedStatusDials(t)
 	useStatusProbe(t, probeSeesAListener)
 	useStatusSendClock(t, newStepClock())
 	misses, _ := injectCommandConnectMisses(t, 1)
@@ -479,8 +517,12 @@ func TestCommandClient_LateConnectWithinItsBudgetReadsTheDaemon(t *testing.T) {
 // replies still reads as statusSilentDaemonReason, because there commandCallDeadline did expire,
 // and the request is sent once: an expired call deadline is not retried. It waits out the real
 // commandCallDeadline once. The verdict needs no margin: the client arms its read deadline after
-// the send starts, so on the monotonic clock the send cannot take less than commandCallDeadline.
+// the send starts, so on the monotonic clock the send cannot take less than commandCallDeadline,
+// and the probe and the connect before it are hang-guarded (useHangGuardedStatusDials).
+//
+// Not parallel: it swaps newCommandIPCClient and statusProbeDial.
 func TestStatus_CallDeadlineExpiryStillSaysSilent(t *testing.T) {
+	useHangGuardedStatusDials(t)
 	root := mcpCmdRoot(t)
 	addr, err := ipc.Resolve(root)
 	require.NoError(t, err)
