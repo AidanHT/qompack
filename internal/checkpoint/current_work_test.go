@@ -909,6 +909,10 @@ func TestOversizedNewestPromptIsReadOncePerDraft(t *testing.T) {
 // cold (a daemon restart, no live draft), it reads it whole once, for the goal, and bounded once,
 // for the evolution, instead of twice each. The successor derives the same current work and intent
 // from what it was handed as the sealed checkpoint carries.
+//
+// The compaction is PreCompact's own sequence (draftForPreCompact's Begin when no draft is live,
+// RefreshIntent, Finalize and the successor it opens) without PreCompact's wall-clock budget, so no
+// count depends on how fast this machine reads (D61(c)).
 func TestPreCompactReadsAnOversizedNewestPromptOnce(t *testing.T) {
 	limit := checkpoint.EvolutionReadLimitForTest
 	big := rateCorrection45 + strings.Repeat(" The limiter keeps one bucket per client.", 4*int(limit)/40+1)
@@ -927,15 +931,20 @@ func TestPreCompactReadsAnOversizedNewestPromptOnce(t *testing.T) {
 			promptAs(f, f.sess, 0, rateAsk)
 			promptAs(f, f.sess, 2, big)
 			root := f.put(big, "UserPromptSubmit", "", true)
-			f.begin()
+			d := f.begin()
 			whole0, bounded0 := ps.readsOf(root, limit)
 			require.Equal(t, 1, whole0, "fixture sanity: Begin read it whole, for the goal")
 			require.Equal(t, 1, bounded0, "fixture sanity: and bounded, for the evolution")
+
 			if tc.restart {
 				restartWriter(t, f)
+				d = f.begin() // the cold compaction's own Begin resumes the persisted draft
 			}
-
-			got := sealed(t, f, f.precompactAs(f.sess))
+			d.RefreshIntent(f.ctx()) // PreCompact's refresh before the seal
+			ref, err := f.w.Finalize(f.ctx(), d, finalizeBudget)
+			require.NoError(t, err)
+			got, _, err := f.reader(t).Get(f.ctx(), ref.Seq)
+			require.NoError(t, err)
 
 			whole, bounded := ps.readsOf(root, limit)
 			require.Equal(t, tc.wantWhole, whole-whole0, "whole reads of the paste by the compaction")
