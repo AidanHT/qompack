@@ -24,12 +24,13 @@ import (
 // d64ExcludedRootSegments are root segments that each hold one character the root unit does not
 // admit (D64(1)) and that this platform allows in a directory's name: a quote of either kind or a
 // typographic one, a backtick, `$ ! ; & ( ) [ ] { } ^ % ~`, the `,` PowerShell and cmd.exe split an
-// argument at, the `=` cmd.exe splits at, the `#` zsh's EXTENDED_GLOB reads, a Unicode space, and on
-// Linux and macOS also `" | < > * ?`, a `:` past the drive, a backslash and a control character.
+// argument at, the `=` cmd.exe splits at, the `+` cmd.exe's copy splits at, the `#` zsh's
+// EXTENDED_GLOB reads, a Unicode space, and on Linux and macOS also `" | < > * ?`, a `:` past the
+// drive, a backslash and a control character.
 func d64ExcludedRootSegments() []string {
 	segs := []string{
 		"o'brien", "a`b", "a$b", "a!b", "a;b", "a&b", "a(b)", "a[b]", "a{b}", "a^b", "a%b",
-		"PROGRA~1", "a,b", "a=b", "a#b", "a\u00a0b", "a\u3000b", "o\u2019brien",
+		"PROGRA~1", "a,b", "a=b", "a+b", "a#b", "a\u00a0b", "a\u3000b", "o\u2019brien",
 	}
 	if runtime.GOOS != "windows" {
 		segs = append(segs, `a"b`, "a|b", "a<b>", "a*b", "a?b", "a:b", `a\b`, "a\tb")
@@ -66,7 +67,7 @@ func notebookPreview(t *testing.T, p string) string {
 // tab matched a sibling spelled with an ASCII space. A root holding any character outside the unit's
 // set has no unit, so a summary spelling it is judged as the free text it is and withheld. A
 // path-named JSON value is still a structured value (it reaches no shell), and a root built from
-// letters, marks, digits, `- _ . @ +`, its separators and spaces keeps its unit.
+// letters, marks, digits, `- _ . @`, its separators and spaces keeps its unit.
 func TestBuild_ARootOutsideTheWhitelistHoldsNoRootUnit(t *testing.T) {
 	for _, seg := range d64ExcludedRootSegments() {
 		t.Run(seg, func(t *testing.T) {
@@ -89,7 +90,7 @@ func TestBuild_ARootOutsideTheWhitelistHoldsNoRootUnit(t *testing.T) {
 			requireScreened(t, root, hostRules(root, uat12Rules...), nil, shown, withheld, []string{"deny.txt"})
 		})
 	}
-	for _, seg := range []string{"a@b", "a+b", "a-b_c.d", "John Smith", "José"} {
+	for _, seg := range []string{"a@b", "a-b_c.d", "John Smith", "José"} {
 		t.Run(seg, func(t *testing.T) {
 			root := previewRoot(seg, "proj")
 			requireScreened(t, root, hostRules(root, uat12Rules...), nil, rootSummaries(root),
@@ -187,4 +188,24 @@ func TestBuild_ABareDriveNameNamesADriveRoot(t *testing.T) {
 			"Get-ChildItem HKCU:Software",
 		},
 		[]string{"secret.txt"})
+}
+
+// TestBuild_APathOrNameAfterAPlusIsJudged: deciding `+` for the root unit (D64(1)) found that cmd.exe's
+// copy starts its next source after a `+` glued into a word (`copy a.txt+b.txt c.txt` concatenates
+// both), but the free-text screen read `+` as continuing a name, so neither a path nor a name started
+// after it: `copy a.txt+\Windows\win.ini out.txt` named a drive-rooted file and `copy a.txt+.env
+// out.txt` a denied one, and both were shown. A path, and a name, may now start after `+`; a `+` with
+// no path after it (`g++`, `date +%s`, `1+1`) is still safe, and a `c++/` directory in a path is
+// over-withheld (`/v1` starts after its second `+`).
+func TestBuild_APathOrNameAfterAPlusIsJudged(t *testing.T) {
+	root := previewRoot("proj")
+	requireScreened(t, root, hostRules(root, uat12Rules...), nil,
+		[]string{"copy a.txt+b.txt c.txt", "g++ -O2 -o main main.cpp", "date +%s", "echo 1+1"},
+		[]string{
+			`copy a.txt+\Windows\win.ini out.txt`, "copy a.txt+C:secret.txt out.txt",
+			"copy a.txt+Temp:secret.txt out.txt", "copy a.txt+/etc/passwd out.txt", "copy a.txt+~/x out.txt",
+			`copy a.txt+\server\share\x out.txt`, "copy a.txt+.env out.txt",
+			`copy a.txt+secrets\token.txt out.txt`, "ls include/c++/v1",
+		},
+		[]string{"win.ini", "passwd", "secret.txt", "token.txt"})
 }
