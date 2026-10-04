@@ -1683,7 +1683,7 @@ func (dr *drainer) pendingBlobReferences(st drainState) (map[string]bool, error)
 
 // scanPendingBlobs adds to refs every blob a line of the spool file at path references from its consumed
 // offset (fs's, or the start of a file with no progress) on. pending names the cleanup intents waiting
-// on the scan, which is all a line that does not decode is checked against.
+// on the scan, which is all a line that does not decode, or a trailing partial line, is checked against.
 func scanPendingBlobs(path string, fs *drainFileState, pending, refs map[string]bool) error {
 	f, err := os.Open(paths.Long(path))
 	if err != nil {
@@ -1697,13 +1697,33 @@ func scanPendingBlobs(path string, fs *drainFileState, pending, refs map[string]
 	}
 	s := bufio.NewScanner(f)
 	s.Buffer(make([]byte, drainReadBufferBytes), ipc.MaxLineBytes+1)
+	// A file whose last bytes end in no newline ends in a partial line: a hook killed in the middle of
+	// its append, or one still appending. Refusing the file on it failed every pass's cleanup while any
+	// intent waited, until a hook completed the line, which a killed one never does (D67(e)). The
+	// partial line is the scan's last token, and it is checked only for the pending blobs it names, as
+	// a line that does not decode is.
+	partial := false
 	s.Split(func(data []byte, atEOF bool) (int, []byte, error) {
 		if atEOF && len(data) > 0 && !bytes.ContainsRune(data, '\n') {
-			return 0, nil, fmt.Errorf("daemon: drain: incomplete blob reference source")
+			partial = true
+			return len(data), data, bufio.ErrFinalToken
 		}
 		return bufio.ScanLines(data, atEOF)
 	})
+	holdNamed := func(line []byte) {
+		for blob := range pending {
+			if bytes.Contains(line, []byte(blob)) || bytes.Contains(line, encodedBlobName(blob)) {
+				refs[blob] = true
+			}
+		}
+	}
 	for s.Scan() {
+		if partial {
+			// Whether or not it decodes yet, the drain does not consume it until its newline lands. It
+			// holds back each pending blob whose name it carries: the hook may still finish the line.
+			holdNamed(s.Bytes())
+			break
+		}
 		if len(bytes.TrimSpace(s.Bytes())) == 0 {
 			continue
 		}
@@ -1715,11 +1735,7 @@ func scanPendingBlobs(path string, fs *drainFileState, pending, refs map[string]
 			// the line stood ahead of a front (behind a waiting head, for good). It still holds back each
 			// pending blob whose name it carries, as an encoder writes the name: a binary that decodes the
 			// line may yet replay it.
-			for blob := range pending {
-				if bytes.Contains(s.Bytes(), []byte(blob)) || bytes.Contains(s.Bytes(), encodedBlobName(blob)) {
-					refs[blob] = true
-				}
-			}
+			holdNamed(s.Bytes())
 			continue
 		}
 		var ref blobRef

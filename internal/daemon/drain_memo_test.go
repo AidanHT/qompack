@@ -90,6 +90,57 @@ func TestDrain_ACorruptLineAheadOfAFrontHoldsBackOnlyTheBlobsItNames(t *testing.
 	}
 }
 
+// TestDrain_ATrailingPartialLineHoldsBackOnlyTheBlobsItNames: a hook killed in the middle of its
+// append leaves a client spool ending in a partial line, with no newline. While any cleanup intent
+// waited, each pass's check of the spool for references to the intents' blobs (scanPendingBlobs)
+// refused that file, so every pass returned an error and no blob was collected until a hook completed
+// the line, which a killed hook never does (D67(e), audit 2 #75). The check skips a trailing partial
+// line as it skips one that does not decode: it holds back the pending blobs whose names it carries,
+// in case the line is still being written, and no others.
+func TestDrain_ATrailingPartialLineHoldsBackOnlyTheBlobsItNames(t *testing.T) {
+	const blob = "blob-8893-1&a.bin"
+	encoded, err := json.Marshal(blob)
+	require.NoError(t, err)
+	for _, c := range []struct {
+		name, partial string
+		names         bool
+	}{
+		{"names no blob", `{"op":"observe.tool","s":"sess-partial`, false},
+		{"names the blob", `{"op":"observe.tool","r":{"blob":"` + blob, true},
+		{"names the blob as an encoder escapes it", `{"op":"observe.tool","r":{"blob":` + string(encoded), true},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			dd, _, root := laneTestDaemon(t)
+			ctx := context.Background()
+			cfg := dd.drainConfig()
+			log := newRecordingLogger()
+			cfg.Log = log
+			dr := newDrainer(cfg)
+			dd.drain.Store(dr)
+			const done = "client-8893.ndjson"
+			head := blockedSpoolHead(t, dd, root, "sess-partial-stuck", 0)
+			writeRawSpool(t, root, "client-8892.ndjson", hookSpoolLine(t, head), []byte(c.partial))
+			published := blobSpoolLine(t, root, liveOrderTool(dd, root, "sess-partial-blob", 7), blob)
+			writeHookSpool(t, root, done, published)
+
+			for pass := 1; pass <= 3; pass++ {
+				_, err := dr.Drain(ctx)
+				require.NoError(t, err, "pass %d", pass)
+			}
+			require.True(t, spoolWatchPublished(dd, published.Nonce), "fixture: the blob line was published")
+			require.Zero(t, dd.m.Counter(counterDrainFileError).Value(), "a partial line is no file error")
+			require.Zero(t, logCount(log, logWarn, "daemon: drain: file error"))
+			blobPath := filepath.Join(paths.Of(root).Spool, blob)
+			if c.names {
+				require.FileExists(t, blobPath, "a blob a trailing partial line names stays: the line may still be written")
+				return
+			}
+			require.NoFileExists(t, blobPath, "a trailing partial line that names no blob holds none back")
+			require.True(t, spoolWatchGone(root, done), "and the spool whose intent it was is released")
+		})
+	}
+}
+
 // TestDrainClientSpools_ADeniedLineNamingABlobOutsideTheSpoolLeavesNoCleanupIntent: a line consumed
 // without being published leaves its blob's name as a cleanup intent, and the drain names that blob
 // from the line's descriptor (pendingBlobOf), which a hostile spool line writes. A name that leaves the
