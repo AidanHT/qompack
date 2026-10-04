@@ -493,10 +493,14 @@ func (r *schedRuntime) bindOnFirstHook(sess core.SessionID) {
 // session's account with p-selection off until its next compaction. A replayed start of a session
 // that ended, or that no hook has touched since this daemon started (a leftover of another session in
 // a drained spool), binds nothing: binding it would leave the live session on the stale one's account
-// until a SessionStart rebinds it. A bind of an unbound runtime keeps what it observed while unbound,
-// as a first hook's does (bindUnboundLocked). e is the replayed start, whose model and subagent hints
-// the bind reads. With no daemon attached, or one with no registry, every session counts as live
-// (sessionLive), so a runtime bound to any session is left alone.
+// until a SessionStart rebinds it. The route's registration marks such a session live all the same,
+// so a later replayed delivery of it still finds it live (bindOnFirstHook): keeping a replay's
+// registration from reviving its session is the route's to decide, not the tap's.
+//
+// A bind of an unbound runtime keeps what it observed while unbound, as a first hook's does
+// (bindUnboundLocked). e is the replayed start, whose model and subagent hints the bind reads. With
+// no daemon attached, or one with no registry, every session counts as live (sessionLive), so a
+// runtime bound to any session is left alone.
 func (r *schedRuntime) bindOnReplayedStart(sess core.SessionID, e *hookio.Event, wasLive bool) {
 	if sess == "" {
 		return
