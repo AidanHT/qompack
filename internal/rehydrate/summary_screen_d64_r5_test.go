@@ -1,11 +1,15 @@
 package rehydrate
 
 import (
+	"context"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
+	"github.com/qompack/qompack/internal/checkpoint"
 	"github.com/qompack/qompack/internal/paths"
 )
 
@@ -125,6 +129,48 @@ func TestBuild_AShortWithheldNameUnderAUnicodeCaseSpellingOfTheRootIsLearnedByIt
 			pointer := filepath.Join(previewRoot(rc.variant, "proj"), "private", "id")
 			requireLearned(t, root, []string{"./private/id"}, []string{pointer}, nil,
 				[]string{"private/i?"}, []string{rc.variant}, foldsPaths() && rc.hostFolds)
+		})
+	}
+}
+
+// TestBuild_ADropReasonNamingAWithheldPathUnderAUnicodeCaseSpellingOfTheRootIsRedacted: a drop
+// entry's reason that names the project's denied private/deny.txt through the root spelled with
+// another case of a non-ASCII letter, glued to the text around it (`(C:\q\Åsa\proj\private\deny.txt)`,
+// `gitdir='…'`), is redacted. The reason screen finds a withheld path's whole spelling where a path
+// starts, after the root held as one mark; since c16b21d5 the root was held as its own spelling folds
+// ASCII letters alone, so the variant was no root and the reason was shown. It withholds, so it now
+// holds the root under the broad reading too (holdRootBroad), whichever letter the variant spells.
+// Where paths do not fold the variant is a directory beside the project, and a reason that glues an
+// outside path to other text is not read as one on any revision (the reason screen reads an outside
+// path as a whitespace-delimited token or as an operation's path), so the row runs where paths fold.
+func TestBuild_ADropReasonNamingAWithheldPathUnderAUnicodeCaseSpellingOfTheRootIsRedacted(t *testing.T) {
+	if !foldsPaths() {
+		t.Skip("where paths do not fold the variant is a directory beside the project; see the comment")
+	}
+	for _, rc := range unicodeCaseSpellings {
+		t.Run(rc.name, func(t *testing.T) {
+			root := previewRoot(rc.seg, "proj")
+			denied := filepath.Join(previewRoot(rc.variant, "proj"), "private", "deny.txt")
+			cp := ckUAT05()
+			cp.Pointers.Files = []checkpoint.FilePointer{{Path: "private/deny.txt", Hash: hashOf("deny"), Why: "referenced"}}
+			cp.Dropped = append(append([]checkpoint.DropEntry(nil), cp.Dropped...),
+				checkpoint.DropEntry{Kind: "pointer_git_unavailable", Detail: "checkpoint: git index unsupported: .git file names gitdir (" + denied + ")"},
+				checkpoint.DropEntry{Kind: "pointer_git_unavailable", Detail: "checkpoint: git index unsupported: gitdir='" + denied + "'"})
+			d := uat05Deps(t, cp)
+			d.HostPaths = hostFoldRules(root, "./private/deny.txt")
+			r := requestFor(t, cp, maxBudget())
+			r.ProjectRoot = root
+
+			res, err := Build(context.Background(), r, d)
+			require.NoError(t, err)
+			var details []string
+			for _, e := range res.Dropped {
+				if e.Kind == "pointer_git_unavailable" {
+					details = append(details, e.Detail)
+				}
+			}
+			require.Len(t, details, 2, "the git drops are still reported: %v", res.Dropped)
+			requireNoLeak(t, res, []string{rc.variant, "deny.txt"})
 		})
 	}
 }
