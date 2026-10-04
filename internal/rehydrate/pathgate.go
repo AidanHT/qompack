@@ -61,7 +61,8 @@ import (
 //     cutPrefixNamed), and one that ends right after a drive's `:` as if a name followed it
 //     (cutAtDriveColon, D64(2)). The project root is held together as one unit only when its own
 //     spelling has no character a shell splits or reinterprets a word at and a sanitized text spells
-//     it exactly (rootUnitAdmitted, rootSpelledExactly, D64(1)).
+//     it exactly (rootUnitAdmitted, rootSpelledExactly, D64(1)). A cut path-named value is the
+//     project only when it starts the root's own spelling byte for byte (rootPrefix).
 //     When the host's rules are unavailable, or a rule covers the whole project, every free text is
 //     withheld, as re_read fails closed.
 //
@@ -107,10 +108,9 @@ type pathJudge struct {
 	// rootExact is set when a sanitized text can spell the root exactly (rootSpelledExactly); a drop
 	// reason holds the root together only then (reasonWithheld).
 	rootExact bool
-	// rootKey is the project root cleaned, slash-separated and in screen form (screenText), and
-	// rootSegs its segments: a rule anchored outside the project is matched against them (rootCover),
-	// and a cut stretch that begins rootKey is the root (rootPrefix).
-	rootKey  string
+	// rootSegs are the project root's segments, cleaned, slash-separated and in screen form
+	// (screenText), as a rule's own segments are: a rule anchored outside the project is matched
+	// against them (rootCover). A cut stretch is the root only in the root's own spelling (rootPrefix).
 	rootSegs []string
 	// screens are the rules' literals in screen form taken from a whole segment (literalOf, litWhole),
 	// which a text holds where a name starts (namedAt); screenAll is set when one rule's literal cannot
@@ -260,8 +260,8 @@ func newPathJudge(r Request, d Deps) pathJudge {
 		rootExact: rootSpelledExactly(r.ProjectRoot),
 	}
 	if r.ProjectRoot != "" {
-		j.rootKey = screenText(filepath.ToSlash(filepath.Clean(r.ProjectRoot)), true)
-		j.rootSegs = strings.FieldsFunc(j.rootKey, func(c rune) bool { return c == '/' })
+		key := screenText(filepath.ToSlash(filepath.Clean(r.ProjectRoot)), true)
+		j.rootSegs = strings.FieldsFunc(key, func(c rune) bool { return c == '/' })
 	}
 	if d.HostPaths != nil {
 		j.host = true
@@ -1074,16 +1074,17 @@ func (j pathJudge) valueWithheld(v string) bool {
 }
 
 // cutValueWithheld judges v, a structured value the store's cut fell inside: only its start is
-// known, and its last segment is the start of a name, not a name. A start of the root's own spelling
-// (rootPrefix) is the project. Otherwise the directory it spells whole, all but that last segment, is
-// judged as a path: by containment and, when host is set (the summary's one structured value), by the
-// host's rules, one judgement; a value with no directory part is withheld only when it is rooted
-// outside the project (`~`, `$HOM`). Then the value is screened as the end of a cut text is
-// (cutPrefixNamed): a rule's literal or a withheld name it holds, or the start of one it ends in
-// (`private/den…`), withholds it. A cut value is never a withheld name (recordedPath).
+// known, and its last segment is the start of a name, not a name. A start of the root's own spelling,
+// byte for byte as v spells it (rootPrefix), is the project. Otherwise the directory it spells whole,
+// all but that last segment, is judged as a path: by containment and, when host is set (the
+// summary's one structured value), by the host's rules, one judgement; a value with no directory
+// part is withheld only when it is rooted outside the project (`~`, `$HOM`). Then the value is
+// screened as the end of a cut text is (cutPrefixNamed): a rule's literal or a withheld name it
+// holds, or the start of one it ends in (`private/den…`), withholds it. A cut value is never a
+// withheld name (recordedPath).
 func (j pathJudge) cutValueWithheld(v string, host bool) bool {
 	p := judgedSpelling(v)
-	if p == "" || j.rootPrefix(p) {
+	if p == "" || j.rootPrefix(v) {
 		return false
 	}
 	dir := ""
@@ -1108,18 +1109,45 @@ func (j pathJudge) cutValueWithheld(v string, host bool) bool {
 	return j.textNamesWithheld(marked, screenWhole) || j.cutPrefixNamed(marked)
 }
 
-// rootPrefix reports whether t, a stretch of a text, is the start of the project root's spelling
-// (either slash, a separator repeated, in screen form): the store's cut fell inside the root, whose
-// spelling markRoot could not find whole.
+// rootPrefix reports whether t, a stretch of a text the store's cut fell inside, is the start of the
+// project root's own spelling, byte for byte (coordinator decision D64's ruling on wave 19f's final
+// verify): the root cleaned, in the platform's separators or, on Windows, in `/` throughout, with an
+// ASCII letter's case folded only where the platform's paths fold (Windows and macOS). Nothing is
+// deleted, no whitespace is folded and no repeated separator collapsed: a stretch that differs from
+// the root's spelling only by a quote, a caret, a backslash or a whitespace run, which screen form
+// (screenText) would erase, names a directory beside the project (`<q>/John'athan` beside
+// `<q>/Johnathan`, `<q>/obrien` beside `<q>/o'brien`), and is judged as the path it spells
+// (cutValueWithheld); a repeated separator, which names the root, is over-withheld.
 func (j pathJudge) rootPrefix(t string) bool {
-	if j.rootKey == "" {
+	if j.root == "" || t == "" {
 		return false
 	}
-	n := screenText(strings.ReplaceAll(t, `\`, "/"), true)
-	for strings.Contains(n, "//") {
-		n = strings.ReplaceAll(n, "//", "/")
+	clean := filepath.Clean(j.root)
+	spellings := []string{clean}
+	if runtime.GOOS == "windows" {
+		spellings = append(spellings, filepath.ToSlash(clean))
 	}
-	return n != "" && strings.HasPrefix(j.rootKey, n)
+	for _, s := range spellings {
+		if len(t) <= len(s) && asciiFoldEqual(t, s[:len(t)], paths.DefaultFold()) {
+			return true
+		}
+	}
+	return false
+}
+
+// asciiFoldEqual reports whether a and b are equal byte for byte, apart from the case of an ASCII
+// letter when fold is set. No other character folds: the Kelvin sign is not `k`, which Unicode's
+// lower-casing (paths.Key) would make it, and NTFS does not.
+func asciiFoldEqual(a, b string, fold bool) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := 0; i < len(a); i++ {
+		if x, y := a[i], b[i]; x != y && !(fold && asciiLetter(x) && x|0x20 == y|0x20) {
+			return false
+		}
+	}
+	return true
 }
 
 // textNamesWithheld reports whether marked, a text with the project root held together, names a Read
