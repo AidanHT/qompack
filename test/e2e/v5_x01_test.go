@@ -355,24 +355,62 @@ type x1v5T interface {
 // x1v5RequireDiskHoldsLive asserts that diskBA, the B-A row status read from the persisted snapshot,
 // holds every sample the live arm displayed for hist. live is the live arm's report, and it forwards
 // no payload when that read failed: the live subtest has then already failed and quoted status's
-// reason. This reports that there is nothing to compare against, and returns so the disk arm checks
-// the rest of its own source. Dereferencing the missing payload panicked instead, and a panic ends
+// reason. This reports, once, that there is nothing to compare against, and returns false, so the
+// disk arm checks the rest of its own source and makes no other comparison with the live arm
+// (x1v5RequireBudgetsAgree). Dereferencing the missing payload panicked instead, and a panic ends
 // the whole test binary, so every row after this one went unrun (wave 20's status verifier lost
-// X14 that way).
-func x1v5RequireDiskHoldsLive(t x1v5T, diskBA *commands.Latency, live commands.StatusReport, hist string) {
+// X14 that way). It returns true whenever the live arm forwarded a payload.
+func x1v5RequireDiskHoldsLive(t x1v5T, diskBA *commands.Latency, live commands.StatusReport, hist string) bool {
 	t.Helper()
 	if live.Snapshot == nil {
 		t.Errorf("the live arm's status read forwarded no daemon payload (source %s, status %s: %s), "+
 			"so the persisted B-A cannot be compared with what the live arm displayed",
 			live.Primary.Source, live.Primary.Status, live.Primary.Reason)
-		return
+		return false
 	}
 	if diskBA == nil {
 		t.Errorf("the disk arm displays no B-A reading to compare with the live arm's")
-		return
+		return true
 	}
 	require.GreaterOrEqual(t, diskBA.N, live.Snapshot.Latency[hist].N,
 		"the persisted B-A holds every sample the live arm displayed")
+	return true
+}
+
+// x1v5RequireBudgetsAgree asserts that down, the disk arm's report, lists live's budget rows in
+// live's order, that its B-D row is unavailable (B-D has no persisted source), and that every other
+// row was observed in both sources or in neither. liveRead is x1v5RequireDiskHoldsLive's answer:
+// when the live arm's read forwarded no payload, its rows say only that nothing was observed, and
+// that failed read has already been reported once, so the observed-in-both comparison is not made
+// (it would report the same failure again, row by row, as a disagreement between the sources).
+func x1v5RequireBudgetsAgree(t x1v5T, down, live commands.StatusReport, liveRead bool) {
+	t.Helper()
+	for i, b := range down.Budgets {
+		require.Equal(t, live.Budgets[i].ID, b.ID)
+		if b.ID == obs.BD {
+			require.Equal(t, commands.AvailabilityUnavailable, b.Provenance.Status)
+			continue
+		}
+		if !liveRead {
+			continue
+		}
+		require.Equal(t, live.Budgets[i].Provenance.Status, b.Provenance.Status,
+			"%s: the two sources agree on whether it was observed", b.ID)
+	}
+}
+
+// x1v5BudgetRowsAt is one row per budget, in obs.Budgets order, each with status, except B-D's,
+// which is always unavailable as the disk arm reports it.
+func x1v5BudgetRowsAt(status commands.Availability) []commands.BudgetRow {
+	var rows []commands.BudgetRow
+	for _, b := range obs.Budgets() {
+		st := status
+		if b.ID == obs.BD {
+			st = commands.AvailabilityUnavailable
+		}
+		rows = append(rows, commands.BudgetRow{ID: b.ID, Provenance: commands.Provenance{Status: st}})
+	}
+	return rows
 }
 
 // x1v5Recorder is an x1v5T that records what it is told instead of failing a test.
@@ -391,8 +429,10 @@ func (r *x1v5Recorder) Helper() {}
 
 // TestV5_ObserveToStatusDiskArmReportsAFailedLiveRead pins what the disk arm of
 // TestV5_ObserveToStatusRoundTrip does when the live arm's status read answered from no daemon:
-// it reports one error naming the live read's source and reason, and does not panic. It also
-// checks the comparison still runs, and still fails, when there is a live payload.
+// across its whole comparison with the live arm (x1v5RequireDiskHoldsLive, then
+// x1v5RequireBudgetsAgree) it reports exactly one error, naming the live read's source and reason,
+// and does not panic. It also checks both comparisons still run, and still fail, when there is a
+// live payload.
 func TestV5_ObserveToStatusDiskArmReportsAFailedLiveRead(t *testing.T) {
 	const hist = "hook_controlled"
 	const reason = "daemon: a daemon is listening for this project but did not answer; disk: no snapshot"
@@ -400,24 +440,39 @@ func TestV5_ObserveToStatusDiskArmReportsAFailedLiveRead(t *testing.T) {
 		Source: commands.SourceNone, Status: commands.AvailabilityError, Reason: reason,
 	}}
 
+	// Under Source none every live budget row is unavailable, while the disk arm observed them.
+	failedLive.Budgets = x1v5BudgetRowsAt(commands.AvailabilityUnavailable)
+	down := commands.StatusReport{Budgets: x1v5BudgetRowsAt(commands.AvailabilityOK)}
+
 	rec := &x1v5Recorder{}
-	require.NotPanics(t, func() { x1v5RequireDiskHoldsLive(rec, &commands.Latency{N: 3}, failedLive, hist) },
-		"a failed live read must be reported, not dereferenced")
+	require.NotPanics(t, func() {
+		liveRead := x1v5RequireDiskHoldsLive(rec, &commands.Latency{N: 3}, failedLive, hist)
+		require.False(t, liveRead, "a read that forwarded no payload is not a live read")
+		x1v5RequireBudgetsAgree(rec, down, failedLive, liveRead)
+	}, "a failed live read must be reported, not dereferenced")
 	require.Len(t, rec.errs, 1, "exactly one error, naming why there is nothing to compare: %q", rec.errs)
+	require.False(t, rec.failed, "and nothing after it fails on the missing live answer: %q", rec.errs)
 	require.Contains(t, rec.errs[0], string(commands.SourceNone))
 	require.Contains(t, rec.errs[0], reason, "the error quotes the live read's own reason")
 
-	live := commands.StatusReport{Snapshot: &commands.DaemonStatus{
-		Latency: map[string]obs.HistSnapshot{hist: {N: 5}},
-	}}
+	live := commands.StatusReport{
+		Snapshot: &commands.DaemonStatus{Latency: map[string]obs.HistSnapshot{hist: {N: 5}}},
+		Budgets:  x1v5BudgetRowsAt(commands.AvailabilityOK),
+	}
 	held := &x1v5Recorder{}
-	x1v5RequireDiskHoldsLive(held, &commands.Latency{N: 5}, live, hist)
-	require.Empty(t, held.errs, "a disk reading holding every live sample passes")
+	require.True(t, x1v5RequireDiskHoldsLive(held, &commands.Latency{N: 5}, live, hist))
+	x1v5RequireBudgetsAgree(held, down, live, true)
+	require.Empty(t, held.errs, "a disk reading holding every live sample, observed alike, passes")
 	require.False(t, held.failed)
 
 	short := &x1v5Recorder{}
 	x1v5RequireDiskHoldsLive(short, &commands.Latency{N: 4}, live, hist)
 	require.True(t, short.failed, "a disk reading missing a live sample still fails the comparison")
+
+	unobserved := &x1v5Recorder{}
+	notOnDisk := commands.StatusReport{Budgets: x1v5BudgetRowsAt(commands.AvailabilityUnavailable)}
+	x1v5RequireBudgetsAgree(unobserved, notOnDisk, live, true)
+	require.True(t, unobserved.failed, "after a live read, a row observed live but not on disk still fails")
 }
 
 // x1v5SessionRows decodes the daemon's own session rows out of the raw JSON status forwards.
@@ -743,19 +798,11 @@ func TestV5_ObserveToStatusRoundTrip(t *testing.T) {
 		ba := x1v5BudgetRow(t, down, obs.BA)
 		x1v5RequireLatencyEquals(t, "B-A from disk", ba.Latency, persistedHC)
 		require.Equal(t, commands.MeasureEstimated, ba.Latency.Measure)
-		x1v5RequireDiskHoldsLive(t, ba.Latency, rep, hookControlled)
+		liveRead := x1v5RequireDiskHoldsLive(t, ba.Latency, rep, hookControlled)
 		bb := x1v5BudgetRow(t, down, obs.BB)
 		x1v5RequireLatencyEquals(t, "B-B from disk", bb.Latency, persistedL0)
 		require.Equal(t, ba.Latency.N, bb.Latency.N, "B-A and B-B still agree on the delivery count from disk")
-		for i, b := range down.Budgets {
-			require.Equal(t, rep.Budgets[i].ID, b.ID)
-			if b.ID == obs.BD {
-				require.Equal(t, commands.AvailabilityUnavailable, b.Provenance.Status)
-				continue
-			}
-			require.Equal(t, rep.Budgets[i].Provenance.Status, b.Provenance.Status,
-				"%s: the two sources agree on whether it was observed", b.ID)
-		}
+		x1v5RequireBudgetsAgree(t, down, rep, liveRead)
 		for _, h := range down.Hooks {
 			require.Equal(t, commands.AvailabilityUnavailable, h.Provenance.Status)
 		}
