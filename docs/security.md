@@ -85,10 +85,12 @@ rules' literals alone, so a Read outside the project never withholds the project
 same name. Any other summary (a command, a query, a prompt, a URL) is free text, and is SHOWN only
 when a whitelist proves it safe (coordinator decision D63): every whitespace-delimited token must be
 built only from letters, digits and a small safe punctuation set (a few shell operators, the null
-device's redirects, a simple double-quoted run, which may hold parentheses, and a simple
-single-quoted run allowed whole; an apostrophe only between two letters; a backslash only before a
-character other than a backslash; a `;`, `|`, `&&` or `||` glued to a word splits it into pieces
-judged alike; a single `%` only where no escape or variable can use it), must name no absolute or
+device's redirects, a simple double-quoted run, which may hold parentheses, a simple single-quoted
+run allowed whole, and an http(s) URL built only from letters, digits and `- . _ ~ : / ? # @ & = +`;
+an apostrophe only between two letters, and no project root after one outside a quoted run; a
+backslash only before a character other than a backslash; a `;`, `|`, `&&` or `||` glued to a word
+splits it into pieces judged alike; a single `%` only where no escape, variable or batch parameter
+can use it), must name no absolute or
 escaping path in either reading of its backslashes (as cmd.exe and PowerShell read it, a separator,
 and as a POSIX shell reads it, an escape), and the text must hold, where a name starts, no Read deny
 or ask rule's literal (`secrets` for `Read(./secrets/**)`, `deny.txt` for
@@ -98,17 +100,24 @@ two hex digits, a backtick, a caret, a glob or regex metacharacter, a quote else
 or quote, a `=` that starts a word (zsh expands `=name` to a command's path), a `#` inside a word (a
 zsh extended-glob operator), a whole `@name` (a PowerShell splat), a backslash that ends a token (an
 escaped space or a collapsed line continuation) or doubles, an absolute path at any place a path may
-start (the token's start, after `=`, `:`, `,`, `@`, an apostrophe or a parenthesis, or after a short
-option: a home directory, a drive, a UNC share, a `file:` URL), a `..` beside a separator, a
-delimiter or a word's end (cmd.exe's `cd..` included; a range such as `HEAD~3..HEAD` is not one), or,
-inside a quoted argument, the project root followed by a space and another name (a sibling folder).
+start (the token's start, after `=`, `:`, `,`, `@`, an apostrophe, a parenthesis or the `#` that
+starts a token, or after a short option: a home directory, a drive, a UNC share, a `file:` URL, or a
+PowerShell drive or provider such as `Temp:`, `Env:`, `HKCU:`, `Registry::` or any name `New-PSDrive`
+defines, other than recall's `path:` selector, a hash's `sha256:` and a URL's scheme), a `..` beside
+a separator, a delimiter or a word's end (cmd.exe's `cd..` included; a range such as `HEAD~3..HEAD`
+is not one), or, inside a quoted argument, the project root followed by a space and another name or
+an operator where the argument's path starts (a sibling folder). The project root's own spelling is
+read with `/` alone on Linux and macOS, and with one slash style throughout on Windows, since a POSIX
+shell drops a backslash between two of its segments and reads a sibling of an ancestor.
 Every free-text summary is also withheld while the rules cannot be read, or while a rule covers the
 whole project through any spelling of its root the host resolves (a link, a junction, an 8.3 name).
 The whitelist is complete for privacy by construction — the only ways a shell can transform a
 whitelisted token are a backslash, which the screen reads both ways, the removal of quotes, which the
-screen reads too, and a nested shell's reading of a quoted run's parentheses, which the screen reads
-with them removed — but it over-withholds: a command that uses a variable, globs, or runs a regular
-expression is withheld whether or not it names a denied file. A checkpoint drop entry keyed by a
+screen reads too, the quoted span an apostrophe opens, which joins words but after which no project
+root may stand, and a nested shell's reading of a quoted run's parentheses, which the screen reads
+with them removed — but it over-withholds: a command that uses a variable, globs, runs a regular
+expression or puts a name and a `:` where a path may start (`localhost:3000`, `HEAD:x`, a PowerShell
+drive's shape) is withheld whether or not it names a denied file. A checkpoint drop entry keyed by a
 withheld path stays in `dropped()` with the path replaced by the pointer's hash or `(path withheld)`,
 and no drop reason, the checkpointer's own git or scan errors included, shows such a path or one
 outside the project. The block restores no `paths:` rule, nested CLAUDE.md file or skill these rules

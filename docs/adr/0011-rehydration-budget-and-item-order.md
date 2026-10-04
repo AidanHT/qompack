@@ -691,6 +691,31 @@ quoted run, an apostrophe between two letters, a single-quoted run, and a single
 or variable can use. A rooted structured value spelled in one separator style is screened by the
 rules' literals alone (item 6).
 
+The final verify of wave 19d found two majors and two minors in that round's whitelist. The root's
+spelling accepted a backslash as a separator on every platform, so `/home\u/proj/x` was held together
+as the root and never read in its POSIX reading, `/homeu/proj/x`, a sibling of an ancestor of the
+root; a URL token was checked for a path only after an `&`, while PowerShell splits a bare argument
+at `,` into an array (`https://x,/etc/passwd`); only a single letter before `:` was a drive, while
+PowerShell's provider drives (`Temp:`, `Env:`, `HKCU:`, `HKLM:`, `Cert:`, `Function:`, `Alias:`,
+`Variable:`, `WSMan:`) and any drive `New-PSDrive` defines make `Temp:name` a path outside the project;
+and no path started after the `#` that starts a token, so `#/home/u/.ssh/id_rsa` was shown while
+`# /home/u/.ssh/id_rsa` was withheld. Each is closed by making the whitelist stricter (items 7 and 8).
+The verify then asked for every extension of round 2 to carry its completeness argument, pinned by an
+adversarial row, and for any whose argument could not be completed to be removed. Writing them out
+found three that could not be completed as they stood, each narrowed rather than removed, since the
+narrower extension's argument is complete: an apostrophe between letters opens a quoted span that
+runs to the next apostrophe, so after one the screen's tokens are no longer the shell's words and the
+root's unit, the one unit judged by what follows it, could name a sibling inside the span (no root may
+now follow such an apostrophe); a quoted run's root before a shell operator is a sibling's name to a
+program that takes the run as one argument when the root stands where that argument's path starts
+(the operator now ends the root only when the root is a word of its own after a word that ends in no
+delimiter); and a single `%` before `u` and four hex digits is IIS's and JavaScript's escape, and one
+before a digit, `*` or `~` a cmd.exe batch parameter (each is now unsafe). The other extensions'
+arguments hold as written (item 7). The round-2 reviewers' open notes are closed too: the claim that
+a JSON preview's keys are never judged is corrected (they are screened as every string is), the cost
+row's term for items 6a and 6b now fails when 6b's judgements are dropped and 6a's doubled, and
+comments that described D61's regular-expression reading as current are rewritten.
+
 1. *A degraded compaction that dropped material is never silent* (D59, UAT-05 F-C7-UAT05-1). At
    UAT-05's `runtime.rehydrate.minTokens` = `maxTokens` = 150 the retrieval line (86 tokens) does
    not fit beside the 47-token wrapper and item 7's floor, so §22.1 ends tier 1 at its first record,
@@ -777,7 +802,18 @@ rules' literals alone (item 6).
      (the shell's working directory persists between calls): after `cd secrets` a later `cat
      token.txt` is shown under `Read(./secrets/**)` unless a file pointer recorded the file (item
      7(c)). A `cd` to an absolute directory is withheld for its leading separator (`cd /q && cat
-     other/x.txt`, item 7(b)), and `cd ..` and cmd.exe's glued `cd..` for their `..`.
+     other/x.txt`, item 7(b)), and `cd ..` and cmd.exe's glued `cd..` for their `..`; a `cd` that
+     spells no directory (`cd` alone, to the home directory; `cd -`, to the previous one; `popd`) is
+     this limit too (`cd && cat .ssh/config` is shown).
+   - A PowerShell drive or provider a user defines under one of the inert prefixes' names (`path`,
+     `sha256`, or `http` and `https` before a URL's `//`) is not resolved: `path:src/x` is read as
+     recall's selector, `sha256:…` as a hash and `https://…` as a URL (item 7(b)). Every other name
+     before a `:` is withheld whether or not a drive of that name exists.
+   - On Windows a spelling of the root in backslashes alone is the root (item 8), as cmd.exe and
+     PowerShell read it; Git Bash, reading it unquoted, drops each backslash and reads a drive-relative
+     name built from the root's own segments (`C:qproj…`), which lies in the working directory. The
+     final verify of wave 19d ruled that Windows keeps either slash; a spelling that mixes the two is
+     not the root.
    - Free text that mentions a rule's literal or a withheld path's name where a name starts is
      withheld, whatever follows the name (`kubectl get secrets` under `Read(./secrets/**)`; `cat
      .env.local` under `Read(./.env)`; `git diff README.md` beside a withheld module-cache README.md;
@@ -919,18 +955,19 @@ rules' literals alone (item 6).
      take an absolute `file_path`, so a rooted plain path is judged as the one file it names.
 7. *Free text is shown only when the whitelist vouches for every token* (D63(2)-(4)). Every other
    summary, and every other string of a JSON preview, is free text; an object's keys are screened as
-   free text too (D63(1) leaves keys unjudged, but a key may carry a path, `{"private/deny.txt":"x"}`,
-   so the screen reads it, at the cost of withholding a key that spells a rule's literal,
-   `{"secrets":true}` under `Read(./secrets/**)`). It costs no host judgement. The project root's own
-   spelling is first held together as one token-safe unit (item 8); the text is then tokenized on
-   ASCII whitespace, except that a simple double-quoted run, and a single-quoted run that opens at a
-   token's start, keep their spaces. The summary is SHOWN only when all of these hold, and otherwise
-   is withheld ("summary withheld"; the pointer keeps its id and hash):
+   free text too: D63(1) judges a preview by its decoded strings, and a key is one, which may carry a
+   path (`{"private/deny.txt":"x"}` is withheld), at the cost of withholding a key that spells a
+   rule's literal (`{"secrets":true}` under `Read(./secrets/**)`). It costs no host judgement. The
+   project root's own spelling is first held together as one token-safe unit (item 8); the text is
+   then tokenized on ASCII whitespace, except that a simple double-quoted run, and a single-quoted run
+   that opens at a token's start, keep their spaces. The summary is SHOWN only when all of these hold,
+   and otherwise is withheld ("summary withheld"; the pointer keeps its id and hash):
    - (a) *Every token is safe.* A plain token is built only from Unicode letters, marks and digits
      plus the ASCII set `- _ . , : @ + /`, with `~` and `=` allowed inside a word (`HEAD~1`,
      `--out=x`) but not at a token start or after `= : , @` (a `=` with no name after it, `=` or `==`,
      is allowed), `#` only in a token that starts with one (a comment to every shell), an apostrophe
-     only between two letters (`what's`, `user's`), and `\` allowed only before a character other than
+     only between two letters (`what's`, `user's`) and with no root's unit after the first such
+     apostrophe outside a quoted run (below), and `\` allowed only before a character other than
      another backslash; a whole PowerShell splat `@name` (`@args`, `@env:HOME`) is unsafe. A backslash
      that ends a token escapes the space after it, or joins a line the store collapsed to a space
      (`de\ ny.txt`, `<root>\ old`), and one before another backslash leaves a backslash that a nested
@@ -943,33 +980,47 @@ rules' literals alone (item 6).
      hold `(` and `)` (not after `+` or `@`) and a backslash (literal in every shell, below); a simple
      single-quoted run `'…'` at a token's start whose content holds no quote of either kind, backtick,
      `$` or backslash, judged as a double-quoted run's content is; or an http(s) URL whose part after
-     the scheme is a plain token that may also hold `?` and `#`, and whose parts after an `&` are plain
+     the scheme holds only letters, marks, digits and `- . _ ~ : / ? # @ & = +` (no `,`, at which
+     PowerShell splits a bare argument into an array, nor any other character a shell splits a word at
+     or expands), is a plain token apart from its `?` and `#`, and whose parts after an `&` are plain
      tokens. A token with `;`, `|`, `&&` or `||` glued into it (`TODO|FIXME`, `2>&1;tail`) is split
-     there, and each piece must be a safe token. A single `%` in the text is a name character when two
-     hex digits do not follow it (and, in a cut text, the cut did not fall within the two bytes after
-     it): no percent-escape `%XX` and no `%VAR%` pair can use it. The null-device tokens, the backslash
-     and the parentheses inside a quoted run, the single-quoted run, the apostrophe between letters,
-     the split at a glued operator and the single `%` extend D63(2)'s list; the completeness argument
-     below covers each. Anything else makes the summary unsafe: a quote elsewhere, a backtick, `$`,
-     `!`, `*`, `?`, `[`, `]`, `{`, `}`, `(`, `)` outside a quoted run, `<`, `>`, a lone `&` or `^` in a
-     word; a `%` that could be an escape or half of a variable; a Unicode space or quote; a control
-     character; or `<`, `>` or `&` glued into a word (`cat<x`, `a&b`).
+     there, and each piece must be a safe token. A single `%` in the text is a name character when what
+     follows it is not two hex digits (a percent-escape `%XX`), nor `u` and four hex digits (the
+     `%uXXXX` escape IIS and JavaScript's `unescape` decode), nor a digit, `*` or `~` (a cmd.exe batch
+     parameter: `%1`, `%*`, `%~dp0`), and, in a cut text, the cut did not fall within the five bytes
+     after it: no escape, no `%VAR%` pair and no parameter can use it. The null-device tokens, the
+     backslash and the parentheses inside a quoted run, the single-quoted run, the apostrophe between
+     letters, the split at a glued operator and the single `%` extend D63(2)'s list; the completeness
+     argument below covers each. Anything else makes the summary unsafe: a quote elsewhere, a backtick,
+     `$`, `!`, `*`, `?`, `[`, `]`, `{`, `}`, `(`, `)` outside a quoted run, `<`, `>`, a lone `&` or `^`
+     in a word; a `%` that could be an escape, half of a variable or a batch parameter; a Unicode space
+     or quote; a control character; or `<`, `>` or `&` glued into a word (`cat<x`, `a&b`).
    - (b) *No token names an absolute or escaping path*, in either reading of its backslashes (every
      `\` a separator, and every `\` removed). A path may start at a token's or a piece's start, just
      after a short option's first letter or all its letters (`-I/opt`, `-oD:stash`, `-C../x`), and
-     just after `=`, `:`, `,`, `@`, an apostrophe or (in a quoted run) a parenthesis (`--out=/x`,
-     `a,/x`, `host:/x`, curl's `@/etc/passwd`, `"(/etc/passwd)"`). At each there is no leading `/` or
-     `\` (a POSIX root, a drive-less, UNC or device Windows path), no `~` (a home directory; at the
-     token's own start (a) rejects it), no drive `X:` and no `file:` URL. No `..` (a run of exactly two
+     just after `=`, `:`, `,`, `@`, an apostrophe, the `#` that starts a token or (in a quoted run) a
+     parenthesis (`--out=/x`, `a,/x`, `host:/x`, curl's `@/etc/passwd`, `#/etc/passwd`,
+     `"(/etc/passwd)"`). At each there is no leading `/` or `\` (a POSIX root, a drive-less, UNC or
+     device Windows path), no `~` (a home directory; at the token's own start (a) rejects it), no
+     drive `X:`, no `file:` URL, and no PowerShell drive- or provider-qualified path: a name, a `:` and
+     more (`Temp:x`, `Env:HOME`, `HKCU:Software`, `Registry::HKEY_CURRENT_USER`, `FileSystem::x`, or
+     any name `New-PSDrive` defines), unless the name holds `.` or `~` (PowerShell 5.1 and 7 both
+     refuse either in a drive's name, so `git@github.com:org/x` and `127.0.0.1:8080` name none; before
+     a `::` only a `/` rules a provider out) or is an inert prefix: `path` (recall's selector, which
+     (c) judges), `sha256` (a hash's text form), or `http` and `https` before a URL's `//`. A name
+     with nothing after its `:` (`fix:`) names no path. No `..` (a run of exactly two
      dots) touches the token's start or end, a separator, the root's unit or one of those delimiters:
      that is every `..` segment, even one that stays inside the project (`<root>/a/../b`), and a `..`
      glued to a word before it (cmd.exe's `cd..` and `type..\x`, which cmd.exe reads after `if`,
      `else` or `do` too, where no token position tells a command, so `git diff main..` stays
      withheld); a `..` between two name characters is a range (`HEAD~3..HEAD`), and `...` a Go package
      pattern. Inside a quoted run each word is judged, again with its parentheses removed (a nested
-     zsh's group: `(.)(.)/x` is `../x`), and the root's unit followed by a space and a word that is no
-     shell operator is a sibling of the root (item 8). In an http(s) URL each part after an `&` is
-     judged as a token. The root unit followed by a safe relative path is in-project and allowed.
+     zsh's group: `(.)(.)/x` is `../x`), and the root's unit followed by a space and another word is a
+     sibling of the root (item 8), unless the root is a word of its own after a word that ends in no
+     delimiter and the next word is a shell operator (a nested shell's `cd <root> && make`). In an
+     http(s) URL a path may start after each `=`, `:` and `@` of the URL proper (its host is no path
+     start, so a port is no drive), a `..` in it climbs, and each part after an `&` is judged as a
+     token. The root unit followed by a safe relative path is in-project and allowed.
    - (c) *The text names no rule literal or withheld name.* In its case-folded screen form — with `\`
      read as a separator, and again with `\` removed, both again with a quoted run's parentheses
      removed, and always without quotes — the text holds, where a name starts (the text's start,
@@ -1003,7 +1054,8 @@ rules' literals alone (item 6).
      use, so no shell expands, substitutes or globs it. A `~` expands only at a word's start or after
      `:` or `=` in an assignment, and zsh's EQUALS expands a `=` there into a command's path; both
      are withheld at (a). Under zsh's EXTENDED_GLOB a `#` repeats the character before it, and a `#`
-     that starts a word begins a comment in every shell; only the second is allowed. PowerShell's
+     that starts a word begins a comment in every POSIX shell and PowerShell (cmd.exe passes it
+     verbatim, below); only the second is allowed. PowerShell's
      whole-argument splat `@name` expands a variable (`@HOME` is the home directory) and is withheld;
      an `@` inside a word (`@types/node`, `git@host:x`) is not a splat.
    - *The backslash.* cmd.exe and PowerShell keep it (a separator), and a POSIX shell (bash, zsh, sh,
@@ -1011,37 +1063,115 @@ rules' literals alone (item 6).
      token and never precedes another backslash, one pass of that rule leaves no backslash behind, so
      a nested shell (`bash -c`, `sh -c`) re-reading the result changes nothing more; (b) and (c) judge
      exactly those two readings.
-   - *Quotes.* A double-quoted run's content holds no quote, backtick or `$`, and a backslash in it
-     never ends a word, so it never precedes a quote, a space or another backslash: bash, zsh, fish,
-     PowerShell and cmd.exe, and the Windows argument parser's backslash-before-quote rule, all pass
-     it through verbatim as one argument. A single-quoted run's content holds no quote, backtick, `$`
-     or backslash, so every shell passes it verbatim too (cmd.exe keeps the quotes, a name the screen
-     reads without them). An apostrophe between two letters opens or closes a quoted span whose
-     content is literal; the shell word it makes is already-judged tokens joined by spaces, whose
-     only word start is a token's start, and no root's unit, separator, `~` or `..` can touch an
-     apostrophe whose neighbours are letters; (c) reads the text without quotes, which is the shell's
-     string (`de'n'y.txt` is deny.txt, `m'y s'ecret.txt` is `my secret.txt`), and (b) starts a path
-     after an apostrophe, where PowerShell may start an argument. A nested shell that re-reads a run
-     splits it at its spaces into words that are each judged as tokens, in both backslash readings.
-   - *Parentheses in a run.* No shell gives `(` or `)` meaning inside quotes (PowerShell's `$(` is
-     excluded by `$`). A nested shell may read one as a subshell, PowerShell as a subexpression and
-     zsh as a glob group: (b) starts a path after each and bounds a `..` at each, (b) and (c) read the
-     words again with the parentheses removed, a `~` or `=` after a parenthesis is unsafe, a `#`
-     inside a word is unsafe (zsh's `(#i)` flag), and `+(` and `@(` (bash and ksh extglob; `!(`, `*(`
-     and `?(` hold unsafe characters) are unsafe.
-   - *Operators glued to a word.* Every POSIX shell ends a word at `;`, `|`, `&&` and `||`,
-     PowerShell ends a statement or a pipeline element there, and cmd.exe splits at `|`, `&&` and
-     `||`. Each piece is judged as a token, so every piece start is a path start. A program that keeps
-     `a;b` as one argument (cmd.exe hands an external program the whole token) reads a name the name
-     screen already reads whole, whose only path start, the token's start, is a piece's start too.
-   - *A single `%`.* A percent-escape needs `%` and two hex digits, and a cmd.exe variable two `%`.
    - *Where a path can start inside a token.* A program reads a path at an argument's start, as an
      option's value (glued to a short option, or after `=`), in a list (after `,` or `:`, PATH-style,
-     or scp's `host:/path`) and as a response or data file (after `@`); (b) looks at each of those
-     places, and for a `..` at every delimiter and at a word's end. `+`, `-`, `_` and `.` continue a
-     name. An http(s) URL's `?` and `#` can glob only below a directory named `http:` in the
-     project, and a part after an `&`, which bash and cmd.exe run as a new command word, is judged as
-     a token. The standalone operators and the null-device tokens are fixed spellings.
+     or scp's `host:/path`) and as a response or data file (after `@`); PowerShell reads one as a
+     parameter's value after `-Param:` and as each element of an array after `,`, and a comment's text
+     names its path to the model after the `#` that starts it. (b) looks at each of those places,
+     and for a `..` at every delimiter and at a word's end. `+`, `-`, `_` and `.` continue a name.
+     At each place a path can begin with a separator, a home, a drive, a `file:` URL or a PowerShell
+     drive or provider; PowerShell takes a drive's name from the place a path starts to the first `:`,
+     and refuses a name that holds `.`, `~`, `/` or `\`, so (b) withholds every other name before a
+     `:` that has more after it, whether or not such a drive exists, except the inert prefixes below.
+   - *Each extension of D63(2)'s list* (the final verify of wave 19d), with what a shell can do with
+     the characters it admits and the adversarial row that pins it:
+     - *The backslash inside a double-quoted run.* The run's content holds no quote, backtick or `$`,
+       and a backslash in it never ends a word, so it never precedes a quote, a space or another
+       backslash: bash, zsh, fish, PowerShell and cmd.exe, and the Windows argument parser's
+       backslash-before-quote rule, all pass it through verbatim as one argument; a nested shell that
+       re-reads the run splits it at its spaces into words judged as tokens, in both backslash
+       readings (`TestBuild_EveryBackslashReadingIsJudged`).
+     - *Parentheses in a run.* No shell gives `(` or `)` meaning inside quotes (PowerShell's `$(` is
+       excluded by `$`). A nested shell may read one as a subshell, PowerShell as a subexpression and
+       zsh as a glob group: (b) starts a path after each and bounds a `..` at each, (b) and (c) read
+       the words again with the parentheses removed, a `~` or `=` after a parenthesis is unsafe, a `#`
+       inside a word is unsafe (zsh's `(#i)` flag), and `+(` and `@(` (bash and ksh extglob; `!(`,
+       `*(` and `?(` hold unsafe characters) are unsafe
+       (`TestBuild_AQuotedRunsParenthesesNeverHideAPath`).
+     - *The single-quoted run.* Its content holds no quote, backtick, `$` or backslash, so every POSIX
+       shell and PowerShell pass it verbatim, and fish, which reads `\'` and `\\` there, has neither;
+       cmd.exe gives `'` no meaning and splits the run at its spaces, into words that are each judged,
+       and keeps the quotes, a name the screen reads without them
+       (`TestBuild_AnApostropheBetweenLettersAndASingleQuotedRunAreJudged`).
+     - *The apostrophe between letters* (narrowed). It opens a quoted span that a POSIX shell and
+       PowerShell close only at the next apostrophe, a double-quoted run's included, so after the first
+       one the screen's tokens and runs are no longer the shell's words: the span's spaces and
+       operators are literal and join tokens into one word. Every token start is judged as a path
+       start, and (c) reads the whole text without quotes (`de'n'y.txt` is deny.txt, `m'y s'ecret.txt`
+       is `my secret.txt`), which covers that word; no separator, `~` or `..` can touch an apostrophe
+       whose neighbours are letters, and (b) starts a path after one, where PowerShell may start an
+       argument. The one unit judged by what follows it is the root's (item 8): inside a span the root
+       after a path start and a space or an operator is a sibling's name (`echo it's x --o=<root> old
+       y'z` hands a program `--o=/q/proj old yz`), so no root may follow such an apostrophe. Before the
+       first one a double-quoted run's apostrophe is literal and a single-quoted run closes itself, so
+       the shell's words are the screen's (`TestBuild_AnApostropheSpanNeverJoinsTheRootToASibling`).
+     - *Operators glued to a word.* Every POSIX shell ends a word at `;`, `|`, `&&` and `||`,
+       PowerShell ends a statement or a pipeline element there, and cmd.exe splits at `|`, `&&` and
+       `||`. Each piece is judged as a token, so every piece start is a path start. A program that
+       keeps `a;b` as one argument (cmd.exe hands an external program the whole token), or a span that
+       makes the operator literal, reads a name the name screen already reads whole, whose only path
+       start, the token's start, is a piece's start too; the root before an operator is the root's
+       rule below (`TestBuild_AGluedOperatorPieceIsJudgedAsAToken`).
+     - *The single `%`* (narrowed). A percent-escape needs `%` and two hex digits, IIS's and
+       JavaScript's `%u` escape `u` and four, a cmd.exe variable a second `%`, and a batch parameter a
+       digit, `*` or `~` after it; with none of those after it no decoder or shell reads the `%` as
+       anything but itself, and a cut within the five bytes after it, where they would stand, is unsafe
+       (`TestBuild_ASinglePercentIsNoEscapeOrParameter`).
+     - *The null device's tokens.* Each is a whole token in a fixed spelling that holds no backslash,
+       glob or variable and names no file whose content or name the payload could reveal; a longer
+       token that begins with one is judged as any other (`TestBuild_ANullDeviceTokenIsAFixedSpelling`).
+     - *The `#` that starts a token, and a run of `=`.* Every POSIX shell and PowerShell read a word
+       that starts with `#` as a comment, in which zsh's EXTENDED_GLOB reads nothing; cmd.exe passes it
+       verbatim, and a later `#` in it is a name byte, so `#de#ny.txt` names `#de#ny.txt` to cmd.exe
+       and holds no rule's literal where a name starts. A path starts after every `#`. A `=` with no
+       name after it gives zsh's EQUALS no command to expand
+       (`TestBuild_ACommentTokenAndAnEqualsRunExpandNothing`,
+       `TestBuild_APathAfterACommentMarkIsJudged`).
+     - *A `..` between name characters, and `...`.* No shell or program climbs through `a..b`, a
+       revision range (PowerShell's `1..5` is a range in an expression, a string in an argument), and
+       Win32 path normalization keeps a component of three dots or more, or strips it at a path's end,
+       and never reads it as a parent (`C:\a\b\...\c` stays as written, measured with GetFullPath in
+       PowerShell 5.1 and 7); a `..` that touches a token's end, a separator, the root or a delimiter
+       climbs (`TestBuild_ADotDotRangeAndAGoPatternNeverClimb`).
+     - *An http(s) URL.* Its characters after the scheme are letters, marks, digits and `- . _ ~ : / ?
+       # @ & = +`: no shell splits a word at any of them but `&`, after which each part is judged as a
+       token, and none expands any of them in a URL (`~` and `=` expand only at a word's start or after
+       a delimiter, which plainTokenSafe rejects); its `?` and `#` can glob only below a directory named
+       `http:` in the project; after each `=`, `:` and `@` of the URL proper a path is judged as at any
+       other path start, and a `..` climbs; its scheme is an inert prefix
+       (`TestBuild_AURLIsSafeOnlyFromAStrictCharacterSet`).
+     - *The root before `|`, or before a `;` that ends its token.* Every shell ends the word at a `|`,
+       and every POSIX shell and PowerShell at the `;`; cmd.exe hands an external program `<root>;`,
+       the root's own spelling and a `;`, which reveals no other name. Inside a quoted run neither
+       character is admitted (`TestBuild_TheRootBeforeAPipeOrSemicolonIsTheRoot`).
+     - *The quoted root before a shell operator* (narrowed). A nested shell splits the run at its
+       spaces, so `cd <root> && make` reads the root alone; a program that is no shell takes the run as
+       one argument, in which the root is a path's start only at the run's start, after a delimiter (a
+       list's reader may trim the space after it) or after a short option, and from there the operator
+       is part of a sibling's name (`cat "<root> && make"` opens `/q/proj && make`). The operator ends
+       the root only when the root is a word of its own after a word that ends in no delimiter, where
+       to that program it lies inside a relative path
+       (`TestBuild_AQuotedRootBeforeAnOperatorIsASiblingAtAPathStart`).
+     - *The root-led Glob preview* (item 6). Its directory is read by the Glob tool exactly as the host
+       judged it, and a shell given the two words would run the directory as a command, which lists
+       nothing; its pattern, a safe glob, is judged from the directory and alone, may climb or start
+       outside the project in no reading, brace and class included, and its names are screened in both
+       backslash readings (`TestBuild_ARootLedGlobPreviewNamesOnlyWhatTheHostJudged`).
+     - *The brace glob* (item 6). One level of `{a,b}` is what bash, zsh, fish and a glob library
+       expand; each alternative is judged as the glob it makes and must be one, and the braces and
+       commas are path starts (PowerShell opens a script block at `{` and splits at `,`); a sequence, a
+       nested or unbalanced brace, an escaped comma's backslash ending an alternative and a concrete
+       alternative are withheld (`TestBuild_ABraceGlobNeverRespellsAnOutsidePath`).
+     - *The inert prefixes.* `path:` is recall's selector, whose value (c) judges by the store's own
+       rule; `sha256:` is the hash's text form that expand and re_read take; an http(s) scheme before
+       `//` is a URL's. No PowerShell drive or provider has one of these names unless a user defines it
+       (item 2's limits), and each is withheld glued after anything else (`--query=path:x`)
+       (`TestBuild_APowerShellProviderDrivePathIsWithheld`).
+     - *A rooted structured value in one separator style* (item 6). Every reader reads the same names
+       after the root, the host's judgement included, so the rules' literals alone can tell its names
+       from a refused file's (`TestBuild_AnOutsideNamesakeNeverWithholdsAProjectPath`).
+     - *A JSON preview's keys.* A key is a decoded string, screened as free text as every string but a
+       path-named value is (`TestBuild_AJSONKeyIsScreenedAsAString`).
    - *What the model reads.* The model sees the text, so (c) reads both backslash readings, strips
      quotes, reads a run's parentheses both ways, folds case where the platform's paths fold, and
      finds a literal wherever a name can start.
@@ -1059,21 +1189,33 @@ rules' literals alone (item 6).
    glues a quoted run to a flag (`--format="…"`) is withheld whether it names a denied file or an
    allowed one, and so is a one-word path with a parenthesis outside quotes (a Next.js route group
    `app/(auth)/login/page.tsx`: PowerShell starts an argument after `)`, which would then read
-   `/login/page.tsx` from the drive's root). On the w19d round-2 corpus of 274 previews that is about
-   one in five everyday summaries that name nothing private (50 of 246 under UAT-12's rules); each
-   still points by id and hash. Aliases, 8.3 names, links and Unicode normalization or compatibility
-   variants typed in free text are not resolved, and a name relative to a `cd` cannot be seen (item
+   `/login/page.tsx` from the drive's root). Since the final verify of wave 19d so is any name, a `:`
+   and more at a path start that is no inert prefix (`git log --pretty=format:%h`, `curl
+   localhost:3000`, `git show HEAD:src/x.go`, `npm run test:unit`, `docker run -p 8080:80`, a plugin
+   skill `{"skill":"plugin:name"}`, recall's `symbol:` and `tool:` selectors, `--query=path:x`), a URL
+   that holds a `,` or a path after `=`, `:` or `@` (`?next=/login`, `?q=is:open`), the root after an
+   apostrophe outside a quoted run, and a `%` before a digit (`printf %5d`). On the w19d corpus of 274
+   previews that is about one in five everyday summaries that name nothing private (53 of 246 under
+   UAT-12's rules, 50 at f3196046); each still points by id and hash. Aliases, 8.3 names, links and
+   Unicode normalization or compatibility variants typed in free text are not resolved, and a name
+   relative to a `cd` cannot be seen (item
    2). Inside a quoted run the root is held together too, although a nested shell (`bash -c "cd
    <root> && …"`) would split a root that has a space at that space; the pieces it would read spell
    only the root's own path, which the payload shows anyway. File pointers and structured summaries
    are still judged by the host, which resolves aliases and links.
 8. *The project root is held together* (D63(1), carrying D60(c)). In a project whose path has a space,
    a comma or an apostrophe in it (`C:\Users\John Smith\proj`), splitting a summary on whitespace would
-   cut the root apart. The screen finds each contiguous spelling of the root (either slash, any case
-   where the platform folds, the MSYS and WSL drive spellings `/c/…` and `/mnt/c/…` and the `\\?\`
-   prefix on Windows) and marks it as one token-safe unit, so the tokenizer never splits the root at its
-   own space and the screen never reads the root's own name as a withheld name. A spelling glued to a
-   name character before it is not the root (`xC:\q\proj`) unless that is a short option's letters
+   cut the root apart. The screen finds each contiguous spelling of the root (its separators `/` alone
+   on Linux and macOS, and on Windows one style throughout, every one `/` or every one `\`, repeated or
+   not; any case where the platform folds; the MSYS and WSL drive spellings `/c/…` and `/mnt/c/…` and
+   the `\\?\` prefix on Windows) and marks it as one token-safe unit, so the tokenizer never splits the
+   root at its own space and the screen never reads the root's own name as a withheld name. A POSIX
+   shell, Git Bash on Windows included, drops a backslash between two of the root's segments and joins
+   them (`/home\u/proj` is `/homeu/proj`, `C:/q\proj` is `C:/qproj`, a sibling of an ancestor of the
+   root), so a spelling with one there is not the root, and its text is judged as the free text it is
+   (the final verify of wave 19d; Windows keeps a spelling in backslashes alone, item 2's limits). A
+   spelling glued to a name character before it is not the root (`xC:\q\proj`) unless that is a short
+   option's letters
    (`-I<root>/include`, the root as the option's value); and a spelling is the root only when it ends
    the text or is followed by a space, a quote of either kind, a `/` or a `|` (a pipe in every shell;
    no Windows name holds one), by a `;` that ends its token (item 2's sibling limit), or by a `\` when
@@ -1083,9 +1225,11 @@ rules' literals alone (item 6).
    forward-slash spelling a POSIX shell reads a `\` as escaping the next character onto the root's
    last segment (`/q/proj\old` is `/q/projold`). No quote state is tracked: a spelling inside a quoted
    run is marked too, and the run's words are judged around the mark. Inside a run the root followed
-   by a space and a word that is no shell operator is a sibling (`"<root> old/x.txt"` and `'<root>
-   old/x.txt'` are one argument each), while a nested shell's command line may go on after the root
-   with an operator (`bash -c "cd <root> && go test ./..."`). A quote glued to the root's spelling or
+   by a space and another word is a sibling (`"<root> old/x.txt"` and `'<root> old/x.txt'` are one
+   argument each, and so is `"<root> && make"`), while a nested shell's command line may go on after
+   the root with an operator when the root is a word of its own after a word that ends in no delimiter
+   (`bash -c "cd <root> && go test ./..."`). Outside a run no root may follow an apostrophe that stands
+   outside a quoted run (item 7(a)). A quote glued to the root's spelling or
    splitting it (`"<root>"/notes.txt`, `<p>"proj"`) makes the token unsafe. So `cd <root> && go test
    ./...`, `git -C <root> status`, `cd "<root>" && make`, `cd '<root>' && make`, `cat
    "<root>\src\main.go"` on every platform, `Set-Location <root>; go test ./...`, a nested shell that
@@ -1146,9 +1290,11 @@ rules' literals alone (item 6).
     exactly the build's 10 file pointers and 10 structured summaries, 20 judgements; 80 commands run
     from the root (`<root>/tools/lintN.ps1 --since HEAD~N && echo ok`) cost 20 + 80, each judging the
     script's path alone; and a project with 5 `paths:` rule files and 5 skills costs 20 + 2 × 5, each
-    rule file and each skill file judged once. A judgement is `RuleSet.Evaluate` on the path and, when
-    the root resolves elsewhere, on its resolved spelling, each of which may read the disk; so a build
-    costs at most two Evaluates per path so judged. `internal/hostperm` is byte for byte its a357d187
+    rule file and each skill file judged once (the row checks the judged rule and skill files as one
+    set, each once in the spelling items 6a and 6b hand the judge, so a build that dropped item 6b's
+    judgements and judged item 6a's twice, which meets the count, fails it). A judgement is
+    `RuleSet.Evaluate` on the path and, when the root resolves elsewhere, on its resolved spelling,
+    each of which may read the disk; so a build costs at most two Evaluates per path so judged. `internal/hostperm` is byte for byte its a357d187
     code plus one read-only accessor, `RuleSet.ReadRulePatterns`, which hands the screen the rules'
     specifiers (item 7(c)); hostperm is security-critical, and the round-2 `hostperm.Evaluator` is
     reverted with its rows, nothing it bought still needed.
@@ -1156,9 +1302,10 @@ rules' literals alone (item 6).
     `stripQuotes`, `protect`'s quote-run logic, `regexLike`, `outsideIn`'s heuristics, `homeOrVarPath`
     and the Unicode boundary guesses be deleted, and they are; but `internal/rehydrate/pathgate.go` is
     not smaller than at e65ada8f. Measured with the pinned gocyclo v0.6.0 and gocognit v1.2.0: lines
-    2059 (e65ada8f), 1949 (f708c693), 2410 after the round-2 fixes; non-blank non-comment lines 1401,
-    1346, 1639; functions 91, 87, 105; gocyclo total 646, 572, 722, maximum 26 throughout
-    (`jsonStrings`); gocognit total 590, 563, 691, maximum 38 throughout. The whitelist's completeness checks
+    2059 (e65ada8f), 1949 (f708c693), 2410 after the round-2 fixes (f3196046), 2580 after the final
+    verify's; non-blank non-comment lines 1401, 1346, 1639, 1737; functions 91, 87, 105, 112; gocyclo
+    total 646, 572, 722, 765, maximum 26 throughout (`jsonStrings`); gocognit total 590, 563, 691, 732,
+    maximum 38 throughout. The whitelist's completeness checks
     (path starts, `..` edges, both backslash readings, quoted runs, glob containment) replaced the
     state machines roughly line for line, and the extensions that recover everyday summaries (item
     7(a)) each add a small, separately argued rule; the structured half, the noting and the error-chain
@@ -1241,7 +1388,19 @@ rows, each red on 108f8cd5: `TestBuild_AnEnvDriveSpelledInAnyCaseIsWithheld`,
 `TestBuild_AnApostropheBetweenLettersAndASingleQuotedRunAreJudged`,
 `TestBuild_ASinglePercentIsShownAndAPairIsNot` and `TestBuild_AZshOrPowerShellExpansionIsWithheld`
 (item 7); `TestBuild_AReasonInAProjectWithASpaceShowsItsOwnPaths` (item 9);
-`TestBuild_AGlobPreviewAndAnOperatorPieceCostOneJudgementEach` (item 10). `internal/daemon`, through
+`TestBuild_AGlobPreviewAndAnOperatorPieceCostOneJudgementEach` (item 10). The rows of the final verify
+of wave 19d: `TestBuild_ABackslashInsideTheRootsSpellingIsNoRoot` (item 8),
+`TestBuild_AURLIsSafeOnlyFromAStrictCharacterSet`, `TestBuild_APowerShellProviderDrivePathIsWithheld`
+and `TestBuild_APathAfterACommentMarkIsJudged` (item 7); and the extension audit's rows, one for each
+extension's argument in item 7: `TestBuild_ARootLedGlobPreviewNamesOnlyWhatTheHostJudged`,
+`TestBuild_ABraceGlobNeverRespellsAnOutsidePath`, `TestBuild_AGluedOperatorPieceIsJudgedAsAToken`,
+`TestBuild_AQuotedRunsParenthesesNeverHideAPath`,
+`TestBuild_AnApostropheSpanNeverJoinsTheRootToASibling`,
+`TestBuild_AQuotedRootBeforeAnOperatorIsASiblingAtAPathStart`,
+`TestBuild_ASinglePercentIsNoEscapeOrParameter`, `TestBuild_ANullDeviceTokenIsAFixedSpelling`,
+`TestBuild_ACommentTokenAndAnEqualsRunExpandNothing`,
+`TestBuild_TheRootBeforeAPipeOrSemicolonIsTheRoot`, `TestBuild_AJSONKeyIsScreenedAsAString` and
+`TestBuild_ADotDotRangeAndAGoPatternNeverClimb`. `internal/daemon`, through
 the real adapter and the real host rules: `TestRehydrateHostPaths_ASelectorNamingADeniedFileIsWithheld`,
 `TestRehydrateHostPaths_EverySpellingOfADeniedFileIsWithheld`,
 `TestRehydrateHostPaths_ADeniedPathWithDelimitersIsWithheld`,
@@ -1381,6 +1540,33 @@ listed `=`, `#` and `@` as safe (each a zsh or PowerShell expansion; `C#`, `issu
 redacted. The red-first rows are the round-2 review's findings and the leaks its fix found, each red
 on f708c693 (pathgate.go of that commit overlaid on the new tests): the rows listed under *Evidence*
 above as the D63 round-2 rows, and the `file:` URL and namesake rows of `internal/daemon`.
+
+*Criterion changes (D63, the final verify of wave 19d).* No row that asserted a WITHHELD spelling
+changed. Three SHOWN spellings flip to WITHHELD under the provider-drive rule of item 7(b), each a
+name PowerShell accepts for a drive before a `:` with more after it: `git log --pretty=format:%h -n 3`
+in `TestBuild_ASinglePercentIsShownAndAPairIsNot` and in
+`TestRehydrateHostPaths_UsefulSummariesAreShownUnderTheUAT12Rules` (`--pretty=format` is a valid drive
+name; each row now shows `git log --format=%h -n 3` for the single `%`), and `qompack recall
+--query=path:reports` in `TestBuild_APathSelectorAfterAQuoteOrEqualsIsJudged` (`--query=path`; the row
+shows `qompack recall path:reports`).
+`TestRehydrateHostPaths_HostJudgementsAreStructuredSummariesAndFilePointers` now checks the judged rule
+and skill files as one set (item 10); it fails both mutants the review
+named (item 6b's judgements dropped while item 6a's are judged twice, under a second spelling or past
+the memo), which met its count. The narrowed extensions (item 7) and the strict URL set flip no
+earlier row. Comments that described D61's regular-expression reading as current
+(`TestBuild_ACaretEscapedSeparatorIsASeparator`, `TestBuild_ADriveLessGlobOutsideTheProjectIsWithheld`,
+`TestRehydrateHostPaths_RootedCommandsAndRegularExpressionsAreShownUnderTheUAT12Rules`) and the claim
+that a JSON preview's keys go unjudged are corrected; `notedValues` loses a token count that
+`recordedPath`'s one-word rule already made. Red-first: with pathgate.go of f3196046 overlaid on the
+new tests, the four finding rows and the apostrophe, quoted-root and single-`%` audit rows fail on
+the spellings their findings name, `TestBuild_ABackslashInsideTheRootsSpellingIsNoRoot` on Windows and
+in a Linux container alike; the other audit rows fail there only on their PowerShell-drive and `#`
+spellings (`Temp:*`, `{Temp:,x}*`, `a||#/etc/passwd`, `{"Temp:secret.txt":true}`, `#~/.ssh/id_rsa`),
+and hold on every spelling their own extension admits. On the w19d corpus of 274 previews (seven
+scenarios, the Windows build) f3196046 shows 196 and withholds 78 under UAT-12's rules, with 0 leaks
+and 50 over-withheld; the final fixes show 193 and withhold 81, with 0 leaks and 53 over-withheld,
+the three flips being `git log --pretty=format:%h -n 3`, `sleep 5 && curl localhost:3000` and
+`{"skill":"superpowers:brainstorming"}`.
 
 ## Consequences
 
