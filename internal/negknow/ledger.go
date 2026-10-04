@@ -1017,6 +1017,19 @@ func (l *ledger) Query(ctx context.Context, target, approach string, scope Scope
 	d := Canonicalize(target, approach, "")
 	mh := d.matchHash()
 	mk := mh[:] // d.MatchKey(), whose array is this call's own
+
+	// A filter miss answers absent for every caller, so it is answered before anything is
+	// resolved for this one: the viewer's ancestry (Deps.Ancestry reads the lineage records) and
+	// the dependency refresh both cost far more than the §11.2 "Query (bloom miss)" row's one
+	// bloom Test. The filter covers every record in view, active and stale (filterRecords), so
+	// there is no record a miss could have refreshed or answered from.
+	l.mu.RLock()
+	miss := !l.blind && (l.bloom == nil || !l.bloom.Test(mk))
+	l.mu.RUnlock()
+	if miss {
+		l.count(queryStateAbsent)
+		return Answer{State: AnswerAbsent}, nil
+	}
 	v := l.viewerFor(ctx)
 
 	// The records this question could be answered from are brought up to date with the store
