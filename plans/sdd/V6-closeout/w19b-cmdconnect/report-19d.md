@@ -43,7 +43,7 @@ Run patterns quoted below match real tests exactly. `-v` showed 3 top-level PASS
 ### Tests
 
 - `go test -p 2 -count=1 -run '^TestStatus_ReasonUsesTheStateTheClientWasBuiltWith$' ./internal/cli/ (before the fix)`: FAIL as intended: both subtests gave the other subtest's reason (disabled vs connect miss)
-- `go test -count=1 -v -run '^TestZZScratchStarvedRefusedDial$' ./internal/cli/ (throwaway test, deleted, not committed)`: err=i/o timeout isTimeout=true: an expired budget turns the refused dial into ErrTimeout (nit 1 failure mode)
+- `go test -count=1 -v -run '^TestZZScratchStarvedRefusedDial$' ./internal/cli/ (throwaway test, deleted, not committed)`: err=i/o timeout isTimeout=true: an expired budget turns the refused dial into ErrTimeout (nit 1 failure mode) <!-- runpatterns: names the seat's throwaway scratch test, deleted and never committed, recorded as the evidence of nit 1's failure mode -->
 - `go test -p 2 -count=50 -run '^(TestStatus_ReasonUsesTheStateTheClientWasBuiltWith|TestStatusProbe_OutlastsAListenerThatIsReArming|TestDaemonClients_HonourDisabledDaemonOverStaleState)$' ./internal/cli/`: ok (17.4s)
 - `go test -p 2 -race -count=5 -run '^(TestStatus_ReasonUsesTheStateTheClientWasBuiltWith|TestStatusProbe_OutlastsAListenerThatIsReArming|TestDaemonClients_HonourDisabledDaemonOverStaleState)$' ./internal/cli/`: ok (5.7s)
 - `go test -p 2 -count=1 -timeout=30m ./internal/cli/`: ok (95.0s), exit 0
