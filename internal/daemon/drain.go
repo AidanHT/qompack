@@ -81,8 +81,8 @@ var errPassBudgetSpent = fmt.Errorf("daemon: drain: the pass's budget is spent: 
 // bytes once. It admits again, and asks the committed frontier again about, each line still waiting on
 // an earlier arrival of its session. A line an earlier pass of this daemon consumed behind such a head
 // costs it that line's read and nothing more, for up to orderingProcessedCap such lines per file; past
-// that bound the line is consumed again in full, though not counted or announced again (spoolMemo says
-// what else the memo leaves out). A file unchanged since this daemon synced it is not synced, nor its
+// that bound the line is consumed again in full, though not counted or announced again unless a pass
+// left an unleased line ahead of it unannounced (spoolMemo says what else the memo leaves out). A file unchanged since this daemon synced it is not synced, nor its
 // progress rewritten, again. And while a cleanup intent waits, the pass reads each file's unconsumed
 // lines once more, at its start, for references to the intent's blob (cleanupAcknowledged).
 //
@@ -785,6 +785,17 @@ func (dr *drainer) drainFile(ctx context.Context, path string, st drainState, ga
 	if memo != nil {
 		memoLines, announced = memo.consumed, memo.readTo
 	}
+	// firstLeft is where the first line starts that the pass read and left unconsumed under no lease the
+	// journal holds, or -1. A later pass can still consume such a line as unadmitted, and nothing has
+	// announced it, so the memo's readTo stops there (rememberFile). A leased line cannot be consumed that
+	// way: a refused line whose lease the journal holds stays where it is, and a lease, once written, is
+	// held for good.
+	firstLeft := int64(-1)
+	leave := func(start int64) {
+		if firstLeft < 0 {
+			firstLeft = start
+		}
+	}
 
 	// consume counts as the pass consuming a line (notePassConsumed) only when the front advances. A
 	// line consumed out of order is remembered in processed for the rest of this call and in this
@@ -1027,6 +1038,9 @@ readLoop:
 					dr.cfg.Metrics.Counter(counterDrainLeasedDenyPending).Add(1)
 				}
 				gaps.add(base, DrainGapUnadmitted, "refused replay has unresolved delivery identity or policy")
+				if !held {
+					leave(lineStart) // the lookup failed: a later pass may find no lease, and skip the line
+				}
 				continue
 			}
 			retired = lease
@@ -1048,11 +1062,14 @@ readLoop:
 			}
 			continue
 		case verdict.Failed:
-			// A never-leased failure is terminal FOR THIS RECORD, and the offset advances past it. The
-			// decision is baked into the spooled bytes, so no later pass can admit it; losing it LOUDLY
-			// is correct while losing everything behind it silently is not. Once per line, though: a line
-			// an earlier pass consumed and announced, behind a front that has not reached it, is not lost
-			// again by the next pass to read it.
+			// A never-leased failure is terminal FOR THIS RECORD, and the offset advances past it; losing
+			// it LOUDLY is correct while losing everything behind it silently is not. The refusal is not
+			// always one the spooled bytes decide: a policy this daemon cannot compile, or a path whose
+			// scope it cannot prove, is a condition of this process that can clear. The record is lost all
+			// the same, as it is in order, and a line consumed out of order behind a waiting head is as
+			// final (spoolMemo), so the announcement says what happened to it. Once per line, though: a
+			// line an earlier pass consumed and announced, behind a front that has not reached it, is not
+			// lost again by the next pass to read it.
 			if lineStart >= announced {
 				if dr.cfg.Metrics != nil {
 					dr.cfg.Metrics.Counter(counterDrainUnadmitted).Add(1)
@@ -1075,6 +1092,7 @@ readLoop:
 			gaps.add(base, DrainGapUnleased, "delivery has no durable identity")
 			if req.Nonce != "" && dr.cfg.Journal != nil {
 				dr.cfg.Log.Loud("daemon: drain: delivery identity unavailable; spool retained for recovery")
+				leave(lineStart)
 				readErr = core.ErrDegraded
 				break readLoop
 			}
@@ -1088,6 +1106,9 @@ readLoop:
 			key: deliveryIdentityKey(lease, leased, line), start: lineStart, next: nextOffset, sum: sum,
 		}
 		done, deferIt, dispatched, changed, err := processOne(dl)
+		if !done && !leased {
+			leave(lineStart) // deferred, or a hard error, with no lease to hold it
+		}
 		if err != nil {
 			readErr = err
 			break readLoop
@@ -1194,7 +1215,7 @@ readLoop:
 	gaps.hold(base, size-fs.Size)
 	// Before any save: a save that fails forgets every memo, this one included, since the cleanup
 	// intents its lines left would then not be on disk (saveState).
-	dr.rememberFile(base, fi, opened, synced, processed, memo, readPos, fs.Offset < size)
+	dr.rememberFile(base, fi, opened, synced, processed, memo, readPos, firstLeft, fs.Offset < size)
 	if canceled {
 		return count, passStopped(ctx)
 	}
@@ -1316,7 +1337,8 @@ func (dr *drainer) durableEnd(path, base string, size, offset int64, durable boo
 //   - It holds at most orderingProcessedCap lines per file, the bound drainFile keeps on the lines its
 //     front may roll over. A line consumed out of order past that bound is consumed again in full by
 //     every pass that reads it (admitted, its lease looked up, the journal asked), exactly as before
-//     the memo, but it is not counted or announced again (readTo).
+//     the memo, but it is not counted or announced again, unless a pass left a line ahead of it read,
+//     unconsumed and unleased (readTo).
 //   - A line consumed on an in-memory completion whose acknowledgement had not reached the committed
 //     frontier (DrainGapUnacknowledged) is not remembered: the gap it reports can close, so every pass
 //     consumes it again until it is consumed without one.
@@ -1340,10 +1362,15 @@ type spoolMemo struct {
 	// offset: what drainFile's processed map held at the end of the pass, with the lines an earlier
 	// pass remembered past where this one stopped reading, bounded the same way (orderingProcessedCap).
 	consumed map[int64]consumedLine
-	// readTo is how far into the file the passes since the memo began have read. Each counted and
-	// announced every corrupt or unadmitted line it consumed, so a line that starts before readTo is
-	// not counted or announced again, whether the memo holds it or the cap left it out. A line rewritten
-	// in place before readTo is consumed afresh, by its sum, but not announced: no writer does that.
+	// readTo is how far into the file the passes since the memo began have read, short of the first line
+	// one of them read and left unconsumed under no lease the journal holds (drainFile's firstLeft). Each
+	// pass counted and announced every corrupt or unadmitted line it consumed, so a line that starts before
+	// readTo is not counted or announced again, whether the memo holds it or the cap left it out. A line
+	// a pass read and left — its lease lookup failed, its lease could not be taken, it waited or failed
+	// with no lease — was announced by none, and a later pass can consume it as unadmitted: readTo stops
+	// short of it, so that pass announces it, and lines past it the cap left out are announced again. A
+	// line rewritten in place before readTo is consumed afresh, by its sum, but not announced: no writer
+	// does that.
 	readTo int64
 }
 
@@ -1394,13 +1421,14 @@ func (dr *drainer) memoOf(base string, fi os.FileInfo) (memo *spoolMemo, unchang
 // rememberFile records, for the passes after this one, what the pass did with the spool file base:
 // fi is the pass's stat of it and opened the stat of the handle it read, synced whether durableEnd's
 // bound rests on a sync of this drainer, consumed the lines it consumed out of order, prev the memo the
-// pass began with (memoOf), and readPos where it stopped reading. Only a file that still has bytes past
+// pass began with (memoOf), readPos where it stopped reading, and firstLeft where the first line starts
+// that it read and left unconsumed under no lease (-1 for none). Only a file that still has bytes past
 // its front (unconsumed) is remembered, and only when the file the pass read is the one it stat'd;
 // anything else drops the memo. A pass that stopped short of the end — its budget spent after it made
 // progress, a hard error — read none of prev's lines past readPos, and they stay remembered: the file
 // is the same file, so they are as consumed as they were.
 func (dr *drainer) rememberFile(base string, fi, opened os.FileInfo, synced bool, consumed map[int64]consumedLine,
-	prev *spoolMemo, readPos int64, unconsumed bool,
+	prev *spoolMemo, readPos, firstLeft int64, unconsumed bool,
 ) {
 	if !unconsumed || opened == nil || !os.SameFile(fi, opened) {
 		delete(dr.memo, base)
@@ -1420,6 +1448,11 @@ func (dr *drainer) rememberFile(base string, fi, opened os.FileInfo, synced bool
 			}
 		}
 		readTo = max(readTo, prev.readTo)
+	}
+	if firstLeft >= 0 {
+		// A line read and left unannounced, which a later pass may consume as unadmitted: readTo must not
+		// pass it, even where an earlier pass read further, or that consumption is announced by no pass.
+		readTo = min(readTo, firstLeft)
 	}
 	if dr.memo == nil {
 		dr.memo = map[string]*spoolMemo{}

@@ -1,6 +1,7 @@
 package daemon
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -176,7 +177,8 @@ func TestDrainClientSpools_AFailedProgressWriteForgetsWhatThePassRemembered(t *t
 // or announced again: every pass counted and announced each such line, Loud for one admission could not
 // decide, so a waiting head ahead of a large backlog put the same lines into LOUD.log on every pass.
 // That holds after a pass whose spent budget stopped it early, too, which read only the start of the
-// spool: it does not shorten what the passes before it had read and announced.
+// spool: it does not shorten what the passes before it had read and announced. And it holds behind a
+// refused line whose lease the journal holds, which every pass leaves where it is.
 func TestDrainClientSpools_LinesPastTheMemoCapBehindAWaitingHeadAreAnnouncedOnce(t *testing.T) {
 	const pastCap = 3
 	dd, _, root := laneTestDaemon(t)
@@ -184,10 +186,10 @@ func TestDrainClientSpools_LinesPastTheMemoCapBehindAWaitingHeadAreAnnouncedOnce
 	cfg := dd.drainConfig()
 	log := newRecordingLogger()
 	cfg.Log = log
-	const undecided, released core.SessionID = "sess-cap-undecided", "sess-cap-released"
+	const undecided, released, held core.SessionID = "sess-cap-undecided", "sess-cap-released", "sess-cap-held"
 	admit := cfg.Admit
 	cfg.Admit = func(req ipc.Request) admissionVerdict {
-		if req.Session == undecided {
+		if req.Session == undecided || req.Session == held {
 			return admissionVerdict{Request: req, Failed: true, Reason: "test policy unavailable"}
 		}
 		return admit(req)
@@ -199,7 +201,12 @@ func TestDrainClientSpools_LinesPastTheMemoCapBehindAWaitingHeadAreAnnouncedOnce
 	p0 := spD3Prompt(dd, root, released, orderNonce(10), "p0")
 	acceptPrompt(t, dd, p0) // leased; its job waits on the ring for a worker, and none runs
 	next := liveOrderTool(dd, root, released, 1)
-	lines := [][]byte{hookSpoolLine(t, head), hookSpoolLine(t, next)}
+	// A refused line whose lease the journal holds stays unconsumed, and nothing announces it, on every
+	// pass; no pass can consume it as unadmitted, so it does not hold back what the passes have announced.
+	heldRefused := liveOrderTool(dd, root, held, 50)
+	_, ok := dd.ing.leaseDelivery(ctx, heldRefused)
+	require.True(t, ok)
+	lines := [][]byte{hookSpoolLine(t, head), hookSpoolLine(t, next), hookSpoolLine(t, heldRefused)}
 	for range orderingProcessedCap {
 		lines = append(lines, []byte("not a request\n"))
 	}
@@ -223,6 +230,8 @@ func TestDrainClientSpools_LinesPastTheMemoCapBehindAWaitingHeadAreAnnouncedOnce
 		_, err := dr.DrainClientSpools(ctx)
 		require.NoError(t, err)
 		announcedOnce(fmt.Sprintf("after pass %d", pass))
+		require.Equal(t, int64(pass), dd.m.Counter(counterDrainLeasedDenyPending).Value(),
+			"fixture: pass %d leaves the refused line its lease holds", pass)
 		require.Equal(t, pastCap, meter.take().admitted[undecided],
 			"pass %d admits each line past the cap: a drainer remembers orderingProcessedCap lines per file", pass)
 	}
@@ -242,6 +251,101 @@ func TestDrainClientSpools_LinesPastTheMemoCapBehindAWaitingHeadAreAnnouncedOnce
 	_, err = dr.DrainClientSpools(ctx)
 	require.NoError(t, err)
 	announcedOnce("after a pass that stopped early and the pass after it,")
+}
+
+// TestDrainClientSpools_ALineReadAndLeftIsAnnouncedWhenALaterPassSkipsIt: a line a pass consumes as
+// unadmitted is announced once per memo life, and spoolMemo.readTo says how far the passes before it
+// read, announcing each such line they consumed. A pass can also read a line behind a waiting head and
+// leave it, unconsumed and unannounced, under no lease: its lease lookup fails, its lease cannot be
+// taken, or, with no nonce to lease it by, its dispatch fails or it waits on a delivery another handler
+// holds. A later pass that refuses it consumes it as unadmitted, and readTo stood past it, so the record
+// was skipped with no count and no Loud line. readTo stops short of such a line, so the pass that skips
+// it announces it, once.
+func TestDrainClientSpools_ALineReadAndLeftIsAnnouncedWhenALaterPassSkipsIt(t *testing.T) {
+	for _, c := range []struct {
+		name string
+		// noNonce strips the line's nonce, so no pass can lease it.
+		noNonce bool
+		// admittedFirst admits the line's first admission, the read loop's in pass 1, and refuses every
+		// later one. Otherwise every admission refuses it.
+		admittedFirst bool
+		// journalFailsOnce fails the first journal call after the line's first admission.
+		journalFailsOnce bool
+		// heldElsewhere has another handler hold the line's delivery through pass 1.
+		heldElsewhere bool
+		// What pass 1 does with the line: whether it fails, how often it admits the line, and whether it
+		// finds the refused line's delivery identity unresolved (drain_leased_deny_pending).
+		pass1Err        bool
+		pass1Admissions int32
+		pass1Unresolved int64
+	}{
+		{name: "its lease lookup failed", journalFailsOnce: true, pass1Admissions: 1, pass1Unresolved: 1},
+		{name: "its lease could not be taken", admittedFirst: true, journalFailsOnce: true, pass1Err: true, pass1Admissions: 1},
+		{name: "its dispatch failed with no lease", noNonce: true, admittedFirst: true, pass1Err: true, pass1Admissions: 2},
+		{name: "it waited with no lease", noNonce: true, admittedFirst: true, heldElsewhere: true, pass1Admissions: 1},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			dd, _, root := laneTestDaemon(t)
+			ctx := context.Background()
+			cfg := dd.drainConfig()
+			log := newRecordingLogger()
+			cfg.Log = log
+			const sess core.SessionID = "sess-left"
+			x := liveOrderTool(dd, root, sess, 9)
+			if c.noNonce {
+				x.Nonce = ""
+			}
+			var admissions atomic.Int32
+			var journalFails atomic.Bool
+			admit, journal := cfg.Admit, cfg.Journal
+			cfg.Admit = func(req ipc.Request) admissionVerdict {
+				if req.Session != sess {
+					return admit(req)
+				}
+				first := admissions.Add(1) == 1
+				if first && c.journalFailsOnce {
+					journalFails.Store(true)
+				}
+				if first && c.admittedFirst {
+					return admit(req)
+				}
+				return admissionVerdict{Request: req, Failed: true, Reason: "test policy unavailable"}
+			}
+			cfg.Journal = func() (*deliveryJournal, error) {
+				if journalFails.CompareAndSwap(true, false) {
+					return nil, errors.New("test journal unavailable")
+				}
+				return journal()
+			}
+			dr := newDrainer(cfg)
+			dd.drain.Store(dr)
+			head := blockedSpoolHead(t, dd, root, "sess-left-stuck", 0)
+			line := hookSpoolLine(t, x)
+			writeRawSpool(t, root, "client-8811.ndjson", hookSpoolLine(t, head), line)
+			key := deliveryIdentityKey(deliveryLease{}, false, bytes.TrimSuffix(line, []byte{'\n'}))
+			if c.heldElsewhere {
+				_, acquired := cfg.Seen.begin(key)
+				require.True(t, acquired, "fixture: another handler holds the delivery")
+			}
+
+			_, err := dr.DrainClientSpools(ctx)
+			require.Equal(t, c.pass1Err, err != nil, "fixture: pass 1 fails on the line or not: %v", err)
+			require.Equal(t, c.pass1Admissions, admissions.Load(), "fixture: pass 1's admissions of the line")
+			require.Equal(t, c.pass1Unresolved, dd.m.Counter(counterDrainLeasedDenyPending).Value(),
+				"fixture: pass 1 left the line on an unresolved delivery identity or not")
+			require.Zero(t, dd.m.Counter(counterDrainUnadmitted).Value(), "fixture: pass 1 consumed nothing as unadmitted")
+			if c.heldElsewhere {
+				cfg.Seen.finish(key, false)
+			}
+			for pass := 2; pass <= 3; pass++ {
+				_, err = dr.DrainClientSpools(ctx)
+				require.NoError(t, err, "pass %d", pass)
+			}
+			require.Equal(t, int64(1), dd.m.Counter(counterDrainUnadmitted).Value(), "the skipped record is counted once")
+			require.Equal(t, 1, logCount(log, logLoud, "daemon: drain: capture not admitted; record skipped"),
+				"and announced once")
+		})
+	}
 }
 
 // TestDrainClientSpools_APassThatStopsEarlyKeepsWhatItRemembersPastItsStop: a pass whose budget is spent
