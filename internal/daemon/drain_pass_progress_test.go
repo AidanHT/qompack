@@ -316,10 +316,10 @@ func TestDrainClientSpools_ASpentPassStartsNoLineAfterItsFrontAdvanced(t *testin
 // drain the ingest's lanes ask for (drainOnRequest), which runs under the same pass budget and asks for
 // the next pass itself when its budget ended one (passLeftWork). Every pass outlasts its budget at the
 // blocked head here (slowWaitingHead). The first pass publishes the line behind the blocked head and
-// stops on its budget after that progress, so it asks again. The next only consumes that line again: it must finish the spool
-// and must not ask again. Before the fix it stopped on its budget and asked again after every such
-// pass, for as long as the host stayed slow. Once a fresh capture lands in a later spool, the next
-// requested pass reaches it past the blocked spool and publishes it.
+// stops on its budget after that progress, so it asks again. The next only consumes that line again:
+// it must finish the spool and must not ask again. Before the fix it stopped on its budget and asked
+// again after every such pass, for as long as the host stayed slow. Once a fresh capture lands in a
+// later spool, the next requested pass reaches it past the blocked spool and publishes it.
 func TestDrain_ARequestedPassIsNotEndedByReconsumingALineBehindABlockedHead(t *testing.T) {
 	dd, _, root := laneTestDaemon(t)
 	blocked := blockedSpoolHead(t, dd, root, "sess-requested-reconsume-stuck", 0)
@@ -354,10 +354,11 @@ func TestDrain_ARequestedPassIsNotEndedByReconsumingALineBehindABlockedHead(t *t
 }
 
 // TestIdleDrain_AnIdlePassIsNotEndedByReconsumingALineBehindABlockedHead is the same defect in the
-// idle drain, which RunOnce runs under a pass budget too (registerPaced). Every pass outlasts its budget
-// at the blocked head here (slowWaitingHead). The first idle pass publishes the line behind the blocked head and its
-// budget ends it there, before the next spool. The second only consumes that line again, and must go
-// on to publish the next spool's capture. Before the fix every idle pass stopped where the first did.
+// idle drain, which RunOnce runs under a pass budget too (registerPaced). Every pass outlasts its
+// budget at the blocked head here (slowWaitingHead). The first idle pass publishes the line behind
+// the blocked head and its budget ends it there, before the next spool. The second only consumes that
+// line again, and must go on to publish the next spool's capture. Before the fix every idle pass
+// stopped where the first did.
 func TestIdleDrain_AnIdlePassIsNotEndedByReconsumingALineBehindABlockedHead(t *testing.T) {
 	dd, _, root := laneTestDaemon(t)
 	blocked := blockedSpoolHead(t, dd, root, "sess-idle-reconsume-stuck", 0)
@@ -393,11 +394,11 @@ func TestIdleDrain_AnIdlePassIsNotEndedByReconsumingALineBehindABlockedHead(t *t
 // TestDrainClientSpools_ASpentPassStartsNoLookAheadLineAfterItsProgress: once a pass whose budget is
 // spent has made progress, it starts no other line (D31), and that holds inside the look-ahead too.
 // The progress releases the deferred lines of its session, and the look-ahead's re-attempt (drainFile's
-// reattempt) would publish every one of them; its two checks of the budget, before each round and
-// before each line, are what stop it. Removing both left every row green (the pre-freeze audit's
-// mutation MX). Two ways in, behind a head that waits on an arrival nothing publishes. The read loop
-// publishes x, arrival 0 of a session whose arrivals 1 and 2 come before it in the spool and wait for
-// it: the pass stops before the re-attempt reaches either. Or the pass consumes the spooled copy of p0, whose live
+// reattempt) would publish every one of them; its two checks of the budget, before each round and before
+// each line, are what stop it. Removing both left every row green (the pre-freeze audit's mutation MX).
+// Two ways in, behind a head that waits on an arrival nothing publishes. The read loop publishes x,
+// arrival 0 of a session whose arrivals 1 and 2 come before it in the spool and wait for it: the pass
+// stops before the re-attempt reaches either. Or the pass consumes the spooled copy of p0, whose live
 // copy publishes as the pass reads it, so p1 and p2, waiting behind it, are released: consuming that
 // copy is no progress, so the re-attempt publishes p1, and that progress must stop it before p2.
 func TestDrainClientSpools_ASpentPassStartsNoLookAheadLineAfterItsProgress(t *testing.T) {
