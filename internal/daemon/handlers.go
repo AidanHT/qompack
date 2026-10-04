@@ -886,14 +886,19 @@ func (d *daemon) stopPromptRecordings(grace context.Context) {
 // The same history load also records that the prompt's session has had a prompt
 // (contract.SessionHistory.NotePrompt): the MCP handshake and the transcript a session start left
 // pending become due only then, so a later start may fail mcp.server_registered or
-// transcript.readable for that session once it has ended. The history is saved only when either
-// record changed.
+// transcript.readable for that session once it has ended. It also records that the session went on
+// after a PreCompact that is still waiting for its compact start (contract.SessionHistory.
+// NoteCompactLapse): the compaction was cancelled or failed, so the session's next start, a resume,
+// is no host failure. The history is saved only when a record changed.
 func (d *daemon) scanSentinelForPrompt(ev *hookio.Event, promptTS core.UnixMilli, nonce string) {
 	d.historyMu.Lock()
 	defer d.historyMu.Unlock()
 
 	h := contract.LoadHistory(contract.HistoryPath(d.root))
 	changed := h.NotePrompt(ev.SessionID)
+	if h.NoteCompactLapse(ev.SessionID, promptTS) {
+		changed = true
+	}
 	if h.Sentinel.Token != "" && !h.Sentinel.Observed {
 		found, _ := contract.ScanTranscriptForProbe(ev.TranscriptPath, h.Sentinel.Token,
 			h.Sentinel.ScanFrom, sentinelScanFromMintBytes)
@@ -1352,6 +1357,7 @@ func (d *daemon) handleCheckpoint(ctx context.Context, req ipc.Request) ipc.Resp
 		h.LastPrecompactTS = hookTime(req, now)
 		h.LastPrecompactSession = ev.SessionID
 		h.AwaitingCompactStart = true
+		h.CompactStartLapsed = false // a new obligation: nothing of the session has followed it yet
 	}
 	if h.PrecompactTimeoutMs == 0 {
 		h.PrecompactTimeoutMs = precompactTimeoutMs()
@@ -1410,6 +1416,23 @@ func (d *daemon) handleCheckpoint(ctx context.Context, req ipc.Request) ipc.Resp
 
 	out := hookio.Empty()
 	return ipc.Response{OK: true, Output: &out}
+}
+
+// noteCompactLapse is a session end's half of contract.SessionHistory.NoteCompactLapse: a SessionEnd
+// the host fired at at, after a PreCompact of the same session that is still waiting for its compact
+// start, means the compaction never restarted the session (cancelled, or failed), so its next start,
+// a --resume, is no host failure (audit 2, #9). It is recorded in state/history.json, so it holds
+// across a daemon restart between the end and the resume. The history is saved only when it changed.
+func (d *daemon) noteCompactLapse(sess core.SessionID, at core.UnixMilli) {
+	d.historyMu.Lock()
+	defer d.historyMu.Unlock()
+	h := contract.LoadHistory(contract.HistoryPath(d.root))
+	if !h.NoteCompactLapse(sess, at) {
+		return
+	}
+	if err := contract.SaveHistory(contract.HistoryPath(d.root), h); err != nil {
+		d.log.Warn("daemon: failed to save history after a session end", "err", err)
+	}
 }
 
 // precompactTimeoutMs reads the PreCompact hook's manifest timeout (internal/pluginmanifest),
@@ -1478,6 +1501,8 @@ func (d *daemon) flushRoute(ctx context.Context, req ipc.Request, drain bool) ip
 // flush this end was started for (startSessionEnd), or nil: when there is one, the end settles only the
 // arrivals before it and, once SessionEnd, the marker and the sketches are done, finishes it
 // (finishOwnFlush) before its final drain, which would otherwise meet the flush's own line still owned.
+// Before any of it, the end records whether it lapses a compaction obligation of the session
+// (noteCompactLapse).
 func (d *daemon) endSession(ctx context.Context, req ipc.Request, drain bool, own *job) ipc.Response {
 	ev := resolveEvent(req)
 	now := core.NowMilli(d.clk)
@@ -1494,6 +1519,7 @@ func (d *daemon) endSession(ctx context.Context, req ipc.Request, drain bool, ow
 	// can be interrupted, and until the marker is cleared the session's flush is unfinished — which
 	// is what SessionEnd must record rather than declaring work final that was never acknowledged.
 	d.markRecoveryNeeded(ev.SessionID, recoveryStageBegin, d.DrainGaps().PendingBytes)
+	d.noteCompactLapse(ev.SessionID, req.TS)
 
 	d.registry.End(ev.SessionID, now)
 	_ = d.ing.CloseSession(ev.SessionID)

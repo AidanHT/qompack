@@ -142,6 +142,12 @@ type SessionHistory struct {
 	// and cleared by session_start.source_compact on the FOLLOWING SessionStart, whichever way
 	// that assertion resolves.
 	AwaitingCompactStart bool `json:"awaiting_compact_start"`
+	// CompactStartLapsed records that the session AwaitingCompactStart waits on prompted or ended
+	// after its PreCompact, with no compact start in between (NoteCompactLapse): the compaction was
+	// cancelled or failed, or the host never sent its start, and the two cannot be told apart. The
+	// session's next start then reads precompact-not-completed instead of failing
+	// session_start.source_compact. Arming a new obligation clears it, and so does resolving one.
+	CompactStartLapsed bool `json:"compact_start_lapsed,omitempty"`
 
 	Sentinel SentinelState `json:"sentinel"`
 
@@ -284,6 +290,25 @@ func (h *SessionHistory) NotePrompt(sess core.SessionID) bool {
 		h.TranscriptAwaitTurned, changed = true, true
 	}
 	return changed
+}
+
+// NoteCompactLapse records that sess ran a hook the host fired at at — a prompt, or its SessionEnd —
+// and reports whether that changed anything, so a caller saves the history only when it did. It
+// changes something only while a PreCompact of sess is waiting for its compact start
+// (AwaitingCompactStart, LastPrecompactSession) and only for a hook the host fired after that
+// PreCompact (LastPrecompactTS): the session went on without the compact start a completed
+// compaction sends before anything else, so the compaction did not restart it (CompactStartLapsed).
+// A hook fired before the PreCompact and delivered late, one of another session, and one with no
+// time (at <= 0) prove nothing and change nothing. A nil receiver is a no-op.
+func (h *SessionHistory) NoteCompactLapse(sess core.SessionID, at core.UnixMilli) bool {
+	if h == nil || sess == "" || at <= 0 || !h.AwaitingCompactStart || h.CompactStartLapsed {
+		return false
+	}
+	if h.LastPrecompactSession != sess || at <= h.LastPrecompactTS {
+		return false
+	}
+	h.CompactStartLapsed = true
+	return true
 }
 
 // RecordSentinelScan updates h.Sentinel after a transcript scan for the current sentinel token:
