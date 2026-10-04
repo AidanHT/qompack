@@ -516,7 +516,7 @@ func TestStatus_CallDeadlineExpiryStillSaysSilent(t *testing.T) {
 	client := newCommandClient(root, cfg, Env{}, logging.Nop(), obs.New(testClock()), testClock())
 	t.Cleanup(func() { _ = client.Close() })
 
-	_, _, err = fetchDaemonStatus(context.Background(), client, true, daemonListening(root))
+	_, _, err = fetchDaemonStatus(context.Background(), client, daemonListening(root))
 	require.Error(t, err)
 	require.Equal(t, statusSilentDaemonReason, err.Error())
 	require.Equal(t, int64(1), calls.Load(), "an expired call deadline must not be retried")
