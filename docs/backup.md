@@ -14,10 +14,15 @@ qompack backup verify --project <source-project> --id before-change --json
 qompack backup restore --project <source-project> --id before-change --destination <recovery-project> --json
 ```
 
-All three commands also refuse, exit 1, with `backup: resolve configuration violations and warnings
-before maintenance` while the source project's configuration does not load exactly as written:
-whenever `qompack self-test`'s `config.capture` row is not `ok`. Maintenance runs only on the
-configuration as written (`internal/cli/backup.go`). The case that most often hits this is a plugin
+All three commands also refuse, exit 1, while the source project's configuration does not load
+exactly as written: whenever `qompack self-test`'s `config.capture` row is not `ok`. Maintenance
+runs only on the configuration as written (`internal/cli/backup.go`). The message follows that row.
+While it is a warning (a value that fell back, a key that was not applied, a reset block), the
+message is `backup: resolve configuration violations and warnings before maintenance`. While it
+fails critically (`refused: every hook admits nothing`: a config file that does not parse, or a
+`runtime.redact` or `runtime.mode` setting that cannot be applied as written, among others), the
+message is `backup: configuration unavailable: …`, ending with the same class `config.capture`
+names. The case that most often hits this is a plugin
 downgrade: a config file written by a newer build declares a `settingsVersion` this build does not
 understand, and its block is reset to defaults. Take the backup with the newer build before
 downgrading, and verify or restore it with that same newer build (a restore by the downgraded build

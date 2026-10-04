@@ -113,7 +113,10 @@ func runDaemon(ctx context.Context, env Env, args []string, out, errw io.Writer)
 	cfgEnv := config.Env{
 		ProjectRoot: root, HomeDir: homeDir(env), Getenv: env.Getenv, Flags: env.Set,
 	}
-	cfg, _, cfgErr := LoadConfigAndReport(cfgEnv, log, reg)
+	// Stamped BEFORE the load: this load is the daemon's one report of the configuration at start,
+	// and the stamp keeps the first reload check from loading and re-Louding the same file.
+	cfgStamp := daemon.StampConfigFile(root)
+	cfg, _, cfgErr := loadDaemonConfig(cfgEnv, log, reg)
 	if cfgErr != nil {
 		cfg = config.Defaults()
 		log.Loud("daemon: could not load configuration, using defaults", "err", cfgErr.Error())
@@ -123,6 +126,10 @@ func runDaemon(ctx context.Context, env Env, args []string, out, errw io.Writer)
 	// The daemon's config reload loads through the same environment, so it neither drops a --set
 	// flag nor reads a different home than this load did.
 	opts.CfgEnv = cfgEnv
+	if cfgErr == nil {
+		// A load that failed runs on defaults, so the first check tries the file again.
+		opts.CfgStamp = cfgStamp
+	}
 	opts.Log = log
 	opts.Metrics = reg
 	opts.Clock = core.SystemClock() // §6.1's own "connection deadlines are always real wall-clock time" rule applies to the daemon's own lifecycle clock too.
