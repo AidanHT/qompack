@@ -101,10 +101,11 @@ type FileWriter struct {
 	// concurrent calls for one session both observe no live draft, both publish, and the loser's
 	// draft is displaced while still holding the same file path.
 	begins map[core.SessionID]*sessionGate
-	// handoff carries a sealed draft's prompt-text cache to the successor Finalize opens for the
-	// same session (afterSeal), so the successor's intent refresh does not re-read every prompt of
-	// the session inside the PreCompact window. Begin consumes the entry; it is never read twice.
-	handoff map[core.SessionID]map[core.ToolUseID]string
+	// handoff carries what a sealed draft learned of its prompt records (promptHandoff) to the
+	// successor Finalize opens for the same session (afterSeal), so the successor's intent refresh
+	// does not re-read the session's prompts, a long paste's whole bytes included, inside the
+	// PreCompact window. Begin consumes the entry; it is never read twice.
+	handoff map[core.SessionID]promptHandoff
 
 	// claimFloorMu serializes loadClaimFloor and guards claimFloorLoaded and draftScans.
 	// claimFloorLoaded is set once persistedClaimFloor has run to completion for this writer; its
@@ -383,10 +384,10 @@ func (w *FileWriter) Begin(ctx context.Context, s core.SessionID, parent core.Ch
 	gate := w.acquireBeginGate(s)
 	defer w.releaseBeginGate(s, gate)
 
-	// The sealed predecessor's prompt texts, when Finalize is opening this draft as its successor
-	// (afterSeal). They are taken on every path, so a Begin that finds a live draft or resumes a
-	// persisted one leaves nothing stashed; prompt records are immutable, so a text read once
-	// stays valid for whichever draft uses it.
+	// What the sealed predecessor learned of its prompt records, when Finalize is opening this
+	// draft as its successor (afterSeal). It is taken on every path, so a Begin that finds a live
+	// draft or resumes a persisted one leaves nothing stashed; prompt records are immutable, so
+	// what was read once stays valid for whichever draft uses it.
 	handed := w.takeHandoff(s)
 
 	w.mu.Lock()
@@ -426,7 +427,7 @@ func (w *FileWriter) Begin(ctx context.Context, s core.SessionID, parent core.Ch
 		d.mu.Lock()
 		d.fork = fork
 		d.inherit = inherit
-		d.promptText = handed
+		d.promptText, d.goalSeen, d.oversized = handed.texts, handed.goals, handed.oversized
 		d.refreshIntentLocked(ctx)
 		d.persistOrLogLocked()
 		d.mu.Unlock()
@@ -449,7 +450,9 @@ func (w *FileWriter) Begin(ctx context.Context, s core.SessionID, parent core.Ch
 		path:       p,
 		fileTurn:   map[string]core.TurnIndex{},
 		toolTurn:   map[core.ToolUseID]core.TurnIndex{},
-		promptText: handed,
+		promptText: handed.texts,
+		goalSeen:   handed.goals,
+		oversized:  handed.oversized,
 		inherit:    inherit,
 	}
 	d.cp = Checkpoint{
