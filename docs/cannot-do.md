@@ -778,6 +778,21 @@ host change could lift — as prepared proposals, none of which has been filed.
 - **Recorded at.** `internal/hostperm`'s package comment; the evidence under
   `plans/sdd/V6-closeout/hostperm/runs/`.
 
+### On macOS, a case-sensitive volume is treated as case-insensitive
+
+- **Limit.** On macOS, Qompack assumes the default case-insensitive volume: it compares and keys
+  paths, and matches the Read rules' patterns, without regard to letter case. On a case-sensitive
+  APFS volume, two files whose names differ only in case are two files, which Qompack treats as one
+  wherever it compares paths.
+- **Why.** macOS's default APFS volume is case-insensitive, and Qompack folds case on macOS as it
+  does on Windows. Telling the volumes apart path by path is not done in 0.3.0; owner decision
+  D67(m) accepted the assumption as a known limit.
+- **What Qompack does instead.** For the Read rules the folding errs toward refusing: a deny or ask
+  rule written for one spelling also refuses the other, so a file a rule names is not served under
+  another spelling. On the default volume the two spellings are one file, and nothing is affected.
+- **Recorded at.** `plans/V6-CLOSEOUT-CHECKLIST.md` D67(m); `internal/hostperm/policy.go` (`New`,
+  the platform's `fold`); `internal/paths/norm.go` (`DefaultFold`).
+
 ### The rehydration block's screen of free-text summaries has limits
 
 - **Limit.** Section 6 of the rehydration block lists tool pointers, each with a short summary of
