@@ -1260,11 +1260,6 @@ func guardTripped(drops []checkpoint.DropEntry) bool {
 func buildRestoredInstructions(ctx context.Context, r Request, d Deps, match matchFunc) built {
 	var b built
 
-	pointers := make([]string, 0, len(r.Checkpoint.Pointers.Files))
-	for _, f := range r.Checkpoint.Pointers.Files {
-		pointers = append(pointers, f.Path)
-	}
-
 	if d.Rules == nil {
 		b.drops = append(b.drops,
 			checkpoint.DropEntry{
@@ -1278,8 +1273,20 @@ func buildRestoredInstructions(ctx context.Context, r Request, d Deps, match mat
 		return b
 	}
 
+	// The scanners are handed only the pointers section 6 may show, and a rule file the build
+	// withholds is neither restored nor named (D50, D61(3)): a nested CLAUDE.md above a withheld
+	// pointer, or a rule file under a denied directory, is content the host refuses to read, and its
+	// heading, body and drop entry would show it. The session could not have read it, so it is no loss.
+	// A rule's drop names the first pointer it matched, which is therefore one section 6 shows.
+	judge := pathJudgeFor(r, d)
+	shown := make([]string, 0, len(r.Checkpoint.Pointers.Files))
+	for _, f := range r.Checkpoint.Pointers.Files {
+		if !judge.withheld(f.Path) {
+			shown = append(shown, f.Path)
+		}
+	}
 	log := loggerOf(d)
-	pathRules, err := d.Rules.PathScoped(ctx, r.ProjectRoot, pointers)
+	pathRules, err := d.Rules.PathScoped(ctx, r.ProjectRoot, shown)
 	if err != nil {
 		pathRules = nil
 		b.drops = append(b.drops, checkpoint.DropEntry{
@@ -1287,7 +1294,7 @@ func buildRestoredInstructions(ctx context.Context, r Request, d Deps, match mat
 		})
 		log.Warn("rehydrate: path-scoped rule scan failed", "root", r.ProjectRoot, "err", err.Error())
 	}
-	nested, err := d.Rules.NestedClaudeMD(ctx, r.ProjectRoot, pointers)
+	nested, err := d.Rules.NestedClaudeMD(ctx, r.ProjectRoot, shown)
 	if err != nil {
 		nested = nil
 		b.drops = append(b.drops, checkpoint.DropEntry{
@@ -1296,18 +1303,11 @@ func buildRestoredInstructions(ctx context.Context, r Request, d Deps, match mat
 		log.Warn("rehydrate: nested CLAUDE.md scan failed", "root", r.ProjectRoot, "err", err.Error())
 	}
 
+	pathRules = restorableRules(pathRules, judge)
+	nested = restorableRules(nested, judge)
 	sortRulesByPath(pathRules)
 	sortRulesByPath(nested)
 
-	// A rule's drop names the first pointer it matched, and only a pointer section 6 may show: a
-	// rule scoped to a withheld file's directory must not name that file in section 7 (D61(3)).
-	judge := pathJudgeFor(r, d)
-	shown := make([]string, 0, len(pointers))
-	for _, p := range pointers {
-		if !judge.withheld(p) {
-			shown = append(shown, p)
-		}
-	}
 	for _, rule := range pathRules {
 		b.seen++
 		detail := "did not fit the rehydration budget"
@@ -1332,6 +1332,18 @@ func buildRestoredInstructions(ctx context.Context, r Request, d Deps, match mat
 		})
 	}
 	return b
+}
+
+// restorableRules is rs without the rule files j withholds (outside the project, or refused by the
+// host's rules), in a new slice; rs is never modified.
+func restorableRules(rs []rules.Rule, j pathJudge) []rules.Rule {
+	out := make([]rules.Rule, 0, len(rs))
+	for _, rule := range rs {
+		if !j.withheld(rule.Path) {
+			out = append(out, rule)
+		}
+	}
+	return out
 }
 
 // sortRulesByPath orders rules ascending by Path, which is the only stable key a Rule carries.

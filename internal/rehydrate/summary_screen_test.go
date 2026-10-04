@@ -325,6 +325,21 @@ func TestBuild_ARuleOverTheWholeProjectWithholdsEveryFreeText(t *testing.T) {
 	}
 }
 
+// screenLiteral is what screenBy reads from one rule specifier, ruleSegments and then literalOf (the
+// gate itself has no such wrapper): the part of the specifier that every path the rule refuses spells
+// (D61(2)(a)): its last segment when that has no glob syntax (`deny.txt`, `.env`, `John's
+// notes.txt`); else the nearest all-literal segment before it (`secrets` for `./secrets/**`,
+// `private` for `./private/*.txt`); else the longest literal run of the last segment (`.env` for
+// `**/*.env`, `.pem` for `*.pem`). It is in screen form, and "" when the specifier has no literal
+// part at all (`Read`, `./**`, `~/**`), which refuses everything below its anchor. anchored reports a
+// specifier measured from outside the project (`//`, `/`, `~`, a drive, `..`), whose literal may lie
+// in the project's own path.
+func screenLiteral(spec string) (lit string, anchored bool) {
+	segs, anchored, _ := ruleSegments(spec)
+	lit, _ = literalOf(segs)
+	return lit, anchored
+}
+
 // TestScreenLiteral_IsTheRulePatternsLiteralPart pins D61(2)(a)'s screen literal: a rule's last
 // segment when it has no glob syntax, else the nearest all-literal segment before it, else the
 // longest literal run of the last segment, in screen form; nothing for a rule with no literal part,

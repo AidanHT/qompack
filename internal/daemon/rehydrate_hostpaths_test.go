@@ -238,8 +238,9 @@ func costPointers(t *testing.T, previews []string) []checkpoint.ToolPointer {
 
 // costBuild builds the rehydration of root's checkpoint, with the cost fixture's file pointers and
 // structured summaries beside the free-text previews, through the real adapter and the real host
-// rules, and returns its result and how many host judgements (Refuses calls) the build made.
-func costBuild(t *testing.T, root string, previews []string) (rehydrate.Result, int) {
+// rules, and returns its result, how many host judgements (Refuses calls) the build made, and the
+// paths it judged.
+func costBuild(t *testing.T, root string, previews []string) (rehydrate.Result, int, []string) {
 	t.Helper()
 	var reads []string
 	files := make([]checkpoint.FilePointer, 0, rehydrateCostFiles)
@@ -257,6 +258,7 @@ func costBuild(t *testing.T, root string, previews []string) (rehydrate.Result, 
 	req.Checkpoint.Pointers.Files = files
 
 	judgements := 0
+	var judged []string
 	hp := rehydrateHostPaths(mcpOpHostPolicy(t, root), root, logging.Nop())
 	deps := rehydrate.Deps{HostPaths: func() rehydrate.HostRules {
 		rules := hp()
@@ -264,6 +266,7 @@ func costBuild(t *testing.T, root string, previews []string) (rehydrate.Result, 
 		refuses := rules.Refuses
 		rules.Refuses = func(p string) bool {
 			judgements++
+			judged = append(judged, p)
 			return refuses(p)
 		}
 		return rules
@@ -276,7 +279,7 @@ func costBuild(t *testing.T, root string, previews []string) (rehydrate.Result, 
 	for _, s := range reads {
 		require.Contains(t, res.Text, " — "+s+"\n", "fixture: an in-project Read preview is shown")
 	}
-	return res, judgements
+	return res, judgements, judged
 }
 
 // maxCostJudgements bounds a cost build's host judgements (D61(4)): one for each file pointer and
@@ -289,9 +292,14 @@ const maxCostJudgements = rehydrateCostFiles + rehydrateCostReads
 // 16 s on the w19 verifier's idle machine), and round 2 every word, prefix, suffix and join (4w-2 per
 // summary) through an evaluator that still judged a canonical-JSON or URL piece on disk. Free text
 // now costs no host judgement at all, in any shape: Bash previews of seventeen words, canonical JSON
-// and URLs (the round-2 cost review's first gap), and commands spelling the project root
-// absolutely (its second). A build judges exactly its file pointers and its structured summaries,
-// once each. The pass criterion is the count; the wall time is logged, never judged.
+// and URLs (the round-2 cost review's first gap), commands spelling the project root absolutely
+// (its second), and path-named JSON arrays of several values (the w19c round-2 review's). A
+// summary that starts at the root and goes on below it with a space may be a Read of a path with a
+// space in it, so it is a structured summary and costs one judgement: of its path only, the stretch
+// from the root through its last word that holds a separator, never its arguments (the round-2
+// review's commands run from the root, whose `HEAD~N` the host refuses on Windows as an 8.3 name).
+// A build judges exactly its file pointers and its structured summaries, once each. The pass
+// criterion is the count and the paths judged; the wall time is logged, never judged.
 func TestRehydrateHostPaths_HostJudgementsAreStructuredSummariesAndFilePointers(t *testing.T) {
 	root := costProject(t)
 	slash := strings.ReplaceAll(root, `\`, "/")
@@ -299,12 +307,14 @@ func TestRehydrateHostPaths_HostJudgementsAreStructuredSummariesAndFilePointers(
 	for _, tc := range []struct {
 		name    string
 		preview func(i int) string
+		// rooted is how many of the previews are structured summaries that start at the root.
+		rooted int
 	}{
 		{"Bash", func(i int) string {
 			s := rehydrateCostPreview(i)
 			require.Len(t, strings.Fields(s), rehydrateCostWords, "fixture: %q", s)
 			return s
-		}},
+		}, 0},
 		{"canonical JSON and URLs", func(i int) string {
 			switch i % 4 {
 			case 0:
@@ -318,7 +328,7 @@ func TestRehydrateHostPaths_HostJudgementsAreStructuredSummariesAndFilePointers(
 				return bash(fmt.Sprintf("curl -s https://example.com/api/v%d/items?page=%d | jq .items > out%d.json", i, i, i))
 			}
 			return storePreview(t, map[string]string{"url": fmt.Sprintf("https://example.com/docs/v%d/guide.html", i)})
-		}},
+		}, 0},
 		{"absolute paths", func(i int) string {
 			switch i % 3 {
 			case 0:
@@ -327,16 +337,29 @@ func TestRehydrateHostPaths_HostJudgementsAreStructuredSummariesAndFilePointers(
 				return bash(fmt.Sprintf("git -C %s log --oneline -n %d", root, i))
 			}
 			return bash(fmt.Sprintf("diff %s src/b%d.go", filepath.Join(root, "src", fmt.Sprintf("a%d.go", i)), i))
-		}},
+		}, 0},
+		{"path-named arrays", func(i int) string {
+			var values []string
+			for _, c := range "abcdef" {
+				values = append(values, fmt.Sprintf("s/%c%d.go", c, i))
+			}
+			return storePreviewOf(t, map[string]any{"paths": values})
+		}, 0},
+		{"commands run from the root", func(i int) string {
+			return bash(fmt.Sprintf("%s --since HEAD~%d && echo ok", filepath.Join(root, "tools", fmt.Sprintf("lint%d.ps1", i)), i))
+		}, rehydrateCostPointers},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			previews := make([]string, 0, rehydrateCostPointers)
 			for i := 1; i <= rehydrateCostPointers; i++ {
 				previews = append(previews, tc.preview(i))
 			}
-			res, judgements := costBuild(t, root, previews)
-			require.Equal(t, maxCostJudgements, judgements,
+			res, judgements, judged := costBuild(t, root, previews)
+			require.Equal(t, maxCostJudgements+tc.rooted, judgements,
 				"a build judges each file pointer and structured summary once, and no free text")
+			for _, p := range judged {
+				require.NotContains(t, p, " ", "a command's arguments never reach the host")
+			}
 			require.NotContains(t, res.Text, "summary withheld", "no fixture preview names a denied path")
 			require.Contains(t, res.Text, " — "+previews[0]+"\n", "fixture: the previews reach section 6")
 		})
@@ -698,4 +721,57 @@ func TestRehydrateHostPaths_CommonIdiomsAreShownUnderTheUAT12Rules(t *testing.T)
 	for _, leak := range []string{"/home/u", "credentials", "id_rsa", "stash"} {
 		require.NotContains(t, res.Text, leak)
 	}
+}
+
+// TestRehydrateHostPaths_RootedCommandsAndRegularExpressionsAreShownUnderTheUAT12Rules extends D61's
+// usefulness row with the w19c round-2 review's findings, through the real host rules in a project
+// whose path has a space in it. A command run from the project root, and a Grep preview of a
+// directory below the root then a revision word, went to the host whole, which on Windows refuses
+// `HEAD~1` as an 8.3 name it cannot resolve, and the refused summary was noted as a withheld path
+// whose fragments withheld `git diff src HEAD~1` beside it; a Grep pattern led by a backslash was
+// read as a rooted path outside the project, withheld, and noted as a withheld name (`b`) that
+// withheld `go build ./...`. Each is shown; a command run from a denied directory is withheld.
+func TestRehydrateHostPaths_RootedCommandsAndRegularExpressionsAreShownUnderTheUAT12Rules(t *testing.T) {
+	root := uat12Project(t, "John Smith", "proj")
+	bash := func(cmd string) string { return storePreview(t, map[string]string{"command": cmd}) }
+	res := requireToolSummaries(t, root,
+		[]string{
+			bash(filepath.Join(root, "tools", "lint.ps1") + " --since HEAD~1"),
+			storePreview(t, map[string]string{"path": filepath.Join(root, "src"), "pattern": "HEAD~1"}),
+			bash("git diff src HEAD~1"),
+			bash("pwsh tools/lint.ps1 --since HEAD~2 -Fix"),
+			bash(filepath.Join(root, "scripts", "run.sh") + " --fast -n 3 && echo ok"),
+			storePreview(t, map[string]string{"pattern": `\bConfigLoader\b`}),
+			storePreview(t, map[string]string{"pattern": `^\s*func\b`}),
+			storePreview(t, map[string]string{"path": filepath.Join(root, "internal"), "pattern": `\bretryBackoff\b`}),
+			bash("go build ./..."),
+			bash("git status"),
+		},
+		[]string{
+			bash(filepath.Join(root, "secrets", "rotate.sh") + " --since HEAD~1"),
+			bash("cat .env"),
+		})
+	require.NotContains(t, res.Text, "rotate.sh")
+}
+
+// TestRehydrateHostPaths_AnApostropheInTheRootIsNotAnOpenQuote is the w19c round-2 review's
+// apostrophe finding through the real host rules and the store's own previews: in a project under
+// `o'brien`, the root's own apostrophe was read as an open quote, so Grep and Glob with the root as
+// their path, `cd <root> && …` and `git -C <root> …` were withheld as siblings of the root. They are
+// shown; a denied file and a quoted sibling are still withheld.
+func TestRehydrateHostPaths_AnApostropheInTheRootIsNotAnOpenQuote(t *testing.T) {
+	root := uat12Project(t, "o'brien", "proj")
+	bash := func(cmd string) string { return storePreview(t, map[string]string{"command": cmd}) }
+	res := requireToolSummaries(t, root,
+		[]string{
+			storePreview(t, map[string]string{"path": root, "pattern": "TODO"}),
+			storePreview(t, map[string]string{"path": root, "pattern": "**/*.go"}),
+			bash("cd " + root + " && go test ./..."),
+			bash("git -C " + root + " status --short"),
+		},
+		[]string{
+			bash("cd " + root + " && cat private/deny.txt"),
+			bash(`cat "` + filepath.Join(root+" old", "x.txt") + `"`),
+		})
+	require.NotContains(t, res.Text, "deny.txt")
 }

@@ -33,14 +33,16 @@ import (
 //
 //   - A structured summary, the store's preview of one path argument (a Read's, Write's or Edit's
 //     file_path, a lone Glob or Grep argument: a summary that is one word once the project root's
-//     own spelling is held together, or one that starts at the root and goes on below it) or a
-//     path-named argument of a canonical-JSON preview, is judged whole, as a file pointer's path is:
-//     the host's rules and containment, once per build. Only a rooted plain path is judged so alone;
-//     any other value is screened as free text too (classify).
-//   - Everything else is free text (commands, queries, prompts, other JSON arguments) and costs no
-//     host judgement. It is screened (freeTextWithheld) for the literal part of every Read deny or
-//     ask rule (screenLiteral), for the basename or relative path of every path the build withholds
-//     where a name starts, for an absolute path outside the project, and for recall's path: selector
+//     own spelling is held together and not a regular expression, or the path part of one that
+//     starts at the root and goes on below it) or the one path-named argument of a canonical-JSON
+//     preview, is judged whole, as a file pointer's path is: the host's rules and containment, one
+//     path per summary, once per build. Only a rooted plain path is judged so alone; any other value
+//     is screened as free text too (classify).
+//   - Everything else is free text (commands, queries, prompts, other JSON arguments, a JSON preview
+//     with several path-named values) and costs no host judgement. It is screened
+//     (freeTextWithheld) for the literal part of every Read deny or ask rule (ruleSegments,
+//     literalOf), for the basename or relative path of every path the build withholds, each where a
+//     name starts, for an absolute path outside the project, and for recall's path: selector
 //     selecting a withheld path; when the rules are unavailable it is withheld whole.
 //   - A summary the store cut is also withheld when it ends in a prefix of one of those names
 //     (truncatedWithheld), and the piece the cut fell inside is read as the start of what it was
@@ -49,7 +51,8 @@ import (
 // The checkpointer's own drop entries are pointers too: five kinds are keyed by a file pointer's
 // path (checkpointPathDrops), and section 7 and dropped() name a withheld one by hash
 // (gateCheckpointDrops); and no drop entry's reason shows an out-of-project or withheld path
-// (redactReason).
+// (redactReason). Item 6a restores no instruction file the build withholds, and hands the rule
+// scanner only the pointers section 6 shows (buildRestoredInstructions).
 
 // HostRules is one build's snapshot of the host's current Read rules (HostPaths).
 type HostRules struct {
@@ -59,14 +62,15 @@ type HostRules struct {
 	Refuses func(path string) bool
 	// Patterns are the path specifiers of every Read deny and ask rule in force, as the settings spell
 	// them inside Read(…) (`./private/deny.txt`, `./secrets/**`, `**/*.env`), and "" for a rule that
-	// refuses every read. Free text is screened by each one's literal part (screenLiteral).
+	// refuses every read. Free text is screened by each one's literal part (literalOf).
 	Patterns []string
 }
 
 // HostPaths, when set on Deps, returns this build's snapshot of the host's current Read rules. A nil
 // HostPaths applies containment alone. Build calls it once per build, and calls Refuses once for
-// each distinct file pointer path, path-keyed checkpoint drop and structured summary, from one
-// goroutine; free text never reaches it.
+// each distinct path among the file pointers, the path-keyed checkpoint drops, the structured
+// summaries (one path each) and the instruction files item 6a would restore, from one goroutine;
+// free text never reaches it.
 type HostPaths func() HostRules
 
 // pathJudge decides, for one build, which recorded paths and summaries the payload may show.
@@ -82,13 +86,14 @@ type pathJudge struct {
 	// and a cut stretch that begins rootKey is the root (rootPrefix).
 	rootKey  string
 	rootSegs []string
-	// screens are the rules' literals in screen form; screenAll is set when one rule's literal cannot
-	// tell texts apart (screenLiteral, rootCover), and then every free-text summary is withheld.
+	// screens are the rules' literals in screen form taken from a whole segment (literalOf), which a
+	// text holds where a name starts (namedAt); screenAll is set when one rule's literal cannot tell
+	// texts apart (literalOf, rootCover), and then every free-text summary is withheld.
 	screens   []string
 	screenAll bool
-	// midScreens are the screens taken from a glob's literal run with `*`, `?` or a class before it
-	// (`.env` for `**/*.env`): every name they occur in may begin before them, so a cut summary's tail
-	// need not start at a boundary to begin one (truncatedWithheld).
+	// midScreens are the literals taken from a glob's literal run with `*`, `?` or a class before it
+	// (`.env` for `**/*.env`): every name they occur in may begin before them, so a text holds one
+	// anywhere, and a cut summary's tail need not start at a boundary to begin one (truncatedWithheld).
 	midScreens []string
 	// rulePaths are the rules' specifiers in screen form, which a cut summary's tail may begin.
 	rulePaths []string
@@ -128,13 +133,14 @@ func (j *pathJudge) screenBy(patterns []string) {
 	}
 }
 
-// addScreen adds lit, a rule's literal in screen form, to the build's screens; mid marks one that
-// may begin inside a name.
+// addScreen adds lit, a rule's literal in screen form, to the build's screens, or to its midScreens
+// when it may begin inside a name.
 func (j *pathJudge) addScreen(lit string, mid bool) {
-	j.screens = appendDistinct(j.screens, lit)
 	if mid {
 		j.midScreens = appendDistinct(j.midScreens, lit)
+		return
 	}
+	j.screens = appendDistinct(j.screens, lit)
 }
 
 // rootCover matches segs, a rule anchored outside the project (below its anchor, ruleSegments),
@@ -225,7 +231,7 @@ func newPathJudge(r Request, d Deps) pathJudge {
 	}
 	for _, t := range r.Checkpoint.Pointers.Tools {
 		for _, p := range j.classify(t.Summary) {
-			if p.value && recordedPath(p) && j.valueWithheld(p.s, false) {
+			if p.value && j.recordedPath(p) && j.valueWithheld(p.s, false) {
 				j.note(p.s)
 			}
 		}
@@ -234,12 +240,20 @@ func newPathJudge(r Request, d Deps) pathJudge {
 }
 
 // recordedPath reports whether p, a structured value, is a recorded path whose names the screen
-// looks for: whole (the store's cut fell outside it), concrete (not a glob), and rooted or holding a
-// separator. A one-word relative value with no separator is a Glob or Grep argument, often no path at
-// all (a git revision such as HEAD~1, which the host may refuse as an 8.3 name it cannot resolve); it
-// is screened as free text itself, and noting it would withhold every text that mentions the word.
-func recordedPath(p part) bool {
-	return !p.cut && !isGlob(p.s) && (absLike(p.s) || strings.ContainsAny(p.s, `/\`))
+// looks for: whole (the store's cut fell outside it), concrete (not a glob), one word once the
+// project root's own spelling is held together, and rooted or holding a separator. Anything else may
+// be a Glob or Grep argument that is no path at all, and the names noted from it would be fragments
+// that withhold unrelated free text (w19c round-2 review): a git revision such as HEAD~1, which the
+// host may refuse as an 8.3 name it cannot resolve; a stretch of a command run from the root; a Grep
+// preview of a directory then its pattern. (A regular expression led by a backslash is no value at
+// all: classify, regexLike.) The recorded files not noted are those whose path has a space in it,
+// which a rule's literal screens instead (item 7(a)).
+func (j pathJudge) recordedPath(p part) bool {
+	if p.cut || isGlob(p.s) || !(absLike(p.s) || strings.ContainsAny(p.s, `/\`)) {
+		return false
+	}
+	held, _ := j.protect(sanitize(p.s))
+	return !strings.Contains(held, " ")
 }
 
 // note records p, a path the build withholds, as known: its relative key when it is inside the
@@ -255,7 +269,9 @@ func (j *pathJudge) note(p string) {
 		j.known = appendDistinct(j.known, k)
 	}
 	slash := strings.TrimRight(strings.ReplaceAll(p, `\`, "/"), "/")
-	if base := path.Base(slash); namesAFile(base) {
+	if base := path.Base(slash); namesAFile(base) && len(base) >= minCutPrefix {
+		// A basename of a byte or two (`b`, `id`) occurs where a name starts in most texts and names
+		// nothing; the relative path, below, still counts.
 		j.knownText = appendDistinct(j.knownText, screenText(base, true))
 	}
 	switch {
@@ -436,12 +452,15 @@ type part struct {
 }
 
 // classify splits a summary into its parts. A canonical-JSON preview's strings are texts, keys
-// included, and each value of a path-named argument (pathArgName) is a value; a JSON preview whose
-// grammar a command breaks (`{"x":1} && cat …`, cut) is one text, with its strings beside it.
-// Otherwise a summary of one word, once the project root's own spelling is held together, is the
-// store's preview of one path argument and is a value; so is a summary that starts at the root and
-// goes on below it with a space (a Read of `<root>/my docs/x.txt`, or Grep's path then its
-// pattern); and a URL is a text only. A value is a text as well unless it is a rooted plain path:
+// included, and the value of its one path-named argument (pathArgName) is a value; one with several
+// path-named values (an array of paths, a source and a destination) is texts only, so that a summary
+// costs one host judgement at most; a JSON preview whose grammar a command breaks (`{"x":1} && cat
+// …`, cut) is one text, with its strings beside it. Otherwise a summary of one word, once the
+// project root's own spelling is held together, is the store's preview of one path argument and is
+// a value, unless it is led by one backslash and reads as a regular expression (`\bfoo`,
+// regexLike); a summary that starts at the root and goes on below it with a space is a text whose
+// path part (rootedStretch) is a value; and a URL is a text only. A value is a text as well unless
+// it is a rooted plain path:
 // Read, Write and Edit take an absolute file_path, so a rooted plain word is the one file a file
 // pointer would name (judged as written, so the project's README.md is shown although
 // private/README.md is withheld), while a relative value is a Glob or Grep argument, which may spell
@@ -460,9 +479,15 @@ func (j pathJudge) classify(s string) []part {
 			body, cut := strings.CutSuffix(t, previewEllipsis)
 			out = append(out, part{s: body, text: true, cut: cut})
 		}
+		named := 0
+		for _, str := range strs {
+			if str.pathNamed {
+				named++
+			}
+		}
 		for _, str := range strs {
 			p := part{s: str.value, text: true, cut: str.cut}
-			if str.pathNamed && grammatical {
+			if str.pathNamed && grammatical && named == 1 {
 				p.s = strings.TrimSpace(p.s)
 				p.value = true
 				p.text = p.cut || !j.plainRooted(p.s)
@@ -474,13 +499,56 @@ func (j pathJudge) classify(s string) []part {
 	body, cut := strings.CutSuffix(t, previewEllipsis)
 	held, _ := j.protect(sanitize(body))
 	switch {
-	case urlShaped.MatchString(body):
+	case urlShaped.MatchString(body) || (backslashLed(body) && regexLike(body)):
 		return []part{{s: body, text: true, cut: cut}}
 	case strings.ContainsAny(held, " \t"):
-		below := len(held) > 1 && held[0] == rootMark && isSep(held[1])
-		return []part{{s: body, value: below, text: true, cut: cut}}
+		out := []part{{s: body, text: true, cut: cut}}
+		if len(held) > 1 && held[0] == rootMark && isSep(held[1]) {
+			v, whole := j.rootedStretch(held)
+			out = append(out, part{s: v, value: true, cut: cut && !whole})
+		}
+		return out
 	}
 	return []part{{s: body, value: true, text: cut || !j.plainRooted(body), cut: cut}}
+}
+
+// rootedStretch is held, a protected summary that starts at the root and goes on below it with a
+// space, from the root through its last word that holds a separator, with the root spelled as the
+// build's root: the path a Read's preview names when that path has a space in it (`<root>/my
+// docs/x.txt`), and a command's script path or a Grep preview's directory, never their arguments
+// (`<root>/tools/lint.ps1 --since HEAD~1`); the whole summary is screened as free text beside it.
+// whole reports that the stretch ends before the summary does, so a cut at the end fell after it.
+func (j pathJudge) rootedStretch(held string) (v string, whole bool) {
+	end, at := 0, 0
+	for i, w := range strings.Split(held, " ") {
+		if i == 0 || strings.ContainsAny(w, `/\`) {
+			end = at + len(w)
+		}
+		at += len(w) + 1
+	}
+	return strings.ReplaceAll(held[:end], string(rootMark), j.root), end < len(held)
+}
+
+// backslashLed reports whether v starts with one backslash, not two (a UNC share or a device path).
+func backslashLed(v string) bool {
+	return strings.HasPrefix(v, `\`) && !strings.HasPrefix(v, `\\`)
+}
+
+// regexLike reports whether tok, a word led by one backslash, reads as a regular expression rather
+// than a drive-less Windows path (`\Users\me\x.txt`): it holds a metacharacter (`+ * ? { } ( ) | $ ^
+// [ ]`), or a backslash before a class letter (`b B d D s S w W`) that ends the word or stands before
+// a character other than a letter (`\bConfigLoader\b`, `\s+$`, `\d.`). A Grep pattern often is one;
+// it is no rooted path, and no name in it is a withheld path's.
+func regexLike(tok string) bool {
+	if strings.ContainsAny(tok, "+*?{}()|$^[]") {
+		return true
+	}
+	for i := 0; i+1 < len(tok); i++ {
+		if tok[i] == '\\' && strings.IndexByte("bBdDsSwW", tok[i+1]) >= 0 && (i+2 == len(tok) || !asciiLetter(tok[i+2])) {
+			return true
+		}
+	}
+	return false
 }
 
 // plainRooted reports whether v is a rooted plain path: absolute (or home- or variable-rooted), and
@@ -619,8 +687,9 @@ func (j pathJudge) freeTextWithheld(parts []part) bool {
 
 // textWithheld screens one sanitized text; cut reports that the store's cut fell at its end. With
 // the project root's spellings held together (protect, and cutRoot for a spelling the cut fell
-// inside), it is withheld when one of its screen forms (screenForms) holds a rule's literal, or the
-// basename or relative path of a path the build withholds where a name starts (namedAt); when, with
+// inside), it is withheld when one of its screen forms (screenForms) holds a rule's whole-segment
+// literal, or the basename or relative path of a path the build withholds, where a name starts
+// (namedAt), or a literal that may begin inside a name (midScreens) anywhere; when, with
 // quotes removed and separators kept, and also with a POSIX shell's `.\.` read as `..`, it holds an
 // absolute path outside the project (outsideIn) or a home- or variable-rooted path; when it names a
 // sibling of the root that runs on from the root's spelling inside one quoted argument; or when
@@ -634,14 +703,16 @@ func (j pathJudge) textWithheld(t string, cut bool) bool {
 		held = j.cutRoot(held)
 	}
 	for _, form := range screenForms(held) {
-		for _, s := range j.screens {
+		for _, s := range j.midScreens {
 			if strings.Contains(form, s) {
 				return true
 			}
 		}
-		for _, k := range j.knownText {
-			if namedAt(form, k) {
-				return true
+		for _, set := range [][]string{j.screens, j.knownText} {
+			for _, name := range set {
+				if namedAt(form, name) {
+					return true
+				}
 			}
 		}
 	}
@@ -661,14 +732,18 @@ func (j pathJudge) textWithheld(t string, cut bool) bool {
 }
 
 // screenForms are the forms of held, a protected text, that the screen compares (screenText): with
-// escape characters removed (`my\ secret.txt`), with them read as separators (`private\deny.txt`),
-// and, when it holds one, with an escape character before a space removed together with the space:
-// a line continuation inside a word (`de` and a backslash, a caret or a backtick before a newline)
-// joins it, and the store's preview collapsed the newline to a space.
+// escape characters removed (`my\ secret.txt`) and with them read as separators (`private\deny.txt`);
+// and, when it holds one, the same two of it with an escape character before a space removed
+// together with the space: a line continuation inside a word (`de` and a backslash, a caret or a
+// backtick before a newline) joins it, and the store's preview collapsed the newline to a space.
 func screenForms(held string) []string {
-	forms := []string{screenText(held, false), screenText(strings.ReplaceAll(stripQuotes(held), `\`, "/"), false)}
+	texts := []string{held}
 	if joined := escapedBreak.ReplaceAllString(held, ""); joined != held {
-		forms = append(forms, screenText(joined, false))
+		texts = append(texts, joined)
+	}
+	forms := make([]string, 0, 2*len(texts))
+	for _, t := range texts {
+		forms = append(forms, screenText(t, false), screenText(strings.ReplaceAll(stripQuotes(t), `\`, "/"), false))
 	}
 	return forms
 }
@@ -677,10 +752,12 @@ func screenForms(held string) []string {
 // collapsed to one.
 var escapedBreak = regexp.MustCompile("[\\\\^`] ")
 
-// namedAt reports whether name, a withheld path's basename or relative path in screen form, occurs
-// in form where a name starts: at its start or after a byte that does not continue a name
-// (nameByte). A name glued to a preceding name character is another file (`layout.txt` is not
-// `out.txt`); what follows is not judged, so `my secret.txt.bak` holds `my secret.txt`.
+// namedAt reports whether name, a rule's whole-segment literal or a withheld path's basename or
+// relative path in screen form, occurs in form where a name starts: at its start, after an ASCII byte
+// that does not continue a name (nameByte), after any non-ASCII byte (a typographic quote or space),
+// or glued to a short option (`-Csecrets`, flagBefore). A name glued to a preceding name character is
+// another file (`layout.txt` is not `out.txt`, `git fetch` holds no `etc`); what follows is not
+// judged, so `my secret.txt.bak` holds `my secret.txt`.
 func namedAt(form, name string) bool {
 	for from := 0; from < len(form); {
 		i := strings.Index(form[from:], name)
@@ -688,7 +765,7 @@ func namedAt(form, name string) bool {
 			return false
 		}
 		at := from + i
-		if at == 0 || !nameByte(form[at-1]) {
+		if at == 0 || !nameByte(form[at-1]) || form[at-1] >= utf8.RuneSelf || flagBefore(form, at) {
 			return true
 		}
 		from = at + 1
@@ -887,20 +964,6 @@ func (j pathJudge) key(p string) (string, bool) {
 	return paths.Key(strings.TrimPrefix(path.Clean(strings.ReplaceAll(p, `\`, "/")), "./")), true
 }
 
-// screenLiteral is the part of a Read rule's specifier that every path the rule refuses spells
-// (D61(2)(a)): its last segment when that has no glob syntax (`deny.txt`, `.env`, `John's
-// notes.txt`); else the nearest all-literal segment before it (`secrets` for `./secrets/**`,
-// `private` for `./private/*.txt`); else the longest literal run of the last segment (`.env` for
-// `**/*.env`, `.pem` for `*.pem`). It is in screen form, and "" when the specifier has no literal
-// part at all (`Read`, `./**`, `~/**`), which refuses everything below its anchor. anchored reports a
-// specifier measured from outside the project (`//`, `/`, `~`, a drive, `..`), whose literal may lie
-// in the project's own path.
-func screenLiteral(spec string) (lit string, anchored bool) {
-	segs, anchored, _ := ruleSegments(spec)
-	lit, _ = literalOf(segs)
-	return lit, anchored
-}
-
 // ruleSegments is spec, a rule's specifier, as the segments of the paths it refuses below its
 // anchor, each in screen form, with `..` resolved lexically as hostperm resolves it (cleanLiteral:
 // `./private/deny.txt/..` refuses private/**). anchored reports a specifier measured from outside
@@ -926,9 +989,11 @@ func ruleSegments(spec string) (segs []string, anchored, fromStart bool) {
 	return segs, anchored, fromStart
 }
 
-// literalOf is screenLiteral's choice over segs: the last segment when it has no glob syntax, else
-// the nearest all-literal segment before it, else the longest literal run of the last segment. mid
-// reports a run with `*`, `?` or a class before it, which every name it is in may begin before.
+// literalOf is a rule's screen literal over segs (ruleSegments; D61(2)(a)), the part every path the
+// rule refuses spells: the last segment when it has no glob syntax (`deny.txt`, `.env`), else the
+// nearest all-literal segment before it (`secrets` for `./secrets/**`), else the longest literal run
+// of the last segment (`.env` for `**/*.env`); "" when there is none (`./**`). mid reports a run with
+// `*`, `?` or a class before it, which every name it is in may begin before.
 func literalOf(segs []string) (lit string, mid bool) {
 	if len(segs) == 0 {
 		return "", false
@@ -1004,7 +1069,9 @@ func screenText(t string, trim bool) string {
 }
 
 // stripQuotes is t with ' " ` ^ removed and its backslashes kept as separators, the form outsideIn
-// reads; a backslash before a quote escapes the quote (`\"`), and goes with it.
+// reads; a backslash before a quote escapes the quote (`\"`), and goes with it. A `^` before a
+// separator stays: cmd.exe would drop it, but no one escapes a separator in cmd, and it is a regular
+// expression's anchor (`^\s*func\b`, `^/api/`), which removed would leave a rooted path.
 func stripQuotes(t string) string {
 	var b strings.Builder
 	b.Grow(len(t))
@@ -1012,6 +1079,8 @@ func stripQuotes(t string) string {
 		switch c := t[i]; {
 		case c == '\\' && i+1 < len(t) && strings.IndexByte(quoteChars, t[i+1]) >= 0:
 			i++
+		case c == '^' && i+1 < len(t) && isSep(t[i+1]):
+			b.WriteByte(c)
 		case strings.IndexByte(quoteChars, c) >= 0 || c == '^':
 		default:
 			b.WriteByte(c)
@@ -1088,6 +1157,11 @@ const rootMark = '\x01'
 // JSON escape doubles them), a quote opened or closed between any two characters, an escape before a
 // space or a shell-special character, and on Windows the MSYS and WSL spellings of its drive (`/c/`,
 // `/mnt/c/`) and the `\\?\` prefix. Case folds where the platform's paths fold. Nil for no root.
+//
+// Each run of quotes opened or closed inside the spelling is a capture group, and nothing else is, so
+// protect can read the quote state the spelling leaves (quoteOpen) from those runs alone. A quote that
+// is the root's own character (`o'brien`) is matched by one of the ways a shell spells it literally
+// (ownQuote) and is not captured: read as a quote, it would open one in every reading.
 func rootSpellingOf(root string) *regexp.Regexp {
 	if root == "" {
 		return nil
@@ -1104,14 +1178,16 @@ func rootSpellingOf(root string) *regexp.Regexp {
 		rest = clean[2:]
 	}
 	for _, r := range rest {
-		b.WriteString(`["'` + "`" + `]*`)
+		if r == '\'' || r == '"' || r == '`' {
+			b.WriteString(`(["'` + "`" + `]*?)` + ownQuote(r))
+			continue
+		}
+		b.WriteString(`(["'` + "`" + `]*)`)
 		switch {
 		case r == '/':
 			b.WriteString(`[\\/]+`)
 		case r == ' ':
 			b.WriteString(`[\\` + "`" + `^]? `)
-		case r == '\'' || r == '"' || r == '`':
-			b.WriteString(`(?:\\?["'` + "`" + `])*`)
 		case strings.ContainsRune(rootEscapable, r):
 			b.WriteString(`[\\` + "`" + `^]?` + regexp.QuoteMeta(string(r)))
 		default:
@@ -1124,20 +1200,54 @@ func rootSpellingOf(root string) *regexp.Regexp {
 // rootEscapable are the characters a shell may escape inside the root's spelling.
 const rootEscapable = "()&;,$!#[]{}=<>|*?"
 
+// ownQuote matches q, a quote character that is part of the root's own name, as a shell spells it
+// literally: bare (cmd.exe, a Grep preview, inside the other quote), escaped by a backslash (POSIX)
+// or a backtick (PowerShell), doubled inside its own quotes (PowerShell), or, for an apostrophe,
+// closed and reopened around an escaped or a double-quoted one (POSIX, inside single quotes) or
+// double-quoted alone. The longest spellings come first. None leaves a quote open or closed.
+func ownQuote(q rune) string {
+	s := regexp.QuoteMeta(string(q))
+	forms := []string{s + s, `\\` + s, "`" + s, s}
+	switch q {
+	case '\'':
+		forms = append([]string{`'\\''`, `'"'"'`, `"'"`}, forms...)
+	case '"':
+		forms = append([]string{`"\\""`, `'"'`}, forms...)
+	}
+	return `(?:` + strings.Join(forms, "|") + `)`
+}
+
 // protect is t, a sanitized text, with each spelling of the project root replaced by rootMark. A
 // spelling glued to a short option's letters (`-I<root>/include`) is the root as the option's value.
 // sibling reports a spelling that runs on into more words inside one quoted argument, or through an
-// escaped space (`"C:\q\proj old\x.txt"`, `/q/proj\ old/x.txt`): that argument names a sibling of
-// the root, a path outside the project, and the text is withheld.
+// escaped space (`"C:\q\proj old\x.txt"`, `/q/proj\ old/x.txt`), or whose closing quote opens a
+// stretch that starts with a space (`<root>" old"/x.txt`, one shell word): that argument names a
+// sibling of the root, a path outside the project, and the text is withheld. The quote state is read
+// from the text before the spelling and the quotes the spelling opened or closed (rootSpellingOf's
+// groups), never from the root's own characters: an apostrophe in the root is not a quote.
 func (j pathJudge) protect(t string) (held string, sibling bool) {
 	if j.rootSpelling == nil {
 		return t, false
 	}
 	var b strings.Builder
 	last := 0
-	for _, m := range j.rootSpelling.FindAllStringIndex(t, -1) {
+	for _, m := range j.rootSpelling.FindAllStringSubmatchIndex(t, -1) {
 		a, e := m[0], m[1]
 		if a > 0 && nameByte(t[a-1]) && !flagBefore(t, a) {
+			continue
+		}
+		state := b.String() + t[last:a]
+		for g := 2; g+1 < len(m); g += 2 {
+			if m[g] >= 0 {
+				state += t[m[g]:m[g+1]]
+			}
+		}
+		k := e
+		for k < len(t) && strings.IndexByte(quoteChars, t[k]) >= 0 {
+			k++
+		}
+		if k > e && k < len(t) && t[k] == ' ' && quoteOpen(state+t[e:k]) {
+			sibling = true
 			continue
 		}
 		switch rootFollowedBy(t, e) {
@@ -1147,7 +1257,7 @@ func (j pathJudge) protect(t string) (held string, sibling bool) {
 			sibling = true
 			continue
 		case followedBySpace:
-			if quoteOpen(t[:e]) {
+			if quoteOpen(state) {
 				sibling = true
 				continue
 			}
@@ -1255,11 +1365,12 @@ func powershellQuoteOpen(t string) bool {
 // absolute path outside the project (D61(2)(c)): one starting at a drive (`C:\…`, or drive-relative
 // `D:secret.txt`), a UNC share (a host and a share), a `\\?\` or `\\.\` device path, a file:// URL,
 // the root's spelling followed by `..` that leaves it, a POSIX absolute path of two segments or more
-// (a single segment such as the flag `/c` is not one, nor is a standard device such as /dev/null),
-// or a relative path whose `..` leaves the project. A path starts p or follows whitespace or a
-// delimiter, an assignment, a colon or an `@`, or is glued to a short option (`-I/usr/include`,
-// flagGlued). An http(s) or other URL is not a path, though a stretch inside it that follows `=`,
-// `:` or `@` is read as one.
+// (a single segment such as the flag `/c` is not one, nor is a standard device such as /dev/null,
+// nor a backslash-led word that reads as a regular expression, regexLike, such as
+// `\bfoo\b`), or a relative path whose `..` leaves the project. A path starts p or follows whitespace
+// or a delimiter, an assignment, a colon or an `@`, or is glued to a short option (`-I/usr/include`,
+// `-C../other`, flagGlued). An http(s) or other URL is not a path, though a stretch inside it that
+// follows `=`, `:` or `@` is read as one.
 func (j pathJudge) outsideIn(p string) bool {
 	for i := 0; i < len(p); i++ {
 		if i > 0 && strings.IndexByte(pathStartAfter, p[i-1]) < 0 && !flagGlued(p, i) {
@@ -1282,11 +1393,13 @@ const (
 	pathEndsAt     = " |&;<>(){}[],"
 )
 
-// flagGlued reports whether p[i], a separator, the root's mark or a drive, starts a path glued to a
-// short option: `-` and one letter or more stand before it at the start of a word (flagBefore).
+// flagGlued reports whether p[i], a separator, the root's mark, a drive or a `..` segment, starts a
+// path glued to a short option: `-` and one letter or more stand before it at the start of a word
+// (flagBefore; `-I/opt/include`, `-C../other`).
 func flagGlued(p string, i int) bool {
 	c := p[i]
-	if !isSep(c) && c != rootMark && (i+1 >= len(p) || p[i+1] != ':' || !asciiLetter(c)) {
+	dotDot := strings.HasPrefix(p[i:], "..") && (i+2 == len(p) || isSep(p[i+2]) || strings.IndexByte(pathEndsAt, p[i+2]) >= 0)
+	if !dotDot && !isSep(c) && c != rootMark && (i+1 >= len(p) || p[i+1] != ':' || !asciiLetter(c)) {
 		return false
 	}
 	return flagBefore(p, i)
@@ -1320,7 +1433,7 @@ func (j pathJudge) tokenOutside(p string, i, end int) bool {
 		}
 		return uncOrDevice(tok[2:])
 	case isSep(c):
-		return !devicePaths[tok] && !devFD.MatchString(tok) && hasSecondSegment(tok[1:])
+		return !devicePaths[tok] && !devFD.MatchString(tok) && hasSecondSegment(tok[1:]) && (c == '/' || !regexLike(tok))
 	}
 	return strings.Contains(tok, "..") && !absLike(tok) && relativeEscapes(tok)
 }
