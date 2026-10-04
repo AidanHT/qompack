@@ -759,7 +759,8 @@ func hostPolicyFor(o *Options) *hostperm.Policy {
 // content (fail closed).
 //
 // The snapshot also hands rehydrate every rule's path specifier (RuleSet.ReadRulePatterns), which
-// its free-text screen reads with no host judgement (coordinator decision D61, ADR 0011 §23.5):
+// its free-text screen reads with no host judgement (coordinator decision D63, ADR 0011 §23 items 6
+// and 7):
 // Refuses is asked only about file pointers, path-keyed checkpoint drops, structured summaries (one
 // path each: a summary that starts at the project root hands its path part, the stretch from the
 // root through its last word that holds a separator, which may include an argument that holds one),

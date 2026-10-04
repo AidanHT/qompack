@@ -56,9 +56,9 @@ func TestRehydrateHostPaths_UnreadableRulesFailClosed(t *testing.T) {
 }
 
 // TestRehydrateHostPaths_HandsTheBuildTheRulePatterns pins what the free-text screen reads
-// (coordinator decision D61, ADR 0011 §23.5): every Read deny and ask rule's specifier, as the
-// settings spell it, from the same snapshot Refuses judges against; none when no rule is in force,
-// and none, with no Refuses, when the rules cannot be established.
+// (coordinator decisions D61 and D63, ADR 0011 §23 item 7): every Read deny and ask rule's
+// specifier, as the settings spell it, from the same snapshot Refuses judges against; none when no
+// rule is in force, and none, with no Refuses, when the rules cannot be established.
 func TestRehydrateHostPaths_HandsTheBuildTheRulePatterns(t *testing.T) {
 	root := t.TempDir()
 	writeProjectSettings(t, root,
@@ -192,10 +192,10 @@ func toolPointerRequest(root string, tools []checkpoint.ToolPointer) rehydrate.R
 	}
 }
 
-// The cost rows' fixture (the w19 verifier's V1 probe, re-derived for coordinator decision D61): a
-// project with the verifier's three Read deny rules and rehydrateCostPointers free-text summaries,
-// beside rehydrateCostFiles file pointers and rehydrateCostReads structured summaries (the store's
-// preview of a Read: its file_path alone).
+// The cost rows' fixture (the w19 verifier's V1 probe, re-derived for coordinator decisions D61 and
+// D63): a project with the verifier's three Read deny rules and rehydrateCostPointers free-text
+// summaries, beside rehydrateCostFiles file pointers and rehydrateCostReads structured summaries
+// (the store's preview of a Read: its file_path alone).
 const (
 	rehydrateCostPointers = 80
 	rehydrateCostWords    = 17
@@ -299,7 +299,7 @@ func costBuild(t *testing.T, root string, previews []string, instructions int) (
 	start := time.Now()
 	res, err := rehydrate.Build(context.Background(), req, deps)
 	require.NoError(t, err)
-	t.Logf("%d free-text summaries, %d structured, %d file pointers: %d host judgements in %v (logged, not judged)",
+	t.Logf("%d previews, %d Read previews, %d file pointers: %d host judgements in %v (logged, not judged)",
 		len(previews), len(reads), len(files), judgements, time.Since(start))
 	for _, s := range reads {
 		require.Contains(t, res.Text, " — "+s+"\n", "fixture: an in-project Read preview is shown")
@@ -307,20 +307,23 @@ func costBuild(t *testing.T, root string, previews []string, instructions int) (
 	return res, judgements, judged
 }
 
-// maxCostJudgements bounds a cost build's host judgements (D61(4)): one for each file pointer and
-// one for each structured summary, every path judged once per build, and none for free text.
+// maxCostJudgements bounds a cost build's host judgements (D63, ADR 0011 §23 item 10): one for each
+// file pointer and one for each structured summary, every path judged once per build, and none for
+// free text.
 const maxCostJudgements = rehydrateCostFiles + rehydrateCostReads
 
 // TestRehydrateHostPaths_HostJudgementsAreStructuredSummariesAndFilePointers is the cost row,
-// re-derived for coordinator decision D61(4) through the real adapter and the real host rules.
-// Round 1 sent every run of words of every summary to the host's judgement (80 Bash previews took
+// re-derived for coordinator decisions D61(4) and D63 through the real adapter and the real host
+// rules. Round 1 sent every run of words of every summary to the host's judgement (80 Bash previews took
 // 16 s on the w19 verifier's idle machine), and round 2 every word, prefix, suffix and join (4w-2 per
 // summary) through an evaluator that still judged a canonical-JSON or URL piece on disk. Free text
 // now costs no host judgement at all, in any shape: Bash previews of seventeen words, canonical JSON
 // and URLs (the round-2 cost review's first gap), commands spelling the project root absolutely
-// (its second), and path-named JSON arrays of several values (the w19c round-2 review's). A
-// summary that starts at the root and goes on below it with a space may be a Read of a path with a
-// space in it, so it is a structured summary and costs one judgement: of its path part, the stretch
+// (its second), path-named JSON arrays of several values (the w19c round-2 review's), and such
+// arrays cut by the store inside a value (the D63 review's: a cut value among several is judged by
+// containment and the screen, never by the host). A summary that starts at the root and goes on
+// below it with a space may be a Read of a path with a space in it, so it is a structured summary
+// and costs one judgement: of its path part, the stretch
 // from the root through its last word that holds a separator, which in this fixture's commands is
 // the script's path alone (the round-2 review's commands run from the root, whose `HEAD~N` the host
 // refuses on Windows as an 8.3 name; a later argument holding a separator would reach the host too).
@@ -375,6 +378,17 @@ func TestRehydrateHostPaths_HostJudgementsAreStructuredSummariesAndFilePointers(
 			}
 			return storePreviewOf(t, map[string]any{"paths": values})
 		}, 0, 0},
+		{"cut path-named arrays", func(i int) string {
+			var values []string
+			for _, c := range "abcdefghijkl" {
+				values = append(values, fmt.Sprintf("mod%d/%c%c%c%c.go", i, c, c, c, c))
+			}
+			raw, err := json.Marshal(map[string]any{"paths": values})
+			require.NoError(t, err)
+			_, preview := store.ArgsDigest(raw)
+			require.True(t, strings.HasSuffix(preview, "…"), "fixture: the store cuts %q", preview)
+			return preview
+		}, 0, 0},
 		{"commands run from the root", func(i int) string {
 			return bash(fmt.Sprintf("%s --since HEAD~%d && echo ok", filepath.Join(root, "tools", fmt.Sprintf("lint%d.ps1", i)), i))
 		}, rehydrateCostPointers, 0},
@@ -420,7 +434,11 @@ func TestRehydrateHostPaths_UsefulSummariesAreShownUnderTheUAT12Rules(t *testing
 			bash("git -C " + root + " status"),
 			bash("npm test"),
 			bash("go test -run TestX ./internal/..."),
+			bash(`git commit -m "fix the bug"`),
+			storePreview(t, map[string]string{"query": "path:src/main.go"}),
 			storePreview(t, map[string]string{"query": "path:src/main.go retry"}),
+			storePreview(t, map[string]string{"url": "https://example.com/a"}),
+			storePreview(t, map[string]string{"url": "https://example.com/search?a=1&b=2", "prompt": "list the results"}),
 			storePreview(t, map[string]string{"description": "run the tests", "prompt": "go test ./... and report the failures"}),
 			bash("grep -rn TODO src/"),
 			storePreview(t, map[string]string{"file_path": filepath.Join(root, "src", "main.go")}),
@@ -499,9 +517,16 @@ func TestRehydrateHostPaths_ADeniedPathWithDelimitersIsWithheld(t *testing.T) {
 			add("toolu_denied", i*10+j, s)
 		}
 	}
+	// Only the comma and equals delimiters (allowed indices 3 and 4) are whitelist-safe; a parenthesis,
+	// an apostrophe or a space (indices 0, 1, 2) makes the allowed path withheld too under D63.
+	allowedSafe := map[int]bool{3: true, 4: true}
 	for i, f := range allowed {
+		prefix := "toolu_okno"
+		if allowedSafe[i] {
+			prefix = "toolu_okshow"
+		}
 		for j, s := range previews(f) {
-			add("toolu_ok", i*10+j, s)
+			add(prefix, i*10+j, s)
 		}
 	}
 	deps := rehydrate.Deps{HostPaths: rehydrateHostPaths(mcpOpHostPolicy(t, root), root, logging.Nop())}
@@ -512,12 +537,12 @@ func TestRehydrateHostPaths_ADeniedPathWithDelimitersIsWithheld(t *testing.T) {
 		require.NotContains(t, res.Text, leak, "the payload shows a denied path")
 	}
 	for _, tp := range tools {
-		if strings.HasPrefix(string(tp.ToolUseID), "toolu_denied") {
-			require.Regexp(t, "- tool_use "+string(tp.ToolUseID)+" sha256:[0-9a-f]+ — summary withheld", res.Text)
+		withheld := "- tool_use " + string(tp.ToolUseID) + " sha256:[0-9a-f]+ — summary withheld"
+		if strings.HasPrefix(string(tp.ToolUseID), "toolu_okshow") {
+			require.NotRegexp(t, withheld, res.Text, "%q names an allowed file with a safe delimiter", tp.Summary)
 			continue
 		}
-		require.NotRegexp(t, "- tool_use "+string(tp.ToolUseID)+" sha256:[0-9a-f]+ — summary withheld", res.Text,
-			"%q names an allowed file", tp.Summary)
+		require.Regexp(t, withheld, res.Text, "%q is a denied path or an allowed path with an unsafe delimiter", tp.Summary)
 	}
 }
 
@@ -614,7 +639,6 @@ func TestRehydrateHostPaths_TheProjectRootFollowedByMoreWordsIsShown(t *testing.
 			bash := func(cmd string) string { return storePreview(t, map[string]string{"command": cmd}) }
 			shown := []string{
 				storePreview(t, map[string]string{"path": root, "pattern": "TODO"}),
-				storePreview(t, map[string]string{"path": root, "pattern": "**/*.go"}),
 				bash("cd " + root + " && go test ./..."),
 				bash("git -C " + root + " status --short"),
 			}
@@ -622,6 +646,8 @@ func TestRehydrateHostPaths_TheProjectRootFollowedByMoreWordsIsShown(t *testing.
 				bash("cd " + root + " && cat private/deny.txt"),
 				storePreview(t, map[string]string{"file_path": filepath.Join(root+"2", "x.txt")}),
 				bash(`cat "` + filepath.Join(root+" old", "x.txt") + `"`),
+				// D63 over-withholds a glob pattern in free text, though its directory is the project root.
+				storePreview(t, map[string]string{"path": root, "pattern": "**/*.go"}),
 			}
 			res := requireToolSummaries(t, root, shown, withheld)
 			require.NotContains(t, res.Text, "deny.txt")
@@ -651,7 +677,9 @@ func TestRehydrateHostPaths_AShellEscapedDeniedPathIsWithheld(t *testing.T) {
 		}
 		return out
 	}
-	res := requireToolSummaries(t, root, commands("docs", ".md"), commands("private", ".txt"))
+	// Criterion change (D63): a single quote, a doubled quote, a backtick and a backslash that ends a
+	// token (an escaped space) are unsafe, so every shape is over-withheld for the allowed file too.
+	res := requireToolSummaries(t, root, nil, append(commands("docs", ".md"), commands("private", ".txt")...))
 	require.NotContains(t, res.Text, "notes.txt")
 	require.NotContains(t, res.Text, "secret.txt")
 }
@@ -729,21 +757,23 @@ func TestRehydrateHostPaths_ARootedPathWithASpaceIsJudgedByTheHost(t *testing.T)
 
 // TestRehydrateHostPaths_CommonIdiomsAreShownUnderTheUAT12Rules extends D61's usefulness row with the
 // review's everyday idioms, through the real host rules in a project whose path has a space in it: a
-// search for a comment marker, a redirect to /dev/null and a Docker bind mount of the project are
-// shown. The review's leaks are withheld: an absolute path glued to a flag, PowerShell's environment
-// variables, and a home directory's variable ending a word.
+// redirect to /dev/null is shown (a whole null-device token, D63's extension). The review's leaks are
+// withheld: an absolute path glued to a flag, PowerShell's environment variables, and a home
+// directory's variable ending a word.
 func TestRehydrateHostPaths_CommonIdiomsAreShownUnderTheUAT12Rules(t *testing.T) {
 	root := uat12Project(t, "John Smith", "proj")
 	bash := func(cmd string) string { return storePreview(t, map[string]string{"command": cmd}) }
 	res := requireToolSummaries(t, root,
 		[]string{
-			bash(`grep -rn "// TODO" internal/`),
-			bash(`rg -n "//nolint" internal/`),
 			bash("ls -la src/ 2>/dev/null || true"),
 			bash("go build ./... >/dev/null && echo ok"),
-			bash(`docker run -v "` + root + `:/src" -w /src img go test ./...`),
 		},
 		[]string{
+			// Criterion change (D63): a comment marker (`//`) and a Docker bind mount (`:/src`, `-w /src`)
+			// read as absolute paths, so they are over-withheld along with the leaks.
+			bash(`grep -rn "// TODO" internal/`),
+			bash(`rg -n "//nolint" internal/`),
+			bash(`docker run -v "` + root + `:/src" -w /src img go test ./...`),
 			bash("git -C/home/u/other status"),
 			bash(`Get-Content $env:USERPROFILE\.aws\credentials`),
 			bash("cd $HOME && cat .ssh/id_rsa"),
@@ -772,15 +802,17 @@ func TestRehydrateHostPaths_RootedCommandsAndRegularExpressionsAreShownUnderTheU
 			bash("git diff src HEAD~1"),
 			bash("pwsh tools/lint.ps1 --since HEAD~2 -Fix"),
 			bash(filepath.Join(root, "scripts", "run.sh") + " --fast -n 3 && echo ok"),
-			storePreview(t, map[string]string{"pattern": `\bConfigLoader\b`}),
-			storePreview(t, map[string]string{"pattern": `^\s*func\b`}),
-			storePreview(t, map[string]string{"path": filepath.Join(root, "internal"), "pattern": `\bretryBackoff\b`}),
 			bash("go build ./..."),
 			bash("git status"),
 		},
 		[]string{
 			bash(filepath.Join(root, "secrets", "rotate.sh") + " --since HEAD~1"),
 			bash("cat .env"),
+			// Criterion change (D63): a backslash-led or `^`-anchored regular expression is over-withheld (a
+			// leading `\` or `^` is unsafe); a rooted command is still judged through its script path only.
+			storePreview(t, map[string]string{"pattern": `\bConfigLoader\b`}),
+			storePreview(t, map[string]string{"pattern": `^\s*func\b`}),
+			storePreview(t, map[string]string{"path": filepath.Join(root, "internal"), "pattern": `\bretryBackoff\b`}),
 		})
 	require.NotContains(t, res.Text, "rotate.sh")
 }
@@ -796,13 +828,14 @@ func TestRehydrateHostPaths_AnApostropheInTheRootIsNotAnOpenQuote(t *testing.T) 
 	res := requireToolSummaries(t, root,
 		[]string{
 			storePreview(t, map[string]string{"path": root, "pattern": "TODO"}),
-			storePreview(t, map[string]string{"path": root, "pattern": "**/*.go"}),
 			bash("cd " + root + " && go test ./..."),
 			bash("git -C " + root + " status --short"),
 		},
 		[]string{
 			bash("cd " + root + " && cat private/deny.txt"),
 			bash(`cat "` + filepath.Join(root+" old", "x.txt") + `"`),
+			// D63 over-withholds a glob pattern in free text (the apostrophe in the root is still not a quote).
+			storePreview(t, map[string]string{"path": root, "pattern": "**/*.go"}),
 		})
 	require.NotContains(t, res.Text, "deny.txt")
 }

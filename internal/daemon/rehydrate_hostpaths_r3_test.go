@@ -22,15 +22,18 @@ import (
 func TestRehydrateHostPaths_EscapedAndCaseFoldedSpellingsAreWithheldUnderTheUAT12Rules(t *testing.T) {
 	root := uat12Project(t, "proj")
 	bash := func(cmd string) string { return storePreview(t, map[string]string{"command": cmd}) }
+	// Criterion change (D63): a `$'…'` quote, a `$Env:` variable and a backslash-led or bracket regular
+	// expression are all over-withheld (`$`, `\`, `[` are unsafe); a nested shell that changes to the
+	// project root is still shown.
 	res := requireToolSummaries(t, root,
 		[]string{
 			bash(`bash -c "cd ` + filepath.ToSlash(root) + ` && go test ./..."`),
+		},
+		[]string{
 			bash(`echo $'done'`),
 			bash(`echo $Env:PATH`),
 			storePreview(t, map[string]string{"pattern": `\bConfigLoader\b`}),
 			storePreview(t, map[string]string{"pattern": `\[DEBUG\]`}),
-		},
-		[]string{
 			bash(`Get-Content $Env:USERPROFILE\.ssh\id_rsa`),
 			bash(`cat private/$'deny.txt'`),
 			bash(`cat $'.env'`),
