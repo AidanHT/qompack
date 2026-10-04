@@ -270,9 +270,10 @@ func (d *Draft) deriveCurrentWorkLocked(ctx context.Context, own []store.ToolUse
 	case found && (complete || !d.goalTurnSet || turn >= d.goalTurn):
 		d.setGoalTurnLocked(turn, true)
 		d.setDerivedWorkLocked(goal)
-	case complete && len(own) <= goalWalkLimit:
-		// Every one of the session's prompts was read and none gives a goal (a walk that found one
-		// and read every record it passed took the case above).
+	case !found && complete && len(own) <= goalWalkLimit:
+		// Every one of the session's prompts was read and none gives a goal. It says !found itself
+		// rather than leaning on the case above: a found goal is never cleared, whatever that case
+		// requires.
 		d.setGoalTurnLocked(0, false)
 		d.setDerivedWorkLocked("")
 	}
