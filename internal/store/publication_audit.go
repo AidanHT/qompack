@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -225,8 +226,9 @@ type PublicationAudit struct {
 	LegacyControlCaptures int
 
 	// PostSnapshotEntries counts the capture sidecars, pending-write markers and unindexed object
-	// files a pass with a Snapshot did not classify because they were written at or after the
-	// snapshot: live writes the snapshot does not account for, never a gap and never damage.
+	// files a pass with a Snapshot did not classify because they were written after the snapshot, or
+	// removed between the pass listing and reading them: live work the snapshot does not account
+	// for, never a gap and never damage.
 	PostSnapshotEntries int
 
 	// NewerSchemaCaptures counts sidecars declaring a schema NEWER than this build. They are written by
@@ -385,6 +387,23 @@ func (b *scanBudget) postSnapshot(mod time.Time) bool {
 	return b.snap != nil && mod.After(b.snap.taken)
 }
 
+// vanished reports whether err says an entry the pass listed was removed before the pass could
+// stat or read it, and counts it as live work when the pass runs against a snapshot. Such a pass
+// runs while the store serves: a Put retires its pending-write marker, and the store removes a
+// capture sidecar or an object, whenever it likes, and a file the store no longer holds is not an
+// unreadable record of it. Noting it made a healthy store's background pass announce itself
+// incomplete (w15-services review). On Linux and macOS DirEntry.Info is a lazy lstat, so it is the
+// stat that fails; on Windows the listing caches it and the read fails instead. A pass without a
+// snapshot (fsck, or a store nothing else is writing) keeps noting it: there, a file that vanishes
+// under the walk is exactly what it cannot vouch for.
+func (b *scanBudget) vanished(err error, a *PublicationAudit) bool {
+	if b.snap == nil || !errors.Is(err, fs.ErrNotExist) {
+		return false
+	}
+	a.PostSnapshotEntries++
+	return true
+}
+
 // hasChunkFor reports whether h is a live chunk: of the snapshot's index when the pass has one, of
 // the store's loaded index otherwise.
 func (s *FSStore) hasChunkFor(b *scanBudget, h core.Hash) bool {
@@ -527,6 +546,9 @@ func (s *FSStore) eachDirEntry(ctx context.Context, parent *os.Root, name string
 				return false
 			}
 			bud.entriesLeft--
+			if hook := publicationEntryHook.Load(); hook != nil {
+				(*hook)(parent, name, e)
+			}
 			if !fn(dir, e) {
 				return false
 			}
@@ -606,7 +628,9 @@ func (s *FSStore) classifyCaptureFile(dir *os.Root, entry os.DirEntry, bud *scan
 	a.CapturesScanned++
 	info, err := entry.Info()
 	if err != nil {
-		a.note("capture sidecar unreadable")
+		if !bud.vanished(err, a) {
+			a.note("capture sidecar unreadable")
+		}
 		return true
 	}
 	if bud.postSnapshot(info.ModTime()) {
@@ -627,7 +651,9 @@ func (s *FSStore) classifyCaptureFile(dir *os.Root, entry os.DirEntry, bud *scan
 	b, err := readPublicationFile(dir, entry.Name(), min(int64(captureSidecarReadLimit), bud.bytesLeft))
 	bud.bytesLeft -= int64(len(b))
 	if err != nil {
-		a.note("capture sidecar unreadable")
+		if !bud.vanished(err, a) {
+			a.note("capture sidecar unreadable")
+		}
 		return true
 	}
 	var view captureAuditView
@@ -765,7 +791,9 @@ func (s *FSStore) classifyObjectLeaf(f os.DirEntry, maxObjects int,
 		// the snapshot belongs to a Put the snapshot never saw.
 		info, err := f.Info()
 		if err != nil {
-			a.note("object file unreadable")
+			if !bud.vanished(err, a) {
+				a.note("object file unreadable")
+			}
 			return true
 		}
 		if bud.postSnapshot(info.ModTime()) {
@@ -829,7 +857,9 @@ func (s *FSStore) pendingObjectChunks(ctx context.Context, bud *scanBudget, a *P
 		}
 		info, err := e.Info()
 		if err != nil {
-			a.note("pending-write marker unreadable")
+			if !bud.vanished(err, a) {
+				a.note("pending-write marker unreadable")
+			}
 			return true
 		}
 		if bud.postSnapshot(info.ModTime()) {
@@ -848,7 +878,9 @@ func (s *FSStore) pendingObjectChunks(ctx context.Context, bud *scanBudget, a *P
 		b, err := readPublicationFile(dir, e.Name(), min(int64(pendingMarkerReadLimit), bud.bytesLeft))
 		bud.bytesLeft -= int64(len(b))
 		if err != nil {
-			a.note("pending-write marker unreadable")
+			if !bud.vanished(err, a) {
+				a.note("pending-write marker unreadable")
+			}
 			return true
 		}
 		var rec pendingWire
