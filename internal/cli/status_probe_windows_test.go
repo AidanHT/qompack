@@ -54,9 +54,16 @@ func TestStatusProbe_OutlastsAListenerThatIsReArming(t *testing.T) {
 	require.False(t, ipc.Probe(addr, selfTestProbeTimeout),
 		"a probe whose budget ends inside the busy window reads a live listener as absent")
 
+	// The refused dial has no deadline, so the refusal cannot be a budget running out on a starved
+	// thread: go-winio checks its context before each CreateFile, and a 50 ms budget that ended before
+	// the first one read as ErrTimeout (wave 19c review). The address cannot exist, so a dial that
+	// waited on it instead of being refused would never return, and the row would fail by hanging.
 	nowhere, err := ipc.Resolve(t.TempDir())
 	require.NoError(t, err)
-	_, err = winio.DialPipe(nowhere.Path, &budget)
+	refused, err := winio.DialPipeContext(context.Background(), nowhere.Path)
+	if refused != nil {
+		_ = refused.Close()
+	}
 	require.ErrorIs(t, err, os.ErrNotExist, "with no listener the dial is refused, not waited on")
 	require.False(t, errors.Is(err, winio.ErrTimeout))
 
