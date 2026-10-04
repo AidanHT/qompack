@@ -3,6 +3,7 @@ package rehydrate
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -12,8 +13,38 @@ import (
 )
 
 // Coordinator decision D64's rulings on wave 19f's open items (ADR 0011 §23): a cut path-named value
-// is the project root only when it is the start of the root's own spelling, byte for byte. The row
-// is red on 895d41f4.
+// is the project root only when it is the start of the root's own spelling, byte for byte; and a
+// character that Windows' ANSI best-fit conversion turns into ASCII punctuation is outside the
+// free-text whitelist and the root unit on every platform. The rows are red on 895d41f4.
+
+// bestFitANSI are the code points the free-text whitelist read as letters, marks or digits that
+// Windows' ANSI best-fit conversion (WideCharToMultiByte without WC_NO_BEST_FIT_CHARS) maps to one
+// ASCII character other than a letter or a digit, in at least one of Windows' ANSI code pages,
+// measured by TestWhitelist_NoANSIBestFitToPunctuationIsSafe on Windows: U+01C0 to `|`, U+01C3 to
+// `!`, U+02B9, U+02BC and U+02C8 to `'`, U+02BA to `"`, U+02C6 and U+02C7 to `^`, U+02CB to `'` or
+// a backtick, U+02CD to `_`, U+0300 to `'` or a backtick, U+0302 to `^`, U+0303 to `~`, U+030E to
+// `"`, and U+0331 and U+0332 to `_` (code pages 1250, 1252 and 1254 for most; 1254 alone for
+// U+02C7).
+var bestFitANSI = []rune{
+	0x01C0, 0x01C3, 0x02B9, 0x02BA, 0x02BC, 0x02C6, 0x02C7, 0x02C8, 0x02CB, 0x02CD,
+	0x0300, 0x0302, 0x0303, 0x030E, 0x0331, 0x0332,
+}
+
+// bestFitRunes are the code points the rulings take out of the whitelist and the root unit: every
+// code point of the Spacing Modifier Letters block (U+02B0 to U+02FF), where most of the best-fit
+// mappings to ASCII punctuation lie, and the measured ones outside it (bestFitANSI).
+func bestFitRunes() []rune {
+	var rs []rune
+	for r := rune(0x02B0); r <= 0x02FF; r++ {
+		rs = append(rs, r)
+	}
+	for _, r := range bestFitANSI {
+		if r < 0x02B0 || r > 0x02FF {
+			rs = append(rs, r)
+		}
+	}
+	return rs
+}
 
 // jsonBody is s as the body of a JSON string, as the store's canonical JSON escapes it.
 func jsonBody(t *testing.T, s string) string {
@@ -159,4 +190,54 @@ func TestBuild_ACutValueIsTheRootOnlyInItsOwnSpelling(t *testing.T) {
 			[]string{cutJSONValue(t, "notebook_path", sib, within(sib, "\u212Aa", 1))},
 			[]string{"\u212Aat"})
 	})
+}
+
+// TestBuild_ABestFitCharacterIsOutsideTheWhitelist is D64's ruling on Windows' best-fit conversion:
+// a program that takes its command line through the ANSI code page (a C program's argv,
+// GetCommandLineA) receives each character that code page cannot hold as its best fit, and some
+// best fits are ASCII punctuation (U+02BA is `"`, U+02B9, U+02BC and U+02C8 are `'`, U+0303 is `~`),
+// so a word the whitelist read as letters reached such a program with a quote, an escape or a home
+// in it. Every code point of the Spacing Modifier Letters block, and each measured best fit to ASCII
+// punctuation outside it (bestFitANSI), is now unsafe on every platform: in a word, a quoted run, an
+// http(s) URL and a JSON string value alike. A letter or mark whose best fit is a letter, or only an
+// OEM code page's punctuation (U+0301, which code pages 437 and 862 turn into `'`), stays safe.
+func TestBuild_ABestFitCharacterIsOutsideTheWhitelist(t *testing.T) {
+	root := previewRoot("proj")
+	for _, r := range bestFitRunes() {
+		s := string(r)
+		t.Run(fmt.Sprintf("U+%04X", r), func(t *testing.T) {
+			requireScreened(t, root, hostRules(root, uat12Rules...), nil, nil,
+				[]string{
+					"cat docs/a" + s + "b.md",
+					`cat "docs/a` + s + `b c.md"`,
+					"curl https://x.example/a" + s + "b",
+					`{"query":"a` + s + `b"}`,
+				},
+				nil)
+		})
+	}
+	t.Run("letters", func(t *testing.T) {
+		requireScreened(t, root, hostRules(root, uat12Rules...), nil,
+			[]string{
+				"cat docs/café.md", "cat docs/cafe\u0301.md", "cat docs/Ελληνικά.md", `cat "docs/naïve c.md"`,
+				"curl https://x.example/café", `{"query":"naïve résumé"}`,
+			},
+			nil, nil)
+	})
+}
+
+// TestBuild_ABestFitRootHoldsNoRootUnit is the same ruling for the root unit: a root holding a code
+// point the whitelist no longer reads as a letter (bestFitRunes) has no unit, so a summary spelling it
+// is judged as the free text it is and withheld, while a path-named JSON value under it, which reaches
+// no shell, is still shown.
+func TestBuild_ABestFitRootHoldsNoRootUnit(t *testing.T) {
+	for _, r := range bestFitRunes() {
+		t.Run(fmt.Sprintf("U+%04X", r), func(t *testing.T) {
+			root := previewRoot("a"+string(r)+"b", "proj")
+			requireScreened(t, root, hostRules(root, uat12Rules...), nil,
+				[]string{notebookPreview(t, filepath.Join(root, "src", "x.ipynb"))},
+				append(rootSummaries(root), "cd "+root+" && cat private/deny.txt"),
+				[]string{"deny.txt"})
+		})
+	}
 }
