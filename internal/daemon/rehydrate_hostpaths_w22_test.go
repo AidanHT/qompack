@@ -19,7 +19,10 @@ import (
 // value holding a list whose later piece names a path outside the project was judged as one relative
 // path, which the host, joining it under the root, refused nothing about, and section 6 showed it.
 // Each piece is judged for a path outside the project; a single project path with a space in it, in
-// a plain project and in one whose own path has a space, is still shown.
+// a plain project and in one whose own path has a space, is still shown. Wave 22's verify found a
+// path after a quote and a climb after an option's `=` or an `@` still shown (eca33155 showed them
+// too): each is judged where a reader starts the path, and the names a project's paths hold are
+// still shown.
 func TestRehydrateHostPaths_APathNamedValueHoldingSeveralPathsIsJudgedPieceByPiece(t *testing.T) {
 	for _, elem := range [][]string{{"proj"}, {"John Smith", "proj"}} {
 		t.Run(filepath.Join(elem...), func(t *testing.T) {
@@ -33,6 +36,10 @@ func TestRehydrateHostPaths_APathNamedValueHoldingSeveralPathsIsJudgedPieceByPie
 					v("files", "src/main.go src/util.go"),
 					v("notebook_path", filepath.Join(root, "nb", "my notes.ipynb")),
 					v("paths", "src/main.go "+filepath.Join(root, "docs", "b.md")),
+					v("paths", []string{"app/(auth)/page.tsx", "pages/[slug].tsx", "src/routes/+page.svelte"}),
+					v("paths", `"src/main.go" "src/util.go"`),
+					v("notebook_path", `"`+filepath.Join(root, "nb", "a b.ipynb")+`"`),
+					v("paths", "src/main.go --out=docs/b.md"),
 				},
 				[]string{
 					v("paths", "src/main.go,"+out),
@@ -46,8 +53,18 @@ func TestRehydrateHostPaths_APathNamedValueHoldingSeveralPathsIsJudgedPieceByPie
 					v("paths", "src/main.go;"+out),
 					v("paths", "src/main.go:/etc/passwd"),
 					v("path", "Temp:secret.txt"),
+					v("paths", `src/main.go "/etc/passwd"`),
+					v("paths", `src/main.go '~/.ssh/id_rsa'`),
+					v("paths", []string{"src/main.go", `"/etc/passwd"`}),
+					v("path", `"/etc/passwd"`),
+					v("paths", `src/main.go "`+out+`"`),
+					v("paths", "src/main.go (/etc/passwd)"),
+					v("paths", "src/main.go --out=../../outside/x.txt"),
+					v("paths", "src/main.go @../outside/x.txt"),
+					v("paths", "src/main.go:../outside/x.txt"),
+					v("path", "--out=../outside/x.txt"),
 				})
-			for _, leak := range []string{filepath.Join("outside", "x.txt"), "passwd", "id_rsa", "credentials", "secret.txt"} {
+			for _, leak := range []string{filepath.Join("outside", "x.txt"), "passwd", "id_rsa", "credentials", "secret.txt", "../outside"} {
 				require.NotContains(t, res.Text, leak)
 			}
 		})
