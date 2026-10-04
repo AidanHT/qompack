@@ -673,7 +673,7 @@ func serveFakeDaemon(t *testing.T, root string) {
 		<-done
 	})
 
-	require.Eventually(t, func() bool { return ipc.Probe(addr, selfTestProbeTimeout) },
+	require.Eventually(t, func() bool { return daemonReachable(addr) },
 		5*time.Second, 10*time.Millisecond, "the fake daemon's endpoint never came up")
 }
 

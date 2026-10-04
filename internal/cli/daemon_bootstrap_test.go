@@ -41,10 +41,25 @@ import (
 // and calls daemon.InstallMCPOp, and store.Open/dag.Open happen inside daemon.WireObserver. Every
 // row below is written against that shape, and says so where the shape is what makes it possible.
 
-// bootstrapProbeTimeout is the dial budget for the liveness probes below — the same 250 ms
-// test/e2e uses, and for the same reason: config's own ConnectDeadlineMs is tuned for an
-// already-warm daemon and would report "no daemon" for one that is merely busy starting.
-const bootstrapProbeTimeout = 250 * time.Millisecond
+// bootstrapProbeTimeout is the dial budget of every readiness wait in this package
+// (daemonReachable). It is a hang guard, not a connect budget: each wait already polls inside
+// require.Eventually under its own bound, so its verdict is "the listener came up", and a dial that
+// has not connected after bootstrapCallDeadline is a hung listener, not a slow one. It was 250 ms
+// (and 50 ms at some waits), which a host whose every connect takes longer read as a daemon that
+// never came up (audit 2's #80, D61(c);
+// TestFixtureReadiness_BootstrapDaemonProbesWithTheHangGuard). config's own ConnectDeadlineMs is no
+// basis either: it is tuned for an already-warm daemon.
+const bootstrapProbeTimeout = bootstrapCallDeadline
+
+// fixtureProbe is the dial every fixture readiness wait in this package goes through, so a row can
+// see the budget a wait dials with. It is ipc.Probe everywhere except in that row.
+var fixtureProbe = ipc.Probe
+
+// daemonReachable reports whether the listener at addr accepts a connection within
+// bootstrapProbeTimeout. Every require.Eventually that waits for a daemon or a fake server to come
+// up in this package calls it instead of ipc.Probe
+// (TestFixtureReadinessWaits_GoThroughDaemonReachable).
+func daemonReachable(addr ipc.Addr) bool { return fixtureProbe(addr, bootstrapProbeTimeout) }
 
 // bootstrapCallDeadline bounds one admin round trip against a daemon already known to be up. It is
 // twenty times the B-F budget, so a failure here means the op did not route, never that retrieval
@@ -132,7 +147,7 @@ func bootstrapDaemon(t *testing.T, root string, args ...string) (stop func()) {
 
 	require.Eventually(t, func() bool {
 		addr, err := ipc.Resolve(root)
-		return err == nil && ipc.Probe(addr, bootstrapProbeTimeout)
+		return err == nil && daemonReachable(addr)
 	}, bootstrapUpBound, bootstrapUpTick, "the daemon at %s never became reachable", root)
 
 	stopped := false
