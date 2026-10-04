@@ -79,6 +79,13 @@ const scLatencyP99 = 1500 * time.Millisecond
 // scLatencyRuns is how many samples the latency case takes.
 const scLatencyRuns = 30
 
+// scColoadJudges names the in-tree lanes that run test/e2e alone without obs.UnderColoadEnv, and so
+// apply scLatencyP99 when a co-loaded run only reports it: ci.yml's test-e2e job, and devtool's own
+// test/e2e pass (wholeTreePasses), which test, cover, ci-local and release-check run, as ci.yml's
+// cover job does.
+const scColoadJudges = "ci.yml's test-e2e and cover jobs, and devtool test, cover, ci-local and " +
+	"release-check, each of which runs test/e2e in a pass of its own"
+
 // ── setup helpers ───────────────────────────────────────────────────────────────────────────
 
 // scProject builds a disposable project whose source tree is the proj-a rules fixture and whose
@@ -654,17 +661,20 @@ func TestUserIntent_FirstPromptIDMatchesObserver(t *testing.T) {
 // It is a timing row, and it is gated the way the other intrinsically wall-clock rows are (ADR
 // 0010 decision 2, obs.UnderColoadEnv). The number is a wall-clock p99 over 30 process spawns,
 // each a whole hook process and its round trip to the daemon, so no CPU clock stands in for it.
-// Run alone, as ci.yml's test-e2e and the pre-freeze e2e and e2efunc steps run test/e2e, it is
-// judged against scLatencyP99. In a run that declares co-load it is measured and reported, with
-// the limit it does not apply and where that limit is still applied, as X11 reports B-A. It is
-// not fsync-bound: the rehydration state file's durable write follows the answer (C1.16,
-// scStateRecordBound), so a non-reference disk declaration leaves it gated.
+// Run alone, as scColoadJudges names, it is judged against scLatencyP99. In a run that declares
+// co-load it is measured and reported, with the limit it does not apply and where that limit is
+// still applied, as X11 reports B-A. It is not fsync-bound: the rehydration state file's durable
+// write follows the answer (C1.16, scStateRecordBound), so a non-reference disk declaration leaves
+// it gated.
 //
-// Criterion change (wave 21, D53(a)): the row used to skip itself under -short, a guard nothing
-// ran and ADR 0010 rules out, and it gated even under a declared co-load. Wave 20's status
-// verifier measured p99 1.53 s in an undeclared daytime co-loaded run, while a quiet run on AC
-// measured 76 to 190 ms a sample (p99 190 ms). So the row now runs under -short, reports under the
-// declaration, and always logs its measurement. The budget and the statistic are unchanged.
+// Criterion change (wave 21, D53(a)): the row used to skip itself under -short, a guard nothing ran
+// and ADR 0010 rules out, and it gated even under a declared co-load. Wave 20's status verifier
+// measured p99 1.53 s in an undeclared daytime co-loaded run, and its whole distribution had moved,
+// not one sample: 158 ms to 1.53 s, median about 380 ms. Runs on AC at wave 21, alone and inside
+// whole test/e2e runs, measured p99 142 to 319 ms, and the worst tail seen was one 633 ms sample,
+// the next at 254 ms, in a quiet test/e2e run (X11 skipped) at 03f6824a: nearest-rank p99 over 30
+// samples is the maximum, so one spawn decides the row. So the row now runs under -short, reports
+// under the declaration, and always logs its samples. The budget and the statistic are unchanged.
 func TestE2E_SessionStartLatency(t *testing.T) {
 	bin := Build(t)
 	p := scProject(t)
@@ -690,8 +700,8 @@ func TestE2E_SessionStartLatency(t *testing.T) {
 		"(samples: %s)", len(samples), p99, scLatencyP99, fmt.Sprint(samples))
 	if obs.UnderCoload() {
 		t.Logf("%s is set: this co-loaded run reports the p99 above and does not apply the %s budget "+
-			"(ADR 0010 decision 2). test/e2e run alone without it applies it: ci.yml's test-e2e job "+
-			"and the pre-freeze e2e and e2efunc steps", obs.UnderColoadEnv, scLatencyP99)
+			"(ADR 0010 decision 2). It is applied where test/e2e runs alone without the declaration: %s",
+			obs.UnderColoadEnv, scLatencyP99, scColoadJudges)
 		return
 	}
 	require.Less(t, p99, scLatencyP99,
