@@ -734,7 +734,14 @@ withholding it would hide every conventional commit message (item 7(b) said only
 "names no path", and now says this). A single-letter bare drive (`C:`) stays withheld. (4) D64(4)
 accepts wave 19e's three corpus flips to withheld (`git log --pretty=format:%h`, `curl
 localhost:3000`, `{"skill":"plugin:name"}`; item 7's limits) and its Windows either-slash root, a
-spelling that mixes the two slashes being no root (item 2's limits, item 8).
+spelling that mixes the two slashes being no root (item 2's limits, item 8). Deciding `+` for the
+root unit, as D64(1) asked, found a leak in free text too: cmd.exe's `copy` starts its next source
+after a `+` glued into a word (`copy a.txt+b.txt c.txt` concatenates both, and `copy
+a.txt+\Windows\win.ini out.txt` reads the drive-rooted file, measured on the Windows host), while the
+screen read `+` as continuing a name, so neither a path nor a name started after it and both that
+command and `copy a.txt+.env out.txt` were shown. A path and a name now start after a `+` (item 7(b)
+and (c)), and `+` is outside the root unit's set (item 8); this is the stricter reading, recorded for
+the coordinator's ratification with D64.
 
 1. *A degraded compaction that dropped material is never silent* (D59, UAT-05 F-C7-UAT05-1). At
    UAT-05's `runtime.rehydrate.minTokens` = `maxTokens` = 150 the retrieval line (86 tokens) does
@@ -1026,9 +1033,10 @@ spelling that mixes the two slashes being no root (item 2's limits, item 8).
    - (b) *No token names an absolute or escaping path*, in either reading of its backslashes (every
      `\` a separator, and every `\` removed). A path may start at a token's or a piece's start, just
      after a short option's first letter or all its letters (`-I/opt`, `-oD:stash`, `-C../x`), and
-     just after `=`, `:`, `,`, `@`, an apostrophe, the `#` that starts a token or (in a quoted run) a
-     parenthesis (`--out=/x`, `a,/x`, `host:/x`, curl's `@/etc/passwd`, `#/etc/passwd`,
-     `"(/etc/passwd)"`). At each there is no leading `/` or `\` (a POSIX root, a drive-less, UNC or
+     just after `=`, `:`, `,`, `@`, an apostrophe, the `#` that starts a token, a `+` (since D64) or
+     (in a quoted run) a parenthesis (`--out=/x`, `a,/x`, `host:/x`, curl's `@/etc/passwd`,
+     `#/etc/passwd`, cmd.exe's `copy a.txt+\Windows\win.ini`, `"(/etc/passwd)"`). At each there is no
+     leading `/` or `\` (a POSIX root, a drive-less, UNC or
      device Windows path), no `~` (a home directory; at the token's own start (a) rejects it), no
      drive `X:`, no `file:` URL, and no PowerShell drive- or provider-qualified path: a name, a `:` and
      more (`Temp:x`, `Env:HOME`, `HKCU:Software`, `Registry::HKEY_CURRENT_USER`, `FileSystem::x`, or
@@ -1057,7 +1065,8 @@ spelling that mixes the two slashes being no root (item 2's limits, item 8).
    - (c) *The text names no rule literal or withheld name.* In its case-folded screen form — with `\`
      read as a separator, and again with `\` removed, both again with a quoted run's parentheses
      removed, and always without quotes — the text holds, where a name starts (the text's start,
-     after a byte that does not continue a name, or glued to a short option; a non-ASCII letter
+     after a byte that does not continue a name, `+` among them since D64 (`copy a.txt+.env out`), or
+     glued to a short option; a non-ASCII letter
      continues a name, so `café.env` is not `.env`), no Read deny or ask rule's literal (the rule's
      last all-literal segment, or the longest literal run of a glob segment, from the specifiers
      `hostperm.RuleSet.ReadRulePatterns` lists) and no basename or relative path of a path this build
@@ -1100,8 +1109,12 @@ spelling that mixes the two slashes being no root (item 2's limits, item 8).
      option's value (glued to a short option, or after `=`), in a list (after `,` or `:`, PATH-style,
      or scp's `host:/path`) and as a response or data file (after `@`); PowerShell reads one as a
      parameter's value after `-Param:` and as each element of an array after `,`, and a comment's text
-     names its path to the model after the `#` that starts it. (b) looks at each of those places,
-     and for a `..` at every delimiter and at a word's end. `+`, `-`, `_` and `.` continue a name.
+     names its path to the model after the `#` that starts it; cmd.exe's `copy` reads its next source
+     after a glued `+` (`copy a.txt+\Windows\win.ini out`; D64). (b) looks at each of those places,
+     and for a `..` at every delimiter and at a word's end. `-`, `_` and `.` continue a name (cmd.exe's
+     built-in commands split their arguments at its documented delimiters, a space, a tab, `,`, `;`
+     and `=`, each already a split or a path start here, and `copy` also at `+`; `type a,b` types
+     `a` and `b` while `type a+b` reads one file named `a+b`, measured).
      At each place a path can begin with a separator, a home, a drive, a `file:` URL or a PowerShell
      drive or provider; PowerShell takes a drive's name from the place a path starts to the first `:`,
      and refuses a name that holds `.`, `~`, `/` or `\`, so (b) withholds every other name before a
@@ -1257,16 +1270,18 @@ spelling that mixes the two slashes being no root (item 2's limits, item 8).
    root at its own space and the screen never reads the root's own name as a withheld name.
    *Which roots have a unit* (D64(1), STRICT). The unit stands for the root only if every shell reads
    the root's spelling as that one path, so it is held only when the root's own spelling, cleaned and
-   slash-separated, consists of Unicode letters, marks and digits, `- _ . @ +`, its separators, ASCII
+   slash-separated, consists of Unicode letters, marks and digits, `- _ . @`, its separators, ASCII
    spaces and, on Windows, the drive's `:` (`rootUnitAdmitted`). These are the free-text whitelist's
    characters at which no shell splits or reinterprets a word in its middle: `@` is a splat only as a
-   whole `@name` and `+` an extglob only before `(`, and neither can start the root's spelling, which
-   begins at a separator or a drive; a space is the case the unit exists for, read by the sibling rules
-   below. The whitelist's other characters are left out: `,` (PowerShell splits a bare argument into an
+   whole `@name` and an extglob only before `(`, and cannot start the root's spelling, which begins at
+   a separator or a drive; a space is the case the unit exists for, read by the sibling rules below.
+   The whitelist's other characters are left out: `,` (PowerShell splits a bare argument into an
    array at it, so `C:\q\a,b\proj` is `C:\q\a` and `b\proj`, and cmd.exe's built-in commands split at
-   it), `=` (cmd.exe's built-in commands split at it), `#` (zsh's EXTENDED_GLOB reads `a#b` as a
-   pattern), and a `:` past the drive (PowerShell reads the name before a `:` as a drive, and a list's
-   reader splits there). So is every character the whitelist rejects: a quote of either kind or a
+   it: `type a,b` types `a` and `b`, measured), `=` (cmd.exe's built-in commands split at it the same
+   way), `+` (cmd.exe's `copy` starts its next source at it, so `C:\q\a+b\proj\x.txt` is `C:\q\a` and
+   `b\proj\x.txt` to it), `#` (zsh's EXTENDED_GLOB reads `a#b` as a pattern), and a `:` past the drive
+   (PowerShell reads the name before a `:` as a drive, and a list's reader splits there). So is every
+   character the whitelist rejects: a quote of either kind or a
    typographic one (a shell pairs the root's apostrophe with a later one, so
    `C:/q/o'brien/proj/notes.tx't` is the one argument `C:/q/obrien/proj/notes.txt`), a backtick, `$ !
    ; & | ( ) [ ] { } < > ^ % ~ * ?` (`/q/x;y/proj` runs `/q/x`; zsh's EXTENDED_GLOB reads the `~` of an
@@ -1380,7 +1395,7 @@ spelling that mixes the two slashes being no root (item 2's limits, item 8).
     and the Unicode boundary guesses be deleted, and they are; but `internal/rehydrate/pathgate.go` is
     not smaller than at e65ada8f. Measured with the pinned gocyclo v0.6.0 and gocognit v1.2.0: lines
     2059 (e65ada8f), 1949 (f708c693), 2410 after the round-2 fixes (f3196046), 2580 after the final
-    verify's (f2171654), 2654 after D64's; non-blank non-comment lines 1401, 1346, 1639, 1737, 1767;
+    verify's (f2171654), 2658 after D64's; non-blank non-comment lines 1401, 1346, 1639, 1737, 1767;
     functions 91, 87, 105, 112, 115; gocyclo total 646, 572, 722, 765, 784, maximum 26 throughout
     (`jsonStrings`); gocognit total 590, 563, 691, 732, 741, maximum 38 throughout. The whitelist's
     completeness checks
@@ -1480,8 +1495,9 @@ extension's argument in item 7: `TestBuild_ARootLedGlobPreviewNamesOnlyWhatTheHo
 `TestBuild_TheRootBeforeAPipeOrSemicolonIsTheRoot`, `TestBuild_AJSONKeyIsScreenedAsAString` and
 `TestBuild_ADotDotRangeAndAGoPatternNeverClimb`. The D64 rows:
 `TestBuild_ARootOutsideTheWhitelistHoldsNoRootUnit` and `TestBuild_AReasonHoldsTheRootASummaryDoesNot`
-(item 8), `TestBuild_ACutRightAfterAProviderDriveColonIsWithheld` (item 9) and
-`TestBuild_ABareDriveNameNamesADriveRoot` (item 7(b)). `internal/daemon`, through
+(item 8), `TestBuild_ACutRightAfterAProviderDriveColonIsWithheld` (item 9),
+`TestBuild_ABareDriveNameNamesADriveRoot` (item 7(b)) and `TestBuild_APathOrNameAfterAPlusIsJudged`
+(item 7(b) and (c)). `internal/daemon`, through
 the real adapter and the real host rules: `TestRehydrateHostPaths_ASelectorNamingADeniedFileIsWithheld`,
 `TestRehydrateHostPaths_EverySpellingOfADeniedFileIsWithheld`,
 `TestRehydrateHostPaths_ADeniedPathWithDelimitersIsWithheld`,
@@ -1663,24 +1679,27 @@ withheld beside its six withheld ones), and its `internal/daemon` twin
 `TestRehydrateHostPaths_AnApostropheInTheRootIsNotAnOpenQuote` is
 `TestRehydrateHostPaths_ARootOutsideTheWhitelistHoldsNoRootUnit`, which withholds the root's Grep and
 Glob previews, `cd <root> && …`, `git -C <root> …` and a one-word Read under roots holding `'`, `;`,
-`,` and `$`, shows a path-named JSON value under them, and keeps a root of letters, digits, `@` and
-`+` shown; earlier criterion-change paragraphs and the evidence list name both rows by their new
+`,`, `$` and `+`, shows a path-named JSON value under them, and keeps a root of letters, digits, `@`,
+`-` and `.` shown; earlier criterion-change paragraphs and the evidence list name both rows by their new
 names. The fixture `shortProjectDir` of `internal/daemon` now spells its temporary base by its long
 names on Windows (`filepath.EvalSymlinks`): a hosted Windows runner's temporary directory is spelled
 with an 8.3 name (`C:\Users\RUNNER~1\AppData\Local\Temp`), whose `~` would leave every root under it
 without a unit; with `TMP` and `TEMP` set to an 8.3 spelling, ten `internal/daemon` rehydrate rows fail
 on the D64 gate without that change, and all pass with it. No golden changed. Red-first: with
 pathgate.go of f2171654 overlaid on the new tests, `TestBuild_ARootOutsideTheWhitelistHoldsNoRootUnit`
-fails on every excluded root (18 on Windows; 26 in a Linux container, where `" | < > * ?`, a `:`, a
+fails on every excluded root (19 on Windows; 27 in a Linux container, where `" | < > * ?`, a `:`, a
 backslash and a tab may stand in a name too), each on a summary that spells the root shown under the
-unit, or for a Unicode space on its ASCII-space sibling, and passes on the five admitted ones;
+unit, or for a Unicode space on its ASCII-space sibling, and passes on the four admitted ones;
 `TestBuild_AnApostropheInTheRootHoldsNoRootUnit` and
 `TestRehydrateHostPaths_ARootOutsideTheWhitelistHoldsNoRootUnit` fail there on each excluded root, on
 Windows and in the container alike; `TestBuild_ACutRightAfterAProviderDriveColonIsWithheld` fails on
 all twelve of its drive and provider spellings, while its `C:…` row and its inert controls pass;
-`TestBuild_AReasonHoldsTheRootASummaryDoesNot` and `TestBuild_ABareDriveNameNamesADriveRoot` pass
-there, as pins of what D64 leaves as it is. On the w19d corpus nothing flips: f2171654 and the D64
-fix (323ffe65) both show 193 and withhold 81 under UAT-12's rules in the Windows build (0 leaks, 53
+`TestBuild_APathOrNameAfterAPlusIsJudged` fails on all nine of its withheld spellings, its four
+shown ones passing; `TestBuild_AReasonHoldsTheRootASummaryDoesNot` and
+`TestBuild_ABareDriveNameNamesADriveRoot` pass there, as pins of what D64 leaves as it is. A `+`
+starting a path over-withholds a `c++/` directory (`ls include/c++/v1`) and flips no earlier row. On
+the w19d corpus nothing flips: f2171654 and the D64 fixes (323ffe65, b9505d53) both show 193 and
+withhold 81 under UAT-12's rules in the Windows build (0 leaks, 53
 over-withheld), and 192 and 82 (0 leaks, 54 over-withheld) in the Linux build, since every corpus
 root keeps its unit. Run under a root of `o'brien` or of `a,b`, the same corpus shows 149 and
 withholds 125 after the fix (0 leaks, 97 over-withheld), against f2171654's 193 and 81: the 44 flips

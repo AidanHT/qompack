@@ -100,8 +100,9 @@ two hex digits, a backtick, a caret, a glob or regex metacharacter, a quote else
 or quote, a `=` that starts a word (zsh expands `=name` to a command's path), a `#` inside a word (a
 zsh extended-glob operator), a whole `@name` (a PowerShell splat), a backslash that ends a token (an
 escaped space or a collapsed line continuation) or doubles, an absolute path at any place a path may
-start (the token's start, after `=`, `:`, `,`, `@`, an apostrophe, a parenthesis or the `#` that
-starts a token, or after a short option: a home directory, a drive, a UNC share, a `file:` URL, or a
+start (the token's start, after `=`, `:`, `,`, `@`, an apostrophe, a parenthesis, a `+` (where
+cmd.exe's `copy` starts its next source) or the `#` that starts a token, or after a short option: a
+home directory, a drive, a UNC share, a `file:` URL, or a
 PowerShell drive or provider such as `Temp:`, `Env:`, `HKCU:`, `Registry::` or any name `New-PSDrive`
 defines, other than recall's `path:` selector, a hash's `sha256:` and a URL's scheme), a `..` beside
 a separator, a delimiter or a word's end (cmd.exe's `cd..` included; a range such as `HEAD~3..HEAD`
@@ -109,9 +110,10 @@ is not one), or, inside a quoted argument, the project root followed by a space 
 an operator where the argument's path starts (a sibling folder). The project root's own spelling is
 read with `/` alone on Linux and macOS, and with one slash style throughout on Windows, since a POSIX
 shell drops a backslash between two of its segments and reads a sibling of an ancestor; and it is
-held together as one unit only when it holds nothing but letters, marks, digits, `- _ . @ +`, its
+held together as one unit only when it holds nothing but letters, marks, digits, `- _ . @`, its
 separators and spaces (coordinator decision D64). A root with any other character (an apostrophe, a
-comma, a `;`, a `$`, a `~`, a Unicode space, and the like) is one a shell can split or reinterpret, so
+comma, a `+`, a `;`, a `$`, a `~`, a Unicode space, and the like) is one a shell can split or
+reinterpret, so
 a summary spelling it is judged as the free text it is and withheld. A store cut right after a drive
 or provider name's `:` (`Temp:…`) is withheld, since the cut may hide the file after it; a bare
 drive or provider name with nothing after its `:` (`Get-ChildItem Temp:`, a commit message's `fix:`)
