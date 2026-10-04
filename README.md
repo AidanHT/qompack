@@ -83,7 +83,7 @@ disagree):
 | `bench-gate` | ubuntu-latest, macos-latest, windows-latest | the hot-path budget gate |
 | `crossbuild` | ubuntu-latest | `devtool build-all` — six targets: linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, windows/amd64, windows/arm64 |
 | `cover`, `replay-gate`, `plugin-validate`, `security`, `docs` | ubuntu-latest | coverage floors, the replay gate, the plugin bundle check, `govulncheck` and the import allowlist, and the generated-document drift check |
-| `release-dry-run` | ubuntu-latest | the six bundles at the release version (`internal/core.Version`), kept as a workflow artifact; then `devtool release-check` without a tag, then the six dry-run archives and the marketplace document |
+| `release-dry-run` | ubuntu-24.04 | the six bundles at the release version (`internal/core.Version`), kept as a workflow artifact; then `devtool release-check` without a tag, then the six dry-run archives and the marketplace document |
 
 `test-e2e`, `timing`, `cover`, `bench-gate` and `release-dry-run` run with
 `QOMPACK_NONREFERENCE_DISK=1`: a hosted runner's disk is not the reference platform, so its
