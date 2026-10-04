@@ -522,7 +522,7 @@ func TestEnsureRunningUntil_ThePollEndsAtItsDeadline(t *testing.T) {
 
 			spawned, err := ensureRunningWith(root, "self", logging.Nop(), clk,
 				pollBound{until: until, after: spawnLockMissBound, latest: until.Add(spawnLockTestBound)},
-				f.spawnNever, dials.probe)
+				f.spawnNever, dials.probe, wallPollClock{})
 			over := time.Since(until)
 			require.ErrorIs(t, err, core.ErrNotFound, "no daemon answered within the wait")
 			got := dials.dials()
