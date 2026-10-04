@@ -741,7 +741,8 @@ a.txt+\Windows\win.ini out.txt` reads the drive-rooted file, measured on the Win
 screen read `+` as continuing a name, so neither a path nor a name started after it and both that
 command and `copy a.txt+.env out.txt` were shown. A path and a name now start after a `+` (item 7(b)
 and (c)), and `+` is outside the root unit's set (item 8); this is the stricter reading, recorded for
-the coordinator's ratification with D64. The round-2 verify of those fixes found two more gaps, and
+the coordinator's ratification with D64, which ratified it with wave 19f's open items (below). The
+round-2 verify of those fixes found two more gaps, and
 both are closed under D64(1)'s STRICT reading. `@` stood in the unit's set, though PowerShell splats
 a word that is a whole `@name` and a space in the root starts a word (with `$Work` an array, `f
 C:\q\John @Work` hands `f` the two arguments `C:\q\John` and the array's element, measured with
@@ -752,6 +753,27 @@ a trailing space it read a sibling spelled with one space as the root and showed
 outside the project (D50; f2171654 did the same, and the round-2 verify measured it on Windows and
 Linux). A root that no sanitized text spells exactly is now held in no text, neither a summary nor a
 reason, and a reason that names a path under it is redacted (items 8 and 9).
+
+Wave 19f's final verify and its open items brought four more D64 rulings, implemented strictly. (1)
+A path-named JSON value the store's cut fell inside counted as the project when it was a start of the
+root's spelling compared in screen form, which deletes `` ' " ` \ ^ ``, folds whitespace runs, reads `\`
+as `/`, collapses a repeated separator and lower-cases by Unicode, so a cut value that differed from
+the root only there showed a directory beside the project (`<q>/John'athan` or `<q>/John  Smith`
+beside the root, `<q>/obrien` beside a root `<q>/o'brien`, the Kelvin sign beside a root `kate`,
+which NTFS does not fold). The raw spelling is now compared exactly: byte for byte, folding only an
+ASCII letter's case and only on Windows and macOS, with nothing deleted and no whitespace folded,
+and any other value is judged by the directory it spells (item 9). (2) A program that takes its
+command line through the ANSI code page receives each character the code page cannot hold as
+Windows' best fit for it, and some best fits are ASCII punctuation (U+02BA is `"`, U+02B9, U+02BC
+and U+02C8 an apostrophe, U+0303 `~`). Those code points are now unsafe in the free-text whitelist
+and in the root unit on every platform: the whole Spacing Modifier Letters block and the letters
+and marks outside it that a measurement of the ANSI code pages found (item 7(a), item 8). (3) A root
+with a word that starts with `-` after one of its spaces gets no root unit, since PowerShell binds
+such a word as a parameter (item 8). That was the shape the round-2 verify left open. (4) Three
+behaviours are ratified with no code change: the `+` path start, name start and root-unit exclusion
+(b9505d53); a drop reason keeps holding an exactly spelled root whatever its characters, since a
+reason is a product string and not shell input; and `recordedPath` keeps holding every root, since
+learning only withholds more (items 7(b), 8 and 9).
 
 1. *A degraded compaction that dropped material is never silent* (D59, UAT-05 F-C7-UAT05-1). At
    UAT-05's `runtime.rehydrate.minTokens` = `maxTokens` = 150 the retrieval line (86 tokens) does
@@ -1008,9 +1030,10 @@ reason, and a reason that names a path under it is redacted (items 8 and 9).
    that opens at a token's start, keep their spaces. The summary is SHOWN only when all of these hold,
    and otherwise is withheld ("summary withheld"; the pointer keeps its id and hash):
    - (a) *Every token is safe.* A plain token is built only from Unicode letters, marks and digits
-     plus the ASCII set `- _ . , : @ + /`, with `~` and `=` allowed inside a word (`HEAD~1`,
-     `--out=x`) but not at a token start or after `= : , @` (a `=` with no name after it, `=` or `==`,
-     is allowed), `#` only in a token that starts with one (a comment to every shell), an apostrophe
+     (none whose Windows ANSI best fit is ASCII punctuation, below) plus the ASCII set
+     `- _ . , : @ + /`, with `~` and `=` allowed inside a word (`HEAD~1`, `--out=x`) but not at a
+     token start or after `= : , @` (a `=` with no name after it, `=` or `==`, is allowed), `#` only
+     in a token that starts with one (a comment to every shell), an apostrophe
      only between two letters (`what's`, `user's`) and with no root's unit after the first such
      apostrophe outside a quoted run (below), and `\` allowed only before a character other than
      another backslash; a whole PowerShell splat `@name` (`@args`, `@env:HOME`) is unsafe. A backslash
@@ -1025,9 +1048,10 @@ reason, and a reason that names a path under it is redacted (items 8 and 9).
      hold `(` and `)` (not after `+` or `@`) and a backslash (literal in every shell, below); a simple
      single-quoted run `'…'` at a token's start whose content holds no quote of either kind, backtick,
      `$` or backslash, judged as a double-quoted run's content is; or an http(s) URL whose part after
-     the scheme holds only letters, marks, digits and `- . _ ~ : / ? # @ & = +` (no `,`, at which
-     PowerShell splits a bare argument into an array, nor any other character a shell splits a word at
-     or expands), is a plain token apart from its `?` and `#`, and whose parts after an `&` are plain
+     the scheme holds only letters, marks, digits (as above) and `- . _ ~ : / ? # @ & = +` (no `,`,
+     at which PowerShell splits a bare argument into an array, nor any other character a shell splits
+     a word at or expands), is a plain token apart from its `?` and `#`, and whose parts after an
+     `&` are plain
      tokens. A token with `;`, `|`, `&&` or `||` glued into it (`TODO|FIXME`, `2>&1;tail`) is split
      there, and each piece must be a safe token. A single `%` in the text is a name character when what
      follows it is not two hex digits (a percent-escape `%XX`), nor `u` and four hex digits (the
@@ -1115,12 +1139,30 @@ reason, and a reason that names a path under it is redacted (items 8 and 9).
      token and never precedes another backslash, one pass of that rule leaves no backslash behind, so
      a nested shell (`bash -c`, `sh -c`) re-reading the result changes nothing more; (b) and (c) judge
      exactly those two readings.
+   - *Windows' ANSI best fit* (D64's ruling on wave 19f's open items). A program that takes its
+     command line through the ANSI code page (a C program's `argv`, `GetCommandLineA`) receives each
+     character that code page cannot hold as Windows' best fit for it (`WideCharToMultiByte` without
+     `WC_NO_BEST_FIT_CHARS`). Some best fits are ASCII punctuation, which no shell produces from a
+     letter and (b) and (c) would not read: U+02BA becomes `"`, U+02B9, U+02BC and U+02C8 an
+     apostrophe, U+0302 `^`, U+0303 `~`. So no letter, mark or digit whose best fit is ASCII
+     punctuation is safe (`wordRune`, `bestFitPunct`), in a word, a quoted run, a URL or the root's
+     unit (item 8). The set is every code point of the Spacing Modifier Letters block (U+02B0 to
+     U+02FF), where most such mappings lie, and outside it U+01C0 (`|`), U+01C3 (`!`), U+0300 (an
+     apostrophe or a backtick), U+0302 and U+0303, U+030E (`"`), and U+0331 and U+0332 (`_`). They
+     were measured with `WideCharToMultiByte` over every Unicode scalar value in the ANSI code pages
+     874, 932, 936, 949, 950 and 1250 to 1258 on the Windows host, counting a best fit to any ASCII
+     character other than a letter or a digit (`TestWhitelist_NoANSIBestFitToPunctuationIsSafe`
+     repeats the measurement on every Windows run). No other modifier letter (Lm) has such a best
+     fit, and a modifier symbol (Sk) was never safe. The OEM code pages' further best fits (U+0301
+     and U+0308 to an apostrophe and `"` in code page 437, U+0327 to `,`, U+20DD to a tab) are left
+     as they are, since no command line is converted into an OEM code page.
    - *Where a path can start inside a token.* A program reads a path at an argument's start, as an
      option's value (glued to a short option, or after `=`), in a list (after `,` or `:`, PATH-style,
      or scp's `host:/path`) and as a response or data file (after `@`); PowerShell reads one as a
      parameter's value after `-Param:` and as each element of an array after `,`, and a comment's text
      names its path to the model after the `#` that starts it; cmd.exe's `copy` reads its next source
-     after a glued `+` (`copy a.txt+\Windows\win.ini out`; D64). (b) looks at each of those places,
+     after a glued `+` (`copy a.txt+\Windows\win.ini out`; D64, ratified with wave 19f's open
+     items, as is `+`'s exclusion from the root unit, item 8). (b) looks at each of those places,
      and for a `..` at every delimiter and at a word's end. `-`, `_` and `.` continue a name (cmd.exe's
      built-in commands split their arguments at its documented delimiters, a space, a tab, `,`, `;`
      and `=`, each already a split or a path start here, and `copy` also at `+`; `type a,b` types
@@ -1243,7 +1285,10 @@ reason, and a reason that names a path under it is redacted (items 8 and 9).
    Nothing is left for a shell to do that the whitelist has not already rejected or that (b) and (c)
    do not read; what lies outside the claim (an alias, a link, a Unicode variant, a name relative to a
    `cd`, a glob that selects a file Qompack never recorded without spelling its literal) is item 2's
-   list.
+   list. So is a character the ANSI code page cannot hold at all, which a program reading an ANSI
+   command line receives as the code page's default character `?`, a glob to a program that expands
+   its own arguments (`de统y.txt` reaching such a program as `de?y.txt`); it is no best fit, so D64's
+   ruling does not reach it, and it is open for a coordinator ruling.
    *Deliberate limits.* The whitelist over-withholds, by design: a command that uses a variable,
    globs (outside a Glob preview), runs a regular expression, holds `(`, `)`, `{` or `}` outside a
    quoted run, `;` or `|` inside one, a glob inside a quoted run, two `%` (`git log --format="%h %s"`,
@@ -1263,12 +1308,15 @@ reason, and a reason that names a path under it is redacted (items 8 and 9).
    of these that wave 19e flipped from shown (`git log --pretty=format:%h`, `curl localhost:3000`,
    `{"skill":"plugin:name"}`). Since D64 so is every summary that spells a root whose own spelling has
    no unit (item 8: a root with an apostrophe, a comma, an `@`, a `~` or any other character outside
-   the unit's set, or with a run of spaces), and a store cut right after a drive's `:` (item 9). On
-   the w19d corpus of 274 previews that is about one in five everyday summaries that name nothing
-   private (53 of 246 under UAT-12's rules, 50 at f3196046, and 53 again at f2171654, after D64's fix
-   and after its round-2 fixes, whose corpus roots all keep their unit); each still points by id and
-   hash. Aliases, 8.3 names, links and
-   Unicode normalization or compatibility variants typed in free text are not resolved, and a name
+   the unit's set, a letter whose ANSI best fit is ASCII punctuation, a word that starts with `-`
+   after a space, `OneDrive - Contoso` among them, or a run of spaces), a word holding such a letter
+   or mark (the Hawaiian ʻokina U+02BB, the U+0300 of a decomposed `è`), and a store cut right after a
+   drive's `:` (item 9). On the w19d corpus of 274 previews that is about one in five everyday
+   summaries that name nothing private (53 of 246 under UAT-12's rules, 50 at f3196046, and 53 again
+   at f2171654, after D64's fix, after its round-2 fixes and after its rulings on wave 19f's open
+   items, whose corpus roots all keep their unit); each still points by id and hash. Aliases, 8.3
+   names, links and Unicode normalization or compatibility variants typed in free text are not
+   resolved, and a name
    relative to a `cd` cannot be seen (item
    2). Inside a quoted run the root is held together too, although a nested shell (`bash -c "cd
    <root> && …"`) would split a root that has a space at that space; the pieces it would read spell
@@ -1283,10 +1331,20 @@ reason, and a reason that names a path under it is redacted (items 8 and 9).
    root at its own space and the screen never reads the root's own name as a withheld name.
    *Which roots have a unit* (D64(1), STRICT). The unit stands for the root only if every shell reads
    the root's spelling as that one path, so it is held only when the root's own spelling, cleaned and
-   slash-separated, consists of Unicode letters, marks and digits, `- _ .`, its separators, single
-   ASCII spaces between other characters and, on Windows, the drive's `:` (`rootUnitAdmitted`). These
-   are the free-text whitelist's characters at which no shell splits or reinterprets a word; a space
-   is the case the unit exists for, read by the sibling rules below.
+   slash-separated, consists of Unicode letters, marks and digits the whitelist admits (none whose
+   Windows ANSI best fit is ASCII punctuation, item 7(a)), `- _ .`, its separators, single ASCII
+   spaces between other characters and, on Windows, the drive's `:`, and no word of it starts with
+   `-` after one of its spaces (`rootUnitAdmitted`). These are the free-text whitelist's characters
+   at which no shell splits or reinterprets a word; a space is the case the unit exists for, read by
+   the sibling rules below. D64's rulings on wave 19f's open items added the last two conditions. A
+   letter whose best fit is punctuation reaches a program that reads an ANSI command line as that
+   punctuation (`C:\q\aʺb\proj` as `C:\q\a"b\proj`), and since the unit hides the root's characters
+   from the whitelist, the whitelist's own exclusion would not see it. A word of the root that starts
+   with `-` after a space binds as a parameter of a PowerShell cmdlet or advanced function (`g
+   C:\q\John -Force\proj` sets `g`'s `-Force`, measured with PowerShell 7 and 5.1). A lone `-`
+   (`OneDrive - Contoso`, the folder OneDrive for Business creates) is passed as text, but it is a
+   word that starts with `-` too, so it loses its unit with the rest, as the ruling words it; a `-`
+   inside a word, or starting a segment after a separator, keeps it.
    The whitelist's other characters are left out: `@` (PowerShell splats a word that is a whole
    `@name`, and a space in the root starts a word: with `$Work` an array, `f C:\q\John @Work` hands
    `f` the two arguments `C:\q\John` and the array's element, measured with PowerShell 7 and 5.1, so
@@ -1321,8 +1379,12 @@ reason, and a reason that names a path under it is redacted (items 8 and 9).
    (`checkpoint: git worktree gitdir at C:\q\a b\proj\.git\worktrees\wt is unreadable` under a root
    `C:\q\a<U+00A0>b\proj`). Unheld, such a root's own whitespace or control character splits a path
    under it, whose first piece is outside the project, so the reason fails closed: one that names a
-   path under the root is redacted too. The learning of a withheld path's names (`recordedPath`) holds
-   the root whatever its spelling, exact or not, since learning more only withholds more. A POSIX
+   path under the root is redacted too. D64 ratified this with wave 19f's open items: a reason keeps
+   holding an exactly spelled root whatever its characters, since it is a product string and not shell
+   input. The learning of a withheld path's names (`recordedPath`) holds the root whatever its
+   spelling, exact or not, since learning more only withholds more; D64 ratified that too
+   (`TestBuild_AWithheldPathIsLearnedUnderEveryRoot` pins it under roots with an apostrophe, a run of
+   spaces, a dash word and a best-fit letter). A POSIX
    shell, Git Bash on Windows included, drops a backslash between two of the root's segments and joins
    them (`/home\u/proj` is `/homeu/proj`, `C:/q\proj` is `C:/qproj`, a sibling of an ancestor of the
    root), so a spelling with one there is not the root, and its text is judged as the free text it is
@@ -1347,8 +1409,9 @@ reason, and a reason that names a path under it is redacted (items 8 and 9).
    ./...`, `git -C <root> status`, `cd "<root>" && make`, `cd '<root>' && make`, `cat
    "<root>\src\main.go"` on every platform, `Set-Location <root>; go test ./...`, a nested shell that
    changes to the root and the root followed by a word (`<root> TODO`) are shown; a quoted sibling is
-   withheld; a root with an apostrophe (`o'brien`) has no unit since D64(1), so every summary that
-   spells it is withheld; and a Docker `/src` target is over-withheld.
+   withheld; a root with an apostrophe (`o'brien`), a best-fit letter (`aʼb`) or a dash word (`John
+   -Force`, `OneDrive - Contoso`) has no unit since D64, so every summary that spells it is withheld;
+   and a Docker `/src` target is over-withheld.
 9. *A cut summary, and section 7's reasons* (D63(2), (3) and (5)). The store cuts a preview at 120
    bytes with `…`. A cut summary's last token is judged as a prefix: it is withheld when it, or a piece
    of it split at a glued operator, is itself unsafe or names an outside path, or when the text ends,
@@ -1366,7 +1429,18 @@ reason, and a reason that names a path under it is redacted (items 8 and 9).
    so a cut inside such a name never shows its prefix; a cut inside a second spelling of the root,
    which the whitelist does not reassemble, is over-withheld. A cut structured value is judged by the
    directory it spells whole (by the host only when it is its preview's one path-named value) and by
-   the same prefix rule, so `{"file_path":"private/den…` is withheld; it is never a withheld name.
+   the same prefix rule, so `{"file_path":"private/den…` is withheld; it is never a withheld name. A
+   cut value that is the start of the root's own spelling is the project (`rootPrefix`). Since D64's
+   ruling on wave 19f's final verify it must start that spelling byte for byte: the cleaned root in
+   the platform's separators or, on Windows, in `/` throughout, with an ASCII letter's case folded
+   only on Windows and macOS, nothing deleted and no whitespace folded. It was compared in screen
+   form, which deletes `` ' " ` \ ^ ``, folds whitespace runs, reads `\` as `/`, collapses a repeated
+   separator and lower-cases by Unicode, so a cut value that differed from the root only there
+   (`<q>/John'athan`, `<q>/John^athan` or `<q>/John  Smith` beside the root, `<q>/obrien` beside a
+   root `<q>/o'brien`, on Linux `/q\Johnathan`, the entry `q\Johnathan` of `/`, and the Kelvin sign
+   beside a root `kate`, which NTFS does not fold to `k`) showed a directory beside the project. Any
+   other value is judged by the directory it spells, outside the project; a repeated separator,
+   which names the root, is over-withheld.
    No drop entry's reason, in section 7 or in `dropped()`, shows an absolute path outside the project or
    names a path the build withholds. A reason is Qompack's own error prose, not a shell command, so the
    screen is a product-string rule (D63): a part of the error chain that is a path outside the
@@ -1427,10 +1501,11 @@ reason, and a reason that names a path under it is redacted (items 8 and 9).
     and the Unicode boundary guesses be deleted, and they are; but `internal/rehydrate/pathgate.go` is
     not smaller than at e65ada8f. Measured with the pinned gocyclo v0.6.0 and gocognit v1.2.0: lines
     2059 (e65ada8f), 1949 (f708c693), 2410 after the round-2 fixes (f3196046), 2580 after the final
-    verify's (f2171654), 2658 after D64's (ee280d3a), 2687 after its round-2 fixes; non-blank
-    non-comment lines 1401, 1346, 1639, 1737, 1767, 1776; functions 91, 87, 105, 112, 115, 116;
-    gocyclo total 646, 572, 722, 765, 784, 788, maximum 26 throughout (`jsonStrings`); gocognit total
-    590, 563, 691, 732, 741, 744, maximum 38 throughout. The whitelist's
+    verify's (f2171654), 2658 after D64's (ee280d3a), 2687 after its round-2 fixes (895d41f4), 2766
+    after its rulings on wave 19f's open items; non-blank non-comment lines 1401, 1346, 1639, 1737,
+    1767, 1776, 1809; functions 91, 87, 105, 112, 115, 116, 118; gocyclo total 646, 572, 722, 765,
+    784, 788, 797, maximum 26 throughout (`jsonStrings`); gocognit total 590, 563, 691, 732, 741,
+    744, 756, maximum 38 throughout. The whitelist's
     completeness checks
     (path starts, `..` edges, both backslash readings, quoted runs, glob containment) replaced the
     state machines roughly line for line, and the extensions that recover everyday summaries (item
@@ -1531,7 +1606,12 @@ extension's argument in item 7: `TestBuild_ARootLedGlobPreviewNamesOnlyWhatTheHo
 (item 8), `TestBuild_ARootNoTextSpellsExactlyIsNeverHeld` (items 8 and 9, the round-2 verify),
 `TestBuild_ACutRightAfterAProviderDriveColonIsWithheld` (item 9),
 `TestBuild_ABareDriveNameNamesADriveRoot` (item 7(b)) and `TestBuild_APathOrNameAfterAPlusIsJudged`
-(item 7(b) and (c)). `internal/daemon`, through
+(item 7(b) and (c)). The rows of D64's rulings on wave 19f's open items:
+`TestBuild_ACutValueIsTheRootOnlyInItsOwnSpelling` (item 9),
+`TestBuild_ABestFitCharacterIsOutsideTheWhitelist` and, on Windows,
+`TestWhitelist_NoANSIBestFitToPunctuationIsSafe` (item 7(a)), `TestBuild_ABestFitRootHoldsNoRootUnit`,
+`TestBuild_ARootWithADashWordHoldsNoRootUnit` and `TestBuild_AWithheldPathIsLearnedUnderEveryRoot`
+(item 8). `internal/daemon`, through
 the real adapter and the real host rules: `TestRehydrateHostPaths_ASelectorNamingADeniedFileIsWithheld`,
 `TestRehydrateHostPaths_EverySpellingOfADeniedFileIsWithheld`,
 `TestRehydrateHostPaths_ADeniedPathWithDelimitersIsWithheld`,
@@ -1545,6 +1625,8 @@ the real adapter and the real host rules: `TestRehydrateHostPaths_ASelectorNamin
 `TestRehydrateHostPaths_ARootedPathWithASpaceIsJudgedByTheHost` (a real directory link),
 `TestRehydrateHostPaths_RootedCommandsAndRegularExpressionsAreShownUnderTheUAT12Rules`,
 `TestRehydrateHostPaths_ARootOutsideTheWhitelistHoldsNoRootUnit`,
+`TestRehydrateHostPaths_ABestFitOrDashRootHoldsNoRootUnit`,
+`TestRehydrateHostPaths_ACutValueIsTheRootOnlyInItsOwnSpelling` (the store's own cut),
 `TestRehydrateHostPaths_EscapedAndCaseFoldedSpellingsAreWithheldUnderTheUAT12Rules`,
 `TestRehydrateHostPaths_ARuleOverTheProjectThroughALinkWithholdsEveryFreeText` (a real directory
 link or junction), `TestRehydrateHostPaths_AFileURLInAPathNamedValueIsOutsideTheProject`,
@@ -1784,7 +1866,43 @@ that starts a word of the root after its space (a root ending in ` -Force`) bind
 PowerShell cmdlet or advanced function (`g C:\q\John -Force` sets `g`'s `-Force`, measured with
 PowerShell 7 and 5.1), while a lone `-` (`OneDrive - Contoso`, the folder OneDrive for Business
 creates) is passed as text; D64 lists `-` among the unit's characters and did not ask for it to be
-decided, so `-` stays in the set, and that shape is open for a coordinator ruling.
+decided, so `-` stays in the set, and that shape was left open for a coordinator ruling, which D64
+has since given (next paragraph).
+
+*Criterion changes (D64's rulings on wave 19f's open items).* No row that asserted a WITHHELD
+spelling changed, and no row that asserted a SHOWN one: `internal/rehydrate` and its
+`rehydratetest` package, and the 80 earlier `internal/daemon` rehydrate rows, pass unchanged on
+Windows (where one skips by platform) and in a Linux container run as an unprivileged user (run as
+root, `TestService_StateWriteFailureStillEmits` writes through the 0500 directory it sets up, on
+895d41f4 too). No golden changed. The behaviour changes with no earlier row: a cut
+path-named value is the project only when it starts the root's own spelling byte for byte (item 9),
+so a cut sibling that differs from the root by a quote, a caret, a backslash, a whitespace run or a
+non-ASCII case is withheld, and so is a repeated separator, which names the root (over-withheld);
+a letter, mark or digit whose ANSI best fit is ASCII punctuation is unsafe in free text and leaves
+the root unit (items 7(a) and 8), so a word holding one (the Hawaiian ʻokina U+02BB, the U+0300 of
+a decomposed `è`) is over-withheld; and a root with a word that starts with `-` after a space has
+no unit (item 8), `OneDrive - Contoso` among them, the ruling's stated cost. Red-first: on
+895d41f4, with the new rows overlaid, `TestBuild_ACutValueIsTheRootOnlyInItsOwnSpelling` fails on
+all four of its roots on Windows (`Johnathan`, `John Smith`, `o'brien`, `kate`) and on three in a
+Linux container, where paths do not fold and the Kelvin row passes; a Unicode-fold mutant of the
+fix (`paths.Key` on both sides) fails the Kelvin row on Windows.
+`TestBuild_ABestFitCharacterIsOutsideTheWhitelist` and `TestBuild_ABestFitRootHoldsNoRootUnit` each
+fail on 45 of their 88 code points, the block's 37 modifier letters and the 8 outside it, while the
+block's modifier symbols and the letter controls pass. `TestBuild_ARootWithADashWordHoldsNoRootUnit`
+fails on its five dash roots, and its three controls pass. The Windows measurement row fails at
+U+01C0. The daemon twins fail on their three best-fit and two dash roots, with the control root
+passing, and on the cut sibling. Each fix is separable (measured on Windows): with only the
+whitelist's exclusion reverted the character row fails on its 45 and the root row passes; with
+only the root unit's reverted the root row fails on its 45 and the character row passes, since the
+unit hides the root's characters
+from the whitelist; with only the dash condition reverted the dash row alone fails. The learning
+row passes on 895d41f4, as a pin of the ratification. On the w19d corpus nothing flips: 895d41f4
+and these fixes (c2a60db3, 28637640, b283dbb3) both show 193 and withhold 81 under UAT-12's rules in
+the Windows build (0 leaks, 53 over-withheld), and 192 and 82 (0 leaks, 54 over-withheld) in the
+Linux build. Run under a root of `OneDrive - Contoso`, `John -Force` or `aʼb` (U+02BC), the same
+corpus shows 149 and withholds 125 after the fixes (0 leaks, 97 over-withheld), against 895d41f4's
+193 and 81 on Windows (44 flips each) and 192 and 82 on Linux (43). Every flip is from SHOWN to
+WITHHELD and names nothing private: D64's accepted cost in such a root.
 
 ## Consequences
 
