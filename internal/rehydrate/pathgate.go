@@ -65,7 +65,9 @@ import (
 //     fit turns into punctuation) and no word that starts with `-` after a space, and a sanitized text
 //     spells it exactly (rootUnitAdmitted, rootSpelledExactly, D64(1) and its rulings on wave 19f).
 //     A cut path-named value is the project only when it starts the root's own spelling byte for
-//     byte (rootPrefix).
+//     byte (rootPrefix). The root's spelling in a text, a cut value's start and containment all fold
+//     an ASCII letter's case where the platform's paths fold, and no other character's (foldLiteral,
+//     asciiFoldEqual, RootRelative).
 //     When the host's rules are unavailable, or a rule covers the whole project, every free text is
 //     withheld, as re_read fails closed.
 //
@@ -477,7 +479,8 @@ func (j pathJudge) hostRefuses(p string) bool {
 // whose segment may match `..` through glob syntax (globClimbs), or that names a path outside the
 // project once its classes are read as what they nearly spell (classReading), is not: containment
 // cleans p as a literal path, while Qompack's own matcher, a shell, a glob library or the model reads
-// it as a pattern.
+// it as a pattern. An absolute p is within the project when it is the root or below it as
+// RootRelative compares them, an ASCII letter's case folded where paths fold and no other.
 func (j pathJudge) inside(p string) bool {
 	if globClimbs(p) {
 		return false
@@ -489,12 +492,37 @@ func (j pathJudge) inside(p string) bool {
 		c := filepath.Clean(filepath.FromSlash(p))
 		return c != ".." && !strings.HasPrefix(c, ".."+string(filepath.Separator))
 	}
-	if j.root == "" {
-		return false
+	_, ok := RootRelative(j.root, p)
+	return ok
+}
+
+// RootRelative is p, an absolute path, relative to root (`.` for root itself), and true; or false
+// when p is not root or below it, or root is empty. Both are cleaned (p's `/` read as the platform's
+// separator) and compared byte for byte, with an ASCII letter's case folded where the platform's paths
+// fold (asciiFoldEqual: Windows and macOS) and no other character folded. filepath.Rel, which
+// containment used, folds by Unicode on Windows, so a root spelled with the Kelvin sign (U+212A), the
+// long s (U+017F) or the Angstrom sign (U+212B) where the project's has `k`, `s` or `å` was the
+// project, though NTFS keeps it a directory beside it (wave 19g's final verify of D64); and on macOS
+// it folded nothing, while the root's spelling (rootSpellingOf) and its cut prefix (rootPrefix) fold
+// ASCII letters there. The daemon's host adapter reads a recorded path's place below the root by the
+// same rule, so the host judges the project path containment found.
+func RootRelative(root, p string) (string, bool) {
+	if root == "" {
+		return "", false
 	}
-	rel, err := filepath.Rel(filepath.Clean(j.root), filepath.Clean(filepath.FromSlash(p)))
-	return err == nil && !filepath.IsAbs(rel) && rel != ".." &&
-		!strings.HasPrefix(rel, ".."+string(filepath.Separator))
+	r, q := filepath.Clean(root), filepath.Clean(filepath.FromSlash(p))
+	if len(q) < len(r) || !asciiFoldEqual(q[:len(r)], r, paths.DefaultFold()) {
+		return "", false
+	}
+	switch rest := q[len(r):]; {
+	case rest == "":
+		return ".", true
+	case r[len(r)-1] == filepath.Separator:
+		return rest, true
+	case rest[0] == filepath.Separator:
+		return rest[1:], true
+	}
+	return "", false
 }
 
 // globClimbs reports whether p, read as a glob, may match a `..` segment its spelling does not show
@@ -2035,8 +2063,8 @@ func (j pathJudge) key(p string) (string, bool) {
 		return "", false
 	}
 	if absLike(p) {
-		rel, err := filepath.Rel(filepath.Clean(j.root), filepath.Clean(filepath.FromSlash(p)))
-		if err != nil {
+		rel, ok := RootRelative(j.root, p)
+		if !ok {
 			return "", false
 		}
 		p = rel
@@ -2210,7 +2238,11 @@ const rootMark = '\x01'
 
 // rootSpellingOf matches root as a text spells it: its separators repeated or not (a JSON escape
 // doubles them), and on Windows the MSYS and WSL spellings of its drive (`/c/`, `/mnt/c/`) and the
-// `\\?\` prefix. Case folds where the platform's paths fold. Nil for no root. On Linux and macOS a
+// `\\?\` prefix. An ASCII letter's case folds where the platform's paths fold (foldLiteral), and no
+// other character's: RE2's `(?i)` folds by Unicode's simple folding, which reads the Kelvin sign
+// (U+212A) as `k`, the long s (U+017F) as `s` and the Angstrom sign (U+212B) as `å`, while NTFS keeps
+// a name spelled with one a directory beside the name spelled with the letter (wave 19g's final
+// verify of D64). Nil for no root. On Linux and macOS a
 // spelling's separators are `/` alone, and on Windows one style throughout, every one `/` or every one
 // `\`: a POSIX shell (Git Bash on Windows too) drops a backslash and joins the segments around it
 // (`/q\proj` is /qproj, `C:/q\proj` is C:/qproj, a sibling of an ancestor of the root), so a spelling
@@ -2223,31 +2255,45 @@ func rootSpellingOf(root string) *regexp.Regexp {
 		return nil
 	}
 	clean := strings.Join(strings.Fields(filepath.ToSlash(filepath.Clean(root))), " ")
-	fold := ""
-	if paths.DefaultFold() {
-		fold = "(?i)"
-	}
+	fold := paths.DefaultFold()
 	if runtime.GOOS != "windows" {
-		return regexp.MustCompile(fold + rootSegments(clean, `/+`))
+		return regexp.MustCompile(rootSegments(clean, `/+`, fold))
 	}
 	fwd, back, rest := "", "", clean
 	if len(clean) >= 2 && clean[1] == ':' {
-		drive := regexp.QuoteMeta(clean[:2])
-		fwd = `(?://[?.]/)?(?:` + drive + `|(?:/mnt)?/` + regexp.QuoteMeta(strings.ToLower(clean[:1])) + `)`
+		drive := foldLiteral(clean[:2], fold)
+		fwd = `(?://[?.]/)?(?:` + drive + `|(?:` + foldLiteral("/mnt", fold) + `)?/` +
+			foldLiteral(strings.ToLower(clean[:1]), fold) + `)`
 		back = `(?:\\{2}[?.]\\)?` + drive
 		rest = clean[2:]
 	}
 	return regexp.MustCompile(
-		fold + `(?:` + fwd + rootSegments(rest, `/+`) + `|` + back + rootSegments(rest, `\\+`) + `)`)
+		`(?:` + fwd + rootSegments(rest, `/+`, fold) + `|` + back + rootSegments(rest, `\\+`, fold) + `)`)
 }
 
 // rootSegments is rest, a slash-separated stretch of the root's spelling, as a regular expression
-// whose every separator is sep.
-func rootSegments(rest, sep string) string {
+// whose every separator is sep, an ASCII letter matching in either case when fold is set.
+func rootSegments(rest, sep string, fold bool) string {
 	var b strings.Builder
 	for _, r := range rest {
 		if r == '/' {
 			b.WriteString(sep)
+			continue
+		}
+		b.WriteString(foldLiteral(string(r), fold))
+	}
+	return b.String()
+}
+
+// foldLiteral is s as a regular expression that matches s, each ASCII letter as a class of its two
+// cases when fold is set (`[kK]`) and every other character quoted as itself: the fold asciiFoldEqual
+// compares by, written out for RE2, whose `(?i)` would fold by Unicode instead.
+func foldLiteral(s string, fold bool) string {
+	var b strings.Builder
+	for _, r := range s {
+		if fold && r < utf8.RuneSelf && asciiLetter(byte(r)) {
+			lower := rune(byte(r) | 0x20)
+			b.WriteString("[" + string(lower) + string(lower-('a'-'A')) + "]")
 			continue
 		}
 		b.WriteString(regexp.QuoteMeta(string(r)))

@@ -790,9 +790,22 @@ func rehydrateHostPaths(p *hostperm.Policy, root string, log logging.Logger) reh
 			if rules.Evaluate(abs).Effect != hostperm.Allow {
 				return true
 			}
-			rel, err := filepath.Rel(root, abs)
-			if err != nil || resolved == root {
+			if resolved == root {
 				return false
+			}
+			// The path's place below the root is read as rehydrate's containment reads it
+			// (rehydrate.RootRelative: an ASCII letter's case folded where paths fold, nothing
+			// else), so the resolved spelling judged is the project path containment found; on
+			// macOS filepath.Rel folds nothing, and a root spelled in another ASCII case would put
+			// the judged spelling outside the resolved root. Rehydrate asks only about such paths;
+			// any other keeps filepath.Rel's reading, which can only judge one more spelling.
+			rel, ok := rehydrate.RootRelative(root, abs)
+			if !ok {
+				r, err := filepath.Rel(root, abs)
+				if err != nil {
+					return false
+				}
+				rel = r
 			}
 			return rules.Evaluate(filepath.Join(resolved, rel)).Effect != hostperm.Allow
 		}}
