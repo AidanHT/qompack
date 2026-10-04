@@ -478,6 +478,30 @@ host change could lift — as prepared proposals, none of which has been filed.
 - **Recorded at.** `plans/V6-CLOSEOUT-CHECKLIST.md` D35(c); `plans/sdd/V6-closeout/w7-spawnclaim/report.md`
   (open issues).
 
+### A quiet live session is counted as ended until its next hook
+
+- **Limit.** Qompack cannot tell a live session that has sent no hook for
+  `runtime.daemon.idleExitSeconds` from one whose client died without its `SessionEnd`. The host
+  runs no hook while the model writes a reply that calls no tool, or while it compacts, so a stretch
+  of either longer than the setting looks like a dead client: the daemon logs `daemon: ending
+  abandoned session; no SessionEnd arrived and it has been silent past the idle-exit window` and
+  stops counting the session as live, although the session is still open.
+- **Why.** Hooks are the only signal a session sends a plugin, and none of them is a heartbeat. The
+  daemon has to end a session whose client is gone, or a killed terminal would keep it running for
+  good, and silence is the only evidence it has.
+- **What Qompack does instead.** The end is bookkeeping only: nothing captured is lost, and no
+  marker, observer end of session or store GC pass runs for it. The session's next hook makes it
+  live again, and its own `SessionEnd` then ends it in full. If no other session is live and the
+  silence lasts one more window, the daemon exits; the next hook starts a new one, which replays
+  what was spooled meanwhile, and a `SessionEnd` that meets the daemon while it is stopping is the
+  case above. At the default of 1800 seconds this takes half an hour of silence. With the setting at
+  30, candidate 7's UAT-09 lane saw the line during a 34.5-second reply with no tool call; that
+  turn's `Stop` revived the session and its `SessionEnd` ended it about 1 second later.
+- **Recorded at.** [Troubleshooting §7](troubleshooting.md#7-daemon-problems) (the abandoned-session
+  entry); `internal/daemon/registry.go` (`EndAbandoned`, `Touch`);
+  `plans/sdd/V6-closeout/live/rerun-c7/UAT-09/` (`store-after-session1/`: the day log and
+  `index_segments.jsonl`).
+
 ### A compaction at the edge of session-start's budget can get the deferred note
 
 - **Limit.** A compaction's `SessionStart` that finds the daemon only at the end of the time
