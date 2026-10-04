@@ -52,7 +52,7 @@ func TestRun_LogsATakenOverLockAndASpoolReplay(t *testing.T) {
 	cancel()
 	select {
 	case <-errCh:
-	case <-time.After(drainDeadlockGuard):
+	case <-hangGuard(t):
 		t.Fatal("Run did not shut down after cancellation")
 	}
 

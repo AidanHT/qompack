@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"sync/atomic"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -72,7 +71,7 @@ func strayClaimThenStop(t *testing.T) (root string, clk core.Clock) {
 	cancelA()
 	select {
 	case <-errChA:
-	case <-time.After(stopCleanupBound):
+	case <-hangGuard(t):
 		t.Fatal("daemon A did not shut down")
 	}
 	_, held := ReadLock(root)
@@ -134,7 +133,7 @@ func TestSpawnClaim_AFlushAfterTheRunningDaemonExitsStartsExactlyOneDaemon(t *te
 	select {
 	case err := <-errChC:
 		require.NoError(t, err)
-	case <-time.After(stopCleanupBound):
+	case <-hangGuard(t):
 		t.Fatal("the flush's daemon did not shut down")
 	}
 }

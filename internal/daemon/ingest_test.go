@@ -282,7 +282,7 @@ func TestIngestResolvesBlobsEndToEnd(t *testing.T) {
 		require.Equal(t, string(toolResponse), string(got.Event.ToolResponse),
 			"the dispatched event must carry the full payload, not the empty externalized shape")
 		require.Empty(t, got.Raw, "the blob descriptor must be cleared once resolved")
-	case <-time.After(5 * time.Second):
+	case <-hangGuard(t):
 		t.Fatal("worker never received the dispatched request")
 	}
 
