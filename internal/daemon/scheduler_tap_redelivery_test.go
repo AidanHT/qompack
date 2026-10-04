@@ -3,17 +3,20 @@ package daemon
 // Delivery is at least once (ingest.dispatch's doc comment, DrainConfig.Seen): the ingest worker
 // runs the handler, and the scheduler tap inside it, BEFORE it commits the delivery's frontier
 // record, so a commit that fails — a Stop's runCancel landing in it, a bounded drain's context
-// ending in it — leaves the WAL line for a drain to replay through the same handler. The observer
-// absorbs such a replay (observer.redelivery_absorbed); the tap folded it a second time: the open
-// segment's tokens, the detector's posterior and the request-start anchor all took the same
-// delivery twice, and the doubled account was persisted (V6 close-out wave 20, C1.x; the 8-vs-12
-// red of TestARestartedDaemonBindsTheLiveSessionOnItsFirstHook).
+// ending in it — leaves the WAL line for a drain to replay through the same handler. The tap folded
+// such a replay a second time: the open segment's tokens, the detector's posterior and the
+// request-start anchor all took the same delivery twice, and the doubled account was persisted (V6
+// close-out wave 20, C1.x; the 8-vs-12 red of TestARestartedDaemonBindsTheLiveSessionOnItsFirstHook).
+// The observer absorbed every replay (observer.redelivery_absorbed) except a main-agent Stop's: a
+// Stop writes no record for its recognition rule to find, so a replayed Stop advanced the turn again
+// and every later record of the session was numbered one turn late (audit 2, finding 3). It now
+// recognizes a Stop by the identity of the session's last applied one, kept with the turn.
 //
 // These rows pin "one delivery, one application" at the tap, across a restart, and through the
-// real worker and drain with the commit cut where Stop cuts it. They also pin the one effect a replay
-// must still have: the segment close its cut run owed and did not make. None waits on a clock: the
-// cut is a context cancelled between the handler and the commit, which is the exact interleaving Stop
-// makes.
+// real worker and drain with the commit cut where Stop cuts it, for the observer's turn as well as
+// the tap's account. They also pin the one effect a replay must still have: the segment close its
+// cut run owed and did not make. None waits on a clock: the cut is a context cancelled between the
+// handler and the commit, which is the exact interleaving Stop makes.
 
 import (
 	"context"
@@ -329,6 +332,79 @@ func TestDrain_AnInterruptedCommitFoldsTheReplayedReadOnce(t *testing.T) {
 
 	require.True(t, journal.acknowledged(req.Nonce), "fixture sanity: the next pass replayed and committed it")
 	require.Equal(t, rec.Tokens, openTokens(r), "the replayed Read is in the account once")
+}
+
+// tappedReadOf is tappedRead for a Read of sess under its own nonce, tool_use_id and file.
+func tappedReadOf(t *testing.T, dd *daemon, sess core.SessionID, id core.ToolUseID, nonce rune, file string) job {
+	t.Helper()
+	req := ipc.Request{
+		Op: ipc.OpObserveTool, Session: sess, TS: core.NowMilli(dd.clk), Nonce: testDeliveryToken(nonce),
+		Event: &hookio.Event{
+			HookEventName: "PostToolUse", SessionID: sess, CWD: dd.root,
+			ToolName: "Read", ToolUseID: id,
+			ToolInput:    json.RawMessage(`{"file_path":"` + file + `"}`),
+			ToolResponse: json.RawMessage(`{"content":"A = 1\nB = 2\nC = 3\n"}`),
+		},
+	}
+	line, err := ipc.EncodeRequest(req)
+	require.NoError(t, err)
+	dd.registry.Touch(sess, req.TS)
+	require.NoError(t, dd.ing.Accept(req, line))
+	return <-dd.ing.ring
+}
+
+// TestIngest_AStopThatCutsItsOwnCommitAdvancesTheTurnOnce is audit 2's finding 3 through the real
+// worker and drain. A main-agent Stop between two Reads moves the second Read one turn past the
+// first. When Stop's runCancel lands between the Stop's handler and its commit, Stop's drain replays
+// the Stop: the tap recognized the replay, but the observer ran the turn boundary again, so the
+// second Read landed two turns past the first and the scheduler's maxTurn followed it. A cut Stop
+// must leave the turns exactly as an uncut one does.
+func TestIngest_AStopThatCutsItsOwnCommitAdvancesTheTurnOnce(t *testing.T) {
+	run := func(t *testing.T, cut bool) (core.TurnIndex, core.TurnIndex) {
+		t.Helper()
+		dd, o, r := tappedDaemon(t)
+		ctx := context.Background()
+		const sess core.SessionID = "sess-stop-replayed"
+		require.Equal(t, dispatchSettled,
+			dd.ing.dispatch(ctx, dd.runIngested, tappedReadOf(t, dd, sess, "toolu_before_stop", 'a', "src/a.py")))
+
+		stop := ipc.Request{
+			Op: ipc.OpObserveStop, Session: sess, TS: core.NowMilli(dd.clk), Nonce: testDeliveryToken('f'),
+			Event: &hookio.Event{HookEventName: "Stop", SessionID: sess, CWD: dd.root},
+		}
+		line, err := ipc.EncodeRequest(stop)
+		require.NoError(t, err)
+		dd.registry.Touch(sess, stop.TS)
+		require.NoError(t, dd.ing.Accept(stop, line))
+		workerCtx, runCancel := context.WithCancel(ctx)
+		defer runCancel()
+		dd.ing.dispatch(workerCtx, func(c context.Context, got ipc.Request) ipc.Response {
+			resp := dd.runIngested(c, got)
+			if cut {
+				runCancel() // Stop, between the handler and the commit
+			}
+			return resp
+		}, <-dd.ing.ring)
+		journal, err := dd.deliveryJournal()
+		require.NoError(t, err)
+		require.Equal(t, !cut, journal.acknowledged(stop.Nonce), "fixture sanity: the commit was cut or not")
+		_, err = dd.Drain(ctx) // Stop's own drain replays a cut Stop
+		require.NoError(t, err)
+		require.True(t, journal.acknowledged(stop.Nonce), "fixture sanity: the Stop is committed")
+
+		require.Equal(t, dispatchSettled,
+			dd.ing.dispatch(ctx, dd.runIngested, tappedReadOf(t, dd, sess, "toolu_after_stop", 'b', "src/b.py")))
+		before, err := o.Store.ToolUse(ctx, "toolu_before_stop")
+		require.NoError(t, err)
+		after, err := o.Store.ToolUse(ctx, "toolu_after_stop")
+		require.NoError(t, err)
+		return after.Turn - before.Turn, tapReadOnly(r, func(r *schedRuntime) core.TurnIndex { return r.maxTurn })
+	}
+	uncutDelta, uncutMax := run(t, false)
+	cutDelta, cutMax := run(t, true)
+	require.Equal(t, core.TurnIndex(1), uncutDelta, "fixture sanity: an uncut Stop is one turn boundary")
+	require.Equal(t, uncutDelta, cutDelta, "a replayed Stop must advance the turn exactly as one uncut Stop does")
+	require.Equal(t, uncutMax, cutMax, "the scheduler's highest turn follows the observer's")
 }
 
 // segmentOf reads one segment of fx's log.

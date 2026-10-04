@@ -359,9 +359,12 @@ identity.
 
 Every consumer of a delivery therefore has to tolerate seeing it twice, because the handler runs
 before the ack: a Stop or a bounded drain that cuts the ack replays the same delivery through the
-same handler. The observer absorbs the replay (`observer.redelivery_absorbed`). The scheduler tap
-applies each delivery once by its `ObservationID`, so a replay folds no tokens into the open segment,
-adds no detector observation and moves no request-start anchor (`sched.tap.redelivery`). The one
+same handler. The observer absorbs the replay (`observer.redelivery_absorbed`): a tool use, a prompt
+or a subagent capture by the record its first run published, and a main-agent Stop, which writes no
+record, by the identity of the session's last applied Stop, which `state/observer.json` keeps with the
+turn it advanced. The scheduler tap applies each delivery once by its `ObservationID`, so a replay
+folds no tokens into the open segment, adds no detector observation and moves no request-start
+anchor (`sched.tap.redelivery`). The one
 thing a replay does is make a segment close the first run owed and did not make: a task-boundary
 or changepoint close that the same cancel failed along with the ack. The ordering gate holds a
 session's next delivery until every earlier one is acknowledged, so the last delivery applied for a

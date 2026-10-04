@@ -65,7 +65,12 @@ type persistedSession struct {
 	// losing it on resume would make the first prompt after a daemon restart look like the first
 	// prompt of the session.
 	LastPromptTurn core.TurnIndex `json:"last_prompt_turn"`
-	SubagentSince  int            `json:"subagent_since"`
+	// LastStopObservation is sessionState.LastStopObs, written from the same snapshot as Turn so the
+	// two agree: a Stop the file's turn already counts is recognized when a restarted daemon's drain
+	// replays it. It is omitempty and additive: a file written before it existed loads with no
+	// identity, which recognizes nothing, the behaviour before it existed, so the version stays 1.
+	LastStopObservation core.ObservationID `json:"last_stop_observation,omitempty"`
+	SubagentSince       int                `json:"subagent_since"`
 	// TodoDone is persisted SORTED so the file is diffable and byte-stable across runs.
 	TodoDone []string           `json:"todo_done"`
 	ToolUses []persistedToolUse `json:"tool_uses"`
@@ -135,6 +140,7 @@ func (o *observer) rehydrate(p persistedSession) *sessionState {
 		LastToolUseID:   core.ToolUseID(p.LastToolUseID),
 		LastToolUseTurn: p.LastToolUseTurn,
 		LastPromptTurn:  p.LastPromptTurn,
+		LastStopObs:     p.LastStopObservation,
 		SubagentSince:   p.SubagentSince,
 		TodoDone:        make(map[string]bool, len(p.TodoDone)),
 		WarnedRules:     make(map[grammar.RuleID]bool),
@@ -226,19 +232,20 @@ func snapshotSession(st *sessionState) persistedSession {
 	}
 
 	return persistedSession{
-		Turn:            st.Turn,
-		PrefixTokens:    st.PrefixTokens,
-		Segment:         st.Segment,
-		PrevSegment:     st.PrevSegment,
-		SegStartTurn:    st.SegStartTurn,
-		SegStartPos:     st.SegStartPos,
-		LastTS:          st.LastTS,
-		LastToolUseID:   string(st.LastToolUseID),
-		LastToolUseTurn: st.LastToolUseTurn,
-		LastPromptTurn:  st.LastPromptTurn,
-		SubagentSince:   st.SubagentSince,
-		TodoDone:        done,
-		ToolUses:        tus,
+		Turn:                st.Turn,
+		PrefixTokens:        st.PrefixTokens,
+		Segment:             st.Segment,
+		PrevSegment:         st.PrevSegment,
+		SegStartTurn:        st.SegStartTurn,
+		SegStartPos:         st.SegStartPos,
+		LastTS:              st.LastTS,
+		LastToolUseID:       string(st.LastToolUseID),
+		LastToolUseTurn:     st.LastToolUseTurn,
+		LastPromptTurn:      st.LastPromptTurn,
+		LastStopObservation: st.LastStopObs,
+		SubagentSince:       st.SubagentSince,
+		TodoDone:            done,
+		ToolUses:            tus,
 	}
 }
 
