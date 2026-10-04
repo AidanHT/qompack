@@ -105,9 +105,11 @@ func requireScreened(t *testing.T, root string, hp HostPaths, files, shown, with
 // TestBuild_NestedShellsNeverShowADeniedPath, under D63, no longer models what each shell's quoting
 // means: a command that runs another shell (`powershell -Command`, `bash -c`, `sh -c`, `wsl -e`)
 // quotes the inner command with single quotes, backticks or escapes, and every such token is outside
-// the whitelist (a quote, a backtick, a `\` inside a double-quoted run, a `&` glued to a word), so
+// the whitelist (a quote inside a run, a backtick, a doubled `\`, a single `&` glued to a word), so
 // the whole summary is withheld — whether it names a denied file or an allowed one (accepted
-// over-withholding, ADR 0011 §23). The privacy guarantee holds: no denied path reaches section 6.
+// over-withholding, ADR 0011 §23). A `&&` glued to a word splits it (operatorPieces), so `cat
+// docs/guide.md&&ls` is shown, as it was before D63. The privacy guarantee holds: no denied path
+// reaches section 6.
 func TestBuild_NestedShellsNeverShowADeniedPath(t *testing.T) {
 	root := previewRoot("proj")
 	commands := func(dir, john, secret, paren, plain string) []string {
@@ -125,9 +127,11 @@ func TestBuild_NestedShellsNeverShowADeniedPath(t *testing.T) {
 		}
 	}
 	denied := []string{"private/John's notes.txt", "private/my secret.txt", "private/deny (1).txt", "private/deny.txt"}
-	withheld := append(commands("docs", "John's notes.md", "my notes.md", "draft (1).md", "guide.md"),
+	docs := commands("docs", "John's notes.md", "my notes.md", "draft (1).md", "guide.md")
+	shown := []string{docs[8]}
+	withheld := append(append(docs[:8:8], docs[9:]...),
 		commands("private", "John's notes.txt", "my secret.txt", "deny (1).txt", "deny.txt")...)
-	requireScreened(t, root, hostRules(root, prefixed("./", denied)...), nil, nil, withheld,
+	requireScreened(t, root, hostRules(root, prefixed("./", denied)...), nil, shown, withheld,
 		[]string{"John''s notes.txt", "my secret.txt", `my\\ secret.txt`, "deny (1).txt", "deny.txt"})
 }
 
