@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"context"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -13,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/qompack/qompack/internal/config"
+	"github.com/qompack/qompack/internal/hookio"
 	"github.com/qompack/qompack/internal/logging"
 	"github.com/qompack/qompack/internal/obs"
 	"github.com/qompack/qompack/internal/paths"
@@ -278,6 +280,56 @@ func TestHookCapture_ModeOffWritesNothing(t *testing.T) {
 		require.False(t, recordReplaced(t, root), "a mode-off hook neither rewrites nor removes the record")
 		require.Zero(t, linesWith(day, "could not update config violations"), day)
 	})
+	// Wave 22 fix round 2. A delivery the read refused still reaches admission when it brought
+	// bytes and the project has a .qompack/ (hookRefusalIsRecordable), so the mode-off return must
+	// stop the configuration report on that path too. What remains is the read's own refusal: doHook
+	// logs it to logs/hook-quiet-YYYYMMDD.jsonl (hookclient.go, a known issue outside this row's
+	// files), and that line names the read, never the configuration. A fix that drops it still passes.
+	for _, tc := range []struct {
+		name, readErr string
+		stdin         func(root string) io.Reader
+	}{
+		{"over the read bound", "hook input exceeds capture bound", func(string) io.Reader {
+			return &countedAdmissionReader{remaining: hookCaptureMaxBytes + 1}
+		}},
+		{"short read", "hook input unavailable", func(root string) io.Reader {
+			full := entryPayload(t, hookio.EventUserPromptSubmit, root)
+			return &shortAdmissionReader{payload: full[:len(full)/2]}
+		}},
+		{"nothing read", "hook input unavailable", func(string) io.Reader { return errReader{} }},
+	} {
+		t.Run("refused read/"+tc.name, func(t *testing.T) {
+			root := t.TempDir()
+			writeAdmissionConfig(t, root, `{"runtime":{"mode":"off"},"eval":{"minSessions":-3}}`)
+			l := paths.Of(root)
+			require.NoError(t, os.MkdirAll(l.Logs, 0o700))
+			t.Chdir(root)
+			var out, errw bytes.Buffer
+			env := Env{Getenv: noEnv, Clock: testClock(), HomeDir: t.TempDir(), Stdin: tc.stdin(root)}
+			require.Equal(t, ExitOK, Dispatch(context.Background(), All(), []string{"qompack", "observe", "prompt"},
+				env, &out, &errw), "stderr=%s", errw.String())
+			require.JSONEq(t, `{}`, out.String())
+
+			var quiet []string
+			for _, e := range treeEntries(t, l.Dot) {
+				switch {
+				case e == "config.json", e == "logs":
+				case strings.HasPrefix(e, "logs/hook-quiet-") && strings.HasSuffix(e, ".jsonl"):
+					quiet = append(quiet, e)
+				default:
+					t.Errorf("a mode-off hook wrote %s under .qompack", e)
+				}
+			}
+			for _, q := range quiet {
+				raw, err := os.ReadFile(filepath.Join(l.Dot, filepath.FromSlash(q)))
+				require.NoError(t, err)
+				for _, line := range strings.Split(strings.TrimSpace(string(raw)), "\n") {
+					require.Contains(t, line, tc.readErr, "a hook-quiet line names the read's refusal")
+					require.NotContains(t, line, "config", "and never the configuration")
+				}
+			}
+		})
+	}
 }
 
 // writeRecord puts body at state/config-violations.json.

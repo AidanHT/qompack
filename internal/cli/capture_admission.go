@@ -119,7 +119,10 @@ func admitHookCapture(env Env, root string, in hookInput) (hookio.Capture, hooki
 	// writes state/config-violations.json, creates state/ and tmp/ for it, removes a record an earlier
 	// load left, and logs to the day log. Before audit 2's finding #20 it ran first, so a mode-off hook
 	// whose file also held an invalid value wrote all of that on every delivery. self-test and doctor
-	// still report the condition through their own read-only loads (config.LoadForCapture).
+	// still report the condition through their own read-only loads (config.LoadForCapture). A
+	// delivery whose read failed reaches this return too, and doHook still logs that read error to
+	// logs/hook-quiet-YYYYMMDD.jsonl after it (a known issue in hookclient.go, troubleshooting §8
+	// Step 3); TestHookCapture_ModeOffWritesNothing pins that nothing else is written on that path.
 	if cfg.Runtime.Mode == "off" {
 		return hookio.Capture{}, hookio.Event{}, cfg, nil
 	}
