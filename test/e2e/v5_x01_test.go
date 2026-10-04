@@ -345,6 +345,81 @@ func (d x1v5WaitDiag) String() string {
 	return b.String()
 }
 
+// x1v5T is the part of *testing.T x1v5RequireDiskHoldsLive needs: require's TestingT and Helper, so
+// TestV5_ObserveToStatusDiskArmReportsAFailedLiveRead can hand it a recorder.
+type x1v5T interface {
+	require.TestingT
+	Helper()
+}
+
+// x1v5RequireDiskHoldsLive asserts that diskBA, the B-A row status read from the persisted snapshot,
+// holds every sample the live arm displayed for hist. live is the live arm's report, and it forwards
+// no payload when that read failed: the live subtest has then already failed and quoted status's
+// reason. This reports that there is nothing to compare against, and returns so the disk arm checks
+// the rest of its own source. Dereferencing the missing payload panicked instead, and a panic ends
+// the whole test binary, so every row after this one went unrun (wave 20's status verifier lost
+// X14 that way).
+func x1v5RequireDiskHoldsLive(t x1v5T, diskBA *commands.Latency, live commands.StatusReport, hist string) {
+	t.Helper()
+	if live.Snapshot == nil {
+		t.Errorf("the live arm's status read forwarded no daemon payload (source %s, status %s: %s), "+
+			"so the persisted B-A cannot be compared with what the live arm displayed",
+			live.Primary.Source, live.Primary.Status, live.Primary.Reason)
+		return
+	}
+	if diskBA == nil {
+		t.Errorf("the disk arm displays no B-A reading to compare with the live arm's")
+		return
+	}
+	require.GreaterOrEqual(t, diskBA.N, live.Snapshot.Latency[hist].N,
+		"the persisted B-A holds every sample the live arm displayed")
+}
+
+// x1v5Recorder is an x1v5T that records what it is told instead of failing a test.
+type x1v5Recorder struct {
+	errs   []string
+	failed bool
+}
+
+func (r *x1v5Recorder) Errorf(format string, args ...any) {
+	r.errs = append(r.errs, fmt.Sprintf(format, args...))
+}
+
+func (r *x1v5Recorder) FailNow() { r.failed = true }
+
+func (r *x1v5Recorder) Helper() {}
+
+// TestV5_ObserveToStatusDiskArmReportsAFailedLiveRead pins what the disk arm of
+// TestV5_ObserveToStatusRoundTrip does when the live arm's status read answered from no daemon:
+// it reports one error naming the live read's source and reason, and does not panic. It also
+// checks the comparison still runs, and still fails, when there is a live payload.
+func TestV5_ObserveToStatusDiskArmReportsAFailedLiveRead(t *testing.T) {
+	const hist = "hook_controlled"
+	const reason = "daemon: a daemon is listening for this project but did not answer; disk: no snapshot"
+	failedLive := commands.StatusReport{Primary: commands.Provenance{
+		Source: commands.SourceNone, Status: commands.AvailabilityError, Reason: reason,
+	}}
+
+	rec := &x1v5Recorder{}
+	require.NotPanics(t, func() { x1v5RequireDiskHoldsLive(rec, &commands.Latency{N: 3}, failedLive, hist) },
+		"a failed live read must be reported, not dereferenced")
+	require.Len(t, rec.errs, 1, "exactly one error, naming why there is nothing to compare: %q", rec.errs)
+	require.Contains(t, rec.errs[0], string(commands.SourceNone))
+	require.Contains(t, rec.errs[0], reason, "the error quotes the live read's own reason")
+
+	live := commands.StatusReport{Snapshot: &commands.DaemonStatus{
+		Latency: map[string]obs.HistSnapshot{hist: {N: 5}},
+	}}
+	held := &x1v5Recorder{}
+	x1v5RequireDiskHoldsLive(held, &commands.Latency{N: 5}, live, hist)
+	require.Empty(t, held.errs, "a disk reading holding every live sample passes")
+	require.False(t, held.failed)
+
+	short := &x1v5Recorder{}
+	x1v5RequireDiskHoldsLive(short, &commands.Latency{N: 4}, live, hist)
+	require.True(t, short.failed, "a disk reading missing a live sample still fails the comparison")
+}
+
 // x1v5SessionRows decodes the daemon's own session rows out of the raw JSON status forwards.
 func x1v5SessionRows(t *testing.T, raw []json.RawMessage) []daemon.SessionState {
 	t.Helper()
@@ -439,7 +514,13 @@ func TestV5_ObserveToStatusRoundTrip(t *testing.T) {
 	after := e2eStatus(t, p.Root)
 
 	t.Run("live", func(t *testing.T) {
-		require.Equal(t, commands.SourceDaemon, rep.Primary.Source)
+		// The two direct reads that bracket the command both reached the daemon (e2eStatus fails
+		// the row otherwise), so a status that answers from anywhere else failed to reach a daemon
+		// that was answering. The reason status gives is what tells a connect miss from a silent
+		// daemon, so the failure quotes it.
+		require.Equal(t, commands.SourceDaemon, rep.Primary.Source,
+			"status must answer from the daemon both bracketing direct reads reached; it answered from "+
+				"%s with status %s: %s", rep.Primary.Source, rep.Primary.Status, rep.Primary.Reason)
 		require.Equal(t, commands.AvailabilityOK, rep.Primary.Status)
 		require.NotNil(t, rep.Primary.AgeMS, "a live answer has a known age")
 		require.GreaterOrEqual(t, *rep.Primary.AgeMS, int64(0))
@@ -662,8 +743,7 @@ func TestV5_ObserveToStatusRoundTrip(t *testing.T) {
 		ba := x1v5BudgetRow(t, down, obs.BA)
 		x1v5RequireLatencyEquals(t, "B-A from disk", ba.Latency, persistedHC)
 		require.Equal(t, commands.MeasureEstimated, ba.Latency.Measure)
-		require.GreaterOrEqual(t, ba.Latency.N, rep.Snapshot.Latency[hookControlled].N,
-			"the persisted B-A holds every sample the live arm displayed")
+		x1v5RequireDiskHoldsLive(t, ba.Latency, rep, hookControlled)
 		bb := x1v5BudgetRow(t, down, obs.BB)
 		x1v5RequireLatencyEquals(t, "B-B from disk", bb.Latency, persistedL0)
 		require.Equal(t, ba.Latency.N, bb.Latency.N, "B-A and B-B still agree on the delivery count from disk")
