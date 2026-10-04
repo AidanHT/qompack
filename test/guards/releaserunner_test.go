@@ -16,7 +16,10 @@ import (
 // repository has been green on. ci.yml's release-dry-run and every job of release.yml (any job the
 // release job could need included) therefore name the image itself. The other Linux jobs of ci.yml
 // and nightly.yml stay on ubuntu-latest on purpose: they are where a regression on the new image
-// shows first.
+// shows first. marketplace.yml's pin job stays there too, and this guard does not read it: it runs
+// only after a full release exists, changes no release asset, and re-verifies the served zips,
+// compares bytes and opens a pull request, so a red there is re-run or recorded, not a rebuilt
+// release (docs/release.md, the hosted Linux image risk).
 //
 // The parse is line-based, like every workflow guard here (release_test.go says why there is no
 // YAML decoder), and reads the live text only (liveYAMLText), so this prose never counts.
