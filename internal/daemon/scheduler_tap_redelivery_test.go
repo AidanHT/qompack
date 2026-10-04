@@ -835,3 +835,76 @@ func TestWrapServices_AReplayWhoseRecordLookupFailsStillMakesTheOwedClose(t *tes
 	require.Equal(t, core.Tokens(50), seg.Tokens, "with the commit's tokens counted once")
 	require.Equal(t, int64(1), fx.counter(counterTapRedelivery))
 }
+
+// TestWrapServices_AReplayedSessionStartMovesNoAnchorAndRebindsNothing is audit 2's finding 7 item 2
+// (D67(b)). A compact SessionStart whose reply missed the hook's deadline is spooled and replayed by a
+// drain, through the same seam, and the tap re-ran it at the replay's instant: the Young–Daly clock's
+// last compaction and the last activity moved to when the drain ran, not when the host compacted. The
+// class is wider than compact: a replayed start of another session rebound a runtime the live session
+// holds, and one of a session no hook has touched since bound an unbound runtime to it, which leaves
+// the live session unbound for good (bindOnFirstHook says why). A replayed start is a past event: it
+// binds only what a session's first hook would, and moves no anchor.
+func TestWrapServices_AReplayedSessionStartMovesNoAnchorAndRebindsNothing(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	compactStart := tapEvent("SessionStart", rtSession)
+	compactStart.Source = sessionSourceCompact
+	anchors := func(fx *rtFixture) [2]core.UnixMilli {
+		return tapReadOnly(fx.rt, func(r *schedRuntime) [2]core.UnixMilli {
+			return [2]core.UnixMilli{r.lastCompactionTS, r.lastActivity}
+		})
+	}
+
+	t.Run("a compact start of the bound session", func(t *testing.T) {
+		t.Parallel()
+		fx := newRTFixture(t)
+		s := allSeams()
+		WrapServicesForScheduler(s, fx.rt, fx.options())
+		_, err := s.SessionStart(ctx, compactStart)
+		require.NoError(t, err)
+		live := anchors(fx)
+		require.Equal(t, fx.now(), live[0], "fixture sanity: the live compact start anchored the clock")
+
+		fx.clock.Advance(time.Minute) // the drain replays the spooled copy later
+		_, err = s.SessionStart(withSpoolReplay(ctx), compactStart)
+		require.NoError(t, err)
+
+		require.Equal(t, live, anchors(fx), "a replayed compact start moves neither the compaction nor the activity anchor")
+	})
+	t.Run("a start of another session", func(t *testing.T) {
+		t.Parallel()
+		fx := newRTFixture(t)
+		s := allSeams()
+		WrapServicesForScheduler(s, fx.rt, fx.options())
+		_, err := s.SessionStart(ctx, tapEvent("SessionStart", rtSession))
+		require.NoError(t, err)
+
+		_, err = s.SessionStart(withSpoolReplay(ctx), tapEvent("SessionStart", "sess-replayed-start"))
+		require.NoError(t, err)
+
+		require.Equal(t, rtSession, tapReadOnly(fx.rt, func(r *schedRuntime) core.SessionID { return r.session }),
+			"a replayed start does not take the runtime from the live session")
+	})
+	t.Run("a start on an unbound runtime", func(t *testing.T) {
+		t.Parallel()
+		fx := newRTFixture(t)
+		s := allSeams()
+		WrapServicesForScheduler(s, fx.rt, fx.options())
+		reg := NewSessionRegistry()
+		fx.rt.mu.Lock()
+		fx.rt.d = &registryDaemon{reg: reg}
+		fx.rt.mu.Unlock()
+		bound := func() core.SessionID {
+			return tapReadOnly(fx.rt, func(r *schedRuntime) core.SessionID { return r.session })
+		}
+
+		_, err := s.SessionStart(withSpoolReplay(ctx), tapEvent("SessionStart", "sess-not-live"))
+		require.NoError(t, err)
+		require.Empty(t, bound(), "a replayed start of a session no hook has touched binds nothing")
+
+		reg.Touch(rtSession, fx.now())
+		_, err = s.SessionStart(withSpoolReplay(ctx), tapEvent("SessionStart", rtSession))
+		require.NoError(t, err)
+		require.Equal(t, rtSession, bound(), "a replayed start of a live session binds it, as its first hook would")
+	})
+}

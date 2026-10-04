@@ -109,7 +109,7 @@ func WrapServicesForScheduler(s *Services, rt scheduler.Runtime, o SchedulerRunt
 		if innerStart != nil {
 			out, err = innerStart(ctx, e)
 		}
-		t.guard("SessionStart", func() { t.sessionStart(e) })
+		t.guard("SessionStart", func() { t.sessionStart(ctx, e) })
 		return out, err
 	}
 	s.ObserveTool = func(ctx context.Context, e hookio.Event) error {
@@ -173,7 +173,21 @@ func (t *schedTap) guard(seam string, fn func()) {
 
 // sessionStart binds the event's session (loading its state files, seeding turn 0 as a round
 // boundary) and records the activity. Warm path; no budget concern.
-func (t *schedTap) sessionStart(e hookio.Event) {
+//
+// A start a drain replays from a hook's spool (spoolReplay) is a past event, and the clock at the
+// replay is not when it happened: the route spools a start whose reply missed the hook's deadline,
+// which this daemon may well have handled, and replays one it never saw at a later drain or the next
+// start. So a replayed start moves no anchor — not the Young–Daly clock's last compaction a compact
+// start sets (bindSessionLocked), not the activity — and rebinds nothing: binding is the live
+// session's, and a replayed start binds only what that session's first hook would (bindOnFirstHook),
+// an unbound runtime to a live session. A compaction the daemon never saw live therefore leaves the
+// last compaction where it was, earlier than the host's, which can only make the Young–Daly clause
+// fire sooner, never later.
+func (t *schedTap) sessionStart(ctx context.Context, e hookio.Event) {
+	if spoolReplay(ctx) {
+		t.r.bindOnFirstHook(e.SessionID)
+		return
+	}
 	t.r.BindSession(e.SessionID, &e)
 	t.r.NotifyActivity(t.r.nowMS())
 }
