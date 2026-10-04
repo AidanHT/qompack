@@ -630,7 +630,16 @@ named in section 7, a sibling of the root behind a quote glued to the root's spe
 in the root's path read as an open quote, a Grep regular expression read as an absolute path and
 noted as a withheld name that withheld unrelated summaries, a relative path glued to a flag, a
 rule's literal matched inside another word, and the host handed a command run from the root whole
-and each value of a path-named array. Items 6 to 10 record the gate after both reviews.
+and each value of a path-named array. Its third review (w19c round 3) found PowerShell's `$Env:`
+drive in any case but lower, bash's ANSI-C quoting, a cmd.exe or PowerShell backslash before a
+quote and an undecoded character code before a rule's literal (which round 2's "where a name
+starts" had lost), an outside path after a typographic quote or a Unicode space, a cut inside an
+encoded name, a quote then an escaped space after the root, an earlier spelling of the root losing
+its quotes, cmd.exe's caret-escaped separators, a drive-less path with a glob in it read as a
+regular expression, a glob among several path-named values, a skill file the host refuses
+indexed and named, a rule over the project through an alias of its root, an operation's path in a
+drop reason, and usefulness losses (a rooted word that is no path noted as withheld, a nested
+shell that changes to the root). Items 6 to 10 record the gate after all three reviews.
 
 1. *A degraded compaction that dropped material is never silent* (D59, UAT-05 F-C7-UAT05-1). At
    UAT-05's `runtime.rehydrate.minTokens` = `maxTokens` = 150 the retrieval line (86 tokens) does
@@ -694,19 +703,23 @@ and each value of a path-named array. Items 6 to 10 record the gate after both r
      of its name (an NFD spelling of an NFC literal, which APFS opens as the same file; the screen
      folds case only), or by a glob, a brace expansion or a regular expression (`cat private/den*`,
      `cat private/{deny,other}.txt`, a Grep for `priv.*deny`) does not spell the rule's literal and
-     is shown; a rule written through an 8.3 name screens by that name. File pointers and
-     structured summaries are judged by the host's rules, which resolve aliases and links. A
-     summary that starts at the root and goes on below it with a space is judged through its path
-     part only, from the root through its last word that holds a separator (item 6), so a link at a
-     name with a space in its last segment (`<root>/docs/my notes.txt`, judged as `<root>/docs/my`)
-     is not resolved; a rule on that name screens by its literal. A JSON preview with several
-     path-named values and a relative Glob or Grep preview of several words are free text, and a
-     link or an 8.3 name in them is not resolved either.
+     is shown; a rule written through an 8.3 name screens by that name (a rule that covers the
+     whole project through any alias the host resolves withholds every free text, item 7(d)). File
+     pointers and structured summaries are judged by the host's rules, which resolve aliases and
+     links. A summary that starts at the root and goes on below it with a space is judged through
+     its path part only, from the root through its last word that holds a separator (item 6), so a
+     link at a name with a space in its last segment (`<root>/docs/my notes.txt`, judged as
+     `<root>/docs/my`) is not resolved; a rule on that name screens by its literal. A JSON preview
+     with several path-named values and a relative Glob or Grep preview of several words are free
+     text, and a link or an 8.3 name in them is not resolved either (a glob among several
+     path-named values is still judged by the withheld paths it selects, item 6).
    - Names assembled at run time cannot be seen: a variable other than a home directory's
      (`cat $F`; item 7(c)), a name glued to a variable (`type %D%deny.txt`; `${D}deny.txt` is read,
-     a brace ending the variable), a concatenation (`"pri"+"vate"`), a command substitution, ANSI-C
-     quoting (`$'\x70rivate'`), or any encoding the screen does not undo (it undoes quotes, escapes,
-     line continuations, JSON strings and percent-encoding).
+     a brace ending the variable), a concatenation (`"pri"+"vate"`), a command substitution, or any
+     encoding the screen does not undo. It undoes quotes, bash's `$'…'` and `$"…"`, escapes, the
+     character codes `\uXXXX`, `\xHH` and `\NNN` (`$'de\x6ey.txt'` is read as `deny.txt`), line
+     continuations, JSON strings and percent-encoding to any depth; not a `\U` code
+     (`$'\U00000064eny.txt'`), an HTML entity, base64 or any other.
    - A name relative to a directory a command changed to is not resolved, whether the `cd` is
      earlier in the same command line or in an earlier call (the shell's working directory persists
      between calls): `cd /q && cat other/x.txt` is shown, a single-segment absolute directory being
@@ -724,11 +737,22 @@ and each value of a path-named array. Items 6 to 10 record the gate after both r
      into a POSIX path (`dir /s/b`), a POSIX library id or container path of two segments
      (`/vercel/next.js`, `-v <root>:/app/data`), on Windows a summary that starts at the root whose
      path part holds a word the host refuses as an 8.3 name it cannot resolve (`<root>\run.ps1
-     --since HEAD~1 -o out\x`, whose path part runs to `out\x`), and the root spelled without an
-     apostrophe its path holds (`/q/obrien/proj` for `/q/o'brien/proj`), which is another directory.
+     --since HEAD~1 -o out\x`, whose path part runs to `out\x`, and a Grep preview `<root>\src
+     HEAD~1/x`, whose pattern holds a separator), the root spelled without an apostrophe its path
+     holds (`/q/obrien/proj` for `/q/o'brien/proj`), which is another directory, a quoted argument
+     in which the root is followed by a space and a word that is no shell operator (`git commit -m
+     "move tests under <root> root"`, `cmd /c "cd /d <root> & go test"`: a lone `&` is no operator
+     there, since a Windows folder is often named `A & B`), a contraction's apostrophe before a
+     quoted root (`Don't edit "<root>" files`, read as an open quote), a backtick that closes a
+     command substitution right after the root and before a space (read as PowerShell's escaped
+     space, a sibling), and, on Windows while any rule names an 8.3 name after a glob
+     (`Read(**/CREDEN~1.SEC)`) and a rule anchored outside the project is in force, every free text
+     (hostperm refuses the root probe, a path that does not exist, under such a rule; item 7(d)).
    - A drive-less Windows path in free text that reads as a regular expression (`regexLike`, item
-     7(c): `\Users\me\c++\x`, `\data\s_1\x`) is not read as a path outside the project, and a
-     withheld path's basename of one or two bytes (`b`, `id`) is not looked for (item 7(b)).
+     7(c): one holding `( ) { } | ^ [ ]` or `.+`, ending in `$`, or with a segment that starts with
+     `b`, `d`, `s` or `w` in either case before a non-letter, `\data\s_1\x`,
+     `\$Recycle.Bin\S-1-5-21\x`) is not read as a path outside the project, and a withheld path's
+     basename of one or two bytes (`b`, `id`) is not looked for (item 7(b)).
    - A glob that selects only files Qompack never recorded is judged as written: Build reads no
      files, so it has no listing to match against (D60(iv)). A structured glob, and recall's `path:`
      selector, are withheld when they select a path the build records as withheld (items 6 and 7).
@@ -736,8 +760,10 @@ and each value of a path-named array. Items 6 to 10 record the gate after both r
      (`C:\Users\me\proj - Copy\notes.txt`, the name Windows gives a copied folder), written in free
      text or as a Read's preview with nothing marking the space as part of a name, reads as the
      root followed by a word and is shown. Quoted (a quote glued after the root's spelling that opens
-     a stretch starting with a space included, `<root>" old"/x.txt`), escaped (`proj\ old`), or as a
-     path-named JSON argument, it is withheld (item 8).
+     a stretch starting with a space included, `<root>" old"/x.txt`), escaped (`proj\ old`, and
+     after a closing quote, `"<root>"\ old/x.txt`), as a path-named JSON argument, or as an
+     operation's path in a drop reason (`open <root> main\.git\index: …`, item 9), it is withheld
+     (item 8).
    - A drop entry's reason that names a path a rule refuses but the build never recorded (a rule or
      skill scan error naming an in-project file) is screened for paths outside the project and for
      the whole spellings of the paths the build withholds, not for the rules' literals or a bare
@@ -797,15 +823,19 @@ and each value of a path-named array. Items 6 to 10 record the gate after both r
    it with a space: the stretch from the root through its last word that holds a separator, which is
    the whole path of a Read of `<root>/my docs/x.txt` and the script path of a command run from the
    root (`<root>/tools/lint.ps1` of `<root>/tools/lint.ps1 --since HEAD~1`) or the directory of a
-   Grep preview. Without that judgement a link or an 8.3 name in such a path went unresolved (w19c
-   review); with the whole summary judged, a command's arguments reached the host, which on Windows
-   refuses `HEAD~1` as an 8.3 name it cannot resolve (w19c round-2 review). The whole summary is
-   screened as free text beside it. So is the value of the one path-named argument of a
-   canonical-JSON preview (`path`, `file_path`, `notebook_path`, `paths`, `file`, `dir`, `cwd` and
-   their kin, or the one element of such an array), when everything outside the preview's strings
-   is JSON's own grammar (item 7); a preview with several path-named values (an array of paths, a
-   source and a destination) is free text alone, so that a summary costs one host judgement at most
-   (item 10). A value is withheld when the build withholds it as it would a file pointer's
+   Grep preview; a later argument that holds a separator extends the stretch to it and reaches the
+   host too (`<root>\run.ps1 -o out\x`, a Grep pattern `HEAD~1/x`; item 2's limits). Without that
+   judgement a link or an 8.3 name in such a path went unresolved (w19c review); with the whole
+   summary judged, a command's arguments reached the host, which on Windows refuses `HEAD~1` as an
+   8.3 name it cannot resolve (w19c round-2 review). The whole summary is screened as free text
+   beside it. So is the value of the one path-named argument of a canonical-JSON preview (`path`,
+   `file_path`, `notebook_path`, `paths`, `file`, `dir`, `cwd` and their kin, or the one element of
+   such an array), when everything outside the preview's strings is JSON's own grammar (item 7); a
+   preview with several path-named values (an array of paths, a source and a destination) is free
+   text, so that a summary costs one host judgement at most (item 10), and a glob among those values
+   is withheld when it selects a path the build withholds, which asks the host nothing
+   (`{"paths":["private/*.txt","src/a.go"]}` beside a withheld `private/deny.txt`; w19c round-3
+   review). A value is withheld when the build withholds it as it would a file pointer's
    path (containment, and the host's rules once per build), when it spells an absolute, home or
    variable path outside the project in any form item 7 reads (a file URL, `D:secret.txt`), or when
    it is a glob that selects a path the build withholds (`rules.Match`; a glob without a separator
@@ -823,27 +853,36 @@ and each value of a path-named array. Items 6 to 10 record the gate after both r
    query, a prompt, any other argument. A summary that starts like JSON (`{"` or `["`) and was cut
    is read as JSON only when every byte outside its strings is JSON's own grammar; a command of that
    shape (`{"x":1} && cat …`) is one free text, its strings beside it. It is read as recorded, as
-   each decoded JSON string, and each of those percent-decoded, with control characters dropped and
-   whitespace runs collapsed as the store's preview collapses them (`store.previewString`), the
-   project root's spellings held together (item 8). It is withheld when:
-   - (a) with `'` `"` `` ` `` `\` `^` removed and case folded where the platform's paths fold
-     (Windows, macOS), or with those escape characters read as separators, or with an escape
-     character before a space removed together with the space (a line continuation inside a word,
-     `de\`, `de^` or ``de` `` before a newline, which the store's preview collapsed to `de\ ny`), it
-     holds a rule's screen literal. A Read deny or ask rule's literal (`ruleSegments` and
+   each decoded JSON string, and each of those percent-decoded once, twice and on until nothing
+   changes (`private%252Fdeny.txt`), with control characters dropped and whitespace runs collapsed
+   as the store's preview collapses them (`store.previewString`), the project root's spellings held
+   together (item 8). It is withheld when:
+   - (a) with bash's `$` before a quote removed (ANSI-C `$'…'` and locale `$"…"` quoting), and
+     then with `'` `"` `` ` `` `\` `^` removed and case folded where the platform's paths fold
+     (Windows, macOS), or with every backslash read as a separator (cmd.exe and PowerShell keep the
+     backslash in `"private\"deny.txt`), or with a backslash read as a separator except before a
+     quote, or with an escape character before a space removed together with the space (a line
+     continuation inside a word, `de\`, `de^` or ``de` `` before a newline, which the store's preview
+     collapsed to `de\ ny`), or with its character codes decoded (`\uXXXX`, `\xHH`, `\NNN`:
+     `private\u002fdeny.txt`), it holds a rule's screen literal. A Read deny or ask rule's literal (`ruleSegments` and
      `literalOf`, over the specifiers `hostperm.RuleSet.ReadRulePatterns` lists, `..` resolved as
      hostperm resolves it) is
      its last segment when that has no glob syntax (`deny.txt`, `.env`, `John's notes.txt`), else
      the nearest all-literal segment before it (`secrets` for `./secrets/**`, `private` for
      `./private/*.txt`), else the longest literal run of the last segment (`.env` for `**/*.env`,
-     `.pem` for `*.pem`). Every path the rule refuses spells it, so every spelling of such a path in
-     a command, however it is quoted, escaped, nested in another shell or glued to an operator,
-     holds it once those characters are gone. A literal taken from a whole segment is spelled at a
-     segment's start in every such path, so it counts where a name starts, as (b) defines it, or
-     glued to a short option (`tar -Csecrets`): `git fetch` holds no `etc` under `Read(//etc/**)`,
-     nor `tsconfig.json` a `config` under `Read(~/.kube/config)` (w19c round-2 review, which
-     narrows D61's "contain" with that evidence). A literal taken from inside a glob run (`.env` for
-     `**/*.env`) may begin inside a name, and counts anywhere;
+     `.pem` for `*.pem`). Every path the rule refuses spells it, so a spelling of such a path in a
+     command, quoted, escaped, nested in another shell or glued to an operator, holds it in one of
+     those forms, unless it is assembled at run time or encoded in a way the forms do not undo
+     (item 2's limits). A literal taken from a whole segment is spelled at a segment's start in every
+     such path, so it counts where a name starts, as (b) defines it, or glued to a short option
+     (`tar -Csecrets`): `git fetch` holds no `etc` under `Read(//etc/**)`, nor `tsconfig.json` a
+     `config` under `Read(~/.kube/config)` (w19c round-2 review, which narrows D61's "contain" with
+     that evidence). That narrowing rests on every such spelling reaching a name start once undone:
+     round 2's forms left a name character glued before the literal in bash's `$'deny.txt'`, in
+     cmd.exe's and PowerShell's `"private\"deny.txt` (round 2 read `\"` as a POSIX escape in every
+     form) and behind an undecoded `\u002f` or `%252F`, all of which plain containment had withheld
+     (w19c round-3 review), and the forms above restore them. A literal taken from inside a glob run
+     (`.env` for `**/*.env`) may begin inside a name, and counts anywhere;
    - (b) in the same forms, it holds the basename or the relative path of a path this build
      withholds where a name starts (at the start, after an ASCII byte that does not continue a name
      or after any non-ASCII byte, a typographic quote or space; or glued to a short option; a name
@@ -858,7 +897,12 @@ and each value of a path-named array. Items 6 to 10 record the gate after both r
      root or a Grep preview's path then pattern (the w19c round-2 review's `b` from
      `\bConfigLoader\b`, and `src head~1` from a Grep preview `<root>\src HEAD~1`, withheld `go build
      ./...` and `git diff src HEAD~1`); nor an anchor that names no file (`~`, a bare `D:`, `$HOME`),
-     which would withhold every `HEAD~1`;
+     which would withhold every `HEAD~1`; nor a value led by one separator with no drive that names
+     no path on the platform (on Windows any, since no tool there takes a drive-less path; on POSIX
+     one led by a backslash or of a single segment, as (c) reads free text): a slash command
+     `/review`, a route `/api/v1/users`, a pattern `\.test\.ts`, whose last segment withheld `git log
+     --grep=review`, `go test ./internal/users/...` and `find src -name "*.ts"` (w19c round-3 review);
+     the value itself is still withheld as the path outside the project its shape says it is;
    - (c) with quotes removed and separators kept, and also with a POSIX shell's `.\.` read as `..`,
      it holds an absolute path outside the project: a drive path, absolute or drive-relative; a UNC
      share, which needs a host and a share (`\\host\share`; two separators and a word alone, a
@@ -868,19 +912,27 @@ and each value of a path-named array. Items 6 to 10 record the gate after both r
      neither are the standard devices `/dev/null`, `/dev/stdin`, `/dev/stdout`, `/dev/stderr`,
      `/dev/tty`, `/dev/zero`, `/dev/random`, `/dev/urandom` and `/dev/fd/N`, which hold no file
      content, nor a word led by one backslash that reads as a regular expression, `regexLike`: one
-     holding a metacharacter `+ * ? { } ( ) | $ ^ [ ]`, or `\b`, `\d`, `\s`, `\w` or a capital of one
-     before a non-letter or the end, as `\bConfigLoader\b`, `\s+$` and `\d+\.\d+` do; a `^` before a
-     separator is kept as a regular expression's anchor, `^\s*func\b`, not dropped as a cmd.exe
-     escape); a home- or variable-rooted path (`~/.ssh/key`, `$HOME/.aws/x`, `%USERPROFILE%\x`,
-     PowerShell's `$env:USERPROFILE\x` and `${env:LOCALAPPDATA}\x`, cmd.exe's `!USERPROFILE!\x` and
-     chained `%HOMEDRIVE%%HOMEPATH%\x`, or glued to a flag as in `-i~/.ssh/key`); a home directory's
+     holding a metacharacter `{ } ( ) | ^ [ ]` or `.+`, ending in `$`, or holding `\b`, `\d`, `\s`,
+     `\w` or a capital of one before a non-letter or the end, as `\bConfigLoader\b`, `\s+$`,
+     `\s*func` and `\d+\.\d+` do; a glob's `*` and `?` are no signature, so `dir \Users\me\.ssh\*`
+     is a path, and nor is a `+` or `$` a Windows name holds, `notes+old.txt`, `c++`,
+     `$Recycle.Bin`; a `^` before `/` is kept as a regular expression's anchor, `^/api/`, and one
+     before a backslash is dropped as cmd.exe drops it, `type ^\Users^\me\x`, while `^\s*func\b`
+     leaves a regular expression); a home- or variable-rooted path (`~/.ssh/key`, `$HOME/.aws/x`,
+     `%USERPROFILE%\x`, PowerShell's `$env:USERPROFILE\x` and `${env:LOCALAPPDATA}\x` with its
+     drive name in any case, `$Env:`, `$ENV:`, cmd.exe's `!USERPROFILE!\x` and chained
+     `%HOMEDRIVE%%HOMEPATH%\x`, or glued to a flag as in `-i~/.ssh/key`); a home directory's
      variable alone, ending a word, which is that directory as `~` alone is (`cd $HOME && cat
      .ssh/id_rsa`, `cd %USERPROFILE% && …`; `HOME`, `USERPROFILE`, `HOMEPATH`, `APPDATA`,
      `LOCALAPPDATA`, `ONEDRIVE`, `XDG_*_HOME`, in any of those spellings); the root's spelling
      followed by `..` segments that leave it; or a relative path whose `..` leaves the project. A
-     path starts the text or follows whitespace, a shell delimiter, `=`, `:` or `@`, or is glued to
-     a short option (`-I/opt/include`, `-oD:\stash`, `git -C/home/u/other`, `git -C../other`). An http(s) or other URL
-     is not a path, but a stretch inside it after `=`, `:` or `@` is read as one;
+     path starts the text or follows whitespace, a shell delimiter, `=`, `:` or `@`, or a non-ASCII
+     character (a typographic quote `“D:\x”`, a guillemet, a no-break, em, ideographic or
+     line-separator space, which PowerShell reads as quotes and whitespace), or is glued to a short
+     option (`-I/opt/include`, `-oD:\stash`, `git -C/home/u/other`, `git -C../other`); a drive
+     starts after any character that neither continues a name nor separates one (`!D:\x`). An
+     http(s) or other URL is not a path, but a stretch inside it after `=`, `:` or `@` is read as
+     one;
    - recall's `path:` selector in it, at the start or after whitespace, `(`, a quote or `=`
      (`qompack recall "path:x"`, `--query=path:x`), names a path outside the project or selects a
      path the build withholds by the store's own rule (`store.pathSelector.weight`: a plain value by
@@ -899,7 +951,15 @@ and each value of a path-named array. Items 6 to 10 record the gate after both r
      screens that part's literal (`.key`) as well; one that refuses nothing in the project, though
      its literal occurs in the root's path as a segment or a substring (`~/Documents/*.pdf` for a
      project under Documents, `~/.kube/config` beside `config-service`, `//etc/**` beside
-     `fetcher`), withholds nothing more than its literal does.
+     `fetcher`), withholds nothing more than its literal does. rootCover reads the root as the
+     request spells it, but the host resolves a link, a junction or an 8.3 name in the root and a
+     rule written through a link, so a rule may cover the project through another spelling of its
+     root while rootCover finds it covers nothing (w19c round-3 review: a project opened through a
+     junction to `real/work` under `Read(//…/real/work/**)` showed `cat src/main.go`). So while a
+     rule anchored outside the project is in force and none has made every free text withheld, the
+     build asks the host once about `rootProbe`, a fresh name directly below the root that no rule
+     names; when the host refuses it, every free text is withheld. Project-relative rules never
+     ask.
 8. *The project root is held together* (round 1's open issue, ruled on in D60(c); D61(2)(c)). In a
    project whose path has a space, a comma or an apostrophe in it (`C:\Users\John Smith\proj`),
    splitting a summary cut the root apart and withheld every absolute summary as outside the
@@ -918,21 +978,32 @@ and each value of a path-named array. Items 6 to 10 record the gate after both r
    or cmd.exe's reading of the quotes), or through an escaped space (`<root>\ old/x.txt`), names a
    sibling, and the summary is withheld. So does a quote right after the root's spelling that opens
    a stretch starting with a space, which a shell joins to the same word (`<root>" old"/x.txt`,
-   `"<root>"" old/x.txt"`); a quote that closes the root's argument ends the root (`cd "<root>" &&
-   make`). The quote state is read from the text before the spelling and the quotes the spelling
-   itself opens or closes, never from the root's own characters: an apostrophe in the root's path
-   (`o'brien`, `John's projects`), spelled bare, escaped (`o\'brien`), doubled (`o''brien`) or
-   closed and reopened around it (`'o'\''brien'`), is no open quote, so `cd <root> && go test
-   ./...` and the store's Grep and Glob previews of the root are shown there too (w19c round-2
-   review).
+   `"<root>"" old/x.txt"`), and a closing quote followed by an escaped space (`"<root>"\ old/x.txt`,
+   PowerShell's backtick-space, cmd.exe's caret-space; w19c round-3 review); a quote that closes
+   the root's argument ends the root (`cd "<root>" && make`). Inside a quoted argument the root
+   followed by a space and a shell operator (`&&`, `|`, `||`, `;`, `<`, `>`) ends the root's word,
+   since no sibling's name goes on that way, so a nested shell that changes to the root (`bash -c
+   "cd <root> && go test ./..."`, `cmd /c "cd /d <root> && …"`) is shown (w19c round-3 review); a
+   lone `&` is no such operator (item 2's limits). The quote state is read from the text before the
+   spelling and the quotes this and every earlier spelling of the root opened or closed, never from
+   the root's own characters: an apostrophe in the root's path (`o'brien`, `John's projects`),
+   spelled bare, escaped (`o\'brien`), doubled (`o''brien`) or closed and reopened around it
+   (`'o'\''brien'`), is no open quote, so `cd <root> && go test ./...` and the store's Grep and Glob
+   previews of the root are shown there too (w19c round-2 review); and a quote an earlier spelling
+   opened inside itself and closed after it still counts at a later one (`cat <P>\"proj\a.txt"
+   <P>\"proj old\x.txt"` names the sibling `proj old`; w19c round-3 review, where round 2 read the
+   state from the held text, in which each earlier spelling had become one mark).
 9. *A cut summary, and section 7's reasons* (D61(2), D61(3)). The store cuts a preview at 120 bytes
    with `…` (`store.argsPreviewMax`), and a cut inside a denied path left a prefix no exact-file
    rule refuses. A cut summary is withheld when it ends, at a word or path-segment boundary, in the
    first three bytes or more (`minCutPrefix`) of a rule's literal, of a withheld path's basename or
-   relative path, or of a rule's specifier, read in each of item 7(a)'s forms (`private\den…`, `my\
-   sec…`); a literal taken from a glob run with `*`, `?` or a class before it (`.env` for
-   `**/*.env`) begins inside a name, so its prefix counts with no boundary (`config/prod.en…`). A
-   summary the rendering would cut (`pointerLine`) is judged as rendered too. The piece the cut fell
+   relative path, or of a rule's specifier, read as written and as the cut part's decoded JSON
+   string, each percent-decoded to any depth, in each of item 7(a)'s forms (`private\den…`, `my\
+   sec…`, `private%2Fden…`, `{"script":"… x\nden…`), the boundary being any that item 7(b)'s "where a
+   name starts" counts (a typographic quote, `-C.en…`, bash's `$'den…`; w19c round-3 review); a
+   literal taken from a glob run with `*`, `?` or a class before it (`.env` for `**/*.env`) begins
+   inside a name, so its prefix counts with no boundary (`config/prod.en…`). A summary the
+   rendering would cut (`pointerLine`) is judged as rendered too. The piece the cut fell
    inside is the start of what was written, never a whole path or name: a stretch from a path's
    start to the cut that begins the root's own spelling is the root (a command naming the root
    twice, cut inside the second); a cut structured value (NotebookEdit's `notebook_path`, which
@@ -947,7 +1018,11 @@ and each value of a path-named array. Items 6 to 10 record the gate after both r
    another file, and its restore clause stays. The checkpointer's `pointer_git_unavailable` carries
    the git error verbatim, which in a linked worktree names its gitdir (`checkpoint: git index
    unsupported: reading index: GetFileAttributesEx <gitdir>\index: …`), and a rule or skill scan
-   error can name a directory above the project. A reason is read as an error chain joined by `":
+   error can name a directory above the project. An operation's path in such a chain (`open
+   <path>`, `CreateFile <path>`: a word of letters, a space, the path to the next `": "`) is judged
+   whole, as a pointer's path is, so a gitdir named like the root followed by a space and a word
+   (`<root> main\.git\worktrees\wt\index`) or a single-segment one (`/repo.git`) is outside the
+   project (w19c round-3 review). A reason is read as an error chain joined by `":
    "`, each part as clauses joined by `"; "`: the parts before the one that shows the path stay; in
    that part the clause that shows it becomes `(path withheld)`, the clauses before it stay and
    those after it stay while they hold no separator; and the later parts that hold no separator (the
@@ -961,17 +1036,24 @@ and each value of a path-named array. Items 6 to 10 record the gate after both r
    project or refused by the host's rules is neither rendered nor named in section 7 or `dropped()`
    (w19c round-2 review: under `Read(./private/**)` a pointer to `private/deny.txt` restored
    `private/CLAUDE.md`, its heading and its body, and named it with its restore call when it did not
-   fit). The session could not have read it, so it is not counted as a loss.
+   fit). Item 6b indexes no skill whose `SKILL.md` the build withholds, and names none in section 7
+   or `dropped()` (w19c round-3 review: a refused skill's name and description were injected, and
+   one outside the compact index was named with `restore: Read <its path>`). Under rules that
+   cannot be established both items therefore restore and name nothing. The session could not have
+   read such a file, so it is not counted as a loss.
 10. *Cost, and hostperm* (D61(4)). A build calls the host's judgement once for each distinct path
     among its file pointers, its path-keyed checkpoint drops, its structured summaries (one path
     each: a one-word value, a rooted summary's path part, the one path-named JSON value; for a cut
-    one, the directory it spells whole) and the instruction files item 6a would restore, and never
-    for free text, so a summary costs one judgement at most. Through the real adapter, 80 Bash
-    previews of 17 words, 80 canonical-JSON and URL previews, 80 commands spelling the project root
-    absolutely and 80 path-named JSON arrays of six values each cost exactly the build's 10 file
-    pointers and 10 structured summaries, 20 judgements, and 80 commands run from the root
+    one, the directory it spells whole), the instruction and skill files items 6a and 6b would
+    restore, and, while a rule anchored outside the project is in force, `rootProbe` (item 7(d));
+    never for free text, so a summary costs one judgement at most and a build at most one more than
+    its pointers, structured summaries and instruction and skill files. Through the real adapter, 80
+    Bash previews of 17 words, 80 canonical-JSON and URL previews, 80 commands spelling the project
+    root absolutely and 80 path-named JSON arrays of six values each cost exactly the build's 10
+    file pointers and 10 structured summaries, 20 judgements; 80 commands run from the root
     (`<root>/tools/lintN.ps1 --since HEAD~N && echo ok`) cost 20 + 80, each judging the script's
-    path alone. On 1dd7b00d the first three sets of free-text previews alone cost 3,145, 1,967 and
+    path alone; and a project with 5 `paths:` rule files and 5 skills costs 20 + 10 (on 108f8cd5,
+    20 + 5: item 6b judged no skill file). On 1dd7b00d the first three sets of free-text previews alone cost 3,145, 1,967 and
     1,058; on 9f40a6fc the arrays cost 500, and each rooted command was judged whole, its arguments
     included. A judgement is `RuleSet.Evaluate` on the path and, when the root resolves elsewhere,
     on its resolved spelling, each of which may read the disk; so a build costs at most two
@@ -1032,7 +1114,21 @@ each red on 9f40a6fc: `TestBuild_ARegularExpressionIsNeitherAPathNorAWithheldNam
 `TestBuild_AJSONPreviewCostsAtMostOneHostJudgement` (items 6 and 10);
 `TestBuild_AQuoteGluedAfterTheRootStillNamesASibling` and
 `TestBuild_AnApostropheInTheRootIsNotAnOpenQuote` (item 8);
-`TestBuild_AnInstructionFileTheHostRefusesIsNeverRestored` (item 9). `internal/daemon`, through the
+`TestBuild_AnInstructionFileTheHostRefusesIsNeverRestored` (item 9). The w19c round-3 review's
+rows, each red on 108f8cd5: `TestBuild_AnEnvDriveSpelledInAnyCaseIsWithheld`,
+`TestBuild_AnANSICQuoteOrAnUndecodedEscapeNeverHidesARuleLiteral`,
+`TestBuild_AnOutsidePathAfterATypographicQuoteOrAUnicodeSpaceIsWithheld`,
+`TestBuild_ARuleOverTheProjectThroughAnAliasWithholdsEveryFreeText`,
+`TestBuild_ARootedWordThatIsNoPathPoisonsNoFreeText`,
+`TestBuild_ACaretEscapedSeparatorIsASeparator` and
+`TestBuild_ADriveLessGlobOutsideTheProjectIsWithheld` (item 7);
+`TestBuild_AGlobInAMultiValuedJSONPreviewIsJudgedByWhatItSelects` (item 6);
+`TestBuild_AQuoteThenAnEscapedSpaceAfterTheRootNamesASibling`,
+`TestBuild_AnEarlierSpellingOfTheRootKeepsItsQuotes` and
+`TestBuild_ANestedShellThatChangesToTheRootIsShown` (item 8);
+`TestBuild_ACutInsideAnEncodedOrQuotedNameNeverShowsItsPrefix`,
+`TestBuild_ASkillTheHostRefusesIsNeverIndexed` and
+`TestBuild_AReasonNamingAPathAfterAnOperationIsRedacted` (item 9). `internal/daemon`, through the
 real adapter and the real host rules: `TestRehydrateHostPaths_ASelectorNamingADeniedFileIsWithheld`,
 `TestRehydrateHostPaths_EverySpellingOfADeniedFileIsWithheld`,
 `TestRehydrateHostPaths_ADeniedPathWithDelimitersIsWithheld`,
@@ -1046,10 +1142,13 @@ real adapter and the real host rules: `TestRehydrateHostPaths_ASelectorNamingADe
 `TestRehydrateHostPaths_ARootedPathWithASpaceIsJudgedByTheHost` (a real directory link),
 `TestRehydrateHostPaths_RootedCommandsAndRegularExpressionsAreShownUnderTheUAT12Rules`,
 `TestRehydrateHostPaths_AnApostropheInTheRootIsNotAnOpenQuote`,
-`TestRehydrateHostPaths_HandsTheBuildTheRulePatterns` and
+`TestRehydrateHostPaths_EscapedAndCaseFoldedSpellingsAreWithheldUnderTheUAT12Rules`,
+`TestRehydrateHostPaths_ARuleOverTheProjectThroughALinkWithholdsEveryFreeText` (a real directory
+link or junction), `TestRehydrateHostPaths_HandsTheBuildTheRulePatterns` and
 `TestRehydrateHostPaths_HostJudgementsAreStructuredSummariesAndFilePointers` (item 10's count and,
-since the round-2 review, its path-named-array and root-started-command variants and the paths it
-judged, the pass criterion; the wall time is logged, never judged). `internal/hostperm`:
+since the round-2 review, its path-named-array and root-started-command variants, since the round-3
+review its instruction-and-skill-files variant, and the paths it judged, the pass criterion; the
+wall time is logged, never judged). `internal/hostperm`:
 `TestRuleSet_ReadRulePatternsListsEveryReadRule`. The round-2 rows that pinned the evaluator's disk
 work (`TestRehydrateHostPaths_SummaryJudgementsAreLinearInTheirWords`,
 `TestRehydrateHostPaths_APieceThroughALinkIsJudgedOnDisk`,
@@ -1066,8 +1165,13 @@ summary that starts at the root as the structured summary it is (one judgement, 
 and also requires that no judged path holds a space, and three D61 criteria are narrowed with the
 evidence item 7 records: a rule's whole-segment literal and a withheld name count only where a name
 starts, a withheld basename only from three bytes, and a JSON preview's path-named value only when
-it is the preview's one; no earlier row's assertion changed. No golden changed: no golden payload carries a summary
-or a drop reason the screen withholds.
+it is the preview's one; no earlier row's assertion changed. After the w19c round-3 review, the
+cost row gains an instruction-and-skill-files variant (20 + 2 × 5), the build asks the host about
+`rootProbe` while a rule anchored outside the project is in force (D61(4)'s bound gains that one
+judgement; no exact-count row carries such a rule, so none changed), item 7(b) no longer notes a
+drive-less value that names no path on the platform, and item 6b withholds skill files as item 6a
+withholds rule files; no earlier row's assertion changed. No golden changed: no golden payload
+carries a summary or a drop reason the screen withholds.
 
 ## Consequences
 
