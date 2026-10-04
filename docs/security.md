@@ -66,6 +66,94 @@ and the required owner corrections are recorded in `plans/sdd/V6-VERIFY/`,
 reasons receive retrieval-time redaction too; evidence hashes remain metadata, and their contents
 require a separate authorized expansion.
 
+**The rehydration block follows the same rules for its pointers.** After a compaction, a file or
+tool pointer whose path these rules deny or ask about, or which lies outside the project, points by
+content hash instead. A tool call's argument summary that is one path argument (a Read's file, a
+Glob's or Grep's lone argument, the one path-named JSON argument) is judged as that path, a Glob of a
+directory under the project root is judged as one glob (its directory by these rules, its pattern by
+what it selects), and one that starts at the project root is judged through its path part (the
+stretch from the root to the last word that holds a separator, which may include an argument that
+holds one); several path-named values, and a value the preview's cut fell inside, are judged by
+containment and the screen below, and a glob among them is withheld when it selects a withheld
+path. Containment reads a glob as a glob: a class, a `?` or a leading dot that may match `..`, and a
+class that may match a separator (`[/]etc[/]passwd`), name a path outside the project, and so does a
+`file:` URL wherever it stands. A one-word summary must also pass the free-text screen, reading whole
+names (the project's own `.env.example` is not the denied `.env`; `.env.`, `.env:stream` and
+`deny.txt#L4` are); a rule's literal that starts a glob segment (`secret` for `Read(./secret*)`)
+counts whatever follows it; and a rooted path spelled in one separator style is screened by the
+rules' literals alone, so a Read outside the project never withholds the project's own file of the
+same name. Any other summary (a command, a query, a prompt, a URL) is free text, and is SHOWN only
+when a whitelist proves it safe (coordinator decision D63): every whitespace-delimited token must be
+built only from letters, digits and a small safe punctuation set (a few shell operators, the null
+device's redirects, a simple double-quoted run, which may hold parentheses, a simple single-quoted
+run allowed whole, and an http(s) URL built only from letters, digits and `- . _ ~ : / ? # @ & = +`;
+an apostrophe only between two letters, and no project root after one outside a quoted run; a
+backslash only before a character other than a backslash; a `;`, `|`, `&&` or `||` glued to a word
+splits it into pieces judged alike; a single `%` only where no escape, variable or batch parameter
+can use it), must name no absolute or
+escaping path in either reading of its backslashes (as cmd.exe and PowerShell read it, a separator,
+and as a POSIX shell reads it, an escape), and the text must hold, where a name starts, no Read deny
+or ask rule's literal (`secrets` for `Read(./secrets/**)`, `deny.txt` for
+`Read(./private/deny.txt)`), no name of a path the block withholds, and no `recall` `path:` selector
+that selects a withheld path. Anything else withholds the summary: a `$`, a second `%` or one before
+two hex digits, a backtick, a caret, a glob or regex metacharacter, a quote elsewhere, a Unicode space
+or quote, a letter or mark that Windows' ANSI best-fit conversion turns into ASCII punctuation (the
+Spacing Modifier Letters block and a few combining marks: a program reading an ANSI command line
+receives U+02BA as `"` and U+0303 as `~`), a `=` that starts a word (zsh expands `=name` to a
+command's path), a `#` inside a word (a
+zsh extended-glob operator), a whole `@name` (a PowerShell splat), a backslash that ends a token (an
+escaped space or a collapsed line continuation) or doubles, an absolute path at any place a path may
+start (the token's start, after `=`, `:`, `,`, `@`, an apostrophe, a parenthesis, a `+` (where
+cmd.exe's `copy` starts its next source) or the `#` that starts a token, or after a short option: a
+home directory, a drive, a UNC share, a `file:` URL, or a
+PowerShell drive or provider such as `Temp:`, `Env:`, `HKCU:`, `Registry::` or any name `New-PSDrive`
+defines, other than recall's `path:` selector, a hash's `sha256:` and a URL's scheme), a `..` beside
+a separator, a delimiter or a word's end (cmd.exe's `cd..` included; a range such as `HEAD~3..HEAD`
+is not one), or, inside a quoted argument, the project root followed by a space and another name or
+an operator where the argument's path starts (a sibling folder). The project root's own spelling is
+read with `/` alone on Linux and macOS, and with one slash style throughout on Windows, since a POSIX
+shell drops a backslash between two of its segments and reads a sibling of an ancestor; and it is
+held together as one unit only when it holds nothing but letters, marks and digits (none of those
+best-fit characters), `- _ .`, its separators and single spaces, and no word of it starts with `-`
+after a space (coordinator decision D64; PowerShell binds such a word as a parameter, and a lone
+`-`, as in `OneDrive - Contoso`, counts too). A root with any other character (an apostrophe, a
+comma, a `+`, an `@`, a `;`, a `$`, a `~`, a Unicode space, and the like) is one a shell can split
+or reinterpret, and one with a run of spaces or a tab is one no preview spells exactly, so a
+summary spelling it is judged as the free text it is and withheld; a drop reason holds a root that
+a preview spells exactly whatever its characters, and under any other root redacts every path it
+names below the root. A store cut inside a path-named value is the project only when what is left
+starts the root's own spelling byte for byte (an ASCII letter's case aside on Windows and macOS),
+so a cut sibling that differs from the root only by a quote or a doubled space is withheld. A store
+cut right after a drive
+or provider name's `:` (`Temp:…`) is withheld, since the cut may hide the file after it; a bare
+drive or provider name with nothing after its `:` (`Get-ChildItem Temp:`, a commit message's `fix:`)
+names a drive root, reveals no file and is shown, while a bare single-letter drive (`cd C:`) stays
+withheld.
+Every free-text summary is also withheld while the rules cannot be read, or while a rule covers the
+whole project through any spelling of its root the host resolves (a link, a junction, an 8.3 name).
+The whitelist is complete for privacy by construction — the only ways a shell can transform a
+whitelisted token are a backslash, which the screen reads both ways, the removal of quotes, which the
+screen reads too, the quoted span an apostrophe opens, which joins words but after which no project
+root may stand, and a nested shell's reading of a quoted run's parentheses, which the screen reads
+with them removed; Windows' ANSI best fit could turn a letter into punctuation, so no such letter is
+whitelisted — but it over-withholds: a command that uses a variable, globs, runs a regular
+expression or puts a name and a `:` where a path may start (`localhost:3000`, `HEAD:x`, a PowerShell
+drive's shape) is withheld whether or not it names a denied file. A checkpoint drop entry keyed by a
+withheld path stays in `dropped()` with the path replaced by the pointer's hash or `(path withheld)`,
+and no drop reason, the checkpointer's own git or scan errors included, shows such a path or one
+outside the project. The block restores no `paths:` rule, nested CLAUDE.md file or skill these rules
+deny or ask about, or that lies outside the project (every one while the rules cannot be read), and
+names none in its drop report; nor does it look for nested CLAUDE.md files above a withheld pointer.
+Drop entries that carry the model's own text (an `already_tried` call, an open question) are not
+gated, nor are the block's records of eliminated approaches and decisions, which are the model's own
+earlier text too. The screen's limits (aliases, 8.3 names, links and Unicode normalization or
+compatibility variants of a name — an NFD spelling of an NFC literal, a fullwidth spelling that a
+code page's best-fit mapping reads as ASCII — are never resolved in free text, nor are names built at
+run time or relative to a `cd`; a glob that selects a refused file the block never recorded without
+spelling its literal is judged as written; a drop reason naming an in-project path the block never
+recorded is screened for outside paths and withheld paths, not for the rules' literals) are in [ADR
+0011 §23](adr/0011-rehydration-budget-and-item-order.md).
+
 **A refusal is not an oracle.** The refusal sentence never echoes the offending path, so denials
 cannot be used to probe what exists outside the project. Measured across three escape shapes and
 three tools: no response echoed an escaping path or an absolute path outside the root.
