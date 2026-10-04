@@ -63,8 +63,9 @@ type built struct {
 	// non-render, a host-truncation warning. Budget-truncation drops are NOT produced here — the
 	// budget pass synthesizes those from each unadmitted unit's own drop field.
 	drops []checkpoint.DropEntry
-	// withheld is set on item 6's built when a pointer among its units is withheld: its section then
-	// carries pointersLegend under its heading, priced with the heading (sectionChars, headingCost).
+	// withheld is set on item 6's built when a pointer among its candidate units is withheld: its
+	// section then carries pointersLegend under its heading, priced with the heading (sectionChars,
+	// headingCost).
 	withheld bool
 }
 
