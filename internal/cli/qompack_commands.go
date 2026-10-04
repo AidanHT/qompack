@@ -199,6 +199,19 @@ const commandConnectDeadline = hookConnectDeadlineFloor
 // transport whose connect misses or succeeds late, without timing a real dial.
 var newCommandIPCClient = ipc.NewClientWithOptions
 
+// commandClient is the transport the frontends reach the daemon over, with the DaemonEnabled of the
+// State it was built with.
+//
+// daemonEnabled is what decides whether the client dials at all (ipc.Client.Send, step 2), so it is
+// also what fetchDaemonStatus must branch on to say why no daemon answered. It is carried from the
+// one daemonClientState read the client was built with, not read from state.bin again: a daemon
+// that rewrote state.bin between two reads made the reason describe a client that was never built
+// (wave 19c review, D60(e)).
+type commandClient struct {
+	ipc.Client
+	daemonEnabled bool
+}
+
 // newCommandClient builds the transport the frontends reach the daemon over.
 //
 // It is the same lazy-spawn seam `qompack mcp` uses, and for the same reason: the daemon owns the
@@ -206,17 +219,21 @@ var newCommandIPCClient = ipc.NewClientWithOptions
 // than opening the store a second time.
 func newCommandClient(root string, cfg config.Config, env Env,
 	log logging.Logger, reg obs.Registry, clk core.Clock,
-) ipc.Client {
+) commandClient {
 	addr, _ := ipc.Resolve(root)
-	return newCommandIPCClient(addr, nopSpool{}, log, reg, ipc.ClientOptions{
-		ProjectRoot: root,
-		State:       daemonClientState(root, cfg),
-		Self:        env.Self,
-		Spawn:       spawnDaemon,
-		Clock:       clk,
+	st := daemonClientState(root, cfg)
+	return commandClient{
+		Client: newCommandIPCClient(addr, nopSpool{}, log, reg, ipc.ClientOptions{
+			ProjectRoot: root,
+			State:       st,
+			Self:        env.Self,
+			Spawn:       spawnDaemon,
+			Clock:       clk,
 
-		ConnectDeadline: commandConnectDeadline,
-	})
+			ConnectDeadline: commandConnectDeadline,
+		}),
+		daemonEnabled: st.DaemonEnabled,
+	}
 }
 
 // buildCommandMCPProxy gives the retrieval frontends a tool set that forwards to the daemon.
@@ -238,16 +255,18 @@ func buildCommandMCPProxy(cfg config.Config, client ipc.Client, log logging.Logg
 	return srv
 }
 
-// commandStatusSources binds the two places a status observation comes from. cfg is the
-// configuration client was built with (newCommandClient), so the daemon source knows, as the client
-// does, whether runtime.daemon.enabled lets it dial at all (daemonClientState).
+// commandStatusSources binds the two places a status observation comes from. The daemon source
+// knows whether runtime.daemon.enabled lets client dial at all from client itself: the DaemonEnabled
+// of the State it was built with (commandClient), never a second read of state.bin.
+//
+// The configuration parameter is no longer read, for that reason. It stays only because doctor.go,
+// which another closeout seat owns, passes it; it goes when that call site is next edited.
 func commandStatusSources(
-	_ context.Context, root string, cfg config.Config, client ipc.Client,
+	_ context.Context, root string, _ config.Config, client commandClient,
 ) commands.StatusSources {
-	enabled := daemonClientState(root, cfg).DaemonEnabled
 	return commands.StatusSources{
 		Daemon: func(ctx context.Context) (commands.DaemonStatus, time.Time, error) {
-			return fetchDaemonStatus(ctx, client, enabled, daemonListening(root))
+			return fetchDaemonStatus(ctx, client, client.daemonEnabled, daemonListening(root))
 		},
 		Disk: func(context.Context) (obs.Snapshot, error) {
 			return readPersistedMetrics(paths.Of(root))
@@ -318,9 +337,10 @@ func daemonListening(root string) func() bool {
 // COMPILE error here as well as a test failure: a member the daemon adds and the mirror lacks
 // stops this function building.
 //
-// enabled is the client's own DaemonEnabled (daemonClientState). A client built with it false never
-// dials (ipc.Client.Send, step 2), so its OK false says nothing about a listener: status sends once,
-// neither probes nor resends, and names the disabled daemon (statusDaemonDisabledReason).
+// enabled is the client's own DaemonEnabled, from the State it was built with (commandClient). A
+// client built with it false never dials (ipc.Client.Send, step 2), so its OK false says nothing
+// about a listener: status sends once, neither probes nor resends, and names the disabled daemon
+// (statusDaemonDisabledReason).
 //
 // listening is asked before the request is sent, because the client answers OK false with no error
 // text both when nothing listened and when a listening daemon never replied: only the dial tells the

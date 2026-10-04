@@ -250,6 +250,81 @@ func TestStatus_StaleStateBinDisabledIsNamed(t *testing.T) {
 		"the configuration says true, so the reason must also name the state.bin that says false")
 }
 
+// TestStatus_ReasonUsesTheStateTheClientWasBuiltWith is the wave 19c review's second nit (D60(e)).
+// The DaemonEnabled fetchDaemonStatus branches on must be the one the command client was built with,
+// because that is what decides whether the client dials. When status read state.bin a second time
+// for it, a daemon that rewrote state.bin between the two reads (a reload of runtime.daemon.enabled)
+// made the reason describe a client that was never built: "disabled" for a client that dialed, or a
+// connect miss for one that never dialed. The seam rewrites state.bin from inside client
+// construction, after the client's State was read and before status builds its sources, so the row
+// does not race anything. The client is the real command client aimed at an address nothing
+// listens on, with spawning off; the probe stands in for a listener.
+//
+// Not parallel: it swaps newCommandIPCClient, statusProbeDial and statusSendClock.
+func TestStatus_ReasonUsesTheStateTheClientWasBuiltWith(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		builtWith  bool // state.bin's DaemonEnabled when the client is built
+		wantReason string
+		wantSends  int64
+		wantProbes int64
+	}{
+		// Built enabled, so the client dials: a missed dial with a listener seen is resent and named.
+		{
+			name: "enabled then disabled", builtWith: true,
+			wantReason: statusConnectMissReason, wantSends: 2, wantProbes: 1,
+		},
+		// Built disabled, so the client never dials: asked once, never probed, named disabled.
+		{
+			name: "disabled then enabled", builtWith: false,
+			wantReason: statusDaemonDisabledReason, wantSends: 1, wantProbes: 0,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			root := bootstrapProject(t)
+			st := ipc.StateFromConfig(config.Defaults())
+			require.True(t, st.DaemonEnabled, "the project's configuration enables the daemon")
+			st.DaemonEnabled = tc.builtWith
+			require.NoError(t, ipc.WriteState(root, st))
+
+			var probes atomic.Int64
+			useStatusProbe(t, func(ipc.Addr, time.Duration) bool {
+				probes.Add(1)
+				return true
+			})
+			useStatusSendClock(t, newStepClock())
+			nowhere, err := ipc.Resolve(t.TempDir())
+			require.NoError(t, err)
+			var sends atomic.Int64
+			var built []ipc.ClientOptions
+			prev := newCommandIPCClient
+			newCommandIPCClient = func(_ ipc.Addr, sp ipc.SpoolWriter, log logging.Logger, m obs.Registry,
+				o ipc.ClientOptions,
+			) ipc.Client {
+				built = append(built, o)
+				changed := st
+				changed.DaemonEnabled = !tc.builtWith // the daemon rewrote state.bin after this read
+				require.NoError(t, ipc.WriteState(root, changed))
+				o.Self, o.Spawn = "", nil // the stand-in never spawns a daemon
+				return countingClient{Client: prev(nowhere, sp, log, m, o), sends: &sends}
+			}
+			t.Cleanup(func() { newCommandIPCClient = prev })
+
+			out, env := statusConnectRead(t, root)
+			require.Len(t, built, 1, "one command client per status run")
+			require.Equal(t, tc.builtWith, built[0].State.DaemonEnabled,
+				"the client is built with the state.bin read before the rewrite")
+			require.Equal(t, !tc.builtWith, ipc.ReadState(root, config.Defaults()).DaemonEnabled,
+				"the seam rewrote state.bin before status built its sources")
+			require.NotEqual(t, "daemon", env.Data.Primary.Source, "stdout=%s", out)
+			require.Contains(t, env.Data.Primary.Reason, tc.wantReason,
+				"the reason must describe the client that was built, not the rewritten state.bin")
+			require.Equal(t, tc.wantSends, sends.Load())
+			require.Equal(t, tc.wantProbes, probes.Load())
+		})
+	}
+}
+
 // requireStatusNamesTheDisabledDaemon runs status --json over root, whose command client must be
 // built with the daemon disabled, against a probe that reports a listener, and requires the
 // disabled-daemon answer: one send, no probe, and statusDaemonDisabledReason alone.
