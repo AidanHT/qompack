@@ -391,26 +391,51 @@ func TestMaintenanceTask_Shape(t *testing.T) {
 	require.False(t, l.NeedsRebuild())
 }
 
+// TestOpenRefreshBounded: Open's one staleness refresh runs under openRefreshDeadline, and a store
+// that never answers costs Open that window, not the store's own time.
+//
+// The row judges the window Open INSTALLED and why the store call ended, not Open's wall time: it
+// used to assert elapsed < 500 ms measured after Open returned, so a host that descheduled Open
+// after the deadline fired turned a correct bound red. The stall_400ms case is that host — the
+// fake store returns 400 ms after its context is done — and it failed the old row at 664 ms.
+//
+// Both window bounds hold whatever the scheduler does: the deadline is installed after start and
+// before the store call, so deadline-start is at least the window and deadline-call at most it.
 func TestOpenRefreshBounded(t *testing.T) {
+	for _, stall := range []time.Duration{0, 400 * time.Millisecond} {
+		t.Run(fmt.Sprintf("stall_%s", stall), func(t *testing.T) { testOpenRefreshBounded(t, stall) })
+	}
+}
+
+func testOpenRefreshBounded(t *testing.T, stall time.Duration) {
 	root, cfg := newProject(t)
 
-	// A store whose ChangedSince never answers within Open's window. The fake waits on ctx.Done()
-	// as well as on its own timer, so the 250 ms openRefreshDeadline is what returns first and no
-	// goroutine is left blocked for the full two seconds.
+	// A store whose ChangedSince never answers within Open's window. Its own timer is a hang guard
+	// only: it waits on ctx.Done() as well, so the deadline returns first and no goroutine is left
+	// blocked, and a ChangedSince ended by the timer is the one shape that means Open is unbounded.
 	fake := newFakeStore()
-	fake.blockChangedSince = 2 * time.Second
+	fake.blockChangedSince = time.Minute
+	fake.stallAfterCancel = stall
 
 	deps := testDeps("sess", newMetrics())
 	deps.Store = fake
 
 	start := time.Now()
 	l := openLedger(t, root, cfg, nil, deps)
-	elapsed := time.Since(start)
 
-	require.Less(t, elapsed, 500*time.Millisecond, "Open is bounded by openRefreshDeadline, not by the store")
-	require.GreaterOrEqual(t, elapsed, openRefreshDeadline/2, "the bounded refresh really ran")
-	require.True(t, l.NeedsRebuild(), "the daemon's idle task finishes what Open could not")
 	require.Equal(t, 1, fake.callCount())
+	fake.mu.Lock()
+	hadDeadline, deadline, calledAt, endedBy := fake.changedHadDeadline, fake.changedDeadline,
+		fake.changedCalledAt, fake.changedEndedBy
+	fake.mu.Unlock()
+	require.True(t, hadDeadline, "Open's refresh must run under a deadline of its own")
+	require.ErrorIs(t, endedBy, context.DeadlineExceeded,
+		"Open is bounded by openRefreshDeadline, not by the store: the store call ends on Open's deadline")
+	require.LessOrEqual(t, deadline.Sub(calledAt), openRefreshDeadline,
+		"the window Open installed is no longer than openRefreshDeadline")
+	require.GreaterOrEqual(t, deadline.Sub(start), openRefreshDeadline,
+		"and no shorter: the bounded refresh really ran for its window")
+	require.True(t, l.NeedsRebuild(), "the daemon's idle task finishes what Open could not")
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────────────────────

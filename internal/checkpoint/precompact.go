@@ -147,7 +147,7 @@ func (w *FileWriter) preCompact(ctx context.Context, in PreCompactInput) (PreCom
 	// does not: it would fail silently on every call, and PreCompactResult.Drops would quietly
 	// report the pre-truncation draft instead of the artifact actually written.
 	//
-	// Subtracting two caller-supplied instants and applying the result with WithTimeout keeps every
+	// Subtracting two caller-supplied instants and applying the result as a timeout keeps every
 	// comparison inside one time base and makes the budget mean what it says: this much wall-clock
 	// time, starting now.
 	//
@@ -170,7 +170,13 @@ func (w *FileWriter) preCompact(ctx context.Context, in PreCompactInput) (PreCom
 	if budget < minFinalizeWindow {
 		budget = minFinalizeWindow
 	}
-	ctx, cancel := context.WithTimeout(ctx, budget)
+	// WithDeadline at wall-now plus budget is exactly what WithTimeout does; spelling it out lets a
+	// test read back the instant the budget was anchored to (FileWriter.wallNow).
+	installed := time.Now
+	if w.wallNow != nil {
+		installed = w.wallNow
+	}
+	ctx, cancel := context.WithDeadline(ctx, installed().Add(budget))
 	defer cancel()
 
 	d, fresh, err := w.draftForPreCompact(ctx, in, start)

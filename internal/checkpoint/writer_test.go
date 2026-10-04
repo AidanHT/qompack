@@ -59,6 +59,9 @@ type fakePins struct {
 	// see TestPreCompactDerivesItsBudgetFromTheCallersDeadline.
 	ctxDeadline time.Time
 	hasDeadline bool
+	// stall, when set, is how long Materialize sleeps before it records the deadline: a machine
+	// under co-load descheduling the hook path between installing the budget and using it.
+	stall time.Duration
 	// allErr, when set, is what All answers instead of the list: a pin log that cannot be read.
 	allErr error
 }
@@ -81,6 +84,9 @@ func (f *fakePins) All(_ context.Context) ([]pins.Invariant, error) {
 
 func (f *fakePins) Materialize(ctx context.Context) error {
 	f.materialized++
+	if f.stall > 0 {
+		<-time.After(f.stall) // not time.Sleep: devtool lint's sleepcheck scans _test.go files too
+	}
 	f.ctxDeadline, f.hasDeadline = ctx.Deadline()
 	return nil
 }

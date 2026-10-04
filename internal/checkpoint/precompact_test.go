@@ -198,27 +198,39 @@ func TestPreCompactOnAColdSessionBeginsAndSeals(t *testing.T) {
 // the exact opposite: a deadline in the past floors at minFinalizeWindow.
 //
 // The budget is read back through the context Finalize hands to pins.Materialize, which is the last
-// thing it does with it. The thresholds are deliberately far apart — the floor is 250 ms and the cap
-// is 1.5 s — so the assertion is about which clamp fired, not about timing precision.
+// thing it does with it, as that context's deadline minus the wall-clock instant PreCompact anchored
+// it to (checkpoint.SetWallNowForTest records that instant). Both readings are taken by PreCompact
+// itself, at installation, so the answer is the budget it installed — exactly the floor (250 ms) or
+// exactly the cap (1.5 s) — however long the call takes afterwards. The row used to measure
+// time.Until(deadline) AFTER PreCompact returned, so a machine under co-load spent the margin it
+// asserted: 1.67 s inside PreCompact left 802 ms of a 1.5 s cap, under the 875 ms midpoint. The
+// _under_a_stall case pins that: its pins fake sleeps inside Materialize, past that old margin.
 func TestPreCompactDerivesItsBudgetFromTheCallersDeadline(t *testing.T) {
-	// midpoint separates "floored" from "capped" with more than half a second of slack on each
-	// side, so a stalled machine cannot flip the answer.
-	const midpoint = 875 * time.Millisecond
-
 	for _, tc := range []struct {
 		name    string
 		offset  time.Duration
 		zero    bool
 		lenient bool
+		stall   time.Duration
 	}{
 		{name: "zero_deadline", zero: true, lenient: false},
 		{name: "deadline_in_the_past", offset: -time.Second, lenient: false},
 		{name: "deadline_equals_now", offset: 0, lenient: false},
 		{name: "deadline_well_in_the_future", offset: hookTimeout, lenient: true},
+		{name: "deadline_well_in_the_future_under_a_stall", offset: hookTimeout, lenient: true, stall: 700 * time.Millisecond},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			f := newFx(t)
 			seedForPreCompact(t, f)
+			f.pins.stall = tc.stall
+
+			var installedAt time.Time
+			anchors := 0
+			checkpoint.SetWallNowForTest(f.w, func() time.Time {
+				anchors++
+				installedAt = time.Now()
+				return installedAt
+			})
 
 			in := f.precompactInput()
 			if tc.zero {
@@ -233,14 +245,15 @@ func TestPreCompactDerivesItsBudgetFromTheCallersDeadline(t *testing.T) {
 			require.FileExists(t, paths.Long(res.Ref.Path))
 
 			require.True(t, f.pins.hasDeadline, "PreCompact must install a deadline of its own")
-			remaining := time.Until(f.pins.ctxDeadline)
+			require.Equal(t, 1, anchors, "PreCompact anchors exactly one deadline")
+			installed := f.pins.ctxDeadline.Sub(installedAt)
 			if tc.lenient {
-				require.Greater(t, remaining, midpoint,
-					"a caller with real time left gets the capped budget; got %v", remaining)
+				require.Equal(t, checkpoint.MaxPreCompactWindow, installed,
+					"a caller with real time left gets the CAPPED budget; got %v", installed)
 			} else {
-				require.LessOrEqual(t, remaining, midpoint,
+				require.Equal(t, checkpoint.MinFinalizeWindowForTest, installed,
 					"a deadline that is absent, past or already here must take the FLOOR, "+
-						"never the most lenient budget in the table; got %v", remaining)
+						"never the most lenient budget in the table; got %v", installed)
 			}
 		})
 	}

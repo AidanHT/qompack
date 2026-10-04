@@ -12,6 +12,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/qompack/qompack/internal/config"
 	"github.com/qompack/qompack/internal/core"
@@ -115,6 +116,11 @@ type FileWriter struct {
 	// draftScans counts persistedClaimFloor's state/ scans, so a test can pin that a writer makes
 	// one (export_test.go).
 	draftScans int
+	// wallNow is the wall-clock reading PreCompact anchors its context deadline to: the instant
+	// context.WithTimeout would read, made explicit. Nil is time.Now, which is all production ever
+	// uses. A test sets it (export_test.go) to record that instant, so it can read back the budget
+	// PreCompact installed as deadline minus installation time, however long the call then takes.
+	wallNow func() time.Time
 }
 
 // sessionGate is one session's Begin admission gate, reference-counted so the map does not grow
