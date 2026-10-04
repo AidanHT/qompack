@@ -81,6 +81,8 @@ type rehydrateService struct {
 	// tier1Loud names the sessions that have logged a tier-1 overflow Loud (D50: once per
 	// session, not on every compaction). Guarded by mu. It holds one entry per session this
 	// daemon has seen overflow, and a daemon serves one project's sessions until it idles out.
+	// It is not persisted, so the rule is once per session per daemon (ADR 0011 §23.3): a daemon
+	// started after another one ended logs a session's overflow Loud once more (F-C7-UAT05-2).
 	tier1Loud map[core.SessionID]bool
 }
 
@@ -752,24 +754,35 @@ func hostPolicyFor(o *Options) *hostperm.Policy {
 // rehydrateHostPaths adapts the host's permission policy to rehydrate.HostPaths: one rule snapshot
 // per build, and a path refused when a Read deny or ask rule matches it (an archived rehydration
 // cannot ask), judged as recorded and as the project's resolved root spells it — the two spellings
-// internal/mcp's authorizeHost judges. Rules that cannot be established return nil, and rehydrate
-// then withholds every path, as re_read withholds path-bearing content (fail closed).
+// internal/mcp's authorizeHost judges. Rules that cannot be established hand rehydrate no Refuses,
+// and it then withholds every path and every free-text summary, as re_read withholds path-bearing
+// content (fail closed).
+//
+// The snapshot also hands rehydrate every rule's path specifier (RuleSet.ReadRulePatterns), which
+// its free-text screen reads with no host judgement (coordinator decision D63, ADR 0011 §23 items 6
+// and 7):
+// Refuses is asked only about file pointers, path-keyed checkpoint drops, structured summaries (one
+// path each: a summary that starts at the project root hands its path part, the stretch from the
+// root through its last word that holds a separator, which may include an argument that holds one),
+// the instruction and skill files items 6a and 6b would restore, and, while a rule anchored outside
+// the project is in force, one fresh name below the root, once each per build, so a build costs at
+// most two Evaluates for each of those, whatever its commands and queries say.
 func rehydrateHostPaths(p *hostperm.Policy, root string, log logging.Logger) rehydrate.HostPaths {
-	return func() func(string) bool {
+	return func() rehydrate.HostRules {
 		rules, err := p.Snapshot()
 		if err != nil {
 			log.Loud("rehydrate: host permission policy unavailable; section 6 withholds every path",
 				"err", err.Error())
-			return nil
+			return rehydrate.HostRules{}
 		}
 		if rules.Empty() {
-			return func(string) bool { return false }
+			return rehydrate.HostRules{Refuses: func(string) bool { return false }}
 		}
 		resolved := root
 		if r, err := filepath.EvalSymlinks(root); err == nil {
 			resolved = r
 		}
-		return func(path string) bool {
+		return rehydrate.HostRules{Patterns: rules.ReadRulePatterns(), Refuses: func(path string) bool {
 			abs := path
 			if !filepath.IsAbs(abs) {
 				abs = filepath.Join(root, filepath.FromSlash(path))
@@ -782,6 +795,6 @@ func rehydrateHostPaths(p *hostperm.Policy, root string, log logging.Logger) reh
 				return false
 			}
 			return rules.Evaluate(filepath.Join(resolved, rel)).Effect != hostperm.Allow
-		}
+		}}
 	}
 }

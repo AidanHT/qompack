@@ -107,7 +107,8 @@ type Request struct {
 	// Tier1OverflowReported says this session has already logged a tier-1 overflow Loud. The payload
 	// and the drop report name every overflow each time either way; the Loud is once per session
 	// (D50: UAT-04 logged the same line on each of 15 compactions), and a repeat is logged at Info.
-	// The composition root tracks it, because Build keeps no state between calls.
+	// The composition root tracks it in memory, because Build keeps no state between calls, so the
+	// scope is once per session per daemon (ADR 0011 §23.3): a restarted daemon logs it once more.
 	Tier1OverflowReported bool
 }
 
@@ -160,4 +161,7 @@ type Deps struct {
 	// HostPaths judges recorded paths against the host's current Read rules, so section 6 never
 	// shows one re_read would refuse (D50). Nil applies containment alone; see HostPaths.
 	HostPaths HostPaths
+
+	// judge is the build's path judge, which Build makes once and item 6 reads (pathJudgeFor).
+	judge *pathJudge
 }

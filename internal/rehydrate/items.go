@@ -321,8 +321,11 @@ func restoreClause(pointer string) string {
 	if pointer == "" {
 		return "; call dropped() for the full accounting"
 	}
-	return "; restore: " + pointer
+	return restorePrefix + pointer
 }
+
+// restorePrefix introduces the pointer in a restore clause; originalRestorePointer reads it back.
+const restorePrefix = "; restore: "
 
 // tier1Overflow is the explicit-overflow entry for one fixed tier-1 record that could not be
 // emitted whole. ID "tier1" is what Overflowed recognizes; the detail names the record and the
@@ -1103,7 +1106,7 @@ func buildPointers(_ context.Context, r Request, d Deps, sc map[dag.NodeID]float
 		}
 		return files[i].Path < files[j].Path
 	})
-	judge := newPathJudge(r, d)
+	judge := pathJudgeFor(r, d)
 	for _, f := range files {
 		b.seen++
 		if judge.withheld(f.Path) {
@@ -1257,11 +1260,6 @@ func guardTripped(drops []checkpoint.DropEntry) bool {
 func buildRestoredInstructions(ctx context.Context, r Request, d Deps, match matchFunc) built {
 	var b built
 
-	pointers := make([]string, 0, len(r.Checkpoint.Pointers.Files))
-	for _, f := range r.Checkpoint.Pointers.Files {
-		pointers = append(pointers, f.Path)
-	}
-
 	if d.Rules == nil {
 		b.drops = append(b.drops,
 			checkpoint.DropEntry{
@@ -1275,8 +1273,20 @@ func buildRestoredInstructions(ctx context.Context, r Request, d Deps, match mat
 		return b
 	}
 
+	// The scanners are handed only the pointers section 6 may show, and a rule file the build
+	// withholds is neither restored nor named (D50, D61(3)): a nested CLAUDE.md above a withheld
+	// pointer, or a rule file under a denied directory, is content the host refuses to read, and its
+	// heading, body and drop entry would show it. The session could not have read it, so it is no loss.
+	// A rule's drop names the first pointer it matched, which is therefore one section 6 shows.
+	judge := pathJudgeFor(r, d)
+	shown := make([]string, 0, len(r.Checkpoint.Pointers.Files))
+	for _, f := range r.Checkpoint.Pointers.Files {
+		if !judge.withheld(f.Path) {
+			shown = append(shown, f.Path)
+		}
+	}
 	log := loggerOf(d)
-	pathRules, err := d.Rules.PathScoped(ctx, r.ProjectRoot, pointers)
+	pathRules, err := d.Rules.PathScoped(ctx, r.ProjectRoot, shown)
 	if err != nil {
 		pathRules = nil
 		b.drops = append(b.drops, checkpoint.DropEntry{
@@ -1284,7 +1294,7 @@ func buildRestoredInstructions(ctx context.Context, r Request, d Deps, match mat
 		})
 		log.Warn("rehydrate: path-scoped rule scan failed", "root", r.ProjectRoot, "err", err.Error())
 	}
-	nested, err := d.Rules.NestedClaudeMD(ctx, r.ProjectRoot, pointers)
+	nested, err := d.Rules.NestedClaudeMD(ctx, r.ProjectRoot, shown)
 	if err != nil {
 		nested = nil
 		b.drops = append(b.drops, checkpoint.DropEntry{
@@ -1293,13 +1303,15 @@ func buildRestoredInstructions(ctx context.Context, r Request, d Deps, match mat
 		log.Warn("rehydrate: nested CLAUDE.md scan failed", "root", r.ProjectRoot, "err", err.Error())
 	}
 
+	pathRules = restorableRules(pathRules, judge)
+	nested = restorableRules(nested, judge)
 	sortRulesByPath(pathRules)
 	sortRulesByPath(nested)
 
 	for _, rule := range pathRules {
 		b.seen++
 		detail := "did not fit the rehydration budget"
-		if p := firstMatchingPointer(rule, pointers, match); p != "" {
+		if p := firstMatchingPointer(rule, shown, match); p != "" {
 			detail = "matched " + p + "; " + detail
 		}
 		b.units = append(b.units, unit{
@@ -1320,6 +1332,18 @@ func buildRestoredInstructions(ctx context.Context, r Request, d Deps, match mat
 		})
 	}
 	return b
+}
+
+// restorableRules is rs without the rule files j withholds (outside the project, or refused by the
+// host's rules), in a new slice; rs is never modified.
+func restorableRules(rs []rules.Rule, j pathJudge) []rules.Rule {
+	out := make([]rules.Rule, 0, len(rs))
+	for _, rule := range rs {
+		if !j.withheld(rule.Path) {
+			out = append(out, rule)
+		}
+	}
+	return out
 }
 
 // sortRulesByPath orders rules ascending by Path, which is the only stable key a Rule carries.
@@ -1412,6 +1436,12 @@ func buildSkillIndex(ctx context.Context, r Request, d Deps, bodyTokens bodyToke
 		log.Warn("rehydrate: compact skill index unavailable", "root", r.ProjectRoot, "err", keptErr.Error())
 		return b
 	}
+	// A skill file the build withholds (outside the project, refused by the host's rules, or every
+	// one while the rules cannot be established) is neither indexed nor named, as item 6a's rule files
+	// are (D50, D61(3)): its name and description are its content, and its drop entry's restore call
+	// names its path. The session could not have read it, so it is no loss.
+	judge := pathJudgeFor(r, d)
+	all, kept = indexableSkills(all, judge), indexableSkills(kept, judge)
 
 	inIndex := make(map[string]struct{}, len(kept))
 	for _, e := range kept {
@@ -1467,6 +1497,18 @@ func buildSkillIndex(ctx context.Context, r Request, d Deps, bodyTokens bodyToke
 		})
 	}
 	return b
+}
+
+// indexableSkills is es without the skills whose file j withholds, in a new slice; es is never
+// modified.
+func indexableSkills(es []skills.Entry, j pathJudge) []skills.Entry {
+	out := make([]skills.Entry, 0, len(es))
+	for _, e := range es {
+		if !j.withheld(e.Source) {
+			out = append(out, e)
+		}
+	}
+	return out
 }
 
 // buildDropReport is item 7: what is no longer in context, named well enough to be asked for again

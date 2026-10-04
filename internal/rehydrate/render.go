@@ -259,8 +259,9 @@ func render(r Request, d Deps, fills map[ItemKind]*admitted, all map[ItemKind]bu
 		// No items means no payload, not an empty tagged wrapper — and a rehydration that could
 		// inject nothing must say it was degraded (§12.3, runDegradeCase). A drop report with
 		// nothing beside it is the same case: item 7's floor is held so that an omission can be
-		// NAMED next to whatever did fit, not so that a payload of nothing but "you lost
-		// everything" is injected in place of none. Result.Dropped still carries every entry.
+		// NAMED next to whatever did fit, not so that the full report is injected on its own.
+		// Result.Dropped still carries every entry, and Build answers a build that dropped material
+		// with the loss notice instead of silence (D59, lossNotice).
 		return Result{Degraded: true}, nil
 	}
 	res.Text = renderText(r, res.Items)

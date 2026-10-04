@@ -3,6 +3,7 @@ package rehydrate
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/qompack/qompack/internal/checkpoint"
@@ -110,6 +111,14 @@ func BuildWithStats(ctx context.Context, r Request, d Deps) (Result, []ItemStat,
 	}
 
 	// ── 2. build every item ──────────────────────────────────────────────────────────────────
+	//
+	// The checkpointer's path-keyed drop entries pass section 6's gate first, so section 7 and
+	// dropped() never show a path the payload withholds (D50). The build's one judge reads them
+	// before they are gated, so a withheld path they alone record is one no selector or glob in a
+	// summary may select either, and section 6 is judged with the same rules and memo.
+	judge := newPathJudge(r, d)
+	r.Checkpoint.Dropped = gateCheckpointDrops(r, judge)
+	d.judge = &judge
 	sc := sliceScores(r, d)
 	all := buildAll(ctx, r, d, sc)
 	priceAll(d, all)
@@ -275,7 +284,7 @@ func BuildWithStats(ctx context.Context, r Request, d Deps) (Result, []ItemStat,
 	// smaller. Never while tier 1 is incomplete: this room is item 2's alone (step 9).
 	if !incomplete {
 		held := reserveDrop
-		if b := buildDropReport(collectDrops(r, all, fills)); len(b.units) > 0 {
+		if b := buildDropReport(collectDrops(r, d, all, fills)); len(b.units) > 0 {
 			priceUnits(d, b.units)
 			allowance := reserveDrop.plus(carry).atLeast(floor).atMost(limit.minus(spent))
 			held = fillDropReport(d, b, allowance).used.atLeast(floor)
@@ -302,7 +311,7 @@ func BuildWithStats(ctx context.Context, r Request, d Deps) (Result, []ItemStat,
 	// answer for what section 7 could not show. Its allowance is its reserve plus whatever the
 	// shares carried forward, never less than the floor held since step 3, and never more than the
 	// payload has left.
-	drops := collectDrops(r, all, fills)
+	drops := collectDrops(r, d, all, fills)
 	if b := buildDropReport(drops); len(b.units) > 0 {
 		priceUnits(d, b.units)
 		// Item 7 is the one item Build constructs itself rather than through buildAll, because it
@@ -416,12 +425,22 @@ func BuildWithStats(ctx context.Context, r Request, d Deps) (Result, []ItemStat,
 		res.Degraded = true
 	}
 	if len(res.Items) == 0 || onlyDropReport(res.Items) {
-		// A payload with nothing left but the report on what it lost is no payload: render's own
-		// rule, re-applied after eviction.
+		// A payload with nothing left but the report on what it lost does not inject that report:
+		// render's own rule, re-applied after eviction. It is not silent either (D59): when material
+		// was dropped, the payload is the loss notice, priced against the same budget and ceiling,
+		// and only a budget that cannot hold even its smallest form injects nothing, named as an
+		// overflow.
 		res.Items, stats = nil, nil
 		res.Text = ""
 		res.Tokens = 0
 		res.Degraded = true
+		if notice, nstats := lossNotice(r, d, res.Dropped, limit); notice.Text != "" {
+			res.Items, res.Text, res.Tokens, stats = notice.Items, notice.Text, notice.Tokens, nstats
+		} else if len(res.Dropped) > 0 {
+			res.Dropped = append(res.Dropped, noticeOverflow(int(budget)))
+			d.Log.Loud("rehydrate: budget cannot hold the notice naming what was dropped",
+				"budget", int(budget), "dropped", len(res.Dropped)-1)
+		}
 	}
 	return res, stats, nil
 }
@@ -476,6 +495,11 @@ func dropReportToFloor(d Deps, items []Item, stats []ItemStat, dropped []checkpo
 func normalizeDeps(d Deps) Deps {
 	if d.Log == nil {
 		d.Log = logging.Nop()
+	}
+	if d.HostPaths != nil {
+		// One snapshot of the host's rules per build: section 6 and the checkpoint's drop entries
+		// are judged against the same rules, and an unavailable policy is reported once.
+		d.HostPaths = sync.OnceValue(d.HostPaths)
 	}
 	return d
 }
