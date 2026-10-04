@@ -201,11 +201,29 @@ func TestLoad_NewerSettingsVersionResetsTheWholeBlock(t *testing.T) {
 		case "runtime.migration":
 			require.Contains(t, w.Message, "newer than this build understands")
 			require.Contains(t, w.Location, "config.json:")
+			require.True(t, w.VersionedReset, "the reset is marked as one")
 		case "runtime.migration.future":
 			require.Contains(t, w.Message, "unknown key")
+			require.False(t, w.VersionedReset)
 		}
 	}
 	require.Empty(t, cfg.Validate())
+}
+
+// TestLoad_WrongTypeVersionedBlockIsNotAReset: the merge keys its "expected an object" warning by
+// the block's own path, the same Key a reset carries, so the key cannot identify a reset. Only the
+// reset is marked VersionedReset, and consumers that record or escalate a reset select on it.
+func TestLoad_WrongTypeVersionedBlockIsNotAReset(t *testing.T) {
+	env := baseEnv(t)
+	writeConfigFile(t, env.ProjectRoot, `{"runtime":{"migration":5,"phase7":"x"}}`)
+
+	_, _, warns, err := config.Load(env)
+	require.NoError(t, err)
+	require.ElementsMatch(t, []string{"runtime.migration", "runtime.phase7"}, warningKeys(warns))
+	for _, w := range warns {
+		require.Equal(t, "expected an object", w.Message, w.Key)
+		require.False(t, w.VersionedReset, w.Key)
+	}
 }
 
 // TestLoad_OlderSettingsVersionFallsBackToCurrent: a version below this build's is not a newer
