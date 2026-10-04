@@ -22,7 +22,8 @@
 #   linux-e2e   non-root -race test/e2e, --coload (C3.4; D28)
 #   linux-timing  ci.yml's timing lane, non-root, no -race, -p 1, no co-load (D28)
 #   linux-e2e-timing  test/e2e, non-root, no -race, no co-load (D28)
-#   linux-child product-child race lane (QOMPACK_REQUIRE_CHILD_RACE=1, GOFLAGS=-race) (C3.3/C3.4)
+#   linux-child product-child race lane (QOMPACK_REQUIRE_CHILD_RACE=1, GOFLAGS=-race), --coload as
+#               nightly.yml's race-product-child declares it (C3.3/C3.4; D28)
 #   release     go run ./tools/devtool release-check            (C3.12; needs Phase 2 dispositions)
 # D28: as in ci.yml, the -race runs declare co-load (a wall-clock row there is reported, not judged)
 # and the *-timing steps judge every wall-clock row alone, on the clock it was written against.
@@ -106,7 +107,7 @@ for step in "$@"; do
     linux-e2e) sh "$gate" --prefix cx-p3 --repo "$wrepo" --out "$wev/linux" "$head" p3-linux-e2e --coload --timeout 150m -- ./test/e2e > "$ev/p3-linux-e2e-host.log" 2>&1 ;;
     linux-timing) sh "$gate" --prefix cx-p3 --repo "$wrepo" --out "$wev/linux" "$head" p3-linux-timing --no-race --env GOFLAGS=-p=1 --timeout 30m --run "$tpat" -- $tpkgs > "$ev/p3-linux-timing-host.log" 2>&1 ;;
     linux-e2e-timing) sh "$gate" --prefix cx-p3 --repo "$wrepo" --out "$wev/linux" "$head" p3-linux-e2e-timing --no-race --timeout 60m -- ./test/e2e > "$ev/p3-linux-e2e-timing-host.log" 2>&1 ;;
-    linux-child) sh "$gate" --prefix cx-p3 --repo "$wrepo" --out "$wev/linux" "$head" p3-linux-child --no-race --env CGO_ENABLED=1 --env GOFLAGS=-race --env QOMPACK_REQUIRE_CHILD_RACE=1 --timeout 15m \
+    linux-child) sh "$gate" --prefix cx-p3 --repo "$wrepo" --out "$wev/linux" "$head" p3-linux-child --no-race --coload --env CGO_ENABLED=1 --env GOFLAGS=-race --env QOMPACK_REQUIRE_CHILD_RACE=1 --timeout 15m \
           --run '^(TestE2E_RequiredProductChildRaceInstrumentation|TestE2EHookRoundTrip|TestE2E_ObserverThroughDaemon|TestE2E_SupersessionVisibleAfterRestart|TestE2E_VerbatimPromptSurvivesRestart|TestE2E_SessionStartCompactRestoresCheckpointItems|TestStdioServerEndToEnd|TestV3_CrashRecoveryReplaysObserverAndLedgerConsistently)$' -- ./test/e2e > "$ev/p3-linux-child-host.log" 2>&1 ;;
     release) rec p3-release-check -- go run ./tools/devtool release-check ;;
     *) echo "unknown step $step" >&2; exit 2 ;;
