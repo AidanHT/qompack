@@ -14,3 +14,9 @@ import (
 // (publication_snapshot_test.go) set it, so a test can remove a file inside that window
 // deterministically (w15-services review).
 var publicationEntryHook atomic.Pointer[func(parent *os.Root, dirName string, e os.DirEntry)]
+
+// publicationReadHook, when set, runs in readPublicationFile after its Lstat has checked the file
+// and before it opens it: the window in which the store can replace a capture sidecar by rename
+// (LinkCaptureReference publishing it, or a redelivery rewriting it) under a pass that goes on while
+// the daemon serves. It is nil in production; only this package's tests set it (wave 22, D67(a)).
+var publicationReadHook atomic.Pointer[func(dir *os.Root, name string)]
