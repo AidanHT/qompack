@@ -370,7 +370,7 @@ func TestBuild_ASinglePercentIsShownAndAPairIsNot(t *testing.T) {
 	root := previewRoot("proj")
 	requireScreened(t, root, hostRules(root, uat12Rules...), nil,
 		[]string{
-			"git log --pretty=format:%h -n 3",
+			"git log --format=%h -n 3",
 			"date +%s",
 			`echo "100% done"`,
 			"echo 100%",
@@ -385,6 +385,9 @@ func TestBuild_ASinglePercentIsShownAndAPairIsNot(t *testing.T) {
 			"cat a%2e",
 			cutAfter(t, "curl https://x.example/", "%2"),
 			cutAfter(t, "date +", "%"),
+			// Criterion change (wave 19d final verify): `--pretty=format` before a `:` is a name PowerShell
+			// accepts for a drive (providerPath), so git's `format:` spelling is over-withheld.
+			"git log --pretty=format:%h -n 3",
 		},
 		[]string{"passwd", "USERPROFILE"})
 }

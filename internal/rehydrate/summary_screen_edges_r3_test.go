@@ -370,8 +370,8 @@ func TestBuild_AnEarlierSpellingOfTheRootKeepsItsQuotes(t *testing.T) {
 
 // TestBuild_ACaretEscapedSeparatorIsASeparator: a caret before a backslash was kept as a regular
 // expression's anchor, but cmd.exe reads `^\` as `\`, so an absolute, home or `..` path spelled with
-// caret-escaped separators was shown. Only a caret before `/` is kept (`^/api/`); a backslash-led
-// regular expression after a caret is still one (`^\s*func\b`).
+// caret-escaped separators was shown. Under D63 no text is read as a regular expression: a caret is
+// outside the whitelist, so every spelling below is withheld, a caret-anchored expression with them.
 func TestBuild_ACaretEscapedSeparatorIsASeparator(t *testing.T) {
 	root := previewRoot("proj")
 	requireScreened(t, root, hostRules(root), nil,
@@ -445,8 +445,9 @@ func TestBuild_ANestedShellThatChangesToTheRootIsShown(t *testing.T) {
 // read as a regular expression, so a drive-less Windows path outside the project with a glob in it
 // (`dir \Users\x\.ssh\*`, the common PowerShell and cmd.exe listing) was shown, as free text and as
 // a one-word Glob preview (D61(2)(c)); so was one holding a `+` or a `$` a Windows name holds
-// (`notes+old.txt`, `c++`, `$Recycle.Bin`). Neither a glob character nor such a `+` or `$` is a
-// regular expression's signature; a class escape, `( ) { } | ^ [ ]`, `.+` or a closing `$` still is.
+// (`notes+old.txt`, `c++`, `$Recycle.Bin`). Under D63 no text is read as a regular expression: a
+// token led by a separator is an absolute path, and a `$`, or a glob outside a Glob preview, is outside
+// the whitelist, so every spelling below is withheld.
 func TestBuild_ADriveLessGlobOutsideTheProjectIsWithheld(t *testing.T) {
 	root := previewRoot("proj")
 	requireScreened(t, root, hostRules(root, "./private/deny.txt"), nil,

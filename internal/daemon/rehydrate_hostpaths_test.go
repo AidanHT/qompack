@@ -405,15 +405,21 @@ func TestRehydrateHostPaths_HostJudgementsAreStructuredSummariesAndFilePointers(
 			for _, p := range judged {
 				require.NotContains(t, p, " ", "no fixture command's arguments reach the host")
 			}
-			times := map[string]int{}
+			// The count's 2*instructions term is exactly the rule files and the skill files, once each,
+			// in the spelling items 6a and 6b hand the judge: a build that dropped 6b's judgements and
+			// judged 6a's twice (under a second spelling, or past the memo) meets the count but not this.
+			instr := map[string]int{}
 			for _, p := range judged {
-				times[filepath.ToSlash(p)]++
-			}
-			for i := 1; i <= tc.instructions; i++ {
-				for _, f := range []string{fmt.Sprintf(".claude/rules/k%d.md", i), fmt.Sprintf(".claude/skills/s%d/SKILL.md", i)} {
-					require.Equal(t, 1, times[f], "item 6a and 6b judge %s once: %v", f, judged)
+				if strings.Contains(filepath.ToSlash(p), ".claude/") {
+					instr[filepath.ToSlash(p)]++
 				}
 			}
+			want := map[string]int{}
+			for i := 1; i <= tc.instructions; i++ {
+				want[fmt.Sprintf(".claude/rules/k%d.md", i)] = 1
+				want[fmt.Sprintf(".claude/skills/s%d/SKILL.md", i)] = 1
+			}
+			require.Equal(t, want, instr, "items 6a and 6b judge each rule file and each skill file once: %v", judged)
 			require.NotContains(t, res.Text, "summary withheld", "no fixture preview names a denied path")
 			require.Contains(t, res.Text, " — "+previews[0]+"\n", "fixture: the previews reach section 6")
 		})
@@ -457,7 +463,7 @@ func TestRehydrateHostPaths_UsefulSummariesAreShownUnderTheUAT12Rules(t *testing
 			bash("go test ./... > test.log 2>&1; tail -n 50 test.log"),
 			bash(`git commit -m "feat(api): add users endpoint"`),
 			bash(`sed -n '1,50p' src/main.go`),
-			bash("git log --pretty=format:%h -n 3"),
+			bash("git log --format=%h -n 3"),
 			storePreview(t, map[string]string{"query": "what's the owner's ruling"}),
 		},
 		[]string{
@@ -469,6 +475,9 @@ func TestRehydrateHostPaths_UsefulSummariesAreShownUnderTheUAT12Rules(t *testing
 			storePreview(t, map[string]string{"pattern": "**/*.{go,env}"}),
 			bash(`cat 'secrets/token.txt'`),
 			storePreviewOf(t, map[string]any{"paths": []string{"file:///etc/passwd", "src/main.go"}}),
+			// Criterion change (wave 19d final verify): `--pretty=format` before a `:` is a name PowerShell
+			// accepts for a drive, so git's `format:` spelling is over-withheld; `--format=%h` is shown.
+			bash("git log --pretty=format:%h -n 3"),
 		})
 	require.NotContains(t, res.Text, "deny.txt")
 	require.NotContains(t, res.Text, "token.txt")
@@ -863,7 +872,9 @@ func TestRehydrateHostPaths_CommonIdiomsAreShownUnderTheUAT12Rules(t *testing.T)
 // `HEAD~1` as an 8.3 name it cannot resolve, and the refused summary was noted as a withheld path
 // whose fragments withheld `git diff src HEAD~1` beside it; a Grep pattern led by a backslash was
 // read as a rooted path outside the project, withheld, and noted as a withheld name (`b`) that
-// withheld `go build ./...`. Each is shown; a command run from a denied directory is withheld.
+// withheld `go build ./...`. Each command is shown. Under D63 no text is read as a regular
+// expression: one led by `\` or `^` is withheld, and noted as nothing, so `go build ./...` is still
+// shown; a command run from a denied directory is withheld.
 func TestRehydrateHostPaths_RootedCommandsAndRegularExpressionsAreShownUnderTheUAT12Rules(t *testing.T) {
 	root := uat12Project(t, "John Smith", "proj")
 	bash := func(cmd string) string { return storePreview(t, map[string]string{"command": cmd}) }

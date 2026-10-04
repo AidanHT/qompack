@@ -222,8 +222,13 @@ func TestBuild_AnEscapedLineBreakNeverSplitsADeniedName(t *testing.T) {
 func TestBuild_APathSelectorAfterAQuoteOrEqualsIsJudged(t *testing.T) {
 	root := previewRoot("proj")
 	requireScreened(t, root, hostRules(root, "./private/deny.txt"), []string{"private/deny.txt"},
-		[]string{`qompack recall "path:src/main.go"`, "qompack recall --query=path:reports"},
-		[]string{`qompack recall "path:deny"`, `qompack recall 'path:deny'`, "qompack recall --query=path:deny"},
+		[]string{`qompack recall "path:src/main.go"`, "qompack recall path:reports"},
+		[]string{
+			`qompack recall "path:deny"`, `qompack recall 'path:deny'`, "qompack recall --query=path:deny",
+			// Criterion change (wave 19d final verify): `--query=path` before a `:` is a name PowerShell
+			// accepts for a drive (providerPath), so a selector glued to an option is over-withheld.
+			"qompack recall --query=path:reports",
+		},
 		nil)
 }
 
