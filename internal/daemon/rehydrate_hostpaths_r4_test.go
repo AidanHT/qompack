@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/qompack/qompack/internal/logging"
 	"github.com/qompack/qompack/internal/paths"
 	"github.com/qompack/qompack/internal/store"
 )
@@ -81,6 +82,41 @@ func TestRehydrateHostPaths_AUnicodeCaseVariantOfTheRootIsADirectoryBesideIt(t *
 			} else {
 				requireToolSummaries(t, root, nil, calls(upper))
 			}
+		})
+	}
+}
+
+// TestRehydrateHostPaths_ARuleOverTheRootIsMatchedAsTheHostMatchesIt is the rule half of wave 19g's
+// final verify through the real host rules: a project deny rule spelled from the filesystem root
+// refuses every `.key` file of the project, its root segment spelled with a `?` for the root's
+// apostrophe, a negated class, or an escaped apostrophe. The host refuses `certs/server.key`, but the
+// screen matched the rule against the root in screen form, which deletes the apostrophe and the
+// caret, found it covered nothing, and showed `cat certs/server.key`. It is withheld.
+func TestRehydrateHostPaths_ARuleOverTheRootIsMatchedAsTheHostMatchesIt(t *testing.T) {
+	for _, tc := range []struct{ seg, pat string }{
+		{"o'brien", "o?brien"}, {"obrien", "[^x]brien"}, {"o'brien", `o\\'brien`},
+	} {
+		t.Run(tc.pat, func(t *testing.T) {
+			root := shortProjectDir(t, tc.seg, "proj")
+			posix := filepath.ToSlash(root)
+			if vol := filepath.VolumeName(root); vol != "" {
+				posix = "/" + strings.ToLower(vol[:1]) + posix[len(vol):]
+			}
+			spec := strings.Replace(posix, "/"+tc.seg+"/", "/"+tc.pat+"/", 1)
+			require.NotEqual(t, posix, spec, "fixture: the rule spells the root's segment as a pattern")
+			writeProjectSettings(t, root, `{"permissions":{"deny":["Read(/`+spec+`/**/*.key)"]}}`)
+			writeProjectFile(t, root, "certs/server.key")
+			writeProjectFile(t, root, "src/main.go")
+			refuses := rehydrateHostPaths(mcpOpHostPolicy(t, root), root, logging.Nop())().Refuses
+			require.NotNil(t, refuses)
+			require.True(t, refuses("certs/server.key"), "fixture: the host refuses the project's .key files")
+			require.False(t, refuses("src/main.go"), "fixture: and nothing else")
+
+			bash := func(cmd string) string { return storePreview(t, map[string]string{"command": cmd}) }
+			res := requireToolSummaries(t, root,
+				[]string{bash("cat src/main.go"), bash("go vet ./src/main.go")},
+				[]string{bash("cat certs/server.key"), bash("openssl x509 -in certs/server.key")})
+			require.NotContains(t, res.Text, "server.key")
 		})
 	}
 }

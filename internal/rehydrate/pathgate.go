@@ -67,7 +67,8 @@ import (
 //     A cut path-named value is the project only when it starts the root's own spelling byte for
 //     byte (rootPrefix). The root's spelling in a text, a cut value's start and containment all fold
 //     an ASCII letter's case where the platform's paths fold, and no other character's (foldLiteral,
-//     asciiFoldEqual, RootRelative).
+//     asciiFoldEqual, RootRelative); a rule anchored outside the project is matched against the root
+//     as the host matches it, its case folded as the host folds it (rootCover).
 //     When the host's rules are unavailable, or a rule covers the whole project, every free text is
 //     withheld, as re_read fails closed.
 //
@@ -113,9 +114,9 @@ type pathJudge struct {
 	// rootExact is set when a sanitized text can spell the root exactly (rootSpelledExactly); a drop
 	// reason holds the root together only then (reasonWithheld).
 	rootExact bool
-	// rootSegs are the project root's segments, cleaned, slash-separated and in screen form
-	// (screenText), as a rule's own segments are: a rule anchored outside the project is matched
-	// against them (rootCover). A cut stretch is the root only in the root's own spelling (rootPrefix).
+	// rootSegs are the project root's segments as the host's rules match them (hostRootSegments):
+	// a rule anchored outside the project is matched against them (rootCover). A cut stretch is the
+	// root only in the root's own spelling (rootPrefix).
 	rootSegs []string
 	// screens are the rules' literals in screen form taken from a whole segment (literalOf, litWhole),
 	// which a text holds where a name starts (namedAt); screenAll is set when one rule's literal cannot
@@ -163,13 +164,13 @@ type pathJudge struct {
 func (j *pathJudge) screenBy(patterns []string) {
 	outside := false
 	for _, p := range patterns {
-		segs, anchored, fromStart := ruleSegments(p)
+		segs, _ := ruleSegments(p)
 		lit, kind := literalOf(segs)
-		if lit == "" || (anchored && j.rootCover(segs, fromStart)) {
+		if lit == "" || j.coversRoot(p) {
 			j.screenAll = true
 			continue
 		}
-		outside = outside || anchored
+		outside = outside || anyAnchored(hostReadings(p))
 		j.addScreen(lit, kind)
 		if rp := screenText(strings.TrimPrefix(strings.TrimSpace(p), "./"), true); rp != "" {
 			j.rulePaths = appendDistinct(j.rulePaths, rp)
@@ -196,16 +197,101 @@ func (j *pathJudge) addScreen(lit string, kind litKind) {
 	}
 }
 
-// rootCover matches segs, a rule anchored outside the project (below its anchor, ruleSegments),
-// against the project root's segments, from the filesystem root when fromStart and from any of them
-// otherwise (a home or settings anchor is not known here, so every alignment is assumed). It reports
-// true when the rule may refuse the root itself, or a path below it whose relative spelling need hold
-// no literal: segs end, or end in a wholly unliteral glob, at or above the root (`//c/Users/me/**`,
-// `~/config/**` for a project under them). When the rule may refuse project paths through what
-// follows the root (`~/Documents/**/*.key` for a project under Documents), the literal that part
-// spells is added to the screens. A rule whose literal merely occurs in the root's path, segment or
-// substring, and that refuses nothing in the project (`~/Documents/*.pdf`, `~/.kube/config` beside
-// `config-service`, `//etc/**` beside `fetcher`), adds nothing.
+// coversRoot matches spec, a rule's specifier, against the project root in each reading of it that is
+// anchored outside the project (hostReadings, rootCover), and reports whether one may refuse the root
+// or a path below it whose relative spelling need hold no literal. Every reading is matched, since
+// each may add the literal of what follows the root to the screens.
+func (j *pathJudge) coversRoot(spec string) bool {
+	all := false
+	for _, rd := range hostReadings(spec) {
+		if rd.anchored && j.rootCover(rd.segs, rd.fromStart) {
+			all = true
+		}
+	}
+	return all
+}
+
+// hostReading is one reading of a rule's specifier as the host matches it against a path
+// (hostReadings): its segments below its anchor, whether it is anchored outside the project (as
+// ruleSegments reports it), and whether it is measured from the filesystem root (`//`, a drive).
+type hostReading struct {
+	segs                []string
+	anchored, fromStart bool
+}
+
+// hostReadings are the readings of spec, a rule's specifier, that the host matches against a path
+// (internal/hostperm: compileOne, finishPattern, prefixRow). Its raw segments: split at `/` only,
+// nothing deleted, a `\` left in its segment, where path.Match reads it as an escape; its case folded
+// where the platform's paths fold, as paths.Key and hostperm both fold it, by Unicode lower-casing;
+// `..` resolved lexically (cleanLiteral). And when spec holds a backslash, the same with every
+// backslash read as a separator: hostperm's alias of such a rule on Windows, read on every platform
+// as ruleSegments has always read it, since a reading can only add screens. The home anchor is where
+// the rule is measured from, not a segment, as in ruleSegments.
+func hostReadings(spec string) []hostReading {
+	s := paths.Key(strings.TrimSpace(spec))
+	out := []hostReading{hostReadingOf(s)}
+	if strings.Contains(s, `\`) {
+		out = append(out, hostReadingOf(strings.ReplaceAll(s, `\`, "/")))
+	}
+	return out
+}
+
+// hostReadingOf is one reading of s, a folded specifier, split at its `/` (hostReadings).
+func hostReadingOf(s string) hostReading {
+	home := s == "~" || strings.HasPrefix(s, "~/")
+	rd := hostReading{fromStart: strings.HasPrefix(s, "//") || driveSpelling.MatchString(s)}
+	rd.anchored = rd.fromStart || home || strings.HasPrefix(s, "/") || strings.HasPrefix(path.Clean(s), "..")
+	for i, seg := range strings.Split(s, "/") {
+		switch {
+		case seg == "" || seg == "." || (i == 0 && home):
+		case seg == "..":
+			if len(rd.segs) > 0 {
+				rd.segs = rd.segs[:len(rd.segs)-1]
+			}
+		default:
+			rd.segs = append(rd.segs, seg)
+		}
+	}
+	return rd
+}
+
+// anyAnchored reports whether any of readings is anchored outside the project.
+func anyAnchored(readings []hostReading) bool {
+	for _, rd := range readings {
+		if rd.anchored {
+			return true
+		}
+	}
+	return false
+}
+
+// hostRootSegments is root as the host's rules are matched against it (internal/hostperm's
+// posixSegments): on Windows without a `\\?\` prefix, cleaned, slash-separated, each segment as
+// written, with nothing deleted, and its case folded where the platform's paths fold, by Unicode
+// lower-casing (paths.Key) as hostperm folds both a path and a rule: a rule spelled with the Kelvin
+// sign (U+212A) for the root's `k` refuses the project at the host, so the screen must read it so
+// too, though the root's own spelling folds ASCII letters only (RootRelative). A drive stays `c:`,
+// which segMatch reads a rule's `c` as.
+func hostRootSegments(root string) []string {
+	r := root
+	if runtime.GOOS == "windows" {
+		r = strings.TrimPrefix(strings.TrimPrefix(r, `\\?\UNC\`), `\\?\`)
+	}
+	key := paths.Key(filepath.ToSlash(filepath.Clean(r)))
+	return strings.FieldsFunc(key, func(c rune) bool { return c == '/' })
+}
+
+// rootCover matches segs, one reading of a rule anchored outside the project (below its anchor,
+// hostReadings), against the project root's segments (hostRootSegments), from the filesystem root
+// when fromStart and from any of them otherwise (a home or settings anchor is not known here, so
+// every alignment is assumed). It reports true when the rule may refuse the root itself, or a path
+// below it whose relative spelling need hold no literal: segs end, or end in a wholly unliteral glob,
+// at or above the root (`//c/Users/me/**`, `~/config/**` for a project under them). When the rule
+// may refuse project paths through what follows the root (`~/Documents/**/*.key` for a project under
+// Documents), the literal that part spells, in screen form, is added to the screens. A rule whose
+// literal merely occurs in the root's path, segment or substring, and that refuses nothing in the
+// project (`~/Documents/*.pdf`, `~/.kube/config` beside `config-service`, `//etc/**` beside
+// `fetcher`), adds nothing.
 func (j *pathJudge) rootCover(segs []string, fromStart bool) (all bool) {
 	root := j.rootSegs
 	seen := make(map[[2]int]bool)
@@ -218,7 +304,7 @@ func (j *pathJudge) rootCover(segs []string, fromStart bool) (all bool) {
 		switch {
 		case ri == len(root):
 			// The root is matched: what is left applies to project-relative paths.
-			lit, kind := literalOf(segs[si:])
+			lit, kind := literalOf(screenSegments(segs[si:]))
 			if lit == "" {
 				all = true
 				return
@@ -244,9 +330,30 @@ func (j *pathJudge) rootCover(segs []string, fromStart bool) (all bool) {
 	return all
 }
 
-// segMatch reports whether a rule's segment pat, in screen form, may match the root's segment seg:
-// as a glob, or as a drive's POSIX spelling (`c` for `c:`). A pattern path.Match cannot read matches.
+// screenSegments is segs, a rule's raw segments, each in screen form (screenText), as literalOf
+// reads them.
+func screenSegments(segs []string) []string {
+	out := make([]string, len(segs))
+	for i, s := range segs {
+		out[i] = screenText(s, true)
+	}
+	return out
+}
+
+// segMatch reports whether a rule's raw segment pat may match the root's raw segment seg, both folded
+// as the host folds them: as the host matches them, by path.Match (wave 19g's final verify of D64: a
+// `?` or a negated class for a quote, a backtick, a caret or a backslash in the root's name, and an
+// escape `\'`, match where the host matches them), or as a drive's POSIX spelling (`c` for `c:`). A
+// pattern path.Match cannot read matches. So do the two in screen form (screenText), as rootCover
+// matched them before: that reading deletes ' " ` \ ^ and so matches more, never less, and can only
+// add screens.
 func segMatch(pat, seg string) bool {
+	return globSegMatch(pat, seg) || globSegMatch(screenText(pat, true), screenText(seg, true))
+}
+
+// globSegMatch reports whether pat matches seg as a glob segment, as a drive's POSIX spelling, or
+// as a pattern path.Match cannot read (segMatch).
+func globSegMatch(pat, seg string) bool {
 	if pat == seg || (len(seg) == 2 && seg[1] == ':' && pat == seg[:1]) {
 		return true
 	}
@@ -265,8 +372,7 @@ func newPathJudge(r Request, d Deps) pathJudge {
 		rootExact: rootSpelledExactly(r.ProjectRoot),
 	}
 	if r.ProjectRoot != "" {
-		key := screenText(filepath.ToSlash(filepath.Clean(r.ProjectRoot)), true)
-		j.rootSegs = strings.FieldsFunc(key, func(c rune) bool { return c == '/' })
+		j.rootSegs = hostRootSegments(r.ProjectRoot)
 	}
 	if d.HostPaths != nil {
 		j.host = true
@@ -2074,27 +2180,14 @@ func (j pathJudge) key(p string) (string, bool) {
 
 // ruleSegments is spec, a rule's specifier, as the segments of the paths it refuses below its
 // anchor, each in screen form, with `..` resolved lexically as hostperm resolves it (cleanLiteral:
-// `./private/deny.txt/..` refuses private/**). anchored reports a specifier measured from outside
-// the project (`//`, `/`, `~` or `~/`, a drive, a leading `..`), and fromStart one measured from the
-// filesystem root (`//`, a drive). The home anchor is where the rule is measured from, not a segment;
-// `~name` with no slash after `~` is hostperm's project-relative name, not a home.
-func ruleSegments(spec string) (segs []string, anchored, fromStart bool) {
-	s := strings.ReplaceAll(strings.TrimSpace(spec), `\`, "/")
-	home := s == "~" || strings.HasPrefix(s, "~/")
-	fromStart = strings.HasPrefix(s, "//") || driveSpelling.MatchString(s)
-	anchored = fromStart || home || strings.HasPrefix(s, "/") || strings.HasPrefix(path.Clean(s), "..")
-	for i, seg := range strings.Split(s, "/") {
-		switch {
-		case seg == "" || seg == "." || (i == 0 && home):
-		case seg == "..":
-			if len(segs) > 0 {
-				segs = segs[:len(segs)-1]
-			}
-		default:
-			segs = append(segs, screenText(seg, true))
-		}
-	}
-	return segs, anchored, fromStart
+// `./private/deny.txt/..` refuses private/**), a backslash read as a separator: hostReadings' reading
+// of spec with every backslash a `/`, in screen form. anchored reports a specifier measured from
+// outside the project (`//`, `/`, `~` or `~/`, a drive, a leading `..`). The home anchor is where the
+// rule is measured from, not a segment; `~name` with no slash after `~` is hostperm's
+// project-relative name, not a home.
+func ruleSegments(spec string) (segs []string, anchored bool) {
+	rd := hostReadingOf(strings.ReplaceAll(strings.TrimSpace(spec), `\`, "/"))
+	return screenSegments(rd.segs), rd.anchored
 }
 
 // litKind is where a rule's literal stands in the names the rule refuses (literalOf).
