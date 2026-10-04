@@ -2112,12 +2112,15 @@ func providerPath(rest string) bool {
 
 // inertPrefixes are the names before a `:` that providerPath lets stand, derived from what Qompack's
 // own previews must show (the w19d corpus, ADR 0011 §23 item 7(b)): `path`, recall's selector, whose
-// value selectorWithheld judges, and `sha256`, the text form of the hash expand and re_read take
-// (core.Hash). With an http(s) URL's scheme they are all: no PowerShell drive or provider has one of
-// these names unless a user defines it (ADR 0011 §23 item 2's limits), and every other name is
-// withheld, `localhost:3000`, `HEAD:x`, `--pretty=format:%h`, a plugin's `name:skill`, recall's other
-// selectors (`symbol:`, `tool:`) and a scheme with no `//` (`http:x`) among them.
-var inertPrefixes = map[string]bool{"path": true, "sha256": true}
+// value selectorWithheld judges; `sha256`, the text form of the hash expand and re_read take
+// (core.Hash); and `select`, ToolSearch's documented selector, with which Claude Code loads a
+// deferred tool, Qompack's own among them (`select:mcp__plugin_qompack_qompack__record_eliminated`;
+// coordinator decision D67(l), audit 2's finding 31). With an http(s) URL's scheme they are all: no
+// PowerShell drive or provider has one of these names unless a user defines it (ADR 0011 §23 item
+// 2's limits), and every other name is withheld, `localhost:3000`, `HEAD:x`, `--pretty=format:%h`, a
+// plugin's `name:skill`, recall's other selectors (`symbol:`, `tool:`) and a scheme with no `//`
+// (`http:x`) among them. What follows an inert prefix's `:` is still a path start.
+var inertPrefixes = map[string]bool{"path": true, "sha256": true, "select": true}
 
 // pathStarts are the offsets in tok where a path may begin: the start, just after a leading short
 // option's first letter and just after all its letters (`-C../x`, `-I/opt`, `-oD:stash`), and just
