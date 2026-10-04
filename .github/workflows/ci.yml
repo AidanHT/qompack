@@ -581,7 +581,7 @@ jobs:
   # commit, and a second full scan per push would buy nothing. The recorded SKIPPED says which run
   # this was.
   release-dry-run:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # ── Non-reference disk (owner Q1, third option; D53(e), D55) ─────────────────────────────────
     # release-check runs ci-local's `test` and `cover` steps, and each runs test/e2e in a pass of its
     # own (tools/devtool/test.go, wholeTreePasses), where X11 drives the hot-path harness alone on
