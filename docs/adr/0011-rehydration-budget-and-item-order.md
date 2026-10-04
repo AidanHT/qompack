@@ -885,20 +885,36 @@ screened; it now also matches the raw segments as `hostperm` does (item 7(d)).
      PowerShell drive or provider name (`cd Temp: && cat secret.txt` is shown; `cd C: && …`, a
      single-letter drive, is withheld).
    - A PowerShell drive or provider a user defines under one of the inert prefixes' names (`path`,
-     `sha256`, or `http` and `https` before a URL's `//`) is not resolved: `path:src/x` is read as
-     recall's selector, `sha256:…` as a hash and `https://…` as a URL (item 7(b)). Every other name
-     before a `:` is withheld whether or not a drive of that name exists.
+     `sha256`, `select`, or `http` and `https` before a URL's `//`) is not resolved: `path:src/x` is
+     read as recall's selector, `sha256:…` as a hash, `select:…` as ToolSearch's selector (D67(l)) and
+     `https://…` as a URL (item 7(b)). Every other name before a `:` is withheld whether or not a
+     drive of that name exists.
    - On Windows a spelling of the root in backslashes alone is the root (item 8), as cmd.exe and
      PowerShell read it; Git Bash, reading it unquoted, drops each backslash and reads a drive-relative
      name built from the root's own segments (`C:qproj…`), which lies in the working directory. The
      final verify of wave 19d ruled that Windows keeps either slash, and D64(4) accepts it: a spelling
      that mixes the two is not the root.
-   - A Unicode modifier letter that a Windows code page's best-fit mapping turns into ASCII
-     punctuation (measured with code page 1252: `ʺ` U+02BA becomes `"`, and `ʹ` U+02B9, `ʼ` U+02BC
-     and `ˈ` U+02C8 become `'`) is a letter to the whitelist, in free text and in the root's own
-     spelling (item 8) alike, so a program that reads its arguments through that mapping sees a quote
-     the screen did not. It is the first bullet's best-fit limit; D64 does not change it, and it is
-     open for a coordinator ruling.
+   - A Unicode letter or mark that a Windows ANSI code page's best-fit mapping turns into ASCII
+     punctuation (`ʺ` U+02BA becomes `"`; `ʹ` U+02B9, `ʼ` U+02BC and `ˈ` U+02C8 become `'`) is no
+     longer a letter to the whitelist: D64's ruling on wave 19f's open items took every such code
+     point, the whole Spacing Modifier Letters block among them, out of the whitelist and the root
+     unit on every platform (`bestFitPunct`, item 7(a)). A fullwidth or compatibility variant that a
+     best fit reads as an ASCII letter is the first bullet's limit. A character the ANSI code page
+     cannot hold at all reaches a program that reads an ANSI command line as the code page's default
+     character `?`, a glob to a program that expands its own arguments (`de统y.txt` as `de?y.txt`);
+     it is no best fit, the screen does not model it, and coordinator decision D67(l) accepts it as a
+     limit.
+   - On macOS Qompack assumes the default case-insensitive APFS volume (coordinator decision D67(m),
+     audit 2's finding 85). The root's spelling (`rootSpellingOf`), a cut value's start
+     (`rootPrefix`) and containment (`RootRelative`) all fold an ASCII letter's case there, as the
+     host's rules do, so a spelling of the root in another ASCII case is the project. On a
+     case-sensitive APFS volume, an opt-in format, such a spelling names a different folder, outside
+     the project, which a summary may then show; Qompack does not detect the volume's case
+     sensitivity.
+   - A path-keyed checkpoint drop past the bound on host judgements (item 10) is withheld unjudged
+     and is learned as a withheld path only when its spelling names a rule's literal; to the
+     free-text screen any other such path is one Qompack never recorded, so a name of it that a rule
+     refuses only through a link or an 8.3 name is the first bullet's limit.
    - Free text that mentions a rule's literal or a withheld path's name where a name starts is
      withheld, whatever follows the name (`kubectl get secrets` under `Read(./secrets/**)`; `cat
      .env.local` under `Read(./.env)`; `git diff README.md` beside a withheld module-cache README.md;
@@ -1013,8 +1029,8 @@ screened; it now also matches the raw segments as `hostperm` does (item 7(d)).
      glob), with one level of `{a,b}` expanded into alternatives that must each be such a glob (a
      concrete path among them would reach no host judgement; a sequence `{1..3}` or a nested brace is
      withheld), the braces also read as path starts (PowerShell opens a script block at `{`). This
-     relaxes D63's "a one-word summary must ALSO pass the free-text whitelist" for patterns; the
-     owner is asked to ratify it.
+     relaxes D63's "a one-word summary must ALSO pass the free-text whitelist" for patterns, and
+     coordinator decision D67(l) ratifies it, with 19d's stricter extensions of D63(2).
    - *A Glob preview of a directory under the root* is judged as one structured glob: the directory
      by the host once, the pattern as a pattern one-word is, read from the directory and alone (a
      script's argument, read from the working directory), and the text by the rule literals and the
@@ -1032,8 +1048,7 @@ screened; it now also matches the raw segments as `hostperm` does (item 7(d)).
      (`<root>/private/de\ny.txt`, deny.txt to a POSIX shell), a relative value (read from a working
      directory the host does not know) and a pattern keep the withheld names. `<root>/README.md` is
      still withheld beside a denied `private/README.md`, whose rule's literal is the whole name
-     `README.md` (accepted over-withholding; the owner is asked whether the host's judgement of the
-     exact path should end it).
+     `README.md` (accepted over-withholding, which D67(l) keeps as shipped).
    - *Several path-named values, and cut ones.* A path-named JSON value is exempt from the whitelist
      (it is a structured identifier, not a command), and its names are whole names too; a preview with
      SEVERAL path-named values costs no host judgement: each is screened by containment, by the rule
@@ -1043,6 +1058,20 @@ screened; it now also matches the raw segments as `hostperm` does (item 7(d)).
      http(s) URL one-word (a WebFetch preview, which the store reduces to its `url`) is free text,
      never a path, and asks the host nothing, whatever its query string holds. Read, Write and Edit
      take an absolute `file_path`, so a rooted plain path is judged as the one file it names.
+   - *A path-named value that holds several paths* (audit 2's finding 26). A value may be a list a
+     tool splits (`{"paths":"src/a.ts /etc/passwd"}`, `{"file":"src/a.ts,C:\\x"}`), and judged whole
+     a list whose first piece is relative was a relative path the host, joining it under the root,
+     refused nothing about. So each piece of every path-named value, split at whitespace, a comma, a
+     semicolon or a bar, is also judged for a path outside the project, with no host judgement: not
+     inside the project (an absolute path, a home, a variable, a drive-relative path, a climb), a
+     PowerShell drive- or provider-qualified path (a drive letter's is containment's), or, after a
+     `:`, `=` or `@` inside the piece, a rooted path outside the project or a PowerShell drive
+     (`valueNamesOutside`). Where a piece may start, the root's own spelling as containment compares
+     it is read whole (`rootSpanAt`), so a project path under a root with a space, a comma or a
+     semicolon stays one piece whatever else the root holds (a value is no shell input, so D64(1)'s
+     set does not apply), and a single project path with a space in it is shown. A cut value's last
+     piece is the start of a piece: from a piece start that begins the root's own spelling byte for
+     byte to the cut it is the project (D64(8)).
 7. *Free text is shown only when the whitelist vouches for every token* (D63(2)-(4)). Every other
    summary, and every other string of a JSON preview, is free text; an object's keys are screened as
    free text too: D63(1) judges a preview by its decoded strings, and a key is one, which may carry a
@@ -1051,7 +1080,8 @@ screened; it now also matches the raw segments as `hostperm` does (item 7(d)).
    project root's own spelling is first held together as one token-safe unit (item 8); the text is
    then tokenized on ASCII whitespace, except that a simple double-quoted run, and a single-quoted run
    that opens at a token's start, keep their spaces. The summary is SHOWN only when all of these hold,
-   and otherwise is withheld ("summary withheld"; the pointer keeps its id and hash):
+   and otherwise is withheld (`(summary withheld)`, explained once by section 6's legend line, item
+   12; the pointer keeps its id and hash):
    - (a) *Every token is safe.* A plain token is built only from Unicode letters, marks and digits
      (none whose Windows ANSI best fit is ASCII punctuation, below) plus the ASCII set
      `- _ . , : @ + /`, with `~` and `=` allowed inside a word (`HEAD~1`, `--out=x`) but not at a
@@ -1100,7 +1130,8 @@ screened; it now also matches the raw segments as `hostperm` does (item 7(d)).
      any name `New-PSDrive` defines), unless the name holds `.` or `~` (PowerShell 5.1 and 7 both
      refuse either in a drive's name, so `git@github.com:org/x` and `127.0.0.1:8080` name none; before
      a `::` only a `/` rules a provider out) or is an inert prefix: `path` (recall's selector, which
-     (c) judges), `sha256` (a hash's text form), or `http` and `https` before a URL's `//`. A bare
+     (c) judges), `sha256` (a hash's text form), `select` (ToolSearch's selector, D67(l)), or `http`
+     and `https` before a URL's `//`. A bare
      name with nothing after its `:` (`Temp:`, `Env:`, `HKCU:`, a conventional commit's `fix:` and
      `feat:`) names a drive root, which D64(3) rules inert: it reveals no file and is no path outside
      the project under D50 and D63 (withholding it would hide every conventional commit message). A
@@ -1293,10 +1324,13 @@ screened; it now also matches the raw segments as `hostperm` does (item 7(d)).
        nested or unbalanced brace, an escaped comma's backslash ending an alternative and a concrete
        alternative are withheld (`TestBuild_ABraceGlobNeverRespellsAnOutsidePath`).
      - *The inert prefixes.* `path:` is recall's selector, whose value (c) judges by the store's own
-       rule; `sha256:` is the hash's text form that expand and re_read take; an http(s) scheme before
-       `//` is a URL's. No PowerShell drive or provider has one of these names unless a user defines it
-       (item 2's limits), and each is withheld glued after anything else (`--query=path:x`)
-       (`TestBuild_APowerShellProviderDrivePathIsWithheld`).
+       rule; `sha256:` is the hash's text form that expand and re_read take; `select:` is ToolSearch's
+       documented selector, with which Claude Code loads a deferred tool (D67(l),
+       `TestBuild_ToolSearchsSelectorIsShown`); an http(s) scheme before `//` is a URL's. No
+       PowerShell drive or provider has one of these names unless a user defines it (item 2's limits),
+       and each is withheld glued after anything else (`--query=path:x`)
+       (`TestBuild_APowerShellProviderDrivePathIsWithheld`). What follows an inert prefix's `:` is
+       still a path start (`select:/etc/passwd` is withheld).
      - *A rooted structured value in one separator style* (item 6). Every reader reads the same names
        after the root, the host's judgement included, so the rules' literals alone can tell its names
        from a refused file's (`TestBuild_AnOutsideNamesakeNeverWithholdsAProjectPath`).
@@ -1320,7 +1354,7 @@ screened; it now also matches the raw segments as `hostperm` does (item 7(d)).
    list. So is a character the ANSI code page cannot hold at all, which a program reading an ANSI
    command line receives as the code page's default character `?`, a glob to a program that expands
    its own arguments (`de统y.txt` reaching such a program as `de?y.txt`); it is no best fit, so D64's
-   ruling does not reach it, and it is open for a coordinator ruling.
+   ruling does not reach it, and coordinator decision D67(l) accepts it as a limit.
    *Deliberate limits.* The whitelist over-withholds, by design: a command that uses a variable,
    globs (outside a Glob preview), runs a regular expression, holds `(`, `)`, `{` or `}` outside a
    quoted run, `;` or `|` inside one, a glob inside a quoted run, two `%` (`git log --format="%h %s"`,
@@ -1521,7 +1555,8 @@ screened; it now also matches the raw segments as `hostperm` does (item 7(d)).
    the host is neither rendered nor named), and item 6b indexes and names no skill whose `SKILL.md` the
    build withholds. Under rules that cannot be established both restore and name nothing.
 10. *Cost, and hostperm* (D63(4)). A build calls the host's judgement once for each distinct path among
-    its file pointers, its path-keyed checkpoint drops, its structured summaries (one path each: a
+    its file pointers, its path-keyed checkpoint drops (while a Read rule is in force, at most 64 of
+    them that need a fresh judgement: item 12), its structured summaries (one path each: a
     one-word value, a pattern one-word whole, the directory of a Glob preview under the root, a rooted
     summary's path part, the one path-named JSON value; for a cut one, the directory it spells whole),
     the instruction and skill files items 6a and 6b would restore, and, while a rule anchored outside
@@ -1560,6 +1595,59 @@ screened; it now also matches the raw segments as `hostperm` does (item 7(d)).
     state machines roughly line for line, and the extensions that recover everyday summaries (item
     7(a)) each add a small, separately argued rule; the structured half, the noting and the error-chain
     reader are kept by D63. No function holds a quoting state machine.
+12. *Wave 22: audit 2's rehydrate findings* (coordinator decisions D66 and D67). Each is closed as
+    a class, its row red on eca33155 first.
+    - *A path-named value holding several paths* (finding 26): item 6. On the w19d corpus of 274
+      previews nothing flips, on Windows or Linux, in any of its ten scenarios.
+    - *The drops' host judgements are bounded* (finding 28). Every path-keyed checkpoint drop cost
+      one host judgement, uncached on disk, and their number grows with the session: the checkpointer
+      keeps every touched file as a pointer and its budget cut names each pointer it cuts, so 1000
+      drops cost 1020 judgements and about 2.5 s through the real adapter on Windows, half the
+      compaction answer's budget. While a Read rule's pattern is in force, the judge asks the host
+      about at most 64 fresh drop paths, in the order the checkpoint lists them (`maxDropJudgements`;
+      a file pointer's path among them was judged already and costs nothing), and answers every later
+      fresh path as refused without asking, memoized, so section 7, `dropped()` and every later
+      judgement of it withhold it (fail closed). It is learned as a withheld path only when its
+      spelling names a rule's literal (item 2's limits); learning every one would put a thousand
+      names into the free-text screen, withhold most summaries in such a session and make the
+      screen's cost quadratic. With no Read rule in force the host's rules are empty and read no
+      file (hostperm's `RuleSet.Empty`), and every drop is asked as before. The cap lives in
+      `hostRefuses` while the judge reads the drops, so any judgement made on a drop's behalf counts.
+      The same 1000 drops now cost 84 judgements in about 0.16 s
+      (`TestBuild_PathKeyedCheckpointDropsCostABoundedNumberOfHostJudgements`, the drops variant of
+      `TestRehydrateHostPaths_HostJudgementsAreStructuredSummariesAndFilePointers`). The file
+      pointers and structured summaries the build judges are bounded by the checkpoint's own budget,
+      and the instruction and skill files by the project's configuration.
+    - *Build's CPU* (findings 33, 34 and 35). The judge keeps a per-build memo, shared by its copies
+      as `judged` is: the held root keyed by the root's expression (one for each reading of the root,
+      so each fold has its own entries) and the text, each distinct summary's verdict, and each
+      distinct drop reason's screen, the last two made only once the judge stops learning withheld
+      paths. A text without the root's last segment, folded as the expression folds it (an ASCII
+      letter's case where paths fold, no other character's), skips the expression, and a text
+      without `path:` in any ASCII case skips recall's selector expression (no other character folds
+      onto those letters under RE2's `(?i)`). Build still gates the drop list at steps 9a and 10,
+      since min-fill re-admits item 2's units between them; the second pass is memo hits.
+      `BenchmarkBuild` is internal/rehydrate's first benchmark: 200 tool pointers in eight preview
+      shapes, 50 file pointers and 0, 600 or 1000 drops, with no rules and with UAT-12's; beside
+      ns/op it reports each build's p50 and p99. No verdict changes
+      (`TestBuild_TheScreensMemoNeverChangesAnAnswer`).
+    - *Qompack's own slash commands in a reason* (finding 27). The reason screen read every word led
+      by `/` as an absolute path, so the checkpointer's `run /qompack:pin --list: <err>` became
+      `(path withheld): <err>`. A word that is `/qompack:` and a command name is read without its
+      slash; every other word led by `/` is still judged as a path
+      (`TestBuild_AQompackCommandInADropReasonIsNoPath`).
+    - *Section 6 explains a withheld pointer once* (finding 30). Each withheld line repeated a
+      97-character explanation (a withheld file's label about 84), charged to the payload's fixed
+      character ceiling. A section 6 that holds a withheld pointer now carries one legend line under
+      its heading, priced with the heading in both dimensions; a withheld summary reads `(summary
+      withheld)` and a withheld file `file (path withheld)`. A drop entry keeps the full note, since
+      `dropped()` returns it without the legend
+      (`TestBuild_AWithheldPointerIsExplainedOnceInItsSection`).
+    - *Rulings applied* (D67(l) and (m)): `select` is an inert prefix (finding 31); the lone-glob
+      relaxation and 19d's stricter extensions are ratified, and the exact-path over-withholding of
+      item 6 is kept (finding 68); the ANSI default character (findings 42 and 68) and a
+      case-sensitive APFS volume (finding 85) are limits in item 2's list; the best-fit modifier
+      letters' bullet there records D64's closing of it (findings 42 and 69).
 
 **Evidence.** `internal/rehydrate`: `TestBuild_ATinyBudgetThatDroppedMaterialIsNeverSilent`,
 `TestBuild_TheLossNoticeShrinksToItsSmallestForm`, `TestLossNotice_NothingDroppedStaysEmpty` (item
