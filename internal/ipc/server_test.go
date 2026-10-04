@@ -23,16 +23,23 @@ import (
 // literals repeated at nine call sites (V2-MERGE-25 ②); naming them is what lets the relationship
 // below be stated rather than assumed.
 //
-// Their basis is the server's own read budget: handleConn resets a connIdleTimeout (10 minutes)
-// before every read, so the server will wait far longer than either of these. That is the right
-// way round — a test bound that outlived the server's own patience could not fail a wedged read,
-// it would just hang. Against the microsecond-scale real cost of a local pipe or socket round
-// trip, both are several orders of magnitude of headroom, so neither can flake on scheduling
-// jitter alone. rawIOBound is expressed as a multiple of rawDialBound because a completed dial is
-// strictly the cheaper of the two operations.
+// Both are hang guards, not measurements: no row here judges how fast the server answers, so a
+// bound expiring is never the verdict, only how a wedged server shows up as a named failure
+// instead of a package-wide timeout. They were 1s and 2s, which assumed microsecond scheduling; a
+// co-loaded machine stalls a goroutine for seconds (a 1.67s stall is on record), and a server
+// handler descheduled past 2s turned a correct ACK into a read-deadline error. A 2.1s simulated
+// stall in the handler failed TestServerRoutesAndACKs, TestServerUnknownOpNAKs and
+// TestServerDecodeErrorNAKsAndCounts.
+//
+// rawDialBound is handlerSeenWait, the package's existing hang-guard value. Their ceiling is the
+// server's own read budget: handleConn resets a connIdleTimeout (10 minutes) before every read, so
+// the server still waits far longer than either. That is the right way round — a test bound that
+// outlived the server's own patience could not fail a wedged read, it would just hang.
+// rawIOBound is expressed as a multiple of rawDialBound because a completed dial is strictly the
+// cheaper of the two operations.
 
 const (
-	rawDialBound = time.Second
+	rawDialBound = handlerSeenWait
 	rawIOBound   = 2 * rawDialBound
 )
 
