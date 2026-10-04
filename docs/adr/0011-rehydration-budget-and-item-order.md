@@ -2074,7 +2074,14 @@ spelling: a withheld path recorded under the root spelled with another case of a
 teaches its project-relative names wherever the host refuses it (`Åsa` U+00C5, the Kelvin sign and
 the Angstrom sign, as on 71e5133d, and the dotted capital I U+0130 for `i`, which only the host's
 lower-casing folds and 71e5133d never learned); under the long s, which the host does not fold, the
-path is withheld as a directory beside the project and teaches only its own spelling and basename;
+path is withheld as a directory beside the project and teaches only its own spelling and basename
+where the root resolves to itself. Where the root resolves elsewhere (through a link or an 8.3
+name, or below macOS's `/var`, a link to `/private/var`), the host adapter also judges each reading
+of the path's place below the resolved root, and the broad reading (on Windows `filepath.Rel`'s too,
+as on 71e5133d) places the long s's spelling at the project's file there, which the host refuses;
+so it is refused and teaches its project-relative names too, over-withheld where the volume keeps
+the long s's folder beside the root, as NTFS does, and the safe direction wherever its case folding
+pairs the two;
 and a drop reason that names a withheld path through any such spelling is redacted. The host adapter
 judges the resolved root's spelling of each reading of a path's place below the root, at most three
 Evaluates per path (item 10). Red-first: on eca33155, with the new rows overlaid,
@@ -2092,9 +2099,9 @@ reason row skips: a reason that glues a path outside the project to its text is 
 under any root on any platform since D63 (item 9). The daemon twin
 `TestRehydrateHostPaths_AWithheldPathUnderAUnicodeCaseSpellingOfTheRootTeachesItsNames`, through the
 real `hostperm` and real folders (NTFS folding U+00C5 onto the project's own and keeping the other
-four apart), fails on eca33155 on Windows on all three shapes under the four spellings the host
-folds, passes on 71e5133d but for U+0130 and the long s's two file-pointer shapes, and passes in the
-container on all three revisions. Each fix is separable (measured on Windows): without `note`'s
+four apart) under a root that resolves to itself (next paragraph), fails on eca33155 on Windows on
+all three shapes under the four spellings the host folds, passes on 71e5133d but for U+0130 and the
+long s's two file-pointer shapes, and passes in the container on all three revisions. Each fix is separable (measured on Windows): without `note`'s
 broad learning the three learning rows fail on the four host-folded spellings; without
 `recordedPath`'s broad hold the tool-summary row alone fails, on the same four; without the reason
 screen's broad pass the reason row alone fails, on all five; and without the host's refusal as the
@@ -2107,7 +2114,11 @@ resolves elsewhere, gives the same answers on 71e5133d, eca33155 and these fixes
 classified every caller of `RootRelative`, `inside()`, `holdRoot`, `rootSpellingOf`, `rootPrefix`,
 `asciiFoldEqual`, `foldLiteral` and the adapter: every judgement that shows keeps the strict
 reading, and none of c16b21d5's narrowing reduced a withhold but the three above and, on macOS
-alone, the adapter's judgement of `filepath.Rel`'s reading, which it judges again. On the w19d
+alone, the adapter's judgement of `filepath.Rel`'s reading, which it judges again. On macOS the
+adapter's broad reading is new, since `filepath.Rel` folds nothing there and no earlier revision
+judged a Unicode case spelling of the root below the resolved root: under a root that resolves
+elsewhere it refuses such a spelling wherever the host refuses the project's file, the long s's
+among them, which only withholds more. On the w19d
 corpus nothing flips across 71e5133d, eca33155 and these fixes: 193 shown and 81 withheld under
 UAT-12's rules in the Windows build (0 leaks, 53 over-withheld), 192 and 82 (0 leaks, 54
 over-withheld) in the Linux build, 149 and 125 (0 leaks, 97 over-withheld) under the three unit-less
@@ -2120,6 +2131,30 @@ equal eca33155's, the host-call counts returning to 71e5133d's where a recorded 
 project under the broad reading. On a probe of 15 drop reasons in 24 scenarios, eca33155 showed 56
 that 71e5133d redacted (seven glued shapes naming a withheld file under the U+00C5, Kelvin-sign,
 long-s and Angstrom-sign spellings, plain and spaced); these fixes show none that either redacted.
+
+*Criterion changes (wave 19i's verify of the two-fold rule).* No product behaviour changed, and no
+row's assertion. The daemon twin's long-s subtests expect the recorded spelling not to be refused and
+their globs to be shown, which holds only while the root resolves to itself (previous paragraph),
+and the twin's fixture held that only on Windows, where `shortProjectDir` spells the temporary
+directory by its long names, and on Linux. macOS spells it below `/var`, a link to `/private/var`,
+so there the adapter's broad reading refused the long s's spelling and the three long-s subtests
+failed on the fixture's own check of the host's answer. They would have passed on 71e5133d and
+eca33155, whose macOS adapter folded no Unicode case, so the fixes above would have turned the
+macOS whole-tree job red. No macOS host ran it: the verify found it by reading the adapter, and two
+probes reproduce it. On Windows, with the twin's base handed through its own 8.3 spelling so that
+the root resolves elsewhere, 713cb8f4's twin fails those three subtests at that check, and the other
+twelve pass. In a Linux container with `paths.DefaultFold` and `hostperm`'s fold forced on (macOS's
+reading: case folded, `filepath.Rel` folding nothing) and `TMPDIR` reached through a symbolic link,
+the same three fail on 713cb8f4 and pass with 71e5133d's and eca33155's adapter and screen, where
+the other twelve fail on both: on eca33155 as on Windows, and on 71e5133d because its containment
+read `filepath.Rel`, which folds nothing on macOS, so it never learned under those spellings there
+either. The twin's root is now canonical on every platform (`filepath.EvalSymlinks`, as
+`costProject`'s is), and it passes 15 of 15 under both probes and unprobed on Windows and in the
+container. Its red-first map is unchanged: on Windows it fails 12 of 15 on eca33155 and 5 of 15 on
+71e5133d, and in the container it passes on all three revisions. Under the macOS reading it fails 12
+of 15 on each of 71e5133d and eca33155, the long s's three passing. The long-s sentence in the
+previous paragraph, the twin's comment, the rehydrate rows' comment and `rootRelatives`' comment
+now say where the long s's answer holds.
 
 ## Consequences
 
