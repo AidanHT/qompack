@@ -24,7 +24,9 @@ func TestObservationGuards_FIFOAndAliasedIndexRefused(t *testing.T) {
 				index := paths.Of(tp.Root).Index
 				require.NoError(t, os.Rename(index, index+"-original"))
 				destination := t.TempDir()
-				require.NoError(t, os.WriteFile(filepath.Join(destination, observationsFile), []byte("external sentinel"), 0o600))
+				// Empty: a reader that followed the alias would load it cleanly and stay certain,
+				// so only the refusal itself makes this case pass.
+				require.NoError(t, os.WriteFile(filepath.Join(destination, observationsFile), nil, 0o600))
 				require.NoError(t, os.Symlink(destination, index))
 			}
 			// This isolates the observation reader; it is not a claim that every
