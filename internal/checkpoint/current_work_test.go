@@ -503,6 +503,35 @@ func TestResumedDraftWithAGoalTurnNoRecordReachesTakesTheRecordsGoal(t *testing.
 	require.Equal(t, rateCorrection60Goal, cp.CurrentWork.Goal)
 }
 
+// TestClearedGoalDropsItsTurnForTheGraphFallback: the same restored backup, where the records the
+// store lists give no goal at all (a slash command only). The walk reads every one, so the goal
+// is cleared, and the turn it came from goes with it: the draft persists no goal_turn beside an
+// empty goal. Kept, that stale turn would gate the graph fallback, which then refused every
+// prompt at or before it, so a prompt the user gives next, encoded while the prompt list cannot be
+// read, would never become current work.
+func TestClearedGoalDropsItsTurnForTheGraphFallback(t *testing.T) {
+	f := newFx(t)
+	ps := newPromptProbeStore(f.store)
+	f.src.Store = ps
+	promptAs(f, f.sess, 0, "/qompack:status")
+	past := core.TurnIndex(9)
+	plantDerivedGoalAt(t, f, rateReadLimiter, &past)
+
+	d := f.begin()
+	wire, cp := f.persisted()
+	require.Empty(t, cp.CurrentWork.Goal, "no record the store lists gives a goal")
+	require.Nil(t, wire.GoalTurn, "a cleared goal came from no turn")
+
+	promptAs(f, f.sess, 2, rateCorrection60)
+	f.closedSeg(1, 0, 3)
+	ps.setDegraded(true)
+	f.advance(d) // its refresh fails: the next pass's encoding reads the graph
+	f.advance(d, 1)
+
+	_, cp = f.persisted()
+	require.Equal(t, rateCorrection60Goal, cp.CurrentWork.Goal)
+}
+
 // TestUnreadableNewestPromptLeavesAnOversizedGoalReadOnce: the newest prompt's bytes are gone for
 // good, so no walk reads every record it passes, and every refresh walks again. The goal prompt
 // behind it, a paste past the evolution's read limit that the evolution does not cache, is still
