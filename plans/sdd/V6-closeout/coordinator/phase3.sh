@@ -17,8 +17,11 @@
 #               answer the rehydration or the deferred note, and every Read routed to the rig, which
 #               3f2da1b3 added), report its own PASS, its n=30 wall-time distribution and its
 #               Read-routing line; both lines are printed, so the step's output carries them. The
-#               external generator of runs/09 and 16 was never committed, so that condition has no
-#               reproduction; the in-process co-load has its shape.
+#               external generator of runs/09 and 16 (coordinator/w2lt-stress, committed since; it
+#               ran 150 s in a process of its own) is not run here. The in-process co-load is a
+#               different condition (runs/15 p99 278 ms against runs/16's 661 ms), so the figure
+#               docs/architecture.md takes from runs/09 and 16 needs a ruling (README, "The docs
+#               figure").
 #   lint        fmt-check, full devtool lint incl. stubskips, go vet (C3.5)
 #   cover       go run ./tools/devtool cover, QOMPACK_UNDER_COLOAD=1 (C3.6: a coverage gate, not a
 #               timing gate, so it may run beside the Linux lane)

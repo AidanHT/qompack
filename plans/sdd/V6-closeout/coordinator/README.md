@@ -23,6 +23,7 @@ session's scratchpad. None of them ships; they drive the close-out.
 | `overnight-c8.sh` | The frozen candidate's local night: AC-gated Windows timing with D57(d)'s power verdicts and per-try records, a power record for every step, Windows -race and bundles, the Linux lanes, quiet C5.1 on both OSes (Linux report only), then release-check in an isolated scratch clone, each long step started only when its estimate ends by the deadline. With `C8_C52_ONLY=1` it runs the C5.2 night instead (D62(c)): C1.16's rig, then C5.2 on both OSes in AC-gated chunks by package group, by default the full list (`C8_C52_SET=full`, D62(b); `derived` measures c52derive.py's selection); `C8_C52_STEPS` runs only the steps it names. It refuses a checkout that is not exactly the candidate and clean, an evidence directory that already holds a night's records, and a mistyped switch. Its header states every rule. |
 | `prefreeze.sh` | `sh prefreeze.sh <repo> <evidence-dir> [step…]`: D53(a)'s pre-freeze check (gate, e2e, e2efunc, hotpath, integration, testpkgs, internal). A fresh `summary.log` per run, every line tagged with `PREFREEZE_RUN`, and a power verdict per step. e2efunc skips test/e2e's timing rows, named exactly in its header and judged by the night on AC, then runs their functional arms by themselves; `sh prefreeze.sh --e2e-skips <repo>` prints its `-skip` pattern, or exits 2 when the names have drifted from the tree or from ci.yml's timing lane. |
 | `power.sh` | Sourced by the three scripts above: the power reading, the System log's power events (Kernel-Power 105, 506, 42 and 107), the VALID / INVALID-POWER / NOT-REFERENCE verdict over a run's start and end readings, the bounded AC wait, the deadline and its daytime-launch guard. |
+| `w2lt-stress/main.go.txt`, `w2lt-stress/go.mod.txt` | The external fsync and CPU co-load generator of w2-lifetime's C1.16 runs/09 and 16, run there with 16 writers of 64 KiB, 4 CPU spinners and 150 s on C: (runs/09's header; its `-k`, `-size`, `-c` and `-for` flags). It prints `writes <n>` (37446 in runs/09, 49960 in runs/16). It was never committed with those runs. These are its source files, byte for byte, recovered from the coordinator session's scratchpad (`w2lt-stress/`, written 2026-09-25 17:27, before runs/09). Built there with go1.26.4, they reproduce that session's `w2lt-stress.exe` exactly (sha256 `5d49a71ec8886fb0c66f4feeadb113455ee3ad0595dfd4635133888827d9c4f1`). Kept as `.txt`, as plans/ keeps other probe programs, so no Go tool reads them: to build, copy both into an empty directory as `main.go` and `go.mod`, then run `go build`. No night runs it (README "The C5.2 night"). |
 | `nightabort.ps1` | `pwsh -File nightabort.ps1 -MsysPid <msys> -WinPid <windows-pid> [-Stop]`: lists, and with `-Stop` stops, exactly one night's process tree (README "Candidate 8", Abort step 1). It walks MSYS's own parent pids from the night's shell (Windows records a dead parent for everything an MSYS shell starts), adds their native Windows children (a child only when created after its parent), and refuses unless the root still is the logged c8-night.sh or overnight-c8.sh shell. |
 | `stamped.sh` | `sh stamped.sh <command…>`: prefixes each output line with its epoch second and keeps the command's exit status; release-check's AC-sensitive windows are read from it. |
 | `nightharness.sh` | `sh nightharness.sh [case…]` (`-l` lists them): the dry harness for everything above (86 cases). Stubs for powershell, pwsh, docker, go, claude, gh, timeout, date and sleep, real git and python on scratch repositories, a fake clock; nothing outside its temporary directory is touched. The real processes outside the stubs are K1's keepawake.ps1 with nothing to hold, and K2's probe tree (sh, sleep, cmd and ping, under a shell named c8-night.sh), which the real nightabort.ps1 lists and stops. Run it after any change to a night script. |
@@ -231,14 +232,20 @@ The power verdicts (both nights):
    - Before the freeze: relaunch `c8-night.sh` as above.
    - After the freeze: run the overnight part alone on the frozen candidate into a fresh evidence
      directory (`phase3/c8-rerun-<n>`; overnight-c8.sh refuses one that already holds a night's
-     records). `c8-night.sh` would refuse, because `qompack-bundles/c8` exists. Use the C5.2
-     night's launch below with two changes: `$e` is `.../phase3/c8-rerun-<n>`, and the
-     `$env:C8_C52_ONLY = '1'` line is left out (`C8_C52_STEPS` stays unset, which overnight-c8.sh
-     checks; the final `Remove-Item` line stays). The overnight part alone takes about 6 h 15 min
-     (the steps before release-check, then release-check), so launch it by `NIGHT_DEADLINE` minus
-     7.5 h (00:30 for 08:00); release-check must start by `NIGHT_DEADLINE` minus 3 h, which
-     chain.log's first line prints. Its abort is this list with chain.log's start line (step 1)
-     and the re-run directory's sentinel (step 2).
+     records). `c8-night.sh` would refuse, because `qompack-bundles/c8` exists. First clear the
+     C5.2 night's switches, as candidate 8's launch does:
+     `Remove-Item Env:C8_C52_ONLY, Env:C8_C52_SET, Env:C8_C52_STEPS -ErrorAction SilentlyContinue`.
+     overnight-c8.sh cannot tell a leftover `C8_C52_ONLY=1` from a C5.2 night's switch, because 1
+     is a valid value, so the re-run would silently become a C5.2 night (chain.log's start line
+     would say `mode=c52-only`). Then use the C5.2 night's launch below with two changes: `$e` is
+     `.../phase3/c8-rerun-<n>`, and the `$env:C8_C52_ONLY = '1'` line is left out (`C8_C52_STEPS`
+     stays unset, which overnight-c8.sh checks; the final `Remove-Item` line stays). Its refusal
+     check (chain.log a minute after launch, `launch.err`) applies as written there. Check that
+     chain.log's start line says `release-check must start by`, not `mode=c52-only`. The overnight
+     part alone takes about 6 h 15 min (the steps before release-check, then release-check), so
+     launch it by `NIGHT_DEADLINE` minus 7.5 h (00:30 for 08:00); release-check must start by
+     `NIGHT_DEADLINE` minus 3 h, which chain.log's first line prints. Its abort is this list with
+     chain.log's start line (step 1) and the re-run directory's sentinel (step 2).
 
 ### The C5.2 night
 
@@ -263,11 +270,16 @@ order and nothing else:
   routed to the rig, the check `3f2da1b3` added) and each logged its n=30 distribution and its
   Read-routing line; chain.log carries both lines per run (`c116-rig noextra: …`,
   `c116-rig coload: …`). The numbers are recorded, not judged against a bound: compare them with
-  runs/17 (p99 188 ms) and runs/15 (p99 278 ms) in the ledger. The external fsync generator of
-  runs/09 and 16, the source of docs/architecture.md's 1.85 s to 0.66 s, was never committed,
-  so that condition has no reproduction. It goes first, so C1.16 never waits behind C5.2. Its
-  estimate, `C116_EST_S` (65 min), is an upper bound (two `-timeout=30m` runs and the build): the
-  runs it reproduces took under a minute each, but none has run with its Reads reaching the daemon.
+  runs/17 (p99 188 ms) and runs/15 (p99 278 ms) in the ledger. The night does not re-run the
+  third condition, the external generator of runs/09 and 16 (runs/09's header: 16 goroutines each
+  writing 64 KiB with write, fsync and rename in a loop on C:, plus 4 CPU spinners, for 150 s, in a
+  process of its own). Its program was not committed with those runs; it is now, verbatim, as
+  `w2lt-stress/` (the table at the top says how it was recovered). Re-running that condition on the
+  frozen candidate is an owner decision, not part of this night, so docs/architecture.md's figure
+  from that pair needs a ruling ("The docs figure", below). The step goes first, so C1.16
+  never waits behind C5.2. Its estimate, `C116_EST_S` (65 min), is an upper bound (two
+  `-timeout=30m` runs and the build): the runs it reproduces took under a minute each, but none
+  has run with its Reads reaching the daemon.
 - The C5.2 chunks, Windows first, then Linux: C5.2's full list (D62(b), `C8_C52_SET=full`, the
   default), every row of quiet.sh's list (65 rows in 19 packages) against `cf31e01`, in eight
   chunks, one per OS and package group. A chunk is one quiet.sh run with its own `QUIET_PKGS`, its
@@ -285,6 +297,27 @@ order and nothing else:
   Each estimate is `C52_EST_WIN` or `C52_EST_LINUX` (candidate 5's measured time for the chunk's
   packages) plus 10 min. chain.log says `c52: the FULL C5.2 list is measured: all 65 rows …`, then
   one line per chunk with its `QUIET_PKGS` and estimate, then the night's total.
+
+The docs figure. docs/architecture.md section 7 (line 714 at integration `67e0fddb`) says:
+"Measured with `internal/cli`'s `TestSessionStartCompact_UnderSameSessionIngest` under concurrent
+same-session ingest and an fsync co-load, the compact answer's p99 went from 1.85 s to 0.66 s
+(`plans/sdd/V6-closeout/w2-lifetime/runs/`)". Those are runs/09 and 16 (w2-lifetime/report.md's
+table, "Same external fsync co-load"). Both ran before `3f2da1b3`, so the same-session ingest the
+sentence names never happened in them (D62(c)). This night re-measures neither figure: 1.85 s is
+the tree before the fix, and the night does not run the generator (above). The in-process
+co-load's figure after the fix (runs/15, p99 278 ms) is a different condition and does not stand
+in for 0.66 s. Before the live re-check, a docs change (a seat the coordinator dispatches) does one
+of two things, and the coordinator records the ruling in the ledger:
+
+- restate the sentence from `p3-c116-rig-noextra` and `p3-c116-rig-coload` on the frozen
+  candidate, naming their conditions (no extra load; the rig's in-process co-load) and giving no
+  figure from before the fix, since none was measured with the Reads reaching the daemon; or
+- mark the figure as measured before `3f2da1b3`, by a rig whose Reads never reached its daemon.
+
+Marking needs no number from this night, so it can go into candidate 8 before the freeze. After
+the freeze, either change goes into a descendant whose changes reach no bundle (D58(e)). docs/ is
+in no bundle: candidate 7's BUNDLE.json lists only the plugin manifest, `.mcp.json`, `bin/`,
+`commands/`, `hooks/`, `LICENSE` and `THIRD_PARTY_NOTICES.md`.
 
 Why chunks. The charger cuts AC unattended at about 90-100 % charge and restores it at about
 35-40 % (D57(d)). The System log (Kernel-Power 105) shows on-AC stretches of 1 h 26 min, 6 h 6 min
@@ -318,13 +351,13 @@ $sha  = (Select-String -Path "$v6/plans/sdd/V6-closeout/phase3/c8/night.log" `
           -Pattern 'candidate 8 frozen at ([0-9a-f]{40})' | Select-Object -Last 1).Matches[0].Groups[1].Value
 $sha                                                   # must print the 40-character frozen SHA
 git -C $cand checkout -q --detach $sha; git -C $cand status --porcelain   # must print nothing
-New-Item -ItemType Directory $e | Out-Null; New-Item -ItemType File "$e/keepawake.sentinel" | Out-Null
+New-Item -ItemType Directory -Force $e | Out-Null; New-Item -ItemType File "$e/keepawake.sentinel" | Out-Null
 $env:NIGHT_DEADLINE = '08:00'
 $env:C8_C52_ONLY = '1'
 # $env:C8_C52_STEPS = 'c52-win-store c52-linux-other'   # a further C5.2 night only: the steps it measures
 Start-Process pwsh -WindowStyle Hidden -ArgumentList @('-NoProfile', '-File', "$co/keepawake.ps1", "$e/keepawake.sentinel")
-Start-Process -FilePath 'C:\Program Files\Git\bin\bash.exe' -WindowStyle Hidden -ArgumentList @(
-  "$co/overnight-c8.sh", $cand, $sha, $e)
+Start-Process -FilePath 'C:\Program Files\Git\bin\bash.exe' -WindowStyle Hidden `
+  -RedirectStandardError "$e/launch.err" -ArgumentList @("$co/overnight-c8.sh", $cand, $sha, $e)
 Remove-Item Env:C8_C52_ONLY, Env:C8_C52_STEPS, Env:NIGHT_DEADLINE -ErrorAction SilentlyContinue   # the night keeps its copy
 ```
 
@@ -332,15 +365,28 @@ overnight-c8.sh refuses (exit 2, writing nothing) a SHA that is not 40 character
 at it or not clean, an evidence directory that holds a night's records, a `C8_C52_ONLY` other than
 empty or `1`, a `C8_C52_SET` other than `full` or `derived`, a `C8_C52_STEPS` name that is not one
 of the night's nine steps (or `C8_C52_STEPS` without `C8_C52_ONLY=1`), and a quiet.sh whose list
-it cannot read. It holds no keep-awake of its own: delete `$e/keepawake.sentinel` when chain.log's
+it cannot read. A refusal goes only to stderr, which the hidden window would lose, so the launch
+sends stderr to `$e/launch.err` (each launch replaces it). **A minute after launch, `$e/chain.log`
+must exist.** Between its last refusal and chain.log's start line the script only sets traps
+and variables, defines functions, writes power.tsv's header and reads the power source once (one
+PowerShell call, a few seconds). If chain.log does not exist, read `$e/launch.err` and delete
+`$e/keepawake.sentinel`:
+
+- a line `overnight-c8.sh: REFUSED: …` is a refusal, which writes no records: fix the cause and
+  relaunch with the whole block above into the same `$e`;
+- anything else means the night stopped before its start line (launch.err holds the shell's
+  error): find the cause, then relaunch into a fresh `$e`, because power.tsv may already be there.
+
+overnight-c8.sh holds no keep-awake of its own: delete `$e/keepawake.sentinel` when chain.log's
 `done:` line appears.
 
-Watch, under `phase3/c8-c52/`: `chain.log` (first line `start candidate=<sha> pid <msys> winpid
-<windows-pid> … mode=c52-only c52_set=full steps=[…]`), `p3-c116-rig-noextra.{json,log}` and
-`p3-c116-rig-coload.{json,log}`, one `quiet-<chunk>/` per chunk (`c52-names.tsv` and
-`quiet-run.txt` in it; `paired.txt`, `completeness.tsv` and the benchstat logs in its `c52-win/`
-or `c52-linux/`), `power.tsv` and `overnight-outcome.txt`. Exit 0 means every step the night ran
-passed VALID.
+Watch, under the night's `$e` (`phase3/c8-c52/` for the first): `chain.log` (first line
+`start candidate=<sha> pid <msys> winpid <windows-pid> … mode=c52-only c52_set=full steps=[…]`),
+`launch.err` (a refusal's reason, and any stray shell error during the night),
+`p3-c116-rig-noextra.{json,log}` and `p3-c116-rig-coload.{json,log}`, one `quiet-<chunk>/` per
+chunk (`c52-names.tsv` and `quiet-run.txt` in it; `paired.txt`, `completeness.tsv` and the
+benchstat logs in its `c52-win/` or `c52-linux/`), `power.tsv` and `overnight-outcome.txt`. Exit 0
+means every step the night ran passed VALID.
 
 A further C5.2 night. A step is done when one of its tries, in any C5.2 night on this candidate,
 is VALID with exit 0. This lists the done steps:
@@ -362,14 +408,17 @@ Abort:
    carry its row name, `TestSessionStartCompact_UnderSameSessionIngest`, on their command lines.
    quiet.sh's builds and benchmark binaries carry the quiet.sh scratch directory of step 4 (the
    build's `-o <work>/bin-win/…`, the binary's own path under `<work>/bin-win/`). Stop only those.
-2. Delete `phase3/c8-c52/keepawake.sentinel`.
+2. Delete the night's own `$e/keepawake.sentinel`, where `$e` is the evidence directory it was
+   launched into (`phase3/c8-c52` for the first night, `c8-c52-2` and so on after it) and holds
+   the chain.log of step 1.
 3. Docker: the container runs once for each Linux chunk. If chain.log's last
    `container start exit=0 (c52-linux-<group>)` has no `container stopped` line after it, run
    `docker stop qompack-v6-linux-verification`; if the last `engine started by this chain` has no
    `engine stopped` after it, run `docker desktop stop`. Never stop an engine the chain did not
    start (`engine up at start=1`).
-4. Remove any `phase3/c8-c52/quiet-*/.quiet.lock` a hard kill left, and the scratch directory each
-   `quiet-*/quiet-run.txt` names on its `work=` line (its clones and test binaries).
+4. Remove any `$e/quiet-*/.quiet.lock` a hard kill left (the same `$e` as step 2), and the
+   scratch directory each `$e/quiet-*/quiet-run.txt` names on its `work=` line (its clones and
+   test binaries).
 5. Nothing else: the C5.2 night makes no clone of its own outside quiet.sh's, no tag, no commit
    and no push.
 6. Re-run: a further C5.2 night (above) into a fresh `$e`, with `C8_C52_STEPS` naming the steps
@@ -386,6 +435,10 @@ sessions come out of an owner's budget that is already exceeded (D53(g)):
 - every C5.2 night step (`c116-rig` and the eight chunks) is done, VALID with exit 0 in a C5.2
   night on the frozen candidate (the `awk` above lists them), or its rows are dispositioned in the
   ledger (before D62(c) a C5.2 that candidate 8's night SKIPPED needed the same);
+- docs/architecture.md section 7's "1.85 s to 0.66 s" ("The docs figure", under the C5.2 night)
+  is restated from the frozen candidate's `c116-rig` runs or marked as measured before
+  `3f2da1b3`, in the candidate or in a descendant whose changes reach no bundle (D58(e)), and the
+  ruling is in the ledger;
 - hosted `ci.yml` and `nightly.yml` on the frozen SHA are green, or every red is classified in the
   ledger.
 
