@@ -19,13 +19,14 @@ session's scratchpad. None of them ships; they drive the close-out.
 | `recrun.sh` | Records a run the V6 way: `sh recrun.sh <repo> <evidence-dir> <run-id> -- <command…>` writes `<id>.json` (argv, head, dirty, env, times, exit, log sha256) and `<id>.log`, and refuses to overwrite. |
 | `shacheck.sh` | `sh shacheck.sh <worktree> <file>`: every quoted SHA must be reachable from HEAD (report-SHA reachability). |
 | `rpwaive.py` | Applies `runpatterns` inline waivers from `devtool lint --only=runpatterns` output. It auto-handles alternations the checker splits at a bare pipe and `<placeholder>` patterns, and takes an explicit `file:line=reason` for anything else. Correct a quote instead when its only problem is trailing punctuation. |
-| `c8-night.sh` | Candidate 8's night: preconditions, the merged-tree check, the pre-freeze check, the freeze, bundles, push, then `overnight-c8.sh`. See "Candidate 8" below. |
-| `overnight-c8.sh` | The frozen candidate's local night: AC-gated Windows timing with D57(d)'s power verdicts and per-try records, Windows -race and bundles, the Linux lanes, quiet C5.1 and C5.2, and release-check in an isolated scratch clone. Its header states every rule. |
+| `c8-night.sh` | Candidate 8's night: preconditions (all checked before anything runs), the merged-tree check, the pre-freeze check, the freeze, bundles, push, then `overnight-c8.sh` with the night's deadline as an epoch. See "Candidate 8" below. |
+| `overnight-c8.sh` | The frozen candidate's local night: AC-gated Windows timing with D57(d)'s power verdicts and per-try records, a power record for every step, Windows -race and bundles, the Linux lanes, quiet C5.1 and C5.2 (the derived set, on both OSes), and release-check in an isolated scratch clone. It refuses an evidence directory that already holds a night's records. Its header states every rule. |
 | `prefreeze.sh` | `sh prefreeze.sh <repo> <evidence-dir> [step…]`: D53(a)'s pre-freeze check (gate, e2e, e2efunc, hotpath, integration, testpkgs, internal). A fresh `summary.log` per run, every line tagged with `PREFREEZE_RUN`, and a power verdict per step. |
-| `power.sh` | Sourced by the three scripts above: the power reading, the System log's power events (Kernel-Power 105 and 506), the VALID / INVALID-POWER / NOT-REFERENCE verdict, the bounded AC wait and the deadline. |
+| `power.sh` | Sourced by the three scripts above: the power reading, the System log's power events (Kernel-Power 105, 506, 42 and 107), the VALID / INVALID-POWER / NOT-REFERENCE verdict over a run's start and end readings, the bounded AC wait, the deadline and its daytime-launch guard. |
 | `stamped.sh` | `sh stamped.sh <command…>`: prefixes each output line with its epoch second and keeps the command's exit status; release-check's AC-sensitive windows are read from it. |
-| `nightharness.sh` | `sh nightharness.sh [case…]` (`-l` lists them): the dry harness for everything above. Stubs for powershell, pwsh, docker, go, claude, gh, timeout, date and sleep, real git on scratch repositories, a fake clock; no real process is started and nothing outside its temporary directory is touched. Run it after any change to a night script. |
-| `mkrecheck8.py` | `python mkrecheck8.py live-rerun-c7.js <out.js> <candidate-sha> <bundle-dir>`: generates candidate 8's live re-check from candidate 7's lane. It refuses a candidate without ADR 0011 section 23, a bundle without BUNDLE.json, and an output that keeps a candidate 7 string, reads the clock or does not parse. |
+| `nightharness.sh` | `sh nightharness.sh [case…]` (`-l` lists them): the dry harness for everything above. Stubs for powershell, pwsh, docker, go, claude, gh, timeout, date and sleep, real git and python on scratch repositories, a fake clock; nothing outside its temporary directory is touched, and the one real process outside the stubs is K1's keepawake.ps1 with nothing to hold. Run it after any change to a night script. |
+| `c52derive.py` | `python c52derive.py <candidate-repo> <base-rev> <out-dir>`: D57(e) by construction. Traces each C5.2 benchmark once on the candidate (`-benchtime=1x` with a coverage profile) and selects those whose executed product files, own benchmark file or fixtures changed since `<base-rev>`; writes `report.txt`, `selection.tsv`, `pkgs.txt` and `filter.txt` for quiet.sh. A failed trace is selected, fail-closed. Self-test: `python c52derive.py --selftest`. |
+| `mkrecheck8.py` | `python mkrecheck8.py live-rerun-c7.js <out.js> <candidate-sha> <bundle-dir>`: generates candidate 8's live re-check from candidate 7's lane, with the diff from candidate 7 that its D53(f) carry-forward notes are checked against. It refuses a candidate without ADR 0011 section 23, a bundle without BUNDLE.json, and an output that keeps a candidate 7 string, reads the clock or does not parse. |
 
 Conventions: Linux gates use `plans/sdd/V6-closeout/linux/linux-nonroot-gate.sh` with Windows-style
 paths for `--repo` and `--out` (a POSIX `/c/...` path is refused). Never SendMessage a running
@@ -38,24 +39,46 @@ coordinator's procedure; no agent launches or aborts the night.
 
 ### Before launch
 
+0. D61(a) holds: "a candidate is frozen only after a broad parallel audit comes back dry, with
+   every finding verified by two skeptics; wave 19c's areas get their own". The audit of
+   everything candidate 8 adds, wave 19c and wave 20 included, has come back dry, and the ledger
+   row that records it is cited in the launch note. Do not launch without that row.
 1. The owner has said go: the night uses the whole machine, and no other seat runs a test.
    `tasklist | grep -iE 'go\.exe|\.test\.exe|devtool'` shows nothing of the coordinator's.
-2. Wave 19b, wave 19c and every wave 20 branch are merged into `closeout/integration`.
-   `c8-night.sh` refuses otherwise. It checks `closeout/w19-rehydrate`, `closeout/w19b-cmdconnect`
-   and every `closeout/w19c-*` and `closeout/w20-*` tip. A branch deliberately left out goes in
-   `C8_EXEMPT` (space-separated), and each exemption is logged with its tip.
-3. `qompack-cx-int` is clean. `qompack-v6` is on `verify/v6` with no tracked change, because the
-   freeze commit lands there. `qompack-cx-cand` is clean, and `qompack-bundles/c8` does not exist.
-   An earlier refused run's `phase3/c8/prefreeze` is moved aside automatically to
-   `prefreeze.run-<n>`, and is never read as this run's.
-4. `sh nightharness.sh` passes (39 cases). It is dry and takes about 25 minutes, with no Go, Docker or Claude
-   Code process. Re-run it after any change to a night script.
+2. Every `closeout/w*` branch whose tip is not already in candidate 7 (`d20309c0`) is merged into
+   `closeout/integration`, and `closeout/w19-rehydrate` and `closeout/w19b-cmdconnect` exist.
+   `c8-night.sh` refuses otherwise, naming the branch, so a later round (`w20b-*`, `w21-*`) or a
+   fix pushed onto a merged branch cannot be left out. A branch left out on purpose goes in
+   `C8_EXEMPT` (space-separated), and each exemption is logged with its tip. On 2026-10-03 three
+   old branches hold commits that neither candidate 7 nor integration has: `closeout/w15-docs`
+   (`21c07942`), `closeout/w15-ledger` (`12817cd0`: two checkpoint fixes and a negknow fix) and
+   `closeout/w15-services` (`c212712d`: a store fix and a fault-test fix). Merge them or exempt
+   them, and record which in the ledger.
+3. `qompack-cx-int` and `qompack-cx-cand` are clean, `qompack-v6` is on `verify/v6` with no
+   tracked change (the freeze commit lands there), `qompack-bundles/c8` does not exist, and
+   `phase3/c8` holds no `chain.log`, `power.tsv` or `overnight-outcome.txt` from an earlier night.
+   `c8-night.sh` checks all of these before anything runs. An earlier refused run's
+   `phase3/c8/prefreeze` is moved aside automatically to `prefreeze.run-<n>`, and is never read as
+   this run's.
+4. `sh nightharness.sh` passes (59 cases). It is dry and takes up to about 2 hours (57 cases took
+   6512 s on 2026-10-03 with other seats running), with no Go, Docker or Claude Code process (K1
+   starts the real pwsh once, with nothing to hold). Re-run it after any change to a night script,
+   and `python c52derive.py --selftest`.
 5. The laptop lid is open and the charger is connected. Docker Desktop may be up or down, and the
    container `qompack-v6-linux-verification` must exist.
-6. Choose the deadline. `NIGHT_DEADLINE` (local `HH:MM`, default `08:00`) is the time after which
-   no step and no AC wait starts. release-check starts only if `RC_EST_S` (3 h) lets it end by
-   then. `AC_WAIT_BUDGET_MIN` (default 180) bounds the whole night's waiting for AC, counted in
-   one-minute polls.
+6. Choose the deadline and the launch time. `NIGHT_DEADLINE` (local `HH:MM`, default `08:00`) is
+   the time after which no overnight step and no AC wait starts; `c8-night.sh` passes it to
+   `overnight-c8.sh` as an epoch, so a late pre-freeze cannot carry the night into the next day. A
+   deadline more than 16 h away (a daytime launch, whose next `HH:MM` is tomorrow's) is refused
+   unless `NIGHT_ALLOW_FAR=1`. The night is about 9.5 h: the pre-freeze about 1 h (candidate 6:
+   53 min), the overnight steps before release-check about 5.5 h (candidate 6's chain, 3 h 13 min;
+   plus the derivation, an estimated 15-30 min for one traced iteration of each listed benchmark,
+   and quiet C5.2 on both OSes, about 2 h for the rows today's diff reaches, from candidate 5's
+   per-package times), then release-check 3 h (`RC_EST_S`).
+   **Launch by about `NIGHT_DEADLINE` minus 9.5 h (22:30 for 08:00), earlier when the charger may
+   cut AC (every AC wait comes out of the same night), or release-check is SKIPPED and C3.12 and
+   D57(a)'s local reference run stay unmet.** `AC_WAIT_BUDGET_MIN` (default 180) bounds the whole
+   night's waiting for AC, counted in one-minute polls.
 
 ### Launch
 
@@ -75,27 +98,35 @@ runs, because sh reads its script from a byte offset.
 
 All evidence is under `plans/sdd/V6-closeout/phase3/c8/`:
 
-- `night.log`: every decision, and the first line `start pid <msys> winpid <windows-pid>`.
+- `night.log`: every decision, and the first line `start pid <msys> winpid <windows-pid> keep-awake
+  pid <pid>`.
 - `merged-tree.txt`, then `prefreeze/summary.log`. Each step line there carries its exit code,
   `run=<id>` and `power=<verdict>`.
 - After the freeze: `host-validate.txt`, then `chain.log` for overnight's steps.
-- `power.tsv`: one row per power-checked try.
+- `c52-derive/report.txt` and `selection.tsv`: the C5.2 rows whose executed files, own benchmark
+  file or fixtures changed since candidate 7, which `c52-win` and `c52-linux` then measure
+  (chain.log's `c52: derived set` line). If the derivation cannot run, chain.log says so, the
+  static floor is measured, and the derivation counts as a failed step.
+- `power.tsv`: one row per step try, the AC-independent steps included.
 - `overnight-outcome.txt`: the counts. night.log's last lines repeat them.
 
 The power verdicts:
 
-- VALID means started on AC with no power event during the run.
-- INVALID-POWER is neither a pass nor a fail. Try 1's records move to `<step>.invalid-power-1/`
-  and the step is retried once.
-- NOT-REFERENCE means no AC within the budget, or an unreadable power history. The step still
-  ran, but its timings are not a reference measurement.
+- VALID means started and ended on AC with no power, standby, sleep or resume event during the
+  run.
+- INVALID-POWER is neither a pass nor a fail. For a gated step, try 1's records move to
+  `<step>.invalid-power-1/` and the step is retried once. release-check is retried once, in a
+  fresh clone, only on AC and only when a second run can end by the deadline.
+- NOT-REFERENCE means no AC within the budget, a battery run, or an unreadable power history. The
+  step still ran, but its timings are not a reference measurement. A Linux `*-timing` lane counts
+  as a pass or a fail only when VALID; the other AC-independent steps count by exit status.
 - SKIPPED means the deadline passed before the step could start.
 
 ### Abort
 
 1. Take the Windows pid from night.log's latest `start pid … winpid <pid>` line (night.log is
    appended across relaunches). Then stop exactly that process tree, deepest first, and nothing
-   else:
+   else. The keep-awake pwsh is a child of that shell, so it goes with the tree:
 
    ```powershell
    $tree = @(<winpid>); $all = Get-CimInstance Win32_Process; $i = 0
@@ -106,15 +137,17 @@ The power verdicts:
    Then look again for orphans: `go.exe`, `*.test.exe` or `devtool` whose command line names
    `qompack-cx-cand`, `qompack-cx-int` or the scratch clone paths from step 4. A killed shell can
    leave its Go children behind. Stop only those.
-2. Delete `phase3/c8/keepawake.sentinel`. keepawake.ps1 then releases within 30 s. A normal end,
-   a refusal and a catchable signal already delete it through the exit trap.
-3. Docker. If chain.log has `container start exit=0` but no `container stopped`, run
-   `docker stop qompack-v6-linux-verification`. If it has `engine started by this chain` but no
-   `engine stopped`, run `docker desktop stop`. Never stop an engine the chain did not start,
-   because the owner's stack runs on it (D56(g)).
+2. Delete `phase3/c8/keepawake.sentinel`. A keepawake.ps1 that survived exits within 30 s, and it
+   never re-creates a missing sentinel. A normal end, a refusal and a catchable signal already
+   delete it and stop the keep-awake process through the exit trap.
+3. Docker. The container runs twice: for the Linux lanes and for `c52-linux`. If chain.log's last
+   `container start exit=0` line has no `container stopped` line after it, run
+   `docker stop qompack-v6-linux-verification`. If the last `engine started by this chain` has no
+   `engine stopped` after it, run `docker desktop stop`. Never stop an engine the chain did not
+   start (`engine up at start=1`), because the owner's stack runs on it (D56(g)).
 4. Scratch. Delete the paths night.log names (`merged-tree scratch clone <path>`) and chain.log
-   names (`release-check clone <path>`) if they survived a hard kill. The v0.3.0 tag only ever
-   existed in that clone. `git tag -l v0.3.0` in any worktree must print nothing.
+   names (`release-check clone <path>`, one per try) if they survived a hard kill. The v0.3.0 tag
+   only ever existed in those clones. `git tag -l v0.3.0` in any worktree must print nothing.
 5. Remove any `phase3/c8/quiet*/.quiet.lock` a hard kill left behind.
 6. Git. If night.log has `candidate 8 frozen at <sha>` but no `pushed verify/v6`, then `verify/v6`
    holds an unpushed freeze commit. Its pre-freeze head is on the `integration <H>, verify/v6 <V>`
@@ -122,14 +155,17 @@ The power verdicts:
    happened, the candidate stands and only the overnight part is re-run.
 7. Re-run.
    - Before the freeze: relaunch `c8-night.sh` as above.
-   - After the freeze: run the night on the frozen candidate into a fresh evidence directory.
-     `c8-night.sh` would refuse, because `qompack-bundles/c8` exists. overnight-c8.sh holds no
-     keep-awake of its own, so start one beside it. Delete the sentinel when chain.log's
-     `done:` line appears.
+   - After the freeze: run the night on the frozen candidate into a fresh evidence directory
+     (overnight-c8.sh refuses one that already holds a night's records). `c8-night.sh` would
+     refuse, because `qompack-bundles/c8` exists. overnight-c8.sh holds no keep-awake of its own,
+     so start one beside it, and set the deadline: run alone, it takes the next `NIGHT_DEADLINE`
+     and refuses one more than 16 h away. Delete the sentinel when chain.log's `done:` line
+     appears.
 
      ```powershell
      $co = 'C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/coordinator'
      $e  = 'C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8-rerun-<n>'
+     $env:NIGHT_DEADLINE = '08:00'
      New-Item -ItemType Directory $e | Out-Null; New-Item -ItemType File "$e/keepawake.sentinel" | Out-Null
      Start-Process pwsh -WindowStyle Hidden -ArgumentList @('-NoProfile', '-File', "$co/keepawake.ps1", "$e/keepawake.sentinel")
      Start-Process -FilePath 'C:\Program Files\Git\bin\bash.exe' -WindowStyle Hidden -ArgumentList @(
@@ -138,8 +174,18 @@ The power verdicts:
 
 ### The live re-check
 
-After the night, generate the re-check and syntax-check it. The generator does both and refuses
-a candidate whose ADR 0011 lacks section 23, so wave 19c's ADR must be in the candidate:
+Generate it only when the night's evidence allows the candidate to stand, because its 25 real
+sessions come out of an owner's budget that is already exceeded (D53(g)):
+
+- `overnight-outcome.txt` shows `failed=0`;
+- every INVALID-POWER, NOT-REFERENCE or SKIPPED step is re-run (Abort step 7) or dispositioned in
+  the ledger;
+- hosted `ci.yml` and `nightly.yml` on the frozen SHA are green, or every red is classified in the
+  ledger.
+
+Then generate the re-check and syntax-check it. The generator does both. It refuses a candidate
+whose ADR 0011 lacks section 23, so wave 19c's ADR must be in the candidate, and it embeds the
+`git diff --stat` from candidate 7 that the lane's D53(f) carry-forward notes are checked against:
 
 ```sh
 python plans/sdd/V6-closeout/coordinator/mkrecheck8.py plans/sdd/V6-closeout/coordinator/live-rerun-c7.js \
@@ -149,4 +195,4 @@ python plans/sdd/V6-closeout/coordinator/mkrecheck8.py plans/sdd/V6-closeout/coo
 
 Then follow the generated script's header. It creates or verifies branch `closeout/live8` at the
 candidate in `../qompack-cx-live` and checks the bundle. Launch the script as a Workflow only with
-the owner's go. It runs 23 real sessions in four parts.
+the owner's go. It runs 25 real sessions in four parts.
