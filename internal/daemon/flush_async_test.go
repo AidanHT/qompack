@@ -84,12 +84,13 @@ func flushAsyncDaemon(t *testing.T) (*daemon, *heldSessionEnd, string) {
 	return dd, hold, root
 }
 
-// flushAsyncAwait waits for every session end the daemon started to finish.
+// flushAsyncAwait waits for every session end the daemon started to finish, with no clock: the rows
+// assert what those ends did, and a fixed bound on the wait was a wall-clock verdict a stalled host
+// could fail (wave 22). A hang is left to go test -timeout; the assertion stays for a wait that
+// returns without the ends having finished.
 func flushAsyncAwait(t *testing.T, dd *daemon) {
 	t.Helper()
-	ctx, cancel := context.WithTimeout(context.Background(), liveOrderBound)
-	defer cancel()
-	require.True(t, dd.awaitSessionEnds(ctx), "an accepted session end never finished")
+	require.True(t, dd.awaitSessionEnds(context.Background()), "an accepted session end never finished")
 }
 
 // flushAsyncDispatch sends req on its own goroutine and returns its answer, failing the test if the
