@@ -793,15 +793,17 @@ host change could lift — as prepared proposals, none of which has been filed.
   `_`, `.`, its separators and single spaces, with no word starting with `-`; a root with any other
   character (an apostrophe, a `+`, an `@`, a `$`, a Unicode space, a run of spaces) has no root
   unit, so every summary that spells it is withheld (D64(1)). The whitelist does not resolve
-  aliases (8.3 short names, links, Unicode normalization variants of a name), cannot see names a
-  command builds at run time or names relative to a `cd`, and judges a glob that selects only files
-  the block never recorded as written. The store's preview collapses runs of whitespace, so a
-  summary is judged as collapsed, not as the command spelled it (D60(c)(iv)). A program that reads
-  its command line through the Windows ANSI code page receives a letter that code page cannot hold
-  as `?`, which a program that globs its arguments reads as a wildcard (D67(l)). The records in
-  sections 2 to 4 are not screened: they are your own prompts and the model's own earlier text
-  (which `already_tried` and `why` return as well), and decision D50's rule covers pointers
-  (decision D60(c)(i) for sections 3 and 4, D62(f) for section 2, your verbatim prompts).
+  aliases (8.3 short names, links, Unicode normalization variants of a name) and cannot see names a
+  command builds at run time or names relative to a `cd`. Outside free text, a structured glob (a
+  lone Glob or recall pattern) that selects a refused file the block never recorded, without
+  spelling its literal (`private/d*`), is judged as written (D60(c)(iv)). The store's preview
+  collapses runs of whitespace, so a summary is judged as collapsed, not as the command spelled it
+  (D60(c)(iv)). A program that reads its command line through the Windows ANSI code page receives a
+  letter that code page cannot hold as `?`, which a program that globs its arguments reads as a
+  wildcard (D67(l)). The records in sections 2 to 4 are not screened: they are your own prompts and
+  the model's own earlier text (which `already_tried` and `why` return as well), and decision D50's
+  rule covers pointers (decision D60(c)(i) for sections 3 and 4, D62(f) for section 2, your
+  verbatim prompts).
 - **Why.** Two rounds tried to find every path inside arbitrary text, and each closed some
   spellings while opening others or withholding harmless commands (decision D61(b)). A third, D61's
   blacklist screen, did not converge either: undoing shell quoting cannot be made complete, so D63

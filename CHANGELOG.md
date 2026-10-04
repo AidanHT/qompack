@@ -214,11 +214,13 @@ live sessions:
   `format:%h` are withheld even when they name no denied file (D64(4), D67(l)), and under a root
   whose spelling is not plain, no summary that spells the root is shown, because the root unit
   applies only to a plain root (D64(1)). It does not resolve aliases (8.3 names, links, Unicode
-  variants of a name) or see names built at run time or relative to a `cd`; a glob that selects only
-  files the block never recorded is judged as written; and the store's preview collapses runs of
-  whitespace, so a summary is judged as collapsed, not as the command spelled it (D60(c)(iv)). The
-  records in sections 2 to 4, your own prompts and the model's own earlier text, are outside D50
-  (D60(c)(i) for sections 3 and 4, D62(f) for section 2; `docs/cannot-do.md` §5).
+  variants of a name) or see names built at run time or relative to a `cd`, and the store's preview
+  collapses runs of whitespace, so a summary is judged as collapsed, not as the command spelled it
+  (D60(c)(iv)). Globs in free text are always withheld; a structured glob (a lone Glob or recall
+  pattern) that selects a refused file the block never recorded, without spelling its literal
+  (`private/d*`), is judged as written (D60(c)(iv)). The records in sections 2 to 4, your own
+  prompts and the model's own earlier text, are outside D50 (D60(c)(i) for sections 3 and 4, D62(f)
+  for section 2; `docs/cannot-do.md` §5).
 - **On macOS, Qompack assumes the default case-insensitive volume**: it compares paths and the Read
   rules' patterns without regard to letter case. On a case-sensitive APFS volume, two names that
   differ only in case are two files, which Qompack reads as one (D67(m), `docs/security.md`).
