@@ -197,8 +197,43 @@ func detachedSpawner(log logging.Logger) func(projectRoot, self string) error {
 func ensureRunning(projectRoot, self string, log logging.Logger, clk core.Clock, bound pollBound,
 	spawn func(projectRoot, self string) error,
 ) (spawned bool, err error) {
-	return ensureRunningWith(projectRoot, self, log, clk, bound, spawn, probeBy)
+	return ensureRunningWith(projectRoot, self, log, clk, bound, spawn, probeBy, wallPollClock{})
 }
+
+// pollClock is the time ensureRunningWith runs its dials and its poll on: the instant it bounds each
+// dial by and checks its deadline against, and the ticker it waits on between dials. Production runs
+// on the wall clock (wallPollClock), as every connection deadline in this codebase does: the dials
+// are real, and so is the daemon process the poll waits for. It is injectable only so a row can run
+// the poll on a clock that moves when that row's stand-in dials and tick waits move it, so that its
+// verdict never depends on how fast a loaded machine schedules the call (D61(c)). clk is a separate
+// clock: it stamps and ages the spawn claim (ipc.ClaimSpawn) and never bounds a dial.
+type pollClock interface {
+	Now() time.Time
+	// NewTicker starts the ticker the poll waits on between dials, ticking every d.
+	NewTicker(d time.Duration) pollTicker
+}
+
+// pollTicker is the ticker a pollClock starts.
+type pollTicker interface {
+	// WaitForTick waits for the next tick and reports whether the poll may still dial: false,
+	// without waiting past it, once deadline has come (waitForTick).
+	WaitForTick(deadline time.Time) bool
+	Stop()
+}
+
+// wallPollClock is the pollClock production runs on: time.Now and a time.Ticker.
+type wallPollClock struct{}
+
+func (wallPollClock) Now() time.Time { return time.Now() }
+
+func (wallPollClock) NewTicker(d time.Duration) pollTicker { return wallTicker{time.NewTicker(d)} }
+
+// wallTicker is wallPollClock's ticker: a time.Ticker waited on through waitForTick.
+type wallTicker struct{ t *time.Ticker }
+
+func (w wallTicker) WaitForTick(deadline time.Time) bool { return waitForTick(w.t, deadline) }
+
+func (w wallTicker) Stop() { w.t.Stop() }
 
 // probeBy dials addr until by at the latest, and reports whether a daemon answered: ipc.Probe
 // bounded by an instant rather than a duration, so a caller can end a dial where its wait ends.
@@ -212,11 +247,11 @@ func probeBy(addr ipc.Addr, by time.Time) bool {
 	return ipc.Probe(addr, left)
 }
 
-// ensureRunningWith is ensureRunning with its liveness dial injected as well (probeBy in
-// production), so a row can stand in a daemon that listens and never accepts and see what each
-// dial was bounded to.
+// ensureRunningWith is ensureRunning with its liveness dial and the clock its dials and poll run on
+// injected as well (probeBy and wallPollClock in production), so a row can stand in a daemon that
+// listens and never accepts, see what each dial was bounded to, and decide how long each step took.
 func ensureRunningWith(projectRoot, self string, log logging.Logger, clk core.Clock, bound pollBound,
-	spawn func(projectRoot, self string) error, probe func(addr ipc.Addr, by time.Time) bool,
+	spawn func(projectRoot, self string) error, probe func(addr ipc.Addr, by time.Time) bool, pc pollClock,
 ) (spawned bool, err error) {
 	// D18: nothing is dialled, claimed or spawned for the home directory. Nothing is logged either:
 	// a hook's logger would write under the very directory the refusal keeps untouched.
@@ -230,20 +265,20 @@ func ensureRunningWith(projectRoot, self string, log logging.Logger, clk core.Cl
 	if rerr != nil {
 		return false, rerr
 	}
-	if probe(addr, time.Now().Add(ensureRunningDialTimeout)) {
+	if probe(addr, pc.Now().Add(ensureRunningDialTimeout)) {
 		return false, nil
 	}
 
 	// deadline is zero until the poll begins: until this call has spawned, or found another
 	// spawner's claim. From then on nothing this call waits for runs past it (pollEnds).
 	var deadline time.Time
-	ticker := time.NewTicker(ensureRunningPollInterval)
+	ticker := pc.NewTicker(ensureRunningPollInterval)
 	defer ticker.Stop()
 	for {
 		if !spawned {
 			// A wait already begun is over at its deadline: past it, this call takes no claim. The
 			// first spawner after a dead spawner's claim has aged out reclaims it.
-			if !deadline.IsZero() && !time.Now().Before(deadline) {
+			if !deadline.IsZero() && !pc.Now().Before(deadline) {
 				return false, core.ErrNotFound
 			}
 			lock, claim := ipc.ClaimSpawn(projectRoot, clk)
@@ -252,18 +287,24 @@ func ensureRunningWith(projectRoot, self string, log logging.Logger, clk core.Cl
 				// Another spawner's daemon is on its way: the wait for it begins here, the first
 				// time this call finds its claim.
 				if deadline.IsZero() {
-					deadline = bound.deadline(time.Now())
+					deadline = bound.deadline(pc.Now())
 				}
-			case probe(addr, pollEnds(time.Now().Add(spawnClaimDialTimeout), deadline)):
+			case probe(addr, pollEnds(pc.Now().Add(spawnClaimDialTimeout), deadline)):
 				// A daemon answers after all: the one the lock announced, up since this call's last
 				// dial and the reason the lock was free, or one that shorter dial missed while it
 				// was busy. Either way it is the daemon this call was making sure of.
 				lock.Release()
 				return false, nil
-			case !deadline.IsZero() && !time.Now().Before(deadline):
+			case !deadline.IsZero() && !pc.Now().Before(deadline):
 				// The dial ran to the end of the wait, cut short there, and nothing answered it. A
 				// daemon that is up but slow to accept fails a dial exactly so, so this is no
-				// licence to spawn: the claim goes back, and the next spawner decides.
+				// licence to spawn: the claim goes back, and the next spawner decides. What is
+				// judged is when the dial returned, not the instant it was bounded to. A dial of a
+				// pipe that exists but is busy returns no earlier than that instant (go-winio retries
+				// it until the dial's deadline, dial_windows.go), so a cut-short dial that returned
+				// before the end found no pipe or socket at all, and spawning then is right; and a
+				// dial that had its whole bound inside the wait but returned past the end, on a
+				// loaded machine, is treated as cut short (wave 22's H4 rows).
 				lock.Release()
 				return false, core.ErrNotFound
 			default:
@@ -276,15 +317,15 @@ func ensureRunningWith(projectRoot, self string, log logging.Logger, clk core.Cl
 				// The poll begins here, after this call's own spawn, so that preparing a staged copy
 				// or a slow process creation does not eat the wait the new daemon gets — also when
 				// this call waited on another spawner's claim first and reclaimed it once stale.
-				deadline = bound.deadline(time.Now())
+				deadline = bound.deadline(pc.Now())
 			}
 		}
-		if !waitForTick(ticker, deadline) {
+		if !ticker.WaitForTick(deadline) {
 			return spawned, core.ErrNotFound
 		}
 		// Dial before anything else on every poll: a daemon that is up needs no claim, and the
 		// lock it announced may already be gone.
-		if probe(addr, pollEnds(time.Now().Add(ensureRunningDialTimeout), deadline)) {
+		if probe(addr, pollEnds(pc.Now().Add(ensureRunningDialTimeout), deadline)) {
 			return spawned, nil
 		}
 	}
