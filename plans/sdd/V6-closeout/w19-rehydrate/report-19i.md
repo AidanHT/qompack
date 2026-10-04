@@ -152,18 +152,18 @@ ADR 0011 CHANGES
 - `same pattern with -overlay <71e5133d pathgate.go+summary_screen_test.go, r4 test removed> (Windows)`: PASS, except U+0130 in all four rows and U+017F in the file-pointer and short-name rows (that sibling pointer was shown by its path on 71e5133d)
 - `go test -p 2 -count=1 -run '^TestRehydrateHostPaths_AWithheldPathUnderAUnicodeCaseSpellingOfTheRootTeachesItsNames$' ./internal/daemon/ at eca33155 / 71e5133d / HEAD (Windows, real NTFS folders)`: eca33155 FAIL 12/15; 71e5133d FAIL 5/15 (U+0130 x3, U+017F's two file-pointer shapes); HEAD PASS 15/15
 - `same rows in a Linux container (uid 1000, --cpus=2) on 71e5133d, eca33155 and HEAD binaries`: PASS on all three revisions (paths do not fold); the reason row SKIPs by platform
-- `go test -p 2 -count=1 -overlay <single-fix mutants m1..m5> -run <the 4 new rehydrate rows> ./internal/rehydrate/ (Windows)`: m1 fails the 3 learning rows (4 spellings each); m2 fails the tool-summary row only; m3 fails the reason row only (5/5); m4 fails U+017F in the 3 learning rows only; m5 fails nothing (by construction)
+- `go test -p 2 -count=1 -overlay <single-fix mutants m1..m5> -run <the 4 new rehydrate rows> ./internal/rehydrate/ (Windows)`: m1 fails the 3 learning rows (4 spellings each); m2 fails the tool-summary row only; m3 fails the reason row only (5/5); m4 fails U+017F in the 3 learning rows only; m5 fails nothing (by construction) <!-- runpatterns: the -run argument is a placeholder naming a set of tests the surrounding report lists, not a runnable pattern -->
 - `go test -p 2 -count=1 -timeout=30m ./internal/rehydrate/...`: ok (rehydrate and rehydratetest) on Windows at 713cb8f4; PASS in Linux container
-- `go test -p 2 -count=1 -v -timeout=30m -run "^(<85 daemon rehydrate rows: the 84 from w19h plus TestRehydrateHostPaths_AWithheldPathUnderAUnicodeCaseSpellingOfTheRootTeachesItsNames>)$" ./internal/daemon/`: Windows 84 PASS + 1 SKIP (TestService_StateWriteFailureStillEmits, platform); Linux container 85 PASS
-- `go test -p 2 -count=20 -run <4 new rehydrate rows> ./internal/rehydrate/ ; go test -p 2 -count=20 -run '^TestRehydrateHostPaths_AWithheldPathUnderAUnicodeCaseSpellingOfTheRootTeachesItsNames$' ./internal/daemon/`: Windows 80/80 and 20/20 PASS; Linux 360 PASS + 20 SKIP (subtests) and 320/320 PASS
-- `go test -p 2 -race -count=3 -run <same new-row patterns> ./internal/rehydrate/ and ./internal/daemon/`: Windows 12/12 and 3/3 PASS; Linux 54 PASS (3 skip) and 48 PASS; no DATA RACE
+- `go test -p 2 -count=1 -v -timeout=30m -run "^(<85 daemon rehydrate rows: the 84 from w19h plus TestRehydrateHostPaths_AWithheldPathUnderAUnicodeCaseSpellingOfTheRootTeachesItsNames>)$" ./internal/daemon/`: Windows 84 PASS + 1 SKIP (TestService_StateWriteFailureStillEmits, platform); Linux container 85 PASS <!-- runpatterns: the -run argument is a placeholder naming a set of tests the surrounding report lists, not a runnable pattern -->
+- `go test -p 2 -count=20 -run <4 new rehydrate rows> ./internal/rehydrate/ ; go test -p 2 -count=20 -run '^TestRehydrateHostPaths_AWithheldPathUnderAUnicodeCaseSpellingOfTheRootTeachesItsNames$' ./internal/daemon/`: Windows 80/80 and 20/20 PASS; Linux 360 PASS + 20 SKIP (subtests) and 320/320 PASS <!-- runpatterns: the -run argument is a placeholder naming a set of tests the surrounding report lists, not a runnable pattern -->
+- `go test -p 2 -race -count=3 -run <same new-row patterns> ./internal/rehydrate/ and ./internal/daemon/`: Windows 12/12 and 3/3 PASS; Linux 54 PASS (3 skip) and 48 PASS; no DATA RACE <!-- runpatterns: the -run argument is a placeholder naming a set of tests the surrounding report lists, not a runnable pattern -->
 - `GOOS={windows,linux,darwin} GOARCH=amd64 go vet ./...`: exit 0 on all three
 - `go run ./tools/devtool lint --only=golangci-lint`: PASS
 - `go run ./tools/devtool fmt-check`: exit 0
 - `go test -p 2 -count=1 ./test/docs/...`: ok
 - `go run ./tools/devtool lint --only=docmarkers,runpatterns`: PASS runpatterns, PASS docmarkers
 - `W19I_OUT/W19I_REASONS/RV2_OUT=... go test -overlay <corpus + probe overlays> -run '^(TestZZW19iCorpus|TestZZW19iReasons|TestZZRev2Corpus)$' ./internal/rehydrate/ at 71e5133d, eca33155 and HEAD, Windows and Linux`: w19d corpus identical at all three revisions (0 leaks, 0 flips). Variant corpus: nothing SHOWN at HEAD that 71e5133d or eca33155 withheld. Reason probe: eca33155 showed 56 that 71e5133d redacted; HEAD shows 0 of them.
-- `W19I_ADAPTER=... go test -overlay <adapter probe> -run '^TestZZW19iAdapter$' ./internal/daemon/ at 71e5133d, eca33155 and HEAD (Windows, long and 8.3 root)`: 144/144 Refuses verdicts identical at all three revisions
+- `W19I_ADAPTER=... go test -overlay <adapter probe> -run '^TestZZW19iAdapter$' ./internal/daemon/ at 71e5133d, eca33155 and HEAD (Windows, long and 8.3 root)`: 144/144 Refuses verdicts identical at all three revisions <!-- runpatterns: a scratch probe the seat ran from an overlaid test file to measure the corpus or the adapter; it is not committed, and its numbers are recorded on this line -->
 
 ### Criterion changes
 
@@ -296,11 +296,11 @@ CHECKS
 - `go run ./tools/devtool lint --only=docmarkers,runpatterns`: PASS (381 plan documents)
 - `go test -p 2 -count=1 ./test/docs/`: ok
 - `go test -p 2 -count=1 ./internal/rehydrate/...`: ok on Windows; Linux binaries rehydrate and rehydratetest PASS
-- `go test -p 2 -count=1 -timeout=30m -v -run '<the 85 daemon rehydrate rows, scratchpad w19i-r2/dp.txt>' ./internal/daemon/`: Windows 84 pass + 1 platform skip (TestService_StateWriteFailureStillEmits); Linux uid 1000 85 pass
+- `go test -p 2 -count=1 -timeout=30m -v -run '<the 85 daemon rehydrate rows, scratchpad w19i-r2/dp.txt>' ./internal/daemon/`: Windows 84 pass + 1 platform skip (TestService_StateWriteFailureStillEmits); Linux uid 1000 85 pass <!-- runpatterns: the -run argument is a placeholder naming a set of tests the surrounding report lists, not a runnable pattern -->
 - `go test -p 2 -count=20 -v -run '^TestRehydrateHostPaths_AWithheldPathUnderAUnicodeCaseSpellingOfTheRootTeachesItsNames$' ./internal/daemon/`: Windows 20/20 (300/300 subtests); Linux 20/20 (300/300)
 - `go test -p 2 -count=20 -v -run '^(TestBuild_AWithheldFileUnderAUnicodeCaseSpellingOfTheRootTeachesItsNames|TestBuild_AWithheldToolSummaryUnderAUnicodeCaseSpellingOfASpacedRootTeachesItsNames|TestBuild_AShortWithheldNameUnderAUnicodeCaseSpellingOfTheRootIsLearnedByItsPath|TestBuild_ADropReasonNamingAWithheldPathUnderAUnicodeCaseSpellingOfTheRootIsRedacted)$' ./internal/rehydrate/`: Windows 80/80; Linux 60 pass + 20 skip
 - `go test -p 2 -race -count=3 -v -run '^TestRehydrateHostPaths_AWithheldPathUnderAUnicodeCaseSpellingOfTheRootTeachesItsNames$' ./internal/daemon/`: Windows 3 pass (45 subtests), Linux 3 pass (45), no data race
-- `go test -p 2 -race -count=3 -v -run '<the four rehydrate r5 rows above>' ./internal/rehydrate/`: Windows 12 pass; Linux 9 pass + 3 skip; no data race
+- `go test -p 2 -race -count=3 -v -run '<the four rehydrate r5 rows above>' ./internal/rehydrate/`: Windows 12 pass; Linux 9 pass + 3 skip; no data race <!-- runpatterns: the -run argument is a placeholder naming a set of tests the surrounding report lists, not a runnable pattern -->
 - `emulated darwin 85-row sweep (TMPDIR canonical and linked) at HEAD, eca33155, 71e5133d`: HEAD 84/85: only the r4 row fails, because its own GOOS fold flag is not emulated; eca33155 adds the twin; 71e5133d adds the twin and the rule row; nothing passes on an old revision and fails at HEAD
 
 ### Criterion changes
