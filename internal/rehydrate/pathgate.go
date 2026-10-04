@@ -62,8 +62,8 @@ import (
 //     (cutTokenUnsafe, cutPrefixNamed), and one that ends right after a drive's `:` as if a name
 //     followed it (cutAtDriveColon, D64(2)). The project root is held together as one unit only
 //     when its own spelling has no character a shell splits or reinterprets a word at (nor one a best
-//     fit turns into punctuation), and a sanitized text spells it exactly (rootUnitAdmitted,
-//     rootSpelledExactly, D64(1) and its rulings on wave 19f).
+//     fit turns into punctuation) and no word that starts with `-` after a space, and a sanitized text
+//     spells it exactly (rootUnitAdmitted, rootSpelledExactly, D64(1) and its rulings on wave 19f).
 //     A cut path-named value is the project only when it starts the root's own spelling byte for
 //     byte (rootPrefix).
 //     When the host's rules are unavailable, or a rule covers the whole project, every free text is
@@ -2200,9 +2200,9 @@ func sanitize(t string) string {
 // control character no sanitized text carries, so the tokenizer never splits the root at its own
 // space and the screen never reads the root's own name as a withheld name. In a summary it does so
 // only for a root whose spelling admits the unit (markRoot, rootUnitAdmitted, D64(1)): a root with a
-// comma, an apostrophe, an `@` or any other character a shell splits or reinterprets a word at, or
-// a letter whose ANSI best fit is ASCII punctuation has none, and so has one that no sanitized text
-// spells exactly (rootSpelledExactly). A spelling glued
+// comma, an apostrophe, an `@` or any other character a shell splits or reinterprets a word at, a
+// letter whose ANSI best fit is ASCII punctuation, or a word that starts with `-` after a space has
+// none, and so has one that no sanitized text spells exactly (rootSpelledExactly). A spelling glued
 // to a name character on either side (proj2, xC:\q\proj) is not the root and is judged as the path
 // outside the project it is; a spelling glued to a short option is the root as the option's value
 // (-I<root>/include).
@@ -2259,25 +2259,31 @@ func rootSegments(rest, sep string) string {
 // (coordinator decision D64(1)): a sanitized text spells it exactly (rootSpelledExactly), and,
 // cleaned and slash-separated, every character of it is a Unicode letter, mark or digit the
 // whitelist admits (wordRune), one of `- _ .`, the separator `/`, an ASCII space, or, on Windows, the
-// drive's `:` after its letter. These are the free-text whitelist's characters at which no shell
-// splits or reinterprets a word. D64's ruling on wave 19f's open items left out the letters and
-// marks that Windows' ANSI best-fit conversion turns into ASCII punctuation (bestFitPunct: a program
-// reading an ANSI command line receives U+02BA as `"`). The whitelist's other characters are left
-// out: `,` (PowerShell splits a bare argument into an array there, and cmd.exe's built-in commands
-// split at it), `=` (cmd.exe's built-in commands split at it), `+` (cmd.exe's copy starts its next
-// source there), `#` (zsh's EXTENDED_GLOB repeats the character before it), `@` (PowerShell splats a
-// word of the root that is a whole `@name`, as in a root ending in ` @Work`) and a `:` past the
-// drive (PowerShell reads a name before a `:` as a drive; a list's reader splits at it). So is every
-// character the whitelist rejects: a quote of any kind, a backtick,
-// `$ ! ; & | ( ) [ ] { } < > ^ % ~ * ?`, a backslash that is no separator (a POSIX shell drops it),
-// a control character and a Unicode space. A root holding any of them, or a run of spaces, has no
-// unit: a summary spelling it is judged as the free text it is, and withheld. An empty root admits
-// nothing.
+// drive's `:` after its letter; and no word of it starts with `-` after one of its spaces. These are
+// the free-text whitelist's characters at which no shell splits or reinterprets a word. D64's
+// rulings on wave 19f's open items left out the letters and marks that Windows' ANSI best-fit
+// conversion turns into ASCII punctuation (bestFitPunct: a program reading an ANSI command line
+// receives U+02BA as `"`), and a word that starts with `-` after a space, which PowerShell binds as a
+// parameter of a cmdlet or advanced function (`g C:\q\John -Force\proj` sets `-Force`); a lone `-`,
+// which PowerShell passes as text (OneDrive's `OneDrive - Contoso`), is such a word too, as the
+// ruling words it. The whitelist's other characters are left out: `,` (PowerShell splits a bare
+// argument into an array there, and cmd.exe's built-in commands split at it), `=` (cmd.exe's
+// built-in commands split at it), `+` (cmd.exe's copy starts its next source there), `#` (zsh's
+// EXTENDED_GLOB repeats the character before it), `@` (PowerShell splats a word of the root that is
+// a whole `@name`, as in a root ending in ` @Work`) and a `:` past the drive (PowerShell reads a
+// name before a `:` as a drive; a list's reader splits at it). So is every character the whitelist
+// rejects: a quote of any kind, a backtick, `$ ! ; & | ( ) [ ] { } < > ^ % ~ * ?`, a backslash that
+// is no separator (a POSIX shell drops it), a control character and a Unicode space. A root holding
+// any of them, or a run of spaces, has no unit: a summary spelling it is judged as the free text it
+// is, and withheld. An empty root admits nothing.
 func rootUnitAdmitted(root string) bool {
 	if root == "" || !rootSpelledExactly(root) {
 		return false
 	}
 	clean := filepath.ToSlash(filepath.Clean(root))
+	if strings.Contains(clean, " -") {
+		return false
+	}
 	for i, r := range clean {
 		switch {
 		case wordRune(r):
