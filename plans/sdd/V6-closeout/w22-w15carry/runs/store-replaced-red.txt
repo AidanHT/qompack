@@ -1,0 +1,13 @@
+# merged HEAD 62d9290a + the read-window hook call (no fix) + the new row; Windows
+# go test -p 2 -count=1 -run '^TestAuditPublication_SnapshotCountsAReplacedEntryAsLiveWork$' -v ./internal/store/
+=== RUN   TestAuditPublication_SnapshotCountsAReplacedEntryAsLiveWork
+    publication_snapshot_test.go:247: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w22-w15carry/internal/store/publication_snapshot_test.go:247
+        	Error:      	Should be false
+        	Test:       	TestAuditPublication_SnapshotCountsAReplacedEntryAsLiveWork
+        	Messages:   	a file the store replaced while the pass ran is live work, not unreadable: [capture sidecar unreadable]
+--- FAIL: TestAuditPublication_SnapshotCountsAReplacedEntryAsLiveWork (0.19s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/store	0.664s
+FAIL
+exit=1

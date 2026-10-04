@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"os"
@@ -387,17 +388,20 @@ func (b *scanBudget) postSnapshot(mod time.Time) bool {
 	return b.snap != nil && mod.After(b.snap.taken)
 }
 
-// vanished reports whether err says an entry the pass listed was removed before the pass could
-// stat or read it, and counts it as live work when the pass runs against a snapshot. Such a pass
-// runs while the store serves: a Put retires its pending-write marker, and the store removes a
-// capture sidecar or an object, whenever it likes, and a file the store no longer holds is not an
-// unreadable record of it. Noting it made a healthy store's background pass announce itself
-// incomplete (w15-services review). On Linux and macOS DirEntry.Info is a lazy lstat, so it is the
-// stat that fails; on Windows the listing caches it and the read fails instead. A pass without a
-// snapshot (fsck, or a store nothing else is writing) keeps noting it: there, a file that vanishes
-// under the walk is exactly what it cannot vouch for.
+// vanished reports whether err says an entry the pass listed was removed, or replaced, before the
+// pass could stat or read it, and counts it as live work when the pass runs against a snapshot.
+// Such a pass runs while the store serves: a Put retires its pending-write marker, and the store
+// removes a capture sidecar or an object, whenever it likes, and a file the store no longer holds
+// is not an unreadable record of it. Noting it made a healthy store's background pass announce
+// itself incomplete (w15-services review). On Linux and macOS DirEntry.Info is a lazy lstat, so it
+// is the stat that fails; on Windows the listing caches it and the read fails instead. The store
+// also replaces a capture sidecar by rename (LinkCaptureReference publishing it, a redelivery
+// rewriting it), and one replaced between readPublicationFile's check and its open answers
+// errPublicationFileReplaced: a file written after the snapshot, which is live work too (wave 22).
+// A pass without a snapshot (fsck, or a store nothing else is writing) keeps noting both: there, a
+// file that vanishes or changes under the walk is exactly what it cannot vouch for.
 func (b *scanBudget) vanished(err error, a *PublicationAudit) bool {
-	if b.snap == nil || !errors.Is(err, fs.ErrNotExist) {
+	if b.snap == nil || !(errors.Is(err, fs.ErrNotExist) || errors.Is(err, errPublicationFileReplaced)) {
 		return false
 	}
 	a.PostSnapshotEntries++
@@ -944,9 +948,16 @@ func openPublicationDir(parent *os.Root, name string, descend bool) (*os.Root, *
 	return dir, f, nil
 }
 
+// errPublicationFileReplaced is readPublicationFile's answer for a name that named one regular file
+// when it was checked and another when it was opened: the store renamed a new file over it in
+// between. It is core.ErrDegraded to every caller that asks only that; vanished tells it apart.
+var errPublicationFileReplaced = fmt.Errorf("%w: store: a publication file was replaced while it was read",
+	core.ErrDegraded)
+
 // readPublicationFile reads the regular file name directly under dir, at most limit bytes (a longer
 // file answers core.ErrBudget). Like openPublicationDir, it refuses a link, and a name swapped for
-// one between the check and the open.
+// one between the check and the open; a name the store replaced with another regular file in that
+// window answers errPublicationFileReplaced, and nothing of either file is read.
 func readPublicationFile(dir *os.Root, name string, limit int64) ([]byte, error) {
 	info, err := dir.Lstat(name)
 	if err != nil {
@@ -955,14 +966,20 @@ func readPublicationFile(dir *os.Root, name string, limit int64) ([]byte, error)
 	if !info.Mode().IsRegular() {
 		return nil, core.ErrDegraded
 	}
+	if hook := publicationReadHook.Load(); hook != nil {
+		(*hook)(dir, name)
+	}
 	f, err := dir.Open(name)
 	if err != nil {
 		return nil, err
 	}
 	defer func() { _ = f.Close() }()
 	got, err := f.Stat()
-	if err != nil || !got.Mode().IsRegular() || !os.SameFile(info, got) {
+	if err != nil || !got.Mode().IsRegular() {
 		return nil, core.ErrDegraded
+	}
+	if !os.SameFile(info, got) {
+		return nil, errPublicationFileReplaced
 	}
 	b, err := io.ReadAll(io.LimitReader(f, limit+1))
 	if int64(len(b)) > limit {
