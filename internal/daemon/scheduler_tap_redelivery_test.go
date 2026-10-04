@@ -21,6 +21,9 @@ package daemon
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
+	"os"
 	"testing"
 	"time"
 
@@ -639,5 +642,196 @@ func TestWrapServices_ARedeliveryOfAnUnrecordedToolUseMovesNoAnchor(t *testing.T
 	putRead(fx, refused, tapToolUseTurn, 400)
 	require.NoError(t, s.ObserveTool(delivered(t, 1), ev))
 	require.Equal(t, core.Tokens(400), openTokens(fx.rt), "a replay that finds the record still applies it")
+	require.Equal(t, int64(1), fx.counter(counterTapRedelivery))
+}
+
+// TestWrapServices_AReplayBeforeABindToAnotherSessionCountsForIt is audit 2's finding 5. The
+// previous daemon was bound to rtSession and folded a Read of a second live window into that account
+// (the tap folds every session's tool use into the bound account), persisted it, and stopped with
+// that Read's commit cut. After the restart the second window's next hook is the first to arrive, so
+// the runtime binds to it, and rtSession's document is discarded: nothing the bind restores holds the
+// Read. The replay the startup drain made before the bind must therefore count for the bound account;
+// recognizing it from the document at construction (the wave 20 seed) skipped it, and its tokens were
+// lost. A later delivery of the same window replayed before the bind counts too.
+func TestWrapServices_AReplayBeforeABindToAnotherSessionCountsForIt(t *testing.T) {
+	t.Parallel()
+	const (
+		window core.SessionID = "sess-other-window"
+		cutID  core.ToolUseID = "toolu_window_cut"
+		nextID core.ToolUseID = "toolu_window_next"
+		liveID core.ToolUseID = "toolu_window_live"
+	)
+	readOf := func(id core.ToolUseID) hookio.Event {
+		return hookio.Event{HookEventName: "PostToolUse", SessionID: window, ToolName: "Read", ToolUseID: id}
+	}
+	putWindowRead := func(fx *rtFixture, id core.ToolUseID, turn core.TurnIndex, tokens core.Tokens) {
+		fx.store.put(store.ToolUseRecord{
+			ID: id, Session: window, Turn: turn, TS: fx.now() + 1_000,
+			Tool: "Read", ArgsPreview: "read src/w.go", Path: "src/w.go", Tokens: tokens,
+		})
+	}
+	restarted := func(t *testing.T) (*rtFixture, *Services, *SessionRegistry) {
+		t.Helper()
+		prev := newRTFixture(t)
+		prev.bind(rtSession)
+		putWindowRead(prev, cutID, 3, 300)
+		ps := allSeams()
+		WrapServicesForScheduler(ps, prev.rt, prev.options())
+		require.NoError(t, ps.ObserveTool(deliveredFor(t, window, 1), readOf(cutID)))
+		require.NoError(t, prev.rt.Persist(context.Background()))
+
+		fx := newRTFixture(t, withRoot(prev))
+		require.Empty(t, fx.rt.session, "fixture sanity: the restarted runtime starts unbound")
+		putWindowRead(fx, cutID, 3, 300)
+		putWindowRead(fx, nextID, 4, 50)
+		putWindowRead(fx, liveID, 5, 100)
+		s := allSeams()
+		WrapServicesForScheduler(s, fx.rt, fx.options())
+		reg := NewSessionRegistry()
+		fx.rt.mu.Lock()
+		fx.rt.d = &registryDaemon{reg: reg}
+		fx.rt.mu.Unlock()
+		return fx, s, reg
+	}
+
+	t.Run("the cut read", func(t *testing.T) {
+		t.Parallel()
+		fx, s, reg := restarted(t)
+		require.NoError(t, s.ObserveTool(deliveredFor(t, window, 1), readOf(cutID))) // the startup drain
+		require.Empty(t, fx.rt.session, "fixture sanity: a session no hook touched does not bind")
+		reg.Touch(window, fx.now())
+		require.NoError(t, s.ObserveTool(deliveredFor(t, window, 2), readOf(liveID)))
+
+		require.Equal(t, window, fx.rt.session)
+		require.Equal(t, core.Tokens(400), openTokens(fx.rt), "the replayed 300 and the live read's 100")
+	})
+	t.Run("and a later read of the window", func(t *testing.T) {
+		t.Parallel()
+		fx, s, reg := restarted(t)
+		require.NoError(t, s.ObserveTool(deliveredFor(t, window, 1), readOf(cutID)))
+		require.NoError(t, s.ObserveTool(deliveredFor(t, window, 2), readOf(nextID)))
+		reg.Touch(window, fx.now())
+		require.NoError(t, s.ObserveTool(deliveredFor(t, window, 3), readOf(liveID)))
+
+		require.Equal(t, window, fx.rt.session)
+		require.Equal(t, core.Tokens(450), openTokens(fx.rt), "300 and 50 replayed, and the live read's 100")
+	})
+}
+
+// TestWrapServices_AReplayIsDedupedAgainstTheAccountTheBindReads: the restarted daemon's runtime is
+// constructed (wireScheduler) before daemon.New and Run take the project's lock, while its
+// predecessor's final scheduler persist (closeScheduler, deferred in runDaemon) lands after the
+// predecessor released that lock. An identity read from the document at construction could miss the
+// one the final persist wrote, and the startup drain's replay of that delivery was then folded on top
+// of the restored account that holds it. The bind reads the document, so the dedupe is against what it
+// restores, whenever that was written.
+func TestWrapServices_AReplayIsDedupedAgainstTheAccountTheBindReads(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	prev := newRTFixture(t)
+	prev.bind(rtSession)
+	tapRecord(prev, tapToolUseID, "Read", 700)
+	ps := allSeams()
+	WrapServicesForScheduler(ps, prev.rt, prev.options())
+	require.NoError(t, ps.ObserveTool(delivered(t, 1), tapToolEvent(tapToolUseID, "Read", "", "")))
+
+	fx := newRTFixture(t, withRoot(prev)) // constructed before the predecessor's final persist
+	require.Empty(t, fx.rt.session, "fixture sanity: the restarted runtime starts unbound")
+	require.NoError(t, prev.rt.Persist(ctx))
+
+	const live core.ToolUseID = "toolu_live_after_restart"
+	tapRecord(fx, tapToolUseID, "Read", 700)
+	putRead(fx, live, tapToolUseTurn+2, 300)
+	s := allSeams()
+	WrapServicesForScheduler(s, fx.rt, fx.options())
+	reg := NewSessionRegistry()
+	fx.rt.mu.Lock()
+	fx.rt.d = &registryDaemon{reg: reg}
+	fx.rt.mu.Unlock()
+
+	require.NoError(t, s.ObserveTool(delivered(t, 1), tapToolEvent(tapToolUseID, "Read", "", ""))) // the startup drain
+	reg.Touch(rtSession, fx.now())
+	require.NoError(t, s.ObserveTool(delivered(t, 2), tapToolEvent(live, "Read", "", "")))
+
+	require.Equal(t, rtSession, fx.rt.session)
+	require.Equal(t, core.Tokens(1_000), openTokens(fx.rt), "the persisted 700 and the live read's 300")
+}
+
+// tapAppliedBound restates the number of sessions whose last applied delivery the tap remembers
+// (maxAppliedSessions), so this file compiles on a tree without it.
+const tapAppliedBound = 256
+
+// TestWrapServices_TheAppliedIdentitiesAreBounded is audit 2's finding 6 and D67(b). The tap kept
+// one identity per session it ever saw a delivery of, for the daemon's lifetime, and persisted every
+// one the bound account held: a daemon that never idles, such as a headless loop of short sessions in
+// one project, grew both without bound. Both are now bounded, by recency: the sessions whose
+// deliveries the tap applied most recently are the ones remembered, and a replay of the newest is
+// still recognized.
+func TestWrapServices_TheAppliedIdentitiesAreBounded(t *testing.T) {
+	t.Parallel()
+	fx := newRTFixture(t)
+	fx.bind(rtSession)
+	s := allSeams()
+	WrapServicesForScheduler(s, fx.rt, fx.options())
+	sessions := make([]core.SessionID, tapAppliedBound+44)
+	for i := range sessions {
+		sessions[i] = core.SessionID(fmt.Sprintf("sess-headless-%04d", i))
+		require.NoError(t, s.ObserveStop(deliveredFor(t, sessions[i], 1), tapEvent("Stop", sessions[i]), false))
+	}
+
+	kept := tapReadOnly(fx.rt, func(r *schedRuntime) map[core.SessionID]bool {
+		out := make(map[core.SessionID]bool, len(r.applied))
+		for sess := range r.applied {
+			out[sess] = true
+		}
+		return out
+	})
+	require.Len(t, kept, tapAppliedBound, "the tap remembers a bounded number of sessions")
+	for i, sess := range sessions {
+		require.Equal(t, i >= len(sessions)-tapAppliedBound, kept[sess],
+			"the sessions applied most recently are the ones remembered (session %d)", i)
+	}
+
+	require.NoError(t, fx.rt.Persist(context.Background()))
+	raw, err := os.ReadFile(fx.statePath(stateFileScheduler))
+	require.NoError(t, err)
+	doc, err := decodeSchedulerState(raw)
+	require.NoError(t, err)
+	require.Len(t, doc.LastAppliedObservations, tapAppliedBound, "last_applied_observations is bounded too")
+
+	last := sessions[len(sessions)-1]
+	require.NoError(t, s.ObserveStop(deliveredFor(t, last, 1), tapEvent("Stop", last), false))
+	require.Equal(t, int64(1), fx.counter(counterTapRedelivery), "a replay of the newest is recognized")
+}
+
+// TestWrapServices_AReplayWhoseRecordLookupFailsStillMakesTheOwedClose is audit 2's nit on
+// observeTool's lookup-error branch. A replay of a delivery the tap applied, whose record lookup then
+// fails with something other than not-found, was counted as a redelivery and returned without the
+// segment close the cut run owed; if that replay's commit landed, the close was never made.
+func TestWrapServices_AReplayWhoseRecordLookupFailsStillMakesTheOwedClose(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	fx := newRTFixture(t)
+	fx.bind(rtSession)
+	open, err := fx.store.segs.Open(ctx, store.Segment{Session: rtSession, StartTurn: 0})
+	require.NoError(t, err)
+	const commit core.ToolUseID = "toolu_commit_lookup_fails"
+	tapRecord(fx, commit, "Bash", 50)
+	s := allSeams()
+	WrapServicesForScheduler(s, fx.rt, fx.options())
+	ev := tapToolEvent(commit, "Bash", `{"command":"git commit -m \"feat: x\""}`,
+		`"[main 1a2b3c] feat: x\n 1 file changed"`)
+
+	require.NoError(t, s.ObserveTool(cutDelivery(t, 1), ev))
+	require.False(t, segmentOf(t, fx, open).Closed, "fixture sanity: the cut run's close failed")
+
+	fx.store.mu.Lock()
+	fx.store.toolUseErr = errors.New("index unavailable")
+	fx.store.mu.Unlock()
+	require.NoError(t, s.ObserveTool(delivered(t, 1), ev))
+
+	seg := segmentOf(t, fx, open)
+	require.True(t, seg.Closed, "the replay makes the close the cut run owed")
+	require.Equal(t, core.Tokens(50), seg.Tokens, "with the commit's tokens counted once")
 	require.Equal(t, int64(1), fx.counter(counterTapRedelivery))
 }

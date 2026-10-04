@@ -190,7 +190,9 @@ func (t *schedTap) sessionStart(e hookio.Event) {
 // except that it makes the segment close the first run owed and did not make (closeOwed). The
 // no-record path claims nothing: it folds nothing, and a replay that finds the record the first run
 // could not publish must still apply it. It notes the clock's instant once per delivery all the
-// same (anchorUnrecorded), so a replay does not move the anchors to the instant of the replay.
+// same (anchorUnrecorded), so a replay does not move the anchors to the instant of the replay. A
+// replay of an applied delivery whose record lookup failed this time still makes the close its first
+// run owed, as the recognized replay of a found record does.
 func (t *schedTap) observeTool(ctx context.Context, e hookio.Event) {
 	t.r.bindOnFirstHook(e.SessionID)
 	sig := observer.ExtractSignals(e)
@@ -203,8 +205,9 @@ func (t *schedTap) observeTool(ctx context.Context, e hookio.Event) {
 		} else {
 			t.log.Debug("scheduler tap: tool-use record unavailable", "tool_use_id", string(e.ToolUseID), "err", err.Error())
 		}
-		if !t.r.anchorUnrecorded(e, obs, now) {
+		if owed, noted := t.r.anchorUnrecorded(e, obs, now); !noted {
 			t.count(counterTapRedelivery)
+			t.closeOwed(ctx, e.SessionID, obs, owed)
 		}
 		return
 	}
@@ -364,6 +367,7 @@ func (r *schedRuntime) applyToolUse(ctx context.Context, e hookio.Event, obs cor
 	r.noteRequestStartLocked(rec.TS)
 	r.noteEffortLocked(level)
 	r.addOpenSegmentTokensLocked(rec.Tokens)
+	r.noteUnboundFoldLocked(e.SessionID, obs, rec.Tokens)
 	return r.oweLocked(e.SessionID, obs, owedFor(cpErr, rec.Turn, f, sig, rec.Tokens)), true
 }
 
@@ -396,27 +400,31 @@ func (r *schedRuntime) applyStop(ctx context.Context, e hookio.Event, obs core.O
 
 // anchorUnrecorded notes, at ts, the activity, the request start and the effort level of a delivered
 // tool use whose record the store does not hold, unless obs names a delivery of the session already
-// applied or already noted this way, in which case it notes nothing and reports false. It claims
-// nothing: the record may yet be published, and a replay that finds it must still apply the
-// delivery (applyToolUse). It records obs as the session's last noted delivery instead
-// (appliedDelivery.anchored), so the clock's instant is noted once per delivery and a replay does
-// not move the anchors to the instant of the replay.
-func (r *schedRuntime) anchorUnrecorded(e hookio.Event, obs core.ObservationID, ts core.UnixMilli) bool {
+// applied or already noted this way, in which case it notes nothing and reports false, with the close
+// the applied delivery still owes when obs names one (the lookup failed this time, on a replay of a
+// delivery whose record the first run found). It claims nothing: the record may yet be published, and
+// a replay that finds it must still apply the delivery (applyToolUse). It records obs as the session's
+// last noted delivery instead (appliedDelivery.anchored), so the clock's instant is noted once per
+// delivery and a replay does not move the anchors to the instant of the replay.
+func (r *schedRuntime) anchorUnrecorded(e hookio.Event, obs core.ObservationID, ts core.UnixMilli) (*owedClose, bool) {
 	level := effortLevel(e, r.getenv)
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if obs != "" {
 		d := r.applied[e.SessionID]
-		if d.obs == obs || d.anchored == obs {
-			return false
+		switch {
+		case d.obs == obs:
+			return d.owed, false
+		case d.anchored == obs:
+			return nil, false
 		}
 		d.anchored = obs
-		r.applied[e.SessionID] = d
+		r.stampAppliedLocked(e.SessionID, d)
 	}
 	r.notifyActivityLocked(ts)
 	r.noteRequestStartLocked(ts)
 	r.noteEffortLocked(level)
-	return true
+	return nil, true
 }
 
 // applyPrompt applies one delivered prompt capture at ts (the activity and the request-start

@@ -364,14 +364,16 @@ or a subagent capture by the record its first run published, and a main-agent St
 record, by the identity of the session's last applied Stop, which `state/observer.json` keeps with the
 turn it advanced. The scheduler tap applies each delivery once by its `ObservationID`, so a replay
 folds no tokens into the open segment, adds no detector observation and moves no request-start
-anchor (`sched.tap.redelivery`). The one
-thing a replay does is make a segment close the first run owed and did not make: a task-boundary
-or changepoint close that the same cancel failed along with the ack. The ordering gate holds a
+anchor (`sched.tap.redelivery`). The one thing a replay does is make a segment close the first run
+owed and did not make: a task-boundary or changepoint close that the same cancel failed along with
+the ack. The ordering gate holds a
 session's next delivery until every earlier one is acknowledged, so the last delivery applied for a
-session is the only one that can come back. The tap therefore keeps one identity per session. The
-tap folds every session's tool use into the bound account, so it persists in `state/scheduler.json`
-the identity of every session whose delivery reached that account, and a restarted daemon's drain
-folds none of them again.
+session is the only one that can come back. The tap therefore keeps one identity per session, for
+the 256 sessions it applied a delivery of most recently. The tap folds every session's tool use into
+the bound account, so it persists in `state/scheduler.json` the identity of each of those sessions
+whose delivery reached that account, and a restarted daemon folds none of them again: a replay after
+the bind is recognized by the restored identities, and one the startup drain made before the bind is
+deducted from the account the bind restores, only when that account holds it.
 
 [ADR 0014](adr/0014-delivery-group-commit-and-ab-seal.md) records the delivery path's group commit
 and the format-2 A/B seal as they are implemented and merged — it documents decisions already taken

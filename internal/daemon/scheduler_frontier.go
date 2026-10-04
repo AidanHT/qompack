@@ -117,10 +117,23 @@ func (r *schedRuntime) CloseSegmentForCompaction(ctx context.Context, sess core.
 // restored account's own (schedRuntime.applied) and are persisted with the merged account. Its
 // callers are a compaction close (CloseSegmentForCompaction) and a session's first hook
 // (bindOnFirstHook).
+//
+// One delivery can be in both halves: the previous daemon applied it, persisted the account holding
+// it and never committed it, and this runtime's startup drain replayed it before the bind. So the
+// sum leaves out the tokens of every delivery applied unbound that the restored account names
+// (unboundFolds against restoredApplied). The dedupe is against the account the bind actually
+// restored: when sess is not the session the document belongs to, the document is discarded, nothing
+// is restored, and the replay's tokens count for sess's account, which holds them nowhere else.
 func (r *schedRuntime) bindUnboundLocked(sess core.SessionID) {
-	seenTurn, seenTokens, seenHeld := r.maxTurn, r.openSegTokens, r.heldLocked()
+	seenTurn, seenTokens, seenHeld, folds := r.maxTurn, r.openSegTokens, r.heldLocked(), r.unboundFolds
 	r.bindSessionLocked(sess, nil)
 	r.holdLocked(seenHeld)
+	for s, f := range folds {
+		if id, ok := r.restoredApplied[s]; ok && id == f.obs {
+			seenTokens = max(seenTokens-f.tokens, 0)
+		}
+	}
+	r.restoredApplied = nil
 	if seenTurn <= r.maxTurn && seenTokens == 0 {
 		return
 	}
