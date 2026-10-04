@@ -522,6 +522,36 @@ func TestStatus_CallDeadlineExpiryStillSaysSilent(t *testing.T) {
 	require.Equal(t, int64(1), calls.Load(), "an expired call deadline must not be retried")
 }
 
+// TestStatusProbe_DialsTheProjectsAddressOnce is the stub-based half of the wave 19b review's
+// finding (TestStatusProbe_OutlastsAListenerThatIsReArming keeps the go-winio halves, which show the
+// busy window is real on Windows). Through statusProbeDial, daemonListening dials the project's own
+// address once, with a budget that outlasts a listener re-arming at rearm, twice self-test's 50 ms
+// liveness bound that the probe used to dial with. It pins the address and the budget relation on
+// every platform, a Unix socket's included (audit 2, linux nit);
+// TestStatusProbe_HasTheCommandConnectBudget pins the budget's value.
+//
+// Not parallel: it swaps statusProbeDial.
+func TestStatusProbe_DialsTheProjectsAddressOnce(t *testing.T) {
+	root := t.TempDir()
+	addr, err := ipc.Resolve(root)
+	require.NoError(t, err)
+
+	rearm := 2 * selfTestProbeTimeout
+	accepts := func(d time.Duration) bool { return d >= rearm } // busy until rearm, then accepted
+	require.False(t, accepts(selfTestProbeTimeout), "the old 50 ms probe gives up before the re-arm")
+
+	var asked []ipc.Addr
+	useStatusProbe(t, func(a ipc.Addr, d time.Duration) bool {
+		asked = append(asked, a)
+		return accepts(d)
+	})
+	require.True(t, daemonListening(root)(),
+		"a live listener that re-arms within %s must read as listening (probe budget %s)",
+		rearm, statusProbeTimeout)
+	require.Equal(t, []ipc.Addr{addr}, asked, "the probe dials the project's own address, once")
+	require.Less(t, rearm, statusProbeTimeout, "the row must re-arm inside the probe's budget")
+}
+
 // TestStatusProbe_HasTheCommandConnectBudget: daemonListening's dial gets the command client's own
 // connect budget. A smaller probe budget makes the probe the weakest dial on the status path, and a
 // probe miss on a live daemon is reported as "none is listening" and never resent.
