@@ -1,0 +1,60 @@
+// fsync co-load generator for the C1.16 rig: K goroutines each write a small file, fsync it and
+// rename it over a target, forever, in dir; plus C CPU spinners. Stops after -for.
+package main
+
+import (
+	"flag"
+	"fmt"
+	"os"
+	"path/filepath"
+	"sync"
+	"sync/atomic"
+	"time"
+)
+
+func main() {
+	dir := flag.String("dir", "", "work dir")
+	k := flag.Int("k", 8, "fsync writers")
+	c := flag.Int("c", 0, "cpu spinners")
+	size := flag.Int("size", 64<<10, "bytes per write")
+	dur := flag.Duration("for", time.Minute, "duration")
+	flag.Parse()
+	_ = os.MkdirAll(*dir, 0o700)
+	var n atomic.Int64
+	stop := time.Now().Add(*dur)
+	var wg sync.WaitGroup
+	buf := make([]byte, *size)
+	for i := 0; i < *k; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			for j := 0; time.Now().Before(stop); j++ {
+				tmp := filepath.Join(*dir, fmt.Sprintf("w%d.tmp", i))
+				f, err := os.Create(tmp)
+				if err != nil {
+					continue
+				}
+				_, _ = f.Write(buf)
+				_ = f.Sync()
+				_ = f.Close()
+				_ = os.Rename(tmp, filepath.Join(*dir, fmt.Sprintf("w%d-%d.dat", i, j%64)))
+				n.Add(1)
+			}
+		}(i)
+	}
+	for i := 0; i < *c; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			x := 0
+			for time.Now().Before(stop) {
+				for y := 0; y < 1000000; y++ {
+					x += y
+				}
+			}
+			_ = x
+		}()
+	}
+	wg.Wait()
+	fmt.Println("writes", n.Load())
+}

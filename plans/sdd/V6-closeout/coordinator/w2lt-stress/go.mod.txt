@@ -1,0 +1,3 @@
+module w2ltstress
+
+go 1.26
