@@ -127,11 +127,32 @@ daemon last persisted, or nothing at all (`internal/commands/statuscollect.go`: 
 With no daemon listening, the provenance line says so rather than quoting an empty refusal:
 `daemon: no daemon answered: none is listening for this project yet`. The command asks one to
 start unless `runtime.daemon.enabled` is `false`, so run `status` again once it is up; until then
-the page falls back to the persisted metrics file (`source: disk`) if there is one. If a daemon
-is listening but its answer did not come in time, or its connection broke mid-reply, the line reads
-`daemon: a daemon is listening for this project but did not answer within 10s` instead: it is up
-but busy or stuck; see [section 7](#7-daemon-problems) (`internal/cli/qompack_commands.go`,
-`fetchDaemonStatus`).
+the page falls back to the persisted metrics file (`source: disk`) if there is one. With
+`runtime.daemon.enabled` `false`, status neither asks nor looks for a daemon, not even one started
+before the change and still running: the line reads `daemon: runtime.daemon.enabled is false for
+this project (in its configuration, or in the state.bin its daemon last wrote), so this command
+does not ask a daemon, even one that is still running`. The `state.bin` case is a daemon that
+reloaded the key to `false` and then died without a clean stop. If a daemon
+is listening, the line names what went wrong. When it took the request but no answer came within
+the 10-second call deadline, the line reads `daemon: a daemon is listening for this project but did
+not answer within 10s`: it is up but busy or stuck. When the request failed sooner, the line reads
+`daemon: a daemon is listening for this project but did not answer this command: on both of two
+attempts, no connection to it was made within the 250ms connect budget or the connection closed
+before a reply`. Status sends a request that failed early once more before it reports this, and
+it never resends one whose call deadline expired. In both cases see
+[section 7](#7-daemon-problems) (`internal/cli/qompack_commands.go`, `fetchDaemonStatus`).
+
+`status`, `doctor` and the other slash-command frontends (`recall`, `why`, `dropped`, ...) dial the
+daemon with a connect budget of their own: 250 ms (`commandConnectDeadline`, in
+`internal/cli/qompack_commands.go`), and `status` checks whether a daemon is listening within the
+same 250 ms. `runtime.daemon.connectDeadlineMs` (5 ms, or 25 ms on Windows)
+is the hooks' hot-path budget. It does not bound these commands' dial, so raising it does not change
+what they wait for.
+
+Known limit: when the dial `status` (or another frontend that may start a daemon; `doctor` never
+does) makes to a running daemon misses its connect budget, the command also asks a daemon to start,
+as it would if none were listening; the second daemon finds the running one's lock and exits, and
+nothing is lost (`internal/ipc/client.go`, `lazySpawn`; `internal/daemon/daemon.go`, `Run`).
 
 Latency percentiles are never printed above the `max` on the same line. The histogram reports a
 percentile as its bucket's upper bound, which can sit up to about 9% above the samples in it, so the
