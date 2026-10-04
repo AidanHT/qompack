@@ -1064,9 +1064,10 @@ func (r *schedRuntime) stampAppliedLocked(sess core.SessionID, d appliedDelivery
 	for len(r.applied) > maxAppliedSessions {
 		var oldest core.SessionID
 		var oldestSeq uint64
+		found := false
 		for s, e := range r.applied {
-			if oldest == "" || e.seq < oldestSeq || (e.seq == oldestSeq && s < oldest) {
-				oldest, oldestSeq = s, e.seq
+			if !found || e.seq < oldestSeq || (e.seq == oldestSeq && s < oldest) {
+				oldest, oldestSeq, found = s, e.seq, true
 			}
 		}
 		delete(r.applied, oldest)
