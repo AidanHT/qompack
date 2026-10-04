@@ -102,6 +102,16 @@ type schedulerStateDoc struct {
 	ResidualTokens        core.Tokens        `json:"residual_tokens"`
 	LastCheckpointSeq     core.CheckpointSeq `json:"last_checkpoint_seq"`
 	LastDecision          decisionDoc        `json:"last_decision"`
+	// LastAppliedObservations names, per session, the observation identity of the last delivery the
+	// tap applied to the account this document carries (the held entries of schedRuntime.applied).
+	// The tap folds every session's tool use into the bound account, so a delivery of another
+	// session can be in it too. The map is written from the same snapshot as the account, so the two
+	// always agree: a replay of one of those deliveries after a restart is already in the account and
+	// is not folded again. It holds one entry per session whose delivery reached this account since
+	// the bind that started it. It is omitempty and additive, like last_local_checkpoint_ts: a
+	// document written before it existed loads with no identity, which is exactly the behaviour
+	// before it existed, so the version stays 1.
+	LastAppliedObservations map[core.SessionID]core.ObservationID `json:"last_applied_observations,omitempty"`
 }
 
 // stateFiles is one Persist's encoded payload: built under the runtime lock, written without it.
@@ -256,6 +266,8 @@ func (r *schedRuntime) saveStateLocked() (stateFiles, error) {
 		ResidualTokens:        r.residual,
 		LastCheckpointSeq:     r.lastCheckpointSeq,
 		LastDecision:          decisionToDoc(r.lastDecision),
+
+		LastAppliedObservations: r.heldObservationsLocked(),
 	})
 	if err != nil {
 		return stateFiles{}, fmt.Errorf("encode %s: %w", stateFileScheduler, err)
@@ -272,22 +284,56 @@ func (r *schedRuntime) saveStateLocked() (stateFiles, error) {
 // is ever deleted: the store is untouched, so no data is lost, and the next Persist overwrites.
 func (r *schedRuntime) loadStateLocked() {
 	bp, sp := r.statePaths()
-	if raw, ok := r.readStateFile(bp); ok {
+	if raw, ok := r.loadStateFile(bp); ok {
 		r.restoreBOCDLocked(raw, bp)
 	}
-	if raw, ok := r.readStateFile(sp); ok {
+	if raw, ok := r.loadStateFile(sp); ok {
 		r.restoreSchedulerLocked(raw, sp)
 	}
 }
 
-// readStateFile reads p, reporting false (and logging) when there is nothing usable.
+// readStateFile reads one of the two state files.
 //
 // The read is shared (paths.ReadFileShared). BindSession reads under r.mu, while Persist writes
 // both files with paths.WriteAtomic under persistMu only, after releasing r.mu, so an idle-tick
 // persist and another session's bind are not ordered; on Windows an ordinary handle would fail that
-// replace and be refused while one is finishing (test/guards' sharedReaders).
-func (r *schedRuntime) readStateFile(p string) ([]byte, bool) {
-	raw, err := paths.ReadFileShared(p)
+// replace and be refused while one is finishing (test/guards' sharedReaders). seedApplied reads at
+// construction, before any persist can run, and takes the same handle all the same.
+func readStateFile(p string) ([]byte, error) {
+	return paths.ReadFileShared(p)
+}
+
+// seedApplied records the applied identities state/scheduler.json carries, for a runtime
+// constructed unbound: the restarted daemon's startup drain replays what its predecessor left before
+// any hook binds the runtime, and a delivery the predecessor applied and persisted but never
+// committed must be recognized there, or the unbound runtime folds it into what it hands the bind
+// (bindUnboundLocked) on top of the restored account that already holds it. The seeded entries are
+// not held: the unbound runtime's own account holds none of them, and the bind that restores the
+// document's account holds them again (restoreAppliedLocked). It binds nothing and logs nothing: a
+// missing document is a first start, and an unreadable or malformed one is reported by the bind
+// that reads it (loadStateLocked).
+func (r *schedRuntime) seedApplied() {
+	_, sp := r.statePaths()
+	raw, err := readStateFile(sp)
+	if err != nil {
+		return
+	}
+	doc, err := decodeSchedulerState(raw)
+	if err != nil {
+		return
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for s, id := range doc.LastAppliedObservations {
+		if _, ok := r.applied[s]; !ok && s != "" && id != "" {
+			r.applied[s] = appliedDelivery{obs: id}
+		}
+	}
+}
+
+// loadStateFile reads p for a bind, reporting false (and logging) when there is nothing usable.
+func (r *schedRuntime) loadStateFile(p string) ([]byte, bool) {
+	raw, err := readStateFile(p)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			r.log.Debug("scheduler: no persisted state", "path", p)
@@ -411,6 +457,7 @@ func (r *schedRuntime) restoreSchedulerLocked(raw []byte, p string) {
 	r.residual = doc.ResidualTokens
 	r.lastCheckpointSeq = doc.LastCheckpointSeq
 	r.lastDecision = docToDecision(doc.LastDecision)
+	r.restoreAppliedLocked(doc.LastAppliedObservations)
 	if futureStamps+negativeCounters+unmeasuredEWMAs > 0 {
 		r.log.Warn(msgStateRepaired, "path", p, "future_timestamps", futureStamps,
 			"negative_counters", negativeCounters, "unmeasured_ewmas", unmeasuredEWMAs)

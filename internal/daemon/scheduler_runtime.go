@@ -226,6 +226,23 @@ type schedRuntime struct {
 	dirty             bool
 	tapPanicLogged    bool // one Loud per session from the tap's recover
 
+	// applied holds, per session, the last delivery the tap applied (claimDeliveryLocked). Delivery
+	// is at least once: the ingest worker and the drain run the handler, and the tap inside it,
+	// before they commit the delivery's frontier record, so a commit that fails leaves the delivery
+	// to be replayed through the same handler. The ordering gate (delivery_order.go) lets a session's
+	// next leased delivery run only once every earlier one is acknowledged, and an acknowledged
+	// delivery is never dispatched again, so the one delivery of a session that can be replayed after
+	// the tap applied it is the last one applied. One entry per session is therefore the whole of
+	// what recognizing a replay needs. The map is not session-scoped state: a rebind keeps its
+	// entries (resetSessionLocked only releases what they say about the account), because a replay of
+	// another session's delivery is still a replay. The entries the account holds are persisted with
+	// it (schedulerStateDoc.LastAppliedObservations), and a runtime constructed unbound seeds the map
+	// from that document (seedApplied), so a delivery the previous daemon applied, persisted and never
+	// committed is recognized when the restarted daemon's drain replays it. The map holds one entry
+	// per session this daemon saw a delivery of, as the observer's per-session state does, for the
+	// daemon's lifetime.
+	applied map[core.SessionID]appliedDelivery
+
 	// Additive to the seat contract (documented in the C1 report):
 	//   persistMu serializes Persist end to end so two concurrent persists cannot write an older
 	//   snapshot over a newer one; it is taken BEFORE mu and mu is released before the writes.
@@ -287,11 +304,14 @@ func NewSchedulerRuntime(o SchedulerRuntimeOptions) (scheduler.Runtime, error) {
 		det:      scheduler.NewBOCD(cp.HazardRate, cp.Features),
 		hist:     NewFeatureHistory(defaultFeatureWindow),
 		rounds:   map[core.TurnIndex]struct{}{},
+		applied:  map[core.SessionID]appliedDelivery{},
 	}
 	r.asm = newCandidateAssembler(o.Graph, r.segs, o.Log, o.Metrics)
 	r.sessionStartTS = r.nowMS()
 	if o.Session != "" {
 		r.BindSession(o.Session, nil)
+	} else {
+		r.seedApplied()
 	}
 	scheduler.EnablePSelection()
 	r.count(counterPSelectionEnabled)
@@ -488,6 +508,7 @@ func (r *schedRuntime) resetSessionLocked() {
 	r.frontierRuns, r.frontierPlannedAt, r.frontierSkipTicks = 0, 0, 0
 	r.frontier, r.residual, r.lastCheckpointSeq = 0, 0, 0
 	r.residualWarned, r.dirty, r.tapPanicLogged = false, false, false
+	r.releaseAccountLocked()
 }
 
 // resolveWindowLocked is the §2.5 ladder, read through getenv at bind:
@@ -594,21 +615,26 @@ func hostEnvTruthy(v string) bool {
 func (r *schedRuntime) Observe(ctx context.Context, f scheduler.Features, at core.TurnIndex) scheduler.ChangepointState {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	return r.observeLocked(ctx, f, at)
+	st, _ := r.observeLocked(ctx, f, at)
+	return st
 }
 
-func (r *schedRuntime) observeLocked(ctx context.Context, f scheduler.Features, at core.TurnIndex) scheduler.ChangepointState {
+// observeLocked is Observe under r.mu. Its error is the changepoint close's, already logged: nil
+// when the observation declared nothing or its close was made.
+func (r *schedRuntime) observeLocked(ctx context.Context, f scheduler.Features, at core.TurnIndex) (scheduler.ChangepointState, error) {
 	st := r.det.Observe(f)
 	r.maxTurn = max(r.maxTurn, at)
 	r.dirty = true
+	var closeErr error
 	if st.AtChangepoint {
 		r.recordChangepointLocked(at)
 		r.count(counterChangepoint)
 		if err := r.closeSegmentLocked(ctx, at, f, causeChangepoint); err != nil {
 			r.log.Warn("scheduler: segment close at changepoint failed", "turn", int(at), "err", err.Error())
+			closeErr = err
 		}
 	}
-	return st
+	return st, closeErr
 }
 
 // recordChangepointLocked inserts at into cpTurns keeping it ascending and duplicate-free — the
@@ -757,6 +783,11 @@ func (r *schedRuntime) deltaPtr() *float64 {
 func (r *schedRuntime) NotifyActivity(ts core.UnixMilli) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	r.notifyActivityLocked(ts)
+}
+
+// notifyActivityLocked is NotifyActivity under r.mu, for a caller that already holds it.
+func (r *schedRuntime) notifyActivityLocked(ts core.UnixMilli) {
 	if ts <= r.lastActivity {
 		return
 	}
@@ -873,6 +904,11 @@ func (r *schedRuntime) Close() error {
 func (r *schedRuntime) NoteAPIRound(at core.TurnIndex) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	r.noteAPIRoundLocked(at)
+}
+
+// noteAPIRoundLocked is NoteAPIRound under r.mu, for a caller that already holds it.
+func (r *schedRuntime) noteAPIRoundLocked(at core.TurnIndex) {
 	r.maxTurn = max(r.maxTurn, at)
 	r.rounds[at] = struct{}{}
 	r.dirty = true
@@ -891,6 +927,11 @@ func (r *schedRuntime) NoteAPIRound(at core.TurnIndex) {
 func (r *schedRuntime) NoteRequestStart(ts core.UnixMilli) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	r.noteRequestStartLocked(ts)
+}
+
+// noteRequestStartLocked is NoteRequestStart under r.mu, for a caller that already holds it.
+func (r *schedRuntime) noteRequestStartLocked(ts core.UnixMilli) {
 	r.lastRequestStartTS = ts
 	r.dirty = true
 }
@@ -906,6 +947,15 @@ func (r *schedRuntime) NoteEffort(e hookio.Event) {
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	r.noteEffortLocked(level)
+}
+
+// noteEffortLocked is NoteEffort under r.mu for a level the caller read with effortLevel, which
+// reads the environment and so runs before the lock is taken. An empty level is no observation.
+func (r *schedRuntime) noteEffortLocked(level string) {
+	if level == "" {
+		return
+	}
 	if r.lastEffort != "" && level != r.lastEffort {
 		r.effortChanged = true
 		r.dirty = true
@@ -939,9 +989,171 @@ func (r *schedRuntime) AddOpenSegmentTokens(tok core.Tokens) {
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	r.addOpenSegmentTokensLocked(tok)
+}
+
+// addOpenSegmentTokensLocked is AddOpenSegmentTokens under r.mu, for a caller that already holds it.
+func (r *schedRuntime) addOpenSegmentTokensLocked(tok core.Tokens) {
+	if tok <= 0 {
+		return
+	}
 	r.openSegTokens += tok
 	r.contextTokens += tok
 	r.dirty = true
+}
+
+// appliedDelivery is what the tap keeps about the last delivery it applied for one session
+// (schedRuntime.applied).
+type appliedDelivery struct {
+	// obs is the delivery's observation identity. It is empty while the session has had a delivery
+	// noted without a record (anchored) and none applied.
+	obs core.ObservationID
+	// held reports that the account this runtime holds includes the delivery's application: it was
+	// claimed since the bind that started the account, or restored with the account from
+	// state/scheduler.json. The held identities are the ones persisted with the account.
+	held bool
+	// owed is the segment close the delivery's application has yet to make, nil once it is made or
+	// when it needs none. A replay of the delivery makes it (closeOwed). It is not persisted, and a
+	// rebind drops it (releaseAccountLocked).
+	owed *owedClose
+	// anchored is the identity of the session's last delivery whose tool-use record the store did
+	// not hold. Its activity, request start and effort level were noted at the clock without a claim
+	// (anchorUnrecorded), and a replay of it notes nothing again.
+	anchored core.ObservationID
+}
+
+// owedClose is a segment close an applied delivery has yet to make: the task boundary its signals
+// name, or a changepoint its observation declared whose close failed. Both closes run inside the
+// delivery's handler, before its commit and with its context, so Stop's runCancel can fail the close
+// and the commit together. The replay that follows has to make the close the first run did not, or
+// it is never made. carry is the part of the open segment's tokens the delivery folded after the
+// close's point, which belongs to the successor: a changepoint is closed before the delivery's own
+// tokens are folded, a boundary after them.
+type owedClose struct {
+	at    core.TurnIndex
+	f     scheduler.Features
+	cause string
+	carry core.Tokens
+}
+
+// claimDeliveryLocked reports whether the delivery identified by obs, of session sess, is one the
+// tap has not applied yet, and records it as the session's last applied delivery when so (applied
+// says why one per session is enough). The new entry is held, and inherits nothing from the one it
+// replaces: under the ordering gate that delivery was acknowledged, so neither a close it owed nor
+// an unrecorded delivery before it can come back. A delivery with no identity, from an in-process
+// caller or a delivery the daemon could not lease, has nothing to recognize it by and is always
+// applied, as every delivery was before. It never rejects a delivery it has not seen: the worst an
+// unexpected order could do is apply a replay again, which is what happened before this check
+// existed.
+func (r *schedRuntime) claimDeliveryLocked(sess core.SessionID, obs core.ObservationID) bool {
+	if obs == "" {
+		return true
+	}
+	if r.applied[sess].obs == obs {
+		return false
+	}
+	r.applied[sess] = appliedDelivery{obs: obs, held: true}
+	r.dirty = true
+	return true
+}
+
+// oweLocked records c as the segment close the delivery obs of sess owes, and returns it. A
+// delivery with no identity keeps no entry: its close is attempted once, by the run that applied it.
+func (r *schedRuntime) oweLocked(sess core.SessionID, obs core.ObservationID, c *owedClose) *owedClose {
+	if d := r.applied[sess]; obs != "" && d.obs == obs {
+		d.owed = c
+		r.applied[sess] = d
+	}
+	return c
+}
+
+// closeOwed makes the segment close c that the delivery obs of sess owes. It does nothing once the
+// close has been made, or once a later delivery of the session has been applied, by which time obs
+// was acknowledged and is not replayed again. The close is closeSegmentLocked's, which is idempotent
+// at its turn: once made, the successor starts past that turn and a second attempt has nothing to
+// close. The tokens the delivery folded after the close's point (carry) stay out of the closed
+// segment and in its successor, where a run whose close did not fail leaves them.
+func (r *schedRuntime) closeOwed(ctx context.Context, sess core.SessionID, obs core.ObservationID, c owedClose) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if d := r.applied[sess]; obs != "" && (d.obs != obs || d.owed == nil) {
+		return nil
+	}
+	carried := min(max(c.carry, 0), r.openSegTokens)
+	r.openSegTokens -= carried
+	err := r.closeSegmentLocked(ctx, c.at, c.f, c.cause)
+	r.openSegTokens += carried
+	if err != nil {
+		return err
+	}
+	r.oweLocked(sess, obs, nil)
+	return nil
+}
+
+// releaseAccountLocked is resetSessionLocked's part of applied. The account the held entries
+// described is gone, so none is held any more. The closes they owed would close the bound
+// session's open segment, which is now another session's, so they are dropped. The identities stay,
+// to recognize a replay.
+func (r *schedRuntime) releaseAccountLocked() {
+	for s, d := range r.applied {
+		d.held, d.owed = false, nil
+		r.applied[s] = d
+	}
+}
+
+// heldLocked lists the sessions whose applied entry the account holds.
+func (r *schedRuntime) heldLocked() []core.SessionID {
+	var out []core.SessionID
+	for s, d := range r.applied {
+		if d.held {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+// holdLocked marks the applied entries of sessions as held by the account.
+func (r *schedRuntime) holdLocked(sessions []core.SessionID) {
+	for _, s := range sessions {
+		if d, ok := r.applied[s]; ok {
+			d.held = true
+			r.applied[s] = d
+		}
+	}
+}
+
+// heldObservationsLocked is the part of applied a persist writes with the account: the identity of
+// every held entry, nil when there is none.
+func (r *schedRuntime) heldObservationsLocked() map[core.SessionID]core.ObservationID {
+	var out map[core.SessionID]core.ObservationID
+	for s, d := range r.applied {
+		if !d.held || d.obs == "" {
+			continue
+		}
+		if out == nil {
+			out = make(map[core.SessionID]core.ObservationID)
+		}
+		out[s] = d.obs
+	}
+	return out
+}
+
+// restoreAppliedLocked holds the identities a restored account carries. An entry this runtime
+// already has for a session is kept, and held: only this daemon writes the document while it runs,
+// from its own entries, so its entry is the document's or a later one, and under the ordering gate
+// the delivery the document names was acknowledged before a later one of its session ran.
+func (r *schedRuntime) restoreAppliedLocked(ids map[core.SessionID]core.ObservationID) {
+	for s, id := range ids {
+		if s == "" || id == "" {
+			continue
+		}
+		d := r.applied[s]
+		if d.obs == "" {
+			d.obs = id
+		}
+		d.held = true
+		r.applied[s] = d
+	}
 }
 
 // RecordCompactionCost folds a measured compaction wall-clock into the Young–Daly δ EWMA

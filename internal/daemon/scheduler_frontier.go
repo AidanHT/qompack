@@ -17,9 +17,11 @@ import (
 // closed-and-unencoded segments into the local checkpoint draft. This does not shorten the
 // host's native summary request or establish a committed publication frontier.
 //
-// Two entry points reach closeSegmentLocked and together cover every boundary event the design
-// names: Observe (scheduler_runtime.go) with cause "changepoint" when the detector declares, and
-// CloseSegmentOn, called by the tap, for todo completion, a passing test run and a git commit.
+// Two paths reach closeSegmentLocked and together cover every boundary event the design names:
+// Observe (scheduler_runtime.go) with cause "changepoint" when the detector declares, and the tap's
+// owed close (closeOwed, scheduler_runtime.go) for todo completion, a passing test run and a git
+// commit, which also makes a changepoint close that failed when a replay of its delivery comes.
+// CloseSegmentOn is the same close taken under the lock, for a caller that holds no delivery.
 
 // The frontier's instruments and log lines.
 const (
@@ -63,8 +65,8 @@ const (
 )
 
 // CloseSegmentOn closes the session's current segment at turn at with cause ∈ {todo, test,
-// commit} — the tap's task-boundary signals — and rolls its successor open. It takes the lock and
-// delegates to closeSegmentLocked.
+// commit} — the task-boundary signals, which the tap closes through its owed close (closeOwed) —
+// and rolls its successor open. It takes the lock and delegates to closeSegmentLocked.
 func (r *schedRuntime) CloseSegmentOn(ctx context.Context, at core.TurnIndex, f scheduler.Features, cause string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -110,12 +112,15 @@ func (r *schedRuntime) CloseSegmentForCompaction(ctx context.Context, sess core.
 // bindUnboundLocked binds sess on a runtime bound to nothing, keeping the two accumulators a
 // segment close records. The bind resets them and restores the session's persisted values; what
 // this daemon observed before the bind came after that persist (an unbound runtime never
-// persists), so the turn is the later of the two and the open segment's tokens are their sum. Its
+// persists), so the turn is the later of the two and the open segment's tokens are their sum. The
+// deliveries this runtime applied unbound are in that sum, so their identities stay held next to the
+// restored account's own (schedRuntime.applied) and are persisted with the merged account. Its
 // callers are a compaction close (CloseSegmentForCompaction) and a session's first hook
 // (bindOnFirstHook).
 func (r *schedRuntime) bindUnboundLocked(sess core.SessionID) {
-	seenTurn, seenTokens := r.maxTurn, r.openSegTokens
+	seenTurn, seenTokens, seenHeld := r.maxTurn, r.openSegTokens, r.heldLocked()
 	r.bindSessionLocked(sess, nil)
+	r.holdLocked(seenHeld)
 	if seenTurn <= r.maxTurn && seenTokens == 0 {
 		return
 	}
