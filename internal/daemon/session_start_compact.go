@@ -19,16 +19,26 @@ import (
 // hook client gives up and answers {}. In the packaging lane's live session 2 one took 10.3 s under
 // load and the rehydration was lost without a word.
 //
-// Measured with the load rig (internal/cli TestSessionStartCompact_LoadRig, run with an fsync
-// co-load; plans/sdd/V6-closeout/w2-lifetime/runs), the route spent its time in three places, none
-// of them building the rehydration (rehydrate.build p99 13 ms):
+// The load rig (internal/cli TestSessionStartCompact_UnderSameSessionIngest, run with an fsync
+// co-load; plans/sdd/V6-closeout/w2-lifetime/runs) recorded the route's time in three places. Those
+// runs predate 3f2da1b3, which found that the rig's Reads never reached its daemon, so no
+// same-session ingest was applied in them and the first figure below is no measured wait behind the
+// same session's work (coordinator decision D65(a); the C5.2 night re-measures C1.16):
 //
 //   - waiting for the observer's per-session lock (observer/session.go takes it before the source
 //     switch), which a worker processing one of the SAME session's tool results or subagent stops
-//     holds across every store write it makes: p50 229 ms, p99 918 ms;
+//     holds across every store write it makes: p50 229 ms, p99 918 ms as recorded;
 //   - phase 1's durable writes (state.bin, the contract history, the observation ledger), which the
 //     rehydration used to wait behind: p50 295 ms, p99 655 ms;
 //   - the rehydration's own drop-report write, made before the answer: p50 66 ms, p99 393 ms.
+//
+// Building the rehydration was none of them. The rig's figure for it (rehydrate.build p99 13 ms)
+// predates the D50 and D63 host judgements and screen; internal/rehydrate's BenchmarkBuild now
+// measures Build alone at a few milliseconds to about 20 ms for a long session's checkpoint (200
+// tool pointers, 50 file pointers, up to 1000 drops), and through the daemon's adapter each
+// host-judged path adds about a millisecond, a number the checkpoint's budget and the drops' cap
+// bound (ADR 0011 §23 item 10; the cost rows of
+// TestRehydrateHostPaths_HostJudgementsAreStructuredSummariesAndFilePointers).
 //
 // So the route no longer runs the rehydration inside the observer's SessionStart. It starts the
 // rehydration itself, through Services.Rehydrate (the seam SP-05 provisioned for this branch), as
