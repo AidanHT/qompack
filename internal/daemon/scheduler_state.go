@@ -108,8 +108,9 @@ type schedulerStateDoc struct {
 	// session can be in it too. The map is written from the same snapshot as the account, so the two
 	// always agree: a replay of one of those deliveries after a restart is already in the account and
 	// is not folded again. It holds one entry per session whose delivery reached this account since
-	// the bind that started it. It is omitempty and additive, like last_local_checkpoint_ts: a
-	// document written before it existed loads with no identity, which is exactly the behaviour
+	// the bind that started it, at most maxAppliedSessions of them (the most recently applied), and
+	// a load keeps no more (capApplied). It is omitempty and additive, like last_local_checkpoint_ts:
+	// a document written before it existed loads with no identity, which is exactly the behaviour
 	// before it existed, so the version stays 1.
 	LastAppliedObservations map[core.SessionID]core.ObservationID `json:"last_applied_observations,omitempty"`
 }
@@ -146,7 +147,8 @@ func encodeSchedulerState(doc schedulerStateDoc) ([]byte, error) {
 }
 
 // decodeSchedulerState parses a scheduler.json document, rejecting an unknown version and
-// re-applying the turn-list cap so an oversized document from an older writer is bounded too.
+// re-applying the turn-list cap so an oversized document from an older writer is bounded too, and
+// bounding and validating the applied identities the same way (capApplied).
 func decodeSchedulerState(b []byte) (schedulerStateDoc, error) {
 	var doc schedulerStateDoc
 	if err := json.Unmarshal(b, &doc); err != nil {
@@ -157,7 +159,42 @@ func decodeSchedulerState(b []byte) (schedulerStateDoc, error) {
 	}
 	doc.ChangepointTurns = capTurns(doc.ChangepointTurns)
 	doc.RoundTurns = capTurns(doc.RoundTurns)
+	doc.LastAppliedObservations = capApplied(doc.LastAppliedObservations)
 	return doc, nil
+}
+
+// capApplied bounds a loaded last_applied_observations as the runtime bounds the map it is written
+// from (maxAppliedSessions), and keeps only the entries a writer can produce: a named session and a
+// well-formed observation identity. A document this daemon wrote never exceeds the bound; one that
+// does was edited or corrupted, and it keeps the first maxAppliedSessions sessions in session order,
+// which carries no recency. The caller's map is not modified.
+func capApplied(m map[core.SessionID]core.ObservationID) map[core.SessionID]core.ObservationID {
+	if len(m) == 0 {
+		return m
+	}
+	sessions := make([]core.SessionID, 0, len(m))
+	for s, id := range m {
+		if s != "" && wellFormedObservation(id) {
+			sessions = append(sessions, s)
+		}
+	}
+	if len(sessions) == 0 {
+		return nil
+	}
+	slices.Sort(sessions)
+	sessions = sessions[:min(len(sessions), maxAppliedSessions)]
+	out := make(map[core.SessionID]core.ObservationID, len(sessions))
+	for _, s := range sessions {
+		out[s] = m[s]
+	}
+	return out
+}
+
+// wellFormedObservation reports whether id has the shape core.NewObservationID produces: a canonical,
+// non-zero hash.
+func wellFormedObservation(id core.ObservationID) bool {
+	h, err := core.ParseHash(string(id))
+	return err == nil && !h.IsZero() && h.String() == string(id)
 }
 
 // capTurns keeps the newest maxTurnHistory entries of an ascending turn list. It slices rather
@@ -297,38 +334,9 @@ func (r *schedRuntime) loadStateLocked() {
 // The read is shared (paths.ReadFileShared). BindSession reads under r.mu, while Persist writes
 // both files with paths.WriteAtomic under persistMu only, after releasing r.mu, so an idle-tick
 // persist and another session's bind are not ordered; on Windows an ordinary handle would fail that
-// replace and be refused while one is finishing (test/guards' sharedReaders). seedApplied reads at
-// construction, before any persist can run, and takes the same handle all the same.
+// replace and be refused while one is finishing (test/guards' sharedReaders).
 func readStateFile(p string) ([]byte, error) {
 	return paths.ReadFileShared(p)
-}
-
-// seedApplied records the applied identities state/scheduler.json carries, for a runtime
-// constructed unbound: the restarted daemon's startup drain replays what its predecessor left before
-// any hook binds the runtime, and a delivery the predecessor applied and persisted but never
-// committed must be recognized there, or the unbound runtime folds it into what it hands the bind
-// (bindUnboundLocked) on top of the restored account that already holds it. The seeded entries are
-// not held: the unbound runtime's own account holds none of them, and the bind that restores the
-// document's account holds them again (restoreAppliedLocked). It binds nothing and logs nothing: a
-// missing document is a first start, and an unreadable or malformed one is reported by the bind
-// that reads it (loadStateLocked).
-func (r *schedRuntime) seedApplied() {
-	_, sp := r.statePaths()
-	raw, err := readStateFile(sp)
-	if err != nil {
-		return
-	}
-	doc, err := decodeSchedulerState(raw)
-	if err != nil {
-		return
-	}
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	for s, id := range doc.LastAppliedObservations {
-		if _, ok := r.applied[s]; !ok && s != "" && id != "" {
-			r.applied[s] = appliedDelivery{obs: id}
-		}
-	}
 }
 
 // loadStateFile reads p for a bind, reporting false (and logging) when there is nothing usable.
