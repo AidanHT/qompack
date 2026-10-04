@@ -69,9 +69,22 @@
 #   QUIET_BENCHTIME           replaces every row's -test.benchtime
 #   QUIET_PKGS                space-separated package names C5.2 is limited to (e.g. "store")
 #   QUIET_BENCH_FILTER        ERE a benchmark name must match to run (e.g. '^BenchmarkGetChunk$')
-#   QUIET_WORK                scratch directory for host clones and binaries (default: mktemp -d)
+#   QUIET_WORK                scratch directory for host clones and binaries (default: mktemp -d,
+#                             removed after a run whose every step passed; kept, and named in
+#                             quiet-run.txt, after a failure; a QUIET_WORK given is always kept)
 #   QUIET_CONTAINER (qompack-v6-linux-verification), QUIET_LXUSER (qompack-test)
 #   QUIET_MAX_CPU (15), QUIET_MAX_LOAD (1.0)   idle thresholds for the load WARNING
+#
+# Rows judged by an absolute budget only (absolute_rows below): their ratio against <base-rev> does
+# not compare like for like, so paired.txt prints no ratio for them, and the candidate's median ns/op
+# is judged against the budget instead (PASS or OVER-BUDGET, also in absolute-budget.tsv). Today one
+# row: 1.1.27's BenchmarkHookNoop_InProcess, < 3 ms/op on the candidate only (D67(j)): since
+# fbb32c13 it spools into a temp dir, while cf31e01's copy spools into its clone. A verdict here is
+# recorded, as every C5.2 judgement is; the step's exit status still says only whether every row was
+# measured completely.
+#
+# Host queries (each load sample's PowerShell CPU reading and the container's load average) are
+# bounded (timeout 60 s, then a kill 10 s later): a hung query must not hold a night's chunk.
 set -u
 if [ $# -lt 4 ]; then sed -n '2,/^set -u$/p' "$0" | sed '$d' >&2; exit 2; fi
 repo=$1; base=$2; ev=$3; shift 3
@@ -96,6 +109,7 @@ fi
 base_sha=$(git -C "$wrepo" rev-parse --verify "$base^{commit}") || { echo "unknown base revision $base" >&2; exit 2; }
 mkdir "$wev/.quiet.lock" 2>/dev/null || { echo "refusing: $wev/.quiet.lock exists (another quiet.sh?)" >&2; exit 2; }
 trap 'rmdir "$wev/.quiet.lock" 2>/dev/null' EXIT
+work_own=0; [ -n "${QUIET_WORK:-}" ] || work_own=1   # a work directory this run made is removed after a pass
 work=$(winpath "${QUIET_WORK:-$(mktemp -d)}"); mkdir -p "$work" || exit 2
 rm -f "$work/units" "$work/rows"  # the benchmark plan is per invocation (a reused QUIET_WORK)
 ITER=${QUIET_ITERATIONS:-5000}; ROUNDS=${QUIET_ROUNDS:-10}; PERCALL=${QUIET_PERCALL:-1}
@@ -179,6 +193,11 @@ rules PathScoped 1s D37 1.11.16 (rehydrate/rules/skills family)
 skills Index 1s D37 1.11.16 (rehydrate/rules/skills family)
 EOF
 }
+# absolute_rows: package, benchmark (without "Benchmark"), budget in ns/op, and why (header).
+absolute_rows() { cat <<'EOF'
+cli HookNoop_InProcess 3000000 D67(j): SP-01's B-A headroom budget (< 3 ms/op) on the candidate only; since fbb32c13 the benchmark spools into a temp dir, cf31e01's into its clone, so its ratio is not like for like
+EOF
+}
 # D37 family directories; any with no Benchmark func at all is recorded as such in c52-names.tsv.
 families="1.1.27:internal/core 1.1.27:tools/devtool 1.2.12:test/replay 1.10.17:internal/pins
 1.11.16:internal/rehydrate 1.15.14:internal/analyzer 1.15.14:internal/grammar"
@@ -234,8 +253,8 @@ clone_side() {
 
 load() { # a load sample for the run record: Windows CPU % and the container's load average
   local w l why
-  w=$(powershell -NoProfile -Command "(Get-CimInstance Win32_Processor | Measure-Object LoadPercentage -Average).Average" 2>/dev/null | tr -d '\r')
-  l=$(docker exec "$ctr" cat /proc/loadavg 2>/dev/null)
+  w=$(timeout -k 10 60 powershell -NoProfile -Command "(Get-CimInstance Win32_Processor | Measure-Object LoadPercentage -Average).Average" 2>/dev/null | tr -d '\r')
+  l=$(timeout -k 10 60 docker exec "$ctr" cat /proc/loadavg 2>/dev/null)
   say "load $1 $(date -u +%H:%M:%SZ): windows_cpu_pct=${w:-?} linux_loadavg=${l:-?}"
   why=$(awk -v w="${w:-}" -v l="${l%% *}" -v mc="${QUIET_MAX_CPU:-15}" -v ml="${QUIET_MAX_LOAD:-1.0}" 'BEGIN {
     if (w != "" && w + 0 > mc + 0) r = "windows_cpu_pct " w " > " mc
@@ -294,9 +313,15 @@ lx_after() { # <step-dir> <side>: the clone must still be clean; binaries are ha
 c52_analyse() {
   local d o rc_a
   d=$1; o=$2
-  python - "$d" "$o" "$work/rows" "$((ROUNDS * PERCALL))" "$base_sha" > "$d/paired.txt" <<'EOF'
+  absolute_rows > "$work/absolute"
+  python - "$d" "$o" "$work/rows" "$((ROUNDS * PERCALL))" "$base_sha" "$work/absolute" > "$d/paired.txt" <<'EOF'
 import math, os, re, statistics, sys
 d, osn, rowsf, want, base_sha = sys.argv[1], sys.argv[2], sys.argv[3], int(sys.argv[4]), sys.argv[5][:12]
+absolute = {}  # "Benchmark<Name>" -> (budget ns/op, why)
+for l in open(sys.argv[6], encoding='utf-8'):
+    f = l.split(None, 3)
+    if len(f) == 4:
+        absolute['Benchmark' + f[1]] = (float(f[2]), f[3].strip())
 pat = re.compile(r'^c52-%s-r(\d+)-(base|candidate)-(.+)\.log$' % osn)
 runs = sorted((int(m.group(1)), m.group(3), m.group(2), f) for f in os.listdir(d) for m in [pat.match(f)] if m)
 line = re.compile(r'^(Benchmark\S+?)(?:-\d+)?\s+\d+\s+(.*\S)\s*$')
@@ -332,7 +357,18 @@ def signp(k, n):
 print('C5.2 paired comparison (%s): per round, candidate/base of the median ns/op within the call.' % osn)
 print('geomean < 1 means the candidate is faster; "faster k/n" counts rounds; p is the exact two-sided sign test.')
 print('%-58s %5s %11s %11s %8s %7s %7s %10s %10s %9s %9s' % ('benchmark', 'pairs', 'base', 'candidate', 'geomean', 'faster', 'sign p', 'base allocs', 'cand allocs', 'base p99', 'cand p99'))
+abs_rows = []
 for b in sorted(data):
+    top = b.split('/')[0]
+    if top in absolute:   # judged by its absolute budget on the candidate only (header)
+        budget, why = absolute[top]
+        sc = data[b].get('candidate')
+        mc = med(sc, 'ns/op') if sc else None
+        verdict = 'NO-RESULT' if mc is None else ('PASS' if mc < budget else 'OVER-BUDGET')
+        abs_rows.append((b, mc, budget, verdict, why))
+        print('%-58s candidate %s against its absolute budget %s: %s; no ratio against base %s (not like for like: %s)' % (
+            b, fmt(mc), fmt(budget), verdict, base_sha, why))
+        continue
     sb, sc = data[b].get('base'), data[b].get('candidate')
     if not sb or not sc:
         if not sb:
@@ -382,6 +418,15 @@ with open(os.path.join(d, 'completeness.tsv'), 'w', encoding='utf-8', newline='\
             elif st == 'CANDIDATE-ONLY':
                 print('%-58s not on base %s: candidate only, no quiet before/after' % (top, base_sha))
     print('%d incomplete side(s)' % bad)
+with open(os.path.join(d, 'absolute-budget.tsv'), 'w', encoding='utf-8', newline='\n') as af:
+    af.write('benchmark\tcandidate_median_ns_op\tbudget_ns_op\tverdict\twhy\n')
+    for b, mc, budget, verdict, why in abs_rows:
+        af.write('%s\t%s\t%d\t%s\t%s\n' % (b, '-' if mc is None else '%.0f' % mc, budget, verdict, why))
+if abs_rows:
+    print()
+    print('Absolute budgets (judged on the candidate only; absolute-budget.tsv):')
+    for b, mc, budget, verdict, why in abs_rows:
+        print('%-58s %s (candidate median %s, budget %s)' % (b, verdict, fmt(mc), fmt(budget)))
 sys.exit(1 if bad else 0)
 EOF
   rc_a=$?
@@ -393,7 +438,7 @@ EOF
     -format csv "base=$d/base.txt" "candidate=$d/candidate.txt"
   landed "c52-$o raw samples: $d/base.txt $d/candidate.txt (per call: $d/c52-$o-r*-*.log + .json)"
   landed "c52-$o benchstat: $d/c52-$o-benchstat.log (csv: $d/c52-$o-benchstat-csv.log)"
-  landed "c52-$o paired ABBA table: $d/paired.txt; per-row completeness: $d/completeness.tsv"
+  landed "c52-$o paired ABBA table: $d/paired.txt; per-row completeness: $d/completeness.tsv; absolute budgets: $d/absolute-budget.tsv"
   return $rc_a
 }
 
@@ -544,7 +589,7 @@ step_c52_linux() {
   echo "steps=$*"
   echo "iterations=$ITER rounds=$ROUNDS percall=$PERCALL benchtime=${QUIET_BENCHTIME:-per row} pkgs=${QUIET_PKGS:-all} filter=${QUIET_BENCH_FILTER:-none}"
   echo "QOMPACK_UNDER_COLOAD unset; work=$work container=$ctr user=$lxuser"
-  go version; nproc 2>/dev/null
+  (cd "$wrepo" && go version); nproc 2>/dev/null   # in the candidate: its go.mod pins the toolchain
   echo "candidate repo git status --porcelain (tracked changes refused above):"
   printf '%s\n' "${cand_status:-  (clean)}"
 } >> "$info"
@@ -572,7 +617,16 @@ done
 python "$(winpath "$here")/homeguard.py" check "$guard" > "$wev/homeguard-check.txt" 2>&1 ||
   say "WARNING: homeguard check reports a real-home difference; read $wev/homeguard-check.txt"
 landed "real-home check (~/.claude, ~/.qompack): $wev/homeguard-check.txt"
-landed "scratch clones and binaries (not evidence): $work"
+# The scratch directory (clones and test binaries, not evidence) goes after a pass; it stays after a
+# failure, for diagnosis, and quiet-run.txt says where (README.md's Abort steps remove it then).
+if [ "$rc_all" -eq 0 ] && [ "$work_own" = 1 ]; then
+  if rm -rf "$work"; then say "scratch directory $work removed (every step passed)"
+  else say "WARNING: scratch directory $work could not be removed; delete it by hand"; fi
+  landed "scratch clones and binaries (not evidence): removed after the run"
+else
+  [ "$work_own" = 1 ] && say "scratch directory $work kept: a step failed (delete it once diagnosed)"
+  landed "scratch clones and binaries (not evidence): $work"
+fi
 echo "== artifacts"
 cat "$man"
 exit $rc_all
