@@ -23,12 +23,16 @@ release-version bundles byte-identical to candidate 7's frozen ones (D58(a)); an
 lane, 20 real sessions with 474 hook calls and no hook failure or timeout (D59). Still owed before
 the tag, all on candidate 8: its night chain on the frozen tree
 (`plans/sdd/V6-closeout/coordinator/c8-night.sh`: the AC-gated Windows timing and X11, the Windows
-and Linux `-race` lanes, two reproducible bundle builds and the quiet C5.1 run); hosted `ci.yml` and
+and Linux `-race` lanes, two reproducible bundle builds and the quiet C5.1 run); the C5.2 night,
+which re-measures every benchmark in full against `cf31e01`, in package chunks that may span more
+than one night and never run on battery (D62(b), D65(b), D65(c)); the C1.16 rig re-measure on that
+night, whose figure `docs/architecture.md` then restates (D62(c), D65(a)); hosted `ci.yml` and
 `nightly.yml` (C7.2), including the hosted `release-dry-run` bundles compared byte for byte with
 candidate 8's frozen ones (D53(h)(4), D58(e)); its short live re-check (D59, D60(f)); the
 pre-registered live evaluation, C5.5, on its frozen bundles, whose verdict decides the release under
 amendment A8 (D58(e)); and the local `release-check --tag` on the reference host, on AC power, which
-the night chain runs against a local tag it deletes afterwards (§1, step 3; D57(a), D57(d)). After
+the night chain runs in an isolated scratch clone that holds the tag, never in the shared repository
+(§1, step 3; D57(a), D57(d), D62). After
 the tag come the pre-release, the install rehearsal from it (D53(h)(3)), the check that the
 published `bin/` bytes equal the frozen bundles, and only then the promotion. The generated SP-17
 scope table in §3 is evidence for its named artifacts only; the capability table beside it states
@@ -47,14 +51,20 @@ so read its record before tagging.
    docs-only commit (a descendant of the candidate whose changes reach no bundle, D58(e)), rewrite
    the evidence a candidate's pages carry while its own is still owed, from the tagged candidate's
    recorded evidence (its `plans/sdd/V6-closeout/phase3/cN-CANDIDATE.md`, its night chain, hosted
-   runs, live re-check and C5.5): `docs/release-notes/<tag>.md`'s verified-where paragraph and
-   table, `README.md`'s verified-where paragraph and table, `CHANGELOG.md`'s Known limits, and
-   this page's release status. release.yml publishes the notes verbatim. On the tag push the
-   `guards` step of `release-check` fails while any of the four pages still carries one of the
-   interim sentences it lists (`releaseInterimMarkers` in `test/guards/releasenotes_test.go`), such
-   as the notes' figures standing until the candidate's own are recorded or the hosted runs not yet
-   run. It catches only those exact sentences: rewriting the rest, the candidate 6 and 7 rows of
-   both tables among it, stays this step's manual duty.
+   runs, live re-check, C5.5, its C5.2 nights and the C1.16 re-measure):
+   `docs/release-notes/<tag>.md`'s verified-where paragraph and table, `README.md`'s
+   verified-where paragraph and table, `CHANGELOG.md`'s introduction and Known limits, this page's
+   release status, and the C1.16 paragraph of `docs/architecture.md` §7, which restates the rig's
+   figure from the C5.2 night (D65(a)); and fill the Known issues sections of the notes and
+   `CHANGELOG.md` from the close-out ledger (D66(d)). release.yml publishes the notes verbatim. On
+   the tag push the `guards` step of `release-check` fails while any of those pages still carries
+   one of the interim sentences it lists (`releaseInterimMarkers` in
+   `test/guards/releasenotes_test.go`), such as the notes' figures standing until the candidate's
+   own are recorded or the hosted runs not yet run. Until this commit writes the version's
+   `CHANGELOG.md` heading, every other run requires each listed sentence to be still on its page, so
+   a reworded interim sentence fails instead of slipping past the list. The guard catches only
+   those sentences: rewriting the rest, the candidate 6 and 7 rows of both tables among it, stays
+   this step's manual duty.
 3. **Run the gate locally, on the reference host** — `go run ./tools/devtool release-check` — fix
    whatever it stops on, and keep the run's `dist/release-check.json` as the release's record of the
    fsync-bound rows. The hosted gate at step 5 reports those rows instead of gating them (§2), so
@@ -207,7 +217,7 @@ the deployment level** and is shipped as such.
 ## Capability status at 0.3.0
 
 Written by hand from the V6 close-out ledger (`plans/V6-CLOSEOUT-CHECKLIST.md`, owner decisions D1 to
-D61 and the defaults paragraph under them) and the release candidate 8 tree. It states what the
+D67 and the defaults paragraph under them) and the release candidate 8 tree. It states what the
 release ships; it is not a test result. The statuses are:
 
 - **shipped**: on in the default configuration;
@@ -229,7 +239,7 @@ release ships; it is not a test result. The statuses are:
 | A compact `SessionStart` answers within 5 s, with a "rehydration deferred" note when the rehydration is late or cannot be built | shipped (D9, D11) | [troubleshooting §7](troubleshooting.md#7-daemon-problems) |
 | The MCP retrieval tools, paged responses bounded by `runtime.mcp.maxResponseBytes`, recall ranking Qompack's own records last | shipped (D46, D49, D50) | [MCP tools](mcp-tools.md), [user guide](user-guide.md#mcp-tools) |
 | The host's saved Read deny and ask rules re-checked on every archived retrieval, failing closed | shipped (D7, D55, D56(d)) | [security §1](security.md#1-trust-boundaries) |
-| The rehydration block's pointers are judged against the host's saved Read rules and the project boundary: file pointers and structured tool-argument summaries are judged whole; free-text summaries are withheld when they contain a Read deny or ask rule's literal, a withheld path's name or an absolute path outside the project, or when the rules cannot be read; and section 7's drop entries are withheld or redacted. Aliases, globs and run-time names in free text, and rules outside the saved settings, are recorded limits (rows below) | shipped (D50, D60(c), D61(b)) | [cannot-do §5](cannot-do.md#the-rehydration-blocks-screen-of-free-text-summaries-has-limits) |
+| The rehydration block's pointers are judged against the host's saved Read rules and the project boundary: file pointers and structured tool-argument summaries are judged whole, and a path-named value holding several paths piece by piece; a free-text summary is shown only when a whitelist proves it safe (every token built from letters, marks, digits and a small safe punctuation set, no absolute or escaping path, and no rule's literal or withheld path's name where a name starts), and every one is withheld while the rules cannot be read; and section 7's drop entries are withheld or redacted. The whitelist's over-withholding, aliases and run-time names in free text, and rules outside the saved settings are recorded limits (rows below) | shipped (D50, D60(c), D61(b)(1), D63, D64) | [cannot-do §5](cannot-do.md#the-rehydration-blocks-screen-of-free-text-summaries-has-limits) |
 | Six slash commands: status, recall, pin, why, dropped, eval | shipped (D36) | [commands](commands.md) |
 | Operator commands: `status`, `doctor`, `fsck` (repairs only behind `--repair --yes`), `self-test`, `config print`, `backup create`, `backup verify`, `backup restore`, `admin delivery-seal` | shipped | [user guide](user-guide.md#operator-commands), [backup](backup.md) |
 | Delivery-journal rollover | shipped, on by default (D2) | [troubleshooting §7](troubleshooting.md#7-daemon-problems) |
@@ -257,7 +267,11 @@ release ships; it is not a test result. The statuses are:
 | With a tier-1 original over the cap, older evolution entries are not re-admitted into unused room (authority order first; `dropped()` lists them) | accepted residual (D59) | [troubleshooting §5](troubleshooting.md#5-retrieval-that-looks-wrong), [cannot-do §4](cannot-do.md#evolution-entries-are-not-re-admitted-while-the-original-request-overflows) |
 | `backup create`, `backup verify` and `backup restore` refuse while a newer `settingsVersion` is in force (after a plugin downgrade); take the backup with the newer build first | accepted residual (D59) | [backup](backup.md), [troubleshooting §6](troubleshooting.md#6-configuration-and-schema-compatibility) |
 | Below the smallest loss notice, nothing is injected: a rehydration budget (`runtime.rehydrate.maxTokens`) too small for even "N items dropped; call dropped()" gets no block, the drop report records the overflow, and `LOUD.log` gets one line, so it is not silent | accepted residual (D59(b), D60(c)(ii)) | [cannot-do §4](cannot-do.md#below-the-smallest-loss-notice-a-compaction-injects-nothing) |
-| The free-text screen of tool summaries does not resolve aliases (8.3 names, links) or globs, cannot see names built at run time, and withholds free text that only mentions a rule's literal; the records in sections 2 to 4, your own prompts and the model's own earlier text, are outside D50 | accepted residual (D60(c)(i), D61(b)) | [cannot-do §5](cannot-do.md#the-rehydration-blocks-screen-of-free-text-summaries-has-limits) |
+| The free-text whitelist over-withholds: a variable, a glob, a regular expression, a `%` escape or a `name:` shape where a path may start (`localhost:3000`, `format:%h`) withholds the summary even when it names no denied file, as does a mention of a rule's literal; the root unit applies only to a plain root, so under any other root a summary that spells the root is withheld; aliases (8.3 names, links) and names built at run time are not resolved; a structured glob (a lone Glob or recall pattern) that selects a refused file the block never recorded, without spelling its literal, is judged as written (D60(c)(iv)); the store's preview collapses runs of whitespace, so a summary is judged as collapsed; the records in sections 2 to 4, your own prompts and the model's own earlier text, are outside D50 | accepted residual (D60(c)(i), D60(c)(iv), D62(f), D64(1), D64(4), D67(l)) | [cannot-do §5](cannot-do.md#the-rehydration-blocks-screen-of-free-text-summaries-has-limits) |
+| On macOS, Qompack assumes the default case-insensitive volume and compares paths and the Read rules' patterns without regard to letter case; on a case-sensitive APFS volume two names that differ only in case are read as one | accepted residual (D67(m)) | [cannot-do §5](cannot-do.md#on-macos-a-case-sensitive-volume-is-treated-as-case-insensitive) |
+| A quiet live session (a long reply with no tool call, a long compaction) is counted as ended until its next hook, which revives it; nothing captured is lost | accepted residual (D62) | [cannot-do §4](cannot-do.md#a-quiet-live-session-is-counted-as-ended-until-its-next-hook) |
+| A command whose connect to a running daemon misses its budget can start a second daemon, which finds the running one's lock and exits; nothing is lost | accepted residual (D61(c)) | [troubleshooting §1](troubleshooting.md#qompack-status) |
+| In a project with two live sessions, another session's tool use counts toward the scheduler's bound session and can close that session's segment | accepted residual (D67(b)) | [cannot-do §4](cannot-do.md#another-sessions-tool-use-can-close-the-bound-sessions-segment) |
 | Windows directory sync is a no-op on the NTFS-journaling premise; a backup reported certified can revert after a power cut | accepted residual (D24, D26) | [security §8](security.md#8-known-limitations) |
 | Read rules that exist only in the running session (session-only rules, CLI flags, hook policies) | accepted residual (D7) | [cannot-do §5](cannot-do.md#it-cannot-see-every-host-permission-rule) |
 | Host behaviours: file re-attachment after a compaction, binary files decoded by the host, usage categories not exposed, and tool content handed to the hook whole or not at all, so non-exact fidelity is covered by tests rather than a live session (UAT-02) | accepted residual (D45, D49) | [cannot-do](cannot-do.md), [upstream issues](upstream-issues.md) |
@@ -269,6 +283,7 @@ release ships; it is not a test result. The statuses are:
 | Installing from the published GitHub marketplace. The namespace under a release entry was observed on windows/amd64 through a local marketplace entry named `qompack-windows-amd64`: `plugin:qompack:qompack`, `mcp__plugin_qompack_qompack__<tool>` and `/qompack:<name>`, from `plugin.json`'s name (D59) | not verified in target (D53(h)) | [install §9](install.md#9-installing-from-the-public-marketplace) |
 | The tag-triggered release workflow | not verified in target | §7 below |
 | Inventory rows no step can execute: the warm-versus-cold delta, the binary-size check, the launcher split, the frontier-toggle pair, the human half of UAT | not verified in target (D37(c)) | `plans/sdd/V6-closeout/inventory-map.md` |
+| The replay evaluation's recorded-corpus tier: no recorded corpus is committed and no test reads real transcripts, so C3.8 is judged on the replay gate | not verified in target (D67(g)) | `plans/V6-CLOSEOUT-CHECKLIST.md` |
 | Durability across a real power cut, and behaviour on a really full disk | not verified in target | [security §8](security.md#8-known-limitations) |
 
 ## 4. Switches

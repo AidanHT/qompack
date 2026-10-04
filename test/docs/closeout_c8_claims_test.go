@@ -220,14 +220,22 @@ func TestReleasePagesListTheCandidate8Limits(t *testing.T) {
 	}
 }
 
+// uatRulingRE matches a Result block's ruling line up to its decisions' closing parenthesis.
+var uatRulingRE = regexp.MustCompile(`Ruling \(((?:[^()]|\([^()]*\))*)\)`)
+
 // TestUATOpenQuestionsNameTheirRuling asserts the two candidate 7 Result blocks that left a
-// question to the coordinator now name the decision that answered it, beside the unchanged
-// candidate 7 verdict.
+// question to the coordinator name every decision that answered it, beside the unchanged
+// candidate 7 verdict. The ruling line is required whether or not the question is still worded as
+// it was, so a reworded question cannot make the check vacuous. UAT-12's question was about
+// section 2, which D62(f) ruled; D60(c)(i) covers sections 3 and 4.
 func TestUATOpenQuestionsNameTheirRuling(t *testing.T) {
 	raw, secs := uatSections(t)
-	for _, c := range []struct{ id, question, ruling string }{
-		{"UAT-05", "decides which document is right", "D59(b)"},
-		{"UAT-12", "is left to the coordinator", "D60(c)(i)"},
+	for _, c := range []struct {
+		id      string
+		rulings []string
+	}{
+		{"UAT-05", []string{"D59(b)"}},
+		{"UAT-12", []string{"D60(c)(i)", "D62(f)"}},
 	} {
 		found := false
 		for _, s := range secs {
@@ -236,11 +244,15 @@ func TestUATOpenQuestionsNameTheirRuling(t *testing.T) {
 			}
 			found = true
 			block := normalized(strings.Join(raw[s.start:s.end], "\n"))
-			if !strings.Contains(block, c.question) {
-				continue // the question is gone, so there is nothing left open to rule on
+			m := uatRulingRE.FindStringSubmatch(block)
+			if m == nil {
+				t.Errorf("%s: %s has no `Ruling (...)` line naming %v", uatPath, c.id, c.rulings)
+				continue
 			}
-			if !strings.Contains(block, "Ruling ("+c.ruling) {
-				t.Errorf("%s: %s leaves %q open but has no `Ruling (%s` line", uatPath, c.id, c.question, c.ruling)
+			for _, want := range c.rulings {
+				if !strings.Contains(m[1], want) {
+					t.Errorf("%s: %s's ruling line (%s) does not name %s", uatPath, c.id, m[1], want)
+				}
 			}
 		}
 		if !found {
