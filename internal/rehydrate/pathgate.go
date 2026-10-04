@@ -56,13 +56,16 @@ import (
 //     glob or regex metacharacter, a `%` an escape, a variable or a batch parameter could use, a
 //     backslash that ends a token or doubles, a home path, an absolute path, a drive or a PowerShell
 //     provider drive (providerPath) or a `..` anywhere, the root after an apostrophe outside a quoted
-//     run (rootInApostropheSpan), a URL character a shell splits at (urlTokenSafe), a rule's literal —
-//     withholds the summary. A cut summary's last token is judged as a prefix (cutTokenUnsafe,
-//     cutPrefixNamed), and one that ends right after a drive's `:` as if a name followed it
-//     (cutAtDriveColon, D64(2)). The project root is held together as one unit only when its own
-//     spelling has no character a shell splits or reinterprets a word at and a sanitized text spells
-//     it exactly (rootUnitAdmitted, rootSpelledExactly, D64(1)). A cut path-named value is the
-//     project only when it starts the root's own spelling byte for byte (rootPrefix).
+//     run (rootInApostropheSpan), a URL character a shell splits at (urlTokenSafe), a letter or mark
+//     that Windows' ANSI best-fit conversion turns into ASCII punctuation (bestFitPunct, D64), a
+//     rule's literal — withholds the summary. A cut summary's last token is judged as a prefix
+//     (cutTokenUnsafe, cutPrefixNamed), and one that ends right after a drive's `:` as if a name
+//     followed it (cutAtDriveColon, D64(2)). The project root is held together as one unit only
+//     when its own spelling has no character a shell splits or reinterprets a word at (nor one a best
+//     fit turns into punctuation), and a sanitized text spells it exactly (rootUnitAdmitted,
+//     rootSpelledExactly, D64(1) and its rulings on wave 19f).
+//     A cut path-named value is the project only when it starts the root's own spelling byte for
+//     byte (rootPrefix).
 //     When the host's rules are unavailable, or a rule covers the whole project, every free text is
 //     withheld, as re_read fails closed.
 //
@@ -1463,7 +1466,8 @@ func wordSafe(w string, inRun bool) bool {
 }
 
 // urlTokenSafe reports whether tok, an http(s) URL, is safe: after its scheme every character is a
-// letter, a mark, a digit or one of urlChars, none of which a shell splits a word at or expands
+// letter, a mark or a digit the whitelist admits (wordRune: none whose best fit is ASCII punctuation)
+// or one of urlChars, none of which a shell splits a word at or expands
 // (PowerShell splits a bare argument at `,` into an array, so `https://x,/etc/passwd` hands a cmdlet
 // /etc/passwd; `;`, `|`, `!`, `$`, a quote, a parenthesis, a glob's `*` or `[`, a brace and a
 // backslash are left out with it); the URL proper is a plain token that may also hold `?` and `#` (a
@@ -1494,7 +1498,7 @@ const urlChars = "-._~:/?#@&=+"
 
 // notURLRune reports a rune an http(s) URL token may not hold after its scheme (urlTokenSafe).
 func notURLRune(r rune) bool {
-	return !(unicode.IsLetter(r) || unicode.IsMark(r) || unicode.IsDigit(r) || strings.ContainsRune(urlChars, r))
+	return !(wordRune(r) || strings.ContainsRune(urlChars, r))
 }
 
 // urlGlobs removes the glob characters a URL proper may hold (urlTokenSafe).
@@ -1539,21 +1543,22 @@ const pathDelims = "=:,@"
 const pathStartDelims = pathDelims + "'()#+"
 
 // plainTokenSafe reports whether tok, a plain token, is built only from the whitelist (D63(2)):
-// Unicode letters, marks and digits, the project root's mark, the ASCII set `- _ . , : @ + /`, `=`
-// and `~` other than at the token's start or after a pathDelims character, `#` only at the token's
-// start, an apostrophe between two letters, and `\` before a character other than another
-// backslash; a whole `@name` token is not safe. zsh replaces a word that starts with `=`, or an
-// assignment's `=` after `:` or `=`, by a command's path (EQUALS, on by default), and repeats the
-// character before a `#` under EXTENDED_GLOB (`de#ny.txt` matches deny.txt), while every shell reads
-// a `#` that starts a word as a comment; PowerShell splats a variable from a whole `@name` argument
-// (`@args`, `@env:HOME`), as it expands `$name`. A backslash is then read one of exactly two ways: as
-// a separator (cmd.exe, PowerShell) or as escaping the next character, which stays (a POSIX shell);
-// one that ends a token would escape the space after it or join a line the store collapsed (`de\
-// ny.txt`), and one before another backslash would leave a backslash for a nested shell to read
-// again, so both make the token unsafe. An apostrophe between letters opens or closes a quoted span
-// whose content is literal: the screen reads the text without it (screenText), a path may start
-// after it (pathStartDelims), and no root's mark, separator, `~` or `..` can touch it. A `%` is never
-// safe here (singlePercent).
+// Unicode letters, marks and digits other than those Windows' ANSI best-fit conversion turns into
+// ASCII punctuation (wordRune, bestFitPunct; D64), the project root's mark, the ASCII set
+// `- _ . , : @ + /`, `=` and `~` other than at the token's start or after a pathDelims character,
+// `#` only at the token's start, an apostrophe between two letters, and `\` before a character
+// other than another backslash; a whole `@name` token is not safe. zsh replaces a word that starts
+// with `=`, or an assignment's `=` after `:` or `=`, by a command's path (EQUALS, on by default),
+// and repeats the character before a `#` under EXTENDED_GLOB (`de#ny.txt` matches deny.txt), while
+// every shell reads a `#` that starts a word as a comment; PowerShell splats a variable from a
+// whole `@name` argument (`@args`, `@env:HOME`), as it expands `$name`. A backslash is then read
+// one of exactly two ways: as a separator (cmd.exe, PowerShell) or as escaping the next character,
+// which stays (a POSIX shell); one that ends a token would escape the space after it or join a line
+// the store collapsed (`de\ ny.txt`), and one before another backslash would leave a backslash for
+// a nested shell to read again, so both make the token unsafe. An apostrophe between letters opens
+// or closes a quoted span whose content is literal: the screen reads the text without it
+// (screenText), a path may start after it (pathStartDelims), and no root's mark, separator, `~` or
+// `..` can touch it. A `%` is never safe here (singlePercent).
 func plainTokenSafe(tok string) bool { return safeChars(tok, false) }
 
 // safeChars reports whether tok is built only from the whitelist plainTokenSafe states and, when
@@ -1568,7 +1573,7 @@ func safeChars(tok string, parens bool) bool {
 	prev := rune(-1)
 	for i, r := range tok {
 		switch {
-		case r == rootMark || unicode.IsLetter(r) || unicode.IsMark(r) || unicode.IsDigit(r):
+		case r == rootMark || wordRune(r):
 			afterDelim = false
 		case parens && (r == '(' || r == ')'):
 			afterDelim = true
@@ -1606,6 +1611,41 @@ func safeChars(tok string, parens bool) bool {
 		prev = r
 	}
 	return true
+}
+
+// wordRune reports whether r is one of the Unicode letters, marks and digits the free-text whitelist
+// and the root unit admit: every one but the code points that Windows' ANSI best-fit conversion turns
+// into ASCII punctuation (bestFitPunct).
+func wordRune(r rune) bool {
+	return (unicode.IsLetter(r) || unicode.IsMark(r) || unicode.IsDigit(r)) && !unicode.Is(bestFitPunct, r)
+}
+
+// bestFitPunct holds the code points that coordinator decision D64's ruling on wave 19f's open items
+// takes out of the free-text whitelist and the root unit, on every platform. A program that takes its
+// command line through the ANSI code page (a C program's argv, GetCommandLineA) receives a character
+// that code page cannot hold as its best fit (WideCharToMultiByte without WC_NO_BEST_FIT_CHARS), and
+// some best fits are ASCII punctuation, so a word the whitelist read as letters reaches such a program
+// with a quote, an escape or a home in it. The table is every code point of the Spacing Modifier
+// Letters block (U+02B0 to U+02FF), where most such mappings lie, and the letters and marks outside it
+// that Windows' ANSI code pages 874, 932, 936, 949, 950 and 1250 to 1258 map to an ASCII character
+// other than a letter or a digit, as measured on Windows 11
+// (TestWhitelist_NoANSIBestFitToPunctuationIsSafe re-measures it): U+01C0 to `|`, U+01C3 to `!`,
+// U+0300 to `'` or a backtick, U+0302 to `^`, U+0303 to `~`, U+030E to `"`, and U+0331 and U+0332
+// to `_`. Inside the block they include U+02B9, U+02BC and U+02C8 to `'`, U+02BA to `"`, U+02C6 and
+// U+02C7 to `^`, U+02CB to `'` or a backtick and U+02CD to `_`. No other modifier letter, and no
+// modifier symbol (which the whitelist never admitted), has such a best fit in an ANSI code page;
+// the OEM code pages' further ones (U+0301 and U+0308 in code page 437, which no command line is
+// converted into) are left as they are.
+var bestFitPunct = &unicode.RangeTable{
+	R16: []unicode.Range16{
+		{Lo: 0x01c0, Hi: 0x01c0, Stride: 1},
+		{Lo: 0x01c3, Hi: 0x01c3, Stride: 1},
+		{Lo: 0x02b0, Hi: 0x02ff, Stride: 1},
+		{Lo: 0x0300, Hi: 0x0300, Stride: 1},
+		{Lo: 0x0302, Hi: 0x0303, Stride: 1},
+		{Lo: 0x030e, Hi: 0x030e, Stride: 1},
+		{Lo: 0x0331, Hi: 0x0332, Stride: 1},
+	},
 }
 
 // psSplat matches a whole PowerShell splatting argument: `@` and a variable's name, optionally scoped
@@ -2160,8 +2200,9 @@ func sanitize(t string) string {
 // control character no sanitized text carries, so the tokenizer never splits the root at its own
 // space and the screen never reads the root's own name as a withheld name. In a summary it does so
 // only for a root whose spelling admits the unit (markRoot, rootUnitAdmitted, D64(1)): a root with a
-// comma, an apostrophe, an `@` or any other character a shell splits or reinterprets a word at has
-// none, and so has one that no sanitized text spells exactly (rootSpelledExactly). A spelling glued
+// comma, an apostrophe, an `@` or any other character a shell splits or reinterprets a word at, or
+// a letter whose ANSI best fit is ASCII punctuation has none, and so has one that no sanitized text
+// spells exactly (rootSpelledExactly). A spelling glued
 // to a name character on either side (proj2, xC:\q\proj) is not the root and is judged as the path
 // outside the project it is; a spelling glued to a short option is the root as the option's value
 // (-I<root>/include).
@@ -2216,18 +2257,22 @@ func rootSegments(rest, sep string) string {
 
 // rootUnitAdmitted reports whether root's own spelling admits the root unit in a summary
 // (coordinator decision D64(1)): a sanitized text spells it exactly (rootSpelledExactly), and,
-// cleaned and slash-separated, every character of it is a Unicode letter, mark or digit, one of
-// `- _ .`, the separator `/`, an ASCII space, or, on Windows, the drive's `:` after its letter. These
-// are the free-text whitelist's characters at which no shell splits or reinterprets a word. The
-// whitelist's other characters are left out: `,` (PowerShell splits a bare argument into an array
-// there, and cmd.exe's built-in commands split at it), `=` (cmd.exe's built-in commands split at it),
-// `+` (cmd.exe's copy starts its next source there), `#` (zsh's EXTENDED_GLOB repeats the character
-// before it), `@` (PowerShell splats a word of the root that is a whole `@name`, as in a root ending
-// in ` @Work`) and a `:` past the drive (PowerShell reads a name before a `:` as a drive; a list's
-// reader splits at it). So is every character the whitelist rejects: a quote of any kind, a backtick,
-// `$ ! ; & | ( ) [ ] { } < > ^ % ~ * ?`, a backslash that is no separator (a POSIX shell drops it), a
-// control character and a Unicode space. A root holding any of them, or a run of spaces, has no unit:
-// a summary spelling it is judged as the free text it is, and withheld. An empty root admits nothing.
+// cleaned and slash-separated, every character of it is a Unicode letter, mark or digit the
+// whitelist admits (wordRune), one of `- _ .`, the separator `/`, an ASCII space, or, on Windows, the
+// drive's `:` after its letter. These are the free-text whitelist's characters at which no shell
+// splits or reinterprets a word. D64's ruling on wave 19f's open items left out the letters and
+// marks that Windows' ANSI best-fit conversion turns into ASCII punctuation (bestFitPunct: a program
+// reading an ANSI command line receives U+02BA as `"`). The whitelist's other characters are left
+// out: `,` (PowerShell splits a bare argument into an array there, and cmd.exe's built-in commands
+// split at it), `=` (cmd.exe's built-in commands split at it), `+` (cmd.exe's copy starts its next
+// source there), `#` (zsh's EXTENDED_GLOB repeats the character before it), `@` (PowerShell splats a
+// word of the root that is a whole `@name`, as in a root ending in ` @Work`) and a `:` past the
+// drive (PowerShell reads a name before a `:` as a drive; a list's reader splits at it). So is every
+// character the whitelist rejects: a quote of any kind, a backtick,
+// `$ ! ; & | ( ) [ ] { } < > ^ % ~ * ?`, a backslash that is no separator (a POSIX shell drops it),
+// a control character and a Unicode space. A root holding any of them, or a run of spaces, has no
+// unit: a summary spelling it is judged as the free text it is, and withheld. An empty root admits
+// nothing.
 func rootUnitAdmitted(root string) bool {
 	if root == "" || !rootSpelledExactly(root) {
 		return false
@@ -2235,7 +2280,7 @@ func rootUnitAdmitted(root string) bool {
 	clean := filepath.ToSlash(filepath.Clean(root))
 	for i, r := range clean {
 		switch {
-		case unicode.IsLetter(r) || unicode.IsMark(r) || unicode.IsDigit(r):
+		case wordRune(r):
 		case r == '/' || r == ' ' || strings.ContainsRune(rootUnitChars, r):
 		case r == ':' && i == 1 && runtime.GOOS == "windows" && asciiLetter(clean[0]):
 		default:
