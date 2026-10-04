@@ -241,3 +241,33 @@ func TestStubSkipsPasses_RunsE2EAloneAndDropsNothing(t *testing.T) {
 		t.Fatalf("a tree of test/e2e alone is one pass and never an empty one; got %v", got)
 	}
 }
+
+// TestStubSkipsPasses_GiveTheIsolatedPassItsOwnHangGuard pins the -timeout of stubskips' passes and
+// the timeout it names when a binary is killed. Hosted lint-windows' second pass, test/e2e alone,
+// took 19m49s to 21m14s (runs 36905843834, 36955046276, 36981590450) and the binary takes 1513.7 s
+// and 1529.5 s on the quiet Windows reference host, so 30m left it about 15% headroom (audit 2's
+// #84). It gets the 45m hang guard ci.yml's test-e2e gives the same binary; the shared pass keeps
+// 30m.
+func TestStubSkipsPasses_GiveTheIsolatedPassItsOwnHangGuard(t *testing.T) {
+	e2e := modulePath + "/test/e2e"
+	core, guards := modulePath+"/internal/core", modulePath+"/test/guards"
+	passes := isolatedPasses([]string{core, e2e, guards})
+	want := [][]string{
+		{"test", "-json", "-timeout=30m", core, guards},
+		{"test", "-json", "-timeout=45m", e2e},
+	}
+	if len(passes) != len(want) {
+		t.Fatalf("got %d passes, want %d: %v", len(passes), len(want), passes)
+	}
+	for i, pass := range passes {
+		if got := stubskipsTestArgs(pass); fmt.Sprint(got) != fmt.Sprint(want[i]) {
+			t.Fatalf("pass %d runs %q, want %q", i, got, want[i])
+		}
+	}
+	for pkg, timeout := range map[string]string{core: "-timeout=30m,", e2e: "-timeout=45m,"} {
+		if got := timedOutProblem(pkg); !strings.Contains(got, timeout) {
+			t.Fatalf("a killed %s must name the %s it ran at; got %q",
+				pkg, strings.TrimSuffix(timeout, ","), got)
+		}
+	}
+}

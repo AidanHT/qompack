@@ -255,6 +255,15 @@ func coverPasses(pkgs []string) []coverPass {
 	return passes
 }
 
+// coverTestArgs is pass's `go test` command line: its profile, and the hang guard passTimeout
+// gives its packages (test/e2e alone gets the isolated pass's own, the shared pass the tree's).
+func coverTestArgs(pass coverPass) []string {
+	return append([]string{
+		"test", "-timeout=" + passTimeout(pass.pkgs),
+		"-coverprofile=" + pass.profile, "-covermode=" + coverMode,
+	}, pass.pkgs...)
+}
+
 // runCoverPasses runs every cover pass, even after one fails, so a red in the shared pass does not
 // leave the isolated packages unrun, and joins each isolated profile onto coverProfileName. It
 // fails if any pass failed or any profile cannot be joined.
@@ -265,11 +274,7 @@ func runCoverPasses() error {
 	}
 	var failed []string
 	for _, pass := range coverPasses(strings.Fields(string(listOut))) {
-		args := append([]string{
-			"test", "-timeout=" + wholeTreeTestTimeout,
-			"-coverprofile=" + pass.profile, "-covermode=" + coverMode,
-		}, pass.pkgs...)
-		if err := goInheritEnv(pass.env, args...); err != nil {
+		if err := goInheritEnv(pass.env, coverTestArgs(pass)...); err != nil {
 			failed = append(failed, fmt.Sprintf("%s: %v", strings.Join(pass.pkgs, " "), err))
 		}
 		if pass.profile == coverProfileName {
