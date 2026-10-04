@@ -952,3 +952,36 @@ func TestRehydrateHostPaths_ARootOutsideTheWhitelistHoldsNoRootUnit(t *testing.T
 		require.NotContains(t, res.Text, "deny.txt")
 	})
 }
+
+// TestRehydrateHostPaths_ACutValueIsTheRootOnlyInItsOwnSpelling is D64's ruling on wave 19f's final
+// verify through the real host rules and the store's own cut: a NotebookEdit's notebook_path sorts
+// after its new_source, so a long cell cuts the path. A cut inside the root's own spelling is the
+// project and is shown, while one inside a directory beside it whose name differs from the root's
+// only by an apostrophe or a caret (`John'athan`, `John^athan` beside `Johnathan`), which the screen
+// form deletes, names a path outside the project and is withheld.
+func TestRehydrateHostPaths_ACutValueIsTheRootOnlyInItsOwnSpelling(t *testing.T) {
+	root := uat12Project(t, "Johnathan", "proj")
+	base := filepath.Dir(filepath.Dir(root))
+	// cut is the store's preview of a NotebookEdit of value with a cell padded so that the store's
+	// cut falls right after kept, a start of value.
+	cut := func(value, kept string) string {
+		head, mid, esc := `{"new_source":"`, `","notebook_path":"`, strings.ReplaceAll(kept, `\`, `\\`)
+		pad := 120 - len("…") - len(head) - len(mid) - len(esc)
+		require.Positive(t, pad, "fixture: the value starts inside the preview")
+		raw, err := json.Marshal(map[string]any{"new_source": strings.Repeat("x", pad), "notebook_path": value})
+		require.NoError(t, err)
+		_, preview := store.ArgsDigest(raw)
+		require.Equal(t, head+strings.Repeat("x", pad)+mid+esc+"…", preview, "fixture: the store's cut")
+		return preview
+	}
+	within := func(value, mark string) string { return value[:strings.Index(value, mark)+len(mark)+2] }
+	own := filepath.Join(root, "nb", "a.ipynb")
+	var withheld []string
+	for _, seg := range []string{"John'athan", "John^athan"} {
+		sib := filepath.Join(base, seg, "proj", "nb", "a.ipynb")
+		withheld = append(withheld, cut(sib, within(sib, seg[:5])))
+	}
+	res := requireToolSummaries(t, root, []string{cut(own, within(own, "John"))}, withheld)
+	require.NotContains(t, res.Text, "John'at")
+	require.NotContains(t, res.Text, "John^at")
+}
