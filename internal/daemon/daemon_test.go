@@ -1613,43 +1613,67 @@ func TestObserveStopSeamSeesTheRestoredAgentName(t *testing.T) {
 func TestObservePrompt_PassiveModeInvokesSeamButEmitsNothing(t *testing.T) {
 	t.Parallel()
 
-	root := t.TempDir()
-	var mu sync.Mutex
-	calls := 0
-	o := Options{ProjectRoot: root, Cfg: testConfig(), Log: logging.Nop()}
-	o.Bind(func(s *Services) {
-		s.ObservePrompt = func(context.Context, hookio.Event) (hookio.Output, error) {
+	// The seam runs on a goroutine of its own (startPromptRecording), and the reply waits for it only
+	// until promptReplyDeadline. So the count is taken once that goroutine has been joined, never at
+	// the moment the reply returns: a seam the scheduler starts after the reply has gone still runs,
+	// and still counts. Both schedules are pinned, the second made deterministic by holding the seam
+	// until the reply is back.
+	for _, c := range []struct {
+		name string
+		late bool
+	}{
+		{name: "the seam runs inside the reply wait"},
+		{name: "the seam runs only after the reply has gone", late: true},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			root := t.TempDir()
+			replied := make(chan struct{})
+			var mu sync.Mutex
+			calls := 0
+			o := Options{ProjectRoot: root, Cfg: testConfig(), Log: logging.Nop()}
+			o.Bind(func(s *Services) {
+				s.ObservePrompt = func(context.Context, hookio.Event) (hookio.Output, error) {
+					if c.late {
+						<-replied
+					}
+					mu.Lock()
+					calls++
+					mu.Unlock()
+					return hookio.Output{HookSpecificOutput: &hookio.HSO{
+						HookEventName: "UserPromptSubmit", AdditionalContext: "recalled context",
+					}}, nil
+				}
+			})
+			d, err := New(o)
+			require.NoError(t, err)
+			dd, ok := d.(*daemon)
+			require.True(t, ok)
+			t.Cleanup(func() { _ = dd.ing.Close() })
+
+			dd.monitor.Degrade("forced for test", []contract.Result{
+				{ID: "x.forced", OK: false, Severity: contract.SevCritical},
+			})
+			require.Equal(t, contract.ModeDegradedPassive, dd.monitor.Mode())
+
+			ev := &hookio.Event{HookEventName: "UserPromptSubmit", SessionID: "sess-passive", CWD: root, Prompt: "what changed?"}
+			resp := dd.dispatchOp(context.Background(), ipc.Request{
+				Op: ipc.OpObservePrompt, Session: "sess-passive", Reply: true, Event: ev, TS: core.NowMilli(dd.clk),
+			})
+			close(replied)
+			require.True(t, resp.OK)
+			require.NotNil(t, resp.Output)
+			require.Nil(t, resp.Output.HookSpecificOutput, "degraded-passive must put nothing into the reply")
+			require.Empty(t, resp.Output.SystemMessage)
+
+			// Stop's join: it waits, with no clock (the grace never ends), for every call the route
+			// started. A hang is left to go test -timeout.
+			dd.stopPromptRecordings(context.Background())
 			mu.Lock()
-			calls++
-			mu.Unlock()
-			return hookio.Output{HookSpecificOutput: &hookio.HSO{
-				HookEventName: "UserPromptSubmit", AdditionalContext: "recalled context",
-			}}, nil
-		}
-	})
-	d, err := New(o)
-	require.NoError(t, err)
-	dd, ok := d.(*daemon)
-	require.True(t, ok)
-	t.Cleanup(func() { _ = dd.ing.Close() })
-
-	dd.monitor.Degrade("forced for test", []contract.Result{
-		{ID: "x.forced", OK: false, Severity: contract.SevCritical},
-	})
-	require.Equal(t, contract.ModeDegradedPassive, dd.monitor.Mode())
-
-	ev := &hookio.Event{HookEventName: "UserPromptSubmit", SessionID: "sess-passive", CWD: root, Prompt: "what changed?"}
-	resp := dd.dispatchOp(context.Background(), ipc.Request{
-		Op: ipc.OpObservePrompt, Session: "sess-passive", Reply: true, Event: ev, TS: core.NowMilli(dd.clk),
-	})
-	require.True(t, resp.OK)
-	require.NotNil(t, resp.Output)
-	require.Nil(t, resp.Output.HookSpecificOutput, "degraded-passive must put nothing into the reply")
-	require.Empty(t, resp.Output.SystemMessage)
-
-	mu.Lock()
-	defer mu.Unlock()
-	require.Equal(t, 1, calls, "degraded-passive still RECORDS: the ObservePrompt seam must run exactly once")
+			defer mu.Unlock()
+			require.Equal(t, 1, calls, "degraded-passive still RECORDS: the ObservePrompt seam must run exactly once")
+		})
+	}
 }
 
 // TestObservePrompt_ModeOffNeverInvokesTheSeam is the other side of the same gate. ModeOff is not
