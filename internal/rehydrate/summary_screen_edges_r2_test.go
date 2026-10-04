@@ -111,6 +111,7 @@ func TestBuild_AnApostropheInTheRootIsNotAnOpenQuote(t *testing.T) {
 			requireScreened(t, root, hostRules(root, "./private/deny.txt"), nil,
 				[]string{
 					root + " TODO",
+					root + " **/*.go",
 					slash + " TODO",
 					"cd " + root + " && go test ./...",
 					"cd " + slash + " && git log --oneline -n 5",
@@ -122,9 +123,8 @@ func TestBuild_AnApostropheInTheRootIsNotAnOpenQuote(t *testing.T) {
 					`cat ` + root + `" old"` + sep + `x.txt`,
 					root + "2" + sep + "x.txt",
 					"cd " + root + " && cat private/deny.txt",
-					// D63 over-withholds a glob (`*`), a `!=` operator, and an escaped apostrophe (`\'`); the
-					// apostrophe in the root is still not an open quote, so the shown rows above are shown.
-					root + " **/*.go",
+					// D63 over-withholds a `!=` operator and an escaped apostrophe (`\'`); the apostrophe in the
+					// root is still not an open quote, so the shown rows above are shown.
 					root + " err != nil",
 					"cd " + escaped + " && go test ./...",
 				},
@@ -138,10 +138,10 @@ func TestBuild_AnApostropheInTheRootIsNotAnOpenQuote(t *testing.T) {
 // withheld path whose "basename", a regex fragment (`b`, `s`, `(`), then withheld every free text in
 // the build holding it where a name starts (`go build ./...`, `git status`); a `^` removed as a cmd
 // escape turned `^\s*func\b` into one; and a one-letter basename of any withheld path did the same.
-// A backslash-led word that reads as a regular expression (regexLike) is no path, a caret before a
-// separator is kept, a value is noted only when it is one word, and a basename shorter than
-// minCutPrefix is not noted. A drive-less Windows path, and a POSIX path, outside the project stay
-// withheld.
+// Under D63 a backslash-led word is withheld for its leading separator and a caret for being outside
+// the whitelist (ADR 0011 §23 item 7(b)), a value is noted only when it is one word that containment
+// or the host withholds, and a basename shorter than minCutPrefix is not noted. A drive-less Windows
+// path, and a POSIX path, outside the project stay withheld.
 func TestBuild_ARegularExpressionIsNeitherAPathNorAWithheldName(t *testing.T) {
 	root := previewRoot("proj")
 	requireScreened(t, root, hostRules(root, "./private/deny.txt"), []string{previewRoot("other", "b")},

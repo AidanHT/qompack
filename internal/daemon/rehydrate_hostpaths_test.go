@@ -405,6 +405,15 @@ func TestRehydrateHostPaths_HostJudgementsAreStructuredSummariesAndFilePointers(
 			for _, p := range judged {
 				require.NotContains(t, p, " ", "no fixture command's arguments reach the host")
 			}
+			times := map[string]int{}
+			for _, p := range judged {
+				times[filepath.ToSlash(p)]++
+			}
+			for i := 1; i <= tc.instructions; i++ {
+				for _, f := range []string{fmt.Sprintf(".claude/rules/k%d.md", i), fmt.Sprintf(".claude/skills/s%d/SKILL.md", i)} {
+					require.Equal(t, 1, times[f], "item 6a and 6b judge %s once: %v", f, judged)
+				}
+			}
 			require.NotContains(t, res.Text, "summary withheld", "no fixture preview names a denied path")
 			require.Contains(t, res.Text, " — "+previews[0]+"\n", "fixture: the previews reach section 6")
 		})
@@ -442,15 +451,77 @@ func TestRehydrateHostPaths_UsefulSummariesAreShownUnderTheUAT12Rules(t *testing
 			storePreview(t, map[string]string{"description": "run the tests", "prompt": "go test ./... and report the failures"}),
 			bash("grep -rn TODO src/"),
 			storePreview(t, map[string]string{"file_path": filepath.Join(root, "src", "main.go")}),
+			storePreview(t, map[string]string{"path": filepath.Join(root, "src"), "pattern": "**/*_test.go"}),
+			storePreview(t, map[string]string{"pattern": "**/*.{ts,tsx}"}),
+			storePreview(t, map[string]string{"pattern": "TODO|FIXME"}),
+			bash("go test ./... > test.log 2>&1; tail -n 50 test.log"),
+			bash(`git commit -m "feat(api): add users endpoint"`),
+			bash(`sed -n '1,50p' src/main.go`),
+			bash("git log --pretty=format:%h -n 3"),
+			storePreview(t, map[string]string{"query": "what's the owner's ruling"}),
 		},
 		[]string{
 			bash("cat .env"),
 			bash("cat secrets/token.txt"),
 			storePreview(t, map[string]string{"query": "path:private/deny.txt"}),
 			storePreview(t, map[string]string{"file_path": filepath.Join(root, "private", "deny.txt")}),
+			storePreview(t, map[string]string{"path": filepath.Join(root, "secrets"), "pattern": "*.txt"}),
+			storePreview(t, map[string]string{"pattern": "**/*.{go,env}"}),
+			bash(`cat 'secrets/token.txt'`),
+			storePreviewOf(t, map[string]any{"paths": []string{"file:///etc/passwd", "src/main.go"}}),
 		})
 	require.NotContains(t, res.Text, "deny.txt")
 	require.NotContains(t, res.Text, "token.txt")
+}
+
+// TestRehydrateHostPaths_AFileURLInAPathNamedValueIsOutsideTheProject is the D63 review's file-URL
+// finding through the real adapter: a `file:` URL in a path-named value was read by containment as a
+// project path whose first segment is `file:`, and the host, handed it as a path, refused nothing. It
+// is outside the project, as free text already was, and asks the host nothing.
+func TestRehydrateHostPaths_AFileURLInAPathNamedValueIsOutsideTheProject(t *testing.T) {
+	root := uat12Project(t, "proj")
+	res := requireToolSummaries(t, root,
+		[]string{storePreviewOf(t, map[string]any{"paths": []string{"src/main.go", "docs/b.md"}})},
+		[]string{
+			storePreviewOf(t, map[string]any{"directory": "file:///home/u/other"}),
+			storePreviewOf(t, map[string]any{"paths": []string{"file:///etc/passwd", "src/a.go"}}),
+			storePreviewOf(t, map[string]any{"cell_id": "c1", "notebook_path": "file:///home/u/nb.ipynb"}),
+			storePreviewOf(t, map[string]any{"args": []string{"status"}, "cwd": "file:///C:/Users/someone/secret"}),
+			storePreviewOf(t, map[string]any{"file": "file://fileserver/share/payroll.xlsx"}),
+		})
+	for _, leak := range []string{"passwd", "payroll", "someone", "nb.ipynb", "/home/u"} {
+		require.NotContains(t, res.Text, leak)
+	}
+}
+
+// TestRehydrateHostPaths_AnOutsideNamesakeNeverWithholdsAProjectPath is the D63 review's namesake
+// finding through the real adapter, in a project whose path has a space in it: a Read outside the
+// project (a dependency's README.md, a global settings.json, ~/.kube/config) withheld every Read of
+// the project's own file of the same name. A rooted Read spelled in one separator style is the exact
+// path the host judges, so only the rules' literals screen it.
+func TestRehydrateHostPaths_AnOutsideNamesakeNeverWithholdsAProjectPath(t *testing.T) {
+	root := uat12Project(t, "John Smith", "proj")
+	home := shortProjectDir(t, "home")
+	read := func(p string) string { return storePreview(t, map[string]string{"file_path": p}) }
+	res := requireToolSummaries(t, root,
+		[]string{
+			read(filepath.Join(root, "README.md")),
+			read(filepath.Join(root, ".claude", "settings.json")),
+			read(filepath.Join(root, "src", "lib.rs")),
+			read(filepath.Join(root, "config", "database.yml")),
+			read(filepath.Join(root, "go.mod")),
+		},
+		[]string{
+			read(filepath.Join(home, "mod", "cobra@v1.8.0", "README.md")),
+			read(filepath.Join(home, ".claude", "settings.json")),
+			read(filepath.Join(home, ".cargo", "x", "lib.rs")),
+			read(filepath.Join(home, ".kube", "config")),
+			read(filepath.Join(home, "elsewhere", "go.mod")),
+			read(filepath.Join(root, "private", "deny.txt")),
+		})
+	for _, leak := range []string{"cobra@", ".cargo", ".kube", "elsewhere", "deny.txt"} {
+		require.NotContains(t, res.Text, leak)
+	}
 }
 
 // shortProjectDir is a fresh project directory short enough that the previews a row builds of
@@ -517,9 +588,10 @@ func TestRehydrateHostPaths_ADeniedPathWithDelimitersIsWithheld(t *testing.T) {
 			add("toolu_denied", i*10+j, s)
 		}
 	}
-	// Only the comma and equals delimiters (allowed indices 3 and 4) are whitelist-safe; a parenthesis,
-	// an apostrophe or a space (indices 0, 1, 2) makes the allowed path withheld too under D63.
-	allowedSafe := map[int]bool{3: true, 4: true}
+	// The apostrophe between letters, the comma and the equals sign (allowed indices 2, 3 and 4) are
+	// whitelist-safe; an unquoted parenthesis (indices 0 and 1) makes the allowed path withheld too
+	// under D63.
+	allowedSafe := map[int]bool{2: true, 3: true, 4: true}
 	for i, f := range allowed {
 		prefix := "toolu_okno"
 		if allowedSafe[i] {
@@ -639,6 +711,8 @@ func TestRehydrateHostPaths_TheProjectRootFollowedByMoreWordsIsShown(t *testing.
 			bash := func(cmd string) string { return storePreview(t, map[string]string{"command": cmd}) }
 			shown := []string{
 				storePreview(t, map[string]string{"path": root, "pattern": "TODO"}),
+				// A Glob preview of the root is one structured glob (ADR 0011 §23 item 6).
+				storePreview(t, map[string]string{"path": root, "pattern": "**/*.go"}),
 				bash("cd " + root + " && go test ./..."),
 				bash("git -C " + root + " status --short"),
 			}
@@ -646,8 +720,6 @@ func TestRehydrateHostPaths_TheProjectRootFollowedByMoreWordsIsShown(t *testing.
 				bash("cd " + root + " && cat private/deny.txt"),
 				storePreview(t, map[string]string{"file_path": filepath.Join(root+"2", "x.txt")}),
 				bash(`cat "` + filepath.Join(root+" old", "x.txt") + `"`),
-				// D63 over-withholds a glob pattern in free text, though its directory is the project root.
-				storePreview(t, map[string]string{"path": root, "pattern": "**/*.go"}),
 			}
 			res := requireToolSummaries(t, root, shown, withheld)
 			require.NotContains(t, res.Text, "deny.txt")
@@ -828,14 +900,14 @@ func TestRehydrateHostPaths_AnApostropheInTheRootIsNotAnOpenQuote(t *testing.T) 
 	res := requireToolSummaries(t, root,
 		[]string{
 			storePreview(t, map[string]string{"path": root, "pattern": "TODO"}),
+			// A Glob preview of the root is one structured glob (ADR 0011 §23 item 6).
+			storePreview(t, map[string]string{"path": root, "pattern": "**/*.go"}),
 			bash("cd " + root + " && go test ./..."),
 			bash("git -C " + root + " status --short"),
 		},
 		[]string{
 			bash("cd " + root + " && cat private/deny.txt"),
 			bash(`cat "` + filepath.Join(root+" old", "x.txt") + `"`),
-			// D63 over-withholds a glob pattern in free text (the apostrophe in the root is still not a quote).
-			storePreview(t, map[string]string{"path": root, "pattern": "**/*.go"}),
 		})
 	require.NotContains(t, res.Text, "deny.txt")
 }

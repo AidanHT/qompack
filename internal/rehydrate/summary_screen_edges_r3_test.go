@@ -197,12 +197,13 @@ func TestBuild_AQuoteThenAnEscapedSpaceAfterTheRootNamesASibling(t *testing.T) {
 	root := previewRoot("proj")
 	fwd := filepath.ToSlash(root)
 	requireScreened(t, root, hostRules(root, uat12Rules...), nil,
-		[]string{`cd "` + root + `" && make`},
+		// A single-quoted run is judged as a double-quoted run's content is, so the root in one, followed by
+		// a separate word, is shown as it was before D63.
+		[]string{`cd "` + root + `" && make`, `cat '` + fwd + `' old/x.txt`},
 		[]string{
-			// D63 over-withholds a closing quote glued to more of a path (`"<root>"/x.txt`) and a single
-			// quote anywhere; the escaped-space siblings stay withheld by the same unsafe characters.
+			// D63 over-withholds a closing quote glued to more of a path (`"<root>"/x.txt`); the
+			// escaped-space siblings stay withheld by the unsafe characters glued to the quote.
 			`cat "` + fwd + `"/x.txt`,
-			`cat '` + fwd + `' old/x.txt`,
 			`cat "` + fwd + `"\ old/x.txt`,
 			`cat '` + fwd + `'\ old/x.txt`,
 			"Get-Content \"" + root + "\"` old" + string(filepath.Separator) + "x.txt",
@@ -314,10 +315,11 @@ func TestBuild_ARuleOverTheProjectThroughAnAliasWithholdsEveryFreeText(t *testin
 
 // TestBuild_ARootedWordThatIsNoPathPoisonsNoFreeText: a one-word summary that looks rooted but names
 // no path (a SlashCommand preview `/review`, a Grep route `/api/v1/users`, a backslash-led regular
-// expression without regexLike's signatures `\.test\.ts`) is withheld as a path outside the project,
-// as its shape says, but was also noted as a withheld path whose last segment withheld unrelated free
-// text in the same build. A one-segment POSIX word is no path (D61(2)(c)), a backslash-led word is no
-// POSIX path, and no Windows tool takes a drive-less path, so none of them is noted.
+// expression `\.test\.ts`) is withheld as a path outside the project, as its shape says (under D63
+// for its leading separator, ADR 0011 §23 item 7(b)), but was also noted as a withheld path whose
+// last segment withheld unrelated free text in the same build. A one-segment POSIX word is no path
+// (D61(2)(c)), a backslash-led word is no POSIX path, and no Windows tool takes a drive-less path,
+// so none of them is noted.
 func TestBuild_ARootedWordThatIsNoPathPoisonsNoFreeText(t *testing.T) {
 	root := previewRoot("proj")
 	cases := []struct{ poison, victim string }{

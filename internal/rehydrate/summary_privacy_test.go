@@ -243,23 +243,26 @@ func TestBuild_AnAbsolutePathIsJudgedAsTheOneFileItNames(t *testing.T) {
 // paths only inside segments it split at those very characters, so it never judged the path whole
 // and section 6 showed it, while the file pointer for the same path was withheld.
 // A denied path holding a delimiter is withheld whatever the delimiter. Under D63 an allowed path of
-// the same shape is shown ONLY when the delimiter is whitelist-safe (`,` and `=`): a parenthesis, an
-// apostrophe or a space makes every token unsafe, so the allowed path is withheld too (accepted
-// over-withholding, ADR 0011 §23). The denied path is withheld either way, by the rule's literal
-// (`a,b.txt`, `k=v.txt`) or by the unsafe character.
+// the same shape is shown when the whitelist vouches for the delimiter: a comma, an equals sign and
+// an apostrophe between letters everywhere, a parenthesis only inside a double-quoted run (`cat
+// "docs/draft (1).md"`); an unquoted parenthesis makes its token unsafe, so those spellings of the
+// allowed path are withheld too (accepted over-withholding, ADR 0011 §23). The denied path is
+// withheld either way, by the rule's literal (`a,b.txt`, `John's notes.txt`) or by the unsafe
+// character.
 func TestBuild_DelimiterCharactersInADeniedPathNeverShowIt(t *testing.T) {
 	for _, tc := range []struct {
 		denied, allowed, leak string
 		// unquoted: the path needs no quoting in a command, so it may be an option's value there.
 		unquoted bool
-		// allowedShown: the delimiter is whitelist-safe, so the allowed path of the same shape is shown.
-		allowedShown bool
+		// quotedOnly: the delimiter is safe only inside a double-quoted run, so only the allowed path's
+		// `cat "…"` spellings are shown; otherwise every spelling of the allowed path is shown.
+		quotedOnly bool
 	}{
-		{"private/deny (1).txt", "docs/draft (1).md", "deny (1)", false, false},
-		{"private/deny(2).txt", "docs/draft(2).md", "deny(2)", true, false},
+		{"private/deny (1).txt", "docs/draft (1).md", "deny (1)", false, true},
+		{"private/deny(2).txt", "docs/draft(2).md", "deny(2)", true, true},
 		{"private/John's notes.txt", "docs/John's notes.md", "John's notes.txt", false, false},
-		{"private/a,b.txt", "docs/a,b.md", "a,b.txt", true, true},
-		{"private/k=v.txt", "docs/k=v.md", "k=v.txt", true, true},
+		{"private/a,b.txt", "docs/a,b.md", "a,b.txt", true, false},
+		{"private/k=v.txt", "docs/k=v.md", "k=v.txt", true, false},
 	} {
 		t.Run(tc.denied, func(t *testing.T) {
 			root := previewRoot("proj")
@@ -305,7 +308,7 @@ func TestBuild_DelimiterCharactersInADeniedPathNeverShowIt(t *testing.T) {
 					"a summary naming the denied path %q is withheld", tp.Summary)
 			}
 			for _, tp := range allowed {
-				if tc.allowedShown {
+				if !tc.quotedOnly || strings.HasPrefix(tp.Summary, `cat "`) {
 					require.Contains(t, section6, pointerLine("tool_use "+string(tp.ToolUseID), tp.Hash, tp.Summary),
 						"a safe-delimiter allowed path is shown as recorded")
 				} else {
@@ -335,6 +338,8 @@ func TestBuild_AProjectPathWithASpaceShowsItsOwnAbsolutePaths(t *testing.T) {
 		src + " TODO",
 		`cat "` + src + `"`,
 		`{"notebook_path":"` + strings.ReplaceAll(src, `\`, `\\`) + `"}`,
+		// A Glob preview of a directory under the root is one structured glob (ADR 0011 §23 item 6).
+		filepath.Join(root, "src") + " *.go",
 	}
 	withheld := []string{
 		deny,
@@ -345,9 +350,6 @@ func TestBuild_AProjectPathWithASpaceShowsItsOwnAbsolutePaths(t *testing.T) {
 		`cat "` + sibling + `"`,
 		filepath.Join(base, "John Smith", "proj2", "x.txt"),
 		"ls " + filepath.Join(base, "John"),
-		// Criterion change (D63): a glob in free text is never shown, though this one's directory is the
-		// project's own src.
-		filepath.Join(root, "src") + " *.go",
 	}
 	for _, s := range append(append([]string(nil), shown...), withheld...) {
 		require.LessOrEqual(t, len(s), previewWidth, "fixture: %q is wider than a store preview", s)
@@ -449,6 +451,8 @@ func TestBuild_TheProjectRootFollowedByMoreWordsIsShown(t *testing.T) {
 			sep := string(filepath.Separator)
 			shown := []string{
 				root + " TODO",
+				// A Glob preview of a directory under the root is one structured glob (ADR 0011 §23 item 6).
+				root + " **/*.go",
 				slash + " TODO",
 				root + " func main",
 				"cd " + root + " && go test ./...",
@@ -462,8 +466,6 @@ func TestBuild_TheProjectRootFollowedByMoreWordsIsShown(t *testing.T) {
 				`{"file_path":"` + strings.ReplaceAll(root+" old"+sep+"x.txt", `\`, `\\`) + `"}`,
 				"cd " + root + " && cat private/deny.txt",
 				root + sep + "private deny.txt",
-				// D63 over-withholds a glob pattern in free text, though the directory is the project root.
-				root + " **/*.go",
 			}
 			requireSummaries(t, root, []string{"private/deny.txt"}, nil, shown, withheld,
 				[]string{"deny.txt", "proj2", "old" + sep + "x.txt", strings.ReplaceAll("old"+sep+"x.txt", `\`, `\\`)})
@@ -478,8 +480,10 @@ func TestBuild_TheProjectRootFollowedByMoreWordsIsShown(t *testing.T) {
 // `&&` ends a word without a space. Each is withheld relative and absolute.
 //
 // Criterion change (D63): the same shapes naming allowed files are withheld too, since each holds an
-// apostrophe, a backtick, a parenthesis, a quote inside a run, an `&` glued to a word or a backslash
-// that ends a token (an escaped space), none of which the whitelist proves inert.
+// apostrophe beside a quote or a backslash, a backtick, an unquoted parenthesis, a quote inside a run
+// or a backslash that ends a token (an escaped space), none of which the whitelist proves inert. A
+// `&&` glued to a word splits it (operatorPieces), so those shapes naming allowed files are shown, as
+// they were before D63.
 func TestBuild_ShellQuotingAndEscapesNeverShowADeniedPath(t *testing.T) {
 	root := previewRoot("proj")
 	slash := strings.ReplaceAll(root, `\`, "/")
@@ -521,8 +525,16 @@ func TestBuild_ShellQuotingAndEscapesNeverShowADeniedPath(t *testing.T) {
 		shapes func(dir, ext string) []string
 	}{{"relative", relative}, {"absolute", absolute}} {
 		t.Run(tc.name, func(t *testing.T) {
-			withheld := append(tc.shapes("docs", ".md"), tc.shapes("private", ".txt")...)
-			requireSummaries(t, root, denied, nil, nil, withheld, leaks)
+			var shown, withheld []string
+			for _, s := range tc.shapes("docs", ".md") {
+				if strings.Contains(s, "&&") && !strings.Contains(s, " && ") {
+					shown = append(shown, s)
+					continue
+				}
+				withheld = append(withheld, s)
+			}
+			withheld = append(withheld, tc.shapes("private", ".txt")...)
+			requireSummaries(t, root, denied, nil, shown, withheld, leaks)
 		})
 	}
 }
