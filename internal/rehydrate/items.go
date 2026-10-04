@@ -1436,6 +1436,12 @@ func buildSkillIndex(ctx context.Context, r Request, d Deps, bodyTokens bodyToke
 		log.Warn("rehydrate: compact skill index unavailable", "root", r.ProjectRoot, "err", keptErr.Error())
 		return b
 	}
+	// A skill file the build withholds (outside the project, refused by the host's rules, or every
+	// one while the rules cannot be established) is neither indexed nor named, as item 6a's rule files
+	// are (D50, D61(3)): its name and description are its content, and its drop entry's restore call
+	// names its path. The session could not have read it, so it is no loss.
+	judge := pathJudgeFor(r, d)
+	all, kept = indexableSkills(all, judge), indexableSkills(kept, judge)
 
 	inIndex := make(map[string]struct{}, len(kept))
 	for _, e := range kept {
@@ -1491,6 +1497,18 @@ func buildSkillIndex(ctx context.Context, r Request, d Deps, bodyTokens bodyToke
 		})
 	}
 	return b
+}
+
+// indexableSkills is es without the skills whose file j withholds, in a new slice; es is never
+// modified.
+func indexableSkills(es []skills.Entry, j pathJudge) []skills.Entry {
+	out := make([]skills.Entry, 0, len(es))
+	for _, e := range es {
+		if !j.withheld(e.Source) {
+			out = append(out, e)
+		}
+	}
+	return out
 }
 
 // buildDropReport is item 7: what is no longer in context, named well enough to be asked for again

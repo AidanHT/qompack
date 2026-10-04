@@ -18,6 +18,8 @@ import (
 	"github.com/qompack/qompack/internal/logging"
 	"github.com/qompack/qompack/internal/paths"
 	"github.com/qompack/qompack/internal/rehydrate"
+	"github.com/qompack/qompack/internal/rules"
+	"github.com/qompack/qompack/internal/skills"
 	"github.com/qompack/qompack/internal/store"
 )
 
@@ -161,6 +163,14 @@ func TestRehydrateHostPaths_EverySpellingOfADeniedFileIsWithheld(t *testing.T) {
 	require.Contains(t, res.Text, `{"query":"ORCHID-DENY-8842"}`, "a summary that names no path is shown")
 }
 
+// writeProjectText creates rel (and its directories) under root with body.
+func writeProjectText(t *testing.T, root, rel, body string) {
+	t.Helper()
+	p := filepath.Join(root, filepath.FromSlash(rel))
+	require.NoError(t, os.MkdirAll(paths.Long(filepath.Dir(p)), 0o700))
+	require.NoError(t, os.WriteFile(paths.Long(p), []byte(body), 0o600))
+}
+
 // writeProjectFile creates rel (and its directories) under root.
 func writeProjectFile(t *testing.T, root, rel string) {
 	t.Helper()
@@ -193,6 +203,9 @@ const (
 	// each cost build carries: enough that the bound below is not met by a build that judges nothing.
 	rehydrateCostFiles = 10
 	rehydrateCostReads = 10
+	// rehydrateCostInstructions is how many `paths:` rule files and skills the instruction variant's
+	// project holds: enough that a build judging none of them, or each twice, fails the bound.
+	rehydrateCostInstructions = 5
 	// rehydrateCostPreviewMax is the width of the store's preview (store.argsPreviewMax), which
 	// every fixture preview stays within, as a real one does.
 	rehydrateCostPreviewMax = 120
@@ -239,8 +252,10 @@ func costPointers(t *testing.T, previews []string) []checkpoint.ToolPointer {
 // costBuild builds the rehydration of root's checkpoint, with the cost fixture's file pointers and
 // structured summaries beside the free-text previews, through the real adapter and the real host
 // rules, and returns its result, how many host judgements (Refuses calls) the build made, and the
-// paths it judged.
-func costBuild(t *testing.T, root string, previews []string) (rehydrate.Result, int, []string) {
+// paths it judged. With instructions > 0 the project also holds that many `paths:` rule files
+// scoped to the file pointers and that many skills, which items 6a and 6b restore through the real
+// rule scanner and skill indexer.
+func costBuild(t *testing.T, root string, previews []string, instructions int) (rehydrate.Result, int, []string) {
 	t.Helper()
 	var reads []string
 	files := make([]checkpoint.FilePointer, 0, rehydrateCostFiles)
@@ -260,7 +275,17 @@ func costBuild(t *testing.T, root string, previews []string) (rehydrate.Result, 
 	judgements := 0
 	var judged []string
 	hp := rehydrateHostPaths(mcpOpHostPolicy(t, root), root, logging.Nop())
-	deps := rehydrate.Deps{HostPaths: func() rehydrate.HostRules {
+	var deps rehydrate.Deps
+	if instructions > 0 {
+		for i := 1; i <= instructions; i++ {
+			writeProjectText(t, root, fmt.Sprintf(".claude/rules/k%d.md", i),
+				fmt.Sprintf("---\npaths:\n  - \"pkg/**\"\n---\nRule %d body.\n", i))
+			writeProjectText(t, root, fmt.Sprintf(".claude/skills/s%d/SKILL.md", i),
+				fmt.Sprintf("---\nname: s%d\ndescription: skill %d\n---\nSkill %d body.\n", i, i, i))
+		}
+		deps.Rules, deps.Skills = rules.New(), skills.New()
+	}
+	deps.HostPaths = func() rehydrate.HostRules {
 		rules := hp()
 		require.NotNil(t, rules.Refuses, "fixture: the host's rules are established")
 		refuses := rules.Refuses
@@ -270,7 +295,7 @@ func costBuild(t *testing.T, root string, previews []string) (rehydrate.Result, 
 			return refuses(p)
 		}
 		return rules
-	}}
+	}
 	start := time.Now()
 	res, err := rehydrate.Build(context.Background(), req, deps)
 	require.NoError(t, err)
@@ -295,11 +320,13 @@ const maxCostJudgements = rehydrateCostFiles + rehydrateCostReads
 // and URLs (the round-2 cost review's first gap), commands spelling the project root absolutely
 // (its second), and path-named JSON arrays of several values (the w19c round-2 review's). A
 // summary that starts at the root and goes on below it with a space may be a Read of a path with a
-// space in it, so it is a structured summary and costs one judgement: of its path only, the stretch
-// from the root through its last word that holds a separator, never its arguments (the round-2
-// review's commands run from the root, whose `HEAD~N` the host refuses on Windows as an 8.3 name).
-// A build judges exactly its file pointers and its structured summaries, once each. The pass
-// criterion is the count and the paths judged; the wall time is logged, never judged.
+// space in it, so it is a structured summary and costs one judgement: of its path part, the stretch
+// from the root through its last word that holds a separator, which in this fixture's commands is
+// the script's path alone (the round-2 review's commands run from the root, whose `HEAD~N` the host
+// refuses on Windows as an 8.3 name; a later argument holding a separator would reach the host too).
+// The rule files and skills items 6a and 6b restore cost one judgement each (the round-3 review). A
+// build judges exactly its file pointers, its structured summaries and those files, once each. The
+// pass criterion is the count and the paths judged; the wall time is logged, never judged.
 func TestRehydrateHostPaths_HostJudgementsAreStructuredSummariesAndFilePointers(t *testing.T) {
 	root := costProject(t)
 	slash := strings.ReplaceAll(root, `\`, "/")
@@ -309,12 +336,15 @@ func TestRehydrateHostPaths_HostJudgementsAreStructuredSummariesAndFilePointers(
 		preview func(i int) string
 		// rooted is how many of the previews are structured summaries that start at the root.
 		rooted int
+		// instructions is how many `paths:` rule files and skills the project holds (costBuild): each
+		// rule file item 6a would restore and each skill file item 6b would index is judged once.
+		instructions int
 	}{
 		{"Bash", func(i int) string {
 			s := rehydrateCostPreview(i)
 			require.Len(t, strings.Fields(s), rehydrateCostWords, "fixture: %q", s)
 			return s
-		}, 0},
+		}, 0, 0},
 		{"canonical JSON and URLs", func(i int) string {
 			switch i % 4 {
 			case 0:
@@ -328,7 +358,7 @@ func TestRehydrateHostPaths_HostJudgementsAreStructuredSummariesAndFilePointers(
 				return bash(fmt.Sprintf("curl -s https://example.com/api/v%d/items?page=%d | jq .items > out%d.json", i, i, i))
 			}
 			return storePreview(t, map[string]string{"url": fmt.Sprintf("https://example.com/docs/v%d/guide.html", i)})
-		}, 0},
+		}, 0, 0},
 		{"absolute paths", func(i int) string {
 			switch i % 3 {
 			case 0:
@@ -337,28 +367,29 @@ func TestRehydrateHostPaths_HostJudgementsAreStructuredSummariesAndFilePointers(
 				return bash(fmt.Sprintf("git -C %s log --oneline -n %d", root, i))
 			}
 			return bash(fmt.Sprintf("diff %s src/b%d.go", filepath.Join(root, "src", fmt.Sprintf("a%d.go", i)), i))
-		}, 0},
+		}, 0, 0},
 		{"path-named arrays", func(i int) string {
 			var values []string
 			for _, c := range "abcdef" {
 				values = append(values, fmt.Sprintf("s/%c%d.go", c, i))
 			}
 			return storePreviewOf(t, map[string]any{"paths": values})
-		}, 0},
+		}, 0, 0},
 		{"commands run from the root", func(i int) string {
 			return bash(fmt.Sprintf("%s --since HEAD~%d && echo ok", filepath.Join(root, "tools", fmt.Sprintf("lint%d.ps1", i)), i))
-		}, rehydrateCostPointers},
+		}, rehydrateCostPointers, 0},
+		{"instruction and skill files", rehydrateCostPreview, 0, rehydrateCostInstructions},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			previews := make([]string, 0, rehydrateCostPointers)
 			for i := 1; i <= rehydrateCostPointers; i++ {
 				previews = append(previews, tc.preview(i))
 			}
-			res, judgements, judged := costBuild(t, root, previews)
-			require.Equal(t, maxCostJudgements+tc.rooted, judgements,
-				"a build judges each file pointer and structured summary once, and no free text")
+			res, judgements, judged := costBuild(t, root, previews, tc.instructions)
+			require.Equal(t, maxCostJudgements+tc.rooted+2*tc.instructions, judgements,
+				"a build judges each file pointer, structured summary, rule file and skill file once, and no free text")
 			for _, p := range judged {
-				require.NotContains(t, p, " ", "a command's arguments never reach the host")
+				require.NotContains(t, p, " ", "no fixture command's arguments reach the host")
 			}
 			require.NotContains(t, res.Text, "summary withheld", "no fixture preview names a denied path")
 			require.Contains(t, res.Text, " — "+previews[0]+"\n", "fixture: the previews reach section 6")

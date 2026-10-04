@@ -761,9 +761,11 @@ func hostPolicyFor(o *Options) *hostperm.Policy {
 // The snapshot also hands rehydrate every rule's path specifier (RuleSet.ReadRulePatterns), which
 // its free-text screen reads with no host judgement (coordinator decision D61, ADR 0011 §23.5):
 // Refuses is asked only about file pointers, path-keyed checkpoint drops, structured summaries (one
-// path each: a summary that starts at the project root hands only its path part, never a command's
-// arguments) and the instruction files item 6a would restore, once each per build, so a build costs
-// at most two Evaluates for each of those, whatever its commands and queries say.
+// path each: a summary that starts at the project root hands its path part, the stretch from the
+// root through its last word that holds a separator, which may include an argument that holds one),
+// the instruction and skill files items 6a and 6b would restore, and, while a rule anchored outside
+// the project is in force, one fresh name below the root, once each per build, so a build costs at
+// most two Evaluates for each of those, whatever its commands and queries say.
 func rehydrateHostPaths(p *hostperm.Policy, root string, log logging.Logger) rehydrate.HostPaths {
 	return func() rehydrate.HostRules {
 		rules, err := p.Snapshot()
