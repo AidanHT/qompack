@@ -30,7 +30,7 @@ func TestRun_LogsATakenOverLockAndASpoolReplay(t *testing.T) {
 	writeClientSpoolLine(t, root, "client-88888.ndjson", spooledObserveTool(root, "sess-outage"))
 
 	log := newRecordingLogger()
-	d, err := New(Options{ProjectRoot: root, Cfg: testConfig(), Log: log, Clock: core.SystemClock()})
+	d, err := New(Options{ProjectRoot: root, Cfg: runTestConfig(), Log: log, Clock: core.SystemClock()})
 	require.NoError(t, err)
 	ctx, cancel := context.WithTimeout(context.Background(), drainDeadlockGuard)
 	defer cancel()

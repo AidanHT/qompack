@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -28,6 +29,18 @@ import (
 
 // testConfig returns config.Defaults(), the sane baseline every daemon-level test builds on.
 func testConfig() config.Config { return config.Defaults() }
+
+// runTestConfig is testConfig for a row that runs a daemon and waits, bounded only by hangGuard, for
+// Run to return. Its idle exit is out of reach (IdleExitSeconds is the int32 maximum, about 68
+// years), so Run returns only for the reason the row names: an admin.shutdown, a cancellation, a
+// closed server. With the default 30-minute window, a Run whose named path is broken would still
+// idle-exit, through Stop, before hangGuard fired under a go test -timeout past about half an hour,
+// and that exit satisfies every wait such a row makes (wave 22).
+func runTestConfig() config.Config {
+	cfg := testConfig()
+	cfg.Runtime.Daemon.IdleExitSeconds = math.MaxInt32
+	return cfg
+}
 
 // uniqueTestAddr returns a QOMPACK_IPC_ADDR value naming an endpoint private to this test: a
 // per-test-uniquely-named pipe on Windows, a socket in a fresh short directory on POSIX. Only tests
@@ -493,7 +506,7 @@ func TestStartupDrainOfSpooledFlushLineDoesNotWedgeRun(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Dir(spoolPath), 0o700))
 	require.NoError(t, os.WriteFile(paths.Long(spoolPath), append(line, '\n'), 0o600))
 
-	d, err := New(Options{ProjectRoot: root, Cfg: testConfig(), Log: logging.Nop(), Clock: core.SystemClock()})
+	d, err := New(Options{ProjectRoot: root, Cfg: runTestConfig(), Log: logging.Nop(), Clock: core.SystemClock()})
 	require.NoError(t, err)
 
 	ctx, cancel := context.WithTimeout(context.Background(), drainDeadlockGuard)
@@ -588,7 +601,7 @@ func TestRedrainOnFirstServedRequest(t *testing.T) {
 	observed := make(chan core.SessionID, 4)
 	var o Options
 	o.ProjectRoot = root
-	o.Cfg = testConfig()
+	o.Cfg = runTestConfig()
 	o.Log = logging.Nop()
 	o.Clock = core.SystemClock()
 	o.Bind(func(s *Services) {
@@ -990,7 +1003,7 @@ func TestRunReturnsNilWhenLockHeld(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("QOMPACK_IPC_ADDR", uniqueTestAddr(t))
 
-	cfg := testConfig()
+	cfg := runTestConfig()
 	dA, err := New(Options{ProjectRoot: root, Cfg: cfg, Log: logging.Nop(), Clock: core.SystemClock()})
 	require.NoError(t, err)
 	ctxA, cancelA := context.WithCancel(context.Background())
@@ -1026,12 +1039,15 @@ func TestAdminShutdownStopsTheDaemon(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("QOMPACK_IPC_ADDR", uniqueTestAddr(t))
 
-	d, err := New(Options{ProjectRoot: root, Cfg: testConfig(), Log: logging.Nop(), Clock: core.SystemClock()})
+	d, err := New(Options{ProjectRoot: root, Cfg: runTestConfig(), Log: logging.Nop(), Clock: core.SystemClock()})
 	require.NoError(t, err)
 	dd, ok := d.(*daemon)
 	require.True(t, ok)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	// No deadline on Run's context, and no idle exit (runTestConfig): admin.shutdown is the only thing
+	// that can end Run, so Run returning is evidence of it. A context with a timeout would end Run
+	// through its own ctx.Done arm, and through Stop, whether admin.shutdown stopped anything or not.
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	errCh := make(chan error, 1)
 	go func() { errCh <- d.Run(ctx) }()
@@ -1093,7 +1109,7 @@ func TestRunReturnsOnlyAfterAsyncStopHasFinished(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("QOMPACK_IPC_ADDR", uniqueTestAddr(t))
 
-	d, err := New(Options{ProjectRoot: root, Cfg: testConfig(), Log: logging.Nop(), Clock: core.SystemClock()})
+	d, err := New(Options{ProjectRoot: root, Cfg: runTestConfig(), Log: logging.Nop(), Clock: core.SystemClock()})
 	require.NoError(t, err)
 
 	dd, ok := d.(*daemon)
@@ -1102,7 +1118,9 @@ func TestRunReturnsOnlyAfterAsyncStopHasFinished(t *testing.T) {
 	addr, err := ipc.Resolve(root)
 	require.NoError(t, err)
 
-	ctx, cancel := context.WithTimeout(context.Background(), drainDeadlockGuard)
+	// As in TestAdminShutdownStopsTheDaemon: no deadline and no idle exit, so only admin.shutdown can
+	// end Run.
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	errCh := make(chan error, 1)
 	go func() { errCh <- d.Run(ctx) }()
@@ -1171,7 +1189,7 @@ func TestServeFailureTakesTheStopPath(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("QOMPACK_IPC_ADDR", uniqueTestAddr(t))
 
-	d, err := New(Options{ProjectRoot: root, Cfg: testConfig(), Log: logging.Nop(), Clock: core.SystemClock()})
+	d, err := New(Options{ProjectRoot: root, Cfg: runTestConfig(), Log: logging.Nop(), Clock: core.SystemClock()})
 	require.NoError(t, err)
 	dd, ok := d.(*daemon)
 	require.True(t, ok)
@@ -1367,7 +1385,7 @@ func TestRunCtxDoneGoesThroughStop(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("QOMPACK_IPC_ADDR", uniqueTestAddr(t))
 
-	d, err := New(Options{ProjectRoot: root, Cfg: testConfig(), Log: logging.Nop(), Clock: core.SystemClock()})
+	d, err := New(Options{ProjectRoot: root, Cfg: runTestConfig(), Log: logging.Nop(), Clock: core.SystemClock()})
 	require.NoError(t, err)
 
 	ctx, cancel := context.WithCancel(context.Background())
