@@ -908,3 +908,123 @@ func TestWrapServices_AReplayedSessionStartMovesNoAnchorAndRebindsNothing(t *tes
 		require.Equal(t, rtSession, bound(), "a replayed start of a live session binds it, as its first hook would")
 	})
 }
+
+// TestSessionStartRoute_AReplayedStartBindsOnlyASessionThatWasLive is the wave 22 verifier's
+// finding against the row above, which calls the tap's seam alone: through the real session.start
+// route, the route registers the replayed start's session (registry.Ensure) before the tap runs, and
+// Ensure marks every session it registers live, an ended one included. So the tap's liveness question
+// always said yes for the replayed start's own session, and a replay of a session that ended, or that
+// no hook of this daemon has touched, bound an unbound runtime. And a replayed start of the live
+// session no longer rebound a runtime still bound to a session that had ended, which base did: the
+// live session then ran on the ended one's account, with p-selection off, until its next compaction.
+// The tap now asks whether the session was live before the route's own Ensure: a replayed start binds
+// an unbound runtime, or rebinds one whose session is no longer live, only when its session was.
+func TestSessionStartRoute_AReplayedStartBindsOnlyASessionThatWasLive(t *testing.T) {
+	ctx := context.Background()
+	const ended, live, unseen core.SessionID = "sess-ended", "sess-live", "sess-never-seen"
+	attached := func(t *testing.T) (*daemon, *schedRuntime) {
+		t.Helper()
+		dd, o, r := tappedDaemon(t)
+		r.mu.Lock()
+		r.d = dd // what RegisterSchedulerIdleWork does in production
+		r.mu.Unlock()
+		// A compaction opens the negative-knowledge ledger lazily, and no Run closes it here; Windows
+		// will not delete an open file.
+		t.Cleanup(func() {
+			if l := o.LedgerHandle(); l != nil {
+				_ = l.Close()
+			}
+		})
+		return dd, r
+	}
+	bound := func(r *schedRuntime) core.SessionID {
+		return tapReadOnly(r, func(r *schedRuntime) core.SessionID { return r.session })
+	}
+	activity := func(r *schedRuntime) core.UnixMilli {
+		return tapReadOnly(r, func(r *schedRuntime) core.UnixMilli { return r.lastActivity })
+	}
+	startOf := func(dd *daemon, sess core.SessionID, source string, nonce rune) ipc.Request {
+		return ipc.Request{
+			Op: ipc.OpSessionStart, Session: sess, TS: core.NowMilli(dd.clk), Nonce: testDeliveryToken(nonce),
+			Event: &hookio.Event{HookEventName: "SessionStart", SessionID: sess, CWD: dd.root, Source: source},
+			Reply: true,
+		}
+	}
+	// replay is a drain's replay of a spooled start through the route, joined with the work a compact
+	// start leaves running after the route answers.
+	replay := func(t *testing.T, dd *daemon, req ipc.Request) {
+		t.Helper()
+		require.True(t, dd.dispatchOp(withSpoolReplay(ctx), req).OK)
+		dd.promptWG.Wait()
+	}
+	// boundToEnded binds the runtime by ended's live start, then ends ended as the flush route does:
+	// the registry first, then the SessionEnd seam, whose tap persists and closes the runtime and keeps
+	// its binding.
+	boundToEnded := func(t *testing.T, dd *daemon, r *schedRuntime) {
+		t.Helper()
+		req := startOf(dd, ended, "startup", 'a')
+		require.True(t, dd.dispatchOp(ctx, req).OK)
+		require.Equal(t, ended, bound(r), "fixture sanity: the live start binds")
+		dd.registry.End(ended, core.NowMilli(dd.clk))
+		require.NoError(t, dd.svc.SessionEnd(ctx, *req.Event))
+		require.Equal(t, ended, bound(r), "fixture sanity: an end keeps the binding")
+	}
+
+	t.Run("the live session after the bound one ended", func(t *testing.T) {
+		dd, r := attached(t)
+		boundToEnded(t, dd, r)
+		dd.registry.Touch(live, core.NowMilli(dd.clk)) // its live hooks; its own start was spooled
+
+		replay(t, dd, startOf(dd, live, "startup", 'b'))
+
+		require.Equal(t, live, bound(r), "the live session's replayed start takes the runtime from the ended one")
+		require.Zero(t, activity(r), "and notes no activity at the replay's instant")
+	})
+	for _, source := range []string{"startup", sessionSourceCompact} {
+		t.Run("a live session on an unbound runtime, "+source, func(t *testing.T) {
+			dd, r := attached(t)
+			dd.registry.Touch(live, core.NowMilli(dd.clk))
+
+			replay(t, dd, startOf(dd, live, source, 'c'))
+
+			require.Equal(t, live, bound(r), "binds it, as its first hook would")
+			require.Zero(t, activity(r), "and notes no activity at the replay's instant")
+		})
+	}
+	t.Run("another live session while the bound one is live", func(t *testing.T) {
+		dd, r := attached(t)
+		require.True(t, dd.dispatchOp(ctx, startOf(dd, rtSession, "startup", 'd')).OK)
+		dd.registry.Touch(live, core.NowMilli(dd.clk))
+
+		replay(t, dd, startOf(dd, live, "startup", 'e'))
+
+		require.Equal(t, rtSession, bound(r), "a replayed start does not take the runtime from a live session")
+	})
+	for _, tc := range []struct {
+		name  string
+		sess  core.SessionID
+		bound bool
+	}{
+		{name: "a never-seen session on an unbound runtime", sess: unseen},
+		{name: "an ended session on an unbound runtime", sess: ended},
+		{name: "a never-seen session on a runtime bound to an ended one", sess: unseen, bound: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dd, r := attached(t)
+			want := core.SessionID("")
+			if tc.bound {
+				boundToEnded(t, dd, r)
+				want = ended
+			} else if tc.sess == ended {
+				now := core.NowMilli(dd.clk)
+				dd.registry.Ensure(&hookio.Event{SessionID: ended, Source: "startup"}, now)
+				dd.registry.End(ended, now)
+			}
+			require.False(t, dd.registry.IsLive(tc.sess), "fixture sanity: the replayed start's session is not live")
+
+			replay(t, dd, startOf(dd, tc.sess, "startup", 'f'))
+
+			require.Equal(t, want, bound(r), "a replayed start of a session that was not live binds nothing")
+		})
+	}
+}
