@@ -65,11 +65,11 @@ Machine. Tests ran at -p 2, one go test at a time, and I killed no process. My L
 ### Tests
 
 - `go test -p 2 -count=1 ./internal/rehydrate/ (Windows, HEAD f2171654)`: ok
-- `go test -p 2 -count=1 -run <the 80 daemon rehydrate rows, list in scratchpad w19e/daemon_names.txt> -v ./internal/daemon/ (Windows, fc6d60cc; no code change since)`: ok: 79 PASS, 1 SKIP (TestService_StateWriteFailureStillEmits is skipped on Windows by design), 0 FAIL
-- `go test -p 2 -count=20 -run <the 16 new rows plus TestBuild_ASinglePercentIsShownAndAPairIsNot, TestBuild_APathSelectorAfterAQuoteOrEqualsIsJudged, TestBuild_ADriveLessGlobOutsideTheProjectIsWithheld, TestBuild_ACaretEscapedSeparatorIsASeparator> ./internal/rehydrate/ (Windows)`: ok: 400 PASS, 0 FAIL
+- `go test -p 2 -count=1 -run <the 80 daemon rehydrate rows, list in scratchpad w19e/daemon_names.txt> -v ./internal/daemon/ (Windows, fc6d60cc; no code change since)`: ok: 79 PASS, 1 SKIP (TestService_StateWriteFailureStillEmits is skipped on Windows by design), 0 FAIL <!-- runpatterns: the -run argument is a placeholder naming a set of tests the surrounding report lists, not a runnable pattern -->
+- `go test -p 2 -count=20 -run <the 16 new rows plus TestBuild_ASinglePercentIsShownAndAPairIsNot, TestBuild_APathSelectorAfterAQuoteOrEqualsIsJudged, TestBuild_ADriveLessGlobOutsideTheProjectIsWithheld, TestBuild_ACaretEscapedSeparatorIsASeparator> ./internal/rehydrate/ (Windows)`: ok: 400 PASS, 0 FAIL <!-- runpatterns: the -run argument is a placeholder naming a set of tests the surrounding report lists, not a runnable pattern -->
 - `go test -p 2 -count=20 -run '^(TestRehydrateHostPaths_UsefulSummariesAreShownUnderTheUAT12Rules|TestRehydrateHostPaths_HostJudgementsAreStructuredSummariesAndFilePointers|TestRehydrateHostPaths_RootedCommandsAndRegularExpressionsAreShownUnderTheUAT12Rules)$' ./internal/daemon/ (Windows)`: ok: 60 PASS, 0 FAIL
-- `go test -race -p 2 -count=3 -run <the same rehydrate rows> ./internal/rehydrate/ (Windows, CGO with msys64 gcc)`: ok: 60 PASS, no DATA RACE
-- `go test -race -p 2 -count=3 -run <the same 3 daemon rows> ./internal/daemon/ (Windows)`: ok: 9 PASS, no DATA RACE
+- `go test -race -p 2 -count=3 -run <the same rehydrate rows> ./internal/rehydrate/ (Windows, CGO with msys64 gcc)`: ok: 60 PASS, no DATA RACE <!-- runpatterns: the -run argument is a placeholder naming a set of tests the surrounding report lists, not a runnable pattern -->
+- `go test -race -p 2 -count=3 -run <the same 3 daemon rows> ./internal/daemon/ (Windows)`: ok: 9 PASS, no DATA RACE <!-- runpatterns: the -run argument is a placeholder naming a set of tests the surrounding report lists, not a runnable pattern -->
 - `Linux, static GOOS=linux test binaries in alpine:latest with the worktree mounted read-only: the whole rehydrate package`: PASS
 - `Linux: the same rehydrate rows with -test.count=20`: PASS: 400 runs
 - `Linux: the same daemon rows with -test.count=20`: PASS: 60 runs
