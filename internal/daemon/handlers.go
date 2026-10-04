@@ -1359,10 +1359,41 @@ func (d *daemon) handleCheckpoint(ctx context.Context, req ipc.Request) ipc.Resp
 	if err := contract.SaveHistory(contract.HistoryPath(d.root), h); err != nil {
 		d.log.Warn("daemon: failed to save history", "err", err)
 	}
+	// A PreCompact the hook spooled because its reply missed the client's deadline may be one this
+	// daemon already sealed: the live route leases nothing, so the drain leases the copy fresh and
+	// replays it here. Sealing it again would seal a second checkpoint, close the session's
+	// post-compaction segment as compacted, and give precompact.has_time_to_write a second wall
+	// sample for one PreCompact. So the route claims each PreCompact's nonce before it seals and keeps
+	// the claim once the seal succeeds (claimSealLocked), and a replay of a claimed nonce does neither
+	// the seal nor the sample; it is still acknowledged. A copy that arrives while the seal it copies
+	// is still running is one of these: that seal is under way. A replay of a PreCompact no route of
+	// this daemon sealed, which includes every one a predecessor handled before it stopped, keeps the
+	// replay's seal: a crash may have cut that seal short. The claims live in memory only, for that
+	// reason.
+	duplicate := spoolReplay(ctx) && d.sealClaimedLocked(req.Nonce)
+	claimed := !duplicate && d.claimSealLocked(req.Nonce)
 	d.historyMu.Unlock()
 
 	if err := contract.WriteMarker(d.root, ev.SessionID, now); err != nil {
 		d.log.Warn("daemon: WriteMarker failed", "err", err)
+	}
+	sealed := false
+	if claimed {
+		// A claim whose seal did not succeed (no seam, a mode that may not act, a failed or
+		// panicking seal) is released, so a copy of the request retries it.
+		defer func() {
+			if !sealed {
+				d.historyMu.Lock()
+				d.releaseSealLocked(req.Nonce)
+				d.historyMu.Unlock()
+			}
+		}()
+	}
+	if duplicate {
+		d.log.Debug("daemon: a spooled copy of a PreCompact this daemon sealed; not sealed again",
+			"session", string(ev.SessionID))
+		out := hookio.Empty()
+		return ipc.Response{OK: true, Output: &out}
 	}
 
 	// Phase 2 (unlocked): the wave-3 seam call, timed into B-E — its own budget is 2s, which must
@@ -1394,6 +1425,7 @@ func (d *daemon) handleCheckpoint(ctx context.Context, req ipc.Request) ipc.Resp
 		if callErr != nil {
 			d.log.Warn("daemon: PreCompact failed", "err", callErr)
 		}
+		sealed = callErr == nil
 	}
 	// Phase 3 (re-locked): re-load — a concurrent route may have saved its own changes while
 	// phase 2 ran unlocked — then apply this route's remaining mutations and save.
