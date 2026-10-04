@@ -139,3 +139,134 @@ func TestReleaseNotesFilesAreNamedForTheirTagAndFilled(t *testing.T) {
 		"%s/%s is missing: internal/core.Version is %s, and a tag for it must publish notes "+
 			"written for it rather than release-scope's SP-17 table", releaseNotesDir, want, core.Version)
 }
+
+// releaseNotesPage stands for the tag's own notes, docs/release-notes/<tag>.md, in
+// releaseInterimMarkers.
+const releaseNotesPage = "docs/release-notes/<tag>.md"
+
+// releaseInterimMarkers lists, per page, the text a candidate's pages carry while its own evidence
+// is still owed (docs/release.md §1, step 2). Each marker is a sentence that is true of the tree
+// only before that evidence is recorded: the candidate's record "when it is frozen", its hosted
+// runs not yet run, its evidence owed, the notes' figures standing "until candidate N's are
+// recorded". Step 2 rewrites these pages from the tagged candidate's recorded evidence in a
+// docs-only descendant (D58(e)), so none may still be there when the tag is pushed. The list is
+// the markers these pages carry today; a reworded interim sentence is step 2's manual duty.
+var releaseInterimMarkers = map[string][]*regexp.Regexp{
+	releaseNotesPage: {
+		regexp.MustCompile(`until candidate [0-9]+'s are recorded`),
+		regexp.MustCompile(`the release is not published before they are`),
+	},
+	"README.md": {
+		regexp.MustCompile("-CANDIDATE\\.md` when it is frozen"),
+		regexp.MustCompile(`own evidence is still owed`),
+		regexp.MustCompile(`Neither workflow has run on candidate [0-9]+ yet`),
+		regexp.MustCompile(`that record is owed`),
+	},
+	"CHANGELOG.md": {
+		regexp.MustCompile(`supply the release's evidence, and they are owed`),
+	},
+	"docs/release.md": {
+		regexp.MustCompile("-CANDIDATE\\.md` when it is frozen"),
+		regexp.MustCompile(`Still owed before the tag, all on candidate [0-9]+`),
+		regexp.MustCompile(`Neither workflow has run on candidate [0-9]+ yet`),
+	},
+}
+
+// releasePageInterimProblems reports the interim markers left in a page's text when the run is a
+// tag push (refType "tag", GitHub's GITHUB_REF_TYPE). On a branch push, and on the local
+// `release-check --tag` rehearsal, which sets no GITHUB_REF_TYPE, the interim text is true of the
+// tree and nothing is reported.
+func releasePageInterimProblems(page, text, refType string) []string {
+	if refType != "tag" {
+		return nil
+	}
+	flat := strings.Join(strings.Fields(text), " ")
+	var problems []string
+	for _, re := range releaseInterimMarkers[page] {
+		for _, m := range re.FindAllString(flat, -1) {
+			problems = append(problems, page+" still carries interim text: "+m)
+		}
+	}
+	return problems
+}
+
+// releaseNotesInterimProblems is releasePageInterimProblems for the tag's notes.
+func releaseNotesInterimProblems(text, refType string) []string {
+	return releasePageInterimProblems(releaseNotesPage, text, refType)
+}
+
+// TestReleaseNotesForAPushedTagCarryNoInterimSentence runs inside release.yml's release-check
+// (its guards step) on the tag push: the published notes may not still say their figures stand
+// until the candidate's own are recorded.
+func TestReleaseNotesForAPushedTagCarryNoInterimSentence(t *testing.T) {
+	t.Parallel()
+
+	refType, tag := os.Getenv("GITHUB_REF_TYPE"), os.Getenv("GITHUB_REF_NAME")
+	if refType != "tag" {
+		tag = "v" + core.Version
+	}
+	b, err := os.ReadFile(filepath.Join(repoRoot(t), filepath.FromSlash(releaseNotesDir), tag+".md"))
+	if os.IsNotExist(err) {
+		return // no hand-written notes for this tag; release.yml publishes release-scope's table
+	}
+	require.NoError(t, err)
+	require.Empty(t, releaseNotesInterimProblems(string(b), refType),
+		"%s/%s.md: rewrite the verified-where paragraph and table from the tagged candidate's "+
+			"recorded evidence before the tag (docs/release.md §1, step 2)", releaseNotesDir, tag)
+}
+
+// TestReleasePagesForAPushedTagCarryNoInterimText is the same check, on the tag push, for the
+// three other pages step 2 rewrites: README.md, CHANGELOG.md and docs/release.md ship in the
+// tagged tree and may not still say the candidate's evidence is owed.
+func TestReleasePagesForAPushedTagCarryNoInterimText(t *testing.T) {
+	t.Parallel()
+
+	refType := os.Getenv("GITHUB_REF_TYPE")
+	root := repoRoot(t)
+	for _, page := range []string{"README.md", "CHANGELOG.md", "docs/release.md"} {
+		b, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(page)))
+		require.NoError(t, err)
+		for _, p := range releasePageInterimProblems(page, string(b), refType) {
+			t.Errorf("%s; rewrite it from the tagged candidate's recorded evidence before the tag "+
+				"(docs/release.md §1, step 2)", p)
+		}
+	}
+}
+
+// TestReleaseNotesInterimGuardFiresOnlyOnATagPush is the negative of the live check.
+func TestReleaseNotesInterimGuardFiresOnlyOnATagPush(t *testing.T) {
+	t.Parallel()
+
+	const interim = "The figures in the table below are candidate 6's and candidate 7's and stand\n" +
+		"until candidate 8's are recorded; the release is not published before they are."
+	require.NotEmpty(t, releaseNotesInterimProblems(interim, "tag"),
+		"a pushed tag's notes that still carry the interim sentence must fail")
+	require.Empty(t, releaseNotesInterimProblems(interim, "branch"),
+		"on a branch push the interim sentence is true of the tree")
+	require.Empty(t, releaseNotesInterimProblems(interim, ""),
+		"the local release-check rehearsal sets no GITHUB_REF_TYPE")
+	require.Empty(t, releaseNotesInterimProblems("Candidate 8's night chain passed.", "tag"),
+		"notes rewritten from the candidate's own evidence must pass")
+}
+
+// TestReleasePagesInterimGuardFiresOnlyOnATagPush is the negative of the live check on the three
+// pages besides the notes that step 2 rewrites.
+func TestReleasePagesInterimGuardFiresOnlyOnATagPush(t *testing.T) {
+	t.Parallel()
+
+	interim := map[string]string{
+		"README.md":       "Neither workflow has run on\ncandidate 8 yet.",
+		"CHANGELOG.md":    "live re-check and C5.5 supply the release's evidence, and they are\nowed",
+		"docs/release.md": "recorded in `plans/sdd/V6-closeout/phase3/c8-CANDIDATE.md` when it\nis frozen.",
+	}
+	for page, text := range interim {
+		require.NotEmpty(t, releasePageInterimProblems(page, text, "tag"),
+			"%s: a pushed tag whose page still carries interim text must fail", page)
+		require.Empty(t, releasePageInterimProblems(page, text, "branch"),
+			"%s: on a branch push the interim text is true of the tree", page)
+		require.Empty(t, releasePageInterimProblems(page, text, ""),
+			"%s: the local release-check rehearsal sets no GITHUB_REF_TYPE", page)
+		require.Empty(t, releasePageInterimProblems(page, "Candidate 8's night chain passed.", "tag"),
+			"%s: a page rewritten from the candidate's own evidence must pass", page)
+	}
+}

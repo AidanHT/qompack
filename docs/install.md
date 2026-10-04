@@ -264,7 +264,9 @@ removes it once that daemon has exited (`pruneStaged` in `internal/daemon/spawn_
 spawn whose own copy already verifies prunes nothing. So two builds that both report version
 `0.3.0` remove each other's copy: the V6 live lane saw candidate 5's build and candidate 7's build,
 both 0.3.0, each prune the other's copy when its session started. Nothing depends on a pruned
-copy; the next spawn of that build makes it again.
+copy; the next spawn of that build makes it again. A spawn that finds its own copy held open by
+another process without read sharing (Windows) cannot check it, so it runs the plugin's own binary
+instead and neither writes nor prunes anything; the next spawn checks the copy again.
 
 **No secure-erasure promise.** Those commands unlink files. They say nothing about backups you made,
 copies on other media, or a filesystem that snapshots. If a credential ever reached the store — see
