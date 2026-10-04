@@ -122,7 +122,7 @@ func TestRehydrateHostPaths_ASelectorNamingADeniedFileIsWithheld(t *testing.T) {
 	require.NoError(t, err)
 	require.NotContains(t, res.Text, "deny.txt", "the payload shows the denied path")
 	require.Contains(t, res.Text, "- tool_use toolu_017m9djGav7vcngkniobgwim "+
-		core.Hash(sha256.Sum256([]byte("selector"))).String()+" — summary withheld")
+		core.Hash(sha256.Sum256([]byte("selector"))).String()+" — (summary withheld)\n")
 	require.Contains(t, res.Text, `{"query":"ORCHID-DENY-8842"}`, "a summary that names no path is shown")
 }
 
@@ -159,7 +159,7 @@ func TestRehydrateHostPaths_EverySpellingOfADeniedFileIsWithheld(t *testing.T) {
 		require.NotContains(t, e.ID+" "+e.Detail, "deny.txt", "the drop report shows the denied path: %+v", e)
 	}
 	for _, id := range []string{"toolu_basename", "toolu_glob"} {
-		require.Regexp(t, "- tool_use "+id+" sha256:[0-9a-f]+ — summary withheld", res.Text)
+		require.Regexp(t, "- tool_use "+id+" sha256:[0-9a-f]+ — \\(summary withheld\\)\n", res.Text)
 	}
 	require.Contains(t, res.Text, "- pointer_untracked "+denied.String()+" — not tracked by git")
 	require.Contains(t, res.Text, `{"query":"ORCHID-DENY-8842"}`, "a summary that names no path is shown")
@@ -738,7 +738,7 @@ func TestRehydrateHostPaths_ADeniedPathWithDelimitersIsWithheld(t *testing.T) {
 		require.NotContains(t, res.Text, leak, "the payload shows a denied path")
 	}
 	for _, tp := range tools {
-		withheld := "- tool_use " + string(tp.ToolUseID) + " sha256:[0-9a-f]+ — summary withheld"
+		withheld := "- tool_use " + string(tp.ToolUseID) + " sha256:[0-9a-f]+ — \\(summary withheld\\)\n"
 		if strings.HasPrefix(string(tp.ToolUseID), "toolu_okshow") {
 			require.NotRegexp(t, withheld, res.Text, "%q names an allowed file with a safe delimiter", tp.Summary)
 			continue
@@ -785,11 +785,11 @@ func TestRehydrateHostPaths_AProjectPathWithASpaceShowsItsOwnPaths(t *testing.T)
 	res, err := rehydrate.Build(context.Background(), toolPointerRequest(root, tools), deps)
 	require.NoError(t, err)
 	for _, id := range []string{"toolu_ok_read", "toolu_ok_grep"} {
-		require.Regexp(t, "- tool_use "+id+" sha256:[0-9a-f]+ — [^s]", res.Text, "the project's own path is shown")
-		require.NotRegexp(t, "- tool_use "+id+" sha256:[0-9a-f]+ — summary withheld", res.Text)
+		require.Regexp(t, "- tool_use "+id+" sha256:[0-9a-f]+ — [^s(]", res.Text, "the project's own path is shown")
+		require.NotRegexp(t, "- tool_use "+id+" sha256:[0-9a-f]+ — \\(summary withheld\\)", res.Text)
 	}
 	for _, id := range []string{"toolu_no_deny", "toolu_no_glob", "toolu_no_sibling"} {
-		require.Regexp(t, "- tool_use "+id+" sha256:[0-9a-f]+ — summary withheld", res.Text)
+		require.Regexp(t, "- tool_use "+id+" sha256:[0-9a-f]+ — \\(summary withheld\\)\n", res.Text)
 	}
 	require.NotContains(t, res.Text, "deny.txt")
 }
@@ -816,7 +816,7 @@ func requireToolSummaries(t *testing.T, root string, shown, withheld []string) r
 	for _, tp := range tools {
 		line := "- tool_use " + string(tp.ToolUseID) + " " + tp.Hash.String() + " — "
 		if strings.HasPrefix(string(tp.ToolUseID), "toolu_no_") {
-			require.Contains(t, res.Text, line+"summary withheld", "%q names a withheld path", tp.Summary)
+			require.Contains(t, res.Text, line+"(summary withheld)\n", "%q names a withheld path", tp.Summary)
 			continue
 		}
 		require.Contains(t, res.Text, line+tp.Summary+"\n", "%q names no withheld path, so it is shown", tp.Summary)
