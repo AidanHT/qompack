@@ -30,9 +30,25 @@ import (
 // something ipc.NewServer's Handler-based API cannot express (it always tries to decode and
 // respond; some of these behaviors must never respond at all).
 
-// testDeadline is a short, uniform ConnectDeadline/AckDeadline used throughout this file so tests
-// run fast without flirting with real scheduling jitter.
+// testDeadline is the short ConnectDeadline/AckDeadline for rows whose verdict is a failure or a
+// spool: nothing listening, nothing answering, or a client that must never dial at all. In those
+// rows a deadline expiring is the expected outcome, so a longer one could only make the row
+// slower, never change its verdict, and keeping it short keeps them fast.
+//
+// It must not govern a row that asserts an answer arrives (an ACK, a NAK the client acts on, or a
+// reply). There the deadline is a race between the client's timer and the server's handleConn
+// goroutine, and 50 ms is well inside the multi-second stalls a co-loaded machine produces: a
+// descheduled server turns a correct ACK into a spool and the row red. Those rows use
+// answerDeadline instead.
 const testDeadline = 50 * time.Millisecond
+
+// answerDeadline is the ConnectDeadline, AckDeadline and Send reply deadline for rows that assert
+// the in-process server's answer reaches the client. It is a hang guard, not a measurement: none
+// of those rows judges how fast the answer came, so the deadline decides nothing unless the
+// server never answers, and then the row still fails, only later. It is handlerSeenWait, the
+// package's existing bound for "the handler has already run", the same value as ipctest's
+// suiteWait, which uses patient deadlines for the same reason.
+const answerDeadline = handlerSeenWait
 
 // handlerSeenWait bounds taking a request the server handler has ALREADY received. Send does not
 // return until the ACK arrives (§2.4) and the handler pushes onto a buffered channel before
@@ -66,8 +82,10 @@ func newTestServer(t *testing.T, h Handler) (Server, Addr) {
 	return srv, addr
 }
 
-// newTestClient builds a real Client against addr, with a short deadline pair and its own spool
-// under a fresh subdirectory of t.TempDir(). It is closed automatically.
+// newTestClient builds a real Client against addr, with its own spool under a fresh subdirectory
+// of t.TempDir(). A zero ConnectDeadline or AckDeadline in o falls back to testDeadline, which
+// suits only a row that expects failure or a spool (see testDeadline); a row that expects an answer
+// passes answerDeadline. It is closed automatically.
 func newTestClient(t *testing.T, addr Addr, o ClientOptions) (Client, SpoolWriter) {
 	t.Helper()
 	spool, err := NewSpool(filepath.Join(t.TempDir(), "spool"))
@@ -120,9 +138,9 @@ func TestSendACKPath(t *testing.T) {
 	_, addr := newTestServer(t, func(context.Context, Request) Response {
 		return Response{OK: true}
 	})
-	c, spool := newTestClient(t, addr, ClientOptions{})
+	c, spool := newTestClient(t, addr, ClientOptions{ConnectDeadline: answerDeadline, AckDeadline: answerDeadline})
 
-	res, err := c.Send(context.Background(), Request{Op: OpObserveTool, Session: "s", TS: 1}, time.Second)
+	res, err := c.Send(context.Background(), Request{Op: OpObserveTool, Session: "s", TS: 1}, answerDeadline)
 	require.NoError(t, err)
 	require.True(t, res.OK, "Send never propagates a transport failure as an error (§5.4) — it arrives here as OK:false with the reason in res.Err=%q", res.Err)
 	require.Equal(t, HotSync, res.Hot)
@@ -139,16 +157,16 @@ func TestSendNAKSwitchesToSpool(t *testing.T) {
 		calls.Add(1)
 		return Response{OK: false}
 	})
-	c, spool := newTestClient(t, addr, ClientOptions{})
+	c, spool := newTestClient(t, addr, ClientOptions{ConnectDeadline: answerDeadline, AckDeadline: answerDeadline})
 
-	res, err := c.Send(context.Background(), Request{Op: OpObserveTool, Session: "s", TS: 1}, time.Second)
+	res, err := c.Send(context.Background(), Request{Op: OpObserveTool, Session: "s", TS: 1}, answerDeadline)
 	require.NoError(t, err)
 	require.False(t, res.OK)
 	require.Equal(t, HotSpool, res.Hot)
 	require.Len(t, readLines(t, spool.Path()), 1)
 	require.EqualValues(t, 1, calls.Load())
 
-	res2, err := c.Send(context.Background(), Request{Op: OpObserveTool, Session: "s", TS: 2}, time.Second)
+	res2, err := c.Send(context.Background(), Request{Op: OpObserveTool, Session: "s", TS: 2}, answerDeadline)
 	require.NoError(t, err)
 	require.False(t, res2.OK)
 	require.EqualValues(t, 1, calls.Load(), "a client already in spool submode must never dial again for a hot-path op")
@@ -220,17 +238,17 @@ func TestSendHotSpoolSkipsConnect(t *testing.T) {
 	spool, err := NewSpool(filepath.Join(t.TempDir(), "spool"))
 	require.NoError(t, err)
 	c := NewClientWithOptions(addr, spool, logging.Nop(), obs.New(core.SystemClock()), ClientOptions{
-		ConnectDeadline: testDeadline, AckDeadline: testDeadline,
+		ConnectDeadline: answerDeadline, AckDeadline: answerDeadline,
 		State: State{Mode: contract.ModeFull, Hot: HotSpool, DaemonEnabled: true, MaxPayloadBytes: MaxLineBytes},
 	})
 	t.Cleanup(func() { _ = c.Close() })
 
-	res, err := c.Send(context.Background(), Request{Op: OpObserveTool, Session: "s", TS: 1}, time.Second)
+	res, err := c.Send(context.Background(), Request{Op: OpObserveTool, Session: "s", TS: 1}, answerDeadline)
 	require.NoError(t, err)
 	require.False(t, res.OK)
 	require.EqualValues(t, 0, calls.Load(), "observe.tool is hot-path: HotSpool must skip the connect entirely")
 
-	res2, err := c.Send(context.Background(), Request{Op: OpSessionStart, Session: "s", TS: 2, Reply: true}, time.Second)
+	res2, err := c.Send(context.Background(), Request{Op: OpSessionStart, Session: "s", TS: 2, Reply: true}, answerDeadline)
 	require.NoError(t, err)
 	require.True(t, res2.OK)
 	require.EqualValues(t, 1, calls.Load(), "session.start is not hot-path: it must still connect even in HotSpool")
@@ -265,9 +283,9 @@ func TestSendReplyPath(t *testing.T) {
 			HookSpecificOutput: &hookio.HSO{AdditionalContext: ctx},
 		}}
 	})
-	c, _ := newTestClient(t, addr, ClientOptions{})
+	c, _ := newTestClient(t, addr, ClientOptions{ConnectDeadline: answerDeadline, AckDeadline: answerDeadline})
 
-	res, err := c.Send(context.Background(), Request{Op: OpSessionStart, Session: "s", TS: 1, Reply: true}, time.Second)
+	res, err := c.Send(context.Background(), Request{Op: OpSessionStart, Session: "s", TS: 1, Reply: true}, answerDeadline)
 	require.NoError(t, err)
 	require.True(t, res.OK, "Send never propagates a transport failure as an error (§5.4) — it arrives here as OK:false with the reason in res.Err=%q", res.Err)
 	require.NotNil(t, res.Output)
@@ -292,7 +310,7 @@ func TestSendOversizeExternalizes(t *testing.T) {
 	spool, err := NewSpool(spoolDir)
 	require.NoError(t, err)
 	c := NewClientWithOptions(addr, spool, logging.Nop(), obs.New(core.SystemClock()), ClientOptions{
-		ConnectDeadline: testDeadline, AckDeadline: testDeadline,
+		ConnectDeadline: answerDeadline, AckDeadline: answerDeadline,
 		State: State{Mode: contract.ModeFull, DaemonEnabled: true, MaxPayloadBytes: 1 << 20},
 	})
 	t.Cleanup(func() { _ = c.Close() })
@@ -301,7 +319,7 @@ func TestSendOversizeExternalizes(t *testing.T) {
 		Op: OpObserveTool, Session: "s", TS: 1,
 		Event: &hookio.Event{HookEventName: "PostToolUse", ToolResponse: json.RawMessage(payload)},
 	}
-	res, err := c.Send(context.Background(), req, time.Second)
+	res, err := c.Send(context.Background(), req, answerDeadline)
 	require.NoError(t, err)
 	require.True(t, res.OK, "Send never propagates a transport failure as an error (§5.4) — it arrives here as OK:false with the reason in res.Err=%q", res.Err)
 
@@ -353,7 +371,7 @@ func TestSendOversizeExternalizePreservesExistingRaw(t *testing.T) {
 	spool, err := NewSpool(spoolDir)
 	require.NoError(t, err)
 	c := NewClientWithOptions(addr, spool, logging.Nop(), obs.New(core.SystemClock()), ClientOptions{
-		ConnectDeadline: testDeadline, AckDeadline: testDeadline,
+		ConnectDeadline: answerDeadline, AckDeadline: answerDeadline,
 		State: State{Mode: contract.ModeFull, DaemonEnabled: true, MaxPayloadBytes: 1 << 20},
 	})
 	t.Cleanup(func() { _ = c.Close() })
@@ -363,7 +381,7 @@ func TestSendOversizeExternalizePreservesExistingRaw(t *testing.T) {
 		Event: &hookio.Event{HookEventName: "PostToolUse", ToolResponse: json.RawMessage(payload)},
 		Raw:   json.RawMessage(originalRaw),
 	}
-	res, err := c.Send(context.Background(), req, time.Second)
+	res, err := c.Send(context.Background(), req, answerDeadline)
 	require.NoError(t, err)
 	require.True(t, res.OK, "Send never propagates a transport failure as an error (§5.4) — it arrives here as OK:false with the reason in res.Err=%q", res.Err)
 
