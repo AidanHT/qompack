@@ -27,7 +27,7 @@ session's scratchpad. None of them ships; they drive the close-out.
 | `w2lt-stress/main.go.txt`, `w2lt-stress/go.mod.txt` | The external fsync and CPU co-load generator of w2-lifetime's C1.16 runs/09 and 16, run there with 16 writers of 64 KiB, 4 CPU spinners and 150 s on C: (runs/09's header; its `-k`, `-size`, `-c` and `-for` flags). It prints `writes <n>` (37446 in runs/09, 49960 in runs/16). It was never committed with those runs. These are its source files, byte for byte, recovered from the coordinator session's scratchpad (`w2lt-stress/`, written 2026-09-25 17:27, before runs/09). Built there with go1.26.4, they reproduce that session's `w2lt-stress.exe` exactly (sha256 `5d49a71ec8886fb0c66f4feeadb113455ee3ad0595dfd4635133888827d9c4f1`). Kept as `.txt`, as plans/ keeps other probe programs, so no Go tool reads them: to build, copy both into an empty directory as `main.go` and `go.mod`, then run `go build`. No night runs it (README "The C5.2 night"). |
 | `nightabort.ps1` | `pwsh -File nightabort.ps1 -MsysPid <msys> -WinPid <windows-pid> [-Stop]`: lists, and with `-Stop` stops, exactly one night's process tree (README "Candidate 8", Abort step 1). It walks MSYS's own parent pids from the night's shell (Windows records a dead parent for everything an MSYS shell starts), adds their native Windows children (a child only when created after its parent), and refuses unless the root still is the logged c8-night.sh or overnight-c8.sh shell. |
 | `stamped.sh` | `sh stamped.sh <command…>`: prefixes each output line with its epoch second and keeps the command's exit status; release-check's AC-sensitive windows are read from it. |
-| `nightharness.sh` | `sh nightharness.sh [case…]` (`-l` lists them): the dry harness for everything above (114 cases). Stubs for powershell, pwsh, docker, go, claude, gh, timeout, date, sleep and df, real git and python on scratch repositories, a fake clock. Every case first checks that each stub name resolves to the stub directory, and refuses to run otherwise; the harness takes its scratch path in POSIX form and refuses one with a colon (a `C:/` TMPDIR used to split PATH at the drive colon, so every stub was bypassed and cases ran against the real Docker, gh and go: audit 2's #48). While that guard holds, nothing outside its temporary directory is touched but the nights' own scratch clones, which they make under TMPDIR and remove (O9 and X24 run a signalled night with its own TMPDIR and check that nothing is left there); the Q cases run the real quiet.sh with HOME and USERPROFILE in a scratch home. The real processes outside the stubs are K1's keepawake.ps1 with nothing to hold, K3's keepawake-start.ps1 with fake keep-awake scripts (no real request is held), and K2's probe tree (sh, sleep, cmd and ping, under a shell named c8-night.sh), which the real nightabort.ps1 lists and stops. Run it after any change to a night script. |
+| `nightharness.sh` | `sh nightharness.sh [case…]` (`-l` lists them): the dry harness for everything above (115 cases). Stubs for powershell, pwsh, docker, go, claude, gh, timeout, date, sleep and df, real git and python on scratch repositories, a fake clock. Every case first checks that each stub name resolves to the stub directory, and refuses to run otherwise; the harness takes its scratch path in POSIX form and refuses one with a colon (a `C:/` TMPDIR used to split PATH at the drive colon, so every stub was bypassed and cases ran against the real Docker, gh and go: audit 2's #48). While that guard holds, nothing outside its temporary directory is touched but the nights' own scratch clones, which they make under TMPDIR and remove (O9 and X24 run a signalled night with its own TMPDIR and check that nothing is left there); the Q cases run the real quiet.sh with HOME and USERPROFILE in a scratch home. The real processes outside the stubs are K1's keepawake.ps1 with nothing to hold, K3's keepawake-start.ps1 with fake keep-awake scripts (no real request is held), and K2's probe tree (sh, sleep, cmd and ping, under a shell named c8-night.sh), which the real nightabort.ps1 lists and stops. Run it after any change to a night script. |
 | `c52derive.py` | `python c52derive.py <candidate-repo> <base-rev> <out-dir>`: D57(e) by construction. Traces each C5.2 benchmark on the candidate at its own listed benchtime with a coverage profile and selects those whose executed product files, the other changed files of a package they execute (declarations have no coverage block), own benchmark file, fixtures or adjacent assets changed since `<base-rev>`; reports, without selecting on it, whether an executed block covers a changed line; writes `report.txt`, `selection.tsv`, `pkgs.txt` and `filter.txt` for quiet.sh. A failed trace is selected, fail-closed; when every trace fails, or a stray .go file would join the trace, it writes no selection (exit 2) and overnight-c8.sh measures the full C5.2 list. overnight-c8.sh runs it only with `C8_C52_SET=derived`: candidate 8 measures the full list (D62(b)). Self-test: `python c52derive.py --selftest`. |
 | `mkrecheck8.py` | `python mkrecheck8.py live-rerun-c7.js <out.js> <candidate-sha> <bundle-dir>`: generates candidate 8's live re-check from candidate 7's lane, with the diff from candidate 7 that its D53(f) carry-forward notes are checked against. Its parts judge against D58-D67: the D63/D64 whitelist (docs/security.md and ADR 0011 section 23 items 5-10 join the reading list, and D64(4)'s accepted over-withholding is not a finding), D62(f)'s section 2, D62's forkwork (a /compact in the fork after the six slash commands) and stable fsck and eval reads, and C4.5's two-read comparison after removing the named age and timestamp fields (data.collected_at_ms, provenance age_ms, the status header's collected time, doctor's "persisted <age> ago"). It refuses a candidate without ADR 0011 section 23, a bundle without BUNDLE.json, and an output that keeps a candidate 7 string, reads the clock or does not parse. |
 
@@ -90,13 +90,13 @@ agent launches or aborts either night.
    `c8-night.sh` checks the names against integration's test/e2e and ci.yml among its
    preconditions (`sh prefreeze.sh --e2e-skips <integration>`) and refuses on drift, naming the row
    or arm; night.log logs the `-skip` pattern it will use.
-5. `sh nightharness.sh` passes (114 cases), every case behind its stub guard (a case whose stubs
+5. `sh nightharness.sh` passes (115 cases), every case behind its stub guard (a case whose stubs
    do not all resolve to the harness's own directory fails without running). It is dry, with no
    Go, Docker or Claude Code process while the guard holds (K1 starts the real pwsh once, with
    nothing to hold; K2 starts a probe tree of sh, sleep, cmd and ping and stops it with
    nightabort.ps1). Its run time depends on the machine's load: 80 cases took 2447 s on 2026-10-04
    at night, 57 took 6512 s on 2026-10-03 with other seats running, and 36 took about 1 h 40 min
-   under audit 2's load; a sequential 114-case run takes 2-6 h. Run it at night, or split the cases
+   under audit 2's load; a sequential 115-case run takes 2-6 h. Run it at night, or split the cases
    over two or three processes (each makes its own scratch directory; `-l` lists the names to
    pass). Re-run it after any change to a night script, and `python c52derive.py --selftest`.
 6. The laptop lid is open and the charger is connected. Docker Desktop may be up or down, and the
@@ -542,11 +542,17 @@ Abort:
 2. Delete the night's own `$e/keepawake.sentinel`, where `$e` is the evidence directory it was
    launched into (`phase3/c8-c52` for the first night, `c8-c52-2` and so on after it) and holds
    the chain.log of step 1.
-3. Docker: the container runs once for each Linux chunk. If chain.log's last
-   `container start exit=0 (c52-linux-<group>)` has no `container stopped` line after it, run
-   `docker stop qompack-v6-linux-verification`; if the last `engine started by this chain` has no
-   `engine stopped` after it, run `docker desktop stop`. Never stop an engine the chain did not
-   start (`engine up at start=1`).
+3. Docker, as in candidate 8's Abort step 3: the container runs once for each Linux chunk. If
+   chain.log's last `container start exit=0 (c52-linux-<group>)` has no `container stopped` line
+   after it, run `docker stop qompack-v6-linux-verification`. If the last
+   `engine started by this chain` has no `engine stopped` or `engine left running` after it, run
+   `docker ps` first: stop the engine (`docker desktop stop`) only when no container but
+   `qompack-v6-linux-verification` runs. An `engine left running` line is final: the chain found
+   other containers on the engine, or could not list them (starting the engine also starts the
+   owner's `supabase_*` containers through their restart policies), so leave it up. Never stop an
+   engine the chain did not start (`engine up at start=1`, or a start logged as
+   `not started by this chain` or `the owner's engine`), because the owner's stack runs on it
+   (D56(g)).
 4. Remove any `$e/quiet-*/.quiet.lock` a hard kill left (the same `$e` as step 2), and the
    scratch directory each `$e/quiet-*/quiet-run.txt` names on its `work=` line (its clones and
    test binaries).

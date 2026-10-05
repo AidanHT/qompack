@@ -6,12 +6,13 @@
 # Modern Standby, sleep or resume during a step, the wait budget, the deadline, each step's
 # estimate, refusals, the release-check clone and its tag, a signal mid-run, the C5.2 night with
 # the full list or the derivation, the C5.2 chunks, the C1.16 rig, e2efunc's skips and their
-# drift, an abort, Docker engine ownership, the step estimates and release-check's watchdog, the
-# keep-awake check, the disk precondition) with no real night: powershell, pwsh, docker, go, claude, gh, timeout, date, sleep
-# and df are stubs on PATH; git and python are real, on scratch repositories under a temporary
-# directory; phase3.sh and quiet.sh are stubs beside the copied night scripts (phase3.sh's own arms
-# are run for real against stubs in the P cases, and quiet.sh for real in the Q cases). Every case
-# runs only after a guard checks that each stub name resolves to the stub directory (`command -v`):
+# drift, an abort, Docker engine ownership and the README's Abort steps for it (X25), the step
+# estimates and release-check's watchdog, the keep-awake check, the disk precondition) with no
+# real night: powershell, pwsh, docker, go, claude, gh, timeout, date, sleep and df are stubs on
+# PATH; git and python are real, on scratch repositories under a temporary directory; phase3.sh
+# and quiet.sh are stubs beside the copied night scripts (phase3.sh's own arms are run for real
+# against stubs in the P cases, and quiet.sh for real in the Q cases). Every case runs only after
+# a guard checks that each stub name resolves to the stub directory (`command -v`):
 # a scratch path PATH cannot hold (a Windows drive colon, as mktemp gives under a C:/ TMPDIR, splits
 # PATH there) would otherwise bypass every stub and run the night against the real tools. The
 # scratch path is taken in POSIX form (cygpath -u), and the harness refuses one that still holds a
@@ -1748,6 +1749,35 @@ case_X3_engine_started_but_shared_is_left_running() {
   sh "$COORD/overnight-c8.sh" "$P/qompack-cx-cand" "$CAND_SHA" "$W/ev2"
   check "an unlisted engine is never stopped" lacks "$CALLS" "docker desktop stop"
   check "and the chain says so" has "$W/ev2/chain.log" "its containers could not be listed"
+}
+# X25 (#47's class, fix round 2): the README's Abort steps hold the operator to X1-X3's rule. Every
+# README passage (a list item or paragraph, its wrapped lines joined) that tells the operator to run
+# `docker desktop stop` must treat `engine left running` as final, run `docker ps` before it, stop
+# only when no container but the night's runs, and name each start the chain does not own.
+# x25_stops <README>: those passages, one per line.
+x25_stops() {
+  awk 'function flush() { if (index(p, "docker desktop stop")) print p; p = "" }
+       /^```/ { flush(); f = !f; next }
+       f { next }
+       /^[ \t]*$/ || /^#/ || /^\|/ { flush(); next }
+       /^([0-9]+\.|-) / { flush(); p = $0; next }
+       { sub(/^ +/, ""); p = (p == "" ? $0 : p " " $0) }
+       END { flush() }' "$1"
+}
+x25_each() { [ -s "$1" ] && ! grep -vqF -- "$2" "$1"; }   # x25_each <file> <text>: every line has it
+x25_ps_first() { # every line runs `docker ps` before `docker desktop stop`
+  [ -s "$1" ] && awk '{ s = index($0, "docker desktop stop"); q = index($0, "`docker ps`")
+    if (!(q && q < s)) bad = 1 } END { exit bad }' "$1"
+}
+case_X25_readme_abort_never_stops_a_shared_engine() {
+  x25_stops "$here/README.md" > "$W/x25.txt"
+  check "README: both nights' Abort steps are found (candidate 8, the C5.2 night)" test "$(wc -l < "$W/x25.txt")" -ge 2
+  check "README: 'engine left running' is final in each" x25_each "$W/x25.txt" '`engine stopped` or `engine left running` after it'
+  check "README: each runs docker ps first" x25_ps_first "$W/x25.txt"
+  check "README: each stops only an engine nothing else runs on" x25_each "$W/x25.txt" 'only when no container but `qompack-v6-linux-verification` runs'
+  check "README: each spares an engine up at the start" x25_each "$W/x25.txt" '`engine up at start=1`'
+  check "README: each spares a start the chain does not own" x25_each "$W/x25.txt" '`not started by this chain`'
+  check "README: each spares the owner's engine" x25_each "$W/x25.txt" "\`the owner's engine\`"
 }
 
 # X4 (#55): every PowerShell query is bounded.
