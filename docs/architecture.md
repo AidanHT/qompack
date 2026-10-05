@@ -202,8 +202,12 @@ the replay is of a request the daemon did answer, too late for its hook, it with
 answer carried and owes its banner again (the hook's delivery nonce identifies the request). A replayed
 `SessionStart` the host fired before a pending `PreCompact` does not resolve
 `session_start.source_compact`, which stays pending for the start that follows the `PreCompact`. A
-replayed `PreCompact` still seals its checkpoint, but re-arms that obligation only if no `SessionStart`
-of the session has arrived since the hook fired. A prompt counts as a miss for the current probe
+replayed `PreCompact` re-arms that obligation only if no `SessionStart` of the session has arrived
+since the hook fired. It seals its checkpoint unless it is a hook's spooled copy of one whose seal
+has already succeeded in this daemon, which is acknowledged without a second seal, without the
+scheduler's compaction close and without a second wall-time sample. A copy that reaches a drain while
+its seal is still running is sealed as well, so a seal that then fails still leaves the compaction a
+checkpoint. A prompt counts as a miss for the current probe
 only if it is a prompt of the session the probe was minted for, sent after it was minted: a replayed
 prompt from before the probe, another window's prompt, or a prompt of a session whose own start was
 replayed and minted nothing never had a chance to find it. A prompt is one chance however often its
@@ -359,16 +363,21 @@ identity.
 
 Every consumer of a delivery therefore has to tolerate seeing it twice, because the handler runs
 before the ack: a Stop or a bounded drain that cuts the ack replays the same delivery through the
-same handler. The observer absorbs the replay (`observer.redelivery_absorbed`). The scheduler tap
-applies each delivery once by its `ObservationID`, so a replay folds no tokens into the open segment,
-adds no detector observation and moves no request-start anchor (`sched.tap.redelivery`). The one
-thing a replay does is make a segment close the first run owed and did not make: a task-boundary
-or changepoint close that the same cancel failed along with the ack. The ordering gate holds a
+same handler. The observer absorbs the replay (`observer.redelivery_absorbed`): a tool use, a prompt
+or a subagent capture by the record its first run published, and a main-agent Stop, which writes no
+record, by the identity of the session's last applied Stop, which `state/observer.json` keeps with the
+turn it advanced. The scheduler tap applies each delivery once by its `ObservationID`, so a replay
+folds no tokens into the open segment, adds no detector observation and moves no request-start
+anchor (`sched.tap.redelivery`). The one thing a replay does is make a segment close the first run
+owed and did not make: a task-boundary or changepoint close that the same cancel failed along with
+the ack. The ordering gate holds a
 session's next delivery until every earlier one is acknowledged, so the last delivery applied for a
-session is the only one that can come back. The tap therefore keeps one identity per session. The
-tap folds every session's tool use into the bound account, so it persists in `state/scheduler.json`
-the identity of every session whose delivery reached that account, and a restarted daemon's drain
-folds none of them again.
+session is the only one that can come back. The tap therefore keeps one identity per session, for
+the 256 sessions it applied a delivery of most recently. The tap folds every session's tool use into
+the bound account, so it persists in `state/scheduler.json` the identity of each of those sessions
+whose delivery reached that account, and a restarted daemon folds none of them again: a replay after
+the bind is recognized by the restored identities, and one the startup drain made before the bind is
+deducted from the account the bind restores, only when that account holds it.
 
 [ADR 0014](adr/0014-delivery-group-commit-and-ab-seal.md) records the delivery path's group commit
 and the format-2 A/B seal as they are implemented and merged — it documents decisions already taken

@@ -38,6 +38,15 @@ const (
 	// maxTurnHistory bounds cpTurns and rounds. 4096 is in §11.6's forbidden integer set, so
 	// the annotation is mandatory — it is a memory bound, not a config default.
 	maxTurnHistory = 4096 //nomagic:allow bounded-history cap, not an Appendix C default
+
+	// maxAppliedSessions bounds schedRuntime.applied, and with it the identities a persist writes
+	// (last_applied_observations) and the unbound runtime's folds. It is a memory bound, not a
+	// tuning value: an entry is needed only while its session's last applied delivery may still be
+	// unacknowledged, and under the ordering gate each session has at most one such delivery, so the
+	// entries a replay can need are those of the sessions delivering at the same time in one project
+	// (runtime.daemon.maxSessions, 8 by default, tracks the recently live ones). The sessions applied
+	// least recently are forgotten first.
+	maxAppliedSessions = 256
 )
 
 // The documented host variables the window ladder reads (Qompack.md §2.5), by their documented
@@ -236,12 +245,22 @@ type schedRuntime struct {
 	// what recognizing a replay needs. The map is not session-scoped state: a rebind keeps its
 	// entries (resetSessionLocked only releases what they say about the account), because a replay of
 	// another session's delivery is still a replay. The entries the account holds are persisted with
-	// it (schedulerStateDoc.LastAppliedObservations), and a runtime constructed unbound seeds the map
-	// from that document (seedApplied), so a delivery the previous daemon applied, persisted and never
-	// committed is recognized when the restarted daemon's drain replays it. The map holds one entry
-	// per session this daemon saw a delivery of, as the observer's per-session state does, for the
-	// daemon's lifetime.
+	// it (schedulerStateDoc.LastAppliedObservations), and a bind restores them with the account
+	// (restoreAppliedLocked), so a delivery the previous daemon applied, persisted and never committed
+	// is recognized when the restarted daemon's drain replays it after the bind; one replayed before
+	// the bind is deduplicated against the account the bind restores (bindUnboundLocked). The map
+	// is bounded: it holds the maxAppliedSessions sessions whose deliveries were applied most recently
+	// (stampAppliedLocked), never one entry per session for the daemon's lifetime.
 	applied map[core.SessionID]appliedDelivery
+	// appliedSeq stamps each new entry of applied, so the one applied least recently is known.
+	appliedSeq uint64
+	// unboundFolds holds, per session, the first delivery this runtime applied while bound to no
+	// session and the tokens it folded, until a bind dedupes them against the account it restores
+	// (bindUnboundLocked). Bounded by maxAppliedSessions; empty while bound.
+	unboundFolds map[core.SessionID]unboundFold
+	// restoredApplied is the applied identities the account the current bind restored carries
+	// (restoreSchedulerLocked), for bindUnboundLocked; nil when the bind restored none.
+	restoredApplied map[core.SessionID]core.ObservationID
 
 	// Additive to the seat contract (documented in the C1 report):
 	//   persistMu serializes Persist end to end so two concurrent persists cannot write an older
@@ -310,8 +329,6 @@ func NewSchedulerRuntime(o SchedulerRuntimeOptions) (scheduler.Runtime, error) {
 	r.sessionStartTS = r.nowMS()
 	if o.Session != "" {
 		r.BindSession(o.Session, nil)
-	} else {
-		r.seedApplied()
 	}
 	scheduler.EnablePSelection()
 	r.count(counterPSelectionEnabled)
@@ -366,26 +383,22 @@ func (r *schedRuntime) BindSession(id core.SessionID, e *hookio.Event) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.bindSessionLocked(id, e)
+	r.restoredApplied = nil // only bindUnboundLocked dedupes against it
 }
 
 // bindSessionLocked is BindSession under r.mu, for a caller that already holds it; id is non-empty.
 func (r *schedRuntime) bindSessionLocked(id core.SessionID, e *hookio.Event) {
-	if e != nil {
-		r.noteBindingEventLocked(e)
-	}
 	if r.session == id {
-		r.regime = r.resolveRegimeLocked()
+		r.reopenBoundLocked(e)
 		if e != nil && e.Source == sessionSourceCompact {
 			// The host has just compacted: the interval the Young–Daly clause measures restarts.
 			r.lastCompactionTS = r.nowMS()
 			r.dirty = true
 		}
-		// A same-id rebind after Close is the `--resume` of a session whose SessionEnd already
-		// ran while this daemon stayed up: Close persisted the state this runtime still holds,
-		// so nothing is reloaded, but the gate Close released must open again — Close is
-		// idempotent, not final, and a bound runtime is a live one.
-		scheduler.EnablePSelection()
 		return
+	}
+	if e != nil {
+		r.noteBindingEventLocked(e)
 	}
 	r.resetSessionLocked()
 	r.session = id
@@ -409,6 +422,21 @@ func (r *schedRuntime) bindSessionLocked(id core.SessionID, e *hookio.Event) {
 		"regime", r.regime.Source, "changepoints", len(r.cpTurns))
 }
 
+// reopenBoundLocked is a SessionStart's bind of the session the runtime is already bound to: it reads
+// the start's model and subagent hints (e, which may be nil), resolves the cache regime again and
+// opens p-selection. A same-id rebind after Close is the `--resume` of a session whose SessionEnd
+// already ran while this daemon stayed up: Close persisted the state this runtime still holds, so
+// nothing is reloaded, but the gate Close released must open again — Close is idempotent, not final,
+// and a bound runtime is a live one. It moves no anchor: the compaction anchor of a live compact start
+// is bindSessionLocked's, and a replayed start sets none (bindOnReplayedStart).
+func (r *schedRuntime) reopenBoundLocked(e *hookio.Event) {
+	if e != nil {
+		r.noteBindingEventLocked(e)
+	}
+	r.regime = r.resolveRegimeLocked()
+	scheduler.EnablePSelection()
+}
+
 // bindOnFirstHook binds sess when the runtime is bound to no session and sess is live.
 //
 // A daemon that restarted in the middle of a session gets no SessionStart for it, and only a
@@ -430,7 +458,8 @@ func (r *schedRuntime) bindSessionLocked(id core.SessionID, e *hookio.Event) {
 // with no registry, every session counts as live.
 //
 // A runtime already bound to any session is left alone, whichever session the hook names.
-// Rebinding is a SessionStart's decision (BindSession).
+// Rebinding is a SessionStart's decision: a live one's (BindSession), or a replayed one's when the
+// session the runtime is bound to is no longer live (bindOnReplayedStart).
 func (r *schedRuntime) bindOnFirstHook(sess core.SessionID) {
 	if sess == "" {
 		return
@@ -443,19 +472,94 @@ func (r *schedRuntime) bindOnFirstHook(sess core.SessionID) {
 	}
 	// The registry is asked without r.mu held: its lock is independent of this one, and nothing
 	// here should wait on the registry while the tap's other seams wait on r.mu.
-	if d != nil {
-		if reg := d.Registry(); reg != nil && !reg.IsLive(sess) {
-			r.count(counterTapBindNotLive)
-			return
-		}
+	if !sessionLive(d, sess) {
+		r.count(counterTapBindNotLive)
+		return
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if r.session != "" {
 		return // another hook bound it in between
 	}
-	r.bindUnboundLocked(sess)
+	r.bindUnboundLocked(sess, nil)
 	r.count(counterTapBindFirstHook)
+}
+
+// bindOnReplayedStart is the bind of a SessionStart a drain replays from a hook's spool
+// (schedTap.sessionStart): a start the host fired and no answer of this daemon reached in time. It
+// binds as that start would have, except that the replay's instant moves no anchor, when two things
+// hold.
+//
+// The start is the latest of sess's current life (current, which the route reports: currentStart).
+// Either sess was live before the session.start route registered the replay, or it had ended no later
+// than the host fired the start: SessionEnd ends a session in the registry, and nothing but its next
+// start revives it, so the start of a session resumed in a daemon that stayed up finds it ended, and
+// is its resume. And no start of sess the host fired later has been handled: that start bound sess
+// already, and this one's hints would only overwrite its newer ones (SessionRegistry.CurrentAt). The
+// route's registry.Ensure marks every session it registers live, one that ended included, so the
+// registry's answer after it says nothing about whether the session is still running.
+//
+// And the runtime is bound to no session, to sess itself, or to one the registry no longer holds
+// live. A runtime another live session holds is that session's, and a replay never takes it.
+//
+// So the live session whose start was spooled while the runtime was still bound to a session that
+// had ended takes the runtime from it, as its start would have, rather than running on the ended
+// session's account with p-selection off until its next compaction. A runtime still bound to sess
+// itself, which an end of sess closed, is reopened (reopenBoundLocked): the resume's model and
+// subagent hints are read and p-selection opens again, as a live start's same-id bind does, without
+// the compaction anchor. A replayed start the host fired before its session ended or before a later
+// start of it that this daemon handled, or one of a session no hook has touched since this daemon
+// started (a leftover of another session in a drained spool), binds nothing: binding it would leave
+// the live session on the stale one's account until a SessionStart rebinds it. The route's
+// registration marks a session that ended, or that this daemon had not seen, live all the same, so a
+// later replayed delivery of it still finds it live (bindOnFirstHook): keeping a replay's registration
+// from reviving its session is the route's to decide, not the tap's.
+//
+// A bind of an unbound runtime keeps what it observed while unbound, as a first hook's does
+// (bindUnboundLocked). e is the replayed start, whose model and subagent hints the bind reads. With
+// no daemon attached, or one with no registry, every session counts as live (sessionLive), so a
+// runtime bound to another session is left alone.
+func (r *schedRuntime) bindOnReplayedStart(sess core.SessionID, e *hookio.Event, current bool) {
+	if sess == "" {
+		return
+	}
+	r.mu.Lock()
+	cur, d := r.session, r.d
+	r.mu.Unlock()
+	switch {
+	case !current:
+		if cur == "" {
+			r.count(counterTapBindNotLive)
+		}
+		return
+	case cur != "" && cur != sess && sessionLive(d, cur): // asked without r.mu held, as bindOnFirstHook asks
+		return
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.session != cur {
+		return // a live start or hook moved the binding in between, and it is theirs
+	}
+	switch cur {
+	case sess:
+		r.reopenBoundLocked(e)
+	case "":
+		r.bindUnboundLocked(sess, e)
+	default:
+		r.bindSessionLocked(sess, e)
+		r.restoredApplied = nil // only bindUnboundLocked dedupes against it
+	}
+	r.count(counterTapBindReplayedStart)
+}
+
+// sessionLive is the answer of d's registry for sess. With no daemon, or one with no registry, every
+// session counts as live.
+func sessionLive(d Daemon, sess core.SessionID) bool {
+	if d == nil {
+		return true
+	}
+	reg := d.Registry()
+	return reg == nil || reg.IsLive(sess)
 }
 
 // noteBindingEventLocked reads the model id and the subagent marker off a SessionStart payload.
@@ -508,6 +612,7 @@ func (r *schedRuntime) resetSessionLocked() {
 	r.frontierRuns, r.frontierPlannedAt, r.frontierSkipTicks = 0, 0, 0
 	r.frontier, r.residual, r.lastCheckpointSeq = 0, 0, 0
 	r.residualWarned, r.dirty, r.tapPanicLogged = false, false, false
+	r.unboundFolds, r.restoredApplied = nil, nil
 	r.releaseAccountLocked()
 }
 
@@ -1020,6 +1125,57 @@ type appliedDelivery struct {
 	// not hold. Its activity, request start and effort level were noted at the clock without a claim
 	// (anchorUnrecorded), and a replay of it notes nothing again.
 	anchored core.ObservationID
+	// seq is when the entry last took a new delivery (stampAppliedLocked): the entry with the lowest
+	// is the one forgotten when the map is full.
+	seq uint64
+}
+
+// unboundFold is the first delivery of a session a runtime bound to no session applied, and the
+// tokens it folded into the open segment (schedRuntime.unboundFolds).
+type unboundFold struct {
+	obs    core.ObservationID
+	tokens core.Tokens
+}
+
+// stampAppliedLocked records d as sess's entry of applied, taking a new delivery: it is stamped as
+// the most recent, and when that makes the map hold more than maxAppliedSessions sessions, the
+// session applied least recently is forgotten. Forgetting one costs only the recognition of a replay
+// of its last delivery, which needs maxAppliedSessions other sessions to have delivered between that
+// delivery and its replay; a replay that is not recognized is applied again, as every replay was
+// before the tap recognized any.
+func (r *schedRuntime) stampAppliedLocked(sess core.SessionID, d appliedDelivery) {
+	r.appliedSeq++
+	d.seq = r.appliedSeq
+	r.applied[sess] = d
+	for len(r.applied) > maxAppliedSessions {
+		var oldest core.SessionID
+		var oldestSeq uint64
+		found := false
+		for s, e := range r.applied {
+			if !found || e.seq < oldestSeq || (e.seq == oldestSeq && s < oldest) {
+				oldest, oldestSeq, found = s, e.seq, true
+			}
+		}
+		delete(r.applied, oldest)
+	}
+}
+
+// noteUnboundFoldLocked records, while the runtime is bound to no session, the first delivery of
+// sess it applied and the tokens that folded, for the bind to dedupe (bindUnboundLocked). Under the
+// ordering gate only a session's first delivery replayed before the bind can be the one the restored
+// account already holds: the account names its session's last applied delivery, and every later one
+// waits behind it.
+func (r *schedRuntime) noteUnboundFoldLocked(sess core.SessionID, obs core.ObservationID, tokens core.Tokens) {
+	if r.session != "" || obs == "" {
+		return
+	}
+	if _, ok := r.unboundFolds[sess]; ok || len(r.unboundFolds) >= maxAppliedSessions {
+		return
+	}
+	if r.unboundFolds == nil {
+		r.unboundFolds = make(map[core.SessionID]unboundFold)
+	}
+	r.unboundFolds[sess] = unboundFold{obs: obs, tokens: max(tokens, 0)}
 }
 
 // owedClose is a segment close an applied delivery has yet to make: the task boundary its signals
@@ -1052,7 +1208,7 @@ func (r *schedRuntime) claimDeliveryLocked(sess core.SessionID, obs core.Observa
 	if r.applied[sess].obs == obs {
 		return false
 	}
-	r.applied[sess] = appliedDelivery{obs: obs, held: true}
+	r.stampAppliedLocked(sess, appliedDelivery{obs: obs, held: true})
 	r.dirty = true
 	return true
 }
@@ -1138,21 +1294,33 @@ func (r *schedRuntime) heldObservationsLocked() map[core.SessionID]core.Observat
 	return out
 }
 
-// restoreAppliedLocked holds the identities a restored account carries. An entry this runtime
+// restoreAppliedLocked holds the identities a restored account carries, and keeps them for the bind
+// that restored it (restoredApplied, which bindUnboundLocked dedupes against). An entry this runtime
 // already has for a session is kept, and held: only this daemon writes the document while it runs,
 // from its own entries, so its entry is the document's or a later one, and under the ordering gate
-// the delivery the document names was acknowledged before a later one of its session ran.
+// the delivery the document names was acknowledged before a later one of its session ran. A session
+// it has no entry for gets one, stamped in session order so the map's bound treats a restore the same
+// way every time.
 func (r *schedRuntime) restoreAppliedLocked(ids map[core.SessionID]core.ObservationID) {
+	r.restoredApplied = ids
+	sessions := make([]core.SessionID, 0, len(ids))
 	for s, id := range ids {
-		if s == "" || id == "" {
-			continue
+		if s != "" && id != "" {
+			sessions = append(sessions, s)
 		}
-		d := r.applied[s]
+	}
+	slices.Sort(sessions)
+	for _, s := range sessions {
+		d, ok := r.applied[s]
 		if d.obs == "" {
-			d.obs = id
+			d.obs = ids[s]
 		}
 		d.held = true
-		r.applied[s] = d
+		if ok {
+			r.applied[s] = d
+		} else {
+			r.stampAppliedLocked(s, d)
+		}
 	}
 }
 
