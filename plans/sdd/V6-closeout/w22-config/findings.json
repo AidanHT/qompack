@@ -1,0 +1,112 @@
+{
+ "seat": "config",
+ "findings": [
+  {
+   "severity": "minor",
+   "location": "internal/cli/doctor.go:729-737 (configViolationsRow: live := config.ViolationsFromWarnings(s.warnings))",
+   "issue": "config.Warning.VersionedReset has a consumer it is missing. Doctor's config.violations row builds its live list with ViolationsFromWarnings, which drops a newer-settingsVersion reset. The row only counts a reset once a hook or command has written state/config-violations.json. So within one doctor run, config.violations says the configuration is clean while config.capture says one setting fell back. Wave 20 made a reset count as a 'setting' in this row, but only through the persisted record.",
+   "evidence": "Fresh project with {\"runtime\":{\"migration\":{\"settingsVersion\":99}}}, no hook run yet, q8.exe doctor --json. Output: 'controls config.violations ok none | every configured leaf is within its domain' and 'recording config.capture degraded capture continues: 1 setting(s) fell back to the default, 0 key(s) not applied | runtime.migration: settingsVersion 99 is newer...'. After one hook runs, the same row reads 'degraded 1 setting(s) ... runtime.migration (from state/config-violations.json)'. The row's verdict depends on whether a writer has run.",
+   "fix": "In configViolationsRow use live := recordedViolations(config.ViolationsFromWarnings(s.warnings), s.warnings), the same selection the writers use. Render a reset entry without got/want (for example 'runtime.migration (block reset: newer settingsVersion)'). Add a doctor row test with no record present.",
+   "audit_id": 16,
+   "dim": "config"
+  },
+  {
+   "severity": "minor",
+   "location": "internal/cli/config.go:83-89 (reg.Counter(\"config.violations\") counts leaf violations only); docs/troubleshooting.md:705-712 (§6 'After a downgrade')",
+   "issue": "status disagrees with doctor and self-test in two ways. (1) status's daemon counter config.violations ignores a newer-settingsVersion reset, which the record, doctor and self-test all count as a setting. (2) The counter is cumulative from daemon start and the loud ring keeps the start line, so after following §6's procedure, self-test and doctor read ok while status still reports config.violations 1 and the stale loud line until that daemon exits. §6 says only that doctor 'reads ok as well'.",
+   "evidence": "Real-binary probe (q8). sv case, status before the fix: 'loud.total 1' plus the reset loud line, and no config.violations metric. Leaf case (eval.minSessions -3), status before the fix: 'config.violations 1'. After the §6 fix, self-test showed 'config.capture ok applied as written', the record was absent and doctor read 'config.violations ok none'. status after the fix still showed 'config.violations 1' and 'recent loud lines ... invalid configuration value, using default key=eval.minSessions' (the same for gated). For sv, status still showed the 'configuration block reset to defaults' line.",
+   "fix": "Count resets too: increment over recordedViolations(violations, warns), not violations. Add one sentence to §6 'After a downgrade' (and to the §1 status entry): status's config.violations counter and recent loud lines describe the running daemon's start and keep showing the condition until that daemon exits, which the stop-the-daemon step that follows takes care of. Alternatively make the metric a gauge that the daemon's reload resets.",
+   "audit_id": 17,
+   "dim": "config"
+  },
+  {
+   "severity": "minor",
+   "location": "internal/cli/config.go:98-101 with :266-268 (syncViolationsRecord MkdirAll(l.State)); docs/troubleshooting.md:19-21; docs/user-guide.md:548",
+   "issue": "This is a regression from candidate 7 introduced by recordedViolations. A command load now records a user-global, QOMPACK_* or --set newer-settingsVersion reset, and syncViolationsRecord runs MkdirAll on state/. So `qompack config print`, a read command the docs say does not create the layout, creates <dir>/.qompack/state/config-violations.json and .qompack/tmp in any never-used directory. That happens exactly in the downgrade case: a ~/.qompack/config.json written by a newer build. Candidate 7 did this only for a leaf violation, which is the carried open issue. Candidate 8 widens it to the reset.",
+   "evidence": "Fresh git dir with no .qompack, and HOME/.qompack/config.json = {\"runtime\":{\"migration\":{\"settingsVersion\":99}}}. Running `config print` gave: q7 -> nothing created; q8 -> '.qompack .qompack/state .qompack/state/config-violations.json .qompack/tmp'. With a user-global leaf {\"eval\":{\"minSessions\":-3}}, q7 and q8 both create the same set, which is pre-existing. troubleshooting.md:19-21 says '`qompack config print` does not create the layout ... it does write, or remove, `.qompack/state/config-violations.json` in one that already exists'.",
+   "fix": "Mirror the hook path. In syncViolationsRecord, or in loadConfigAndReport before calling it, return without writing when !isDir(paths.Of(root).Dot), so a command never creates .qompack just to hold a diagnostic (removal stays as is). Add a test in which config print with only a user-global reset leaves the directory empty. Otherwise correct both doc sentences.",
+   "audit_id": 18,
+   "dim": "config"
+  },
+  {
+   "severity": "minor",
+   "location": "internal/cli/config.go:41-46 (loadDaemonConfig comment) and :83-85 (LoadConfigAndReport Louds every leaf violation for every caller)",
+   "issue": "The code comment states D59's rule as 'the daemon reports such a condition loudly once per start or change while hooks and commands log it at warn'. Commands still Loud every §11.3 leaf violation each time they run: `qompack mcp` at every session start and each /qompack: command. Each Loud is a line in the never-rotated LOUD.log for an unchanged, persistent condition. This is the class of F-C7-C49-2, at session or command frequency rather than per hook. The §6 table documents it, so the behaviour is disclosed but inconsistent with the rule the code itself cites.",
+   "evidence": "Leaf probe (q8, eval.minSessions -3), day log: '14:39:03.9700208Z level=warn msg=\"configuration warning\" ...' followed by '14:39:03.9705556Z level=loud msg=\"invalid configuration value, using default\" key=eval.minSessions'. These come from one `qompack status` run with the daemon already up, and LOUD.log grew by one line for that command. cmd_mcp.go:103 and qompack_commands.go:122 pass real loggers.",
+   "fix": "Give LoadConfigAndReport the hook level (Warn) for leaf violations and keep Loud only in loadDaemonConfig, where it happens once per start. Update the §6 table's invalid-value row ('and from qompack mcp and the /qompack: commands each time') to match. Otherwise record an explicit ledger acceptance and correct the comment.",
+   "audit_id": 19,
+   "dim": "config"
+  },
+  {
+   "severity": "minor",
+   "location": "internal/cli/capture_admission.go:120 (reportCaptureConfig runs before the runtime.mode==\"off\" return); docs/troubleshooting.md:1292-1295 (§8 Step 3)",
+   "issue": "§8 Step 3 says that with runtime.mode=off 'What keeps being written. Nothing from the hook path.' When the same configuration also holds a §11.3 violation, every hook writes state/, tmp/ and state/config-violations.json, plus one warn line per hook in the day log. A mode-off hook with a clean file also removes an existing record. This predates candidate 8 (candidate 7 also did a WriteAtomic and a Loud per hook), but the off rung of the safe-disable ladder is documented as writing nothing.",
+   "evidence": "Project with .qompack/logs present and config {\"runtime\":{\"mode\":\"off\"},\"eval\":{\"minSessions\":-3}}. Three `q8 observe prompt` hooks each printed {} rc=0 and left .qompack/state/config-violations.json, .qompack/tmp and qompack-20261004.log with 3 warn lines.",
+   "fix": "Return before reportCaptureConfig when cfg.Runtime.Mode == \"off\" (self-test and doctor still report the condition through LoadForCapture). Otherwise qualify Step 3: 'nothing except the configuration diagnostics in state/config-violations.json and the day log, when the file also has an invalid value'.",
+   "audit_id": 20,
+   "dim": "config"
+  },
+  {
+   "severity": "minor",
+   "location": "tools/devtool/genconfigdocs.go:326 -> docs/config-reference.md:206-208 (Gated switches)",
+   "issue": "This is carried and still unfixed. The generated reference says a refused gated switch 'is reported as a warning'. The code records it as a §11.3 invalid value: it goes to state/config-violations.json, is Loud once per daemon start, and is a warn per hook. troubleshooting §6 correctly says 'recorded as an invalid value'. The two docs contradict each other.",
+   "evidence": "Gated probe (q8, runtime.phase7.reuse.scopedCandidates true): the record holds Key runtime.phase7.reuse.scopedCandidates with 'invalid value, using default: true not in false'; LOUD.log has 'invalid configuration value, using default' once per daemon start; doctor shows 'config.violations degraded 1 setting(s)'.",
+   "fix": "Change the generator string to 'the leaf falls back to its default and the refusal is recorded as an invalid value (state/config-violations.json)', then regenerate config-reference.md.",
+   "audit_id": 21,
+   "dim": "config"
+  },
+  {
+   "severity": "minor",
+   "location": "internal/cli/doctor.go:769-779 (doctorPersistedViolations: paths.ReadFileShared, unbounded, follows links)",
+   "issue": "This is carried and predates candidate 8. Wave 20 hardened the hook and command read of the same record (recordHolds: no-follow, non-blocking, regular file, size-bounded). doctor still reads it with a plain, unbounded open, so a FIFO at state/config-violations.json hangs doctor off Windows, and a link to a large file is read whole. The same path now has two readers with different safety rules.",
+   "evidence": "Code reading: doctor.go:770 `raw, err := paths.ReadFileShared(filepath.Join(l.State, configViolationsFile))`, compared with config.go:280-293 recordHolds using paths.OpenSharedLeaf plus Mode().IsRegular() and a size check. This could not be probed on Linux: no WSL or Docker is available on this host.",
+   "fix": "Read through paths.OpenSharedLeaf, require a regular file, and cap the read (for example at the capture config bound of 1 MiB). Treat anything else as 'no persisted list' with a detail note.",
+   "audit_id": 22,
+   "dim": "config"
+  },
+  {
+   "severity": "minor",
+   "location": "internal/cli/doctor.go:769-770 (doctorPersistedViolations); internal/cli/config.go:242 (syncViolationsRecord)",
+   "issue": "Two carried, pre-existing items from w20-config have no disposition. (1) doctor reads state/config-violations.json with an unbounded paths.ReadFileShared, so a FIFO there hangs doctor (hooks are safe since 07ff04ad). (2) A command load whose newer-settingsVersion reset comes from the user-global, env or --set layer, run in a directory with no .qompack, creates .qompack/state/config-violations.json there. That conjures a store directory where there is no project store.",
+   "evidence": "w20-config/report.md Open issues: 'Carried, predates this work: doctorPersistedViolations reads the record with an unbounded paths.ReadFileShared, so a FIFO there would hang doctor', and 'a command load ... in a project with no .qompack, creates .qompack/state/config-violations.json'.",
+   "fix": "Use recordHolds' bounded no-follow regular-file read in doctorPersistedViolations, and skip the record write when the project has no .qompack. Or record both as accepted residuals.",
+   "audit_id": 82,
+   "dim": "complete"
+  },
+  {
+   "severity": "minor",
+   "location": "internal/cli/doctor.go:770 (doctorPersistedViolations -> paths.ReadFileShared -> internal/paths/replace_other.go:16 openShared = os.Open)",
+   "issue": "Wave 20 made the hook's read of state/config-violations.json non-blocking: recordHolds opens it with paths.OpenSharedLeaf (O_NOFOLLOW|O_NONBLOCK), checks it is a regular file and bounds the read, and capture_config_fifo_unix_test.go pins this. doctor still reads the same record with a plain blocking os.Open off Windows. A FIFO planted at that path, the case wave 20 hardened against, therefore hangs `qompack doctor` (and /qompack:doctor) forever on Linux and macOS: open(2) O_RDONLY on a FIFO waits for a writer. The code predates d20309c0, but the hardening wave 20 gave this record covers only one of its two readers.",
+   "evidence": "Code path: doctor.go:767-779 calls paths.ReadFileShared(filepath.Join(l.State, configViolationsFile)); shared.go:45-46 calls OpenShared; replace_other.go:16 is `func openShared(p string) (*os.File, error) { return os.Open(p) }`. Compare config.go recordHolds, which uses paths.OpenSharedLeaf (leaf_unix.go:16: O_RDONLY|O_NOFOLLOW|O_NONBLOCK). No unix test covers doctor with a FIFO record. Not executed: Docker is not allowed in this audit, and there is no other Linux host.",
+   "fix": "Read the record in doctor through paths.OpenSharedLeaf, require Mode().IsRegular(), and bound the read (factor recordHolds' open, stat and LimitReader into a shared readViolationsRecord helper). Add a unix row next to TestHookCapture_FIFORecordDoesNotBlockTheHook that runs doctor --json against a FIFO at the record path under a watchdog.",
+   "audit_id": 86,
+   "dim": "linux"
+  }
+ ],
+ "nits": [
+  {
+   "dim": "config",
+   "severity": "nit",
+   "location": "internal/cli/config.go:71-89 (warn loop and violation Loud loop both log each clamp warning)",
+   "issue": "On every daemon start and every command load, each §11.3 leaf violation is logged twice in the day log: once at warn as 'configuration warning' (the clamp warning is a keyed warning) and once at loud as 'invalid configuration value, using default'. This predates candidate 8.",
+   "evidence": "leaf-q8 day log: '14:38:42.5732446Z level=warn msg=\"configuration warning\" key=eval.minSessions message=\"invalid value, using default: -3 not in >= 1\"' immediately followed by '14:38:42.5732446Z level=loud msg=\"invalid configuration value, using default\" key=eval.minSessions'.",
+   "fix": "In the warn loop, skip any warning that ViolationsFromWarnings turns into a violation (message prefix 'invalid value, using default: '), since the violation loop reports it with got and want."
+  },
+  {
+   "dim": "config",
+   "severity": "nit",
+   "location": "docs/troubleshooting.md:675-678 (§6 refusal 'Action')",
+   "issue": "The Action has the operator re-run self-test and then 'run a hook: a new file under .qompack/spool/, or the layout appearing, is the confirmation'. self-test itself creates the full layout and starts a daemon even while the hook loader refuses, so after the self-test step the layout appearing proves nothing. The spool file is the only valid sign. This is the same in candidate 7.",
+   "evidence": "Fresh project with config '{\"runtime\":'. `self-test` rc=1 (config.capture critical), then a listing: 'backup checkpoints config.json dag eval grammar index logs metrics migrate objects pins records run sketches spool state tmp', with a daemon pid in run/daemon.lock (q7 and q8 alike). After fixing the file, self-test and one hook left spool/wal-s9.ndjson, so the spool criterion holds.",
+   "fix": "Drop 'or the layout appearing', or limit it to the case where self-test has not run."
+  },
+  {
+   "dim": "config",
+   "severity": "nit",
+   "location": "internal/cli/capture_admission.go:111-117 (refusal returns before reportCaptureConfig)",
+   "issue": "When a file with a recorded violation becomes unparseable, hooks refuse and leave the old record in place. doctor then lists keys from state/config-violations.json that are not in force at all (the whole layer is dropped) until some command load removes the record.",
+   "evidence": "Record [{\"Key\":\"eval.minSessions\",...}], config changed to '{\"runtime\":', 5 hooks run: hook-quiet 5 lines, record unchanged. doctor showed 'config.violations degraded 1 setting(s) ... eval.minSessions (from state/config-violations.json)' next to 'config.capture degraded refused: every hook admits nothing'. A self-test run then removed the record.",
+   "fix": "Document it in §1's config-violations.json entry (a refused configuration leaves the last record until a command such as self-test runs), or have doctor withhold persisted entries when config.capture is refused."
+  }
+ ]
+}

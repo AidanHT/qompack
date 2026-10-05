@@ -1,0 +1,108 @@
+{
+ "seat": "cliwork",
+ "findings": [
+  {
+   "severity": "minor",
+   "location": "internal/cli/status_connect_test.go:29-34 (header); TestStatus_TransientConnectMissStillReadsTheDaemon, TestStatus_CallDeadlineExpiryStillSaysSilent, TestStatus_RepeatedReadsOfUnchangedStateAgree",
+   "issue": "Three status rows still need a real named-pipe connect within commandConnectDeadline (250 ms). D61(c) says 'no row may depend on a wall-clock margin'. The seats argue the margin is the product's own budget, but no ledger row accepts the exception. These run in the pre-freeze `internal` step and in release-check's -p ~22 shared pass.",
+   "evidence": "status_connect_test.go:31-34: 'Three rows still use the real transport where it is what they prove, so they still need a real connect inside commandConnectDeadline, the product's own budget'. w19b-cmdconnect/report-19c.md Open issues says the same.",
+   "fix": "Record a ledger ruling accepting the three rows (with the night's classification of a red), or replace the real dial in the resend half with lateConnectClient as the other rows do.",
+   "audit_id": 80,
+   "dim": "complete"
+  },
+  {
+   "severity": "minor",
+   "location": "internal/checkpoint/writer.go:949 (d.setGoalTurnLocked(turn, true) in the graph fallback); no covering row in current_work_test.go",
+   "issue": "Nothing in the suite checks the graph fallback recording the goal's turn. Removing the call (mutant M40) leaves every test green, but it is not an equivalent mutant: without it the never-move-backwards guarantee breaks. Wave 20's review said this mutant was 'effectively equivalent given ascending segment encoding'. That is wrong, because a later records walk is gated by the same goalTurn.",
+   "evidence": "Full internal/checkpoint suite (skipping only TestChainStopsAtTheDepthCap… and TestFinalizeCutAtEveryBarrier…) run on a scratch copy of 2bf29705 with writer.go:949 deleted: SURVIVED (110 s, rc=0). Probe TestZZGapFallbackGoalTurnGatesALaterWalk: prompts 0 (ask) and 2 (corr60), Begin, so the goal is corr60 at goalTurn 2. SessionPrompts degraded; prompts 4 (corr45) and 6 (corr75) arrive in closed segment 1 over 0-7; advance(d) then advance(d,1), and the fallback sets goal corr75. SessionPrompts restored; corr75's root fails every Open; advance(d). Shipped code PASSES: the goal stays corr75 because the walk is incomplete and turn 4 < goalTurn 6. The mutant FAILS: goalTurn is still 2, so the walk steps back to the turn-4 corr45. Command: `python mutate2.py M40-vs-gap` gave KILLED, '--- FAIL: TestZZGapFallbackGoalTurnGatesALaterWalk'.",
+   "fix": "Add the probe above as a row in current_work_test.go, for example TestFallbackGoalTurnGatesALaterIncompleteWalk. Also correct the w20-forkwork report's equivalence claim for this mutant.",
+   "audit_id": 23,
+   "dim": "forkwork"
+  },
+  {
+   "severity": "minor",
+   "location": "internal/checkpoint/writer.go:946 (`!d.workExplicit` in `if !d.promptsAnswered && !d.workExplicit`)",
+   "issue": "No test covers §7's rule that SetCurrentWork stops derivation on the graph-fallback path. Since wave 19, the fallback runs only while SessionPrompts cannot answer. TestExplicitCurrentWorkSurvivesAPromptRefresh uses the shipped store, where SessionPrompts answers, so the explicit-work guard in the fallback is never exercised. Deleting it (mutant M37) leaves the suite green. A regression would overwrite an explicit current work with a derived prompt during a degraded window, and a compaction then would seal it.",
+   "evidence": "Mutant M37 (`if !d.promptsAnswered {`): full suite SURVIVED (138 s). Probe TestZZGapExplicitWorkSurvivesTheGraphFallback: Begin, then SetCurrentWork('Ship the limiter.'), then prompt 2 in closed segment 1, SessionPrompts degraded, advance(d) and advance(d,1). It PASSES on 2bf29705 and FAILS under M37 (`python mutate2.py M37-vs-gap` gave KILLED).",
+   "fix": "Add that row (explicit current work survives a graph-fallback encode while SessionPrompts is degraded), or extend TestExplicitCurrentWorkSurvivesAPromptRefresh with a degradedPromptsStore subtest.",
+   "audit_id": 24,
+   "dim": "forkwork"
+  },
+  {
+   "severity": "minor",
+   "location": "internal/checkpoint/intent.go:304 (goal walk reads limit 0) with intent.go:626 handOff and finalize.go:239-240 (successor Begin inside Finalize)",
+   "issue": "When the newest prompt is a large paste (up to hookCaptureMaxBytes = 4 MiB), the goal walk reads it whole and runs it through fromStore once per draft. Finalize opens the successor draft synchronously inside PreCompact, and handOff passes on only promptText, which never holds an oversized prompt. goalSeen and oversized are not handed off. So every compaction re-reads the 4 MiB on the hook path: once in the successor's Begin, and once more for a cold PreCompact. Candidate 7 read only a 28 KB bounded prefix there. Per-refresh cost is unchanged.",
+   "evidence": "Overlay probe TestZZPreCompactPerfProbe: 200 prompts, newest a 4 MiB paste, 7 PreCompacts per mode, medians, runs interleaved int/cand/int/cand. c8: warm 105.5/86.6 ms, cold 146.3/110.1 ms. c7: warm 69.9/63.0 ms, cold 69.6/69.0 ms. Without the paste both builds land at 67-82 ms warm and 76-104 ms cold. TestZZPerfProbe repeated fresh Begin, N=2000, big_goal: c8 23.5-40.3 ms vs c7 5.1-10.1 ms; the first cold-cache Begin was 115 ms vs 26 ms.",
+   "fix": "Hand off goalSeen and oversized together with promptText in handOff/takeHandoff, since records are immutable. Alternatively, read the goal from a bounded prefix: goalOf only needs the first sentence capped at 160 runes, so a read limited to evolutionReadLimit that derives the goal from the prefix when the text is longer would do.",
+   "audit_id": 25,
+   "dim": "forkwork"
+  },
+  {
+   "severity": "minor",
+   "location": ".github/workflows/ci.yml:308 (test-e2e: go test -count=1 -timeout=30m ./test/e2e); plans/sdd/V6-closeout/coordinator/phase3.sh:84 (win-e2e-timing, -timeout=30m)",
+   "issue": "On Windows, the whole test/e2e binary leaves only about 15% headroom under its 30 min -timeout, and the night's win-e2e-timing and hosted test-e2e run all of it in one binary. Today, under co-load, e2efunc took 24.4 min even with X11 (about 10-11 min alone), SessionStartLatency and X10 skipped. A quiet run of all of test/e2e has historically taken 25.2-25.5 min. If the host is slower tonight, the run can be killed at 30 m: that is a timeout red, not a product red. This is not a c8 regression, since test/e2e gained one row since d20309c0 (TestV5_ObserveToStatusDiskArmReportsAFailedLiveRead).",
+   "evidence": "This run: `env -u QOMPACK_UNDER_COLOAD go test -p 1 -count=1 -timeout 90m -skip '^(TestV3_HotPathUnchangedWithLedgerResident|TestE2E_SessionStartLatency|TestV5_ThrashWarningVisibleInStatusAndCheckpoint)$' ./test/e2e` gave `ok test/e2e 1464.433s`, with 13 other auditors co-loading the machine. History: qompack-v6 phase3/c6/p3-win-e2e-timing.log `FAIL test/e2e 1529.497s` with `--- FAIL: TestV3_HotPathUnchangedWithLedgerResident (653.15s)`; c5 1513.749s; c6 x11-alone 607-652 s; w21-e2e report: quiet, X11 skipped, 841 s.",
+   "fix": "Give the Windows whole-test/e2e lanes -timeout=45m (ci.yml test-e2e and phase3.sh win-e2e-timing), since X11 is judged alone in win-x11-alone anyway. Or have win-e2e-timing skip X11 the way e2efunc does. At minimum, record that a 30m panic in win-e2e-timing is a timeout classification.",
+   "audit_id": 84,
+   "dim": "regress"
+  }
+ ],
+ "nits": [
+  {
+   "dim": "forkwork",
+   "severity": "nit",
+   "location": "internal/checkpoint/intent.go:270 (`!d.goalTurnSet ||`) and intent.go:323-325 (`if !set { turn = 0 }`)",
+   "issue": "Both are dead code. goalTurn is always 0 while goalTurnSet is false (setGoalTurnLocked normalises it, and resumeDraft leaves it 0), so `turn >= d.goalTurn` already holds. Every caller passing set=false also passes turn 0. Mutants M07 and M19 survive as equivalent mutants. M05 (`>=` to `>`) is equivalent too: the same turn means the same record and the same goal.",
+   "evidence": "M07 SURVIVED (161 s), M19 SURVIVED (151 s), M05 SURVIVED (120 s), all on the full suite. Equivalence follows from reading setGoalTurnLocked (intent.go:322-331) and resumeDraft (writer.go:525-538).",
+   "fix": "Drop the redundant disjunct and the normalisation, or keep them and add a comment saying they are defensive, so a future mutation audit does not re-flag them."
+  },
+  {
+   "dim": "forkwork",
+   "severity": "nit",
+   "location": "internal/checkpoint/intent.go:273 (`case complete && len(own) <= goalWalkLimit:`)",
+   "issue": "The clear case only works because it comes after case 1. It does not itself require !found, so any future narrowing of case 1 would make a found goal be cleared. Mutant M06 (dropping `complete ||` from case 1) shows this: a stale goal_turn (restored backup) clears the goal on one refresh and only recovers on the next. It survives because every row asserts the sealed checkpoint after two or more refreshes (Begin/Advance plus PreCompact's RefreshIntent), which hides that one-refresh behaviour.",
+   "evidence": "M06 SURVIVED on the full suite (126 s). Probe TestZZGapStaleGoalTurnReplacedInOneRefresh asserts the persisted draft right after the resuming Begin. It PASSES on 2bf29705 and FAILS under M06 (KILLED).",
+   "fix": "Write the clear case as `case !found && complete && len(own) <= goalWalkLimit:`. Add the one-refresh assertion (persisted draft after f.begin()) to TestResumedDraftWithAGoalTurnNoRecordReachesTakesTheRecordsGoal."
+  },
+  {
+   "dim": "forkwork",
+   "severity": "nit",
+   "location": "internal/checkpoint/intent.go:386 (isCommandToken character set) and :350 (qompackCommandPrefix)",
+   "issue": "Parts of the bare-command rule have no tests. Removing '.', '_' or digits from the allowed set, accepting a bare '/', or dropping the ':' from '/qompack:' all leave the suite green, so a bare '/my_cmd', '/cmd2' or '/foo.bar' is not pinned either way. A BOM-led '﻿/qompack:status' is taken as the goal because TrimSpace does not strip U+FEFF. That is cosmetic and unlikely from the host.",
+   "evidence": "Mutants M27, M30, M31, M32 and M33 all SURVIVED on the full suite. Probe TestZZShapeOddPrompts: '﻿/qompack:status' gives goal '﻿/qompack:status'. NBSP-led, ZWSP-trailing, '/clear ', '/compact\\n\\n' and multi-line '/qompack:...' prompts are all skipped correctly.",
+   "fix": "Add table rows to TestSlashCommandPromptIsNotCurrentWork for '/my_cmd', '/cmd2', '/foo.bar' (skipped) and '/qompackfoo bar' (kept), and optionally trim U+FEFF in isCommandInvocation."
+  },
+  {
+   "dim": "forkwork",
+   "severity": "nit",
+   "location": "internal/checkpoint/writer.go:946 (promptsAnswered gate) and intent.go:194",
+   "issue": "Nothing shows that the graph fallback is skipped while the records answer. Forcing promptsAnswered to false (mutants M02, M36, M50) does not change any sealed result, because the records walk that follows has the last word. The only observable difference is the fallback's extra ToolUse and Open reads on every encoded segment. These are equivalent in output, so this is a cost and clarity gap, not a correctness one.",
+   "evidence": "M02 SURVIVED (88 s), M36 SURVIVED (146 s), M50 SURVIVED (69 s).",
+   "fix": "Optional: add a read-count row with promptProbeStore asserting that an Advance encoding a segment while SessionPrompts answers makes no prompt Open beyond the refresh's own reads."
+  },
+  {
+   "dim": "forkwork",
+   "severity": "nit",
+   "location": "internal/checkpoint/writer.go:1626 firstSentence via goalOf (intent.go:357)",
+   "issue": "This predates candidate 8 and is unchanged from candidate 7, but it is now visible more often because the goal follows the open segment. The goal is not trimmed: a prompt '   \\nFix it.' gives goal '   \\nFix it.', and '. Then fix it.' gives goal '.', which section 5 then renders as the task in flight.",
+   "evidence": "Probe TestZZShapeOddPrompts on 2bf29705: prompt=\"   \\nFix it.\" gives goal=\"   \\nFix it.\"; prompt=\". Then fix it.\" gives goal=\".\".",
+   "fix": "Trim leading whitespace before firstSentence in goalOf, and skip a first sentence with no letters or digits. This needs a golden and doc check, because the change is visible to users."
+  },
+  {
+   "dim": "ci",
+   "severity": "nit",
+   "location": "internal/cli/status_connect_test.go:521-527 (TestStatusProbe_HasTheCommandConnectBudget); internal/cli/qompack_commands.go:315",
+   "issue": "The test is tautological: `const statusProbeTimeout = commandConnectDeadline`, so it can fail only if that declaration is edited. status_probe_windows_test.go:31-33 says this row 'pins the budget's value', but it pins equality, not 250 ms.",
+   "evidence": "qompack_commands.go:315 `const statusProbeTimeout = commandConnectDeadline`.",
+   "fix": "Reword the comment as a change-detector pin, or also require.Equal(t, 250*time.Millisecond, commandConnectDeadline) if the value is meant to be pinned."
+  },
+  {
+   "dim": "ci",
+   "severity": "nit",
+   "location": "C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int/.qompack/spool (16 client-*.ndjson, up to 520 KB, last written 2026-10-03 14:10); internal/cli/main_test.go:83-95",
+   "issue": "Stale checkout stores left by pre-fix cli runs (every record has the cli testClock t=1786530600000) sit in the integration worktree, and the same holds for qompack-cx-cand and qompack-v6. Because <root>/.qompack exists, TestMain's guard runs in its lenient mode, watching only its own pid's file, in any local run in cx-int, such as prefreeze on $INT. Hosted CI and fresh clones run the strict mode instead.",
+   "evidence": "`ls qompack-cx-int/.qompack/spool`: 16 files. `grep -o '\"op\":…\"t\":[0-9]*'` shows 7158 observe.tool records, all t=1786530600000.",
+   "fix": "Delete <worktree>/.qompack in the integration and candidate worktrees, owner-approved, so local pre-freeze runs exercise the strict guard CI uses."
+  }
+ ]
+}

@@ -1,0 +1,103 @@
+# Wave 22 w15carry seat
+
+Branch `closeout/w22-w15carry`. Workflow `wf_1246af7f-f54`. Subagents cannot write report files in this harness, so the coordinator committed this verbatim from their returned results, in the order the seats ran.
+
+## Assigned audit findings
+
+- **major** `plans/sdd/V6-closeout/coordinator/c8-night.sh:106-115 (closeout/w* loop); README.md:56-62 (Before launch item 2); plans/V6-CLOSEOUT-CHECKLIST.md (no row)`: Three old branches hold commits that are in neither candidate 7 nor integration 2bf29705, and the ledger records no ruling on them. README item 2 requires one ('Merge them or exempt them, and record which in the ledger'). As the trees stand, c8-night.sh refuses at its first precondition loop, on closeout/w15-docs, unless C8_EXEMPT names all three or they are merged. Two of the branches carry product fixes: fix(checkpoint) carry decisions from the fork point / as minted, fix(negknow) lineage on a filter miss, fix(store) count a file removed mid-pass, fix(fault). Exempting them means shipping without those fixes with nothing written down.
+- **blocker** `plans/sdd/V6-closeout/coordinator/c8-night.sh:107-113 (verify/v6 2ed20c48); coordinator/README.md 'Before launch' step 2; branches closeout/w15-ledger 12817cd0, closeout/w15-services c212712d, closeout/w15-docs 21c07942; internal/negknow/ledger.go:1017-1025 at 2bf29705`: Three closeout/w15-* branches hold second-review fix commits, made after their 2026-09-30 merges. Neither candidate 7 nor integration HEAD has them, and the ledger has no disposition for them. README step 2 says 'Merge them or exempt them, and record which in the ledger'. No such row exists in D58-D65 or the dispatch log. c8-night.sh's precondition loop refuses at launch unless each branch is merged or named in C8_EXEMPT. The commits are real fixes that candidate 8 lacks. (1) ca0b7caa: negknow Query resolves the viewer, which reads state/lineage-<session>.json from disk, BEFORE its bloom miss test. Every already_tried, misses included, costs 33-207 us against the §11.2 budgets of 5 us (miss) and 50 us (hit). The negknow budget rows never wire Ancestry, so they stay green. (2) 2348f796 and 503375d2: the decision carry read the truncated sealed checkpoint. A degraded elimination decision was carried forever, a decision cut outright never came back, and a fork carried no explains decisions. (3) a1ccd1ff: a store fix, 'count a file removed mid-pass as live work'. (4) 765a9bcc: TestV6_StartupAccountingReportsUnpublishedCaptureViaStatus reads status once, which is racy since D51 moved the accounting to the background. Its counter check also accepts accounting_continued > 0 with no gap. test/fault/v6_fsck_test.go is unchanged since 4a12eff5, so the pre-freeze testpkgs step runs the racy, weak version.
+
+## impl:w15carry: status `done`, head `c0f568b240a9949d98a7fc6a6789f8d504af3eb0`
+
+### Summary
+
+The three closeout/w15-* branches are now merged into closeout/w22-w15carry, and each tip is an ancestor of HEAD c0f568b2: w15-ledger 12817cd0, w15-services c212712d and w15-docs 21c07942. Once this branch is merged into integration, c8-night.sh's closeout/w* precondition passes without C8_EXEMPT.
+
+**How each branch went in**
+- **w15-ledger:** merged with no conflicts. I re-checked every hunk against today's code. Query's filter-miss early return still runs before viewerFor, and refreshMatches only walks byMatch, so a miss cannot skip a record. The fork-point carry still sits correctly in seedTierOne and in Begin's resume path after the current-work changes of waves 19-20. ci.yml's timing lane picked up TestBudget_QueryHitThroughLineage and TestBudget_QueryMissThroughLineage from the merge. I also added them to the copy of that command in plans/00-ARCHITECTURE.md, and the two now compare equal.
+- **w15-services:** one conflict, in internal/store/publication_audit.go's eachDirEntry. Since w15c-pubscan the walk goes through one os.Root, so the test hook now receives (parent root, directory name, entry), and the test removes the file with parent.Remove. The vanished check landed at all five stat and read sites.
+- **w15-docs:** every commit was superseded. Each rewritten commit's tree is byte-identical to a commit that 6e460292 already integrated:
+  - 4818904f matches b46b439e
+  - fd2578eb matches 9f9d5943
+  - 2ccc5ffe matches 91cf3d42
+  - 21c07942 matches df7af387
+
+  test/docs/closeout_claims_test.go is unchanged since then, and its six pinned rows pass on today's docs. So I recorded the branch with `merge -s ours` instead of merging content.
+
+**Each fix still bites on the merged tree.** plans/sdd/V6-closeout/w22-w15carry/mkoverlays.py builds a pre-fix overlay from the current tree for each fix. runs/overlay-reds-final.txt reruns every red-first row with its overlay on 3f50b4ee, and every row fails:
+- **negknow (ca0b7caa), both halves reverted:** the lineage budget rows fail, e.g. the fork hit at 131.7 us CPU against a 50 us budget, and the not-a-fork miss at 23.4 us against 5 us.
+- **negknow, the Query half alone:** the budget rows could not catch it. With the memo in place, a miss that resolves the viewer stays near 2.2 us of CPU. I added a deterministic row for it, TestQuery_FilterMissAsksNoAncestry, which fails with "Should be zero, but was 1".
+- **checkpoint as-minted carry (2348f796):** TestCarriedDecisionRegainsItsAlternativeAfterATruncatedSeal and TestDecisionTruncatedAwayIsCarriedAgain fail exactly as the branch's own red log recorded.
+- **checkpoint fork point (503375d2):** TestForkCarriesItsParentsDecisionsFromTheForkPoint fails on the carry assertion with the whole fix reverted, and on the ranking assertion with only the ranking half reverted.
+- **store (a1ccd1ff):** TestAuditPublication_SnapshotCountsVanishedEntriesAsLiveWork fails with [capture sidecar unreadable pending-write marker unreadable].
+- **fault (765a9bcc):** TestFault_StartupGapOnStatusIgnoresTheContinuedCounter fails.
+
+**Defects found while sweeping for the class (D66(b))**
+- **Sidecar replaced mid-read (500f2da3):** the store also replaces a capture sidecar by rename, when LinkCaptureReference publishes it or a redelivery rewrites it. If that lands between readPublicationFile's Lstat and its open, the os.SameFile check failed and a healthy store's background pass logged LOUD "publication accounting incomplete". A pass with a snapshot now counts this as live work; fsck and doctor, which run without one, still note it. TestAuditPublication_SnapshotCountsAReplacedEntryAsLiveWork drives the real LinkCaptureReference inside that window and was red before the fix.
+- **A failed Begin burned its sequence number (3f50b4ee):** found because a merged row failed one run in three under -race in the Linux gate. The session's second checkpoint was sealed as 0003 instead of 0002, and that run took 6.96 s against 3-4.5 s for the passing ones. My reading of the code is that PreCompact has a 1.5 s wall-clock budget and Finalize opens the successor draft on that context. When the budget is spent, the successor's read of the checkpoint just sealed fails, after Begin has already claimed 0002. I did not reproduce the expired-context trigger itself; the two rows below fail the successor through an unreadable pin set instead. Begin now gives the number back if it fails before the draft is persisted. TestBeginReleasesTheNumberOfADraftItCouldNotBegin and TestASuccessorThatCouldNotBeginCostsTheSessionNoNumber were red before the fix; the second showed the flake's exact symptom (expected 2, got 3). The existing row TestSecondCheckpointCarriesTheSessionsEarlierDecision asserts the same number and had the same exposure.
+
+**Ancestry of 2bf29705:** closeout/w15-rehydrate 236023ed, w15a-paging f98d7ada, w15a-snapshot 66e0ecdf, w15b-docsb acaf2e21 and w15c-pubscan a525369d are all ancestors. None is missing.
+
+No assertion was loosened, skipped or regenerated. I added no wall-clock margins, edited no other worktree, pushed nothing, and left nothing running.
+
+### Commits
+
+- 556ea523 chore(v6): integrate closeout/w15-ledger's review-2 fixes (merge --no-ff of 12817cd0; no textual conflicts, hunks re-checked against waves 17-21)
+- bde48573 chore(v6): integrate closeout/w15-services' review-2 fixes (merge --no-ff of c212712d; one conflict hunk in internal/store/publication_audit.go eachDirEntry, resolved by hand keeping both sides; test hook ported to the os.Root walk)
+- 62d9290a chore(v6): record closeout/w15-docs as superseded (merge -s ours of 21c07942; message maps each commit to the identical-tree commit integrated through 6e460292)
+- a5258264 test(negknow): pin that a filter miss resolves no ancestry
+- 500f2da3 fix(store): count a sidecar replaced mid-read as live work
+- 0f02a4fc docs(plans): name the lineage Query rows in the timing lane
+- 3f50b4ee fix(checkpoint): give back the number of a draft Begin could not
+- c0f568b2 docs(sdd): record the w22-w15carry red, green and gate runs
+
+### Findings resolution
+
+- **fixed**: audit_id 49 (major, night): closeout/w15-docs, w15-ledger and w15-services are in neither candidate 7 nor integration 2bf29705, and no ruling is recorded, so c8-night.sh refuses at its closeout/w* precondition
+  - Fixed under D67(a) by merging. 556ea523 merges w15-ledger (12817cd0) and bde48573 merges w15-services (c212712d), both with --no-ff. 62d9290a records w15-docs (21c07942) with merge -s ours, naming each commit and the commit that superseded it. The check: `git merge-base --is-ancestor <tip> HEAD` prints ANCESTOR for all three tips on c0f568b2, where on 2bf29705 none of them was an ancestor. c8-night.sh's check (ancestor of integration H, or named in C8_EXEMPT) passes once closeout/w22-w15carry is merged into integration, so C8_EXEMPT is not needed. A red-first test row does not apply to a branch-ancestry finding. The ledger is read-only to me: the per-commit dispositions are in the three merge commit messages, ready for the coordinator's ledger row.
+- **fixed**: audit_id 61 (blocker, complete): second-review fixes on closeout/w15-ledger, w15-services and w15-docs are missing from candidate 8 and were never verified after merge (negknow lineage read on a filter miss; decision carry as minted and from the fork point; store vanished file; fault row's racy single read and weak counter match)
+  - Merged and ported in 556ea523, bde48573 and 62d9290a. The two lineage rows are in ci.yml's timing lane through the merge, and 0f02a4fc adds them to plans/00-ARCHITECTURE.md's copy of that command. This seat ran the one review and verify pass D67(a) asks for. Each fix was shown to bite on the final tree 3f50b4ee by overlaying its pre-fix code with go test -overlay (runs/overlay-reds-final.txt, generated by mkoverlays.py), and every red-first row fails: TestBudget_QueryHitThroughLineage and TestBudget_QueryMissThroughLineage (fork hit 131.7 us CPU against 50 us; misses 23.4 and 136.3 us against 5 us), TestQuery_FilterMissAsksNoAncestry (new, a5258264), TestCarriedDecisionRegainsItsAlternativeAfterATruncatedSeal, TestDecisionTruncatedAwayIsCarriedAgain, TestForkCarriesItsParentsDecisionsFromTheForkPoint (both the carry half and the ranking half), TestAuditPublication_SnapshotCountsVanishedEntriesAsLiveWork and TestFault_StartupGapOnStatusIgnoresTheContinuedCounter. One part could not be pinned deterministically: 765a9bcc's polling is the fix for a timing race. It was exercised by TestV6_StartupAccountingReportsUnpublishedCaptureViaStatus at -count=20 and at -race -count=3, both green. The sweep for the class found two more defects, fixed with red-first rows: 500f2da3 (a sidecar replaced by rename between readPublicationFile's Lstat and its open made the snapshot pass incomplete) and 3f50b4ee (a failed Begin burned its claimed checkpoint number, which made a merged row flaky under -race and load).
+- **fixed**: Sweep for 61 (store class): a capture sidecar replaced by rename mid-read made a healthy store's background pass LOUD "publication accounting incomplete"
+  - Fixed in 500f2da3. readPublicationFile now returns errPublicationFileReplaced, which still matches core.ErrDegraded, when both the checked and the opened file are regular files but not the same one. vanished() counts that as post-snapshot live work only when the pass has a snapshot; fsck and doctor, which run without one, still note it, and a name that opens as anything but a regular file is still refused. Red-first row: TestAuditPublication_SnapshotCountsAReplacedEntryAsLiveWork (runs/store-replaced-red.txt: 'Should be false ... [capture sidecar unreadable]').
+- **fixed**: Sweep for 61 (found by -race -count=3): TestCarriedDecisionRegainsItsAlternativeAfterATruncatedSeal failed 1 in 3 in the Linux gate (expected seq 2, got 3)
+  - Fixed in 3f50b4ee. Begin claims the new draft's number before reading its sources. Finalize opens the successor draft on PreCompact's context, which has a 1.5 s wall-clock budget; when that budget is spent, the successor's reader.Get fails with ctx.Err() after the claim, and the number was burned. Begin now gives the number back if it fails before the draft is persisted, and only while that number is still the newest it handed out. Red-first rows: TestBeginReleasesTheNumberOfADraftItCouldNotBegin (expected 1, got 2) and TestASuccessorThatCouldNotBeginCostsTheSessionNoNumber (expected 2, got 3), in runs/checkpoint-burnedseq-red.txt. After the fix, the same 4-package Linux -race -count=3 run passes, and so do Windows -count=20 and -race -count=3.
+
+### Tests
+
+- `GOOS={windows,linux,darwin} go vet ./internal/checkpoint/... ./internal/negknow/... ./internal/store/... ./test/fault/... (at 3f50b4ee)`: clean on all three
+- `go run ./tools/devtool lint --only=golangci-lint`: PASS (3f50b4ee)
+- `go run ./tools/devtool fmt-check`: exit 0 (c0f568b2)
+- `go run ./tools/devtool lint --only=docmarkers,runpatterns`: PASS runpatterns, PASS docmarkers (c0f568b2)
+- `go test -p 2 -count=1 ./test/docs/...`: ok (c0f568b2)
+- `go test -p 2 -count=1 -timeout=30m ./internal/checkpoint/... ./internal/negknow/... ./internal/store/... ./test/fault/... ./test/guards/... (Windows, 0f02a4fc, no co-load declaration, shared machine)`: checkpoint, store, fault and guards ok. negknow FAIL on wall clock only: TestBudget_RebuildBloom 107 ms against 50 ms, TestBudget_Open 467 ms against 300 ms, TestBudget_QueryMissThroughLineage/not_a_fork 5.458 us against 5 us. CPU was within budget in every case (24 ms, 109 ms, 3.2 us).
+- `QOMPACK_UNDER_COLOAD=1 go test -p 2 -count=1 -timeout=30m ./internal/negknow/... (ci.yml test job's whole-tree convention, ADR 0010; Windows)`: ok
+- `go test -p 1 -count=1 -timeout=30m -run '^(TestBudget_QueryHit|TestBudget_QueryMiss|TestBudget_QueryHitThroughLineage|TestBudget_QueryMissThroughLineage|TestBudget_Record|TestBudget_RebuildBloom|TestBudget_RefreshStaleness|TestBudget_Open|TestBudget_DetectorScan)$' -v ./internal/negknow (the timing lane's form, alone, Windows)`: all 9 PASS
+- `go test -p 2 -count=1 -timeout=30m ./internal/checkpoint/... (Windows, final code 3f50b4ee)`: ok
+- `go test -p 2 -count=1 -timeout=30m ./test/guards/... (Windows, c0f568b2)`: ok
+- `sh linux-nonroot-gate.sh --out .../linux-w15carry 0f02a4fc touched --no-race --gomaxprocs 2 --timeout 60m -- ./internal/checkpoint/... ./internal/negknow/... ./internal/store/... ./test/fault/... ./test/guards/...`: non-root uid 10001. PASS: checkpoint 544, store 979, fault 62, guards 210, the two sub-packages. negknow 430 pass and 1 fail: TestBudget_Open on wall clock (538 ms against 300 ms, CPU 298 ms) with no declaration.
+- `sh linux-nonroot-gate.sh ... 0f02a4fc negknow-coload --no-race --coload --gomaxprocs 2 -- ./internal/negknow/...`: PASS negknow 431, negknowtest 12
+- `sh linux-nonroot-gate.sh ... 0f02a4fc negknow-timing --no-race --gomaxprocs 2 --env GOFLAGS=-p=1 --run '^(TestBudget_QueryHit|TestBudget_QueryMiss|TestBudget_QueryHitThroughLineage|TestBudget_QueryMissThroughLineage|TestBudget_Record|TestBudget_RebuildBloom|TestBudget_RefreshStaleness|TestBudget_Open|TestBudget_DetectorScan)$' -- ./internal/negknow`: PASS 13 (no co-load declaration)
+- `sh linux-nonroot-gate.sh ... 3f50b4ee checkpoint-final --no-race --gomaxprocs 2 -- ./internal/checkpoint/...`: PASS checkpoint 546, checkpointtest 3 (2 skip)
+- `go test -p 2 -count=20 (and separately -race -count=3) -run on each package's new rows: '^(TestBeginReleasesTheNumberOfADraftItCouldNotBegin|TestASuccessorThatCouldNotBeginCostsTheSessionNoNumber|TestLedgerAncestryAnswersAForkRecordedAfterItsFirstAnswer|TestCarriedDecisionRegainsItsAlternativeAfterATruncatedSeal|TestDecisionTruncatedAwayIsCarriedAgain|TestSecondCheckpointCarriesTheSessionsExplainsDecision|TestForkCarriesItsParentsDecisionsFromTheForkPoint)$' ./internal/checkpoint; '^TestQuery_FilterMissAsksNoAncestry$' ./internal/negknow; '^(TestAuditPublication_SnapshotCountsVanishedEntriesAsLiveWork|TestAuditPublication_SnapshotCountsAReplacedEntryAsLiveWork)$' ./internal/store; '^(TestFault_StartupGapOnStatusIgnoresTheContinuedCounter|TestV6_StartupAccountingReportsUnpublishedCaptureViaStatus)$' ./test/fault (Windows)`: all ok at -count=20 and at -race -count=3
+- `go test -p 1 -count=20 -run '^(TestBudget_QueryHitThroughLineage|TestBudget_QueryMissThroughLineage)$' ./internal/negknow; then -race -count=3 (Windows)`: ok both
+- `sh linux-nonroot-gate.sh ... 0f02a4fc newrows-race --gomaxprocs 2 --count 3 --run '<the new rows above>' -- ./internal/checkpoint ./internal/negknow ./internal/store ./test/fault (race on)`: 1 FAIL: TestCarriedDecisionRegainsItsAlternativeAfterATruncatedSeal (seq 3, not 2). Root-caused and fixed in 3f50b4ee.
+- `sh linux-nonroot-gate.sh ... 3f50b4ee newrows-race2 --gomaxprocs 2 --count 3 --run '<the new rows above, including the two seq rows>' -- ./internal/checkpoint ./internal/negknow ./internal/store ./test/fault (race on)`: PASS: checkpoint 21, negknow 3, store 6, fault 6
+- `sh plans/sdd/V6-closeout/w22-w15carry/runs overlay reds: go test -p 1 -count=1 -overlay=<mkoverlays.py output from 3f50b4ee> -run <each red-first row> (runs/overlay-reds-final.txt)`: every row FAILS with its pre-fix code overlaid, as required
+
+### Criterion changes
+
+- None. No assertion was loosened, skipped, regenerated or deleted, and no wall-clock margin was added.
+- Port only, no criterion change: the publicationEntryHook signature changed from func(dir string, e os.DirEntry) to func(parent *os.Root, dirName string, e os.DirEntry), because the walk lists through os.Root since w15c-pubscan. TestAuditPublication_SnapshotCountsVanishedEntriesAsLiveWork removes each entry with parent.Remove; its assertions are unchanged.
+- Procedure, not a criterion: the full negknow runs were re-judged the way ci.yml judges them. The package runs under the whole-tree co-load declaration, and the timing rows run alone without it. Both forms are green on both OSes.
+
+### Open issues
+
+- Release-notes sentence (outside my files; the rehydrate seat owns internal/rehydrate/items.go): a fork's checkpoint now carries its parent's explains decisions and seals them after the fork's own, but rehydration's decisions item re-ranks with checkpoint.ForeignDecisions(cp), which cannot see them as inherited. On a score tie the parent's decision, which has the higher turn, can therefore be kept ahead of the fork's own when the budget runs short; the decision cut is still named in dropped() with its why() route. Fixing it means passing the fork point into the rehydration Request, or a reader-side derivation from Lineage.
+- Observation, judged unreachable in practice: Begin's live-draft path refreshes inherit but not inheritedDec or the fork-point carry. That matters only if a fork's draft exists before its SessionStart records the lineage, and SessionStart is routed first.
+- Observation: LedgerAncestry's memo keeps one small entry per session asked about, for the daemon's lifetime, with no bound. Every NoteFork invalidates all entries.
+- Coordinator: the ledger (read-only to me) needs the D67(a) disposition row. The per-commit dispositions and superseding commits are in merge commits 556ea523, bde48573 and 62d9290a.
+- Wall-clock timing rows fail when run undeclared alongside other packages on this shared machine. Seen here: TestBudget_RebuildBloom and TestBudget_Open (pre-existing rows, untouched), and once TestBudget_QueryMissThroughLineage/not_a_fork at 5.458 us against 5 us. CPU was within budget every time, and each row was green under the whole-tree declaration and alone in the timing lane's form, on Windows and Linux. Hosted ci.yml has not run this branch; D67(n) requires it before the freeze.
+
+## review:w15carry:r1: verdict `sound`, 0 finding(s)
+
+

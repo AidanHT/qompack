@@ -1,0 +1,161 @@
+{
+ "seat": "docs",
+ "findings": [
+  {
+   "severity": "major",
+   "location": "CHANGELOG.md:139-150 (Fixed bullet on rehydration pointers); docs/cannot-do.md:774-779 (section 5, 'What Qompack does instead'); docs/release.md:232 (capability row for the pointer screen) and docs/release.md:210 ('D1 to D61'); docs/release-notes/v0.3.0.md:167-172",
+   "issue": "Four user-facing pages describe the D61(b)(2) screen that D63 replaced. That screen withheld free text only when it contained a rule's literal, a withheld name or an outside absolute path, and none of the four mentions the D63 whitelist HEAD actually runs. On HEAD a free-text summary is shown only when every token passes tokenSafe/plainTokenSafe/urlTokenSafe (internal/rehydrate/pathgate.go:1440-1620). So any command that holds a variable, a glob, a regex, a `%xx`, a backtick, a caret or a `name:` where a path may start is withheld, even when it names no rule literal or path. cannot-do section 5 also says the text is 'decoded and normalized', which is D61's wording: the code percent-decodes nothing. screenText (pathgate.go:2151) only strips ' \" ` \\ ^ and folds case, and a `%` before two hex digits withholds. D63 and D64 are cited only in docs/security.md:86/118 and ADR 0011. The capability table says it was written from D1-D61, and its row cites D61(b), the superseded rule. The w20-docs report's own open issue asked that the CHANGELOG Security entry, cannot-do section 5 and the capability row be re-checked against 19c; they never were.",
+   "evidence": "Overlay probe (go test -overlay with a scratch zz_audit_docs_test.go in internal/rehydrate, one Build per summary, root C:\\q\\proj, rules ./private/deny.txt ./.env ./secrets/** ./secret*). Each of these is WITHHELD although it names no rule literal, no withheld name and no outside path, so the documented rule predicts SHOWN: `find . -name \"*.go\"`, `git log --pretty=format:%h`, `echo $HOME`, `curl localhost:3000`, `echo a%41`. CHANGELOG.md:142-145 reads 'A free-text summary ... is screened: it is withheld when it contains a Read deny or ask rule's literal, the name or relative path of a path this build withholds, or an absolute path outside the project, and whenever the host's rules cannot be read.' cannot-do.md:775 reads 'withheld when, decoded and normalized, it contains ...'.",
+   "fix": "Rewrite the four passages to say what HEAD does. A free-text summary is shown only when the D63 whitelist proves every token safe and it names no absolute or escaping path, no rule literal and no withheld name. It over-withholds by design: variables, globs, regexes, `%` escapes and `name:` shapes such as `localhost:3000` and `format:%h` (D64(4)). Cite D63 and D64. Drop 'decoded'. Raise the capability table's range to D64 and cite D63 in its row. Add stale-claim rows to test/docs for 'decoded and normalized' and for the blacklist sentence.",
+   "audit_id": 39,
+   "dim": "docs"
+  },
+  {
+   "severity": "major",
+   "location": "CHANGELOG.md:139-155 (Security); docs/release-notes/v0.3.0.md:167-172; docs/release.md:232 and :260 (capability rows); docs/cannot-do.md:759-782 (§5); docs/uat.md:1606-1612 (UAT-12 Ruling line); README.md:96",
+   "issue": "Every user-facing release page except docs/security.md still describes D61's screen ('a free-text summary is withheld when it contains a rule literal, a withheld name or an absolute outside path'). D63 replaced that screen and D64 tightened its successor. A free-text summary is now SHOWN only when a whitelist proves every token safe, with the D64(1) root-unit rules and the accepted over-withholding of D64(4). On the corpus about 53 of 246 non-private previews are withheld: variables, globs, regexes, `localhost:3000`, `HEAD:x`, `@name`, a second `%`. None of these pages cites D63 or D64, and cannot-do §5's 'Recorded at' cites D61(b) only. The only over-withholding they disclose is 'free text that only mentions a rule's literal'. The D60(iv) whitespace-collapse limit appears only in ADR 0011. release.yml publishes the release notes verbatim. The w20-docs report's open issues asked for exactly this re-check once closeout/w19-rehydrate merged. The docs seat merged first (c10d9a40) and rehydrate later (752c073b). No later commit touches these pages.",
+   "evidence": "grep counts at 2bf29705 for D63, D64 and whitelist: CHANGELOG 0/0/0, release-notes 0/0/0, release.md 0/0/0, cannot-do 0/0/0, uat.md 0/0/0. docs/security.md 1/1/4: line 86 reads '...is SHOWN only when a whitelist proves it safe (coordinator decision D63)'. cannot-do.md:775 reads 'A free-text summary is withheld when, decoded and normalized, it contains a Read deny or ask rule's literal...'. `git log 738d67c7..2bf29705 -- CHANGELOG.md docs/release-notes docs/release.md docs/cannot-do.md`: the last release-page edits are 3b8fd645/ee30e2fc, from before the w19-rehydrate merge.",
+   "fix": "Rewrite those five pages from security.md:84-151. Say that free text is shown only when the D63 whitelist proves it safe, list the D64(4) accepted over-withholding and the root-unit rule, keep the alias, glob and run-time-name limits, and add the whitespace-collapse limit. Cite D63 and D64 in the capability rows and in cannot-do's 'Recorded at'. Add stale-claim rows to test/docs for the D61 wording ('is withheld when it contains').",
+   "audit_id": 62,
+   "dim": "complete"
+  },
+  {
+   "severity": "major",
+   "location": "docs/release.md:22-33 ('Still owed before the tag, all on candidate 8: ...'); README.md:98-104; docs/release-notes/v0.3.0.md:71-75; docs/architecture.md:722",
+   "issue": "The pages that list the evidence owed before the tag leave out two items. One is the C5.2 night: D62(b) requires C5.2 to be re-measured in full on candidate 8, because candidate 8 changes internal/config/config.go, which every benchmark links. The other is the C1.16 rig re-measure and its docs restatement (D62(c), D65(a)). release.md calls its list 'Still owed before the tag', and the README and the release notes give the same list, so a tag cut right after night 1 would satisfy every document while C5.2 is still unmeasured. architecture.md:722 promises 'candidate 8's C5.2 night re-measures it (D62(c))', which none of the release pages lists.",
+   "evidence": "qompack-v6 plans/V6-CLOSEOUT-CHECKLIST.md:81 D62 '(b) ... C5.2 is re-measured in full on candidate 8. (c) Night (a): candidate 8's night runs the pre-freeze check through release-check by its deadline, and a C5.2 night follows. That night also re-runs the C1.16 rig'. D65(a) at :84: 'the docs restate the figure from those runs in a descendant whose changes reach no bundle'. coordinator/c8-night.sh:37-39 confirms C5.2 is not part of night 1. release.md:24-33 enumerates night chain (timing, X11, race lanes, two bundle builds, quiet C5.1), hosted ci/nightly, live re-check, C5.5 and release-check --tag. It does not name C5.2 or C1.16.",
+   "fix": "Add to the owed list on all three pages: 'the C5.2 night on candidate 8 (every benchmark in full against cf31e01, possibly over several nights, D62(b), D65(b)) and the C1.16 rig re-measure, whose figure the docs restate (D62(c), D65(a))'. In release.md step 2, name docs/architecture.md's C1.16 paragraph among the pages to rewrite.",
+   "audit_id": 40,
+   "dim": "docs"
+  },
+  {
+   "severity": "minor",
+   "location": "test/guards/releasenotes_test.go:154-173 (releaseInterimMarkers); CHANGELOG.md:12-14; docs/architecture.md:722",
+   "issue": "The tag-push interim guard misses interim sentences that will still be in the tree. (a) CHANGELOG.md:12-14 carries the same 'recorded in `plans/sdd/V6-closeout/phase3/c8-CANDIDATE.md` when it is frozen' sentence that README and release.md are guarded for, but CHANGELOG's only marker is 'supply the release's evidence, and they are owed'. release.md step 2 lists only 'CHANGELOG.md's Known limits', not this intro paragraph. (b) docs/architecture.md:722 'candidate 8's C5.2 night re-measures it' is interim text on a page that is neither in TestReleasePagesForAPushedTagCarryNoInterimText's page list nor in step 2's list. (c) Nothing checks on a branch push that each marker still matches today. A reworded interim sentence therefore disables its marker silently; the w20-docs report names this risk itself.",
+   "evidence": "releasenotes_test.go:165-167 has one CHANGELOG regexp, and TestReleasePagesForAPushedTagCarryNoInterimText (:226) iterates only README.md, CHANGELOG.md and docs/release.md. Nothing asserts len(re.FindAllString(current page)) > 0 when refType != \"tag\".",
+   "fix": "Add \"-CANDIDATE\\\\.md` when it is frozen\" to CHANGELOG's markers, and add docs/architecture.md with marker `C5\\.2 night re-measures it` (adding the page to the live test and to release.md step 2). Add a branch-only test asserting every marker matches its page at least once, so a reword forces the table to be updated.",
+   "audit_id": 41,
+   "dim": "docs"
+  },
+  {
+   "severity": "minor",
+   "location": "CHANGELOG.md:148-150 and :188-189; docs/release-notes/v0.3.0.md:171-172; docs/cannot-do.md:766-767; docs/uat.md:1606-1609; docs/adr/0011-rehydration-budget-and-item-order.md:824-831; test/docs/closeout_c8_claims_test.go:230",
+   "issue": "The docs cite the wrong decision for section 2. They say sections 2 to 4 (or 'section 2's verbatim intent') are outside D50 and cite D60(c)(i) or D61(b). D60(c)(i) covers only sections 3 and 4. Section 2 was ruled by D62(f), which no document cites. ADR 0011 section 23's 'What D50 covers' paragraph names sections 3 and 4 only and never section 2, so the decision record lacks the ruling the user-facing pages rely on. The docs test pins the wrong citation: it requires 'Ruling (D60(c)(i)' in UAT-12.",
+   "evidence": "Ledger :79 D60(c)(i): 'Records in sections 3 and 4 ... stay outside D50'. Ledger :81 D62(f): 'Section 2 of the rehydration block carries the user's own verbatim prompts ... Like sections 3 and 4 (D60(i)), it is outside D50.' `grep -rn 'D62(f)' README.md CHANGELOG.md docs/` finds no match, and grep of ADR 0011 for 'sections 2' or 'own prompts' finds none.",
+   "fix": "Cite D62(f) beside D60(c)(i) wherever section 2 is named. Add a section 2 sentence to ADR 0011 section 23's 'What D50 covers'. Change the test's expected ruling to accept D62(f).",
+   "audit_id": 43,
+   "dim": "docs"
+  },
+  {
+   "severity": "minor",
+   "location": "CHANGELOG.md:116-131 (Diagnostics), :111-117 (Rehydration), :156-205 (Known limits); docs/release-notes/v0.3.0.md:123-177; docs/release.md capability table",
+   "issue": "The CHANGELOG misses user-visible changes since candidate 7. (a) state/config-violations.json is now written only when it changes and removed when clean, so doctor's config.violations clears once the file is fixed (660d876f, 07ff04ad, d64129b2; troubleshooting.md:20-21 and section 6 document it). The w20-docs report left this open: 'If it lands, add one Fixed/Diagnostics clause'. (b) status names a disabled daemon, state.bin included, instead of a connect miss (3675a771, 722ef8e7; troubleshooting.md:131-135). (c) Current work, in every session and not only in forks, skips slash-command invocations, never moves backwards and falls back past an unreadable newest prompt (6dfc8d2b, 692e7614, 2780f75c; D62 forkwork). The CHANGELOG mentions forks only. (d) Two newly documented known limits are absent from the CHANGELOG known limits, the release-notes limits and the capability table: a quiet live session is ended as abandoned until its next hook (cannot-do.md:481-503, D62 sessionend), and a missed connect can lazily spawn a duplicate daemon that exits (troubleshooting.md:152-155, D61(c)).",
+   "evidence": "`git log --oneline --no-merges d20309c0..2bf29705 | grep fix(` lists these commits. `grep -n 'config-violations\\|state.bin\\|abandoned\\|lazySpawn' CHANGELOG.md docs/release-notes/v0.3.0.md` finds no match.",
+   "fix": "Add Diagnostics clauses for (a) and (b) and a Rehydration clause for (c). Add (d) to the CHANGELOG known limits, the release-notes limits list and the release.md capability table as accepted residuals, citing D62 (sessionend) and D61(c).",
+   "audit_id": 44,
+   "dim": "docs"
+  },
+  {
+   "severity": "minor",
+   "location": "CHANGELOG.md:100-128 ([Unreleased] Fixed)",
+   "issue": "The Fixed section was written by w20-docs before the wave 20 product seats merged. It has no entry for: config-violations.json written only when it changes and removed when clean, with the new logging levels; the scheduler tap's double fold of a redelivered delivery's tokens (status open_segment_tokens 12 instead of 8); fsck's stable detail order; eval's stable error messages; current work skipping slash commands and never moving backwards; the drain memo's cost cut. The w20-config report ('CHANGELOG/release notes do not mention the logging changes ... CHANGELOG is not my file') and the w20-docs report ('If it lands, add one Fixed/Diagnostics clause') both left this open. Both seats have since merged and nobody added the entries.",
+   "evidence": "grep -i 'violation|fsck|redeliver|slash' over CHANGELOG.md:1-130 at 2bf29705 finds only the Added list's 'fsck' and the command list. w20-config/report.md Open issues; w20-docs/report.md Open issues.",
+   "fix": "Add Fixed/Diagnostics, Fixed/Capture and Fixed/Rehydration clauses for the wave 20 fixes in the docs-only descendant (release.md §1 step 2), and add a stale-claim row if wanted.",
+   "audit_id": 70,
+   "dim": "complete"
+  },
+  {
+   "severity": "minor",
+   "location": "docs/adr/0010-wall-clock-under-coload.md:221-225",
+   "issue": "ADR 0010 Addendum 2 still says release.yml's `release` job declares QOMPACK_NONREFERENCE_DISK 'pending the owner's ruling, C7.2'. docs/release.md:131-143 points to this addendum as 'which holds the complete list' and says both declarations are recorded by D57(a). The pages contradict each other.",
+   "evidence": "`grep -rn 'pending the owner' README.md CHANGELOG.md docs/` finds only docs/adr/0010-wall-clock-under-coload.md:224. Ledger D57(a) records the ruling: 'release-dry-run and release.yml's tag-time release job now declare QOMPACK_NONREFERENCE_DISK'.",
+   "fix": "Replace '(pending the owner's ruling, C7.2: ...)' with '(recorded by D57(a))' in ADR 0010.",
+   "audit_id": 45,
+   "dim": "docs"
+  },
+  {
+   "severity": "minor",
+   "location": "docs/uat.md:679",
+   "issue": "UAT-05's expected result reads '`Tokens` and `Budget` in the state file from step 3 are the numbers to compare'. The state file's keys are lowercase `tokens` and `budget`. That is the error the candidate 8 stale-claim test removed from troubleshooting.md, and UAT-05's own Result block says 'Both states read tokens 0', so the page contradicts itself.",
+   "evidence": "internal/rehydrate/drops.go:58-59 has `json:\"tokens\"` and `json:\"budget\"`. test/docs/closeout_c8_claims_test.go:65-67 bans '(`Tokens` well under `Budget` in' only in troubleshooting.md.",
+   "fix": "Change uat.md:679 to `tokens` and `budget`, and widen the stale-claim row to docs/uat.md.",
+   "audit_id": 46,
+   "dim": "docs"
+  },
+  {
+   "severity": "minor",
+   "location": "docs/uat.md:1197-1199 (UAT-09 Result, Observation); plans/sdd/V6-closeout/live/report-c7.md:217 and :314-315",
+   "issue": "D62 rules UAT-09 O-1 by design: SessionEnd WAS delivered, and the abandoned-session sweep at idleExitSeconds=30 ran during a 34.5 s reply. Yet the user-facing UAT result still says 'the recording session's SessionEnd never reached the daemon, which ended it as abandoned'. That contradicts the ruling. The sessionend seat flagged the wording as wrong in files it did not own, and nobody fixed it.",
+   "evidence": "`git show 2bf29705:docs/uat.md | sed -n 1197,1199p`: 'Observation: the recording session's SessionEnd never reached the daemon, which ended it as abandoned 30 s later'. w20-sessionend/report.md Open issues gives the suggested replacement. D62: 'sessionend: UAT-09 O-1 is by design. SessionEnd was delivered...'.",
+   "fix": "Replace the observation with the seat's wording ('the abandoned-session WARN fired during T9's 34.5 s reply with no tool call (idleExitSeconds=30); the turn's Stop revived the session and its SessionEnd ended it ...; ruled by design, D62'). Add the same note to report-c7.md:217 and :314.",
+   "audit_id": 66,
+   "dim": "complete"
+  }
+ ],
+ "nits": [
+  {
+   "dim": "docs",
+   "severity": "nit",
+   "location": "docs/security.md:89",
+   "issue": "The page says an http(s) URL is shown when it is 'built only from letters, digits and `- . _ ~ : / ? # @ & = +`'. In the code, each part after an `&` must be a plain token (urlTokenSafe, pathgate.go:1490-1497), so a `#` fragment or a `?` after an `&` withholds the URL. ADR 0011:1050-1054 states this correctly. The error over-withholds and leaks nothing.",
+   "evidence": "Probe: `curl https://example.com/a?b=c&d=e#x` WITHHELD; `curl https://example.com/a?b=c&d=e?f` WITHHELD; `curl https://example.com/a?b=c#x` SHOWN; `curl https://example.com/a?b=c&d=e` SHOWN.",
+   "fix": "Add ', and after an `&` only plain-token characters (no `?` or `#`)' to security.md:89."
+  },
+  {
+   "dim": "docs",
+   "severity": "nit",
+   "location": "docs/release.md:31-33",
+   "issue": "The page says the local `release-check --tag` runs 'against a local tag it deletes afterwards'. The night tooling runs it in an isolated `git clone --no-local` scratch clone with no-push URLs, the tag exists only in that clone, and the clone is removed. No v0.3.0 tag ever enters the shared ref store (D62 night).",
+   "evidence": "qompack-v6 coordinator/overnight-c8.sh:115-117 and :565-580 ('tag v0.3.0 only in the clone').",
+   "fix": "Reword to 'which the night chain runs in an isolated scratch clone holding the tag, never in the shared repository'."
+  },
+  {
+   "dim": "docs",
+   "severity": "nit",
+   "location": "internal/cli/qompack_commands.go:190",
+   "issue": "A code comment cites '(D61(e))' for `qompack mcp` keeping runtime.daemon.connectDeadlineMs. D61 has only parts (a) to (c); the ruling is D61(c), which the CHANGELOG cites correctly.",
+   "evidence": "Ledger :80, D61 parts (a), (b), (c): '(c) cmdconnect: ... `qompack mcp` keeps runtime.daemon.connectDeadlineMs and its 10-attempt retry loop'.",
+   "fix": "Change to D61(c)."
+  },
+  {
+   "dim": "docs",
+   "severity": "nit",
+   "location": "test/docs/closeout_c8_claims_test.go:239-241",
+   "issue": "TestUATOpenQuestionsNameTheirRuling skips a block whose question text is gone ('continue'), so rewording the question makes the check vacuous instead of failing.",
+   "evidence": "Code: `if !strings.Contains(block, c.question) { continue }`.",
+   "fix": "Require either the question with its Ruling line, or the Ruling line alone; fail when neither is present."
+  },
+  {
+   "dim": "complete",
+   "severity": "nit",
+   "location": "internal/cli/main_test.go (checkoutSpoolGuard); test/guards (no equivalent)",
+   "issue": "The checkout-leak guard covers only internal/cli's test binary. test/guards also runs all six hooks in process, and the w20-status seat left checking that package for the same leak as outside its scope.",
+   "evidence": "w20-status/report.md Open issues: 'The guard covers in-process hooks of the internal/cli test binary only. test/guards also runs all six hooks in process ...'. grep for a checkout guard in test/guards/*.go finds none.",
+   "fix": "Add the same TestMain guard to test/guards: fail when <repo>/.qompack exists after m.Run and did not before."
+  },
+  {
+   "dim": "complete",
+   "severity": "nit",
+   "location": "w20-forkwork/report.md Needs owner (decision (f), criterion change (e)); docs/architecture.md §7; docs/cannot-do.md",
+   "issue": "The forkwork seat's decisions are not in the ledger or the docs: current work follows the captured turn, not the host's timestamp (first audit forkwork F6, declined); the goal is the newest goal-giving prompt; a bare `/name` is skipped. D62 mentions only the slash-command skip.",
+   "evidence": "w20-forkwork Needs owner: 'Decision (f): current work stays ordered by captured turn (D35(b)). docs/cannot-do.md's out-of-host-order entry could add ...'. `git grep -i 'current work' 2bf29705 -- docs/cannot-do.md docs/architecture.md` returns nothing.",
+   "fix": "Add one sentence to cannot-do's out-of-host-order entry and to architecture §7, and reference it from D62."
+  },
+  {
+   "dim": "complete",
+   "severity": "nit",
+   "location": "internal/rehydrate/pathgate.go (whole file)",
+   "issue": "No coordinator ruling exists on pathgate.go's size, although 19c (F17) and the 19d review both asked for one. It now has 2766 lines, 1809 code lines, 118 functions and gocyclo 797.",
+   "evidence": "w19-rehydrate/report-19g.md verify: 'Size matches: 2766 lines, 1809 non-blank non-comment, 118 functions, gocyclo 797 (max 26)'. report-19c.md Needs owner: 'F17: the coordinator should rule a size cap for pathgate.go or accept its size.'",
+   "fix": "Record an acceptance (or a cap) in the ledger, so the review lens's request is closed."
+  },
+  {
+   "dim": "complete",
+   "severity": "nit",
+   "location": "docs/troubleshooting.md §7 (abandoned-session entry, about :1197-1205)",
+   "issue": "The abandoned-session entry names only a long /compact as the hookless step. A long reply with no tool call (the UAT-09 O-1 shape D62 ruled on) is the second observed shape. cannot-do already states both.",
+   "evidence": "w20-sessionend/report.md Open issues: 'docs/troubleshooting.md section 7's abandoned-session entry names only a long /compact ... A long reply with no tool call is a second observed shape.'",
+   "fix": "Add the long-reply shape to the entry's Meaning."
+  }
+ ]
+}

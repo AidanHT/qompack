@@ -1,0 +1,86 @@
+{
+ "seat": "redeliver",
+ "findings": [
+  {
+   "severity": "major",
+   "location": "internal/observer/stop.go:150-157 (mainAgentStop, reached from onStop :141 with no observation check). Also docs/architecture.md:361-362 and internal/daemon/scheduler_tap_redelivery_test.go:7",
+   "issue": "When a main-agent Stop delivery is replayed, the observer does not recognise it. Wave 20 made the scheduler tap apply a cut-and-replayed delivery once. On the same path (Stop's runCancel, a bounded drain, or a PreCompact settle cutting a Stop's commit), the observer's own Stop handling runs again: st.Turn++ and, when a grammar is wired, Grammar.Append(stop). captureSubagent (:192), OnToolUse (tooluse.go:121) and the prompt capture (prompt.go:175) all check observationRecord; the main-agent branch does not. Every cut Stop therefore shifts the turn of every later record by one, and the scheduler's maxTurn follows. architecture.md:361 ('The observer absorbs the replay'), the redelivery test file's header and the w20 report all say the observer absorbs replays. That is false for this branch. This is pre-existing: `git diff d20309c0 2bf29705 --stat -- internal/observer/` is empty. No observer test covers a main-agent Stop redelivery; the TestRedelivery_Stop* rows all use subagent stops.",
+   "evidence": "Probe C:/Users/Quant/AppData/Local/Temp/claude/qompack-audit2/redeliver/probes/zz_probe_e_test.go, using the real tappedDaemon worker and drain. It runs a Read, then a Stop (in one run the commit is cut by cancelling the worker ctx after runIngested, exactly as TestIngest_AStopThatCutsTheCommitFoldsTheReplayedReadOnce does), then dd.Drain, then a second Read. Command: `cd C:/Users/Quant/Documents/Programming/Projects/qompack-cx-int && go test -p 1 -count=1 -overlay C:/Users/Quant/AppData/Local/Temp/claude/qompack-audit2/redeliver/probes/overlay-de.json -run '^TestProbe[DE]_' -v ./internal/daemon/`. Output: 'cut=false first Read turn=0, Read after the Stop turn=1, scheduler maxTurn=1'; 'cut=true sched.tap.redelivery=1'; 'cut=true first Read turn=0, Read after the Stop turn=2, scheduler maxTurn=2'; then 'Error: Not equal: expected: 1 actual: 2 ... a replayed Stop must advance the turn exactly as one uncut Stop does'. The tap recognised the replay, but the observer advanced the turn a second time.",
+   "fix": "Give sessionState a LastStopObs core.ObservationID, persisted in observer.json's persistedSession next to Turn so the restart replay is covered too. In onStop's main-agent branch: if obs := ObservationFrom(ctx); obs != \"\" && obs == st.LastStopObs, count counterRedelivery and return before Turn++ and Grammar.Append. Otherwise run them and set st.LastStopObs = obs. One entry per session is enough under the same ordering-gate argument the tap uses. Add a red-first row in internal/observer/redelivery_test.go mirroring the probe: the turn delta of an uncut Stop equals that of a cut-and-replayed one, plus a restart variant. Correct architecture.md:361 and the test header.",
+   "audit_id": 3,
+   "dim": "redeliver"
+  },
+  {
+   "severity": "minor",
+   "location": "internal/daemon/handlers.go:1374-1404 (handleCheckpoint phase 2 calls d.svc.PreCompact and phase 3 calls AddPrecompactWallSample on a spool replay); internal/daemon/scheduler_tap.go:276-281 (preCompact → CloseSegmentForCompaction)",
+   "issue": "A spooled duplicate of a PreCompact the daemon already handled live is replayed in full. The hook client spools a checkpoint whose reply misses its 15 s deadline: hookclient.go:35 sets checkpointReplyDeadline, and ipc client.go:288-294 spools on a read error. checkpoint_replay_test.go is built on that premise. The live route never leases the request (only ingest.Accept leases, ingest.go:344), so the drain mints a fresh lease (drain.go:1091) and drainDispatch → dispatchOp(withSpoolReplay) runs handleCheckpoint again. Only the contract arming is replay-aware (handlers.go:1350). The seal runs a second time. The scheduler closes the post-compaction open segment with cause 'compact' when work has happened since. PrecompactWallMs gets a second sample, which feeds precompact.has_time_to_write's p99. This is pre-existing. It is not reachable unless a PreCompact reply takes more than 15 s (a stall or heavy co-load).",
+   "evidence": "Probe C:/Users/Quant/AppData/Local/Temp/claude/qompack-audit2/redeliver/probes/zz_probe_redeliver_test.go TestProbeB_ASpooledDuplicateOfALiveCheckpointRunsAgain. It uses the real wireTestDaemon, the tap, a counting PreCompact seam, a live checkpoint via dispatchOp, then a prompt and a Read after the compaction, then the same request (same nonce) written to client-4242.ndjson and drained. Command: `go test -p 1 -count=1 -overlay .../probes/overlay.json -run '^TestProbeB_' -v ./internal/daemon/`. Output: 'after the live checkpoint: seals=1 compact closes=1 open tokens=0 wall samples=1'; 'after the post-compaction Read: open tokens=12 maxTurn=1'; 'drain err=<nil> gaps={... Complete:true ...}'; 'after the drained duplicate: seals=2 compact closes=2 compact_unobserved=0 open tokens=0 wall samples=2'; FAIL 'a duplicate of a PreCompact already handled must not seal again'.",
+   "fix": "Have the live route record the nonce of each checkpoint it handled in history phase 1, as a bounded list like Sentinel.MissedBy. In handleCheckpoint, when spoolReplay(ctx) is set and req.Nonce is already in that list, skip phase 2 (svc.PreCompact, and with it the tap's compaction close) and the wall sample. Still let the replay reach the frontier, so it is not replayed again. A replay of a PreCompact the daemon never saw keeps today's behaviour. Add a red-first row like the probe.",
+   "audit_id": 4,
+   "dim": "redeliver"
+  },
+  {
+   "severity": "minor",
+   "location": "internal/daemon/scheduler_state.go:315-332 (seedApplied); scheduler_runtime.go:1048-1058 (claimDeliveryLocked); scheduler_frontier.go:120-126 (bindUnboundLocked); scheduler_state.go:388-391 (another session's doc is discarded)",
+   "issue": "Compared with 738d67c7 this is a regression, but only in an edge case. seedApplied suppresses the startup-drain replay of every identity in state/scheduler.json, on the assumption that the later bind restores the account that holds them. bindOnFirstHook can instead bind a different session than doc.Session; restoreSchedulerLocked then discards the doc, and the skipped replay's tokens are lost. Example: two windows. The runtime was bound to S1 and folded S2's last Read into S1's persisted account. That Read's live and Stop-drain commits were both cut. After the restart, S2's next hook arrives first. S2's account then misses that Read; 738d67c7 counted it.",
+   "evidence": "Probe C:/Users/Quant/AppData/Local/Temp/claude/qompack-audit2/redeliver/probes/zz_probe_c_test.go. On HEAD: `go test -p 1 -count=1 -overlay .../probes/overlay-c-head.json -run '^TestProbeC_' -v ./internal/daemon/` gives 'otherSess open segment tokens = 100 (its two Reads: 400)' and FAIL expected 400 actual 100. With 738d67c7's four scheduler files overlaid (overlay-c-base.json): 'otherSess open segment tokens = 400' and PASS.",
+   "fix": "Deduplicate at bind time, against the account actually restored, instead of seeding at construction. While unbound, keep claiming and folding, but record each claimed delivery's folded tokens (and any owed close). In bindUnboundLocked, after bindSessionLocked has restored the document, subtract the tokens of each unbound-claimed delivery whose identity equals the restored doc's LastAppliedObservations[s]. Only do this when doc.Session == sess, i.e. when the account was really restored. Alternatively, keep the seed but park a skipped replay's tokens under the seeded doc's session, and add them back in bindUnboundLocked when the bound session differs from it. Add a row like the probe.",
+   "audit_id": 5,
+   "dim": "redeliver"
+  },
+  {
+   "severity": "minor",
+   "location": "internal/daemon/scheduler_runtime.go:229-244 (schedRuntime.applied and its comment); heldObservationsLocked scheduler_runtime.go:1126-1140",
+   "issue": "schedRuntime.applied is never pruned. No code deletes from it: `grep -rn \"delete(r.applied\\|r.applied = \" internal/daemon/*.go` finds only the constructor. It gains one entry per session the daemon ever sees, for the life of the process. The comment says this matches 'the observer's per-session state'. It does not: the observer deletes a session's state at SessionEnd (observer/session.go:402-405), and the registry evicts ended sessions beyond maxSessions (registry.go:370-398). A daemon that never idles for 30 minutes, such as a headless `claude -p` loop in one project, grows without bound. Every Persist also walks the whole map under r.mu (heldObservationsLocked).",
+   "evidence": "Probe C:/Users/Quant/AppData/Local/Temp/claude/qompack-audit2/redeliver/probes/zz_probe_d_test.go, with 20,000 UUID-shaped sessions, half carrying an owed close and half an anchored identity. Run through overlay-de.json: 'applied entries=20000 heap delta=6449848 bytes, 322 bytes/session; obs id len=71'; 'held identities a Persist would write: 20000'. At 1,000 sessions a day that is about 322 KB/day with no ceiling.",
+   "fix": "Bound the map. An entry is only needed while its session's last applied delivery may still be unacknowledged. So drop a session's entry once the session is no longer live and its arrivals are settled: for example in the SessionEnd tap after Persist, when the flush's settle reported every earlier arrival delivered (d.sessionDelivered), or when the registry evicts the session. Alternatively, cap it as an LRU of runtime.daemon.maxSessions entries. Correct the comment.",
+   "audit_id": 6,
+   "dim": "redeliver"
+  },
+  {
+   "severity": "minor",
+   "location": "plans/V6-CLOSEOUT-CHECKLIST.md on verify/v6 (D62); internal/daemon/ingest_wal_groupcommit_test.go:239-246 (awaitClosed, 10 s ingestACKWait); plans/sdd/V6-closeout/w20-redeliver/report.md:222-235",
+   "issue": "Items the w20-redeliver seat routed to the coordinator have no disposition in the ledger. (1) TestDeliveryJournal_AckCheckRunsAfterEvaluationAndImmediatelyBeforeAppend failed once in a whole-package run under co-load: 'the return of acknowledgement 0 never happened' after 44.9 s, against about 9 s alone. It runs in tonight's prefreeze `./internal/...` step, which stops the night on any red. (2) A replayed compact SessionStart re-anchors lastCompactionTS and lastActivity. (3) An owed close is not persisted across a restart. (4) An owed close for another session's tool use closes the bound session's segment. D62 records only the main fix.",
+   "evidence": "`grep -n \"AckCheckRunsAfterEvaluation\\|ingestACKWait\\|owed close\\|lastCompactionTS\\|compact SessionStart that a drain replays\" plans/V6-CLOSEOUT-CHECKLIST.md` in qompack-v6 returns nothing. My run: `go test -p 1 -count=3 -run '^TestDeliveryJournal_AckCheckRunsAfterEvaluationAndImmediatelyBeforeAppend$' ./internal/daemon/` passed 3/3 at 17.67 s, 14.09 s and 15.11 s with the machine shared. The slowest leaf subtest took 0.89 s, against the 10 s per-wait bound.",
+   "fix": "Record a disposition for each item under D62 or D65: accepted with its impact, or scheduled. For (1), make awaitClosed a pure hang guard: derive its bound from t.Deadline() minus a margin rather than a fixed 10 s, so co-load cannot turn a slow fsync into a red.",
+   "audit_id": 7,
+   "dim": "redeliver"
+  },
+  {
+   "severity": "minor",
+   "location": "internal/daemon/scheduler_tap.go:211-217 (closeOwed); internal/daemon/scheduler_state.go:105-114 (LastAppliedObservations, no cap)",
+   "issue": "The w20-redeliver seat routed three items to the coordinator, and none has a disposition. (1) The tap's boundary close, now the owed close, closes the BOUND session's segment even for another session's tool use, and folds that session's tokens into the bound account (pre-existing cross-session design). (2) The persisted last_applied_observations map has no cap and grows about 110 bytes per session on a long-lived account. (3) An owed close is not persisted, so a cut first run, plus a cut Stop replay, plus a replay after a bind loses the close.",
+   "evidence": "w20-redeliver/report.md Open issues: 'Observed, pre-existing, outside this seat: the tap's boundary close ... closes the BOUND session's segment even for another session's tool use ... routed to the coordinator', plus 'It has no cap ...' and 'an owed close is not persisted'. D62's redeliver sentence covers only the double fold.",
+   "fix": "Record a ledger ruling for each (accepted residual or follow-up), and add the cross-session close to cannot-do if it is accepted.",
+   "audit_id": 72,
+   "dim": "complete"
+  },
+  {
+   "severity": "minor",
+   "location": "internal/cli/sessionstart_compact_load_test.go:369-408 (requireReadsReachedTheRig); w20-status/report.md Open issues",
+   "issue": "There is an open product question with no owner. When the compact rig's daemon stops, only 4-20 of 43-95 delivered Reads are in index/tool_use.jsonl. The rest are WAL-only, and 0-30 per run are still in a client spool. 'Nobody has established whether WAL-only at stop is expected (replayed at the next start) or a gap in ingest under same-session load.' The C5.2 night re-runs the rig and records counts, but D65(d) records and does not judge, so nothing will answer the question.",
+   "evidence": "w20-status/report.md Open issues: 'Across 20 runs, about 4-20 of 43-95 Reads were indexed, and 0-30 per run were still in a client spool. Nobody has established ...'. A reviewer probe found 12 of 91 indexed.",
+   "fix": "Have one seat establish the ingest rate under that load: Stop's drain behaviour, and whether a compaction's rehydration misses recent Reads. Record the answer in the ledger. Have c116-rig fail, or at least flag, when the indexed fraction at stop is below what a correct drain guarantees.",
+   "audit_id": 73,
+   "dim": "complete"
+  }
+ ],
+ "nits": [
+  {
+   "dim": "redeliver",
+   "severity": "nit",
+   "location": "internal/daemon/scheduler_tap.go:199-210 (observeTool's record-lookup error branch)",
+   "issue": "On a replay of a delivery the tap already applied, a record lookup that fails with something other than ErrNotFound takes the anchorUnrecorded branch. That branch returns false because d.obs == obs, counts a redelivery, and returns without calling closeOwed. If that replay's commit then lands, the boundary or changepoint close the cut run owed is never made. The recognised-replay path on line 219 does make it.",
+   "evidence": "Code path: rec, err := t.r.st.ToolUse(...); err != nil → anchorUnrecorded(e, obs, now), which at scheduler_runtime.go:1189-1191 returns false when d.obs == obs → t.count(counterTapRedelivery); return. closeOwed is never reached. The observer's own replay of the same delivery (observationRecord) can still succeed and let the commit land.",
+   "fix": "Have anchorUnrecorded return the owed close when it reports a replay of an applied delivery (d.obs == obs), and call t.closeOwed(ctx, e.SessionID, obs, owed) on that branch."
+  },
+  {
+   "dim": "redeliver",
+   "severity": "nit",
+   "location": "internal/daemon/scheduler_state.go:150-161 (decodeSchedulerState), :315-332 (seedApplied), scheduler_runtime.go:1145-1160 (restoreAppliedLocked)",
+   "issue": "LastAppliedObservations is loaded into memory with no cap and no validation, unlike the turn lists (capTurns) and the contract history's applyCaps. A hand-edited or corrupt but parseable scheduler.json can therefore insert any number of entries.",
+   "evidence": "decodeSchedulerState runs json.Unmarshal, then a version check and capTurns only. seedApplied and restoreAppliedLocked range over doc.LastAppliedObservations, skipping only empty strings.",
+   "fix": "Cap the map at load, for example at maxSessions, and drop ids that are not well-formed observation ids (the store's validObservationID shape)."
+  }
+ ]
+}
