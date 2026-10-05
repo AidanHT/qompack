@@ -42,7 +42,7 @@ func TestIdleExit_AnAbandonedSessionRevivedByItsStopStillEndsThroughSessionEnd(t
 	})
 	lock := lockFor(t, dd, root)
 	t.Cleanup(func() { _ = lock.Release() })
-	dd.drain.Store(newDrainer(dd.drainConfig()))
+	dd.drain.Store(newDrainer(contentDrainConfig(dd)))
 	liveOrderWorkers(t, dd, 1, dd.runIngested)
 
 	var ends atomic.Int32

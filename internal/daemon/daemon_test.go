@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -28,6 +29,18 @@ import (
 
 // testConfig returns config.Defaults(), the sane baseline every daemon-level test builds on.
 func testConfig() config.Config { return config.Defaults() }
+
+// runTestConfig is testConfig for a row that runs a daemon and waits, bounded only by hangGuard, for
+// Run to return. Its idle exit is out of reach (IdleExitSeconds is the int32 maximum, about 68
+// years), so Run returns only for the reason the row names: an admin.shutdown, a cancellation, a
+// closed server. With the default 30-minute window, a Run whose named path is broken would still
+// idle-exit, through Stop, before hangGuard fired under a go test -timeout past about half an hour,
+// and that exit satisfies every wait such a row makes (wave 22).
+func runTestConfig() config.Config {
+	cfg := testConfig()
+	cfg.Runtime.Daemon.IdleExitSeconds = math.MaxInt32
+	return cfg
+}
 
 // uniqueTestAddr returns a QOMPACK_IPC_ADDR value naming an endpoint private to this test: a
 // per-test-uniquely-named pipe on Windows, a socket in a fresh short directory on POSIX. Only tests
@@ -388,7 +401,7 @@ func TestNAKDuplicateIsDedupedOnDrain(t *testing.T) {
 	t.Cleanup(func() { _ = dd.ing.Close() })
 	dd.drain.Store(newDrainer(DrainConfig{
 		Root: root, Log: logging.Nop(), Metrics: dd.m, Clock: dd.clk,
-		Dispatch: dd.drainDispatch, Seen: dd.ing.seen, IsLive: dd.sessionIsLive,
+		Dispatch: withoutLineDeadline(dd.drainDispatch), Seen: dd.ing.seen, IsLive: dd.sessionIsLive,
 	}))
 	dd.registry.SetHotMode(ipc.HotSpool, "test")
 
@@ -416,10 +429,10 @@ func TestNAKDuplicateIsDedupedOnDrain(t *testing.T) {
 	require.True(t, os.IsNotExist(statErr), "the client spool file must be consumed")
 }
 
-// drainDeadlockGuard bounds how long a Drain call under test is allowed to take before it is
-// presumed permanently wedged — generous relative to the sub-second work these tests actually do,
-// tight enough that a genuine self-deadlock (fix round 1, Critical C-1) fails the test instead of
-// hanging the whole suite (and, under `go test`, eventually the test binary's own timeout).
+// drainDeadlockGuard bounds the polls and Run contexts of the rows below — generous relative to the
+// sub-second work these tests actually do. Their waits on a channel (a Drain or a Run that must
+// return) are bounded by hangGuard instead, so a genuine self-deadlock (fix round 1, Critical C-1)
+// still fails the test with its own name, and a slow host does not (wave 22).
 const drainDeadlockGuard = 10 * time.Second
 
 // TestDrainOfSpooledFlushLineDoesNotDeadlock is the Critical C-1 regression: a flush line
@@ -440,7 +453,7 @@ func TestDrainOfSpooledFlushLineDoesNotDeadlock(t *testing.T) {
 	t.Cleanup(func() { _ = dd.ing.Close() })
 	dd.drain.Store(newDrainer(DrainConfig{
 		Root: root, Log: logging.Nop(), Metrics: dd.m, Clock: dd.clk,
-		Dispatch: dd.drainDispatch, Seen: dd.ing.seen, IsLive: dd.sessionIsLive,
+		Dispatch: withoutLineDeadline(dd.drainDispatch), Seen: dd.ing.seen, IsLive: dd.sessionIsLive,
 	}))
 
 	flushReq := ipc.Request{
@@ -467,7 +480,7 @@ func TestDrainOfSpooledFlushLineDoesNotDeadlock(t *testing.T) {
 	case r := <-done:
 		require.NoError(t, r.err)
 		require.Equal(t, 1, r.n)
-	case <-time.After(drainDeadlockGuard):
+	case <-hangGuard(t):
 		t.Fatal("Drain of a spooled flush line did not return — self-deadlock on drainer.Drain's own mutex")
 	}
 
@@ -493,7 +506,7 @@ func TestStartupDrainOfSpooledFlushLineDoesNotWedgeRun(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Dir(spoolPath), 0o700))
 	require.NoError(t, os.WriteFile(paths.Long(spoolPath), append(line, '\n'), 0o600))
 
-	d, err := New(Options{ProjectRoot: root, Cfg: testConfig(), Log: logging.Nop(), Clock: core.SystemClock()})
+	d, err := New(Options{ProjectRoot: root, Cfg: runTestConfig(), Log: logging.Nop(), Clock: core.SystemClock()})
 	require.NoError(t, err)
 
 	ctx, cancel := context.WithTimeout(context.Background(), drainDeadlockGuard)
@@ -523,7 +536,7 @@ func TestStartupDrainOfSpooledFlushLineDoesNotWedgeRun(t *testing.T) {
 	cancel()
 	select {
 	case <-errCh:
-	case <-time.After(drainDeadlockGuard):
+	case <-hangGuard(t):
 		t.Fatal("Run did not shut down after cancellation")
 	}
 }
@@ -588,7 +601,7 @@ func TestRedrainOnFirstServedRequest(t *testing.T) {
 	observed := make(chan core.SessionID, 4)
 	var o Options
 	o.ProjectRoot = root
-	o.Cfg = testConfig()
+	o.Cfg = runTestConfig()
 	o.Log = logging.Nop()
 	o.Clock = core.SystemClock()
 	o.Bind(func(s *Services) {
@@ -650,7 +663,7 @@ func TestRedrainOnFirstServedRequest(t *testing.T) {
 		select {
 		case s := <-observed:
 			got = append(got, s)
-		case <-time.After(drainDeadlockGuard):
+		case <-hangGuard(t):
 			t.Fatalf("only %d of the 2 spooled observe.tool events were ever dispatched: %v", len(got), got)
 		}
 	}
@@ -660,7 +673,7 @@ func TestRedrainOnFirstServedRequest(t *testing.T) {
 	cancel()
 	select {
 	case <-errCh:
-	case <-time.After(drainDeadlockGuard):
+	case <-hangGuard(t):
 		t.Fatal("Run did not shut down after cancellation")
 	}
 }
@@ -990,7 +1003,7 @@ func TestRunReturnsNilWhenLockHeld(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("QOMPACK_IPC_ADDR", uniqueTestAddr(t))
 
-	cfg := testConfig()
+	cfg := runTestConfig()
 	dA, err := New(Options{ProjectRoot: root, Cfg: cfg, Log: logging.Nop(), Clock: core.SystemClock()})
 	require.NoError(t, err)
 	ctxA, cancelA := context.WithCancel(context.Background())
@@ -1013,7 +1026,7 @@ func TestRunReturnsNilWhenLockHeld(t *testing.T) {
 	cancelA()
 	select {
 	case <-errChA:
-	case <-time.After(5 * time.Second):
+	case <-hangGuard(t):
 		t.Fatal("daemon A did not shut down")
 	}
 }
@@ -1026,12 +1039,15 @@ func TestAdminShutdownStopsTheDaemon(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("QOMPACK_IPC_ADDR", uniqueTestAddr(t))
 
-	d, err := New(Options{ProjectRoot: root, Cfg: testConfig(), Log: logging.Nop(), Clock: core.SystemClock()})
+	d, err := New(Options{ProjectRoot: root, Cfg: runTestConfig(), Log: logging.Nop(), Clock: core.SystemClock()})
 	require.NoError(t, err)
 	dd, ok := d.(*daemon)
 	require.True(t, ok)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	// No deadline on Run's context, and no idle exit (runTestConfig): admin.shutdown is the only thing
+	// that can end Run, so Run returning is evidence of it. A context with a timeout would end Run
+	// through its own ctx.Done arm, and through Stop, whether admin.shutdown stopped anything or not.
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	errCh := make(chan error, 1)
 	go func() { errCh <- d.Run(ctx) }()
@@ -1047,7 +1063,7 @@ func TestAdminShutdownStopsTheDaemon(t *testing.T) {
 	select {
 	case err := <-errCh:
 		require.NoError(t, err)
-	case <-time.After(8 * time.Second):
+	case <-hangGuard(t):
 		t.Fatal("admin.shutdown did not stop the running daemon")
 	}
 
@@ -1060,7 +1076,7 @@ func TestAdminShutdownStopsTheDaemon(t *testing.T) {
 	// "directory is not empty" (shutdown-race fix, intermittent on Windows).
 	select {
 	case <-dd.stopDone:
-	case <-time.After(8 * time.Second):
+	case <-hangGuard(t):
 		t.Fatal("Stop's cleanup did not finish")
 	}
 }
@@ -1093,7 +1109,7 @@ func TestRunReturnsOnlyAfterAsyncStopHasFinished(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("QOMPACK_IPC_ADDR", uniqueTestAddr(t))
 
-	d, err := New(Options{ProjectRoot: root, Cfg: testConfig(), Log: logging.Nop(), Clock: core.SystemClock()})
+	d, err := New(Options{ProjectRoot: root, Cfg: runTestConfig(), Log: logging.Nop(), Clock: core.SystemClock()})
 	require.NoError(t, err)
 
 	dd, ok := d.(*daemon)
@@ -1102,7 +1118,9 @@ func TestRunReturnsOnlyAfterAsyncStopHasFinished(t *testing.T) {
 	addr, err := ipc.Resolve(root)
 	require.NoError(t, err)
 
-	ctx, cancel := context.WithTimeout(context.Background(), drainDeadlockGuard)
+	// As in TestAdminShutdownStopsTheDaemon: no deadline and no idle exit, so only admin.shutdown can
+	// end Run.
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	errCh := make(chan error, 1)
 	go func() { errCh <- d.Run(ctx) }()
@@ -1125,7 +1143,7 @@ func TestRunReturnsOnlyAfterAsyncStopHasFinished(t *testing.T) {
 	select {
 	case runErr := <-errCh:
 		require.NoError(t, runErr)
-	case <-time.After(drainDeadlockGuard):
+	case <-hangGuard(t):
 		t.Fatal("admin.shutdown did not stop the running daemon")
 	}
 
@@ -1171,7 +1189,7 @@ func TestServeFailureTakesTheStopPath(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("QOMPACK_IPC_ADDR", uniqueTestAddr(t))
 
-	d, err := New(Options{ProjectRoot: root, Cfg: testConfig(), Log: logging.Nop(), Clock: core.SystemClock()})
+	d, err := New(Options{ProjectRoot: root, Cfg: runTestConfig(), Log: logging.Nop(), Clock: core.SystemClock()})
 	require.NoError(t, err)
 	dd, ok := d.(*daemon)
 	require.True(t, ok)
@@ -1204,13 +1222,13 @@ func TestServeFailureTakesTheStopPath(t *testing.T) {
 	select {
 	case runErr := <-errCh:
 		require.NoError(t, runErr, "a Close-driven Serve return is nil by ipc.Server's contract, and this arm reports it verbatim")
-	case <-time.After(drainDeadlockGuard):
+	case <-hangGuard(t):
 		t.Fatal("Run never returned after its server was closed out from under it — the FR-4 arm is missing or wedged")
 	}
 
 	select {
 	case <-dd.stopDone:
-	case <-time.After(drainDeadlockGuard):
+	case <-hangGuard(t):
 		t.Fatal("Run returned but Stop's cleanup never finished — the arm returned without taking the Stop path")
 	}
 
@@ -1367,7 +1385,7 @@ func TestRunCtxDoneGoesThroughStop(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("QOMPACK_IPC_ADDR", uniqueTestAddr(t))
 
-	d, err := New(Options{ProjectRoot: root, Cfg: testConfig(), Log: logging.Nop(), Clock: core.SystemClock()})
+	d, err := New(Options{ProjectRoot: root, Cfg: runTestConfig(), Log: logging.Nop(), Clock: core.SystemClock()})
 	require.NoError(t, err)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -1383,7 +1401,7 @@ func TestRunCtxDoneGoesThroughStop(t *testing.T) {
 	select {
 	case err := <-errCh:
 		require.NoError(t, err)
-	case <-time.After(8 * time.Second):
+	case <-hangGuard(t):
 		t.Fatal("Run did not return after ctx cancellation")
 	}
 
@@ -1613,43 +1631,67 @@ func TestObserveStopSeamSeesTheRestoredAgentName(t *testing.T) {
 func TestObservePrompt_PassiveModeInvokesSeamButEmitsNothing(t *testing.T) {
 	t.Parallel()
 
-	root := t.TempDir()
-	var mu sync.Mutex
-	calls := 0
-	o := Options{ProjectRoot: root, Cfg: testConfig(), Log: logging.Nop()}
-	o.Bind(func(s *Services) {
-		s.ObservePrompt = func(context.Context, hookio.Event) (hookio.Output, error) {
+	// The seam runs on a goroutine of its own (startPromptRecording), and the reply waits for it only
+	// until promptReplyDeadline. So the count is taken once that goroutine has been joined, never at
+	// the moment the reply returns: a seam the scheduler starts after the reply has gone still runs,
+	// and still counts. Both schedules are pinned, the second made deterministic by holding the seam
+	// until the reply is back.
+	for _, c := range []struct {
+		name string
+		late bool
+	}{
+		{name: "the seam runs inside the reply wait"},
+		{name: "the seam runs only after the reply has gone", late: true},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			root := t.TempDir()
+			replied := make(chan struct{})
+			var mu sync.Mutex
+			calls := 0
+			o := Options{ProjectRoot: root, Cfg: testConfig(), Log: logging.Nop()}
+			o.Bind(func(s *Services) {
+				s.ObservePrompt = func(context.Context, hookio.Event) (hookio.Output, error) {
+					if c.late {
+						<-replied
+					}
+					mu.Lock()
+					calls++
+					mu.Unlock()
+					return hookio.Output{HookSpecificOutput: &hookio.HSO{
+						HookEventName: "UserPromptSubmit", AdditionalContext: "recalled context",
+					}}, nil
+				}
+			})
+			d, err := New(o)
+			require.NoError(t, err)
+			dd, ok := d.(*daemon)
+			require.True(t, ok)
+			t.Cleanup(func() { _ = dd.ing.Close() })
+
+			dd.monitor.Degrade("forced for test", []contract.Result{
+				{ID: "x.forced", OK: false, Severity: contract.SevCritical},
+			})
+			require.Equal(t, contract.ModeDegradedPassive, dd.monitor.Mode())
+
+			ev := &hookio.Event{HookEventName: "UserPromptSubmit", SessionID: "sess-passive", CWD: root, Prompt: "what changed?"}
+			resp := dd.dispatchOp(context.Background(), ipc.Request{
+				Op: ipc.OpObservePrompt, Session: "sess-passive", Reply: true, Event: ev, TS: core.NowMilli(dd.clk),
+			})
+			close(replied)
+			require.True(t, resp.OK)
+			require.NotNil(t, resp.Output)
+			require.Nil(t, resp.Output.HookSpecificOutput, "degraded-passive must put nothing into the reply")
+			require.Empty(t, resp.Output.SystemMessage)
+
+			// Stop's join: it waits, with no clock (the grace never ends), for every call the route
+			// started. A hang is left to go test -timeout.
+			dd.stopPromptRecordings(context.Background())
 			mu.Lock()
-			calls++
-			mu.Unlock()
-			return hookio.Output{HookSpecificOutput: &hookio.HSO{
-				HookEventName: "UserPromptSubmit", AdditionalContext: "recalled context",
-			}}, nil
-		}
-	})
-	d, err := New(o)
-	require.NoError(t, err)
-	dd, ok := d.(*daemon)
-	require.True(t, ok)
-	t.Cleanup(func() { _ = dd.ing.Close() })
-
-	dd.monitor.Degrade("forced for test", []contract.Result{
-		{ID: "x.forced", OK: false, Severity: contract.SevCritical},
-	})
-	require.Equal(t, contract.ModeDegradedPassive, dd.monitor.Mode())
-
-	ev := &hookio.Event{HookEventName: "UserPromptSubmit", SessionID: "sess-passive", CWD: root, Prompt: "what changed?"}
-	resp := dd.dispatchOp(context.Background(), ipc.Request{
-		Op: ipc.OpObservePrompt, Session: "sess-passive", Reply: true, Event: ev, TS: core.NowMilli(dd.clk),
-	})
-	require.True(t, resp.OK)
-	require.NotNil(t, resp.Output)
-	require.Nil(t, resp.Output.HookSpecificOutput, "degraded-passive must put nothing into the reply")
-	require.Empty(t, resp.Output.SystemMessage)
-
-	mu.Lock()
-	defer mu.Unlock()
-	require.Equal(t, 1, calls, "degraded-passive still RECORDS: the ObservePrompt seam must run exactly once")
+			defer mu.Unlock()
+			require.Equal(t, 1, calls, "degraded-passive still RECORDS: the ObservePrompt seam must run exactly once")
+		})
+	}
 }
 
 // TestObservePrompt_ModeOffNeverInvokesTheSeam is the other side of the same gate. ModeOff is not

@@ -4,7 +4,6 @@ import (
 	"context"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -138,7 +137,7 @@ func awaitDispatchResponse(t *testing.T, resp <-chan ipc.Response) ipc.Response 
 	select {
 	case got := <-resp:
 		return got
-	case <-time.After(ingestACKWait):
+	case <-hangGuard(t):
 		t.Fatal("dispatchOp never answered once its batch's seal was released")
 		return ipc.Response{}
 	}

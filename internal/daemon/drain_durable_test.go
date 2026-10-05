@@ -293,7 +293,7 @@ func TestDrainNeverLeasesAWALLineBeforeItsSyncReturns(t *testing.T) {
 		committed, inFlight := leasedRequest(t, sess), leasedRequest(t, sess)
 		logLeaseWrites(journal, p, committed.Nonce, inFlight.Nonce)
 
-		cfg := dd.drainConfig()
+		cfg := contentDrainConfig(dd)
 		var dispatched []string // appended to by the pass, read once it has returned
 		cfg.Dispatch = func(_ context.Context, r ipc.Request) ipc.Response {
 			dispatched = append(dispatched, r.Nonce)

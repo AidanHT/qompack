@@ -60,7 +60,7 @@ func TestRun_AcceptsDialsWhileItsStartupDrainRuns(t *testing.T) {
 	liveSeen := make(chan struct{})
 	var o Options
 	o.ProjectRoot = root
-	o.Cfg = testConfig()
+	o.Cfg = runTestConfig()
 	o.Log = logging.Nop()
 	o.Clock = core.SystemClock()
 	o.Bind(func(s *Services) {
@@ -94,14 +94,14 @@ func TestRun_AcceptsDialsWhileItsStartupDrainRuns(t *testing.T) {
 		releaseDrain()
 		select {
 		case <-runDone:
-		case <-time.After(drainDeadlockGuard):
+		case <-hangGuard(t):
 			t.Error("Run did not shut down after cancellation")
 		}
 	})
 
 	select {
 	case <-replaying:
-	case <-time.After(drainDeadlockGuard):
+	case <-hangGuard(t):
 		t.Fatal("Run's startup drain never replayed the spooled line")
 	}
 
@@ -144,7 +144,7 @@ func TestRun_AcceptsDialsWhileItsStartupDrainRuns(t *testing.T) {
 	}
 	select {
 	case <-liveSeen:
-	case <-time.After(drainDeadlockGuard):
+	case <-hangGuard(t):
 		t.Fatal("the accepted live event never reached the observer")
 	}
 	mu.Lock()

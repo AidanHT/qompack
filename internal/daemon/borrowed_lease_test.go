@@ -22,7 +22,7 @@ func TestBorrowedLease_SurvivesDaemonUntilCallerClosesWriters(t *testing.T) {
 	s, err := store.Open(root, config.Defaults(), store.Deps{})
 	require.NoError(t, err)
 	defer func() { _ = s.Close() }()
-	o := NewOptions(root, config.Defaults())
+	o := NewOptions(root, runTestConfig())
 	o.Store = s
 	d, err := NewWithLease(o, lease)
 	require.NoError(t, err)
@@ -35,7 +35,7 @@ func TestBorrowedLease_SurvivesDaemonUntilCallerClosesWriters(t *testing.T) {
 	select {
 	case err := <-done:
 		require.NoError(t, err)
-	case <-time.After(15 * time.Second):
+	case <-hangGuard(t):
 		t.Fatal("daemon did not stop")
 	}
 	require.NoError(t, lease.Heartbeat())

@@ -130,7 +130,7 @@ func writeHookSpool(t *testing.T, root, base string, reqs ...ipc.Request) {
 // ask for and no idle drain, none of which runs here.
 func TestSpoolWatch_AClientSpoolIsPublishedWhileItsSessionIsActive(t *testing.T) {
 	dd, _, root := laneTestDaemon(t)
-	dd.drain.Store(newDrainer(dd.drainConfig()))
+	dd.drain.Store(newDrainer(contentDrainConfig(dd)))
 	liveOrderWorkers(t, dd, 2, dd.runIngested)
 	startSpoolWatch(t, dd, spoolWatchTick, liveOrderBound)
 
@@ -160,7 +160,7 @@ func TestSpoolWatch_AClientSpoolIsPublishedWhileItsSessionIsActive(t *testing.T)
 // kick would rescue.
 func TestSpoolWatch_ASpoolWaitingOnItsSessionIsRetriedWithNoFurtherHook(t *testing.T) {
 	dd, _, root := laneTestDaemon(t)
-	dd.drain.Store(newDrainer(dd.drainConfig()))
+	dd.drain.Store(newDrainer(contentDrainConfig(dd)))
 	const sess core.SessionID = "sess-spool-retry"
 	release := make(chan struct{})
 	liveOrderWorkers(t, dd, 2, func(ctx context.Context, req ipc.Request) ipc.Response {
@@ -247,7 +247,7 @@ func TestSpoolWatch_APassThatOverranItsBudgetWithoutConsumingKeepsTheBackoff(t *
 func spoolWatchBackoffRow(t *testing.T, firstPassStall time.Duration) {
 	t.Helper()
 	dd, _, root := laneTestDaemon(t)
-	dr := newDrainer(dd.drainConfig())
+	dr := newDrainer(lineDeadlineDrainConfig(dd))
 	const spool = "client-6161.ndjson"
 	var stalled atomic.Bool // the first sync of spool was held for firstPassStall
 	if firstPassStall > 0 {
@@ -347,7 +347,7 @@ type spoolWatchSlow struct {
 // early with its context, before it publishes the delivery as the product would.
 func spoolWatchSlowDrain(dd *daemon, slow map[string]bool, d time.Duration) *spoolWatchSlow {
 	counts := &spoolWatchSlow{}
-	cfg := dd.drainConfig()
+	cfg := lineDeadlineDrainConfig(dd)
 	dispatch := cfg.Dispatch
 	cfg.Dispatch = func(ctx context.Context, req ipc.Request) ipc.Response {
 		if slow[req.Nonce] {
@@ -513,7 +513,7 @@ func TestDrainClientSpools_ABudgetedPassWhoseSyncsOutlastItsBudgetStillConsumesA
 	first := liveOrderTool(dd, root, "sess-spool-slow-sync", 1)
 	second := liveOrderTool(dd, root, "sess-spool-slow-sync", 2)
 	writeSpoolLines(t, root, "client-8301.ndjson", first, second)
-	dr := newDrainer(dd.drainConfig())
+	dr := newDrainer(lineDeadlineDrainConfig(dd))
 	sync := dr.syncFile
 	dr.syncFile = func(path string) error {
 		timer := time.NewTimer(idleRunBudget + spoolWatchTick) // longer than the whole budget
@@ -534,7 +534,7 @@ func TestDrainClientSpools_ABudgetedPassWhoseSyncsOutlastItsBudgetStillConsumesA
 // served request kicks the watcher, which then publishes it.
 func TestSpoolWatch_DoesNothingWithoutAKick(t *testing.T) {
 	dd, _, root := laneTestDaemon(t)
-	dd.drain.Store(newDrainer(dd.drainConfig()))
+	dd.drain.Store(newDrainer(contentDrainConfig(dd)))
 	liveOrderWorkers(t, dd, 2, dd.runIngested)
 	startSpoolWatch(t, dd, spoolWatchTick, liveOrderBound)
 
@@ -560,7 +560,7 @@ func TestSpoolWatch_DoesNothingWithoutAKick(t *testing.T) {
 // consumes it, and it publishes the client spool beside it.
 func TestDrainClientSpools_LeavesWALSegmentsToTheWorkerPool(t *testing.T) {
 	dd, _, root := laneTestDaemon(t)
-	dd.drain.Store(newDrainer(dd.drainConfig()))
+	dd.drain.Store(newDrainer(contentDrainConfig(dd)))
 	ctx := context.Background()
 
 	const sess core.SessionID = "sess-client-only"
@@ -593,7 +593,7 @@ func TestDrainClientSpools_LeavesWALSegmentsToTheWorkerPool(t *testing.T) {
 // after the worker has published absorbs the copy and releases the spool.
 func TestDrainClientSpools_DefersTheSpooledCopyOfADeliveryInFlight(t *testing.T) {
 	dd, _, root := laneTestDaemon(t)
-	dd.drain.Store(newDrainer(dd.drainConfig()))
+	dd.drain.Store(newDrainer(contentDrainConfig(dd)))
 	ctx := context.Background()
 
 	const sess core.SessionID = "sess-late-ack"
@@ -648,7 +648,7 @@ func TestSpoolRetryAfter_Doubles(t *testing.T) {
 // among them) do not run and only its kick can publish the spool: without the kick the row fails.
 func TestSpoolWatch_TheIdleTickKicksItInSpoolSubmode(t *testing.T) {
 	dd, _, root := laneTestDaemon(t)
-	dd.drain.Store(newDrainer(dd.drainConfig()))
+	dd.drain.Store(newDrainer(contentDrainConfig(dd)))
 	liveOrderWorkers(t, dd, 2, dd.runIngested)
 	ctx := context.Background()
 	// The project is active: a session's hooks ran just now, so the tick runs no idle task.
@@ -696,7 +696,7 @@ func spoolIndexed(dd *daemon, base string) bool {
 // file at all: its settle's cost is the listing.
 func TestSpoolWatch_IndexesTheSpoolsItsPassLeavesForThePreCompactSettle(t *testing.T) {
 	dd, _, root := laneTestDaemon(t)
-	dd.drain.Store(newDrainer(dd.drainConfig()))
+	dd.drain.Store(newDrainer(contentDrainConfig(dd)))
 	liveOrderWorkers(t, dd, 2, dd.runIngested)
 	startSpoolWatch(t, dd, spoolWatchTick, liveOrderBound)
 	ctx := context.Background()

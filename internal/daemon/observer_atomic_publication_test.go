@@ -205,7 +205,7 @@ func TestObserverAtomicPublicationFailureRemainsDrainRetryable(t *testing.T) {
 
 	faulty.repair()
 	require.NoError(t, dd.ing.CloseSession(req.Session), "the inactive drainer cannot remove an open WAL on Windows")
-	dr := newDrainer(DrainConfig{Root: root, Seen: dd.ing.seen, Dispatch: dd.runIngested})
+	dr := newDrainer(DrainConfig{Root: root, Seen: dd.ing.seen, Dispatch: withoutLineDeadline(dd.runIngested)})
 	n, err := dr.Drain(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, 1, n, "the repaired drainer must actually re-run the retained line")
@@ -375,7 +375,7 @@ func TestObserverAtomicLeasedPublicationFailureRemainsDrainRetryable(t *testing.
 	require.NoError(t, dd.ing.CloseSession(sess), "the inactive drainer cannot remove an open WAL on Windows")
 	// The drainer Run installs, over this daemon's own journal, so the replay leases the same nonce
 	// back; the daemon under test never ran Run.
-	dd.drain.Store(newDrainer(dd.drainConfig()))
+	dd.drain.Store(newDrainer(contentDrainConfig(dd)))
 	n, err := dd.Drain(ctx)
 	require.NoError(t, err)
 	require.Equal(t, 1, n, "the repaired drainer must actually re-run the retained line")
