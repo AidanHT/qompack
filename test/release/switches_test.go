@@ -365,6 +365,11 @@ func TestSwitch_GatedCapabilitiesAreRefusedNotDisabled(t *testing.T) {
 			rec := newRecord(t, sw.name, sw.key, "true")
 			p := newProject(t)
 			env := p.envWith(sw.env, "true")
+			// A project Qompack has already been used in, so it holds .qompack/. Since wave 22 (audit
+			// 2 #18), a command never creates the layout just to hold a diagnostic, so the same
+			// command in a never-used directory records nothing; internal/cli's
+			// TestCommandLoad_NeverCreatesTheLayoutForARecord pins that half.
+			require.NoError(t, os.MkdirAll(paths.Long(paths.Of(p.Root).Dot), 0o700))
 
 			cfg := jsonDoc(t, "config print --json", mustRun(t, b, env, "config", "print", "--json"))
 			got, ok := getPath(cfg, sw.key)
