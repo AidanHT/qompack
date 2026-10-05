@@ -1580,14 +1580,23 @@ func heldIn(held []bool, from, to int) []bool {
 }
 
 // valueListSep reports a character a tool that takes a list of paths in one value may split it at
-// (valueNamesOutside): whitespace of any kind, a comma, a semicolon or a bar.
-func valueListSep(r rune) bool { return unicode.IsSpace(r) || r == ',' || r == ';' || r == '|' }
+// (valueNamesOutside): whitespace of any kind, a control character (C0, DEL or C1; a NUL-separated
+// list is what `find -print0` and `git ls-files -z` write, and the store's preview keeps the NUL as
+// `\u0000`, which jsonStrings decodes; wave 22's verify, fix round 2), a comma, a semicolon or a bar.
+// No project path holds a control character, so none joins two names.
+func valueListSep(r rune) bool {
+	return unicode.IsSpace(r) || unicode.IsControl(r) || r == ',' || r == ';' || r == '|'
+}
 
 // valueOpeners are the characters after which a path may start anywhere in a piece of a path-named
 // value (valuePathStart): a PATH-style list's or an scp address's `:`, an option's `=`, `@` (a
-// response file, a user's host), and what opens a quoted or bracketed stretch, which a reader reads
-// a path inside (`"/etc/passwd"`, `(~/.ssh/id_rsa)`, `<…>`; wave 22's verify of finding 26).
-const valueOpeners = ":=@\"'`([{<"
+// response file, a user's host), what opens a quoted or bracketed stretch, which a reader reads a
+// path inside (`"/etc/passwd"`, `(~/.ssh/id_rsa)`, `<…>`; wave 22's verify of finding 26), and a
+// glued redirect or command separator (`a.ts>/etc/passwd`, `a.ts&&/etc/passwd`; its fix round 2),
+// `>` illegal in a Windows name and neither one a name's last character before a separator in a
+// project's paths (`R&D/plan.md` and `Q&A.md` stay in the project, which is all the screen asks of
+// what follows).
+const valueOpeners = ":=@\"'`([{<>&"
 
 // valueLeaders are the ASCII characters after which a path may start when they lead a piece
 // (valuePathStart): every punctuation character but a name's (`. _ - ~ $ %`, the last three also a
@@ -1603,11 +1612,15 @@ const valueLeaders = "!\"#&'()+:<=>@[]^`{}"
 // valuePathStart reports whether a path may start at i in t, a path-named value, within the piece
 // that starts at start (valueNamesOutside): at the piece's start; after an opener (valueOpeners)
 // other than a drive's `:` (one ASCII letter at a path start: `C:\q\proj`, `--dir=C:\x`); after a
-// character outside ASCII that is no letter, mark or digit (an invisible format character such as a
-// zero-width space, which hides the start of a path from a reader, a symbol, a punctuation mark);
-// after a run of leaders that leads the piece (valueLeaders); and after a short option that leads it,
-// after its first letter and after all its letters (`-I/opt`, `-C../x`), as free text reads one
-// (pathStarts).
+// character outside ASCII that the free-text whitelist does not read as a letter (wordRune): one that
+// is no letter, mark or digit (an invisible format character such as a zero-width space, which hides
+// the start of a path from a reader, a symbol, a punctuation mark), or a letter or mark whose Windows
+// ANSI best fit is ASCII punctuation (bestFitPunct: U+02BA reaches an ANSI program as `"`, U+01C0 as
+// `|`; wave 22's verify, fix round 2); after a run of leaders that leads the piece (valueLeaders); and
+// after a short option that leads it, after its first letter and after all its letters (`-I/opt`,
+// `-C../x`), as free text reads one (pathStarts). Inside a piece `+ # ) ] } ! ^` stay a name's own
+// characters (`c++/x`, `C#/x`, `(auth)/x`, `[id]/x`), a deliberate residual ADR 0011 §23 item 6
+// names.
 func valuePathStart(t string, start, i int) bool {
 	if i == start {
 		return true
@@ -1620,7 +1633,7 @@ func valuePathStart(t string, start, i int) bool {
 	case r < utf8.RuneSelf && strings.IndexByte(valueOpeners, byte(r)) >= 0:
 		return true
 	case r >= utf8.RuneSelf:
-		return !(unicode.IsLetter(r) || unicode.IsMark(r) || unicode.IsDigit(r))
+		return !wordRune(r)
 	}
 	if strings.IndexFunc(t[start:i], notValueLeader) < 0 {
 		return true
@@ -1630,10 +1643,10 @@ func valuePathStart(t string, start, i int) bool {
 }
 
 // notValueLeader reports a character that is no leader of a piece (valuePathStart): neither one of
-// valueLeaders nor a character outside ASCII that is no letter, mark or digit.
+// valueLeaders nor a character outside ASCII that the whitelist reads as no letter (wordRune).
 func notValueLeader(c rune) bool {
 	if c >= utf8.RuneSelf {
-		return unicode.IsLetter(c) || unicode.IsMark(c) || unicode.IsDigit(c)
+		return wordRune(c)
 	}
 	return !strings.ContainsRune(valueLeaders, c)
 }

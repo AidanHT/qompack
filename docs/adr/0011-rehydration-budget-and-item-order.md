@@ -1096,15 +1096,24 @@ do not fold the two readings are one.
    - *A path-named value that holds several paths* (audit 2's finding 26). A value may be a list a
      tool splits (`{"paths":"src/a.ts /etc/passwd"}`, `{"file":"src/a.ts,C:\\x"}`), and judged whole
      a list whose first piece is relative was a relative path the host, joining it under the root,
-     refused nothing about. So each piece of every path-named value, split at whitespace, a comma, a
-     semicolon or a bar, is also judged for a path outside the project, with no host judgement,
+     refused nothing about. So each piece of every path-named value, split at whitespace, a control
+     character (C0, DEL or C1: a NUL-separated list is what `find -print0` and `git ls-files -z`
+     write, and the store's preview keeps the NUL as `\u0000`), a comma, a semicolon or a bar
+     (`valueListSep`), is also judged for a path outside the project, with no host judgement,
      wherever a reader starts a path in it (`valuePathStart`): at the piece's start; after an opening
-     quote or bracket (`"`, `'`, a backtick, `(`, `[`, `{`, `<`), a `:` other than a drive's, `=` or
-     `@`, anywhere in it; after a character outside ASCII that is no letter, mark or digit (a
-     zero-width space hides a path's start from a reader); after a run of punctuation that leads the
-     piece (`>/etc/passwd`, `!/x`, `+\x`, `#/x`, `)/x`); and after a leading short option (`-I/x`).
-     Inside a piece most punctuation is a name's own (`c++`, `C#`, SvelteKit's `+page`, Next.js's
-     `(auth)` and `[id]`), so only an opener starts a path there. From each such place, what runs to
+     quote or bracket (`"`, `'`, a backtick, `(`, `[`, `{`, `<`), a `:` other than a drive's, `=`,
+     `@`, or a glued redirect or command separator (`>`, `>>`, `&`, `&&`), anywhere in it; after a
+     character outside ASCII that the free-text whitelist reads as no letter (`wordRune`): one that is
+     no letter, mark or digit (a zero-width space hides a path's start from a reader), or a letter or
+     mark whose Windows ANSI best fit is ASCII punctuation (U+02BA reaches an ANSI program as `"`,
+     U+01C0 as `|`; D64); after a run of punctuation that leads the piece (`>/etc/passwd`, `!/x`,
+     `+\x`, `#/x`, `)/x`); and after a leading short option (`-I/x`). Inside a piece most other
+     punctuation is a name's own (`c++`, `C#`, SvelteKit's `+page`, Next.js's `(auth)` and `[id]`),
+     so `+ # ) ] } ! ^` start no path there: a deliberate residual, since a rooted path after one of
+     them is a name's next segment to every reader but cmd.exe's `copy a.txt+\Windows\win.ini` (a
+     `#`, `!` or `^` mid-word, or a closing bracket, starts no path for a shell), and reading them as
+     a path's start would withhold `c++/x`, `C#/x`, `(auth)/x` and `[id]/x`; the same text in free
+     text is withheld. From each such place, what runs to
      the piece's end names a path outside the project when it is not inside the project (an absolute
      path, a home, a variable, a drive-relative path, a `file:` URL, or a climb, which containment
      resolves, so `--out=../../x` and `"../x"` climb out while `src/../a.ts` stays in), with or
@@ -1117,7 +1126,13 @@ do not fold the two readings are one.
      `pieceOutside`, `restOutside`). Wave 22's verify found the first version, which judged only a
      piece's start and a rooted path after an inner `:`, `=` or `@`, still showing a quoted later
      piece (`"src/a.ts" "/etc/passwd"`, `'~/.ssh/id_rsa'`) and a climb after an option's `=` or an
-     `@` (`--out=..` is one segment the next `..` removes), all shown at eca33155 too. Where a path
+     `@` (`--out=..` is one segment the next `..` removes), all shown at eca33155 too; its fix round 2
+     found a control character, a glued `>` or `&` and a best-fit letter still showing the outside
+     path after them (`src/a.ts\u0000/etc/passwd`, `src/a.ts>/etc/passwd`, `src/a.ts&&/etc/passwd`,
+     `src/a.tsʺ/etc/passwd`), shown at eca33155 too. The over-withholding they cost (D66(e)) is a
+     project path whose segment ends in `&` or `>` directly before a separator (`R&/x`), or in a
+     best-fit letter or mark (a segment ending in an okina, or an NFD spelling of `città/` whose
+     combining grave ends the segment); none is in the corpus. Where a path
      may start, the root's own spelling as containment compares it is read whole (`rootSpanAt`) and
      none of its characters starts a path, so a project path under a root with a space, a comma, a
      semicolon or a parenthesis stays one piece whatever else the root holds (a value is no shell
