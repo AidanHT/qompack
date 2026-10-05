@@ -18,6 +18,8 @@ import (
 // row had given its poll as the deadline, and the row read the product's correct answer to that as
 // a failure. What a row schedules on the clock (at) runs, in order, in the goroutine that moves the
 // clock past it, at its own instant: the poll's goroutine, in the middle of a dial or a tick wait.
+// The D17 cold-start rows in spawn_lock_test.go run on it too, with real listeners and real dials
+// (stepProbeBy).
 type stepPollClock struct {
 	mu     sync.Mutex
 	now    time.Time
@@ -191,6 +193,28 @@ func (d *stepComingDaemon) spawnUpAfter(after time.Duration) func(string, string
 func (d *stepComingDaemon) spawnNever(string, string) error {
 	d.spawnAt = append(d.spawnAt, d.clock.Now())
 	return nil
+}
+
+// beyondTestTimeout is longer than the -timeout any run of this suite uses (30 m: devtool's
+// wholeTreeTestTimeout, ci.yml's and the Linux gate's), so no verdict can depend on a real wait it
+// bounds: a run still waiting then has already failed by its binary's own timeout.
+const beyondTestTimeout = time.Hour
+
+// stepProbeBy is probeBy on a stepPollClock. With no time left before by on pc it dials nothing and
+// reports false, as probeBy does. Otherwise it makes a real dial of the project's address through
+// ipc.Probe, the dial production makes, with a real bound no run reaches (beyondTestTimeout), so the
+// dial races no budget: a real listener the row has brought up answers it however late the machine
+// runs that listener's accept loop or the dial itself (on Windows a pipe whose next instance is not up
+// yet is waited on as busy), and with none there it is refused at once, as a missing pipe or socket
+// is. Which of the two a dial meets is decided by where the row's step clock stands when it is made,
+// never by scheduling (D61(c)). It does not move pc.
+func stepProbeBy(pc *stepPollClock) func(addr ipc.Addr, by time.Time) bool {
+	return func(addr ipc.Addr, by time.Time) bool {
+		if !by.After(pc.Now()) {
+			return false
+		}
+		return ipc.Probe(addr, beyondTestTimeout)
+	}
 }
 
 // readSpawnLockStamp returns the stamp the spawn.lock at p holds, or "" when there is none.
