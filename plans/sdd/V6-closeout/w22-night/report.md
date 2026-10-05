@@ -117,7 +117,7 @@ The other 102 cases last ran on a copy that differs only in that one log line of
 ### Tests
 
 - `TMPDIR=/tmp sh nightharness.sh <111 cases split over three processes> (frozen copy of the final scripts)`: 110 of 111 passed. O1 failed on the start-of-night `docker desktop status` query. I fixed the script, not the check, and re-ran every docker-dependent case on the final files: O1, O11, O15, X1 (4 of 4 passed) and X2, X3, X22, O29 (4 of 4 passed). The final files are byte-identical to that re-run's snapshot.
-- `sh nightharness.sh <F5 X1-X20 Q1 Q2> run from a directory holding the 4a0b68ea scripts and the new harness (red first)`: 23 cases, 23 failed, as intended.
+- `sh nightharness.sh F5, X1-X20, Q1 and Q2 run from a directory holding the 4a0b68ea scripts and the new harness (red first)`: 23 cases, 23 failed, as intended.
 - `TMPDIR=<C:/ form> sh <4a0b68ea nightharness.sh> U1_power_read_parses, then the same with the new harness`: Base harness: FAIL (stubs bypassed, the real powershell answered). New harness: PASS.
 - `python mkrecheck8.py live-rerun-c7.js <scratch>/recheck-c8.js 2bf29705c8258b69d6f0e9bf45bd173d22f981dc <scratch>/bundle`: Exit 0, 220 lines, node parse check passed. D62-D67 are cited throughout, docs/security.md is listed, w19c- appears 0 times. The base generator gives 0 mentions of D62-D67.
 - `bash -n on every coordinator/*.sh; python -m py_compile on every coordinator/*.py`: All clean.
