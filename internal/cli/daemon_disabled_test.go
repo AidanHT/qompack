@@ -143,7 +143,7 @@ func TestDaemon_RunsWhenTheMergedConfigEnablesIt(t *testing.T) {
 
 	require.Eventually(t, func() bool {
 		addr, err := ipc.Resolve(root)
-		return err == nil && ipc.Probe(addr, 50*time.Millisecond)
+		return err == nil && daemonReachable(addr)
 	}, 5*time.Second, 20*time.Millisecond, "a project that re-enables the daemon must get one")
 
 	cancel()

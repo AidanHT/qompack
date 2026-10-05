@@ -64,15 +64,20 @@ func startStatusOrderSession(t *testing.T, root string, id core.SessionID) {
 // and `status --json` read of unchanged state is byte-identical to the first, and the JSON lists the
 // sessions in the documented order (docs/troubleshooting.md, `qompack status`).
 //
-// Not parallel: bootstrapDaemon resets the process-wide producer set.
+// Not parallel: bootstrapDaemon resets the process-wide producer set, and the row swaps
+// newCommandIPCClient and statusProbeDial.
 func TestStatus_RepeatedReadsOfUnchangedStateAgree(t *testing.T) {
 	// The project runs on the shipped configuration. The row's 60 back-to-back reads each dial twice
 	// (daemonListening's probe, then the request), and once needed a 250 ms connectDeadlineMs in the
 	// project's config to stay off connect misses under the hot path's 25 ms Windows budget. Command
-	// clients now dial with commandConnectDeadline (D60(e)), so the row needs no such override.
+	// clients now dial with commandConnectDeadline (D60(e)), but a read that must reach the daemon
+	// still needed each of those 120 dials to connect inside it. The order of the sessions is what
+	// the row proves, not the budget (status_connect_test.go pins that), so its dials are
+	// hang-guarded instead (useHangGuardedStatusDials, D61(c)).
 	root := bootstrapProject(t)
 	stop := bootstrapDaemon(t, root)
 	defer stop()
+	useHangGuardedStatusDials(t)
 
 	// The daemon stamps activity by its own clock, so two starts may share a millisecond. Each start
 	// here has a smaller id than the one before it, so recency and the id tie-break agree on the

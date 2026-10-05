@@ -359,6 +359,32 @@ func TestCoverPasses_RunsE2EAloneWithoutTheColoadDeclaration(t *testing.T) {
 	}
 }
 
+// TestCoverPasses_GiveTheIsolatedPassItsOwnHangGuard pins the -timeout of cover's `go test`
+// passes. cover runs test/e2e alone and instrumented, so it is slower than the 1513.7 s and
+// 1529.5 s the binary takes uninstrumented on the quiet Windows reference host (a phase3 night
+// measured cover's pass at 995 s against 918 s uninstrumented). The isolated pass gets the 45m hang
+// guard ci.yml's test-e2e gives the same binary (audit 2's #84); the shared pass keeps 30m.
+func TestCoverPasses_GiveTheIsolatedPassItsOwnHangGuard(t *testing.T) {
+	e2e := modulePath + "/test/e2e"
+	core, guards := modulePath+"/internal/core", modulePath+"/test/guards"
+	passes := coverPasses([]string{core, e2e, guards})
+	if len(passes) != 2 {
+		t.Fatalf("got %d passes, want 2: %+v", len(passes), passes)
+	}
+	want := [][]string{
+		{
+			"test", "-timeout=30m", "-coverprofile=" + coverProfileName, "-covermode=" + coverMode,
+			core, guards,
+		},
+		{"test", "-timeout=45m", "-coverprofile=" + passes[1].profile, "-covermode=" + coverMode, e2e},
+	}
+	for i, pass := range passes {
+		if got := coverTestArgs(pass); strings.Join(got, " ") != strings.Join(want[i], " ") {
+			t.Fatalf("pass %d runs %q, want %q", i, got, want[i])
+		}
+	}
+}
+
 // TestAppendCoverProfile_MergesBlocksUnderOneModeLine pins how cover joins the isolated pass's
 // profile onto the shared one: the blocks are appended, the second "mode:" line is not (go tool
 // cover and parseCoverProfile both read one header), and a mode mismatch is refused, not merged.

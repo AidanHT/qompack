@@ -80,25 +80,23 @@ jobs:
     # honest about what CI checks.
     runs-on: windows-latest
     # The backstop for plausibly the longest job in the matrix: the stubskips sub-check runs a real
-    # `go test` over internal/, cmd/ and test/ at the repository's own -timeout=30m, on the slowest
-    # runner OS. Go's timeout is per test binary, so a job that wedges outside one — a hung child
-    # process, a stalled runner — would sit until GitHub's 360-minute platform default.
+    # `go test` over internal/, cmd/ and test/ on the slowest runner OS, the tree at the repository's
+    # -timeout=30m and test/e2e alone at its 45m hang guard (tools/devtool/test.go,
+    # isolatedTestTimeout, audit 2's #84). Go's timeout is per test binary, so a job that wedges
+    # outside one, a hung child process or a stalled runner, would sit until GitHub's 360-minute
+    # platform default.
     #
-    # 75, from run 36816905394's job 110223848264 (it was 45 for one pass). -timeout bounds each
-    # test binary, not each pass: a pass runs several binaries at once and can outlast 30 minutes.
-    # Measured there: checkout and setup about 1 minute (04:49:41 to 04:50:30); the sub-checks before
-    # stubskips about 4 (to 04:54:26); then ONE whole-tree pass of 38 minutes (to 05:32:33), whose
-    # length was test/e2e's binary starting about 8 minutes in and being killed at its 30, so the
-    # tree was only partly inspected. Split, the first pass is the tree without test/e2e: not yet
-    # measured alone, bounded above by those 38 minutes (every other binary finished inside them,
-    # with test/e2e loading the runner) and plausibly 25 to 35. The second is test/e2e alone: about
-    # 20 minutes (that run's test-e2e job, 1188 s), killed at 30 if it hangs. Expected 1 + 4 + 30 +
-    # 20, about 55; worst case 1 + 4 + 38 + 30 = 73, a thin 2-minute margin, so stubskips now prints
-    # each pass's start and duration and the next run measures the first pass directly. No
-    # per-binary -timeout moved: a hung test is still killed at 30 minutes and still reported, and
-    # this bound still catches a wedge outside a binary. The owner sets the value (wave 16 ci seat,
-    # needs_owner).
-    timeout-minutes: 75
+    # 90. -timeout bounds each test binary, not each pass: a pass runs several binaries at once and
+    # can outlast 30 minutes. Measured in runs 36905843834, 36955046276 and 36981590450 (jobs
+    # 110516047819, 110676058082 and 110757119431): checkout, setup and the sub-checks before
+    # stubskips 3.6 to 4.4 minutes; pass 1, the tree without test/e2e, 24m26s to 27m26s; pass 2,
+    # test/e2e alone, 19m49s to 21m14s; the whole job 48.5 to 53.8 minutes. Before #84 the worst case
+    # was 4.5 + 30 + 30 = 64.5 under 75. With test/e2e's binary now killed at 45 it is 4.5 + 30 + 45
+    # = 79.5 (pass 1 taken at 30, above its measured 27.4), which 75 would cut off as a job timeout
+    # before go test reported the hang; 90 keeps 10 minutes over that. No per-binary -timeout in
+    # the tree moved, a hung test is still killed and reported, and this bound still catches a
+    # wedge outside a binary.
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
@@ -305,7 +303,14 @@ jobs:
         with: { fetch-depth: 0 }
       - uses: actions/setup-go@v5
         with: { go-version: '1.26.6', cache: true }
-      - run: go test -count=1 -timeout=30m ./test/e2e
+      # -timeout is a hang guard here, not a product threshold (audit 2's #84): this one binary runs
+      # all of test/e2e, X11 included. Measured: windows-latest 1188 s (run 36816905394); the quiet
+      # Windows reference host 1513.7 s (c5) and 1529.5 s (c6 win-e2e-timing), and a co-loaded local
+      # run reached the old 30m (1800 s). 45m (2700 s) is 2.3x the hosted figure and 1.8x the quiet
+      # local one, so only a hang reaches it. devtool test, cover and stubskips run the binary alone
+      # at the same value (tools/devtool/test.go, isolatedTestTimeout), as the night chain's
+      # win-e2e-timing does.
+      - run: go test -count=1 -timeout=45m ./test/e2e
 
   timing:
     # The isolation lane: every test that yields a wall-clock judgement under QOMPACK_UNDER_COLOAD

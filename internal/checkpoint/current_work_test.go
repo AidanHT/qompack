@@ -498,6 +498,13 @@ func TestResumedDraftWithAGoalTurnNoRecordReachesTakesTheRecordsGoal(t *testing.
 	past := core.TurnIndex(9)
 	plantDerivedGoalAt(t, f, rateReadLimiter, &past)
 
+	// One refresh is enough: the resuming Begin's own walk reads every record and replaces the
+	// goal, rather than clearing it for a later refresh to restore (audit 2's M06 nit).
+	require.NoError(t, f.w.SetSources(f.src))
+	f.begin()
+	_, resumed := f.persisted()
+	require.Equal(t, rateCorrection60Goal, resumed.CurrentWork.Goal, "after the resuming Begin alone")
+
 	cp := sealed(t, f, f.precompactAs(f.sess))
 
 	require.Equal(t, rateCorrection60Goal, cp.CurrentWork.Goal)
@@ -532,7 +539,72 @@ func TestClearedGoalDropsItsTurnForTheGraphFallback(t *testing.T) {
 	require.Equal(t, rateCorrection60Goal, cp.CurrentWork.Goal)
 }
 
-// TestUnreadableNewestPromptLeavesAnOversizedGoalReadOnce: the newest prompt's bytes are gone for
+// TestFallbackGoalTurnGatesALaterIncompleteWalk (audit 2's #23): the graph fallback records the
+// turn of the goal it takes, because a later records walk is gated by the same turn. Here the
+// fallback moves the goal forward to the closed segment's newest prompt (turn 6) while the prompt
+// list cannot be read; once the list answers again, that prompt's bytes cannot be read, so the
+// walk is incomplete and finds the turn-4 prompt behind it. Without the fallback's turn the gate
+// would still hold the records walk's turn 2, and current work would step back to turn 4.
+func TestFallbackGoalTurnGatesALaterIncompleteWalk(t *testing.T) {
+	f := newFx(t)
+	ps := newPromptProbeStore(f.store)
+	f.src.Store = ps
+	promptAs(f, f.sess, 0, rateAsk)
+	promptAs(f, f.sess, 2, rateCorrection60)
+	d := f.begin()
+	wire, cp := f.persisted()
+	require.Equal(t, rateCorrection60Goal, cp.CurrentWork.Goal, "fixture sanity: the records' goal")
+	require.NotNil(t, wire.GoalTurn)
+	require.Equal(t, core.TurnIndex(2), *wire.GoalTurn, "fixture sanity: from turn 2")
+
+	ps.setDegraded(true)
+	promptAs(f, f.sess, 4, rateCorrection45)
+	promptAs(f, f.sess, 6, rateCorrection75)
+	f.closedSeg(1, 0, 7)
+	f.advance(d) // its refresh fails: the next pass's encoding reads the graph
+	f.advance(d, 1)
+	wire, cp = f.persisted()
+	require.Equal(t, rateCorrection75Goal, cp.CurrentWork.Goal, "the fallback takes the segment's newest prompt")
+	require.NotNil(t, wire.GoalTurn, "the fallback records the turn of the goal it took")
+	require.Equal(t, core.TurnIndex(6), *wire.GoalTurn, "the fallback records the turn of the goal it took")
+
+	ps.setDegraded(false)
+	ps.failOpens(f.put(rateCorrection75, "UserPromptSubmit", "", true), 1<<20) // its bytes cannot be read
+	f.advance(d)
+	_, cp = f.persisted()
+	require.Equal(t, rateCorrection75Goal, cp.CurrentWork.Goal,
+		"a walk that could not read the turn-6 prompt must not step back to turn 4")
+
+	got := sealed(t, f, f.precompactAs(f.sess))
+	require.Equal(t, rateCorrection75Goal, got.CurrentWork.Goal)
+}
+
+// TestExplicitCurrentWorkSurvivesTheGraphFallback (audit 2's #24): SetCurrentWork stops every
+// derivation for good (§7), the graph fallback included. While SessionPrompts cannot answer, Advance
+// encodes a closed segment holding a newer prompt of this session, which the fallback would take
+// as the goal of a derived current work; the explicit one stays, and a compaction inside that
+// window seals it.
+func TestExplicitCurrentWorkSurvivesTheGraphFallback(t *testing.T) {
+	f := newFx(t)
+	ps := newPromptProbeStore(f.store)
+	f.src.Store = ps
+	promptAs(f, f.sess, 0, rateAsk)
+	d := f.begin()
+	d.SetCurrentWork(checkpoint.CurrentWork{Goal: "Ship the limiter."})
+
+	promptAs(f, f.sess, 2, rateCorrection60)
+	f.closedSeg(1, 0, 3)
+	ps.setDegraded(true)
+	f.advance(d) // its refresh fails: the next pass's encoding reads the graph
+	f.advance(d, 1)
+	_, cp := f.persisted()
+	require.Equal(t, "Ship the limiter.", cp.CurrentWork.Goal, "the fallback must not replace explicit work")
+
+	got := sealed(t, f, f.precompactAs(f.sess))
+	require.Equal(t, "Ship the limiter.", got.CurrentWork.Goal)
+}
+
+// TestUnreadableNewestPromptLeavesAnOversizedGoalReadOnce:the newest prompt's bytes are gone for
 // good, so no walk reads every record it passes, and every refresh walks again. The goal prompt
 // behind it, a paste past the evolution's read limit that the evolution does not cache, is still
 // read whole once per draft, not at every refresh: the unreadable record costs a failed Open.
@@ -825,6 +897,62 @@ func TestOversizedNewestPromptIsReadOncePerDraft(t *testing.T) {
 			whole, bounded := ps.readsOf(root, limit)
 			require.Equal(t, 1, whole, "read whole once, for the goal")
 			require.Equal(t, 1, bounded, "read bounded once, to learn it is past the limit")
+		})
+	}
+}
+
+// TestPreCompactReadsAnOversizedNewestPromptOnce (audit 2's #25): Finalize opens the successor
+// draft inside PreCompact, on the hook path, and the successor is not a new reader of a newest
+// prompt past the evolution's read limit (a long paste, up to the hook's 4 MiB capture): the sealed
+// draft hands on what its walks learned of each record, with the texts it kept, because a record's
+// bytes never change. Warm, the live draft read the paste at Begin, so a compaction reads none of it;
+// cold (a daemon restart, no live draft), it reads it whole once, for the goal, and bounded once,
+// for the evolution, instead of twice each. The successor derives the same current work and intent
+// from what it was handed as the sealed checkpoint carries.
+//
+// The compaction is PreCompact's own sequence (draftForPreCompact's Begin when no draft is live,
+// RefreshIntent, Finalize and the successor it opens) without PreCompact's wall-clock budget, so no
+// count depends on how fast this machine reads (D61(c)).
+func TestPreCompactReadsAnOversizedNewestPromptOnce(t *testing.T) {
+	limit := checkpoint.EvolutionReadLimitForTest
+	big := rateCorrection45 + strings.Repeat(" The limiter keeps one bucket per client.", 4*int(limit)/40+1)
+	for _, tc := range []struct {
+		name                   string
+		restart                bool
+		wantWhole, wantBounded int
+	}{
+		{name: "warm", wantWhole: 0, wantBounded: 0},
+		{name: "cold", restart: true, wantWhole: 1, wantBounded: 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newFx(t)
+			ps := newPromptProbeStore(f.store)
+			f.src.Store = ps
+			promptAs(f, f.sess, 0, rateAsk)
+			promptAs(f, f.sess, 2, big)
+			root := f.put(big, "UserPromptSubmit", "", true)
+			d := f.begin()
+			whole0, bounded0 := ps.readsOf(root, limit)
+			require.Equal(t, 1, whole0, "fixture sanity: Begin read it whole, for the goal")
+			require.Equal(t, 1, bounded0, "fixture sanity: and bounded, for the evolution")
+
+			if tc.restart {
+				restartWriter(t, f)
+				d = f.begin() // the cold compaction's own Begin resumes the persisted draft
+			}
+			d.RefreshIntent(f.ctx()) // PreCompact's refresh before the seal
+			ref, err := f.w.Finalize(f.ctx(), d, finalizeBudget)
+			require.NoError(t, err)
+			got, _, err := f.reader(t).Get(f.ctx(), ref.Seq)
+			require.NoError(t, err)
+
+			whole, bounded := ps.readsOf(root, limit)
+			require.Equal(t, tc.wantWhole, whole-whole0, "whole reads of the paste by the compaction")
+			require.Equal(t, tc.wantBounded, bounded-bounded0, "bounded reads of the paste by the compaction")
+			require.Equal(t, rateCorrection45Goal, got.CurrentWork.Goal)
+			_, next := f.persisted() // the successor draft the seal opened
+			require.Equal(t, got.CurrentWork, next.CurrentWork)
+			require.Equal(t, got.UserIntent, next.UserIntent)
 		})
 	}
 }
