@@ -935,7 +935,13 @@ do not fold the two readings are one.
      host's rules do, so a spelling of the root in another ASCII case is the project. On a
      case-sensitive APFS volume, an opt-in format, such a spelling names a different folder, outside
      the project, which a summary may then show; Qompack does not detect the volume's case
-     sensitivity.
+     sensitivity. The default volume also folds case by Unicode and ignores normalization, so a
+     folder spelled with the Kelvin sign, the long s or the Angstrom sign where the root has `k`,
+     `s` or `å` is the project's own folder there (hosted macos-latest, ci 37229942287); the
+     screen's ASCII-only fold reads it as a folder outside the project and withholds it, which is
+     over-withholding on macOS and the right answer on NTFS and Linux, which keep it beside the
+     root. `TestRehydrateHostPaths_AUnicodeCaseVariantOfTheRootIsADirectoryBesideIt` asserts each
+     platform's premise and the same withheld answer on all three.
    - A path-keyed checkpoint drop past the bound on host judgements (item 10) is withheld unjudged
      in section 7 and `dropped()` and learned as withheld whatever its spelling (item 12), so a text
      that names one the host would allow is withheld too: accepted over-withholding (coordinator

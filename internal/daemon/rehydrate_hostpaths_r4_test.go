@@ -48,8 +48,16 @@ func cutNotebookPreview(t *testing.T, value, kept string) string {
 // root naming a file in it were shown. Each is withheld; the same calls spelled with the real root's
 // ASCII letters in the other case are shown where the platform's paths fold, through the adapter's
 // judgement of the root's resolved spelling too.
+//
+// The fixture's premise is the platform's own and is asserted on each (hosted CI's H3): NTFS and
+// Linux keep each variant's folder beside the root. macOS's default APFS volume, which Qompack
+// assumes (coordinator decision D67(m)), folds case by Unicode and ignores normalization, so there
+// each variant IS the root's folder (hosted macos-latest, ci 37229942287). The screen's ASCII-only
+// fold still reads the variant as a folder outside the project and withholds every call naming it:
+// over-withholding on macOS, and the product assertion is the same on every platform.
 func TestRehydrateHostPaths_AUnicodeCaseVariantOfTheRootIsADirectoryBesideIt(t *testing.T) {
 	fold := runtime.GOOS == "windows" || runtime.GOOS == "darwin"
+	sameFolder := variantIsTheRootsFolder()
 	for _, rc := range []struct{ seg, sib string }{
 		{"kate", "\u212Aate"}, {"sam", "\u017Fam"}, {"\u00E5sa", "\u212Bsa"},
 	} {
@@ -62,7 +70,8 @@ func TestRehydrateHostPaths_AUnicodeCaseVariantOfTheRootIsADirectoryBesideIt(t *
 			require.NoError(t, err)
 			sibInfo, err := os.Stat(paths.Long(sib))
 			require.NoError(t, err)
-			require.False(t, os.SameFile(rootInfo, sibInfo), "fixture: the sibling is another directory")
+			require.Equal(t, sameFolder, os.SameFile(rootInfo, sibInfo),
+				"fixture: on %s the variant's folder is the root's own: %v", runtime.GOOS, sameFolder)
 
 			calls := func(r string) []string {
 				nb := filepath.Join(r, "nb", "a.ipynb")
@@ -85,6 +94,12 @@ func TestRehydrateHostPaths_AUnicodeCaseVariantOfTheRootIsADirectoryBesideIt(t *
 		})
 	}
 }
+
+// variantIsTheRootsFolder reports whether this platform's default volume opens a folder spelled with
+// the Kelvin sign, the long s or the Angstrom sign as the folder spelled with k, s or å: true on
+// macOS's case- and normalization-insensitive APFS (D67(m)), false on NTFS, whose upcase table maps
+// none of the three, and on Linux, whose file systems compare bytes.
+func variantIsTheRootsFolder() bool { return runtime.GOOS == "darwin" }
 
 // TestRehydrateHostPaths_ARuleOverTheRootIsMatchedAsTheHostMatchesIt is the rule half of wave 19g's
 // final verify through the real host rules: a project deny rule spelled from the filesystem root
