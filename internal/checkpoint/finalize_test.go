@@ -706,3 +706,37 @@ func TestWriterConformanceSuite(t *testing.T) {
 		}
 	})
 }
+
+// TestBeginReleasesTheNumberOfADraftItCouldNotBegin (wave 22, D67(a)): Begin claims a fresh draft's
+// sequence number before it reads the draft's sources, and a Begin that then fails left the number
+// claimed by no draft. The session's next draft skipped it, so its checkpoint was sealed one number
+// later than the project's newest plus one. A number no draft holds is given out again.
+func TestBeginReleasesTheNumberOfADraftItCouldNotBegin(t *testing.T) {
+	f := newFx(t)
+	f.pins.allErr = fmt.Errorf("pins: reading the invariant log: %w", os.ErrPermission)
+	_, err := f.w.Begin(f.ctx(), f.sess, 0, f.src)
+	require.Error(t, err, "fixture sanity: a Begin whose pins cannot be read fails")
+
+	f.pins.allErr = nil
+	d := f.begin()
+	require.Equal(t, core.CheckpointSeq(1), d.Seq(), "the failed Begin's number is held by no draft")
+}
+
+// TestASuccessorThatCouldNotBeginCostsTheSessionNoNumber is the same on the seal's path, where a
+// load-dependent failure made it reachable: Finalize opens the successor draft on PreCompact's
+// context, and a PreCompact that has spent its wall-clock budget hands it an expired one, so the
+// successor's read of the checkpoint just sealed fails. Here the successor fails reading the pins,
+// which the seal itself survives. The session's next draft takes the number after the seal.
+func TestASuccessorThatCouldNotBeginCostsTheSessionNoNumber(t *testing.T) {
+	f := newFx(t)
+	d := seedDraft(t, f)
+	f.pins.allErr = fmt.Errorf("pins: reading the invariant log: %w", os.ErrPermission)
+	ref, err := f.w.Finalize(f.ctx(), d, finalizeBudget)
+	require.NoError(t, err, "an unreadable pin set must not cost the checkpoint")
+	require.Equal(t, core.CheckpointSeq(1), ref.Seq)
+
+	f.pins.allErr = nil
+	next := f.begin()
+	require.Equal(t, core.CheckpointSeq(2), next.Seq(),
+		"the successor that could not begin holds no number, so the next draft follows the seal")
+}

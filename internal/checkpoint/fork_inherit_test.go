@@ -102,3 +102,64 @@ func TestAncestryFollowsTheForkChain(t *testing.T) {
 	}, got)
 	require.Empty(t, checkpoint.Ancestry(paths.Of(f.p.Root), forkParent), "a session that is no fork inherits nothing")
 }
+
+// TestLedgerAncestryAnswersAForkRecordedAfterItsFirstAnswer: LedgerAncestry memoizes each session's
+// answer, because the ledger asks it on every read, and a lineage record is written once, when its
+// session starts. A session asked about before its record exists — an already_tried from a session
+// whose SessionStart has not been routed yet — must still read as a fork once NoteFork records it,
+// and the chain must answer from the memo afterwards exactly as the walk does.
+func TestLedgerAncestryAnswersAForkRecordedAfterItsFirstAnswer(t *testing.T) {
+	f := newFx(t)
+	anc := checkpoint.LedgerAncestry(f.p.Root)
+	promptAs(f, forkParent, 0, rateAsk)
+	require.Empty(t, anc(f.sess), "no lineage record yet: the session is no fork")
+
+	f.noteFork(f.sess)
+	want := checkpoint.Ancestry(paths.Of(f.p.Root), f.sess)
+	require.Len(t, want, 1, "fixture sanity: NoteFork recorded the parent")
+	require.Equal(t, want, anc(f.sess), "the fork NoteFork recorded is read, not the memoized answer")
+	require.Equal(t, want, anc(f.sess), "and answered again from the memo")
+	require.Empty(t, anc(forkParent))
+}
+
+// TestForkCarriesItsParentsDecisionsFromTheForkPoint (review round 2): the fork's first checkpoint
+// carries the decisions its parent's checkpoint held when the fork started, through the same holds
+// rules as the session's own carry; here an explains decision, which no elimination re-mints and
+// no Advance of the fork has met, because the fork compacts before any segment of it closes. They
+// were made in another session, so they rank after the fork's own decisions (D46's foreign order),
+// and a sibling session that is no fork carries none of them.
+func TestForkCarriesItsParentsDecisionsFromTheForkPoint(t *testing.T) {
+	const fork = core.SessionID("sess_sp10_fork_of_writer")
+	f := newFx(t)
+	seedForPreCompact(t, f)
+	want := explainsDecision(t, f, 11)
+	f.closedSeg(3, 10, 12)
+	f.advance(f.begin(), 3)
+	parentCp := f.sealed(t, f.precompactAs(f.sess).Ref.Seq)
+	require.True(t, hasDecision(parentCp, want), "fixture sanity: the parent's checkpoint has it: %+v", parentCp.Decisions)
+
+	f.noteFork(fork)
+	require.Equal(t, parentCp.Seq, f.lineageOf(fork).ParentSeq, "fixture sanity: the fork continues that checkpoint")
+
+	openSegment(f, fork, 0)
+	promptAs(f, fork, 0, forkFirstPrompt)
+	ctx := negknow.WithCaller(f.ctx(), negknow.Caller{Session: fork, Turn: 1})
+	_, err := f.ledger.Record(ctx, negknow.Record{
+		Target: "src/fork.go:limiter", Approach: "a global mutex", Reason: "the fork's own finding",
+		Evidence: core.HashBytes(core.DomainChunk, []byte("fork evidence")),
+	})
+	require.NoError(t, err)
+	cp := sealed(t, f, f.precompactAs(fork))
+	require.Equal(t, fork, cp.Session)
+
+	require.True(t, hasDecision(cp, want), "the fork carries its parent's decision: %+v", cp.Decisions)
+	own := rejected(cp, "a global mutex")
+	require.Len(t, own, 1)
+	require.Equal(t, own[0].ID, cp.Decisions[0].ID,
+		"the fork's own decision ranks first, although the inherited one has the higher turn: %+v", cp.Decisions)
+
+	openSegment(f, forkSibling, 0)
+	promptAs(f, forkSibling, 0, "An unrelated task in the same project.")
+	sib := sealed(t, f, f.precompactAs(forkSibling))
+	require.False(t, hasDecision(sib, want), "a sibling session carries none of it: %+v", sib.Decisions)
+}

@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -150,5 +151,111 @@ func TestAuditPublication_SnapshotCountsResidueWrittenJustBeforeIt(t *testing.T)
 	require.NoError(t, err)
 	require.Equal(t, 1, a.UnpublishedCaptures)
 	require.Equal(t, 1, a.UnindexedObjectCandidates)
+	require.Zero(t, a.PostSnapshotEntries)
+}
+
+// TestAuditPublication_SnapshotCountsVanishedEntriesAsLiveWork: a pass against a snapshot runs while
+// the daemon serves, so a Put can retire its pending-write marker, and the store can remove a
+// capture sidecar or an object, between the pass listing the entry and reading it. The file is gone
+// from the store the pass accounts for: that is live work, never an unreadable record, so a healthy
+// store's background pass stays complete (w15-services review). On Linux and macOS DirEntry.Info is
+// a lazy lstat that fails for the removed entry; on Windows it is cached from the listing and the
+// read that follows fails instead. Either way the pass must not note it.
+func TestAuditPublication_SnapshotCountsVanishedEntriesAsLiveWork(t *testing.T) {
+	tp := newTestStore(t)
+	earlier := time.Now().Add(-time.Hour)
+
+	marker, err := tp.Store.beginPendingWrite(core.HashBytes(core.DomainChunk, []byte("root")),
+		[]ChunkRef{{Hash: core.HashBytes(core.DomainChunk, []byte("the marker's chunk"))}})
+	require.NoError(t, err)
+	setModTime(t, marker.path, earlier)
+	seedCapture(t, tp.Root, "vanishing", auditOpObserveTool, false, core.OutcomeOK, []byte("captured"))
+	sidecar, err := CaptureSidecarPath(tp.Root, auditObsID("vanishing"))
+	require.NoError(t, err)
+	setModTime(t, sidecar, earlier)
+	h := core.HashBytes(core.DomainChunk, []byte("an object removed mid-pass"))
+	writeBareObject(t, tp, h)
+	object := tp.Store.objectPath(h)
+	setModTime(t, object, earlier)
+
+	snap, err := tp.Store.SnapshotPublication(context.Background())
+	require.NoError(t, err)
+
+	vanish := map[string]bool{filepath.Base(marker.path): true, filepath.Base(sidecar): true, filepath.Base(object): true}
+	removed := 0
+	hook := func(parent *os.Root, dirName string, e os.DirEntry) {
+		if vanish[e.Name()] {
+			require.NoError(t, parent.Remove(filepath.Join(dirName, e.Name())))
+			removed++
+		}
+	}
+	prev := publicationEntryHook.Swap(&hook)
+	t.Cleanup(func() { publicationEntryHook.Store(prev) })
+
+	scanCap := DefaultPublicationScanCap()
+	scanCap.Snapshot = &snap
+	a, err := tp.Store.AuditPublication(context.Background(), scanCap)
+	require.NoError(t, err)
+	require.Equal(t, 3, removed, "the hook removed each file between listing and classifying it")
+	require.False(t, a.Incomplete, "a file removed while the pass runs is live work, not unreadable: %v", a.Notes)
+	require.Zero(t, a.UnpublishedCaptures, "a removed sidecar is not in the store the pass accounts for")
+	// The object is judged by what the listing handed the pass: on Windows the cached listing time
+	// places it before the snapshot, which is residue the snapshot saw; on Linux and macOS the stat
+	// fails and it is live work. The marker and the sidecar fail their read on every OS.
+	require.GreaterOrEqual(t, a.PostSnapshotEntries, 2)
+	require.Equal(t, 3, a.PostSnapshotEntries+a.UnindexedObjectCandidates)
+}
+
+// TestAuditPublication_SnapshotCountsAReplacedEntryAsLiveWork (wave 22, D67(a), a1ccd1ff's class): the
+// store does not only remove files under a pass that runs while the daemon serves; it replaces
+// them. LinkCaptureReference publishes a sidecar, and a redelivery rewrites one, by renaming a new
+// file over the name. Between readPublicationFile's Lstat and its open, the name then names another
+// file, and the open handle's identity no longer matches the checked one. Against a snapshot that is
+// live work, as a removal is; a pass without one (fsck) still cannot vouch for it and notes it.
+func TestAuditPublication_SnapshotCountsAReplacedEntryAsLiveWork(t *testing.T) {
+	tp := newTestStore(t)
+	seedCapture(t, tp.Root, "replaced", auditOpObserveTool, false, core.OutcomeOK, []byte("captured"))
+	id := auditObsID("replaced")
+	sidecar, err := CaptureSidecarPath(tp.Root, id)
+	require.NoError(t, err)
+	setModTime(t, sidecar, time.Now().Add(-time.Hour))
+
+	snap, err := tp.Store.SnapshotPublication(context.Background())
+	require.NoError(t, err)
+
+	replaced := 0
+	publishOnce := func(ref string) func(*os.Root, string) {
+		return func(_ *os.Root, name string) {
+			if name != filepath.Base(sidecar) || replaced > 0 {
+				return
+			}
+			replaced++
+			require.NoError(t, LinkCaptureReference(tp.Root, id, CaptureReference{
+				ToolUseID: core.ToolUseID("toolu_" + ref), Root: core.HashBytes(core.DomainChunk, []byte(ref)),
+			}))
+		}
+	}
+	hook := publishOnce("published mid-read")
+	prev := publicationReadHook.Swap(&hook)
+	t.Cleanup(func() { publicationReadHook.Store(prev) })
+
+	scanCap := DefaultPublicationScanCap()
+	scanCap.Snapshot = &snap
+	a, err := tp.Store.AuditPublication(context.Background(), scanCap)
+	require.NoError(t, err)
+	require.Equal(t, 1, replaced, "the hook published the sidecar between the pass's check and its open")
+	require.False(t, a.Incomplete, "a file the store replaced while the pass ran is live work, not unreadable: %v", a.Notes)
+	require.Zero(t, a.UnpublishedCaptures)
+	require.Equal(t, 1, a.PostSnapshotEntries)
+
+	// The same race under a pass with no snapshot: there the pass accounts for the store as it reads
+	// it, and a file that changed between its check and its open is one it cannot vouch for.
+	replaced = 0
+	hook = publishOnce("published again mid-read")
+	a, err = tp.Store.AuditPublication(context.Background(), DefaultPublicationScanCap())
+	require.NoError(t, err)
+	require.Equal(t, 1, replaced)
+	require.True(t, a.Incomplete, "a pass without a snapshot still notes a file replaced under it")
+	require.Contains(t, a.Notes, "capture sidecar unreadable")
 	require.Zero(t, a.PostSnapshotEntries)
 }

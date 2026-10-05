@@ -207,6 +207,11 @@ type Draft struct {
 	// D49): the ancestors whose session-scoped eliminations up to the fork point the draft carries
 	// (carriedBy) and mints decisions from. Resolved at Begin, fresh, live or resumed.
 	inherit []negknow.Inherited
+	// inheritedDec maps each explains decision the session's fork point held (forkPoint) to the
+	// moment the fork started: decisions another session made, which rank as foreign (D46) in every
+	// merge although no carried elimination says so. Resolved at Begin, fresh or resumed; nil for a
+	// session that is no fork.
+	inheritedDec map[core.DecisionID]core.UnixMilli
 }
 
 // Ref is the durable reference to one finalized checkpoint artifact (00-ARCHITECTURE.md §5.14):
