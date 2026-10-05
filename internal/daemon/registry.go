@@ -230,6 +230,32 @@ func (r *SessionRegistry) StartedSince(id core.SessionID, at core.UnixMilli) boo
 	return ok && s.lastStart >= at
 }
 
+// CurrentAt reports whether a SessionStart the host fired at at is the latest start of id's current
+// life that this registry knows: id is live, or it has ended, by its SessionEnd (End) or for its
+// silence (EndAbandoned), no later than at, which makes the start the session's resume; and no start
+// of id the host fired later has been handled (NoteStart). A start fired before the session ended is
+// a leftover the end preceded, and one fired before a start already handled is a leftover that start
+// superseded: both report false, as does an unknown session. An unknown at (zero) says nothing either
+// way, so it reports whether id is live. The session.start route asks before its own Ensure, which
+// marks the session live whatever it was, and before its NoteStart (schedRuntime.bindOnReplayedStart).
+func (r *SessionRegistry) CurrentAt(id core.SessionID, at core.UnixMilli) bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	s, ok := r.sessions[id]
+	switch {
+	case !ok:
+		return false
+	case at <= 0:
+		return s.Live
+	case s.lastStart > at:
+		return false
+	case s.Live:
+		return true
+	default:
+		return s.EndedTS <= at
+	}
+}
+
 // Touch records hot-path traffic from id: it advances LastActivity and increments Events. Traffic
 // is proof the session is live, whatever the registry last believed about it:
 //

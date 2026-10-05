@@ -1006,25 +1006,177 @@ func TestSessionStartRoute_AReplayedStartBindsOnlyASessionThatWasLive(t *testing
 		bound bool
 	}{
 		{name: "a never-seen session on an unbound runtime", sess: unseen},
-		{name: "an ended session on an unbound runtime", sess: ended},
+		{name: "an ended session's start fired before its end, on an unbound runtime", sess: ended},
 		{name: "a never-seen session on a runtime bound to an ended one", sess: unseen, bound: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dd, r := attached(t)
 			want := core.SessionID("")
+			req := startOf(dd, tc.sess, "startup", 'f')
 			if tc.bound {
 				boundToEnded(t, dd, r)
 				want = ended
 			} else if tc.sess == ended {
+				// A leftover: the host fired this start before the session ended. One fired after the end
+				// is the session's resume (TestSessionStartRoute_AReplayedStartFiredAfterItsSessionEndedIsAResume).
 				now := core.NowMilli(dd.clk)
 				dd.registry.Ensure(&hookio.Event{SessionID: ended, Source: "startup"}, now)
 				dd.registry.End(ended, now)
+				req.TS = now - 1
 			}
 			require.False(t, dd.registry.IsLive(tc.sess), "fixture sanity: the replayed start's session is not live")
 
-			replay(t, dd, startOf(dd, tc.sess, "startup", 'f'))
+			replay(t, dd, req)
 
 			require.Equal(t, want, bound(r), "a replayed start of a session that was not live binds nothing")
 		})
 	}
+}
+
+// TestSessionStartRoute_AReplayedStartFiredAfterItsSessionEndedIsAResume is the wave 22 verifier's
+// second-round finding against the row above. SessionEnd ends the session in the registry (End), and
+// only an abandoned session revives on traffic, so the session a user resumes in a daemon that stayed
+// up is not live when its resume's SessionStart reaches the daemon only as a drain's replay of the
+// hook's spool. The tap refused that start as a leftover: a runtime still bound to the session kept
+// p-selection off from the end's Close and never read the resume's model hint, and a runtime bound to
+// another session that had ended was not rebound, so the resumed session ran on the ended one's
+// account. Base 2bf29705 re-enabled and rebound in both cases. A start the host fired no earlier than
+// its session's end is not a leftover the end preceded: it binds as a live start would, moving no
+// anchor. A start fired before the end is still refused.
+func TestSessionStartRoute_AReplayedStartFiredAfterItsSessionEndedIsAResume(t *testing.T) {
+	ctx := context.Background()
+	const resumed, other core.SessionID = "sess-resumed", "sess-other-ended"
+	attached := func(t *testing.T) (*daemon, *schedRuntime) {
+		t.Helper()
+		dd, o, r := tappedDaemon(t)
+		r.mu.Lock()
+		r.d = dd // what RegisterSchedulerIdleWork does in production
+		r.mu.Unlock()
+		t.Cleanup(func() {
+			if l := o.LedgerHandle(); l != nil {
+				_ = l.Close()
+			}
+		})
+		return dd, r
+	}
+	type view struct {
+		session  core.SessionID
+		model    string
+		anchors  [2]core.UnixMilli
+		selected bool
+	}
+	look := func(r *schedRuntime) view {
+		v := tapReadOnly(r, func(r *schedRuntime) view {
+			return view{session: r.session, model: r.model, anchors: [2]core.UnixMilli{r.lastCompactionTS, r.lastActivity}}
+		})
+		v.selected = scheduler.PSelectionAvailable()
+		return v
+	}
+	startOf := func(dd *daemon, sess core.SessionID, source, model string, ts core.UnixMilli, nonce rune) ipc.Request {
+		return ipc.Request{
+			Op: ipc.OpSessionStart, Session: sess, TS: ts, Nonce: testDeliveryToken(nonce),
+			Event: &hookio.Event{
+				HookEventName: "SessionStart", SessionID: sess, CWD: dd.root, Source: source,
+				Extra: map[string]json.RawMessage{extraModel: json.RawMessage(`"` + model + `"`)},
+			},
+			Reply: true,
+		}
+	}
+	replay := func(t *testing.T, dd *daemon, req ipc.Request) {
+		t.Helper()
+		require.True(t, dd.dispatchOp(withSpoolReplay(ctx), req).OK)
+		dd.promptWG.Wait()
+	}
+	// liveThenEnded binds the runtime by sess's live start, then ends sess as the flush route does: the
+	// registry first, then the SessionEnd seam, whose tap persists and closes the runtime, keeping its
+	// binding and turning p-selection off. It returns the end's instant.
+	liveThenEnded := func(t *testing.T, dd *daemon, r *schedRuntime, sess core.SessionID) core.UnixMilli {
+		t.Helper()
+		req := startOf(dd, sess, "startup", "claude-at-startup", core.NowMilli(dd.clk), 'a')
+		require.True(t, dd.dispatchOp(ctx, req).OK)
+		require.Equal(t, sess, look(r).session, "fixture sanity: the live start binds")
+		endedAt := core.NowMilli(dd.clk)
+		dd.registry.End(sess, endedAt)
+		require.NoError(t, dd.svc.SessionEnd(ctx, *req.Event))
+		require.Equal(t, sess, look(r).session, "fixture sanity: an end keeps the binding")
+		require.False(t, look(r).selected, "fixture sanity: the end's Close turned p-selection off")
+		return endedAt
+	}
+	// endedUnbound registers sess and ends it in the registry alone: a session this daemon saw start
+	// and end without the runtime binding it. It returns the end's instant.
+	endedUnbound := func(dd *daemon, sess core.SessionID) core.UnixMilli {
+		endedAt := core.NowMilli(dd.clk)
+		dd.registry.Ensure(&hookio.Event{SessionID: sess, Source: "startup"}, endedAt)
+		dd.registry.End(sess, endedAt)
+		return endedAt
+	}
+
+	t.Run("the resumed session holds the runtime", func(t *testing.T) {
+		dd, r := attached(t)
+		endedAt := liveThenEnded(t, dd, r, resumed)
+		before := look(r)
+
+		// Fired in the end's own millisecond: no earlier than the end, so not a leftover it preceded.
+		replay(t, dd, startOf(dd, resumed, "resume", "claude-resumed", endedAt, 'b'))
+
+		after := look(r)
+		require.Equal(t, resumed, after.session)
+		require.True(t, after.selected, "the resume's replayed start re-opens p-selection, as base's same-id bind did")
+		require.Equal(t, "claude-resumed", after.model, "and reads the resume's model hint")
+		require.Equal(t, before.anchors, after.anchors, "and moves no anchor to the replay's instant")
+	})
+	t.Run("another ended session holds the runtime", func(t *testing.T) {
+		dd, r := attached(t)
+		endedAt := endedUnbound(dd, resumed)
+		liveThenEnded(t, dd, r, other)
+
+		replay(t, dd, startOf(dd, resumed, "resume", "claude-resumed", endedAt+1, 'b'))
+
+		after := look(r)
+		require.Equal(t, resumed, after.session, "the resumed session takes the runtime from the ended one")
+		require.True(t, after.selected, "with p-selection on")
+		require.Equal(t, "claude-resumed", after.model)
+	})
+	t.Run("the runtime is unbound", func(t *testing.T) {
+		dd, r := attached(t)
+		endedAt := endedUnbound(dd, resumed)
+
+		replay(t, dd, startOf(dd, resumed, "resume", "claude-resumed", endedAt+1, 'b'))
+
+		after := look(r)
+		require.Equal(t, resumed, after.session, "the resumed session binds the unbound runtime")
+		require.True(t, after.selected)
+		require.Zero(t, after.anchors[1], "and notes no activity at the replay's instant")
+	})
+	t.Run("a start fired before the end", func(t *testing.T) {
+		dd, r := attached(t)
+		endedAt := liveThenEnded(t, dd, r, resumed)
+		before := look(r)
+
+		replay(t, dd, startOf(dd, resumed, "startup", "claude-leftover", endedAt-1, 'b'))
+
+		require.Equal(t, before, look(r), "a leftover start the end preceded changes nothing")
+	})
+	t.Run("a start a later live start of the session superseded", func(t *testing.T) {
+		dd, r := attached(t)
+		first := startOf(dd, resumed, "startup", "claude-first", core.NowMilli(dd.clk), 'a')
+		require.True(t, dd.dispatchOp(ctx, first).OK)
+		require.True(t, dd.dispatchOp(ctx, startOf(dd, resumed, "resume", "claude-second", first.TS+1, 'c')).OK)
+		before := look(r)
+		require.Equal(t, "claude-second", before.model, "fixture sanity: the later live start's hint is read")
+
+		replay(t, dd, first) // the first start's spooled copy, after the second start was handled
+
+		require.Equal(t, before, look(r), "a superseded start's hints do not overwrite the newer start's")
+	})
+	t.Run("a start fired before the end, while another ended session holds the runtime", func(t *testing.T) {
+		dd, r := attached(t)
+		endedAt := endedUnbound(dd, resumed)
+		liveThenEnded(t, dd, r, other)
+		before := look(r)
+
+		replay(t, dd, startOf(dd, resumed, "startup", "claude-leftover", endedAt-1, 'b'))
+
+		require.Equal(t, before, look(r), "a leftover start does not take the runtime")
+	})
 }
