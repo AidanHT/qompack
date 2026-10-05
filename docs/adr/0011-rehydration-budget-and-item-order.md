@@ -912,11 +912,13 @@ screened; it now also matches the raw segments as `hostperm` does (item 7(d)).
      the project, which a summary may then show; Qompack does not detect the volume's case
      sensitivity.
    - A path-keyed checkpoint drop past the bound on host judgements (item 10) is withheld unjudged
-     and learned as withheld whatever its spelling (item 12), so a text that names one the host
-     would allow is withheld too: accepted over-withholding (coordinator decision D66(e)). The
-     drops a text names are judged first, so it touches only a session where more than 64 named
-     drops need a fresh judgement, or a text that names a drop in a way the build's ordering does not
-     read as a name (a cut prefix, a part of a path, a glob).
+     in section 7 and `dropped()` and learned as withheld whatever its spelling (item 12), so a text
+     that names one the host would allow is withheld too: accepted over-withholding (coordinator
+     decision D66(e)). The drops a text names are judged first, so it touches only a session where
+     more than 64 named drops need a fresh judgement, or a text that names a drop in a way the
+     build's ordering does not read as a name (a cut prefix, a part of a path, a glob). The
+     unjudged answer is the drops' own: the instruction and skill files items 6a and 6b restore,
+     and a structured summary's one path, are still judged by the host.
    - Free text that mentions a rule's literal or a withheld path's name where a name starts is
      withheld, whatever follows the name (`kubectl get secrets` under `Read(./secrets/**)`; `cat
      .env.local` under `Read(./.env)`; `git diff README.md` beside a withheld module-cache README.md;
@@ -1627,9 +1629,19 @@ screened; it now also matches the raw segments as `hostperm` does (item 7(d)).
       about at most 64 fresh drop paths (`maxDropJudgements`; a file pointer's path among them was
       judged already and costs nothing): first each drop a tool summary or a drop reason names by its
       basename or its path, then the rest in the order the checkpoint lists them (`dropOrder`,
-      `textNames`). It answers every later fresh path as refused without asking, memoized, so section
-      7, `dropped()` and every later judgement of it withhold it, and learns it as withheld like any
-      refused path, whatever its spelling, so every text that names it is withheld (fail closed).
+      `textNames`). It answers every later fresh path as refused without asking, an answer kept for
+      the drops alone (`unjudged`), so section 7 and `dropped()` withhold it (`dropWithheld`), and
+      learns it as withheld like any refused path, whatever its spelling, so every text that names it
+      is withheld (fail closed). That answer never enters the memo of the host's answers (`judged`):
+      wave 22's verify, fix round 2, found the first version memoizing it there, where item 6a's
+      rule files and item 6b's skill files, judged by the very project-relative keys a file
+      pointer's drop carries, read it, so a nested CLAUDE.md, a `.claude/rules` file or a SKILL.md
+      whose own pointer the checkpoint's budget cut past the bound, under any Read rule, was neither
+      restored nor indexed, and no drop entry named it; eca33155 restored both. Every judgement
+      other than a drop's, which the project's configuration or the checkpoint's budget bounds and
+      not the drops, asks the host
+      (`TestBuild_ARuleAndASkillWhoseDropsLiePastTheBoundAreStillRestored`, red on 290b04be at 70
+      drops and green on eca33155 but for its bound).
       Wave 22's verify found the first version, which learned such a drop only when its spelling held
       a rule's literal, showing a drop the host refuses only through a link, a junction or an 8.3 name
       (`lnk/token.txt`, `lnk` a link to `secrets`, under `Read(./secrets/**)`) wherever a free text, a

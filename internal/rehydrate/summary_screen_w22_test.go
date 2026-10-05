@@ -11,6 +11,8 @@ import (
 
 	"github.com/qompack/qompack/internal/checkpoint"
 	"github.com/qompack/qompack/internal/core"
+	"github.com/qompack/qompack/internal/rules"
+	"github.com/qompack/qompack/internal/skills"
 )
 
 // Wave 22's rows over audit 2's rehydrate findings (coordinator decisions D66 and D67).
@@ -329,6 +331,74 @@ func TestBuild_ADropPastTheJudgementBoundIsWithheldWhereverItIsNamed(t *testing.
 	_, calls1000 := build(t, 1000)
 	require.Equal(t, calls70, calls1000, "past the bound, more drops cost no more host judgements")
 	require.Less(t, calls70, calls0+70, "the bound holds with seventy drops")
+}
+
+// TestBuild_ARuleAndASkillWhoseDropsLiePastTheBoundAreStillRestored is wave 22's verify, fix round
+// 2, of finding 28: a path-keyed drop past the judgement bound was answered as refused without a host
+// judgement, and that answer went into the build's memo of host judgements, which every later
+// judgement of the same key reads. Item 6a judges a rule file, and item 6b a skill's file, by the
+// project-relative key a file pointer's drop carries, so in a session that had once read a nested
+// CLAUDE.md, a .claude/rules file or a SKILL.md whose pointer the checkpoint's budget cut past the
+// bound, under any Read rule, the rule was not restored and the skill not indexed, and no drop entry
+// named either. eca33155 judged every drop by the host and restored both. The unjudged answer is the
+// drops' own (section 7 and dropped() withhold such a drop); items 6a and 6b ask the host about their
+// files, so a file it allows is restored and indexed and one it refuses is not, however many drops
+// come before, and past the bound more drops still cost no more host judgements.
+func TestBuild_ARuleAndASkillWhoseDropsLiePastTheBoundAreStillRestored(t *testing.T) {
+	const (
+		truncated = "truncated at budget; re_read(path) still resolves"
+		rule      = ".claude/rules/zzrule.md"
+		nested    = "pkg/sub/CLAUDE.md"
+		skill     = ".claude/skills/zzskill/SKILL.md"
+	)
+	root := previewRoot("proj")
+	bodies := []string{"ZZRULEBODY", "ZZNESTEDBODY", "ZZSKILLDESC"}
+	for _, refused := range []bool{false, true} {
+		calls := map[int]int{}
+		for _, fillers := range []int{0, 10, 70, 200, 1000} {
+			cp := ckUAT05()
+			cp.Dropped = nil
+			for i := 0; i < fillers; i++ {
+				cp.Dropped = append(cp.Dropped, checkpoint.DropEntry{Kind: "file_pointer", ID: fmt.Sprintf("pkg/f%d.go", i), Detail: truncated})
+			}
+			for _, id := range []string{rule, nested, skill} {
+				cp.Dropped = append(cp.Dropped, checkpoint.DropEntry{Kind: "file_pointer", ID: id, Detail: truncated})
+			}
+			denied := []string{".env"}
+			if refused {
+				denied = append(denied, rule, nested, skill)
+			}
+			hp := denyFiles(root, denied...)
+			n := 0
+			d := uat05Deps(t, cp)
+			d.HostPaths = func() HostRules {
+				h := hp()
+				refuses := h.Refuses
+				h.Refuses = func(p string) bool { n++; return refuses(p) }
+				return h
+			}
+			d.Rules = &fakeScanner{
+				pathScoped: []rules.Rule{{Path: rule, Globs: []string{"**"}, Body: bodies[0]}},
+				nested:     []rules.Rule{{Path: nested, Body: bodies[1]}},
+			}
+			sk := skills.Entry{Name: "zzskill", Description: bodies[2], Source: skill}
+			d.Skills = &fakeIndexer{all: []skills.Entry{sk}, kept: []skills.Entry{sk}}
+			r := requestFor(t, cp, maxBudget())
+			r.ProjectRoot = root
+			res, err := Build(context.Background(), r, d)
+			require.NoError(t, err)
+			for _, b := range bodies {
+				if refused {
+					require.NotContains(t, res.Text, b, "%d fillers: the host refuses the file, so it is neither restored nor indexed", fillers)
+				} else {
+					require.Contains(t, res.Text, b, "%d fillers: the host allows the file, so it is restored or indexed", fillers)
+				}
+			}
+			calls[fillers] = n
+		}
+		require.Equal(t, calls[70], calls[1000], "refused=%v: past the bound, more drops cost no more host judgements", refused)
+		require.Less(t, calls[70], calls[0]+70, "refused=%v: the bound holds with seventy drops", refused)
+	}
 }
 
 // TestBuild_AQompackCommandInADropReasonIsNoPath is audit 2's finding 27: the drop-reason screen read

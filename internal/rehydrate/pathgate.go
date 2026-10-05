@@ -151,8 +151,17 @@ type pathJudge struct {
 	// reason names a withheld path by one of them (namesKnownIn).
 	knownPaths []string
 	// judged memoizes the host's judgement (hostRefuses) for the build: a path is named by a file
-	// pointer and again by a summary, and each host judgement may consult the filesystem.
+	// pointer and again by a summary, and each host judgement may consult the filesystem. It holds
+	// only answers the host gave.
 	judged map[string]bool
+	// unjudged holds each path-keyed checkpoint drop past the drops' bound (dropJudgements), answered
+	// as refused without a host judgement. Only the drops read it: newPathJudge's drop loop, which
+	// learns each as withheld, and gateCheckpointDrops (dropWithheld), which section 7 and dropped()
+	// read. Every other judgement of the same key still asks the host: item 6a's rule files and item
+	// 6b's skill files carry the very project-relative keys a file pointer's drop does, and an answer
+	// kept in judged withheld a rule or a skill the host allows whenever the session's drops of it lay
+	// past the bound (wave 22's verify, fix round 2).
+	unjudged map[string]bool
 	// drops counts the host judgements made while newPathJudge reads the path-keyed checkpoint drops
 	// (dropJudgements); nil outside a judge newPathJudge made.
 	drops *dropJudgements
@@ -204,12 +213,16 @@ type gatedReason struct {
 // pattern is in force (bounded: with none the host's rules are empty, refuse nothing and read no
 // file, hostperm's RuleSet.Empty, so there is nothing to bound), hostRefuses judges at most
 // maxDropJudgements fresh paths, in dropOrder's order (first the drops a text names, then the rest as
-// the checkpoint lists them), and answers every later fresh path as refused without a judgement,
-// memoized, so section 7, dropped() and every later judgement of the path withhold it, and the build
-// learns it as withheld like any refused path, whatever its spelling, so every text that names it is
-// withheld too (fail closed; wave 22's verify: learning only a drop whose spelling held a rule's
+// the checkpoint lists them), and answers every later fresh path as refused without a judgement. That
+// answer is the drops' own (pathJudge.unjudged): section 7 and dropped() withhold such a drop, and the
+// build learns it as withheld like any refused path, whatever its spelling, so every text that names
+// it is withheld too (fail closed; wave 22's verify: learning only a drop whose spelling held a rule's
 // literal showed a drop the host refuses through a link, a junction or an 8.3 name wherever a text
-// named it, which eca33155 withheld). The screen reads the learned paths through learnedIndex, so
+// named it, which eca33155 withheld). It is never the build's memo of the host's answers (judged):
+// every other judgement of the same path, which the project's configuration or the checkpoint's own
+// budget bounds and not the drops (item 6a's rule files, item 6b's skill files, a structured summary's
+// value), asks the host, so a rule or a skill the host allows is restored whatever the drops before
+// it (wave 22's verify, fix round 2). The screen reads the learned paths through learnedIndex, so
 // learning a long session's drops costs it a pass over each text, not one per drop.
 type dropJudgements struct {
 	reading, bounded bool
@@ -438,8 +451,8 @@ func globSegMatch(pat, seg string) bool {
 // a glob or a selector may name (w19 verifier V3).
 func newPathJudge(r Request, d Deps) pathJudge {
 	j := pathJudge{
-		root: r.ProjectRoot, judged: make(map[string]bool), drops: &dropJudgements{},
-		rootSpelling: rootSpellingOf(r.ProjectRoot), rootUnit: rootUnitAdmitted(r.ProjectRoot),
+		root: r.ProjectRoot, judged: make(map[string]bool), unjudged: make(map[string]bool),
+		drops: &dropJudgements{}, rootSpelling: rootSpellingOf(r.ProjectRoot), rootUnit: rootUnitAdmitted(r.ProjectRoot),
 		rootExact: rootSpelledExactly(r.ProjectRoot), rootTail: rootTailOf(r.ProjectRoot),
 		memo: &buildMemo{held: make(map[heldKey]string)},
 	}
@@ -462,8 +475,8 @@ func newPathJudge(r Request, d Deps) pathJudge {
 	}
 	// The drops' host judgements are bounded (dropJudgements); a file pointer's path among them was
 	// judged above and costs nothing more. The drops a text names are judged first (dropOrder), and a
-	// drop past the bound is withheld unjudged and learned as withheld like any refused path, so every
-	// text that names it is withheld (fail closed).
+	// drop past the bound is withheld unjudged (unjudged) and learned as withheld like any refused path,
+	// so every text that names it is withheld (fail closed).
 	j.drops.reading = true
 	for _, e := range dropOrder(r.Checkpoint, j) {
 		if j.withheld(e.ID) {
@@ -754,7 +767,9 @@ func judgedSpelling(path string) string {
 }
 
 // hostRefuses reports whether the host's rules refuse p (a judgedSpelling), or could not be
-// established; with no host rules in force it is false. Each answer is memoized for the build.
+// established; with no host rules in force it is false. Each answer the host gives is memoized for
+// the build (judged). While newPathJudge reads the drops past their bound, p is answered as refused
+// without a judgement, and that answer is kept for the drops alone (unjudged, dropWithheld).
 func (j pathJudge) hostRefuses(p string) bool {
 	if !j.host {
 		return false
@@ -767,8 +782,9 @@ func (j pathJudge) hostRefuses(p string) bool {
 	}
 	if j.drops != nil && j.drops.reading && j.drops.bounded {
 		if j.drops.made >= maxDropJudgements {
-			// Past the drops' bound: refused without a judgement, and remembered so (fail closed).
-			j.judged[p] = true
+			// Past the drops' bound: refused without a judgement (fail closed), an answer only the
+			// drops read.
+			j.unjudged[p] = true
 			return true
 		}
 		j.drops.made++
@@ -3241,6 +3257,18 @@ var modelTextDrops = map[string]bool{
 	"open_question":     true,
 }
 
+// dropWithheld reports whether a path-keyed checkpoint drop keyed by id may not be shown
+// (gateCheckpointDrops): its path is one newPathJudge read past the drops' bound and answered as
+// refused unjudged (unjudged), and no judgement since has asked the host about it; or withheld()
+// withholds it, which asks the host nothing more, since newPathJudge judged or bounded every drop.
+func (j pathJudge) dropWithheld(id string) bool {
+	p := judgedSpelling(id)
+	if _, asked := j.judged[p]; !asked && j.unjudged[p] {
+		return true
+	}
+	return j.withheld(id)
+}
+
 // gateCheckpointDrops returns r's checkpoint drop entries with every one keyed by a path the
 // payload may not show named the way section 6 names its pointer (D50, C4.6): by the pointer's hash
 // while the checkpoint still holds it (finalize keeps an untracked or a dirty pointer), and by
@@ -3260,7 +3288,7 @@ func gateCheckpointDrops(r Request, j pathJudge) []checkpoint.DropEntry {
 	out := make([]checkpoint.DropEntry, len(drops))
 	for i, e := range drops {
 		out[i] = e
-		if checkpointPathDrops[e.Kind] && j.withheld(e.ID) {
+		if checkpointPathDrops[e.Kind] && j.dropWithheld(e.ID) {
 			out[i] = withheldDrop(e, r.Checkpoint.Pointers.Files)
 		}
 	}

@@ -281,6 +281,17 @@ func costBuild(t *testing.T, root string, previews []string, instructions, drops
 			Detail: "truncated at budget; re_read(path) still resolves",
 		})
 	}
+	if drops > 0 {
+		// A session that read its instruction and skill files had their pointers cut too, past the
+		// drops' bound (wave 22's verify, fix round 2).
+		for i := 1; i <= instructions; i++ {
+			for _, rel := range []string{fmt.Sprintf(".claude/rules/k%d.md", i), fmt.Sprintf(".claude/skills/s%d/SKILL.md", i)} {
+				req.Checkpoint.Dropped = append(req.Checkpoint.Dropped, checkpoint.DropEntry{
+					Kind: "file_pointer", ID: rel, Detail: "truncated at budget; re_read(path) still resolves",
+				})
+			}
+		}
+	}
 
 	judgements := 0
 	var judged []string
@@ -345,9 +356,12 @@ const (
 // from the root through its last word that holds a separator, which in this fixture's commands is
 // the script's path alone (the round-2 review's commands run from the root, whose `HEAD~N` the host
 // refuses on Windows as an 8.3 name; a later argument holding a separator would reach the host too).
-// The rule files and skills items 6a and 6b restore cost one judgement each (the round-3 review). A
-// build judges exactly its file pointers, its structured summaries and those files, once each. The
-// pass criterion is the count and the paths judged; the wall time is logged, never judged.
+// The rule files and skills items 6a and 6b restore cost one judgement each (the round-3 review),
+// and so they do when the session's own drops of them lie past the drops' bound, which answers a drop
+// unjudged but never items 6a and 6b (wave 22's verify, fix round 2: they were then withheld unjudged,
+// and neither restored nor indexed). A build judges exactly its file pointers, its structured
+// summaries and those files, once each. The pass criterion is the count and the paths judged; the
+// wall time is logged, never judged.
 func TestRehydrateHostPaths_HostJudgementsAreStructuredSummariesAndFilePointers(t *testing.T) {
 	root := costProject(t)
 	slash := strings.ReplaceAll(root, `\`, "/")
@@ -415,6 +429,7 @@ func TestRehydrateHostPaths_HostJudgementsAreStructuredSummariesAndFilePointers(
 		}, rehydrateCostPointers, 0, 0},
 		{"instruction and skill files", rehydrateCostPreview, 0, rehydrateCostInstructions, 0},
 		{"path-keyed checkpoint drops", rehydrateCostPreview, 0, 0, rehydrateCostDrops},
+		{"instruction and skill files whose drops lie past the bound", rehydrateCostPreview, 0, rehydrateCostInstructions, rehydrateCostDrops},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			previews := make([]string, 0, rehydrateCostPointers)
@@ -443,6 +458,10 @@ func TestRehydrateHostPaths_HostJudgementsAreStructuredSummariesAndFilePointers(
 				want[fmt.Sprintf(".claude/skills/s%d/SKILL.md", i)] = 1
 			}
 			require.Equal(t, want, instr, "items 6a and 6b judge each rule file and each skill file once: %v", judged)
+			for i := 1; i <= tc.instructions; i++ {
+				require.Contains(t, res.Text, fmt.Sprintf("Rule %d body.", i), "item 6a restores a rule file the host allows")
+				require.Contains(t, res.Text, fmt.Sprintf("skill %d", i), "item 6b indexes a skill the host allows")
+			}
 			require.NotContains(t, res.Text, "summary withheld", "no fixture preview names a denied path")
 			require.Contains(t, res.Text, " — "+previews[0]+"\n", "fixture: the previews reach section 6")
 		})
