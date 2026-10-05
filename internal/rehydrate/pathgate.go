@@ -69,10 +69,15 @@ import (
 //     fit turns into punctuation) and no word that starts with `-` after a space, and a sanitized text
 //     spells it exactly (rootUnitAdmitted, rootSpelledExactly, D64(1) and its rulings on wave 19f).
 //     A cut path-named value is the project only when it starts the root's own spelling byte for
-//     byte (rootPrefix). The root's spelling in a text, a cut value's start and containment all fold
-//     an ASCII letter's case where the platform's paths fold, and no other character's (foldLiteral,
-//     asciiFoldEqual, RootRelative); a rule anchored outside the project is matched against the root
-//     as the host matches it, its case folded as the host folds it (rootCover).
+//     byte (rootPrefix). Every judgement takes the safe side under both readings of the root (the
+//     two-fold rule, ADR 0011 §23): one that decides a thing is SHOWN (containment, the root's unit, a
+//     cut value's start) folds an ASCII letter's case where the platform's paths fold, and no other
+//     character's (foldLiteral, asciiFoldEqual, RootRelative); one that LEARNS or WITHHOLDS (a
+//     withheld path's relative names, recordedPath's hold of the root, a drop reason's screen, the
+//     daemon's host adapter) also reads the root with case folded by Unicode, as filepath.Rel, RE2's
+//     `(?i)` and paths.Key fold it, and learns or withholds under the union (RootRelativeBroad,
+//     broadRootSpellingOf). A rule anchored outside the project is matched against the root as the
+//     host matches it, its case folded as the host folds it (rootCover).
 //     When the host's rules are unavailable, or a rule covers the whole project, every free text is
 //     withheld, as re_read fails closed.
 //
@@ -113,6 +118,10 @@ type pathJudge struct {
 	// rootSpelling finds the project root spelled in a text (rootSpellingOf), which holdRoot holds
 	// together as one rootMark; nil when there is no root.
 	rootSpelling *regexp.Regexp
+	// broadSpelling finds the root in a text with case folded by Unicode (broadRootSpellingOf), the
+	// broad reading a judgement that learns or withholds adds (holdRootBroad); nil when there is no
+	// root or the platform's paths do not fold, where both readings are rootSpelling's.
+	broadSpelling *regexp.Regexp
 	// rootUnit is set when the root's own spelling admits the root unit in a summary
 	// (rootUnitAdmitted, D64(1)); markRoot holds the root together only then.
 	rootUnit bool
@@ -139,7 +148,8 @@ type pathJudge struct {
 	// rulePaths are the rules' specifiers in screen form, which a cut summary's tail may begin.
 	rulePaths []string
 	// known holds every concrete in-project path the build withholds, in project-relative paths.Key
-	// form: a structured glob, or recall's path: selector, that selects one is withheld.
+	// form, in the project under either reading of the root (note): a structured glob, or recall's
+	// path: selector, that selects one is withheld.
 	known []string
 	// knownText holds the basename and the relative path of every path the build withholds (a file
 	// pointer's, a path-keyed checkpoint drop's, a structured summary's) in screen form: free text
@@ -147,8 +157,9 @@ type pathJudge struct {
 	// fragment the store's cut left, is ever added.
 	knownText []string
 	// knownPaths holds the whole spelling of every path the build withholds, in screen form with `/`
-	// separators: project-relative for one in the project, as written for one outside it. A drop
-	// reason names a withheld path by one of them (namesKnownIn).
+	// separators: project-relative for one in the project, as written for one outside it, and both
+	// for one the two readings of the root place differently. A drop reason names a withheld path by
+	// one of them (namesKnownIn).
 	knownPaths []string
 	// judged memoizes the host's judgement (hostRefuses) for the build: a path is named by a file
 	// pointer and again by a summary, and each host judgement may consult the filesystem. It holds
@@ -452,8 +463,8 @@ func globSegMatch(pat, seg string) bool {
 func newPathJudge(r Request, d Deps) pathJudge {
 	j := pathJudge{
 		root: r.ProjectRoot, judged: make(map[string]bool), unjudged: make(map[string]bool),
-		drops: &dropJudgements{}, rootSpelling: rootSpellingOf(r.ProjectRoot), rootUnit: rootUnitAdmitted(r.ProjectRoot),
-		rootExact: rootSpelledExactly(r.ProjectRoot), rootTail: rootTailOf(r.ProjectRoot),
+		drops: &dropJudgements{}, rootSpelling: rootSpellingOf(r.ProjectRoot), broadSpelling: broadRootSpellingOf(r.ProjectRoot),
+		rootUnit: rootUnitAdmitted(r.ProjectRoot), rootExact: rootSpelledExactly(r.ProjectRoot), rootTail: rootTailOf(r.ProjectRoot),
 		memo: &buildMemo{held: make(map[heldKey]string)},
 	}
 	if r.ProjectRoot != "" {
@@ -646,7 +657,10 @@ func (j pathJudge) notedValues(summary string) []string {
 // together here whatever it holds (holdRoot), even when no text spells it exactly: learning a
 // withheld path's names only ever withholds more, so neither D64(1)'s root unit, which decides what
 // a summary may show, nor rootSpelledExactly, which decides how a reason is read, narrows it (a
-// withheld path under a root `a  b` would otherwise keep its space and go unlearned).
+// withheld path under a root `a  b` would otherwise keep its space and go unlearned). For the same
+// reason it is held under either reading of the root (the two-fold rule): its own spelling with an
+// ASCII letter's case folded, or its spelling with case folded by Unicode (holdRootBroad), so a value
+// under `C:\q\Åsa berg\proj`, the project to the host for a root `C:\q\åsa berg\proj`, is learned.
 func (j pathJudge) recordedPath(v string) bool {
 	if isGlob(v) || isURL(v) || fileScheme(v) {
 		return false
@@ -657,7 +671,8 @@ func (j pathJudge) recordedPath(v string) bool {
 	if t := strings.TrimSpace(v); len(t) > 0 && isSep(t[0]) && (len(t) == 1 || !isSep(t[1])) && !driveLessPath(t) {
 		return false
 	}
-	return !strings.Contains(j.holdRoot(sanitize(v)), " ")
+	s := sanitize(v)
+	return !strings.Contains(j.holdRoot(s), " ") || !strings.Contains(j.holdRootBroad(s), " ")
 }
 
 // driveLessPath reports whether v, a value led by one separator, is a path on this platform: a POSIX
@@ -677,21 +692,40 @@ func hasSecondSegment(rest string) bool {
 
 // note records p, a path the build withholds, as known: its relative key when it is inside the
 // project and concrete, its basename and relative path for the free-text screen, and its whole
-// spelling for the drop-reason screen.
+// spelling for the drop-reason screen. Learning only ever withholds more, so p is learned under both
+// readings of the root (the two-fold rule): as the strict reading places it (key: an ASCII letter's
+// case folded where paths fold), which withholds every path it finds outside the project; and, when
+// that finds p outside but the broad reading finds it inside (broadKey: case folded by Unicode, as
+// filepath.Rel and the host's lower-casing fold it) and withholds it there too (the host refuses it,
+// or its rules could not be established), by its project-relative names as well.
+// `C:\q\Åsa\proj\private\deny.txt` under a root `C:\q\åsa\proj` is a directory beside the project to
+// the strict reading, which withholds it, and the project's denied private/deny.txt to the host and
+// NTFS, so a glob that selects private/deny.txt is withheld; `C:\q\Åsa\proj\src\main.go`, which the
+// host allows, teaches no project-relative name.
 func (j *pathJudge) note(p string) {
 	p = judgedSpelling(p)
 	if p == "" {
 		return
-	}
-	k, inside := j.key(p)
-	if inside && !isGlob(k) {
-		j.known = appendDistinct(j.known, k)
 	}
 	slash := strings.TrimRight(strings.ReplaceAll(p, `\`, "/"), "/")
 	if base := path.Base(slash); namesAFile(base) && len(base) >= minCutPrefix {
 		// A basename of a byte or two (`b`, `id`) occurs where a name starts in most texts and names
 		// nothing; the relative path, below, still counts.
 		j.knownText = appendDistinct(j.knownText, screenText(base, true))
+	}
+	k, inside := j.key(p)
+	j.learn(p, slash, k, inside)
+	if kb, ok := j.broadKey(p); ok && !inside && j.hostRefuses(p) {
+		j.learn(p, slash, kb, true)
+	}
+}
+
+// learn records p (slash: p with `/` separators, no trailing one), a path the build withholds, under
+// one reading of the root: by its relative key k when that reading places it inside the project, and
+// by its whole spelling otherwise (note).
+func (j *pathJudge) learn(p, slash, k string, inside bool) {
+	if inside && !isGlob(k) {
+		j.known = appendDistinct(j.known, k)
 	}
 	switch {
 	case inside && k != ".":
@@ -801,19 +835,25 @@ func (j pathJudge) hostRefuses(p string) bool {
 // project once its classes are read as what they nearly spell (classReading), is not: containment
 // cleans p as a literal path, while Qompack's own matcher, a shell, a glob library or the model reads
 // it as a pattern. An absolute p is within the project when it is the root or below it as
-// RootRelative compares them, an ASCII letter's case folded where paths fold and no other.
-func (j pathJudge) inside(p string) bool {
+// RootRelative compares them, an ASCII letter's case folded where paths fold and no other: a
+// judgement that shows takes the strict reading of the root (the two-fold rule), and every caller
+// withholds what inside() finds outside.
+func (j pathJudge) inside(p string) bool { return j.insideBy(p, RootRelative) }
+
+// insideBy is inside() with an absolute p placed by rel, one reading of the root (RootRelative, or
+// RootRelativeBroad for a judgement that learns, broadKey).
+func (j pathJudge) insideBy(p string, rel func(root, p string) (string, bool)) bool {
 	if globClimbs(p) {
 		return false
 	}
-	if q := classReading(p); q != p && !j.inside(q) {
+	if q := classReading(p); q != p && !j.insideBy(q, rel) {
 		return false
 	}
 	if !absLike(p) {
 		c := filepath.Clean(filepath.FromSlash(p))
 		return c != ".." && !strings.HasPrefix(c, ".."+string(filepath.Separator))
 	}
-	_, ok := RootRelative(j.root, p)
+	_, ok := rel(j.root, p)
 	return ok
 }
 
@@ -825,8 +865,8 @@ func (j pathJudge) inside(p string) bool {
 // long s (U+017F) or the Angstrom sign (U+212B) where the project's has `k`, `s` or `å` was the
 // project, though NTFS keeps it a directory beside it (wave 19g's final verify of D64); and on macOS
 // it folded nothing, while the root's spelling (rootSpellingOf) and its cut prefix (rootPrefix) fold
-// ASCII letters there. The daemon's host adapter reads a recorded path's place below the root by the
-// same rule, so the host judges the project path containment found.
+// ASCII letters there. It is the strict reading of the root, which a judgement that shows takes; a
+// judgement that learns or withholds adds the broad one (RootRelativeBroad).
 func RootRelative(root, p string) (string, bool) {
 	if root == "" {
 		return "", false
@@ -844,6 +884,45 @@ func RootRelative(root, p string) (string, bool) {
 		return rest[1:], true
 	}
 	return "", false
+}
+
+// RootRelativeBroad is RootRelative under the broad reading of the root (the two-fold rule, ADR 0011
+// §23): where the platform's paths fold, p is also the root or below it when each of root's cleaned
+// path elements equals p's under Unicode's simple case folding (strings.EqualFold, as filepath.Rel
+// and RE2's `(?i)` fold on Windows) or once both are lower-cased by Unicode (paths.Key, as the host's
+// rules fold a path). Where paths do not fold it is RootRelative. It places more paths in the project
+// than any of those readings alone, and so may only decide what is learned or withheld, never what is
+// shown: `C:\q\Åsa\proj\x` is below a root `C:\q\åsa\proj` (NTFS and the host fold U+00C5 onto
+// U+00E5), and so are the root's spellings with the Kelvin sign, the long s and the Angstrom sign,
+// which NTFS keeps beside it, and with U+0130 for `i`, which only the host's lower-casing folds. The
+// daemon's host adapter judges each reading's place below the resolved root.
+func RootRelativeBroad(root, p string) (string, bool) {
+	if rel, ok := RootRelative(root, p); ok || root == "" || !paths.DefaultFold() {
+		return rel, ok
+	}
+	rs, qs := pathElems(filepath.Clean(root)), pathElems(filepath.Clean(filepath.FromSlash(p)))
+	if len(qs) < len(rs) {
+		return "", false
+	}
+	for i, e := range rs {
+		if !strings.EqualFold(e, qs[i]) && paths.Key(e) != paths.Key(qs[i]) {
+			return "", false
+		}
+	}
+	if len(qs) == len(rs) {
+		return ".", true
+	}
+	return strings.Join(qs[len(rs):], string(filepath.Separator)), true
+}
+
+// pathElems is c, a cleaned path, split at the platform's separator, with the empty element a root
+// directory's trailing separator leaves (`C:\`, `/`) dropped.
+func pathElems(c string) []string {
+	e := strings.Split(c, string(filepath.Separator))
+	if len(e) > 1 && e[len(e)-1] == "" {
+		e = e[:len(e)-1]
+	}
+	return e
 }
 
 // globClimbs reports whether p, read as a glob, may match a `..` segment its spelling does not show
@@ -2639,9 +2718,11 @@ func isGlob(p string) bool { return strings.ContainsAny(p, globMeta) }
 // globSelectsKnown reports whether the glob g, a structured value, selects a path this build
 // withholds (pathJudge.known). A glob without a separator matches at any depth (rules.Match), as
 // recall's path: selector does. Only the paths the build records are known, so a glob that selects
-// nothing Qompack recorded is judged as written (D60(iv)).
+// nothing Qompack recorded is judged as written (D60(iv)). It withholds, so it reads g under the
+// broad reading of the root (broadKey; the two-fold rule): every caller has already withheld a g the
+// strict reading puts outside the project, and inside it both readings agree.
 func (j pathJudge) globSelectsKnown(g string) bool {
-	k, ok := j.key(g)
+	k, ok := j.broadKey(g)
 	if !ok {
 		return false
 	}
@@ -2657,18 +2738,25 @@ func (j pathJudge) globSelectsKnown(g string) bool {
 }
 
 // key is p's project-relative paths.Key form with forward slashes, and false when p is empty or
-// outside the project.
-func (j pathJudge) key(p string) (string, bool) {
+// outside the project, under the strict reading of the root (RootRelative).
+func (j pathJudge) key(p string) (string, bool) { return j.keyBy(p, RootRelative) }
+
+// broadKey is key under the broad reading of the root (RootRelativeBroad), which only a judgement
+// that learns or withholds may take (note, globSelectsKnown).
+func (j pathJudge) broadKey(p string) (string, bool) { return j.keyBy(p, RootRelativeBroad) }
+
+// keyBy is key with an absolute p placed by rel, one reading of the root.
+func (j pathJudge) keyBy(p string, rel func(root, p string) (string, bool)) (string, bool) {
 	p = judgedSpelling(p)
-	if p == "" || !j.inside(p) {
+	if p == "" || !j.insideBy(p, rel) {
 		return "", false
 	}
 	if absLike(p) {
-		rel, ok := RootRelative(j.root, p)
+		r, ok := rel(j.root, p)
 		if !ok {
 			return "", false
 		}
-		p = rel
+		p = r
 	}
 	return paths.Key(strings.TrimPrefix(path.Clean(strings.ReplaceAll(p, `\`, "/")), "./")), true
 }
@@ -2842,33 +2930,52 @@ func rootSpellingOf(root string) *regexp.Regexp {
 	if root == "" {
 		return nil
 	}
-	clean := strings.Join(strings.Fields(filepath.ToSlash(filepath.Clean(root))), " ")
 	fold := paths.DefaultFold()
+	return rootSpellingWith(root, "", func(s string) string { return foldLiteral(s, fold) })
+}
+
+// broadRootSpellingOf matches root as a text spells it, as rootSpellingOf does, with case folded by
+// Unicode: compiled with RE2's `(?i)` from root lower-cased by paths.Key, and matched against a text
+// lower-cased the same way (holdRootBroad), so a spelling the host's lower-casing or Unicode's simple
+// folding pairs with the root's (`Åsa`, the Kelvin sign's `Kate`, `İris` for `iris`) is the root too.
+// It is the broad reading of the root, which only a judgement that learns or withholds may take (the
+// two-fold rule): rootSpellingOf's comment says why a judgement that shows may not. Nil for no root,
+// and where the platform's paths do not fold, since both readings are then rootSpellingOf's.
+func broadRootSpellingOf(root string) *regexp.Regexp {
+	if root == "" || !paths.DefaultFold() {
+		return nil
+	}
+	return rootSpellingWith(paths.Key(root), "(?i)", regexp.QuoteMeta)
+}
+
+// rootSpellingWith is rootSpellingOf's expression for root with flags before it and every character
+// of the root's spelling written by lit.
+func rootSpellingWith(root, flags string, lit func(string) string) *regexp.Regexp {
+	clean := strings.Join(strings.Fields(filepath.ToSlash(filepath.Clean(root))), " ")
 	if runtime.GOOS != "windows" {
-		return regexp.MustCompile(rootSegments(clean, `/+`, fold))
+		return regexp.MustCompile(flags + rootSegments(clean, `/+`, lit))
 	}
 	fwd, back, rest := "", "", clean
 	if len(clean) >= 2 && clean[1] == ':' {
-		drive := foldLiteral(clean[:2], fold)
-		fwd = `(?://[?.]/)?(?:` + drive + `|(?:` + foldLiteral("/mnt", fold) + `)?/` +
-			foldLiteral(strings.ToLower(clean[:1]), fold) + `)`
+		drive := lit(clean[:2])
+		fwd = `(?://[?.]/)?(?:` + drive + `|(?:` + lit("/mnt") + `)?/` + lit(strings.ToLower(clean[:1])) + `)`
 		back = `(?:\\{2}[?.]\\)?` + drive
 		rest = clean[2:]
 	}
 	return regexp.MustCompile(
-		`(?:` + fwd + rootSegments(rest, `/+`, fold) + `|` + back + rootSegments(rest, `\\+`, fold) + `)`)
+		flags + `(?:` + fwd + rootSegments(rest, `/+`, lit) + `|` + back + rootSegments(rest, `\\+`, lit) + `)`)
 }
 
 // rootSegments is rest, a slash-separated stretch of the root's spelling, as a regular expression
-// whose every separator is sep, an ASCII letter matching in either case when fold is set.
-func rootSegments(rest, sep string, fold bool) string {
+// whose every separator is sep and every other character is written by lit.
+func rootSegments(rest, sep string, lit func(string) string) string {
 	var b strings.Builder
 	for _, r := range rest {
 		if r == '/' {
 			b.WriteString(sep)
 			continue
 		}
-		b.WriteString(foldLiteral(string(r), fold))
+		b.WriteString(lit(string(r)))
 	}
 	return b.String()
 }
@@ -2963,8 +3070,21 @@ func (j pathJudge) markRoot(t string) string {
 // it ends the text or is followed by what ends a path's root (rootEndsAt). Any other spelling is
 // judged as the path outside the project it is. A summary holds the root only through markRoot; a
 // drop reason (reasonWithheld) holds it whenever a text can spell it exactly (rootSpelledExactly);
-// and the learning of a withheld path (recordedPath) holds it always.
+// and the learning of a withheld path (recordedPath) holds it always. The last two, which learn or
+// withhold, also hold it under the broad reading (holdRootBroad).
 func (j pathJudge) holdRoot(t string) string { return j.held(j.rootSpelling, t) }
+
+// holdRootBroad is holdRoot under the broad reading of the root (broadRootSpellingOf): t lower-cased
+// by paths.Key, with each spelling of the root that Unicode's case folding pairs with its own held as
+// one rootMark. Where the platform's paths do not fold it is holdRoot. Only a judgement that learns or
+// withholds reads it (recordedPath, reasonWithheld; the two-fold rule). It is memoized under its own
+// expression (held), so the strict and the broad readings of one text never share an answer.
+func (j pathJudge) holdRootBroad(t string) string {
+	if j.broadSpelling == nil {
+		return j.holdRoot(t)
+	}
+	return j.held(j.broadSpelling, paths.Key(t))
+}
 
 // held is holdWith(spelling, t) memoized for the build (buildMemo.held, keyed by the expression, one
 // for each reading of the root, and the text). A text that cannot hold rootSpelling's match, because
@@ -3368,10 +3488,21 @@ func (j pathJudge) reasonWithheld(detail string) bool {
 	// holds, but only when the text can spell it exactly (rootSpelledExactly). Otherwise what holdRoot
 	// finds may be a sibling spelled with one space, and the reason is judged with the root unheld,
 	// which fails closed: the root's own whitespace splits a path under it, outside the project.
-	marked := t
-	if j.rootExact {
-		marked = j.holdRoot(t)
+	// The judgement withholds, so the reason is withheld when it is under either reading of the root
+	// (the two-fold rule): with the root held as its own spelling folds ASCII letters, and as the broad
+	// reading folds case by Unicode (holdRootBroad), where `path=C:\q\Åsa\proj\private\deny.txt` names
+	// the withheld private/deny.txt of a root `C:\q\åsa\proj`.
+	if !j.rootExact {
+		return j.reasonNamesWithheld(t)
 	}
+	return j.reasonNamesWithheld(j.holdRoot(t)) ||
+		(j.broadSpelling != nil && j.reasonNamesWithheld(j.holdRootBroad(t)))
+}
+
+// reasonNamesWithheld reports whether marked, a sanitized drop reason with the project root held as
+// rootMark under one reading of the root (reasonWithheld), holds a whitespace-delimited token that is
+// an absolute path outside the project, or names a withheld path's whole spelling (namesKnownIn).
+func (j pathJudge) reasonNamesWithheld(marked string) bool {
 	for _, w := range strings.Fields(marked) {
 		// A path names a directory, so it holds a separator; a bare `~36800` or `25000-token` is an
 		// approximate count, not a home path, though homeOrVarRoot would match the leading `~`.
