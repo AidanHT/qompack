@@ -135,7 +135,11 @@ starts the root's own spelling byte for byte (an ASCII letter's case aside on Wi
 so a cut sibling that differs from the root only by a quote or a doubled space is withheld. The
 root's spelling and the project's bounds fold an ASCII letter's case and no other character's, so a
 folder beside the project spelled with the Kelvin sign, the long s or the Angstrom sign where the
-root has `k`, `s` or `å` (NTFS keeps each a separate folder) is outside it. A store
+root has `k`, `s` or `å` (NTFS keeps each a separate folder) is outside it. That narrow reading
+decides only what is shown: what the build learns from a withheld path, and a drop reason's screen,
+also read the root with case folded by Unicode, so a withheld file recorded under a spelling the
+host folds onto the root (`Åsa` for `åsa`) still withholds a glob that selects it, and a reason naming
+one is redacted (ADR 0011 §23, the two-fold rule). A store
 cut right after a drive
 or provider name's `:` (`Temp:…`) is withheld, since the cut may hide the file after it; a bare
 drive or provider name with nothing after its `:` (`Get-ChildItem Temp:`, a commit message's `fix:`)

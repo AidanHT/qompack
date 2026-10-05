@@ -783,7 +783,8 @@ naming a file in such a sibling of the root (an uncut path-named value, free tex
 the end of the root), a file pointer at one and a drop reason naming one were read as the project
 and shown. Every comparison of a path with the root's spelling, and containment, now folds an ASCII
 letter's case alone, on Windows and macOS (items 6, 8 and 9), and the daemon's host adapter reads a
-path's place below the root by the same rule; `rootCover`, which asks what the host's rules refuse,
+path's place below the root by the same rule (since wave 19h's verify, beside the broad reading,
+next paragraph); `rootCover`, which asks what the host's rules refuse,
 folds as `hostperm` does, by Unicode lower-casing, since folding more there only adds screens. (2)
 Item 9 and the criterion changes for wave 19f's open items said a cut sibling differing from the
 root by a non-ASCII case was withheld; that held only for a cut inside the root's own spelling, and
@@ -792,6 +793,30 @@ the root in screen form, which deletes `` ' " ` \ ^ ``, while `hostperm` matches
 `path.Match`, so a rule that spelled a root segment with a `?` for one of those characters, with a
 negated class or with an escape refused project files at the host while its literal was never
 screened; it now also matches the raw segments as `hostperm` does (item 7(d)).
+
+Wave 19h's verify found that (1) narrowed more than what is shown. The build learns a withheld
+path's project-relative names (`note`, and `recordedPath`'s hold of the root in a recorded value) so
+that it can later withhold a glob, a selector or a text that names or selects the path, and the drop
+reason screen finds a withheld path after the root held as one mark; both went through the same
+ASCII-only comparisons. So a file pointer, or a NotebookEdit's value under a root with a space,
+recorded under the root spelled with another case of a non-ASCII letter
+(`C:\q\Åsa\proj\private\deny.txt` for a root `C:\q\åsa\proj`, which NTFS folds onto the project's own
+folder and the host refuses as the project's denied file) was withheld and taught nothing, and
+`private/d*`, `private/de?y.txt` and `private/i?` were shown; and a drop reason that glued such a
+path to the text around it (`(…)`, `path=…`, `'…'`) was shown. These are closed by **the two-fold
+rule**: every judgement takes the safe side under both readings of the root. The strict reading
+folds an ASCII letter's case alone where the platform's paths fold (`foldLiteral`, `asciiFoldEqual`,
+`RootRelative`); the broad reading also folds case by Unicode, as `filepath.Rel` and RE2's `(?i)`
+fold it and as `paths.Key` and `hostperm` lower-case it (`RootRelativeBroad`,
+`broadRootSpellingOf`). A judgement that decides a thing is SHOWN (containment, the root's unit in a
+summary, `exactRooted`, a cut value's start) takes the strict reading. A judgement that LEARNS or
+WITHHOLDS takes both and learns or withholds under the union: `note` learns a withheld path's names
+as the strict reading places it and, where the broad reading places it in the project and the host
+refuses it there, by its project-relative names too; `recordedPath` holds the root under either
+reading; `globSelectsKnown` reads a glob's place under the broad reading; the drop reason screen
+withholds a reason that either reading withholds; and the daemon's host adapter judges the resolved
+root's spelling of every reading of a path's place below the root (items 6, 8, 9 and 10). Where paths
+do not fold the two readings are one.
 
 1. *A degraded compaction that dropped material is never silent* (D59, UAT-05 F-C7-UAT05-1). At
    UAT-05's `runtime.rehydrate.minTokens` = `maxTokens` = 150 the retrieval line (86 tokens) does
@@ -1017,6 +1042,12 @@ screened; it now also matches the raw segments as `hostperm` does (item 7(d)).
    through `filepath.Rel`, which folds by Unicode on Windows and folds nothing on macOS, so a
    directory spelled with the Kelvin sign (U+212A), the long s (U+017F) or the Angstrom sign
    (U+212B) where the root has `k`, `s` or `å`, which NTFS keeps beside the root, was the project.
+   That reading decides what is shown; what the build learns from a withheld path, and whether a
+   glob selects one, also reads the root broadly (`RootRelativeBroad`: each of the root's path
+   elements equal under Unicode's simple folding or once lower-cased by `paths.Key`), under the
+   two-fold rule (wave 19h's verify): a withheld `C:\q\Åsa\proj\private\deny.txt` under a root
+   `C:\q\åsa\proj` teaches `private/deny.txt` wherever the host refuses it, so `private/d*` is
+   withheld.
    - *Containment reads a glob as a glob.* A segment that path.Match matches against `..` and that
      holds a class, a `?` or an escape (`[.][.]`, `?.`, `.?`, `\.\.`), or that starts with an
      explicit `.` (`.*`, `.[.]`, which a shell without globskipdots matches against `..`), is a parent
@@ -1422,7 +1453,14 @@ screened; it now also matches the raw segments as `hostperm` does (item 7(d)).
    the Angstrom sign where the root has `k`, `s` or `å`, which NTFS keeps beside the root; each ASCII
    letter is now a class of its two cases (`foldLiteral`). The root spelled with another non-ASCII
    letter in another case that NTFS does fold (`Åsa`, U+00C5, for a root `åsa`) is no longer held
-   either, and is over-withheld.
+   either where the build decides what a summary may show, and a summary spelling it is
+   over-withheld. That is the strict reading of the two-fold rule (wave 19h's verify): the learning
+   of a withheld path (`recordedPath`) and the drop reason screen (item 9), which only withhold,
+   also hold the root as the broad reading spells it (`broadRootSpellingOf`: RE2's `(?i)` over the
+   root and the text both lower-cased by `paths.Key`, so `Åsa`, the Kelvin sign's `Kate`, `ſam` and
+   `İris` for `iris` are the root there too), and withhold under the union. So a withheld path
+   recorded under `C:\q\Åsa berg\proj` is learned by its project-relative names where the host refuses
+   it, and a reason naming the withheld private/deny.txt through that spelling is redacted.
    *Which roots have a unit* (D64(1), STRICT). The unit stands for the root only if every shell reads
    the root's spelling as that one path, so it is held only when the root's own spelling, cleaned and
    slash-separated, consists of Unicode letters, marks and digits the whitelist admits (none whose
@@ -1543,8 +1581,11 @@ screened; it now also matches the raw segments as `hostperm` does (item 7(d)).
    showed it. Since wave 19g's final verify containment folds an ASCII letter's case alone
    (`RootRelative`), so such a sibling is withheld wherever the cut falls, on every platform. A
    repeated separator in a value cut inside the root's spelling, which names the root, is
-   over-withheld, and so is the root spelled with another non-ASCII letter in another case that NTFS
-   does fold (`Åsa`, U+00C5, for a root `åsa`).
+   over-withheld, and so is a cut value under the root spelled with another non-ASCII letter in
+   another case that NTFS does fold (`Åsa`, U+00C5, for a root `åsa`): deciding what is shown takes
+   the strict reading of the root. That is not all such a spelling does: a withheld path under it
+   still teaches the build its project-relative names, and a drop reason naming one is redacted
+   (the two-fold rule, item 8; a cut value itself teaches nothing).
    No drop entry's reason, in section 7 or in `dropped()`, shows an absolute path outside the project or
    names a path the build withholds. A reason is Qompack's own error prose, not a shell command, so the
    screen is a product-string rule (D63): a part of the error chain that is a path outside the
@@ -1555,7 +1596,16 @@ screened; it now also matches the raw segments as `hostperm` does (item 7(d)).
    held together first (item 8), as in a summary, so in a root with a space its first piece is not
    read as a path outside the project; a root that no sanitized text spells exactly (a Unicode space,
    a tab, a run of spaces) is not held, since its folded spelling would match a sibling, and the reason
-   fails closed (`TestBuild_ARootNoTextSpellsExactlyIsNeverHeld`). A bare basename or a rule literal
+   fails closed (`TestBuild_ARootNoTextSpellsExactlyIsNeverHeld`). The screen withholds, so under
+   the two-fold rule (wave 19h's verify) a reason is judged with the root held under each reading,
+   its own spelling with an ASCII letter's case folded and its spelling with case folded by Unicode
+   (item 8), and is redacted when either judgement withholds it: `(C:\q\Åsa\proj\private\deny.txt)`
+   names the withheld private/deny.txt of a root `C:\q\åsa\proj`
+   (`TestBuild_ADropReasonNamingAWithheldPathUnderAUnicodeCaseSpellingOfTheRootIsRedacted`). A
+   reason that glues a path outside the project to the text around it (`path=/q/other/x`, `(…)`)
+   and names no recorded withheld path is shown, under any root and on every platform, as it was
+   before: the screen reads an outside path as a part of the chain, an operation's path or a
+   whitespace token. A bare basename or a rule literal
    does not redact a reason: an allowed `README.md` or `src/CLAUDE.md` beside a withheld
    `private/README.md` or `~/.claude/CLAUDE.md` keeps its restore clause. An approximate count
    (`~36800 tokens`) is not a home path. A reason is read as an error chain joined by `": "`, each
@@ -1596,8 +1646,12 @@ screened; it now also matches the raw segments as `hostperm` does (item 7(d)).
     rule file and each skill file judged once (the row checks the judged rule and skill files as one
     set, each once in the spelling items 6a and 6b hand the judge, so a build that dropped item 6b's
     judgements and judged item 6a's twice, which meets the count, fails it). A judgement is
-    `RuleSet.Evaluate` on the path and, when the root resolves elsewhere, on its resolved spelling,
-    each of which may read the disk; so a build costs at most two Evaluates per path so judged. `internal/hostperm` is byte for byte its a357d187
+    `RuleSet.Evaluate` on the path and, when the root resolves elsewhere, on the resolved root's
+    spelling of each distinct reading of the path's place below the root (`rootRelatives`:
+    `RootRelative`'s, `RootRelativeBroad`'s and `filepath.Rel`'s, two distinct at most and one for a
+    path every reading places alike; a refusal withholds, so under the two-fold rule each is judged,
+    wave 19h's verify), each of which may read the disk; so a build costs at most three Evaluates per
+    path so judged. `internal/hostperm` is byte for byte its a357d187
     code plus one read-only accessor, `RuleSet.ReadRulePatterns`, which hands the screen the rules'
     specifiers (item 7(c)); hostperm is security-critical, and the round-2 `hostperm.Evaluator` is
     reverted with its rows, nothing it bought still needed.
@@ -1811,7 +1865,12 @@ extension's argument in item 7: `TestBuild_ARootLedGlobPreviewNamesOnlyWhatTheHo
 (item 8). The rows of wave 19g's final verify:
 `TestBuild_AUnicodeCaseVariantOfTheRootIsADirectoryBesideIt` and
 `TestBuild_AUnicodeCaseVariantOfTheRootIsADirectoryBesideItForPointersAndReasons` (items 6, 8 and
-9), and `TestBuild_ARuleOverTheRootIsMatchedAsTheHostMatchesIt` (item 7(d)). `internal/daemon`, through
+9), and `TestBuild_ARuleOverTheRootIsMatchedAsTheHostMatchesIt` (item 7(d)). The rows of wave 19h's
+verify: `TestBuild_AWithheldFileUnderAUnicodeCaseSpellingOfTheRootTeachesItsNames`,
+`TestBuild_AWithheldToolSummaryUnderAUnicodeCaseSpellingOfASpacedRootTeachesItsNames`,
+`TestBuild_AShortWithheldNameUnderAUnicodeCaseSpellingOfTheRootIsLearnedByItsPath` (items 6 and 8)
+and `TestBuild_ADropReasonNamingAWithheldPathUnderAUnicodeCaseSpellingOfTheRootIsRedacted` (item 9).
+`internal/daemon`, through
 the real adapter and the real host rules: `TestRehydrateHostPaths_ASelectorNamingADeniedFileIsWithheld`,
 `TestRehydrateHostPaths_EverySpellingOfADeniedFileIsWithheld`,
 `TestRehydrateHostPaths_ADeniedPathWithDelimitersIsWithheld`,
@@ -1828,7 +1887,9 @@ the real adapter and the real host rules: `TestRehydrateHostPaths_ASelectorNamin
 `TestRehydrateHostPaths_ABestFitOrDashRootHoldsNoRootUnit`,
 `TestRehydrateHostPaths_ACutValueIsTheRootOnlyInItsOwnSpelling` (the store's own cut),
 `TestRehydrateHostPaths_AUnicodeCaseVariantOfTheRootIsADirectoryBesideIt` (real sibling
-directories), `TestRehydrateHostPaths_ARuleOverTheRootIsMatchedAsTheHostMatchesIt`,
+directories), `TestRehydrateHostPaths_AWithheldPathUnderAUnicodeCaseSpellingOfTheRootTeachesItsNames`
+(real folders, NTFS folding U+00C5 onto the project's own),
+`TestRehydrateHostPaths_ARuleOverTheRootIsMatchedAsTheHostMatchesIt`,
 `TestRehydrateHostPaths_EscapedAndCaseFoldedSpellingsAreWithheldUnderTheUAT12Rules`,
 `TestRehydrateHostPaths_ARuleOverTheProjectThroughALinkWithholdsEveryFreeText` (a real directory
 link or junction), `TestRehydrateHostPaths_AFileURLInAPathNamedValueIsOutsideTheProject`,
@@ -2123,7 +2184,12 @@ pairs it with the root); on macOS an absolute path spelled with the root in
 another ASCII case is now the project in containment too, as the root's spelling and `rootPrefix`
 already read it there (it was over-withheld; no macOS host ran it, and `go vet` for darwin passes);
 the root spelled with another non-ASCII letter in another case that NTFS folds (`Åsa`, U+00C5, for a
-root `åsa`) is no longer held and is over-withheld; and a rule anchored outside the project whose raw
+root `åsa`) is no longer held where a summary is judged for showing, and such a summary is
+over-withheld (that was not all: the same comparisons stopped the build from learning a withheld
+path recorded under that spelling, or under the Kelvin sign's or the Angstrom sign's, and from
+redacting a drop reason that glued one to its text; wave 19h's verify found both, next paragraph,
+and this paragraph's "nothing flips" held only for a corpus whose recorded paths spell the root as
+it is); and a rule anchored outside the project whose raw
 segments match the root adds the literal of what follows it to the screens. Red-first: on
 71e5133d, with the new rows overlaid, `TestBuild_AUnicodeCaseVariantOfTheRootIsADirectoryBesideIt`
 fails on all three of its roots (`kate`, `sam`, `åsa`) on Windows, where a probe of the same builds
@@ -2145,6 +2211,98 @@ raw split alone). On the w19d corpus nothing flips: 71e5133d and these fixes (c1
 over-withheld), 192 and 82 (0 leaks, 54 over-withheld) in the Linux build, and 149 and 125 (0
 leaks, 97 over-withheld) under the `OneDrive - Contoso`, `John -Force` and `aʼb` roots in both,
 with the same host-call counts.
+
+*Criterion changes (wave 19h's verify of the root's ASCII-only fold).* No row that asserted a
+WITHHELD spelling changed, and no row that asserted a SHOWN one: `internal/rehydrate` and its
+`rehydratetest` package, and the 84 earlier `internal/daemon` rehydrate rows, pass unchanged on
+Windows (where `TestService_StateWriteFailureStillEmits` skips by platform) and in a Linux container
+run as an unprivileged user, wave 19g's final-verify rows and their 18 sibling summaries among them.
+No golden changed. The two-fold rule (item 8) restores what c16b21d5 narrowed and adds no SHOWN
+spelling: a withheld path recorded under the root spelled with another case of a non-ASCII letter
+teaches its project-relative names wherever the host refuses it (`Åsa` U+00C5, the Kelvin sign and
+the Angstrom sign, as on 71e5133d, and the dotted capital I U+0130 for `i`, which only the host's
+lower-casing folds and 71e5133d never learned); under the long s, which the host does not fold, the
+path is withheld as a directory beside the project and teaches only its own spelling and basename
+where the root resolves to itself. Where the root resolves elsewhere (through a link or an 8.3
+name, or below macOS's `/var`, a link to `/private/var`), the host adapter also judges each reading
+of the path's place below the resolved root, and the broad reading (on Windows `filepath.Rel`'s too,
+as on 71e5133d) places the long s's spelling at the project's file there, which the host refuses;
+so it is refused and teaches its project-relative names too, over-withheld where the volume keeps
+the long s's folder beside the root, as NTFS does, and the safe direction wherever its case folding
+pairs the two;
+and a drop reason that names a withheld path through any such spelling is redacted. The host adapter
+judges the resolved root's spelling of each reading of a path's place below the root, at most three
+Evaluates per path (item 10). Red-first: on eca33155, with the new rows overlaid,
+`TestBuild_AWithheldFileUnderAUnicodeCaseSpellingOfTheRootTeachesItsNames`,
+`TestBuild_AWithheldToolSummaryUnderAUnicodeCaseSpellingOfASpacedRootTeachesItsNames` and
+`TestBuild_AShortWithheldNameUnderAUnicodeCaseSpellingOfTheRootIsLearnedByItsPath` each fail on
+Windows on the four spellings the host folds (U+00C5, U+212A, U+212B, U+0130), their long-s subtest
+passing as a pin of the host's own fold, and
+`TestBuild_ADropReasonNamingAWithheldPathUnderAUnicodeCaseSpellingOfTheRootIsRedacted` fails on all
+five; on 71e5133d all four pass but for their U+0130 subtests and, in the file-pointer and
+short-name rows, the long s, whose sibling 71e5133d read as the project and showed by its path (wave
+19g's final verify). In a Linux container, where paths do not fold, the learning rows pass on all
+three revisions (the recorded spelling is another directory, which the host does not refuse) and the
+reason row skips: a reason that glues a path outside the project to its text is shown there, as
+under any root on any platform since D63 (item 9). The daemon twin
+`TestRehydrateHostPaths_AWithheldPathUnderAUnicodeCaseSpellingOfTheRootTeachesItsNames`, through the
+real `hostperm` and real folders (NTFS folding U+00C5 onto the project's own and keeping the other
+four apart) under a root that resolves to itself (next paragraph), fails on eca33155 on Windows on
+all three shapes under the four spellings the host folds, passes on 71e5133d but for U+0130 and the
+long s's two file-pointer shapes, and passes in the container on all three revisions. Each fix is separable (measured on Windows): without `note`'s
+broad learning the three learning rows fail on the four host-folded spellings; without
+`recordedPath`'s broad hold the tool-summary row alone fails, on the same four; without the reason
+screen's broad pass the reason row alone fails, on all five; and without the host's refusal as the
+gate on broad learning the three learning rows fail on the long s alone, which they then
+over-withhold. `globSelectsKnown`'s broad reading and the adapter's are fail-safe by construction
+and no row tells them apart: every caller of the first has already withheld a glob the strict
+reading puts outside the project, and the second judges, on Windows, what `filepath.Rel` judged on
+71e5133d (a probe of 144 judgements under a root handed in its long and its 8.3 spelling, so that it
+resolves elsewhere, gives the same answers on 71e5133d, eca33155 and these fixes). The sweep
+classified every caller of `RootRelative`, `inside()`, `holdRoot`, `rootSpellingOf`, `rootPrefix`,
+`asciiFoldEqual`, `foldLiteral` and the adapter: every judgement that shows keeps the strict
+reading, and none of c16b21d5's narrowing reduced a withhold but the three above and, on macOS
+alone, the adapter's judgement of `filepath.Rel`'s reading, which it judges again. On macOS the
+adapter's broad reading is new, since `filepath.Rel` folds nothing there and no earlier revision
+judged a Unicode case spelling of the root below the resolved root: under a root that resolves
+elsewhere it refuses such a spelling wherever the host refuses the project's file, the long s's
+among them, which only withholds more. On the w19d
+corpus nothing flips across 71e5133d, eca33155 and these fixes: 193 shown and 81 withheld under
+UAT-12's rules in the Windows build (0 leaks, 53 over-withheld), 192 and 82 (0 leaks, 54
+over-withheld) in the Linux build, 149 and 125 (0 leaks, 97 over-withheld) under the three unit-less
+roots in both, with the same host-call counts. Spelled under the U+00C5, Kelvin-sign, long-s,
+Angstrom-sign and U+0130 variants of its root (fifteen more scenarios of 274 previews each: the
+summaries, the denied files' pointers, and every pointer, spelled under the variant), no preview is
+SHOWN after these fixes that 71e5133d or eca33155 withheld, in either build; 71e5133d's 44 sibling
+leaks under each of the Kelvin sign, the long s and the Angstrom sign stay closed, and the counts
+equal eca33155's, the host-call counts returning to 71e5133d's where a recorded path is in the
+project under the broad reading. On a probe of 15 drop reasons in 24 scenarios, eca33155 showed 56
+that 71e5133d redacted (seven glued shapes naming a withheld file under the U+00C5, Kelvin-sign,
+long-s and Angstrom-sign spellings, plain and spaced); these fixes show none that either redacted.
+
+*Criterion changes (wave 19i's verify of the two-fold rule).* No product behaviour changed, and no
+row's assertion. The daemon twin's long-s subtests expect the recorded spelling not to be refused and
+their globs to be shown, which holds only while the root resolves to itself (previous paragraph),
+and the twin's fixture held that only on Windows, where `shortProjectDir` spells the temporary
+directory by its long names, and on Linux. macOS spells it below `/var`, a link to `/private/var`,
+so there the adapter's broad reading refused the long s's spelling and the three long-s subtests
+failed on the fixture's own check of the host's answer. They would have passed on 71e5133d and
+eca33155, whose macOS adapter folded no Unicode case, so the fixes above would have turned the
+macOS whole-tree job red. No macOS host ran it: the verify found it by reading the adapter, and two
+probes reproduce it. On Windows, with the twin's base handed through its own 8.3 spelling so that
+the root resolves elsewhere, 713cb8f4's twin fails those three subtests at that check, and the other
+twelve pass. In a Linux container with `paths.DefaultFold` and `hostperm`'s fold forced on (macOS's
+reading: case folded, `filepath.Rel` folding nothing) and `TMPDIR` reached through a symbolic link,
+the same three fail on 713cb8f4 and pass with 71e5133d's and eca33155's adapter and screen, where
+the other twelve fail on both: on eca33155 as on Windows, and on 71e5133d because its containment
+read `filepath.Rel`, which folds nothing on macOS, so it never learned under those spellings there
+either. The twin's root is now canonical on every platform (`filepath.EvalSymlinks`, as
+`costProject`'s is), and it passes 15 of 15 under both probes and unprobed on Windows and in the
+container. Its red-first map is unchanged: on Windows it fails 12 of 15 on eca33155 and 5 of 15 on
+71e5133d, and in the container it passes on all three revisions. Under the macOS reading it fails 12
+of 15 on each of 71e5133d and eca33155, the long s's three passing. The long-s sentence in the
+previous paragraph, the twin's comment, the rehydrate rows' comment and `rootRelatives`' comment
+now say where the long s's answer holds.
 
 ## Consequences
 
