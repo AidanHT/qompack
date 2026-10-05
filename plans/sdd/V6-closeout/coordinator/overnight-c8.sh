@@ -123,7 +123,8 @@
 #
 # Signals. Every long child (each step, release-check, quiet.sh) runs in the background and the
 # shell waits for it, so a TERM, INT or HUP runs the trap at once: it stops that child (TERM to
-# its pid), removes the release-check clone, and exits 143, 130 or 129; no step starts after it.
+# its pid), removes the release-check clone and the step's power snapshot, and exits 143, 130 or
+# 129; no step starts after it.
 # A plain foreground child would hold the trap until it ended, up to release-check's 3 h. The
 # child's own children (go test binaries, docker exec) may outlive it: only nightabort.ps1 stops
 # the whole tree, and README.md's Abort steps 1-5 still apply.
@@ -153,9 +154,10 @@
 # one's). It starts only when RC_EST_S lets it end by the deadline; on battery it first waits for AC
 # (within the night's budget) until its latest start, the deadline minus RC_EST_S, then runs either
 # way: the wait ends at the first one-minute poll at or after it, so the start may be a poll late,
-# and the estimate is not checked again after the wait (the watchdog bounds the end). RC_EST_S (power.sh, 3 h) has never been measured with release-check's current step list, so
-# a run still going at the deadline plus RC_GRACE_S (30 min) is stopped (timeout, then a kill 60 s
-# later) and recorded SKIPPED-OVERRUN: neither a pass nor a fail, never retried. A red run whose
+# and the estimate is not checked again after the wait (the watchdog bounds the end). RC_EST_S
+# (power.sh, 3 h) has never been measured with release-check's current step list, so a run still
+# going at the deadline plus RC_GRACE_S (30 min) is stopped (timeout, then a kill 60 s later) and
+# recorded SKIPPED-OVERRUN: neither a pass nor a fail, never retried. A red run whose
 # govulncheck section says the vulnerability database or the module proxy could not be reached
 # (power.sh's patterns, the ones prefreeze.sh's gate uses) is labelled so and counts NOT-REFERENCE,
 # not failed: it is not a product red, but release-check stopped there, so its later steps never
@@ -295,8 +297,12 @@ d_msgs=""; dmsg() { d_msgs="$d_msgs${d_msgs:+; }$*"; }
 disk_free_ok dmsg "${TMPDIR:-/tmp}" "$(go env GOCACHE 2> /dev/null)" ||
   refuse "not enough room for the night's clones and test binaries: $d_msgs"
 
-RCT=""
+RCT=""; g_sf=""; rc_sf=""
 cleanup() {
+  # A step's power snapshot (snap) still in flight, when a signal ended the night mid-step: the
+  # step's own removal never ran. Each removal clears its name, so none is removed twice.
+  if [ -n "$g_sf" ]; then rm -f "$g_sf"; g_sf=""; fi
+  if [ -n "$rc_sf" ]; then rm -f "$rc_sf"; rc_sf=""; fi
   if [ -n "$RCT" ] && [ -d "$RCT" ]; then
     if rm -rf "$RCT"; then log "release-check scratch clone $RCT removed"
     else log "release-check scratch clone $RCT could NOT be removed (a process still runs in it? README.md Abort steps 1 and 4)"; fi
@@ -526,7 +532,7 @@ run_gated() {
   case $g_v in
     INVALID-POWER*)
       if [ "$g_n" -lt 2 ]; then
-        g_d=$(move_aside "$g_s" "$g_n" "$g_sf"); rm -f "$g_sf"
+        g_d=$(move_aside "$g_s" "$g_n" "$g_sf"); rm -f "$g_sf"; g_sf=""
         record "$g_s" "$g_n" "$g_rc" "$g_v" "$g_p0" "$g_p1" "$g_t0" "$g_t1" "${g_note:+$g_note; }neither a pass nor a fail; its records moved to $g_d; retried once"
         return 1
       fi
@@ -543,7 +549,7 @@ run_gated() {
       elif [ "$g_rc" -eq 0 ]; then count pass "$g_s"; else count fail "$g_s"; fi ;;
     *) count nref "$g_s" "$g_rc" ;;
   esac
-  rm -f "$g_sf"
+  rm -f "$g_sf"; g_sf=""
   record "$g_s" "$g_n" "$g_rc" "$g_v" "$g_p0" "$g_p1" "$g_t0" "$g_t1" "$g_note"
   return 0
 }
@@ -819,7 +825,7 @@ release_check() {
     rc_rc=$?
     rc_t1=$(date +%s); rc_p1=$(power_read)
     if [ "$rc_rc" -eq 124 ]; then   # the watchdog stopped it: neither a pass nor a fail, never retried
-      rm -f "$rc_sf"
+      rm -f "$rc_sf"; rc_sf=""
       record release-check "$rc_try" "$rc_rc" SKIPPED-OVERRUN "$rc_p0" "$rc_p1" "$rc_t0" "$rc_t1" "still running at the deadline $DL plus RC_GRACE_S ($((RC_GRACE_S / 60)) min), so it was stopped: neither a pass nor a fail, not retried; its log ends where it stopped, and RC_EST_S ($((RC_EST_S / 60)) min) is too small for this tree"
       count skip release-check; break
     fi
@@ -841,7 +847,7 @@ release_check() {
           else rc_retry_blocker "$RC_EST_S" "RC_EST_S: try 1 failed, so its length is no estimate"
           fi
           if [ -z "$rc_why" ]; then
-            rc_d=$(move_aside release-check "$rc_try" "$rc_sf"); rm -f "$rc_sf"
+            rc_d=$(move_aside release-check "$rc_try" "$rc_sf"); rm -f "$rc_sf"; rc_sf=""
             record release-check "$rc_try" "$rc_rc" "$rc_v" "$rc_p0" "$rc_p1" "$rc_t0" "$rc_t1" "$rc_note; neither a pass nor a fail; its records moved to $rc_d; retried once in a fresh clone"
             cleanup
             if ! rc_new_clone; then log "step release-check exit=2: no fresh clone for try 2"; count fail release-check; cleanup; return 0; fi
@@ -865,7 +871,7 @@ release_check() {
            rc_note="$rc_note; its red is govulncheck's unreachable database or module proxy (network), not a product red"
          fi ;;
     esac
-    rm -f "$rc_sf"
+    rm -f "$rc_sf"; rc_sf=""
     record release-check "$rc_try" "$rc_rc" "$rc_v" "$rc_p0" "$rc_p1" "$rc_t0" "$rc_t1" "$rc_note"
     break
   done

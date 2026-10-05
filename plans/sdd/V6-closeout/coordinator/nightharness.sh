@@ -2,12 +2,12 @@
 # nightharness.sh [case...]
 # A dry harness for candidate 8's night: c8-night.sh, overnight-c8.sh, prefreeze.sh, phase3.sh's
 # multi-command arms, power.sh, stamped.sh, c52derive.py, keepawake.ps1, keepawake-start.ps1 and
-# nightabort.ps1. It exercises every branch the night can take (AC, battery, a power change, Modern Standby, sleep or
-# resume during a step, the wait budget, the deadline, each step's estimate, refusals, the
-# release-check clone and its tag, a signal mid-run, the C5.2 night with the full list or the
-# derivation, the C5.2 chunks, the C1.16 rig, e2efunc's skips and their drift, an abort, Docker
-# engine ownership, the step estimates and release-check's watchdog, the keep-awake check, the disk
-# precondition) with no real night: powershell, pwsh, docker, go, claude, gh, timeout, date, sleep
+# nightabort.ps1. It exercises every branch the night can take (AC, battery, a power change,
+# Modern Standby, sleep or resume during a step, the wait budget, the deadline, each step's
+# estimate, refusals, the release-check clone and its tag, a signal mid-run, the C5.2 night with
+# the full list or the derivation, the C5.2 chunks, the C1.16 rig, e2efunc's skips and their
+# drift, an abort, Docker engine ownership, the step estimates and release-check's watchdog, the
+# keep-awake check, the disk precondition) with no real night: powershell, pwsh, docker, go, claude, gh, timeout, date, sleep
 # and df are stubs on PATH; git and python are real, on scratch repositories under a temporary
 # directory; phase3.sh and quiet.sh are stubs beside the copied night scripts (phase3.sh's own arms
 # are run for real against stubs in the P cases, and quiet.sh for real in the Q cases). Every case
@@ -59,13 +59,19 @@ adv() { echo $(( $(now) + $1 )) > "$FAKE_CLOCK"; }
 flip() { echo "$(now) $1" >> "$SCEN_DIR/timeline"; }
 nth() { _f="$SCEN_DIR/count.$1"; _n=$(( $(cat "$_f" 2> /dev/null || echo 0) + 1 )); echo "$_n" > "$_f"; echo "$_n"; }
 call() { echo "$*" >> "$CALLS"; }
+# blk_chain: a stub about to block records itself and its ancestors, nearest first (MSYS ps), so a
+# case can wait for every process between it and the night shell once it releases it.
+blk_chain() {
+  ps -e 2> /dev/null | awk -v p="$$" '{ i = ($1 ~ /^[0-9]+$/) ? 1 : 2; par[$i] = $(i + 1) }
+    END { while (p != "" && p > 1 && !(p in seen)) { seen[p] = 1; print p; p = par[p] } }' > "$SCEN_DIR/blocked.chain"
+}
 run_script() {
   while IFS= read -r _l || [ -n "$_l" ]; do
     case $_l in
       "adv "*) adv "${_l#adv }" ;;
       "say "*) printf '%s\n' "${_l#say }" ;;
       "flip "*) flip "${_l#flip }" ;;
-      block) echo ready > "$SCEN_DIR/ready.fifo"; read _x < "$SCEN_DIR/go.fifo" ;;
+      block) blk_chain; echo ready > "$SCEN_DIR/ready.fifo"; read _x < "$SCEN_DIR/go.fifo" ;;
       tag) printf 'TAG=%s\n' "$(git describe --tags --exact-match 2>&1)"; printf 'ORIGIN=%s\n' "$(git remote get-url --push origin 2>&1)" ;;
       dirty) echo "left by a try" > left-by-a-try.txt ;;
     esac
@@ -217,7 +223,7 @@ for nm in $names; do
 EOB
      printf '  printf "Benchmark%%s-8   \\t    1000\\t %%s ns/op\\t     100 B/op\\t       2 allocs/op\\n" "$nm" "$(kv "ns_%s_$nm" 1000)"\ndone\nexit 0\n' "$side" >> "$out"
      chmod +x "$out"; exit 0 ;;
-  "build "*|"vet "*) [ "$(kv block_on "")" = "$1" ] && [ ! -e "$SCEN_DIR/blocked" ] && { : > "$SCEN_DIR/blocked"; echo ready > "$SCEN_DIR/ready.fifo"; read _x < "$SCEN_DIR/go.fifo"; }
+  "build "*|"vet "*) [ "$(kv block_on "")" = "$1" ] && [ ! -e "$SCEN_DIR/blocked" ] && { : > "$SCEN_DIR/blocked"; blk_chain; echo ready > "$SCEN_DIR/ready.fifo"; read _x < "$SCEN_DIR/go.fifo"; }
                     exit "$(kv "rc_$1" 0)" ;;
 esac
 if [ "$1" = run ] && [ "${2:-}" = "-modfile=tools/pinned/go.mod" ]; then
@@ -500,6 +506,20 @@ row() { awk -F'\t' -v s="$1" -v n="$2" '$1 == s && $2 == n { print $4 }' "$W/ev/
 # rc_clones <chain.log>: every release-check clone path, one with spaces whole (the line reads
 # "release-check clone <path> at <40-hex sha>: ...").
 rc_clones() { sed -n 's/^release-check clone \(.*\) at [0-9a-f]\{40\}: .*/\1/p' "$1"; }
+# await_end <pid>: waits for a night signalled mid-run to end while its blocked stub is still held
+# (O9, N9, X5, X6). The trap runs at once (#51), so it ends in seconds; the timeout is a hang guard
+# only, never a verdict: a night that waited for its child would end only after the release, which
+# each case then sees (the clone still there, or the night not ended).
+await_end() { "$REALTIMEOUT" 120 sh -c 'while kill -0 "$1" 2> /dev/null; do /usr/bin/sleep 0.2; done' sh "$1"; }
+# release_and_await <night-pid>: releases the blocked stub after its night has ended, then waits (a
+# hang guard only) until the stub and every process between it and the night shell (blk_chain) have
+# ended: the night's trap does not stop them (overnight-c8.sh's header, "Signals"), and one still
+# writing in the case's directory would leave it behind when the harness removes its scratch.
+release_and_await() {
+  echo go > "$SCEN_DIR/go.fifo"
+  ra_p=$(awk -v n="$1" '$1 == n { exit } { print }' "$SCEN_DIR/blocked.chain" 2> /dev/null | tr '\n' ' ')
+  "$REALTIMEOUT" 120 sh -c 'for p in $1; do while kill -0 "$p" 2> /dev/null; do /usr/bin/sleep 0.2; done; done' sh "$ra_p"
+}
 
 # ---- U: power.sh and stamped.sh ------------------------------------------------------------------
 case_U1_power_read_parses() {
@@ -794,13 +814,26 @@ case_O8_unreadable_power_never_crashes() {
 }
 case_O9_signal_removes_the_clone() {
   rc_script "block" "adv 1" "adv 1" > "$SCEN_DIR/rc.1"
-  sh "$COORD/overnight-c8.sh" "$P/qompack-cx-cand" "$CAND_SHA" "$W/ev" & pid=$!
+  # The night's own TMPDIR, so whatever it leaves there (its clone, release-check's power snapshot)
+  # is seen here rather than lost among other runs' files.
+  mkdir -p "$W/tmp"
+  TMPDIR="$W/tmp" sh "$COORD/overnight-c8.sh" "$P/qompack-cx-cand" "$CAND_SHA" "$W/ev" & pid=$!
   "$REALTIMEOUT" 600 sh -c 'read x < "$1"' sh "$SCEN_DIR/ready.fifo"
   d=$(rc_clones "$W/ev/chain.log" | head -n 1)
   check "the clone existed mid-run" test -d "$d/repo"
-  kill -TERM "$pid"; echo go > "$SCEN_DIR/go.fifo"; wait "$pid"; rc=$?
+  # The blocked stub is released only once the night has ended (as X6): the trap runs at once (#51)
+  # and release-check's own children outlive it (overnight-c8.sh's header, "Signals"), so a stub
+  # let go at the signal forks processes inside the clone while the trap removes it, and whether
+  # Windows lets the removal through then depends on timing (fix round 1: 2 of 4 runs failed).
+  kill -TERM "$pid"; await_end "$pid"
+  left=0; [ -e "$d" ] && left=1
+  release_and_await "$pid"; wait "$pid"; rc=$?
   check "exit 143" test "$rc" = 143
-  check "the clone is removed by the trap" test ! -e "$d"
+  check "the clone is removed by the trap" test "$left" = 0
+  # Fix round 1: the trap also removes the power snapshot release-check took before its run (it
+  # leaked into TMPDIR on every signal). Read after release_and_await, so stamped.sh's own
+  # temporary file is gone too: nothing the night made in its TMPDIR is left.
+  check "nothing is left in the night's TMPDIR" sh -c '[ -z "$(ls -A "$1")" ]' sh "$W/tmp"
   check "no tag in the shared ref store" sh -c '! git -C "$1" rev-parse -q --verify refs/tags/v0.3.0' sh "$P/qompack"
 }
 case_O10_standby_invalidates() {
@@ -1325,7 +1358,10 @@ case_N9_signal_releases_keepawake() {
   sh "$COORD/c8-night.sh" & pid=$!
   "$REALTIMEOUT" 600 sh -c 'read x < "$1"' sh "$SCEN_DIR/ready.fifo"
   check "the sentinel exists mid-run" test -e "$E8/keepawake.sentinel"
-  kill -TERM "$pid"; echo go > "$SCEN_DIR/go.fifo"; wait "$pid"; rc=$?
+  # Released only once the night has ended, as O9 and X5: its EXIT trap also removes the merged-tree
+  # clone, which a stub let go at the signal would be forking processes in.
+  kill -TERM "$pid"; await_end "$pid"
+  release_and_await "$pid"; wait "$pid"; rc=$?
   check "exit 143" test "$rc" = 143
   check "keep-awake released by the EXIT trap" test ! -e "$E8/keepawake.sentinel"
 }
@@ -1732,11 +1768,10 @@ case_X5_signal_runs_the_night_trap_at_once() {
   "$REALTIMEOUT" 600 sh -c 'read x < "$1"' sh "$SCEN_DIR/ready.fifo"
   check "the sentinel exists mid-run" test -e "$E8/keepawake.sentinel"
   kill -TERM "$pid"
-  # Wait for the night to end while its child is still blocked (the timeout is only a hang guard).
-  "$REALTIMEOUT" 120 sh -c 'while kill -0 "$1" 2> /dev/null; do /usr/bin/sleep 0.2; done' sh "$pid"
+  await_end "$pid"   # the night ends while its child is still blocked
   gone=1; kill -0 "$pid" 2> /dev/null && gone=0
   sent=0; [ -e "$E8/keepawake.sentinel" ] && sent=1
-  echo go > "$SCEN_DIR/go.fifo"        # release the blocked stub
+  release_and_await "$pid"
   wait "$pid"; rc=$?
   check "the night ended while its child was still blocked" test "$gone" = 1
   check "exit 143" test "$rc" = 143
@@ -1750,10 +1785,10 @@ case_X6_signal_runs_the_overnight_trap_at_once() {
   d=$(rc_clones "$W/ev/chain.log" | head -n 1)
   check "the clone exists mid-run" test -d "$d/repo"
   kill -TERM "$pid"
-  "$REALTIMEOUT" 120 sh -c 'while kill -0 "$1" 2> /dev/null; do /usr/bin/sleep 0.2; done' sh "$pid"
+  await_end "$pid"
   gone=1; kill -0 "$pid" 2> /dev/null && gone=0
   left=0; [ -e "$d" ] && left=1
-  echo go > "$SCEN_DIR/go.fifo"
+  release_and_await "$pid"
   wait "$pid"; rc=$?
   check "the night ended while release-check was still blocked" test "$gone" = 1
   check "exit 143" test "$rc" = 143
@@ -1939,6 +1974,22 @@ case_X23_rc_runs_at_its_latest_start_off_the_minute_grid() {
   check "AC after the latest start: not SKIPPED" sh -c '! grep -q "step release-check SKIPPED" "$1"' sh "$W/ev2/chain.log"
   check "AC after the latest start: try 1 started on AC" has "$W/ev2/chain.log" "step release-check try 1 start power=AC"
   check "AC after the latest start: VALID" test "$(awk -F'\t' '$1 == "release-check" && $2 == 1 { print $4 }' "$W/ev2/power.tsv")" = VALID
+}
+
+# X24 (fix round 1): a signal during a gated step. The trap removes that step's power snapshot
+# (snap, taken before the step; it leaked into TMPDIR on every signal, as release-check's did, O9),
+# so the night leaves nothing in its TMPDIR.
+case_X24_signal_mid_step_leaves_nothing_in_tmpdir() {
+  printf 'block\nadv 100\n' > "$SCEN_DIR/q.c51-win.1"
+  mkdir -p "$W/tmp"
+  TMPDIR="$W/tmp" sh "$COORD/overnight-c8.sh" "$P/qompack-cx-cand" "$CAND_SHA" "$W/ev" & pid=$!
+  "$REALTIMEOUT" 600 sh -c 'read x < "$1"' sh "$SCEN_DIR/ready.fifo"
+  check "c51-win is running" has "$W/ev/chain.log" "step c51-win try 1 start"
+  check "its snapshot is in the night's TMPDIR" sh -c '[ -n "$(ls -A "$1")" ]' sh "$W/tmp"
+  kill -TERM "$pid"; await_end "$pid"
+  release_and_await "$pid"; wait "$pid"; rc=$?
+  check "exit 143" test "$rc" = 143
+  check "nothing is left in the night's TMPDIR" sh -c '[ -z "$(ls -A "$1")" ]' sh "$W/tmp"
 }
 
 # X18 (#54): every step ends by the deadline.
