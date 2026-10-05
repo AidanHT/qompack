@@ -270,15 +270,17 @@ func TestStatus_DaemonDisabledIsNamedNotMissed(t *testing.T) {
 }
 
 // TestStatus_StaleStateBinDisabledIsNamed is the wave 19c review's nit. The command client's
-// DaemonEnabled is state.bin's AND the configuration's (daemonClientState), so it is also false when
-// the configuration says true but state.bin says false: a daemon reloaded runtime.daemon.enabled
-// false, rewrote state.bin, and died without a clean stop before the key was set back. The reason
-// must not then claim only the configuration: it must name state.bin as the other place the key
-// can be false. Otherwise the row is TestStatus_DaemonDisabledIsNamedNotMissed's.
+// DaemonEnabled is also false when the configuration says true but state.bin says false while the
+// daemon that wrote it is alive (daemonEnabledFor, D67(c)): a daemon reloaded runtime.daemon.enabled
+// false, rewrote state.bin, and is still running after the key was set back. The reason must not then
+// claim only the configuration: it must name state.bin as the other place the key can be false.
+// Otherwise the row is TestStatus_DaemonDisabledIsNamedNotMissed's. Once that daemon is gone the
+// configuration decides: TestStatus_DeadDaemonsDisabledStateIsNotReportedDisabled.
 //
-// Not parallel: it swaps newCommandIPCClient, statusProbeDial and statusSendClock.
+// Not parallel: it swaps newCommandIPCClient, statusProbeDial, statusSendClock and stateDaemonAlive.
 func TestStatus_StaleStateBinDisabledIsNamed(t *testing.T) {
 	root := bootstrapProject(t)
+	useStateDaemonAlive(t, true) // the daemon that wrote state.bin is still running
 	st := ipc.StateFromConfig(config.Defaults())
 	require.True(t, st.DaemonEnabled, "the project's configuration enables the daemon")
 	st.DaemonEnabled = false // what a daemon that reloaded enabled=false wrote before it died
@@ -296,9 +298,10 @@ func TestStatus_StaleStateBinDisabledIsNamed(t *testing.T) {
 // connect miss for one that never dialed. The seam rewrites state.bin from inside client
 // construction, after the client's State was read and before status builds its sources, so the row
 // does not race anything. The client is the real command client aimed at an address nothing
-// listens on, with spawning off; the probe stands in for a listener.
+// listens on, with spawning off; the probe stands in for a listener, and stateDaemonAlive for the
+// running daemon that rewrites state.bin, whose false record therefore speaks for the project.
 //
-// Not parallel: it swaps newCommandIPCClient, statusProbeDial and statusSendClock.
+// Not parallel: it swaps newCommandIPCClient, statusProbeDial, statusSendClock and stateDaemonAlive.
 func TestStatus_ReasonUsesTheStateTheClientWasBuiltWith(t *testing.T) {
 	for _, tc := range []struct {
 		name       string
@@ -320,6 +323,7 @@ func TestStatus_ReasonUsesTheStateTheClientWasBuiltWith(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			root := bootstrapProject(t)
+			useStateDaemonAlive(t, true)
 			st := ipc.StateFromConfig(config.Defaults())
 			require.True(t, st.DaemonEnabled, "the project's configuration enables the daemon")
 			st.DaemonEnabled = tc.builtWith
@@ -554,10 +558,40 @@ func TestStatus_CallDeadlineExpiryStillSaysSilent(t *testing.T) {
 	client := newCommandClient(root, cfg, Env{}, logging.Nop(), obs.New(testClock()), testClock())
 	t.Cleanup(func() { _ = client.Close() })
 
-	_, _, err = fetchDaemonStatus(context.Background(), client, true, daemonListening(root))
+	_, _, err = fetchDaemonStatus(context.Background(), client, daemonListening(root))
 	require.Error(t, err)
 	require.Equal(t, statusSilentDaemonReason, err.Error())
 	require.Equal(t, int64(1), calls.Load(), "an expired call deadline must not be retried")
+}
+
+// TestStatusProbe_DialsTheProjectsAddressOnce is the stub-based half of the wave 19b review's
+// finding (TestStatusProbe_OutlastsAListenerThatIsReArming keeps the go-winio halves, which show the
+// busy window is real on Windows). Through statusProbeDial, daemonListening dials the project's own
+// address once, with a budget that outlasts a listener re-arming at rearm, twice self-test's 50 ms
+// liveness bound that the probe used to dial with. It pins the address and the budget relation on
+// every platform, a Unix socket's included (audit 2, linux nit);
+// TestStatusProbe_HasTheCommandConnectBudget pins the budget's value.
+//
+// Not parallel: it swaps statusProbeDial.
+func TestStatusProbe_DialsTheProjectsAddressOnce(t *testing.T) {
+	root := t.TempDir()
+	addr, err := ipc.Resolve(root)
+	require.NoError(t, err)
+
+	rearm := 2 * selfTestProbeTimeout
+	accepts := func(d time.Duration) bool { return d >= rearm } // busy until rearm, then accepted
+	require.False(t, accepts(selfTestProbeTimeout), "the old 50 ms probe gives up before the re-arm")
+
+	var asked []ipc.Addr
+	useStatusProbe(t, func(a ipc.Addr, d time.Duration) bool {
+		asked = append(asked, a)
+		return accepts(d)
+	})
+	require.True(t, daemonListening(root)(),
+		"a live listener that re-arms within %s must read as listening (probe budget %s)",
+		rearm, statusProbeTimeout)
+	require.Equal(t, []ipc.Addr{addr}, asked, "the probe dials the project's own address, once")
+	require.Less(t, rearm, statusProbeTimeout, "the row must re-arm inside the probe's budget")
 }
 
 // TestStatusProbe_HasTheCommandConnectBudget: daemonListening's dial gets the command client's own

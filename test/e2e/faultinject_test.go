@@ -447,11 +447,17 @@ func TestSelfTestIsTheOnlyNonZeroExit(t *testing.T) {
 		}{"SessionStart", sess, p.Root, "startup"})
 		require.NoError(t, err)
 
+		if i > 0 {
+			// Session i-1 ended without a terminal hook and its daemon exited, so this start's daemon
+			// does not know it: a genuine absence (see TestE2ESelfTestExitsNonZeroOnCritical).
+			e2eShutdownIfReachable(t, p.Root)
+		}
 		_, stderr, code := Run(t, bin, []string{"session-start"}, payload, baseEnv)
 		require.Equal(t, 0, code, "degrading session-start #%d: stderr:\n%s", i, stderr)
-		if i == 0 {
-			e2eWaitDaemonUp(t, p.Root)
-		}
+		e2eWaitDaemonUp(t, p.Root)
+		require.Eventually(t, func() bool {
+			return contract.LoadHistory(contract.HistoryPath(p.Root)).SessionCount >= i+1
+		}, e2eHistoryConvergeBound, e2eDaemonUpTick, "degrading session-start #%d was never recorded", i)
 	}
 	require.Eventually(t, func() bool {
 		h := contract.LoadHistory(contract.HistoryPath(p.Root))

@@ -132,16 +132,28 @@ start and keep showing a condition until it exits, even after the file is fixed,
 `config.violations` and `self-test`'s `config.capture` follow the file (§6).
 
 With no daemon listening, the provenance line says so rather than quoting an empty refusal:
-`daemon: no daemon answered: none is listening for this project yet`. The command asks one to
-start unless `runtime.daemon.enabled` is `false`, so run `status` again once it is up; until then
-the page falls back to the persisted metrics file (`source: disk`) if there is one. With
-`runtime.daemon.enabled` `false`, status neither asks nor looks for a daemon, not even one started
-before the change and still running: the line reads `daemon: runtime.daemon.enabled is false for
-this project (in its configuration, or in the state.bin its daemon last wrote), so this command
-does not ask a daemon, even one that is still running`. The `state.bin` case is a daemon that
-reloaded the key to `false` and then died without a clean stop. If a daemon
-is listening, the line names what went wrong. When it took the request but no answer came within
-the 10-second call deadline, the line reads `daemon: a daemon is listening for this project but did
+`daemon: no daemon answered: none is listening for this project yet. This command asked one to
+start; run status again once it is up`. Until then the page falls back to the persisted metrics
+file (`source: disk`) if there is one. `doctor` never starts a daemon, so its `status.primary` row
+reads `no daemon answered: none is listening for this project, and this command does not start one;
+the next session start in this project starts one`. With `runtime.daemon.enabled` `false`, status
+neither asks nor looks for a daemon, not even one started before the change and still running: the
+line reads `daemon: runtime.daemon.enabled is false for this project (in its configuration, or in
+the state.bin its daemon last wrote), so this command does not ask a daemon, even one that is still
+running`. The `state.bin` case is a daemon that reloaded the key to `false`. Its
+`.qompack/run/state.bin` speaks for the project only while that daemon is alive: while it holds the
+project's lock (its heartbeat is under 90 seconds old) or answers at the project's address. Once it
+is gone the configuration decides, so a daemon that died without a clean stop does not keep the
+project disabled after the key is set back to `true`, and the next session start starts one
+(`internal/cli/qompack_commands.go`, `daemonEnabledFor`). With `runtime.mode` `off`, the line reads
+`daemon: runtime.mode is off for this project (in its configuration, or in the state.bin its daemon
+last wrote), so this command does not ask a daemon`. The `state.bin` case is a daemon that ran
+while the configuration said `off`. Its `off` speaks for the project only while that daemon is
+alive, by the same test as above; once it is gone the configuration decides, so hooks record again,
+the next session start starts a daemon, and status and the MCP server stop reporting the project off
+as soon as the configuration no longer says `off` (`internal/cli/qompack_commands.go`, `modeFor`).
+If a daemon is listening, the line names what went wrong. When it took the request but no answer
+came within the 10-second call deadline, the line reads `daemon: a daemon is listening for this project but did
 not answer within 10s`: it is up but busy or stuck. When the request failed sooner, the line reads
 `daemon: a daemon is listening for this project but did not answer this command: on both of two
 attempts, no connection to it was made within the 250ms connect budget or the connection closed
@@ -182,14 +194,35 @@ none failing: 4 holding, 1 pending, 4 with nothing to judge` and names each pend
 `pending:` line. A row is pending while the observation it waits for has not arrived:
 `not-yet-observed`, `initialize-pending`, `transcript-pending` or `marker-absent-once`.
 `session_start.fires` reads `marker-absent-once` when a new session started without the marker the
-previous session's SessionEnd or PreCompact leaves in `.qompack/run/marker.json`; the next session's
-start decides it. A compaction's own start, or a `--resume` that keeps the session id, finds the
-marker that session's PreCompact or SessionEnd just wrote. That is the session's own restart, also
-when another session in the same project started after it, and it counts nothing. It reads
+previous session's SessionEnd or PreCompact leaves in `.qompack/run/marker.json`, and that previous
+session is no longer running; the next session's start decides it. A session still running has had
+no terminal hook yet, so its marker is not due: a session started beside it reads
+`prior-session-live`, with nothing to judge, and counts nothing. That includes a session the daemon
+stopped counting as live because it sent no hook for `runtime.daemon.idleExitSeconds` (30 minutes
+by default) and no SessionEnd arrived ([section 7](#7-daemon-problems)): its window may still be
+open (`internal/daemon/registry.go`, `MayStillRun`). A session whose SessionEnd reached the daemon
+counts as no longer running, and so does one the daemon does not know because it restarted since.
+Known limit: the daemon exits by itself once every session has been quiet for that window, so
+windows left open and quiet across two such exits, with a new window started after each before the
+old ones send a hook, count an absence each time, and the second start fails. A compaction's own
+start, or a `--resume` that keeps the session id, finds the marker that session's PreCompact or
+SessionEnd just wrote. That is the session's own restart, also when another session in the same project started
+after it, and so is a start replayed from a spool after its own session's PreCompact or SessionEnd
+rewrote the marker; it counts nothing. It reads
 `same-session-restart`, which holds, only while the project has no counted absence
 (`starts_without_marker` is 0 in `.qompack/state/history.json`). With one absence counted it stays
 `marker-absent-once` (pending) until the next new session's start decides it; with two it stays
-failing (`internal/contract/assertions.go`, `checkSessionStartFires`). A row has
+failing (`internal/contract/assertions.go`, `checkSessionStartFires`).
+`session_start.source_compact` fails when a session's PreCompact is followed by a start of that
+session that is not a compaction, with nothing of the session in between. A compaction you cancel
+(Esc), or one that fails, starts no session. Once the session prompts or ends after its PreCompact,
+its next start, such as a `--resume`, reads `precompact-not-completed`, with nothing to judge:
+Qompack cannot tell a cancelled compaction from a compact start the host never sent
+(`checkSessionStartSourceCompact`). The order in which the hooks reach the daemon does not change
+this: a PreCompact replayed from a spool after the session already started, prompted or ended reads
+the same, also when the daemon restarted in between (`.qompack/state/history.json` keeps when each
+session last went on, `went_on`), and so does a second copy of a PreCompact the daemon already
+recorded. A row has
 nothing to judge when it reads `not-yet-implemented` or another "nothing was seen" spelling from §1,
 such as `first-session` or `retired`. The standard nine always include one such row:
 `precompact.custom_instructions_accepted` reads `retired` (or `not-yet-implemented`). So the

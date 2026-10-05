@@ -533,6 +533,12 @@ func TestE2ESelfTestExitsZeroOnHealthy(t *testing.T) {
 // SessionStart to "first-session" (History.Sessions() == 0) without touching StartsWithoutMarker
 // at all, so the counter only starts accumulating from the SECOND call onward — it takes a third
 // to reach the >= 2 fail threshold.
+//
+// Each session is gone before the next starts: it ends with no terminal hook, and its daemon exits
+// (e2eShutdownIfReachable), as it does once a project has been idle, so the next start's daemon does
+// not know it. An absence is counted only once the session it would come from is no longer running
+// (audit 2, #8): three sessions started back to back on one daemon, all still running, are three
+// windows opened together, which break no contract (criterion change, wave 22).
 func TestE2ESelfTestExitsNonZeroOnCritical(t *testing.T) {
 	bin := Build(t)
 	p := testutil.NewProject(t)
@@ -542,17 +548,18 @@ func TestE2ESelfTestExitsNonZeroOnCritical(t *testing.T) {
 	sessions := []core.SessionID{"sess-e2e-degrade-1", "sess-e2e-degrade-2", "sess-e2e-degrade-3"}
 
 	for i, sess := range sessions {
+		if i > 0 {
+			e2eShutdownIfReachable(t, p.Root) // session i-1 ended without a terminal hook
+		}
 		stdout, stderr, code := Run(t, bin, []string{"session-start"}, sessionStartFor(t, p.Root, sess), env)
 		require.Equal(t, 0, code, "session-start #%d: stderr:\n%s", i, stderr)
 		requireParsesAsOutput(t, stdout)
-		if i == 0 {
-			e2eWaitDaemonUp(t, p.Root)
-		}
+		e2eWaitDaemonUp(t, p.Root)
 
 		want := i // StartsWithoutMarker after call i (0-indexed): 0, 1, 2.
 		require.Eventually(t, func() bool {
 			h := contract.LoadHistory(contract.HistoryPath(p.Root))
-			return h.StartsWithoutMarker >= want
+			return h.SessionCount >= i+1 && h.StartsWithoutMarker >= want
 		}, e2eHistoryConvergeBound, e2eDaemonUpTick, "session-start #%d never advanced StartsWithoutMarker to >= %d", i, want)
 	}
 

@@ -886,14 +886,24 @@ func (d *daemon) stopPromptRecordings(grace context.Context) {
 // The same history load also records that the prompt's session has had a prompt
 // (contract.SessionHistory.NotePrompt): the MCP handshake and the transcript a session start left
 // pending become due only then, so a later start may fail mcp.server_registered or
-// transcript.readable for that session once it has ended. The history is saved only when either
-// record changed.
+// transcript.readable for that session once it has ended. It also records that the session went on
+// after a PreCompact that is still waiting for its compact start (contract.SessionHistory.
+// NoteCompactLapse): the compaction was cancelled or failed, so the session's next start, a resume,
+// is no host failure. The prompt is also kept, in the history, for a PreCompact of the session a
+// drain replays after it, whether or not this daemon is still the one running then
+// (contract.SessionHistory.NoteWentOn). The history is saved only when a record changed.
 func (d *daemon) scanSentinelForPrompt(ev *hookio.Event, promptTS core.UnixMilli, nonce string) {
 	d.historyMu.Lock()
 	defer d.historyMu.Unlock()
 
 	h := contract.LoadHistory(contract.HistoryPath(d.root))
 	changed := h.NotePrompt(ev.SessionID)
+	if h.NoteWentOn(ev.SessionID, promptTS) {
+		changed = true
+	}
+	if h.NoteCompactLapse(ev.SessionID, promptTS) {
+		changed = true
+	}
 	if h.Sentinel.Token != "" && !h.Sentinel.Observed {
 		found, _ := contract.ScanTranscriptForProbe(ev.TranscriptPath, h.Sentinel.Token,
 			h.Sentinel.ScanFrom, sentinelScanFromMintBytes)
@@ -1023,6 +1033,10 @@ func (d *daemon) handleSessionStart(ctx context.Context, req ipc.Request) ipc.Re
 		Clock:       d.clk,
 		History:     h,
 		SessionLive: d.registry.IsLive,
+		// session_start.fires counts no absent marker of a quiet session the idle tick ended,
+		// which may still be open (wave 22 fix round 2).
+		SessionMayRun: d.registry.MayStillRun,
+		StartTS:       hookTime(req, now),
 	}
 	// A replayed start the host fired BEFORE the pending PreCompact is not the start that PreCompact
 	// announced: its hook had already run when the PreCompact did, and only its replay comes after.
@@ -1037,6 +1051,11 @@ func (d *daemon) handleSessionStart(ctx context.Context, req ipc.Request) ipc.Re
 	if heldBack {
 		h.AwaitingCompactStart = true
 	}
+	// The start is kept, in the history this phase saves, for a PreCompact of the session fired
+	// before it that a drain replays after it, perhaps by a daemon that has restarted since and no
+	// longer knows the start (SessionRegistry.StartedSince is in memory): that PreCompact was followed
+	// by this start, which already judged it (contract.SessionHistory.NoteWentOn, armPrecompact).
+	h.NoteWentOn(ev.SessionID, hookTime(req, now))
 	// A compact SessionStart's rehydration starts here, as soon as the contract run has said the
 	// mode may act and before this phase's own durable writes, so the two overlap; the route
 	// collects it where the seam call would be (session_start_compact.go, C1.16).
@@ -1337,27 +1356,11 @@ func (d *daemon) handleCheckpoint(ctx context.Context, req ipc.Request) ipc.Resp
 
 	// Phase 1 (locked): record the PreCompact observation — this package's own file I/O only,
 	// no seam call — and save immediately, matching the spec's own ordering (history observation,
-	// then the marker, then the seam call).
-	//
-	// The observation arms session_start.source_compact: the session's next start must be a
-	// compact one. A PreCompact replayed from a hook's spool (drainDispatch) can arrive after that
-	// start — the hook spools a request whose reply missed its deadline, which this daemon may
-	// already have handled — and re-arming then would pin the obligation on the session's NEXT start,
-	// a resume, and degrade the project at critical severity for Qompack's own replay order. So a
-	// replay arms it only if no start of the session has been seen since the hook fired
-	// (SessionRegistry.StartedSince); the PreCompact a daemon never saw live, replayed by the
-	// startup drain ahead of its compact start, still arms it.
-	//
-	// LastPrecompactTS is when the host fired the PreCompact (the hook's own timestamp), not when this
-	// route ran: the session.start route compares it with a replayed start's hook time, to tell a start
-	// fired before the PreCompact from the one it announced (handleSessionStart).
+	// then the marker, then the seam call). The observation arms session_start.source_compact
+	// (armPrecompact).
 	d.historyMu.Lock()
 	h := contract.LoadHistory(contract.HistoryPath(d.root))
-	if !spoolReplay(ctx) || !d.registry.StartedSince(ev.SessionID, req.TS) {
-		h.LastPrecompactTS = hookTime(req, now)
-		h.LastPrecompactSession = ev.SessionID
-		h.AwaitingCompactStart = true
-	}
+	d.armPrecompact(h, ev.SessionID, req, now, spoolReplay(ctx))
 	if h.PrecompactTimeoutMs == 0 {
 		h.PrecompactTimeoutMs = precompactTimeoutMs()
 	}
@@ -1449,6 +1452,70 @@ func (d *daemon) handleCheckpoint(ctx context.Context, req ipc.Request) ipc.Resp
 	return ipc.Response{OK: true, Output: &out}
 }
 
+// armPrecompact records, historyMu held, the PreCompact of sess that req carries into h, which arms
+// session_start.source_compact: the session's next start must be a compact one. It arms it as of
+// when the host fired the PreCompact, whatever this daemon has handled since, so the order in which
+// a PreCompact and the session's later hooks reach the daemon does not change the reading.
+//
+// A PreCompact replayed from a hook's spool (drainDispatch, replay) can arrive after the session
+// went on: the hook spools the very request it sent (the same nonce and TS) when the reply misses
+// its deadline, which this daemon may already have handled, and a hook that could not deliver it at
+// all spools it too. So:
+//
+//   - A replay no later than the PreCompact h already records, of any session, changes nothing. It
+//     is a copy of that PreCompact, which re-arming would strip of the lapse a later prompt or
+//     SessionEnd recorded (audit 2, #9, fix round 1), or an older PreCompact, which would take a
+//     newer obligation's place. h is on disk, so this holds across a daemon restart.
+//   - A replay arms nothing once a start of the session fired at or after it has been handled
+//     (SessionRegistry.StartedSince): re-arming then would pin the obligation on the session's NEXT
+//     start, a resume, and degrade the project at critical severity for Qompack's own replay order.
+//     The PreCompact a daemon never saw live, replayed by the startup drain ahead of its compact
+//     start, still arms it.
+//   - Whatever arms it also reads whether the session has already gone on: a start, prompt or
+//     SessionEnd of the session fired after the PreCompact but handled before it lapses the new
+//     obligation at once (contract.SessionHistory.ArmCompactStart), as it would had it come after.
+//     That record is in the history (contract.SessionHistory.WentOn), so it holds across a daemon
+//     restart between those hooks and the replay (wave 22 fix round 2). It covers a live PreCompact
+//     held up until after its own compact start too. A live PreCompact in order has nothing of its
+//     session after it yet, so for it this changes nothing.
+//
+// LastPrecompactTS is when the host fired the PreCompact (the hook's own timestamp), not when this
+// route ran: the session.start route compares it with a replayed start's hook time, to tell a start
+// fired before the PreCompact from the one it announced (handleSessionStart).
+func (d *daemon) armPrecompact(h *contract.SessionHistory, sess core.SessionID, req ipc.Request, now core.UnixMilli, replay bool) {
+	at := hookTime(req, now)
+	switch {
+	case replay && h.LastPrecompactTS > 0 && at <= h.LastPrecompactTS:
+		return
+	case replay && d.registry.StartedSince(sess, req.TS):
+		return
+	}
+	h.ArmCompactStart(sess, at)
+}
+
+// noteCompactLapse is a session end's half of contract.SessionHistory.NoteCompactLapse: a SessionEnd
+// the host fired at at, after a PreCompact of the same session that is still waiting for its compact
+// start, means the compaction never restarted the session (cancelled, or failed), so its next start,
+// a --resume, is no host failure (audit 2, #9). It is recorded in state/history.json, so it holds
+// across a daemon restart between the end and the resume. The end is also kept, in the same history,
+// for a PreCompact of the session a drain replays after it (contract.SessionHistory.NoteWentOn). The
+// history is saved only when it changed.
+func (d *daemon) noteCompactLapse(sess core.SessionID, at core.UnixMilli) {
+	d.historyMu.Lock()
+	defer d.historyMu.Unlock()
+	h := contract.LoadHistory(contract.HistoryPath(d.root))
+	changed := h.NoteWentOn(sess, at)
+	if h.NoteCompactLapse(sess, at) {
+		changed = true
+	}
+	if !changed {
+		return
+	}
+	if err := contract.SaveHistory(contract.HistoryPath(d.root), h); err != nil {
+		d.log.Warn("daemon: failed to save history after a session end", "err", err)
+	}
+}
+
 // precompactTimeoutMs reads the PreCompact hook's manifest timeout (internal/pluginmanifest),
 // converted to milliseconds (manifestHookTimeoutMs).
 func precompactTimeoutMs() int64 {
@@ -1515,6 +1582,8 @@ func (d *daemon) flushRoute(ctx context.Context, req ipc.Request, drain bool) ip
 // flush this end was started for (startSessionEnd), or nil: when there is one, the end settles only the
 // arrivals before it and, once SessionEnd, the marker and the sketches are done, finishes it
 // (finishOwnFlush) before its final drain, which would otherwise meet the flush's own line still owned.
+// Before any of it, the end records whether it lapses a compaction obligation of the session
+// (noteCompactLapse).
 func (d *daemon) endSession(ctx context.Context, req ipc.Request, drain bool, own *job) ipc.Response {
 	ev := resolveEvent(req)
 	now := core.NowMilli(d.clk)
@@ -1531,6 +1600,7 @@ func (d *daemon) endSession(ctx context.Context, req ipc.Request, drain bool, ow
 	// can be interrupted, and until the marker is cleared the session's flush is unfinished — which
 	// is what SessionEnd must record rather than declaring work final that was never acknowledged.
 	d.markRecoveryNeeded(ev.SessionID, recoveryStageBegin, d.DrainGaps().PendingBytes)
+	d.noteCompactLapse(ev.SessionID, req.TS)
 
 	d.registry.End(ev.SessionID, now)
 	_ = d.ing.CloseSession(ev.SessionID)
