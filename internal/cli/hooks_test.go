@@ -64,11 +64,14 @@ func TestHooks_AllSixExitZeroWithValidJSON(t *testing.T) {
 
 // TestHooks_ModeOffShortCircuits pins the very first branch of the hook skeleton: a persisted
 // ModeOff state answers with the empty response before stdin is even read, and touches nothing
-// else.
+// else. The state.bin speaks for the project because the daemon that wrote it is alive; with it gone
+// the configuration decides (stateModeOffHolds, D67(c)'s rule for the mode), which
+// TestSessionStart_DeadDaemonsModeOffStateStillStartsADaemon pins.
 func TestHooks_ModeOffShortCircuits(t *testing.T) {
 	dir := t.TempDir()
 
 	require.NoError(t, ipc.WriteState(dir, ipc.State{Mode: contract.ModeOff}))
+	useStateDaemonAlive(t, true)
 
 	var out, errw bytes.Buffer
 	code := Dispatch(context.Background(), All(), argvFor("observe tool"), Env{

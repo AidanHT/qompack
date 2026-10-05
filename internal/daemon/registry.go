@@ -133,6 +133,19 @@ func (r *SessionRegistry) IsLive(id core.SessionID) bool {
 	return ok && s.Live
 }
 
+// MayStillRun reports whether id may still be running: it is live, or the idle tick ended it only
+// for silence (EndAbandoned), with no SessionEnd seen, which is a guess its next hook disproves
+// (Touch). A session SessionEnd ended, and one the registry does not know (never seen, evicted, or
+// forgotten by a restart), may not. session_start.fires reads it (contract.Env.SessionMayRun): a
+// quiet window that is still open has had no terminal hook, so no marker of it is due. IsLive stays
+// the reading every other caller takes.
+func (r *SessionRegistry) MayStillRun(id core.SessionID) bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	s, ok := r.sessions[id]
+	return ok && (s.Live || s.abandoned)
+}
+
 // Len returns the number of tracked sessions (live and recently-ended).
 func (r *SessionRegistry) Len() int {
 	r.mu.RLock()

@@ -242,6 +242,10 @@ func (h *handlers) authorizeOrigin(ctx context.Context, tool, path string) any {
 
 // authorizeHash checks the complete origin set before any chunk is fetched.
 // A store that cannot supply it must not silently fall back to trusting the hash.
+//
+// The refusal is the first refused origin's, in the order ContentOrigins returns them: by path, then
+// tool, the same on every call, so the withheld reason recall, why, re_read and dropped report for one
+// object does not change between two reads of unchanged state (D53(a), audit 2 #13).
 func (h *handlers) authorizeHash(ctx context.Context, hash core.Hash) any {
 	reader, ok := h.store.(store.ProvenanceReader)
 	if !ok {

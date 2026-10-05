@@ -6,7 +6,6 @@ import (
 	"net"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/Microsoft/go-winio"
 	"github.com/stretchr/testify/require"
@@ -28,14 +27,11 @@ import (
 // of its own, made while that listener is busy, connects once the listener calls Accept: a busy dial
 // is waited on, not abandoned. Whether the dial meets the busy pipe first or arrives after Accept
 // is up to the scheduler, and either way it must connect, so this half does not guarantee that
-// go-winio's busy poll (tryDialPipe retries ERROR_PIPE_BUSY every 10 ms) runs on every pass. Third,
-// through statusProbeDial, daemonListening dials the project's own address once, with a budget that
-// outlasts a re-arm at rearm, twice self-test's 50 ms liveness bound that the probe used to dial
-// with. That half pins the budget relation alone; TestStatusProbe_HasTheCommandConnectBudget pins
-// the budget's value. Windows only: a Unix socket accepts a connect into its backlog without an
-// Accept, so there is no such window to show there.
-//
-// Not parallel: it swaps statusProbeDial.
+// go-winio's busy poll (tryDialPipe retries ERROR_PIPE_BUSY every 10 ms) runs on every pass. The
+// third half, that daemonListening dials the project's own address once with a budget that outlasts
+// a re-arm, is platform-neutral and runs everywhere: TestStatusProbe_DialsTheProjectsAddressOnce.
+// Windows only: a Unix socket accepts a connect into its backlog without an Accept, so there is no
+// such window to show there.
 func TestStatusProbe_OutlastsAListenerThatIsReArming(t *testing.T) {
 	root := t.TempDir()
 	addr, err := ipc.Resolve(root)
@@ -110,19 +106,4 @@ func TestStatusProbe_OutlastsAListenerThatIsReArming(t *testing.T) {
 	}
 	require.NoError(t, dial.err, "a dial with no budget of its own must connect once Accept runs")
 	require.NoError(t, acc.err, "the listener must accept the waiting dial")
-
-	rearm := 2 * selfTestProbeTimeout
-	accepts := func(d time.Duration) bool { return d >= rearm } // busy until rearm, then accepted
-	require.False(t, accepts(selfTestProbeTimeout), "the old 50 ms probe gives up before the re-arm")
-
-	var asked []ipc.Addr
-	useStatusProbe(t, func(a ipc.Addr, d time.Duration) bool {
-		asked = append(asked, a)
-		return accepts(d)
-	})
-	require.True(t, daemonListening(root)(),
-		"a live listener that re-arms within %s must read as listening (probe budget %s)",
-		rearm, statusProbeTimeout)
-	require.Equal(t, []ipc.Addr{addr}, asked, "the probe dials the project's own address, once")
-	require.Less(t, rearm, statusProbeTimeout, "the row must re-arm inside the probe's budget")
 }
