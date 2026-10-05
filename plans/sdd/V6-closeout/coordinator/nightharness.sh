@@ -1869,6 +1869,27 @@ case_X17_rc_waits_for_ac_until_its_latest_start() {
   check "no second try" test -z "$(row release-check 2)"
 }
 
+# X23 (fix round 1): the wait's polls are a minute apart and seldom land on the latest start, so the
+# wait ends at the first poll after it. Release-check then runs either way (header), on battery when
+# no AC came and on AC when AC came after the latest start but before that poll; it is never
+# SKIPPED for the poll's lateness. The clock starts 7 s off the minute grid, as a real night does.
+case_X23_rc_runs_at_its_latest_start_off_the_minute_grid() {
+  timeline "0 BAT"; export AC_WAIT_BUDGET_MIN=600; echo "$((START + 7))" > "$FAKE_CLOCK"
+  overnight
+  check "the wait ended after the latest start" hasre "$W/ev/chain.log" "release-check: no AC by its latest start or within the budget; it runs now"
+  check "not SKIPPED" sh -c '! grep -q "step release-check SKIPPED" "$1"' sh "$W/ev/chain.log"
+  check "try 1 ran on battery" has "$W/ev/chain.log" "step release-check try 1 start power=BAT"
+  check "try 1 NOT-REFERENCE on battery" sh -c 'case "$1" in NOT-REFERENCE*on-battery*) ;; *) exit 1 ;; esac' sh "$(row release-check 1)"
+  check "the late start is logged" hasre "$W/ev/chain.log" "release-check: starts [0-9]+ s after its latest start 2026-10-04T05:00:00"
+  # AC returns 3 s after the latest start, before the next poll (05:00:07 here): it runs on AC.
+  : > "$CALLS"; rm -f "$SCEN_DIR/count.devtool_release-check"
+  timeline "0 BAT" "$(at 25203) AC"; echo "$((START + 7))" > "$FAKE_CLOCK"
+  sh "$COORD/overnight-c8.sh" "$P/qompack-cx-cand" "$CAND_SHA" "$W/ev2"
+  check "AC after the latest start: not SKIPPED" sh -c '! grep -q "step release-check SKIPPED" "$1"' sh "$W/ev2/chain.log"
+  check "AC after the latest start: try 1 started on AC" has "$W/ev2/chain.log" "step release-check try 1 start power=AC"
+  check "AC after the latest start: VALID" test "$(awk -F'\t' '$1 == "release-check" && $2 == 1 { print $4 }' "$W/ev2/power.tsv")" = VALID
+}
+
 # X18 (#54): every step ends by the deadline.
 case_X18_steps_end_by_the_deadline() {
   export NIGHT_DEADLINE=22:20

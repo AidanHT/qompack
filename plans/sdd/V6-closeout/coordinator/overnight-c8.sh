@@ -152,7 +152,8 @@
 # failed (release-check stops at its first FAIL, so a red try's length says nothing about a green
 # one's). It starts only when RC_EST_S lets it end by the deadline; on battery it first waits for AC
 # (within the night's budget) until its latest start, the deadline minus RC_EST_S, then runs either
-# way. RC_EST_S (power.sh, 3 h) has never been measured with release-check's current step list, so
+# way: the wait ends at the first one-minute poll at or after it, so the start may be a poll late,
+# and the estimate is not checked again after the wait (the watchdog bounds the end). RC_EST_S (power.sh, 3 h) has never been measured with release-check's current step list, so
 # a run still going at the deadline plus RC_GRACE_S (30 min) is stopped (timeout, then a kill 60 s
 # later) and recorded SKIPPED-OVERRUN: neither a pass nor a fail, never retried. A red run whose
 # govulncheck section says the vulnerability database or the module proxy could not be reached
@@ -779,6 +780,12 @@ release_check() {
     tsv release-check 1 - SKIPPED - - - -; count skip release-check; return 0
   fi
   # On battery, wait for AC until its latest start (header), within the night's budget, then run.
+  # The check above is the start decision. The power query and the wait can only carry the start
+  # past rc_latest by the query's time or one poll (power_wait_ac polls a minute apart and ends at
+  # the first poll at or after its target, which seldom lands on it), so the estimate is not checked
+  # again: release-check then runs either way, as documented, and its watchdog (the deadline plus
+  # RC_GRACE_S) bounds the end. Re-checking it here SKIPPED a battery night whose wait reached the
+  # latest start (fix round 1).
   rc_latest=$((deadline - RC_EST_S))
   case $(power_read) in
     "AC "*) ;;
@@ -786,10 +793,13 @@ release_check() {
        power_wait_ac waited "$AC_WAIT_BUDGET_MIN" "$rc_latest" log ||
          log "release-check: no AC by its latest start or within the budget; it runs now, and its AC-sensitive windows say what the run is worth" ;;
   esac
-  if past_deadline || [ $(( $(date +%s) + RC_EST_S )) -gt "$deadline" ]; then
-    log "step release-check SKIPPED: it needs about $((RC_EST_S / 60)) min (RC_EST_S) and would end after the deadline $DL"
+  if past_deadline; then   # a wait ends within a poll of rc_latest, RC_EST_S before the deadline
+    log "step release-check SKIPPED: the deadline $DL passed before it could start"
     tsv release-check 1 - SKIPPED - - - -; count skip release-check; return 0
   fi
+  rc_late=$(( $(date +%s) - rc_latest ))
+  [ "$rc_late" -gt 0 ] &&
+    log "release-check: starts $rc_late s after its latest start $(date -d "@$rc_latest" +%FT%T) (the power poll's lateness); it runs either way, and its watchdog stops it at the deadline plus RC_GRACE_S"
   if [ -e "$E/p3-release-check-tag.json" ] || [ -e "$E/p3-release-check-tag.log" ]; then
     # recrun.sh would refuse to overwrite it, and the windows would then be read from the old log.
     log "step release-check exit=2: a record p3-release-check-tag already exists in $E"
