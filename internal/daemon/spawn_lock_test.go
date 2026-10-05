@@ -218,7 +218,7 @@ func TestEnsureRunning_WaitsForTheDaemonAFreshSpawnLockAnnounces(t *testing.T) {
 	require.Zero(t, f.calls.Load(), "nothing may spawn while another hook's daemon is on its way")
 	require.False(t, pc.Now().Before(upAt), "found once it was up")
 	require.Less(t, pc.Now().Sub(upAt), ensureRunningPollInterval, "found at the first tick after it came up")
-	require.NoFileExists(t, lockPath, "the claim was the other hook's, and its daemon removed it; the call took none")
+	require.NoFileExists(t, lockPath, "its daemon removed the other hook's claim, and the call left none of its own")
 }
 
 // TestEnsureRunning_TwoColdHooksStartOneDaemon: two session-starts reach a project with no daemon
