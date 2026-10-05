@@ -1,8 +1,8 @@
 #!/bin/sh
 # nightharness.sh [case...]
 # A dry harness for candidate 8's night: c8-night.sh, overnight-c8.sh, prefreeze.sh, phase3.sh's
-# multi-command arms, power.sh, stamped.sh, c52derive.py, keepawake.ps1 and nightabort.ps1. It
-# exercises every branch the night can take (AC, battery, a power change, Modern Standby, sleep or
+# multi-command arms, power.sh, stamped.sh, c52derive.py, keepawake.ps1, keepawake-start.ps1 and
+# nightabort.ps1. It exercises every branch the night can take (AC, battery, a power change, Modern Standby, sleep or
 # resume during a step, the wait budget, the deadline, each step's estimate, refusals, the
 # release-check clone and its tag, a signal mid-run, the C5.2 night with the full list or the
 # derivation, the C5.2 chunks, the C1.16 rig, e2efunc's skips and their drift, an abort, Docker
@@ -18,7 +18,8 @@
 # colon. Time is a fake clock: a file the date and sleep stubs and stamped.sh's
 # STAMP_CLOCK_FILE seam read, so no case waits on, or depends on, the wall clock. The real
 # processes outside the stubs are K1's, keepawake.ps1 under the real pwsh with a sentinel that does
-# not exist, which must end without holding anything, and K2's, a probe tree (sh, sleep, cmd, ping)
+# not exist, which must end without holding anything, K3's, keepawake-start.ps1 under the real pwsh
+# with fake keep-awake scripts that hold no request, and K2's, a probe tree (sh, sleep, cmd, ping)
 # under a shell named c8-night.sh that the real nightabort.ps1 must list and stop whole. While the
 # stub guard holds, it never touches the real repository, ~/.claude or ~/.qompack, and starts no
 # Docker, Claude Code or Go process (the Q cases point HOME and USERPROFILE at a scratch home).
@@ -585,6 +586,57 @@ case_K1_keepawake_never_creates_its_sentinel() {
   check "a missing sentinel is never created" test "$created" = 0
   check "it ends by itself" test "$alive" = 0
   check "and says it does not hold" has "$W/ka.log" "not holding"
+}
+# ---- K3: keepawake-start.ps1 (the real script, under the real pwsh) --------------------------------
+# A night launched without c8-night.sh (the C5.2 night, the overnight part alone after the freeze)
+# takes its keep-awake through keepawake-start.ps1, which must confirm "keep-awake held" or release
+# everything and say not to launch. Fakes stand in for keepawake.ps1, so no real request is held:
+# one that holds, one that reports FAILED, one that never speaks. The README's launch block must
+# use it, and launch the night only when it confirmed.
+# k3_readme_order <README>: the line after the keepawake-start.ps1 call opens its success branch, and
+# the overnight-c8.sh launch comes after that line.
+k3_readme_order() {
+  awk 'index($0, "keepawake-start.ps1\" $e") { k = NR }
+       k && NR == k + 1 && index($0, "if ($LASTEXITCODE -eq 0) {") == 1 { g = NR }
+       index($0, "overnight-c8.sh\", $cand") { if (g && NR > g) ok = 1 }
+       END { exit !ok }' "$1"
+}
+case_K3_keepawake_start_confirms_or_releases() {
+  check "pwsh is installed" test -n "$REALPWSH"
+  [ -n "$REALPWSH" ] || return 0
+  ks=$(cygpath -w "$here/keepawake-start.ps1")
+  printf '%s\n' 'param([string]$S)' 'Write-Output "keep-awake held while $S exists (pid $PID)"' \
+    'while (Test-Path $S) { Start-Sleep -Milliseconds 200 }' 'Write-Output "keep-awake released"' > "$W/held.ps1"
+  printf '%s\n' 'param([string]$S)' 'Write-Output "keep-awake FAILED: SetThreadExecutionState returned 0 (pid $PID)"' 'exit 1' > "$W/failed.ps1"
+  printf '%s\n' 'param([string]$S)' 'Start-Sleep -Seconds 600' > "$W/silent.ps1"
+  # Holds: exit 0, the sentinel stays, the log says held; deleting the sentinel releases it.
+  "$REALTIMEOUT" 300 "$REALPWSH" -NoProfile -File "$ks" "$(cygpath -w "$W/k3a")" -KeepAwake "$(cygpath -w "$W/held.ps1")" > "$W/k3a.out" 2>&1; rc=$?
+  check "held: exit 0" test "$rc" = 0
+  check "held: says so" hasre "$W/k3a.out" "^keep-awake held \(pid [0-9]+; "
+  check "held: the sentinel stays" test -e "$W/k3a/keepawake.sentinel"
+  check "held: keepawake.log has the line" has "$W/k3a/keepawake.log" "keep-awake held while"
+  rm -f "$W/k3a/keepawake.sentinel"
+  "$REALTIMEOUT" 120 sh -c 'until grep -q "keep-awake released" "$1" 2> /dev/null; do /usr/bin/sleep 0.2; done' sh "$W/k3a/keepawake.log"
+  check "held: deleting the sentinel releases it" has "$W/k3a/keepawake.log" "keep-awake released"
+  # Reports FAILED: exit 1, the sentinel is gone, and it says not to launch.
+  "$REALTIMEOUT" 300 "$REALPWSH" -NoProfile -File "$ks" "$(cygpath -w "$W/k3b")" -KeepAwake "$(cygpath -w "$W/failed.ps1")" > "$W/k3b.out" 2>&1; rc=$?
+  check "FAILED: exit 1" test "$rc" = 1
+  check "FAILED: not confirmed, do not launch" hasre "$W/k3b.out" "^keep-awake NOT confirmed: keepawake.log says 'keep-awake FAILED.*do not launch the night"
+  check "FAILED: the sentinel is deleted" test ! -e "$W/k3b/keepawake.sentinel"
+  # Never speaks: after its polls, exit 1, the sentinel is gone and the process it started is stopped.
+  "$REALTIMEOUT" 300 "$REALPWSH" -NoProfile -File "$ks" "$(cygpath -w "$W/k3c")" -KeepAwake "$(cygpath -w "$W/silent.ps1")" > "$W/k3c.out" 2>&1; rc=$?
+  check "silent: exit 1" test "$rc" = 1
+  check "silent: the process was stopped" has "$W/k3c.out" "was stopped, so nothing is held"
+  check "silent: the sentinel is deleted" test ! -e "$W/k3c/keepawake.sentinel"
+  kpid=$(sed -n 's/.*keep-awake process (pid \([0-9]*\)).*/\1/p' "$W/k3c.out")
+  check "silent: its pid is named" test -n "$kpid"
+  [ -n "$kpid" ] && check "silent: and it is gone" sh -c '! "$1" -NoProfile -Command "if (Get-Process -Id $2 -ErrorAction SilentlyContinue) { exit 0 } else { exit 1 }"' sh "$REALPWSH" "$kpid"
+  # The README's launch block for a night without c8-night.sh: keepawake-start.ps1 first, the night
+  # only inside its success branch, and no bare keepawake.ps1 launch anywhere.
+  rd="$here/README.md"
+  check "README: no unconfirmed keepawake.ps1 launch" sh -c '! grep -q "Start-Process .*keepawake\.ps1" "$1"' sh "$rd"
+  check "README: the launch takes keepawake-start.ps1" has "$rd" 'pwsh -NoProfile -File "$co/keepawake-start.ps1" $e'
+  check "README: and launches only when it confirmed" k3_readme_order "$rd"
 }
 # ---- K2: nightabort.ps1 (the real script, under the real pwsh, on a real process tree) ------------
 # An MSYS shell's children record a dead Windows parent (the fork stub exits after exec), so a
@@ -1868,7 +1920,6 @@ case_X17_rc_waits_for_ac_until_its_latest_start() {
   check "VALID" test "$(row release-check 1)" = VALID
   check "no second try" test -z "$(row release-check 2)"
 }
-
 # X23 (fix round 1): the wait's polls are a minute apart and seldom land on the latest start, so the
 # wait ends at the first poll after it. Release-check then runs either way (header), on battery when
 # no AC came and on AC when AC came after the latest start but before that poll; it is never

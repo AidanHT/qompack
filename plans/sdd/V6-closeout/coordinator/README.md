@@ -8,6 +8,7 @@ session's scratchpad. None of them ships; they drive the close-out.
 | `wave1.js`, `wave2b.js`, `wave3.js`, `wave4.js` | The Workflow scripts for each dispatch wave. Each is implement → adversarial review → fix seat, one worktree per workstream (`../qompack-cx-<wN>-<ws>`, branch `closeout/<wN>-<ws>`). |
 | `resume-w3w4.js` | The 2026-09-26 relaunch of the four workstreams the overnight pause stopped. Each seat merges `closeout/integration` `6aff949`, adopts or revises the earlier draft, and finishes. A verify stage checks the fix seat's resolutions. Committed `wave4.js` says `w4-e2ereds` in two places where the real report is `w3-e2ereds`; the resume script corrects it. |
 | `digest.py` | `python digest.py <agent-transcript.jsonl> <out.txt>` writes one line per tool call and narration block, in order, from a stopped workflow agent's transcript, for a resuming seat to read. |
+| `keepawake-start.ps1` | `pwsh -NoProfile -File keepawake-start.ps1 <evidence-dir>` takes a night's keep-awake when c8-night.sh is not there to hold it (the C5.2 night, the overnight part alone after the freeze): it creates `<evidence-dir>/keepawake.sentinel`, starts keepawake.ps1 hidden with its output in `keepawake.log`, and waits up to 15 s for `keep-awake held`. Exit 0 when that line came; exit 1 otherwise, after deleting the sentinel and stopping the keep-awake process it started, so the launch block starts no night (audit 2's #57). |
 | `keepawake.ps1` | `pwsh -File keepawake.ps1 <sentinel>` holds a Windows keep-awake request (`SetThreadExecutionState`) while the sentinel file exists, so long gates and agent runs do not die to host sleep (the 2026-09-23 whole-tree run did). It changes no power settings. Create the sentinel first and delete it to release; a sentinel missing at start means it holds nothing and exits (it never creates one, so an early refusal cannot leave it holding). |
 | `phase3.sh` | `sh phase3.sh <candidate-repo> <evidence-dir> <step…>`: the Phase 3 gates on the frozen candidate, one recorded run per step and strictly sequential (steps: `win-tree`, `win-race`, `win-timing`, `win-e2e-timing`, `win-x11-alone`, `c116-rig`, `lint`, `cover`, `gens`, `fuzz`, `bundles`, `linux-tree`, `linux-e2e`, `linux-timing`, `linux-e2e-timing`, `linux-child`, `release`). Its header maps each step to its checklist item; `c116-rig` is C1.16's load rig as w2-lifetime ran it (D62(c)). |
 | `quiet.sh` | `sh quiet.sh <candidate-repo> <base-rev> <evidence-dir> <step…>`: Phase 5's quiet benchmark runs, strictly sequential, no co-load, after Phase 3 on an idle host (steps: `c51-win`, `c51-linux` for C5.1 bench-hotpath 5000 iterations plus TestBudgetBF for B-F; `c52-win`, `c52-linux` for C5.2, the carried and D37 benchmarks against `<base-rev>` = `cf31e01` in 10 balanced ABBA rounds (above C5.2's `-count 5`), with pinned benchstat, a paired table and a per-row completeness check that fails on skipped or short benchmarks). Windows runs go through `recrun.sh` with an isolated home for every benchmark binary, Linux through the non-root gate. It refuses a candidate repo with tracked changes and warns when the host is not idle (its host queries bounded). Row 1.1.27 is judged by its absolute budget only (`absolute_rows`, D67(j): `absolute-budget.tsv`, no ratio). It removes its scratch directory after a pass and keeps it, named in `quiet-run.txt`, after a failure. `QUIET_*` variables shrink it for a dry run. A `homeguard.py` check brackets the run. |
@@ -26,7 +27,7 @@ session's scratchpad. None of them ships; they drive the close-out.
 | `w2lt-stress/main.go.txt`, `w2lt-stress/go.mod.txt` | The external fsync and CPU co-load generator of w2-lifetime's C1.16 runs/09 and 16, run there with 16 writers of 64 KiB, 4 CPU spinners and 150 s on C: (runs/09's header; its `-k`, `-size`, `-c` and `-for` flags). It prints `writes <n>` (37446 in runs/09, 49960 in runs/16). It was never committed with those runs. These are its source files, byte for byte, recovered from the coordinator session's scratchpad (`w2lt-stress/`, written 2026-09-25 17:27, before runs/09). Built there with go1.26.4, they reproduce that session's `w2lt-stress.exe` exactly (sha256 `5d49a71ec8886fb0c66f4feeadb113455ee3ad0595dfd4635133888827d9c4f1`). Kept as `.txt`, as plans/ keeps other probe programs, so no Go tool reads them: to build, copy both into an empty directory as `main.go` and `go.mod`, then run `go build`. No night runs it (README "The C5.2 night"). |
 | `nightabort.ps1` | `pwsh -File nightabort.ps1 -MsysPid <msys> -WinPid <windows-pid> [-Stop]`: lists, and with `-Stop` stops, exactly one night's process tree (README "Candidate 8", Abort step 1). It walks MSYS's own parent pids from the night's shell (Windows records a dead parent for everything an MSYS shell starts), adds their native Windows children (a child only when created after its parent), and refuses unless the root still is the logged c8-night.sh or overnight-c8.sh shell. |
 | `stamped.sh` | `sh stamped.sh <command…>`: prefixes each output line with its epoch second and keeps the command's exit status; release-check's AC-sensitive windows are read from it. |
-| `nightharness.sh` | `sh nightharness.sh [case…]` (`-l` lists them): the dry harness for everything above (112 cases). Stubs for powershell, pwsh, docker, go, claude, gh, timeout, date, sleep and df, real git and python on scratch repositories, a fake clock. Every case first checks that each stub name resolves to the stub directory, and refuses to run otherwise; the harness takes its scratch path in POSIX form and refuses one with a colon (a `C:/` TMPDIR used to split PATH at the drive colon, so every stub was bypassed and cases ran against the real Docker, gh and go: audit 2's #48). While that guard holds, nothing outside its temporary directory is touched (the Q cases run the real quiet.sh with HOME and USERPROFILE in a scratch home). The real processes outside the stubs are K1's keepawake.ps1 with nothing to hold, and K2's probe tree (sh, sleep, cmd and ping, under a shell named c8-night.sh), which the real nightabort.ps1 lists and stops. Run it after any change to a night script. |
+| `nightharness.sh` | `sh nightharness.sh [case…]` (`-l` lists them): the dry harness for everything above (113 cases). Stubs for powershell, pwsh, docker, go, claude, gh, timeout, date, sleep and df, real git and python on scratch repositories, a fake clock. Every case first checks that each stub name resolves to the stub directory, and refuses to run otherwise; the harness takes its scratch path in POSIX form and refuses one with a colon (a `C:/` TMPDIR used to split PATH at the drive colon, so every stub was bypassed and cases ran against the real Docker, gh and go: audit 2's #48). While that guard holds, nothing outside its temporary directory is touched (the Q cases run the real quiet.sh with HOME and USERPROFILE in a scratch home). The real processes outside the stubs are K1's keepawake.ps1 with nothing to hold, K3's keepawake-start.ps1 with fake keep-awake scripts (no real request is held), and K2's probe tree (sh, sleep, cmd and ping, under a shell named c8-night.sh), which the real nightabort.ps1 lists and stops. Run it after any change to a night script. |
 | `c52derive.py` | `python c52derive.py <candidate-repo> <base-rev> <out-dir>`: D57(e) by construction. Traces each C5.2 benchmark on the candidate at its own listed benchtime with a coverage profile and selects those whose executed product files, the other changed files of a package they execute (declarations have no coverage block), own benchmark file, fixtures or adjacent assets changed since `<base-rev>`; reports, without selecting on it, whether an executed block covers a changed line; writes `report.txt`, `selection.tsv`, `pkgs.txt` and `filter.txt` for quiet.sh. A failed trace is selected, fail-closed; when every trace fails, or a stray .go file would join the trace, it writes no selection (exit 2) and overnight-c8.sh measures the full C5.2 list. overnight-c8.sh runs it only with `C8_C52_SET=derived`: candidate 8 measures the full list (D62(b)). Self-test: `python c52derive.py --selftest`. |
 | `mkrecheck8.py` | `python mkrecheck8.py live-rerun-c7.js <out.js> <candidate-sha> <bundle-dir>`: generates candidate 8's live re-check from candidate 7's lane, with the diff from candidate 7 that its D53(f) carry-forward notes are checked against. Its parts judge against D58-D67: the D63/D64 whitelist (docs/security.md and ADR 0011 section 23 items 5-10 join the reading list, and D64(4)'s accepted over-withholding is not a finding), D62(f)'s section 2, D62's forkwork (a /compact in the fork after the six slash commands) and stable fsck and eval reads, and C4.5's two-read comparison after removing the named age and timestamp fields (data.collected_at_ms, provenance age_ms, the status header's collected time, doctor's "persisted <age> ago"). It refuses a candidate without ADR 0011 section 23, a bundle without BUNDLE.json, and an output that keeps a candidate 7 string, reads the clock or does not parse. |
 
@@ -89,13 +90,13 @@ agent launches or aborts either night.
    `c8-night.sh` checks the names against integration's test/e2e and ci.yml among its
    preconditions (`sh prefreeze.sh --e2e-skips <integration>`) and refuses on drift, naming the row
    or arm; night.log logs the `-skip` pattern it will use.
-5. `sh nightharness.sh` passes (112 cases), every case behind its stub guard (a case whose stubs
+5. `sh nightharness.sh` passes (113 cases), every case behind its stub guard (a case whose stubs
    do not all resolve to the harness's own directory fails without running). It is dry, with no
    Go, Docker or Claude Code process while the guard holds (K1 starts the real pwsh once, with
    nothing to hold; K2 starts a probe tree of sh, sleep, cmd and ping and stops it with
    nightabort.ps1). Its run time depends on the machine's load: 80 cases took 2447 s on 2026-10-04
    at night, 57 took 6512 s on 2026-10-03 with other seats running, and 36 took about 1 h 40 min
-   under audit 2's load; a sequential 112-case run takes 2-6 h. Run it at night, or split the cases
+   under audit 2's load; a sequential 113-case run takes 2-6 h. Run it at night, or split the cases
    over two or three processes (each makes its own scratch directory; `-l` lists the names to
    pass). Re-run it after any change to a night script, and `python c52derive.py --selftest`.
 6. The laptop lid is open and the charger is connected. Docker Desktop may be up or down, and the
@@ -335,7 +336,8 @@ The power verdicts (both nights):
      overnight-c8.sh cannot tell a leftover `C8_C52_ONLY=1` from a C5.2 night's switch, because 1
      is a valid value, so the re-run would silently become a C5.2 night (chain.log's start line
      would say `mode=c52-only`). Then use the C5.2 night's launch below with two changes: `$e` is
-     `.../phase3/c8-rerun-<n>`, and the `$env:C8_C52_ONLY = '1'` line is left out (`C8_C52_STEPS`
+     `.../phase3/c8-rerun-<n>`, and the `$env:C8_C52_ONLY = '1'` line is left out (the keep-awake is
+     confirmed by keepawake-start.ps1 first and the launch sits in its success branch, as there) (`C8_C52_STEPS`
      stays unset, which overnight-c8.sh checks; the final `Remove-Item` line stays). Its refusal
      check (chain.log a minute after launch, `launch.err`) applies as written there. Check that
      chain.log's start line says `release-check must start by`, not `mode=c52-only`. The overnight
@@ -465,15 +467,27 @@ $sha  = (Select-String -Path "$v6/plans/sdd/V6-closeout/phase3/c8/night.log" `
           -Pattern 'candidate 8 frozen at ([0-9a-f]{40})' | Select-Object -Last 1).Matches[0].Groups[1].Value
 $sha                                                   # must print the 40-character frozen SHA
 git -C $cand checkout -q --detach $sha; git -C $cand status --porcelain   # must print nothing
-New-Item -ItemType Directory -Force $e | Out-Null; New-Item -ItemType File "$e/keepawake.sentinel" | Out-Null
-$env:NIGHT_DEADLINE = '08:00'
-$env:C8_C52_ONLY = '1'
-# $env:C8_C52_STEPS = 'c52-win-store c52-linux-other'   # a further C5.2 night only: the steps it measures
-Start-Process pwsh -WindowStyle Hidden -ArgumentList @('-NoProfile', '-File', "$co/keepawake.ps1", "$e/keepawake.sentinel")
-Start-Process -FilePath 'C:\Program Files\Git\bin\bash.exe' -WindowStyle Hidden `
-  -RedirectStandardError "$e/launch.err" -ArgumentList @("$co/overnight-c8.sh", $cand, $sha, $e)
-Remove-Item Env:C8_C52_ONLY, Env:C8_C52_STEPS, Env:NIGHT_DEADLINE -ErrorAction SilentlyContinue   # the night keeps its copy
+New-Item -ItemType Directory -Force $e | Out-Null
+pwsh -NoProfile -File "$co/keepawake-start.ps1" $e   # the sentinel, keepawake.ps1, then "keep-awake held"
+if ($LASTEXITCODE -eq 0) {
+  $env:NIGHT_DEADLINE = '08:00'
+  $env:C8_C52_ONLY = '1'
+  # $env:C8_C52_STEPS = 'c52-win-store c52-linux-other'   # a further C5.2 night only: the steps it measures
+  Start-Process -FilePath 'C:\Program Files\Git\bin\bash.exe' -WindowStyle Hidden `
+    -RedirectStandardError "$e/launch.err" -ArgumentList @("$co/overnight-c8.sh", $cand, $sha, $e)
+  Remove-Item Env:C8_C52_ONLY, Env:C8_C52_STEPS, Env:NIGHT_DEADLINE -ErrorAction SilentlyContinue   # the night keeps its copy
+} else { "keep-awake not confirmed: nothing was launched; read $e/keepawake.log" }
 ```
+
+The keep-awake is confirmed before the night starts (audit 2's #57, for every night that
+c8-night.sh does not hold): `keepawake-start.ps1` creates `$e/keepawake.sentinel`, starts
+keepawake.ps1 hidden with its output in `$e/keepawake.log`, and waits up to 15 s for its
+`keep-awake held` line. When it prints `keep-awake held (pid <pid>; …)`, the block launches the
+night. Otherwise it prints `keep-awake NOT confirmed: …`, deletes the sentinel and stops the
+keep-awake process it started, and the block launches nothing: the `if` holds the launch, so a
+block pasted line by line cannot run past the failure. Read `$e/keepawake.log` (`keep-awake
+FAILED: SetThreadExecutionState returned 0`, or nothing when pwsh did not start), fix the cause
+and run the block again into the same `$e`.
 
 overnight-c8.sh refuses (exit 2, writing nothing) a SHA that is not 40 characters, a checkout not
 at it or not clean, an evidence directory that holds a night's records, a `C8_C52_ONLY` other than
