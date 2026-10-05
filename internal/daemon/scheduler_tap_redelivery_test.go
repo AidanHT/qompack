@@ -308,9 +308,10 @@ func TestDrain_AnInterruptedCommitFoldsTheReplayedReadOnce(t *testing.T) {
 
 	passCtx, endPass := context.WithCancel(ctx)
 	defer endPass()
-	cfg := dd.drainConfig()
+	cfg := contentDrainConfig(dd)
+	dispatch := cfg.Dispatch
 	cfg.Dispatch = func(c context.Context, got ipc.Request) ipc.Response {
-		resp := dd.drainDispatch(c, got)
+		resp := dispatch(c, got)
 		endPass() // the pass's context ends between the handler and the commit
 		return resp
 	}

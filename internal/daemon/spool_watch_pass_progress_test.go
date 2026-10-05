@@ -48,7 +48,7 @@ func spoolWatchLookEveryTick(dd *daemon, looks int, enough func(passedAt []time.
 func TestSpoolWatch_ABlockedSpoolWithAConsumedLineBehindItsHeadKeepsTheBackoff(t *testing.T) {
 	dd, _, root := laneTestDaemon(t)
 	blocked := blockedSpoolHead(t, dd, root, "sess-spool-progress-stuck", 0)
-	cfg := dd.drainConfig()
+	cfg := lineDeadlineDrainConfig(dd)
 	admit, held := slowWaitingHead(cfg.Admit, blocked.Nonce)
 	cfg.Admit = admit
 	dd.drain.Store(newDrainer(cfg))
@@ -84,7 +84,7 @@ func TestSpoolWatch_ABlockedSpoolWithAConsumedLineBehindItsHeadKeepsTheBackoff(t
 func TestSpoolWatch_ABlockedSpoolWithAConsumedLineBehindItsHeadDoesNotStarveTheSpoolsAfterIt(t *testing.T) {
 	dd, _, root := laneTestDaemon(t)
 	blocked := blockedSpoolHead(t, dd, root, "sess-spool-starve-stuck", 0)
-	cfg := dd.drainConfig()
+	cfg := lineDeadlineDrainConfig(dd)
 	admit, held := slowWaitingHead(cfg.Admit, blocked.Nonce)
 	cfg.Admit = admit
 	dd.drain.Store(newDrainer(cfg))

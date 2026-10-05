@@ -223,7 +223,7 @@ func TestObserverDurablePublisherFailureRemainsDrainRetryable(t *testing.T) {
 	require.NoError(t, dd.ing.CloseSession(sess), "the inactive drainer cannot remove an open WAL on Windows")
 	// The drainer Run installs, over this daemon's own journal, so the replay leases the same nonce
 	// back; the daemon under test never ran Run.
-	dd.drain.Store(newDrainer(dd.drainConfig()))
+	dd.drain.Store(newDrainer(contentDrainConfig(dd)))
 	n, err := dd.Drain(ctx)
 	require.NoError(t, err)
 	require.Equal(t, 1, n, "the repaired drainer must actually re-run the retained line")

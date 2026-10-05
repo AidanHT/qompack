@@ -203,8 +203,8 @@ func TestLaunchSessionEnd_HoldsTheCaptureGateUntilTheEndFinishes(t *testing.T) {
 // without the line's drainLineDeadline (withoutLineDeadline).
 func gateAtDispatch(dd *daemon) *[]int {
 	var seen []int
-	cfg := dd.drainConfig()
-	dispatch := withoutLineDeadline(cfg.Dispatch)
+	cfg := contentDrainConfig(dd)
+	dispatch := cfg.Dispatch
 	cfg.Dispatch = func(ctx context.Context, req ipc.Request) ipc.Response {
 		seen = append(seen, dd.capture.inFlight())
 		return dispatch(ctx, req)

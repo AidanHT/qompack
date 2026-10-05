@@ -47,7 +47,7 @@ func TestDrain_ControlLinesPublishNoCaptureSidecar(t *testing.T) {
 				defer cancel()
 				dd.stopPromptRecordings(grace)
 			})
-			dd.drain.Store(newDrainer(dd.drainConfig()))
+			dd.drain.Store(newDrainer(contentDrainConfig(dd)))
 
 			const sess core.SessionID = "sess-drained-control"
 			req := ipc.Request{

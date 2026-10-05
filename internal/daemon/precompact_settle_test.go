@@ -53,8 +53,7 @@ func bindSealProbe(dd *daemon, watch ...string) *sealProbe {
 // and one durable replay). What the bound cuts is TestPreCompactSettle_NamesWhatTheBoundLeftUnreplayed's.
 func TestPreCompactSettle_ReplaysTheSpoolBeforeTheSeal(t *testing.T) {
 	dd, root := settleTestDaemon(t, liveOrderBound)
-	cfg := dd.drainConfig()
-	cfg.Dispatch = settleReplay(dd)
+	cfg := contentDrainConfig(dd)
 	dd.drain.Store(newDrainer(cfg))
 	liveOrderWorkers(t, dd, 2, dd.runIngested)
 	const sess core.SessionID = "sess-precompact-spooled"
@@ -96,14 +95,14 @@ func TestPreCompactSettle_NamesWhatTheBoundLeftUnreplayed(t *testing.T) {
 	slow := liveOrderTool(dd, root, sess, 1)
 	later := liveOrderTool(dd, root, sess, 2)
 	ctx, cut := settleCut(t)
-	cfg := dd.drainConfig()
+	cfg := contentDrainConfig(dd)
 	cfg.Dispatch = func(lctx context.Context, req ipc.Request) ipc.Response {
 		if req.Nonce == slow.Nonce {
 			cut()         // the bound ends while the slow Read's replay is in flight
 			<-lctx.Done() // the disk that never finishes inside the bound
 			return ipc.Response{Err: lctx.Err().Error()}
 		}
-		return dd.drainDispatch(lctx, req)
+		return settleReplay(dd)(lctx, req)
 	}
 	dd.drain.Store(newDrainer(cfg))
 	liveOrderWorkers(t, dd, 2, dd.runIngested)
@@ -194,7 +193,7 @@ func (r *settleLooks) ranUnderTheBound(t *testing.T, before time.Time, bound tim
 // the cost is one spool listing and two lookups in the journal's memory, which the row logs.
 func TestPreCompactSettle_AHealthySessionPaysNothing(t *testing.T) {
 	dd, _, root := laneTestDaemon(t)
-	dd.drain.Store(newDrainer(dd.drainConfig()))
+	dd.drain.Store(newDrainer(contentDrainConfig(dd)))
 	liveOrderWorkers(t, dd, 2, dd.runIngested)
 	const sess core.SessionID = "sess-precompact-healthy"
 
@@ -231,7 +230,7 @@ func TestPreCompactSettle_AHealthySessionPaysNothing(t *testing.T) {
 // its bound behind its own caller), and the compaction it announced is already over.
 func TestPreCompactSettle_AReplayedPreCompactDoesNotSettle(t *testing.T) {
 	dd, _, root := laneTestDaemon(t)
-	dd.drain.Store(newDrainer(dd.drainConfig()))
+	dd.drain.Store(newDrainer(contentDrainConfig(dd)))
 	const sess core.SessionID = "sess-precompact-replayed"
 	writeHookSpool(t, root, "client-6464.ndjson", liveOrderTool(dd, root, sess, 1))
 	probe := bindSealProbe(dd)
@@ -258,7 +257,7 @@ func TestPrecompactSettleBound_IsWhatBELeavesTheSeal(t *testing.T) {
 // the drain's mutex no longer than its own context allows, and reads nothing when it gives up.
 func TestDrainer_DrainClientSpoolsWithinGivesUpOnABusyMutex(t *testing.T) {
 	dd, _, root := laneTestDaemon(t)
-	dr := newDrainer(dd.drainConfig())
+	dr := newDrainer(contentDrainConfig(dd))
 	writeHookSpool(t, root, "client-6565.ndjson", liveOrderTool(dd, root, "sess-busy", 1))
 	dr.mu.Lock()
 	ctx, cancel := context.WithCancel(context.Background())
@@ -334,24 +333,12 @@ func settleTestDaemon(t *testing.T, bound time.Duration) (*daemon, string) {
 // row that takes 0.6 s) cancelled the line, and the product then did what it must: the replay
 // published nothing, and the seal named the capture as unreplayed for the watcher and the idle drain
 // to finish (audit 2 #64). The settle's own deadline still bounds every look and wait, and a row's cut
-// (settleCut) still ends the settle. A line the deadline cuts is the subject of the drain's own rows
+// (settleCut) still ends the settle and the replayed line it is in (withoutLineDeadline keeps every
+// cancellation). It is contentDrainConfig's dispatch, for rows that wrap it in their own. A line the deadline cuts is the subject of the drain's own rows
 // (TestDeliveryOrder_ARequestedPassAsksAgainOnlyWhileItMakesProgress) and of
 // TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound, which keep it.
 func settleReplay(dd *daemon) func(context.Context, ipc.Request) ipc.Response {
 	return withoutLineDeadline(dd.drainDispatch)
-}
-
-// withoutLineDeadline is dispatch with the drain's per-line drainLineDeadline (and any other
-// cancellation of the line's context) lifted, keeping the context's values: the observation and the
-// replayed delivery the drain attaches. It is for a drain row whose assertions are about what a pass
-// publishes, holds or remembers, never about how fast: the line's 5 s is a wall-clock limit on a
-// dispatch that does real I/O, and a host stalled past it cancels the line, which the drain then
-// rightly leaves unpublished (audit 2 #64; TestRequestedDrainPass_HoldsTheCaptureGateBetweenDeliveries
-// on the wave 22 Linux gate). Rows whose subject is a line the deadline cuts keep it.
-func withoutLineDeadline(dispatch func(context.Context, ipc.Request) ipc.Response) func(context.Context, ipc.Request) ipc.Response {
-	return func(ctx context.Context, req ipc.Request) ipc.Response {
-		return dispatch(context.WithoutCancel(ctx), req)
-	}
 }
 
 // settleGate holds the lane's publication of one delivery until it is opened. The caller registers
@@ -378,7 +365,7 @@ func settleStarted(dd *daemon) bool { return dd.m.Counter(counterPrecompactSettl
 // copy. The seal waits for the lane, inside its bound, and sees the Read published.
 func TestPreCompactSettle_WaitsForALeasedArrivalStillPublishing(t *testing.T) {
 	dd, root := settleTestDaemon(t, liveOrderBound)
-	dd.drain.Store(newDrainer(dd.drainConfig()))
+	dd.drain.Store(newDrainer(contentDrainConfig(dd)))
 	const sess core.SessionID = "sess-precompact-leased"
 	tool := liveOrderTool(dd, root, sess, 1)
 	run, open := settleGate(dd, tool.Nonce)
@@ -413,7 +400,7 @@ func TestPreCompactSettle_WaitsForALeasedArrivalStillPublishing(t *testing.T) {
 func TestPreCompactSettle_NamesALeasedArrivalOnceBesideItsSpoolCopy(t *testing.T) {
 	dd, root := settleTestDaemon(t, liveOrderBound)
 	ctx, cut := settleCut(t)
-	dd.drain.Store(newDrainer(dd.drainConfig()))
+	dd.drain.Store(newDrainer(contentDrainConfig(dd)))
 	const sess core.SessionID = "sess-precompact-leased-left"
 	tool := liveOrderTool(dd, root, sess, 1)
 	after := liveOrderTool(dd, root, sess, 2)
@@ -453,7 +440,7 @@ func TestPreCompactSettle_NamesALeasedArrivalOnceBesideItsSpoolCopy(t *testing.T
 // 16e). A look the bound cuts is TestPreCompactSettle_ALookPastTheBoundReadsNothingAndSaysSo's.
 func TestPreCompactSettle_AnotherSessionsSpoolCostsAHealthySessionNoDrain(t *testing.T) {
 	dd, root := settleTestDaemon(t, liveOrderBound)
-	dd.drain.Store(newDrainer(dd.drainConfig()))
+	dd.drain.Store(newDrainer(contentDrainConfig(dd)))
 	liveOrderWorkers(t, dd, 2, dd.runIngested)
 	const sess core.SessionID = "sess-precompact-healthy-beside"
 	writeHookSpool(t, root, "client-7070.ndjson", liveOrderTool(dd, root, "sess-precompact-other", 1))
@@ -498,7 +485,7 @@ func TestPreCompactSettle_ReplaysThisSessionsSpoolBeforeOlderOnesOfOthers(t *tes
 	dd, root := settleTestDaemon(t, liveOrderBound)
 	ctx, cut := settleCut(t)
 	const sess, other core.SessionID = "sess-precompact-own", "sess-precompact-older"
-	cfg := dd.drainConfig()
+	cfg := contentDrainConfig(dd)
 	cfg.Dispatch = func(lctx context.Context, req ipc.Request) ipc.Response {
 		if resolveEvent(req).SessionID == other {
 			cut() // the slow disk: this replay takes the whole bound
@@ -548,7 +535,7 @@ func TestPreCompactSettle_DoesNotWaitBehindAWatcherPassItsOwnRequestKicked(t *te
 	sealed := make(chan struct{})
 	passHolds := make(chan struct{})
 	var holding sync.Once
-	cfg := dd.drainConfig()
+	cfg := contentDrainConfig(dd)
 	cfg.Dispatch = func(lctx context.Context, req ipc.Request) ipc.Response {
 		if resolveEvent(req).SessionID == other {
 			select {
@@ -645,7 +632,7 @@ func TestPreCompactSettle_ABacklogIsCountedInFullAndNamedWithinItsShare(t *testi
 	dd, _, root := laneTestDaemon(t)
 	const sess core.SessionID = "sess-precompact-backlog"
 	const backlog = 300
-	cfg := dd.drainConfig()
+	cfg := lineDeadlineDrainConfig(dd)
 	cfg.Dispatch = func(ctx context.Context, _ ipc.Request) ipc.Response {
 		<-ctx.Done() // the disk that never finishes a line inside the bound
 		return ipc.Response{Err: ctx.Err().Error()}

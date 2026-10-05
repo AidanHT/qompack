@@ -143,7 +143,7 @@ func TestDrainClientSpools_ALineConsumedBehindAWaitingHeadCostsALaterPassOnlyIts
 	const waiting, consumed = 300, 600
 	dd, _, root := laneTestDaemon(t)
 	ctx := context.Background()
-	cfg := dd.drainConfig()
+	cfg := contentDrainConfig(dd)
 	// The subject is the drain's cost; what the handler does with a publication is the observer's.
 	cfg.Dispatch = func(context.Context, ipc.Request) ipc.Response { return ipc.Response{OK: true} }
 	meter := meterDrainCost(&cfg)
@@ -210,7 +210,7 @@ func TestDrainClientSpools_APassOverBlockedSpoolsItHasReadSyncsAndWritesNothing(
 	const spools = 4
 	dd, _, root := laneTestDaemon(t)
 	ctx := context.Background()
-	cfg := dd.drainConfig()
+	cfg := contentDrainConfig(dd)
 	meter := meterDrainCost(&cfg)
 	dr := newDrainer(cfg)
 	meter.meterDrainer(dr)
@@ -290,7 +290,7 @@ func TestDrainClientSpools_ABlobLineBehindAWaitingHeadLeavesOneCleanupIntent(t *
 	head := blockedSpoolHead(t, dd, root, "sess-blob-stuck", 0)
 	other := blobSpoolLine(t, root, liveOrderTool(dd, root, "sess-blob-other", 7), blob)
 	denied := blobSpoolLine(t, root, liveOrderTool(dd, root, "sess-blob-denied", 8), deniedBlob)
-	cfg := dd.drainConfig()
+	cfg := contentDrainConfig(dd)
 	cfg.Admit = denyNonce(cfg.Admit, denied.Nonce)
 	meter := meterDrainCost(&cfg)
 	dr := newDrainer(cfg)
@@ -350,7 +350,7 @@ func TestDrainClientSpools_ABlobLineBehindAWaitingHeadLeavesOneCleanupIntent(t *
 func TestDrainClientSpools_ALineRewrittenInPlaceBehindAWaitingHeadIsReadAgain(t *testing.T) {
 	dd, _, root := laneTestDaemon(t)
 	ctx := context.Background()
-	dr := newDrainer(dd.drainConfig())
+	dr := newDrainer(contentDrainConfig(dd))
 	dd.drain.Store(dr)
 	head := blockedSpoolHead(t, dd, root, "sess-rewrite-stuck", 0)
 	first := liveOrderTool(dd, root, "sess-rewrite-other", 7)
@@ -393,7 +393,7 @@ func TestDrainClientSpools_ALineRewrittenInPlaceBehindAWaitingHeadIsReadAgain(t 
 func TestDrain_ACorruptOrUnadmittedLineBehindAWaitingHeadIsAnnouncedOnce(t *testing.T) {
 	dd, _, root := laneTestDaemon(t)
 	ctx := context.Background()
-	cfg := dd.drainConfig()
+	cfg := contentDrainConfig(dd)
 	log := newRecordingLogger()
 	cfg.Log = log
 	undecided := liveOrderTool(dd, root, "sess-undecided", 9)
@@ -472,7 +472,7 @@ func publishQueuedFirst(t *testing.T, dd *daemon, admit func(ipc.Request) admiss
 func TestDrainClientSpools_ALineWhosePredecessorPublishedLateInThePassIsPublishedAtItsEnd(t *testing.T) {
 	dd, _, root := laneTestDaemon(t)
 	ctx := context.Background()
-	cfg := dd.drainConfig()
+	cfg := contentDrainConfig(dd)
 	const sess core.SessionID = "sess-late-release"
 	p0 := spD3Prompt(dd, root, sess, orderNonce(10), "p0")
 	acceptPrompt(t, dd, p0) // leased; its job waits on the ring for a worker, and none runs

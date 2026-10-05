@@ -70,7 +70,7 @@ func flushOrderDaemon(t *testing.T) (*daemon, *Options, string) {
 		defer cancel()
 		dd.stopPromptRecordings(grace)
 	})
-	dd.drain.Store(newDrainer(dd.drainConfig()))
+	dd.drain.Store(newDrainer(contentDrainConfig(dd)))
 	return dd, o, root
 }
 
