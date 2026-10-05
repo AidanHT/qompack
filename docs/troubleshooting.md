@@ -140,11 +140,13 @@ is gone the configuration decides, so a daemon that died without a clean stop do
 project disabled after the key is set back to `true`, and the next session start starts one
 (`internal/cli/qompack_commands.go`, `daemonEnabledFor`). With `runtime.mode` `off`, the line reads
 `daemon: runtime.mode is off for this project (in its configuration, or in the state.bin its daemon
-last wrote), so this command does not ask a daemon`. A `state.bin` that says `off` is still trusted
-after its daemon has gone; if the configuration no longer says `off`, delete
-`.qompack/run/state.bin`. If a daemon
-is listening, the line names what went wrong. When it took the request but no answer came within
-the 10-second call deadline, the line reads `daemon: a daemon is listening for this project but did
+last wrote), so this command does not ask a daemon`. The `state.bin` case is a daemon that ran
+while the configuration said `off`. Its `off` speaks for the project only while that daemon is
+alive, by the same test as above; once it is gone the configuration decides, so hooks record again,
+the next session start starts a daemon, and status and the MCP server stop reporting the project off
+as soon as the configuration no longer says `off` (`internal/cli/qompack_commands.go`, `modeFor`).
+If a daemon is listening, the line names what went wrong. When it took the request but no answer
+came within the 10-second call deadline, the line reads `daemon: a daemon is listening for this project but did
 not answer within 10s`: it is up but busy or stuck. When the request failed sooner, the line reads
 `daemon: a daemon is listening for this project but did not answer this command: on both of two
 attempts, no connection to it was made within the 250ms connect budget or the connection closed
