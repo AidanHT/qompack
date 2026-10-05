@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"sync"
 	"sync/atomic"
 	"testing"
 
@@ -33,6 +34,12 @@ type sealRig struct {
 	r        *schedRuntime
 	seals    atomic.Int64
 	failSeal atomic.Bool
+	// sealedOK counts the seals that succeeded.
+	sealedOK atomic.Int64
+	// held, when a row sets it before the first seal, holds that seal until it is closed; the seal
+	// closes heldAt first. failFirst fails the first seal only.
+	held, heldAt chan struct{}
+	failFirst    atomic.Bool
 }
 
 func newSealRig(t *testing.T, sess core.SessionID) *sealRig {
@@ -44,10 +51,15 @@ func newSealRig(t *testing.T, sess core.SessionID) *sealRig {
 	spD3Drainer(dd, root)
 	rig := &sealRig{dd: dd}
 	dd.svc.PreCompact = func(context.Context, hookio.Event) (hookio.Output, error) {
-		rig.seals.Add(1)
-		if rig.failSeal.Load() {
+		n := rig.seals.Add(1)
+		if n == 1 && rig.held != nil {
+			close(rig.heldAt)
+			<-rig.held
+		}
+		if rig.failSeal.Load() || (n == 1 && rig.failFirst.Load()) {
 			return hookio.Empty(), errors.New("seal failed")
 		}
+		rig.sealedOK.Add(1)
 		return hookio.Empty(), nil
 	}
 	so := SchedulerRuntimeOptions{
@@ -153,4 +165,47 @@ func TestCheckpoint_ASpooledDuplicateOfASealedPreCompactIsNotSealedAgain(t *test
 
 		require.Equal(t, int64(2), rig.seals.Load(), "the copy retries a seal that failed")
 	})
+}
+
+// TestCheckpoint_ACopyIsConsumedOnlyAfterASealOfItsPreCompactSucceeded is the wave 22 verifier's
+// finding against the row above. The hook spools a PreCompact only when the live reply misses its
+// deadline, so the live seal can still be running when a drain replays the copy. The route claimed
+// the nonce before it sealed and took any claim for a seal, so the copy was acknowledged, and
+// consumed, on the strength of a seal that had not finished. When that seal then failed, the claim
+// was released with no copy left to retry it, and the compaction had no checkpoint; base 2bf29705
+// sealed it through the copy. A copy is now skipped only once a seal of its PreCompact has
+// succeeded. The live seal is held by a channel, not a clock.
+func TestCheckpoint_ACopyIsConsumedOnlyAfterASealOfItsPreCompactSucceeded(t *testing.T) {
+	const sess core.SessionID = "sess-precompact-in-flight"
+	for _, liveFails := range []bool{true, false} {
+		name := "the live seal then succeeds"
+		if liveFails {
+			name = "the live seal then fails"
+		}
+		t.Run(name, func(t *testing.T) {
+			rig := newSealRig(t, sess)
+			rig.held, rig.heldAt = make(chan struct{}), make(chan struct{})
+			rig.failFirst.Store(liveFails)
+			ck := checkpointRequest(rig.dd, sess, testDeliveryToken('e'))
+			ck.Capture = admittedCapture(`{"hook_event_name":"PreCompact"}`)
+			done := make(chan ipc.Response, 1)
+			go func() { done <- rig.dd.dispatchOp(context.Background(), ck) }()
+			// The live route's answer, once its seal is let go; a row that fails early lets it go too.
+			finish := sync.OnceValue(func() ipc.Response {
+				close(rig.held)
+				return <-done
+			})
+			t.Cleanup(func() { finish() })
+			<-rig.heldAt
+
+			rig.drainSpooled(t, ck)
+			require.Equal(t, int64(1), rig.sealedOK.Load(),
+				"the copy is consumed while the live seal is still running, so it must have sealed itself")
+
+			require.True(t, finish().OK)
+			if liveFails {
+				require.Equal(t, int64(1), rig.sealedOK.Load(), "one PreCompact, one successful seal: the copy's")
+			}
+		})
+	}
 }
