@@ -22,7 +22,10 @@ import (
 // a plain project and in one whose own path has a space, is still shown. Wave 22's verify found a
 // path after a quote and a climb after an option's `=` or an `@` still shown (eca33155 showed them
 // too): each is judged where a reader starts the path, and the names a project's paths hold are
-// still shown.
+// still shown. Its fix round 2 found a NUL-separated list (the store's preview keeps the NUL as
+// \u0000), a glued redirect or `&&`, and a letter whose ANSI best fit is a quote or a bar still
+// showing the outside path after them, at eca33155 too: a control character splits a list, and the
+// others start a path anywhere in a piece.
 func TestRehydrateHostPaths_APathNamedValueHoldingSeveralPathsIsJudgedPieceByPiece(t *testing.T) {
 	for _, elem := range [][]string{{"proj"}, {"John Smith", "proj"}} {
 		t.Run(filepath.Join(elem...), func(t *testing.T) {
@@ -40,6 +43,8 @@ func TestRehydrateHostPaths_APathNamedValueHoldingSeveralPathsIsJudgedPieceByPie
 					v("paths", `"src/main.go" "src/util.go"`),
 					v("notebook_path", `"`+filepath.Join(root, "nb", "a b.ipynb")+`"`),
 					v("paths", "src/main.go --out=docs/b.md"),
+					v("paths", "src/main.go\x00src/util.go"),
+					v("file", "docs/R&D/plan.md"),
 				},
 				[]string{
 					v("paths", "src/main.go,"+out),
@@ -63,6 +68,14 @@ func TestRehydrateHostPaths_APathNamedValueHoldingSeveralPathsIsJudgedPieceByPie
 					v("paths", "src/main.go @../outside/x.txt"),
 					v("paths", "src/main.go:../outside/x.txt"),
 					v("path", "--out=../outside/x.txt"),
+					v("paths", "src/main.go\x00/etc/passwd"),
+					v("paths", "src/main.go\x00~/.ssh/id_rsa"),
+					v("paths", "src/main.go\x1f../../outside/x.txt"),
+					v("paths", "src/main.go>/etc/passwd"),
+					v("paths", "src/main.go&&/etc/passwd"),
+					v("paths", "src/main.go\u02ba/etc/passwd"),
+					v("paths", "src/main.go\u01c0/etc/passwd"),
+					v("path", filepath.Join(root, "src", "main.go")+">/etc/passwd"),
 				})
 			for _, leak := range []string{filepath.Join("outside", "x.txt"), "passwd", "id_rsa", "credentials", "secret.txt", "../outside"} {
 				require.NotContains(t, res.Text, leak)

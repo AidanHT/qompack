@@ -35,11 +35,20 @@ import (
 // removes). A path may start wherever a reader starts one, so each is judged there, a climb
 // included, in both readings of a backslash; the names a project's paths hold (`[id]`, `(auth)`,
 // `+page`, `c++`, `C#`) and a quoted project path are still shown. The verdicts hold under a plain
-// root, one with a space and one whose own name holds an apostrophe and parentheses (none of the
-// root's characters starts a path), with the host's rules in force and with none.
+// root, one with a space, one whose own name holds an apostrophe and parentheses and one whose own
+// name holds an ampersand (none of the root's characters starts a path), with the host's rules in
+// force and with none.
+//
+// Its fix round 2 found the class still open for characters no project path holds before a separator:
+// a control character, which splits a list as whitespace does (`find -print0` and `git ls-files -z`
+// write NUL-separated lists, which the store's preview keeps as \u0000), a glued redirect or command
+// separator (`>`, `>>`, `&`, `&&`), and a letter whose Windows ANSI best fit is ASCII punctuation
+// (U+02BA reaches an ANSI program as `"`, U+01C0 as `|`), all shown at eca33155 too. Each now starts
+// a path anywhere in a piece, as free text reads them; the names a project's paths hold around them
+// (`R&D`, `Q&A`, an okina inside a name) are still shown.
 func TestBuild_APathNamedValueHoldingSeveralPathsIsJudgedPieceByPiece(t *testing.T) {
 	esc := func(s string) string { return strings.ReplaceAll(s, `\`, `\\`) }
-	for _, elem := range [][]string{{"proj"}, {"John Smith", "proj"}, {"O'Brien (x)", "proj"}} {
+	for _, elem := range [][]string{{"proj"}, {"John Smith", "proj"}, {"O'Brien (x)", "proj"}, {"R&D", "proj"}} {
 		t.Run(filepath.Join(elem...), func(t *testing.T) {
 			root := previewRoot(elem...)
 			out := esc(previewRoot("outside", "x.txt"))
@@ -115,6 +124,30 @@ func TestBuild_APathNamedValueHoldingSeveralPathsIsJudgedPieceByPiece(t *testing
 				`{"paths":"src/a.ts ..\\..\\outside\\x.txt"}`,
 				`{"paths":"src/a.ts .\\./outside/x.txt"}`,
 				`{"path":"..\\outside\\x.txt"}`,
+				// Fix round 2: a control character splits a list; a glued redirect or command separator
+				// and a letter whose ANSI best fit is punctuation start a path anywhere in a piece.
+				`{"paths":"src/a.ts\u0000/etc/passwd"}`,
+				`{"paths":"src/a.ts\u0000~/.ssh/id_rsa"}`,
+				`{"paths":"src/a.ts\u001f../../outside/x.txt"}`,
+				`{"paths":"src/a.ts\u007f/etc/passwd"}`,
+				`{"paths":"src/a.ts\u0001` + out + `"}`,
+				`{"path":"` + inRoot("src", "a.ts") + `\u0000/etc/passwd"}`,
+				`{"paths":"src/a.ts>/etc/passwd"}`,
+				`{"paths":"src/a.ts>>/etc/passwd"}`,
+				`{"paths":"src/a.ts2>` + out + `"}`,
+				`{"paths":"src/a.ts&/etc/passwd"}`,
+				`{"paths":"src/a.ts&&/etc/passwd"}`,
+				`{"paths":"src/a.ts>~/.ssh/id_rsa"}`,
+				`{"paths":"src/a.ts>../../outside/x.txt"}`,
+				`{"paths":"src/a.ts&../outside/x.txt"}`,
+				`{"paths":"src/a.ts&$HOME/.aws/credentials"}`,
+				`{"path":"` + inRoot("src", "a.ts") + `>/etc/passwd"}`,
+				`{"paths":"src/a.ts` + "\u02ba" + `/etc/passwd"}`,
+				`{"paths":"src/a.ts` + "\u01c0" + `/etc/passwd"}`,
+				`{"paths":"src/a.ts` + "\u01c3" + `/etc/passwd"}`,
+				`{"paths":"src/a.ts` + "\u02bc" + `~/.ssh/id_rsa"}`,
+				`{"paths":"src/a.ts` + "\u0300" + `../outside/x.txt"}`,
+				`{"paths":"src/a.ts\u02ba/etc/passwd"}`,
 			}
 			shown := []string{
 				`{"file":"src/my notes.txt"}`,
@@ -144,6 +177,13 @@ func TestBuild_APathNamedValueHoldingSeveralPathsIsJudgedPieceByPiece(t *testing
 				`{"paths":"src/a.ts --out=docs/b.md"}`,
 				`{"file":"src/../src/a.ts"}`,
 				`{"file":"src\\a.ts"}`,
+				// Fix round 2: an ampersand, an okina and a list of project paths a control character
+				// splits.
+				`{"file":"docs/R&D/plan.md"}`,
+				`{"file":"notes/Q&A (draft).md"}`,
+				`{"file":"docs/Hawai` + "\u02bb" + `i/notes.md"}`,
+				`{"paths":"src/a.ts\u0000src/b.ts"}`,
+				`{"paths":"src/a.ts\u001f` + inRoot("docs", "b.md") + `"}`,
 			}
 			leaks := []string{"passwd", "id_rsa", "credentials", "secret.txt", "Vendor", "../outside", `..\\outside`, "./outside"}
 			for _, p := range []string{filepath.Join("outside", "x.txt"), filepath.Join("other", "x.txt"), filepath.Join("outside", "secret")} {

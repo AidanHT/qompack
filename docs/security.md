@@ -75,14 +75,18 @@ what it selects), and one that starts at the project root is judged through its 
 stretch from the root to the last word that holds a separator, which may include an argument that
 holds one); several path-named values, and a value the preview's cut fell inside, are judged by
 containment and the screen below, and a glob among them is withheld when it selects a withheld
-path. A path-named value may hold several paths, so each piece of it, split at whitespace, a comma,
-a semicolon or a bar, is also judged for a path outside the project wherever a reader starts one:
-at the piece's start, after an opening quote or bracket, a `:`, `=` or `@`, a run of punctuation
-that leads the piece or a leading short option, a climb and a PowerShell drive included
-(`{"paths":"src/a.ts /etc/passwd"}`, `{"paths":"src/a.ts \"/etc/passwd\""}` and
-`{"paths":"src/a.ts --out=../../x"}` are withheld), while the names a project's paths hold
-(`app/(auth)/page.tsx`, `pages/[id].tsx`, `lib/c++/x.h`) and the project root's own spelling, read
-whole, stay shown, so a single project path with a space in it, quoted or not, is shown.
+path. A path-named value may hold several paths, so each piece of it, split at whitespace, a control
+character (a NUL-separated list, as `find -print0` writes), a comma, a semicolon or a bar, is also
+judged for a path outside the project wherever a reader starts one: at the piece's start, after an
+opening quote or bracket, a `:`, `=`, `@`, a glued redirect or `&`, a letter whose Windows ANSI best
+fit is punctuation, a run of punctuation that leads the piece or a leading short option, a climb and
+a PowerShell drive included (`{"paths":"src/a.ts /etc/passwd"}`, `{"paths":"src/a.ts
+\"/etc/passwd\""}`, `{"paths":"src/a.ts>/etc/passwd"}` and `{"paths":"src/a.ts --out=../../x"}`
+are withheld), while the names a project's paths hold (`app/(auth)/page.tsx`, `pages/[id].tsx`,
+`lib/c++/x.h`, `docs/R&D/plan.md`) and the project root's own spelling, read whole, stay shown, so a
+single project path with a space in it, quoted or not, is shown. Inside a piece `+ # ) ] } ! ^`
+stay a name's characters, so a rooted path glued after one of them there (`a.txt+\Windows\win.ini`)
+is not judged as a path; the same text in free text is withheld.
 Containment reads a glob as a glob: a class, a `?` or a leading dot that may match `..`, and a
 class that may match a separator (`[/]etc[/]passwd`), name a path outside the project, and so does a
 `file:` URL wherever it stands. A one-word summary must also pass the free-text screen, reading whole
