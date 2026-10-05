@@ -165,15 +165,45 @@ func projectEstablished(l paths.Layout) bool {
 var spawnDaemon = daemon.SpawnDetached
 
 // daemonClientState is the State a lazily spawning client of `qompack mcp` or the command frontends
-// is built with: state.bin as ipc.ReadState reads it, with DaemonEnabled decided by daemonEnabledFor,
-// exactly as the hook path decides it (doHook, FR-6).
+// is built with: state.bin as ipc.ReadState reads it, with DaemonEnabled decided by daemonEnabledFor
+// and Mode by modeFor, exactly as the hook path decides them (doHook, FR-6).
 //
-// A client whose State says the daemon is disabled never dials and never spawns (ipc.Client.Send,
-// step 2).
+// A client whose State says runtime.mode is off asks no daemon at all, and one whose State says the
+// daemon is disabled never dials and never spawns (ipc.Client.Send, steps 1 and 2).
 func daemonClientState(root string, cfg config.Config) ipc.State {
 	st := ipc.ReadState(root, cfg)
 	st.DaemonEnabled = daemonEnabledFor(root, st.DaemonEnabled, cfg)
+	st.Mode = modeFor(root, st.Mode, cfg)
 	return st
+}
+
+// modeFor is the runtime mode a client of root works under, given the mode its state.bin read gave
+// (stateMode) and the loaded configuration: off when the configuration says off, and state.bin's off
+// only while the daemon that wrote it is alive (stateDaemonAlive); otherwise state.bin's mode, or the
+// configuration's once state.bin's off no longer speaks for the project. It is daemonEnabledFor's
+// rule (D67(c)) for the mode: a daemon writes Mode=off when a start reaches it while runtime.mode is
+// off, and only a clean stop removes the file, so one that died left status and the MCP server
+// reporting the project off, and the command client asking no daemon, for good, even after the
+// configuration stopped saying off. The liveness check runs only for a state.bin that says off
+// beside a configuration that does not, so no other read pays for it.
+func modeFor(root string, stateMode contract.Mode, cfg config.Config) contract.Mode {
+	cfgMode := ipc.StateFromConfig(cfg).Mode
+	switch {
+	case cfgMode == contract.ModeOff:
+		return contract.ModeOff
+	case stateMode == contract.ModeOff && !stateDaemonAlive(root):
+		return cfgMode
+	}
+	return stateMode
+}
+
+// stateModeOffHolds is modeFor for a hook, which reads state.bin before it loads any configuration:
+// whether a state.bin that says runtime.mode off still speaks for root, because the daemon that wrote
+// it is alive (stateDaemonAlive) or the configuration in effect for root says off too
+// (projectModeOff). A hook for which it does not hold goes on to admission, which loads the
+// configuration, and works under the configuration's mode. It is asked only when state.bin says off.
+func stateModeOffHolds(env Env, root string) bool {
+	return stateDaemonAlive(root) || projectModeOff(env, root)
 }
 
 // daemonEnabledFor is whether a client may use root's daemon, given the DaemonEnabled its state.bin
