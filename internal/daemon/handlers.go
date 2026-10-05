@@ -978,6 +978,12 @@ func (d *daemon) handleSessionStart(ctx context.Context, req ipc.Request) ipc.Re
 	// never close on this session's very first request (fix round 1, I-7/I-8). The existence
 	// check happens BEFORE Ensure so "new" means what registry.Ensure itself means.
 	_, existedBefore := d.registry.Get(ev.SessionID)
+	// Whether this start is the latest of the session's current life is read before Ensure too, since
+	// Ensure marks the session live, an ended one included, and before NoteStart: the session was live
+	// or ended no later than the host fired this start, and no later start of it has been handled
+	// (SessionRegistry.CurrentAt). The scheduler's bind for a replayed start asks
+	// (schedRuntime.bindOnReplayedStart).
+	ctx = withCurrentStart(ctx, d.registry.CurrentAt(ev.SessionID, req.TS))
 	d.registry.Ensure(ev, now)
 	// When the host fired this start, which for a replay is long before now: the checkpoint route
 	// asks it whether a PreCompact it replays was already followed by a start (handleCheckpoint).
@@ -1359,10 +1365,37 @@ func (d *daemon) handleCheckpoint(ctx context.Context, req ipc.Request) ipc.Resp
 	if err := contract.SaveHistory(contract.HistoryPath(d.root), h); err != nil {
 		d.log.Warn("daemon: failed to save history", "err", err)
 	}
+	// A PreCompact the hook spooled because its reply missed the client's deadline may be one this
+	// daemon already sealed: the live route leases nothing, so the drain leases the copy fresh and
+	// replays it here. Sealing it again would seal a second checkpoint, close the session's
+	// post-compaction segment as compacted, and give precompact.has_time_to_write a second wall
+	// sample for one PreCompact. So the route records each PreCompact whose seal succeeded
+	// (noteSealedLocked, in phase 3), and a replay of a recorded nonce does neither the seal nor the
+	// sample; it is still acknowledged.
+	//
+	// Only a seal that has succeeded is recorded, because the drain consumes the copy it acknowledges.
+	// The hook spools a copy only when the live reply misses its deadline, so the live seal can still
+	// be running when a drain replays the copy, and it can still fail: a copy acknowledged on the
+	// strength of a seal under way left that compaction with no checkpoint when the seal failed (the
+	// wave 22 verifier's second-round finding). A copy that arrives while its seal runs is therefore
+	// sealed as well, as every copy was before the record existed: one PreCompact can then be sealed
+	// twice, which is the price of never consuming a copy before a seal of it has succeeded. Waiting
+	// for the running seal is not an option here, because the drain replaying the copy holds the
+	// drain's mutex, which the running seal's settle may need. A replay of a PreCompact no route of
+	// this daemon sealed, which includes every one a predecessor handled before it stopped, keeps the
+	// replay's seal: a crash may have cut that seal short. The record lives in memory only, for that
+	// reason.
+	duplicate := spoolReplay(ctx) && d.sealedLocked(req.Nonce)
 	d.historyMu.Unlock()
 
 	if err := contract.WriteMarker(d.root, ev.SessionID, now); err != nil {
 		d.log.Warn("daemon: WriteMarker failed", "err", err)
+	}
+	if duplicate {
+		d.log.Debug("daemon: a spooled copy of a PreCompact this daemon sealed; not sealed again",
+			"session", string(ev.SessionID))
+		out := hookio.Empty()
+		return ipc.Response{OK: true, Output: &out}
 	}
 
 	// Phase 2 (unlocked): the wave-3 seam call, timed into B-E — its own budget is 2s, which must
@@ -1371,6 +1404,7 @@ func (d *daemon) handleCheckpoint(ctx context.Context, req ipc.Request) ipc.Resp
 	// Output it returns is discarded, because nothing a PreCompact reply could carry survives the
 	// host's PreCompact contract (C1.12) and the focus instruction it used to carry is retired
 	// (C1.18). The route therefore answers the empty object whichever seam is bound.
+	sealed := false
 	if d.svc.PreCompact != nil && mode.MayAct() {
 		var callErr error
 		// d.m is dereferenced unguarded here and in handleStatus (M-12): New always seeds it
@@ -1394,11 +1428,15 @@ func (d *daemon) handleCheckpoint(ctx context.Context, req ipc.Request) ipc.Resp
 		if callErr != nil {
 			d.log.Warn("daemon: PreCompact failed", "err", callErr)
 		}
+		sealed = callErr == nil
 	}
 	// Phase 3 (re-locked): re-load — a concurrent route may have saved its own changes while
 	// phase 2 ran unlocked — then apply this route's remaining mutations and save.
 	d.historyMu.Lock()
 	defer d.historyMu.Unlock()
+	if sealed {
+		d.noteSealedLocked(req.Nonce)
+	}
 	h = contract.LoadHistory(contract.HistoryPath(d.root))
 
 	h.AddPrecompactWallSample(d.clk.Now().Sub(routeStart).Milliseconds())

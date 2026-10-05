@@ -9,6 +9,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -382,4 +383,39 @@ func TestLocalCheckpointIsNeverConflatedWithHostCompaction(t *testing.T) {
 	require.Equal(t, afterLocal, next.rt.lastLocalCheckpointTS)
 	require.Equal(t, afterCompact, next.rt.lastCompactionTS)
 	require.Equal(t, core.CheckpointSeq(7), next.rt.lastCheckpointSeq)
+}
+
+// TestStateCodec_AppliedIdentitiesAreBoundedAndValidatedOnLoad is audit 2's nit on
+// last_applied_observations: it was loaded with no cap and no validation, unlike the turn lists, so
+// a hand-edited or corrupt but parseable document could insert any number of entries. A load keeps at
+// most tapAppliedBound of them, and only well-formed observation identities of a named session.
+func TestStateCodec_AppliedIdentitiesAreBoundedAndValidatedOnLoad(t *testing.T) {
+	t.Parallel()
+	applied := map[core.SessionID]core.ObservationID{
+		"sess-malformed": "not-an-observation",
+		"":               mustObservation(t, "sess-unnamed", 1),
+	}
+	for i := range tapAppliedBound + 44 {
+		sess := core.SessionID(fmt.Sprintf("sess-%04d", i))
+		applied[sess] = mustObservation(t, sess, 1)
+	}
+	raw, err := json.Marshal(schedulerStateDoc{Version: stateVersion, Session: rtSession, LastAppliedObservations: applied})
+	require.NoError(t, err)
+
+	doc, err := decodeSchedulerState(raw)
+	require.NoError(t, err)
+	require.Len(t, doc.LastAppliedObservations, tapAppliedBound)
+	for sess, id := range doc.LastAppliedObservations {
+		require.NotEmpty(t, sess)
+		require.NotEqual(t, core.SessionID("sess-malformed"), sess)
+		require.Equal(t, applied[sess], id)
+	}
+}
+
+// mustObservation is the observation identity of sess's delivery leased with arrival.
+func mustObservation(t *testing.T, sess core.SessionID, arrival uint64) core.ObservationID {
+	t.Helper()
+	id, err := core.NewObservationID(sess, arrival)
+	require.NoError(t, err)
+	return id
 }

@@ -134,6 +134,10 @@ type daemon struct {
 	// lastStartAnswer is what the last live session.start's answer carried that is true only once
 	// the host has it (handlers.go startAnswer): a replay of that same request withdraws it.
 	lastStartAnswer startAnswer
+	// sealedPreCompacts names, oldest first, the delivery nonces of the newest PreCompacts whose seal
+	// has succeeded in this daemon (handlers.go handleCheckpoint), so a hook's spooled copy of one is
+	// not sealed again. Guarded by historyMu, like lastStartAnswer.
+	sealedPreCompacts []string
 
 	// modeMu guards lastReportedMode, the mode the contract_mode_change counter (ruling #26)
 	// compares against, and lastAnnouncedMode, the mode the host was last told about, which the

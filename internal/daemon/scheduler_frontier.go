@@ -7,6 +7,7 @@ import (
 	"slices"
 
 	"github.com/qompack/qompack/internal/core"
+	"github.com/qompack/qompack/internal/hookio"
 	"github.com/qompack/qompack/internal/scheduler"
 	"github.com/qompack/qompack/internal/store"
 )
@@ -97,7 +98,7 @@ func (r *schedRuntime) CloseSegmentForCompaction(ctx context.Context, sess core.
 	switch r.session {
 	case sess:
 	case "":
-		r.bindUnboundLocked(sess)
+		r.bindUnboundLocked(sess, nil)
 	default:
 		r.count(counterTapCompactForeign)
 		return nil
@@ -115,12 +116,28 @@ func (r *schedRuntime) CloseSegmentForCompaction(ctx context.Context, sess core.
 // persists), so the turn is the later of the two and the open segment's tokens are their sum. The
 // deliveries this runtime applied unbound are in that sum, so their identities stay held next to the
 // restored account's own (schedRuntime.applied) and are persisted with the merged account. Its
-// callers are a compaction close (CloseSegmentForCompaction) and a session's first hook
-// (bindOnFirstHook).
-func (r *schedRuntime) bindUnboundLocked(sess core.SessionID) {
-	seenTurn, seenTokens, seenHeld := r.maxTurn, r.openSegTokens, r.heldLocked()
-	r.bindSessionLocked(sess, nil)
+// callers are a compaction close (CloseSegmentForCompaction), a session's first hook
+// (bindOnFirstHook) and a replayed SessionStart (bindOnReplayedStart).
+//
+// One delivery can be in both halves: the previous daemon applied it, persisted the account holding
+// it and never committed it, and this runtime's startup drain replayed it before the bind. So the
+// sum leaves out the tokens of every delivery applied unbound that the restored account names
+// (unboundFolds against restoredApplied). The dedupe is against the account the bind actually
+// restored: when sess is not the session the document belongs to, the document is discarded, nothing
+// is restored, and the replay's tokens count for sess's account, which holds them nowhere else.
+//
+// e is the binding event whose model and subagent hints the bind reads (noteBindingEventLocked): a
+// replayed SessionStart's (bindOnReplayedStart), or nil for a binding that is no SessionStart.
+func (r *schedRuntime) bindUnboundLocked(sess core.SessionID, e *hookio.Event) {
+	seenTurn, seenTokens, seenHeld, folds := r.maxTurn, r.openSegTokens, r.heldLocked(), r.unboundFolds
+	r.bindSessionLocked(sess, e)
 	r.holdLocked(seenHeld)
+	for s, f := range folds {
+		if id, ok := r.restoredApplied[s]; ok && id == f.obs {
+			seenTokens = max(seenTokens-f.tokens, 0)
+		}
+	}
+	r.restoredApplied = nil
 	if seenTurn <= r.maxTurn && seenTokens == 0 {
 		return
 	}
