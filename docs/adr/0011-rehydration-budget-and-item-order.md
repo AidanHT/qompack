@@ -1766,6 +1766,16 @@ do not fold the two readings are one.
       1000 (1.56x); with every CPU, 1.2x to 1.5x with no drops. The rest of the gap is the D63
       whitelist's own work on every distinct summary, which candidate 7 did not do; it is a
       known minor under D66(d), about 2 ms a build, far inside the compaction answer's 5 s budget.
+      Against eca33155, the base wave 22 started from, `BenchmarkBuild` at GOMAXPROCS 2 (30
+      builds a round, the median of six interleaved rounds, p99 the slowest of a round's 30)
+      measured on 290b04be by wave 22's verify, p50 then p99 in ms, eca33155 → HEAD: no rules
+      with 0 drops 6.18 → 3.18 and 8.90 → 4.98, 600 drops 15.02 → 3.88 and 21.45 → 11.78, 1000
+      drops 22.76 → 6.46 and 33.80 → 11.80; UAT-12's rules with 0 drops 5.42 → 3.72 and 10.55 →
+      5.90, 600 drops 15.68 → 4.83 and 27.30 → 7.92, 1000 drops 27.17 → 7.69 and 42.55 → 12.94.
+      Fix round 2's tree (b20a40fc's code), measured the same way on a host co-loaded by the other
+      seats, keeps that order at every size: p50 6.35 to 14.34 against 11.71 to 54.33, p99 15.32
+      to 25.10 against 22.57 to 110.87. Build is cheaper than at eca33155 everywhere, and its p99
+      at 1000 drops stays near 25 ms under that load.
     - *Qompack's own slash commands in a reason* (finding 27). The reason screen read every word led
       by `/` as an absolute path, so the checkpointer's `run /qompack:pin --list: <err>` became
       `(path withheld): <err>`. A word that is `/qompack:` and a command name is read without its

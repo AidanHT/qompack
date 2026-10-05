@@ -34,8 +34,9 @@ import (
 //
 // Building the rehydration was none of them. The rig's figure for it (rehydrate.build p99 13 ms)
 // predates the D50 and D63 host judgements and screen; internal/rehydrate's BenchmarkBuild now
-// measures Build alone at a few milliseconds to about 20 ms for a long session's checkpoint (200
-// tool pointers, 50 file pointers, up to 1000 drops), and through the daemon's adapter each
+// measures Build alone for a long session's checkpoint (200 tool pointers, 50 file pointers, up to
+// 1000 drops) at a p50 of about 3 to 8 ms and a p99 of about 5 to 13 ms at GOMAXPROCS 2, two to
+// three times that under co-load (ADR 0011 §23 item 12). Through the daemon's adapter each
 // host-judged path adds about a millisecond, a number the checkpoint's budget and the drops' cap
 // bound (ADR 0011 §23 item 10; the cost rows of
 // TestRehydrateHostPaths_HostJudgementsAreStructuredSummariesAndFilePointers).
