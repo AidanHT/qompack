@@ -1617,7 +1617,8 @@ screened; it now also matches the raw segments as `hostperm` does (item 7(d)).
 12. *Wave 22: audit 2's rehydrate findings* (coordinator decisions D66 and D67). Each is closed as
     a class, its row red on eca33155 first.
     - *A path-named value holding several paths* (finding 26): item 6. On the w19d corpus of 274
-      previews nothing flips, on Windows or Linux, in any of its ten scenarios.
+      previews nothing flips, on Windows or Linux, in any of its ten scenarios, before or after
+      wave 22's verify round.
     - *The drops' host judgements are bounded* (finding 28). Every path-keyed checkpoint drop cost
       one host judgement, uncached on disk, and their number grows with the session: the checkpointer
       keeps every touched file as a pointer and its budget cut names each pointer it cuts, so 1000
@@ -1663,7 +1664,21 @@ screened; it now also matches the raw segments as `hostperm` does (item 7(d)).
       `BenchmarkBuild` is internal/rehydrate's first benchmark: 200 tool pointers in eight preview
       shapes, 50 file pointers and 0, 600 or 1000 drops, with no rules and with UAT-12's; beside
       ns/op it reports each build's p50 and p99. No verdict changes
-      (`TestBuild_TheScreensMemoNeverChangesAnAnswer`).
+      (`TestBuild_TheScreensMemoNeverChangesAnAnswer`). Wave 22's verify measured candidate 7
+      (a357d187, the same fixture overlaid) and found the no-rules build still about twice its
+      cost with no drops. The screen built a glob replacer per call, decoded every JSON string,
+      copied every token byte by byte, listed every path start, split every token at operators it
+      did not hold, and ran its anchored expressions (`homeOrVarRoot`, `driveSpelling`, `psSplat`)
+      on every word; each is now built once, skipped when there is nothing to decode or split,
+      sliced, visited or guarded by its first byte, each pinned as pure speed
+      (`TestHotPathGuards_ChangeNoAnswer`, `TestOperatorPieces_TheShortcutChangesNoAnswer`,
+      `TestSplitTokens_SlicingChangesNoAnswer`). The no-drop no-rules build allocates 13.1k
+      objects (1.10 MB) where ec6e3ccd allocated 21.1k (1.42 MB) and candidate 7 7.6k (0.91 MB).
+      Measured p50 at GOMAXPROCS 2 on a co-loaded Windows host, 12 interleaved rounds, against
+      candidate 7: 1.69x with no drops (ec6e3ccd 1.95x), 1.39x with 600 (1.56x) and 1.47x with
+      1000 (1.56x); with every CPU, 1.2x to 1.5x with no drops. The rest of the gap is the D63
+      whitelist's own work on every distinct summary, which candidate 7 did not do; it is a
+      known minor under D66(d), about 2 ms a build, far inside the compaction answer's 5 s budget.
     - *Qompack's own slash commands in a reason* (finding 27). The reason screen read every word led
       by `/` as an absolute path, so the checkpointer's `run /qompack:pin --list: <err>` became
       `(path withheld): <err>`. A word that is `/qompack:` and a command name is read without its

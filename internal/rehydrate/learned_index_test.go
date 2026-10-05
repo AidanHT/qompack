@@ -1,6 +1,7 @@
 package rehydrate
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/rand"
 	"path"
@@ -122,5 +123,98 @@ func TestLearnedIndex_AJudgeAnswersAsItsListsDo(t *testing.T) {
 		require.Equal(t, lists.judgeSummary(s), j.judgeSummary(s), "%q", s)
 		reason := "checkpoint: git index unsupported: open " + strings.TrimSuffix(s, "…") + ": gone"
 		require.Equal(t, lists.reasonWithheld(reason), j.reasonWithheld(reason), "%q", reason)
+	}
+}
+
+// TestHotPathGuards_ChangeNoAnswer pins the first-byte guards before the screen's anchored
+// expressions as pure speed: over random words from the characters the expressions turn on, each
+// guarded test answers as its expression does.
+func TestHotPathGuards_ChangeNoAnswer(t *testing.T) {
+	rng := rand.New(rand.NewSource(33))
+	const alphabet = "~$%!@{}:/\\aZ_9.-x"
+	for i := 0; i < 20000; i++ {
+		var b strings.Builder
+		for n := rng.Intn(9); b.Len() < n; {
+			b.WriteByte(alphabet[rng.Intn(len(alphabet))])
+		}
+		p := b.String()
+		require.Equal(t, homeOrVarRoot.MatchString(p), homeOrVarRooted(p), "%q", p)
+		require.Equal(t, driveSpelling.MatchString(p), driveLetter(p), "%q", p)
+		require.Equal(t, psSplat.MatchString(p), strings.HasPrefix(p, "@") && psSplat.MatchString(p), "%q", p)
+	}
+	// A JSON string body jsonUnquote takes as it stands decodes to itself.
+	const body = "a/\\\"\x01\x1f\x7f é\xc3\xff\u2028"
+	for i := 0; i < 20000; i++ {
+		var b strings.Builder
+		for n := rng.Intn(7); b.Len() < n; {
+			b.WriteByte(body[rng.Intn(len(body))])
+		}
+		s := b.String()
+		if !plainJSONBody(s) {
+			continue
+		}
+		var out string
+		require.NoError(t, json.Unmarshal([]byte(`"`+s+`"`), &out), "%q", s)
+		require.Equal(t, out, s, "%q", s)
+	}
+}
+
+// TestOperatorPieces_TheShortcutChangesNoAnswer pins operatorPieces' shortcut for a token with no
+// operator character as pure speed: it answers as the split does.
+func TestOperatorPieces_TheShortcutChangesNoAnswer(t *testing.T) {
+	split := func(tok string) []string {
+		return strings.FieldsFunc(gluedOperators.Replace(tok), func(r rune) bool { return r == ';' })
+	}
+	for _, tok := range []string{"", "a", "src/a.go", "a&b", "a&&b", "a|b", "a;b", "a||b;c", ";", "|", "&", "x&", "-C../x"} {
+		if shellOperators[tok] || nullDevice(tok) || isURL(tok) || strings.Contains(tok, `"`) {
+			continue
+		}
+		if _, ok := quoteRun(tok); ok {
+			continue
+		}
+		require.Equal(t, split(tok), operatorPieces(tok), "%q", tok)
+	}
+}
+
+// TestSplitTokens_SlicingChangesNoAnswer pins splitTokens' slicing as pure speed: over random texts of
+// spaces, quotes and letters it answers as the byte-by-byte copy it replaced does.
+func TestSplitTokens_SlicingChangesNoAnswer(t *testing.T) {
+	copyTokens := func(s string) []string {
+		var toks []string
+		var b strings.Builder
+		var quote byte
+		flush := func() {
+			if b.Len() > 0 {
+				toks = append(toks, b.String())
+				b.Reset()
+			}
+		}
+		for i := 0; i < len(s); i++ {
+			switch c := s[i]; {
+			case quote != 0:
+				if c == quote {
+					quote = 0
+				}
+				b.WriteByte(c)
+			case c == '"' || (c == '\'' && b.Len() == 0):
+				quote = c
+				b.WriteByte(c)
+			case c == ' ':
+				flush()
+			default:
+				b.WriteByte(c)
+			}
+		}
+		flush()
+		return toks
+	}
+	rng := rand.New(rand.NewSource(26))
+	const alphabet = "  ab'\"x"
+	for i := 0; i < 20000; i++ {
+		var b strings.Builder
+		for n := rng.Intn(12); b.Len() < n; {
+			b.WriteByte(alphabet[rng.Intn(len(alphabet))])
+		}
+		require.Equal(t, copyTokens(b.String()), splitTokens(b.String()), "%q", b.String())
 	}
 }
