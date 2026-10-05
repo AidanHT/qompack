@@ -206,8 +206,10 @@ session that is not a compaction, with nothing of the session in between. A comp
 its next start, such as a `--resume`, reads `precompact-not-completed`, with nothing to judge:
 Qompack cannot tell a cancelled compaction from a compact start the host never sent
 (`checkSessionStartSourceCompact`). The order in which the hooks reach the daemon does not change
-this: a PreCompact replayed from a spool after the session already prompted or ended reads the same,
-and so does a second copy of a PreCompact the daemon already recorded. A row has
+this: a PreCompact replayed from a spool after the session already started, prompted or ended reads
+the same, also when the daemon restarted in between (`.qompack/state/history.json` keeps when each
+session last went on, `went_on`), and so does a second copy of a PreCompact the daemon already
+recorded. A row has
 nothing to judge when it reads `not-yet-implemented` or another "nothing was seen" spelling from §1,
 such as `first-session` or `retired`. The standard nine always include one such row:
 `precompact.custom_instructions_accepted` reads `retired` (or `not-yet-implemented`). So the

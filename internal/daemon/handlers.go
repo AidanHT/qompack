@@ -889,15 +889,18 @@ func (d *daemon) stopPromptRecordings(grace context.Context) {
 // transcript.readable for that session once it has ended. It also records that the session went on
 // after a PreCompact that is still waiting for its compact start (contract.SessionHistory.
 // NoteCompactLapse): the compaction was cancelled or failed, so the session's next start, a resume,
-// is no host failure. The prompt is also kept for a PreCompact of the session a drain replays after
-// it (noteWentOn). The history is saved only when a record changed.
+// is no host failure. The prompt is also kept, in the history, for a PreCompact of the session a
+// drain replays after it, whether or not this daemon is still the one running then
+// (contract.SessionHistory.NoteWentOn). The history is saved only when a record changed.
 func (d *daemon) scanSentinelForPrompt(ev *hookio.Event, promptTS core.UnixMilli, nonce string) {
 	d.historyMu.Lock()
 	defer d.historyMu.Unlock()
 
 	h := contract.LoadHistory(contract.HistoryPath(d.root))
 	changed := h.NotePrompt(ev.SessionID)
-	d.noteWentOn(h, ev.SessionID, promptTS)
+	if h.NoteWentOn(ev.SessionID, promptTS) {
+		changed = true
+	}
 	if h.NoteCompactLapse(ev.SessionID, promptTS) {
 		changed = true
 	}
@@ -1042,6 +1045,11 @@ func (d *daemon) handleSessionStart(ctx context.Context, req ipc.Request) ipc.Re
 	if heldBack {
 		h.AwaitingCompactStart = true
 	}
+	// The start is kept, in the history this phase saves, for a PreCompact of the session fired
+	// before it that a drain replays after it, perhaps by a daemon that has restarted since and no
+	// longer knows the start (SessionRegistry.StartedSince is in memory): that PreCompact was followed
+	// by this start, which already judged it (contract.SessionHistory.NoteWentOn, armPrecompact).
+	h.NoteWentOn(ev.SessionID, hookTime(req, now))
 	// A compact SessionStart's rehydration starts here, as soon as the contract run has said the
 	// mode may act and before this phase's own durable writes, so the two overlap; the route
 	// collects it where the seam call would be (session_start_compact.go, C1.16).
@@ -1425,11 +1433,13 @@ func (d *daemon) handleCheckpoint(ctx context.Context, req ipc.Request) ipc.Resp
 //     start, a resume, and degrade the project at critical severity for Qompack's own replay order.
 //     The PreCompact a daemon never saw live, replayed by the startup drain ahead of its compact
 //     start, still arms it.
-//   - Whatever arms it also reads whether the session has already gone on (wentOn): a prompt or
+//   - Whatever arms it also reads whether the session has already gone on: a start, prompt or
 //     SessionEnd of the session fired after the PreCompact but handled before it lapses the new
-//     obligation at once (contract.SessionHistory.NoteCompactLapse), as it would had it come after.
-//     A live PreCompact in order has nothing of its session after it yet, so for it this changes
-//     nothing.
+//     obligation at once (contract.SessionHistory.ArmCompactStart), as it would had it come after.
+//     That record is in the history (contract.SessionHistory.WentOn), so it holds across a daemon
+//     restart between those hooks and the replay (wave 22 fix round 2). It covers a live PreCompact
+//     held up until after its own compact start too. A live PreCompact in order has nothing of its
+//     session after it yet, so for it this changes nothing.
 //
 // LastPrecompactTS is when the host fired the PreCompact (the hook's own timestamp), not when this
 // route ran: the session.start route compares it with a replayed start's hook time, to tell a start
@@ -1442,45 +1452,25 @@ func (d *daemon) armPrecompact(h *contract.SessionHistory, sess core.SessionID, 
 	case replay && d.registry.StartedSince(sess, req.TS):
 		return
 	}
-	h.LastPrecompactTS = at
-	h.LastPrecompactSession = sess
-	h.AwaitingCompactStart = true
-	h.CompactStartLapsed = false
-	h.NoteCompactLapse(sess, d.wentOn[sess])
-	// Only a later PreCompact is armed from a replay, and a hook fired before it would not count.
-	for s, t := range d.wentOn {
-		if t <= at {
-			delete(d.wentOn, s)
-		}
-	}
-}
-
-// noteWentOn records, historyMu held, that the host fired a prompt or the SessionEnd of sess at at,
-// for the PreCompact a drain may replay after it (armPrecompact). h is the history the caller loaded.
-// A hook with no time, and one fired no later than the PreCompact h records, are not kept: a replay
-// arms only a later PreCompact, which neither would lapse.
-func (d *daemon) noteWentOn(h *contract.SessionHistory, sess core.SessionID, at core.UnixMilli) {
-	if sess == "" || at <= 0 || at <= h.LastPrecompactTS || at <= d.wentOn[sess] {
-		return
-	}
-	if d.wentOn == nil {
-		d.wentOn = map[core.SessionID]core.UnixMilli{}
-	}
-	d.wentOn[sess] = at
+	h.ArmCompactStart(sess, at)
 }
 
 // noteCompactLapse is a session end's half of contract.SessionHistory.NoteCompactLapse: a SessionEnd
 // the host fired at at, after a PreCompact of the same session that is still waiting for its compact
 // start, means the compaction never restarted the session (cancelled, or failed), so its next start,
 // a --resume, is no host failure (audit 2, #9). It is recorded in state/history.json, so it holds
-// across a daemon restart between the end and the resume. The history is saved only when it changed.
-// The end is also kept for a PreCompact of the session a drain replays after it (noteWentOn).
+// across a daemon restart between the end and the resume. The end is also kept, in the same history,
+// for a PreCompact of the session a drain replays after it (contract.SessionHistory.NoteWentOn). The
+// history is saved only when it changed.
 func (d *daemon) noteCompactLapse(sess core.SessionID, at core.UnixMilli) {
 	d.historyMu.Lock()
 	defer d.historyMu.Unlock()
 	h := contract.LoadHistory(contract.HistoryPath(d.root))
-	d.noteWentOn(h, sess, at)
-	if !h.NoteCompactLapse(sess, at) {
+	changed := h.NoteWentOn(sess, at)
+	if h.NoteCompactLapse(sess, at) {
+		changed = true
+	}
+	if !changed {
 		return
 	}
 	if err := contract.SaveHistory(contract.HistoryPath(d.root), h); err != nil {

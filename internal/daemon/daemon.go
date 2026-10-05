@@ -134,12 +134,6 @@ type daemon struct {
 	// lastStartAnswer is what the last live session.start's answer carried that is true only once
 	// the host has it (handlers.go startAnswer): a replay of that same request withdraws it.
 	lastStartAnswer startAnswer
-	// wentOn is, per session, when the host last fired one of its prompts or its SessionEnd, by the
-	// hook's own clock (noteWentOn), kept only while that is after the latest PreCompact history
-	// records. The checkpoint route reads it when it arms a PreCompact, so a session that went on
-	// before the daemon saw its PreCompact still lapses the obligation (handlers.go
-	// armPrecompact). historyMu guards it too.
-	wentOn map[core.SessionID]core.UnixMilli
 
 	// modeMu guards lastReportedMode, the mode the contract_mode_change counter (ruling #26)
 	// compares against, and lastAnnouncedMode, the mode the host was last told about, which the

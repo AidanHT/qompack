@@ -230,3 +230,96 @@ func TestCheckpointReplay_NonCompactStartRightAfterAReplayedPreCompactStillFails
 		})
 	}
 }
+
+// TestCheckpointReplay_ThePreCompactsSessionWentOnBeforeARestart is #9 across a daemon restart (wave
+// 22 fix round 2, the verifier's probe): the daemon never handled the PreCompact live (its hook could
+// not deliver it), the compaction was cancelled, and the session's prompt or SessionEnd was handled
+// live; then the daemon died before a drain replayed the PreCompact. The restarted daemon replays it
+// with no memory of what the session did, so the record of a session going on after a PreCompact is
+// kept in state/history.json, beside the PreCompact it is compared with. The same holds for a start
+// of the session fired after the PreCompact and handled before the restart (its compact start, when
+// the compaction did complete): it already judged the obligation, so the session's next start, a
+// --resume, has nothing to judge. And a PreCompact handled live only after its own compact start —
+// one held up while the host went on — is the same order of arrival without a replay.
+func TestCheckpointReplay_ThePreCompactsSessionWentOnBeforeARestart(t *testing.T) {
+	const sess = core.SessionID("sess-went-on-before-restart")
+	for _, how := range []string{"prompt", "session end", "compact start"} {
+		t.Run(how, func(t *testing.T) {
+			root := t.TempDir()
+			dd := replayProbeDaemonAt(t, root)
+			pre := lapseFixture(t, dd, sess, "n-pre")
+			if how == "compact start" {
+				compact := startRequest(dd, sess, "compact", "", "n-compact")
+				compact.TS = pre.TS + 1000
+				require.True(t, dd.dispatchOp(context.Background(), compact).OK)
+			} else {
+				goOn(t, dd, sess, how, pre.TS+1000)
+			}
+			dd = replayProbeDaemonAt(t, root)
+
+			require.True(t, dd.drainDispatch(context.Background(), pre).OK)
+			h := history(t, dd)
+			assert.True(t, h.CompactStartLapsed || !h.AwaitingCompactStart,
+				"the session went on after the PreCompact was fired (awaiting=%v lapsed=%v)",
+				h.AwaitingCompactStart, h.CompactStartLapsed)
+
+			r, banner := resumeAt(t, dd, sess, pre.TS+2000)
+			requireNoHostFailure(t, dd, r, banner)
+		})
+	}
+	t.Run("a live PreCompact handled after its compact start", func(t *testing.T) {
+		dd := replayProbeDaemon(t)
+		pre := lapseFixture(t, dd, sess, "n-pre")
+		compact := startRequest(dd, sess, "compact", "", "n-compact")
+		compact.TS = pre.TS + 1000
+		require.True(t, dd.dispatchOp(context.Background(), compact).OK)
+		require.True(t, dd.dispatchOp(context.Background(), pre).OK)
+
+		r, banner := resumeAt(t, dd, sess, pre.TS+2000)
+		requireNoHostFailure(t, dd, r, banner)
+	})
+}
+
+// TestCheckpointReplay_NonCompactStartAfterARestartedReplayStillFails pins the other direction across
+// a restart: what the restarted daemon reads from state/history.json must not lapse an obligation
+// nothing of the session followed. A PreCompact replayed by a restarted daemon, then a non-compact
+// start of its session with nothing of that session in between, still fails at critical severity:
+// when the session's last hook before the restart was fired before the PreCompact, or when only
+// another session went on after it.
+func TestCheckpointReplay_NonCompactStartAfterARestartedReplayStillFails(t *testing.T) {
+	const sess, other = core.SessionID("sess-restarted-wrong-source"), core.SessionID("sess-bystander")
+	cases := []struct {
+		name   string
+		before func(t *testing.T, dd *daemon, pre ipc.Request)
+	}{
+		{"nothing but its startup", func(*testing.T, *daemon, ipc.Request) {}},
+		{"a prompt fired before the PreCompact", func(t *testing.T, dd *daemon, pre ipc.Request) {
+			goOn(t, dd, sess, "prompt", pre.TS-500)
+		}},
+		{"another session's prompt after the PreCompact", func(t *testing.T, dd *daemon, pre ipc.Request) {
+			goOn(t, dd, other, "prompt", pre.TS+500)
+		}},
+		{"another session's start after the PreCompact", func(t *testing.T, dd *daemon, pre ipc.Request) {
+			start := startRequest(dd, other, "startup", "", "n-other")
+			start.TS = pre.TS + 500
+			require.True(t, dd.dispatchOp(context.Background(), start).OK)
+		}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			root := t.TempDir()
+			dd := replayProbeDaemonAt(t, root)
+			pre := lapseFixture(t, dd, sess, "n-pre")
+			tc.before(t, dd, pre)
+			dd = replayProbeDaemonAt(t, root)
+
+			require.True(t, dd.drainDispatch(context.Background(), pre).OK)
+			h := history(t, dd)
+			require.True(t, h.AwaitingCompactStart)
+			require.False(t, h.CompactStartLapsed, "nothing of the session followed its PreCompact")
+
+			r, _ := resumeAt(t, dd, sess, pre.TS+1000)
+			requireHostFailure(t, dd, r)
+		})
+	}
+}
