@@ -2,8 +2,10 @@
 # quiet.sh <candidate-repo> <base-rev> <evidence-dir> <step...>
 # Phase 5's quiet benchmark runs (C5.1, C5.2), after Phase 3, on an otherwise idle host. Strictly
 # sequential; nothing declares co-load (QOMPACK_UNDER_COLOAD is unset for every run). Stop every
-# other workstream first, hold a keep-awake (keepawake.ps1) for the whole run, and never run two
-# copies (the evidence directory holds a lock). Steps, run in the order given:
+# other workstream first, hold a keep-awake for the whole run (a night's launch already takes one;
+# run alone, take it with keepawake-start.ps1 <evidence-dir>, which confirms it holds: README.md,
+# audit 2's #57), and never run two copies (the evidence directory holds a lock). Steps, run in
+# the order given:
 #   c51-win     C5.1: devtool bench-hotpath --iterations 5000 --hook observe-tool --warm-daemon
 #               --json (nightly bench-deep's command; p50/p95/p99/p999/max per row), then
 #               TestBudgetBF -v alone (ci.yml's timing lane's B-F row: n/p50/p95/p99/max over 200

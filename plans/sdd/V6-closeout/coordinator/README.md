@@ -336,9 +336,10 @@ The power verdicts (both nights):
      overnight-c8.sh cannot tell a leftover `C8_C52_ONLY=1` from a C5.2 night's switch, because 1
      is a valid value, so the re-run would silently become a C5.2 night (chain.log's start line
      would say `mode=c52-only`). Then use the C5.2 night's launch below with two changes: `$e` is
-     `.../phase3/c8-rerun-<n>`, and the `$env:C8_C52_ONLY = '1'` line is left out (the keep-awake is
-     confirmed by keepawake-start.ps1 first and the launch sits in its success branch, as there) (`C8_C52_STEPS`
-     stays unset, which overnight-c8.sh checks; the final `Remove-Item` line stays). Its refusal
+     `.../phase3/c8-rerun-<n>`, and the `$env:C8_C52_ONLY = '1'` line is left out (`C8_C52_STEPS`
+     stays unset, which overnight-c8.sh checks; the final `Remove-Item` line stays). The rest of
+     the block stays as it is: keepawake-start.ps1 confirms the keep-awake first, and the night
+     launches only inside its success branch (audit 2's #57). Its refusal
      check (chain.log a minute after launch, `launch.err`) applies as written there. Check that
      chain.log's start line says `release-check must start by`, not `mode=c52-only`. The overnight
      part alone takes about 6 h 15 min (the steps before release-check, then release-check), so

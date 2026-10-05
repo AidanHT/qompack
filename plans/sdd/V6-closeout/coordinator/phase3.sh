@@ -46,7 +46,9 @@
 # and the *-timing steps judge every wall-clock row alone, on the clock it was written against.
 # Run the timing steps with nothing else on the host. The timing -run pattern and packages are
 # read from ci.yml's timing job, which TestColoadYieldersAreJudgedInIsolation keeps complete.
-# Hold a keep-awake (keepawake.ps1) for the whole run. Never run two copies at once.
+# Hold a keep-awake for the whole run: a night's launch already takes one; run alone, take it with
+# keepawake-start.ps1 <evidence-dir>, which confirms it holds (README.md, audit 2's #57). Never
+# run two copies at once.
 set -u
 repo=$1; ev=$2; shift 2
 here=$(cd "$(dirname "$0")" && pwd)
