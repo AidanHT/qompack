@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -598,8 +597,11 @@ func TestRehydrateHostPaths_AnOutsideNamesakeNeverWithholdsAProjectPath(t *testi
 // absolute paths under it fit the store's preview width uncut, as a project's often do. t.TempDir
 // spells the test's name into the path, which alone can exceed it. Off Windows it is made in /tmp,
 // not in TMPDIR: macOS hands a test a 48-character TMPDIR, under which a root-spelling preview the
-// row requires uncut was cut (audit 2's finding 36); storePreview holds every preview to the longest
-// temporary directory a hosted runner spells all the same (longestTempBase).
+// row requires uncut was cut (audit 2's finding 36, hosted CI's H2); storePreview holds every preview
+// to the longest temporary directory a hosted runner spells all the same (longestTempBase). Both of
+// the base's spellings are recorded for it, as made and as resolved: a row that makes its root
+// canonical (filepath.EvalSymlinks, as costProject's is) spells it as resolved, and on macOS /tmp is
+// a link to /private/tmp.
 func shortProjectDir(t *testing.T, elem ...string) string {
 	t.Helper()
 	dir := ""
@@ -609,26 +611,22 @@ func shortProjectDir(t *testing.T, elem ...string) string {
 	base, err := os.MkdirTemp(dir, "q")
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = os.RemoveAll(paths.Long(base)) })
+	resolved, err := filepath.EvalSymlinks(base)
+	require.NoError(t, err)
 	if runtime.GOOS == "windows" {
 		// A hosted Windows runner spells its temporary directory with an 8.3 name
 		// (C:\Users\RUNNER~1\AppData\Local\Temp), and a root holding a `~` has no root unit (D64(1)),
 		// so the base is spelled by its long names, as a session's working directory is.
-		long, err := filepath.EvalSymlinks(base)
-		require.NoError(t, err)
-		base = long
+		base = resolved
 	}
-	projectBases.Lock()
-	projectBases.dirs = append(projectBases.dirs, base)
-	projectBases.Unlock()
+	projectBases.add(base, resolved)
 	return filepath.Join(append([]string{base}, elem...)...)
 }
 
-// projectBases are the directories shortProjectDir made, which storePreview and storePreviewOf
-// replace with longestTempBase to hold each preview to a hosted runner's temporary directory.
-var projectBases struct {
-	sync.Mutex
-	dirs []string
-}
+// projectBases are the spellings of the directories shortProjectDir made, which storePreview and
+// storePreviewOf respell as longestTempBase to hold each preview to a hosted runner's temporary
+// directory.
+var projectBases baseSpellings
 
 // storePreview is the summary the checkpointer records for a call with these arguments: the store's
 // own preview (store.ArgsDigest), which the row requires to be uncut, here and under the longest
@@ -647,25 +645,23 @@ func storePreview(t *testing.T, args map[string]string) string {
 	return preview
 }
 
-// requireUncutOnAHostedRunner requires the store's preview of args to be uncut with every directory
-// shortProjectDir made, in either slash style, spelled as longestTempBase instead (audit 2's finding
-// 36): a row's previews fit the store's width on the runner that tests it, not only on a machine with
-// a short temporary directory.
+// requireUncutOnAHostedRunner requires the store's preview of args to be uncut with every spelling of
+// every directory shortProjectDir made respelled as longestTempBase (onAHostedRunner; audit 2's
+// finding 36, hosted CI's H2): a row's previews fit the store's width on the runner that tests it,
+// not only on a machine with a short temporary directory. No value may spell a directory t.TempDir
+// made for the row, whose length is the runner's.
 func requireUncutOnAHostedRunner(t *testing.T, args map[string]any) {
 	t.Helper()
-	projectBases.Lock()
-	dirs := append([]string(nil), projectBases.dirs...)
-	projectBases.Unlock()
+	bases := projectBases.snapshot()
 	long := longestTempBase()
+	fold := paths.DefaultFold()
 	var swap func(v any) any
 	swap = func(v any) any {
 		switch x := v.(type) {
 		case string:
-			for _, d := range dirs {
-				x = strings.ReplaceAll(x, d, long)
-				x = strings.ReplaceAll(x, filepath.ToSlash(d), filepath.ToSlash(long))
-			}
-			return x
+			require.False(t, spellsTestTempDir(x, t.Name(), os.TempDir(), fold),
+				"fixture: %q spells t.TempDir(), whose length is the runner's; build the root under shortProjectDir", x)
+			return onAHostedRunner(x, bases, long, fold)
 		case []string:
 			out := make([]string, len(x))
 			for i, s := range x {

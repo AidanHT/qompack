@@ -18,6 +18,20 @@ import (
 	"github.com/qompack/qompack/internal/rehydrate"
 )
 
+// unicodeRootVariants are the root segments the r5 rows spell with another case of a non-ASCII letter:
+// the project's own segment, the variant a session recorded, whether NTFS opens the variant as the
+// root's folder, and whether the host's lower-casing refuses it as the project's file.
+var unicodeRootVariants = []struct {
+	name, seg, variant  string
+	ntfsSame, hostFolds bool
+}{
+	{"U+00C5", "\u00e5sa", "\u00c5sa", true, true},
+	{"U+212A", "kate", "\u212Aate", false, true},
+	{"U+017F", "sam", "\u017Fam", false, false},
+	{"U+212B", "\u00e5sa", "\u212Bsa", false, true},
+	{"U+0130", "iris", "\u0130ris", false, true},
+}
+
 // TestRehydrateHostPaths_AWithheldPathUnderAUnicodeCaseSpellingOfTheRootTeachesItsNames is wave 19h's
 // verify of the root's ASCII-only case fold through the real host rules and real folders (ADR 0011
 // §23, the two-fold rule). The project's root is `<tmp>\åsa\proj` (or `kate`, `sam`, `iris`), and the
@@ -52,16 +66,7 @@ func TestRehydrateHostPaths_AWithheldPathUnderAUnicodeCaseSpellingOfTheRootTeach
 		{"a tool summary under a spaced root", "private/deny.txt", true, []string{"private/d*", "private/de?y.txt"}},
 		{"a short name", "private/id", false, []string{"private/i?"}},
 	}
-	for _, rc := range []struct {
-		name, seg, variant  string
-		ntfsSame, hostFolds bool
-	}{
-		{"U+00C5", "åsa", "Åsa", true, true},
-		{"U+212A", "kate", "Kate", false, true},
-		{"U+017F", "sam", "ſam", false, false},
-		{"U+212B", "åsa", "Åsa", false, true},
-		{"U+0130", "iris", "İris", false, true},
-	} {
+	for _, rc := range unicodeRootVariants {
 		for _, sh := range shapes {
 			t.Run(rc.name+"/"+sh.name, func(t *testing.T) {
 				seg, vseg := rc.seg, rc.variant
