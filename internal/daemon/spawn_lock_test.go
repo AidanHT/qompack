@@ -26,9 +26,20 @@ import (
 // process announced in run/spawn.lock within the lock's freshness window is waited for, never
 // duplicated; a spawn EnsureRunning makes is announced there too; and a lock nobody finishes goes
 // stale, after which the next caller spawns.
+//
+// Every row here whose verdict a slow machine could change runs its call on a stepPollClock (D61(c);
+// wave 22's H4 and its review): the poll's deadline, its ticks, the instant a daemon comes up and the
+// instant a claim ages are all step time, which moves only when the call moves it. The daemons are
+// still real listeners, and the dials still real (stepProbeBy), so the ipc dial path runs against
+// them; only no dial races a real budget. A row with two calls gives each its own step clock and
+// holds the one that waits until the other's daemon is up (holdUntilUp). The rows in which nothing
+// comes up, so that no timing can change their verdict (ItsSpawnHoldsOffALazySpawn,
+// ReleasesItsClaimWhenTheSpawnFails), stay on production's wall clock and probeBy, so ensureRunning's
+// own wiring is still run.
 
 // spawnLockTestBound is the poll bound these rows give ensureRunning when they expect a daemon: far
-// above the fake daemon's start-up delay, so a pass never depends on the machine's speed.
+// above the fake daemon's start-up delay. On a step clock the bound is exact; the wall-clock rows that
+// share these fixtures (spawn_home_test.go, spawn_claim_release_test.go) use it as a margin.
 const spawnLockTestBound = 5 * time.Second
 
 // spawnLockMissBound is the bound for the rows that expect NO daemon: they wait it out in full.
@@ -48,6 +59,7 @@ type fakeDaemons struct {
 	mu      sync.Mutex
 	servers []ipc.Server
 	up      map[string]bool
+	upCh    map[string]chan struct{}
 	timers  []*time.Timer
 	closed  bool
 
@@ -99,6 +111,53 @@ func (f *fakeDaemons) serve(root string) {
 		})
 	}()
 	removeSpawnLockFile(root)
+	close(f.upChanLocked(root))
+}
+
+// upSignal returns a channel serve closes once it has brought root's daemon up.
+func (f *fakeDaemons) upSignal(root string) <-chan struct{} {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.upChanLocked(root)
+}
+
+// upChanLocked is upSignal's channel for root, made on first use. f.mu is held.
+func (f *fakeDaemons) upChanLocked(root string) chan struct{} {
+	if f.upCh == nil {
+		f.upCh = map[string]chan struct{}{}
+	}
+	ch, ok := f.upCh[root]
+	if !ok {
+		ch = make(chan struct{})
+		f.upCh[root] = ch
+	}
+	return ch
+}
+
+// spawnUpOn is spawnUp on a stepPollClock: the daemon comes up fakeDaemonUpAfter after the spawn on
+// pc, in whichever goroutine moves pc past that instant, which is the spawning call's own poll.
+func (f *fakeDaemons) spawnUpOn(pc *stepPollClock) func(root, self string) error {
+	return func(root, _ string) error {
+		f.calls.Add(1)
+		pc.at(pc.Now().Add(fakeDaemonUpAfter), func() { f.serve(root) })
+		return nil
+	}
+}
+
+// spawnHoldAt is when holdUntilUp holds a call's step clock in the rows with two calls: after the
+// instant the call's own daemon would come up were it the one that spawns, which it does at the start
+// of its step time (its dials of an address nobody listens on, and its claim, take none), so a call
+// is never held for a daemon only it could bring up.
+const spawnHoldAt = 2 * fakeDaemonUpAfter
+
+// holdUntilUp keeps pc from passing at until root's daemon is up. In a row with two calls, each on its
+// own step clock, the call that waits for the other's daemon is held here, so however late the machine
+// runs the goroutine that brings that daemon up, the waiting call never spends its wait on that
+// (D61(c)). A call whose row has no daemon coming at all would be held for good, and the row then
+// fails by its binary's -timeout rather than with a wrong verdict.
+func (f *fakeDaemons) holdUntilUp(pc *stepPollClock, at time.Time, root string) {
+	up := f.upSignal(root)
+	pc.at(at, func() { <-up })
 }
 
 func (f *fakeDaemons) close() {
@@ -139,25 +198,53 @@ func writeSpawnLock(t *testing.T, root string, at time.Time) string {
 
 // TestEnsureRunning_WaitsForTheDaemonAFreshSpawnLockAnnounces is D17a's first row: another hook
 // has just spawned this project's daemon (its spawn.lock is fresh) and that daemon is still coming
-// up, so session-start must wait for it rather than spawn a second one. The self path would fail
-// loudly if EnsureRunning tried to start it.
+// up, so session-start must wait for it, for EnsureRunning's own bound, rather than spawn a second
+// one. The daemon comes up fakeDaemonUpAfter into the wait on the call's step clock; the wall-clock
+// row this replaces brought it up on a timer, and a claim stalled for 1.6 s, as a loaded runner's
+// file I/O can, ended the 1.5 s wait before the call found it (wave 22's H4 review).
 func TestEnsureRunning_WaitsForTheDaemonAFreshSpawnLockAnnounces(t *testing.T) {
 	root := t.TempDir()
 	clk := newFakeClock(epoch)
-	writeSpawnLock(t, root, clk.Now())
-	newFakeDaemons(t).serveAfter(root, fakeDaemonUpAfter)
+	lockPath := writeSpawnLock(t, root, clk.Now())
+	f := newFakeDaemons(t)
+	pc := newStepPollClock(epoch)
+	upAt := pc.Now().Add(fakeDaemonUpAfter)
+	pc.at(upAt, func() { f.serve(root) })
 
-	spawned, err := EnsureRunning(root, "/this/path/does/not/exist", logging.Nop(), clk)
+	spawned, err := ensureRunningWith(root, "self", logging.Nop(), clk, pollBound{after: ensureRunningPollBound},
+		f.spawnUpOn(pc), stepProbeBy(pc), pc)
 	require.NoError(t, err, "a spawn announced in a fresh spawn.lock must be waited for, not duplicated")
 	require.False(t, spawned, "EnsureRunning spawned nothing: the daemon it found was another hook's")
+	require.Zero(t, f.calls.Load(), "nothing may spawn while another hook's daemon is on its way")
+	require.False(t, pc.Now().Before(upAt), "found once it was up")
+	require.Less(t, pc.Now().Sub(upAt), ensureRunningPollInterval, "found at the first tick after it came up")
+	require.NoFileExists(t, lockPath, "the claim was the other hook's, and its daemon removed it; the call took none")
 }
 
 // TestEnsureRunning_TwoColdHooksStartOneDaemon: two session-starts reach a project with no daemon
-// at the same moment. One spawns; the other waits for that daemon.
+// at the same moment. One spawns; the other waits for that daemon. Each call runs on its own step
+// clock and says, at its first tick, that it has begun to poll. A daemon either call spawns comes up
+// only once the other call has begun polling as well, so both calls find no daemon at their first
+// dial and the second finds the first one's claim, as two hooks arriving together do, however the
+// machine orders the two goroutines (on a step clock one call could otherwise finish before the other
+// starts). The call that waits is held until that daemon is up (holdUntilUp), so no wait races it.
 func TestEnsureRunning_TwoColdHooksStartOneDaemon(t *testing.T) {
 	root := t.TempDir()
 	clk := newFakeClock(epoch)
 	f := newFakeDaemons(t)
+
+	type coldHook struct {
+		pc      *stepPollClock
+		polling chan struct{}
+		once    sync.Once
+	}
+	hooks := [2]*coldHook{}
+	for i := range hooks {
+		h := &coldHook{pc: newStepPollClock(epoch), polling: make(chan struct{})}
+		h.pc.at(epoch.Add(ensureRunningPollInterval), func() { h.once.Do(func() { close(h.polling) }) })
+		f.holdUntilUp(h.pc, epoch.Add(spawnHoldAt), root)
+		hooks[i] = h
+	}
 
 	type result struct {
 		spawned bool
@@ -165,11 +252,23 @@ func TestEnsureRunning_TwoColdHooksStartOneDaemon(t *testing.T) {
 	}
 	results := make(chan result, 2)
 	var wg sync.WaitGroup
-	for range 2 {
+	for i, own := range hooks {
+		other := hooks[1-i]
+		spawn := func(r, _ string) error {
+			f.calls.Add(1)
+			own.pc.at(own.pc.Now().Add(fakeDaemonUpAfter), func() {
+				<-other.polling
+				f.serve(r)
+			})
+			return nil
+		}
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			s, err := ensureRunning(root, "self", logging.Nop(), clk, pollBound{after: spawnLockTestBound}, f.spawnUp)
+			s, err := ensureRunningWith(root, "self", logging.Nop(), clk, pollBound{after: spawnLockTestBound},
+				spawn, stepProbeBy(own.pc), own.pc)
+			// A call that has returned holds no daemon back, so a wrong answer is reported, not hung on.
+			own.once.Do(func() { close(own.polling) })
 			results <- result{s, err}
 		}()
 	}
@@ -188,39 +287,45 @@ func TestEnsureRunning_TwoColdHooksStartOneDaemon(t *testing.T) {
 
 // TestEnsureRunning_AHookArrivingWhileAStagedSpawnIsStartingWaits: on Windows the spawner first
 // copies and verifies the binary it runs (the staged copy, D10), which can take seconds on a loaded
-// machine. A second hook arriving during that window must find the spawn announced and wait.
+// machine. A second hook arriving during that window must find the spawn announced and wait. The
+// staging ends fakeDaemonUpAfter into the second hook's wait, on its step clock, and that hook is
+// then held until the first one's daemon is up (holdUntilUp), so no timer races either wait.
 func TestEnsureRunning_AHookArrivingWhileAStagedSpawnIsStartingWaits(t *testing.T) {
 	root := t.TempDir()
 	clk := newFakeClock(epoch)
 	f := newFakeDaemons(t)
 
+	firstPC := newStepPollClock(epoch)
+	spawnUp := f.spawnUpOn(firstPC)
 	staging := make(chan struct{})
 	release := make(chan struct{})
+	var released sync.Once
+	finishStaging := func() { released.Do(func() { close(release) }) }
 	slowStagedSpawn := func(r, s string) error {
 		close(staging)
 		<-release // still copying the binary
-		return f.spawnUp(r, s)
+		return spawnUp(r, s)
 	}
 
 	first := make(chan error, 1)
 	go func() {
-		_, err := ensureRunning(root, "self", logging.Nop(), clk, pollBound{after: spawnLockTestBound}, slowStagedSpawn)
+		_, err := ensureRunningWith(root, "self", logging.Nop(), clk, pollBound{after: spawnLockTestBound},
+			slowStagedSpawn, stepProbeBy(firstPC), firstPC)
 		first <- err
 	}()
 	<-staging
-	second := make(chan error, 1)
-	var secondSpawned atomic.Bool
-	go func() {
-		s, err := ensureRunning(root, "self", logging.Nop(), clk, pollBound{after: spawnLockTestBound}, f.spawnUp)
-		secondSpawned.Store(s)
-		second <- err
-	}()
-	time.AfterFunc(fakeDaemonUpAfter, func() { close(release) })
+
+	secondPC := newStepPollClock(epoch)
+	secondPC.at(secondPC.Now().Add(fakeDaemonUpAfter), finishStaging)
+	f.holdUntilUp(secondPC, secondPC.Now().Add(spawnHoldAt), root)
+	secondSpawned, secondErr := ensureRunningWith(root, "self", logging.Nop(), clk, pollBound{after: spawnLockTestBound},
+		f.spawnUpOn(secondPC), stepProbeBy(secondPC), secondPC)
+	finishStaging() // so a second hook that returned before the staging ended does not hang the first
 
 	require.NoError(t, <-first)
-	require.NoError(t, <-second)
+	require.NoError(t, secondErr)
 	require.EqualValues(t, 1, f.calls.Load(), "the hook that arrived mid-staging must not spawn a second daemon")
-	require.False(t, secondSpawned.Load())
+	require.False(t, secondSpawned)
 }
 
 // TestEnsureRunning_ItsSpawnHoldsOffALazySpawn: session-start's own spawn is announced in
@@ -250,16 +355,24 @@ func TestEnsureRunning_AnAbandonedSpawnLockBlocksOnlyUntilItIsStale(t *testing.T
 	f := newFakeDaemons(t)
 
 	clk.Advance(ensureSpawnLockHalfWindow)
-	spawned, err := ensureRunning(root, "self", logging.Nop(), clk, pollBound{after: spawnLockMissBound}, f.spawnUp)
+	pc := newStepPollClock(epoch)
+	spawned, err := ensureRunningWith(root, "self", logging.Nop(), clk, pollBound{after: spawnLockMissBound},
+		f.spawnUpOn(pc), stepProbeBy(pc), pc)
 	require.ErrorIs(t, err, core.ErrNotFound, "a fresh lock is waited on, up to the bound")
 	require.False(t, spawned)
 	require.EqualValues(t, 0, f.calls.Load())
+	require.Equal(t, epoch.Add(spawnLockMissBound), pc.Now(), "the wait for the fresh lock's daemon ends at its bound")
 
 	clk.Advance(ensureSpawnLockHalfWindow + time.Second) // now older than the freshness window
-	spawned, err = ensureRunning(root, "self", logging.Nop(), clk, pollBound{after: spawnLockTestBound}, f.spawnUp)
+	pc = newStepPollClock(epoch)
+	spawned, err = ensureRunningWith(root, "self", logging.Nop(), clk, pollBound{after: spawnLockTestBound},
+		f.spawnUpOn(pc), stepProbeBy(pc), pc)
 	require.NoError(t, err)
 	require.True(t, spawned, "a stale lock must not block a spawn")
 	require.EqualValues(t, 1, f.calls.Load())
+	upAt := epoch.Add(fakeDaemonUpAfter) // spawned at once, so up fakeDaemonUpAfter into its step time
+	require.False(t, pc.Now().Before(upAt), "found once it was up")
+	require.Less(t, pc.Now().Sub(upAt), ensureRunningPollInterval, "found at the first tick after it came up")
 }
 
 // TestEnsureRunning_ReleasesItsClaimWhenTheSpawnFails: a spawn that could not even start leaves no
@@ -300,25 +413,32 @@ func (c *onFirstNowClock) Since(t time.Time) time.Duration { return c.Now().Sub(
 // comes up, and deletes run/spawn.lock as Run does, after ensureRunning's dial missed it and before
 // its claim. The claim then succeeds, on a lock the daemon itself freed. EnsureRunning must dial again
 // before it spawns, find that daemon and give the claim back, not start a second daemon: the lock is
-// free both when nobody is spawning and when the spawn it announced has finished.
+// free both when nobody is spawning and when the spawn it announced has finished. The dial after the
+// claim is real and on the call's step clock (stepProbeBy), so it is waited on until the daemon's
+// accept loop is up: the wall-clock row raced its 250 ms bound against that loop, and an accept loop
+// that started 400 ms late on Windows read as no daemon and spawned (wave 22's H4 review).
 func TestEnsureRunning_ALockItsDaemonFreedIsNoLicenceToSpawn(t *testing.T) {
 	root := t.TempDir()
 	f := newFakeDaemons(t)
 	clk := &onFirstNowClock{fakeClock: newFakeClock(epoch), fn: func() { f.serve(root) }}
 	lockPath := writeSpawnLock(t, root, clk.fakeClock.Now())
+	pc := newStepPollClock(epoch)
 
-	spawned, err := ensureRunning(root, "self", logging.Nop(), clk, pollBound{after: spawnLockTestBound}, f.spawnUp)
+	spawned, err := ensureRunningWith(root, "self", logging.Nop(), clk, pollBound{after: spawnLockTestBound},
+		f.spawnUpOn(pc), stepProbeBy(pc), pc)
 	require.NoError(t, err)
 	require.EqualValues(t, 0, f.calls.Load(), "the daemon that freed the lock is up: nothing may spawn a second one")
 	require.False(t, spawned, "EnsureRunning spawned nothing: the daemon it found was another spawner's")
 	require.NoFileExists(t, lockPath, "the claim it made on the freed lock is given back")
+	require.Equal(t, epoch, pc.Now(), "the dial after the claim found it, before any poll began")
 }
 
 // staleMidWaitBound is the poll bound TestEnsureRunning_AClaimThatGoesStaleMidWaitIsReclaimed gives
-// ensureRunning; staleMidWaitAt is when that row ages the lock it found past the freshness window;
-// and staleMidWaitSpawn is how long the spawn it then makes takes: longer than the whole bound, as a
-// staged spawn on a loaded Windows machine can (the V6 close-out's cold-start diagnostic saw process
-// creation stall for 4-5 s), so the daemon it starts comes up after the deadline the wait began with.
+// ensureRunning; staleMidWaitAt is when, on the call's step clock, that row ages the lock it found
+// past the freshness window; and staleMidWaitSpawn is how much step time the spawn it then makes
+// takes: longer than the whole bound, as a staged spawn on a loaded Windows machine can (the V6
+// close-out's cold-start diagnostic saw process creation stall for 4-5 s), so the daemon it starts
+// comes up after the deadline the wait began with.
 const (
 	staleMidWaitBound = time.Second
 	staleMidWaitAt    = 300 * time.Millisecond
@@ -329,31 +449,41 @@ const (
 // ensureRunning found died before it launched anything. Its claim ages past the freshness window
 // while ensureRunning is still waiting, so ensureRunning reclaims it and spawns, within the same call
 // (fail-safe). The daemon it spawned then gets its own wait, counted from that spawn as for any
-// spawn this call makes, not what was left of the wait for the dead spawner's daemon.
+// spawn this call makes, not what was left of the wait for the dead spawner's daemon. The claim ages,
+// the spawn stalls and the daemon comes up at exact instants on the call's step clock; the wall-clock
+// row this replaces aged the claim on a 300 ms timer against a 1 s wait, and a claim stalled for
+// 1.6 s ended that wait first (wave 22's H4 review).
 func TestEnsureRunning_AClaimThatGoesStaleMidWaitIsReclaimed(t *testing.T) {
 	root := t.TempDir()
 	clk := newFakeClock(epoch)
 	writeSpawnLock(t, root, clk.Now())
 	f := newFakeDaemons(t)
+	pc := newStepPollClock(epoch)
 
 	var aged atomic.Bool
-	ager := time.AfterFunc(staleMidWaitAt, func() {
+	pc.at(pc.Now().Add(staleMidWaitAt), func() {
 		aged.Store(true)
 		clk.Advance(2*ensureSpawnLockHalfWindow + time.Second) // now older than the freshness window
 	})
-	t.Cleanup(func() { ager.Stop() })
+	spawnUp := f.spawnUpOn(pc)
+	var spawnAt time.Time
 	slowSpawn := func(r, s string) error {
 		require.True(t, aged.Load(), "nothing may spawn while the claim it found is fresh")
-		stall := time.NewTimer(staleMidWaitSpawn)
-		defer stall.Stop()
-		<-stall.C
-		return f.spawnUp(r, s)
+		pc.advanceTo(pc.Now().Add(staleMidWaitSpawn))
+		spawnAt = pc.Now()
+		return spawnUp(r, s)
 	}
 
-	spawned, err := ensureRunning(root, "self", logging.Nop(), clk, pollBound{after: staleMidWaitBound}, slowSpawn)
+	spawned, err := ensureRunningWith(root, "self", logging.Nop(), clk, pollBound{after: staleMidWaitBound},
+		slowSpawn, stepProbeBy(pc), pc)
 	require.NoError(t, err, "a daemon spawned on a claim reclaimed mid-wait must get its own wait to come up")
 	require.True(t, spawned, "the claim went stale inside the wait, so this call reclaimed it and spawned")
 	require.EqualValues(t, 1, f.calls.Load())
+	upAt := spawnAt.Add(fakeDaemonUpAfter)
+	require.True(t, upAt.After(epoch.Add(staleMidWaitBound)),
+		"fixture: the daemon comes up after the wait the call began with has ended")
+	require.False(t, pc.Now().Before(upAt), "found once it was up")
+	require.Less(t, pc.Now().Sub(upAt), ensureRunningPollInterval, "found at the first tick after it came up")
 }
 
 // ensureSpawnLockHalfWindow is half the spawn lock's freshness window (ipc's spawnLockStaleAfter,
@@ -389,10 +519,10 @@ func sessionStartBound(until, latest time.Time) pollBound {
 	return pollBound{until: until, after: ensureRunningPollBound, latest: latest}
 }
 
-// The three rows below run on a stepPollClock (D61(c), wave 22's H4): the wall-clock rows they
-// replace gave a loaded machine 2 s, 1.3 s and 1.5 s of margin, and the hosted runner of ci.yml run
-// 37229942287 took about 1.4 s to bring one call to its first claim. On the step clock each daemon
-// comes up at an exact instant after its spawn and no margin is needed.
+// The three rows below run on a stepPollClock with stepComingDaemon's stand-in dials (D61(c), wave
+// 22's H4): the wall-clock rows they replace gave a loaded machine 2 s, 1.3 s and 1.5 s of margin, and
+// the hosted runner of ci.yml run 37229942287 took about 1.4 s to bring one call to its first claim.
+// On the step clock each daemon comes up at an exact instant after its spawn and no margin is needed.
 
 // TestEnsureRunningUntil_PollsToItsDeadlineNotTheFixedBound: session-start hands EnsureRunningUntil
 // the instant its hook budget allows (D17b), and the poll runs until then — a daemon that comes up
@@ -765,18 +895,22 @@ func checkPollEndsAtItsDeadline(t *testing.T, tc pollEndsCase, r *pollEndsRun) {
 
 // TestWaitForTick_EndsAtTheDeadlineNotTheTick (w6-borrow review): the poll's wait for its next tick
 // ends at the poll's deadline when that comes first, and then no dial may follow; a tick that comes
-// first lets the poll dial. The slow ticker here would tick only at spawnLockTestBound, so a wait
-// that ran to the tick instead of the deadline takes 5 s against a deadline 200 ms away, a margin
-// no scheduling delay on a loaded machine comes near.
+// first lets the poll dial. This is production's wall-clock wait itself, so no step clock can stand
+// in, and no verdict races a margin either (D61(c); wave 22's H4 review: the old row measured the
+// wait against half of a 5 s tick, and a 2.6 s stall failed it). The slow ticker ticks only after
+// beyondTestTimeout, so a wait that ran to the tick instead of the deadline would hang the row until
+// its binary's -timeout fails it; the wait that ends at the deadline ends no earlier than that
+// instant, which the monotonic clock shows exactly; and the deadline the fast ticker's tick beats is
+// beyondTestTimeout away, past any -timeout.
 func TestWaitForTick_EndsAtTheDeadlineNotTheTick(t *testing.T) {
-	slow := time.NewTicker(spawnLockTestBound)
+	slow := time.NewTicker(beyondTestTimeout)
 	defer slow.Stop()
-	began := time.Now()
-	require.False(t, waitForTick(slow, began.Add(spawnLockMissBound)), "no dial may follow a wait that reached the deadline")
-	require.Less(t, time.Since(began), spawnLockTestBound/2, "the wait ended at the deadline, not at the tick")
+	deadline := time.Now().Add(spawnLockMissBound)
+	require.False(t, waitForTick(slow, deadline), "no dial may follow a wait that reached the deadline")
+	require.False(t, time.Now().Before(deadline), "the wait ran to the deadline, and ended there rather than at the tick")
 	require.False(t, waitForTick(slow, time.Now()), "a deadline that has come gets no wait and no dial")
 
 	fast := time.NewTicker(ensureRunningPollInterval)
 	defer fast.Stop()
-	require.True(t, waitForTick(fast, time.Now().Add(spawnLockTestBound)), "a tick before the deadline lets the poll dial")
+	require.True(t, waitForTick(fast, time.Now().Add(beyondTestTimeout)), "a tick before the deadline lets the poll dial")
 }
