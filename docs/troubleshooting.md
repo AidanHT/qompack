@@ -152,7 +152,11 @@ what they wait for.
 Known limit: when the dial `status` (or another frontend that may start a daemon; `doctor` never
 does) makes to a running daemon misses its connect budget, the command also asks a daemon to start,
 as it would if none were listening; the second daemon finds the running one's lock and exits, and
-nothing is lost (`internal/ipc/client.go`, `lazySpawn`; `internal/daemon/daemon.go`, `Run`).
+nothing is lost (`internal/ipc/client.go`, `lazySpawn`; `internal/daemon/daemon.go`, `Run`). On
+Linux and macOS the same happens, for a hook and for `session-start` as well, when a running daemon
+has stopped accepting connections and its connection queue is full: the connect then fails at once
+rather than waiting out its budget (EAGAIN on Linux), so it reads as no daemon, and the daemon
+started for it exits the same way (`internal/ipc/dial_other.go`; `internal/daemon/spawn.go`).
 
 Latency percentiles are never printed above the `max` on the same line. The histogram reports a
 percentile as its bucket's upper bound, which can sit up to about 9% above the samples in it, so the
