@@ -1,0 +1,35 @@
+run_id=cx-w22-w15carry-seqflake-race-0f02a4f-20261004T195002Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w22-w15carry
+rev=0f02a4fc
+commit=0f02a4fc5175ac8e02d4a186c197657663907302
+bundle_sha256=b0134ec1fc2f4014133797341197424854e0cd9ae3c12be148aad3950f69a3c7
+host_started_utc=2026-10-04T19:50:21Z
+inner_args=--gomaxprocs 2 --count 20 --timeout 30m --run ^(TestCarriedDecisionRegainsItsAlternativeAfterATruncatedSeal|TestSecondCheckpointCarriesTheSessionsEarlierDecision|TestDecisionTruncatedAwayIsCarriedAgain)$ -- ./internal/checkpoint
+/work/cx-w22-w15carry-seqflake-race-0f02a4f-20261004T195002Z.bundle: OK
+run_id=cx-w22-w15carry-seqflake-race-0f02a4f-20261004T195002Z
+commit=0f02a4fc5175ac8e02d4a186c197657663907302
+tree=765970afd663503e0ac95fd0e6ba5d5b9a81e143
+bundle_sha256=b0134ec1fc2f4014133797341197424854e0cd9ae3c12be148aad3950f69a3c7
+started_utc=2026-10-04T19:50:41Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=20 timeout=30m gomaxprocs=2 coload=0
+run=^(TestCarriedDecisionRegainsItsAlternativeAfterATruncatedSeal|TestSecondCheckpointCarriesTheSessionsEarlierDecision|TestDecisionTruncatedAwayIsCarriedAgain)$
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+PASS      github.com/qompack/qompack/internal/checkpoint  (pass=60 fail=0 skip=0)
+go_test_exit=0
+exit=0
+artifacts: C:/Users/Quant/AppData/Local/Temp/claude/qompack-audit/wave22/linux-w15carry/cx-w22-w15carry-seqflake-race-0f02a4f-20261004T195002Z-artifacts
+exit=0
+exit=0

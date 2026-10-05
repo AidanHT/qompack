@@ -230,6 +230,25 @@ func (w *FileWriter) claimSeq() core.CheckpointSeq {
 	return seq
 }
 
+// releaseSeq gives back seq, which claimSeq handed to a fresh draft that Begin then could not
+// begin: it failed before the draft was persisted or published, so no draft, draft file or encode
+// record holds the number. It is given back only while it is still the newest number this writer
+// has handed out, and never below the number before it, which a claim made since, a resumed draft
+// or loadClaimFloor's floor may hold. When another claim came after it the number stays a gap,
+// which costs nothing but its spelling.
+//
+// Without it a failed Begin cost the session a number. Finalize opens the successor draft on
+// PreCompact's context, and a PreCompact that has spent its wall-clock budget hands it an expired
+// one, so the successor's read of the checkpoint just sealed fails; the session's next checkpoint
+// was then sealed two numbers after the last (wave 22, D67(a)).
+func (w *FileWriter) releaseSeq(seq core.CheckpointSeq) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.issuedSeq == seq {
+		w.issuedSeq = seq - 1
+	}
+}
+
 // noteSeq records a sequence number this writer did not allocate — a resumed draft's — so a later
 // claimSeq cannot hand the same number to a second draft.
 func (w *FileWriter) noteSeq(seq core.CheckpointSeq) {
@@ -429,9 +448,14 @@ func (w *FileWriter) Begin(ctx context.Context, s core.SessionID, parent core.Ch
 		}}
 		d.mu.Unlock()
 		fork := w.forkIntentFor(ctx, src.Store, s, &prior)
+		var inheritedDec map[core.DecisionID]core.UnixMilli
+		if fp, at, ok := w.forkPoint(ctx, s, inherit); ok {
+			inheritedDec = inheritedDecisions(src.Graph, fp, at)
+		}
 		d.mu.Lock()
 		d.fork = fork
 		d.inherit = inherit
+		d.inheritedDec = inheritedDec
 		d.promptText = handed
 		d.refreshIntentLocked(ctx)
 		d.persistOrLogLocked()
@@ -466,12 +490,16 @@ func (w *FileWriter) Begin(ctx context.Context, s core.SessionID, parent core.Ch
 		Cache:      CacheInfo{TTLState: ttlStateUnknown},
 	}
 
+	// Until the draft is persisted no draft, draft file or encode record holds d.seq, so a Begin
+	// that fails before then gives its number back (releaseSeq).
 	if err := w.seedTierOne(ctx, d, parent, src); err != nil {
+		w.releaseSeq(d.seq)
 		return nil, err
 	}
 
 	fr, err := src.Segments.Frontier(ctx, s)
 	if err != nil {
+		w.releaseSeq(d.seq)
 		return nil, fmt.Errorf("checkpoint: begin: frontier: %w", err)
 	}
 	d.frontier = fr
@@ -638,15 +666,21 @@ func (w *FileWriter) seedTierOne(ctx context.Context, d *Draft, parent core.Chec
 	// the eliminations they may depend on are seeded. When the derived parent is another
 	// session's (a cold draft begun after someone else sealed), the carry reads this session's
 	// own newest checkpoint instead, as seedIntent's fallback does; parent and intent are unchanged.
+	// A fork with no checkpoint of its own carries from the one its conversation continued (its
+	// fork point), whose explains decisions rank as another session's (inheritedDec).
 	carryFrom := own
 	if carryFrom == nil && derived {
 		if latest, ok := w.ownLatest(ctx, d.session); ok {
 			carryFrom = &latest
 		}
 	}
-	if carryFrom != nil {
-		d.carryDecisionsLocked(carryFrom.Decisions, invs)
+	if fp, at, ok := w.forkPoint(ctx, d.session, d.inherit); ok {
+		d.inheritedDec = inheritedDecisions(src.Graph, fp, at)
+		if carryFrom == nil {
+			carryFrom = &fp
+		}
 	}
+	d.carryDecisionsLocked(ctx, carryFrom, invs)
 	return nil
 }
 
@@ -1187,7 +1221,7 @@ func (d *Draft) mergeDecisionsLocked(cands []decisionCandidate) {
 // foreignDecisionsLocked is foreignDecisions over the draft's carried eliminations and this
 // pass's candidates. Caller holds d.mu.
 func (d *Draft) foreignDecisionsLocked(cands []decisionCandidate) map[core.DecisionID]core.UnixMilli {
-	return foreignDecisions(d.cp.Eliminated, d.session, cands)
+	return foreignDecisions(d.cp.Eliminated, d.session, cands, d.inheritedDec)
 }
 
 // ForeignDecisions maps each of cp's decisions that was minted from another session's
@@ -1196,7 +1230,7 @@ func (d *Draft) foreignDecisionsLocked(cands []decisionCandidate) map[core.Decis
 // cp.Decisions — item 4 of a rehydration ranks by slice score — so they keep the session's own
 // decisions ahead of the foreign ones, as the sealed order does. An id absent from the map is own.
 func ForeignDecisions(cp Checkpoint) map[core.DecisionID]core.UnixMilli {
-	return foreignDecisions(cp.Eliminated, cp.Session, nil)
+	return foreignDecisions(cp.Eliminated, cp.Session, nil, nil)
 }
 
 // foreignDecisions maps each foreign decision id to its record's recorded time. A checkpoint keeps
@@ -1206,7 +1240,12 @@ func ForeignDecisions(cp Checkpoint) map[core.DecisionID]core.UnixMilli {
 // any record the draft has not merged yet. An id this session's own record also mints is own, and
 // when two foreign records mint one id the newer time stands. A resumed draft therefore ranks
 // exactly as the draft that persisted it did, and a sealed checkpoint's reader ranks as its writer.
-func foreignDecisions(eliminated []negknow.Record, session core.SessionID, cands []decisionCandidate) map[core.DecisionID]core.UnixMilli {
+//
+// inherited are a fork's inherited explains decisions (Draft.inheritedDec): foreign at the fork's
+// start unless a record already classifies the id, either way.
+func foreignDecisions(eliminated []negknow.Record, session core.SessionID, cands []decisionCandidate,
+	inherited map[core.DecisionID]core.UnixMilli,
+) map[core.DecisionID]core.UnixMilli {
 	foreign := make(map[core.DecisionID]core.UnixMilli)
 	own := make(map[core.DecisionID]bool)
 	note := func(id core.DecisionID, isForeign bool, at core.UnixMilli) {
@@ -1230,6 +1269,11 @@ func foreignDecisions(eliminated []negknow.Record, session core.SessionID, cands
 	}
 	for id := range own {
 		delete(foreign, id)
+	}
+	for id, at := range inherited {
+		if _, classified := foreign[id]; !classified && !own[id] {
+			foreign[id] = at
+		}
 	}
 	return foreign
 }

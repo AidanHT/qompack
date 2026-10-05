@@ -1,0 +1,24 @@
+# fix seat (review), Windows, daytime co-load, working tree on ee03ab04: GREEN
+# go test -p 2 -count=1 -run 'TestAuditPublication_SnapshotCountsVanishedEntriesAsLiveWork$' ./internal/store/
+ok  	github.com/qompack/qompack/internal/store	0.587s
+exit=0
+# go test -p 2 -count=1 -run 'TestAuditPublication_SnapshotLeavesLaterWritesUnclassified$' ./internal/store/
+ok  	github.com/qompack/qompack/internal/store	1.157s
+exit=0
+# go test -p 2 -count=1 -run 'TestAuditPublication_SnapshotStillReportsResidueFromBeforeIt$' ./internal/store/
+ok  	github.com/qompack/qompack/internal/store	1.076s
+exit=0
+# go test -p 2 -count=1 -timeout=30m ./internal/store/
+ok  	github.com/qompack/qompack/internal/store	462.186s
+exit=0
+# go vet ./internal/store/ ./test/fault/ (and GOOS=linux): clean
+# go run ./tools/devtool fmt-check: exit 0
+# go run ./tools/devtool lint --only=golangci-lint,nomagic,importgraph,testdeps,bindeps,sleepcheck,docmarkers,runpatterns:
+PASS golangci-lint
+PASS nomagic
+PASS importgraph
+PASS testdeps
+PASS bindeps
+PASS sleepcheck
+PASS runpatterns
+PASS docmarkers

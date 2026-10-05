@@ -1,0 +1,59 @@
+# HEAD 0f02a4fc; ci.yml timing lane's negknow rows, alone, no co-load declaration (shared daytime machine: nine seats and another workflow)
+# go test -p 1 -count=1 -timeout=30m -run '^(TestBudget_QueryHit|TestBudget_QueryMiss|TestBudget_QueryHitThroughLineage|TestBudget_QueryMissThroughLineage|TestBudget_Record|TestBudget_RebuildBloom|TestBudget_RefreshStaleness|TestBudget_Open|TestBudget_DetectorScan)$' -v ./internal/negknow
+=== RUN   TestBudget_QueryHit
+    bench_test.go:664: BenchmarkQueryHit: 5.31µs CPU/op over 173580 iterations (best of 1) against a 50µs budget
+    bench_test.go:664: BenchmarkQueryHit: 15.19µs wall/op over 173580 iterations (best of 1) against a 50µs budget
+--- PASS: TestBudget_QueryHit (13.36s)
+=== RUN   TestBudget_QueryMiss
+    bench_test.go:668: BenchmarkQueryMiss: 2.492µs CPU/op over 589312 iterations (best of 1) against a 5µs budget
+    bench_test.go:668: BenchmarkQueryMiss: 2.882µs wall/op over 589312 iterations (best of 1) against a 5µs budget
+--- PASS: TestBudget_QueryMiss (7.88s)
+=== RUN   TestBudget_Record
+    bench_test.go:695: BenchmarkRecord: 71.875µs CPU/op over 10000 iterations (best of 1) against a 5ms budget
+    bench_test.go:695: BenchmarkRecord: 473.661µs wall/op over 10000 iterations (best of 1) against a 5ms budget
+--- PASS: TestBudget_Record (4.94s)
+=== RUN   TestBudget_RebuildBloom
+    bench_test.go:727: BenchmarkRebuildBloom: 21.399456ms CPU/op over 46 iterations (best of 1) against a 50ms budget
+    bench_test.go:727: BenchmarkRebuildBloom: 32.652717ms wall/op over 46 iterations (best of 1) against a 50ms budget
+--- PASS: TestBudget_RebuildBloom (3.29s)
+=== RUN   TestBudget_RefreshStaleness
+    bench_test.go:753: BenchmarkRefreshStaleness: attempt 1 is 13.928364ms wall/op and 6.922468ms CPU/op, over the 10ms ceiling on a gated clock — retrying
+    bench_test.go:753: BenchmarkRefreshStaleness: budget met on attempt 2 of 3
+    bench_test.go:753: BenchmarkRefreshStaleness: 6.922468ms CPU/op over 79 iterations (best of 2) against a 10ms budget
+    bench_test.go:753: BenchmarkRefreshStaleness: 7.429302ms wall/op over 195 iterations (best of 2) against a 10ms budget
+--- PASS: TestBudget_RefreshStaleness (6.29s)
+=== RUN   TestBudget_Open
+    bench_test.go:843: BenchmarkOpen: 135.416666ms CPU/op over 6 iterations (best of 1) against a 300ms budget
+    bench_test.go:843: BenchmarkOpen: 245.74095ms wall/op over 6 iterations (best of 1) against a 300ms budget
+--- PASS: TestBudget_Open (4.32s)
+=== RUN   TestBudget_DetectorScan
+    bench_test.go:975: BenchmarkDetectorScan: 2.340587ms CPU/op over 494 iterations (best of 1) against a 5ms budget
+    bench_test.go:975: BenchmarkDetectorScan: 4.112151ms wall/op over 494 iterations (best of 1) against a 5ms budget
+--- PASS: TestBudget_DetectorScan (2.80s)
+=== RUN   TestBudget_QueryHitThroughLineage
+=== RUN   TestBudget_QueryHitThroughLineage/not_a_fork
+    lineage_bench_test.go:89: BenchmarkQueryHitThroughLineage/not_a_fork: 4.425µs CPU/op over 137690 iterations (best of 1) against a 50µs budget
+    lineage_bench_test.go:89: BenchmarkQueryHitThroughLineage/not_a_fork: 8.474µs wall/op over 137690 iterations (best of 1) against a 50µs budget
+=== RUN   TestBudget_QueryHitThroughLineage/fork
+    lineage_bench_test.go:89: BenchmarkQueryHitThroughLineage/fork: attempt 1 is 55.49µs wall/op and 4.672µs CPU/op, over the 50µs ceiling on a gated clock — retrying
+    lineage_bench_test.go:89: BenchmarkQueryHitThroughLineage/fork: budget met on attempt 2 of 3
+    lineage_bench_test.go:89: BenchmarkQueryHitThroughLineage/fork: 4.672µs CPU/op over 53503 iterations (best of 2) against a 50µs budget
+    lineage_bench_test.go:89: BenchmarkQueryHitThroughLineage/fork: 22.627µs wall/op over 98400 iterations (best of 2) against a 50µs budget
+--- PASS: TestBudget_QueryHitThroughLineage (38.26s)
+    --- PASS: TestBudget_QueryHitThroughLineage/not_a_fork (5.72s)
+    --- PASS: TestBudget_QueryHitThroughLineage/fork (32.53s)
+=== RUN   TestBudget_QueryMissThroughLineage
+=== RUN   TestBudget_QueryMissThroughLineage/not_a_fork
+    lineage_bench_test.go:100: BenchmarkQueryMissThroughLineage/not_a_fork: attempt 1 is 15.823µs wall/op and 2.8µs CPU/op, over the 5µs ceiling on a gated clock — retrying
+    lineage_bench_test.go:100: BenchmarkQueryMissThroughLineage/not_a_fork: budget met on attempt 2 of 3
+    lineage_bench_test.go:100: BenchmarkQueryMissThroughLineage/not_a_fork: 2.8µs CPU/op over 89264 iterations (best of 2) against a 5µs budget
+    lineage_bench_test.go:100: BenchmarkQueryMissThroughLineage/not_a_fork: 4.536µs wall/op over 261420 iterations (best of 2) against a 5µs budget
+=== RUN   TestBudget_QueryMissThroughLineage/fork
+    lineage_bench_test.go:100: BenchmarkQueryMissThroughLineage/fork: 2.111µs CPU/op over 436633 iterations (best of 1) against a 5µs budget
+    lineage_bench_test.go:100: BenchmarkQueryMissThroughLineage/fork: 3.1µs wall/op over 436633 iterations (best of 1) against a 5µs budget
+--- PASS: TestBudget_QueryMissThroughLineage (36.60s)
+    --- PASS: TestBudget_QueryMissThroughLineage/not_a_fork (23.40s)
+    --- PASS: TestBudget_QueryMissThroughLineage/fork (13.19s)
+PASS
+ok  	github.com/qompack/qompack/internal/negknow	120.644s
+exit=0

@@ -1,0 +1,13 @@
+# merged HEAD 62d9290a + new row, ca0b7caa's Query half reverted by -overlay (negknow-ledger-prefix.json); Windows
+# go test -p 2 -count=1 -overlay=<negknow-ledger-prefix.json> -run '^TestQuery_FilterMissAsksNoAncestry$' -v ./internal/negknow/
+=== RUN   TestQuery_FilterMissAsksNoAncestry
+    inherit_test.go:102: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w22-w15carry/internal/negknow/inherit_test.go:102
+        	Error:      	Should be zero, but was 1
+        	Test:       	TestQuery_FilterMissAsksNoAncestry
+        	Messages:   	a filter miss is absent for every viewer: it resolves no ancestry
+--- FAIL: TestQuery_FilterMissAsksNoAncestry (2.52s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/negknow	4.991s
+FAIL
+exit=1

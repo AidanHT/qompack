@@ -1,0 +1,24 @@
+# HEAD 0f02a4fc + the two new rows (no fix); Windows
+# go test -p 2 -count=1 -run '^(TestBeginReleasesTheNumberOfADraftItCouldNotBegin|TestASuccessorThatCouldNotBeginCostsTheSessionNoNumber)$' -v ./internal/checkpoint/
+=== RUN   TestBeginReleasesTheNumberOfADraftItCouldNotBegin
+    finalize_test.go:722: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w22-w15carry/internal/checkpoint/finalize_test.go:722
+        	Error:      	Not equal: 
+        	            	expected: 1
+        	            	actual  : 2
+        	Test:       	TestBeginReleasesTheNumberOfADraftItCouldNotBegin
+        	Messages:   	the failed Begin's number is held by no draft
+--- FAIL: TestBeginReleasesTheNumberOfADraftItCouldNotBegin (0.15s)
+=== RUN   TestASuccessorThatCouldNotBeginCostsTheSessionNoNumber
+    finalize_test.go:740: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w22-w15carry/internal/checkpoint/finalize_test.go:740
+        	Error:      	Not equal: 
+        	            	expected: 2
+        	            	actual  : 3
+        	Test:       	TestASuccessorThatCouldNotBeginCostsTheSessionNoNumber
+        	Messages:   	the successor that could not begin holds no number, so the next draft follows the seal
+--- FAIL: TestASuccessorThatCouldNotBeginCostsTheSessionNoNumber (0.33s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/checkpoint	2.167s
+FAIL
+exit=1

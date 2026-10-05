@@ -1,0 +1,12 @@
+# review-2 minor (fork decision carry): RED before the fix, on ca0b7caa + the new row (also re-confirmed red on 2348f796)
+# go test -p 2 -count=1 -run '^TestForkCarriesItsParentsDecisionsFromTheForkPoint$' -v ./internal/checkpoint/
+=== RUN   TestForkCarriesItsParentsDecisionsFromTheForkPoint
+    fork_inherit_test.go:155: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-ledger/internal/checkpoint/fork_inherit_test.go:155
+        	Error:      	Should be true
+        	Test:       	TestForkCarriesItsParentsDecisionsFromTheForkPoint
+        	Messages:   	the fork carries its parent's decision: [{ID:dec_5917e66864db What:rejected "a global mutex" for src/fork.go:limiter Why:the fork's own finding AlternativesRejected:[a global mutex] Evidence:sha256:73e068835a58fd9cb4f8af763d4a83c31f8861895c67ea59cc6c0db36b6fb23e Turn:1}]
+--- FAIL: TestForkCarriesItsParentsDecisionsFromTheForkPoint (0.52s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/checkpoint	0.891s
+FAIL
