@@ -31,7 +31,7 @@ func TestDaemon_ExitsZeroOnCleanStop(t *testing.T) {
 
 	require.Eventually(t, func() bool {
 		addr, err := ipc.Resolve(dir)
-		return err == nil && ipc.Probe(addr, 50*time.Millisecond)
+		return err == nil && daemonReachable(addr)
 	}, 5*time.Second, 20*time.Millisecond, "the daemon never became reachable")
 
 	cancel()
@@ -107,7 +107,7 @@ func TestDaemon_ForegroundFlagParses(t *testing.T) {
 
 	require.Eventually(t, func() bool {
 		addr, err := ipc.Resolve(dir)
-		return err == nil && ipc.Probe(addr, 50*time.Millisecond)
+		return err == nil && daemonReachable(addr)
 	}, 5*time.Second, 20*time.Millisecond)
 
 	cancel()

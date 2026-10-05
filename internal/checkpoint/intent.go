@@ -270,9 +270,10 @@ func (d *Draft) deriveCurrentWorkLocked(ctx context.Context, own []store.ToolUse
 	case found && (complete || !d.goalTurnSet || turn >= d.goalTurn):
 		d.setGoalTurnLocked(turn, true)
 		d.setDerivedWorkLocked(goal)
-	case complete && len(own) <= goalWalkLimit:
-		// Every one of the session's prompts was read and none gives a goal (a walk that found one
-		// and read every record it passed took the case above).
+	case !found && complete && len(own) <= goalWalkLimit:
+		// Every one of the session's prompts was read and none gives a goal. It says !found itself
+		// rather than leaning on the case above: a found goal is never cleared, whatever that case
+		// requires.
 		d.setGoalTurnLocked(0, false)
 		d.setDerivedWorkLocked("")
 	}
@@ -620,34 +621,52 @@ func (w *FileWriter) ownLatest(ctx context.Context, s core.SessionID) (Checkpoin
 	return cp, true
 }
 
-// handOff stashes a sealed draft's prompt-text cache for the successor Finalize is about to open
-// for the same session (takeHandoff). The cache holds only what the draft's intent kept
-// (refreshIntentLocked), so the stash is bounded by the evolution bounds and the original.
+// promptHandoff is what a sealed draft learned of its session's prompt records, carried to the
+// successor Finalize opens for the same session (handOff, takeHandoff): the texts its intent kept
+// (promptText), the goal each record its last goal walk read whole gives (goalSeen), and the record
+// its evolution walk found past evolutionReadLimit (oversized). A record's bytes never change, so
+// all three stay valid for whichever draft of the session uses them.
+//
+// The goals and the oversized record are what keep a long paste off the hook path. The successor is
+// opened inside PreCompact, and promptText never holds a prompt past the read limit; carried alone,
+// it left the successor's first refresh to read the newest prompt whole again for its goal (up to
+// the hook's 4 MiB capture) and its first evolutionReadLimit+1 bytes again, at every compaction
+// (audit 2's #25).
+type promptHandoff struct {
+	texts     map[core.ToolUseID]string
+	goals     map[core.ToolUseID]string
+	oversized core.ToolUseID
+}
+
+// handOff stashes what a sealed draft learned of its prompt records for the successor Finalize is
+// about to open for the same session (takeHandoff). It is bounded as the draft's own state is: the
+// cache holds only what the draft's intent kept (refreshIntentLocked), the goals at most
+// goalWalkLimit entries, one short goal each.
 func (w *FileWriter) handOff(d *Draft) {
 	d.mu.Lock()
-	texts := d.promptText
+	h := promptHandoff{texts: d.promptText, goals: d.goalSeen, oversized: d.oversized}
 	d.mu.Unlock()
-	if len(texts) == 0 {
+	if len(h.texts) == 0 && len(h.goals) == 0 && h.oversized == "" {
 		return
 	}
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if w.handoff == nil {
-		w.handoff = map[core.SessionID]map[core.ToolUseID]string{}
+		w.handoff = map[core.SessionID]promptHandoff{}
 	}
-	w.handoff[d.session] = texts
+	w.handoff[d.session] = h
 }
 
-// takeHandoff returns and forgets the prompt-text cache handOff stashed for s, or an empty one.
-// Begin takes it on every path, so a stash is never left behind by a Begin that found a live draft,
-// resumed a persisted one or failed.
-func (w *FileWriter) takeHandoff(s core.SessionID) map[core.ToolUseID]string {
+// takeHandoff returns and forgets what handOff stashed for s, with an empty text cache when nothing
+// was. Begin takes it on every path, so a stash is never left behind by a Begin that found a live
+// draft, resumed a persisted one or failed.
+func (w *FileWriter) takeHandoff(s core.SessionID) promptHandoff {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	texts := w.handoff[s]
+	h := w.handoff[s]
 	delete(w.handoff, s)
-	if texts == nil {
-		texts = map[core.ToolUseID]string{}
+	if h.texts == nil {
+		h.texts = map[core.ToolUseID]string{}
 	}
-	return texts
+	return h
 }

@@ -209,10 +209,11 @@ func runStubSkips() error {
 	}
 	pkgs := strings.Fields(string(listOut))
 
-	// -timeout=wholeTreeTestTimeout for the same reason taskTest, taskTestRace and cover all pass
-	// it: go's 10-minute per-binary default is not enough for test/integration's hot-path suites
-	// when the whole tree runs in parallel on a shared machine. stubskips ran without it, which
-	// made it the one whole-tree `go test` in this tool that could be killed at the default wall —
+	// -timeout (passTimeout: wholeTreeTestTimeout, and isolatedTestTimeout for test/e2e's pass of
+	// its own) for the same reason taskTest, taskTestRace and cover all pass it: go's 10-minute
+	// per-binary default is not enough for test/integration's hot-path suites when the whole tree
+	// runs in parallel on a shared machine. stubskips ran without it, which made it the one
+	// whole-tree `go test` in this tool that could be killed at the default wall —
 	// and, unlike the others, it would not have said so, because it ignores the exit status. A CI
 	// runner is exactly the loaded, small box the constant's own comment describes.
 	//
@@ -224,7 +225,7 @@ func runStubSkips() error {
 	// of them a missing skip event carries no information and silence would read as compliance.
 	var events []testEvent
 	for i, pass := range isolatedPasses(pkgs) {
-		args := append([]string{"test", "-json", "-timeout=" + wholeTreeTestTimeout}, pass...)
+		args := stubskipsTestArgs(pass)
 		// Each pass is timed in the log, so a job that runs up against its timeout-minutes
 		// backstop says which pass spent the time (ci.yml, lint-windows).
 		began := time.Now()
@@ -243,10 +244,7 @@ func runStubSkips() error {
 
 	problems, notices, counts := classifySkips(events, owners)
 	for _, pkg := range timedOutPackages(events) {
-		problems = append(problems, fmt.Sprintf(
-			"%s: test binary killed for running past -timeout=%s, so every skip it had not yet "+
-				"reached is missing from this run — the tree was only partly inspected",
-			pkg, wholeTreeTestTimeout))
+		problems = append(problems, timedOutProblem(pkg))
 	}
 	sort.Strings(problems)
 
@@ -270,4 +268,19 @@ func runStubSkips() error {
 		fmt.Println("  " + p)
 	}
 	return fmt.Errorf("stubskips: %d problem(s)", len(problems))
+}
+
+// stubskipsTestArgs is the `go test -json` command line for one isolatedPasses pass, at the hang
+// guard passTimeout gives its packages.
+func stubskipsTestArgs(pass []string) []string {
+	return append([]string{"test", "-json", "-timeout=" + passTimeout(pass)}, pass...)
+}
+
+// timedOutProblem is the problem stubskips reports for pkg when its binary was killed at the wall,
+// naming the -timeout pkg's pass ran at.
+func timedOutProblem(pkg string) string {
+	return fmt.Sprintf(
+		"%s: test binary killed for running past -timeout=%s, so every skip it had not yet "+
+			"reached is missing from this run — the tree was only partly inspected",
+		pkg, passTimeout([]string{pkg}))
 }
