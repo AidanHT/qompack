@@ -525,12 +525,11 @@ func dropOrder(cp checkpoint.Checkpoint, j pathJudge) []checkpoint.DropEntry {
 }
 
 // textNames is the set of names the texts a build screens spell (dropOrder): each tool summary and
-// each checkpoint drop's reason but the model's own (modelTextDrops), in each screen form
-// (screenForms) and, for a canonical-JSON preview, each of its decoded strings too, each distinct text
-// read once (most drops share one reason), split at every
-// ASCII character a file name rarely holds, each word with its trailing dots dropped and with each of
-// its tails after a `/`. It only orders the drops' judgements, so a name it misses costs
-// over-withholding, never a path shown.
+// each checkpoint drop's reason but the model's own (modelTextDrops), in screen form with every `\`
+// a separator and, for a canonical-JSON preview, each of its decoded strings too, each distinct text
+// read once (most drops share one reason), split at every ASCII character a file name rarely holds,
+// each word with its trailing dots dropped and with each of its tails after a `/`. It only orders
+// the drops' judgements, so a name it misses costs over-withholding, never a path shown.
 func textNames(cp checkpoint.Checkpoint) map[string]bool {
 	names := make(map[string]bool)
 	seen := make(map[string]bool)
@@ -539,16 +538,15 @@ func textNames(cp checkpoint.Checkpoint) map[string]bool {
 			return
 		}
 		seen[t] = true
-		for _, form := range screenForms(sanitize(t)) {
-			for _, w := range strings.FieldsFunc(form, notNameRune) {
-				for w = strings.TrimRight(w, "."); w != ""; {
-					names[w] = true
-					k := strings.IndexByte(w, '/')
-					if k < 0 {
-						break
-					}
-					w = w[k+1:]
+		form := screenText(strings.ReplaceAll(sanitize(t), `\`, "/"), false)
+		for _, w := range strings.FieldsFunc(form, notNameRune) {
+			for w = strings.TrimRight(w, "."); w != ""; {
+				names[w] = true
+				k := strings.IndexByte(w, '/')
+				if k < 0 {
+					break
 				}
+				w = w[k+1:]
 			}
 		}
 	}
@@ -925,7 +923,14 @@ func classEnd(p string, i int) int {
 // the home directory or an environment variable (homeOrVarRoot), or a `file:` URL (fileScheme).
 func absLike(p string) bool {
 	return filepath.IsAbs(p) || strings.HasPrefix(p, "/") || strings.HasPrefix(p, `\`) ||
-		driveSpelling.MatchString(p) || homeOrVarRoot.MatchString(p) || fileScheme(p)
+		driveLetter(p) || homeOrVarRooted(p) || fileScheme(p)
+}
+
+// homeOrVarRooted reports whether p starts at a home or a variable (homeOrVarRoot). Every spelling
+// the expression matches starts with `~`, `$`, `%` or `!`, so it runs only on such a p (absLike is
+// on the screen's hot path: wave 22's verify of audit 2's findings 28 and 33).
+func homeOrVarRooted(p string) bool {
+	return p != "" && strings.IndexByte("~$%!", p[0]) >= 0 && homeOrVarRoot.MatchString(p)
 }
 
 // fileScheme reports whether p starts a `file:` URL, which names a path on some host's filesystem
@@ -1120,9 +1125,11 @@ func braceAlternatives(tok string) (alts []string, ok bool) {
 // plainTokenSafeGlob reports whether tok is a lone glob pattern: plainTokenSafe once the glob
 // metacharacters `* ? [ ]` are removed, so a pattern like `**/*.go` or `[sS]ecret*.key` is safe but a
 // regular expression anchored with `^`, `$` or a group is not.
-func plainTokenSafeGlob(tok string) bool {
-	return plainTokenSafe(strings.NewReplacer("*", "", "?", "", "[", "", "]", "").Replace(tok))
-}
+func plainTokenSafeGlob(tok string) bool { return plainTokenSafe(globMetaGone.Replace(tok)) }
+
+// globMetaGone removes the glob metacharacters plainTokenSafeGlob reads past, built once (a replacer
+// built per call was a tenth of a build's allocated bytes: wave 22's verify of audit 2's finding 33).
+var globMetaGone = strings.NewReplacer("*", "", "?", "", "[", "", "]", "")
 
 // rootGlobShape reports whether toks, a two-word summary with the root held together, is a Glob
 // preview of a directory under the root (the store's `path pattern`): the first word is the root's
@@ -1886,34 +1893,31 @@ func (j pathJudge) cutPrefixNamed(marked string) bool {
 // splitTokens splits a marked text into tokens on ASCII spaces (sanitize has already collapsed every
 // whitespace run to one space), except inside a double-quoted run, and inside a single-quoted run that
 // opens at a token's start, which keep their spaces so that the run is judged whole. An apostrophe
-// inside a word opens no run here (plainTokenSafe judges it).
+// inside a word opens no run here (plainTokenSafe judges it). Each token is a stretch of s, sliced,
+// not copied (wave 22's verify of audit 2's finding 33: copying them byte by byte was a fifth of a
+// build's allocations).
 func splitTokens(s string) []string {
 	var toks []string
-	var b strings.Builder
 	var quote byte
-	flush := func() {
-		if b.Len() > 0 {
-			toks = append(toks, b.String())
-			b.Reset()
-		}
-	}
+	start := 0
 	for i := 0; i < len(s); i++ {
 		switch c := s[i]; {
 		case quote != 0:
 			if c == quote {
 				quote = 0
 			}
-			b.WriteByte(c)
-		case c == '"' || (c == '\'' && b.Len() == 0):
+		case c == '"' || (c == '\'' && i == start):
 			quote = c
-			b.WriteByte(c)
 		case c == ' ':
-			flush()
-		default:
-			b.WriteByte(c)
+			if i > start {
+				toks = append(toks, s[start:i])
+			}
+			start = i + 1
 		}
 	}
-	flush()
+	if start < len(s) {
+		toks = append(toks, s[start:])
+	}
 	return toks
 }
 
@@ -1935,6 +1939,13 @@ func operatorPieces(tok string) []string {
 		return []string{tok}
 	}
 	if _, ok := quoteRun(tok); ok {
+		return []string{tok}
+	}
+	if !strings.ContainsAny(tok, ";|&") {
+		// Nothing to split at: the split's answer, without building the replaced copy.
+		if tok == "" {
+			return []string{}
+		}
 		return []string{tok}
 	}
 	return strings.FieldsFunc(gluedOperators.Replace(tok), func(r rune) bool { return r == ';' })
@@ -2154,7 +2165,7 @@ func plainTokenSafe(tok string) bool { return safeChars(tok, false) }
 // which a `~` or a `=` would start a word for a nested shell (so either is unsafe there), and as no
 // letter beside an apostrophe. zsh's `(#i)` flag is a `#` inside a word, so it is unsafe too.
 func safeChars(tok string, parens bool) bool {
-	if psSplat.MatchString(tok) {
+	if strings.HasPrefix(tok, "@") && psSplat.MatchString(tok) {
 		return false
 	}
 	afterDelim := true
@@ -2280,12 +2291,8 @@ func readingsOutside(w string) bool {
 // at a path start (pathStarts) one that startsOutside, or a `..` segment anywhere (hasDotDot). The
 // root's mark at a path start is the project root.
 func pathOutside(tok string) bool {
-	for _, s := range pathStarts(tok) {
-		if s < len(tok) && startsOutside(tok[s:], s > 0) {
-			return true
-		}
-	}
-	return hasDotDot(tok)
+	return pathStarts(tok, func(s int) bool { return s < len(tok) && startsOutside(tok[s:], s > 0) }) ||
+		hasDotDot(tok)
 }
 
 // startsOutside reports whether rest, the text at a path start, begins a path outside the project: a
@@ -2351,20 +2358,24 @@ func providerPath(rest string) bool {
 // (`http:x`) among them. What follows an inert prefix's `:` is still a path start.
 var inertPrefixes = map[string]bool{"path": true, "sha256": true, "select": true}
 
-// pathStarts are the offsets in tok where a path may begin: the start, just after a leading short
-// option's first letter and just after all its letters (`-C../x`, `-I/opt`, `-oD:stash`), and just
-// after each pathStartDelims character (`--out=/etc/x`, `a,/etc/x`, `@/tmp/args`).
-func pathStarts(tok string) []int {
-	starts := []int{0}
-	if k := shortOptionEnd(tok); k > 0 {
-		starts = append(starts, 2, k)
+// pathStarts reports whether at reports true for one of the offsets in tok where a path may begin:
+// the start, just after a leading short option's first letter and just after all its letters
+// (`-C../x`, `-I/opt`, `-oD:stash`), and just after each pathStartDelims character (`--out=/etc/x`,
+// `a,/etc/x`, `@/tmp/args`). It visits them rather than listing them, so the screen's hot path
+// allocates nothing for them (wave 22's verify of audit 2's finding 33).
+func pathStarts(tok string, at func(int) bool) bool {
+	if at(0) {
+		return true
+	}
+	if k := shortOptionEnd(tok); k > 0 && (at(2) || at(k)) {
+		return true
 	}
 	for i := 0; i < len(tok); i++ {
-		if strings.IndexByte(pathStartDelims, tok[i]) >= 0 {
-			starts = append(starts, i+1)
+		if strings.IndexByte(pathStartDelims, tok[i]) >= 0 && at(i+1) {
+			return true
 		}
 	}
-	return starts
+	return false
 }
 
 // shortOptionEnd is the offset just after a leading short option in tok (`-` and one ASCII letter or
@@ -3163,12 +3174,31 @@ var pathArgName = regexp.MustCompile(
 
 // jsonUnquote decodes one JSON string body; a body the preview cut mid-escape is undone by hand.
 func jsonUnquote(s string) string {
+	if plainJSONBody(s) {
+		return s
+	}
 	var out string
 	if err := json.Unmarshal([]byte(`"`+s+`"`), &out); err == nil {
 		return out
 	}
-	return strings.NewReplacer(`\\`, `\`, `\"`, `"`, `\/`, `/`).Replace(s)
+	return jsonEscapes.Replace(s)
 }
+
+// plainJSONBody reports whether s, a JSON string's body, decodes to itself: it holds no escape, no
+// quote, no control character and no invalid UTF-8 (which encoding/json would replace), so
+// jsonUnquote need not decode it (wave 22's verify of audit 2's finding 33: decoding every string
+// was a tenth of a build's allocations).
+func plainJSONBody(s string) bool {
+	for i := 0; i < len(s); i++ {
+		if c := s[i]; c == '\\' || c == '"' || c < 0x20 {
+			return false
+		}
+	}
+	return utf8.ValidString(s)
+}
+
+// jsonEscapes undoes the escapes a body the preview cut mid-escape may still hold (jsonUnquote).
+var jsonEscapes = strings.NewReplacer(`\\`, `\`, `\"`, `"`, `\/`, `/`)
 
 // withheldPathLabel, withheldSummary and withheldPathNote replace what a withheld pointer would have
 // shown. None names the rule or the path: a rule spells the very path it protects. Section 6 explains
