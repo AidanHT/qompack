@@ -184,11 +184,16 @@ none failing: 4 holding, 1 pending, 4 with nothing to judge` and names each pend
 previous session's SessionEnd or PreCompact leaves in `.qompack/run/marker.json`, and that previous
 session is no longer running; the next session's start decides it. A session still running has had
 no terminal hook yet, so its marker is not due: a session started beside it reads
-`prior-session-live`, with nothing to judge, and counts nothing, however many windows are opened at
-once on a project that has never had a compaction or a session end. A session the daemon does not
-know, because the daemon restarted since, counts as no longer running. A compaction's own start, or a
-`--resume` that keeps the session id, finds the marker that session's PreCompact or SessionEnd just
-wrote. That is the session's own restart, also when another session in the same project started
+`prior-session-live`, with nothing to judge, and counts nothing. That includes a session the daemon
+stopped counting as live because it sent no hook for `runtime.daemon.idleExitSeconds` (30 minutes
+by default) and no SessionEnd arrived ([section 7](#7-daemon-problems)): its window may still be
+open (`internal/daemon/registry.go`, `MayStillRun`). A session whose SessionEnd reached the daemon
+counts as no longer running, and so does one the daemon does not know because it restarted since.
+Known limit: the daemon exits by itself once every session has been quiet for that window, so
+windows left open and quiet across two such exits, with a new window started after each before the
+old ones send a hook, count an absence each time, and the second start fails. A compaction's own
+start, or a `--resume` that keeps the session id, finds the marker that session's PreCompact or
+SessionEnd just wrote. That is the session's own restart, also when another session in the same project started
 after it, and so is a start replayed from a spool after its own session's PreCompact or SessionEnd
 rewrote the marker; it counts nothing. It reads
 `same-session-restart`, which holds, only while the project has no counted absence

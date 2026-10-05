@@ -63,11 +63,16 @@ type Env struct {
 	History History
 	// SessionLive reports whether the caller still tracks a session as live: the daemon binds its
 	// session registry. mcp.server_registered and transcript.readable read it to keep an earlier
-	// session's late observable pending while that session is still running, and
-	// session_start.fires to count no absent marker while the session it would come from is still
-	// running. Nil, and a session the caller does not know (a restarted daemon forgets its sessions),
-	// read as not live.
+	// session's late observable pending while that session is still running. Nil, and a session the
+	// caller does not know (a restarted daemon forgets its sessions), read as not live.
 	SessionLive func(core.SessionID) bool
+	// SessionMayRun reports whether a session may still be running although it is not live: the
+	// caller ended it only for silence, with no SessionEnd seen (the daemon's idle tick abandons a
+	// session quiet for runtime.daemon.idleExitSeconds, and its next hook revives it). Only
+	// session_start.fires reads it, together with SessionLive, to count no absent marker while the
+	// session it would come from may still be running. Nil, and a session the caller does not know,
+	// read as SessionLive alone.
+	SessionMayRun func(core.SessionID) bool
 	// StartTS is when the host fired the SessionStart being evaluated: the hook's own timestamp,
 	// which for a start replayed from a spool is earlier than the evaluation. session_start.fires
 	// reads it to tell a marker the starting session's own later terminal hook wrote from one that
@@ -78,6 +83,12 @@ type Env struct {
 // sessionLive is e.SessionLive's reading of sess, false when the caller bound none.
 func sessionLive(e Env, sess core.SessionID) bool {
 	return e.SessionLive != nil && e.SessionLive(sess)
+}
+
+// sessionMayRun reports whether sess may still be running: it is live (sessionLive), or the caller
+// ended it only for silence (Env.SessionMayRun).
+func sessionMayRun(e Env, sess core.SessionID) bool {
+	return sessionLive(e, sess) || (e.SessionMayRun != nil && e.SessionMayRun(sess))
 }
 
 // History is the observed-hook-firing record an Env carries (SP-01's decided spelling for the type

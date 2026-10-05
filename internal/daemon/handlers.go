@@ -1024,7 +1024,10 @@ func (d *daemon) handleSessionStart(ctx context.Context, req ipc.Request) ipc.Re
 		Clock:       d.clk,
 		History:     h,
 		SessionLive: d.registry.IsLive,
-		StartTS:     hookTime(req, now),
+		// session_start.fires counts no absent marker of a quiet session the idle tick ended,
+		// which may still be open (wave 22 fix round 2).
+		SessionMayRun: d.registry.MayStillRun,
+		StartTS:       hookTime(req, now),
 	}
 	// A replayed start the host fired BEFORE the pending PreCompact is not the start that PreCompact
 	// announced: its hook had already run when the PreCompact did, and only its replay comes after.

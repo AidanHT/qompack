@@ -84,14 +84,19 @@ func historyOf(e Env) (*SessionHistory, bool) {
 // A restart counts nothing and moves neither field; it reads same-session-restart (holding) when no
 // absence is counted, and otherwise the counted absence's own reading.
 //
-// An absence is counted only once the session the history last saw start (LastSessionID) is no
-// longer live (Env.SessionLive): a session still running has had no terminal hook yet, so its
+// An absence is counted only once the session the history last saw start (LastSessionID) can no
+// longer be running (sessionMayRun): a session still running has had no terminal hook yet, so its
 // marker cannot be due, and windows opened together on a project that has never had a terminal hook
-// would otherwise fail the assertion at the third start (audit 2, #8). Such a start counts nothing,
-// leaves LastSessionID naming the running session, whose terminal hook the next start still awaits,
-// and reads prior-session-live (nothing to judge) when no absence is counted. A session the caller
-// does not know reads as not live (a restarted daemon forgets its sessions), so an absence after a
-// restart still counts, as it always did.
+// would otherwise fail the assertion at the third start (audit 2, #8). That includes a session the
+// caller ended only for silence (Env.SessionMayRun): the daemon's idle tick ends a window that is
+// open but quiet for runtime.daemon.idleExitSeconds, and counting it took two quiet stretches between
+// new windows to a critical failure while every window was still open (wave 22 fix round 2). Such a
+// start counts nothing, leaves LastSessionID naming the session that may be running, whose terminal
+// hook the next start still awaits, and reads prior-session-live (nothing to judge) when no absence
+// is counted. A session whose SessionEnd the caller saw, and one the caller does not know (a
+// restarted daemon forgets its sessions, and it exits by itself once every session has been quiet
+// for that window), can no longer be running, so an absence after either still counts, as it always
+// did.
 //
 // The counter is bumped at most once per SESSION, keyed off History.LastSessionID: §12.1 says
 // "absence across two SESSIONS", not "across two RunAll calls", and a second RunAll inside one
@@ -126,7 +131,7 @@ func checkSessionStartFires(ctx context.Context, e Env) Result {
 		sessionRestartSource(e.Event.Source) || ownMarkerAfterStart(rec, e))
 	priorLive := false
 	if !restart && h.LastSessionID != e.Event.SessionID {
-		if sessionLive(e, h.LastSessionID) {
+		if sessionMayRun(e, h.LastSessionID) {
 			priorLive = true
 		} else {
 			h.StartsWithoutMarker++
@@ -150,7 +155,7 @@ func checkSessionStartFires(ctx context.Context, e Env) Result {
 		return Result{OK: true, Expected: desc, Observed: "same-session-restart", TS: now(e)}
 	}
 	if h.StartsWithoutMarker == 0 && priorLive {
-		// The session the history last saw start is still running, so no terminal hook of it is
+		// The session the history last saw start may still be running, so no terminal hook of it is
 		// due and this start observed nothing either way (audit 2, #8).
 		return Result{OK: true, Expected: desc, Observed: "prior-session-live", TS: now(e)}
 	}

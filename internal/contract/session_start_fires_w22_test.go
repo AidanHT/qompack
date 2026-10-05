@@ -138,3 +138,36 @@ func TestSessionStartFires_OwnMarkerWrittenAfterTheStartIsARestart(t *testing.T)
 		})
 	}
 }
+
+// TestSessionStartFires_ASessionThatMayStillRunCountsNoAbsence is #8 for a session the caller ended
+// only for silence (Env.SessionMayRun): the daemon's idle tick ends a window that is open but quiet,
+// and its next hook revives it, so no marker of it is due. A caller that binds no SessionMayRun reads
+// SessionLive alone, as before (wave 22 fix round 2).
+func TestSessionStartFires_ASessionThatMayStillRunCountsNoAbsence(t *testing.T) {
+	contract.DeclareProducer(contract.CSessionStartFires)
+	t.Cleanup(contract.ResetProducers)
+
+	run := func(h *contract.SessionHistory, root string, sess core.SessionID, mayRun func(core.SessionID) bool) contract.Result {
+		t.Helper()
+		r := assertionByID(t, contract.CSessionStartFires).Check(context.Background(), contract.Env{
+			Clock: newFakeClock(), ProjectRoot: root, History: h, SessionLive: liveSet(sess), SessionMayRun: mayRun,
+			Event: hookio.Event{HookEventName: "SessionStart", SessionID: sess, Source: "startup"},
+		})
+		h.SessionCount++
+		return r
+	}
+
+	root := t.TempDir()
+	h := &contract.SessionHistory{}
+	require.Equal(t, "first-session", run(h, root, "sess-a", nil).Observed)
+	r := run(h, root, "sess-b", liveSet("sess-a"))
+	require.True(t, r.OK)
+	require.Equal(t, "prior-session-live", r.Observed, "a was ended only for silence: it may still run")
+	require.Equal(t, contract.StandingIdle, contract.StandingOf(r))
+	require.Zero(t, h.StartsWithoutMarker)
+	require.Equal(t, core.SessionID("sess-a"), h.LastSessionID, "the session that may run is still awaited")
+
+	r = run(h, root, "sess-c", nil)
+	require.Equal(t, "marker-absent-once", r.Observed, "a caller that knows nothing of a reads it as not running")
+	require.Equal(t, 1, h.StartsWithoutMarker)
+}
