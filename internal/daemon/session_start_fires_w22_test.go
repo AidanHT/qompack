@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"context"
+	"os"
 	"testing"
 	"time"
 
@@ -26,6 +27,16 @@ import (
 // whole window with no SessionEnd: registry bookkeeping only, no terminal-hook marker.
 func abandonAll(dd *daemon) {
 	dd.registry.EndAbandoned(core.NowMilli(dd.clk)+core.UnixMilli(time.Hour.Milliseconds()), 0)
+}
+
+// endWithoutMarker ends sess through its SessionEnd and then removes the marker that end left: a
+// session that is over and left no marker, the genuine absence session_start.fires counts. (A session
+// the idle tick abandoned may still be open, so it is no such absence.)
+func endWithoutMarker(t *testing.T, dd *daemon, sess core.SessionID) {
+	t.Helper()
+	resp := dd.dispatchOp(context.Background(), sessionEndRequest(dd, sess, core.NowMilli(dd.clk)))
+	require.True(t, resp.OK, resp.Err)
+	require.NoError(t, os.Remove(contract.MarkerPath(dd.root)), "the marker its SessionEnd left")
 }
 
 // sessionEndRequest is a SessionEnd of sess fired at ts, answered once the end has run.
@@ -71,21 +82,38 @@ func TestSessionStartFires_ConcurrentFreshStartsStayFull(t *testing.T) {
 
 // TestSessionStartFires_AbsenceAfterAnEndedSessionStillFails pins the other direction of #8: a
 // session that is no longer running and left no marker is a real absence. Two in a row fail at
-// critical severity and degrade the project, whether the daemon saw the session go silent (the idle
-// tick's abandonment) or restarted and forgot it.
+// critical severity and degrade the project, whether the session's SessionEnd reached the daemon
+// and no marker was left, or the daemon restarted and forgot the session (it forgets one it ended
+// only for silence the same way).
 func TestSessionStartFires_AbsenceAfterAnEndedSessionStillFails(t *testing.T) {
-	t.Run("abandoned", func(t *testing.T) {
+	t.Run("ended without its marker", func(t *testing.T) {
 		dd := replayProbeDaemon(t)
 		require.True(t, dd.dispatchOp(context.Background(), startRequest(dd, "sess-a", "startup", "", "n-a")).OK)
-		abandonAll(dd)
+		endWithoutMarker(t, dd, "sess-a")
 		require.True(t, dd.dispatchOp(context.Background(), startRequest(dd, "sess-b", "startup", "", "n-b")).OK)
 		r := reportOf(t, dd, contract.CSessionStartFires)
 		require.Equal(t, "marker-absent-once", r.Observed, "a ended with no marker: one absence")
 		require.Equal(t, contract.StandingPending, contract.StandingOf(r))
-		abandonAll(dd)
+		endWithoutMarker(t, dd, "sess-b")
 		require.True(t, dd.dispatchOp(context.Background(), startRequest(dd, "sess-c", "startup", "", "n-c")).OK)
 		r = reportOf(t, dd, contract.CSessionStartFires)
 		require.False(t, r.OK, "two consecutive sessions ended without a marker")
+		require.Equal(t, contract.SevCritical, r.Severity)
+		require.Equal(t, contract.ModeDegradedPassive, dd.monitor.Mode())
+	})
+	t.Run("abandoned, then the daemon restarted", func(t *testing.T) {
+		root := t.TempDir()
+		dd := replayProbeDaemonAt(t, root)
+		require.True(t, dd.dispatchOp(context.Background(), startRequest(dd, "sess-a", "startup", "", "n-a")).OK)
+		abandonAll(dd)
+		dd = replayProbeDaemonAt(t, root)
+		require.True(t, dd.dispatchOp(context.Background(), startRequest(dd, "sess-b", "startup", "", "n-b")).OK)
+		require.Equal(t, "marker-absent-once", reportOf(t, dd, contract.CSessionStartFires).Observed)
+		abandonAll(dd)
+		dd = replayProbeDaemonAt(t, root)
+		require.True(t, dd.dispatchOp(context.Background(), startRequest(dd, "sess-c", "startup", "", "n-c")).OK)
+		r := reportOf(t, dd, contract.CSessionStartFires)
+		require.False(t, r.OK)
 		require.Equal(t, contract.SevCritical, r.Severity)
 		require.Equal(t, contract.ModeDegradedPassive, dd.monitor.Mode())
 	})
@@ -103,6 +131,40 @@ func TestSessionStartFires_AbsenceAfterAnEndedSessionStillFails(t *testing.T) {
 		require.Equal(t, contract.SevCritical, r.Severity)
 		require.Equal(t, contract.ModeDegradedPassive, dd.monitor.Mode())
 	})
+}
+
+// TestSessionStartFires_QuietOpenWindowsStayFull is #8 for windows that stay open but go quiet:
+// the daemon's idle tick ends a session silent for runtime.daemon.idleExitSeconds with no SessionEnd
+// (SessionRegistry.EndAbandoned), which is only a guess from silence, and the session's next hook
+// revives it. Such a session may still be running, so a start after it counts no absence. Counting
+// one took two quiet stretches between new windows, on a project that never had a terminal hook, to
+// a critical failure, and kept the open window's own compaction degraded with no rehydration
+// (wave 22 fix round 2, the verifier's probe).
+func TestSessionStartFires_QuietOpenWindowsStayFull(t *testing.T) {
+	dd := replayProbeDaemon(t)
+	require.True(t, dd.dispatchOp(context.Background(), startRequest(dd, "sess-a", "startup", "", "n-a")).OK)
+	require.Equal(t, "first-session", reportOf(t, dd, contract.CSessionStartFires).Observed)
+
+	abandonAll(dd) // a: open, quiet for the idle-exit window
+	require.True(t, dd.dispatchOp(context.Background(), startRequest(dd, "sess-b", "startup", "", "n-b")).OK)
+	r := requireFiresNotFailing(t, dd, "b startup")
+	require.Equal(t, "prior-session-live", r.Observed, "a was only quiet: it may still be running")
+	require.Zero(t, history(t, dd).StartsWithoutMarker)
+
+	dd.registry.Touch("sess-a", core.NowMilli(dd.clk)) // a is used again: it was open all along
+	require.True(t, dd.registry.IsLive("sess-a"))
+	abandonAll(dd) // both quiet again
+	require.True(t, dd.dispatchOp(context.Background(), startRequest(dd, "sess-c", "startup", "", "n-c")).OK)
+	r = requireFiresNotFailing(t, dd, "c startup")
+	require.Equal(t, "prior-session-live", r.Observed)
+	require.Zero(t, history(t, dd).StartsWithoutMarker)
+
+	// a, open all along, compacts: its own restart holds and the compaction may act.
+	require.True(t, dd.dispatchOp(context.Background(), checkpointRequest(dd, "sess-a", "p-a")).OK)
+	require.True(t, dd.dispatchOp(context.Background(), startRequest(dd, "sess-a", "compact", "", "c-a")).OK)
+	r = requireFiresNotFailing(t, dd, "a compaction")
+	require.Equal(t, contract.StandingHolding, contract.StandingOf(r), "observed %q", r.Observed)
+	require.True(t, dd.monitor.Mode().MayAct(), "the compaction is rehydrated")
 }
 
 // TestSessionStartFires_ReplayedStartupAfterItsOwnPreCompact is #10, the audit's sequence: a
