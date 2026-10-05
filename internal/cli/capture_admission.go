@@ -114,13 +114,22 @@ func admitHookCapture(env Env, root string, in hookInput) (hookio.Capture, hooki
 	if err != nil {
 		return failed(err)
 	}
+	// runtime.mode off is the operator's instruction that the hook path write nothing at all
+	// (troubleshooting §8, Step 3), so it returns before the configuration report below: that report
+	// writes state/config-violations.json, creates state/ and tmp/ for it, removes a record an earlier
+	// load left, and logs to the day log. Before audit 2's finding #20 it ran first, so a mode-off hook
+	// whose file also held an invalid value wrote all of that on every delivery. self-test and doctor
+	// still report the condition through their own read-only loads (config.LoadForCapture). A
+	// delivery whose read failed reaches this return too, and doHook still logs that read error to
+	// logs/hook-quiet-YYYYMMDD.jsonl after it (a known issue in hookclient.go, troubleshooting §8
+	// Step 3); TestHookCapture_ModeOffWritesNothing pins that nothing else is written on that path.
+	if cfg.Runtime.Mode == "off" {
+		return hookio.Capture{}, hookio.Event{}, cfg, nil
+	}
 	// A clamped key is a §11.3 violation and a dropped one is a warning, and both must reach an
 	// operator where they would look for them. Before finding S-7 and V6 close-out item C1.8 there
 	// was nothing to report here, because either one refused the whole delivery instead.
 	reportCaptureConfig(root, homeDir(env), violations, warnings)
-	if cfg.Runtime.Mode == "off" {
-		return hookio.Capture{}, hookio.Event{}, cfg, nil
-	}
 	// Defence in depth, not the enforcement point. config.Validate now bounds the key from above
 	// (HookCaptureHardCapBytes, finding S-2) and the loader clamps it, so a configured value can no
 	// longer arrive here above the cap. A Config built some other way still can, and the hard

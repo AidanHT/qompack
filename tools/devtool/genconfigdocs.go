@@ -322,8 +322,9 @@ func writeVersionedSection(b *strings.Builder) {
 func writeGateSection(b *strings.Builder) {
 	b.WriteString("## Gated switches (ship off)\n\n")
 	b.WriteString("These leaves default to `false` and stay refused until their gate passes: a `true` value is\n")
-	b.WriteString("refused at load, the leaf falls back to its default and the refusal is reported as a\n")
-	b.WriteString("warning, so editing a config file cannot enable a capability this build does not support.\n\n")
+	b.WriteString("refused at load, the leaf falls back to its default and the refusal is recorded as an invalid\n")
+	b.WriteString("value (`state/config-violations.json`), so editing a config file cannot enable a capability\n")
+	b.WriteString("this build does not support.\n\n")
 	b.WriteString("| Key | Default | Owner | Gate | Status |\n")
 	b.WriteString("|---|---|---|---|---|\n")
 	for _, g := range config.MigrationGates() {

@@ -204,8 +204,9 @@ schema change to one never resets the other.
 ## Gated switches (ship off)
 
 These leaves default to `false` and stay refused until their gate passes: a `true` value is
-refused at load, the leaf falls back to its default and the refusal is reported as a
-warning, so editing a config file cannot enable a capability this build does not support.
+refused at load, the leaf falls back to its default and the refusal is recorded as an invalid
+value (`state/config-violations.json`), so editing a config file cannot enable a capability
+this build does not support.
 
 | Key | Default | Owner | Gate | Status |
 |---|---|---|---|---|

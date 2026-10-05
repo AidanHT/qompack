@@ -248,9 +248,12 @@ func TestHookCapture_ResolvedConfigRemovesViolationsRecord(t *testing.T) {
 			require.Equal(t, ExitOK, code, "stderr=%s", errw)
 			row := doctorFindRow(t, doc, "controls", "config.violations")
 			require.Equal(t, "degraded", row["status"], "row=%v", row)
-			// A block reset is not a leaf: doctor counts settings, as self-test's summary does.
+			// A block reset is not a leaf: doctor counts settings, as self-test's summary does. doctor's
+			// own load counts the reset too (audit 2's finding #16), so the setting the record also
+			// names is counted once and shown as the live entry; TestDoctor_PersistedRecordReadIsBounded
+			// covers a setting only the record names.
 			require.Equal(t, "1 setting(s) fell back to the default", row["observed"], "row=%v", row)
-			require.Contains(t, row["detail"], "runtime.migration (from state/config-violations.json)")
+			require.Equal(t, "runtime.migration (block reset: newer settingsVersion)", row["detail"], "row=%v", row)
 
 			runPromptHooks(t, root, tc.fixed, 1)
 			_, err = os.Lstat(violationsRecord(root))

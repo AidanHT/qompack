@@ -15,7 +15,8 @@ What the commands, the slash commands and the MCP tools *are* is
 > **These diagnostics write.** Under a default configuration, `qompack status`, `qompack self-test`
 > and every hook entry point create `<project>/.qompack/` in the project directory they resolve, and
 > start that project's daemon. Running one in a directory that has never been used with Qompack is a
-> write, in that directory. (§6 and §8 cover the configurations under which a hook writes nothing.)
+> write, in that directory. (§6 and §8 cover the configurations under which a hook records nothing,
+> and the one log line it can still write there.)
 > `qompack config print` does not create the layout
 > ([docs/user-guide.md](user-guide.md#operator-commands)), but it does write, or remove,
 > `.qompack/state/config-violations.json` in one that already exists (observed on this tree). The
@@ -123,6 +124,12 @@ host-contract banner, the mode and hot-path lines, counters, the per-hook latenc
 **Meaning.** `source:` tells you whether you are reading a live daemon answer, the metrics file the
 daemon last persisted, or nothing at all (`internal/commands/statuscollect.go`: `daemon`, `disk`,
 `none`). A stale `disk` reading is not a current one.
+
+The `config.violations` counter, and the configuration lines among the recent loud lines, are the
+daemon's report of the configuration it started on: each invalid value and each newer-`settingsVersion`
+block reset counts as one setting, as in `doctor` and `self-test`. They count from that daemon's
+start and keep showing a condition until it exits, even after the file is fixed, while `doctor`'s
+`config.violations` and `self-test`'s `config.capture` follow the file (§6).
 
 With no daemon listening, the provenance line says so rather than quoting an empty refusal:
 `daemon: no daemon answered: none is listening for this project yet`. The command asks one to
@@ -276,9 +283,16 @@ ways a value is accepted and not applied.
 (`internal/cli/config.go`, `configViolationsFile`), written by any command that loads configuration
 through `LoadConfigAndReport` with a project root, and by every hook whose project already has a
 `.qompack/` (`reportCaptureConfig`). Both write the same list, a whole-block reset for a newer
-`settingsVersion` included — see [§6](#6-configuration-and-schema-compatibility). The file exists
-only while something is in force: a load that finds no invalid value and no reset removes it, so a
-missing file means nothing is recorded. On this tree, a project file
+`settingsVersion` included — see [§6](#6-configuration-and-schema-compatibility). Neither writer
+creates `.qompack/` to hold it: in a directory with no `.qompack/`, a command that finds a setting in
+the user-global file, a `QOMPACK_*` variable or a `--set` flag writes nothing. A hook under
+`runtime.mode` `off` neither writes nor removes it ([§8](#8-safe-disable), Step 3). The file
+exists only while something is in force: a load that finds no invalid value and no reset removes it,
+so a missing file means nothing is recorded. A hook that refuses the configuration (§6) or runs under
+`off` leaves the record as the last load wrote it, so `doctor` can list a key from it that is no longer
+in force until a command that loads the configuration, such as `self-test`, brings it up to date.
+`doctor`'s `config.violations` row counts what its own load finds, a reset included, as well as what
+the record names. On this tree, a project file
 setting `runtime.mode` to `sideways` and `runtime.phase7.reuse.scopedCandidates` to `true` produced
 exactly two entries:
 
@@ -323,9 +337,9 @@ hooks made of the same files.
 
 **Diagnose.** `.qompack/logs/qompack-YYYYMMDD.log` (observed: `qompack-20260914.log` in the scratch
 project). Every configuration warning is written there at `warn` level. A violation is written at
-`loud` level by a daemon when it starts and by the commands that log (`internal/cli/config.go`,
-`LoadConfigAndReport`), and at `warn` by a hook (`reportCaptureConfig`, which writes only once
-`logs/` exists). A newer-`settingsVersion` reset is written at `loud` by a daemon when it starts
+`loud` level by a daemon when it starts (`internal/cli/config.go`, `loadDaemonConfig`), and at `warn`
+by the commands that log (`LoadConfigAndReport`) and by a hook (`reportCaptureConfig`, which writes
+only once `logs/` exists), once per load. A newer-`settingsVersion` reset is written at `loud` by a daemon when it starts
 (`configuration block reset to defaults`) and at `warn` by hooks and commands. A daemon that reloads
 a changed `config.json` logs every warning at `loud` (§6). `internal/logging/logger.go`
 documents that a `Loud` call also appends to `LOUD.log` in the same directory — append-only and
@@ -587,7 +601,7 @@ likely to be the answer when nothing is being recorded.
 
 | Class | What happens | Where you see it |
 |---|---|---|
-| invalid value | the leaf falls back to its default, loading continues | `config-violations.json`; `loud` once from each daemon when it starts (`invalid configuration value, using default`), and from `qompack mcp` and the `/qompack:` commands each time they load the configuration; `warn` from every hook |
+| invalid value | the leaf falls back to its default, loading continues | `config-violations.json`; `loud` once from each daemon when it starts (`invalid configuration value, using default`); `warn` from every hook and from the commands that load the configuration |
 | wrong type — a string where a number belongs, an unparseable `QOMPACK_*` or `--set` value, a section that is not an object | that value is ignored with a warning, and the leaf keeps the value from the layer below: the default when no lower layer set it | `warn` in the day log |
 | unknown key | a warning, never an error | `warn` in the day log |
 | newer `settingsVersion` | the whole versioned block is reset to defaults, so unknown future switches stay off | `config-violations.json` (§1); `loud` once from each daemon when it starts (`configuration block reset to defaults`); `warn` from every hook and from the commands that load the configuration |
@@ -602,6 +616,9 @@ wrong type or retired meaning stays at `warn`; an unchanged invalid value or new
 is the startup `loud` line in the table, once per daemon start, which is also how `qompack status`
 shows it (D59: a persistent condition is loud once per start or change, and a hook logs it at
 `warn`).
+To find where an invalid value is set, read the `location=` field of the daemon's start line or of a
+command's `warn` line: a file and line, a `QOMPACK_*` variable, or `--set`. A hook's `warn` line does
+not carry one, and `config print --provenance` shows the key as `fallback after violation`.
 `config-violations.json` is the record of what is in force now: a load that finds no invalid value
 and no reset removes it, whether a hook's or a command's such as `self-test`.
 
@@ -674,7 +691,8 @@ passing does not mean the hooks can load your config; `config.capture` is the ro
 
 **Action.** Repair what `config.capture` names, then re-run `qompack self-test` until that row reads
 `ok` — or `warn`, if you accept the keys it lists — and run a hook: a new file under
-`.qompack/spool/`, or the layout appearing, is the confirmation. For a `warn`, check each key it
+`.qompack/spool/` is the confirmation. The layout appearing is not, because `self-test` creates the
+layout itself, even while the hooks refuse. For a `warn`, check each key it
 names against [docs/config-reference.md](config-reference.md), which is generated from
 `config.Defaults()` and is therefore the exact set of keys this build knows.
 
@@ -709,7 +727,9 @@ block, the first preferred:
   `qompack self-test` until `config.capture` reads `ok`. This build was already running that block at
   its defaults, so nothing the daemon or hooks do changes. The same `self-test` run removes the
   reset's entry from `.qompack/state/config-violations.json`, so `doctor`'s `config.violations` row
-  reads `ok` as well. Then stop the project's daemon if one is running (§7, "A daemon is running and
+  reads `ok` as well. `qompack status` does not yet: its `config.violations` counter and recent loud
+  lines are the running daemon's report of the configuration it started on, and they keep showing the
+  reset until that daemon exits, which the next step takes care of. Then stop the project's daemon if one is running (§7, "A daemon is running and
   you want it to stop"), or the backup refuses with `backup: stop the source daemon before
   maintenance`, and run the backup. A backup copies `.qompack/config.json` as it is at that moment,
   so this backup holds the edited file, not the newer one.
@@ -1289,8 +1309,17 @@ itself. `RunAll` returns before running a single assertion; `ipc.Client.Send`'s 
 dial, no spool write"; and `internal/cli/capture_admission.go` returns an empty capture before any
 payload bytes are admitted.
 
-**What keeps being written.** Nothing from the hook path. Observed on this tree: with
-`{"runtime":{"mode":"off"}}` as the only project config, `qompack checkpoint` with empty stdin
+**What keeps being written.** Almost nothing from the hook path: a hook under `off` spools nothing,
+never writes or removes `state/config-violations.json`, and writes no configuration line to the day
+log, even when the same file holds an invalid value, which `self-test` and `doctor` still report.
+One exception remains (a known issue): when the hook's own read of the delivery fails — the delivery
+is over the read bound, the host stops writing part way, or stdin cannot be read at all — a project
+whose `.qompack/logs/` exists gets one line in `logs/hook-quiet-YYYYMMDD.jsonl` naming that read
+error (`hook input exceeds capture bound` or `hook input unavailable`). The hook logs a read error
+whatever `config.json` sets the mode to (`internal/cli/hookclient.go`, `doHook`), unless the mode
+the project's daemon last wrote to `.qompack/run/state.bin` is already `off`; then the hook returns
+before it reads anything. Observed on this tree: with `{"runtime":{"mode":"off"}}` as the only
+project config, `qompack checkpoint` with empty stdin
 printed `{}`, exited 0, and created no `.qompack/` layout at all. Read commands you run by hand
 still write — `qompack status` and `qompack self-test` create the layout and start a daemon
 whatever the mode says, because you asked them to.
