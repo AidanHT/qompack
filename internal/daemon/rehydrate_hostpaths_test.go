@@ -121,7 +121,7 @@ func TestRehydrateHostPaths_ASelectorNamingADeniedFileIsWithheld(t *testing.T) {
 	require.NoError(t, err)
 	require.NotContains(t, res.Text, "deny.txt", "the payload shows the denied path")
 	require.Contains(t, res.Text, "- tool_use toolu_017m9djGav7vcngkniobgwim "+
-		core.Hash(sha256.Sum256([]byte("selector"))).String()+" — summary withheld")
+		core.Hash(sha256.Sum256([]byte("selector"))).String()+" — (summary withheld)\n")
 	require.Contains(t, res.Text, `{"query":"ORCHID-DENY-8842"}`, "a summary that names no path is shown")
 }
 
@@ -158,7 +158,7 @@ func TestRehydrateHostPaths_EverySpellingOfADeniedFileIsWithheld(t *testing.T) {
 		require.NotContains(t, e.ID+" "+e.Detail, "deny.txt", "the drop report shows the denied path: %+v", e)
 	}
 	for _, id := range []string{"toolu_basename", "toolu_glob"} {
-		require.Regexp(t, "- tool_use "+id+" sha256:[0-9a-f]+ — summary withheld", res.Text)
+		require.Regexp(t, "- tool_use "+id+" sha256:[0-9a-f]+ — \\(summary withheld\\)\n", res.Text)
 	}
 	require.Contains(t, res.Text, "- pointer_untracked "+denied.String()+" — not tracked by git")
 	require.Contains(t, res.Text, `{"query":"ORCHID-DENY-8842"}`, "a summary that names no path is shown")
@@ -256,7 +256,7 @@ func costPointers(t *testing.T, previews []string) []checkpoint.ToolPointer {
 // paths it judged. With instructions > 0 the project also holds that many `paths:` rule files
 // scoped to the file pointers and that many skills, which items 6a and 6b restore through the real
 // rule scanner and skill indexer.
-func costBuild(t *testing.T, root string, previews []string, instructions int) (rehydrate.Result, int, []string) {
+func costBuild(t *testing.T, root string, previews []string, instructions, drops int) (rehydrate.Result, int, []string) {
 	t.Helper()
 	var reads []string
 	files := make([]checkpoint.FilePointer, 0, rehydrateCostFiles)
@@ -272,6 +272,25 @@ func costBuild(t *testing.T, root string, previews []string, instructions int) (
 	}
 	req := toolPointerRequest(root, costPointers(t, append(reads, previews...)))
 	req.Checkpoint.Pointers.Files = files
+	for i := 0; i < drops; i++ {
+		// The checkpointer's budget cut names each file pointer it cuts (truncate.go cutFilePointers),
+		// so a long session's checkpoint carries a drop like this for every file it touched.
+		req.Checkpoint.Dropped = append(req.Checkpoint.Dropped, checkpoint.DropEntry{
+			Kind: "file_pointer", ID: fmt.Sprintf("vendor/m%d/z%d.go", i%50, i),
+			Detail: "truncated at budget; re_read(path) still resolves",
+		})
+	}
+	if drops > 0 {
+		// A session that read its instruction and skill files had their pointers cut too, past the
+		// drops' bound (wave 22's verify, fix round 2).
+		for i := 1; i <= instructions; i++ {
+			for _, rel := range []string{fmt.Sprintf(".claude/rules/k%d.md", i), fmt.Sprintf(".claude/skills/s%d/SKILL.md", i)} {
+				req.Checkpoint.Dropped = append(req.Checkpoint.Dropped, checkpoint.DropEntry{
+					Kind: "file_pointer", ID: rel, Detail: "truncated at budget; re_read(path) still resolves",
+				})
+			}
+		}
+	}
 
 	judgements := 0
 	var judged []string
@@ -300,8 +319,8 @@ func costBuild(t *testing.T, root string, previews []string, instructions int) (
 	start := time.Now()
 	res, err := rehydrate.Build(context.Background(), req, deps)
 	require.NoError(t, err)
-	t.Logf("%d previews, %d Read previews, %d file pointers: %d host judgements in %v (logged, not judged)",
-		len(previews), len(reads), len(files), judgements, time.Since(start))
+	t.Logf("%d previews, %d Read previews, %d file pointers, %d path-keyed drops: %d host judgements in %v (logged, not judged)",
+		len(previews), len(reads), len(files), drops, judgements, time.Since(start))
 	for _, s := range reads {
 		require.Contains(t, res.Text, " — "+s+"\n", "fixture: an in-project Read preview is shown")
 	}
@@ -312,6 +331,14 @@ func costBuild(t *testing.T, root string, previews []string, instructions int) (
 // file pointer and one for each structured summary, every path judged once per build, and none for
 // free text.
 const maxCostJudgements = rehydrateCostFiles + rehydrateCostReads
+
+// rehydrateCostDrops is how many path-keyed checkpoint drops the drops variant carries (audit 2's
+// finding 28: on eca33155 the build judged every one, about 2.5 s through this adapter on Windows),
+// and costDropJudgements how many of them a build judges at most (ADR 0011 §23 item 10).
+const (
+	rehydrateCostDrops = 1000
+	costDropJudgements = 64
+)
 
 // TestRehydrateHostPaths_HostJudgementsAreStructuredSummariesAndFilePointers is the cost row,
 // re-derived for coordinator decisions D61(4) and D63 through the real adapter and the real host
@@ -328,9 +355,12 @@ const maxCostJudgements = rehydrateCostFiles + rehydrateCostReads
 // from the root through its last word that holds a separator, which in this fixture's commands is
 // the script's path alone (the round-2 review's commands run from the root, whose `HEAD~N` the host
 // refuses on Windows as an 8.3 name; a later argument holding a separator would reach the host too).
-// The rule files and skills items 6a and 6b restore cost one judgement each (the round-3 review). A
-// build judges exactly its file pointers, its structured summaries and those files, once each. The
-// pass criterion is the count and the paths judged; the wall time is logged, never judged.
+// The rule files and skills items 6a and 6b restore cost one judgement each (the round-3 review),
+// and so they do when the session's own drops of them lie past the drops' bound, which answers a drop
+// unjudged but never items 6a and 6b (wave 22's verify, fix round 2: they were then withheld unjudged,
+// and neither restored nor indexed). A build judges exactly its file pointers, its structured
+// summaries and those files, once each. The pass criterion is the count and the paths judged; the
+// wall time is logged, never judged.
 func TestRehydrateHostPaths_HostJudgementsAreStructuredSummariesAndFilePointers(t *testing.T) {
 	root := costProject(t)
 	slash := strings.ReplaceAll(root, `\`, "/")
@@ -343,12 +373,15 @@ func TestRehydrateHostPaths_HostJudgementsAreStructuredSummariesAndFilePointers(
 		// instructions is how many `paths:` rule files and skills the project holds (costBuild): each
 		// rule file item 6a would restore and each skill file item 6b would index is judged once.
 		instructions int
+		// drops is how many path-keyed checkpoint drops the checkpoint carries (costBuild): at most
+		// costDropJudgements of them are judged, whatever their number (audit 2's finding 28).
+		drops int
 	}{
 		{"Bash", func(i int) string {
 			s := rehydrateCostPreview(i)
 			require.Len(t, strings.Fields(s), rehydrateCostWords, "fixture: %q", s)
 			return s
-		}, 0, 0},
+		}, 0, 0, 0},
 		{"canonical JSON and URLs", func(i int) string {
 			switch i % 4 {
 			case 0:
@@ -362,7 +395,7 @@ func TestRehydrateHostPaths_HostJudgementsAreStructuredSummariesAndFilePointers(
 				return bash(fmt.Sprintf("curl -s https://example.com/api/v%d/items?page=%d | jq .items > out%d.json", i, i, i))
 			}
 			return storePreview(t, map[string]string{"url": fmt.Sprintf("https://example.com/docs/v%d/guide.html", i)})
-		}, 0, 0},
+		}, 0, 0, 0},
 		{"absolute paths", func(i int) string {
 			switch i % 3 {
 			case 0:
@@ -371,14 +404,14 @@ func TestRehydrateHostPaths_HostJudgementsAreStructuredSummariesAndFilePointers(
 				return bash(fmt.Sprintf("git -C %s log --oneline -n %d", root, i))
 			}
 			return bash(fmt.Sprintf("diff %s src/b%d.go", filepath.Join(root, "src", fmt.Sprintf("a%d.go", i)), i))
-		}, 0, 0},
+		}, 0, 0, 0},
 		{"path-named arrays", func(i int) string {
 			var values []string
 			for _, c := range "abcdef" {
 				values = append(values, fmt.Sprintf("s/%c%d.go", c, i))
 			}
 			return storePreviewOf(t, map[string]any{"paths": values})
-		}, 0, 0},
+		}, 0, 0, 0},
 		{"cut path-named arrays", func(i int) string {
 			var values []string
 			for _, c := range "abcdefghijkl" {
@@ -389,20 +422,23 @@ func TestRehydrateHostPaths_HostJudgementsAreStructuredSummariesAndFilePointers(
 			_, preview := store.ArgsDigest(raw)
 			require.True(t, strings.HasSuffix(preview, "…"), "fixture: the store cuts %q", preview)
 			return preview
-		}, 0, 0},
+		}, 0, 0, 0},
 		{"commands run from the root", func(i int) string {
 			return bash(fmt.Sprintf("%s --since HEAD~%d && echo ok", filepath.Join(root, "tools", fmt.Sprintf("lint%d.ps1", i)), i))
-		}, rehydrateCostPointers, 0},
-		{"instruction and skill files", rehydrateCostPreview, 0, rehydrateCostInstructions},
+		}, rehydrateCostPointers, 0, 0},
+		{"instruction and skill files", rehydrateCostPreview, 0, rehydrateCostInstructions, 0},
+		{"path-keyed checkpoint drops", rehydrateCostPreview, 0, 0, rehydrateCostDrops},
+		{"instruction and skill files whose drops lie past the bound", rehydrateCostPreview, 0, rehydrateCostInstructions, rehydrateCostDrops},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			previews := make([]string, 0, rehydrateCostPointers)
 			for i := 1; i <= rehydrateCostPointers; i++ {
 				previews = append(previews, tc.preview(i))
 			}
-			res, judgements, judged := costBuild(t, root, previews, tc.instructions)
-			require.Equal(t, maxCostJudgements+tc.rooted+2*tc.instructions, judgements,
-				"a build judges each file pointer, structured summary, rule file and skill file once, and no free text")
+			res, judgements, judged := costBuild(t, root, previews, tc.instructions, tc.drops)
+			require.Equal(t, maxCostJudgements+tc.rooted+2*tc.instructions+min(tc.drops, costDropJudgements), judgements,
+				"a build judges each file pointer, structured summary, rule file and skill file once, a bounded "+
+					"number of path-keyed checkpoint drops, and no free text")
 			for _, p := range judged {
 				require.NotContains(t, p, " ", "no fixture command's arguments reach the host")
 			}
@@ -421,6 +457,10 @@ func TestRehydrateHostPaths_HostJudgementsAreStructuredSummariesAndFilePointers(
 				want[fmt.Sprintf(".claude/skills/s%d/SKILL.md", i)] = 1
 			}
 			require.Equal(t, want, instr, "items 6a and 6b judge each rule file and each skill file once: %v", judged)
+			for i := 1; i <= tc.instructions; i++ {
+				require.Contains(t, res.Text, fmt.Sprintf("Rule %d body.", i), "item 6a restores a rule file the host allows")
+				require.Contains(t, res.Text, fmt.Sprintf("skill %d", i), "item 6b indexes a skill the host allows")
+			}
 			require.NotContains(t, res.Text, "summary withheld", "no fixture preview names a denied path")
 			require.Contains(t, res.Text, " — "+previews[0]+"\n", "fixture: the previews reach section 6")
 		})
@@ -441,47 +481,66 @@ func TestRehydrateHostPaths_UsefulSummariesAreShownUnderTheUAT12Rules(t *testing
 	for _, f := range []string{"private/deny.txt", ".env", "secrets/token.txt", "src/main.go"} {
 		writeProjectFile(t, root, f)
 	}
-	bash := func(cmd string) string { return storePreview(t, map[string]string{"command": cmd}) }
-	res := requireToolSummaries(t, root,
-		[]string{
-			bash("cd " + root + " && go test ./..."),
-			bash("git diff HEAD~1"),
-			bash("git log --oneline HEAD~3..HEAD"),
-			bash("git -C " + root + " status"),
-			bash("npm test"),
-			bash("go test -run TestX ./internal/..."),
-			bash(`git commit -m "fix the bug"`),
-			storePreview(t, map[string]string{"query": "path:src/main.go"}),
-			storePreview(t, map[string]string{"query": "path:src/main.go retry"}),
-			storePreview(t, map[string]string{"url": "https://example.com/a"}),
-			storePreview(t, map[string]string{"url": "https://example.com/search?a=1&b=2", "prompt": "list the results"}),
-			storePreview(t, map[string]string{"description": "run the tests", "prompt": "go test ./... and report the failures"}),
-			bash("grep -rn TODO src/"),
-			storePreview(t, map[string]string{"file_path": filepath.Join(root, "src", "main.go")}),
-			storePreview(t, map[string]string{"path": filepath.Join(root, "src"), "pattern": "**/*_test.go"}),
-			storePreview(t, map[string]string{"pattern": "**/*.{ts,tsx}"}),
-			storePreview(t, map[string]string{"pattern": "TODO|FIXME"}),
-			bash("go test ./... > test.log 2>&1; tail -n 50 test.log"),
-			bash(`git commit -m "feat(api): add users endpoint"`),
-			bash(`sed -n '1,50p' src/main.go`),
-			bash("git log --format=%h -n 3"),
-			storePreview(t, map[string]string{"query": "what's the owner's ruling"}),
-		},
-		[]string{
-			bash("cat .env"),
-			bash("cat secrets/token.txt"),
-			storePreview(t, map[string]string{"query": "path:private/deny.txt"}),
-			storePreview(t, map[string]string{"file_path": filepath.Join(root, "private", "deny.txt")}),
-			storePreview(t, map[string]string{"path": filepath.Join(root, "secrets"), "pattern": "*.txt"}),
-			storePreview(t, map[string]string{"pattern": "**/*.{go,env}"}),
-			bash(`cat 'secrets/token.txt'`),
-			storePreviewOf(t, map[string]any{"paths": []string{"file:///etc/passwd", "src/main.go"}}),
-			// Criterion change (wave 19d final verify): `--pretty=format` before a `:` is a name PowerShell
-			// accepts for a drive, so git's `format:` spelling is over-withheld; `--format=%h` is shown.
-			bash("git log --pretty=format:%h -n 3"),
-		})
+	shown, withheld := usefulSummaryPreviews(root)
+	res := requireToolSummaries(t, root, storePreviews(t, shown), storePreviews(t, withheld))
 	require.NotContains(t, res.Text, "deny.txt")
 	require.NotContains(t, res.Text, "token.txt")
+}
+
+// usefulSummaryPreviews are TestRehydrateHostPaths_UsefulSummariesAreShownUnderTheUAT12Rules's calls
+// in a project at root, as the arguments the store previews: those section 6 shows, and those it
+// withholds. TestRehydrateHostPaths_RootPreviewsFitUnderTheLongestTemporaryDirectory builds them
+// under the longest temporary directory a hosted runner spells.
+func usefulSummaryPreviews(root string) (shown, withheld []map[string]any) {
+	bash := func(cmd string) map[string]any { return map[string]any{"command": cmd} }
+	shown = []map[string]any{
+		bash("cd " + root + " && go test ./..."),
+		bash("git diff HEAD~1"),
+		bash("git log --oneline HEAD~3..HEAD"),
+		bash("git -C " + root + " status"),
+		bash("npm test"),
+		bash("go test -run TestX ./internal/..."),
+		bash(`git commit -m "fix the bug"`),
+		{"query": "path:src/main.go"},
+		{"query": "path:src/main.go retry"},
+		{"url": "https://example.com/a"},
+		{"url": "https://example.com/search?a=1&b=2", "prompt": "list the results"},
+		{"description": "run the tests", "prompt": "go test ./... and report the failures"},
+		bash("grep -rn TODO src/"),
+		{"file_path": filepath.Join(root, "src", "main.go")},
+		{"path": filepath.Join(root, "src"), "pattern": "**/*_test.go"},
+		{"pattern": "**/*.{ts,tsx}"},
+		{"pattern": "TODO|FIXME"},
+		bash("go test ./... > test.log 2>&1; tail -n 50 test.log"),
+		bash(`git commit -m "feat(api): add users endpoint"`),
+		bash(`sed -n '1,50p' src/main.go`),
+		bash("git log --format=%h -n 3"),
+		{"query": "what's the owner's ruling"},
+	}
+	withheld = []map[string]any{
+		bash("cat .env"),
+		bash("cat secrets/token.txt"),
+		{"query": "path:private/deny.txt"},
+		{"file_path": filepath.Join(root, "private", "deny.txt")},
+		{"path": filepath.Join(root, "secrets"), "pattern": "*.txt"},
+		{"pattern": "**/*.{go,env}"},
+		bash(`cat 'secrets/token.txt'`),
+		{"paths": []string{"file:///etc/passwd", "src/main.go"}},
+		// Criterion change (wave 19d final verify): `--pretty=format` before a `:` is a name PowerShell
+		// accepts for a drive, so git's `format:` spelling is over-withheld; `--format=%h` is shown.
+		bash("git log --pretty=format:%h -n 3"),
+	}
+	return shown, withheld
+}
+
+// storePreviews is storePreviewOf of each of args.
+func storePreviews(t *testing.T, args []map[string]any) []string {
+	t.Helper()
+	out := make([]string, 0, len(args))
+	for _, a := range args {
+		out = append(out, storePreviewOf(t, a))
+	}
+	return out
 }
 
 // TestRehydrateHostPaths_AFileURLInAPathNamedValueIsOutsideTheProject is the D63 review's file-URL
@@ -536,32 +595,99 @@ func TestRehydrateHostPaths_AnOutsideNamesakeNeverWithholdsAProjectPath(t *testi
 
 // shortProjectDir is a fresh project directory short enough that the previews a row builds of
 // absolute paths under it fit the store's preview width uncut, as a project's often do. t.TempDir
-// spells the test's name into the path, which alone can exceed it.
+// spells the test's name into the path, which alone can exceed it. Off Windows it is made in /tmp,
+// not in TMPDIR: macOS hands a test a 48-character TMPDIR, under which a root-spelling preview the
+// row requires uncut was cut (audit 2's finding 36, hosted CI's H2); storePreview holds every preview
+// to the longest temporary directory a hosted runner spells all the same (longestTempBase). Both of
+// the base's spellings are recorded for it, as made and as resolved: a row that makes its root
+// canonical (filepath.EvalSymlinks, as costProject's is) spells it as resolved, and on macOS /tmp is
+// a link to /private/tmp.
 func shortProjectDir(t *testing.T, elem ...string) string {
 	t.Helper()
-	base, err := os.MkdirTemp("", "q")
+	dir := ""
+	if runtime.GOOS != "windows" {
+		dir = "/tmp"
+	}
+	base, err := os.MkdirTemp(dir, "q")
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = os.RemoveAll(paths.Long(base)) })
+	resolved, err := filepath.EvalSymlinks(base)
+	require.NoError(t, err)
 	if runtime.GOOS == "windows" {
 		// A hosted Windows runner spells its temporary directory with an 8.3 name
 		// (C:\Users\RUNNER~1\AppData\Local\Temp), and a root holding a `~` has no root unit (D64(1)),
 		// so the base is spelled by its long names, as a session's working directory is.
-		long, err := filepath.EvalSymlinks(base)
-		require.NoError(t, err)
-		base = long
+		base = resolved
 	}
+	projectBases.add(base, resolved)
 	return filepath.Join(append([]string{base}, elem...)...)
 }
 
+// projectBases are the spellings of the directories shortProjectDir made, which storePreview and
+// storePreviewOf respell as longestTempBase to hold each preview to a hosted runner's temporary
+// directory.
+var projectBases baseSpellings
+
 // storePreview is the summary the checkpointer records for a call with these arguments: the store's
-// own preview (store.ArgsDigest), which the row requires to be uncut.
+// own preview (store.ArgsDigest), which the row requires to be uncut, here and under the longest
+// temporary directory a hosted runner spells (requireUncutOnAHostedRunner).
 func storePreview(t *testing.T, args map[string]string) string {
 	t.Helper()
 	raw, err := json.Marshal(args)
 	require.NoError(t, err)
 	_, preview := store.ArgsDigest(raw)
 	require.NotContains(t, preview, "…", "fixture: the store cut the preview of %v", args)
+	vals := make(map[string]any, len(args))
+	for k, v := range args {
+		vals[k] = v
+	}
+	requireUncutOnAHostedRunner(t, vals)
 	return preview
+}
+
+// requireUncutOnAHostedRunner requires the store's preview of args to be uncut with every spelling of
+// every directory shortProjectDir made respelled as longestTempBase (onAHostedRunner; audit 2's
+// finding 36, hosted CI's H2): a row's previews fit the store's width on the runner that tests it,
+// not only on a machine with a short temporary directory. No value may spell a directory t.TempDir
+// made for the row, whose length is the runner's.
+func requireUncutOnAHostedRunner(t *testing.T, args map[string]any) {
+	t.Helper()
+	bases := projectBases.snapshot()
+	long := longestTempBase()
+	fold := paths.DefaultFold()
+	var swap func(v any) any
+	swap = func(v any) any {
+		switch x := v.(type) {
+		case string:
+			require.False(t, spellsTestTempDir(x, t.Name(), os.TempDir(), fold),
+				"fixture: %q spells t.TempDir(), whose length is the runner's; build the root under shortProjectDir", x)
+			return onAHostedRunner(x, bases, long, fold)
+		case []string:
+			out := make([]string, len(x))
+			for i, s := range x {
+				out[i], _ = swap(s).(string)
+			}
+			return out
+		case []any:
+			out := make([]any, len(x))
+			for i, e := range x {
+				out[i] = swap(e)
+			}
+			return out
+		case map[string]any:
+			out := make(map[string]any, len(x))
+			for k, e := range x {
+				out[k] = swap(e)
+			}
+			return out
+		}
+		return v
+	}
+	raw, err := json.Marshal(swap(args))
+	require.NoError(t, err)
+	_, preview := store.ArgsDigest(raw)
+	require.NotContains(t, preview, "…",
+		"fixture: under a hosted runner's temporary directory (%s) the store cuts the preview of %v", long, args)
 }
 
 // TestRehydrateHostPaths_ADeniedPathWithDelimitersIsWithheld is the w19 verifier's V2 through the
@@ -627,7 +753,7 @@ func TestRehydrateHostPaths_ADeniedPathWithDelimitersIsWithheld(t *testing.T) {
 		require.NotContains(t, res.Text, leak, "the payload shows a denied path")
 	}
 	for _, tp := range tools {
-		withheld := "- tool_use " + string(tp.ToolUseID) + " sha256:[0-9a-f]+ — summary withheld"
+		withheld := "- tool_use " + string(tp.ToolUseID) + " sha256:[0-9a-f]+ — \\(summary withheld\\)\n"
 		if strings.HasPrefix(string(tp.ToolUseID), "toolu_okshow") {
 			require.NotRegexp(t, withheld, res.Text, "%q names an allowed file with a safe delimiter", tp.Summary)
 			continue
@@ -674,11 +800,11 @@ func TestRehydrateHostPaths_AProjectPathWithASpaceShowsItsOwnPaths(t *testing.T)
 	res, err := rehydrate.Build(context.Background(), toolPointerRequest(root, tools), deps)
 	require.NoError(t, err)
 	for _, id := range []string{"toolu_ok_read", "toolu_ok_grep"} {
-		require.Regexp(t, "- tool_use "+id+" sha256:[0-9a-f]+ — [^s]", res.Text, "the project's own path is shown")
-		require.NotRegexp(t, "- tool_use "+id+" sha256:[0-9a-f]+ — summary withheld", res.Text)
+		require.Regexp(t, "- tool_use "+id+" sha256:[0-9a-f]+ — [^s(]", res.Text, "the project's own path is shown")
+		require.NotRegexp(t, "- tool_use "+id+" sha256:[0-9a-f]+ — \\(summary withheld\\)", res.Text)
 	}
 	for _, id := range []string{"toolu_no_deny", "toolu_no_glob", "toolu_no_sibling"} {
-		require.Regexp(t, "- tool_use "+id+" sha256:[0-9a-f]+ — summary withheld", res.Text)
+		require.Regexp(t, "- tool_use "+id+" sha256:[0-9a-f]+ — \\(summary withheld\\)\n", res.Text)
 	}
 	require.NotContains(t, res.Text, "deny.txt")
 }
@@ -705,7 +831,7 @@ func requireToolSummaries(t *testing.T, root string, shown, withheld []string) r
 	for _, tp := range tools {
 		line := "- tool_use " + string(tp.ToolUseID) + " " + tp.Hash.String() + " — "
 		if strings.HasPrefix(string(tp.ToolUseID), "toolu_no_") {
-			require.Contains(t, res.Text, line+"summary withheld", "%q names a withheld path", tp.Summary)
+			require.Contains(t, res.Text, line+"(summary withheld)\n", "%q names a withheld path", tp.Summary)
 			continue
 		}
 		require.Contains(t, res.Text, line+tp.Summary+"\n", "%q names no withheld path, so it is shown", tp.Summary)
@@ -781,6 +907,7 @@ func storePreviewOf(t *testing.T, args map[string]any) string {
 	require.NoError(t, err)
 	_, preview := store.ArgsDigest(raw)
 	require.NotContains(t, preview, "…", "fixture: the store cut the preview of %v", args)
+	requireUncutOnAHostedRunner(t, args)
 	return preview
 }
 
@@ -852,26 +979,37 @@ func TestRehydrateHostPaths_ARootedPathWithASpaceIsJudgedByTheHost(t *testing.T)
 // directory's variable ending a word.
 func TestRehydrateHostPaths_CommonIdiomsAreShownUnderTheUAT12Rules(t *testing.T) {
 	root := uat12Project(t, "John Smith", "proj")
-	bash := func(cmd string) string { return storePreview(t, map[string]string{"command": cmd}) }
-	res := requireToolSummaries(t, root,
-		[]string{
-			bash("ls -la src/ 2>/dev/null || true"),
-			bash("go build ./... >/dev/null && echo ok"),
-		},
-		[]string{
-			// Criterion change (D63): a comment marker (`//`) and a Docker bind mount (`:/src`, `-w /src`)
-			// read as absolute paths, so they are over-withheld along with the leaks.
-			bash(`grep -rn "// TODO" internal/`),
-			bash(`rg -n "//nolint" internal/`),
-			bash(`docker run -v "` + root + `:/src" -w /src img go test ./...`),
-			bash("git -C/home/u/other status"),
-			bash(`Get-Content $env:USERPROFILE\.aws\credentials`),
-			bash("cd $HOME && cat .ssh/id_rsa"),
-			bash(`7z x -oD:\stash a.zip`),
-		})
+	shown, withheld := commonIdiomPreviews(root)
+	res := requireToolSummaries(t, root, storePreviews(t, shown), storePreviews(t, withheld))
 	for _, leak := range []string{"/home/u", "credentials", "id_rsa", "stash"} {
 		require.NotContains(t, res.Text, leak)
 	}
+}
+
+// commonIdiomPreviews are TestRehydrateHostPaths_CommonIdiomsAreShownUnderTheUAT12Rules's calls in a
+// project at root, as the arguments the store previews: those section 6 shows, and those it
+// withholds. TestRehydrateHostPaths_RootPreviewsFitUnderTheLongestTemporaryDirectory builds them
+// under the longest temporary directory a hosted runner spells.
+func commonIdiomPreviews(root string) (shown, withheld []map[string]any) {
+	bash := func(cmd string) map[string]any { return map[string]any{"command": cmd} }
+	shown = []map[string]any{
+		bash("ls -la src/ 2>/dev/null || true"),
+		bash("go build ./... >/dev/null && echo ok"),
+	}
+	withheld = []map[string]any{
+		// Criterion change (D63): a comment marker (`//`) and a Docker bind mount (`:/src`) read as
+		// absolute paths, so they are over-withheld along with the leaks. The bind mount's command is
+		// short enough to stay uncut under a hosted runner's temporary directory (audit 2's finding
+		// 36); `:/src` alone withholds it, as `-w /src` did.
+		bash(`grep -rn "// TODO" internal/`),
+		bash(`rg -n "//nolint" internal/`),
+		bash(`docker run -v "` + root + `:/src" img`),
+		bash("git -C/home/u/other status"),
+		bash(`Get-Content $env:USERPROFILE\.aws\credentials`),
+		bash("cd $HOME && cat .ssh/id_rsa"),
+		bash(`7z x -oD:\stash a.zip`),
+	}
+	return shown, withheld
 }
 
 // TestRehydrateHostPaths_RootedCommandsAndRegularExpressionsAreShownUnderTheUAT12Rules extends D61's

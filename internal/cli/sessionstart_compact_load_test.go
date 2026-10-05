@@ -32,7 +32,9 @@ import (
 // By default it is small, and it pins the one property that does not depend on the machine: every
 // compact SessionStart is answered with the rehydration or with the explicit deferred note, never
 // with {} or anything else. Scaled up through the environment it is the benchmark behind C1.16's
-// distributions (plans/sdd/V6-closeout/w2-lifetime/runs):
+// distributions (plans/sdd/V6-closeout/w2-lifetime/runs, taken before 3f2da1b3 routed the rig's
+// hooks to its project: in those runs the fed Reads never reached the rig's daemon, so they apply
+// no same-session ingest; coordinator decision D65(a), and the C5.2 night re-measures them):
 //
 //	QOMPACK_C116_ROUNDS        compaction cycles (default 3)
 //	QOMPACK_C116_WORKERS       goroutines feeding the session (default 2)

@@ -761,14 +761,20 @@ func hostPolicyFor(o *Options) *hostperm.Policy {
 // The snapshot also hands rehydrate every rule's path specifier (RuleSet.ReadRulePatterns), which
 // its free-text screen reads with no host judgement (coordinator decision D63, ADR 0011 §23 items 6
 // and 7):
-// Refuses is asked only about file pointers, path-keyed checkpoint drops, structured summaries (one
-// path each: a summary that starts at the project root hands its path part, the stretch from the
-// root through its last word that holds a separator, which may include an argument that holds one),
-// the instruction and skill files items 6a and 6b would restore, and, while a rule anchored outside
-// the project is in force, one fresh name below the root, once each per build, so a build costs at
-// most three Evaluates for each of those (the recorded spelling, and the resolved root's spelling of
-// each distinct reading of the path's place below the root, rootRelatives: two at most, one for a
-// path every reading places alike), whatever its commands and queries say.
+// Refuses is asked only about file pointers, structured summaries (one path each: a summary that
+// starts at the project root hands its path part, the stretch from the root through its last word
+// that holds a separator, which may include an argument that holds one), the instruction and skill
+// files items 6a and 6b would restore, and, while a rule anchored outside the project is in force,
+// one fresh name below the root, and at most 64 of the path-keyed checkpoint drops' other paths
+// (rehydrate's maxDropJudgements, those a summary or a reason names first: the rest are withheld
+// unjudged as drops and learned as withheld, audit 2's finding 28, while every other reason to judge
+// such a path still asks; with no Read rule in force Refuses reads nothing and every drop is asked),
+// once each per build, so a build costs at most three Evaluates for each of those (the recorded
+// spelling, and the resolved root's spelling of each distinct reading of the path's place below the
+// root, rootRelatives: two at most, one for a path every reading places alike), whatever its commands
+// and queries say. The file pointers and structured summaries are bounded by the checkpoint's own
+// budget and the instruction and skill files by the project's configuration; the drops, whose number
+// grows with the session, by the cap.
 func rehydrateHostPaths(p *hostperm.Policy, root string, log logging.Logger) rehydrate.HostPaths {
 	return func() rehydrate.HostRules {
 		rules, err := p.Snapshot()
