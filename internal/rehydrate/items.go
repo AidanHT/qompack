@@ -63,6 +63,10 @@ type built struct {
 	// non-render, a host-truncation warning. Budget-truncation drops are NOT produced here — the
 	// budget pass synthesizes those from each unadmitted unit's own drop field.
 	drops []checkpoint.DropEntry
+	// withheld is set on item 6's built when a pointer among its candidate units is withheld: its
+	// section then carries pointersLegend under its heading, priced with the heading (sectionChars,
+	// headingCost).
+	withheld bool
 }
 
 // isFixedUnit reports whether u must be admitted whole or not at all: it carries the zero
@@ -1112,6 +1116,7 @@ func buildPointers(_ context.Context, r Request, d Deps, sc map[dag.NodeID]float
 		if judge.withheld(f.Path) {
 			// Pointed to by hash alone, in the payload and in the drop report (D50): re_read would
 			// refuse this path, so the payload does not show it either.
+			b.withheld = true
 			id := f.Hash.String()
 			b.addGuarded(unit{
 				text: pointerLine(withheldPathLabel, f.Hash, ""),
@@ -1146,6 +1151,7 @@ func buildPointers(_ context.Context, r Request, d Deps, sc map[dag.NodeID]float
 		summary := t.Summary
 		if judge.summaryWithheld(summary) {
 			summary = withheldSummary
+			b.withheld = true
 		}
 		b.addGuarded(unit{
 			text: pointerLine("tool_use "+string(t.ToolUseID), t.Hash, summary),

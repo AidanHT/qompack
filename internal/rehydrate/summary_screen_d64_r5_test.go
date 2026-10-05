@@ -149,7 +149,7 @@ func TestBuild_AShortWithheldNameUnderAUnicodeCaseSpellingOfTheRootIsLearnedByIt
 // path as a whitespace-delimited token or as an operation's path), so the row runs where paths fold.
 func TestBuild_ADropReasonNamingAWithheldPathUnderAUnicodeCaseSpellingOfTheRootIsRedacted(t *testing.T) {
 	if !foldsPaths() {
-		t.Skip("where paths do not fold the variant is a directory beside the project; see the comment")
+		t.Skip("platform: where paths do not fold the variant is a directory beside the project; see the comment")
 	}
 	for _, rc := range unicodeCaseSpellings {
 		t.Run(rc.name, func(t *testing.T) {

@@ -42,8 +42,12 @@ import (
 //     pathNamedWithheld). Containment reads a glob as a glob (globClimbs, classReading) and a `file:`
 //     URL as outside. Several path-named values, and a cut one among them, ask the host nothing:
 //     containment and the screen judge them, and a glob among them is judged by what it selects
-//     (globSelectsKnown). A one-word summary must ALSO pass the free-text whitelist (so a one-word
-//     `$HOME/.ssh/id_rsa` can never be shown), a pattern one-word its pattern rules (patternWithheld);
+//     (globSelectsKnown). Every path-named value is also judged, with no host judgement, for a path
+//     outside the project wherever a reader starts one in it: each piece of a list, after an opening
+//     quote or bracket, a `:`, `=` or `@`, and a run of punctuation that leads a piece
+//     (valueNamesOutside, audit 2's finding 26). A one-word summary must ALSO pass the free-text
+//     whitelist (so a one-word `$HOME/.ssh/id_rsa` can never be shown), a pattern one-word its
+//     pattern rules (patternWithheld);
 //     a structured value's names are whole names (screenWhole), so the project's `.env.example` is
 //     not the denied `.env`, and a rooted value in one separator style is screened by the rules'
 //     literals alone (screenExact), so an outside README.md never withholds the project's own.
@@ -99,10 +103,11 @@ type HostRules struct {
 
 // HostPaths, when set on Deps, returns this build's snapshot of the host's current Read rules. A nil
 // HostPaths applies containment alone. Build calls it once per build, and calls Refuses once for
-// each distinct path among the file pointers, the path-keyed checkpoint drops, the structured
-// summaries (one path each), the instruction and skill files items 6a and 6b would restore, and,
-// while a rule anchored outside the project is in force, rootProbe (screenBy), from one goroutine;
-// free text never reaches it.
+// each distinct path among the file pointers, the structured summaries (one path each), the
+// instruction and skill files items 6a and 6b would restore, and, while a rule anchored outside the
+// project is in force, rootProbe (screenBy), and, while a Read rule's pattern is in force, for at
+// most maxDropJudgements of the path-keyed checkpoint drops' other paths (dropJudgements), from one
+// goroutine; free text never reaches it.
 type HostPaths func() HostRules
 
 // pathJudge decides, for one build, which recorded paths and summaries the payload may show.
@@ -157,9 +162,88 @@ type pathJudge struct {
 	// one of them (namesKnownIn).
 	knownPaths []string
 	// judged memoizes the host's judgement (hostRefuses) for the build: a path is named by a file
-	// pointer and again by a summary, and each host judgement may consult the filesystem.
+	// pointer and again by a summary, and each host judgement may consult the filesystem. It holds
+	// only answers the host gave.
 	judged map[string]bool
+	// unjudged holds each path-keyed checkpoint drop past the drops' bound (dropJudgements), answered
+	// as refused without a host judgement. Only the drops read it: newPathJudge's drop loop, which
+	// learns each as withheld, and gateCheckpointDrops (dropWithheld), which section 7 and dropped()
+	// read. Every other judgement of the same key still asks the host: item 6a's rule files and item
+	// 6b's skill files carry the very project-relative keys a file pointer's drop does, and an answer
+	// kept in judged withheld a rule or a skill the host allows whenever the session's drops of it lay
+	// past the bound (wave 22's verify, fix round 2).
+	unjudged map[string]bool
+	// drops counts the host judgements made while newPathJudge reads the path-keyed checkpoint drops
+	// (dropJudgements); nil outside a judge newPathJudge made.
+	drops *dropJudgements
+	// rootTail is the last segment of the root's spelling as rootSpelling matches it, its ASCII
+	// letters lower-cased where the platform's paths fold: every match holds it (held's prefilter);
+	// "" when the root has no last segment.
+	rootTail string
+	// memo is the build's memory of the screen's answers (buildMemo); nil outside a judge newPathJudge
+	// made.
+	memo *buildMemo
+	// learned indexes known, knownText and knownPaths once learning ends (learnedIndex); nil while
+	// they are short, or outside a judge newPathJudge made, and the screen then reads each list.
+	learned *learnedIndex
 }
+
+// buildMemo is a judge's memory of the screen's answers for one build, shared by every copy of the
+// judge (pathJudge is passed by value), as judged is (audit 2's finding 33: Build's CPU rose 2.6-2.9x
+// with the D63 screen, which ran the root's expression two to four times on each text and screened
+// every drop's reason, twice per build, though most share one reason). Each entry is keyed by
+// everything its answer depends on besides the judge, whose root, readings of the root, rules and
+// learned paths are fixed once newPathJudge returns: held by the root-spelling expression (one for
+// each reading of the root, so each fold has its own entries) and the text; summaries and reasons
+// by the text alone, made only when newPathJudge returns, so no answer computed while it was still
+// learning withheld paths is ever kept.
+type buildMemo struct {
+	held      map[heldKey]string
+	summaries map[string]bool
+	reasons   map[string]gatedReason
+}
+
+// heldKey keys buildMemo.held: the expression that finds the root (a reading of it) and the text.
+type heldKey struct {
+	spelling *regexp.Regexp
+	text     string
+}
+
+// gatedReason is a drop reason's screen answer (gateDropReasons): whether it shows a path the build
+// withholds, and its redacted text when it does.
+type gatedReason struct {
+	withheld bool
+	text     string
+}
+
+// dropJudgements bounds the host judgements a build makes for its path-keyed checkpoint drops (audit
+// 2's finding 28, ADR 0011 §23 item 10). The checkpointer keeps every file a session touched as a
+// pointer and names each one its budget cuts, so their number grows with the session, while each
+// host judgement may read the disk (about a millisecond on Windows, and more under load): a thousand
+// drops took a build towards the compaction answer's budget. While reading is set and a Read rule's
+// pattern is in force (bounded: with none the host's rules are empty, refuse nothing and read no
+// file, hostperm's RuleSet.Empty, so there is nothing to bound), hostRefuses judges at most
+// maxDropJudgements fresh paths, in dropOrder's order (first the drops a text names, then the rest as
+// the checkpoint lists them), and answers every later fresh path as refused without a judgement. That
+// answer is the drops' own (pathJudge.unjudged): section 7 and dropped() withhold such a drop, and the
+// build learns it as withheld like any refused path, whatever its spelling, so every text that names
+// it is withheld too (fail closed; wave 22's verify: learning only a drop whose spelling held a rule's
+// literal showed a drop the host refuses through a link, a junction or an 8.3 name wherever a text
+// named it, which eca33155 withheld). It is never the build's memo of the host's answers (judged):
+// every other judgement of the same path, which the project's configuration or the checkpoint's own
+// budget bounds and not the drops (item 6a's rule files, item 6b's skill files, a structured summary's
+// value), asks the host, so a rule or a skill the host allows is restored whatever the drops before
+// it (wave 22's verify, fix round 2). The screen reads the learned paths through learnedIndex, so
+// learning a long session's drops costs it a pass over each text, not one per drop.
+type dropJudgements struct {
+	reading, bounded bool
+	made             int
+}
+
+// maxDropJudgements is the most host judgements a build makes for its path-keyed checkpoint drops
+// (dropJudgements). With the daemon's adapter, which may Evaluate a path more than once, it keeps the
+// drops' term near a tenth of a second on an idle Windows host, whatever the session's length.
+const maxDropJudgements = 64
 
 // screenBy adds each rule pattern's literal and specifier to the build's screens (D63(4), kept from
 // D61(2)(a)). A rule with no literal refuses everything it is anchored at; a rule anchored outside
@@ -378,9 +462,10 @@ func globSegMatch(pat, seg string) bool {
 // a glob or a selector may name (w19 verifier V3).
 func newPathJudge(r Request, d Deps) pathJudge {
 	j := pathJudge{
-		root: r.ProjectRoot, judged: make(map[string]bool),
-		rootSpelling: rootSpellingOf(r.ProjectRoot), broadSpelling: broadRootSpellingOf(r.ProjectRoot),
-		rootUnit: rootUnitAdmitted(r.ProjectRoot), rootExact: rootSpelledExactly(r.ProjectRoot),
+		root: r.ProjectRoot, judged: make(map[string]bool), unjudged: make(map[string]bool),
+		drops: &dropJudgements{}, rootSpelling: rootSpellingOf(r.ProjectRoot), broadSpelling: broadRootSpellingOf(r.ProjectRoot),
+		rootUnit: rootUnitAdmitted(r.ProjectRoot), rootExact: rootSpelledExactly(r.ProjectRoot), rootTail: rootTailOf(r.ProjectRoot),
+		memo: &buildMemo{held: make(map[heldKey]string)},
 	}
 	if r.ProjectRoot != "" {
 		j.rootSegs = hostRootSegments(r.ProjectRoot)
@@ -392,17 +477,24 @@ func newPathJudge(r Request, d Deps) pathJudge {
 		if h.Refuses != nil {
 			j.screenBy(h.Patterns)
 		}
+		j.drops.bounded = len(h.Patterns) > 0
 	}
 	for _, f := range r.Checkpoint.Pointers.Files {
 		if j.withheld(f.Path) {
 			j.note(f.Path)
 		}
 	}
-	for _, e := range r.Checkpoint.Dropped {
-		if checkpointPathDrops[e.Kind] && j.withheld(e.ID) {
+	// The drops' host judgements are bounded (dropJudgements); a file pointer's path among them was
+	// judged above and costs nothing more. The drops a text names are judged first (dropOrder), and a
+	// drop past the bound is withheld unjudged (unjudged) and learned as withheld like any refused path,
+	// so every text that names it is withheld (fail closed).
+	j.drops.reading = true
+	for _, e := range dropOrder(r.Checkpoint, j) {
+		if j.withheld(e.ID) {
 			j.note(e.ID)
 		}
 	}
+	j.drops.reading = false
 	for _, t := range r.Checkpoint.Pointers.Tools {
 		for _, v := range j.notedValues(t.Summary) {
 			if !j.recordedPath(v) {
@@ -417,7 +509,108 @@ func newPathJudge(r Request, d Deps) pathJudge {
 			}
 		}
 	}
+	// Answers that depend on the withheld paths learned above are memoized, and the paths indexed, only
+	// now that learning ends.
+	j.memo.summaries = make(map[string]bool)
+	j.memo.reasons = make(map[string]gatedReason)
+	j.learned = newLearnedIndex(j.known, j.knownText, j.knownPaths)
 	return j
+}
+
+// dropOrder is cp's path-keyed drop entries in the order newPathJudge asks the host about them: while
+// the drops' judgements are bounded (dropJudgements) and they outnumber the bound, first each one a
+// text the build screens names by its basename or its path (textNames, dropNamed), then the rest,
+// each group in checkpoint order; otherwise checkpoint order. A drop past the bound is withheld
+// unjudged and learned as withheld, so every text that names it is withheld (fail closed); judging
+// first the drops a text names keeps that over-withholding off the texts the payload shows, and a
+// named drop the host allows is shown, in section 6 and in section 7, as eca33155 showed it (wave
+// 22's verify of finding 28).
+func dropOrder(cp checkpoint.Checkpoint, j pathJudge) []checkpoint.DropEntry {
+	var drops []checkpoint.DropEntry
+	for _, e := range cp.Dropped {
+		if checkpointPathDrops[e.Kind] {
+			drops = append(drops, e)
+		}
+	}
+	if j.drops == nil || !j.drops.bounded || len(drops) <= maxDropJudgements {
+		return drops
+	}
+	names := textNames(cp)
+	first := make([]checkpoint.DropEntry, 0, len(drops))
+	var rest []checkpoint.DropEntry
+	for _, e := range drops {
+		if j.dropNamed(e.ID, names) {
+			first = append(first, e)
+		} else {
+			rest = append(rest, e)
+		}
+	}
+	return append(first, rest...)
+}
+
+// textNames is the set of names the texts a build screens spell (dropOrder): each tool summary and
+// each checkpoint drop's reason but the model's own (modelTextDrops), in screen form with every `\`
+// a separator and, for a canonical-JSON preview, each of its decoded strings too, each distinct text
+// read once (most drops share one reason), split at every ASCII character a file name rarely holds,
+// each word with its trailing dots dropped and with each of its tails after a `/`. It only orders
+// the drops' judgements, so a name it misses costs over-withholding, never a path shown.
+func textNames(cp checkpoint.Checkpoint) map[string]bool {
+	names := make(map[string]bool)
+	seen := make(map[string]bool)
+	add := func(t string) {
+		if seen[t] {
+			return
+		}
+		seen[t] = true
+		form := screenText(strings.ReplaceAll(sanitize(t), `\`, "/"), false)
+		for _, w := range strings.FieldsFunc(form, notNameRune) {
+			for w = strings.TrimRight(w, "."); w != ""; {
+				names[w] = true
+				k := strings.IndexByte(w, '/')
+				if k < 0 {
+					break
+				}
+				w = w[k+1:]
+			}
+		}
+	}
+	for _, tp := range cp.Pointers.Tools {
+		add(tp.Summary)
+		if jsonShaped(tp.Summary) {
+			strs, _ := jsonStrings(tp.Summary)
+			for _, s := range strs {
+				add(s.value)
+			}
+		}
+	}
+	for _, e := range cp.Dropped {
+		if !modelTextDrops[e.Kind] {
+			add(e.Detail)
+		}
+	}
+	return names
+}
+
+// notNameRune reports an ASCII character other than a letter, a digit or one of `. _ - ~ $ % # + @ /`
+// (textNames).
+func notNameRune(r rune) bool {
+	return r < utf8.RuneSelf && !asciiLetter(byte(r)) && !(r >= '0' && r <= '9') && !strings.ContainsRune("._-~$%#+@/", r)
+}
+
+// dropNamed reports whether id, a path-keyed drop's path, is in names (textNames) by its basename,
+// its project-relative path or its whole cleaned spelling, in screen form.
+func (j pathJudge) dropNamed(id string, names map[string]bool) bool {
+	p := judgedSpelling(id)
+	slash := strings.TrimRight(strings.ReplaceAll(p, `\`, "/"), "/")
+	if names[screenText(path.Base(slash), true)] || names[screenText(path.Clean(slash), true)] {
+		return true
+	}
+	// A relative path's key is its cleaned spelling, asked above.
+	if !absLike(p) {
+		return false
+	}
+	k, ok := j.key(p)
+	return ok && names[screenText(k, true)]
 }
 
 // notedValues are the structured path values of summary the build judges WHOLE, and so may learn to
@@ -559,10 +752,17 @@ func namesAFile(base string) bool {
 	return homeOrVarRoot.FindString(base) != base
 }
 
-// appendDistinct appends s to set unless it is empty or already there.
+// appendDistinct appends s to set unless it is empty or, while set holds at most distinctScanMax
+// entries, already there. A longer set is a learned list a long session grew (a drop past the host's
+// bound is learned whatever its spelling), whose readers ask only whether some entry matches and read
+// it through the build's learnedIndex, which holds each entry once: a scan on every append made
+// learning quadratic in the drops (wave 22's verify of audit 2's finding 28).
 func appendDistinct(set []string, s string) []string {
 	if s == "" {
 		return set
+	}
+	if len(set) > distinctScanMax {
+		return append(set, s)
 	}
 	for _, e := range set {
 		if e == s {
@@ -571,6 +771,10 @@ func appendDistinct(set []string, s string) []string {
 	}
 	return append(set, s)
 }
+
+// distinctScanMax is the longest set appendDistinct scans for a repeat; it is past learnedIndexMin,
+// so every list that may hold a repeat is read through the index.
+const distinctScanMax = 2 * learnedIndexMin
 
 // pathJudgeFor is the judge Build made for d's build, or a new one for r when the item is built on
 // its own.
@@ -597,7 +801,9 @@ func judgedSpelling(path string) string {
 }
 
 // hostRefuses reports whether the host's rules refuse p (a judgedSpelling), or could not be
-// established; with no host rules in force it is false. Each answer is memoized for the build.
+// established; with no host rules in force it is false. Each answer the host gives is memoized for
+// the build (judged). While newPathJudge reads the drops past their bound, p is answered as refused
+// without a judgement, and that answer is kept for the drops alone (unjudged, dropWithheld).
 func (j pathJudge) hostRefuses(p string) bool {
 	if !j.host {
 		return false
@@ -607,6 +813,15 @@ func (j pathJudge) hostRefuses(p string) bool {
 	}
 	if w, ok := j.judged[p]; ok {
 		return w
+	}
+	if j.drops != nil && j.drops.reading && j.drops.bounded {
+		if j.drops.made >= maxDropJudgements {
+			// Past the drops' bound: refused without a judgement (fail closed), an answer only the
+			// drops read.
+			j.unjudged[p] = true
+			return true
+		}
+		j.drops.made++
 	}
 	w := j.refuses(p)
 	if j.judged != nil {
@@ -803,7 +1018,14 @@ func classEnd(p string, i int) int {
 // the home directory or an environment variable (homeOrVarRoot), or a `file:` URL (fileScheme).
 func absLike(p string) bool {
 	return filepath.IsAbs(p) || strings.HasPrefix(p, "/") || strings.HasPrefix(p, `\`) ||
-		driveSpelling.MatchString(p) || homeOrVarRoot.MatchString(p) || fileScheme(p)
+		driveLetter(p) || homeOrVarRooted(p) || fileScheme(p)
+}
+
+// homeOrVarRooted reports whether p starts at a home or a variable (homeOrVarRoot). Every spelling
+// the expression matches starts with `~`, `$`, `%` or `!`, so it runs only on such a p (absLike is
+// on the screen's hot path: wave 22's verify of audit 2's findings 28 and 33).
+func homeOrVarRooted(p string) bool {
+	return p != "" && strings.IndexByte("~$%!", p[0]) >= 0 && homeOrVarRoot.MatchString(p)
 }
 
 // fileScheme reports whether p starts a `file:` URL, which names a path on some host's filesystem
@@ -829,8 +1051,21 @@ var homeOrVarRoot = regexp.MustCompile(
 // as one structured glob (rootGlobWithheld); every other summary is free text, and one that starts at
 // the project root and goes on below it with a space also has its path part judged by the host
 // (rootStretch) once the free text has passed, so the host is never asked about a summary the
-// whitelist withholds.
+// whitelist withholds. Each distinct summary is judged once per build (buildMemo.summaries).
 func (j pathJudge) summaryWithheld(s string) bool {
+	if j.memo != nil && j.memo.summaries != nil {
+		if w, ok := j.memo.summaries[s]; ok {
+			return w
+		}
+		w := j.judgeSummary(s)
+		j.memo.summaries[s] = w
+		return w
+	}
+	return j.judgeSummary(s)
+}
+
+// judgeSummary is summaryWithheld's judgement of s, unmemoized.
+func (j pathJudge) judgeSummary(s string) bool {
 	t := strings.TrimSpace(s)
 	if t == "" {
 		return false
@@ -985,9 +1220,11 @@ func braceAlternatives(tok string) (alts []string, ok bool) {
 // plainTokenSafeGlob reports whether tok is a lone glob pattern: plainTokenSafe once the glob
 // metacharacters `* ? [ ]` are removed, so a pattern like `**/*.go` or `[sS]ecret*.key` is safe but a
 // regular expression anchored with `^`, `$` or a group is not.
-func plainTokenSafeGlob(tok string) bool {
-	return plainTokenSafe(strings.NewReplacer("*", "", "?", "", "[", "", "]", "").Replace(tok))
-}
+func plainTokenSafeGlob(tok string) bool { return plainTokenSafe(globMetaGone.Replace(tok)) }
+
+// globMetaGone removes the glob metacharacters plainTokenSafeGlob reads past, built once (a replacer
+// built per call was a tenth of a build's allocated bytes: wave 22's verify of audit 2's finding 33).
+var globMetaGone = strings.NewReplacer("*", "", "?", "", "[", "", "]", "")
 
 // rootGlobShape reports whether toks, a two-word summary with the root held together, is a Glob
 // preview of a directory under the root (the store's `path pattern`): the first word is the root's
@@ -1245,6 +1482,9 @@ func (j pathJudge) pathNamedWithheld(v string, cut, host bool) bool {
 	if v == "" {
 		return false
 	}
+	if j.valueNamesOutside(v, cut) {
+		return true
+	}
 	if cut {
 		return j.cutValueWithheld(v, host)
 	}
@@ -1272,6 +1512,246 @@ func (j pathJudge) pathNamedWithheld(v string, cut, host bool) bool {
 	}
 	return false
 }
+
+// valueNamesOutside reports whether v, a path-named value (cut: the store's cut fell inside it), names
+// a path outside the project in any of its pieces (audit 2's finding 26). A path-named value is
+// judged whole, as one path, by containment and the host, and is exempt from the free-text whitelist;
+// but a value may hold several paths, as a list a tool splits at whitespace, a comma, a semicolon or
+// a bar (valueListSep), and judged whole, a list whose first piece is relative is a relative path the
+// host, joining it under the root, refuses nothing about. So each piece is judged for a path outside
+// the project wherever a path may start in it (valuePathStart, pieceOutside). Where a path may start,
+// the project root's own spelling, as containment compares it (RootRelative: the cleaned root, `/`
+// read as the platform's separator, an ASCII letter's case folded where paths fold), is read whole
+// (rootSpanAt), so a project path under a root with a space, a comma or a semicolon stays one piece
+// whatever else the root holds, and no character of the root starts a path: a value is no shell
+// input, so D64(1)'s character set does not apply. The store's cut leaves only the start of the last
+// piece: from a path start that begins the root's own spelling byte for byte (rootPrefix, D64(8)) to
+// the cut it is the project. A single project path with a space in it is pieces that all stay in the
+// project, and is shown. It asks the host nothing.
+func (j pathJudge) valueNamesOutside(v string, cut bool) bool {
+	t := strings.TrimSpace(v)
+	if cut {
+		start := 0
+		for i := 0; i < len(t); {
+			if valuePathStart(t, start, i) && j.rootPrefix(t[i:]) {
+				t, cut = t[:i], false
+				break
+			}
+			r, size := utf8.DecodeRuneInString(t[i:])
+			if valueListSep(r) {
+				start = i + size
+			}
+			i += size
+		}
+	}
+	var held []bool
+	start := 0
+	for i := 0; i < len(t); {
+		if valuePathStart(t, start, i) {
+			if n := j.rootSpanAt(t, i); n > 0 {
+				if held == nil {
+					held = make([]bool, len(t))
+				}
+				for k := i; k < i+n; k++ {
+					held[k] = true
+				}
+				i += n
+				continue
+			}
+		}
+		r, size := utf8.DecodeRuneInString(t[i:])
+		if valueListSep(r) {
+			if i > start && j.pieceOutside(t[start:i], heldIn(held, start, i), false) {
+				return true
+			}
+			start = i + size
+		}
+		i += size
+	}
+	return start < len(t) && j.pieceOutside(t[start:], heldIn(held, start, len(t)), cut)
+}
+
+// heldIn is held[from:to], or nil when no root was held.
+func heldIn(held []bool, from, to int) []bool {
+	if held == nil {
+		return nil
+	}
+	return held[from:to]
+}
+
+// valueListSep reports a character a tool that takes a list of paths in one value may split it at
+// (valueNamesOutside): whitespace of any kind, a control character (C0, DEL or C1; a NUL-separated
+// list is what `find -print0` and `git ls-files -z` write, and the store's preview keeps the NUL as
+// `\u0000`, which jsonStrings decodes; wave 22's verify, fix round 2), a comma, a semicolon or a bar.
+// No project path holds a control character, so none joins two names.
+func valueListSep(r rune) bool {
+	return unicode.IsSpace(r) || unicode.IsControl(r) || r == ',' || r == ';' || r == '|'
+}
+
+// valueOpeners are the characters after which a path may start anywhere in a piece of a path-named
+// value (valuePathStart): a PATH-style list's or an scp address's `:`, an option's `=`, `@` (a
+// response file, a user's host), what opens a quoted or bracketed stretch, which a reader reads a
+// path inside (`"/etc/passwd"`, `(~/.ssh/id_rsa)`, `<…>`; wave 22's verify of finding 26), and a
+// glued redirect or command separator (`a.ts>/etc/passwd`, `a.ts&&/etc/passwd`; its fix round 2),
+// `>` illegal in a Windows name and neither one a name's last character before a separator in a
+// project's paths (`R&D/plan.md` and `Q&A.md` stay in the project, which is all the screen asks of
+// what follows).
+const valueOpeners = ":=@\"'`([{<>&"
+
+// valueLeaders are the ASCII characters after which a path may start when they lead a piece
+// (valuePathStart): every punctuation character but a name's (`. _ - ~ $ %`, the last three also a
+// home's or a variable's, which containment reads at a path start), a separator, a glob's wildcard
+// (`* ?`, as in `*/x.go`) and the list separators. Inside a piece most of them are a name's own
+// characters, which a project's paths hold (`c++`, `C#`, SvelteKit's `+page`, Next.js's `(auth)` and
+// `[id]`), so only an opener (valueOpeners) starts a path there; leading a piece they are a
+// redirect, a negation, cmd.exe's next copy source, a comment or a closing bracket before the path
+// (`>/etc/passwd`, `!/etc/passwd`, `+\Windows\win.ini`, `#/etc/passwd`, `)/etc/passwd`), as free
+// text reads them (pathStartDelims).
+const valueLeaders = "!\"#&'()+:<=>@[]^`{}"
+
+// valuePathStart reports whether a path may start at i in t, a path-named value, within the piece
+// that starts at start (valueNamesOutside): at the piece's start; after an opener (valueOpeners)
+// other than a drive's `:` (one ASCII letter at a path start: `C:\q\proj`, `--dir=C:\x`); after a
+// character outside ASCII that the free-text whitelist does not read as a letter (wordRune): one that
+// is no letter, mark or digit (an invisible format character such as a zero-width space, which hides
+// the start of a path from a reader, a symbol, a punctuation mark), or a letter or mark whose Windows
+// ANSI best fit is ASCII punctuation (bestFitPunct: U+02BA reaches an ANSI program as `"`, U+01C0 as
+// `|`; wave 22's verify, fix round 2); after a run of leaders that leads the piece (valueLeaders); and
+// after a short option that leads it, after its first letter and after all its letters (`-I/opt`,
+// `-C../x`), as free text reads one (pathStarts). Inside a piece `+ # ) ] } ! ^` stay a name's own
+// characters (`c++/x`, `C#/x`, `(auth)/x`, `[id]/x`), a deliberate residual ADR 0011 §23 item 6
+// names.
+func valuePathStart(t string, start, i int) bool {
+	if i == start {
+		return true
+	}
+	r, size := utf8.DecodeLastRuneInString(t[start:i])
+	switch {
+	case r == ':':
+		k := i - size - 1
+		return k < start || !asciiLetter(t[k]) || !valuePathStart(t, start, k)
+	case r < utf8.RuneSelf && strings.IndexByte(valueOpeners, byte(r)) >= 0:
+		return true
+	case r >= utf8.RuneSelf:
+		return !wordRune(r)
+	}
+	if strings.IndexFunc(t[start:i], notValueLeader) < 0 {
+		return true
+	}
+	k := shortOptionEnd(t[start:])
+	return k > 0 && (i-start == 2 || i-start == k)
+}
+
+// notValueLeader reports a character that is no leader of a piece (valuePathStart): neither one of
+// valueLeaders nor a character outside ASCII that the whitelist reads as no letter (wordRune).
+func notValueLeader(c rune) bool {
+	if c >= utf8.RuneSelf {
+		return wordRune(c)
+	}
+	return !strings.ContainsRune(valueLeaders, c)
+}
+
+// rootSpanAt is the length of the project root's own spelling at t[i:], as containment compares it
+// (RootRelative: the cleaned root, `/` read as the platform's separator, an ASCII letter's case folded
+// where the platform's paths fold, nothing else), when the spelling ends t or a separator follows it;
+// otherwise 0.
+func (j pathJudge) rootSpanAt(t string, i int) int {
+	if j.root == "" {
+		return 0
+	}
+	r := filepath.Clean(j.root)
+	e := i + len(r)
+	if e > len(t) || !asciiFoldEqual(filepath.FromSlash(t[i:e]), r, paths.DefaultFold()) {
+		return 0
+	}
+	if e < len(t) && r[len(r)-1] != filepath.Separator && filepath.FromSlash(t[e : e+1])[0] != filepath.Separator {
+		return 0
+	}
+	return len(r)
+}
+
+// pieceOutside reports whether pc, one piece of a path-named value (cut: the store's cut fell inside
+// it; held: which of its bytes spell the project root, read whole, or nil), names a path outside the
+// project (valueNamesOutside) at any place a path may start in it (valuePathStart) but inside the
+// root's own spelling: what runs from there to the piece's end names a path outside the project
+// (restOutside). An http(s) URL that starts there is judged as free text judges one (urlOutside), up
+// to a quote or an angle bracket, after which a path may start again.
+func (j pathJudge) pieceOutside(pc string, held []bool, cut bool) bool {
+	for s := 0; s < len(pc); {
+		_, size := utf8.DecodeRuneInString(pc[s:])
+		if (s > 0 && held != nil && held[s-1]) || !valuePathStart(pc, 0, s) {
+			s += size
+			continue
+		}
+		rest := pc[s:]
+		if isURL(rest) {
+			e := strings.IndexAny(rest, "\"'`<>")
+			if e < 0 {
+				e = len(rest)
+			}
+			if urlOutside(rest[:e]) {
+				return true
+			}
+			s += e
+			continue
+		}
+		if j.restOutside(rest, cut, namesDrive(pc, held, s)) {
+			return true
+		}
+		s += size
+	}
+	return false
+}
+
+// namesDrive reports whether the name before the first `:` of pc[s:], a piece of a path-named value
+// from a place a path may start in it, may be a PowerShell drive's or provider's whole name: no other
+// place a path may start lies inside it outside the root's own spelling (held). One that does is the
+// name of none: a reader reads the path that starts there, whose own name restOutside judges
+// (`"C:\q\proj"` and `--out=C:\q\proj` are no drive named `"C` or `--out=C`; `--out=Temp:x` names Temp).
+func namesDrive(pc string, held []bool, s int) bool {
+	colon := strings.IndexByte(pc[s:], ':')
+	for k := s + 1; colon > 0 && k < s+colon; k++ {
+		if (held == nil || !held[k-1]) && valuePathStart(pc, 0, k) {
+			return false
+		}
+	}
+	return true
+}
+
+// restOutside reports whether rest, a piece of a path-named value from a place a path may start in it
+// to the piece's end (cut: the store's cut fell inside it), names a path outside the project: it is
+// not inside the project (inside: an absolute path, a home, a variable, a drive-relative path, a
+// `file:` URL or a climb, which containment resolves, so `--out=../../x` and `"../x"` climb out while
+// `src/../a.ts` stays in), with or without the closing quotes and brackets it ends in (`".."` is the
+// parent); when drive is set (namesDrive), it is a PowerShell drive- or provider-qualified path
+// (providerPath; a drive letter's is containment's to judge), or, when the cut fell right after its
+// `:`, would be one with a name after it (D64(2)); or, when it is not rooted, it climbs out in either other reading of its backslashes,
+// as a separator wherever the value was recorded and as a POSIX shell's escape (`..\x` on Linux,
+// `.\./x`).
+func (j pathJudge) restOutside(rest string, cut, drive bool) bool {
+	if !j.inside(rest) {
+		return true
+	}
+	if drive && !driveLetter(rest) && (providerPath(rest) || (cut && strings.HasSuffix(rest, ":") && providerPath(rest+"x"))) {
+		return true
+	}
+	readings := []string{rest}
+	if !absLike(rest) && strings.Contains(rest, `\`) {
+		readings = append(readings, strings.ReplaceAll(rest, `\`, "/"), strings.ReplaceAll(rest, `\`, ""))
+	}
+	for _, r := range readings {
+		if !j.inside(r) {
+			return true
+		}
+		if c := strings.TrimRight(r, "\"'`)]}>"); c != r && c != "" && !j.inside(c) {
+			return true
+		}
+	}
+	return false
+}
+
+// driveLetter reports whether p starts with a Windows drive: one ASCII letter and a `:`.
+func driveLetter(p string) bool { return len(p) >= 2 && asciiLetter(p[0]) && p[1] == ':' }
 
 // valueWithheld reports whether a whole structured value may not be shown: the build withholds it as
 // it would a file pointer's path (withheld: containment and the host's rules), or it is a glob that
@@ -1374,7 +1854,7 @@ func asciiFoldEqual(a, b string, fold bool) bool {
 // where a name ends. With mode screenExact the withheld names are not read.
 func (j pathJudge) textNamesWithheld(marked string, mode nameScreen) bool {
 	sets := [][]string{j.screens}
-	if mode != screenExact {
+	if mode != screenExact && j.learned == nil {
 		sets = append(sets, j.knownText)
 	}
 	for _, form := range screenForms(marked) {
@@ -1394,6 +1874,9 @@ func (j pathJudge) textNamesWithheld(marked string, mode nameScreen) bool {
 					return true
 				}
 			}
+		}
+		if mode != screenExact && j.learned != nil && j.learned.text.namedAt(form, mode == screenFree) {
+			return true
 		}
 	}
 	return false
@@ -1491,13 +1974,20 @@ func cutAtDriveColon(w string, inRun bool) bool {
 // inside a glob run (`.env` for `**/*.env`) may begin inside a name, so its prefix counts with no
 // boundary.
 func (j pathJudge) cutPrefixNamed(marked string) bool {
+	sets := [][]string{j.screens, j.openScreens, j.knownText, j.rulePaths}
+	if j.learned != nil {
+		sets[2] = nil
+	}
 	for _, form := range screenForms(marked) {
-		for _, set := range [][]string{j.screens, j.openScreens, j.knownText, j.rulePaths} {
+		for _, set := range sets {
 			for _, name := range set {
 				if endsWithPrefixOf(form, name, true) {
 					return true
 				}
 			}
+		}
+		if j.learned != nil && j.learned.text.endsWithPrefix(form, true) {
+			return true
 		}
 		for _, name := range j.midScreens {
 			if endsWithPrefixOf(form, name, false) {
@@ -1511,34 +2001,31 @@ func (j pathJudge) cutPrefixNamed(marked string) bool {
 // splitTokens splits a marked text into tokens on ASCII spaces (sanitize has already collapsed every
 // whitespace run to one space), except inside a double-quoted run, and inside a single-quoted run that
 // opens at a token's start, which keep their spaces so that the run is judged whole. An apostrophe
-// inside a word opens no run here (plainTokenSafe judges it).
+// inside a word opens no run here (plainTokenSafe judges it). Each token is a stretch of s, sliced,
+// not copied (wave 22's verify of audit 2's finding 33: copying them byte by byte was a fifth of a
+// build's allocations).
 func splitTokens(s string) []string {
 	var toks []string
-	var b strings.Builder
 	var quote byte
-	flush := func() {
-		if b.Len() > 0 {
-			toks = append(toks, b.String())
-			b.Reset()
-		}
-	}
+	start := 0
 	for i := 0; i < len(s); i++ {
 		switch c := s[i]; {
 		case quote != 0:
 			if c == quote {
 				quote = 0
 			}
-			b.WriteByte(c)
-		case c == '"' || (c == '\'' && b.Len() == 0):
+		case c == '"' || (c == '\'' && i == start):
 			quote = c
-			b.WriteByte(c)
 		case c == ' ':
-			flush()
-		default:
-			b.WriteByte(c)
+			if i > start {
+				toks = append(toks, s[start:i])
+			}
+			start = i + 1
 		}
 	}
-	flush()
+	if start < len(s) {
+		toks = append(toks, s[start:])
+	}
 	return toks
 }
 
@@ -1560,6 +2047,13 @@ func operatorPieces(tok string) []string {
 		return []string{tok}
 	}
 	if _, ok := quoteRun(tok); ok {
+		return []string{tok}
+	}
+	if !strings.ContainsAny(tok, ";|&") {
+		// Nothing to split at: the split's answer, without building the replaced copy.
+		if tok == "" {
+			return []string{}
+		}
 		return []string{tok}
 	}
 	return strings.FieldsFunc(gluedOperators.Replace(tok), func(r rune) bool { return r == ';' })
@@ -1779,7 +2273,7 @@ func plainTokenSafe(tok string) bool { return safeChars(tok, false) }
 // which a `~` or a `=` would start a word for a nested shell (so either is unsafe there), and as no
 // letter beside an apostrophe. zsh's `(#i)` flag is a `#` inside a word, so it is unsafe too.
 func safeChars(tok string, parens bool) bool {
-	if psSplat.MatchString(tok) {
+	if strings.HasPrefix(tok, "@") && psSplat.MatchString(tok) {
 		return false
 	}
 	afterDelim := true
@@ -1905,12 +2399,8 @@ func readingsOutside(w string) bool {
 // at a path start (pathStarts) one that startsOutside, or a `..` segment anywhere (hasDotDot). The
 // root's mark at a path start is the project root.
 func pathOutside(tok string) bool {
-	for _, s := range pathStarts(tok) {
-		if s < len(tok) && startsOutside(tok[s:], s > 0) {
-			return true
-		}
-	}
-	return hasDotDot(tok)
+	return pathStarts(tok, func(s int) bool { return s < len(tok) && startsOutside(tok[s:], s > 0) }) ||
+		hasDotDot(tok)
 }
 
 // startsOutside reports whether rest, the text at a path start, begins a path outside the project: a
@@ -1966,27 +2456,34 @@ func providerPath(rest string) bool {
 
 // inertPrefixes are the names before a `:` that providerPath lets stand, derived from what Qompack's
 // own previews must show (the w19d corpus, ADR 0011 §23 item 7(b)): `path`, recall's selector, whose
-// value selectorWithheld judges, and `sha256`, the text form of the hash expand and re_read take
-// (core.Hash). With an http(s) URL's scheme they are all: no PowerShell drive or provider has one of
-// these names unless a user defines it (ADR 0011 §23 item 2's limits), and every other name is
-// withheld, `localhost:3000`, `HEAD:x`, `--pretty=format:%h`, a plugin's `name:skill`, recall's other
-// selectors (`symbol:`, `tool:`) and a scheme with no `//` (`http:x`) among them.
-var inertPrefixes = map[string]bool{"path": true, "sha256": true}
+// value selectorWithheld judges; `sha256`, the text form of the hash expand and re_read take
+// (core.Hash); and `select`, ToolSearch's documented selector, with which Claude Code loads a
+// deferred tool, Qompack's own among them (`select:mcp__plugin_qompack_qompack__record_eliminated`;
+// coordinator decision D67(l), audit 2's finding 31). With an http(s) URL's scheme they are all: no
+// PowerShell drive or provider has one of these names unless a user defines it (ADR 0011 §23 item
+// 2's limits), and every other name is withheld, `localhost:3000`, `HEAD:x`, `--pretty=format:%h`, a
+// plugin's `name:skill`, recall's other selectors (`symbol:`, `tool:`) and a scheme with no `//`
+// (`http:x`) among them. What follows an inert prefix's `:` is still a path start.
+var inertPrefixes = map[string]bool{"path": true, "sha256": true, "select": true}
 
-// pathStarts are the offsets in tok where a path may begin: the start, just after a leading short
-// option's first letter and just after all its letters (`-C../x`, `-I/opt`, `-oD:stash`), and just
-// after each pathStartDelims character (`--out=/etc/x`, `a,/etc/x`, `@/tmp/args`).
-func pathStarts(tok string) []int {
-	starts := []int{0}
-	if k := shortOptionEnd(tok); k > 0 {
-		starts = append(starts, 2, k)
+// pathStarts reports whether at reports true for one of the offsets in tok where a path may begin:
+// the start, just after a leading short option's first letter and just after all its letters
+// (`-C../x`, `-I/opt`, `-oD:stash`), and just after each pathStartDelims character (`--out=/etc/x`,
+// `a,/etc/x`, `@/tmp/args`). It visits them rather than listing them, so the screen's hot path
+// allocates nothing for them (wave 22's verify of audit 2's finding 33).
+func pathStarts(tok string, at func(int) bool) bool {
+	if at(0) {
+		return true
+	}
+	if k := shortOptionEnd(tok); k > 0 && (at(2) || at(k)) {
+		return true
 	}
 	for i := 0; i < len(tok); i++ {
-		if strings.IndexByte(pathStartDelims, tok[i]) >= 0 {
-			starts = append(starts, i+1)
+		if strings.IndexByte(pathStartDelims, tok[i]) >= 0 && at(i+1) {
+			return true
 		}
 	}
-	return starts
+	return false
 }
 
 // shortOptionEnd is the offset just after a leading short option in tok (`-` and one ASCII letter or
@@ -2126,8 +2623,13 @@ func endsWithPrefixOf(text, name string, bounded bool) bool {
 	return false
 }
 
-// selectorValues returns the value of each recall path: selector in t, unquoted.
+// selectorValues returns the value of each recall path: selector in t, unquoted. A text that does
+// not hold `path:` in any ASCII case holds none: no character outside ASCII folds onto those letters
+// under RE2's `(?i)`, so the expression is not run on it.
 func selectorValues(t string) []string {
+	if !containsFolded(t, recallPathSelector+":", true) {
+		return nil
+	}
 	var out []string
 	for _, m := range pathSelector.FindAllStringSubmatch(t, -1) {
 		v := strings.Trim(m[1], `"'`)
@@ -2167,6 +2669,9 @@ func (j pathJudge) selectsKnown(v string) bool {
 	k := selectorKey(v)
 	if k == "" {
 		return false
+	}
+	if j.learned != nil && strings.IndexByte(k, 0) < 0 {
+		return j.learned.selectsLearned(k, j.known)
 	}
 	glob := isGlob(k)
 	for _, w := range j.known {
@@ -2233,6 +2738,9 @@ func (j pathJudge) globSelectsKnown(g string) bool {
 	k, ok := j.broadKey(g)
 	if !ok {
 		return false
+	}
+	if j.learned != nil {
+		return j.learned.matchesLearned(k, j.known, rules.Match)
 	}
 	for _, w := range j.known {
 		if rules.Match(k, w) {
@@ -2577,17 +3085,84 @@ func (j pathJudge) markRoot(t string) string {
 // drop reason (reasonWithheld) holds it whenever a text can spell it exactly (rootSpelledExactly);
 // and the learning of a withheld path (recordedPath) holds it always. The last two, which learn or
 // withhold, also hold it under the broad reading (holdRootBroad).
-func (j pathJudge) holdRoot(t string) string { return holdWith(j.rootSpelling, t) }
+func (j pathJudge) holdRoot(t string) string { return j.held(j.rootSpelling, t) }
 
 // holdRootBroad is holdRoot under the broad reading of the root (broadRootSpellingOf): t lower-cased
 // by paths.Key, with each spelling of the root that Unicode's case folding pairs with its own held as
 // one rootMark. Where the platform's paths do not fold it is holdRoot. Only a judgement that learns or
-// withholds reads it (recordedPath, reasonWithheld; the two-fold rule).
+// withholds reads it (recordedPath, reasonWithheld; the two-fold rule). It is memoized under its own
+// expression (held), so the strict and the broad readings of one text never share an answer.
 func (j pathJudge) holdRootBroad(t string) string {
 	if j.broadSpelling == nil {
 		return j.holdRoot(t)
 	}
-	return holdWith(j.broadSpelling, paths.Key(t))
+	return j.held(j.broadSpelling, paths.Key(t))
+}
+
+// held is holdWith(spelling, t) memoized for the build (buildMemo.held, keyed by the expression, one
+// for each reading of the root, and the text). A text that cannot hold rootSpelling's match, because
+// it does not hold the root's last segment folded as rootSpelling folds it (rootTail: an ASCII
+// letter's case where the platform's paths fold, no other character's), is returned as it is without
+// running the expression; another reading's expression is always run.
+func (j pathJudge) held(spelling *regexp.Regexp, t string) string {
+	if spelling == nil {
+		return t
+	}
+	if spelling == j.rootSpelling && j.rootTail != "" && !containsFolded(t, j.rootTail, paths.DefaultFold()) {
+		return t
+	}
+	if j.memo == nil {
+		return holdWith(spelling, t)
+	}
+	k := heldKey{spelling, t}
+	if s, ok := j.memo.held[k]; ok {
+		return s
+	}
+	s := holdWith(spelling, t)
+	j.memo.held[k] = s
+	return s
+}
+
+// rootTailOf is root's rootTail: the last segment of the spelling rootSpellingOf matches, an ASCII
+// letter lower-cased where the platform's paths fold; "" for no root, or one with no last segment.
+func rootTailOf(root string) string {
+	if root == "" {
+		return ""
+	}
+	clean := strings.Join(strings.Fields(filepath.ToSlash(filepath.Clean(root))), " ")
+	tail := clean[strings.LastIndexByte(clean, '/')+1:]
+	if strings.Contains(tail, ":") {
+		return "" // a drive alone (`C:`), whose spellings rootSpellingOf varies
+	}
+	if paths.DefaultFold() {
+		tail = asciiLower(tail)
+	}
+	return tail
+}
+
+// asciiLower is s with each ASCII letter lower-cased and every other byte as it is.
+func asciiLower(s string) string {
+	b := []byte(s)
+	for i, c := range b {
+		if c >= 'A' && c <= 'Z' {
+			b[i] = c + ('a' - 'A')
+		}
+	}
+	return string(b)
+}
+
+// containsFolded reports whether t holds sub, sub's ASCII letters lower-case, an ASCII letter's case
+// folded when fold is set and no other character's (asciiFoldEqual).
+func containsFolded(t, sub string, fold bool) bool {
+	if !fold {
+		return strings.Contains(t, sub)
+	}
+	for i := 0; i+len(sub) <= len(t); i++ {
+		if asciiFoldEqual(t[i:i+len(sub)], sub, true) {
+			return true
+		}
+	}
+	return false
 }
 
 // holdWith is t with each spelling of the root that spelling finds, and holdRoot's rules leave the
@@ -2748,20 +3323,46 @@ var pathArgName = regexp.MustCompile(
 
 // jsonUnquote decodes one JSON string body; a body the preview cut mid-escape is undone by hand.
 func jsonUnquote(s string) string {
+	if plainJSONBody(s) {
+		return s
+	}
 	var out string
 	if err := json.Unmarshal([]byte(`"`+s+`"`), &out); err == nil {
 		return out
 	}
-	return strings.NewReplacer(`\\`, `\`, `\"`, `"`, `\/`, `/`).Replace(s)
+	return jsonEscapes.Replace(s)
 }
 
+// plainJSONBody reports whether s, a JSON string's body, decodes to itself: it holds no escape, no
+// quote, no control character and no invalid UTF-8 (which encoding/json would replace), so
+// jsonUnquote need not decode it (wave 22's verify of audit 2's finding 33: decoding every string
+// was a tenth of a build's allocations).
+func plainJSONBody(s string) bool {
+	for i := 0; i < len(s); i++ {
+		if c := s[i]; c == '\\' || c == '"' || c < 0x20 {
+			return false
+		}
+	}
+	return utf8.ValidString(s)
+}
+
+// jsonEscapes undoes the escapes a body the preview cut mid-escape may still hold (jsonUnquote).
+var jsonEscapes = strings.NewReplacer(`\\`, `\`, `\"`, `"`, `\/`, `/`)
+
 // withheldPathLabel, withheldSummary and withheldPathNote replace what a withheld pointer would have
-// shown. None names the rule or the path: a rule spells the very path it protects.
+// shown. None names the rule or the path: a rule spells the very path it protects. Section 6 explains
+// a withheld pointer once, in pointersLegend under its heading, so each withheld line there carries
+// only its short label (audit 2's finding 30: the 97-character explanation on every withheld line,
+// charged to the payload's fixed character ceiling, pushed real pointers out of the section). A drop
+// entry keeps withheldPathNote, since dropped() returns it without section 6's legend.
 const (
 	withheldPathNote  = "path withheld: the host's permission rules refuse it, or it is outside the project"
-	withheldPathLabel = "file (" + withheldPathNote + ")"
-	withheldSummary   = "summary withheld: it names a path the host's permission rules refuse, " +
-		"or one outside the project"
+	withheldPathLabel = "file (path withheld)"
+	withheldSummary   = "(summary withheld)"
+	// pointersLegend is the line under section 6's heading when a pointer the section was built from
+	// is withheld (sectionLegend).
+	pointersLegend = "Withheld entries name a path the host's permission rules refuse, or one outside the " +
+		"project; restore them by hash."
 	// withheldDropID stands in for the path a checkpoint drop entry was keyed by when the
 	// checkpoint no longer holds the pointer's hash (gateCheckpointDrops), and for the path a drop
 	// entry's reason named (redactReason).
@@ -2789,6 +3390,18 @@ var modelTextDrops = map[string]bool{
 	"open_question":     true,
 }
 
+// dropWithheld reports whether a path-keyed checkpoint drop keyed by id may not be shown
+// (gateCheckpointDrops): its path is one newPathJudge read past the drops' bound and answered as
+// refused unjudged (unjudged), and no judgement since has asked the host about it; or withheld()
+// withholds it, which asks the host nothing more, since newPathJudge judged or bounded every drop.
+func (j pathJudge) dropWithheld(id string) bool {
+	p := judgedSpelling(id)
+	if _, asked := j.judged[p]; !asked && j.unjudged[p] {
+		return true
+	}
+	return j.withheld(id)
+}
+
 // gateCheckpointDrops returns r's checkpoint drop entries with every one keyed by a path the
 // payload may not show named the way section 6 names its pointer (D50, C4.6): by the pointer's hash
 // while the checkpoint still holds it (finalize keeps an untracked or a dirty pointer), and by
@@ -2808,7 +3421,7 @@ func gateCheckpointDrops(r Request, j pathJudge) []checkpoint.DropEntry {
 	out := make([]checkpoint.DropEntry, len(drops))
 	for i, e := range drops {
 		out[i] = e
-		if checkpointPathDrops[e.Kind] && j.withheld(e.ID) {
+		if checkpointPathDrops[e.Kind] && j.dropWithheld(e.ID) {
 			out[i] = withheldDrop(e, r.Checkpoint.Pointers.Files)
 		}
 	}
@@ -2821,22 +3434,47 @@ func gateCheckpointDrops(r Request, j pathJudge) []checkpoint.DropEntry {
 // section 6 show it (buildPointers). The path goes and the error kind stays: pointer_git_unavailable
 // carries the checkpointer's git error verbatim, which in a linked worktree names its gitdir outside
 // the project, and a rule or skill scan error can name a directory above it. drops is never
-// modified.
+// modified. Each distinct reason is screened once per build (gatedReasonOf): Build gates the drop
+// list at step 9a and again at step 10, where it differs only by what min-fill re-admitted between
+// them, and most drops share one reason.
 func gateDropReasons(drops []checkpoint.DropEntry, j pathJudge) []checkpoint.DropEntry {
 	var out []checkpoint.DropEntry
 	for i, e := range drops {
-		if modelTextDrops[e.Kind] || e.Kind == dropKindPointer || !j.reasonWithheld(e.Detail) {
+		if modelTextDrops[e.Kind] || e.Kind == dropKindPointer {
+			continue
+		}
+		g := j.gatedReasonOf(e.Detail)
+		if !g.withheld {
 			continue
 		}
 		if out == nil {
 			out = append([]checkpoint.DropEntry(nil), drops...)
 		}
-		out[i].Detail = j.redactReason(e.Detail)
+		out[i].Detail = g.text
 	}
 	if out == nil {
 		return drops
 	}
 	return out
+}
+
+// gatedReasonOf is detail's screen answer: whether it shows a path the build withholds
+// (reasonWithheld) and, when it does, its redacted text (redactReason), memoized for the build
+// (buildMemo.reasons).
+func (j pathJudge) gatedReasonOf(detail string) gatedReason {
+	if j.memo != nil && j.memo.reasons != nil {
+		if g, ok := j.memo.reasons[detail]; ok {
+			return g
+		}
+	}
+	var g gatedReason
+	if j.reasonWithheld(detail) {
+		g = gatedReason{withheld: true, text: j.redactReason(detail)}
+	}
+	if j.memo != nil && j.memo.reasons != nil {
+		j.memo.reasons[detail] = g
+	}
+	return g
 }
 
 // reasonWithheld reports whether a drop entry's reason shows an absolute path outside the project or
@@ -2849,7 +3487,7 @@ func gateDropReasons(drops []checkpoint.DropEntry, j pathJudge) []checkpoint.Dro
 // allowed README.md or src/CLAUDE.md beside a withheld private/README.md or ~/.claude/CLAUDE.md is a
 // different file, which section 6 may show too.
 func (j pathJudge) reasonWithheld(detail string) bool {
-	t := sanitize(detail)
+	t := unslashCommands(sanitize(detail))
 	if t == "" {
 		return false
 	}
@@ -2889,6 +3527,39 @@ func (j pathJudge) reasonNamesWithheld(marked string) bool {
 	return j.namesKnownIn(screenText(strings.ReplaceAll(marked, `\`, "/"), false))
 }
 
+// unslashCommands is t, a sanitized drop reason, with the leading `/` taken from each word that is one
+// of Qompack's own slash commands (qompackCommand), so the reason screen reads it as the command it
+// is, not as an absolute path outside the project: the checkpointer's recovery instruction for pins
+// it could not re-read at the seal (`run /qompack:pin --list: <err>`) was redacted to `(path
+// withheld): <err>` (audit 2's finding 27). Only the screen reads the result; a redacted reason is
+// cut from the reason as written, which keeps the command. Any other word led by `/`, a single
+// segment or more, is still judged as a path.
+func unslashCommands(t string) string {
+	if !strings.Contains(t, "/"+qompackCommandPrefix) {
+		return t
+	}
+	words := strings.Split(t, " ")
+	for i, w := range words {
+		if qompackCommand(strings.TrimRight(w, ".,;:")) {
+			words[i] = w[1:]
+		}
+	}
+	return strings.Join(words, " ")
+}
+
+// qompackCommandPrefix is what every one of Qompack's own slash commands starts with after its `/`
+// (internal/commands).
+const qompackCommandPrefix = "qompack:"
+
+// qompackCommand reports whether w is one of Qompack's own slash commands: `/qompack:` and a command
+// name of lower-case ASCII letters, digits and `-` (`/qompack:pin`, `/qompack:status`).
+func qompackCommand(w string) bool {
+	name, ok := strings.CutPrefix(w, "/"+qompackCommandPrefix)
+	return ok && name != "" && strings.IndexFunc(name, func(r rune) bool {
+		return !(r >= 'a' && r <= 'z' || r >= '0' && r <= '9' || r == '-')
+	}) < 0
+}
+
 // operationOutside reports whether a part of t, a reason read as an error chain joined by ": ", is a
 // path outside the project, whole (git's `not a git repository: <path>`), or an operation on one, as
 // Go's PathError and the Windows file APIs spell it (`open <path>`, `CreateFile <path>`: a word of
@@ -2918,6 +3589,9 @@ func notOperationRune(r rune) bool { return r >= utf8.RuneSelf || !asciiLetter(b
 // withholds (knownPaths) as a path of its own: it starts where a path starts (pathRunStart) and ends
 // at a word or path-segment boundary (a closing `.` before a boundary counts as one).
 func (j pathJudge) namesKnownIn(t string) bool {
+	if j.learned != nil {
+		return j.learned.paths.namesPathIn(t)
+	}
 	for _, k := range j.knownPaths {
 		for from := 0; from+len(k) <= len(t); {
 			i := strings.Index(t[from:], k)
@@ -2925,9 +3599,7 @@ func (j pathJudge) namesKnownIn(t string) bool {
 				break
 			}
 			start, end := from+i, from+i+len(k)
-			after := end == len(t) || strings.IndexByte(reasonBoundary, t[end]) >= 0 ||
-				(t[end] == '.' && (end+1 == len(t) || strings.IndexByte(reasonBoundary, t[end+1]) >= 0))
-			if after && pathRunStart(t, start) {
+			if reasonEndsAt(t, end) && pathRunStart(t, start) {
 				return true
 			}
 			from = start + 1

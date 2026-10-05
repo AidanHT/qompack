@@ -75,7 +75,19 @@ what it selects), and one that starts at the project root is judged through its 
 stretch from the root to the last word that holds a separator, which may include an argument that
 holds one); several path-named values, and a value the preview's cut fell inside, are judged by
 containment and the screen below, and a glob among them is withheld when it selects a withheld
-path. Containment reads a glob as a glob: a class, a `?` or a leading dot that may match `..`, and a
+path. A path-named value may hold several paths, so each piece of it, split at whitespace, a control
+character (a NUL-separated list, as `find -print0` writes), a comma, a semicolon or a bar, is also
+judged for a path outside the project wherever a reader starts one: at the piece's start, after an
+opening quote or bracket, a `:`, `=`, `@`, a glued redirect or `&`, a letter whose Windows ANSI best
+fit is punctuation, a run of punctuation that leads the piece or a leading short option, a climb and
+a PowerShell drive included (`{"paths":"src/a.ts /etc/passwd"}`, `{"paths":"src/a.ts
+\"/etc/passwd\""}`, `{"paths":"src/a.ts>/etc/passwd"}` and `{"paths":"src/a.ts --out=../../x"}`
+are withheld), while the names a project's paths hold (`app/(auth)/page.tsx`, `pages/[id].tsx`,
+`lib/c++/x.h`, `docs/R&D/plan.md`) and the project root's own spelling, read whole, stay shown, so a
+single project path with a space in it, quoted or not, is shown. Inside a piece `+ # ) ] } ! ^`
+stay a name's characters, so a rooted path glued after one of them there (`a.txt+\Windows\win.ini`)
+is not judged as a path; the same text in free text is withheld.
+Containment reads a glob as a glob: a class, a `?` or a leading dot that may match `..`, and a
 class that may match a separator (`[/]etc[/]passwd`), name a path outside the project, and so does a
 `file:` URL wherever it stands. A one-word summary must also pass the free-text screen, reading whole
 names (the project's own `.env.example` is not the denied `.env`; `.env.`, `.env:stream` and
@@ -107,7 +119,8 @@ start (the token's start, after `=`, `:`, `,`, `@`, an apostrophe, a parenthesis
 cmd.exe's `copy` starts its next source) or the `#` that starts a token, or after a short option: a
 home directory, a drive, a UNC share, a `file:` URL, or a
 PowerShell drive or provider such as `Temp:`, `Env:`, `HKCU:`, `Registry::` or any name `New-PSDrive`
-defines, other than recall's `path:` selector, a hash's `sha256:` and a URL's scheme), a `..` beside
+defines, other than recall's `path:` selector, a hash's `sha256:`, ToolSearch's `select:` and a
+URL's scheme), a `..` beside
 a separator, a delimiter or a word's end (cmd.exe's `cd..` included; a range such as `HEAD~3..HEAD`
 is not one), or, inside a quoted argument, the project root followed by a space and another name or
 an operator where the argument's path starts (a sibling folder). The project root's own spelling is
@@ -148,8 +161,16 @@ expression or puts a name and a `:` where a path may start (`localhost:3000`, `H
 drive's shape) is withheld whether or not it names a denied file. A checkpoint drop entry keyed by a
 withheld path stays in `dropped()` with the path replaced by the pointer's hash or `(path withheld)`,
 and no drop reason, the checkpointer's own git or scan errors included, shows such a path or one
-outside the project. The block restores no `paths:` rule, nested CLAUDE.md file or skill these rules
-deny or ask about, or that lies outside the project (every one while the rules cannot be read), and
+outside the project (Qompack's own slash commands in a reason, such as `/qompack:pin`, are kept).
+While a Read deny or ask rule is in force a build asks these rules about at most 64 of its path-keyed
+drop entries, whose number grows with a session, first those a summary or a drop reason names; every
+later one is withheld the same way without being judged, and so is every text that names it, so a
+long session costs a bounded number of judgements and shows nothing the rules would refuse, at the
+cost of withholding a few drop entries and texts that name a drop they would allow. That unjudged
+answer is the drop entries' own: a rule file, a nested CLAUDE.md or a skill whose drop lies past
+the bound is still judged by the rules, and restored when they allow it. The block restores no
+`paths:` rule, nested CLAUDE.md file or skill these rules deny or ask about, or that lies outside the
+project (every one while the rules cannot be read), and
 names none in its drop report; nor does it look for nested CLAUDE.md files above a withheld pointer.
 Drop entries that carry the model's own text (an `already_tried` call, an open question) are not
 gated, nor are the block's records of eliminated approaches and decisions, which are the model's own
@@ -158,8 +179,12 @@ compatibility variants of a name — an NFD spelling of an NFC literal, a fullwi
 code page's best-fit mapping reads as ASCII — are never resolved in free text, nor are names built at
 run time or relative to a `cd`; a glob that selects a refused file the block never recorded without
 spelling its literal is judged as written; a drop reason naming an in-project path the block never
-recorded is screened for outside paths and withheld paths, not for the rules' literals) are in [ADR
-0011 §23](adr/0011-rehydration-budget-and-item-order.md).
+recorded is screened for outside paths and withheld paths, not for the rules' literals; a character
+the ANSI code page cannot hold at all reaches a program that reads an ANSI command line as `?`, a glob
+to a program that expands its own arguments, which the screen does not model; and on macOS Qompack
+assumes the default case-insensitive volume, so on a case-sensitive APFS volume a folder spelled as
+the project root in another ASCII case, which is then a different folder, is read as the project,
+as these rules read it) are in [ADR 0011 §23](adr/0011-rehydration-budget-and-item-order.md).
 
 **A refusal is not an oracle.** The refusal sentence never echoes the offending path, so denials
 cannot be used to probe what exists outside the project. Measured across three escape shapes and
