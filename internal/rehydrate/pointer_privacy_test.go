@@ -22,10 +22,12 @@ import (
 // the project; it points by hash only, and so does the drop entry that restores it.
 
 // privacyRoot is the project root the privacy rows build under: a real absolute path on every
-// platform, so "outside the project" is decided the way the daemon decides it.
+// platform, so "outside the project" is decided the way the daemon decides it, short on every runner
+// (shortRoot; hosted CI's H2: under t.TempDir a summary spelling it was cut on macos-latest and
+// windows-latest).
 func privacyRoot(t *testing.T) string {
 	t.Helper()
-	return filepath.Join(t.TempDir(), "proj")
+	return filepath.Join(shortRoot(t), "proj")
 }
 
 // denyPrivate stands in for a host permissions.deny Read rule on private/**, Read(./private/**): it
