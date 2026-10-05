@@ -401,7 +401,7 @@ func TestNAKDuplicateIsDedupedOnDrain(t *testing.T) {
 	t.Cleanup(func() { _ = dd.ing.Close() })
 	dd.drain.Store(newDrainer(DrainConfig{
 		Root: root, Log: logging.Nop(), Metrics: dd.m, Clock: dd.clk,
-		Dispatch: dd.drainDispatch, Seen: dd.ing.seen, IsLive: dd.sessionIsLive,
+		Dispatch: withoutLineDeadline(dd.drainDispatch), Seen: dd.ing.seen, IsLive: dd.sessionIsLive,
 	}))
 	dd.registry.SetHotMode(ipc.HotSpool, "test")
 
@@ -453,7 +453,7 @@ func TestDrainOfSpooledFlushLineDoesNotDeadlock(t *testing.T) {
 	t.Cleanup(func() { _ = dd.ing.Close() })
 	dd.drain.Store(newDrainer(DrainConfig{
 		Root: root, Log: logging.Nop(), Metrics: dd.m, Clock: dd.clk,
-		Dispatch: dd.drainDispatch, Seen: dd.ing.seen, IsLive: dd.sessionIsLive,
+		Dispatch: withoutLineDeadline(dd.drainDispatch), Seen: dd.ing.seen, IsLive: dd.sessionIsLive,
 	}))
 
 	flushReq := ipc.Request{

@@ -37,7 +37,7 @@ func settleSpoolReads(dd *daemon) int64 { return dd.m.Counter(counterPrecompactS
 // whole cost. Neither settles, waits or drains (the drain's mutex is held throughout).
 func TestPreCompactSettle_AHealthySessionReadsOthersBacklogOnceThenOnlyLists(t *testing.T) {
 	dd, root := settleTestDaemon(t, liveOrderBound)
-	dd.drain.Store(newDrainer(dd.drainConfig()))
+	dd.drain.Store(newDrainer(contentDrainConfig(dd)))
 	liveOrderWorkers(t, dd, 2, dd.runIngested)
 	const sess core.SessionID = "sess-precompact-healthy-backlog"
 	const backlog = 300
@@ -90,7 +90,7 @@ func TestPreCompactSettle_AHealthySessionReadsOthersBacklogOnceThenOnlyLists(t *
 // it cannot see. Once the index holds the file, the same zero bound names the Read from memory.
 func TestPreCompactSettle_ALookPastTheBoundReadsNothingAndSaysSo(t *testing.T) {
 	dd, root := settleTestDaemon(t, 0)
-	dd.drain.Store(newDrainer(dd.drainConfig()))
+	dd.drain.Store(newDrainer(contentDrainConfig(dd)))
 	liveOrderWorkers(t, dd, 2, dd.runIngested)
 	const sess core.SessionID = "sess-precompact-no-bound"
 	own := liveOrderTool(dd, root, sess, 1)
@@ -139,7 +139,7 @@ func TestPreCompactSettle_TheLastLookReadsOnlyNamedAndNewSpools(t *testing.T) {
 	late := liveOrderTool(dd, root, sess, 3)
 	late.TS = own.TS + 1
 	theirsToo := liveOrderTool(dd, root, other, 4)
-	cfg := dd.drainConfig()
+	cfg := contentDrainConfig(dd)
 	cfg.Dispatch = func(ctx context.Context, req ipc.Request) ipc.Response {
 		if req.Nonce == own.Nonce {
 			// While the first look's own spool is being replayed: a spool listed after that look, and
@@ -317,7 +317,8 @@ func TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound(t *testin
 		deadline time.Time
 		bounded  bool
 	}
-	cfg := dd.drainConfig()
+	cfg := lineDeadlineDrainConfig(dd)
+	dispatch := cfg.Dispatch
 	cfg.Dispatch = func(ctx context.Context, req ipc.Request) ipc.Response {
 		if req.Nonce == own.Nonce {
 			dl, ok := ctx.Deadline()
@@ -325,7 +326,7 @@ func TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound(t *testin
 			replay.at, replay.deadline, replay.bounded = time.Now(), dl, ok
 			replay.Unlock()
 		}
-		return dd.drainDispatch(ctx, req)
+		return dispatch(ctx, req)
 	}
 	dd.drain.Store(newDrainer(cfg))
 	liveOrderWorkers(t, dd, 2, dd.runIngested)
@@ -368,7 +369,7 @@ func TestPreCompactSettle_AColdBacklogLeavesTheReplayTheRestOfTheBound(t *testin
 // end it before the look's read began (wave 16e), and the row counts reads, not time.
 func TestPreCompactSettle_CountsOnlyTheSpoolReadsOfItsOwnLooks(t *testing.T) {
 	dd, root := settleTestDaemon(t, liveOrderBound)
-	dd.drain.Store(newDrainer(dd.drainConfig()))
+	dd.drain.Store(newDrainer(contentDrainConfig(dd)))
 	const other core.SessionID = "sess-precompact-reads-other"
 	const listed, written = "client-7272.ndjson", "client-7373.ndjson"
 	writeHookSpool(t, root, listed, liveOrderTool(dd, root, other, 1))
@@ -413,7 +414,7 @@ func TestPreCompactSettle_ReadsASpoolTheDrainReleasedAndAHookRecreated(t *testin
 	const base = "client-7474.ndjson"
 	first := liveOrderTool(dd, root, sess, 1)
 	second := liveOrderTool(dd, root, sess, 2) // the same length as first: the reused pid's next Read
-	cfg := dd.drainConfig()
+	cfg := contentDrainConfig(dd)
 	cfg.Dispatch = func(lctx context.Context, req ipc.Request) ipc.Response {
 		if req.Nonce == second.Nonce {
 			cut()         // the bound ends while the recreated spool's Read is in its replay
@@ -514,7 +515,7 @@ func TestSpoolHeadIndex_ASpoolRecreatedRightAfterTheDrainsUnlinkIsReadAgain(t *t
 		ok, read bool
 	}
 	var before, during []look
-	dr := newDrainer(dd.drainConfig())
+	dr := newDrainer(contentDrainConfig(dd))
 	dr.removeSpool = func(p string, drained int64) (bool, error) {
 		if filepath.Base(p) == base { // a look at the released file just before its unlink
 			for _, l := range listClientSpools(root) {

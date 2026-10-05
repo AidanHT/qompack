@@ -304,7 +304,7 @@ func TestDeliveryOrder_DrainReleaseWakesParkedLiveSuccessor(t *testing.T) {
 	require.Equal(t, int64(1), dd.m.Counter(counterOrderingDeferred).Value(),
 		"a parked lane is not retried until something releases it: one deferral, no spin")
 
-	dd.drain.Store(newDrainer(dd.drainConfig()))
+	dd.drain.Store(newDrainer(contentDrainConfig(dd)))
 	n, err := dd.Drain(ctx)
 	require.NoError(t, err)
 	require.Equal(t, 1, n, "the drain publishes only the predecessor; its pass defers the successor's WAL line")
@@ -362,7 +362,7 @@ func TestDeliveryOrder_LiveLanesAreBoundedAndOverflowIsLeftForTheDrain(t *testin
 		"the lane that ran dry with jobs refused behind it asked for their drain, once")
 	require.Zero(t, liveOrderAcked(dd, leases[capacity:]), "nothing but the drain can publish an overflowed job")
 
-	dd.drain.Store(newDrainer(dd.drainConfig()))
+	dd.drain.Store(newDrainer(contentDrainConfig(dd)))
 	n, err := dd.Drain(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, k-capacity, n, "the drain publishes the overflow and absorbs the rest from the frontier")
@@ -517,7 +517,7 @@ func TestDeliveryOrder_DrainReleasesSessionsOnlyAfterItsPass(t *testing.T) {
 	var mu sync.Mutex
 	var releases []core.SessionID
 	var releasedAtDispatch []int
-	cfg := dd.drainConfig()
+	cfg := contentDrainConfig(dd)
 	dispatch := cfg.Dispatch
 	cfg.Dispatch = func(ctx context.Context, req ipc.Request) ipc.Response {
 		mu.Lock()
@@ -651,7 +651,7 @@ func TestDeliveryOrder_FlushSettlesQueuedSessionEventsBeforeSessionEnd(t *testin
 		defer cancel()
 		dd.stopPromptRecordings(grace)
 	})
-	dd.drain.Store(newDrainer(dd.drainConfig()))
+	dd.drain.Store(newDrainer(contentDrainConfig(dd)))
 	laneTestSetSettle(dd, settleSessionStall, liveOrderSettleBound)
 
 	const sess core.SessionID = "sess-flush-settles"
@@ -718,7 +718,7 @@ func TestDeliveryOrder_FlushDrainsAParkedSessionBeforeSessionEnd(t *testing.T) {
 		defer cancel()
 		dd.stopPromptRecordings(grace)
 	})
-	dd.drain.Store(newDrainer(dd.drainConfig()))
+	dd.drain.Store(newDrainer(contentDrainConfig(dd)))
 	laneTestSetSettle(dd, settleSessionStall, liveOrderSettleBound)
 	liveOrderWorkers(t, dd, 2, dd.runIngested)
 	ctx := context.Background()
@@ -765,7 +765,7 @@ func TestDeliveryOrder_FlushThatCannotSettleSaysSoAndLosesNothing(t *testing.T) 
 		defer cancel()
 		dd.stopPromptRecordings(grace)
 	})
-	dd.drain.Store(newDrainer(dd.drainConfig()))
+	dd.drain.Store(newDrainer(contentDrainConfig(dd)))
 	laneTestSetSettle(dd, liveOrderTick, liveOrderTick) // far shorter than the held delivery below
 
 	const sess core.SessionID = "sess-flush-unsettled"

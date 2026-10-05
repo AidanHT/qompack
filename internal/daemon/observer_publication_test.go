@@ -132,7 +132,7 @@ func TestObserverPublicationFailureRemainsDrainRetryable(t *testing.T) {
 
 			faulty.repair()
 			require.NoError(t, dd.ing.CloseSession(req.Session), "the inactive drainer cannot remove an open WAL on Windows")
-			dr := newDrainer(DrainConfig{Root: root, Seen: dd.ing.seen, Dispatch: dd.runIngested})
+			dr := newDrainer(DrainConfig{Root: root, Seen: dd.ing.seen, Dispatch: withoutLineDeadline(dd.runIngested)})
 			n, err := dr.Drain(context.Background())
 			require.NoError(t, err)
 			require.Equal(t, 1, n, "the repaired drainer must actually re-run the retained line")

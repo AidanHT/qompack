@@ -141,7 +141,7 @@ func TestDrainClientSpools_ReconsumingALineBehindABlockedHeadDoesNotEndASpentPas
 		t.Run(behind, func(t *testing.T) {
 			dd, _, root := laneTestDaemon(t)
 			ctx := context.Background()
-			cfg := dd.drainConfig()
+			cfg := lineDeadlineDrainConfig(dd)
 			blocked := blockedSpoolHead(t, dd, root, "sess-reconsume-stuck", 0)
 			other := liveOrderTool(dd, root, "sess-reconsume-other", 7)
 			line := hookSpoolLine(t, other)
@@ -211,7 +211,7 @@ func TestDrainClientSpools_ALinePublishedOrRetiredBehindABlockedHeadEndsASpentPa
 		t.Run(how, func(t *testing.T) {
 			dd, _, root := laneTestDaemon(t)
 			ctx := context.Background()
-			cfg := dd.drainConfig()
+			cfg := lineDeadlineDrainConfig(dd)
 			blocked := blockedSpoolHead(t, dd, root, "sess-progress-stuck", 0)
 			lines := [][]byte{hookSpoolLine(t, blocked)}
 			var consumed func() bool
@@ -291,7 +291,7 @@ func TestDrainClientSpools_ALinePublishedOrRetiredBehindABlockedHeadEndsASpentPa
 // that stops it. A prototype of the C1.13 fix dropped that check, and no row noticed.
 func TestDrainClientSpools_ASpentPassStartsNoLineAfterItsFrontAdvanced(t *testing.T) {
 	dd, _, root := laneTestDaemon(t)
-	dr := newDrainer(dd.drainConfig())
+	dr := newDrainer(lineDeadlineDrainConfig(dd))
 	dd.drain.Store(dr)
 	torn := []byte("not a request\n")
 	fresh := liveOrderTool(dd, root, "sess-front-advanced", 1)
@@ -323,7 +323,7 @@ func TestDrainClientSpools_ASpentPassStartsNoLineAfterItsFrontAdvanced(t *testin
 func TestDrain_ARequestedPassIsNotEndedByReconsumingALineBehindABlockedHead(t *testing.T) {
 	dd, _, root := laneTestDaemon(t)
 	blocked := blockedSpoolHead(t, dd, root, "sess-requested-reconsume-stuck", 0)
-	cfg := dd.drainConfig()
+	cfg := lineDeadlineDrainConfig(dd)
 	admit, held := slowWaitingHead(cfg.Admit, blocked.Nonce)
 	cfg.Admit = admit
 	dd.drain.Store(newDrainer(cfg))
@@ -362,7 +362,7 @@ func TestDrain_ARequestedPassIsNotEndedByReconsumingALineBehindABlockedHead(t *t
 func TestIdleDrain_AnIdlePassIsNotEndedByReconsumingALineBehindABlockedHead(t *testing.T) {
 	dd, _, root := laneTestDaemon(t)
 	blocked := blockedSpoolHead(t, dd, root, "sess-idle-reconsume-stuck", 0)
-	cfg := dd.drainConfig()
+	cfg := lineDeadlineDrainConfig(dd)
 	admit, held := slowWaitingHead(cfg.Admit, blocked.Nonce)
 	cfg.Admit = admit
 	dd.drain.Store(newDrainer(cfg))
@@ -406,7 +406,7 @@ func TestDrainClientSpools_ASpentPassStartsNoLookAheadLineAfterItsProgress(t *te
 		t.Run(how, func(t *testing.T) {
 			dd, _, root := laneTestDaemon(t)
 			ctx := context.Background()
-			cfg := dd.drainConfig()
+			cfg := lineDeadlineDrainConfig(dd)
 			const sess core.SessionID = "sess-lookahead-spent"
 			blocked := blockedSpoolHead(t, dd, root, "sess-lookahead-stuck", 0)
 			var progress, first, second ipc.Request // the line that is progress, and the two it releases
@@ -464,7 +464,7 @@ func TestDrainClientSpools_ASpentPassStartsNoLookAheadLineAfterItsProgress(t *te
 func TestDrainClientSpools_ALookAheadAbsorptionDoesNotEndASpentPass(t *testing.T) {
 	dd, _, root := laneTestDaemon(t)
 	ctx := context.Background()
-	cfg := dd.drainConfig()
+	cfg := lineDeadlineDrainConfig(dd)
 	const sess core.SessionID = "sess-absorb-ahead"
 	blocked := blockedSpoolHead(t, dd, root, "sess-absorb-stuck", 0)
 	p0 := spD3Prompt(dd, root, sess, orderNonce(10), "p0")

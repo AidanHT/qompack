@@ -73,7 +73,7 @@ func (h *heldSessionEnd) open() { h.once.Do(func() { close(h.release) }) }
 func flushAsyncDaemon(t *testing.T) (*daemon, *heldSessionEnd, string) {
 	t.Helper()
 	dd, _, root := laneTestDaemon(t)
-	dd.drain.Store(newDrainer(dd.drainConfig()))
+	dd.drain.Store(newDrainer(contentDrainConfig(dd)))
 	hold := holdSessionEnd(dd)
 	t.Cleanup(func() {
 		hold.open()
@@ -391,7 +391,7 @@ func TestStop_IsNotHeldBehindASessionEndsDrain(t *testing.T) {
 	// ended is how the first stuck line, the session end's, was ended: the grace's cancellation, or
 	// the line's own drainLineDeadline.
 	ended := make(chan error, 1)
-	cfg := dd.drainConfig()
+	cfg := lineDeadlineDrainConfig(dd)
 	real := cfg.Dispatch
 	cfg.Dispatch = func(ctx context.Context, req ipc.Request) ipc.Response {
 		if req.Session == stuck {

@@ -30,8 +30,7 @@ import (
 // at once, naming both Reads as unreplayed with nearly all of its bound unused.
 func TestPreCompactSettle_ReplaysAgainOnceALiveCopyAheadOfItPublishes(t *testing.T) {
 	dd, root := settleTestDaemon(t, liveOrderBound)
-	cfg := dd.drainConfig()
-	cfg.Dispatch = settleReplay(dd)
+	cfg := contentDrainConfig(dd)
 	dr := newDrainer(cfg)
 	dd.drain.Store(dr)
 	const sess core.SessionID = "sess-precompact-live-copy-ahead"
@@ -95,7 +94,7 @@ func TestPreCompactSettle_ReplaysAgainOnceALiveCopyAheadOfItPublishes(t *testing
 // name.
 func TestPreCompactSettle_ASpoolItCannotReadIsCountedNotTakenAsEmpty(t *testing.T) {
 	dd, root := settleTestDaemon(t, liveOrderBound)
-	dd.drain.Store(newDrainer(dd.drainConfig()))
+	dd.drain.Store(newDrainer(contentDrainConfig(dd)))
 	liveOrderWorkers(t, dd, 2, dd.runIngested)
 	const sess core.SessionID = "sess-precompact-unreadable"
 	own := liveOrderTool(dd, root, sess, 1)
