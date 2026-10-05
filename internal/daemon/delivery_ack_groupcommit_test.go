@@ -15,7 +15,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -126,7 +125,7 @@ func queueAcks(t *testing.T, p *leaseProbe, calls ...ackCall) []*ackRun {
 	out := make([]*ackRun, len(calls))
 	for k, c := range calls {
 		out[k] = goAck(p, c)
-		deadline := time.Now().Add(ingestACKWait)
+		guard := hangGuard(t)
 		for {
 			q.mu.Lock()
 			queued := len(q.queue)
@@ -140,7 +139,7 @@ func queueAcks(t *testing.T, p *leaseProbe, calls ...ackCall) []*ackRun {
 			if queued+returned >= k+1 {
 				break
 			}
-			if time.Now().After(deadline) {
+			if hung(guard) {
 				t.Fatalf("acknowledgement %d neither queued behind the batch in flight nor returned", c.id)
 			}
 			runtime.Gosched()
@@ -692,7 +691,7 @@ func TestDeliveryJournal_AckBatchNeverDelaysALeaseBatch(t *testing.T) {
 	select {
 	case err := <-accepted:
 		require.NoError(t, err)
-	case <-time.After(ingestACKWait):
+	case <-hangGuard(t):
 		t.Fatal("a leased Accept waited for an acknowledgement batch's Sync")
 	}
 	require.False(t, ack.returned(), "the acknowledgement is still held at its Sync")
@@ -740,7 +739,7 @@ func TestDeliveryJournal_AckBatchIsNeverDelayedByALeaseBatch(t *testing.T) {
 	select {
 	case err := <-acked:
 		require.NoError(t, err)
-	case <-time.After(ingestACKWait):
+	case <-hangGuard(t):
 		t.Fatal("an acknowledgement waited for a lease batch's Sync")
 	}
 
@@ -1067,7 +1066,7 @@ func TestDeliveryJournal_AcknowledgedIsRaceFreeWithRelease(t *testing.T) {
 				for range readers {
 					select {
 					case <-stopped:
-					case <-time.After(ingestACKWait):
+					case <-hangGuard(t):
 						t.Error("an acknowledged loop never ended")
 						return
 					}
@@ -1100,9 +1099,9 @@ func TestDeliveryJournal_AcknowledgedIsRaceFreeWithRelease(t *testing.T) {
 // failure.
 func awaitPasses(t *testing.T, passes *atomic.Int64, n int64) {
 	t.Helper()
-	deadline := time.Now().Add(ingestACKWait)
+	guard := hangGuard(t)
 	for passes.Load() < n {
-		if time.Now().After(deadline) {
+		if hung(guard) {
 			t.Fatalf("the loop made %d passes, never %d", passes.Load(), n)
 		}
 		runtime.Gosched()
@@ -1110,7 +1109,7 @@ func awaitPasses(t *testing.T, passes *atomic.Int64, n int64) {
 }
 
 // acknowledgedWithin is j.acknowledged(delivery), bounded: it fails the test when the call has not
-// returned within ingestACKWait. That is what happens if an acknowledgement batch holds Lock.mu
+// returned before hangGuard fires. That is what happens if an acknowledgement batch holds Lock.mu
 // while a test holds the batch open, and the bound makes such a regression fail, not hang.
 func acknowledgedWithin(t *testing.T, j *deliveryJournal, delivery string) bool {
 	t.Helper()
@@ -1119,7 +1118,7 @@ func acknowledgedWithin(t *testing.T, j *deliveryJournal, delivery string) bool 
 	select {
 	case ok := <-out:
 		return ok
-	case <-time.After(ingestACKWait):
+	case <-hangGuard(t):
 		t.Fatalf("acknowledged(%s) never returned: something holds Lock.mu", delivery)
 		return false
 	}

@@ -13,7 +13,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -240,7 +239,7 @@ func awaitClosed(t *testing.T, ch <-chan struct{}, what string) {
 	t.Helper()
 	select {
 	case <-ch:
-	case <-time.After(ingestACKWait):
+	case <-hangGuard(t):
 		t.Fatalf("%s never happened", what)
 	}
 }
@@ -295,7 +294,7 @@ func awaitAccept(t *testing.T, a *walAccept) {
 func awaitParked(t *testing.T, id uint64, reason string, done <-chan struct{}) bool {
 	t.Helper()
 	buf := make([]byte, 64<<10)
-	deadline := time.Now().Add(ingestACKWait)
+	guard := hangGuard(t)
 	for {
 		select {
 		case <-done:
@@ -310,7 +309,7 @@ func awaitParked(t *testing.T, id uint64, reason string, done <-chan struct{}) b
 		if parkedIn(buf[:n], id, reason) {
 			return true
 		}
-		if time.Now().After(deadline) {
+		if hung(guard) {
 			t.Fatalf("goroutine %d neither waited in %s nor finished", id, reason)
 		}
 		runtime.Gosched()
@@ -335,13 +334,13 @@ func parkedIn(dump []byte, id uint64, reason string) bool {
 // batch must be in flight. A correct Accept can only queue behind it. One that returns instead is
 // a defect for the caller to assert on, so it is counted here rather than waited for; one that does
 // neither, such as an Accept that blocks without going through walQ at all, fails the test once
-// ingestACKWait has passed instead of hanging it.
+// hangGuard has fired instead of hanging it.
 func queueBehind(t *testing.T, ing *ingest, p *walProbe, first int, reqs []walReq) []*walAccept {
 	t.Helper()
 	out := make([]*walAccept, len(reqs))
 	for k, r := range reqs {
 		out[k] = goAccept(ing, p, first+k, r)
-		deadline := time.Now().Add(ingestACKWait)
+		guard := hangGuard(t)
 		for {
 			ing.walQ.mu.Lock()
 			queued := len(ing.walQ.queue)
@@ -355,7 +354,7 @@ func queueBehind(t *testing.T, ing *ingest, p *walProbe, first int, reqs []walRe
 			if queued+returned >= k+1 {
 				break
 			}
-			if time.Now().After(deadline) {
+			if hung(guard) {
 				t.Fatalf("request %d neither queued behind the batch in flight nor returned", first+k)
 			}
 			runtime.Gosched()
@@ -430,7 +429,7 @@ func TestIngest_WALGroupCommitOneSyncPerSegmentPerBatch(t *testing.T) {
 			}
 			select {
 			case <-together:
-			case <-time.After(ingestACKWait):
+			case <-hangGuard(t):
 				serial.Store(true)
 			}
 		}
@@ -1027,7 +1026,7 @@ func TestIngest_WALFailureFailsExactlyItsSegment(t *testing.T) {
 		var id uint64
 		select {
 		case id = <-leader:
-		case <-time.After(ingestACKWait):
+		case <-hangGuard(t):
 			t.Fatal("the leader's own Sync never started")
 		}
 		require.True(t, awaitParked(t, id, "sync.WaitGroup.Wait", got[0].done),

@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"syscall"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -50,7 +49,7 @@ func TestDeliveryPath_V6_StaticFIFOsRefusedBeforeOpen(t *testing.T) {
 			select {
 			case err := <-finished:
 				require.Error(t, err)
-			case <-time.After(3 * time.Second):
+			case <-hangGuard(t):
 				t.Fatal("a static FIFO must be rejected without waiting for a peer")
 			}
 		})

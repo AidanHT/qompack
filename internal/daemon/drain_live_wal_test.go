@@ -107,7 +107,7 @@ func TestDrainKeepsTheWALTheIngestHoldsForAnUnregisteredSession(t *testing.T) {
 	require.FileExists(t, walFile)
 	require.False(t, dd.registry.IsLive(sess), "the drain must see the session as not live")
 
-	n, err := newDrainer(dd.drainConfig()).Drain(ctx)
+	n, err := newDrainer(contentDrainConfig(dd)).Drain(ctx)
 	require.NoError(t, err, "a segment the ingest is still appending to is not a file error")
 	require.Equal(t, 1, n)
 	require.Zero(t, dd.m.Counter(counterDrainFileError).Value(), "no drain_file_error for a held segment")
@@ -143,7 +143,7 @@ func TestDrainKeepsTheWALOfASessionLiveByTrafficAlone(t *testing.T) {
 	require.FileExists(t, walFile)
 	require.True(t, dd.registry.IsLive(sess), "hot-path traffic with no SessionStart proves the session live")
 
-	n, err := newDrainer(dd.drainConfig()).Drain(ctx)
+	n, err := newDrainer(contentDrainConfig(dd)).Drain(ctx)
 	require.NoError(t, err)
 	require.Equal(t, 1, n)
 	require.Zero(t, dd.m.Counter(counterDrainFileError).Value())
@@ -176,7 +176,7 @@ func TestDrainDoesNotRemoveAWALThatGrewBeforeTheRemovalDecision(t *testing.T) {
 	require.NoError(t, dd.ing.CloseSession(sess))
 	walFile := walPath(paths.Of(dd.root).Spool, sess, 0)
 
-	cfg := dd.drainConfig()
+	cfg := contentDrainConfig(dd)
 	var straggler ipc.Request
 	grown := false
 	// IsLive is consulted as part of the removal decision, after the pass has read to EOF: the
@@ -268,7 +268,7 @@ func TestDrainRemovesClosedRotatedSegmentsAndKeepsTheHeldOne(t *testing.T) {
 	require.FileExists(t, seg0)
 	require.FileExists(t, seg1)
 
-	n, err := newDrainer(dd.drainConfig()).Drain(ctx)
+	n, err := newDrainer(contentDrainConfig(dd)).Drain(ctx)
 	require.NoError(t, err)
 	require.Equal(t, 2, n)
 	require.Zero(t, dd.m.Counter(counterDrainFileError).Value())
@@ -276,7 +276,7 @@ func TestDrainRemovesClosedRotatedSegmentsAndKeepsTheHeldOne(t *testing.T) {
 	require.FileExists(t, seg1, "the segment the ingest is appending to must be kept")
 
 	require.NoError(t, dd.ing.CloseSession(sess))
-	n, err = newDrainer(dd.drainConfig()).Drain(ctx)
+	n, err = newDrainer(contentDrainConfig(dd)).Drain(ctx)
 	require.NoError(t, err)
 	require.Zero(t, n)
 	require.NoFileExists(t, seg1, "an ended session's drained segment is cleaned up")
@@ -292,7 +292,7 @@ func TestStragglerAfterSessionEndIsNotLostWithItsReopenedSegment(t *testing.T) {
 	const sess = core.SessionID("sess-straggler")
 	dd, clk := liveWALDaemon(t, nil)
 	ctx := context.Background()
-	dd.drain.Store(newDrainer(dd.drainConfig()))
+	dd.drain.Store(newDrainer(contentDrainConfig(dd)))
 	walFile := walPath(paths.Of(dd.root).Spool, sess, 0)
 
 	require.True(t, dd.dispatchOp(ctx, liveWALSessionStart(dd, sess)).OK)

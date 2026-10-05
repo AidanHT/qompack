@@ -73,7 +73,7 @@ func (h *heldSessionEnd) open() { h.once.Do(func() { close(h.release) }) }
 func flushAsyncDaemon(t *testing.T) (*daemon, *heldSessionEnd, string) {
 	t.Helper()
 	dd, _, root := laneTestDaemon(t)
-	dd.drain.Store(newDrainer(dd.drainConfig()))
+	dd.drain.Store(newDrainer(contentDrainConfig(dd)))
 	hold := holdSessionEnd(dd)
 	t.Cleanup(func() {
 		hold.open()
@@ -84,12 +84,13 @@ func flushAsyncDaemon(t *testing.T) (*daemon, *heldSessionEnd, string) {
 	return dd, hold, root
 }
 
-// flushAsyncAwait waits for every session end the daemon started to finish.
+// flushAsyncAwait waits for every session end the daemon started to finish, with no clock: the rows
+// assert what those ends did, and a fixed bound on the wait was a wall-clock verdict a stalled host
+// could fail (wave 22). A hang is left to go test -timeout; the assertion stays for a wait that
+// returns without the ends having finished.
 func flushAsyncAwait(t *testing.T, dd *daemon) {
 	t.Helper()
-	ctx, cancel := context.WithTimeout(context.Background(), liveOrderBound)
-	defer cancel()
-	require.True(t, dd.awaitSessionEnds(ctx), "an accepted session end never finished")
+	require.True(t, dd.awaitSessionEnds(context.Background()), "an accepted session end never finished")
 }
 
 // flushAsyncDispatch sends req on its own goroutine and returns its answer, failing the test if the
@@ -101,7 +102,7 @@ func flushAsyncDispatch(t *testing.T, dd *daemon, req ipc.Request) ipc.Response 
 	select {
 	case resp := <-answered:
 		return resp
-	case <-time.After(liveOrderBound):
+	case <-hangGuard(t):
 		require.FailNow(t, "the flush did not answer while its SessionEnd was still running: the hook "+
 			"would outlive the host's 1.5 s SessionEnd budget and be cancelled")
 		return ipc.Response{}
@@ -176,7 +177,7 @@ func TestFlush_AReplyCallerStillWaitsForTheSessionEnd(t *testing.T) {
 	go func() { answered <- dd.dispatchOp(context.Background(), req) }()
 	select {
 	case <-hold.entered:
-	case <-time.After(liveOrderBound):
+	case <-hangGuard(t):
 		require.FailNow(t, "the session end never reached SessionEnd")
 	}
 	select {
@@ -188,7 +189,7 @@ func TestFlush_AReplyCallerStillWaitsForTheSessionEnd(t *testing.T) {
 	select {
 	case resp := <-answered:
 		require.True(t, resp.OK, resp.Err)
-	case <-time.After(liveOrderBound):
+	case <-hangGuard(t):
 		require.FailNow(t, "the Reply flush never answered after its SessionEnd finished")
 	}
 }
@@ -275,7 +276,7 @@ func TestStop_FinishesAnAcceptedSessionEndBeforeItReturns(t *testing.T) {
 	require.True(t, resp.OK, resp.Err)
 	select {
 	case <-hold.entered:
-	case <-time.After(liveOrderBound):
+	case <-hangGuard(t):
 		require.FailNow(t, "the session end never reached SessionEnd")
 	}
 
@@ -290,7 +291,7 @@ func TestStop_FinishesAnAcceptedSessionEndBeforeItReturns(t *testing.T) {
 	select {
 	case err := <-stopped:
 		require.NoError(t, err)
-	case <-time.After(liveOrderBound):
+	case <-hangGuard(t):
 		require.FailNow(t, "Stop never returned after the session end finished")
 	}
 	require.Equal(t, int32(1), hold.calls.Load(), "the session was ended exactly once")
@@ -390,7 +391,7 @@ func TestStop_IsNotHeldBehindASessionEndsDrain(t *testing.T) {
 	// ended is how the first stuck line, the session end's, was ended: the grace's cancellation, or
 	// the line's own drainLineDeadline.
 	ended := make(chan error, 1)
-	cfg := dd.drainConfig()
+	cfg := lineDeadlineDrainConfig(dd)
 	real := cfg.Dispatch
 	cfg.Dispatch = func(ctx context.Context, req ipc.Request) ipc.Response {
 		if req.Session == stuck {
@@ -419,7 +420,7 @@ func TestStop_IsNotHeldBehindASessionEndsDrain(t *testing.T) {
 	require.True(t, resp.OK, resp.Err)
 	select {
 	case <-entered: // the session end's final drain is publishing the stuck line, holding the mutex
-	case <-time.After(liveOrderBound):
+	case <-hangGuard(t):
 		require.FailNow(t, "the session end's final drain never reached the spooled line")
 	}
 
@@ -444,7 +445,7 @@ func TestStop_IsNotHeldBehindASessionEndsDrain(t *testing.T) {
 	select {
 	case err := <-stopped:
 		require.NoError(t, err)
-	case <-time.After(liveOrderBound):
+	case <-hangGuard(t):
 		require.FailNow(t, "Stop never returned")
 	}
 	took := time.Since(began)
@@ -452,7 +453,7 @@ func TestStop_IsNotHeldBehindASessionEndsDrain(t *testing.T) {
 	var how error
 	select {
 	case how = <-ended:
-	case <-time.After(liveOrderBound):
+	case <-hangGuard(t):
 		require.FailNow(t, "the session end's drain line never ended")
 	}
 	require.ErrorIs(t, how, context.Canceled,
@@ -499,13 +500,13 @@ func TestDrain_AReplayedFlushIsEndedOnItsOwnNotUnderThePassBudget(t *testing.T) 
 	}()
 	select {
 	case <-hold.entered:
-	case <-time.After(liveOrderBound):
+	case <-hangGuard(t):
 		require.FailNow(t, "the replayed flush never reached SessionEnd")
 	}
 	cancel() // the pass's budget is spent while SessionEnd is still running
 	select {
 	case <-passDone:
-	case <-time.After(liveOrderBound):
+	case <-hangGuard(t):
 		require.FailNow(t, "the client-spool pass never returned once its budget was spent")
 	}
 
@@ -552,7 +553,7 @@ func TestDrain_AFlushEndedFromABudgetedPassRunsItsDrainsWithoutThatBudget(t *tes
 	require.True(t, spoolWatchPublished(dd, other.Nonce), "fixture: the pass published the other session's tool use")
 	select {
 	case <-hold.entered: // the flush's session end, started from the pass, is in SessionEnd
-	case <-time.After(liveOrderBound):
+	case <-hangGuard(t):
 		require.FailNow(t, "the replayed flush never reached SessionEnd")
 	}
 

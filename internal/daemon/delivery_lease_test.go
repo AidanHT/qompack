@@ -8,7 +8,6 @@ import (
 	"runtime"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -267,14 +266,14 @@ func newTestDeliveryJournal(t *testing.T) (string, *Lock, *deliveryJournal) {
 // and the package ends in "panic: test timed out" after the whole -timeout, thirty silent minutes in
 // CI, with no --- FAIL naming the test that leaked or the batch that refused.
 //
-// This bounds that wait at the ingest ACK wait and reports it as a failure. Past the bound it also
+// This bounds that wait at hangGuard and reports it as a failure. Past the bound it also
 // zeroes inflight and broadcasts idle, so the Release registered before it still returns and the
 // remaining cleanups still run — the same un-stranding T15 does for an enter that wrongly succeeds.
 // A correct build never reaches the bound: it reads zero on the first look.
 func requireNoLeakedInflight(t *testing.T, j *deliveryJournal) {
 	t.Helper()
 	t.Cleanup(func() {
-		deadline := time.Now().Add(ingestACKWait)
+		guard := hangGuard(t)
 		for {
 			j.st.Lock()
 			n := j.inflight
@@ -282,7 +281,7 @@ func requireNoLeakedInflight(t *testing.T, j *deliveryJournal) {
 				j.st.Unlock()
 				return
 			}
-			if time.Now().After(deadline) {
+			if hung(guard) {
 				j.inflight = 0
 				j.idle.Broadcast()
 				j.st.Unlock()

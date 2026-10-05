@@ -17,8 +17,10 @@ import (
 	"github.com/qompack/qompack/internal/store"
 )
 
-// promptRecordWait bounds how long a test waits on a channel the recording goroutine owns. It is a
-// hang guard only, never a budget under test: every assertion below is ordered by channels.
+// promptRecordWait is the grace the rows give a prompt recording to finish at cleanup, and the bound of
+// their polls. It is never a budget under test: every assertion below is ordered by channels, and the
+// waits on those channels are bounded only by hangGuard (wave 22: a fixed bound on them was a
+// wall-clock verdict under co-load).
 const promptRecordWait = 10 * time.Second
 
 // stopJoinProbe is how long a test watches a Stop that must NOT return yet — its capture is still
@@ -110,7 +112,7 @@ func awaitSignal(t *testing.T, ch <-chan struct{}, what string) {
 	t.Helper()
 	select {
 	case <-ch:
-	case <-time.After(promptRecordWait):
+	case <-hangGuard(t):
 		require.FailNow(t, what)
 	}
 }
@@ -143,7 +145,7 @@ func TestObservePrompt_RecordingOutlivesTheReplyDeadline(t *testing.T) {
 	select {
 	case err := <-seam.recorded:
 		require.NoError(t, err, "the verbatim capture must not run under the reply deadline's context")
-	case <-time.After(promptRecordWait):
+	case <-hangGuard(t):
 		require.FailNow(t, "the recording never finished")
 	}
 	require.Equal(t, 1, seam.callCount(), "the reply path calls the seam once, for the warning")
@@ -184,7 +186,7 @@ func TestObservePrompt_CancelledRequestIsNotAnOverrun(t *testing.T) {
 	select {
 	case err := <-seam.recorded:
 		require.NoError(t, err, "the request's cancellation must not reach the verbatim capture")
-	case <-time.After(promptRecordWait):
+	case <-hangGuard(t):
 		require.FailNow(t, "the recording never finished")
 	}
 	require.Equal(t, int64(0), dd.m.Counter(counterPromptReplyLate).Value(),
@@ -241,7 +243,7 @@ func TestObservePrompt_PanickingSeamIsRecovered(t *testing.T) {
 	select {
 	case err := <-stopped:
 		require.NoError(t, err)
-	case <-time.After(promptRecordWait):
+	case <-hangGuard(t):
 		require.FailNow(t, "Stop never returned after a panicked capture")
 	}
 }
@@ -283,7 +285,7 @@ func TestObservePrompt_StopJoinsAnInFlightRecording(t *testing.T) {
 	select {
 	case err := <-stopped:
 		require.NoError(t, err)
-	case <-time.After(promptRecordWait):
+	case <-hangGuard(t):
 		require.FailNow(t, "Stop never returned")
 	}
 	// Buffered, and sent before the seam returned: present now only if Stop waited for it.
@@ -343,7 +345,7 @@ func TestObservePrompt_StopCancelsARecordingThatOutlivesItsGrace(t *testing.T) {
 	select {
 	case err := <-stopped:
 		require.NoError(t, err)
-	case <-time.After(promptRecordWait):
+	case <-hangGuard(t):
 		require.FailNow(t, "Stop never returned")
 	}
 	select {
@@ -413,7 +415,7 @@ func TestObservePrompt_StopAbandonsACaptureThatIgnoresCancellation(t *testing.T)
 	select {
 	case err := <-stopped:
 		require.NoError(t, err)
-	case <-time.After(promptRecordWait):
+	case <-hangGuard(t):
 		require.FailNow(t, "Stop never returned: a capture ignoring its cancellation wedged the shutdown")
 	}
 	// Sent only once the test lets the seam go, which it has not yet done: Stop came back with the
@@ -528,7 +530,7 @@ func TestObservePrompt_RealObserverCaptureLandsBehindAHeldSessionLock(t *testing
 	select {
 	case r := <-toolDone:
 		require.True(t, r.OK, "the gated tool observation must still publish: %+v", r)
-	case <-time.After(promptRecordWait):
+	case <-hangGuard(t):
 		require.FailNow(t, "the gated tool observation never finished")
 	}
 

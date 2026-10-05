@@ -315,7 +315,7 @@ func TestPromptWarning_ClaimedReplyTheHookSpooledIsReArmed(t *testing.T) {
 	r := newWarnDeliveryRig(t)
 	lock := lockFor(t, r.dd, r.root)
 	t.Cleanup(func() { _ = lock.Release() })
-	r.dd.drain.Store(newDrainer(r.dd.drainConfig()))
+	r.dd.drain.Store(newDrainer(contentDrainConfig(r.dd)))
 	r.loop(warnLoopCycles)
 	undelivered := func() int64 { return r.dd.m.Counter(observerThrashUndelivered).Value() }
 
@@ -337,7 +337,7 @@ func TestPromptWarning_ClaimedReplyTheHookSpooledIsReArmed(t *testing.T) {
 	var resp ipc.Response
 	select {
 	case resp = <-replied:
-	case <-time.After(promptRecordWait):
+	case <-hangGuard(t):
 		require.FailNow(t, "the claimed reply never went out")
 	}
 	r.held.Store(nil)

@@ -188,7 +188,7 @@ func TestDeliveryTerminal_DrainWaitsForLivePublicationOwner(t *testing.T) {
 		}, job)
 	}()
 	<-started
-	cfg := dd.drainConfig()
+	cfg := contentDrainConfig(dd)
 	cfg.Admit = func(r ipc.Request) admissionVerdict {
 		return admissionVerdict{Request: r, Denied: true, Reason: "test policy denial"}
 	}

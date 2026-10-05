@@ -41,7 +41,7 @@ func spD3Prompt(dd *daemon, root string, sess core.SessionID, nonce, text string
 func spD3Drainer(dd *daemon, root string) {
 	dd.drain.Store(newDrainer(DrainConfig{
 		Root: root, Log: dd.log, Metrics: dd.m, Clock: dd.clk,
-		Dispatch: dd.drainDispatch, Seen: dd.ing.seen, Admit: dd.admitDelivery,
+		Dispatch: withoutLineDeadline(dd.drainDispatch), Seen: dd.ing.seen, Admit: dd.admitDelivery,
 		Journal: dd.deliveryJournal, IsLive: dd.sessionIsLive,
 	}))
 }
