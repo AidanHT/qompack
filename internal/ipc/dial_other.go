@@ -25,8 +25,13 @@ func dial(a Addr, timeout time.Duration) (net.Conn, error) {
 }
 
 // dialBusyRetryQuantum is the platform's counterpart to dial_windows.go's constant of the same
-// name — see there for what it is for. It is zero here: connect(2) on an AF_UNIX socket either
-// succeeds, or fails outright with ECONNREFUSED/ENOENT, or blocks until the listen backlog drains,
-// and net.Dialer enforces Timeout across all three itself. There is no busy-retry sleep between
-// attempts to overshoot the caller's budget, because there are no repeated attempts.
+// name — see there for what it is for. It is zero here: Go makes one non-blocking connect(2) on an
+// AF_UNIX socket, which either succeeds, the kernel queueing the connection for the listener's next
+// accept, or fails at once. ENOENT means no socket file, and ECONNREFUSED a file nobody listens on.
+// A listener whose queue is full fails it at once too, never waiting for the queue to drain: Linux
+// returns EAGAIN for a non-blocking connect, and macOS refuses it (ECONNREFUSED). So a live daemon
+// that has stopped accepting and has a full queue reads as no daemon, and a spawner that dials it
+// starts a second daemon, which loses daemon.lock and exits (internal/daemon spawn.go). There is no
+// busy-retry sleep between attempts to overshoot the caller's budget, because there are no repeated
+// attempts.
 const dialBusyRetryQuantum time.Duration = 0

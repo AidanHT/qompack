@@ -52,8 +52,11 @@ const ensureRunningDialTimeout = 20 * time.Millisecond
 // outlast. So this dial gets the budget every other dial of a daemon that may be just starting gets:
 // 250 ms, the value of internal/cli's hookConnectDeadlineFloor, which a hook gives session-start's
 // dial for the same race and which this package cannot import. It costs nothing when no daemon is
-// there, because a missing pipe or socket fails a dial at once; only a pipe that exists and never
-// accepts, a hung daemon, holds a spawn back this long. Too short, and a daemon that is up but slow
+// there, because a missing pipe or socket fails a dial at once. On Windows only a pipe that exists
+// and never accepts, a hung daemon, holds a spawn back this long. On Linux and macOS the kernel
+// completes a connect into a listening socket's queue without an accept, so a hung daemon answers
+// this dial until its queue is full, and from then on fails it at once (the cut-short case in
+// ensureRunningWith says what that costs). Too short, and a daemon that is up but slow
 // to accept is missed and a second one spawned, which loses daemon.lock and exits after costing the
 // caller a spawn; too long, and a hung daemon delays its replacement by that much. Once the poll has
 // begun, this dial ends where the poll does (pollEnds), and a dial that end cut short spawns
@@ -299,12 +302,17 @@ func ensureRunningWith(projectRoot, self string, log logging.Logger, clk core.Cl
 				// The dial ran to the end of the wait, cut short there, and nothing answered it. A
 				// daemon that is up but slow to accept fails a dial exactly so, so this is no
 				// licence to spawn: the claim goes back, and the next spawner decides. What is
-				// judged is when the dial returned, not the instant it was bounded to. A dial of a
-				// pipe that exists but is busy returns no earlier than that instant (go-winio retries
-				// it until the dial's deadline, dial_windows.go), so a cut-short dial that returned
-				// before the end found no pipe or socket at all, and spawning then is right; and a
-				// dial that had its whole bound inside the wait but returned past the end, on a
-				// loaded machine, is treated as cut short (wave 22's H4 rows).
+				// judged is when the dial returned, not the instant it was bounded to. A dial that had
+				// its whole bound inside the wait but returned past the end, on a loaded machine, is
+				// treated as cut short (wave 22's H4 rows). On Windows a dial of a pipe that exists but
+				// is busy returns no earlier than the instant it was bounded to (go-winio retries it
+				// until the dial's deadline, dial_windows.go), so there a cut-short dial that returned
+				// before the end found no pipe at all, and spawning then is right. On Linux that does
+				// not hold: Go's non-blocking connect fails at once with EAGAIN when the socket's
+				// listen queue is full (ipc's dial_other.go), and macOS refuses such a connect at once
+				// as well. So a live daemon that has stopped accepting, with a full queue, fails this
+				// dial before the end, and this call spawns a second daemon, which loses daemon.lock
+				// and exits; nothing is lost (a known limit, beside D61(c)'s lazy-spawn one).
 				lock.Release()
 				return false, core.ErrNotFound
 			default:
