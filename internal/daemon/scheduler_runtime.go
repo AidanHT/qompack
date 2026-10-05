@@ -388,22 +388,17 @@ func (r *schedRuntime) BindSession(id core.SessionID, e *hookio.Event) {
 
 // bindSessionLocked is BindSession under r.mu, for a caller that already holds it; id is non-empty.
 func (r *schedRuntime) bindSessionLocked(id core.SessionID, e *hookio.Event) {
-	if e != nil {
-		r.noteBindingEventLocked(e)
-	}
 	if r.session == id {
-		r.regime = r.resolveRegimeLocked()
+		r.reopenBoundLocked(e)
 		if e != nil && e.Source == sessionSourceCompact {
 			// The host has just compacted: the interval the Young–Daly clause measures restarts.
 			r.lastCompactionTS = r.nowMS()
 			r.dirty = true
 		}
-		// A same-id rebind after Close is the `--resume` of a session whose SessionEnd already
-		// ran while this daemon stayed up: Close persisted the state this runtime still holds,
-		// so nothing is reloaded, but the gate Close released must open again — Close is
-		// idempotent, not final, and a bound runtime is a live one.
-		scheduler.EnablePSelection()
 		return
+	}
+	if e != nil {
+		r.noteBindingEventLocked(e)
 	}
 	r.resetSessionLocked()
 	r.session = id
@@ -425,6 +420,21 @@ func (r *schedRuntime) bindSessionLocked(id core.SessionID, e *hookio.Event) {
 		"session", string(id), "effective_window", int(r.effectiveWindow), "max_output", int(r.maxOutput),
 		"window_source", r.windowSource, "host_trigger_absent", r.hostTriggerAbsent,
 		"regime", r.regime.Source, "changepoints", len(r.cpTurns))
+}
+
+// reopenBoundLocked is a SessionStart's bind of the session the runtime is already bound to: it reads
+// the start's model and subagent hints (e, which may be nil), resolves the cache regime again and
+// opens p-selection. A same-id rebind after Close is the `--resume` of a session whose SessionEnd
+// already ran while this daemon stayed up: Close persisted the state this runtime still holds, so
+// nothing is reloaded, but the gate Close released must open again — Close is idempotent, not final,
+// and a bound runtime is a live one. It moves no anchor: the compaction anchor of a live compact start
+// is bindSessionLocked's, and a replayed start sets none (bindOnReplayedStart).
+func (r *schedRuntime) reopenBoundLocked(e *hookio.Event) {
+	if e != nil {
+		r.noteBindingEventLocked(e)
+	}
+	r.regime = r.resolveRegimeLocked()
+	scheduler.EnablePSelection()
 }
 
 // bindOnFirstHook binds sess when the runtime is bound to no session and sess is live.
@@ -480,28 +490,36 @@ func (r *schedRuntime) bindOnFirstHook(sess core.SessionID) {
 // binds as that start would have, except that the replay's instant moves no anchor, when two things
 // hold.
 //
-// sess was live before the session.start route registered the replay (wasLive, which the route
-// reports: liveBeforeStart). The route's registry.Ensure marks every session it registers live, one
-// that ended included, so the registry's answer after it says nothing about whether the session is
-// still running.
+// The start is the latest of sess's current life (current, which the route reports: currentStart).
+// Either sess was live before the session.start route registered the replay, or it had ended no later
+// than the host fired the start: SessionEnd ends a session in the registry, and nothing but its next
+// start revives it, so the start of a session resumed in a daemon that stayed up finds it ended, and
+// is its resume. And no start of sess the host fired later has been handled: that start bound sess
+// already, and this one's hints would only overwrite its newer ones (SessionRegistry.CurrentAt). The
+// route's registry.Ensure marks every session it registers live, one that ended included, so the
+// registry's answer after it says nothing about whether the session is still running.
 //
-// And the runtime is bound to no session, or to one the registry no longer holds live. A runtime
-// a live session holds is that session's, and a replay never takes it.
+// And the runtime is bound to no session, to sess itself, or to one the registry no longer holds
+// live. A runtime another live session holds is that session's, and a replay never takes it.
 //
 // So the live session whose start was spooled while the runtime was still bound to a session that
 // had ended takes the runtime from it, as its start would have, rather than running on the ended
-// session's account with p-selection off until its next compaction. A replayed start of a session
-// that ended, or that no hook has touched since this daemon started (a leftover of another session in
-// a drained spool), binds nothing: binding it would leave the live session on the stale one's account
-// until a SessionStart rebinds it. The route's registration marks such a session live all the same,
-// so a later replayed delivery of it still finds it live (bindOnFirstHook): keeping a replay's
-// registration from reviving its session is the route's to decide, not the tap's.
+// session's account with p-selection off until its next compaction. A runtime still bound to sess
+// itself, which an end of sess closed, is reopened (reopenBoundLocked): the resume's model and
+// subagent hints are read and p-selection opens again, as a live start's same-id bind does, without
+// the compaction anchor. A replayed start the host fired before its session ended or before a later
+// start of it that this daemon handled, or one of a session no hook has touched since this daemon
+// started (a leftover of another session in a drained spool), binds nothing: binding it would leave
+// the live session on the stale one's account until a SessionStart rebinds it. The route's
+// registration marks a session that ended, or that this daemon had not seen, live all the same, so a
+// later replayed delivery of it still finds it live (bindOnFirstHook): keeping a replay's registration
+// from reviving its session is the route's to decide, not the tap's.
 //
 // A bind of an unbound runtime keeps what it observed while unbound, as a first hook's does
 // (bindUnboundLocked). e is the replayed start, whose model and subagent hints the bind reads. With
 // no daemon attached, or one with no registry, every session counts as live (sessionLive), so a
-// runtime bound to any session is left alone.
-func (r *schedRuntime) bindOnReplayedStart(sess core.SessionID, e *hookio.Event, wasLive bool) {
+// runtime bound to another session is left alone.
+func (r *schedRuntime) bindOnReplayedStart(sess core.SessionID, e *hookio.Event, current bool) {
 	if sess == "" {
 		return
 	}
@@ -509,14 +527,12 @@ func (r *schedRuntime) bindOnReplayedStart(sess core.SessionID, e *hookio.Event,
 	cur, d := r.session, r.d
 	r.mu.Unlock()
 	switch {
-	case cur == sess:
-		return
-	case !wasLive:
+	case !current:
 		if cur == "" {
 			r.count(counterTapBindNotLive)
 		}
 		return
-	case cur != "" && sessionLive(d, cur): // asked without r.mu held, as bindOnFirstHook asks
+	case cur != "" && cur != sess && sessionLive(d, cur): // asked without r.mu held, as bindOnFirstHook asks
 		return
 	}
 	r.mu.Lock()
@@ -524,9 +540,12 @@ func (r *schedRuntime) bindOnReplayedStart(sess core.SessionID, e *hookio.Event,
 	if r.session != cur {
 		return // a live start or hook moved the binding in between, and it is theirs
 	}
-	if cur == "" {
+	switch cur {
+	case sess:
+		r.reopenBoundLocked(e)
+	case "":
 		r.bindUnboundLocked(sess, e)
-	} else {
+	default:
 		r.bindSessionLocked(sess, e)
 		r.restoredApplied = nil // only bindUnboundLocked dedupes against it
 	}
