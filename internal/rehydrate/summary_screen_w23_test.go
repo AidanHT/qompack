@@ -1,12 +1,16 @@
 package rehydrate
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/qompack/qompack/internal/checkpoint"
+	"github.com/qompack/qompack/internal/core"
 )
 
 // Wave 23's rows over candidate 8's diff verify, fix round 1's review (coordinator decisions D66 and
@@ -274,4 +278,200 @@ func TestBuild_APathNamedValueNamingAPathBuiltAtRunTimeIsWithheld(t *testing.T) 
 			}
 		})
 	}
+}
+
+// TestBuild_APathNamedValueNamingACmdVariableAfterADotRunIsWithheld is fix round 3's review of
+// candidate 8's diff verify (its first minor finding, identical at 77374c3c). Round 3 started a path
+// at a `$` after a segment's run of dots (`..$HOME/x` is `../home/u/x`), but not at cmd.exe's `%VAR%`
+// or its delayed `!VAR!`, which containment reads as rooted where a path starts: to cmd.exe
+// `..%HOMEPATH%\.ssh\id_rsa` is `..\Users\u\.ssh\id_rsa`, and a path-named value read it as the one
+// relative name `..%HOMEPATH%` and showed it. So did it a batch file's parameters and a FOR variable
+// at a path start (`%~dp0..\x` is the batch file's directory's parent, `%1\x` its first argument's),
+// and a `%NAME` or `!NAME` the store's cut fell inside, which may have taken the closing `%` or `!`
+// (a cut `$HOM…` was withheld). Each is withheld, a variable after a run of dots that ends a segment
+// under the boundary the `$` takes, which over-withholds one that stays in the project
+// (`src/..%HOMEPATH%\x`). A `%` or a `!` inside a name, after a run of dots inside one among them, is
+// still shown.
+func TestBuild_APathNamedValueNamingACmdVariableAfterADotRunIsWithheld(t *testing.T) {
+	for _, elem := range [][]string{{"proj"}, {"John Smith", "proj"}, {"O'Brien (x)", "proj"}, {"R&D", "proj"}} {
+		t.Run(filepath.Join(elem...), func(t *testing.T) {
+			root := previewRoot(elem...)
+			rules := hostRules(root, "./.env", "./secrets/**")
+			leaks := []string{"id_rsa", "HOMEP", "dp0"}
+			for i, s := range []string{
+				// The review's shapes.
+				`{"file":"..%HOMEPATH%\\.ssh\\id_rsa"}`,
+				`{"paths":"..%HOMEPATH%/x.txt"}`,
+				`{"paths":"..!HOMEPATH!\\x"}`,
+				`{"paths":"src/a.ts ..%HOMEPATH%\\.ssh"}`,
+				`{"file":"..!HOMEPATH!/.ssh/id_rsa"}`,
+				// The class: a variable after a run of dots that ends a segment, after an option's `=`
+				// or in a later piece, cmd.exe's substring form, a batch file's parameters and a FOR
+				// variable at a path start, and a variable the store's cut fell inside.
+				`{"file":"src/..%HOMEPATH%\\x"}`,
+				`{"paths":"--dir=..%HOMEPATH%\\x"}`,
+				`{"paths":"src/a.ts,..!HOMEPATH!\\x"}`,
+				`{"file":"..%CD:~0%\\x"}`,
+				`{"file":"%~dp0..\\x"}`,
+				`{"file":"..%~dp0..\\x"}`,
+				`{"file":"%1\\x"}`,
+				`{"file":"%*\\x"}`,
+				`{"file":"%%~dpi\\x"}`,
+				`{"cell_id":"c1","file":"..%HOMEP…`,
+				`{"cell_id":"c1","file":"..!HOMEP…`,
+				`{"cell_id":"c1","file":"%HOMEP…`,
+				`{"cell_id":"c1","file":"!HOMEP…`,
+				`{"cell_id":"c1","paths":"src/a.ts %HOMEP…`,
+				`{"cell_id":"c1","file":"..%…`,
+			} {
+				t.Run(fmt.Sprintf("cmd variable %d", i), func(t *testing.T) {
+					require.Equal(t, "withheld", summaryVerdict(t, root, rules, s, leaks), "%q names a path built at run time", s)
+				})
+			}
+			for _, s := range []string{
+				`{"file":"docs/50%off.md"}`,
+				`{"file":"docs/%20draft.md"}`,
+				`{"file":"docs/%HOMEPATH%.md"}`,
+				`{"file":"src/a!b.ts"}`,
+				`{"file":"notes/v1..%2.txt"}`,
+				`{"file":"notes/x..!y.txt"}`,
+			} {
+				require.Equal(t, "shown", summaryVerdict(t, root, rules, s, nil), "%q names only project paths", s)
+			}
+		})
+	}
+}
+
+// TestBuild_APathNamedValueNamingAShellsTildeDirectoryIsWithheld is fix round 3's review of candidate
+// 8's diff verify (its second minor finding, identical at 77374c3c). Containment read a `~` at a path
+// start as rooted only before a user name, a `-` or a digit and then a separator or the end (`~/`,
+// `~bob/`, `~-/`, `~1/`), so tilde forms bash and zsh expand outside the project were relative names
+// and shown: `~+` is `$PWD` and `~+N` a directory-stack entry (`~+/../other/x.txt` is the tilde
+// spelling of round 3's `$(pwd)/../other`), zsh, which expands parameters before a tilde, reads
+// `~$USER/.ssh/id_rsa` as the user's own ~/.ssh/id_rsa, and zsh's dynamic named directory `~[name]`
+// is whatever its function answers. Each is withheld, as the same text is as a one-word plain
+// preview. A name that holds a `~` and a Word lock file (`~$report.docx`), which no separator
+// follows, are still shown.
+func TestBuild_APathNamedValueNamingAShellsTildeDirectoryIsWithheld(t *testing.T) {
+	for _, elem := range [][]string{{"proj"}, {"John Smith", "proj"}, {"O'Brien (x)", "proj"}, {"R&D", "proj"}} {
+		t.Run(filepath.Join(elem...), func(t *testing.T) {
+			root := previewRoot(elem...)
+			rules := hostRules(root, "./.env", "./secrets/**")
+			leaks := []string{"id_rsa", "../other"}
+			for i, s := range []string{
+				// The review's shapes.
+				`{"file":"~+/../other/x.txt"}`,
+				`{"directory":"~+/.."}`,
+				`{"paths":"src/a.ts ~+/../other"}`,
+				`{"file":"~+1/.ssh/id_rsa"}`,
+				`{"file":"~$USER/.ssh/id_rsa"}`,
+				// The class: each alone, after an option's `=` or an opener, zsh's dynamic named
+				// directory, and the store's cut right after one; `~-N` and `~${USER}` were withheld
+				// already.
+				`{"directory":"~+"}`,
+				`{"directory":"~+2"}`,
+				`{"directory":"~$USER"}`,
+				`{"paths":"--dir=~+/../other"}`,
+				`{"paths":"src/a.ts:~$USER/.ssh"}`,
+				`{"file":"~[proj]/../other/x.txt"}`,
+				`{"cell_id":"c1","file":"~+…`,
+				`{"cell_id":"c1","file":"~$US…`,
+				`{"file":"~-1/x.txt"}`,
+				`{"file":"~${USER}/.ssh/id_rsa"}`,
+			} {
+				t.Run(fmt.Sprintf("tilde %d", i), func(t *testing.T) {
+					require.Equal(t, "withheld", summaryVerdict(t, root, rules, s, leaks), "%q names a directory outside the project", s)
+				})
+			}
+			for _, s := range []string{
+				`{"file":"~$report.docx"}`,
+				`{"file":"docs/~$report.docx"}`,
+				`{"file":"src/a~+b.ts"}`,
+				`{"file":"docs/~+notes.md"}`,
+				`{"file":"~[draft].md"}`,
+			} {
+				require.Equal(t, "shown", summaryVerdict(t, root, rules, s, nil), "%q names only project paths", s)
+			}
+		})
+	}
+}
+
+// TestBuild_BraceListAlternativesCostABoundedNumberOfHostJudgements is fix round 3's review of
+// candidate 8's diff verify (its third minor finding). Round 3 judges each alternative of a brace list
+// in a preview's one path-named value by the host, and only the drops' judgements were bounded, so a
+// checkpoint whose tool pointers each carried a list of 51 alternatives (a 120-byte preview holds
+// about that many) cost 52 host judgements a pointer: through the daemon's adapter a hundred of them
+// took a build from 53 ms to seconds, against the compaction answer's budget (ADR 0011 §23 item 10).
+// While a Read rule's pattern is in force the build judges at most braceJudgementsBound fresh
+// alternatives by the host, and withholds every braced value that needs another one, unjudged (fail
+// closed): thirty such pointers cost what the bound and thirty unbraced ones do (section 6 shows about
+// thirty such lines at the default budget, and every summary is judged whether its line fits or not).
+// With no Read rule in force the host's answer costs nothing, and every alternative is judged and
+// shown as before.
+func TestBuild_BraceListAlternativesCostABoundedNumberOfHostJudgements(t *testing.T) {
+	const braceJudgementsBound = 64 // ADR 0011 §23 item 10
+	alts := strings.Split("abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNO", "")
+	root := previewRoot("proj")
+	// build reports how many of the n summaries section 6 shows, withholds and leaves out (missing:
+	// their lines did not fit), and how many host judgements the build made.
+	build := func(t *testing.T, hp HostPaths, n int, braced bool) (shown, withheld, missing, calls int) {
+		t.Helper()
+		cp := ckUAT05()
+		cp.Pointers.Tools = nil
+		for i := 0; i < n; i++ {
+			v := fmt.Sprintf("d%02d/a", i)
+			if braced {
+				v = fmt.Sprintf("d%02d/{%s}", i, strings.Join(alts, ","))
+			}
+			s := `{"paths":"` + v + `"}`
+			cp.Pointers.Tools = append(cp.Pointers.Tools, checkpoint.ToolPointer{
+				ToolUseID: core.ToolUseID(fmt.Sprintf("toolu_%03d", i)), Hash: hashOf(s), Summary: s,
+			})
+		}
+		d := uat05Deps(t, cp)
+		d.HostPaths = func() HostRules {
+			h := hp()
+			refuses := h.Refuses
+			h.Refuses = func(p string) bool { calls++; return refuses(p) }
+			return h
+		}
+		r := requestFor(t, cp, maxBudget())
+		r.ProjectRoot = root
+		res, err := Build(context.Background(), r, d)
+		require.NoError(t, err)
+		section6 := sectionBody(res.Text, sectionHeading(ItemPointers))
+		for _, tp := range cp.Pointers.Tools {
+			line := "- tool_use " + string(tp.ToolUseID) + " " + tp.Hash.String() + " — "
+			switch {
+			case strings.Contains(section6, line+tp.Summary+"\n"):
+				shown++
+			case strings.Contains(section6, line+withheldSummary+"\n"):
+				withheld++
+			default:
+				missing++
+			}
+		}
+		return shown, withheld, missing, calls
+	}
+	t.Run("Read rules", func(t *testing.T) {
+		const n = 30
+		hp := hostRules(root, "./.env", "./secrets/**")
+		shown, _, _, unbraced := build(t, hp, n, false)
+		require.Equal(t, n, shown, "fixture: every unbraced value is shown")
+		shown, withheld, missing, calls := build(t, hp, n, true)
+		require.Equal(t, unbraced+braceJudgementsBound, calls,
+			"the alternatives cost the bound's host judgements, on top of each value's own")
+		require.Zero(t, missing, "fixture: section 6 holds every pointer")
+		require.Equal(t, braceJudgementsBound/len(alts), shown, "the lists the bound covers are judged and shown")
+		require.Equal(t, n-braceJudgementsBound/len(alts), withheld, "every later list is withheld unjudged")
+	})
+	t.Run("no Read rules", func(t *testing.T) {
+		const n = 16
+		hp := func() HostRules { return HostRules{Refuses: func(string) bool { return false }} }
+		_, _, _, unbraced := build(t, hp, n, false)
+		shown, _, missing, calls := build(t, hp, n, true)
+		require.Equal(t, unbraced+n*len(alts), calls, "with no rule in force every alternative is judged, at no cost")
+		require.Zero(t, missing, "fixture: section 6 holds every pointer")
+		require.Equal(t, n, shown, "and every list is shown")
+	})
 }
