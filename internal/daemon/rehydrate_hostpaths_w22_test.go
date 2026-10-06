@@ -28,7 +28,11 @@ import (
 // still shown. Its fix round 2 found a NUL-separated list (the store's preview keeps the NUL as
 // \u0000), a glued redirect or `&&`, and a letter whose ANSI best fit is a quote or a bar still
 // showing the outside path after them, at eca33155 too: a control character splits a list, and the
-// others start a path anywhere in a piece.
+// others start a path anywhere in a piece. Candidate 8's diff verify (finding 8) found the same
+// characters gluing an in-project piece onto the one before it for the name screen, which alone
+// judges those pieces: `.env` or `secrets/...` after a NUL, a unit separator, NEL, NBSP, U+2028,
+// U+3000, U+02BA, a zero-width space or a quote was shown under UAT-12's `Read(./.env)` and
+// `Read(./secrets/**)` (77374c3c). Each piece now starts where a name starts.
 func TestRehydrateHostPaths_APathNamedValueHoldingSeveralPathsIsJudgedPieceByPiece(t *testing.T) {
 	for _, elem := range [][]string{{"proj"}, {"John Smith", "proj"}} {
 		t.Run(filepath.Join(elem...), func(t *testing.T) {
@@ -48,6 +52,11 @@ func TestRehydrateHostPaths_APathNamedValueHoldingSeveralPathsIsJudgedPieceByPie
 					v("paths", "src/main.go --out=docs/b.md"),
 					v("paths", "src/main.go\x00src/util.go"),
 					v("file", "docs/R&D/plan.md"),
+					// Candidate 8's diff verify: a list of project paths split by a character the screen
+					// once glued, and a name that only begins like a rule's literal.
+					v("paths", "src/main.go\u00a0src/util.go"),
+					v("paths", "src/main.go\x00.env.example"),
+					v("paths", "src/main.go\u2028docs/secrets.md"),
 				},
 				[]string{
 					v("paths", "src/main.go,"+out),
@@ -79,8 +88,26 @@ func TestRehydrateHostPaths_APathNamedValueHoldingSeveralPathsIsJudgedPieceByPie
 					v("paths", "src/main.go\u02ba/etc/passwd"),
 					v("paths", "src/main.go\u01c0/etc/passwd"),
 					v("path", filepath.Join(root, "src", "main.go")+">/etc/passwd"),
+					// Candidate 8's diff verify (finding 8): a later piece that starts with a rule's literal
+					// after a character the screen dropped or read as a name's own, which glued it onto the
+					// piece before it (shown at 77374c3c).
+					v("paths", "src/main.go\x00.env"),
+					v("paths", "src/main.go\u00a0.env"),
+					v("paths", "src/main.go\u2028secrets/key.pem"),
+					v("paths", "src/main.go\u02ba.env"),
+					v("paths", "src/main.go\x00secrets/token.txt"),
+					v("paths", "src/main.go\x1fsecrets/key.pem"),
+					v("paths", "src/main.go\u0085.env"),
+					v("paths", "src/main.go\u3000secrets/token.txt"),
+					v("paths", "src/main.go\u200b.env"),
+					v("paths", `src/main.go".env"`),
+					v("paths", "README.md\x00.env"),
+					v("paths", []string{"docs/b.md", "src/main.go\x00.env"}),
 				})
-			for _, leak := range []string{filepath.Join("outside", "x.txt"), "passwd", "id_rsa", "credentials", "secret.txt", "../outside"} {
+			for _, leak := range []string{
+				filepath.Join("outside", "x.txt"), "passwd", "id_rsa", "credentials", "secret.txt", "../outside",
+				`.env"`, "key.pem", "token.txt",
+			} {
 				require.NotContains(t, res.Text, leak)
 			}
 		})

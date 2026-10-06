@@ -814,6 +814,13 @@ func TestRehydrateHostPaths_AProjectPathWithASpaceShowsItsOwnPaths(t *testing.T)
 // and to withhold each of withheld.
 func requireToolSummaries(t *testing.T, root string, shown, withheld []string) rehydrate.Result {
 	t.Helper()
+	return requireToolSummariesBeside(t, root, nil, shown, withheld)
+}
+
+// requireToolSummariesBeside is requireToolSummaries for a checkpoint that also records a file
+// pointer at each of files, which the build judges, and may learn as withheld, before the summaries.
+func requireToolSummariesBeside(t *testing.T, root string, files, shown, withheld []string) rehydrate.Result {
+	t.Helper()
 	var tools []checkpoint.ToolPointer
 	for i, s := range shown {
 		tools = append(tools, checkpoint.ToolPointer{
@@ -826,7 +833,13 @@ func requireToolSummaries(t *testing.T, root string, shown, withheld []string) r
 		})
 	}
 	deps := rehydrate.Deps{HostPaths: rehydrateHostPaths(mcpOpHostPolicy(t, root), root, logging.Nop())}
-	res, err := rehydrate.Build(context.Background(), toolPointerRequest(root, tools), deps)
+	req := toolPointerRequest(root, tools)
+	for _, f := range files {
+		req.Checkpoint.Pointers.Files = append(req.Checkpoint.Pointers.Files, checkpoint.FilePointer{
+			Path: f, Hash: core.Hash(sha256.Sum256([]byte("file " + f))), Why: "referenced",
+		})
+	}
+	res, err := rehydrate.Build(context.Background(), req, deps)
 	require.NoError(t, err)
 	for _, tp := range tools {
 		line := "- tool_use " + string(tp.ToolUseID) + " " + tp.Hash.String() + " — "
