@@ -1105,8 +1105,11 @@ func (j pathJudge) judgeSummary(s string) bool {
 // whole as the one file a Read, Write or Edit names (so `$HOME/.ssh/id_rsa` can never be shown, D63).
 // A one-word value is one path, whose names end where its segments end, so the name screen reads
 // whole names in it (screenWhole: the project's own `.env.example` is not the denied `.env`); and a
-// rooted value spelled in one separator style is the exact path the host judges, so only the rules'
-// literals screen it (screenExact: an outside README.md never withholds the project's own).
+// rooted value spelled in one separator style that holds no other path (oneValuePath) is the exact
+// path the host judges, so only the rules' literals screen it (screenExact: an outside README.md never
+// withholds the project's own). A word that glues a second path on (`<root>/a.go;lnk/token.txt`) is
+// not that path: the host judged the whole word, and its pieces are screened by the withheld names
+// too (candidate 8's diff verify, finding 9).
 func (j pathJudge) oneWordWithheld(body string) bool {
 	switch {
 	case isURL(body):
@@ -1120,7 +1123,7 @@ func (j pathJudge) oneWordWithheld(body string) bool {
 		return j.valueWithheld(body)
 	}
 	mode := screenWhole
-	if j.exactRooted(body) {
+	if j.exactRooted(body) && j.oneValuePath(body) {
 		mode = screenExact
 	}
 	if j.textWithheld(body, false, mode) {
@@ -1134,7 +1137,9 @@ func (j pathJudge) oneWordWithheld(body string) bool {
 // cmd.exe, PowerShell and a POSIX shell then read the same names after the root, so a name the build
 // withholds elsewhere (an outside README.md) names another file, and only the rules' literals can
 // tell its names from a refused file's (screenExact; ADR 0011 §23 item 6). A mixed spelling
-// (`<root>/private/de\ny.txt`, deny.txt to a POSIX shell) is not exact.
+// (`<root>/private/de\ny.txt`, deny.txt to a POSIX shell) is not exact. It reads only how v starts
+// and which separators it holds; whether v is one path is oneValuePath's to say, and screenExact
+// needs both.
 func (j pathJudge) exactRooted(v string) bool {
 	p := judgedSpelling(v)
 	marked := j.markRoot(sanitize(p))
@@ -1292,25 +1297,54 @@ const (
 	// screenWhole reads a structured value, one path: a whole literal or a withheld name counts only as
 	// a whole name (nameEndsAt).
 	screenWhole
-	// screenExact reads a rooted structured value spelled in one separator style (exactRooted), the
-	// exact path the host judged: whole names, and the rules' literals alone, not the withheld names.
+	// screenExact reads a rooted structured value spelled in one separator style (exactRooted) that is
+	// one path (oneValuePath), the exact path the host judged: whole names, and the rules' literals
+	// alone, not the withheld names.
 	screenExact
 )
 
 // textWithheld runs the free-text whitelist over v (freeTextWithheld) and judges each recall path:
 // selector in it (selectorWithheld). cut marks a value the store's preview cut, whose last token is
 // judged as a prefix. mode says how the name screen reads v: screenFree for a command, a query, a
-// prompt or a JSON string value; screenWhole or screenExact for a one-word structured value.
+// prompt or a JSON string value; screenWhole or screenExact for a one-word structured value. v is
+// judged in each of its control readings (controlReadings), and withheld when one is.
 func (j pathJudge) textWithheld(v string, cut bool, mode nameScreen) bool {
-	if j.freeTextWithheld(j.markRoot(sanitize(v)), cut, mode) {
-		return true
-	}
-	for _, s := range selectorValues(v) {
-		if j.selectorWithheld(s) {
+	for _, r := range controlReadings(v) {
+		if j.freeTextWithheld(j.markRoot(sanitize(r)), cut, mode) {
 			return true
+		}
+		for _, s := range selectorValues(r) {
+			if j.selectorWithheld(s) {
+				return true
+			}
 		}
 	}
 	return false
+}
+
+// controlReadings are the readings of t, a text, that the screen judges: t as the store's preview
+// spells it, whose control characters sanitize drops (store.previewString), and, when t holds a
+// control character sanitize drops (a C0 control but a tab, a line feed or a carriage return, or
+// DEL), t with each such character read as a space, as a reader that splits a list at it does
+// (`find -print0` and `git ls-files -z` write NUL-separated lists). The store's plain preview has
+// already dropped them, so only a canonical-JSON preview's decoded string, which keeps them as JSON
+// escapes, has a second reading. Dropped alone, a NUL glued `x` to `/etc/passwd` into the one
+// relative word `x/etc/passwd`, and `src/a.ts` to `.env` into `src/a.ts.env`, where the denied name
+// starts no name, and both were shown (candidate 8's diff verify, finding 8: coordinator decision
+// D66(e) fails it closed, so a text either reading withholds is withheld).
+func controlReadings(t string) []string {
+	if s := strings.Map(droppedControlAsSpace, t); s != t {
+		return []string{t, s}
+	}
+	return []string{t}
+}
+
+// droppedControlAsSpace maps a control character sanitize drops to an ASCII space (controlReadings).
+func droppedControlAsSpace(r rune) rune {
+	if (r < 0x20 && r != '\t' && r != '\n' && r != '\r') || r == 0x7f {
+		return ' '
+	}
+	return r
 }
 
 // freeTextWithheld runs the whitelist over marked, a text with the project root held together. When
@@ -1471,11 +1505,14 @@ func (j pathJudge) jsonWithheld(t string) bool {
 // pathNamedWithheld judges one path-named JSON value. host reports that it is the preview's only
 // path-named value, and so may cost one host judgement (containment and the host's rules); several
 // values ask the host nothing, so containment alone screens them. A glob is judged by what it selects
-// (globSelectsKnown), and every value is screened for a rule's literal, a withheld name and a
-// refusing selector (so `{"paths":["**/deny.txt"]}` is withheld by the literal `deny.txt`); a rooted
-// value the host judged in one separator style is screened by the rules' literals alone
-// (exactRooted). A value the store's cut fell inside is judged by the directory it spells whole, by
-// the host only when it is the preview's one path-named value, and by the screen's prefix rule
+// (globSelectsKnown), and so is each glob piece of a value that holds several paths; every value is
+// screened, in each of its readings (valueReadings), for a rule's literal, a withheld name and a
+// refusing selector (so `{"paths":["**/deny.txt"]}` is withheld by the literal `deny.txt`). A rooted
+// value the host judged in one separator style is screened by the rules' literals alone (exactRooted)
+// only when it is one path (oneValuePath): the host judged a value that holds several as one path
+// that no reader reads, so its pieces are screened by the withheld names too (candidate 8's diff
+// verify, finding 9). A value the store's cut fell inside is judged by the directory it spells whole,
+// by the host only when it is the preview's one path-named value, and by the screen's prefix rule
 // (cutValueWithheld).
 func (j pathJudge) pathNamedWithheld(v string, cut, host bool) bool {
 	v = strings.TrimSpace(v)
@@ -1493,24 +1530,95 @@ func (j pathJudge) pathNamedWithheld(v string, cut, host bool) bool {
 		if j.withheld(v) {
 			return true
 		}
-		if j.exactRooted(v) {
+		if j.exactRooted(v) && j.oneValuePath(v) {
 			mode = screenExact
 		}
 	} else if p := judgedSpelling(v); p == "" || !j.inside(p) {
 		return p != ""
 	}
-	if isGlob(v) && (j.globSelectsKnown(v) || j.textNamesWithheld(j.markRoot(sanitize(classReading(v))), mode)) {
+	if isGlob(v) && j.globSelectsKnown(v) {
 		return true
 	}
-	if j.textNamesWithheld(j.markRoot(sanitize(v)), mode) {
-		return true
+	readings := valueReadings(v)
+	if len(readings) > 1 {
+		// Each glob piece of a value that holds several paths is judged by what it selects, as the
+		// piece would be alone (`src/a.ts<NUL>lnk/tok*` selects lnk/token.txt).
+		for _, pc := range strings.Fields(readings[len(readings)-1]) {
+			if pc != v && isGlob(pc) && j.globSelectsKnown(pc) {
+				return true
+			}
+		}
 	}
-	for _, s := range selectorValues(v) {
-		if j.selectorWithheld(s) {
+	for _, r := range readings {
+		if isGlob(r) && j.textNamesWithheld(j.markRoot(sanitize(classReading(r))), mode) {
 			return true
+		}
+		if j.textNamesWithheld(j.markRoot(sanitize(r)), mode) {
+			return true
+		}
+		for _, s := range selectorValues(r) {
+			if j.selectorWithheld(s) {
+				return true
+			}
 		}
 	}
 	return false
+}
+
+// valueReadings are the readings of v, a path-named value, that the name screen judges: v as the
+// store's preview spells it, whose control characters sanitize drops and whose quotes screen form
+// removes (screenText), and, when it differs, its name form (valueNameForm). A value either reading
+// withholds is withheld (coordinator decision D66(e): over-withholding is accepted, showing a refused
+// path is not), so the name form only ever withholds more.
+func valueReadings(v string) []string {
+	if f := valueNameForm(v); f != v {
+		return []string{v, f}
+	}
+	return []string{v}
+}
+
+// valueNameForm is v, a path-named value, with each character at which one of its pieces may end or
+// a path may start inside one, and which the screen would otherwise drop or read as part of a name,
+// read as an ASCII space (candidate 8's diff verify, finding 8): every character a list splits at
+// (valueListSep), a control character among them, C0 or DEL, which sanitize drops, or C1, and a
+// space outside ASCII (NBSP, U+2028, U+3000), whose bytes nameByte reads as a name's; every
+// character outside ASCII that the whitelist reads as no letter (wordRune), after which a path starts
+// (valuePathStart): a letter whose ANSI best fit is punctuation (U+02BA), an invisible format
+// character such as a zero-width space, a symbol; and a quote or a backtick, after which a path starts
+// too and which screen form removes. Glued so, a piece that starts with a rule's literal or a withheld
+// name (`.env` after `src/a.ts` and a NUL, `secrets/key.pem` after an NBSP) started no name, the
+// screen never read it, and section 6 showed it (77374c3c). In the name form each piece starts where
+// a name starts. A path's other starts (valueOpeners' `: = @ ( [ { < > &`) are no name's characters
+// (nameByte), so a name already starts after them; the root's own spelling holds none of these
+// characters when it has a unit (rootUnitAdmitted), so the name form holds it as v does.
+func valueNameForm(v string) string {
+	return strings.Map(func(r rune) rune {
+		if valueListSep(r) || (r >= utf8.RuneSelf && !wordRune(r)) || r == '"' || r == '\'' || r == '`' {
+			return ' '
+		}
+		return r
+	}, v)
+}
+
+// oneValuePath reports whether v, a structured value, is one path as valueNamesOutside reads one:
+// past the project root's own spelling that may lead it (rootSpanAt), no character a list splits at
+// (valueListSep) and no place a path may start (valuePathStart). Only then is the path the host
+// judged the one a reader reads, so only then may a rooted value be screened by the rules' literals
+// alone (screenExact; candidate 8's diff verify, finding 9: `<root>/src/a.go <root>/lnk/token.txt`
+// and `<root>/src/a.go;lnk/token.txt`, whose lnk is a link into a refused directory, were shown).
+func (j pathJudge) oneValuePath(v string) bool {
+	t := strings.TrimSpace(v)
+	for i := j.rootSpanAt(t, 0); i < len(t); {
+		if i > 0 && valuePathStart(t, 0, i) {
+			return false
+		}
+		r, size := utf8.DecodeRuneInString(t[i:])
+		if valueListSep(r) {
+			return false
+		}
+		i += size
+	}
+	return true
 }
 
 // valueNamesOutside reports whether v, a path-named value (cut: the store's cut fell inside it), names
@@ -1775,9 +1883,9 @@ func (j pathJudge) valueWithheld(v string) bool {
 // all but that last segment, is judged as a path: by containment and, when host is set (the
 // summary's one structured value), by the host's rules, one judgement; a value with no directory
 // part is withheld only when it is rooted outside the project (`~`, `$HOM`). Then the value is
-// screened as the end of a cut text is (cutPrefixNamed): a rule's literal or a withheld name it
-// holds, or the start of one it ends in (`private/den…`), withholds it. A cut value is never a
-// withheld name (recordedPath).
+// screened as the end of a cut text is (cutPrefixNamed), in each of its readings (valueReadings): a
+// rule's literal or a withheld name it holds, or the start of one it ends in (`private/den…`,
+// `src/a.ts<NUL>.en…`), withholds it. A cut value is never a withheld name (recordedPath).
 func (j pathJudge) cutValueWithheld(v string, host bool) bool {
 	p := judgedSpelling(v)
 	if p == "" || j.rootPrefix(v) {
@@ -1801,8 +1909,13 @@ func (j pathJudge) cutValueWithheld(v string, host bool) bool {
 	case !host && !j.inside(dir):
 		return true
 	}
-	marked := j.markRoot(sanitize(v))
-	return j.textNamesWithheld(marked, screenWhole) || j.cutPrefixNamed(marked)
+	for _, r := range valueReadings(v) {
+		marked := j.markRoot(sanitize(r))
+		if j.textNamesWithheld(marked, screenWhole) || j.cutPrefixNamed(marked) {
+			return true
+		}
+	}
+	return false
 }
 
 // rootPrefix reports whether t, a stretch of a text the store's cut fell inside, is the start of the
