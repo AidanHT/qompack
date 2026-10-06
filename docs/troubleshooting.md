@@ -729,13 +729,17 @@ Every hook run printed `{}` and exited 0, and `config.load` read `ok` in all twe
 passing does not mean the hooks can load your config; `config.capture` is the row that says.**
 
 **Action.** Repair what `config.capture` names, then re-run `qompack self-test` until that row reads
-`ok` — or `warn`, if you accept the keys it lists — and run a hook. The confirmation is a new file
-under `.qompack/records/captures/`, the capture record a daemon writes for each delivery it takes,
-or, while no daemon is running, a new file under `.qompack/spool/`. `self-test` starts a daemon,
-so right after it a working hook hands its delivery to that daemon and writes no spool file. The
-layout appearing is not a confirmation, because `self-test` creates the layout itself, even while
-the hooks refuse. For a `warn`, check each key it
-names against [docs/config-reference.md](config-reference.md), which is generated from
+`ok` — or `warn`, if you accept the keys it lists — and run an observation hook: submit a prompt in
+a session, or pipe a `UserPromptSubmit` payload to `qompack observe prompt`. The confirmation is a
+new file under `.qompack/records/captures/`, the capture record a daemon writes for each prompt,
+tool result or stop it takes. A session start, a checkpoint or a session end writes none, so
+`qompack checkpoint` cannot confirm the repair. `self-test` starts a daemon unless
+`runtime.daemon.enabled` is false, so right after it a working hook hands its delivery to that
+daemon and writes no spool file. With `runtime.daemon.enabled` false, no daemon takes the delivery
+and a new file under `.qompack/spool/` is the sign instead
+([§8 Step 4](#step-4--runtimedaemonenabled--false)). The layout appearing is not a confirmation,
+because `self-test` creates the layout itself, even while the hooks refuse. For a `warn`, check
+each key it names against [docs/config-reference.md](config-reference.md), which is generated from
 `config.Defaults()` and is therefore the exact set of keys this build knows.
 
 **After a plugin downgrade or upgrade.** Read the three sections linked above in the *new* build's
@@ -1365,9 +1369,13 @@ project config, `qompack checkpoint` with empty stdin
 printed `{}`, exited 0, and created no `.qompack/` layout at all. `qompack self-test` still writes
 when you run it by hand: it creates the layout and starts a daemon whatever the mode says, because
 you asked it to. `qompack status` does not: under `off` it asks no daemon and starts none, and in a
-directory with no `.qompack/` it creates nothing ([§1](#1-start-with-provenance)). In a project that
-already has a `.qompack/` it can still write there, as any command that loads the configuration
-can: a configuration warning in the day log, or `state/config-violations.json` brought up to date.
+directory with no `.qompack/` it creates nothing ([§1](#1-start-with-provenance)). A project with
+this config always has a `.qompack/`, because `.qompack/config.json` is where the setting lives, and
+there `status` does write: it opens the day log and the pin store, creating `logs/` with an empty
+`logs/qompack-YYYYMMDD.log` and `pins/` if they are missing, whatever the mode says
+(`internal/cli/qompack_commands.go`, `buildCommandDeps`). As any command that loads the
+configuration can, it may also write a configuration warning to that log or bring
+`state/config-violations.json` up to date.
 
 Spell it exactly `"off"`. A value the hooks cannot apply as written — `"OFF"`, `false`, any other
 value outside `auto|full|passive|off` — also records nothing from the hook path, because the hooks
