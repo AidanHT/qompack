@@ -202,6 +202,7 @@ func TestBuild_APathNamedValueHoldingSeveralPathsIsJudgedPieceByPiece(t *testing
 				}
 			}
 			requireGluedPiecesJudged(t, root, inRoot)
+			requireRefusedNamesHoldingAPieceCharacterJudged(t, root, inRoot)
 		})
 	}
 }

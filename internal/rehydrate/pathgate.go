@@ -1505,9 +1505,10 @@ func (j pathJudge) jsonWithheld(t string) bool {
 // pathNamedWithheld judges one path-named JSON value. host reports that it is the preview's only
 // path-named value, and so may cost one host judgement (containment and the host's rules); several
 // values ask the host nothing, so containment alone screens them. A glob is judged by what it selects
-// (globSelectsKnown), and so is each glob piece of a value that holds several paths; every value is
-// screened, in each of its readings (valueReadings), for a rule's literal, a withheld name and a
-// refusing selector (so `{"paths":["**/deny.txt"]}` is withheld by the literal `deny.txt`). A rooted
+// (globSelectsKnown), and so is each glob stretch of a value that holds several paths
+// (globStretchSelectsKnown); every value is screened, in each of its readings (valueReadings), its
+// stretches among them, for a rule's literal, a withheld name and a refusing selector (so
+// `{"paths":["**/deny.txt"]}` is withheld by the literal `deny.txt`). A rooted
 // value the host judged in one separator style is screened by the rules' literals alone (exactRooted)
 // only when it is one path (oneValuePath): the host judged a value that holds several as one path
 // that no reader reads, so its pieces are screened by the withheld names too (candidate 8's diff
@@ -1536,27 +1537,21 @@ func (j pathJudge) pathNamedWithheld(v string, cut, host bool) bool {
 	} else if p := judgedSpelling(v); p == "" || !j.inside(p) {
 		return p != ""
 	}
-	if isGlob(v) && j.globSelectsKnown(v) {
+	if isGlob(v) && (j.globSelectsKnown(v) || j.globStretchSelectsKnown(v)) {
 		return true
 	}
-	readings := valueReadings(v)
-	if len(readings) > 1 {
-		// Each glob piece of a value that holds several paths is judged by what it selects, as the
-		// piece would be alone (`src/a.ts<NUL>lnk/tok*` selects lnk/token.txt).
-		for _, pc := range strings.Fields(readings[len(readings)-1]) {
-			if pc != v && isGlob(pc) && j.globSelectsKnown(pc) {
-				return true
-			}
-		}
+	readings, ok := j.valueReadings(v)
+	if !ok {
+		return true
 	}
 	for _, r := range readings {
-		if isGlob(r) && j.textNamesWithheld(j.markRoot(sanitize(classReading(r))), mode) {
+		if isGlob(r.text) && j.textNamesWithheld(j.markRoot(sanitize(classReading(r.text))), mode) {
 			return true
 		}
-		if j.textNamesWithheld(j.markRoot(sanitize(r)), mode) {
+		if j.textNamesWithheld(j.markRoot(sanitize(r.text)), mode) {
 			return true
 		}
-		for _, s := range selectorValues(r) {
+		for _, s := range selectorValues(r.text) {
 			if j.selectorWithheld(s) {
 				return true
 			}
@@ -1565,16 +1560,163 @@ func (j pathJudge) pathNamedWithheld(v string, cut, host bool) bool {
 	return false
 }
 
-// valueReadings are the readings of v, a path-named value, that the name screen judges: v as the
-// store's preview spells it, whose control characters sanitize drops and whose quotes screen form
-// removes (screenText), and, when it differs, its name form (valueNameForm). A value either reading
-// withholds is withheld (coordinator decision D66(e): over-withholding is accepted, showing a refused
-// path is not), so the name form only ever withholds more.
-func valueReadings(v string) []string {
+// valueReading is one reading of a path-named value that the name screen judges (valueReadings): its
+// text, and whether it runs to the value's end (tail), where the store's cut may have fallen.
+type valueReading struct {
+	text string
+	tail bool
+}
+
+// maxValueStretches bounds the stretches of one path-named value that are judged one by one
+// (valueReadings, globStretchSelectsKnown). The store's preview is at most 120 bytes, so a value
+// holds at most that many places a piece starts or ends, and their pairs grow with the square; a
+// value that has more stretches than this is withheld unread (coordinator decision D66(e): fail
+// closed). A list of 21 paths glued by a character the screen does not read as a boundary stays
+// under it.
+const maxValueStretches = 256
+
+// valueReadings are the readings of v, a path-named value, that the name screen judges, and false
+// when the screen has something to find (screensNames) and v has more than maxValueStretches
+// stretches (the caller withholds it). They are v as the store's preview spells it, whose control
+// characters sanitize drops, whose quotes screen form removes (screenText) and whose characters
+// outside ASCII nameByte reads as a name's; its name form (valueNameForm), when that differs; and,
+// while the screen has something to find, each stretch of v from a place a piece or a path starts to
+// a place one ends (valueBounds) at which that spelling reads no name's boundary. A name the screen
+// withholds then starts and ends where a reader's piece does even when it holds one of those
+// characters itself: `o'brien.env`, `q3–secrets.xlsx`, `a,b.env` or a learned `bob's keys.txt`
+// after or before a NUL or an NBSP was glued to its neighbour by the spelling and split at its own
+// character by the name form, and shown (fix round 1's review of candidate 8's diff verify, finding
+// 8). A value any reading withholds is withheld (coordinator decision D66(e): over-withholding is
+// accepted, showing a refused path is not), so each reading only ever withholds more.
+func (j pathJudge) valueReadings(v string) ([]valueReading, bool) {
+	readings := []valueReading{{v, true}}
 	if f := valueNameForm(v); f != v {
-		return []string{v, f}
+		readings = append(readings, valueReading{f, true})
 	}
-	return []string{v}
+	if !j.screensNames() {
+		return readings, true
+	}
+	starts, ends := j.valueBounds(v)
+	n := 0
+	for _, s := range starts {
+		if s.seen && s.at > 0 {
+			continue
+		}
+		for _, e := range ends {
+			if e.at <= s.at || (e.seen && e.at < len(v)) || (s.at == 0 && e.at == len(v)) {
+				continue
+			}
+			if n++; n > maxValueStretches {
+				return nil, false
+			}
+			readings = append(readings, valueReading{v[s.at:e.at], e.at == len(v)})
+		}
+	}
+	return readings, true
+}
+
+// globStretchSelectsKnown reports whether v, a glob that holds more than one path or more than one
+// place a path starts, has a stretch from a place a piece or a path starts to a place one ends
+// (valueBounds, the root's own spelling held whole) that is a glob selecting a path the build
+// withholds (globSelectsKnown), as the stretch would alone; or more than maxValueStretches glob
+// stretches, which it withholds unread (fail closed). Fix round 1's review of candidate 8's diff
+// verify: a glob piece after an ASCII space or an opener (`src/a.ts .en*`, `src/a.ts:lnk/tok*`), and
+// a rooted one under a root with a space in it, cut there, were judged only as the whole value, which
+// selects nothing, and shown, while the same glob alone was withheld.
+func (j pathJudge) globStretchSelectsKnown(v string) bool {
+	if len(j.known) == 0 {
+		return false
+	}
+	starts, ends := j.valueBounds(v)
+	n := 0
+	for _, s := range starts {
+		for _, e := range ends {
+			if e.at <= s.at || (s.at == 0 && e.at == len(v)) {
+				continue
+			}
+			pc := strings.TrimSpace(v[s.at:e.at])
+			if !isGlob(pc) {
+				continue
+			}
+			if n++; n > maxValueStretches {
+				return true
+			}
+			if j.globSelectsKnown(pc) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// screensNames reports whether the name screen has anything to find: a rule's literal, or a path the
+// build withholds by its key, its names or its spelling (textNamesWithheld, cutPrefixNamed,
+// selectsKnown). With none, no stretch of a value can be withheld by a name, so none is read
+// (valueReadings) and none counts against maxValueStretches; a path outside the project in any piece
+// is valueNamesOutside's to find, rules or not.
+func (j pathJudge) screensNames() bool {
+	return len(j.screens) > 0 || len(j.openScreens) > 0 || len(j.midScreens) > 0 ||
+		len(j.known) > 0 || len(j.knownText) > 0 || len(j.knownPaths) > 0
+}
+
+// valueBound is a place in a path-named value where a piece or a path starts or ends (valueBounds),
+// and whether the name screen reads a name's boundary there already (seen, screenBoundary).
+type valueBound struct {
+	at   int
+	seen bool
+}
+
+// valueBounds are the places in t, a path-named value, where valueNamesOutside reads a piece or a
+// path as starting (starts: t's start, each piece's start after a character a list splits at,
+// valueListSep, and each place a path may start in a piece, valuePathStart) and where one ends (ends:
+// before each such separator, before the character after which a path starts, before a closing
+// bracket, and t's end), none inside the project root's own spelling, which is read whole where a
+// path starts (rootSpanAt). A place is seen when the character on its far side is one the name screen
+// reads as a name's boundary (screenBoundary), so that a name starting or ending there is read in
+// any stretch that holds it.
+func (j pathJudge) valueBounds(t string) (starts, ends []valueBound) {
+	starts = []valueBound{{0, true}}
+	piece := 0
+	for i := 0; i < len(t); {
+		if valuePathStart(t, piece, i) {
+			if i > 0 {
+				prev, size := utf8.DecodeLastRuneInString(t[:i])
+				starts = append(starts, valueBound{i, screenBoundary(prev)})
+				if !valueListSep(prev) {
+					ends = append(ends, valueBound{i - size, screenBoundary(prev)})
+				}
+			}
+			if n := j.rootSpanAt(t, i); n > 0 {
+				i += n
+				continue
+			}
+		}
+		r, size := utf8.DecodeRuneInString(t[i:])
+		switch {
+		case valueListSep(r):
+			ends = append(ends, valueBound{i, screenBoundary(r)})
+			piece = i + size
+		case r == ')' || r == ']' || r == '}':
+			ends = append(ends, valueBound{i, true})
+		}
+		i += size
+	}
+	return starts, append(ends, valueBound{len(t), true})
+}
+
+// screenBoundary reports whether the name screen reads r, a character of a path-named value, as a
+// name's boundary on both sides of it (nameStartsAt, nameEndsAt): ASCII whitespace, which sanitize
+// keeps as a space, and an ASCII character that is no name's (nameByte) and that the screen's
+// spelling keeps; not a control character, which sanitize drops, not ' " ` \ ^, which screen form
+// removes (screenText), and not a character outside ASCII, whose bytes nameByte reads as a name's.
+func screenBoundary(r rune) bool {
+	switch {
+	case r == ' ' || r == '\t' || r == '\n' || r == '\r':
+		return true
+	case r <= 0x20 || r >= 0x7f:
+		return false
+	}
+	return !nameByte(byte(r)) && strings.IndexByte("'\"`\\^", byte(r)) < 0
 }
 
 // valueNameForm is v, a path-named value, with each character at which one of its pieces may end or
@@ -1882,10 +2024,13 @@ func (j pathJudge) valueWithheld(v string) bool {
 // byte for byte as v spells it (rootPrefix), is the project. Otherwise the directory it spells whole,
 // all but that last segment, is judged as a path: by containment and, when host is set (the
 // summary's one structured value), by the host's rules, one judgement; a value with no directory
-// part is withheld only when it is rooted outside the project (`~`, `$HOM`). Then the value is
-// screened as the end of a cut text is (cutPrefixNamed), in each of its readings (valueReadings): a
-// rule's literal or a withheld name it holds, or the start of one it ends in (`private/den…`,
-// `src/a.ts<NUL>.en…`), withholds it. A cut value is never a withheld name (recordedPath).
+// part is withheld only when it is rooted outside the project (`~`, `$HOM`). A glob stretch of it
+// that selects a path the build withholds (globStretchSelectsKnown; one the cut ended is judged as
+// the cut left it) withholds it. Then the value is screened as the end of a cut text is, in each of
+// its readings (valueReadings): a rule's literal or a withheld name it holds, or the start of one
+// that a reading running to the cut ends in (cutPrefixNamed: `private/den…`, `src/a.ts<NUL>.en…`,
+// `src/a.ts<NUL>o'brien.e…`), withholds it; a value with too many stretches to read is withheld. A
+// cut value is never a withheld name (recordedPath).
 func (j pathJudge) cutValueWithheld(v string, host bool) bool {
 	p := judgedSpelling(v)
 	if p == "" || j.rootPrefix(v) {
@@ -1909,9 +2054,16 @@ func (j pathJudge) cutValueWithheld(v string, host bool) bool {
 	case !host && !j.inside(dir):
 		return true
 	}
-	for _, r := range valueReadings(v) {
-		marked := j.markRoot(sanitize(r))
-		if j.textNamesWithheld(marked, screenWhole) || j.cutPrefixNamed(marked) {
+	if isGlob(v) && j.globStretchSelectsKnown(v) {
+		return true
+	}
+	readings, ok := j.valueReadings(v)
+	if !ok {
+		return true
+	}
+	for _, r := range readings {
+		marked := j.markRoot(sanitize(r.text))
+		if j.textNamesWithheld(marked, screenWhole) || (r.tail && j.cutPrefixNamed(marked)) {
 			return true
 		}
 	}
