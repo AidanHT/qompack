@@ -74,3 +74,10 @@ re-check add is appended here first.
   previews wider than the store's width. (rehydrate.)
 - TestCmdMCPRetryIsCancellable and TestServerCloseWithLiveConnection rely on product timers of 150 ms
   and 2 s. (clock.)
+- On a slow windows-latest runner, ci.yml's Windows test leg (-count=2, 60m per binary) can kill
+  internal/daemon at its timeout while it is still progressing, and drain rows such as
+  TestDeliveryOrder_ARequestedDrainCutShortByItsBudgetIsRequestedAgain can miss their bound in the
+  same run. Not a hang (D70(b)). After the release: a larger budget or one pass on that leg.
+- TestPromptWarning_SlowDurableAcceptIsLateForTheClient does not join the late reply call before its
+  next prompt, so it fails when that prompt's reply call takes the session lock first (D70(b)). After
+  the release: promptWG.Wait() before the next prompt.
