@@ -657,7 +657,9 @@ To find where an invalid value is set, read the `location=` field of the daemon'
 command's `warn` line: a file and line, a `QOMPACK_*` variable, or `--set`. A hook's `warn` line does
 not carry one, and `config print --provenance` shows the key as `fallback after violation`.
 `config-violations.json` is the record of what is in force now: a load that finds no invalid value
-and no reset removes it, whether a hook's or a command's such as `self-test`.
+and no reset removes it, whether a command's such as `self-test` or a hook's that records. A hook
+under `runtime.mode` `off`, or one that refuses the configuration (below), neither writes nor
+removes it, so the record stays as the last load wrote it ([§1](#1-start-with-provenance)).
 
 On the hook path the first three rows do not apply inside `runtime.redact` or to `runtime.mode`: a
 problem there refuses capture instead (below). `config print` and every other read command still
@@ -727,9 +729,12 @@ Every hook run printed `{}` and exited 0, and `config.load` read `ok` in all twe
 passing does not mean the hooks can load your config; `config.capture` is the row that says.**
 
 **Action.** Repair what `config.capture` names, then re-run `qompack self-test` until that row reads
-`ok` — or `warn`, if you accept the keys it lists — and run a hook: a new file under
-`.qompack/spool/` is the confirmation. The layout appearing is not, because `self-test` creates the
-layout itself, even while the hooks refuse. For a `warn`, check each key it
+`ok` — or `warn`, if you accept the keys it lists — and run a hook. The confirmation is a new file
+under `.qompack/records/captures/`, the capture record a daemon writes for each delivery it takes,
+or, while no daemon is running, a new file under `.qompack/spool/`. `self-test` starts a daemon,
+so right after it a working hook hands its delivery to that daemon and writes no spool file. The
+layout appearing is not a confirmation, because `self-test` creates the layout itself, even while
+the hooks refuse. For a `warn`, check each key it
 names against [docs/config-reference.md](config-reference.md), which is generated from
 `config.Defaults()` and is therefore the exact set of keys this build knows.
 
@@ -1357,9 +1362,12 @@ whatever `config.json` sets the mode to (`internal/cli/hookclient.go`, `doHook`)
 the project's daemon last wrote to `.qompack/run/state.bin` is already `off`; then the hook returns
 before it reads anything. Observed on this tree: with `{"runtime":{"mode":"off"}}` as the only
 project config, `qompack checkpoint` with empty stdin
-printed `{}`, exited 0, and created no `.qompack/` layout at all. Read commands you run by hand
-still write — `qompack status` and `qompack self-test` create the layout and start a daemon
-whatever the mode says, because you asked them to.
+printed `{}`, exited 0, and created no `.qompack/` layout at all. `qompack self-test` still writes
+when you run it by hand: it creates the layout and starts a daemon whatever the mode says, because
+you asked it to. `qompack status` does not: under `off` it asks no daemon and starts none, and in a
+directory with no `.qompack/` it creates nothing ([§1](#1-start-with-provenance)). In a project that
+already has a `.qompack/` it can still write there, as any command that loads the configuration
+can: a configuration warning in the day log, or `state/config-violations.json` brought up to date.
 
 Spell it exactly `"off"`. A value the hooks cannot apply as written — `"OFF"`, `false`, any other
 value outside `auto|full|passive|off` — also records nothing from the hook path, because the hooks
