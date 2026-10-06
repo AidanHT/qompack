@@ -95,15 +95,24 @@ withheld under `Read(./.env)`, and `{"paths":"src/a.ts\u0000o'brien.env"}` under
 `Read(./o'brien.env)`), and a glob piece is judged by what it selects, as it would be alone. While a
 rule's literal or a withheld path is in force, a value with more pieces and path starts than the
 screen reads one by one is withheld whole. A piece these rules refuse only through a link or an 8.3
-name that the block has not learned as withheld is not withheld by that screen.
+name that the block has not learned as withheld is not withheld by that screen. A name a shell
+builds at run time is resolved where it can be and withheld where it cannot: a value holding a
+brace list is also judged alternative by alternative, as one level of shell brace expansion reads
+it, a list that one level cannot read (a sequence, a nested or second list) is withheld, and a
+command substitution, any `${…}` or other `$` expansion, or a backtick where a path starts names a
+path outside the project (`{"paths":"~{,x}/.ssh/id_rsa"}`, `{"paths":".{env,x}"}` under
+`Read(./.env)` and `{"directory":"$(pwd)/../other"}` are withheld; `{"paths":"src/{a,b}.ts"}` is
+shown). A `$` inside a name stays a name's character (`Outer$Inner.class`,
+`users.$userId.tsx`), so a variable glued there is not resolved.
 Containment reads a glob as a glob: a class, a `?` or a leading dot that may match `..`, and a
 class that may match a separator (`[/]etc[/]passwd`), name a path outside the project, and so does a
 `file:` URL wherever it stands. A one-word summary must also pass the free-text screen, reading whole
 names (the project's own `.env.example` is not the denied `.env`; `.env.`, `.env:stream` and
 `deny.txt#L4` are); a rule's literal that starts a glob segment (`secret` for `Read(./secret*)`)
 counts whatever follows it; and a rooted path spelled in one separator style that names one path
-(no list separator or second path after the root) is screened by the rules' literals alone, so a
-Read outside the project never withholds the project's own file of the same name. Any other
+(no list separator, no second path and, in a plain summary, no `+` after the root) is screened by
+the rules' literals alone, so a Read outside the project never withholds the project's own file
+of the same name. Any other
 summary (a command, a query, a prompt, a URL) is free text, and is SHOWN only when a whitelist
 proves it safe (coordinator decision D63): every whitespace-delimited token must be
 built only from letters, digits and a small safe punctuation set (a few shell operators, the null
