@@ -218,9 +218,11 @@ live sessions:
   collapses runs of whitespace, so a summary is judged as collapsed, not as the command spelled it
   (D60(c)(iv)). Globs in free text are always withheld; a structured glob (a lone Glob or recall
   pattern) that selects a refused file the block never recorded, without spelling its literal
-  (`private/d*`), is judged as written (D60(c)(iv)). The records in sections 2 to 4, your own
-  prompts and the model's own earlier text, are outside D50 (D60(c)(i) for sections 3 and 4, D62(f)
-  for section 2; `docs/cannot-do.md` §5).
+  (`private/d*`), is judged as written (D60(c)(iv)). Inside one path-named value, a rooted path
+  glued after one of `+ # ) ] } ! ^` (`a.txt+\Windows\win.ini`) is not judged as a path, so it can
+  be shown; the same text in free text is withheld (ADR 0011 §23, `docs/security.md` §1). The
+  records in sections 2 to 4, your own prompts and the model's own earlier text, are outside D50
+  (D60(c)(i) for sections 3 and 4, D62(f) for section 2; `docs/cannot-do.md` §5).
 - **On macOS, Qompack assumes the default case-insensitive volume**: it compares paths and the Read
   rules' patterns without regard to letter case. On a case-sensitive APFS volume, two names that
   differ only in case are two files, which Qompack reads as one (D67(m), `docs/cannot-do.md` §5).
