@@ -1097,7 +1097,11 @@ do not fold the two readings are one.
      <root>/lnk/token.txt` or the one-word `<root>/a.go;lnk/token.txt`: the host judged the whole
      string, not the path a reader reads after the first piece, so a later piece that the build
      withholds only by a learned name (lnk a link into a refused directory) was shown at 77374c3c
-     (candidate 8's diff verify, finding 9). `<root>/README.md` is still withheld beside a denied
+     (candidate 8's diff verify, finding 9). So does a one-word plain summary that holds a `+` past
+     the root (`<root>/a.go+lnk/token.txt`, shown at 77374c3c too): its free-text reading starts a
+     path there, as cmd.exe's copy does, though a value's piece reads a name's character (fix round
+     2's review; `<root>/src/routes/+page.svelte` is screened by the withheld names too, and shown
+     unless one of them is its name). `<root>/README.md` is still withheld beside a denied
      `private/README.md`, whose rule's literal is the whole name `README.md` (accepted
      over-withholding, which D67(l) keeps as shipped).
    - *Several path-named values, and cut ones.* A path-named JSON value is exempt from the whitelist
@@ -1183,6 +1187,32 @@ do not fold the two readings are one.
      `path`, `pattern`, `command`, `url`) are dropped by the store's preview itself
      (`store.previewString`), so that boundary is gone before a build reads the summary: a residual
      of the store's record, not of the screen.
+   - *A name built at run time in a path-named value* (fix round 2's review of candidate 8's diff
+     verify; identical at 77374c3c). A path-named value skips the whitelist, and containment read
+     only `$NAME`, `~`, `%VAR%` and `!VAR!` at a path start as rooted, so a brace list and a
+     substitution in one were never resolved: `{"paths":"~{,x}/.ssh/id_rsa"}` (`~/.ssh/id_rsa`),
+     `{"paths":"{,x}/etc/passwd"}`, `{"directory":"$(pwd)/../other"}` (a sibling of the project),
+     `{"cwd":"$(echo ~)/.ssh"}` and `{"paths":".{env,x}"}` under `Read(./.env)` or beside a learned
+     `.env` were shown, while the same text as a one-word plain preview, and `$PWD/../other`, were
+     withheld. A value holding a brace list (a `{` with a `,` or a `..` after it before the next `}`)
+     is now also judged alternative by alternative, each as the value is, by containment, the host
+     (one judgement per alternative) when the value is its preview's one path-named value, the
+     names and what a glob selects (`valueBraceAlternatives`, one level of `{a,b}` as the one-word
+     pattern rule reads it); a list
+     one level cannot read (a sequence, `{d..f}` and `{.../}` among them, a nested or a second list,
+     or one the store's cut left open) is withheld. A brace with no list in it (`{{name}}`,
+     `{draft}`) is literal to every shell and stays shown, and so does `src/{a,b}.ts`. A path
+     also starts where a shell builds a name at run time (`runTimeAt`): at a `$(`, a `${` or a
+     backtick anywhere in a piece, which a project's paths do not hold, and at any other `$` after
+     a segment's run of dots (`..$HOME` is `../home/u`); and from any path start, a backtick or a
+     `$` before anything but a separator or the end (`$(…)`, `${…}` in every form, `$1`, `$@`,
+     zsh's `$=name`, `$'…'`), or before the store's cut, is rooted outside the project as `$NAME`
+     is (`runTimeRooted`). The over-withholding this costs (D66(e)) is a project path holding `$(`,
+     `${` or a backtick, a piece that starts with `$` and a non-letter (`$5.md`), and a value with
+     a sequence, a nested or a second list, or a list with `..` in it; none is in the corpus. A `$`
+     inside a name stays a name's own character, as `+ # ) ] } ! ^` do (Java's `Outer$Inner.class`,
+     Remix's `users.$userId.tsx`), so a variable glued after a name's other characters (`x$X`,
+     which a variable holding `/../../etc` makes `x/../../etc`) is a deliberate residual.
 7. *Free text is shown only when the whitelist vouches for every token* (D63(2)-(4)). Every other
    summary, and every other string of a JSON preview, is free text; an object's keys are screened as
    free text too: D63(1) judges a preview by its decoded strings, and a key is one, which may carry a
