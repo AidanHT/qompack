@@ -1109,7 +1109,9 @@ func (j pathJudge) judgeSummary(s string) bool {
 // path the host judges, so only the rules' literals screen it (screenExact: an outside README.md never
 // withholds the project's own). A word that glues a second path on (`<root>/a.go;lnk/token.txt`) is
 // not that path: the host judged the whole word, and its pieces are screened by the withheld names
-// too (candidate 8's diff verify, finding 9).
+// too (candidate 8's diff verify, finding 9). So is a word that holds a `+` past the root, where its
+// free-text reading starts a path (cmd.exe's copy, pathStartDelims) though a value's piece reads a
+// name's character there (`<root>/a.go+lnk/token.txt`; fix round 2's review).
 func (j pathJudge) oneWordWithheld(body string) bool {
 	switch {
 	case isURL(body):
@@ -1123,13 +1125,22 @@ func (j pathJudge) oneWordWithheld(body string) bool {
 		return j.valueWithheld(body)
 	}
 	mode := screenWhole
-	if j.exactRooted(body) && j.oneValuePath(body) {
+	if j.exactRooted(body) && j.oneValuePath(body) && !j.plusPastRoot(body) {
 		mode = screenExact
 	}
 	if j.textWithheld(body, false, mode) {
 		return true
 	}
 	return j.valueWithheld(body)
+}
+
+// plusPastRoot reports whether body, a one-word plain summary, holds a `+` past the project root's
+// own spelling that leads it (rootSpanAt): the one character after which free text starts a path
+// (pathStartDelims) that a value's piece reads as a name's own (valuePathStart) and the whitelist
+// lets stand inside a word.
+func (j pathJudge) plusPastRoot(body string) bool {
+	t := strings.TrimSpace(body)
+	return strings.Contains(t[j.rootSpanAt(t, 0):], "+")
 }
 
 // exactRooted reports whether v, a structured value the host judges whole, is the project root
@@ -1514,11 +1525,22 @@ func (j pathJudge) jsonWithheld(t string) bool {
 // that no reader reads, so its pieces are screened by the withheld names too (candidate 8's diff
 // verify, finding 9). A value the store's cut fell inside is judged by the directory it spells whole,
 // by the host only when it is the preview's one path-named value, and by the screen's prefix rule
-// (cutValueWithheld).
+// (cutValueWithheld). A value that holds a brace list is also judged alternative by alternative, each
+// as the value is (valueBraceAlternatives), and withheld when one level cannot read its list.
 func (j pathJudge) pathNamedWithheld(v string, cut, host bool) bool {
 	v = strings.TrimSpace(v)
 	if v == "" {
 		return false
+	}
+	if alts, braced := valueBraceAlternatives(v); braced {
+		if alts == nil {
+			return true
+		}
+		for _, a := range alts {
+			if j.pathNamedWithheld(a, cut, host) {
+				return true
+			}
+		}
 	}
 	if j.valueNamesOutside(v, cut) {
 		return true
@@ -1558,6 +1580,39 @@ func (j pathJudge) pathNamedWithheld(v string, cut, host bool) bool {
 		}
 	}
 	return false
+}
+
+// valueBraceAlternatives are the alternatives of v, a path-named value, as a shell's brace expansion
+// reads one level of a list (braceAlternatives: `~{,x}/.ssh/id_rsa` is `~/.ssh/id_rsa` and
+// `~x/.ssh/id_rsa`, `.{env,x}` is `.env` and `.x`), and braced reports whether v holds a list at all:
+// a `{` with a `,` or a `..` after it before the next `}` or v's end. A value that is braced with no
+// alternatives holds a list one level cannot read: a sequence (`{d..f}` is d, e and f; `{.../}` is
+// `.` and `/`), a nested or a second list, or one the store's cut left open, and is withheld (fail
+// closed). A brace with no list in it (`{{name}}`, `{draft}`) is literal to every shell, and v is
+// judged as it is. Fix round 2's review of candidate 8's diff verify: a path-named value skips the
+// free-text whitelist, so its brace list was never expanded, and `~{,x}/.ssh/id_rsa`,
+// `{,x}/etc/passwd` and `.{env,x}` under `Read(./.env)` were shown, while the one-word pattern rule
+// (patternWithheld, ADR 0011 §23 item 6) expands the same list.
+func valueBraceAlternatives(v string) (alts []string, braced bool) {
+	for i := strings.IndexByte(v, '{'); i >= 0 && !braced; {
+		list := v[i+1:]
+		if e := strings.IndexByte(list, '}'); e >= 0 {
+			list = list[:e]
+		}
+		braced = strings.Contains(list, ",") || strings.Contains(list, "..")
+		next := strings.IndexByte(v[i+1:], '{')
+		if next < 0 {
+			break
+		}
+		i += 1 + next
+	}
+	if !braced {
+		return nil, false
+	}
+	if alts, ok := braceAlternatives(v); ok && len(alts) > 1 {
+		return alts, true
+	}
+	return nil, true
 }
 
 // valueReading is one reading of a path-named value that the name screen judges (valueReadings): its
@@ -1868,11 +1923,11 @@ const valueLeaders = "!\"#&'()+:<=>@[]^`{}"
 // ANSI best fit is ASCII punctuation (bestFitPunct: U+02BA reaches an ANSI program as `"`, U+01C0 as
 // `|`; wave 22's verify, fix round 2); after a run of leaders that leads the piece (valueLeaders); and
 // after a short option that leads it, after its first letter and after all its letters (`-I/opt`,
-// `-C../x`), as free text reads one (pathStarts). Inside a piece `+ # ) ] } ! ^` stay a name's own
-// characters (`c++/x`, `C#/x`, `(auth)/x`, `[id]/x`), a deliberate residual ADR 0011 §23 item 6
-// names.
+// `-C../x`), as free text reads one (pathStarts); and where a name a shell builds at run time starts
+// (runTimeAt). Inside a piece `+ # ) ] } ! ^` stay a name's own characters (`c++/x`, `C#/x`,
+// `(auth)/x`, `[id]/x`), a deliberate residual ADR 0011 §23 item 6 names.
 func valuePathStart(t string, start, i int) bool {
-	if i == start {
+	if i == start || runTimeAt(t, start, i) {
 		return true
 	}
 	r, size := utf8.DecodeLastRuneInString(t[start:i])
@@ -1890,6 +1945,53 @@ func valuePathStart(t string, start, i int) bool {
 	}
 	k := shortOptionEnd(t[start:])
 	return k > 0 && (i-start == 2 || i-start == k)
+}
+
+// runTimeAt reports whether a name a shell builds at run time starts at i in t, a path-named value,
+// inside the piece that starts at start (valuePathStart): a command substitution or a parameter
+// expansion in braces (`$(`, `${`) or a backtick, anywhere in the piece, since a project's paths hold
+// none of them and its output may start at any root (`..$(pwd)` is `../home/u/proj`); or any other
+// expansion a `$` starts (`$HOME`, `$1`) after a segment's run of dots (`..$HOME` is `../home/u`).
+// Elsewhere inside a name a `$` stays a name's own character (Java's `Outer$Inner.class`, Remix's
+// `users.$userId.tsx`), a residual ADR 0011 §23 item 6 names. What runs from such a start is judged
+// by runTimeRooted (fix round 2's review of candidate 8's diff verify).
+func runTimeAt(t string, start, i int) bool {
+	switch {
+	case i >= len(t):
+		return false
+	case t[i] == '`' || strings.HasPrefix(t[i:], "$(") || strings.HasPrefix(t[i:], "${"):
+		return true
+	case t[i] != '$':
+		return false
+	}
+	k := i
+	for k > start && t[k-1] == '.' {
+		k--
+	}
+	return k < i && (k == start || isSep(t[k-1]) || valuePathStart(t, start, k))
+}
+
+// runTimeRooted reports whether rest, the text at a place a path starts in a piece of a path-named
+// value (cut: the store's cut fell inside it), starts a name a shell builds at run time, which no
+// project root anchors, so it is outside the project as homeOrVarRoot's `$NAME` is: a backtick (a
+// command substitution), or a `$` before anything but a separator (a substitution `$(…)`, any
+// parameter expansion, `${…}` in every form, `$1`, `$@`, zsh's `$=name`, arithmetic, `$'…'`
+// quoting) or before the cut, which may have taken what followed it. A lone `$` and `$/x` are
+// literal to every shell. Fix round 2's review of candidate 8's diff verify: `$(pwd)/../other`,
+// `$(echo ~)/.ssh`, a backtick pair before `-old/x` and `${!x}/y` were read as relative paths and
+// shown.
+func runTimeRooted(rest string, cut bool) bool {
+	switch {
+	case rest == "":
+		return false
+	case rest[0] == '`':
+		return true
+	case rest[0] != '$':
+		return false
+	case len(rest) == 1:
+		return cut
+	}
+	return !isSep(rest[1])
 }
 
 // notValueLeader reports a character that is no leader of a piece (valuePathStart): neither one of
@@ -1977,9 +2079,9 @@ func namesDrive(pc string, held []bool, s int) bool {
 // (providerPath; a drive letter's is containment's to judge), or, when the cut fell right after its
 // `:`, would be one with a name after it (D64(2)); or, when it is not rooted, it climbs out in either other reading of its backslashes,
 // as a separator wherever the value was recorded and as a POSIX shell's escape (`..\x` on Linux,
-// `.\./x`).
+// `.\./x`); or it starts a name a shell builds at run time (runTimeRooted).
 func (j pathJudge) restOutside(rest string, cut, drive bool) bool {
-	if !j.inside(rest) {
+	if runTimeRooted(rest, cut) || !j.inside(rest) {
 		return true
 	}
 	if drive && !driveLetter(rest) && (providerPath(rest) || (cut && strings.HasSuffix(rest, ":") && providerPath(rest+"x"))) {

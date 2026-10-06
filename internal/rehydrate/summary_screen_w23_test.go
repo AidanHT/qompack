@@ -185,3 +185,93 @@ func TestBuild_APathNamedValueWithMoreStretchesThanTheBoundIsWithheld(t *testing
 	require.Equal(t, "shown", summaryVerdict(t, root, none, nbsp(31), nil))
 	require.Equal(t, "shown", summaryVerdict(t, root, none, globs(36), nil))
 }
+
+// TestBuild_APathNamedValueNamingAPathBuiltAtRunTimeIsWithheld is fix round 2's review of candidate
+// 8's diff verify (its minor finding, identical at 77374c3c). A path-named JSON value skips the
+// free-text whitelist, and containment read only `$NAME`, `~`, `%VAR%` and `!VAR!` at a path start
+// as rooted, so a name a shell builds at run time inside one was never resolved: a brace list (`{a,b}`,
+// which bash, zsh and fish expand, as ADR 0011 §23 item 6 reads one in a one-word pattern), a command
+// substitution (`$(…)`, a backtick pair) and any other expansion `$` starts (`${!x}`, `$1`). Each
+// showed a path outside the project or a refused one: `~{,x}/.ssh/id_rsa` is `~/.ssh/id_rsa`,
+// `$(pwd)/../other` a sibling of the project, and `.{env,x}` the `.env` that `Read(./.env)` refuses
+// or the build learned as withheld. The same text as a one-word plain preview was withheld, and so
+// was `$PWD/../other`. Each alternative of one brace list is now judged as the value is, a value
+// holding a brace list that cannot be read as one level (a sequence, a nested or second list, one
+// the store's cut left open) is withheld, and an expansion `$` or a backtick starts at a path start
+// is rooted outside the project; a substitution starts a path anywhere in a piece (`..$(pwd)`), and
+// any other expansion after a segment's run of dots (`..$HOME`). A brace list of project paths, a
+// brace with no list in it and a `$` inside a name (a Java inner class, a Remix route) are still
+// shown.
+func TestBuild_APathNamedValueNamingAPathBuiltAtRunTimeIsWithheld(t *testing.T) {
+	for _, elem := range [][]string{{"proj"}, {"John Smith", "proj"}, {"O'Brien (x)", "proj"}, {"R&D", "proj"}} {
+		t.Run(filepath.Join(elem...), func(t *testing.T) {
+			root := previewRoot(elem...)
+			rules := hostRules(root, "./.env", "./secrets/**")
+			leaks := []string{"passwd", "id_rsa", "secret.txt", "../other", "-old/x.txt"}
+			for i, s := range []string{
+				// The review's shapes.
+				`{"paths":"~{,x}/.ssh/id_rsa"}`,
+				`{"paths":"{,x}/etc/passwd"}`,
+				`{"paths":".{.,x}/outside/secret.txt"}`,
+				`{"directory":"$(pwd)/../other"}`,
+				`{"cwd":"$(echo ~)/.ssh"}`,
+				`{"notebook_path":"$(pwd)/../other/x.ipynb"}`,
+				`{"paths":".{env,x}"}`,
+				// The class: a substitution glued onto a sibling's name, a backtick pair, every other
+				// expansion `$` starts, one in a later piece or after an option's `=`, one glued after
+				// a climb, a brace list in a later piece or an array element, two lists, a sequence
+				// (`{d..f}` is d, e and f; `{.../}` is `.` and `/`), a nested list, and the store's cut
+				// inside a list or right after a `$`.
+				`{"directory":"$(pwd)-old/x.txt"}`,
+				"{\"directory\":\"`pwd`-old/x.txt\"}",
+				`{"cwd":"${!x}/y"}`,
+				`{"paths":"$1/x.txt"}`,
+				`{"paths":"$@/x.txt"}`,
+				`{"paths":"src/a.ts $(pwd)/../other"}`,
+				`{"paths":"src/a.ts --dir=$(pwd)/../other"}`,
+				`{"paths":"..$(pwd)"}`,
+				"{\"paths\":\"..`pwd`\"}",
+				`{"file":"..$HOME/x"}`,
+				`{"paths":"src/a.ts .$(echo .)/x"}`,
+				`{"paths":"src/a.ts {,x}/etc/passwd"}`,
+				`{"paths":["src/a.ts","{,x}/etc/passwd"]}`,
+				`{"paths":"src/{a,b}.ts {,x}/etc/passwd"}`,
+				`{"paths":".{d..f}nv"}`,
+				`{"paths":"{.../}etc/passwd"}`,
+				`{"paths":"{a,{.,x}.}/outside/secret.txt"}`,
+				`{"cell_id":"c1","paths":"~{,x}/.ss…`,
+				`{"cell_id":"c1","paths":"src/{a,.en…`,
+				`{"cell_id":"c1","paths":"src/a.ts $(pw…`,
+				`{"cell_id":"c1","paths":"src/a.ts $…`,
+				`{"cwd":"src","paths":"$(pwd)/../other"}`,
+			} {
+				t.Run(fmt.Sprintf("built at run time %d", i), func(t *testing.T) {
+					require.Equal(t, "withheld", summaryVerdict(t, root, rules, s, leaks), "%q names a path built at run time", s)
+				})
+			}
+			env := refusingUnder(root, nil, func(rel string) bool { return rel == ".env" })
+			for i, s := range []string{
+				`{"files":".{env,x}"}`,
+				`{"files":"{README.md,.env}"}`,
+				`{"files":"src/a.ts .{env,x}"}`,
+			} {
+				t.Run(fmt.Sprintf("learned .env %d", i), func(t *testing.T) {
+					require.Equal(t, "withheld", summaryVerdictBeside(t, root, env, ".env", s, nil), "%q names the learned .env", s)
+				})
+			}
+			for _, s := range []string{
+				`{"paths":"src/{a,b}.ts"}`,
+				`{"paths":"src/{a,b}.ts docs/b.md"}`,
+				`{"paths":"**/*.{ts,tsx}"}`,
+				`{"file":"templates/{{name}}/x.txt"}`,
+				`{"file":"docs/{draft}.md"}`,
+				`{"file":"build/classes/Outer$Inner.class"}`,
+				`{"file":"app/routes/users.$userId.tsx"}`,
+				`{"cell_id":"c1","paths":"src/{a,b}.ts src/c…`,
+			} {
+				require.Equal(t, "shown", summaryVerdict(t, root, rules, s, nil), "%q names only project paths", s)
+				require.Equal(t, "shown", summaryVerdictBeside(t, root, env, ".env", s, nil), "%q names only project paths", s)
+			}
+		})
+	}
+}
