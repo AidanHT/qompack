@@ -308,6 +308,9 @@ func requireGluedPiecesJudged(t *testing.T, root string, inRoot func(...string) 
 		plain("src", "a.go") + ";" + filepath.Join("lnk", "token.txt"),
 		plain("src", "a.go") + "," + filepath.Join("lnk", "token.txt"),
 		plain("src", "a.go") + "&&" + filepath.Join("lnk", "token.txt"),
+		// Fix round 2's review: `+`, where free text (cmd.exe's copy) starts a path but a value's
+		// piece reads a name's character, still took the rules' literals alone.
+		plain("src", "a.go") + "+" + filepath.Join("lnk", "token.txt"),
 		`{"paths":"` + inRoot("src", "a.go") + ` ` + inRoot("lnk", "token.txt") + `"}`,
 		`{"paths":"` + inRoot("src", "a.go") + `;` + inRoot("lnk", "token.txt") + `"}`,
 		`{"paths":"` + inRoot("src", "a.go") + `\u0000` + inRoot("lnk", "token.txt") + `"}`,
@@ -327,7 +330,7 @@ func requireGluedPiecesJudged(t *testing.T, root string, inRoot func(...string) 
 	if rootUnitAdmitted(root) {
 		// A plain preview under a root whose spelling has no unit is free text the whitelist withholds
 		// (D64(1)), whatever it names.
-		for _, s := range []string{plain("src", "a.go"), plain("src", "a.go") + ":10"} {
+		for _, s := range []string{plain("src", "a.go"), plain("src", "a.go") + ":10", plain("src", "a+b.go")} {
 			require.Equal(t, "shown", summaryVerdictBeside(t, root, link, "lnk/token.txt", s, []string{"token.txt"}), "%q names only project paths", s)
 		}
 	}

@@ -63,8 +63,14 @@ func TestRehydrateHostPaths_AWithheldNameAfterAGluingCharacterIsWithheld(t *test
 				v(main + " " + filepath.Join("lnk", "token.txt")),
 				v(main + ";" + filepath.Join("lnk", "token.txt")),
 				v(main + "\x00" + filepath.Join("lnk", "token.txt")),
+				// Fix round 2's review: a one-word plain preview gluing the second path on with `+`,
+				// where free text starts a path (cmd.exe's copy) and a value's piece reads a name's
+				// character, was screened by the rules' literals alone.
+				storePreview(t, map[string]string{"file_path": main + "+" + filepath.Join("lnk", "token.txt")}),
 			})
 		require.NotContains(t, res.Text, "token.txt")
+		requireToolSummariesBeside(t, root, []string{filepath.Join("lnk", "token.txt")},
+			[]string{storePreview(t, map[string]string{"file_path": filepath.Join(root, "src", "a+b.go")})}, nil)
 	})
 	t.Run("free text", func(t *testing.T) {
 		root := uat12Project(t, "proj")
@@ -196,6 +202,89 @@ func TestRehydrateHostPaths_ARefusedNameHoldingAPieceCharacterIsWithheld(t *test
 					v("src/main.go " + filepath.Join("src", "*.go")),
 					v(main + " " + filepath.Join("src", "*.go")),
 				}, nil)
+			})
+		})
+	}
+}
+
+// TestRehydrateHostPaths_APathNamedValueNamingAPathBuiltAtRunTimeIsWithheld is fix round 2's review
+// of candidate 8's diff verify (its minor finding, identical at 77374c3c) through the real adapter,
+// the real host rules and the store's own previews, in a plain project and in one whose own path has
+// a space. A path-named value skips the free-text whitelist, and containment read only `$NAME`, `~`,
+// `%VAR%` and `!VAR!` at a path start as rooted, so a brace list (`{a,b}`, which bash, zsh and fish
+// expand) and a command substitution (`$(…)`, a backtick pair) were never resolved, and section 6
+// showed `~{,x}/.ssh/id_rsa` (`~/.ssh/id_rsa`), `$(pwd)/../other` (a sibling of the project),
+// `.{env,x}` (the `.env` UAT-12's `Read(./.env)` refuses) and `lnk/{token.txt,x}` (lnk a link into a
+// refused secrets/, learned from a file pointer, which only the host's judgement of the alternative
+// refuses). A brace list of project paths, a brace with no list in it and a `$` inside a name are
+// still shown.
+func TestRehydrateHostPaths_APathNamedValueNamingAPathBuiltAtRunTimeIsWithheld(t *testing.T) {
+	for _, elem := range [][]string{{"proj"}, {"John Smith", "proj"}} {
+		t.Run(filepath.Join(elem...), func(t *testing.T) {
+			t.Run("rules", func(t *testing.T) {
+				root := uat12Project(t, elem...)
+				v := func(k string, value any) string { return storePreviewOf(t, map[string]any{k: value}) }
+				for i, s := range []string{
+					v("paths", "~{,x}/.ssh/id_rsa"),
+					v("paths", "{,x}/etc/passwd"),
+					v("paths", ".{.,x}/outside/secret.txt"),
+					v("directory", "$(pwd)/../other"),
+					v("cwd", "$(echo ~)/.ssh"),
+					v("notebook_path", "$(pwd)/../other/x.ipynb"),
+					v("paths", ".{env,x}"),
+					v("directory", "`pwd`-old/x.txt"),
+					v("cwd", "${!x}/y"),
+					v("paths", "src/main.go $(pwd)/../other"),
+					v("paths", "..$(pwd)"),
+					v("paths", []string{"src/main.go", "{,x}/etc/passwd"}),
+					v("paths", ".{d..f}nv"),
+					v("paths", "{a,{.,x}.}/outside/secret.txt"),
+				} {
+					t.Run(fmt.Sprint(i), func(t *testing.T) {
+						res := requireToolSummaries(t, root, nil, []string{s})
+						for _, leak := range []string{"passwd", "id_rsa", "secret.txt", "../other", "-old"} {
+							require.NotContains(t, res.Text, leak)
+						}
+					})
+				}
+				requireToolSummaries(t, root, []string{
+					v("paths", "src/{main,util}.go"),
+					v("paths", "**/*.{go,md}"),
+					v("file", "templates/{{name}}/x.txt"),
+					v("file", "build/classes/Outer$Inner.class"),
+					v("file", "app/routes/users.$userId.tsx"),
+				}, nil)
+			})
+			t.Run("link", func(t *testing.T) {
+				root := shortProjectDir(t, elem...)
+				writeProjectSettings(t, root, `{"permissions":{"deny":["Read(./secrets/**)"]}}`)
+				for _, f := range []string{"secrets/token.txt", "src/main.go", "src/util.go"} {
+					writeProjectFile(t, root, f)
+				}
+				require.NoError(t, makeDirLink(filepath.Join(root, "lnk"), filepath.Join(root, "secrets")))
+				pointer := filepath.Join("lnk", "token.txt")
+				refuses := rehydrateHostPaths(mcpOpHostPolicy(t, root), root, logging.Nop())().Refuses
+				require.NotNil(t, refuses)
+				require.True(t, refuses(pointer), "fixture: the host refuses the file through the link")
+				v := func(value string) string { return storePreviewOf(t, map[string]any{"files": value}) }
+				// No file pointer teaches the build a name here: only the host's judgement of each
+				// alternative, through the link, refuses one.
+				for i, value := range []string{
+					filepath.Join("{lnk,src}", "token.txt"),
+					filepath.Join("{src,lnk}", "token.txt"),
+					"{lnk,src}/token.txt",
+				} {
+					require.False(t, refuses(value), "fixture: the host, asked about the whole value, refuses nothing")
+					t.Run(fmt.Sprint(i), func(t *testing.T) {
+						res := requireToolSummaries(t, root, nil, []string{v(value)})
+						require.NotContains(t, res.Text, "token.txt")
+					})
+				}
+				// Learned from a file pointer, the name withholds a list's later piece too.
+				res := requireToolSummariesBeside(t, root, []string{pointer}, nil,
+					[]string{v("src/main.go " + filepath.Join("{lnk,src}", "token.txt"))})
+				require.NotContains(t, res.Text, "token.txt")
+				requireToolSummariesBeside(t, root, []string{pointer}, []string{v(filepath.Join("src", "{main,util}.go"))}, nil)
 			})
 		})
 	}
