@@ -88,10 +88,14 @@ single project path with a space in it, quoted or not, is shown. Inside a piece 
 stay a name's characters, so a rooted path glued after one of them there (`a.txt+\Windows\win.ini`)
 is not judged as a path; the same text in free text is withheld. These rules see such a value only
 as one whole string, so its in-project pieces are screened by the rule literals and withheld names
-below, each read from its own start: a control character, a Unicode space, a letter whose ANSI best
-fit is punctuation or a quote between two pieces counts as a space (`{"paths":"src/a.ts\u0000.env"}`
-is withheld under `Read(./.env)`). A piece these rules refuse only through a link or an 8.3 name
-that the block has not learned as withheld is not withheld by that screen.
+below, each read from where its piece starts to where it ends: a control character, a Unicode
+space, a letter whose ANSI best fit is punctuation or a quote between two pieces separates them,
+even when the refused name holds such a character itself (`{"paths":"src/a.ts\u0000.env"}` is
+withheld under `Read(./.env)`, and `{"paths":"src/a.ts\u0000o'brien.env"}` under
+`Read(./o'brien.env)`), and a glob piece is judged by what it selects, as it would be alone. While a
+rule's literal or a withheld path is in force, a value with more pieces and path starts than the
+screen reads one by one is withheld whole. A piece these rules refuse only through a link or an 8.3
+name that the block has not learned as withheld is not withheld by that screen.
 Containment reads a glob as a glob: a class, a `?` or a leading dot that may match `..`, and a
 class that may match a separator (`[/]etc[/]passwd`), name a path outside the project, and so does a
 `file:` URL wherever it stands. A one-word summary must also pass the free-text screen, reading whole
