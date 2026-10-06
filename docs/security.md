@@ -86,16 +86,41 @@ are withheld), while the names a project's paths hold (`app/(auth)/page.tsx`, `p
 `lib/c++/x.h`, `docs/R&D/plan.md`) and the project root's own spelling, read whole, stay shown, so a
 single project path with a space in it, quoted or not, is shown. Inside a piece `+ # ) ] } ! ^`
 stay a name's characters, so a rooted path glued after one of them there (`a.txt+\Windows\win.ini`)
-is not judged as a path; the same text in free text is withheld.
+is not judged as a path; the same text in free text is withheld. These rules see such a value only
+as one whole string, so its in-project pieces are screened by the rule literals and withheld names
+below, each read from where its piece starts to where it ends: a control character, a Unicode
+space, a letter whose ANSI best fit is punctuation or a quote between two pieces separates them,
+even when the refused name holds such a character itself (`{"paths":"src/a.ts\u0000.env"}` is
+withheld under `Read(./.env)`, and `{"paths":"src/a.ts\u0000o'brien.env"}` under
+`Read(./o'brien.env)`), and a glob piece is judged by what it selects, as it would be alone. While a
+rule's literal or a withheld path is in force, a value with more pieces and path starts than the
+screen reads one by one is withheld whole. A piece these rules refuse only through a link or an 8.3
+name that the block has not learned as withheld is not withheld by that screen. A name a shell
+builds at run time is resolved where it can be and withheld where it cannot: a value holding a
+brace list is also judged alternative by alternative, as one level of shell brace expansion reads
+it, a list that one level cannot read (a sequence, a nested or second list) is withheld, and a
+command substitution, any `${…}` or other `$` expansion, or a backtick where a path starts names a
+path outside the project (`{"paths":"~{,x}/.ssh/id_rsa"}`, `{"paths":".{env,x}"}` under
+`Read(./.env)` and `{"directory":"$(pwd)/../other"}` are withheld; `{"paths":"src/{a,b}.ts"}` is
+shown). A `$` inside a name stays a name's character (`Outer$Inner.class`,
+`users.$userId.tsx`), so a variable glued there is not resolved. cmd.exe's `%VAR%` and `!VAR!`
+after a run of dots (`{"file":"..%HOMEPATH%\\.ssh\\id_rsa"}`), a batch file's parameters where a
+path starts (`%~dp0..\x`, `%1\x`), and the tilde forms that name a directory outside the project
+(`~+` and `~+N`, `~-N`, zsh's `~$USER/` and `~[name]/`) are read as outside the project too; a
+`%` or a `!` inside a name, and an office lock file such as `~$report.docx`, are not. While a Read
+rule is in force a build asks these rules about at most 64 brace-list alternatives, and withholds
+every value whose alternatives lie past that bound without asking.
 Containment reads a glob as a glob: a class, a `?` or a leading dot that may match `..`, and a
 class that may match a separator (`[/]etc[/]passwd`), name a path outside the project, and so does a
 `file:` URL wherever it stands. A one-word summary must also pass the free-text screen, reading whole
 names (the project's own `.env.example` is not the denied `.env`; `.env.`, `.env:stream` and
 `deny.txt#L4` are); a rule's literal that starts a glob segment (`secret` for `Read(./secret*)`)
-counts whatever follows it; and a rooted path spelled in one separator style is screened by the
-rules' literals alone, so a Read outside the project never withholds the project's own file of the
-same name. Any other summary (a command, a query, a prompt, a URL) is free text, and is SHOWN only
-when a whitelist proves it safe (coordinator decision D63): every whitespace-delimited token must be
+counts whatever follows it; and a rooted path spelled in one separator style that names one path
+(no list separator, no second path and, in a plain summary, no `+` after the root) is screened by
+the rules' literals alone, so a Read outside the project never withholds the project's own file
+of the same name. Any other
+summary (a command, a query, a prompt, a URL) is free text, and is SHOWN only when a whitelist
+proves it safe (coordinator decision D63): every whitespace-delimited token must be
 built only from letters, digits and a small safe punctuation set (a few shell operators, the null
 device's redirects, a simple double-quoted run, which may hold parentheses, a simple single-quoted
 run allowed whole, and an http(s) URL built only from letters, digits and `- . _ ~ : / ? # @ & = +`;

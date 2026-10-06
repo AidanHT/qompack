@@ -887,8 +887,11 @@ do not fold the two readings are one.
      from the root through its last word that holds a separator (item 6), so a link at a name with a
      space in its last segment (`<root>/docs/my notes.txt`, judged as `<root>/docs/my`) is not
      resolved; a rule on that name screens by its literal. Several path-named values of a JSON
-     preview, and a relative Glob or Grep preview of several words, are screened without the host,
-     so a link or an 8.3 name in them is not resolved either.
+     preview, the pieces of one path-named value that holds several paths (the host judges such a
+     value as one string, a path no reader reads), and a relative Glob or Grep preview of several
+     words, are screened without the host, so a link or an 8.3 name in them is not resolved either:
+     only a rule's literal or a name the build learned as withheld (from a file pointer, a drop or a
+     one-path summary the host refused) withholds such a piece (candidate 8's diff verify, finding 9).
    - Globs, brace expansions, variables and names assembled at run time are never shown in free
      text, so none needs resolving: a token holding `*`, `?`, `[`, `{`, `$`, a `%` that could be an
      escape or a variable, a quote other than item 7(a)'s, a backtick or a caret is withheld rather
@@ -959,9 +962,10 @@ do not fold the two readings are one.
      over-withholding and D63 keeps it for free text. A structured value is one path, so there a
      whole literal counts only as a whole name (item 7(c)): the project's own `.env.example` is shown
      under `Read(./.env)`; a literal that starts a glob segment (`secret` for `Read(./secret*)`) counts
-     whatever follows it there too. A rooted structured value spelled in one separator style is
-     screened by the rules' literals alone (item 6), so a Read of the project's own README.md is
-     shown beside a withheld outside README.md, while `git diff README.md` stays withheld.
+     whatever follows it there too. A rooted structured value spelled in one separator style that
+     names one path is screened by the rules' literals alone (item 6), so a Read of the project's own
+     README.md is shown beside a withheld outside README.md, while `git diff README.md` stays
+     withheld.
    - A glob that selects only files Qompack never recorded is judged as written: Build reads no
      files, so it has no listing to match against (D60(iv)). A structured glob, and recall's `path:`
      selector, are withheld when they select a path the build records as withheld (items 6 and 7).
@@ -1087,9 +1091,19 @@ do not fold the two readings are one.
      longer withholds the project's own `<root>/README.md`, `<root>/.claude/settings.json` or
      `<root>/config/database.yml` (they are other files, which the host has judged). A mixed spelling
      (`<root>/private/de\ny.txt`, deny.txt to a POSIX shell), a relative value (read from a working
-     directory the host does not know) and a pattern keep the withheld names. `<root>/README.md` is
-     still withheld beside a denied `private/README.md`, whose rule's literal is the whole name
-     `README.md` (accepted over-withholding, which D67(l) keeps as shipped).
+     directory the host does not know) and a pattern keep the withheld names. So does a rooted value
+     that names more than one path (`oneValuePath`: past the root, a list separator, `valueListSep`,
+     or any other place a path starts, `valuePathStart`), such as `<root>/src/a.go
+     <root>/lnk/token.txt` or the one-word `<root>/a.go;lnk/token.txt`: the host judged the whole
+     string, not the path a reader reads after the first piece, so a later piece that the build
+     withholds only by a learned name (lnk a link into a refused directory) was shown at 77374c3c
+     (candidate 8's diff verify, finding 9). So does a one-word plain summary that holds a `+` past
+     the root (`<root>/a.go+lnk/token.txt`, shown at 77374c3c too): its free-text reading starts a
+     path there, as cmd.exe's copy does, though a value's piece reads a name's character (fix round
+     2's review; `<root>/src/routes/+page.svelte` is screened by the withheld names too, and shown
+     unless one of them is its name). `<root>/README.md` is still withheld beside a denied
+     `private/README.md`, whose rule's literal is the whole name `README.md` (accepted
+     over-withholding, which D67(l) keeps as shipped).
    - *Several path-named values, and cut ones.* A path-named JSON value is exempt from the whitelist
      (it is a structured identifier, not a command), and its names are whole names too; a preview with
      SEVERAL path-named values costs no host judgement: each is screened by containment, by the rule
@@ -1144,7 +1158,90 @@ do not fold the two readings are one.
      semicolon or a parenthesis stays one piece whatever else the root holds (a value is no shell
      input, so D64(1)'s set does not apply), and a single project path with a space in it, quoted or
      not, is shown. A cut value's last piece is the start of a piece: from a place a path starts
-     that begins the root's own spelling byte for byte to the cut it is the project (D64(8)).
+     that begins the root's own spelling byte for byte to the cut it is the project (D64(8)). Its
+     in-project pieces are judged by the rule literals and the withheld names alone (item 2's
+     limits), in three readings (`valueReadings`), and a value any reading withholds is withheld,
+     cut or not: as the store spells it; in its name form (`valueNameForm`), where every list
+     separator, every character outside ASCII that the whitelist reads as no letter, and every quote
+     or backtick is a space; and stretch by stretch, from each place a piece or a path starts to each
+     place one ends (`valueBounds`, the root's own spelling held whole) at which the store's
+     spelling reads no name's boundary (a control character it drops, a quote screen form removes, a
+     character outside ASCII whose bytes it reads as a name's), so a refused name is read whole from
+     its piece's start to its piece's end even when it holds such a character itself. Glued by a
+     character the screen dropped (a C0 control, DEL), read as part of a name (a C1 control, NBSP,
+     U+2028, U+3000, U+02BA, a zero-width space) or removed (a quote), a piece that starts with a
+     rule's literal or a withheld name (`.env` after `src/a.ts` and a NUL under `Read(./.env)`,
+     `secrets/key.pem` after an NBSP under `Read(./secrets/**)`) started no name and was shown at
+     77374c3c (candidate 8's diff verify, finding 8); and a refused name holding an apostrophe, an
+     en dash or a comma (`o'brien.env`, `q3–secrets.xlsx`, `a,b.env`, a learned `bob's keys.txt`),
+     after or before such a character, was glued in the first reading and split at its own
+     character in the second, and was still shown (fix round 1's review). Each glob stretch of a
+     value that names more than one path is judged by what it selects (`globStretchSelectsKnown`),
+     as it would be alone, so `src/a.ts .en*` and `src/a.ts:lnk/tok*` are withheld beside a learned
+     `.env` or `lnk/token.txt` as the glob alone is (shown at 77374c3c, and, after a space or an
+     opener, still shown when fix round 1's review read it). The stretches grow with the square of
+     the places a piece starts or ends, so a value with more than `maxValueStretches` (256) of them
+     is withheld unread while the build has a literal or a withheld path to find (D66(e)); a list of
+     21 paths glued by NBSPs, within the store's 120-byte preview, stays under it. A DEL, which JSON
+     leaves unescaped, and any C0 control in a value the store previews as plain text (`file_path`,
+     `path`, `pattern`, `command`, `url`) are dropped by the store's preview itself
+     (`store.previewString`), so that boundary is gone before a build reads the summary: a residual
+     of the store's record, not of the screen.
+   - *A name built at run time in a path-named value* (fix round 2's review of candidate 8's diff
+     verify; identical at 77374c3c). A path-named value skips the whitelist, and containment read
+     only `$NAME`, `~`, `%VAR%` and `!VAR!` at a path start as rooted, so a brace list and a
+     substitution in one were never resolved: `{"paths":"~{,x}/.ssh/id_rsa"}` (`~/.ssh/id_rsa`),
+     `{"paths":"{,x}/etc/passwd"}`, `{"directory":"$(pwd)/../other"}` (a sibling of the project),
+     `{"cwd":"$(echo ~)/.ssh"}` and `{"paths":".{env,x}"}` under `Read(./.env)` or beside a learned
+     `.env` were shown, while the same text as a one-word plain preview, and `$PWD/../other`, were
+     withheld. A value holding a brace list (a `{` with a `,` or a `..` after it before the next `}`)
+     is now also judged alternative by alternative, each as the value is, by containment, the host
+     (one judgement per alternative) when the value is its preview's one path-named value, the
+     names and what a glob selects (`valueBraceAlternatives`, one level of `{a,b}` as the one-word
+     pattern rule reads it); a list
+     one level cannot read (a sequence, `{d..f}` and `{.../}` among them, a nested or a second list,
+     or one the store's cut left open) is withheld. A brace with no list in it (`{{name}}`,
+     `{draft}`) is literal to every shell and stays shown, and so does `src/{a,b}.ts`. A path
+     also starts where a shell builds a name at run time (`runTimeAt`): at a `$(`, a `${` or a
+     backtick anywhere in a piece, which a project's paths do not hold, and at any other `$` after
+     a segment's run of dots (`..$HOME` is `../home/u`); and from any path start, a backtick or a
+     `$` before anything but a separator or the end (`$(…)`, `${…}` in every form, `$1`, `$@`,
+     zsh's `$=name`, `$'…'`), or before the store's cut, is rooted outside the project as `$NAME`
+     is (`runTimeRooted`). The over-withholding this costs (D66(e)) is a project path holding `$(`,
+     `${` or a backtick, a piece that starts with `$` and a non-letter (`$5.md`), and a value with
+     a sequence, a nested or a second list, or a list with `..` in it; none is in the corpus. A `$`
+     inside a name stays a name's own character, as `+ # ) ] } ! ^` do (Java's `Outer$Inner.class`,
+     Remix's `users.$userId.tsx`), so a variable glued after a name's other characters (`x$X`,
+     which a variable holding `/../../etc` makes `x/../../etc`) is a deliberate residual. Fix round
+     3's review found the class open in three more places (identical at 77374c3c). First, cmd.exe's
+     `%VAR%` and delayed `!VAR!` after a segment's run of dots, the analogue of `..$HOME`, were one
+     relative name: `{"file":"..%HOMEPATH%\\.ssh\\id_rsa"}` (`..\Users\u\.ssh\id_rsa` to cmd.exe)
+     and `{"paths":"..!HOMEPATH!\\x"}` were shown, and so were a batch file's parameters and a FOR
+     variable where a path starts (`%~dp0..\x`, `%1\x`, `%*\x`, `%%~dpi\x`) and a `%NAME` or `!NAME`
+     the store's cut fell inside. `runTimeAt` now starts a path at a `%` or a `!` after a segment's
+     run of dots, under the boundary the `$` takes, and from any path start such a parameter, or a
+     `%` or a `!` and a name that run to the cut, is rooted outside the project (`cmdVarRooted`;
+     `%NAME%` and `!NAME!` were `homeOrVarRoot`'s already). Second, tilde forms bash and zsh expand
+     outside the project were relative names: `~+` (`$PWD`) and `~+N` (a directory-stack entry),
+     zsh's `~$USER/` (zsh expands the parameter before the tilde) and its dynamic named directory
+     `~[name]/`, so `{"file":"~+/../other/x.txt"}`, `{"file":"~+1/.ssh/id_rsa"}` and
+     `{"file":"~$USER/.ssh/id_rsa"}` were shown. `homeOrVarRoot` now reads as rooted a tilde word of
+     a user name's characters, `+`, `-` and digits, a `~$` word with no `.` in it (no parameter's
+     name holds one, so an office lock file such as `~$report.docx` stays a project name) and
+     `~[…]`, each when a separator or the path's end follows. Third, the alternatives' host
+     judgements were unbounded (item 10): a list in a preview's one path-named value cost one
+     judgement per alternative, about 51 in a 120-byte preview, so a hundred such pointers asked the
+     host 5200 times and took a build through the real adapter from 53 ms to seconds. While a Read
+     rule's pattern is in force, a build now makes at most 64 fresh host judgements for alternatives
+     (`maxBraceJudgements`, `braceJudgements`) and withholds, unjudged, every value with an
+     alternative past them (fail closed); an alternative the build already judged costs nothing, and
+     with no Read rule in force the host's answer costs nothing and every alternative is judged. The
+     over-withholding this adds (D66(e)): a piece that starts with `%` and a digit (`%20draft.md`;
+     `docs/%20draft.md` holds no path start at its `%` and is shown), a `%` or a `!` after a run of
+     dots that ends a segment though the path stays in the project (`src/..%HOMEPATH%\x`), a cut piece
+     that leads with `!` and a name, a project directory spelled `~+`, `~+N`, `~$name` or `~[name]`,
+     and the braced values past the bound in one build; none is in the corpus. Inside a name a `%`
+     and a `!` stay a name's own characters, as the `$` does (`50%off.md`, `notes/v1..%2.txt`).
 7. *Free text is shown only when the whitelist vouches for every token* (D63(2)-(4)). Every other
    summary, and every other string of a JSON preview, is free text; an object's keys are screened as
    free text too: D63(1) judges a preview by its decoded strings, and a key is one, which may carry a
@@ -1404,9 +1501,11 @@ do not fold the two readings are one.
        and each is withheld glued after anything else (`--query=path:x`)
        (`TestBuild_APowerShellProviderDrivePathIsWithheld`). What follows an inert prefix's `:` is
        still a path start (`select:/etc/passwd` is withheld).
-     - *A rooted structured value in one separator style* (item 6). Every reader reads the same names
-       after the root, the host's judgement included, so the rules' literals alone can tell its names
-       from a refused file's (`TestBuild_AnOutsideNamesakeNeverWithholdsAProjectPath`).
+     - *A rooted structured value in one separator style* (item 6) that names one path
+       (`oneValuePath`). Every reader reads the same names after the root, the host's judgement
+       included, so the rules' literals alone can tell its names from a refused file's
+       (`TestBuild_AnOutsideNamesakeNeverWithholdsAProjectPath`). One that names more than one path
+       keeps the withheld names (candidate 8's diff verify, finding 9).
      - *A JSON preview's keys.* A key is a decoded string, screened as free text as every string but a
        path-named value is (`TestBuild_AJSONKeyIsScreenedAsAString`).
    - *The root's unit* (D64(1)). The unit hides the root's own characters from the token checks, so it
@@ -1650,11 +1749,18 @@ do not fold the two readings are one.
     its file pointers, its path-keyed checkpoint drops (while a Read rule is in force, at most 64 of
     them that need a fresh judgement: item 12), its structured summaries (one path each: a
     one-word value, a pattern one-word whole, the directory of a Glob preview under the root, a rooted
-    summary's path part, the one path-named JSON value; for a cut one, the directory it spells whole),
-    the instruction and skill files items 6a and 6b would restore, and, while a rule anchored outside
-    the project is in force, `rootProbe` (item 7(d)); never for free text, whatever its commands,
-    queries, URLs, quotes or glued operators say, never for a brace list's alternatives, and never for
-    a value among several path-named values, cut or not. Under a root with no unit (item 8, D64(1)) a
+    summary's path part, the one path-named JSON value; for a cut one, the directory it spells whole;
+    and each alternative of a brace list in that one value, while a Read rule is in force at most 64
+    of them in a build that need a fresh judgement, `maxBraceJudgements`, every value with one past
+    them withheld unjudged: item 6), the instruction and skill files items 6a and 6b would restore,
+    and, while a rule anchored outside the project is in force, `rootProbe` (item 7(d)); never for
+    free text, whatever its commands, queries, URLs, quotes or glued operators say, and never for a
+    value among several path-named values, or its alternatives, cut or not. Both bounds hold per
+    build, so neither the drops a session accumulates nor the brace lists its tool pointers carry
+    add more than 64 fresh judgements each to what its pointers and summaries cost (fix round 3's
+    review of candidate 8's diff verify: before it, a hundred pointers whose one path-named value
+    held a 51-way list cost 5200 judgements, 2 to 3 s through the real adapter on Windows, against
+    53 ms for the same pointers with no list). Under a root with no unit (item 8, D64(1)) a
     Glob preview of the root and a rooted summary's path part are free text, and a one-word value that
     spells the root is withheld by the whitelist before the host is asked, so such a root costs fewer
     judgements, never more (the corpus's 48 judgements under UAT-12's rules are 39 under `o'brien` and

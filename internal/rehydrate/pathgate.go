@@ -106,8 +106,9 @@ type HostRules struct {
 // each distinct path among the file pointers, the structured summaries (one path each), the
 // instruction and skill files items 6a and 6b would restore, and, while a rule anchored outside the
 // project is in force, rootProbe (screenBy), and, while a Read rule's pattern is in force, for at
-// most maxDropJudgements of the path-keyed checkpoint drops' other paths (dropJudgements), from one
-// goroutine; free text never reaches it.
+// most maxDropJudgements of the path-keyed checkpoint drops' other paths (dropJudgements) and at most
+// maxBraceJudgements of the alternatives of the brace lists in the structured summaries
+// (braceJudgements), from one goroutine; free text never reaches it.
 type HostPaths func() HostRules
 
 // pathJudge decides, for one build, which recorded paths and summaries the payload may show.
@@ -176,6 +177,13 @@ type pathJudge struct {
 	// drops counts the host judgements made while newPathJudge reads the path-keyed checkpoint drops
 	// (dropJudgements); nil outside a judge newPathJudge made.
 	drops *dropJudgements
+	// braces counts the host judgements made for the alternatives of the brace lists in path-named
+	// values (braceJudgements); nil outside a judge newPathJudge made, and a judge with none answers
+	// each alternative as refused.
+	braces *braceJudgements
+	// alternative is set on the copy of the judge that judges a brace list's alternatives
+	// (pathNamedWithheld), whose fresh host judgements braces counts and bounds.
+	alternative bool
 	// rootTail is the last segment of the root's spelling as rootSpelling matches it, its ASCII
 	// letters lower-cased where the platform's paths fold: every match holds it (held's prefilter);
 	// "" when the root has no last segment.
@@ -244,6 +252,29 @@ type dropJudgements struct {
 // (dropJudgements). With the daemon's adapter, which may Evaluate a path more than once, it keeps the
 // drops' term near a tenth of a second on an idle Windows host, whatever the session's length.
 const maxDropJudgements = 64
+
+// braceJudgements bounds the host judgements a build makes for the alternatives of the brace lists in
+// its path-named values (fix round 3's review of candidate 8's diff verify, ADR 0011 §23 items 6 and
+// 10). A preview's one path-named value that holds a brace list is judged alternative by alternative,
+// each by the host (pathNamedWithheld), and a 120-byte preview holds about 51 alternatives, so a
+// checkpoint whose tool pointers each carry such a list asked the host about 52 times a pointer: a
+// hundred of them took a build through the daemon's adapter from 53 ms to seconds, while every other
+// summary costs about one judgement. While bounded is set (a Read rule's pattern is in force, as for
+// the drops; with none the host's rules are empty, refuse nothing and read no file), hostRefuses makes
+// at most maxBraceJudgements fresh judgements for the alternatives in a build and answers every later
+// fresh alternative as refused without a judgement, so the value that holds it is withheld (fail
+// closed, coordinator decision D66(e)). The answer is never kept in judged: the same path judged
+// elsewhere asks the host. An alternative the build already judged costs nothing.
+type braceJudgements struct {
+	bounded bool
+	made    int
+}
+
+// maxBraceJudgements is the most host judgements a build makes for the alternatives of the brace
+// lists in its path-named values (braceJudgements): as many as the drops' bound, about a tenth of a
+// second through the daemon's adapter on an idle Windows host, however many such lists a checkpoint
+// carries.
+const maxBraceJudgements = 64
 
 // screenBy adds each rule pattern's literal and specifier to the build's screens (D63(4), kept from
 // D61(2)(a)). A rule with no literal refuses everything it is anchored at; a rule anchored outside
@@ -463,7 +494,8 @@ func globSegMatch(pat, seg string) bool {
 func newPathJudge(r Request, d Deps) pathJudge {
 	j := pathJudge{
 		root: r.ProjectRoot, judged: make(map[string]bool), unjudged: make(map[string]bool),
-		drops: &dropJudgements{}, rootSpelling: rootSpellingOf(r.ProjectRoot), broadSpelling: broadRootSpellingOf(r.ProjectRoot),
+		drops: &dropJudgements{}, braces: &braceJudgements{},
+		rootSpelling: rootSpellingOf(r.ProjectRoot), broadSpelling: broadRootSpellingOf(r.ProjectRoot),
 		rootUnit: rootUnitAdmitted(r.ProjectRoot), rootExact: rootSpelledExactly(r.ProjectRoot), rootTail: rootTailOf(r.ProjectRoot),
 		memo: &buildMemo{held: make(map[heldKey]string)},
 	}
@@ -478,6 +510,7 @@ func newPathJudge(r Request, d Deps) pathJudge {
 			j.screenBy(h.Patterns)
 		}
 		j.drops.bounded = len(h.Patterns) > 0
+		j.braces.bounded = len(h.Patterns) > 0
 	}
 	for _, f := range r.Checkpoint.Pointers.Files {
 		if j.withheld(f.Path) {
@@ -803,7 +836,9 @@ func judgedSpelling(path string) string {
 // hostRefuses reports whether the host's rules refuse p (a judgedSpelling), or could not be
 // established; with no host rules in force it is false. Each answer the host gives is memoized for
 // the build (judged). While newPathJudge reads the drops past their bound, p is answered as refused
-// without a judgement, and that answer is kept for the drops alone (unjudged, dropWithheld).
+// without a judgement, and that answer is kept for the drops alone (unjudged, dropWithheld). A brace
+// list's alternative past the alternatives' bound (braceJudgements) is answered as refused without a
+// judgement, and that answer is kept nowhere.
 func (j pathJudge) hostRefuses(p string) bool {
 	if !j.host {
 		return false
@@ -813,6 +848,13 @@ func (j pathJudge) hostRefuses(p string) bool {
 	}
 	if w, ok := j.judged[p]; ok {
 		return w
+	}
+	if j.alternative && (j.braces == nil || j.braces.bounded) {
+		if j.braces == nil || j.braces.made >= maxBraceJudgements {
+			// Past the alternatives' bound: refused without a judgement (fail closed).
+			return true
+		}
+		j.braces.made++
 	}
 	if j.drops != nil && j.drops.reading && j.drops.bounded {
 		if j.drops.made >= maxDropJudgements {
@@ -1035,15 +1077,20 @@ func fileScheme(p string) bool { return len(p) >= 5 && strings.EqualFold(p[:5], 
 // driveSpelling matches a path that starts at a Windows drive, absolute or drive-relative.
 var driveSpelling = regexp.MustCompile(`^[A-Za-z]:`)
 
-// homeOrVarRoot matches a path that starts at a shell's home directory (`~`, `~user/`) or at an
-// environment variable (`$VAR`, `${VAR}`, PowerShell's `$env:VAR` and `${env:VAR}`, `%VAR%`, cmd.exe's
-// delayed `!VAR!`). Whatever it expands to, it is not a path the project root anchors, and read as
-// project-relative it would be joined under the root, where a host deny rule on ~/.ssh/** never
-// matches it. So it counts as rooted, and inside() finds it outside the project. `~` must end the
-// path or be followed by a user name and a separator, so a project file named like an editor's lock
-// file (`~$report.docx`) stays project-relative.
+// homeOrVarRoot matches a path that starts at a shell's home directory or another directory a tilde
+// names (`~`, `~user/`, `~-` and `~+`, OLDPWD and PWD, and `~N`, `~+N` and `~-N`, the directory
+// stack's entries; zsh's `~$NAME/`, a parameter it expands before the tilde, and its dynamic named
+// directory `~[name]/`) or at an environment variable (`$VAR`, `${VAR}`, PowerShell's `$env:VAR` and
+// `${env:VAR}`, `%VAR%`, cmd.exe's delayed `!VAR!`). Whatever it expands to, it is not a path the
+// project root anchors, and read as project-relative it would be joined under the root, where a host
+// deny rule on ~/.ssh/** never matches it. So it counts as rooted, and inside() finds it outside the
+// project. The tilde's word must end the path or be followed by a separator, and a `~$` word may hold
+// no `.`, which no parameter's name holds, so a project file named like an office lock file
+// (`~$report.docx`) stays project-relative. Fix round 3's review of candidate 8's diff verify:
+// `~+/../other/x.txt`, `~+1/.ssh/id_rsa` and zsh's `~$USER/.ssh/id_rsa` were relative names in a
+// path-named value, and shown.
 var homeOrVarRoot = regexp.MustCompile(
-	`^(~[A-Za-z0-9._-]*([\\/]|$)|\$\{?[A-Za-z_][A-Za-z0-9_]*|%[A-Za-z_][A-Za-z0-9_()]*%|![A-Za-z_][A-Za-z0-9_]*!)`)
+	`^(~([A-Za-z0-9._+-]*|\$[^\\/.]*|\[[^\]]*\])([\\/]|$)|\$\{?[A-Za-z_][A-Za-z0-9_]*|%[A-Za-z_][A-Za-z0-9_()]*%|![A-Za-z_][A-Za-z0-9_]*!)`)
 
 // summaryWithheld reports whether a tool pointer's summary may not be shown (D63; the file's header).
 // A canonical-JSON preview is judged value by value (jsonWithheld); a one-word summary as a
@@ -1105,8 +1152,13 @@ func (j pathJudge) judgeSummary(s string) bool {
 // whole as the one file a Read, Write or Edit names (so `$HOME/.ssh/id_rsa` can never be shown, D63).
 // A one-word value is one path, whose names end where its segments end, so the name screen reads
 // whole names in it (screenWhole: the project's own `.env.example` is not the denied `.env`); and a
-// rooted value spelled in one separator style is the exact path the host judges, so only the rules'
-// literals screen it (screenExact: an outside README.md never withholds the project's own).
+// rooted value spelled in one separator style that holds no other path (oneValuePath) is the exact
+// path the host judges, so only the rules' literals screen it (screenExact: an outside README.md never
+// withholds the project's own). A word that glues a second path on (`<root>/a.go;lnk/token.txt`) is
+// not that path: the host judged the whole word, and its pieces are screened by the withheld names
+// too (candidate 8's diff verify, finding 9). So is a word that holds a `+` past the root, where its
+// free-text reading starts a path (cmd.exe's copy, pathStartDelims) though a value's piece reads a
+// name's character there (`<root>/a.go+lnk/token.txt`; fix round 2's review).
 func (j pathJudge) oneWordWithheld(body string) bool {
 	switch {
 	case isURL(body):
@@ -1120,7 +1172,7 @@ func (j pathJudge) oneWordWithheld(body string) bool {
 		return j.valueWithheld(body)
 	}
 	mode := screenWhole
-	if j.exactRooted(body) {
+	if j.exactRooted(body) && j.oneValuePath(body) && !j.plusPastRoot(body) {
 		mode = screenExact
 	}
 	if j.textWithheld(body, false, mode) {
@@ -1129,12 +1181,23 @@ func (j pathJudge) oneWordWithheld(body string) bool {
 	return j.valueWithheld(body)
 }
 
+// plusPastRoot reports whether body, a one-word plain summary, holds a `+` past the project root's
+// own spelling that leads it (rootSpanAt): the one character after which free text starts a path
+// (pathStartDelims) that a value's piece reads as a name's own (valuePathStart) and the whitelist
+// lets stand inside a word.
+func (j pathJudge) plusPastRoot(body string) bool {
+	t := strings.TrimSpace(body)
+	return strings.Contains(t[j.rootSpanAt(t, 0):], "+")
+}
+
 // exactRooted reports whether v, a structured value the host judges whole, is the project root
 // followed by a path spelled in one separator style (only `/`, or, on Windows, only `\`): the host,
 // cmd.exe, PowerShell and a POSIX shell then read the same names after the root, so a name the build
 // withholds elsewhere (an outside README.md) names another file, and only the rules' literals can
 // tell its names from a refused file's (screenExact; ADR 0011 §23 item 6). A mixed spelling
-// (`<root>/private/de\ny.txt`, deny.txt to a POSIX shell) is not exact.
+// (`<root>/private/de\ny.txt`, deny.txt to a POSIX shell) is not exact. It reads only how v starts
+// and which separators it holds; whether v is one path is oneValuePath's to say, and screenExact
+// needs both.
 func (j pathJudge) exactRooted(v string) bool {
 	p := judgedSpelling(v)
 	marked := j.markRoot(sanitize(p))
@@ -1292,25 +1355,54 @@ const (
 	// screenWhole reads a structured value, one path: a whole literal or a withheld name counts only as
 	// a whole name (nameEndsAt).
 	screenWhole
-	// screenExact reads a rooted structured value spelled in one separator style (exactRooted), the
-	// exact path the host judged: whole names, and the rules' literals alone, not the withheld names.
+	// screenExact reads a rooted structured value spelled in one separator style (exactRooted) that is
+	// one path (oneValuePath), the exact path the host judged: whole names, and the rules' literals
+	// alone, not the withheld names.
 	screenExact
 )
 
 // textWithheld runs the free-text whitelist over v (freeTextWithheld) and judges each recall path:
 // selector in it (selectorWithheld). cut marks a value the store's preview cut, whose last token is
 // judged as a prefix. mode says how the name screen reads v: screenFree for a command, a query, a
-// prompt or a JSON string value; screenWhole or screenExact for a one-word structured value.
+// prompt or a JSON string value; screenWhole or screenExact for a one-word structured value. v is
+// judged in each of its control readings (controlReadings), and withheld when one is.
 func (j pathJudge) textWithheld(v string, cut bool, mode nameScreen) bool {
-	if j.freeTextWithheld(j.markRoot(sanitize(v)), cut, mode) {
-		return true
-	}
-	for _, s := range selectorValues(v) {
-		if j.selectorWithheld(s) {
+	for _, r := range controlReadings(v) {
+		if j.freeTextWithheld(j.markRoot(sanitize(r)), cut, mode) {
 			return true
+		}
+		for _, s := range selectorValues(r) {
+			if j.selectorWithheld(s) {
+				return true
+			}
 		}
 	}
 	return false
+}
+
+// controlReadings are the readings of t, a text, that the screen judges: t as the store's preview
+// spells it, whose control characters sanitize drops (store.previewString), and, when t holds a
+// control character sanitize drops (a C0 control but a tab, a line feed or a carriage return, or
+// DEL), t with each such character read as a space, as a reader that splits a list at it does
+// (`find -print0` and `git ls-files -z` write NUL-separated lists). The store's plain preview has
+// already dropped them, so only a canonical-JSON preview's decoded string, which keeps them as JSON
+// escapes, has a second reading. Dropped alone, a NUL glued `x` to `/etc/passwd` into the one
+// relative word `x/etc/passwd`, and `src/a.ts` to `.env` into `src/a.ts.env`, where the denied name
+// starts no name, and both were shown (candidate 8's diff verify, finding 8: coordinator decision
+// D66(e) fails it closed, so a text either reading withholds is withheld).
+func controlReadings(t string) []string {
+	if s := strings.Map(droppedControlAsSpace, t); s != t {
+		return []string{t, s}
+	}
+	return []string{t}
+}
+
+// droppedControlAsSpace maps a control character sanitize drops to an ASCII space (controlReadings).
+func droppedControlAsSpace(r rune) rune {
+	if (r < 0x20 && r != '\t' && r != '\n' && r != '\r') || r == 0x7f {
+		return ' '
+	}
+	return r
 }
 
 // freeTextWithheld runs the whitelist over marked, a text with the project root held together. When
@@ -1471,16 +1563,36 @@ func (j pathJudge) jsonWithheld(t string) bool {
 // pathNamedWithheld judges one path-named JSON value. host reports that it is the preview's only
 // path-named value, and so may cost one host judgement (containment and the host's rules); several
 // values ask the host nothing, so containment alone screens them. A glob is judged by what it selects
-// (globSelectsKnown), and every value is screened for a rule's literal, a withheld name and a
-// refusing selector (so `{"paths":["**/deny.txt"]}` is withheld by the literal `deny.txt`); a rooted
-// value the host judged in one separator style is screened by the rules' literals alone
-// (exactRooted). A value the store's cut fell inside is judged by the directory it spells whole, by
-// the host only when it is the preview's one path-named value, and by the screen's prefix rule
-// (cutValueWithheld).
+// (globSelectsKnown), and so is each glob stretch of a value that holds several paths
+// (globStretchSelectsKnown); every value is screened, in each of its readings (valueReadings), its
+// stretches among them, for a rule's literal, a withheld name and a refusing selector (so
+// `{"paths":["**/deny.txt"]}` is withheld by the literal `deny.txt`). A rooted
+// value the host judged in one separator style is screened by the rules' literals alone (exactRooted)
+// only when it is one path (oneValuePath): the host judged a value that holds several as one path
+// that no reader reads, so its pieces are screened by the withheld names too (candidate 8's diff
+// verify, finding 9). A value the store's cut fell inside is judged by the directory it spells whole,
+// by the host only when it is the preview's one path-named value, and by the screen's prefix rule
+// (cutValueWithheld). A value that holds a brace list is also judged alternative by alternative, each
+// as the value is (valueBraceAlternatives), and withheld when one level cannot read its list; the
+// alternatives' fresh host judgements are bounded for the build (braceJudgements), and an alternative
+// past the bound withholds its value unjudged.
 func (j pathJudge) pathNamedWithheld(v string, cut, host bool) bool {
 	v = strings.TrimSpace(v)
 	if v == "" {
 		return false
+	}
+	if alts, braced := valueBraceAlternatives(v); braced {
+		if alts == nil {
+			return true
+		}
+		// Each alternative's fresh host judgement counts against the build's bound (braceJudgements).
+		aj := j
+		aj.alternative = true
+		for _, a := range alts {
+			if aj.pathNamedWithheld(a, cut, host) {
+				return true
+			}
+		}
 	}
 	if j.valueNamesOutside(v, cut) {
 		return true
@@ -1493,24 +1605,269 @@ func (j pathJudge) pathNamedWithheld(v string, cut, host bool) bool {
 		if j.withheld(v) {
 			return true
 		}
-		if j.exactRooted(v) {
+		if j.exactRooted(v) && j.oneValuePath(v) {
 			mode = screenExact
 		}
 	} else if p := judgedSpelling(v); p == "" || !j.inside(p) {
 		return p != ""
 	}
-	if isGlob(v) && (j.globSelectsKnown(v) || j.textNamesWithheld(j.markRoot(sanitize(classReading(v))), mode)) {
+	if isGlob(v) && (j.globSelectsKnown(v) || j.globStretchSelectsKnown(v)) {
 		return true
 	}
-	if j.textNamesWithheld(j.markRoot(sanitize(v)), mode) {
+	readings, ok := j.valueReadings(v)
+	if !ok {
 		return true
 	}
-	for _, s := range selectorValues(v) {
-		if j.selectorWithheld(s) {
+	for _, r := range readings {
+		if isGlob(r.text) && j.textNamesWithheld(j.markRoot(sanitize(classReading(r.text))), mode) {
 			return true
+		}
+		if j.textNamesWithheld(j.markRoot(sanitize(r.text)), mode) {
+			return true
+		}
+		for _, s := range selectorValues(r.text) {
+			if j.selectorWithheld(s) {
+				return true
+			}
 		}
 	}
 	return false
+}
+
+// valueBraceAlternatives are the alternatives of v, a path-named value, as a shell's brace expansion
+// reads one level of a list (braceAlternatives: `~{,x}/.ssh/id_rsa` is `~/.ssh/id_rsa` and
+// `~x/.ssh/id_rsa`, `.{env,x}` is `.env` and `.x`), and braced reports whether v holds a list at all:
+// a `{` with a `,` or a `..` after it before the next `}` or v's end. A value that is braced with no
+// alternatives holds a list one level cannot read: a sequence (`{d..f}` is d, e and f; `{.../}` is
+// `.` and `/`), a nested or a second list, or one the store's cut left open, and is withheld (fail
+// closed). A brace with no list in it (`{{name}}`, `{draft}`) is literal to every shell, and v is
+// judged as it is. Fix round 2's review of candidate 8's diff verify: a path-named value skips the
+// free-text whitelist, so its brace list was never expanded, and `~{,x}/.ssh/id_rsa`,
+// `{,x}/etc/passwd` and `.{env,x}` under `Read(./.env)` were shown, while the one-word pattern rule
+// (patternWithheld, ADR 0011 §23 item 6) expands the same list.
+func valueBraceAlternatives(v string) (alts []string, braced bool) {
+	for i := strings.IndexByte(v, '{'); i >= 0 && !braced; {
+		list := v[i+1:]
+		if e := strings.IndexByte(list, '}'); e >= 0 {
+			list = list[:e]
+		}
+		braced = strings.Contains(list, ",") || strings.Contains(list, "..")
+		next := strings.IndexByte(v[i+1:], '{')
+		if next < 0 {
+			break
+		}
+		i += 1 + next
+	}
+	if !braced {
+		return nil, false
+	}
+	if alts, ok := braceAlternatives(v); ok && len(alts) > 1 {
+		return alts, true
+	}
+	return nil, true
+}
+
+// valueReading is one reading of a path-named value that the name screen judges (valueReadings): its
+// text, and whether it runs to the value's end (tail), where the store's cut may have fallen.
+type valueReading struct {
+	text string
+	tail bool
+}
+
+// maxValueStretches bounds the stretches of one path-named value that are judged one by one
+// (valueReadings, globStretchSelectsKnown). The store's preview is at most 120 bytes, so a value
+// holds at most that many places a piece starts or ends, and their pairs grow with the square; a
+// value that has more stretches than this is withheld unread (coordinator decision D66(e): fail
+// closed). A list of 21 paths glued by a character the screen does not read as a boundary stays
+// under it.
+const maxValueStretches = 256
+
+// valueReadings are the readings of v, a path-named value, that the name screen judges, and false
+// when the screen has something to find (screensNames) and v has more than maxValueStretches
+// stretches (the caller withholds it). They are v as the store's preview spells it, whose control
+// characters sanitize drops, whose quotes screen form removes (screenText) and whose characters
+// outside ASCII nameByte reads as a name's; its name form (valueNameForm), when that differs; and,
+// while the screen has something to find, each stretch of v from a place a piece or a path starts to
+// a place one ends (valueBounds) at which that spelling reads no name's boundary. A name the screen
+// withholds then starts and ends where a reader's piece does even when it holds one of those
+// characters itself: `o'brien.env`, `q3–secrets.xlsx`, `a,b.env` or a learned `bob's keys.txt`
+// after or before a NUL or an NBSP was glued to its neighbour by the spelling and split at its own
+// character by the name form, and shown (fix round 1's review of candidate 8's diff verify, finding
+// 8). A value any reading withholds is withheld (coordinator decision D66(e): over-withholding is
+// accepted, showing a refused path is not), so each reading only ever withholds more.
+func (j pathJudge) valueReadings(v string) ([]valueReading, bool) {
+	readings := []valueReading{{v, true}}
+	if f := valueNameForm(v); f != v {
+		readings = append(readings, valueReading{f, true})
+	}
+	if !j.screensNames() {
+		return readings, true
+	}
+	starts, ends := j.valueBounds(v)
+	n := 0
+	for _, s := range starts {
+		if s.seen && s.at > 0 {
+			continue
+		}
+		for _, e := range ends {
+			if e.at <= s.at || (e.seen && e.at < len(v)) || (s.at == 0 && e.at == len(v)) {
+				continue
+			}
+			if n++; n > maxValueStretches {
+				return nil, false
+			}
+			readings = append(readings, valueReading{v[s.at:e.at], e.at == len(v)})
+		}
+	}
+	return readings, true
+}
+
+// globStretchSelectsKnown reports whether v, a glob that holds more than one path or more than one
+// place a path starts, has a stretch from a place a piece or a path starts to a place one ends
+// (valueBounds, the root's own spelling held whole) that is a glob selecting a path the build
+// withholds (globSelectsKnown), as the stretch would alone; or more than maxValueStretches glob
+// stretches, which it withholds unread (fail closed). Fix round 1's review of candidate 8's diff
+// verify: a glob piece after an ASCII space or an opener (`src/a.ts .en*`, `src/a.ts:lnk/tok*`), and
+// a rooted one under a root with a space in it, cut there, were judged only as the whole value, which
+// selects nothing, and shown, while the same glob alone was withheld.
+func (j pathJudge) globStretchSelectsKnown(v string) bool {
+	if len(j.known) == 0 {
+		return false
+	}
+	starts, ends := j.valueBounds(v)
+	n := 0
+	for _, s := range starts {
+		for _, e := range ends {
+			if e.at <= s.at || (s.at == 0 && e.at == len(v)) {
+				continue
+			}
+			pc := strings.TrimSpace(v[s.at:e.at])
+			if !isGlob(pc) {
+				continue
+			}
+			if n++; n > maxValueStretches {
+				return true
+			}
+			if j.globSelectsKnown(pc) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// screensNames reports whether the name screen has anything to find: a rule's literal, or a path the
+// build withholds by its key, its names or its spelling (textNamesWithheld, cutPrefixNamed,
+// selectsKnown). With none, no stretch of a value can be withheld by a name, so none is read
+// (valueReadings) and none counts against maxValueStretches; a path outside the project in any piece
+// is valueNamesOutside's to find, rules or not.
+func (j pathJudge) screensNames() bool {
+	return len(j.screens) > 0 || len(j.openScreens) > 0 || len(j.midScreens) > 0 ||
+		len(j.known) > 0 || len(j.knownText) > 0 || len(j.knownPaths) > 0
+}
+
+// valueBound is a place in a path-named value where a piece or a path starts or ends (valueBounds),
+// and whether the name screen reads a name's boundary there already (seen, screenBoundary).
+type valueBound struct {
+	at   int
+	seen bool
+}
+
+// valueBounds are the places in t, a path-named value, where valueNamesOutside reads a piece or a
+// path as starting (starts: t's start, each piece's start after a character a list splits at,
+// valueListSep, and each place a path may start in a piece, valuePathStart) and where one ends (ends:
+// before each such separator, before the character after which a path starts, before a closing
+// bracket, and t's end), none inside the project root's own spelling, which is read whole where a
+// path starts (rootSpanAt). A place is seen when the character on its far side is one the name screen
+// reads as a name's boundary (screenBoundary), so that a name starting or ending there is read in
+// any stretch that holds it.
+func (j pathJudge) valueBounds(t string) (starts, ends []valueBound) {
+	starts = []valueBound{{0, true}}
+	piece := 0
+	for i := 0; i < len(t); {
+		if valuePathStart(t, piece, i) {
+			if i > 0 {
+				prev, size := utf8.DecodeLastRuneInString(t[:i])
+				starts = append(starts, valueBound{i, screenBoundary(prev)})
+				if !valueListSep(prev) {
+					ends = append(ends, valueBound{i - size, screenBoundary(prev)})
+				}
+			}
+			if n := j.rootSpanAt(t, i); n > 0 {
+				i += n
+				continue
+			}
+		}
+		r, size := utf8.DecodeRuneInString(t[i:])
+		switch {
+		case valueListSep(r):
+			ends = append(ends, valueBound{i, screenBoundary(r)})
+			piece = i + size
+		case r == ')' || r == ']' || r == '}':
+			ends = append(ends, valueBound{i, true})
+		}
+		i += size
+	}
+	return starts, append(ends, valueBound{len(t), true})
+}
+
+// screenBoundary reports whether the name screen reads r, a character of a path-named value, as a
+// name's boundary on both sides of it (nameStartsAt, nameEndsAt): ASCII whitespace, which sanitize
+// keeps as a space, and an ASCII character that is no name's (nameByte) and that the screen's
+// spelling keeps; not a control character, which sanitize drops, not ' " ` \ ^, which screen form
+// removes (screenText), and not a character outside ASCII, whose bytes nameByte reads as a name's.
+func screenBoundary(r rune) bool {
+	switch {
+	case r == ' ' || r == '\t' || r == '\n' || r == '\r':
+		return true
+	case r <= 0x20 || r >= 0x7f:
+		return false
+	}
+	return !nameByte(byte(r)) && strings.IndexByte("'\"`\\^", byte(r)) < 0
+}
+
+// valueNameForm is v, a path-named value, with each character at which one of its pieces may end or
+// a path may start inside one, and which the screen would otherwise drop or read as part of a name,
+// read as an ASCII space (candidate 8's diff verify, finding 8): every character a list splits at
+// (valueListSep), a control character among them, C0 or DEL, which sanitize drops, or C1, and a
+// space outside ASCII (NBSP, U+2028, U+3000), whose bytes nameByte reads as a name's; every
+// character outside ASCII that the whitelist reads as no letter (wordRune), after which a path starts
+// (valuePathStart): a letter whose ANSI best fit is punctuation (U+02BA), an invisible format
+// character such as a zero-width space, a symbol; and a quote or a backtick, after which a path starts
+// too and which screen form removes. Glued so, a piece that starts with a rule's literal or a withheld
+// name (`.env` after `src/a.ts` and a NUL, `secrets/key.pem` after an NBSP) started no name, the
+// screen never read it, and section 6 showed it (77374c3c). In the name form each piece starts where
+// a name starts. A path's other starts (valueOpeners' `: = @ ( [ { < > &`) are no name's characters
+// (nameByte), so a name already starts after them; the root's own spelling holds none of these
+// characters when it has a unit (rootUnitAdmitted), so the name form holds it as v does.
+func valueNameForm(v string) string {
+	return strings.Map(func(r rune) rune {
+		if valueListSep(r) || (r >= utf8.RuneSelf && !wordRune(r)) || r == '"' || r == '\'' || r == '`' {
+			return ' '
+		}
+		return r
+	}, v)
+}
+
+// oneValuePath reports whether v, a structured value, is one path as valueNamesOutside reads one:
+// past the project root's own spelling that may lead it (rootSpanAt), no character a list splits at
+// (valueListSep) and no place a path may start (valuePathStart). Only then is the path the host
+// judged the one a reader reads, so only then may a rooted value be screened by the rules' literals
+// alone (screenExact; candidate 8's diff verify, finding 9: `<root>/src/a.go <root>/lnk/token.txt`
+// and `<root>/src/a.go;lnk/token.txt`, whose lnk is a link into a refused directory, were shown).
+func (j pathJudge) oneValuePath(v string) bool {
+	t := strings.TrimSpace(v)
+	for i := j.rootSpanAt(t, 0); i < len(t); {
+		if i > 0 && valuePathStart(t, 0, i) {
+			return false
+		}
+		r, size := utf8.DecodeRuneInString(t[i:])
+		if valueListSep(r) {
+			return false
+		}
+		i += size
+	}
+	return true
 }
 
 // valueNamesOutside reports whether v, a path-named value (cut: the store's cut fell inside it), names
@@ -1618,11 +1975,11 @@ const valueLeaders = "!\"#&'()+:<=>@[]^`{}"
 // ANSI best fit is ASCII punctuation (bestFitPunct: U+02BA reaches an ANSI program as `"`, U+01C0 as
 // `|`; wave 22's verify, fix round 2); after a run of leaders that leads the piece (valueLeaders); and
 // after a short option that leads it, after its first letter and after all its letters (`-I/opt`,
-// `-C../x`), as free text reads one (pathStarts). Inside a piece `+ # ) ] } ! ^` stay a name's own
-// characters (`c++/x`, `C#/x`, `(auth)/x`, `[id]/x`), a deliberate residual ADR 0011 §23 item 6
-// names.
+// `-C../x`), as free text reads one (pathStarts); and where a name a shell builds at run time starts
+// (runTimeAt). Inside a piece `+ # ) ] } ! ^` stay a name's own characters (`c++/x`, `C#/x`,
+// `(auth)/x`, `[id]/x`), a deliberate residual ADR 0011 §23 item 6 names.
 func valuePathStart(t string, start, i int) bool {
-	if i == start {
+	if i == start || runTimeAt(t, start, i) {
 		return true
 	}
 	r, size := utf8.DecodeLastRuneInString(t[start:i])
@@ -1640,6 +1997,81 @@ func valuePathStart(t string, start, i int) bool {
 	}
 	k := shortOptionEnd(t[start:])
 	return k > 0 && (i-start == 2 || i-start == k)
+}
+
+// runTimeAt reports whether a name a shell builds at run time starts at i in t, a path-named value,
+// inside the piece that starts at start (valuePathStart): a command substitution or a parameter
+// expansion in braces (`$(`, `${`) or a backtick, anywhere in the piece, since a project's paths hold
+// none of them and its output may start at any root (`..$(pwd)` is `../home/u/proj`); or any other
+// expansion a `$` starts (`$HOME`, `$1`), or cmd.exe's `%` or delayed `!` starts (`%HOMEPATH%`,
+// `!HOMEPATH!`, `%~dp0`), after a segment's run of dots (`..$HOME` is `../home/u`,
+// `..%HOMEPATH%` is `..\Users\u`). Elsewhere inside a name a `$`, a `%` and a `!` stay a name's own
+// characters (Java's `Outer$Inner.class`, Remix's `users.$userId.tsx`, `50%off.md`), a residual ADR
+// 0011 §23 item 6 names. What runs from such a start is judged by runTimeRooted (fix round 2's review
+// of candidate 8's diff verify; its fix round 3's review added cmd.exe's `%` and `!`).
+func runTimeAt(t string, start, i int) bool {
+	switch {
+	case i >= len(t):
+		return false
+	case t[i] == '`' || strings.HasPrefix(t[i:], "$(") || strings.HasPrefix(t[i:], "${"):
+		return true
+	case t[i] != '$' && t[i] != '%' && t[i] != '!':
+		return false
+	}
+	k := i
+	for k > start && t[k-1] == '.' {
+		k--
+	}
+	return k < i && (k == start || isSep(t[k-1]) || valuePathStart(t, start, k))
+}
+
+// runTimeRooted reports whether rest, the text at a place a path starts in a piece of a path-named
+// value (cut: the store's cut fell inside it), starts a name a shell builds at run time, which no
+// project root anchors, so it is outside the project as homeOrVarRoot's `$NAME` is: a backtick (a
+// command substitution), or a `$` before anything but a separator (a substitution `$(…)`, any
+// parameter expansion, `${…}` in every form, `$1`, `$@`, zsh's `$=name`, arithmetic, `$'…'`
+// quoting) or before the cut, which may have taken what followed it; or a cmd.exe expansion that
+// homeOrVarRoot does not spell (cmdVarRooted). A lone `$` and `$/x` are literal to every shell. Fix
+// round 2's review of candidate 8's diff verify: `$(pwd)/../other`, `$(echo ~)/.ssh`, a backtick pair
+// before `-old/x` and `${!x}/y` were read as relative paths and shown.
+func runTimeRooted(rest string, cut bool) bool {
+	switch {
+	case rest == "":
+		return false
+	case rest[0] == '`':
+		return true
+	case rest[0] == '%' || rest[0] == '!':
+		return cmdVarRooted(rest, cut)
+	case rest[0] != '$':
+		return false
+	case len(rest) == 1:
+		return cut
+	}
+	return !isSep(rest[1])
+}
+
+// cmdVarRooted reports whether rest, the text at a place a path starts in a piece of a path-named
+// value that starts with a `%` or a `!` (cut: the store's cut fell inside it), starts a cmd.exe
+// expansion that homeOrVarRoot's `%NAME%` and `!NAME!` do not spell, which no project root anchors
+// either: a batch file's parameter or a FOR variable (`%1`, `%*`, `%~dp0`, `%%i`), which names the
+// batch file's arguments or its own directory; or, when the cut fell inside rest, a `%` or a `!` and
+// a name that run to the cut, which may have taken the closing `%` or `!` (`%HOMEP…`, as a cut
+// `$HOM…` is rooted; a cut `!src…` that leads a piece is over-withheld so). Any other `%` or `!` is
+// judged as a name's character. A `%` and a digit where a path starts read as a parameter even when
+// they spell an escaped byte (`%20draft.md`, over-withheld there; `docs/%20draft.md` holds no path
+// start at its `%`). Fix round 3's review of candidate 8's diff verify: `..%HOMEPATH%\.ssh\id_rsa`
+// and `%~dp0..\x` were read as relative paths and shown.
+func cmdVarRooted(rest string, cut bool) bool {
+	if rest[0] == '%' && len(rest) > 1 && (rest[1] >= '0' && rest[1] <= '9' || strings.IndexByte("*~%", rest[1]) >= 0) {
+		return true
+	}
+	return cut && strings.IndexFunc(rest[1:], notCmdVarRune) < 0
+}
+
+// notCmdVarRune reports a character that is no part of the name of a variable cmd.exe expands
+// (homeOrVarRoot's `%NAME%`, whose name may hold parentheses: `%ProgramFiles(x86)%`).
+func notCmdVarRune(r rune) bool {
+	return r >= utf8.RuneSelf || !(asciiLetter(byte(r)) || r >= '0' && r <= '9' || r == '_' || r == '(' || r == ')')
 }
 
 // notValueLeader reports a character that is no leader of a piece (valuePathStart): neither one of
@@ -1727,9 +2159,9 @@ func namesDrive(pc string, held []bool, s int) bool {
 // (providerPath; a drive letter's is containment's to judge), or, when the cut fell right after its
 // `:`, would be one with a name after it (D64(2)); or, when it is not rooted, it climbs out in either other reading of its backslashes,
 // as a separator wherever the value was recorded and as a POSIX shell's escape (`..\x` on Linux,
-// `.\./x`).
+// `.\./x`); or it starts a name a shell builds at run time (runTimeRooted).
 func (j pathJudge) restOutside(rest string, cut, drive bool) bool {
-	if !j.inside(rest) {
+	if runTimeRooted(rest, cut) || !j.inside(rest) {
 		return true
 	}
 	if drive && !driveLetter(rest) && (providerPath(rest) || (cut && strings.HasSuffix(rest, ":") && providerPath(rest+"x"))) {
@@ -1774,10 +2206,13 @@ func (j pathJudge) valueWithheld(v string) bool {
 // byte for byte as v spells it (rootPrefix), is the project. Otherwise the directory it spells whole,
 // all but that last segment, is judged as a path: by containment and, when host is set (the
 // summary's one structured value), by the host's rules, one judgement; a value with no directory
-// part is withheld only when it is rooted outside the project (`~`, `$HOM`). Then the value is
-// screened as the end of a cut text is (cutPrefixNamed): a rule's literal or a withheld name it
-// holds, or the start of one it ends in (`private/den…`), withholds it. A cut value is never a
-// withheld name (recordedPath).
+// part is withheld only when it is rooted outside the project (`~`, `$HOM`). A glob stretch of it
+// that selects a path the build withholds (globStretchSelectsKnown; one the cut ended is judged as
+// the cut left it) withholds it. Then the value is screened as the end of a cut text is, in each of
+// its readings (valueReadings): a rule's literal or a withheld name it holds, or the start of one
+// that a reading running to the cut ends in (cutPrefixNamed: `private/den…`, `src/a.ts<NUL>.en…`,
+// `src/a.ts<NUL>o'brien.e…`), withholds it; a value with too many stretches to read is withheld. A
+// cut value is never a withheld name (recordedPath).
 func (j pathJudge) cutValueWithheld(v string, host bool) bool {
 	p := judgedSpelling(v)
 	if p == "" || j.rootPrefix(v) {
@@ -1801,8 +2236,20 @@ func (j pathJudge) cutValueWithheld(v string, host bool) bool {
 	case !host && !j.inside(dir):
 		return true
 	}
-	marked := j.markRoot(sanitize(v))
-	return j.textNamesWithheld(marked, screenWhole) || j.cutPrefixNamed(marked)
+	if isGlob(v) && j.globStretchSelectsKnown(v) {
+		return true
+	}
+	readings, ok := j.valueReadings(v)
+	if !ok {
+		return true
+	}
+	for _, r := range readings {
+		marked := j.markRoot(sanitize(r.text))
+		if j.textNamesWithheld(marked, screenWhole) || (r.tail && j.cutPrefixNamed(marked)) {
+			return true
+		}
+	}
+	return false
 }
 
 // rootPrefix reports whether t, a stretch of a text the store's cut fell inside, is the start of the
