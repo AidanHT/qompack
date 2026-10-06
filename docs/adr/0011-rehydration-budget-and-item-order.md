@@ -887,8 +887,11 @@ do not fold the two readings are one.
      from the root through its last word that holds a separator (item 6), so a link at a name with a
      space in its last segment (`<root>/docs/my notes.txt`, judged as `<root>/docs/my`) is not
      resolved; a rule on that name screens by its literal. Several path-named values of a JSON
-     preview, and a relative Glob or Grep preview of several words, are screened without the host,
-     so a link or an 8.3 name in them is not resolved either.
+     preview, the pieces of one path-named value that holds several paths (the host judges such a
+     value as one string, a path no reader reads), and a relative Glob or Grep preview of several
+     words, are screened without the host, so a link or an 8.3 name in them is not resolved either:
+     only a rule's literal or a name the build learned as withheld (from a file pointer, a drop or a
+     one-path summary the host refused) withholds such a piece (candidate 8's diff verify, finding 9).
    - Globs, brace expansions, variables and names assembled at run time are never shown in free
      text, so none needs resolving: a token holding `*`, `?`, `[`, `{`, `$`, a `%` that could be an
      escape or a variable, a quote other than item 7(a)'s, a backtick or a caret is withheld rather
@@ -959,9 +962,10 @@ do not fold the two readings are one.
      over-withholding and D63 keeps it for free text. A structured value is one path, so there a
      whole literal counts only as a whole name (item 7(c)): the project's own `.env.example` is shown
      under `Read(./.env)`; a literal that starts a glob segment (`secret` for `Read(./secret*)`) counts
-     whatever follows it there too. A rooted structured value spelled in one separator style is
-     screened by the rules' literals alone (item 6), so a Read of the project's own README.md is
-     shown beside a withheld outside README.md, while `git diff README.md` stays withheld.
+     whatever follows it there too. A rooted structured value spelled in one separator style that
+     names one path is screened by the rules' literals alone (item 6), so a Read of the project's own
+     README.md is shown beside a withheld outside README.md, while `git diff README.md` stays
+     withheld.
    - A glob that selects only files Qompack never recorded is judged as written: Build reads no
      files, so it has no listing to match against (D60(iv)). A structured glob, and recall's `path:`
      selector, are withheld when they select a path the build records as withheld (items 6 and 7).
@@ -1087,9 +1091,15 @@ do not fold the two readings are one.
      longer withholds the project's own `<root>/README.md`, `<root>/.claude/settings.json` or
      `<root>/config/database.yml` (they are other files, which the host has judged). A mixed spelling
      (`<root>/private/de\ny.txt`, deny.txt to a POSIX shell), a relative value (read from a working
-     directory the host does not know) and a pattern keep the withheld names. `<root>/README.md` is
-     still withheld beside a denied `private/README.md`, whose rule's literal is the whole name
-     `README.md` (accepted over-withholding, which D67(l) keeps as shipped).
+     directory the host does not know) and a pattern keep the withheld names. So does a rooted value
+     that names more than one path (`oneValuePath`: past the root, a list separator, `valueListSep`,
+     or any other place a path starts, `valuePathStart`), such as `<root>/src/a.go
+     <root>/lnk/token.txt` or the one-word `<root>/a.go;lnk/token.txt`: the host judged the whole
+     string, not the path a reader reads after the first piece, so a later piece that the build
+     withholds only by a learned name (lnk a link into a refused directory) was shown at 77374c3c
+     (candidate 8's diff verify, finding 9). `<root>/README.md` is still withheld beside a denied
+     `private/README.md`, whose rule's literal is the whole name `README.md` (accepted
+     over-withholding, which D67(l) keeps as shipped).
    - *Several path-named values, and cut ones.* A path-named JSON value is exempt from the whitelist
      (it is a structured identifier, not a command), and its names are whole names too; a preview with
      SEVERAL path-named values costs no host judgement: each is screened by containment, by the rule
@@ -1144,7 +1154,20 @@ do not fold the two readings are one.
      semicolon or a parenthesis stays one piece whatever else the root holds (a value is no shell
      input, so D64(1)'s set does not apply), and a single project path with a space in it, quoted or
      not, is shown. A cut value's last piece is the start of a piece: from a place a path starts
-     that begins the root's own spelling byte for byte to the cut it is the project (D64(8)).
+     that begins the root's own spelling byte for byte to the cut it is the project (D64(8)). Its
+     in-project pieces are judged by the rule literals and the withheld names alone (item 2's
+     limits), each from its own start: the name screen reads the value as the store spells it and
+     in its name form (`valueNameForm`), where every list separator, every character outside ASCII
+     that the whitelist reads as no letter, and every quote or backtick is a space, and a value
+     either reading withholds is withheld, cut or not. Glued by a character the screen dropped (a C0
+     control, DEL), read as part of a name (a C1 control, NBSP, U+2028, U+3000, U+02BA, a zero-width
+     space) or removed (a quote), a piece that starts with a rule's literal or a withheld name
+     (`.env` after `src/a.ts` and a NUL under `Read(./.env)`, `secrets/key.pem` after an NBSP under
+     `Read(./secrets/**)`) started no name and was shown at 77374c3c (candidate 8's diff verify,
+     finding 8). A DEL, which JSON leaves unescaped, and any C0 control in a value the store
+     previews as plain text (`file_path`, `path`, `pattern`, `command`, `url`) are dropped by the
+     store's preview itself (`store.previewString`), so that boundary is gone before a build reads
+     the summary: a residual of the store's record, not of the screen.
 7. *Free text is shown only when the whitelist vouches for every token* (D63(2)-(4)). Every other
    summary, and every other string of a JSON preview, is free text; an object's keys are screened as
    free text too: D63(1) judges a preview by its decoded strings, and a key is one, which may carry a
@@ -1404,9 +1427,11 @@ do not fold the two readings are one.
        and each is withheld glued after anything else (`--query=path:x`)
        (`TestBuild_APowerShellProviderDrivePathIsWithheld`). What follows an inert prefix's `:` is
        still a path start (`select:/etc/passwd` is withheld).
-     - *A rooted structured value in one separator style* (item 6). Every reader reads the same names
-       after the root, the host's judgement included, so the rules' literals alone can tell its names
-       from a refused file's (`TestBuild_AnOutsideNamesakeNeverWithholdsAProjectPath`).
+     - *A rooted structured value in one separator style* (item 6) that names one path
+       (`oneValuePath`). Every reader reads the same names after the root, the host's judgement
+       included, so the rules' literals alone can tell its names from a refused file's
+       (`TestBuild_AnOutsideNamesakeNeverWithholdsAProjectPath`). One that names more than one path
+       keeps the withheld names (candidate 8's diff verify, finding 9).
      - *A JSON preview's keys.* A key is a decoded string, screened as free text as every string but a
        path-named value is (`TestBuild_AJSONKeyIsScreenedAsAString`).
    - *The root's unit* (D64(1)). The unit hides the root's own characters from the token checks, so it
