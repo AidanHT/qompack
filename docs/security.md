@@ -86,16 +86,22 @@ are withheld), while the names a project's paths hold (`app/(auth)/page.tsx`, `p
 `lib/c++/x.h`, `docs/R&D/plan.md`) and the project root's own spelling, read whole, stay shown, so a
 single project path with a space in it, quoted or not, is shown. Inside a piece `+ # ) ] } ! ^`
 stay a name's characters, so a rooted path glued after one of them there (`a.txt+\Windows\win.ini`)
-is not judged as a path; the same text in free text is withheld.
+is not judged as a path; the same text in free text is withheld. These rules see such a value only
+as one whole string, so its in-project pieces are screened by the rule literals and withheld names
+below, each read from its own start: a control character, a Unicode space, a letter whose ANSI best
+fit is punctuation or a quote between two pieces counts as a space (`{"paths":"src/a.ts\u0000.env"}`
+is withheld under `Read(./.env)`). A piece these rules refuse only through a link or an 8.3 name
+that the block has not learned as withheld is not withheld by that screen.
 Containment reads a glob as a glob: a class, a `?` or a leading dot that may match `..`, and a
 class that may match a separator (`[/]etc[/]passwd`), name a path outside the project, and so does a
 `file:` URL wherever it stands. A one-word summary must also pass the free-text screen, reading whole
 names (the project's own `.env.example` is not the denied `.env`; `.env.`, `.env:stream` and
 `deny.txt#L4` are); a rule's literal that starts a glob segment (`secret` for `Read(./secret*)`)
-counts whatever follows it; and a rooted path spelled in one separator style is screened by the
-rules' literals alone, so a Read outside the project never withholds the project's own file of the
-same name. Any other summary (a command, a query, a prompt, a URL) is free text, and is SHOWN only
-when a whitelist proves it safe (coordinator decision D63): every whitespace-delimited token must be
+counts whatever follows it; and a rooted path spelled in one separator style that names one path
+(no list separator or second path after the root) is screened by the rules' literals alone, so a
+Read outside the project never withholds the project's own file of the same name. Any other
+summary (a command, a query, a prompt, a URL) is free text, and is SHOWN only when a whitelist
+proves it safe (coordinator decision D63): every whitespace-delimited token must be
 built only from letters, digits and a small safe punctuation set (a few shell operators, the null
 device's redirects, a simple double-quoted run, which may hold parentheses, a simple single-quoted
 run allowed whole, and an http(s) URL built only from letters, digits and `- . _ ~ : / ? # @ & = +`;
