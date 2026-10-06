@@ -106,8 +106,9 @@ type HostRules struct {
 // each distinct path among the file pointers, the structured summaries (one path each), the
 // instruction and skill files items 6a and 6b would restore, and, while a rule anchored outside the
 // project is in force, rootProbe (screenBy), and, while a Read rule's pattern is in force, for at
-// most maxDropJudgements of the path-keyed checkpoint drops' other paths (dropJudgements), from one
-// goroutine; free text never reaches it.
+// most maxDropJudgements of the path-keyed checkpoint drops' other paths (dropJudgements) and at most
+// maxBraceJudgements of the alternatives of the brace lists in the structured summaries
+// (braceJudgements), from one goroutine; free text never reaches it.
 type HostPaths func() HostRules
 
 // pathJudge decides, for one build, which recorded paths and summaries the payload may show.
@@ -176,6 +177,13 @@ type pathJudge struct {
 	// drops counts the host judgements made while newPathJudge reads the path-keyed checkpoint drops
 	// (dropJudgements); nil outside a judge newPathJudge made.
 	drops *dropJudgements
+	// braces counts the host judgements made for the alternatives of the brace lists in path-named
+	// values (braceJudgements); nil outside a judge newPathJudge made, and a judge with none answers
+	// each alternative as refused.
+	braces *braceJudgements
+	// alternative is set on the copy of the judge that judges a brace list's alternatives
+	// (pathNamedWithheld), whose fresh host judgements braces counts and bounds.
+	alternative bool
 	// rootTail is the last segment of the root's spelling as rootSpelling matches it, its ASCII
 	// letters lower-cased where the platform's paths fold: every match holds it (held's prefilter);
 	// "" when the root has no last segment.
@@ -244,6 +252,29 @@ type dropJudgements struct {
 // (dropJudgements). With the daemon's adapter, which may Evaluate a path more than once, it keeps the
 // drops' term near a tenth of a second on an idle Windows host, whatever the session's length.
 const maxDropJudgements = 64
+
+// braceJudgements bounds the host judgements a build makes for the alternatives of the brace lists in
+// its path-named values (fix round 3's review of candidate 8's diff verify, ADR 0011 §23 items 6 and
+// 10). A preview's one path-named value that holds a brace list is judged alternative by alternative,
+// each by the host (pathNamedWithheld), and a 120-byte preview holds about 51 alternatives, so a
+// checkpoint whose tool pointers each carry such a list asked the host about 52 times a pointer: a
+// hundred of them took a build through the daemon's adapter from 53 ms to seconds, while every other
+// summary costs about one judgement. While bounded is set (a Read rule's pattern is in force, as for
+// the drops; with none the host's rules are empty, refuse nothing and read no file), hostRefuses makes
+// at most maxBraceJudgements fresh judgements for the alternatives in a build and answers every later
+// fresh alternative as refused without a judgement, so the value that holds it is withheld (fail
+// closed, coordinator decision D66(e)). The answer is never kept in judged: the same path judged
+// elsewhere asks the host. An alternative the build already judged costs nothing.
+type braceJudgements struct {
+	bounded bool
+	made    int
+}
+
+// maxBraceJudgements is the most host judgements a build makes for the alternatives of the brace
+// lists in its path-named values (braceJudgements): as many as the drops' bound, about a tenth of a
+// second through the daemon's adapter on an idle Windows host, however many such lists a checkpoint
+// carries.
+const maxBraceJudgements = 64
 
 // screenBy adds each rule pattern's literal and specifier to the build's screens (D63(4), kept from
 // D61(2)(a)). A rule with no literal refuses everything it is anchored at; a rule anchored outside
@@ -463,7 +494,8 @@ func globSegMatch(pat, seg string) bool {
 func newPathJudge(r Request, d Deps) pathJudge {
 	j := pathJudge{
 		root: r.ProjectRoot, judged: make(map[string]bool), unjudged: make(map[string]bool),
-		drops: &dropJudgements{}, rootSpelling: rootSpellingOf(r.ProjectRoot), broadSpelling: broadRootSpellingOf(r.ProjectRoot),
+		drops: &dropJudgements{}, braces: &braceJudgements{},
+		rootSpelling: rootSpellingOf(r.ProjectRoot), broadSpelling: broadRootSpellingOf(r.ProjectRoot),
 		rootUnit: rootUnitAdmitted(r.ProjectRoot), rootExact: rootSpelledExactly(r.ProjectRoot), rootTail: rootTailOf(r.ProjectRoot),
 		memo: &buildMemo{held: make(map[heldKey]string)},
 	}
@@ -478,6 +510,7 @@ func newPathJudge(r Request, d Deps) pathJudge {
 			j.screenBy(h.Patterns)
 		}
 		j.drops.bounded = len(h.Patterns) > 0
+		j.braces.bounded = len(h.Patterns) > 0
 	}
 	for _, f := range r.Checkpoint.Pointers.Files {
 		if j.withheld(f.Path) {
@@ -803,7 +836,9 @@ func judgedSpelling(path string) string {
 // hostRefuses reports whether the host's rules refuse p (a judgedSpelling), or could not be
 // established; with no host rules in force it is false. Each answer the host gives is memoized for
 // the build (judged). While newPathJudge reads the drops past their bound, p is answered as refused
-// without a judgement, and that answer is kept for the drops alone (unjudged, dropWithheld).
+// without a judgement, and that answer is kept for the drops alone (unjudged, dropWithheld). A brace
+// list's alternative past the alternatives' bound (braceJudgements) is answered as refused without a
+// judgement, and that answer is kept nowhere.
 func (j pathJudge) hostRefuses(p string) bool {
 	if !j.host {
 		return false
@@ -813,6 +848,13 @@ func (j pathJudge) hostRefuses(p string) bool {
 	}
 	if w, ok := j.judged[p]; ok {
 		return w
+	}
+	if j.alternative && (j.braces == nil || j.braces.bounded) {
+		if j.braces == nil || j.braces.made >= maxBraceJudgements {
+			// Past the alternatives' bound: refused without a judgement (fail closed).
+			return true
+		}
+		j.braces.made++
 	}
 	if j.drops != nil && j.drops.reading && j.drops.bounded {
 		if j.drops.made >= maxDropJudgements {
@@ -1035,15 +1077,20 @@ func fileScheme(p string) bool { return len(p) >= 5 && strings.EqualFold(p[:5], 
 // driveSpelling matches a path that starts at a Windows drive, absolute or drive-relative.
 var driveSpelling = regexp.MustCompile(`^[A-Za-z]:`)
 
-// homeOrVarRoot matches a path that starts at a shell's home directory (`~`, `~user/`) or at an
-// environment variable (`$VAR`, `${VAR}`, PowerShell's `$env:VAR` and `${env:VAR}`, `%VAR%`, cmd.exe's
-// delayed `!VAR!`). Whatever it expands to, it is not a path the project root anchors, and read as
-// project-relative it would be joined under the root, where a host deny rule on ~/.ssh/** never
-// matches it. So it counts as rooted, and inside() finds it outside the project. `~` must end the
-// path or be followed by a user name and a separator, so a project file named like an editor's lock
-// file (`~$report.docx`) stays project-relative.
+// homeOrVarRoot matches a path that starts at a shell's home directory or another directory a tilde
+// names (`~`, `~user/`, `~-` and `~+`, OLDPWD and PWD, and `~N`, `~+N` and `~-N`, the directory
+// stack's entries; zsh's `~$NAME/`, a parameter it expands before the tilde, and its dynamic named
+// directory `~[name]/`) or at an environment variable (`$VAR`, `${VAR}`, PowerShell's `$env:VAR` and
+// `${env:VAR}`, `%VAR%`, cmd.exe's delayed `!VAR!`). Whatever it expands to, it is not a path the
+// project root anchors, and read as project-relative it would be joined under the root, where a host
+// deny rule on ~/.ssh/** never matches it. So it counts as rooted, and inside() finds it outside the
+// project. The tilde's word must end the path or be followed by a separator, and a `~$` word may hold
+// no `.`, which no parameter's name holds, so a project file named like an office lock file
+// (`~$report.docx`) stays project-relative. Fix round 3's review of candidate 8's diff verify:
+// `~+/../other/x.txt`, `~+1/.ssh/id_rsa` and zsh's `~$USER/.ssh/id_rsa` were relative names in a
+// path-named value, and shown.
 var homeOrVarRoot = regexp.MustCompile(
-	`^(~[A-Za-z0-9._-]*([\\/]|$)|\$\{?[A-Za-z_][A-Za-z0-9_]*|%[A-Za-z_][A-Za-z0-9_()]*%|![A-Za-z_][A-Za-z0-9_]*!)`)
+	`^(~([A-Za-z0-9._+-]*|\$[^\\/.]*|\[[^\]]*\])([\\/]|$)|\$\{?[A-Za-z_][A-Za-z0-9_]*|%[A-Za-z_][A-Za-z0-9_()]*%|![A-Za-z_][A-Za-z0-9_]*!)`)
 
 // summaryWithheld reports whether a tool pointer's summary may not be shown (D63; the file's header).
 // A canonical-JSON preview is judged value by value (jsonWithheld); a one-word summary as a
@@ -1526,7 +1573,9 @@ func (j pathJudge) jsonWithheld(t string) bool {
 // verify, finding 9). A value the store's cut fell inside is judged by the directory it spells whole,
 // by the host only when it is the preview's one path-named value, and by the screen's prefix rule
 // (cutValueWithheld). A value that holds a brace list is also judged alternative by alternative, each
-// as the value is (valueBraceAlternatives), and withheld when one level cannot read its list.
+// as the value is (valueBraceAlternatives), and withheld when one level cannot read its list; the
+// alternatives' fresh host judgements are bounded for the build (braceJudgements), and an alternative
+// past the bound withholds its value unjudged.
 func (j pathJudge) pathNamedWithheld(v string, cut, host bool) bool {
 	v = strings.TrimSpace(v)
 	if v == "" {
@@ -1536,8 +1585,11 @@ func (j pathJudge) pathNamedWithheld(v string, cut, host bool) bool {
 		if alts == nil {
 			return true
 		}
+		// Each alternative's fresh host judgement counts against the build's bound (braceJudgements).
+		aj := j
+		aj.alternative = true
 		for _, a := range alts {
-			if j.pathNamedWithheld(a, cut, host) {
+			if aj.pathNamedWithheld(a, cut, host) {
 				return true
 			}
 		}
@@ -1951,17 +2003,19 @@ func valuePathStart(t string, start, i int) bool {
 // inside the piece that starts at start (valuePathStart): a command substitution or a parameter
 // expansion in braces (`$(`, `${`) or a backtick, anywhere in the piece, since a project's paths hold
 // none of them and its output may start at any root (`..$(pwd)` is `../home/u/proj`); or any other
-// expansion a `$` starts (`$HOME`, `$1`) after a segment's run of dots (`..$HOME` is `../home/u`).
-// Elsewhere inside a name a `$` stays a name's own character (Java's `Outer$Inner.class`, Remix's
-// `users.$userId.tsx`), a residual ADR 0011 §23 item 6 names. What runs from such a start is judged
-// by runTimeRooted (fix round 2's review of candidate 8's diff verify).
+// expansion a `$` starts (`$HOME`, `$1`), or cmd.exe's `%` or delayed `!` starts (`%HOMEPATH%`,
+// `!HOMEPATH!`, `%~dp0`), after a segment's run of dots (`..$HOME` is `../home/u`,
+// `..%HOMEPATH%` is `..\Users\u`). Elsewhere inside a name a `$`, a `%` and a `!` stay a name's own
+// characters (Java's `Outer$Inner.class`, Remix's `users.$userId.tsx`, `50%off.md`), a residual ADR
+// 0011 §23 item 6 names. What runs from such a start is judged by runTimeRooted (fix round 2's review
+// of candidate 8's diff verify; its fix round 3's review added cmd.exe's `%` and `!`).
 func runTimeAt(t string, start, i int) bool {
 	switch {
 	case i >= len(t):
 		return false
 	case t[i] == '`' || strings.HasPrefix(t[i:], "$(") || strings.HasPrefix(t[i:], "${"):
 		return true
-	case t[i] != '$':
+	case t[i] != '$' && t[i] != '%' && t[i] != '!':
 		return false
 	}
 	k := i
@@ -1976,22 +2030,48 @@ func runTimeAt(t string, start, i int) bool {
 // project root anchors, so it is outside the project as homeOrVarRoot's `$NAME` is: a backtick (a
 // command substitution), or a `$` before anything but a separator (a substitution `$(…)`, any
 // parameter expansion, `${…}` in every form, `$1`, `$@`, zsh's `$=name`, arithmetic, `$'…'`
-// quoting) or before the cut, which may have taken what followed it. A lone `$` and `$/x` are
-// literal to every shell. Fix round 2's review of candidate 8's diff verify: `$(pwd)/../other`,
-// `$(echo ~)/.ssh`, a backtick pair before `-old/x` and `${!x}/y` were read as relative paths and
-// shown.
+// quoting) or before the cut, which may have taken what followed it; or a cmd.exe expansion that
+// homeOrVarRoot does not spell (cmdVarRooted). A lone `$` and `$/x` are literal to every shell. Fix
+// round 2's review of candidate 8's diff verify: `$(pwd)/../other`, `$(echo ~)/.ssh`, a backtick pair
+// before `-old/x` and `${!x}/y` were read as relative paths and shown.
 func runTimeRooted(rest string, cut bool) bool {
 	switch {
 	case rest == "":
 		return false
 	case rest[0] == '`':
 		return true
+	case rest[0] == '%' || rest[0] == '!':
+		return cmdVarRooted(rest, cut)
 	case rest[0] != '$':
 		return false
 	case len(rest) == 1:
 		return cut
 	}
 	return !isSep(rest[1])
+}
+
+// cmdVarRooted reports whether rest, the text at a place a path starts in a piece of a path-named
+// value that starts with a `%` or a `!` (cut: the store's cut fell inside it), starts a cmd.exe
+// expansion that homeOrVarRoot's `%NAME%` and `!NAME!` do not spell, which no project root anchors
+// either: a batch file's parameter or a FOR variable (`%1`, `%*`, `%~dp0`, `%%i`), which names the
+// batch file's arguments or its own directory; or, when the cut fell inside rest, a `%` or a `!` and
+// a name that run to the cut, which may have taken the closing `%` or `!` (`%HOMEP…`, as a cut
+// `$HOM…` is rooted; a cut `!src…` that leads a piece is over-withheld so). Any other `%` or `!` is
+// judged as a name's character. A `%` and a digit where a path starts read as a parameter even when
+// they spell an escaped byte (`%20draft.md`, over-withheld there; `docs/%20draft.md` holds no path
+// start at its `%`). Fix round 3's review of candidate 8's diff verify: `..%HOMEPATH%\.ssh\id_rsa`
+// and `%~dp0..\x` were read as relative paths and shown.
+func cmdVarRooted(rest string, cut bool) bool {
+	if rest[0] == '%' && len(rest) > 1 && (rest[1] >= '0' && rest[1] <= '9' || strings.IndexByte("*~%", rest[1]) >= 0) {
+		return true
+	}
+	return cut && strings.IndexFunc(rest[1:], notCmdVarRune) < 0
+}
+
+// notCmdVarRune reports a character that is no part of the name of a variable cmd.exe expands
+// (homeOrVarRoot's `%NAME%`, whose name may hold parentheses: `%ProgramFiles(x86)%`).
+func notCmdVarRune(r rune) bool {
+	return r >= utf8.RuneSelf || !(asciiLetter(byte(r)) || r >= '0' && r <= '9' || r == '_' || r == '(' || r == ')')
 }
 
 // notValueLeader reports a character that is no leader of a piece (valuePathStart): neither one of

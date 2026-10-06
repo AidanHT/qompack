@@ -1,13 +1,19 @@
 package daemon
 
 import (
+	"context"
+	"crypto/sha256"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/qompack/qompack/internal/checkpoint"
+	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/logging"
+	"github.com/qompack/qompack/internal/rehydrate"
 )
 
 // Wave 23's daemon rows over candidate 8's diff verify (coordinator decisions D66 and D67(l)).
@@ -288,4 +294,113 @@ func TestRehydrateHostPaths_APathNamedValueNamingAPathBuiltAtRunTimeIsWithheld(t
 			})
 		})
 	}
+}
+
+// TestRehydrateHostPaths_APathNamedValueNamingACmdVariableOrAShellsTildeIsWithheld is fix round 3's
+// review of candidate 8's diff verify (its first two minor findings, identical at 77374c3c) through
+// the real adapter, the real host rules and the store's own previews, in a plain project and in one
+// whose own path has a space. Round 3 started a path at a `$` after a segment's run of dots
+// (`..$HOME/x`), but not at cmd.exe's `%VAR%` or delayed `!VAR!` there, which containment reads as
+// rooted where a path starts, nor at a batch file's parameters; and containment read a `~` as rooted
+// only before a user name, a `-` or a digit. So section 6 showed `..%HOMEPATH%\.ssh\id_rsa`
+// (`..\Users\u\.ssh\id_rsa` to cmd.exe), `%~dp0..\x`, `~+/../other/x.txt` (`$PWD/../other/x.txt` to
+// bash and zsh), `~+1/.ssh/id_rsa` and zsh's `~$USER/.ssh/id_rsa`. Each is withheld; a `%` or a `!`
+// inside a name, a name that holds a `~`, and a Word lock file are still shown.
+func TestRehydrateHostPaths_APathNamedValueNamingACmdVariableOrAShellsTildeIsWithheld(t *testing.T) {
+	for _, elem := range [][]string{{"proj"}, {"John Smith", "proj"}} {
+		t.Run(filepath.Join(elem...), func(t *testing.T) {
+			root := uat12Project(t, elem...)
+			v := func(k, value string) string { return storePreviewOf(t, map[string]any{k: value}) }
+			for i, s := range []string{
+				v("file", `..%HOMEPATH%\.ssh\id_rsa`),
+				v("paths", "..%HOMEPATH%/x.txt"),
+				v("paths", `..!HOMEPATH!\x`),
+				v("paths", `src/main.go ..%HOMEPATH%\.ssh`),
+				v("file", "..!HOMEPATH!/.ssh/id_rsa"),
+				v("paths", `--dir=..%HOMEPATH%\x`),
+				v("file", `%~dp0..\x`),
+				v("file", `%1\x`),
+				v("file", "~+/../other/x.txt"),
+				v("directory", "~+/.."),
+				v("paths", "src/main.go ~+/../other"),
+				v("file", "~+1/.ssh/id_rsa"),
+				v("file", "~$USER/.ssh/id_rsa"),
+				v("directory", "~$USER"),
+				v("file", "~[proj]/../other/x.txt"),
+			} {
+				t.Run(fmt.Sprint(i), func(t *testing.T) {
+					res := requireToolSummaries(t, root, nil, []string{s})
+					for _, leak := range []string{"id_rsa", "HOMEPATH", "dp0", "../other", "$USER"} {
+						require.NotContains(t, res.Text, leak)
+					}
+				})
+			}
+			requireToolSummaries(t, root, []string{
+				v("file", "docs/50%off.md"),
+				v("file", "docs/%HOMEPATH%.md"),
+				v("file", "src/a!b.go"),
+				v("file", "notes/v1..%2.txt"),
+				v("file", "~$report.docx"),
+				v("file", "docs/~+notes.md"),
+			}, nil)
+		})
+	}
+}
+
+// TestRehydrateHostPaths_BraceListAlternativesCostABoundedNumberOfHostJudgements is fix round 3's
+// review of candidate 8's diff verify (its third minor finding) through the real adapter and the
+// store's own previews: the review's hundred tool pointers whose one path-named value each holds a
+// brace list of 51 alternatives asked the host 5200 times (round 3 judges each alternative), and took
+// a build from 53 ms to seconds. While a Read rule is in force the build judges at most
+// braceJudgementsBound fresh alternatives by the host, and withholds every braced value past them
+// unjudged (fail closed), so thirty such pointers (about as many lines as section 6 holds at the
+// default budget) cost the bound on top of what thirty unbraced values do.
+func TestRehydrateHostPaths_BraceListAlternativesCostABoundedNumberOfHostJudgements(t *testing.T) {
+	const braceJudgementsBound = 64 // ADR 0011 §23 item 10
+	const n = 30
+	alts := strings.Split("abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNO", "")
+	root := uat12Project(t, "proj")
+	// build reports how many of the n summaries section 6 shows and leaves out (missing: their lines
+	// did not fit), and how many host judgements the build made.
+	build := func(braced bool) (shown, missing, calls int) {
+		var tools []checkpoint.ToolPointer
+		for i := 0; i < n; i++ {
+			v := fmt.Sprintf("d%02d/a", i)
+			if braced {
+				v = fmt.Sprintf("d%02d/{%s}", i, strings.Join(alts, ","))
+			}
+			s := storePreviewOf(t, map[string]any{"paths": v})
+			tools = append(tools, checkpoint.ToolPointer{
+				ToolUseID: core.ToolUseID(fmt.Sprintf("toolu_%03d", i)), Hash: core.Hash(sha256.Sum256([]byte(s))), Summary: s,
+			})
+		}
+		hp := rehydrateHostPaths(mcpOpHostPolicy(t, root), root, logging.Nop())
+		counting := func() rehydrate.HostRules {
+			h := hp()
+			refuses := h.Refuses
+			require.NotNil(t, refuses)
+			h.Refuses = func(p string) bool { calls++; return refuses(p) }
+			return h
+		}
+		res, err := rehydrate.Build(context.Background(), toolPointerRequest(root, tools), rehydrate.Deps{HostPaths: counting})
+		require.NoError(t, err)
+		for _, tp := range tools {
+			line := "- tool_use " + string(tp.ToolUseID) + " " + tp.Hash.String() + " — "
+			switch {
+			case strings.Contains(res.Text, line+tp.Summary+"\n"):
+				shown++
+			case strings.Contains(res.Text, line+"(summary withheld)\n"):
+			default:
+				missing++
+			}
+		}
+		return shown, missing, calls
+	}
+	shown, _, unbraced := build(false)
+	require.Equal(t, n, shown, "fixture: every unbraced value is shown")
+	shown, missing, calls := build(true)
+	require.Equal(t, unbraced+braceJudgementsBound, calls,
+		"the alternatives cost the bound's host judgements, on top of each value's own")
+	require.Zero(t, missing, "fixture: section 6 holds every pointer")
+	require.Equal(t, braceJudgementsBound/len(alts), shown, "the lists the bound covers are judged and shown")
 }
