@@ -103,7 +103,13 @@ command substitution, any `${…}` or other `$` expansion, or a backtick where a
 path outside the project (`{"paths":"~{,x}/.ssh/id_rsa"}`, `{"paths":".{env,x}"}` under
 `Read(./.env)` and `{"directory":"$(pwd)/../other"}` are withheld; `{"paths":"src/{a,b}.ts"}` is
 shown). A `$` inside a name stays a name's character (`Outer$Inner.class`,
-`users.$userId.tsx`), so a variable glued there is not resolved.
+`users.$userId.tsx`), so a variable glued there is not resolved. cmd.exe's `%VAR%` and `!VAR!`
+after a run of dots (`{"file":"..%HOMEPATH%\\.ssh\\id_rsa"}`), a batch file's parameters where a
+path starts (`%~dp0..\x`, `%1\x`), and the tilde forms that name a directory outside the project
+(`~+` and `~+N`, `~-N`, zsh's `~$USER/` and `~[name]/`) are read as outside the project too; a
+`%` or a `!` inside a name, and an office lock file such as `~$report.docx`, are not. While a Read
+rule is in force a build asks these rules about at most 64 brace-list alternatives, and withholds
+every value whose alternatives lie past that bound without asking.
 Containment reads a glob as a glob: a class, a `?` or a leading dot that may match `..`, and a
 class that may match a separator (`[/]etc[/]passwd`), name a path outside the project, and so does a
 `file:` URL wherever it stands. A one-word summary must also pass the free-text screen, reading whole

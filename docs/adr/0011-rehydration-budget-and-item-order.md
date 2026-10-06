@@ -1212,7 +1212,36 @@ do not fold the two readings are one.
      a sequence, a nested or a second list, or a list with `..` in it; none is in the corpus. A `$`
      inside a name stays a name's own character, as `+ # ) ] } ! ^` do (Java's `Outer$Inner.class`,
      Remix's `users.$userId.tsx`), so a variable glued after a name's other characters (`x$X`,
-     which a variable holding `/../../etc` makes `x/../../etc`) is a deliberate residual.
+     which a variable holding `/../../etc` makes `x/../../etc`) is a deliberate residual. Fix round
+     3's review found the class open in three more places (identical at 77374c3c). First, cmd.exe's
+     `%VAR%` and delayed `!VAR!` after a segment's run of dots, the analogue of `..$HOME`, were one
+     relative name: `{"file":"..%HOMEPATH%\\.ssh\\id_rsa"}` (`..\Users\u\.ssh\id_rsa` to cmd.exe)
+     and `{"paths":"..!HOMEPATH!\\x"}` were shown, and so were a batch file's parameters and a FOR
+     variable where a path starts (`%~dp0..\x`, `%1\x`, `%*\x`, `%%~dpi\x`) and a `%NAME` or `!NAME`
+     the store's cut fell inside. `runTimeAt` now starts a path at a `%` or a `!` after a segment's
+     run of dots, under the boundary the `$` takes, and from any path start such a parameter, or a
+     `%` or a `!` and a name that run to the cut, is rooted outside the project (`cmdVarRooted`;
+     `%NAME%` and `!NAME!` were `homeOrVarRoot`'s already). Second, tilde forms bash and zsh expand
+     outside the project were relative names: `~+` (`$PWD`) and `~+N` (a directory-stack entry),
+     zsh's `~$USER/` (zsh expands the parameter before the tilde) and its dynamic named directory
+     `~[name]/`, so `{"file":"~+/../other/x.txt"}`, `{"file":"~+1/.ssh/id_rsa"}` and
+     `{"file":"~$USER/.ssh/id_rsa"}` were shown. `homeOrVarRoot` now reads as rooted a tilde word of
+     a user name's characters, `+`, `-` and digits, a `~$` word with no `.` in it (no parameter's
+     name holds one, so an office lock file such as `~$report.docx` stays a project name) and
+     `~[…]`, each when a separator or the path's end follows. Third, the alternatives' host
+     judgements were unbounded (item 10): a list in a preview's one path-named value cost one
+     judgement per alternative, about 51 in a 120-byte preview, so a hundred such pointers asked the
+     host 5200 times and took a build through the real adapter from 53 ms to seconds. While a Read
+     rule's pattern is in force, a build now makes at most 64 fresh host judgements for alternatives
+     (`maxBraceJudgements`, `braceJudgements`) and withholds, unjudged, every value with an
+     alternative past them (fail closed); an alternative the build already judged costs nothing, and
+     with no Read rule in force the host's answer costs nothing and every alternative is judged. The
+     over-withholding this adds (D66(e)): a piece that starts with `%` and a digit (`%20draft.md`;
+     `docs/%20draft.md` holds no path start at its `%` and is shown), a `%` or a `!` after a run of
+     dots that ends a segment though the path stays in the project (`src/..%HOMEPATH%\x`), a cut piece
+     that leads with `!` and a name, a project directory spelled `~+`, `~+N`, `~$name` or `~[name]`,
+     and the braced values past the bound in one build; none is in the corpus. Inside a name a `%`
+     and a `!` stay a name's own characters, as the `$` does (`50%off.md`, `notes/v1..%2.txt`).
 7. *Free text is shown only when the whitelist vouches for every token* (D63(2)-(4)). Every other
    summary, and every other string of a JSON preview, is free text; an object's keys are screened as
    free text too: D63(1) judges a preview by its decoded strings, and a key is one, which may carry a
@@ -1720,11 +1749,18 @@ do not fold the two readings are one.
     its file pointers, its path-keyed checkpoint drops (while a Read rule is in force, at most 64 of
     them that need a fresh judgement: item 12), its structured summaries (one path each: a
     one-word value, a pattern one-word whole, the directory of a Glob preview under the root, a rooted
-    summary's path part, the one path-named JSON value; for a cut one, the directory it spells whole),
-    the instruction and skill files items 6a and 6b would restore, and, while a rule anchored outside
-    the project is in force, `rootProbe` (item 7(d)); never for free text, whatever its commands,
-    queries, URLs, quotes or glued operators say, never for a brace list's alternatives, and never for
-    a value among several path-named values, cut or not. Under a root with no unit (item 8, D64(1)) a
+    summary's path part, the one path-named JSON value; for a cut one, the directory it spells whole;
+    and each alternative of a brace list in that one value, while a Read rule is in force at most 64
+    of them in a build that need a fresh judgement, `maxBraceJudgements`, every value with one past
+    them withheld unjudged: item 6), the instruction and skill files items 6a and 6b would restore,
+    and, while a rule anchored outside the project is in force, `rootProbe` (item 7(d)); never for
+    free text, whatever its commands, queries, URLs, quotes or glued operators say, and never for a
+    value among several path-named values, or its alternatives, cut or not. Both bounds hold per
+    build, so neither the drops a session accumulates nor the brace lists its tool pointers carry
+    add more than 64 fresh judgements each to what its pointers and summaries cost (fix round 3's
+    review of candidate 8's diff verify: before it, a hundred pointers whose one path-named value
+    held a 51-way list cost 5200 judgements, 2 to 3 s through the real adapter on Windows, against
+    53 ms for the same pointers with no list). Under a root with no unit (item 8, D64(1)) a
     Glob preview of the root and a rooted summary's path part are free text, and a one-word value that
     spells the root is withheld by the whitelist before the host is asked, so such a root costs fewer
     judgements, never more (the corpus's 48 judgements under UAT-12's rules are 39 under `o'brien` and
