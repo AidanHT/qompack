@@ -659,7 +659,7 @@ func requireUncutOnAHostedRunner(t *testing.T, args map[string]any) {
 	swap = func(v any) any {
 		switch x := v.(type) {
 		case string:
-			require.False(t, spellsTestTempDir(x, t.Name(), os.TempDir(), fold),
+			require.False(t, spellsTestTempDir(x, t.Name(), testTempBase(), fold),
 				"fixture: %q spells t.TempDir(), whose length is the runner's; build the root under shortProjectDir", x)
 			return onAHostedRunner(x, bases, long, fold)
 		case []string:
