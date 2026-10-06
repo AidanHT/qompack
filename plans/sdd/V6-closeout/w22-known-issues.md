@@ -59,6 +59,18 @@ re-check add is appended here first.
     (D67(g).)
 14. **macOS assumes a case-insensitive volume.** On macOS, Qompack assumes the default case-insensitive
     volume. (D67(m).)
+15. **A rooted path glued inside one path value.** Inside a single path-named tool argument, a rooted
+    path glued after `+ # ) ] } ! ^` is not judged separately, so the rehydration block can show it.
+    docs/security.md documents this residual. (w23-docs finding 5.)
+16. **Unusual spellings of a path inside a tool argument.** The rehydration block judges each path in a
+    tool argument, but a few rare spellings can still show a path outside the project or one a Read rule
+    refuses:
+    - a truncated `~[name`;
+    - a home directory named by a login holding `@`, `$` or a non-ASCII letter;
+    - a Windows `%VAR%` whose name is not an identifier;
+    - look-alike Unicode slashes or dots (`／`, `∖`, `．`);
+    - a non-canonical spelling (`a/./b`) of a refused path whose file name is under 3 bytes.
+    (D72(a).)
 
 ## Test-only residuals (ledger only, not release notes)
 
