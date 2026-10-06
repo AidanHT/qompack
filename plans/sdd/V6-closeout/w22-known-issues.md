@@ -19,9 +19,10 @@ re-check add is appended here first.
    a score tie, when the rehydration budget runs short, a parent decision can be kept ahead of the
    fork's own. The cut decision is still named in `dropped()`, with its `why()` route. (w15carry.)
 3. **Path-keyed drops in projects with deny or ask rules.** In a project with a Read deny or ask rule,
-   path-keyed checkpoint drops beyond the first 64 distinct paths show as "(path withheld)" in section
-   7 and in `dropped()`, without a host judgement. This over-withholds; it never shows a refused path.
-   (rehydrate #28.)
+   a rehydration build makes at most 64 host judgements of path-keyed checkpoint drops, and the drops
+   a summary or a reason names are judged first. Drops past that bound show as "(path withheld)" in
+   section 7 and in `dropped()`, and a section 6 summary that names one of them may be withheld too.
+   This over-withholds; it never shows a refused path. (rehydrate #28, D71(d).)
 4. **Rehydration build cost.** A rehydration build with no checkpoint drops costs about 1.7× candidate
    7's, about 2 ms more, because of the D63 summary whitelist. That is far inside the 5 s compaction
    budget. (rehydrate #33.)
@@ -81,3 +82,7 @@ re-check add is appended here first.
 - TestPromptWarning_SlowDurableAcceptIsLateForTheClient does not join the late reply call before its
   next prompt, so it fails when that prompt's reply call takes the session lock first (D70(b)). After
   the release: promptWG.Wait() before the next prompt.
+- Each UserPromptSubmit delivery now rewrites state/history.json with an fsync (contract r2's WentOn),
+  off the hook reply path but inside the session's ordering gate and under historyMu (D71(d)).
+- capWentOn trims an oversized went_on map quadratically; only a hand-edited history.json can reach it
+  (Qompack writes at most 16 entries) (D71(d)).
