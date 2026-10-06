@@ -1156,18 +1156,33 @@ do not fold the two readings are one.
      not, is shown. A cut value's last piece is the start of a piece: from a place a path starts
      that begins the root's own spelling byte for byte to the cut it is the project (D64(8)). Its
      in-project pieces are judged by the rule literals and the withheld names alone (item 2's
-     limits), each from its own start: the name screen reads the value as the store spells it and
-     in its name form (`valueNameForm`), where every list separator, every character outside ASCII
-     that the whitelist reads as no letter, and every quote or backtick is a space, and a value
-     either reading withholds is withheld, cut or not. Glued by a character the screen dropped (a C0
-     control, DEL), read as part of a name (a C1 control, NBSP, U+2028, U+3000, U+02BA, a zero-width
-     space) or removed (a quote), a piece that starts with a rule's literal or a withheld name
-     (`.env` after `src/a.ts` and a NUL under `Read(./.env)`, `secrets/key.pem` after an NBSP under
-     `Read(./secrets/**)`) started no name and was shown at 77374c3c (candidate 8's diff verify,
-     finding 8). A DEL, which JSON leaves unescaped, and any C0 control in a value the store
-     previews as plain text (`file_path`, `path`, `pattern`, `command`, `url`) are dropped by the
-     store's preview itself (`store.previewString`), so that boundary is gone before a build reads
-     the summary: a residual of the store's record, not of the screen.
+     limits), in three readings (`valueReadings`), and a value any reading withholds is withheld,
+     cut or not: as the store spells it; in its name form (`valueNameForm`), where every list
+     separator, every character outside ASCII that the whitelist reads as no letter, and every quote
+     or backtick is a space; and stretch by stretch, from each place a piece or a path starts to each
+     place one ends (`valueBounds`, the root's own spelling held whole) at which the store's
+     spelling reads no name's boundary (a control character it drops, a quote screen form removes, a
+     character outside ASCII whose bytes it reads as a name's), so a refused name is read whole from
+     its piece's start to its piece's end even when it holds such a character itself. Glued by a
+     character the screen dropped (a C0 control, DEL), read as part of a name (a C1 control, NBSP,
+     U+2028, U+3000, U+02BA, a zero-width space) or removed (a quote), a piece that starts with a
+     rule's literal or a withheld name (`.env` after `src/a.ts` and a NUL under `Read(./.env)`,
+     `secrets/key.pem` after an NBSP under `Read(./secrets/**)`) started no name and was shown at
+     77374c3c (candidate 8's diff verify, finding 8); and a refused name holding an apostrophe, an
+     en dash or a comma (`o'brien.env`, `q3–secrets.xlsx`, `a,b.env`, a learned `bob's keys.txt`),
+     after or before such a character, was glued in the first reading and split at its own
+     character in the second, and was still shown (fix round 1's review). Each glob stretch of a
+     value that names more than one path is judged by what it selects (`globStretchSelectsKnown`),
+     as it would be alone, so `src/a.ts .en*` and `src/a.ts:lnk/tok*` are withheld beside a learned
+     `.env` or `lnk/token.txt` as the glob alone is (shown at 77374c3c, and, after a space or an
+     opener, still shown when fix round 1's review read it). The stretches grow with the square of
+     the places a piece starts or ends, so a value with more than `maxValueStretches` (256) of them
+     is withheld unread while the build has a literal or a withheld path to find (D66(e)); a list of
+     21 paths glued by NBSPs, within the store's 120-byte preview, stays under it. A DEL, which JSON
+     leaves unescaped, and any C0 control in a value the store previews as plain text (`file_path`,
+     `path`, `pattern`, `command`, `url`) are dropped by the store's preview itself
+     (`store.previewString`), so that boundary is gone before a build reads the summary: a residual
+     of the store's record, not of the screen.
 7. *Free text is shown only when the whitelist vouches for every token* (D63(2)-(4)). Every other
    summary, and every other string of a JSON preview, is free text; an object's keys are screened as
    free text too: D63(1) judges a preview by its decoded strings, and a key is one, which may carry a
