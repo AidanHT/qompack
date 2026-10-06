@@ -109,7 +109,7 @@ func TestDrainForgetsAFileDurablyBeforeUnlinkingIt(t *testing.T) {
 			walFile, size := closedTwoDeliverySegment(t, dd, clk, sess)
 			base := filepath.Base(walFile)
 			if tc.finishedFirst {
-				keep := dd.drainConfig()
+				keep := contentDrainConfig(dd)
 				keep.IsLive = func(core.SessionID) bool { return true }
 				_, err := newDrainer(keep).Drain(ctx)
 				require.NoError(t, err)
@@ -117,7 +117,7 @@ func TestDrainForgetsAFileDurablyBeforeUnlinkingIt(t *testing.T) {
 					"fixture: an earlier pass finished the segment and kept it")
 			}
 
-			cfg := dd.drainConfig()
+			cfg := contentDrainConfig(dd)
 			var namedAtUnlink []bool
 			cfg.RemoveWAL = func(path string, drained int64) (bool, error) {
 				_, named := diskDrainState(t, dd.root)[base]
@@ -153,7 +153,7 @@ func TestDrainCrashAtTheUnlinkLeavesNoProgressForARecreatedSegment(t *testing.T)
 			statePath := paths.Long(drainStatePath(dd.root))
 
 			var atUnlink []byte
-			cfg := dd.drainConfig()
+			cfg := contentDrainConfig(dd)
 			cfg.RemoveWAL = func(path string, n int64) (bool, error) {
 				if b, err := os.ReadFile(statePath); err == nil {
 					atUnlink = b
@@ -227,7 +227,7 @@ func TestDrainRestoresProgressWhenItDoesNotRemoveTheFile(t *testing.T) {
 			require.NoError(t, os.WriteFile(paths.Long(filepath.Join(paths.Of(dd.root).Spool, "client-4343.ndjson")), fallback, 0o600))
 			statePath := paths.Long(drainStatePath(dd.root))
 
-			cfg := dd.drainConfig()
+			cfg := contentDrainConfig(dd)
 			remove := tc.remove(dd)
 			var namedAtUnlink []bool
 			var replay []core.UnixMilli // what the restarted drain must replay, in order
@@ -304,7 +304,7 @@ func TestDrainDoesNotForgetASegmentTheIngestHolds(t *testing.T) {
 	size := spoolFileSize(t, walFile)
 	statePath := paths.Long(drainStatePath(dd.root))
 
-	cfg := dd.drainConfig()
+	cfg := contentDrainConfig(dd)
 	asked := 0
 	cfg.RemoveWAL = func(path string, drained int64) (bool, error) {
 		asked++
@@ -380,7 +380,7 @@ func TestDrainCrashBetweenForgettingAndUnlinkingReplaysOnlyWhatTheFrontierLacks(
 	base := filepath.Base(walFile)
 	statePath := paths.Long(drainStatePath(root))
 
-	cfg := dd.drainConfig()
+	cfg := contentDrainConfig(dd)
 	cfg.IsLive = func(core.SessionID) bool { return false } // the session has ended
 	var image []byte
 	cfg.RemoveWAL = func(string, int64) (bool, error) {
@@ -399,7 +399,7 @@ func TestDrainCrashBetweenForgettingAndUnlinkingReplaysOnlyWhatTheFrontierLacks(
 	// The restart: a fresh seen set, the same durable frontier.
 	restarted := newDrainer(DrainConfig{
 		Root: root, Log: logging.Nop(), Metrics: dd.m, Clock: dd.clk,
-		Dispatch: dd.drainDispatch, Seen: newSeenSet(seenCapacity), Admit: dd.admitDelivery,
+		Dispatch: withoutLineDeadline(dd.drainDispatch), Seen: newSeenSet(seenCapacity), Admit: dd.admitDelivery,
 		Journal: dd.deliveryJournal,
 	})
 	n, err := restarted.Drain(ctx)
@@ -429,20 +429,20 @@ func TestDrainStartupForgetsStaleProgressBeforeTheSessionRecreatesItsSegment(t *
 			base := filepath.Base(walFile)
 			statePath := paths.Long(drainStatePath(dd.root))
 
-			keep := dd.drainConfig()
+			keep := contentDrainConfig(dd)
 			keep.IsLive = func(core.SessionID) bool { return true } // Stop keeps a live session's segment
 			_, err := newDrainer(keep).Drain(ctx)
 			require.NoError(t, err)
 			stale, err := os.ReadFile(statePath)
 			require.NoError(t, err)
-			_, err = newDrainer(dd.drainConfig()).Drain(ctx) // the next daemon retires the segment...
+			_, err = newDrainer(contentDrainConfig(dd)).Drain(ctx) // the next daemon retires the segment...
 			require.NoError(t, err)
 			require.NoFileExists(t, walFile)
 			require.NoError(t, os.WriteFile(statePath, stale, 0o600)) // ...and its save never lands
 			require.Equal(t, &drainFileState{Size: drained, Offset: drained, Done: true}, diskDrainState(t, dd.root)[base],
 				"fixture: the entry outlived its file")
 
-			n, err := newDrainer(dd.drainConfig()).Drain(ctx) // the later daemon's startup drain
+			n, err := newDrainer(contentDrainConfig(dd)).Drain(ctx) // the later daemon's startup drain
 			require.NoError(t, err)
 			require.Zero(t, n)
 			require.NotContains(t, diskDrainState(t, dd.root), base,
@@ -551,7 +551,7 @@ func TestDrainForgetsAFileAlreadyGoneAtItsRemoval(t *testing.T) {
 	walFile, drained := closedTwoDeliverySegment(t, dd, clk, sess)
 	base := filepath.Base(walFile)
 
-	cfg := dd.drainConfig()
+	cfg := contentDrainConfig(dd)
 	cfg.RemoveWAL = func(path string, n int64) (bool, error) {
 		require.NoError(t, os.Remove(paths.Long(path))) // gone before the drain's own removal
 		return dd.ing.removeDrainedWAL(path, n)

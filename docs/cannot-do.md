@@ -317,6 +317,8 @@ host change could lift — as prepared proposals, none of which has been filed.
   2 s each, so only a live prompt sent inside that window can come in ahead of it. A spool file
   that a pid-reusing hook appended to after a drain had begun it is placed by the record the next
   drain replays from it, so reuse reorders prompts only when both hooks spooled before one pass.
+  Current work follows the same captured order: its goal is the newest captured prompt that can
+  give one, not the newest by the host's timestamp (D35(b)).
 - **Recorded at.** `plans/V2-SP-08-carried-defects.md` (SP08-D3, with the D35 close-out note);
   `plans/CARRIED-DEFECTS.tsv`; `plans/V6-CLOSEOUT-CHECKLIST.md` D35(b) and D38;
   [docs/architecture.md §7](architecture.md#7-checkpoint-and-rehydration).
@@ -376,15 +378,18 @@ host change could lift — as prepared proposals, none of which has been filed.
   15 ms limit that applied then (ADR 0010, Context table; B-A's Windows default is now 50 ms).
   Reference-platform rows remain open in `plans/V5-report.md` §29 item 2, which also records two
   known in-scope regressions awaiting a budget-versus-guarantee decision. For 0.3.0 the hot-path
-  rows were judged quietly on one Windows reference host, with the store under a path excluded from
-  Defender scanning; on Linux the fsync-bound rows (B-A, B-B) are not verified in target, because the
+  rows were judged quietly on one Windows reference host, on AC power, with the store under a path
+  excluded from Defender scanning (D32, D53(h)). A run taken there on battery is not a reference
+  measurement, neither a pass nor a fail, because on battery Windows applies slower CPU, PCIe and
+  NVMe power policies (D57(d)); the hot path then switches to spool submode and nothing is lost. On
+  Linux the fsync-bound rows (B-A, B-B) are not verified in target, because the
   only local Linux is a container whose fsync is far slower than a native disk's, and hosted runner
   figures never become budgets (owner decisions D53(b) and Q1).
 - **What Qompack does instead.** It measures what it can attribute and prints the availability word
   where it cannot — see the `unavailable` per-hook rows in
   [docs/troubleshooting.md §2](troubleshooting.md#2-unknown-capability-or-telemetry).
 - **Recorded at.** [ADR 0010](adr/0010-wall-clock-under-coload.md) (Context, "What this does not
-  decide", Addendum 1); `plans/V5-report.md` §29.
+  decide", Addendum 1); `plans/V5-report.md` §29; `plans/V6-CLOSEOUT-CHECKLIST.md` D53 and D57.
 
 ### No bounded delivery history on disk, and no downgrade across a rotation
 
@@ -475,6 +480,50 @@ host change could lift — as prepared proposals, none of which has been filed.
 - **Recorded at.** `plans/V6-CLOSEOUT-CHECKLIST.md` D35(c); `plans/sdd/V6-closeout/w7-spawnclaim/report.md`
   (open issues).
 
+### A quiet live session is counted as ended until its next hook
+
+- **Limit.** Qompack cannot tell a live session that has sent no hook for
+  `runtime.daemon.idleExitSeconds` from one whose client died without its `SessionEnd`. The host
+  runs no hook while the model writes a reply that calls no tool, or while it compacts, so a stretch
+  of either longer than the setting looks like a dead client: the daemon logs `daemon: ending
+  abandoned session; no SessionEnd arrived and it has been silent past the idle-exit window` and
+  stops counting the session as live, although the session is still open.
+- **Why.** Hooks are the only signal a session sends a plugin, and none of them is a heartbeat. The
+  daemon has to end a session whose client is gone, or a killed terminal would keep it running for
+  good, and silence is the only evidence it has.
+- **What Qompack does instead.** The end is bookkeeping only: nothing captured is lost, and no
+  marker, observer end of session or store GC pass runs for it. The session's next hook makes it
+  live again, and its own `SessionEnd` then ends it in full. If no other session is live and the
+  silence lasts one more window, the daemon exits; the next hook starts a new one, which replays
+  what was spooled meanwhile, and a `SessionEnd` that meets the daemon while it is stopping is the
+  case above. At the default of 1800 seconds this takes half an hour of silence. With the setting at
+  30, candidate 7's UAT-09 lane saw the line during a 34.5-second reply with no tool call; that
+  turn's `Stop` revived the session and its `SessionEnd` ended it about 1 second later.
+- **Recorded at.** [Troubleshooting §7](troubleshooting.md#7-daemon-problems) (the abandoned-session
+  entry); `internal/daemon/registry.go` (`EndAbandoned`, `Touch`);
+  `plans/sdd/V6-closeout/live/rerun-c7/UAT-09/` (`store-after-session1/`: the day log and
+  `index_segments.jsonl`); `plans/V6-CLOSEOUT-CHECKLIST.md` D62 (sessionend: UAT-09 O-1 is by
+  design).
+
+### Another session's tool use can close the bound session's segment
+
+- **Limit.** In a project with two live sessions, the scheduler does not keep their accounts apart.
+  A daemon's scheduler is bound to one session, and every live session's tool use is folded into
+  that bound account; when a tool use owes a segment close (a task boundary or a changepoint), the
+  close is made on the bound session's open segment, even when the tool use came from the other
+  session. An owed close is also lost when a delivery's first run, the daemon stop's replay of it
+  and that replay's commit are all cut, and the restarted daemon replays it after a session has
+  bound the scheduler.
+- **Why.** The scheduler keeps one account per daemon by design. Keeping one per session is a change
+  to the scheduler's state format, not a fix for this release (decision D67(b)).
+- **What Qompack does instead.** The effect is on scheduling only: the bound session's token count
+  and where its segments end, which decide when the scheduler seals a checkpoint of its own. What
+  each session captures, its `PreCompact` checkpoint, which closes only that session's segment, and
+  retrieval are per session and are not affected, and nothing is lost. A redelivered tool use is
+  applied once, for every session (`state/scheduler.json`'s applied identities).
+- **Recorded at.** `plans/V6-CLOSEOUT-CHECKLIST.md` D67(b); `internal/daemon/scheduler_tap.go`
+  (`observeTool`, `closeOwed`); `plans/sdd/V6-closeout/w20-redeliver/report.md` (open issues).
+
 ### A compaction at the edge of session-start's budget can get the deferred note
 
 - **Limit.** A compaction's `SessionStart` that finds the daemon only at the end of the time
@@ -558,6 +607,75 @@ host change could lift — as prepared proposals, none of which has been filed.
   taken, so no hook waits on it.
 - **Recorded at.** `plans/V6-CLOSEOUT-CHECKLIST.md` D54; `plans/CARRIED-DEFECTS.tsv` (SP06-D2,
   SP08-D1).
+
+### `fsck` beside a running daemon can report a retention root that is still being written
+
+- **Limit.** `qompack fsck` run while the project's daemon is running can report, on its
+  `retention` row, an evidence-class retention root "which is not held" although nothing is wrong.
+- **Why.** fsck reads the capture sidecars before `state/retention-roots.jsonl`, and a daemon still
+  publishing a capture writes its sidecar first and its retention root after it. A capture published
+  between those two reads leaves a root whose sidecar fsck did not see. A plain fsck (without
+  `--repair` or `--seal-check`) does not take the daemon's lock, so a result taken beside a running
+  daemon is a snapshot of a moving target, and its `daemon` row says so. Decision D57(b) records
+  this as a known limit for 0.3.0; a test that pins the daemon's sidecar-before-root order is later
+  work.
+- **What Qompack does instead.** Stop the daemon (let it reach its idle exit, or end the process
+  named in `daemon.lock`) and run `fsck` again; a root that is still reported then is a real defect.
+- **Recorded at.** `plans/V6-CLOSEOUT-CHECKLIST.md` D57(b);
+  [docs/troubleshooting.md §9](troubleshooting.md#9-backup-rollback-and-recovery).
+
+### After a daemon takeover, `fsck` can find the files view missing
+
+- **Limit.** After a daemon is killed mid-session, the daemon that takes the project over can reach
+  its idle exit without writing `index/files.json`. A later `fsck`, with no daemon running, then
+  exits 1 on its `index.files` row: "index/files.json is absent while its log carries N path(s);
+  the view is derived and --repair regenerates it".
+- **Why.** The view is derived from the append-only `index/files.jsonl` and written when a daemon
+  flushes. The V6 live lane found the taking-over daemon's idle exit skipping that write on
+  candidate 7, after two verified kills in one session (finding F-C7-C49-1); decision D59 records
+  it as a known limit for 0.3.0.
+- **What Qompack does instead.** Nothing is lost: every file version is in the log, and retrieval
+  reads the log. `qompack fsck --repair --yes` regenerates the view, and the next session's flush
+  writes it too.
+- **Recorded at.** `plans/V6-CLOSEOUT-CHECKLIST.md` D59;
+  `plans/sdd/V6-closeout/live/rerun-c7/C4.9/notes.txt`;
+  [docs/troubleshooting.md §9](troubleshooting.md#9-backup-rollback-and-recovery).
+
+### Evolution entries are not re-admitted while the original request overflows
+
+- **Limit.** When your first prompt is too long for the rehydration block, it is named in section 7
+  as a tier-1 overflow with its `expand(tool_use_id=…)` call, and the block's unused room is not
+  given to older evolution entries (your later prompts). They are named "did not fit" even when the
+  block is far below its budget: on candidate 7, the 6 oldest of 13 entries were named while the
+  payload used 929 of 12,000 tokens (finding F-C7-UAT04-1).
+- **Why.** Authority order comes first. The original precedes every restatement in tier 1, and
+  while a tier-1 record is outside the block, item 2 is re-admitted nowhere later: not its older
+  deltas, not by min-fill and not by the unused-room step
+  ([ADR 0011](adr/0011-rehydration-budget-and-item-order.md), the D49 amendments). Decision D59
+  keeps this design for 0.3.0.
+- **What Qompack does instead.** The newest entries that fit section 2's share of the budget are
+  still carried (7 of 13 in that case), every entry left out is named in section 7, and `dropped()`
+  lists them all with the call that restores each.
+- **Recorded at.** `plans/V6-CLOSEOUT-CHECKLIST.md` D59;
+  `plans/sdd/V6-closeout/live/rerun-c7/UAT-04/notes.txt`;
+  [docs/troubleshooting.md §5](troubleshooting.md#5-retrieval-that-looks-wrong).
+
+### Below the smallest loss notice, a compaction injects nothing
+
+- **Limit.** When a compaction dropped material and the rehydration budget
+  (`runtime.rehydrate.maxTokens`, and `minTokens` below it) is too small for even the shortest loss
+  notice, "N items dropped; call dropped()", no block is injected into the session.
+- **Why.** The budget's hard cap is never exceeded, not even by the notice (decision D60(c)(ii),
+  D59(b)'s fallback reading). On candidate 7, a 150-token budget injected nothing while 15 records
+  were dropped (UAT-05, finding F-C7-UAT05-1); that is what decision D59(b) changed.
+- **What Qompack does instead.** Above that budget, a compaction that dropped material is never
+  silent: when the budget admits no section, the block is a loss notice naming the loss and the
+  restore route (`dropped()`, `/qompack:dropped`, and the original's restore call when it is the
+  overflow). Below it, the drop report records the overflow of the payload and `LOUD.log` gets one
+  line, and `dropped()` lists every record left out. Nothing dropped still means no block.
+- **Recorded at.** `plans/V6-CLOSEOUT-CHECKLIST.md` D59(b) and D60(c)(ii);
+  [ADR 0011](adr/0011-rehydration-budget-and-item-order.md);
+  `plans/sdd/V6-closeout/live/rerun-c7/UAT-05/notes.txt`.
 
 ### A delivery cut mid-publication can leave its decision-graph node out
 
@@ -660,6 +778,70 @@ host change could lift — as prepared proposals, none of which has been filed.
 - **Recorded at.** `internal/hostperm`'s package comment; the evidence under
   `plans/sdd/V6-closeout/hostperm/runs/`.
 
+### On macOS, a case-sensitive volume is treated as case-insensitive
+
+- **Limit.** On macOS, Qompack assumes the default case-insensitive volume: it compares and keys
+  paths, and matches the Read rules' patterns, without regard to letter case. On a case-sensitive
+  APFS volume, two files whose names differ only in case are two files, which Qompack treats as one
+  wherever it compares paths.
+- **Why.** macOS's default APFS volume is case-insensitive, and Qompack folds case on macOS as it
+  does on Windows. Telling the volumes apart path by path is not done in 0.3.0; owner decision
+  D67(m) accepted the assumption as a known limit.
+- **What Qompack does instead.** For the Read rules the folding errs toward refusing: a deny or ask
+  rule written for one spelling also refuses the other, so a file a rule names is not served under
+  another spelling. On the default volume the two spellings are one file, and nothing is affected.
+- **Recorded at.** `plans/V6-CLOSEOUT-CHECKLIST.md` D67(m); `internal/hostperm/policy.go` (`New`,
+  the platform's `fold`); `internal/paths/norm.go` (`DefaultFold`).
+
+### The rehydration block's screen of free-text summaries has limits
+
+- **Limit.** Section 6 of the rehydration block lists tool pointers, each with a short summary of
+  the call's arguments. A free-text summary (a command line, a search query) is shown only when a
+  whitelist proves it safe (decisions D63 and D64), so it withholds more than it must, by design
+  (D64(4)): a command that uses a variable (`echo $HOME`), a glob (`find . -name "*.go"`), a regular
+  expression, a `%` escape (`echo a%41`) or a `name:` shape where a path may start, such as
+  `localhost:3000` in `curl localhost:3000` or `format:%h` in `git log --pretty=format:%h`, is
+  withheld even when it names no denied file, and so is free text that only mentions a Read rule's
+  literal where a name starts (`kubectl get secrets` under `Read(./secrets/**)`). Globs in
+  free text stay withheld (D67(l)). The project root is held together as one root unit, so
+  `cd <root> && go test` is shown, only when its spelling is plain: letters, marks, digits, `-`,
+  `_`, `.`, its separators and single spaces, with no word starting with `-`; a root with any other
+  character (an apostrophe, a `+`, an `@`, a `$`, a Unicode space, a run of spaces) has no root
+  unit, so every summary that spells it is withheld (D64(1)). The whitelist does not resolve
+  aliases (8.3 short names, links, Unicode normalization variants of a name) and cannot see names a
+  command builds at run time or names relative to a `cd`. Outside free text, a structured glob (a
+  lone Glob or recall pattern) that selects a refused file the block never recorded, without
+  spelling its literal (`private/d*`), is judged as written (D60(c)(iv)). The store's preview
+  collapses runs of whitespace, so a summary is judged as collapsed, not as the command spelled it
+  (D60(c)(iv)). A program that reads its command line through the Windows ANSI code page receives a
+  letter that code page cannot hold as `?`, which a program that globs its arguments reads as a
+  wildcard (D67(l)). The records in sections 2 to 4 are not screened: they are your own prompts and
+  the model's own earlier text (which `already_tried` and `why` return as well), and decision D50's
+  rule covers pointers (decision D60(c)(i) for sections 3 and 4, D62(f) for section 2, your
+  verbatim prompts).
+- **Why.** Two rounds tried to find every path inside arbitrary text, and each closed some
+  spellings while opening others or withholding harmless commands (decision D61(b)). A third, D61's
+  blacklist screen, did not converge either: undoing shell quoting cannot be made complete, so D63
+  shows only what a whitelist can prove safe, and D64 closed its remaining gaps by making it
+  stricter. A free-text summary costs no host evaluation, so a project with Read rules still gets
+  its rehydration within the compaction answer's budget.
+- **What Qompack does instead.** A file pointer is judged whole against the host's saved Read
+  rules, as `re_read` judges a path, and points by hash. A structured summary (the store's preview
+  of a path argument) is judged whole the same way and, when refused, is replaced by a "summary
+  withheld" note; a path-named value holding several paths is judged piece by piece. A free-text
+  summary is shown only when every whitespace-delimited token is built from letters, marks, digits
+  and a small set of safe punctuation (a few shell operators, a simple quoted run, an http(s) URL),
+  no token names an absolute path or one that escapes the project, and no Read deny or ask rule's
+  literal and no name of a path this build withholds stands where a name starts, in the text as
+  written and with its backslashes, carets and backticks removed. The string values of a JSON
+  preview are each judged that way, and a one-word summary must pass too. Every free-text summary
+  is withheld while the host's rules cannot be read. Section 7's drop entries never show such a
+  path, and `dropped()` redacts one instead of hiding the entry (decision D60(c)(iii)). The full
+  rule is in [docs/security.md §1](security.md#1-trust-boundaries).
+- **Recorded at.** `plans/V6-CLOSEOUT-CHECKLIST.md` D50, D60(c), D61(b), D62(f), D63, D64 and
+  D67(l); [ADR 0011 §23](adr/0011-rehydration-budget-and-item-order.md);
+  `plans/sdd/V6-closeout/live/rerun-c7/UAT-12/`.
+
 ### Redaction is applied at capture, and telemetry is hardwired off
 
 - **Limit.** Qompack cannot retroactively redact what it already stored, and it cannot send
@@ -731,9 +913,13 @@ These are the limits that can move. Each names the gate or the owner that would 
   bundle into Claude Code 2.1.263 and the launcher resolved from the host's plugin cache, which is the
   record that makes that one target read `installed-verified`
   ([docs/release.md](release.md#3-supported-scope) §3), and the V6 close-out's live lane installed
-  the frozen bundles of candidates 3 and 4 into Claude Code 2.1.280 and ran real sessions against a
-  live model. Those sessions were run by an agent on the owner's machine (owner decision D3), never
-  as human UAT. No other release target has been installed into a host: no macOS or windows/arm64
+  the frozen bundles of candidates 3, 4 and 7 into Claude Code 2.1.280 and ran real sessions
+  against a live model. Candidate 7's lane also installed through a local marketplace entry named
+  `qompack-windows-amd64`, the release entry's name, and the session listed the same
+  `/qompack:<name>` commands and `mcp__plugin_qompack_qompack__<tool>` tools as under an entry
+  named `qompack` ([docs/install.md §9](install.md#9-installing-from-the-public-marketplace)).
+  Those sessions were run by an agent on the owner's machine (owner decision D3), never as human
+  UAT. No other release target has been installed into a host: no macOS or windows/arm64
   machine with Claude Code installed was available to the live lane (macOS runs the test suites on
   hosted runners, which install nothing into Claude Code), and Linux sessions with a model could not
   run in the container, which has no login (D34(c)).

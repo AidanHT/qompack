@@ -1,0 +1,78 @@
+UAT-04 re-run on candidate 7 (D52/D53/D57) — compaction belongs to the host: manual and automatic compactions
+proceed, a compaction whose PreCompact hook fails leaves the last checkpoint intact, no native-shrink claim; the
+~17,000-character first prompt is carried whole or named as an overflow; LOUD tier-1 at most once per session (D50);
+fsck with the daemon up and after its idle exit (also C4.3). Agent-executed on the owner's real host per owner
+decision D3 by a Claude Code workflow subagent (Opus 5.5) — not human UAT.
+
+Date 2026-10-02 America/Toronto: session 04:34-04:40 EDT, live-daemon steps 04:40; after-idle steps and the step-6
+search 14:06 EDT (the lane was cut off by a usage limit at ~04:50 and resumed; the session had already run to its
+end with every step recorded, so the row was completed from the preserved project, not re-run). Sessions used: 1
+(session/, sessions.tsv part sessions-c7 n=2, 357.5 s). Model claude-haiku-4-5-20251001. Claude Code 2.1.280,
+Windows 11 Home 25H2 build 10.0.26200.9457. Frozen bundle c7 (BUNDLE.json sha256 5212ae4e...f395, commit d20309c0)
+via --plugin-dir; every CLI step used the bundle's bin/qompack.exe (`qompack version` 0.3.0).
+
+Preconditions (cli/00-preconditions.txt): fresh project (git init + add): data/keys.txt (40 keys; Q23 in
+setup-facts.json), notes.md, src/ledger.py, filler/f01-f10.txt (~40 KB each). Defaults (no config file at the start,
+automaticVeto false, blockManualCompact false, scheduler defaults), DEFAULT idle exit. Initial absence recorded
+(cli/00-backup-create-absent exit 1).
+Automatic-compaction setting (NOT the 30%/100k override that thrashed candidates 3 and 4):
+CLAUDE_CODE_AUTO_COMPACT_WINDOW=100000 with the host's DEFAULT threshold percentage (no
+CLAUDE_AUTOCOMPACT_PCT_OVERRIDE), reached by whole-file Reads of the ~40 KB fillers
+(CLAUDE_CODE_FILE_READ_MAX_OUTPUT_TOKENS=60000 so a Read returns a whole filler). Each automatic compaction fired at
+68.6k-73.8k tokens and left 3.8k-4.7k; the stream has 0 "thrash" lines and every turn answered.
+
+First prompt (first-prompt.txt; 16,858 characters, sha256 in setup-facts.json): a 151-requirement brief ending with
+the closing marker OSPREY-END-7731, then `cat data/keys.txt`.
+
+Compactions (session/stream.jsonl compact_boundary events; 8 in all, every one compact_result success):
+ 1 manual "/compact" (pre 30,765) -> checkpoint 0001, block2
+ 2-6 automatic (pre 73,757 / 69,909 / 69,826 / 68,879 / 68,642) -> 0002-0006, block3-block7
+ 7 manual "/compact" (pre 27,765) -> 0007, block8 (MANIFEST before it: 6 lines; after: 7)
+ 8 manual "/compact" with the PreCompact hook failing on the planted unparseable project config `{"runtime":`
+   (step 4) -> compact_result success, NO checkpoint; SessionStart:compact returned an empty additionalContext (the
+   documented degraded mode: "hooks still exit 0 with empty output, and nothing is recorded until the configuration is
+   repaired", doctor config.capture). The hook by hand (cli/11-precompact-hook-by-hand-broken-config) printed {} and
+   exited 0. Step 5: MANIFEST.jsonl after it (meta.json before-step of the last turn) still has 7 lines with 0007
+   newest, unchanged, and every artifact re-hashes (steps/s5-checkpoints.txt, s5-after-idle-checkpoints.txt).
+ Every hook pair the host reported is success/exit 0 (session/hooks.json: 70 pairs, 68 measured); stderr.txt empty.
+
+The long original (D5, F-UAT04-1): every compact block (block2-block8, 1,424-3,250 UTF-16 units, inline, delimiters
+present) names it first in section 7: "user_intent tier1 — OVERFLOW: the verbatim original user intent did not fit
+the rehydration payload and is emitted whole or not at all; restore: expand(tool_use_id=prompt_07433964-..._0)"; no
+block carries a cut of it (no "OSPREY-END" or "R001" fragment); state degraded true.
+LOUD (D50): store/logs_LOUD.log has exactly ONE "rehydrate: tier-1 material exceeds the hard budget cap" (08:34:55Z,
+the first compaction); the six later ones are level=info in the day log (store/logs_qompack-20261002.log). The other
+two LOUD lines are the planted config's reload warning and "configuration unusable, using defaults".
+
+Qompack-sourced recovery (C4.3): after compaction 1 the model recovered the closing marker OSPREY-END-7731 with
+expand(tool_use_id=prompt_..._0) and expand(span 7529:9329); after compaction 7, with data/keys.txt deleted, it
+recovered Q23=TEAK-5825-WILLOW (correct) with recall + expand(full) and said "I found it in the qompack archive".
+
+fsck with the daemon up (cli/10-fsck-json-daemon-up): exit 0, every row ok; index.files "index/files.json is not
+materialized yet while its log carries 12 path(s); the running daemon materializes it at its next flush" (candidate
+4's exit-1 row is now an ok observation). After the idle exit, with the planted config STILL in place
+(cli/20-fsck-json-after-idle-exit and -seal-check): exit 0, every row ok, checkpoints "the chain from 0007 verifies
+across 7 checkpoint(s)" — candidate 4's post-run fsck exit 1 on index.files is FIXED.
+Daemon end (steps/stopped-daemon-info.txt): the hooks refused by the planted config never delivered SessionEnd, so the
+daemon ended the session as abandoned at 09:09:54Z ("no SessionEnd arrived and it has been silent past the idle-exit
+window") and exited by the DEFAULT idle exit at 05:39:54 EDT; no termination.
+
+Step 6 (steps/s6-native-shrink-search.txt): the regex search over 70 hook_response events and 62 evidence files found
+0 matches — no native-shrink claim.
+
+Findings:
+ F-C7-UAT04-1 (D49 "unused room goes to evolution newest-first" not observed when the original is a tier-1
+   overflow): block8 keeps the newest 7 of 13 evolution entries and names the 6 oldest "user_intent_evolution N — did
+   not fit the rehydration budget" while the payload is 929 of 12,000 tokens and 2,950 of 9,400 characters (the six
+   entries total ~740 characters). build.go's step 9a skips "while tier 1 is incomplete", which the overflowed
+   original makes true, so the wording "did not fit the rehydration budget" is not what happened. Ordinary prompts
+   here, so no authority loss in this row; evidence block8-SessionStart-compact.txt, store/state_rehydrate-*.json,
+   steps/s5-0007.json.
+ Observation (unchanged since candidate 4): after the abandoned session the daemon's WAL
+   spool/wal-07433964-....ndjson (1,244,006 B) stays after its idle exit; doctor reports spool.pending degraded
+   ("1 file(s), 1244006 byte(s)"), fsck's spool row is ok (cli/20-*).
+ Observation: the transcript facts list one automatic boundary twice (transcript-facts.json); the stream has 8.
+
+Rollback: not applicable — initial state absent (recorded); the run is retained as evidence (the planted config left
+in place as evidence); no backup or restore was run in this row.
+Guard: plans/sdd/V6-closeout/live/guard/sessions.txt ("session 2 UAT-04").

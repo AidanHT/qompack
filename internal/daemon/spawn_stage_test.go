@@ -380,7 +380,7 @@ func TestRun_ReportsRunningFromThePluginDirectory(t *testing.T) {
 	t.Setenv("QOMPACK_IPC_ADDR", uniqueTestAddr(t))
 
 	log := newRecordingLogger()
-	d, err := New(Options{ProjectRoot: t.TempDir(), Cfg: testConfig(), Log: log, Clock: core.SystemClock()})
+	d, err := New(Options{ProjectRoot: t.TempDir(), Cfg: runTestConfig(), Log: log, Clock: core.SystemClock()})
 	require.NoError(t, err)
 	dd, ok := d.(*daemon)
 	require.True(t, ok)

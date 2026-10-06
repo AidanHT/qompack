@@ -1,0 +1,112 @@
+[
+ {
+  "hook_id": "8958c24a-a1cd-47e9-9bda-a998c1ea74f1",
+  "hook_name": "SessionStart:startup",
+  "hook_event": "SessionStart",
+  "latency_ms": 0,
+  "before_init": true,
+  "measured": false,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "699ef19b-99cd-457d-805b-a9bd77782f6f",
+  "hook_name": "UserPromptSubmit",
+  "hook_event": "UserPromptSubmit",
+  "latency_ms": 116,
+  "before_init": true,
+  "measured": false,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "84786cdc-fa5e-496d-b8c7-834d413cff89",
+  "hook_name": "PostToolUse:ToolSearch",
+  "hook_event": "PostToolUse",
+  "latency_ms": 61,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "eb34f6ff-b545-4f13-a905-14f718c4e7e6",
+  "hook_name": "PostToolUse:mcp__plugin_qompack_qompack__already_tried",
+  "hook_event": "PostToolUse",
+  "latency_ms": 43,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "000db5b3-447a-4328-b272-450e07a771f6",
+  "hook_name": "Stop",
+  "hook_event": "Stop",
+  "latency_ms": 44,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "d22e36aa-1d8d-4449-89a3-818d26b89e48",
+  "hook_name": "UserPromptSubmit",
+  "hook_event": "UserPromptSubmit",
+  "latency_ms": 35,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "af42bc10-2f95-4df0-bcfa-48a8c5e34ca9",
+  "hook_name": "PostToolUse:ToolSearch",
+  "hook_event": "PostToolUse",
+  "latency_ms": 43,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "b42b9bdf-92a8-42b2-b0e0-77f61d10fcf0",
+  "hook_name": "Stop",
+  "hook_event": "Stop",
+  "latency_ms": 60,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "28e77484-b1eb-459b-9b45-852e40e5dd96",
+  "hook_name": "UserPromptSubmit",
+  "hook_event": "UserPromptSubmit",
+  "latency_ms": 39,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "8c5f7235-2ba8-4e25-8888-54ac4e58765d",
+  "hook_name": "PostToolUse:mcp__plugin_qompack_qompack__already_tried",
+  "hook_event": "PostToolUse",
+  "latency_ms": 42,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ },
+ {
+  "hook_id": "2372c1c6-ead8-4df4-9b6c-8c6def58575f",
+  "hook_name": "Stop",
+  "hook_event": "Stop",
+  "latency_ms": 42,
+  "before_init": false,
+  "measured": true,
+  "outcome": "success",
+  "exit_code": 0
+ }
+]

@@ -1,0 +1,37 @@
+# review-2 fixes: GREEN at 503375d2 (+ the docs/architecture.md paragraph), Windows, -p 2, machine shared with other seats
+
+## go test -p 2 -count=1 -run '^TestCarriedDecisionRegainsItsAlternativeAfterATruncatedSeal$' -v ./internal/checkpoint/
+--- PASS: TestCarriedDecisionRegainsItsAlternativeAfterATruncatedSeal (1.18s)
+ok  	github.com/qompack/qompack/internal/checkpoint	1.541s
+## go test -p 2 -count=1 -run '^TestDecisionTruncatedAwayIsCarriedAgain$' -v ./internal/checkpoint/
+--- PASS: TestDecisionTruncatedAwayIsCarriedAgain (0.48s)
+ok  	github.com/qompack/qompack/internal/checkpoint	0.775s
+## go test -p 2 -count=1 -run '^TestSecondCheckpointCarriesTheSessionsExplainsDecision$' -v ./internal/checkpoint/
+--- PASS: TestSecondCheckpointCarriesTheSessionsExplainsDecision (0.67s)
+ok  	github.com/qompack/qompack/internal/checkpoint	0.984s
+## go test -p 2 -count=1 -run '^TestForkCarriesItsParentsDecisionsFromTheForkPoint$' -v ./internal/checkpoint/
+--- PASS: TestForkCarriesItsParentsDecisionsFromTheForkPoint (0.62s)
+ok  	github.com/qompack/qompack/internal/checkpoint	0.963s
+## go test -p 2 -count=1 -run '^TestLedgerAncestryAnswersAForkRecordedAfterItsFirstAnswer$' -v ./internal/checkpoint/
+--- PASS: TestLedgerAncestryAnswersAForkRecordedAfterItsFirstAnswer (0.26s)
+ok  	github.com/qompack/qompack/internal/checkpoint	0.692s
+
+## go test -p 2 -count=1 -timeout=30m ./internal/checkpoint/... (final code)
+ok  	github.com/qompack/qompack/internal/checkpoint	118.273s
+ok  	github.com/qompack/qompack/internal/checkpoint/checkpointtest	1.330s
+## go test -p 2 -count=1 -timeout=30m ./internal/negknow/...
+ok  	github.com/qompack/qompack/internal/negknow	35.871s
+ok  	github.com/qompack/qompack/internal/negknow/negknowtest	1.524s
+
+## devtool lint (golangci-lint,nomagic,importgraph,testdeps,bindeps,sleepcheck,docmarkers,runpatterns)
+PASS golangci-lint
+PASS nomagic
+PASS importgraph
+PASS testdeps
+PASS bindeps
+PASS sleepcheck
+FAIL runpatterns: runpatterns: 2 unsatisfiable -run pattern(s):
+PASS docmarkers
+  plans/sdd/V6-closeout/w15-ledger/report.md:210: pattern "^(TestSecondCheckpointCarriesTheSessionsEarlierDecision" is not a valid regexp: error parsing regexp: missing closing ): `^(TestSecondCheckpointCarriesTheSessionsEarlierDecision`
+== devtool lint: docmarkers ==
+# runpatterns: both flagged lines are in the coordinator-committed report.md on the base (24843f56), not in this seat's files.

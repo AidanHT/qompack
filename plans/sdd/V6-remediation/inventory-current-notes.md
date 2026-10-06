@@ -1,7 +1,10 @@
-> **Candidate 6 disposition, 2026-10-02 (C6.2; supersedes the dispositions below).** Every row now
-> carries `c6_result` and `c6_evidence`, appended to `inventory-current.tsv` from candidate 6
-> (`verify/v6` `99d0b18`) evidence: 257 `verified_in_target`, 26 `partial_verified`, 8
-> `failed`, 7 `unknown`, 3 `unsupported`, 3 `documented`. The seven
+> **Candidate 6 and 7 dispositions, 2026-10-02 (C6.2; supersede the dispositions below).** Every row
+> now carries `c6_result` and `c6_evidence`, from candidate 6 (`verify/v6` `99d0b18`) evidence, and
+> `c7_result` and `c7_evidence`, for candidate 7 (`verify/v6` `d20309c0`, code `b31d0753`), all appended
+> to `inventory-current.tsv`. Candidate 6: 251 `verified_in_target`, 34 `partial_verified`,
+> 1 `implemented_unverified`, 5 `failed`, 7 `unknown`, 3 `unsupported`, 3 `documented`. Candidate 7:
+> 251 `verified_in_target`, 39 `partial_verified`, 1 `implemented_unverified`, 7 `unknown`,
+> 3 `unsupported`, 3 `documented`. The seven
 > original columns are unchanged; the `result=` field inside `limitation` is the pre-close-out record.
 > Evidence codes, the rule, the pending rows with what closes each, the fourteen section 3
 > identifiers and the SP19/20/21 switches are in `../V6-closeout/inventory-c6-map.md`. Two statements

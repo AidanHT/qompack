@@ -1,0 +1,16 @@
+ts=2026-10-02T08:14:54.1659547Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-10-02T08:14:54.2034602Z level=info msg="observer: session registered" session=e7d5bf37-3024-44a4-903d-c99c6692c379 source=startup turn=0 segment=1
+ts=2026-10-02T08:14:54.2034602Z level=info msg="scheduler: session bound" session=e7d5bf37-3024-44a4-903d-c99c6692c379 effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+ts=2026-10-02T08:15:43.7050285Z level=info msg="observer: gc" scanned=22 deleted=0 freed=0 truncated=false
+ts=2026-10-02T08:17:13.5855978Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-10-02T08:17:13.6416398Z level=info msg="observer: session registered" session=51357916-b1ff-49e7-9d46-faee950c2e88 source=startup turn=0 segment=3
+ts=2026-10-02T08:17:13.642161Z level=info msg="scheduler: state from another session discarded" path=<scratch>\install\c7\c48\proj\.qompack\state\bocd.json file_session=e7d5bf37-3024-44a4-903d-c99c6692c379 session=51357916-b1ff-49e7-9d46-faee950c2e88
+ts=2026-10-02T08:17:13.642161Z level=info msg="scheduler: state from another session discarded" path=<scratch>\install\c7\c48\proj\.qompack\state\scheduler.json file_session=e7d5bf37-3024-44a4-903d-c99c6692c379 session=51357916-b1ff-49e7-9d46-faee950c2e88
+ts=2026-10-02T08:17:13.642161Z level=info msg="scheduler: session bound" session=51357916-b1ff-49e7-9d46-faee950c2e88 effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+ts=2026-10-02T08:17:53.7880022Z level=info msg="observer: gc" scanned=39 deleted=0 freed=0 truncated=false
+ts=2026-10-02T08:21:06.854612Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-10-02T08:21:06.9189976Z level=info msg="observer: session registered" session=c9e57024-7843-4bf0-98ce-f63b85badb55 source=startup turn=0 segment=5
+ts=2026-10-02T08:21:06.9189976Z level=info msg="scheduler: state from another session discarded" path=<scratch>\install\c7\c48\proj\.qompack\state\bocd.json file_session=51357916-b1ff-49e7-9d46-faee950c2e88 session=c9e57024-7843-4bf0-98ce-f63b85badb55
+ts=2026-10-02T08:21:06.9195054Z level=info msg="scheduler: state from another session discarded" path=<scratch>\install\c7\c48\proj\.qompack\state\scheduler.json file_session=51357916-b1ff-49e7-9d46-faee950c2e88 session=c9e57024-7843-4bf0-98ce-f63b85badb55
+ts=2026-10-02T08:21:06.9195054Z level=info msg="scheduler: session bound" session=c9e57024-7843-4bf0-98ce-f63b85badb55 effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+ts=2026-10-02T08:21:24.1113265Z level=info msg="observer: gc" scanned=46 deleted=0 freed=0 truncated=false

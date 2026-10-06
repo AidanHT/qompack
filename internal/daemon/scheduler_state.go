@@ -102,6 +102,17 @@ type schedulerStateDoc struct {
 	ResidualTokens        core.Tokens        `json:"residual_tokens"`
 	LastCheckpointSeq     core.CheckpointSeq `json:"last_checkpoint_seq"`
 	LastDecision          decisionDoc        `json:"last_decision"`
+	// LastAppliedObservations names, per session, the observation identity of the last delivery the
+	// tap applied to the account this document carries (the held entries of schedRuntime.applied).
+	// The tap folds every session's tool use into the bound account, so a delivery of another
+	// session can be in it too. The map is written from the same snapshot as the account, so the two
+	// always agree: a replay of one of those deliveries after a restart is already in the account and
+	// is not folded again. It holds one entry per session whose delivery reached this account since
+	// the bind that started it, at most maxAppliedSessions of them (the most recently applied), and
+	// a load keeps no more (capApplied). It is omitempty and additive, like last_local_checkpoint_ts:
+	// a document written before it existed loads with no identity, which is exactly the behaviour
+	// before it existed, so the version stays 1.
+	LastAppliedObservations map[core.SessionID]core.ObservationID `json:"last_applied_observations,omitempty"`
 }
 
 // stateFiles is one Persist's encoded payload: built under the runtime lock, written without it.
@@ -136,7 +147,8 @@ func encodeSchedulerState(doc schedulerStateDoc) ([]byte, error) {
 }
 
 // decodeSchedulerState parses a scheduler.json document, rejecting an unknown version and
-// re-applying the turn-list cap so an oversized document from an older writer is bounded too.
+// re-applying the turn-list cap so an oversized document from an older writer is bounded too, and
+// bounding and validating the applied identities the same way (capApplied).
 func decodeSchedulerState(b []byte) (schedulerStateDoc, error) {
 	var doc schedulerStateDoc
 	if err := json.Unmarshal(b, &doc); err != nil {
@@ -147,7 +159,42 @@ func decodeSchedulerState(b []byte) (schedulerStateDoc, error) {
 	}
 	doc.ChangepointTurns = capTurns(doc.ChangepointTurns)
 	doc.RoundTurns = capTurns(doc.RoundTurns)
+	doc.LastAppliedObservations = capApplied(doc.LastAppliedObservations)
 	return doc, nil
+}
+
+// capApplied bounds a loaded last_applied_observations as the runtime bounds the map it is written
+// from (maxAppliedSessions), and keeps only the entries a writer can produce: a named session and a
+// well-formed observation identity. A document this daemon wrote never exceeds the bound; one that
+// does was edited or corrupted, and it keeps the first maxAppliedSessions sessions in session order,
+// which carries no recency. The caller's map is not modified.
+func capApplied(m map[core.SessionID]core.ObservationID) map[core.SessionID]core.ObservationID {
+	if len(m) == 0 {
+		return m
+	}
+	sessions := make([]core.SessionID, 0, len(m))
+	for s, id := range m {
+		if s != "" && wellFormedObservation(id) {
+			sessions = append(sessions, s)
+		}
+	}
+	if len(sessions) == 0 {
+		return nil
+	}
+	slices.Sort(sessions)
+	sessions = sessions[:min(len(sessions), maxAppliedSessions)]
+	out := make(map[core.SessionID]core.ObservationID, len(sessions))
+	for _, s := range sessions {
+		out[s] = m[s]
+	}
+	return out
+}
+
+// wellFormedObservation reports whether id has the shape core.NewObservationID produces: a canonical,
+// non-zero hash.
+func wellFormedObservation(id core.ObservationID) bool {
+	h, err := core.ParseHash(string(id))
+	return err == nil && !h.IsZero() && h.String() == string(id)
 }
 
 // capTurns keeps the newest maxTurnHistory entries of an ascending turn list. It slices rather
@@ -256,6 +303,8 @@ func (r *schedRuntime) saveStateLocked() (stateFiles, error) {
 		ResidualTokens:        r.residual,
 		LastCheckpointSeq:     r.lastCheckpointSeq,
 		LastDecision:          decisionToDoc(r.lastDecision),
+
+		LastAppliedObservations: r.heldObservationsLocked(),
 	})
 	if err != nil {
 		return stateFiles{}, fmt.Errorf("encode %s: %w", stateFileScheduler, err)
@@ -272,22 +321,27 @@ func (r *schedRuntime) saveStateLocked() (stateFiles, error) {
 // is ever deleted: the store is untouched, so no data is lost, and the next Persist overwrites.
 func (r *schedRuntime) loadStateLocked() {
 	bp, sp := r.statePaths()
-	if raw, ok := r.readStateFile(bp); ok {
+	if raw, ok := r.loadStateFile(bp); ok {
 		r.restoreBOCDLocked(raw, bp)
 	}
-	if raw, ok := r.readStateFile(sp); ok {
+	if raw, ok := r.loadStateFile(sp); ok {
 		r.restoreSchedulerLocked(raw, sp)
 	}
 }
 
-// readStateFile reads p, reporting false (and logging) when there is nothing usable.
+// readStateFile reads one of the two state files.
 //
 // The read is shared (paths.ReadFileShared). BindSession reads under r.mu, while Persist writes
 // both files with paths.WriteAtomic under persistMu only, after releasing r.mu, so an idle-tick
 // persist and another session's bind are not ordered; on Windows an ordinary handle would fail that
 // replace and be refused while one is finishing (test/guards' sharedReaders).
-func (r *schedRuntime) readStateFile(p string) ([]byte, bool) {
-	raw, err := paths.ReadFileShared(p)
+func readStateFile(p string) ([]byte, error) {
+	return paths.ReadFileShared(p)
+}
+
+// loadStateFile reads p for a bind, reporting false (and logging) when there is nothing usable.
+func (r *schedRuntime) loadStateFile(p string) ([]byte, bool) {
+	raw, err := readStateFile(p)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			r.log.Debug("scheduler: no persisted state", "path", p)
@@ -411,6 +465,7 @@ func (r *schedRuntime) restoreSchedulerLocked(raw []byte, p string) {
 	r.residual = doc.ResidualTokens
 	r.lastCheckpointSeq = doc.LastCheckpointSeq
 	r.lastDecision = docToDecision(doc.LastDecision)
+	r.restoreAppliedLocked(doc.LastAppliedObservations)
 	if futureStamps+negativeCounters+unmeasuredEWMAs > 0 {
 		r.log.Warn(msgStateRepaired, "path", p, "future_timestamps", futureStamps,
 			"negative_counters", negativeCounters, "unmeasured_ewmas", unmeasuredEWMAs)

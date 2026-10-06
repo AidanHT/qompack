@@ -118,7 +118,7 @@ func TestSessionStartCompact_SessionsNextEventWaitsForTheBookkeeping(t *testing.
 	require.Contains(t, additionalContext(resp.Output), "ready", "the rehydration is the answer")
 	select {
 	case <-f.entered:
-	case <-time.After(compactTestBound):
+	case <-hangGuard(t):
 		t.Fatal("the observer's SessionStart bookkeeping never started")
 	}
 
@@ -186,7 +186,7 @@ func TestSessionStartCompact_BookkeepingGateHonoursCancellation(t *testing.T) {
 	cancel()
 	select {
 	case <-done:
-	case <-time.After(compactTestBound):
+	case <-hangGuard(t):
 		t.Fatal("a cancelled caller was kept waiting on the session's bookkeeping")
 	}
 }

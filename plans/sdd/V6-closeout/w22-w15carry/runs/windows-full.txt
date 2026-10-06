@@ -1,0 +1,52 @@
+# HEAD 0f02a4fc; go test -p 2 -count=1 -timeout=30m ./internal/checkpoint/... ./internal/negknow/... ./internal/store/... ./test/fault/... ./test/guards/...
+ok  	github.com/qompack/qompack/internal/checkpoint	507.854s
+ok  	github.com/qompack/qompack/internal/checkpoint/checkpointtest	4.666s
+--- FAIL: TestBudget_RebuildBloom (22.13s)
+    bench_test.go:727: BenchmarkRebuildBloom: attempt 1 is 445.2155ms wall/op and 33.854166ms CPU/op, over the 50ms ceiling on a gated clock — retrying
+    bench_test.go:727: BenchmarkRebuildBloom: attempt 2 is 423.1667ms wall/op and 28.645833ms CPU/op, over the 50ms ceiling on a gated clock — retrying
+    bench_test.go:727: BenchmarkRebuildBloom: attempt 3 is 107.440275ms wall/op and 24.414062ms CPU/op, over the 50ms ceiling on a gated clock — retrying
+    bench_test.go:727: BenchmarkRebuildBloom: 24.414062ms CPU/op over 16 iterations (best of 3) against a 50ms budget
+    bench_test.go:727: BenchmarkRebuildBloom: 107.440275ms wall/op over 16 iterations (best of 3) against a 50ms budget
+    bench_test.go:727: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w22-w15carry/internal/negknow/bench_test.go:450
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w22-w15carry/internal/negknow/bench_test.go:390
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w22-w15carry/internal/negknow/bench_test.go:727
+        	Error:      	"107.440275ms" is not less than or equal to "50ms"
+        	Test:       	TestBudget_RebuildBloom
+        	Messages:   	BenchmarkRebuildBloom: 107.440275ms wall/op exceeds the §11.2 budget of 50ms
+--- FAIL: TestBudget_Open (12.57s)
+    bench_test.go:843: BenchmarkOpen: attempt 1 is 1.3019704s wall/op and 109.375ms CPU/op, over the 300ms ceiling on a gated clock — retrying
+    bench_test.go:843: BenchmarkOpen: attempt 2 is 467.355266ms wall/op and 190.104166ms CPU/op, over the 300ms ceiling on a gated clock — retrying
+    bench_test.go:843: BenchmarkOpen: attempt 3 is 1.2682295s wall/op and 195.3125ms CPU/op, over the 300ms ceiling on a gated clock — retrying
+    bench_test.go:843: BenchmarkOpen: 109.375ms CPU/op over 1 iterations (best of 3) against a 300ms budget
+    bench_test.go:843: BenchmarkOpen: 467.355266ms wall/op over 6 iterations (best of 3) against a 300ms budget
+    bench_test.go:843: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w22-w15carry/internal/negknow/bench_test.go:450
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w22-w15carry/internal/negknow/bench_test.go:390
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w22-w15carry/internal/negknow/bench_test.go:843
+        	Error:      	"467.355266ms" is not less than or equal to "300ms"
+        	Test:       	TestBudget_Open
+        	Messages:   	BenchmarkOpen: 467.355266ms wall/op exceeds the §11.2 budget of 300ms
+--- FAIL: TestBudget_QueryMissThroughLineage (36.69s)
+    --- FAIL: TestBudget_QueryMissThroughLineage/not_a_fork (18.04s)
+        lineage_bench_test.go:100: BenchmarkQueryMissThroughLineage/not_a_fork: attempt 1 is 5.536µs wall/op and 3.838µs CPU/op, over the 5µs ceiling on a gated clock — retrying
+        lineage_bench_test.go:100: BenchmarkQueryMissThroughLineage/not_a_fork: attempt 2 is 6.193µs wall/op and 3.213µs CPU/op, over the 5µs ceiling on a gated clock — retrying
+        lineage_bench_test.go:100: BenchmarkQueryMissThroughLineage/not_a_fork: attempt 3 is 5.458µs wall/op and 3.685µs CPU/op, over the 5µs ceiling on a gated clock — retrying
+        lineage_bench_test.go:100: BenchmarkQueryMissThroughLineage/not_a_fork: 3.213µs CPU/op over 243114 iterations (best of 3) against a 5µs budget
+        lineage_bench_test.go:100: BenchmarkQueryMissThroughLineage/not_a_fork: 5.458µs wall/op over 292495 iterations (best of 3) against a 5µs budget
+        lineage_bench_test.go:100: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w22-w15carry/internal/negknow/bench_test.go:450
+            	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w22-w15carry/internal/negknow/export_test.go:26
+            	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w22-w15carry/internal/negknow/lineage_bench_test.go:100
+            	Error:      	"5.458µs" is not less than or equal to "5µs"
+            	Test:       	TestBudget_QueryMissThroughLineage/not_a_fork
+            	Messages:   	BenchmarkQueryMissThroughLineage/not_a_fork: 5.458µs wall/op exceeds the §11.2 budget of 5µs
+FAIL
+FAIL	github.com/qompack/qompack/internal/negknow	130.590s
+ok  	github.com/qompack/qompack/internal/negknow/negknowtest	6.200s
+ok  	github.com/qompack/qompack/internal/store	1227.666s
+ok  	github.com/qompack/qompack/internal/store/storetest	5.057s
+ok  	github.com/qompack/qompack/test/fault	894.984s
+ok  	github.com/qompack/qompack/test/guards	151.026s
+FAIL
+exit=1

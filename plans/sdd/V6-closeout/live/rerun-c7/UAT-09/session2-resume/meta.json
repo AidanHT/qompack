@@ -1,0 +1,194 @@
+{
+ "args": [
+  "-p",
+  "--input-format",
+  "stream-json",
+  "--output-format",
+  "stream-json",
+  "--verbose",
+  "--include-hook-events",
+  "--model",
+  "claude-haiku-4-5-20251001",
+  "--max-turns",
+  "20",
+  "--setting-sources",
+  "project,local",
+  "--permission-mode",
+  "dontAsk",
+  "--plugin-dir",
+  "C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c7/qompack-plugin-0.3.0-windows-amd64",
+  "--resume",
+  "042883ea-847f-47c8-958a-6d43aee99948",
+  "--allowedTools",
+  "Read,mcp__plugin_qompack_qompack__recall,mcp__plugin_qompack_qompack__expand,mcp__plugin_qompack_qompack__re_read,mcp__plugin_qompack_qompack__already_tried,mcp__plugin_qompack_qompack__record_eliminated,mcp__plugin_qompack_qompack__timeline,mcp__plugin_qompack_qompack__why,mcp__plugin_qompack_qompack__dropped,Bash(qompack status:*),Bash(qompack recall:*),Bash(qompack pin:*),Bash(qompack why:*),Bash(qompack dropped:*),Bash(qompack eval:*)"
+ ],
+ "turns": [
+  {
+   "before": {
+    "argv": [
+     "python",
+     "<scratch>/retrieval/c7/lane.py",
+     "daemon-info",
+     "<scratch>/retrieval/c7/uat09/proj"
+    ],
+    "exit": 0,
+    "stdout": "{\n \"lock\": \"unreadable: [Errno 2] No such file or directory: '<scratch>/retrieval/c7/uat09/proj\\\\\\\\.qompack\\\\\\\\run\\\\\\\\daemon.lock'\"\n}\n",
+    "stderr": ""
+   },
+   "msg": "Call mcp__plugin_qompack_qompack__already_tried with {\"target\": \"src/pool.go:DialPool\", \"approach\": \"widen pool timeout\"}. Reply with the tool result's text verbatim, then say in one sentence whether anything in it forbids trying the approach.",
+   "ok": true,
+   "wall_s": 9.016,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 60480,
+    "WorkingSet64": 28860416,
+    "PeakWorkingSet64": 28860416,
+    "CPU": 0.09375,
+    "StartTime": "/Date(1790969257434)/"
+   },
+   "store_bytes": 423822
+  },
+  {
+   "before": {
+    "argv": [
+     "python",
+     "<scratch>/retrieval/c7/multi.py",
+     "[[\"python\", \"<scratch>/retrieval/c7/cfgwait.py\", \"<scratch>/retrieval/c7/uat09/proj\", \"{\\\"eliminations\\\":{\\\"staleResponse\\\":\\\"flag\\\"}}\\n\", \"<scratch>/retrieval/c7/uat09/snap/config.flag.json\", \"eliminations.staleResponse\", \"100\"], [\"python\", \"<scratch>/retrieval/c7/lane.py\", \"daemon-info\", \"<scratch>/retrieval/c7/uat09/proj\"]]"
+    ],
+    "exit": 0,
+    "stdout": "$ <scratch>/retrieval/c7/cfgwait.py <scratch>/retrieval/c7/uat09/proj\ncfgwait.py: wrote 42 bytes to <project>/.qompack/config.json: {\"eliminations\":{\"staleResponse\":\"flag\"}}\ncfgwait.py: reload seen after 1.0 s: ts=2026-10-02T19:27:46.5402303Z level=info msg=\"daemon: config reloaded\" changed=[eliminations.staleResponse]\n[exit 0]\n$ <scratch>/retrieval/c7/lane.py daemon-info\n{\n \"lock\": {\n  \"pid\": 60480,\n  \"started\": 1790969257465,\n  \"addr\": \"\\\\\\\\.\\\\pipe\\\\qompack.489b31015ddb\",\n  \"version\": \"0.3.0\",\n  \"owner\": \"ae652c4e145b7124c1180006e698a766d93e3085772e3dc0b7e3aa70999cb701\",\n  \"root\": \"<scratch>\\\\retrieval\\\\c7\\\\uat09\\\\proj\"\n },\n \"pid\": 60480,\n \"proc\": {\n  \"Name\": \"qompack.exe\",\n  \"Path\": \"C:\\\\Users\\\\Quant\\\\.qompack\\\\bin\\\\ab8046bac3bad894c9a299c61fb38277f4179f4e33bfb088873e43edcbe33be7\\\\qompack.exe\",\n  \"Cmd\": \"C:\\\\Users\\\\Quant\\\\.qompack\\\\bin\\\\ab8046bac3bad894c9a299c61fb38277f4179f4e33bfb088873e43edcbe33be7\\\\qompack.exe daemon --project <scratch>\\\\retrieval\\\\c7\\\\uat09\\\\proj\"\n }\n}\n[exit 0]\n",
+    "stderr": ""
+   },
+   "msg": "Call mcp__plugin_qompack_qompack__already_tried with {\"target\": \"src/pool.go:DialPool\", \"approach\": \"widen pool timeout\"}. Reply with the tool result's text verbatim, then say in one sentence whether anything in it forbids trying the approach.",
+   "ok": true,
+   "wall_s": 6.411,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 60480,
+    "WorkingSet64": 29990912,
+    "PeakWorkingSet64": 29990912,
+    "CPU": 0.125,
+    "StartTime": "/Date(1790969257434)/"
+   },
+   "store_bytes": 451745
+  },
+  {
+   "msg": "Call mcp__plugin_qompack_qompack__already_tried with {\"target\": \"src/pool.go:DialPool\", \"approach\": \"add a connection retry loop\"}, then with {\"target\": \"\", \"approach\": \"\"}. Reply with one line per call: the arguments you passed, whether the host marked the result as an error (yes/no), and the first 300 characters of the result text.",
+   "ok": true,
+   "wall_s": 5.211,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 60480,
+    "WorkingSet64": 31506432,
+    "PeakWorkingSet64": 31506432,
+    "CPU": 0.140625,
+    "StartTime": "/Date(1790969257434)/"
+   },
+   "store_bytes": 477723
+  },
+  {
+   "msg": "Make these recall calls in order: mcp__plugin_qompack_qompack__recall with {\"query\": \"DialPool\"}; then with {\"query\": \"DialPool\", \"k\": 0}; then with {\"query\": \"\"}; then with {\"query\": \"path:src/pool.go\", \"k\": 2}; then with {\"query\": \"path:src/[\"}. Reply with one line per call: the arguments you passed, whether the host marked the result as an error (yes/no), and the first 300 characters of the result text.",
+   "ok": true,
+   "wall_s": 10.62,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 60480,
+    "WorkingSet64": 37961728,
+    "PeakWorkingSet64": 37961728,
+    "CPU": 0.296875,
+    "StartTime": "/Date(1790969257434)/"
+   },
+   "store_bytes": 544793
+  },
+  {
+   "msg": "Make these expand calls in order: mcp__plugin_qompack_qompack__expand with {\"tool_use_id\": <the tool_use_id of the first recall hit above whose path is src/pool.go>}; then with {\"hash\": \"sha256:zz\"}; then with {\"tool_use_id\": \"toolu_doesnotexist000\"}; then with {} (no arguments). Reply with one line per call: the arguments you passed, whether the host marked the result as an error (yes/no), and the first 300 characters of the result text.",
+   "ok": true,
+   "wall_s": 11.822,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 60480,
+    "WorkingSet64": 39788544,
+    "PeakWorkingSet64": 39788544,
+    "CPU": 0.390625,
+    "StartTime": "/Date(1790969257434)/"
+   },
+   "store_bytes": 604674
+  },
+  {
+   "msg": "Make these re_read calls in order: mcp__plugin_qompack_qompack__re_read with {\"path\": \"src/pool.go\"}; then {\"path\": \"src/nope.go\"}; then {\"path\": \"../outside.txt\"}; then {\"path\": \"src/pool.go\", \"at\": \"yesterday\"}. Reply with one line per call: the arguments you passed, whether the host marked the result as an error (yes/no), and the first 300 characters of the result text.",
+   "ok": true,
+   "wall_s": 8.014,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 60480,
+    "WorkingSet64": 41914368,
+    "PeakWorkingSet64": 41914368,
+    "CPU": 0.515625,
+    "StartTime": "/Date(1790969257434)/"
+   },
+   "store_bytes": 665008
+  },
+  {
+   "msg": "Make these calls in order: mcp__plugin_qompack_qompack__record_eliminated with {\"target\": \"config/pool.yaml:max_idle\", \"approach\": \"set max_idle to 0\", \"reason\": \"max_idle 0 closes every idle connection at once and the pool reconnects on every request\", \"scope\": \"project\", \"depends_on\": [\"config/pool.yaml\"]}; then mcp__plugin_qompack_qompack__record_eliminated with {\"target\": \"x\", \"approach\": \"y\", \"reason\": \"z\", \"scope\": \"global\"}; then mcp__plugin_qompack_qompack__already_tried with {\"target\": \"config/pool.yaml:max_idle\", \"approach\": \"set max_idle to 0\"}. Reply with one line per call: the arguments you passed, whether the host marked the result as an error (yes/no), and the first 300 characters of the result text.",
+   "ok": true,
+   "wall_s": 12.023,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 60480,
+    "WorkingSet64": 43659264,
+    "PeakWorkingSet64": 43659264,
+    "CPU": 0.640625,
+    "StartTime": "/Date(1790969257434)/"
+   },
+   "store_bytes": 727231
+  },
+  {
+   "msg": "Make these timeline calls in order: mcp__plugin_qompack_qompack__timeline with {}; then {\"from\": \"1\", \"to\": \"6\"}; then {\"from\": \"not-a-turn\"}; then {\"from\": \"20\", \"to\": \"2\"}. Reply with one line per call: the arguments you passed, whether the host marked the result as an error (yes/no), and the first 300 characters of the result text.",
+   "ok": true,
+   "wall_s": 11.223,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 60480,
+    "WorkingSet64": 45277184,
+    "PeakWorkingSet64": 45277184,
+    "CPU": 0.78125,
+    "StartTime": "/Date(1790969257434)/"
+   },
+   "store_bytes": 791916
+  },
+  {
+   "msg": "Make these why calls in order: mcp__plugin_qompack_qompack__why with {\"decision_id\": \"dec_e760c8bbf50a\"}; then with {\"decision_id\": \"dec_000000000000\"}; then with {\"decision_id\": \"not-a-decision\"}. Reply with one line per call: the arguments you passed, whether the host marked the result as an error (yes/no), and the first 300 characters of the result text.",
+   "ok": true,
+   "wall_s": 7.414,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 60480,
+    "WorkingSet64": 46452736,
+    "PeakWorkingSet64": 46452736,
+    "CPU": 0.984375,
+    "StartTime": "/Date(1790969257434)/"
+   },
+   "store_bytes": 866160
+  },
+  {
+   "msg": "Call mcp__plugin_qompack_qompack__dropped with {}; then call it with {\"session\": \"x\"}. Reply with one line per call: the arguments you passed, whether the host marked the result as an error (yes/no), and the first 300 characters of the result text.",
+   "ok": true,
+   "wall_s": 4.61,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 60480,
+    "WorkingSet64": 47013888,
+    "PeakWorkingSet64": 47013888,
+    "CPU": 1.109375,
+    "StartTime": "/Date(1790969257434)/"
+   },
+   "store_bytes": 905548
+  }
+ ],
+ "store_bytes_before": 307469,
+ "started_ms": 1790969255527,
+ "pid": 48020,
+ "exit": 0,
+ "wall_s": 95.804,
+ "store_bytes_after": 917975
+}

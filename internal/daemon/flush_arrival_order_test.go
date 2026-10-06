@@ -70,7 +70,7 @@ func flushOrderDaemon(t *testing.T) (*daemon, *Options, string) {
 		defer cancel()
 		dd.stopPromptRecordings(grace)
 	})
-	dd.drain.Store(newDrainer(dd.drainConfig()))
+	dd.drain.Store(newDrainer(contentDrainConfig(dd)))
 	return dd, o, root
 }
 
@@ -210,7 +210,7 @@ func TestFlush_SessionEndIsOrderedAfterAcceptedArrivals(t *testing.T) {
 		})
 		select {
 		case <-parked:
-		case <-time.After(flushOrderReplyBound):
+		case <-hangGuard(t):
 			t.Fatal("the worker never reached the other session's delivery")
 		}
 		require.Len(t, dd.ing.ring, 1, "the queued tool waits behind the busy worker")

@@ -1,0 +1,13 @@
+{
+  "success": true,
+  "strict": true,
+  "target": "<scratch>\\install\\c7\\mkt\\.claude-plugin\\marketplace.json",
+  "manifest": {
+    "file": "<scratch>\\install\\c7\\mkt\\.claude-plugin\\marketplace.json",
+    "type": "marketplace",
+    "errors": [],
+    "warnings": [],
+    "notes": []
+  },
+  "contents": []
+}

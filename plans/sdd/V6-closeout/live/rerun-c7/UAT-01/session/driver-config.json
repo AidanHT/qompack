@@ -1,0 +1,35 @@
+{
+ "bin": "C:/Users/Quant/AppData/Roaming/npm/node_modules/@anthropic-ai/claude-code/bin/claude.exe",
+ "args": [
+  "-p",
+  "--input-format",
+  "stream-json",
+  "--output-format",
+  "stream-json",
+  "--verbose",
+  "--include-hook-events",
+  "--model",
+  "claude-haiku-4-5-20251001",
+  "--max-turns",
+  "8",
+  "--setting-sources",
+  "project,local",
+  "--permission-mode",
+  "dontAsk",
+  "--allowedTools",
+  "Read,mcp__plugin_qompack_qompack__recall,mcp__plugin_qompack_qompack__expand,mcp__plugin_qompack_qompack__re_read,mcp__plugin_qompack_qompack__already_tried,mcp__plugin_qompack_qompack__record_eliminated,mcp__plugin_qompack_qompack__timeline,mcp__plugin_qompack_qompack__why,mcp__plugin_qompack_qompack__dropped,mcp__plugin_qompack-windows-amd64_qompack,mcp__plugin_qompack_windows_amd64_qompack,Bash(qompack status:*),Bash(qompack recall:*),Bash(qompack pin:*),Bash(qompack why:*),Bash(qompack dropped:*),Bash(qompack eval:*)"
+ ],
+ "cwd": "<scratch>/install/c7/uat01/proj",
+ "out": "<scratch>/install/c7/uat01/s1",
+ "env": {
+  "ENABLE_CLAUDEAI_MCP_SERVERS": "false"
+ },
+ "messages": [
+  "Read README.md and tell me the project's code word, in one sentence.",
+  "/qompack:status",
+  "Call Qompack's recall MCP tool with the query \"KESTREL\". Reply in one sentence: how many hits it returned and the tool name of the top hit.",
+  "Call Qompack's recall MCP tool again with exactly the same query \"KESTREL\". Then list every hit in rank order, one per line, as: rank, tool name, path (or tool_use_id if there is no path). Nothing else."
+ ],
+ "timeout_s": 900,
+ "scrub": "<scratch>"
+}

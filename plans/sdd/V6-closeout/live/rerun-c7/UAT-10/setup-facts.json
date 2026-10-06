@@ -1,0 +1,17 @@
+{
+ "files": {
+  "README.md": {
+   "bytes": 84,
+   "sha256": "1f01f0603c30cc6824ef5093bc9399bbfc4bf5bd820cf7609361b8a435037ad1"
+  },
+  "worker.log": {
+   "bytes": 23951,
+   "sha256": "4e04ce4ee7d7540b9e639d861a59ebb51b15b2f675764ca44e7a6a2e107db594"
+  },
+  "src/batch.go": {
+   "bytes": 568,
+   "sha256": "bd0d5e386394375b15a5b7048377f6b600003119b95dec2bc8f153535888071f"
+  }
+ },
+ "error_lines_in_worker_log": 11
+}

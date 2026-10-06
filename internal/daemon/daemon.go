@@ -134,6 +134,10 @@ type daemon struct {
 	// lastStartAnswer is what the last live session.start's answer carried that is true only once
 	// the host has it (handlers.go startAnswer): a replay of that same request withdraws it.
 	lastStartAnswer startAnswer
+	// sealedPreCompacts names, oldest first, the delivery nonces of the newest PreCompacts whose seal
+	// has succeeded in this daemon (handlers.go handleCheckpoint), so a hook's spooled copy of one is
+	// not sealed again. Guarded by historyMu, like lastStartAnswer.
+	sealedPreCompacts []string
 
 	// modeMu guards lastReportedMode, the mode the contract_mode_change counter (ruling #26)
 	// compares against, and lastAnnouncedMode, the mode the host was last told about, which the
@@ -405,6 +409,9 @@ func New(o Options) (Daemon, error) {
 		// reaches Stop. A nil here is an Options no wiring ran over, and closeAll is nil-safe.
 		owned: o.shutdown,
 	}
+	// The reload bookkeeping starts from the file the composition root loaded Cfg from, so the
+	// first check neither reloads nor re-Louds an unchanged file (Options.CfgStamp).
+	d.lastCfgMTime, d.lastCfgSize = o.CfgStamp.ModTime, o.CfgStamp.Size
 	// Background, not any caller's context: a capture must outlive the request that started it,
 	// and only Stop may end it (stopPromptRecordings).
 	d.promptCtx, d.promptCancel = context.WithCancel(context.Background())

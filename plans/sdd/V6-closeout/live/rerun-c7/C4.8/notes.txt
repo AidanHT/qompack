@@ -1,0 +1,111 @@
+C4.8 - upgrade from the previous build, uninstall, reinstall; project work preserved; backup -> restore ->
+fsck certified. Candidate 7 re-run (decisions D52, D53(f), D57), commit d20309c0, frozen bundle
+qompack-bundles/c7/qompack-plugin-0.3.0-windows-amd64. This run also carries the UAT-12 upgrade leg
+(../UAT-12/notes.txt) and the C1.7 restore smoke (../C1.7/notes.txt). Agent-executed on the owner's real
+host per owner decision D3 by a Claude Code workflow subagent (Opus 5.5) - not human UAT.
+
+Date 2026-10-02 04:13-04:23 America/Toronto (EDT). Sessions: 3 (sessions.tsv install-c7 n=2, 3, 4; all
+haiku, exit 0, stderr empty). Every CLI step used QOMPACK_HOME=<scratch>/install/c7/qhome; the sessions
+also set QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS=30 so every daemon ended by its own idle exit (no
+termination in this row). Candidate 4's C4.8 notes stay at plans/sdd/V6-closeout/live/rerun-c4/C4.8/.
+
+Previous build: candidate 5's frozen bundle qompack-bundles/c5/qompack-plugin-0.3.0-windows-amd64
+(BUNDLE.json sha256 a1c59ec2d817d1837359033d6f047736470beb8bc1badfae836d9158b211a4ac, source commit
+0d06ab12, bin sha256 08a513369c0e...; plugin.json 0.3.0 with the old description). 0.3.0 has no earlier
+public release, so this is the previous installable build (D53(f)). Both bundles stamp 0.3.0, so the
+upgrade is a change of build, not of version string.
+
+Project: <scratch>/install/c7/c48/proj (git init + commit; README.md code word OSPREY-HALYARD-77,
+calc.py, data.txt 40 rows, notes.md); project-file sha256 in cli/00. Initial state absent: cli/01 (no
+.qompack/; `backup create` exit 1 "backup: source project has no existing store").
+
+Result per part (cli/ = first half, cli2/ = survival half):
+ previous build   PASS  session A (sessionA/, --plugin-dir = the candidate 5 bundle): Read README.md,
+                        calc.py, notes.md, data.txt; record_eliminated (project scope, depends_on
+                        data.txt) answered active elim_c2705efc9147; recall "OSPREY-HALYARD" 2 hits;
+                        timeline 1 segment; /compact -> "PreCompact [...qompack.exe checkpoint] completed
+                        successfully: {}", SessionStart:compact injected checkpoint 0001 (4,077 chars,
+                        sessionA/compact-block.txt); the next turn answered both facts. 19 hook pairs, all
+                        success / exit 0. The candidate 5 daemon (staged ~/.qompack/bin/08a51336...)
+                        idle-exited on its own (cli/03).
+ baseline backup  PASS  frozen candidate 7 CLI, source stopped: backup create --id c48-baseline exit 0,
+                        consistent, 77 files (cli/05); backup verify exit 0: scratch restore OpenedOK,
+                        ContentRootsProven 22, ToolRefsProven 15, tombstoned 0, integrity exit 0
+                        including "the chain from 0001 verifies" and "the full dual-reader seal check
+                        passed" (cli/06). Before the upgrade both builds' fsck exit 0 on the source
+                        (cli/07a candidate 7 --seal-check, cli/07b candidate 5).
+ upgrade          PASS  session B (sessionB/, --plugin-dir = the frozen candidate 7 bundle) on the same
+                        project: recall "OSPREY-HALYARD" 4 hits; re_read README.md answered from the store,
+                        turn 1, session A's capture written by the candidate 5 build; already_tried
+                        answered active with session A's reason; timeline 3 segments (segment 1 closed,
+                        checkpoint_seq 1); /compact sealed checkpoint 0003 (0002 is the old build's
+                        set-aside draft number, as on candidate 4) and the injected block (4,138 chars,
+                        sessionB/compact-block.txt) carries session A's elimination and decision
+                        dec_54f5f6a8b792. 15 hook pairs, all success / exit 0.
+                        Post-upgrade, daemon live: status exit 0 (cli/10), doctor --json exit 0
+                        (cli/11: version.bundle 0.3.0 commit d20309c0, captures.unpublished "0 gap(s)
+                        across 30 sidecar(s)", checkpoint.latest "0003 of 2 resolves", negknow.ledger
+                        readable, delivery.rollover never rotated), fsck --json exit 0, 18/18 ok
+                        (cli/12: "the chain from 0003 verifies across 2 checkpoint(s)"; delivery
+                        positions now v2 documents). After the idle exit fsck --seal-check exit 0 (cli/17).
+                        Records preserved (cli/19): of the 158 pre-upgrade files, 131 are byte-identical
+                        (every object, checkpoints/0001.json, records/eliminations.jsonl, the backup), 0
+                        missing; every append-only log changed only by appending (the pre-upgrade bytes
+                        are a prefix of today's file); the rest are rewritten state files.
+ restore          PASS  backup restore --id c48-baseline into a fresh destination (cli/22): exit 0, reader
+                        proof OpenedOK, 22 content roots, 15 tool refs, integrity exit 0 with the full seal
+                        check. The project-file snapshot copied beside it matches the pre-run hashes
+                        (cli/23). fsck --seal-check exit 0 on the recovery (cli/24) and on the source
+                        (cli/25). The source's later writes are untouched (cli/26b: 114 = 114 files
+                        outside backup/, tmp/, run/).
+ previous reader  PASS  candidate 5's own fsck on the recovered baseline exit 0 (cli/27) and its
+ (diagnostic)           --seal-check exit 0 (cli/29). Informative only, a downgrade is never promised:
+                        candidate 5's default fsck on the upgraded source also exits 0 (cli/28).
+ uninstall /      PASS  through the local marketplace qompack-live, entry qompack-windows-amd64 (the
+ reinstall              frozen candidate 7 bundle), LOCAL scope in this project (cli2/31-37):
+                        install exit 0 -> .qompack/ byte-identical (193 files, full listing incl. backup/);
+                        uninstall #1 --json exit 0 ("keptData": false) -> byte-identical; reinstall exit 0
+                        -> byte-identical. Session C (sessionC/, no --plugin-dir, the reinstalled plugin):
+                        init plugin:qompack:qompack connected, plugins[] source
+                        qompack-windows-amd64@qompack-live; re_read README.md -> OSPREY-HALYARD-77 from
+                        the store, turn 1 (session A's old-build capture); already_tried active; recall at
+                        the default k answered 5 permitted hits including session A's README capture
+                        (rank 5), no denied. 10 hook pairs, all success / exit 0. Final uninstall
+                        (cli2/43) -> .qompack/ byte-identical (209 files, cli2/42 vs cli2/44); the
+                        directory is still on disk.
+ post-upgrade     PASS  after session C, source stopped: backup create --id c48-after-c (128 files,
+ backup                 consistent), verify exit 0 (46 roots, 39 tool refs, integrity exit 0), restore
+                        into a second fresh destination exit 0, fsck --seal-check exit 0 on that recovery
+                        and on the source (cli2/51-55); later writes untouched (cli2/56b).
+
+Overall: PASS. The day log carries no warning, LOUD or "publication accounting incomplete" line across
+the three daemon starts (candidate 5 once, candidate 7 twice; store/logs_qompack-20261002.log), so
+candidate 4's F2 does not recur here. Host-reported hook failures or timeouts across the three
+sessions: 0 (D53(i)).
+
+How the upgrade was done: --plugin-dir, candidate 5's bundle then candidate 7's, as the part
+specifies. No plugin-update step exists on that path, so "byte-identical across the upgrade" reads as
+the record check above, not as an unchanged store (session B writes). The uninstall/reinstall used the
+local marketplace at local scope (stated, as the part asks).
+
+Findings:
+ F1 (diagnostics, minor) after a mid-session compaction `qompack status` names session_start.fires as
+    pending "marker-absent-once" (cli/10, cli/13): host contract "none failing: 7 holding, 1 pending,
+    1 with nothing to judge". The compact SessionStart belongs to the same session as the startup that
+    found session A's marker; run/marker.json then names this session and state/history.json has
+    starts_without_marker 0, so nothing was absent. internal/contract/assertions.go
+    checkSessionStartFires returns marker-absent-once for any start whose marker is missing or names
+    the current session, including a same-session compact start. docs/troubleshooting.md §1 says a
+    healthy project reads "none failing ... 0 pending", so the banner reads a pending row on a healthy
+    store after every compaction.
+ O1 (observation) D10 staging prunes the other build's copy: session A (candidate 5) left only
+    ~/.qompack/bin/08a51336..., removing candidate 7's copy from UAT-01; session B (candidate 7) left
+    only bin/ab8046ba... Both stamp 0.3.0. install.md §6 says a copy is pruned "only when a newer
+    version is staged"; here a different build of the same version was enough.
+ O2 (observation) the old build's checkpoint draft number makes candidate 7's first checkpoint 0003
+    (chain 0001 -> 0003), as on candidate 4; fsck and doctor accept it.
+ Not covered: a public v0.2.0 -> 0.3.0 install (no earlier public installable build exists); the
+ recovery projects were not activated (no session ran in them).
+Guard: plans/sdd/V6-closeout/live/guard/install.txt (diffs only inside the open local-scope install
+window of the survival half; "real home fingerprint unchanged" after every session outside it and after
+the final cleanup).

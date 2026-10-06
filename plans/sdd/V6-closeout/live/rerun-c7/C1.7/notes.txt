@@ -1,0 +1,34 @@
+C1.7 (V6-RECOVERY-2) restore smoke on candidate 7 (decision D53(f)): operator backup / verify / restore
+through the shipped CLI of the frozen bundle, on a store written by the previous build and then by this
+one. Agent-executed on the owner's real host per owner decision D3 by a Claude Code workflow subagent
+(Opus 5.5) - not human UAT. Candidate 4's full C1.7 run stays at plans/sdd/V6-closeout/live/rerun-c4/C1.7/.
+
+Date 2026-10-02 04:16-04:23 America/Toronto. No session of its own: the store is C4.8's project
+(../C4.8/notes.txt), so the evidence files are in ../C4.8/cli/ and ../C4.8/cli2/. CLI:
+qompack-bundles/c7/qompack-plugin-0.3.0-windows-amd64/bin/qompack.exe (0.3.0, BUNDLE.json sha256
+5212ae4eaa2e931266d52069e7d0c72ec2dfd2255d55421c87486ab083e1f395), QOMPACK_HOME in scratch; every source
+daemon had ended by its own 30 s idle exit before each operator command.
+
+Pre-new-write rollback (the backup taken before the upgrade, restored after it):
+ cli/05 backup create --id c48-baseline exit 0, consistent, 77 files (candidate 5's store: 4 Reads,
+        record_eliminated, recall, timeline, one sealed checkpoint 0001).
+ cli/06 backup verify exit 0: re-hash plus scratch restore (OpenedOK, 22 roots, 15 tool refs, 0
+        tombstoned, integrity exit 0 incl. the full dual-reader seal check); the scratch restore was
+        removed (.qompack/tmp holds only quarantine/).
+ cli/22 backup restore --id c48-baseline --destination <fresh recovery1> exit 0, the same reader proof,
+        integrity exit 0 ("the chain from 0001 verifies across 1 checkpoint(s)", seal check passed).
+ cli/24 fsck --project <recovery1> --seal-check --json exit 0, 18/18 ok.
+ cli/25 fsck --project <source> --seal-check --json exit 0, 18/18 ok (chain from 0003 across 2).
+ cli/26b the source's files outside backup/, tmp/, run/ identical before and after the restore (114 = 114).
+ cli/23 the matching project-file snapshot beside the recovery matches the pre-run hashes.
+ cli/27, cli/29 the previous build's (candidate 5) fsck and fsck --seal-check on recovery1 exit 0.
+
+Post-new-write rollback (the upgraded store after sessions B and C):
+ cli2/51 backup create --id c48-after-c exit 0, consistent, 128 files; cli2/52 verify exit 0 (46 roots,
+        39 tool refs, integrity exit 0); cli2/53 restore into <fresh recovery2> exit 0, integrity exit 0;
+        cli2/54 fsck --seal-check on recovery2 exit 0; cli2/55 on the source exit 0; cli2/56b later
+        writes untouched.
+
+Result: PASS. Not exercised here: the two documented refusals (live writer, existing destination) and a
+GC-tombstoned MCP root (tombstoned stayed 0); candidate 4's run covers the refusals. The recoveries were
+not activated.

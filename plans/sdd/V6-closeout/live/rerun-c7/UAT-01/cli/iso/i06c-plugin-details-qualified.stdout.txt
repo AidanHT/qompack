@@ -1,0 +1,25 @@
+qompack 0.3.0
+  Description: Qompack keeps a local record of the session and restores the important parts after Claude Code compacts its context, with tools to recall anything left out. Install this entry on Windows, x86-64.
+  Source: qompack-windows-amd64@qompack-live
+
+Component inventory
+  Skills (6)  dropped, eval, pin, recall, status, why
+  Agents (0)
+  Hooks (7)  PostToolUse, PreCompact, SessionEnd, SessionStart, Stop, SubagentStop, UserPromptSubmit  (harness-only — no model context cost)
+  MCP servers (1)  qompack  (tool schemas resolved at runtime; not counted)
+  LSP servers (0)
+
+Projected token cost
+  Always-on:   ~124 tok   added to every session
+
+Per-component (rounded)
+  component  always-on  on-invoke
+  dropped          ~20        ~30
+  eval            < 20        ~30
+  pin              ~40        ~30
+  recall          < 20        ~30
+  status           ~20        ~30
+  why             < 20        ~30
+
+  On-invoke cost is paid each time a skill or agent fires.
+  Token counts are estimates and may differ from actual usage.

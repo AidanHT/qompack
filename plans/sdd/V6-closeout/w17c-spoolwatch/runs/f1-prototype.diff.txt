@@ -1,0 +1,62 @@
+diff --git a/internal/daemon/drain.go b/internal/daemon/drain.go
+index 696a2d88..281dec34 100644
+--- a/internal/daemon/drain.go
++++ b/internal/daemon/drain.go
+@@ -710,7 +710,6 @@ func (dr *drainer) drainFile(ctx context.Context, path string, st drainState, ga
+ 	var deferred []deferredLine
+ 
+ 	consume := func(start, next int64) {
+-		notePassConsumed(ctx)
+ 		if start != offset {
+ 			// Consumed out of order; the front rolls over it later. Bounded (item 3): past the roll-
+ 			// forward memory cap we stop recording it — the line is already dispatched and ACKED, so a
+@@ -721,6 +720,7 @@ func (dr *drainer) drainFile(ctx context.Context, path string, st drainState, ga
+ 			}
+ 			return
+ 		}
++		notePassConsumed(ctx) // PROTOTYPE F1: the front advanced, durably
+ 		offset = next
+ 		for {
+ 			n, ok := processed[offset]
+@@ -844,6 +844,9 @@ func (dr *drainer) drainFile(ctx context.Context, path string, st drainState, ga
+ 					continue
+ 				}
+ 				dl := deferred[idx]
++				if dispatched || changed {
++					notePassConsumed(ctx) // PROTOTYPE F1
++				}
+ 				consume(dl.start, dl.next)
+ 				settledSpooledPrompt(dl.req)
+ 				if changed && dl.leased {
+@@ -866,11 +869,6 @@ func (dr *drainer) drainFile(ctx context.Context, path string, st drainState, ga
+ 
+ readLoop:
+ 	for {
+-		if passStopped(ctx) != nil {
+-			canceled = true
+-			break readLoop
+-		}
+-
+ 		raw, err := r.ReadBytes('\n')
+ 		if err != nil {
+ 			if errors.Is(err, io.EOF) {
+@@ -932,6 +934,9 @@ readLoop:
+ 			if _, blob, blobErr := readBlob(dr.cfg.Root, req); blobErr == nil && blob != "" {
+ 				fs.PendingBlobs = append(fs.PendingBlobs, blob)
+ 			}
++			if retiredHere {
++				notePassConsumed(ctx) // PROTOTYPE F1
++			}
+ 			consume(lineStart, nextOffset)
+ 			if retiredHere {
+ 				dr.released(retired)
+@@ -999,6 +1004,9 @@ readLoop:
+ 			continue
+ 		}
+ 		if done {
++			if dispatched || changed {
++				notePassConsumed(ctx) // PROTOTYPE F1
++			}
+ 			consume(lineStart, nextOffset)
+ 			settledSpooledPrompt(dl.req)
+ 			if changed && dl.leased {

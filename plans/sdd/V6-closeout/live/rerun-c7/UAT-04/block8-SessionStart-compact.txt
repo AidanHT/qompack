@@ -1,0 +1,35 @@
+<!-- qompack:injected seq=7 ver=1 -->
+# Qompack rehydration — checkpoint 0007, session 07433964
+
+## 2. Original user intent (verbatim from L0 capture — never summarized)
+Evolution (most recent first):
+> Use the Read tool to read src/ledger.py and summarize it in one sentence.
+> Use the Read tool to read filler/f10.txt (the whole file) and reply with only the label of its last line.
+> Use the Read tool to read filler/f09.txt (the whole file) and reply with only the label of its last line.
+> Use the Read tool to read filler/f08.txt (the whole file) and reply with only the label of its last line.
+> Use the Read tool to read filler/f07.txt (the whole file) and reply with only the label of its last line.
+> Use the Read tool to read filler/f06.txt (the whole file) and reply with only the label of its last line.
+> Use the Read tool to read filler/f05.txt (the whole file) and reply with only the label of its last line.
+
+## 5. Current work
+goal: Use the Read tool to read src/ledger.py and summarize it in one sentence.
+blocked on: none
+
+## 6. Pointers (paths and hashes — contents are NOT restored; use expand/re_read)
+- src/ledger.py sha256:995cfb1edb4233a993c620162cd7cf58f363993ce455d90ef249df3d86ffff51 — referenced
+- tool_use subagent_07433964-7577-4a82-9702-2cd85922e72a_32 sha256:c2955553afa453573535abd79659fafb5cfe535e6848e94925c6b5d762a73c10 — {"agent":"subagent","summary":"F10-0400"}
+- tool_use toolu_01VspqxAQxAmk6R9FSMW6BEb sha256:995cfb1edb4233a993c620162cd7cf58f363993ce455d90ef249df3d86ffff51 — <scratch>\sessions\c7\uat04\proj\src\ledger.py
+
+## 7. No longer in context
+- user_intent tier1 — OVERFLOW: the verbatim original user intent did not fit the rehydration payload and is emitted whole or not at all; restore: expand(tool_use_id=prompt_07433964-7577-4a82-9702-2cd85922e72a_0)
+- user_intent_evolution 0 — did not fit the rehydration budget; restore: Read .qompack/checkpoints/0007.json (user_intent.evolution[0])
+- user_intent_evolution 1 — did not fit the rehydration budget; restore: Read .qompack/checkpoints/0007.json (user_intent.evolution[1])
+- user_intent_evolution 2 — did not fit the rehydration budget; restore: Read .qompack/checkpoints/0007.json (user_intent.evolution[2])
+- user_intent_evolution 3 — did not fit the rehydration budget; restore: Read .qompack/checkpoints/0007.json (user_intent.evolution[3])
+- user_intent_evolution 4 — did not fit the rehydration budget; restore: Read .qompack/checkpoints/0007.json (user_intent.evolution[4])
+- user_intent_evolution 5 — did not fit the rehydration budget; restore: Read .qompack/checkpoints/0007.json (user_intent.evolution[5])
+
+## 8. Retrieval
+Qompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().
+<!-- /qompack:injected -->
+<!-- qompack-contract-probe qompack-contract-93338a08164e -->

@@ -1,0 +1,4 @@
+# HEAD 0f02a4fc; the tree-pass convention of ci.yml's test job (ADR 0010): QOMPACK_UNDER_COLOAD=1 go test -p 2 -count=1 -timeout=30m ./internal/negknow/...
+ok  	github.com/qompack/qompack/internal/negknow	48.202s
+ok  	github.com/qompack/qompack/internal/negknow/negknowtest	2.827s
+exit=0

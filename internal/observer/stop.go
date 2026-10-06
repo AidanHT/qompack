@@ -137,7 +137,7 @@ func (o *observer) onStop(ctx context.Context, e Event, subagent bool) (Output, 
 			return hookio.Empty(), err
 		}
 	} else {
-		o.mainAgentStop(ctx, st, now)
+		o.mainAgentStop(ctx, st, ObservationFrom(ctx), now)
 	}
 	return hookio.Empty(), nil
 }
@@ -147,12 +147,31 @@ func (o *observer) onStop(ctx context.Context, e Event, subagent bool) (Output, 
 // There is deliberately NO store write. The assistant's own text is not a tool result — §8.1 item
 // 1 is about tool output — and Claude Code's transcript already holds it verbatim, so storing it
 // here would duplicate the host's own durable copy at the cost of a chunking pass on every turn.
-func (o *observer) mainAgentStop(ctx context.Context, st *sessionState, now core.UnixMilli) {
+//
+// With no record, the recognition rule every other entry point applies (observationRecord) has
+// nothing to find, so the Stop's own observation identity is kept instead: st.LastStopObs. Delivery
+// is at least once, and the handler runs before the delivery's commit, so a commit that Stop's
+// runCancel, a bounded drain or a PreCompact settle cuts replays this Stop through here. The
+// ordering gate holds the session's next leased delivery until this one is acknowledged, so the
+// only Stop of the session that can come back is the last one applied, and one identity per session
+// recognizes it. A recognized replay is absorbed with the subagent branch's bookkeeping: no turn, no
+// grammar symbol, no graph flush, and LastTS keeps naming the last host event. LastStopObs is
+// persisted with Turn (persistedSession), so a restarted daemon that replays a Stop its predecessor
+// applied, persisted and never committed recognizes it too. A Stop with no identity is never
+// absorbed and leaves the recorded one in place.
+func (o *observer) mainAgentStop(ctx context.Context, st *sessionState, obs core.ObservationID, now core.UnixMilli) {
+	if obs != "" && obs == st.LastStopObs {
+		o.count(counterRedelivery)
+		return
+	}
 	if o.opt.Grammar != nil {
 		o.opt.Grammar.Append(grammar.Symbol(stopSymbol))
 	}
 	// Decision 4: the assistant turn has ended, so the counter moves in this direction too.
 	st.Turn++
+	if obs != "" {
+		st.LastStopObs = obs
+	}
 	o.soft(stageStopFlush, o.opt.Graph.Flush(ctx))
 	st.LastTS = now
 }

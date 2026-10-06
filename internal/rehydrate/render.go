@@ -101,14 +101,30 @@ func eliminationsHeading(shown, seen int) string {
 // forces Build's re-truncation loop to fire.
 const headingCountWidthSample = 99999
 
-// headingCost prices one item's heading line, including its newline. It is charged to the item
-// alongside its units so that Result.Tokens is the true sum over Items.
-func headingCost(d Deps, k ItemKind) core.Tokens {
+// headingCost prices one item's heading line, including its newline, and item 6's legend line when b
+// holds a withheld pointer (sectionLegend). It is charged to the item alongside its units so that
+// Result.Tokens is the true sum over Items.
+func headingCost(d Deps, k ItemKind, b built) core.Tokens {
 	h := sectionHeading(k)
 	if k == ItemEliminations {
 		h = eliminationsHeading(headingCountWidthSample, headingCountWidthSample)
 	}
+	if l := sectionLegend(k, b); l != "" {
+		h += "\n" + l
+	}
 	return estimate(d, h+"\n")
+}
+
+// sectionLegend is the line a section carries under its heading: pointersLegend for item 6 when b
+// was built from a withheld pointer, which explains each withheld line once; "" otherwise. It is
+// decided on the section's candidates, before the budget admits any, so that the heading the fill
+// prices is the heading render writes; a section whose withheld candidates the budget all cut still
+// carries it, the price of an exact account.
+func sectionLegend(k ItemKind, b built) string {
+	if k == ItemPointers && b.withheld {
+		return pointersLegend
+	}
+	return ""
 }
 
 // itemText renders one item's section: its heading line, then the admitted unit texts in order.
@@ -238,6 +254,9 @@ func render(r Request, d Deps, fills map[ItemKind]*admitted, all map[ItemKind]bu
 		}
 		texts := sectionTexts(k, a.units)
 		b := all[k]
+		if l := sectionLegend(k, b); l != "" {
+			texts = append([]string{l + "\n"}, texts...)
+		}
 		text := itemText(k, eliminationsShown(b), b.seen, texts)
 		if text == "" {
 			continue
@@ -259,8 +278,9 @@ func render(r Request, d Deps, fills map[ItemKind]*admitted, all map[ItemKind]bu
 		// No items means no payload, not an empty tagged wrapper — and a rehydration that could
 		// inject nothing must say it was degraded (§12.3, runDegradeCase). A drop report with
 		// nothing beside it is the same case: item 7's floor is held so that an omission can be
-		// NAMED next to whatever did fit, not so that a payload of nothing but "you lost
-		// everything" is injected in place of none. Result.Dropped still carries every entry.
+		// NAMED next to whatever did fit, not so that the full report is injected on its own.
+		// Result.Dropped still carries every entry, and Build answers a build that dropped material
+		// with the loss notice instead of silence (D59, lossNotice).
 		return Result{Degraded: true}, nil
 	}
 	res.Text = renderText(r, res.Items)

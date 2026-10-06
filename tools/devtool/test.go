@@ -57,12 +57,12 @@ type goInvocation struct {
 }
 
 // testInvocations is taskTest's `go test` commands over pkgs, one per wholeTreePasses pass, each
-// at wholeTreeTestTimeout.
+// at the hang guard passTimeout gives it.
 func testInvocations(pkgs []string) []goInvocation {
 	passes := wholeTreePasses(pkgs)
 	out := make([]goInvocation, 0, len(passes))
 	for _, p := range passes {
-		args := append([]string{"test", "-timeout=" + wholeTreeTestTimeout}, p.pkgs...)
+		args := append([]string{"test", "-timeout=" + passTimeout(p.pkgs)}, p.pkgs...)
 		out = append(out, goInvocation{args: args, env: p.env})
 	}
 	return out
@@ -119,8 +119,27 @@ const wholeTreeTestTimeout = "30m"
 // leaves to `test-e2e`. Beside the rest of the tree on a small runner its rows' hooks take the
 // designed degrade to the client spool and its binary can outrun -timeout (run 36816905394: killed
 // at 30 minutes in lint-windows' stubskips; TestE2EHookRoundTrip red in cover). Alone, each pass
-// keeps the same -timeout, so a hang is still killed and still reported.
+// runs at isolatedTestTimeout, so a hang is still killed and still reported.
 var isolatedPackages = map[string]bool{modulePath + "/test/e2e": true}
+
+// isolatedTestTimeout is the hang guard for an isolatedPackages pass, test/e2e's binary alone. It
+// is a hang guard, not a product threshold: no row's verdict reads it, and a hung test is still
+// killed and reported. 30m left the binary about 15% headroom (audit 2's #84). Measured alone:
+// 1513.7 s and 1529.5 s on the quiet Windows reference host (phase3 c5 and c6 win-e2e-timing),
+// 19m49s to 21m14s in hosted lint-windows' stubskips (runs 36905843834, 36955046276, 36981590450),
+// 1188 s in hosted test-e2e (run 36816905394), and cover's instrumented pass about 8% over an
+// uninstrumented one (a phase3 night: 995 s against 918 s). 45m (2700 s) is 1.8 times the quiet
+// reference host and the same guard ci.yml's test-e2e job gives this binary.
+const isolatedTestTimeout = "45m"
+
+// passTimeout is the -timeout a whole-tree pass over pkgs runs at in test, cover and stubskips:
+// isolatedTestTimeout for an isolated package's pass of its own, wholeTreeTestTimeout otherwise.
+func passTimeout(pkgs []string) string {
+	if len(pkgs) == 1 && isolatedPackages[pkgs[0]] {
+		return isolatedTestTimeout
+	}
+	return wholeTreeTestTimeout
+}
 
 // isolatedPasses splits pkgs into the `go test` passes a whole-tree run makes, in order: every
 // package not in isolatedPackages together, then each isolated package alone. Every package lands

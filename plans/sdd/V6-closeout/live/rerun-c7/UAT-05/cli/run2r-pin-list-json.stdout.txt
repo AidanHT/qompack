@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "command": "pin",
+  "ok": true,
+  "data": {
+    "invariants": [
+      {
+        "id": "inv_b91128913d77",
+        "text": "Never write to prod.db from the billing export.",
+        "source": "user",
+        "pinned": 1790964607109
+      }
+    ]
+  }
+}

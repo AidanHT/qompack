@@ -1,0 +1,6 @@
+cwd: uat12/proj
+argv: ["C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c7/qompack-plugin-0.3.0-windows-amd64/bin/qompack.exe", "backup", "verify", "--project", "<scratch>/retrieval/c7/uat12/proj", "--id", "uat12-c7-baseline", "--json"]
+env+: {}
+qompack_home: <scratch>/retrieval/c7/qhome
+wall_s: 0.945
+at: 2026-10-02T15:36:22-04:00

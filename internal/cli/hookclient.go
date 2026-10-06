@@ -332,7 +332,11 @@ func doHook(spec hookSpec) func(ctx context.Context, env Env, args []string, out
 		}
 		faultCorruptStateIfNeeded(root)
 		st := ipc.ReadState(root, config.Defaults())
-		if st.Mode == contract.ModeOff {
+		// state.bin's runtime.mode off speaks for the project only while the daemon that wrote it is
+		// alive, or the configuration still says off (stateModeOffHolds): a daemon that ran under off
+		// and died without a clean stop must not keep every hook from recording, and session-start
+		// from starting the daemon that would rewrite the file, once the key is no longer off.
+		if st.Mode == contract.ModeOff && stateModeOffHolds(env, root) {
 			return hookio.WriteOutput(out, hookio.Empty())
 		}
 
@@ -397,7 +401,7 @@ func doHook(spec hookSpec) func(ctx context.Context, env Env, args []string, out
 				root = r2
 				faultCorruptStateIfNeeded(root)
 				st = ipc.ReadState(root, config.Defaults())
-				if st.Mode == contract.ModeOff {
+				if st.Mode == contract.ModeOff && stateModeOffHolds(env, root) {
 					return hookio.WriteOutput(out, hookio.Empty())
 				}
 				prior := capture
@@ -421,7 +425,18 @@ func doHook(spec hookSpec) func(ctx context.Context, env Env, args []string, out
 		if !isDir(root) {
 			return hookio.WriteOutput(out, hookio.Empty())
 		}
-		st.DaemonEnabled = st.DaemonEnabled && cfg.Runtime.Daemon.Enabled
+		// The configuration's runtime.daemon.enabled, and state.bin's false only while the daemon that
+		// wrote it is alive (daemonEnabledFor, D67(c)): a daemon that reloaded the key to false and
+		// died must not keep every hook spooling, and session-start from starting a daemon, after the
+		// key is set back to true.
+		st.DaemonEnabled = daemonEnabledFor(root, st.DaemonEnabled, cfg)
+		// A state.bin off still in st here is one that did not hold above: its daemon is gone and
+		// admission found the configuration not off. The client then works under the configuration's
+		// mode, as it would with no state.bin at all; left off, it would answer without sending or
+		// spooling anything (ipc.Client.Send, step 1).
+		if st.Mode == contract.ModeOff {
+			st.Mode = ipc.StateFromConfig(cfg).Mode
+		}
 		st.SpoolOnBreach = st.SpoolOnBreach && cfg.Runtime.HotPath.SpoolOnBreach
 
 		// The nonce is minted here, once, before any transport attempt: it labels this host

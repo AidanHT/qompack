@@ -1,0 +1,12 @@
+{
+  "source": "host transcript ~/.claude/projects/<slug of uat05r/proj>/dc87e76b-e10b-4ed9-a247-a9083ae3f28d.jsonl (this lane's own session; read by session id, no message bodies copied)",
+  "extracted": "2026-10-02 15:15 EDT",
+  "turn": 9,
+  "prompt": "/qompack:dropped --json",
+  "expanded_command_message_ts": "2026-10-02T18:11:35.534Z",
+  "expanded_command_message_carries_dropped_envelope": true,
+  "envelope_count": 14,
+  "envelope_tier1_entries": 3,
+  "model_echoed_envelope": false,
+  "model_next_actions": ["Edit billing.py (denied by dontAsk)", "Write billing.py (denied by dontAsk)", "asked for permission to add the export"]
+}

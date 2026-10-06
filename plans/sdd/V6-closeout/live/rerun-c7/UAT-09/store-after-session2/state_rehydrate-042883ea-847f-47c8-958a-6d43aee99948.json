@@ -1,0 +1,65 @@
+{
+  "session": "042883ea-847f-47c8-958a-6d43aee99948",
+  "seq": 1,
+  "emitted": 1790969114430,
+  "tokens": 1433,
+  "budget": 12000,
+  "items": [
+    {
+      "kind": "user_intent",
+      "rank": 0,
+      "tokens": 424,
+      "truncated": false,
+      "units": 5,
+      "units_seen": 5
+    },
+    {
+      "kind": "decisions",
+      "rank": 1,
+      "tokens": 105,
+      "truncated": false,
+      "units": 1,
+      "units_seen": 1
+    },
+    {
+      "kind": "current_work",
+      "rank": 2,
+      "tokens": 56,
+      "truncated": false,
+      "units": 1,
+      "units_seen": 1
+    },
+    {
+      "kind": "pointers",
+      "rank": 3,
+      "tokens": 731,
+      "truncated": false,
+      "units": 12,
+      "units_seen": 12
+    },
+    {
+      "kind": "drop_report",
+      "rank": 4,
+      "tokens": 31,
+      "truncated": false,
+      "units": 1,
+      "units_seen": 1
+    },
+    {
+      "kind": "affordance",
+      "rank": 5,
+      "tokens": 86,
+      "truncated": false,
+      "units": 1,
+      "units_seen": 1
+    }
+  ],
+  "dropped": [
+    {
+      "kind": "pointer_dirty",
+      "id": "config/pool.yaml",
+      "detail": "modified since index on master"
+    }
+  ],
+  "degraded": false
+}

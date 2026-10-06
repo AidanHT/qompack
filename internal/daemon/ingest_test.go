@@ -101,11 +101,39 @@ func TestIngestRingFullWALsEveryLineAndNeverSpills(t *testing.T) {
 	require.Equal(t, filepath.Base(walPath), filepath.Base(files[0]))
 }
 
-// ingestACKWait bounds this test's two channel waits generously (matching this codebase's own
-// suiteWait convention in internal/ipc/ipctest) — not run under t.Parallel(), so it is not
-// contending with other tests' goroutines for scheduler time the way the ring-full test above was
-// observed to under -race.
-const ingestACKWait = 10 * time.Second
+// hangGuard is the bound on every wait in this package's tests that only turns a deadlock into a
+// failure. It fires when the test is about to run out of time: at the test binary's deadline (go
+// test -timeout) less hangGuardReserve, or less a tenth of what is left when that is smaller. It
+// says nothing about how long the awaited thing may take: a wait that ends before the guard fires
+// passes, however slow the host, and one that never ends fails with its own name instead of as the
+// binary's timeout panic, which reports no row. With no deadline (-timeout=0) it never fires.
+//
+// It replaced ingestACKWait, a fixed 10 s, which a co-loaded host's fsync tail outlasted: the
+// acknowledgement T14 row's awaitClosed failed after a 44.9 s run whose waits had all completed
+// (V6 close-out wave 22, audit 2 #63, D67(b)).
+func hangGuard(t *testing.T) <-chan time.Time {
+	t.Helper()
+	dl, ok := t.Deadline()
+	if !ok {
+		return nil // a nil channel never fires
+	}
+	left := time.Until(dl)
+	return time.After(left - min(left/10, hangGuardReserve))
+}
+
+// hangGuardReserve is the most hangGuard keeps of the binary's deadline for the failing test to
+// report and run its cleanups before the timeout panic would.
+const hangGuardReserve = 30 * time.Second
+
+// hung reports, without waiting, whether guard (a hangGuard) has fired: for the waits that poll.
+func hung(guard <-chan time.Time) bool {
+	select {
+	case <-guard:
+		return true
+	default:
+		return false
+	}
+}
 
 // TestIngestACKPrecedesProcessing proves Accept returns — the point at which the server writes the
 // ACK — before any worker touches the job, which is what makes the WAL the durability boundary.
@@ -138,7 +166,7 @@ func TestIngestACKPrecedesProcessing(t *testing.T) {
 	// Accept must complete (the ACK point) before we ever release the worker.
 	select {
 	case <-done:
-	case <-time.After(ingestACKWait):
+	case <-hangGuard(t):
 		t.Fatal("Accept did not return promptly — it must never wait on worker processing")
 	}
 
@@ -146,7 +174,7 @@ func TestIngestACKPrecedesProcessing(t *testing.T) {
 	// it run.
 	select {
 	case <-entered:
-	case <-time.After(ingestACKWait):
+	case <-hangGuard(t):
 		t.Fatal("worker never received the queued job")
 	}
 	close(release)
@@ -254,7 +282,7 @@ func TestIngestResolvesBlobsEndToEnd(t *testing.T) {
 		require.Equal(t, string(toolResponse), string(got.Event.ToolResponse),
 			"the dispatched event must carry the full payload, not the empty externalized shape")
 		require.Empty(t, got.Raw, "the blob descriptor must be cleared once resolved")
-	case <-time.After(5 * time.Second):
+	case <-hangGuard(t):
 		t.Fatal("worker never received the dispatched request")
 	}
 

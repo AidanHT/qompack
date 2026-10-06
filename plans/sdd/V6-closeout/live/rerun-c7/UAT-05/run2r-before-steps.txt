@@ -1,0 +1,36 @@
+turn 1 (We are adding a CSV export to the billin) before ['python', '<scratch>/sessions/c7/uat05r/dinfo.py'] exit 0
+{"lock": "unreadable: [Errno 2] No such file or directory: '<scratch>/sessions/c7/uat05r/proj\\\\.qompack\\\\run\\\\daemon.lock'"}
+
+turn 6 (/compact) before ['python', '<scratch>/sessions/c7/uat05r/cfgedit.py'] exit 0
+daemon before the edit: {"lock": {"pid": 13832, "started": 1790964599233, "addr": "\\\\.\\pipe\\qompack.4f48cb283941", "version": "0.3.0", "owner": "7e9a0cc50f9b15d01ae28ee97b68df8e9e1fa40395bcc1a102a20bd4b2999aec", "root": "<scratch>\\sessions\\c7\\uat05r\\proj"}, "pid": 13832, "proc": {"Name": "qompack.exe", "Path": "C:\\Users\\Quant\\.qompack\\bin\\ab8046bac3bad894c9a299c61fb38277f4179f4e33bfb088873e43edcbe33be7\\qompack.exe", "Cmd": "C:\\Users\\Quant\\.qompack\\bin\\ab8046bac3bad894c9a299c61fb38277f4179f4e33bfb088873e43edcbe33be7\\qompack.exe daemon --project <scratch>\\sessions\\c7\\uat05r\\proj"}}
+config.json existed: False
+wrote '{"runtime": {"rehydrate": {"minTokens": 150, "maxTokens": 150}}}\n' at 2026-10-02T14:10:23-0400
+waited 10 s; reload lines: ["qompack-20261002.log: ts=2026-10-02T18:10:29.3090095Z level=info msg=\"daemon: config reloaded\" changed=\"[runtime.rehydrate.maxTokens runtime.rehydrate.minTokens]\""]
+daemon after the wait: {"lock": {"pid": 13832, "started": 1790964599233, "addr": "\\\\.\\pipe\\qompack.4f48cb283941", "version": "0.3.0", "owner": "7e9a0cc50f9b15d01ae28ee97b68df8e9e1fa40395bcc1a102a20bd4b2999aec", "root": "<scratch>\\sessions\\c7\\uat05r\\proj"}, "pid": 13832, "proc": {"Name": "qompack.exe", "Path": "C:\\Users\\Quant\\.qompack\\bin\\ab8046bac3bad894c9a299c61fb38277f4179f4e33bfb088873e43edcbe33be7\\qompack.exe", "Cmd": "C:\\Users\\Quant\\.qompack\\bin\\ab8046bac3bad894c9a299c61fb38277f4179f4e33bfb088873e43edcbe33be7\\qompack.exe daemon --project <scratch>\\sessions\\c7\\uat05r\\proj"}}
+
+turn 7 (Use the Read tool to read README.md and ) before ['python', '<scratch>/sessions/c7/uat05r/snapA_kill.py'] exit 0
+copied rehydrate-dc87e76b-e10b-4ed9-a247-a9083ae3f28d.json
+dropped --json exit 0 {
+  "schema": 1,
+  "command": "dropped",
+  "ok": true,
+  "data": {
+    "tool": "dropped",
+    "is_error": false,
+    "ephemeral": true,
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"count\":15,\"drops\":[{\"detail\":\"OVERFLOW: pinned invariant inv_b91128913d77 did not fit the
+terminating this project's daemon for the doc's primary route (a daemon started after the edit):
+{"lock": {"pid": 13832, "started": 1790964599233, "addr": "\\\\.\\pipe\\qompack.4f48cb283941", "version": "0.3.0", "owner": "7e9a0cc50f9b15d01ae28ee97b68df8e9e1fa40395bcc1a102a20bd4b2999aec", "root": "<scratch>\\sessions\\c7\\uat05r\\proj"}, "pid": 13832, "proc": {"Name": "qompack.exe", "Path": "C:\\Users\\Quant\\.qompack\\bin\\ab8046bac3bad894c9a299c61fb38277f4179f4e33bfb088873e43edcbe33be7\\qompack.exe", "Cmd": "C:\\Users\\Quant\\.qompack\\bin\\ab8046bac3bad894c9a299c61fb38277f4179f4e33bfb088873e43edcbe33be7\\qompack.exe daemon --project <scratch>\\sessions\\c7\\uat05r\\proj"}}
+check image qompack.exe: True | check cmdline daemon+project: True
+Stop-Process exit 0  | still alive: False
+RESULT: stopped pid 13832
+kill rc 0
+
+turn 8 (/compact) before ['python', '<scratch>/sessions/c7/uat05r/dinfo.py'] exit 0
+{"lock": {"pid": 25168, "started": 1790964657433, "addr": "\\\\.\\pipe\\qompack.4f48cb283941", "version": "0.3.0", "owner": "130e1d1c0eeb80ec8c7b7ab92224a5226717b8b5a1661817d6f8641bdc7ae9c7", "root": "<scratch>\\sessions\\c7\\uat05r\\proj"}, "pid": 25168, "proc": {"Name": "qompack.exe", "Path": "C:\\Users\\Quant\\.qompack\\bin\\ab8046bac3bad894c9a299c61fb38277f4179f4e33bfb088873e43edcbe33be7\\qompack.exe", "Cmd": "C:\\Users\\Quant\\.qompack\\bin\\ab8046bac3bad894c9a299c61fb38277f4179f4e33bfb088873e43edcbe33be7\\qompack.exe daemon --project <scratch>\\sessions\\c7\\uat05r\\proj"}}
+
+turn 9 (/qompack:dropped --json) before ['python', '<scratch>/sessions/c7/uat05r/dinfo.py'] exit 0
+{"lock": {"pid": 25168, "started": 1790964657433, "addr": "\\\\.\\pipe\\qompack.4f48cb283941", "version": "0.3.0", "owner": "130e1d1c0eeb80ec8c7b7ab92224a5226717b8b5a1661817d6f8641bdc7ae9c7", "root": "<scratch>\\sessions\\c7\\uat05r\\proj"}, "pid": 25168, "proc": {"Name": "qompack.exe", "Path": "C:\\Users\\Quant\\.qompack\\bin\\ab8046bac3bad894c9a299c61fb38277f4179f4e33bfb088873e43edcbe33be7\\qompack.exe", "Cmd": "C:\\Users\\Quant\\.qompack\\bin\\ab8046bac3bad894c9a299c61fb38277f4179f4e33bfb088873e43edcbe33be7\\qompack.exe daemon --project <scratch>\\sessions\\c7\\uat05r\\proj"}}

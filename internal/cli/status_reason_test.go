@@ -22,7 +22,7 @@ func TestStatusSource_NoDaemonNamesTheReason(t *testing.T) {
 	client := mcpCmdOfflineClient(t, root)
 	t.Cleanup(func() { _ = client.Close() })
 
-	_, _, err := fetchDaemonStatus(context.Background(), client, daemonListening(root))
+	_, _, err := fetchDaemonStatus(context.Background(), commandClient{Client: client, daemonEnabled: true}, daemonListening(root))
 	require.Error(t, err)
 	msg := err.Error()
 	require.False(t, strings.HasSuffix(strings.TrimSpace(msg), ":"), "the reason must not be empty: %q", msg)
@@ -35,7 +35,12 @@ func TestStatusSource_NoDaemonNamesTheReason(t *testing.T) {
 // request but its reply never came (a read deadline, a broken connection). Status must not tell the
 // user no daemon is listening, and that one was asked to start, when one is listening and silent.
 // The fixture's daemon accepts the request and drops the connection: its answer cannot be encoded.
+// The probe that tells it apart from an absent daemon is hang-guarded (useHangGuardedStatusDials),
+// so a connect slower than the 250 ms probe budget does not read it as absent (D61(c)).
+//
+// Not parallel: it swaps newCommandIPCClient and statusProbeDial.
 func TestStatusSource_ASilentDaemonIsNotReportedAbsent(t *testing.T) {
+	useHangGuardedStatusDials(t)
 	root := mcpCmdRoot(t)
 	addr, err := ipc.Resolve(root)
 	require.NoError(t, err)
@@ -57,7 +62,7 @@ func TestStatusSource_ASilentDaemonIsNotReportedAbsent(t *testing.T) {
 	client := mcpCmdOfflineClient(t, root)
 	t.Cleanup(func() { _ = client.Close() })
 
-	_, _, err = fetchDaemonStatus(context.Background(), client, daemonListening(root))
+	_, _, err = fetchDaemonStatus(context.Background(), commandClient{Client: client, daemonEnabled: true}, daemonListening(root))
 	require.Error(t, err)
 	msg := err.Error()
 	require.NotContains(t, msg, "none is listening", "a daemon is listening: %q", msg)

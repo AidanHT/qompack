@@ -186,7 +186,7 @@ func TestLaunchSessionEnd_HoldsTheCaptureGateUntilTheEndFinishes(t *testing.T) {
 		"the answered flush's session end holds the gate from before the request left")
 	select {
 	case <-hold.entered:
-	case <-time.After(liveOrderBound):
+	case <-hangGuard(t):
 		require.FailNow(t, "the flush's session end never reached SessionEnd")
 	}
 	require.Equal(t, 1, dd.capture.inFlight(), "the end, held in SessionEnd, is the one piece of capture work")
@@ -198,10 +198,12 @@ func TestLaunchSessionEnd_HoldsTheCaptureGateUntilTheEndFinishes(t *testing.T) {
 // gateAtDispatch installs dd's drainer with its Dispatch wrapped to record the capture work in flight
 // just before each delivery is handed to the daemon: outside runIngested, where the drain has done
 // its own I/O for the line (the read of the spool, the lease journal's fsynced record). The drain
-// itself is capture work there too, or the pass could run beside that I/O between deliveries.
+// itself is capture work there too, or the pass could run beside that I/O between deliveries. The
+// rows assert which lines a pass publishes and the gate at each, not how fast, so the delivery runs
+// without the line's drainLineDeadline (withoutLineDeadline).
 func gateAtDispatch(dd *daemon) *[]int {
 	var seen []int
-	cfg := dd.drainConfig()
+	cfg := contentDrainConfig(dd)
 	dispatch := cfg.Dispatch
 	cfg.Dispatch = func(ctx context.Context, req ipc.Request) ipc.Response {
 		seen = append(seen, dd.capture.inFlight())
@@ -213,6 +215,12 @@ func gateAtDispatch(dd *daemon) *[]int {
 
 // TestRequestedDrainPass_HoldsTheCaptureGateBetweenDeliveries: the drain a lane asks for after a
 // hook's ACK (drainOnRequest) is capture work for the whole pass, not only inside each delivery.
+//
+// A requested pass runs under idleRunBudget, and a slow host can spend it on the first delivery, so
+// the pass stops there and asks for another (passLeftWork, through drainKick). The row runs the passes
+// drainOnRequest would, as many as are asked for, and counts them: every pass asked for follows one
+// that made progress, so two lines take at most three (the last can find nothing left). It does not
+// time them, and every delivery of every pass must still find the gate held.
 func TestRequestedDrainPass_HoldsTheCaptureGateBetweenDeliveries(t *testing.T) {
 	dd, _, root := laneTestDaemon(t)
 	seen := gateAtDispatch(dd)
@@ -221,7 +229,19 @@ func TestRequestedDrainPass_HoldsTheCaptureGateBetweenDeliveries(t *testing.T) {
 	writeHookSpool(t, root, "client-9301.ndjson", first)
 	writeHookSpool(t, root, "client-9302.ndjson", second)
 
-	dd.requestedDrainPass(context.Background())
+	const lines = 2
+	passes := 0
+	for asked := true; asked; {
+		passes++
+		require.LessOrEqual(t, passes, lines+1, "a requested pass asked for another without making progress")
+		dd.requestedDrainPass(context.Background())
+		select {
+		case <-dd.ing.drainKick: // the requester takes it, as drainOnRequest does
+		default:
+			asked = false
+		}
+		require.Zero(t, dd.capture.inFlight(), "pass %d releases the gate once it has ended", passes)
+	}
 	require.True(t, spoolWatchPublished(dd, first.Nonce), "fixture: the pass published the first spool")
 	require.True(t, spoolWatchPublished(dd, second.Nonce), "fixture: the pass published the second spool")
 	require.Len(t, *seen, 2)
@@ -289,7 +309,7 @@ func TestStartupPublicationAccounting_BackgroundPassPausesWhileARequestIsInFligh
 	case <-parked:
 	case <-finished:
 		t.Fatal("the background publication pass finished beside a request in flight")
-	case <-time.After(liveOrderBound):
+	case <-hangGuard(t):
 		t.Fatal("the background publication pass neither parked nor finished")
 	}
 	// The pass is parked on the gate's idle channel, which only the request's leave closes, so it
@@ -332,7 +352,7 @@ func TestStartupPublicationAccounting_StopEndsAPausedPass(t *testing.T) {
 	case <-parked:
 	case <-finished:
 		t.Fatal("the background publication pass finished beside a request in flight")
-	case <-time.After(liveOrderBound):
+	case <-hangGuard(t):
 		t.Fatal("the background publication pass neither parked nor finished")
 	}
 	cancel()
@@ -399,7 +419,7 @@ func TestStartupPublicationAccounting_APausedPassHoldsNothingARequestNeeds(t *te
 	case <-parked:
 	case <-finished:
 		t.Fatal("the background publication pass finished beside a request in flight")
-	case <-time.After(liveOrderBound):
+	case <-hangGuard(t):
 		t.Fatal("the background publication pass neither parked nor finished")
 	}
 
@@ -426,7 +446,7 @@ func TestStartupPublicationAccounting_APausedPassHoldsNothingARequestNeeds(t *te
 	select {
 	case err := <-wrote:
 		require.NoError(t, err)
-	case <-time.After(liveOrderBound):
+	case <-hangGuard(t):
 		t.Fatal("a request's store writes waited on the parked publication pass")
 	}
 	select {

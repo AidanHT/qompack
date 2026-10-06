@@ -317,3 +317,7 @@ Candidate 6 is `verify/v6` `99d0b18`. Every `Test*` evidence test below ran gree
 | SP04-D5 | `fixed` | V3-VERIFY (re-judged) | no runtime symptom; the canon benches were re-measured in quiet C5.2 on candidate 5, internal/canon unchanged since |
 | SP04-D6 | `fixed` | V3-VERIFY (confirmed stable) | no runtime symptom |
 | SP04-D7 | `fixed` | V3-VERIFY (owner assigned) | no runtime symptom |
+
+## V6-VERIFY candidate 7 note (2026-10-02, C6.3)
+
+Candidate 7 is `verify/v6` `d20309c0`, the freeze of `closeout/integration` `b31d0753`. Against candidate 6 its only product change is core.Version's default literal and `plugin.json`'s version; test/fault, test/guards' `nonrefdisk_test.go`, the golden `plugin.json`, two workflows, `.goreleaser.yaml` and docs also changed (`sdd/V6-closeout/w17-inventory/runs/c7-carry-proof.txt`). None of the evidence tests or benchmarks above is in a changed file, so the candidate 6 confirmation above carries to candidate 7 (D57(c)); candidate 7's pre-freeze check (`phase3/c7/prefreeze/summary.log`) ran the Windows tree, except test/e2e and test/integration, green. Status is unchanged.

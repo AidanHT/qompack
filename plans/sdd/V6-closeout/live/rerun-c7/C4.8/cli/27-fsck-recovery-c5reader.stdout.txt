@@ -1,0 +1,174 @@
+{
+  "schema": 1,
+  "project": "<scratch>/install/c7/c48/recovery1",
+  "daemon_running": false,
+  "read_only": true,
+  "repairing": false,
+  "attempts_daemon_lock": false,
+  "checks": [
+    {
+      "id": "store",
+      "ok": true,
+      "severity": 0,
+      "count": 0,
+      "detail": [
+        "store present at <scratch>\\install\\c7\\c48\\recovery1\\.qompack"
+      ]
+    },
+    {
+      "id": "daemon",
+      "ok": true,
+      "severity": 0,
+      "count": 0,
+      "detail": [
+        "no daemon holds the lock; this project is quiet"
+      ]
+    },
+    {
+      "id": "objects",
+      "ok": true,
+      "severity": 0,
+      "scanned": 22,
+      "count": 0
+    },
+    {
+      "id": "index.roots",
+      "ok": true,
+      "severity": 0,
+      "scanned": 22,
+      "count": 0
+    },
+    {
+      "id": "index.tool_use",
+      "ok": true,
+      "severity": 0,
+      "scanned": 15,
+      "count": 0
+    },
+    {
+      "id": "index.files",
+      "ok": true,
+      "severity": 0,
+      "scanned": 4,
+      "count": 0
+    },
+    {
+      "id": "index.segments",
+      "ok": true,
+      "severity": 0,
+      "scanned": 1,
+      "count": 0
+    },
+    {
+      "id": "captures",
+      "ok": true,
+      "severity": 0,
+      "scanned": 17,
+      "count": 0
+    },
+    {
+      "id": "publication",
+      "ok": true,
+      "severity": 0,
+      "scanned": 39,
+      "count": 0
+    },
+    {
+      "id": "checkpoints",
+      "ok": true,
+      "severity": 0,
+      "scanned": 1,
+      "count": 0,
+      "detail": [
+        "the chain from 0001 verifies across 1 checkpoint(s)"
+      ]
+    },
+    {
+      "id": "pins",
+      "ok": true,
+      "severity": 0,
+      "scanned": 0,
+      "count": 0,
+      "detail": [
+        "pins/invariants.jsonl does not exist yet"
+      ]
+    },
+    {
+      "id": "negknow",
+      "ok": true,
+      "severity": 0,
+      "scanned": 1,
+      "count": 0,
+      "detail": [
+        "eliminations: 1 record(s), 1 active, 0 stale",
+        "tried.bloom loads: 95872 bit(s), k=7, fill 0.0000, estimated fp 0.0000, saturated=false"
+      ]
+    },
+    {
+      "id": "delivery",
+      "ok": true,
+      "severity": 0,
+      "scanned": 36,
+      "count": 0,
+      "detail": [
+        "state/delivery-lease-position.json is a v1 position document",
+        "state/delivery-ack-position.json is a v1 position document",
+        "the full dual-reader seal check was NOT run: it acquires the daemon lock, which the default run never does; pass --seal-check, or run `qompack admin delivery-seal --check` on a stopped project"
+      ]
+    },
+    {
+      "id": "spool",
+      "ok": true,
+      "severity": 0,
+      "scanned": 0,
+      "count": 0
+    },
+    {
+      "id": "retention",
+      "ok": true,
+      "severity": 0,
+      "scanned": 17,
+      "count": 0
+    },
+    {
+      "id": "migrate",
+      "ok": true,
+      "severity": 0,
+      "scanned": 0,
+      "count": 0,
+      "detail": [
+        "backups are checked by the read-only maintenance verifier; legacy import/cutover is separate"
+      ]
+    },
+    {
+      "id": "fidelity",
+      "ok": true,
+      "severity": 0,
+      "scanned": 22,
+      "count": 0,
+      "detail": [
+        "fidelity is counted as the store reports it; a canonical or unavailable root is never promoted to exact"
+      ]
+    },
+    {
+      "id": "quarantine",
+      "ok": true,
+      "severity": 0,
+      "scanned": 0,
+      "count": 0,
+      "detail": [
+        "0 quarantined file(s), 0 byte(s), preserved as evidence and never swept"
+      ]
+    }
+  ],
+  "repairs": [],
+  "fidelity": {
+    "canonical": 9,
+    "exact": 13
+  },
+  "quarantine": {
+    "files": 0,
+    "bytes": 0
+  },
+  "exit": 0
+}

@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -375,16 +376,34 @@ func TestCmdMCPNeverSpools(t *testing.T) {
 	require.NotEmpty(t, controlFiles, "the control append must prove the spool directory is writable")
 }
 
+// countingMCPClient counts the Sends forwardMCPCall makes through it. stall, when set, is how long
+// each Send waits before it is forwarded: a host that descheduled the call.
+type countingMCPClient struct {
+	ipc.Client
+	stall time.Duration
+	sends atomic.Int32
+}
+
+func (c *countingMCPClient) Send(ctx context.Context, req ipc.Request, d time.Duration) (ipc.Response, error) {
+	c.sends.Add(1)
+	if c.stall > 0 {
+		<-time.After(c.stall)
+	}
+	return c.Client.Send(ctx, req, d)
+}
+
 // TestCmdMCPRetryIsCancellable pins the reason mcpRetryDelay is a time.After inside a select and
 // not a sleep: the host can close the session mid-retry, and a sleeping goroutine cannot be told.
 //
-// The context is cancelled BEFORE the handler runs, which is the strictest form of the property —
-// the loop must notice at its first opportunity rather than burning the full 1.5 s budget. The
-// generous bound below is a liveness check, not a latency assertion: it is a fifth of the retry
-// budget, so it can only fail if the loop ignored cancellation entirely.
+// The context is cancelled BEFORE the handler runs, which is the strictest form of the property:
+// the loop must notice at its first opportunity, so it makes exactly one Send and never a retry.
+// That count is the verdict. The row used to give the call a fifth of the retry budget (300 ms) on
+// a timer, so a host that descheduled the call failed a loop that had noticed at once; its client
+// now stalls every Send by 400 ms to pin that this row does not read the clock. The only timer left
+// is mcpRetryHangGuard, a hang guard far past the whole retry budget.
 func TestCmdMCPRetryIsCancellable(t *testing.T) {
 	root := mcpCmdRoot(t)
-	client := mcpCmdOfflineClient(t, root)
+	client := &countingMCPClient{Client: mcpCmdOfflineClient(t, root), stall: 400 * time.Millisecond}
 	t.Cleanup(func() { _ = client.Close() })
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -402,9 +421,8 @@ func TestCmdMCPRetryIsCancellable(t *testing.T) {
 		done <- outcome{resp, err}
 	}()
 
-	budget := time.Duration(mcpRetryAttempts) * mcpRetryDelay / 5
-	timer := time.NewTimer(budget)
-	defer timer.Stop()
+	guard := time.NewTimer(mcpRetryHangGuard)
+	defer guard.Stop()
 
 	select {
 	case got := <-done:
@@ -412,11 +430,17 @@ func TestCmdMCPRetryIsCancellable(t *testing.T) {
 		require.True(t, got.resp.IsError, "a cancelled retry still answers the model")
 		require.Equal(t, unavailableResponse(), got.resp,
 			"a cancelled retry returns the same tool error an exhausted one does")
-	case <-timer.C:
-		t.Fatalf("forwardMCPCall ignored a cancelled context for %s of a %s retry budget",
-			budget, time.Duration(mcpRetryAttempts)*mcpRetryDelay)
+	case <-guard.C:
+		t.Fatalf("forwardMCPCall had not returned after %s with a cancelled context (retry budget %s)",
+			mcpRetryHangGuard, time.Duration(mcpRetryAttempts)*mcpRetryDelay)
 	}
+	require.EqualValues(t, 1, client.sends.Load(),
+		"a cancelled context is noticed before the first retry: one Send, not %d", mcpRetryAttempts)
 }
+
+// mcpRetryHangGuard bounds TestCmdMCPRetryIsCancellable's wait for a forwardMCPCall that ignored
+// cancellation and never returned. It is a hang guard, not the verdict: the Send count is.
+const mcpRetryHangGuard = time.Minute
 
 // TestCmdMCPToolsListMatchesDaemonToolSet is the transcoder claim, checked rather than asserted in
 // prose: the proxy advertises exactly the eight names of §8.7, in design order, because both sides

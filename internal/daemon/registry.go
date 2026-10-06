@@ -1,6 +1,8 @@
 package daemon
 
 import (
+	"cmp"
+	"slices"
 	"sync"
 	"time"
 
@@ -131,6 +133,19 @@ func (r *SessionRegistry) IsLive(id core.SessionID) bool {
 	return ok && s.Live
 }
 
+// MayStillRun reports whether id may still be running: it is live, or the idle tick ended it only
+// for silence (EndAbandoned), with no SessionEnd seen, which is a guess its next hook disproves
+// (Touch). A session SessionEnd ended, and one the registry does not know (never seen, evicted, or
+// forgotten by a restart), may not. session_start.fires reads it (contract.Env.SessionMayRun): a
+// quiet window that is still open has had no terminal hook, so no marker of it is due. IsLive stays
+// the reading every other caller takes.
+func (r *SessionRegistry) MayStillRun(id core.SessionID) bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	s, ok := r.sessions[id]
+	return ok && (s.Live || s.abandoned)
+}
+
 // Len returns the number of tracked sessions (live and recently-ended).
 func (r *SessionRegistry) Len() int {
 	r.mu.RLock()
@@ -226,6 +241,32 @@ func (r *SessionRegistry) StartedSince(id core.SessionID, at core.UnixMilli) boo
 	defer r.mu.RUnlock()
 	s, ok := r.sessions[id]
 	return ok && s.lastStart >= at
+}
+
+// CurrentAt reports whether a SessionStart the host fired at at is the latest start of id's current
+// life that this registry knows: id is live, or it has ended, by its SessionEnd (End) or for its
+// silence (EndAbandoned), no later than at, which makes the start the session's resume; and no start
+// of id the host fired later has been handled (NoteStart). A start fired before the session ended is
+// a leftover the end preceded, and one fired before a start already handled is a leftover that start
+// superseded: both report false, as does an unknown session. An unknown at (zero) says nothing either
+// way, so it reports whether id is live. The session.start route asks before its own Ensure, which
+// marks the session live whatever it was, and before its NoteStart (schedRuntime.bindOnReplayedStart).
+func (r *SessionRegistry) CurrentAt(id core.SessionID, at core.UnixMilli) bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	s, ok := r.sessions[id]
+	switch {
+	case !ok:
+		return false
+	case at <= 0:
+		return s.Live
+	case s.lastStart > at:
+		return false
+	case s.Live:
+		return true
+	default:
+		return s.EndedTS <= at
+	}
 }
 
 // Touch records hot-path traffic from id: it advances LastActivity and increments Events. Traffic
@@ -326,7 +367,12 @@ func (r *SessionRegistry) Live() int {
 	return n
 }
 
-// Snapshot returns a defensive copy of every tracked session, for /qompack:status and tests.
+// Snapshot returns a defensive copy of every tracked session, for /qompack:status and tests, most
+// recent LastActivity first and ties by session id. The order is part of the answer: status prints
+// it as data.snapshot.sessions, and two reads of unchanged state must agree exactly (D53(a)). The
+// sessions live in a map, whose iteration order Go randomizes, and listing them in that order put
+// the same two sessions in opposite orders on two reads five seconds apart (the candidate 7 live
+// lane's C4.5, F-C7-C45-1).
 func (r *SessionRegistry) Snapshot() []SessionState {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -334,6 +380,9 @@ func (r *SessionRegistry) Snapshot() []SessionState {
 	for _, s := range r.sessions {
 		out = append(out, *s)
 	}
+	slices.SortFunc(out, func(a, b SessionState) int {
+		return cmp.Or(cmp.Compare(b.LastActivity, a.LastActivity), cmp.Compare(a.ID, b.ID))
+	})
 	return out
 }
 
@@ -353,9 +402,10 @@ func (r *SessionRegistry) LastActivity() core.UnixMilli {
 }
 
 // evictLocked drops the ended session with the oldest EndedTS once the tracked count exceeds
-// r.maxSessions. If every tracked session is live, nothing is evicted — refusing a session is
-// never an option (§7.1) — and a single Loud line fires once per registry lifetime. mu must be
-// held.
+// r.maxSessions; of ended sessions that share that EndedTS, the smallest session id goes, so the
+// choice never depends on the map's randomized iteration order. If every tracked session is live,
+// nothing is evicted — refusing a session is never an option (§7.1) — and a single Loud line fires
+// once per registry lifetime. mu must be held.
 func (r *SessionRegistry) evictLocked() {
 	limit := r.maxSessions
 	if limit <= 0 {
@@ -372,7 +422,7 @@ func (r *SessionRegistry) evictLocked() {
 		if s.Live {
 			continue
 		}
-		if !found || s.EndedTS < oldestEnded {
+		if !found || s.EndedTS < oldestEnded || (s.EndedTS == oldestEnded && id < oldestID) {
 			oldestID, oldestEnded, found = id, s.EndedTS, true
 		}
 	}

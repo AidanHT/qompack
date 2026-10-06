@@ -297,7 +297,7 @@ func newRealObserverDaemon(t *testing.T, root string) (*daemon, *Options, func()
 	t.Cleanup(func() { _ = dd.ing.Close() })
 	dd.drain.Store(newDrainer(DrainConfig{
 		Root: root, Log: logging.Nop(), Metrics: dd.m, Clock: dd.clk,
-		Dispatch: dd.drainDispatch, Seen: dd.ing.seen, Admit: dd.admitDelivery,
+		Dispatch: withoutLineDeadline(dd.drainDispatch), Seen: dd.ing.seen, Admit: dd.admitDelivery,
 		Journal: dd.deliveryJournal, IsLive: dd.sessionIsLive,
 	}))
 	return dd, &o, func() []core.ObservationID {
@@ -329,7 +329,7 @@ func newIdentityRecordingDaemon(t *testing.T, root string) (*daemon, func() int,
 	t.Cleanup(func() { _ = dd.ing.Close() })
 	dd.drain.Store(newDrainer(DrainConfig{
 		Root: root, Log: logging.Nop(), Metrics: dd.m, Clock: dd.clk,
-		Dispatch: dd.drainDispatch, Seen: dd.ing.seen, Admit: dd.admitDelivery,
+		Dispatch: withoutLineDeadline(dd.drainDispatch), Seen: dd.ing.seen, Admit: dd.admitDelivery,
 		Journal: dd.deliveryJournal, IsLive: dd.sessionIsLive,
 	}))
 	return dd, func() int { return len(seen) }, func() []core.ObservationID {

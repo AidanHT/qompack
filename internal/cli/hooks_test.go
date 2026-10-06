@@ -43,8 +43,12 @@ func TestHooks_AllSixExitZeroWithValidJSON(t *testing.T) {
 	for _, hook := range hookNames {
 		t.Run(hook, func(t *testing.T) {
 			var out, errw bytes.Buffer
+			// The root is pinned to dir: with none in the environment the hook's first root is the
+			// process cwd, inside the checkout. The client's scope guard cannot place this payload (a
+			// FileRead with no tool_input) in any project, so it records it as unavailable, and a
+			// refused record keeps that first root: it was spooled into the checkout's own .qompack.
 			code := Dispatch(context.Background(), All(), argvFor(hook), Env{
-				Getenv:  noEnv,
+				Getenv:  envWith(map[string]string{"QOMPACK_PROJECT_ROOT": dir}),
 				Stdin:   bytes.NewReader(payload),
 				Clock:   testClock(),
 				HomeDir: home,
@@ -60,11 +64,14 @@ func TestHooks_AllSixExitZeroWithValidJSON(t *testing.T) {
 
 // TestHooks_ModeOffShortCircuits pins the very first branch of the hook skeleton: a persisted
 // ModeOff state answers with the empty response before stdin is even read, and touches nothing
-// else.
+// else. The state.bin speaks for the project because the daemon that wrote it is alive; with it gone
+// the configuration decides (stateModeOffHolds, D67(c)'s rule for the mode), which
+// TestSessionStart_DeadDaemonsModeOffStateStillStartsADaemon pins.
 func TestHooks_ModeOffShortCircuits(t *testing.T) {
 	dir := t.TempDir()
 
 	require.NoError(t, ipc.WriteState(dir, ipc.State{Mode: contract.ModeOff}))
+	useStateDaemonAlive(t, true)
 
 	var out, errw bytes.Buffer
 	code := Dispatch(context.Background(), All(), argvFor("observe tool"), Env{

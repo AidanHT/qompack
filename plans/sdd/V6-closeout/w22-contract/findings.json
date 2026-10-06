@@ -1,0 +1,111 @@
+{
+ "seat": "contract",
+ "findings": [
+  {
+   "severity": "major",
+   "location": "internal/contract/assertions.go:103-123 (checkSessionStartFires); docs/troubleshooting.md:173-187",
+   "issue": "Two or three sessions opened at once on a fresh project (no run/marker.json yet) push StartsWithoutMarker to 2. That is a SevCritical failure, and the daemon degrades to degraded-passive on a healthy store where every hook fired. The cause: an absent marker is counted as an absence even while the session it would come from (LastSessionID) is still live and so has had no terminal hook yet. With only two windows the row reads marker-absent-once (pending). It stays pending through both sessions' compactions, until a third session starts. That contradicts troubleshooting.md:186-187, which says a healthy project reads '0 pending' and 'That stays true after a compaction or a --resume of any of its sessions'. W20 fixed concurrent restarts only; concurrent fresh starts are the same false-critical class as the first audit's major. The bug predates this round, but D62 records it as 'same-session-restart is recognized per session with concurrent sessions'.",
+   "evidence": "Daemon-level probe in a scratch copy of 2bf29705 (C:/Users/Quant/AppData/Local/Temp/claude/qompack-audit2/status/zz_audit2_fires_test.go, using replayProbeDaemon + startRequest + checkpointRequest + dispatchOp). `go test -p 1 -count=1 -run '^TestZZAudit2_' -v ./internal/daemon/` printed:\n- FreshProjectThreeWindows: 'sess-a startup fires=first-session count=0 mode=full'; 'sess-b startup fires=marker-absent-once count=1 mode=full'; 'sess-c startup fires=\"no marker from a prior terminal hook across two consecutive sessions\" count=2 mode=degraded-passive'.\n- FreshProjectTwoWindowsCompact: after 'sess-a precompact+compact' and after 'sess-b precompact+compact', both read fires=marker-absent-once count=1 (pending).",
+   "fix": "In checkSessionStartFires, when the marker is absent (or names this session on a fresh start), do not count an absence while the previous start's session h.LastSessionID is still live: e.SessionLive(h.LastSessionID) is already in Env, and its terminal hook has not run, so the absence proves nothing. Return a holding reading such as 'prior-session-still-live', and leave LastSessionID alone or record the new session for the next decision. Add rows: three concurrent fresh startups read no failure and the mode stays full; two concurrent fresh startups and both compactions read 0 pending; a genuine absence (the previous session ended without a marker) still counts. Reword troubleshooting.md:173-187 to match.",
+   "audit_id": 8,
+   "dim": "status"
+  },
+  {
+   "severity": "major",
+   "location": "internal/contract/assertions.go:165-190 (checkSessionStartSourceCompact); internal/daemon/handlers.go:1353",
+   "issue": "A compaction that the user cancels (Esc during 'Compacting conversation') or that fails after the PreCompact hook fired leaves AwaitingCompactStart set, and nothing clears it except the session's next start. If the user then exits and runs --resume (or --continue) on that session, the start arrives with source=resume. session_start.source_compact then fails at SevCritical, the project degrades to degraded-passive, and the banner blames the host. So a legitimate restart reaches SevCritical, which this dimension requires never to happen. The code is unchanged since candidate 7, but the restart work in this round did not cover it.",
+   "evidence": "Daemon-level probe TestZZAudit2_CancelledCompactThenResume, in the same scratch file and run: a startup, then checkpointRequest(a) (PreCompact, compaction then cancelled), then startRequest(a, \"resume\"). Output: 'source_compact ok=false sev=2 observed=\"resume\"'; 'a resume ... mode=degraded-passive'; banner=\"Qompack: degraded to passive recording — session_start.source_compact expected \\\"compact\\\", observed \\\"resume\\\". See /qompack:status.\"",
+   "fix": "Treat a same-session start with source resume (or startup or clear) while the obligation is pending as 'precompact-not-completed', with a warn or info reading, not a critical failure: the host cannot be shown to have broken anything, because a cancelled or failed compaction also produces no compact start. Alternatively, expire AwaitingCompactStart on that session's next UserPromptSubmit or SessionEnd (the compaction did not happen). Pin both rows: a cancelled compaction followed by a resume keeps the mode full, and a PreCompact followed by a non-compact start with nothing in between still fails if the owner wants to keep that half.",
+   "audit_id": 9,
+   "dim": "status"
+  },
+  {
+   "severity": "minor",
+   "location": "internal/contract/assertions.go:113-118; internal/daemon/handlers.go:1022-1033 (heldBack covers only source_compact)",
+   "issue": "A session.start whose live reply missed the client's deadline is spooled and replayed with the same nonce (withdrawLostStartAnswer designs for exactly this). If that session's PreCompact was handled before the replay and another session started in between, the replayed startup finds its own marker. Because its source is startup and LastSessionID names the other session, it counts an absence. Two such replays reach SevCritical. heldBack already guards the analogous replay-order problem for session_start.source_compact, but session_start.fires has no guard.",
+   "evidence": "Probe TestZZAudit2_ReplayedStartupAfterOwnPreCompact (same run). Starting from a prior session z with marker(z): a startup live, b startup live, a PreCompact live, then drainDispatch of a's same startup request read 'fires=marker-absent-once count=1'. a compact live stayed 'marker-absent-once count=1'. b PreCompact live followed by the b startup replay read 'fires=\"no marker ... two consecutive sessions\" count=2 mode=degraded-passive'.",
+   "fix": "Pass the start's hook time (hookTime(req, now)) in Env. In checkSessionStartFires, treat an own marker whose TS is later than this start's hook time as written by this session's own later terminal hook. That is a restart, not an absence, whatever the source. Alternatively, skip counting entirely for a replayed start whose nonce matches d.lastStartAnswer (the live run already decided it). Add the probe's sequence as a row.",
+   "audit_id": 10,
+   "dim": "status"
+  },
+  {
+   "severity": "minor",
+   "location": "internal/cli/qompack_commands.go:278-279 (statusNoDaemonReason), used by internal/cli/doctor.go:1343-1364",
+   "issue": "doctor builds its status client with Self stripped (doctorNoSpawnEnv), so it never spawns a daemon. Its status.primary row still quotes statusNoDaemonReason, 'This command asked one to start unless runtime.daemon.enabled is false; run status again once it is up', and the same detail then says 'doctor never SPAWNS a daemon'. The reason text is false for doctor, and the row contradicts itself. W19c noted the text but left it.",
+   "evidence": "Probe TestZZAudit2_DoctorNoDaemonReason (scratch copy, `go test -p 1 -count=1 -run '^TestZZAudit2_' -v ./internal/cli/`). doctor --json on a project with no daemon printed: \"detail\": \"availability error (daemon: no daemon answered: none is listening for this project yet. This command asked one to start unless runtime.daemon.enabled is false; run status again once it is up; disk: ...); doctor never SPAWNS a daemon (it strips Self ...)\".",
+   "fix": "Carry 'can spawn' (Self != \"\" && Spawn != nil) on commandClient next to daemonEnabled. When it is false, use a reason such as 'no daemon answered: none is listening for this project, and this command does not start one; start a session or run qompack status'. Also drop the now-unreachable 'unless runtime.daemon.enabled is false' clause, updating the docs/uat.md quote. Add a doctor row asserting that the text never says it asked one to start.",
+   "audit_id": 11,
+   "dim": "status"
+  },
+  {
+   "severity": "minor",
+   "location": "internal/cli/qompack_commands.go:356-397 (fetchDaemonStatus)",
+   "issue": "When runtime.mode is \"off\" (in the configuration, or in the Mode of the state.bin a daemon wrote), the command client's Send returns at step 1 with OK:true and no Data, without dialing. fetchDaemonStatus treats that as a live answer and json.Unmarshal(nil) fails. So status and doctor give the reason 'daemon: decoding status: unexpected end of JSON input', an internal error that is untrue: no daemon was asked and nothing was malformed. cmd_mcp.go:344 already handles this case (resp.Mode == ModeOff && len(Data)==0).",
+   "evidence": "Probe TestZZAudit2_ModeOffStatusReason: writeProjectConfig `{\"runtime\":{\"mode\":\"off\"}}`, then status --json printed: source=none reason=\"daemon: decoding status: unexpected end of JSON input; disk: reading ...latency.json: ... cannot find the file specified.\"",
+   "fix": "In fetchDaemonStatus, before decoding: if resp.OK && resp.Mode == contract.ModeOff && len(resp.Data) == 0, return errors.New(statusModeOffReason), for example 'runtime.mode is off for this project, so this command does not ask a daemon'. Add a row, and a sentence in troubleshooting.md section 1 next to the disabled-daemon reason.",
+   "audit_id": 12,
+   "dim": "status"
+  },
+  {
+   "severity": "minor",
+   "location": "internal/store/provenance.go:58-90 (ContentOrigins ranges over rootIndex, toolUse, fileHist maps); internal/mcp/authorize.go:265-269 (authorizeHash returns the first refusal)",
+   "issue": "MCP results are nondeterministic (D53(a)). ContentOrigins returns origins in map-iteration order, and authorizeHash returns the refusal of whichever refused origin comes first. When one hash or chunk has several refused origins, the withheld reason that recall, why, re_read and dropped report changes from read to read. For example, a chunk shared by a host-denied file and an out-of-project path reads 'the host's current permission rules deny reading ...' on one read and 'the associated path is outside the project ...' on the next. The verdict is always withheld, so this is reason text only. Shared chunks are common under content-defined chunking. The bug predates this round, but the sweep for every map iteration feeding MCP results missed it.",
+   "evidence": "Store probe TestZZAudit2_ContentOriginsOrder (scratch copy): PutBytes plus 4 Read tool uses of one root at private/deny.txt, ../outside/x.txt, src/a.go and src/b.go. Over 200 ContentOrigins calls, the first path-bearing origin was map[../outside/x.txt:33 private/deny.txt:114 src/a.go:24 src/b.go:29]. authorize.go:265-269 is `for _, origin := range origins { if refusal := h.authorizeOrigin(...); refusal != nil { return refusal } }`.",
+   "fix": "Sort the origins in ContentOrigins (slices.SortFunc by Path, then Tool) before returning, or have authorizeHash evaluate every origin and return the strictest refusal in a fixed precedence (host unavailable, deny, ask, out-of-project, no provenance). Add a row: one hash with a denied and an outside origin, read 200 times, gives one reason.",
+   "audit_id": 13,
+   "dim": "status"
+  },
+  {
+   "severity": "minor",
+   "location": "internal/cli/qompack_commands.go:175-179 (daemonClientState); internal/cli/hookclient.go:424; internal/cli/sessionstart.go:87-89; docs/troubleshooting.md:131-135",
+   "issue": "A state.bin left with DaemonEnabled=false is sticky. A daemon that reloads runtime.daemon.enabled=false keeps running and writes it, and a reboot or kill before a clean stop leaves it behind. Setting the key back to true never brings a daemon back: hooks AND state.bin with the configuration, ensureDaemonRunning returns at once, and nothing ever rewrites state.bin. The status reason now names state.bin correctly, but neither it nor troubleshooting.md says how to recover (delete .qompack/run/state.bin). W19c reported this as a new open issue, and it is not in the D45-D65 ledger.",
+   "evidence": "Code path: sessionstart.go:87 `if !st.DaemonEnabled { return }`, where st.DaemonEnabled = state.bin && cfg (hookclient.go:424). The daemon writes DaemonEnabled from the reloaded configuration (daemon.go:528), and only a clean stop removes state.bin (daemon.go:1241). The report is plans/sdd/V6-closeout/w19b-cmdconnect/report-19c.md:277.",
+   "fix": "Trust state.bin's DaemonEnabled only while its daemon is alive: if the lock is not held or no listener answers, fall back to the configuration (StateFromConfig). At minimum, add to statusDaemonDisabledReason and troubleshooting.md: 'if the configuration says true, delete .qompack/run/state.bin'. Record the item in the ledger.",
+   "audit_id": 15,
+   "dim": "status"
+  },
+  {
+   "severity": "minor",
+   "location": "internal/cli/hookclient.go:424 and :479-480; internal/cli/sessionstart.go:87; docs/troubleshooting.md:133-135",
+   "issue": "A stale state.bin that says DaemonEnabled=false is sticky, and nothing rules on it (w19c cmdconnect open issue: 'The coordinator should rule on whether this needs a fix or a documented limit'). Say a daemon reloads runtime.daemon.enabled=false, which rewrites state.bin (reload.go:154), and then dies without a clean stop, so RemoveState never runs. Hooks AND state.bin's flag with the config, and ensureDaemonRunning returns early when the result is false. So after the key is set back to true, no daemon is ever spawned to rewrite state.bin, and every hook spools forever. troubleshooting names the state.bin case but gives no recovery (deleting .qompack/run/state.bin).",
+   "evidence": "hookclient.go:424 `st.DaemonEnabled = st.DaemonEnabled && cfg.Runtime.Daemon.Enabled`, which is passed to spec.preSend at :480. sessionstart.go:87 `if !st.DaemonEnabled { return }`. daemon.go:1241 calls ipc.RemoveState only on Stop. No ledger row mentions it (grep 'state.bin' in V6-CLOSEOUT-CHECKLIST.md finds only old wave-7/11 text).",
+   "fix": "Let session-start's spawn decision follow the configuration when no daemon is listening (state.bin describes a daemon that is gone). Or document `delete .qompack/run/state.bin` as the recovery in troubleshooting §7. Record the choice in the ledger.",
+   "audit_id": 67,
+   "dim": "complete"
+  }
+ ],
+ "nits": [
+  {
+   "dim": "linux",
+   "severity": "nit",
+   "location": "internal/cli/status_probe_windows_test.go:115-127",
+   "issue": "The third half of TestStatusProbe_OutlastsAListenerThatIsReArming is platform-neutral: through the statusProbeDial stub it requires daemonListening to dial the project's own address exactly once, with a budget that outlasts a re-arm. It lives in a _windows_test.go file, so Linux and macOS never assert which address the probe dials or how often. Only the budget-equality row, TestStatusProbe_HasTheCommandConnectBudget, runs there. Status's unix-socket path therefore has no row for the dialed address.",
+   "evidence": "grep -n '\\[\\]ipc.Addr' internal/cli/*_test.go finds only status_probe_windows_test.go:118 and :126 (`require.Equal(t, []ipc.Addr{addr}, asked, \"the probe dials the project's own address, once\")`). The neutral rows in status_connect_test.go (lines 167, 194, 291, 334, 413) ignore the address argument.",
+   "fix": "Move the stub-based half (the asked slice and the daemonListening(root)() assertion) into a platform-neutral row in status_connect_test.go. Keep only the go-winio busy-pipe halves in the _windows_test.go file."
+  },
+  {
+   "dim": "linux",
+   "severity": "nit",
+   "location": "internal/daemon/reload.go:35-52 (ConfigFileStamp, StampConfigFile) and daemon.go:410",
+   "issue": "The new start stamp means the first reload check no longer reloads unconditionally. A change after the stamp is detected only when it alters config.json's mtime or size. An edit that keeps the size, inside the filesystem's timestamp granularity and between the stamp and the load, is now missed until the next change, and before this change the first check always reloaded. That granularity is the coarse kernel clock on ext4 without multigrain timestamps (one jiffy), 2 s on exFAT/FAT, and coarse on some SMB/NFS mounts. The same-size, same-tick blind spot already exists for every later reload; the start window is new.",
+   "evidence": "Code reading: StampConfigFile returns {ModTime, Size} only; maybeReloadConfig compares prevMTime and prevSize (reload.go:98) and nothing else. Example: on exFAT, changing a one-digit value (`1` to `2`) within 2 s of the previous write, during the daemon's start, leaves the daemon on the old value.",
+   "fix": "Add a content digest (e.g. xxhash or sha256 of the loaded bytes) to ConfigFileStamp, or compare inode and ctime on unix too. Cheapest alternative: when the stamp's mtime is within 2 s of the stamp's own wall time, leave CfgStamp zero so the first check reloads once."
+  },
+  {
+   "dim": "linux",
+   "severity": "nit",
+   "location": "docs/security.md:119-122; docs/adr/0011-rehydration-budget-and-item-order.md item 8 (lines ~1310, 1345)",
+   "issue": "Under D64(1) a root holding `~` has no root unit, so every summary that spells it is withheld. The docs give OneDrive for Business (`OneDrive - Contoso`) as the everyday Windows example, but not its macOS counterpart. A project in iCloud Drive's real path (`~/Library/Mobile Documents/com~apple~CloudDocs/...`) loses the unit in the same way, so macOS users see every root-spelling summary withheld without a documented reason.",
+   "evidence": "rootUnitAdmitted (pathgate.go:2283-2298) admits only wordRune, `-_.`, `/` and a space. `~` is rejected, as security.md:120 says in general terms. grep -rn 'CloudDocs\\|Mobile Documents' docs finds nothing.",
+   "fix": "Add one sentence to security.md's root-unit paragraph and to ADR 0011 item 8 naming iCloud Drive's `com~apple~CloudDocs` path as an example, next to OneDrive."
+  },
+  {
+   "dim": "linux",
+   "severity": "nit",
+   "location": "internal/daemon/rehydrate_service_test.go:965-984 (pre-existing, 4970058b)",
+   "issue": "TestService_StateWriteFailureStillEmits makes state/ unwritable with chmod 0500 and skips only on Windows. As root on Linux the directory stays writable and the row fails. Wave 19g's own Linux container run hit this (report-19g line 57/79). Tonight's lanes are not affected: linux-nonroot-inner.sh runs as uid 10001, no night lane passes --as-root, and hosted ubuntu runs as a non-root user. The usual golang:* container default (root) and WSL as root still fail it.",
+   "evidence": "report-19g.md:57: 'Linux as root: TestService_StateWriteFailureStillEmits fails, on 895d41f4 too (container artifact: root can write a 0500 directory)'. grep -n 'as-root' coordinator/*.sh finds nothing.",
+   "fix": "Skip the row when os.Geteuid() == 0, with a 'platform: root ignores directory mode bits' reason, as the other mode-bit rows do."
+  }
+ ]
+}

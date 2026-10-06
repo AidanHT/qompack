@@ -28,12 +28,14 @@ func TestAdminShutdownReplyReachesTheCallerOverTheTransport(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("QOMPACK_IPC_ADDR", uniqueTestAddr(t))
 
-	d, err := New(Options{ProjectRoot: root, Cfg: testConfig(), Log: logging.Nop(), Clock: core.SystemClock()})
+	d, err := New(Options{ProjectRoot: root, Cfg: runTestConfig(), Log: logging.Nop(), Clock: core.SystemClock()})
 	require.NoError(t, err)
 	dd, ok := d.(*daemon)
 	require.True(t, ok)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 2*shutdownReplyBound)
+	// No deadline and no idle exit (runTestConfig): only the admin.shutdown below can end Run, so the
+	// wait on Run checks that it did (TestAdminShutdownStopsTheDaemon).
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	errCh := make(chan error, 1)
 	go func() { errCh <- d.Run(ctx) }()
@@ -64,12 +66,12 @@ func TestAdminShutdownReplyReachesTheCallerOverTheTransport(t *testing.T) {
 	select {
 	case err := <-errCh:
 		require.NoError(t, err)
-	case <-time.After(shutdownReplyBound):
+	case <-hangGuard(t):
 		t.Fatal("admin.shutdown did not stop the running daemon")
 	}
 	select {
 	case <-dd.stopDone:
-	case <-time.After(shutdownReplyBound):
+	case <-hangGuard(t):
 		t.Fatal("Stop's cleanup did not finish")
 	}
 }

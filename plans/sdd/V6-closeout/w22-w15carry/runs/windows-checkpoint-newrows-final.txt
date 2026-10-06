@@ -1,0 +1,7 @@
+## HEAD 3f50b4ee
+# go test -p 2 -count=20 -timeout=30m -run '^(TestBeginReleasesTheNumberOfADraftItCouldNotBegin|TestASuccessorThatCouldNotBeginCostsTheSessionNoNumber|TestLedgerAncestryAnswersAForkRecordedAfterItsFirstAnswer|TestCarriedDecisionRegainsItsAlternativeAfterATruncatedSeal|TestDecisionTruncatedAwayIsCarriedAgain|TestSecondCheckpointCarriesTheSessionsExplainsDecision|TestForkCarriesItsParentsDecisionsFromTheForkPoint)$' ./internal/checkpoint
+ok  	github.com/qompack/qompack/internal/checkpoint	79.635s
+exit=0
+# go test -p 2 -race -count=3 -timeout=30m -run '^(TestBeginReleasesTheNumberOfADraftItCouldNotBegin|TestASuccessorThatCouldNotBeginCostsTheSessionNoNumber|TestLedgerAncestryAnswersAForkRecordedAfterItsFirstAnswer|TestCarriedDecisionRegainsItsAlternativeAfterATruncatedSeal|TestDecisionTruncatedAwayIsCarriedAgain|TestSecondCheckpointCarriesTheSessionsExplainsDecision|TestForkCarriesItsParentsDecisionsFromTheForkPoint)$' ./internal/checkpoint
+ok  	github.com/qompack/qompack/internal/checkpoint	19.581s
+exit=0

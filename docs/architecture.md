@@ -92,13 +92,15 @@ and that spawn falls back to the plugin binary
 `CLAUDE_PLUGIN_ROOT`, which the host sets for every plugin hook, or by the plugin's layout —
 `bin/qompack.exe` with `.claude-plugin/plugin.json` beside `bin/` — because the daemon is also
 started lazily by `qompack mcp`, which the host launches from `.mcp.json` and which is not
-guaranteed that variable. Copies of other versions that no daemon is running are pruned when a new
-one is made. On Linux and macOS the kernel lets a running executable and its directory be unlinked
-or replaced, so the daemon runs from the plugin binary and nothing is copied; a binary run from
-outside any plugin directory (a build tree, a test's temporary directory) pins nothing a host
-removes and is not copied either. A daemon started from a copy runs in the copy's own directory,
-never the directory the spawning hook ran in; one started from the hook's own binary inherits the
-hook's working directory. Neither is the project root, which can be longer than a Windows process's
+guaranteed that variable. When a spawn makes a new copy, every other staged copy that no daemon is
+running is pruned: another build's copy goes even when both report the same version string,
+because copies are keyed by SHA-256, not by version. On Linux and macOS the kernel lets a running
+executable and its directory be unlinked or replaced, so the daemon runs from the plugin binary
+and nothing is copied; a binary run from outside any plugin directory (a build tree, a test's
+temporary directory) pins nothing a host removes and is not copied either. A daemon started from
+a copy runs in the copy's own directory, never the directory the spawning hook ran in; one started
+from the hook's own binary inherits the hook's working directory. Neither is the project root,
+which can be longer than a Windows process's
 working directory may be (MAX_PATH). If the copy cannot be made the daemon is started from the
 plugin binary after all, `session-start` logs why, and the daemon itself reports it Loud when it
 starts. A daemon started before a plugin update keeps running its own version until its idle exit;
@@ -173,9 +175,22 @@ must still wait for an earlier delivery of its session (C1.13); the startup, flu
 operator drains replay whatever is left. The idle drain runs once the project has had no activity
 for `scheduler.idle.detectAfterSeconds` (120 s by default), looked at on a tick of at most 30 s.
 The watcher's passes, the idle drain and a drain the ingest's lanes ask for share a soft 2 s pass
-budget (owner decision D31, `idleRunBudget`): once it is spent a pass starts no new line, and the
-line in progress finishes under its own 5 s `drainLineDeadline` rather than being cut. The drains a
-session end runs for itself are not budgeted.
+budget (owner decision D31, `idleRunBudget`). Once it is spent, a pass that has made progress (it
+advanced a spool's consumed front, or published or retired a line) starts no new line. The line in
+progress finishes rather than being cut: its dispatch to the handler runs under its own 5 s
+`drainLineDeadline`, and its admission, lease and journal checks under no deadline. A pass that has
+made no progress is not stopped by the budget: it reads on until it makes progress or reaches the end
+of the spool, so a spool whose head waits for an earlier delivery of its session cannot starve the
+spools after it (D58(c)). Such a pass is bounded by the spool, not the clock. It admits again, and
+checks against the committed frontier again, each line that still waits. A line an earlier pass of
+the same daemon consumed behind such a head costs only its read, for up to `orderingProcessedCap`
+(4096) such lines per spool file, while the file is the same file and has only grown. Past that bound
+such a line is admitted and checked again on every pass, though it is counted and announced only once
+unless a pass left an unleased line ahead of it unconsumed, and a restarted daemon consumes every such
+line in full once more. A spool file unchanged since the
+daemon synced it is neither synced nor has its progress rewritten again. While a blob's cleanup waits
+on a line still ahead of a front, the pass also reads each spool file's unconsumed lines once, at its
+start, for references to that blob. The drains a session end runs for itself are not budgeted.
 
 A replayed request is one whose hook has already answered the host without the daemon, so a replay
 does the request's bookkeeping and nothing the host would have to see. A replayed `SessionStart`
@@ -187,8 +202,12 @@ the replay is of a request the daemon did answer, too late for its hook, it with
 answer carried and owes its banner again (the hook's delivery nonce identifies the request). A replayed
 `SessionStart` the host fired before a pending `PreCompact` does not resolve
 `session_start.source_compact`, which stays pending for the start that follows the `PreCompact`. A
-replayed `PreCompact` still seals its checkpoint, but re-arms that obligation only if no `SessionStart`
-of the session has arrived since the hook fired. A prompt counts as a miss for the current probe
+replayed `PreCompact` re-arms that obligation only if no `SessionStart` of the session has arrived
+since the hook fired. It seals its checkpoint unless it is a hook's spooled copy of one whose seal
+has already succeeded in this daemon, which is acknowledged without a second seal, without the
+scheduler's compaction close and without a second wall-time sample. A copy that reaches a drain while
+its seal is still running is sealed as well, so a seal that then fails still leaves the compaction a
+checkpoint. A prompt counts as a miss for the current probe
 only if it is a prompt of the session the probe was minted for, sent after it was minted: a replayed
 prompt from before the probe, another window's prompt, or a prompt of a session whose own start was
 replayed and minted nothing never had a chance to find it. A prompt is one chance however often its
@@ -341,6 +360,24 @@ pointer that claims it recoverable.
 Acknowledgement is idempotent by the persisted `ObservationID`: lease → handle → ack, so an
 interrupted drain re-delivers the same observation instead of consuming it or minting a second
 identity.
+
+Every consumer of a delivery therefore has to tolerate seeing it twice, because the handler runs
+before the ack: a Stop or a bounded drain that cuts the ack replays the same delivery through the
+same handler. The observer absorbs the replay (`observer.redelivery_absorbed`): a tool use, a prompt
+or a subagent capture by the record its first run published, and a main-agent Stop, which writes no
+record, by the identity of the session's last applied Stop, which `state/observer.json` keeps with the
+turn it advanced. The scheduler tap applies each delivery once by its `ObservationID`, so a replay
+folds no tokens into the open segment, adds no detector observation and moves no request-start
+anchor (`sched.tap.redelivery`). The one thing a replay does is make a segment close the first run
+owed and did not make: a task-boundary or changepoint close that the same cancel failed along with
+the ack. The ordering gate holds a
+session's next delivery until every earlier one is acknowledged, so the last delivery applied for a
+session is the only one that can come back. The tap therefore keeps one identity per session, for
+the 256 sessions it applied a delivery of most recently. The tap folds every session's tool use into
+the bound account, so it persists in `state/scheduler.json` the identity of each of those sessions
+whose delivery reached that account, and a restarted daemon folds none of them again: a replay after
+the bind is recognized by the restored identities, and one the startup drain made before the bind is
+deducted from the account the bind restores, only when that account holds it.
 
 [ADR 0014](adr/0014-delivery-group-commit-and-ab-seal.md) records the delivery path's group commit
 and the format-2 A/B seal as they are implemented and merged — it documents decisions already taken
@@ -594,7 +631,13 @@ the standing `already_tried` query, and the checkpointer's own drops keep its de
 bounded prefix plus a counted tail (`… and N more; call
 dropped()`), and its smallest form is reserved before anything else is admitted, so the report on
 what is missing always fits. The complete list is persisted for `dropped()` regardless
-([ADR 0011 §21](adr/0011-rehydration-budget-and-item-order.md)).
+([ADR 0011 §21](adr/0011-rehydration-budget-and-item-order.md)). A budget too small for any section
+(below the retrieval line, which tier 1 admits first) is never silent when something was dropped: the
+block is then a loss notice in section 7 alone, priced like any section, naming how many items did
+not fit, `dropped()` (the user's `/qompack:dropped`) and the original request's restore call when
+that was left out. Only a budget that cannot hold even `- N items dropped; call dropped()` injects
+nothing, and its drop report says so (D59,
+[ADR 0011 §23](adr/0011-rehydration-budget-and-item-order.md)).
 
 **What "the verbatim original intent" guarantees (SP08-D3, owner decision D35).** Item 2 injects the
 L0 capture `prompt_<session>_0`, resolved by derived id: the session's first *captured* prompt,
@@ -639,9 +682,13 @@ A fork inherits its negative knowledge the same way (V6 close-out, D49): the par
 session-scoped eliminations recorded before the fork started (and, through the chain, each
 ancestor's up to the next fork point) answer the fork's `already_tried`, reach its rehydration and
 are carried in its checkpoints with the decisions they mint, still attributed to the session that
-made them; a sibling session that merely shares the project sees none of them. Within one session,
-a decision stays in every later checkpoint while its source holds: an elimination's while the record
-is carried, a pinned one while the pin stands, one read off an explains edge always.
+made them; a sibling session that merely shares the project sees none of them. A fork's first
+checkpoint also carries the decisions of the checkpoint it continued (the parent's newest when the
+fork started, when the parent sealed it), ranked after the fork's own. Within one session, a
+decision stays in every later checkpoint while its source holds: an elimination's while the record
+is carried, a pinned one while the pin stands, one read off an explains edge always. It is carried
+as its source mints it, so a checkpoint truncated at budget does not pass on a decision with its
+rejected alternative emptied, or lose one it cut.
 
 **What "8–12K" is and is not.** It is a historical Qompack-added target for the material Qompack
 injects, recorded in [ADR 0011](adr/0011-rehydration-budget-and-item-order.md) and in `Qompack.md`
@@ -682,10 +729,11 @@ answered without it. The hook client writes the same note when no answer arrives
 deadline, an unreachable daemon), wherever a rehydration was due; under degraded-passive or
 `runtime.mode` off or passive, with the daemon disabled, or with the reinjection switch below off,
 `{}` stays the answer, because nothing was due.
-Measured with `internal/cli`'s `TestSessionStartCompact_UnderSameSessionIngest` under concurrent
-same-session ingest and an fsync co-load, the compact answer's p99 went from 1.85 s to 0.66 s
-(`plans/sdd/V6-closeout/w2-lifetime/runs/`); the route's phases are in `metrics/latency.json` as
-`session_start.*` and `rehydrate.*`.
+`internal/cli`'s `TestSessionStartCompact_UnderSameSessionIngest` measures the compact answer under
+concurrent same-session ingest. The figures under `plans/sdd/V6-closeout/w2-lifetime/runs/` (p99 from
+1.85 s to 0.66 s) were taken before `3f2da1b3`, when that rig's reads never reached the daemon, so they
+do not measure the shipped route; candidate 8's C5.2 night re-measures it (D62(c)). The route's phases
+are in `metrics/latency.json` as `session_start.*` and `rehydrate.*`.
 
 Injection has an independent kill switch: `runtime.migration.reinjection.sessionStartCompact`
 (default `true`). Setting it false disables injection without touching recording. It names the one

@@ -7,9 +7,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"hash/fnv"
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -56,15 +58,36 @@ func (b *passBudget) leftUnfinished(base string) bool {
 var errPassBudgetSpent = fmt.Errorf("daemon: drain: the pass's budget is spent: %w", context.DeadlineExceeded)
 
 // withPassBudget returns ctx carrying a budget for the pass it is handed to: once budget has passed
-// and the pass has consumed at least one line, it starts no further line; a line it has started keeps
-// its own drainLineDeadline. A deadline on the pass's context cancelled the line in flight instead,
-// so a line whose publication took longer than the budget (a capture on a host with a deep fsync
-// queue) was cancelled by every pass and published by none
+// and the pass has made progress, it starts no further line; a line it has started keeps its own
+// drainLineDeadline. Progress (notePassConsumed) is a spool's consumed front advancing, or the pass
+// publishing or retiring a line itself. A deadline on the pass's context cancelled the line in flight
+// instead, so a line whose publication took longer than the budget (a capture on a host with a deep
+// fsync queue) was cancelled by every pass and published by none
 // (TestDeliveryOrder_ARequestedPassFinishesALineSlowerThanItsBudget), and a pass whose own
 // bookkeeping outlasted the budget on such a host (listing, progress state and the spool syncs
 // before its first line) reached no line at all, however often it was asked again. A budgeted pass
-// therefore always consumes a line when it can, and runs past its budget by that bookkeeping and at
-// most one line's drainLineDeadline. Cancelling ctx still ends the pass, and the line in it, at once.
+// therefore always makes progress when it can.
+//
+// What bounds a pass is therefore not the clock alone. Once its budget is spent and it has made
+// progress, it starts no new line. It overruns the budget by the line in flight when the budget ran out
+// or, when the budget ran out before any progress, by every line up to and including the one that made
+// it, plus the bookkeeping that closes the file it is in. Of a line's work, drainLineDeadline bounds
+// only the dispatch to the handler: its admission, lease, journal checks and capture publication run
+// under no deadline of the pass's. Until it has made progress the budget does not stop it: a pass that
+// only consumes again what an earlier pass consumed behind a spool's waiting head has made no progress,
+// and it reads on until it does or reaches the end of the spool. While consuming such a line counted,
+// every pass on a slow host stopped inside that spool, and no budgeted pass reached a spool after it
+// (V6 close-out C1.13). Such a pass is bounded by the spool instead. It reads each file's unconsumed
+// bytes once. It admits again, and asks the committed frontier again about, each line still waiting on
+// an earlier arrival of its session. A line an earlier pass of this daemon consumed behind such a head
+// costs it that line's read and nothing more, for up to orderingProcessedCap such lines per file; past
+// that bound the line is consumed again in full, though not counted or announced again unless a pass
+// left an unleased line ahead of it unannounced (spoolMemo says what else the memo leaves out). A file
+// unchanged since this daemon synced it is not synced, nor its progress rewritten, again. And while a
+// cleanup intent waits, the pass reads each file's unconsumed lines once more, at its start, for
+// references to the intent's blob (cleanupAcknowledged).
+//
+// Cancelling ctx still ends the pass, and the line in it, at once.
 // The budget is on real time, as a context deadline is, never on the daemon's clock. It is the pass's
 // alone: what the pass hands a line to runs without it (withoutPassBudget).
 func withPassBudget(ctx context.Context, budget time.Duration) context.Context {
@@ -80,8 +103,8 @@ func newPassBudget(ctx context.Context, budget time.Duration) (context.Context, 
 }
 
 // passStopped reports why a pass must start no further line: ctx's own error, or errPassBudgetSpent
-// once a budget withPassBudget set has passed and the pass has consumed a line
-// (notePassConsumed). Once it answers non-nil it never answers nil again.
+// once a budget withPassBudget set has passed and the pass has made progress (notePassConsumed). Once
+// it answers non-nil it never answers nil again.
 func passStopped(ctx context.Context) error {
 	if err := ctx.Err(); err != nil {
 		return err
@@ -92,8 +115,12 @@ func passStopped(ctx context.Context) error {
 	return nil
 }
 
-// notePassConsumed records that the pass ctx carries has consumed a line, which lets its budget end it
-// (passStopped). A pass without a budget ignores it.
+// notePassConsumed records that the pass ctx carries has made progress, which lets its budget end it
+// (passStopped). A pass without a budget ignores it. Only progress counts: drainFile calls it when a
+// spool's consumed front advances, and when the pass itself publishes or retires a line ahead of that
+// front. A line consumed out of order stays ahead of the front, so every later pass reads it and
+// consumes it again while the head ahead of it waits (at the cost of its read alone, within the bounds
+// spoolMemo states); absorbing or skipping it again is not progress, and does not count.
 func notePassConsumed(ctx context.Context) {
 	if b, _ := ctx.Value(passBudgetKey{}).(*passBudget); b != nil {
 		b.consumed.Store(true)
@@ -219,7 +246,8 @@ type drainFileState struct {
 	Size   int64
 	Offset int64
 	Done   bool
-	// PendingBlobs is persisted with the acknowledged offset before any deletion is attempted.
+	// PendingBlobs is persisted with the acknowledged offset before any deletion is attempted. It names
+	// each blob once (notePendingBlob).
 	PendingBlobs  []string
 	SizeIsRawStat bool
 }
@@ -364,7 +392,10 @@ type DrainConfig struct {
 	// nobody.
 	ClientSpoolRemoving func(base string) (done func())
 	// SpooledPromptSettled is told every observe.prompt a pass consumes through its delivery stages
-	// (absorbed, replayed or retired) from a hook's client spool. A hook spools a reply request only
+	// (absorbed, replayed or retired) from a hook's client spool. A later pass that consumes the line
+	// again, ahead of a front that waits, skips it while this daemon remembers it (spoolMemo): past the
+	// memo's bound of orderingProcessedCap such lines per file, or in a new daemon, the line is consumed
+	// again and told again, as every pass told it before the memo. A hook spools a reply request only
 	// when no reply reached it, so a warning the daemon's live reply to that nonce carried never
 	// reached the host; the daemon wires settleSpooledPrompt, which has the observer re-arm it. It is
 	// called with the drain's mutex held: it may wait for the session's observer lock, as Dispatch
@@ -396,6 +427,15 @@ type drainer struct {
 	// (DrainConfig.RemoveWAL): removeIfUnchanged outside tests, which set it to act on the spool
 	// directory between the unlink and the rest of removeCompletedFile.
 	removeSpool func(path string, drained int64) (bool, error)
+	// scanBlobRefs reads one spool file's unconsumed lines for the blobs they reference, which
+	// cleanupAcknowledged must not remove: scanPendingBlobs outside tests, which set it to count the
+	// scans a pass makes.
+	scanBlobRefs func(path string, fs *drainFileState, pending, refs map[string]bool) error
+	// readBlobBody reads the blob a line externalized its tool response to, for the line's publication
+	// (dispatchPending): readBlob outside tests, which set it to count the blob bodies a pass reads. It is
+	// the only way the drain reads a blob's body; naming a consumed line's blob reads none
+	// (pendingBlobOf).
+	readBlobBody func(root string, req ipc.Request) (ipc.Request, string, error)
 	// dirSynced is set once the pass in progress has synced the spool directory. Drain clears it, under
 	// mu, before the pass's first file.
 	dirSynced bool
@@ -410,6 +450,15 @@ type drainer struct {
 	// that gets past validateProgress, so a wedge that returns later is announced again. Guarded
 	// by mu, which Drain holds for the whole pass.
 	wedgeNoted bool
+	// memo is what this drainer's passes remember about each spool file that still has bytes past its
+	// consumed front, so that a later pass does not do again what an earlier one did with the same
+	// bytes (spoolMemo). Guarded by mu.
+	memo map[string]*spoolMemo
+	// stateOnDisk is state/drain.json's content as this drainer last wrote it, nil when that is not
+	// known to be what the file holds. saveState writes nothing when the state marshals to exactly
+	// these bytes, and a pass that loads any other progress (stateIsOwn) forgets every memo, whose lines'
+	// cleanup intents and offsets live in those bytes. Guarded by mu.
+	stateOnDisk []byte
 
 	gapMu sync.Mutex
 	gaps  DrainGapState
@@ -431,7 +480,7 @@ func newDrainer(cfg DrainConfig) *drainer {
 	}
 	dr := &drainer{
 		cfg: cfg, syncHandle: (*os.File).Sync, syncDir: paths.SyncDir, unsyncedNoted: map[string]bool{},
-		removeSpool: removeIfUnchanged,
+		removeSpool: removeIfUnchanged, scanBlobRefs: scanPendingBlobs, readBlobBody: readBlob,
 	}
 	dr.syncFile = func(path string) error { return syncSpoolFileWith(path, dr.syncHandle) }
 	return dr
@@ -536,6 +585,11 @@ func (dr *drainer) passLocked(ctx context.Context, clientOnly bool, only map[str
 
 	gaps := &gapRecorder{}
 	st, err := dr.loadState()
+	if err != nil || !dr.stateIsOwn(st) {
+		// Progress this drainer did not write itself: whatever its memos say about a file's lines rests on
+		// the offsets and cleanup intents it last wrote, so none of them stands (spoolMemo).
+		dr.forgetMemos()
+	}
 	if err != nil {
 		gaps.add("", DrainGapProgressUnreadable, "drain progress state is unreadable")
 		dr.publishGaps(gaps.state(dr.cfg.Clock, 0))
@@ -555,6 +609,11 @@ func (dr *drainer) passLocked(ctx context.Context, clientOnly bool, only map[str
 	listed := make(map[string]bool, len(files))
 	for _, path := range files {
 		listed[filepath.Base(path)] = true
+	}
+	for base := range dr.memo {
+		if !listed[base] {
+			delete(dr.memo, base) // gone: a file that comes back under its name is another file
+		}
 	}
 	if err := dr.forgetReleased(st, listed); err != nil {
 		return dr.unpersisted(gaps, err)
@@ -632,6 +691,7 @@ func (dr *drainer) drainFile(ctx context.Context, path string, st drainState, ga
 	fi, err := os.Stat(paths.Long(path))
 	if err != nil {
 		if os.IsNotExist(err) {
+			delete(dr.memo, base)
 			// Listed, then gone before this stat: something other than the drainer deleted it. Its
 			// entry goes with it unless it still carries cleanup intents, the only record of blobs
 			// cleanupAcknowledged must still remove; forgetReleased keeps such an entry too.
@@ -653,13 +713,20 @@ func (dr *drainer) drainFile(ctx context.Context, path string, st drainState, ga
 		return 0, dr.removeCompletedFile(path, base, fs, st)
 	}
 	fs.Done = false
+	// Only a pass that moves this file's front can release a cleanup intent (cleanupAcknowledged after
+	// the file, below).
+	offsetBefore := fs.Offset
 
+	// What an earlier pass of this drainer did with this very file, if it is still that file and no
+	// shorter; unchanged says it has not changed at all.
+	memo, unchanged := dr.memoOf(base, fi)
 	// Nothing the pass consumes may be less durable than what the pass makes of it: a lease is a
 	// durable journal line, and the offset persisted below names the bytes read. durableEnd bounds
 	// the pass to bytes already on disk, syncing the file first where it has to; a sync that fails
 	// leaves the whole file for a later pass.
-	end, err := dr.durableEnd(path, base, size, fs.Offset)
+	end, synced, err := dr.durableEnd(path, base, size, fs.Offset, unchanged && memo.synced)
 	if err != nil {
+		delete(dr.memo, base)
 		// The stat size is not recorded: progress naming bytes the pass could not make durable would
 		// outlive a machine crash that takes them, and validateProgress would then refuse every later
 		// Drain. The file's unread bytes are pending all the same. Those up to the recorded size are
@@ -677,6 +744,8 @@ func (dr *drainer) drainFile(ctx context.Context, path string, st drainState, ga
 	}
 	defer func() { _ = f.Close() }() // also releases the handle if a callback panics or exits its goroutine
 	// Also close explicitly before a possible os.Remove: Windows cannot delete an open file.
+	// The file the pass reads, which is what a memo of this pass describes (rememberFile).
+	opened, _ := f.Stat()
 
 	if fs.Offset > 0 {
 		if _, err := f.Seek(fs.Offset, io.SeekStart); err != nil {
@@ -706,29 +775,56 @@ func (dr *drainer) drainFile(ctx context.Context, path string, st drainState, ga
 	count := 0
 	canceled := false
 	var readErr error
-	processed := map[int64]int64{}
+	processed := map[int64]consumedLine{}
 	var deferred []deferredLine
+	// The lines an earlier pass of this drainer consumed out of order in this very file, behind a front
+	// that has not reached them: already consumed, so this pass consumes each again without doing any
+	// of it again (spoolMemo). announced is how far into the file earlier passes have read since the
+	// memo began: they counted and announced every corrupt or unadmitted line before it.
+	var memoLines map[int64]consumedLine
+	announced := int64(0)
+	if memo != nil {
+		memoLines, announced = memo.consumed, memo.readTo
+	}
+	// firstLeft is where the first line starts that the pass read and left unconsumed under no lease the
+	// journal holds, or -1. A later pass can still consume such a line as unadmitted, and nothing has
+	// announced it, so the memo's readTo stops there (rememberFile). A leased line cannot be consumed that
+	// way: a refused line whose lease the journal holds stays where it is, and a lease, once written, is
+	// held for good.
+	firstLeft := int64(-1)
+	leave := func(start int64) {
+		if firstLeft < 0 {
+			firstLeft = start
+		}
+	}
 
-	consume := func(start, next int64) {
-		notePassConsumed(ctx)
+	// consume counts as the pass consuming a line (notePassConsumed) only when the front advances. A
+	// line consumed out of order is remembered in processed for the rest of this call and in this
+	// drainer's memo of the file for the passes after it (rememberFile); every later pass reads it and
+	// consumes it again while the prefix ahead of it waits, and that is no progress. A line the pass
+	// itself publishes or retires out of order is progress, and its caller counts it (C1.13, D31). line
+	// is what is remembered of the line: where the next one starts, its bytes' sum and the gaps that
+	// consuming it left.
+	consume := func(start int64, line consumedLine) {
 		if start != offset {
 			// Consumed out of order; the front rolls over it later. Bounded (item 3): past the roll-
 			// forward memory cap we stop recording it — the line is already dispatched and ACKED, so a
 			// later pass re-reads it, finds it on the committed frontier, and absorbs it there. This is
 			// what keeps the map from growing without bound behind a stuck prefix.
 			if len(processed) < orderingProcessedCap {
-				processed[start] = next
+				processed[start] = line
 			}
 			return
 		}
-		offset = next
+		notePassConsumed(ctx)
+		offset = line.next
 		for {
 			n, ok := processed[offset]
 			if !ok {
 				break
 			}
 			delete(processed, offset)
-			offset = n
+			offset = n.next
 		}
 		fs.Offset = offset
 	}
@@ -747,16 +843,12 @@ func (dr *drainer) drainFile(ctx context.Context, path string, st drainState, ga
 			}
 			if retired {
 				gaps.add(base, DrainGapDenied, "replay retired by policy denial")
-				if _, blob, blobErr := readBlob(dr.cfg.Root, dl.req); blobErr == nil && blob != "" {
-					fs.PendingBlobs = append(fs.PendingBlobs, blob)
-				}
+				notePendingBlob(fs, pendingBlobOf(dr.cfg.Root, dl.req))
 				return true, deferNot, false, false, nil
 			}
 		}
 		if dl.leased && dr.acknowledgedDelivery(dl.lease, dl.leased) {
-			if _, blob, blobErr := readBlob(dr.cfg.Root, dl.req); blobErr == nil && blob != "" {
-				fs.PendingBlobs = append(fs.PendingBlobs, blob)
-			}
+			notePendingBlob(fs, pendingBlobOf(dr.cfg.Root, dl.req))
 			return true, deferNot, false, false, nil
 		}
 		if !dr.leasedPredecessorsReady(dl.lease, dl.leased) {
@@ -768,9 +860,7 @@ func (dr *drainer) drainFile(ctx context.Context, path string, st drainState, ga
 				if dl.leased && !dr.acknowledgedDelivery(dl.lease, dl.leased) {
 					gaps.add(base, DrainGapUnacknowledged, "in-memory completion has no frontier record")
 				}
-				if _, blob, blobErr := readBlob(dr.cfg.Root, dl.req); blobErr == nil && blob != "" {
-					fs.PendingBlobs = append(fs.PendingBlobs, blob)
-				}
+				notePendingBlob(fs, pendingBlobOf(dr.cfg.Root, dl.req))
 				return true, deferNot, false, false, nil
 			}
 			if !acquired {
@@ -801,18 +891,14 @@ func (dr *drainer) drainFile(ctx context.Context, path string, st drainState, ga
 		}
 		if errors.Is(dispatchErr, errReplayDenied) {
 			gaps.add(base, DrainGapDenied, "policy denied before replay publication")
-			if blob != "" {
-				fs.PendingBlobs = append(fs.PendingBlobs, blob)
-			}
+			notePendingBlob(fs, blob)
 			return true, deferNot, false, dl.leased, nil // dispatchPending retired a leased one
 		}
 		if dispatchErr != nil {
 			gaps.add(base, DrainGapUnacknowledged, "publication did not reach the frontier")
 			return false, deferNot, false, false, dispatchErr
 		}
-		if blob != "" {
-			fs.PendingBlobs = append(fs.PendingBlobs, blob)
-		}
+		notePendingBlob(fs, blob)
 		return true, deferNot, true, true, nil
 	}
 
@@ -823,18 +909,28 @@ func (dr *drainer) drainFile(ctx context.Context, path string, st drainState, ga
 		}
 	}
 
-	// reattempt re-runs the deferred lines after a consume may have acknowledged a predecessor, to a
-	// fixpoint. It never blocks: a line that is still deferred is simply kept for a later pass.
-	reattempt := func() error {
+	// reattempt re-runs the deferred lines of sess, or every deferred line when all is set, after a
+	// consume may have acknowledged a predecessor, to a fixpoint. It never blocks: a line that is still
+	// deferred is simply kept for a later pass. A line's ordering gate waits only on earlier arrivals of
+	// its own session (predecessorsAcknowledged), so a line consumed in sess can release only sess's
+	// deferred lines, and each of those only the others of sess. Re-running every deferred line after
+	// every line consumed cost a file of L consumed lines and D deferred ones L x D gate queries, three
+	// journal queries each, whatever their sessions (V6 close-out C1.13, wave 20).
+	reattempt := func(sess core.SessionID, all bool) error {
 		for {
 			if err := passStopped(ctx); err != nil {
 				return err
 			}
 			progressed := false
 			for idx := 0; idx < len(deferred); {
+				if !all && deferred[idx].req.Session != sess {
+					idx++
+					continue
+				}
 				if err := passStopped(ctx); err != nil {
 					return err
 				}
+				gaps.startLine()
 				done, _, dispatched, changed, err := processOne(deferred[idx])
 				if err != nil {
 					return err
@@ -844,7 +940,10 @@ func (dr *drainer) drainFile(ctx context.Context, path string, st drainState, ga
 					continue
 				}
 				dl := deferred[idx]
-				consume(dl.start, dl.next)
+				if changed {
+					notePassConsumed(ctx) // published or retired by this pass, in order or not
+				}
+				consume(dl.start, consumedLine{next: dl.next, sum: dl.sum, gaps: slices.Concat(dl.gaps, gaps.takeLine())})
 				settledSpooledPrompt(dl.req)
 				if changed && dl.leased {
 					dr.released(dl.lease)
@@ -882,21 +981,39 @@ readLoop:
 		lineStart := readPos
 		nextOffset := readPos + int64(len(raw))
 		readPos = nextOffset
+		gaps.startLine()
+		sum := spoolLineSum(raw)
+
+		if known, ok := memoLines[lineStart]; ok && known.next == nextOffset && known.sum == sum {
+			// An earlier pass of this drainer consumed this very line, and the front has not reached it
+			// since: what consuming it did is done and durable — its publication or retirement, its
+			// cleanup intent, its count and its announcement. This pass consumes it again without any of
+			// that, which is no progress, and reports again the gaps it left in the replay, as every pass
+			// reports what it still finds there. Nothing else about it can have changed: a decision once
+			// consumed is final, as it is for a line the front has passed.
+			for _, g := range known.gaps {
+				gaps.add(base, g.kind, g.reason)
+			}
+			consume(lineStart, known)
+			continue
+		}
 
 		line := bytes.TrimSuffix(raw, []byte{'\n'})
 		if len(bytes.TrimSpace(line)) == 0 {
-			consume(lineStart, nextOffset)
+			consume(lineStart, consumedLine{next: nextOffset, sum: sum})
 			continue // lenient to blank lines, though the writer never emits them
 		}
 
 		req, decErr := ipc.DecodeRequest(line)
 		if decErr != nil {
-			if dr.cfg.Metrics != nil {
-				dr.cfg.Metrics.Counter(counterDrainFileError).Add(1)
+			if lineStart >= announced { // else an earlier pass counted and announced it (spoolMemo.readTo)
+				if dr.cfg.Metrics != nil {
+					dr.cfg.Metrics.Counter(counterDrainFileError).Add(1)
+				}
+				dr.cfg.Log.Warn("daemon: drain: corrupt line", "path", path, "err", decErr)
 			}
-			dr.cfg.Log.Warn("daemon: drain: corrupt line", "path", path, "err", decErr)
 			gaps.add(base, DrainGapCorruptLine, "line did not decode")
-			consume(lineStart, nextOffset)
+			consume(lineStart, consumedLine{next: nextOffset, sum: sum, gaps: gaps.takeLine()})
 			continue
 		}
 
@@ -922,6 +1039,9 @@ readLoop:
 					dr.cfg.Metrics.Counter(counterDrainLeasedDenyPending).Add(1)
 				}
 				gaps.add(base, DrainGapUnadmitted, "refused replay has unresolved delivery identity or policy")
+				if !held {
+					leave(lineStart) // the lookup failed: a later pass may find no lease, and skip the line
+				}
 				continue
 			}
 			retired = lease
@@ -929,29 +1049,37 @@ readLoop:
 		switch {
 		case verdict.Denied:
 			gaps.add(base, DrainGapDenied, verdict.Reason)
-			if _, blob, blobErr := readBlob(dr.cfg.Root, req); blobErr == nil && blob != "" {
-				fs.PendingBlobs = append(fs.PendingBlobs, blob)
+			notePendingBlob(fs, pendingBlobOf(dr.cfg.Root, req))
+			if retiredHere {
+				notePassConsumed(ctx) // retired by this pass, in order or not
 			}
-			consume(lineStart, nextOffset)
+			consume(lineStart, consumedLine{next: nextOffset, sum: sum, gaps: gaps.takeLine()})
 			if retiredHere {
 				dr.released(retired)
 			}
-			if err := reattempt(); err != nil {
+			if err := reattempt(req.Session, false); err != nil {
 				readErr = err
 				break readLoop
 			}
 			continue
 		case verdict.Failed:
-			// A never-leased failure is terminal FOR THIS RECORD, and the offset advances past it. The
-			// decision is baked into the spooled bytes, so no later pass can admit it; losing it LOUDLY
-			// is correct while losing everything behind it silently is not.
-			if dr.cfg.Metrics != nil {
-				dr.cfg.Metrics.Counter(counterDrainUnadmitted).Add(1)
+			// A never-leased failure is terminal FOR THIS RECORD, and the offset advances past it; losing
+			// it LOUDLY is correct while losing everything behind it silently is not. The refusal is not
+			// always one the spooled bytes decide: a policy this daemon cannot compile, or a path whose
+			// scope it cannot prove, is a condition of this process that can clear. The record is lost all
+			// the same, as it is in order, and a line consumed out of order behind a waiting head is as
+			// final (spoolMemo), so the announcement says what happened to it. Once per line, though: a
+			// line an earlier pass consumed and announced, behind a front that has not reached it, is not
+			// lost again by the next pass to read it.
+			if lineStart >= announced {
+				if dr.cfg.Metrics != nil {
+					dr.cfg.Metrics.Counter(counterDrainUnadmitted).Add(1)
+				}
+				dr.cfg.Log.Loud("daemon: drain: capture not admitted; record skipped",
+					"path", path, "reason", verdict.Reason)
 			}
-			dr.cfg.Log.Loud("daemon: drain: capture not admitted; record skipped",
-				"path", path, "reason", verdict.Reason)
 			gaps.add(base, DrainGapUnadmitted, verdict.Reason)
-			consume(lineStart, nextOffset)
+			consume(lineStart, consumedLine{next: nextOffset, sum: sum, gaps: gaps.takeLine()})
 			continue
 		case verdict.Degraded:
 			// The policy decided and the decision is degraded. It is admitted exactly as the live
@@ -965,6 +1093,7 @@ readLoop:
 			gaps.add(base, DrainGapUnleased, "delivery has no durable identity")
 			if req.Nonce != "" && dr.cfg.Journal != nil {
 				dr.cfg.Log.Loud("daemon: drain: delivery identity unavailable; spool retained for recovery")
+				leave(lineStart)
 				readErr = core.ErrDegraded
 				break readLoop
 			}
@@ -975,9 +1104,12 @@ readLoop:
 		// qualified path. See the frontier/seen rationale preserved in processOne.
 		dl := deferredLine{
 			req: req, lease: lease, leased: leased,
-			key: deliveryIdentityKey(lease, leased, line), start: lineStart, next: nextOffset,
+			key: deliveryIdentityKey(lease, leased, line), start: lineStart, next: nextOffset, sum: sum,
 		}
 		done, deferIt, dispatched, changed, err := processOne(dl)
+		if !done && !leased {
+			leave(lineStart) // deferred, or a hard error, with no lease to hold it
+		}
 		if err != nil {
 			readErr = err
 			break readLoop
@@ -994,12 +1126,16 @@ readLoop:
 			// found further on IS dispatched and acknowledged this pass, which is what unblocks the
 			// prefix on the next pass. Liveness is claimed only within these demonstrated bounds.
 			if len(deferred) < orderingLookaheadBound {
+				dl.gaps = gaps.takeLine()
 				deferred = append(deferred, dl)
 			}
 			continue
 		}
 		if done {
-			consume(lineStart, nextOffset)
+			if changed {
+				notePassConsumed(ctx) // published or retired by this pass, in order or not
+			}
+			consume(lineStart, consumedLine{next: nextOffset, sum: sum, gaps: gaps.takeLine()})
 			settledSpooledPrompt(dl.req)
 			if changed && dl.leased {
 				dr.released(dl.lease)
@@ -1007,10 +1143,23 @@ readLoop:
 			if dispatched {
 				count++
 			}
-			if err := reattempt(); err != nil {
+			// Absorbing a line whose delivery another handler settled can release its session's
+			// deferred lines as well as publishing or retiring it here: the settlement may be newer
+			// than their deferral.
+			if err := reattempt(dl.req.Session, false); err != nil {
 				readErr = err
 				break readLoop
 			}
+		}
+	}
+	// A deferred line can be released after the last line the pass consumes in its file, by an earlier
+	// arrival of its session another handler publishes meanwhile (a live worker, a session end), and
+	// nothing the pass consumes after it then re-attempts it. One more re-attempt of every deferred line
+	// at the end of the file publishes it in this pass instead of leaving it to a later one, which, for
+	// a client spool, the watcher would have taken for unconsumable and backed off.
+	if !canceled && readErr == nil && len(deferred) > 0 {
+		if err := reattempt("", true); err != nil {
+			readErr = err
 		}
 	}
 	_ = f.Close() // must happen before the delete-if-drained check below (Windows cannot remove an open file)
@@ -1065,6 +1214,9 @@ readLoop:
 	// Negative for a file that shrank under the pass: hold drops it, and Drain's end-of-pass loop
 	// reports those bytes as pending from the record instead, which is where that case is answered.
 	gaps.hold(base, size-fs.Size)
+	// Before any save: a save that fails forgets every memo, this one included, since the cleanup
+	// intents its lines left would then not be on disk (saveState).
+	dr.rememberFile(base, fi, opened, synced, processed, memo, readPos, firstLeft, fs.Offset < size)
 	if canceled {
 		return count, passStopped(ctx)
 	}
@@ -1098,8 +1250,16 @@ readLoop:
 		dr.cfg.Log.Warn("daemon: drain: failed to persist state", "err", serr)
 		return count, serr
 	}
-	if err := dr.cleanupAcknowledged(st); err != nil {
-		return count, err
+	// A pass that did not move this file's front cannot have released a cleanup intent anywhere: the
+	// spool's references from the fronts on are what they were at the cleanup the pass began with, or at
+	// the one after the last file whose front it moved. An intent it added here without moving the front
+	// is a line's ahead of that front, which references it still. Cleaning up regardless read and decoded
+	// every spool file again after each file, while any intent waited: F+1 reads of the spool per pass
+	// over F files whose heads wait.
+	if fs.Offset != offsetBefore {
+		if err := dr.cleanupAcknowledged(st); err != nil {
+			return count, err
+		}
 	}
 	return count, dr.removeCompletedFile(path, base, fs, st)
 }
@@ -1127,28 +1287,224 @@ readLoop:
 // that were durable when some pass read them AND never gives up such a claim. That floor is not
 // cosmetic: this bound can FALL between passes, because a segment the ingest reopens enters
 // ingest.synced at 0 (drainFile says what both ways of mishandling that cost).
-func (dr *drainer) durableEnd(path, base string, size, offset int64) (int64, error) {
+//
+// durable says an earlier pass of this drainer synced this very file at this size and nothing has
+// written to it since (spoolMemo: the same file, by identity, with the same size and modification
+// time). Its bytes are on disk already, so the pass syncs neither it nor the directory again: the
+// earlier pass's directory sync covered its entry. Without that, a spool whose head waits cost a sync
+// on every pass, however often the pass found nothing new in it. synced reports that the bound
+// returned is one a sync of this drainer covers, which a later pass may rely on the same way: false
+// for a held segment, whose bound the ingest's Syncs cover, and for a file with nothing unread.
+func (dr *drainer) durableEnd(path, base string, size, offset int64, durable bool) (end int64, synced bool, err error) {
 	if _, isWAL := walSessionID(base); isWAL && dr.cfg.SyncedWAL != nil {
-		if synced, held := dr.cfg.SyncedWAL(path); held {
-			return min(size, synced), nil
+		if ingestSynced, held := dr.cfg.SyncedWAL(path); held {
+			return min(size, ingestSynced), false, nil
 		}
 	}
 	if size <= offset {
-		return size, nil
+		return size, false, nil
+	}
+	if durable {
+		return size, true, nil
 	}
 	if err := dr.syncFile(path); err != nil {
-		return 0, fmt.Errorf("daemon: drain: spool file not durable: %w", err)
+		return 0, false, fmt.Errorf("daemon: drain: spool file not durable: %w", err)
 	}
 	if !dr.dirSynced {
 		// The hook that created a client spool never synced the entry naming it, and the ingest does
 		// not sync a segment's either (design R16). One sync of the directory covers every file the
 		// pass listed, since each existed before the listing.
 		if err := dr.syncDir(filepath.Dir(path)); err != nil {
-			return 0, fmt.Errorf("daemon: drain: spool directory not durable: %w", err)
+			return 0, false, fmt.Errorf("daemon: drain: spool directory not durable: %w", err)
 		}
 		dr.dirSynced = true
 	}
-	return size, nil
+	return size, true, nil
+}
+
+// spoolMemo is what one drainer remembers, between its passes, about a spool file that still has bytes
+// past its consumed front (V6 close-out C1.13, wave 20). A budgeted pass that has made no progress is
+// not stopped by its budget (withPassBudget), so it reads every spool to its end, and behind a head
+// that waits on an earlier arrival of its session every pass read the same lines again. The lines an
+// earlier pass consumed out of order were consumed again in full: admitted, their leases looked up,
+// the delivery journal asked about them, their blobs read for their names and their names appended to
+// the cleanup intents again, a corrupt or unadmitted line counted and announced again; and every
+// waiting line was re-attempted after each. The file was synced and the progress rewritten each time.
+// The pre-freeze audit measured such a pass, over 300 waiting lines and 600 consumed ones, at 102.9 s.
+// With the memo a line already consumed costs a later pass its read and a lookup, and an unchanged file
+// is not synced again, so a pass that makes no progress costs the lines still waiting and the reading.
+//
+// What it does not cover is said here once, and the docs that cite it say it too:
+//   - It holds at most orderingProcessedCap lines per file, the bound drainFile keeps on the lines its
+//     front may roll over. A line consumed out of order past that bound is consumed again in full by
+//     every pass that reads it (admitted, its lease looked up, the journal asked), exactly as before
+//     the memo, but it is not counted or announced again, unless a pass left a line ahead of it read,
+//     unconsumed and unleased (readTo).
+//   - A line consumed on an in-memory completion whose acknowledgement had not reached the committed
+//     frontier (DrainGapUnacknowledged) is not remembered: the gap it reports can close, so every pass
+//     consumes it again until it is consumed without one.
+//   - It is in memory only: a new daemon reads every file in full once.
+//
+// A memo describes one file: it is used only while the file has the same identity (os.SameFile) and is
+// no shorter than at the pass that wrote it. A spool file is only ever appended to, so a file that grew
+// keeps the lines it had, and a line in the memo is skipped only when the bytes read at its offset end
+// where it ended and have its sum, which also covers a line rewritten in place. A file replaced, shrunk,
+// removed or rotated away gets no memo, and is read in full as before. Every memo is forgotten when
+// state/drain.json holds anything other than what this drainer last wrote there, or a write of it
+// fails, since the offsets and cleanup intents the memo relies on live in those bytes.
+type spoolMemo struct {
+	// stat is the file as the pass that wrote the memo found it, its identity loaded.
+	stat os.FileInfo
+	// synced says that at stat's size every byte of the file is on disk by a sync of this drainer
+	// (durableEnd), so a pass that finds the file unchanged — same size and modification time — need
+	// not sync it again.
+	synced bool
+	// consumed holds the lines the passes consumed out of order and left ahead of the front, by start
+	// offset: what drainFile's processed map held at the end of the pass, with the lines an earlier
+	// pass remembered past where this one stopped reading, bounded the same way (orderingProcessedCap).
+	consumed map[int64]consumedLine
+	// readTo is how far into the file the passes since the memo began have read, short of the first line
+	// one of them read and left unconsumed under no lease the journal holds (drainFile's firstLeft). Each
+	// pass counted and announced every corrupt or unadmitted line it consumed, so a line that starts before
+	// readTo is not counted or announced again, whether the memo holds it or the cap left it out. A line
+	// a pass read and left — its lease lookup failed, its lease could not be taken, it waited or failed
+	// with no lease — was announced by none, and a later pass can consume it as unadmitted: readTo stops
+	// short of it, so that pass announces it, and lines past it the cap left out are announced again. A
+	// line rewritten in place before readTo is consumed afresh, by its sum, but not announced: no writer
+	// does that.
+	readTo int64
+}
+
+// consumedLine is what a pass remembers of a line it consumed out of order (drainFile's consume).
+type consumedLine struct {
+	// next is where the line after it starts.
+	next int64
+	// sum is spoolLineSum of the line's bytes, its newline included.
+	sum uint64
+	// gaps are the gaps consuming the line added to the pass's account, which every pass that consumes
+	// it again adds again: DrainGaps reports what each pass finds in the replay.
+	gaps []gapNote
+}
+
+// settled reports whether consuming the line again can only find what consuming it found. A line
+// absorbed on an in-memory completion whose acknowledgement was not on the committed frontier yet
+// (DrainGapUnacknowledged) is not: once the acknowledgement lands, consuming it reports no gap.
+func (l consumedLine) settled() bool {
+	for _, g := range l.gaps {
+		if g.kind == DrainGapUnacknowledged {
+			return false
+		}
+	}
+	return true
+}
+
+// gapNote is one gap a line's consumption added to a pass's account (gapRecorder.add).
+type gapNote struct {
+	kind   DrainGapKind
+	reason string
+}
+
+// memoOf returns this drainer's memo of the spool file base, if fi, the pass's stat of it, is the file
+// the memo describes: the same file, no shorter. unchanged says the file also has the size and
+// modification time the memo recorded. A memo that no longer describes the file is dropped.
+func (dr *drainer) memoOf(base string, fi os.FileInfo) (memo *spoolMemo, unchanged bool) {
+	m := dr.memo[base]
+	if m == nil {
+		return nil, false
+	}
+	if fi.Size() < m.stat.Size() || !os.SameFile(m.stat, fi) {
+		delete(dr.memo, base)
+		return nil, false
+	}
+	return m, fi.Size() == m.stat.Size() && fi.ModTime().Equal(m.stat.ModTime())
+}
+
+// rememberFile records, for the passes after this one, what the pass did with the spool file base:
+// fi is the pass's stat of it and opened the stat of the handle it read, synced whether durableEnd's
+// bound rests on a sync of this drainer, consumed the lines it consumed out of order, prev the memo the
+// pass began with (memoOf), readPos where it stopped reading, and firstLeft where the first line starts
+// that it read and left unconsumed under no lease (-1 for none). Only a file that still has bytes past
+// its front (unconsumed) is remembered, and only when the file the pass read is the one it stat'd;
+// anything else drops the memo. A pass that stopped short of the end — its budget spent after it made
+// progress, a hard error — read none of prev's lines past readPos, and they stay remembered: the file
+// is the same file, so they are as consumed as they were.
+func (dr *drainer) rememberFile(base string, fi, opened os.FileInfo, synced bool, consumed map[int64]consumedLine,
+	prev *spoolMemo, readPos, firstLeft int64, unconsumed bool,
+) {
+	if !unconsumed || opened == nil || !os.SameFile(fi, opened) {
+		delete(dr.memo, base)
+		return
+	}
+	lines := make(map[int64]consumedLine, len(consumed))
+	for start, line := range consumed {
+		if line.settled() {
+			lines[start] = line
+		}
+	}
+	readTo := readPos
+	if prev != nil {
+		for start, line := range prev.consumed {
+			if start >= readPos && len(lines) < orderingProcessedCap {
+				lines[start] = line
+			}
+		}
+		readTo = max(readTo, prev.readTo)
+	}
+	if firstLeft >= 0 {
+		// A line read and left unannounced, which a later pass may consume as unadmitted: readTo must not
+		// pass it, even where an earlier pass read further, or that consumption is announced by no pass.
+		readTo = min(readTo, firstLeft)
+	}
+	if dr.memo == nil {
+		dr.memo = map[string]*spoolMemo{}
+	}
+	dr.memo[base] = &spoolMemo{stat: fi, synced: synced, consumed: lines, readTo: readTo}
+}
+
+// forgetMemos drops every spool memo, and what this drainer knows of state/drain.json's content.
+func (dr *drainer) forgetMemos() {
+	dr.memo = nil
+	dr.stateOnDisk = nil
+}
+
+// spoolLineSum is the sum a memo keeps of a spool line's bytes (consumedLine.sum).
+func spoolLineSum(line []byte) uint64 {
+	h := fnv.New64a()
+	_, _ = h.Write(line)
+	return h.Sum64()
+}
+
+// notePendingBlob adds blob to fs's cleanup intents, unless it is "" or one of them already. Every pass
+// that consumed again a blob line behind a waiting head appended its name again, and cleanupAcknowledged
+// keeps every intent whose line is still ahead of the front, so state/drain.json grew by one entry per
+// such line on every pass for as long as the head waited.
+func notePendingBlob(fs *drainFileState, blob string) {
+	if blob == "" || slices.Contains(fs.PendingBlobs, blob) {
+		return
+	}
+	fs.PendingBlobs = append(fs.PendingBlobs, blob)
+}
+
+// pendingBlobOf names the blob req's descriptor externalizes, which is the cleanup intent consuming req
+// leaves, or "" when req names none readBlob would accept. It checks what readBlob checks before it
+// reads (a descriptor of the tool response, an event, a safe name, a regular file of the descriptor's
+// size) and reads none of the blob. A line consumed without being published (absorbed, retired or
+// denied) needs its blob's name, not its bytes; reading the whole response only to learn the name cost
+// each such line a read of the blob, and a denied line a read of what the policy refused.
+func pendingBlobOf(root string, req ipc.Request) string {
+	if len(req.Raw) == 0 || req.Event == nil {
+		return ""
+	}
+	var ref blobRef
+	if json.Unmarshal(req.Raw, &ref) != nil || ref.Blob == "" || ref.Field != drainBlobToolResponse ||
+		!safeBlobName(ref.Blob) {
+		return ""
+	}
+	fi, err := os.Lstat(paths.Long(filepath.Join(paths.Of(root).Spool, ref.Blob)))
+	if err != nil || !fi.Mode().IsRegular() || ref.Bytes < 0 || fi.Size() != int64(ref.Bytes) {
+		return ""
+	}
+	return ref.Blob
 }
 
 // noteUnsynced announces, Loud, a spool file the drain could not make durable, the first time it fails
@@ -1206,6 +1562,7 @@ func (dr *drainer) removeCompletedFile(path, base string, fs *drainFileState, st
 	}
 	removed, err := dr.removeSpoolFile(remove, path, base, fs.Offset)
 	if removed || errors.Is(err, os.ErrNotExist) {
+		delete(dr.memo, base)
 		return nil // gone, and already forgotten on disk
 	}
 	st[base] = fs
@@ -1309,16 +1666,25 @@ func (dr *drainer) pendingBlobReferences(st drainState) (map[string]bool, error)
 	if err != nil {
 		return nil, err
 	}
+	pending := make(map[string]bool)
+	for _, fs := range st {
+		for _, blob := range fs.PendingBlobs {
+			pending[blob] = true
+		}
+	}
 	refs := make(map[string]bool)
 	for _, path := range files {
-		if err := scanPendingBlobs(path, st[filepath.Base(path)], refs); err != nil {
+		if err := dr.scanBlobRefs(path, st[filepath.Base(path)], pending, refs); err != nil {
 			return nil, err
 		}
 	}
 	return refs, nil
 }
 
-func scanPendingBlobs(path string, fs *drainFileState, refs map[string]bool) error {
+// scanPendingBlobs adds to refs every blob a line of the spool file at path references from its consumed
+// offset (fs's, or the start of a file with no progress) on. pending names the cleanup intents waiting
+// on the scan, which is all a line that does not decode, or a trailing partial line, is checked against.
+func scanPendingBlobs(path string, fs *drainFileState, pending, refs map[string]bool) error {
 	f, err := os.Open(paths.Long(path))
 	if err != nil {
 		return fmt.Errorf("daemon: drain: blob reference source unavailable")
@@ -1331,19 +1697,46 @@ func scanPendingBlobs(path string, fs *drainFileState, refs map[string]bool) err
 	}
 	s := bufio.NewScanner(f)
 	s.Buffer(make([]byte, drainReadBufferBytes), ipc.MaxLineBytes+1)
+	// A file whose last bytes end in no newline ends in a partial line: a hook killed in the middle of
+	// its append, or one still appending. Refusing the file on it failed every pass's cleanup while any
+	// intent waited, until a hook completed the line, which a killed one never does (D67(e)). The
+	// partial line is the scan's last token, and it is checked only for the pending blobs it names, as
+	// a line that does not decode is.
+	partial := false
 	s.Split(func(data []byte, atEOF bool) (int, []byte, error) {
 		if atEOF && len(data) > 0 && !bytes.ContainsRune(data, '\n') {
-			return 0, nil, fmt.Errorf("daemon: drain: incomplete blob reference source")
+			partial = true
+			return len(data), data, bufio.ErrFinalToken
 		}
 		return bufio.ScanLines(data, atEOF)
 	})
+	holdNamed := func(line []byte) {
+		for blob := range pending {
+			if bytes.Contains(line, []byte(blob)) || bytes.Contains(line, encodedBlobName(blob)) {
+				refs[blob] = true
+			}
+		}
+	}
 	for s.Scan() {
+		if partial {
+			// Whether or not it decodes yet, the drain does not consume it until its newline lands. It
+			// holds back each pending blob whose name it carries: the hook may still finish the line.
+			holdNamed(s.Bytes())
+			break
+		}
 		if len(bytes.TrimSpace(s.Bytes())) == 0 {
 			continue
 		}
 		req, err := ipc.DecodeRequest(s.Bytes())
 		if err != nil {
-			return fmt.Errorf("daemon: drain: invalid blob reference source")
+			// The drain consumes a line that does not decode as a corrupt line and dispatches nothing of
+			// it. Failing the scan on it failed every pass's cleanup while any intent waited, counting and
+			// logging a file error for each file the pass finished, and collected nothing for as long as
+			// the line stood ahead of a front (behind a waiting head, for good). It still holds back each
+			// pending blob whose name it carries, as an encoder writes the name: a binary that decodes the
+			// line may yet replay it.
+			holdNamed(s.Bytes())
+			continue
 		}
 		var ref blobRef
 		if json.Unmarshal(req.Raw, &ref) == nil && ref.Blob != "" && ref.Field == drainBlobToolResponse {
@@ -1351,6 +1744,16 @@ func scanPendingBlobs(path string, fs *drainFileState, refs map[string]bool) err
 		}
 	}
 	return s.Err()
+}
+
+// encodedBlobName is name as a JSON string's content, which escapes a character the plain name carries
+// as itself (encoding/json escapes <, > and & by default).
+func encodedBlobName(name string) []byte {
+	b, err := json.Marshal(name)
+	if err != nil || len(b) < 2 {
+		return []byte(name)
+	}
+	return b[1 : len(b)-1]
 }
 
 // validateProgress refuses a pass whose progress no longer describes the spool: a file shorter than
@@ -1458,7 +1861,7 @@ func (dr *drainer) dispatchPending(ctx context.Context, req ipc.Request, lease d
 			err = fmt.Errorf("daemon: drain: handler panicked")
 		}
 	}()
-	resolved, blob, err := readBlob(dr.cfg.Root, req)
+	resolved, blob, err := dr.readBlobBody(dr.cfg.Root, req)
 	if err != nil {
 		return "", err
 	}
@@ -1582,20 +1985,47 @@ func (dr *drainer) loadState() (drainState, error) {
 	return st, nil
 }
 
+// stateIsOwn reports whether st, the progress a pass loaded, is the progress this drainer last wrote:
+// it marshals to the bytes of that write (drainer.stateOnDisk). Anything else was written, removed or
+// replaced by something other than this drainer since.
+func (dr *drainer) stateIsOwn(st drainState) bool {
+	if dr.stateOnDisk == nil {
+		return false
+	}
+	b, err := json.Marshal(st)
+	return err == nil && bytes.Equal(b, dr.stateOnDisk)
+}
+
 // saveState persists st to state/drain.json via paths.WriteAtomic. WriteAtomic renames its temp
 // file onto the destination, which requires the destination's parent directory to already exist —
 // a fresh project that has never had .qompack/state/ created (paths.EnsureLayout not yet run)
 // would otherwise fail the rename silently on every call.
+//
+// It writes nothing when st marshals to exactly the bytes this drainer last wrote there, and the pass
+// found that progress there (drainer.stateOnDisk, stateIsOwn): it is on disk already, made durable by
+// that write. A pass that changed no progress therefore rewrites none, where it used to rewrite the
+// file once per spool file it finished and once more at its end, a write and its syncs each. A write
+// that fails forgets what the drainer knows of the file's content, so the next save writes, and every
+// memo, whose lines' cleanup intents that write was to carry (spoolMemo).
 func (dr *drainer) saveState(st drainState) error {
 	b, err := json.Marshal(st)
 	if err != nil {
 		return err
 	}
+	if dr.stateOnDisk != nil && bytes.Equal(b, dr.stateOnDisk) {
+		return nil
+	}
 	p := drainStatePath(dr.cfg.Root)
 	if err := os.MkdirAll(paths.Long(filepath.Dir(p)), 0o700); err != nil {
+		dr.forgetMemos()
 		return err
 	}
-	return paths.WriteAtomic(p, b, 0o600)
+	if err := paths.WriteAtomic(p, b, 0o600); err != nil {
+		dr.forgetMemos()
+		return err
+	}
+	dr.stateOnDisk = b
+	return nil
 }
 
 // ---------------------------------------------------------------------------
@@ -1684,6 +2114,18 @@ type gapRecorder struct {
 	// yet: a held WAL segment's tail past its synced size. The progress the pass persists names the
 	// durable bound it read to and not those bytes (drainFile says why), and they are just as pending.
 	withheld map[string]int64
+	// line collects the gaps added since startLine: the ones the line drainFile is on adds (takeLine).
+	line []gapNote
+}
+
+// startLine begins collecting the gaps the next line adds.
+func (g *gapRecorder) startLine() { g.line = nil }
+
+// takeLine returns the gaps added since startLine, and collects no more of them.
+func (g *gapRecorder) takeLine() []gapNote {
+	line := g.line
+	g.line = nil
+	return line
 }
 
 // hold counts n of file's bytes as pending without persisting them. The pass could not read them, so
@@ -1703,6 +2145,7 @@ func (g *gapRecorder) add(file string, kind DrainGapKind, reason string) {
 		g.gaps = map[DrainGap]int{}
 	}
 	g.gaps[DrainGap{File: file, Kind: kind, Reason: reason}]++
+	g.line = append(g.line, gapNote{kind: kind, reason: reason})
 }
 
 func (g *gapRecorder) state(clk core.Clock, pending int64) DrainGapState {

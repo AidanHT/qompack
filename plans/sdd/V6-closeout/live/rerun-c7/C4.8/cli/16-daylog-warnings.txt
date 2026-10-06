@@ -1,0 +1,6 @@
+day log after session B (non-info lines):
+(end; grep exit 1)
+files in logs/:
+qompack-20261002.log
+grep -i 'version\|retired\|deprecat\|settingsVersion' in the day log:
+(grep exit 1)

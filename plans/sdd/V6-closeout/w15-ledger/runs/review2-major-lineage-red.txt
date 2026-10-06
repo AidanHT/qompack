@@ -1,0 +1,63 @@
+# review-2 major: RED before the fix (base 24843f56 + the two new rows)
+# go test -p 2 -count=1 -run '^(TestBudget_QueryHitThroughLineage|TestBudget_QueryMissThroughLineage|TestBudget_QueryHit|TestBudget_QueryMiss)$' -v ./internal/negknow/
+=== RUN   TestBudget_QueryHit
+    bench_test.go:664: BenchmarkQueryHit: 2.899µs CPU/op over 544182 iterations (best of 1) against a 50µs budget
+    bench_test.go:664: BenchmarkQueryHit: 2.264µs wall/op over 544182 iterations (best of 1) against a 50µs budget
+--- PASS: TestBudget_QueryHit (2.00s)
+=== RUN   TestBudget_QueryMiss
+    bench_test.go:668: BenchmarkQueryMiss: 2.708µs CPU/op over 703828 iterations (best of 1) against a 5µs budget
+    bench_test.go:668: BenchmarkQueryMiss: 2.898µs wall/op over 703828 iterations (best of 1) against a 5µs budget
+--- PASS: TestBudget_QueryMiss (2.76s)
+=== RUN   TestBudget_QueryHitThroughLineage
+=== RUN   TestBudget_QueryHitThroughLineage/not_a_fork
+    lineage_bench_test.go:89: BenchmarkQueryHitThroughLineage/not_a_fork: 38.864µs CPU/op over 29349 iterations (best of 1) against a 50µs budget
+    lineage_bench_test.go:89: BenchmarkQueryHitThroughLineage/not_a_fork: 40.559µs wall/op over 29349 iterations (best of 1) against a 50µs budget
+=== RUN   TestBudget_QueryHitThroughLineage/fork
+    lineage_bench_test.go:89: BenchmarkQueryHitThroughLineage/fork: attempt 1 is 213.195µs wall/op and 192.281µs CPU/op, over the 50µs ceiling on a gated clock — retrying
+    lineage_bench_test.go:89: BenchmarkQueryHitThroughLineage/fork: attempt 2 is 222.256µs wall/op and 215.595µs CPU/op, over the 50µs ceiling on a gated clock — retrying
+    lineage_bench_test.go:89: BenchmarkQueryHitThroughLineage/fork: attempt 3 is 220.277µs wall/op and 211.632µs CPU/op, over the 50µs ceiling on a gated clock — retrying
+    lineage_bench_test.go:89: BenchmarkQueryHitThroughLineage/fork: 192.281µs CPU/op over 5607 iterations (best of 3) against a 50µs budget
+    lineage_bench_test.go:89: BenchmarkQueryHitThroughLineage/fork: 213.195µs wall/op over 5607 iterations (best of 3) against a 50µs budget
+    lineage_bench_test.go:89: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-ledger/internal/negknow/bench_test.go:447
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-ledger/internal/negknow/export_test.go:26
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-ledger/internal/negknow/lineage_bench_test.go:89
+        	Error:      	"192.281µs" is not less than or equal to "50µs"
+        	Test:       	TestBudget_QueryHitThroughLineage/fork
+        	Messages:   	BenchmarkQueryHitThroughLineage/fork: 192.281µs CPU/op exceeds the §11.2 budget of 50µs
+--- FAIL: TestBudget_QueryHitThroughLineage (12.74s)
+    --- PASS: TestBudget_QueryHitThroughLineage/not_a_fork (3.79s)
+    --- FAIL: TestBudget_QueryHitThroughLineage/fork (8.95s)
+=== RUN   TestBudget_QueryMissThroughLineage
+=== RUN   TestBudget_QueryMissThroughLineage/not_a_fork
+    lineage_bench_test.go:100: BenchmarkQueryMissThroughLineage/not_a_fork: attempt 1 is 36.092µs wall/op and 33.099µs CPU/op, over the 5µs ceiling on a gated clock — retrying
+    lineage_bench_test.go:100: BenchmarkQueryMissThroughLineage/not_a_fork: attempt 2 is 36.009µs wall/op and 38.383µs CPU/op, over the 5µs ceiling on a gated clock — retrying
+    lineage_bench_test.go:100: BenchmarkQueryMissThroughLineage/not_a_fork: attempt 3 is 38.558µs wall/op and 38.356µs CPU/op, over the 5µs ceiling on a gated clock — retrying
+    lineage_bench_test.go:100: BenchmarkQueryMissThroughLineage/not_a_fork: 33.099µs CPU/op over 30684 iterations (best of 3) against a 5µs budget
+    lineage_bench_test.go:100: BenchmarkQueryMissThroughLineage/not_a_fork: 36.009µs wall/op over 31752 iterations (best of 3) against a 5µs budget
+    lineage_bench_test.go:100: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-ledger/internal/negknow/bench_test.go:447
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-ledger/internal/negknow/export_test.go:26
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-ledger/internal/negknow/lineage_bench_test.go:100
+        	Error:      	"33.099µs" is not less than or equal to "5µs"
+        	Test:       	TestBudget_QueryMissThroughLineage/not_a_fork
+        	Messages:   	BenchmarkQueryMissThroughLineage/not_a_fork: 33.099µs CPU/op exceeds the §11.2 budget of 5µs
+=== RUN   TestBudget_QueryMissThroughLineage/fork
+    lineage_bench_test.go:100: BenchmarkQueryMissThroughLineage/fork: attempt 1 is 217.431µs wall/op and 211.606µs CPU/op, over the 5µs ceiling on a gated clock — retrying
+    lineage_bench_test.go:100: BenchmarkQueryMissThroughLineage/fork: attempt 2 is 218.553µs wall/op and 215.942µs CPU/op, over the 5µs ceiling on a gated clock — retrying
+    lineage_bench_test.go:100: BenchmarkQueryMissThroughLineage/fork: attempt 3 is 219.01µs wall/op and 206.679µs CPU/op, over the 5µs ceiling on a gated clock — retrying
+    lineage_bench_test.go:100: BenchmarkQueryMissThroughLineage/fork: 206.679µs CPU/op over 4914 iterations (best of 3) against a 5µs budget
+    lineage_bench_test.go:100: BenchmarkQueryMissThroughLineage/fork: 217.431µs wall/op over 5538 iterations (best of 3) against a 5µs budget
+    lineage_bench_test.go:100: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-ledger/internal/negknow/bench_test.go:447
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-ledger/internal/negknow/export_test.go:26
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-ledger/internal/negknow/lineage_bench_test.go:100
+        	Error:      	"206.679µs" is not less than or equal to "5µs"
+        	Test:       	TestBudget_QueryMissThroughLineage/fork
+        	Messages:   	BenchmarkQueryMissThroughLineage/fork: 206.679µs CPU/op exceeds the §11.2 budget of 5µs
+--- FAIL: TestBudget_QueryMissThroughLineage (16.24s)
+    --- FAIL: TestBudget_QueryMissThroughLineage/not_a_fork (8.19s)
+    --- FAIL: TestBudget_QueryMissThroughLineage/fork (8.05s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/negknow	34.114s
+FAIL

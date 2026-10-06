@@ -1,0 +1,44 @@
+<!-- qompack:injected seq=5 ver=1 -->
+# Qompack rehydration — checkpoint 0005, session 2c146247
+
+## 2. Original user intent (verbatim from L0 capture — never summarized)
+Evolution (most recent first):
+> Correction: the limit must be 45 requests per minute per client, not 60. The 60 figure is superseded. Acknowledge in one sentence.
+> /qompack:why dec_991dbff588ec
+> Call mcp__plugin_qompack_qompack__already_tried with target "per-client rate limit" and approach "100 requests per minute". Report the raw result in one line.
+> Use the Read tool to read docs/design.md and summarize it in one sentence.
+> What is the current per-client rate limit requirement, and what was the original one? One sentence.
+> Use the Read tool to read docs/notes.md and summarize it in one sentence.
+> Use the Read tool to read src/limiter.py and summarize it in one sentence.
+> Call mcp__plugin_qompack_qompack__record_eliminated with target "per-client rate limit", approach "100 requests per minute" and reason "superseded by the user's correction: 60 per minute". Report the raw result in one line.
+> Correction: the limit must be 60 requests per minute per client, not 100. The 100 figure is superseded. Acknowledge in one sentence.
+Original:
+(forked session: the original request of session 0eaa2666, which this session continues)
+> We are building a rate limiter for the Kite API gateway. Requirement: allow 100 requests per minute per client. First, run the Bash command `cat config/limits.txt` and tell me how many entries it lists. Do not repeat any values.
+
+## 3. Approaches already eliminated (top 1 of 1 by slice relevance)
+- per-client rate limit — "100 requests per minute" — superseded by the user's correction: 60 per minute [active] [evidence sha256:9dc92adf93c6cd9437ded678a9dddc2a37d5c713cb8d208761681f32d140b25f]
+Before committing to an approach, call already_tried.
+
+## 4. Decisions
+- [dec_991dbff588ec] (turn 5) rejected "100 requests per minute" for per-client rate limit
+  why: superseded by the user's correction: 60 per minute
+  rejected: 100 requests per minute
+  evidence: sha256:9dc92adf93c6cd9437ded678a9dddc2a37d5c713cb8d208761681f32d140b25f
+
+## 5. Current work
+goal: Call mcp__plugin_qompack_qompack__record_eliminated with target "per-client rate limit", approach "100 requests per minute" and reason "superseded by the user's
+blocked on: none
+
+## 6. Pointers (paths and hashes — contents are NOT restored; use expand/re_read)
+- tool_use subagent_2c146247-b4d7-416b-88a8-3ecce1e0b13b_2 sha256:1bace1df4409114005ca6415c9300f28e70634fbabd822969940a2c93104efb9 — {"agent":"subagent","summary":"The rate limiter sits in front of the router and returns HTTP 429 with Retry-After for…
+- tool_use toolu_01CpKpqFm3b4gFUpmqRVa4cH sha256:1a01d476c671d233ce9b40f29279ce750a1d02b11427b67942e8d6f559dc5502 — {"max_results":1,"query":"select:mcp__plugin_qompack_qompack__already_tried"}
+- tool_use toolu_01Ki1CgfyH5NfFjh6khBCBTz sha256:09902a93f597de55cb91d3bfacb3c249be775dbc6bc1f0a0492db4fa2357d599 — {"approach":"100 requests per minute","target":"per-client rate limit"}
+
+## 7. No longer in context
+- user_intent_source fork — this session is a fork of session 0eaa2666-1cf2-4087-85c2-d3bab55ec39b (its newest checkpoint then: 0002), which Qompack inferred because the host names no parent; its original request is session 0eaa2666-1cf2-4087-85c2-d3bab55ec39b's first prompt, and its own first prompt is an evolution entry; restore: expand(tool_use_id=prompt_0eaa2666-1cf2-4087-85c2-d3bab55ec39b_0)
+
+## 8. Retrieval
+Qompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().
+<!-- /qompack:injected -->
+<!-- qompack-contract-probe qompack-contract-7a5aae28c6b0 -->

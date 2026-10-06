@@ -1,0 +1,21 @@
+# fix seat (review), Windows, daytime co-load, working tree on ee03ab04
+# go test -p 2 -count=1 -run 'TestStartupPublicationAccounting_HealthyLiveRunSizedStoreIsNeverLoud$' ./internal/daemon/
+ok  	github.com/qompack/qompack/internal/daemon	9.943s
+exit=0
+# go test -p 2 -count=1 -run 'TestStartupPublicationAccounting_FinishesPastTheBoundInTheBackground$' ./internal/daemon/
+ok  	github.com/qompack/qompack/internal/daemon	9.213s
+exit=0
+# go test -p 2 -count=1 -run 'TestStartupPublicationAccounting_BackgroundPassAnnouncesARealGap$' ./internal/daemon/
+ok  	github.com/qompack/qompack/internal/daemon	0.514s
+exit=0
+# go test -p 2 -count=1 -run 'TestStartupPublicationAccounting_StoppedBackgroundPassIsNotLoud$' ./internal/daemon/
+ok  	github.com/qompack/qompack/internal/daemon	8.831s
+exit=0
+# go test -p 2 -count=1 -run 'TestFault_StartupGapOnStatusIgnoresTheContinuedCounter$' ./test/fault/ (RED before the matcher fix: 'a pass that continued in the background named no gap')
+ok  	github.com/qompack/qompack/test/fault	1.498s
+exit=0
+# go test -p 2 -count=1 -timeout=20m -run 'TestV6_StartupAccountingReportsUnpublishedCaptureViaStatus$' -v ./test/fault/ (run once, earlier, same tree):
+--- PASS: TestV6_StartupAccountingReportsUnpublishedCaptureViaStatus (31.15s)
+PASS
+ok  	github.com/qompack/qompack/test/fault	33.949s
+exit=0

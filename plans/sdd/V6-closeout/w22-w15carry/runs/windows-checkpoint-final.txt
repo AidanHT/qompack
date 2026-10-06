@@ -1,0 +1,4 @@
+# HEAD 3f50b4ee; go test -p 2 -count=1 -timeout=30m ./internal/checkpoint/...
+ok  	github.com/qompack/qompack/internal/checkpoint	227.300s
+ok  	github.com/qompack/qompack/internal/checkpoint/checkpointtest	1.668s
+exit=0

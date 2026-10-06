@@ -1,0 +1,23 @@
+# merged HEAD 62d9290a, only 503375d2's ranking reverted by -overlay (checkpoint-writer-norank.json: the fork point is carried, inheritedDec stays nil); Windows
+# go test -p 2 -count=1 -overlay=<checkpoint-writer-norank.json> -run '^TestForkCarriesItsParentsDecisionsFromTheForkPoint$' -v ./internal/checkpoint/
+=== RUN   TestForkCarriesItsParentsDecisionsFromTheForkPoint
+    fork_inherit_test.go:158: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w22-w15carry/internal/checkpoint/fork_inherit_test.go:158
+        	Error:      	Not equal: 
+        	            	expected: "dec_5917e66864db"
+        	            	actual  : "dec_ee5c2c708dfc"
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1,2 +1,2 @@
+        	            	-(core.DecisionID) (len=16) "dec_5917e66864db"
+        	            	+(core.DecisionID) (len=16) "dec_ee5c2c708dfc"
+        	            	 
+        	Test:       	TestForkCarriesItsParentsDecisionsFromTheForkPoint
+        	Messages:   	the fork's own decision ranks first, although the inherited one has the higher turn: [{ID:dec_ee5c2c708dfc What:changed src/limiter.go Why:Moved the limiter into the gateway process. A shared store would add a network hop. AlternativesRejected:[] Evidence:sha256:5a060a751ca17e1f3538653d1d6dfe66fb4e3314221211b79f41981e014c9cfe Turn:11} {ID:dec_5917e66864db What:rejected "a global mutex" for src/fork.go:limiter Why:the fork's own finding AlternativesRejected:[a global mutex] Evidence:sha256:73e068835a58fd9cb4f8af763d4a83c31f8861895c67ea59cc6c0db36b6fb23e Turn:1}]
+--- FAIL: TestForkCarriesItsParentsDecisionsFromTheForkPoint (0.52s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/checkpoint	0.947s
+FAIL
+exit=1

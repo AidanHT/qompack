@@ -1,0 +1,121 @@
+{
+ "seat": "rows",
+ "findings": [
+  {
+   "severity": "major",
+   "location": "internal/daemon/delivery_ack_groupcommit_test.go:531 (TestDeliveryJournal_AckCheckRunsAfterEvaluationAndImmediatelyBeforeAppend); internal/daemon/ingest_wal_groupcommit_test.go:239-246 (awaitClosed); internal/daemon/ingest_test.go:108 (ingestACKWait = 10s)",
+   "issue": "This is a known load-sensitive row with no owner and no disposition. Each awaitClosed is a fixed 10 s wall-clock wait. The w20-redeliver seat saw it fail once in a whole-package run under co-load (44.9 s test, about 9 s alone) and routed it to 'whoever owns delivery_ack_groupcommit_test.go'. Nobody took it. It runs in the pre-freeze `internal` step (-p 2, co-load) and in release-check's shared pass (default -p, about 22). A red there refuses the freeze or stops release-check at its first FAIL.",
+   "evidence": "w20-redeliver/report.md Open issues: 'TestDeliveryJournal_AckCheckRunsAfterEvaluationAndImmediatelyBeforeAppend failed once in a whole-package run under co-load. Its awaitClosed fixed 10 s bound (ingestACKWait) fired after a 44.9 s test ... passed 10/10 in isolation.' Needs owner: 'Route the load-sensitive ...'. No later commit touches the file (`git log d20309c0..2bf29705 -- internal/daemon/delivery_ack_groupcommit_test.go` is empty). No ledger mention.",
+   "fix": "Remove the wall-clock verdict. Wait on the gate and seal channels the row already controls, with no timeout, and leave hang detection to go test -timeout. Or record a ledger ruling that classifies a red from this row in the night. Pin it with -count=20 under QOMPACK_UNDER_COLOAD at -p 4.",
+   "audit_id": 63,
+   "dim": "complete"
+  },
+  {
+   "severity": "minor",
+   "location": "plans/V6-CLOSEOUT-CHECKLIST.md on verify/v6 (D62); internal/daemon/ingest_wal_groupcommit_test.go:239-246 (awaitClosed, 10 s ingestACKWait); plans/sdd/V6-closeout/w20-redeliver/report.md:222-235",
+   "issue": "Items the w20-redeliver seat routed to the coordinator have no disposition in the ledger. (1) TestDeliveryJournal_AckCheckRunsAfterEvaluationAndImmediatelyBeforeAppend failed once in a whole-package run under co-load: 'the return of acknowledgement 0 never happened' after 44.9 s, against about 9 s alone. It runs in tonight's prefreeze `./internal/...` step, which stops the night on any red. (2) A replayed compact SessionStart re-anchors lastCompactionTS and lastActivity. (3) An owed close is not persisted across a restart. (4) An owed close for another session's tool use closes the bound session's segment. D62 records only the main fix.",
+   "evidence": "`grep -n \"AckCheckRunsAfterEvaluation\\|ingestACKWait\\|owed close\\|lastCompactionTS\\|compact SessionStart that a drain replays\" plans/V6-CLOSEOUT-CHECKLIST.md` in qompack-v6 returns nothing. My run: `go test -p 1 -count=3 -run '^TestDeliveryJournal_AckCheckRunsAfterEvaluationAndImmediatelyBeforeAppend$' ./internal/daemon/` passed 3/3 at 17.67 s, 14.09 s and 15.11 s with the machine shared. The slowest leaf subtest took 0.89 s, against the 10 s per-wait bound.",
+   "fix": "Record a disposition for each item under D62 or D65: accepted with its impact, or scheduled. For (1), make awaitClosed a pure hang guard: derive its bound from t.Deadline() minus a margin rather than a fixed 10 s, so co-load cannot turn a slow fsync into a red.",
+   "audit_id": 7,
+   "dim": "redeliver"
+  },
+  {
+   "severity": "major",
+   "location": "internal/daemon/precompact_settle_bound_test.go:134 (TestPreCompactSettle_TheLastLookReadsOnlyNamedAndNewSpools)",
+   "issue": "An intermittent red has no cause and no owner. It failed once in a full internal/daemon run in w20-status round 0, then passed 20/20 alone. The seat reported that it 'looks load-sensitive and needs an owner'. No ledger row, report or commit takes it. The row uses live workers (liveOrderWorkers) and a real 30 s settle bound (liveOrderBound). Its first assertion, 'the first look's own spool was replayed', depends on the live lane publishing during the settle. The pre-freeze `internal` step and release-check's whole tree both run it.",
+   "evidence": "w20-status/report.md Open issues: 'TestPreCompactSettle_TheLastLookReadsOnlyNamedAndNewSpools (internal/daemon/precompact_settle_bound_test.go:162) failed once in a full internal/daemon run in round 0, then passed 20/20 alone. It looks load-sensitive and needs an owner.' The fixture uses settleTestDaemon(t, liveOrderBound), with liveOrderBound = 30 * time.Second (delivery_order_live_test.go:43).",
+   "fix": "Assign it before the freeze. Reproduce with -count=50 at -p 4 under QOMPACK_UNDER_COLOAD and capture the failing assertion. Then either fix the race, or record a ruling naming its failure signature so a night red can be classified.",
+   "audit_id": 64,
+   "dim": "complete"
+  },
+  {
+   "severity": "minor",
+   "location": "internal/daemon/daemon_test.go:1613-1653 (TestObservePrompt_PassiveModeInvokesSeamButEmitsNothing); internal/daemon/handlers.go:633-690; handlers.go:32 (promptReplyDeadline = 250ms)",
+   "issue": "A carried wall-clock dependency has no owner (w19c rehydrate open issue). The ObservePrompt seam runs on a goroutine, and dispatchOp waits at most 250 ms from the request's TS before returning Empty. The test asserts `calls == 1` immediately after dispatchOp returns, and the test is t.Parallel. If the seam goroutine is not scheduled within 250 ms (race lanes, release-check -p 22), calls is 0 and the row fails.",
+   "evidence": "handlers.go: `budget := d.promptReplyBudget(ts)`, then a `select { case r := <-ch: ... case <-wait.Done(): ... }` that returns hookio.Empty() without waiting for the seam. daemon_test.go:1650-1652 asserts `require.Equal(t, 1, calls, ...)`. w19-rehydrate/report-19c.md Open issues: 'Carried: ... depends on the wall clock ... It needs an injected clock or a seam-completion channel'.",
+   "fix": "Have the test seam close a channel and wait on it (or use require.Eventually) before asserting calls==1. That keeps the passive-reply assertion and removes the 250 ms dependency.",
+   "audit_id": 74,
+   "dim": "complete"
+  },
+  {
+   "severity": "minor",
+   "location": "internal/daemon/drain.go:727 (durableEnd(..., unchanged && memo.synced)) and drain.go:1300-1301 (durableEnd returns synced=false for a WAL segment the ingest holds)",
+   "issue": "The new sync-skip has one durability precondition, and no row pins it: the memo may skip the sync only when this drainer's own sync covered the file (memo.synced). Consider a WAL segment a full Drain read while the ingest held it. That pass read only up to the ingest's synced size and wrote its memo with synced=false. If the ingest then releases the segment with no further write, for example closing it after a failed Sync, the next pass must sync the segment before it reads the unsynced tail. Two mutants break that rule and every row stays green: dropping the `&& memo.synced` conjunct, and returning synced=true for a held segment. Under either one, the drain leases the bytes in that tail with no sync at all. That is the orphan-lease hole durableEnd exists to close. The product code is correct today; nothing in the tests protects it.",
+   "evidence": "Mutation, run in a scratch copy of 2bf29705 through go test -overlay (script C:/Users/Quant/AppData/Local/Temp/claude/qompack-audit2/drain/mutants.py, logs in drain/mut/*.log):\n- ms_nosyncedflag ('unchanged && memo.synced)' -> 'unchanged)'), memo rows: python mutants.py '^(TestDrainClientSpools_|TestDrain_|TestDrainer_)' gives 'ms_nosyncedflag SURVIVED | ok 91.841s'.\n- The same mutant against the broad set '^(TestDrain|TestIdleDrain_|TestCarriedDefect_|TestSP08D3_|TestStraggler|TestIngest|TestNewDrainer|TestSpoolWatch_|TestPreCompactSettle_|TestWalSessionID_)': 'SURVIVED | ok 221.523s'.\n- mw_heldsynced ('return min(size, ingestSynced), false, nil' -> 'true'): 'SURVIVED | ok 113.336s'.\nProbe drain/probes/zz_audit2_memo_test.go TestAudit2HeldSegmentReleasedUnchangedIsSynced. SyncedWAL reports the segment held, with a synced size covering only its first line; one Drain; then SyncedWAL reports it released, with the file unchanged; a second Drain.\n- HEAD: 'syncs after release=1', PASS.\n- ms_nosyncedflag: 'syncs after release=0 ... expected: 1 actual: 0', FAIL.\n- mw_heldsynced: same output, FAIL.",
+   "fix": "Commit the probe as a row in internal/daemon/drain_memo_test.go, for example TestDrain_AHeldSegmentReleasedUnchangedIsSyncedBeforeItsTailIsRead. Use cfg.SyncedWAL/HoldsWAL fakes: held with a synced size of the first line, then released with the size and mtime unchanged (asserted as a fixture). Assert exactly one sync of the segment on the second pass. Show it red under both mutants.",
+   "audit_id": 0,
+   "dim": "drain"
+  },
+  {
+   "severity": "minor",
+   "location": "internal/daemon/drain.go:1453 (rememberFile: `if firstLeft >= 0 { readTo = min(readTo, firstLeft) }`); internal/daemon/drain_memo_test.go:271-357 (TestDrainClientSpools_ALineReadAndLeftIsAnnouncedWhenALaterPassSkipsIt)",
+   "issue": "The round-2 fix, where readTo stops at the first line a pass read and left under no lease, is pinned only for a left line behind a waiting head, so always at an offset above 0. The most natural position is the file's first line: for example, a one-line client spool whose lease lookup hits a rotating or briefly unowned journal (leaseHeld then returns an error). Nothing pins that case. Mutating `>= 0` to `> 0` leaves every row green. Under that mutant, the silent drop the round-2 review found comes back: the next pass consumes the line in order as unadmitted, below readTo, with no drain_unadmitted count and no LOUD line. The product code is correct today.",
+   "evidence": "- Mutant mf_left0 (`if firstLeft >= 0 {` -> `if firstLeft > 0 {`), memo rows: 'mf_left0 SURVIVED | ok 103.817s'. Broad set (as above): 'SURVIVED | ok 269.405s'.\n- Probe drain/probes/zz_audit2_memo_test.go TestAudit2LeftLineAtOffsetZeroIsAnnounced. The spool is [x, tail]. x's first admission is refused (Failed) and the journal fails once, so its lease lookup errors and pass 1 leaves it. Fixture checks hold: drain_leased_deny_pending == 1 and drain_unadmitted == 0 after pass 1. Then passes 2-3 run.\n- HEAD: 'unadmitted=1 loud=1', PASS.\n- mf_left0: 'unadmitted=0 loud=0 ... expected: 1 actual: 0', FAIL. The capture is skipped with no count and no LOUD line.",
+   "fix": "Add a fifth case to TestDrainClientSpools_ALineReadAndLeftIsAnnouncedWhenALaterPassSkipsIt (or a sibling row) in which the left line is the first line of the spool, with no waiting head ahead of it. Keep the same fixture assertions, then drain_unadmitted == 1 and one LOUD line after 3 passes. Show it red under the `> 0` mutant.",
+   "audit_id": 1,
+   "dim": "drain"
+  },
+  {
+   "severity": "minor",
+   "location": "internal/daemon/drain.go:1494-1507 (pendingBlobOf: `req.Event == nil`, `!fi.Mode().IsRegular()`, `fi.Size() != int64(ref.Bytes)`)",
+   "issue": "pendingBlobOf replaced readBlob as the way a consumed line that is not published (absorbed, retired or denied) names its cleanup intent. It is meant to repeat readBlob's pre-read checks. Only its safeBlobName check is pinned (R3, the nosafe mutant). The no-Event, regular-file and size checks can each be removed, or all three together, and every row stays green. If they regressed, a denied or absorbed line naming a directory, a symlink or a wrong-size file called blob-*.bin would record an intent that readBlob would never have produced. cleanupAcknowledged would then os.Remove that entry. A non-empty directory would fail removeBlob on every pass, and with it cleanupAcknowledged, so every pass would return an error.",
+   "evidence": "- Memo rows: 'mb_noregular SURVIVED | ok 200.999s', 'msz_nosize SURVIVED | ok 126.767s', 'mev_noevent SURVIVED | ok 110.278s'.\n- Combined mutant mbs_all ('req.Event == nil' dropped, and the whole Lstat condition reduced to 'err != nil || fi == nil') against the broad drain set: 'mbs_all SURVIVED | ok 192.891s'.\n- Code: removeBlob (blob.go:118-133) returns 'blob cleanup unavailable' for any os.Remove error other than not-exist. cleanupAcknowledged then joins that error into the pass's result.",
+   "fix": "Extend TestDrainClientSpools_ADeniedLineNamingABlobOutsideTheSpoolLeavesNoCleanupIntent with table cases behind a waiting head, each consumed as denied:\n- a directory named blob-NNNN-1.bin;\n- a regular blob-NNNN-1.bin whose size differs from the descriptor's Bytes;\n- a descriptor line with Event == nil.\nAssert that PendingBlobs stays empty over 2 passes and that the entry survives. Show each case red under its mutant.",
+   "audit_id": 2,
+   "dim": "drain"
+  },
+  {
+   "severity": "minor",
+   "location": "internal/daemon/lock.go:439-445 (Lock.owned reads the lock file per journal query); internal/daemon drain scanPendingBlobs (trailing partial line)",
+   "issue": "Two w20-drain needs-owner and open items have no ruling. (1) Lock.owned() reads the lock file on every journal query: 0.65 s of a 5.45 s profiled no-progress pass. The auditor's optional per-pass memo was 'left for the owner'. (2) Pre-existing: scanPendingBlobs refuses a trailing partial line (a hook killed mid-append). While any cleanup intent waits, every pass's cleanup of that client spool fails until the line is completed, so blob deletions stall.",
+   "evidence": "w20-drain/report.md Needs owner: 'Lock.owned() ... reads the lock file on every journal query: 0.65 s of a 5.45 s profiled pass. The auditor's optional per-pass memo is left for the owner.' Open issues: 'Pre-existing: scanPendingBlobs refuses a trailing partial line ...'. D62 has no ruling on either.",
+   "fix": "Record both as accepted residuals in the ledger, or memoize owned() per pass and let scanPendingBlobs skip a trailing partial line the way it now skips an undecodable one.",
+   "audit_id": 75,
+   "dim": "complete"
+  },
+  {
+   "severity": "minor",
+   "location": "internal/daemon/drain_pass_cost_test.go:142-193 (TestDrainClientSpools_ALineConsumedBehindAWaitingHeadCostsALaterPassOnlyItsRead)",
+   "issue": "CI time. internal/daemon grew 17% per pass. One row, a 900-line spool whose first pass publishes 600 lines, costs 32-61 s per run on this host, about 35-40% of the time all the new daemon rows add. Its assertions are per-line bounds (journalQueriesPerLine*(1+waiting)), so a tenth of the lines proves the same thing. Every budget still holds.",
+   "evidence": "Same host, sequential, -p 1 -count=1, whole package: internal/daemon HEAD 544.8 s vs c7 464.3 s (+80.5 s); internal/checkpoint 92.9 vs 81.1 s (+15%); internal/cli 104.0 vs 88.3 s (+18%). New daemon rows: 87.8 s/pass under -race -count=3 (294 s total) and 91.5 s as the sum of per-test minima across the -count=20 run. The cost row ran 60.7/57.5/39.1 s non-race and 32.2 s average under race. Projection: hosted windows test leg, c7 internal/daemon 1845.1 s at -count=2 (job 110757119316) ×1.17 ≈ 2160 s of the 60m binary timeout. Nightly race-windows: daemon 663 s (job 110757492011) → about 780-970 s of 30m. test-e2e windows: 1276.9 s of 30m, unchanged in shape.",
+   "fix": "Set waiting=30 and consumed=60 (the bounds scale per line). That saves about 30-55 s per daemon pass and 1-2 min on the Windows -count=2 leg.",
+   "audit_id": 38,
+   "dim": "ci"
+  },
+  {
+   "severity": "minor",
+   "location": "internal/daemon/drain_pass_cost_test.go:142 (TestDrainClientSpools_ALineConsumedBehindAWaitingHeadCostsALaterPassOnlyItsRead)",
+   "issue": "This wave-20 row adds 37-50 s of Windows wall time to every internal/daemon run (about 7% of the package), but it only judges operation counts. Almost all of that time goes to the fixture's first pass, which makes 600 durable publications. The proof does not need 600 of them. It runs on every hosted daemon job (test x3 OS, stubskips, cover, release-dry-run, nightly race), and under -race it will cost several times more.",
+   "evidence": "`go test -p 1 -count=1 -json -run '^(<52 tests added since 738d67c7>)$' ./internal/daemon` reports this row at 49.52 s. The next slowest new row takes 2.49 s, and all 52 new rows together take 74.4 s. An overlay probe (C:/Users/Quant/AppData/Local/Temp/claude/qompack-audit2/regress/probe/zz_audit_probe_test.go, the same body with phase timers) gave: setup daemon 74 ms, fixture 192 ms, first pass 34.36 s (journal=5107 admitted=1501), second pass 2.32 s (journal=2107 admitted=301), PASS 37.47 s. Every assertion is a count bound (journalQueriesPerLine*(1+waiting+consumed), admitted[other]==0, syncs==0) and none is a time.",
+   "fix": "Shrink the fixture to waiting=30, consumed=60 (or 50/100). Each bound is linear in those constants, and the c7 failure shape (consumed lines re-admitted and re-journalled, plus an L x D re-attempt) still fails by orders of magnitude at that size. Alternatively, keep 300/600 behind testing.Short() off in the timing lane. Do not lose the first-pass journal bound.",
+   "audit_id": 83,
+   "dim": "regress"
+  }
+ ],
+ "nits": [
+  {
+   "dim": "drain",
+   "severity": "nit",
+   "location": "internal/daemon/drain.go:1447 (rememberFile carry: `if start >= readPos && len(lines) < orderingProcessedCap`)",
+   "issue": "The spoolMemo doc says a memo holds at most orderingProcessedCap lines per file. The only thing that keeps that true across an early-stopped pass is the cap in the carry-forward loop, and no row pins it. Without the cap, a pass that stops early carries every earlier line at or past readPos on top of the up to 4096 it consumed. Repeated stops then let one file's memo grow past the cap.",
+   "evidence": "Mutant mc_carrynocap (the `&& len(lines) < orderingProcessedCap` clause dropped), memo rows, including TestDrainClientSpools_LinesPastTheMemoCapBehindAWaitingHeadAreAnnouncedOnce with its 4096 corrupt lines and early stop: 'mc_carrynocap SURVIVED | ok 114.212s'.",
+   "fix": "In TestDrainClientSpools_LinesPastTheMemoCapBehindAWaitingHeadAreAnnouncedOnce, after the early-stopped pass (errPassBudgetSpent), add require.LessOrEqual(t, len(dr.memo[\"client-8831.ndjson\"].consumed), orderingProcessedCap). Under the mutant it holds 4097."
+  },
+  {
+   "dim": "drain",
+   "severity": "nit",
+   "location": "internal/daemon/drain.go:1419 (memoOf: `fi.ModTime().Equal(m.stat.ModTime())`), :694/:729/:1565/:613-617 (memo deletions), :1149/:1060 (in-loop session re-attempts), :1160 (end-of-file guard)",
+   "issue": "Several new branches survive mutation and are not recorded as deliberate defence. Commit 3f705053 did record three others: the end-of-file guard, memoOf's shrink check and the unlisted-memo deletion.\n- The mtime clause of `unchanged` is unpinned.\n- The memo deletions on a stat that finds the file gone, on a sync error, on a removal and for a fully consumed file are equivalent in practice: os.SameFile catches a file that comes back.\n- The in-loop session-scoped re-attempts after a done line and after a denial are unobservable, because the end-of-file re-attempt releases the same lines in the same pass. Only within-pass latency changes.",
+   "evidence": "Memo-row mutation results, all 'SURVIVED':\n- mt_nomtime (306.5 s)\n- md_errkeep (114.1 s)\n- mn_gonekeep (101.1 s)\n- mr_removekeep (93.6 s)\n- mk_keepconsumed (79.5 s)\n- mu_nounlisted (81.8 s)\n- me_noinloop: reattempt(dl.req.Session) -> a session that matches no line (306.3 s)\n- mde_noinloop: the same for the denial branch (152.4 s)\n- meof_always: the EOF re-attempt runs even after a stop or error (80.9 s)\nKilled by existing rows, for contrast: mo_noopened (rememberFile's os.SameFile(fi, opened); it also loads fi's lazy Windows file ID), mp_skipnoprocessed and mi_ownalways.",
+   "fix": "Pin the mtime clause cheaply with a same-size, same-identity in-place write that keeps a new mtime and expects one sync. Or record all of these in a comment, or in the next commit body, as equivalent defence, as 3f705053 did for the other three."
+  },
+  {
+   "dim": "drain",
+   "severity": "nit",
+   "location": "docs/architecture.md:191-193 and internal/daemon/drain.go:86-88 (withPassBudget doc: 'the pass reads each file's unconsumed lines once more, at its start')",
+   "issue": "Both texts say a pass reads the spool for blob references once, at its start, while an intent waits. That is exact only for a pass that moves no front. After every file whose front moved, drain.go:1259-1263 runs cleanupAcknowledged again, and pendingBlobReferences re-reads every spool file. So a pass that moves k fronts reads the whole spool 1+k times.",
+   "evidence": "Code path: drainFile ends with `if fs.Offset != offsetBefore { dr.cleanupAcknowledged(st) }`. cleanupAcknowledged calls pendingBlobReferences, which calls ipc.SpoolFiles plus scanBlobRefs for every file. The blocked-spools row pins scans == 4 only for passes that make no progress.",
+   "fix": "Reword to: 'at its start, and again after each file whose consumed front it moved'. The architecture.md paragraph is about a pass that makes no progress, so a parenthesis is enough there."
+  }
+ ]
+}

@@ -176,6 +176,30 @@ type Draft struct {
 	// reads a prompt's bytes once per draft rather than at every refresh. In-memory only: a
 	// resumed draft reads them again once.
 	promptText map[core.ToolUseID]string
+	// goalSeen is what the last goal walk (deriveCurrentWorkLocked, at every refresh) learned from
+	// each prompt record it read whole: the goal it gives, empty when it gives none. A record's bytes
+	// never change, so a walk reads each record once per draft while the record stays in its reach,
+	// a goal prompt past the evolution's read limit (which the evolution does not cache) included,
+	// and one that passes a record whose bytes are gone for good costs that record's failed Open and
+	// no bytes. At most goalWalkLimit entries. In-memory only: a resumed draft reads them again once.
+	goalSeen map[core.ToolUseID]string
+	// goalTurn is the turn of the prompt the derived CurrentWork.Goal was read from, by either
+	// derivation, and goalTurnSet whether there is one. The graph fallback in encodeSegmentLocked
+	// replaces the goal only with a prompt at a later turn, so a window in which the records cannot
+	// be listed never moves current work back to an older prompt. It survives a restart through the
+	// draft file's goal_turn key (setGoalTurnLocked marks the draft dirty when it changes): a daemon
+	// that restarts while the records cannot be listed must not lose the gate.
+	goalTurn    core.TurnIndex
+	goalTurnSet bool
+	// oversized is the prompt record the last refresh's evolution walk found past evolutionReadLimit
+	// (it stops at the first), so the next refresh knows that without reading the record's first
+	// evolutionReadLimit+1 bytes again. A record's bytes never change. In-memory only.
+	oversized core.ToolUseID
+	// promptsAnswered says whether the last refreshIntentLocked could list the session's own prompt
+	// records. While it cannot (a store without SessionPrompts, or one that failed — core.ErrDegraded
+	// past its scan limit), encodeSegmentLocked may derive CurrentWork from the graph instead. In-memory
+	// only; false until the first refresh, which Begin runs.
+	promptsAnswered bool
 	// fork is the intent this session inherits as a fork of another (lineage.go), or nil. It is
 	// resolved at Begin — fresh or resumed — from the lineage record and the parent checkpoint.
 	fork *forkIntent
@@ -183,6 +207,11 @@ type Draft struct {
 	// D49): the ancestors whose session-scoped eliminations up to the fork point the draft carries
 	// (carriedBy) and mints decisions from. Resolved at Begin, fresh, live or resumed.
 	inherit []negknow.Inherited
+	// inheritedDec maps each explains decision the session's fork point held (forkPoint) to the
+	// moment the fork started: decisions another session made, which rank as foreign (D46) in every
+	// merge although no carried elimination says so. Resolved at Begin, fresh or resumed; nil for a
+	// session that is no fork.
+	inheritedDec map[core.DecisionID]core.UnixMilli
 }
 
 // Ref is the durable reference to one finalized checkpoint artifact (00-ARCHITECTURE.md §5.14):

@@ -167,10 +167,10 @@ func rcGo(args ...string) releaseCheckOutcome {
 // releaseCheckVersion is ruling R7-3: the tag and internal/core.Version must already agree, and
 // git must already believe HEAD carries that tag.
 //
-// It is deliberately a GATE rather than a fix-up. core.Version is `0.1.0` while the newest tag is
-// `v0.2.0`, so the next release fails here until somebody bumps the constant on purpose — which is
-// the point. A release tool that quietly stamped whatever the tag said would let a binary report a
-// version no commit in this repository ever declared.
+// It is deliberately a GATE rather than a fix-up. Every release fails here until somebody bumps
+// the constant on purpose in its own commit (0.3.0's version commit moved it from `0.1.0` while the
+// newest tag was `v0.2.0`), which is the point. A release tool that quietly stamped whatever the
+// tag said would let a binary report a version no commit in this repository ever declared.
 func releaseCheckVersion(o releaseCheckOptions) releaseCheckOutcome {
 	if o.Tag == "" {
 		return rcSkipf("no tag: pass --tag vX.Y.Z to gate the tag/core.Version agreement")

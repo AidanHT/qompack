@@ -311,6 +311,11 @@ type sessionState struct {
 	LastToolUseTurn core.TurnIndex
 	LastPromptTurn  core.TurnIndex
 
+	// LastStopObs is the observation identity of the last leased main-agent Stop this session
+	// applied, which is how a replay of it is recognized (stop.go mainAgentStop). It is persisted
+	// with Turn, whose increment it describes.
+	LastStopObs core.ObservationID
+
 	// SubagentSince indexes ToolUses at the last SubagentStop or user prompt. Every front
 	// eviction of the ring clamps it in the same statement.
 	SubagentSince int

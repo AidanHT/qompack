@@ -72,9 +72,31 @@ func historyOf(e Env) (*SessionHistory, bool) {
 
 // checkSessionStartFires is CSessionStartFires's real observation (task-4-spec.md's table):
 // run/marker.json exists and names a session different from the current one -> OK. Absent (or
-// naming THIS session, which is the same absence of proof) -> StartsWithoutMarker++, failing only
-// once that reaches 2 ("absence across two sessions"). The very first session a project has ever
-// seen has no prior terminal hook to have left a marker, so it reports OK regardless.
+// naming THIS session when the start is not its own restart, described below, which is the same
+// absence of proof) -> StartsWithoutMarker++, failing only once that reaches 2 ("absence across two
+// sessions"). The very first session a project has ever seen has no prior terminal hook to have
+// left a marker, so it reports OK regardless. A session's
+// own restart is a start whose marker names it and which is either a start of the session the
+// history last saw, a compaction or --resume (sessionRestartSource) of any session, or a start the
+// host fired before that marker was written (ownMarkerAfterStart): with two sessions open in one
+// project, the one that started first restarts while LastSessionID names the other, and a startup
+// replayed from a spool after its own session's PreCompact finds the marker that PreCompact wrote.
+// A restart counts nothing and moves neither field; it reads same-session-restart (holding) when no
+// absence is counted, and otherwise the counted absence's own reading.
+//
+// An absence is counted only once the session the history last saw start (LastSessionID) can no
+// longer be running (sessionMayRun): a session still running has had no terminal hook yet, so its
+// marker cannot be due, and windows opened together on a project that has never had a terminal hook
+// would otherwise fail the assertion at the third start (audit 2, #8). That includes a session the
+// caller ended only for silence (Env.SessionMayRun): the daemon's idle tick ends a window that is
+// open but quiet for runtime.daemon.idleExitSeconds, and counting it took two quiet stretches between
+// new windows to a critical failure while every window was still open (wave 22 fix round 2). Such a
+// start counts nothing, leaves LastSessionID naming the session that may be running, whose terminal
+// hook the next start still awaits, and reads prior-session-live (nothing to judge) when no absence
+// is counted. A session whose SessionEnd the caller saw, and one the caller does not know (a
+// restarted daemon forgets its sessions, and it exits by itself once every session has been quiet
+// for that window), can no longer be running, so an absence after either still counts, as it always
+// did.
 //
 // The counter is bumped at most once per SESSION, keyed off History.LastSessionID: §12.1 says
 // "absence across two SESSIONS", not "across two RunAll calls", and a second RunAll inside one
@@ -104,9 +126,17 @@ func checkSessionStartFires(ctx context.Context, e Env) Result {
 		h.LastSessionID = e.Event.SessionID
 		return Result{OK: true, Expected: desc, Observed: "marker-found", TS: now(e)}
 	}
-	if h.LastSessionID != e.Event.SessionID {
-		h.StartsWithoutMarker++
-		h.LastSessionID = e.Event.SessionID
+	ownMarker := err == nil && rec.Session != "" && rec.Session == e.Event.SessionID
+	restart := ownMarker && (h.LastSessionID == e.Event.SessionID ||
+		sessionRestartSource(e.Event.Source) || ownMarkerAfterStart(rec, e))
+	priorLive := false
+	if !restart && h.LastSessionID != e.Event.SessionID {
+		if sessionMayRun(e, h.LastSessionID) {
+			priorLive = true
+		} else {
+			h.StartsWithoutMarker++
+			h.LastSessionID = e.Event.SessionID
+		}
 	}
 	if h.StartsWithoutMarker >= 2 {
 		return Result{
@@ -115,13 +145,60 @@ func checkSessionStartFires(ctx context.Context, e Env) Result {
 			TS:       now(e),
 		}
 	}
+	if h.StartsWithoutMarker == 0 && restart {
+		// A session's own restart, whose marker that session's own terminal hook wrote: its
+		// compaction (PreCompact, then SessionStart source=compact) or a --resume that kept the id,
+		// whether or not another session started in between. No absence is counted and this marker
+		// proves the session's hooks still fire, so nothing is pending (F-C48-1). A count of 1
+		// stays marker-absent-once below: that absence is still the one the next new session's
+		// start decides.
+		return Result{OK: true, Expected: desc, Observed: "same-session-restart", TS: now(e)}
+	}
+	if h.StartsWithoutMarker == 0 && priorLive {
+		// The session the history last saw start may still be running, so no terminal hook of it is
+		// due and this start observed nothing either way (audit 2, #8).
+		return Result{OK: true, Expected: desc, Observed: "prior-session-live", TS: now(e)}
+	}
 	return Result{OK: true, Expected: desc, Observed: "marker-absent-once", TS: now(e)}
+}
+
+// ownMarkerAfterStart reports whether rec, a marker naming the starting session itself, was written
+// at or after the host fired this start (Env.StartTS): by that session's own terminal hook, which
+// ran after its start. That happens to a start replayed from a spool after its session's PreCompact
+// or SessionEnd was handled live (audit 2, #10). Its marker is no absence: it proves a terminal hook
+// of this project fired, and it overwrote the marker the start would have read when the host fired
+// it. An unknown start time decides nothing, so such a start counts as it always did.
+func ownMarkerAfterStart(rec markerRecord, e Env) bool {
+	return e.StartTS > 0 && rec.TS >= e.StartTS
+}
+
+// SessionStart sources (hookio.Event.Source) that keep the session id the host already ran.
+const (
+	sessionSourceCompact = "compact"
+	sessionSourceResume  = "resume"
+)
+
+// sessionRestartSource reports whether a SessionStart source restarts a session the host already
+// ran: a compaction or a --resume keeps the session id. A startup or clear carries an id the host
+// has just minted, so a marker already naming it proves no prior terminal hook fired and stays an
+// absence unless the history last saw that very session, or the marker was written after the host
+// fired the start (ownMarkerAfterStart).
+func sessionRestartSource(source string) bool {
+	return source == sessionSourceCompact || source == sessionSourceResume
 }
 
 // checkSessionStartSourceCompact is CSessionStartSourceCompact's real observation: when a
 // PreCompact was observed for a session (History.AwaitingCompactStart), the FOLLOWING SessionStart
 // OF THAT SAME SESSION must arrive with source=="compact". The flag is cleared either way, because
 // it is only ever evaluated once, on the next start.
+//
+// A compaction the user cancels, or one that fails, after its PreCompact hook ran starts no
+// session at all, and the session goes on: it prompts, or it ends, and is later resumed. So a start
+// that is no compaction fails the assertion only when nothing of its session came between: once the
+// session prompted or ended after its PreCompact (History.CompactStartLapsed, recorded by
+// SessionHistory.NoteCompactLapse), its next start reads precompact-not-completed, with nothing to
+// judge, because a cancelled compaction and a compact start the host never sent look the same from
+// here, and neither can be shown to be the host's (audit 2, #9).
 //
 // The session-id half is not decoration. 00-ARCHITECTURE §12.1 states the observable as "the next
 // SessionStart carries source=compact within the same session id", and a pending flag alone cannot
@@ -144,16 +221,20 @@ func checkSessionStartSourceCompact(ctx context.Context, e Env) Result {
 		// compacted and this start says nothing about it, so the flag is dropped rather than
 		// resolved: keeping it would let the NEXT start of any session inherit a stale obligation,
 		// which is the same wrong-session failure one step later.
-		h.AwaitingCompactStart = false
+		h.AwaitingCompactStart, h.CompactStartLapsed = false, false
 		return Result{
 			OK: true, Expected: desc,
 			Observed: "precompact-pending-for-another-session",
 			TS:       now(e),
 		}
 	}
-	h.AwaitingCompactStart = false
+	lapsed := h.CompactStartLapsed
+	h.AwaitingCompactStart, h.CompactStartLapsed = false, false
 	if e.Event.Source == "compact" {
 		return Result{OK: true, Expected: "compact", Observed: e.Event.Source, TS: now(e)}
+	}
+	if lapsed {
+		return Result{OK: true, Expected: desc, Observed: "precompact-not-completed", TS: now(e)}
 	}
 	return Result{OK: false, Expected: "compact", Observed: e.Event.Source, TS: now(e)}
 }

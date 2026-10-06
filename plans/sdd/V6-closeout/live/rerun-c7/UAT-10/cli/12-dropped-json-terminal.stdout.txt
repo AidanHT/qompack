@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "command": "dropped",
+  "ok": true,
+  "data": {
+    "tool": "dropped",
+    "is_error": false,
+    "ephemeral": true,
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"count\":0,\"drops\":[]}"
+      }
+    ],
+    "meta": {
+      "elapsed_ms": 0,
+      "hash": "sha256:2cb20f2bc17fa600fba08ca7a50a3d358255731776f97bdaf720cd4f82a35bc1",
+      "tool_use_id": "qompack-mcp:a3b79ac53d43"
+    }
+  }
+}

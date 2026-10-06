@@ -1,0 +1,13 @@
+# merged HEAD 62d9290a, 765a9bcc's matcher reverted by -overlay (fault-v6-fsck-prefix.json: any publication counter above zero names the gap); Windows
+# go test -p 2 -count=1 -overlay=<fault-v6-fsck-prefix.json> -run '^TestFault_StartupGapOnStatusIgnoresTheContinuedCounter$' -v ./test/fault/
+=== RUN   TestFault_StartupGapOnStatusIgnoresTheContinuedCounter
+    v6_fsck_test.go:295: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w22-w15carry/test/fault/v6_fsck_test.go:295
+        	Error:      	Should be false
+        	Test:       	TestFault_StartupGapOnStatusIgnoresTheContinuedCounter
+        	Messages:   	a pass that continued in the background named no gap
+--- FAIL: TestFault_StartupGapOnStatusIgnoresTheContinuedCounter (0.01s)
+FAIL
+FAIL	github.com/qompack/qompack/test/fault	4.333s
+FAIL
+exit=1

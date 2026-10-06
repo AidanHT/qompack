@@ -141,7 +141,7 @@ func TestDeliveryOrder_AStuckSessionCannotTakeTheOtherSessionsLanes(t *testing.T
 func TestDeliveryOrder_ParkedLaneAsksForADrainRatherThanWaitingForIdle(t *testing.T) {
 	dd, o, root := laneTestDaemon(t)
 	const sess core.SessionID = "sess-parked-asks"
-	dd.drain.Store(newDrainer(dd.drainConfig()))
+	dd.drain.Store(newDrainer(contentDrainConfig(dd)))
 
 	first := spD3Prompt(dd, root, sess, orderNonce(0), "p0")
 	acceptPrompt(t, dd, first)
@@ -170,7 +170,7 @@ func TestDeliveryOrder_LaneOverflowIsDrainedOnRequest(t *testing.T) {
 	const sess core.SessionID = "sess-overflow-asks"
 	const perSession, k = 2, 5
 	laneTestSetLanes(dd, laneCapacity, perSession)
-	dd.drain.Store(newDrainer(dd.drainConfig()))
+	dd.drain.Store(newDrainer(contentDrainConfig(dd)))
 	run, open := liveOrderPromptGate(t, dd.runIngested, "p0")
 	liveOrderWorkers(t, dd, 2, run)
 	laneTestStartDrainRequests(t, dd)
@@ -208,7 +208,7 @@ func TestDeliveryOrder_ARequestedDrainCutShortByItsBudgetIsRequestedAgain(t *tes
 	const sess core.SessionID = "sess-overflow-cut-short"
 	const perSession, k = 2, 5
 	laneTestSetLanes(dd, laneCapacity, perSession)
-	cfg := dd.drainConfig()
+	cfg := lineDeadlineDrainConfig(dd)
 	dispatch := cfg.Dispatch
 	var cut atomic.Bool
 	cfg.Dispatch = func(ctx context.Context, req ipc.Request) ipc.Response {
@@ -270,7 +270,7 @@ func TestDeliveryOrder_ARequestedPassFinishesALineSlowerThanItsBudget(t *testing
 	slow := idleRunBudget + time.Second // longer than a pass's budget, inside drainLineDeadline
 	require.Less(t, slow, drainLineDeadline, "fixture: the slow line must fit its own deadline")
 	laneTestSetLanes(dd, laneCapacity, perSession)
-	cfg := dd.drainConfig()
+	cfg := lineDeadlineDrainConfig(dd)
 	dispatch := cfg.Dispatch
 	var attempts, cutInside atomic.Int32
 	cfg.Dispatch = func(ctx context.Context, req ipc.Request) ipc.Response {
@@ -325,7 +325,7 @@ func TestDeliveryOrder_ARequestedPassAsksAgainOnlyWhileItMakesProgress(t *testin
 	dd, _, root := laneTestDaemon(t)
 	ahead := liveOrderTool(dd, root, "sess-requested-ahead", 1)
 	wedged := liveOrderTool(dd, root, "sess-requested-wedged", 2)
-	cfg := dd.drainConfig()
+	cfg := lineDeadlineDrainConfig(dd)
 	dispatch := cfg.Dispatch
 	var attempts atomic.Int32
 	cfg.Dispatch = func(ctx context.Context, req ipc.Request) ipc.Response {
@@ -396,7 +396,7 @@ func TestDeliveryOrder_FlushWaitsForABacklogThatKeepsPublishing(t *testing.T) {
 	stall := stopDrainBound
 	perTool := stall * 2 / 5 // tools x perTool exceeds stall; one tool plus its own publication does not
 	laneTestSetSettle(dd, stall, liveOrderBound)
-	dd.drain.Store(newDrainer(dd.drainConfig()))
+	dd.drain.Store(newDrainer(contentDrainConfig(dd)))
 	run := func(ctx context.Context, req ipc.Request) ipc.Response {
 		if req.Event != nil && req.Event.ToolUseID != "" {
 			// A slow publication: it takes perTool of real time, and gives up with the worker's ctx.
@@ -587,7 +587,7 @@ func TestDeliveryOrder_DrainReleasesOnlySessionsItPublishedOrRetired(t *testing.
 	dd, _, root := laneTestDaemon(t)
 	const sess core.SessionID = "sess-release-absorbed"
 	var released []core.SessionID
-	cfg := dd.drainConfig()
+	cfg := contentDrainConfig(dd)
 	cfg.Released = func(s core.SessionID) { released = append(released, s) }
 	dd.drain.Store(newDrainer(cfg))
 

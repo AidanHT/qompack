@@ -68,6 +68,11 @@ type SentinelState struct {
 	ScannedAt core.UnixMilli `json:"scanned_at,omitempty"`
 }
 
+// maxWentOnSessions caps SessionHistory.WentOn, keeping the sessions that went on latest. A session
+// past it is one that has fired no start, prompt or SessionEnd since more than this many others did,
+// so a PreCompact of it that a drain has still not replayed is long past its compaction.
+const maxWentOnSessions = 16
+
 // maxSentinelMissedBy caps SentinelState.MissedBy. The assertion fails at the second counted miss;
 // the few entries past that keep a later redelivery of any counted prompt from counting again while
 // the project sits degraded, and bound what a hand-edited history.json can carry.
@@ -110,7 +115,8 @@ type SessionHistory struct {
 
 	// LastSessionID is OWNED by the session_start.fires Check (checkSessionStartFires,
 	// assertions.go) and by nothing else. It is the session id that last advanced
-	// StartsWithoutMarker, and it is how that Check tells "a second RunAll inside the session
+	// StartsWithoutMarker or found a marker; while that session is still live, a start of another
+	// session leaves it in place, since no terminal hook of it is due yet. It is how that Check tells "a second RunAll inside the session
 	// already counted" from "a genuinely new session, count it too" (Important I1's fix). The
 	// daemon (this task's next one) MUST NEVER write this field itself — in particular, never
 	// pre-set it to the incoming session's id at SessionStart before RunAll runs. Doing so would
@@ -141,6 +147,20 @@ type SessionHistory struct {
 	// and cleared by session_start.source_compact on the FOLLOWING SessionStart, whichever way
 	// that assertion resolves.
 	AwaitingCompactStart bool `json:"awaiting_compact_start"`
+	// CompactStartLapsed records that the session AwaitingCompactStart waits on prompted or ended
+	// after its PreCompact, with no compact start in between (NoteCompactLapse): the compaction was
+	// cancelled or failed, or the host never sent its start, and the two cannot be told apart. The
+	// session's next start then reads precompact-not-completed instead of failing
+	// session_start.source_compact. Arming a new obligation clears it, and so does resolving one.
+	CompactStartLapsed bool `json:"compact_start_lapsed,omitempty"`
+	// WentOn is, per session, when the host last fired a hook of it that shows the session went on —
+	// a start, a prompt or its SessionEnd — kept only while that is later than LastPrecompactTS, at
+	// most maxWentOnSessions sessions (NoteWentOn). It is for a PreCompact of the session replayed
+	// from a hook's spool after those hooks were handled, perhaps by a daemon that has restarted
+	// since: arming it reads whether the session already went on after the host fired it, and lapses
+	// the new obligation at once if so (ArmCompactStart), as it would had the hooks come in the host's
+	// order (audit 2, #9, wave 22 fix round 2).
+	WentOn map[core.SessionID]core.UnixMilli `json:"went_on,omitempty"`
 
 	Sentinel SentinelState `json:"sentinel"`
 
@@ -285,6 +305,69 @@ func (h *SessionHistory) NotePrompt(sess core.SessionID) bool {
 	return changed
 }
 
+// NoteCompactLapse records that sess ran a hook the host fired at at — a prompt, or its SessionEnd
+// (or, from ArmCompactStart, the latest hook WentOn holds for it) — and reports whether that changed
+// anything, so a caller saves the history only when it did. It
+// changes something only while a PreCompact of sess is waiting for its compact start
+// (AwaitingCompactStart, LastPrecompactSession) and only for a hook the host fired after that
+// PreCompact (LastPrecompactTS): the session went on without the compact start a completed
+// compaction sends before anything else, so the compaction did not restart it (CompactStartLapsed).
+// A hook fired before the PreCompact and delivered late, one of another session, and one with no
+// time (at <= 0) prove nothing and change nothing. A nil receiver is a no-op.
+func (h *SessionHistory) NoteCompactLapse(sess core.SessionID, at core.UnixMilli) bool {
+	if h == nil || sess == "" || at <= 0 || !h.AwaitingCompactStart || h.CompactStartLapsed {
+		return false
+	}
+	if h.LastPrecompactSession != sess || at <= h.LastPrecompactTS {
+		return false
+	}
+	h.CompactStartLapsed = true
+	return true
+}
+
+// NoteWentOn records that the host fired a hook of sess at at that shows the session went on — a
+// start, a prompt or its SessionEnd — and reports whether that changed anything, so a caller saves the
+// history only when it did. It keeps the latest such time per session, and only one later than the
+// PreCompact the history records (LastPrecompactTS): a replay arms only a later PreCompact, which an
+// earlier hook would not lapse. A hook with no time (at <= 0), and one with no session, change
+// nothing. A nil receiver is a no-op.
+func (h *SessionHistory) NoteWentOn(sess core.SessionID, at core.UnixMilli) bool {
+	if h == nil || sess == "" || at <= 0 || at <= h.LastPrecompactTS || at <= h.WentOn[sess] {
+		return false
+	}
+	if h.WentOn == nil {
+		h.WentOn = map[core.SessionID]core.UnixMilli{}
+	}
+	h.WentOn[sess] = at
+	h.capWentOn()
+	return true
+}
+
+// ArmCompactStart records a PreCompact of sess the host fired at at, which arms
+// session_start.source_compact: the session's next start must be a compact one. If the session
+// already went on after at (WentOn: a start, a prompt or its SessionEnd fired later and handled
+// first), the new obligation lapses at once (NoteCompactLapse), as it would have had the PreCompact
+// come first. Every record WentOn holds from no later than at is dropped, because no PreCompact
+// armed after this one is that early. A nil receiver is a no-op.
+func (h *SessionHistory) ArmCompactStart(sess core.SessionID, at core.UnixMilli) {
+	if h == nil {
+		return
+	}
+	h.LastPrecompactTS = at
+	h.LastPrecompactSession = sess
+	h.AwaitingCompactStart = true
+	h.CompactStartLapsed = false
+	h.NoteCompactLapse(sess, h.WentOn[sess])
+	for s, t := range h.WentOn {
+		if t <= at {
+			delete(h.WentOn, s)
+		}
+	}
+	if len(h.WentOn) == 0 {
+		h.WentOn = nil
+	}
+}
+
 // RecordSentinelScan updates h.Sentinel after a transcript scan for the current sentinel token:
 // found marks it Observed for good (it never resets to false); not found spends one more Chance.
 // It is called by the daemon's UserPromptSubmit route (SP-05's next task) after
@@ -358,6 +441,24 @@ func (h *SessionHistory) applyCaps() {
 	}
 	if len(h.Sentinel.MissedBy) > maxSentinelMissedBy {
 		h.Sentinel.MissedBy = h.Sentinel.MissedBy[:maxSentinelMissedBy]
+	}
+	h.capWentOn()
+}
+
+// capWentOn drops WentOn's sessions that went on earliest until at most maxWentOnSessions remain,
+// the earliest first and, at the same time, the smallest session id first, so the choice never
+// depends on the map's iteration order.
+func (h *SessionHistory) capWentOn() {
+	for len(h.WentOn) > maxWentOnSessions {
+		var oldest core.SessionID
+		var oldestAt core.UnixMilli
+		first := true
+		for s, at := range h.WentOn {
+			if first || at < oldestAt || (at == oldestAt && s < oldest) {
+				oldest, oldestAt, first = s, at, false
+			}
+		}
+		delete(h.WentOn, oldest)
 	}
 }
 

@@ -12,6 +12,7 @@ import (
 
 	"github.com/qompack/qompack/internal/commands"
 	"github.com/qompack/qompack/internal/config"
+	"github.com/qompack/qompack/internal/contract"
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/daemon"
 	"github.com/qompack/qompack/internal/ipc"
@@ -138,7 +139,7 @@ func buildCommandDeps(ctx context.Context, env Env, errw io.Writer) (commands.De
 
 	client := newCommandClient(root, deps.Cfg, env, log, reg, clk)
 	deps.MCP = buildCommandMCPProxy(deps.Cfg, client, log)
-	deps.Status = commandStatusSources(ctx, root, client)
+	deps.Status = commandStatusSources(ctx, root, deps.Cfg, client)
 
 	return deps, func() {
 		_ = client.Close()
@@ -164,18 +165,126 @@ func projectEstablished(l paths.Layout) bool {
 var spawnDaemon = daemon.SpawnDetached
 
 // daemonClientState is the State a lazily spawning client of `qompack mcp` or the command frontends
-// is built with: state.bin as ipc.ReadState reads it, with DaemonEnabled also requiring the loaded
-// configuration's runtime.daemon.enabled, exactly as the hook path does (doHook, FR-6).
+// is built with: state.bin as ipc.ReadState reads it, with DaemonEnabled decided by daemonEnabledFor
+// and Mode by modeFor, exactly as the hook path decides them (doHook, FR-6).
 //
-// state.bin records the DaemonEnabled of the daemon that wrote it, and a daemon that died without a
-// clean stop leaves it behind. Trusting it alone let a record written while the daemon was enabled
-// spawn a daemon for a project whose configuration has since disabled it, which docs/release.md §4
-// promises never happens ("no resident process and no lock file"). A client whose State says the
-// daemon is disabled never dials and never spawns (ipc.Client.Send, step 2).
+// A client whose State says runtime.mode is off asks no daemon at all, and one whose State says the
+// daemon is disabled never dials and never spawns (ipc.Client.Send, steps 1 and 2).
 func daemonClientState(root string, cfg config.Config) ipc.State {
 	st := ipc.ReadState(root, cfg)
-	st.DaemonEnabled = st.DaemonEnabled && cfg.Runtime.Daemon.Enabled
+	st.DaemonEnabled = daemonEnabledFor(root, st.DaemonEnabled, cfg)
+	st.Mode = modeFor(root, st.Mode, cfg)
 	return st
+}
+
+// modeFor is the runtime mode a client of root works under, given the mode its state.bin read gave
+// (stateMode) and the loaded configuration: off when the configuration says off, and state.bin's off
+// only while the daemon that wrote it is alive (stateDaemonAlive); otherwise state.bin's mode, or the
+// configuration's once state.bin's off no longer speaks for the project. It is daemonEnabledFor's
+// rule (D67(c)) for the mode: a daemon writes Mode=off when a start reaches it while runtime.mode is
+// off, and only a clean stop removes the file, so one that died left status and the MCP server
+// reporting the project off, and the command client asking no daemon, for good, even after the
+// configuration stopped saying off. The liveness check runs only for a state.bin that says off
+// beside a configuration that does not, so no other read pays for it.
+func modeFor(root string, stateMode contract.Mode, cfg config.Config) contract.Mode {
+	cfgMode := ipc.StateFromConfig(cfg).Mode
+	switch {
+	case cfgMode == contract.ModeOff:
+		return contract.ModeOff
+	case stateMode == contract.ModeOff && !stateDaemonAlive(root):
+		return cfgMode
+	}
+	return stateMode
+}
+
+// stateModeOffHolds is modeFor for a hook, which reads state.bin before it loads any configuration:
+// whether a state.bin that says runtime.mode off still speaks for root, because the daemon that wrote
+// it is alive (stateDaemonAlive) or the configuration in effect for root says off too
+// (projectModeOff). A hook for which it does not hold goes on to admission, which loads the
+// configuration, and works under the configuration's mode. It is asked only when state.bin says off.
+func stateModeOffHolds(env Env, root string) bool {
+	return stateDaemonAlive(root) || projectModeOff(env, root)
+}
+
+// daemonEnabledFor is whether a client may use root's daemon, given the DaemonEnabled its state.bin
+// read gave (stateEnabled) and the loaded configuration: the configuration's runtime.daemon.enabled,
+// and state.bin's false only while the daemon that wrote it is alive (D67(c)).
+//
+// state.bin records the DaemonEnabled of the daemon that wrote it, and a daemon that died without a
+// clean stop leaves it behind, saying either value:
+//
+//   - A record written while the daemon was enabled, in a project whose configuration has since
+//     disabled it: trusting the record let a client spawn a daemon docs/release.md §4 promises is
+//     never started ("no resident process and no lock file"), so the configuration's false always
+//     decides.
+//   - A record written by a daemon that reloaded runtime.daemon.enabled false and then died: trusted
+//     for good, it kept every hook spooling, and session-start from ever starting the daemon that
+//     would rewrite it, after the key was set back to true (audit 2, #15 and #67). So it is trusted
+//     only while a daemon holds the project's lock or answers at its address (stateDaemonAlive);
+//     otherwise the configuration decides. The check runs only in that case, a false record beside
+//     a configuration that says true, so no other read pays for it.
+func daemonEnabledFor(root string, stateEnabled bool, cfg config.Config) bool {
+	if !cfg.Runtime.Daemon.Enabled {
+		return false
+	}
+	return stateEnabled || !stateDaemonAlive(root)
+}
+
+// stateDaemonProbeTimeout bounds stateDaemonAlive's dial. It is the non-hot-path dial floor the
+// command client and session-start already use (hookConnectDeadlineFloor), not a new number. An
+// absent daemon fails the dial at once: a missing pipe or socket is refused, not waited on.
+const stateDaemonProbeTimeout = hookConnectDeadlineFloor
+
+// stateDaemonAlive reports whether a daemon is alive for root, which is when its state.bin may still
+// speak for it: a daemon holds root's lock — a lock written for this project whose holder reported
+// in within the staleness window, the lock protocol's own test of a live holder (daemon.StaleAfter)
+// — or one accepts a connection at root's address. A daemon that died uncleanly is taken for alive
+// for at most that window, as long as the lock protocol itself keeps its lock from being taken.
+// It is a variable only so a row can stand in a live or a dead daemon without starting one.
+var stateDaemonAlive = func(root string) bool {
+	if h := daemon.DescribeLockHolder(root, nil); h.Present && !h.Foreign && h.HeartbeatAge <= daemon.StaleAfter() {
+		return true
+	}
+	addr, err := ipc.Resolve(root)
+	return err == nil && ipc.Probe(addr, stateDaemonProbeTimeout)
+}
+
+// commandConnectDeadline bounds a command client's dial to the daemon: status, doctor and every
+// other `qompack` frontend that asks the daemon (D60(e)). It is deliberately not
+// runtime.daemon.connectDeadlineMs. That budget is the hot path's, tuned for a hook and a warm
+// daemon (25 ms on Windows, about three named-pipe attempts), and one dial landing while the
+// listener re-arms its next pipe instance (ERROR_PIPE_BUSY) can miss it. A command is a person at a
+// terminal, not a hook mid-turn. It is the same non-hot-path dial floor session-start, checkpoint,
+// flush and self-test's admin.ping already use (hookConnectDeadlineFloor, whose derivation is in
+// hookclient.go), not a new number. An absent daemon still fails the dial at once: a missing pipe or
+// socket is refused, not waited on.
+//
+// `qompack mcp` does not use it (D61(e)). It is a long-lived server, not a one-shot command: its
+// client keeps runtime.daemon.connectDeadlineMs and rides out a miss with its own retry loop,
+// mcpRetryAttempts tries mcpRetryDelay apart (cmd_mcp.go), which a person at a terminal would not
+// wait through for one status read.
+const commandConnectDeadline = hookConnectDeadlineFloor
+
+// newCommandIPCClient is the constructor newCommandClient builds its transport with. It is a
+// variable only so a test can see the options a command client is built with and stand in a
+// transport whose connect misses or succeeds late, without timing a real dial.
+var newCommandIPCClient = ipc.NewClientWithOptions
+
+// commandClient is the transport the frontends reach the daemon over, with what fetchDaemonStatus
+// must know of how it was built to say why no daemon answered.
+//
+// daemonEnabled and modeOff decide whether the client dials at all (ipc.Client.Send, steps 1 and 2),
+// so they are also what fetchDaemonStatus branches on. They are carried from the one
+// daemonClientState read the client was built with, not read from state.bin again: a daemon that
+// rewrote state.bin between two reads made the reason describe a client that was never built (wave
+// 19c review, D60(e)). mayStart is whether the client can ask a daemon to start when none answers
+// (an executable to start it from, for ipc's lazySpawn): doctor builds its client without one, so
+// its reason must not say it asked one to start (audit 2, #11).
+type commandClient struct {
+	ipc.Client
+	daemonEnabled bool
+	modeOff       bool
+	mayStart      bool
 }
 
 // newCommandClient builds the transport the frontends reach the daemon over.
@@ -185,15 +294,23 @@ func daemonClientState(root string, cfg config.Config) ipc.State {
 // than opening the store a second time.
 func newCommandClient(root string, cfg config.Config, env Env,
 	log logging.Logger, reg obs.Registry, clk core.Clock,
-) ipc.Client {
+) commandClient {
 	addr, _ := ipc.Resolve(root)
-	return ipc.NewClientWithOptions(addr, nopSpool{}, log, reg, ipc.ClientOptions{
-		ProjectRoot: root,
-		State:       daemonClientState(root, cfg),
-		Self:        env.Self,
-		Spawn:       spawnDaemon,
-		Clock:       clk,
-	})
+	st := daemonClientState(root, cfg)
+	return commandClient{
+		Client: newCommandIPCClient(addr, nopSpool{}, log, reg, ipc.ClientOptions{
+			ProjectRoot: root,
+			State:       st,
+			Self:        env.Self,
+			Spawn:       spawnDaemon,
+			Clock:       clk,
+
+			ConnectDeadline: commandConnectDeadline,
+		}),
+		daemonEnabled: st.DaemonEnabled,
+		modeOff:       st.Mode == contract.ModeOff,
+		mayStart:      env.Self != "" && spawnDaemon != nil,
+	}
 }
 
 // buildCommandMCPProxy gives the retrieval frontends a tool set that forwards to the daemon.
@@ -215,8 +332,15 @@ func buildCommandMCPProxy(cfg config.Config, client ipc.Client, log logging.Logg
 	return srv
 }
 
-// commandStatusSources binds the two places a status observation comes from.
-func commandStatusSources(_ context.Context, root string, client ipc.Client) commands.StatusSources {
+// commandStatusSources binds the two places a status observation comes from. The daemon source
+// knows whether runtime.daemon.enabled lets client dial at all from client itself: the DaemonEnabled
+// of the State it was built with (commandClient), never a second read of state.bin.
+//
+// The configuration parameter is no longer read, for that reason. It stays only because doctor.go,
+// which another closeout seat owns, passes it; it goes when that call site is next edited.
+func commandStatusSources(
+	_ context.Context, root string, _ config.Config, client commandClient,
+) commands.StatusSources {
 	return commands.StatusSources{
 		Daemon: func(ctx context.Context) (commands.DaemonStatus, time.Time, error) {
 			return fetchDaemonStatus(ctx, client, daemonListening(root))
@@ -227,25 +351,74 @@ func commandStatusSources(_ context.Context, root string, client ipc.Client) com
 	}
 }
 
-// statusNoDaemonReason is why status has no live answer when no daemon received its request.
+// statusNoDaemonReason is why status has no live answer when no daemon received its request and the
+// client asked one to start (commandClient.mayStart). A disabled daemon has its own reason
+// (statusDaemonDisabledReason), decided first, so this one needs no exception for it.
 const statusNoDaemonReason = "no daemon answered: none is listening for this project yet. This command " +
-	"asked one to start unless runtime.daemon.enabled is false; run status again once it is up"
+	"asked one to start; run status again once it is up"
 
-// statusSilentDaemonReason is why status has no live answer when a daemon was listening but its reply
-// never came: the command client's read deadline passed, or the connection broke mid-reply.
+// statusNoDaemonNoStartReason is statusNoDaemonReason for a client that cannot ask a daemon to start:
+// doctor's, which strips Self so that it only observes, or one with no executable to start it from.
+const statusNoDaemonNoStartReason = "no daemon answered: none is listening for this project, and this " +
+	"command does not start one; the next session start in this project starts one"
+
+// statusModeOffReason is why status has no live answer when runtime.mode is off for this project, in
+// its loaded configuration or in the state.bin its daemon last wrote: the command client then asks no
+// daemon at all (ipc.Client.Send, step 1) and answers OK with no data. That is the operator's own
+// setting, not a malformed reply, which is what decoding the empty answer reported (audit 2, #12).
+const statusModeOffReason = "runtime.mode is off for this project (in its configuration, or in the " +
+	"state.bin its daemon last wrote), so this command does not ask a daemon"
+
+// statusSilentDaemonReason is why status has no live answer when a daemon was listening and accepted
+// the request but its reply never came: the send took commandCallDeadline or longer, so the
+// command client's read deadline passed. A send that failed sooner is statusConnectMissReason.
 var statusSilentDaemonReason = fmt.Sprintf("a daemon is listening for this project but did not answer "+
 	"within %s: it may be busy or stuck. Run status again; if it stays silent, see "+
 	"docs/troubleshooting.md, section 7", commandCallDeadline)
 
-// statusProbeTimeout bounds the dial daemonListening makes. It is self-test's own liveness dial bound,
-// not a new number: both ask only whether anything accepts a connection at the project's address.
-const statusProbeTimeout = selfTestProbeTimeout
+// statusConnectMissReason is why status has no live answer when a daemon was listening but both of
+// fetchDaemonStatus's attempts failed before commandCallDeadline: the client could not connect
+// within commandConnectDeadline, or the connection closed before a reply. The client reports both
+// the same way (OK false, no text), so the reason names both, and never the call deadline, which
+// did not expire.
+var statusConnectMissReason = fmt.Sprintf("a daemon is listening for this project but did not "+
+	"answer this command: on both of two attempts, no connection to it was made within the %s "+
+	"connect budget or the connection closed before a reply. Run status again; if it keeps "+
+	"failing, see docs/troubleshooting.md, section 7", commandConnectDeadline)
+
+// statusDaemonDisabledReason is why status has no live answer when runtime.daemon.enabled is false
+// for this project, in its loaded configuration or in the state.bin its daemon last wrote. The
+// command client then never dials (ipc.Client.Send, step 2): it answers OK false with no text at
+// once, which is neither a connect miss nor an absent daemon, so status says why no daemon was asked.
+// The text names both places because either can say false (daemonEnabledFor): a daemon that
+// reloaded the key to false rewrote state.bin, and that record speaks for the project while the
+// daemon is alive, even after the configuration is set back to true. Once it is gone the
+// configuration decides.
+const statusDaemonDisabledReason = "runtime.daemon.enabled is false for this project (in its " +
+	"configuration, or in the state.bin its daemon last wrote), so this command does not ask a " +
+	"daemon, even one that is still running"
+
+// statusProbeTimeout bounds the dial daemonListening makes. It is the command client's own connect
+// budget, not a new number. fetchDaemonStatus resends a fast failure only when this probe saw a
+// listener, so a probe that gives up sooner than the send's dial would makes a live daemon read as
+// absent ("none is listening") and its read is never resent. A go-winio listener between instances
+// keeps its pipe name, so the probe meets ERROR_PIPE_BUSY there and needs the same budget to outlast
+// it. An absent daemon still fails the probe at once: a missing pipe or socket is refused.
+const statusProbeTimeout = commandConnectDeadline
+
+// statusProbeDial is the dial daemonListening makes. It is a variable only so a test can stand in a
+// listener that accepts late without racing a real one against the probe's budget.
+var statusProbeDial = ipc.Probe
+
+// statusSendClock times fetchDaemonStatus's sends. It is a variable only so a test can decide how
+// long a send took, instead of depending on how fast a real one returns.
+var statusSendClock = core.SystemClock()
 
 // daemonListening reports whether anything accepts a connection at root's daemon address (ipc.Probe).
 func daemonListening(root string) func() bool {
 	return func() bool {
 		addr, err := ipc.Resolve(root)
-		return err == nil && ipc.Probe(addr, statusProbeTimeout)
+		return err == nil && statusProbeDial(addr, statusProbeTimeout)
 	}
 }
 
@@ -256,28 +429,65 @@ func daemonListening(root string) func() bool {
 // COMPILE error here as well as a test failure: a member the daemon adds and the mirror lacks
 // stops this function building.
 //
+// The client's daemonEnabled and modeOff are from the State it was built with (commandClient). A
+// client built with runtime.mode off asks no daemon (ipc.Client.Send, step 1): status sends nothing,
+// probes nothing and names the mode (statusModeOffReason). A client built with the daemon disabled
+// never dials (ipc.Client.Send, step 2), so its OK false says nothing about a listener: status sends
+// once, neither probes nor resends, and names the disabled daemon (statusDaemonDisabledReason). When
+// nothing listened, the reason says whether this command asked a daemon to start (mayStart).
+//
 // listening is asked before the request is sent, because the client answers OK false with no error
 // text both when nothing listened and when a listening daemon never replied: only the dial tells the
 // two apart, and asking it after the send would see the daemon the send's own lazy spawn started.
+//
+// With a daemon listening, the time the send took tells the rest apart, because the client's read
+// deadline starts only after its connect, which commandConnectDeadline bounds well inside
+// commandCallDeadline: a send that took commandCallDeadline or longer expired that deadline; one
+// that failed sooner missed its connect or lost its connection before a reply. Only the second is
+// sent once more. A status read changes nothing, so resending it is safe, and a connect miss is not
+// always one the dial budget could absorb (go-winio's dial returns any CreateFile error but
+// ERROR_PIPE_BUSY at once). A daemon that let the call deadline expire is not asked twice.
 func fetchDaemonStatus(
-	ctx context.Context, client ipc.Client, listening func() bool,
+	ctx context.Context, client commandClient, listening func() bool,
 ) (commands.DaemonStatus, time.Time, error) {
-	wasListening := listening != nil && listening()
-	resp, err := client.Send(ctx, ipc.Request{
-		Op: ipc.OpStatus, Reply: true, TS: core.NowMilli(core.SystemClock()),
-	}, commandCallDeadline)
+	if client.modeOff {
+		return commands.DaemonStatus{}, time.Time{}, errors.New(statusModeOffReason)
+	}
+	enabled := client.daemonEnabled
+	wasListening := enabled && listening != nil && listening()
+	send := func() (ipc.Response, time.Duration, error) {
+		start := statusSendClock.Now()
+		resp, err := client.Send(ctx, ipc.Request{
+			Op: ipc.OpStatus, Reply: true, TS: core.NowMilli(core.SystemClock()),
+		}, commandCallDeadline)
+		return resp, statusSendClock.Since(start), err
+	}
+	noAnswer := func(resp ipc.Response) bool { return !resp.OK && resp.Err == "" }
+
+	resp, took, err := send()
+	if err == nil && noAnswer(resp) && wasListening && took < commandCallDeadline && ctx.Err() == nil {
+		resp, took, err = send()
+	}
 	if err != nil {
 		return commands.DaemonStatus{}, time.Time{}, fmt.Errorf("status round trip: %w", err)
 	}
-	if !resp.OK && resp.Err == "" {
+	if noAnswer(resp) {
 		// The client's answer for a request no daemon answered: nothing listened at the project's
-		// address, runtime.daemon.enabled is false, or a listening daemon's reply never came. It
-		// carries no text of its own, and quoting it as a refusal printed "status refused: " with
-		// nothing after the colon (V6 close-out F-UAT03-3, F-C49-1).
-		if wasListening {
+		// address, runtime.daemon.enabled is false, a listening daemon's connect missed, or its
+		// reply never came. It carries no text of its own, and quoting it as a refusal printed
+		// "status refused: " with nothing after the colon (V6 close-out F-UAT03-3, F-C49-1).
+		switch {
+		case !enabled:
+			return commands.DaemonStatus{}, time.Time{}, errors.New(statusDaemonDisabledReason)
+		case !wasListening && client.mayStart:
+			return commands.DaemonStatus{}, time.Time{}, errors.New(statusNoDaemonReason)
+		case !wasListening:
+			return commands.DaemonStatus{}, time.Time{}, errors.New(statusNoDaemonNoStartReason)
+		case took >= commandCallDeadline:
 			return commands.DaemonStatus{}, time.Time{}, errors.New(statusSilentDaemonReason)
+		default:
+			return commands.DaemonStatus{}, time.Time{}, errors.New(statusConnectMissReason)
 		}
-		return commands.DaemonStatus{}, time.Time{}, errors.New(statusNoDaemonReason)
 	}
 	if !resp.OK {
 		return commands.DaemonStatus{}, time.Time{}, fmt.Errorf("status refused: %s", resp.Err)

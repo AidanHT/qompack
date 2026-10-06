@@ -212,8 +212,18 @@ func TestBuild_Tier1ThatCannotFitIsDroppedWhole(t *testing.T) {
 	require.NoError(t, err, "a budget too small is a degraded rehydration, never an error")
 	require.True(t, got.Degraded)
 	require.LessOrEqual(t, int(got.Tokens), int(tiny))
-	require.Empty(t, got.Items, "no tier-1 item fits, so nothing is emitted")
-	require.Empty(t, got.Text, "no items means no payload — never an empty tagged wrapper")
+	// Criterion change (w19-rehydrate, D59): no tier-1 item fits, so no section is emitted — and a
+	// compaction that dropped material is never silent, so the payload is the loss notice alone,
+	// never an empty tagged wrapper and never nothing.
+	require.Len(t, got.Items, 1, "no tier-1 item fits, so only the loss notice is emitted")
+	require.Equal(t, ItemDropReport, got.Items[0].Kind)
+	require.NotContains(t, got.Text, AffordanceNotice(), "no tier-1 record is emitted")
+	for _, inv := range cp.Invariants {
+		require.NotContains(t, got.Text, "- ["+inv.ID+"] ", "no tier-1 record is emitted")
+	}
+	require.Contains(t, got.Text, itoa(len(got.Dropped))+" items",
+		"the notice counts everything the drop report names")
+	require.Contains(t, got.Text, "call dropped()")
 	require.Positive(t, log.loud, "tier-1 material forced out of the payload must be Loud")
 
 	// Each excluded tier-1 item is NAMED. Tier-1 units carry no drop of their own, so the report

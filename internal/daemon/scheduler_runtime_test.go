@@ -1158,7 +1158,7 @@ func TestRuntime_ConcurrentObserveEvaluatePersist(t *testing.T) {
 	go func() { wg.Wait(); close(done) }()
 	select {
 	case <-done:
-	case <-time.After(2 * time.Minute):
+	case <-hangGuard(t):
 		t.Fatal("deadlock: the runtime did not finish 5 000 concurrent operations")
 	}
 	close(errs)

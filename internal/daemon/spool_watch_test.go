@@ -47,14 +47,19 @@ func startSpoolWatch(t *testing.T, dd *daemon, every, horizon time.Duration) {
 }
 
 // spoolWatchTraffic keeps sess's hooks arriving through the served path — each one a live, leased
-// tool delivery the worker pool publishes — until stop is closed, one every tick.
+// tool delivery the worker pool publishes — until stop is closed, one every tick. It runs on a
+// goroutine of its own (spoolWatchRunTraffic), so a hook the daemon does not serve fails the test with
+// t.Errorf and ends the traffic: t.FailNow, which require calls, must run on the test's own goroutine.
 func spoolWatchTraffic(t *testing.T, dd *daemon, root string, sess core.SessionID, first int, stop <-chan struct{}) {
 	t.Helper()
 	tick := time.NewTicker(spoolWatchTick)
 	defer tick.Stop()
 	for i := first; ; i++ {
 		req := liveOrderTool(dd, root, sess, i)
-		require.True(t, dd.dispatchOp(context.Background(), req).OK)
+		if resp := dd.dispatchOp(context.Background(), req); !resp.OK {
+			t.Errorf("fixture: the busy session's hook %d was not served: %+v", i, resp)
+			return
+		}
 		select {
 		case <-stop:
 			return
@@ -125,7 +130,7 @@ func writeHookSpool(t *testing.T, root, base string, reqs ...ipc.Request) {
 // ask for and no idle drain, none of which runs here.
 func TestSpoolWatch_AClientSpoolIsPublishedWhileItsSessionIsActive(t *testing.T) {
 	dd, _, root := laneTestDaemon(t)
-	dd.drain.Store(newDrainer(dd.drainConfig()))
+	dd.drain.Store(newDrainer(contentDrainConfig(dd)))
 	liveOrderWorkers(t, dd, 2, dd.runIngested)
 	startSpoolWatch(t, dd, spoolWatchTick, liveOrderBound)
 
@@ -155,7 +160,7 @@ func TestSpoolWatch_AClientSpoolIsPublishedWhileItsSessionIsActive(t *testing.T)
 // kick would rescue.
 func TestSpoolWatch_ASpoolWaitingOnItsSessionIsRetriedWithNoFurtherHook(t *testing.T) {
 	dd, _, root := laneTestDaemon(t)
-	dd.drain.Store(newDrainer(dd.drainConfig()))
+	dd.drain.Store(newDrainer(contentDrainConfig(dd)))
 	const sess core.SessionID = "sess-spool-retry"
 	release := make(chan struct{})
 	liveOrderWorkers(t, dd, 2, func(ctx context.Context, req ipc.Request) ipc.Response {
@@ -202,11 +207,64 @@ func TestSpoolWatch_ASpoolWaitingOnItsSessionIsRetriedWithNoFurtherHook(t *testi
 // it has waited out the retry horizon — however many hooks keep arriving meanwhile. No busy loop, and
 // nothing of it is lost: it stays for a drain that can publish it.
 func TestSpoolWatch_AnUnconsumableSpoolIsRetriedWithBackoffNotEveryTick(t *testing.T) {
+	spoolWatchBackoffRow(t, 0)
+}
+
+// TestSpoolWatch_APassThatOverranItsBudgetWithoutConsumingKeepsTheBackoff (V6 close-out C7.2) is the
+// backoff row with the first pass held, in real time, inside its sync of the spool file for longer
+// than the pass's own budget (idleRunBudget) and the row's retry horizon, as an fsync queue on a
+// loaded host can hold it. It pins two things. The pass consumed no line, so its budget could not
+// stop it (D31: a budget ends a pass only once the pass has consumed a line); it finished the spool
+// and found it unconsumable, so the spool keeps the doubling wait instead of being due at the next
+// look. And the schedule is read from the clock the look is handed (lookAtClientSpools' now), never
+// from how long the pass took in real time.
+//
+// It pins no retry after a first look that outlasted the horizon, because the live loop makes none.
+// watchClientSpools hands each look time.Now() taken before the pass, so a first look longer than
+// the horizon closes the retry window before any second pass, and by design the requested, flush,
+// idle and restart drains take the spool (spool_watch.go's doc). Against the product's horizon
+// (DetectAfterSeconds, 120 s) and interval (2 s) that takes a first look of nearly two minutes.
+// Against this row's compressed horizon (50 ticks, 1 s) one slow look was enough: when the row still
+// ran on the wall clock, hosted windows-latest failed it on candidate 7 with "the unconsumed spool is
+// passed again" after 30.60 s.
+func TestSpoolWatch_APassThatOverranItsBudgetWithoutConsumingKeepsTheBackoff(t *testing.T) {
+	spoolWatchBackoffRow(t, idleRunBudget+spoolWatchTick)
+}
+
+// spoolWatchBackoffRow is the backoff row. A positive firstPassStall holds the first pass that long,
+// in real time, inside its sync of the spool file (drainer.syncFile) before the real sync, and the row
+// checks that it did.
+//
+// The row drives the watcher's look (lookAtClientSpools, which watchClientSpools runs) on the look's
+// injected clock, one tick per look, every look kicked as a hook every tick kicks it, while a busy
+// session's hooks really are served and published beside it. Every pass is a real one. Its subject
+// is the schedule — the doubling wait and the stop at the horizon — which the look decides from the
+// clock it is handed alone, so no length of a pass on a loaded host can exhaust it. On the wall clock
+// it could: the row's 1 s horizon is half of one pass's idleRunBudget, and a first look slower than
+// it left no second pass (C7.2). The live loop retrying an unconsumed spool with no further hook is
+// TestSpoolWatch_ASpoolWaitingOnItsSessionIsRetriedWithNoFurtherHook's subject, under liveOrderBound;
+// spoolRetryAfter's own values are TestSpoolRetryAfter_Doubles'.
+func spoolWatchBackoffRow(t *testing.T, firstPassStall time.Duration) {
+	t.Helper()
 	dd, _, root := laneTestDaemon(t)
-	dd.drain.Store(newDrainer(dd.drainConfig()))
+	dr := newDrainer(lineDeadlineDrainConfig(dd))
+	const spool = "client-6161.ndjson"
+	var stalled atomic.Bool // the first sync of spool was held for firstPassStall
+	if firstPassStall > 0 {
+		sync := dr.syncFile
+		dr.syncFile = func(path string) error {
+			if filepath.Base(path) == spool && stalled.CompareAndSwap(false, true) {
+				timer := time.NewTimer(firstPassStall)
+				defer timer.Stop()
+				<-timer.C
+			}
+			return sync(path)
+		}
+	}
+	dd.drain.Store(dr)
 	liveOrderWorkers(t, dd, 2, dd.runIngested)
 	const horizon = 50 * spoolWatchTick
-	startSpoolWatch(t, dd, spoolWatchTick, horizon)
+	dd.spool.every, dd.spool.horizon = spoolWatchTick, horizon
 	ctx := context.Background()
 
 	// The most passes the schedule allows inside the horizon: the first, then one per doubling wait
@@ -223,24 +281,58 @@ func TestSpoolWatch_AnUnconsumableSpoolIsRetriedWithBackoffNotEveryTick(t *testi
 	_, ok := dd.ing.leaseDelivery(ctx, lost)
 	require.True(t, ok)
 	blocked := spD3Prompt(dd, root, stuck, orderNonce(1), "blocked")
-	writeSpoolLines(t, root, "client-6161.ndjson", blocked)
+	// As a hook writes it, and one record: no blank line after it and no other line behind it. A pass
+	// that has consumed a line can be stopped by its budget (idleRunBudget) once a slow host has spent
+	// it, and a spool a budget-stopped pass leaves unfinished is due again at the next look
+	// (TestSpoolWatch_APassItsBudgetCutShortDoesNotBackOffTheSpoolsItLeft), which is not this row's
+	// schedule. A line behind the blocked one, such as another delivery a reused pid's hook appended,
+	// is published by the first pass, which its budget can then stop inside the spool; the passes after
+	// it only consume that line again, which is no progress (notePassConsumed). That schedule is
+	// TestSpoolWatch_ABlockedSpoolWithAConsumedLineBehindItsHeadKeepsTheBackoff's. With the record
+	// alone no pass consumes anything, so none can stop on its budget in this spool.
+	writeHookSpool(t, root, spool, blocked)
 
 	stop := spoolWatchRunTraffic(t, dd, root, "sess-spool-busy", 1)
-	require.Eventually(t, func() bool { return dd.m.Counter(counterSpoolWatchDrains).Value() >= 2 },
-		liveOrderBound, liveOrderTick, "the unconsumed spool is passed again")
-	// Traffic for well past the horizon: a kick every tick, and a look every interval.
-	pause := time.NewTimer(3 * horizon)
-	<-pause.C
-	passes := dd.m.Counter(counterSpoolWatchDrains).Value()
-	require.LessOrEqual(t, passes, int64(maxPasses),
+	entries := map[string]*spoolWatchEntry{}
+	start := time.Now()
+	var passedAt []time.Duration // when each pass ran, on the look's injected clock, from the first look
+	look := func(now time.Time, kicked bool) bool {
+		before := dd.m.Counter(counterSpoolWatchDrains).Value()
+		_, more := dd.lookAtClientSpools(ctx, entries, kicked, now)
+		if dd.m.Counter(counterSpoolWatchDrains).Value() > before {
+			passedAt = append(passedAt, now.Sub(start))
+		}
+		return more
+	}
+	// Looks for well past the horizon: a kick at every one, and one look every interval.
+	now := start
+	for ; now.Sub(start) <= 3*horizon; now = now.Add(spoolWatchTick) {
+		look(now, true)
+	}
+	require.Equal(t, firstPassStall > 0, stalled.Load(),
+		"fixture: the first pass's sync of the spool was held past its budget and the horizon exactly when the row "+
+			"asks for it")
+	require.GreaterOrEqual(t, len(passedAt), 2, "the unconsumed spool is passed again")
+	require.LessOrEqual(t, len(passedAt), maxPasses,
 		"an unconsumable spool is passed at a doubling wait inside the horizon (at most %d passes), not "+
-			"on every look while hooks keep arriving", maxPasses)
-	settle := time.NewTimer(10 * spoolWatchTick)
-	<-settle.C
-	require.Equal(t, passes, dd.m.Counter(counterSpoolWatchDrains).Value(),
-		"past the horizon the watcher stops passing it; the idle drain and the others own it")
+			"on every look while hooks keep arriving (passes at %v)", maxPasses, passedAt)
+	// Two intervals after the first pass, then twice the wait before each time.
+	for i, wait := 1, 2*spoolWatchTick; i < len(passedAt); i, wait = i+1, 2*wait {
+		require.Equal(t, wait, passedAt[i]-passedAt[i-1],
+			"pass %d of the unconsumed spool came at the doubling wait after the one before (passes at %v)",
+			i+1, passedAt)
+	}
+	require.Len(t, passedAt, maxPasses,
+		"every wait the schedule starts inside the horizon got its pass (passes at %v)", passedAt)
+	for _, at := range passedAt {
+		require.Less(t, at-passedAt[0], horizon,
+			"past the horizon the watcher stops passing it; the idle drain and the others own it (passes at %v)",
+			passedAt)
+	}
+	require.False(t, look(now, false),
+		"past the horizon, with no kick, the watcher has nothing left to look for: it polls nothing")
 	stop()
-	require.FileExists(t, filepath.Join(paths.Of(root).Spool, "client-6161.ndjson"),
+	require.FileExists(t, filepath.Join(paths.Of(root).Spool, spool),
 		"nothing of it was lost: it stays for a drain that can publish it")
 	require.False(t, spoolWatchPublished(dd, blocked.Nonce), "control: its predecessor never published")
 }
@@ -255,7 +347,7 @@ type spoolWatchSlow struct {
 // early with its context, before it publishes the delivery as the product would.
 func spoolWatchSlowDrain(dd *daemon, slow map[string]bool, d time.Duration) *spoolWatchSlow {
 	counts := &spoolWatchSlow{}
-	cfg := dd.drainConfig()
+	cfg := lineDeadlineDrainConfig(dd)
 	dispatch := cfg.Dispatch
 	cfg.Dispatch = func(ctx context.Context, req ipc.Request) ipc.Response {
 		if slow[req.Nonce] {
@@ -354,9 +446,11 @@ func TestSpoolWatch_APassItsBudgetCutShortDoesNotBackOffTheSpoolsItLeft(t *testi
 // judge the spools it never finished, which are due again at the next look, but it did judge the ones
 // it reached and finished: a spool whose line waits on an arrival nothing publishes keeps the doubling
 // wait. The watcher set every due spool due again after such a pass, and under load nearly every pass
-// ends on its budget, so a blocked spool was re-read and its file re-synced at every look until the
-// horizon, the fsync pressure the back-off exists to spare a loaded host. Here a blocked spool comes
-// first, then one whose publication outlasts the pass's budget, then one the pass never reaches.
+// ends on its budget, so a blocked spool made a pass due at every look until the horizon. The back-off
+// limits the passes a spool makes due; a pass another spool makes due still reads the blocked one, as
+// every pass reads every client spool (spool_watch.go), though without syncing it again while it is
+// unchanged. Here a blocked spool comes first, then one whose publication outlasts the pass's budget,
+// then one the pass never reaches.
 func TestSpoolWatch_ABudgetStopKeepsTheBackoffOfTheSpoolsItReached(t *testing.T) {
 	dd, _, root := laneTestDaemon(t)
 	ctx := context.Background()
@@ -419,7 +513,7 @@ func TestDrainClientSpools_ABudgetedPassWhoseSyncsOutlastItsBudgetStillConsumesA
 	first := liveOrderTool(dd, root, "sess-spool-slow-sync", 1)
 	second := liveOrderTool(dd, root, "sess-spool-slow-sync", 2)
 	writeSpoolLines(t, root, "client-8301.ndjson", first, second)
-	dr := newDrainer(dd.drainConfig())
+	dr := newDrainer(lineDeadlineDrainConfig(dd))
 	sync := dr.syncFile
 	dr.syncFile = func(path string) error {
 		timer := time.NewTimer(idleRunBudget + spoolWatchTick) // longer than the whole budget
@@ -440,7 +534,7 @@ func TestDrainClientSpools_ABudgetedPassWhoseSyncsOutlastItsBudgetStillConsumesA
 // served request kicks the watcher, which then publishes it.
 func TestSpoolWatch_DoesNothingWithoutAKick(t *testing.T) {
 	dd, _, root := laneTestDaemon(t)
-	dd.drain.Store(newDrainer(dd.drainConfig()))
+	dd.drain.Store(newDrainer(contentDrainConfig(dd)))
 	liveOrderWorkers(t, dd, 2, dd.runIngested)
 	startSpoolWatch(t, dd, spoolWatchTick, liveOrderBound)
 
@@ -466,7 +560,7 @@ func TestSpoolWatch_DoesNothingWithoutAKick(t *testing.T) {
 // consumes it, and it publishes the client spool beside it.
 func TestDrainClientSpools_LeavesWALSegmentsToTheWorkerPool(t *testing.T) {
 	dd, _, root := laneTestDaemon(t)
-	dd.drain.Store(newDrainer(dd.drainConfig()))
+	dd.drain.Store(newDrainer(contentDrainConfig(dd)))
 	ctx := context.Background()
 
 	const sess core.SessionID = "sess-client-only"
@@ -499,7 +593,7 @@ func TestDrainClientSpools_LeavesWALSegmentsToTheWorkerPool(t *testing.T) {
 // after the worker has published absorbs the copy and releases the spool.
 func TestDrainClientSpools_DefersTheSpooledCopyOfADeliveryInFlight(t *testing.T) {
 	dd, _, root := laneTestDaemon(t)
-	dd.drain.Store(newDrainer(dd.drainConfig()))
+	dd.drain.Store(newDrainer(contentDrainConfig(dd)))
 	ctx := context.Background()
 
 	const sess core.SessionID = "sess-late-ack"
@@ -554,7 +648,7 @@ func TestSpoolRetryAfter_Doubles(t *testing.T) {
 // among them) do not run and only its kick can publish the spool: without the kick the row fails.
 func TestSpoolWatch_TheIdleTickKicksItInSpoolSubmode(t *testing.T) {
 	dd, _, root := laneTestDaemon(t)
-	dd.drain.Store(newDrainer(dd.drainConfig()))
+	dd.drain.Store(newDrainer(contentDrainConfig(dd)))
 	liveOrderWorkers(t, dd, 2, dd.runIngested)
 	ctx := context.Background()
 	// The project is active: a session's hooks ran just now, so the tick runs no idle task.
@@ -602,7 +696,7 @@ func spoolIndexed(dd *daemon, base string) bool {
 // file at all: its settle's cost is the listing.
 func TestSpoolWatch_IndexesTheSpoolsItsPassLeavesForThePreCompactSettle(t *testing.T) {
 	dd, _, root := laneTestDaemon(t)
-	dd.drain.Store(newDrainer(dd.drainConfig()))
+	dd.drain.Store(newDrainer(contentDrainConfig(dd)))
 	liveOrderWorkers(t, dd, 2, dd.runIngested)
 	startSpoolWatch(t, dd, spoolWatchTick, liveOrderBound)
 	ctx := context.Background()

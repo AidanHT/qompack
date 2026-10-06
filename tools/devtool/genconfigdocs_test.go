@@ -358,3 +358,19 @@ func TestGenConfigDocs_ReloadSectionListsEveryClassifiedKey(t *testing.T) {
 		require.Contains(t, page, quoted, "%s must quote what the reload reports", configDocPath)
 	}
 }
+
+// TestGenConfigDocs_GatedRefusalIsDescribedAsTheCodeRecordsIt is audit 2's finding #21. The
+// generated page said a refused gated switch "is reported as a warning", while the loader records
+// the refusal as a §11.3 invalid value: it is in state/config-violations.json, loud once per daemon
+// start and counted by doctor's config.violations, as troubleshooting §6 says. The two pages
+// contradicted each other. The section's prose now says what the code does.
+func TestGenConfigDocs_GatedRefusalIsDescribedAsTheCodeRecordsIt(t *testing.T) {
+	page := renderedConfigPage(t)
+	start := strings.Index(page, "## Gated switches (ship off)")
+	require.GreaterOrEqual(t, start, 0)
+	end := strings.Index(page[start:], "| Key |")
+	require.Positive(t, end)
+	prose := strings.Join(strings.Fields(page[start:start+end]), " ")
+	require.Contains(t, prose, "the refusal is recorded as an invalid value (`state/config-violations.json`)")
+	require.NotContains(t, prose, "reported as a warning")
+}

@@ -79,6 +79,13 @@ const scLatencyP99 = 1500 * time.Millisecond
 // scLatencyRuns is how many samples the latency case takes.
 const scLatencyRuns = 30
 
+// scColoadJudges names the in-tree lanes that run test/e2e alone without obs.UnderColoadEnv, and so
+// apply scLatencyP99 when a co-loaded run only reports it: ci.yml's test-e2e job, and devtool's own
+// test/e2e pass (wholeTreePasses), which test, cover, ci-local and release-check run, as ci.yml's
+// cover job does.
+const scColoadJudges = "ci.yml's test-e2e and cover jobs, and devtool test, cover, ci-local and " +
+	"release-check, each of which runs test/e2e in a pass of its own"
+
 // ── setup helpers ───────────────────────────────────────────────────────────────────────────
 
 // scProject builds a disposable project whose source tree is the proj-a rules fixture and whose
@@ -651,15 +658,24 @@ func TestUserIntent_FirstPromptIDMatchesObserver(t *testing.T) {
 
 // TestE2E_SessionStartLatency grades a warm compact start against §11.2's first-turn-after budget.
 //
-// IT IS GUARDED, and the guard is not optional: the number is a wall-clock p99 over 30 process
-// spawns on a machine this suite shares with every other test in the tree, so under co-load it
-// reports the host rather than the code. `go test -short` skips it; CI runs it only where the
-// suite has the machine to itself.
+// It is a timing row, and it is gated the way the other intrinsically wall-clock rows are (ADR
+// 0010 decision 2, obs.UnderColoadEnv). The number is a wall-clock p99 over 30 process spawns,
+// each a whole hook process and its round trip to the daemon, so no CPU clock stands in for it.
+// Run alone, as scColoadJudges names, it is judged against scLatencyP99. In a run that declares
+// co-load it is measured and reported, with the limit it does not apply and where that limit is
+// still applied, as X11 reports B-A. It is not fsync-bound: the rehydration state file's durable
+// write follows the answer (C1.16, scStateRecordBound), so a non-reference disk declaration leaves
+// it gated.
+//
+// Criterion change (wave 21, D53(a)): the row used to skip itself under -short, a guard nothing ran
+// and ADR 0010 rules out, and it gated even under a declared co-load. Wave 20's status verifier
+// measured p99 1.53 s in an undeclared daytime co-loaded run, and its whole distribution had moved,
+// not one sample: 158 ms to 1.53 s, median about 380 ms. Runs on AC at wave 21, alone and inside
+// whole test/e2e runs, measured p99 142 to 319 ms, and the worst tail seen was one 633 ms sample,
+// the next at 254 ms, in a quiet test/e2e run (X11 skipped) at 03f6824a: nearest-rank p99 over 30
+// samples is the maximum, so one spawn decides the row. So the row now runs under -short, reports
+// under the declaration, and always logs its samples. The budget and the statistic are unchanged.
 func TestE2E_SessionStartLatency(t *testing.T) {
-	if testing.Short() {
-		t.Skip("wall-clock latency is unreliable under co-load; -short skips it")
-	}
-
 	bin := Build(t)
 	p := scProject(t)
 	t.Cleanup(func() { e2eShutdownIfReachable(t, p.Root) })
@@ -680,6 +696,14 @@ func TestE2E_SessionStartLatency(t *testing.T) {
 	idx := (99*len(samples)+99)/100 - 1
 	p99 := samples[min(max(idx, 0), len(samples)-1)]
 
+	t.Logf("SessionStart latency: p99 of %d warm compact session-starts = %s against the %s budget "+
+		"(samples: %s)", len(samples), p99, scLatencyP99, fmt.Sprint(samples))
+	if obs.UnderCoload() {
+		t.Logf("%s is set: this co-loaded run reports the p99 above and does not apply the %s budget "+
+			"(ADR 0010 decision 2). It is applied where test/e2e runs alone without the declaration: %s",
+			obs.UnderColoadEnv, scLatencyP99, scColoadJudges)
+		return
+	}
 	require.Less(t, p99, scLatencyP99,
 		"p99 of %d warm compact session-starts was %s, over the %s budget (samples: %s)",
 		len(samples), p99, scLatencyP99, fmt.Sprint(samples))

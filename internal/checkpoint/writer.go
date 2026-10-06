@@ -12,6 +12,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/qompack/qompack/internal/config"
 	"github.com/qompack/qompack/internal/core"
@@ -101,10 +102,11 @@ type FileWriter struct {
 	// concurrent calls for one session both observe no live draft, both publish, and the loser's
 	// draft is displaced while still holding the same file path.
 	begins map[core.SessionID]*sessionGate
-	// handoff carries a sealed draft's prompt-text cache to the successor Finalize opens for the
-	// same session (afterSeal), so the successor's intent refresh does not re-read every prompt of
-	// the session inside the PreCompact window. Begin consumes the entry; it is never read twice.
-	handoff map[core.SessionID]map[core.ToolUseID]string
+	// handoff carries what a sealed draft learned of its prompt records (promptHandoff) to the
+	// successor Finalize opens for the same session (afterSeal), so the successor's intent refresh
+	// does not re-read the session's prompts, a long paste's whole bytes included, inside the
+	// PreCompact window. Begin consumes the entry; it is never read twice.
+	handoff map[core.SessionID]promptHandoff
 
 	// claimFloorMu serializes loadClaimFloor and guards claimFloorLoaded and draftScans.
 	// claimFloorLoaded is set once persistedClaimFloor has run to completion for this writer; its
@@ -115,6 +117,11 @@ type FileWriter struct {
 	// draftScans counts persistedClaimFloor's state/ scans, so a test can pin that a writer makes
 	// one (export_test.go).
 	draftScans int
+	// wallNow is the wall-clock reading PreCompact anchors its context deadline to: the instant
+	// context.WithTimeout would read, made explicit. Nil is time.Now, which is all production ever
+	// uses. A test sets it (export_test.go) to record that instant, so it can read back the budget
+	// PreCompact installed as deadline minus installation time, however long the call then takes.
+	wallNow func() time.Time
 }
 
 // sessionGate is one session's Begin admission gate, reference-counted so the map does not grow
@@ -222,6 +229,25 @@ func (w *FileWriter) claimSeq() core.CheckpointSeq {
 	}
 	w.issuedSeq = seq
 	return seq
+}
+
+// releaseSeq gives back seq, which claimSeq handed to a fresh draft that Begin then could not
+// begin: it failed before the draft was persisted or published, so no draft, draft file or encode
+// record holds the number. It is given back only while it is still the newest number this writer
+// has handed out, and never below the number before it, which a claim made since, a resumed draft
+// or loadClaimFloor's floor may hold. When another claim came after it the number stays a gap,
+// which costs nothing but its spelling.
+//
+// Without it a failed Begin cost the session a number. Finalize opens the successor draft on
+// PreCompact's context, and a PreCompact that has spent its wall-clock budget hands it an expired
+// one, so the successor's read of the checkpoint just sealed fails; the session's next checkpoint
+// was then sealed two numbers after the last (wave 22, D67(a)).
+func (w *FileWriter) releaseSeq(seq core.CheckpointSeq) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.issuedSeq == seq {
+		w.issuedSeq = seq - 1
+	}
 }
 
 // noteSeq records a sequence number this writer did not allocate — a resumed draft's — so a later
@@ -383,10 +409,10 @@ func (w *FileWriter) Begin(ctx context.Context, s core.SessionID, parent core.Ch
 	gate := w.acquireBeginGate(s)
 	defer w.releaseBeginGate(s, gate)
 
-	// The sealed predecessor's prompt texts, when Finalize is opening this draft as its successor
-	// (afterSeal). They are taken on every path, so a Begin that finds a live draft or resumes a
-	// persisted one leaves nothing stashed; prompt records are immutable, so a text read once
-	// stays valid for whichever draft uses it.
+	// What the sealed predecessor learned of its prompt records, when Finalize is opening this
+	// draft as its successor (afterSeal). It is taken on every path, so a Begin that finds a live
+	// draft or resumes a persisted one leaves nothing stashed; prompt records are immutable, so
+	// what was read once stays valid for whichever draft uses it.
 	handed := w.takeHandoff(s)
 
 	w.mu.Lock()
@@ -423,10 +449,15 @@ func (w *FileWriter) Begin(ctx context.Context, s core.SessionID, parent core.Ch
 		}}
 		d.mu.Unlock()
 		fork := w.forkIntentFor(ctx, src.Store, s, &prior)
+		var inheritedDec map[core.DecisionID]core.UnixMilli
+		if fp, at, ok := w.forkPoint(ctx, s, inherit); ok {
+			inheritedDec = inheritedDecisions(src.Graph, fp, at)
+		}
 		d.mu.Lock()
 		d.fork = fork
 		d.inherit = inherit
-		d.promptText = handed
+		d.inheritedDec = inheritedDec
+		d.promptText, d.goalSeen, d.oversized = handed.texts, handed.goals, handed.oversized
 		d.refreshIntentLocked(ctx)
 		d.persistOrLogLocked()
 		d.mu.Unlock()
@@ -449,7 +480,9 @@ func (w *FileWriter) Begin(ctx context.Context, s core.SessionID, parent core.Ch
 		path:       p,
 		fileTurn:   map[string]core.TurnIndex{},
 		toolTurn:   map[core.ToolUseID]core.TurnIndex{},
-		promptText: handed,
+		promptText: handed.texts,
+		goalSeen:   handed.goals,
+		oversized:  handed.oversized,
 		inherit:    inherit,
 	}
 	d.cp = Checkpoint{
@@ -460,12 +493,16 @@ func (w *FileWriter) Begin(ctx context.Context, s core.SessionID, parent core.Ch
 		Cache:      CacheInfo{TTLState: ttlStateUnknown},
 	}
 
+	// Until the draft is persisted no draft, draft file or encode record holds d.seq, so a Begin
+	// that fails before then gives its number back (releaseSeq).
 	if err := w.seedTierOne(ctx, d, parent, src); err != nil {
+		w.releaseSeq(d.seq)
 		return nil, err
 	}
 
 	fr, err := src.Segments.Frontier(ctx, s)
 	if err != nil {
+		w.releaseSeq(d.seq)
 		return nil, fmt.Errorf("checkpoint: begin: frontier: %w", err)
 	}
 	d.frontier = fr
@@ -517,6 +554,12 @@ func (w *FileWriter) resumeDraft(s core.SessionID, p string, parent core.Checkpo
 			src:          src,
 			started:      df.Started.Time(),
 			workExplicit: df.WorkExplicit,
+			// The fallback's turn gate (encodeSegmentLocked) survives the restart. A file without
+			// goal_turn holding a derived goal was written by candidate 7 or earlier, whose goal came
+			// from a segment the draft had already encoded; any segment the fallback encodes later
+			// lies past it, so taking its prompt is never a move backwards, and for a fork whose
+			// candidate-7 goal was its parent's prompt it is the fix.
+			goalTurnSet: df.GoalTurn != nil,
 			// A resumed draft is written back once, unconditionally: the file on disk was produced
 			// by whatever build wrote it last, and normalizing it here is what keeps a later
 			// resume reading this version's shape.
@@ -526,6 +569,9 @@ func (w *FileWriter) resumeDraft(s core.SessionID, p string, parent core.Checkpo
 			derivedOQ: derived,
 			fileTurn:  map[string]core.TurnIndex{},
 			toolTurn:  map[core.ToolUseID]core.TurnIndex{},
+		}
+		if df.GoalTurn != nil {
+			d.goalTurn = *df.GoalTurn
 		}
 		if parent != 0 {
 			d.parent = parent
@@ -623,15 +669,21 @@ func (w *FileWriter) seedTierOne(ctx context.Context, d *Draft, parent core.Chec
 	// the eliminations they may depend on are seeded. When the derived parent is another
 	// session's (a cold draft begun after someone else sealed), the carry reads this session's
 	// own newest checkpoint instead, as seedIntent's fallback does; parent and intent are unchanged.
+	// A fork with no checkpoint of its own carries from the one its conversation continued (its
+	// fork point), whose explains decisions rank as another session's (inheritedDec).
 	carryFrom := own
 	if carryFrom == nil && derived {
 		if latest, ok := w.ownLatest(ctx, d.session); ok {
 			carryFrom = &latest
 		}
 	}
-	if carryFrom != nil {
-		d.carryDecisionsLocked(carryFrom.Decisions, invs)
+	if fp, at, ok := w.forkPoint(ctx, d.session, d.inherit); ok {
+		d.inheritedDec = inheritedDecisions(src.Graph, fp, at)
+		if carryFrom == nil {
+			carryFrom = &fp
+		}
 	}
+	d.carryDecisionsLocked(ctx, carryFrom, invs)
 	return nil
 }
 
@@ -918,9 +970,26 @@ func (w *FileWriter) encodeSegmentLocked(ctx context.Context, d *Draft, seg stor
 	// Current work: skipped entirely once SetCurrentWork has spoken (§7). The derived form is
 	// one sentence of the most recent prompt, an empty NextStep and a nil BlockedOn — inventing
 	// a next step from tool history is exactly the drift this layer exists to eliminate (§8).
-	if !d.workExplicit && len(prompts) > 0 {
-		if text, ok := readPromptText(ctx, src, prompts[len(prompts)-1]); ok && text != "" {
-			d.cp.CurrentWork = CurrentWork{Goal: truncRunes(firstSentence(text), goalMaxRunes)}
+	// While the session's own prompt records can be listed it is derived from them at every refresh
+	// (deriveCurrentWorkLocked). Only while they cannot — a store without SessionPrompts, or one
+	// whose last answer failed — is it read here from the graph, and then only from a prompt node
+	// of this session that gives a goal (goalOf): the graph's userprompt nodes are shared across
+	// sessions by turn, and taking the segment's highest one put a fork's parent's prompt in the
+	// fork's current work.
+	//
+	// It replaces the goal held only with a prompt at a LATER turn than the one that goal was read
+	// from. The segment encoded here is closed, and the open segment's prompts are newer, so while a
+	// failing list (core.ErrDegraded, or the context running out inside the idle Advance budget)
+	// left the records-derived goal in place, this fallback used to move current work back to an
+	// older prompt, and a compaction inside that window sealed it so. Once the records answer again
+	// they have the last word: deriveCurrentWorkLocked walks them at every refresh, and the prompt
+	// taken here is one of them, listed then. A walk that reads it finds it, or a newer prompt that
+	// gives a goal, before any older one; a walk that cannot read it does not step back past its turn
+	// (goalTurn) either. The gate survives a restart (goal_turn).
+	if !d.promptsAnswered && !d.workExplicit {
+		if turn, goal, ok := ownNewestGoal(ctx, src, d.session, prompts); ok && (!d.goalTurnSet || turn > d.goalTurn) {
+			d.cp.CurrentWork = CurrentWork{Goal: goal}
+			d.setGoalTurnLocked(turn, true)
 		}
 	}
 
@@ -1155,7 +1224,7 @@ func (d *Draft) mergeDecisionsLocked(cands []decisionCandidate) {
 // foreignDecisionsLocked is foreignDecisions over the draft's carried eliminations and this
 // pass's candidates. Caller holds d.mu.
 func (d *Draft) foreignDecisionsLocked(cands []decisionCandidate) map[core.DecisionID]core.UnixMilli {
-	return foreignDecisions(d.cp.Eliminated, d.session, cands)
+	return foreignDecisions(d.cp.Eliminated, d.session, cands, d.inheritedDec)
 }
 
 // ForeignDecisions maps each of cp's decisions that was minted from another session's
@@ -1164,7 +1233,7 @@ func (d *Draft) foreignDecisionsLocked(cands []decisionCandidate) map[core.Decis
 // cp.Decisions — item 4 of a rehydration ranks by slice score — so they keep the session's own
 // decisions ahead of the foreign ones, as the sealed order does. An id absent from the map is own.
 func ForeignDecisions(cp Checkpoint) map[core.DecisionID]core.UnixMilli {
-	return foreignDecisions(cp.Eliminated, cp.Session, nil)
+	return foreignDecisions(cp.Eliminated, cp.Session, nil, nil)
 }
 
 // foreignDecisions maps each foreign decision id to its record's recorded time. A checkpoint keeps
@@ -1174,7 +1243,12 @@ func ForeignDecisions(cp Checkpoint) map[core.DecisionID]core.UnixMilli {
 // any record the draft has not merged yet. An id this session's own record also mints is own, and
 // when two foreign records mint one id the newer time stands. A resumed draft therefore ranks
 // exactly as the draft that persisted it did, and a sealed checkpoint's reader ranks as its writer.
-func foreignDecisions(eliminated []negknow.Record, session core.SessionID, cands []decisionCandidate) map[core.DecisionID]core.UnixMilli {
+//
+// inherited are a fork's inherited explains decisions (Draft.inheritedDec): foreign at the fork's
+// start unless a record already classifies the id, either way.
+func foreignDecisions(eliminated []negknow.Record, session core.SessionID, cands []decisionCandidate,
+	inherited map[core.DecisionID]core.UnixMilli,
+) map[core.DecisionID]core.UnixMilli {
 	foreign := make(map[core.DecisionID]core.UnixMilli)
 	own := make(map[core.DecisionID]bool)
 	note := func(id core.DecisionID, isForeign bool, at core.UnixMilli) {
@@ -1198,6 +1272,11 @@ func foreignDecisions(eliminated []negknow.Record, session core.SessionID, cands
 	}
 	for id := range own {
 		delete(foreign, id)
+	}
+	for id, at := range inherited {
+		if _, classified := foreign[id]; !classified && !own[id] {
+			foreign[id] = at
+		}
 	}
 	return foreign
 }
@@ -1446,6 +1525,33 @@ func earliestPrompt(g dag.Graph) (dag.Node, bool) {
 		}
 	}
 	return best, true
+}
+
+// ownNewestGoal returns the goal (goalOf) of the highest-turn node of prompts (ascending by turn)
+// that is not another session's and gives one, with its turn, looking at most goalWalkLimit nodes
+// back. A node whose Ref resolves to a prompt record of a different session is skipped. A node
+// whose record cannot be read is not skipped — no evidence it is foreign — and readPromptText then
+// decides whether it has text, as the graph-read form always did.
+func ownNewestGoal(ctx context.Context, src SourceSet, session core.SessionID, prompts []dag.Node) (core.TurnIndex,
+	string, bool,
+) {
+	for i := len(prompts) - 1; i >= 0 && len(prompts)-i <= goalWalkLimit; i-- {
+		n := prompts[i]
+		if n.Ref != "" {
+			if rec, err := src.Store.ToolUse(ctx, core.ToolUseID(n.Ref)); err == nil &&
+				rec.Session != "" && rec.Session != session {
+				continue
+			}
+		}
+		text, ok := readPromptText(ctx, src, n)
+		if !ok {
+			continue
+		}
+		if goal, ok := goalOf(text); ok {
+			return n.Turn, goal, true
+		}
+	}
+	return 0, "", false
 }
 
 // readPromptText resolves one user-prompt node to its stored text, through fromStore — every

@@ -274,3 +274,63 @@ func TestRegistryTouchRevivesAnAbandonedSessionButNotAnEndedOne(t *testing.T) {
 	r.Touch("sess-lunch", 126_000)
 	require.False(t, r.IsLive("sess-lunch"), "SessionEnd after an abandonment is final")
 }
+
+// TestRegistrySnapshotIsOrderedByActivityThenID pins the snapshot's order, which status prints as
+// data.snapshot.sessions (C4.5, D53(a)): most recent LastActivity first, ties by session id, the
+// same on every call however the map underneath happens to iterate.
+func TestRegistrySnapshotIsOrderedByActivityThenID(t *testing.T) {
+	t.Parallel()
+
+	r := NewSessionRegistry()
+	r.Ensure(&hookio.Event{SessionID: "e"}, 100)
+	r.Ensure(&hookio.Event{SessionID: "c"}, 100)
+	r.Ensure(&hookio.Event{SessionID: "b"}, 200)
+	r.Ensure(&hookio.Event{SessionID: "a"}, 200)
+	r.Ensure(&hookio.Event{SessionID: "d"}, 300)
+	r.End("d", 400) // ending is not activity: d keeps its place
+
+	ids := func() []core.SessionID {
+		snap := r.Snapshot()
+		out := make([]core.SessionID, 0, len(snap))
+		for _, s := range snap {
+			out = append(out, s.ID)
+		}
+		return out
+	}
+	first := ids()
+	for i := 1; i < 30; i++ {
+		require.Equal(t, first, ids(), "snapshot %d of unchanged state disagrees with the first", i+1)
+	}
+	require.Equal(t, []core.SessionID{"d", "a", "b", "c", "e"}, first,
+		"most recent activity first, ties by session id")
+}
+
+// TestRegistryEvictionBreaksAnEndedTSTieBySessionID pins evictLocked's tie-break: when the ended
+// sessions over the limit share their EndedTS, the one with the smallest session id is evicted,
+// the same on every run. Picking by map range alone left a tie to Go's randomized iteration order.
+func TestRegistryEvictionBreaksAnEndedTSTieBySessionID(t *testing.T) {
+	t.Parallel()
+
+	ended := []core.SessionID{"e", "c", "a", "d", "b"} // registered out of id order on purpose
+	for trial := 1; trial <= 30; trial++ {
+		r := NewSessionRegistry()
+		r.SetMaxSessions(len(ended) + 1)
+		r.Ensure(&hookio.Event{SessionID: "live"}, 100)
+		for _, id := range ended {
+			r.Ensure(&hookio.Event{SessionID: id}, 100)
+			r.End(id, 500) // every ended session shares one EndedTS
+		}
+
+		// One more session takes the tracked count over the limit: exactly one ended session goes.
+		r.Ensure(&hookio.Event{SessionID: "new"}, 600)
+
+		require.Equal(t, len(ended)+1, r.Len(), "trial %d: exactly one session is evicted", trial)
+		_, ok := r.Get("a")
+		require.False(t, ok, "trial %d: of the ended sessions tied at one EndedTS, the smallest id "+
+			"(a) must be the one evicted", trial)
+		for _, id := range []core.SessionID{"b", "c", "d", "e", "live", "new"} {
+			_, ok := r.Get(id)
+			require.True(t, ok, "trial %d: %s must be kept", trial, id)
+		}
+	}
+}

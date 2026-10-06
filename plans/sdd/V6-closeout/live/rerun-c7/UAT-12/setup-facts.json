@@ -1,0 +1,68 @@
+{
+ "files": {
+  "README.md": {
+   "bytes": 146,
+   "sha256": "28ee0a40c54a3728e9872021e80496212c97238d0a5756b1bf3f626a77551958"
+  },
+  "big.log": {
+   "bytes": 317200,
+   "sha256": "119419e5c844a8a9d3a5fc97f214580e12158d9ea68facb1b23cf9bdf705e960"
+  },
+  "blob.bin": {
+   "bytes": 3000,
+   "sha256": "50c91d34282fd3d7ad9d4784c9473b3c78a565d413fe0b58c636fea8d4a050b8"
+  },
+  "calc.py": {
+   "bytes": 99,
+   "sha256": "2364f9860657b47c00d4efdb258b26a50285029abd65299340d5026f2bf7fd09"
+  },
+  "deploy_notes.md": {
+   "bytes": 218,
+   "sha256": "2c7fa60a55897e4489c14915df7851ba3727128f717e59445f7d047c0b524b96"
+  },
+  "notes-a.md": {
+   "bytes": 82,
+   "sha256": "8783d5ff7cb5a4e1bf46a7f9ddcfe3f9c23a3e31eceaaa04b3cfb1766c4e7ccd"
+  },
+  "notes-b.md": {
+   "bytes": 81,
+   "sha256": "d65eb33909afee5c0547ff8ea76b1200bdc7d4e771e5bc56753b88db0da9142b"
+  },
+  "notes-c.md": {
+   "bytes": 82,
+   "sha256": "71014ad6bf43266a11bd6e23c13d4679e3987606e55bea23aa6e0939eac6f48a"
+  },
+  "pixel.png": {
+   "bytes": 1467,
+   "sha256": "97da97e68d3dc5244ea5f30fd0b6f841896fa4d7fdcfde983eed8f30bed2632a"
+  },
+  "private/deny.txt": {
+   "bytes": 205,
+   "sha256": "907827e9c4b3835140b51fbd5f7bdebc569a670604eaf68e8e7e43a47ddf1ef0"
+  }
+ },
+ "project": "<scratch>/retrieval/c7/uat12/proj (git init + one commit)",
+ "outside": {
+  "<scratch>/retrieval/c7/uat12/outside/outside.txt": 53
+ },
+ "big_log_lines": 1300,
+ "planted_secrets": [
+  {
+   "placeholder": "@@SEC_PLANTED_1@@",
+   "shape": "aws_access_key_id (AKIA + 16)",
+   "chars": 20,
+   "sha256": "010894325c0d3a8fafe211c8aa68f42014435d166b79567a9ec14303a8a28342",
+   "file": "deploy_notes.md"
+  },
+  {
+   "placeholder": "@@SEC_PLANTED_2@@",
+   "shape": "github token (ghp_ + 36)",
+   "chars": 40,
+   "sha256": "14c632b927f03651f2c898aa8a41c7884aca56363ca0a4ff8b04e75820574a45",
+   "file": "deploy_notes.md"
+  }
+ ],
+ "config": "defaults, no config file: runtime.redact.enabled true, runtime.mcp.maxResponseBytes 262144, store.retention.* default",
+ "env": "sessions and CLI: QOMPACK_HOME=<scratch>/retrieval/c7/qhome, QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS=30, CLAUDE_CODE_FILE_READ_MAX_OUTPUT_TOKENS/MAX_MCP_OUTPUT_TOKENS/BASH_MAX_OUTPUT_LENGTH=150000 (host only)",
+ "deny_rule": "project .claude/settings.json {\"permissions\":{\"deny\":[\"Read(./private/deny.txt)\"]}} written before session A's turn 6 (after the permitted captures), in place for session B"
+}

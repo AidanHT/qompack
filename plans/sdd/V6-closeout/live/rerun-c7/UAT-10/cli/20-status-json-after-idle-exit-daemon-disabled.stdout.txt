@@ -1,0 +1,262 @@
+{
+  "schema": 1,
+  "command": "status",
+  "ok": true,
+  "data": {
+    "schema": 1,
+    "collected_at_ms": 1790972501954,
+    "primary": {
+      "source": "disk",
+      "status": "available",
+      "age_ms": 3331,
+      "reason": "daemon: no daemon answered: none is listening for this project yet. This command asked one to start unless runtime.daemon.enabled is false; run status again once it is up"
+    },
+    "snapshot": null,
+    "hooks": [
+      {
+        "event": "PostToolUse",
+        "subcommand": "observe tool",
+        "timeout_seconds": 5,
+        "budget": "B-A",
+        "latency": null,
+        "provenance": {
+          "source": "disk",
+          "status": "unavailable",
+          "age_ms": 3331,
+          "reason": "no per-hook instrument: PostToolUse is folded into the hook_controlled aggregate, which mixes every delivering hook and cannot be attributed to one"
+        }
+      },
+      {
+        "event": "UserPromptSubmit",
+        "subcommand": "observe prompt",
+        "timeout_seconds": 5,
+        "budget": "B-A",
+        "latency": null,
+        "provenance": {
+          "source": "disk",
+          "status": "unavailable",
+          "age_ms": 3331,
+          "reason": "no per-hook instrument: UserPromptSubmit is folded into the hook_controlled aggregate, which mixes every delivering hook and cannot be attributed to one"
+        }
+      },
+      {
+        "event": "SessionStart",
+        "subcommand": "session-start",
+        "timeout_seconds": 15,
+        "budget": "B-A",
+        "latency": null,
+        "provenance": {
+          "source": "disk",
+          "status": "unavailable",
+          "age_ms": 3331,
+          "reason": "no per-hook instrument: SessionStart is folded into the hook_controlled aggregate, which mixes every delivering hook and cannot be attributed to one"
+        }
+      },
+      {
+        "event": "PreCompact",
+        "subcommand": "checkpoint",
+        "timeout_seconds": 20,
+        "budget": "B-E",
+        "latency": {
+          "hist": "checkpoint_finalize",
+          "n": 1,
+          "p50_us": 73005,
+          "p95_us": 73005,
+          "p99_us": 73005,
+          "max_us": 73005,
+          "measure": "observed"
+        },
+        "provenance": {
+          "source": "disk",
+          "status": "available",
+          "age_ms": 3331
+        }
+      },
+      {
+        "event": "Stop",
+        "subcommand": "observe stop",
+        "timeout_seconds": 5,
+        "budget": "B-A",
+        "latency": null,
+        "provenance": {
+          "source": "disk",
+          "status": "unavailable",
+          "age_ms": 3331,
+          "reason": "no per-hook instrument: Stop is folded into the hook_controlled aggregate, which mixes every delivering hook and cannot be attributed to one"
+        }
+      },
+      {
+        "event": "SubagentStop",
+        "subcommand": "observe stop --subagent",
+        "timeout_seconds": 10,
+        "budget": "B-A",
+        "latency": null,
+        "provenance": {
+          "source": "disk",
+          "status": "unavailable",
+          "age_ms": 3331,
+          "reason": "no per-hook instrument: SubagentStop is folded into the hook_controlled aggregate, which mixes every delivering hook and cannot be attributed to one"
+        }
+      },
+      {
+        "event": "SessionEnd",
+        "subcommand": "flush",
+        "timeout_seconds": 20,
+        "budget": "B-A",
+        "latency": null,
+        "provenance": {
+          "source": "disk",
+          "status": "unavailable",
+          "age_ms": 3331,
+          "reason": "no per-hook instrument: SessionEnd is folded into the hook_controlled aggregate, which mixes every delivering hook and cannot be attributed to one"
+        }
+      }
+    ],
+    "budgets": [
+      {
+        "id": "B-A",
+        "hist": "hook_controlled",
+        "gated": true,
+        "aggregate": true,
+        "covers": [
+          "PostToolUse",
+          "UserPromptSubmit",
+          "SessionStart",
+          "Stop",
+          "SubagentStop",
+          "SessionEnd"
+        ],
+        "measure": "estimated",
+        "latency": {
+          "hist": "hook_controlled",
+          "n": 17,
+          "p50_us": 15360,
+          "p95_us": 128000,
+          "p99_us": 128000,
+          "max_us": 128000,
+          "measure": "estimated"
+        },
+        "provenance": {
+          "source": "disk",
+          "status": "available",
+          "age_ms": 3331
+        }
+      },
+      {
+        "id": "B-B",
+        "hist": "l0_ingest",
+        "gated": true,
+        "aggregate": true,
+        "measure": "observed",
+        "latency": {
+          "hist": "l0_ingest",
+          "n": 17,
+          "p50_us": 12288,
+          "p95_us": 124691,
+          "p99_us": 124691,
+          "max_us": 124691,
+          "measure": "observed"
+        },
+        "provenance": {
+          "source": "disk",
+          "status": "available",
+          "age_ms": 3331
+        }
+      },
+      {
+        "id": "B-C",
+        "hist": "l0_process",
+        "gated": false,
+        "aggregate": true,
+        "measure": "observed",
+        "latency": {
+          "hist": "l0_process",
+          "n": 17,
+          "p50_us": 81920,
+          "p95_us": 165484,
+          "p99_us": 165484,
+          "max_us": 165484,
+          "measure": "observed"
+        },
+        "provenance": {
+          "source": "disk",
+          "status": "available",
+          "age_ms": 3331
+        }
+      },
+      {
+        "id": "B-D",
+        "hist": "hook_wall",
+        "gated": false,
+        "aggregate": true,
+        "measure": "observed",
+        "latency": null,
+        "provenance": {
+          "source": "disk",
+          "status": "unavailable",
+          "age_ms": 3331,
+          "reason": "no instrument records this histogram in this build; it measures host process creation, which the created process cannot observe"
+        }
+      },
+      {
+        "id": "B-E",
+        "hist": "checkpoint_finalize",
+        "gated": true,
+        "aggregate": false,
+        "covers": [
+          "PreCompact"
+        ],
+        "measure": "observed",
+        "latency": {
+          "hist": "checkpoint_finalize",
+          "n": 1,
+          "p50_us": 73005,
+          "p95_us": 73005,
+          "p99_us": 73005,
+          "max_us": 73005,
+          "measure": "observed"
+        },
+        "provenance": {
+          "source": "disk",
+          "status": "available",
+          "age_ms": 3331
+        }
+      },
+      {
+        "id": "B-F",
+        "hist": "mcp_tool_call",
+        "gated": true,
+        "aggregate": true,
+        "measure": "observed",
+        "latency": {
+          "hist": "mcp_tool_call",
+          "n": 4,
+          "p50_us": 512,
+          "p95_us": 41054,
+          "p99_us": 41054,
+          "max_us": 41054,
+          "measure": "observed"
+        },
+        "provenance": {
+          "source": "disk",
+          "status": "available",
+          "age_ms": 3331
+        }
+      },
+      {
+        "id": "B-G",
+        "hist": "hook_degraded",
+        "gated": false,
+        "aggregate": true,
+        "measure": "observed",
+        "latency": null,
+        "provenance": {
+          "source": "disk",
+          "status": "unavailable",
+          "age_ms": 3331,
+          "reason": "hook_degraded: no samples recorded in the observed window"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,107 @@
+{
+  "version": 1,
+  "session": "fbc4b18c-53cf-42aa-8b2f-bc36c11c1258",
+  "seq": 1,
+  "created": "2026-10-02T08:42:26.158Z",
+  "encoded_segments": [
+    1
+  ],
+  "invariants": [
+    {
+      "id": "inv_8382970dffd4",
+      "text": "Never write to prod.db from the export code.",
+      "source": "user",
+      "pinned": 1790930533415
+    }
+  ],
+  "user_intent": {
+    "original": "We are adding a CSV export to the reports module. Requirement: the export must use a semicolon (;) as the field delimiter. Use the Read tool to read reports.py and tell me in one sentence where the export function should go.",
+    "evolution": [
+      "/qompack:pin Never write to prod.db from the export code.",
+      "Correction: the export delimiter must be a TAB character, not a semicolon. The semicolon requirement is superseded. Acknowledge in one sentence.",
+      "Call mcp__plugin_qompack_qompack__record_eliminated with target \"export delimiter\", approach \"semicolon delimiter\" and reason \"superseded by the user's correction: TAB is required\". Report the raw result in one line.",
+      "Run the Bash command `cat data/meta.txt` and tell me only that you read it; do not repeat its contents."
+    ]
+  },
+  "eliminated": [
+    {
+      "id": "elim_28bde5b2d2c2",
+      "session": "fbc4b18c-53cf-42aa-8b2f-bc36c11c1258",
+      "ts": 1790930541009,
+      "target": "export delimiter",
+      "approach": "semicolon delimiter",
+      "reason": "superseded by the user's correction: TAB is required",
+      "descriptor": {
+        "normalized_path": "export delimiter",
+        "symbol": "",
+        "approach_class": "semicolon-delimiter",
+        "reason_hash": "sha256:54afedbd40356db079912bdf6d6e3c14bb90a9c77920ef0a90953a0e0200df96"
+      },
+      "evidence": "sha256:e64a57f861d6d5b24d3fe80efda1633962d1f5d1e358533dae3186044424470a",
+      "depends_on": [],
+      "scope": "session",
+      "status": "active",
+      "source": 0
+    }
+  ],
+  "decisions": [
+    {
+      "id": "dec_dde1ccbde407",
+      "what": "rejected \"semicolon delimiter\" for export delimiter",
+      "why": "superseded by the user's correction: TAB is required",
+      "alternatives_rejected": [
+        "semicolon delimiter"
+      ],
+      "evidence": "sha256:e64a57f861d6d5b24d3fe80efda1633962d1f5d1e358533dae3186044424470a",
+      "turn": 7
+    }
+  ],
+  "open_questions": [],
+  "current_work": {
+    "goal": "Run the Bash command `cat data/meta.txt` and tell me only that you read it; do not repeat its contents.",
+    "next_step": "",
+    "blocked_on": null
+  },
+  "pointers": {
+    "files": [
+      {
+        "path": "reports.py",
+        "hash": "sha256:f7c85b3ea20255ad06ae7e75bb2d6e5c745ff4ae06de3a159431bb83bbb4e16f",
+        "why": "referenced"
+      }
+    ],
+    "tools": [
+      {
+        "tool_use_id": "toolu_017bX6NcvuMqwdJqoSVnVejQ",
+        "hash": "sha256:62a01f172d6fd9a1b2837526dcaeb0f67dd8f49fe93d1e1b6cd03d6a81e16227",
+        "summary": "cat data/meta.txt"
+      },
+      {
+        "tool_use_id": "toolu_01UCs8KW52bDg1rqyfLkHFaj",
+        "hash": "sha256:1146bcb981c0cb2ad00a4ee882f53d77282d57e527bd0176b4237afa4b9c5e3b",
+        "summary": "{\"max_results\":1,\"query\":\"select:mcp__plugin_qompack_qompack__record_eliminated\"}"
+      },
+      {
+        "tool_use_id": "toolu_01G3RS86mtMKsZ2mvQu4PKoc",
+        "hash": "sha256:c040c242ccc2bc07042a4ee07776b06918a021ec4a0b9b6beaffcaef4cfc334a",
+        "summary": "{\"approach\":\"semicolon delimiter\",\"reason\":\"superseded by the user's correction: TAB is required\",\"target\":\"export de…"
+      },
+      {
+        "tool_use_id": "toolu_015mCpBwQYZr2WjV3N3gHtNd",
+        "hash": "sha256:f7c85b3ea20255ad06ae7e75bb2d6e5c745ff4ae06de3a159431bb83bbb4e16f",
+        "summary": "<scratch>\\sessions\\c7\\uat05\\proj\\reports.py"
+      }
+    ]
+  },
+  "narrative": "seg 1 turns 0-9: 4 tool uses over 1 files; gap_seconds=0.00, lexical_cohesion=0.00, path_jaccard=0.00, prob_changepoint=0.00, todo_transition=0.00, tool_shift=0.00\n",
+  "sketch_refs": {
+    "touch": "touch.cms",
+    "tried": "tried.bloom"
+  },
+  "dropped": [],
+  "cache": {
+    "p_chosen": 0,
+    "rewrite_tokens": 0,
+    "ttl_state": "unknown"
+  }
+}

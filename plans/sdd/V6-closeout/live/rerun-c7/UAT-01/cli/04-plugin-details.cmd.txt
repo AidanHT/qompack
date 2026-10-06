@@ -1,0 +1,2 @@
+$ sh <scratch>/install/c7/../tools/unset.sh claude plugin details qompack-windows-amd64
+cwd: <scratch>/install/c7/uat01/proj

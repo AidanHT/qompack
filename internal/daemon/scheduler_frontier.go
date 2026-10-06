@@ -7,6 +7,7 @@ import (
 	"slices"
 
 	"github.com/qompack/qompack/internal/core"
+	"github.com/qompack/qompack/internal/hookio"
 	"github.com/qompack/qompack/internal/scheduler"
 	"github.com/qompack/qompack/internal/store"
 )
@@ -17,9 +18,11 @@ import (
 // closed-and-unencoded segments into the local checkpoint draft. This does not shorten the
 // host's native summary request or establish a committed publication frontier.
 //
-// Two entry points reach closeSegmentLocked and together cover every boundary event the design
-// names: Observe (scheduler_runtime.go) with cause "changepoint" when the detector declares, and
-// CloseSegmentOn, called by the tap, for todo completion, a passing test run and a git commit.
+// Two paths reach closeSegmentLocked and together cover every boundary event the design names:
+// Observe (scheduler_runtime.go) with cause "changepoint" when the detector declares, and the tap's
+// owed close (closeOwed, scheduler_runtime.go) for todo completion, a passing test run and a git
+// commit, which also makes a changepoint close that failed when a replay of its delivery comes.
+// CloseSegmentOn is the same close taken under the lock, for a caller that holds no delivery.
 
 // The frontier's instruments and log lines.
 const (
@@ -63,8 +66,8 @@ const (
 )
 
 // CloseSegmentOn closes the session's current segment at turn at with cause ∈ {todo, test,
-// commit} — the tap's task-boundary signals — and rolls its successor open. It takes the lock and
-// delegates to closeSegmentLocked.
+// commit} — the task-boundary signals, which the tap closes through its owed close (closeOwed) —
+// and rolls its successor open. It takes the lock and delegates to closeSegmentLocked.
 func (r *schedRuntime) CloseSegmentOn(ctx context.Context, at core.TurnIndex, f scheduler.Features, cause string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -95,7 +98,7 @@ func (r *schedRuntime) CloseSegmentForCompaction(ctx context.Context, sess core.
 	switch r.session {
 	case sess:
 	case "":
-		r.bindUnboundLocked(sess)
+		r.bindUnboundLocked(sess, nil)
 	default:
 		r.count(counterTapCompactForeign)
 		return nil
@@ -110,12 +113,31 @@ func (r *schedRuntime) CloseSegmentForCompaction(ctx context.Context, sess core.
 // bindUnboundLocked binds sess on a runtime bound to nothing, keeping the two accumulators a
 // segment close records. The bind resets them and restores the session's persisted values; what
 // this daemon observed before the bind came after that persist (an unbound runtime never
-// persists), so the turn is the later of the two and the open segment's tokens are their sum. Its
-// callers are a compaction close (CloseSegmentForCompaction) and a session's first hook
-// (bindOnFirstHook).
-func (r *schedRuntime) bindUnboundLocked(sess core.SessionID) {
-	seenTurn, seenTokens := r.maxTurn, r.openSegTokens
-	r.bindSessionLocked(sess, nil)
+// persists), so the turn is the later of the two and the open segment's tokens are their sum. The
+// deliveries this runtime applied unbound are in that sum, so their identities stay held next to the
+// restored account's own (schedRuntime.applied) and are persisted with the merged account. Its
+// callers are a compaction close (CloseSegmentForCompaction), a session's first hook
+// (bindOnFirstHook) and a replayed SessionStart (bindOnReplayedStart).
+//
+// One delivery can be in both halves: the previous daemon applied it, persisted the account holding
+// it and never committed it, and this runtime's startup drain replayed it before the bind. So the
+// sum leaves out the tokens of every delivery applied unbound that the restored account names
+// (unboundFolds against restoredApplied). The dedupe is against the account the bind actually
+// restored: when sess is not the session the document belongs to, the document is discarded, nothing
+// is restored, and the replay's tokens count for sess's account, which holds them nowhere else.
+//
+// e is the binding event whose model and subagent hints the bind reads (noteBindingEventLocked): a
+// replayed SessionStart's (bindOnReplayedStart), or nil for a binding that is no SessionStart.
+func (r *schedRuntime) bindUnboundLocked(sess core.SessionID, e *hookio.Event) {
+	seenTurn, seenTokens, seenHeld, folds := r.maxTurn, r.openSegTokens, r.heldLocked(), r.unboundFolds
+	r.bindSessionLocked(sess, e)
+	r.holdLocked(seenHeld)
+	for s, f := range folds {
+		if id, ok := r.restoredApplied[s]; ok && id == f.obs {
+			seenTokens = max(seenTokens-f.tokens, 0)
+		}
+	}
+	r.restoredApplied = nil
 	if seenTurn <= r.maxTurn && seenTokens == 0 {
 		return
 	}

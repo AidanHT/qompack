@@ -18,7 +18,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -247,7 +246,7 @@ func queueLeases(t *testing.T, p *leaseProbe, calls ...leaseCall) []*leaseRun {
 	out := make([]*leaseRun, len(calls))
 	for k, c := range calls {
 		out[k] = goLease(p, c)
-		deadline := time.Now().Add(ingestACKWait)
+		guard := hangGuard(t)
 		for {
 			q.mu.Lock()
 			queued := len(q.queue)
@@ -261,7 +260,7 @@ func queueLeases(t *testing.T, p *leaseProbe, calls ...leaseCall) []*leaseRun {
 			if queued+returned >= k+1 {
 				break
 			}
-			if time.Now().After(deadline) {
+			if hung(guard) {
 				t.Fatalf("lease %d neither queued behind the batch in flight nor returned", c.id)
 			}
 			runtime.Gosched()
@@ -352,7 +351,7 @@ func admittedLeases(j *deliveryJournal) int {
 // The bound only turns a deadlock into a failure.
 func awaitClosing(t *testing.T, j *deliveryJournal) {
 	t.Helper()
-	deadline := time.Now().Add(ingestACKWait)
+	guard := hangGuard(t)
 	for {
 		j.st.Lock()
 		closing := j.closing
@@ -360,7 +359,7 @@ func awaitClosing(t *testing.T, j *deliveryJournal) {
 		if closing {
 			return
 		}
-		if time.Now().After(deadline) {
+		if hung(guard) {
 			t.Fatal("Release never began to close the journal")
 		}
 		runtime.Gosched()
@@ -394,7 +393,7 @@ func awaitRelease(t *testing.T, released <-chan error) error {
 	select {
 	case err := <-released:
 		return err
-	case <-time.After(ingestACKWait):
+	case <-hangGuard(t):
 		t.Fatal("Release never returned")
 		return nil
 	}

@@ -1,0 +1,13 @@
+# merged HEAD 62d9290a, a1ccd1ff reverted by -overlay (store-publication-audit-prefix.json: the five vanished checks back to plain notes, hook call kept); Windows
+# go test -p 2 -count=1 -overlay=<store-publication-audit-prefix.json> -run '^TestAuditPublication_SnapshotCountsVanishedEntriesAsLiveWork$' -v ./internal/store/
+=== RUN   TestAuditPublication_SnapshotCountsVanishedEntriesAsLiveWork
+    publication_snapshot_test.go:200: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w22-w15carry/internal/store/publication_snapshot_test.go:200
+        	Error:      	Should be false
+        	Test:       	TestAuditPublication_SnapshotCountsVanishedEntriesAsLiveWork
+        	Messages:   	a file removed while the pass runs is live work, not unreadable: [capture sidecar unreadable pending-write marker unreadable]
+--- FAIL: TestAuditPublication_SnapshotCountsVanishedEntriesAsLiveWork (0.16s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/store	1.783s
+FAIL
+exit=1

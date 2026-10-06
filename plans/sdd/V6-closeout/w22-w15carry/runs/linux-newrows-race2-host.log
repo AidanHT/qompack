@@ -1,0 +1,38 @@
+run_id=cx-w22-w15carry-newrows-race2-3f50b4e-20261004T201302Z
+container=qompack-v6-linux-verification
+repo=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w22-w15carry
+rev=3f50b4ee
+commit=3f50b4ee730393ff96b1a65d3cb65b248e937aa5
+bundle_sha256=b040925419a60cd2fa7fd97828bf8a6daa12cb37557e355137d158fe1253332d
+host_started_utc=2026-10-04T20:13:28Z
+inner_args=--gomaxprocs 2 --count 3 --timeout 30m --run ^(TestBeginReleasesTheNumberOfADraftItCouldNotBegin|TestASuccessorThatCouldNotBeginCostsTheSessionNoNumber|TestLedgerAncestryAnswersAForkRecordedAfterItsFirstAnswer|TestCarriedDecisionRegainsItsAlternativeAfterATruncatedSeal|TestDecisionTruncatedAwayIsCarriedAgain|TestSecondCheckpointCarriesTheSessionsExplainsDecision|TestForkCarriesItsParentsDecisionsFromTheForkPoint|TestQuery_FilterMissAsksNoAncestry|TestAuditPublication_SnapshotCountsVanishedEntriesAsLiveWork|TestAuditPublication_SnapshotCountsAReplacedEntryAsLiveWork|TestFault_StartupGapOnStatusIgnoresTheContinuedCounter|TestV6_StartupAccountingReportsUnpublishedCaptureViaStatus)$ -- ./internal/checkpoint ./internal/negknow ./internal/store ./test/fault
+/work/cx-w22-w15carry-newrows-race2-3f50b4e-20261004T201302Z.bundle: OK
+run_id=cx-w22-w15carry-newrows-race2-3f50b4e-20261004T201302Z
+commit=3f50b4ee730393ff96b1a65d3cb65b248e937aa5
+tree=e02d95ad284707d4f3dedf7a02f076d9d264d2df
+bundle_sha256=b040925419a60cd2fa7fd97828bf8a6daa12cb37557e355137d158fe1253332d
+started_utc=2026-10-04T20:14:27Z
+uid=10001 user=qompack-test groups=qompack-test
+race=1 count=3 timeout=30m gomaxprocs=2 coload=0
+run=^(TestBeginReleasesTheNumberOfADraftItCouldNotBegin|TestASuccessorThatCouldNotBeginCostsTheSessionNoNumber|TestLedgerAncestryAnswersAForkRecordedAfterItsFirstAnswer|TestCarriedDecisionRegainsItsAlternativeAfterATruncatedSeal|TestDecisionTruncatedAwayIsCarriedAgain|TestSecondCheckpointCarriesTheSessionsExplainsDecision|TestForkCarriesItsParentsDecisionsFromTheForkPoint|TestQuery_FilterMissAsksNoAncestry|TestAuditPublication_SnapshotCountsVanishedEntriesAsLiveWork|TestAuditPublication_SnapshotCountsAReplacedEntryAsLiveWork|TestFault_StartupGapOnStatusIgnoresTheContinuedCounter|TestV6_StartupAccountingReportsUnpublishedCaptureViaStatus)$
+skip=
+extra_env=
+go version go1.26.6 linux/amd64
+linux
+amd64
+1
+/home/qompack-test/.cache/go-build
+/go/pkg/mod
+-mod=readonly
+off
+Linux e09d55cfc09b 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 GNU/Linux
+22
+PASS      github.com/qompack/qompack/internal/checkpoint  (pass=21 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/negknow  (pass=3 fail=0 skip=0)
+PASS      github.com/qompack/qompack/internal/store  (pass=6 fail=0 skip=0)
+PASS      github.com/qompack/qompack/test/fault  (pass=6 fail=0 skip=0)
+go_test_exit=0
+exit=0
+artifacts: C:/Users/Quant/AppData/Local/Temp/claude/qompack-audit/wave22/linux-w15carry/cx-w22-w15carry-newrows-race2-3f50b4e-20261004T201302Z-artifacts
+exit=0
+exit=0

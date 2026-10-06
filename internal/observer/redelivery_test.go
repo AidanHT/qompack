@@ -12,7 +12,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/qompack/qompack/internal/config"
 	"github.com/qompack/qompack/internal/core"
+	"github.com/qompack/qompack/internal/dag"
+	"github.com/qompack/qompack/internal/grammar"
+	"github.com/qompack/qompack/internal/logging"
 	"github.com/qompack/qompack/internal/obs"
 	"github.com/qompack/qompack/internal/paths"
 	"github.com/qompack/qompack/internal/store"
@@ -47,6 +51,9 @@ const (
 	rdxCounterUnanswered = "observer.derived_turn_probe_unanswered"
 	rdxCounterErrIndex   = "observer.err.index"
 	rdxCounterErrStopPut = "observer.err.stop.put"
+
+	// rdxStopSymbol is the action-grammar symbol a main-agent Stop contributes.
+	rdxStopSymbol grammar.Symbol = "stop"
 )
 
 // rdxDerivedToolID spells the identity a tool payload with NO tool_use_id is recorded under.
@@ -655,3 +662,109 @@ func TestRedelivery_DerivedToolIDWithADifferentRootMintsFreshly(t *testing.T) {
 // rdxBody is the tool-result content these tests read. It is long enough to chunk and to carry a
 // path, which is what makes it a supersession candidate as well as a record.
 const rdxBody = "export async function refreshToken() {}\nexport const ttl = 30\n"
+
+// ── Site 4: a redelivered main-agent Stop re-ran the turn boundary ───────────────────────────────
+
+// rdxGrammarObserver is newRealStoreObserver with an action grammar wired, which is the one thing a
+// main-agent Stop feeds besides the turn counter. The store is closed at cleanup unless the caller
+// closed it first (a restart does).
+func rdxGrammarObserver(t *testing.T, root string, clock *fakeClock, metrics obs.Registry,
+	g grammar.Sequitur,
+) (*observer, store.Store) {
+	t.Helper()
+	cfg := config.Defaults()
+	st, err := store.Open(root, cfg, store.Deps{Log: logging.Nop(), Clock: clock})
+	require.NoError(t, err)
+	gr, err := dag.Open(root, cfg, logging.Nop())
+	require.NoError(t, err)
+	built, err := New(Options{
+		ProjectRoot: root, Cfg: cfg, Store: st, Graph: gr, Grammar: g,
+		Log: logging.Nop(), Metrics: metrics, Clock: clock,
+	})
+	require.NoError(t, err)
+	impl, ok := built.(*observer)
+	require.True(t, ok, "New must return the concrete observer")
+	return impl, st
+}
+
+// rdxStopView is what a main-agent Stop changes in the session: the turn counter and the clock.
+func rdxStopView(o *observer) (core.TurnIndex, core.UnixMilli) {
+	st := o.session(testSession)
+	st.mu.Lock()
+	defer st.mu.Unlock()
+	return st.Turn, st.LastTS
+}
+
+// TestRedelivery_MainAgentStopIsAbsorbed is V6 close-out audit 2's finding 3. A main-agent Stop
+// writes no record, so the recognition rule the other entry points use (observationRecord) has
+// nothing to find, and a Stop whose commit Stop's runCancel, a bounded drain or a PreCompact settle
+// cut was replayed in full: the turn advanced a second time, so every later record of the session
+// was numbered one turn late, and the grammar took a second stop symbol for one host event.
+//
+// Recognized, the replay changes nothing: no turn, no symbol, and LastTS keeps naming the last host
+// event (the subagent branch's absorbed path omits the same bookkeeping, for the same reasons). It
+// holds across a restart whose observer.json was written after the Stop applied, which is when the
+// restarted daemon's drain replays a Stop its predecessor ran and never committed. A distinct Stop is
+// still a turn boundary, and a Stop with no identity keeps today's behaviour.
+func TestRedelivery_MainAgentStopIsAbsorbed(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		restart bool
+	}{
+		{name: "same process"},
+		{name: "restart with a persisted turn", restart: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			root := t.TempDir()
+			clock := newFakeClock()
+			metrics := obs.New(clock)
+			g := &fakeGrammar{}
+			o, st := rdxGrammarObserver(t, root, clock, metrics, g)
+			t.Cleanup(func() { _ = st.Close() })
+			ctx := context.Background()
+			first, err := core.NewObservationID(testSession, 1)
+			require.NoError(t, err)
+
+			_, err = o.OnStop(WithObservation(ctx, first), stopOf(false), false)
+			require.NoError(t, err)
+			turn, stamped := rdxStopView(o)
+			require.Equal(t, core.TurnIndex(1), turn, "fixture: the first run closed turn 0")
+			require.Equal(t, []grammar.Symbol{rdxStopSymbol}, g.appended(), "fixture: the first run fed the grammar")
+
+			if tc.restart {
+				require.NoError(t, o.Persist(ctx))
+				require.NoError(t, st.Close())
+				metrics, g = obs.New(clock), &fakeGrammar{}
+				o, st = rdxGrammarObserver(t, root, clock, metrics, g)
+			}
+			symbolsBefore := g.appended()
+
+			clock.Advance(10 * time.Minute) // the drain replays it later
+			_, err = o.OnStop(WithObservation(ctx, first), stopOf(false), false)
+			require.NoError(t, err)
+
+			turn, lastTS := rdxStopView(o)
+			require.Equal(t, core.TurnIndex(1), turn,
+				"a replayed Stop must advance the turn exactly as its one host event did")
+			require.Equal(t, symbolsBefore, g.appended(), "a replayed Stop must not feed the grammar again")
+			require.Equal(t, stamped, lastTS, "an absorbed replay leaves LastTS naming the last host event")
+			require.Equal(t, int64(1), metrics.Counter(rdxCounterAbsorbed).Value(),
+				"the replay must be counted as absorbed")
+
+			second, err := core.NewObservationID(testSession, 2)
+			require.NoError(t, err)
+			_, err = o.OnStop(WithObservation(ctx, second), stopOf(false), false)
+			require.NoError(t, err)
+			turn, _ = rdxStopView(o)
+			require.Equal(t, core.TurnIndex(2), turn, "a distinct Stop is a turn boundary of its own")
+
+			for range 2 {
+				_, err = o.OnStop(ctx, stopOf(false), false)
+				require.NoError(t, err)
+			}
+			turn, _ = rdxStopView(o)
+			require.Equal(t, core.TurnIndex(4), turn, "a Stop with no identity is never absorbed")
+			require.Equal(t, int64(1), metrics.Counter(rdxCounterAbsorbed).Value())
+		})
+	}
+}

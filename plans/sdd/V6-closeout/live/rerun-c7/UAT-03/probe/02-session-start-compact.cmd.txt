@@ -1,0 +1,7 @@
+cwd: <scratch>/sessions/c7/uat03/recovery/proj
+argv: ["C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c7/qompack-plugin-0.3.0-windows-amd64/bin/qompack.exe", "session-start"]
+env+: {}
+qompack_home: <scratch>/sessions/c7/qhome
+wall_s: 0.228
+at: 2026-10-02T14:04:27-04:00
+stdin: {"session_id": "d8d6f167-82da-4a52-abea-e8e4f340b39e", "transcript_path": "<scratch>/sessions/c7/uat03/recovery/proj/no-transcript.jsonl", "cwd": "<scratch>/sessions/c7/uat03/recovery/proj", "hook_event_name": "SessionStart", "source": "compact"}

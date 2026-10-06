@@ -1,0 +1,6 @@
+cwd: <scratch>/sessions/c7/uat03/proj
+argv: ["C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c7/qompack-plugin-0.3.0-windows-amd64/bin/qompack.exe", "backup", "restore", "--project", "<scratch>/sessions/c7/uat03/proj", "--id", "uat03-after-idle", "--destination", "<scratch>/sessions/c7/uat03/recovery/proj", "--json"]
+env+: {}
+qompack_home: <scratch>/sessions/c7/qhome
+wall_s: 0.631
+at: 2026-10-02T14:03:59-04:00

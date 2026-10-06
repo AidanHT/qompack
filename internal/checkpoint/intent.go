@@ -191,9 +191,11 @@ func recordCandidates(recs []store.ToolUseRecord) []intentCandidate {
 // evolution entry after them.
 func (d *Draft) refreshIntentLocked(ctx context.Context) {
 	own, ok := sessionPromptRecords(ctx, d.src.Store, d.session)
+	d.promptsAnswered = ok
 	if !ok {
 		return
 	}
+	newest := own
 	original := d.cp.UserIntent.Original
 	var first *store.ToolUseRecord
 	var cands []intentCandidate
@@ -226,6 +228,168 @@ func (d *Draft) refreshIntentLocked(ctx context.Context) {
 	evo, el := d.selectEvolutionLocked(ctx, original, cands, keep)
 	d.promptText = keep
 	d.setIntentLocked(original, evo, el)
+	d.deriveCurrentWorkLocked(ctx, newest)
+}
+
+// deriveCurrentWorkLocked sets the derived CurrentWork — one sentence of the session's most recent
+// prompt, an empty NextStep and a nil BlockedOn (§8) — from own, the session's OWN prompt records
+// in turn order, at every refresh: the open segment's prompts included, and for a fork only the
+// fork's own, never one it inherited. It used to be derived while encoding a closed segment, from
+// the graph's userprompt nodes in the segment's turn range; those are keyed by turn alone, so a
+// fork's segment found its parent's prompts at the turns the two shared and took the highest
+// (F-C7-UAT06-1), and the open segment's prompts never counted. Once SetCurrentWork has spoken
+// nothing is derived (§7). Caller holds d.mu.
+//
+// The goal is the newest prompt that gives one (goalOf), walking back from the newest record past
+// a slash-command invocation, a blank prompt and one whose bytes cannot be read, at most
+// goalWalkLimit records. When none does, the goal is kept, except when every one of the session's
+// prompts was read and none can give one — a session with no prompt of its own yet, a fork before
+// its user says anything — when a derived goal held cannot have come from this session's prompts
+// and is cleared: a draft persisted by candidate 7 held its parent's prompt there.
+//
+// It never moves the goal back on a walk that could not read every record it passed (the context
+// running out included): one whose bytes cannot be read, for now or for good, may be the very
+// record the goal held came from (a resumed draft has read none of them yet), so a goal the walk
+// found at an earlier turn than that one (goalTurn) replaces it only when the walk read them all.
+// Then the records have the last word, even over a goal_turn none of them reaches (a store
+// restored from an older backup than the draft). A walk is repeated at every refresh; each record
+// it read whole is read once per draft (newestGoalLocked), so a repeat costs a failed Open for
+// each unreadable record and no bytes.
+//
+// "Newest" is the captured turn, not the record's host stamp. A prompt that reached only a hook's
+// client spool can be published behind one its host sent later (observer.prompt_out_of_host_order);
+// captured turns are the canonical order and are never renumbered (D35(b)), the evolution lists the
+// same records in turn order, and current work agrees with the evolution's last entry rather than
+// contradicting it exactly where the order is in doubt.
+func (d *Draft) deriveCurrentWorkLocked(ctx context.Context, own []store.ToolUseRecord) {
+	if d.workExplicit {
+		return
+	}
+	goal, turn, found, complete := d.newestGoalLocked(ctx, own)
+	switch {
+	case found && (complete || !d.goalTurnSet || turn >= d.goalTurn):
+		d.setGoalTurnLocked(turn, true)
+		d.setDerivedWorkLocked(goal)
+	case !found && complete && len(own) <= goalWalkLimit:
+		// Every one of the session's prompts was read and none gives a goal. It says !found itself
+		// rather than leaning on the case above: a found goal is never cleared, whatever that case
+		// requires.
+		d.setGoalTurnLocked(0, false)
+		d.setDerivedWorkLocked("")
+	}
+}
+
+// goalWalkLimit is how many of the session's newest prompt records one derivation of the goal looks
+// at before it keeps the goal it has.
+//
+// DERIVATION: it is maxIntentEvolution, the most restatements a checkpoint's evolution lists, so
+// the walk reads no further back than the intent beside it can reach. It bounds what a run of
+// skipped prompts (a user issuing slash command after slash command) costs each new prompt.
+const goalWalkLimit = maxIntentEvolution
+
+// newestGoalLocked walks own (turn order) from the newest record, at most goalWalkLimit of them,
+// and returns the goal the first one that gives one gives, with its turn. complete reports that
+// every record the walk passed — up to the one it found, or to the walk's end — was read whole.
+// What each record it read whole gives (d.goalSeen) replaces what the previous walk kept, so a
+// record is read once while it stays in the walk's reach, whatever the walk ends on. Caller holds
+// d.mu.
+func (d *Draft) newestGoalLocked(ctx context.Context, own []store.ToolUseRecord) (goal string, turn core.TurnIndex,
+	found, complete bool,
+) {
+	complete = true
+	seen := make(map[core.ToolUseID]string, min(len(own), goalWalkLimit))
+	defer func() { d.goalSeen = seen }()
+	for i := len(own) - 1; i >= 0 && len(own)-i <= goalWalkLimit; i-- {
+		g, ok := d.goalSeen[own[i].ID]
+		if !ok {
+			text, st := d.promptTextLocked(ctx, own[i], 0)
+			if st != textWhole {
+				complete = false
+				continue
+			}
+			g, _ = goalOf(text) // "" exactly when the prompt gives no goal
+		}
+		seen[own[i].ID] = g
+		if g != "" {
+			return g, own[i].Turn, true, complete
+		}
+	}
+	return "", 0, false, complete
+}
+
+// setGoalTurnLocked records the turn the derived goal was read from (set false: there is none),
+// marking the draft dirty when it changes, so the persisted goal_turn never lags the goal: two
+// prompts with the same first sentence give the same goal from different turns. Caller holds d.mu.
+func (d *Draft) setGoalTurnLocked(turn core.TurnIndex, set bool) {
+	if !set {
+		turn = 0
+	}
+	if d.goalTurnSet == set && d.goalTurn == turn {
+		return
+	}
+	d.goalTurn, d.goalTurnSet = turn, set
+	d.dirty = true
+}
+
+// setDerivedWorkLocked installs the derived CurrentWork for goal (empty clears it), marking the
+// draft dirty only when it changes. Caller holds d.mu.
+func (d *Draft) setDerivedWorkLocked(goal string) {
+	if d.cp.CurrentWork.Goal == goal && d.cp.CurrentWork.NextStep == "" && d.cp.CurrentWork.BlockedOn == nil {
+		return
+	}
+	d.cp.CurrentWork = CurrentWork{Goal: goal}
+	d.dirty = true
+}
+
+// qompackCommandPrefix opens every invocation of Qompack's own slash commands
+// (plugin/commands/*.md, under the plugin's name).
+const qompackCommandPrefix = "/qompack:"
+
+// goalOf is the derived goal one prompt's text gives — its first sentence, capped at goalMaxRunes —
+// or false when it gives none: a blank prompt, or a slash-command invocation (isCommandInvocation).
+func goalOf(text string) (string, bool) {
+	if isCommandInvocation(text) {
+		return "", false
+	}
+	g := truncRunes(firstSentence(text), goalMaxRunes)
+	if strings.TrimSpace(g) == "" {
+		return "", false
+	}
+	return g, true
+}
+
+// isCommandInvocation reports whether a prompt is a slash-command invocation that says nothing about
+// the task in flight. Claude Code hands UserPromptSubmit the prompt as typed, so a plugin command is
+// captured as "/qompack:why dec_..." (the candidate-7 UAT-06 store holds exactly that) while a
+// built-in such as /compact never reaches the hook. Two shapes count:
+//
+//   - any invocation of Qompack's own commands (status, why, dropped, recall, eval, pin), whatever
+//     its arguments: they inspect or annotate the session, and a pinned rule is carried as an
+//     invariant, not as the task;
+//   - a bare "/name" with no arguments, the whole prompt one command token.
+//
+// Another command's arguments are the user's own words about the task and are kept, and a path
+// ("/usr/bin/x fails") is not a command name because a name holds no "/".
+func isCommandInvocation(text string) bool {
+	t := strings.TrimSpace(text)
+	return strings.HasPrefix(t, qompackCommandPrefix) || isCommandToken(t)
+}
+
+// isCommandToken reports whether t is exactly one slash-command token: "/" then a letter or digit,
+// then letters, digits and "-", "_", ".", ":" (a plugin or directory namespace).
+func isCommandToken(t string) bool {
+	if len(t) < 2 || t[0] != '/' {
+		return false
+	}
+	for i, r := range t[1:] {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9':
+		case i > 0 && (r == '-' || r == '_' || r == '.' || r == ':'):
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 // elision is what the evolution bounds left out of one refresh: how many candidates, and the
@@ -253,7 +417,8 @@ func (el *elision) note(id core.ToolUseID) {
 // candidate are left out, unread, because item 2 could inject none of them after it. It returns the
 // kept restatements oldest first. keep collects the texts the walk read and the draft may cache:
 // the kept ones, and duplicates of them or of the original under their own ids (sharing the same
-// string), so a later refresh reads neither again. Caller holds d.mu.
+// string), so a later refresh reads neither again; d.oversized remembers the record it stopped at
+// for being too long, which is not cached either. Caller holds d.mu.
 func (d *Draft) selectEvolutionLocked(ctx context.Context, original string, cands []intentCandidate,
 	keep map[core.ToolUseID]string,
 ) ([]string, elision) {
@@ -261,6 +426,8 @@ func (d *Draft) selectEvolutionLocked(ctx context.Context, original string, cand
 	var el elision
 	used := 0
 	stopped := false
+	oversized := d.oversized
+	d.oversized = ""
 	for i := len(cands) - 1; i >= 0; i-- {
 		c := cands[i]
 		if stopped {
@@ -268,7 +435,11 @@ func (d *Draft) selectEvolutionLocked(ctx context.Context, original string, cand
 			continue
 		}
 		text, st := c.copied, textWhole
-		if c.rec.ID != "" {
+		switch c.rec.ID {
+		case "":
+		case oversized:
+			st = textTooLarge
+		default:
 			text, st = d.promptTextLocked(ctx, c.rec, evolutionReadLimit)
 		}
 		switch st {
@@ -277,6 +448,7 @@ func (d *Draft) selectEvolutionLocked(ctx context.Context, original string, cand
 		case textTooLarge:
 			stopped = true
 			el.note(c.rec.ID)
+			d.oversized = c.rec.ID
 			continue
 		}
 		trimmed := strings.TrimSpace(text)
@@ -449,34 +621,52 @@ func (w *FileWriter) ownLatest(ctx context.Context, s core.SessionID) (Checkpoin
 	return cp, true
 }
 
-// handOff stashes a sealed draft's prompt-text cache for the successor Finalize is about to open
-// for the same session (takeHandoff). The cache holds only what the draft's intent kept
-// (refreshIntentLocked), so the stash is bounded by the evolution bounds and the original.
+// promptHandoff is what a sealed draft learned of its session's prompt records, carried to the
+// successor Finalize opens for the same session (handOff, takeHandoff): the texts its intent kept
+// (promptText), the goal each record its last goal walk read whole gives (goalSeen), and the record
+// its evolution walk found past evolutionReadLimit (oversized). A record's bytes never change, so
+// all three stay valid for whichever draft of the session uses them.
+//
+// The goals and the oversized record are what keep a long paste off the hook path. The successor is
+// opened inside PreCompact, and promptText never holds a prompt past the read limit; carried alone,
+// it left the successor's first refresh to read the newest prompt whole again for its goal (up to
+// the hook's 4 MiB capture) and its first evolutionReadLimit+1 bytes again, at every compaction
+// (audit 2's #25).
+type promptHandoff struct {
+	texts     map[core.ToolUseID]string
+	goals     map[core.ToolUseID]string
+	oversized core.ToolUseID
+}
+
+// handOff stashes what a sealed draft learned of its prompt records for the successor Finalize is
+// about to open for the same session (takeHandoff). It is bounded as the draft's own state is: the
+// cache holds only what the draft's intent kept (refreshIntentLocked), the goals at most
+// goalWalkLimit entries, one short goal each.
 func (w *FileWriter) handOff(d *Draft) {
 	d.mu.Lock()
-	texts := d.promptText
+	h := promptHandoff{texts: d.promptText, goals: d.goalSeen, oversized: d.oversized}
 	d.mu.Unlock()
-	if len(texts) == 0 {
+	if len(h.texts) == 0 && len(h.goals) == 0 && h.oversized == "" {
 		return
 	}
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if w.handoff == nil {
-		w.handoff = map[core.SessionID]map[core.ToolUseID]string{}
+		w.handoff = map[core.SessionID]promptHandoff{}
 	}
-	w.handoff[d.session] = texts
+	w.handoff[d.session] = h
 }
 
-// takeHandoff returns and forgets the prompt-text cache handOff stashed for s, or an empty one.
-// Begin takes it on every path, so a stash is never left behind by a Begin that found a live draft,
-// resumed a persisted one or failed.
-func (w *FileWriter) takeHandoff(s core.SessionID) map[core.ToolUseID]string {
+// takeHandoff returns and forgets what handOff stashed for s, with an empty text cache when nothing
+// was. Begin takes it on every path, so a stash is never left behind by a Begin that found a live
+// draft, resumed a persisted one or failed.
+func (w *FileWriter) takeHandoff(s core.SessionID) promptHandoff {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	texts := w.handoff[s]
+	h := w.handoff[s]
 	delete(w.handoff, s)
-	if texts == nil {
-		texts = map[core.ToolUseID]string{}
+	if h.texts == nil {
+		h.texts = map[core.ToolUseID]string{}
 	}
-	return texts
+	return h
 }

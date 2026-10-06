@@ -1,0 +1,22 @@
+# review-2 minor (truncated carry): RED before the fix, on ca0b7caa + the new rows
+# go test -p 2 -count=1 -run '^(TestCarriedDecisionRegainsItsAlternativeAfterATruncatedSeal|TestDecisionTruncatedAwayIsCarriedAgain|TestSecondCheckpointCarriesTheSessionsExplainsDecision)$' -v ./internal/checkpoint/
+# TestSecondCheckpointCarriesTheSessionsExplainsDecision is a guard for the explains carry and passes before and after.
+=== RUN   TestCarriedDecisionRegainsItsAlternativeAfterATruncatedSeal
+    decisions_carry_test.go:247: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-ledger/internal/checkpoint/decisions_carry_test.go:247
+        	Error:      	"[]" should have 1 item(s), but has 0
+        	Test:       	TestCarriedDecisionRegainsItsAlternativeAfterATruncatedSeal
+        	Messages:   	the decision's alternative is back once the budget has room: [{ID:dec_109287b68d9e What:rejected "100 requests per minute" for per-client rate limit Why:superseded by the user's correction AlternativesRejected:[] Evidence:sha256:2f5ce645e1cde297540e8c327d2edcad5107cda79deb4795d2e933cb623f660d Turn:12} {ID:dec_8351d77688eb What:keep the limiter in-process Why:a shared store adds a network hop AlternativesRejected:[] Evidence:sha256:0000000000000000000000000000000000000000000000000000000000000000 Turn:0}]
+--- FAIL: TestCarriedDecisionRegainsItsAlternativeAfterATruncatedSeal (0.51s)
+=== RUN   TestDecisionTruncatedAwayIsCarriedAgain
+    decisions_carry_test.go:263: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-cx-w15-ledger/internal/checkpoint/decisions_carry_test.go:263
+        	Error:      	"[]" should have 1 item(s), but has 0
+        	Test:       	TestDecisionTruncatedAwayIsCarriedAgain
+        	Messages:   	a decision cut at budget is carried again while it holds: [{ID:dec_8351d77688eb What:keep the limiter in-process Why:a shared store adds a network hop AlternativesRejected:[] Evidence:sha256:0000000000000000000000000000000000000000000000000000000000000000 Turn:13}]
+--- FAIL: TestDecisionTruncatedAwayIsCarriedAgain (0.31s)
+=== RUN   TestSecondCheckpointCarriesTheSessionsExplainsDecision
+--- PASS: TestSecondCheckpointCarriesTheSessionsExplainsDecision (0.29s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/checkpoint	1.486s
+FAIL

@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -225,8 +227,9 @@ type PublicationAudit struct {
 	LegacyControlCaptures int
 
 	// PostSnapshotEntries counts the capture sidecars, pending-write markers and unindexed object
-	// files a pass with a Snapshot did not classify because they were written at or after the
-	// snapshot: live writes the snapshot does not account for, never a gap and never damage.
+	// files a pass with a Snapshot did not classify because they were written after the snapshot, or
+	// removed between the pass listing and reading them: live work the snapshot does not account
+	// for, never a gap and never damage.
 	PostSnapshotEntries int
 
 	// NewerSchemaCaptures counts sidecars declaring a schema NEWER than this build. They are written by
@@ -385,6 +388,26 @@ func (b *scanBudget) postSnapshot(mod time.Time) bool {
 	return b.snap != nil && mod.After(b.snap.taken)
 }
 
+// vanished reports whether err says an entry the pass listed was removed, or replaced, before the
+// pass could stat or read it, and counts it as live work when the pass runs against a snapshot.
+// Such a pass runs while the store serves: a Put retires its pending-write marker, and the store
+// removes a capture sidecar or an object, whenever it likes, and a file the store no longer holds
+// is not an unreadable record of it. Noting it made a healthy store's background pass announce
+// itself incomplete (w15-services review). On Linux and macOS DirEntry.Info is a lazy lstat, so it
+// is the stat that fails; on Windows the listing caches it and the read fails instead. The store
+// also replaces a capture sidecar by rename (LinkCaptureReference publishing it, a redelivery
+// rewriting it), and one replaced between readPublicationFile's check and its open answers
+// errPublicationFileReplaced: a file written after the snapshot, which is live work too (wave 22).
+// A pass without a snapshot (fsck, or a store nothing else is writing) keeps noting both: there, a
+// file that vanishes or changes under the walk is exactly what it cannot vouch for.
+func (b *scanBudget) vanished(err error, a *PublicationAudit) bool {
+	if b.snap == nil || !(errors.Is(err, fs.ErrNotExist) || errors.Is(err, errPublicationFileReplaced)) {
+		return false
+	}
+	a.PostSnapshotEntries++
+	return true
+}
+
 // hasChunkFor reports whether h is a live chunk: of the snapshot's index when the pass has one, of
 // the store's loaded index otherwise.
 func (s *FSStore) hasChunkFor(b *scanBudget, h core.Hash) bool {
@@ -527,6 +550,9 @@ func (s *FSStore) eachDirEntry(ctx context.Context, parent *os.Root, name string
 				return false
 			}
 			bud.entriesLeft--
+			if hook := publicationEntryHook.Load(); hook != nil {
+				(*hook)(parent, name, e)
+			}
 			if !fn(dir, e) {
 				return false
 			}
@@ -606,7 +632,9 @@ func (s *FSStore) classifyCaptureFile(dir *os.Root, entry os.DirEntry, bud *scan
 	a.CapturesScanned++
 	info, err := entry.Info()
 	if err != nil {
-		a.note("capture sidecar unreadable")
+		if !bud.vanished(err, a) {
+			a.note("capture sidecar unreadable")
+		}
 		return true
 	}
 	if bud.postSnapshot(info.ModTime()) {
@@ -627,7 +655,9 @@ func (s *FSStore) classifyCaptureFile(dir *os.Root, entry os.DirEntry, bud *scan
 	b, err := readPublicationFile(dir, entry.Name(), min(int64(captureSidecarReadLimit), bud.bytesLeft))
 	bud.bytesLeft -= int64(len(b))
 	if err != nil {
-		a.note("capture sidecar unreadable")
+		if !bud.vanished(err, a) {
+			a.note("capture sidecar unreadable")
+		}
 		return true
 	}
 	var view captureAuditView
@@ -765,7 +795,9 @@ func (s *FSStore) classifyObjectLeaf(f os.DirEntry, maxObjects int,
 		// the snapshot belongs to a Put the snapshot never saw.
 		info, err := f.Info()
 		if err != nil {
-			a.note("object file unreadable")
+			if !bud.vanished(err, a) {
+				a.note("object file unreadable")
+			}
 			return true
 		}
 		if bud.postSnapshot(info.ModTime()) {
@@ -829,7 +861,9 @@ func (s *FSStore) pendingObjectChunks(ctx context.Context, bud *scanBudget, a *P
 		}
 		info, err := e.Info()
 		if err != nil {
-			a.note("pending-write marker unreadable")
+			if !bud.vanished(err, a) {
+				a.note("pending-write marker unreadable")
+			}
 			return true
 		}
 		if bud.postSnapshot(info.ModTime()) {
@@ -848,7 +882,9 @@ func (s *FSStore) pendingObjectChunks(ctx context.Context, bud *scanBudget, a *P
 		b, err := readPublicationFile(dir, e.Name(), min(int64(pendingMarkerReadLimit), bud.bytesLeft))
 		bud.bytesLeft -= int64(len(b))
 		if err != nil {
-			a.note("pending-write marker unreadable")
+			if !bud.vanished(err, a) {
+				a.note("pending-write marker unreadable")
+			}
 			return true
 		}
 		var rec pendingWire
@@ -912,9 +948,16 @@ func openPublicationDir(parent *os.Root, name string, descend bool) (*os.Root, *
 	return dir, f, nil
 }
 
+// errPublicationFileReplaced is readPublicationFile's answer for a name that named one regular file
+// when it was checked and another when it was opened: the store renamed a new file over it in
+// between. It is core.ErrDegraded to every caller that asks only that; vanished tells it apart.
+var errPublicationFileReplaced = fmt.Errorf("%w: store: a publication file was replaced while it was read",
+	core.ErrDegraded)
+
 // readPublicationFile reads the regular file name directly under dir, at most limit bytes (a longer
 // file answers core.ErrBudget). Like openPublicationDir, it refuses a link, and a name swapped for
-// one between the check and the open.
+// one between the check and the open; a name the store replaced with another regular file in that
+// window answers errPublicationFileReplaced, and nothing of either file is read.
 func readPublicationFile(dir *os.Root, name string, limit int64) ([]byte, error) {
 	info, err := dir.Lstat(name)
 	if err != nil {
@@ -923,14 +966,20 @@ func readPublicationFile(dir *os.Root, name string, limit int64) ([]byte, error)
 	if !info.Mode().IsRegular() {
 		return nil, core.ErrDegraded
 	}
+	if hook := publicationReadHook.Load(); hook != nil {
+		(*hook)(dir, name)
+	}
 	f, err := dir.Open(name)
 	if err != nil {
 		return nil, err
 	}
 	defer func() { _ = f.Close() }()
 	got, err := f.Stat()
-	if err != nil || !got.Mode().IsRegular() || !os.SameFile(info, got) {
+	if err != nil || !got.Mode().IsRegular() {
 		return nil, core.ErrDegraded
+	}
+	if !os.SameFile(info, got) {
+		return nil, errPublicationFileReplaced
 	}
 	b, err := io.ReadAll(io.LimitReader(f, limit+1))
 	if int64(len(b)) > limit {

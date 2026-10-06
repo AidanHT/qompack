@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "command": "recall",
+  "ok": true,
+  "data": {
+    "tool": "recall",
+    "is_error": false,
+    "ephemeral": true,
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"hits\":[{\"hash\":\"sha256:e6dbcad91e2ce9b586ea496ba5cc20d7704c6368d555f31f022c84abd45ebc92\",\"path\":\"readme.md\",\"tool\":\"FileRead\",\"summary\":\"{\\\"type\\\":\\\"text\\\",\\\"file\\\":{\\\"filePath\\\":\\\"\u003ctmp\u003e\\\",\\\"content\\\":\\\"# Kestrel demo\\\\n\\\\nThe project code word is KESTREL-7.\\\\n\\\\nThis is…\",\"ts\":\"2026-10-02T08:06:39Z\",\"score\":0.42024062518028904,\"tool_use_id\":\"toolu_012Nm2KTAwu8H8HvJ1LVJV8g\",\"span\":[0,227]},{\"hash\":\"sha256:ea4c6a4670bb9690a6b58d5f68e5e7d524754829a96b4d396827a3d6bcafe11c\",\"path\":\"\",\"tool\":\"UserPromptSubmit\",\"summary\":\"Call Qompack's recall MCP tool again with exactly the same query \\\"KESTREL\\\". Then list every hit in rank order, one pe…\",\"ts\":\"2026-10-02T08:06:57Z\",\"score\":0.346,\"tool_use_id\":\"prompt_4b53ad30-87a9-46fe-91ed-32687aef5b8b_6\",\"span\":[0,202]},{\"hash\":\"sha256:ce59456a33ea5d5b3e81012baa96b15d2a771d4b4e5282fff8bf041e41d473b0\",\"path\":\"\",\"tool\":\"UserPromptSubmit\",\"summary\":\"Call Qompack's recall MCP tool with the query \\\"KESTREL\\\". Reply in one sentence: how many hits it returned and the too…\",\"ts\":\"2026-10-02T08:06:51Z\",\"score\":0.298,\"tool_use_id\":\"prompt_4b53ad30-87a9-46fe-91ed-32687aef5b8b_4\",\"span\":[0,139]}],\"count\":3,\"found\":true,\"query\":{\"text\":\"KESTREL\",\"path\":\"\",\"symbol\":\"\",\"tool\":\"\"},\"denied\":4}"
+      }
+    ],
+    "meta": {
+      "elapsed_ms": 3,
+      "hash": "sha256:63d2614232f297c83a3907350275ca54c15ec07e15d6539f515f6ec4ad0e419d",
+      "tool_use_id": "qompack-mcp:8e263f78b569",
+      "untrusted": true
+    }
+  }
+}

@@ -15,10 +15,11 @@ What the commands, the slash commands and the MCP tools *are* is
 > **These diagnostics write.** Under a default configuration, `qompack status`, `qompack self-test`
 > and every hook entry point create `<project>/.qompack/` in the project directory they resolve, and
 > start that project's daemon. Running one in a directory that has never been used with Qompack is a
-> write, in that directory. (§6 and §8 cover the configurations under which a hook writes nothing.)
+> write, in that directory. (§6 and §8 cover the configurations under which a hook records nothing,
+> and the one log line it can still write there.)
 > `qompack config print` does not create the layout
-> ([docs/user-guide.md](user-guide.md#operator-commands)), but it does write
-> `.qompack/state/config-violations.json` into one that already exists (observed on this tree). The
+> ([docs/user-guide.md](user-guide.md#operator-commands)), but it does write, or remove,
+> `.qompack/state/config-violations.json` in one that already exists (observed on this tree). The
 > full write set is [docs/architecture.md §2](architecture.md#2-write-set-and-retention). The one
 > exception is a project root that is your home directory: there none of them writes anything
 > ([below](#qompack-is-inactive-in-the-home-directory)).
@@ -124,14 +125,57 @@ host-contract banner, the mode and hot-path lines, counters, the per-hook latenc
 daemon last persisted, or nothing at all (`internal/commands/statuscollect.go`: `daemon`, `disk`,
 `none`). A stale `disk` reading is not a current one.
 
+The `config.violations` counter, and the configuration lines among the recent loud lines, are the
+daemon's report of the configuration it started on: each invalid value and each newer-`settingsVersion`
+block reset counts as one setting, as in `doctor` and `self-test`. They count from that daemon's
+start and keep showing a condition until it exits, even after the file is fixed, while `doctor`'s
+`config.violations` and `self-test`'s `config.capture` follow the file (§6).
+
 With no daemon listening, the provenance line says so rather than quoting an empty refusal:
-`daemon: no daemon answered: none is listening for this project yet`. The command asks one to
-start unless `runtime.daemon.enabled` is `false`, so run `status` again once it is up; until then
-the page falls back to the persisted metrics file (`source: disk`) if there is one. If a daemon
-is listening but its answer did not come in time, or its connection broke mid-reply, the line reads
-`daemon: a daemon is listening for this project but did not answer within 10s` instead: it is up
-but busy or stuck; see [section 7](#7-daemon-problems) (`internal/cli/qompack_commands.go`,
-`fetchDaemonStatus`).
+`daemon: no daemon answered: none is listening for this project yet. This command asked one to
+start; run status again once it is up`. Until then the page falls back to the persisted metrics
+file (`source: disk`) if there is one. `doctor` never starts a daemon, so its `status.primary` row
+reads `no daemon answered: none is listening for this project, and this command does not start one;
+the next session start in this project starts one`. With `runtime.daemon.enabled` `false`, status
+neither asks nor looks for a daemon, not even one started before the change and still running: the
+line reads `daemon: runtime.daemon.enabled is false for this project (in its configuration, or in
+the state.bin its daemon last wrote), so this command does not ask a daemon, even one that is still
+running`. The `state.bin` case is a daemon that reloaded the key to `false`. Its
+`.qompack/run/state.bin` speaks for the project only while that daemon is alive: while it holds the
+project's lock (its heartbeat is under 90 seconds old) or answers at the project's address. Once it
+is gone the configuration decides, so a daemon that died without a clean stop does not keep the
+project disabled after the key is set back to `true`, and the next session start starts one
+(`internal/cli/qompack_commands.go`, `daemonEnabledFor`). With `runtime.mode` `off`, the line reads
+`daemon: runtime.mode is off for this project (in its configuration, or in the state.bin its daemon
+last wrote), so this command does not ask a daemon`. The `state.bin` case is a daemon that ran
+while the configuration said `off`. Its `off` speaks for the project only while that daemon is
+alive, by the same test as above; once it is gone the configuration decides, so hooks record again,
+the next session start starts a daemon, and status and the MCP server stop reporting the project off
+as soon as the configuration no longer says `off` (`internal/cli/qompack_commands.go`, `modeFor`).
+If a daemon is listening, the line names what went wrong. When it took the request but no answer
+came within the 10-second call deadline, the line reads `daemon: a daemon is listening for this project but did
+not answer within 10s`: it is up but busy or stuck. When the request failed sooner, the line reads
+`daemon: a daemon is listening for this project but did not answer this command: on both of two
+attempts, no connection to it was made within the 250ms connect budget or the connection closed
+before a reply`. Status sends a request that failed early once more before it reports this, and
+it never resends one whose call deadline expired. In both cases see
+[section 7](#7-daemon-problems) (`internal/cli/qompack_commands.go`, `fetchDaemonStatus`).
+
+`status`, `doctor` and the other slash-command frontends (`recall`, `why`, `dropped`, ...) dial the
+daemon with a connect budget of their own: 250 ms (`commandConnectDeadline`, in
+`internal/cli/qompack_commands.go`), and `status` checks whether a daemon is listening within the
+same 250 ms. `runtime.daemon.connectDeadlineMs` (5 ms, or 25 ms on Windows)
+is the hooks' hot-path budget. It does not bound these commands' dial, so raising it does not change
+what they wait for.
+
+Known limit: when the dial `status` (or another frontend that may start a daemon; `doctor` never
+does) makes to a running daemon misses its connect budget, the command also asks a daemon to start,
+as it would if none were listening; the second daemon finds the running one's lock and exits, and
+nothing is lost (`internal/ipc/client.go`, `lazySpawn`; `internal/daemon/daemon.go`, `Run`). On
+Linux and macOS the same happens, for a hook and for `session-start` as well, when a running daemon
+has stopped accepting connections and its connection queue is full: the connect then fails at once
+rather than waiting out its budget (EAGAIN on Linux), so it reads as no daemon, and the daemon
+started for it exits the same way (`internal/ipc/dial_other.go`; `internal/daemon/spawn.go`).
 
 Latency percentiles are never printed above the `max` on the same line. The histogram reports a
 percentile as its bucket's upper bound, which can sit up to about 9% above the samples in it, so the
@@ -148,13 +192,43 @@ The banner counts what the rows established, not their `OK` column (`internal/co
 reports something actually seen. Otherwise it reads, for example, `host contract: 9 assertion(s),
 none failing: 4 holding, 1 pending, 4 with nothing to judge` and names each pending row on its own
 `pending:` line. A row is pending while the observation it waits for has not arrived:
-`not-yet-observed`, `initialize-pending`, `transcript-pending` or `marker-absent-once`. A row has
+`not-yet-observed`, `initialize-pending`, `transcript-pending` or `marker-absent-once`.
+`session_start.fires` reads `marker-absent-once` when a new session started without the marker the
+previous session's SessionEnd or PreCompact leaves in `.qompack/run/marker.json`, and that previous
+session is no longer running; the next session's start decides it. A session still running has had
+no terminal hook yet, so its marker is not due: a session started beside it reads
+`prior-session-live`, with nothing to judge, and counts nothing. That includes a session the daemon
+stopped counting as live because it sent no hook for `runtime.daemon.idleExitSeconds` (30 minutes
+by default) and no SessionEnd arrived ([section 7](#7-daemon-problems)): its window may still be
+open (`internal/daemon/registry.go`, `MayStillRun`). A session whose SessionEnd reached the daemon
+counts as no longer running, and so does one the daemon does not know because it restarted since.
+Known limit: the daemon exits by itself once every session has been quiet for that window, so
+windows left open and quiet across two such exits, with a new window started after each before the
+old ones send a hook, count an absence each time, and the second start fails. A compaction's own
+start, or a `--resume` that keeps the session id, finds the marker that session's PreCompact or
+SessionEnd just wrote. That is the session's own restart, also when another session in the same project started
+after it, and so is a start replayed from a spool after its own session's PreCompact or SessionEnd
+rewrote the marker; it counts nothing. It reads
+`same-session-restart`, which holds, only while the project has no counted absence
+(`starts_without_marker` is 0 in `.qompack/state/history.json`). With one absence counted it stays
+`marker-absent-once` (pending) until the next new session's start decides it; with two it stays
+failing (`internal/contract/assertions.go`, `checkSessionStartFires`).
+`session_start.source_compact` fails when a session's PreCompact is followed by a start of that
+session that is not a compaction, with nothing of the session in between. A compaction you cancel
+(Esc), or one that fails, starts no session. Once the session prompts or ends after its PreCompact,
+its next start, such as a `--resume`, reads `precompact-not-completed`, with nothing to judge:
+Qompack cannot tell a cancelled compaction from a compact start the host never sent
+(`checkSessionStartSourceCompact`). The order in which the hooks reach the daemon does not change
+this: a PreCompact replayed from a spool after the session already started, prompted or ended reads
+the same, also when the daemon restarted in between (`.qompack/state/history.json` keeps when each
+session last went on, `went_on`), and so does a second copy of a PreCompact the daemon already
+recorded. A row has
 nothing to judge when it reads `not-yet-implemented` or another "nothing was seen" spelling from §1,
 such as `first-session` or `retired`. The standard nine always include one such row:
 `precompact.custom_instructions_accepted` reads `retired` (or `not-yet-implemented`). So the
 standard set never reads `all holding`, and a healthy project reads `none failing` with `0 pending`,
 for example `host contract: 9 assertion(s), none failing: 7 holding, 0 pending, 2 with nothing to
-judge`.
+judge`. That stays true after a compaction or a `--resume` of any of its sessions.
 
 The rows come from the last `SessionStart`, which runs before the MCP handshake and before the probe
 reaches the transcript. So `status` reads `.qompack/state/history.json` too. Once it records the
@@ -171,6 +245,14 @@ the spent chances, the row reports that outcome and says it was read from `state
 (`internal/cli/doctor.go`, `capabilityRow`). The ledger itself is not rewritten. A row that was
 already failing at the start is never rewritten this way; the next `SessionStart` evaluates it
 again.
+
+`status --json` lists the sessions the daemon tracks under `data.snapshot.sessions`, most recent
+activity (`LastActivity`) first and ties by session id (`internal/daemon/registry.go`, `Snapshot`),
+so two reads of unchanged state list them in the same order; the text page prints only their count.
+What does change between two such reads is derived from the time of the read, not from the state:
+the `collected` line (`data.collected_at_ms`), the provenance's age when the page reads the persisted
+metrics file instead of a live daemon, and, in `qompack doctor`, the `delivery.rollover` row's
+`persisted 12s ago`.
 
 **Action.** No action; this is a recorded limit. See §2 for the `unavailable` latency rows.
 
@@ -237,9 +319,17 @@ ways a value is accepted and not applied.
 **Diagnose.** Read the file. It is the §11.3 record of every leaf-level fallback
 (`internal/cli/config.go`, `configViolationsFile`), written by any command that loads configuration
 through `LoadConfigAndReport` with a project root, and by every hook whose project already has a
-`.qompack/` (`reportCaptureConfig`). A whole-block reset for a newer `settingsVersion` is written
-here by the hook path only; `config print` reports it as a day-log warning — see
-[§6](#6-configuration-and-schema-compatibility). On this tree, a project file
+`.qompack/` (`reportCaptureConfig`). Both write the same list, a whole-block reset for a newer
+`settingsVersion` included — see [§6](#6-configuration-and-schema-compatibility). Neither writer
+creates `.qompack/` to hold it: in a directory with no `.qompack/`, a command that finds a setting in
+the user-global file, a `QOMPACK_*` variable or a `--set` flag writes nothing. A hook under
+`runtime.mode` `off` neither writes nor removes it ([§8](#8-safe-disable), Step 3). The file
+exists only while something is in force: a load that finds no invalid value and no reset removes it,
+so a missing file means nothing is recorded. A hook that refuses the configuration (§6) or runs under
+`off` leaves the record as the last load wrote it, so `doctor` can list a key from it that is no longer
+in force until a command that loads the configuration, such as `self-test`, brings it up to date.
+`doctor`'s `config.violations` row counts what its own load finds, a reset included, as well as what
+the record names. On this tree, a project file
 setting `runtime.mode` to `sideways` and `runtime.phase7.reuse.scopedCandidates` to `true` produced
 exactly two entries:
 
@@ -267,8 +357,8 @@ written refuses capture instead of falling back (§6).
 **Meaning.** This file carries two of §6's classes only. The first is an invalid value that fell
 back (`internal/config/validate.go`, `ViolationsFromWarnings`, which selects warnings whose message
 begins `invalid value, using default: `). A refused gated switch is recorded here as an invalid
-value, which is why the second entry reads `true not in false`. The second, written by the hook
-path only, is a newer-`settingsVersion` reset: on this tree a project setting
+value, which is why the second entry reads `true not in false`. The second is a
+newer-`settingsVersion` reset, listed after the invalid values: on this tree a project setting
 `runtime.migration.settingsVersion` to `99` gained an entry whose `Key` is `runtime.migration`,
 whose `Message` begins `settingsVersion 99 is newer than this build understands (1); the whole
 runtime.migration block is reset to defaults`, and whose `Got` and `Want` are `null`. Unknown keys,
@@ -283,9 +373,12 @@ hooks made of the same files.
 **Symptom.** You want the warnings that did not reach a file you have read yet.
 
 **Diagnose.** `.qompack/logs/qompack-YYYYMMDD.log` (observed: `qompack-20260914.log` in the scratch
-project). Every configuration warning is written there at `warn` level and every violation at
-`loud` level (`internal/cli/config.go`, `LoadConfigAndReport`, and `reportCaptureConfig` for a
-hook, which writes only once `logs/` exists). `internal/logging/logger.go`
+project). Every configuration warning is written there at `warn` level. A violation is written at
+`loud` level by a daemon when it starts (`internal/cli/config.go`, `loadDaemonConfig`), and at `warn`
+by the commands that log (`LoadConfigAndReport`) and by a hook (`reportCaptureConfig`, which writes
+only once `logs/` exists), once per load. A newer-`settingsVersion` reset is written at `loud` by a daemon when it starts
+(`configuration block reset to defaults`) and at `warn` by hooks and commands. A daemon that reloads
+a changed `config.json` logs every warning at `loud` (§6). `internal/logging/logger.go`
 documents that a `Loud` call also appends to `LOUD.log` in the same directory — append-only and
 never rotated — and to a process-wide ring that `qompack status` prints as `recent loud lines`.
 
@@ -511,6 +604,29 @@ shows a `<persisted-output>` note with a file path, or `.qompack/logs/LOUD.log` 
 "hook output exceeds the host's per-field cap", that is a defect: the rehydration is built never to
 reach the cap. Report it with that log line.
 
+---
+
+**Symptom.** After a compaction, section 7 names your original request first, as a `tier1` entry
+whose detail begins `OVERFLOW:`, and also names older `user_intent_evolution` entries as "did not
+fit", although the block is far below its budget (`tokens` well under `budget` in
+`.qompack/state/rehydrate-<session>.json`).
+
+**Meaning.** This is the designed order, not a lost record. Your first prompt is longer than the
+block can carry, so it is emitted whole or not at all and is named with its
+`expand(tool_use_id=…)` call instead. While that tier-1 record is outside the block, section 2 is
+incomplete: the evolution entries that fit section 2's share of the budget are carried, newest first,
+and the older entries that share left out are not re-admitted into the room the block leaves unused,
+because the original comes before every restatement in the authority order
+([ADR 0011](adr/0011-rehydration-budget-and-item-order.md), the D49 amendments). The V6 live lane
+saw this on candidate 7 with a 16,858-character first prompt: the newest 7 of 13 evolution entries
+were carried and the 6 oldest were named, while the payload used 929 of 12,000 tokens (finding
+F-C7-UAT04-1). It is a known limit of 0.3.0
+([cannot-do](cannot-do.md#evolution-entries-are-not-re-admitted-while-the-original-request-overflows)).
+
+**Action.** Call `dropped()` for the full list and the call that restores each entry, or
+`expand(tool_use_id=…)` with the id section 7 gives for the original. Nothing was deleted: every
+prompt stays in the capture log.
+
 ## 6. Configuration and schema compatibility
 
 There are five ways a configuration value can be *accepted and not applied*. Both loaders treat them
@@ -522,11 +638,26 @@ likely to be the answer when nothing is being recorded.
 
 | Class | What happens | Where you see it |
 |---|---|---|
-| invalid value | the leaf falls back to its default, loading continues | `config-violations.json`, `loud` in the day log |
-| wrong type — a string where a number belongs, an unparseable `QOMPACK_*` or `--set` value, a section that is not an object | that value is ignored with a warning, and the leaf keeps the value from the layer below: the default when no lower layer set it | `warn` in the day log only |
-| unknown key | a warning, never an error | `warn` in the day log only |
-| newer `settingsVersion` | the whole versioned block is reset to defaults, so unknown future switches stay off | `warn` in the day log; the hook path also records it in `config-violations.json` (§1) |
-| retired meaning | the value is still applied, with a deprecation warning naming the file and line | `warn` in the day log only |
+| invalid value | the leaf falls back to its default, loading continues | `config-violations.json`; `loud` once from each daemon when it starts (`invalid configuration value, using default`); `warn` from every hook and from the commands that load the configuration |
+| wrong type — a string where a number belongs, an unparseable `QOMPACK_*` or `--set` value, a section that is not an object | that value is ignored with a warning, and the leaf keeps the value from the layer below: the default when no lower layer set it | `warn` in the day log |
+| unknown key | a warning, never an error | `warn` in the day log |
+| newer `settingsVersion` | the whole versioned block is reset to defaults, so unknown future switches stay off | `config-violations.json` (§1); `loud` once from each daemon when it starts (`configuration block reset to defaults`); `warn` from every hook and from the commands that load the configuration |
+| retired meaning | the value is still applied, with a deprecation warning naming the file and line | `warn` in the day log |
+
+Every class is also `loud` when a running daemon reloads `.qompack/config.json`: it does so when the
+file has changed since it last loaded it, at its next session start or idle tick, and whenever
+`admin.reload` forces a reload, and it names every warning that load returned in `LOUD.log` and
+`qompack status`'s recent loud lines as `daemon: config reload warning`, whatever its class. A daemon
+that starts on a file nobody has changed since does not reload it, so an unchanged unknown key,
+wrong type or retired meaning stays at `warn`; an unchanged invalid value or newer `settingsVersion`
+is the startup `loud` line in the table, once per daemon start, which is also how `qompack status`
+shows it (D59: a persistent condition is loud once per start or change, and a hook logs it at
+`warn`).
+To find where an invalid value is set, read the `location=` field of the daemon's start line or of a
+command's `warn` line: a file and line, a `QOMPACK_*` variable, or `--set`. A hook's `warn` line does
+not carry one, and `config print --provenance` shows the key as `fallback after violation`.
+`config-violations.json` is the record of what is in force now: a load that finds no invalid value
+and no reset removes it, whether a hook's or a command's such as `self-test`.
 
 On the hook path the first three rows do not apply inside `runtime.redact` or to `runtime.mode`: a
 problem there refuses capture instead (below). `config print` and every other read command still
@@ -597,7 +728,8 @@ passing does not mean the hooks can load your config; `config.capture` is the ro
 
 **Action.** Repair what `config.capture` names, then re-run `qompack self-test` until that row reads
 `ok` — or `warn`, if you accept the keys it lists — and run a hook: a new file under
-`.qompack/spool/`, or the layout appearing, is the confirmation. For a `warn`, check each key it
+`.qompack/spool/` is the confirmation. The layout appearing is not, because `self-test` creates the
+layout itself, even while the hooks refuse. For a `warn`, check each key it
 names against [docs/config-reference.md](config-reference.md), which is generated from
 `config.Defaults()` and is therefore the exact set of keys this build knows.
 
@@ -609,6 +741,35 @@ in a build where its gate had passed is refused in one where it has not), and
 [Retired-meaning keys](config-reference.md#retired-meaning-keys) (still applied, with a warning, and
 no longer meaning what the old documentation said). Then run `qompack self-test`, read
 `config.capture`, and confirm a hook records, per the action above.
+
+While a file written by a newer build is in force, `qompack backup create`, `backup verify` and
+`backup restore` all refuse, exit 1, with `backup: resolve configuration violations and warnings
+before maintenance`. That is intended (`internal/cli/backup.go`): maintenance runs only on the
+configuration exactly as written, and a reset block is not as written. `backup` refuses whenever
+`self-test`'s `config.capture` row is not `ok`, so the same refusal follows any key that row names
+as a warning, from the project's file, the user-global file, a `QOMPACK_*` variable or a `--set`.
+When that row fails critically instead (the refusals in the table above), the message is `backup:
+configuration unavailable: …`, ending with the class the row names. Two ways through a reset
+block, the first preferred:
+
+- **Before a downgrade**, take the backup with the build that wrote the file: stop the daemon, run
+  `qompack backup create` and `backup verify` with the newer binary, then downgrade. Verify and, if
+  needed, restore that backup with the same newer build; a restore by the downgraded build is not a
+  supported cross-version path ([docs/backup.md](backup.md)), and the restored project would hold
+  the newer file again.
+- **After a downgrade**, copy the file that sets the newer `settingsVersion` (usually
+  `.qompack/config.json`) to a place outside `.qompack/`, and leave that copy as it is: it is the one
+  to keep for the build that understands it. Then delete the block `config.capture` names
+  (`runtime.migration` or `runtime.phase7`) from the original file, not from the copy, and re-run
+  `qompack self-test` until `config.capture` reads `ok`. This build was already running that block at
+  its defaults, so nothing the daemon or hooks do changes. The same `self-test` run removes the
+  reset's entry from `.qompack/state/config-violations.json`, so `doctor`'s `config.violations` row
+  reads `ok` as well. `qompack status` does not yet: its `config.violations` counter and recent loud
+  lines are the running daemon's report of the configuration it started on, and they keep showing the
+  reset until that daemon exits, which the next step takes care of. Then stop the project's daemon if one is running (§7, "A daemon is running and
+  you want it to stop"), or the backup refuses with `backup: stop the source daemon before
+  maintenance`, and run the backup. A backup copies `.qompack/config.json` as it is at that moment,
+  so this backup holds the edited file, not the newer one.
 
 ### A config change that did not take effect
 
@@ -1185,8 +1346,17 @@ itself. `RunAll` returns before running a single assertion; `ipc.Client.Send`'s 
 dial, no spool write"; and `internal/cli/capture_admission.go` returns an empty capture before any
 payload bytes are admitted.
 
-**What keeps being written.** Nothing from the hook path. Observed on this tree: with
-`{"runtime":{"mode":"off"}}` as the only project config, `qompack checkpoint` with empty stdin
+**What keeps being written.** Almost nothing from the hook path: a hook under `off` spools nothing,
+never writes or removes `state/config-violations.json`, and writes no configuration line to the day
+log, even when the same file holds an invalid value, which `self-test` and `doctor` still report.
+One exception remains (a known issue): when the hook's own read of the delivery fails — the delivery
+is over the read bound, the host stops writing part way, or stdin cannot be read at all — a project
+whose `.qompack/logs/` exists gets one line in `logs/hook-quiet-YYYYMMDD.jsonl` naming that read
+error (`hook input exceeds capture bound` or `hook input unavailable`). The hook logs a read error
+whatever `config.json` sets the mode to (`internal/cli/hookclient.go`, `doHook`), unless the mode
+the project's daemon last wrote to `.qompack/run/state.bin` is already `off`; then the hook returns
+before it reads anything. Observed on this tree: with `{"runtime":{"mode":"off"}}` as the only
+project config, `qompack checkpoint` with empty stdin
 printed `{}`, exited 0, and created no `.qompack/` layout at all. Read commands you run by hand
 still write — `qompack status` and `qompack self-test` create the layout and start a daemon
 whatever the mode says, because you asked them to.
@@ -1270,6 +1440,43 @@ instead, and its bytes are under `tmp/quarantine/`.
 
 **Action.** Restore the store from a verified backup into a fresh destination if you need the
 content. Do not copy objects in by hand.
+
+**Symptom.** `fsck`, run while the project's daemon is running, reports on its `retention` row a
+`retention root (class "evidence", "<reason>") names <hash>, which is not held`, where `<hash>` is
+the first 12 hex digits of the root.
+
+**Meaning.** It may be transient. fsck reads the capture sidecars before
+`state/retention-roots.jsonl`, and the daemon, publishing a capture, writes the sidecar first and
+its retention root after it, so a capture published between fsck's two reads leaves a root whose
+sidecar fsck did not see. A plain fsck does not take the daemon's lock (only `--repair` and
+`--seal-check` attempt it), so a result taken beside a running daemon is a snapshot, and its
+`daemon` row says `daemon running: results are a snapshot of a moving target`. This is a known limit
+of 0.3.0 (decision D57(b);
+[cannot-do](cannot-do.md#fsck-beside-a-running-daemon-can-report-a-retention-root-that-is-still-being-written)).
+
+**Action.** Stop the daemon and run `fsck` again. This build has no stop command: let the daemon
+reach its idle exit, or end the process whose `pid` is in that project's `daemon.lock`
+([§7](#7-daemon-problems)). A root still reported with no daemon running is a real defect; keep
+the report and do not edit `state/retention-roots.jsonl` by hand.
+
+**Symptom.** With no daemon running, `fsck` exits 1 on its `index.files` row: `index/files.json is
+absent while its log carries N path(s); the view is derived and --repair regenerates it`. Earlier in
+the session the daemon had been killed or had ended without releasing its lock, and another daemon
+took the project over.
+
+**Meaning.** `index/files.json` is a view derived from the append-only `index/files.jsonl`, written
+when a daemon flushes at a session's end or its stop. After a daemon is killed mid-session, the
+daemon that takes the project over can reach its idle exit without writing the view, so a later
+`fsck` finds the log but not the view. Nothing is lost: the log holds every file version, and
+retrieval reads it. The V6 live lane saw this on candidate 7 after two verified kills (finding
+F-C7-C49-1). It is a known limit of 0.3.0
+([cannot-do](cannot-do.md#after-a-daemon-takeover-fsck-can-find-the-files-view-missing)). With a
+daemon running, the same state is only a note ("not materialized yet"), because that daemon writes
+the view at its next flush.
+
+**Action.** Run `qompack fsck --repair --yes` to regenerate the view, or start the next session in
+the project: its flush writes the view. `fsck` then exits 0 on that row. Do not write
+`index/files.json` by hand.
 
 Startup publication accounting surfaces incomplete captures and object candidates through status
 counters and LOUD diagnostics. A bounded scan can be incomplete; zero observed gaps then means

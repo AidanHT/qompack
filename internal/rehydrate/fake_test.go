@@ -563,6 +563,9 @@ func testCfg() config.Config { return config.Defaults() }
 // requestFor is a compact rehydration request for cp at budget.
 func requestFor(t *testing.T, cp checkpoint.Checkpoint, budget core.Tokens) Request {
 	t.Helper()
+	for _, tp := range cp.Pointers.Tools {
+		requireSummaryFitsOnAHostedRunner(t, tp.Summary)
+	}
 	var r Request
 	r.Session = cp.Session
 	r.Source = "compact"

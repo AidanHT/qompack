@@ -76,7 +76,10 @@ const defaultSessionStartHostTimeout = 15 * time.Second
 // nothing (every client spools under DaemonEnabled=false, per ipc.Client.Send's own step 2), but
 // its idle drain quietly processed the spool anyway, which an operator who typed "disabled" does
 // not expect. None of the three conditions above should pay for a real spawn/dial attempt whose
-// daemon can never do anything useful in response.
+// daemon can never do anything useful in response. st.DaemonEnabled is doHook's daemonEnabledFor:
+// the configuration's runtime.daemon.enabled, and state.bin's false only while the daemon that
+// wrote it is alive, so a daemon that reloaded the key to false and then died does not stop this
+// start once the key is true again (D67(c)).
 func ensureDaemonRunning(root, self string, st ipc.State, clk core.Clock, b hookBudget) {
 	if _, on := faultActive(faultDaemonDown); on {
 		return

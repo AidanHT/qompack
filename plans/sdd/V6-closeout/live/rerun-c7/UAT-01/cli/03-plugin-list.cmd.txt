@@ -1,0 +1,2 @@
+$ sh tools/unset.sh claude plugin list --json   (operator entries dropped; only the qompack entry kept)
+cwd: <scratch>/install/c7/uat01/proj

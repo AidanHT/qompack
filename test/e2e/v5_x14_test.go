@@ -332,6 +332,20 @@ func TestV5_EveryContractAssertionHasARealProducer(t *testing.T) {
 		// ── Session A restarts from the compaction; then session B starts ─────────────────────
 		out2 := x14v5Start(t, r, x14v5StartPayload(t, p.Root, x14v5SessionA, "compact", transcript))
 		require.Empty(t, out2.SystemMessage)
+		// F-C48-1: status read between the compaction and the next session (where the live lane
+		// read it) counts session_start.fires as holding, so the banner's "0 pending" stays true.
+		// The row must be on the read at all: a status answer without it would assert nothing.
+		fires := false
+		for _, res := range e2eStatus(t, p.Root).Contract {
+			if res.ID == contract.CSessionStartFires {
+				require.Equal(t, "same-session-restart", res.Observed)
+				require.Equal(t, contract.StandingHolding, contract.StandingOf(res),
+					"a compaction must not leave the status banner one pending")
+				fires = true
+			}
+		}
+		require.True(t, fires, "the status read between the compaction and session B must report %s",
+			contract.CSessionStartFires)
 		out3 := x14v5Start(t, r, x14v5StartPayload(t, p.Root, x14v5SessionB, "startup", transcript))
 		require.Empty(t, out3.SystemMessage)
 
@@ -368,6 +382,11 @@ func TestV5_EveryContractAssertionHasARealProducer(t *testing.T) {
 		require.Equal(t, contract.OutcomeObserved, compact[contract.CPreCompactTiming].Outcome)
 		require.True(t, strings.HasPrefix(compact[contract.CPreCompactTiming].Observed, "p99="),
 			"a real wall-time sample, not a placeholder: %q", compact[contract.CPreCompactTiming].Observed)
+		// F-C48-1: the marker the PreCompact route just wrote names session A itself, and A's own
+		// first start counted no absence, so the compact restart is A's own restart — holding, not
+		// a pending marker-absent-once.
+		require.Equal(t, contract.OutcomeObserved, compact[contract.CSessionStartFires].Outcome)
+		require.Equal(t, "same-session-restart", compact[contract.CSessionStartFires].Observed)
 
 		// The setter claim, retired: the producer IS declared and its Check DID run (its Observed
 		// is not the not-yet-implemented placeholder). Since C1.18 that Check scans nothing and says

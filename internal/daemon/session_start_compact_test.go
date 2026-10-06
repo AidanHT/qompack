@@ -103,12 +103,14 @@ func dispatchWithin(t *testing.T, dd *daemon, req ipc.Request, bound time.Durati
 	}
 }
 
-// joinReplyWork waits for every goroutine startReplyWork launched, as Stop does.
+// joinReplyWork waits for every goroutine startReplyWork launched, as Stop does, with no clock: the
+// grace never ends, so the join never cancels the work (promptCancel) before it has finished on its
+// own. The rows go on to assert what that work recorded (drops, histograms, the sentinel), and a grace
+// a stalled host outlasted turned them red on a cancelled record (wave 22). A hang is left to go test
+// -timeout. t is kept for the call sites' symmetry with the other join helpers.
 func joinReplyWork(t *testing.T, dd *daemon) {
 	t.Helper()
-	ctx, cancel := context.WithTimeout(context.Background(), compactTestBound)
-	defer cancel()
-	dd.stopPromptRecordings(ctx)
+	dd.stopPromptRecordings(context.Background())
 }
 
 // additionalContext is out's additionalContext, or "".
@@ -163,7 +165,7 @@ func TestSessionStartCompact_AnswerDoesNotWaitForTheSessionsIngest(t *testing.T)
 	t.Cleanup(gate.open)
 	select {
 	case <-gate.entered:
-	case <-time.After(compactTestBound):
+	case <-hangGuard(t):
 		t.Fatal("the Stop never reached the graph flush it holds the session lock across")
 	}
 
@@ -182,7 +184,7 @@ func TestSessionStartCompact_AnswerDoesNotWaitForTheSessionsIngest(t *testing.T)
 	select {
 	case err := <-stopDone:
 		require.NoError(t, err)
-	case <-time.After(compactTestBound):
+	case <-hangGuard(t):
 		t.Fatal("the held Stop never finished")
 	}
 	joinReplyWork(t, dd)
@@ -276,7 +278,7 @@ func TestSessionStartCompact_LateRehydrationIsAnsweredWithTheDeferredNote(t *tes
 	f.open()
 	select {
 	case <-finished:
-	case <-time.After(compactTestBound):
+	case <-hangGuard(t):
 		t.Fatal("the late rehydration never finished")
 	}
 }

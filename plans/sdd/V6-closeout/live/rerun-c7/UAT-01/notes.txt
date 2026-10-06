@@ -1,0 +1,160 @@
+UAT-01 and C4.1 - install the frozen bundle the way a release user installs it, then record what is
+installed. Candidate 7 re-run (decisions D52, D53(f), D57), commit d20309c0, frozen bundle
+qompack-bundles/c7/qompack-plugin-0.3.0-windows-amd64. Agent-executed on the owner's real host per
+owner decision D3 by a Claude Code workflow subagent (Opus 5.5) - not human UAT.
+
+Date 2026-10-02 04:04-04:11 America/Toronto (EDT). Snapshot in snapshot.txt. Sessions used: 1 (haiku,
+sessions.tsv install-c7 n=1, 28.3 s, exit 0, stderr empty). Candidate 4's evidence stays at
+plans/sdd/V6-closeout/live/rerun-c4/UAT-01/ (not touched). Self-tests: selftests.txt.
+
+What is new in this run (D53(f)): the plugin was installed through a local directory marketplace
+named qompack-live whose ONE entry is named qompack-windows-amd64 - the release's per-target entry
+name - with source ./qompack-plugin-0.3.0-windows-amd64, a checksum-verified copy of the frozen
+bundle (cli/iso/ and cli/00-04). plugin.json inside still says "name": "qompack".
+
+Preconditions (cli/00-preconditions.txt): fresh disposable project <scratch>/install/c7/uat01/proj
+(git init + one commit; README.md with code word KESTREL-7, calc.py); no <project>/.qompack/; no
+~/.qompack at all (so no user config.json); zero QOMPACK_* variables in every step and in the
+session; no --set; the parent Claude Code session's linkage variables removed (tools/unset.sh).
+
+Step 1 install, in two halves:
+ (a) isolated profile, no model call (cli/iso/, CLAUDE_CONFIG_DIR=<scratch>/install/c7/profile, a
+     separate scratch project): validate --strict --json of the marketplace and of the bundle both
+     success true, no errors/warnings; marketplace add --scope local "(declared in local settings)";
+     install qompack-windows-amd64@qompack-live -s local --json exit 0; plugin list --json id
+     "qompack-windows-amd64@qompack-live", version 0.3.0, scope local, installPath
+     <profile>/plugins/cache/qompack-live/qompack-windows-amd64/0.3.0; details (see below);
+     uninstall -s local --json ("keptData": false); marketplace remove. The real-home guard was
+     unchanged afterwards.
+ (b) real profile, LOCAL scope in the session project (cli/01-04): marketplace add --scope local
+     exit 0; install -s local --json exit 0; plugin list --json (qompack entry only, cli/03): id
+     qompack-windows-amd64@qompack-live, scope local, version 0.3.0, installPath
+     ~/.claude/plugins/cache/qompack-live/qompack-windows-amd64/0.3.0 (keyed by the ENTRY name),
+     projectPath = the disposable project, mcpServers.qompack = ${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe
+     mcp. The cache copy verifies against its checksums.txt; BUNDLE.json and bin identical to the
+     frozen bundle (cli/s4).
+
+NAMESPACE the host gives the release entry (observed strings, D53(f)):
+ - claude plugin list --json: "qompack-windows-amd64@qompack-live".
+ - claude plugin details qompack-windows-amd64: exit 1, 'Plugin "qompack-windows-amd64" not found.
+   Run `claude plugin list` to see installed plugins, or pass --plugin-dir <path> to load one from
+   disk.' (cli/04, and cli/iso/i06 in the isolated profile).
+ - claude plugin details qompack, and details qompack-windows-amd64@qompack-live: exit 0, "qompack
+   0.3.0", "Source: qompack-windows-amd64@qompack-live", Skills (6) dropped, eval, pin, recall,
+   status, why; Hooks (7); MCP servers (1) qompack. Its Description line is the marketplace ENTRY's
+   description ("... Install this entry on Windows, x86-64."), not plugin.json's.
+ - session init (session/stream.jsonl, session 4b53ad30-87a9-46fe-91ed-32687aef5b8b):
+   mcp_servers [{"name": "plugin:qompack:qompack", "status": "connected", "source": "plugin"}];
+   tools mcp__plugin_qompack_qompack__{already_tried,dropped,expand,re_read,recall,
+   record_eliminated,timeline,why}; slash_commands qompack:{dropped,eval,pin,recall,status,why}
+   (no qompack:checkpoint, D36); plugins [{"name": "qompack", "source":
+   "qompack-windows-amd64@qompack-live", "version": "0.3.0", "path": the marketplace SOURCE
+   directory <scratch>\install\c7\mkt\qompack-plugin-0.3.0-windows-amd64}].
+ - command typed: /qompack:status (turn 2). It ran: the reply reproduces `qompack status` output
+   ("host contract: 9 assertion(s), none failing: 3 holding, 2 pending, 4 with nothing to judge"),
+   so the host resolved `qompack` for the command body's !`qompack status` without any PATH change.
+ - MCP tool names the host used: mcp__plugin_qompack_qompack__recall (twice), after
+   ToolSearch select:mcp__plugin_qompack_qompack__recall. The --allowedTools list also carried
+   server rules for the two entry-derived spellings (mcp__plugin_qompack-windows-amd64_qompack,
+   mcp__plugin_qompack_windows_amd64_qompack) in case the host used them; it did not.
+ So under the release entry name the namespace is derived from plugin.json's name, exactly as under
+ an entry named qompack: the entry name appears only in the install id, the installPath and the
+ plugins[].source.
+
+Compared with the docs:
+ - docs/commands.md and the user guide write /qompack:<command>: matches what the host listed and ran.
+ - docs/install.md §9 says plugin list reports the install as qompack-windows-amd64@<mkt> while
+   details names the plugin qompack: matches. It ALSO says (line ~343) that under a release entry
+   named qompack-<os>-<arch> "the namespace has not been observed in a live session, and the host
+   may derive it from the entry name instead": that sentence is now stale - finding F1 (doc). It is
+   not marked "to be confirmed at execution", so this run did not edit it; the observed strings are
+   recorded here and in the Result block.
+ - finding F2 (doc, minor): install.md §9 says "the marketplace entry name is what enabledPlugins
+   keys and /plugin use", but `claude plugin details <entry-name>` fails with "not found"; details
+   takes the plugin.json name or the qualified id. Not stated anywhere in the docs.
+ - The brief's premise that install.md §3 says install/update/uninstall take no --json on 2.1.280
+   is stale: the committed §3 already records that 2.1.280 accepts --json (candidate 4 found the
+   same). Observed again: install and uninstall --json each printed one JSON line. No change needed.
+
+D49 / wave 16 relhyg - recall ranks the host's records of Qompack's own MCP calls after originals:
+ turn 3 recall "KESTREL": count 2 (FileRead readme.md, then prompt turn 4), no denied.
+ turn 4 recall "KESTREL": count 3, denied 2 - FileRead readme.md first (score 0.426), then the two
+ prompt records; the two self-records that now matched (the host's capture filed under
+ mcp__plugin_qompack_qompack__recall, toolu_011q..., and the server's own ephemeral
+ mcp__qompack__recall record) were reached only after every original and withheld as pathless
+ ("no usable path provenance"), counted in denied. cli/x5 (bundle CLI recall --k 10 after the
+ session): the same three originals first, denied 4 (the four self-records). store/index_tool_use.jsonl
+ shows the host-captured records filed under the release install's tool name
+ mcp__plugin_qompack_qompack__recall. PASS against D49: originals rank ahead, and the self-records
+ are withheld as docs/mcp-tools.md ("recall counts what it withheld") documents.
+
+Hooks (session/hooks.json; every hook_response success, exit 0; stderr empty): SessionStart:startup
+(arrival 1061 ms, NOT measured - before init), UserPromptSubmit x4, PostToolUse (Read, ToolSearch,
+mcp recall x2), Stop x4. Measured pairs 43-113 ms. SessionEnd: no host stream event and no stderr
+line; index/sessions.jsonl and the daemon's session record carry the end. Host-reported hook
+failures or timeouts: 0 (D53(i)).
+
+Steps 2-8 (bundle CLI, cwd = project, no QOMPACK_*):
+ 2 version.txt: "0.3.0", exit 0.
+ 3 snapshot.txt: bundle commit d20309c03ffc364e4cc48663be73cfbb1f2309b2 (BUNDLE.json source), Windows 11
+   Home 25H2 build 10.0.26200.9457, Claude Code 2.1.280.
+ 4 cli/s4-plugin-json.txt: installed .claude-plugin/plugin.json "version": "0.3.0" = step 2 = BUNDLE.json
+   version. As they stand: the source tree's plugin/.claude-plugin/plugin.json at d20309c0 now reads
+   0.3.0 (C7.1's version commit, D57(c)); the last tag reachable from d20309c0 is v0.2.0
+   (git describe v0.2.0-2005-gd20309c0). The expectation text still says the source tree "reads 0.1.0
+   until the release's version commit": that commit has landed, so the source reads 0.3.0 - recorded,
+   not a defect.
+ 5 cli/s5-installed-hooks.json + cli/s5-s6-host-discovery.txt: the seven events, exec form
+   ${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe + args (observe tool 5 s; checkpoint 20; flush 20; session-start
+   15; observe stop 5; observe stop --subagent 10; observe prompt 5). The host fired SessionStart,
+   UserPromptSubmit, PostToolUse and Stop; PreCompact and SubagentStop were not exercised by this
+   four-turn session; SessionEnd ran per the store; nothing fired that is not declared.
+ 6 same file: the host's eight tools equal docs/mcp-tools.md's eight (match True).
+ 7 config-provenance.txt: 108 leaves, all "// default config.Defaults()"; the ten gated switches,
+   runtime.telemetry.enabled and runtime.migration.compaction.blockManualCompact all false.
+ 8 self-test.txt / self-test.json: exit 0, mode full, every row ok/info, no critical row. OBSERVED
+   ("to be confirmed at execution"), installed CLI self-test: hook.additional_context_delivered,
+   precompact.has_time_to_write, precompact.custom_instructions_accepted and mcp.server_registered read
+   not-yet-implemented (the zero-Services CLI run declares no producers, as on candidate 4);
+   session_start.fires marker-found; transcript.readable no-transcript-path; plugin.root_resolves unset.
+   The daemon's own contract snapshot (cli/x4-status-json, producers declared):
+   session_start.fires first-session, hook.additional_context_delivered sentinel-observed,
+   precompact.has_time_to_write timeout-unknown, precompact.custom_instructions_accepted RETIRED (as the
+   expectation says wherever its producer is declared), mcp.server_registered initialize-received,
+   transcript.readable transcript-pending, plugin.root_resolves resolved.
+
+Status, doctor, fsck after the MCP calls (candidate 3's findings, re-checked again):
+ cli/x1-status exit 0: "host contract: 9 assertion(s), none failing: 4 holding, 1 pending, 4 with
+ nothing to judge" (pending transcript.readable) - the pending row is not counted as holding (D50).
+ cli/x2-doctor-json exit 0: captures.unpublished ok "0 gap(s) across 12 sidecar(s)"; scope.daemon ok.
+ cli/x3-fsck-json (daemon live) exit 0, 18/18 ok. MCP self-records indexed at their call's turn 5 and 7.
+ Daemon pid 16768 ran from the D10 staged copy ~/.qompack/bin/ab8046ba.../qompack.exe (sha256 = the
+ bundle bin). Defaults only (idle exit 1800 s), so cli/x6-stop-daemon.txt terminated it after checking
+ the lock's pid and root, image qompack.exe and a command line naming this project. Then
+ cli/y1 fsck --json exit 0 (lock STALE, ok), cli/y3 fsck --seal-check --json exit 0 ("the full
+ dual-reader seal check passed"), cli/y2 doctor exit 0 (scope.daemon "degraded held by pid 16768, not
+ reachable" - the same stale lock under doctor's label, as on candidate 4).
+
+Rollback: not applicable - initial state absent (no <project>/.qompack/, recorded); per the row's rule
+the run is retained as evidence; no pre-run store exists to restore.
+
+Cleanup: the host created an EMPTY ~/.claude/plugins/data/qompack-windows-amd64-qompack-live/ during
+the session (cli/x7; the data id is <entry>-<marketplace>); the post-session guard's homeguard clean
+removed it before the uninstall (lane rule), so what uninstall does with it stays unobserved.
+cli/z1 uninstall qompack-windows-amd64@qompack-live -s local --json exit 0 ("keptData": false);
+cli/z2 marketplace remove exit 0; the host left plugins/cache/qompack-live/qompack-windows-amd64/0.3.0/
+marked .orphaned_at; run-created, BUNDLE.json equal to the frozen bundle, removed (cli/z3). Guard after
+cleanup: "real home fingerprint unchanged" (guard/install.txt). The staged copy is removed at the end
+of the part.
+
+Findings:
+ F1 (doc) install.md §9's "the namespace has not been observed ... may derive it from the entry name"
+    is stale: observed, it derives from plugin.json's name (plugin:qompack:qompack,
+    mcp__plugin_qompack_qompack__<tool>, /qompack:<command>) under the qompack-windows-amd64 entry.
+ F2 (doc, minor) `claude plugin details qompack-windows-amd64` answers "not found" (exit 1); details
+    takes `qompack` or `qompack-windows-amd64@<mkt>`, and shows the entry's description.
+ O1 (observation for UAT-10's owner) status --json's raw latency.hook_controlled reports P95
+    212,992,000 ns above Max 206,000,000 ns (a histogram bucket bound); the text banner clamps it to
+    206.00 ms. The 206 ms sample is the cold first SessionStart.
+ O2 (host) init reports the plugin path as the marketplace source directory, not the installPath (as on
+    candidates 3 and 4).

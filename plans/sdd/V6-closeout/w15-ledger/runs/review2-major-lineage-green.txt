@@ -1,0 +1,32 @@
+# review-2 major: GREEN after the fix (lazy viewer in Query + memoized LedgerAncestry)
+# go test -p 2 -count=1 -run '^(TestBudget_QueryHitThroughLineage|TestBudget_QueryMissThroughLineage|TestBudget_QueryHit|TestBudget_QueryMiss)$' -v ./internal/negknow/
+=== RUN   TestBudget_QueryHit
+    bench_test.go:664: BenchmarkQueryHit: 2.682µs CPU/op over 489315 iterations (best of 1) against a 50µs budget
+    bench_test.go:664: BenchmarkQueryHit: 2.467µs wall/op over 489315 iterations (best of 1) against a 50µs budget
+--- PASS: TestBudget_QueryHit (1.84s)
+=== RUN   TestBudget_QueryMiss
+    bench_test.go:668: BenchmarkQueryMiss: 2.694µs CPU/op over 655360 iterations (best of 1) against a 5µs budget
+    bench_test.go:668: BenchmarkQueryMiss: 2.364µs wall/op over 655360 iterations (best of 1) against a 5µs budget
+--- PASS: TestBudget_QueryMiss (2.26s)
+=== RUN   TestBudget_QueryHitThroughLineage
+=== RUN   TestBudget_QueryHitThroughLineage/not_a_fork
+    lineage_bench_test.go:89: BenchmarkQueryHitThroughLineage/not_a_fork: 4.38µs CPU/op over 288950 iterations (best of 1) against a 50µs budget
+    lineage_bench_test.go:89: BenchmarkQueryHitThroughLineage/not_a_fork: 3.96µs wall/op over 288950 iterations (best of 1) against a 50µs budget
+=== RUN   TestBudget_QueryHitThroughLineage/fork
+    lineage_bench_test.go:89: BenchmarkQueryHitThroughLineage/fork: 4.793µs CPU/op over 254227 iterations (best of 1) against a 50µs budget
+    lineage_bench_test.go:89: BenchmarkQueryHitThroughLineage/fork: 4.395µs wall/op over 254227 iterations (best of 1) against a 50µs budget
+--- PASS: TestBudget_QueryHitThroughLineage (4.85s)
+    --- PASS: TestBudget_QueryHitThroughLineage/not_a_fork (2.37s)
+    --- PASS: TestBudget_QueryHitThroughLineage/fork (2.48s)
+=== RUN   TestBudget_QueryMissThroughLineage
+=== RUN   TestBudget_QueryMissThroughLineage/not_a_fork
+    lineage_bench_test.go:100: BenchmarkQueryMissThroughLineage/not_a_fork: 2.901µs CPU/op over 538552 iterations (best of 1) against a 5µs budget
+    lineage_bench_test.go:100: BenchmarkQueryMissThroughLineage/not_a_fork: 2.43µs wall/op over 538552 iterations (best of 1) against a 5µs budget
+=== RUN   TestBudget_QueryMissThroughLineage/fork
+    lineage_bench_test.go:100: BenchmarkQueryMissThroughLineage/fork: 2.768µs CPU/op over 445837 iterations (best of 1) against a 5µs budget
+    lineage_bench_test.go:100: BenchmarkQueryMissThroughLineage/fork: 2.669µs wall/op over 445837 iterations (best of 1) against a 5µs budget
+--- PASS: TestBudget_QueryMissThroughLineage (5.56s)
+    --- PASS: TestBudget_QueryMissThroughLineage/not_a_fork (2.49s)
+    --- PASS: TestBudget_QueryMissThroughLineage/fork (3.07s)
+PASS
+ok  	github.com/qompack/qompack/internal/negknow	14.850s

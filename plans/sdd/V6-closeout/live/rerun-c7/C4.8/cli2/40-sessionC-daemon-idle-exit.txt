@@ -1,0 +1,1 @@
+daemon.lock absent after 15s: daemon exited on its own (idle exit)

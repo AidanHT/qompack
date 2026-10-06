@@ -1,0 +1,85 @@
+UAT-03 re-run on candidate 7 (D52/D53/D57) — checkpoint round trip across the DEFAULT idle exit and a restart,
+the corrupted-newest-checkpoint probe (D49), then backup create/verify/restore and fsck (also C4.3, C4.5).
+Agent-executed on the owner's real host per owner decision D3 by a Claude Code workflow subagent (Opus 5.5) — not
+human UAT.
+
+Date 2026-10-02 America/Toronto: session 04:31-04:32 EDT; steps 4-5, backup and probe 14:03-14:05 EDT (the lane was
+cut off by a usage limit at ~04:50 and resumed; the session had already run to its end, so the row was completed
+from the preserved project, not re-run). Sessions used: 1 (session/, sessions.tsv part sessions-c7 n=1, 73.7 s).
+Model claude-haiku-4-5-20251001. Claude Code 2.1.280, Windows 11 Home 25H2 build 10.0.26200.9457. Frozen bundle
+qompack-bundles/c7/qompack-plugin-0.3.0-windows-amd64 (BUNDLE.json sha256
+5212ae4eaa2e931266d52069e7d0c72ec2dfd2255d55421c87486ab083e1f395, bin/qompack.exe sha256 ab8046ba...3be7, commit
+d20309c03ffc364e4cc48663be73cfbb1f2309b2) via --plugin-dir; every CLI step used the bundle's bin/qompack.exe
+(`qompack version` 0.3.0, cli/00-version). Init: plugin qompack 0.3.0 (qompack@inline), plugin:qompack:qompack
+connected, 8 tools, the six /qompack: commands (dropped, eval, pin, recall, status, why; no qompack:checkpoint).
+
+Preconditions (cli/00-preconditions.txt): fresh project (git init + add) with handoff.md (30 keys; K17 in
+setup-facts.json), src/app.py, docs/plan.md, README.md. Defaults only (no config file, no --set); QOMPACK_HOME moves
+calibration.json only; DEFAULT idle exit 1800 s, no override. Initial absence recorded: cli/00-backup-create-absent
+exit 1 "source project has no existing store".
+
+Step 1 (session/stream.jsonl): T1 Read handoff.md, T2 Read src/app.py, T3 "/compact" (manual, pre 26,615 -> post
+2,802), T4 Read docs/plan.md, T5 "/compact" (manual, pre 26,413 -> post 3,725), T6 (before: handoff.md deleted) K17
+asked: the model answered ALDER-4780-ROWAN (correct) "from my current context ... the Read tool result shown in the
+system-reminder" (the host's preserved context, not Qompack), T7 /qompack:status (C4.5). Every hook the stream shows
+is success/exit 0 (session/hooks.json, 18 pairs); stderr.txt empty (no "Hook cancelled"). Injected blocks:
+block2 (1,501 UTF-16 units) and block3 (1,603), inline, delimiters present.
+
+Step 2 (steps/s2-pre-checkpoints.txt, s2-pre-MANIFEST.jsonl): 0001.json and 0002.json; MANIFEST's last line
+{"seq":2,"sha256":"sha256:a76f42d6...cadace8","bytes":2072}; both artifacts re-hash to their lines (MATCH).
+Step 3 (steps/s2-pre-0001.json, s2-pre-0002.json): every field the row names is present (encoded_segments, pointers,
+invariants, user_intent, eliminated, decisions, open_questions, current_work, sketch_refs, dropped); 0001
+encoded_segments [1], pointers.files src/app.py + handoff.md, pointers.tools the two Read ids; 0002 encoded_segments
+[2], parent 0001.json, pointers docs/plan.md + the compaction subagent's record; every hash sha256:<64 hex>.
+cli/s2-status-pre-idle and s2-fsck-json-live: exit 0, fsck clean with the daemon live.
+
+Step 4 (steps/s4-daemon-ended.txt): the daemon ended by the DEFAULT idle exit — its shutdown writes carry mtime
+05:02:56 EDT, ~1800 s after the session's last request; run/daemon.lock removed; no termination.
+cli/s4-fsck-json-stopped and s4-fsck-json-stopped-seal-check: exit 0, every row ok (checkpoints "the chain from 0002
+verifies across 2 checkpoint(s)", delivery "the full dual-reader seal check passed"). s4-doctor-json-stopped exit 0.
+
+Backup of that store (daemon stopped, before step 5): b1 create --id uat03-after-idle exit 0 (consistent true); b2
+verify exit 0 (scratch restore OpenedOK, 13 content roots, 10 tool refs, 0 tombstoned; integrity all ok); b3 restore
+--destination <scratch>/sessions/c7/uat03/recovery/proj exit 0 (OpenedOK, 13 roots, 10 tool refs, SameBuildOnly,
+integrity all ok incl. the dual-reader seal check); b4 fsck --seal-check of the destination exit 0.
+
+Step 5: cli/s5-status-brings-daemon-back: "source: disk (available, 9.02h old) / daemon: no daemon answered: none is
+listening for this project yet. This command asked one to start ..."; s5-status-second: "source: daemon (available,
+0µs old)", new daemon pid 71940 (steps/s5-daemon-info.txt). steps/s5-diff.txt: the listing, MANIFEST.jsonl, 0001.json
+and 0002.json are IDENTICAL to the pre-idle reads. cli/s5-fsck-json-live-after-restart exit 0.
+Observation (unchanged since candidate 4, not an expected-result field): the restarted daemon's status says "host
+contract: no assertions reported" until a session reports them.
+
+The explicit incomplete outcome (probe/, in the RESTORED copy only, as candidate 4 ran it): 0002.json changed by one
+byte (offset 583, 'c' -> 'X', same length; probe/00-corruption.txt); fsck (probe/01) exit 1 names it ("checkpoint
+0002: the artifact is missing or does not re-hash ... / the chain from 0001 verifies across 1 checkpoint(s)"). The
+hook entry point `qompack session-start` with a SessionStart source=compact payload for the session (probe/02) exit 0.
+D49 — every surface names the rollback (F-C4-UAT03-1 is FIXED):
+ - payload header: "# Qompack rehydration — checkpoint 0001 (rolled back from 0002), session d8d6f167";
+ - section 7 (first entry): "checkpoint_fallback 0002 — checkpoint 0002 does not verify and does not describe this
+   rehydration; it was rebuilt from checkpoint 0001, so anything recorded after it (...) may be missing; restore:
+   recall() and timeline() ..., `qompack fsck` names the damaged artifact, and `qompack backup restore` ...";
+ - drop report (probe/03 dropped --json, probe/04 text): count 1, the same checkpoint_fallback entry;
+ - state (probe/probe-state_rehydrate-*.json): seq 1, degraded true, degraded_reason "checkpoint 0002 does not
+   verify; rolled back to 0001" (the resolver's own wording);
+ - LOUD.log (probe/probe-logs_LOUD.log): "rehydrate: newest checkpoint refused; rolled back to 0001" refused=[2]
+   rolled_back_to=0001, after the refusal lines for 0002.
+ Observation: in the restored copy the tool pointers' summaries are withheld ("it names a path the host's permission
+ rules refuse, or one outside the project") — the recorded absolute paths name the ORIGINAL project, which is outside
+ the recovery root (D50 privacy rule working as written); the live blocks show them (inside the project).
+ The probe's hook invocation started a daemon in the recovery copy (probe/05-daemon-info.txt); it ends by idle exit.
+
+The gated durable frontier (runtime.migration.publication.durableFrontier false) is unverified by this row.
+Rollback: initial state absent (recorded). Same-build backup/restore of the post-idle store verified (above); the
+destination was not activated; the source's later writes untouched; cross-version and activation checks unverified.
+Guard: plans/sdd/V6-closeout/live/guard/sessions.txt ("session 1 UAT-03", "resume check").
+
+Note (wave 19 docs seat, 2026-10-02, added after the lane at the independent audit's request): the committed
+checkpoint copies under steps/ (s2-pre-0001.json, s2-pre-0002.json, s5-post-0001.json, s5-post-0002.json) are
+path-scrubbed: the live driver replaced the scratch path with '<scratch>' before commit. Their sizes and sha256
+therefore differ from MANIFEST.jsonl (0001: 1,951 bytes committed vs 2,053 in MANIFEST; 0002: 2,021 bytes, sha256
+abcc6266..., vs 2,072 bytes, sha256:a76f42d6...cadace8). The step 2 MATCH (each artifact re-hashes to its MANIFEST
+line) was computed on the unscrubbed store in the scratch project, before the copies were scrubbed
+(s2-pre-checkpoints.txt records the store's own sizes, 2,053 and 2,072, with their hashes), so re-hashing the
+committed copies cannot reproduce it. s5-diff.txt's IDENTICAL lines compare the pre-idle and post-restart
+copies as committed, both scrubbed the same way.

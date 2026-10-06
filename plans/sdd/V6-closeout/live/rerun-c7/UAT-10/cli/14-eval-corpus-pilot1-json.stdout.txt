@@ -1,0 +1,189 @@
+{
+  "schema": 1,
+  "command": "eval",
+  "ok": true,
+  "data": {
+    "schema": 1,
+    "verdict": "inconclusive",
+    "task": [
+      {
+        "id": "LIVE-T01",
+        "metric": "task success after compaction, qompack − stock (margin not recorded in this summary)",
+        "value": null,
+        "passed": null,
+        "detail": "not judged: not a confirmatory run (its task set qompack-live-pilot-v1 has no pre-registration; it did not run both arms (arms: qompack); it excluded the held-out tasks; its plan does not record the task set's size, so a narrowed run cannot be ruled out); no difference: both arms are needed; decision not-applicable — both arms are needed for a comparison"
+      },
+      {
+        "id": "LIVE-T02",
+        "metric": "constraint-clean trials, qompack − stock (regression rule)",
+        "value": null,
+        "passed": null,
+        "detail": "not judged: not a confirmatory run (its task set qompack-live-pilot-v1 has no pre-registration; it did not run both arms (arms: qompack); it excluded the held-out tasks; its plan does not record the task set's size, so a narrowed run cannot be ruled out); no difference: both arms are needed; reported, and failed only as a regression (upper bound below −margin)"
+      }
+    ],
+    "recovery": [
+      {
+        "id": "LIVE-R01",
+        "metric": "pre-compaction facts recovered, qompack − stock",
+        "value": null,
+        "passed": null,
+        "detail": "no difference: both arms are needed; reported with its interval, never judged (preregistration section 8)"
+      }
+    ],
+    "cost": {
+      "categories": null,
+      "kinds": null,
+      "pricing_modes": null,
+      "estimate": null,
+      "completeness": null,
+      "available": false,
+      "reason": "no request ledger was recorded for this run"
+    },
+    "historical": null,
+    "trials": {
+      "planned": 0,
+      "ran": 0,
+      "skipped": 0,
+      "failed": 0
+    },
+    "policy": "",
+    "baseline": "",
+    "sessions": 0,
+    "notes": [
+      "no Qompack replay score was read; only the live run is reported"
+    ],
+    "live": {
+      "source": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack-cx-live\\plans\\sdd\\V6-closeout\\eval\\runs\\pilot1-plugin-dir",
+      "run_id": "20260922T224730Z-9849a5",
+      "created_at": "2026-09-22T22:47:30Z",
+      "qualification": "agent-executed on the real installed host (owner decision D3); not human UAT",
+      "host": "windows/amd64",
+      "claude_code_version": "2.1.280",
+      "model": "claude-haiku-4-5-20251001",
+      "preregistered_model": "claude-haiku-4-5-20251001",
+      "task_set": "qompack-live-pilot-v1",
+      "task_set_sha256": "4da30ddf165ad260b2a386872c25e347eb2ebf7e3b39b02a832e1a301b55b1a6",
+      "install": "plugin-dir",
+      "plugin": {
+        "install": "plugin-dir",
+        "bundle_dir": "C:\\Users\\Quant\\AppData\\Local\\Temp\\claude\\C--Users-Quant-Documents-Programming-Projects-qompack\\9c57653d-e5ff-4791-8ab4-ad49457994c1\\scratchpad\\cxeval\\bundle\\qompack-plugin-0.3.0-live.pilot-windows-amd64",
+        "version": "0.3.0-live.pilot",
+        "commit": "251ec8b1386ac384f0100149df193095d8857abd",
+        "dirty": false,
+        "bundle_json_sha256": "b1e56c128dc8e4ccdc25e13919a2ac1ac2c73f1cdf51431ba6a5a497130e6d2a"
+      },
+      "defect_precondition": "not attested: the plan carries no statement of the bundle's known open defects",
+      "held_out_included": false,
+      "confirmatory": false,
+      "not_confirmatory": [
+        "its task set qompack-live-pilot-v1 has no pre-registration",
+        "it did not run both arms (arms: qompack)",
+        "it excluded the held-out tasks",
+        "its plan does not record the task set's size, so a narrowed run cannot be ruled out"
+      ],
+      "tasks": 1,
+      "trials_per_arm": 1,
+      "trials": {
+        "planned": 1,
+        "ran": 1,
+        "skipped": 0,
+        "failed": 0
+      },
+      "confidence": 0.95,
+      "non_inferiority_margin": 0,
+      "non_inferiority_margin_known": false,
+      "arms": [
+        {
+          "arm": "qompack",
+          "trials": 1,
+          "completed": 1,
+          "plugin_mismatch": 0,
+          "task_success": {
+            "k": 1,
+            "n": 1,
+            "rate": 1,
+            "low": 0.20654931411298355,
+            "high": 1
+          },
+          "constraint_clean": {
+            "k": 1,
+            "n": 1,
+            "rate": 1,
+            "low": 0.20654931411298355,
+            "high": 1
+          },
+          "constraint_violations": 0,
+          "recovery": {
+            "k": 1,
+            "n": 1,
+            "rate": 1,
+            "low": 0.20654931411298355,
+            "high": 1
+          },
+          "mean_usage": {
+            "input": 1523,
+            "output": 1608,
+            "cache_read": 114764,
+            "cache_write": 12220
+          },
+          "mean_host_cost_usd": 0.04536765,
+          "mean_estimate_micros": 45181,
+          "estimate_incomplete": 1,
+          "mean_wall_ms": 72895,
+          "mean_store_bytes": 146464,
+          "hook_p50_ms": 1356,
+          "hook_p95_ms": 6780,
+          "hook_problem_trials": 1,
+          "account_inconsistent": 0,
+          "foreign_plugin_trials": 0,
+          "categories": {
+            "cache_read": {
+              "known": 114764,
+              "known_records": 4,
+              "unknown_records": 0
+            },
+            "cache_write_1h": {
+              "known": 12071,
+              "known_records": 3,
+              "unknown_records": 1
+            },
+            "cache_write_5m": {
+              "known": 0,
+              "known_records": 3,
+              "unknown_records": 1
+            },
+            "input": {
+              "known": 1523,
+              "known_records": 4,
+              "unknown_records": 0
+            },
+            "output": {
+              "known": 854,
+              "known_records": 4,
+              "unknown_records": 0
+            },
+            "thinking_output": {
+              "known": 754,
+              "known_records": 4,
+              "unknown_records": 0
+            }
+          }
+        }
+      ],
+      "decision": {
+        "verdict": "not-applicable",
+        "reason": "both arms are needed for a comparison"
+      },
+      "notes": [
+        "1 of 1 qompack trial(s) ran with a hook failure the host reported; they are counted, not dropped, and each trial record names the failure"
+      ],
+      "rate_table_date": "2026-09-22",
+      "analysis": {
+        "model": "",
+        "confidence": 0.95,
+        "non_inferiority_margin": 0,
+        "trials_per_arm": 0
+      }
+    }
+  }
+}

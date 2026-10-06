@@ -1,0 +1,73 @@
+{
+ "args": [
+  "-p",
+  "--input-format",
+  "stream-json",
+  "--output-format",
+  "stream-json",
+  "--verbose",
+  "--include-hook-events",
+  "--model",
+  "claude-haiku-4-5-20251001",
+  "--max-turns",
+  "10",
+  "--setting-sources",
+  "project,local",
+  "--permission-mode",
+  "dontAsk",
+  "--plugin-dir",
+  "C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c7/qompack-plugin-0.3.0-windows-amd64",
+  "--allowedTools",
+  "Read,mcp__plugin_qompack_qompack__recall,mcp__plugin_qompack_qompack__expand,mcp__plugin_qompack_qompack__re_read,mcp__plugin_qompack_qompack__already_tried,mcp__plugin_qompack_qompack__record_eliminated,mcp__plugin_qompack_qompack__timeline,mcp__plugin_qompack_qompack__why,mcp__plugin_qompack_qompack__dropped,Bash(qompack status:*),Bash(qompack recall:*),Bash(qompack pin:*),Bash(qompack why:*),Bash(qompack dropped:*),Bash(qompack eval:*)"
+ ],
+ "turns": [
+  {
+   "msg": "Call mcp__plugin_qompack_qompack__already_tried with {\"target\": \"src/pool.go:DialPool\", \"approach\": \"widen pool timeout\"}. Reply with the tool result's text verbatim, then say in one sentence whether anything in it forbids trying the approach.",
+   "ok": true,
+   "wall_s": 7.416,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 67644,
+    "WorkingSet64": 30846976,
+    "PeakWorkingSet64": 30846976,
+    "CPU": 0.1875,
+    "StartTime": "/Date(1790969398551)/"
+   },
+   "store_bytes": 112589
+  },
+  {
+   "msg": "Call mcp__plugin_qompack_qompack__record_eliminated with {\"target\": \"src/pool.go:DialPool\", \"approach\": \"widen pool timeout\", \"reason\": \"the stall comes from the server-side max_idle cap in config/pool.yaml, not from the client timeout; a longer timeout only delays the same failure\", \"scope\": \"session\", \"depends_on\": [\"src/pool.go\", \"config/pool.yaml\"]}. Reply with the tool result's text verbatim.",
+   "ok": true,
+   "wall_s": 4.61,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 67644,
+    "WorkingSet64": 32362496,
+    "PeakWorkingSet64": 32362496,
+    "CPU": 0.25,
+    "StartTime": "/Date(1790969398551)/"
+   },
+   "store_bytes": 138576
+  },
+  {
+   "msg": "Call mcp__plugin_qompack_qompack__already_tried with {\"target\": \"src/pool.go:DialPool\", \"approach\": \"widen pool timeout\"}. Reply with the tool result's text verbatim, then say in one sentence whether anything in it forbids trying the approach.",
+   "ok": true,
+   "wall_s": 2.605,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 67644,
+    "WorkingSet64": 33054720,
+    "PeakWorkingSet64": 33054720,
+    "CPU": 0.3125,
+    "StartTime": "/Date(1790969398551)/"
+   },
+   "store_bytes": 162136
+  }
+ ],
+ "store_bytes_before": 0,
+ "started_ms": 1790969397886,
+ "pid": 58760,
+ "exit": 0,
+ "wall_s": 16.802,
+ "store_bytes_after": 201486
+}

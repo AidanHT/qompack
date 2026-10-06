@@ -1,0 +1,60 @@
+{
+ "args": [
+  "-p",
+  "--input-format",
+  "stream-json",
+  "--output-format",
+  "stream-json",
+  "--verbose",
+  "--include-hook-events",
+  "--model",
+  "claude-haiku-4-5-20251001",
+  "--max-turns",
+  "12",
+  "--setting-sources",
+  "project,local",
+  "--permission-mode",
+  "dontAsk",
+  "--plugin-dir",
+  "C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c7/qompack-plugin-0.3.0-windows-amd64",
+  "--allowedTools",
+  "Read,mcp__plugin_qompack_qompack__recall,mcp__plugin_qompack_qompack__expand,mcp__plugin_qompack_qompack__re_read,mcp__plugin_qompack_qompack__already_tried,mcp__plugin_qompack_qompack__record_eliminated,mcp__plugin_qompack_qompack__timeline,mcp__plugin_qompack_qompack__why,mcp__plugin_qompack_qompack__dropped,Bash(qompack status:*),Bash(qompack recall:*),Bash(qompack pin:*),Bash(qompack why:*),Bash(qompack dropped:*),Bash(qompack eval:*)"
+ ],
+ "cwd": "<scratch>/resilience/c49/proj",
+ "out": "<scratch>/resilience/c49/s2",
+ "env": {
+  "ENABLE_CLAUDEAI_MCP_SERVERS": "false",
+  "QOMPACK_HOME": "<scratch>/resilience/qhome",
+  "QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS": "30"
+ },
+ "messages": [
+  "Use the Read tool to read app.py and tell me in one sentence what export() does.",
+  {
+   "content": "Use the Read tool to read README.md and summarize it in one sentence.",
+   "before": [
+    "C:\\Users\\Quant\\Anaconda3\\python.exe",
+    "<scratch>/resilience/writecfg.py",
+    "<scratch>/resilience/c49/proj",
+    "C:/Users/Quant/Documents/Programming/Projects/qompack-cx-live/plans/sdd/V6-closeout/live/rerun-c7/C4.9/cli/s2-writecfg-before-t2.txt"
+   ]
+  },
+  "/qompack:status",
+  {
+   "content": "Do not use the Read tool for this. Call mcp__plugin_qompack_qompack__re_read with path \"app.py\" and quote its whole answer verbatim, including any found, available or reason fields. Then call mcp__plugin_qompack_qompack__recall with the query \"path:app.py\", call mcp__plugin_qompack_qompack__expand on the first hit's hash, and quote that answer verbatim too.",
+   "before": [
+    "C:\\Users\\Quant\\Anaconda3\\python.exe",
+    "<scratch>/resilience/unavail.py",
+    "<scratch>/resilience/c49/proj",
+    "app.py",
+    "<scratch>/resilience/c49/aside",
+    "C:/Users/Quant/Documents/Programming/Projects/qompack-cx-live/plans/sdd/V6-closeout/live/rerun-c7/C4.9/cli/s2-unavail.txt"
+   ]
+  },
+  "Use the Read tool to read data.txt and tell me the codeword it names.",
+  "Call mcp__plugin_qompack_qompack__recall with the query \"codeword\" and tell me how many hits it returns and which files they come from."
+ ],
+ "timeout_s": 1500,
+ "project": "<scratch>/resilience/c49/proj",
+ "bin": "C:/Users/Quant/AppData/Roaming/npm/node_modules/@anthropic-ai/claude-code/bin/claude.exe",
+ "scrub": "<scratch>"
+}

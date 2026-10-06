@@ -1,0 +1,24 @@
+{
+ "files": {
+  "billing.py": {
+   "bytes": 107,
+   "sha256": "99540ac509cf2440ba8a202e2cfb62564470b7c6f6589349a1b2bdfc3c0652f6"
+  },
+  "README.md": {
+   "bytes": 84,
+   "sha256": "a3bb141f8072baa90b4bec8011606c40c8c0b1256ed6c48e525af1503892a544"
+  },
+  "reports.py": {
+   "bytes": 158,
+   "sha256": "64c50fdb49b6d92975f065161e3dbf90f1c2e92a9ea287fe2656f49813c8f3fa"
+  },
+  "data/meta.txt": {
+   "bytes": 53,
+   "sha256": "3ac16b899e771e3f0417d1ffa3da91158432564c0a69cb2cf3c5057c9884fd44"
+  },
+  "data/meta2.txt": {
+   "bytes": 52,
+   "sha256": "a51f1673e9d3bc62125448d381547225a653184115a82a7dc8f1b11334b3ab29"
+  }
+ }
+}
