@@ -1387,7 +1387,7 @@ func (d *daemon) DrainGaps() DrainGapState {
 // nobody has asked for yet.
 func (d *daemon) sweepCheckpointIntegrity(ctx context.Context) {
 	r, err := checkpoint.OpenReader(d.root, d.log, d.m)
-	if err != nil || r == nil {
+	if err != nil {
 		return
 	}
 	if _, err := r.List(ctx); err != nil {
