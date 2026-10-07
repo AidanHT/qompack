@@ -1,26 +1,26 @@
 # V6 close-out report — Qompack 0.3.0, from the blocked V6 checkpoint to candidate 8
 
-**Decision: NOT YET RELEASE READY.** This is a draft of C6.4. Candidate 8's second freeze
-(integration `275165e9`, D72(b), D73(c)) is the release candidate, and the evidence that would accept
-it does not exist yet. Every cell that belongs to it is marked `[OWED: ...]` below. No cell from an
-earlier candidate is copied in as a run on this one. The report becomes a release decision only when
-every `[OWED: ...]` cell holds an artifact path and no red is left without a recorded disposition
-(D33's release condition, D66's exit rule). No tag, Release, merge to `main` or marketplace step is
-authorized by this report (D4, C7.3-C7.5).
+**Decision: NOT YET RELEASE READY.** This is a draft of C6.4. Candidate 8's second freeze is the release
+candidate. It is frozen from integration `e8c62191`, which is `275165e9` (D72(b), D73(c)) plus D74(a)'s
+one-line lint fix. The evidence that would accept it does not exist yet. Every cell that belongs to it
+is marked `[OWED: ...]` below. No cell from an earlier candidate is copied in as a run on this one.
+The report becomes a release decision only when every `[OWED: ...]` cell holds an artifact path and no
+red is left without a recorded disposition (D33's release condition, D66's exit rule). No tag,
+Release, merge to `main` or marketplace step is authorized by this report (D4, C7.3-C7.5).
 
 `plans/V6-report.md` (the 2026-09-20 BLOCKED checkpoint) stays immutable. This report records the
-close-out that followed it. The working ledger is `plans/V6-CLOSEOUT-CHECKLIST.md` (decisions D1-D73,
+close-out that followed it. The working ledger is `plans/V6-CLOSEOUT-CHECKLIST.md` (decisions D1-D74,
 the dispatch log, phases C0-C7), and every ruling cited here as Dnn is a row of that table.
 
 ## 0. Branch, HEAD and dirty baseline
 
 | Item | Identity |
 |---|---|
-| Ledger branch | `verify/v6`, worktree `../qompack-v6`; this draft is written on `closeout/c6-report` from `verify/v6` `73242853` (D73) |
-| Integration branch | `closeout/integration`, worktree `../qompack-cx-int`, head `275165e9` (waves 1-23 merged) |
+| Ledger branch | `verify/v6`, worktree `../qompack-v6`; this draft is written on `closeout/c6-report` from `verify/v6` `73242853` (D73); D74 was read from the ledger at `verify/v6` `aef69fa9` |
+| Integration branch | `closeout/integration`, worktree `../qompack-cx-int`, head `e8c62191` (waves 1-23 and D74's `closeout/w23-lint` merged) |
 | Close-out base | `cf31e01` (C0.1-C0.3: the interrupted `65bc8d7` run finalized, V6-remediation evidence committed) |
 | V6 checkpoint candidate at takeover | `65bc8d7` plus fixture commit `3dab390` |
-| Release candidate | Candidate 8, second freeze of integration `275165e9`: commit [OWED: second-freeze commit on verify/v6], tree [OWED: tree id], `git describe` [OWED: describe string], `sha256(git archive)` [OWED: source snapshot hash] |
+| Release candidate | Candidate 8, second freeze of integration `e8c62191` (D74(b): c8-night.sh relaunched on the same evidence directory after its first launch refused at the pre-freeze gate, nothing frozen): commit [OWED: second-freeze commit on verify/v6], tree [OWED: tree id], `git describe` [OWED: describe string], `sha256(git archive)` [OWED: source snapshot hash] |
 | Frozen bundles | `qompack-bundles/c8` (second freeze): windows-amd64 BUNDLE.json sha256 [OWED: BUNDLE.json hash], six bin/ sha256 [OWED: bin/ hashes per target], host validation [OWED: `claude plugin validate --strict --json` outcome] |
 | Superseded first freeze | `424f0d08` (integration `77374c3c`, tree `6d1def7c`); its records moved to `phase3/c8-freeze1` and `qompack-bundles/c8-freeze1` (D71(b)) |
 | Root checkout | The main repository stays on `verify/v3` `7f92af5` with its historical dirt untouched (C7.6 housekeeping is owed and needs owner consent) |
@@ -38,10 +38,10 @@ Close-out executed 2026-09-22 to 2026-10-06 (America/Toronto); this draft 2026-1
 | Reference host | Windows 11 Home 10.0.26200 (25H2 build 10.0.26200.9457 in the candidate 7 lane), Intel Core Ultra 7 155H, 22 logical CPUs, 31.4 GB RAM; timing taken on AC only (D57(d)), the store under a D32-excluded path (D53(h)) |
 | Linux | Docker Desktop / WSL2 container, Go 1.26.6, non-root, capped at 8 CPUs and 8 GiB; valid for CPU- and read-bound rows, not fsync-bound ones (D53(b)) |
 | macOS, windows/arm64, linux/arm64 | Hosted runners only (ci.yml, nightly.yml); no local runner. Installed-host macOS and arm64 sessions: `unknown` (C4.11) |
-| Toolchain | `go 1.26`, `toolchain go1.26.6` (go.mod at `275165e9`) |
+| Toolchain | `go 1.26`, `toolchain go1.26.6` (go.mod at `e8c62191`) |
 | Claude Code host | 2.1.280 (live lanes, C3.10) |
 | Model in live sessions | claude-haiku-4-5-20251001 in every candidate 7 lane session; C5.5 analysis parameters in the pre-registration |
-| Plugin version | `0.3.0` in `internal/core.Version` and `plugin.json` at `275165e9` (C7.1, D1) |
+| Plugin version | `0.3.0` in `internal/core.Version` and `plugin.json` at `e8c62191` (C7.1, D1) |
 | Routing | Workflow subagents inheriting the coordinator's Opus 5.5, by the user's 2026-09-22 instruction, superseding the V6 plan's Opus 4.8 headless route for this close-out (ledger, "Routing") |
 
 ## 2. Candidates and why each was superseded
@@ -56,13 +56,15 @@ Close-out executed 2026-09-22 to 2026-10-06 (America/Toronto); this draft 2026-1
 | 6 | `99d0b18c` | `9a56b305` | Replaced by candidate 7 = candidate 6 plus C7.1 and wave 17 (D57(c)); its machine evidence carried by byte proof; no live lane ran on it |
 | 7 | `d20309c0` | `b31d0753` | Its lane (20 sessions, `live/report-c7.md`) failed UAT-05, UAT-12/C4.6 and C4.5 (D59), and the w17c review found a drain-budget defect (D58(c)); waves 18-19i |
 | 8, freeze 1 | `424f0d08` (2026-10-05) | `77374c3c` | The diff-only verify (`wf_32da2f0b-11c`) found a major privacy leak in `pathNamedWithheld` (D71); wave 23 |
-| 8, freeze 2 | [OWED: second-freeze commit] | `275165e9` | Release candidate; acceptance owed (section 9) |
+| 8, freeze 2 | [OWED: second-freeze commit] | `e8c62191` | Release candidate; acceptance owed (section 9). Its first launch from `275165e9` refused at the pre-freeze golangci-lint gate before anything was frozen (D74) |
 
 ## 3. Waves, seats and rulings
 
-Every seat ran implement, adversarial review, fix and (from wave 3) verify inside its workflow, in its
-own `closeout/<ws>` branch and `../qompack-cx-<ws>` worktree, and was merged `--no-ff` into
-`closeout/integration`.
+Every seat ran implement, adversarial review, fix and (from wave 3) verify inside its workflow. Most
+seats worked in their own seat branch (`closeout/w2-lint`, for example) and sibling worktree, and were
+merged `--no-ff` into `closeout/integration`. The exceptions committed on, or were merged into,
+`verify/v6`: the wave 7 livelane seat (`0a8a0c2`), the wave 8 quiet prep (`25b976e`) and the wave 20 and wave 21
+night seats.
 
 **Wave 1** (`wf_16dd5d95-b3a`, 1b `wf_a704d10a-845`, 1c `wf_e1d0d082-a01`). Seats ingest (C1.1, the
 live-ingest regression behind the ordering gate), e2e (C1.2, C1.3), config (C1.8, D8 fail-closed
@@ -81,7 +83,8 @@ w2-eval2 (first review of the eval harness), w2-wintriage. Merged `dc3649f`...`5
 **Waves 3 and 4** (`wf_eed51aa0-3c3`, `wf_9c2ba09a-353`, resumed `wf_85543bfd-f18`). w3-startroute (D11
 deferred note on store failures, false-degrade probe), w3-e2ereds, w3-paths (`WriteAtomic` ancestor
 walk, GO-2026-5024 bump), w3-eval3 (D12 task set `qompack-live-v2`); w4-syncs (SP08-D1 redundant root
-syncs), w4-e2eflakes. Merged `04ccb68`, `f816953`, `dbede8c`, `3aeecc0`; waivers `1c9012e`, `90e1db3`.
+syncs), w4-e2eflakes. Merged `04ccb68`, `f816953`, `dbede8c`, `3aeecc0`; runpatterns waivers `1c9012e`;
+golangci errcheck fix `90e1db3`.
 Criterion changes ratified in D19.
 
 **Wave 5** (`wf_e5dc7399-b3c`, resumed `wf_8f93ec11-36e` after an unplanned host restart). coldstart
@@ -172,10 +175,20 @@ agent limit replaced the diff-only verify with mechanical gates (D68(a)). Candid
 
 **Wave 23** (`wf_a7f89258-bde`). The diff-only verify ran once the limit lifted (`wf_32da2f0b-11c`, D71)
 and found one major in `internal/rehydrate` path-value screening. w23-privacy (9 commits, `a4ec12b9`)
-fixed it red-first plus a second major (valueNameForm) and three rounds of minors; w23-docs (4 commits,
+fixed it red-first, plus a second major its first review found (valueNameForm), and the minors of review
+rounds 2 and 3; w23-docs (4 commits,
 `7d351d37`) fixed the troubleshooting and plan minors. Merged `cbb3a7f5`, `275165e9`. The privacy seat's
 fourth review left 4 minors and a nit that did not converge; they are known issue 16 (D72(a)). The static
 root-cause run `wf_8efe4557-020` classed the integration CI reds as test defects (D73).
+
+**Wave 23 lint (D74).** The second freeze's first launch from `275165e9` passed its merged-tree lint
+and its integration, testpkgs, internal and e2efunc checks (VALID, on AC), then refused at the
+pre-freeze gate on one golangci-lint finding: staticcheck SA4023 at `internal/daemon/daemon.go:1390`, a
+`r == nil` test after `checkpoint.OpenReader`, which never returns nil. The code dates from `ada54d1e`;
+wave 23's daemon test files made the linter re-analyse the package. Nothing was frozen or built.
+`closeout/w23-lint` removed the dead comparison (`5c35bedc`, behaviour unchanged), merged as integration
+`e8c62191`, and c8-night.sh was relaunched on the same evidence directory under a fresh pre-freeze run
+id.
 
 ## 4. Inventory and exit criteria
 
@@ -201,7 +214,7 @@ re-measured in full (D62(b)).
 | SP01-18 families and SP19/20/21 additions reconciled | [OWED: C6.2] |
 | SP17-M7, SP18-M7, UAT-01-12 on the shipped package | Candidate 7 lane evidence plus [OWED: candidate 8 live re-check] |
 | M0-M6 enabled capabilities with target evidence | [OWED: C6.2] |
-| Old/new readers, backup, cutover, rollback rehearsed | C1.7 passed on candidate 4 (realistic store, pre- and post-new-write restores) and in candidate 7's install part (D59, D67(f)) |
+| Old/new readers, backup, cutover, rollback rehearsed | History: C1.7 passed on candidate 4 (realistic store, pre- and post-new-write restores) and in candidate 7's install part (D59, D67(f)). Candidate 8: [OWED: C1.7 carry note from candidate 7 naming the changed files (D53(f))] |
 | No hidden mandatory privacy, fidelity, recovery or regression blocker | The five V6-report blockers are closed (section 7); known issues 15-16 are disclosed privacy residuals of rare spellings; [OWED: C5.5 verdict for task regression] |
 
 ## 5. Cross-component integration identifiers (V6 plan section 3)
@@ -229,8 +242,8 @@ Every candidate's freeze record is `plans/sdd/V6-closeout/phase3/CANDIDATE.md` a
 `phase3/c4-CANDIDATE.md` through `phase3/c7-CANDIDATE.md`; the chains, prefreeze and quiet runs are under
 `phase3/c3/` to `phase3/c7/`; the drivers are `coordinator/phase3.sh`, `quiet.sh`, `prefreeze.sh`,
 `overnight-c6.sh`, `c7-night.sh`, `c8-night.sh` and `overnight-c8.sh`. Each seat's report and run logs are
-under `plans/sdd/V6-closeout/<seat>/`. Live lanes: `live/report.md`, `live/report-c4.md`,
-`live/report-c7.md`, `live/sessions.tsv`.
+in a directory named for the seat under `plans/sdd/V6-closeout/`. Live lanes: `live/report.md`,
+`live/report-c4.md`, `live/report-c7.md`, `live/sessions.tsv`.
 
 Hosted CI, every run the ledger records:
 
@@ -253,7 +266,7 @@ Phase 3 on the second freeze (C3.2-C3.12):
 | Merged-tree plan lint, test/guards, test/docs (c8-night step 3) | [OWED: phase3/c8/night.log step 3] |
 | Pre-freeze check of integration (gate, integration, testpkgs, internal, e2efunc) | [OWED: phase3/c8/prefreeze record] |
 | Windows whole tree and -race (C3.2, C3.3) | [OWED: overnight run win-race and tree records] |
-| Linux non-root -race, e2e, child race (C3.4) | Wave 23 Linux gate passed on `275165e9`: internal/rehydrate 1721/0, rehydratetest 14/0, internal/daemon 2078/0 (D73, `qompack-audit/wave23/linux`); whole tree [OWED: overnight run linux records] |
+| Linux non-root -race, e2e, child race (C3.4) | Wave 23 Linux gate passed on `275165e9`, the parent of D74's one-line daemon.go change: internal/rehydrate 1721/0, rehydratetest 14/0, internal/daemon 2078/0 (D73, `qompack-audit/wave23/linux`); whole tree [OWED: overnight run linux records] |
 | fmt, lint, vet, golangci (C3.5) | [OWED: second-freeze gate record] |
 | Coverage floors (C3.6) | [OWED: second-freeze cover record] |
 | Generated docs, licenses, govulncheck, import allow-list (C3.7) | [OWED: second-freeze gate record] |
@@ -270,7 +283,7 @@ Phase 3 on the second freeze (C3.2-C3.12):
 |---|---|
 | V6-AUTH-1, V6-AUTH-2 (pathless authority, hash addresses bypass) | C1.5: the real-capture regressions pass on Windows and Linux without weakening (wave 7 sp08d3) |
 | V6-RECOVERY-1 (publication gaps, no automatic accounting) | Startup publication accounting and fsck detection; live pass on candidate 3; C1.6's live evidence on candidate 8 is [OWED: resilience part of the live re-check (D67(f))]. Automatic *recovery* is not claimed beyond preserve-and-report |
-| V6-RECOVERY-2 (no operator backup/restore) | C1.7: backup/verify/restore through the shipped CLI, pre- and post-new-write, passed on candidate 4 and in candidate 7's install part |
+| V6-RECOVERY-2 (no operator backup/restore) | C1.7: backup/verify/restore through the shipped CLI, pre- and post-new-write, passed on candidate 4 and in candidate 7's install part (history); candidate 8: [OWED: C1.7 carry note from candidate 7 naming the changed files (D53(f))] |
 | V6-HOST-1 (host deny rules invisible) | C1.9 and D7: saved-settings Read deny/ask rules honoured fail-closed; session-only rules, CLI flags and hook policies stay invisible (documented); the 8.3 bypass (wave 16) and the hostperm depth fail-open (D56(d)) fixed |
 
 ## 8. Evaluation layers
@@ -320,7 +333,114 @@ never become constants (Q1).
 | C6.4 independent final review | [OWED: non-authoring review of this report] |
 | Pre-release, HTTPS install rehearsal, bin/ byte comparison (D53(h)) | [OWED: after the cells above; separate authorization under D4/D33] |
 
-## 10. Known issues and test-only residuals
+## 10. Regression preservation, skips, failures and waivers
+
+**Preserved records.** The completion reports are unchanged by the close-out: `git diff --quiet` is
+empty for `plans/V1-report.md`, `V2-report.md` and `V3-report.md` from `cf31e01` to `e8c62191`, and for
+`plans/V4-report.md`, `V5-report.md` and `V6-report.md` from `65bc8d7` to `e8c62191`. The V3 waiver of
+2026-08-26 stays historical: J5 run 32932419445 and the three-platform p99 backfill remain waived-open,
+and this close-out does not certify them. `plans/CARRIED-DEFECTS.tsv` changed in the close-out only in
+seven rows, each moved from `deferred:V6-VERIFY` to a final status by a ruling (section 14). Every superseded candidate's failures stay in its lane report and ledger row (section 2).
+The candidate 7 lane report was committed verbatim (`8bd80c85`), and the first freeze's records were
+moved aside to `phase3/c8-freeze1`, not deleted (D71(b)).
+
+**Criterion changes, each ratified by a ruling.** None was made to turn a red green without a recorded
+reason:
+- D19: section 12.1 counts one chance per prompt delivery of the probe's own session sent after the
+  probe was minted; x13 asserts the hook's wall-clock fallback spool per arm (`78b33a1`).
+- D46: UAT-02 step 6 was revised. expand carries `_meta.qompack`, and no response carries fidelity or
+  coverage.
+- D36: exit criterion SP14-M3-01 was retired with the manual checkpoint.
+- D50: UAT-05 is read literally, so the correction must render above what it supersedes. This change
+  made the row stricter.
+- D55: `TestStop_IsNotHeldBehindASessionEndsDrain` asserts the drain line's end cause instead of wall
+  time.
+- D58(b): `TestSpoolWatch_AnUnconsumableSpoolIsRetriedWithBackoffNotEveryTick` drives its look on the
+  injected clock, with stricter assertions.
+- D67(g): C3.8's recorded-corpus tier is not exercised for 0.3.0 (known issue 13).
+- D67(h): C3.3's product-child race lane is satisfied by the Linux container and hosted nightly.
+- D67(i): C5.3's artifact is the replay gate's report, and fraction-of-OPT is diagnostic only.
+- D67(j): row 1.1.27 is judged by its absolute budget on candidate 8 only.
+
+**Waivers.** The only waivers are `runpatterns` waivers on prose `-run` quotes in seat reports. They
+change documentation only and never skip or relax a test: `1c9012e` (waves 3 and 4), `f6095e2` (wave 5),
+`d5c9c53` (wave 15c), `6f118a7b`, `ae601390` and `877ed3f7` (wave 16 to 16e), `1d793976` (wave 17) and
+`738d67c7` (wave 19).
+
+**Skips and unexecuted evidence, stated rather than passed.**
+- Linux fsync-bound rows B-A and B-B are not verified in target on the container (D53(b)).
+- Hosted fsync-bound rows are reported, not gated (Q1).
+- macOS and arm64 installed-host sessions are `unknown` (C4.11).
+- Human UAT was not performed. Every live row is agent-executed (D3).
+- The rows no step can execute stay unverified (D37(c), section 4).
+- The `stubskips` lint sub-check was red through waves 3 to 5. Wave 16 ci split test/e2e into its own
+  pass (`35f8757d`). On the first freeze's re-run, release-check's stubskips was killed at its
+  45-minute guard while the host slept (D72). Its candidate 8 result is the release-check row in
+  section 6.
+
+**Reds dispositioned as test defects.** D70(b) and D73 (section 13's test-only residuals). Second-freeze
+reds and their dispositions: [OWED: classification of the overnight run, hosted ci.yml and nightly on
+the frozen SHA (D70(c))].
+
+## 11. UAT-01 to UAT-12
+
+Every row was executed by an agent on the owner's real installed host (D3). None is human UAT. The
+"Last executed" column is history. Only the candidate 8 column can accept the release.
+
+| Row | Last executed (lane evidence) | Result there | Candidate 8 |
+|---|---|---|---|
+| UAT-01 install and disabled optimizations | candidate 7 (`live/rerun-c7/UAT-01/`) | pass | [OWED: carry note from candidate 7 naming the changed files] |
+| UAT-02 ordinary session, visible fidelity | candidate 4 (`live/rerun-c4/UAT-02/`) | pass on the row's fail criteria; non-exact fidelity not observable on this host | [OWED: carry note from candidate 4 naming the changed files] |
+| UAT-03 checkpoint survives the daemon | candidate 7 (`live/rerun-c7/UAT-03/`); failed on candidate 4 | pass | [OWED: carry note from candidate 7 naming the changed files] |
+| UAT-04 compaction belongs to the host | candidate 7 (`live/rerun-c7/UAT-04/`) | pass, with a finding | [OWED: carry note from candidate 7 naming the changed files] |
+| UAT-05 block within budget, loss named | candidate 7 (`live/rerun-c7/UAT-05/`) | **fail**: silent drop at 150/150, fixed in wave 19 (D59(b), D60(ii)) | [OWED: UAT-05 run 2 in the live re-check] |
+| UAT-06 compact, resume, fork, correct | candidate 7 (`live/rerun-c7/UAT-06/`) | pass, with a finding (C4.5 failed alongside it) | [OWED: UAT-06 with C4.5 in the live re-check] |
+| UAT-07 four ways back, `unavailable` never `absent` | candidate 4 (`live/rerun-c4/UAT-07/`) | pass | [OWED: carry note from candidate 4 naming the changed files] |
+| UAT-08 elimination answers `active` with fields | candidate 4 (`live/rerun-c4/UAT-08/`) | pass | [OWED: carry note from candidate 4 naming the changed files] |
+| UAT-09 stale or unknown never prohibits | candidate 7 (`live/rerun-c7/UAT-09/`); failed on candidate 4 | pass | [OWED: carry note from candidate 7 naming the changed files] |
+| UAT-10 self-observation keeps uncertainty | candidate 7 (`live/rerun-c7/UAT-10/`); not re-run on candidate 4 | pass | [OWED: carry note from candidate 7 naming the changed files] |
+| UAT-11 admission off passes through | candidate 4 (`live/rerun-c4/UAT-11/`) | pass | [OWED: carry note from candidate 4 naming the changed files] |
+| UAT-12 privacy and lifecycle edges | candidate 7 (`live/rerun-c7/UAT-12/`) | **fail** as a row: upgrade leg pass, retrieval leg fail (F1, a denied path in a tool summary; fixed in waves 19-23) | [OWED: UAT-12 sessions A and B with C4.6 in the live re-check]; upgrade leg [OWED: carry note from candidate 7 naming the changed files] |
+
+UAT-02, UAT-07, UAT-08 and UAT-11 last ran on candidate 4. D52 re-ran only the rows that candidate 4
+failed or left open, and candidate 7's lane did not include these four. D59 says that the rows not
+re-checked "carry from candidate 7 by the diff". For these four rows, that carry can only rest on
+candidate 4's evidence, so their carry notes must span the diff from candidate 4 to candidate 8. The
+live re-check also owes the rows that are not UAT rows: [OWED: status after a mid-session compaction
+(D58(d)); C4.9's settingsVersion leg (D59); the rehydrate privacy and notice rows under a deny rule and
+two status reads with two or more sessions (D60(f)); C1.6's resilience part (D67(f))]. `docs/uat.md`'s
+Result blocks: [OWED: candidate 8 result lines written by the live re-check].
+
+## 12. Actual rollout scope
+
+What 0.3.0 ships if candidate 8 is accepted, read from `docs/config-reference.md` and
+`docs/release-notes/v0.3.0.md` at `e8c62191`:
+- **Distribution.** A GitHub pre-release built by `.goreleaser.yaml` (wave 17, coordinator `b31d0753`)
+  for six targets (linux, darwin and windows, each on amd64 and arm64). The marketplace has one entry per target, and
+  the user installs exactly one. The binaries are not code-signed.
+- **Where it was installed.** Only windows/amd64, the reference host, was installed into Claude Code
+  (2.1.280). Linux and macOS are tested on hosted CI and, for Linux, in the local container, but were
+  never installed. linux/arm64 and windows/arm64 are cross-compiled only.
+- **On by default.**
+  - The resident daemon (`runtime.daemon.enabled`).
+  - Redaction before storage (`runtime.redact.enabled`).
+  - SessionStart compact reinjection (`runtime.migration.reinjection.sessionStartCompact`), the one
+    tested injection adapter.
+  - Delivery-journal rollover, with D6's residuals documented (D2).
+  - Six slash commands, with no manual checkpoint (D36), and the MCP server.
+- **Off and refused at load until their gates pass.**
+  - Admission/replacement of new results (`runtime.migration.replacement.newResult`, SP-21 M4).
+  - Raw evidence capture and the durable publication frontier (SP-20 M1).
+  - The automatic compaction veto.
+  - Experiments (SP-15/16).
+  - Every `runtime.phase7.*` policy.
+- **Off by default.** Submodular selection and loop warnings. Telemetry is hard-wired off, and the
+  plugin performs no network I/O.
+- **Release identity.** The tag goes on candidate 8 or a descendant whose changes reach no bundle, and
+  bin/ must equal `qompack-bundles/c8` (D58(e)). Each outward step needs its own authorization (D4,
+  D33).
+
+## 13. Known issues and test-only residuals
 
 The user-facing items go to CHANGELOG.md and `docs/release-notes/v0.3.0.md` in the docs-only
 descendant (D68(b)); the full text is `plans/sdd/V6-closeout/w22-known-issues.md`.
@@ -329,7 +449,7 @@ descendant (D68(b)); the full text is `plans/sdd/V6-closeout/w22-known-issues.md
 2. On a score tie a fork's checkpoint can keep a parent decision ahead of its own (named in `dropped()`).
 3. With a Read deny or ask rule, path-keyed drops past 64 host judgements show as "(path withheld)",
    and a section 6 summary naming one may be withheld (D71(d)); over-withholding only.
-4. A rehydration build costs about 1.7x candidate 7's (about 2 ms), far inside the 5 s budget.
+4. A rehydration build costs about 1.7x candidate 7's (about 2 ms more), far inside the 5 s budget.
 5. A hook's invalid-configuration log line does not name the file, variable or flag.
 6. With `runtime.mode` off, a hook whose delivery read fails still appends one log line.
 7. After a restart, the first compaction reads a very large newest prompt once in full.
@@ -354,10 +474,10 @@ history.json fsync and capWentOn's quadratic trim (D71(d)); `TestFault_DaemonKil
 dials-only wait (D73(1)); the unverified PreCompact settle lead (D73(b)). Second-freeze additions:
 [OWED: anything the overnight run, hosted CI or live re-check appends to w22-known-issues.md].
 
-## 11. Carried defects (C6.3)
+## 14. Carried defects (C6.3)
 
 `plans/CARRIED-DEFECTS.tsv` is the source of record. Every one of its 28 rows is `fixed` or `wontfix`
-on `verify/v6` `73242853`, and the file is byte-identical on integration `275165e9`. No row is `open` or
+on `verify/v6` `73242853`, and the file is byte-identical on integration `e8c62191`. No row is `open` or
 `deferred:`, so `TestCarriedDefects_WaveReportRequiresResolution` has nothing to fail on. This draft
 changes no row: every disposition the ledger settles is already recorded.
 
@@ -372,7 +492,7 @@ changes no row: every disposition the ledger settles is already recorded.
 The candidate 6 and 7 confirmations are in `plans/V2-WAVE1-carried-defects.md`; a candidate 8 note
 belongs there once the owed runs exist.
 
-## 12. Privacy, retention and rollback drill
+## 15. Privacy, retention and rollback drill
 
 Privacy: planted secrets reached no durable surface in the candidate 3 lane (C4.6, 0 hits); the
 rehydration block's pointers and summaries withhold host-denied and out-of-project paths (D50, D60-D64,
@@ -382,15 +502,16 @@ bound, documented. Rollback: C1.7's backup, verify, restore and pre/post-new-wri
 shipped CLI; no automatic downgrade is promised. Kill switches: C4.7 passed on candidate 3. Candidate 8:
 [OWED: C4.6 and UAT-12 under a deny rule in the live re-check].
 
-## 13. Request usage and estimated price
+## 16. Request usage and estimated price
 
 Authoring and review calls (coordinator and workflow subagents on the owner's subscription) were not
 collected into a request ledger for this close-out: usage, retry and compaction attribution, rate-table
-date and cash impact are `unknown`. The weekly agent limit was reached twice (wave 2, D68(a)). Product
-trial usage is recorded per category from the host's own JSON by `eval.LiveRunner` (C5.4) [OWED: C5.5
-usage and estimated price, with rate-table date and completeness].
+date and cash impact are `unknown`. The weekly usage limit was reached at least three times (wave 2,
+candidate 7's live lane D58(g), D68(a)). Product trial usage is recorded per category from the host's
+own JSON by `eval.LiveRunner` (C5.4) [OWED: C5.5 usage and estimated price, with rate-table date and
+completeness].
 
-## 14. Decisions an owner should know
+## 17. Decisions an owner should know
 
 - **Scope and delegation.** 0.3.0 (D1); outward steps need a yes, then D33 delegates every remaining
   decision under conditions: release only on a frozen candidate with complete green evidence, never
@@ -410,10 +531,11 @@ usage and estimated price, with rate-table date and completeness].
   become constants (Q1); D66 makes audit 2 the last whole-tree audit, with blocker and major findings
   blocking and minors becoming known issues.
 - **Freeze history.** The first freeze stood through its night (D70) and was superseded only by the
-  diff verify's major (D71); the second freeze launched from `275165e9` (D72(b), D73(c)). The owner is
+  diff verify's major (D71); the second freeze launched from `275165e9` (D72(b), D73(c)), refused at
+its pre-freeze lint gate and was relaunched from `e8c62191` (D74). The owner is
   asked to keep the host on AC with the lid open (D70(a), D72(c)).
 
-## 15. Post-release work
+## 18. Post-release work
 
 1. **Fail-closed handling of the remaining path spellings** (D72(a), known issue 16): treat the four
    minors and the nit from wave 23's fourth review as one class and withhold it whole, rather than
@@ -426,18 +548,21 @@ usage and estimated price, with rate-table date and completeness].
    `TestPromptWarning_SlowDurableAcceptIsLateForTheClient` (D70(b)).
 3. **The PreCompact settle lead** (D73(b)): establish whether a settle leaves WAL-only refused or
    ring-dropped leased jobs out of its drop report (`precompact_settle.go`), red-first if it does.
-4. **The per-prompt history.json fsync and capWentOn** (D71(d)): take the WentOn rewrite out of the
-   session's ordering gate or batch it, and make capWentOn's trim linear.
+4. **The per-prompt history.json fsync and capWentOn** (D71(d)): the ledger records contract r2's
+   per-prompt history.json fsync, which sits off the hook reply path but inside the session's ordering
+   gate, and capWentOn's quadratic trim, as known daemon minors. It records no remedy. Proposed, not
+   ruled: move the fsync out of the ordering gate or batch it, and make the trim linear. The
+   post-release seat decides.
 5. **The Windows CI leg's budget** (D70(b)): a larger budget or one pass on windows-latest's -count=2
    leg, so a slow runner cannot kill internal/daemon while it is progressing.
 
 Also carried: a product test pinning fsck's sidecar-before-root read order (D57(b)), incremental
 archiving for rollover (D6), the batched-write store format (D54), and the C7.6 housekeeping.
 
-## 16. Remaining blockers and next authorized action
+## 19. Remaining blockers and next authorized action
 
-Blocking release: every `[OWED: ...]` cell in sections 0, 2, 4, 5, 6, 8, 9, 10, 11, 12 and 13. Next, in
-order (D53(h), D68(c), D71(c)): classify the second freeze's overnight run and hosted runs and write
+Blocking release: every `[OWED: ...]` cell in sections 0, 2, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15 and
+16. Next, in order (D53(h), D68(c), D71(c)): classify the second freeze's overnight run and hosted runs and write
 `phase3/c8-CANDIDATE.md`; the C5.2 nights; the candidate 8 live re-check; C5.5; C6.2; fill this report
 and give it its independent review (C6.4); C6.5; then the release steps, each under its authorization.
 
