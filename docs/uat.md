@@ -973,31 +973,36 @@ stored records to reconcile a failure.
 **Result**
 
 ```text
-Result: pass — none of the row's fail conditions occurred. Steps 1-3 in the session:
-  `cobalt heron threshold`, `path:src/*.go`, `path:*.go`, `symbol:ReconcileBalances` and
-  `tool:Read` each returned hits (references and summaries, `count`, `found`); the glob and the
-  host tool name now match (tool:Read = tool:FileRead, 4 hits each after the run); a no-match
-  `path:nothing/*.rs` is `count 0, found false`, exit 0. Step 4: expand by `hash` and by
-  `tool_use_id` gave the same hash, span [0,838], total_bytes 838 and content, with no `source`;
-  `_meta.qompack.ephemeral` true. Step 5: re_read with no `at` gave `source: store`, turn 7
-  (driftLimit 40); `at: "turn:1"` gave turn 1 (driftLimit 25). Step 6: after the on-disk edit
-  (driftLimit 7) re_read still returned the captured turn-7 version. Step 7 OBSERVED (to be
-  confirmed at execution) for a never-stored hash, not a tool error: `{"found":false,"searched":
-  "the root index, including every indexed root's chunk list","available":false,"reason":"no
-  indexed root or chunk carries this hash, so its content provenance could not be established"}`.
-  Observation: after the session's MCP calls, `path:` answers are filled by retrieval
-  self-records (one for src/nope.go, a path that never existed), crowding the files out.
+Result: pass — none of the row's fail conditions occurred (frozen candidate 8 bundle via --plugin-dir,
+  one session shared with C4.4). Steps 1-3 in the session: `amber quill horizon`, `path:src/*.go`,
+  `path:*.go`, `symbol:ReconcileBalances` and `tool:Read` (each `--json`) returned hits as
+  references and summaries with `count` and `found`; after the session `tool:Read` = `tool:FileRead`
+  (4 hits each) and the no-match `path:nothing/*.rs` is `count 0, found false`, exit 0; original
+  captures now rank ahead of retrieval self-records (candidate 4's crowding does not recur). Step 4:
+  expand by `hash` and by `tool_use_id` gave the same hash, span [0,1103], total_bytes 1103 and
+  content, with no `source`; `_meta.qompack.ephemeral` true. Step 5: re_read with no `at` gave
+  `source: store`, turn 7 (driftLimit 40); `at: "turn:1"` gave turn 1 (driftLimit 25). Step 6:
+  after the on-disk edit (driftLimit 7) re_read still returned the captured turn-7 version. Step 7
+  OBSERVED (to be confirmed at execution) for a never-stored hash, not a tool error:
+  `{"found":false,"searched":"the root index, including every indexed root's chunk list",
+  "available":false,"reason":"no indexed root or chunk carries this hash, so its content
+  provenance could not be established"}`. Hooks: 99, every one success / exit 0, no host-reported
+  failure or timeout; doctor, fsck and fsck --seal-check clean after the idle exit. Observation O-1
+  (coordinator, not judged a finding): the compaction block's section 5 `goal:` quotes the user's
+  latest prompt, which named a path the host denied by then (section 2's class, D62(f)).
+  Candidate 4 (9f6a2fad): pass — globs and host tool names matched; `path:` answers crowded by
+  retrieval self-records, evidence plans/sdd/V6-closeout/live/rerun-c4/UAT-07/
   Candidate 3 (d5598eb4): pass — with findings: `path:` was not a glob and `tool:` rejected host
   names, evidence plans/sdd/V6-closeout/live/uat/UAT-07/
 Snapshot: qompack version 0.3.0; bundle BUNDLE.json sha256
-  aa7da0e17b7597562a6eba47fc48f1db81ff5e9bdc494b9997a323137625558d; commit
-  9f6a2fadf086eba8080af589a35dd9554ae6cab4; Windows 11 Home 25H2 build 10.0.26200.9457;
+  61ba9c37dda03c14c44acb6824646a8d7410751bba6f1ce3c5c864d6382dcd8b; commit
+  3ec62ad2e01b985640c0f1fb832df3917f766a5f; Windows 11 Home 25H2 build 10.0.26200.9457;
   Claude Code 2.1.280
-Date: 2026-09-29 (America/Toronto)
+Date: 2026-10-07 (America/Toronto)
 Executed by: Claude Code workflow subagent (Opus 5.5), agent-executed on the owner's real host
   per owner decision D3 — not human UAT
-Evidence: plans/sdd/V6-closeout/live/rerun-c4/UAT-07/ (notes.txt indexes it; the session is
-  ../C4.4/session/, shared with C4.4)
+Evidence: plans/sdd/V6-closeout/live/rerun-c8/UAT-07/ (notes.txt indexes it; the C4.4 matrix is
+  ../C4.4/tool-matrix.md)
 Rollback verified: not applicable — initial state absent (recorded: `backup create` exit 1 "no
   existing store"); per the row's rule the run is retained as evidence; no restore was run
 ```
