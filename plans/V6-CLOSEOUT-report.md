@@ -63,8 +63,8 @@ Close-out executed 2026-09-22 to 2026-10-06 (America/Toronto); this draft 2026-1
 Every seat ran implement, adversarial review, fix and (from wave 3) verify inside its workflow. Most
 seats worked in their own seat branch (`closeout/w2-lint`, for example) and sibling worktree, and were
 merged `--no-ff` into `closeout/integration`. The exceptions committed on, or were merged into,
-`verify/v6`: the wave 7 livelane seat (`0a8a0c2`), the wave 8 quiet prep (`25b976e`) and the wave 20 and wave 21
-night seats.
+`verify/v6`: the wave 7 livelane seat (`0a8a0c2`), the wave 8 quiet prep (`25b976e`) and the wave 20
+and wave 21 night seats.
 
 **Wave 1** (`wf_16dd5d95-b3a`, 1b `wf_a704d10a-845`, 1c `wf_e1d0d082-a01`). Seats ingest (C1.1, the
 live-ingest regression behind the ordering gate), e2e (C1.2, C1.3), config (C1.8, D8 fail-closed
@@ -176,10 +176,10 @@ agent limit replaced the diff-only verify with mechanical gates (D68(a)). Candid
 **Wave 23** (`wf_a7f89258-bde`). The diff-only verify ran once the limit lifted (`wf_32da2f0b-11c`, D71)
 and found one major in `internal/rehydrate` path-value screening. w23-privacy (9 commits, `a4ec12b9`)
 fixed it red-first, plus a second major its first review found (valueNameForm), and the minors of review
-rounds 2 and 3; w23-docs (4 commits,
-`7d351d37`) fixed the troubleshooting and plan minors. Merged `cbb3a7f5`, `275165e9`. The privacy seat's
-fourth review left 4 minors and a nit that did not converge; they are known issue 16 (D72(a)). The static
-root-cause run `wf_8efe4557-020` classed the integration CI reds as test defects (D73).
+rounds 2 and 3; w23-docs (4 commits, `7d351d37`) fixed the troubleshooting and plan minors. Merged
+`cbb3a7f5`, `275165e9`. The privacy seat's fourth review left 4 minors and a nit that did not
+converge; they are known issue 16 (D72(a)). The static root-cause run `wf_8efe4557-020` classed the
+integration CI reds as test defects (D73).
 
 **Wave 23 lint (D74).** The second freeze's first launch from `275165e9` passed its merged-tree lint
 and its integration, testpkgs, internal and e2efunc checks (VALID, on AC), then refused at the
@@ -340,8 +340,9 @@ empty for `plans/V1-report.md`, `V2-report.md` and `V3-report.md` from `cf31e01`
 `plans/V4-report.md`, `V5-report.md` and `V6-report.md` from `65bc8d7` to `e8c62191`. The V3 waiver of
 2026-08-26 stays historical: J5 run 32932419445 and the three-platform p99 backfill remain waived-open,
 and this close-out does not certify them. `plans/CARRIED-DEFECTS.tsv` changed in the close-out only in
-seven rows, each moved from `deferred:V6-VERIFY` to a final status by a ruling (section 14). Every superseded candidate's failures stay in its lane report and ledger row (section 2).
-The candidate 7 lane report was committed verbatim (`8bd80c85`), and the first freeze's records were
+seven rows, each moved from `deferred:V6-VERIFY` to a final status by a ruling (section 14). Every
+superseded candidate's failures stay in its lane report and ledger row (section 2). The candidate 7
+lane report was committed verbatim (`8bd80c85`), and the first freeze's records were
 moved aside to `phase3/c8-freeze1`, not deleted (D71(b)).
 
 **Criterion changes, each ratified by a ruling.** None was made to turn a red green without a recorded
@@ -416,8 +417,8 @@ Result blocks: [OWED: candidate 8 result lines written by the live re-check].
 What 0.3.0 ships if candidate 8 is accepted, read from `docs/config-reference.md` and
 `docs/release-notes/v0.3.0.md` at `e8c62191`:
 - **Distribution.** A GitHub pre-release built by `.goreleaser.yaml` (wave 17, coordinator `b31d0753`)
-  for six targets (linux, darwin and windows, each on amd64 and arm64). The marketplace has one entry per target, and
-  the user installs exactly one. The binaries are not code-signed.
+  for six targets (linux, darwin and windows, each on amd64 and arm64). The marketplace has one entry
+  per target, and the user installs exactly one. The binaries are not code-signed.
 - **Where it was installed.** Only windows/amd64, the reference host, was installed into Claude Code
   (2.1.280). Linux and macOS are tested on hosted CI and, for Linux, in the local container, but were
   never installed. linux/arm64 and windows/arm64 are cross-compiled only.
@@ -532,8 +533,8 @@ completeness].
   blocking and minors becoming known issues.
 - **Freeze history.** The first freeze stood through its night (D70) and was superseded only by the
   diff verify's major (D71); the second freeze launched from `275165e9` (D72(b), D73(c)), refused at
-its pre-freeze lint gate and was relaunched from `e8c62191` (D74). The owner is
-  asked to keep the host on AC with the lid open (D70(a), D72(c)).
+  its pre-freeze lint gate and was relaunched from `e8c62191` (D74). The owner is asked to keep the
+  host on AC with the lid open (D70(a), D72(c)).
 
 ## 18. Post-release work
 
@@ -562,9 +563,10 @@ archiving for rollover (D6), the batched-write store format (D54), and the C7.6 
 ## 19. Remaining blockers and next authorized action
 
 Blocking release: every `[OWED: ...]` cell in sections 0, 2, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15 and
-16. Next, in order (D53(h), D68(c), D71(c)): classify the second freeze's overnight run and hosted runs and write
-`phase3/c8-CANDIDATE.md`; the C5.2 nights; the candidate 8 live re-check; C5.5; C6.2; fill this report
-and give it its independent review (C6.4); C6.5; then the release steps, each under its authorization.
+16. Next, in order (D53(h), D68(c), D71(c)): classify the second freeze's overnight run and hosted
+runs and write `phase3/c8-CANDIDATE.md`; the C5.2 nights; the candidate 8 live re-check, including the
+UAT carry notes of section 11; C5.5; C6.2; fill this report and give it its independent review (C6.4);
+C6.5; then the release steps, each under its authorization.
 
 **Release gate:** not met. No V6 completion or production-readiness claim is made until the owed cells
 are filled.
