@@ -66,9 +66,9 @@ There is no checkpoint command — see [Checkpoints are automatic](#checkpoints-
 
 ### `/qompack:status`
 
-Reports mode, the host contract assertions, the hot-path mode, live sessions, spool files, the
-counters (the `store.*` ones among them), per-hook latency and the latency budgets. Takes no
-positional arguments; `[--json]` for the envelope ([schema](commands.md#qompackstatus)).
+Reports mode, the host contract assertions, the hot-path mode, the sessions the daemon tracks, spool
+files, the counters (the `store.*` ones among them), per-hook latency and the latency budgets. Takes
+no positional arguments; `[--json]` for the envelope ([schema](commands.md#qompackstatus)).
 
 The command's description also promises the last decision, but 0.3.0 does not show one, on the
 page or in `--json` (a known issue in the release notes). To see a recorded decision, run

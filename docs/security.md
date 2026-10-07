@@ -202,7 +202,8 @@ gated, nor are the block's records of eliminated approaches and decisions, which
 earlier text too. Section 2's verbatim user intent, your own prompts, is outside these rules as well
 (coordinator decision D62(f)). So is section 5's goal line under "Current work": it is your latest
 prompt verbatim, so it can name a path the host denied after you typed it. Qompack neither reads nor
-shows the denied file; the line is only your own words (D76(e)). The screen's limits (aliases, 8.3 names, links and Unicode normalization or
+shows the denied file; the line is only your own words (D76(e)). The screen's limits (aliases, 8.3
+names, links and Unicode normalization or
 compatibility variants of a name — an NFD spelling of an NFC literal, a fullwidth spelling that a
 code page's best-fit mapping reads as ASCII — are never resolved in free text, nor are names built at
 run time or relative to a `cd`; a glob that selects a refused file the block never recorded without

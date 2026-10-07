@@ -686,11 +686,11 @@ made them; a sibling session that merely shares the project sees none of them. A
 checkpoint also carries the decisions of the checkpoint it continued (the parent's newest when the
 fork started, when the parent sealed it), ranked after the fork's own. Within one session, a
 decision stays in every later checkpoint while its source holds: an elimination's while the record
-is carried, a pinned one while the pin stands. The extractor would also keep, always, a decision read
-off an explains edge from a node that is not an elimination, but no 0.3.0 producer draws such an
+is carried, a pinned one while the pin stands. A decision read off an explains edge from a node that
+is not an elimination would be kept in every later checkpoint, but no 0.3.0 producer draws such an
 edge: only an elimination's decision has an explains edge, and it is held as an elimination's. A
-decision is carried as its source mints it, so a checkpoint truncated at budget does not pass on a decision with its
-rejected alternative emptied, or lose one it cut.
+decision is carried as its source mints it, so a checkpoint truncated at budget does not pass on a
+decision with its rejected alternative emptied, or lose one it cut.
 
 **What "8–12K" is and is not.** It is a historical Qompack-added target for the material Qompack
 injects, recorded in [ADR 0011](adr/0011-rehydration-budget-and-item-order.md) and in `Qompack.md`
