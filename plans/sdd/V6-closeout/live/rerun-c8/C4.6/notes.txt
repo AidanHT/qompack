@@ -1,0 +1,83 @@
+C4.6 on candidate 8 - privacy in a real session: planted secrets never reach any durable surface; out-of-project and
+deny-ruled archived reads are refused by every retrieval form; and (D50, D60(c), D61(b), D63, D64) the rehydration
+block shows no host-denied or absolute out-of-project path. Judged from UAT-12's sessions A and B
+(../UAT-12/notes.txt; retrieval-c8 n=1 and n=2) and session C here (retrieval-c8 n=3, id 940ae3fa, 2026-10-07
+12:37-12:39 America/Toronto, 9 turns, 118 s, exit 0). Agent-executed on the owner's real host per owner decision D3
+(Claude Code workflow subagent, Opus 5.5) - not human UAT. Build: qompack 0.3.0, frozen c8 bundle (BUNDLE.json sha256
+61ba9c37...cd8b), commit 3ec62ad2, Claude Code 2.1.280, Windows 11 build 10.0.26200.9457, claude-haiku-4-5-20251001.
+
+SESSION C (sessionC/, sessionC-setup-facts.json, sessionC-store/): its own fresh project "<scratch>/retrieval/c8/sessc
+space/proj" (a space in the path; git init + two commits): README (code word KITE-27), src/mod1-8.py, docs/*.md and the
+same five denied files with the same exact deny rules in the project .claude/settings.json, written before the session.
+Deny rules proven in turn 1: all five Reads refused by the host ("File is in a directory that is denied by your
+permission settings."; sessionC/proofcheck.json, proven true). Env QOMPACK_HOME=<scratch>/retrieval/c8/qhome,
+QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS=30.
+ Tool calls before /compact: 55 (Bash 28, Read 12, MCP recall 7, re_read 4, timeline 1, already_tried 1, ToolSearch 2);
+   8 were refused by the host (the 5 proof Reads; `wc -c "private/deny (1).txt"`, `ls -l private/a,b.txt
+   private/k=v.txt`, `wc -c "<root>/private/deny.txt"`), so 47 were captured: 47 PostToolUse hooks, 47 tool_use records,
+   47 tool pointers for the summary gate to judge (D60(c)(1): 40 or more). Bash naming the denied files and captured:
+   `ls -l private/`, `git log --oneline -- "private/John's notes.txt"`, `git log --oneline -- private/k=v.txt`,
+   `echo "checked private/deny.txt and John's notes.txt"`, `ls private/*.txt`; MCP: recall path:private/deny.txt,
+   path:private/John's notes.txt, path:private/*.txt, re_read private/a,b.txt and private/deny (1).txt (both answered
+   denied).
+ /compact in the same session: the compaction injected THE REHYDRATION BLOCK ITSELF - "# Qompack rehydration -
+   checkpoint 0001, session 940ae3fa", 9,103 chars (sessionC/injected-2-SessionStart-compact.txt) - never the deferred
+   note "Qompack could not deliver this compaction's rehydration". Section 6: 7 file pointers and 22 tool pointers (21
+   summaries shown, 1 "(summary withheld)": re_read private/a,b.txt); section 7 lists 21 further pointers by id and "... and
+   8 more; call dropped()". SessionStart:compact host-seen arrival delta 109 ms (measured: true; hooks.json). LOUD.log:
+   none exists in the store, so no 'compact SessionStart answered without its rehydration' line; the day log holds only
+   the documented abandoned-session bookkeeping warn during the 41 s /compact (idleExitSeconds 30). All 66 hook pairs
+   success exit 0; stderr.txt empty. The model then answered KITE-27.
+ status --json's session_start_compact_deferred: NOT READ for session C's daemon. That counter lives in the daemon's
+   memory (internal/daemon/session_start_compact.go: d.m.Counter), and the daemon had already idle-exited when the lane
+   read status after the session. cli/01 used a wrong flag (status takes no --project; exit 2, kept as run); cli/02 read
+   from disk (no daemon: "no daemon answered ... This command asked one to start"), with no counters; cli/03 read the
+   daemon cli/02 started: counters without a session_start_compact_deferred key and an empty loud_tail - a fresh process,
+   so it says nothing about session C's compaction. That fresh daemon also rewrote metrics/latency.json, so the session's
+   route phases are lost. The lane stopped that daemon (its own; lock root and image checked, cli/04). The absence of
+   deferral rests on the injected payload itself, the missing LOUD.log line and the day log. Procedural gap of this lane,
+   not a product observation.
+ Section 6 / 7 again shows no denied path and no outside path (sessionC/section6-check.json, placement.txt): every shown
+   summary is an in-project path or command; in-project absolute paths under the spaced root are shown (Reads of
+   <root>\src\mod1.py ..., `ls -l "<root>/src"`, `cd "<root>" && git status --short`), as D63/D64(1) require.
+
+REFUSALS, every retrieval form (deny-ruled files; sessions A, B, C and the no-model probe ../UAT-12/cli/20):
+ host Read                 refused for all five punctuated names and, after the seventh rule, notes-b.md
+ recall (MCP)              no hit carries a denied file; path: selectors 0 hits with "denied" counting withheld
+                           records (path:private/deny.txt 1, path:notes-b.md 1-2, path:private/* 6); marker queries
+                           return only prompts and the model's own quotes
+ expand                    tool_use_id and hash of the notes-b.md capture -> {"found":false,"denied":true,"reason":
+                           "authorization denied: the host's current permission rules deny reading the associated path"}
+ re_read                   the same denied answer for every denied name, relative or absolute (private/deny.txt, deny
+                           (1).txt, John's notes.txt, a,b.txt, k=v.txt, draft-plan.txt, notes-b.md, <root>/private/...)
+ /qompack:recall (CLI)     no denied hit, "denied":6
+ dropped()                 the pointer_dirty drop for notes-b.md is LISTED with id = its hash and "path withheld"
+                           (D60 ruling (iii): redacted, not removed)
+ rehydration block         3 blocks (A, B, C): 0 denied or outside paths in any shown pointer or drop
+                           reason; denied file pointer as "file (path withheld) sha256:..."; 28 "(summary withheld)"
+                           tool pointers across the blocks, each keeping id and hash
+ out-of-project            Read allowed by the host but never captured; Bash forms refused by the host; re_read
+                           absolute and ../ -> "path escapes the project root"; expand of the outside Read's id ->
+                           not found (searched tool_use index)
+No response, page, summary or pointer carried any denied file's text (0 occurrences of the per-file ORCHID markers other
+than the user's own query, "salary", "band-A" or "PRIVATE - deny" in any stream).
+
+PLANTED SECRETS (../UAT-12/setup-facts.json, ../UAT-12/cli/40-42): two credential-shaped strings built at run time
+from split parts; literal list only in <scratch>/retrieval/secrets.json; every session used "secrets_file"; every other
+output went through lane.write's filter; every commit passed `live_driver.py scan-staged` (exit 0). Durable-surface scan
+(literal, JSON-escaped, base64, sha256-hex and every 10-character fragment; zstd decompressed; base64 JSON fields
+decoded): source .qompack 1,201 files 0 hits 0 fragments (8 redaction placeholders); recovery .qompack 235 files 0 hits;
+~/.qompack (only the staged qompack.exe) 0 hits; QOMPACK_HOME never created. The only @@SEC_PLANTED placeholders in the
+streams are the host's own Read result in session A.
+
+Coverage limit (recorded, not a finding): section 6 is budgeted, and its tool pointers past the budget go to section 7
+by id only. Candidate 7's exact F1 pointer, recall {"query":"path:private/deny.txt"}, fell into section 7 in all three
+blocks (A, B and C), so the very summary that failed on candidate 7 was never displayed or withheld in section 6 on
+candidate 8. Its siblings - the same path: selector on path:private/k=v.txt, path:private/a,b.txt, path:private/deny
+(1).txt, path:private/John's notes.txt, path:deny.txt and path:notes-b.md - were each withheld in section 6.
+
+Findings: none. Result: pass on candidate 8 - every retrieval form and the rehydration block refuse the denied and
+out-of-project paths, and no planted secret reached a durable Qompack surface.
+Candidate 7 (d20309c0): fail - a tool pointer's summary {"query":"path:private/deny.txt"} showed a host-denied path in
+section 6 (F1), evidence plans/sdd/V6-closeout/live/rerun-c7/C4.6/notes.txt.
+Candidate 3 (d5598eb4): pass - evidence plans/sdd/V6-closeout/live/c4/C4.6/.

@@ -1,0 +1,6 @@
+cwd: <scratch>/retrieval/c8/sessc space/proj
+argv: ["C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c8/qompack-plugin-0.3.0-windows-amd64/bin/qompack.exe", "status", "--json"]
+env+: {}
+qompack_home: <scratch>/retrieval/c8/qhome
+wall_s: 0.099
+at: 2026-10-07T12:40:13-04:00
