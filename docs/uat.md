@@ -821,6 +821,9 @@ Result: pass — run 2 re-run on candidate 8 (D59(b), D60(c)(ii)); run 1 passed 
   Candidate 7 (d20309c0): fail — at the 150/150 budget both compact injections were only the
   contract-probe line while 15 and 14 records were dropped (F-C7-UAT05-1), evidence
   plans/sdd/V6-closeout/live/rerun-c7/UAT-05/
+  Ruling (D59(b), after candidate 7's run): a degraded compaction that dropped material is never
+  silent; when the budget admits no section, the payload is a minimal loss notice naming the loss
+  and the restore route. Candidate 8's run 2 above injects that notice.
   Candidate 4 (9f6a2fad): fail — under D50 the superseded semicolon original rendered above the
   TAB correction in section 2, evidence plans/sdd/V6-closeout/live/rerun-c4/UAT-05/
   Candidate 3 (d5598eb4): fail — the correction never reached a checkpoint or block, a pin made with
@@ -1727,6 +1730,10 @@ Result: pass — candidate 8, steps 1-5 and 8 with the D50/D60(c)/D61(b)/D63/D64
   host-denied path {"query":"path:private/deny.txt"} (F1, D50), evidence
   plans/sdd/V6-closeout/live/rerun-c7/UAT-12/notes-retrieval.txt (upgrade leg pass,
   plans/sdd/V6-closeout/live/rerun-c7/UAT-12/notes.txt)
+  Ruling (D60(c)(i), D62(f), D61(b)(1), D63, after candidate 7's run): D50 covers pointers only.
+  Sections 3 and 4 and section 2's verbatim intent, the user's own prompts, stay outside it; a
+  structured path preview is judged whole, and a free-text summary is shown only when a whitelist
+  proves it safe (D63, D64). Candidate 8's sessions A and B above re-ran the row.
   Candidate 4 (9f6a2fad): pass — deny, bound and binary steps held and the 0.2.99-prev
   upgrade, restore and uninstall kept .qompack/ intact, evidence
   plans/sdd/V6-closeout/live/rerun-c4/UAT-12/
