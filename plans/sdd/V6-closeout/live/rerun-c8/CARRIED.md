@@ -43,6 +43,13 @@ hooks/hooks.json, commands/), `tools/devtool/bundle.go`, `internal/commands/`,
 
 - **Carried from:** candidate 7 (`d20309c0`), pass: `plans/sdd/V6-closeout/live/rerun-c7/C4.8/`
   (upgrade from candidate 5's bundle; sha256 listings re-compared, 193 and 209 lines identical).
+- **What the candidate 7 run exercised:** session A on candidate 5's bundle (Reads,
+  record_eliminated, recall, timeline, /compact); session B on candidate 7's bundle on the same
+  store (recall, re_read, already_tried, timeline, /compact sealing 0003 with session A's
+  elimination and decision); status, doctor --json, fsck --json and --seal-check, self-test;
+  backup create, verify and restore; uninstall, reinstall and session C (re_read, already_tried,
+  recall). Its finding F1 was a status read: session_start.fires pending "marker-absent-once" after
+  a same-session compaction.
 - **Files changed since that the row exercises:** internal/daemon/scheduler_state.go
   (`state/scheduler.json` gains `last_applied_observations`, a per-session map, additive and
   omitempty, document still version 1; it replaced the unshipped `last_applied_observation`,
@@ -53,6 +60,22 @@ hooks/hooks.json, commands/), `tools/devtool/bundle.go`, `internal/commands/`,
   marker); internal/cli/config.go and internal/daemon/reload.go (reset logging);
   internal/store/publication_audit.go and provenance.go (read-only audit, ordering);
   internal/cli/fsck.go (sorted detail lines); internal/cli/hookclient.go (state.bin trust).
+  The sessions' and status reads' code changed too:
+  - internal/contract/assertions.go: session_start.fires reads a same-session restart as holding
+    (`c0a91cec`, the fix for F1) and counts no absence for another session's restart, while a
+    marker's session runs, or while a quiet window may run.
+  - internal/checkpoint/decisions.go (decisions carried as their source mints them; a fork's from
+    its fork point), lineage.go (LedgerAncestry memoized per session; the lineage record is
+    unchanged), writer.go and intent.go (current work and the goal walk from the session's own
+    prompt records; a draft number given back when Begin fails), plus source.go and precompact.go.
+  - internal/rehydrate/build.go, items.go, render.go, budget.go, hostcap.go, types.go, pathgate.go,
+    notice.go and learned_index.go, with internal/daemon/rehydrate_service.go: the pointer and
+    drop-reason gates (D50, D63, D64), section 6's legend, the D59 loss notice, the learned index.
+  - internal/negknow/ledger.go: a bloom-filter miss answers absent before any lineage read
+    (`ca0b7caa`); internal/negknow/caller.go.
+  - internal/cli/qompack_commands.go (status reasons, the liveness probe's connect budget, a
+    state.bin trusted only while its daemon lives) and doctor.go (config violations counted once
+    and rewritten only when they change, a disabled daemon named).
 - **Why it still holds:** an upgrade from candidate 7 to candidate 8 reads every store format
   unchanged (objects, index, capture sidecars, checkpoint artifacts, delivery journals and seals),
   and each new key loads as zero from a candidate 7 file; none of the readers disallows unknown
@@ -60,8 +83,28 @@ hooks/hooks.json, commands/), `tools/devtool/bundle.go`, `internal/commands/`,
   `.qompack/` on upgrade or uninstall, and `internal/store/backup.go`, `maintenance.go` and
   `internal/cli/backup.go` are unchanged. Live on candidate 8 in this part: backup create, verify
   and restore exit 0 with the reader proof and integrity (incl. the seal check) passing, and fsck of
-  source and destination exit 0 (`rerun-c8/C4.9/cli/r8-r11`). The upgrade, uninstall and reinstall
-  were not repeated.
+  source and destination exit 0 (`rerun-c8/C4.9/cli/r8-r11`). The changed session and command code
+  ran live on candidate 8, on stores candidate 8 wrote:
+  - UAT-06 (`rerun-c8/UAT-06/`): record_eliminated, already_tried (active, scope session) and
+    /qompack:why across a resume, a fork and a parent restart, six compactions; decision
+    dec_991dbff588ec is in every checkpoint and block (D76(d)), every checkpoint re-hashes, fsck
+    exit 0. That is decisions.go, lineage.go, writer.go, intent.go, ledger.go and the rehydrate
+    files.
+  - UAT-04 (`rerun-c8/UAT-04/`): eight compactions and the blocks injected after them, recall
+    and expand, fsck --json and --seal-check after the idle exit (the rehydrate files, writer.go,
+    intent.go).
+  - F-C48-1 (`rerun-c8/F-C48-1/`): two /compact turns in one session, then status and doctor with
+    session_start.fires "same-session-restart" holding and the banner "0 pending". That is the
+    read candidate 7's F1 got wrong, now right (assertions.go, qompack_commands.go, doctor.go).
+  - C4.5 (`rerun-c8/C4.5/`): the six slash commands in a real session, and paired status --json,
+    doctor --json and fsck --json reads that agree once the read-time fields are removed
+    (qompack_commands.go, doctor.go, fsck.go).
+  What that evidence does not show is candidate 8's code reading a store an earlier build wrote:
+  goal walks over candidate 7's prompt records, already_tried over its ledger and lineage records,
+  a rehydration from its checkpoints, and status over its history.json. For that the row rests on
+  the diff plus that evidence: those files change derivation, gating and status logic, not the
+  formats they read, and the one state file whose fields they add (history.json) loads the new
+  keys as zero. The upgrade, uninstall and reinstall were not repeated.
 
 ## C4.9 legs (a) and (c)
 

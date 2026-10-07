@@ -17,15 +17,20 @@ decisions D52, D53 and D57, eight rows were re-run on candidate 7 (commit `d2030
 UAT-03, UAT-04, UAT-06, UAT-09 and UAT-10 pass, and UAT-05 and UAT-12 fail (decision D59). UAT-05
 fails because a compaction at a 150-token budget dropped material and injected no notice of it;
 UAT-12 fails because a tool pointer's argument summary in the rehydration block showed a path the
-host denies. Both have fixes ordered for candidate 8 (decision D59), and both rows are re-run on
-it. The question each of those two Result blocks left to the coordinator has since been ruled
-(decisions D59(b), D60(c)(i), D62(f) and D63), and each block carries its ruling line. Those eight
-Result blocks report candidate 7 and keep the earlier outcomes as history lines
+host denies. Both had fixes ordered for candidate 8 (decision D59). The question each of those two
+Result blocks left to the coordinator has since been ruled (decisions D59(b), D60(c)(i), D62(f)
+and D63), and each block carries its ruling line. Under decision D76, candidate 8's live re-check
+(commit `3ec62ad2`) re-ran UAT-02, UAT-04, UAT-06, UAT-07, UAT-08 and UAT-11, UAT-05's run 2 and
+UAT-12's steps 1 to 5 and 8, and every one passed (UAT-02 on its fail criteria, decision D49).
+Those Result blocks report candidate 8 and keep the earlier outcomes as history lines. UAT-05's
+run 1 and UAT-12's upgrade leg (steps 6, 7, 9 and 10) were not re-run: each carries its candidate 7
+outcome to candidate 8 in a carry note that names the files changed between the two candidates.
+UAT-01, UAT-03, UAT-09 and UAT-10 were not re-run on candidate 8: their Result blocks report
+candidate 7, with a carry note of the same kind, and keep the earlier outcomes as history lines
 (UAT-10 was not re-run on candidate 4, and its candidate 4 line says so). UAT-02, UAT-07, UAT-08
-and UAT-11 were not re-run on candidate 7: their Result blocks report candidate 4 and keep
-candidate 3's line. No human has
-run these scenarios, automated package and installation tests have separate evidence and do not
-fill these blocks, and no release has been published.
+and UAT-11 were not run on candidate 7, so their history lines are candidate 4's and candidate 3's.
+No human has run these scenarios, automated package and installation tests have separate evidence
+and do not fill these blocks, and no release has been published.
 
 What the commands, slash commands and MCP tools *are* is [docs/user-guide.md](user-guide.md); what
 each observation does and does not license you to conclude is
@@ -372,25 +377,25 @@ stored records to reconcile a failure.
 ```text
 Result: pass on fail criteria; row capability host-limited (D49) — frozen candidate 8 bundle via
   --plugin-dir; no fail criterion occurred (every capture came back; no demonstrably cut capture
-  reads exact; latency cells without an instrument read `unavailable` with a reason, never 0).
-  Step 6 as revised under D46 holds: the /qompack:recall hit's hash expanded, the expand
-  responses carry `_meta.qompack` (span, total_bytes, truncated, and next_span "9909:16384" for
-  the paged big.log), the redacted creds.txt content reads «redacted:aws_access_key_id» /
-  «redacted:github_token», and no retrieval response carries a fidelity or coverage field; the
-  small file's capture sidecar reads `exact`. Expected-result field NOT observed (finding,
-  unchanged since candidate 3; host-limited, D49): the oversized and binary captures read
-  `exact` (sidecars 35 exact, 1 redacted) — the host delivered big.log (310,800 B) whole and
-  Qompack stored the whole delivery; Read refuses blob.bin and fires no PostToolUse, and `cat
-  blob.bin` arrives as host-decoded text. C4.2 re-checked after a session with six MCP calls, a
-  subagent and /compact: all seven hook events fired and the host counts match the store
-  (prompts 10 = 10; tool uses 15 minus the refused Read = 14 = 14 captures; sessions 1 = 1, end
-  set; no turn-order violation); every hook success / exit 0, stderr empty; `qompack status` "9
-  assertion(s), none failing: 7 holding, 0 pending, 2 with nothing to judge", `doctor --json`
-  with no degraded row and `fsck --json` exit 0 with every row ok, with the daemon live and again
-  after the default idle exit (fsck --seal-check exit 0). Planted secrets: 0 hits in the post-run
-  store (raw, decompressed and decoded). Step 1 OBSERVED (to be confirmed at execution, before any
-  session): session_start.fires first-session, session_start.source_compact
-  no-precompact-pending, hook.additional_context_delivered / precompact.has_time_to_write /
+  reads exact; latency cells without an instrument read `unavailable` with a reason, never 0). Step
+  6 as revised under D46 holds: the /qompack:recall hit's hash expanded, the expand responses carry
+  `_meta.qompack` (span, total_bytes, truncated, and next_span "9909:16384" for the paged big.log),
+  the redacted creds.txt content reads «redacted:aws_access_key_id» / «redacted:github_token», and
+  no retrieval response carries a fidelity or coverage field; the small file's capture sidecar
+  reads `exact`. Expected-result field NOT observed (finding, unchanged since candidate 3;
+  host-limited, D49): the oversized and binary captures read `exact` (sidecars 35 exact, 1
+  redacted) — the host delivered big.log (310,800 B) whole and Qompack stored the whole delivery;
+  Read refuses blob.bin and fires no PostToolUse, and `cat blob.bin` arrives as host-decoded text.
+  C4.2 re-checked after a session with six MCP calls, a subagent and /compact: all seven hook
+  events fired and the host counts match the store (prompts 10 = 10; tool uses 15 minus the refused
+  Read = 14 = 14 captures; sessions 1 = 1, end set; no turn-order violation); every hook success /
+  exit 0 (38 hook pairs, rerun-c8/D53i/summary.md), stderr empty; `qompack status` "9 assertion(s),
+  none failing: 7 holding, 0 pending, 2 with nothing to judge", `doctor --json` with no degraded
+  row and `fsck --json` exit 0 with every row ok, with the daemon live and again after the default
+  idle exit (fsck --seal-check exit 0). Planted secrets: 0 hits in the post-run store (raw,
+  decompressed and decoded). Step 1 OBSERVED (to be confirmed at execution, before any session):
+  session_start.fires first-session, session_start.source_compact no-precompact-pending,
+  hook.additional_context_delivered / precompact.has_time_to_write /
   precompact.custom_instructions_accepted / mcp.server_registered not-yet-implemented,
   hook.payload_shape "payload shape valid", transcript.readable no-transcript-path,
   plugin.root_resolves unset.
@@ -510,22 +515,34 @@ Result: pass — the round trip and the incomplete-outcome probe both meet the r
   LOUD.log says "rehydrate: newest checkpoint refused; rolled back to 0001". The gated durable
   frontier is unverified by this row.
   Candidate 8 (3ec62ad2e01b985640c0f1fb832df3917f766a5f): carried from candidate 7 (d20309c0) —
-  files changed since that the row exercises: internal/checkpoint/intent.go, source.go,
-  writer.go, draft.go, decisions.go, lineage.go, precompact.go; internal/daemon/handlers.go,
+  files changed since that the row exercises: internal/checkpoint/intent.go, source.go, writer.go,
+  draft.go, decisions.go, lineage.go, precompact.go; internal/daemon/handlers.go,
   precompact_duplicate.go, session_start_compact.go, scheduler_frontier.go, scheduler_runtime.go,
   scheduler_state.go, scheduler_tap.go, drain.go, rehydrate_service.go, spawn.go;
   internal/rehydrate/build.go, items.go, render.go, budget.go, hostcap.go, types.go, pathgate.go,
-  notice.go, learned_index.go (the incomplete-outcome probe's rehydration); internal/cli (status's
-  daemon start). Why it still holds: the checkpoint changes alter what current_work, the goal walk
-  and decisions contain (own prompt records, a fork's decisions from its fork point) and when a
-  draft number is given back; none changes the artifact's field set, the MANIFEST append and hash,
-  or the re-read after a restart, and candidate 8 compactions sealed and re-hashed checkpoints live
-  (UAT-04, UAT-05 run 2: 0001 and 0002 re-hash to MANIFEST; UAT-06, F-C48-1). The fallback
-  statement's code (checkpoint_fallback drop, degraded_reason, the LOUD line) is untouched; the new
-  drop-reason screen redacts only a reason that shows an outside or withheld path, which this
-  reason does not, and the D59 loss notice applies only when no section fits. The restart re-read
-  and the corrupted-checkpoint probe were not repeated on candidate 8, evidence
-  plans/sdd/V6-closeout/live/rerun-c7/UAT-03/
+  notice.go, learned_index.go (the incomplete-outcome probe's rehydration);
+  internal/cli/qompack_commands.go (status, which asked a daemon to start: its reasons and its
+  liveness probe's connect budget), doctor.go (doctor --json: config-violation rows), fsck.go (fsck
+  --json, --seal-check and the probe's fsck: detail lines in sorted order), config.go (the
+  configuration gate backup applies), hookclient.go and sessionstart.go (the hooks' state.bin
+  trust); internal/store/publication_audit.go (the publication accounting fsck and the backup's
+  integrity check read: a file removed or a sidecar replaced mid-pass counts as live work) and
+  provenance.go (origins in one order); internal/contract/assertions.go and history.go (status's
+  host-contract banner). Why it still holds: the checkpoint changes alter what current_work, the
+  goal walk and decisions contain (own prompt records, a fork's decisions from its fork point) and
+  when a draft number is given back; none changes the artifact's field set, the MANIFEST append and
+  hash, or the re-read after a restart, and candidate 8 compactions sealed and re-hashed
+  checkpoints live (UAT-04, UAT-05 run 2: 0001 and 0002 re-hash to MANIFEST; UAT-06, F-C48-1). The
+  fallback statement's code (checkpoint_fallback drop, degraded_reason, the LOUD line) is
+  untouched; the new drop-reason screen redacts only a reason that shows an outside or withheld
+  path, which this reason does not, and the D59 loss notice applies only when no section fits. The
+  fsck and integrity changes only order detail lines and count mid-pass changes as live work;
+  internal/store/backup.go, maintenance.go and internal/cli/backup.go are unchanged, and on
+  candidate 8 backup create, verify and restore passed their reader proof and integrity checks with
+  the seal check, and fsck of source and destination exited 0 (rerun-c8/C4.9/cli/r8-r11); fsck
+  --json and --seal-check exited 0 after the default idle exit in UAT-04, and C4.5's paired status,
+  doctor and fsck --json reads agreed. The restart re-read and the corrupted-checkpoint probe were
+  not repeated on candidate 8, evidence plans/sdd/V6-closeout/live/rerun-c7/UAT-03/
   Candidate 4 (9f6a2fad): fail — a corrupted newest checkpoint fell back to 0001 with no statement
   of the fallback anywhere, evidence plans/sdd/V6-closeout/live/rerun-c4/UAT-03/
   Candidate 3 (d5598eb4): pass — with findings: empty checkpoint pointers, restore integrity
@@ -808,16 +825,26 @@ Result: pass — run 2 re-run on candidate 8 (D59(b), D60(c)(ii)); run 1 passed 
   (d20309c0) — files changed since that the row exercises: internal/rehydrate/build.go, items.go,
   render.go, budget.go, hostcap.go, types.go, pathgate.go, notice.go, learned_index.go;
   internal/daemon/rehydrate_service.go, session_start_compact.go, handlers.go;
-  internal/checkpoint/intent.go, writer.go, decisions.go, draft.go, source.go; internal/cli/
-  qompack_commands.go (/qompack:dropped). Why it still holds: at the default 8000/12000 budget the
-  changes reach run 1 only as (a) the pointer and drop-reason gates (D50, D63, D64), which withhold
-  more and add section 6's one-line legend, inside the same hard cap and the 9,500-character
-  inline bound (hostcap.go charges the legend), and (b) current_work and decisions derivation;
-  section 2's newest-first evolution in items.go is unchanged, and the loss notice (notice.go) is
-  built only when no section fits. Run 1's checks were met live on candidate 8 by this row's run 2
-  path (delimiters, order) and by UAT-04, UAT-06 (original intent and a correction rendered above
-  the superseded statement after /compact) and C4.6 session C (the block, never the deferred note);
-  run 1 itself was not repeated, evidence plans/sdd/V6-closeout/live/rerun-c7/UAT-05/
+  internal/checkpoint/intent.go, writer.go, decisions.go, draft.go, source.go, lineage.go (the
+  ancestry negknow asks for, now memoized per session; the lineage record is unchanged) and
+  precompact.go (the seal's deadline spelled as WithDeadline at now plus the budget, which is what
+  WithTimeout did); internal/negknow/ledger.go (record_eliminated and the ledger's queries: a
+  bloom-filter miss now answers absent before any lineage read, and recording is unchanged);
+  internal/cli/qompack_commands.go (/qompack:dropped) and fsck.go (run 1's fsck --json: detail
+  lines in sorted order). Why it still holds: at the default 8000/12000 budget the changes reach
+  run 1 only as (a) the pointer and drop-reason gates (D50, D63, D64), which withhold more and add
+  section 6's one-line legend, inside the same hard cap and the 9,500-character inline bound
+  (hostcap.go charges the legend), and (b) current_work and decisions derivation; section 2's
+  newest-first evolution in items.go is unchanged, and the loss notice (notice.go) is built only
+  when no section fits. The ledger, lineage, precompact and fsck changes alter no record run 1
+  writes and no verdict fsck gives; run 2 on candidate 8 recorded an elimination, pinned, sealed
+  two checkpoints and passed fsck --json, and UAT-06 answered already_tried from the ledger across
+  a fork. Run 1's checks were met live on candidate 8 by this row's run 2 path (delimiters, order)
+  and by UAT-04, UAT-06 (original intent and a correction rendered above the superseded statement
+  after /compact) and C4.6 session C (the block, never the deferred note; session C's
+  session_start_compact_deferred counter was not read before its daemon's idle exit, so that rests
+  on the injected block itself, which shows no deferral); run 1 itself was not repeated, evidence
+  plans/sdd/V6-closeout/live/rerun-c7/UAT-05/
   Candidate 7 (d20309c0): fail — at the 150/150 budget both compact injections were only the
   contract-probe line while 15 and 14 records were dropped (F-C7-UAT05-1), evidence
   plans/sdd/V6-closeout/live/rerun-c7/UAT-05/
@@ -928,7 +955,12 @@ Result: pass — re-run on candidate 8 (D59, D62 forkwork). Steps run: original 
   active, scope session, and why() finds the decision. After --resume, 0002 still carries the
   decision. In every block section 2 renders the evolution newest first and the original last,
   whole (D50): the newest correction is above the older ones and no superseded restatement is
-  promoted; a later restart of the parent (0003) keeps 60 and never shows the fork's 45.
+  promoted; a later restart of the parent (0003) keeps 60 and never shows the fork's 45. That
+  restart (session D) is also F-C48-1's second route: status then read session_start.fires holding,
+  0 pending, and no start counted an absence (rerun-c8/F-C48-1/route2-uat06/notes.txt). It ran
+  after the fork had ended, so two sessions open at once were not exercised live; deterministic
+  rows cover that case (TestSessionStartFires_OverlappingSessionsRestartsHold,
+  TestSessionStartFires_OverlappingRestartKeepsACountedAbsence).
   /qompack:why returned an attributed record (what, why, rejected alternative, evidence, turn), not
   a claim about the model. Step 7: no log line waits on or reports a post-compaction event. Fork
   diff (to be confirmed at execution): besides seq, checkpoint number, session id and probe token,
@@ -1698,34 +1730,54 @@ Result: pass — candidate 8, steps 1-5 and 8 with the D50/D60(c)/D61(b)/D63/D64
   into section 7 (by id only) in both blocks, so it was not itself displayed; the same selector
   naming the other denied files was withheld. Step 8: restore into a fresh recovery project
   exit 0, reader proof (76 roots, 71 tool refs) and integrity with the seal check passed; fsck
-  --seal-check exit 0 on the recovery and the source; the source unchanged by the restore and
-  its later writes kept. Planted secrets: 0 hits in the source and recovery stores and in
-  ~/.qompack. Hooks: 129 calls, all success; the day log's 'ending abandoned session' warn lines
-  fell inside 40-second compactions with idleExitSeconds at 30 (documented in
-  troubleshooting.md).
+  --seal-check exit 0 on the recovery and the source; the source unchanged by the restore (mtime
+  check; the planned sha256 snapshot was not taken) and its later writes kept. Planted secrets: 0
+  hits in the source and recovery stores and in ~/.qompack. Hooks: 129 calls, all success; the day
+  log's 'ending abandoned session' warn lines fell inside 40-second compactions with
+  idleExitSeconds at 30 (documented in troubleshooting.md).
   Candidate 8 (3ec62ad2e01b985640c0f1fb832df3917f766a5f), upgrade leg (steps 6, 7, 9, 10): carried
-  from candidate 7 (d20309c0) — files changed since that the row exercises: internal/daemon/
-  scheduler_state.go (state/scheduler.json gains last_applied_observations, a per-session map,
-  additive and omitempty, so the document stays version 1; candidate 7's file has no such key and
-  loads as empty, and candidate 7's reader ignores the unknown key; it replaced the unshipped
-  last_applied_observation, w20-redeliver a704a731), and three more additive omitempty keys:
-  goal_turn in a checkpoint draft's state (internal/checkpoint/draft.go), compact_start_lapsed
-  and went_on in internal/contract/history.go's state, last_stop_observation in
-  internal/observer/state.go's state (each loads as zero from a candidate 7 file and is ignored by
-  candidate 7's readers, none of which disallows unknown fields); internal/config/migration.go and
-  config.go
-  (the VersionedReset marker on a reset's warning) with internal/cli/config.go and
-  internal/daemon/reload.go (the reset is Loud once per daemon start or reload, warn from hooks);
-  internal/daemon/handlers.go, drain.go, scheduler_runtime.go, scheduler_tap.go (in-memory replay
-  and dedupe, no new file); internal/store/publication_audit.go, provenance.go (read-only audit and
-  ordering). Not changed: the store's object, index, capture-sidecar, checkpoint artifact
-  (internal/checkpoint/types.go) and delivery-journal formats, internal/store/backup.go and maintenance.go, internal/cli/backup.go, plugin/. Why it
-  still holds: step 7's reset was observed live on candidate 8 by C4.9 (b) (block reset to
-  defaults, config-violations.json, self-test config.capture warn, capture continued, one Loud line
-  per daemon), and no candidate 8 change rewrites or removes a .qompack/ file on upgrade or
-  uninstall; the upgrade from candidate 7's store reads its formats unchanged. The upgrade,
-  uninstall and reinstall were not repeated, evidence plans/sdd/V6-closeout/live/rerun-c8/CARRIED.md
-  (C4.8) and plans/sdd/V6-closeout/live/rerun-c7/UAT-12/notes.txt
+  from candidate 7 (d20309c0). On candidate 7 the leg ran in C4.8's sessions: session B on the
+  upgraded store (recall, re_read, already_tried, /compact and its block), session C after the
+  reinstall (re_read, already_tried, recall), status, doctor --json, self-test, fsck and backup.
+  Files changed since that the row exercises: internal/daemon/scheduler_state.go
+  (state/scheduler.json gains last_applied_observations, a per-session map, additive and omitempty,
+  so the document stays version 1; candidate 7's file has no such key and loads as empty, and
+  candidate 7's reader ignores the unknown key; it replaced the unshipped last_applied_observation,
+  w20-redeliver a704a731), and three more additive omitempty keys: goal_turn in a checkpoint
+  draft's state (internal/checkpoint/draft.go), compact_start_lapsed and went_on in
+  internal/contract/history.go's state, last_stop_observation in internal/observer/state.go's state
+  (each loads as zero from a candidate 7 file and is ignored by candidate 7's readers, none of
+  which disallows unknown fields); internal/config/migration.go and config.go (the VersionedReset
+  marker on a reset's warning) with internal/cli/config.go and internal/daemon/reload.go (the reset
+  is Loud once per daemon start or reload, warn from hooks); internal/daemon/handlers.go, drain.go,
+  scheduler_runtime.go, scheduler_tap.go (in-memory replay and dedupe, no new file);
+  internal/store/publication_audit.go, provenance.go (read-only audit and ordering);
+  internal/contract/assertions.go (session_start.fires reads a same-session restart as holding, the
+  fix for candidate 7's C4.8 F1); internal/checkpoint/decisions.go, lineage.go, writer.go,
+  intent.go, source.go and precompact.go (decisions as their source mints them, a memoized
+  ancestry, current work and the goal from the session's own prompt records);
+  internal/rehydrate/build.go, items.go, render.go, budget.go, hostcap.go, types.go, pathgate.go,
+  notice.go, learned_index.go and internal/daemon/rehydrate_service.go (the D50/D63/D64 gates,
+  section 6's legend, the D59 loss notice); internal/negknow/ledger.go (a filter miss answers
+  absent before any lineage read); internal/cli/qompack_commands.go and doctor.go (status reasons
+  and probe, config-violation rows); internal/cli/fsck.go (sorted detail lines). Not changed: the
+  store's object, index, capture-sidecar, checkpoint artifact (internal/checkpoint/types.go) and
+  delivery-journal formats, internal/store/backup.go and maintenance.go, internal/cli/backup.go,
+  plugin/. Why it still holds: step 7's reset was observed live on candidate 8 by C4.9 (b) (block
+  reset to defaults, config-violations.json, self-test config.capture warn, capture continued, one
+  Loud line per daemon), and no candidate 8 change rewrites or removes a .qompack/ file on upgrade
+  or uninstall; the upgrade from candidate 7's store reads its formats unchanged. The session and
+  command code ran live on candidate 8: UAT-06 (record_eliminated, already_tried and why across a
+  resume, a fork and a parent restart, six compactions, every checkpoint re-hashing), UAT-04 (eight
+  compactions and the blocks injected after them, fsck with --seal-check), F-C48-1 (status and
+  doctor after two compactions in one session read session_start.fires holding, 0 pending, where
+  candidate 7 read pending) and C4.5 (the six commands; status, doctor and fsck --json paired reads
+  agree). Those runs used stores candidate 8 wrote, so they do not show candidate 8 reading
+  candidate 7's prompt records, ledger, lineage records, checkpoints or history.json; for that the
+  leg rests on the diff (the changed files alter derivation, gating and status logic, not the
+  formats they read) plus that evidence. The upgrade, uninstall and reinstall were not repeated,
+  evidence plans/sdd/V6-closeout/live/rerun-c8/CARRIED.md (C4.8) and
+  plans/sdd/V6-closeout/live/rerun-c7/UAT-12/notes.txt
   Candidate 7 (d20309c0): fail — a tool pointer's argument summary in section 6 showed the
   host-denied path {"query":"path:private/deny.txt"} (F1, D50), evidence
   plans/sdd/V6-closeout/live/rerun-c7/UAT-12/notes-retrieval.txt (upgrade leg pass,
