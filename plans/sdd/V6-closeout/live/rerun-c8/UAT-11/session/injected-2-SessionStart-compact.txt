@@ -1,0 +1,30 @@
+# stream line 67, hook SessionStart:compact, exit 0, 2418 chars
+<!-- qompack:injected seq=1 ver=1 -->
+# Qompack rehydration — checkpoint 0001, session ff97f035
+
+## 2. Original user intent (verbatim from L0 capture — never summarized)
+Evolution (most recent first):
+> Run the Bash command `git add -A`, then `git commit -m "uat-11 work"`, then `git log --oneline -1`. Reply with the commit line.
+> Use the Read tool to read odd.txt and then creds.env. Tell me only the names of the settings in creds.env, never their values, and describe odd.txt in one sentence.
+Original:
+> Use the Read tool to read notes.md, then big.log with offset 1 and limit 3000. Reply with the codename in notes.md and the label of the last line you received (it looks like ROW-NNNNN).
+
+## 5. Current work
+goal: Run the Bash command `git add -A`, then `git commit -m "uat-11 work"`, then `git log --oneline -1`.
+blocked on: none
+
+## 6. Pointers (paths and hashes — contents are NOT restored; use expand/re_read)
+- big.log sha256:ecc579c935763faa7e12629a2bf7e4f870a46e3fda9513e5f5526eeb68e3067c — referenced
+- creds.env sha256:884ddc0710e9e5e94c06fd03424588f9401d4eb3b61f29bbd90ec4587dc98c3d — referenced
+- notes.md sha256:db82ddceb71976cd7cba7c82da00fe8ccdd9236c2e5b9b545cf3211a0cb4f055 — referenced
+- odd.txt sha256:e564dcc948ddba5f4679bd81cbd7bdfcac79170a1f84e23e6f0ed1a77fe2fcc4 — referenced
+- tool_use toolu_018BMk4GzvwXWNMQmgFgfSXA sha256:db82ddceb71976cd7cba7c82da00fe8ccdd9236c2e5b9b545cf3211a0cb4f055 — <scratch>\carried\uat11\c\notes.md
+- tool_use toolu_01CALN2GWEmwCEkfRFqugJWT sha256:884ddc0710e9e5e94c06fd03424588f9401d4eb3b61f29bbd90ec4587dc98c3d — <scratch>\carried\uat11\c\creds.env
+- tool_use toolu_01Ms9iy3PFSjdDVABxwGJhqu sha256:76d37db04cd722b3c35960a0b758f9eb45069e163dc35ba7cebb70b2f45138bd — git add -A && git commit -m "uat-11 work" && git log --oneline -1
+- tool_use toolu_01PzPHRu7NV2EoZgNZELGFWx sha256:ecc579c935763faa7e12629a2bf7e4f870a46e3fda9513e5f5526eeb68e3067c — <scratch>\carried\uat11\c\big.log
+- tool_use toolu_01VASyQENDkDnTz5tj5N1vn9 sha256:e564dcc948ddba5f4679bd81cbd7bdfcac79170a1f84e23e6f0ed1a77fe2fcc4 — <scratch>\carried\uat11\c\odd.txt
+
+## 8. Retrieval
+Qompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().
+<!-- /qompack:injected -->
+<!-- qompack-contract-probe qompack-contract-5f6b5a385d01 -->

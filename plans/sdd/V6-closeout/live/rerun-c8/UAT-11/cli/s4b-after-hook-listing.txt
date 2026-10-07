@@ -1,0 +1,26 @@
+project listing (.git omitted), 25 files
+        18  README.md
+         2  .qompack/.gitignore
+        26  .qompack/config.json
+         0  .qompack/index/files.jsonl
+         0  .qompack/index/roots.jsonl
+         0  .qompack/index/segments.jsonl
+         0  .qompack/index/sessions.jsonl
+         0  .qompack/index/tool_use.jsonl
+       247  .qompack/logs/LOUD.log
+       651  .qompack/logs/qompack-20261007.log
+      1001  .qompack/records/captures/66/66401b643c2214948edfc2a9f8f648923819fca5f11f0898a8de08670f4bb256.json
+         0  .qompack/run/daemon.hb
+       262  .qompack/run/daemon.lock
+        32  .qompack/run/state.bin
+      1018  .qompack/spool/wal-uat11-cli-s4b.ndjson
+     32768  .qompack/state/delivery-ack-position.json
+         0  .qompack/state/delivery-acks.jsonl
+       117  .qompack/state/delivery-journal-log.jsonl
+       187  .qompack/state/delivery-journal.json
+     32768  .qompack/state/delivery-lease-position.json
+       299  .qompack/state/delivery-leases.jsonl
+         2  .qompack/state/drain.json
+       201  .qompack/state/retention-roots.jsonl
+         0  .qompack/state/delivery-generations/manifest.jsonl
+       382  .qompack/tmp/wa-3284599645

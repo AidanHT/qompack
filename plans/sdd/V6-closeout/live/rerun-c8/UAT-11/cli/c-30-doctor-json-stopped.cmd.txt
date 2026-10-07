@@ -1,0 +1,6 @@
+cwd: ../uat11/c
+argv: ["C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c8/qompack-plugin-0.3.0-windows-amd64/bin/qompack.exe", "doctor", "--json"]
+env+: {}
+qompack_home: <scratch>/carried/qhome
+wall_s: 0.174
+at: 2026-10-07T13:32:32-04:00

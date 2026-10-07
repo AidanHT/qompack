@@ -1,0 +1,3 @@
+ts=2026-10-07T16:54:09.1329472Z level=loud msg="configuration unusable, using defaults" message="unparseable config: unexpected end of JSON input" location=<scratch>\carried\uat11\b\.qompack\config.json
+ts=2026-10-07T16:54:09.1546272Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-10-07T16:54:09.2310034Z level=warn msg="configuration warning" key=runtime.notAKey message="unknown key" location=<scratch>\carried\uat11\b\.qompack\config.json:1

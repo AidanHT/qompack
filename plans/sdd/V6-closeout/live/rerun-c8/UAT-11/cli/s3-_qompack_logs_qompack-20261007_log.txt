@@ -1,0 +1,5 @@
+ts=2026-10-07T16:54:08.457721Z level=loud msg="invalid configuration value, using default" key=runtime.migration.replacement.newResult got=true want=false message="invalid value, using default: true not in false" location=<scratch>\carried\uat11\a\.qompack\config.json:1
+ts=2026-10-07T16:54:08.4737859Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-10-07T16:54:08.5001427Z level=warn msg="configuration warning" key=runtime.migration message="settingsVersion 2 is newer than this build understands (1); the whole runtime.migration block is reset to defaults so unknown switches stay off"
+ts=2026-10-07T16:54:08.7503906Z level=info msg="daemon: replayed spooled deliveries at start" deliveries=1
+ts=2026-10-07T16:54:08.8551573Z level=info msg="scheduler: session bound" session=uat11-cli-s3 effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0

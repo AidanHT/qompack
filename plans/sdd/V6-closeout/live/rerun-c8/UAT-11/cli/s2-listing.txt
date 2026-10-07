@@ -1,0 +1,9 @@
+project listing (.git omitted), 8 files
+        18  README.md
+        61  .qompack/config.json
+         0  .qompack/run/daemon.hb
+       261  .qompack/run/daemon.lock
+        13  .qompack/run/spawn.lock
+      1011  .qompack/spool/client-45468.ndjson
+       171  .qompack/state/config-violations.json
+         2  .qompack/tmp/wa-2082636800

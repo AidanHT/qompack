@@ -1,0 +1,15 @@
+project listing (.git omitted), 14 files
+        18  README.md
+         2  .qompack/.gitignore
+        11  .qompack/config.json
+         0  .qompack/index/files.jsonl
+         0  .qompack/index/roots.jsonl
+         0  .qompack/index/segments.jsonl
+         0  .qompack/index/sessions.jsonl
+         0  .qompack/index/tool_use.jsonl
+       247  .qompack/logs/LOUD.log
+       436  .qompack/logs/qompack-20261007.log
+         0  .qompack/run/daemon.hb
+       262  .qompack/run/daemon.lock
+        32  .qompack/run/state.bin
+         2  .qompack/state/drain.json
