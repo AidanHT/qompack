@@ -1,0 +1,16 @@
+# hosted ci.yml run 37562946379 (verify/v6 3ec62ad2), job release-dry-run, artifact release-version-bundles
+# compared file by file with qompack-bundles/c8 (sha256), both directions
+identical ./checksums.txt bd2184b6b0973c792d93ca5d8b0f9a1b83f4440565703034b737e76c2262953b
+identical ./qompack-plugin-0.3.0-darwin-amd64.zip b23c8306bcb19ec00f2e9133ac3a9afdba527588b051e2eb52dd04471835f971
+identical ./qompack-plugin-0.3.0-darwin-amd64/bin/qompack 891ebc25138701511c43aa1aeb098f70d5c5581fba8d7868d5f178eb70b5ff7c
+identical ./qompack-plugin-0.3.0-darwin-arm64.zip c2c343e7da13079dbd2ae6e2b419a379265b159f71e76f40429ccf96fb37024e
+identical ./qompack-plugin-0.3.0-darwin-arm64/bin/qompack 49ee0d66572b80beae85a0c2dc2f39035dce4aa1a15726ab5d40cdc3f200a55a
+identical ./qompack-plugin-0.3.0-linux-amd64.zip 6ef0f7839be0659c0c5e2404d7cfce28ce2238a8d87768edf3a601bdc8095230
+identical ./qompack-plugin-0.3.0-linux-amd64/bin/qompack e5db0447730b0a4f21233cb041b0a1e09bcda3df03c78e8e24f607df8baf9b65
+identical ./qompack-plugin-0.3.0-linux-arm64.zip 14fb2516baa724d31736f185df4f5051cf2e9fa2a4e75978222a6f7af6b08304
+identical ./qompack-plugin-0.3.0-linux-arm64/bin/qompack 40963fae06275b81e29d4e1f6086e448820e2060b9bdaf94f203a85bf4953245
+identical ./qompack-plugin-0.3.0-windows-amd64.zip 6d73de4129bfccfd03883c649e1cd3bddd90c45904556dc8b4717dcf72303ea0
+identical ./qompack-plugin-0.3.0-windows-amd64/bin/qompack.exe 93eb09f348774fbf2783bd607a3af41622976b2edad42798b437091eace381a9
+identical ./qompack-plugin-0.3.0-windows-arm64.zip 7a8fb2e6d6005be8e6323ba8617b67b3d551ae30f8814873026ed72379f01432
+identical ./qompack-plugin-0.3.0-windows-arm64/bin/qompack.exe 64061660b9d8371995888db9b6f29ee18947a57f5b7834aa6a0aa3d78e9be24f
+same=91 differ=0

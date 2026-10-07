@@ -68,6 +68,9 @@
     runtime-class crash dump whose first lines the job's summary does not keep, and no test JSON is uploaded.
     Cause undetermined; it did not recur on attempt 2, and the Windows `-race` whole tree and the Linux
     non-root `-race` tree passed on this tree.
+- Hosted release-dry-run's release-version bundles (ci.yml `37562946379`) equal the frozen bundles byte for
+  byte: all 91 files, the six zips and checksums.txt among them, in both directions
+  (`c8/hosted-release-bundles.txt`, D53(h)(4)).
 - Owed on this candidate:
   1. the C5.2 night for c116-rig, c52-linux-checkpoint and c52-linux-other, and docs/architecture.md §7's
      C1.16 figure restated from c116-rig;
