@@ -1,0 +1,61 @@
+{
+ "args": [
+  "-p",
+  "--input-format",
+  "stream-json",
+  "--output-format",
+  "stream-json",
+  "--verbose",
+  "--include-hook-events",
+  "--model",
+  "claude-haiku-4-5-20251001",
+  "--max-turns",
+  "10",
+  "--setting-sources",
+  "project,local",
+  "--permission-mode",
+  "dontAsk",
+  "--plugin-dir",
+  "C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c8/qompack-plugin-0.3.0-windows-amd64",
+  "--allowedTools",
+  "Read,Bash(cat:*),mcp__plugin_qompack_qompack__recall,mcp__plugin_qompack_qompack__expand,mcp__plugin_qompack_qompack__re_read,mcp__plugin_qompack_qompack__already_tried,mcp__plugin_qompack_qompack__record_eliminated,mcp__plugin_qompack_qompack__timeline,mcp__plugin_qompack_qompack__why,mcp__plugin_qompack_qompack__dropped,Bash(qompack status:*),Bash(qompack recall:*),Bash(qompack pin:*),Bash(qompack why:*),Bash(qompack dropped:*),Bash(qompack eval:*)",
+  "--resume",
+  "7f96ea69-fb5e-4e81-9040-dce5323da433"
+ ],
+ "turns": [
+  {
+   "msg": "/compact",
+   "ok": true,
+   "wall_s": 21.663,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 55416,
+    "WorkingSet64": 41246720,
+    "PeakWorkingSet64": 48386048,
+    "CPU": 2.796875,
+    "StartTime": "/Date(1791384860193)/"
+   },
+   "store_bytes": 580402
+  },
+  {
+   "msg": "What is the current per-client rate limit requirement, and what was the original one? One sentence.",
+   "ok": true,
+   "wall_s": 2.606,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 55416,
+    "WorkingSet64": 41320448,
+    "PeakWorkingSet64": 48386048,
+    "CPU": 2.796875,
+    "StartTime": "/Date(1791384860193)/"
+   },
+   "store_bytes": 590384
+  }
+ ],
+ "store_bytes_before": 543574,
+ "started_ms": 1791385338533,
+ "pid": 29028,
+ "exit": 0,
+ "wall_s": 26.695,
+ "store_bytes_after": 573962
+}

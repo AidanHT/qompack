@@ -1,0 +1,4 @@
+step 7: python re (case-insensitive) over every line of <project>/.qompack/logs/* (17 lines)
+post[-_ ]?compact|PostCompact|waiting (for|on)|await|compaction (event|ended|finished|completed)|no .*compact(ion)? event
+0 match(es)
+(none)

@@ -1,0 +1,9 @@
+docs/commands.md at 3ec62ad2 vs the bundle's commands/*.md and the fork session's init event
+init slash_commands (qompack): ['qompack:dropped', 'qompack:eval', 'qompack:pin', 'qompack:recall', 'qompack:status', 'qompack:why']
+init has qompack:checkpoint: False
+/qompack:status: in init True | description equal True | argument-hint '[--json]' vs doc '[--json]' -> True | allowed-tools 'Bash(qompack status:*)' vs doc 'Bash(qompack status:*)' -> True | body runs '!`qompack status $ARGUMENTS`'
+/qompack:recall: in init True | description equal True | argument-hint '<query> [--k N]' vs doc '<query> [--k N]' -> True | allowed-tools 'Bash(qompack recall:*)' vs doc 'Bash(qompack recall:*)' -> True | body runs '!`qompack recall $ARGUMENTS`'
+/qompack:pin: in init True | description equal True | argument-hint '<text>' vs doc '<text>' -> True | allowed-tools 'Bash(qompack pin:*)' vs doc 'Bash(qompack pin:*)' -> True | body runs '!`qompack pin $ARGUMENTS`'
+/qompack:why: in init True | description equal True | argument-hint '<decision-id>' vs doc '<decision-id>' -> True | allowed-tools 'Bash(qompack why:*)' vs doc 'Bash(qompack why:*)' -> True | body runs '!`qompack why $ARGUMENTS`'
+/qompack:dropped: in init True | description equal True | argument-hint '[--json]' vs doc '[--json]' -> True | allowed-tools 'Bash(qompack dropped:*)' vs doc 'Bash(qompack dropped:*)' -> True | body runs '!`qompack dropped $ARGUMENTS`'
+/qompack:eval: in init True | description equal True | argument-hint '[--corpus <path>]' vs doc '[--corpus <path>]' -> True | allowed-tools 'Bash(qompack eval:*)' vs doc 'Bash(qompack eval:*)' -> True | body runs '!`qompack eval $ARGUMENTS`'

@@ -1,0 +1,39 @@
+{
+ "args": [
+  "-p",
+  "--input-format",
+  "stream-json",
+  "--output-format",
+  "stream-json",
+  "--verbose",
+  "--include-hook-events",
+  "--model",
+  "claude-haiku-4-5-20251001",
+  "--max-turns",
+  "10",
+  "--setting-sources",
+  "project,local",
+  "--permission-mode",
+  "dontAsk",
+  "--plugin-dir",
+  "C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c8/qompack-plugin-0.3.0-windows-amd64",
+  "--allowedTools",
+  "Read,Bash(cat:*),mcp__plugin_qompack_qompack__recall,mcp__plugin_qompack_qompack__expand,mcp__plugin_qompack_qompack__re_read,mcp__plugin_qompack_qompack__already_tried,mcp__plugin_qompack_qompack__record_eliminated,mcp__plugin_qompack_qompack__timeline,mcp__plugin_qompack_qompack__why,mcp__plugin_qompack_qompack__dropped,Bash(qompack status:*),Bash(qompack recall:*),Bash(qompack pin:*),Bash(qompack why:*),Bash(qompack dropped:*),Bash(qompack eval:*)",
+  "--resume",
+  "7f96ea69-fb5e-4e81-9040-dce5323da433"
+ ],
+ "cwd": "<scratch>/sessions/c8/uat06/proj",
+ "out": "<scratch>/sessions/c8/uat06/sD",
+ "env": {
+  "ENABLE_CLAUDEAI_MCP_SERVERS": "false",
+  "QOMPACK_HOME": "<scratch>/sessions/c8/qhome"
+ },
+ "messages": [
+  "/compact",
+  "What is the current per-client rate limit requirement, and what was the original one? One sentence."
+ ],
+ "timeout_s": 1500,
+ "project": "<scratch>/sessions/c8/uat06/proj",
+ "bin": "C:/Users/Quant/AppData/Roaming/npm/node_modules/@anthropic-ai/claude-code/bin/claude.exe",
+ "scrub": "<scratch>"
+}

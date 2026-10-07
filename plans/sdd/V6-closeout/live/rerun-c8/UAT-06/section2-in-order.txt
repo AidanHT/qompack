@@ -1,0 +1,104 @@
+== A-block1-SessionStart-startup.txt (61 UTF-16 units; sections [])
+current work: (none)
+(no section 2)
+
+== A-block2-SessionStart-compact.txt (2852 UTF-16 units; sections ['2.', '3.', '4.', '5.', '6.', '8.'])
+current work: goal: Use the Read tool to read src/limiter.py and summarize it in one sentence.
+Evolution (most recent first):
+> Use the Read tool to read src/limiter.py and summarize it in one sentence.
+> Call mcp__plugin_qompack_qompack__record_eliminated with target "per-client rate limit", approach "100 requests per minute" and reason "superseded by the user's correction: 60 per minute". Report the raw result in one line.
+> Correction: the limit must be 60 requests per minute per client, not 100. The 100 figure is superseded. Acknowledge in one sentence.
+Original:
+> We are building a rate limiter for the Kite API gateway. Requirement: allow 100 requests per minute per client. First, run the Bash command `cat config/limits.txt` and tell me how many entries it lists. Do not repeat any values.
+
+
+== B-block1-SessionStart-resume.txt (61 UTF-16 units; sections [])
+current work: (none)
+(no section 2)
+
+== B-block2-SessionStart-compact.txt (3021 UTF-16 units; sections ['2.', '3.', '4.', '5.', '6.', '8.'])
+current work: goal: Use the Read tool to read docs/notes.md and summarize it in one sentence.
+Evolution (most recent first):
+> Use the Read tool to read docs/notes.md and summarize it in one sentence.
+> /qompack:why dec_991dbff588ec
+> What is the current per-client rate limit requirement, and what was the original one? One sentence.
+> Use the Read tool to read src/limiter.py and summarize it in one sentence.
+> Call mcp__plugin_qompack_qompack__record_eliminated with target "per-client rate limit", approach "100 requests per minute" and reason "superseded by the user's correction: 60 per minute". Report the raw result in one line.
+> Correction: the limit must be 60 requests per minute per client, not 100. The 100 figure is superseded. Acknowledge in one sentence.
+Original:
+> We are building a rate limiter for the Kite API gateway. Requirement: allow 100 requests per minute per client. First, run the Bash command `cat config/limits.txt` and tell me how many entries it lists. Do not repeat any values.
+
+
+== C-block1-SessionStart-fork.txt (61 UTF-16 units; sections [])
+current work: (none)
+(no section 2)
+
+== C-block2-SessionStart-compact.txt (3223 UTF-16 units; sections ['2.', '3.', '4.', '5.', '6.', '7.', '8.'])
+current work: goal: Use the Read tool to read docs/design.md and summarize it in one sentence.
+Evolution (most recent first):
+> Use the Read tool to read docs/design.md and summarize it in one sentence.
+> What is the current per-client rate limit requirement, and what was the original one? One sentence.
+> Use the Read tool to read docs/notes.md and summarize it in one sentence.
+> /qompack:why dec_991dbff588ec
+> Use the Read tool to read src/limiter.py and summarize it in one sentence.
+> Call mcp__plugin_qompack_qompack__record_eliminated with target "per-client rate limit", approach "100 requests per minute" and reason "superseded by the user's correction: 60 per minute". Report the raw result in one line.
+> Correction: the limit must be 60 requests per minute per client, not 100. The 100 figure is superseded. Acknowledge in one sentence.
+Original:
+(forked session: the original request of session 7f96ea69, which this session continues)
+> We are building a rate limiter for the Kite API gateway. Requirement: allow 100 requests per minute per client. First, run the Bash command `cat config/limits.txt` and tell me how many entries it lists. Do not repeat any values.
+
+
+== C-block3-SessionStart-compact.txt (3745 UTF-16 units; sections ['2.', '3.', '4.', '5.', '6.', '7.', '8.'])
+current work: goal: Correction: the limit must be 45 requests per minute per client, not 60.
+Evolution (most recent first):
+> Correction: the limit must be 45 requests per minute per client, not 60. The 60 figure is superseded. Acknowledge in one sentence.
+> /qompack:why dec_991dbff588ec
+> Call mcp__plugin_qompack_qompack__already_tried with target "per-client rate limit" and approach "100 requests per minute". Report the raw result in one line.
+> Use the Read tool to read docs/design.md and summarize it in one sentence.
+> What is the current per-client rate limit requirement, and what was the original one? One sentence.
+> Use the Read tool to read docs/notes.md and summarize it in one sentence.
+> Use the Read tool to read src/limiter.py and summarize it in one sentence.
+> Call mcp__plugin_qompack_qompack__record_eliminated with target "per-client rate limit", approach "100 requests per minute" and reason "superseded by the user's correction: 60 per minute". Report the raw result in one line.
+> Correction: the limit must be 60 requests per minute per client, not 100. The 100 figure is superseded. Acknowledge in one sentence.
+Original:
+(forked session: the original request of session 7f96ea69, which this session continues)
+> We are building a rate limiter for the Kite API gateway. Requirement: allow 100 requests per minute per client. First, run the Bash command `cat config/limits.txt` and tell me how many entries it lists. Do not repeat any values.
+
+
+== C-block4-SessionStart-compact.txt (3306 UTF-16 units; sections ['1.', '2.', '3.', '4.', '5.', '7.', '8.'])
+current work: goal: What is the current per-client rate limit requirement, and what was the original one?
+Evolution (most recent first):
+> /qompack:why dec_991dbff588ec
+> /qompack:status
+> /qompack:recall Retry-After
+> /qompack:pin Rejected calls get HTTP 429 with a Retry-After header.
+> /qompack:dropped
+> What is the current per-client rate limit requirement, and what was the original one? One sentence.
+> Correction: the limit must be 45 requests per minute per client, not 60. The 60 figure is superseded. Acknowledge in one sentence.
+> Call mcp__plugin_qompack_qompack__already_tried with target "per-client rate limit" and approach "100 requests per minute". Report the raw result in one line.
+> Use the Read tool to read docs/design.md and summarize it in one sentence.
+> Use the Read tool to read docs/notes.md and summarize it in one sentence.
+> Use the Read tool to read src/limiter.py and summarize it in one sentence.
+> Call mcp__plugin_qompack_qompack__record_eliminated with target "per-client rate limit", approach "100 requests per minute" and reason "superseded by the user's correction: 60 per minute". Report the raw result in one line.
+> Correction: the limit must be 60 requests per minute per client, not 100. The 100 figure is superseded. Acknowledge in one sentence.
+Original:
+(forked session: the original request of session 7f96ea69, which this session continues)
+> We are building a rate limiter for the Kite API gateway. Requirement: allow 100 requests per minute per client. First, run the Bash command `cat config/limits.txt` and tell me how many entries it lists. Do not repeat any values.
+
+
+== D-block1-SessionStart-resume.txt (61 UTF-16 units; sections [])
+current work: (none)
+(no section 2)
+
+== D-block2-SessionStart-compact.txt (2618 UTF-16 units; sections ['1.', '2.', '3.', '4.', '5.', '6.', '8.'])
+current work: goal: What is the current per-client rate limit requirement, and what was the original one?
+Evolution (most recent first):
+> What is the current per-client rate limit requirement, and what was the original one? One sentence.
+> Use the Read tool to read docs/notes.md and summarize it in one sentence.
+> /qompack:why dec_991dbff588ec
+> Use the Read tool to read src/limiter.py and summarize it in one sentence.
+> Call mcp__plugin_qompack_qompack__record_eliminated with target "per-client rate limit", approach "100 requests per minute" and reason "superseded by the user's correction: 60 per minute". Report the raw result in one line.
+> Correction: the limit must be 60 requests per minute per client, not 100. The 100 figure is superseded. Acknowledge in one sentence.
+Original:
+> We are building a rate limiter for the Kite API gateway. Requirement: allow 100 requests per minute per client. First, run the Bash command `cat config/limits.txt` and tell me how many entries it lists. Do not repeat any values.
+

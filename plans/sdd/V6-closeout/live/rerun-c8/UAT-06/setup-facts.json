@@ -1,0 +1,24 @@
+{
+ "files": {
+  "README.md": {
+   "bytes": 89,
+   "sha256": "f69d8fa1a6a7be45a8f50ab2ac56d09319867c41caf94ca35d02fcb3e421e9eb"
+  },
+  "config/limits.txt": {
+   "bytes": 390,
+   "sha256": "2ce5e0a32c81ea5c73cf97c49ddcd562caae3d1d66dfbc6b796a26870ef37f3b"
+  },
+  "docs/design.md": {
+   "bytes": 97,
+   "sha256": "ab63a499faf27398db612a35c2912a03d357891a516f8db7eefab63c5d0bd633"
+  },
+  "docs/notes.md": {
+   "bytes": 80,
+   "sha256": "5cbb2478c6914029a35a7fd8492fb88d2ce99e9c1dc31fd2a78a041c3ddff485"
+  },
+  "src/limiter.py": {
+   "bytes": 174,
+   "sha256": "272ccff9f63c39926066b6c438d6b16c6184bd8984214dad2e371195bde0b267"
+  }
+ }
+}
