@@ -1,0 +1,6 @@
+cwd: <scratch>/sessions/c8/fc48/proj
+argv: ["C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c8/qompack-plugin-0.3.0-windows-amd64/bin/qompack.exe", "backup", "create", "--project", "<scratch>/sessions/c8/fc48/proj", "--id", "fc48-c8-before", "--json"]
+env+: {}
+qompack_home: <scratch>/sessions/c8/qhome
+wall_s: 0.115
+at: 2026-10-07T11:09:50-04:00

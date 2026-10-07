@@ -1,0 +1,115 @@
+{
+ "args": [
+  "-p",
+  "--input-format",
+  "stream-json",
+  "--output-format",
+  "stream-json",
+  "--verbose",
+  "--include-hook-events",
+  "--model",
+  "claude-haiku-4-5-20251001",
+  "--max-turns",
+  "10",
+  "--setting-sources",
+  "project,local",
+  "--permission-mode",
+  "dontAsk",
+  "--plugin-dir",
+  "C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c8/qompack-plugin-0.3.0-windows-amd64",
+  "--allowedTools",
+  "Read,Bash(cat:*),mcp__plugin_qompack_qompack__recall,mcp__plugin_qompack_qompack__expand,mcp__plugin_qompack_qompack__re_read,mcp__plugin_qompack_qompack__already_tried,mcp__plugin_qompack_qompack__record_eliminated,mcp__plugin_qompack_qompack__timeline,mcp__plugin_qompack_qompack__why,mcp__plugin_qompack_qompack__dropped,Bash(qompack status:*),Bash(qompack recall:*),Bash(qompack pin:*),Bash(qompack why:*),Bash(qompack dropped:*),Bash(qompack eval:*)"
+ ],
+ "turns": [
+  {
+   "msg": "We are building the Heron event router. Use the Read tool to read src/app.py and summarize it in one sentence.",
+   "ok": true,
+   "wall_s": 4.814,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 55096,
+    "WorkingSet64": 30834688,
+    "PeakWorkingSet64": 30834688,
+    "CPU": 0.1875,
+    "StartTime": "/Date(1791385798738)/"
+   },
+   "store_bytes": 96092
+  },
+  {
+   "msg": "Run the Bash command `cat data/info.txt` and tell me only how many rows it lists.",
+   "ok": true,
+   "wall_s": 5.22,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 55096,
+    "WorkingSet64": 32493568,
+    "PeakWorkingSet64": 32493568,
+    "CPU": 0.28125,
+    "StartTime": "/Date(1791385798738)/"
+   },
+   "store_bytes": 118492
+  },
+  {
+   "msg": "Use the Read tool to read README.md and summarize it in one sentence.",
+   "ok": true,
+   "wall_s": 2.609,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 55096,
+    "WorkingSet64": 34131968,
+    "PeakWorkingSet64": 34131968,
+    "CPU": 0.359375,
+    "StartTime": "/Date(1791385798738)/"
+   },
+   "store_bytes": 142571
+  },
+  {
+   "msg": "/compact",
+   "ok": true,
+   "wall_s": 19.659,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 55096,
+    "WorkingSet64": 36827136,
+    "PeakWorkingSet64": 36827136,
+    "CPU": 0.421875,
+    "StartTime": "/Date(1791385798738)/"
+   },
+   "store_bytes": 181085
+  },
+  {
+   "msg": "Use the Read tool to read docs/plan.md and summarize it in one sentence.",
+   "ok": true,
+   "wall_s": 4.21,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 55096,
+    "WorkingSet64": 37904384,
+    "PeakWorkingSet64": 37904384,
+    "CPU": 0.5625,
+    "StartTime": "/Date(1791385798738)/"
+   },
+   "store_bytes": 205381
+  },
+  {
+   "msg": "/compact",
+   "ok": true,
+   "wall_s": 22.469,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 55096,
+    "WorkingSet64": 40468480,
+    "PeakWorkingSet64": 40468480,
+    "CPU": 0.59375,
+    "StartTime": "/Date(1791385798738)/"
+   },
+   "store_bytes": 236652
+  }
+ ],
+ "store_bytes_before": 0,
+ "started_ms": 1791385797862,
+ "pid": 57292,
+ "exit": 0,
+ "wall_s": 65.28,
+ "store_bytes_after": 302002
+}
