@@ -1075,31 +1075,33 @@ stored records to reconcile a failure.
 **Result**
 
 ```text
-Result: pass — with no compaction before them, step 2's acknowledgement carried id,
-  descriptor, scope `session`, evidence, depends_on (both paths resolved) and
-  depends_on_unresolved []; step 3 answered `active` with reason, evidence, scope, recorded_at
-  (2026-09-30T03:29:33Z, RFC 3339 UTC) and depends_on, no stale_because; step 4 answered a plain
+Result: pass — frozen candidate 8 bundle via --plugin-dir, two sessions in this row's own project.
+  With no compaction before them, step 2's acknowledgement carried id, descriptor, scope
+  `session`, evidence, depends_on (both paths resolved) and depends_on_unresolved [] (no
+  warnings); step 3 answered `active` with reason, evidence, scope, recorded_at
+  (2026-10-07T17:03:34Z, RFC 3339 UTC) and depends_on, no stale_because; step 4 answered a plain
   `{"state":"absent"}` (no bloom_only); step 5: records/eliminations.jsonl holds the record,
-  stored with the calling session's id. The next checkpoint (0001) carries it in eliminated and
-  its decision dec_e760c8bbf50a in decisions; the model found that id in the injected block and
-  `why` answered it, as did `/qompack:why dec_e760c8bbf50a` in the resumed session. Session scope
-  isolates: in a later, different session of a project whose earlier session had recorded a
-  session-scoped and a project-scoped elimination, already_tried answered `absent` for the first
-  and `active` for the second (run in the C4.4 project, because this project's record had gone
-  stale in UAT-09 and a stale record no longer answers after a restart — UAT-09's finding).
+  stored with the calling session's id, before any compaction. After /compact the block carried
+  both eliminations and decision dec_e760c8bbf50a, and `why` answered it (checkpoint_seq 1,
+  what, why, evidence, alternatives_rejected, turn 3); already_tried still answered active.
+  Session scope isolates: in a later, different session of the same project, already_tried
+  answered `absent` for the session-scoped record and `active` for a project-scoped one recorded
+  in the first session. Hooks: 37, every one success / exit 0, no host-reported failure or
+  timeout; doctor, fsck and fsck --seal-check clean after the idle exit (2 active, 0 stale).
+  Candidate 4 (9f6a2fad): pass — the ledger answered before any compaction; isolation was checked
+  in the C4.4 project, evidence plans/sdd/V6-closeout/live/rerun-c4/UAT-08/
   Candidate 3 (d5598eb4): fail — the elimination ledger was not present before the first
   compaction and session scope was stored as "", evidence plans/sdd/V6-closeout/live/uat/UAT-08/
 Snapshot: qompack version 0.3.0; bundle BUNDLE.json sha256
-  aa7da0e17b7597562a6eba47fc48f1db81ff5e9bdc494b9997a323137625558d; commit
-  9f6a2fadf086eba8080af589a35dd9554ae6cab4; Windows 11 Home 25H2 build 10.0.26200.9457;
+  61ba9c37dda03c14c44acb6824646a8d7410751bba6f1ce3c5c864d6382dcd8b; commit
+  3ec62ad2e01b985640c0f1fb832df3917f766a5f; Windows 11 Home 25H2 build 10.0.26200.9457;
   Claude Code 2.1.280
-Date: 2026-09-29 (America/Toronto)
+Date: 2026-10-07 (America/Toronto)
 Executed by: Claude Code workflow subagent (Opus 5.5), agent-executed on the owner's real host
   per owner decision D3 — not human UAT
-Evidence: plans/sdd/V6-closeout/live/rerun-c4/UAT-08/ (notes.txt indexes it)
+Evidence: plans/sdd/V6-closeout/live/rerun-c8/UAT-08/ (notes.txt indexes it)
 Rollback verified: not applicable — initial state absent (recorded: `backup create` exit 1 "no
-  existing store"); the run is retained as evidence (the project continued into UAT-09); no
-  restore was run
+  existing store"); the run is retained as evidence; no restore was run
 ```
 
 ---
