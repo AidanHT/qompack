@@ -1,0 +1,4 @@
+r2-r4 refused with 'stop the source daemon before maintenance': the daemon r1/s2-post self-test
+spawned (daemon.reachable 'spawned and reachable now') was still inside its 30 s idle window. Waited for
+its idle exit (lock gone), then r8-r10 repeat the rollback backup with no daemon running.
+daemon.lock now: {'lock': "unreadable: [Errno 2] No such file or directory: '<scratch>/resilience/c8/c49b/proj\\\\.qompack\\\\run\\\\daemon.lock'"}

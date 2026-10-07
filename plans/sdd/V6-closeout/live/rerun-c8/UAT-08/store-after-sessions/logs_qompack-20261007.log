@@ -1,0 +1,9 @@
+ts=2026-10-07T17:03:24.6139141Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-10-07T17:03:24.6707573Z level=info msg="observer: session registered" session=b45418e4-e44c-482b-96f2-b8f9122149ed source=startup turn=0 segment=1
+ts=2026-10-07T17:03:24.6707573Z level=info msg="scheduler: session bound" session=b45418e4-e44c-482b-96f2-b8f9122149ed effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+ts=2026-10-07T17:04:34.4203295Z level=info msg="observer: gc" scanned=25 deleted=0 freed=0 truncated=false
+ts=2026-10-07T17:04:47.9272283Z level=info msg="observer: session registered" session=723c6e42-45e6-4f07-b3d0-b5975cee98dc source=startup turn=0 segment=3
+ts=2026-10-07T17:04:47.9283548Z level=info msg="scheduler: state from another session discarded" path=<scratch>\carried\uat08\proj\.qompack\state\bocd.json file_session=b45418e4-e44c-482b-96f2-b8f9122149ed session=723c6e42-45e6-4f07-b3d0-b5975cee98dc
+ts=2026-10-07T17:04:47.9283548Z level=info msg="scheduler: state from another session discarded" path=<scratch>\carried\uat08\proj\.qompack\state\scheduler.json file_session=b45418e4-e44c-482b-96f2-b8f9122149ed session=723c6e42-45e6-4f07-b3d0-b5975cee98dc
+ts=2026-10-07T17:04:47.9283548Z level=info msg="scheduler: session bound" session=723c6e42-45e6-4f07-b3d0-b5975cee98dc effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+ts=2026-10-07T17:05:03.9070744Z level=info msg="observer: gc" scanned=30 deleted=0 freed=0 truncated=false

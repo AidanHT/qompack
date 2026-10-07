@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "command": "recall",
+  "ok": true,
+  "data": {
+    "tool": "recall",
+    "is_error": false,
+    "ephemeral": true,
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"hits\":[{\"hash\":\"sha256:8a9940c4ccc0e0d4a4b9281d0310e2fbcdfd10c01223c698b3db67db5e30de22\",\"path\":\"src/ledger.go\",\"tool\":\"FileEdit\",\"summary\":\"\",\"ts\":\"2026-10-07T16:54:01Z\",\"score\":0.32,\"tool_use_id\":\"toolu_01TZD8oqPvpVy685kfWdYc4u\",\"span\":[0,1103]}],\"count\":1,\"found\":true,\"query\":{\"text\":\"\",\"path\":\"\",\"symbol\":\"\",\"tool\":\"Edit\"}}"
+      }
+    ],
+    "meta": {
+      "elapsed_ms": 9,
+      "hash": "sha256:4f88526f7120d354d2afee5790cfce0e2e2ee5d8b73eae9daf8367805658512e",
+      "tool_use_id": "qompack-mcp:c07e1fbbe920",
+      "untrusted": true
+    }
+  }
+}

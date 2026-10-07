@@ -1,0 +1,6 @@
+ts=2026-10-07T16:37:10.5461475Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-10-07T16:37:10.5947039Z level=info msg="observer: session registered" session=940ae3fa-64b0-4cbd-8aa3-50eec85d3a9b source=startup turn=0 segment=1
+ts=2026-10-07T16:37:10.5953034Z level=info msg="scheduler: session bound" session=940ae3fa-64b0-4cbd-8aa3-50eec85d3a9b effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+ts=2026-10-07T16:38:52.5687775Z level=warn msg="daemon: ending abandoned session; no SessionEnd arrived and it has been silent past the idle-exit window" session=940ae3fa-64b0-4cbd-8aa3-50eec85d3a9b silentMs=31556
+ts=2026-10-07T16:39:06.8700301Z level=info msg="observer: gc" scanned=77 deleted=0 freed=0 truncated=false
+ts=2026-10-07T16:40:14.0604179Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false

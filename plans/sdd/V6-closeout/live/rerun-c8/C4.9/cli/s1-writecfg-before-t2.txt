@@ -1,0 +1,6 @@
+at 2026-10-07T14:09:45.313-04:00
+config.json existed before: False
+LOUD.log lines before the write: None
+wrote <project>/.qompack/config.json (52 bytes, sha256 413f853e08cd2287ae02a1bb046a41307f54ccb773949d25f3d870893ff7ecb2):
+{"runtime": {"migration": {"settingsVersion": 99}}}
+daemon at write time: pid 44548, image qompack.exe

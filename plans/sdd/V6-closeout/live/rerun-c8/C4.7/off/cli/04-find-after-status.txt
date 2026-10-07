@@ -1,0 +1,6 @@
+find <project>/.qompack after status (directories included)
+<project>/.qompack
+<project>/.qompack/config.json
+<project>/.qompack/logs
+<project>/.qompack/logs/qompack-20261007.log
+<project>/.qompack/pins

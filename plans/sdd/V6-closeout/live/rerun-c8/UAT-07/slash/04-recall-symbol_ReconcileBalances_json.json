@@ -1,0 +1,22 @@
+{
+ "schema": 1,
+ "command": "recall",
+ "ok": true,
+ "data": {
+  "tool": "recall",
+  "is_error": false,
+  "ephemeral": true,
+  "content": [
+   {
+    "type": "text",
+    "text": "{\"hits\":[{\"hash\":\"sha256:8a9940c4ccc0e0d4a4b9281d0310e2fbcdfd10c01223c698b3db67db5e30de22\",\"path\":\"src/ledger.go\",\"tool\":\"FileEdit\",\"summary\":\"{\\\"filePath\\\":\\\"<tmp>\\\",\\\"oldString\\\":\\\"const driftLimit = 25\\\",\\\"newString\\\":\\\"const driftLimit = 40\\\",\\\"originalFile\\\":\\\"package l…\",\"ts\":\"2026-10-07T16:54:01Z\",\"score\":0.6461538461538462,\"tool_use_id\":\"toolu_01TZD8oqPvpVy685kfWdYc4u\",\"span\":[0,1103]},{\"hash\":\"sha256:9ffb1d3f62e2a8ac88c883b069c96b5990355624eb7b4a55312e9cc9f0582fab\",\"path\":\"src/ledger.go\",\"tool\":\"FileRead\",\"summary\":\"{\\\"type\\\":\\\"text\\\",\\\"file\\\":{\\\"filePath\\\":\\\"<tmp>\\\",\\\"content\\\":\\\"package ledger\\\\n\\\\n// The phrase amber quill horizon marks the re…\",\"ts\":\"2026-10-07T16:54:14Z\",\"score\":0.48307692307692307,\"tool_use_id\":\"toolu_01EWoBLqzAVpGDbM7XpWn87E\",\"span\":[0,666]},{\"hash\":\"sha256:9a87424ba64c7f95de5c962c5dee88b7a4ad5f588c0b1fe0ae0cb59a192d565e\",\"path\":\"src/ledger.go\",\"tool\":\"FileRead\",\"summary\":\"{\\\"type\\\":\\\"text\\\",\\\"file\\\":{\\\"filePath\\\":\\\"<tmp>\\\",\\\"content\\\":\\\"package ledger\\\\n\\\\n// The phrase amber quill horizon marks the re…\",\"ts\":\"2026-10-07T16:53:54Z\",\"score\":0.4184615384615385,\"tool_use_id\":\"toolu_01AEA21cT6i7zeZ5Pc2hgjcP\",\"span\":[0,666]},{\"hash\":\"sha256:5e7708d5cdf084fd9abdf0a93949bd0a7212e25b370cfacbc2f028992736fde9\",\"path\":\"\",\"tool\":\"UserPromptSubmit\",\"summary\":\"Use the Read tool to read src/ledger.go, then private/vault.txt, then ops/runbook.md (one Read call per file). In one…\",\"ts\":\"2026-10-07T16:53:51Z\",\"score\":0.20923076923076925,\"tool_use_id\":\"prompt_5d758a40-c642-4c66-b5df-d64d334ba6a1_0\",\"span\":[0,248]}],\"count\":4,\"found\":true,\"query\":{\"text\":\"\",\"path\":\"\",\"symbol\":\"ReconcileBalances\",\"tool\":\"\"}}"
+   }
+  ],
+  "meta": {
+   "elapsed_ms": 26,
+   "hash": "sha256:4a81bc5734ea8eef51f8e825a34c44a021ca07a3360fae1e9c20d97aaaa3228a",
+   "tool_use_id": "qompack-mcp:56ee6844fd1d",
+   "untrusted": true
+  }
+ }
+}

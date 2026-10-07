@@ -1,0 +1,255 @@
+{
+ "args": [
+  "-p",
+  "--input-format",
+  "stream-json",
+  "--output-format",
+  "stream-json",
+  "--verbose",
+  "--include-hook-events",
+  "--model",
+  "claude-haiku-4-5-20251001",
+  "--max-turns",
+  "20",
+  "--setting-sources",
+  "project,local",
+  "--permission-mode",
+  "dontAsk",
+  "--plugin-dir",
+  "C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c8/qompack-plugin-0.3.0-windows-amd64",
+  "--allowedTools",
+  "Read,Glob,Grep,Write,Bash(cat:*),Bash(ls:*),Bash(wc:*),Bash(grep:*),Bash(git:*),Bash(cd:*),Bash(echo:*),Bash(head:*),mcp__plugin_qompack_qompack__recall,mcp__plugin_qompack_qompack__expand,mcp__plugin_qompack_qompack__re_read,mcp__plugin_qompack_qompack__already_tried,mcp__plugin_qompack_qompack__record_eliminated,mcp__plugin_qompack_qompack__timeline,mcp__plugin_qompack_qompack__why,mcp__plugin_qompack_qompack__dropped,Bash(qompack status:*),Bash(qompack recall:*),Bash(qompack pin:*),Bash(qompack why:*),Bash(qompack dropped:*),Bash(qompack eval:*)"
+ ],
+ "turns": [
+  {
+   "msg": "Use the Read tool to read private/deny.txt, then private/k=v.txt, then notes-b.md. Then tell me exactly what the Read tool returned for each, quoting any error message word for word.",
+   "ok": true,
+   "wall_s": 7.427,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 34676,
+    "WorkingSet64": 30969856,
+    "PeakWorkingSet64": 30969856,
+    "CPU": 0.203125,
+    "StartTime": "/Date(1791390600857)/"
+   },
+   "store_bytes": 2565731
+  },
+  {
+   "before": {
+    "argv": [
+     "python",
+     "<scratch>/retrieval/c8/proofcheck.py",
+     "<scratch>/retrieval/c8/uat12 space/sB/stream.jsonl",
+     "<scratch>/retrieval/c8/uat12 space/sB/proofcheck.json",
+     "private/deny.txt",
+     "private/k=v.txt",
+     "notes-b.md"
+    ],
+    "exit": 0,
+    "stdout": "{\"proven\": true, \"content_returned_for\": []}\n",
+    "stderr": ""
+   },
+   "msg": "Call the MCP tool mcp__plugin_qompack_qompack__recall with query \"ORCHID-DENY-8842\". Then call it again with query \"path:private/deny.txt\", and again with query \"path:private/k=v.txt\", and again with query \"path:notes-b.md\". Report the raw results word for word.",
+   "ok": true,
+   "wall_s": 11.435,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 34676,
+    "WorkingSet64": 38653952,
+    "PeakWorkingSet64": 38653952,
+    "CPU": 0.34375,
+    "StartTime": "/Date(1791390600857)/"
+   },
+   "store_bytes": 2657552
+  },
+  {
+   "msg": "Call the MCP tool mcp__plugin_qompack_qompack__expand with tool_use_id \"toolu_01SZhXoenX3m9zAsuACVdAWk\". Then call expand again with hash \"sha256:aff2996337960d0cae550c6c348bf673fc1afc2c39851fd14a1df5fcfdeca691\". Then call expand with tool_use_id \"toolu_01GhqxxYaQ1STbnDJPjMBNoj\". Then call mcp__plugin_qompack_qompack__re_read with path \"notes-b.md\", re_read with path \"private/draft-plan.txt\", and re_read with path \"private/deny (1).txt\". Report the raw results word for word.",
+   "ok": true,
+   "wall_s": 10.035,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 34676,
+    "WorkingSet64": 41525248,
+    "PeakWorkingSet64": 41525248,
+    "CPU": 0.625,
+    "StartTime": "/Date(1791390600857)/"
+   },
+   "store_bytes": 2762036
+  },
+  {
+   "msg": "/qompack:recall ORCHID-DENY-8842",
+   "ok": true,
+   "wall_s": 7.221,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 34676,
+    "WorkingSet64": 43315200,
+    "PeakWorkingSet64": 43315200,
+    "CPU": 0.75,
+    "StartTime": "/Date(1791390600857)/"
+   },
+   "store_bytes": 2780721
+  },
+  {
+   "msg": "Call the MCP tool mcp__plugin_qompack_qompack__re_read with path \"<scratch>/retrieval/c8/uat12 space/outside/outside.txt\". Then call re_read with path \"../outside/outside.txt\". Then call mcp__plugin_qompack_qompack__expand with tool_use_id \"toolu_01DAn746k47w39kP4XAzpNfu\". Report the raw results word for word.",
+   "ok": true,
+   "wall_s": 5.415,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 34676,
+    "WorkingSet64": 44150784,
+    "PeakWorkingSet64": 44150784,
+    "CPU": 0.859375,
+    "StartTime": "/Date(1791390600857)/"
+   },
+   "store_bytes": 2805082
+  },
+  {
+   "msg": "Call the MCP tool mcp__plugin_qompack_qompack__expand with tool_use_id \"toolu_01Jz9hzpqxCyv2b5r5jDirG5\" and no other arguments. Reply with only: the names of every top-level field in the response, and the values of span, total_bytes, truncated and next_span (say 'absent' for a missing field; do not quote the content).",
+   "ok": true,
+   "wall_s": 4.614,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 34676,
+    "WorkingSet64": 46710784,
+    "PeakWorkingSet64": 46710784,
+    "CPU": 0.921875,
+    "StartTime": "/Date(1791390600857)/"
+   },
+   "store_bytes": 2875135
+  },
+  {
+   "msg": "Call the MCP tool mcp__plugin_qompack_qompack__expand with tool_use_id \"toolu_01Jz9hzpqxCyv2b5r5jDirG5\" and full set to true. Reply with only: the names of every top-level field in the response, and the values of span, total_bytes, truncated and next_span (say 'absent' for a missing field; do not quote the content).",
+   "ok": true,
+   "wall_s": 5.621,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 34676,
+    "WorkingSet64": 66928640,
+    "PeakWorkingSet64": 67203072,
+    "CPU": 1.609375,
+    "StartTime": "/Date(1791390600857)/"
+   },
+   "store_bytes": 4266932
+  },
+  {
+   "msg": "Call the MCP tool mcp__plugin_qompack_qompack__expand with tool_use_id \"toolu_01Jz9hzpqxCyv2b5r5jDirG5\" and span set to the next_span value the previous (full: true) response reported. Reply with only: the names of every top-level field in the response, and the values of span, total_bytes, truncated and next_span (say 'absent' for a missing field; do not quote the content). If that response is truncated and has a next_span, call expand again with that next_span and report the same for it; repeat until a response is not truncated (at most 3 calls).",
+   "ok": true,
+   "wall_s": 5.215,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 34676,
+    "WorkingSet64": 67686400,
+    "PeakWorkingSet64": 67686400,
+    "CPU": 2.09375,
+    "StartTime": "/Date(1791390600857)/"
+   },
+   "store_bytes": 5160062
+  },
+  {
+   "msg": "Call the MCP tool mcp__plugin_qompack_qompack__expand with tool_use_id \"toolu_01Jz9hzpqxCyv2b5r5jDirG5\" and span set to \"0:<total_bytes>\", using the total_bytes value the earlier responses reported. Reply with only: the names of every top-level field in the response, and the values of span, total_bytes, truncated and next_span (say 'absent' for a missing field; do not quote the content).",
+   "ok": true,
+   "wall_s": 4.614,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 34676,
+    "WorkingSet64": 67489792,
+    "PeakWorkingSet64": 69054464,
+    "CPU": 2.40625,
+    "StartTime": "/Date(1791390600857)/"
+   },
+   "store_bytes": 6488815
+  },
+  {
+   "msg": "Call the MCP tool mcp__plugin_qompack_qompack__re_read with path \"big.log\" and full set to true. Reply with only: the names of every top-level field in the response, and the values of span, total_bytes, truncated and next_span (say 'absent' for a missing field; do not quote the content).",
+   "ok": true,
+   "wall_s": 4.413,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 34676,
+    "WorkingSet64": 66490368,
+    "PeakWorkingSet64": 69054464,
+    "CPU": 2.6875,
+    "StartTime": "/Date(1791390600857)/"
+   },
+   "store_bytes": 7817257
+  },
+  {
+   "msg": "Call the MCP tool mcp__plugin_qompack_qompack__expand with tool_use_id \"toolu_01CYfcJWw7XAS8UxvTwG94E1\", then with tool_use_id \"toolu_01117kUzy6Dw7qpLEj5dCbkT\". For each, reply with the names of every top-level field, the values of span, total_bytes and truncated, and whether the content is readable text; do not quote the content.",
+   "ok": true,
+   "wall_s": 8.627,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 34676,
+    "WorkingSet64": 64811008,
+    "PeakWorkingSet64": 69054464,
+    "CPU": 2.859375,
+    "StartTime": "/Date(1791390600857)/"
+   },
+   "store_bytes": 7888448
+  },
+  {
+   "msg": "Call the MCP tool mcp__plugin_qompack_qompack__recall with query \"LUPINE-7731\" and no other arguments. Then call it again with query \"LUPINE-7731\" and k 20. For each call reply with: count, denied (or 'absent'), and one line per hit with its tool, path and tool_use_id, in the order returned.",
+   "ok": true,
+   "wall_s": 12.044,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 34676,
+    "WorkingSet64": 65433600,
+    "PeakWorkingSet64": 69054464,
+    "CPU": 3.328125,
+    "StartTime": "/Date(1791390600857)/"
+   },
+   "store_bytes": 7962325
+  },
+  {
+   "msg": "/qompack:status",
+   "ok": true,
+   "wall_s": 8.635,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 34676,
+    "WorkingSet64": 65572864,
+    "PeakWorkingSet64": 69054464,
+    "CPU": 3.4375,
+    "StartTime": "/Date(1791390600857)/"
+   },
+   "store_bytes": 7983775
+  },
+  {
+   "msg": "/compact",
+   "ok": true,
+   "wall_s": 38.529,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 34676,
+    "WorkingSet64": 62832640,
+    "PeakWorkingSet64": 69054464,
+    "CPU": 3.65625,
+    "StartTime": "/Date(1791390600857)/"
+   },
+   "store_bytes": 8058114
+  },
+  {
+   "msg": "What is this project's code word? If it is not in your context, call mcp__plugin_qompack_qompack__recall with query \"code word\". Then call mcp__plugin_qompack_qompack__dropped with no arguments and report every entry it returns word for word, and then call mcp__plugin_qompack_qompack__timeline with no arguments and reply in one sentence about it.",
+   "ok": true,
+   "wall_s": 39.53,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 34676,
+    "WorkingSet64": 63066112,
+    "PeakWorkingSet64": 69054464,
+    "CPU": 4.078125,
+    "StartTime": "/Date(1791390600857)/"
+   },
+   "store_bytes": 8210631
+  }
+ ],
+ "store_bytes_before": 2483286,
+ "started_ms": 1791390599946,
+ "pid": 56224,
+ "exit": 0,
+ "wall_s": 189.339,
+ "store_bytes_after": 8255312
+}

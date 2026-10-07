@@ -1,0 +1,6 @@
+cwd: <scratch>/retrieval/c8/uat12 space/proj
+argv: ["C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c8/qompack-plugin-0.3.0-windows-amd64/bin/qompack.exe", "backup", "restore", "--project", "<scratch>/retrieval/c8/uat12 space/proj", "--id", "uat12-c8-baseline", "--destination", "<scratch>/retrieval/c8/uat12 space/recovery", "--json"]
+env+: {}
+qompack_home: <scratch>/retrieval/c8/qhome
+wall_s: 2.601
+at: 2026-10-07T12:34:44-04:00

@@ -1,0 +1,20 @@
+{
+ "files": {
+  "data.txt": {
+   "bytes": 120,
+   "sha256": "4cd65b10888f34ba589e43f1e94eab874718e1ab059133039e1fdc68ab3fab06"
+  },
+  "notes.md": {
+   "bytes": 145,
+   "sha256": "93d54cb661be23585c0128f9e035053c41c21de9c5ad92734b2f34b9bacec5b7"
+  },
+  "app.py": {
+   "bytes": 211,
+   "sha256": "585d53af2b001582c20ca959349658174b1b1e5e532b3861a16b5e48093a37a8"
+  },
+  "README.md": {
+   "bytes": 86,
+   "sha256": "0e5d8bf228ec50d6de20ac7cc06574b54ae5ef85c28f23f8c52441fced08f788"
+  }
+ }
+}

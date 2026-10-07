@@ -1,0 +1,14 @@
+transcript line 206, 2026-10-07T14:58:08.887Z
+command: /qompack:dropped 
+expansion isMeta=True:
+Run the Qompack dropped command and report its output verbatim to the user.
+
+{"count":1,"drops":[{"detail":"this session is a fork of session 7f96ea69-fb5e-4e81-9040-dce5323da433 (its newest checkpoint then: 0002), which Qompack inferred because the host names no parent; its original request is session 7f96ea69-fb5e-4e81-9040-dce5323da433's first prompt, and its own first prompt is an evolution entry; restore: expand(tool_use_id=prompt_7f96ea69-fb5e-4e81-9040-dce5323da433_0)","id":"fork","kind":"user_intent_source"}]}
+
+evidence
+  elapsed_ms           2
+  hash                 sha256:c55e3a8ab31d510cf0100ec53202911aaa4705e725b4c5538c459539c13e8045
+  tool_use_id          qompack-mcp:b71f68815f4d
+
+marked ephemeral by Qompack; this says nothing about host eviction
+

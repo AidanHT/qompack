@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "command": "recall",
+  "ok": true,
+  "data": {
+    "tool": "recall",
+    "is_error": false,
+    "ephemeral": true,
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"hits\":[{\"hash\":\"sha256:8a9940c4ccc0e0d4a4b9281d0310e2fbcdfd10c01223c698b3db67db5e30de22\",\"path\":\"src/ledger.go\",\"tool\":\"FileEdit\",\"summary\":\"{\\\"filePath\\\":\\\"\u003ctmp\u003e\\\",\\\"oldString\\\":\\\"const driftLimit = 25\\\",\\\"newString\\\":\\\"const driftLimit = 40\\\",\\\"originalFile\\\":\\\"package l…\",\"ts\":\"2026-10-07T16:54:01Z\",\"score\":0.4015977680374319,\"tool_use_id\":\"toolu_01TZD8oqPvpVy685kfWdYc4u\",\"span\":[0,1103]},{\"hash\":\"sha256:9ffb1d3f62e2a8ac88c883b069c96b5990355624eb7b4a55312e9cc9f0582fab\",\"path\":\"src/ledger.go\",\"tool\":\"FileRead\",\"summary\":\"{\\\"type\\\":\\\"text\\\",\\\"file\\\":{\\\"filePath\\\":\\\"\u003ctmp\u003e\\\",\\\"content\\\":\\\"package ledger\\\\n\\\\n// The phrase amber quill horizon marks the re…\",\"ts\":\"2026-10-07T16:54:14Z\",\"score\":0.2596428571428572,\"tool_use_id\":\"toolu_01EWoBLqzAVpGDbM7XpWn87E\",\"span\":[0,666]},{\"hash\":\"sha256:6137ef3da8ce485320977bcd24981283b0d7ec95d243ce5d276dd18bc6b4c45e\",\"path\":\"\",\"tool\":\"UserPromptSubmit\",\"summary\":\"/qompack:recall amber quill horizon --json\",\"ts\":\"2026-10-07T16:54:06Z\",\"score\":0.2575,\"tool_use_id\":\"prompt_5d758a40-c642-4c66-b5df-d64d334ba6a1_4\",\"span\":[0,42]},{\"hash\":\"sha256:9a87424ba64c7f95de5c962c5dee88b7a4ad5f588c0b1fe0ae0cb59a192d565e\",\"path\":\"src/ledger.go\",\"tool\":\"FileRead\",\"summary\":\"{\\\"type\\\":\\\"text\\\",\\\"file\\\":{\\\"filePath\\\":\\\"\u003ctmp\u003e\\\",\\\"content\\\":\\\"package ledger\\\\n\\\\n// The phrase amber quill horizon marks the re…\",\"ts\":\"2026-10-07T16:53:54Z\",\"score\":0.25214285714285717,\"tool_use_id\":\"toolu_01AEA21cT6i7zeZ5Pc2hgjcP\",\"span\":[0,666]},{\"hash\":\"sha256:8e2fba45208434399a09ebf02206f4fdc59038aa747a051e81922e0b82d591dd\",\"path\":\"src/ledger.go\",\"tool\":\"mcp__qompack__expand\",\"summary\":\"{\\\"found\\\":true,\\\"hash\\\":\\\"sha256:8a9940c4ccc0e0d4a4b9281d0310e2fbcdfd10c01223c698b3db67db5e30de22\\\",\\\"path\\\":\\\"src/ledger.go\\\"…\",\"ts\":\"2026-10-07T16:54:50Z\",\"score\":0.42195491089457476,\"tool_use_id\":\"qompack-mcp:2a04d934bb67\",\"span\":[0,1444]}],\"count\":5,\"found\":true,\"query\":{\"text\":\"amber quill horizon\",\"path\":\"\",\"symbol\":\"\",\"tool\":\"\"},\"denied\":1}"
+      }
+    ],
+    "meta": {
+      "elapsed_ms": 44,
+      "hash": "sha256:70f22255b54875797a99c75b4f02bf979fab33044b4b109416e3c66311fdf784",
+      "tool_use_id": "qompack-mcp:3e2b1d0a84c5",
+      "untrusted": true
+    }
+  }
+}

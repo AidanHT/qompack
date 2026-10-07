@@ -1,0 +1,81 @@
+C4.5 on candidate 8 — "Slash commands run in a real session and match docs/commands.md" (D53(a), D59(c), D60(e),
+D62 status/config/forkwork). No extra session: the six commands ran in the UAT-06 fork session (sessions-c8 n=4) after
+UAT-06's checks, each as its own turn, then one "/compact"; the paired reads ran after the parent's restart (n=5).
+Agent-executed on the owner's real host per owner decision D3 by a Claude Code workflow subagent (Opus 5.5) — not
+human UAT. Date 2026-10-07 America/Toronto.
+
+1. Discovery (commands-vs-doc.txt, from the fork session's init event): slash_commands holds qompack:dropped, eval,
+   pin, recall, status, why — six, and no qompack:checkpoint (D36). The --allowedTools list carried each command's
+   Bash(qompack <cmd>:*) rule; PATH was not changed: the host resolved `qompack` for every command body (each
+   expansion ran the binary; eval's failure is the binary's own exit 1, below).
+   Each bundle command file matches docs/commands.md's table and its "Allowed tools" line: description, argument-hint
+   and allowed-tools equal for all six, and each body runs !`qompack <cmd> $ARGUMENTS`.
+
+2. Each command's in-session output (session-commands/<cmd>.txt: the host's expanded command message, i.e. the
+   command body line plus qompack's output, taken from the host transcript by session id; no user prompt is copied),
+   against docs/commands.md:
+   - /qompack:dropped (14:58:08Z): {"count":1,"drops":[{kind user_intent_source, id fork, detail "this session is a
+     fork of session 7f96ea69... restore: expand(tool_use_id=prompt_7f96ea69-..._0)"}]} then the evidence block and
+     "marked ephemeral by Qompack; this says nothing about host eviction". Doc: "Report what the last compaction
+     dropped and how to get it back" — matches (0005's one drop, with its restore call).
+   - /qompack:eval (14:58:13Z): the host's own line `Shell command failed for pattern "!`qompack eval `": [stderr]
+     qompack eval: eval: qompack: unavailable: no evaluation artifacts: no live-eval run under <project>\dist\live-eval
+     and no replay report at <project>\testdata\bench-replay.json. ...`, and the turn ended with no answer (result
+     num_turns 0). Doc: "/qompack:eval in a project with no evaluation artifacts ... look like that" — matches.
+   - /qompack:pin Rejected calls get HTTP 429 with a Retry-After header. (14:58:15Z): "pinned inv_8002eb274536
+     (source: user)". Doc: "Pin an invariant to re-inject first after each compaction" — matches: the next compaction's
+     block (UAT-06/C-block4) opens with section 1 "[inv_8002eb274536] Rejected calls get HTTP 429 with a Retry-After
+     header. (source: user)".
+   - /qompack:recall Retry-After (14:58:18Z): {"hits":[...]} with hash, path, tool, summary, ts, score, tool_use_id and
+     span per hit. Doc: "Search stored tool output and file versions by content" — matches.
+   - /qompack:status (14:58:26Z): "qompack status — collected <time>", "source: daemon (available, 0µs old)", the
+     banner "9 assertion(s), none failing: 8 holding, 0 pending, 1 with nothing to judge", mode full, hot path sync,
+     sessions 2, spool files, counters, per-hook latency and the §2.4 budgets. Doc: "mode, contracts, store, latency,
+     last decision" — mode, contracts and latency match; store appears only as "spool files" and the store.* counters;
+     NO last decision is shown. FINDING F-C8-C45-1 (doc vs product, minor): neither the text page nor status --json
+     (data: schema, collected_at_ms, primary, snapshot{mode, contract, hot, sessions, latency, budgets, counters,
+     spool_files, loud_tail}, hooks, budgets) carries a last-decision field, while docs/commands.md's table and
+     section, the command's own description (internal/pluginmanifest/manifest.go, bundle commands/status.md) and
+     docs/user-guide.md ("Reports mode, host contracts, store, per-hook latency and the last decision") promise one.
+     The same page was read on candidate 7 (rerun-c7/C4.5/uat06/cli/status-read1); no earlier lane recorded the gap.
+   - /qompack:why dec_991dbff588ec (14:58:37Z): {alternatives_rejected, checkpoint_seq 5, decision_id, evidence,
+     evidence_bytes 50, found true, hint, turn 5, what, why}. Doc: "Explain a recorded decision and the evidence behind
+     it" — matches.
+   The model echoed each output in its reply (sessionC-fork/stream.jsonl), except eval, which the host ends unanswered.
+   The committed files keep the host's bytes: the em dash and "µ" in the status page arrive intact (an apparent
+   replacement character during the run was this lane's console encoding, not the host or the binary: the stream and
+   the transcript carry U+2014 and U+00B5).
+
+3. Current work after the six commands (D62, forkwork): the "/compact" after them wrote 0006; UAT-06/C-block4
+   reads "goal: What is the current per-client rate limit requirement, and what was the original one?" — the fork's
+   last real prompt, never one of the slash-command invocations, and not earlier than 0005's goal. Section 2 keeps the
+   five captured invocations verbatim in the evolution (eval sent no UserPromptSubmit). Met.
+
+4. Paired reads with two sessions in the store (uat06/cli/, diff in uat06/diff-reads.txt; read 1 at 11:03:00, read 2
+   at 11:03:05 EDT, no state change between, daemon pid 55416 up for both):
+   - status --json: the raw diff is data.collected_at_ms only. Removed before comparing, as the documented read-time
+     fields: data.collected_at_ms (1), data.primary.age_ms (1), data.hooks[].provenance.age_ms (7),
+     data.budgets[].provenance.age_ms (7). After that: identical (10,508 bytes). data.snapshot.sessions lists
+     7f96ea69 (LastActivity 1791385363610) then daf8fe7b (1791385151513) in both: most recent first (D53(a), D59(c)).
+   - status (text): the raw diff is the header's "collected <time>" only; after removing it and each ", <age> old"
+     suffix: identical (4,738 bytes).
+   - doctor --json: the raw diff is the delivery.rollover row's "(persisted 1m10s ago)" / "(persisted 1m16s ago)"
+     (doctorMetricsAge) only; it carries no collected_at_ms or age_ms. After normalising that clause: identical
+     (17,461 bytes).
+   - fsck --json: stdout, stderr and exit identical byte for byte (exit 0, 18/18 ok).
+   - eval and eval --json: stdout, stderr and exit identical byte for byte (exit 1, unavailable: no evaluation
+     artifacts; --json carries the error envelope).
+   - session_start.fires reads same-session-restart (holding) in both; the banner "8 holding, 0 pending, 1 with
+     nothing to judge" counts no pending row as holding (the one with nothing to judge is
+     precompact.custom_instructions_accepted, retired).
+   - Neither read reports a connect miss as the daemon not answering: "source: daemon (available ...)" in both, and
+     no doctor row or status line says "did not answer" or "unreachable" (D60(e)).
+   - .qompack/state/config-violations.json: absent before read 1, between the reads and after read 2
+     (config-violations-presence.txt), as D62 config rules for a clean project. No session in this part left one
+     to compare for rewrites.
+
+Result: pass, with a finding. F-C7-C45-1 (snapshot.sessions in map order) does not recur; every map-derived list in
+status and doctor agrees between the reads once the named read-time fields are removed. Every command ran in the real
+session and matches docs/commands.md's invocation, arguments, allowed tools and documented failure shape, except that
+/qompack:status shows no "last decision" (F-C8-C45-1, a description the page does not implement; no other field
+differs).

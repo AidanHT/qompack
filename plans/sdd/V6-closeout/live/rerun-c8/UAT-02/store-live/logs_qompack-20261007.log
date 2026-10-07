@@ -1,0 +1,4 @@
+ts=2026-10-07T16:48:56.1250885Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-10-07T16:49:04.9133821Z level=info msg="observer: session registered" session=d9d2442d-1a06-41ee-a49d-bf5d817fc1ff source=startup turn=0 segment=1
+ts=2026-10-07T16:49:04.9139293Z level=info msg="scheduler: session bound" session=d9d2442d-1a06-41ee-a49d-bf5d817fc1ff effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+ts=2026-10-07T16:50:34.0451527Z level=info msg="observer: gc" scanned=86 deleted=0 freed=0 truncated=false

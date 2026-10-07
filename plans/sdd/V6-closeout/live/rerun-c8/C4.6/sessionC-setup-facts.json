@@ -1,0 +1,105 @@
+{
+ "files": {
+  "README.md": {
+   "bytes": 88,
+   "sha256": "4c9313c180fd1216f80fbc0b7de3725c378f2d514a27bf52e68d59074037b22b"
+  },
+  ".claude/settings.json": {
+   "bytes": 242,
+   "sha256": "ce8c76ba4f236d68439f82605b51c5259c087460846c4a95363c01ea26ab7d45"
+  },
+  "docs/design.md": {
+   "bytes": 81,
+   "sha256": "8e9c083085b24e68f25c190bcad76cbffd308a2f83408297e8e133ff2e283bfb"
+  },
+  "docs/faq.md": {
+   "bytes": 75,
+   "sha256": "282a88d16f74efee42884f11992ac5c59db381ada89cedb297dc594179818278"
+  },
+  "docs/glossary.md": {
+   "bytes": 85,
+   "sha256": "d4d986a6509ef14a44dde82fd578370f30350e068ae0c8d65206cf68ebc007d2"
+  },
+  "docs/plan.md": {
+   "bytes": 60,
+   "sha256": "da3176e4cb1b9e603ea4f742c04b660d25243213ceefb26f2ba94d3d427f9638"
+  },
+  "private/John's notes.txt": {
+   "bytes": 207,
+   "sha256": "012299ff6bfbeb47bf9a1f372d56b804bca7761f54ff7b74154a63621b40cf8a"
+  },
+  "private/a,b.txt": {
+   "bytes": 199,
+   "sha256": "ce6c2ffb7aab44d12a830a7848b88c7fdae856a95df3c026cc8255f0ef35ca5c"
+  },
+  "private/deny (1).txt": {
+   "bytes": 204,
+   "sha256": "e393e60eda2ac8ca974bb7f9754327cd466af5847528b270c2615e1a5caf0ec3"
+  },
+  "private/deny.txt": {
+   "bytes": 199,
+   "sha256": "38d903d42b6d4ff305a1488095cd965746c28be06c8a9c0894f097218ad3f3cc"
+  },
+  "private/k=v.txt": {
+   "bytes": 196,
+   "sha256": "283f32817817a3fdb3539c29329475c153777dcd327c55a20b1a6c31675f3223"
+  },
+  "src/mod1.py": {
+   "bytes": 70,
+   "sha256": "e1ba81a6aab1d0498e31547fdea685837b5e3c50a3b5b9395169803903077893"
+  },
+  "src/mod2.py": {
+   "bytes": 70,
+   "sha256": "90581cdecb7d8e594b299d47db1e9fdc1a01ec51b15e81d7666a0b3464d27cd8"
+  },
+  "src/mod3.py": {
+   "bytes": 70,
+   "sha256": "22a6dc9e9507fbf4b8755d07e7415cc891e535e7dff2678ddd8d63a264b28ec1"
+  },
+  "src/mod4.py": {
+   "bytes": 70,
+   "sha256": "7790ce6fcc1d17e82a7e1c5c5204ef47b50604d276db2b7c9818a9e2e362d80c"
+  },
+  "src/mod5.py": {
+   "bytes": 70,
+   "sha256": "df52fba441c28dd957e5ae7831173cb41b7eb4caccb484cd845f78c445ccadea"
+  },
+  "src/mod6.py": {
+   "bytes": 70,
+   "sha256": "b762bbc5b741385064e7a5dfe7e62779b1d5821cd1d12b5c8619b34b111ce0e0"
+  },
+  "src/mod7.py": {
+   "bytes": 70,
+   "sha256": "839b314bbd5ef2f595c162d79f7f014af3769913b5336719e68c491136455599"
+  },
+  "src/mod8.py": {
+   "bytes": 70,
+   "sha256": "d092b77ebb1488aa3293afbe8840bfa0e0bf99b7aeef74ce17ea8332961ce598"
+  }
+ },
+ "project": "<scratch>/retrieval/c8/sessc space/proj (git init + two commits; the scratch directory name holds a space)",
+ "denied_files": [
+  "private/deny.txt",
+  "private/deny (1).txt",
+  "private/John's notes.txt",
+  "private/a,b.txt",
+  "private/k=v.txt"
+ ],
+ "denied_markers": {
+  "private/deny.txt": "ORCHID-DENY-8842",
+  "private/deny (1).txt": "ORCHID-PAREN-3311",
+  "private/John's notes.txt": "ORCHID-APOS-4471",
+  "private/a,b.txt": "ORCHID-COMMA-5521",
+  "private/k=v.txt": "ORCHID-EQ-6631"
+ },
+ "deny_rules": [
+  "Read(./private/deny.txt)",
+  "Read(./private/deny (1).txt)",
+  "Read(./private/John's notes.txt)",
+  "Read(./private/a,b.txt)",
+  "Read(./private/k=v.txt)",
+  "Read(./private/draft-plan.txt)"
+ ],
+ "deny_settings": "project .claude/settings.json (untracked), written before session C",
+ "env": "QOMPACK_HOME=<scratch>/retrieval/c8/qhome, QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS=30"
+}

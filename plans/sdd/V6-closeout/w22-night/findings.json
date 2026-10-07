@@ -1,0 +1,184 @@
+{
+ "seat": "night",
+ "findings": [
+  {
+   "severity": "major",
+   "location": "plans/sdd/V6-closeout/coordinator/overnight-c8.sh:727 (engine_up_at_start), with container_up :295-313 and container_down :314-323",
+   "issue": "Whether the chain owns the Docker engine is decided by one `docker ps` probe at the night's start. The code's own comment at :287 says one failed probe does not mean the engine is down, yet that single probe decides ownership. Failure path: the owner's engine (with the supabase stack) is up all night, the start probe fails once, and the engine later misses the three probes at the Linux lanes. container_up then runs `docker desktop start`, sets cs_started=1 when it returns 0, and container_down runs `docker desktop stop`. That stops the owner's engine, which D56(g) and the owner's directive forbid.",
+   "evidence": "Added a harness case X1 in a scratch copy: a docker stub fails `ps` calls 1, 3, 4 and 5, and `desktop start` returns 0 as if the engine were already running. Result: FAIL. chain.log shows 'engine up at start=0', then 'docker engine not answering (3 probes): starting it', then 'engine started by this chain', 'container start exit=0', 'container stopped exit=0' and 'engine stopped exit=0'. The case's check 'the owner's engine (up all night) is never stopped' failed. The existing O15 only injects a failure at the Linux-lanes probe, not at the start probe.",
+   "fix": "Take engine_up_at_start from docker_answers (three probes), the same rule as elsewhere. Set cs_started=1 only when `docker desktop status`, read before the start, said the engine was stopped. Never `docker desktop stop` while containers other than qompack-v6-linux-verification are running. Add X1 as a harness case.",
+   "audit_id": 47,
+   "dim": "night"
+  },
+  {
+   "severity": "major",
+   "location": "plans/sdd/V6-closeout/coordinator/nightharness.sh:22-23 (T=$(mktemp -d), HB=$T/bin) and :1536 (PATH=\"$HB:$PATH\"); claims at nightharness.sh:9-18 and README.md:29",
+   "issue": "The dry harness has no guard that its stubs are actually on PATH. When TMPDIR is a Windows-form path (for example a Claude Code scratchpad written as C:/...), mktemp returns C:/..., and PATH=\"C:/...bin:$PATH\" splits at the drive colon. Every stub (docker, powershell, go, gh, timeout, date, sleep) is then bypassed, and the copied night scripts run against the real tools. The header's claim ('nothing outside its temporary directory is touched ... starts no Docker, Claude Code or Go process') then does not hold. N cases could also reach the real gh if the real clock passed their deadline check.",
+   "evidence": "My first run (TMPDIR=C:/Users/Quant/AppData/Local/Temp/claude/qompack-audit2/night/tmp) gave U1-U3 FAIL and O1 'REFUSED: the deadline 2026-10-05T08:00:00 is more than 16 h away', because the real date was used. Later cases ran overnight-c8.sh against the REAL docker. Their chain.log files (O19, O25, O26, O27, O31) show 'engine up at start=1', the owner's supabase_* containers listed, then 'container start exit=0' / 'container stopped exit=0' on the real qompack-v6-linux-verification, and release-check clones with a real `go run`. With TMPDIR=/c/... and a guard that checks `command -v docker` resolves to $HB/docker, the same cases pass. Side effect, disclosed: the night container was started and stopped repeatedly; it is now 'Exited (137)' with NanoCpus 8e9, Memory 8 GiB and MemorySwap 8 GiB (the values the night sets). The owner's engine was never stopped (engine up at start=1).",
+   "fix": "In nightharness.sh, after HB is created, use T=$(cygpath -u \"$(mktemp -d)\") (or refuse a T containing ':'). Inside each case subshell, refuse to run unless `command -v` resolves docker, gh, go, powershell, pwsh, timeout, date and sleep to $HB/<name>. Make the README's claim conditional on that guard.",
+   "audit_id": 48,
+   "dim": "night"
+  },
+  {
+   "severity": "major",
+   "location": "plans/sdd/V6-closeout/coordinator/mkrecheck8.py:145-154 (RERUN reading list), :225 (swap 'owner decisions D1-D61'), :172-183 (retrieval part); COMMON's reading list inherited from live-rerun-c7.js:34",
+   "issue": "The generated live re-check never mentions D62, D63, D64 or D65, so several user-visible changes in candidate 8 are not covered or would be judged against stale rules. (1) D63/D64's free-text summary whitelist is not referenced anywhere: its root-unit rules and the accepted over-withholding of `git log --pretty=format:%h`, `curl localhost:3000` and {\"skill\":\"plugin:name\"}. The retrieval part asserts only that 'ordinary commands ARE shown (D60(c), D61(b))'. (2) D62(f): section 2, the user's verbatim prompts, is outside D50. Without that, session B's prompts naming private/deny.txt can be raised as a false UAT-12 finding. (3) D62 forkwork: Current work skips slash-command invocations. The lane runs six /qompack: commands and /compact turns but never checks this. (4) D62 status: fsck and eval read in a stable order (only status and doctor are read twice), and config-violations.json is written only on change and removed when clean. Neither is checked. The reading list also names 'w19c-*/' reports, which do not exist, and omits w21-*/ (w21-e2e, w21-polish). docs/security.md, which holds the whitelist, is not in COMMON's reading list.",
+   "evidence": "`python mkrecheck8.py live-rerun-c7.js <scratch>/x.js 2bf29705c8258b69d6f0e9bf45bd173d22f981dc <dir-with-BUNDLE.json>` exits 0 and writes 218 lines. `grep -c 'D62\\|D63\\|D64' x.js` gives 0. The decision references present are D10, D32, D36, D50, D53(a/f/i), D58-D61 only. `ls -d plans/sdd/V6-closeout/w19c-*` finds nothing. w21-e2e and w21-polish exist. docs/security.md:86 and :118 hold the D63/D64 text. The generated script is otherwise sound: node parses it, a stub agent run makes 5 calls (Sessions, Retrieval, Carried, Recovery, Audit), and the budgets are 8/5/8/4=25, each part with one spare.",
+   "fix": "In RERUN: 'decisions D58-D64', read the ledger's D58-D64 rows, and list w19-*/, w19b-*/, w20-*/ and w21-*/ reports. Add docs/security.md and ADR 0011 section 23 items 5-10 to COMMON's reading list. In the retrieval part, cite D63/D64 and list D64(4)'s accepted over-withholding as not a finding, and state D62(f). In the sessions part, after the six /qompack: commands, run one /compact in the fork and check that Current work is the last real prompt, not a slash command. Have C4.5 diff two `fsck --json` reads as well. Can land after the freeze (plans only, D58(e)), before generation.",
+   "audit_id": 50,
+   "dim": "night"
+  },
+  {
+   "severity": "minor",
+   "location": "plans/sdd/V6-closeout/coordinator/c8-night.sh:73 (trap 'exit 143' TERM) and overnight-c8.sh:249; harness cases N9 and O9",
+   "issue": "sh defers a trapped signal until the current foreground child exits. A TERM sent to the night shell during the pre-freeze (up to 60-90 min a step) or release-check (about 3 h) therefore deletes the sentinel, stops the keep-awake and removes the scratch clone only after that whole step ends, and the step keeps running. N9 and O9 release the blocked stub (echo go > go.fifo) right after the kill, so they cannot observe the deferral. The header's 'released on every way out ... a catchable signal' holds only after that delay.",
+   "evidence": "Probe: sh script with `trap 'echo trap ran at $(date +%s); exit 143' TERM`, then `/usr/bin/sleep 8`. Output: start 1791126208, TERM sent 1791126210, 'trap ran at 1791126216' (after the sleep), rc=143.",
+   "fix": "Run long children as `cmd & wait $!`; wait is interruptible, so the trap runs at once and can kill the child's process group. Or state in the header and README that only nightabort.ps1 stops the night promptly and that its manual steps 2-5 apply.",
+   "audit_id": 51,
+   "dim": "night"
+  },
+  {
+   "severity": "minor",
+   "location": "plans/sdd/V6-closeout/coordinator/prefreeze.sh:166",
+   "issue": "summary.log's header records `go=$(go env GOVERSION)`, run in the caller's working directory, not in <repo>. go.mod has `toolchain go1.26.6` with GOTOOLCHAIN=auto, so a launch from outside a module (Start-Process from a PowerShell window in C:\\Users\\Quant) records the local default toolchain, while every step runs on go1.26.6.",
+   "evidence": "`cd /c/Users/Quant && go env GOVERSION GOTOOLCHAIN` gives go1.26.4 and auto. `cd qompack-cx-int && go env GOVERSION` gives go1.26.6. c8-night.sh invokes prefreeze.sh before any cd, so the cwd is the launch cwd. The harness's go stub answers go1.26.6 to every call, so it cannot catch this.",
+   "fix": "`go=$(cd \"$R\" && go env GOVERSION)`. Optionally log the same in overnight-c8.sh's start line from the candidate checkout.",
+   "audit_id": 52,
+   "dim": "night"
+  },
+  {
+   "severity": "minor",
+   "location": "plans/sdd/V6-closeout/coordinator/phase3.sh:84 (win-e2e-timing -timeout=30m); same budget in ci.yml:308",
+   "issue": "The night judges all of test/e2e in one binary under a 30-minute timeout, and the recorded margin is about 15%. A timeout is a VALID red (failed=1, so the live re-check is blocked) and says nothing about wall-clock budgets. Candidate 8 adds test/e2e work (113 to 114 test functions, X10 +24 lines, X14 +19 lines), and earlier runs of this package have hit the 1800 s wall.",
+   "evidence": "phase3/c5/p3-win-e2e-timing.log:184 'FAIL ... test/e2e 1513.749s'; phase3/c6/p3-win-e2e-timing.log:145 '1529.497s' (84-85% of 1800 s). Earlier timeouts: e2e/runs/pkg-test-e2e-windows.log:256 and hostperm/runs/94-e2e-full-windows.log:304, both '1800.4s'. Wave 21's quiet e2efunc took 08:06-08:19Z (13 min) without X11. X11 alone took 5m50s on c5 and 10m54s on c6.",
+   "fix": "Measure test/e2e's whole-package time on candidate 8 on AC before the night. If it is above about 1600 s, give the local win-e2e-timing lane a longer -timeout (no judgement changes) and update the harness's exact-line check at nightharness.sh:1392. Otherwise record the margin in the README.",
+   "audit_id": 53,
+   "dim": "night"
+  },
+  {
+   "severity": "minor",
+   "location": "plans/sdd/V6-closeout/coordinator/overnight-c8.sh:159 (RC_EST_S), :657-660 (release_check start), :401-411 (gated steps without an estimate)",
+   "issue": "Four timing risks at the end of candidate 8's night. (1) RC_EST_S (3 h) has never been measured on this tree: release-check has never run locally with its current step list (lint with stubskips' whole-tree pass, test, cover, build-all, guards, govulncheck, determinism, rollback, plugin-validate, marketplace). Nothing stops it at the deadline, so an overrun lands in the owner's day. (2) release-check is not AC-gated at its start, and in this night no retry can fit, because try 1 ends about at the deadline. Given the charger's cut pattern, one AC event in either test/e2e window voids C3.12 / D57(a) for the night. (3) Gated steps without an estimate (win-e2e-timing about 26 min, c51-linux with its container start) may start just before the deadline and run past it.",
+   "evidence": "`grep -rl '=== release-check: ci-local test ===' plans/` finds nothing. w17-release/report.md:103 bases its estimate on SP-17's 8451 s 'before the marketplace step existed and on a smaller tree'. The System log over the last 3 days (power_events_since) shows on-AC stretches of 1h15m, 1h26m, 2h06m, 2h57m and 6h06m. The AC was cut again at about 11:20 today (BAT 85). In run_gated, g_est is empty for win-*, c51-* steps.",
+   "fix": "Time one release-check --tag run in a scratch clone on AC before relying on RC_EST_S, or add a watchdog that stops release-check at the deadline plus a grace period, logging it as SKIPPED-OVERRUN. Let release-check wait for AC up to its latest start (deadline minus RC_EST_S) when it is on battery. Give win-e2e-timing, win-x11-alone and c51-* estimates from candidate 6's records.",
+   "audit_id": 54,
+   "dim": "night"
+  },
+  {
+   "severity": "minor",
+   "location": "plans/sdd/V6-closeout/coordinator/power.sh:42 (power_ps)",
+   "issue": "Every power reading and event query runs `powershell -Command` with no time bound, and each step makes at least two of these calls. A hung WMI or PowerShell query stalls the chain with nothing to stop it, past the deadline and into the owner's day, with the keep-awake still held. Docker, git push and gh calls are all wrapped in timeout; this one is not.",
+   "evidence": "`power_ps() { powershell -NoProfile -NonInteractive -Command \"$1\" 2>&1 | tr -d '\\r'; }`. Measured now under load: power_read 0.795 s ('BAT 85'), power_events_since over 1 h 2.754 s, so a 60-120 s bound costs nothing.",
+   "fix": "`timeout -k 10 120 powershell ...`. A timed-out power_read reads 'UNKNOWN ?', and a timed-out power_events_since returns 1 (unreadable, so NOT-REFERENCE), which the parsers already handle.",
+   "audit_id": 55,
+   "dim": "night"
+  },
+  {
+   "severity": "minor",
+   "location": "plans/sdd/V6-closeout/coordinator/c8-night.sh:80-87",
+   "issue": "The script refuses a deadline that is too far away but has no check for one that is too near. A launch for example 30 minutes before NIGHT_DEADLINE passes deadline_near, runs the 1 h pre-freeze, and then still freezes and pushes candidate 8 in the morning, with every overnight step SKIPPED. That uses up the freeze without any night evidence. README says to launch 8.5 h before the deadline, but nothing checks it or warns.",
+   "evidence": "deadline_near only tests `deadline - now <= NIGHT_MAX_AHEAD_H*3600`. Harness N14 (NIGHT_DEADLINE=22:10, launch at 22:00) passes with 'every step SKIPPED', and in that case the freeze and push still happen.",
+   "fix": "At start, log 'WARNING: release-check will be SKIPPED' when now + 4.25 h + RC_EST_S > deadline, and refuse when now + 1.5 h > deadline unless NIGHT_ALLOW_LATE=1.",
+   "audit_id": 56,
+   "dim": "night"
+  },
+  {
+   "severity": "minor",
+   "location": "plans/sdd/V6-closeout/coordinator/c8-night.sh:83-85",
+   "issue": "The keep-awake is started and its pid logged, but the night never confirms it holds. If pwsh is missing from the detached environment's PATH, or keepawake.ps1 fails, the night runs without a keep-awake request. A host sleep would then void steps; INVALID-POWER records it, but only after the fact.",
+   "evidence": "keepawake.ps1's output goes to $E8/keepawake.log, which c8-night.sh never reads. The 'start pid ... keep-awake pid $kp' line is logged unconditionally.",
+   "fix": "Poll keepawake.log for up to 15 s for 'keep-awake held'. Log a WARNING, or refuse, if it does not appear.",
+   "audit_id": 57,
+   "dim": "night"
+  },
+  {
+   "severity": "minor",
+   "location": "plans/sdd/V6-closeout/coordinator/c8-night.sh:199-210; README.md:227-249 (Abort steps 6-7)",
+   "issue": "Nothing documents how to recover from a refusal after the freeze, at the bundle build or at host validation ('unverified' or 'rejected'). A relaunch of c8-night.sh refuses because qompack-bundles/c8 exists. README's post-freeze path, running the overnight part alone, never host-validates the bundles, pushes verify/v6 or dispatches nightly.yml, so the live re-check's gates (bundle with BUNDLE.json, hosted ci.yml and nightly green) cannot be met by following the README.",
+   "evidence": "Added harness case X3: kv hv_outcome unverified, run the night, then set accepted and run it again. night.log: 'REFUSED: host validation outcome is 'unverified', not accepted ...', then on relaunch 'REFUSED: .../qompack-bundles/c8 already exists'. The origin has no verify/v6.",
+   "fix": "Add an Abort step for 'frozen, not pushed': delete the unvalidated qompack-bundles/c8, rebuild and host-validate it from the candidate worktree, push verify/v6 and dispatch nightly.yml, then run the overnight part alone. Alternatively add a C8_RESUME_AFTER_FREEZE mode to c8-night.sh that starts at step 5's bundle build.",
+   "audit_id": 58,
+   "dim": "night"
+  },
+  {
+   "severity": "minor",
+   "location": "plans/sdd/V6-closeout/coordinator/quiet.sh:99 (work=$(mktemp -d), never removed); no disk precondition in c8-night.sh or overnight-c8.sh",
+   "issue": "Disk space is low and the night tooling only adds to it. quiet.sh keeps its scratch directory (clones of the base and candidate, plus built binaries) after every run, and nothing checks free space. Candidate 8's night makes two of these (c51-win, c51-linux), plus a merged-tree clone and up to two release-check clones, each building whole-tree test binaries into GOCACHE under a new path. The C5.2 night makes eight more quiet work directories.",
+   "evidence": "`df -h /c`: 1.9T total, 1.8T used, 65G free (97%). A leftover quiet.sh work directory, %TEMP%/tmp.MWJhl7jum3, is 879M and dated 2026-09-30 23:22. `grep -n 'rm -rf' quiet.sh` shows only `$work/home-$side` (:453).",
+   "fix": "Have quiet.sh remove $work after a successful run (keep it on failure, and say so in quiet-run.txt). Add a precondition to c8-night.sh and overnight-c8.sh of at least about 40 GB free on the TMPDIR and GOCACHE drive.",
+   "audit_id": 59,
+   "dim": "night"
+  },
+  {
+   "severity": "minor",
+   "location": "plans/sdd/V6-closeout/coordinator/overnight-c8.sh:686-707; tools/devtool/releasechecksteps.go:201",
+   "issue": "release-check's govulncheck step fails outright when the vulnerability database cannot be reached (rcFailf). prefreeze.sh's vuln_check reads the same condition as GOVULNCHECK-UNREACHABLE and does not fail on it. A network blip at night therefore shows up as a VALID red, 'failed=1 [release-check]', with no label, and the steps after it (licenses, determinism, rollback, plugin-validate, marketplace) never run.",
+   "evidence": "releaseCheckVulncheck: `if err := pinnedRunInherit(govulncheckPkg, \"./...\"); err != nil { return rcFailf(...) }`. overnight-c8.sh counts any VALID non-zero exit as a fail (:706).",
+   "fix": "After a red release-check, grep its log for the unreachable pattern that prefreeze.sh uses and record 'release-check: govulncheck unreachable (network), not a product red' in the step's note.",
+   "audit_id": 60,
+   "dim": "night"
+  },
+  {
+   "severity": "minor",
+   "location": "internal/cli/doctor.go:1175-1181 (doctorMetricsAge); verify/v6 plans/sdd/V6-closeout/coordinator/mkrecheck8.py:167",
+   "issue": "Tonight's live re-check (C4.5) requires two `qompack doctor --json` reads, and two `status --json` reads, to 'agree exactly'. They never do: status always differs in data.collected_at_ms (and the text header 'collected <time>'), and once metrics/latency.json is persisted, doctor --json differs in delivery.rollover's 'persisted Ns ago'. The candidate 7 lane happened to note these as observations. A strict reading of the c8 prompt fails C4.5 on a correct build.",
+   "evidence": "Probe TestZZAudit2_RealClockReadsAgree on the real clock with a live daemon and two sessions, reads 1.5 s apart: 'status --json: 1 differing lines' (collected_at_ms 1791125313041 vs 1791125314575); 'status: 1 differing lines' (header); doctor --json 0. Probe TestZZAudit2_DoctorAfterPersist (metrics persisted): 'doctor --json: 1 differing lines', with detail '...metrics/latency.json (persisted 1276h19m45s ago)...' vs '...47s ago...'. rerun-c7/C4.5/notes.txt:10-11 and :27-28 record the same differences.",
+   "fix": "Either make doctor print an absolute time ('persisted at <RFC3339>') so that two doctor --json reads of unchanged state are byte-identical, or reword mkrecheck8.py:167 to exempt data.collected_at_ms, the status 'collected' header and doctor's persisted age explicitly. The first is cleaner and is a non-bundle-neutral code change, so the second is the pre-freeze option.",
+   "audit_id": 14,
+   "dim": "status"
+  },
+  {
+   "severity": "minor",
+   "location": "plans/sdd/V6-closeout/coordinator/quiet.sh:149 ('cli HookNoop_InProcess ... 1.1.27'); internal/cli bench (fbb32c13)",
+   "issue": "fbb32c13 changed BenchmarkHookNoop_InProcess to spool into a temp dir instead of the checkout. C5.2 runs it ABBA against cf31e01, whose own benchmark file still spools into its clone. So row 1.1.27's paired ratio compares two different workloads. The w20-status needs-owner says so ('A bench-compare of a pre-fbb32c13 base against a newer candidate compares slightly different workloads'). Neither quiet.sh nor the ledger notes it, and the C5.2 night will measure it tonight.",
+   "evidence": "w20-status/report.md Needs owner: 'BenchmarkHookNoop_InProcess now spools into a temp dir instead of the checkout. A bench-compare of a pre-fbb32c13 base ... compares slightly different workloads'. quiet.sh:149 lists the row with no caveat.",
+   "fix": "Judge 1.1.27 by its absolute budget (< 3 ms/op) on candidate 8 only, and record in the ledger or quiet.sh's list that its base ratio is not like for like.",
+   "audit_id": 81,
+   "dim": "complete"
+  },
+  {
+   "severity": "major",
+   "location": "plans/V6-CLOSEOUT-CHECKLIST.md:375 (C6.2); plans/sdd/V6-remediation/inventory-current.tsv header (columns c6_result, c6_evidence, c7_result, c7_evidence only)",
+   "issue": "Candidate 8's plan does not cover C6.2: re-disposition all 304 inventory rows from candidate 8's evidence, with verified_in_target only where an executed artifact exists. The inventory has no candidate 8 column. D62(b) breaks D57(e)'s carry for every C5.2 row (config.go is linked everywhere), so rows 1.10.17, 1.16.11, 1.1.27, 1.12.17 and about 59 others need candidate 8 dispositions. The w20-night seat says those dispositions 'wait on that measurement; inventory-current.tsv is not mine'. D62(g) adds C6.3, C6.4, C6.5, C7.3 and C7.6 to the release plan, but neither C6.1 nor C6.2, and the coordinator README's candidate 8 section never names C6.2.",
+   "evidence": "`git show 2bf29705:plans/sdd/V6-remediation/inventory-current.tsv | head -1` has 11 columns, ending c6_result, c6_evidence, c7_result, c7_evidence. The verify/v6 copy ends at c6_evidence. In V6-CLOSEOUT-CHECKLIST.md, C6.2 appears only in its own unticked item and in D37.",
+   "fix": "Add a C6.2 step to the plan after the C5.2 night(s) and the live re-check, owned by an inventory seat. Add c8_result and c8_evidence columns filled from phase3/c8, the C5.2 chunk evidence and rerun-c8. Make C6.4's report depend on it. Also name C6.1's docs-only descendant (release.md §1 step 2) explicitly in the plan.",
+   "audit_id": 65,
+   "dim": "complete"
+  },
+  {
+   "severity": "minor",
+   "location": "plans/V6-CLOSEOUT-CHECKLIST.md:360 (C5.3) and :317 (C3.3)",
+   "issue": "Two remaining checklist items have no step in candidate 8's plan and no ruling. (1) C5.3, the deterministic replay evaluation (the 24-session phase-0 comparison) re-run on the frozen candidate, with fraction-of-OPT as a diagnostic: hosted replay-gate runs the gate, but no step records C5.3's result. (2) C3.3's product-child race lane on Windows: overnight-c8 runs win-race (devtool test-race) only. The product-child lane (QOMPACK_REQUIRE_CHILD_RACE=1) runs only in the Linux container (linux-child) and on ubuntu (nightly.yml race-product-child), and no ruling says that satisfies C3.3's Windows wording.",
+   "evidence": "In overnight-c8.sh, step win-race calls `phase3.sh ... win-race` (= `devtool test-race`). grep REQUIRE_CHILD_RACE over tools/devtool and .github finds only nightly.yml:123 (runs-on ubuntu-latest). Neither C5.3 nor C3.3 appears anywhere else in the ledger or the coordinator README.",
+   "fix": "Add a recorded C5.3 artifact: the replay report from ci.yml's replay-gate on the frozen SHA, or a local `devtool replay --ci` with fraction-of-OPT logged. Record a ruling that C3.3's child lane is satisfied by Linux evidence, or run it on Windows.",
+   "audit_id": 79,
+   "dim": "complete"
+  }
+ ],
+ "nits": [
+  {
+   "dim": "night",
+   "severity": "nit",
+   "location": "plans/sdd/V6-closeout/coordinator/c8-night.sh:107",
+   "issue": "The precondition loop lists branches with `%(refname:short)` and then keeps only names matching '^closeout/w'. If a tag or remote ref shares a branch's name, refname:short becomes 'heads/closeout/...', and that branch is silently not checked.",
+   "evidence": "Harness case X10: create an unmerged closeout/w20-amb plus a tag closeout/w20-amb. c8-night proceeds and freezes; both checks 'still refuses' and 'nothing frozen' fail. The real repo has no such ambiguity today: `for-each-ref refs/heads/closeout/ --format=%(refname:short) | grep -v '^closeout/'` prints nothing.",
+   "fix": "Use `--format='%(refname:lstrip=2)'`."
+  },
+  {
+   "dim": "night",
+   "severity": "nit",
+   "location": "plans/sdd/V6-closeout/coordinator/README.md:301-322 ('The docs figure')",
+   "issue": "The section cites 'line 714 at integration 67e0fddb'; the sentence is now at docs/architecture.md:721 in 2bf29705. It also describes the marking as a pending docs change, but D65(a) records it as done in integration (458b583a, which is in H).",
+   "evidence": "`grep -n '1.85 s' docs/architecture.md` gives 721. `git merge-base --is-ancestor 458b583a 2bf29705` succeeds.",
+   "fix": "Cite the line at the frozen candidate, and note that the marking landed (458b583a); only the restatement from the C5.2 night's c116-rig runs is still to do."
+  },
+  {
+   "dim": "night",
+   "severity": "nit",
+   "location": "plans/sdd/V6-closeout/coordinator/README.md:85-89; nightharness.sh O1 checks 'the clone path is logged' / 'the clone is removed'",
+   "issue": "(a) README says the harness takes up to about 2 hours. Under today's load it ran at about 20 cases an hour: 36 cases took about 1 h 40 min, so a sequential 86-case run would take about 4 h. (b) O1's sed `release-check clone \\([^ ]*\\) at` cannot parse a scratch path that contains a space. 'The clone is removed' then tests `test ! -e \"\"` and passes vacuously.",
+   "evidence": "Runs with TMPDIR set to '.../night/tmp sp': O1 FAIL only on 'the clone path is logged'; O6, N1, P7 and F5 PASS. So the night scripts themselves handle spaces in paths; only the harness's parse does not. Timing: U, K and O1-O29 (36 cases) took about 1 h 40 min; N3-N22 (20 cases) about 37 min in parallel.",
+   "fix": "State the time as load-dependent (2-4 h), or split the harness across processes. Parse the clone path with `sed -n 's/^release-check clone \\(.*\\) at [0-9a-f]\\{40\\}:.*/\\1/p'` and require it to be non-empty before the removal check."
+  }
+ ]
+}

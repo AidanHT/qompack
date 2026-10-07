@@ -1,0 +1,71 @@
+UAT-07 - candidate 8 live re-check, carried part (decisions D58-D67), in one session shared with C4.4
+(../C4.4/tool-matrix.md), as candidate 4 ran them. Agent-executed on the owner's real host per owner decision D3 by a
+Claude Code workflow subagent (Opus 5.5) - not human UAT.
+
+Build: qompack version 0.3.0 (cli/00-version), frozen bundle qompack-bundles/c8/qompack-plugin-0.3.0-windows-amd64
+(BUNDLE.json sha256 61ba9c37dda03c14c44acb6824646a8d7410751bba6f1ce3c5c864d6382dcd8b, bin/qompack.exe sha256
+93eb09f348774fbf2783bd607a3af41622976b2edad42798b437091eace381a9), commit 3ec62ad2e01b985640c0f1fb832df3917f766a5f,
+Windows 11 Home 25H2 build 10.0.26200.9457, Claude Code 2.1.280, --plugin-dir the frozen bundle,
+claude-haiku-4-5-20251001. Date 2026-10-07 12:53-12:59 America/Toronto. Session carried-c8 n=2 (session/, id 5d758a40,
+25 user turns, 326 s, exit 0). No spare session was used.
+Init event: plugin qompack 0.3.0 (qompack@inline), server plugin:qompack:qompack connected, the eight
+mcp__plugin_qompack_qompack__* tools, exactly six commands (qompack:dropped, eval, pin, recall, status, why; no
+qompack:checkpoint).
+
+SETUP (setup-facts.json, settings/): disposable project <scratch>/carried/uat07/proj, git init + one commit:
+src/ledger.go (func ReconcileBalances, phrase "amber quill horizon", const driftLimit = 25), src/cache.go (func Evict,
+phrase "violet anchor lattice"), notes.md, ops/runbook.md, private/vault.txt. Outside file <scratch>/carried/uat07/
+outside.txt. Project .claude/settings.json (untracked), written before the session: Read(./private/vault.txt).
+Preconditions (cli/02-config-print-provenance): retrieval.defaultSpan minimal, runtime.mcp.spanWidenLines 40,
+runtime.mcp.maxResponseBytes 262144, store.retention.days 30 / sessions 10, all `default`. Env:
+QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS=120 (not a row key), QOMPACK_HOME=<scratch>/carried/qhome (never created).
+Pre-run backup: cli/01 exit 1 "source project has no existing store" (initial absence).
+Deny rule in effect from turn 1: the Read of private/vault.txt came back "File is in a directory that is denied by your
+permission settings." and is in the result's permission_denials (session/proofcheck.json, written by a before-step that
+would have stopped the session had the Read returned content).
+
+T1 Read src/ledger.go (turn 1, driftLimit 25); T2 Edit 25 -> 40; T4 Read again (turn 7, driftLimit 40).
+STEPS 1-3 (slash/0N-*.json = the `qompack recall ... --json` envelope each /qompack:recall body printed, extracted from
+this session's own transcript; `qompack` resolved on the host's PATH on the first attempt, no PATH change):
+  1 `amber quill horizon --json`: ok true, count 2, found true, hits src/ledger.go FileEdit + FileRead (references,
+    hash, summary, ts, score, tool_use_id, span; no bytes).
+  2 `path:src/*.go --json` and `path:*.go --json`: count 3 each, all src/ledger.go captures (FileRead x2, FileEdit).
+  3 `symbol:ReconcileBalances --json`: count 4 (the three ledger.go captures and a prompt); `tool:Read --json`: count 3
+    (src/ledger.go x2, ops/runbook.md - the runbook was not yet denied at that turn).
+  CLI envelopes with exit codes after the session (cli/11-18, `qompack recall <q> --json`): every one exit 0; no-match
+  `path:nothing/*.rs` is count 0, found false, exit 0 (an answer, not a failure); tool:Read = tool:FileRead (4 hits each,
+  "denied":1 - ops/runbook.md, denied mid-session, see C4.4); tool:Edit -> the FileEdit. After the session's MCP calls the
+  original captures now rank first and the retrieval self-records last (cli/12, 13: src/cache.go and src/ledger.go
+  captures, then one mcp__qompack__re_read self-record); candidate 4's observation (self-records crowding files out of
+  `path:`) does not recur.
+STEP 4 (session T9): recall symbol:ReconcileBalances; expand {hash sha256:8a9940c4...} and expand {tool_use_id
+  toolu_01TZD8oq...}: same hash, span [0,1103], total_bytes 1103, truncated false, identical content, NO `source` field
+  in either body. _meta.qompack.ephemeral true on both (no-model stdio probe ../C4.4/cli/30-mcp-probe-result-meta.json;
+  the host does not show result-level _meta to the model). next_span absent because nothing was left.
+STEP 5 (T10): re_read no at -> source store, turn 7, hash 9ffb1d3f (driftLimit 40), no `at` field (none given);
+  at turn:1 -> source store, at "turn:1", turn 1, hash 9a87424b (driftLimit 25).
+STEP 6 (T11): src/ledger.go edited on disk out of band before T11 (files/ledger.go.before-step6 = driftLimit 40,
+  files/ledger.go.after-step6 = "const driftLimit = 7 // edited on disk out of band; was 40"); re_read no at still
+  returned the captured turn-7 version (hash 9ffb1d3f, driftLimit 40, source store) - no substitution.
+STEP 7 (T12), OBSERVED for a never-stored well-formed hash, not a tool error (is_error false):
+  {"found":false,"searched":"the root index, including every indexed root's chunk list","available":false,
+   "reason":"no indexed root or chunk carries this hash, so its content provenance could not be established"}
+  - identical to candidate 4; no lookup reported `absent`.
+End-of-run index: store-after-session/index_*.jsonl (listing.txt: 275 files).
+
+Diagnostics: /qompack:status after the compaction (../C4.4/cli/20): "9 assertion(s), none failing: 8 holding, 0
+pending, 1 with nothing to judge". After the daemon's own idle exit (42 s wait, ../C4.4/cli/40-daemon-ended.txt, no
+process terminated by the lane): doctor --json exit 0 with no degraded row, fsck --json exit 0 (daemon_running false),
+fsck --json --seal-check exit 0; status last ("source: disk", it asked a daemon to start, which idles out by itself).
+Hooks: 99 pairs (SessionStart 2, UserPromptSubmit 24, PostToolUse 48, Stop 24, SubagentStop 1), every one outcome
+success exit 0; measured arrival deltas at most 255 ms; SessionStart:compact 138 ms (measured); stderr.txt empty; no
+host-reported hook failure or timeout (D53(i) holds).
+
+Result: pass - none of the row's fail conditions occurred (step 6 returned the captured version, no failed lookup
+reported absent, every handle from a hit resolved).
+Rollback: not applicable - initial state absent (recorded); per the row's rule the run is retained as evidence; no
+restore was run. Guard: guard/carried.txt ("after session 2 UAT-07/C4.4").
+Observation O-1 (for the coordinator, not judged a finding): section 5 of the compaction's block, "Current work",
+prints `goal:` as the user's latest prompt, which named ops/runbook.md, a path the host denied by then. It is the same
+content as section 2's verbatim prompts, which D62(f) puts outside D50, but no ruling names section 5. Section 6 withheld
+the runbook's file pointer and its Read's summary, and section 7 shows no path (../C4.4/tool-matrix.md).

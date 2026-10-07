@@ -1,0 +1,6 @@
+cwd: <scratch>/resilience/c8/c16/proj
+argv: ["C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c8/qompack-plugin-0.3.0-windows-amd64/bin/qompack.exe", "doctor", "--json"]
+env+: {}
+qompack_home: <scratch>/resilience/qhome
+wall_s: 0.034
+at: 2026-10-07T14:19:23-04:00

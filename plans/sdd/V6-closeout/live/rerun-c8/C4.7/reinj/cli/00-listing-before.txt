@@ -1,0 +1,4 @@
+project listing (.git omitted), 3 files
+        51  notes.md
+        54  plan.md
+        72  .qompack/config.json

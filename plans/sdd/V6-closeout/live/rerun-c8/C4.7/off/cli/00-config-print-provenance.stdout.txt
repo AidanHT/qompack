@@ -1,0 +1,202 @@
+{
+  "checkpoint": {
+    "budgetTokens": 12000,  // default config.Defaults()
+    "frontier": {
+      "advanceOnSegmentClose": true,  // default config.Defaults()
+      "maxResidualTokens": 20000  // default config.Defaults()
+    },
+    "incrementalSpanInstruction": true,  // default config.Defaults()
+    "tiers": {
+      "first": ["pointers","narrative"],  // default config.Defaults()
+      "late": ["decisions","open_questions","current_work"],  // default config.Defaults()
+      "never": ["invariants","user_intent","eliminated"]  // default config.Defaults()
+    }
+  },
+  "eliminations": {
+    "defaultScope": "session",  // default config.Defaults()
+    "rebuildOnStale": "nextIdle",  // default config.Defaults()
+    "requireEvidence": true,  // default config.Defaults()
+    "staleResponse": "flag"  // default config.Defaults()
+  },
+  "eval": {
+    "minSessions": 20,  // default config.Defaults()
+    "replayOnPhaseGate": true  // default config.Defaults()
+  },
+  "retrieval": {
+    "defaultSpan": "minimal",  // default config.Defaults()
+    "ephemeralResults": true,  // default config.Defaults()
+    "promoteAfterExpansions": 2  // default config.Defaults()
+  },
+  "runtime": {
+    "budgets": {
+      "checkpointFinalizeMs": 2000,  // default config.Defaults()
+      "hookDegradedMs": 1000,  // default config.Defaults()
+      "l0IngestMs": 50,  // default config.Defaults()
+      "l0ProcessMs": 50,  // default config.Defaults()
+      "mcpToolCallMs": 250  // default config.Defaults()
+    },
+    "daemon": {
+      "ackDeadlineMs": 73,  // default config.Defaults()
+      "connectDeadlineMs": 25,  // default config.Defaults()
+      "enabled": true,  // default config.Defaults()
+      "idleExitSeconds": 1800,  // default config.Defaults()
+      "maxSessions": 8  // default config.Defaults()
+    },
+    "hotPath": {
+      "breachWindows": 3,  // default config.Defaults()
+      "budgetMs": 50,  // default config.Defaults()
+      "maxPayloadBytes": 1048576,  // default config.Defaults()
+      "spoolOnBreach": true  // default config.Defaults()
+    },
+    "logging": {
+      "level": "info",  // default config.Defaults()
+      "maxFileMB": 10,  // default config.Defaults()
+      "maxFiles": 5  // default config.Defaults()
+    },
+    "mcp": {
+      "maxResponseBytes": 262144,  // default config.Defaults()
+      "spanWidenLines": 40  // default config.Defaults()
+    },
+    "migration": {
+      "capture": {
+        "rawEvidence": false  // default config.Defaults()
+      },
+      "compaction": {
+        "automaticVeto": false,  // default config.Defaults()
+        "blockManualCompact": false  // default config.Defaults()
+      },
+      "experiments": {
+        "enabled": false  // default config.Defaults()
+      },
+      "publication": {
+        "durableFrontier": false  // default config.Defaults()
+      },
+      "reinjection": {
+        "sessionStartCompact": true  // default config.Defaults()
+      },
+      "replacement": {
+        "newResult": false  // default config.Defaults()
+      },
+      "settingsVersion": 1  // default config.Defaults()
+    },
+    "mode": "off",  // project <scratch>\carried\c47\off\proj\.qompack\config.json:1
+    "phase7": {
+      "filters": {
+        "segmentBloom": false  // default config.Defaults()
+      },
+      "retrieval": {
+        "demandPromotion": false,  // default config.Defaults()
+        "maxAttemptsPerTrigger": 2,  // default config.Defaults()
+        "maxQueueDepth": 32,  // default config.Defaults()
+        "maxRemindersPerSession": 3,  // default config.Defaults()
+        "reminders": false  // default config.Defaults()
+      },
+      "reuse": {
+        "scopedCandidates": false,  // default config.Defaults()
+        "warmPrior": false  // default config.Defaults()
+      },
+      "settingsVersion": 1  // default config.Defaults()
+    },
+    "redact": {
+      "enabled": true,  // default config.Defaults()
+      "patterns": []  // default config.Defaults()
+    },
+    "rehydrate": {
+      "eliminationsTopN": 8,  // default config.Defaults()
+      "maxTokens": 12000,  // default config.Defaults()
+      "minTokens": 8000,  // default config.Defaults()
+      "skillIndexTokens": 450  // default config.Defaults()
+    },
+    "scheduler": {
+      "cache": {
+        "assumeMaxTTLSeconds": 3600,  // default config.Defaults()
+        "expiringTriggerFraction": 0.8  // default config.Defaults()
+      }
+    },
+    "selection": {
+      "loopWarningsEnabled": false,  // default config.Defaults()
+      "submodularEnabled": false  // default config.Defaults()
+    },
+    "telemetry": {
+      "enabled": false  // default config.Defaults()
+    },
+    "tokens": {
+      "binaryCharsPerToken": 3,  // default config.Defaults()
+      "calibrationAlpha": 0.2,  // default config.Defaults()
+      "calibrationMax": 1.6,  // default config.Defaults()
+      "calibrationMin": 0.6,  // default config.Defaults()
+      "codeCharsPerToken": 3.6,  // default config.Defaults()
+      "diffCharsPerToken": 3.4,  // default config.Defaults()
+      "imageMaxTokens": 1600,  // default config.Defaults()
+      "imagePixelsPerToken": 750,  // default config.Defaults()
+      "jsonCharsPerToken": 3.2,  // default config.Defaults()
+      "pdfTokensPerPage": 1800,  // default config.Defaults()
+      "proseCharsPerToken": 4  // default config.Defaults()
+    }
+  },
+  "scheduler": {
+    "cache": {
+      "readMultiplier": 0.1,  // default config.Defaults()
+      "ttlSeconds": 300,  // default config.Defaults()
+      "writeMultiplier": 1.25  // default config.Defaults()
+    },
+    "changepoint": {
+      "features": ["paths","tools","time","todos"],  // default config.Defaults()
+      "hazardRate": 0.004  // default config.Defaults()
+    },
+    "hardCeilingMargin": 20000,  // default config.Defaults()
+    "idle": {
+      "backgroundWork": true,  // default config.Defaults()
+      "deepCutWhenCold": true,  // default config.Defaults()
+      "detectAfterSeconds": 120  // default config.Defaults()
+    },
+    "softFloorPct": 0.55,  // default config.Defaults()
+    "youngDaly": {
+      "enabled": true,  // default config.Defaults()
+      "measuredDeltaSeconds": null  // default config.Defaults()
+    }
+  },
+  "selection": {
+    "deltaScoring": "cheap",  // default config.Defaults()
+    "slicing": "thin",  // default config.Defaults()
+    "submodular": {
+      "lambda": 0.4,  // default config.Defaults()
+      "lazyGreedy": true  // default config.Defaults()
+    }
+  },
+  "sketches": {
+    "bloom": {
+      "capacity": 10000,  // default config.Defaults()
+      "fpRate": 0.01  // default config.Defaults()
+    },
+    "cms": {
+      "delta": 0.01,  // default config.Defaults()
+      "epsilon": 0.001,  // default config.Defaults()
+      "warmStartFromProject": true  // default config.Defaults()
+    },
+    "hll": {
+      "registers": 2048  // default config.Defaults()
+    }
+  },
+  "store": {
+    "canonicalize": {
+      "enabled": true,  // default config.Defaults()
+      "minhash": {
+        "enabled": true,  // default config.Defaults()
+        "nearDupThreshold": 0.9,  // default config.Defaults()
+        "permutations": 128  // default config.Defaults()
+      },
+      "strip": ["timestamps","ansi","pids","addresses","tmpPaths","durations"]  // default config.Defaults()
+    },
+    "chunk": {
+      "max": 16384,  // default config.Defaults()
+      "min": 1024,  // default config.Defaults()
+      "target": 4096  // default config.Defaults()
+    },
+    "compression": "zstd",  // default config.Defaults()
+    "retention": {
+      "days": 30,  // default config.Defaults()
+      "sessions": 10  // default config.Defaults()
+    }
+  }
+}

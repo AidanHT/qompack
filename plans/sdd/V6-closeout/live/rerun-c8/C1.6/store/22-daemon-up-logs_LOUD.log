@@ -1,0 +1,1 @@
+ts=2026-10-07T18:18:25.3415996Z level=loud msg="daemon: unpublished captures or unindexed objects found at startup" unpublished_captures=1 unindexed_object_candidates=1 pending_objects=0 captures_scanned=13 objects_scanned=11 incomplete=false truncated=false notes=none

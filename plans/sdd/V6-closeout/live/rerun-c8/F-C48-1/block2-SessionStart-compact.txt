@@ -1,0 +1,25 @@
+<!-- qompack:injected seq=1 ver=1 -->
+# Qompack rehydration — checkpoint 0001, session 77ff5d8c
+
+## 2. Original user intent (verbatim from L0 capture — never summarized)
+Evolution (most recent first):
+> Use the Read tool to read README.md and summarize it in one sentence.
+> Run the Bash command `cat data/info.txt` and tell me only how many rows it lists.
+Original:
+> We are building the Heron event router. Use the Read tool to read src/app.py and summarize it in one sentence.
+
+## 5. Current work
+goal: Use the Read tool to read README.md and summarize it in one sentence.
+blocked on: none
+
+## 6. Pointers (paths and hashes — contents are NOT restored; use expand/re_read)
+- readme.md sha256:7375902a08e71f98236fdaa8ff5be877f76a52ae34498b8b77d77d2fb00eb5d3 — referenced
+- src/app.py sha256:abc42c1024e29f1886c5b1ab29c7c94bda3b98106ecda9c336c9cb3076ea6c77 — referenced
+- tool_use toolu_01A4Ddqq5igyFXA3V1kXGx9p sha256:abc42c1024e29f1886c5b1ab29c7c94bda3b98106ecda9c336c9cb3076ea6c77 — <scratch>\sessions\c8\fc48\proj\src\app.py
+- tool_use toolu_01B6Rhm8AkeY5U3vPHo3H2Z9 sha256:8de62329382f2d7eee850612be6b76abb5abe81822acb38bffd3e5531401fd7a — cat data/info.txt
+- tool_use toolu_01JWjmo5B2YKdUM7X8yTazRs sha256:7375902a08e71f98236fdaa8ff5be877f76a52ae34498b8b77d77d2fb00eb5d3 — <scratch>\sessions\c8\fc48\proj\README.md
+
+## 8. Retrieval
+Qompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().
+<!-- /qompack:injected -->
+<!-- qompack-contract-probe qompack-contract-2274ccb78054 -->

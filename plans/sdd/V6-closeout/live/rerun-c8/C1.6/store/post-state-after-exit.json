@@ -1,0 +1,20 @@
+{
+ "at": "2026-10-07T14:19:24.204-04:00",
+ "cutA_removed_root": "sha256:912bcd59969a868e52419347bf663b2d1ab72821c6851cb00f79c5f38f92513d",
+ "cutA_roots_lines_now": 16,
+ "cutA_root_line_re_added": false,
+ "cutA_named_objects_still_on_disk": {
+  "sha256:177c6f4c9ec81f58bb337faaff40991238ea8dee6adb4c89a9875dc0a800dd2a": false
+ },
+ "cutB_sidecar": "records/captures/01/014a86604e3bbc9f6963645809e7aaff6348e5b56d12f1c55145bdfab93a509b.json",
+ "cutB_published_now": false,
+ "cutB_root_now": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+ "cutB_tool_use_id_now": null,
+ "compared_set_present_after_cut": 22,
+ "compared_set_changed": [],
+ "compared_set_removed": [
+  "objects/17/7c/177c6f4c9ec81f58bb337faaff40991238ea8dee6adb4c89a9875dc0a800dd2a.zst"
+ ],
+ "compared_set_added_since_cut (new captures of later turns)": 16,
+ "nothing_pre_existing_rewritten": false
+}

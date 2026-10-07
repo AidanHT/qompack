@@ -1,0 +1,42 @@
+<!-- qompack:injected seq=4 ver=1 -->
+# Qompack rehydration — checkpoint 0004, session daf8fe7b
+
+## 2. Original user intent (verbatim from L0 capture — never summarized)
+Evolution (most recent first):
+> Use the Read tool to read docs/design.md and summarize it in one sentence.
+> What is the current per-client rate limit requirement, and what was the original one? One sentence.
+> Use the Read tool to read docs/notes.md and summarize it in one sentence.
+> /qompack:why dec_991dbff588ec
+> Use the Read tool to read src/limiter.py and summarize it in one sentence.
+> Call mcp__plugin_qompack_qompack__record_eliminated with target "per-client rate limit", approach "100 requests per minute" and reason "superseded by the user's correction: 60 per minute". Report the raw result in one line.
+> Correction: the limit must be 60 requests per minute per client, not 100. The 100 figure is superseded. Acknowledge in one sentence.
+Original:
+(forked session: the original request of session 7f96ea69, which this session continues)
+> We are building a rate limiter for the Kite API gateway. Requirement: allow 100 requests per minute per client. First, run the Bash command `cat config/limits.txt` and tell me how many entries it lists. Do not repeat any values.
+
+## 3. Approaches already eliminated (top 1 of 1 by slice relevance)
+- per-client rate limit — "100 requests per minute" — superseded by the user's correction: 60 per minute [active] [evidence sha256:9dc92adf93c6cd9437ded678a9dddc2a37d5c713cb8d208761681f32d140b25f]
+Before committing to an approach, call already_tried.
+
+## 4. Decisions
+- [dec_991dbff588ec] (turn 5) rejected "100 requests per minute" for per-client rate limit
+  why: superseded by the user's correction: 60 per minute
+  rejected: 100 requests per minute
+  evidence: sha256:9dc92adf93c6cd9437ded678a9dddc2a37d5c713cb8d208761681f32d140b25f
+
+## 5. Current work
+goal: Use the Read tool to read docs/design.md and summarize it in one sentence.
+blocked on: none
+
+## 6. Pointers (paths and hashes — contents are NOT restored; use expand/re_read)
+- docs/design.md sha256:5f6e1beeaeb590327aef11631b7c67cc50257d77f15811ce5cf26a52dd7a4f98 — referenced
+- tool_use toolu_01L2q4uM7ujpTow6NkXk9wDc sha256:d88856d2f134163a56b3296cef87ac093bcdc248cd79a919657421b1dfcee9c4 — cat config/limits.txt
+- tool_use toolu_01R87Zms8AXv6LujFU4bgCWL sha256:5f6e1beeaeb590327aef11631b7c67cc50257d77f15811ce5cf26a52dd7a4f98 — <scratch>\sessions\c8\uat06\proj\docs\design.md
+
+## 7. No longer in context
+- user_intent_source fork — this session is a fork of session 7f96ea69-fb5e-4e81-9040-dce5323da433 (its newest checkpoint then: 0002), which Qompack inferred because the host names no parent; its original request is session 7f96ea69-fb5e-4e81-9040-dce5323da433's first prompt, and its own first prompt is an evolution entry; restore: expand(tool_use_id=prompt_7f96ea69-fb5e-4e81-9040-dce5323da433_0)
+
+## 8. Retrieval
+Qompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().
+<!-- /qompack:injected -->
+<!-- qompack-contract-probe qompack-contract-87bbd90b3860 -->

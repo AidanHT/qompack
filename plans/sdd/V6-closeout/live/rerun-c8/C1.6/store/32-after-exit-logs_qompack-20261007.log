@@ -1,0 +1,9 @@
+ts=2026-10-07T18:18:00.380425Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-10-07T18:18:00.5168152Z level=info msg="observer: session registered" session=0c8e4cb0-ee60-48b5-9e0f-8bad862a266b source=startup turn=0 segment=1
+ts=2026-10-07T18:18:00.5172704Z level=info msg="scheduler: session bound" session=0c8e4cb0-ee60-48b5-9e0f-8bad862a266b effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+ts=2026-10-07T18:18:25.1870623Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-10-07T18:18:25.1891527Z level=info msg="daemon: took over the project from a daemon that ended without releasing its lock" pid=32980 version=0.3.0 started=2026-10-07T18:18:00Z
+ts=2026-10-07T18:18:25.33328Z level=info msg="daemon: replayed spooled deliveries at start" deliveries=1
+ts=2026-10-07T18:18:25.3415996Z level=loud msg="daemon: unpublished captures or unindexed objects found at startup" unpublished_captures=1 unindexed_object_candidates=1 pending_objects=0 captures_scanned=13 objects_scanned=11 incomplete=false truncated=false notes=none
+ts=2026-10-07T18:18:26.4522752Z level=info msg="scheduler: session bound" session=0c8e4cb0-ee60-48b5-9e0f-8bad862a266b effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+ts=2026-10-07T18:18:37.0644956Z level=info msg="observer: gc" scanned=17 deleted=1 freed=60 truncated=false

@@ -1,0 +1,5 @@
+transcript line 216, 2026-10-07T14:58:13.614Z
+command: /qompack:eval 
+expansion isMeta=None:
+<local-command-stderr>Shell command failed for pattern "!`qompack eval `": [stderr]
+qompack eval: eval: qompack: unavailable: no evaluation artifacts: no live-eval run under <scratch>\sessions\c8\uat06\proj\dist\live-eval and no replay report at <scratch>\sessions\c8\uat06\proj\testdata\bench-replay.json. An evaluation is produced in a Qompack source checkout by `go run ./tools/devtool live-eval` (real-host trials) or `go run ./tools/devtool replay` (deterministic replay); pass --corpus &lt;path&gt; to read one from elsewhere</local-command-stderr>

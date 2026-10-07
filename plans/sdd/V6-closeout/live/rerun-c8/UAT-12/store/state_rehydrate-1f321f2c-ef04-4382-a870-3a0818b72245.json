@@ -1,0 +1,267 @@
+{
+  "session": "1f321f2c-ef04-4382-a870-3a0818b72245",
+  "seq": 3,
+  "emitted": 1791390746972,
+  "tokens": 2670,
+  "budget": 12000,
+  "items": [
+    {
+      "kind": "user_intent",
+      "rank": 0,
+      "tokens": 318,
+      "truncated": true,
+      "units": 4,
+      "units_seen": 13
+    },
+    {
+      "kind": "current_work",
+      "rank": 1,
+      "tokens": 43,
+      "truncated": false,
+      "units": 1,
+      "units_seen": 1
+    },
+    {
+      "kind": "pointers",
+      "rank": 2,
+      "tokens": 1407,
+      "truncated": true,
+      "units": 34,
+      "units_seen": 67
+    },
+    {
+      "kind": "drop_report",
+      "rank": 3,
+      "tokens": 820,
+      "truncated": true,
+      "units": 22,
+      "units_seen": 43
+    },
+    {
+      "kind": "affordance",
+      "rank": 4,
+      "tokens": 82,
+      "truncated": false,
+      "units": 1,
+      "units_seen": 1
+    }
+  ],
+  "dropped": [
+    {
+      "kind": "pointer_dirty",
+      "id": "sha256:aff2996337960d0cae550c6c348bf673fc1afc2c39851fd14a1df5fcfdeca691",
+      "detail": "modified since index on master; path withheld: the host's permission rules refuse it, or it is outside the project; restore: expand(hash=sha256:aff2996337960d0cae550c6c348bf673fc1afc2c39851fd14a1df5fcfdeca691)"
+    },
+    {
+      "kind": "user_intent_evolution",
+      "id": "8",
+      "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0003.json (user_intent.evolution[8])"
+    },
+    {
+      "kind": "user_intent_evolution",
+      "id": "7",
+      "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0003.json (user_intent.evolution[7])"
+    },
+    {
+      "kind": "user_intent_evolution",
+      "id": "6",
+      "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0003.json (user_intent.evolution[6])"
+    },
+    {
+      "kind": "user_intent_evolution",
+      "id": "5",
+      "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0003.json (user_intent.evolution[5])"
+    },
+    {
+      "kind": "user_intent_evolution",
+      "id": "4",
+      "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0003.json (user_intent.evolution[4])"
+    },
+    {
+      "kind": "user_intent_evolution",
+      "id": "3",
+      "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0003.json (user_intent.evolution[3])"
+    },
+    {
+      "kind": "user_intent_evolution",
+      "id": "2",
+      "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0003.json (user_intent.evolution[2])"
+    },
+    {
+      "kind": "user_intent_evolution",
+      "id": "1",
+      "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0003.json (user_intent.evolution[1])"
+    },
+    {
+      "kind": "user_intent_evolution",
+      "id": "0",
+      "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0003.json (user_intent.evolution[0])"
+    },
+    {
+      "kind": "pointer",
+      "id": "toolu_01FFWiJ2K3vusX7dSEpRGwAY",
+      "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01FFWiJ2K3vusX7dSEpRGwAY)"
+    },
+    {
+      "kind": "pointer",
+      "id": "toolu_01FWabxKPGP71jWwTnaPzXvL",
+      "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01FWabxKPGP71jWwTnaPzXvL)"
+    },
+    {
+      "kind": "pointer",
+      "id": "toolu_01FoxoTnvUamzLAjujfoRZP9",
+      "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01FoxoTnvUamzLAjujfoRZP9)"
+    },
+    {
+      "kind": "pointer",
+      "id": "toolu_01Fwjg5rpbtastd1RQKVCgyP",
+      "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01Fwjg5rpbtastd1RQKVCgyP)"
+    },
+    {
+      "kind": "pointer",
+      "id": "toolu_01H38wbYPv1oFUHsNA1Kffwp",
+      "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01H38wbYPv1oFUHsNA1Kffwp)"
+    },
+    {
+      "kind": "pointer",
+      "id": "toolu_01H6oCibeK4NyXwvAHoaeYN9",
+      "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01H6oCibeK4NyXwvAHoaeYN9)"
+    },
+    {
+      "kind": "pointer",
+      "id": "toolu_01HZVwjYSbC1EyiNc416zPJT",
+      "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01HZVwjYSbC1EyiNc416zPJT)"
+    },
+    {
+      "kind": "pointer",
+      "id": "toolu_01HfSETWQbywfUniFDXiTe49",
+      "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01HfSETWQbywfUniFDXiTe49)"
+    },
+    {
+      "kind": "pointer",
+      "id": "toolu_01Jz9hzpqxCyv2b5r5jDirG5",
+      "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01Jz9hzpqxCyv2b5r5jDirG5)"
+    },
+    {
+      "kind": "pointer",
+      "id": "toolu_01K3JJT6vxzdcsaBKo3cc2jj",
+      "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01K3JJT6vxzdcsaBKo3cc2jj)"
+    },
+    {
+      "kind": "pointer",
+      "id": "toolu_01KC9toC62vrY1ioWgUZkzkz",
+      "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01KC9toC62vrY1ioWgUZkzkz)"
+    },
+    {
+      "kind": "pointer",
+      "id": "toolu_01LnC3pagN5k1HkwwUMtLuq8",
+      "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01LnC3pagN5k1HkwwUMtLuq8)"
+    },
+    {
+      "kind": "pointer",
+      "id": "toolu_01M34UoMm3fxR136wcPDqEDY",
+      "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01M34UoMm3fxR136wcPDqEDY)"
+    },
+    {
+      "kind": "pointer",
+      "id": "toolu_01MQPtZYgzZKhTYYM2PjJgcH",
+      "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01MQPtZYgzZKhTYYM2PjJgcH)"
+    },
+    {
+      "kind": "pointer",
+      "id": "toolu_01Mzu3h22XVZr5aJJV7TDR82",
+      "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01Mzu3h22XVZr5aJJV7TDR82)"
+    },
+    {
+      "kind": "pointer",
+      "id": "toolu_01NUHPPbERCXmVnpAgxXSt39",
+      "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01NUHPPbERCXmVnpAgxXSt39)"
+    },
+    {
+      "kind": "pointer",
+      "id": "toolu_01P6BeTK9wZDuKUa2275rVWb",
+      "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01P6BeTK9wZDuKUa2275rVWb)"
+    },
+    {
+      "kind": "pointer",
+      "id": "toolu_01PVTtBjnNEnVjxr6H9dH1jZ",
+      "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01PVTtBjnNEnVjxr6H9dH1jZ)"
+    },
+    {
+      "kind": "pointer",
+      "id": "toolu_01Peov3FqbGzb1bo2dpPBBfP",
+      "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01Peov3FqbGzb1bo2dpPBBfP)"
+    },
+    {
+      "kind": "pointer",
+      "id": "toolu_01Qm4KEeauQXNvsc1qXSvP6B",
+      "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01Qm4KEeauQXNvsc1qXSvP6B)"
+    },
+    {
+      "kind": "pointer",
+      "id": "toolu_01Qtu9vJNhdBFQ8EXoMLGnVU",
+      "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01Qtu9vJNhdBFQ8EXoMLGnVU)"
+    },
+    {
+      "kind": "pointer",
+      "id": "toolu_01R55h5QaQzbNYLv4rA2BNQr",
+      "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01R55h5QaQzbNYLv4rA2BNQr)"
+    },
+    {
+      "kind": "pointer",
+      "id": "toolu_01SFxABSgGiQ4Dw1e1XmGyU2",
+      "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01SFxABSgGiQ4Dw1e1XmGyU2)"
+    },
+    {
+      "kind": "pointer",
+      "id": "toolu_01SVqe3vhqLEQhZFYYr6uvCx",
+      "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01SVqe3vhqLEQhZFYYr6uvCx)"
+    },
+    {
+      "kind": "pointer",
+      "id": "toolu_01SZhXoenX3m9zAsuACVdAWk",
+      "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01SZhXoenX3m9zAsuACVdAWk)"
+    },
+    {
+      "kind": "pointer",
+      "id": "toolu_01SkwBVSbwHApctL5Y6jnSFm",
+      "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01SkwBVSbwHApctL5Y6jnSFm)"
+    },
+    {
+      "kind": "pointer",
+      "id": "toolu_01T7agvNGMP8oYpEo1Dp9G3p",
+      "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01T7agvNGMP8oYpEo1Dp9G3p)"
+    },
+    {
+      "kind": "pointer",
+      "id": "toolu_01Tdnn3S3f7b3n1AkPbv48Eh",
+      "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01Tdnn3S3f7b3n1AkPbv48Eh)"
+    },
+    {
+      "kind": "pointer",
+      "id": "toolu_01USRFLxRzEo9rK5XU3C4nH4",
+      "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01USRFLxRzEo9rK5XU3C4nH4)"
+    },
+    {
+      "kind": "pointer",
+      "id": "toolu_01VA6VKNoacr6cEKMNeWogvu",
+      "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01VA6VKNoacr6cEKMNeWogvu)"
+    },
+    {
+      "kind": "pointer",
+      "id": "toolu_01XVVqyDxq5SBExTkop9GxfV",
+      "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01XVVqyDxq5SBExTkop9GxfV)"
+    },
+    {
+      "kind": "pointer",
+      "id": "toolu_01Y6UiShh8QJ332J2PYPbCow",
+      "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01Y6UiShh8QJ332J2PYPbCow)"
+    },
+    {
+      "kind": "pointer",
+      "id": "toolu_01Ybtvbq4UVYda2L9iGyfR4A",
+      "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01Ybtvbq4UVYda2L9iGyfR4A)"
+    }
+  ],
+  "degraded": false
+}

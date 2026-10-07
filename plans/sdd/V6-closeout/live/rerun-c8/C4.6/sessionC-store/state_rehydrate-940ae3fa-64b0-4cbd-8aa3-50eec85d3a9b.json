@@ -1,0 +1,197 @@
+{
+  "session": "940ae3fa-64b0-4cbd-8aa3-50eec85d3a9b",
+  "seq": 1,
+  "emitted": 1791391142167,
+  "tokens": 2795,
+  "budget": 12000,
+  "items": [
+    {
+      "kind": "user_intent",
+      "rank": 0,
+      "tokens": 431,
+      "truncated": true,
+      "units": 3,
+      "units_seen": 7
+    },
+    {
+      "kind": "current_work",
+      "rank": 1,
+      "tokens": 57,
+      "truncated": false,
+      "units": 1,
+      "units_seen": 1
+    },
+    {
+      "kind": "pointers",
+      "rank": 2,
+      "tokens": 1404,
+      "truncated": true,
+      "units": 29,
+      "units_seen": 54
+    },
+    {
+      "kind": "drop_report",
+      "rank": 3,
+      "tokens": 820,
+      "truncated": true,
+      "units": 22,
+      "units_seen": 29
+    },
+    {
+      "kind": "affordance",
+      "rank": 4,
+      "tokens": 83,
+      "truncated": false,
+      "units": 1,
+      "units_seen": 1
+    }
+  ],
+  "dropped": [
+    {
+      "kind": "user_intent_evolution",
+      "id": "3",
+      "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[3])"
+    },
+    {
+      "kind": "user_intent_evolution",
+      "id": "2",
+      "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[2])"
+    },
+    {
+      "kind": "user_intent_evolution",
+      "id": "1",
+      "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[1])"
+    },
+    {
+      "kind": "user_intent_evolution",
+      "id": "0",
+      "detail": "did not fit the rehydration budget; restore: Read .qompack/checkpoints/0001.json (user_intent.evolution[0])"
+    },
+    {
+      "kind": "pointer",
+      "id": "toolu_01CxKH4P4ynFPU4hLWPeUmXj",
+      "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01CxKH4P4ynFPU4hLWPeUmXj)"
+    },
+    {
+      "kind": "pointer",
+      "id": "toolu_01FeV3C6g2bKPt72ekNSNgyY",
+      "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01FeV3C6g2bKPt72ekNSNgyY)"
+    },
+    {
+      "kind": "pointer",
+      "id": "toolu_01FphCkGBPE3rTpxGWocsEiz",
+      "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01FphCkGBPE3rTpxGWocsEiz)"
+    },
+    {
+      "kind": "pointer",
+      "id": "toolu_01GgWmrVdCvApyd2ucSsEWy5",
+      "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01GgWmrVdCvApyd2ucSsEWy5)"
+    },
+    {
+      "kind": "pointer",
+      "id": "toolu_01Hp5vKa2jvFj1P8EWjib1qJ",
+      "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01Hp5vKa2jvFj1P8EWjib1qJ)"
+    },
+    {
+      "kind": "pointer",
+      "id": "toolu_01KDQGaj4o33Ud6LaG3dJLqB",
+      "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01KDQGaj4o33Ud6LaG3dJLqB)"
+    },
+    {
+      "kind": "pointer",
+      "id": "toolu_01LQGPGpqCUyz3yz9B5SJDuD",
+      "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01LQGPGpqCUyz3yz9B5SJDuD)"
+    },
+    {
+      "kind": "pointer",
+      "id": "toolu_01LoMNrw842BjSpziZxnDD5k",
+      "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01LoMNrw842BjSpziZxnDD5k)"
+    },
+    {
+      "kind": "pointer",
+      "id": "toolu_01MXH8ULs7hd4kaNdW3iqtt9",
+      "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01MXH8ULs7hd4kaNdW3iqtt9)"
+    },
+    {
+      "kind": "pointer",
+      "id": "toolu_01MhCDkUqoThbz8GzW4H77v4",
+      "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01MhCDkUqoThbz8GzW4H77v4)"
+    },
+    {
+      "kind": "pointer",
+      "id": "toolu_01N6kbeKN6pL5tkB8uyDDFav",
+      "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01N6kbeKN6pL5tkB8uyDDFav)"
+    },
+    {
+      "kind": "pointer",
+      "id": "toolu_01NZhLGZ9ZDy547Gud6yq1Jn",
+      "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01NZhLGZ9ZDy547Gud6yq1Jn)"
+    },
+    {
+      "kind": "pointer",
+      "id": "toolu_01P4PbGoMXfamUob9zePGTv2",
+      "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01P4PbGoMXfamUob9zePGTv2)"
+    },
+    {
+      "kind": "pointer",
+      "id": "toolu_01P58sWLkervtgYaD9DSgsf8",
+      "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01P58sWLkervtgYaD9DSgsf8)"
+    },
+    {
+      "kind": "pointer",
+      "id": "toolu_01PN1mkWvt5pxy4pBFiq4rgT",
+      "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01PN1mkWvt5pxy4pBFiq4rgT)"
+    },
+    {
+      "kind": "pointer",
+      "id": "toolu_01RSTYUYpFReBRnRguirYR7w",
+      "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01RSTYUYpFReBRnRguirYR7w)"
+    },
+    {
+      "kind": "pointer",
+      "id": "toolu_01SUFdrBLcfLvY1RWfZV9vsB",
+      "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01SUFdrBLcfLvY1RWfZV9vsB)"
+    },
+    {
+      "kind": "pointer",
+      "id": "toolu_01TKgwXEJjtDeU9HFCoHHFGC",
+      "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01TKgwXEJjtDeU9HFCoHHFGC)"
+    },
+    {
+      "kind": "pointer",
+      "id": "toolu_01WtoP77jUa1fa1mwFmxshTL",
+      "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01WtoP77jUa1fa1mwFmxshTL)"
+    },
+    {
+      "kind": "pointer",
+      "id": "toolu_01WvDZkkRUGktrbgCH6qQ9Hk",
+      "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01WvDZkkRUGktrbgCH6qQ9Hk)"
+    },
+    {
+      "kind": "pointer",
+      "id": "toolu_01XEPxJVUhZFecxzdzSVU7dv",
+      "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01XEPxJVUhZFecxzdzSVU7dv)"
+    },
+    {
+      "kind": "pointer",
+      "id": "toolu_01XZfkBeefksjEeoHMCtaJza",
+      "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01XZfkBeefksjEeoHMCtaJza)"
+    },
+    {
+      "kind": "pointer",
+      "id": "toolu_01XnXaZGzb8puDYpL4g7Hf6K",
+      "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01XnXaZGzb8puDYpL4g7Hf6K)"
+    },
+    {
+      "kind": "pointer",
+      "id": "toolu_01YBAmrsT6EyTW1R4Q9ipWUD",
+      "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01YBAmrsT6EyTW1R4Q9ipWUD)"
+    },
+    {
+      "kind": "pointer",
+      "id": "toolu_01YQYd2atWsKhm93pRsj9RQq",
+      "detail": "did not fit the rehydration budget; call expand(tool_use_id=toolu_01YQYd2atWsKhm93pRsj9RQq)"
+    }
+  ],
+  "degraded": false
+}

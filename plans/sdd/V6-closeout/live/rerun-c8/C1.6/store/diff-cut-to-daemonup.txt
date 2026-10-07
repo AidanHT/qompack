@@ -1,0 +1,33 @@
+fingerprint diff: fp2-after-cut.json -> fp3-daemon-up.json
+[objects/] before 10 files, after 13; unchanged 10; changed 0; added 3; removed 0
+  added   objects/2e/f3/2ef33421c954517f5007616aff7847e0af4ac29ca1e75def2cc5f97a87ce6df8.zst  38e4f442f087(231)
+  added   objects/5b/f8/5bf836e4a41c8d9800a317f04d6278878689edab8a93ef14b4266d00b4e06d86.zst  205f74baa84e(264)
+  added   objects/e2/65/e26586ecc9372fd113c6f41a5dcacdbb7b5f85d7b85b5b9bbcf69b1eba71f7c0.zst  1a5f3e9577b0(90)
+[records/captures/ (capture sidecars)] before 12 files, after 15; unchanged 12; changed 0; added 3; removed 0
+  added   records/captures/45/457b3b35e4f62d1e8f188a58e0e69858ad1ea43ec10831514c353936518c7e0a.json  363e33f2cb3a(2183)
+  added   records/captures/4b/4b1da1ace158d671472a2d12d5da08fd97b404d3f836484a0166c42447e744ab.json  0a5a3cd015f0(1548)
+  added   records/captures/60/608fed949aa48589a91d5b053eecf055f5ba448823ff0aba4819fc7ac778befc.json  ce32005d7872(1615)
+[records/ (all)] before 12 files, after 15; unchanged 12; changed 0; added 3; removed 0
+  added   records/captures/45/457b3b35e4f62d1e8f188a58e0e69858ad1ea43ec10831514c353936518c7e0a.json  363e33f2cb3a(2183)
+  added   records/captures/4b/4b1da1ace158d671472a2d12d5da08fd97b404d3f836484a0166c42447e744ab.json  0a5a3cd015f0(1548)
+  added   records/captures/60/608fed949aa48589a91d5b053eecf055f5ba448823ff0aba4819fc7ac778befc.json  ce32005d7872(1615)
+[index/] before 6 files, after 6; unchanged 2; changed 4; added 0; removed 0
+  changed index/files.jsonl  1b239f11dc42(295) -> f8c69ea23388(442)
+  changed index/observations.jsonl  f00b2f744515(10072) -> 713052dd1b27(12626)
+  changed index/roots.jsonl  ad65eaa2224b(7130) -> 89d5ef676730(9553)
+  changed index/tool_use.jsonl  5c257819f93f(9320) -> 03d2ec4a4bc9(11686)
+[state/] before 12 files, after 12; unchanged 6; changed 6; added 0; removed 0
+  changed state/delivery-ack-position.json  2f2e0762e0c8(32768) -> 1c166cc9e11d(32768)
+  changed state/delivery-acks.jsonl  8236c529c79e(3096) -> 6f92101d6c5f(3870)
+  changed state/delivery-lease-position.json  25a5ce0474ae(32768) -> b07a0cb806f8(32768)
+  changed state/delivery-leases.jsonl  5d4e5b149b60(3867) -> 97a42302429d(4836)
+  changed state/history.json  bd3afaa9b01a(897) -> 7b364901c93b(897)
+  changed state/retention-roots.jsonl  b67f7eb074eb(2412) -> 076feb893872(3015)
+[checkpoints/] before 0 files, after 0; unchanged 0; changed 0; added 0; removed 0
+[logs/ run/ spool/ (runtime)] before 5 files, after 6; unchanged 1; changed 4; added 1; removed 0
+  changed logs/qompack-20261007.log  a8b856b1becc(575) -> ca1711b5058f(1555)
+  changed run/daemon.lock  9c4002505251(270) -> 76021892c339(270)
+  changed run/state.bin  117b4a06ba4e(32) -> 1f266d1aa179(32)
+  changed spool/wal-0c8e4cb0-ee60-48b5-9e0f-8bad862a266b.ndjson  0139cbe0fd32(24696) -> ec4522f7f43d(4552)
+  added   logs/LOUD.log  41cbfc16625d(270)
+COMPARED SET (objects/ + capture sidecars) CHANGED

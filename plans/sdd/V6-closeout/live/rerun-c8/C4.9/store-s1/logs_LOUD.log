@@ -1,0 +1,1 @@
+ts=2026-10-07T18:09:48.0010988Z level=loud msg="daemon: config reload warning" key=runtime.migration message="settingsVersion 99 is newer than this build understands (1); the whole runtime.migration block is reset to defaults so unknown switches stay off" location=<scratch>\resilience\c8\c49b\proj\.qompack\config.json:1

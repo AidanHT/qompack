@@ -1,0 +1,47 @@
+F-C48-1 and the drain on candidate 8 (D58(c)/(d): the owner's re-check "compact, then status shows 0 pending"), and
+UAT-09 O-1 from the same session. The second route (the parent restarting behind a fork) is in route2-uat06/notes.txt.
+Agent-executed on the owner's real host per owner decision D3 by a Claude Code workflow subagent (Opus 5.5) — not
+human UAT.
+
+Date 2026-10-07 America/Toronto, session 11:09:57-11:11:03 EDT. Sessions used: 1 (sessions.tsv sessions-c8 n=7; it
+ran beside n=6, UAT-04, in a separate project). Model claude-haiku-4-5-20251001, Claude Code 2.1.280, Windows 11 Home
+25H2 build 10.0.26200.9457, frozen bundle qompack-bundles/c8 (BUNDLE.json sha256
+61ba9c37dda03c14c44acb6824646a8d7410751bba6f1ce3c5c864d6382dcd8b, commit 3ec62ad2) via --plugin-dir; CLI steps with
+the bundle's bin/qompack.exe (cli/00-version 0.3.0). Fresh project fc48/proj (src/app.py, data/info.txt, README.md,
+docs/plan.md; git init + add); defaults; DEFAULT idle exit (1800 s); initial absence recorded
+(cli/00-backup-create-absent exit 1). No daemon was ended.
+
+Session (session/stream.jsonl, meta.json exit 0, 65.3 s; stderr.txt 0 bytes; hooks.json 17 pairs, all success,
+exit 0): T1 Read src/app.py, T2 `cat data/info.txt`, T3 Read README.md (three captures), T4 "/compact" (mid-session,
+checkpoint 0001, block2 1,650 units), T5 Read docs/plan.md (one more turn), T6 "/compact" as the session's LAST user
+turn (checkpoint 0002, block3 1,582 units; Current work = the docs/plan.md prompt). Both "/compact" turns read
+"PreCompact [...] completed successfully". The driver then closed stdin and the host exited at 11:11:03 EDT.
+
+F-C48-1 (cli/a-right-after-*, read at 11:11:04, 1 s after the host exited, daemon pid 55096 up):
+ - status: "host contract: 9 assertion(s), none failing: 8 holding, 0 pending, 1 with nothing to judge"; status --json
+   session_start.fires observed "same-session-restart" (holding); mode full; sessions 1 (Live false);
+ - "spool files: 0"; spool-a-right-after.txt: 0 files under .qompack/spool; counters
+   daemon.publication.unpublished_captures 0, daemon.publication.unindexed_object_candidates 0;
+ - doctor: spool.pending ok "0 file(s), 0 byte(s)", drain.progress ok "0 spool file(s) tracked".
+ The drain poll (spool-poll01.txt, cli/b-drained-*) found 0 files at its first look, and status read the same.
+ After the idle exit (11:41:37 EDT, 1,804 s after the wait began, no termination): spool-c-after-exit.txt 0 files;
+ cli/c-after-exit-fsck-json exit 0, all checks ok; doctor spool.pending ok, drain.progress ok (status.primary disk).
+ store/state_history.json: starts_without_marker 0. The per-start record (store/state_observations.json): startup
+ first-session, then same-session-restart at each compact start.
+ Result: pass — session_start.fires holds after a final /compact, and 0 captures are pending once drained (here, at
+ once).
+
+UAT-09 O-1 — did SessionEnd reach the daemon after a session whose last turn was "/compact"? Observed: yes.
+ - Day log (store/logs_qompack-20261007.log): "observer: gc scanned=13" at 15:11:03.095Z, 0.1 s after the host
+   exited; that line is written only by the observer's OnSessionEnd (w20-sessionend's proof). No WARN "ending
+   abandoned session; no SessionEnd arrived" anywhere in the log, up to and including the idle exit.
+ - metrics (store/metrics_latency.json, persisted at the idle exit): histogram observer.session_end N=1 (max 180 ms).
+ - run/marker.json: session 77ff5d8c, ts 1791385862872 (15:11:02.872Z), written at the session's end, after the
+   final PreCompact.
+ - index/sessions.jsonl: end 1791385861417, the newest root's ts (by design, internal/store/flush.go), not the
+   SessionEnd time.
+ - No client spool at any point (0 files right after, after the drain and after the exit).
+ - The host's stderr.txt is 0 bytes: no "SessionEnd hook [...] failed".
+ Candidate 7's O-1 (a SessionEnd that seemed lost after a /compact turn) was ruled by design under D62 (sessionend:
+ the abandoned-session sweep fired during a long reply at idleExitSeconds=30); at the default idle exit here nothing of
+ the kind occurred. Not a finding.

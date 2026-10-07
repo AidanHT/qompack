@@ -1,0 +1,32 @@
+{
+ "files": {
+  "notes.md": {
+   "bytes": 56,
+   "sha256": "42de3bae648ccc886e139eef4c5c1172d2d23bdf3896c1642c54b248495c509e"
+  },
+  ".claude/settings.json": {
+   "bytes": 72,
+   "sha256": "051845945cf7e1f094b49f570132f3705de7528eb58a83f0273c1f0c8df48019"
+  },
+  "ops/runbook.md": {
+   "bytes": 99,
+   "sha256": "da660c2555f85631fd0007785f34ed6753617720c1282c43c5541c548efa182b"
+  },
+  "private/vault.txt": {
+   "bytes": 64,
+   "sha256": "a18163578276105a9bffb7dd55d2c9acb30d59ce38583a2aa3c37dd96a240cab"
+  },
+  "src/cache.go": {
+   "bytes": 351,
+   "sha256": "35ec2e9606b5aeca57ca9a6c420ac2ea292854d7d53c7f4efee8f726c1b0a878"
+  },
+  "src/ledger.go": {
+   "bytes": 522,
+   "sha256": "f2dff8f7ec9273213b63a867967dcdee3608e17e0532029c1500225f40cee8ee"
+  }
+ },
+ "config": "defaults (no config file): retrieval.defaultSpan minimal, runtime.mcp.spanWidenLines 40, runtime.mcp.maxResponseBytes 262144, store.retention.* default (cli/02 proves each); env QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS=120 (not a row key) and QOMPACK_HOME",
+ "deny_settings": "project .claude/settings.json (untracked), Read(./private/vault.txt) written before the session; a second rule Read(./ops/runbook.md) is appended mid-session by middeny.py",
+ "outside_file": "<scratch>/carried/uat07/outside.txt (parent of the project root)",
+ "git": "init + one commit of src/, notes.md, ops/, private/"
+}

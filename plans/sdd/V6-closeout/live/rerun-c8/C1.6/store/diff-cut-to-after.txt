@@ -1,0 +1,61 @@
+fingerprint diff: fp2-after-cut.json -> fp4-after-exit.json
+[objects/] before 10 files, after 16; unchanged 9; changed 0; added 7; removed 1
+  added   objects/2e/f3/2ef33421c954517f5007616aff7847e0af4ac29ca1e75def2cc5f97a87ce6df8.zst  38e4f442f087(231)
+  added   objects/48/e2/48e250a39642efcb24197345616a9bc2b0195a7f2838530d62c1763add4fe393.zst  95d916377a21(263)
+  added   objects/5b/f8/5bf836e4a41c8d9800a317f04d6278878689edab8a93ef14b4266d00b4e06d86.zst  205f74baa84e(264)
+  added   objects/b2/f5/b2f5469c202c89dd4d7024ce0f4f6a1fd42981434901a1a2783d4294af8ea1a1.zst  4936a50c2182(96)
+  added   objects/c7/ab/c7aba790fc52cc943557f5fb641265c4dfb23faf69c3909cda27509920fdcd4e.zst  a40b70b12120(103)
+  added   objects/d4/dc/d4dc72b00862b6f34ad124c1d60ea7812e6d8bde3e001c947c2f162202ab9cec.zst  c97b8d7dd3c9(168)
+  added   objects/e2/65/e26586ecc9372fd113c6f41a5dcacdbb7b5f85d7b85b5b9bbcf69b1eba71f7c0.zst  1a5f3e9577b0(90)
+  removed objects/17/7c/177c6f4c9ec81f58bb337faaff40991238ea8dee6adb4c89a9875dc0a800dd2a.zst
+[records/captures/ (capture sidecars)] before 12 files, after 21; unchanged 12; changed 0; added 9; removed 0
+  added   records/captures/2d/2d337478da6df250d31d1023addcb0a0cbaccdea2424afb38fba3b92197024ce.json  4d560257e175(1683)
+  added   records/captures/41/41be8eb52a276d426f770806114a8567651c8af968c1b50449cf930dad06767c.json  b24876ac0c64(1565)
+  added   records/captures/45/457b3b35e4f62d1e8f188a58e0e69858ad1ea43ec10831514c353936518c7e0a.json  363e33f2cb3a(2183)
+  added   records/captures/4b/4b1da1ace158d671472a2d12d5da08fd97b404d3f836484a0166c42447e744ab.json  0a5a3cd015f0(1548)
+  added   records/captures/4c/4ca7ecb9eee9618ee60b2016279c1a034df9460b4886053ae5df31e494ae6854.json  6b01ce1f1dfe(1651)
+  added   records/captures/60/608fed949aa48589a91d5b053eecf055f5ba448823ff0aba4819fc7ac778befc.json  ce32005d7872(1615)
+  added   records/captures/71/71a7677f4ca482057d573b037c10c79f811c7baddab6256eb89415cf38839f64.json  e5f245c9f504(1907)
+  added   records/captures/77/77139a40ca1fb0c9e08dacbd3b6eefc3047db2e1355e65cc2b98a51236711bc4.json  1b89b75ac9fe(1556)
+  added   records/captures/ac/ac2a9c321818c39546f7699845eacd04a0a70001b5f52c5f56cd9fb449f09337.json  5a727e2358c1(2171)
+[records/ (all)] before 12 files, after 21; unchanged 12; changed 0; added 9; removed 0
+  added   records/captures/2d/2d337478da6df250d31d1023addcb0a0cbaccdea2424afb38fba3b92197024ce.json  4d560257e175(1683)
+  added   records/captures/41/41be8eb52a276d426f770806114a8567651c8af968c1b50449cf930dad06767c.json  b24876ac0c64(1565)
+  added   records/captures/45/457b3b35e4f62d1e8f188a58e0e69858ad1ea43ec10831514c353936518c7e0a.json  363e33f2cb3a(2183)
+  added   records/captures/4b/4b1da1ace158d671472a2d12d5da08fd97b404d3f836484a0166c42447e744ab.json  0a5a3cd015f0(1548)
+  added   records/captures/4c/4ca7ecb9eee9618ee60b2016279c1a034df9460b4886053ae5df31e494ae6854.json  6b01ce1f1dfe(1651)
+  added   records/captures/60/608fed949aa48589a91d5b053eecf055f5ba448823ff0aba4819fc7ac778befc.json  ce32005d7872(1615)
+  added   records/captures/71/71a7677f4ca482057d573b037c10c79f811c7baddab6256eb89415cf38839f64.json  e5f245c9f504(1907)
+  added   records/captures/77/77139a40ca1fb0c9e08dacbd3b6eefc3047db2e1355e65cc2b98a51236711bc4.json  1b89b75ac9fe(1556)
+  added   records/captures/ac/ac2a9c321818c39546f7699845eacd04a0a70001b5f52c5f56cd9fb449f09337.json  5a727e2358c1(2171)
+[index/] before 6 files, after 7; unchanged 1; changed 5; added 1; removed 0
+  changed index/files.jsonl  1b239f11dc42(295) -> 3863886b789b(589)
+  changed index/observations.jsonl  f00b2f744515(10072) -> 14f952e2846c(17664)
+  changed index/roots.jsonl  ad65eaa2224b(7130) -> 4f0490e104ba(12276)
+  changed index/sessions.jsonl  e3b0c44298fc(0) -> 1bcf97d0281d(198)
+  changed index/tool_use.jsonl  5c257819f93f(9320) -> 970f04182be8(16348)
+  added   index/files.json  f33fc23bc272(594)
+[state/] before 12 files, after 19; unchanged 6; changed 6; added 7; removed 0
+  changed state/delivery-ack-position.json  2f2e0762e0c8(32768) -> fbe35d9a7e5a(113)
+  changed state/delivery-acks.jsonl  8236c529c79e(3096) -> a8dbcd73eb63(5676)
+  changed state/delivery-lease-position.json  25a5ce0474ae(32768) -> 5e8af99aacd3(113)
+  changed state/delivery-leases.jsonl  5d4e5b149b60(3867) -> 158567ace3b1(7097)
+  changed state/history.json  bd3afaa9b01a(897) -> 5a97c25ab16d(897)
+  changed state/retention-roots.jsonl  b67f7eb074eb(2412) -> 59e16a30c40c(4221)
+  added   state/bocd.json  f94444971133(1553)
+  added   state/chunktokens.bin  52d4260bbb95(196)
+  added   state/gc-live.bin  7049ed821566(1280)
+  added   state/observer.json  6906ed3cb01a(27)
+  added   state/scheduler.json  a4ac186673c3(1060)
+  added   state/session-recovery.json  2f2ff096195b(21)
+  added   state/store.json  7bcb2191b2bd(79)
+[checkpoints/] before 0 files, after 0; unchanged 0; changed 0; added 0; removed 0
+[logs/ run/ spool/ (runtime)] before 5 files, after 3; unchanged 0; changed 1; added 2; removed 4
+  changed logs/qompack-20261007.log  a8b856b1becc(575) -> 82e3c025ebd7(1663)
+  added   logs/LOUD.log  41cbfc16625d(270)
+  added   run/marker.json  b876f9aad51b(69)
+  removed run/daemon.hb
+  removed run/daemon.lock
+  removed run/state.bin
+  removed spool/wal-0c8e4cb0-ee60-48b5-9e0f-8bad862a266b.ndjson
+COMPARED SET (objects/ + capture sidecars) CHANGED

@@ -1,0 +1,88 @@
+{
+ "denied_files": {
+  "private/deny.txt": [
+   {
+    "tool_use_id": "toolu_014s1vukozDv1vWyYbRaNXH5",
+    "is_error": true,
+    "in_permission_denials": true,
+    "refused": true,
+    "result_head": "<tool_use_error>File is in a directory that is denied by your permission settings.</tool_use_error>"
+   }
+  ],
+  "private/deny (1).txt": [
+   {
+    "tool_use_id": "toolu_01KP4JWm1WgYjANVcGxpmyvd",
+    "is_error": true,
+    "in_permission_denials": true,
+    "refused": true,
+    "result_head": "<tool_use_error>File is in a directory that is denied by your permission settings.</tool_use_error>"
+   }
+  ],
+  "private/John's notes.txt": [
+   {
+    "tool_use_id": "toolu_015TVa2GnGLruixDN4Tiomkr",
+    "is_error": true,
+    "in_permission_denials": true,
+    "refused": true,
+    "result_head": "<tool_use_error>File is in a directory that is denied by your permission settings.</tool_use_error>"
+   }
+  ],
+  "private/a,b.txt": [
+   {
+    "tool_use_id": "toolu_01MNPa3uCq9UsdCPb1yRBd2e",
+    "is_error": true,
+    "in_permission_denials": true,
+    "refused": true,
+    "result_head": "<tool_use_error>File is in a directory that is denied by your permission settings.</tool_use_error>"
+   }
+  ],
+  "private/k=v.txt": [
+   {
+    "tool_use_id": "toolu_01Fwjt3cjvXDob5RAeFqKn5h",
+    "is_error": true,
+    "in_permission_denials": true,
+    "refused": true,
+    "result_head": "<tool_use_error>File is in a directory that is denied by your permission settings.</tool_use_error>"
+   }
+  ]
+ },
+ "permission_denials": [
+  {
+   "tool_name": "Read",
+   "tool_use_id": "toolu_014s1vukozDv1vWyYbRaNXH5",
+   "tool_input": {
+    "file_path": "<scratch>\\retrieval\\c8\\sessc space\\proj\\private\\deny.txt"
+   }
+  },
+  {
+   "tool_name": "Read",
+   "tool_use_id": "toolu_01KP4JWm1WgYjANVcGxpmyvd",
+   "tool_input": {
+    "file_path": "<scratch>\\retrieval\\c8\\sessc space\\proj\\private\\deny (1).txt"
+   }
+  },
+  {
+   "tool_name": "Read",
+   "tool_use_id": "toolu_015TVa2GnGLruixDN4Tiomkr",
+   "tool_input": {
+    "file_path": "<scratch>\\retrieval\\c8\\sessc space\\proj\\private\\John's notes.txt"
+   }
+  },
+  {
+   "tool_name": "Read",
+   "tool_use_id": "toolu_01MNPa3uCq9UsdCPb1yRBd2e",
+   "tool_input": {
+    "file_path": "<scratch>\\retrieval\\c8\\sessc space\\proj\\private\\a,b.txt"
+   }
+  },
+  {
+   "tool_name": "Read",
+   "tool_use_id": "toolu_01Fwjt3cjvXDob5RAeFqKn5h",
+   "tool_input": {
+    "file_path": "<scratch>\\retrieval\\c8\\sessc space\\proj\\private\\k=v.txt"
+   }
+  }
+ ],
+ "proven": true,
+ "content_returned_for": []
+}

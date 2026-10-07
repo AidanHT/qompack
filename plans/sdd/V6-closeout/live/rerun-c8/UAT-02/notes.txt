@@ -1,0 +1,102 @@
+UAT-02 - candidate 8 live re-check, carried part (decisions D58-D67): ordinary work in a real session; permitted
+capture and fidelity. Also C4.2: every hook event captured, .qompack/ index counts match what the session did, status,
+doctor and fsck clean (live and stopped) after a session with MCP calls. Agent-executed on the owner's real host per
+owner decision D3 by a Claude Code workflow subagent (Opus 5.5) - not human UAT.
+
+Build: qompack version 0.3.0 (cli/00-version), frozen bundle qompack-bundles/c8/qompack-plugin-0.3.0-windows-amd64
+(BUNDLE.json sha256 61ba9c37dda03c14c44acb6824646a8d7410751bba6f1ce3c5c864d6382dcd8b, bin/qompack.exe sha256
+93eb09f348774fbf2783bd607a3af41622976b2edad42798b437091eace381a9), commit 3ec62ad2e01b985640c0f1fb832df3917f766a5f,
+Windows 11 Home 25H2 build 10.0.26200.9457, Claude Code 2.1.280, --plugin-dir the frozen bundle (init: plugin qompack
+0.3.0 qompack@inline, plugin:qompack:qompack connected, the eight tools, six /qompack: commands, no qompack:checkpoint),
+claude-haiku-4-5-20251001. Date 2026-10-07 12:47-13:21 America/Toronto. Session carried-c8 n=1 (session/, id d9d2442d,
+10 user turns, 91 s, exit 0). No spare was used. Every CLI step used the bundle's bin/qompack.exe.
+
+SETUP (setup-facts.json): disposable project <scratch>/carried/uat02/proj, git init + add: README.md, notes.md
+(codename SABLE-HERON-73, phrase "indigo walrus cadence"), config.ini, creds.txt with two credential-shaped fake secrets
+built at run time from split parts (@@SEC_PLANTED_1@@ aws_access_key_id shape, @@SEC_PLANTED_2@@ github_token shape;
+sha256 of each in setup-facts.json; literals only in <scratch>/carried/secrets.json; every driver output and CLI
+capture filtered; each commit gated by scan-staged), big.log 310,800 B (> runtime.mcp.maxResponseBytes 262,144),
+blob.bin 3,064 random bytes with NULs, logo.png (a 32x32 PNG). Configuration: defaults (no config file;
+runtime.redact.enabled true, runtime.mode auto; QOMPACK_HOME=<scratch>/carried/qhome only moves calibration.json and
+was never created; DEFAULT idle exit 1800 s). Host env for the session only: CLAUDE_CODE_FILE_READ_MAX_OUTPUT_TOKENS=
+120000, BASH_MAX_OUTPUT_LENGTH=150000 (as candidates 3 and 4). Pre-run backup: cli/00-backup-create-initial-absence
+exit 1 "backup: source project has no existing store" (initial absence; expected: does not exist).
+
+STEP 1 (cli/01-step1-self-test, -json): exit 0, mode full; the eight self-checks (config.load, config.capture,
+qompack.writable, paths.guard, ipc.resolve, daemon.reachable, admin.ping, ops.coverage) then the nine assertions.
+OBSERVED (to be confirmed at execution; before any session): session_start.fires first-session,
+session_start.source_compact no-precompact-pending, hook.additional_context_delivered / precompact.has_time_to_write /
+precompact.custom_instructions_accepted / mcp.server_registered not-yet-implemented, hook.payload_shape "payload shape
+valid", transcript.readable no-transcript-path, plugin.root_resolves unset; daemon.reachable "was not running; spawned
+and reachable now". Identical to candidate 4.
+
+STEPS 2-4, 6 (session/stream.jsonl, tool-calls.txt): T1 Read notes.md -> SABLE-HERON-73. T2 Read big.log offset 1 limit
+1400 (the host delivered the whole file). T3 Read logo.png (image block); Read blob.bin REFUSED by the host ("This tool
+cannot read binary files...", no PostToolUse), then Bash `cat blob.bin` (host-decoded text). T4 Read creds.txt (the
+model named the two settings only). T5 /qompack:recall indigo walrus cadence: the command's `qompack recall` ran
+through the host (`qompack` resolved, no PATH change); hit notes.md FileRead hash 748125c3 (slash-commands.json).
+T6 MCP recall + expand {hash 748125c3...}: found, span [0,249], total_bytes 249, truncated false. T7 recall
+path:big.log / path:creds.txt and expand of each hit BY HASH: big.log span [0,9909], total_bytes 312302, truncated
+true, next_span "9909:16384"; creds.txt span [0,243], truncated false, content with «redacted:aws_access_key_id» and
+«redacted:github_token»; no fidelity or coverage field in either. T8 subagent (Agent tool; its Read of config.ini ->
+9137). T9 /compact (checkpoint 0001, SessionStart:compact injected 6,097 chars, arrival 222 ms measured). T10 codename
+-> SABLE-HERON-73.
+cli/20-mcp-probe-step6-expand-meta.json (the frozen `qompack mcp` over stdio, no model, after the session): each expand
+carries result._meta.qompack {elapsed_ms, ephemeral true, expansions, hash, promoted, span, tool_use_id, total_bytes,
+truncated, untrusted, and next_span for big.log}; the body reports span, total_bytes, truncated and next_span when there
+is more.
+
+STEP 5 (cli/05-step5-status-during-session, run by a before-step ahead of turn 5): first line "source: daemon
+(available, 0µs old)"; "host contract: 9 assertion(s), none failing: 3 holding, 1 pending, 5 with nothing to judge;
+pending: transcript.readable (transcript-pending)"; every per-hook row reads `unavailable` with its reason (never 0).
+After the session (cli/10): "9 assertion(s), none failing: 7 holding, 0 pending, 2 with nothing to judge"; PreCompact B-E
+observed n=1 p50 122.15 ms; every other per-hook row `unavailable` with its reason; B-D unavailable "no instrument
+records this histogram in this build".
+
+Step 6 expectation (revised under D46): MET - expand carries _meta.qompack and reports the read (span, total_bytes,
+truncated, next_span when there is more), redacted content appears as «redacted:…» placeholders, no retrieval response
+carries a fidelity or coverage field, and the small file's fidelity is on its capture sidecar: notes.md `exact`.
+
+Fidelity of the oversized and binary captures (capture sidecars .qompack/records/captures/*/*.json, fidelity-tally.txt,
+metadata only): 35 exact, 1 redacted (creds.txt). big.log (Read, source_bytes 313,064): exact - the host delivered the
+whole file and Qompack stored the whole delivery, so nothing was cut; expand pages it (truncated true + next_span).
+blob.bin: the Read was refused by the host (no PostToolUse, no capture); the `cat` capture (source_bytes 8,151,
+host-decoded text) is exact. logo.png: image block, exact. The row's expected NON-exact fidelity for the oversized and
+binary captures was therefore NOT observed (same as candidates 3 and 4; host-limited on Claude Code 2.1.280, D49:
+the host delivers content whole or not at all). None of the row's three fail criteria occurred (every capture came
+back, no demonstrably cut capture reads exact, no latency cell prints 0 without an instrument).
+
+C4.2 (c42-counts.json, session/transcript-facts.json, session/hooks.json):
+ event              host stream (hook_response, all success/exit 0)    store evidence
+ SessionStart       startup 1, compact 1                               sessions.jsonl; rehydrate state; block 2
+ UserPromptSubmit   10                                                  10 UserPromptSubmit records
+ PostToolUse        14 (Read 5 incl. the subagent's, Bash, ToolSearch,  14 capture records (FileRead 5, Bash,
+                    recall 3, expand 3, Agent)                          ToolSearch, plugin recall 3, expand 3, Agent)
+ Stop               10                                                  turn boundaries
+ SubagentStop       2                                                   2 SubagentStop records
+ PreCompact         no stream event; the session's transcript carries  checkpoints/0001.json + MANIFEST line;
+                    "PreCompact [${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe   counter checkpoint.cold_precompact 1
+                    checkpoint] completed successfully: {}"
+ SessionEnd         no stream event; stderr.txt EMPTY (no "Hook          index/sessions.jsonl: 1 line, end set,
+                    cancelled")                                         turns 19, tooluses 33
+ Host tool uses 15 (14 main + 1 subagent) minus the refused blob.bin Read (toolu_0133g5zA..., the only host id not in
+ the store) = 14 = store capture records; prompts 10 = 10; sessions 1 = 1; the store additionally holds 7
+ qompack-mcp:* self-records (the MCP server's 6 and the CLI recall's 1) and 2 SubagentStop records.
+ turn_order_violations: none.
+ Arrival deltas (hooks.json; approximate, host-seen): PostToolUse n14 84-232 ms (median 106), Stop n10 69-206,
+ UserPromptSubmit n9 83-247, SubagentStop n2 84-98, SessionStart:compact 222 ms; SessionStart:startup and the first
+ UserPromptSubmit arrived before init: not measured.
+ Clean diagnostics after the session with MCP calls:
+  - daemon live, right after the session (cli/10-12): status none failing; doctor --json exit 0, no degraded row
+    (captures.unpublished "0 gap(s) across 36 sidecar(s)"); fsck --json exit 0, every row ok.
+  - the session's daemon ended by the DEFAULT idle exit at 13:20:58 (cli/30-daemon-ended.txt; no process terminated);
+    then doctor --json exit 0 with no degraded row, fsck --json and fsck --json --seal-check exit 0 with daemon_running
+    false and every row ok, and status LAST ("source: disk", no failing row; it asked a daemon to start, which idles
+    out by itself).
+ C4.2 therefore holds on candidate 8.
+
+Planted-secret scan (secret-scan-store.json): 166 files of the post-run store, 86 zstd-decompressed, 275 base64 fields:
+0 hits.
+Rollback: not applicable - initial state absent (recorded); per the row's rule this run is retained as evidence; no
+restore was run. Guard: guard/carried.txt ("after session 1 UAT-02/C4.2"; homeguard clean removed the empty
+run-created plugins/data/qompack-inline/ that --plugin-dir leaves).

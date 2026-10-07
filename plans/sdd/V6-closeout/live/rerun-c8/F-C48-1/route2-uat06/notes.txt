@@ -1,0 +1,34 @@
+F-C48-1, second route (w20-status 2e4ba732): the parent restarts while another session is the store's last.
+Agent-executed on the owner's real host per owner decision D3 by a Claude Code workflow subagent (Opus 5.5) — not
+human UAT. Date 2026-10-07 America/Toronto. Sessions used: 1 (sessions.tsv sessions-c8 n=5, evidence
+rerun-c8/UAT-06/sessionD-parent-restart/), in the UAT-06 project, after the fork session (n=4) ended.
+
+Before (cli/preD-status-json, preD-status, 11:02 EDT): history.json last_session_id = the fork daf8fe7b, so the
+store's last session is the fork; session_start.fires same-session-restart; banner "9 assertion(s), none failing: 8
+holding, 0 pending, 1 with nothing to judge"; mode full.
+
+Session D: `--resume 7f96ea69` (the parent, the first-started session) once more; "/compact" as its first turn, then
+one question. SessionStart:resume and SessionStart:compact both success (hooks.json 5 pairs, all success, exit 0;
+stderr 0 bytes); the compaction wrote the parent's checkpoint 0003 (UAT-06/D-block2).
+
+After (cli/postD-status-json and postD-status, read with the session ended and the daemon pid 55416 still up):
+ - session_start.fires: observed "same-session-restart", ok true, severity 0 (holding);
+ - banner "host contract: 9 assertion(s), none failing: 8 holding, 0 pending, 1 with nothing to judge" (the one with
+   nothing to judge is precompact.custom_instructions_accepted "retired");
+ - mode full in snapshot.mode and the text page (not degraded-passive); sessions 2;
+ - store/state_history-postD.json: starts_without_marker 0, last_session_id 7f96ea69.
+The per-start record (UAT-06/store/state_observations.json, session_start.fires entries in order): A startup
+first-session; A compact, B resume, B compact same-session-restart; C fork marker-found; C compact x3
+same-session-restart; D resume marker-found; D compact same-session-restart. No start of the project read
+marker-absent-once or failing.
+
+How to read it: D's resume start found the marker the fork's SessionEnd had written (it names the fork), so that start
+read marker-found, which is what moved last_session_id to the parent (internal/contract/assertions.go: a marker naming
+another session resets the count and takes the start's id). D's compact start then found the parent's own PreCompact
+marker and read same-session-restart. So in this sequential flow the exact state w20-status' rows reproduce (a start
+reading its own session's marker while last_session_id names another session) did not arise: by D's compact start
+last_session_id already named the parent. That state needs two sessions open at once, which a headless resume after
+the fork has exited does not produce. Neither start counted an absence and the project was not degraded: the
+expected reading holds for the route as run.
+
+Result: pass.

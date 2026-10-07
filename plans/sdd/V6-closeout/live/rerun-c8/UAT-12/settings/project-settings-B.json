@@ -1,0 +1,13 @@
+{
+ "permissions": {
+  "deny": [
+   "Read(./private/deny.txt)",
+   "Read(./private/deny (1).txt)",
+   "Read(./private/John's notes.txt)",
+   "Read(./private/a,b.txt)",
+   "Read(./private/k=v.txt)",
+   "Read(./private/draft-plan.txt)",
+   "Read(./notes-b.md)"
+  ]
+ }
+}

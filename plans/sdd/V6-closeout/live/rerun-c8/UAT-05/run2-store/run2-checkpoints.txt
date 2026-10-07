@@ -1,0 +1,8 @@
+checkpoints/ listing:
+    4295  0001.json  sha256:b6dc91c913792df3af17b95c070d779c25aeb8590dd648136a4b1c914add5e1d
+    3830  0002.json  sha256:e71be6da7f2ac1a6f0caec54b28ec13034b6f107717313660a914bed98f677d2
+     260  MANIFEST.jsonl  sha256:fe1d5d718d3d9358725d0d8940cbba5d56bab6a713ea830b5d5a087ad9eb1a78
+
+MANIFEST re-hash:
+seq 1 0001.json manifest sha256:b6dc91c913792df3af17b95c070d779c25aeb8590dd648136a4b1c914add5e1d artifact sha256:b6dc91c913792df3af17b95c070d779c25aeb8590dd648136a4b1c914add5e1d -> MATCH
+seq 2 0002.json manifest sha256:e71be6da7f2ac1a6f0caec54b28ec13034b6f107717313660a914bed98f677d2 artifact sha256:e71be6da7f2ac1a6f0caec54b28ec13034b6f107717313660a914bed98f677d2 -> MATCH

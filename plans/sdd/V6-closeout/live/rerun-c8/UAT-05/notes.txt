@@ -1,0 +1,105 @@
+UAT-05 run 2 on candidate 8 (D59(b), D60(c)(ii), ADR 0011 section 23 item 1 and item 3). Run 1 passed on
+candidate 7 and is not re-run here (the resilience part writes its carry-forward note). Also C4.3.
+Agent-executed on the owner's real host per owner decision D3 by a Claude Code workflow subagent (Opus 5.5) — not
+human UAT.
+
+Date 2026-10-07 America/Toronto, session 10:48:56-10:50:52 EDT. Sessions used: 1 (sessions.tsv part sessions-c8
+n=1). Model claude-haiku-4-5-20251001, Claude Code 2.1.280, Windows 11 Home 25H2 build 10.0.26200.9457, frozen
+bundle qompack-bundles/c8/qompack-plugin-0.3.0-windows-amd64 (BUNDLE.json sha256
+61ba9c37dda03c14c44acb6824646a8d7410751bba6f1ce3c5c864d6382dcd8b, bin/qompack.exe sha256
+93eb09f348774fbf2783bd607a3af41622976b2edad42798b437091eace381a9, commit
+3ec62ad2e01b985640c0f1fb832df3917f766a5f) via --plugin-dir; every CLI step used the bundle's bin/qompack.exe
+(cli/00-version: 0.3.0). Init: plugin qompack 0.3.0 (qompack@inline), plugin:qompack:qompack connected, 8 MCP
+tools, the six /qompack: commands (dropped, eval, pin, recall, status, why; no qompack:checkpoint).
+
+Preconditions (cli/00-preconditions.txt): a fresh project uat05/proj (billing.py, README.md, data/meta2.txt; git
+init + add), defaults at the start (no config file, no --set), DEFAULT idle exit (1800 s), QOMPACK_HOME moves
+calibration.json only. Initial absence recorded: cli/00-backup-create-absent exit 1 "source project has no
+existing store".
+
+The session (run2-session/stream.jsonl, meta.json exit 0, 116.0 s; stderr.txt 0 bytes; hooks.json 24 pairs, every
+hook_response outcome success, exit 0):
+ T1 requirement "the export must quote every field with double quotes" + Read billing.py; T2 "/qompack:pin Never
+ write to prod.db from the billing export." -> "pinned inv_b91128913d77 (source: user)"; T3 the correction "must NOT
+ quote fields ... The double-quote requirement is superseded."; T4 record_eliminated -> elim_138a899a92c1 (scope
+ session); T5 `cat data/meta2.txt`.
+ Live reload (D49), run2-before-steps.txt turn 5: with the session's daemon pid 31768 running,
+ <project>/.qompack/config.json was written at 10:49:25 EDT as
+ {"runtime": {"rehydrate": {"minTokens": 150, "maxTokens": 150}}}; the daemon logged 3 s later
+ (store-run2/logs_qompack-20261007.log line 4):
+   ts=2026-10-07T14:49:28.453052Z level=info msg="daemon: config reloaded"
+   changed="[runtime.rehydrate.maxTokens runtime.rehydrate.minTokens]"
+ and the SAME daemon (pid 31768, unchanged after the wait) answered T6 "/compact" (block A): its state
+ (run2-blockA-state-*.json) reads budget 150. The change reached the running daemon without a restart.
+ cli/run2-config-print-provenance: maxTokens 150 / minTokens 150 from the project config.json:1.
+ Primary route (the row's step 5 text), turn 6's before step: pid 31768 was terminated (lock pid, image qompack.exe
+ and command line "daemon --project <scratch>\sessions\c8\uat05\proj" all checked; Stop-Process exit 0). The daemon
+ was ended because the row's step 5 asks for a daemon started after the edit; nothing else in this row ended a
+ daemon. T7 Read README.md started pid 21744 under the edited file; T8 "/compact" (block B) was answered by it:
+ state seq 2 budget 150. T9 "/qompack:dropped --json".
+
+Step 2 — the injected blocks (run2-block2-SessionStart-compact.txt = block A, run2-block3-... = block B), each 468
+UTF-16 units with the probe line, inline (the hook output itself, no <persisted-output>):
+   <!-- qompack:injected seq=1 ver=1 -->
+   # Qompack rehydration — checkpoint 0001, session 40b051ee
+
+   ## 7. No longer in context
+   - 15 items did not fit the rehydration budget; call dropped() to list each with the call that restores it (the
+     user's /qompack:dropped shows the same list)
+   - the original request, verbatim: expand(tool_use_id=prompt_40b051ee-13e5-4f31-ac6f-8a3de019098f_0)
+   <!-- /qompack:injected -->
+   <!-- qompack-contract-probe qompack-contract-bf1158843f33 -->
+ Block B is the same with seq=2, checkpoint 0002 and "14 items".
+Step 3 — states: block A tokens 131, budget 150, items [drop_report rank 0, 131 tokens, units 2 of 15], degraded
+ true, 15 drops; block B tokens 131, budget 150, degraded true, 14 drops. Tier-1 entries first: invariants/tier1
+ "OVERFLOW: pinned invariant inv_b91128913d77 did not fit the rehydration payload and is emitted whole or not at all;
+ restore: Read .qompack/checkpoints/0001.json (invariants)", user_intent/tier1 "OVERFLOW: the verbatim original user
+ intent did not fit ...; restore: expand(tool_use_id=prompt_40b051ee-..._0)", then the evolution entries, the
+ elimination (already_tried), the decision (why), current_work, the pointers, and affordance/tier1.
+Step 4 — run2-blockA-dropped-json (taken before pid 31768 was ended; exit 0, count 15) and
+ cli/run2-dropped-json-after-blockB (exit 0, count 14) list every entry; each count equals the N in its notice.
+ In-session T9: the command body ran and its output reached the model as the expanded command message (host
+ transcript line 211, isMeta, holding "count":14; transcript-facts.json keeps only counts), but the model did not
+ echo it: it resumed the export task from the host's summary and tried Edit, which dontAsk denied. Same model
+ behaviour as candidate 7's T9; the committed envelopes are CLI captures. cli/run2-dropped-text-after-blockB: the
+ text form prints the same JSON list, then an evidence block (elapsed_ms, hash, tool_use_id) and "marked ephemeral by
+ Qompack; this says nothing about host eviction".
+LOUD.log (store-run2/logs_LOUD.log): "rehydrate: tier-1 material exceeds the hard budget cap budget=150 spent=47
+ ceiling_chars=9400 spent_chars=122" twice, at 14:49:57Z (pid 31768, block A) and 14:50:33Z (pid 21744, block B):
+ once per daemon in the one session, which ADR 0011 section 23 item 3 records as the rule (once per session per
+ daemon; a restarted daemon reports the condition once more, and every payload names the loss). Day log: no WARN or
+ error line.
+Store (run2-store/run2-checkpoints.txt): 0001.json and 0002.json re-hash to their MANIFEST lines (MATCH); pins hold
+ inv_b91128913d77 (cli/run2-pin-list-json); cli/run2-fsck-json-live exit 0 with the daemon up, all 18 checks ok.
+
+Judgement against the current expectation, field by field:
+ - Delimiters and fixed section order: met. The block is delimited; the budget admits no section, so it is the loss
+   notice in section 7 alone, which the row's text names as the shape for this case.
+ - Size within budget: met (131 of 150 tokens, twice). Inline <= 9,500 UTF-16 units: met (468).
+ - Records whole; what did not fit named with the restoring call: met in the notice's form — the count (15, then
+   14) equals every entry step 4 lists, dropped() is named with the user's /qompack:dropped, and the original
+   request's restore pointer is present (the original was left out as a tier-1 overflow).
+ - Current authority: no section 2 is rendered at this budget, so there is nothing to order (run 1 on candidate 7
+   met it).
+ - Overflow is explicit: met — tier1 entries (invariants, user_intent, affordance) with "OVERFLOW:" details and
+   restoring pointers, tier-1 first, degraded true in both states, and the notice in the payload. No overflow/payload
+   entry, as expected: the smallest notice fit (D60(c)(ii) applies only below it).
+ - No native-shrink claim: met (the block names only Qompack's own drops).
+ - Step 5's live reload (D49): met — the reload line and the next block's budget 150 from the same daemon; the
+   daemon started after the edit also answered at 150.
+ - Fail list: no clause tripped (no block over budget, nothing over 9,500 units, no record cut, no older statement
+   above a correction, the overflow appears in the payload and the drop report, and a block was injected).
+
+Result: pass. F-C7-UAT05-1 is fixed: the session now hears the loss (count, dropped(), the original's restore call).
+F-C7-UAT05-2 (LOUD twice across the daemon restart) is the documented once-per-session-per-daemon rule (ADR 0011
+section 23 item 3), not a breach.
+
+No host-reported hook failure or timeout (24/24 success, stderr 0 bytes). Daemon pid 21744 is left to its DEFAULT
+idle exit; the after-idle check is appended below when it has run.
+
+Rollback verified: not applicable — initial state absent (recorded); the run is retained as evidence; no backup or
+restore was run in this row.
+
+After the DEFAULT idle exit (run2-after-idle-exit.txt): daemon pid 21744 was gone at 11:21:06 EDT, about 1,800 s
+after the session ended at 10:50:52, with no termination; its lock was released. cli/z-fsck-json-after-idle-exit and
+-seal-check: exit 0, 18/18 checks ok.

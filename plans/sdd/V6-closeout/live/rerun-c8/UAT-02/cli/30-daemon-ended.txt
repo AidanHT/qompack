@@ -1,0 +1,4 @@
+daemon before wait: pid 50528 image qompack.exe
+waitexit: daemon gone (pid None, lock present: False) after 1711 s at 13:20:58 (exit 0)
+recorded at 2026-10-07T13:20:58-04:00
+no process was terminated by the lane: the daemon ended by its own idle exit

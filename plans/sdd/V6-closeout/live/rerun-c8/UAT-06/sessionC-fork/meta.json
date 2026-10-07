@@ -1,0 +1,244 @@
+{
+ "args": [
+  "-p",
+  "--input-format",
+  "stream-json",
+  "--output-format",
+  "stream-json",
+  "--verbose",
+  "--include-hook-events",
+  "--model",
+  "claude-haiku-4-5-20251001",
+  "--max-turns",
+  "10",
+  "--setting-sources",
+  "project,local",
+  "--permission-mode",
+  "dontAsk",
+  "--plugin-dir",
+  "C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c8/qompack-plugin-0.3.0-windows-amd64",
+  "--allowedTools",
+  "Read,Bash(cat:*),mcp__plugin_qompack_qompack__recall,mcp__plugin_qompack_qompack__expand,mcp__plugin_qompack_qompack__re_read,mcp__plugin_qompack_qompack__already_tried,mcp__plugin_qompack_qompack__record_eliminated,mcp__plugin_qompack_qompack__timeline,mcp__plugin_qompack_qompack__why,mcp__plugin_qompack_qompack__dropped,Bash(qompack status:*),Bash(qompack recall:*),Bash(qompack pin:*),Bash(qompack why:*),Bash(qompack dropped:*),Bash(qompack eval:*)",
+  "--resume",
+  "7f96ea69-fb5e-4e81-9040-dce5323da433",
+  "--fork-session"
+ ],
+ "turns": [
+  {
+   "msg": "Use the Read tool to read docs/design.md and summarize it in one sentence.",
+   "ok": true,
+   "wall_s": 5.222,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 55416,
+    "WorkingSet64": 44257280,
+    "PeakWorkingSet64": 44257280,
+    "CPU": 1.40625,
+    "StartTime": "/Date(1791384860193)/"
+   },
+   "store_bytes": 343123
+  },
+  {
+   "msg": "/compact",
+   "ok": true,
+   "wall_s": 36.538,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 55416,
+    "WorkingSet64": 44806144,
+    "PeakWorkingSet64": 44806144,
+    "CPU": 1.546875,
+    "StartTime": "/Date(1791384860193)/"
+   },
+   "store_bytes": 382474
+  },
+  {
+   "msg": "Call mcp__plugin_qompack_qompack__already_tried with target \"per-client rate limit\" and approach \"100 requests per minute\". Report the raw result in one line.",
+   "ok": true,
+   "wall_s": 6.019,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 55416,
+    "WorkingSet64": 45039616,
+    "PeakWorkingSet64": 45039616,
+    "CPU": 1.6875,
+    "StartTime": "/Date(1791384860193)/"
+   },
+   "store_bytes": 422687
+  },
+  {
+   "msg": "/qompack:why dec_991dbff588ec",
+   "ok": true,
+   "wall_s": 5.015,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 55416,
+    "WorkingSet64": 45182976,
+    "PeakWorkingSet64": 45182976,
+    "CPU": 1.703125,
+    "StartTime": "/Date(1791384860193)/"
+   },
+   "store_bytes": 436835
+  },
+  {
+   "msg": "Correction: the limit must be 45 requests per minute per client, not 60. The 60 figure is superseded. Acknowledge in one sentence.",
+   "ok": true,
+   "wall_s": 1.605,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 55416,
+    "WorkingSet64": 45219840,
+    "PeakWorkingSet64": 45219840,
+    "CPU": 1.75,
+    "StartTime": "/Date(1791384860193)/"
+   },
+   "store_bytes": 447561
+  },
+  {
+   "msg": "/compact",
+   "ok": true,
+   "wall_s": 29.494,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 55416,
+    "WorkingSet64": 46768128,
+    "PeakWorkingSet64": 46768128,
+    "CPU": 1.9375,
+    "StartTime": "/Date(1791384860193)/"
+   },
+   "store_bytes": 487091
+  },
+  {
+   "msg": "What is the current per-client rate limit requirement, and what was the original one? One sentence.",
+   "ok": true,
+   "wall_s": 2.607,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 55416,
+    "WorkingSet64": 46772224,
+    "PeakWorkingSet64": 46772224,
+    "CPU": 1.953125,
+    "StartTime": "/Date(1791384860193)/"
+   },
+   "store_bytes": 497186
+  },
+  {
+   "msg": "/qompack:dropped",
+   "ok": true,
+   "wall_s": 3.81,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 55416,
+    "WorkingSet64": 47071232,
+    "PeakWorkingSet64": 47071232,
+    "CPU": 1.984375,
+    "StartTime": "/Date(1791384860193)/"
+   },
+   "store_bytes": 512279
+  },
+  {
+   "msg": "/qompack:eval",
+   "ok": true,
+   "wall_s": 0.401,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 55416,
+    "WorkingSet64": 47071232,
+    "PeakWorkingSet64": 47071232,
+    "CPU": 1.984375,
+    "StartTime": "/Date(1791384860193)/"
+   },
+   "store_bytes": 512279
+  },
+  {
+   "msg": "/qompack:pin Rejected calls get HTTP 429 with a Retry-After header.",
+   "ok": true,
+   "wall_s": 2.407,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 55416,
+    "WorkingSet64": 47099904,
+    "PeakWorkingSet64": 47099904,
+    "CPU": 2.0625,
+    "StartTime": "/Date(1791384860193)/"
+   },
+   "store_bytes": 522800
+  },
+  {
+   "msg": "/qompack:recall Retry-After",
+   "ok": true,
+   "wall_s": 7.023,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 55416,
+    "WorkingSet64": 47169536,
+    "PeakWorkingSet64": 47169536,
+    "CPU": 2.078125,
+    "StartTime": "/Date(1791384860193)/"
+   },
+   "store_bytes": 541893
+  },
+  {
+   "msg": "/qompack:status",
+   "ok": true,
+   "wall_s": 10.434,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 55416,
+    "WorkingSet64": 47259648,
+    "PeakWorkingSet64": 47259648,
+    "CPU": 2.109375,
+    "StartTime": "/Date(1791384860193)/"
+   },
+   "store_bytes": 564264
+  },
+  {
+   "msg": "/qompack:why dec_991dbff588ec",
+   "ok": true,
+   "wall_s": 4.218,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 55416,
+    "WorkingSet64": 47267840,
+    "PeakWorkingSet64": 47267840,
+    "CPU": 2.140625,
+    "StartTime": "/Date(1791384860193)/"
+   },
+   "store_bytes": 579665
+  },
+  {
+   "msg": "/compact",
+   "ok": true,
+   "wall_s": 26.482,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 55416,
+    "WorkingSet64": 47865856,
+    "PeakWorkingSet64": 47865856,
+    "CPU": 2.265625,
+    "StartTime": "/Date(1791384860193)/"
+   },
+   "store_bytes": 613547
+  },
+  {
+   "msg": "Reply with only the word done.",
+   "ok": true,
+   "wall_s": 1.605,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 55416,
+    "WorkingSet64": 47882240,
+    "PeakWorkingSet64": 47882240,
+    "CPU": 2.28125,
+    "StartTime": "/Date(1791384860193)/"
+   },
+   "store_bytes": 623361
+  }
+ ],
+ "store_bytes_before": 313799,
+ "started_ms": 1791384995140,
+ "pid": 48844,
+ "exit": 0,
+ "wall_s": 158.185,
+ "store_bytes_after": 531786
+}

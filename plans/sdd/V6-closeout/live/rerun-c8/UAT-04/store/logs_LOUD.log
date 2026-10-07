@@ -1,0 +1,3 @@
+ts=2026-10-07T15:09:43.0109564Z level=loud msg="rehydrate: tier-1 material exceeds the hard budget cap" budget=12000 spent=187 ceiling_chars=9400 spent_chars=538
+ts=2026-10-07T15:14:41.3968327Z level=loud msg="daemon: config reload warning" key="" message="unparseable config: unexpected end of JSON input" location=<scratch>\sessions\c8\uat04\proj\.qompack\config.json
+ts=2026-10-07T15:15:41.5050684Z level=loud msg="configuration unusable, using defaults" message="unparseable config: unexpected end of JSON input" location=<scratch>\sessions\c8\uat04\proj\.qompack\config.json

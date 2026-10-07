@@ -12,6 +12,10 @@
 # (hosted ci.yml, plus nightly.yml dispatched; D4), and runs overnight-c6.sh through overnight-at2.sh
 # at once. Every decision goes to phase3/c6/freeze.log; on any refusal it stops there.
 set -u
+# Retired (wave 22, audit 2 #47): candidate 6's night decided whether it owned the Docker engine from one
+# docker ps probe and then stopped an engine it thought it had started, which could stop the owner's
+# engine and their stack. Candidate 8 runs c8-night.sh and overnight-c8.sh. Kept as the record of what ran.
+echo "freeze-night.sh: retired: use c8-night.sh / overnight-c8.sh (README.md, Candidate 8)" >&2; exit 2
 P=$1
 here=$(cd "$(dirname "$0")" && pwd)
 root=$(cd "$here/../../../../.." && pwd)            # .../Projects

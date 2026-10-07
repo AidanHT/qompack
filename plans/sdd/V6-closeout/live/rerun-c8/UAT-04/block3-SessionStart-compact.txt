@@ -1,0 +1,31 @@
+<!-- qompack:injected seq=2 ver=1 -->
+# Qompack rehydration — checkpoint 0002, session 57638b1a
+
+## 2. Original user intent (verbatim from L0 capture — never summarized)
+Evolution (most recent first):
+> Use the Read tool to read filler/f03.txt (the whole file) and reply with only the label of its last line.
+> Use the Read tool to read filler/f02.txt (the whole file) and reply with only the label of its last line.
+> Use the Read tool to read filler/f01.txt (the whole file) and reply with only the label of its last line.
+> In one sentence: what is the closing marker of the project brief I gave you in my first message? If it is not in your context, recover it with mcp__plugin_qompack_qompack__expand or mcp__plugin_qompack_qompack__recall, and say where you found it.
+> Use the Read tool to read notes.md and summarize it in one sentence.
+
+## 5. Current work
+goal: Use the Read tool to read filler/f03.txt (the whole file) and reply with only the label of its last line.
+blocked on: none
+
+## 6. Pointers (paths and hashes — contents are NOT restored; use expand/re_read)
+- filler/f01.txt sha256:e9c4f0ebee52aaebc8c9bef65d5243fa6dcff8befb7d307b7733aaf61b75e735 — referenced
+- filler/f02.txt sha256:e99b9ae764af337f234ead6a47210c6a80707f8efffe316bf5c67aee045bd8c7 — referenced
+- tool_use subagent_57638b1a-e83f-4f8a-a5de-0b265f5cc704_4 sha256:a4ba8e279972ee873bf651e15957b24391dbdeba8fed7f35e54f7f11e3733c97 — {"agent":"subagent","summary":"The Osprey ledger reconciles twice daily and is managed by the osprey-ops on-call alia…
+- tool_use toolu_012tv7Uj4WLfoUZTC1qBLUFP sha256:e99b9ae764af337f234ead6a47210c6a80707f8efffe316bf5c67aee045bd8c7 — <scratch>\sessions\c8\uat04\proj\filler\f02.txt
+- tool_use toolu_01BU6uyeVrV58wQEDGvCrrnH sha256:6dd7ba427a61a8a40c6a95f4f9512249a496a2f8d7a27d5ad1e800ce04c0ca30 — {"max_results":2,"query":"select:mcp__plugin_qompack_qompack__expand,mcp__plugin_qompack_qompack__recall"}
+- tool_use toolu_01UGGvaqUFP7sNF5XNdJXPW7 sha256:e9c4f0ebee52aaebc8c9bef65d5243fa6dcff8befb7d307b7733aaf61b75e735 — <scratch>\sessions\c8\uat04\proj\filler\f01.txt
+- tool_use toolu_01YGFz9JeEUZW4hqdd9mURMp sha256:eb2aa239afb39c74838c49090ad06df087c60303c512c994999a885b6e2fba16 — {"full":true,"tool_use_id":"prompt_57638b1a-e83f-4f8a-a5de-0b265f5cc704_0"}
+
+## 7. No longer in context
+- user_intent tier1 — OVERFLOW: the verbatim original user intent did not fit the rehydration payload and is emitted whole or not at all; restore: expand(tool_use_id=prompt_57638b1a-e83f-4f8a-a5de-0b265f5cc704_0)
+
+## 8. Retrieval
+Qompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().
+<!-- /qompack:injected -->
+<!-- qompack-contract-probe qompack-contract-f9690f1519df -->

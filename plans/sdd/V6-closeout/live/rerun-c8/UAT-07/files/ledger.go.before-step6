@@ -1,0 +1,22 @@
+package ledger
+
+// The phrase amber quill horizon marks the reconciliation path for the UAT-07 run.
+
+const driftLimit = 40
+
+// ReconcileBalances compares the ledger's running totals with the bank feed and returns the
+// accounts whose difference exceeds driftLimit cents.
+func ReconcileBalances(ledger, feed map[string]int) []string {
+	var out []string
+	for acct, want := range feed {
+		got := ledger[acct]
+		d := got - want
+		if d < 0 {
+			d = -d
+		}
+		if d > driftLimit {
+			out = append(out, acct)
+		}
+	}
+	return out
+}

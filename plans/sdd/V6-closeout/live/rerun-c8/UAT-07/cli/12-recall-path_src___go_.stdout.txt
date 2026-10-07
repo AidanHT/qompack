@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "command": "recall",
+  "ok": true,
+  "data": {
+    "tool": "recall",
+    "is_error": false,
+    "ephemeral": true,
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"hits\":[{\"hash\":\"sha256:6e60e39725fb391f6e4f5256aa2605b23ded623bf249e84e7a000db23a1fbe80\",\"path\":\"src/cache.go\",\"tool\":\"FileRead\",\"summary\":\"\",\"ts\":\"2026-10-07T16:55:18Z\",\"score\":1.0825,\"tool_use_id\":\"toolu_01MSjeZhpUe9kJWF1QSwampQ\",\"span\":[0,482]},{\"hash\":\"sha256:9ffb1d3f62e2a8ac88c883b069c96b5990355624eb7b4a55312e9cc9f0582fab\",\"path\":\"src/ledger.go\",\"tool\":\"FileRead\",\"summary\":\"\",\"ts\":\"2026-10-07T16:54:14Z\",\"score\":1.0225,\"tool_use_id\":\"toolu_01EWoBLqzAVpGDbM7XpWn87E\",\"span\":[0,666]},{\"hash\":\"sha256:8a9940c4ccc0e0d4a4b9281d0310e2fbcdfd10c01223c698b3db67db5e30de22\",\"path\":\"src/ledger.go\",\"tool\":\"FileEdit\",\"summary\":\"\",\"ts\":\"2026-10-07T16:54:01Z\",\"score\":1.015,\"tool_use_id\":\"toolu_01TZD8oqPvpVy685kfWdYc4u\",\"span\":[0,1103]},{\"hash\":\"sha256:9a87424ba64c7f95de5c962c5dee88b7a4ad5f588c0b1fe0ae0cb59a192d565e\",\"path\":\"src/ledger.go\",\"tool\":\"FileRead\",\"summary\":\"\",\"ts\":\"2026-10-07T16:53:54Z\",\"score\":1.0075,\"tool_use_id\":\"toolu_01AEA21cT6i7zeZ5Pc2hgjcP\",\"span\":[0,666]},{\"hash\":\"sha256:522665f8f45532f737b5be874d3b829af0cf63f03abefb43a7ddfec9cd890b9e\",\"path\":\"src/cache.go\",\"tool\":\"mcp__qompack__re_read\",\"summary\":\"\",\"ts\":\"2026-10-07T16:56:20Z\",\"score\":1.12,\"tool_use_id\":\"qompack-mcp:3b957985c705\",\"span\":[0,788]}],\"count\":5,\"found\":true,\"query\":{\"text\":\"\",\"path\":\"src/*.go\",\"symbol\":\"\",\"tool\":\"\"}}"
+      }
+    ],
+    "meta": {
+      "elapsed_ms": 44,
+      "hash": "sha256:032167b1419c1e44e1e4237fa02c8d0171d00e6e4014f255bd02a3f39aa81db7",
+      "tool_use_id": "qompack-mcp:48267d4f2424",
+      "untrusted": true
+    }
+  }
+}

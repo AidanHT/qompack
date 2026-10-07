@@ -1,0 +1,12 @@
+listing of <project>/.qompack (11 files)
+         2  .gitignore
+         0  index/files.jsonl
+         0  index/roots.jsonl
+         0  index/segments.jsonl
+         0  index/sessions.jsonl
+         0  index/tool_use.jsonl
+       189  logs/qompack-20261007.log
+         0  run/daemon.hb
+       265  run/daemon.lock
+        32  run/state.bin
+         2  state/drain.json
