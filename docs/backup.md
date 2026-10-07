@@ -97,7 +97,13 @@ Startup publication accounting reports unpublished successful tool, prompt and s
 candidates in status counters and LOUD diagnostics. Counts from capped, interrupted or unreadable
 scans are lower bounds. This discovers incomplete state; it does not reconstruct missing content
 or replay captures under an assumed permission grant. Use `qompack fsck --project <root> --json`
-for an operator audit and preserve its failures before choosing a verified backup.
+for an operator audit and preserve its failures before choosing a verified backup. Act while the
+session that reported an unindexed object candidate is still open: ending that session, or any
+later one, runs the garbage collection that deletes the object. If you want the object itself, copy
+the project's `.qompack/` directory by hand first (`backup` refuses while the daemon runs). The
+copy is for audit, not for restore. No capture content is lost either way, because the capture
+keeps its bytes inline in its sidecar, and `fsck` keeps naming the gap. This is a known issue of
+0.3.0.
 
 A backup with a `.certification-pending` marker was not confirmed under the writer lease and cannot
 be verified or restored by these commands. Preserve it for diagnosis; create a new backup with a

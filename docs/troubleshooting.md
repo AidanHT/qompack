@@ -775,10 +775,13 @@ block, the first preferred:
   reset's entry from `.qompack/state/config-violations.json`, so `doctor`'s `config.violations` row
   reads `ok` as well. `qompack status` does not yet: its `config.violations` counter and recent loud
   lines are the running daemon's report of the configuration it started on, and they keep showing the
-  reset until that daemon exits, which the next step takes care of. Then stop the project's daemon if one is running (§7, "A daemon is running and
-  you want it to stop"), or the backup refuses with `backup: stop the source daemon before
-  maintenance`, and run the backup. A backup copies `.qompack/config.json` as it is at that moment,
-  so this backup holds the edited file, not the newer one.
+  reset until that daemon exits, which the next step takes care of. Then stop the project's daemon
+  (§7, "A daemon is running and you want it to stop"), or wait for its idle exit, and run the
+  backup. A daemon can be running even with no session open: `self-test` itself starts one unless
+  `runtime.daemon.enabled` is false, and that daemon holds the store until it exits. A backup taken
+  right after `self-test` refuses with `backup: stop the source daemon before maintenance`
+  (observation O-C8-C49-1). A backup copies `.qompack/config.json` as it is at that moment, so this
+  backup holds the edited file, not the newer one.
 
 ### A config change that did not take effect
 
@@ -1499,6 +1502,12 @@ counters and LOUD diagnostics. A bounded scan can be incomplete; zero observed g
 only a lower bound. `fsck` inspects integrity but never promises that missing content was restored.
 Prompt capture sidecars that a development build before the prompt link wrote are read as published
 when their prompt record exists ([Backup and restore](backup.md)). They are not gaps.
+The next session end's garbage collection deletes an unindexed object candidate the startup
+accounting reported, before an operator can audit it. If you want the object itself, copy the
+project's `.qompack/` directory by hand while the session that reported it is still open: ending
+that session, or any later one, runs the deletion ([Backup and restore](backup.md)). No capture
+content is lost, because the capture keeps its bytes inline in its sidecar, and `fsck` keeps naming
+the gap (a known issue of 0.3.0, D76(c)).
 
 An uncertain observation-intent write stops new capture publication until the store is reopened
 and checked. After resolving a transient storage error, restart the daemon to retry retained input.
