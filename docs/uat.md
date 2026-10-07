@@ -1555,61 +1555,53 @@ stored records to reconcile a failure.
 **Result**
 
 ```text
-Result: fail — D50's section-6 check (finding F1); every fail criterion listed above was
-  otherwise not hit. Candidate 7, two legs. Steps 2-5 and 8 (retrieval part, a fresh project, no
-  upgrade): step 1 initial state absent (recorded), baseline uat12-c7-baseline after the first
-  session's permitted captures and /compact (148 files, consistent, verify exit 0). Step 2: the
-  host refused the Read ("File is in a directory that is denied by your permission settings.");
-  recall (marker and path:), expand (tool_use_id and root hash), re_read and /qompack:recall all
-  answered denied or withheld the hit ("authorization denied: the host's current permission rules
-  deny reading the associated path") with no preview; out-of-project re_read answered "path
-  escapes the project root", and the out-of-project Read was never captured. Steps 3-5 on a
-  354,352-byte escape-heavy capture: minimal 8,039 bytes, then 18 contiguous pages to the end
-  (max 30,059); full: true 261,164 bytes ([0,217070], truncated, next_span 217070:137282), then
-  [217070,354352] 165,235 bytes, truncated false with no next_span; an explicit span 0:354352
-  pages identically to full: true; re_read full: true 261,172 bytes, continued with expand and its
-  hash. Every truncated page carries next_span, the last page is not truncated, every response is
-  within 262,144, no page holds U+FFFD, and no response carries fidelity or coverage. Binary: the
-  host delivers `cat` output as decoded text and an image as base64 JSON; both sidecars record
-  fidelity exact and Qompack decoded nothing (blob 2,947, png 2,395 bytes). Recall (D49): the
-  default k returned 5 permitted hits with "denied":1 counted apart; at k 20 the six original
-  captures come first and the four retrieval self-records last. No LOUD.log on this multi-session
-  store, so no 'publication accounting incomplete' line. Step 8: restore into a fresh recovery
-  project exit 0, reader proof (31 roots, 21 tool refs) and integrity with the seal check passed;
-  fsck --seal-check exit 0 on the recovery and the source; the source's later writes preserved.
-  Section 6 of both rehydration blocks points to the deny-ruled file by hash only ("path
-  withheld") and shows no absolute out-of-project path, BUT the second block also lists
-  `tool_use toolu_017m9djG... — {"query":"path:private/deny.txt"}`: a host-denied path in a
-  pointer's argument summary (F1; no content shown). Observation O-1 (notes-retrieval.txt):
-  section 2, the verbatim user intent, carries the user's own prompts, which name the
-  out-of-project file by its absolute path (sessionA/injected-2-SessionStart-compact.txt) and
-  "private/deny.txt" (both blocks; session B's Original is "Use the Read tool to read
-  private/deny.txt ..."); no file content is shown. D50's rule names pointers only, and whether
-  section 2 is in its scope is left to the coordinator. Upgrade leg (steps 1 and 6-10, install
-  part): pass — baseline c48-baseline taken after the previous build's permitted captures, MCP
-  calls and /compact (77 files, consistent; verify: 22 roots, 15 tool refs, integrity and seal
-  check passed); previous build candidate 5's frozen bundle (0d06ab12; 0.3.0 has no earlier
-  public release) -> the frozen candidate 7 bundle, both via --plugin-dir; the new build read
-  the old build's captures, its project-scope elimination and its checkpoint chain (0001 ->
-  0003); every pre-upgrade object byte-identical afterwards. Step 7 (to be confirmed at
-  execution): no version-block or retired-meaning warning (no config file exists to carry
-  either), no WARN or LOUD line across the upgrade; self-test config.capture "applied as
-  written"; the layout reappeared after session B's hooks. Step 8: restore of the pre-upgrade
-  baseline exit 0, reader proof and integrity passed; fsck --seal-check exit 0 on the recovery
-  and the source. Steps 9-10: installed at local scope through a local marketplace entry named
-  qompack-windows-amd64, uninstalled, reinstalled and uninstalled again; .qompack/
-  byte-identical across each step (193 and 209 files) and still on disk; after the reinstall
-  session C re-read session A's old-build capture. Finding (diagnostics, minor): after the
-  mid-session compaction `qompack status` names session_start.fires pending
-  "marker-absent-once" on a healthy store.
-  Ruling (D60(c)(i), D62(f), D61(b)(1), D63, after this run): D50 covers pointers only: file and
-  tool pointers, their argument summaries and section 7's drop entries. The records in sections 3
-  and 4, the model's own earlier text, stay outside it by name (D60(c)(i)), and section 2's
-  verbatim intent, the user's own prompts, is outside it too (D62(f)), so O-1 is not a D50
-  failure. F1 stands, and its remedy is ruled: a structured path preview is judged whole, as a
-  file pointer's path is (D61(b)(1)), and a free-text summary is shown only when a whitelist
-  proves it safe (D63, D64). The verdict above stands; candidate 8's live re-check re-runs
-  sessions A and B with C4.6 (D59, D60(f)).
+Result: pass — candidate 8, steps 1-5 and 8 with the D50/D60(c)/D61(b)/D63/D64 checks, in a
+  fresh project whose path holds a space; no fail criterion listed above was hit. The upgrade
+  leg (steps 6, 7, 9, 10) was not re-run on candidate 8 (D59); its last run is candidate 7's
+  pass, recorded in that candidate's evidence. Step 1: initial state absent (recorded),
+  baseline uat12-c8-baseline after session A (235 files, consistent, verify exit 0). Deny rules
+  (one exact Read rule each for private/deny.txt, private/deny (1).txt, private/John's
+  notes.txt, private/a,b.txt and private/k=v.txt) were in the project settings before session A,
+  and its first turn proved them: the host refused all five Reads ("File is in a directory that
+  is denied by your permission settings."). The host also refused a Write to a Read-denied path,
+  hid the denied files from Glob and refused Bash commands that name them, so before session B a
+  seventh rule denied notes-b.md, which session A had captured, and that file was made dirty.
+  Step 2: the host refused the Reads; recall (marker, path:), expand (tool_use_id and hash),
+  re_read (every denied name, relative and absolute) and /qompack:recall answered denied or
+  withheld the hit ("authorization denied: the host's current permission rules deny reading the
+  associated path"), with no preview and no denied file's text in any response; out-of-project
+  re_read answered "path escapes the project root", and the out-of-project Read was never
+  captured. dropped() listed notes-b.md's pointer_dirty drop by hash with "path withheld"
+  (redacted, not removed: D60(iii)). Steps 3-5 on a 354,373-byte capture: minimal 6,458-byte
+  span, then 18 contiguous pages (max 30,059 bytes); full: true [0,217091] 261,189 bytes,
+  truncated, next_span 217091:137282, then [217091,354373] not truncated with no next_span; an
+  explicit span 0:354373 pages identically; re_read full: true 261,197 bytes, continued by
+  expand with its hash. Every response is within 262,144, no page holds U+FFFD, no response
+  carries fidelity or coverage; the binary and image captures are the host's delivery, and
+  Qompack decodes nothing (blob 2,947, png 2,395 bytes). Recall (D49): the default k returned 5
+  permitted hits with "denied":1 apart; at k 20 the originals came first and the retrieval
+  self-records last. No LOUD.log, so no 'publication accounting incomplete' line. Section 6 of
+  both rehydration blocks: no host-denied path (plain, punctuated, relative or absolute, behind
+  a path: or basename selector, a glob, or in free text) and no absolute out-of-project path;
+  the 13 and 14 such tool pointers read "(summary withheld)" with id and hash kept; notes-b.md's
+  file pointer reads "file (path withheld)". In-project absolute paths under the spaced root and
+  ordinary commands were shown (Reads of <root>\pixel.png and others, ls -l "<root>/notes-a.md",
+  cd "<root>" && git status --short, git diff HEAD~1 --stat). Section 7 shows no path. Accepted
+  over-withholding seen: {"span":"0:354373",...} and ls private/*.txt (D64(4), D66(e)). Section
+  2 shows the user's prompts naming the denied files (outside D50, D62(f)). Coverage limit:
+  candidate 7's exact F1 pointer {"query":"path:private/deny.txt"} fell past section 6's budget
+  into section 7 (by id only) in both blocks, so it was not itself displayed; the same selector
+  naming the other denied files was withheld. Step 8: restore into a fresh recovery project
+  exit 0, reader proof (76 roots, 71 tool refs) and integrity with the seal check passed; fsck
+  --seal-check exit 0 on the recovery and the source; the source unchanged by the restore and
+  its later writes kept. Planted secrets: 0 hits in the source and recovery stores and in
+  ~/.qompack. Hooks: 129 calls, all success; the day log's 'ending abandoned session' warn lines
+  fell inside 40-second compactions with idleExitSeconds at 30 (documented in
+  troubleshooting.md).
+  Candidate 7 (d20309c0): fail — a tool pointer's argument summary in section 6 showed the
+  host-denied path {"query":"path:private/deny.txt"} (F1, D50), evidence
+  plans/sdd/V6-closeout/live/rerun-c7/UAT-12/notes-retrieval.txt (upgrade leg pass,
+  plans/sdd/V6-closeout/live/rerun-c7/UAT-12/notes.txt)
   Candidate 4 (9f6a2fad): pass — deny, bound and binary steps held and the 0.2.99-prev
   upgrade, restore and uninstall kept .qompack/ intact, evidence
   plans/sdd/V6-closeout/live/rerun-c4/UAT-12/
@@ -1617,24 +1609,20 @@ Result: fail — D50's section-6 check (finding F1); every fail criterion listed
   the bound and a pre-upgrade restore failing its integrity checks, evidence
   plans/sdd/V6-closeout/live/uat/UAT-12/
 Snapshot: qompack version 0.3.0; bundle BUNDLE.json sha256
-  5212ae4eaa2e931266d52069e7d0c72ec2dfd2255d55421c87486ab083e1f395; commit
-  d20309c03ffc364e4cc48663be73cfbb1f2309b2 (the upgrade leg upgraded from candidate 5's bundle,
-  BUNDLE.json sha256 a1c59ec2d817d1837359033d6f047736470beb8bc1badfae836d9158b211a4ac, commit
-  0d06ab12); Windows 11 Home 25H2 build 10.0.26200.9457; Claude Code 2.1.280
-Date: 2026-10-02 (America/Toronto)
+  61ba9c37dda03c14c44acb6824646a8d7410751bba6f1ce3c5c864d6382dcd8b; commit
+  3ec62ad2e01b985640c0f1fb832df3917f766a5f; Windows 11 Home 25H2 build 10.0.26200.9457; Claude
+  Code 2.1.280
+Date: 2026-10-07 (America/Toronto)
 Executed by: Claude Code workflow subagent (Opus 5.5), agent-executed on the owner's real host
   per owner decision D3 — not human UAT
-Evidence: plans/sdd/V6-closeout/live/rerun-c7/UAT-12/notes-retrieval.txt (steps 2-5 and 8, with
-  cli/, sessionA/, sessionB/ and store/ beside it) and
-  plans/sdd/V6-closeout/live/rerun-c7/UAT-12/notes.txt (the upgrade leg; its data is in
-  plans/sdd/V6-closeout/live/rerun-c7/C4.8/)
-Rollback verified: unverified (missing step: neither recovery was activated) — both backups
-  (uat12-c7-baseline: 148 files; c48-baseline: 77 files, frontier 0, the legacy-import cursor)
-  were created and verified by the candidate CLI with the source writer stopped; each same-build
-  restore into a fresh destination proved its reader and passed its integrity checks and the
-  delivery seal check; the sources' later writes were preserved; for the upgrade leg the
-  previous build's own reader (candidate 5) accepts the recovered baseline (fsck and fsck
-  --seal-check exit 0)
+Evidence: plans/sdd/V6-closeout/live/rerun-c8/UAT-12/notes.txt (with cli/, sessionA/,
+  sessionB/, settings/ and store/ beside it); C4.6's session C in
+  plans/sdd/V6-closeout/live/rerun-c8/C4.6/
+Rollback verified: unverified (missing step: the recovery was not activated, and this leg has no
+  upgrade, so no previous-build reader was run) — uat12-c8-baseline was created and verified by
+  the candidate CLI with the source writer stopped; the same-build restore into a fresh
+  destination proved its reader and passed its integrity checks and the delivery seal check;
+  the source's later writes were preserved
 ```
 
 ---
