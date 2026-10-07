@@ -589,26 +589,28 @@ stored records to reconcile a failure.
 **Result**
 
 ```text
-Result: pass — with a finding. Every compaction proceeded: 3 manual "/compact" and 5 automatic,
-  forced only by CLAUDE_CODE_AUTO_COMPACT_WINDOW=100000 at the host's DEFAULT threshold percentage
-  (no CLAUDE_AUTOCOMPACT_PCT_OVERRIDE; each fired at 68.6k-73.8k tokens, 0 "thrash" lines, every
-  turn answered). The third manual one ran with the PreCompact hook failing on an unparseable
-  project config (`{"runtime":`): the hook prints {} and exits 0, the compaction proceeded, no
-  checkpoint was written, and MANIFEST.jsonl kept its 7 lines with 0007 newest and every artifact
-  re-hashing. The 16,858-character first prompt is never cut: every compact block (1,424-3,250
-  UTF-16 units, inline) names it first in section 7 as "user_intent tier1 — OVERFLOW: the verbatim
-  original user intent did not fit the rehydration payload and is emitted whole or not at all;
-  restore: expand(tool_use_id=prompt_…_0)", and LOUD.log carries "rehydrate: tier-1 material
-  exceeds the hard budget cap" exactly once (D50; the six later ones are info lines). fsck --json
-  exits 0 with the daemon up (index.files "not materialized yet ... at its next flush", ok) and
-  after the default idle exit with the planted config still in place (and with --seal-check).
-  The step-6 search over 70 hook responses and 62 outputs found no native-shrink claim. The model
-  recovered the brief's closing marker and, with data/keys.txt deleted, Q23 through recall/expand.
-  Finding: with the original a tier-1 overflow, block8 still names the 6 oldest of 13 evolution
-  entries "did not fit the rehydration budget" while the payload is 929 of 12,000 tokens and 2,950
-  of 9,400 characters (D49's unused room is not given to evolution while tier 1 is incomplete).
-  Observation: the abandoned session's 1.2 MB daemon WAL stays after the idle exit (doctor
-  spool.pending degraded; fsck ok), as on candidate 4.
+Result: pass — re-run on candidate 8 (wave 19c rewrote the rehydration code these compactions
+  run, so candidate 7's pass was not carried). Every compaction proceeded: 3 manual "/compact" and
+  5 automatic, forced only by CLAUDE_CODE_AUTO_COMPACT_WINDOW=100000 at the host's DEFAULT threshold
+  percentage (no CLAUDE_AUTOCOMPACT_PCT_OVERRIDE, the 30%/100k setting that thrashed candidates 3
+  and 4; each fired at 68.7k-73.8k tokens, 0 "thrash" lines, every turn answered). The third manual
+  one ran with the PreCompact hook failing on an unparseable project config (`{"runtime":`): the
+  hook prints {} and exits 0, the compaction proceeded, no checkpoint was written, and
+  MANIFEST.jsonl kept its 7 lines with 0007 newest and every artifact re-hashing. The
+  16,858-character first prompt is never cut: every compact block (1,424-3,218 UTF-16 units,
+  inline) names it first in section 7 as "user_intent tier1 — OVERFLOW: the verbatim original user
+  intent did not fit the rehydration payload and is emitted whole or not at all; restore:
+  expand(tool_use_id=prompt_…_0)", and LOUD.log carries "rehydrate: tier-1 material exceeds the
+  hard budget cap" exactly once (D50; the six later ones are info lines). fsck --json exits 0 with
+  the daemon up and after the default idle exit with the planted config still in place (and with
+  --seal-check). The step-6 search over 69 hook responses and the evidence files
+  found no native-shrink claim. The model recovered the brief's closing marker through expand and,
+  with data/keys.txt deleted, Q23 through recall and expand. 69 hook calls, all success; stderr
+  empty. Recorded, by design (D59): beside the tier-1 overflow, the last block names the 6 oldest
+  evolution entries as not fitting while the payload is 929 of 12,000 tokens (F-C7-UAT04-1).
+  Candidate 7 (d20309c0): pass — with a finding: with the original a tier-1 overflow, evolution
+  entries were not given the unused room (F-C7-UAT04-1, later documented by design), evidence
+  plans/sdd/V6-closeout/live/rerun-c7/UAT-04/
   Candidate 4 (9f6a2fad): pass — with findings: the forced 30%/100k threshold thrashed the host,
   LOUD tier-1 on all 15 compactions, post-run fsck exit 1 on index.files, evidence
   plans/sdd/V6-closeout/live/rerun-c4/UAT-04/
@@ -616,15 +618,15 @@ Result: pass — with a finding. Every compaction proceeded: 3 manual "/compact"
   at 8,192 bytes mid-word with a spurious intent_mismatch, evidence
   plans/sdd/V6-closeout/live/uat/UAT-04/
 Snapshot: qompack version 0.3.0; bundle BUNDLE.json sha256
-  5212ae4eaa2e931266d52069e7d0c72ec2dfd2255d55421c87486ab083e1f395; commit
-  d20309c03ffc364e4cc48663be73cfbb1f2309b2; Windows 11 Home 25H2 build 10.0.26200.9457;
+  61ba9c37dda03c14c44acb6824646a8d7410751bba6f1ce3c5c864d6382dcd8b; commit
+  3ec62ad2e01b985640c0f1fb832df3917f766a5f; Windows 11 Home 25H2 build 10.0.26200.9457;
   Claude Code 2.1.280
-Date: 2026-10-02 (America/Toronto)
+Date: 2026-10-07 (America/Toronto)
 Executed by: Claude Code workflow subagent (Opus 5.5), agent-executed on the owner's real host
   per owner decision D3 — not human UAT
-Evidence: plans/sdd/V6-closeout/live/rerun-c7/UAT-04/ (notes.txt indexes it; also C4.3)
+Evidence: plans/sdd/V6-closeout/live/rerun-c8/UAT-04/ (notes.txt indexes it; also C4.3)
 Rollback verified: not applicable — initial state absent (recorded); the run is retained as
-  evidence; no backup or restore was run in this row
+  evidence; no backup or restore was run in this row; no daemon was ended (DEFAULT idle exit)
 ```
 
 ---
