@@ -1,0 +1,495 @@
+{
+ "scope": "every rerun-c8 directory holding meta.json or hooks.json (all four parts of candidate 8's re-check)",
+ "candidate": "3ec62ad2e01b985640c0f1fb832df3917f766a5f",
+ "bundle_sha256": "61ba9c37dda03c14c44acb6824646a8d7410751bba6f1ce3c5c864d6382dcd8b",
+ "sessions": [
+  {
+   "evidence": "C1.6/session",
+   "exit": 0,
+   "wall_s": 38.883,
+   "turns": 7,
+   "hook_pairs": 22,
+   "outcomes": {
+    "success": 22
+   },
+   "stderr_bytes": 0
+  },
+  {
+   "evidence": "C4.6/sessionC",
+   "exit": 0,
+   "wall_s": 117.507,
+   "turns": 9,
+   "hook_pairs": 66,
+   "outcomes": {
+    "success": 66
+   },
+   "stderr_bytes": 0
+  },
+  {
+   "evidence": "C4.7/off/session",
+   "exit": 0,
+   "wall_s": 28.474,
+   "turns": 4,
+   "hook_pairs": 12,
+   "outcomes": {
+    "success": 12
+   },
+   "stderr_bytes": 0
+  },
+  {
+   "evidence": "C4.7/reinj/session",
+   "exit": 0,
+   "wall_s": 32.086,
+   "turns": 4,
+   "hook_pairs": 13,
+   "outcomes": {
+    "success": 13
+   },
+   "stderr_bytes": 0
+  },
+  {
+   "evidence": "C4.9/session1",
+   "exit": 0,
+   "wall_s": 53.483,
+   "turns": 6,
+   "hook_pairs": 18,
+   "outcomes": {
+    "success": 18
+   },
+   "stderr_bytes": 0
+  },
+  {
+   "evidence": "C4.9/session2",
+   "exit": 0,
+   "wall_s": 39.041,
+   "turns": 5,
+   "hook_pairs": 16,
+   "outcomes": {
+    "success": 16
+   },
+   "stderr_bytes": 0
+  },
+  {
+   "evidence": "F-C48-1/session",
+   "exit": 0,
+   "wall_s": 65.28,
+   "turns": 6,
+   "hook_pairs": 17,
+   "outcomes": {
+    "success": 17
+   },
+   "stderr_bytes": 0
+  },
+  {
+   "evidence": "UAT-02/session",
+   "exit": 0,
+   "wall_s": 90.706,
+   "turns": 10,
+   "hook_pairs": 38,
+   "outcomes": {
+    "success": 38
+   },
+   "stderr_bytes": 0
+  },
+  {
+   "evidence": "UAT-04/session",
+   "exit": 0,
+   "wall_s": 355.371,
+   "turns": 19,
+   "hook_pairs": 69,
+   "outcomes": {
+    "success": 69
+   },
+   "stderr_bytes": 0
+  },
+  {
+   "evidence": "UAT-05/run2-session",
+   "exit": 0,
+   "wall_s": 115.956,
+   "turns": 9,
+   "hook_pairs": 24,
+   "outcomes": {
+    "success": 24
+   },
+   "stderr_bytes": 0
+  },
+  {
+   "evidence": "UAT-06/sessionA",
+   "exit": 0,
+   "wall_s": 48.333,
+   "turns": 6,
+   "hook_pairs": 17,
+   "outcomes": {
+    "success": 17
+   },
+   "stderr_bytes": 0
+  },
+  {
+   "evidence": "UAT-06/sessionB-resume",
+   "exit": 0,
+   "wall_s": 38.315,
+   "turns": 4,
+   "hook_pairs": 10,
+   "outcomes": {
+    "success": 10
+   },
+   "stderr_bytes": 0
+  },
+  {
+   "evidence": "UAT-06/sessionC-fork",
+   "exit": 0,
+   "wall_s": 158.185,
+   "turns": 15,
+   "hook_pairs": 32,
+   "outcomes": {
+    "success": 32
+   },
+   "stderr_bytes": 0
+  },
+  {
+   "evidence": "UAT-06/sessionD-parent-restart",
+   "exit": 0,
+   "wall_s": 26.695,
+   "turns": 2,
+   "hook_pairs": 5,
+   "outcomes": {
+    "success": 5
+   },
+   "stderr_bytes": 0
+  },
+  {
+   "evidence": "UAT-07/session",
+   "exit": 0,
+   "wall_s": 325.958,
+   "turns": 25,
+   "hook_pairs": 99,
+   "outcomes": {
+    "success": 99
+   },
+   "stderr_bytes": 0
+  },
+  {
+   "evidence": "UAT-08/session1",
+   "exit": 0,
+   "wall_s": 71.371,
+   "turns": 7,
+   "hook_pairs": 26,
+   "outcomes": {
+    "success": 26
+   },
+   "stderr_bytes": 0
+  },
+  {
+   "evidence": "UAT-08/session2-isolation",
+   "exit": 0,
+   "wall_s": 17.48,
+   "turns": 3,
+   "hook_pairs": 11,
+   "outcomes": {
+    "success": 11
+   },
+   "stderr_bytes": 0
+  },
+  {
+   "evidence": "UAT-11/session",
+   "exit": 0,
+   "wall_s": 85.937,
+   "turns": 5,
+   "hook_pairs": 26,
+   "outcomes": {
+    "success": 26
+   },
+   "stderr_bytes": 0
+  },
+  {
+   "evidence": "UAT-12/sessionA",
+   "exit": 0,
+   "wall_s": 152.604,
+   "turns": 14,
+   "hook_pairs": 71,
+   "outcomes": {
+    "success": 71
+   },
+   "stderr_bytes": 0
+  },
+  {
+   "evidence": "UAT-12/sessionB",
+   "exit": 0,
+   "wall_s": 189.339,
+   "turns": 15,
+   "hook_pairs": 58,
+   "outcomes": {
+    "success": 58
+   },
+   "stderr_bytes": 0
+  }
+ ],
+ "sessions_tsv_rows": [
+  {
+   "part": "sessions-c8",
+   "n": "1",
+   "evidence": "plans/sdd/V6-closeout/live/rerun-c8/UAT-05/run2-session",
+   "model": "claude-haiku-4-5-20251001",
+   "exit": "0",
+   "wall_s": "115.956"
+  },
+  {
+   "part": "sessions-c8",
+   "n": "2",
+   "evidence": "plans/sdd/V6-closeout/live/rerun-c8/UAT-06/sessionA",
+   "model": "claude-haiku-4-5-20251001",
+   "exit": "0",
+   "wall_s": "48.333"
+  },
+  {
+   "part": "sessions-c8",
+   "n": "3",
+   "evidence": "plans/sdd/V6-closeout/live/rerun-c8/UAT-06/sessionB-resume",
+   "model": "claude-haiku-4-5-20251001",
+   "exit": "0",
+   "wall_s": "38.315"
+  },
+  {
+   "part": "sessions-c8",
+   "n": "4",
+   "evidence": "plans/sdd/V6-closeout/live/rerun-c8/UAT-06/sessionC-fork",
+   "model": "claude-haiku-4-5-20251001",
+   "exit": "0",
+   "wall_s": "158.185"
+  },
+  {
+   "part": "sessions-c8",
+   "n": "5",
+   "evidence": "plans/sdd/V6-closeout/live/rerun-c8/UAT-06/sessionD-parent-restart",
+   "model": "claude-haiku-4-5-20251001",
+   "exit": "0",
+   "wall_s": "26.695"
+  },
+  {
+   "part": "sessions-c8",
+   "n": "7",
+   "evidence": "plans/sdd/V6-closeout/live/rerun-c8/F-C48-1/session",
+   "model": "claude-haiku-4-5-20251001",
+   "exit": "0",
+   "wall_s": "65.28"
+  },
+  {
+   "part": "sessions-c8",
+   "n": "6",
+   "evidence": "plans/sdd/V6-closeout/live/rerun-c8/UAT-04/session",
+   "model": "claude-haiku-4-5-20251001",
+   "exit": "0",
+   "wall_s": "355.371"
+  },
+  {
+   "part": "retrieval-c8",
+   "n": "1",
+   "evidence": "plans/sdd/V6-closeout/live/rerun-c8/UAT-12/sessionA",
+   "model": "claude-haiku-4-5-20251001",
+   "exit": "0",
+   "wall_s": "152.604"
+  },
+  {
+   "part": "retrieval-c8",
+   "n": "2",
+   "evidence": "plans/sdd/V6-closeout/live/rerun-c8/UAT-12/sessionB",
+   "model": "claude-haiku-4-5-20251001",
+   "exit": "0",
+   "wall_s": "189.339"
+  },
+  {
+   "part": "retrieval-c8",
+   "n": "3",
+   "evidence": "plans/sdd/V6-closeout/live/rerun-c8/C4.6/sessionC",
+   "model": "claude-haiku-4-5-20251001",
+   "exit": "0",
+   "wall_s": "117.507"
+  },
+  {
+   "part": "carried-c8",
+   "n": "1",
+   "evidence": "plans/sdd/V6-closeout/live/rerun-c8/UAT-02/session",
+   "model": "claude-haiku-4-5-20251001",
+   "exit": "0",
+   "wall_s": "90.706"
+  },
+  {
+   "part": "carried-c8",
+   "n": "2",
+   "evidence": "plans/sdd/V6-closeout/live/rerun-c8/UAT-07/session",
+   "model": "claude-haiku-4-5-20251001",
+   "exit": "0",
+   "wall_s": "325.958"
+  },
+  {
+   "part": "carried-c8",
+   "n": "3",
+   "evidence": "plans/sdd/V6-closeout/live/rerun-c8/UAT-11/session",
+   "model": "claude-haiku-4-5-20251001",
+   "exit": "0",
+   "wall_s": "85.937"
+  },
+  {
+   "part": "carried-c8",
+   "n": "4",
+   "evidence": "plans/sdd/V6-closeout/live/rerun-c8/UAT-08/session1",
+   "model": "claude-haiku-4-5-20251001",
+   "exit": "0",
+   "wall_s": "71.371"
+  },
+  {
+   "part": "carried-c8",
+   "n": "5",
+   "evidence": "plans/sdd/V6-closeout/live/rerun-c8/UAT-08/session2-isolation",
+   "model": "claude-haiku-4-5-20251001",
+   "exit": "0",
+   "wall_s": "17.48"
+  },
+  {
+   "part": "carried-c8",
+   "n": "6",
+   "evidence": "plans/sdd/V6-closeout/live/rerun-c8/C4.7/off/session",
+   "model": "claude-haiku-4-5-20251001",
+   "exit": "0",
+   "wall_s": "28.474"
+  },
+  {
+   "part": "carried-c8",
+   "n": "7",
+   "evidence": "plans/sdd/V6-closeout/live/rerun-c8/C4.7/reinj/session",
+   "model": "claude-haiku-4-5-20251001",
+   "exit": "0",
+   "wall_s": "32.086"
+  },
+  {
+   "part": "resilience-c8",
+   "n": "1",
+   "evidence": "plans/sdd/V6-closeout/live/rerun-c8/C4.9/session1",
+   "model": "claude-haiku-4-5-20251001",
+   "exit": "0",
+   "wall_s": "53.483"
+  },
+  {
+   "part": "resilience-c8",
+   "n": "2",
+   "evidence": "plans/sdd/V6-closeout/live/rerun-c8/C4.9/session2",
+   "model": "claude-haiku-4-5-20251001",
+   "exit": "0",
+   "wall_s": "39.041"
+  },
+  {
+   "part": "resilience-c8",
+   "n": "3",
+   "evidence": "plans/sdd/V6-closeout/live/rerun-c8/C1.6/session",
+   "model": "claude-haiku-4-5-20251001",
+   "exit": "0",
+   "wall_s": "38.883"
+  }
+ ],
+ "hook_calls_total": 650,
+ "host_reported_failures_or_timeouts": [],
+ "host_reported_failures_or_timeouts_total": 0,
+ "latency_per_hook_event": [
+  {
+   "hook_event": "PostToolUse",
+   "n_measured": 269,
+   "median_ms": 88,
+   "p95_ms": 183,
+   "max_ms": 255,
+   "not_measured_before_init": 0,
+   "not_measured_within_5ms": 0,
+   "not_measured_no_response": 0,
+   "total_pairs": 269
+  },
+  {
+   "hook_event": "SessionStart:compact",
+   "n_measured": 26,
+   "median_ms": 135.5,
+   "p95_ms": 395,
+   "max_ms": 796,
+   "not_measured_before_init": 1,
+   "not_measured_within_5ms": 0,
+   "not_measured_no_response": 0,
+   "total_pairs": 27
+  },
+  {
+   "hook_event": "SessionStart:fork",
+   "n_measured": 0,
+   "median_ms": null,
+   "p95_ms": null,
+   "max_ms": null,
+   "not_measured_before_init": 1,
+   "not_measured_within_5ms": 0,
+   "not_measured_no_response": 0,
+   "total_pairs": 1
+  },
+  {
+   "hook_event": "SessionStart:resume",
+   "n_measured": 0,
+   "median_ms": null,
+   "p95_ms": null,
+   "max_ms": null,
+   "not_measured_before_init": 2,
+   "not_measured_within_5ms": 0,
+   "not_measured_no_response": 0,
+   "total_pairs": 2
+  },
+  {
+   "hook_event": "SessionStart:startup",
+   "n_measured": 0,
+   "median_ms": null,
+   "p95_ms": null,
+   "max_ms": null,
+   "not_measured_before_init": 17,
+   "not_measured_within_5ms": 0,
+   "not_measured_no_response": 0,
+   "total_pairs": 17
+  },
+  {
+   "hook_event": "Stop",
+   "n_measured": 153,
+   "median_ms": 91,
+   "p95_ms": 195,
+   "max_ms": 266,
+   "not_measured_before_init": 0,
+   "not_measured_within_5ms": 0,
+   "not_measured_no_response": 0,
+   "total_pairs": 153
+  },
+  {
+   "hook_event": "SubagentStop",
+   "n_measured": 27,
+   "median_ms": 99,
+   "p95_ms": 193,
+   "max_ms": 204,
+   "not_measured_before_init": 1,
+   "not_measured_within_5ms": 0,
+   "not_measured_no_response": 0,
+   "total_pairs": 28
+  },
+  {
+   "hook_event": "UserPromptSubmit",
+   "n_measured": 134,
+   "median_ms": 83.0,
+   "p95_ms": 204,
+   "max_ms": 263,
+   "not_measured_before_init": 19,
+   "not_measured_within_5ms": 0,
+   "not_measured_no_response": 0,
+   "total_pairs": 153
+  }
+ ],
+ "events_without_stream_pairs": {
+  "local_command_completed_successfully": {
+   "PreCompact": 22
+  },
+  "note": "PreCompact and SessionEnd emit no hook_started/hook_response in the stream; PreCompact is reported only in a /compact turn's local-command output, SessionEnd trouble only on stderr. No latency is measured for either."
+ },
+ "latency_all_measured": {
+  "n": 609,
+  "median_ms": 89,
+  "p95_ms": 195,
+  "max_ms": 796,
+  "not_measured": 41
+ }
+}
