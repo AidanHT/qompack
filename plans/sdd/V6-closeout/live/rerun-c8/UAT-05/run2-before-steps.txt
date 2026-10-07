@@ -1,0 +1,56 @@
+turn 0 (We are adding a CSV export to the billin) before argv ['python', '<scratch>/sessions/c8/uat05/dinfo.py'] exit 0
+stdout:
+{"lock": "unreadable: [Errno 2] No such file or directory: '<scratch>/sessions/c8/uat05/proj\\\\.qompack\\\\run\\\\daemon.lock'"}
+
+stderr:
+
+
+turn 5 (/compact) before argv ['python', '<scratch>/sessions/c8/uat05/cfgedit.py'] exit 0
+stdout:
+daemon before the edit: {"lock": {"pid": 31768, "started": 1791384538385, "addr": "\\\\.\\pipe\\qompack.c80311373bb0", "version": "0.3.0", "owner": "532626d5863b1041881f1dc67821b5e9e14006ef4102635f2544b8563fb01d1c", "root": "<scratch>\\sessions\\c8\\uat05\\proj"}, "pid": 31768, "proc": {"Name": "qompack.exe", "Path": "C:\\Users\\Quant\\.qompack\\bin\\93eb09f348774fbf2783bd607a3af41622976b2edad42798b437091eace381a9\\qompack.exe", "Cmd": "C:\\Users\\Quant\\.qompack\\bin\\93eb09f348774fbf2783bd607a3af41622976b2edad42798b437091eace381a9\\qompack.exe daemon --project <scratch>\\sessions\\c8\\uat05\\proj"}}
+config.json existed: False
+wrote '{"runtime": {"rehydrate": {"minTokens": 150, "maxTokens": 150}}}\n' at 2026-10-07T10:49:25-0400
+waited 5 s; reload lines: ["qompack-20261007.log: ts=2026-10-07T14:49:28.453052Z level=info msg=\"daemon: config reloaded\" changed=\"[runtime.rehydrate.maxTokens runtime.rehydrate.minTokens]\""]
+daemon after the wait: {"lock": {"pid": 31768, "started": 1791384538385, "addr": "\\\\.\\pipe\\qompack.c80311373bb0", "version": "0.3.0", "owner": "532626d5863b1041881f1dc67821b5e9e14006ef4102635f2544b8563fb01d1c", "root": "<scratch>\\sessions\\c8\\uat05\\proj"}, "pid": 31768, "proc": {"Name": "qompack.exe", "Path": "C:\\Users\\Quant\\.qompack\\bin\\93eb09f348774fbf2783bd607a3af41622976b2edad42798b437091eace381a9\\qompack.exe", "Cmd": "C:\\Users\\Quant\\.qompack\\bin\\93eb09f348774fbf2783bd607a3af41622976b2edad42798b437091eace381a9\\qompack.exe daemon --project <scratch>\\sessions\\c8\\uat05\\proj"}}
+
+stderr:
+
+
+turn 6 (Use the Read tool to read README.md and ) before argv ['python', '<scratch>/sessions/c8/uat05/snapA_kill.py'] exit 0
+stdout:
+copied rehydrate-40b051ee-13e5-4f31-ac6f-8a3de019098f.json
+dropped --json exit 0 {
+  "schema": 1,
+  "command": "dropped",
+  "ok": true,
+  "data": {
+    "tool": "dropped",
+    "is_error": false,
+    "ephemeral": true,
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"count\":15,\"drops\":[{\"detail\":\"OVERFLOW: pinned invariant inv_b91128913d77 did not fit the
+terminating this project's daemon for the doc's primary route (a daemon started after the edit):
+{"lock": {"pid": 31768, "started": 1791384538385, "addr": "\\\\.\\pipe\\qompack.c80311373bb0", "version": "0.3.0", "owner": "532626d5863b1041881f1dc67821b5e9e14006ef4102635f2544b8563fb01d1c", "root": "<scratch>\\sessions\\c8\\uat05\\proj"}, "pid": 31768, "proc": {"Name": "qompack.exe", "Path": "C:\\Users\\Quant\\.qompack\\bin\\93eb09f348774fbf2783bd607a3af41622976b2edad42798b437091eace381a9\\qompack.exe", "Cmd": "C:\\Users\\Quant\\.qompack\\bin\\93eb09f348774fbf2783bd607a3af41622976b2edad42798b437091eace381a9\\qompack.exe daemon --project <scratch>\\sessions\\c8\\uat05\\proj"}}
+check image qompack.exe: True | check cmdline daemon+project: True
+Stop-Process exit 0  | still alive: False
+RESULT: stopped pid 31768
+kill rc 0
+
+stderr:
+
+
+turn 7 (/compact) before argv ['python', '<scratch>/sessions/c8/uat05/dinfo.py'] exit 0
+stdout:
+{"lock": {"pid": 21744, "started": 1791384604954, "addr": "\\\\.\\pipe\\qompack.c80311373bb0", "version": "0.3.0", "owner": "93cb498cf5e825f69f0b28b095b28f2c7516bf846bd4e36c6f9a1b1870aab20f", "root": "<scratch>\\sessions\\c8\\uat05\\proj"}, "pid": 21744, "proc": {"Name": "qompack.exe", "Path": "C:\\Users\\Quant\\.qompack\\bin\\93eb09f348774fbf2783bd607a3af41622976b2edad42798b437091eace381a9\\qompack.exe", "Cmd": "C:\\Users\\Quant\\.qompack\\bin\\93eb09f348774fbf2783bd607a3af41622976b2edad42798b437091eace381a9\\qompack.exe daemon --project <scratch>\\sessions\\c8\\uat05\\proj"}}
+
+stderr:
+
+
+turn 8 (/qompack:dropped --json) before argv ['python', '<scratch>/sessions/c8/uat05/dinfo.py'] exit 0
+stdout:
+{"lock": {"pid": 21744, "started": 1791384604954, "addr": "\\\\.\\pipe\\qompack.c80311373bb0", "version": "0.3.0", "owner": "93cb498cf5e825f69f0b28b095b28f2c7516bf846bd4e36c6f9a1b1870aab20f", "root": "<scratch>\\sessions\\c8\\uat05\\proj"}, "pid": 21744, "proc": {"Name": "qompack.exe", "Path": "C:\\Users\\Quant\\.qompack\\bin\\93eb09f348774fbf2783bd607a3af41622976b2edad42798b437091eace381a9\\qompack.exe", "Cmd": "C:\\Users\\Quant\\.qompack\\bin\\93eb09f348774fbf2783bd607a3af41622976b2edad42798b437091eace381a9\\qompack.exe daemon --project <scratch>\\sessions\\c8\\uat05\\proj"}}
+
+stderr:
+

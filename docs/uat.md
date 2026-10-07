@@ -738,58 +738,47 @@ stored records to reconcile a failure.
 **Result**
 
 ```text
-Result: fail — read literally (D50), step 5's expectation is not met: at the tiny budget no block is
-  injected and nothing names the 15 records that did not fit. Run 1 (a real session, defaults):
-  the requirement "semicolon", a /qompack:pin made with the daemon running, the correction "must be
-  a TAB character, not a semicolon ... superseded", record_eliminated, then "/compact". The block
-  (3,059 UTF-16 units with the probe line, 942/12,000 tokens, inline) has the delimiters and the
-  fixed section order, the pin in section 1, and section 2's newest-first evolution with the TAB
-  correction ABOVE the superseded semicolon original, which follows whole (D50 met); the
-  eliminated semicolon approach in section 3 and its decision in section 4; state dropped [],
-  degraded false; /qompack:dropped --json {"count":0,"drops":[]}; fsck exit 0, pins ok. After
-  compaction the model gave the delimiter "from the summary and Qompack rehydration section".
-  Step 5 (a second real session in a fresh project; the first attempt was void, a usage limit):
-  with the daemon running, <project>/.qompack/config.json set both bounds to 150; 6 s later the
-  daemon logged "daemon: config reloaded changed=[runtime.rehydrate.maxTokens
-  runtime.rehydrate.minTokens]" and, without a restart, answered the next "/compact" at budget
-  150 (D49 met). Then the doc's primary route: that daemon was terminated (lock pid, image and
-  command line checked) and the next compaction was answered by a daemon started after the edit,
-  also at 150. Both compact injections carry ONLY the contract-probe line (61 units): no
-  qompack:injected block, no section 7, no counted tail. Both states read tokens 0, items [],
-  degraded true, with 15 and 14 drops, tier-1 entries first ("OVERFLOW: pinned invariant
-  inv_b91128913d77 did not fit ... emitted whole or not at all; restore: Read
-  .qompack/checkpoints/0001.json (invariants)", the verbatim original with restore
-  expand(tool_use_id=prompt_…_0), and the retrieval line); dropped --json returns them all. The
-  row's fail list read literally is not tripped (tier1 entries and degraded exist on disk).
-  Finding F-C7-UAT05-1: the empty payload is what ADR 0011's D49 section designs (tier 1 ends at
-  the refused retrieval line, and "a payload whose only admitted section would be item 7 is no
-  payload"), while this row expects a block that names the loss; the session hears nothing
-  (candidate 4 injected the pin and "… and 14 more; call dropped()" at the same budget). The
-  coordinator decides which document is right. Minor: LOUD 'tier-1 material exceeds the hard
-  budget cap' was logged twice in that session, once per daemon. In-session, /qompack:dropped
-  --json delivered the envelope (count 14) but the model did not echo it after the empty
-  compaction; the committed envelopes are CLI captures.
-  No host-reported hook failure or timeout. No native-shrink claim.
-  Ruling (D59(b), after this run): a degraded compaction that dropped material is never silent;
-  when the budget admits no section, the payload is a minimal loss notice naming the loss and the
-  restore route, and ADR 0011 is amended. Below the smallest loss notice nothing is injected, and
-  the overflow drop entry plus one LOUD line name the loss (D60(c)(ii)). The verdict above
-  stands; candidate 8's live re-check re-runs run 2 (D59).
+Result: pass — run 2 re-run on candidate 8 (D59(b), D60(c)(ii)); run 1 passed on candidate 7 and
+  was not re-run. One real session in a fresh project: the requirement "quote every field with
+  double quotes", "/qompack:pin Never write to prod.db from the billing export." (pinned
+  inv_b91128913d77 with the daemon up), the correction "must NOT quote fields ... superseded",
+  record_eliminated, `cat data/meta2.txt`. Step 5: with the daemon running,
+  <project>/.qompack/config.json set minTokens = maxTokens = 150; 3 s later the same daemon logged
+  "daemon: config reloaded" changed="[runtime.rehydrate.maxTokens runtime.rehydrate.minTokens]" and
+  answered the next "/compact" at budget 150 (D49 met). Then the doc's primary route: that daemon
+  was ended (lock pid, image and command line checked; the row asks for a daemon started after the
+  edit) and the next "/compact" was answered by a new daemon, also at 150. Both injections (468
+  UTF-16 units with the probe line, inline) are the D59 loss notice, delimited, section 7 alone:
+  "- 15 items did not fit the rehydration budget; call dropped() to list each with the call that
+  restores it (the user's /qompack:dropped shows the same list)" and "- the original request,
+  verbatim: expand(tool_use_id=prompt_…_0)"; the second reads 14 items. States: tokens 131 of
+  budget 150 both times, degraded true, 15 and 14 drops with tier1 entries first (the pin
+  "OVERFLOW: pinned invariant inv_b91128913d77 ... emitted whole or not at all; restore: Read
+  .qompack/checkpoints/0001.json (invariants)", the verbatim original with its expand pointer, the
+  affordance line); dropped --json returns count 15 and 14, equal to each notice's N. No
+  overflow/payload entry: the smallest notice fit. LOUD.log: 'tier-1 material exceeds the hard
+  budget cap' twice, once per daemon, the rule ADR 0011 section 23 item 3 records. In-session,
+  /qompack:dropped --json delivered the envelope (count 14) to the model, which did not echo it.
+  0001 and 0002 re-hash to MANIFEST; fsck --json exit 0 with the daemon up. 24 hook calls, all
+  success; stderr empty. No native-shrink claim. F-C7-UAT05-1 is fixed.
+  Candidate 7 (d20309c0): fail — at the 150/150 budget both compact injections were only the
+  contract-probe line while 15 and 14 records were dropped (F-C7-UAT05-1), evidence
+  plans/sdd/V6-closeout/live/rerun-c7/UAT-05/
   Candidate 4 (9f6a2fad): fail — under D50 the superseded semicolon original rendered above the
   TAB correction in section 2, evidence plans/sdd/V6-closeout/live/rerun-c4/UAT-05/
   Candidate 3 (d5598eb4): fail — the correction never reached a checkpoint or block, a pin made with
   the daemon up was missing (stale view), evidence plans/sdd/V6-closeout/live/uat/UAT-05/
 Snapshot: qompack version 0.3.0; bundle BUNDLE.json sha256
-  5212ae4eaa2e931266d52069e7d0c72ec2dfd2255d55421c87486ab083e1f395; commit
-  d20309c03ffc364e4cc48663be73cfbb1f2309b2; Windows 11 Home 25H2 build 10.0.26200.9457;
+  61ba9c37dda03c14c44acb6824646a8d7410751bba6f1ce3c5c864d6382dcd8b; commit
+  3ec62ad2e01b985640c0f1fb832df3917f766a5f; Windows 11 Home 25H2 build 10.0.26200.9457;
   Claude Code 2.1.280
-Date: 2026-10-02 (America/Toronto)
+Date: 2026-10-07 (America/Toronto)
 Executed by: Claude Code workflow subagent (Opus 5.5), agent-executed on the owner's real host
   per owner decision D3 — not human UAT
-Evidence: plans/sdd/V6-closeout/live/rerun-c7/UAT-05/ (notes.txt indexes it; also C4.3)
-Rollback verified: not applicable — initial state absent for both projects (recorded); the runs
-  are retained as evidence; no backup or restore was run in this row; the step-5 daemon started
-  after the edit ended by the DEFAULT idle exit; cross-version and activation checks unverified
+Evidence: plans/sdd/V6-closeout/live/rerun-c8/UAT-05/ (notes.txt indexes it; also C4.3)
+Rollback verified: not applicable — initial state absent (recorded); the run is retained as
+  evidence; no backup or restore was run in this row; the step-5 daemon was ended as the row's
+  primary route asks, and its successor is left to the DEFAULT idle exit
 ```
 
 ---
