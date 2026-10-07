@@ -811,7 +811,10 @@ host change could lift — as prepared proposals, none of which has been filed.
   aliases (8.3 short names, links, Unicode normalization variants of a name) and cannot see names a
   command builds at run time or names relative to a `cd`. Outside free text, a structured glob (a
   lone Glob or recall pattern) that selects a refused file the block never recorded, without
-  spelling its literal (`private/d*`), is judged as written (D60(c)(iv)). The store's preview
+  spelling its literal (`private/d*`), is judged as written (D60(c)(iv)). Inside one path-named
+  value, a rooted path glued after one of `+ # ) ] } ! ^` (`a.txt+\Windows\win.ini`) is not judged
+  as a path, so it can be shown; the same text in free text is withheld
+  ([docs/security.md §1](security.md#1-trust-boundaries)). The store's preview
   collapses runs of whitespace, so a summary is judged as collapsed, not as the command spelled it
   (D60(c)(iv)). A program that reads its command line through the Windows ANSI code page receives a
   letter that code page cannot hold as `?`, which a program that globs its arguments reads as a

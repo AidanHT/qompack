@@ -11,6 +11,7 @@ import (
 
 	"github.com/qompack/qompack/internal/checkpoint"
 	"github.com/qompack/qompack/internal/core"
+	"github.com/qompack/qompack/internal/paths"
 	"github.com/qompack/qompack/internal/rules"
 	"github.com/qompack/qompack/internal/skills"
 )
@@ -200,7 +201,174 @@ func TestBuild_APathNamedValueHoldingSeveralPathsIsJudgedPieceByPiece(t *testing
 					require.Equal(t, "shown", summaryVerdict(t, root, h.hp, s, leaks), "%s: %q names only project paths", h.name, s)
 				}
 			}
+			requireGluedPiecesJudged(t, root, inRoot)
+			requireRefusedNamesHoldingAPieceCharacterJudged(t, root, inRoot)
 		})
+	}
+}
+
+// requireGluedPiecesJudged is candidate 8's diff verify, finding 8 and finding 9, over a project at
+// root (inRoot spells a path under it, JSON-escaped). The host judges a path-named value that holds
+// several paths as one nonsense path and refuses nothing, so the rule-literal and withheld-name screen
+// alone judges its in-project pieces; and that screen glued a piece onto the one before it wherever
+// the character between them is one the store's spelling drops (a C0 control, DEL), one the screen
+// reads as part of a name (a C1 control, a space outside ASCII such as NBSP, U+2028 or U+3000, a
+// letter whose ANSI best fit is punctuation such as U+02BA, an invisible format character such as a
+// zero-width space) or a quote screen form removes. A piece that starts with a rule's literal, the
+// most common deny rules' (`Read(./.env)`, `Read(./secrets/**)`, `Read(./.env*)`) or a name the build
+// learned as withheld, was then never at a name start, and section 6 showed `.env` or
+// `secrets/key.pem` (all shown at 77374c3c). And a rooted value judged by the rules' literals alone
+// (screenExact) because its FIRST piece is the root and a path in one separator style showed a later
+// piece the build withholds only by a learned name (a link into a refused directory; finding 9,
+// shown at 77374c3c), and so did a one-word plain preview gluing a second path on with `;`, `,` or
+// `&&`. Each piece now starts at a name boundary, and a value of more than one piece is screened by
+// the withheld names too. A list of project paths split the same ways, and a name that only begins
+// like a rule's literal (`.env.example`, `secrets.md`), are still shown. The verify's probe of the
+// same gluing in free text, a canonical-JSON string no path-named argument holds, showed an outside
+// path and a denied one after a NUL or DEL (77374c3c); free text is judged with such a control read
+// as a space too.
+func requireGluedPiecesJudged(t *testing.T, root string, inRoot func(...string) string) {
+	t.Helper()
+	seps := []struct{ name, sep string }{
+		{"nul", `\u0000`},
+		{"us", `\u001f`},
+		{"del", `\u007f`},
+		{"nel escaped", `\u0085`},
+		{"nel", "\u0085"},
+		{"nbsp", "\u00a0"},
+		{"nbsp escaped", `\u00a0`},
+		{"ls", "\u2028"},
+		{"ls escaped", `\u2028`},
+		{"ideographic space", "\u3000"},
+		{"best fit quote", "\u02ba"},
+		{"zero width space", "\u200b"},
+		{"quote", `\"`},
+		{"apostrophe", "'"},
+		{"backtick", "`"},
+	}
+	type row struct{ name, summary string }
+	var glued []row
+	for _, s := range seps {
+		glued = append(glued,
+			row{s.name + " .env", `{"paths":"src/a.ts` + s.sep + `.env"}`},
+			row{s.name + " secrets", `{"paths":"src/a.ts` + s.sep + `secrets/key.pem"}`})
+	}
+	glued = append(glued,
+		row{"cut .en", `{"cell_id":"c1","paths":"src/a.ts\u0000.en…`},
+		row{"cut secrets", `{"cell_id":"c1","paths":"src/a.ts\u0000secrets/ke…`},
+		row{"array element", `{"paths":["docs/b.md","src/a.ts\u0000.env"]}`})
+	rules := hostRules(root, "./.env", "./secrets/**")
+	leaks := []string{".env", ".en…", "key.pem", "secrets/"}
+	for _, r := range glued {
+		t.Run("glued/"+r.name, func(t *testing.T) {
+			require.Equal(t, "withheld", summaryVerdict(t, root, rules, r.summary, leaks),
+				"%q names .env or secrets/key.pem in a later piece", r.summary)
+		})
+	}
+	for _, s := range []string{
+		`{"paths":"src/a.ts\u0000src/b.ts"}`,
+		"{\"paths\":\"src/a.ts\u00a0src/b.ts\"}",
+		`{"paths":"src/a.ts\u2028docs/b.md"}`,
+		`{"paths":"src/a.ts\u0000.env.example"}`,
+		"{\"paths\":\"src/a.ts\u02ba.env.example\"}",
+		`{"paths":"src/a.ts\u0000docs/secrets.md"}`,
+	} {
+		require.Equal(t, "shown", summaryVerdict(t, root, rules, s, []string{"key.pem"}), "%q names only project paths", s)
+	}
+
+	// A rule whose literal opens a name (`Read(./.env*)`, litPrefix).
+	envStar := refusingUnder(root, []string{"./.env*"}, func(rel string) bool { return strings.HasPrefix(rel, ".env") && !strings.Contains(rel, "/") })
+	for i, s := range []string{`{"paths":"src/a.ts\u0000.env.local"}`, "{\"paths\":\"src/a.ts\u00a0.env.local\"}"} {
+		t.Run(fmt.Sprintf("glued/prefix literal %d", i), func(t *testing.T) {
+			require.Equal(t, "withheld", summaryVerdict(t, root, envStar, s, []string{".env"}), "%q names .env.local", s)
+		})
+	}
+
+	// A name the build learned as withheld: a `.env` file pointer the host refuses through no rule
+	// whose literal spells it.
+	learned := refusingUnder(root, nil, func(rel string) bool { return rel == ".env" })
+	for i, s := range []string{`{"paths":"README.md\u0000.env"}`, "{\"paths\":\"README.md\u00a0.env\"}", "{\"paths\":\"README.md\u02ba.env\"}"} {
+		t.Run(fmt.Sprintf("glued/learned %d", i), func(t *testing.T) {
+			require.Equal(t, "withheld", summaryVerdictBeside(t, root, learned, ".env", s, []string{".env"}), "%q names the learned .env", s)
+		})
+	}
+	require.Equal(t, "shown", summaryVerdictBeside(t, root, learned, ".env", `{"paths":"README.md\u0000.env.example"}`, nil))
+
+	// Finding 9: a link lnk into secrets/, which the host refuses and no literal names, learned from a
+	// file pointer; a rooted first piece made the whole value screenExact.
+	link := refusingUnder(root, []string{"./secrets/**"}, func(rel string) bool {
+		return rel == "lnk" || rel == "secrets" || strings.HasPrefix(rel, "lnk/") || strings.HasPrefix(rel, "secrets/")
+	})
+	lnk := jsonEscaped(filepath.Join("lnk", "token.txt"))
+	plain := func(elem ...string) string { return filepath.Join(append([]string{root}, elem...)...) }
+	for i, s := range []string{
+		// A one-word plain preview (a `path` argument's value, which the store previews alone) was read
+		// as one rooted path too.
+		plain("src", "a.go") + ";" + plain("lnk", "token.txt"),
+		plain("src", "a.go") + ";" + filepath.Join("lnk", "token.txt"),
+		plain("src", "a.go") + "," + filepath.Join("lnk", "token.txt"),
+		plain("src", "a.go") + "&&" + filepath.Join("lnk", "token.txt"),
+		// Fix round 2's review: `+`, where free text (cmd.exe's copy) starts a path but a value's
+		// piece reads a name's character, still took the rules' literals alone.
+		plain("src", "a.go") + "+" + filepath.Join("lnk", "token.txt"),
+		`{"paths":"` + inRoot("src", "a.go") + ` ` + inRoot("lnk", "token.txt") + `"}`,
+		`{"paths":"` + inRoot("src", "a.go") + `;` + inRoot("lnk", "token.txt") + `"}`,
+		`{"paths":"` + inRoot("src", "a.go") + `\u0000` + inRoot("lnk", "token.txt") + `"}`,
+		`{"paths":"` + inRoot("src", "a.go") + `:` + inRoot("lnk", "token.txt") + `"}`,
+		`{"paths":"` + inRoot("a.go") + ` ` + lnk + `"}`,
+	} {
+		t.Run(fmt.Sprintf("several rooted pieces %d", i), func(t *testing.T) {
+			require.Equal(t, "withheld", summaryVerdictBeside(t, root, link, "lnk/token.txt", s, []string{"token.txt"}), "%q names lnk/token.txt", s)
+		})
+	}
+	for _, s := range []string{
+		`{"paths":"` + inRoot("src", "a.go") + ` ` + inRoot("src", "b.go") + `"}`,
+		`{"path":"` + inRoot("src", "a.go") + `"}`,
+	} {
+		require.Equal(t, "shown", summaryVerdictBeside(t, root, link, "lnk/token.txt", s, []string{"token.txt"}), "%q names only project paths", s)
+	}
+	if rootUnitAdmitted(root) {
+		// A plain preview under a root whose spelling has no unit is free text the whitelist withholds
+		// (D64(1)), whatever it names.
+		for _, s := range []string{plain("src", "a.go"), plain("src", "a.go") + ":10", plain("src", "a+b.go")} {
+			require.Equal(t, "shown", summaryVerdictBeside(t, root, link, "lnk/token.txt", s, []string{"token.txt"}), "%q names only project paths", s)
+		}
+	}
+
+	// A string a canonical-JSON preview holds that no path-named argument does is free text, judged
+	// by the whitelist; a C0 control or DEL in it, which only such a preview keeps (as an escape), was
+	// dropped before the whitelist read it, so `x\u0000/etc/passwd` was the one relative word
+	// `x/etc/passwd` (shown at 77374c3c). It is judged with the control read as a space too.
+	for i, s := range []string{
+		`{"query":"x\u0000/etc/passwd"}`,
+		`{"query":"x\u007f/etc/passwd"}`,
+		`{"query":"x\u001f~/.ssh/id_rsa"}`,
+		`{"query":"src/a.ts\u0000.env"}`,
+		`{"args":"cat src/a.ts\u0000secrets/key.pem"}`,
+	} {
+		t.Run(fmt.Sprintf("glued/free text %d", i), func(t *testing.T) {
+			require.Equal(t, "withheld", summaryVerdict(t, root, rules, s, []string{"passwd", "id_rsa", ".env", "key.pem"}),
+				"%q names a path outside the project or a denied one", s)
+		})
+	}
+	require.Equal(t, "shown", summaryVerdict(t, root, rules, `{"query":"foo\u0000bar"}`, nil))
+}
+
+// jsonEscaped is s with each backslash doubled, as a JSON string spells it.
+func jsonEscaped(s string) string { return strings.ReplaceAll(s, `\`, `\\`) }
+
+// refusingUnder stands in for a host that hands the build patterns as its Read rules and refuses each
+// path whose project-relative spelling (slash-separated, case-folded where paths fold) refused reports:
+// a rule the patterns do not spell, such as one the host reaches through a link.
+func refusingUnder(root string, patterns []string, refused func(rel string) bool) HostPaths {
+	return func() HostRules {
+		return HostRules{Patterns: patterns, Refuses: func(p string) bool {
+			if !filepath.IsAbs(p) {
+				p = filepath.Join(root, filepath.FromSlash(p))
+			}
+			rel, err := filepath.Rel(root, filepath.Clean(p))
+			return err == nil && refused(paths.Key(filepath.ToSlash(rel)))
+		}}
 	}
 }
 
@@ -622,8 +790,14 @@ func TestBuild_AWithheldPointerIsExplainedOnceInItsSection(t *testing.T) {
 // payload and the drop report must name none of leaks.
 func summaryVerdict(t *testing.T, root string, hp HostPaths, s string, leaks []string) string {
 	t.Helper()
+	return summaryVerdictBeside(t, root, hp, "private/deny.txt", s, leaks)
+}
+
+// summaryVerdictBeside is summaryVerdict with the file pointer at file.
+func summaryVerdictBeside(t *testing.T, root string, hp HostPaths, file, s string, leaks []string) string {
+	t.Helper()
 	cp := ckUAT05()
-	cp.Pointers.Files = []checkpoint.FilePointer{{Path: "private/deny.txt", Hash: hashOf("deny"), Why: "referenced"}}
+	cp.Pointers.Files = []checkpoint.FilePointer{{Path: file, Hash: hashOf("deny"), Why: "referenced"}}
 	cp.Pointers.Tools = []checkpoint.ToolPointer{{ToolUseID: "toolu_w22", Hash: hashOf(s), Summary: s}}
 	d := uat05Deps(t, cp)
 	d.HostPaths = hp

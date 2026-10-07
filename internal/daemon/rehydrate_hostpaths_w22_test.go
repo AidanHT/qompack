@@ -9,9 +9,11 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"unicode"
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/qompack/qompack/internal/paths"
 	"github.com/qompack/qompack/internal/store"
 )
 
@@ -28,7 +30,11 @@ import (
 // still shown. Its fix round 2 found a NUL-separated list (the store's preview keeps the NUL as
 // \u0000), a glued redirect or `&&`, and a letter whose ANSI best fit is a quote or a bar still
 // showing the outside path after them, at eca33155 too: a control character splits a list, and the
-// others start a path anywhere in a piece.
+// others start a path anywhere in a piece. Candidate 8's diff verify (finding 8) found the same
+// characters gluing an in-project piece onto the one before it for the name screen, which alone
+// judges those pieces: `.env` or `secrets/...` after a NUL, a unit separator, NEL, NBSP, U+2028,
+// U+3000, U+02BA, a zero-width space or a quote was shown under UAT-12's `Read(./.env)` and
+// `Read(./secrets/**)` (77374c3c). Each piece now starts where a name starts.
 func TestRehydrateHostPaths_APathNamedValueHoldingSeveralPathsIsJudgedPieceByPiece(t *testing.T) {
 	for _, elem := range [][]string{{"proj"}, {"John Smith", "proj"}} {
 		t.Run(filepath.Join(elem...), func(t *testing.T) {
@@ -48,6 +54,11 @@ func TestRehydrateHostPaths_APathNamedValueHoldingSeveralPathsIsJudgedPieceByPie
 					v("paths", "src/main.go --out=docs/b.md"),
 					v("paths", "src/main.go\x00src/util.go"),
 					v("file", "docs/R&D/plan.md"),
+					// Candidate 8's diff verify: a list of project paths split by a character the screen
+					// once glued, and a name that only begins like a rule's literal.
+					v("paths", "src/main.go\u00a0src/util.go"),
+					v("paths", "src/main.go\x00.env.example"),
+					v("paths", "src/main.go\u2028docs/secrets.md"),
 				},
 				[]string{
 					v("paths", "src/main.go,"+out),
@@ -79,8 +90,26 @@ func TestRehydrateHostPaths_APathNamedValueHoldingSeveralPathsIsJudgedPieceByPie
 					v("paths", "src/main.go\u02ba/etc/passwd"),
 					v("paths", "src/main.go\u01c0/etc/passwd"),
 					v("path", filepath.Join(root, "src", "main.go")+">/etc/passwd"),
+					// Candidate 8's diff verify (finding 8): a later piece that starts with a rule's literal
+					// after a character the screen dropped or read as a name's own, which glued it onto the
+					// piece before it (shown at 77374c3c).
+					v("paths", "src/main.go\x00.env"),
+					v("paths", "src/main.go\u00a0.env"),
+					v("paths", "src/main.go\u2028secrets/key.pem"),
+					v("paths", "src/main.go\u02ba.env"),
+					v("paths", "src/main.go\x00secrets/token.txt"),
+					v("paths", "src/main.go\x1fsecrets/key.pem"),
+					v("paths", "src/main.go\u0085.env"),
+					v("paths", "src/main.go\u3000secrets/token.txt"),
+					v("paths", "src/main.go\u200b.env"),
+					v("paths", `src/main.go".env"`),
+					v("paths", "README.md\x00.env"),
+					v("paths", []string{"docs/b.md", "src/main.go\x00.env"}),
 				})
-			for _, leak := range []string{filepath.Join("outside", "x.txt"), "passwd", "id_rsa", "credentials", "secret.txt", "../outside"} {
+			for _, leak := range []string{
+				filepath.Join("outside", "x.txt"), "passwd", "id_rsa", "credentials", "secret.txt", "../outside",
+				`.env"`, "key.pem", "token.txt",
+			} {
 				require.NotContains(t, res.Text, leak)
 			}
 		})
@@ -228,10 +257,12 @@ func asciiEqualFold(a, b string) bool {
 }
 
 // spellsTestTempDir reports whether s spells a directory t.TempDir made for the test named name or
-// a subtest of it: the temporary directory, as tmp or its resolved spelling, then the top-level
-// test's name (t.TempDir names its directory after the test, dropping a subtest's `/`).
+// a subtest of it: the directory t.TempDir makes them under (tmp, testTempBase), as given or as
+// resolved, then the top-level test's name as t.TempDir spells it (tempDirPattern). A subtest's
+// directory is named from its whole name (`TestX/sub` is `TestXsub…`), so it starts with that too.
 func spellsTestTempDir(s, name, tmp string, fold bool) bool {
 	top, _, _ := strings.Cut(name, "/")
+	top = tempDirPattern(top)
 	for _, sp := range tempSpellings(tmp) {
 		dir := filepath.Join(sp, top)
 		for _, form := range []string{dir, forwardSlashes(dir), strings.ReplaceAll(dir, `\`, `\\`)} {
@@ -241,6 +272,56 @@ func spellsTestTempDir(s, name, tmp string, fold bool) bool {
 		}
 	}
 	return false
+}
+
+// TestRehydrateHostPaths_ATempDirOfARowWhoseNameIsLongerThanSixtyFourBytesIsCaught is candidate 8's
+// diff verify, finding 10, in this package: go1.26.6's t.TempDir names its directory after the test's
+// name cut to 64 bytes, and the guard looked for the whole top-level name, so it never caught a
+// directory of a row whose name is longer (11 of this package's preview rows). This row's own name is
+// longer than the cut; the guard catches its t.TempDir() and its subtest's, in each spelling
+// requireUncutOnAHostedRunner reads, and a shortProjectDir's is still not caught.
+func TestRehydrateHostPaths_ATempDirOfARowWhoseNameIsLongerThanSixtyFourBytesIsCaught(t *testing.T) {
+	require.Greater(t, len(t.Name()), 64, "fixture: the row's name is longer than t.TempDir's cut")
+	fold := paths.DefaultFold()
+	caught := func(t *testing.T, dir string) {
+		t.Helper()
+		p := filepath.Join(dir, "proj", "a.go")
+		for _, s := range []string{p, forwardSlashes(p), strings.ReplaceAll(p, `\`, `\\`), "cat " + p} {
+			require.True(t, spellsTestTempDir(s, t.Name(), testTempBase(), fold), "%q spells a t.TempDir() of %s", s, t.Name())
+		}
+	}
+	caught(t, t.TempDir())
+	t.Run("sub", func(t *testing.T) { caught(t, t.TempDir()) })
+	require.False(t, spellsTestTempDir(shortProjectDir(t, "proj"), t.Name(), testTempBase(), fold), "a shortProjectDir's is not")
+
+	long := "Test" + strings.Repeat("Long", 20)
+	require.True(t, spellsTestTempDir(filepath.Join(os.TempDir(), long[:64]+"123", "001"), long+"/sub", os.TempDir(), false),
+		"the name is cut to 64 bytes before os.MkdirTemp's suffix")
+}
+
+// testTempBase is the directory t.TempDir makes its directories under: GOTMPDIR when it is set, as
+// os.MkdirTemp(os.Getenv("GOTMPDIR"), …) reads it in testing.common.makeTempDir, else the temporary
+// directory.
+func testTempBase() string {
+	if d := os.Getenv("GOTMPDIR"); d != "" {
+		return d
+	}
+	return os.TempDir()
+}
+
+// tempDirPattern is name as go1.26.6's t.TempDir spells it in its directory's name
+// (testing.common.makeTempDir): cut to its first 64 bytes, then with every character dropped but a
+// letter, a number and one of `!#$%&()+,-.=@^_{}~ ` (removeSymbolsExcept, which also drops a rune
+// the cut split). os.MkdirTemp then appends its random suffix (candidate 8's diff verify, finding 10:
+// the guard compared the uncut name, so it never caught a row whose name is longer).
+func tempDirPattern(name string) string {
+	name = name[:min(len(name), 64)]
+	return strings.Map(func(r rune) rune {
+		if unicode.IsLetter(r) || unicode.IsNumber(r) || strings.ContainsRune("!#$%&()+,-.=@^_{}~ ", r) {
+			return r
+		}
+		return -1
+	}, name)
 }
 
 // tempSpellings is tmp and, when it differs, its resolved spelling, resolved once per directory.

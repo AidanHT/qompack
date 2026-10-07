@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"unicode"
 
 	"github.com/stretchr/testify/require"
 
@@ -161,10 +162,12 @@ func asciiEqualFold(a, b string) bool {
 }
 
 // spellsTestTempDir reports whether s spells a directory t.TempDir made for the test named name or
-// a subtest of it: the temporary directory, as tmp or its resolved spelling, then the top-level
-// test's name (t.TempDir names its directory after the test, dropping a subtest's `/`).
+// a subtest of it: the directory t.TempDir makes them under (tmp, testTempBase), as given or as
+// resolved, then the top-level test's name as t.TempDir spells it (tempDirPattern). A subtest's
+// directory is named from its whole name (`TestX/sub` is `TestXsub…`), so it starts with that too.
 func spellsTestTempDir(s, name, tmp string, fold bool) bool {
 	top, _, _ := strings.Cut(name, "/")
+	top = tempDirPattern(top)
 	for _, sp := range tempSpellings(tmp) {
 		dir := filepath.Join(sp, top)
 		for _, form := range []string{dir, forwardSlashes(dir), strings.ReplaceAll(dir, `\`, `\\`)} {
@@ -174,6 +177,21 @@ func spellsTestTempDir(s, name, tmp string, fold bool) bool {
 		}
 	}
 	return false
+}
+
+// tempDirPattern is name as go1.26.6's t.TempDir spells it in its directory's name
+// (testing.common.makeTempDir): cut to its first 64 bytes, then with every character dropped but a
+// letter, a number and one of `!#$%&()+,-.=@^_{}~ ` (removeSymbolsExcept, which also drops a rune
+// the cut split). os.MkdirTemp then appends its random suffix (candidate 8's diff verify, finding 10:
+// the guard compared the uncut name, so it never caught a row whose name is longer).
+func tempDirPattern(name string) string {
+	name = name[:min(len(name), 64)]
+	return strings.Map(func(r rune) rune {
+		if unicode.IsLetter(r) || unicode.IsNumber(r) || strings.ContainsRune("!#$%&()+,-.=@^_{}~ ", r) {
+			return r
+		}
+		return -1
+	}, name)
 }
 
 // tempSpellings is tmp and, when it differs, its resolved spelling, resolved once per directory.
@@ -209,7 +227,7 @@ var tempResolved struct {
 func requireSummaryFitsOnAHostedRunner(t *testing.T, s string) {
 	t.Helper()
 	fold := paths.DefaultFold()
-	require.False(t, spellsTestTempDir(s, t.Name(), os.TempDir(), fold),
+	require.False(t, spellsTestTempDir(s, t.Name(), testTempBase(), fold),
 		"fixture: %q spells t.TempDir(), whose length is the runner's; build the root under shortRoot", s)
 	if hosted := onAHostedRunner(s, shortBases.snapshot(), longestTempBase(), fold); hosted != s {
 		require.LessOrEqual(t, len(hosted), previewWidth,
@@ -272,4 +290,41 @@ func TestOnAHostedRunner_RespellsEveryBaseWhole(t *testing.T) {
 		"a summary spelling a t.TempDir() of the row is caught")
 	require.False(t, spellsTestTempDir(filepath.Join(os.TempDir(), "q123", "proj"), "TestX", os.TempDir(), false),
 		"a shortRoot's is not")
+}
+
+// TestSpellsTestTempDir_CatchesTheDirectoryOfARowWhoseNameIsLongerThanTheCut is candidate 8's diff
+// verify, finding 10. go1.26.6's t.TempDir names its directory after the test's name cut to 64 bytes
+// (testing.common.makeTempDir), and the guard looked for the whole top-level name, so it never caught
+// a directory of a row whose name is longer: 11 daemon preview rows and
+// TestBuild_PathKeyedCheckpointDropsCostABoundedNumberOfHostJudgements have such names, and a future
+// one could build its root under t.TempDir again and bring back hosted CI's H2 unseen. This row's own
+// name is longer than the cut; the guard catches its t.TempDir() and its subtest's, in each spelling
+// requireSummaryFitsOnAHostedRunner reads, and a shortRoot's is still not caught.
+func TestSpellsTestTempDir_CatchesTheDirectoryOfARowWhoseNameIsLongerThanTheCut(t *testing.T) {
+	require.Greater(t, len(t.Name()), 64, "fixture: the row's name is longer than t.TempDir's cut")
+	fold := paths.DefaultFold()
+	caught := func(t *testing.T, dir string) {
+		t.Helper()
+		p := filepath.Join(dir, "proj", "a.go")
+		for _, s := range []string{p, forwardSlashes(p), strings.ReplaceAll(p, `\`, `\\`), "cat " + p} {
+			require.True(t, spellsTestTempDir(s, t.Name(), testTempBase(), fold), "%q spells a t.TempDir() of %s", s, t.Name())
+		}
+	}
+	caught(t, t.TempDir())
+	t.Run("sub", func(t *testing.T) { caught(t, t.TempDir()) })
+	require.False(t, spellsTestTempDir(filepath.Join(shortRoot(t), "proj"), t.Name(), testTempBase(), fold), "a shortRoot's is not")
+
+	long := "Test" + strings.Repeat("Long", 20)
+	require.True(t, spellsTestTempDir(filepath.Join(os.TempDir(), long[:64]+"123", "001"), long+"/sub", os.TempDir(), false),
+		"the name is cut to 64 bytes before os.MkdirTemp's suffix")
+}
+
+// testTempBase is the directory t.TempDir makes its directories under: GOTMPDIR when it is set, as
+// os.MkdirTemp(os.Getenv("GOTMPDIR"), …) reads it in testing.common.makeTempDir, else the temporary
+// directory.
+func testTempBase() string {
+	if d := os.Getenv("GOTMPDIR"); d != "" {
+		return d
+	}
+	return os.TempDir()
 }
