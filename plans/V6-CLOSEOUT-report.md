@@ -38,7 +38,7 @@ Close-out executed 2026-09-22 to 2026-10-06 (America/Toronto); this draft 2026-1
 |---|---|
 | Reference host | Windows 11 Home 10.0.26200 (25H2 build 10.0.26200.9457 in the candidate 7 lane), Intel Core Ultra 7 155H, 22 logical CPUs, 31.4 GB RAM; timing taken on AC only (D57(d)), the store under a D32-excluded path (D53(h)) |
 | Linux | Docker Desktop / WSL2 container, Go 1.26.6, non-root, capped at 8 CPUs and 8 GiB; valid for CPU- and read-bound rows, not fsync-bound ones (D53(b)) |
-| macOS, windows/arm64, linux/arm64 | Hosted runners only (ci.yml, nightly.yml); no local runner. Installed-host macOS and arm64 sessions: `unknown` (C4.11) |
+| macOS, darwin/amd64, windows/arm64, linux/arm64 | macOS is tested only on hosted macos-latest (arm64; ci.yml, nightly.yml). darwin/amd64, windows/arm64 and linux/arm64 are cross-compiled only, with no runner. No local runner. Installed-host macOS and arm64 sessions: `unknown` (C4.11) |
 | Toolchain | `go 1.26`, `toolchain go1.26.6` (go.mod at `e8c62191`) |
 | Claude Code host | 2.1.280 (live lanes, C3.10) |
 | Model in live sessions | claude-haiku-4-5-20251001 in every candidate 7 lane session; C5.5 analysis parameters in the pre-registration |
@@ -382,23 +382,31 @@ None was made to turn a red green without a recorded reason:
   accepted". The evidence required for acceptance did not change; a red that is wave 22's supersedes
   candidate 8 as it would have stopped the freeze.
 
-**Waivers.** Two kinds are in force.
+**Waivers.** Three kinds are in force.
 - **ADR 0010's co-load waiver (D39).** On a pass that declares co-load (`QOMPACK_UNDER_COLOAD=1`), the
   wall budgets of B-A, B-B and B-E are reported, not gated. The close-out night harness declares
   co-load on its shared passes (D62). The isolated timing passes and C5.1 do not declare it, so B-A and
   B-B are gated there. `ec1ce53d` corrected the co-load waiver notes in the JSON artifacts: the lanes
-  that still enforce those rows judge on a reference disk, and hosted runs only report them (D53(e),
-  D55, ADR 0010 Addendum 2). Which second-freeze passes declared co-load: [OWED: from the overnight
-  run's pass records].
+  that still enforce those rows judge on a reference disk. Which second-freeze passes declared
+  co-load: [OWED: from the overnight run's pass records].
+- **The non-reference-disk declaration (Q1).** Hosted jobs set `QOMPACK_NONREFERENCE_DISK`, a
+  separate declaration for a reason other than co-load: GitHub runners' fsync tail. Under it B-A,
+  B-B and B-E's wall row are reported, not gated (D53(e), D55, ADR 0010 Addendum 2). D57(a) added
+  it to release-dry-run and release.yml's tag-time job. The delivery ledger, B-E_cpu and every
+  structural check stay gated, and the reference verdict on those rows is the local
+  `release-check --tag` on the reference host.
 - **`runpatterns` waivers on `-run` quotes in seat reports.** They change documentation only and never
   skip or relax a test. On closeout/integration since `cf31e01`: `893b11b9` (wave 1), `8d50d6bb` (wave
   2b), `1c9012e2` (waves 3 and 4), `f6095e27` (wave 5), `fc5289c3` (wave 10), `dfe99d90` (wave 14),
   `fe6b27fa` (wave 15), `d5c9c533` (wave 15c), `6f118a7b` (wave 16), `ae601390` (wave 16b), `877ed3f7`
   (wave 16c), `8489bc97` (waves 16d and 16e), `9a56b305` (wave 16f), `1d793976` (wave 17), `7aeb5c6e`
-  (wave 17c), `738d67c7` (wave 19), `39dfcb75` (wave 19c), `2bf29705` (waves 19d to 19g), `456a0d24`
-  (waves 19h and 19i) and `f905ec9c` (wave 20). The list was read from the commit subjects of
-  `git log cf31e01..closeout/integration`; that log is the complete record if a waiver's subject does
-  not say so.
+  (wave 17c), `738d67c7` (wave 19), `39dfcb75` (wave 19c), `2bf29705` (waves 19b and 19d to 19g),
+  `456a0d24` (waves 19h and 19i) and `f905ec9c` (wave 20). These are the dedicated waiver commits, read
+  from the commit subjects of `git log cf31e01..closeout/integration`. Seat reports in waves 2, 5 to 8,
+  16 and 22 also carry waivers added in the commit that recorded the report, whose subject does not say
+  so (for example `bf8a9c30`, `047e56e9`, `3e61cdd4`, `97eddc11` and `2a2e8f6c`). The complete record is
+  the `<!-- runpatterns: ... -->` markers themselves: 297 in 64 files under plans/sdd/V6-closeout/ at
+  `e8c62191`.
 
 **Skips and unexecuted evidence, stated rather than passed.**
 - Linux fsync-bound rows B-A and B-B are not verified in target on the container (D53(b)).
