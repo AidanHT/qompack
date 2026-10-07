@@ -189,8 +189,8 @@ or renumbered.
 | 7 (history, `c7_result`) | 251 `verified_in_target`, 39 `partial_verified`, 7 `unknown`, 3 `unsupported`, 3 `documented`, 1 `implemented_unverified` |
 | 8, second freeze | [OWED: C6.2 `c8_result`/`c8_evidence` columns, written after the C5.2 nights and the live re-check by the inventory seat (D67(k))] |
 
-The candidate 7 column is not candidate 8's result. Rows that no step can execute stay
-`verified_in_target` never (D37(c)): 1.16.5, 1.16.10, 1.17.3, 1.17.5, 1.17.6, 1.10.18, 1.17.19 until
+The candidate 7 column is not candidate 8's result. Rows that no step can execute are never marked
+`verified_in_target` (D37(c)): 1.16.5, 1.16.10, 1.17.3, 1.17.5, 1.17.6, 1.10.18, 1.17.19 until
 C7.2, and the human half of 1.18.12 under D3. A C5.2 measurement carries only where every file the
 benchmark executes is byte-unchanged (D57(e)); candidate 8 changes `internal/config/config.go`, so C5.2 is
 re-measured in full (D62(b)).
@@ -436,7 +436,7 @@ archiving for rollover (D6), the batched-write store format (D54), and the C7.6 
 
 ## 16. Remaining blockers and next authorized action
 
-Blocking release: every `[OWED: ...]` cell in sections 0, 2, 4, 5, 6, 8, 9, 10, 11 and 12. Next, in
+Blocking release: every `[OWED: ...]` cell in sections 0, 2, 4, 5, 6, 8, 9, 10, 11, 12 and 13. Next, in
 order (D53(h), D68(c), D71(c)): classify the second freeze's overnight run and hosted runs and write
 `phase3/c8-CANDIDATE.md`; the C5.2 nights; the candidate 8 live re-check; C5.5; C6.2; fill this report
 and give it its independent review (C6.4); C6.5; then the release steps, each under its authorization.
