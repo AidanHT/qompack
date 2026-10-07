@@ -125,7 +125,8 @@ map every tool record to its place in each block, with the store's own preview):
    and withheld or shown as expected there. Candidate 7's exact F1 pointer, recall {"query":"path:private/deny.txt"},
    went to section 7 in BOTH blocks (A's toolu_01P6Be..., B's toolu_01Fwjg...), so it was not displayed here; its
    siblings path:private/k=v.txt (B), path:deny.txt, path:private/a,b.txt, path:private/deny (1).txt, path:private/John's
-   notes.txt and path:notes-b.md were withheld, and session C judged path:private/deny.txt itself (../C4.6/notes.txt).
+   notes.txt and path:notes-b.md were withheld; session C's path:private/deny.txt went to section 7 as well
+   (../C4.6/notes.txt, coverage limit).
 
 NO-MODEL PROBE of the frozen `qompack mcp` after session B (cli/20, cli/21; result-text UTF-8 bytes, the bound
 runtime.mcp.maxResponseBytes 262,144 covers):

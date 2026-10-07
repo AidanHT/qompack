@@ -375,3 +375,14 @@ same  plugins/data/ (2 entries)
 INFO  .qompack/ gained ['bin/', 'bin/93eb09f348774fbf2783bd607a3af41622976b2edad42798b437091eace381a9/'] (run-created; record, remove only if yours)
 real home fingerprint unchanged
 check exit 0
+== after retrieval-c8 session 3 (C4.6 session C) — 2026-10-07 12:39:23 Eastern Daylight Time
+removed run-created empty plugins/data/qompack-inline/
+same  settings.json e15855d7e46a
+same  plugins/installed_plugins.json 728f75591291
+same  plugins/known_marketplaces.json 1b1eda7e17f0
+same  plugins/cache/ (10 entries)
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+INFO  .qompack/ gained ['bin/', 'bin/93eb09f348774fbf2783bd607a3af41622976b2edad42798b437091eace381a9/'] (run-created; record, remove only if yours)
+real home fingerprint unchanged
+check exit 0
