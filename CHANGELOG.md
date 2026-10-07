@@ -324,7 +324,8 @@ Minor defects this release does not fix, each recorded in the close-out ledger (
   `runtime.daemon.idleExitSeconds` (30 minutes by default) through two daemon idle exits, and a new
   window is started after each, the second start fails `session_start.fires` and the project drops
   to passive recording. It cannot happen once any session of the project has ended or compacted; to
-  recover, exit one session normally and start a new one (`docs/troubleshooting.md` §1).
+  recover, exit one session normally, and full recording returns after two later session starts
+  pass their checks (`docs/troubleshooting.md` §1 and §2).
 - **A fork's decisions on a score tie.** When the rehydration budget runs short and scores tie, a
   forked session's block can keep a decision inherited from its parent ahead of the fork's own. The
   cut decision is still named in `dropped()`, and `why()` retrieves it.
@@ -337,8 +338,10 @@ Minor defects this release does not fix, each recorded in the close-out ledger (
   about 2 ms more, because of the summary whitelist (D63). That is far inside the 5 s compaction
   budget.
 - **Hook warnings name no location.** A hook's "invalid configuration value" line in the day log does
-  not say which file, variable or flag set the value. The daemon's start line and a command's warning
-  do, under `location=`, and `qompack config print --provenance` shows each setting's origin.
+  not say which file, variable or flag set the value, and `qompack config print --provenance` shows
+  that key only as `fallback after violation`. To find it, run `qompack status`: its `warn` line in
+  the day log names the source under `location=`, as the daemon's start line does
+  (`docs/troubleshooting.md` §6).
 - **One log line under `runtime.mode` `off`.** When a hook's own read of its delivery fails, it still
   appends one line naming the read error to `.qompack/logs/hook-quiet-YYYYMMDD.jsonl` where
   `.qompack/logs/` exists, until `.qompack/run/state.bin` also says off. To have the hook path write
