@@ -252,6 +252,26 @@ Result: pass — frozen candidate 7 bundle installed the way a release user inst
   status` "9 assertion(s), none failing: 4 holding, 1 pending, 4 with nothing to judge";
   doctor --json exit 0, captures.unpublished "0 gap(s) across 12 sidecar(s)"; fsck --json exit 0
   with the daemon live and stopped, and fsck --seal-check exit 0.
+  Candidate 8 (3ec62ad2e01b985640c0f1fb832df3917f766a5f): carried from candidate 7 (d20309c0) —
+  files changed since that the row exercises: internal/cli/config.go, daemon.go, doctor.go,
+  fsck.go, hookclient.go, qompack_commands.go, sessionstart.go, capture_admission.go;
+  internal/config/config.go, migration.go; internal/contract/assertion.go, assertions.go,
+  history.go, ids.go, observation.go; internal/daemon/daemon.go, handlers.go, registry.go,
+  spawn.go, reload.go, options.go, drain.go, spool_watch.go, session_start_compact.go;
+  internal/observer/observer.go, state.go, stop.go; internal/store/publication_audit.go,
+  provenance.go; internal/mcp/authorize.go (comments only). Not changed: plugin/ (plugin.json,
+  hooks/hooks.json, commands/), the bundle's .mcp.json and tools/devtool/bundle.go (the devtool
+  changes are cover, genconfigdocs, releasechecksteps, stubskips and test, none of them the
+  bundle); the config leaves (config.go adds only a Warning field, so the 108 defaults and the
+  gated switches stand). Why it still holds: the install surface the host discovers is byte-for-byte
+  the same manifest, hooks and commands, and every candidate 8 session of this re-check (e.g.
+  rerun-c8/C4.9/session1 init) saw server plugin:qompack:qompack connected, the eight
+  mcp__plugin_qompack_qompack__ tools and the six /qompack: commands with no qompack:checkpoint;
+  the changed CLI, contract and daemon code (status banner and reasons, session_start.fires
+  same-session-restart, connect budget, config-violation logging) was re-checked live on candidate 8
+  by C4.5 with UAT-06, F-C48-1 and C4.9 (b), all pass, and self-test still reads the same four
+  not-yet-implemented rows (rerun-c8/C4.9/cli/s1-post-self-test). The marketplace install itself
+  was not repeated, evidence plans/sdd/V6-closeout/live/rerun-c8/CARRIED.md (C4.1)
   Candidate 4 (9f6a2fad): pass — installed through an entry named qompack; fsck, status and
   doctor agreed after the MCP call, evidence plans/sdd/V6-closeout/live/rerun-c4/UAT-01/
   Candidate 3 (d5598eb4): pass — with findings: fsck exit 1 (MCP record at turn 0), status
@@ -350,39 +370,43 @@ stored records to reconcile a failure.
 **Result**
 
 ```text
-Result: pass on fail criteria; row capability host-limited (D49) — no fail criterion occurred
-  (every capture came back; no demonstrably
-  cut capture reads exact; latency cells without an instrument read `unavailable` with a reason,
-  never 0). Step 6 as revised under D46 holds: the expand responses carry `_meta.qompack` (span,
-  total_bytes, truncated, and next_span "9909:16384" for the paged big.log) and the redacted
-  creds.txt content as «redacted:aws_access_key_id» / «redacted:github_token», and no retrieval
-  response carries a fidelity or coverage field; the small file's capture sidecar reads `exact`.
-  Expected-result field NOT observed (finding, unchanged since candidate 3): the oversized and
-  binary captures read `exact` (sidecars 35 exact, 1 redacted) — the host delivered big.log
-  (310,800 B) whole and Qompack stored the whole delivery; Read refuses blob.bin and fires no
-  PostToolUse, and `cat blob.bin` arrives as host-decoded text — so the non-exact capability the
-  row exists to show is unverified on this host. C4.2 re-checked after a session with six MCP calls:
-  all seven hook events fired and the host counts match the store (prompts 10 = 10; tool uses 15
-  minus the refused Read = 14 = 14 captures; sessions 1 = 1; no MCP record out of turn order);
-  `qompack status` "9 assertion(s), all holding", `doctor --json` with no degraded row and
-  `fsck --json` exit 0 with every row ok, with the daemon live and again after the default idle
-  exit. Planted secrets: 0 hits in the post-run store (raw, decompressed and decoded). Step 1
-  OBSERVED (to be confirmed at execution, before any session): session_start.fires first-session,
-  session_start.source_compact no-precompact-pending, hook.additional_context_delivered /
-  precompact.has_time_to_write / precompact.custom_instructions_accepted / mcp.server_registered
-  not-yet-implemented, hook.payload_shape "payload shape valid", transcript.readable
-  no-transcript-path, plugin.root_resolves unset.
+Result: pass on fail criteria; row capability host-limited (D49) — frozen candidate 8 bundle via
+  --plugin-dir; no fail criterion occurred (every capture came back; no demonstrably cut capture
+  reads exact; latency cells without an instrument read `unavailable` with a reason, never 0).
+  Step 6 as revised under D46 holds: the /qompack:recall hit's hash expanded, the expand
+  responses carry `_meta.qompack` (span, total_bytes, truncated, and next_span "9909:16384" for
+  the paged big.log), the redacted creds.txt content reads «redacted:aws_access_key_id» /
+  «redacted:github_token», and no retrieval response carries a fidelity or coverage field; the
+  small file's capture sidecar reads `exact`. Expected-result field NOT observed (finding,
+  unchanged since candidate 3; host-limited, D49): the oversized and binary captures read
+  `exact` (sidecars 35 exact, 1 redacted) — the host delivered big.log (310,800 B) whole and
+  Qompack stored the whole delivery; Read refuses blob.bin and fires no PostToolUse, and `cat
+  blob.bin` arrives as host-decoded text. C4.2 re-checked after a session with six MCP calls, a
+  subagent and /compact: all seven hook events fired and the host counts match the store
+  (prompts 10 = 10; tool uses 15 minus the refused Read = 14 = 14 captures; sessions 1 = 1, end
+  set; no turn-order violation); every hook success / exit 0, stderr empty; `qompack status` "9
+  assertion(s), none failing: 7 holding, 0 pending, 2 with nothing to judge", `doctor --json`
+  with no degraded row and `fsck --json` exit 0 with every row ok, with the daemon live and again
+  after the default idle exit (fsck --seal-check exit 0). Planted secrets: 0 hits in the post-run
+  store (raw, decompressed and decoded). Step 1 OBSERVED (to be confirmed at execution, before any
+  session): session_start.fires first-session, session_start.source_compact
+  no-precompact-pending, hook.additional_context_delivered / precompact.has_time_to_write /
+  precompact.custom_instructions_accepted / mcp.server_registered not-yet-implemented,
+  hook.payload_shape "payload shape valid", transcript.readable no-transcript-path,
+  plugin.root_resolves unset.
+  Candidate 4 (9f6a2fad): pass on fail criteria; host-limited (D49) — oversized and binary
+  captures read exact; C4.2 counts matched, evidence plans/sdd/V6-closeout/live/rerun-c4/UAT-02/
   Candidate 3 (d5598eb4): pass — with findings: fsck exit 1 (turn-0 MCP records, a segment naming
   an unwritten checkpoint), doctor over-counting capture gaps, evidence
   plans/sdd/V6-closeout/live/uat/UAT-02/
 Snapshot: qompack version 0.3.0; bundle BUNDLE.json sha256
-  aa7da0e17b7597562a6eba47fc48f1db81ff5e9bdc494b9997a323137625558d; commit
-  9f6a2fadf086eba8080af589a35dd9554ae6cab4; Windows 11 Home 25H2 build 10.0.26200.9457;
+  61ba9c37dda03c14c44acb6824646a8d7410751bba6f1ce3c5c864d6382dcd8b; commit
+  3ec62ad2e01b985640c0f1fb832df3917f766a5f; Windows 11 Home 25H2 build 10.0.26200.9457;
   Claude Code 2.1.280
-Date: 2026-09-29 (America/Toronto)
+Date: 2026-10-07 (America/Toronto)
 Executed by: Claude Code workflow subagent (Opus 5.5), agent-executed on the owner's real host
   per owner decision D3 — not human UAT
-Evidence: plans/sdd/V6-closeout/live/rerun-c4/UAT-02/ (notes.txt indexes it; also C4.2)
+Evidence: plans/sdd/V6-closeout/live/rerun-c8/UAT-02/ (notes.txt indexes it; also C4.2)
 Rollback verified: not applicable — initial state absent (recorded: `backup create` exit 1 "no
   existing store"); per the row's rule the run is retained as evidence; no restore was run
 ```
@@ -485,6 +509,23 @@ Result: pass — the round trip and the incomplete-outcome probe both meet the r
   has degraded true and degraded_reason "checkpoint 0002 does not verify; rolled back to 0001";
   LOUD.log says "rehydrate: newest checkpoint refused; rolled back to 0001". The gated durable
   frontier is unverified by this row.
+  Candidate 8 (3ec62ad2e01b985640c0f1fb832df3917f766a5f): carried from candidate 7 (d20309c0) —
+  files changed since that the row exercises: internal/checkpoint/intent.go, source.go,
+  writer.go, draft.go, decisions.go, lineage.go, precompact.go; internal/daemon/handlers.go,
+  precompact_duplicate.go, session_start_compact.go, scheduler_frontier.go, scheduler_runtime.go,
+  scheduler_state.go, scheduler_tap.go, drain.go, rehydrate_service.go, spawn.go;
+  internal/rehydrate/build.go, items.go, render.go, budget.go, hostcap.go, types.go, pathgate.go,
+  notice.go, learned_index.go (the incomplete-outcome probe's rehydration); internal/cli (status's
+  daemon start). Why it still holds: the checkpoint changes alter what current_work, the goal walk
+  and decisions contain (own prompt records, a fork's decisions from its fork point) and when a
+  draft number is given back; none changes the artifact's field set, the MANIFEST append and hash,
+  or the re-read after a restart, and candidate 8 compactions sealed and re-hashed checkpoints live
+  (UAT-04, UAT-05 run 2: 0001 and 0002 re-hash to MANIFEST; UAT-06, F-C48-1). The fallback
+  statement's code (checkpoint_fallback drop, degraded_reason, the LOUD line) is untouched; the new
+  drop-reason screen redacts only a reason that shows an outside or withheld path, which this
+  reason does not, and the D59 loss notice applies only when no section fits. The restart re-read
+  and the corrupted-checkpoint probe were not repeated on candidate 8, evidence
+  plans/sdd/V6-closeout/live/rerun-c7/UAT-03/
   Candidate 4 (9f6a2fad): fail — a corrupted newest checkpoint fell back to 0001 with no statement
   of the fallback anywhere, evidence plans/sdd/V6-closeout/live/rerun-c4/UAT-03/
   Candidate 3 (d5598eb4): pass — with findings: empty checkpoint pointers, restore integrity
@@ -589,26 +630,28 @@ stored records to reconcile a failure.
 **Result**
 
 ```text
-Result: pass — with a finding. Every compaction proceeded: 3 manual "/compact" and 5 automatic,
-  forced only by CLAUDE_CODE_AUTO_COMPACT_WINDOW=100000 at the host's DEFAULT threshold percentage
-  (no CLAUDE_AUTOCOMPACT_PCT_OVERRIDE; each fired at 68.6k-73.8k tokens, 0 "thrash" lines, every
-  turn answered). The third manual one ran with the PreCompact hook failing on an unparseable
-  project config (`{"runtime":`): the hook prints {} and exits 0, the compaction proceeded, no
-  checkpoint was written, and MANIFEST.jsonl kept its 7 lines with 0007 newest and every artifact
-  re-hashing. The 16,858-character first prompt is never cut: every compact block (1,424-3,250
-  UTF-16 units, inline) names it first in section 7 as "user_intent tier1 — OVERFLOW: the verbatim
-  original user intent did not fit the rehydration payload and is emitted whole or not at all;
-  restore: expand(tool_use_id=prompt_…_0)", and LOUD.log carries "rehydrate: tier-1 material
-  exceeds the hard budget cap" exactly once (D50; the six later ones are info lines). fsck --json
-  exits 0 with the daemon up (index.files "not materialized yet ... at its next flush", ok) and
-  after the default idle exit with the planted config still in place (and with --seal-check).
-  The step-6 search over 70 hook responses and 62 outputs found no native-shrink claim. The model
-  recovered the brief's closing marker and, with data/keys.txt deleted, Q23 through recall/expand.
-  Finding: with the original a tier-1 overflow, block8 still names the 6 oldest of 13 evolution
-  entries "did not fit the rehydration budget" while the payload is 929 of 12,000 tokens and 2,950
-  of 9,400 characters (D49's unused room is not given to evolution while tier 1 is incomplete).
-  Observation: the abandoned session's 1.2 MB daemon WAL stays after the idle exit (doctor
-  spool.pending degraded; fsck ok), as on candidate 4.
+Result: pass — re-run on candidate 8 (wave 19c rewrote the rehydration code these compactions
+  run, so candidate 7's pass was not carried). Every compaction proceeded: 3 manual "/compact" and
+  5 automatic, forced only by CLAUDE_CODE_AUTO_COMPACT_WINDOW=100000 at the host's DEFAULT threshold
+  percentage (no CLAUDE_AUTOCOMPACT_PCT_OVERRIDE, the 30%/100k setting that thrashed candidates 3
+  and 4; each fired at 68.7k-73.8k tokens, 0 "thrash" lines, every turn answered). The third manual
+  one ran with the PreCompact hook failing on an unparseable project config (`{"runtime":`): the
+  hook prints {} and exits 0, the compaction proceeded, no checkpoint was written, and
+  MANIFEST.jsonl kept its 7 lines with 0007 newest and every artifact re-hashing. The
+  16,858-character first prompt is never cut: every compact block (1,424-3,218 UTF-16 units,
+  inline) names it first in section 7 as "user_intent tier1 — OVERFLOW: the verbatim original user
+  intent did not fit the rehydration payload and is emitted whole or not at all; restore:
+  expand(tool_use_id=prompt_…_0)", and LOUD.log carries "rehydrate: tier-1 material exceeds the
+  hard budget cap" exactly once (D50; the six later ones are info lines). fsck --json exits 0 with
+  the daemon up and after the default idle exit with the planted config still in place (and with
+  --seal-check). The step-6 search over 69 hook responses and the evidence files
+  found no native-shrink claim. The model recovered the brief's closing marker through expand and,
+  with data/keys.txt deleted, Q23 through recall and expand. 69 hook calls, all success; stderr
+  empty. Recorded, by design (D59): beside the tier-1 overflow, the last block names the 6 oldest
+  evolution entries as not fitting while the payload is 929 of 12,000 tokens (F-C7-UAT04-1).
+  Candidate 7 (d20309c0): pass — with a finding: with the original a tier-1 overflow, evolution
+  entries were not given the unused room (F-C7-UAT04-1, later documented by design), evidence
+  plans/sdd/V6-closeout/live/rerun-c7/UAT-04/
   Candidate 4 (9f6a2fad): pass — with findings: the forced 30%/100k threshold thrashed the host,
   LOUD tier-1 on all 15 compactions, post-run fsck exit 1 on index.files, evidence
   plans/sdd/V6-closeout/live/rerun-c4/UAT-04/
@@ -616,15 +659,15 @@ Result: pass — with a finding. Every compaction proceeded: 3 manual "/compact"
   at 8,192 bytes mid-word with a spurious intent_mismatch, evidence
   plans/sdd/V6-closeout/live/uat/UAT-04/
 Snapshot: qompack version 0.3.0; bundle BUNDLE.json sha256
-  5212ae4eaa2e931266d52069e7d0c72ec2dfd2255d55421c87486ab083e1f395; commit
-  d20309c03ffc364e4cc48663be73cfbb1f2309b2; Windows 11 Home 25H2 build 10.0.26200.9457;
+  61ba9c37dda03c14c44acb6824646a8d7410751bba6f1ce3c5c864d6382dcd8b; commit
+  3ec62ad2e01b985640c0f1fb832df3917f766a5f; Windows 11 Home 25H2 build 10.0.26200.9457;
   Claude Code 2.1.280
-Date: 2026-10-02 (America/Toronto)
+Date: 2026-10-07 (America/Toronto)
 Executed by: Claude Code workflow subagent (Opus 5.5), agent-executed on the owner's real host
   per owner decision D3 — not human UAT
-Evidence: plans/sdd/V6-closeout/live/rerun-c7/UAT-04/ (notes.txt indexes it; also C4.3)
+Evidence: plans/sdd/V6-closeout/live/rerun-c8/UAT-04/ (notes.txt indexes it; also C4.3)
 Rollback verified: not applicable — initial state absent (recorded); the run is retained as
-  evidence; no backup or restore was run in this row
+  evidence; no backup or restore was run in this row; no daemon was ended (DEFAULT idle exit)
 ```
 
 ---
@@ -738,58 +781,61 @@ stored records to reconcile a failure.
 **Result**
 
 ```text
-Result: fail — read literally (D50), step 5's expectation is not met: at the tiny budget no block is
-  injected and nothing names the 15 records that did not fit. Run 1 (a real session, defaults):
-  the requirement "semicolon", a /qompack:pin made with the daemon running, the correction "must be
-  a TAB character, not a semicolon ... superseded", record_eliminated, then "/compact". The block
-  (3,059 UTF-16 units with the probe line, 942/12,000 tokens, inline) has the delimiters and the
-  fixed section order, the pin in section 1, and section 2's newest-first evolution with the TAB
-  correction ABOVE the superseded semicolon original, which follows whole (D50 met); the
-  eliminated semicolon approach in section 3 and its decision in section 4; state dropped [],
-  degraded false; /qompack:dropped --json {"count":0,"drops":[]}; fsck exit 0, pins ok. After
-  compaction the model gave the delimiter "from the summary and Qompack rehydration section".
-  Step 5 (a second real session in a fresh project; the first attempt was void, a usage limit):
-  with the daemon running, <project>/.qompack/config.json set both bounds to 150; 6 s later the
-  daemon logged "daemon: config reloaded changed=[runtime.rehydrate.maxTokens
-  runtime.rehydrate.minTokens]" and, without a restart, answered the next "/compact" at budget
-  150 (D49 met). Then the doc's primary route: that daemon was terminated (lock pid, image and
-  command line checked) and the next compaction was answered by a daemon started after the edit,
-  also at 150. Both compact injections carry ONLY the contract-probe line (61 units): no
-  qompack:injected block, no section 7, no counted tail. Both states read tokens 0, items [],
-  degraded true, with 15 and 14 drops, tier-1 entries first ("OVERFLOW: pinned invariant
-  inv_b91128913d77 did not fit ... emitted whole or not at all; restore: Read
-  .qompack/checkpoints/0001.json (invariants)", the verbatim original with restore
-  expand(tool_use_id=prompt_…_0), and the retrieval line); dropped --json returns them all. The
-  row's fail list read literally is not tripped (tier1 entries and degraded exist on disk).
-  Finding F-C7-UAT05-1: the empty payload is what ADR 0011's D49 section designs (tier 1 ends at
-  the refused retrieval line, and "a payload whose only admitted section would be item 7 is no
-  payload"), while this row expects a block that names the loss; the session hears nothing
-  (candidate 4 injected the pin and "… and 14 more; call dropped()" at the same budget). The
-  coordinator decides which document is right. Minor: LOUD 'tier-1 material exceeds the hard
-  budget cap' was logged twice in that session, once per daemon. In-session, /qompack:dropped
-  --json delivered the envelope (count 14) but the model did not echo it after the empty
-  compaction; the committed envelopes are CLI captures.
-  No host-reported hook failure or timeout. No native-shrink claim.
-  Ruling (D59(b), after this run): a degraded compaction that dropped material is never silent;
-  when the budget admits no section, the payload is a minimal loss notice naming the loss and the
-  restore route, and ADR 0011 is amended. Below the smallest loss notice nothing is injected, and
-  the overflow drop entry plus one LOUD line name the loss (D60(c)(ii)). The verdict above
-  stands; candidate 8's live re-check re-runs run 2 (D59).
+Result: pass — run 2 re-run on candidate 8 (D59(b), D60(c)(ii)); run 1 passed on candidate 7 and
+  was not re-run. One real session in a fresh project: the requirement "quote every field with
+  double quotes", "/qompack:pin Never write to prod.db from the billing export." (pinned
+  inv_b91128913d77 with the daemon up), the correction "must NOT quote fields ... superseded",
+  record_eliminated, `cat data/meta2.txt`. Step 5: with the daemon running,
+  <project>/.qompack/config.json set minTokens = maxTokens = 150; 3 s later the same daemon logged
+  "daemon: config reloaded" changed="[runtime.rehydrate.maxTokens runtime.rehydrate.minTokens]" and
+  answered the next "/compact" at budget 150 (D49 met). Then the doc's primary route: that daemon
+  was ended (lock pid, image and command line checked; the row asks for a daemon started after the
+  edit) and the next "/compact" was answered by a new daemon, also at 150. Both injections (468
+  UTF-16 units with the probe line, inline) are the D59 loss notice, delimited, section 7 alone:
+  "- 15 items did not fit the rehydration budget; call dropped() to list each with the call that
+  restores it (the user's /qompack:dropped shows the same list)" and "- the original request,
+  verbatim: expand(tool_use_id=prompt_…_0)"; the second reads 14 items. States: tokens 131 of
+  budget 150 both times, degraded true, 15 and 14 drops with tier1 entries first (the pin
+  "OVERFLOW: pinned invariant inv_b91128913d77 ... emitted whole or not at all; restore: Read
+  .qompack/checkpoints/0001.json (invariants)", the verbatim original with its expand pointer, the
+  affordance line); dropped --json returns count 15 and 14, equal to each notice's N. No
+  overflow/payload entry: the smallest notice fit. LOUD.log: 'tier-1 material exceeds the hard
+  budget cap' twice, once per daemon, the rule ADR 0011 section 23 item 3 records. In-session,
+  /qompack:dropped --json delivered the envelope (count 14) to the model, which did not echo it.
+  0001 and 0002 re-hash to MANIFEST; fsck --json exit 0 with the daemon up. 24 hook calls, all
+  success; stderr empty. No native-shrink claim. F-C7-UAT05-1 is fixed.
+  Candidate 8 (3ec62ad2e01b985640c0f1fb832df3917f766a5f), run 1: carried from candidate 7
+  (d20309c0) — files changed since that the row exercises: internal/rehydrate/build.go, items.go,
+  render.go, budget.go, hostcap.go, types.go, pathgate.go, notice.go, learned_index.go;
+  internal/daemon/rehydrate_service.go, session_start_compact.go, handlers.go;
+  internal/checkpoint/intent.go, writer.go, decisions.go, draft.go, source.go; internal/cli/
+  qompack_commands.go (/qompack:dropped). Why it still holds: at the default 8000/12000 budget the
+  changes reach run 1 only as (a) the pointer and drop-reason gates (D50, D63, D64), which withhold
+  more and add section 6's one-line legend, inside the same hard cap and the 9,500-character
+  inline bound (hostcap.go charges the legend), and (b) current_work and decisions derivation;
+  section 2's newest-first evolution in items.go is unchanged, and the loss notice (notice.go) is
+  built only when no section fits. Run 1's checks were met live on candidate 8 by this row's run 2
+  path (delimiters, order) and by UAT-04, UAT-06 (original intent and a correction rendered above
+  the superseded statement after /compact) and C4.6 session C (the block, never the deferred note);
+  run 1 itself was not repeated, evidence plans/sdd/V6-closeout/live/rerun-c7/UAT-05/
+  Candidate 7 (d20309c0): fail — at the 150/150 budget both compact injections were only the
+  contract-probe line while 15 and 14 records were dropped (F-C7-UAT05-1), evidence
+  plans/sdd/V6-closeout/live/rerun-c7/UAT-05/
   Candidate 4 (9f6a2fad): fail — under D50 the superseded semicolon original rendered above the
   TAB correction in section 2, evidence plans/sdd/V6-closeout/live/rerun-c4/UAT-05/
   Candidate 3 (d5598eb4): fail — the correction never reached a checkpoint or block, a pin made with
   the daemon up was missing (stale view), evidence plans/sdd/V6-closeout/live/uat/UAT-05/
 Snapshot: qompack version 0.3.0; bundle BUNDLE.json sha256
-  5212ae4eaa2e931266d52069e7d0c72ec2dfd2255d55421c87486ab083e1f395; commit
-  d20309c03ffc364e4cc48663be73cfbb1f2309b2; Windows 11 Home 25H2 build 10.0.26200.9457;
+  61ba9c37dda03c14c44acb6824646a8d7410751bba6f1ce3c5c864d6382dcd8b; commit
+  3ec62ad2e01b985640c0f1fb832df3917f766a5f; Windows 11 Home 25H2 build 10.0.26200.9457;
   Claude Code 2.1.280
-Date: 2026-10-02 (America/Toronto)
+Date: 2026-10-07 (America/Toronto)
 Executed by: Claude Code workflow subagent (Opus 5.5), agent-executed on the owner's real host
   per owner decision D3 — not human UAT
-Evidence: plans/sdd/V6-closeout/live/rerun-c7/UAT-05/ (notes.txt indexes it; also C4.3)
-Rollback verified: not applicable — initial state absent for both projects (recorded); the runs
-  are retained as evidence; no backup or restore was run in this row; the step-5 daemon started
-  after the edit ended by the DEFAULT idle exit; cross-version and activation checks unverified
+Evidence: plans/sdd/V6-closeout/live/rerun-c8/UAT-05/ (notes.txt indexes it; also C4.3)
+Rollback verified: not applicable — initial state absent (recorded); the run is retained as
+  evidence; no backup or restore was run in this row; the step-5 daemon was ended as the row's
+  primary route asks, and its successor is left to the DEFAULT idle exit
 ```
 
 ---
@@ -864,42 +910,47 @@ stored records to reconcile a failure.
 **Result**
 
 ```text
-Result: pass — with a finding. Steps run: original intent ("allow 100 requests per minute per
-  client") + correction ("must be 60 ..., not 100") + record_eliminated + compact (block 1);
-  --resume (SessionStart:resume injected only the contract probe) + /qompack:why + second
-  compaction (block 2); --resume --fork-session (SessionStart:fork injected only the probe) +
-  compact (block 3, the fork's first) + already_tried + /qompack:why + second correction ("must be
-  45 ..., not 60") + compact (block 4); none skipped. The fork's first block carries the parent's
-  verbatim original under "(forked session: the original request of session 0eaa2666 ...)" AND the
-  60 correction above it, the parent's session-scoped elimination of "100" (section 3) and its
-  decision dec_991dbff588ec (section 4), with the fork provenance in section 7; already_tried in
-  the fork answers active, scope session, and why() finds the decision (checkpoint_seq 4). After
-  --resume the session's second checkpoint 0002 still carries the decision. In every block section
-  2 renders the evolution newest first and the original last, whole (D50): the newest correction
-  is above the older one and no superseded restatement is promoted. /qompack:why returned an
-  attributed record (what, why, the rejected alternative, evidence, turn), not a claim about the
-  model. Step 7: no log line waits on or reports a post-compaction event. Fork diff (to be
-  confirmed at execution): besides seq, checkpoint number, session id and probe token, section 2
-  gains the fork's own prompt and the provenance line, current work and pointers are the fork's,
-  section 7 appears; sections 3-4 are identical. MANIFEST skips seq 3; fsck exit 0.
-  Finding: the fork's second checkpoint (0005) derives "Current work" from an inherited parent
-  prompt (the record_eliminated instruction, cut at the 160-rune goal cap) instead of the fork's
-  newest prompt. Doc finding: "Section 2's first unit is the verbatim original" disagrees with the
-  D50 render order the product follows.
+Result: pass — re-run on candidate 8 (D59, D62 forkwork). Steps run: original intent ("allow 100
+  requests per minute per client") + correction ("must be 60 ..., not 100") + record_eliminated +
+  compact (block 1, 0001); --resume (SessionStart:resume injected only the contract probe) +
+  /qompack:why + second compaction (block 2, 0002); --resume --fork-session (SessionStart:fork
+  injected only the probe) + compact (block 3, 0004, the fork's first) + already_tried +
+  /qompack:why + second correction ("must be 45 ..., not 60") + compact (block 4, 0005); none
+  skipped. The fork's first block carries the parent's verbatim original under "(forked session:
+  the original request of session 7f96ea69 ...)" AND the 60 correction above it, the parent's
+  session-scoped elimination of "100" (section 3) and decision dec_991dbff588ec (section 4), with
+  the fork provenance in section 7; its Current work is the fork's own newest prompt (the
+  docs/design.md Read), and 0005's is the fork's newest prompt, the 45 correction (F-C7-UAT06-1
+  fixed: candidate 7 took an inherited parent prompt there). In the fork, already_tried answers
+  active, scope session, and why() finds the decision. After --resume, 0002 still carries the
+  decision. In every block section 2 renders the evolution newest first and the original last,
+  whole (D50): the newest correction is above the older ones and no superseded restatement is
+  promoted; a later restart of the parent (0003) keeps 60 and never shows the fork's 45.
+  /qompack:why returned an attributed record (what, why, rejected alternative, evidence, turn), not
+  a claim about the model. Step 7: no log line waits on or reports a post-compaction event. Fork
+  diff (to be confirmed at execution): besides seq, checkpoint number, session id and probe token,
+  section 2 gains the fork's own prompt and the provenance line, current work and pointers are the
+  fork's, section 7 appears; sections 3-4 are identical. Every checkpoint re-hashes; fsck exit 0.
+  59 hook calls across the three sessions, all success; stderr empty. Observation: block 2 shows
+  one subagent pointer as "(summary withheld)" in a project with no rules (accepted
+  over-withholding, D66(e)).
+  Candidate 7 (d20309c0): pass — with a finding: the fork's second checkpoint took Current work
+  from an inherited parent prompt (F-C7-UAT06-1), evidence
+  plans/sdd/V6-closeout/live/rerun-c7/UAT-06/
   Candidate 4 (9f6a2fad): fail — the fork's first block left out the correction in force and the
   parent's elimination and decision, evidence plans/sdd/V6-closeout/live/rerun-c4/UAT-06/
   Candidate 3 (d5598eb4): fail — the fork's "verbatim original" was the fork's own first prompt
   and no correction ever reached a checkpoint, evidence plans/sdd/V6-closeout/live/uat/UAT-06/
 Snapshot: qompack version 0.3.0; bundle BUNDLE.json sha256
-  5212ae4eaa2e931266d52069e7d0c72ec2dfd2255d55421c87486ab083e1f395; commit
-  d20309c03ffc364e4cc48663be73cfbb1f2309b2; Windows 11 Home 25H2 build 10.0.26200.9457;
+  61ba9c37dda03c14c44acb6824646a8d7410751bba6f1ce3c5c864d6382dcd8b; commit
+  3ec62ad2e01b985640c0f1fb832df3917f766a5f; Windows 11 Home 25H2 build 10.0.26200.9457;
   Claude Code 2.1.280
-Date: 2026-10-02 (America/Toronto)
+Date: 2026-10-07 (America/Toronto)
 Executed by: Claude Code workflow subagent (Opus 5.5), agent-executed on the owner's real host
   per owner decision D3 — not human UAT
-Evidence: plans/sdd/V6-closeout/live/rerun-c7/UAT-06/ (notes.txt indexes it; also C4.3)
+Evidence: plans/sdd/V6-closeout/live/rerun-c8/UAT-06/ (notes.txt indexes it; also C4.3, C4.5)
 Rollback verified: not applicable — initial state absent (recorded); the run is retained as
-  evidence; no backup or restore was run in this row
+  evidence; no backup or restore was run in this row; no daemon was ended (DEFAULT idle exit)
 ```
 
 ---
@@ -977,31 +1028,36 @@ stored records to reconcile a failure.
 **Result**
 
 ```text
-Result: pass — none of the row's fail conditions occurred. Steps 1-3 in the session:
-  `cobalt heron threshold`, `path:src/*.go`, `path:*.go`, `symbol:ReconcileBalances` and
-  `tool:Read` each returned hits (references and summaries, `count`, `found`); the glob and the
-  host tool name now match (tool:Read = tool:FileRead, 4 hits each after the run); a no-match
-  `path:nothing/*.rs` is `count 0, found false`, exit 0. Step 4: expand by `hash` and by
-  `tool_use_id` gave the same hash, span [0,838], total_bytes 838 and content, with no `source`;
-  `_meta.qompack.ephemeral` true. Step 5: re_read with no `at` gave `source: store`, turn 7
-  (driftLimit 40); `at: "turn:1"` gave turn 1 (driftLimit 25). Step 6: after the on-disk edit
-  (driftLimit 7) re_read still returned the captured turn-7 version. Step 7 OBSERVED (to be
-  confirmed at execution) for a never-stored hash, not a tool error: `{"found":false,"searched":
-  "the root index, including every indexed root's chunk list","available":false,"reason":"no
-  indexed root or chunk carries this hash, so its content provenance could not be established"}`.
-  Observation: after the session's MCP calls, `path:` answers are filled by retrieval
-  self-records (one for src/nope.go, a path that never existed), crowding the files out.
+Result: pass — none of the row's fail conditions occurred (frozen candidate 8 bundle via --plugin-dir,
+  one session shared with C4.4). Steps 1-3 in the session: `amber quill horizon`, `path:src/*.go`,
+  `path:*.go`, `symbol:ReconcileBalances` and `tool:Read` (each `--json`) returned hits as
+  references and summaries with `count` and `found`; after the session `tool:Read` = `tool:FileRead`
+  (4 hits each) and the no-match `path:nothing/*.rs` is `count 0, found false`, exit 0; original
+  captures now rank ahead of retrieval self-records (candidate 4's crowding does not recur). Step 4:
+  expand by `hash` and by `tool_use_id` gave the same hash, span [0,1103], total_bytes 1103 and
+  content, with no `source`; `_meta.qompack.ephemeral` true. Step 5: re_read with no `at` gave
+  `source: store`, turn 7 (driftLimit 40); `at: "turn:1"` gave turn 1 (driftLimit 25). Step 6:
+  after the on-disk edit (driftLimit 7) re_read still returned the captured turn-7 version. Step 7
+  OBSERVED (to be confirmed at execution) for a never-stored hash, not a tool error:
+  `{"found":false,"searched":"the root index, including every indexed root's chunk list",
+  "available":false,"reason":"no indexed root or chunk carries this hash, so its content
+  provenance could not be established"}`. Hooks: 99, every one success / exit 0, no host-reported
+  failure or timeout; doctor, fsck and fsck --seal-check clean after the idle exit. Observation O-1
+  (coordinator, not judged a finding): the compaction block's section 5 `goal:` quotes the user's
+  latest prompt, which named a path the host denied by then (section 2's class, D62(f)).
+  Candidate 4 (9f6a2fad): pass — globs and host tool names matched; `path:` answers crowded by
+  retrieval self-records, evidence plans/sdd/V6-closeout/live/rerun-c4/UAT-07/
   Candidate 3 (d5598eb4): pass — with findings: `path:` was not a glob and `tool:` rejected host
   names, evidence plans/sdd/V6-closeout/live/uat/UAT-07/
 Snapshot: qompack version 0.3.0; bundle BUNDLE.json sha256
-  aa7da0e17b7597562a6eba47fc48f1db81ff5e9bdc494b9997a323137625558d; commit
-  9f6a2fadf086eba8080af589a35dd9554ae6cab4; Windows 11 Home 25H2 build 10.0.26200.9457;
+  61ba9c37dda03c14c44acb6824646a8d7410751bba6f1ce3c5c864d6382dcd8b; commit
+  3ec62ad2e01b985640c0f1fb832df3917f766a5f; Windows 11 Home 25H2 build 10.0.26200.9457;
   Claude Code 2.1.280
-Date: 2026-09-29 (America/Toronto)
+Date: 2026-10-07 (America/Toronto)
 Executed by: Claude Code workflow subagent (Opus 5.5), agent-executed on the owner's real host
   per owner decision D3 — not human UAT
-Evidence: plans/sdd/V6-closeout/live/rerun-c4/UAT-07/ (notes.txt indexes it; the session is
-  ../C4.4/session/, shared with C4.4)
+Evidence: plans/sdd/V6-closeout/live/rerun-c8/UAT-07/ (notes.txt indexes it; the C4.4 matrix is
+  ../C4.4/tool-matrix.md)
 Rollback verified: not applicable — initial state absent (recorded: `backup create` exit 1 "no
   existing store"); per the row's rule the run is retained as evidence; no restore was run
 ```
@@ -1074,31 +1130,33 @@ stored records to reconcile a failure.
 **Result**
 
 ```text
-Result: pass — with no compaction before them, step 2's acknowledgement carried id,
-  descriptor, scope `session`, evidence, depends_on (both paths resolved) and
-  depends_on_unresolved []; step 3 answered `active` with reason, evidence, scope, recorded_at
-  (2026-09-30T03:29:33Z, RFC 3339 UTC) and depends_on, no stale_because; step 4 answered a plain
+Result: pass — frozen candidate 8 bundle via --plugin-dir, two sessions in this row's own project.
+  With no compaction before them, step 2's acknowledgement carried id, descriptor, scope
+  `session`, evidence, depends_on (both paths resolved) and depends_on_unresolved [] (no
+  warnings); step 3 answered `active` with reason, evidence, scope, recorded_at
+  (2026-10-07T17:03:34Z, RFC 3339 UTC) and depends_on, no stale_because; step 4 answered a plain
   `{"state":"absent"}` (no bloom_only); step 5: records/eliminations.jsonl holds the record,
-  stored with the calling session's id. The next checkpoint (0001) carries it in eliminated and
-  its decision dec_e760c8bbf50a in decisions; the model found that id in the injected block and
-  `why` answered it, as did `/qompack:why dec_e760c8bbf50a` in the resumed session. Session scope
-  isolates: in a later, different session of a project whose earlier session had recorded a
-  session-scoped and a project-scoped elimination, already_tried answered `absent` for the first
-  and `active` for the second (run in the C4.4 project, because this project's record had gone
-  stale in UAT-09 and a stale record no longer answers after a restart — UAT-09's finding).
+  stored with the calling session's id, before any compaction. After /compact the block carried
+  both eliminations and decision dec_e760c8bbf50a, and `why` answered it (checkpoint_seq 1,
+  what, why, evidence, alternatives_rejected, turn 3); already_tried still answered active.
+  Session scope isolates: in a later, different session of the same project, already_tried
+  answered `absent` for the session-scoped record and `active` for a project-scoped one recorded
+  in the first session. Hooks: 37, every one success / exit 0, no host-reported failure or
+  timeout; doctor, fsck and fsck --seal-check clean after the idle exit (2 active, 0 stale).
+  Candidate 4 (9f6a2fad): pass — the ledger answered before any compaction; isolation was checked
+  in the C4.4 project, evidence plans/sdd/V6-closeout/live/rerun-c4/UAT-08/
   Candidate 3 (d5598eb4): fail — the elimination ledger was not present before the first
   compaction and session scope was stored as "", evidence plans/sdd/V6-closeout/live/uat/UAT-08/
 Snapshot: qompack version 0.3.0; bundle BUNDLE.json sha256
-  aa7da0e17b7597562a6eba47fc48f1db81ff5e9bdc494b9997a323137625558d; commit
-  9f6a2fadf086eba8080af589a35dd9554ae6cab4; Windows 11 Home 25H2 build 10.0.26200.9457;
+  61ba9c37dda03c14c44acb6824646a8d7410751bba6f1ce3c5c864d6382dcd8b; commit
+  3ec62ad2e01b985640c0f1fb832df3917f766a5f; Windows 11 Home 25H2 build 10.0.26200.9457;
   Claude Code 2.1.280
-Date: 2026-09-29 (America/Toronto)
+Date: 2026-10-07 (America/Toronto)
 Executed by: Claude Code workflow subagent (Opus 5.5), agent-executed on the owner's real host
   per owner decision D3 — not human UAT
-Evidence: plans/sdd/V6-closeout/live/rerun-c4/UAT-08/ (notes.txt indexes it)
+Evidence: plans/sdd/V6-closeout/live/rerun-c8/UAT-08/ (notes.txt indexes it)
 Rollback verified: not applicable — initial state absent (recorded: `backup create` exit 1 "no
-  existing store"); the run is retained as evidence (the project continued into UAT-09); no
-  restore was run
+  existing store"); the run is retained as evidence; no restore was run
 ```
 
 ---
@@ -1200,6 +1258,24 @@ Result: pass — re-run on candidate 7 (D52). Steps 1-3 in the recording session
   19:25:51 (segment 2 close, observer: gc). No host-reported hook failure. Ruled by design
   (D62, sessionend): SessionEnd was delivered, and the sweep is the documented quiet-session
   limit (docs/cannot-do.md §4).
+  Candidate 8 (3ec62ad2e01b985640c0f1fb832df3917f766a5f): carried from candidate 7 (d20309c0)
+  apart from O-1 — files changed since that the row exercises: internal/negknow/ledger.go (a
+  bloom-filter miss answers absent before any lineage read, ca0b7caa), internal/negknow/caller.go
+  and internal/mcp/authorize.go (comments only), internal/daemon/reload.go (the reload stamp
+  seeded from the startup load, d4d86168), internal/daemon/handlers.go, internal/config/
+  migration.go and config.go (a VersionedReset marker), internal/cli/config.go (violation
+  logging). Why it still holds: the early absent answer runs only when the filter does not hold
+  the query's key; the filter covers every record in view, active and stale, and a missing
+  sketches/tried.bloom is rebuilt from the records, and the same miss answered absent later in
+  the same function on candidate 7, so steps 2 and 4 (stale,
+  then uncertain under drop, never absent) still reach the record; step 5's blind ledger keeps its
+  `blind` bypass (the miss test is `!l.blind && ...`), so it still answers unavailable; the reload
+  change only stops the first idle check re-loading an unchanged file, and step 4's mid-session
+  edit changes the file. The record path (record_eliminated, already_tried active, scope session)
+  answered live on candidate 8 in UAT-06's fork, UAT-07 and UAT-08. O-1 on candidate 8:
+  SessionEnd reached the daemon after a final /compact, evidence
+  plans/sdd/V6-closeout/live/rerun-c8/F-C48-1/notes.txt; steps 1-6 were not repeated, evidence
+  plans/sdd/V6-closeout/live/rerun-c7/UAT-09/
   Candidate 4 (9f6a2fad): fail — step 4: after a daemon restart already_tried answered `absent`
   for a stale record (R4-1), evidence plans/sdd/V6-closeout/live/rerun-c4/UAT-09/
   Candidate 3 (d5598eb4): fail — staleness was not refreshed in the recording session and the
@@ -1327,6 +1403,22 @@ Result: pass — no latency or budget cell printed 0 without an instrument (the 
   request ledger was recorded for this run", so the canonical order and the {"known":false} +
   `missing` form were not observed (finding, unchanged); no "recent loud lines" section appears when
   the tail is empty. 19 hook pairs, all success, exit 0.
+  Candidate 8 (3ec62ad2e01b985640c0f1fb832df3917f766a5f): carried from candidate 7 (d20309c0) —
+  files changed since that the row exercises: internal/eval/ledger.go, provenance.go, livetask.go
+  (map iterations replaced by fixed or sorted orders; no field, category or verdict changed),
+  liveaccount.go, livetrial.go; internal/contract/assertion.go, assertions.go, history.go, ids.go,
+  observation.go (session_start.fires reads a same-session restart as holding, D58(d));
+  internal/daemon/handlers.go, registry.go (status sessions in one stable order, D59(c));
+  internal/cli/qompack_commands.go, doctor.go (status reasons, the command connect budget, D60(e)).
+  Not changed: internal/commands (statuscollect.go, render.go, evalartifacts.go), which build the
+  envelope, the provenance and measure fields, the `unavailable` reasons, B-D's text and eval's
+  `no evaluation artifacts` answer. Why it still holds: the row reads provenance, words-not-zeros
+  and eval's refusal, all produced by unchanged code; the contract change moves one banner row
+  from pending to holding, which the row does not judge; eval's usage categories remain reachable
+  only through --corpus (the finding stands, unchanged). Candidate 8's status envelope and paired
+  reads were re-checked live by C4.5 with UAT-06 and by F-C48-1 (0 pending after a mid-session
+  /compact), and its in-session status by C4.9 (b) and C1.6 (source daemon, counters, recent loud
+  lines); the row itself was not repeated, evidence plans/sdd/V6-closeout/live/rerun-c7/UAT-10/
   Candidate 4 (9f6a2fad): not re-run — D47 re-ran the eleven other rows and D50 moved UAT-10 to the
   next candidate; no rerun-c4/UAT-10/ evidence exists
   Candidate 3 (d5598eb4): pass — with findings: banner "1 of 9 assertion(s) FAILING"
@@ -1436,30 +1528,36 @@ stored records to reconcile a failure.
 **Result**
 
 ```text
-Result: pass — steps 1-4 as written on the frozen binary: `"newResult": false // default`;
-  the refused `true` stays false with `invalid value, using default: true not in false` in
-  config-violations.json; settingsVersion 2 resets the whole runtime.migration block
-  (config-violations.json, day log, LOUD.log) and capture continues; the unparseable file makes the
-  hook print `{}` exit 0 with only config.json in the fresh .qompack/, and self-test exits 1 with
-  config.capture critical, detail "... the project config file is not a single strict JSONC
-  object"; the unknown key keeps capture on and config.capture warns `runtime.notAKey: unknown
-  key`. Step 5: the first turn read the whole 363 KB big.log and the session was not degraded:
-  hook.additional_context_delivered reads "sentinel-observed", and SessionStart:compact injected
-  the block. Step 6: all 9 section-6 pointers resolved — the 4 file pointers by expand (hash) and
-  re_read (path), the 5 tool_use pointers by expand (the model used their tool_use_ids, each
-  returning the line's hash; the one hash not also expanded in-session resolved through a
-  no-model probe). big.log is truncated with next_span and creds.env redacted: recorded
-  fidelities. The planted secret is in no form in the store.
+Result: pass — steps 1-4 as written on the frozen candidate 8 binary: `"newResult": false //
+  default`; the refused `true` stays false with `invalid value, using default: true not in false`
+  in config-violations.json; settingsVersion 2 resets the whole runtime.migration block
+  (config-violations.json and the day log, at warn) and capture continues; the unparseable file
+  makes the hook print `{}` exit 0 with only config.json in the fresh .qompack/, and self-test
+  exits 1 with config.capture critical, detail "... the project config file is not a single
+  strict JSONC object"; the unknown key keeps capture on and config.capture warns
+  `runtime.notAKey: unknown key`. Step 5 (frozen bundle via --plugin-dir): the first turn read the
+  whole 363,000-byte big.log, then odd.txt (control, ANSI, emoji, RTL, CJK, zero-width), creds.env,
+  a commit and /compact; the session was not degraded: hook.additional_context_delivered reads
+  "sentinel-observed", and SessionStart:compact injected the block (2,418 chars). Step 6: all 9
+  section-6 pointers resolved — in the session the model expanded every hash and re_read every
+  file path, and a no-model probe resolved all 18 forms the block offers (expand by hash and
+  re_read by path for the 4 file pointers, expand by hash and by tool_use_id for the 5 tool
+  pointers). big.log is truncated with next_span and creds.env redacted: recorded fidelities.
+  Section 6 shows no path outside the project. The planted secret is in no form in the store.
+  Hooks: 26, every one success / exit 0, no host-reported failure or timeout; doctor, fsck and
+  fsck --seal-check clean after the default idle exit.
+  Candidate 4 (9f6a2fad): pass — a 363 KB first-turn Read no longer degraded the session and all 9
+  pointers resolved, evidence plans/sdd/V6-closeout/live/rerun-c4/UAT-11/
   Candidate 3 (d5598eb4): fail — one large first-turn Read hid the probe sentinel, the session
   was degraded to passive and nothing was injected, evidence plans/sdd/V6-closeout/live/uat/UAT-11/
 Snapshot: qompack version 0.3.0; bundle BUNDLE.json sha256
-  aa7da0e17b7597562a6eba47fc48f1db81ff5e9bdc494b9997a323137625558d; commit
-  9f6a2fadf086eba8080af589a35dd9554ae6cab4; Windows 11 Home 25H2 build 10.0.26200.9457;
+  61ba9c37dda03c14c44acb6824646a8d7410751bba6f1ce3c5c864d6382dcd8b; commit
+  3ec62ad2e01b985640c0f1fb832df3917f766a5f; Windows 11 Home 25H2 build 10.0.26200.9457;
   Claude Code 2.1.280
-Date: 2026-09-29 (America/Toronto)
+Date: 2026-10-07 (America/Toronto)
 Executed by: Claude Code workflow subagent (Opus 5.5), agent-executed on the owner's real host
   per owner decision D3 — not human UAT
-Evidence: plans/sdd/V6-closeout/live/rerun-c4/UAT-11/ (notes.txt indexes it)
+Evidence: plans/sdd/V6-closeout/live/rerun-c8/UAT-11/ (notes.txt indexes it)
 Rollback verified: not applicable — initial state absent (recorded: `backup create` exit 1 "no
   existing store"); per the row's rule the run is retained as evidence; no restore was run
 ```
@@ -1559,61 +1657,76 @@ stored records to reconcile a failure.
 **Result**
 
 ```text
-Result: fail — D50's section-6 check (finding F1); every fail criterion listed above was
-  otherwise not hit. Candidate 7, two legs. Steps 2-5 and 8 (retrieval part, a fresh project, no
-  upgrade): step 1 initial state absent (recorded), baseline uat12-c7-baseline after the first
-  session's permitted captures and /compact (148 files, consistent, verify exit 0). Step 2: the
-  host refused the Read ("File is in a directory that is denied by your permission settings.");
-  recall (marker and path:), expand (tool_use_id and root hash), re_read and /qompack:recall all
-  answered denied or withheld the hit ("authorization denied: the host's current permission rules
-  deny reading the associated path") with no preview; out-of-project re_read answered "path
-  escapes the project root", and the out-of-project Read was never captured. Steps 3-5 on a
-  354,352-byte escape-heavy capture: minimal 8,039 bytes, then 18 contiguous pages to the end
-  (max 30,059); full: true 261,164 bytes ([0,217070], truncated, next_span 217070:137282), then
-  [217070,354352] 165,235 bytes, truncated false with no next_span; an explicit span 0:354352
-  pages identically to full: true; re_read full: true 261,172 bytes, continued with expand and its
-  hash. Every truncated page carries next_span, the last page is not truncated, every response is
-  within 262,144, no page holds U+FFFD, and no response carries fidelity or coverage. Binary: the
-  host delivers `cat` output as decoded text and an image as base64 JSON; both sidecars record
-  fidelity exact and Qompack decoded nothing (blob 2,947, png 2,395 bytes). Recall (D49): the
-  default k returned 5 permitted hits with "denied":1 counted apart; at k 20 the six original
-  captures come first and the four retrieval self-records last. No LOUD.log on this multi-session
-  store, so no 'publication accounting incomplete' line. Step 8: restore into a fresh recovery
-  project exit 0, reader proof (31 roots, 21 tool refs) and integrity with the seal check passed;
-  fsck --seal-check exit 0 on the recovery and the source; the source's later writes preserved.
-  Section 6 of both rehydration blocks points to the deny-ruled file by hash only ("path
-  withheld") and shows no absolute out-of-project path, BUT the second block also lists
-  `tool_use toolu_017m9djG... — {"query":"path:private/deny.txt"}`: a host-denied path in a
-  pointer's argument summary (F1; no content shown). Observation O-1 (notes-retrieval.txt):
-  section 2, the verbatim user intent, carries the user's own prompts, which name the
-  out-of-project file by its absolute path (sessionA/injected-2-SessionStart-compact.txt) and
-  "private/deny.txt" (both blocks; session B's Original is "Use the Read tool to read
-  private/deny.txt ..."); no file content is shown. D50's rule names pointers only, and whether
-  section 2 is in its scope is left to the coordinator. Upgrade leg (steps 1 and 6-10, install
-  part): pass — baseline c48-baseline taken after the previous build's permitted captures, MCP
-  calls and /compact (77 files, consistent; verify: 22 roots, 15 tool refs, integrity and seal
-  check passed); previous build candidate 5's frozen bundle (0d06ab12; 0.3.0 has no earlier
-  public release) -> the frozen candidate 7 bundle, both via --plugin-dir; the new build read
-  the old build's captures, its project-scope elimination and its checkpoint chain (0001 ->
-  0003); every pre-upgrade object byte-identical afterwards. Step 7 (to be confirmed at
-  execution): no version-block or retired-meaning warning (no config file exists to carry
-  either), no WARN or LOUD line across the upgrade; self-test config.capture "applied as
-  written"; the layout reappeared after session B's hooks. Step 8: restore of the pre-upgrade
-  baseline exit 0, reader proof and integrity passed; fsck --seal-check exit 0 on the recovery
-  and the source. Steps 9-10: installed at local scope through a local marketplace entry named
-  qompack-windows-amd64, uninstalled, reinstalled and uninstalled again; .qompack/
-  byte-identical across each step (193 and 209 files) and still on disk; after the reinstall
-  session C re-read session A's old-build capture. Finding (diagnostics, minor): after the
-  mid-session compaction `qompack status` names session_start.fires pending
-  "marker-absent-once" on a healthy store.
-  Ruling (D60(c)(i), D62(f), D61(b)(1), D63, after this run): D50 covers pointers only: file and
-  tool pointers, their argument summaries and section 7's drop entries. The records in sections 3
-  and 4, the model's own earlier text, stay outside it by name (D60(c)(i)), and section 2's
-  verbatim intent, the user's own prompts, is outside it too (D62(f)), so O-1 is not a D50
-  failure. F1 stands, and its remedy is ruled: a structured path preview is judged whole, as a
-  file pointer's path is (D61(b)(1)), and a free-text summary is shown only when a whitelist
-  proves it safe (D63, D64). The verdict above stands; candidate 8's live re-check re-runs
-  sessions A and B with C4.6 (D59, D60(f)).
+Result: pass — candidate 8, steps 1-5 and 8 with the D50/D60(c)/D61(b)/D63/D64 checks, in a
+  fresh project whose path holds a space; no fail criterion listed above was hit. The upgrade
+  leg (steps 6, 7, 9, 10) was not re-run on candidate 8 (D59); its last run is candidate 7's
+  pass, recorded in that candidate's evidence. Step 1: initial state absent (recorded),
+  baseline uat12-c8-baseline after session A (235 files, consistent, verify exit 0). Deny rules
+  (one exact Read rule each for private/deny.txt, private/deny (1).txt, private/John's
+  notes.txt, private/a,b.txt and private/k=v.txt) were in the project settings before session A,
+  and its first turn proved them: the host refused all five Reads ("File is in a directory that
+  is denied by your permission settings."). The host also refused a Write to a Read-denied path,
+  hid the denied files from Glob and refused Bash commands that name them, so before session B a
+  seventh rule denied notes-b.md, which session A had captured, and that file was made dirty.
+  Step 2: the host refused the Reads; recall (marker, path:), expand (tool_use_id and hash),
+  re_read (every denied name, relative and absolute) and /qompack:recall answered denied or
+  withheld the hit ("authorization denied: the host's current permission rules deny reading the
+  associated path"), with no preview and no denied file's text in any response; out-of-project
+  re_read answered "path escapes the project root", and the out-of-project Read was never
+  captured. dropped() listed notes-b.md's pointer_dirty drop by hash with "path withheld"
+  (redacted, not removed: D60(iii)). Steps 3-5 on a 354,373-byte capture: minimal 6,458-byte
+  span, then 18 contiguous pages (max 30,059 bytes); full: true [0,217091] 261,189 bytes,
+  truncated, next_span 217091:137282, then [217091,354373] not truncated with no next_span; an
+  explicit span 0:354373 pages identically; re_read full: true 261,197 bytes, continued by
+  expand with its hash. Every response is within 262,144, no page holds U+FFFD, no response
+  carries fidelity or coverage; the binary and image captures are the host's delivery, and
+  Qompack decodes nothing (blob 2,947, png 2,395 bytes). Recall (D49): the default k returned 5
+  permitted hits with "denied":1 apart; at k 20 the originals came first and the retrieval
+  self-records last. No LOUD.log, so no 'publication accounting incomplete' line. Section 6 of
+  both rehydration blocks: no host-denied path (plain, punctuated, relative or absolute, behind
+  a path: or basename selector, a glob, or in free text) and no absolute out-of-project path;
+  the 13 and 14 such tool pointers read "(summary withheld)" with id and hash kept; notes-b.md's
+  file pointer reads "file (path withheld)". In-project absolute paths under the spaced root and
+  ordinary commands were shown (Reads of <root>\pixel.png and others, ls -l "<root>/notes-a.md",
+  cd "<root>" && git status --short, git diff HEAD~1 --stat). Section 7 shows no path. Accepted
+  over-withholding seen: {"span":"0:354373",...} and ls private/*.txt (D64(4), D66(e)). Section
+  2 shows the user's prompts naming the denied files (outside D50, D62(f)). Coverage limit:
+  candidate 7's exact F1 pointer {"query":"path:private/deny.txt"} fell past section 6's budget
+  into section 7 (by id only) in both blocks, so it was not itself displayed; the same selector
+  naming the other denied files was withheld. Step 8: restore into a fresh recovery project
+  exit 0, reader proof (76 roots, 71 tool refs) and integrity with the seal check passed; fsck
+  --seal-check exit 0 on the recovery and the source; the source unchanged by the restore and
+  its later writes kept. Planted secrets: 0 hits in the source and recovery stores and in
+  ~/.qompack. Hooks: 129 calls, all success; the day log's 'ending abandoned session' warn lines
+  fell inside 40-second compactions with idleExitSeconds at 30 (documented in
+  troubleshooting.md).
+  Candidate 8 (3ec62ad2e01b985640c0f1fb832df3917f766a5f), upgrade leg (steps 6, 7, 9, 10): carried
+  from candidate 7 (d20309c0) — files changed since that the row exercises: internal/daemon/
+  scheduler_state.go (state/scheduler.json gains last_applied_observations, a per-session map,
+  additive and omitempty, so the document stays version 1; candidate 7's file has no such key and
+  loads as empty, and candidate 7's reader ignores the unknown key; it replaced the unshipped
+  last_applied_observation, w20-redeliver a704a731), and three more additive omitempty keys:
+  goal_turn in a checkpoint draft's state (internal/checkpoint/draft.go), compact_start_lapsed
+  and went_on in internal/contract/history.go's state, last_stop_observation in
+  internal/observer/state.go's state (each loads as zero from a candidate 7 file and is ignored by
+  candidate 7's readers, none of which disallows unknown fields); internal/config/migration.go and
+  config.go
+  (the VersionedReset marker on a reset's warning) with internal/cli/config.go and
+  internal/daemon/reload.go (the reset is Loud once per daemon start or reload, warn from hooks);
+  internal/daemon/handlers.go, drain.go, scheduler_runtime.go, scheduler_tap.go (in-memory replay
+  and dedupe, no new file); internal/store/publication_audit.go, provenance.go (read-only audit and
+  ordering). Not changed: the store's object, index, capture-sidecar, checkpoint artifact
+  (internal/checkpoint/types.go) and delivery-journal formats, internal/store/backup.go and maintenance.go, internal/cli/backup.go, plugin/. Why it
+  still holds: step 7's reset was observed live on candidate 8 by C4.9 (b) (block reset to
+  defaults, config-violations.json, self-test config.capture warn, capture continued, one Loud line
+  per daemon), and no candidate 8 change rewrites or removes a .qompack/ file on upgrade or
+  uninstall; the upgrade from candidate 7's store reads its formats unchanged. The upgrade,
+  uninstall and reinstall were not repeated, evidence plans/sdd/V6-closeout/live/rerun-c8/CARRIED.md
+  (C4.8) and plans/sdd/V6-closeout/live/rerun-c7/UAT-12/notes.txt
+  Candidate 7 (d20309c0): fail — a tool pointer's argument summary in section 6 showed the
+  host-denied path {"query":"path:private/deny.txt"} (F1, D50), evidence
+  plans/sdd/V6-closeout/live/rerun-c7/UAT-12/notes-retrieval.txt (upgrade leg pass,
+  plans/sdd/V6-closeout/live/rerun-c7/UAT-12/notes.txt)
   Candidate 4 (9f6a2fad): pass — deny, bound and binary steps held and the 0.2.99-prev
   upgrade, restore and uninstall kept .qompack/ intact, evidence
   plans/sdd/V6-closeout/live/rerun-c4/UAT-12/
@@ -1621,24 +1734,20 @@ Result: fail — D50's section-6 check (finding F1); every fail criterion listed
   the bound and a pre-upgrade restore failing its integrity checks, evidence
   plans/sdd/V6-closeout/live/uat/UAT-12/
 Snapshot: qompack version 0.3.0; bundle BUNDLE.json sha256
-  5212ae4eaa2e931266d52069e7d0c72ec2dfd2255d55421c87486ab083e1f395; commit
-  d20309c03ffc364e4cc48663be73cfbb1f2309b2 (the upgrade leg upgraded from candidate 5's bundle,
-  BUNDLE.json sha256 a1c59ec2d817d1837359033d6f047736470beb8bc1badfae836d9158b211a4ac, commit
-  0d06ab12); Windows 11 Home 25H2 build 10.0.26200.9457; Claude Code 2.1.280
-Date: 2026-10-02 (America/Toronto)
+  61ba9c37dda03c14c44acb6824646a8d7410751bba6f1ce3c5c864d6382dcd8b; commit
+  3ec62ad2e01b985640c0f1fb832df3917f766a5f; Windows 11 Home 25H2 build 10.0.26200.9457; Claude
+  Code 2.1.280
+Date: 2026-10-07 (America/Toronto)
 Executed by: Claude Code workflow subagent (Opus 5.5), agent-executed on the owner's real host
   per owner decision D3 — not human UAT
-Evidence: plans/sdd/V6-closeout/live/rerun-c7/UAT-12/notes-retrieval.txt (steps 2-5 and 8, with
-  cli/, sessionA/, sessionB/ and store/ beside it) and
-  plans/sdd/V6-closeout/live/rerun-c7/UAT-12/notes.txt (the upgrade leg; its data is in
-  plans/sdd/V6-closeout/live/rerun-c7/C4.8/)
-Rollback verified: unverified (missing step: neither recovery was activated) — both backups
-  (uat12-c7-baseline: 148 files; c48-baseline: 77 files, frontier 0, the legacy-import cursor)
-  were created and verified by the candidate CLI with the source writer stopped; each same-build
-  restore into a fresh destination proved its reader and passed its integrity checks and the
-  delivery seal check; the sources' later writes were preserved; for the upgrade leg the
-  previous build's own reader (candidate 5) accepts the recovered baseline (fsck and fsck
-  --seal-check exit 0)
+Evidence: plans/sdd/V6-closeout/live/rerun-c8/UAT-12/notes.txt (with cli/, sessionA/,
+  sessionB/, settings/ and store/ beside it); C4.6's session C in
+  plans/sdd/V6-closeout/live/rerun-c8/C4.6/
+Rollback verified: unverified (missing step: the recovery was not activated, and this leg has no
+  upgrade, so no previous-build reader was run) — uat12-c8-baseline was created and verified by
+  the candidate CLI with the source writer stopped; the same-build restore into a fresh
+  destination proved its reader and passed its integrity checks and the delivery seal check;
+  the source's later writes were preserved
 ```
 
 ---
