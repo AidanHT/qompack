@@ -248,18 +248,17 @@ Fixed in release candidate 8's last waves (D67, D68, D71, D72):
   passed (D76), and by its live evaluation (D77), and earlier candidates' bundles by the live lanes
   on candidates 3, 4 and 7. Linux fsync-bound timing rows (B-A, B-B) are not verified in target
   (D53(b)); in the Linux container the whole tree, `test/e2e` and the product-child lane pass under
-  `-race`. On Windows, candidate 8's quiet hot-path run passed on AC (B-A p99 16.4 ms, B-B p99
-  11.3 ms against 50), and X11, the hot path with and without a resident elimination ledger, passed
-  on AC (B-A p99 26.6 ms without the ledger and 20.5 ms with it, B-B p99 12.3 ms, against 50). Runs
-  taken on battery are not reference measurements (D57(d)); on battery the hot path switches to
-  spool submode and nothing is lost (D53(c)). Windows reference timings were taken on AC with the
-  store under a path excluded from Windows Defender scanning (decisions D32, D53(h)). Hosted
-  `ci.yml` run `37562946379` and `nightly.yml` run `37562945914` passed on candidate 8, and the
-  hosted release-version bundles were byte-identical to its frozen ones (D75). The live evaluation's
-  pre-registered decision reads "inconclusive — interval [-0.214, 0.214] straddles -0.200": at this
-  sample size that is the expected verdict, by design, and it is not evidence that Qompack adds
-  nothing (amendment A8, item 3). The C5.2 benchmark night and the C1.16 re-measure are in
-  `docs/release.md`, release status (D62(b), D62(c), D65). The executable bit after a marketplace
+  `-race`. On Windows, candidate 8's quiet hot-path run passed on AC (B-A p99 16.4 ms, B-B p99 11.3
+  ms against 50), and X11, the hot path with and without a resident elimination ledger, passed on
+  AC, run alone (D75). Runs taken on battery are not reference measurements (D57(d)); on battery the
+  hot path switches to spool submode and nothing is lost (D53(c)). Windows reference timings were
+  taken on AC with the store under a path excluded from Windows Defender scanning (decisions D32,
+  D53(h)). Hosted `ci.yml` run `37562946379` and `nightly.yml` run `37562945914` passed on candidate
+  8, and the hosted release-version bundles were byte-identical to its frozen ones (D75). The live
+  evaluation's pre-registered decision reads "inconclusive — interval [-0.214, 0.214] straddles
+  -0.200": at this sample size that is the expected verdict, by design, and it is not evidence that
+  Qompack adds nothing (amendment A8, item 3). The C5.2 benchmark night and the C1.16 re-measure are
+  in `docs/release.md`, release status (D62(b), D62(c), D65). The executable bit after a marketplace
   install on Linux and macOS has not been observed, nor has an install from the published
   marketplace. Under an entry named `qompack-windows-amd64`, installed from a local marketplace on
   candidate 7, a session listed the server `plugin:qompack:qompack`, the tools
