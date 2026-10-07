@@ -181,8 +181,8 @@ Fixed in release candidate 8's last waves (D67, D68, D71, D72):
 - **Consistent configuration-violation reporting**: `status`, `doctor`, `self-test` and
   `state/config-violations.json` all count a newer-`settingsVersion` reset; a command logs a
   violation once, at `warn`, and only a daemon's start writes it to `LOUD.log`; the daemon's start
-  line and a command's line name the file, variable or flag that set it (`location=`); `qompack
-  config print` and the other commands no longer create `.qompack/` in a directory that has none; a
+  line and a command's line name the file, variable or flag that set it (`location=`); no command
+  creates `.qompack/` just to record a configuration violation in a directory that has none; a
   hook under `runtime.mode` `off` writes no configuration diagnostics; and `doctor` reads the record
   without following a link or hanging on a FIFO.
 - **Clearer status reasons**: `doctor` no longer says it asked a daemon to start (it never starts
@@ -227,13 +227,14 @@ Fixed in release candidate 8's last waves (D67, D68, D71, D72):
   the root is withheld. Section 7's drop entries never show such a path (D60(c)). The documented
   limits are under Known limits below and in `docs/cannot-do.md` §5.
 - Inside a path-named tool argument, a piece glued to the one before it by a control character, a
-  non-ASCII space or another character that is not a letter, a quote or a backtick is judged as a
-  piece of its own, and so is each alternative of a `{a,b}` brace list; a name a shell builds at run
-  time (`$(…)`, `${…}`, a backtick, a cmd `%VAR%` or `!VAR!` after a run of dots, a batch
-  parameter, a shell tilde such as `~+` or `~$USER`) reads as outside the project. So the rehydration block no
-  longer shows `.env` from `src/a.ts` and `.env` glued by a NUL under `Read(./.env)`, or
+  quote, a backtick, a non-ASCII space or another non-ASCII character that is not a letter is judged
+  as a piece of its own (an ASCII `+ # ) ] } ! ^` is not; see Known limits below), and so is each
+  alternative of a `{a,b}` brace list; a name a shell builds at run time (`$(…)`, `${…}`, a
+  backtick, a cmd `%VAR%` or `!VAR!` after a run of dots, a batch parameter, a shell tilde such as
+  `~+` or `~$USER`) reads as outside the project. So the rehydration block no longer shows `.env`
+  from `src/a.ts` and `.env` glued by a NUL under `Read(./.env)`, or
   `~{,x}/.ssh/id_rsa`; a free-text JSON string holding a NUL or DEL is judged with it read as a space
-  (D71, D72). Rarer spellings remain, listed under Known issues below.
+  (D71, D72). Rarer spellings remain; see Known issues below and `docs/security.md` §1.
 - Retrieval resolves a path on disk before answering, so a directory replaced by a link out of the
   project is refused.
 
