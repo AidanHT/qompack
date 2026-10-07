@@ -26,9 +26,11 @@ Three things it does not do, each recorded where
 - **It cannot prove the model used what it injected.** Injection is recorded as "documented;
   installed behavior unknown", and nothing here observes what the model did with a payload — the
   `why` tool says the same of recorded reasoning: it "does not prove model compliance".
-- **It promises no improvement.** `plans/V5-report.md` §26: no held-out task runs, stochastic
-  baselines or quality trials were executed, and the admission quality row is "inconclusive by
-  construction".
+- **It promises no improvement.** At V5, no held-out task runs, stochastic baselines or quality
+  trials had been executed, and the admission quality row was "inconclusive by construction"
+  (`plans/V5-report.md` §26). Release 0.3.0's pre-registered live evaluation has since run, and its
+  verdict is inconclusive ([`/qompack:eval`](#qompackeval)). No page of these docs claims that
+  Qompack improves recovery, task success or constraint retention.
 
 The full list is [docs/cannot-do.md](cannot-do.md).
 
