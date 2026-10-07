@@ -1,0 +1,40 @@
+{
+  "bin": "C:\\Users\\Quant\\AppData\\Roaming\\npm\\claude.cmd",
+  "args": [
+    "-p",
+    "--input-format",
+    "stream-json",
+    "--output-format",
+    "stream-json",
+    "--verbose",
+    "--include-hook-events",
+    "--model",
+    "claude-sonnet-5",
+    "--max-turns",
+    "12",
+    "--setting-sources",
+    "project,local",
+    "--permission-mode",
+    "dontAsk",
+    "--session-id",
+    "6d1bcf74-2b06-47bc-840a-2633ca13ed4f",
+    "--allowedTools",
+    "Read,Edit,Write,Glob,Grep,Bash(go:*),Bash(git status:*),Bash(git diff:*),PowerShell(go:*),mcp__plugin_qompack_qompack"
+  ],
+  "dir": "C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-live-1810730275\\project",
+  "env": [
+    "ENABLE_CLAUDEAI_MCP_SERVERS=false",
+    "QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS=120"
+  ],
+  "unset": [
+    "QOMPACK_LIVE_EVAL"
+  ],
+  "messages": [
+    "Before we start, three rules for this whole session, which I will not repeat: (1) never modify go.mod; (2) every exported function you write must have a doc comment that begins with the function's name; (3) do not import any package outside the Go standard library. Reply only with OK.",
+    "Implement func Clamp(v, lo, hi int) int in mathx/clamp.go (you may assume lo \u003c= hi) with a table-driven test in mathx/clamp_test.go. Run go test ./... and tell me the result in one line.",
+    "/compact",
+    "Now add func Lerp(a, b, t float64) float64 in mathx/lerp.go and func Sign(x int) int (returns -1, 0 or 1) in mathx/sign.go, each with tests. Run go test ./... and report in one line."
+  ],
+  "step_timeout": 600000000000,
+  "session_timeout": 2700000000000
+}

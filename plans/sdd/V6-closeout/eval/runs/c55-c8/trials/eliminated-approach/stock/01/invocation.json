@@ -1,0 +1,40 @@
+{
+  "bin": "C:\\Users\\Quant\\AppData\\Roaming\\npm\\claude.cmd",
+  "args": [
+    "-p",
+    "--input-format",
+    "stream-json",
+    "--output-format",
+    "stream-json",
+    "--verbose",
+    "--include-hook-events",
+    "--model",
+    "claude-sonnet-5",
+    "--max-turns",
+    "12",
+    "--setting-sources",
+    "project,local",
+    "--permission-mode",
+    "dontAsk",
+    "--session-id",
+    "76ffa64e-5ba4-4bb2-9f72-9b4f47a79aa1",
+    "--allowedTools",
+    "Read,Edit,Write,Glob,Grep,Bash(go:*),Bash(git status:*),Bash(git diff:*),PowerShell(go:*),mcp__plugin_qompack_qompack"
+  ],
+  "dir": "C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-live-2464437176\\project",
+  "env": [
+    "ENABLE_CLAUDEAI_MCP_SERVERS=false",
+    "QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS=120"
+  ],
+  "unset": [
+    "QOMPACK_LIVE_EVAL"
+  ],
+  "messages": [
+    "Run go test ./... and tell me which test fails, in one line.",
+    "Important history, so you do not repeat it: last week we tried rewriting Parse on top of time.ParseDuration. It broke the legacy day unit (\"5d\") and we reverted it, so that approach is ruled out for good. Do not fix anything yet; reply only with understood.",
+    "/compact",
+    "Fix the failing test by fixing dur/dur.go; do not edit the test file. Run go test ./... and report in one line."
+  ],
+  "step_timeout": 600000000000,
+  "session_timeout": 2700000000000
+}

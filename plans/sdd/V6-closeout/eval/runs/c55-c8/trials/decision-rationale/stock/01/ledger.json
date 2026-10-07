@@ -1,0 +1,218 @@
+{
+  "version": 1,
+  "records": [
+    {
+      "id": "decision-rationale-stock-01-t00-main",
+      "kind": "turn",
+      "provider": "anthropic",
+      "model": "claude-sonnet-5",
+      "rate_table_date": "2026-09-22",
+      "pricing_mode": "subscription",
+      "reported": {
+        "cache_read": {
+          "known": true,
+          "value": 23837
+        },
+        "cache_write_1h": {
+          "known": true,
+          "value": 9390
+        },
+        "cache_write_5m": {
+          "known": true
+        },
+        "input": {
+          "known": true,
+          "value": 2
+        },
+        "output": {
+          "known": true,
+          "value": 4
+        },
+        "thinking_output": {
+          "known": true
+        }
+      },
+      "missing": null,
+      "retries": 0,
+      "aborted": false,
+      "notes": "main agent loop, from result.usage"
+    },
+    {
+      "id": "decision-rationale-stock-01-t01-main",
+      "kind": "turn",
+      "provider": "anthropic",
+      "model": "claude-sonnet-5",
+      "rate_table_date": "2026-09-22",
+      "pricing_mode": "subscription",
+      "reported": {
+        "cache_read": {
+          "known": true,
+          "value": 202589
+        },
+        "cache_write_1h": {
+          "known": true,
+          "value": 1763
+        },
+        "cache_write_5m": {
+          "known": true
+        },
+        "input": {
+          "known": true,
+          "value": 12
+        },
+        "output": {
+          "known": true,
+          "value": 1198
+        },
+        "thinking_output": {
+          "known": true,
+          "value": 64
+        }
+      },
+      "missing": null,
+      "retries": 0,
+      "aborted": false,
+      "notes": "main agent loop, from result.usage"
+    },
+    {
+      "id": "decision-rationale-stock-01-t02-main",
+      "kind": "compaction",
+      "provider": "anthropic",
+      "model": "claude-sonnet-5",
+      "rate_table_date": "2026-09-22",
+      "pricing_mode": "subscription",
+      "reported": {
+        "cache_read": {
+          "known": true
+        },
+        "cache_write_1h": {
+          "known": true
+        },
+        "cache_write_5m": {
+          "known": true
+        },
+        "input": {
+          "known": true
+        },
+        "output": {
+          "known": true
+        },
+        "thinking_output": {
+          "known": true
+        }
+      },
+      "missing": null,
+      "retries": 0,
+      "aborted": false,
+      "notes": "main agent loop, from result.usage"
+    },
+    {
+      "id": "decision-rationale-stock-01-t02-beside-claude-sonnet-5",
+      "parent_id": "decision-rationale-stock-01-t02-main",
+      "kind": "compaction",
+      "provider": "anthropic",
+      "model": "claude-sonnet-5",
+      "rate_table_date": "2026-09-22",
+      "pricing_mode": "subscription",
+      "reported": {
+        "cache_read": {
+          "known": true,
+          "value": 34808
+        },
+        "input": {
+          "known": true,
+          "value": 2055
+        },
+        "output": {
+          "known": true,
+          "value": 4271
+        },
+        "thinking_output": {
+          "known": true
+        }
+      },
+      "missing": [
+        "cache_write_5m",
+        "cache_write_1h"
+      ],
+      "retries": 0,
+      "aborted": false,
+      "notes": "running-total change beside the main loop (compaction); cache_write 123 tokens, TTL split unknown"
+    },
+    {
+      "id": "decision-rationale-stock-01-t03-main",
+      "kind": "turn",
+      "provider": "anthropic",
+      "model": "claude-sonnet-5",
+      "rate_table_date": "2026-09-22",
+      "pricing_mode": "subscription",
+      "reported": {
+        "cache_read": {
+          "known": true,
+          "value": 136597
+        },
+        "cache_write_1h": {
+          "known": true,
+          "value": 7411
+        },
+        "cache_write_5m": {
+          "known": true
+        },
+        "input": {
+          "known": true,
+          "value": 8
+        },
+        "output": {
+          "known": true,
+          "value": 982
+        },
+        "thinking_output": {
+          "known": true,
+          "value": 243
+        }
+      },
+      "missing": null,
+      "retries": 0,
+      "aborted": false,
+      "notes": "main agent loop, from result.usage"
+    },
+    {
+      "id": "decision-rationale-stock-01-t04-main",
+      "kind": "turn",
+      "provider": "anthropic",
+      "model": "claude-sonnet-5",
+      "rate_table_date": "2026-09-22",
+      "pricing_mode": "subscription",
+      "reported": {
+        "cache_read": {
+          "known": true,
+          "value": 36609
+        },
+        "cache_write_1h": {
+          "known": true,
+          "value": 129
+        },
+        "cache_write_5m": {
+          "known": true
+        },
+        "input": {
+          "known": true,
+          "value": 2
+        },
+        "output": {
+          "known": true,
+          "value": 42
+        },
+        "thinking_output": {
+          "known": true
+        }
+      },
+      "missing": null,
+      "retries": 0,
+      "aborted": false,
+      "notes": "main agent loop, from result.usage"
+    }
+  ],
+  "schedule": null,
+  "compaction": null
+}

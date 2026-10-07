@@ -1,0 +1,104 @@
+{
+  "hook_runs": [
+    {
+      "type": "hook_success",
+      "hook_name": "SessionStart:startup",
+      "hook_event": "SessionStart",
+      "exit_code": 0,
+      "duration_ms": 220,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe session-start"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "PostToolUse:Bash",
+      "hook_event": "PostToolUse",
+      "exit_code": 0,
+      "duration_ms": 489,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe tool"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "Stop",
+      "hook_event": "Stop",
+      "exit_code": 0,
+      "duration_ms": 672,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe stop"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "PostToolUse:Read",
+      "hook_event": "PostToolUse",
+      "exit_code": 0,
+      "duration_ms": 573,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe tool"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "Stop",
+      "hook_event": "Stop",
+      "exit_code": 0,
+      "duration_ms": 217,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe stop"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "SessionStart:compact",
+      "hook_event": "SessionStart",
+      "exit_code": 0,
+      "duration_ms": 278,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe session-start"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "PostToolUse:Write",
+      "hook_event": "PostToolUse",
+      "exit_code": 0,
+      "duration_ms": 305,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe tool"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "Stop",
+      "hook_event": "Stop",
+      "exit_code": 0,
+      "duration_ms": 153,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe stop"
+    }
+  ],
+  "contexts": [
+    {
+      "hook_event": "SessionStart",
+      "hook_name": "SessionStart",
+      "bytes": 61,
+      "qompack": false
+    },
+    {
+      "hook_event": "SessionStart",
+      "hook_name": "SessionStart",
+      "bytes": 1401,
+      "qompack": true,
+      "text": "\u003c!-- qompack:injected seq=1 ver=1 --\u003e\n# Qompack rehydration — checkpoint 0001, session f2248f43\n\n## 2. Original user intent (verbatim from L0 capture — never summarized)\nEvolution (most recent first):\n\u003e Read notes/architecture.md and list its section headings.\nOriginal:\n\u003e Run go run ./cmd/probe and tell me the build token it prints, in one line.\n\n## 5. Current work\ngoal: Read notes/architecture.md and list its section headings.\nblocked on: none\n\n## 6. Pointers (paths and hashes — contents are NOT restored; use expand/re_read)\n- notes/architecture.md sha256:bd241f570f670c71ed762d751ef4b89a9ceb128185c44759c4cc45a60000fc44 — referenced\n- tool_use toolu_01K99JQVtptrJmUaw6v5r76t sha256:aeaaa58f31979ad4460abdc1976003b6b8dc534ece3c1477ef49976d99808e53 — cd \"C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-live-1668034976\\project\" \u0026\u0026 go run ./cmd/probe\n- tool_use toolu_01LuyipNx3xAEkfKpsAxq2KW sha256:bd241f570f670c71ed762d751ef4b89a9ceb128185c44759c4cc45a60000fc44 — C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-live-1668034976\\project\\notes\\architecture.md\n\n## 8. Retrieval\nQompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().\n\u003c!-- /qompack:injected --\u003e\n\u003c!-- qompack-contract-probe qompack-contract-e282b8381d66 --\u003e"
+    }
+  ],
+  "compactions": [
+    {
+      "trigger": "manual",
+      "pre_tokens": 38967,
+      "post_tokens": 0,
+      "duration_ms": 33036
+    }
+  ],
+  "local_output": [
+    "Compacted PreCompact [${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe checkpoint] completed successfully: {}"
+  ],
+  "lines": 85,
+  "truncated_tail": false
+}

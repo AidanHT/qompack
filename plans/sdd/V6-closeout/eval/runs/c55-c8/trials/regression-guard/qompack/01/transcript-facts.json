@@ -1,0 +1,158 @@
+{
+  "hook_runs": [
+    {
+      "type": "hook_success",
+      "hook_name": "SessionStart:startup",
+      "hook_event": "SessionStart",
+      "exit_code": 0,
+      "duration_ms": 454,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe session-start"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "PostToolUse:Write",
+      "hook_event": "PostToolUse",
+      "exit_code": 0,
+      "duration_ms": 58,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe tool"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "PostToolUse:Write",
+      "hook_event": "PostToolUse",
+      "exit_code": 0,
+      "duration_ms": 78,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe tool"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "Stop",
+      "hook_event": "Stop",
+      "exit_code": 0,
+      "duration_ms": 90,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe stop"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "PostToolUse:Read",
+      "hook_event": "PostToolUse",
+      "exit_code": 0,
+      "duration_ms": 179,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe tool"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "PostToolUse:Read",
+      "hook_event": "PostToolUse",
+      "exit_code": 0,
+      "duration_ms": 205,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe tool"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "Stop",
+      "hook_event": "Stop",
+      "exit_code": 0,
+      "duration_ms": 283,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe stop"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "SessionStart:compact",
+      "hook_event": "SessionStart",
+      "exit_code": 0,
+      "duration_ms": 145,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe session-start"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "PostToolUse:Bash",
+      "hook_event": "PostToolUse",
+      "exit_code": 0,
+      "duration_ms": 45,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe tool"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "PostToolUse:Edit",
+      "hook_event": "PostToolUse",
+      "exit_code": 0,
+      "duration_ms": 47,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe tool"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "PostToolUse:Write",
+      "hook_event": "PostToolUse",
+      "exit_code": 0,
+      "duration_ms": 51,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe tool"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "PostToolUse:Write",
+      "hook_event": "PostToolUse",
+      "exit_code": 0,
+      "duration_ms": 171,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe tool"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "PostToolUse:Bash",
+      "hook_event": "PostToolUse",
+      "exit_code": 0,
+      "duration_ms": 169,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe tool"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "Stop",
+      "hook_event": "Stop",
+      "exit_code": 0,
+      "duration_ms": 52,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe stop"
+    }
+  ],
+  "contexts": [
+    {
+      "hook_event": "SessionStart",
+      "hook_name": "SessionStart",
+      "bytes": 61,
+      "qompack": false
+    },
+    {
+      "hook_event": "SessionStart",
+      "hook_name": "SessionStart",
+      "bytes": 1631,
+      "qompack": true,
+      "text": "\u003c!-- qompack:injected seq=1 ver=1 --\u003e\n# Qompack rehydration — checkpoint 0001, session 455b3afb\n\n## 2. Original user intent (verbatim from L0 capture — never summarized)\nEvolution (most recent first):\n\u003e Read list/list.go and list/list_test.go and explain in two sentences what ParseList does.\nOriginal:\n\u003e Standing constraint: other teams rely on ParseList's exact behaviour, so never change what it returns for any input, and never edit list/list_test.go. Reply OK.\n\n## 5. Current work\ngoal: Read list/list.go and list/list_test.go and explain in two sentences what ParseList does.\nblocked on: none\n\n## 6. Pointers (paths and hashes — contents are NOT restored; use expand/re_read)\n- list/list.go sha256:6dbf5bfbb9cf3ac911c96ce7b0f21c408f8e29dd53f834489db926b05fdafac1 — referenced\n- list/list_test.go sha256:01b17fdbe370d1f54fb3b28218a0455d3e719e8c7ec5ebc23564f7a3e8076313 — referenced\n- tool_use toolu_01HDCPK1BVZykZgrmU8FA5wx sha256:6dbf5bfbb9cf3ac911c96ce7b0f21c408f8e29dd53f834489db926b05fdafac1 — C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-live-1215689720\\project\\list\\list.go\n- tool_use toolu_01MjEPZ6DjQmyN55djwjssTz sha256:01b17fdbe370d1f54fb3b28218a0455d3e719e8c7ec5ebc23564f7a3e8076313 — C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-live-1215689720\\project\\list\\list_test.go\n\n## 8. Retrieval\nQompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().\n\u003c!-- /qompack:injected --\u003e\n\u003c!-- qompack-contract-probe qompack-contract-c5943c080722 --\u003e"
+    }
+  ],
+  "compactions": [
+    {
+      "trigger": "manual",
+      "pre_tokens": 35907,
+      "post_tokens": 0,
+      "duration_ms": 32343
+    }
+  ],
+  "local_output": [
+    "Compacted PreCompact [${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe checkpoint] completed successfully: {}"
+  ],
+  "lines": 116,
+  "truncated_tail": false
+}

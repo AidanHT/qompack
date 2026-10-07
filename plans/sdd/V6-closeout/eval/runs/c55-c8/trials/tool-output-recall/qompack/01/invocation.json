@@ -1,0 +1,42 @@
+{
+  "bin": "C:\\Users\\Quant\\AppData\\Roaming\\npm\\claude.cmd",
+  "args": [
+    "-p",
+    "--input-format",
+    "stream-json",
+    "--output-format",
+    "stream-json",
+    "--verbose",
+    "--include-hook-events",
+    "--model",
+    "claude-sonnet-5",
+    "--max-turns",
+    "12",
+    "--setting-sources",
+    "project,local",
+    "--permission-mode",
+    "dontAsk",
+    "--session-id",
+    "f2248f43-6aef-4534-b185-d00600f31e90",
+    "--allowedTools",
+    "Read,Edit,Write,Glob,Grep,Bash(go:*),Bash(git status:*),Bash(git diff:*),PowerShell(go:*),mcp__plugin_qompack_qompack",
+    "--plugin-dir",
+    "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack-bundles\\c8\\qompack-plugin-0.3.0-windows-amd64"
+  ],
+  "dir": "C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-live-1668034976\\project",
+  "env": [
+    "ENABLE_CLAUDEAI_MCP_SERVERS=false",
+    "QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS=120"
+  ],
+  "unset": [
+    "QOMPACK_LIVE_EVAL"
+  ],
+  "messages": [
+    "Run go run ./cmd/probe and tell me the build token it prints, in one line.",
+    "Read notes/architecture.md and list its section headings.",
+    "/compact",
+    "Write the build token the probe printed earlier into a file named TOKEN at the project root, just the token on one line. Do not run the probe or any other program again to get it."
+  ],
+  "step_timeout": 600000000000,
+  "session_timeout": 2700000000000
+}

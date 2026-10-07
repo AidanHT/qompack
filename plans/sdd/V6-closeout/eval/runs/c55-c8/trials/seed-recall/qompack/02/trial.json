@@ -1,0 +1,398 @@
+{
+  "schema": 1,
+  "run_id": "20261007T184908Z-abe10e",
+  "task_id": "seed-recall",
+  "arm": "qompack",
+  "trial": 2,
+  "category": "tool-result-recovery",
+  "variant": "base",
+  "held_out": true,
+  "model": "claude-sonnet-5",
+  "install": "plugin-dir",
+  "claude_code_version": "2.1.280",
+  "session_id": "fdba0c6f-d982-4daf-bbe5-51f47332e8e5",
+  "started_at": "2026-10-07T21:32:21Z",
+  "wall_ms": 66186,
+  "exit_code": 0,
+  "steps": [
+    {
+      "id": "seed",
+      "compact": false,
+      "result_subtype": "success",
+      "is_error": false,
+      "num_turns": 2,
+      "wall_ms": 9628,
+      "permission_denials": 0,
+      "answer": "Seed: `5cc87334711f2d40`"
+    },
+    {
+      "id": "runbook",
+      "compact": false,
+      "result_subtype": "success",
+      "is_error": false,
+      "num_turns": 2,
+      "wall_ms": 6250,
+      "permission_denials": 0,
+      "answer": "The Runbook section has 9 numbered steps."
+    },
+    {
+      "id": "compact",
+      "compact": true,
+      "result_subtype": "success",
+      "is_error": false,
+      "num_turns": 0,
+      "wall_ms": 30550,
+      "permission_denials": 0,
+      "local_output": [
+        "Compacted PreCompact [${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe checkpoint] completed successfully: {}"
+      ]
+    },
+    {
+      "id": "const",
+      "compact": false,
+      "result_subtype": "success",
+      "is_error": false,
+      "num_turns": 5,
+      "wall_ms": 17894,
+      "permission_denials": 0,
+      "answer": "`go vet ./...` completed with no issues (clean)."
+    }
+  ],
+  "completed": true,
+  "plugin_expected": true,
+  "plugin_loaded": true,
+  "host_reported_plugins": true,
+  "checks": [
+    {
+      "id": "seed-const",
+      "outcome": "recovery",
+      "kind": "file_matches",
+      "passed": true,
+      "detail": "matched \"const Seed = \\\"5cc87334711f2d40\\\"\""
+    },
+    {
+      "id": "no-rerun",
+      "outcome": "constraint",
+      "kind": "tool_not_used_after",
+      "passed": true,
+      "detail": "none of 4 tool call(s) after compact matched"
+    },
+    {
+      "id": "behaviour",
+      "outcome": "task",
+      "kind": "command",
+      "passed": true,
+      "detail": "go test ./... exited 0"
+    },
+    {
+      "id": "vets",
+      "outcome": "task",
+      "kind": "command",
+      "passed": true,
+      "detail": "go vet ./... exited 0"
+    }
+  ],
+  "task_success": true,
+  "constraint_violations": 0,
+  "recovered": true,
+  "compactions": [
+    {
+      "trigger": "manual",
+      "pre_tokens": 35801,
+      "post_tokens": 4164,
+      "duration_ms": 30307
+    }
+  ],
+  "account": {
+    "turns": [
+      {
+        "turn": 0,
+        "compacted": false,
+        "main_model": "claude-sonnet-5",
+        "main_loop": {
+          "input": 4,
+          "output": 113,
+          "cache_read": 57693,
+          "cache_write": 10165,
+          "cache_write_5m": 0,
+          "cache_write_1h": 10165,
+          "thinking": 12
+        },
+        "delta": {
+          "claude-sonnet-5": {
+            "input": 4,
+            "output": 113,
+            "cache_read": 57693,
+            "cache_write": 10165,
+            "thinking": 12
+          }
+        },
+        "host_cost_delta_usd": 0.053336600000000005,
+        "steps_match_result": true
+      },
+      {
+        "turn": 1,
+        "compacted": false,
+        "main_model": "claude-sonnet-5",
+        "main_loop": {
+          "input": 4,
+          "output": 106,
+          "cache_read": 68100,
+          "cache_write": 1775,
+          "cache_write_5m": 0,
+          "cache_write_1h": 1775,
+          "thinking": 0
+        },
+        "delta": {
+          "claude-sonnet-5": {
+            "input": 4,
+            "output": 106,
+            "cache_read": 68100,
+            "cache_write": 1775,
+            "thinking": 0
+          }
+        },
+        "host_cost_delta_usd": 0.02178800000000001,
+        "steps_match_result": true
+      },
+      {
+        "turn": 2,
+        "local_command": "compact",
+        "compacted": true,
+        "main_model": "claude-sonnet-5",
+        "main_loop": {
+          "input": 0,
+          "output": 0,
+          "cache_read": 0,
+          "cache_write": 0,
+          "cache_write_5m": 0,
+          "cache_write_1h": 0,
+          "thinking": 0
+        },
+        "delta": {
+          "claude-sonnet-5": {
+            "input": 3605,
+            "output": 3219,
+            "cache_read": 34094,
+            "cache_write": 90,
+            "thinking": 115
+          }
+        },
+        "beside": {
+          "claude-sonnet-5": {
+            "input": 3605,
+            "output": 3219,
+            "cache_read": 34094,
+            "cache_write": 90,
+            "thinking": 115
+          }
+        },
+        "beside_kind": "compaction",
+        "host_cost_delta_usd": 0.04644380000000001
+      },
+      {
+        "turn": 3,
+        "compacted": false,
+        "main_model": "claude-sonnet-5",
+        "main_loop": {
+          "input": 10,
+          "output": 570,
+          "cache_read": 174714,
+          "cache_write": 7674,
+          "cache_write_5m": 0,
+          "cache_write_1h": 7674,
+          "thinking": 73
+        },
+        "delta": {
+          "claude-sonnet-5": {
+            "input": 10,
+            "output": 570,
+            "cache_read": 174714,
+            "cache_write": 7674,
+            "thinking": 73
+          }
+        },
+        "host_cost_delta_usd": 0.0713588,
+        "steps_match_result": true
+      }
+    ],
+    "total": {
+      "claude-sonnet-5": {
+        "input": 3623,
+        "output": 4008,
+        "cache_read": 334601,
+        "cache_write": 19704,
+        "thinking": 200
+      }
+    },
+    "host_cost_usd": 0.19292720000000002,
+    "consistent": true
+  },
+  "host_cost_usd": 0.19292720000000002,
+  "estimate": {
+    "micros": 192702,
+    "currency": "USD"
+  },
+  "estimate_complete": false,
+  "estimate_missing": [
+    "cache_write_5m",
+    "cache_write_1h"
+  ],
+  "rate_table_date": "2026-09-22",
+  "hook_latency_ms": {
+    "PostToolUse:Bash": [
+      82,
+      85,
+      100
+    ],
+    "PostToolUse:Read": [
+      83,
+      203
+    ],
+    "PostToolUse:Write": [
+      233
+    ],
+    "SessionStart:compact": [
+      120
+    ],
+    "SessionStart:startup": [
+      0
+    ],
+    "Stop": [
+      78,
+      84,
+      177
+    ],
+    "SubagentStop": [
+      187
+    ],
+    "UserPromptSubmit": [
+      68,
+      166,
+      223
+    ]
+  },
+  "transcript_hook_ms": {
+    "PostToolUse:Bash": [
+      82,
+      85,
+      99
+    ],
+    "PostToolUse:Read": [
+      83,
+      202
+    ],
+    "PostToolUse:Write": [
+      232
+    ],
+    "SessionStart:compact": [
+      121
+    ],
+    "SessionStart:startup": [
+      305
+    ],
+    "Stop": [
+      76,
+      84,
+      177
+    ]
+  },
+  "store": {
+    "bytes": 195977,
+    "files": 67,
+    "objects": 13,
+    "checkpoints": 1
+  },
+  "categories": {
+    "cache_read": {
+      "known": 334601,
+      "known_records": 5,
+      "unknown_records": 0
+    },
+    "cache_write_1h": {
+      "known": 19614,
+      "known_records": 4,
+      "unknown_records": 1
+    },
+    "cache_write_5m": {
+      "known": 0,
+      "known_records": 4,
+      "unknown_records": 1
+    },
+    "input": {
+      "known": 3623,
+      "known_records": 5,
+      "unknown_records": 0
+    },
+    "output": {
+      "known": 3808,
+      "known_records": 5,
+      "unknown_records": 0
+    },
+    "thinking_output": {
+      "known": 200,
+      "known_records": 5,
+      "unknown_records": 0
+    }
+  },
+  "compact_attempts": [
+    {
+      "result": "success"
+    }
+  ],
+  "qompack": {
+    "checkpoints": 1,
+    "injections": [
+      {
+        "hook_event": "SessionStart",
+        "hook_name": "SessionStart",
+        "bytes": 1354,
+        "qompack": true,
+        "text": "\u003c!-- qompack:injected seq=1 ver=1 --\u003e\n# Qompack rehydration — checkpoint 0001, session fdba0c6f\n\n## 2. Original user intent (verbatim from L0 capture — never summarized)\nEvolution (most recent first):\n\u003e Read notes/filler.md and tell me how many numbered steps its Runbook section has.\nOriginal:\n\u003e Run go run ./cmd/seed and tell me the seed it prints, in one line.\n\n## 5. Current work\ngoal: Read notes/filler.md and tell me how many numbered steps its Runbook section has.\nblocked on: none\n\n## 6. Pointers (paths and hashes — contents are NOT restored; use expand/re_read)\n- notes/filler.md sha256:867d22cf0e402bb53133137a08f6a2b820f001bd46431b2a5607275c12408a1e — referenced\n- tool_use toolu_01ADmcAiQ9tHnU32UbZBzNRP sha256:867d22cf0e402bb53133137a08f6a2b820f001bd46431b2a5607275c12408a1e — C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-live-1073816693\\project\\notes\\filler.md\n- tool_use toolu_01AxbvvfZqmk6EZE4XM4PfEu sha256:88cd6108f26f7cf76ab1b7cc8320d9e2d3b9b3da32577a89e9262c89fc8b8592 — go run ./cmd/seed\n\n## 8. Retrieval\nQompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().\n\u003c!-- /qompack:injected --\u003e\n\u003c!-- qompack-contract-probe qompack-contract-5b908e621a6e --\u003e"
+      }
+    ],
+    "injected_bytes": 1354,
+    "mcp_server_status": "connected",
+    "index_lines": {
+      "files.jsonl": 3,
+      "observations.jsonl": 10,
+      "roots.jsonl": 12,
+      "segments.jsonl": 5,
+      "sessions.jsonl": 1,
+      "tool_use.jsonl": 10
+    }
+  },
+  "plugin": {
+    "install": "plugin-dir",
+    "bundle_dir": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack-bundles\\c8\\qompack-plugin-0.3.0-windows-amd64",
+    "version": "0.3.0",
+    "commit": "3ec62ad2e01b985640c0f1fb832df3917f766a5f",
+    "dirty": false,
+    "bundle_json_sha256": "61ba9c37dda03c14c44acb6824646a8d7410751bba6f1ce3c5c864d6382dcd8b",
+    "host_version": "0.3.0",
+    "host_source": "qompack@inline",
+    "host_path": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack-bundles\\c8\\qompack-plugin-0.3.0-windows-amd64"
+  },
+  "home_guard": {
+    "checked": true,
+    "unchanged": true,
+    "before": [
+      "plugins/installed_plugins.json 728f7559129113fcc9bafa69c373c52773a08d0da39756b19f456cbf4d6c57dd",
+      "plugins/known_marketplaces.json 1b1eda7e17f07d04496536ee38520c922deb339dadd4fabb018227095f572725",
+      "settings.json e15855d7e46a46a8b2f5d1f3b120524e7e0e3ca704c006419d819157f7365150"
+    ],
+    "after": [
+      "plugins/installed_plugins.json 728f7559129113fcc9bafa69c373c52773a08d0da39756b19f456cbf4d6c57dd",
+      "plugins/known_marketplaces.json 1b1eda7e17f07d04496536ee38520c922deb339dadd4fabb018227095f572725",
+      "settings.json e15855d7e46a46a8b2f5d1f3b120524e7e0e3ca704c006419d819157f7365150"
+    ]
+  },
+  "preregistered_model": true,
+  "host_model": "claude-sonnet-5",
+  "notes": [
+    "project: C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-live-1073816693\\project",
+    "inherited environment variables removed from the session: QOMPACK_LIVE_EVAL",
+    "trial daemon: daemon pid 55948 stopped by admin.shutdown",
+    "host transcript: C:\\Users\\Quant\\.claude\\projects\\C--Users-Quant-AppData-Local-Temp-qompack-live-1073816693-project\\fdba0c6f-d982-4daf-bbe5-51f47332e8e5.jsonl"
+  ]
+}

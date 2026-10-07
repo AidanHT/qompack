@@ -1,0 +1,17 @@
+{
+  "hook_runs": null,
+  "contexts": null,
+  "compactions": [
+    {
+      "trigger": "manual",
+      "pre_tokens": 34691,
+      "post_tokens": 0,
+      "duration_ms": 28146
+    }
+  ],
+  "local_output": [
+    "Compacted"
+  ],
+  "lines": 82,
+  "truncated_tail": false
+}

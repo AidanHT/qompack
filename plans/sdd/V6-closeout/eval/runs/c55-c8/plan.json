@@ -1,0 +1,243 @@
+{
+  "run_id": "20261007T184908Z-abe10e",
+  "created_at": "2026-10-07T18:49:08Z",
+  "task_set": "qompack-live-v2",
+  "task_set_file": "testdata/eval/live/tasks-v2.json",
+  "task_set_sha256": "d59dc09d15edb04acb567dd97ac620c41eaf00206093bdc59a5162607619af83",
+  "task_set_tasks": 10,
+  "fixture_tree_sha256": "a5f57b1e2045378d1b38a629f75f830755e95e3582513ea8e3d3fb0d452ec3d2",
+  "fixture_tree_dirs": [
+    "fixtures",
+    "hidden",
+    "hidden-v2"
+  ],
+  "model": "claude-sonnet-5",
+  "preregistered_model": "claude-sonnet-5",
+  "arms": [
+    "stock",
+    "qompack"
+  ],
+  "trials_per_arm": 2,
+  "install": "plugin-dir",
+  "plugin": {
+    "install": "plugin-dir",
+    "bundle_dir": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack-bundles\\c8\\qompack-plugin-0.3.0-windows-amd64",
+    "version": "0.3.0",
+    "commit": "3ec62ad2e01b985640c0f1fb832df3917f766a5f",
+    "dirty": false,
+    "bundle_json_sha256": "61ba9c37dda03c14c44acb6824646a8d7410751bba6f1ce3c5c864d6382dcd8b"
+  },
+  "known_defects": {
+    "open": [],
+    "source": "the operator, by live-eval --known-open-defects when the run was planned"
+  },
+  "claude_cli": "C:\\Users\\Quant\\AppData\\Roaming\\npm\\claude.cmd",
+  "claude_cli_version": "2.1.280",
+  "rate_table_date": "2026-09-22",
+  "rate_table_source": "Anthropic first-party list prices as cached in the claude-api skill bundled with Claude Code 2.1.280 (model table cached 2026-06-24; cache economics from its shared/prompt-caching.md: reads 0.1x input except Claude Fable 5.1 at 0.025x and Claude Opus 5.5 at $0.20/MTok, writes 1.25x for the 5-minute TTL and 2x for the 1-hour TTL), read 2026-09-22. claude-haiku-4-5 cross-checked to the micro-dollar against Claude Code's own costUSD for the smoke1 session (plans/sdd/V6-closeout/eval/runs/smoke1-stock-compact). Estimates only: subscription sessions carry no per-token cash charge.",
+  "held_out_included": true,
+  "trials": [
+    {
+      "task": "constraint-verbatim",
+      "arm": "stock",
+      "trial": 1
+    },
+    {
+      "task": "constraint-verbatim",
+      "arm": "qompack",
+      "trial": 1
+    },
+    {
+      "task": "recall-user-fact",
+      "arm": "qompack",
+      "trial": 1
+    },
+    {
+      "task": "recall-user-fact",
+      "arm": "stock",
+      "trial": 1
+    },
+    {
+      "task": "eliminated-approach",
+      "arm": "stock",
+      "trial": 1
+    },
+    {
+      "task": "eliminated-approach",
+      "arm": "qompack",
+      "trial": 1
+    },
+    {
+      "task": "changing-requirement-format",
+      "arm": "qompack",
+      "trial": 1
+    },
+    {
+      "task": "changing-requirement-format",
+      "arm": "stock",
+      "trial": 1
+    },
+    {
+      "task": "tool-output-recall",
+      "arm": "stock",
+      "trial": 1
+    },
+    {
+      "task": "tool-output-recall",
+      "arm": "qompack",
+      "trial": 1
+    },
+    {
+      "task": "decision-rationale",
+      "arm": "qompack",
+      "trial": 1
+    },
+    {
+      "task": "decision-rationale",
+      "arm": "stock",
+      "trial": 1
+    },
+    {
+      "task": "regression-guard",
+      "arm": "stock",
+      "trial": 1
+    },
+    {
+      "task": "regression-guard",
+      "arm": "qompack",
+      "trial": 1
+    },
+    {
+      "task": "constraint-naming",
+      "arm": "qompack",
+      "trial": 1
+    },
+    {
+      "task": "constraint-naming",
+      "arm": "stock",
+      "trial": 1
+    },
+    {
+      "task": "changing-requirement-slug",
+      "arm": "stock",
+      "trial": 1
+    },
+    {
+      "task": "changing-requirement-slug",
+      "arm": "qompack",
+      "trial": 1
+    },
+    {
+      "task": "seed-recall",
+      "arm": "qompack",
+      "trial": 1
+    },
+    {
+      "task": "seed-recall",
+      "arm": "stock",
+      "trial": 1
+    },
+    {
+      "task": "constraint-verbatim",
+      "arm": "qompack",
+      "trial": 2
+    },
+    {
+      "task": "constraint-verbatim",
+      "arm": "stock",
+      "trial": 2
+    },
+    {
+      "task": "recall-user-fact",
+      "arm": "stock",
+      "trial": 2
+    },
+    {
+      "task": "recall-user-fact",
+      "arm": "qompack",
+      "trial": 2
+    },
+    {
+      "task": "eliminated-approach",
+      "arm": "qompack",
+      "trial": 2
+    },
+    {
+      "task": "eliminated-approach",
+      "arm": "stock",
+      "trial": 2
+    },
+    {
+      "task": "changing-requirement-format",
+      "arm": "stock",
+      "trial": 2
+    },
+    {
+      "task": "changing-requirement-format",
+      "arm": "qompack",
+      "trial": 2
+    },
+    {
+      "task": "tool-output-recall",
+      "arm": "qompack",
+      "trial": 2
+    },
+    {
+      "task": "tool-output-recall",
+      "arm": "stock",
+      "trial": 2
+    },
+    {
+      "task": "decision-rationale",
+      "arm": "stock",
+      "trial": 2
+    },
+    {
+      "task": "decision-rationale",
+      "arm": "qompack",
+      "trial": 2
+    },
+    {
+      "task": "regression-guard",
+      "arm": "qompack",
+      "trial": 2
+    },
+    {
+      "task": "regression-guard",
+      "arm": "stock",
+      "trial": 2
+    },
+    {
+      "task": "constraint-naming",
+      "arm": "stock",
+      "trial": 2
+    },
+    {
+      "task": "constraint-naming",
+      "arm": "qompack",
+      "trial": 2
+    },
+    {
+      "task": "changing-requirement-slug",
+      "arm": "qompack",
+      "trial": 2
+    },
+    {
+      "task": "changing-requirement-slug",
+      "arm": "stock",
+      "trial": 2
+    },
+    {
+      "task": "seed-recall",
+      "arm": "stock",
+      "trial": 2
+    },
+    {
+      "task": "seed-recall",
+      "arm": "qompack",
+      "trial": 2
+    }
+  ],
+  "host": "windows/amd64",
+  "agent": "agent-executed on the real installed host (owner decision D3); not human UAT"
+}

@@ -1,0 +1,300 @@
+{
+  "schema": 1,
+  "run_id": "20261007T184908Z-abe10e",
+  "task_id": "regression-guard",
+  "arm": "stock",
+  "trial": 1,
+  "category": "regression",
+  "variant": "base",
+  "held_out": false,
+  "model": "claude-sonnet-5",
+  "install": "none",
+  "claude_code_version": "2.1.280",
+  "session_id": "95a7f6d7-05f6-415e-ba87-18c0f6448ac5",
+  "started_at": "2026-10-07T19:04:35Z",
+  "wall_ms": 59790,
+  "exit_code": 0,
+  "steps": [
+    {
+      "id": "constraint",
+      "compact": false,
+      "result_subtype": "success",
+      "is_error": false,
+      "num_turns": 1,
+      "wall_ms": 1144,
+      "permission_denials": 0,
+      "answer": "OK"
+    },
+    {
+      "id": "explain",
+      "compact": false,
+      "result_subtype": "success",
+      "is_error": false,
+      "num_turns": 3,
+      "wall_ms": 3811,
+      "permission_denials": 0,
+      "answer": "`ParseList` splits a string on commas, trims whitespace from each resulting piece, and discards any empty pieces (so consecutive commas or stray spaces don't produce blank entries). If nothing remains after filtering, it returns `nil` rather than an empty slice."
+    },
+    {
+      "id": "compact",
+      "compact": true,
+      "result_subtype": "success",
+      "is_error": false,
+      "num_turns": 0,
+      "wall_ms": 21884,
+      "permission_denials": 0,
+      "local_output": [
+        "Compacted"
+      ]
+    },
+    {
+      "id": "join",
+      "compact": false,
+      "result_subtype": "success",
+      "is_error": false,
+      "num_turns": 5,
+      "wall_ms": 31549,
+      "permission_denials": 0,
+      "answer": "`go test ./...` passes: added `JoinList` (list/join.go + list/join_test.go) and sped up `ParseList` by replacing `strings.Split` with single-pass `IndexByte` scanning, with no change to its output for any input."
+    }
+  ],
+  "completed": true,
+  "plugin_expected": false,
+  "plugin_loaded": false,
+  "host_reported_plugins": true,
+  "checks": [
+    {
+      "id": "pinned",
+      "outcome": "constraint",
+      "kind": "command",
+      "passed": true,
+      "detail": "go test ./pinned -run ^TestHiddenEvalParseListPinned$ exited 0"
+    },
+    {
+      "id": "tests-untouched",
+      "outcome": "constraint",
+      "kind": "file_unchanged",
+      "passed": true,
+      "detail": "identical to the fixture"
+    },
+    {
+      "id": "join",
+      "outcome": "task",
+      "kind": "command",
+      "passed": true,
+      "detail": "go test ./list -run ^TestHiddenEvalJoinList$ exited 0"
+    },
+    {
+      "id": "all",
+      "outcome": "task",
+      "kind": "command",
+      "passed": true,
+      "detail": "go test ./... exited 0"
+    }
+  ],
+  "task_success": true,
+  "constraint_violations": 0,
+  "recovered": null,
+  "compactions": [
+    {
+      "trigger": "manual",
+      "pre_tokens": 34058,
+      "post_tokens": 2679,
+      "duration_ms": 21756
+    }
+  ],
+  "account": {
+    "turns": [
+      {
+        "turn": 0,
+        "compacted": false,
+        "main_model": "claude-sonnet-5",
+        "main_loop": {
+          "input": 2,
+          "output": 4,
+          "cache_read": 23837,
+          "cache_write": 9368,
+          "cache_write_5m": 0,
+          "cache_write_1h": 9368,
+          "thinking": 0
+        },
+        "delta": {
+          "claude-sonnet-5": {
+            "input": 2,
+            "output": 4,
+            "cache_read": 23837,
+            "cache_write": 9368,
+            "thinking": 0
+          }
+        },
+        "host_cost_delta_usd": 0.0422834,
+        "steps_match_result": true
+      },
+      {
+        "turn": 1,
+        "compacted": false,
+        "main_model": "claude-sonnet-5",
+        "main_loop": {
+          "input": 4,
+          "output": 295,
+          "cache_read": 66486,
+          "cache_write": 762,
+          "cache_write_5m": 0,
+          "cache_write_1h": 762,
+          "thinking": 33
+        },
+        "delta": {
+          "claude-sonnet-5": {
+            "input": 4,
+            "output": 295,
+            "cache_read": 66486,
+            "cache_write": 762,
+            "thinking": 33
+          }
+        },
+        "host_cost_delta_usd": 0.019303200000000006,
+        "steps_match_result": true
+      },
+      {
+        "turn": 2,
+        "local_command": "compact",
+        "compacted": true,
+        "main_model": "claude-sonnet-5",
+        "main_loop": {
+          "input": 0,
+          "output": 0,
+          "cache_read": 0,
+          "cache_write": 0,
+          "cache_write_5m": 0,
+          "cache_write_1h": 0,
+          "thinking": 0
+        },
+        "delta": {
+          "claude-sonnet-5": {
+            "input": 2475,
+            "output": 2682,
+            "cache_read": 33281,
+            "cache_write": 207,
+            "thinking": 0
+          }
+        },
+        "beside": {
+          "claude-sonnet-5": {
+            "input": 2475,
+            "output": 2682,
+            "cache_read": 33281,
+            "cache_write": 207,
+            "thinking": 0
+          }
+        },
+        "beside_kind": "compaction",
+        "host_cost_delta_usd": 0.0389437
+      },
+      {
+        "turn": 3,
+        "compacted": false,
+        "main_model": "claude-sonnet-5",
+        "main_loop": {
+          "input": 10,
+          "output": 3085,
+          "cache_read": 172542,
+          "cache_write": 8086,
+          "cache_write_5m": 0,
+          "cache_write_1h": 8086,
+          "thinking": 1726
+        },
+        "delta": {
+          "claude-sonnet-5": {
+            "input": 10,
+            "output": 3085,
+            "cache_read": 172542,
+            "cache_write": 8086,
+            "thinking": 1726
+          }
+        },
+        "host_cost_delta_usd": 0.09772240000000003,
+        "steps_match_result": true
+      }
+    ],
+    "total": {
+      "claude-sonnet-5": {
+        "input": 2491,
+        "output": 6066,
+        "cache_read": 296146,
+        "cache_write": 18423,
+        "thinking": 1759
+      }
+    },
+    "host_cost_usd": 0.19825270000000003,
+    "consistent": true
+  },
+  "host_cost_usd": 0.19825270000000003,
+  "estimate": {
+    "micros": 197735,
+    "currency": "USD"
+  },
+  "estimate_complete": false,
+  "estimate_missing": [
+    "cache_write_5m",
+    "cache_write_1h"
+  ],
+  "rate_table_date": "2026-09-22",
+  "categories": {
+    "cache_read": {
+      "known": 296146,
+      "known_records": 5,
+      "unknown_records": 0
+    },
+    "cache_write_1h": {
+      "known": 18216,
+      "known_records": 4,
+      "unknown_records": 1
+    },
+    "cache_write_5m": {
+      "known": 0,
+      "known_records": 4,
+      "unknown_records": 1
+    },
+    "input": {
+      "known": 2491,
+      "known_records": 5,
+      "unknown_records": 0
+    },
+    "output": {
+      "known": 4307,
+      "known_records": 5,
+      "unknown_records": 0
+    },
+    "thinking_output": {
+      "known": 1759,
+      "known_records": 5,
+      "unknown_records": 0
+    }
+  },
+  "compact_attempts": [
+    {
+      "result": "success"
+    }
+  ],
+  "home_guard": {
+    "checked": true,
+    "unchanged": true,
+    "before": [
+      "plugins/installed_plugins.json 728f7559129113fcc9bafa69c373c52773a08d0da39756b19f456cbf4d6c57dd",
+      "plugins/known_marketplaces.json 1b1eda7e17f07d04496536ee38520c922deb339dadd4fabb018227095f572725",
+      "settings.json e15855d7e46a46a8b2f5d1f3b120524e7e0e3ca704c006419d819157f7365150"
+    ],
+    "after": [
+      "plugins/installed_plugins.json 728f7559129113fcc9bafa69c373c52773a08d0da39756b19f456cbf4d6c57dd",
+      "plugins/known_marketplaces.json 1b1eda7e17f07d04496536ee38520c922deb339dadd4fabb018227095f572725",
+      "settings.json e15855d7e46a46a8b2f5d1f3b120524e7e0e3ca704c006419d819157f7365150"
+    ]
+  },
+  "preregistered_model": true,
+  "host_model": "claude-sonnet-5",
+  "notes": [
+    "project: C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-live-1933406508\\project",
+    "inherited environment variables removed from the session: QOMPACK_LIVE_EVAL",
+    "host transcript: C:\\Users\\Quant\\.claude\\projects\\C--Users-Quant-AppData-Local-Temp-qompack-live-1933406508-project\\95a7f6d7-05f6-415e-ba87-18c0f6448ac5.jsonl"
+  ]
+}

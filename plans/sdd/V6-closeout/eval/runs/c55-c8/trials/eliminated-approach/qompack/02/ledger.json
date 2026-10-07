@@ -1,0 +1,184 @@
+{
+  "version": 1,
+  "records": [
+    {
+      "id": "eliminated-approach-qompack-02-t00-main",
+      "kind": "turn",
+      "provider": "anthropic",
+      "model": "claude-sonnet-5",
+      "rate_table_date": "2026-09-22",
+      "pricing_mode": "subscription",
+      "reported": {
+        "cache_read": {
+          "known": true,
+          "value": 57678
+        },
+        "cache_write_1h": {
+          "known": true,
+          "value": 10390
+        },
+        "cache_write_5m": {
+          "known": true
+        },
+        "input": {
+          "known": true,
+          "value": 4
+        },
+        "output": {
+          "known": true,
+          "value": 137
+        },
+        "thinking_output": {
+          "known": true,
+          "value": 160
+        }
+      },
+      "missing": null,
+      "retries": 0,
+      "aborted": false,
+      "notes": "main agent loop, from result.usage"
+    },
+    {
+      "id": "eliminated-approach-qompack-02-t01-main",
+      "kind": "turn",
+      "provider": "anthropic",
+      "model": "claude-sonnet-5",
+      "rate_table_date": "2026-09-22",
+      "pricing_mode": "subscription",
+      "reported": {
+        "cache_read": {
+          "known": true,
+          "value": 68639
+        },
+        "cache_write_1h": {
+          "known": true,
+          "value": 920
+        },
+        "cache_write_5m": {
+          "known": true
+        },
+        "input": {
+          "known": true,
+          "value": 4
+        },
+        "output": {
+          "known": true,
+          "value": 211
+        },
+        "thinking_output": {
+          "known": true,
+          "value": 622
+        }
+      },
+      "missing": null,
+      "retries": 0,
+      "aborted": false,
+      "notes": "main agent loop, from result.usage"
+    },
+    {
+      "id": "eliminated-approach-qompack-02-t02-main",
+      "kind": "compaction",
+      "provider": "anthropic",
+      "model": "claude-sonnet-5",
+      "rate_table_date": "2026-09-22",
+      "pricing_mode": "subscription",
+      "reported": {
+        "cache_read": {
+          "known": true
+        },
+        "cache_write_1h": {
+          "known": true
+        },
+        "cache_write_5m": {
+          "known": true
+        },
+        "input": {
+          "known": true
+        },
+        "output": {
+          "known": true
+        },
+        "thinking_output": {
+          "known": true
+        }
+      },
+      "missing": null,
+      "retries": 0,
+      "aborted": false,
+      "notes": "main agent loop, from result.usage"
+    },
+    {
+      "id": "eliminated-approach-qompack-02-t02-beside-claude-sonnet-5",
+      "parent_id": "eliminated-approach-qompack-02-t02-main",
+      "kind": "compaction",
+      "provider": "anthropic",
+      "model": "claude-sonnet-5",
+      "rate_table_date": "2026-09-22",
+      "pricing_mode": "subscription",
+      "reported": {
+        "cache_read": {
+          "known": true,
+          "value": 34412
+        },
+        "input": {
+          "known": true,
+          "value": 2059
+        },
+        "output": {
+          "known": true,
+          "value": 3421
+        },
+        "thinking_output": {
+          "known": true,
+          "value": 1130
+        }
+      },
+      "missing": [
+        "cache_write_5m",
+        "cache_write_1h"
+      ],
+      "retries": 0,
+      "aborted": false,
+      "notes": "running-total change beside the main loop (compaction); cache_write 684 tokens, TTL split unknown"
+    },
+    {
+      "id": "eliminated-approach-qompack-02-t03-main",
+      "kind": "turn",
+      "provider": "anthropic",
+      "model": "claude-sonnet-5",
+      "rate_table_date": "2026-09-22",
+      "pricing_mode": "subscription",
+      "reported": {
+        "cache_read": {
+          "known": true,
+          "value": 170836
+        },
+        "cache_write_1h": {
+          "known": true,
+          "value": 7106
+        },
+        "cache_write_5m": {
+          "known": true
+        },
+        "input": {
+          "known": true,
+          "value": 10
+        },
+        "output": {
+          "known": true,
+          "value": 599
+        },
+        "thinking_output": {
+          "known": true,
+          "value": 31
+        }
+      },
+      "missing": null,
+      "retries": 0,
+      "aborted": false,
+      "notes": "main agent loop, from result.usage"
+    }
+  ],
+  "schedule": null,
+  "compaction": null
+}

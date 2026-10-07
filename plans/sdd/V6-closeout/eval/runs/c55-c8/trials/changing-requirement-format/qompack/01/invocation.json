@@ -1,0 +1,42 @@
+{
+  "bin": "C:\\Users\\Quant\\AppData\\Roaming\\npm\\claude.cmd",
+  "args": [
+    "-p",
+    "--input-format",
+    "stream-json",
+    "--output-format",
+    "stream-json",
+    "--verbose",
+    "--include-hook-events",
+    "--model",
+    "claude-sonnet-5",
+    "--max-turns",
+    "12",
+    "--setting-sources",
+    "project,local",
+    "--permission-mode",
+    "dontAsk",
+    "--session-id",
+    "30330281-c260-4cdd-849c-b73b3bc9d57a",
+    "--allowedTools",
+    "Read,Edit,Write,Glob,Grep,Bash(go:*),Bash(git status:*),Bash(git diff:*),PowerShell(go:*),mcp__plugin_qompack_qompack",
+    "--plugin-dir",
+    "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack-bundles\\c8\\qompack-plugin-0.3.0-windows-amd64"
+  ],
+  "dir": "C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-live-2768723477\\project",
+  "env": [
+    "ENABLE_CLAUDEAI_MCP_SERVERS=false",
+    "QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS=120"
+  ],
+  "unset": [
+    "QOMPACK_LIVE_EVAL"
+  ],
+  "messages": [
+    "Rule for the money package for this whole session: never use fmt.Sprintf or any other fmt.Sprint function in it; build strings with strconv and strings.Builder. Acknowledge with OK.",
+    "Implement func FormatPrice(cents int64) string in money/price.go that renders dollars like \"$12.34\" (negative amounts like \"-$0.05\"), with tests in money/price_test.go. Run go test ./... and report in one line.",
+    "/compact",
+    "Requirement change: FormatPrice must now render euros with a comma decimal separator and the euro sign after a space, for example 1234 -\u003e \"12,34 €\" and -5 -\u003e \"-0,05 €\". Update the implementation and the tests, keeping every rule I gave you earlier. Run go test ./... and report in one line."
+  ],
+  "step_timeout": 600000000000,
+  "session_timeout": 2700000000000
+}

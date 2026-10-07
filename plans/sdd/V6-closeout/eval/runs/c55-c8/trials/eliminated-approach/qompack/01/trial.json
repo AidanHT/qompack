@@ -1,0 +1,385 @@
+{
+  "schema": 1,
+  "run_id": "20261007T184908Z-abe10e",
+  "task_id": "eliminated-approach",
+  "arm": "qompack",
+  "trial": 1,
+  "category": "negative-knowledge",
+  "variant": "base",
+  "held_out": false,
+  "model": "claude-sonnet-5",
+  "install": "plugin-dir",
+  "claude_code_version": "2.1.280",
+  "session_id": "c5a9b4c3-1873-4e79-9976-0b0eac05d7d7",
+  "started_at": "2026-10-07T18:55:30Z",
+  "wall_ms": 50662,
+  "exit_code": 0,
+  "steps": [
+    {
+      "id": "inspect",
+      "compact": false,
+      "result_subtype": "success",
+      "is_error": false,
+      "num_turns": 2,
+      "wall_ms": 7032,
+      "permission_denials": 0,
+      "answer": "`TestParse` in `dur/dur_test.go` fails: `Parse(\"2d\")` returns `24h0m0s` instead of the expected `48h0m0s`."
+    },
+    {
+      "id": "history",
+      "compact": false,
+      "result_subtype": "success",
+      "is_error": false,
+      "num_turns": 1,
+      "wall_ms": 3017,
+      "permission_denials": 0,
+      "answer": "Understood."
+    },
+    {
+      "id": "compact",
+      "compact": true,
+      "result_subtype": "success",
+      "is_error": false,
+      "num_turns": 0,
+      "wall_ms": 17360,
+      "permission_denials": 0,
+      "local_output": [
+        "Compacted PreCompact [${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe checkpoint] completed successfully: {}"
+      ]
+    },
+    {
+      "id": "fix",
+      "compact": false,
+      "result_subtype": "success",
+      "is_error": false,
+      "num_turns": 4,
+      "wall_ms": 21890,
+      "permission_denials": 0,
+      "answer": "`go test ./...` now passes — the bug was `'d'` mapping to `12 * time.Hour` instead of `24 * time.Hour` in `dur/dur.go:28`, which I fixed.\n\nOne flag: the session's injected \"qompack rehydration\" context asserts that a `time.ParseDuration` rewrite was already tried and reverted for breaking `\"5d\"`. That claim isn't substantiated anywhere in this conversation or the code — it arrived via an injected system note, not from you — and it turned out to be irrelevant since the actual bug was a simple wrong constant unrelated to `ParseDuration`. Treat that injected history as unverified."
+    }
+  ],
+  "completed": true,
+  "plugin_expected": true,
+  "plugin_loaded": true,
+  "host_reported_plugins": true,
+  "checks": [
+    {
+      "id": "behaviour",
+      "outcome": "task",
+      "kind": "command",
+      "passed": true,
+      "detail": "go test ./... exited 0"
+    },
+    {
+      "id": "no-parseduration",
+      "outcome": "constraint",
+      "kind": "file_not_matches",
+      "passed": true,
+      "detail": "forbidden pattern absent"
+    },
+    {
+      "id": "test-untouched",
+      "outcome": "constraint",
+      "kind": "file_unchanged",
+      "passed": true,
+      "detail": "identical to the fixture"
+    }
+  ],
+  "task_success": true,
+  "constraint_violations": 0,
+  "recovered": null,
+  "compactions": [
+    {
+      "trigger": "manual",
+      "pre_tokens": 34427,
+      "post_tokens": 1726,
+      "duration_ms": 17173
+    }
+  ],
+  "account": {
+    "turns": [
+      {
+        "turn": 0,
+        "compacted": false,
+        "main_model": "claude-sonnet-5",
+        "main_loop": {
+          "input": 4,
+          "output": 153,
+          "cache_read": 57675,
+          "cache_write": 10242,
+          "cache_write_5m": 0,
+          "cache_write_1h": 10242,
+          "thinking": 15
+        },
+        "delta": {
+          "claude-sonnet-5": {
+            "input": 4,
+            "output": 153,
+            "cache_read": 57675,
+            "cache_write": 10242,
+            "thinking": 15
+          }
+        },
+        "host_cost_delta_usd": 0.05404099999999999,
+        "steps_match_result": true
+      },
+      {
+        "turn": 1,
+        "compacted": false,
+        "main_model": "claude-sonnet-5",
+        "main_loop": {
+          "input": 2,
+          "output": 156,
+          "cache_read": 34079,
+          "cache_write": 187,
+          "cache_write_5m": 0,
+          "cache_write_1h": 187,
+          "thinking": 149
+        },
+        "delta": {
+          "claude-sonnet-5": {
+            "input": 2,
+            "output": 156,
+            "cache_read": 34079,
+            "cache_write": 187,
+            "thinking": 149
+          }
+        },
+        "host_cost_delta_usd": 0.009127800000000005,
+        "steps_match_result": true
+      },
+      {
+        "turn": 2,
+        "local_command": "compact",
+        "compacted": true,
+        "main_model": "claude-sonnet-5",
+        "main_loop": {
+          "input": 0,
+          "output": 0,
+          "cache_read": 0,
+          "cache_write": 0,
+          "cache_write_5m": 0,
+          "cache_write_1h": 0,
+          "thinking": 0
+        },
+        "delta": {
+          "claude-sonnet-5": {
+            "input": 2137,
+            "output": 1425,
+            "cache_read": 34079,
+            "cache_write": 57,
+            "thinking": 1083
+          }
+        },
+        "beside": {
+          "claude-sonnet-5": {
+            "input": 2137,
+            "output": 1425,
+            "cache_read": 34079,
+            "cache_write": 57,
+            "thinking": 1083
+          }
+        },
+        "beside_kind": "compaction",
+        "host_cost_delta_usd": 0.0254823
+      },
+      {
+        "turn": 3,
+        "compacted": false,
+        "main_model": "claude-sonnet-5",
+        "main_loop": {
+          "input": 8,
+          "output": 1395,
+          "cache_read": 130404,
+          "cache_write": 5389,
+          "cache_write_5m": 0,
+          "cache_write_1h": 5389,
+          "thinking": 842
+        },
+        "delta": {
+          "claude-sonnet-5": {
+            "input": 8,
+            "output": 1395,
+            "cache_read": 130404,
+            "cache_write": 5389,
+            "thinking": 842
+          }
+        },
+        "host_cost_delta_usd": 0.0616028,
+        "steps_match_result": true
+      }
+    ],
+    "total": {
+      "claude-sonnet-5": {
+        "input": 2151,
+        "output": 3129,
+        "cache_read": 256237,
+        "cache_write": 15875,
+        "thinking": 2089
+      }
+    },
+    "host_cost_usd": 0.1502539,
+    "consistent": true
+  },
+  "host_cost_usd": 0.1502539,
+  "estimate": {
+    "micros": 150111,
+    "currency": "USD"
+  },
+  "estimate_complete": false,
+  "estimate_missing": [
+    "cache_write_5m",
+    "cache_write_1h"
+  ],
+  "rate_table_date": "2026-09-22",
+  "hook_latency_ms": {
+    "PostToolUse:Bash": [
+      40
+    ],
+    "PostToolUse:Edit": [
+      47
+    ],
+    "PostToolUse:Read": [
+      127
+    ],
+    "SessionStart:compact": [
+      140
+    ],
+    "SessionStart:startup": [
+      1
+    ],
+    "Stop": [
+      43,
+      47,
+      69
+    ],
+    "SubagentStop": [
+      49
+    ],
+    "UserPromptSubmit": [
+      42,
+      52,
+      134
+    ]
+  },
+  "transcript_hook_ms": {
+    "PostToolUse:Bash": [
+      40
+    ],
+    "PostToolUse:Edit": [
+      46
+    ],
+    "PostToolUse:Read": [
+      128
+    ],
+    "SessionStart:compact": [
+      140
+    ],
+    "SessionStart:startup": [
+      293
+    ],
+    "Stop": [
+      42,
+      47,
+      68
+    ]
+  },
+  "store": {
+    "bytes": 152216,
+    "files": 61,
+    "objects": 10,
+    "checkpoints": 1
+  },
+  "categories": {
+    "cache_read": {
+      "known": 256237,
+      "known_records": 5,
+      "unknown_records": 0
+    },
+    "cache_write_1h": {
+      "known": 15818,
+      "known_records": 4,
+      "unknown_records": 1
+    },
+    "cache_write_5m": {
+      "known": 0,
+      "known_records": 4,
+      "unknown_records": 1
+    },
+    "input": {
+      "known": 2151,
+      "known_records": 5,
+      "unknown_records": 0
+    },
+    "output": {
+      "known": 1040,
+      "known_records": 5,
+      "unknown_records": 0
+    },
+    "thinking_output": {
+      "known": 2089,
+      "known_records": 5,
+      "unknown_records": 0
+    }
+  },
+  "compact_attempts": [
+    {
+      "result": "success"
+    }
+  ],
+  "qompack": {
+    "checkpoints": 1,
+    "injections": [
+      {
+        "hook_event": "SessionStart",
+        "hook_name": "SessionStart",
+        "bytes": 1025,
+        "qompack": true,
+        "text": "\u003c!-- qompack:injected seq=1 ver=1 --\u003e\n# Qompack rehydration — checkpoint 0001, session c5a9b4c3\n\n## 2. Original user intent (verbatim from L0 capture — never summarized)\nEvolution (most recent first):\n\u003e Important history, so you do not repeat it: last week we tried rewriting Parse on top of time.ParseDuration. It broke the legacy day unit (\"5d\") and we reverted it, so that approach is ruled out for good. Do not fix anything yet; reply only with understood.\nOriginal:\n\u003e Run go test ./... and tell me which test fails, in one line.\n\n## 5. Current work\ngoal: Important history, so you do not repeat it: last week we tried rewriting Parse on top of time.ParseDuration.\nblocked on: none\n\n## 8. Retrieval\nQompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().\n\u003c!-- /qompack:injected --\u003e\n\u003c!-- qompack-contract-probe qompack-contract-f7e312b0986c --\u003e"
+      }
+    ],
+    "injected_bytes": 1025,
+    "mcp_server_status": "connected",
+    "index_lines": {
+      "files.jsonl": 2,
+      "observations.jsonl": 7,
+      "roots.jsonl": 10,
+      "segments.jsonl": 4,
+      "sessions.jsonl": 1,
+      "tool_use.jsonl": 7
+    }
+  },
+  "plugin": {
+    "install": "plugin-dir",
+    "bundle_dir": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack-bundles\\c8\\qompack-plugin-0.3.0-windows-amd64",
+    "version": "0.3.0",
+    "commit": "3ec62ad2e01b985640c0f1fb832df3917f766a5f",
+    "dirty": false,
+    "bundle_json_sha256": "61ba9c37dda03c14c44acb6824646a8d7410751bba6f1ce3c5c864d6382dcd8b",
+    "host_version": "0.3.0",
+    "host_source": "qompack@inline",
+    "host_path": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack-bundles\\c8\\qompack-plugin-0.3.0-windows-amd64"
+  },
+  "home_guard": {
+    "checked": true,
+    "unchanged": true,
+    "before": [
+      "plugins/installed_plugins.json 728f7559129113fcc9bafa69c373c52773a08d0da39756b19f456cbf4d6c57dd",
+      "plugins/known_marketplaces.json 1b1eda7e17f07d04496536ee38520c922deb339dadd4fabb018227095f572725",
+      "settings.json e15855d7e46a46a8b2f5d1f3b120524e7e0e3ca704c006419d819157f7365150"
+    ],
+    "after": [
+      "plugins/installed_plugins.json 728f7559129113fcc9bafa69c373c52773a08d0da39756b19f456cbf4d6c57dd",
+      "plugins/known_marketplaces.json 1b1eda7e17f07d04496536ee38520c922deb339dadd4fabb018227095f572725",
+      "settings.json e15855d7e46a46a8b2f5d1f3b120524e7e0e3ca704c006419d819157f7365150"
+    ]
+  },
+  "preregistered_model": true,
+  "host_model": "claude-sonnet-5",
+  "notes": [
+    "project: C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-live-63073461\\project",
+    "inherited environment variables removed from the session: QOMPACK_LIVE_EVAL",
+    "trial daemon: daemon pid 30248 stopped by admin.shutdown",
+    "host transcript: C:\\Users\\Quant\\.claude\\projects\\C--Users-Quant-AppData-Local-Temp-qompack-live-63073461-project\\c5a9b4c3-1873-4e79-9976-0b0eac05d7d7.jsonl"
+  ]
+}

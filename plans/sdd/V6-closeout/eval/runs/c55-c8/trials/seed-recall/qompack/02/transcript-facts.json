@@ -1,0 +1,131 @@
+{
+  "hook_runs": [
+    {
+      "type": "hook_success",
+      "hook_name": "SessionStart:startup",
+      "hook_event": "SessionStart",
+      "exit_code": 0,
+      "duration_ms": 305,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe session-start"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "PostToolUse:Bash",
+      "hook_event": "PostToolUse",
+      "exit_code": 0,
+      "duration_ms": 82,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe tool"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "Stop",
+      "hook_event": "Stop",
+      "exit_code": 0,
+      "duration_ms": 84,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe stop"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "PostToolUse:Read",
+      "hook_event": "PostToolUse",
+      "exit_code": 0,
+      "duration_ms": 83,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe tool"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "Stop",
+      "hook_event": "Stop",
+      "exit_code": 0,
+      "duration_ms": 177,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe stop"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "SessionStart:compact",
+      "hook_event": "SessionStart",
+      "exit_code": 0,
+      "duration_ms": 121,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe session-start"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "PostToolUse:Bash",
+      "hook_event": "PostToolUse",
+      "exit_code": 0,
+      "duration_ms": 85,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe tool"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "PostToolUse:Read",
+      "hook_event": "PostToolUse",
+      "exit_code": 0,
+      "duration_ms": 202,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe tool"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "PostToolUse:Write",
+      "hook_event": "PostToolUse",
+      "exit_code": 0,
+      "duration_ms": 232,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe tool"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "PostToolUse:Bash",
+      "hook_event": "PostToolUse",
+      "exit_code": 0,
+      "duration_ms": 99,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe tool"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "Stop",
+      "hook_event": "Stop",
+      "exit_code": 0,
+      "duration_ms": 76,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe stop"
+    }
+  ],
+  "contexts": [
+    {
+      "hook_event": "SessionStart",
+      "hook_name": "SessionStart",
+      "bytes": 61,
+      "qompack": false
+    },
+    {
+      "hook_event": "SessionStart",
+      "hook_name": "SessionStart",
+      "bytes": 1354,
+      "qompack": true,
+      "text": "\u003c!-- qompack:injected seq=1 ver=1 --\u003e\n# Qompack rehydration — checkpoint 0001, session fdba0c6f\n\n## 2. Original user intent (verbatim from L0 capture — never summarized)\nEvolution (most recent first):\n\u003e Read notes/filler.md and tell me how many numbered steps its Runbook section has.\nOriginal:\n\u003e Run go run ./cmd/seed and tell me the seed it prints, in one line.\n\n## 5. Current work\ngoal: Read notes/filler.md and tell me how many numbered steps its Runbook section has.\nblocked on: none\n\n## 6. Pointers (paths and hashes — contents are NOT restored; use expand/re_read)\n- notes/filler.md sha256:867d22cf0e402bb53133137a08f6a2b820f001bd46431b2a5607275c12408a1e — referenced\n- tool_use toolu_01ADmcAiQ9tHnU32UbZBzNRP sha256:867d22cf0e402bb53133137a08f6a2b820f001bd46431b2a5607275c12408a1e — C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-live-1073816693\\project\\notes\\filler.md\n- tool_use toolu_01AxbvvfZqmk6EZE4XM4PfEu sha256:88cd6108f26f7cf76ab1b7cc8320d9e2d3b9b3da32577a89e9262c89fc8b8592 — go run ./cmd/seed\n\n## 8. Retrieval\nQompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().\n\u003c!-- /qompack:injected --\u003e\n\u003c!-- qompack-contract-probe qompack-contract-5b908e621a6e --\u003e"
+    }
+  ],
+  "compactions": [
+    {
+      "trigger": "manual",
+      "pre_tokens": 35801,
+      "post_tokens": 0,
+      "duration_ms": 30307
+    }
+  ],
+  "local_output": [
+    "Compacted PreCompact [${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe checkpoint] completed successfully: {}"
+  ],
+  "lines": 95,
+  "truncated_tail": false
+}

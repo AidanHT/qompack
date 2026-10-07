@@ -1,0 +1,43 @@
+{
+  "bin": "C:\\Users\\Quant\\AppData\\Roaming\\npm\\claude.cmd",
+  "args": [
+    "-p",
+    "--input-format",
+    "stream-json",
+    "--output-format",
+    "stream-json",
+    "--verbose",
+    "--include-hook-events",
+    "--model",
+    "claude-sonnet-5",
+    "--max-turns",
+    "12",
+    "--setting-sources",
+    "project,local",
+    "--permission-mode",
+    "dontAsk",
+    "--session-id",
+    "284f9180-6e53-4122-9677-ff5352fccdb4",
+    "--allowedTools",
+    "Read,Edit,Write,Glob,Grep,Bash(go:*),Bash(git status:*),Bash(git diff:*),PowerShell(go:*),mcp__plugin_qompack_qompack",
+    "--plugin-dir",
+    "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack-bundles\\c8\\qompack-plugin-0.3.0-windows-amd64"
+  ],
+  "dir": "C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-live-2438399301\\project",
+  "env": [
+    "ENABLE_CLAUDEAI_MCP_SERVERS=false",
+    "QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS=120"
+  ],
+  "unset": [
+    "QOMPACK_LIVE_EVAL"
+  ],
+  "messages": [
+    "Design decision D-17 for the store package: entries are persisted as newline-delimited JSON, one object per line, not with encoding/gob, because operators must be able to grep the files during incidents. Do not write this down anywhere; reply OK.",
+    "Implement func Save(w io.Writer, entries []Entry) error in store/save.go following D-17, with a test in store/save_test.go. Run go test ./... and report in one line.",
+    "/compact",
+    "Implement func Load(r io.Reader) ([]Entry, error) in store/load.go that reads what Save writes, with a round-trip test. Run go test ./... and report in one line.",
+    "In one sentence: why did we choose this storage format?"
+  ],
+  "step_timeout": 600000000000,
+  "session_timeout": 2700000000000
+}

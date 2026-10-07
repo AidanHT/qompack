@@ -1,0 +1,2809 @@
+{
+  "schema": 1,
+  "run_id": "20261007T184908Z-abe10e",
+  "confidence": 0.95,
+  "arms": {
+    "qompack": {
+      "arm": "qompack",
+      "trials": 20,
+      "completed": 20,
+      "plugin_mismatch": 0,
+      "task_success": {
+        "k": 18,
+        "n": 20,
+        "rate": 0.9,
+        "low": 0.6989663545713958,
+        "high": 0.9721335188119962
+      },
+      "constraint_clean": {
+        "k": 20,
+        "n": 20,
+        "rate": 1,
+        "low": 0.83887484172924,
+        "high": 1
+      },
+      "constraint_violations": 0,
+      "recovery": {
+        "k": 6,
+        "n": 8,
+        "rate": 0.75,
+        "low": 0.40927543006661404,
+        "high": 0.9285207873147511
+      },
+      "mean_usage": {
+        "input": 2735,
+        "output": 6036,
+        "cache_read": 366842,
+        "cache_write": 21512
+      },
+      "mean_host_cost_usd": 0.225041225,
+      "mean_estimate_micros": 224687,
+      "estimate_incomplete": 20,
+      "mean_wall_ms": 88186,
+      "mean_store_bytes": 213433,
+      "hook_p50_ms": 81,
+      "hook_p95_ms": 233,
+      "host_hook_ms": {
+        "PostToolUse:Bash": {
+          "n": 40,
+          "p50": 71,
+          "p95": 246,
+          "max": 489
+        },
+        "PostToolUse:Edit": {
+          "n": 12,
+          "p50": 70,
+          "p95": 95,
+          "max": 95
+        },
+        "PostToolUse:Glob": {
+          "n": 6,
+          "p50": 80,
+          "p95": 114,
+          "max": 114
+        },
+        "PostToolUse:PowerShell": {
+          "n": 2,
+          "p50": 40,
+          "p95": 55,
+          "max": 55
+        },
+        "PostToolUse:Read": {
+          "n": 27,
+          "p50": 101,
+          "p95": 222,
+          "max": 573
+        },
+        "PostToolUse:Write": {
+          "n": 52,
+          "p50": 74,
+          "p95": 299,
+          "max": 350
+        },
+        "SessionStart:compact": {
+          "n": 20,
+          "p50": 113,
+          "p95": 152,
+          "max": 278
+        },
+        "SessionStart:startup": {
+          "n": 20,
+          "p50": 293,
+          "p95": 807,
+          "max": 911
+        },
+        "Stop": {
+          "n": 66,
+          "p50": 78,
+          "p95": 217,
+          "max": 972
+        }
+      },
+      "hook_problem_trials": 0,
+      "account_inconsistent": 0,
+      "foreign_plugin_trials": 0,
+      "categories": {
+        "cache_read": {
+          "known": 7336845,
+          "known_records": 106,
+          "unknown_records": 0
+        },
+        "cache_write_1h": {
+          "known": 427429,
+          "known_records": 86,
+          "unknown_records": 20
+        },
+        "cache_write_5m": {
+          "known": 0,
+          "known_records": 86,
+          "unknown_records": 20
+        },
+        "input": {
+          "known": 54706,
+          "known_records": 106,
+          "unknown_records": 0
+        },
+        "output": {
+          "known": 98087,
+          "known_records": 106,
+          "unknown_records": 0
+        },
+        "thinking_output": {
+          "known": 22639,
+          "known_records": 106,
+          "unknown_records": 0
+        }
+      }
+    },
+    "stock": {
+      "arm": "stock",
+      "trials": 20,
+      "completed": 19,
+      "plugin_mismatch": 0,
+      "task_success": {
+        "k": 18,
+        "n": 20,
+        "rate": 0.9,
+        "low": 0.6989663545713958,
+        "high": 0.9721335188119962
+      },
+      "constraint_clean": {
+        "k": 19,
+        "n": 20,
+        "rate": 0.95,
+        "low": 0.7638688063470479,
+        "high": 0.9911185512092681
+      },
+      "constraint_violations": 0,
+      "recovery": {
+        "k": 6,
+        "n": 8,
+        "rate": 0.75,
+        "low": 0.40927543006661404,
+        "high": 0.9285207873147511
+      },
+      "mean_usage": {
+        "input": 2727,
+        "output": 5721,
+        "cache_read": 359663,
+        "cache_write": 18918
+      },
+      "mean_host_cost_usd": 0.21009206000000002,
+      "mean_estimate_micros": 209782,
+      "estimate_incomplete": 20,
+      "mean_wall_ms": 219288,
+      "hook_problem_trials": 0,
+      "account_inconsistent": 0,
+      "foreign_plugin_trials": 0,
+      "categories": {
+        "cache_read": {
+          "known": 7193276,
+          "known_records": 105,
+          "unknown_records": 0
+        },
+        "cache_write_1h": {
+          "known": 375888,
+          "known_records": 85,
+          "unknown_records": 20
+        },
+        "cache_write_5m": {
+          "known": 0,
+          "known_records": 85,
+          "unknown_records": 20
+        },
+        "input": {
+          "known": 54542,
+          "known_records": 105,
+          "unknown_records": 0
+        },
+        "output": {
+          "known": 99195,
+          "known_records": 105,
+          "unknown_records": 0
+        },
+        "thinking_output": {
+          "known": 15240,
+          "known_records": 105,
+          "unknown_records": 0
+        }
+      }
+    }
+  },
+  "by_task": {
+    "changing-requirement-format": [
+      {
+        "arm": "qompack",
+        "trials": 2,
+        "completed": 2,
+        "plugin_mismatch": 0,
+        "task_success": {
+          "k": 2,
+          "n": 2,
+          "rate": 1,
+          "low": 0.34238022714360744,
+          "high": 1
+        },
+        "constraint_clean": {
+          "k": 2,
+          "n": 2,
+          "rate": 1,
+          "low": 0.34238022714360744,
+          "high": 1
+        },
+        "constraint_violations": 0,
+        "recovery": {
+          "k": 0,
+          "n": 0,
+          "rate": 0,
+          "low": 0,
+          "high": 1
+        },
+        "mean_usage": {
+          "input": 2088,
+          "output": 6876,
+          "cache_read": 390700,
+          "cache_write": 21585
+        },
+        "mean_host_cost_usd": 0.23725985,
+        "mean_estimate_micros": 236991,
+        "estimate_incomplete": 2,
+        "mean_wall_ms": 79003,
+        "mean_store_bytes": 230133,
+        "hook_p50_ms": 72,
+        "hook_p95_ms": 189,
+        "host_hook_ms": {
+          "PostToolUse:Bash": {
+            "n": 4,
+            "p50": 71,
+            "p95": 246,
+            "max": 246
+          },
+          "PostToolUse:Edit": {
+            "n": 3,
+            "p50": 61,
+            "p95": 79,
+            "max": 79
+          },
+          "PostToolUse:PowerShell": {
+            "n": 2,
+            "p50": 40,
+            "p95": 55,
+            "max": 55
+          },
+          "PostToolUse:Read": {
+            "n": 2,
+            "p50": 49,
+            "p95": 101,
+            "max": 101
+          },
+          "PostToolUse:Write": {
+            "n": 5,
+            "p50": 85,
+            "p95": 110,
+            "max": 110
+          },
+          "SessionStart:compact": {
+            "n": 2,
+            "p50": 81,
+            "p95": 131,
+            "max": 131
+          },
+          "SessionStart:startup": {
+            "n": 2,
+            "p50": 229,
+            "p95": 807,
+            "max": 807
+          },
+          "Stop": {
+            "n": 6,
+            "p50": 63,
+            "p95": 110,
+            "max": 110
+          }
+        },
+        "hook_problem_trials": 0,
+        "account_inconsistent": 0,
+        "foreign_plugin_trials": 0,
+        "categories": {
+          "cache_read": {
+            "known": 781401,
+            "known_records": 10,
+            "unknown_records": 0
+          },
+          "cache_write_1h": {
+            "known": 42955,
+            "known_records": 8,
+            "unknown_records": 2
+          },
+          "cache_write_5m": {
+            "known": 0,
+            "known_records": 8,
+            "unknown_records": 2
+          },
+          "input": {
+            "known": 4176,
+            "known_records": 10,
+            "unknown_records": 0
+          },
+          "output": {
+            "known": 12323,
+            "known_records": 10,
+            "unknown_records": 0
+          },
+          "thinking_output": {
+            "known": 1430,
+            "known_records": 10,
+            "unknown_records": 0
+          }
+        }
+      },
+      {
+        "arm": "stock",
+        "trials": 2,
+        "completed": 2,
+        "plugin_mismatch": 0,
+        "task_success": {
+          "k": 2,
+          "n": 2,
+          "rate": 1,
+          "low": 0.34238022714360744,
+          "high": 1
+        },
+        "constraint_clean": {
+          "k": 2,
+          "n": 2,
+          "rate": 1,
+          "low": 0.34238022714360744,
+          "high": 1
+        },
+        "constraint_violations": 0,
+        "recovery": {
+          "k": 0,
+          "n": 0,
+          "rate": 0,
+          "low": 0,
+          "high": 1
+        },
+        "mean_usage": {
+          "input": 2077,
+          "output": 7627,
+          "cache_read": 401446,
+          "cache_write": 19718
+        },
+        "mean_host_cost_usd": 0.23943420000000004,
+        "mean_estimate_micros": 239179,
+        "estimate_incomplete": 2,
+        "mean_wall_ms": 83782,
+        "hook_problem_trials": 0,
+        "account_inconsistent": 0,
+        "foreign_plugin_trials": 0,
+        "categories": {
+          "cache_read": {
+            "known": 802892,
+            "known_records": 10,
+            "unknown_records": 0
+          },
+          "cache_write_1h": {
+            "known": 39233,
+            "known_records": 8,
+            "unknown_records": 2
+          },
+          "cache_write_5m": {
+            "known": 0,
+            "known_records": 8,
+            "unknown_records": 2
+          },
+          "input": {
+            "known": 4154,
+            "known_records": 10,
+            "unknown_records": 0
+          },
+          "output": {
+            "known": 12804,
+            "known_records": 10,
+            "unknown_records": 0
+          },
+          "thinking_output": {
+            "known": 2450,
+            "known_records": 10,
+            "unknown_records": 0
+          }
+        }
+      }
+    ],
+    "changing-requirement-slug": [
+      {
+        "arm": "qompack",
+        "trials": 2,
+        "completed": 2,
+        "plugin_mismatch": 0,
+        "task_success": {
+          "k": 2,
+          "n": 2,
+          "rate": 1,
+          "low": 0.34238022714360744,
+          "high": 1
+        },
+        "constraint_clean": {
+          "k": 2,
+          "n": 2,
+          "rate": 1,
+          "low": 0.34238022714360744,
+          "high": 1
+        },
+        "constraint_violations": 0,
+        "recovery": {
+          "k": 0,
+          "n": 0,
+          "rate": 0,
+          "low": 0,
+          "high": 1
+        },
+        "mean_usage": {
+          "input": 2089,
+          "output": 7395,
+          "cache_read": 370111,
+          "cache_write": 21496
+        },
+        "mean_host_cost_usd": 0.23795319999999998,
+        "mean_estimate_micros": 237643,
+        "estimate_incomplete": 2,
+        "mean_wall_ms": 101687,
+        "mean_store_bytes": 222277,
+        "hook_p50_ms": 86,
+        "hook_p95_ms": 299,
+        "host_hook_ms": {
+          "PostToolUse:Bash": {
+            "n": 5,
+            "p50": 91,
+            "p95": 237,
+            "max": 237
+          },
+          "PostToolUse:Edit": {
+            "n": 2,
+            "p50": 82,
+            "p95": 95,
+            "max": 95
+          },
+          "PostToolUse:Read": {
+            "n": 2,
+            "p50": 84,
+            "p95": 119,
+            "max": 119
+          },
+          "PostToolUse:Write": {
+            "n": 6,
+            "p50": 86,
+            "p95": 350,
+            "max": 350
+          },
+          "SessionStart:compact": {
+            "n": 2,
+            "p50": 89,
+            "p95": 152,
+            "max": 152
+          },
+          "SessionStart:startup": {
+            "n": 2,
+            "p50": 314,
+            "p95": 352,
+            "max": 352
+          },
+          "Stop": {
+            "n": 6,
+            "p50": 83,
+            "p95": 146,
+            "max": 146
+          }
+        },
+        "hook_problem_trials": 0,
+        "account_inconsistent": 0,
+        "foreign_plugin_trials": 0,
+        "categories": {
+          "cache_read": {
+            "known": 740222,
+            "known_records": 10,
+            "unknown_records": 0
+          },
+          "cache_write_1h": {
+            "known": 42744,
+            "known_records": 8,
+            "unknown_records": 2
+          },
+          "cache_write_5m": {
+            "known": 0,
+            "known_records": 8,
+            "unknown_records": 2
+          },
+          "input": {
+            "known": 4178,
+            "known_records": 10,
+            "unknown_records": 0
+          },
+          "output": {
+            "known": 11440,
+            "known_records": 10,
+            "unknown_records": 0
+          },
+          "thinking_output": {
+            "known": 3351,
+            "known_records": 10,
+            "unknown_records": 0
+          }
+        }
+      },
+      {
+        "arm": "stock",
+        "trials": 2,
+        "completed": 2,
+        "plugin_mismatch": 0,
+        "task_success": {
+          "k": 2,
+          "n": 2,
+          "rate": 1,
+          "low": 0.34238022714360744,
+          "high": 1
+        },
+        "constraint_clean": {
+          "k": 2,
+          "n": 2,
+          "rate": 1,
+          "low": 0.34238022714360744,
+          "high": 1
+        },
+        "constraint_violations": 0,
+        "recovery": {
+          "k": 0,
+          "n": 0,
+          "rate": 0,
+          "low": 0,
+          "high": 1
+        },
+        "mean_usage": {
+          "input": 2077,
+          "output": 7084,
+          "cache_read": 362198,
+          "cache_write": 18849
+        },
+        "mean_host_cost_usd": 0.22264895,
+        "mean_estimate_micros": 222348,
+        "estimate_incomplete": 2,
+        "mean_wall_ms": 90867,
+        "hook_problem_trials": 0,
+        "account_inconsistent": 0,
+        "foreign_plugin_trials": 0,
+        "categories": {
+          "cache_read": {
+            "known": 724397,
+            "known_records": 10,
+            "unknown_records": 0
+          },
+          "cache_write_1h": {
+            "known": 37457,
+            "known_records": 8,
+            "unknown_records": 2
+          },
+          "cache_write_5m": {
+            "known": 0,
+            "known_records": 8,
+            "unknown_records": 2
+          },
+          "input": {
+            "known": 4154,
+            "known_records": 10,
+            "unknown_records": 0
+          },
+          "output": {
+            "known": 11160,
+            "known_records": 10,
+            "unknown_records": 0
+          },
+          "thinking_output": {
+            "known": 3008,
+            "known_records": 10,
+            "unknown_records": 0
+          }
+        }
+      }
+    ],
+    "constraint-naming": [
+      {
+        "arm": "qompack",
+        "trials": 2,
+        "completed": 2,
+        "plugin_mismatch": 0,
+        "task_success": {
+          "k": 2,
+          "n": 2,
+          "rate": 1,
+          "low": 0.34238022714360744,
+          "high": 1
+        },
+        "constraint_clean": {
+          "k": 2,
+          "n": 2,
+          "rate": 1,
+          "low": 0.34238022714360744,
+          "high": 1
+        },
+        "constraint_violations": 0,
+        "recovery": {
+          "k": 0,
+          "n": 0,
+          "rate": 0,
+          "low": 0,
+          "high": 1
+        },
+        "mean_usage": {
+          "input": 2089,
+          "output": 5384,
+          "cache_read": 368099,
+          "cache_write": 19605
+        },
+        "mean_host_cost_usd": 0.20987804999999998,
+        "mean_estimate_micros": 209567,
+        "estimate_incomplete": 2,
+        "mean_wall_ms": 94128,
+        "mean_store_bytes": 218924,
+        "hook_p50_ms": 80,
+        "hook_p95_ms": 143,
+        "host_hook_ms": {
+          "PostToolUse:Bash": {
+            "n": 4,
+            "p50": 58,
+            "p95": 88,
+            "max": 88
+          },
+          "PostToolUse:Glob": {
+            "n": 2,
+            "p50": 48,
+            "p95": 114,
+            "max": 114
+          },
+          "PostToolUse:Read": {
+            "n": 2,
+            "p50": 53,
+            "p95": 90,
+            "max": 90
+          },
+          "PostToolUse:Write": {
+            "n": 8,
+            "p50": 80,
+            "p95": 127,
+            "max": 127
+          },
+          "SessionStart:compact": {
+            "n": 2,
+            "p50": 84,
+            "p95": 106,
+            "max": 106
+          },
+          "SessionStart:startup": {
+            "n": 2,
+            "p50": 212,
+            "p95": 252,
+            "max": 252
+          },
+          "Stop": {
+            "n": 6,
+            "p50": 68,
+            "p95": 119,
+            "max": 119
+          }
+        },
+        "hook_problem_trials": 0,
+        "account_inconsistent": 0,
+        "foreign_plugin_trials": 0,
+        "categories": {
+          "cache_read": {
+            "known": 736198,
+            "known_records": 10,
+            "unknown_records": 0
+          },
+          "cache_write_1h": {
+            "known": 38962,
+            "known_records": 8,
+            "unknown_records": 2
+          },
+          "cache_write_5m": {
+            "known": 0,
+            "known_records": 8,
+            "unknown_records": 2
+          },
+          "input": {
+            "known": 4178,
+            "known_records": 10,
+            "unknown_records": 0
+          },
+          "output": {
+            "known": 10014,
+            "known_records": 10,
+            "unknown_records": 0
+          },
+          "thinking_output": {
+            "known": 755,
+            "known_records": 10,
+            "unknown_records": 0
+          }
+        }
+      },
+      {
+        "arm": "stock",
+        "trials": 2,
+        "completed": 2,
+        "plugin_mismatch": 0,
+        "task_success": {
+          "k": 2,
+          "n": 2,
+          "rate": 1,
+          "low": 0.34238022714360744,
+          "high": 1
+        },
+        "constraint_clean": {
+          "k": 2,
+          "n": 2,
+          "rate": 1,
+          "low": 0.34238022714360744,
+          "high": 1
+        },
+        "constraint_violations": 0,
+        "recovery": {
+          "k": 0,
+          "n": 0,
+          "rate": 0,
+          "low": 0,
+          "high": 1
+        },
+        "mean_usage": {
+          "input": 2076,
+          "output": 5076,
+          "cache_read": 342307,
+          "cache_write": 17092
+        },
+        "mean_host_cost_usd": 0.1915655,
+        "mean_estimate_micros": 191260,
+        "estimate_incomplete": 2,
+        "mean_wall_ms": 65340,
+        "hook_problem_trials": 0,
+        "account_inconsistent": 0,
+        "foreign_plugin_trials": 0,
+        "categories": {
+          "cache_read": {
+            "known": 684615,
+            "known_records": 10,
+            "unknown_records": 0
+          },
+          "cache_write_1h": {
+            "known": 33941,
+            "known_records": 8,
+            "unknown_records": 2
+          },
+          "cache_write_5m": {
+            "known": 0,
+            "known_records": 8,
+            "unknown_records": 2
+          },
+          "input": {
+            "known": 4152,
+            "known_records": 10,
+            "unknown_records": 0
+          },
+          "output": {
+            "known": 10081,
+            "known_records": 10,
+            "unknown_records": 0
+          },
+          "thinking_output": {
+            "known": 72,
+            "known_records": 10,
+            "unknown_records": 0
+          }
+        }
+      }
+    ],
+    "constraint-verbatim": [
+      {
+        "arm": "qompack",
+        "trials": 2,
+        "completed": 2,
+        "plugin_mismatch": 0,
+        "task_success": {
+          "k": 2,
+          "n": 2,
+          "rate": 1,
+          "low": 0.34238022714360744,
+          "high": 1
+        },
+        "constraint_clean": {
+          "k": 2,
+          "n": 2,
+          "rate": 1,
+          "low": 0.34238022714360744,
+          "high": 1
+        },
+        "constraint_violations": 0,
+        "recovery": {
+          "k": 0,
+          "n": 0,
+          "rate": 0,
+          "low": 0,
+          "high": 1
+        },
+        "mean_usage": {
+          "input": 2091,
+          "output": 6245,
+          "cache_read": 369186,
+          "cache_write": 20715
+        },
+        "mean_host_cost_usd": 0.22318405000000002,
+        "mean_estimate_micros": 222930,
+        "estimate_incomplete": 2,
+        "mean_wall_ms": 68597,
+        "mean_store_bytes": 246015,
+        "hook_p50_ms": 55,
+        "hook_p95_ms": 135,
+        "host_hook_ms": {
+          "PostToolUse:Bash": {
+            "n": 6,
+            "p50": 55,
+            "p95": 60,
+            "max": 60
+          },
+          "PostToolUse:Read": {
+            "n": 2,
+            "p50": 55,
+            "p95": 61,
+            "max": 61
+          },
+          "PostToolUse:Write": {
+            "n": 12,
+            "p50": 51,
+            "p95": 132,
+            "max": 132
+          },
+          "SessionStart:compact": {
+            "n": 2,
+            "p50": 85,
+            "p95": 87,
+            "max": 87
+          },
+          "SessionStart:startup": {
+            "n": 2,
+            "p50": 219,
+            "p95": 579,
+            "max": 579
+          },
+          "Stop": {
+            "n": 6,
+            "p50": 49,
+            "p95": 60,
+            "max": 60
+          }
+        },
+        "hook_problem_trials": 0,
+        "account_inconsistent": 0,
+        "foreign_plugin_trials": 0,
+        "categories": {
+          "cache_read": {
+            "known": 738373,
+            "known_records": 10,
+            "unknown_records": 0
+          },
+          "cache_write_1h": {
+            "known": 41228,
+            "known_records": 8,
+            "unknown_records": 2
+          },
+          "cache_write_5m": {
+            "known": 0,
+            "known_records": 8,
+            "unknown_records": 2
+          },
+          "input": {
+            "known": 4182,
+            "known_records": 10,
+            "unknown_records": 0
+          },
+          "output": {
+            "known": 12175,
+            "known_records": 10,
+            "unknown_records": 0
+          },
+          "thinking_output": {
+            "known": 316,
+            "known_records": 10,
+            "unknown_records": 0
+          }
+        }
+      },
+      {
+        "arm": "stock",
+        "trials": 2,
+        "completed": 2,
+        "plugin_mismatch": 0,
+        "task_success": {
+          "k": 2,
+          "n": 2,
+          "rate": 1,
+          "low": 0.34238022714360744,
+          "high": 1
+        },
+        "constraint_clean": {
+          "k": 2,
+          "n": 2,
+          "rate": 1,
+          "low": 0.34238022714360744,
+          "high": 1
+        },
+        "constraint_violations": 0,
+        "recovery": {
+          "k": 0,
+          "n": 0,
+          "rate": 0,
+          "low": 0,
+          "high": 1
+        },
+        "mean_usage": {
+          "input": 2077,
+          "output": 5940,
+          "cache_read": 326263,
+          "cache_write": 17916
+        },
+        "mean_host_cost_usd": 0.20029085000000002,
+        "mean_estimate_micros": 199979,
+        "estimate_incomplete": 2,
+        "mean_wall_ms": 67640,
+        "hook_problem_trials": 0,
+        "account_inconsistent": 0,
+        "foreign_plugin_trials": 0,
+        "categories": {
+          "cache_read": {
+            "known": 652526,
+            "known_records": 10,
+            "unknown_records": 0
+          },
+          "cache_write_1h": {
+            "known": 35584,
+            "known_records": 8,
+            "unknown_records": 2
+          },
+          "cache_write_5m": {
+            "known": 0,
+            "known_records": 8,
+            "unknown_records": 2
+          },
+          "input": {
+            "known": 4154,
+            "known_records": 10,
+            "unknown_records": 0
+          },
+          "output": {
+            "known": 11662,
+            "known_records": 10,
+            "unknown_records": 0
+          },
+          "thinking_output": {
+            "known": 219,
+            "known_records": 10,
+            "unknown_records": 0
+          }
+        }
+      }
+    ],
+    "decision-rationale": [
+      {
+        "arm": "qompack",
+        "trials": 2,
+        "completed": 2,
+        "plugin_mismatch": 0,
+        "task_success": {
+          "k": 2,
+          "n": 2,
+          "rate": 1,
+          "low": 0.34238022714360744,
+          "high": 1
+        },
+        "constraint_clean": {
+          "k": 2,
+          "n": 2,
+          "rate": 1,
+          "low": 0.34238022714360744,
+          "high": 1
+        },
+        "constraint_violations": 0,
+        "recovery": {
+          "k": 2,
+          "n": 2,
+          "rate": 1,
+          "low": 0.34238022714360744,
+          "high": 1
+        },
+        "mean_usage": {
+          "input": 2090,
+          "output": 6967,
+          "cache_read": 430002,
+          "cache_write": 21445
+        },
+        "mean_host_cost_usd": 0.24549890000000002,
+        "mean_estimate_micros": 245271,
+        "estimate_incomplete": 2,
+        "mean_wall_ms": 123617,
+        "mean_store_bytes": 241268,
+        "hook_p50_ms": 75,
+        "hook_p95_ms": 381,
+        "host_hook_ms": {
+          "PostToolUse:Bash": {
+            "n": 5,
+            "p50": 56,
+            "p95": 363,
+            "max": 363
+          },
+          "PostToolUse:Glob": {
+            "n": 1,
+            "p50": 86,
+            "p95": 86,
+            "max": 86
+          },
+          "PostToolUse:Read": {
+            "n": 3,
+            "p50": 49,
+            "p95": 190,
+            "max": 190
+          },
+          "PostToolUse:Write": {
+            "n": 8,
+            "p50": 76,
+            "p95": 151,
+            "max": 151
+          },
+          "SessionStart:compact": {
+            "n": 2,
+            "p50": 81,
+            "p95": 113,
+            "max": 113
+          },
+          "SessionStart:startup": {
+            "n": 2,
+            "p50": 272,
+            "p95": 911,
+            "max": 911
+          },
+          "Stop": {
+            "n": 8,
+            "p50": 78,
+            "p95": 972,
+            "max": 972
+          }
+        },
+        "hook_problem_trials": 0,
+        "account_inconsistent": 0,
+        "foreign_plugin_trials": 0,
+        "categories": {
+          "cache_read": {
+            "known": 860004,
+            "known_records": 12,
+            "unknown_records": 0
+          },
+          "cache_write_1h": {
+            "known": 42708,
+            "known_records": 10,
+            "unknown_records": 2
+          },
+          "cache_write_5m": {
+            "known": 0,
+            "known_records": 10,
+            "unknown_records": 2
+          },
+          "input": {
+            "known": 4180,
+            "known_records": 12,
+            "unknown_records": 0
+          },
+          "output": {
+            "known": 13130,
+            "known_records": 12,
+            "unknown_records": 0
+          },
+          "thinking_output": {
+            "known": 805,
+            "known_records": 12,
+            "unknown_records": 0
+          }
+        }
+      },
+      {
+        "arm": "stock",
+        "trials": 2,
+        "completed": 2,
+        "plugin_mismatch": 0,
+        "task_success": {
+          "k": 2,
+          "n": 2,
+          "rate": 1,
+          "low": 0.34238022714360744,
+          "high": 1
+        },
+        "constraint_clean": {
+          "k": 2,
+          "n": 2,
+          "rate": 1,
+          "low": 0.34238022714360744,
+          "high": 1
+        },
+        "constraint_violations": 0,
+        "recovery": {
+          "k": 2,
+          "n": 2,
+          "rate": 1,
+          "low": 0.34238022714360744,
+          "high": 1
+        },
+        "mean_usage": {
+          "input": 2079,
+          "output": 6300,
+          "cache_read": 432756,
+          "cache_write": 18296
+        },
+        "mean_host_cost_usd": 0.22670880000000004,
+        "mean_estimate_micros": 226401,
+        "estimate_incomplete": 2,
+        "mean_wall_ms": 77206,
+        "hook_problem_trials": 0,
+        "account_inconsistent": 0,
+        "foreign_plugin_trials": 0,
+        "categories": {
+          "cache_read": {
+            "known": 865513,
+            "known_records": 12,
+            "unknown_records": 0
+          },
+          "cache_write_1h": {
+            "known": 36346,
+            "known_records": 10,
+            "unknown_records": 2
+          },
+          "cache_write_5m": {
+            "known": 0,
+            "known_records": 10,
+            "unknown_records": 2
+          },
+          "input": {
+            "known": 4158,
+            "known_records": 12,
+            "unknown_records": 0
+          },
+          "output": {
+            "known": 12276,
+            "known_records": 12,
+            "unknown_records": 0
+          },
+          "thinking_output": {
+            "known": 324,
+            "known_records": 12,
+            "unknown_records": 0
+          }
+        }
+      }
+    ],
+    "eliminated-approach": [
+      {
+        "arm": "qompack",
+        "trials": 2,
+        "completed": 2,
+        "plugin_mismatch": 0,
+        "task_success": {
+          "k": 2,
+          "n": 2,
+          "rate": 1,
+          "low": 0.34238022714360744,
+          "high": 1
+        },
+        "constraint_clean": {
+          "k": 2,
+          "n": 2,
+          "rate": 1,
+          "low": 0.34238022714360744,
+          "high": 1
+        },
+        "constraint_violations": 0,
+        "recovery": {
+          "k": 0,
+          "n": 0,
+          "rate": 0,
+          "low": 0,
+          "high": 1
+        },
+        "mean_usage": {
+          "input": 2114,
+          "output": 4720,
+          "cache_read": 293901,
+          "cache_write": 17487
+        },
+        "mean_host_cost_usd": 0.17960245,
+        "mean_estimate_micros": 178676,
+        "estimate_incomplete": 2,
+        "mean_wall_ms": 75194,
+        "mean_store_bytes": 175041,
+        "hook_p50_ms": 93,
+        "hook_p95_ms": 228,
+        "host_hook_ms": {
+          "PostToolUse:Bash": {
+            "n": 3,
+            "p50": 75,
+            "p95": 227,
+            "max": 227
+          },
+          "PostToolUse:Edit": {
+            "n": 2,
+            "p50": 46,
+            "p95": 95,
+            "max": 95
+          },
+          "PostToolUse:Glob": {
+            "n": 1,
+            "p50": 80,
+            "p95": 80,
+            "max": 80
+          },
+          "PostToolUse:Read": {
+            "n": 3,
+            "p50": 108,
+            "p95": 128,
+            "max": 128
+          },
+          "SessionStart:compact": {
+            "n": 2,
+            "p50": 116,
+            "p95": 140,
+            "max": 140
+          },
+          "SessionStart:startup": {
+            "n": 2,
+            "p50": 293,
+            "p95": 316,
+            "max": 316
+          },
+          "Stop": {
+            "n": 6,
+            "p50": 68,
+            "p95": 150,
+            "max": 150
+          }
+        },
+        "hook_problem_trials": 0,
+        "account_inconsistent": 0,
+        "foreign_plugin_trials": 0,
+        "categories": {
+          "cache_read": {
+            "known": 587802,
+            "known_records": 10,
+            "unknown_records": 0
+          },
+          "cache_write_1h": {
+            "known": 34234,
+            "known_records": 8,
+            "unknown_records": 2
+          },
+          "cache_write_5m": {
+            "known": 0,
+            "known_records": 8,
+            "unknown_records": 2
+          },
+          "input": {
+            "known": 4228,
+            "known_records": 10,
+            "unknown_records": 0
+          },
+          "output": {
+            "known": 5408,
+            "known_records": 10,
+            "unknown_records": 0
+          },
+          "thinking_output": {
+            "known": 4032,
+            "known_records": 10,
+            "unknown_records": 0
+          }
+        }
+      },
+      {
+        "arm": "stock",
+        "trials": 2,
+        "completed": 2,
+        "plugin_mismatch": 0,
+        "task_success": {
+          "k": 2,
+          "n": 2,
+          "rate": 1,
+          "low": 0.34238022714360744,
+          "high": 1
+        },
+        "constraint_clean": {
+          "k": 2,
+          "n": 2,
+          "rate": 1,
+          "low": 0.34238022714360744,
+          "high": 1
+        },
+        "constraint_violations": 0,
+        "recovery": {
+          "k": 0,
+          "n": 0,
+          "rate": 0,
+          "low": 0,
+          "high": 1
+        },
+        "mean_usage": {
+          "input": 2144,
+          "output": 5989,
+          "cache_read": 380768,
+          "cache_write": 18116
+        },
+        "mean_host_cost_usd": 0.21249944999999998,
+        "mean_estimate_micros": 212005,
+        "estimate_incomplete": 2,
+        "mean_wall_ms": 86100,
+        "hook_problem_trials": 0,
+        "account_inconsistent": 0,
+        "foreign_plugin_trials": 0,
+        "categories": {
+          "cache_read": {
+            "known": 761537,
+            "known_records": 10,
+            "unknown_records": 0
+          },
+          "cache_write_1h": {
+            "known": 35837,
+            "known_records": 8,
+            "unknown_records": 2
+          },
+          "cache_write_5m": {
+            "known": 0,
+            "known_records": 8,
+            "unknown_records": 2
+          },
+          "input": {
+            "known": 4288,
+            "known_records": 10,
+            "unknown_records": 0
+          },
+          "output": {
+            "known": 11687,
+            "known_records": 10,
+            "unknown_records": 0
+          },
+          "thinking_output": {
+            "known": 291,
+            "known_records": 10,
+            "unknown_records": 0
+          }
+        }
+      }
+    ],
+    "recall-user-fact": [
+      {
+        "arm": "qompack",
+        "trials": 2,
+        "completed": 2,
+        "plugin_mismatch": 0,
+        "task_success": {
+          "k": 1,
+          "n": 2,
+          "rate": 0.5,
+          "low": 0.09453120562230916,
+          "high": 0.9054687943776909
+        },
+        "constraint_clean": {
+          "k": 2,
+          "n": 2,
+          "rate": 1,
+          "low": 0.34238022714360744,
+          "high": 1
+        },
+        "constraint_violations": 0,
+        "recovery": {
+          "k": 1,
+          "n": 2,
+          "rate": 0.5,
+          "low": 0.09453120562230916,
+          "high": 0.9054687943776909
+        },
+        "mean_usage": {
+          "input": 2092,
+          "output": 5334,
+          "cache_read": 457275,
+          "cache_write": 23831
+        },
+        "mean_host_cost_usd": 0.24412550000000002,
+        "mean_estimate_micros": 243818,
+        "estimate_incomplete": 2,
+        "mean_wall_ms": 78860,
+        "mean_store_bytes": 237870,
+        "hook_p50_ms": 75,
+        "hook_p95_ms": 162,
+        "host_hook_ms": {
+          "PostToolUse:Bash": {
+            "n": 3,
+            "p50": 61,
+            "p95": 80,
+            "max": 80
+          },
+          "PostToolUse:Edit": {
+            "n": 3,
+            "p50": 70,
+            "p95": 91,
+            "max": 91
+          },
+          "PostToolUse:Glob": {
+            "n": 2,
+            "p50": 59,
+            "p95": 82,
+            "max": 82
+          },
+          "PostToolUse:Read": {
+            "n": 4,
+            "p50": 77,
+            "p95": 222,
+            "max": 222
+          },
+          "PostToolUse:Write": {
+            "n": 2,
+            "p50": 58,
+            "p95": 72,
+            "max": 72
+          },
+          "SessionStart:compact": {
+            "n": 2,
+            "p50": 103,
+            "p95": 124,
+            "max": 124
+          },
+          "SessionStart:startup": {
+            "n": 2,
+            "p50": 246,
+            "p95": 391,
+            "max": 391
+          },
+          "Stop": {
+            "n": 10,
+            "p50": 62,
+            "p95": 100,
+            "max": 100
+          }
+        },
+        "hook_problem_trials": 0,
+        "account_inconsistent": 0,
+        "foreign_plugin_trials": 0,
+        "categories": {
+          "cache_read": {
+            "known": 914550,
+            "known_records": 14,
+            "unknown_records": 0
+          },
+          "cache_write_1h": {
+            "known": 47417,
+            "known_records": 12,
+            "unknown_records": 2
+          },
+          "cache_write_5m": {
+            "known": 0,
+            "known_records": 12,
+            "unknown_records": 2
+          },
+          "input": {
+            "known": 4184,
+            "known_records": 14,
+            "unknown_records": 0
+          },
+          "output": {
+            "known": 9872,
+            "known_records": 14,
+            "unknown_records": 0
+          },
+          "thinking_output": {
+            "known": 797,
+            "known_records": 14,
+            "unknown_records": 0
+          }
+        }
+      },
+      {
+        "arm": "stock",
+        "trials": 2,
+        "completed": 2,
+        "plugin_mismatch": 0,
+        "task_success": {
+          "k": 1,
+          "n": 2,
+          "rate": 0.5,
+          "low": 0.09453120562230916,
+          "high": 0.9054687943776909
+        },
+        "constraint_clean": {
+          "k": 2,
+          "n": 2,
+          "rate": 1,
+          "low": 0.34238022714360744,
+          "high": 1
+        },
+        "constraint_violations": 0,
+        "recovery": {
+          "k": 1,
+          "n": 2,
+          "rate": 0.5,
+          "low": 0.09453120562230916,
+          "high": 0.9054687943776909
+        },
+        "mean_usage": {
+          "input": 2080,
+          "output": 7046,
+          "cache_read": 447370,
+          "cache_write": 22969
+        },
+        "mean_host_cost_usd": 0.25578710000000004,
+        "mean_estimate_micros": 255482,
+        "estimate_incomplete": 2,
+        "mean_wall_ms": 95141,
+        "hook_problem_trials": 0,
+        "account_inconsistent": 0,
+        "foreign_plugin_trials": 0,
+        "categories": {
+          "cache_read": {
+            "known": 894741,
+            "known_records": 14,
+            "unknown_records": 0
+          },
+          "cache_write_1h": {
+            "known": 45694,
+            "known_records": 12,
+            "unknown_records": 2
+          },
+          "cache_write_5m": {
+            "known": 0,
+            "known_records": 12,
+            "unknown_records": 2
+          },
+          "input": {
+            "known": 4160,
+            "known_records": 14,
+            "unknown_records": 0
+          },
+          "output": {
+            "known": 9808,
+            "known_records": 14,
+            "unknown_records": 0
+          },
+          "thinking_output": {
+            "known": 4284,
+            "known_records": 14,
+            "unknown_records": 0
+          }
+        }
+      }
+    ],
+    "regression-guard": [
+      {
+        "arm": "qompack",
+        "trials": 2,
+        "completed": 2,
+        "plugin_mismatch": 0,
+        "task_success": {
+          "k": 2,
+          "n": 2,
+          "rate": 1,
+          "low": 0.34238022714360744,
+          "high": 1
+        },
+        "constraint_clean": {
+          "k": 2,
+          "n": 2,
+          "rate": 1,
+          "low": 0.34238022714360744,
+          "high": 1
+        },
+        "constraint_violations": 0,
+        "recovery": {
+          "k": 0,
+          "n": 0,
+          "rate": 0,
+          "low": 0,
+          "high": 1
+        },
+        "mean_usage": {
+          "input": 2512,
+          "output": 10093,
+          "cache_read": 481733,
+          "cache_write": 25008
+        },
+        "mean_host_cost_usd": 0.30202145,
+        "mean_estimate_micros": 301502,
+        "estimate_incomplete": 2,
+        "mean_wall_ms": 139570,
+        "mean_store_bytes": 213425,
+        "hook_p50_ms": 91,
+        "hook_p95_ms": 230,
+        "host_hook_ms": {
+          "PostToolUse:Bash": {
+            "n": 3,
+            "p50": 80,
+            "p95": 169,
+            "max": 169
+          },
+          "PostToolUse:Edit": {
+            "n": 2,
+            "p50": 47,
+            "p95": 95,
+            "max": 95
+          },
+          "PostToolUse:Read": {
+            "n": 4,
+            "p50": 106,
+            "p95": 205,
+            "max": 205
+          },
+          "PostToolUse:Write": {
+            "n": 8,
+            "p50": 74,
+            "p95": 171,
+            "max": 171
+          },
+          "SessionStart:compact": {
+            "n": 2,
+            "p50": 113,
+            "p95": 145,
+            "max": 145
+          },
+          "SessionStart:startup": {
+            "n": 2,
+            "p50": 263,
+            "p95": 454,
+            "max": 454
+          },
+          "Stop": {
+            "n": 6,
+            "p50": 87,
+            "p95": 283,
+            "max": 283
+          }
+        },
+        "hook_problem_trials": 0,
+        "account_inconsistent": 0,
+        "foreign_plugin_trials": 0,
+        "categories": {
+          "cache_read": {
+            "known": 963467,
+            "known_records": 10,
+            "unknown_records": 0
+          },
+          "cache_write_1h": {
+            "known": 49601,
+            "known_records": 8,
+            "unknown_records": 2
+          },
+          "cache_write_5m": {
+            "known": 0,
+            "known_records": 8,
+            "unknown_records": 2
+          },
+          "input": {
+            "known": 5024,
+            "known_records": 10,
+            "unknown_records": 0
+          },
+          "output": {
+            "known": 13411,
+            "known_records": 10,
+            "unknown_records": 0
+          },
+          "thinking_output": {
+            "known": 6775,
+            "known_records": 10,
+            "unknown_records": 0
+          }
+        }
+      },
+      {
+        "arm": "stock",
+        "trials": 2,
+        "completed": 2,
+        "plugin_mismatch": 0,
+        "task_success": {
+          "k": 2,
+          "n": 2,
+          "rate": 1,
+          "low": 0.34238022714360744,
+          "high": 1
+        },
+        "constraint_clean": {
+          "k": 2,
+          "n": 2,
+          "rate": 1,
+          "low": 0.34238022714360744,
+          "high": 1
+        },
+        "constraint_violations": 0,
+        "recovery": {
+          "k": 0,
+          "n": 0,
+          "rate": 0,
+          "low": 0,
+          "high": 1
+        },
+        "mean_usage": {
+          "input": 2494,
+          "output": 6845,
+          "cache_read": 350921,
+          "cache_write": 19479
+        },
+        "mean_host_cost_usd": 0.22130930000000001,
+        "mean_estimate_micros": 220919,
+        "estimate_incomplete": 2,
+        "mean_wall_ms": 83097,
+        "hook_problem_trials": 0,
+        "account_inconsistent": 0,
+        "foreign_plugin_trials": 0,
+        "categories": {
+          "cache_read": {
+            "known": 701843,
+            "known_records": 10,
+            "unknown_records": 0
+          },
+          "cache_write_1h": {
+            "known": 38646,
+            "known_records": 8,
+            "unknown_records": 2
+          },
+          "cache_write_5m": {
+            "known": 0,
+            "known_records": 8,
+            "unknown_records": 2
+          },
+          "input": {
+            "known": 4988,
+            "known_records": 10,
+            "unknown_records": 0
+          },
+          "output": {
+            "known": 9501,
+            "known_records": 10,
+            "unknown_records": 0
+          },
+          "thinking_output": {
+            "known": 4190,
+            "known_records": 10,
+            "unknown_records": 0
+          }
+        }
+      }
+    ],
+    "seed-recall": [
+      {
+        "arm": "qompack",
+        "trials": 2,
+        "completed": 2,
+        "plugin_mismatch": 0,
+        "task_success": {
+          "k": 1,
+          "n": 2,
+          "rate": 0.5,
+          "low": 0.09453120562230916,
+          "high": 0.9054687943776909
+        },
+        "constraint_clean": {
+          "k": 2,
+          "n": 2,
+          "rate": 1,
+          "low": 0.34238022714360744,
+          "high": 1
+        },
+        "constraint_violations": 0,
+        "recovery": {
+          "k": 1,
+          "n": 2,
+          "rate": 0.5,
+          "low": 0.09453120562230916,
+          "high": 0.9054687943776909
+        },
+        "mean_usage": {
+          "input": 3620,
+          "output": 3824,
+          "cache_read": 279127,
+          "cache_write": 19037
+        },
+        "mean_host_cost_usd": 0.17732350000000002,
+        "mean_estimate_micros": 177098,
+        "estimate_incomplete": 2,
+        "mean_wall_ms": 57654,
+        "mean_store_bytes": 175048,
+        "hook_p50_ms": 82,
+        "hook_p95_ms": 223,
+        "host_hook_ms": {
+          "PostToolUse:Bash": {
+            "n": 5,
+            "p50": 82,
+            "p95": 99,
+            "max": 99
+          },
+          "PostToolUse:Read": {
+            "n": 3,
+            "p50": 83,
+            "p95": 202,
+            "max": 202
+          },
+          "PostToolUse:Write": {
+            "n": 1,
+            "p50": 232,
+            "p95": 232,
+            "max": 232
+          },
+          "SessionStart:compact": {
+            "n": 2,
+            "p50": 100,
+            "p95": 121,
+            "max": 121
+          },
+          "SessionStart:startup": {
+            "n": 2,
+            "p50": 219,
+            "p95": 305,
+            "max": 305
+          },
+          "Stop": {
+            "n": 6,
+            "p50": 48,
+            "p95": 177,
+            "max": 177
+          }
+        },
+        "hook_problem_trials": 0,
+        "account_inconsistent": 0,
+        "foreign_plugin_trials": 0,
+        "categories": {
+          "cache_read": {
+            "known": 558255,
+            "known_records": 10,
+            "unknown_records": 0
+          },
+          "cache_write_1h": {
+            "known": 37894,
+            "known_records": 8,
+            "unknown_records": 2
+          },
+          "cache_write_5m": {
+            "known": 0,
+            "known_records": 8,
+            "unknown_records": 2
+          },
+          "input": {
+            "known": 7240,
+            "known_records": 10,
+            "unknown_records": 0
+          },
+          "output": {
+            "known": 4724,
+            "known_records": 10,
+            "unknown_records": 0
+          },
+          "thinking_output": {
+            "known": 2925,
+            "known_records": 10,
+            "unknown_records": 0
+          }
+        }
+      },
+      {
+        "arm": "stock",
+        "trials": 2,
+        "completed": 2,
+        "plugin_mismatch": 0,
+        "task_success": {
+          "k": 2,
+          "n": 2,
+          "rate": 1,
+          "low": 0.34238022714360744,
+          "high": 1
+        },
+        "constraint_clean": {
+          "k": 2,
+          "n": 2,
+          "rate": 1,
+          "low": 0.34238022714360744,
+          "high": 1
+        },
+        "constraint_violations": 0,
+        "recovery": {
+          "k": 2,
+          "n": 2,
+          "rate": 1,
+          "low": 0.34238022714360744,
+          "high": 1
+        },
+        "mean_usage": {
+          "input": 3611,
+          "output": 3789,
+          "cache_read": 327743,
+          "cache_write": 18017
+        },
+        "mean_host_cost_usd": 0.1825946,
+        "mean_estimate_micros": 182359,
+        "estimate_incomplete": 2,
+        "mean_wall_ms": 70516,
+        "hook_problem_trials": 0,
+        "account_inconsistent": 0,
+        "foreign_plugin_trials": 0,
+        "categories": {
+          "cache_read": {
+            "known": 655486,
+            "known_records": 10,
+            "unknown_records": 0
+          },
+          "cache_write_1h": {
+            "known": 35847,
+            "known_records": 8,
+            "unknown_records": 2
+          },
+          "cache_write_5m": {
+            "known": 0,
+            "known_records": 8,
+            "unknown_records": 2
+          },
+          "input": {
+            "known": 7222,
+            "known_records": 10,
+            "unknown_records": 0
+          },
+          "output": {
+            "known": 7323,
+            "known_records": 10,
+            "unknown_records": 0
+          },
+          "thinking_output": {
+            "known": 256,
+            "known_records": 10,
+            "unknown_records": 0
+          }
+        }
+      }
+    ],
+    "tool-output-recall": [
+      {
+        "arm": "qompack",
+        "trials": 2,
+        "completed": 2,
+        "plugin_mismatch": 0,
+        "task_success": {
+          "k": 2,
+          "n": 2,
+          "rate": 1,
+          "low": 0.34238022714360744,
+          "high": 1
+        },
+        "constraint_clean": {
+          "k": 2,
+          "n": 2,
+          "rate": 1,
+          "low": 0.34238022714360744,
+          "high": 1
+        },
+        "constraint_violations": 0,
+        "recovery": {
+          "k": 2,
+          "n": 2,
+          "rate": 1,
+          "low": 0.34238022714360744,
+          "high": 1
+        },
+        "mean_usage": {
+          "input": 6568,
+          "output": 3521,
+          "cache_read": 228286,
+          "cache_write": 24917
+        },
+        "mean_host_cost_usd": 0.1935653,
+        "mean_estimate_micros": 193380,
+        "estimate_incomplete": 2,
+        "mean_wall_ms": 63550,
+        "mean_store_bytes": 174327,
+        "hook_p50_ms": 135,
+        "hook_p95_ms": 633,
+        "host_hook_ms": {
+          "PostToolUse:Bash": {
+            "n": 2,
+            "p50": 88,
+            "p95": 489,
+            "max": 489
+          },
+          "PostToolUse:Read": {
+            "n": 2,
+            "p50": 106,
+            "p95": 573,
+            "max": 573
+          },
+          "PostToolUse:Write": {
+            "n": 2,
+            "p50": 68,
+            "p95": 305,
+            "max": 305
+          },
+          "SessionStart:compact": {
+            "n": 2,
+            "p50": 134,
+            "p95": 278,
+            "max": 278
+          },
+          "SessionStart:startup": {
+            "n": 2,
+            "p50": 220,
+            "p95": 363,
+            "max": 363
+          },
+          "Stop": {
+            "n": 6,
+            "p50": 99,
+            "p95": 672,
+            "max": 672
+          }
+        },
+        "hook_problem_trials": 0,
+        "account_inconsistent": 0,
+        "foreign_plugin_trials": 0,
+        "categories": {
+          "cache_read": {
+            "known": 456573,
+            "known_records": 10,
+            "unknown_records": 0
+          },
+          "cache_write_1h": {
+            "known": 49686,
+            "known_records": 8,
+            "unknown_records": 2
+          },
+          "cache_write_5m": {
+            "known": 0,
+            "known_records": 8,
+            "unknown_records": 2
+          },
+          "input": {
+            "known": 13136,
+            "known_records": 10,
+            "unknown_records": 0
+          },
+          "output": {
+            "known": 5590,
+            "known_records": 10,
+            "unknown_records": 0
+          },
+          "thinking_output": {
+            "known": 1453,
+            "known_records": 10,
+            "unknown_records": 0
+          }
+        }
+      },
+      {
+        "arm": "stock",
+        "trials": 2,
+        "completed": 1,
+        "plugin_mismatch": 0,
+        "task_success": {
+          "k": 1,
+          "n": 2,
+          "rate": 0.5,
+          "low": 0.09453120562230916,
+          "high": 0.9054687943776909
+        },
+        "constraint_clean": {
+          "k": 1,
+          "n": 2,
+          "rate": 0.5,
+          "low": 0.09453120562230916,
+          "high": 0.9054687943776909
+        },
+        "constraint_violations": 0,
+        "recovery": {
+          "k": 1,
+          "n": 2,
+          "rate": 0.5,
+          "low": 0.09453120562230916,
+          "high": 0.9054687943776909
+        },
+        "mean_usage": {
+          "input": 6556,
+          "output": 1519,
+          "cache_read": 224863,
+          "cache_write": 18730
+        },
+        "mean_host_cost_usd": 0.14808185000000001,
+        "mean_estimate_micros": 147886,
+        "estimate_incomplete": 2,
+        "mean_wall_ms": 1473196,
+        "hook_problem_trials": 0,
+        "account_inconsistent": 0,
+        "foreign_plugin_trials": 0,
+        "categories": {
+          "cache_read": {
+            "known": 449726,
+            "known_records": 9,
+            "unknown_records": 0
+          },
+          "cache_write_1h": {
+            "known": 37303,
+            "known_records": 7,
+            "unknown_records": 2
+          },
+          "cache_write_5m": {
+            "known": 0,
+            "known_records": 7,
+            "unknown_records": 2
+          },
+          "input": {
+            "known": 13112,
+            "known_records": 9,
+            "unknown_records": 0
+          },
+          "output": {
+            "known": 2893,
+            "known_records": 9,
+            "unknown_records": 0
+          },
+          "thinking_output": {
+            "known": 146,
+            "known_records": 9,
+            "unknown_records": 0
+          }
+        }
+      }
+    ]
+  },
+  "task_success_diff": {
+    "estimate": 0,
+    "low": -0.21358317145906972,
+    "high": 0.21358317145906972
+  },
+  "recovery_diff": {
+    "estimate": 0,
+    "low": -0.38465946505938137,
+    "high": 0.38465946505938137
+  },
+  "constraint_clean_diff": {
+    "estimate": 0.050000000000000044,
+    "low": -0.11628906121969254,
+    "high": 0.2361311936529521
+  },
+  "decision": {
+    "verdict": "inconclusive",
+    "reason": "interval [-0.214, 0.214] straddles -0.200"
+  },
+  "failed": [
+    "tool-output-recall/stock/2: completed=false plugin_expected=false plugin_loaded=false harness_error=\"step 3 of 4: no result within 10m0s\""
+  ],
+  "notes": [
+    "trials are clustered within tasks; the pooled intervals treat them as independent, which overstates their precision (preregistration section 8)"
+  ],
+  "analysis": {
+    "model": "claude-sonnet-5",
+    "confidence": 0.95,
+    "non_inferiority_margin": 0.2,
+    "trials_per_arm": 2
+  },
+  "by_variant": {
+    "base": [
+      {
+        "arm": "qompack",
+        "trials": 16,
+        "completed": 16,
+        "plugin_mismatch": 0,
+        "task_success": {
+          "k": 14,
+          "n": 16,
+          "rate": 0.875,
+          "low": 0.6397717271212133,
+          "high": 0.9650225122891567
+        },
+        "constraint_clean": {
+          "k": 16,
+          "n": 16,
+          "rate": 1,
+          "low": 0.8063923192138267,
+          "high": 1
+        },
+        "constraint_violations": 0,
+        "recovery": {
+          "k": 6,
+          "n": 8,
+          "rate": 0.75,
+          "low": 0.40927543006661404,
+          "high": 0.9285207873147511
+        },
+        "mean_usage": {
+          "input": 2897,
+          "output": 5761,
+          "cache_read": 363451,
+          "cache_write": 21505
+        },
+        "mean_host_cost_usd": 0.2218999,
+        "mean_estimate_micros": 221530,
+        "estimate_incomplete": 16,
+        "mean_wall_ms": 87646,
+        "mean_store_bytes": 210240,
+        "hook_p50_ms": 79,
+        "hook_p95_ms": 230,
+        "host_hook_ms": {
+          "PostToolUse:Bash": {
+            "n": 31,
+            "p50": 60,
+            "p95": 363,
+            "max": 489
+          },
+          "PostToolUse:Edit": {
+            "n": 7,
+            "p50": 70,
+            "p95": 95,
+            "max": 95
+          },
+          "PostToolUse:Glob": {
+            "n": 6,
+            "p50": 80,
+            "p95": 114,
+            "max": 114
+          },
+          "PostToolUse:Read": {
+            "n": 23,
+            "p50": 102,
+            "p95": 222,
+            "max": 573
+          },
+          "PostToolUse:Write": {
+            "n": 41,
+            "p50": 72,
+            "p95": 171,
+            "max": 305
+          },
+          "SessionStart:compact": {
+            "n": 16,
+            "p50": 113,
+            "p95": 278,
+            "max": 278
+          },
+          "SessionStart:startup": {
+            "n": 16,
+            "p50": 272,
+            "p95": 911,
+            "max": 911
+          },
+          "Stop": {
+            "n": 54,
+            "p50": 76,
+            "p95": 283,
+            "max": 972
+          }
+        },
+        "hook_problem_trials": 0,
+        "account_inconsistent": 0,
+        "foreign_plugin_trials": 0,
+        "categories": {
+          "cache_read": {
+            "known": 5815222,
+            "known_records": 86,
+            "unknown_records": 0
+          },
+          "cache_write_1h": {
+            "known": 341730,
+            "known_records": 70,
+            "unknown_records": 16
+          },
+          "cache_write_5m": {
+            "known": 0,
+            "known_records": 70,
+            "unknown_records": 16
+          },
+          "input": {
+            "known": 46352,
+            "known_records": 86,
+            "unknown_records": 0
+          },
+          "output": {
+            "known": 74324,
+            "known_records": 86,
+            "unknown_records": 0
+          },
+          "thinking_output": {
+            "known": 17858,
+            "known_records": 86,
+            "unknown_records": 0
+          }
+        }
+      },
+      {
+        "arm": "stock",
+        "trials": 16,
+        "completed": 15,
+        "plugin_mismatch": 0,
+        "task_success": {
+          "k": 14,
+          "n": 16,
+          "rate": 0.875,
+          "low": 0.6397717271212133,
+          "high": 0.9650225122891567
+        },
+        "constraint_clean": {
+          "k": 15,
+          "n": 16,
+          "rate": 0.9375,
+          "low": 0.7167126240641288,
+          "high": 0.9888806552479694
+        },
+        "constraint_violations": 0,
+        "recovery": {
+          "k": 6,
+          "n": 8,
+          "rate": 0.75,
+          "low": 0.40927543006661404,
+          "high": 0.9285207873147511
+        },
+        "mean_usage": {
+          "input": 2889,
+          "output": 5313,
+          "cache_read": 354124,
+          "cache_write": 18827
+        },
+        "mean_host_cost_usd": 0.20485468124999998,
+        "mean_estimate_micros": 204536,
+        "estimate_incomplete": 16,
+        "mean_wall_ms": 252279,
+        "hook_problem_trials": 0,
+        "account_inconsistent": 0,
+        "foreign_plugin_trials": 0,
+        "categories": {
+          "cache_read": {
+            "known": 5665987,
+            "known_records": 85,
+            "unknown_records": 0
+          },
+          "cache_write_1h": {
+            "known": 299198,
+            "known_records": 69,
+            "unknown_records": 16
+          },
+          "cache_write_5m": {
+            "known": 0,
+            "known_records": 69,
+            "unknown_records": 16
+          },
+          "input": {
+            "known": 46234,
+            "known_records": 85,
+            "unknown_records": 0
+          },
+          "output": {
+            "known": 75231,
+            "known_records": 85,
+            "unknown_records": 0
+          },
+          "thinking_output": {
+            "known": 9782,
+            "known_records": 85,
+            "unknown_records": 0
+          }
+        }
+      }
+    ],
+    "changing-requirement": [
+      {
+        "arm": "qompack",
+        "trials": 4,
+        "completed": 4,
+        "plugin_mismatch": 0,
+        "task_success": {
+          "k": 4,
+          "n": 4,
+          "rate": 1,
+          "low": 0.5101091631424628,
+          "high": 1
+        },
+        "constraint_clean": {
+          "k": 4,
+          "n": 4,
+          "rate": 1,
+          "low": 0.5101091631424628,
+          "high": 1
+        },
+        "constraint_violations": 0,
+        "recovery": {
+          "k": 0,
+          "n": 0,
+          "rate": 0,
+          "low": 0,
+          "high": 1
+        },
+        "mean_usage": {
+          "input": 2088,
+          "output": 7136,
+          "cache_read": 380405,
+          "cache_write": 21540
+        },
+        "mean_host_cost_usd": 0.23760652499999999,
+        "mean_estimate_micros": 237317,
+        "estimate_incomplete": 4,
+        "mean_wall_ms": 90345,
+        "mean_store_bytes": 226205,
+        "hook_p50_ms": 83,
+        "hook_p95_ms": 239,
+        "host_hook_ms": {
+          "PostToolUse:Bash": {
+            "n": 9,
+            "p50": 91,
+            "p95": 246,
+            "max": 246
+          },
+          "PostToolUse:Edit": {
+            "n": 5,
+            "p50": 79,
+            "p95": 95,
+            "max": 95
+          },
+          "PostToolUse:PowerShell": {
+            "n": 2,
+            "p50": 40,
+            "p95": 55,
+            "max": 55
+          },
+          "PostToolUse:Read": {
+            "n": 4,
+            "p50": 84,
+            "p95": 119,
+            "max": 119
+          },
+          "PostToolUse:Write": {
+            "n": 11,
+            "p50": 86,
+            "p95": 350,
+            "max": 350
+          },
+          "SessionStart:compact": {
+            "n": 4,
+            "p50": 89,
+            "p95": 152,
+            "max": 152
+          },
+          "SessionStart:startup": {
+            "n": 4,
+            "p50": 314,
+            "p95": 807,
+            "max": 807
+          },
+          "Stop": {
+            "n": 12,
+            "p50": 83,
+            "p95": 146,
+            "max": 146
+          }
+        },
+        "hook_problem_trials": 0,
+        "account_inconsistent": 0,
+        "foreign_plugin_trials": 0,
+        "categories": {
+          "cache_read": {
+            "known": 1521623,
+            "known_records": 20,
+            "unknown_records": 0
+          },
+          "cache_write_1h": {
+            "known": 85699,
+            "known_records": 16,
+            "unknown_records": 4
+          },
+          "cache_write_5m": {
+            "known": 0,
+            "known_records": 16,
+            "unknown_records": 4
+          },
+          "input": {
+            "known": 8354,
+            "known_records": 20,
+            "unknown_records": 0
+          },
+          "output": {
+            "known": 23763,
+            "known_records": 20,
+            "unknown_records": 0
+          },
+          "thinking_output": {
+            "known": 4781,
+            "known_records": 20,
+            "unknown_records": 0
+          }
+        }
+      },
+      {
+        "arm": "stock",
+        "trials": 4,
+        "completed": 4,
+        "plugin_mismatch": 0,
+        "task_success": {
+          "k": 4,
+          "n": 4,
+          "rate": 1,
+          "low": 0.5101091631424628,
+          "high": 1
+        },
+        "constraint_clean": {
+          "k": 4,
+          "n": 4,
+          "rate": 1,
+          "low": 0.5101091631424628,
+          "high": 1
+        },
+        "constraint_violations": 0,
+        "recovery": {
+          "k": 0,
+          "n": 0,
+          "rate": 0,
+          "low": 0,
+          "high": 1
+        },
+        "mean_usage": {
+          "input": 2077,
+          "output": 7355,
+          "cache_read": 381822,
+          "cache_write": 19283
+        },
+        "mean_host_cost_usd": 0.23104157500000005,
+        "mean_estimate_micros": 230763,
+        "estimate_incomplete": 4,
+        "mean_wall_ms": 87325,
+        "hook_problem_trials": 0,
+        "account_inconsistent": 0,
+        "foreign_plugin_trials": 0,
+        "categories": {
+          "cache_read": {
+            "known": 1527289,
+            "known_records": 20,
+            "unknown_records": 0
+          },
+          "cache_write_1h": {
+            "known": 76690,
+            "known_records": 16,
+            "unknown_records": 4
+          },
+          "cache_write_5m": {
+            "known": 0,
+            "known_records": 16,
+            "unknown_records": 4
+          },
+          "input": {
+            "known": 8308,
+            "known_records": 20,
+            "unknown_records": 0
+          },
+          "output": {
+            "known": 23964,
+            "known_records": 20,
+            "unknown_records": 0
+          },
+          "thinking_output": {
+            "known": 5458,
+            "known_records": 20,
+            "unknown_records": 0
+          }
+        }
+      }
+    ],
+    "held-out": [
+      {
+        "arm": "qompack",
+        "trials": 6,
+        "completed": 6,
+        "plugin_mismatch": 0,
+        "task_success": {
+          "k": 5,
+          "n": 6,
+          "rate": 0.8333333333333334,
+          "low": 0.4364971775233289,
+          "high": 0.9699466302860857
+        },
+        "constraint_clean": {
+          "k": 6,
+          "n": 6,
+          "rate": 1,
+          "low": 0.6096657117141219,
+          "high": 0.9999999999999999
+        },
+        "constraint_violations": 0,
+        "recovery": {
+          "k": 1,
+          "n": 2,
+          "rate": 0.5,
+          "low": 0.09453120562230916,
+          "high": 0.9054687943776909
+        },
+        "mean_usage": {
+          "input": 2599,
+          "output": 5534,
+          "cache_read": 339112,
+          "cache_write": 20046
+        },
+        "mean_host_cost_usd": 0.20838491666666667,
+        "mean_estimate_micros": 208103,
+        "estimate_incomplete": 6,
+        "mean_wall_ms": 84489,
+        "mean_store_bytes": 205416,
+        "hook_p50_ms": 84,
+        "hook_p95_ms": 223,
+        "host_hook_ms": {
+          "PostToolUse:Bash": {
+            "n": 14,
+            "p50": 85,
+            "p95": 237,
+            "max": 237
+          },
+          "PostToolUse:Edit": {
+            "n": 2,
+            "p50": 82,
+            "p95": 95,
+            "max": 95
+          },
+          "PostToolUse:Glob": {
+            "n": 2,
+            "p50": 48,
+            "p95": 114,
+            "max": 114
+          },
+          "PostToolUse:Read": {
+            "n": 7,
+            "p50": 84,
+            "p95": 202,
+            "max": 202
+          },
+          "PostToolUse:Write": {
+            "n": 15,
+            "p50": 86,
+            "p95": 350,
+            "max": 350
+          },
+          "SessionStart:compact": {
+            "n": 6,
+            "p50": 100,
+            "p95": 152,
+            "max": 152
+          },
+          "SessionStart:startup": {
+            "n": 6,
+            "p50": 252,
+            "p95": 352,
+            "max": 352
+          },
+          "Stop": {
+            "n": 18,
+            "p50": 76,
+            "p95": 177,
+            "max": 177
+          }
+        },
+        "hook_problem_trials": 0,
+        "account_inconsistent": 0,
+        "foreign_plugin_trials": 0,
+        "categories": {
+          "cache_read": {
+            "known": 2034675,
+            "known_records": 30,
+            "unknown_records": 0
+          },
+          "cache_write_1h": {
+            "known": 119600,
+            "known_records": 24,
+            "unknown_records": 6
+          },
+          "cache_write_5m": {
+            "known": 0,
+            "known_records": 24,
+            "unknown_records": 6
+          },
+          "input": {
+            "known": 15596,
+            "known_records": 30,
+            "unknown_records": 0
+          },
+          "output": {
+            "known": 26178,
+            "known_records": 30,
+            "unknown_records": 0
+          },
+          "thinking_output": {
+            "known": 7031,
+            "known_records": 30,
+            "unknown_records": 0
+          }
+        }
+      },
+      {
+        "arm": "stock",
+        "trials": 6,
+        "completed": 6,
+        "plugin_mismatch": 0,
+        "task_success": {
+          "k": 6,
+          "n": 6,
+          "rate": 1,
+          "low": 0.6096657117141219,
+          "high": 0.9999999999999999
+        },
+        "constraint_clean": {
+          "k": 6,
+          "n": 6,
+          "rate": 1,
+          "low": 0.6096657117141219,
+          "high": 0.9999999999999999
+        },
+        "constraint_violations": 0,
+        "recovery": {
+          "k": 2,
+          "n": 2,
+          "rate": 1,
+          "low": 0.34238022714360744,
+          "high": 1
+        },
+        "mean_usage": {
+          "input": 2588,
+          "output": 5316,
+          "cache_read": 344083,
+          "cache_write": 17986
+        },
+        "mean_host_cost_usd": 0.19893635,
+        "mean_estimate_micros": 198656,
+        "estimate_incomplete": 6,
+        "mean_wall_ms": 75574,
+        "hook_problem_trials": 0,
+        "account_inconsistent": 0,
+        "foreign_plugin_trials": 0,
+        "categories": {
+          "cache_read": {
+            "known": 2064498,
+            "known_records": 30,
+            "unknown_records": 0
+          },
+          "cache_write_1h": {
+            "known": 107245,
+            "known_records": 24,
+            "unknown_records": 6
+          },
+          "cache_write_5m": {
+            "known": 0,
+            "known_records": 24,
+            "unknown_records": 6
+          },
+          "input": {
+            "known": 15528,
+            "known_records": 30,
+            "unknown_records": 0
+          },
+          "output": {
+            "known": 28564,
+            "known_records": 30,
+            "unknown_records": 0
+          },
+          "thinking_output": {
+            "known": 3336,
+            "known_records": 30,
+            "unknown_records": 0
+          }
+        }
+      }
+    ]
+  },
+  "task_signs": {
+    "changing-requirement-format": 0,
+    "changing-requirement-slug": 0,
+    "constraint-naming": 0,
+    "constraint-verbatim": 0,
+    "decision-rationale": 0,
+    "eliminated-approach": 0,
+    "recall-user-fact": 0,
+    "regression-guard": 0,
+    "seed-recall": -1,
+    "tool-output-recall": 1
+  },
+  "host_models": [
+    "claude-sonnet-5"
+  ]
+}

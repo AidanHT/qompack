@@ -1,0 +1,21 @@
+{
+  "total": {
+    "micros": 250810,
+    "currency": "USD"
+  },
+  "completeness": {
+    "complete": false,
+    "missing_categories": [
+      "cache_write_5m",
+      "cache_write_1h"
+    ],
+    "unknown_records": 1
+  },
+  "by_model": {
+    "claude-sonnet-5": {
+      "micros": 250810,
+      "currency": "USD"
+    }
+  },
+  "rate_table_date": "2026-09-22"
+}

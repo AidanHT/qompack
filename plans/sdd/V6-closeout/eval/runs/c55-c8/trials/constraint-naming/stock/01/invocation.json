@@ -1,0 +1,40 @@
+{
+  "bin": "C:\\Users\\Quant\\AppData\\Roaming\\npm\\claude.cmd",
+  "args": [
+    "-p",
+    "--input-format",
+    "stream-json",
+    "--output-format",
+    "stream-json",
+    "--verbose",
+    "--include-hook-events",
+    "--model",
+    "claude-sonnet-5",
+    "--max-turns",
+    "12",
+    "--setting-sources",
+    "project,local",
+    "--permission-mode",
+    "dontAsk",
+    "--session-id",
+    "d436aa71-bd86-440b-a0d2-67f9b7b2ab52",
+    "--allowedTools",
+    "Read,Edit,Write,Glob,Grep,Bash(go:*),Bash(git status:*),Bash(git diff:*),PowerShell(go:*),mcp__plugin_qompack_qompack"
+  ],
+  "dir": "C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-live-2698090749\\project",
+  "env": [
+    "ENABLE_CLAUDEAI_MCP_SERVERS=false",
+    "QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS=120"
+  ],
+  "unset": [
+    "QOMPACK_LIVE_EVAL"
+  ],
+  "messages": [
+    "House rule for this session: every test function you write must be named TestSpec_\u003cSomething\u003e, and every test must call t.Parallel() first. Acknowledge with OK.",
+    "Implement func Dist(a, b Point) float64 in geo/dist.go with a test in geo/dist_test.go. Run go test ./... and report in one line.",
+    "/compact",
+    "Add func Mid(a, b Point) Point in geo/mid.go with tests in geo/mid_test.go. Run go test ./... and report in one line."
+  ],
+  "step_timeout": 600000000000,
+  "session_timeout": 2700000000000
+}

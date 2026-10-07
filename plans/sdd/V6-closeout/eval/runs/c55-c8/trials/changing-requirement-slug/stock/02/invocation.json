@@ -1,0 +1,40 @@
+{
+  "bin": "C:\\Users\\Quant\\AppData\\Roaming\\npm\\claude.cmd",
+  "args": [
+    "-p",
+    "--input-format",
+    "stream-json",
+    "--output-format",
+    "stream-json",
+    "--verbose",
+    "--include-hook-events",
+    "--model",
+    "claude-sonnet-5",
+    "--max-turns",
+    "12",
+    "--setting-sources",
+    "project,local",
+    "--permission-mode",
+    "dontAsk",
+    "--session-id",
+    "12b7e41d-392f-4c00-a64d-608fb6d1a2a6",
+    "--allowedTools",
+    "Read,Edit,Write,Glob,Grep,Bash(go:*),Bash(git status:*),Bash(git diff:*),PowerShell(go:*),mcp__plugin_qompack_qompack"
+  ],
+  "dir": "C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-live-1465985151\\project",
+  "env": [
+    "ENABLE_CLAUDEAI_MCP_SERVERS=false",
+    "QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS=120"
+  ],
+  "unset": [
+    "QOMPACK_LIVE_EVAL"
+  ],
+  "messages": [
+    "Constraint for the slug package for the whole session: do not use the regexp package. Acknowledge with OK.",
+    "Implement func Slugify(s string) string in slug/slug.go: lowercase, spaces become '-', every other character kept. Tests in slug/slug_test.go. Run go test ./... and report in one line.",
+    "/compact",
+    "Requirement change: Slugify must now use '_' instead of '-', collapse every run of whitespace into one '_', and drop every character that is not a letter, a digit or '_'. Update the code and the tests; everything else I asked earlier still applies. Run go test ./... and report in one line."
+  ],
+  "step_timeout": 600000000000,
+  "session_timeout": 2700000000000
+}

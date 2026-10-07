@@ -1,0 +1,149 @@
+{
+  "hook_runs": [
+    {
+      "type": "hook_success",
+      "hook_name": "SessionStart:startup",
+      "hook_event": "SessionStart",
+      "exit_code": 0,
+      "duration_ms": 212,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe session-start"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "Stop",
+      "hook_event": "Stop",
+      "exit_code": 0,
+      "duration_ms": 48,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe stop"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "PostToolUse:Glob",
+      "hook_event": "PostToolUse",
+      "exit_code": 0,
+      "duration_ms": 48,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe tool"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "PostToolUse:Read",
+      "hook_event": "PostToolUse",
+      "exit_code": 0,
+      "duration_ms": 53,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe tool"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "PostToolUse:Write",
+      "hook_event": "PostToolUse",
+      "exit_code": 0,
+      "duration_ms": 51,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe tool"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "PostToolUse:Write",
+      "hook_event": "PostToolUse",
+      "exit_code": 0,
+      "duration_ms": 48,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe tool"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "PostToolUse:Bash",
+      "hook_event": "PostToolUse",
+      "exit_code": 0,
+      "duration_ms": 42,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe tool"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "Stop",
+      "hook_event": "Stop",
+      "exit_code": 0,
+      "duration_ms": 40,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe stop"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "SessionStart:compact",
+      "hook_event": "SessionStart",
+      "exit_code": 0,
+      "duration_ms": 84,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe session-start"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "PostToolUse:Write",
+      "hook_event": "PostToolUse",
+      "exit_code": 0,
+      "duration_ms": 127,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe tool"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "PostToolUse:Write",
+      "hook_event": "PostToolUse",
+      "exit_code": 0,
+      "duration_ms": 51,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe tool"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "PostToolUse:Bash",
+      "hook_event": "PostToolUse",
+      "exit_code": 0,
+      "duration_ms": 58,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe tool"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "Stop",
+      "hook_event": "Stop",
+      "exit_code": 0,
+      "duration_ms": 119,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe stop"
+    }
+  ],
+  "contexts": [
+    {
+      "hook_event": "SessionStart",
+      "hook_name": "SessionStart",
+      "bytes": 61,
+      "qompack": false
+    },
+    {
+      "hook_event": "SessionStart",
+      "hook_name": "SessionStart",
+      "bytes": 2485,
+      "qompack": true,
+      "text": "\u003c!-- qompack:injected seq=1 ver=1 --\u003e\n# Qompack rehydration — checkpoint 0001, session 4ce820ca\n\n## 2. Original user intent (verbatim from L0 capture — never summarized)\nEvolution (most recent first):\n\u003e Implement func Dist(a, b Point) float64 in geo/dist.go with a test in geo/dist_test.go. Run go test ./... and report in one line.\nOriginal:\n\u003e House rule for this session: every test function you write must be named TestSpec_\u003cSomething\u003e, and every test must call t.Parallel() first. Acknowledge with OK.\n\n## 5. Current work\ngoal: Implement func Dist(a, b Point) float64 in geo/dist.go with a test in geo/dist_test.go.\nblocked on: none\n\n## 6. Pointers (paths and hashes — contents are NOT restored; use expand/re_read)\n- geo/dist.go sha256:0676b341d9965c5a53c36b708744aee2a7b816dc6b75d56f34b447fe8a638910 — touched at turn 3 via FileWrite\n- geo/dist_test.go sha256:8598a38402e322947b34627861c552be9cc7e4e0ff62c474888c37a4393591e5 — touched at turn 3 via FileWrite\n- geo/point.go sha256:483b3dc0bd7af63414754fa9d0d0c8a6827efcc59d6d05763807a073014b3dbc — referenced\n- tool_use toolu_01Caft5kDg7ZN7DggUZTwDqK sha256:0676b341d9965c5a53c36b708744aee2a7b816dc6b75d56f34b447fe8a638910 — C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-live-3896270388\\project\\geo\\dist.go\n- tool_use toolu_01K7ztzvLNoMzTDJ6KGu9q1J sha256:483b3dc0bd7af63414754fa9d0d0c8a6827efcc59d6d05763807a073014b3dbc — C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-live-3896270388\\project\\geo\\point.go\n- tool_use toolu_01MC7yP4gQjTM2U4VWx9Wmak sha256:e34d4959c3c6cf591023194280a5871c3d3fcd5d49abbaa301159a4134889e88 — geo/**\n- tool_use toolu_01WAYUKecQ68a7rRJtWhVMYW sha256:8598a38402e322947b34627861c552be9cc7e4e0ff62c474888c37a4393591e5 — C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-live-3896270388\\project\\geo\\dist_test.go\n- tool_use toolu_01XqGub4pC2BcBExQ1WiSaNo sha256:6f8f550c70ad27c9016d1d62809892e358c3a7dfcfcac469e1b7ab34241a0033 — cd \"C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-live-3896270388\\project\" \u0026\u0026 go test ./... 2\u003e\u00261\n\n## 7. No longer in context\n- pointer_untracked geo/dist.go — not tracked by git\n- pointer_untracked geo/dist_test.go — not tracked by git\n\n## 8. Retrieval\nQompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().\n\u003c!-- /qompack:injected --\u003e\n\u003c!-- qompack-contract-probe qompack-contract-ddf55b0dc5e0 --\u003e"
+    }
+  ],
+  "compactions": [
+    {
+      "trigger": "manual",
+      "pre_tokens": 35468,
+      "post_tokens": 0,
+      "duration_ms": 34633
+    }
+  ],
+  "local_output": [
+    "Compacted PreCompact [${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe checkpoint] completed successfully: {}"
+  ],
+  "lines": 105,
+  "truncated_tail": false
+}

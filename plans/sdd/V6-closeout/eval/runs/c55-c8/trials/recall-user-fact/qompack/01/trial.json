@@ -1,0 +1,486 @@
+{
+  "schema": 1,
+  "run_id": "20261007T184908Z-abe10e",
+  "task_id": "recall-user-fact",
+  "arm": "qompack",
+  "trial": 1,
+  "category": "fact-recovery",
+  "variant": "base",
+  "held_out": false,
+  "model": "claude-sonnet-5",
+  "install": "plugin-dir",
+  "claude_code_version": "2.1.280",
+  "session_id": "c61e2e99-5c20-439b-9e5c-5ccb79a75843",
+  "started_at": "2026-10-07T18:51:30Z",
+  "wall_ms": 83901,
+  "exit_code": 0,
+  "steps": [
+    {
+      "id": "facts",
+      "compact": false,
+      "result_subtype": "success",
+      "is_error": false,
+      "num_turns": 1,
+      "wall_ms": 4094,
+      "permission_denials": 0,
+      "answer": "Noted."
+    },
+    {
+      "id": "readme",
+      "compact": false,
+      "result_subtype": "success",
+      "is_error": false,
+      "num_turns": 2,
+      "wall_ms": 6689,
+      "permission_denials": 0,
+      "answer": "Outbound calls to the payment gateway are retried with exponential backoff (starting at 200ms, doubling each attempt) for up to 7 total attempts before the order is parked for manual review. Idempotency keys ensure every retry is safe to replay."
+    },
+    {
+      "id": "retries",
+      "compact": false,
+      "result_subtype": "success",
+      "is_error": false,
+      "num_turns": 6,
+      "wall_ms": 21524,
+      "permission_denials": 0,
+      "answer": "`go test ./...` passed: `ok example.com/svc/config 0.748s` — added `MaxRetries()` (returns 7) with a passing test in `config/config_test.go`."
+    },
+    {
+      "id": "compact",
+      "compact": true,
+      "result_subtype": "success",
+      "is_error": false,
+      "num_turns": 0,
+      "wall_ms": 34124,
+      "permission_denials": 0,
+      "local_output": [
+        "Compacted PreCompact [${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe checkpoint] completed successfully: {}"
+      ]
+    },
+    {
+      "id": "region",
+      "compact": false,
+      "result_subtype": "success",
+      "is_error": false,
+      "num_turns": 3,
+      "wall_ms": 13764,
+      "permission_denials": 0,
+      "answer": "`Region()` now returns `QX-7731-EU`; `go test ./...` reports `ok example.com/svc/config (cached)`."
+    },
+    {
+      "id": "alias",
+      "compact": false,
+      "result_subtype": "success",
+      "is_error": false,
+      "num_turns": 1,
+      "wall_ms": 2178,
+      "permission_denials": 0,
+      "answer": "tundra-owl"
+    }
+  ],
+  "completed": true,
+  "plugin_expected": true,
+  "plugin_loaded": true,
+  "host_reported_plugins": true,
+  "checks": [
+    {
+      "id": "region-file",
+      "outcome": "recovery",
+      "kind": "file_matches",
+      "passed": true,
+      "detail": "matched \"QX-7731-EU\""
+    },
+    {
+      "id": "alias-answer",
+      "outcome": "recovery",
+      "kind": "answer_matches",
+      "passed": true,
+      "detail": "answer matched \"tundra-owl\""
+    },
+    {
+      "id": "behaviour",
+      "outcome": "task",
+      "kind": "command",
+      "passed": true,
+      "detail": "go test ./... exited 0"
+    },
+    {
+      "id": "readme",
+      "outcome": "constraint",
+      "kind": "file_unchanged",
+      "passed": true,
+      "detail": "identical to the fixture"
+    }
+  ],
+  "task_success": true,
+  "constraint_violations": 0,
+  "recovered": true,
+  "compactions": [
+    {
+      "trigger": "manual",
+      "pre_tokens": 37907,
+      "post_tokens": 5636,
+      "duration_ms": 33808
+    }
+  ],
+  "account": {
+    "turns": [
+      {
+        "turn": 0,
+        "compacted": false,
+        "main_model": "claude-sonnet-5",
+        "main_loop": {
+          "input": 2,
+          "output": 6,
+          "cache_read": 23837,
+          "cache_write": 10041,
+          "cache_write_5m": 0,
+          "cache_write_1h": 10041,
+          "thinking": 0
+        },
+        "delta": {
+          "claude-sonnet-5": {
+            "input": 2,
+            "output": 6,
+            "cache_read": 23837,
+            "cache_write": 10041,
+            "thinking": 0
+          }
+        },
+        "host_cost_delta_usd": 0.0449954,
+        "steps_match_result": true
+      },
+      {
+        "turn": 1,
+        "compacted": false,
+        "main_model": "claude-sonnet-5",
+        "main_loop": {
+          "input": 4,
+          "output": 178,
+          "cache_read": 67826,
+          "cache_write": 2427,
+          "cache_write_5m": 0,
+          "cache_write_1h": 2427,
+          "thinking": 10
+        },
+        "delta": {
+          "claude-sonnet-5": {
+            "input": 4,
+            "output": 178,
+            "cache_read": 67826,
+            "cache_write": 2427,
+            "thinking": 10
+          }
+        },
+        "host_cost_delta_usd": 0.0250612,
+        "steps_match_result": true
+      },
+      {
+        "turn": 2,
+        "compacted": false,
+        "main_model": "claude-sonnet-5",
+        "main_loop": {
+          "input": 12,
+          "output": 978,
+          "cache_read": 221484,
+          "cache_write": 1538,
+          "cache_write_5m": 0,
+          "cache_write_1h": 1538,
+          "thinking": 184
+        },
+        "delta": {
+          "claude-sonnet-5": {
+            "input": 12,
+            "output": 978,
+            "cache_read": 221484,
+            "cache_write": 1538,
+            "thinking": 184
+          }
+        },
+        "host_cost_delta_usd": 0.06025280000000002,
+        "steps_match_result": true
+      },
+      {
+        "turn": 3,
+        "local_command": "compact",
+        "compacted": true,
+        "main_model": "claude-sonnet-5",
+        "main_loop": {
+          "input": 0,
+          "output": 0,
+          "cache_read": 0,
+          "cache_write": 0,
+          "cache_write_5m": 0,
+          "cache_write_1h": 0,
+          "thinking": 0
+        },
+        "delta": {
+          "claude-sonnet-5": {
+            "input": 2068,
+            "output": 3669,
+            "cache_read": 37660,
+            "cache_write": 123,
+            "thinking": 0
+          }
+        },
+        "beside": {
+          "claude-sonnet-5": {
+            "input": 2068,
+            "output": 3669,
+            "cache_read": 37660,
+            "cache_write": 123,
+            "thinking": 0
+          }
+        },
+        "beside_kind": "compaction",
+        "host_cost_delta_usd": 0.0486655
+      },
+      {
+        "turn": 4,
+        "compacted": false,
+        "main_model": "claude-sonnet-5",
+        "main_loop": {
+          "input": 6,
+          "output": 721,
+          "cache_read": 106474,
+          "cache_write": 9956,
+          "cache_write_5m": 0,
+          "cache_write_1h": 9956,
+          "thinking": 383
+        },
+        "delta": {
+          "claude-sonnet-5": {
+            "input": 6,
+            "output": 721,
+            "cache_read": 106474,
+            "cache_write": 9956,
+            "thinking": 383
+          }
+        },
+        "host_cost_delta_usd": 0.06834080000000001,
+        "steps_match_result": true
+      },
+      {
+        "turn": 5,
+        "compacted": false,
+        "main_model": "claude-sonnet-5",
+        "main_loop": {
+          "input": 2,
+          "output": 8,
+          "cache_read": 39154,
+          "cache_write": 115,
+          "cache_write_5m": 0,
+          "cache_write_1h": 115,
+          "thinking": 0
+        },
+        "delta": {
+          "claude-sonnet-5": {
+            "input": 2,
+            "output": 8,
+            "cache_read": 39154,
+            "cache_write": 115,
+            "thinking": 0
+          }
+        },
+        "host_cost_delta_usd": 0.008374800000000016,
+        "steps_match_result": true
+      }
+    ],
+    "total": {
+      "claude-sonnet-5": {
+        "input": 2094,
+        "output": 5560,
+        "cache_read": 496435,
+        "cache_write": 24200,
+        "thinking": 577
+      }
+    },
+    "host_cost_usd": 0.25569050000000004,
+    "consistent": true
+  },
+  "host_cost_usd": 0.25569050000000004,
+  "estimate": {
+    "micros": 255383,
+    "currency": "USD"
+  },
+  "estimate_complete": false,
+  "estimate_missing": [
+    "cache_write_5m",
+    "cache_write_1h"
+  ],
+  "rate_table_date": "2026-09-22",
+  "hook_latency_ms": {
+    "PostToolUse:Bash": [
+      59,
+      61
+    ],
+    "PostToolUse:Edit": [
+      53,
+      71
+    ],
+    "PostToolUse:Glob": [
+      58
+    ],
+    "PostToolUse:Read": [
+      60,
+      76
+    ],
+    "PostToolUse:Write": [
+      58
+    ],
+    "SessionStart:compact": [
+      103
+    ],
+    "SessionStart:startup": [
+      1
+    ],
+    "Stop": [
+      51,
+      52,
+      56,
+      60,
+      63
+    ],
+    "SubagentStop": [
+      75
+    ],
+    "UserPromptSubmit": [
+      43,
+      60,
+      136,
+      137,
+      157
+    ]
+  },
+  "transcript_hook_ms": {
+    "PostToolUse:Bash": [
+      59,
+      61
+    ],
+    "PostToolUse:Edit": [
+      53,
+      70
+    ],
+    "PostToolUse:Glob": [
+      59
+    ],
+    "PostToolUse:Read": [
+      60,
+      77
+    ],
+    "PostToolUse:Write": [
+      58
+    ],
+    "SessionStart:compact": [
+      103
+    ],
+    "SessionStart:startup": [
+      246
+    ],
+    "Stop": [
+      51,
+      52,
+      56,
+      59,
+      63
+    ]
+  },
+  "store": {
+    "bytes": 248988,
+    "files": 80,
+    "objects": 20,
+    "checkpoints": 1
+  },
+  "categories": {
+    "cache_read": {
+      "known": 496435,
+      "known_records": 7,
+      "unknown_records": 0
+    },
+    "cache_write_1h": {
+      "known": 24077,
+      "known_records": 6,
+      "unknown_records": 1
+    },
+    "cache_write_5m": {
+      "known": 0,
+      "known_records": 6,
+      "unknown_records": 1
+    },
+    "input": {
+      "known": 2094,
+      "known_records": 7,
+      "unknown_records": 0
+    },
+    "output": {
+      "known": 4983,
+      "known_records": 7,
+      "unknown_records": 0
+    },
+    "thinking_output": {
+      "known": 577,
+      "known_records": 7,
+      "unknown_records": 0
+    }
+  },
+  "compact_attempts": [
+    {
+      "result": "success"
+    }
+  ],
+  "qompack": {
+    "checkpoints": 1,
+    "injections": [
+      {
+        "hook_event": "SessionStart",
+        "hook_name": "SessionStart",
+        "bytes": 2887,
+        "qompack": true,
+        "text": "\u003c!-- qompack:injected seq=1 ver=1 --\u003e\n# Qompack rehydration — checkpoint 0001, session c61e2e99\n\n## 2. Original user intent (verbatim from L0 capture — never summarized)\nEvolution (most recent first):\n\u003e Add func MaxRetries() int to config/config.go returning the attempt limit README.md specifies, with a test in config/config_test.go. Run go test ./... and report in one line.\n\u003e Read README.md and summarize the service's retry policy in two sentences.\nOriginal:\n\u003e Context you will need later: our deployment region code is QX-7731-EU and the on-call alias is tundra-owl. Do not write these anywhere yet. Reply only with noted.\n\n## 5. Current work\ngoal: Add func MaxRetries() int to config/config.go returning the attempt limit README.md specifies, with a test in config/config_test.go.\nblocked on: none\n\n## 6. Pointers (paths and hashes — contents are NOT restored; use expand/re_read)\n- config/config.go sha256:b1fe9ea3bfbe583cd1f89801655caa759bad5eefb53957e16a57b75cdd0a6640 — touched at turn 5 via FileEdit\n- config/config_test.go sha256:cc45599af7d2e36a455090c0f47e764cd80291b8e1d0b6d6d1252c91f00657ea — touched at turn 5 via FileWrite\n- readme.md sha256:cb3019a89141797c8f24cfff21facfa0a2a860168e373a3fe93c6a60c0fb2829 — referenced\n- tool_use toolu_011XHa9XuVmRURFo22saVEez sha256:b7cd59dc258d28b86c05f66b97bc89b46e3c97b46afadd1b112f96eafc73340f — config/*\n- tool_use toolu_01Bh4LRBNmiQrUNawGACM6r9 sha256:36ccb450ed6778dc418032ca3616bbc76f965996795180d0387b6b0e1764d885 — C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-live-4282723645\\project\\config\\config.go\n- tool_use toolu_01Fuow7Fo8VtcHNLofD8AuqH sha256:cc45599af7d2e36a455090c0f47e764cd80291b8e1d0b6d6d1252c91f00657ea — C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-live-4282723645\\project\\config\\config_test.go\n- tool_use toolu_01MgspufNEafgtRvHN4RWpih sha256:cb3019a89141797c8f24cfff21facfa0a2a860168e373a3fe93c6a60c0fb2829 — C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-live-4282723645\\project\\README.md\n- tool_use toolu_01WRvMv88fV3t8DqmHXRQDAn sha256:ac86d0a0061cb7f4bb95ab321e52b05d4cb60551a3ec4e07bb5a6af1957e1a30 — cd \"C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-live-4282723645\\project\" \u0026\u0026 go test ./... 2\u003e\u00261\n- tool_use toolu_01XZqKRwtRgy4bTtqN4YqJUx sha256:b1fe9ea3bfbe583cd1f89801655caa759bad5eefb53957e16a57b75cdd0a6640 — C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-live-4282723645\\project\\config\\config.go\n\n## 7. No longer in context\n- pointer_dirty config/config.go — modified since index on master\n- pointer_untracked config/config_test.go — not tracked by git\n\n## 8. Retrieval\nQompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().\n\u003c!-- /qompack:injected --\u003e\n\u003c!-- qompack-contract-probe qompack-contract-ac073c314d59 --\u003e"
+      }
+    ],
+    "injected_bytes": 2887,
+    "mcp_server_status": "connected",
+    "index_lines": {
+      "files.jsonl": 5,
+      "observations.jsonl": 14,
+      "roots.jsonl": 20,
+      "segments.jsonl": 7,
+      "sessions.jsonl": 1,
+      "tool_use.jsonl": 14
+    }
+  },
+  "plugin": {
+    "install": "plugin-dir",
+    "bundle_dir": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack-bundles\\c8\\qompack-plugin-0.3.0-windows-amd64",
+    "version": "0.3.0",
+    "commit": "3ec62ad2e01b985640c0f1fb832df3917f766a5f",
+    "dirty": false,
+    "bundle_json_sha256": "61ba9c37dda03c14c44acb6824646a8d7410751bba6f1ce3c5c864d6382dcd8b",
+    "host_version": "0.3.0",
+    "host_source": "qompack@inline",
+    "host_path": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack-bundles\\c8\\qompack-plugin-0.3.0-windows-amd64"
+  },
+  "home_guard": {
+    "checked": true,
+    "unchanged": true,
+    "before": [
+      "plugins/installed_plugins.json 728f7559129113fcc9bafa69c373c52773a08d0da39756b19f456cbf4d6c57dd",
+      "plugins/known_marketplaces.json 1b1eda7e17f07d04496536ee38520c922deb339dadd4fabb018227095f572725",
+      "settings.json e15855d7e46a46a8b2f5d1f3b120524e7e0e3ca704c006419d819157f7365150"
+    ],
+    "after": [
+      "plugins/installed_plugins.json 728f7559129113fcc9bafa69c373c52773a08d0da39756b19f456cbf4d6c57dd",
+      "plugins/known_marketplaces.json 1b1eda7e17f07d04496536ee38520c922deb339dadd4fabb018227095f572725",
+      "settings.json e15855d7e46a46a8b2f5d1f3b120524e7e0e3ca704c006419d819157f7365150"
+    ]
+  },
+  "preregistered_model": true,
+  "host_model": "claude-sonnet-5",
+  "notes": [
+    "project: C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-live-4282723645\\project",
+    "inherited environment variables removed from the session: QOMPACK_LIVE_EVAL",
+    "trial daemon: daemon pid 42992 stopped by admin.shutdown",
+    "host transcript: C:\\Users\\Quant\\.claude\\projects\\C--Users-Quant-AppData-Local-Temp-qompack-live-4282723645-project\\c61e2e99-5c20-439b-9e5c-5ccb79a75843.jsonl"
+  ]
+}

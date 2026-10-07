@@ -1,0 +1,149 @@
+{
+  "hook_runs": [
+    {
+      "type": "hook_success",
+      "hook_name": "SessionStart:startup",
+      "hook_event": "SessionStart",
+      "exit_code": 0,
+      "duration_ms": 807,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe session-start"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "Stop",
+      "hook_event": "Stop",
+      "exit_code": 0,
+      "duration_ms": 108,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe stop"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "PostToolUse:Bash",
+      "hook_event": "PostToolUse",
+      "exit_code": 0,
+      "duration_ms": 96,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe tool"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "PostToolUse:Read",
+      "hook_event": "PostToolUse",
+      "exit_code": 0,
+      "duration_ms": 101,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe tool"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "PostToolUse:Write",
+      "hook_event": "PostToolUse",
+      "exit_code": 0,
+      "duration_ms": 110,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe tool"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "PostToolUse:Write",
+      "hook_event": "PostToolUse",
+      "exit_code": 0,
+      "duration_ms": 107,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe tool"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "PostToolUse:Bash",
+      "hook_event": "PostToolUse",
+      "exit_code": 0,
+      "duration_ms": 246,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe tool"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "Stop",
+      "hook_event": "Stop",
+      "exit_code": 0,
+      "duration_ms": 96,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe stop"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "SessionStart:compact",
+      "hook_event": "SessionStart",
+      "exit_code": 0,
+      "duration_ms": 131,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe session-start"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "PostToolUse:Edit",
+      "hook_event": "PostToolUse",
+      "exit_code": 0,
+      "duration_ms": 79,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe tool"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "PostToolUse:Write",
+      "hook_event": "PostToolUse",
+      "exit_code": 0,
+      "duration_ms": 85,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe tool"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "PostToolUse:Bash",
+      "hook_event": "PostToolUse",
+      "exit_code": 0,
+      "duration_ms": 71,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe tool"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "Stop",
+      "hook_event": "Stop",
+      "exit_code": 0,
+      "duration_ms": 110,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe stop"
+    }
+  ],
+  "contexts": [
+    {
+      "hook_event": "SessionStart",
+      "hook_name": "SessionStart",
+      "bytes": 61,
+      "qompack": false
+    },
+    {
+      "hook_event": "SessionStart",
+      "hook_name": "SessionStart",
+      "bytes": 2805,
+      "qompack": true,
+      "text": "\u003c!-- qompack:injected seq=1 ver=1 --\u003e\n# Qompack rehydration — checkpoint 0001, session a8c2108a\n\n## 2. Original user intent (verbatim from L0 capture — never summarized)\nEvolution (most recent first):\n\u003e Implement func FormatPrice(cents int64) string in money/price.go that renders dollars like \"$12.34\" (negative amounts like \"-$0.05\"), with tests in money/price_test.go. Run go test ./... and report in one line.\nOriginal:\n\u003e Rule for the money package for this whole session: never use fmt.Sprintf or any other fmt.Sprint function in it; build strings with strconv and strings.Builder. Acknowledge with OK.\n\n## 5. Current work\ngoal: Implement func FormatPrice(cents int64) string in money/price.go that renders dollars like \"$12.34\" (negative amounts like \"-$0.05\"), with tests in money/price_\nblocked on: none\n\n## 6. Pointers (paths and hashes — contents are NOT restored; use expand/re_read)\nWithheld entries name a path the host's permission rules refuse, or one outside the project; restore them by hash.\n- money/doc.go sha256:75b7172d0726533ae36a6911e5c405affdc82c7f85e19ac23f19fbbfe4d774c3 — referenced\n- money/price.go sha256:baa80e5bcf4e9e2986f35068a39fa9dda3e5eb3cd31ff4b08144e1613a1cab73 — touched at turn 3 via FileWrite\n- money/price_test.go sha256:5b7b820e87db39dbe9414192470cfbb295b882bfa3ac1c27adad04086e119c29 — touched at turn 3 via FileWrite\n- tool_use toolu_0123vGftQDBDmsv7YQNQfs7R sha256:d335c664128883a42c6b7e28f087b4aa89d0d76edc27baca036dd45681840088 — cd \"C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-live-3682393893\\project\" \u0026\u0026 go test ./... 2\u003e\u00261\n- tool_use toolu_013nfn5EBrug3ham4pBZ1TAV sha256:baa80e5bcf4e9e2986f35068a39fa9dda3e5eb3cd31ff4b08144e1613a1cab73 — C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-live-3682393893\\project\\money\\price.go\n- tool_use toolu_014v7FBtKHbdpXxJWehP53zE sha256:3971122b7c7275a91506b45e9ea5975c4a581540ae518f897e94470649d7d750 — (summary withheld)\n- tool_use toolu_015SUC4d9qbMumLqNmt2BGYE sha256:5b7b820e87db39dbe9414192470cfbb295b882bfa3ac1c27adad04086e119c29 — C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-live-3682393893\\project\\money\\price_test.go\n- tool_use toolu_01XNBbdKbE3ah4ewLVBfV9rS sha256:75b7172d0726533ae36a6911e5c405affdc82c7f85e19ac23f19fbbfe4d774c3 — C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-live-3682393893\\project\\money\\doc.go\n\n## 7. No longer in context\n- pointer_untracked money/price.go — not tracked by git\n- pointer_untracked money/price_test.go — not tracked by git\n\n## 8. Retrieval\nQompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().\n\u003c!-- /qompack:injected --\u003e\n\u003c!-- qompack-contract-probe qompack-contract-ed7a42473b0d --\u003e"
+    }
+  ],
+  "compactions": [
+    {
+      "trigger": "manual",
+      "pre_tokens": 36045,
+      "post_tokens": 0,
+      "duration_ms": 36362
+    }
+  ],
+  "local_output": [
+    "Compacted PreCompact [${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe checkpoint] completed successfully: {}"
+  ],
+  "lines": 107,
+  "truncated_tail": false
+}

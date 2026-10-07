@@ -1,0 +1,149 @@
+{
+  "hook_runs": [
+    {
+      "type": "hook_success",
+      "hook_name": "SessionStart:startup",
+      "hook_event": "SessionStart",
+      "exit_code": 0,
+      "duration_ms": 352,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe session-start"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "Stop",
+      "hook_event": "Stop",
+      "exit_code": 0,
+      "duration_ms": 100,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe stop"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "PostToolUse:Bash",
+      "hook_event": "PostToolUse",
+      "exit_code": 0,
+      "duration_ms": 91,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe tool"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "PostToolUse:Read",
+      "hook_event": "PostToolUse",
+      "exit_code": 0,
+      "duration_ms": 84,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe tool"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "PostToolUse:Write",
+      "hook_event": "PostToolUse",
+      "exit_code": 0,
+      "duration_ms": 101,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe tool"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "PostToolUse:Write",
+      "hook_event": "PostToolUse",
+      "exit_code": 0,
+      "duration_ms": 86,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe tool"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "PostToolUse:Bash",
+      "hook_event": "PostToolUse",
+      "exit_code": 0,
+      "duration_ms": 71,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe tool"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "Stop",
+      "hook_event": "Stop",
+      "exit_code": 0,
+      "duration_ms": 75,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe stop"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "SessionStart:compact",
+      "hook_event": "SessionStart",
+      "exit_code": 0,
+      "duration_ms": 89,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe session-start"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "PostToolUse:Edit",
+      "hook_event": "PostToolUse",
+      "exit_code": 0,
+      "duration_ms": 95,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe tool"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "PostToolUse:Edit",
+      "hook_event": "PostToolUse",
+      "exit_code": 0,
+      "duration_ms": 82,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe tool"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "PostToolUse:Bash",
+      "hook_event": "PostToolUse",
+      "exit_code": 0,
+      "duration_ms": 90,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe tool"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "Stop",
+      "hook_event": "Stop",
+      "exit_code": 0,
+      "duration_ms": 83,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe stop"
+    }
+  ],
+  "contexts": [
+    {
+      "hook_event": "SessionStart",
+      "hook_name": "SessionStart",
+      "bytes": 61,
+      "qompack": false
+    },
+    {
+      "hook_event": "SessionStart",
+      "hook_name": "SessionStart",
+      "bytes": 2564,
+      "qompack": true,
+      "text": "\u003c!-- qompack:injected seq=1 ver=1 --\u003e\n# Qompack rehydration — checkpoint 0001, session a0a3256c\n\n## 2. Original user intent (verbatim from L0 capture — never summarized)\nEvolution (most recent first):\n\u003e Implement func Slugify(s string) string in slug/slug.go: lowercase, spaces become '-', every other character kept. Tests in slug/slug_test.go. Run go test ./... and report in one line.\nOriginal:\n\u003e Constraint for the slug package for the whole session: do not use the regexp package. Acknowledge with OK.\n\n## 5. Current work\ngoal: Implement func Slugify(s string) string in slug/slug.go: lowercase, spaces become '-', every other character kept.\nblocked on: none\n\n## 6. Pointers (paths and hashes — contents are NOT restored; use expand/re_read)\n- slug/doc.go sha256:49be92b04c40949024966e89c3e44efcaebb5ed3c65f584145b3e8b0ffab0b6f — referenced\n- slug/slug.go sha256:916ca8065f852808b85b08a76b963bde30acf59fced5d00089f74c02289a8a9b — touched at turn 3 via FileWrite\n- slug/slug_test.go sha256:daea84feb2c3ec8133e54a3c78040777721db170ecf8ba0ff1f4996f66d057e8 — touched at turn 3 via FileWrite\n- tool_use toolu_018VHHMNc2gQ6WPRwVGRPBUY sha256:6f280834abd8cc59d5f2f13fb30aa629a66588c4948e659ab96a6674ba2ab7c1 — cd \"C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-live-1788119082\\project\" \u0026\u0026 go test ./... 2\u003e\u00261\n- tool_use toolu_01BvU3FgThvJxAfSvqhzeb4H sha256:916ca8065f852808b85b08a76b963bde30acf59fced5d00089f74c02289a8a9b — C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-live-1788119082\\project\\slug\\slug.go\n- tool_use toolu_01GrrqJdiWC1wHE3vd7Fokuv sha256:76d860675a67c7b9ada86728e090323ef26f9627764f260185934d52f2dac733 — find slug -type f 2\u003e/dev/null; cat go.mod 2\u003e/dev/null\n- tool_use toolu_01SXuXAXWw3tNrNyEhSvV9ZD sha256:daea84feb2c3ec8133e54a3c78040777721db170ecf8ba0ff1f4996f66d057e8 — C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-live-1788119082\\project\\slug\\slug_test.go\n- tool_use toolu_01XPSiCJMyTzs354oaM94Gs8 sha256:49be92b04c40949024966e89c3e44efcaebb5ed3c65f584145b3e8b0ffab0b6f — C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-live-1788119082\\project\\slug\\doc.go\n\n## 7. No longer in context\n- pointer_untracked slug/slug.go — not tracked by git\n- pointer_untracked slug/slug_test.go — not tracked by git\n\n## 8. Retrieval\nQompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().\n\u003c!-- /qompack:injected --\u003e\n\u003c!-- qompack-contract-probe qompack-contract-4cbc5fc331c8 --\u003e"
+    }
+  ],
+  "compactions": [
+    {
+      "trigger": "manual",
+      "pre_tokens": 35681,
+      "post_tokens": 0,
+      "duration_ms": 39369
+    }
+  ],
+  "local_output": [
+    "Compacted PreCompact [${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe checkpoint] completed successfully: {}"
+  ],
+  "lines": 108,
+  "truncated_tail": false
+}

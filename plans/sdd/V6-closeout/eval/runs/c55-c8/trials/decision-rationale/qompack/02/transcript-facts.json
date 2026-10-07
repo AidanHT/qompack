@@ -1,0 +1,158 @@
+{
+  "hook_runs": [
+    {
+      "type": "hook_success",
+      "hook_name": "SessionStart:startup",
+      "hook_event": "SessionStart",
+      "exit_code": 0,
+      "duration_ms": 272,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe session-start"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "Stop",
+      "hook_event": "Stop",
+      "exit_code": 0,
+      "duration_ms": 78,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe stop"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "PostToolUse:Glob",
+      "hook_event": "PostToolUse",
+      "exit_code": 0,
+      "duration_ms": 86,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe tool"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "PostToolUse:Read",
+      "hook_event": "PostToolUse",
+      "exit_code": 0,
+      "duration_ms": 190,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe tool"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "PostToolUse:Write",
+      "hook_event": "PostToolUse",
+      "exit_code": 0,
+      "duration_ms": 76,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe tool"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "PostToolUse:Write",
+      "hook_event": "PostToolUse",
+      "exit_code": 0,
+      "duration_ms": 151,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe tool"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "PostToolUse:Bash",
+      "hook_event": "PostToolUse",
+      "exit_code": 0,
+      "duration_ms": 56,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe tool"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "Stop",
+      "hook_event": "Stop",
+      "exit_code": 0,
+      "duration_ms": 94,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe stop"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "SessionStart:compact",
+      "hook_event": "SessionStart",
+      "exit_code": 0,
+      "duration_ms": 113,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe session-start"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "PostToolUse:Write",
+      "hook_event": "PostToolUse",
+      "exit_code": 0,
+      "duration_ms": 95,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe tool"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "PostToolUse:Write",
+      "hook_event": "PostToolUse",
+      "exit_code": 0,
+      "duration_ms": 89,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe tool"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "PostToolUse:Bash",
+      "hook_event": "PostToolUse",
+      "exit_code": 0,
+      "duration_ms": 82,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe tool"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "Stop",
+      "hook_event": "Stop",
+      "exit_code": 0,
+      "duration_ms": 68,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe stop"
+    },
+    {
+      "type": "hook_success",
+      "hook_name": "Stop",
+      "hook_event": "Stop",
+      "exit_code": 0,
+      "duration_ms": 134,
+      "has_duration": true,
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe observe stop"
+    }
+  ],
+  "contexts": [
+    {
+      "hook_event": "SessionStart",
+      "hook_name": "SessionStart",
+      "bytes": 61,
+      "qompack": false
+    },
+    {
+      "hook_event": "SessionStart",
+      "hook_name": "SessionStart",
+      "bytes": 2659,
+      "qompack": true,
+      "text": "\u003c!-- qompack:injected seq=1 ver=1 --\u003e\n# Qompack rehydration — checkpoint 0001, session 4b7059c9\n\n## 2. Original user intent (verbatim from L0 capture — never summarized)\nEvolution (most recent first):\n\u003e Implement func Save(w io.Writer, entries []Entry) error in store/save.go following D-17, with a test in store/save_test.go. Run go test ./... and report in one line.\nOriginal:\n\u003e Design decision D-17 for the store package: entries are persisted as newline-delimited JSON, one object per line, not with encoding/gob, because operators must be able to grep the files during incidents. Do not write this down anywhere; reply OK.\n\n## 5. Current work\ngoal: Implement func Save(w io.Writer, entries []Entry) error in store/save.go following D-17, with a test in store/save_test.go.\nblocked on: none\n\n## 6. Pointers (paths and hashes — contents are NOT restored; use expand/re_read)\n- store/entry.go sha256:0722ba94c395543bfacaf9a50ca18b73f6a760ae1e78b3cc540315540bec626c — referenced\n- store/save.go sha256:0859cfa9116467a8e8748ab5d113f89f289852320998db94c436e021d0176802 — touched at turn 3 via FileWrite\n- store/save_test.go sha256:58a953a25b26ab898a7ecfa6a5e2a727244e2b694e821dee39ff79a4c53042e6 — touched at turn 3 via FileWrite\n- tool_use toolu_019RSgsDYk1mvTMGNr6gke3Z sha256:0859cfa9116467a8e8748ab5d113f89f289852320998db94c436e021d0176802 — C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-live-659940182\\project\\store\\save.go\n- tool_use toolu_01Kr8ASj7zYDLQsWKsrBapaB sha256:0722ba94c395543bfacaf9a50ca18b73f6a760ae1e78b3cc540315540bec626c — C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-live-659940182\\project\\store\\entry.go\n- tool_use toolu_01Sazzr1r9FiMd5UwkDkqGak sha256:905e35128775b4cdaefbba8bee73adccc9285f57df569811dee2e5568de67e2a — cd \"C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-live-659940182\\project\" \u0026\u0026 go test ./... 2\u003e\u00261\n- tool_use toolu_01VpYz4pKHLmEedD4VhiGAij sha256:ddb1e0292843aa51c52f60d9a59cac8704acedfefb0e213aea33733fd2aff06d — store/*.go\n- tool_use toolu_01YAXCiHY1WAxYC7CErk5gNw sha256:58a953a25b26ab898a7ecfa6a5e2a727244e2b694e821dee39ff79a4c53042e6 — C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-live-659940182\\project\\store\\save_test.go\n\n## 7. No longer in context\n- pointer_untracked store/save.go — not tracked by git\n- pointer_untracked store/save_test.go — not tracked by git\n\n## 8. Retrieval\nQompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().\n\u003c!-- /qompack:injected --\u003e\n\u003c!-- qompack-contract-probe qompack-contract-12f5d1a6f8da --\u003e"
+    }
+  ],
+  "compactions": [
+    {
+      "trigger": "manual",
+      "pre_tokens": 35635,
+      "post_tokens": 0,
+      "duration_ms": 85172
+    }
+  ],
+  "local_output": [
+    "Compacted PreCompact [${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe checkpoint] completed successfully: {}"
+  ],
+  "lines": 112,
+  "truncated_tail": false
+}

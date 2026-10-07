@@ -1,0 +1,44 @@
+{
+  "bin": "C:\\Users\\Quant\\AppData\\Roaming\\npm\\claude.cmd",
+  "args": [
+    "-p",
+    "--input-format",
+    "stream-json",
+    "--output-format",
+    "stream-json",
+    "--verbose",
+    "--include-hook-events",
+    "--model",
+    "claude-sonnet-5",
+    "--max-turns",
+    "12",
+    "--setting-sources",
+    "project,local",
+    "--permission-mode",
+    "dontAsk",
+    "--session-id",
+    "fa77df0e-a796-4974-a963-ae31bf9b4383",
+    "--allowedTools",
+    "Read,Edit,Write,Glob,Grep,Bash(go:*),Bash(git status:*),Bash(git diff:*),PowerShell(go:*),mcp__plugin_qompack_qompack",
+    "--plugin-dir",
+    "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack-bundles\\c8\\qompack-plugin-0.3.0-windows-amd64"
+  ],
+  "dir": "C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-live-2592156624\\project",
+  "env": [
+    "ENABLE_CLAUDEAI_MCP_SERVERS=false",
+    "QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS=120"
+  ],
+  "unset": [
+    "QOMPACK_LIVE_EVAL"
+  ],
+  "messages": [
+    "Context you will need later: our deployment region code is QX-7731-EU and the on-call alias is tundra-owl. Do not write these anywhere yet. Reply only with noted.",
+    "Read README.md and summarize the service's retry policy in two sentences.",
+    "Add func MaxRetries() int to config/config.go returning the attempt limit README.md specifies, with a test in config/config_test.go. Run go test ./... and report in one line.",
+    "/compact",
+    "Make Region() in config/config.go return the deployment region code I gave you at the very start of this session. Do not ask me for it and do not use a placeholder. Run go test ./... and report in one line.",
+    "What is the on-call alias I mentioned at the start? Answer with just the alias."
+  ],
+  "step_timeout": 600000000000,
+  "session_timeout": 2700000000000
+}

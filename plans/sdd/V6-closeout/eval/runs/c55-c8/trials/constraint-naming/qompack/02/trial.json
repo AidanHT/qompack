@@ -1,0 +1,406 @@
+{
+  "schema": 1,
+  "run_id": "20261007T184908Z-abe10e",
+  "task_id": "constraint-naming",
+  "arm": "qompack",
+  "trial": 2,
+  "category": "constraint-retention",
+  "variant": "base",
+  "held_out": true,
+  "model": "claude-sonnet-5",
+  "install": "plugin-dir",
+  "claude_code_version": "2.1.280",
+  "session_id": "114cc874-3be9-4d3f-9dc2-6af9f51f95db",
+  "started_at": "2026-10-07T21:25:18Z",
+  "wall_ms": 113793,
+  "exit_code": 0,
+  "steps": [
+    {
+      "id": "rule",
+      "compact": false,
+      "result_subtype": "success",
+      "is_error": false,
+      "num_turns": 1,
+      "wall_ms": 5271,
+      "permission_denials": 0,
+      "answer": "OK."
+    },
+    {
+      "id": "dist",
+      "compact": false,
+      "result_subtype": "success",
+      "is_error": false,
+      "num_turns": 6,
+      "wall_ms": 20022,
+      "permission_denials": 0,
+      "answer": "Implemented `Dist` in geo/dist.go with `TestSpec_Dist` in geo/dist_test.go; `go test ./...` passes (ok example.com/geo/geo)."
+    },
+    {
+      "id": "compact",
+      "compact": true,
+      "result_subtype": "success",
+      "is_error": false,
+      "num_turns": 0,
+      "wall_ms": 74155,
+      "permission_denials": 0,
+      "local_output": [
+        "Compacted PreCompact [${CLAUDE_PLUGIN_ROOT}/bin/qompack.exe checkpoint] completed successfully: {}"
+      ]
+    },
+    {
+      "id": "mid",
+      "compact": false,
+      "result_subtype": "success",
+      "is_error": false,
+      "num_turns": 4,
+      "wall_ms": 12278,
+      "permission_denials": 0,
+      "answer": "Added `Mid` in geo/mid.go with `TestSpec_Mid` in geo/mid_test.go; `go test ./...` passes (ok example.com/geo/geo)."
+    }
+  ],
+  "completed": true,
+  "plugin_expected": true,
+  "plugin_loaded": true,
+  "host_reported_plugins": true,
+  "checks": [
+    {
+      "id": "behaviour",
+      "outcome": "task",
+      "kind": "command",
+      "passed": true,
+      "detail": "go test ./... exited 0"
+    },
+    {
+      "id": "spec-name",
+      "outcome": "constraint",
+      "kind": "file_matches",
+      "passed": true,
+      "detail": "matched \"func TestSpec_\""
+    },
+    {
+      "id": "no-other-names",
+      "outcome": "constraint",
+      "kind": "file_not_matches",
+      "passed": true,
+      "detail": "forbidden pattern absent"
+    },
+    {
+      "id": "parallel",
+      "outcome": "constraint",
+      "kind": "file_matches",
+      "passed": true,
+      "detail": "matched \"t.Parallel()\""
+    }
+  ],
+  "task_success": true,
+  "constraint_violations": 0,
+  "recovered": null,
+  "compactions": [
+    {
+      "trigger": "manual",
+      "pre_tokens": 35603,
+      "post_tokens": 3341,
+      "duration_ms": 73818
+    }
+  ],
+  "account": {
+    "turns": [
+      {
+        "turn": 0,
+        "compacted": false,
+        "main_model": "claude-sonnet-5",
+        "main_loop": {
+          "input": 2,
+          "output": 302,
+          "cache_read": 23841,
+          "cache_write": 10033,
+          "cache_write_5m": 0,
+          "cache_write_1h": 10033,
+          "thinking": 296
+        },
+        "delta": {
+          "claude-sonnet-5": {
+            "input": 2,
+            "output": 302,
+            "cache_read": 23841,
+            "cache_write": 10033,
+            "thinking": 296
+          }
+        },
+        "host_cost_delta_usd": 0.0479242,
+        "steps_match_result": true
+      },
+      {
+        "turn": 1,
+        "compacted": false,
+        "main_model": "claude-sonnet-5",
+        "main_loop": {
+          "input": 12,
+          "output": 886,
+          "cache_read": 207394,
+          "cache_write": 1663,
+          "cache_write_5m": 0,
+          "cache_write_1h": 1663,
+          "thinking": 23
+        },
+        "delta": {
+          "claude-sonnet-5": {
+            "input": 12,
+            "output": 886,
+            "cache_read": 207394,
+            "cache_write": 1663,
+            "thinking": 23
+          }
+        },
+        "host_cost_delta_usd": 0.05701479999999999,
+        "steps_match_result": true
+      },
+      {
+        "turn": 2,
+        "local_command": "compact",
+        "compacted": true,
+        "main_model": "claude-sonnet-5",
+        "main_loop": {
+          "input": 0,
+          "output": 0,
+          "cache_read": 0,
+          "cache_write": 0,
+          "cache_write_5m": 0,
+          "cache_write_1h": 0,
+          "thinking": 0
+        },
+        "delta": {
+          "claude-sonnet-5": {
+            "input": 2069,
+            "output": 2921,
+            "cache_read": 35353,
+            "cache_write": 123,
+            "thinking": 0
+          }
+        },
+        "beside": {
+          "claude-sonnet-5": {
+            "input": 2069,
+            "output": 2921,
+            "cache_read": 35353,
+            "cache_write": 123,
+            "thinking": 0
+          }
+        },
+        "beside_kind": "compaction",
+        "host_cost_delta_usd": 0.0407261
+      },
+      {
+        "turn": 3,
+        "compacted": false,
+        "main_model": "claude-sonnet-5",
+        "main_loop": {
+          "input": 6,
+          "output": 842,
+          "cache_read": 101245,
+          "cache_write": 7446,
+          "cache_write_5m": 0,
+          "cache_write_1h": 7446,
+          "thinking": 118
+        },
+        "delta": {
+          "claude-sonnet-5": {
+            "input": 6,
+            "output": 842,
+            "cache_read": 101245,
+            "cache_write": 7446,
+            "thinking": 118
+          }
+        },
+        "host_cost_delta_usd": 0.05846499999999999,
+        "steps_match_result": true
+      }
+    ],
+    "total": {
+      "claude-sonnet-5": {
+        "input": 2089,
+        "output": 4951,
+        "cache_read": 367833,
+        "cache_write": 19265,
+        "thinking": 437
+      }
+    },
+    "host_cost_usd": 0.20413009999999998,
+    "consistent": true
+  },
+  "host_cost_usd": 0.20413009999999998,
+  "estimate": {
+    "micros": 203823,
+    "currency": "USD"
+  },
+  "estimate_complete": false,
+  "estimate_missing": [
+    "cache_write_5m",
+    "cache_write_1h"
+  ],
+  "rate_table_date": "2026-09-22",
+  "hook_latency_ms": {
+    "PostToolUse:Bash": [
+      87,
+      88
+    ],
+    "PostToolUse:Glob": [
+      115
+    ],
+    "PostToolUse:Read": [
+      90
+    ],
+    "PostToolUse:Write": [
+      80,
+      85,
+      91,
+      126
+    ],
+    "SessionStart:compact": [
+      107
+    ],
+    "SessionStart:startup": [
+      0
+    ],
+    "Stop": [
+      68,
+      87,
+      92
+    ],
+    "SubagentStop": [
+      94
+    ],
+    "UserPromptSubmit": [
+      65,
+      79,
+      143
+    ]
+  },
+  "transcript_hook_ms": {
+    "PostToolUse:Bash": [
+      88,
+      88
+    ],
+    "PostToolUse:Glob": [
+      114
+    ],
+    "PostToolUse:Read": [
+      90
+    ],
+    "PostToolUse:Write": [
+      80,
+      85,
+      91,
+      127
+    ],
+    "SessionStart:compact": [
+      106
+    ],
+    "SessionStart:startup": [
+      252
+    ],
+    "Stop": [
+      68,
+      86,
+      93
+    ]
+  },
+  "store": {
+    "bytes": 216941,
+    "files": 70,
+    "objects": 14,
+    "checkpoints": 1
+  },
+  "categories": {
+    "cache_read": {
+      "known": 367833,
+      "known_records": 5,
+      "unknown_records": 0
+    },
+    "cache_write_1h": {
+      "known": 19142,
+      "known_records": 4,
+      "unknown_records": 1
+    },
+    "cache_write_5m": {
+      "known": 0,
+      "known_records": 4,
+      "unknown_records": 1
+    },
+    "input": {
+      "known": 2089,
+      "known_records": 5,
+      "unknown_records": 0
+    },
+    "output": {
+      "known": 4514,
+      "known_records": 5,
+      "unknown_records": 0
+    },
+    "thinking_output": {
+      "known": 437,
+      "known_records": 5,
+      "unknown_records": 0
+    }
+  },
+  "compact_attempts": [
+    {
+      "result": "success"
+    }
+  ],
+  "qompack": {
+    "checkpoints": 1,
+    "injections": [
+      {
+        "hook_event": "SessionStart",
+        "hook_name": "SessionStart",
+        "bytes": 2485,
+        "qompack": true,
+        "text": "\u003c!-- qompack:injected seq=1 ver=1 --\u003e\n# Qompack rehydration — checkpoint 0001, session 114cc874\n\n## 2. Original user intent (verbatim from L0 capture — never summarized)\nEvolution (most recent first):\n\u003e Implement func Dist(a, b Point) float64 in geo/dist.go with a test in geo/dist_test.go. Run go test ./... and report in one line.\nOriginal:\n\u003e House rule for this session: every test function you write must be named TestSpec_\u003cSomething\u003e, and every test must call t.Parallel() first. Acknowledge with OK.\n\n## 5. Current work\ngoal: Implement func Dist(a, b Point) float64 in geo/dist.go with a test in geo/dist_test.go.\nblocked on: none\n\n## 6. Pointers (paths and hashes — contents are NOT restored; use expand/re_read)\n- geo/dist.go sha256:0676b341d9965c5a53c36b708744aee2a7b816dc6b75d56f34b447fe8a638910 — touched at turn 3 via FileWrite\n- geo/dist_test.go sha256:0dd57e5016f3870a565960c63025f4983506d0be12f30e6def289c46de455f69 — touched at turn 3 via FileWrite\n- geo/point.go sha256:483b3dc0bd7af63414754fa9d0d0c8a6827efcc59d6d05763807a073014b3dbc — referenced\n- tool_use toolu_011h7HskhESN1Q6x7eviCmtg sha256:483b3dc0bd7af63414754fa9d0d0c8a6827efcc59d6d05763807a073014b3dbc — C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-live-3997691376\\project\\geo\\point.go\n- tool_use toolu_012Sem94hpeSuP39s9zMZkhj sha256:df2555217433e099ba0a7c1305dd4f4b6d1689546d248e5a3190f247cceaf4b9 — geo/**\n- tool_use toolu_01FcP3UezfAhwATq2L6BBmcC sha256:0dd57e5016f3870a565960c63025f4983506d0be12f30e6def289c46de455f69 — C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-live-3997691376\\project\\geo\\dist_test.go\n- tool_use toolu_01Xs28FVyievxdaeiewL6KpD sha256:6f8f550c70ad27c9016d1d62809892e358c3a7dfcfcac469e1b7ab34241a0033 — cd \"C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-live-3997691376\\project\" \u0026\u0026 go test ./... 2\u003e\u00261\n- tool_use toolu_01XvYtfYSuwJwpF67PrqrKcs sha256:0676b341d9965c5a53c36b708744aee2a7b816dc6b75d56f34b447fe8a638910 — C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-live-3997691376\\project\\geo\\dist.go\n\n## 7. No longer in context\n- pointer_untracked geo/dist.go — not tracked by git\n- pointer_untracked geo/dist_test.go — not tracked by git\n\n## 8. Retrieval\nQompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().\n\u003c!-- /qompack:injected --\u003e\n\u003c!-- qompack-contract-probe qompack-contract-ee58bd9f30d1 --\u003e"
+      }
+    ],
+    "injected_bytes": 2485,
+    "mcp_server_status": "connected",
+    "index_lines": {
+      "files.jsonl": 5,
+      "observations.jsonl": 12,
+      "roots.jsonl": 14,
+      "segments.jsonl": 7,
+      "sessions.jsonl": 1,
+      "tool_use.jsonl": 12
+    }
+  },
+  "plugin": {
+    "install": "plugin-dir",
+    "bundle_dir": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack-bundles\\c8\\qompack-plugin-0.3.0-windows-amd64",
+    "version": "0.3.0",
+    "commit": "3ec62ad2e01b985640c0f1fb832df3917f766a5f",
+    "dirty": false,
+    "bundle_json_sha256": "61ba9c37dda03c14c44acb6824646a8d7410751bba6f1ce3c5c864d6382dcd8b",
+    "host_version": "0.3.0",
+    "host_source": "qompack@inline",
+    "host_path": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack-bundles\\c8\\qompack-plugin-0.3.0-windows-amd64"
+  },
+  "home_guard": {
+    "checked": true,
+    "unchanged": true,
+    "before": [
+      "plugins/installed_plugins.json 728f7559129113fcc9bafa69c373c52773a08d0da39756b19f456cbf4d6c57dd",
+      "plugins/known_marketplaces.json 1b1eda7e17f07d04496536ee38520c922deb339dadd4fabb018227095f572725",
+      "settings.json e15855d7e46a46a8b2f5d1f3b120524e7e0e3ca704c006419d819157f7365150"
+    ],
+    "after": [
+      "plugins/installed_plugins.json 728f7559129113fcc9bafa69c373c52773a08d0da39756b19f456cbf4d6c57dd",
+      "plugins/known_marketplaces.json 1b1eda7e17f07d04496536ee38520c922deb339dadd4fabb018227095f572725",
+      "settings.json e15855d7e46a46a8b2f5d1f3b120524e7e0e3ca704c006419d819157f7365150"
+    ]
+  },
+  "preregistered_model": true,
+  "host_model": "claude-sonnet-5",
+  "notes": [
+    "project: C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-live-3997691376\\project",
+    "inherited environment variables removed from the session: QOMPACK_LIVE_EVAL",
+    "trial daemon: daemon pid 13988 stopped by admin.shutdown",
+    "host transcript: C:\\Users\\Quant\\.claude\\projects\\C--Users-Quant-AppData-Local-Temp-qompack-live-3997691376-project\\114cc874-3be9-4d3f-9dc2-6af9f51f95db.jsonl"
+  ]
+}
