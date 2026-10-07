@@ -372,3 +372,12 @@ Minor defects this release does not fix, each recorded in the close-out ledger (
   or a non-ASCII letter; a Windows `%VAR%` whose name is not an identifier; look-alike Unicode
   slashes or dots (`／`, `∖`, `．`); and a non-canonical spelling (`a/./b`) of a refused path whose
   file name is shorter than 3 bytes (D72(a)). They are the first fix planned after this release.
+- **`/qompack:status` lists a "last decision" it does not show.** The command's description, and
+  `docs/commands.md` generated from it, say status reports the last decision, but neither the status
+  page nor `qompack status --json` carries one. To see a recorded decision, run
+  `/qompack:why <decision-id>` (D76(b)).
+- **A session end deletes an unindexed object before it can be audited.** After a crash that left an
+  object written but not indexed, the next session end's garbage collection deletes that object, the
+  one the daemon's startup accounting reported. No capture content is lost: the capture keeps its
+  bytes inline in its sidecar, and `qompack fsck` still names the gap. To keep the object itself,
+  copy the store before the next session ends (`docs/backup.md`, D76(c)).
