@@ -1,0 +1,4 @@
+idle exit at the default (1800 s); no termination.
+{
+ "lock": "unreadable: [Errno 2] No such file or directory: '<scratch>/sessions/c8/uat04/proj\\\\.qompack\\\\run\\\\daemon.lock'"
+}

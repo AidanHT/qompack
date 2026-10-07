@@ -1,0 +1,468 @@
+{
+  "schema": 1,
+  "project": "<scratch>\\sessions\\c8\\uat04\\proj",
+  "sections": [
+    {
+      "id": "version",
+      "title": "version and identity",
+      "rows": [
+        {
+          "id": "version.plugin",
+          "status": "ok",
+          "observed": "0.3.0",
+          "detail": "internal/core.Version, which the release build stamps with -ldflags -X"
+        },
+        {
+          "id": "version.buildinfo",
+          "status": "ok",
+          "observed": "(devel)",
+          "detail": "main module github.com/qompack/qompack; -trimpath=true CGO_ENABLED=0 GOARCH=amd64 GOOS=windows"
+        },
+        {
+          "id": "version.bundle",
+          "status": "ok",
+          "observed": "0.3.0 windows/amd64",
+          "detail": "source commit 3ec62ad2e01b985640c0f1fb832df3917f766a5f, dirty=false (a bundle assembled from a dirty tree cannot be reproduced from its commit)"
+        },
+        {
+          "id": "version.pluginRoot",
+          "status": "unknown",
+          "observed": "unset",
+          "detail": "the host sets it when it invokes a hook; an unset value here says nothing about an installed plugin"
+        }
+      ]
+    },
+    {
+      "id": "host",
+      "title": "host",
+      "rows": [
+        {
+          "id": "host.platform",
+          "status": "ok",
+          "observed": "windows/amd64",
+          "detail": "the GOOS/GOARCH this binary is running on"
+        },
+        {
+          "id": "host.go",
+          "status": "ok",
+          "observed": "go1.26.6",
+          "detail": "the Go runtime this binary was built with"
+        },
+        {
+          "id": "host.claudeCLI",
+          "status": "unknown",
+          "observed": "not probed",
+          "detail": "doctor never shells out to the host; an installed-plugin claim needs a real session, which is test/canary's job"
+        },
+        {
+          "id": "host.target",
+          "status": "ok",
+          "observed": "claude-code windows/amd64 2026-10-07",
+          "detail": "the host the observation ledger's evidence was gathered against"
+        }
+      ]
+    },
+    {
+      "id": "scope",
+      "title": "scope",
+      "rows": [
+        {
+          "id": "scope.root",
+          "status": "ok",
+          "observed": "<scratch>\\sessions\\c8\\uat04\\proj",
+          "detail": "resolved from --project, QOMPACK_PROJECT_ROOT or the nearest enclosing .git"
+        },
+        {
+          "id": "scope.established",
+          "status": "ok",
+          "observed": "<scratch>\\sessions\\c8\\uat04\\proj\\.qompack",
+          "detail": "this directory has been used with Qompack before"
+        },
+        {
+          "id": "scope.daemon",
+          "status": "ok",
+          "observed": "no lock",
+          "detail": "no daemon.lock, or one this build cannot parse; nothing is serving this project"
+        },
+        {
+          "id": "scope.mode",
+          "status": "ok",
+          "observed": "auto",
+          "detail": "from the default layer (config.Defaults())"
+        },
+        {
+          "id": "scope.contractMode",
+          "status": "ok",
+          "observed": "unknown",
+          "detail": "8 session(s) recorded, 0 clean run(s) since the last degradation"
+        }
+      ]
+    },
+    {
+      "id": "capabilities",
+      "title": "capabilities",
+      "rows": [
+        {
+          "id": "observation",
+          "status": "ok",
+          "observed": "implemented_unverified, enabled=true",
+          "detail": "class record; mechanism hook payloads read through internal/hookio across the seven declared events; evidence implemented_unverified; target unknown target; fallback none stated; newest observation: outcome observed, scope \"57638b1a-e83f-4f8a-a5de-0b265f5cc704\", ts 1791386053815",
+          "coverage": "none"
+        },
+        {
+          "id": "injection",
+          "status": "ok",
+          "observed": "implemented_unverified, enabled=true",
+          "detail": "class act; mechanism SessionStart additionalContext reinjection (source=compact); evidence implemented_unverified; target unknown target; fallback none stated; newest observation: outcome observed, scope \"57638b1a-e83f-4f8a-a5de-0b265f5cc704\", ts 1791386053814",
+          "coverage": "delivery_under_tested_contract"
+        },
+        {
+          "id": "new_result_replacement",
+          "status": "disabled",
+          "observed": "documented, enabled=false",
+          "detail": "class optimize; mechanism PostToolUse updatedToolOutput replacement of a newly delivered result; evidence documented; target unknown target; fallback pass-through: the host's original result is delivered unchanged; no observation"
+        },
+        {
+          "id": "usage_attribution",
+          "status": "disabled",
+          "observed": "documented, enabled=false",
+          "detail": "class record; mechanism host-reported usage and cache categories attributed to a request and its parent; evidence documented; target unknown target; fallback unknown stays unknown; cost is not claimed from an unattributed request; no observation"
+        },
+        {
+          "id": "token_estimation",
+          "status": "ok",
+          "observed": "implemented_unverified, enabled=true",
+          "detail": "class record; mechanism local estimator over the whole serialized additional-context record; evidence implemented_unverified; target unknown target; fallback none stated; no observation"
+        },
+        {
+          "id": "compaction_request",
+          "status": "unknown",
+          "observed": "unsupported, enabled=false",
+          "detail": "class optimize; mechanism none: no supported plugin mechanism requests native compaction, and PreCompact custom_instructions is INPUT to a compaction the host already decided to run; evidence unsupported; target unknown target; fallback advisory cadence only: Qompack schedules its own work and never asks the host to compact; newest observation: outcome unsupported, scope \"57638b1a-e83f-4f8a-a5de-0b265f5cc704\", ts 1791386053814",
+          "coverage": "none"
+        },
+        {
+          "id": "compaction_blocking",
+          "status": "disabled",
+          "observed": "documented, enabled=false",
+          "detail": "class optimize; mechanism PreCompact veto of a compaction the host is about to perform; evidence documented; target unknown target; fallback automatic optimization veto off; manual compact never blocked; no observation"
+        },
+        {
+          "id": "history_rewriting",
+          "status": "unknown",
+          "observed": "unsupported, enabled=false",
+          "detail": "class optimize; mechanism none: no validated plugin mechanism rewrites, cuts or evicts native history; evidence unsupported; target unknown target; fallback excluded: no native-history rewriting, cuts, cache-marker manipulation or deletion of delivered results; no observation"
+        }
+      ]
+    },
+    {
+      "id": "controls",
+      "title": "controls",
+      "rows": [
+        {
+          "id": "config.violations",
+          "status": "ok",
+          "observed": "none",
+          "detail": "every configured leaf is within its domain"
+        },
+        {
+          "id": "runtime.migration.capture.rawEvidence",
+          "status": "disabled",
+          "observed": "false",
+          "detail": "from the default layer (config.Defaults()); refused-by-validate while gate \"M1 capture fidelity (T20-M1-01/02)\" (owner SP-20) is pending",
+          "gate": {
+            "owner": "SP-20",
+            "gate": "M1 capture fidelity (T20-M1-01/02)",
+            "passed": false
+          }
+        },
+        {
+          "id": "runtime.migration.publication.durableFrontier",
+          "status": "disabled",
+          "observed": "false",
+          "detail": "from the default layer (config.Defaults()); refused-by-validate while gate \"M1 durable publication (T20-M1-03/04/05)\" (owner SP-20) is pending",
+          "gate": {
+            "owner": "SP-20",
+            "gate": "M1 durable publication (T20-M1-03/04/05)",
+            "passed": false
+          }
+        },
+        {
+          "id": "runtime.migration.replacement.newResult",
+          "status": "disabled",
+          "observed": "false",
+          "detail": "from the default layer (config.Defaults()); refused-by-validate while gate \"M4 admission (T21 pipeline, pass-through and recovery)\" (owner SP-21) is pending",
+          "gate": {
+            "owner": "SP-21",
+            "gate": "M4 admission (T21 pipeline, pass-through and recovery)",
+            "passed": false
+          }
+        },
+        {
+          "id": "runtime.migration.compaction.automaticVeto",
+          "status": "disabled",
+          "observed": "false",
+          "detail": "from the default layer (config.Defaults()); refused-by-validate while gate \"recovery/proactive distinction verified in the target host\" (owner SP-19 M0-03, then SP-12) is pending",
+          "gate": {
+            "owner": "SP-19 M0-03, then SP-12",
+            "gate": "recovery/proactive distinction verified in the target host",
+            "passed": false
+          }
+        },
+        {
+          "id": "runtime.migration.experiments.enabled",
+          "status": "disabled",
+          "observed": "false",
+          "detail": "from the default layer (config.Defaults()); refused-by-validate while gate \"M5/M6 selection and refinement acceptance\" (owner SP-15 and SP-16) is pending",
+          "gate": {
+            "owner": "SP-15 and SP-16",
+            "gate": "M5/M6 selection and refinement acceptance",
+            "passed": false
+          }
+        },
+        {
+          "id": "runtime.phase7.reuse.scopedCandidates",
+          "status": "disabled",
+          "observed": "false",
+          "detail": "from the default layer (config.Defaults()); refused-by-validate while gate \"M6-G16-A scoped reuse and authorization\" (owner SP-16) is pending",
+          "gate": {
+            "owner": "SP-16",
+            "gate": "M6-G16-A scoped reuse and authorization",
+            "passed": false
+          }
+        },
+        {
+          "id": "runtime.phase7.reuse.warmPrior",
+          "status": "disabled",
+          "observed": "false",
+          "detail": "from the default layer (config.Defaults()); refused-by-validate while gate \"M6-G16-D optional-policy value against a simple baseline\" (owner SP-16) is pending",
+          "gate": {
+            "owner": "SP-16",
+            "gate": "M6-G16-D optional-policy value against a simple baseline",
+            "passed": false
+          }
+        },
+        {
+          "id": "runtime.phase7.retrieval.reminders",
+          "status": "disabled",
+          "observed": "false",
+          "detail": "from the default layer (config.Defaults()); refused-by-validate while gate \"M6-G16-B bounded retrieval and usefulness telemetry\" (owner SP-16) is pending",
+          "gate": {
+            "owner": "SP-16",
+            "gate": "M6-G16-B bounded retrieval and usefulness telemetry",
+            "passed": false
+          }
+        },
+        {
+          "id": "runtime.phase7.retrieval.demandPromotion",
+          "status": "disabled",
+          "observed": "false",
+          "detail": "from the default layer (config.Defaults()); refused-by-validate while gate \"M6-G16-C promotion of future representations only\" (owner SP-16) is pending",
+          "gate": {
+            "owner": "SP-16",
+            "gate": "M6-G16-C promotion of future representations only",
+            "passed": false
+          }
+        },
+        {
+          "id": "runtime.phase7.filters.segmentBloom",
+          "status": "disabled",
+          "observed": "false",
+          "detail": "from the default layer (config.Defaults()); refused-by-validate while gate \"M6-G16-E filter coverage, staleness and recovery\" (owner SP-16) is pending",
+          "gate": {
+            "owner": "SP-16",
+            "gate": "M6-G16-E filter coverage, staleness and recovery",
+            "passed": false
+          }
+        },
+        {
+          "id": "runtime.mode",
+          "status": "ok",
+          "observed": "auto",
+          "detail": "from the default layer (config.Defaults())"
+        },
+        {
+          "id": "runtime.migration.settingsVersion",
+          "status": "ok",
+          "observed": "1",
+          "detail": "from the default layer (config.Defaults())"
+        },
+        {
+          "id": "runtime.migration.compaction.blockManualCompact",
+          "status": "ok",
+          "observed": "false",
+          "detail": "from the default layer (config.Defaults())"
+        },
+        {
+          "id": "runtime.phase7.settingsVersion",
+          "status": "ok",
+          "observed": "1",
+          "detail": "from the default layer (config.Defaults())"
+        },
+        {
+          "id": "runtime.telemetry.enabled",
+          "status": "disabled",
+          "observed": "false",
+          "detail": "from the default layer (config.Defaults()); hardwired off — a true value is a Validate violation, not a setting"
+        },
+        {
+          "id": "runtime.redact.enabled",
+          "status": "ok",
+          "observed": "true",
+          "detail": "from the default layer (config.Defaults())"
+        },
+        {
+          "id": "runtime.daemon.enabled",
+          "status": "ok",
+          "observed": "true",
+          "detail": "from the default layer (config.Defaults())"
+        },
+        {
+          "id": "runtime.selection.submodularEnabled",
+          "status": "ok",
+          "observed": "false",
+          "detail": "from the default layer (config.Defaults())"
+        },
+        {
+          "id": "runtime.selection.loopWarningsEnabled",
+          "status": "ok",
+          "observed": "false",
+          "detail": "from the default layer (config.Defaults())"
+        },
+        {
+          "id": "store.migrate.legacyImportCutover",
+          "status": "disabled",
+          "observed": "build gate, passed=false",
+          "detail": "owner SP-20 M1-04; gate M1 compatible migration (T20-M1-08: import/parity/cutover and the pre- and post-first-write rollback drill); it has no config leaf on purpose, so no file can turn it on"
+        },
+        {
+          "id": "admission",
+          "status": "disabled",
+          "observed": "disabled: mirrors runtime.migration.replacement.newResult; host allowlist empty",
+          "detail": "admission.Gate.Admits answers (false, disabled) while the mirror is off and (false, unknown target) once it is on with no target evidence"
+        },
+        {
+          "id": "runtime.recording",
+          "status": "ok",
+          "observed": "auto",
+          "detail": "recording has no switch of its own: runtime.mode passive or off IS the recording control (config/runtime.go:104-116)"
+        }
+      ]
+    },
+    {
+      "id": "recording",
+      "title": "recording gaps",
+      "rows": [
+        {
+          "id": "config.capture",
+          "status": "degraded",
+          "observed": "refused: every hook admits nothing",
+          "detail": "qompack: running in degraded mode: capture configuration unavailable: the project config file is not a single strict JSONC object; hooks still exit 0 with empty output, and nothing is recorded until the configuration is repaired"
+        },
+        {
+          "id": "store.writable",
+          "status": "ok",
+          "observed": "writable",
+          "detail": "an existing file (<scratch>\\sessions\\c8\\uat04\\proj\\.qompack\\.gitignore) was opened for writing and closed untouched; no file was created to find out"
+        },
+        {
+          "id": "spool.pending",
+          "status": "degraded",
+          "observed": "1 file(s), 1237927 byte(s)",
+          "detail": "spool files the daemon has not drained; an observation, not a latency or health verdict"
+        },
+        {
+          "id": "drain.progress",
+          "status": "ok",
+          "observed": "1 spool file(s) tracked",
+          "detail": "state/drain.json parses; `qompack fsck` compares it against the spool itself"
+        },
+        {
+          "id": "negknow.ledger",
+          "status": "ok",
+          "observed": "readable",
+          "detail": "`qompack fsck` classifies the tried.bloom cache over it"
+        },
+        {
+          "id": "captures.unpublished",
+          "status": "ok",
+          "observed": "0 gap(s) across 57 sidecar(s)",
+          "detail": "a sidecar is a gap only for a delivery whose outcome is ok and whose bytes are durable with no reference joined; sidecars are evidence and are never swept. The count is the publication audit's, which `qompack fsck`'s publication row reports too"
+        },
+        {
+          "id": "delivery.rollover",
+          "status": "ok",
+          "observed": "never rotated; last daemon: 0 rotation(s), 0 ms paused, 0 failed, 0 GC pass(es) halted on the carry bound",
+          "detail": "a store that has never rotated rotates by itself at 65,536 deliveries; after that a build older than segmented rollover refuses the journal, and a backup taken before the first rotation is the only way back to one (docs/backup.md); `qompack fsck --seal-check` validates the authority; counters are the last daemon run's, from metrics/latency.json (persisted 11s ago), and LOUD.log keeps every occurrence"
+        },
+        {
+          "id": "assertions.last",
+          "status": "ok",
+          "observed": "no failed assertion recorded",
+          "detail": "0 assertion result(s) persisted from the last session"
+        }
+      ]
+    },
+    {
+      "id": "retrieval",
+      "title": "retrieval gaps",
+      "rows": [
+        {
+          "id": "store.open",
+          "status": "ok",
+          "observed": "149 object(s), 47 tool use(s), 12 file(s), 8 segment(s)",
+          "detail": "counts are observations of what is stored, not a verdict about efficiency or health"
+        },
+        {
+          "id": "checkpoint.latest",
+          "status": "ok",
+          "observed": "0007 of 7 resolves",
+          "detail": "the artifact re-hashes to the digest checkpoints/MANIFEST.jsonl recorded"
+        },
+        {
+          "id": "mcp.tools",
+          "status": "ok",
+          "observed": "8 tool(s): recall, expand, re_read, already_tried, record_eliminated, timeline, why, dropped",
+          "detail": "declared by internal/mcp and byte-compared against plugin/ by devtool plugin-validate"
+        },
+        {
+          "id": "integrity",
+          "status": "unknown",
+          "observed": "not checked here",
+          "detail": "run `qompack fsck` for identities, references, manifests, delta bases and roots"
+        }
+      ]
+    },
+    {
+      "id": "status",
+      "title": "agreement with qompack status",
+      "rows": [
+        {
+          "id": "status.primary",
+          "status": "ok",
+          "observed": "disk",
+          "detail": "availability available (daemon: no daemon answered: none is listening for this project, and this command does not start one; the next session start in this project starts one); doctor never SPAWNS a daemon (it strips Self before building the client), so it agrees with `qompack status` for the disk and probe sources and for a daemon that is already running — a `status` run that lazily spawns one can report source=daemon where this row reports disk"
+        },
+        {
+          "id": "status.mode",
+          "status": "unknown",
+          "observed": "unknown",
+          "detail": "the same snapshot `qompack status` renders, collected through the same sources"
+        },
+        {
+          "id": "status.schema",
+          "status": "ok",
+          "observed": "1",
+          "detail": "commands.StatusSchema, so a reader of both documents compares one number"
+        },
+        {
+          "id": "status.hotPath",
+          "status": "unknown",
+          "observed": "unknown",
+          "detail": "no running daemon reported its hot-path submode"
+        }
+      ]
+    }
+  ],
+  "exit": 0
+}
