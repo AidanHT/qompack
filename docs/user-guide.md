@@ -239,6 +239,19 @@ arm — the verdict is `inconclusive` even when a passing replay is read beside 
 `qompack eval` does; a constraint regression still fails the run. A metric with no declared
 threshold is printed and explicitly **not judged**, and cost never contributes to the verdict.
 
+Release 0.3.0's confirmatory live evaluation ran on release candidate 8's frozen bundle (run
+`20261007T184908Z-abe10e`, V6 close-out decision D77). Its pre-registered decision on task success
+reads:
+
+> inconclusive — interval [-0.214, 0.214] straddles -0.200
+
+With equal arms below 95 % success, inconclusive is the expected verdict at this sample size, by
+design. It is not evidence that Qompack adds nothing
+(`plans/sdd/V6-closeout/eval/preregistration.md`, amendment A8, item 3). Its recovery outcome reads
+"recovery advantage not shown". No page of these docs claims that Qompack improves recovery, task
+success or constraint retention (amendment A8, item 2). The
+[release notes](release-notes/v0.3.0.md) give the run's figures.
+
 ## MCP tools
 
 Qompack exposes eight tools over MCP, on stdio, from `qompack mcp`. The inventory and every
