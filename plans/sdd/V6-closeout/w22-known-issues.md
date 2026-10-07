@@ -112,3 +112,15 @@ re-check add is appended here first.
 - ci.yml's reconciliation prints only the tail of a crashed test binary's output and uploads no test JSON,
   so a crash's cause line is lost (D75(c)). After the release: keep the head too, and upload test.json on
   failure.
+
+## Added by candidate 8's live re-check (D76)
+
+17. **/qompack:status names a 'last decision' it does not show.** The command's description (and the
+    generated docs/commands.md) list 'last decision', but neither the status page nor `status --json`
+    carries one. `/qompack:why <decision-id>` explains a recorded decision. (F-C8-C45-1, D76(b).)
+18. **A session end sweeps an unindexed object the startup accounting reported.** After a crash that left
+    an object written but not indexed, the next session end's garbage collection deletes that object
+    before an operator can audit it. No capture content is lost (the capture keeps its bytes inline), and
+    `qompack fsck` still names the gap. (F-C8-C16-1, D76(c).)
+- Diagnostic only: checkpoint.decision_read_error counts a by-design read of an elimination node's empty
+  root, so it reads above 0 on healthy stores (D76(d)). After the release: skip those nodes.
