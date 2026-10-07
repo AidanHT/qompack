@@ -1,0 +1,143 @@
+{
+ "initialize": {
+  "serverInfo": {
+   "name": "qompack",
+   "version": "0.3.0"
+  },
+  "protocolVersion": "2025-06-18"
+ },
+ "calls": [
+  {
+   "tool": "expand",
+   "args": {
+    "hash": "sha256:748125c3cecf07e934669f667f8c9024f3725bc9e17f9b138036bf3b25bbe395"
+   },
+   "jsonrpc_line_bytes": 918,
+   "isError": false,
+   "error": null,
+   "text_bytes": 480,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 20,
+     "ephemeral": true,
+     "expansions": 2,
+     "hash": "sha256:826c8b838442f9d9432e6f49582aa2f4db3b09274aae6516eb42ba75771fe080",
+     "promoted": true,
+     "span": [
+      0,
+      249
+     ],
+     "tool_use_id": "qompack-mcp:722f139d8c1a",
+     "total_bytes": 249,
+     "truncated": false,
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "found": true,
+     "hash": "sha256:748125c3cecf07e934669f667f8c9024f3725bc9e17f9b138036bf3b25bbe395",
+     "span": [
+      0,
+      249
+     ],
+     "total_bytes": 249,
+     "truncated": false,
+     "widened": false,
+     "expansions": 2,
+     "promoted": true,
+     "content": "{\"type\":\"text\",\"file\":{\"filePath\":\"<tmp>\",\"content\":\"# Notes\\n\\nThe project codename is SABLE-HERON-73.\\nThe release train leaves on Thursdays.\\nOur build uses the sentinel phrase indigo walrus cadence.\\n\",\"numLines\":6,\"startLine\":1,\"totalLines\":6}}"
+    }
+   ]
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "hash": "sha256:38b71119c76a348a1b5879477c3b454ae946ff7304b59abec96ce85b907b1027"
+   },
+   "jsonrpc_line_bytes": 10734,
+   "isError": false,
+   "error": null,
+   "text_bytes": 10200,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 22,
+     "ephemeral": true,
+     "expansions": 2,
+     "hash": "sha256:420245992fab4f004a8a181d88c7276d84c656b16763e10fe5e6a3976fba239c",
+     "next_span": "9909:16384",
+     "promoted": true,
+     "span": [
+      0,
+      9909
+     ],
+     "tool_use_id": "qompack-mcp:67666446f6a3",
+     "total_bytes": 312302,
+     "truncated": true,
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "found": true,
+     "hash": "sha256:38b71119c76a348a1b5879477c3b454ae946ff7304b59abec96ce85b907b1027",
+     "span": [
+      0,
+      9909
+     ],
+     "total_bytes": 312302,
+     "truncated": true,
+     "next_span": "9909:16384",
+     "widened": false,
+     "expansions": 2,
+     "promoted": true,
+     "content": "{\"type\":\"text\",\"file\":{\"filePath\":\"<tmp>\",\"content\":\"LINE-0001 event=sync status=ok shard=001 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nLINE-0002 event=sync sta...[9909 chars total]"
+    }
+   ]
+  },
+  {
+   "tool": "expand",
+   "args": {
+    "hash": "sha256:bcb017e830d60dbd712fba343ff0ee31b6e0772a0d9dd3534b3c40f413bb70d1"
+   },
+   "jsonrpc_line_bytes": 906,
+   "isError": false,
+   "error": null,
+   "text_bytes": 472,
+   "result_meta": {
+    "qompack": {
+     "elapsed_ms": 19,
+     "ephemeral": true,
+     "expansions": 2,
+     "hash": "sha256:14a156c9a9fe841f4f29634f99658dd83da6e31dbb2f2ea33682a781dad5143b",
+     "promoted": true,
+     "span": [
+      0,
+      243
+     ],
+     "tool_use_id": "qompack-mcp:627a499fe4f9",
+     "total_bytes": 243,
+     "truncated": false,
+     "untrusted": true
+    }
+   },
+   "json": [
+    {
+     "found": true,
+     "hash": "sha256:bcb017e830d60dbd712fba343ff0ee31b6e0772a0d9dd3534b3c40f413bb70d1",
+     "span": [
+      0,
+      243
+     ],
+     "total_bytes": 243,
+     "truncated": false,
+     "widened": false,
+     "expansions": 2,
+     "promoted": true,
+     "content": "{\"file\":{\"content\":\"# service credentials (fake, planted for the run)\\naws_access_key_id = «redacted:aws_access_key_id»\\ngithub_token = «redacted:github_token»\\n\",\"filePath\":\"<tmp>\",\"numLines\":4,\"startLine\":1,\"totalLines\":4},\"type\":\"text\"}"
+    }
+   ]
+  }
+ ],
+ "stderr_tail": ""
+}

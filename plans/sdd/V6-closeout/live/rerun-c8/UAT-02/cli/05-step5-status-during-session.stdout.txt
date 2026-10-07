@@ -1,0 +1,68 @@
+qompack status — collected 2026-10-07T16:49:30Z
+
+source: daemon (available, 0µs old)
+
+host contract: 9 assertion(s), none failing: 3 holding, 1 pending, 5 with nothing to judge
+  pending: transcript.readable (transcript-pending)
+
+mode:        full
+hot path:    sync
+sessions:    1
+spool files: 1
+
+counters
+  daemon.publication.unindexed_object_candidates 0
+  daemon.publication.unpublished_captures  0
+  l0_spool_watch_drains                    1
+  observer.tombstone                       5
+  sched.pselection.enabled                 1
+  store.publication.sync                   18
+  store.publication.sync.dir               248
+  store.publication.sync.file              146
+
+hooks — per-entry-point latency
+  EVENT              SUBCOMMAND                       BUDGET  LATENCY
+  PostToolUse        qompack observe tool             B-A     unavailable
+                       no per-hook instrument: PostToolUse is folded into the hook_controlled aggregate,
+                       which mixes every delivering hook and cannot be attributed to one
+  UserPromptSubmit   qompack observe prompt           B-A     unavailable
+                       no per-hook instrument: UserPromptSubmit is folded into the hook_controlled
+                       aggregate, which mixes every delivering hook and cannot be attributed to one
+  SessionStart       qompack session-start            B-A     unavailable
+                       no per-hook instrument: SessionStart is folded into the hook_controlled aggregate,
+                       which mixes every delivering hook and cannot be attributed to one
+  PreCompact         qompack checkpoint               B-E     unavailable
+                       checkpoint_finalize: no samples recorded in the observed window
+  Stop               qompack observe stop             B-A     unavailable
+                       no per-hook instrument: Stop is folded into the hook_controlled aggregate, which
+                       mixes every delivering hook and cannot be attributed to one
+  SubagentStop       qompack observe stop --subagent  B-A     unavailable
+                       no per-hook instrument: SubagentStop is folded into the hook_controlled aggregate,
+                       which mixes every delivering hook and cannot be attributed to one
+  SessionEnd         qompack flush                    B-A     unavailable
+                       no per-hook instrument: SessionEnd is folded into the hook_controlled aggregate,
+                       which mixes every delivering hook and cannot be attributed to one
+
+budgets — §2.4
+  ID    HISTOGRAM             MEASURE     LATENCY
+  B-A   hook_controlled       estimated   p50 30.72ms  p95 180.00ms  p99 180.00ms  max 180.00ms  n=13  (estimated from daemon, 0µs old)
+          scope: aggregate over 6 entry point(s): PostToolUse, UserPromptSubmit, SessionStart, Stop, SubagentStop, SessionEnd
+  B-B   l0_ingest             observed    p50 24.58ms  p95 175.06ms  p99 175.06ms  max 175.06ms  n=13  (observed from daemon, 0µs old)
+          scope: aggregate; not attributable to a single hook entry point
+  B-C   l0_process            observed    p50 114.69ms  p95 742.84ms  p99 742.84ms  max 742.84ms  n=13  (observed from daemon, 0µs old)
+          scope: aggregate; not attributable to a single hook entry point
+          reported only, never gated
+  B-D   hook_wall             —           unavailable
+          scope: aggregate; not attributable to a single hook entry point
+          reported only, never gated
+          no instrument records this histogram in this build
+          it measures host process creation, which the created process cannot observe
+  B-E   checkpoint_finalize   —           unavailable
+          checkpoint_finalize: no samples recorded in the observed window
+  B-F   mcp_tool_call         —           unavailable
+          scope: aggregate; not attributable to a single hook entry point
+          mcp_tool_call: no samples recorded in the observed window
+  B-G   hook_degraded         —           unavailable
+          scope: aggregate; not attributable to a single hook entry point
+          reported only, never gated
+          hook_degraded: no samples recorded in the observed window

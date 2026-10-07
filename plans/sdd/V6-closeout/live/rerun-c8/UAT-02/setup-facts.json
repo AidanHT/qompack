@@ -1,0 +1,49 @@
+{
+ "files": {
+  "README.md": {
+   "bytes": 90,
+   "sha256": "c9c6169618da53783264ea56a53a30bd8f9587186d3b2d226640cd9e7b20a509"
+  },
+  "big.log": {
+   "bytes": 310800,
+   "sha256": "82d09adaadb41486c1825ae8a59b2d7184051af3fb8c6598e20c7db47d56c55e"
+  },
+  "blob.bin": {
+   "bytes": 3064,
+   "sha256": "8369550db73e7c6fa79e488bbc0113a8fca4650843b3169bf2fefb035e6ce507"
+  },
+  "config.ini": {
+   "bytes": 34,
+   "sha256": "1eabc94e48fa17064ab85496e7c008dcc67d09427de8f99c219fabd03a934f84"
+  },
+  "creds.txt": {
+   "bytes": 147,
+   "sha256": "f8d9741347104c56f4d5f54654a378678f50546470eefcc4aab9a733a50d2e67"
+  },
+  "logo.png": {
+   "bytes": 98,
+   "sha256": "704f6db12023053c2fdf542404a70965cbb8199c71e9b1e5eb4b9997de4a0879"
+  },
+  "notes.md": {
+   "bytes": 146,
+   "sha256": "553ac5e129c3a6cd3f343eba1fb8877298f5a7ced2ef2ba13cf8660c86c25f1c"
+  }
+ },
+ "config": "defaults: no config file (runtime.redact.enabled true, runtime.mode auto); QOMPACK_HOME=<scratch>/carried/qhome only; default idle exit",
+ "big.log_vs_maxResponseBytes": "big.log > runtime.mcp.maxResponseBytes 262144",
+ "secrets": [
+  {
+   "placeholder": "@@SEC_PLANTED_1@@",
+   "shape": "aws_access_key_id (AKIA+16)",
+   "chars": 20,
+   "sha256": "a3ec7f2dd6186b3dbbce698d71c8dab471f7c40536d6d8b8890ee025f834cd5e"
+  },
+  {
+   "placeholder": "@@SEC_PLANTED_2@@",
+   "shape": "github_token (ghp_+36)",
+   "chars": 40,
+   "sha256": "9bc554b39e61a246e618633f1d4ff8c1ef341b05964a92930352d1d6253140fc"
+  }
+ ],
+ "note": "creds.txt sha256 covers the planted literals; the literals live only in <scratch>/carried/secrets.json"
+}

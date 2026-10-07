@@ -1,0 +1,5 @@
+{"v":1,"op":"open","id":1,"s":"d9d2442d-1a06-41ee-a49d-bf5d817fc1ff","st":0,"sts":1791391744912}
+{"v":1,"op":"close","id":1,"et":15,"ets":1791391803938,"tok":100182,"feat":{"gap_seconds":0,"lexical_cohesion":0,"path_jaccard":0,"prob_changepoint":0.0000032874666093443076,"todo_transition":0,"tool_shift":0}}
+{"v":1,"op":"open","id":2,"s":"d9d2442d-1a06-41ee-a49d-bf5d817fc1ff","st":16,"sts":1791391803940}
+{"v":1,"op":"encode","id":1,"seq":1,"ts":1791391804004}
+{"v":1,"op":"close","id":2,"et":22,"ets":1791391833860,"tok":123,"feat":{"gap_seconds":0.347,"lexical_cohesion":0.1622523458943782,"path_jaccard":0,"todo_transition":0,"tool_shift":0.25}}
