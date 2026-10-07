@@ -1,0 +1,56 @@
+{
+ "denied_files": {
+  "private/deny.txt": [
+   {
+    "tool_use_id": "toolu_01MCETZdZ2EkvYbHtFNz3aRF",
+    "is_error": true,
+    "in_permission_denials": true,
+    "refused": true,
+    "result_head": "<tool_use_error>File is in a directory that is denied by your permission settings.</tool_use_error>"
+   }
+  ],
+  "private/k=v.txt": [
+   {
+    "tool_use_id": "toolu_011XXFjrKa61d3n7oyAZa1pV",
+    "is_error": true,
+    "in_permission_denials": true,
+    "refused": true,
+    "result_head": "<tool_use_error>File is in a directory that is denied by your permission settings.</tool_use_error>"
+   }
+  ],
+  "notes-b.md": [
+   {
+    "tool_use_id": "toolu_01GDXVdb9raRE4HzXpFYCYZC",
+    "is_error": true,
+    "in_permission_denials": true,
+    "refused": true,
+    "result_head": "<tool_use_error>File is in a directory that is denied by your permission settings.</tool_use_error>"
+   }
+  ]
+ },
+ "permission_denials": [
+  {
+   "tool_name": "Read",
+   "tool_use_id": "toolu_01MCETZdZ2EkvYbHtFNz3aRF",
+   "tool_input": {
+    "file_path": "<scratch>\\retrieval\\c8\\uat12 space\\proj\\private\\deny.txt"
+   }
+  },
+  {
+   "tool_name": "Read",
+   "tool_use_id": "toolu_011XXFjrKa61d3n7oyAZa1pV",
+   "tool_input": {
+    "file_path": "<scratch>\\retrieval\\c8\\uat12 space\\proj\\private\\k=v.txt"
+   }
+  },
+  {
+   "tool_name": "Read",
+   "tool_use_id": "toolu_01GDXVdb9raRE4HzXpFYCYZC",
+   "tool_input": {
+    "file_path": "<scratch>\\retrieval\\c8\\uat12 space\\proj\\notes-b.md"
+   }
+  }
+ ],
+ "proven": true,
+ "content_returned_for": []
+}

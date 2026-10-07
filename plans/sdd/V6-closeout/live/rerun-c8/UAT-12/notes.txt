@@ -1,0 +1,181 @@
+UAT-12 - candidate 8 live re-check, retrieval part (decisions D58-D67): steps 1-5 and 8 WITHOUT the upgrade leg,
+with the D50/D60(c)/D61(b)/D63/D64 section-6 checks the brief names; also the evidence for C4.6 (../C4.6/notes.txt).
+The upgrade leg (steps 6, 7, 9, 10) was not re-run on candidate 8 (D59: only sessions A and B are re-run); its
+candidate 7 result is in ../../rerun-c7/UAT-12/notes.txt. Agent-executed on the owner's real host per owner
+decision D3 by a Claude Code workflow subagent (Opus 5.5) - not human UAT.
+
+Build: qompack version 0.3.0, frozen bundle qompack-bundles/c8/qompack-plugin-0.3.0-windows-amd64 (BUNDLE.json sha256
+61ba9c37dda03c14c44acb6824646a8d7410751bba6f1ce3c5c864d6382dcd8b, bin/qompack.exe sha256 93eb09f3...81a9), commit
+3ec62ad2e01b985640c0f1fb832df3917f766a5f, Windows 11 Home build 10.0.26200.9457, Claude Code 2.1.280, --plugin-dir the
+frozen bundle, claude-haiku-4-5-20251001. Date 2026-10-07 12:24-12:36 America/Toronto. Sessions retrieval-c8 n=1
+(sessionA, id d10f2a9f, 14 turns, 153 s) and n=2 (sessionB, id 1f321f2c, 15 turns, 189 s), both exit 0, both with
+"secrets_file". No spare session was used.
+
+SETUP (setup-facts.json, settings/): disposable project "<scratch>/retrieval/c8/uat12 space/proj" (the scratch directory
+name holds a space; git init + two commits so `git diff HEAD~1` works): README.md (code word OSPREY-61), calc.py,
+notes-a/b/c.md (shared marker LUPINE-7731), big.log 317,200 B / 1,300 escape-heavy lines (stored 354,373 B as the
+host's JSON delivery), blob.bin 3,000 random bytes, pixel.png 24x24, deploy_notes.md with two planted credential-shaped
+strings (@@SEC_PLANTED_1@@ aws_access_key_id shape, @@SEC_PLANTED_2@@ ghp_ token shape; built at run time from split
+parts and fresh random characters; literal list only in <scratch>/retrieval/secrets.json; sha256 in setup-facts.json),
+and five deny-ruled files whose names hold every punctuation D60(c)(2) lists: private/deny.txt, private/deny (1).txt,
+private/John's notes.txt, private/a,b.txt, private/k=v.txt (each with its own ORCHID-* marker and a fictional salary
+table). Out-of-project file "<scratch>/retrieval/c8/uat12 space/outside/outside.txt". Project .claude/settings.json
+(untracked), written BEFORE session A: one exact rule per file, Read(./private/deny.txt), Read(./private/deny (1).txt),
+Read(./private/John's notes.txt), Read(./private/a,b.txt), Read(./private/k=v.txt), plus Read(./private/draft-plan.txt)
+for a file the model was to create. Config defaults (runtime.redact.enabled true, runtime.mcp.maxResponseBytes 262144,
+retention default; no config file). Env: QOMPACK_HOME=<scratch>/retrieval/c8/qhome (never created),
+QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS=30; host-only CLAUDE_CODE_FILE_READ_MAX_OUTPUT_TOKENS, MAX_MCP_OUTPUT_TOKENS,
+BASH_MAX_OUTPUT_LENGTH=150000. allowedTools: Read, Glob, Grep, Write, Bash(cat|ls|wc|grep|git|cd|echo|head:*), the
+eight MCP tools and the six commands' Bash(qompack <cmd>:*) rules.
+
+DENY RULES IN EFFECT (D50, D60(c)): session A's FIRST turn read all five denied files; the host refused every one
+("File is in a directory that is denied by your permission settings.", each in the result event's permission_denials;
+sessionA/proofcheck.json, written by a before-step that would have stopped the session had any Read returned content).
+The rules, including the four punctuated names, were in effect from the first tool call; no settings file was ignored.
+
+STEP 1: initial absence recorded (cli/00: backup create exit 1 "source project has no existing store"). After session
+A and its daemon's idle exit: backup create --id uat12-c8-baseline exit 0 (235 files, consistent true, frontier 0),
+backup verify exit 0 (scratch restore OpenedOK, 76 content roots, 71 tool refs, 0 tombstoned, integrity incl. the seal
+check) (cli/01, cli/02).
+
+SESSION A (sessionA/, tool-calls.txt): permitted Reads (README, calc.py, notes-a/b/c, big.log whole, pixel.png,
+deploy_notes.md), Bash `cat blob.bin`, Read of the out-of-project file (allowed by the host, hook fired, NOT captured:
+no tool_use record names it). Host behaviour around the denied files, recorded (Claude Code 2.1.280):
+ - Write private/draft-plan.txt -> refused by the host: "File is covered by a Read deny rule in your permission settings
+   and cannot be written." (so no denied file was ever captured; see the between-sessions step below);
+ - Glob private/* and **/*.txt -> "No files found" (the host hides denied files from Glob);
+ - Grep path "private/John's notes.txt" -> "Permission to read ... has been denied.";
+ - Bash `wc -c "private/deny (1).txt"`, `ls -l private/a,b.txt private/k=v.txt`, `wc -c "<root>/private/deny.txt"`
+   -> "Permission to use Bash with command ... has been denied."; Bash naming the outside file (absolute or ../) ->
+   denied in dontAsk mode. Allowed and captured: `ls -l private/`, `git log --oneline -- "private/John's notes.txt"`,
+   `git diff HEAD~1 --stat`, `cd "<root>" && git status --short`, `ls -l "<root>/notes-a.md"`,
+   `git log --pretty=format:%h -3`, `echo "reviewed John's notes.txt, a,b.txt and k=v.txt today"`, `ls private/*.txt`,
+   `head -n 2 README.md`.
+ - MCP recall with a path: selector naming each denied file, a basename selector (path:deny.txt), a glob
+   (path:private/*.txt) and free text naming three of them; re_read of private/deny.txt, private/John's notes.txt,
+   private/draft-plan.txt and the absolute <root>/private/a,b.txt -> each {"found":false,"denied":true,"reason":
+   "authorization denied: the host's current permission rules deny reading the associated path"}; re_read of the
+   in-project absolute <root>/notes-a.md -> found (project-relative path "notes-a.md").
+ - /compact: checkpoint 0001; SessionStart:compact injected the block (9,035 chars, sessionA/injected-2-...txt);
+   arrival delta 87 ms (measured). The model then answered OSPREY-61.
+
+BETWEEN SESSIONS A AND B (between-A-and-B.txt, settings/): because the host refuses to Read or Write a denied file, no
+checkpoint drop could name one. To reach D60 ruling (iii) a seventh rule, Read(./notes-b.md), was appended for a file
+session A HAD captured, and notes-b.md was made dirty against git's index (one uncommitted line appended, 81 -> 170 B).
+Session B's first turn proved the changed file in effect (Reads of private/deny.txt, private/k=v.txt and notes-b.md all
+refused; sessionB/proofcheck.json).
+
+SESSION B (sessionB/):
+ STEP 2: host Reads refused as above. recall "ORCHID-DENY-8842": 3 hits (session A's SubagentStop capture holding the
+   model's quote of a recall query/result, and two user prompts), "denied":3; recall path:private/deny.txt 0 hits
+   "denied":1; path:notes-b.md 0 hits "denied":1; expand tool_use_id and expand hash of session A's notes-b.md capture,
+   re_read notes-b.md, private/draft-plan.txt and private/deny (1).txt -> each the denied answer above, no preview;
+   expand of the refused Read's id -> {"found":false,"searched":"tool_use index"}; /qompack:recall ORCHID-DENY-8842 (the
+   host ran `qompack recall` from the plugin's bin/ on PATH) -> the same three non-file hits, "denied":6. Out-of-project:
+   re_read absolute and ../ -> tool error "path escapes the project root" (path not echoed); expand of the outside
+   Read's id -> searched, not found. No response carried any denied file's text (0 occurrences of ORCHID-PAREN/APOS/
+   COMMA/EQ, "salary", "band-A", "PRIVATE - deny" or the notes-b.md edit in either stream; the marker ORCHID-DENY-8842
+   appears only as the user's own query and its quotes).
+ STEPS 3-5 in the session: expand big.log minimal [0,6458] truncated next_span 6458:16384; full:true [0,217091]
+   truncated next_span 217091:137282; next page [217091,354373] truncated false, next_span absent; explicit span
+   0:354373 -> [0,217091] next_span 217091:137282 (same as full:true); re_read big.log full:true [0,217091] next_span
+   217091:137282. Fields: found, hash, path, tool, span, total_bytes, truncated, next_span (when truncated), widened,
+   expansions, promoted, content (re_read adds source, turn) - no fidelity or coverage field. Binary: blob expand
+   [0,2134] host-decoded text (model: not readable text), png capture the host's image JSON with base64; Qompack decodes
+   nothing (documented host behaviour, user-guide.md / cannot-do.md).
+ Recall (D49): LUPINE-7731 default k: count 5, all permitted (2 prompts, readme.md, notes-c.md, notes-a.md), "denied":1
+   apart (notes-b.md, now denied); k 20: count 10, "denied":7, the seven original captures first and the three retrieval
+   self-records (mcp__qompack__expand readme.md 0.34, mcp__plugin..re_read notes-a.md 0.29, mcp__qompack__re_read 0.29)
+   LAST although they outscore the originals (no-model probe; the session's own answer agrees).
+ /qompack:status: "host contract: 9 assertion(s), none failing: 6 holding, 1 pending, 2 with nothing to judge; pending:
+   transcript.readable (transcript-pending)" (an observation for C4.5's lane, as on candidate 7).
+ /compact: checkpoint 0003 (chain 0001 -> 0003), SessionStart:compact injected 9,211 chars, arrival delta 181 ms
+   (measured). dropped() afterwards: count 40, "denied":3, and the pointer_dirty drop for notes-b.md is LISTED, redacted:
+   {"kind":"pointer_dirty","id":"sha256:aff29963...","detail":"modified since index on master; path withheld: the host's
+   permission rules refuse it, or it is outside the project; restore: expand(hash=sha256:aff29963...)"} - D60 ruling
+   (iii) met (redacted, not removed). The model recovered OSPREY-61.
+
+SECTION 6 / 7 JUDGEMENT (sessionA/section6-check.json, sessionB/injected-2-...section6-check.json, placement-block1/2.txt
+map every tool record to its place in each block, with the store's own preview):
+ Block 1 (A): 8 file pointers shown (all permitted), 25 tool pointers: 12 shown, 13 "(summary withheld)", 13 more in
+   section 7 by id only. Block 2 (B): 7 file pointers shown, notes-b.md as "file (path withheld) sha256:aff29963..."
+   (twice), 26 tool pointers: 12 shown, 14 withheld; section 7 by id only.
+ Withheld, as required: every pointer whose summary names a denied path - re_read private/deny.txt, private/John's
+   notes.txt, private/draft-plan.txt, private/deny (1).txt, notes-b.md, the absolute <root>/private/a,b.txt; recall
+   path:private/deny (1).txt, path:private/John's notes.txt, path:private/a,b.txt, path:private/k=v.txt, path:deny.txt,
+   path:notes-b.md; the free-text recall "notes kept in John's notes.txt, a,b.txt and k=v.txt"; Bash
+   `echo "reviewed John's notes.txt, a,b.txt and k=v.txt today"`; the Glob private/* (a glob selecting denied files);
+   Bash `ls private/*.txt` (glob in free text, D64(4)/D67(l)). The legend line explains withholding once; each withheld
+   pointer keeps its id and hash.
+ Shown, as required (D63, D64(1): the root with a single ASCII space is a plain root): in-project absolute Reads
+   (<scratch>\retrieval\c8\uat12 space\proj\pixel.png, notes-a.md, notes-c.md, big.log), `ls -l "<root>/notes-a.md"`,
+   `cd "<root>" && git status --short`, `git diff HEAD~1 --stat`, `cat blob.bin`, `head -n 2 README.md`, `ls -l private/`
+   (names the directory only), Grep LUPINE-7731, recall {"k":20,"query":"LUPINE-7731"}, expand by tool_use_id or hash.
+ Leak scan over every SHOWN line of both blocks for every spelling of the denied names, the outside file and any absolute
+   or ../ path outside the root: 0 hits. Section 7: no entry shows a path (all "pointer <id> - did not fit the
+   rehydration budget", user_intent_evolution, "... call dropped()"). No absolute out-of-project path anywhere in
+   sections 6-7 (the outside Read was never captured, and the host refused the Bash forms).
+ Over-withholding seen (accepted, D66(e)): {"span":"0:354373","tool_use_id":"toolu_01Jz9..."} reads "(summary
+   withheld)"; git log --pretty=format:%h went to section 7 in both blocks, so D64(4)'s case was not displayed.
+ Section 2 carries the user's verbatim prompts naming private/deny.txt, private/k=v.txt and notes-b.md (block 2's
+   Original): outside D50 by D62(f), not a finding.
+ Coverage limit: section 6 is budgeted, so some targeted pointers went to section 7 by id only (block 2: re_read
+   private/John's notes.txt, re_read <root>/private/a,b.txt, A's recall path:private/k=v.txt, git log -- "private/John's
+   notes.txt", the echo, Glob private/*, cd <root> && git status, git diff HEAD~1); each of those was judged in block 1
+   and withheld or shown as expected there. Candidate 7's exact F1 pointer, recall {"query":"path:private/deny.txt"},
+   went to section 7 in BOTH blocks (A's toolu_01P6Be..., B's toolu_01Fwjg...), so it was not displayed here; its
+   siblings path:private/k=v.txt (B), path:deny.txt, path:private/a,b.txt, path:private/deny (1).txt, path:private/John's
+   notes.txt and path:notes-b.md were withheld, and session C judged path:private/deny.txt itself (../C4.6/notes.txt).
+
+NO-MODEL PROBE of the frozen `qompack mcp` after session B (cli/20, cli/21; result-text UTF-8 bytes, the bound
+runtime.mcp.maxResponseBytes 262,144 covers):
+ expand minimal following next_span: 18 pages, contiguous, max 30,059 B, last truncated false with no next_span.
+ expand full:true: [0,217091] 261,189 B truncated next_span 217091:137282; [217091,354373] truncated false.
+ expand span 0:354373: identical to full:true page by page (span, truncated, next_span, bytes) - D50 paging met.
+ re_read big.log full:true [0,217091] 261,197 B; re_read takes no span (documented tool error "/span: unknown
+   property"); expand(hash sha256:6df8e528..., span 217091:137282) continues it: [217091,354373] 165,200 B, not truncated.
+ Every page within the bound, truncated exactly when short of the end, next_span exactly when truncated, no U+FFFD.
+ blob 2,948 / 2,947 B, png 2,395 B; denied answers 131 B; out-of-project refusals 29 B; every denied re_read form (all
+   five punctuated names, draft-plan, notes-b, an absolute denied path) answers denied; recall path:private/* 0 hits
+   "denied":6; dropped() outside a session answers "no live session".
+
+LOUD.log: the store (two sessions, the probe's daemon, three daemon starts) has NO logs/LOUD.log, so no 'publication
+accounting incomplete' line and no LOUD line at all. Day log (store/logs_qompack-20261007.log): three warn lines
+"daemon: ending abandoned session; no SessionEnd arrived and it has been silent past the idle-exit window" (silentMs
+30,017-32,923), each during a 40 s /compact or final reply with idleExitSeconds at 30 - the documented bookkeeping case
+(troubleshooting.md "ending abandoned session", D62 sessionend), not a hook failure. Hooks: 71 + 58 pairs, all outcome
+success exit 0, measured arrival deltas at most 248 ms; stderr.txt empty in both sessions; no host-reported hook failure
+or timeout (D53(i) holds).
+
+STEP 8 (cli/30-33): every qompack.exe gone (idle exit), backup restore --id uat12-c8-baseline into the fresh recovery
+project "<scratch>/retrieval/c8/uat12 space/recovery": exit 0, reader proof OpenedOK, 76 content roots, 71 tool refs, 0
+tombstoned, same build; integrity "the chain from 0001 verifies across 1 checkpoint(s)" and "the full dual-reader seal
+check passed", 18 checks none failing. fsck --seal-check exit 0 on the recovery and on the source ("the chain from 0003
+verifies across 2 checkpoint(s)"). Source unchanged by the restore: no file of the source .qompack/ outside tmp/ (1,201
+files) and no project file has an mtime at or after the restore's start (cli/33; the planned before/after sha256
+snapshot script failed on a heredoc quoting error before the restore, so the mtime check replaces it). The source's later
+writes (session B, checkpoint 0003) are preserved. Not done: no previous-build reader (no upgrade in this leg), no
+activation of the recovery.
+
+PLANTED SECRETS (C4.6): scans (literal, JSON-escaped, base64, sha256-hex and every 10-character fragment; zstd objects
+decompressed, base64 JSON fields decoded): source .qompack 1,201 files 0 hits 0 fragments (8 redaction placeholders,
+cli/40); recovery .qompack 235 files 0 hits (cli/41); ~/.qompack (only the staged bin/<sha256>/qompack.exe) 0 hits
+(cli/42); QOMPACK_HOME never created. The only placeholders in the streams are the host's own Read result in session A.
+
+Expected-result fields, read one by one: step 2 denied, "something exists and you may not have it", no preview,
+summary or excerpt, denied not absent - MET for host Read, recall (marker, path:), expand (tool_use_id, hash), re_read
+(relative, absolute, punctuated), /qompack:recall and dropped(); steps 3-5 within 262,144, full returns the whole
+available object paged by next_span, truncated with next_span on each cut page, report fields, no fidelity/coverage
+field, binary opaque - MET; step 8 reader proof and integrity - MET; D50/D60(c)/D61(b)/D63/D64 section 6 and 7 - MET
+(no denied or outside path shown; in-project absolute paths and ordinary commands under a root with a space shown);
+D60(iii) dropped() redacts - MET; D49 recall and LOUD - MET; D50 paging - MET. No fail criterion of UAT-12 was hit.
+
+Findings: none. Observations: (O-1) host 2.1.280 refuses Write to a Read-denied path and hides denied files from Glob
+and Bash commands that name them, so in this host a denied file reaches Qompack only by a rule added after capture (as
+done here for notes-b.md); (O-2) the abandoned-session warn lines above (documented); (O-3) recall's selectors split on
+spaces, so "path:private/deny (1).txt" searched path "private/deny" with text "(1).txt" (mcp-tools.md: selectors
+combined with spaces) - 0 hits, nothing shown; (O-4) /qompack:status read 1 pending row (transcript.readable).
+
+Result (steps 1-5 and 8 with the section 6 checks): pass. Rollback verified: unverified (missing: activation of the
+recovery and any previous-build reader; this leg has no upgrade) - consistent backup with the writer stopped,
+same-build restore with reader proof, integrity and seal check, later writes preserved.

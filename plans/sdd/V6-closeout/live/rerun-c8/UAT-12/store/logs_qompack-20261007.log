@@ -1,0 +1,14 @@
+ts=2026-10-07T16:25:17.8876613Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-10-07T16:25:17.9311094Z level=info msg="observer: session registered" session=d10f2a9f-05c3-4a77-a384-ef58633b20a1 source=startup turn=0 segment=1
+ts=2026-10-07T16:25:17.9316165Z level=info msg="scheduler: session bound" session=d10f2a9f-05c3-4a77-a384-ef58633b20a1 effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+ts=2026-10-07T16:27:29.9101124Z level=warn msg="daemon: ending abandoned session; no SessionEnd arrived and it has been silent past the idle-exit window" session=d10f2a9f-05c3-4a77-a384-ef58633b20a1 silentMs=32923
+ts=2026-10-07T16:27:49.0896695Z level=info msg="observer: gc" scanned=128 deleted=0 freed=0 truncated=false
+ts=2026-10-07T16:30:00.9102487Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
+ts=2026-10-07T16:30:01.018011Z level=info msg="observer: session registered" session=1f321f2c-ef04-4382-a870-3a0818b72245 source=startup turn=0 segment=4
+ts=2026-10-07T16:30:01.018011Z level=info msg="scheduler: state from another session discarded" path="<scratch>\\retrieval\\c8\\uat12 space\\proj\\.qompack\\state\\bocd.json" file_session=d10f2a9f-05c3-4a77-a384-ef58633b20a1 session=1f321f2c-ef04-4382-a870-3a0818b72245
+ts=2026-10-07T16:30:01.0186276Z level=info msg="scheduler: state from another session discarded" path="<scratch>\\retrieval\\c8\\uat12 space\\proj\\.qompack\\state\\scheduler.json" file_session=d10f2a9f-05c3-4a77-a384-ef58633b20a1 session=1f321f2c-ef04-4382-a870-3a0818b72245
+ts=2026-10-07T16:30:01.0186276Z level=info msg="scheduler: session bound" session=1f321f2c-ef04-4382-a870-3a0818b72245 effective_window=180000 max_output=32000 window_source=1 host_trigger_absent=false regime=unknown changepoints=0
+ts=2026-10-07T16:32:18.9940867Z level=warn msg="daemon: ending abandoned session; no SessionEnd arrived and it has been silent past the idle-exit window" session=1f321f2c-ef04-4382-a870-3a0818b72245 silentMs=31483
+ts=2026-10-07T16:33:06.9943735Z level=warn msg="daemon: ending abandoned session; no SessionEnd arrived and it has been silent past the idle-exit window" session=1f321f2c-ef04-4382-a870-3a0818b72245 silentMs=30017
+ts=2026-10-07T16:33:09.2427707Z level=info msg="observer: gc" scanned=584 deleted=0 freed=0 truncated=false
+ts=2026-10-07T16:34:03.1824777Z level=info msg="scheduler: idle work registered" tasks="[act.advance_frontier precompute_slice refresh_delta rebuild_bloom compact_dag gc]" maintainer=false
