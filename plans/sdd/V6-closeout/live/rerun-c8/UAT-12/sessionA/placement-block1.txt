@@ -1,0 +1,60 @@
+# placement of every tool_use record of proj in injected-2-SessionStart-compact.txt
+S6-SHOWN     toolu_01117kUzy6Dw7qpLEj5dCbkT               FileRead               argp=<scratch>\retrieval\c8\uat12 space\proj\pixel.png
+S6-SHOWN     toolu_017PJMUajSxPBVHVSWmsVdZ1               Bash                   argp=head -n 2 README.md
+S6-SHOWN     toolu_017kd8Xa1SMsB2PPkkiG4n5T               ToolSearch             argp={"max_results":5,"query":"select:mcp__plugin_qompack_qompack__recall"}
+S6-SHOWN     toolu_0183dhqU4zTXjeSjUnrioQkN               FileRead               argp=<scratch>\retrieval\c8\uat12 space\proj\notes-c.md
+S6-SHOWN     toolu_019ggDsMiazxvcVN4e1cJ1jv               Bash                   argp=ls -l private/
+S6-SHOWN     toolu_01AxPUzQ8NPhFt1MXTEaQrXm               Bash                   argp=ls -l "<scratch>/retrieval/c8/uat12 space/proj/notes-a.md"
+S6-SHOWN     toolu_01CYfcJWw7XAS8UxvTwG94E1               Bash                   argp=cat blob.bin
+S6-SHOWN     toolu_01FWabxKPGP71jWwTnaPzXvL               Bash                   argp=git diff HEAD~1 --stat
+S6-SHOWN     toolu_01H38wbYPv1oFUHsNA1Kffwp               Bash                   argp=cd "<scratch>/retrieval/c8/uat12 space/proj" && git status --short
+S6-SHOWN     toolu_01H6oCibeK4NyXwvAHoaeYN9               Grep                   argp=LUPINE-7731
+S6-SHOWN     toolu_01Jz9hzpqxCyv2b5r5jDirG5               FileRead               argp=<scratch>\retrieval\c8\uat12 space\proj\big.log
+S6-SHOWN     toolu_01LnC3pagN5k1HkwwUMtLuq8               FileRead               argp=<scratch>\retrieval\c8\uat12 space\proj\notes-a.md
+S6-WITHHELD  toolu_011MouhmutjkkE19xnyW4ark               mcp__plugin_qompack_qompack__re_read argp=private/deny.txt
+S6-WITHHELD  toolu_011QVAc21Uwv3tKv9rgKG5UH               mcp__plugin_qompack_qompack__recall argp={"query":"path:deny.txt"}
+S6-WITHHELD  toolu_012MPZ8ED3Y32WuabfETfaAf               mcp__plugin_qompack_qompack__recall argp={"query":"path:private/John's notes.txt"}
+S6-WITHHELD  toolu_012ffPyfL2r7qDtCXmV19hjA               mcp__plugin_qompack_qompack__re_read argp=private/draft-plan.txt
+S6-WITHHELD  toolu_018yy6ffVt3AHgkH2DVqV8w4               Bash                   argp=ls private/*.txt
+S6-WITHHELD  toolu_01B5PPbS9z5SiEsRCZwW4jns               mcp__plugin_qompack_qompack__recall argp={"query":"notes kept in John's notes.txt, a,b.txt and k=v.txt"}
+S6-WITHHELD  toolu_01CVAxRumyTWWcbiwrdES3ma               mcp__plugin_qompack_qompack__recall argp={"query":"path:private/deny (1).txt"}
+S6-WITHHELD  toolu_01D3tAMPrqqtwFea3QWdfRMq               mcp__plugin_qompack_qompack__recall argp={"query":"path:private/a,b.txt"}
+S6-WITHHELD  toolu_01FFWiJ2K3vusX7dSEpRGwAY               mcp__plugin_qompack_qompack__re_read argp=private/John's notes.txt
+S6-WITHHELD  toolu_01FoxoTnvUamzLAjujfoRZP9               mcp__plugin_qompack_qompack__re_read argp=<scratch>/retrieval/c8/uat12 space/proj/private/a,b.txt
+S6-WITHHELD  toolu_01HZVwjYSbC1EyiNc416zPJT               mcp__plugin_qompack_qompack__recall argp={"query":"path:private/k=v.txt"}
+S6-WITHHELD  toolu_01MQPtZYgzZKhTYYM2PjJgcH               Glob                   argp=private/*
+S6-WITHHELD  toolu_01Mzu3h22XVZr5aJJV7TDR82               Bash                   argp=echo "reviewed John's notes.txt, a,b.txt and k=v.txt today"
+S7           toolu_01NUHPPbERCXmVnpAgxXSt39               mcp__plugin_qompack_qompack__re_read argp=<scratch>/retrieval/c8/uat12 space/proj/notes-a.md
+S7           toolu_01P6BeTK9wZDuKUa2275rVWb               mcp__plugin_qompack_qompack__recall argp={"query":"path:private/deny.txt"}
+S7           toolu_01P7jax5Jr7B1eQA3Qsi7Zua                                      argp=
+S7           toolu_01P7jax5Jr7B1eQA3Qsi7Zua               FileRead               argp=<scratch>\retrieval\c8\uat12 space\proj\README.md
+S7           toolu_01Peov3FqbGzb1bo2dpPBBfP               Bash                   argp=git log --oneline -- "private/John's notes.txt"
+S7           toolu_01Qm4KEeauQXNvsc1qXSvP6B               FileRead               argp=<scratch>\retrieval\c8\uat12 space\proj\calc.py
+S7           toolu_01Qtu9vJNhdBFQ8EXoMLGnVU               mcp__plugin_qompack_qompack__recall argp={"query":"DRAFT-WREN-55"}
+S7           toolu_01R55h5QaQzbNYLv4rA2BNQr               mcp__plugin_qompack_qompack__recall argp={"query":"ORCHID-DENY-8842"}
+S7           toolu_01SFxABSgGiQ4Dw1e1XmGyU2               FileRead               argp=<scratch>\retrieval\c8\uat12 space\proj\deploy_notes.md
+S7           toolu_01SVqe3vhqLEQhZFYYr6uvCx               Bash                   argp=git log --pretty=format:%h -3
+S7           toolu_01SZhXoenX3m9zAsuACVdAWk               FileRead               argp=<scratch>\retrieval\c8\uat12 space\proj\notes-b.md
+S7           toolu_01SkwBVSbwHApctL5Y6jnSFm               mcp__plugin_qompack_qompack__recall argp={"query":"path:private/*.txt"}
+S7           toolu_01Tdnn3S3f7b3n1AkPbv48Eh               Glob                   argp=**/*.txt
+S7           toolu_01VA6VKNoacr6cEKMNeWogvu               ToolSearch             argp={"max_results":5,"query":"select:mcp__plugin_qompack_qompack__re_read"}
+absent       qompack-mcp:206691a972c2                     mcp__qompack__recall   argp={"query":"path:private/deny.txt"}
+absent       qompack-mcp:25022016ec45                     mcp__qompack__recall   argp={"query":"path:deny.txt"}
+absent       qompack-mcp:2b0be15dc659                     mcp__qompack__recall   argp={"query":"path:private/a,b.txt"}
+absent       qompack-mcp:4261150f645d                     mcp__qompack__re_read  argp={"path":"private/draft-plan.txt"}
+absent       qompack-mcp:46e729bdb3e0                     mcp__qompack__re_read  argp={"path":"private/deny.txt"}
+absent       qompack-mcp:534d7c706385                     mcp__qompack__re_read  argp={"path":"<scratch>/retrieval/c8/uat12 space/proj/private/a,b.txt"}
+absent       qompack-mcp:5acf9dce5914                     mcp__qompack__recall   argp={"query":"notes kept in John's notes.txt, a,b.txt and k=v.txt"}
+absent       qompack-mcp:63be4ec042ca                     mcp__qompack__recall   argp={"query":"path:private/John's notes.txt"}
+absent       qompack-mcp:7ddbfb696ca4                     mcp__qompack__recall   argp={"query":"DRAFT-WREN-55"}
+absent       qompack-mcp:860d19666b55                     mcp__qompack__recall   argp={"query":"path:private/*.txt"}
+absent       qompack-mcp:8b5c79537196                     mcp__qompack__re_read  argp={"path":"private/John's notes.txt"}
+absent       qompack-mcp:b65c6b6cc3de                     mcp__qompack__recall   argp={"query":"path:private/deny (1).txt"}
+absent       qompack-mcp:b6ee5c2b64f9                     mcp__qompack__recall   argp={"query":"path:private/k=v.txt"}
+absent       qompack-mcp:d9229f1d14c0                     mcp__qompack__re_read  argp={"path":"<scratch>/retrieval/c8/uat12 space/proj/notes-a.md"}
+absent       qompack-mcp:f9fe0b29706c                     mcp__qompack__recall   argp={"query":"code word"}
+absent       qompack-mcp:ff5b0dfaf70c                     mcp__qompack__recall   argp={"query":"ORCHID-DENY-8842"}
+absent       subagent_d10f2a9f-05c3-4a77-a384-ef58633b20a1_24 SubagentStop           argp={"agent":"subagent","summary":"**Query \"ORCHID-DENY-8842\":** {\"hits\":[{\"hash\":\"sha256:07eff3b5dc8f963a7b7cbc13…
+absent       toolu_017cvoEEpPdUz4Nw4ZzZ8rxR               ToolSearch             argp={"max_results":1,"query":"select:mcp__plugin_qompack_qompack__recall"}
+absent       toolu_01L7Hcz8dpvqYJMX5kicRowA               FileRead               argp=<scratch>\retrieval\c8\uat12 space\proj\README.md
+absent       toolu_01QaXRm4TyvHhqo3QiwvoKjs               mcp__plugin_qompack_qompack__recall argp={"query":"code word"}

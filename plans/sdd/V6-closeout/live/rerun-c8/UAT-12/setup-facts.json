@@ -1,0 +1,111 @@
+{
+ "files": {
+  "README.md": {
+   "bytes": 147,
+   "sha256": "971bb99f7414b16122c027e213aa0f5105477066a772e04e98867515c360b1f6"
+  },
+  "big.log": {
+   "bytes": 317200,
+   "sha256": "119419e5c844a8a9d3a5fc97f214580e12158d9ea68facb1b23cf9bdf705e960"
+  },
+  "blob.bin": {
+   "bytes": 3000,
+   "sha256": "50c91d34282fd3d7ad9d4784c9473b3c78a565d413fe0b58c636fea8d4a050b8"
+  },
+  "calc.py": {
+   "bytes": 99,
+   "sha256": "2364f9860657b47c00d4efdb258b26a50285029abd65299340d5026f2bf7fd09"
+  },
+  "deploy_notes.md": {
+   "bytes": 218,
+   "sha256": "5ce4aa29a889ee41986360cc1288e28d0e9398105a561c54ca2bb8bdb14beeb8"
+  },
+  "notes-a.md": {
+   "bytes": 82,
+   "sha256": "8783d5ff7cb5a4e1bf46a7f9ddcfe3f9c23a3e31eceaaa04b3cfb1766c4e7ccd"
+  },
+  "notes-b.md": {
+   "bytes": 81,
+   "sha256": "d65eb33909afee5c0547ff8ea76b1200bdc7d4e771e5bc56753b88db0da9142b"
+  },
+  "notes-c.md": {
+   "bytes": 126,
+   "sha256": "ed2c439c6949b551e72aaa077141522adf62548a330d28cf7a2869548538b3a1"
+  },
+  "pixel.png": {
+   "bytes": 1467,
+   "sha256": "97da97e68d3dc5244ea5f30fd0b6f841896fa4d7fdcfde983eed8f30bed2632a"
+  },
+  ".claude/settings.json": {
+   "bytes": 242,
+   "sha256": "ce8c76ba4f236d68439f82605b51c5259c087460846c4a95363c01ea26ab7d45"
+  },
+  "private/John's notes.txt": {
+   "bytes": 207,
+   "sha256": "012299ff6bfbeb47bf9a1f372d56b804bca7761f54ff7b74154a63621b40cf8a"
+  },
+  "private/a,b.txt": {
+   "bytes": 199,
+   "sha256": "ce6c2ffb7aab44d12a830a7848b88c7fdae856a95df3c026cc8255f0ef35ca5c"
+  },
+  "private/deny (1).txt": {
+   "bytes": 204,
+   "sha256": "e393e60eda2ac8ca974bb7f9754327cd466af5847528b270c2615e1a5caf0ec3"
+  },
+  "private/deny.txt": {
+   "bytes": 199,
+   "sha256": "38d903d42b6d4ff305a1488095cd965746c28be06c8a9c0894f097218ad3f3cc"
+  },
+  "private/k=v.txt": {
+   "bytes": 196,
+   "sha256": "283f32817817a3fdb3539c29329475c153777dcd327c55a20b1a6c31675f3223"
+  }
+ },
+ "project": "<scratch>/retrieval/c8/uat12 space/proj (git init + two commits; the scratch directory name holds a space)",
+ "outside": {
+  "<scratch>/retrieval/c8/uat12 space/outside/outside.txt": 53
+ },
+ "big_log_lines": 1300,
+ "denied_files": [
+  "private/deny.txt",
+  "private/deny (1).txt",
+  "private/John's notes.txt",
+  "private/a,b.txt",
+  "private/k=v.txt"
+ ],
+ "denied_markers": {
+  "private/deny.txt": "ORCHID-DENY-8842",
+  "private/deny (1).txt": "ORCHID-PAREN-3311",
+  "private/John's notes.txt": "ORCHID-APOS-4471",
+  "private/a,b.txt": "ORCHID-COMMA-5521",
+  "private/k=v.txt": "ORCHID-EQ-6631"
+ },
+ "written_denied": "private/draft-plan.txt (absent at setup; Read-denied; created by the model's Write in session A, so a checkpoint file pointer names a denied path)",
+ "deny_settings": "project .claude/settings.json (untracked), written before session A",
+ "deny_rules": [
+  "Read(./private/deny.txt)",
+  "Read(./private/deny (1).txt)",
+  "Read(./private/John's notes.txt)",
+  "Read(./private/a,b.txt)",
+  "Read(./private/k=v.txt)",
+  "Read(./private/draft-plan.txt)"
+ ],
+ "planted_secrets": [
+  {
+   "placeholder": "@@SEC_PLANTED_1@@",
+   "shape": "aws_access_key_id (AKIA + 16)",
+   "chars": 20,
+   "sha256": "e589b9e9020275374d1979be62a43545cdec5a4e2ea2c80533a7848e1dc9ba90",
+   "file": "deploy_notes.md"
+  },
+  {
+   "placeholder": "@@SEC_PLANTED_2@@",
+   "shape": "github token (ghp_ + 36)",
+   "chars": 40,
+   "sha256": "927f8c32befff32fbf5a0e1c01012c5b95c35d69ad16b976c50e9271314213ed",
+   "file": "deploy_notes.md"
+  }
+ ],
+ "config": "defaults, no config file: runtime.redact.enabled true, runtime.mcp.maxResponseBytes 262144, store.retention.* default",
+ "env": "sessions and CLI: QOMPACK_HOME=<scratch>/retrieval/c8/qhome, QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS=30, CLAUDE_CODE_FILE_READ_MAX_OUTPUT_TOKENS/MAX_MCP_OUTPUT_TOKENS/BASH_MAX_OUTPUT_LENGTH=150000 (host only)"
+}
