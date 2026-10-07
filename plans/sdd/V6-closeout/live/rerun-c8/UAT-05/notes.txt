@@ -99,3 +99,7 @@ idle exit; the after-idle check is appended below when it has run.
 
 Rollback verified: not applicable — initial state absent (recorded); the run is retained as evidence; no backup or
 restore was run in this row.
+
+After the DEFAULT idle exit (run2-after-idle-exit.txt): daemon pid 21744 was gone at 11:21:06 EDT, about 1,800 s
+after the session ended at 10:50:52, with no termination; its lock was released. cli/z-fsck-json-after-idle-exit and
+-seal-check: exit 0, 18/18 checks ok.

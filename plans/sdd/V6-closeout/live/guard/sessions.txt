@@ -466,3 +466,35 @@ same  plugins/data/ (2 entries)
 INFO  .qompack/ gained ['bin/', 'bin/93eb09f348774fbf2783bd607a3af41622976b2edad42798b437091eace381a9/'] (run-created; record, remove only if yours)
 real home fingerprint unchanged
 check exit 0
+== after sessions-c8 n=7 (F-C48-1 + UAT-09 O-1; UAT-04 n=6 still running in parallel) — 2026-10-07 11:11:13 Eastern Daylight Time
+removed run-created empty plugins/data/qompack-inline/
+same  settings.json e15855d7e46a
+same  plugins/installed_plugins.json 728f75591291
+same  plugins/known_marketplaces.json 1b1eda7e17f0
+same  plugins/cache/ (10 entries)
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+INFO  .qompack/ gained ['bin/', 'bin/93eb09f348774fbf2783bd607a3af41622976b2edad42798b437091eace381a9/'] (run-created; record, remove only if yours)
+real home fingerprint unchanged
+check exit 0
+== after sessions-c8 n=6 (UAT-04) — 2026-10-07 11:15:21 Eastern Daylight Time
+removed run-created empty plugins/data/qompack-inline/
+same  settings.json e15855d7e46a
+same  plugins/installed_plugins.json 728f75591291
+same  plugins/known_marketplaces.json 1b1eda7e17f0
+same  plugins/cache/ (10 entries)
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+INFO  .qompack/ gained ['bin/', 'bin/93eb09f348774fbf2783bd607a3af41622976b2edad42798b437091eace381a9/'] (run-created; record, remove only if yours)
+real home fingerprint unchanged
+check exit 0
+== after the UAT-05 daemon's idle exit (no session) — 2026-10-07 11:21:16 Eastern Daylight Time
+same  settings.json e15855d7e46a
+same  plugins/installed_plugins.json 728f75591291
+same  plugins/known_marketplaces.json 1b1eda7e17f0
+same  plugins/cache/ (10 entries)
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+INFO  .qompack/ gained ['bin/', 'bin/93eb09f348774fbf2783bd607a3af41622976b2edad42798b437091eace381a9/'] (run-created; record, remove only if yours)
+real home fingerprint unchanged
+check exit 0

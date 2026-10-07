@@ -878,7 +878,8 @@ Result: pass — re-run on candidate 8 (D59, D62 forkwork). Steps run: original 
   one subagent pointer as "(summary withheld)" in a project with no rules (accepted
   over-withholding, D66(e)).
   Candidate 7 (d20309c0): pass — with a finding: the fork's second checkpoint took Current work
-  from an inherited parent prompt (F-C7-UAT06-1), evidence plans/sdd/V6-closeout/live/rerun-c7/UAT-06/
+  from an inherited parent prompt (F-C7-UAT06-1), evidence
+  plans/sdd/V6-closeout/live/rerun-c7/UAT-06/
   Candidate 4 (9f6a2fad): fail — the fork's first block left out the correction in force and the
   parent's elimination and decision, evidence plans/sdd/V6-closeout/live/rerun-c4/UAT-06/
   Candidate 3 (d5598eb4): fail — the fork's "verbatim original" was the fork's own first prompt
