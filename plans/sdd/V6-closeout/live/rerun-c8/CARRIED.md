@@ -50,52 +50,77 @@ hooks/hooks.json, commands/), `tools/devtool/bundle.go`, `internal/commands/`,
   backup create, verify and restore; uninstall, reinstall and session C (re_read, already_tried,
   recall). Its finding F1 was a status read: session_start.fires pending "marker-absent-once" after
   a same-session compaction.
-- **Files changed since that the row exercises:** internal/daemon/scheduler_state.go
-  (`state/scheduler.json` gains `last_applied_observations`, a per-session map, additive and
-  omitempty, document still version 1; it replaced the unshipped `last_applied_observation`,
-  w20-redeliver `a704a731`; candidate 7 wrote no such key); three more additive omitempty keys in
-  state files: `goal_turn` (internal/checkpoint/draft.go, a draft's state), `compact_start_lapsed`
-  and `went_on` (internal/contract/history.go), `last_stop_observation`
-  (internal/observer/state.go); internal/config/migration.go and config.go (the `VersionedReset`
-  marker); internal/cli/config.go and internal/daemon/reload.go (reset logging);
-  internal/store/publication_audit.go and provenance.go (read-only audit, ordering);
-  internal/cli/fsck.go (sorted detail lines); internal/cli/hookclient.go (state.bin trust).
-  The sessions' and status reads' code changed too:
-  - internal/contract/assertions.go: session_start.fires reads a same-session restart as holding
-    (`c0a91cec`, the fix for F1) and counts no absence for another session's restart, while a
-    marker's session runs, or while a quiet window may run.
+- **Files changed since that the row exercises** (UAT-12's upgrade-leg note in docs/uat.md names
+  the same files):
+  - State files gain additive omitempty keys: internal/daemon/scheduler_state.go
+    (`state/scheduler.json` gains `last_applied_observations`, a per-session map, document still
+    version 1; it replaced the unshipped `last_applied_observation`, w20-redeliver `a704a731`;
+    candidate 7 wrote no such key); `goal_turn` in a checkpoint draft's state
+    (internal/checkpoint/draft.go); `compact_start_lapsed` and `went_on`
+    (internal/contract/history.go); `last_stop_observation` (internal/observer/state.go).
+  - Configuration: internal/config/migration.go and config.go (the `VersionedReset` marker);
+    internal/cli/config.go (violation reporting and the config-violations.json rewrite) and
+    capture_admission.go (the hooks' violation report agrees with the commands');
+    internal/cli/daemon.go with internal/daemon/options.go and daemon.go (the daemon's config load
+    is stamped before it runs, and the reload stamp starts from it); internal/daemon/reload.go (a
+    reset is Loud once per daemon start or reload).
+  - The hook, compaction and SessionEnd paths: internal/daemon/handlers.go, drain.go,
+    scheduler_runtime.go, scheduler_tap.go and scheduler_frontier.go (replay, dedupe and binding a
+    replayed start, in memory, no new file); registry.go (status sessions in one order, a replayed
+    start bound after its session ended); precompact_duplicate.go and daemon.go (a spooled copy of
+    a sealed PreCompact skips its seal, only after a seal succeeded); spawn.go (the spawn poll on an
+    injectable clock); session_start_compact.go and spool_watch.go (comments only);
+    internal/observer/observer.go and stop.go (a replayed main-agent Stop is absorbed by its
+    observation); internal/cli/hookclient.go (state.bin trusted only while its daemon lives) and
+    sessionstart.go (a comment only).
+  - The host-contract banner status reads: internal/contract/assertions.go (session_start.fires
+    reads a same-session restart as holding, `c0a91cec`, the fix for F1; it counts no absence for
+    another session's restart, while a marker's session runs, or while a quiet window may run; and
+    it passes a resume after a cancelled compaction, `737acb10`), assertion.go (the
+    `Env.SessionMayRun` and `StartTS` the fix reads), observation.go (the new spellings
+    `same-session-restart`, `prior-session-live` and `precompact-not-completed`) and ids.go (a
+    comment only).
   - internal/checkpoint/decisions.go (decisions carried as their source mints them; a fork's from
     its fork point), lineage.go (LedgerAncestry memoized per session; the lineage record is
     unchanged), writer.go and intent.go (current work and the goal walk from the session's own
     prompt records; a draft number given back when Begin fails), plus source.go and precompact.go.
   - internal/rehydrate/build.go, items.go, render.go, budget.go, hostcap.go, types.go, pathgate.go,
-    notice.go and learned_index.go, with internal/daemon/rehydrate_service.go: the pointer and
-    drop-reason gates (D50, D63, D64), section 6's legend, the D59 loss notice, the learned index.
+    notice.go and learned_index.go, with internal/daemon/rehydrate_service.go and
+    internal/hostperm/patterns.go (the Read rules' path specifiers): the pointer and drop-reason
+    gates (D50, D63, D64), section 6's legend, the D59 loss notice, the learned index.
   - internal/negknow/ledger.go: a bloom-filter miss answers absent before any lineage read
     (`ca0b7caa`); internal/negknow/caller.go.
   - internal/cli/qompack_commands.go (status reasons, the liveness probe's connect budget, a
-    state.bin trusted only while its daemon lives) and doctor.go (config violations counted once
-    and rewritten only when they change, a disabled daemon named).
+    state.bin trusted only while its daemon lives), doctor.go (config violations counted once and
+    rewritten only when they change, a disabled daemon named) and fsck.go (sorted detail lines);
+    internal/store/publication_audit.go (the daemon's snapshot pass counts a file removed or
+    replaced mid-pass as live work; fsck's pass, without a snapshot, is unchanged) and
+    provenance.go (origins in one order).
 - **Why it still holds:** an upgrade from candidate 7 to candidate 8 reads every store format
   unchanged (objects, index, capture sidecars, checkpoint artifacts, delivery journals and seals),
   and each new key loads as zero from a candidate 7 file; none of the readers disallows unknown
   fields, so a candidate 7 reader ignores the keys after a rollback. No change deletes or rewrites
   `.qompack/` on upgrade or uninstall, and `internal/store/backup.go`, `maintenance.go` and
-  `internal/cli/backup.go` are unchanged. Live on candidate 8 in this part: backup create, verify
-  and restore exit 0 with the reader proof and integrity (incl. the seal check) passing, and fsck of
-  source and destination exit 0 (`rerun-c8/C4.9/cli/r8-r11`). The changed session and command code
-  ran live on candidate 8, on stores candidate 8 wrote:
+  `internal/cli/backup.go` are unchanged. The block reset (UAT-12's step 7) was observed live on
+  candidate 8 by C4.9 (b) (`rerun-c8/C4.9/notes.txt`: one Loud line per daemon,
+  config-violations.json, capture continued). Live on candidate 8 in this part: backup create,
+  verify and restore exit 0 with the reader proof and integrity (incl. the seal check) passing, and
+  fsck of source and destination exit 0 (`rerun-c8/C4.9/cli/r8-r11`). The changed session and
+  command code ran live on candidate 8, on stores candidate 8 wrote:
   - UAT-06 (`rerun-c8/UAT-06/`): record_eliminated, already_tried (active, scope session) and
-    /qompack:why across a resume, a fork and a parent restart, six compactions; decision
-    dec_991dbff588ec is in every checkpoint and block (D76(d)), every checkpoint re-hashes, fsck
-    exit 0. That is decisions.go, lineage.go, writer.go, intent.go, ledger.go and the rehydrate
-    files.
+    /qompack:why across a resume, a fork and a parent restart, six compactions, every hook call a
+    success; decision dec_991dbff588ec is in every checkpoint and block (D76(d)), every checkpoint
+    re-hashes, fsck exit 0. That is the hook and compaction paths, decisions.go, lineage.go,
+    writer.go, intent.go, ledger.go and the rehydrate files.
   - UAT-04 (`rerun-c8/UAT-04/`): eight compactions and the blocks injected after them, recall
-    and expand, fsck --json and --seal-check after the idle exit (the rehydrate files, writer.go,
-    intent.go).
-  - F-C48-1 (`rerun-c8/F-C48-1/`): two /compact turns in one session, then status and doctor with
-    session_start.fires "same-session-restart" holding and the banner "0 pending". That is the
-    read candidate 7's F1 got wrong, now right (assertions.go, qompack_commands.go, doctor.go).
+    and expand, fsck --json and --seal-check after the idle exit (the compaction path, the
+    rehydrate files, writer.go, intent.go, fsck.go).
+  - F-C48-1 (`rerun-c8/F-C48-1/`): two /compact turns in one session, 17 hook pairs all success,
+    SessionEnd reached the daemon after the last /compact, and the spool drained to 0 files. Then
+    status and status --json read session_start.fires "same-session-restart" holding with the
+    banner "0 pending": the read candidate 7's F1 got wrong, now right (assertions.go,
+    assertion.go, observation.go, qompack_commands.go). doctor read spool.pending and
+    drain.progress ok (doctor.go).
   - C4.5 (`rerun-c8/C4.5/`): the six slash commands in a real session, and paired status --json,
     doctor --json and fsck --json reads that agree once the read-time fields are removed
     (qompack_commands.go, doctor.go, fsck.go).
@@ -103,8 +128,9 @@ hooks/hooks.json, commands/), `tools/devtool/bundle.go`, `internal/commands/`,
   goal walks over candidate 7's prompt records, already_tried over its ledger and lineage records,
   a rehydration from its checkpoints, and status over its history.json. For that the row rests on
   the diff plus that evidence: those files change derivation, gating and status logic, not the
-  formats they read, and the one state file whose fields they add (history.json) loads the new
-  keys as zero. The upgrade, uninstall and reinstall were not repeated.
+  formats they read. Two state files they read gain fields, and each loads the new keys as zero
+  from a candidate 7 file: history.json (`compact_start_lapsed`, `went_on`) and a checkpoint
+  draft's state (`goal_turn`). The upgrade, uninstall and reinstall were not repeated.
 
 ## C4.9 legs (a) and (c)
 
