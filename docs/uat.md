@@ -1443,30 +1443,36 @@ stored records to reconcile a failure.
 **Result**
 
 ```text
-Result: pass — steps 1-4 as written on the frozen binary: `"newResult": false // default`;
-  the refused `true` stays false with `invalid value, using default: true not in false` in
-  config-violations.json; settingsVersion 2 resets the whole runtime.migration block
-  (config-violations.json, day log, LOUD.log) and capture continues; the unparseable file makes the
-  hook print `{}` exit 0 with only config.json in the fresh .qompack/, and self-test exits 1 with
-  config.capture critical, detail "... the project config file is not a single strict JSONC
-  object"; the unknown key keeps capture on and config.capture warns `runtime.notAKey: unknown
-  key`. Step 5: the first turn read the whole 363 KB big.log and the session was not degraded:
-  hook.additional_context_delivered reads "sentinel-observed", and SessionStart:compact injected
-  the block. Step 6: all 9 section-6 pointers resolved — the 4 file pointers by expand (hash) and
-  re_read (path), the 5 tool_use pointers by expand (the model used their tool_use_ids, each
-  returning the line's hash; the one hash not also expanded in-session resolved through a
-  no-model probe). big.log is truncated with next_span and creds.env redacted: recorded
-  fidelities. The planted secret is in no form in the store.
+Result: pass — steps 1-4 as written on the frozen candidate 8 binary: `"newResult": false //
+  default`; the refused `true` stays false with `invalid value, using default: true not in false`
+  in config-violations.json; settingsVersion 2 resets the whole runtime.migration block
+  (config-violations.json and the day log, at warn) and capture continues; the unparseable file
+  makes the hook print `{}` exit 0 with only config.json in the fresh .qompack/, and self-test
+  exits 1 with config.capture critical, detail "... the project config file is not a single
+  strict JSONC object"; the unknown key keeps capture on and config.capture warns
+  `runtime.notAKey: unknown key`. Step 5 (frozen bundle via --plugin-dir): the first turn read the
+  whole 363,000-byte big.log, then odd.txt (control, ANSI, emoji, RTL, CJK, zero-width), creds.env,
+  a commit and /compact; the session was not degraded: hook.additional_context_delivered reads
+  "sentinel-observed", and SessionStart:compact injected the block (2,418 chars). Step 6: all 9
+  section-6 pointers resolved — in the session the model expanded every hash and re_read every
+  file path, and a no-model probe resolved all 18 forms the block offers (expand by hash and
+  re_read by path for the 4 file pointers, expand by hash and by tool_use_id for the 5 tool
+  pointers). big.log is truncated with next_span and creds.env redacted: recorded fidelities.
+  Section 6 shows no path outside the project. The planted secret is in no form in the store.
+  Hooks: 26, every one success / exit 0, no host-reported failure or timeout; doctor, fsck and
+  fsck --seal-check clean after the default idle exit.
+  Candidate 4 (9f6a2fad): pass — a 363 KB first-turn Read no longer degraded the session and all 9
+  pointers resolved, evidence plans/sdd/V6-closeout/live/rerun-c4/UAT-11/
   Candidate 3 (d5598eb4): fail — one large first-turn Read hid the probe sentinel, the session
   was degraded to passive and nothing was injected, evidence plans/sdd/V6-closeout/live/uat/UAT-11/
 Snapshot: qompack version 0.3.0; bundle BUNDLE.json sha256
-  aa7da0e17b7597562a6eba47fc48f1db81ff5e9bdc494b9997a323137625558d; commit
-  9f6a2fadf086eba8080af589a35dd9554ae6cab4; Windows 11 Home 25H2 build 10.0.26200.9457;
+  61ba9c37dda03c14c44acb6824646a8d7410751bba6f1ce3c5c864d6382dcd8b; commit
+  3ec62ad2e01b985640c0f1fb832df3917f766a5f; Windows 11 Home 25H2 build 10.0.26200.9457;
   Claude Code 2.1.280
-Date: 2026-09-29 (America/Toronto)
+Date: 2026-10-07 (America/Toronto)
 Executed by: Claude Code workflow subagent (Opus 5.5), agent-executed on the owner's real host
   per owner decision D3 — not human UAT
-Evidence: plans/sdd/V6-closeout/live/rerun-c4/UAT-11/ (notes.txt indexes it)
+Evidence: plans/sdd/V6-closeout/live/rerun-c8/UAT-11/ (notes.txt indexes it)
 Rollback verified: not applicable — initial state absent (recorded: `backup create` exit 1 "no
   existing store"); per the row's rule the run is retained as evidence; no restore was run
 ```
