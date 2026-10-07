@@ -90,7 +90,10 @@ re-check add is appended here first.
 - On a slow windows-latest runner, ci.yml's Windows test leg (-count=2, 60m per binary) can kill
   internal/daemon at its timeout while it is still progressing, and drain rows such as
   TestDeliveryOrder_ARequestedDrainCutShortByItsBudgetIsRequestedAgain can miss their bound in the
-  same run. Not a hang (D70(b)). After the release: a larger budget or one pass on that leg.
+  same run. Not a hang (D70(b)). After the release: a larger budget or one pass on that leg. The drain
+  row's own red is a deterministic strand, not the budget (D73(2)): after the release its stalled
+  attempt calls the real dispatch through withoutLineDeadline, as must
+  TestDeliveryOrder_ARequestedPassFinishesALineSlowerThanItsBudget's.
 - TestPromptWarning_SlowDurableAcceptIsLateForTheClient does not join the late reply call before its
   next prompt, so it fails when that prompt's reply call takes the session lock first (D70(b)). After
   the release: promptWG.Wait() before the next prompt.
@@ -98,3 +101,8 @@ re-check add is appended here first.
   off the hook reply path but inside the session's ordering gate and under historyMu (D71(d)).
 - capWentOn trims an oversized went_on map quadratically; only a hand-edited history.json can reach it
   (Qompack writes at most 16 entries) (D71(d)).
+- TestFault_DaemonKilledMidIngest waits for a daemon with dials only, so a recovery session-start that
+  meets an orphan spawn claim (a burst hook's lazy duplicate, D35(a), D61(c)) and spawns nothing reads as
+  'recording stopped silently' (D73(1)). After the release: wait out the claim and send the next hook.
+- Unverified lead (D73(b)): a PreCompact settle may leave WAL-only refused or ring-dropped leased jobs
+  out of its drop report.
