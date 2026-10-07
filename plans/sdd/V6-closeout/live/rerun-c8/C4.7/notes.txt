@@ -1,0 +1,69 @@
+C4.7 - kill switches in a real session, candidate 8 live re-check, carried part (decisions D58-D67): recording off
+and reinjection off, each set alone in the PROJECT config (<project>/.qompack/config.json, docs/config-reference.md)
+before its session, each shown independent of the other. Re-run because wave 19c rewrote
+internal/daemon/rehydrate_service.go, where the reinjection switch is read; the last live run was candidate 3's
+(../../c4/C4.7/notes.txt). C4.7 has no Result block in docs/uat.md: this file and the part's result are its record.
+Agent-executed on the owner's real host per owner decision D3 by a Claude Code workflow subagent (Opus 5.5) - not
+human UAT.
+
+Build as ../UAT-07/notes.txt (qompack 0.3.0, BUNDLE.json sha256 61ba9c37...dcd8b, commit 3ec62ad2, Windows 11 Home 25H2
+build 10.0.26200.9457, Claude Code 2.1.280, --plugin-dir the frozen bundle, claude-haiku-4-5-20251001). Date 2026-10-07
+13:05-13:07 America/Toronto. Sessions carried-c8 n=6 (off/session/, id c67b7e69, 28 s) and n=7 (reinj/session/, id
+4b302420, 32 s), both exit 0. No spare was used. Both sessions: T1 Read notes.md + plan.md, T2 /compact, T3 codename
+without a tool, T4 MCP recall "codename". No user config (~/.qompack holds only the staged bin/), no QOMPACK_* variable
+but QOMPACK_HOME (and QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS=30 in the reinjection project only).
+
+Proof the settings took effect (with -p a settings problem is silent), before each session (cli/00-config-print-
+provenance):
+ off:   `"mode": "off",  // project <project>\.qompack\config.json:1` and `"sessionStartCompact": true  // default`;
+ reinj: `"sessionStartCompact": false  // project <project>\.qompack\config.json:1` and `"mode": "auto",  // default`.
+Store listing before each session (cli/00-listing-before.txt): notes.md, plan.md and .qompack/config.json only.
+
+(a) runtime.mode "off" alone (off/):
+ - every hook answered success, exit 0, stdout `{}`: SessionStart:startup, UserPromptSubmit x3, PostToolUse:Read x2,
+   PostToolUse:ToolSearch, Stop x3, SubagentStop, SessionStart:compact (12 pairs, session/hooks.json and the stream).
+ - the compaction's payload is ABSENT: SessionStart:compact printed `{}`, no additionalContext, no contract probe
+   (session/ holds no injected-*.txt because none was emitted). The model still named the codename from the host's own
+   summary.
+ - nothing recorded: after the session .qompack/ holds config.json and nothing else (cli/01-listing-after-session.txt).
+   Candidate 3's F2 is fixed: `qompack mcp` no longer writes .gitignore, logs/ or state/mcp.json into an off project.
+ - no daemon: meta.json samples "no lock" after every turn; no daemon.lock afterwards.
+ - T4 MCP recall -> tool error (is_error true): "qompack is switched off for this project: runtime.mode is "off", so
+   nothing is recorded and there is nothing to retrieve. Retrying will not help; the user can set runtime.mode to
+   "auto" (for example in .qompack/config.json) to use qompack's tools." - verbatim as docs/mcp-tools.md documents it.
+   Candidate 3's F1 ("the qompack daemon returned an empty result") is fixed.
+ - after the session: doctor --json and fsck --json exit 0 (read-only, listing unchanged, cli/03-listing-after-doctor-
+   fsck.txt); `qompack status` exit 0, "source: none", "daemon: runtime.mode is off for this project (in its
+   configuration, or in the state.bin its daemon last wrote), so this command does not ask a daemon"; it created an
+   empty logs/qompack-20261007.log and an empty pins/ directory and started no daemon (cli/04-listing-after-status.txt,
+   cli/04-find-after-status.txt), exactly as docs/troubleshooting.md section 8 step 3 says.
+ PASS: hooks exit 0, nothing recorded, no daemon, no injection, MCP says it is off - with reinjection left at its
+ default true.
+
+(b) runtime.migration.reinjection.sessionStartCompact false alone (reinj/):
+ - capture continues: index/tool_use.jsonl holds the session's prompts (3), FileRead notes.md and plan.md, SubagentStop,
+   ToolSearch and the recall captures (store-after-session/index_tool_use.jsonl); 68 files after the session against 3
+   before (cli/01-listing-after-session.txt), captures under records/captures/.
+ - compaction still checkpoints: PreCompact wrote checkpoints/0001.json and MANIFEST.jsonl.
+ - the compaction's payload: SessionStart:compact returned only the contract probe marker
+   `<!-- qompack-contract-probe qompack-contract-9bdee02c712b -->` and no `<!-- qompack:injected` block
+   (session/injected-2-SessionStart-compact.txt, 61 chars), exactly as docs/release.md section 4 says ("omits the
+   injected-span open tag; the contract monitor's probe marker remains"). The day log: `rehydrate: injection disabled by
+   runtime.migration.reinjection.sessionStartCompact session=4b302420-...` (store-after-session/logs_*.log).
+ - T4 MCP recall answered with hits, not an error (retrieval unaffected).
+ - after the session, daemon live: doctor --json exit 0 with no degraded row, fsck --json exit 0, status "9
+   assertion(s), none failing: 8 holding, 0 pending, 1 with nothing to judge" (cli/02-04). The daemon then ended by its
+   30 s idle exit; the lane terminated nothing.
+ PASS: recording and checkpointing continue with mode at its default auto; only the injection stops.
+
+Independence: each switch was the only non-default key in its project, proven by config print before the session;
+mode off stopped everything with reinjection at its default, and reinjection off stopped only the injection with
+recording on.
+Hooks: 12 + 13 pairs, every one success exit 0, measured arrival deltas at most 205 ms; stderr.txt empty in both
+sessions; no host-reported hook failure or timeout (D53(i) holds).
+
+Result: PASS for both switches. Candidate 3's two findings on mode off (F1 the MCP error wording, F2 `qompack mcp`
+writing into an off project) no longer occur.
+Candidate 3 (d5598eb4): pass - with findings F1 (MCP answered "empty result") and F2 (`qompack mcp` wrote .gitignore,
+logs/ and state/mcp.json under mode off), evidence plans/sdd/V6-closeout/live/c4/C4.7/
+Guard: guard/carried.txt ("after session 6 C4.7 off", "after session 7 C4.7 reinj").

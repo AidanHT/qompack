@@ -1,0 +1,67 @@
+{
+ "args": [
+  "-p",
+  "--input-format",
+  "stream-json",
+  "--output-format",
+  "stream-json",
+  "--verbose",
+  "--include-hook-events",
+  "--model",
+  "claude-haiku-4-5-20251001",
+  "--max-turns",
+  "8",
+  "--setting-sources",
+  "project,local",
+  "--permission-mode",
+  "dontAsk",
+  "--plugin-dir",
+  "C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c8/qompack-plugin-0.3.0-windows-amd64",
+  "--allowedTools",
+  "Read,mcp__plugin_qompack_qompack__recall,mcp__plugin_qompack_qompack__expand,mcp__plugin_qompack_qompack__re_read,mcp__plugin_qompack_qompack__already_tried,mcp__plugin_qompack_qompack__record_eliminated,mcp__plugin_qompack_qompack__timeline,mcp__plugin_qompack_qompack__why,mcp__plugin_qompack_qompack__dropped,Bash(qompack status:*),Bash(qompack recall:*),Bash(qompack pin:*),Bash(qompack why:*),Bash(qompack dropped:*),Bash(qompack eval:*)"
+ ],
+ "turns": [
+  {
+   "msg": "Use the Read tool to read notes.md and then plan.md. Reply only 'done'.",
+   "ok": true,
+   "wall_s": 6.832,
+   "daemon": {
+    "daemon": "no lock"
+   },
+   "store_bytes": 27
+  },
+  {
+   "msg": "/compact",
+   "ok": true,
+   "wall_s": 12.64,
+   "daemon": {
+    "daemon": "no lock"
+   },
+   "store_bytes": 27
+  },
+  {
+   "msg": "Without using any tool, what is the project codename? Answer in one sentence, or say you do not know.",
+   "ok": true,
+   "wall_s": 2.808,
+   "daemon": {
+    "daemon": "no lock"
+   },
+   "store_bytes": 27
+  },
+  {
+   "msg": "Call mcp__plugin_qompack_qompack__recall with {\"query\": \"codename\"}. Reply with whether the host marked the result as an error (yes/no) and the result text verbatim (first 600 characters).",
+   "ok": true,
+   "wall_s": 5.617,
+   "daemon": {
+    "daemon": "no lock"
+   },
+   "store_bytes": 27
+  }
+ ],
+ "store_bytes_before": 27,
+ "started_ms": 1791392732334,
+ "pid": 55148,
+ "exit": 0,
+ "wall_s": 28.474,
+ "store_bytes_after": 27
+}

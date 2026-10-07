@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "session": "4b302420-c8b4-4b8e-a998-86ee24c6babf",
+  "seq": 1,
+  "created": "2026-10-07T17:06:32.933Z",
+  "encoded_segments": [
+    1
+  ],
+  "invariants": [],
+  "user_intent": {
+    "original": "Use the Read tool to read notes.md and then plan.md. Reply only 'done'.",
+    "evolution": []
+  },
+  "eliminated": [],
+  "decisions": [],
+  "open_questions": [],
+  "current_work": {
+    "goal": "Use the Read tool to read notes.md and then plan.md.",
+    "next_step": "",
+    "blocked_on": null
+  },
+  "pointers": {
+    "files": [
+      {
+        "path": "plan.md",
+        "hash": "sha256:0e1bfd8cda4750f77d2b20a0ae0a4367be930b8c1583b39e4733ca30f6703340",
+        "why": "referenced"
+      },
+      {
+        "path": "notes.md",
+        "hash": "sha256:42bab714d54bf861449020761db0e1196a2ddcc7ec3fe13a1301e1aa44bcb386",
+        "why": "referenced"
+      }
+    ],
+    "tools": [
+      {
+        "tool_use_id": "toolu_01RmbhDKdCLcwpRxYhDGhoHV",
+        "hash": "sha256:42bab714d54bf861449020761db0e1196a2ddcc7ec3fe13a1301e1aa44bcb386",
+        "summary": "<scratch>\\carried\\c47\\reinj\\proj\\notes.md"
+      },
+      {
+        "tool_use_id": "toolu_01GepAsRMeqUjMrYshMm5P2y",
+        "hash": "sha256:0e1bfd8cda4750f77d2b20a0ae0a4367be930b8c1583b39e4733ca30f6703340",
+        "summary": "<scratch>\\carried\\c47\\reinj\\proj\\plan.md"
+      }
+    ]
+  },
+  "narrative": "seg 1 turns 0-1: 2 tool uses over 2 files; gap_seconds=0.00, lexical_cohesion=0.00, path_jaccard=0.00, prob_changepoint=0.00, todo_transition=0.00, tool_shift=0.00\n",
+  "sketch_refs": {
+    "touch": "touch.cms",
+    "tried": "tried.bloom"
+  },
+  "dropped": [],
+  "cache": {
+    "p_chosen": 0,
+    "rewrite_tokens": 0,
+    "ttl_state": "unknown"
+  }
+}

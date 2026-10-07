@@ -1,0 +1,5 @@
+project listing (.git omitted), 4 files
+        52  notes.md
+        54  plan.md
+        27  .qompack/config.json
+         0  .qompack/logs/qompack-20261007.log
