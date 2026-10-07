@@ -1,0 +1,17 @@
+quiet.sh 2026-10-07T04:53:55Z
+candidate=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-cand head=3ec62ad2e01b985640c0f1fb832df3917f766a5f
+base=cf31e01 resolved=cf31e01f38f3d3ba4afd96c4c75db3e4b87d54cd
+steps=c51-win
+iterations=5000 rounds=10 percall=1 benchtime=per row pkgs=all filter=none
+QOMPACK_UNDER_COLOAD unset; work=C:/Users/Quant/AppData/Local/Temp/tmp.4na2vugMxL container=qompack-v6-linux-verification user=qompack-test
+go version go1.26.6 windows/amd64
+22
+candidate repo git status --porcelain (tracked changes refused above):
+  (clean)
+load before-c51-win 04:54:06Z: windows_cpu_pct=0 linux_loadavg=?
+load after-c51-win 04:57:26Z: windows_cpu_pct=21 linux_loadavg=?
+WARNING: host not idle at after-c51-win (windows_cpu_pct 21 > 15); timings from here may not be quiet
+load after-c51-win-bf 04:58:19Z: windows_cpu_pct=26 linux_loadavg=?
+WARNING: host not idle at after-c51-win-bf (windows_cpu_pct 26 > 15); timings from here may not be quiet
+step c51-win exit=0
+scratch directory C:/Users/Quant/AppData/Local/Temp/tmp.4na2vugMxL removed (every step passed)

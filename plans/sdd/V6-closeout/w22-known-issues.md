@@ -106,3 +106,9 @@ re-check add is appended here first.
   'recording stopped silently' (D73(1)). After the release: wait out the claim and send the next hook.
 - Unverified lead (D73(b)): a PreCompact settle may leave WAL-only refused or ring-dropped leased jobs
   out of its drop report.
+- TestPreCompactSettle_ReplaysAgainOnceALiveCopyAheadOfItPublishes does not wait for the live worker to own
+  the delivery, so on a loaded runner its fixture-sanity count reads 0 while the product is correct (D75(c)).
+  After the release: settleGate signals when the held run starts, and the hook waits for it.
+- ci.yml's reconciliation prints only the tail of a crashed test binary's output and uploads no test JSON,
+  so a crash's cause line is lost (D75(c)). After the release: keep the head too, and upload test.json on
+  failure.

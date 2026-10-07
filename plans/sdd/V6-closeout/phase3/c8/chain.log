@@ -1,0 +1,871 @@
+start candidate=3ec62ad2e01b985640c0f1fb832df3917f766a5f pid 7755 winpid 27472 deadline=2026-10-07T08:00:00 (from c8-night.sh) release-check must start by 2026-10-07T05:00:00 (RC_EST_S) ac_wait_budget=180min used=0min prev_candidate=d20309c03ffc364e4cc48663be73cfbb1f2309b2 go=go1.26.6 power=AC 93 2026-10-07T02:38:34Z
+disk: /tmp has 77 GiB free (NIGHT_MIN_FREE_GB=40); disk: /c/Users/Quant/AppData/Local/go-build has 77 GiB free (NIGHT_MIN_FREE_GB=40) 2026-10-07T02:38:34Z
+engine up at start=1 (three probes); an engine is stopped only when it was down now, Docker Desktop said stopped, this chain started it, and nothing else runs on it 2026-10-07T02:38:34Z
+qompack-v6-linux-verification Up 5 hours
+supabase_studio_promptly Up 2 days (healthy)
+supabase_pg_meta_promptly Up 2 days (healthy)
+supabase_storage_promptly Up 2 days (healthy)
+supabase_rest_promptly Up 2 days
+supabase_realtime_promptly Up 2 days (healthy)
+supabase_inbucket_promptly Up 2 days (healthy)
+supabase_auth_promptly Up 2 days (healthy)
+supabase_kong_promptly Up 2 days (healthy)
+supabase_vector_promptly Restarting (0) 49 seconds ago
+supabase_analytics_promptly Up 2 days (healthy)
+supabase_db_promptly Up 2 days (healthy)
+step win-timing try 1 start power=AC 93 2026-10-07T02:38:38Z
+run p3-win-timing exit=0
+run p3-win-hotpath exit=0
+step win-timing exit=0
+step win-timing try 1 exit=0 VALID power=AC 93->AC 94 2026-10-07T02:43:36Z
+step win-e2e-timing try 1 start power=AC 94 2026-10-07T02:43:37Z
+run p3-win-e2e-timing exit=0
+step win-e2e-timing exit=0
+step win-e2e-timing try 1 exit=0 VALID power=AC 94->AC 98 2026-10-07T03:03:36Z
+step win-x11-alone try 1 start power=AC 98 2026-10-07T03:03:36Z
+run p3-win-x11-alone exit=0
+step win-x11-alone exit=0
+step win-x11-alone try 1 exit=0 VALID power=AC 98->AC 98 2026-10-07T03:11:49Z
+step win-race start power=AC 98 2026-10-07T03:11:50Z
+run p3-win-race exit=0
+step win-race exit=0
+step win-race finished exit=0 2026-10-07T03:35:23Z
+step win-race try 1 exit=0 VALID power=AC 98->AC 100; power reported only (no timing judgement) 2026-10-07T03:35:25Z
+step bundles start power=AC 100 2026-10-07T03:35:26Z
+run p3-bundleA exit=0
+run p3-bundleB exit=0
+bundles identical: 91 files
+claude plugin validate: 6 of 6 target(s) checked
+step bundles exit=0
+step bundles finished exit=0 2026-10-07T03:36:30Z
+step bundles try 1 exit=0 VALID power=AC 100->AC 100; power reported only (no timing judgement) 2026-10-07T03:36:31Z
+container start exit=0 2026-10-07T03:36:33Z
+step linux-timing start power=AC 100 2026-10-07T03:36:34Z
+step linux-timing exit=1
+step linux-timing finished exit=1 2026-10-07T03:41:10Z
+step linux-timing try 1 exit=1 VALID power=AC 100->AC 100; a timing lane: judged only when VALID 2026-10-07T03:41:10Z
+step linux-e2e-timing start power=AC 100 2026-10-07T03:41:11Z
+step linux-e2e-timing exit=1
+step linux-e2e-timing finished exit=1 2026-10-07T03:55:31Z
+step linux-e2e-timing try 1 exit=1 VALID power=AC 100->AC 100; a timing lane: judged only when VALID 2026-10-07T03:55:31Z
+step linux-tree start power=AC 100 2026-10-07T03:55:32Z
+step linux-tree exit=0
+step linux-tree finished exit=0 2026-10-07T04:16:59Z
+step linux-tree try 1 exit=0 VALID power=AC 100->AC 100; power reported only (no timing judgement) 2026-10-07T04:16:59Z
+step linux-e2e start power=AC 100 2026-10-07T04:17:00Z
+step linux-e2e exit=0
+step linux-e2e finished exit=0 2026-10-07T04:49:14Z
+step linux-e2e try 1 exit=0 VALID power=AC 100->AC 100; power reported only (no timing judgement) 2026-10-07T04:49:15Z
+step linux-child start power=AC 100 2026-10-07T04:49:16Z
+step linux-child exit=0
+step linux-child finished exit=0 2026-10-07T04:53:51Z
+step linux-child try 1 exit=0 VALID power=AC 100->AC 100; power reported only (no timing judgement) 2026-10-07T04:53:52Z
+container stopped exit=0 2026-10-07T04:53:54Z
+engine left as found (D56(g)) 2026-10-07T04:53:54Z
+step c51-win try 1 start power=AC 100 2026-10-07T04:53:55Z
+load before-c51-win 04:54:06Z: windows_cpu_pct=0 linux_loadavg=?
+run c51-win exit=0
+load after-c51-win 04:57:26Z: windows_cpu_pct=21 linux_loadavg=?
+WARNING: host not idle at after-c51-win (windows_cpu_pct 21 > 15); timings from here may not be quiet
+run c51-win-bf exit=0
+load after-c51-win-bf 04:58:19Z: windows_cpu_pct=26 linux_loadavg=?
+WARNING: host not idle at after-c51-win-bf (windows_cpu_pct 26 > 15); timings from here may not be quiet
+step c51-win exit=0
+scratch directory C:/Users/Quant/AppData/Local/Temp/tmp.4na2vugMxL removed (every step passed)
+== artifacts
+run record: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet/quiet-run.txt
+c51-win B-A/B-B/B-D/B-E: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet/c51-win-hotpath.json (record C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet/c51-win.json, log C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet/c51-win.log)
+c51-win B-F: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet/c51-win-bf.log (the "B-F over" line; record C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet/c51-win-bf.json)
+clone check (candidate): C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet/source-status-after-candidate.txt
+real-home check (~/.claude, ~/.qompack): C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet/homeguard-check.txt
+scratch clones and binaries (not evidence): removed after the run
+step c51-win try 1 exit=0 VALID power=AC 100->AC 100 2026-10-07T04:58:24Z
+step c51-linux try 1 start power=AC 100 2026-10-07T04:58:24Z
+container start exit=0 (c51-linux) 2026-10-07T04:58:25Z
+gate prep quiet-c51-prep (candidate 3ec62ad2e01b) exit=0 run_id=cx-quiet-quiet-c51-prep-3ec62ad-20261007T045835Z
+load before-c51-linux 04:58:56Z: windows_cpu_pct=24 linux_loadavg=0.24 0.38 1.01 4/955 627
+WARNING: host not idle at before-c51-linux (windows_cpu_pct 24 > 15); timings from here may not be quiet
+run c51-linux exit=1
+load after-c51-linux 05:00:10Z: windows_cpu_pct=54 linux_loadavg=2.53 1.13 1.22 4/959 27421
+WARNING: host not idle at after-c51-linux (windows_cpu_pct 54 > 15; linux 1-min load 2.53 > 1.0); timings from here may not be quiet
+load after-c51-linux-bf 05:01:09Z: windows_cpu_pct=17 linux_loadavg=1.94 1.19 1.24 3/956 27941
+WARNING: host not idle at after-c51-linux-bf (windows_cpu_pct 17 > 15; linux 1-min load 1.94 > 1.0); timings from here may not be quiet
+c51-linux B-F gate run exit=0 run_id=cx-quiet-quiet-c51-bf-3ec62ad-20261007T050011Z
+step c51-linux exit=1
+scratch directory C:/Users/Quant/AppData/Local/Temp/tmp.S3UlVX2DDT kept: a step failed (delete it once diagnosed)
+== artifacts
+run record: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c51-linux/quiet-run.txt
+gate prep (candidate): C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c51-linux/c51-linux/prep-candidate.host.log and C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c51-linux/c51-linux/gate/cx-quiet-quiet-c51-prep-3ec62ad-20261007T045835Z-artifacts
+c51-linux B-A/B-B/B-D/B-E: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c51-linux/c51-linux/c51-linux-hotpath.json (record C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c51-linux/c51-linux/c51-linux.json, log C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c51-linux/c51-linux/c51-linux.log)
+c51-linux B-F: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c51-linux/c51-linux/bf/cx-quiet-quiet-c51-bf-3ec62ad-20261007T050011Z-artifacts/test.jsonl (the "B-F over" output; host log C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c51-linux/c51-linux/bf.host.log)
+real-home check (~/.claude, ~/.qompack): C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c51-linux/homeguard-check.txt
+scratch clones and binaries (not evidence): C:/Users/Quant/AppData/Local/Temp/tmp.S3UlVX2DDT
+container stopped exit=0 2026-10-07T05:01:11Z
+engine left as found (D56(g)) 2026-10-07T05:01:11Z
+step c51-linux try 1 exit=1 VALID power=AC 100->AC 100; report only: B-D, B-E and B-F are recorded in quiet-c51-linux/; its exit status is neither a pass nor a fail (the container's B-A and B-B are not verified in target, D53(b)) 2026-10-07T05:01:12Z
+release-check clone C:/Users/Quant/AppData/Local/Temp/tmp.ttZppSAeEX at 3ec62ad2e01b985640c0f1fb832df3917f766a5f: origin and push URL file:///nonexistent/qompack-release-check-scratch-clone-never-pushes, tag v0.3.0 only in the clone 2026-10-07T05:01:34Z
+step release-check try 1 start power=AC 100 (stopped if still running at 2026-10-07T08:30:00, the deadline plus RC_GRACE_S) 2026-10-07T05:01:34Z
+run p3-release-check-tag exit=0
+release-check try 1 WINDOW ci-local-test 1791351960 1791353207 e2e-result-line 2026-10-07T06:40:31Z
+release-check try 1 WINDOW ci-local-cover 1791353925 1791355135 e2e-result-line 2026-10-07T06:40:31Z
+step release-check try 1 exit=0 VALID power=AC 100->AC 100; events during the run: [] 2026-10-07T06:40:31Z
+shared ref store: tag v0.3.0 absent (the chain never tags it) 2026-10-07T06:40:31Z
+release-check scratch clone C:/Users/Quant/AppData/Local/Temp/tmp.ttZppSAeEX removed 2026-10-07T06:40:35Z
+c52 in this night (D65(b)): each chunk of the full list, in order, runs now if the machine is on AC and its estimate ends by 2026-10-07T08:00:00; the rest are the C5.2 night's 2026-10-07T06:40:35Z
+c52: c52-win-observer measures QUIET_PKGS='observer' QUIET_BENCH_FILTER='' into quiet-c52-win-observer/, about 93 min 2026-10-07T06:40:36Z
+step c52-win-observer try 1 start power=AC 100 2026-10-07T06:40:37Z
+run c52-win-build-base-observer exit=0
+run c52-win-build-candidate-observer exit=0
+load before-c52-win 06:41:13Z: windows_cpu_pct=27 linux_loadavg=?
+WARNING: host not idle at before-c52-win (windows_cpu_pct 27 > 15); timings from here may not be quiet
+run c52-win-r1-base-observer-200x exit=0
+run c52-win-r1-candidate-observer-200x exit=0
+run c52-win-r1-base-observer-1s exit=0
+run c52-win-r1-candidate-observer-1s exit=0
+load after-c52-win-round-1 06:47:09Z: windows_cpu_pct=11 linux_loadavg=?
+run c52-win-r2-candidate-observer-200x exit=0
+run c52-win-r2-base-observer-200x exit=0
+run c52-win-r2-candidate-observer-1s exit=0
+run c52-win-r2-base-observer-1s exit=0
+load after-c52-win-round-2 06:52:43Z: windows_cpu_pct=15 linux_loadavg=?
+run c52-win-r3-base-observer-200x exit=0
+run c52-win-r3-candidate-observer-200x exit=0
+run c52-win-r3-base-observer-1s exit=0
+run c52-win-r3-candidate-observer-1s exit=0
+load after-c52-win-round-3 06:58:15Z: windows_cpu_pct=8 linux_loadavg=?
+run c52-win-r4-candidate-observer-200x exit=0
+run c52-win-r4-base-observer-200x exit=0
+run c52-win-r4-candidate-observer-1s exit=0
+run c52-win-r4-base-observer-1s exit=0
+load after-c52-win-round-4 07:03:45Z: windows_cpu_pct=9 linux_loadavg=?
+run c52-win-r5-base-observer-200x exit=0
+run c52-win-r5-candidate-observer-200x exit=0
+run c52-win-r5-base-observer-1s exit=0
+run c52-win-r5-candidate-observer-1s exit=0
+load after-c52-win-round-5 07:09:13Z: windows_cpu_pct=5 linux_loadavg=?
+run c52-win-r6-candidate-observer-200x exit=0
+run c52-win-r6-base-observer-200x exit=0
+run c52-win-r6-candidate-observer-1s exit=0
+run c52-win-r6-base-observer-1s exit=0
+load after-c52-win-round-6 07:14:39Z: windows_cpu_pct=3 linux_loadavg=?
+run c52-win-r7-base-observer-200x exit=0
+run c52-win-r7-candidate-observer-200x exit=0
+run c52-win-r7-base-observer-1s exit=0
+run c52-win-r7-candidate-observer-1s exit=0
+load after-c52-win-round-7 07:20:03Z: windows_cpu_pct=10 linux_loadavg=?
+run c52-win-r8-candidate-observer-200x exit=0
+run c52-win-r8-base-observer-200x exit=0
+run c52-win-r8-candidate-observer-1s exit=0
+run c52-win-r8-base-observer-1s exit=0
+load after-c52-win-round-8 07:26:25Z: windows_cpu_pct=3 linux_loadavg=?
+run c52-win-r9-base-observer-200x exit=0
+run c52-win-r9-candidate-observer-200x exit=0
+run c52-win-r9-base-observer-1s exit=0
+run c52-win-r9-candidate-observer-1s exit=0
+load after-c52-win-round-9 07:33:15Z: windows_cpu_pct=13 linux_loadavg=?
+run c52-win-r10-candidate-observer-200x exit=0
+run c52-win-r10-base-observer-200x exit=0
+run c52-win-r10-candidate-observer-1s exit=0
+run c52-win-r10-base-observer-1s exit=0
+load after-c52-win-round-10 07:39:42Z: windows_cpu_pct=3 linux_loadavg=?
+c52-win paired analysis and completeness exit=0
+run c52-win-benchstat exit=0
+run c52-win-benchstat-csv exit=0
+step c52-win exit=0
+scratch directory C:/Users/Quant/AppData/Local/Temp/tmp.lmb5e9NJFQ removed (every step passed)
+== artifacts
+run record: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-observer/quiet-run.txt
+c52 benchmark presence, candidate vs base: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-observer/c52-names.tsv
+c52-win raw samples: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-observer/c52-win/base.txt C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-observer/c52-win/candidate.txt (per call: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-observer/c52-win/c52-win-r*-*.log + .json)
+c52-win benchstat: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-observer/c52-win/c52-win-benchstat.log (csv: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-observer/c52-win/c52-win-benchstat-csv.log)
+c52-win paired ABBA table: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-observer/c52-win/paired.txt; per-row completeness: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-observer/c52-win/completeness.tsv; absolute budgets: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-observer/c52-win/absolute-budget.tsv
+clone check (base): C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-observer/c52-win/source-status-after-base.txt
+clone check (candidate): C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-observer/c52-win/source-status-after-candidate.txt
+c52-win binaries: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-observer/c52-win/binaries.sha256 (after: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-observer/c52-win/binaries-after.sha256); isolated-home writes: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-observer/c52-win/home-writes-*.txt
+real-home check (~/.claude, ~/.qompack): C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-observer/homeguard-check.txt
+scratch clones and binaries (not evidence): removed after the run
+step c52-win-observer try 1 exit=0 VALID power=AC 100->AC 100 2026-10-07T07:39:51Z
+c52: c52-win-observer done (VALID, exit 0) 2026-10-07T07:39:51Z
+c52: c52-win-store measures QUIET_PKGS='store' QUIET_BENCH_FILTER='' into quiet-c52-win-store/, about 65 min 2026-10-07T07:39:52Z
+step c52-win-store try 1 start power=AC 100 2026-10-07T07:39:53Z
+run c52-win-build-base-store exit=0
+run c52-win-build-candidate-store exit=0
+load before-c52-win 07:40:42Z: windows_cpu_pct=12 linux_loadavg=?
+run c52-win-r1-base-store-1s exit=0
+run c52-win-r1-candidate-store-1s exit=0
+load after-c52-win-round-1 07:44:30Z: windows_cpu_pct=9 linux_loadavg=?
+run c52-win-r2-candidate-store-1s exit=0
+run c52-win-r2-base-store-1s exit=0
+load after-c52-win-round-2 07:49:58Z: windows_cpu_pct=0 linux_loadavg=?
+run c52-win-r3-base-store-1s exit=0
+run c52-win-r3-candidate-store-1s exit=0
+load after-c52-win-round-3 07:55:28Z: windows_cpu_pct=13 linux_loadavg=?
+run c52-win-r4-candidate-store-1s exit=0
+run c52-win-r4-base-store-1s exit=0
+load after-c52-win-round-4 08:00:46Z: windows_cpu_pct=8 linux_loadavg=?
+run c52-win-r5-base-store-1s exit=0
+run c52-win-r5-candidate-store-1s exit=0
+load after-c52-win-round-5 08:06:12Z: windows_cpu_pct=3 linux_loadavg=?
+run c52-win-r6-candidate-store-1s exit=0
+run c52-win-r6-base-store-1s exit=0
+load after-c52-win-round-6 08:11:36Z: windows_cpu_pct=12 linux_loadavg=?
+run c52-win-r7-base-store-1s exit=0
+run c52-win-r7-candidate-store-1s exit=0
+load after-c52-win-round-7 08:16:46Z: windows_cpu_pct=4 linux_loadavg=?
+run c52-win-r8-candidate-store-1s exit=0
+run c52-win-r8-base-store-1s exit=0
+load after-c52-win-round-8 08:22:12Z: windows_cpu_pct=23 linux_loadavg=?
+WARNING: host not idle at after-c52-win-round-8 (windows_cpu_pct 23 > 15); timings from here may not be quiet
+run c52-win-r9-base-store-1s exit=0
+run c52-win-r9-candidate-store-1s exit=0
+load after-c52-win-round-9 08:27:37Z: windows_cpu_pct=3 linux_loadavg=?
+run c52-win-r10-candidate-store-1s exit=0
+run c52-win-r10-base-store-1s exit=0
+load after-c52-win-round-10 08:32:58Z: windows_cpu_pct=6 linux_loadavg=?
+c52-win paired analysis and completeness exit=0
+run c52-win-benchstat exit=0
+run c52-win-benchstat-csv exit=0
+step c52-win exit=0
+scratch directory C:/Users/Quant/AppData/Local/Temp/tmp.FmCJina8Tp removed (every step passed)
+== artifacts
+run record: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-store/quiet-run.txt
+c52 benchmark presence, candidate vs base: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-store/c52-names.tsv
+c52-win raw samples: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-store/c52-win/base.txt C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-store/c52-win/candidate.txt (per call: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-store/c52-win/c52-win-r*-*.log + .json)
+c52-win benchstat: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-store/c52-win/c52-win-benchstat.log (csv: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-store/c52-win/c52-win-benchstat-csv.log)
+c52-win paired ABBA table: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-store/c52-win/paired.txt; per-row completeness: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-store/c52-win/completeness.tsv; absolute budgets: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-store/c52-win/absolute-budget.tsv
+clone check (base): C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-store/c52-win/source-status-after-base.txt
+clone check (candidate): C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-store/c52-win/source-status-after-candidate.txt
+c52-win binaries: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-store/c52-win/binaries.sha256 (after: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-store/c52-win/binaries-after.sha256); isolated-home writes: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-store/c52-win/home-writes-*.txt
+real-home check (~/.claude, ~/.qompack): C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-store/homeguard-check.txt
+scratch clones and binaries (not evidence): removed after the run
+step c52-win-store try 1 exit=0 VALID power=AC 100->AC 100 2026-10-07T08:33:20Z
+c52: c52-win-store done (VALID, exit 0) 2026-10-07T08:33:21Z
+c52: c52-win-checkpoint measures QUIET_PKGS='checkpoint' QUIET_BENCH_FILTER='' into quiet-c52-win-checkpoint/, about 52 min 2026-10-07T08:33:21Z
+step c52-win-checkpoint try 1 start power=AC 100 2026-10-07T08:33:22Z
+run c52-win-build-base-checkpoint exit=0
+run c52-win-build-candidate-checkpoint exit=0
+load before-c52-win 08:34:16Z: windows_cpu_pct=7 linux_loadavg=?
+run c52-win-r1-base-checkpoint-10x exit=0
+run c52-win-r1-candidate-checkpoint-10x exit=0
+run c52-win-r1-base-checkpoint-1s exit=0
+run c52-win-r1-candidate-checkpoint-1s exit=0
+load after-c52-win-round-1 08:38:17Z: windows_cpu_pct=8 linux_loadavg=?
+run c52-win-r2-candidate-checkpoint-10x exit=0
+run c52-win-r2-base-checkpoint-10x exit=0
+run c52-win-r2-candidate-checkpoint-1s exit=0
+run c52-win-r2-base-checkpoint-1s exit=0
+load after-c52-win-round-2 08:42:19Z: windows_cpu_pct=2 linux_loadavg=?
+run c52-win-r3-base-checkpoint-10x exit=0
+run c52-win-r3-candidate-checkpoint-10x exit=0
+run c52-win-r3-base-checkpoint-1s exit=0
+run c52-win-r3-candidate-checkpoint-1s exit=0
+load after-c52-win-round-3 08:46:19Z: windows_cpu_pct=0 linux_loadavg=?
+run c52-win-r4-candidate-checkpoint-10x exit=0
+run c52-win-r4-base-checkpoint-10x exit=0
+run c52-win-r4-candidate-checkpoint-1s exit=0
+run c52-win-r4-base-checkpoint-1s exit=0
+load after-c52-win-round-4 08:50:20Z: windows_cpu_pct=8 linux_loadavg=?
+run c52-win-r5-base-checkpoint-10x exit=0
+run c52-win-r5-candidate-checkpoint-10x exit=0
+run c52-win-r5-base-checkpoint-1s exit=0
+run c52-win-r5-candidate-checkpoint-1s exit=0
+load after-c52-win-round-5 08:54:21Z: windows_cpu_pct=6 linux_loadavg=?
+run c52-win-r6-candidate-checkpoint-10x exit=0
+run c52-win-r6-base-checkpoint-10x exit=0
+run c52-win-r6-candidate-checkpoint-1s exit=0
+run c52-win-r6-base-checkpoint-1s exit=0
+load after-c52-win-round-6 08:58:21Z: windows_cpu_pct=6 linux_loadavg=?
+run c52-win-r7-base-checkpoint-10x exit=0
+run c52-win-r7-candidate-checkpoint-10x exit=0
+run c52-win-r7-base-checkpoint-1s exit=0
+run c52-win-r7-candidate-checkpoint-1s exit=0
+load after-c52-win-round-7 09:02:23Z: windows_cpu_pct=3 linux_loadavg=?
+run c52-win-r8-candidate-checkpoint-10x exit=0
+run c52-win-r8-base-checkpoint-10x exit=0
+run c52-win-r8-candidate-checkpoint-1s exit=0
+run c52-win-r8-base-checkpoint-1s exit=0
+load after-c52-win-round-8 09:06:24Z: windows_cpu_pct=1 linux_loadavg=?
+run c52-win-r9-base-checkpoint-10x exit=0
+run c52-win-r9-candidate-checkpoint-10x exit=0
+run c52-win-r9-base-checkpoint-1s exit=0
+run c52-win-r9-candidate-checkpoint-1s exit=0
+load after-c52-win-round-9 09:10:26Z: windows_cpu_pct=4 linux_loadavg=?
+run c52-win-r10-candidate-checkpoint-10x exit=0
+run c52-win-r10-base-checkpoint-10x exit=0
+run c52-win-r10-candidate-checkpoint-1s exit=0
+run c52-win-r10-base-checkpoint-1s exit=0
+load after-c52-win-round-10 09:14:27Z: windows_cpu_pct=3 linux_loadavg=?
+c52-win paired analysis and completeness exit=0
+run c52-win-benchstat exit=0
+run c52-win-benchstat-csv exit=0
+step c52-win exit=0
+scratch directory C:/Users/Quant/AppData/Local/Temp/tmp.tw0W5QRYkA removed (every step passed)
+== artifacts
+run record: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-checkpoint/quiet-run.txt
+c52 benchmark presence, candidate vs base: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-checkpoint/c52-names.tsv
+c52-win raw samples: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-checkpoint/c52-win/base.txt C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-checkpoint/c52-win/candidate.txt (per call: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-checkpoint/c52-win/c52-win-r*-*.log + .json)
+c52-win benchstat: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-checkpoint/c52-win/c52-win-benchstat.log (csv: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-checkpoint/c52-win/c52-win-benchstat-csv.log)
+c52-win paired ABBA table: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-checkpoint/c52-win/paired.txt; per-row completeness: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-checkpoint/c52-win/completeness.tsv; absolute budgets: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-checkpoint/c52-win/absolute-budget.tsv
+clone check (base): C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-checkpoint/c52-win/source-status-after-base.txt
+clone check (candidate): C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-checkpoint/c52-win/source-status-after-candidate.txt
+c52-win binaries: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-checkpoint/c52-win/binaries.sha256 (after: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-checkpoint/c52-win/binaries-after.sha256); isolated-home writes: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-checkpoint/c52-win/home-writes-*.txt
+real-home check (~/.claude, ~/.qompack): C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-checkpoint/homeguard-check.txt
+scratch clones and binaries (not evidence): removed after the run
+step c52-win-checkpoint try 1 exit=0 VALID power=AC 100->AC 100 2026-10-07T09:14:35Z
+c52: c52-win-checkpoint done (VALID, exit 0) 2026-10-07T09:14:35Z
+c52: c52-win-other measures QUIET_PKGS='negknow daemon cli canon chunk symbols obs config paths eval sketch dag hostperm scheduler rules skills' QUIET_BENCH_FILTER='' into quiet-c52-win-other/, about 42 min 2026-10-07T09:14:36Z
+step c52-win-other try 1 start power=AC 100 2026-10-07T09:14:37Z
+run c52-win-build-base-canon exit=0
+run c52-win-build-candidate-canon exit=0
+run c52-win-build-base-chunk exit=0
+run c52-win-build-candidate-chunk exit=0
+run c52-win-build-base-cli exit=0
+run c52-win-build-candidate-cli exit=0
+run c52-win-build-base-config exit=0
+run c52-win-build-candidate-config exit=0
+run c52-win-build-base-daemon exit=0
+run c52-win-build-candidate-daemon exit=0
+run c52-win-build-base-dag exit=0
+run c52-win-build-candidate-dag exit=0
+run c52-win-build-base-eval exit=0
+run c52-win-build-candidate-eval exit=0
+c52-win: base has none of internal/hostperm's benchmarks; not built
+run c52-win-build-candidate-hostperm exit=0
+run c52-win-build-base-negknow exit=0
+run c52-win-build-candidate-negknow exit=0
+run c52-win-build-base-obs exit=0
+run c52-win-build-candidate-obs exit=0
+run c52-win-build-base-paths exit=0
+run c52-win-build-candidate-paths exit=0
+run c52-win-build-base-rules exit=0
+run c52-win-build-candidate-rules exit=0
+run c52-win-build-base-scheduler exit=0
+run c52-win-build-candidate-scheduler exit=0
+run c52-win-build-base-sketch exit=0
+run c52-win-build-candidate-sketch exit=0
+run c52-win-build-base-skills exit=0
+run c52-win-build-candidate-skills exit=0
+run c52-win-build-base-symbols exit=0
+run c52-win-build-candidate-symbols exit=0
+load before-c52-win 09:16:51Z: windows_cpu_pct=4 linux_loadavg=?
+run c52-win-r1-base-negknow-10x exit=0
+run c52-win-r1-candidate-negknow-10x exit=0
+run c52-win-r1-base-negknow-1s exit=0
+run c52-win-r1-candidate-negknow-1s exit=0
+run c52-win-r1-base-daemon-1s exit=0
+run c52-win-r1-candidate-daemon-1s exit=0
+run c52-win-r1-base-cli-1s exit=0
+run c52-win-r1-candidate-cli-1s exit=0
+run c52-win-r1-base-canon-1s exit=0
+run c52-win-r1-candidate-canon-1s exit=0
+run c52-win-r1-base-chunk-1s exit=0
+run c52-win-r1-candidate-chunk-1s exit=0
+run c52-win-r1-base-symbols-1s exit=0
+run c52-win-r1-candidate-symbols-1s exit=0
+run c52-win-r1-base-obs-1s exit=0
+run c52-win-r1-candidate-obs-1s exit=0
+run c52-win-r1-base-config-1s exit=0
+run c52-win-r1-candidate-config-1s exit=0
+run c52-win-r1-base-paths-1s exit=0
+run c52-win-r1-candidate-paths-1s exit=0
+run c52-win-r1-base-eval-1s exit=0
+run c52-win-r1-candidate-eval-1s exit=0
+run c52-win-r1-base-sketch-1s exit=0
+run c52-win-r1-candidate-sketch-1s exit=0
+run c52-win-r1-base-dag-1s exit=0
+run c52-win-r1-candidate-dag-1s exit=0
+run c52-win-r1-candidate-hostperm-1s exit=0
+run c52-win-r1-base-scheduler-1s exit=0
+run c52-win-r1-candidate-scheduler-1s exit=0
+run c52-win-r1-base-rules-1s exit=0
+run c52-win-r1-candidate-rules-1s exit=0
+run c52-win-r1-base-skills-1s exit=0
+run c52-win-r1-candidate-skills-1s exit=0
+load after-c52-win-round-1 09:19:30Z: windows_cpu_pct=20 linux_loadavg=?
+WARNING: host not idle at after-c52-win-round-1 (windows_cpu_pct 20 > 15); timings from here may not be quiet
+run c52-win-r2-candidate-negknow-10x exit=0
+run c52-win-r2-base-negknow-10x exit=0
+run c52-win-r2-candidate-negknow-1s exit=0
+run c52-win-r2-base-negknow-1s exit=0
+run c52-win-r2-candidate-daemon-1s exit=0
+run c52-win-r2-base-daemon-1s exit=0
+run c52-win-r2-candidate-cli-1s exit=0
+run c52-win-r2-base-cli-1s exit=0
+run c52-win-r2-candidate-canon-1s exit=0
+run c52-win-r2-base-canon-1s exit=0
+run c52-win-r2-candidate-chunk-1s exit=0
+run c52-win-r2-base-chunk-1s exit=0
+run c52-win-r2-candidate-symbols-1s exit=0
+run c52-win-r2-base-symbols-1s exit=0
+run c52-win-r2-candidate-obs-1s exit=0
+run c52-win-r2-base-obs-1s exit=0
+run c52-win-r2-candidate-config-1s exit=0
+run c52-win-r2-base-config-1s exit=0
+run c52-win-r2-candidate-paths-1s exit=0
+run c52-win-r2-base-paths-1s exit=0
+run c52-win-r2-candidate-eval-1s exit=0
+run c52-win-r2-base-eval-1s exit=0
+run c52-win-r2-candidate-sketch-1s exit=0
+run c52-win-r2-base-sketch-1s exit=0
+run c52-win-r2-candidate-dag-1s exit=0
+run c52-win-r2-base-dag-1s exit=0
+run c52-win-r2-candidate-hostperm-1s exit=0
+run c52-win-r2-candidate-scheduler-1s exit=0
+run c52-win-r2-base-scheduler-1s exit=0
+run c52-win-r2-candidate-rules-1s exit=0
+run c52-win-r2-base-rules-1s exit=0
+run c52-win-r2-candidate-skills-1s exit=0
+run c52-win-r2-base-skills-1s exit=0
+load after-c52-win-round-2 09:22:02Z: windows_cpu_pct=12 linux_loadavg=?
+run c52-win-r3-base-negknow-10x exit=0
+run c52-win-r3-candidate-negknow-10x exit=0
+run c52-win-r3-base-negknow-1s exit=0
+run c52-win-r3-candidate-negknow-1s exit=0
+run c52-win-r3-base-daemon-1s exit=0
+run c52-win-r3-candidate-daemon-1s exit=0
+run c52-win-r3-base-cli-1s exit=0
+run c52-win-r3-candidate-cli-1s exit=0
+run c52-win-r3-base-canon-1s exit=0
+run c52-win-r3-candidate-canon-1s exit=0
+run c52-win-r3-base-chunk-1s exit=0
+run c52-win-r3-candidate-chunk-1s exit=0
+run c52-win-r3-base-symbols-1s exit=0
+run c52-win-r3-candidate-symbols-1s exit=0
+run c52-win-r3-base-obs-1s exit=0
+run c52-win-r3-candidate-obs-1s exit=0
+run c52-win-r3-base-config-1s exit=0
+run c52-win-r3-candidate-config-1s exit=0
+run c52-win-r3-base-paths-1s exit=0
+run c52-win-r3-candidate-paths-1s exit=0
+run c52-win-r3-base-eval-1s exit=0
+run c52-win-r3-candidate-eval-1s exit=0
+run c52-win-r3-base-sketch-1s exit=0
+run c52-win-r3-candidate-sketch-1s exit=0
+run c52-win-r3-base-dag-1s exit=0
+run c52-win-r3-candidate-dag-1s exit=0
+run c52-win-r3-candidate-hostperm-1s exit=0
+run c52-win-r3-base-scheduler-1s exit=0
+run c52-win-r3-candidate-scheduler-1s exit=0
+run c52-win-r3-base-rules-1s exit=0
+run c52-win-r3-candidate-rules-1s exit=0
+run c52-win-r3-base-skills-1s exit=0
+run c52-win-r3-candidate-skills-1s exit=0
+load after-c52-win-round-3 09:24:36Z: windows_cpu_pct=13 linux_loadavg=?
+run c52-win-r4-candidate-negknow-10x exit=0
+run c52-win-r4-base-negknow-10x exit=0
+run c52-win-r4-candidate-negknow-1s exit=0
+run c52-win-r4-base-negknow-1s exit=0
+run c52-win-r4-candidate-daemon-1s exit=0
+run c52-win-r4-base-daemon-1s exit=0
+run c52-win-r4-candidate-cli-1s exit=0
+run c52-win-r4-base-cli-1s exit=0
+run c52-win-r4-candidate-canon-1s exit=0
+run c52-win-r4-base-canon-1s exit=0
+run c52-win-r4-candidate-chunk-1s exit=0
+run c52-win-r4-base-chunk-1s exit=0
+run c52-win-r4-candidate-symbols-1s exit=0
+run c52-win-r4-base-symbols-1s exit=0
+run c52-win-r4-candidate-obs-1s exit=0
+run c52-win-r4-base-obs-1s exit=0
+run c52-win-r4-candidate-config-1s exit=0
+run c52-win-r4-base-config-1s exit=0
+run c52-win-r4-candidate-paths-1s exit=0
+run c52-win-r4-base-paths-1s exit=0
+run c52-win-r4-candidate-eval-1s exit=0
+run c52-win-r4-base-eval-1s exit=0
+run c52-win-r4-candidate-sketch-1s exit=0
+run c52-win-r4-base-sketch-1s exit=0
+run c52-win-r4-candidate-dag-1s exit=0
+run c52-win-r4-base-dag-1s exit=0
+run c52-win-r4-candidate-hostperm-1s exit=0
+run c52-win-r4-candidate-scheduler-1s exit=0
+run c52-win-r4-base-scheduler-1s exit=0
+run c52-win-r4-candidate-rules-1s exit=0
+run c52-win-r4-base-rules-1s exit=0
+run c52-win-r4-candidate-skills-1s exit=0
+run c52-win-r4-base-skills-1s exit=0
+load after-c52-win-round-4 09:27:14Z: windows_cpu_pct=11 linux_loadavg=?
+run c52-win-r5-base-negknow-10x exit=0
+run c52-win-r5-candidate-negknow-10x exit=0
+run c52-win-r5-base-negknow-1s exit=0
+run c52-win-r5-candidate-negknow-1s exit=0
+run c52-win-r5-base-daemon-1s exit=0
+run c52-win-r5-candidate-daemon-1s exit=0
+run c52-win-r5-base-cli-1s exit=0
+run c52-win-r5-candidate-cli-1s exit=0
+run c52-win-r5-base-canon-1s exit=0
+run c52-win-r5-candidate-canon-1s exit=0
+run c52-win-r5-base-chunk-1s exit=0
+run c52-win-r5-candidate-chunk-1s exit=0
+run c52-win-r5-base-symbols-1s exit=0
+run c52-win-r5-candidate-symbols-1s exit=0
+run c52-win-r5-base-obs-1s exit=0
+run c52-win-r5-candidate-obs-1s exit=0
+run c52-win-r5-base-config-1s exit=0
+run c52-win-r5-candidate-config-1s exit=0
+run c52-win-r5-base-paths-1s exit=0
+run c52-win-r5-candidate-paths-1s exit=0
+run c52-win-r5-base-eval-1s exit=0
+run c52-win-r5-candidate-eval-1s exit=0
+run c52-win-r5-base-sketch-1s exit=0
+run c52-win-r5-candidate-sketch-1s exit=0
+run c52-win-r5-base-dag-1s exit=0
+run c52-win-r5-candidate-dag-1s exit=0
+run c52-win-r5-candidate-hostperm-1s exit=0
+run c52-win-r5-base-scheduler-1s exit=0
+run c52-win-r5-candidate-scheduler-1s exit=0
+run c52-win-r5-base-rules-1s exit=0
+run c52-win-r5-candidate-rules-1s exit=0
+run c52-win-r5-base-skills-1s exit=0
+run c52-win-r5-candidate-skills-1s exit=0
+load after-c52-win-round-5 09:29:54Z: windows_cpu_pct=0 linux_loadavg=?
+run c52-win-r6-candidate-negknow-10x exit=0
+run c52-win-r6-base-negknow-10x exit=0
+run c52-win-r6-candidate-negknow-1s exit=0
+run c52-win-r6-base-negknow-1s exit=0
+run c52-win-r6-candidate-daemon-1s exit=0
+run c52-win-r6-base-daemon-1s exit=0
+run c52-win-r6-candidate-cli-1s exit=0
+run c52-win-r6-base-cli-1s exit=0
+run c52-win-r6-candidate-canon-1s exit=0
+run c52-win-r6-base-canon-1s exit=0
+run c52-win-r6-candidate-chunk-1s exit=0
+run c52-win-r6-base-chunk-1s exit=0
+run c52-win-r6-candidate-symbols-1s exit=0
+run c52-win-r6-base-symbols-1s exit=0
+run c52-win-r6-candidate-obs-1s exit=0
+run c52-win-r6-base-obs-1s exit=0
+run c52-win-r6-candidate-config-1s exit=0
+run c52-win-r6-base-config-1s exit=0
+run c52-win-r6-candidate-paths-1s exit=0
+run c52-win-r6-base-paths-1s exit=0
+run c52-win-r6-candidate-eval-1s exit=0
+run c52-win-r6-base-eval-1s exit=0
+run c52-win-r6-candidate-sketch-1s exit=0
+run c52-win-r6-base-sketch-1s exit=0
+run c52-win-r6-candidate-dag-1s exit=0
+run c52-win-r6-base-dag-1s exit=0
+run c52-win-r6-candidate-hostperm-1s exit=0
+run c52-win-r6-candidate-scheduler-1s exit=0
+run c52-win-r6-base-scheduler-1s exit=0
+run c52-win-r6-candidate-rules-1s exit=0
+run c52-win-r6-base-rules-1s exit=0
+run c52-win-r6-candidate-skills-1s exit=0
+run c52-win-r6-base-skills-1s exit=0
+load after-c52-win-round-6 09:32:31Z: windows_cpu_pct=9 linux_loadavg=?
+run c52-win-r7-base-negknow-10x exit=0
+run c52-win-r7-candidate-negknow-10x exit=0
+run c52-win-r7-base-negknow-1s exit=0
+run c52-win-r7-candidate-negknow-1s exit=0
+run c52-win-r7-base-daemon-1s exit=0
+run c52-win-r7-candidate-daemon-1s exit=0
+run c52-win-r7-base-cli-1s exit=0
+run c52-win-r7-candidate-cli-1s exit=0
+run c52-win-r7-base-canon-1s exit=0
+run c52-win-r7-candidate-canon-1s exit=0
+run c52-win-r7-base-chunk-1s exit=0
+run c52-win-r7-candidate-chunk-1s exit=0
+run c52-win-r7-base-symbols-1s exit=0
+run c52-win-r7-candidate-symbols-1s exit=0
+run c52-win-r7-base-obs-1s exit=0
+run c52-win-r7-candidate-obs-1s exit=0
+run c52-win-r7-base-config-1s exit=0
+run c52-win-r7-candidate-config-1s exit=0
+run c52-win-r7-base-paths-1s exit=0
+run c52-win-r7-candidate-paths-1s exit=0
+run c52-win-r7-base-eval-1s exit=0
+run c52-win-r7-candidate-eval-1s exit=0
+run c52-win-r7-base-sketch-1s exit=0
+run c52-win-r7-candidate-sketch-1s exit=0
+run c52-win-r7-base-dag-1s exit=0
+run c52-win-r7-candidate-dag-1s exit=0
+run c52-win-r7-candidate-hostperm-1s exit=0
+run c52-win-r7-base-scheduler-1s exit=0
+run c52-win-r7-candidate-scheduler-1s exit=0
+run c52-win-r7-base-rules-1s exit=0
+run c52-win-r7-candidate-rules-1s exit=0
+run c52-win-r7-base-skills-1s exit=0
+run c52-win-r7-candidate-skills-1s exit=0
+load after-c52-win-round-7 09:35:08Z: windows_cpu_pct=4 linux_loadavg=?
+run c52-win-r8-candidate-negknow-10x exit=0
+run c52-win-r8-base-negknow-10x exit=0
+run c52-win-r8-candidate-negknow-1s exit=0
+run c52-win-r8-base-negknow-1s exit=0
+run c52-win-r8-candidate-daemon-1s exit=0
+run c52-win-r8-base-daemon-1s exit=0
+run c52-win-r8-candidate-cli-1s exit=0
+run c52-win-r8-base-cli-1s exit=0
+run c52-win-r8-candidate-canon-1s exit=0
+run c52-win-r8-base-canon-1s exit=0
+run c52-win-r8-candidate-chunk-1s exit=0
+run c52-win-r8-base-chunk-1s exit=0
+run c52-win-r8-candidate-symbols-1s exit=0
+run c52-win-r8-base-symbols-1s exit=0
+run c52-win-r8-candidate-obs-1s exit=0
+run c52-win-r8-base-obs-1s exit=0
+run c52-win-r8-candidate-config-1s exit=0
+run c52-win-r8-base-config-1s exit=0
+run c52-win-r8-candidate-paths-1s exit=0
+run c52-win-r8-base-paths-1s exit=0
+run c52-win-r8-candidate-eval-1s exit=0
+run c52-win-r8-base-eval-1s exit=0
+run c52-win-r8-candidate-sketch-1s exit=0
+run c52-win-r8-base-sketch-1s exit=0
+run c52-win-r8-candidate-dag-1s exit=0
+run c52-win-r8-base-dag-1s exit=0
+run c52-win-r8-candidate-hostperm-1s exit=0
+run c52-win-r8-candidate-scheduler-1s exit=0
+run c52-win-r8-base-scheduler-1s exit=0
+run c52-win-r8-candidate-rules-1s exit=0
+run c52-win-r8-base-rules-1s exit=0
+run c52-win-r8-candidate-skills-1s exit=0
+run c52-win-r8-base-skills-1s exit=0
+load after-c52-win-round-8 09:37:40Z: windows_cpu_pct=2 linux_loadavg=?
+run c52-win-r9-base-negknow-10x exit=0
+run c52-win-r9-candidate-negknow-10x exit=0
+run c52-win-r9-base-negknow-1s exit=0
+run c52-win-r9-candidate-negknow-1s exit=0
+run c52-win-r9-base-daemon-1s exit=0
+run c52-win-r9-candidate-daemon-1s exit=0
+run c52-win-r9-base-cli-1s exit=0
+run c52-win-r9-candidate-cli-1s exit=0
+run c52-win-r9-base-canon-1s exit=0
+run c52-win-r9-candidate-canon-1s exit=0
+run c52-win-r9-base-chunk-1s exit=0
+run c52-win-r9-candidate-chunk-1s exit=0
+run c52-win-r9-base-symbols-1s exit=0
+run c52-win-r9-candidate-symbols-1s exit=0
+run c52-win-r9-base-obs-1s exit=0
+run c52-win-r9-candidate-obs-1s exit=0
+run c52-win-r9-base-config-1s exit=0
+run c52-win-r9-candidate-config-1s exit=0
+run c52-win-r9-base-paths-1s exit=0
+run c52-win-r9-candidate-paths-1s exit=0
+run c52-win-r9-base-eval-1s exit=0
+run c52-win-r9-candidate-eval-1s exit=0
+run c52-win-r9-base-sketch-1s exit=0
+run c52-win-r9-candidate-sketch-1s exit=0
+run c52-win-r9-base-dag-1s exit=0
+run c52-win-r9-candidate-dag-1s exit=0
+run c52-win-r9-candidate-hostperm-1s exit=0
+run c52-win-r9-base-scheduler-1s exit=0
+run c52-win-r9-candidate-scheduler-1s exit=0
+run c52-win-r9-base-rules-1s exit=0
+run c52-win-r9-candidate-rules-1s exit=0
+run c52-win-r9-base-skills-1s exit=0
+run c52-win-r9-candidate-skills-1s exit=0
+load after-c52-win-round-9 09:40:13Z: windows_cpu_pct=9 linux_loadavg=?
+run c52-win-r10-candidate-negknow-10x exit=0
+run c52-win-r10-base-negknow-10x exit=0
+run c52-win-r10-candidate-negknow-1s exit=0
+run c52-win-r10-base-negknow-1s exit=0
+run c52-win-r10-candidate-daemon-1s exit=0
+run c52-win-r10-base-daemon-1s exit=0
+run c52-win-r10-candidate-cli-1s exit=0
+run c52-win-r10-base-cli-1s exit=0
+run c52-win-r10-candidate-canon-1s exit=0
+run c52-win-r10-base-canon-1s exit=0
+run c52-win-r10-candidate-chunk-1s exit=0
+run c52-win-r10-base-chunk-1s exit=0
+run c52-win-r10-candidate-symbols-1s exit=0
+run c52-win-r10-base-symbols-1s exit=0
+run c52-win-r10-candidate-obs-1s exit=0
+run c52-win-r10-base-obs-1s exit=0
+run c52-win-r10-candidate-config-1s exit=0
+run c52-win-r10-base-config-1s exit=0
+run c52-win-r10-candidate-paths-1s exit=0
+run c52-win-r10-base-paths-1s exit=0
+run c52-win-r10-candidate-eval-1s exit=0
+run c52-win-r10-base-eval-1s exit=0
+run c52-win-r10-candidate-sketch-1s exit=0
+run c52-win-r10-base-sketch-1s exit=0
+run c52-win-r10-candidate-dag-1s exit=0
+run c52-win-r10-base-dag-1s exit=0
+run c52-win-r10-candidate-hostperm-1s exit=0
+run c52-win-r10-candidate-scheduler-1s exit=0
+run c52-win-r10-base-scheduler-1s exit=0
+run c52-win-r10-candidate-rules-1s exit=0
+run c52-win-r10-base-rules-1s exit=0
+run c52-win-r10-candidate-skills-1s exit=0
+run c52-win-r10-base-skills-1s exit=0
+load after-c52-win-round-10 09:42:46Z: windows_cpu_pct=21 linux_loadavg=?
+WARNING: host not idle at after-c52-win-round-10 (windows_cpu_pct 21 > 15); timings from here may not be quiet
+c52-win paired analysis and completeness exit=0
+run c52-win-benchstat exit=0
+run c52-win-benchstat-csv exit=0
+step c52-win exit=0
+scratch directory C:/Users/Quant/AppData/Local/Temp/tmp.1yDsXBHfPA removed (every step passed)
+== artifacts
+run record: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-other/quiet-run.txt
+c52 benchmark presence, candidate vs base: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-other/c52-names.tsv
+c52-win raw samples: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-other/c52-win/base.txt C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-other/c52-win/candidate.txt (per call: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-other/c52-win/c52-win-r*-*.log + .json)
+c52-win benchstat: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-other/c52-win/c52-win-benchstat.log (csv: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-other/c52-win/c52-win-benchstat-csv.log)
+c52-win paired ABBA table: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-other/c52-win/paired.txt; per-row completeness: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-other/c52-win/completeness.tsv; absolute budgets: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-other/c52-win/absolute-budget.tsv
+clone check (base): C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-other/c52-win/source-status-after-base.txt
+clone check (candidate): C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-other/c52-win/source-status-after-candidate.txt
+c52-win binaries: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-other/c52-win/binaries.sha256 (after: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-other/c52-win/binaries-after.sha256); isolated-home writes: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-other/c52-win/home-writes-*.txt
+real-home check (~/.claude, ~/.qompack): C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-win-other/homeguard-check.txt
+scratch clones and binaries (not evidence): removed after the run
+step c52-win-other try 1 exit=0 VALID power=AC 100->AC 100 2026-10-07T09:42:55Z
+c52: c52-win-other done (VALID, exit 0) 2026-10-07T09:42:55Z
+c52: c52-linux-observer measures QUIET_PKGS='observer' QUIET_BENCH_FILTER='' into quiet-c52-linux-observer/, about 61 min 2026-10-07T09:42:56Z
+step c52-linux-observer try 1 start power=AC 100 2026-10-07T09:42:57Z
+container start exit=0 (c52-linux-observer) 2026-10-07T09:42:58Z
+gate prep quiet-c52-prep-base (base cf31e01f38f3) exit=0 run_id=cx-quiet-quiet-c52-prep-base-cf31e01-20261007T094307Z
+run c52-linux-build-base-observer exit=0
+gate prep quiet-c52-prep-candidate (candidate 3ec62ad2e01b) exit=0 run_id=cx-quiet-quiet-c52-prep-candidate-3ec62ad-20261007T094324Z
+run c52-linux-build-candidate-observer exit=0
+load before-c52-linux 09:43:46Z: windows_cpu_pct=10 linux_loadavg=0.30 0.25 0.23 3/955 1096
+run c52-linux-r1-base-observer-200x exit=0
+run c52-linux-r1-candidate-observer-200x exit=0
+run c52-linux-r1-base-observer-1s exit=0
+run c52-linux-r1-candidate-observer-1s exit=0
+load after-c52-linux-round-1 09:48:44Z: windows_cpu_pct=10 linux_loadavg=1.67 1.15 0.63 3/960 1166
+WARNING: host not idle at after-c52-linux-round-1 (linux 1-min load 1.67 > 1.0); timings from here may not be quiet
+run c52-linux-r2-candidate-observer-200x exit=0
+run c52-linux-r2-base-observer-200x exit=0
+run c52-linux-r2-candidate-observer-1s exit=0
+run c52-linux-r2-base-observer-1s exit=0
+load after-c52-linux-round-2 09:53:42Z: windows_cpu_pct=5 linux_loadavg=1.48 1.40 0.90 3/959 1236
+WARNING: host not idle at after-c52-linux-round-2 (linux 1-min load 1.48 > 1.0); timings from here may not be quiet
+run c52-linux-r3-base-observer-200x exit=0
+run c52-linux-r3-candidate-observer-200x exit=0
+run c52-linux-r3-base-observer-1s exit=0
+run c52-linux-r3-candidate-observer-1s exit=0
+load after-c52-linux-round-3 09:58:41Z: windows_cpu_pct=4 linux_loadavg=1.32 1.48 1.08 2/960 1306
+WARNING: host not idle at after-c52-linux-round-3 (linux 1-min load 1.32 > 1.0); timings from here may not be quiet
+run c52-linux-r4-candidate-observer-200x exit=0
+run c52-linux-r4-base-observer-200x exit=0
+run c52-linux-r4-candidate-observer-1s exit=0
+run c52-linux-r4-base-observer-1s exit=0
+load after-c52-linux-round-4 10:03:37Z: windows_cpu_pct=5 linux_loadavg=1.37 1.58 1.24 4/971 1378
+WARNING: host not idle at after-c52-linux-round-4 (linux 1-min load 1.37 > 1.0); timings from here may not be quiet
+run c52-linux-r5-base-observer-200x exit=0
+run c52-linux-r5-candidate-observer-200x exit=0
+run c52-linux-r5-base-observer-1s exit=0
+run c52-linux-r5-candidate-observer-1s exit=0
+load after-c52-linux-round-5 10:08:36Z: windows_cpu_pct=8 linux_loadavg=1.43 1.61 1.35 4/959 1448
+WARNING: host not idle at after-c52-linux-round-5 (linux 1-min load 1.43 > 1.0); timings from here may not be quiet
+run c52-linux-r6-candidate-observer-200x exit=0
+run c52-linux-r6-base-observer-200x exit=0
+run c52-linux-r6-candidate-observer-1s exit=0
+run c52-linux-r6-base-observer-1s exit=0
+load after-c52-linux-round-6 10:13:33Z: windows_cpu_pct=11 linux_loadavg=1.39 1.61 1.44 3/960 1518
+WARNING: host not idle at after-c52-linux-round-6 (linux 1-min load 1.39 > 1.0); timings from here may not be quiet
+run c52-linux-r7-base-observer-200x exit=0
+run c52-linux-r7-candidate-observer-200x exit=0
+run c52-linux-r7-base-observer-1s exit=0
+run c52-linux-r7-candidate-observer-1s exit=0
+load after-c52-linux-round-7 10:18:30Z: windows_cpu_pct=2 linux_loadavg=1.65 1.75 1.55 3/961 1588
+WARNING: host not idle at after-c52-linux-round-7 (linux 1-min load 1.65 > 1.0); timings from here may not be quiet
+run c52-linux-r8-candidate-observer-200x exit=0
+run c52-linux-r8-base-observer-200x exit=0
+run c52-linux-r8-candidate-observer-1s exit=0
+run c52-linux-r8-base-observer-1s exit=0
+load after-c52-linux-round-8 10:23:28Z: windows_cpu_pct=1 linux_loadavg=1.29 1.61 1.55 2/961 1659
+WARNING: host not idle at after-c52-linux-round-8 (linux 1-min load 1.29 > 1.0); timings from here may not be quiet
+run c52-linux-r9-base-observer-200x exit=0
+run c52-linux-r9-candidate-observer-200x exit=0
+run c52-linux-r9-base-observer-1s exit=0
+run c52-linux-r9-candidate-observer-1s exit=0
+load after-c52-linux-round-9 10:28:25Z: windows_cpu_pct=4 linux_loadavg=1.70 1.68 1.59 4/962 1730
+WARNING: host not idle at after-c52-linux-round-9 (linux 1-min load 1.70 > 1.0); timings from here may not be quiet
+run c52-linux-r10-candidate-observer-200x exit=0
+run c52-linux-r10-base-observer-200x exit=0
+run c52-linux-r10-candidate-observer-1s exit=0
+run c52-linux-r10-base-observer-1s exit=0
+load after-c52-linux-round-10 10:33:30Z: windows_cpu_pct=12 linux_loadavg=1.15 1.66 1.64 6/960 1800
+WARNING: host not idle at after-c52-linux-round-10 (linux 1-min load 1.15 > 1.0); timings from here may not be quiet
+c52-linux paired analysis and completeness exit=0
+run c52-linux-benchstat exit=0
+run c52-linux-benchstat-csv exit=0
+step c52-linux exit=0
+scratch directory C:/Users/Quant/AppData/Local/Temp/tmp.pijyQsf3fg removed (every step passed)
+== artifacts
+run record: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-linux-observer/quiet-run.txt
+c52 benchmark presence, candidate vs base: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-linux-observer/c52-names.tsv
+gate prep (base): C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-linux-observer/c52-linux/prep-base.host.log and C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-linux-observer/c52-linux/gate/cx-quiet-quiet-c52-prep-base-cf31e01-20261007T094307Z-artifacts
+gate prep (candidate): C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-linux-observer/c52-linux/prep-candidate.host.log and C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-linux-observer/c52-linux/gate/cx-quiet-quiet-c52-prep-candidate-3ec62ad-20261007T094324Z-artifacts
+c52-linux raw samples: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-linux-observer/c52-linux/base.txt C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-linux-observer/c52-linux/candidate.txt (per call: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-linux-observer/c52-linux/c52-linux-r*-*.log + .json)
+c52-linux benchstat: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-linux-observer/c52-linux/c52-linux-benchstat.log (csv: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-linux-observer/c52-linux/c52-linux-benchstat-csv.log)
+c52-linux paired ABBA table: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-linux-observer/c52-linux/paired.txt; per-row completeness: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-linux-observer/c52-linux/completeness.tsv; absolute budgets: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-linux-observer/c52-linux/absolute-budget.tsv
+c52-linux clone checks: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-linux-observer/c52-linux/source-status-after-*.txt, binaries C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-linux-observer/c52-linux/binaries-*.sha256
+real-home check (~/.claude, ~/.qompack): C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-linux-observer/homeguard-check.txt
+scratch clones and binaries (not evidence): removed after the run
+container stopped exit=0 2026-10-07T10:33:40Z
+engine left as found (D56(g)) 2026-10-07T10:33:40Z
+step c52-linux-observer try 1 exit=0 VALID power=AC 100->AC 100 2026-10-07T10:33:42Z
+c52: c52-linux-observer done (VALID, exit 0) 2026-10-07T10:33:42Z
+c52: c52-linux-store measures QUIET_PKGS='store' QUIET_BENCH_FILTER='' into quiet-c52-linux-store/, about 71 min 2026-10-07T10:33:42Z
+step c52-linux-store try 1 start power=AC 100 2026-10-07T10:33:43Z
+container start exit=0 (c52-linux-store) 2026-10-07T10:33:44Z
+gate prep quiet-c52-prep-base (base cf31e01f38f3) exit=0 run_id=cx-quiet-quiet-c52-prep-base-cf31e01-20261007T103353Z
+run c52-linux-build-base-store exit=0
+gate prep quiet-c52-prep-candidate (candidate 3ec62ad2e01b) exit=0 run_id=cx-quiet-quiet-c52-prep-candidate-3ec62ad-20261007T103410Z
+run c52-linux-build-candidate-store exit=0
+load before-c52-linux 10:34:34Z: windows_cpu_pct=5 linux_loadavg=1.35 1.60 1.62 4/955 1337
+WARNING: host not idle at before-c52-linux (linux 1-min load 1.35 > 1.0); timings from here may not be quiet
+run c52-linux-r1-base-store-1s exit=0
+run c52-linux-r1-candidate-store-1s exit=0
+load after-c52-linux-round-1 10:40:51Z: windows_cpu_pct=5 linux_loadavg=2.07 1.94 1.77 3/960 1375
+WARNING: host not idle at after-c52-linux-round-1 (linux 1-min load 2.07 > 1.0); timings from here may not be quiet
+run c52-linux-r2-candidate-store-1s exit=0
+run c52-linux-r2-base-store-1s exit=0
+load after-c52-linux-round-2 10:47:21Z: windows_cpu_pct=1 linux_loadavg=1.93 1.90 1.82 5/960 1414
+WARNING: host not idle at after-c52-linux-round-2 (linux 1-min load 1.93 > 1.0); timings from here may not be quiet
+run c52-linux-r3-base-store-1s exit=0
+run c52-linux-r3-candidate-store-1s exit=0
+load after-c52-linux-round-3 10:52:49Z: windows_cpu_pct=6 linux_loadavg=1.95 1.92 1.85 6/961 1453
+WARNING: host not idle at after-c52-linux-round-3 (linux 1-min load 1.95 > 1.0); timings from here may not be quiet
+run c52-linux-r4-candidate-store-1s exit=0
+run c52-linux-r4-base-store-1s exit=0
+load after-c52-linux-round-4 10:59:13Z: windows_cpu_pct=5 linux_loadavg=2.12 1.91 1.87 2/961 1492
+WARNING: host not idle at after-c52-linux-round-4 (linux 1-min load 2.12 > 1.0); timings from here may not be quiet
+run c52-linux-r5-base-store-1s exit=0
+run c52-linux-r5-candidate-store-1s exit=0
+load after-c52-linux-round-5 11:04:31Z: windows_cpu_pct=12 linux_loadavg=1.85 1.86 1.85 3/963 1530
+WARNING: host not idle at after-c52-linux-round-5 (linux 1-min load 1.85 > 1.0); timings from here may not be quiet
+run c52-linux-r6-candidate-store-1s exit=0
+run c52-linux-r6-base-store-1s exit=0
+load after-c52-linux-round-6 11:10:32Z: windows_cpu_pct=0 linux_loadavg=1.62 1.82 1.85 4/960 1569
+WARNING: host not idle at after-c52-linux-round-6 (linux 1-min load 1.62 > 1.0); timings from here may not be quiet
+run c52-linux-r7-base-store-1s exit=0
+run c52-linux-r7-candidate-store-1s exit=0
+load after-c52-linux-round-7 11:17:02Z: windows_cpu_pct=5 linux_loadavg=2.38 2.15 1.97 5/960 1608
+WARNING: host not idle at after-c52-linux-round-7 (linux 1-min load 2.38 > 1.0); timings from here may not be quiet
+run c52-linux-r8-candidate-store-1s exit=0
+run c52-linux-r8-base-store-1s exit=0
+load after-c52-linux-round-8 11:22:50Z: windows_cpu_pct=3 linux_loadavg=1.83 1.99 1.97 4/965 1646
+WARNING: host not idle at after-c52-linux-round-8 (linux 1-min load 1.83 > 1.0); timings from here may not be quiet
+run c52-linux-r9-base-store-1s exit=0
+run c52-linux-r9-candidate-store-1s exit=0
+load after-c52-linux-round-9 11:28:35Z: windows_cpu_pct=2 linux_loadavg=2.00 1.86 1.91 3/962 1684
+WARNING: host not idle at after-c52-linux-round-9 (linux 1-min load 2.00 > 1.0); timings from here may not be quiet
+run c52-linux-r10-candidate-store-1s exit=0
+run c52-linux-r10-base-store-1s exit=0
+load after-c52-linux-round-10 11:34:39Z: windows_cpu_pct=13 linux_loadavg=1.96 1.90 1.91 4/961 1722
+WARNING: host not idle at after-c52-linux-round-10 (linux 1-min load 1.96 > 1.0); timings from here may not be quiet
+c52-linux paired analysis and completeness exit=0
+run c52-linux-benchstat exit=0
+run c52-linux-benchstat-csv exit=0
+step c52-linux exit=0
+scratch directory C:/Users/Quant/AppData/Local/Temp/tmp.oyXJQZuScR removed (every step passed)
+== artifacts
+run record: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-linux-store/quiet-run.txt
+c52 benchmark presence, candidate vs base: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-linux-store/c52-names.tsv
+gate prep (base): C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-linux-store/c52-linux/prep-base.host.log and C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-linux-store/c52-linux/gate/cx-quiet-quiet-c52-prep-base-cf31e01-20261007T103353Z-artifacts
+gate prep (candidate): C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-linux-store/c52-linux/prep-candidate.host.log and C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-linux-store/c52-linux/gate/cx-quiet-quiet-c52-prep-candidate-3ec62ad-20261007T103410Z-artifacts
+c52-linux raw samples: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-linux-store/c52-linux/base.txt C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-linux-store/c52-linux/candidate.txt (per call: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-linux-store/c52-linux/c52-linux-r*-*.log + .json)
+c52-linux benchstat: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-linux-store/c52-linux/c52-linux-benchstat.log (csv: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-linux-store/c52-linux/c52-linux-benchstat-csv.log)
+c52-linux paired ABBA table: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-linux-store/c52-linux/paired.txt; per-row completeness: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-linux-store/c52-linux/completeness.tsv; absolute budgets: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-linux-store/c52-linux/absolute-budget.tsv
+c52-linux clone checks: C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-linux-store/c52-linux/source-status-after-*.txt, binaries C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-linux-store/c52-linux/binaries-*.sha256
+real-home check (~/.claude, ~/.qompack): C:/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/quiet-c52-linux-store/homeguard-check.txt
+scratch clones and binaries (not evidence): removed after the run
+container stopped exit=0 2026-10-07T11:34:54Z
+engine left as found (D56(g)) 2026-10-07T11:34:54Z
+step c52-linux-store try 1 exit=0 VALID power=AC 100->AC 100 2026-10-07T11:34:55Z
+c52: c52-linux-store done (VALID, exit 0) 2026-10-07T11:34:55Z
+c52: c52-linux-checkpoint needs about 56 min (C52_EST_*) and would end after the deadline 2026-10-07T08:00:00: left for the C5.2 night 2026-10-07T11:34:56Z
+c52: c52-linux-other needs about 38 min (C52_EST_*) and would end after the deadline 2026-10-07T08:00:00: left for the C5.2 night 2026-10-07T11:34:56Z
+left for the C5.2 night (D62(c); C8_C52_ONLY=1 on this candidate, README.md "The C5.2 night", with C8_C52_STEPS naming these): c116-rig c52-linux-checkpoint c52-linux-other 2026-10-07T11:34:56Z
+done: steps=19 passed=16 failed=2 [linux-timing linux-e2e-timing] invalid_power=0 not_reference=0 (of which 0 exited non-zero) skipped=0 reported=1 ac_wait_used=0min pending_c52_night=[c116-rig c52-linux-checkpoint c52-linux-other] 2026-10-07T11:34:56Z

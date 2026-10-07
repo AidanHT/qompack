@@ -1,0 +1,29 @@
+package	benchmark	side	status	samples
+internal/store	BenchmarkGetChunk	base	OK	1 name(s) x 10
+internal/store	BenchmarkGetChunk	candidate	OK	1 name(s) x 10
+internal/store	BenchmarkOpenSpan_4KB_of_4MB	base	OK	1 name(s) x 10
+internal/store	BenchmarkOpenSpan_4KB_of_4MB	candidate	OK	1 name(s) x 10
+internal/store	BenchmarkSearch_1000Roots	base	OK	1 name(s) x 10
+internal/store	BenchmarkSearch_1000Roots	candidate	OK	1 name(s) x 10
+internal/store	BenchmarkSearch_1000Roots_DistinctChunks	base	CANDIDATE-ONLY	-
+internal/store	BenchmarkSearch_1000Roots_DistinctChunks	candidate	OK	1 name(s) x 10
+internal/store	BenchmarkPutBytes_100KB_Cold	base	OK	1 name(s) x 10
+internal/store	BenchmarkPutBytes_100KB_Cold	candidate	OK	1 name(s) x 10
+internal/store	BenchmarkPutBytes_100KB_Warm	base	OK	1 name(s) x 10
+internal/store	BenchmarkPutBytes_100KB_Warm	candidate	OK	1 name(s) x 10
+internal/store	BenchmarkPutObject_NovelChunk	base	CANDIDATE-ONLY	-
+internal/store	BenchmarkPutObject_NovelChunk	candidate	OK	1 name(s) x 10
+internal/store	BenchmarkCountFold_4MiB	base	CANDIDATE-ONLY	-
+internal/store	BenchmarkCountFold_4MiB	candidate	OK	1 name(s) x 10
+internal/store	BenchmarkGC_50kObjects	base	OK	1 name(s) x 10
+internal/store	BenchmarkGC_50kObjects	candidate	OK	1 name(s) x 10
+internal/store	BenchmarkMarkEncoded_100	base	OK	1 name(s) x 10
+internal/store	BenchmarkMarkEncoded_100	candidate	OK	1 name(s) x 10
+internal/store	BenchmarkOpenStore_50kRoots	base	OK	1 name(s) x 10
+internal/store	BenchmarkOpenStore_50kRoots	candidate	OK	1 name(s) x 10
+internal/store	BenchmarkPutBytes_100KB_Cold_NoRedact	base	OK	1 name(s) x 10
+internal/store	BenchmarkPutBytes_100KB_Cold_NoRedact	candidate	OK	1 name(s) x 10
+internal/store	BenchmarkPutBytes_100KB_Warm_KeepRaw	base	OK	3 name(s) x 10
+internal/store	BenchmarkPutBytes_100KB_Warm_KeepRaw	candidate	OK	3 name(s) x 10
+internal/store	BenchmarkPutBytes_100KB_Warm_NoRedact	base	OK	1 name(s) x 10
+internal/store	BenchmarkPutBytes_100KB_Warm_NoRedact	candidate	OK	1 name(s) x 10

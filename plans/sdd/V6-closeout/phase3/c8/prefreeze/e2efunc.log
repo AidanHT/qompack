@@ -1,0 +1,9 @@
+prefreeze: e2efunc skips test/e2e's timing rows, judged alone on AC by the night: -skip '^(TestV3_HotPathUnchangedWithLedgerResident|TestE2E_SessionStartLatency|TestV5_ThrashWarningVisibleInStatusAndCheckpoint)$'
+ok  	github.com/qompack/qompack/test/e2e	726.840s
+prefreeze: e2efunc runs TestV5_ThrashWarningVisibleInStatusAndCheckpoint's functional arm state_aware_detector_is_progress_aware_and_cannot_feed_itself
+=== RUN   TestV5_ThrashWarningVisibleInStatusAndCheckpoint
+=== RUN   TestV5_ThrashWarningVisibleInStatusAndCheckpoint/state_aware_detector_is_progress_aware_and_cannot_feed_itself
+--- PASS: TestV5_ThrashWarningVisibleInStatusAndCheckpoint (1.10s)
+    --- PASS: TestV5_ThrashWarningVisibleInStatusAndCheckpoint/state_aware_detector_is_progress_aware_and_cannot_feed_itself (1.10s)
+PASS
+ok  	github.com/qompack/qompack/test/e2e	1.386s

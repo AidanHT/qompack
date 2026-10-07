@@ -1,0 +1,103 @@
+{
+  "version": "0.3.0",
+  "tag": "v0.3.0",
+  "steps": [
+    {
+      "name": "version agreement",
+      "status": "PASS",
+      "seconds": 0.024,
+      "detail": "tag v0.3.0, internal/core.Version 0.3.0, HEAD's exact tag agrees"
+    },
+    {
+      "name": "ci-local fmt-check",
+      "status": "PASS",
+      "seconds": 7.711
+    },
+    {
+      "name": "ci-local lint",
+      "status": "PASS",
+      "seconds": 1997.576
+    },
+    {
+      "name": "ci-local vet",
+      "status": "PASS",
+      "seconds": 6.952
+    },
+    {
+      "name": "ci-local build",
+      "status": "PASS",
+      "seconds": 0.703
+    },
+    {
+      "name": "ci-local test",
+      "status": "PASS",
+      "seconds": 1884.644
+    },
+    {
+      "name": "ci-local cover",
+      "status": "PASS",
+      "seconds": 1928.015
+    },
+    {
+      "name": "ci-local plugin-validate",
+      "status": "PASS",
+      "seconds": 0.001
+    },
+    {
+      "name": "ci-local gen-config-docs",
+      "status": "PASS",
+      "seconds": 0.008
+    },
+    {
+      "name": "build-all",
+      "status": "PASS",
+      "seconds": 9.623
+    },
+    {
+      "name": "generated docs",
+      "status": "PASS",
+      "seconds": 0.001
+    },
+    {
+      "name": "guards",
+      "status": "PASS",
+      "seconds": 27.817,
+      "detail": "go test -count=1 ./test/guards/"
+    },
+    {
+      "name": "govulncheck",
+      "status": "PASS",
+      "seconds": 7.949,
+      "detail": "govulncheck ./... reported nothing"
+    },
+    {
+      "name": "licenses",
+      "status": "PASS",
+      "seconds": 2.29
+    },
+    {
+      "name": "real-binary determinism",
+      "status": "PASS",
+      "seconds": 1.679,
+      "detail": "two real-binary assemblies of windows/amd64 at version 0.3.0 are byte-identical (version from --tag)"
+    },
+    {
+      "name": "rollback rehearsal",
+      "status": "PASS",
+      "seconds": 43.664,
+      "detail": "rehearsed ./internal/store/ (3), ./test/e2e/ (3)"
+    },
+    {
+      "name": "plugin-validate",
+      "status": "PASS",
+      "seconds": 0.001
+    },
+    {
+      "name": "marketplace",
+      "status": "PASS",
+      "seconds": 0.542,
+      "detail": "marketplace for v0.3.0 (version from --tag) is valid and `claude plugin validate --strict --json` accepted it (2.1.280 (Claude Code)); no committed .claude-plugin/marketplace.json yet (a published release opens the PR that adds it)"
+    }
+  ],
+  "ok": true
+}

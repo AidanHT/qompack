@@ -1,0 +1,9 @@
+package	benchmark	side	status	samples
+internal/observer	BenchmarkOnToolUse_TestOutput256KB	base	OK	3 name(s) x 10
+internal/observer	BenchmarkOnToolUse_TestOutput256KB	candidate	OK	3 name(s) x 10
+internal/observer	BenchmarkOnToolUse_TestOutput256KB_Leased	base	CANDIDATE-ONLY	-
+internal/observer	BenchmarkOnToolUse_TestOutput256KB_Leased	candidate	OK	3 name(s) x 10
+internal/observer	BenchmarkOnToolUse_FileRead64KB	base	OK	3 name(s) x 10
+internal/observer	BenchmarkOnToolUse_FileRead64KB	candidate	OK	3 name(s) x 10
+internal/observer	BenchmarkTombstone	base	OK	1 name(s) x 10
+internal/observer	BenchmarkTombstone	candidate	OK	1 name(s) x 10

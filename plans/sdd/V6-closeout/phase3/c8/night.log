@@ -1,0 +1,116 @@
+start pid 1150 winpid 49520 keep-awake pid 1161 deadline=2026-10-07T08:00:00 ac_wait_budget=180min power=BAT 64 2026-10-07T01:13:39Z
+keep-awake held (keepawake.log) 2026-10-07T01:13:40Z
+integration 275165e9ceec6a9cd41b7b3afdc08dc7f61ef3e3, verify/v6 732428535f31266bee665711a68b9166d4184c55 2026-10-07T01:13:41Z
+precondition: closeout/w15-docs (21c07942db4743b73627d77c1b8043ee26d75ade) is merged 2026-10-07T01:13:44Z
+precondition: closeout/w15-ledger (12817cd0a21f32c1876f3ab67c18d1cc87e75c1e) is merged 2026-10-07T01:13:44Z
+precondition: closeout/w15-services (c212712d4b269491dac1a167e702f154122c617b) is merged 2026-10-07T01:13:45Z
+precondition: closeout/w17b-docs2 (e2dc0c11ef1a100501268d1f82270ccbfe3fd85f) is merged 2026-10-07T01:13:49Z
+precondition: closeout/w17b-inventory2 (766606dd8fc85de03f2faa5fbc097519f29fa677) is merged 2026-10-07T01:13:49Z
+precondition: closeout/w17c-spoolwatch (09164f129cd1b6dd261a383d668f2a7f960fe7e2) is merged 2026-10-07T01:13:50Z
+precondition: closeout/w18-passprogress (b2f35b6e8442fe518ceeadf55655158caaa854ca) is merged 2026-10-07T01:13:50Z
+precondition: closeout/w18-ssfires (dc8fc5808b67000e4f7a5faa06f587a19f608867) is merged 2026-10-07T01:13:50Z
+precondition: closeout/w19-docs (8bd80c85059a3907b2a4b63ef717ffbba08a5bce) is merged 2026-10-07T01:13:50Z
+precondition: closeout/w19-forkwork (085e7de69f718fb78f32970a2203edbc1f25156b) is merged 2026-10-07T01:13:51Z
+precondition: closeout/w19-loudcfg (2b992d099f6b7e284d557ada68137d4506c0235f) is merged 2026-10-07T01:13:51Z
+precondition: closeout/w19-rehydrate (54d4889af99c47f9a0115b79438878cd7d1d46fd) is merged 2026-10-07T01:13:51Z
+precondition: closeout/w19-statusorder (0222e96c48b2254ff3829b2daff001e0cb401c1f) is merged 2026-10-07T01:13:51Z
+precondition: closeout/w19b-cmdconnect (bef7e538711fe27c06bafa50bd570519612fa688) is merged 2026-10-07T01:13:52Z
+precondition: closeout/w20-config (dc63534d162e9e851020339634f996985e2c0c9f) is merged 2026-10-07T01:13:53Z
+precondition: closeout/w20-cover (7eb34890f0c6c3536f2cadd25dcf4b15238359a2) is merged 2026-10-07T01:13:53Z
+precondition: closeout/w20-docs (28cc84964efbe6f581c953504c2d746c332c5420) is merged 2026-10-07T01:13:54Z
+precondition: closeout/w20-drain (f9b054e12562574a30f6cb5f60cea482605af485) is merged 2026-10-07T01:13:54Z
+precondition: closeout/w20-forkwork (089a193bef8cdfc027cffa9b4545ed07e3e27a14) is merged 2026-10-07T01:13:54Z
+precondition: closeout/w20-redeliver (2eccdfa2b97980fbb7c432b29c705a1d57805ef1) is merged 2026-10-07T01:13:54Z
+precondition: closeout/w20-sessionend (5727e417554cfa4d0017194d34311ee41d62a016) is merged 2026-10-07T01:13:55Z
+precondition: closeout/w20-status (f5fae91aa2bceb05756e9c36149794341df1e374) is merged 2026-10-07T01:13:55Z
+precondition: closeout/w21-e2e (3fe976657b5c17d925ec0b2db58bedcda2471bdb) is merged 2026-10-07T01:13:55Z
+precondition: closeout/w21-polish (4e8c08817fde5343eb2402d50b0dfe4a9ef0642e) is merged 2026-10-07T01:13:56Z
+precondition: closeout/w22-cliwork (774c1de49c696c6fdea0541855a7f70512e10505) is merged 2026-10-07T01:13:56Z
+precondition: closeout/w22-clock (0dc155084837ef2ccd9cb2bb4074e4677be070f5) is merged 2026-10-07T01:13:56Z
+precondition: closeout/w22-config (01c414498c41af7de709cc5e544f8f2a36780eff) is merged 2026-10-07T01:13:56Z
+precondition: closeout/w22-contract (22148f04abcf2e505c1d87fff7a5cb9a3264a654) is merged 2026-10-07T01:13:57Z
+precondition: closeout/w22-docs (b1b246c87aa35052d65890e46432b14e108458e1) is merged 2026-10-07T01:13:57Z
+precondition: closeout/w22-final (552822dcedea00f73efa327f8c90446237d8bf67) is merged 2026-10-07T01:13:57Z
+precondition: closeout/w22-finaldocs (2a2e8f6ca1f674d156010411a7ffb3309dd82809) is merged 2026-10-07T01:13:58Z
+precondition: closeout/w22-redeliver (3018ab70484516d4aa2ee181ecc27b92877b24c4) is merged 2026-10-07T01:13:58Z
+precondition: closeout/w22-rehydrate (c00a27b8af156f6194ac4f0c2be40b1c009c90cb) is merged 2026-10-07T01:13:59Z
+precondition: closeout/w22-rows (62b81753994e0f70e35f9c03ba9f5e05db085bdb) is merged 2026-10-07T01:13:59Z
+precondition: closeout/w22-spawn (a446e3fa1c1514410513162ba9560a336ffd3bf2) is merged 2026-10-07T01:13:59Z
+precondition: closeout/w22-w15carry (c0f568b240a9949d98a7fc6a6789f8d504af3eb0) is merged 2026-10-07T01:13:59Z
+precondition: closeout/w23-docs (7d351d3727bee78f13b77a5034175b8475d9fb6d) is merged 2026-10-07T01:13:59Z
+precondition: closeout/w23-privacy (a4ec12b9e2112d7c0189f968387d78185be8d366) is merged 2026-10-07T01:14:00Z
+precondition: 77 other closeout/w* branches are already in candidate 7 (d20309c03ffc364e4cc48663be73cfbb1f2309b2) 2026-10-07T01:14:04Z
+precondition: e2efunc will skip -skip '^(TestV3_HotPathUnchangedWithLedgerResident|TestE2E_SessionStartLatency|TestV5_ThrashWarningVisibleInStatusAndCheckpoint)$' (test/e2e's timing rows; overnight's win-e2e-timing and win-x11-alone judge them alone on AC) 2026-10-07T01:14:06Z
+precondition: disk: /tmp has 83 GiB free (NIGHT_MIN_FREE_GB=40); disk: /c/Users/Quant/AppData/Local/go-build has 83 GiB free (NIGHT_MIN_FREE_GB=40) 2026-10-07T01:14:08Z
+merged-tree scratch clone C:/Users/Quant/AppData/Local/Temp/tmp.oZGZwqtpjO (removed when the check ends, and by the exit trap) 2026-10-07T01:14:08Z
+merged tree ba14e34b67d27b3615de415cd99bca5ba67504af passes plan lint (runpatterns, docmarkers, coveragefloors), test/guards and test/docs 2026-10-07T01:17:03Z
+pre-freeze run c8-20261007T011710Z-1150 on integration 275165e9ceec6a9cd41b7b3afdc08dc7f61ef3e3 2026-10-07T01:17:10Z
+REFUSED: pre-freeze step gate did not pass in run c8-20261007T011710Z-1150 (prefreeze/gate.log) 2026-10-07T01:55:39Z
+keep-awake pid 1161 stopped 2026-10-07T01:55:39Z
+start pid 3312 winpid 29196 keep-awake pid 3326 deadline=2026-10-07T08:00:00 ac_wait_budget=180min power=AC 70 2026-10-07T01:59:30Z
+keep-awake held (keepawake.log) 2026-10-07T01:59:31Z
+integration e8c621911fb73e451e97a163b702721b0ef8c7de, verify/v6 aef69fa9e68a1819bfb9a861551ec7e74eef6999 2026-10-07T01:59:31Z
+precondition: closeout/w15-docs (21c07942db4743b73627d77c1b8043ee26d75ade) is merged 2026-10-07T01:59:33Z
+precondition: closeout/w15-ledger (12817cd0a21f32c1876f3ab67c18d1cc87e75c1e) is merged 2026-10-07T01:59:33Z
+precondition: closeout/w15-services (c212712d4b269491dac1a167e702f154122c617b) is merged 2026-10-07T01:59:34Z
+precondition: closeout/w17b-docs2 (e2dc0c11ef1a100501268d1f82270ccbfe3fd85f) is merged 2026-10-07T01:59:37Z
+precondition: closeout/w17b-inventory2 (766606dd8fc85de03f2faa5fbc097519f29fa677) is merged 2026-10-07T01:59:37Z
+precondition: closeout/w17c-spoolwatch (09164f129cd1b6dd261a383d668f2a7f960fe7e2) is merged 2026-10-07T01:59:37Z
+precondition: closeout/w18-passprogress (b2f35b6e8442fe518ceeadf55655158caaa854ca) is merged 2026-10-07T01:59:37Z
+precondition: closeout/w18-ssfires (dc8fc5808b67000e4f7a5faa06f587a19f608867) is merged 2026-10-07T01:59:37Z
+precondition: closeout/w19-docs (8bd80c85059a3907b2a4b63ef717ffbba08a5bce) is merged 2026-10-07T01:59:37Z
+precondition: closeout/w19-forkwork (085e7de69f718fb78f32970a2203edbc1f25156b) is merged 2026-10-07T01:59:38Z
+precondition: closeout/w19-loudcfg (2b992d099f6b7e284d557ada68137d4506c0235f) is merged 2026-10-07T01:59:38Z
+precondition: closeout/w19-rehydrate (54d4889af99c47f9a0115b79438878cd7d1d46fd) is merged 2026-10-07T01:59:38Z
+precondition: closeout/w19-statusorder (0222e96c48b2254ff3829b2daff001e0cb401c1f) is merged 2026-10-07T01:59:38Z
+precondition: closeout/w19b-cmdconnect (bef7e538711fe27c06bafa50bd570519612fa688) is merged 2026-10-07T01:59:38Z
+precondition: closeout/w20-config (dc63534d162e9e851020339634f996985e2c0c9f) is merged 2026-10-07T01:59:39Z
+precondition: closeout/w20-cover (7eb34890f0c6c3536f2cadd25dcf4b15238359a2) is merged 2026-10-07T01:59:39Z
+precondition: closeout/w20-docs (28cc84964efbe6f581c953504c2d746c332c5420) is merged 2026-10-07T01:59:40Z
+precondition: closeout/w20-drain (f9b054e12562574a30f6cb5f60cea482605af485) is merged 2026-10-07T01:59:40Z
+precondition: closeout/w20-forkwork (089a193bef8cdfc027cffa9b4545ed07e3e27a14) is merged 2026-10-07T01:59:40Z
+precondition: closeout/w20-redeliver (2eccdfa2b97980fbb7c432b29c705a1d57805ef1) is merged 2026-10-07T01:59:40Z
+precondition: closeout/w20-sessionend (5727e417554cfa4d0017194d34311ee41d62a016) is merged 2026-10-07T01:59:40Z
+precondition: closeout/w20-status (f5fae91aa2bceb05756e9c36149794341df1e374) is merged 2026-10-07T01:59:41Z
+precondition: closeout/w21-e2e (3fe976657b5c17d925ec0b2db58bedcda2471bdb) is merged 2026-10-07T01:59:41Z
+precondition: closeout/w21-polish (4e8c08817fde5343eb2402d50b0dfe4a9ef0642e) is merged 2026-10-07T01:59:41Z
+precondition: closeout/w22-cliwork (774c1de49c696c6fdea0541855a7f70512e10505) is merged 2026-10-07T01:59:41Z
+precondition: closeout/w22-clock (0dc155084837ef2ccd9cb2bb4074e4677be070f5) is merged 2026-10-07T01:59:42Z
+precondition: closeout/w22-config (01c414498c41af7de709cc5e544f8f2a36780eff) is merged 2026-10-07T01:59:42Z
+precondition: closeout/w22-contract (22148f04abcf2e505c1d87fff7a5cb9a3264a654) is merged 2026-10-07T01:59:42Z
+precondition: closeout/w22-docs (b1b246c87aa35052d65890e46432b14e108458e1) is merged 2026-10-07T01:59:42Z
+precondition: closeout/w22-final (552822dcedea00f73efa327f8c90446237d8bf67) is merged 2026-10-07T01:59:43Z
+precondition: closeout/w22-finaldocs (2a2e8f6ca1f674d156010411a7ffb3309dd82809) is merged 2026-10-07T01:59:43Z
+precondition: closeout/w22-redeliver (3018ab70484516d4aa2ee181ecc27b92877b24c4) is merged 2026-10-07T01:59:43Z
+precondition: closeout/w22-rehydrate (c00a27b8af156f6194ac4f0c2be40b1c009c90cb) is merged 2026-10-07T01:59:43Z
+precondition: closeout/w22-rows (62b81753994e0f70e35f9c03ba9f5e05db085bdb) is merged 2026-10-07T01:59:44Z
+precondition: closeout/w22-spawn (a446e3fa1c1514410513162ba9560a336ffd3bf2) is merged 2026-10-07T01:59:44Z
+precondition: closeout/w22-w15carry (c0f568b240a9949d98a7fc6a6789f8d504af3eb0) is merged 2026-10-07T01:59:44Z
+precondition: closeout/w23-docs (7d351d3727bee78f13b77a5034175b8475d9fb6d) is merged 2026-10-07T01:59:44Z
+precondition: closeout/w23-lint (5c35bedcf44a830d14605267e7fad57d196580c3) is merged 2026-10-07T01:59:44Z
+precondition: closeout/w23-privacy (a4ec12b9e2112d7c0189f968387d78185be8d366) is merged 2026-10-07T01:59:45Z
+precondition: 77 other closeout/w* branches are already in candidate 7 (d20309c03ffc364e4cc48663be73cfbb1f2309b2) 2026-10-07T01:59:48Z
+precondition: e2efunc will skip -skip '^(TestV3_HotPathUnchangedWithLedgerResident|TestE2E_SessionStartLatency|TestV5_ThrashWarningVisibleInStatusAndCheckpoint)$' (test/e2e's timing rows; overnight's win-e2e-timing and win-x11-alone judge them alone on AC) 2026-10-07T01:59:49Z
+precondition: disk: /tmp has 80 GiB free (NIGHT_MIN_FREE_GB=40); disk: /c/Users/Quant/AppData/Local/go-build has 80 GiB free (NIGHT_MIN_FREE_GB=40) 2026-10-07T01:59:50Z
+merged-tree scratch clone C:/Users/Quant/AppData/Local/Temp/tmp.ZYiWWDes0H (removed when the check ends, and by the exit trap) 2026-10-07T01:59:50Z
+merged tree 4f3deaf48a05b7145fdd16d867210ba9e5ebd7b4 passes plan lint (runpatterns, docmarkers, coveragefloors), test/guards and test/docs 2026-10-07T02:02:02Z
+an earlier run's /c/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/prefreeze moved to /c/Users/Quant/Documents/Programming/Projects/qompack-v6/plans/sdd/V6-closeout/phase3/c8/prefreeze.run-1 2026-10-07T02:02:07Z
+pre-freeze run c8-20261007T020207Z-3312 on integration e8c621911fb73e451e97a163b702721b0ef8c7de 2026-10-07T02:02:07Z
+pre-freeze passes 2026-10-07T02:37:39Z
+candidate 8 frozen at 3ec62ad2e01b985640c0f1fb832df3917f766a5f (integration e8c621911fb73e451e97a163b702721b0ef8c7de, tree 4f3deaf48a05b7145fdd16d867210ba9e5ebd7b4) 2026-10-07T02:37:50Z
+bin darwin-amd64 891ebc25138701511c43aa1aeb098f70d5c5581fba8d7868d5f178eb70b5ff7c 2026-10-07T02:38:27Z
+bin darwin-arm64 49ee0d66572b80beae85a0c2dc2f39035dce4aa1a15726ab5d40cdc3f200a55a 2026-10-07T02:38:28Z
+bin linux-amd64 e5db0447730b0a4f21233cb041b0a1e09bcda3df03c78e8e24f607df8baf9b65 2026-10-07T02:38:28Z
+bin linux-arm64 40963fae06275b81e29d4e1f6086e448820e2060b9bdaf94f203a85bf4953245 2026-10-07T02:38:28Z
+bin windows-amd64 93eb09f348774fbf2783bd607a3af41622976b2edad42798b437091eace381a9 2026-10-07T02:38:28Z
+bin windows-arm64 64061660b9d8371995888db9b6f29ee18947a57f5b7834aa6a0aa3d78e9be24f 2026-10-07T02:38:28Z
+61ba9c37dda03c14c44acb6824646a8d7410751bba6f1ce3c5c864d6382dcd8b */c/Users/Quant/Documents/Programming/Projects/qompack-bundles/c8/qompack-plugin-0.3.0-windows-amd64/BUNDLE.json
+bd2184b6b0973c792d93ca5d8b0f9a1b83f4440565703034b737e76c2262953b */c/Users/Quant/Documents/Programming/Projects/qompack-bundles/c8/checksums.txt
+bundles built and host-validated (outcome accepted) in /c/Users/Quant/Documents/Programming/Projects/qompack-bundles/c8 2026-10-07T02:38:28Z
+pushed verify/v6 3ec62ad2e01b985640c0f1fb832df3917f766a5f 2026-10-07T02:38:31Z
+https://github.com/AidanHT/qompack/actions/runs/37562945914
+nightly dispatched 2026-10-07T02:38:32Z
+starting overnight-c8.sh (deadline 2026-10-07T08:00:00, passed as NIGHT_DEADLINE_EPOCH) 2026-10-07T02:38:32Z
+overnight finished exit=1: steps=19 passed=16 failed=2 [linux-timing linux-e2e-timing] invalid_power=0 not_reference=0 (of which 0 exited non-zero) skipped=0 reported=1 ac_wait_used=0min pending_c52_night=[c116-rig c52-linux-checkpoint c52-linux-other] 2026-10-07T11:34:56Z
+done 2026-10-07T11:34:56Z
+keep-awake pid 3326 stopped 2026-10-07T11:34:56Z

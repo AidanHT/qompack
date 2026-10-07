@@ -1,0 +1,220 @@
+=== RUN   TestIntegration_AppendOnlyHoldsUnderConcurrentDaemonWrites
+    appendonly_test.go:600: phase A: 1 idle ticks completed concurrently with the writers
+--- PASS: TestIntegration_AppendOnlyHoldsUnderConcurrentDaemonWrites (13.39s)
+=== RUN   TestIntegration_GCNeverCollectsALiveRootUnderIngest
+--- PASS: TestIntegration_GCNeverCollectsALiveRootUnderIngest (23.50s)
+=== RUN   TestIntegration_ContractMonitorRunsAgainstRealStore
+--- PASS: TestIntegration_ContractMonitorRunsAgainstRealStore (0.10s)
+=== RUN   TestIntegration_DegradedPassiveStillWritesToTheRealStore
+--- PASS: TestIntegration_DegradedPassiveStillWritesToTheRealStore (1.13s)
+=== RUN   TestIntegration_BeladyPMinLandsAtLowCoupling
+    dagselection_test.go:335: wave-1 baseline: CrossingEdges(p_min) beat the 32-sample mean in 24/39 compaction events (61.5%)
+    dagselection_test.go:337: p_min distribution: p==0 in 0/39 events, CrossingEdges(p_min)==0 in 11/39, sampled mean==0 in 0/39, budget binds in 30/39
+--- PASS: TestIntegration_BeladyPMinLandsAtLowCoupling (0.11s)
+=== RUN   TestIntegration_DAGSliceRanksStoreRootsWithoutDroppingAnything
+--- PASS: TestIntegration_DAGSliceRanksStoreRootsWithoutDroppingAnything (0.11s)
+=== RUN   TestIntegration_SymbolNodesUseTheRealExtractor
+--- PASS: TestIntegration_SymbolNodesUseTheRealExtractor (0.16s)
+=== RUN   TestIntegration_HookEventThroughDaemonToStore
+--- PASS: TestIntegration_HookEventThroughDaemonToStore (3.53s)
+=== RUN   TestIntegration_TombstoneRoundTripThroughStore
+--- PASS: TestIntegration_TombstoneRoundTripThroughStore (0.07s)
+=== RUN   TestIntegration_SupersessionMarksEarlierReadThroughDAG
+--- PASS: TestIntegration_SupersessionMarksEarlierReadThroughDAG (0.09s)
+=== RUN   TestIntegration_SpooledEventsSurviveToTheStore
+--- PASS: TestIntegration_SpooledEventsSurviveToTheStore (5.19s)
+=== RUN   TestRigs_TheMachinesHostRulesDoNotReachThem
+=== RUN   TestRigs_TheMachinesHostRulesDoNotReachThem/x9v4
+=== RUN   TestRigs_TheMachinesHostRulesDoNotReachThem/x8v5
+--- PASS: TestRigs_TheMachinesHostRulesDoNotReachThem (0.17s)
+    --- PASS: TestRigs_TheMachinesHostRulesDoNotReachThem/x9v4 (0.08s)
+    --- PASS: TestRigs_TheMachinesHostRulesDoNotReachThem/x8v5 (0.08s)
+=== RUN   TestIntegration_HotPathDegradesRatherThanBlocks
+    hotpath_test.go:1426: §4.6 resident state: ToolUses=2000 RawBytes=43020000 (41.0 MB) StoredBytes=3781969 DedupRatio=11.38 Objects=9555 Files=40; DAG Nodes=6240 Edges=16000 LogBytes=8056239
+    hotpath_test.go:1631: §4.6 degrade: warm=8 stalled sends=1529 (NAK after 1529, three windows of 512), degraded hooks=9 (all exit 0, spooled), drained=9, store ToolUses=3546, WARN lines=1
+--- PASS: TestIntegration_HotPathDegradesRatherThanBlocks (69.44s)
+=== RUN   TestIntegration_HotPathBAPopulationIsTheDaemonHistogram
+=== RUN   TestIntegration_HotPathBAPopulationIsTheDaemonHistogram/every_request_delivered
+=== RUN   TestIntegration_HotPathBAPopulationIsTheDaemonHistogram/Phase_3_Linux_deferral:_525_of_2064_deferred,_0_lost
+=== RUN   TestIntegration_HotPathBAPopulationIsTheDaemonHistogram/a_few_deferred_plus_one_invalid_B-A_timestamp
+=== RUN   TestIntegration_HotPathBAPopulationIsTheDaemonHistogram/B-A_row-level_re-point_at_the_wall-clock_spawn_samples_in_a_clean_run
+=== RUN   TestIntegration_HotPathBAPopulationIsTheDaemonHistogram/B-A_row-level_re-point_at_the_wall-clock_spawn_samples_in_a_deferring_run
+=== RUN   TestIntegration_HotPathBAPopulationIsTheDaemonHistogram/B-A_snapshot-level_re-point_in_a_run_deferring_more_than_the_warm-up_tranche
+=== RUN   TestIntegration_HotPathBAPopulationIsTheDaemonHistogram/B-A_snapshot-level_re-point_in_a_run_deferring_exactly_the_warm-up_tranche
+=== RUN   TestIntegration_HotPathBAPopulationIsTheDaemonHistogram/B-A_snapshot-level_re-point_with_a_shortfall_covered_by_invalid_timestamps
+=== RUN   TestIntegration_HotPathBAPopulationIsTheDaemonHistogram/B-A_snapshot-level_re-point_in_a_clean_run_with_64_invalid_timestamps
+=== RUN   TestIntegration_HotPathBAPopulationIsTheDaemonHistogram/a_genuine_run_one_sample_short_of_the_coincidence
+=== RUN   TestIntegration_HotPathBAPopulationIsTheDaemonHistogram/a_shortfall_the_delivery_ledger_does_not_account_for
+=== RUN   TestIntegration_HotPathBAPopulationIsTheDaemonHistogram/more_B-B_samples_missing_than_the_ledger_deferred
+=== RUN   TestIntegration_HotPathBAPopulationIsTheDaemonHistogram/more_B-A_samples_than_the_daemon_delivered
+--- PASS: TestIntegration_HotPathBAPopulationIsTheDaemonHistogram (0.00s)
+    --- PASS: TestIntegration_HotPathBAPopulationIsTheDaemonHistogram/every_request_delivered (0.00s)
+    --- PASS: TestIntegration_HotPathBAPopulationIsTheDaemonHistogram/Phase_3_Linux_deferral:_525_of_2064_deferred,_0_lost (0.00s)
+    --- PASS: TestIntegration_HotPathBAPopulationIsTheDaemonHistogram/a_few_deferred_plus_one_invalid_B-A_timestamp (0.00s)
+    --- PASS: TestIntegration_HotPathBAPopulationIsTheDaemonHistogram/B-A_row-level_re-point_at_the_wall-clock_spawn_samples_in_a_clean_run (0.00s)
+    --- PASS: TestIntegration_HotPathBAPopulationIsTheDaemonHistogram/B-A_row-level_re-point_at_the_wall-clock_spawn_samples_in_a_deferring_run (0.00s)
+    --- PASS: TestIntegration_HotPathBAPopulationIsTheDaemonHistogram/B-A_snapshot-level_re-point_in_a_run_deferring_more_than_the_warm-up_tranche (0.00s)
+    --- PASS: TestIntegration_HotPathBAPopulationIsTheDaemonHistogram/B-A_snapshot-level_re-point_in_a_run_deferring_exactly_the_warm-up_tranche (0.00s)
+    --- PASS: TestIntegration_HotPathBAPopulationIsTheDaemonHistogram/B-A_snapshot-level_re-point_with_a_shortfall_covered_by_invalid_timestamps (0.00s)
+    --- PASS: TestIntegration_HotPathBAPopulationIsTheDaemonHistogram/B-A_snapshot-level_re-point_in_a_clean_run_with_64_invalid_timestamps (0.00s)
+    --- PASS: TestIntegration_HotPathBAPopulationIsTheDaemonHistogram/a_genuine_run_one_sample_short_of_the_coincidence (0.00s)
+    --- PASS: TestIntegration_HotPathBAPopulationIsTheDaemonHistogram/a_shortfall_the_delivery_ledger_does_not_account_for (0.00s)
+    --- PASS: TestIntegration_HotPathBAPopulationIsTheDaemonHistogram/more_B-B_samples_missing_than_the_ledger_deferred (0.00s)
+    --- PASS: TestIntegration_HotPathBAPopulationIsTheDaemonHistogram/more_B-A_samples_than_the_daemon_delivered (0.00s)
+=== RUN   TestIntegration_HotPathSpoolTransitionJudgedPerMode
+=== RUN   TestIntegration_HotPathSpoolTransitionJudgedPerMode/isolated_clean_run
+=== RUN   TestIntegration_HotPathSpoolTransitionJudgedPerMode/isolated_full_transition
+=== RUN   TestIntegration_HotPathSpoolTransitionJudgedPerMode/isolated_WARN_line_only
+=== RUN   TestIntegration_HotPathSpoolTransitionJudgedPerMode/isolated_LOUD.log_line_only
+=== RUN   TestIntegration_HotPathSpoolTransitionJudgedPerMode/isolated_spool_record_left_by_teardown
+=== RUN   TestIntegration_HotPathSpoolTransitionJudgedPerMode/co-loaded_clean_run
+=== RUN   TestIntegration_HotPathSpoolTransitionJudgedPerMode/co-loaded_transition,_loud_and_named,_ledger_adds_up
+=== RUN   TestIntegration_HotPathSpoolTransitionJudgedPerMode/co-loaded_transition_the_watcher's_poll_missed,_left_spool_by_teardown
+=== RUN   TestIntegration_HotPathSpoolTransitionJudgedPerMode/co-loaded_spool_record_with_no_WARN_and_no_LOUD_line
+=== RUN   TestIntegration_HotPathSpoolTransitionJudgedPerMode/co-loaded_transition_missing_its_LOUD.log_line
+=== RUN   TestIntegration_HotPathSpoolTransitionJudgedPerMode/co-loaded_transition_missing_its_WARN_line
+=== RUN   TestIntegration_HotPathSpoolTransitionJudgedPerMode/co-loaded_WARN_and_LOUD_counts_disagree
+=== RUN   TestIntegration_HotPathSpoolTransitionJudgedPerMode/co-loaded_transition_line_that_does_not_name_the_breach
+=== RUN   TestIntegration_HotPathSpoolTransitionJudgedPerMode/co-loaded_transition_naming_a_different_breach-window_count
+=== RUN   TestIntegration_HotPathSpoolTransitionJudgedPerMode/co-loaded_transition_with_no_delivery_ledger
+=== RUN   TestIntegration_HotPathSpoolTransitionJudgedPerMode/co-loaded_transition_whose_ledger_does_not_add_up
+--- PASS: TestIntegration_HotPathSpoolTransitionJudgedPerMode (0.00s)
+    --- PASS: TestIntegration_HotPathSpoolTransitionJudgedPerMode/isolated_clean_run (0.00s)
+    --- PASS: TestIntegration_HotPathSpoolTransitionJudgedPerMode/isolated_full_transition (0.00s)
+    --- PASS: TestIntegration_HotPathSpoolTransitionJudgedPerMode/isolated_WARN_line_only (0.00s)
+    --- PASS: TestIntegration_HotPathSpoolTransitionJudgedPerMode/isolated_LOUD.log_line_only (0.00s)
+    --- PASS: TestIntegration_HotPathSpoolTransitionJudgedPerMode/isolated_spool_record_left_by_teardown (0.00s)
+    --- PASS: TestIntegration_HotPathSpoolTransitionJudgedPerMode/co-loaded_clean_run (0.00s)
+    --- PASS: TestIntegration_HotPathSpoolTransitionJudgedPerMode/co-loaded_transition,_loud_and_named,_ledger_adds_up (0.00s)
+    --- PASS: TestIntegration_HotPathSpoolTransitionJudgedPerMode/co-loaded_transition_the_watcher's_poll_missed,_left_spool_by_teardown (0.00s)
+    --- PASS: TestIntegration_HotPathSpoolTransitionJudgedPerMode/co-loaded_spool_record_with_no_WARN_and_no_LOUD_line (0.00s)
+    --- PASS: TestIntegration_HotPathSpoolTransitionJudgedPerMode/co-loaded_transition_missing_its_LOUD.log_line (0.00s)
+    --- PASS: TestIntegration_HotPathSpoolTransitionJudgedPerMode/co-loaded_transition_missing_its_WARN_line (0.00s)
+    --- PASS: TestIntegration_HotPathSpoolTransitionJudgedPerMode/co-loaded_WARN_and_LOUD_counts_disagree (0.00s)
+    --- PASS: TestIntegration_HotPathSpoolTransitionJudgedPerMode/co-loaded_transition_line_that_does_not_name_the_breach (0.00s)
+    --- PASS: TestIntegration_HotPathSpoolTransitionJudgedPerMode/co-loaded_transition_naming_a_different_breach-window_count (0.00s)
+    --- PASS: TestIntegration_HotPathSpoolTransitionJudgedPerMode/co-loaded_transition_with_no_delivery_ledger (0.00s)
+    --- PASS: TestIntegration_HotPathSpoolTransitionJudgedPerMode/co-loaded_transition_whose_ledger_does_not_add_up (0.00s)
+=== RUN   TestIntegration_ObserverKeepRawPutsProveTheirDeltaRoundTrip
+--- PASS: TestIntegration_ObserverKeepRawPutsProveTheirDeltaRoundTrip (0.78s)
+=== RUN   TestIntegration_RealStoreGrowthIsSublinear
+    replaygrowth_test.go:115: real store growth: exponent 0.8104 over 8 samples spanning 32.0x raw bytes (sublinear=true)
+--- PASS: TestIntegration_RealStoreGrowthIsSublinear (3.79s)
+=== RUN   TestIntegration_ReplayGateAcceptsRealGrowthFile
+--- PASS: TestIntegration_ReplayGateAcceptsRealGrowthFile (6.14s)
+=== RUN   TestIntegration_RealBloomHealthFeedsTheFPCeiling
+    replaygrowth_test.go:193: real bloom at capacity: fill 0.5189, estimated fp 0.0101 (m=95872 bits, k=7)
+--- PASS: TestIntegration_RealBloomHealthFeedsTheFPCeiling (2.53s)
+=== RUN   TestIntegration_StorePutUsesRealChunkerAndCanon
+--- PASS: TestIntegration_StorePutUsesRealChunkerAndCanon (0.08s)
+=== RUN   TestIntegration_CanonKeepRawRestoresThroughStore
+--- PASS: TestIntegration_CanonKeepRawRestoresThroughStore (0.10s)
+=== RUN   TestIntegration_StoreNearDupUsesRealMinHash
+--- PASS: TestIntegration_StoreNearDupUsesRealMinHash (0.06s)
+=== RUN   TestIntegration_Phase1DedupRatioWithRealPipeline
+    storepipeline_test.go:366: phase 1 read-heavy session (40 puts): DedupRatio 202.77 with canonicalization (raw=983450 bytes=4850 objects=10), 202.77 without (raw=983450 bytes=4850 objects=10)
+--- PASS: TestIntegration_Phase1DedupRatioWithRealPipeline (0.48s)
+=== RUN   TestIntegration_SecretsNeverSurviveTheRealPipeline
+--- PASS: TestIntegration_SecretsNeverSurviveTheRealPipeline (0.06s)
+=== RUN   TestV4_GrowthGuardrailWithCheckpointsAndEphemerals
+    v4_x09_test.go:255: v4 §4.9 growth with 3 checkpoints and 8 ephemeral records: exponent 0.7777 over 8 samples spanning 31.6x raw bytes (sublinear=true)
+    v4_x09_test.go:289: v4 §4.9 negative control: exponent 0.9929 (sublinear=false)
+--- PASS: TestV4_GrowthGuardrailWithCheckpointsAndEphemerals (22.81s)
+=== RUN   TestV5_GrammarAndPromotionCoexistInFinalize
+=== RUN   TestV5_GrammarAndPromotionCoexistInFinalize/GrammarInducesRulesFromTheObservedCycles
+=== RUN   TestV5_GrammarAndPromotionCoexistInFinalize/CodecRoundTripsTheLiveGrammar
+=== RUN   TestV5_GrammarAndPromotionCoexistInFinalize/FinalizeWritesTheV1ShapeWithNoGrammarSection
+=== RUN   TestV5_GrammarAndPromotionCoexistInFinalize/DisabledPromotionIsRecordedAsDisabledNeverAsApplied
+    v5_x08_test.go:585: testutil: configuration warning: key="runtime.phase7.retrieval.demandPromotion" invalid value, using default: true not in false (C:\Users\Quant\AppData\Local\Temp\TestV5_GrammarAndPromotionCoexistInFinalizeDisabledPromotionIsR4150151106\001\project\.qompack\config.json:1)
+=== RUN   TestV5_GrammarAndPromotionCoexistInFinalize/EnabledPromotionReordersOnlyTheNextCheckpointAndSurvivesTruncation
+=== RUN   TestV5_GrammarAndPromotionCoexistInFinalize/OverheadBudgetOverflowsWithADropEntry
+=== RUN   TestV5_GrammarAndPromotionCoexistInFinalize/ProvenanceAndScopeGates
+=== RUN   TestV5_GrammarAndPromotionCoexistInFinalize/NegativeControl_CorruptPromotionsFileYieldsNoCandidates
+=== RUN   TestV5_GrammarAndPromotionCoexistInFinalize/NegativeControl_AnUnfedGrammarInducesNothing
+=== RUN   TestV5_GrammarAndPromotionCoexistInFinalize/SealedCheckpointIsAppendOnly
+--- PASS: TestV5_GrammarAndPromotionCoexistInFinalize (1.13s)
+    --- PASS: TestV5_GrammarAndPromotionCoexistInFinalize/GrammarInducesRulesFromTheObservedCycles (0.00s)
+    --- PASS: TestV5_GrammarAndPromotionCoexistInFinalize/CodecRoundTripsTheLiveGrammar (0.00s)
+    --- PASS: TestV5_GrammarAndPromotionCoexistInFinalize/FinalizeWritesTheV1ShapeWithNoGrammarSection (0.01s)
+    --- PASS: TestV5_GrammarAndPromotionCoexistInFinalize/DisabledPromotionIsRecordedAsDisabledNeverAsApplied (0.04s)
+    --- PASS: TestV5_GrammarAndPromotionCoexistInFinalize/EnabledPromotionReordersOnlyTheNextCheckpointAndSurvivesTruncation (0.03s)
+    --- PASS: TestV5_GrammarAndPromotionCoexistInFinalize/OverheadBudgetOverflowsWithADropEntry (0.00s)
+    --- PASS: TestV5_GrammarAndPromotionCoexistInFinalize/ProvenanceAndScopeGates (0.00s)
+    --- PASS: TestV5_GrammarAndPromotionCoexistInFinalize/NegativeControl_CorruptPromotionsFileYieldsNoCandidates (0.02s)
+    --- PASS: TestV5_GrammarAndPromotionCoexistInFinalize/NegativeControl_AnUnfedGrammarInducesNothing (0.00s)
+    --- PASS: TestV5_GrammarAndPromotionCoexistInFinalize/SealedCheckpointIsAppendOnly (0.00s)
+=== RUN   TestV5_TruncationOrdersActionHistoryAndPromotionCorrectly
+    v5_x09_test.go:608: v5 §4.9 cut ladder: full=2884 tokens, promoted pointer toolu_v5x09_055 gone at budget 2494, tier-1-only from budget 1454
+    v5_x09_test.go:731: v5 §4.9 negative control 1: witness budget 2861 kept [toolu_v5x09_055 toolu_v5x09_060 toolu_v5x09_059 toolu_v5x09_058 toolu_v5x09_057] with promotion on
+--- PASS: TestV5_TruncationOrdersActionHistoryAndPromotionCorrectly (4.34s)
+=== RUN   TestV5_SegmentBloomNarrowsRecall
+    v5_x11_test.go:313: v5 §4.11 verdicts for src/auth/refresh_q5x11.go: maybe=[7] miss=[1 2 3 4 5 6 8 9 10 11 12] bypass=[]
+=== RUN   TestV5_SegmentBloomNarrowsRecall/switch_is_recorded_as_disabled,_never_as_passed
+    v5_x11_test.go:460: testutil: configuration warning: key="runtime.phase7.filters.segmentBloom" invalid value, using default: true not in false (C:\Users\Quant\AppData\Local\Temp\TestV5_SegmentBloomNarrowsRecallswitch_is_recorded_as_disabled,2000634339\001\project\.qompack\config.json:1)
+--- PASS: TestV5_SegmentBloomNarrowsRecall (4.88s)
+    --- PASS: TestV5_SegmentBloomNarrowsRecall/switch_is_recorded_as_disabled,_never_as_passed (0.03s)
+=== RUN   TestV5_WarmStartImprovesTheFirstCompactionOfTheNextSession
+=== RUN   TestV5_WarmStartImprovesTheFirstCompactionOfTheNextSession/scope_relation_decides_what_a_grant_can_cover
+=== RUN   TestV5_WarmStartImprovesTheFirstCompactionOfTheNextSession/branch:_a_branch-scoped_grant_covers_the_branch_and_the_corrupt_HEAD_control_severs_it
+=== RUN   TestV5_WarmStartImprovesTheFirstCompactionOfTheNextSession/version:_a_moved_or_unobserved_tip_is_reported,_never_a_verdict
+=== RUN   TestV5_WarmStartImprovesTheFirstCompactionOfTheNextSession/expiry:_declared_shelf_lives_end_reuse,_undeclared_ones_withhold_it
+=== RUN   TestV5_WarmStartImprovesTheFirstCompactionOfTheNextSession/unfinished_intent:_another_session's_guesses_need_a_grant_that_says_so_and_never_rise
+=== RUN   TestV5_WarmStartImprovesTheFirstCompactionOfTheNextSession/the_shipped_switches_are_recorded_as_disabled,_never_as_passed
+    v5_x12_test.go:538: V5 §4.12: scoped reuse and warm prior are DISABLED by default on this tree (scopedCandidates=false warmPrior=false); recorded as disabled, not as passed. sketches.cms.warmStartFromProject=true ships as an INERT key (no consumer outside internal/config, no CMS warm seed producer); recorded, not asserted
+=== RUN   TestV5_WarmStartImprovesTheFirstCompactionOfTheNextSession/warm_start:_the_gate's_verdict_authorizes,_real_history_is_too_thin,_and_no_improvement_is_promised
+--- PASS: TestV5_WarmStartImprovesTheFirstCompactionOfTheNextSession (0.16s)
+    --- PASS: TestV5_WarmStartImprovesTheFirstCompactionOfTheNextSession/scope_relation_decides_what_a_grant_can_cover (0.04s)
+    --- PASS: TestV5_WarmStartImprovesTheFirstCompactionOfTheNextSession/branch:_a_branch-scoped_grant_covers_the_branch_and_the_corrupt_HEAD_control_severs_it (0.00s)
+    --- PASS: TestV5_WarmStartImprovesTheFirstCompactionOfTheNextSession/version:_a_moved_or_unobserved_tip_is_reported,_never_a_verdict (0.02s)
+    --- PASS: TestV5_WarmStartImprovesTheFirstCompactionOfTheNextSession/expiry:_declared_shelf_lives_end_reuse,_undeclared_ones_withhold_it (0.00s)
+    --- PASS: TestV5_WarmStartImprovesTheFirstCompactionOfTheNextSession/unfinished_intent:_another_session's_guesses_need_a_grant_that_says_so_and_never_rise (0.00s)
+    --- PASS: TestV5_WarmStartImprovesTheFirstCompactionOfTheNextSession/the_shipped_switches_are_recorded_as_disabled,_never_as_passed (0.00s)
+    --- PASS: TestV5_WarmStartImprovesTheFirstCompactionOfTheNextSession/warm_start:_the_gate's_verdict_authorizes,_real_history_is_too_thin,_and_no_improvement_is_promised (0.00s)
+=== RUN   TestV5_SkiRentalChangesTheChosenCutButNeverBlocksAnUrgentOne
+=== RUN   TestV5_SkiRentalChangesTheChosenCutButNeverBlocksAnUrgentOne/evaluate_has_no_ski_rental_clause_and_expected_reads_are_inert
+=== RUN   TestV5_SkiRentalChangesTheChosenCutButNeverBlocksAnUrgentOne/evaluate_has_no_ski_rental_clause_and_expected_reads_are_inert/soft_floor_only_warm
+=== RUN   TestV5_SkiRentalChangesTheChosenCutButNeverBlocksAnUrgentOne/evaluate_has_no_ski_rental_clause_and_expected_reads_are_inert/hard_ceiling_is_urgent
+=== RUN   TestV5_SkiRentalChangesTheChosenCutButNeverBlocksAnUrgentOne/evaluate_has_no_ski_rental_clause_and_expected_reads_are_inert/cold_cache_fires
+=== RUN   TestV5_SkiRentalChangesTheChosenCutButNeverBlocksAnUrgentOne/real_runtime_urgent_cut_fires_with_no_ski_rental_term
+=== RUN   TestV5_SkiRentalChangesTheChosenCutButNeverBlocksAnUrgentOne/register_records_the_policy_disabled_and_the_native_cut_unsupported
+=== RUN   TestV5_SkiRentalChangesTheChosenCutButNeverBlocksAnUrgentOne/compatibility_surface_tracks_the_resolved_regime_not_a_literal
+--- PASS: TestV5_SkiRentalChangesTheChosenCutButNeverBlocksAnUrgentOne (0.12s)
+    --- PASS: TestV5_SkiRentalChangesTheChosenCutButNeverBlocksAnUrgentOne/evaluate_has_no_ski_rental_clause_and_expected_reads_are_inert (0.02s)
+        --- PASS: TestV5_SkiRentalChangesTheChosenCutButNeverBlocksAnUrgentOne/evaluate_has_no_ski_rental_clause_and_expected_reads_are_inert/soft_floor_only_warm (0.00s)
+        --- PASS: TestV5_SkiRentalChangesTheChosenCutButNeverBlocksAnUrgentOne/evaluate_has_no_ski_rental_clause_and_expected_reads_are_inert/hard_ceiling_is_urgent (0.00s)
+        --- PASS: TestV5_SkiRentalChangesTheChosenCutButNeverBlocksAnUrgentOne/evaluate_has_no_ski_rental_clause_and_expected_reads_are_inert/cold_cache_fires (0.00s)
+    --- PASS: TestV5_SkiRentalChangesTheChosenCutButNeverBlocksAnUrgentOne/real_runtime_urgent_cut_fires_with_no_ski_rental_term (0.07s)
+    --- PASS: TestV5_SkiRentalChangesTheChosenCutButNeverBlocksAnUrgentOne/register_records_the_policy_disabled_and_the_native_cut_unsupported (0.02s)
+    --- PASS: TestV5_SkiRentalChangesTheChosenCutButNeverBlocksAnUrgentOne/compatibility_surface_tracks_the_resolved_regime_not_a_literal (0.02s)
+=== RUN   TestV5_AdmissionExtension
+=== RUN   TestV5_AdmissionExtension/disabled_admission_is_recorded_as_disabled_never_passed
+    v5_x17_test.go:390: testutil: configuration warning: key="runtime.migration.replacement.newResult" invalid value, using default: true not in false (C:\Users\Quant\AppData\Local\Temp\TestV5_AdmissionExtensiondisabled_admission_is_recorded_as_disa4161122633\001\project\.qompack\config.json:1)
+=== RUN   TestV5_AdmissionExtension/fresh_owned_result_transforms_once_then_envelope_bypasses
+=== RUN   TestV5_AdmissionExtension/durable_capture_and_resolution_precede_replacement
+=== RUN   TestV5_AdmissionExtension/unsupported_content_passes_through_or_follows_privacy_policy
+=== RUN   TestV5_AdmissionExtension/quality_is_recorded_against_unmodified_output_and_replacement_stays_off
+    v5_x17_test.go:729: testutil: configuration warning: key="runtime.migration.replacement.newResult" invalid value, using default: true not in false (C:\Users\Quant\AppData\Local\Temp\TestV5_AdmissionExtensionquality_is_recorded_against_unmodified1297601337\001\project\.qompack\config.json:1)
+--- PASS: TestV5_AdmissionExtension (0.57s)
+    --- PASS: TestV5_AdmissionExtension/disabled_admission_is_recorded_as_disabled_never_passed (0.03s)
+    --- PASS: TestV5_AdmissionExtension/fresh_owned_result_transforms_once_then_envelope_bypasses (0.07s)
+    --- PASS: TestV5_AdmissionExtension/durable_capture_and_resolution_precede_replacement (0.29s)
+    --- PASS: TestV5_AdmissionExtension/unsupported_content_passes_through_or_follows_privacy_policy (0.07s)
+    --- PASS: TestV5_AdmissionExtension/quality_is_recorded_against_unmodified_output_and_replacement_stays_off (0.05s)
+=== RUN   TestCapturePolicyToHookEnvelopeRoundTrip
+--- PASS: TestCapturePolicyToHookEnvelopeRoundTrip (0.00s)
+=== RUN   TestCapturePolicyProducesTheCompleteFidelitySet
+=== RUN   TestCapturePolicyProducesTheCompleteFidelitySet/exact
+=== RUN   TestCapturePolicyProducesTheCompleteFidelitySet/redacted
+=== RUN   TestCapturePolicyProducesTheCompleteFidelitySet/truncated
+=== RUN   TestCapturePolicyProducesTheCompleteFidelitySet/partial
+=== RUN   TestCapturePolicyProducesTheCompleteFidelitySet/binary
+=== RUN   TestCapturePolicyProducesTheCompleteFidelitySet/failure
+--- PASS: TestCapturePolicyProducesTheCompleteFidelitySet (0.00s)
+    --- PASS: TestCapturePolicyProducesTheCompleteFidelitySet/exact (0.00s)
+    --- PASS: TestCapturePolicyProducesTheCompleteFidelitySet/redacted (0.00s)
+    --- PASS: TestCapturePolicyProducesTheCompleteFidelitySet/truncated (0.00s)
+    --- PASS: TestCapturePolicyProducesTheCompleteFidelitySet/partial (0.00s)
+    --- PASS: TestCapturePolicyProducesTheCompleteFidelitySet/binary (0.00s)
+    --- PASS: TestCapturePolicyProducesTheCompleteFidelitySet/failure (0.00s)
+PASS
+ok  	github.com/qompack/qompack/test/integration	165.283s

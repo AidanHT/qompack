@@ -1,0 +1,25 @@
+C5.2 paired comparison (linux): per round, candidate/base of the median ns/op within the call.
+geomean < 1 means the candidate is faster; "faster k/n" counts rounds; p is the exact two-sided sign test.
+benchmark                                                  pairs        base   candidate  geomean  faster  sign p base allocs cand allocs  base p99  cand p99
+BenchmarkCountFold_4MiB                                    candidate only: no sample on base cf31e01f38f3, so no quiet before/after
+BenchmarkGC_50kObjects                                        10    352.9 ms    297.7 ms    0.895    8/10   0.109     495652     433657         -         -
+BenchmarkGetChunk                                             10    22.33 us    20.01 us    0.888   10/10   0.002         15         10         -         -
+BenchmarkMarkEncoded_100                                      10      117 us    116.7 us    0.994    6/10   0.754        301        301         -         -
+BenchmarkOpenSpan_4KB_of_4MB                                  10    23.02 us    20.79 us    0.908   10/10   0.002         16         11         -         -
+BenchmarkOpenStore_50kRoots                                   10    288.3 ms    272.9 ms    0.965   10/10   0.002 1.0625e+06 1.06239e+06         -         -
+BenchmarkPutBytes_100KB_Cold                                  10    23.03 ms    19.65 ms    0.826   10/10   0.002        689      315.5         -         -
+BenchmarkPutBytes_100KB_Cold_NoRedact                         10    22.67 ms    18.99 ms    0.839   10/10   0.002        684        316         -         -
+BenchmarkPutBytes_100KB_Warm                                  10     6.15 ms    2.684 ms    0.440   10/10   0.002         20         16         -         -
+BenchmarkPutBytes_100KB_Warm_KeepRaw/delta                    10    6.455 ms     2.93 ms    0.453   10/10   0.002         35         31         -         -
+BenchmarkPutBytes_100KB_Warm_KeepRaw/full                     10      767 us    721.3 us    0.942   10/10   0.002         24         23         -         -
+BenchmarkPutBytes_100KB_Warm_KeepRaw/verbatim                 10    6.433 ms    2.921 ms    0.451   10/10   0.002       19.5         16         -         -
+BenchmarkPutBytes_100KB_Warm_NoRedact                         10    5.548 ms    2.241 ms    0.403   10/10   0.002       17.5         14         -         -
+BenchmarkPutObject_NovelChunk                              candidate only: no sample on base cf31e01f38f3, so no quiet before/after
+BenchmarkSearch_1000Roots                                     10    14.19 ms    6.603 ms    0.471   10/10   0.002      25637     7747.5         -         -
+BenchmarkSearch_1000Roots_DistinctChunks                   candidate only: no sample on base cf31e01f38f3, so no quiet before/after
+
+Completeness (10 ns/op samples expected per side and full name; NO-RESULT/SHORT fail the step):
+BenchmarkSearch_1000Roots_DistinctChunks                   not on base cf31e01f38f3: candidate only, no quiet before/after
+BenchmarkPutObject_NovelChunk                              not on base cf31e01f38f3: candidate only, no quiet before/after
+BenchmarkCountFold_4MiB                                    not on base cf31e01f38f3: candidate only, no quiet before/after
+0 incomplete side(s)

@@ -1,0 +1,17 @@
+=== RUN   TestPreCompactSettle_ReplaysAgainOnceALiveCopyAheadOfItPublishes
+    precompact_settle_retry_test.go:79: S1 overlay: counterDrainOrderingDeferred=0 (the original row requires > 0 here)
+--- PASS: TestPreCompactSettle_ReplaysAgainOnceALiveCopyAheadOfItPublishes (0.57s)
+=== RUN   TestPreCompactSettle_ReplaysAgainOnceALiveCopyAheadOfItPublishes
+    precompact_settle_retry_test.go:79: S1 overlay: counterDrainOrderingDeferred=0 (the original row requires > 0 here)
+--- PASS: TestPreCompactSettle_ReplaysAgainOnceALiveCopyAheadOfItPublishes (0.50s)
+=== RUN   TestPreCompactSettle_ReplaysAgainOnceALiveCopyAheadOfItPublishes
+    precompact_settle_retry_test.go:79: S1 overlay: counterDrainOrderingDeferred=0 (the original row requires > 0 here)
+--- PASS: TestPreCompactSettle_ReplaysAgainOnceALiveCopyAheadOfItPublishes (0.46s)
+=== RUN   TestPreCompactSettle_ReplaysAgainOnceALiveCopyAheadOfItPublishes
+    precompact_settle_retry_test.go:79: S1 overlay: counterDrainOrderingDeferred=0 (the original row requires > 0 here)
+--- PASS: TestPreCompactSettle_ReplaysAgainOnceALiveCopyAheadOfItPublishes (0.48s)
+=== RUN   TestPreCompactSettle_ReplaysAgainOnceALiveCopyAheadOfItPublishes
+    precompact_settle_retry_test.go:79: S1 overlay: counterDrainOrderingDeferred=0 (the original row requires > 0 here)
+--- PASS: TestPreCompactSettle_ReplaysAgainOnceALiveCopyAheadOfItPublishes (0.49s)
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	2.806s

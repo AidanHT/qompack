@@ -1,0 +1,27 @@
+quiet.sh 2026-10-07T09:14:38Z
+candidate=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-cand head=3ec62ad2e01b985640c0f1fb832df3917f766a5f
+base=cf31e01 resolved=cf31e01f38f3d3ba4afd96c4c75db3e4b87d54cd
+steps=c52-win
+iterations=5000 rounds=10 percall=1 benchtime=per row pkgs=negknow daemon cli canon chunk symbols obs config paths eval sketch dag hostperm scheduler rules skills filter=none
+QOMPACK_UNDER_COLOAD unset; work=C:/Users/Quant/AppData/Local/Temp/tmp.1yDsXBHfPA container=qompack-v6-linux-verification user=qompack-test
+go version go1.26.6 windows/amd64
+22
+candidate repo git status --porcelain (tracked changes refused above):
+  (clean)
+c52-win: base has none of internal/hostperm's benchmarks; not built
+load before-c52-win 09:16:51Z: windows_cpu_pct=4 linux_loadavg=?
+load after-c52-win-round-1 09:19:30Z: windows_cpu_pct=20 linux_loadavg=?
+WARNING: host not idle at after-c52-win-round-1 (windows_cpu_pct 20 > 15); timings from here may not be quiet
+load after-c52-win-round-2 09:22:02Z: windows_cpu_pct=12 linux_loadavg=?
+load after-c52-win-round-3 09:24:36Z: windows_cpu_pct=13 linux_loadavg=?
+load after-c52-win-round-4 09:27:14Z: windows_cpu_pct=11 linux_loadavg=?
+load after-c52-win-round-5 09:29:54Z: windows_cpu_pct=0 linux_loadavg=?
+load after-c52-win-round-6 09:32:31Z: windows_cpu_pct=9 linux_loadavg=?
+load after-c52-win-round-7 09:35:08Z: windows_cpu_pct=4 linux_loadavg=?
+load after-c52-win-round-8 09:37:40Z: windows_cpu_pct=2 linux_loadavg=?
+load after-c52-win-round-9 09:40:13Z: windows_cpu_pct=9 linux_loadavg=?
+load after-c52-win-round-10 09:42:46Z: windows_cpu_pct=21 linux_loadavg=?
+WARNING: host not idle at after-c52-win-round-10 (windows_cpu_pct 21 > 15); timings from here may not be quiet
+c52-win paired analysis and completeness exit=0
+step c52-win exit=0
+scratch directory C:/Users/Quant/AppData/Local/Temp/tmp.1yDsXBHfPA removed (every step passed)

@@ -1,0 +1,24 @@
+quiet.sh 2026-10-07T08:33:23Z
+candidate=C:/Users/Quant/Documents/Programming/Projects/qompack-cx-cand head=3ec62ad2e01b985640c0f1fb832df3917f766a5f
+base=cf31e01 resolved=cf31e01f38f3d3ba4afd96c4c75db3e4b87d54cd
+steps=c52-win
+iterations=5000 rounds=10 percall=1 benchtime=per row pkgs=checkpoint filter=none
+QOMPACK_UNDER_COLOAD unset; work=C:/Users/Quant/AppData/Local/Temp/tmp.tw0W5QRYkA container=qompack-v6-linux-verification user=qompack-test
+go version go1.26.6 windows/amd64
+22
+candidate repo git status --porcelain (tracked changes refused above):
+  (clean)
+load before-c52-win 08:34:16Z: windows_cpu_pct=7 linux_loadavg=?
+load after-c52-win-round-1 08:38:17Z: windows_cpu_pct=8 linux_loadavg=?
+load after-c52-win-round-2 08:42:19Z: windows_cpu_pct=2 linux_loadavg=?
+load after-c52-win-round-3 08:46:19Z: windows_cpu_pct=0 linux_loadavg=?
+load after-c52-win-round-4 08:50:20Z: windows_cpu_pct=8 linux_loadavg=?
+load after-c52-win-round-5 08:54:21Z: windows_cpu_pct=6 linux_loadavg=?
+load after-c52-win-round-6 08:58:21Z: windows_cpu_pct=6 linux_loadavg=?
+load after-c52-win-round-7 09:02:23Z: windows_cpu_pct=3 linux_loadavg=?
+load after-c52-win-round-8 09:06:24Z: windows_cpu_pct=1 linux_loadavg=?
+load after-c52-win-round-9 09:10:26Z: windows_cpu_pct=4 linux_loadavg=?
+load after-c52-win-round-10 09:14:27Z: windows_cpu_pct=3 linux_loadavg=?
+c52-win paired analysis and completeness exit=0
+step c52-win exit=0
+scratch directory C:/Users/Quant/AppData/Local/Temp/tmp.tw0W5QRYkA removed (every step passed)

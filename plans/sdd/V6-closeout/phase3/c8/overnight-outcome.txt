@@ -1,0 +1,1 @@
+steps=19 passed=16 failed=2 [linux-timing linux-e2e-timing] invalid_power=0 not_reference=0 (of which 0 exited non-zero) skipped=0 reported=1 ac_wait_used=0min pending_c52_night=[c116-rig c52-linux-checkpoint c52-linux-other]

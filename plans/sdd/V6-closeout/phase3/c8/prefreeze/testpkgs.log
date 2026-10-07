@@ -1,0 +1,11 @@
+ok  	github.com/qompack/qompack/test/fault	458.453s
+ok  	github.com/qompack/qompack/test/security	29.720s
+ok  	github.com/qompack/qompack/test/platform	15.247s
+ok  	github.com/qompack/qompack/test/release	6.797s
+ok  	github.com/qompack/qompack/test/canary	5.399s
+ok  	github.com/qompack/qompack/test/dedup	1.198s
+ok  	github.com/qompack/qompack/test/replay	10.838s
+ok  	github.com/qompack/qompack/test/replay/l3policy	1.194s
+ok  	github.com/qompack/qompack/test/guards	32.111s
+ok  	github.com/qompack/qompack/test/docs	3.803s
+ok  	github.com/qompack/qompack/test/bench/hotpath	11.079s

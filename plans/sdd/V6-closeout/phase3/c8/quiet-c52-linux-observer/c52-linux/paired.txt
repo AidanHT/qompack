@@ -1,0 +1,17 @@
+C5.2 paired comparison (linux): per round, candidate/base of the median ns/op within the call.
+geomean < 1 means the candidate is faster; "faster k/n" counts rounds; p is the exact two-sided sign test.
+benchmark                                                  pairs        base   candidate  geomean  faster  sign p base allocs cand allocs  base p99  cand p99
+BenchmarkOnToolUse_FileRead64KB/AllNovel                      10    26.73 ms    22.98 ms    0.852   10/10   0.002    12980.5      548.5     36.86     28.67
+BenchmarkOnToolUse_FileRead64KB/Deduped                       10    10.52 ms    7.088 ms    0.672   10/10   0.002      15675      284.5     13.31     10.24
+BenchmarkOnToolUse_FileRead64KB/Delta                         10    25.53 ms    22.34 ms    0.883   10/10   0.002    12262.5        435     32.77    27.645
+BenchmarkOnToolUse_TestOutput256KB/AllNovel                   10    91.22 ms    76.95 ms    0.846   10/10   0.002      30986     7720.5     106.5    94.205
+BenchmarkOnToolUse_TestOutput256KB/Deduped                    10    38.84 ms    25.81 ms    0.666   10/10   0.002      26782     5995.5     49.15     30.72
+BenchmarkOnToolUse_TestOutput256KB/Delta                      10    69.93 ms    56.62 ms    0.810   10/10   0.002      28678     7195.5     81.92     73.73
+BenchmarkOnToolUse_TestOutput256KB_Leased/AllNovel         candidate only: no sample on base cf31e01f38f3, so no quiet before/after
+BenchmarkOnToolUse_TestOutput256KB_Leased/Deduped          candidate only: no sample on base cf31e01f38f3, so no quiet before/after
+BenchmarkOnToolUse_TestOutput256KB_Leased/Delta            candidate only: no sample on base cf31e01f38f3, so no quiet before/after
+BenchmarkTombstone                                            10    295.6 ns    294.8 ns    0.996    5/10   1.000          6          6         -         -
+
+Completeness (10 ns/op samples expected per side and full name; NO-RESULT/SHORT fail the step):
+BenchmarkOnToolUse_TestOutput256KB_Leased                  not on base cf31e01f38f3: candidate only, no quiet before/after
+0 incomplete side(s)
