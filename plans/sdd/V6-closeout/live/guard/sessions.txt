@@ -518,3 +518,13 @@ same  plugins/data/ (2 entries)
 INFO  .qompack/ gained ['bin/', 'bin/93eb09f348774fbf2783bd607a3af41622976b2edad42798b437091eace381a9/'] (run-created; record, remove only if yours)
 real home fingerprint unchanged
 check exit 0
+== END of sessions-c8 part (after staged-copy cleanup) — 2026-10-07 12:16:33 EDT
+same  settings.json e15855d7e46a
+same  plugins/installed_plugins.json 728f75591291
+same  plugins/known_marketplaces.json 1b1eda7e17f0
+same  plugins/cache/ (10 entries)
+same  plugins/marketplaces/ (2 entries)
+same  plugins/data/ (2 entries)
+same  .qompack/ (0 entries)
+real home fingerprint unchanged
+check exit 0
