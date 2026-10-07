@@ -350,39 +350,43 @@ stored records to reconcile a failure.
 **Result**
 
 ```text
-Result: pass on fail criteria; row capability host-limited (D49) — no fail criterion occurred
-  (every capture came back; no demonstrably
-  cut capture reads exact; latency cells without an instrument read `unavailable` with a reason,
-  never 0). Step 6 as revised under D46 holds: the expand responses carry `_meta.qompack` (span,
-  total_bytes, truncated, and next_span "9909:16384" for the paged big.log) and the redacted
-  creds.txt content as «redacted:aws_access_key_id» / «redacted:github_token», and no retrieval
-  response carries a fidelity or coverage field; the small file's capture sidecar reads `exact`.
-  Expected-result field NOT observed (finding, unchanged since candidate 3): the oversized and
-  binary captures read `exact` (sidecars 35 exact, 1 redacted) — the host delivered big.log
-  (310,800 B) whole and Qompack stored the whole delivery; Read refuses blob.bin and fires no
-  PostToolUse, and `cat blob.bin` arrives as host-decoded text — so the non-exact capability the
-  row exists to show is unverified on this host. C4.2 re-checked after a session with six MCP calls:
-  all seven hook events fired and the host counts match the store (prompts 10 = 10; tool uses 15
-  minus the refused Read = 14 = 14 captures; sessions 1 = 1; no MCP record out of turn order);
-  `qompack status` "9 assertion(s), all holding", `doctor --json` with no degraded row and
-  `fsck --json` exit 0 with every row ok, with the daemon live and again after the default idle
-  exit. Planted secrets: 0 hits in the post-run store (raw, decompressed and decoded). Step 1
-  OBSERVED (to be confirmed at execution, before any session): session_start.fires first-session,
-  session_start.source_compact no-precompact-pending, hook.additional_context_delivered /
-  precompact.has_time_to_write / precompact.custom_instructions_accepted / mcp.server_registered
-  not-yet-implemented, hook.payload_shape "payload shape valid", transcript.readable
-  no-transcript-path, plugin.root_resolves unset.
+Result: pass on fail criteria; row capability host-limited (D49) — frozen candidate 8 bundle via
+  --plugin-dir; no fail criterion occurred (every capture came back; no demonstrably cut capture
+  reads exact; latency cells without an instrument read `unavailable` with a reason, never 0).
+  Step 6 as revised under D46 holds: the /qompack:recall hit's hash expanded, the expand
+  responses carry `_meta.qompack` (span, total_bytes, truncated, and next_span "9909:16384" for
+  the paged big.log), the redacted creds.txt content reads «redacted:aws_access_key_id» /
+  «redacted:github_token», and no retrieval response carries a fidelity or coverage field; the
+  small file's capture sidecar reads `exact`. Expected-result field NOT observed (finding,
+  unchanged since candidate 3; host-limited, D49): the oversized and binary captures read
+  `exact` (sidecars 35 exact, 1 redacted) — the host delivered big.log (310,800 B) whole and
+  Qompack stored the whole delivery; Read refuses blob.bin and fires no PostToolUse, and `cat
+  blob.bin` arrives as host-decoded text. C4.2 re-checked after a session with six MCP calls, a
+  subagent and /compact: all seven hook events fired and the host counts match the store
+  (prompts 10 = 10; tool uses 15 minus the refused Read = 14 = 14 captures; sessions 1 = 1, end
+  set; no turn-order violation); every hook success / exit 0, stderr empty; `qompack status` "9
+  assertion(s), none failing: 7 holding, 0 pending, 2 with nothing to judge", `doctor --json`
+  with no degraded row and `fsck --json` exit 0 with every row ok, with the daemon live and again
+  after the default idle exit (fsck --seal-check exit 0). Planted secrets: 0 hits in the post-run
+  store (raw, decompressed and decoded). Step 1 OBSERVED (to be confirmed at execution, before any
+  session): session_start.fires first-session, session_start.source_compact
+  no-precompact-pending, hook.additional_context_delivered / precompact.has_time_to_write /
+  precompact.custom_instructions_accepted / mcp.server_registered not-yet-implemented,
+  hook.payload_shape "payload shape valid", transcript.readable no-transcript-path,
+  plugin.root_resolves unset.
+  Candidate 4 (9f6a2fad): pass on fail criteria; host-limited (D49) — oversized and binary
+  captures read exact; C4.2 counts matched, evidence plans/sdd/V6-closeout/live/rerun-c4/UAT-02/
   Candidate 3 (d5598eb4): pass — with findings: fsck exit 1 (turn-0 MCP records, a segment naming
   an unwritten checkpoint), doctor over-counting capture gaps, evidence
   plans/sdd/V6-closeout/live/uat/UAT-02/
 Snapshot: qompack version 0.3.0; bundle BUNDLE.json sha256
-  aa7da0e17b7597562a6eba47fc48f1db81ff5e9bdc494b9997a323137625558d; commit
-  9f6a2fadf086eba8080af589a35dd9554ae6cab4; Windows 11 Home 25H2 build 10.0.26200.9457;
+  61ba9c37dda03c14c44acb6824646a8d7410751bba6f1ce3c5c864d6382dcd8b; commit
+  3ec62ad2e01b985640c0f1fb832df3917f766a5f; Windows 11 Home 25H2 build 10.0.26200.9457;
   Claude Code 2.1.280
-Date: 2026-09-29 (America/Toronto)
+Date: 2026-10-07 (America/Toronto)
 Executed by: Claude Code workflow subagent (Opus 5.5), agent-executed on the owner's real host
   per owner decision D3 — not human UAT
-Evidence: plans/sdd/V6-closeout/live/rerun-c4/UAT-02/ (notes.txt indexes it; also C4.2)
+Evidence: plans/sdd/V6-closeout/live/rerun-c8/UAT-02/ (notes.txt indexes it; also C4.2)
 Rollback verified: not applicable — initial state absent (recorded: `backup create` exit 1 "no
   existing store"); per the row's rule the run is retained as evidence; no restore was run
 ```
