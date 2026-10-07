@@ -1,0 +1,110 @@
+{
+ "args": [
+  "-p",
+  "--input-format",
+  "stream-json",
+  "--output-format",
+  "stream-json",
+  "--verbose",
+  "--include-hook-events",
+  "--model",
+  "claude-haiku-4-5-20251001",
+  "--max-turns",
+  "20",
+  "--setting-sources",
+  "project,local",
+  "--permission-mode",
+  "dontAsk",
+  "--plugin-dir",
+  "C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c8/qompack-plugin-0.3.0-windows-amd64",
+  "--allowedTools",
+  "Read,Edit,mcp__plugin_qompack_qompack__recall,mcp__plugin_qompack_qompack__expand,mcp__plugin_qompack_qompack__re_read,mcp__plugin_qompack_qompack__already_tried,mcp__plugin_qompack_qompack__record_eliminated,mcp__plugin_qompack_qompack__timeline,mcp__plugin_qompack_qompack__why,mcp__plugin_qompack_qompack__dropped,Bash(qompack status:*),Bash(qompack recall:*),Bash(qompack pin:*),Bash(qompack why:*),Bash(qompack dropped:*),Bash(qompack eval:*)"
+ ],
+ "cwd": "<scratch>/carried/uat07/proj",
+ "out": "<scratch>/carried/uat07/s1",
+ "env": {
+  "ENABLE_CLAUDEAI_MCP_SERVERS": "false",
+  "QOMPACK_HOME": "<scratch>/carried/qhome",
+  "QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS": "120"
+ },
+ "timeout_s": 1800,
+ "messages": [
+  "Use the Read tool to read src/ledger.go, then private/vault.txt, then ops/runbook.md (one Read call per file). In one sentence say what ReconcileBalances does; then quote exactly what the Read tool returned for private/vault.txt if it was an error.",
+  {
+   "content": "Use the Edit tool to change `const driftLimit = 25` to `const driftLimit = 40` in src/ledger.go. Reply only 'done' when finished.",
+   "before": [
+    "C:\\Users\\Quant\\Anaconda3\\python.exe",
+    "<scratch>/carried/tools/proofcheck.py",
+    "<scratch>/carried/uat07/s1/stream.jsonl",
+    "<scratch>/carried/uat07/s1/proofcheck.json",
+    "private/vault.txt"
+   ]
+  },
+  "/qompack:recall amber quill horizon --json",
+  "Use the Read tool to read src/ledger.go again and reply with only its driftLimit line.",
+  "/qompack:recall path:src/*.go --json",
+  "/qompack:recall path:*.go --json",
+  "/qompack:recall symbol:ReconcileBalances --json",
+  "/qompack:recall tool:Read --json",
+  "Call the MCP tool mcp__plugin_qompack_qompack__recall with query \"symbol:ReconcileBalances\". Take the first hit that has a non-empty hash. Call mcp__plugin_qompack_qompack__expand with {\"hash\": <that hit's hash>}, then call mcp__plugin_qompack_qompack__expand again with {\"tool_use_id\": <that same hit's tool_use_id>}. Reply in two short lines: the hash, span, total_bytes and truncated each expand response reported, whether either carried a source field, and whether the two responses carried identical content.",
+  "Call mcp__plugin_qompack_qompack__re_read with {\"path\": \"src/ledger.go\"} (no at). Then call it with {\"path\": \"src/ledger.go\", \"at\": \"turn:1\"}. For each response reply with its source, at and turn fields (say 'absent' for a missing field) and the driftLimit value in its content.",
+  {
+   "content": "Do not use the Read tool. Call mcp__plugin_qompack_qompack__re_read with {\"path\": \"src/ledger.go\"} again (no at). Reply with the source field and the driftLimit line exactly as it appears in the returned content.",
+   "before": [
+    "C:\\Users\\Quant\\Anaconda3\\python.exe",
+    "<scratch>/carried/tools/edit.py",
+    "<scratch>/carried/uat07/proj/src/ledger.go",
+    "const driftLimit = ",
+    "const driftLimit = 7 // edited on disk out of band; was ",
+    "<scratch>/carried/uat07/ledger.go.before-step6",
+    "<scratch>/carried/uat07/ledger.go.after-step6"
+   ]
+  },
+  "Call mcp__plugin_qompack_qompack__expand with {\"hash\": \"sha256:5b0e1d9c8a7f6e5d4c3b2a1908f7e6d5c4b3a29180f7e6d5c4b3a2918070605f\"}. That hash was never stored. Reply with the tool result's text verbatim, and say whether it was reported as a tool error.",
+  "Use the Read tool to read notes.md and then src/cache.go. Then call mcp__plugin_qompack_qompack__recall with {\"query\": \"path:ops/runbook.md\"} and reply with the first hit's hash and tool_use_id exactly.",
+  "Make these three MCP calls in order: mcp__plugin_qompack_qompack__already_tried with {\"target\": \"src/cache.go:Evict\", \"approach\": \"shrink the ttl\"}; mcp__plugin_qompack_qompack__dropped with {}; mcp__plugin_qompack_qompack__timeline with {}. Reply with one line per call: the arguments you passed, whether the host marked the result as an error (yes/no), and the first 300 characters of the result text.",
+  "Make these recall calls in order: mcp__plugin_qompack_qompack__recall with {\"query\": \"violet anchor lattice\"}; then with {\"query\": \"violet anchor lattice\", \"k\": 0}; then with {\"query\": \"\"}; then with {\"query\": \"path:src/cache.go\", \"k\": 2}; then with {\"query\": \"path:src/[\"}; then with {\"query\": \"path:private/vault.txt\"}. Reply with one line per call: the arguments you passed, whether the host marked the result as an error (yes/no), and the first 300 characters of the result text.",
+  "Make these expand calls in order: mcp__plugin_qompack_qompack__expand with {\"tool_use_id\": <the tool_use_id of the recall hit whose path is src/cache.go>}; then with {\"hash\": \"sha256:zz\"}; then with {\"tool_use_id\": \"toolu_doesnotexist000\"}; then with {} (no arguments); then with both {\"hash\": \"sha256:0000000000000000000000000000000000000000000000000000000000000000\", \"tool_use_id\": \"toolu_doesnotexist000\"}. Reply with one line per call: the arguments you passed, whether the host marked the result as an error (yes/no), and the first 300 characters of the result text.",
+  "Make these re_read calls in order: mcp__plugin_qompack_qompack__re_read with {\"path\": \"src/cache.go\"}; then {\"path\": \"src/nope.go\"}; then {\"path\": \"../outside.txt\"}; then {\"path\": \"src/cache.go\", \"at\": \"yesterday\"}; then {\"path\": \"src/cache.go:Evict\"}; then {\"path\": \"private/vault.txt\"}. Reply with one line per call: the arguments you passed, whether the host marked the result as an error (yes/no), and the first 300 characters of the result text.",
+  "Make these record_eliminated calls in order: mcp__plugin_qompack_qompack__record_eliminated with {\"target\": \"src/cache.go:Evict\", \"approach\": \"shrink the ttl\", \"reason\": \"entries are re-fetched faster than a shorter ttl can evict them, so memory does not drop\", \"scope\": \"session\", \"depends_on\": [\"src/cache.go\", \"src/missing.go\"]}; then with {\"target\": \"src/cache.go:Evict\", \"approach\": \"double the sweep rate\", \"reason\": \"x\", \"scope\": \"global\"}; then with {\"target\": \"\", \"approach\": \"\", \"reason\": \"\"}; then with {\"target\": \"src/cache.go:Evict\", \"approach\": \"raise the cache size\", \"reason\": \"a larger cache only postpones the same re-fetch storm\", \"scope\": \"project\", \"depends_on\": [\"src/cache.go\"]}. Reply with one line per call: the arguments you passed, whether the host marked the result as an error (yes/no), and the first 300 characters of the result text.",
+  "Call mcp__plugin_qompack_qompack__already_tried with {\"target\": \"src/cache.go:Evict\", \"approach\": \"shrink the ttl\"}, then with {\"target\": \"src/cache.go:Evict\", \"approach\": \"raise the cache size\"}, then with {\"target\": \"src/cache.go:Evict\", \"approach\": \"halve the ttl\"}, then with {\"target\": \"\", \"approach\": \"\"}. Reply with one line per call: the arguments you passed, whether the host marked the result as an error (yes/no), and the first 300 characters of the result text.",
+  "Make these timeline calls in order: mcp__plugin_qompack_qompack__timeline with {}; then {\"from\": \"1\", \"to\": \"6\"}; then {\"from\": \"not-a-turn\"}; then {\"from\": \"20\", \"to\": \"2\"}. Reply with one line per call: the arguments you passed, whether the host marked the result as an error (yes/no), and the first 300 characters of the result text.",
+  {
+   "content": "Make these calls in order: mcp__plugin_qompack_qompack__recall with {\"query\": \"path:ops/runbook.md\"}; mcp__plugin_qompack_qompack__re_read with {\"path\": \"ops/runbook.md\"}; mcp__plugin_qompack_qompack__expand with {\"hash\": <the runbook hash you reported earlier>}; mcp__plugin_qompack_qompack__expand with {\"tool_use_id\": <the runbook tool_use_id you reported earlier>}. Reply with one line per call: the arguments you passed, whether the host marked the result as an error (yes/no), and the first 300 characters of the result text.",
+   "before": [
+    "C:\\Users\\Quant\\Anaconda3\\python.exe",
+    "<scratch>/carried/tools/middeny.py",
+    "<scratch>/carried/uat07/proj",
+    "ops/runbook.md",
+    "C:/Users/Quant/Documents/Programming/Projects/qompack-cx-live/plans/sdd/V6-closeout/live/rerun-c8/UAT-07/settings"
+   ]
+  },
+  "/compact",
+  {
+   "content": "Find a decision id of the form dec_ followed by 12 hex characters in your context (the Qompack block). Then call mcp__plugin_qompack_qompack__why with {\"decision_id\": <that id>}; then with {\"decision_id\": \"dec_000000000000\"}; then with {\"decision_id\": \"not-a-decision\"}. If your context has no decision id, say so and skip the first call. Reply with one line per call: the arguments you passed, whether the host marked the result as an error (yes/no), and the first 300 characters of the result text.",
+   "before": [
+    "C:\\Users\\Quant\\Anaconda3\\python.exe",
+    "<scratch>/carried/tools/snapdir.py",
+    "<scratch>/carried/uat07/proj/.qompack/checkpoints",
+    "<scratch>/carried/uat07/snap/checkpoints.after-compact"
+   ]
+  },
+  "Call mcp__plugin_qompack_qompack__dropped with {}; then call it with {\"session\": \"x\"}; then call mcp__plugin_qompack_qompack__timeline with {}. Reply with one line per call: the arguments you passed, whether the host marked the result as an error (yes/no), and the first 1500 characters of the result text.",
+  {
+   "content": "/qompack:status",
+   "before": [
+    "C:\\Users\\Quant\\Anaconda3\\python.exe",
+    "<scratch>/carried/tools/lane.py",
+    "cli",
+    "C:/Users/Quant/Documents/Programming/Projects/qompack-cx-live/plans/sdd/V6-closeout/live/rerun-c8/C4.4/cli",
+    "20-status-after-compact",
+    "<scratch>/carried/uat07/proj",
+    "--",
+    "C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c8/qompack-plugin-0.3.0-windows-amd64/bin/qompack.exe",
+    "status"
+   ]
+  }
+ ],
+ "bin": "C:/Users/Quant/AppData/Roaming/npm/node_modules/@anthropic-ai/claude-code/bin/claude.exe",
+ "scrub": "<scratch>"
+}

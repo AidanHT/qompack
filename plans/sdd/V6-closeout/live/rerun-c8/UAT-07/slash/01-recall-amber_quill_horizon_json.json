@@ -1,0 +1,22 @@
+{
+ "schema": 1,
+ "command": "recall",
+ "ok": true,
+ "data": {
+  "tool": "recall",
+  "is_error": false,
+  "ephemeral": true,
+  "content": [
+   {
+    "type": "text",
+    "text": "{\"hits\":[{\"hash\":\"sha256:8a9940c4ccc0e0d4a4b9281d0310e2fbcdfd10c01223c698b3db67db5e30de22\",\"path\":\"src/ledger.go\",\"tool\":\"FileEdit\",\"summary\":\"{\\\"filePath\\\":\\\"<tmp>\\\",\\\"oldString\\\":\\\"const driftLimit = 25\\\",\\\"newString\\\":\\\"const driftLimit = 40\\\",\\\"originalFile\\\":\\\"package l…\",\"ts\":\"2026-10-07T16:54:01Z\",\"score\":0.5162406251802891,\"tool_use_id\":\"toolu_01TZD8oqPvpVy685kfWdYc4u\",\"span\":[0,1103]},{\"hash\":\"sha256:9a87424ba64c7f95de5c962c5dee88b7a4ad5f588c0b1fe0ae0cb59a192d565e\",\"path\":\"src/ledger.go\",\"tool\":\"FileRead\",\"summary\":\"{\\\"type\\\":\\\"text\\\",\\\"file\\\":{\\\"filePath\\\":\\\"<tmp>\\\",\\\"content\\\":\\\"package ledger\\\\n\\\\n// The phrase amber quill horizon marks the re…\",\"ts\":\"2026-10-07T16:53:54Z\",\"score\":0.298,\"tool_use_id\":\"toolu_01AEA21cT6i7zeZ5Pc2hgjcP\",\"span\":[0,666]}],\"count\":2,\"found\":true,\"query\":{\"text\":\"amber quill horizon\",\"path\":\"\",\"symbol\":\"\",\"tool\":\"\"}}"
+   }
+  ],
+  "meta": {
+   "elapsed_ms": 19,
+   "hash": "sha256:fed96c8cf39c4934a4e56f149b49fd7751c3eb73ea665dd68d2941836dde8c4e",
+   "tool_use_id": "qompack-mcp:9479cc08f591",
+   "untrusted": true
+  }
+ }
+}

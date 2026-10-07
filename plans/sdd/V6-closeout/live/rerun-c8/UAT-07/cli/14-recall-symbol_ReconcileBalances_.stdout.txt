@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "command": "recall",
+  "ok": true,
+  "data": {
+    "tool": "recall",
+    "is_error": false,
+    "ephemeral": true,
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"hits\":[{\"hash\":\"sha256:8a9940c4ccc0e0d4a4b9281d0310e2fbcdfd10c01223c698b3db67db5e30de22\",\"path\":\"src/ledger.go\",\"tool\":\"FileEdit\",\"summary\":\"{\\\"filePath\\\":\\\"\u003ctmp\u003e\\\",\\\"oldString\\\":\\\"const driftLimit = 25\\\",\\\"newString\\\":\\\"const driftLimit = 40\\\",\\\"originalFile\\\":\\\"package l…\",\"ts\":\"2026-10-07T16:54:01Z\",\"score\":0.6052173913043479,\"tool_use_id\":\"toolu_01TZD8oqPvpVy685kfWdYc4u\",\"span\":[0,1103]},{\"hash\":\"sha256:9ffb1d3f62e2a8ac88c883b069c96b5990355624eb7b4a55312e9cc9f0582fab\",\"path\":\"src/ledger.go\",\"tool\":\"FileRead\",\"summary\":\"{\\\"type\\\":\\\"text\\\",\\\"file\\\":{\\\"filePath\\\":\\\"\u003ctmp\u003e\\\",\\\"content\\\":\\\"package ledger\\\\n\\\\n// The phrase amber quill horizon marks the re…\",\"ts\":\"2026-10-07T16:54:14Z\",\"score\":0.4093913043478261,\"tool_use_id\":\"toolu_01EWoBLqzAVpGDbM7XpWn87E\",\"span\":[0,666]},{\"hash\":\"sha256:9a87424ba64c7f95de5c962c5dee88b7a4ad5f588c0b1fe0ae0cb59a192d565e\",\"path\":\"src/ledger.go\",\"tool\":\"FileRead\",\"summary\":\"{\\\"type\\\":\\\"text\\\",\\\"file\\\":{\\\"filePath\\\":\\\"\u003ctmp\u003e\\\",\\\"content\\\":\\\"package ledger\\\\n\\\\n// The phrase amber quill horizon marks the re…\",\"ts\":\"2026-10-07T16:53:54Z\",\"score\":0.40208695652173915,\"tool_use_id\":\"toolu_01AEA21cT6i7zeZ5Pc2hgjcP\",\"span\":[0,666]},{\"hash\":\"sha256:6daac78795742106f1a8a18411a336dd427630e9a41582008d541a3fc0369528\",\"path\":\"\",\"tool\":\"UserPromptSubmit\",\"summary\":\"Call the MCP tool mcp__plugin_qompack_qompack__recall with query \\\"symbol:ReconcileBalances\\\". Take the first hit that …\",\"ts\":\"2026-10-07T16:54:43Z\",\"score\":0.2187826086956522,\"tool_use_id\":\"prompt_5d758a40-c642-4c66-b5df-d64d334ba6a1_16\",\"span\":[0,513]},{\"hash\":\"sha256:e2845f241226a2696e6cc8e7a9dc22dae4f123cfa49609d74f49e010c89780ee\",\"path\":\"\",\"tool\":\"UserPromptSubmit\",\"summary\":\"/qompack:recall symbol:ReconcileBalances --json\",\"ts\":\"2026-10-07T16:54:29Z\",\"score\":0.21565217391304348,\"tool_use_id\":\"prompt_5d758a40-c642-4c66-b5df-d64d334ba6a1_12\",\"span\":[0,47]}],\"count\":5,\"found\":true,\"query\":{\"text\":\"\",\"path\":\"\",\"symbol\":\"ReconcileBalances\",\"tool\":\"\"}}"
+      }
+    ],
+    "meta": {
+      "elapsed_ms": 28,
+      "hash": "sha256:4553fdb962c79ce8405a1e502edc89c132ca1567d1471f57b8888ee351829934",
+      "tool_use_id": "qompack-mcp:e49a27f9c862",
+      "untrusted": true
+    }
+  }
+}

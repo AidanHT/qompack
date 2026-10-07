@@ -1,0 +1,6 @@
+cwd: ../uat07/proj
+argv: ["C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c8/qompack-plugin-0.3.0-windows-amd64/bin/qompack.exe", "recall", "tool:Edit", "--json"]
+env+: {}
+qompack_home: <scratch>/carried/qhome
+wall_s: 0.062
+at: 2026-10-07T13:00:12-04:00
