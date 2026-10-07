@@ -91,6 +91,16 @@ this heading becomes the version and its date (`docs/release.md` §1, step 2).
 - **The startup publication pass runs in the background** and yields to capture work.
 - **The plugin and marketplace descriptions** no longer claim compaction or cache awareness, and
   `/qompack:pin` describes what a pin does.
+- **The rehydration build's host judgements are bounded.** With a Read deny or ask rule in force, a
+  build asks the host about at most 64 path-keyed checkpoint drops, those a summary or a drop reason
+  names first, and at most 64 brace alternatives, and treats the rest as withheld; it also reuses
+  each screening answer within the build. A long session's rehydration no longer nears the 5 s
+  compaction budget, past which the session gets the deferred note instead (D67, D71(d), D72).
+- **Section 6 explains a withheld pointer once**, in a legend line under its heading, and the
+  withheld lines read `(summary withheld)` or `file (path withheld)`, so the explanation no longer
+  crowds pointers out of the block (D67).
+- **ToolSearch's `select:` previews are shown** in the block's pointers; they were withheld in every
+  project as if `select:` named a PowerShell drive (D67(l)).
 
 ### Removed
 
@@ -145,6 +155,51 @@ live sessions:
 - **Retrieval**: a cut response always carries `next_span`, an explicit span pages like
   `full: true`, and quarantined or damaged objects answer `unavailable`.
 
+Fixed in release candidate 8's last waves (D67, D68, D71, D72):
+
+- **No false degrade for concurrent or quiet windows**: several windows started at once on a new
+  project, a window left quiet past `runtime.daemon.idleExitSeconds`, or a start replayed after its
+  own session's `PreCompact` or `SessionEnd` no longer fails `session_start.fires` and drops a
+  healthy project to passive recording.
+- **No false degrade after a cancelled compaction**: a compaction you cancel (Esc) or that fails,
+  followed by a prompt or an exit and then `--resume`, reads `precompact-not-completed` instead of
+  failing `session_start.source_compact`, also when the hooks reach the daemon out of order or
+  across a daemon restart.
+- **A stale `state.bin` no longer strands the hooks**: a `.qompack/run/state.bin` left saying the
+  daemon is disabled or the mode is off, by a daemon that died without a clean stop, counts only
+  while that daemon still holds its lock or answers; otherwise the configuration decides, so hooks
+  start a daemon and record again (D67(c)).
+- **A replayed `Stop` no longer shifts turns**: a main-agent `Stop` cut short and replayed is
+  recognised, so the turn number of every later record stays where it was.
+- **A spooled copy of a sealed `PreCompact` is not sealed again**: it is acknowledged without a
+  second checkpoint, a second segment close or a second timing sample.
+- **A replayed `SessionStart` no longer re-anchors the scheduler** or takes it from the live session
+  it is bound to, and a delivery replayed after a restart, before the scheduler binds, is no longer
+  missing from the bound session's token account.
+- **A daemon that never idles** (a headless `claude -p` loop, for example) keeps per-session
+  scheduler bookkeeping for at most 256 sessions instead of growing for its whole life.
+- **Consistent configuration-violation reporting**: `status`, `doctor`, `self-test` and
+  `state/config-violations.json` all count a newer-`settingsVersion` reset; a command logs a
+  violation once, at `warn`, and only a daemon's start writes it to `LOUD.log`; the daemon's start
+  line and a command's line name the file, variable or flag that set it (`location=`); no command
+  creates `.qompack/` just to record a configuration violation in a directory that has none; a
+  hook under `runtime.mode` `off` writes no configuration diagnostics; and `doctor` reads the record
+  without following a link or hanging on a FIFO.
+- **Clearer status reasons**: `doctor` no longer says it asked a daemon to start (it never starts
+  one), and with `runtime.mode` `off`, `status` says the mode is off instead of "decoding status:
+  unexpected end of JSON input".
+- **Deterministic MCP reasons**: when one object comes from several refused paths, `recall`,
+  `expand`, `why`, `re_read` and `dropped` give the same withheld reason on every read.
+- **A drop reason keeps Qompack's own commands**: a reason that says to run `/qompack:pin --list` is
+  no longer withheld as if `/qompack:pin` were a path outside the project.
+- **A compaction no longer re-reads a large pasted prompt** to open the next checkpoint: the new
+  draft takes the current work from the one just sealed.
+- **Decisions across checkpoints**: a forked session's checkpoint carries its parent's decisions as
+  of the fork point, and a decision a sealed checkpoint truncated away is carried again as it was
+  made, alternatives included (D67(a)).
+- **No false "publication accounting incomplete"**: a healthy store's background publication pass no
+  longer logs that `LOUD.log` line when a file is removed or replaced while the pass reads it.
+
 ### Security
 
 - On Windows, a Read rule can no longer be bypassed through an 8.3 short name: with a deny or ask rule
@@ -171,6 +226,15 @@ live sessions:
   single spaces, with no word starting with `-` (D64(1)); under any other root a summary that spells
   the root is withheld. Section 7's drop entries never show such a path (D60(c)). The documented
   limits are under Known limits below and in `docs/cannot-do.md` §5.
+- Inside a path-named tool argument, a piece glued to the one before it by a control character, a
+  quote, a backtick, a non-ASCII space or another non-ASCII character that is not a letter is judged
+  as a piece of its own (an ASCII `+ # ) ] } ! ^` is not; see Known limits below), and so is each
+  alternative of a `{a,b}` brace list; a name a shell builds at run time (`$(…)`, `${…}`, a
+  backtick, a cmd `%VAR%` or `!VAR!` after a run of dots, a batch parameter, a shell tilde such as
+  `~+` or `~$USER`) reads as outside the project. So the rehydration block no longer shows `.env`
+  from `src/a.ts` and `.env` glued by a NUL under `Read(./.env)`, or
+  `~{,x}/.ssh/id_rsa`; a free-text JSON string holding a NUL or DEL is judged with it read as a space
+  (D71, D72). Rarer spellings remain; see Known issues below and `docs/security.md` §1.
 - Retrieval resolves a path on disk before answering, so a directory replaced by a link out of the
   project is refused.
 
@@ -255,4 +319,56 @@ live sessions:
 ### Known issues
 
 Minor defects this release does not fix, each recorded in the close-out ledger (D66(d), D67(o)).
-This list is filled from the ledger once candidate 8's last fixes are verified.
+
+- **Claude Code windows left quiet across two idle exits.** If windows stay open with no hook past
+  `runtime.daemon.idleExitSeconds` (30 minutes by default) through two daemon idle exits, and a new
+  window is started after each, the second start fails `session_start.fires` and the project drops
+  to passive recording. It cannot happen once any session of the project has ended or compacted; to
+  recover, exit one session normally, and full recording returns after two later session starts
+  pass their checks (`docs/troubleshooting.md` §1 and §2).
+- **A fork's decisions on a score tie.** When the rehydration budget runs short and scores tie, a
+  forked session's block can keep a decision inherited from its parent ahead of the fork's own. The
+  cut decision is still named in `dropped()`, and `why()` retrieves it.
+- **Path-keyed drops past the judgement bound.** In a project with a Read deny or ask rule, a
+  rehydration build asks the host about at most 64 path-keyed checkpoint drops, those a summary or a
+  drop reason names first. Later ones show as "(path withheld)" in section 7 and in `dropped()`, and
+  a section 6 summary that names one may be withheld too: more is hidden than must be, never a
+  refused path (D71(d)).
+- **Rehydration build cost.** A build with no checkpoint drops costs about 1.7 times candidate 7's,
+  about 2 ms more, because of the summary whitelist (D63). That is far inside the 5 s compaction
+  budget.
+- **Hook warnings name no location.** A hook's "invalid configuration value" line in the day log does
+  not say which file, variable or flag set the value, and `qompack config print --provenance` shows
+  that key only as `fallback after violation`. To find it, run `qompack status`: its `warn` line in
+  the day log names the source under `location=`, as the daemon's start line does
+  (`docs/troubleshooting.md` §6).
+- **One log line under `runtime.mode` `off`.** When a hook's own read of its delivery fails, it still
+  appends one line naming the read error to `.qompack/logs/hook-quiet-YYYYMMDD.jsonl` where
+  `.qompack/logs/` exists, until `.qompack/run/state.bin` also says off. To have the hook path write
+  nothing at all, remove the plugin (`docs/troubleshooting.md` §8, Steps 3 and 5).
+- **A large paste read once after a restart.** After a daemon restart, the first compaction of a
+  session whose newest prompt is a very large paste reads that prompt once in full.
+- **A slow `PreCompact` can be sealed twice.** If a `PreCompact`'s reply misses the hook's 15 s
+  deadline and the hook's spooled copy is replayed before the slow seal finishes, that compaction
+  gets two checkpoints. The copy is never dropped before a seal succeeds, so the compaction always
+  keeps one.
+- **A replayed `SessionStart` marks its session live.** A `SessionStart` replayed from a hook's
+  spool, for a session that had ended or that this daemon never saw, marks that session live: a
+  later replayed delivery of it can bind an unbound scheduler to it until the live session's next
+  start, and the daemon's idle exit waits for that session's silence timeout.
+- **A lost segment close.** A segment close owed by a delivery whose first run was cut is held only
+  in memory. If that run, its replay at `Stop` and its replay after a restart are all cut, the close
+  is never made and the span stays in the next segment, at a coarser boundary; nothing captured is
+  lost (D67(b)).
+- **Five more are listed under Known limits above**: the single scheduler account per project,
+  which lets another session's tool use close the bound session's segment (D67(b)); the second
+  daemon a missed connect to a busy daemon can start, which loses the lock and exits (D61(c)); the
+  recorded-corpus tier of the replay evaluation, not exercised (D67(g)); macOS's assumed
+  case-insensitive volume (D67(m)); and a rooted path glued after one of `+ # ) ] } ! ^` inside one
+  path-named value, which can be shown (ADR 0011 §23).
+- **Unusual spellings of a path inside a tool argument.** The rehydration block judges each path in
+  a path-named tool argument, but a few rare spellings can still show a path outside the project or
+  one a Read rule refuses: a cut-off `~[name`; a home directory named by a login that holds `@`, `$`
+  or a non-ASCII letter; a Windows `%VAR%` whose name is not an identifier; look-alike Unicode
+  slashes or dots (`／`, `∖`, `．`); and a non-canonical spelling (`a/./b`) of a refused path whose
+  file name is shorter than 3 bytes (D72(a)). They are the first fix planned after this release.
