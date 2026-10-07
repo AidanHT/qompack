@@ -1,9 +1,10 @@
 # V6 close-out report — Qompack 0.3.0, from the blocked V6 checkpoint to candidate 8
 
 **Decision: NOT YET RELEASE READY.** This is a draft of C6.4. Candidate 8's second freeze is the release
-candidate. It is frozen from integration `e8c62191`, which is `275165e9` (D72(b), D73(c)) plus D74(a)'s
-one-line lint fix. The evidence that would accept it does not exist yet. Every cell that belongs to it
-is marked `[OWED: ...]` below. No cell from an earlier candidate is copied in as a run on this one.
+candidate. It is to be frozen from integration `e8c62191` by the relaunched c8-night.sh (D74(b));
+`e8c62191` is `275165e9` (D72(b), D73(c)) plus D74(a)'s one-line lint fix. The evidence that would
+accept it does not exist yet. Every cell that belongs to it is marked `[OWED: ...]` below. No cell from
+an earlier candidate is copied in as a run on this one.
 The report becomes a release decision only when every `[OWED: ...]` cell holds an artifact path and no
 red is left without a recorded disposition (D33's release condition, D66's exit rule). No tag,
 Release, merge to `main` or marketplace step is authorized by this report (D4, C7.3-C7.5).
@@ -345,8 +346,9 @@ superseded candidate's failures stay in its lane report and ledger row (section 
 lane report was committed verbatim (`8bd80c85`), and the first freeze's records were
 moved aside to `phase3/c8-freeze1`, not deleted (D71(b)).
 
-**Criterion changes, each ratified by a ruling.** None was made to turn a red green without a recorded
-reason:
+**Criterion changes, each ratified by a ruling.** This list names the rulings that changed a gate, a
+budget or an acceptance criterion; the ledger (`plans/V6-CLOSEOUT-CHECKLIST.md`) is the complete record.
+None was made to turn a red green without a recorded reason:
 - D19: section 12.1 counts one chance per prompt delivery of the probe's own session sent after the
   probe was minted; x13 asserts the hook's wall-clock fallback spool per arm (`78b33a1`).
 - D46: UAT-02 step 6 was revised. expand carries `_meta.qompack`, and no response carries fidelity or
@@ -362,11 +364,41 @@ reason:
 - D67(h): C3.3's product-child race lane is satisfied by the Linux container and hosted nightly.
 - D67(i): C5.3's artifact is the replay gate's report, and fraction-of-OPT is diagnostic only.
 - D67(j): row 1.1.27 is judged by its absolute budget on candidate 8 only.
+- D39: in co-load mode the hot-path row reports, rather than fails on, the daemon's breach transition to
+  spool submode, because co-load already waives the wall budgets that cause it (ADR 0010). The
+  transition must still be loud and named, the delivery ledger must add up, and no event may be lost.
+  Isolated mode is unchanged.
+- D41: B-A's default budget became max(15, L0IngestMs) per platform (Linux 15, Windows 50, macOS 40 ms).
+  B-A's sample contains B-B's durable ingest by construction, so at 15 ms every Windows session tripped
+  the breach detector. Candidate 2 was superseded over this (section 2). It composes two approved
+  numbers and adds none.
+- D42: X11's V2-relative ceiling was rebased, not relaxed. It now gates the like-for-like
+  hook_controlled_observed p50 of a paired run with and without the ledger at 1.25 x the base run,
+  instead of comparing B-A p99 with V2's figure, which excluded the handler and durable ingest. The
+  amendment (2026-09-29, ratified) makes the ceiling max(1.25 x base p50, base p50 + one reported tick),
+  because whole-millisecond samples cannot resolve 25 % below four ticks. The absolute B-A and B-B
+  gates stay.
+- D69(b): D68(e)'s "green on the frozen head before the freeze" became "before candidate 8 is
+  accepted". The evidence required for acceptance did not change; a red that is wave 22's supersedes
+  candidate 8 as it would have stopped the freeze.
 
-**Waivers.** The only waivers are `runpatterns` waivers on prose `-run` quotes in seat reports. They
-change documentation only and never skip or relax a test: `1c9012e` (waves 3 and 4), `f6095e2` (wave 5),
-`d5c9c53` (wave 15c), `6f118a7b`, `ae601390` and `877ed3f7` (wave 16 to 16e), `1d793976` (wave 17) and
-`738d67c7` (wave 19).
+**Waivers.** Two kinds are in force.
+- **ADR 0010's co-load waiver (D39).** On a pass that declares co-load (`QOMPACK_UNDER_COLOAD=1`), the
+  wall budgets of B-A, B-B and B-E are reported, not gated. The close-out night harness declares
+  co-load on its shared passes (D62). The isolated timing passes and C5.1 do not declare it, so B-A and
+  B-B are gated there. `ec1ce53d` corrected the co-load waiver notes in the JSON artifacts: the lanes
+  that still enforce those rows judge on a reference disk, and hosted runs only report them (D53(e),
+  D55, ADR 0010 Addendum 2). Which second-freeze passes declared co-load: [OWED: from the overnight
+  run's pass records].
+- **`runpatterns` waivers on `-run` quotes in seat reports.** They change documentation only and never
+  skip or relax a test. On closeout/integration since `cf31e01`: `893b11b9` (wave 1), `8d50d6bb` (wave
+  2b), `1c9012e2` (waves 3 and 4), `f6095e27` (wave 5), `fc5289c3` (wave 10), `dfe99d90` (wave 14),
+  `fe6b27fa` (wave 15), `d5c9c533` (wave 15c), `6f118a7b` (wave 16), `ae601390` (wave 16b), `877ed3f7`
+  (wave 16c), `8489bc97` (waves 16d and 16e), `9a56b305` (wave 16f), `1d793976` (wave 17), `7aeb5c6e`
+  (wave 17c), `738d67c7` (wave 19), `39dfcb75` (wave 19c), `2bf29705` (waves 19d to 19g), `456a0d24`
+  (waves 19h and 19i) and `f905ec9c` (wave 20). The list was read from the commit subjects of
+  `git log cf31e01..closeout/integration`; that log is the complete record if a waiver's subject does
+  not say so.
 
 **Skips and unexecuted evidence, stated rather than passed.**
 - Linux fsync-bound rows B-A and B-B are not verified in target on the container (D53(b)).
@@ -403,14 +435,14 @@ Every row was executed by an agent on the owner's real installed host (D3). None
 | UAT-11 admission off passes through | candidate 4 (`live/rerun-c4/UAT-11/`) | pass | [OWED: carry note from candidate 4 naming the changed files] |
 | UAT-12 privacy and lifecycle edges | candidate 7 (`live/rerun-c7/UAT-12/`) | **fail** as a row: upgrade leg pass, retrieval leg fail (F1, a denied path in a tool summary; fixed in waves 19-23) | [OWED: UAT-12 sessions A and B with C4.6 in the live re-check]; upgrade leg [OWED: carry note from candidate 7 naming the changed files] |
 
-UAT-02, UAT-07, UAT-08 and UAT-11 last ran on candidate 4. D52 re-ran only the rows that candidate 4
-failed or left open, and candidate 7's lane did not include these four. D59 says that the rows not
-re-checked "carry from candidate 7 by the diff". For these four rows, that carry can only rest on
-candidate 4's evidence, so their carry notes must span the diff from candidate 4 to candidate 8. The
-live re-check also owes the rows that are not UAT rows: [OWED: status after a mid-session compaction
-(D58(d)); C4.9's settingsVersion leg (D59); the rehydrate privacy and notice rows under a deny rule and
-two status reads with two or more sessions (D60(f)); C1.6's resilience part (D67(f))]. `docs/uat.md`'s
-Result blocks: [OWED: candidate 8 result lines written by the live re-check].
+UAT-02, UAT-07, UAT-08 and UAT-11 last ran on candidate 4. D52 scheduled a re-run of only the rows
+candidate 4 failed or left open (UAT-03, 04, 05, 06, 09, 10 and 12) on candidate 5. That set moved to
+candidate 6 (D53(f)), which never had a lane, and ran in candidate 7's lane (D57(c), D59). So UAT-02,
+07, 08 and 11 were never re-run after candidate 4. D59 says that the rows not re-checked "carry from
+candidate 7 by the diff". For these four rows, that carry can only rest on candidate 4's evidence, so
+their carry notes must span the diff from candidate 4 to candidate 8. The non-UAT re-check rows are
+section 9's live re-check cell. `docs/uat.md`'s Result blocks: [OWED: candidate 8 result lines written
+by the live re-check].
 
 ## 12. Actual rollout scope
 
@@ -420,8 +452,9 @@ What 0.3.0 ships if candidate 8 is accepted, read from `docs/config-reference.md
   for six targets (linux, darwin and windows, each on amd64 and arm64). The marketplace has one entry
   per target, and the user installs exactly one. The binaries are not code-signed.
 - **Where it was installed.** Only windows/amd64, the reference host, was installed into Claude Code
-  (2.1.280). Linux and macOS are tested on hosted CI and, for Linux, in the local container, but were
-  never installed. linux/arm64 and windows/arm64 are cross-compiled only.
+  (2.1.280). Linux is tested on hosted CI and in the local container, and macOS on hosted
+  macos-latest (arm64) only; neither was ever installed. darwin/amd64, linux/arm64 and windows/arm64 are
+  cross-compiled only.
 - **On by default.**
   - The resident daemon (`runtime.daemon.enabled`).
   - Redaction before storage (`runtime.redact.enabled`).
