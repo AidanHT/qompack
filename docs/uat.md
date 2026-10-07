@@ -853,42 +853,46 @@ stored records to reconcile a failure.
 **Result**
 
 ```text
-Result: pass — with a finding. Steps run: original intent ("allow 100 requests per minute per
-  client") + correction ("must be 60 ..., not 100") + record_eliminated + compact (block 1);
-  --resume (SessionStart:resume injected only the contract probe) + /qompack:why + second
-  compaction (block 2); --resume --fork-session (SessionStart:fork injected only the probe) +
-  compact (block 3, the fork's first) + already_tried + /qompack:why + second correction ("must be
-  45 ..., not 60") + compact (block 4); none skipped. The fork's first block carries the parent's
-  verbatim original under "(forked session: the original request of session 0eaa2666 ...)" AND the
-  60 correction above it, the parent's session-scoped elimination of "100" (section 3) and its
-  decision dec_991dbff588ec (section 4), with the fork provenance in section 7; already_tried in
-  the fork answers active, scope session, and why() finds the decision (checkpoint_seq 4). After
-  --resume the session's second checkpoint 0002 still carries the decision. In every block section
-  2 renders the evolution newest first and the original last, whole (D50): the newest correction
-  is above the older one and no superseded restatement is promoted. /qompack:why returned an
-  attributed record (what, why, the rejected alternative, evidence, turn), not a claim about the
-  model. Step 7: no log line waits on or reports a post-compaction event. Fork diff (to be
-  confirmed at execution): besides seq, checkpoint number, session id and probe token, section 2
-  gains the fork's own prompt and the provenance line, current work and pointers are the fork's,
-  section 7 appears; sections 3-4 are identical. MANIFEST skips seq 3; fsck exit 0.
-  Finding: the fork's second checkpoint (0005) derives "Current work" from an inherited parent
-  prompt (the record_eliminated instruction, cut at the 160-rune goal cap) instead of the fork's
-  newest prompt. Doc finding: "Section 2's first unit is the verbatim original" disagrees with the
-  D50 render order the product follows.
+Result: pass — re-run on candidate 8 (D59, D62 forkwork). Steps run: original intent ("allow 100
+  requests per minute per client") + correction ("must be 60 ..., not 100") + record_eliminated +
+  compact (block 1, 0001); --resume (SessionStart:resume injected only the contract probe) +
+  /qompack:why + second compaction (block 2, 0002); --resume --fork-session (SessionStart:fork
+  injected only the probe) + compact (block 3, 0004, the fork's first) + already_tried +
+  /qompack:why + second correction ("must be 45 ..., not 60") + compact (block 4, 0005); none
+  skipped. The fork's first block carries the parent's verbatim original under "(forked session:
+  the original request of session 7f96ea69 ...)" AND the 60 correction above it, the parent's
+  session-scoped elimination of "100" (section 3) and decision dec_991dbff588ec (section 4), with
+  the fork provenance in section 7; its Current work is the fork's own newest prompt (the
+  docs/design.md Read), and 0005's is the fork's newest prompt, the 45 correction (F-C7-UAT06-1
+  fixed: candidate 7 took an inherited parent prompt there). In the fork, already_tried answers
+  active, scope session, and why() finds the decision. After --resume, 0002 still carries the
+  decision. In every block section 2 renders the evolution newest first and the original last,
+  whole (D50): the newest correction is above the older ones and no superseded restatement is
+  promoted; a later restart of the parent (0003) keeps 60 and never shows the fork's 45.
+  /qompack:why returned an attributed record (what, why, rejected alternative, evidence, turn), not
+  a claim about the model. Step 7: no log line waits on or reports a post-compaction event. Fork
+  diff (to be confirmed at execution): besides seq, checkpoint number, session id and probe token,
+  section 2 gains the fork's own prompt and the provenance line, current work and pointers are the
+  fork's, section 7 appears; sections 3-4 are identical. Every checkpoint re-hashes; fsck exit 0.
+  59 hook calls across the three sessions, all success; stderr empty. Observation: block 2 shows
+  one subagent pointer as "(summary withheld)" in a project with no rules (accepted
+  over-withholding, D66(e)).
+  Candidate 7 (d20309c0): pass — with a finding: the fork's second checkpoint took Current work
+  from an inherited parent prompt (F-C7-UAT06-1), evidence plans/sdd/V6-closeout/live/rerun-c7/UAT-06/
   Candidate 4 (9f6a2fad): fail — the fork's first block left out the correction in force and the
   parent's elimination and decision, evidence plans/sdd/V6-closeout/live/rerun-c4/UAT-06/
   Candidate 3 (d5598eb4): fail — the fork's "verbatim original" was the fork's own first prompt
   and no correction ever reached a checkpoint, evidence plans/sdd/V6-closeout/live/uat/UAT-06/
 Snapshot: qompack version 0.3.0; bundle BUNDLE.json sha256
-  5212ae4eaa2e931266d52069e7d0c72ec2dfd2255d55421c87486ab083e1f395; commit
-  d20309c03ffc364e4cc48663be73cfbb1f2309b2; Windows 11 Home 25H2 build 10.0.26200.9457;
+  61ba9c37dda03c14c44acb6824646a8d7410751bba6f1ce3c5c864d6382dcd8b; commit
+  3ec62ad2e01b985640c0f1fb832df3917f766a5f; Windows 11 Home 25H2 build 10.0.26200.9457;
   Claude Code 2.1.280
-Date: 2026-10-02 (America/Toronto)
+Date: 2026-10-07 (America/Toronto)
 Executed by: Claude Code workflow subagent (Opus 5.5), agent-executed on the owner's real host
   per owner decision D3 — not human UAT
-Evidence: plans/sdd/V6-closeout/live/rerun-c7/UAT-06/ (notes.txt indexes it; also C4.3)
+Evidence: plans/sdd/V6-closeout/live/rerun-c8/UAT-06/ (notes.txt indexes it; also C4.3, C4.5)
 Rollback verified: not applicable — initial state absent (recorded); the run is retained as
-  evidence; no backup or restore was run in this row
+  evidence; no backup or restore was run in this row; no daemon was ended (DEFAULT idle exit)
 ```
 
 ---
