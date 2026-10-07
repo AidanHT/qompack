@@ -4,36 +4,55 @@ How a release is cut, what each gate proves, what the release actually claims to
 it deliberately does not claim. Configuration keys are named but never described here —
 `docs/config-reference.md` is generated from the schema and owns every default.
 
-**Release status: 0.3.0 candidate, not released.** Release 0.3.0 is being cut from release candidate
-8 (decision D58(e)), whose commit and frozen bundles are recorded in
-`plans/sdd/V6-closeout/phase3/c8-CANDIDATE.md` when it is frozen. The release tags candidate 8 or a
-descendant whose changes reach no bundle, and the published `bin/` must equal candidate 8's frozen
-bundles. Its version commit is in: `internal/core.Version`, `plugin.json` and the bundles all say
-`0.3.0` (§1, step 1). Nothing is tagged or published until the candidate's verification, live and
-evaluation evidence is complete and every red in it is fixed or carries a recorded disposition (V6
-close-out decision D33; the gates are Phases 3 to 7 of `plans/V6-CLOSEOUT-CHECKLIST.md`).
+**Release status: 0.3.0, candidate 8, not released.** Release 0.3.0 is cut from release candidate
+8 (decision D58(e)), commit `3ec62ad2`, whose frozen bundles and evidence are recorded in
+`plans/sdd/V6-closeout/phase3/c8-CANDIDATE.md`. The release tags candidate 8 or a descendant whose
+changes reach no bundle, and the published `bin/` must equal candidate 8's frozen bundles. Its
+version commit is in: `internal/core.Version`, `plugin.json` and the bundles all say `0.3.0` (§1,
+step 1). Nothing is tagged or published until the candidate's verification, live and evaluation
+evidence is complete and every red in it is fixed or carries a recorded disposition (V6 close-out
+decision D33; the gates are Phases 3 to 7 of `plans/V6-CLOSEOUT-CHECKLIST.md`).
 
 Candidate 8 changes product code (among them the drain pass budget, the session registry, the
 checkpoint writer, the hook configuration path, the contract reading, the rehydration block and the
 command client; D58(e), D60(f), D61), so earlier candidates' machine evidence does not carry to it
-by a byte comparison. Already recorded for candidate 7: hosted `ci.yml` run `36981590450`, green
-except `test (windows-latest)`, a wall-clock margin in a spool-watcher test that now runs on an
-injected clock (D58(a), D58(b)); hosted `nightly.yml` run `36981711009`, green; the hosted
-release-version bundles byte-identical to candidate 7's frozen ones (D58(a)); and candidate 7's live
-lane, 20 real sessions with 474 hook calls and no hook failure or timeout (D59). Still owed before
-the tag, all on candidate 8: its night chain on the frozen tree
-(`plans/sdd/V6-closeout/coordinator/c8-night.sh`: the AC-gated Windows timing and X11, the Windows
-and Linux `-race` lanes, two reproducible bundle builds and the quiet C5.1 run); the C5.2 night,
-which re-measures every benchmark in full against `cf31e01`, in package chunks that may span more
-than one night and never run on battery (D62(b), D65(b), D65(c)); the C1.16 rig re-measure on that
-night, whose figure `docs/architecture.md` then restates (D62(c), D65(a)); hosted `ci.yml` and
-`nightly.yml` (C7.2), including the hosted `release-dry-run` bundles compared byte for byte with
-candidate 8's frozen ones (D53(h)(4), D58(e)); its short live re-check (D59, D60(f)); the
-pre-registered live evaluation, C5.5, on its frozen bundles, whose verdict decides the release under
-amendment A8 (D58(e)); and the local `release-check --tag` on the reference host, on AC power, which
-the night chain runs in an isolated scratch clone that holds the tag, never in the shared repository
-(§1, step 3; D57(a), D57(d), D62). After
-the tag come the pre-release, the install rehearsal from it (D53(h)(3)), the check that the
+by a byte comparison. Its own evidence is recorded by decisions D75, D76 and D77:
+
+- **Night chain.** `plans/sdd/V6-closeout/coordinator/overnight-c8.sh` ran 19 steps on the frozen
+  tree, every one on AC power. 16 passed: the six C5.2 chunks below, the AC-gated Windows timing
+  set and X11, the Windows and Linux `-race` lanes, two byte-identical bundle builds, the quiet
+  C5.1 run on Windows (B-A p99 16.4 ms and B-B p99 11.3 ms against 50, B-E p99 166.8 ms against
+  2,000, B-F p99 73.7 ms against 250) and the local `release-check --tag v0.3.0` on the reference
+  host, all 18 of its steps `PASS` and none skipped. The chain runs that check in an isolated
+  scratch clone that holds the tag, never in the shared repository (§1, step 3; D57(a), D57(d),
+  D62). The other three were the Linux container's timing steps: two failed B-A and B-B alone, the
+  class D53(b) does not verify in target, with 0 captures lost, and its quiet C5.1 run is reported
+  only (D75(a)).
+- **C5.2 and C1.16.** The C5.2 night re-measures every benchmark in full against `cf31e01`, in
+  package chunks that may span more than one night and never run on battery (D62(b), D65(b),
+  D65(c)). Six of its eight chunks ran complete on candidate 8's night. No row is slower than the
+  base with significance except negknow's `BenchmarkOpen` on Windows (1.16x, 59.66 ms inside its
+  300 ms budget, off the hot path) and symbols' `BenchmarkEnclosing_100KB` (1.011x), both recorded,
+  not acted on (D75(b)). The Linux checkpoint and other chunks and the C1.16 rig re-measure, whose
+  figure `docs/architecture.md` restates (D62(c), D65(a)), were measured on the C5.2 night of
+  2026-10-07/08: [[C52-NIGHT]].
+- **Hosted runs.** `ci.yml` run `37562946379` concluded success on its second attempt, a re-run
+  of the failed jobs on the same commit (C7.2). Attempt 1's two reds are dispositioned by D75(c):
+  `test (macos-latest)` failed a fixture-sanity count that is a test defect, and
+  `test (windows-latest)` ended `internal/daemon` with a crash whose cause is undetermined and
+  which did not recur. `nightly.yml` run `37562945914` passed. The hosted `release-dry-run`
+  bundles were byte-identical to candidate 8's frozen ones, all 91 files in both directions
+  (D53(h)(4), D58(e)).
+- **Live re-check.** 20 real sessions on the frozen bundle passed every scenario they ran, with 650
+  hook calls and no host-reported failure or timeout (D76; D53(i), D59, D60(f)).
+- **Live evaluation.** C5.5 ran on the frozen bundle, and its pre-registered decision reads
+  "inconclusive — interval [-0.214, 0.214] straddles -0.200". Under amendment A8 that verdict
+  allows the release (D77). At this sample size it is the expected verdict, by design, and it is
+  not evidence that Qompack adds nothing (A8, item 3). The recovery outcome reads "recovery
+  advantage not shown". No page claims that Qompack improves recovery, task success or constraint
+  retention (A8, item 2).
+
+After the tag come the pre-release, the install rehearsal from it (D53(h)(3)), the check that the
 published `bin/` bytes equal the frozen bundles, and only then the promotion. The generated SP-17
 scope table in §3 is evidence for its named artifacts only; the capability table beside it states
 what 0.3.0 ships and what it does not claim. A successful `release-check` can include skipped steps,
@@ -380,18 +399,15 @@ asserting.
   delete `dist/bundle/**` or `dist/release-notes.md`) and the host-validation upload
   (`--evidence dist/evidence/host-validation.json`, `if-no-files-found: error`) are YAML shape
   only. The tag-triggered draft and host-validation upload remain unverified here: `release.yml` has
-  never run. The other workflows have run on candidate 6 and on candidate 7. On candidate 6,
-  `ci.yml` run `36955046276` passed every job but `release-dry-run` and `test (windows-latest)`,
-  whose failures are dispositioned by D57(a) (X11 on the hosted fsync tail; the job now declares
-  `QOMPACK_NONREFERENCE_DISK`) and D57(b) (a read-order race in `test/fault`'s audit, fixed in the
-  test), and the nightly run `36955043924` passed all 31 of its jobs. On candidate 7, `ci.yml` run
-  `36981590450` passed every job but `test (windows-latest)`, a wall-clock margin in a
-  spool-watcher test, which now runs its retry horizon on an injected clock (D58(a), D58(b));
-  `release-dry-run` passed, and its release-version bundles were byte-identical to candidate 7's
-  frozen ones. The nightly run `36981711009` passed all 31 of its jobs (README, "Supported
-  environments"). Neither workflow has run on candidate 8 yet, and candidate 8 changes product code,
-  so its own runs are owed before the tag. `release-dry-run` runs the same `release-check` the
-  release workflow runs, so its result on the release commit is the nearest evidence for this path.
+  never run. The other workflows have run on candidate 8's commit: `ci.yml` run `37562946379`
+  concluded success, two of its jobs on a re-run of the failed jobs (D75(c) dispositions the first
+  attempt's two reds), `release-dry-run` passed and its release-version bundles were
+  byte-identical to candidate 8's frozen ones, and the nightly run `37562945914` passed (README,
+  "Supported environments"). `release-dry-run` runs the same `release-check` the release workflow
+  runs, so its result on candidate 8 is the nearest evidence for this path. Earlier candidates'
+  runs are history: on candidate 6, `ci.yml` run `36955046276` failed `release-dry-run` on X11 on
+  the hosted fsync tail, after which the job declares `QOMPACK_NONREFERENCE_DISK` (D57(a)), and on
+  candidate 7, `ci.yml` run `36981590450` passed `release-dry-run` (D58(a)).
 - **The hosted Linux image changes on 2026-10-19.** GitHub moves the `ubuntu-latest` label to
   Ubuntu 26 from that date (the annotation on run `36981590450`;
   `actions/runner-images` issue 14748). `ci.yml`'s `release-dry-run` and `release.yml`'s `release`
