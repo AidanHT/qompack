@@ -1,0 +1,8 @@
+[
+  {
+    "Key": "runtime.migration",
+    "Message": "settingsVersion 99 is newer than this build understands (1); the whole runtime.migration block is reset to defaults so unknown switches stay off",
+    "Got": null,
+    "Want": null
+  }
+]

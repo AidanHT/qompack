@@ -1,0 +1,2 @@
+moved <project>/.qompack/config.json (the settingsVersion 99 file; copy in store-s1/config.json) to
+<scratch>/resilience/c8/c49b/cfg-aside/ (troubleshooting §6, 'After a downgrade'); present now: False
