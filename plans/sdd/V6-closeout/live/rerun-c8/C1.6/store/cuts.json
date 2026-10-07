@@ -1,0 +1,34 @@
+{
+ "cutA": {
+  "file": "index/roots.jsonl",
+  "lines_before": 10,
+  "removed_line_index_1based": 10,
+  "removed_line_was_last": true,
+  "removed_line_root": "sha256:912bcd59969a868e52419347bf663b2d1ab72821c6851cb00f79c5f38f92513d",
+  "removed_line_tool": "Bash",
+  "removed_line_path": "",
+  "objects_named_by_removed_line": {
+   "sha256:177c6f4c9ec81f58bb337faaff40991238ea8dee6adb4c89a9875dc0a800dd2a": true
+  },
+  "root_object_file_exists": false,
+  "later_lines_naming_removed_root_as_base": 0,
+  "lines_after": 9
+ },
+ "cutB": {
+  "sidecar": "records/captures/01/014a86604e3bbc9f6963645809e7aaff6348e5b56d12f1c55145bdfab93a509b.json",
+  "observation_id": "sha256:014a86604e3bbc9f6963645809e7aaff6348e5b56d12f1c55145bdfab93a509b",
+  "op": "observe.tool",
+  "outcome": "ok",
+  "tool": null,
+  "was_root": "sha256:2a53981a381ba068990e3f062676fcd87f4120698d4c040fe3805b8d61e06707",
+  "was_tool_use_id": "toolu_01NXofE3DDHjuDhSbHhRrGvs",
+  "bytes_hash": "sha256:340ac65cbb2b2ceb5889d3f178f0d0e3259f771d2bfd5197ada840a292735f0a",
+  "edits": {
+   "published": 1,
+   "root": 1,
+   "tool_use_id": 1
+  },
+  "bytes_before": 2243,
+  "bytes_after": 2197
+ }
+}

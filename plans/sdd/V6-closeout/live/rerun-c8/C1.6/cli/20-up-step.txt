@@ -1,0 +1,3 @@
+== c16 up step (before turn 6) at 2026-10-07T14:18:28.323-04:00
+daemon now: {"lock": {"pid": 58496, "started": 1791397105165, "addr": "\\\\.\\pipe\\qompack.9e83789ac828", "version": "0.3.0", "owner": "ca37966650f3557bec35dc538ac6bb7541c48fb93ff9e4d11aef01fc5f43369c", "root": "<scratch>\\resilience\\c8\\c16\\proj"}, "pid": 58496, "proc": {"Name": "qompack.exe", "Path": "C:\\Users\\Quant\\.qompack\\bin\\93eb09f348774fbf2783bd607a3af41622976b2edad42798b437091eace381a9\\qompack.exe", "Cmd": "C:\\Users\\Quant\\.qompack\\bin\\93eb09f348774fbf2783bd607a3af41622976b2edad42798b437091eace381a9\\qompack.exe daemon --project <scratch>\\resilience\\c8\\c16\\proj"}}
+restart route: turn 5's hooks (the session's next turn) started the daemon; no bare session-start was run

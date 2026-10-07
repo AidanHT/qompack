@@ -1,0 +1,149 @@
+{
+ "args": [
+  "-p",
+  "--input-format",
+  "stream-json",
+  "--output-format",
+  "stream-json",
+  "--verbose",
+  "--include-hook-events",
+  "--model",
+  "claude-haiku-4-5-20251001",
+  "--max-turns",
+  "14",
+  "--setting-sources",
+  "project,local",
+  "--permission-mode",
+  "dontAsk",
+  "--plugin-dir",
+  "C:/Users/Quant/Documents/Programming/Projects/qompack-bundles/c8/qompack-plugin-0.3.0-windows-amd64",
+  "--allowedTools",
+  "Read,Bash(git status:*),Bash(wc:*),mcp__plugin_qompack_qompack__recall,mcp__plugin_qompack_qompack__expand,mcp__plugin_qompack_qompack__re_read,mcp__plugin_qompack_qompack__already_tried,mcp__plugin_qompack_qompack__record_eliminated,mcp__plugin_qompack_qompack__timeline,mcp__plugin_qompack_qompack__why,mcp__plugin_qompack_qompack__dropped,Bash(qompack status:*),Bash(qompack recall:*),Bash(qompack pin:*),Bash(qompack why:*),Bash(qompack dropped:*),Bash(qompack eval:*)"
+ ],
+ "turns": [
+  {
+   "msg": "Use the Read tool to read readme.md and tell me which port the service listens on.",
+   "ok": true,
+   "wall_s": 7.222,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 32980,
+    "WorkingSet64": 29306880,
+    "PeakWorkingSet64": 29306880,
+    "CPU": 0.234375,
+    "StartTime": "/Date(1791397080307)/"
+   },
+   "store_bytes": 95960
+  },
+  {
+   "msg": "Use the Bash tool to run `git status --short` in this directory and tell me how many files it lists.",
+   "ok": true,
+   "wall_s": 4.227,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 32980,
+    "WorkingSet64": 30965760,
+    "PeakWorkingSet64": 30965760,
+    "CPU": 0.359375,
+    "StartTime": "/Date(1791397080307)/"
+   },
+   "store_bytes": 118171
+  },
+  {
+   "msg": "Use the Read tool to read data.txt and tell me the ledger key.",
+   "ok": true,
+   "wall_s": 2.604,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 32980,
+    "WorkingSet64": 32587776,
+    "PeakWorkingSet64": 32587776,
+    "CPU": 0.4375,
+    "StartTime": "/Date(1791397080307)/"
+   },
+   "store_bytes": 142237
+  },
+  {
+   "msg": "Use the Bash tool to run `wc -l data.txt notes.md tool.py` and tell me the line counts.",
+   "ok": true,
+   "wall_s": 3.207,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 32980,
+    "WorkingSet64": 33411072,
+    "PeakWorkingSet64": 33411072,
+    "CPU": 0.5,
+    "StartTime": "/Date(1791397080307)/"
+   },
+   "store_bytes": 164433
+  },
+  {
+   "before": {
+    "argv": [
+     "C:\\Users\\Quant\\Anaconda3\\python.exe",
+     "<scratch>\\resilience\\c8/c16.py",
+     "down"
+    ],
+    "exit": 0,
+    "stdout": "b93a509b.json  50a078e163df(2243) -> f5f75468b542(2197)\n[records/ (all)] before 12 files, after 12; unchanged 11; changed 1; added 0; removed 0\n  changed records/captures/01/014a86604e3bbc9f6963645809e7aaff6348e5b56d12f1c55145bdfab93a509b.json  50a078e163df(2243) -> f5f75468b542(2197)\n[index/] before 6 files, after 6; unchanged 5; changed 1; added 0; removed 0\n  changed index/roots.jsonl  2ff957abb821(8809) -> ad65eaa2224b(7130)\n[state/] before 12 files, after 12; unchanged 12; changed 0; added 0; removed 0\n[checkpoints/] before 0 files, after 0; unchanged 0; changed 0; added 0; removed 0\n[logs/ run/ spool/ (runtime)] before 5 files, after 5; unchanged 5; changed 0; added 0; removed 0\nCOMPARED SET (objects/ + capture sidecars) CHANGED\nCOMPARED SET (objects/ + capture sidecars) CHANGED\n47 files\n[12-fsck-json-before-cut] exit 1 (0.033s) stdout 4032B stderr 57B\n[12-fsck-table-before-cut] exit 1 (0.039s) stdout 2715B stderr 57B\n== c16 down step (before turn 5) at 2026-10-07T14:18:19.049-04:00\ndaemon before the kill: {\"lock\": {\"pid\": 32980, \"started\": 1791397080354, \"addr\": \"\\\\\\\\.\\\\pipe\\\\qompack.9e83789ac828\", \"version\": \"0.3.0\", \"owner\": \"79ca32a1f5d4934a59279658317fa49a5e18f7c55b80045c0c3463358bb7a0c5\", \"root\": \"<scratch>\\\\resilience\\\\c8\\\\c16\\\\proj\"}, \"pid\": 32980, \"proc\": {\"Name\": \"qompack.exe\", \"Path\": \"C:\\\\Users\\\\Quant\\\\.qompack\\\\bin\\\\93eb09f348774fbf2783bd607a3af41622976b2edad42798b437091eace381a9\\\\qompack.exe\", \"Cmd\": \"C:\\\\Users\\\\Quant\\\\.qompack\\\\bin\\\\93eb09f348774fbf2783bd607a3af41622976b2edad42798b437091eace381a9\\\\qompack.exe daemon --project <scratch>\\\\resilience\\\\c8\\\\c16\\\\proj\"}}\nkd.py exit 0\nafter the kill: lock present; live process for the lock pid: False\ntasklist for pid 32980: INFO: No tasks are running which match the specified criteria.\ncuts.py exit 0\nafter the cuts at 2026-10-07T14:18:25.055-04:00: live process for the lock pid: False (lock pid 32980)\n",
+    "stderr": ""
+   },
+   "msg": "Use the Read tool to read notes.md and tell me when the ledger is reconciled.",
+   "ok": true,
+   "wall_s": 2.405,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 58496,
+    "WorkingSet64": 28516352,
+    "PeakWorkingSet64": 28516352,
+    "CPU": 0.09375,
+    "StartTime": "/Date(1791397105140)/"
+   },
+   "store_bytes": 161273
+  },
+  {
+   "before": {
+    "argv": [
+     "C:\\Users\\Quant\\Anaconda3\\python.exe",
+     "<scratch>\\resilience\\c8/c16.py",
+     "up"
+    ],
+    "exit": 0,
+    "stdout": "a1ace158d671472a2d12d5da08fd97b404d3f836484a0166c42447e744ab.json  0a5a3cd015f0(1548)\nCOMPARED SET (objects/ + capture sidecars) CHANGED\n[21-status-json-daemon-up] exit 0 (0.023s) stdout 8727B stderr 0B\n[21-status-text-daemon-up] exit 0 (0.033s) stdout 4481B stderr 0B\n[23-fsck-json-daemon-up] exit 1 (0.123s) stdout 4640B stderr 57B\n{\n \"at\": \"2026-10-07T14:18:29.501-04:00\",\n \"cutA_removed_root\": \"sha256:912bcd59969a868e52419347bf663b2d1ab72821c6851cb00f79c5f38f92513d\",\n \"cutA_roots_lines_now\": 12,\n \"cutA_root_line_re_added\": false,\n \"cutA_named_objects_still_on_disk\": {\n  \"sha256:177c6f4c9ec81f58bb337faaff40991238ea8dee6adb4c89a9875dc0a800dd2a\": true\n },\n \"cutB_sidecar\": \"records/captures/01/014a86604e3bbc9f6963645809e7aaff6348e5b56d12f1c55145bdfab93a509b.json\",\n \"cutB_published_now\": false,\n \"cutB_root_now\": \"sha256:0000000000000000000000000000000000000000000000000000000000000000\",\n \"cutB_tool_use_id_now\": null,\n \"compared_set_present_after_cut\": 22,\n \"compared_set_changed\": [],\n \"compared_set_removed\": [],\n \"compared_set_added_since_cut (new captures of later turns)\": 6,\n \"nothing_pre_existing_rewritten\": true\n}\n== c16 up step (before turn 6) at 2026-10-07T14:18:28.323-04:00\ndaemon now: {\"lock\": {\"pid\": 58496, \"started\": 1791397105165, \"addr\": \"\\\\\\\\.\\\\pipe\\\\qompack.9e83789ac828\", \"version\": \"0.3.0\", \"owner\": \"ca37966650f3557bec35dc538ac6bb7541c48fb93ff9e4d11aef01fc5f43369c\", \"root\": \"<scratch>\\\\resilience\\\\c8\\\\c16\\\\proj\"}, \"pid\": 58496, \"proc\": {\"Name\": \"qompack.exe\", \"Path\": \"C:\\\\Users\\\\Quant\\\\.qompack\\\\bin\\\\93eb09f348774fbf2783bd607a3af41622976b2edad42798b437091eace381a9\\\\qompack.exe\", \"Cmd\": \"C:\\\\Users\\\\Quant\\\\.qompack\\\\bin\\\\93eb09f348774fbf2783bd607a3af41622976b2edad42798b437091eace381a9\\\\qompack.exe daemon --project <scratch>\\\\resilience\\\\c8\\\\c16\\\\proj\"}}\nrestart route: turn 5's hooks (the session's next turn) started the daemon; no bare session-start was run\n",
+    "stderr": ""
+   },
+   "msg": "Use the Read tool to read tool.py and tell me in one sentence what weigh() returns.",
+   "ok": true,
+   "wall_s": 2.805,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 58496,
+    "WorkingSet64": 31129600,
+    "PeakWorkingSet64": 31129600,
+    "CPU": 0.171875,
+    "StartTime": "/Date(1791397105140)/"
+   },
+   "store_bytes": 185252
+  },
+  {
+   "msg": "Use the Bash tool to run `git status --short` again and tell me whether the count changed.",
+   "ok": true,
+   "wall_s": 3.007,
+   "daemon": {
+    "daemon": "sampled",
+    "pid": 58496,
+    "WorkingSet64": 31965184,
+    "PeakWorkingSet64": 31965184,
+    "CPU": 0.21875,
+    "StartTime": "/Date(1791397105140)/"
+   },
+   "store_bytes": 205285
+  }
+ ],
+ "store_bytes_before": 0,
+ "started_ms": 1791397078331,
+ "pid": 59064,
+ "exit": 0,
+ "wall_s": 38.883,
+ "store_bytes_after": 251650
+}
