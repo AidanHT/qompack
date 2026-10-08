@@ -245,9 +245,43 @@ jobs:
             done < failed-rows.txt
             while read -r pkg; do
               [ -n "$pkg" ] || continue
-              echo "--- package-level output of $pkg ---"
+              # Every output line of the package, its tests' included, in the order the binary
+              # wrote them; and the package-level lines alone.
+              grep "\"Package\":\"$pkg\"" test.json | grep '"Action":"output"' \
+                | sed -n 's/.*"Output":"\(.*\)"}$/\1/p' > pkg-output.txt
               grep "\"Package\":\"$pkg\"" test.json | grep -v '"Test":"' | grep '"Action":"output"' \
-                | sed -n 's/.*"Output":"\(.*\)"}$/\1/p' | tail -n 40
+                | sed -n 's/.*"Output":"\(.*\)"}$/\1/p' > pkg-level.txt
+              # Head AND tail: a crash dump's cause is its FIRST line and the tail is goroutine
+              # stacks, so a tail alone keeps the stacks and loses the cause (D75(c): candidate 8's
+              # attempt-1 windows leg crashed internal/daemon at 1185 s and the job kept no line
+              # that said why).
+              n=$(wc -l < pkg-level.txt | tr -d ' ')
+              echo "--- package-level output of $pkg ($n lines) ---"
+              if [ "$n" -gt 80 ]; then
+                head -n 40 pkg-level.txt
+                echo "... $((n - 80)) lines omitted ..."
+                tail -n 40 pkg-level.txt
+              else
+                cat pkg-level.txt
+              fi
+              # test2json hands a crash's lines to whichever test it last saw start, so the cause of a
+              # panic, a runtime fatal error or a -timeout kill is usually inside a TEST's output,
+              # thousands of goroutine-dump lines above its end. Each block is printed from a few
+              # lines before its first line (a fatal error's "runtime:" preamble) to well after it
+              # (the panic value, "running tests:", the first goroutine). -m bounds a package whose
+              # passing tests print the words; grep exits 1 when nothing matched, which is fine.
+              echo "--- crash blocks in $pkg's output (panic:, fatal error:, test timed out) ---"
+              grep -n -m 5 -B 5 -A 30 -E '^(panic: |fatal error: )|test timed out after ' pkg-output.txt
+              # A build failure's compiler errors are not the package's output at all: go test -json
+              # reports them as build-output events keyed by ImportPath, and the package's fail event
+              # names that ImportPath in FailedBuild.
+              fb=$(grep "\"Package\":\"$pkg\"" test.json | grep '"Action":"fail"' | grep -v '"Test":"' \
+                | sed -n 's/.*"FailedBuild":"\([^"]*\)".*/\1/p' | head -n 1)
+              if [ -n "$fb" ]; then
+                echo "--- build output of $fb ---"
+                grep -F "\"ImportPath\":\"$fb\"" test.json | grep '"Action":"build-output"' \
+                  | sed -n 's/.*"Output":"\(.*\)"}$/\1/p' | head -n 80
+              fi
               # A binary killed at -timeout, or one that panicked, leaves the tests it was running
               # with a "run" event and no verdict, and the panic and goroutine dump are THEIR output,
               # which the package-level lines above leave out: run 36816905394's windows-latest leg
@@ -267,6 +301,19 @@ jobs:
             done < failed-pkgs.txt
           fi
           exit "$rc"
+      # The run's raw evidence, kept when the step above fails: the log keeps only the excerpts the
+      # reconciliation chose, and a crash, a timeout or a row whose cause is not in its last lines
+      # needs the whole event stream to diagnose (D75(c)). One artifact per runner, named for it.
+      - name: upload the whole-tree test JSON
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-json-${{ matrix.os }}
+          path: |
+            test.json
+            failed-rows.txt
+            failed-pkgs.txt
+          retention-days: 7
 
   test-e2e:
     # test/e2e alone on its own runner, and without -race: see the `test` job for why it is out
