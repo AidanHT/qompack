@@ -259,7 +259,7 @@ Resume, in order:
 - [x] **C1.4** *(wave 7 `w7-sp08d3`: pass on Windows and Linux; re-run with candidate 6's whole tree)* Confirm `3dab390`'s two daemon fixture corrections on the new candidate.
 - [x] **C1.5** *(wave 7 `w7-sp08d3`: pass on Windows and Linux without weakening; re-run with candidate 6's whole tree)* V6-AUTH-1/2 (`1.13.4`, `1.17.12`, historical FAIL): re-run the real-capture
       security regressions on the fixed candidate; they must pass without weakening.
-- [ ] **C1.6** *(`live/report.md`, candidate 3: pass; the publication pass was rewritten in wave 15c. No candidate 6 lane ran (D57(c)), so the live evidence is owed by the candidate 8 re-check's resilience part, D67(f))* V6-RECOVERY-1: confirm automatic startup accounting + fsck detection of publication
+- [x] **C1.6** *(candidate 8, D76: the live re-check's resilience part passed on the frozen bundle (`sdd/V6-closeout/live/rerun-c8/C1.6/`), as D67(f) required; candidate 3 passed before it (`live/report.md`); detection, not recovery; known issue 18 (D76(c)))* V6-RECOVERY-1: confirm automatic startup accounting + fsck detection of publication
       gaps on the packaged bundle; state honestly whether automatic *recovery* exists.
 - [x] **C1.7** *(`live/report-c4.md`: pass on a realistic store, pre- and post-new-write restores; candidate 7's install part re-ran a restore smoke, D59, D67(f))* V6-RECOVERY-2: operator backup/verify/restore through the shipped CLI
       (`4a12eff`), pre- and post-new-write rollback rehearsed on the packaged bundle.
@@ -387,14 +387,14 @@ Found by the packaging workstream's real-host sessions (evidence on `closeout/pa
 
 ## Phase 6 — Documentation, inventory and the report
 
-- [x] **C6.1** *(D76(f), D78(e), D80(a), D80(b): docs corrected from candidate 8's evidence (f06ed994, 65b506b3, 7fbb8a40); release-check's generated docs PASS (`sdd/V6-closeout/phase3/c8/release-check.json`))* Docs match evidence: README status, `docs/release.md` scope table, install, UAT
+- [x] **C6.1** *(D76(f), D78(e), D80(a), D80(b): docs corrected from candidate 8's evidence (f06ed994, 65b506b3, 7fbb8a40), and in the C6.4 review round CHANGELOG.md's install sentence and the release notes' namespace paragraph, to D80; release-check's generated docs PASS (`sdd/V6-closeout/phase3/c8/release-check.json`))* Docs match evidence: README status, `docs/release.md` scope table, install, UAT
       results, cannot-do/upstream-issues, troubleshooting; generated docs regenerated if code moved.
-- [x] **C6.2** *(candidate 8, 36dc82e4: 276 verified_in_target, 15 partial_verified, 7 unknown, 3 unsupported, 3 documented; `sdd/V6-closeout/inventory-c8-map.md`)* `inventory-current.tsv`: every one of the 304 rows re-dispositioned from this
+- [x] **C6.2** *(candidate 8, 36dc82e4, with 1.17.18 and section 3.10 corrected to partial_verified in the C6.4 review round: 275 verified_in_target, 16 partial_verified, 7 unknown, 3 unsupported, 3 documented; section 3: 9, 4 and 1; `sdd/V6-closeout/inventory-c8-map.md`)* `inventory-current.tsv`: every one of the 304 rows re-dispositioned from this
       candidate's evidence (`verified_in_target` only with an executed artifact); the 14 §3
       integration identifiers and the SP19/20/21 switches mapped.
 - [x] **C6.3** *(920f9269, e404673c: 22 fixed, 6 wontfix each with its 0.3.0 disposition; test/guards green)* `CARRIED-DEFECTS.tsv` final dispositions; `test/guards` green against the report.
 - [ ] **C6.4** V6 close-out report (the plan's §8 template), with independent final review.
-- [x] **C6.5** *(727417fe: 46 of the V6 plan's boxes ticked with evidence, 7 left open with a reason; CHANGELOG.md [0.3.0] - 2026-10-08 (D79))* Tick the V6 plan's boxes with evidence links; `CHANGELOG.md` release entry.
+- [x] **C6.5** *(727417fe ticked 46 of the V6 plan's boxes with evidence; the C6.4 review round unticked 3.10 and section 10's environments box, so 44 are ticked and 9 left open with a reason; CHANGELOG.md [0.3.0] - 2026-10-08 (D79))* Tick the V6 plan's boxes with evidence links; `CHANGELOG.md` release entry.
 
 ## Phase 7 — Release (each step needs its own authorization)
 

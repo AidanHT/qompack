@@ -7,8 +7,10 @@ byte-identical to the frozen `qompack-bundles/c8` (D80, `phase3/c8/release-bin-c
 report is the record of that decision: every cell below names the artifact, run, commit or ruling that
 answers it. A cell whose claim was not met says `NOT MET:` with its reason and the ruling that
 dispositioned it. D33's release condition (a frozen candidate, complete evidence, every red fixed or
-dispositioned) and D66's exit rule were judged met by D79 on D75-D78. One cell stays open: the
-independent final review of this report (C6.4, section 9), which a non-authoring seat performs.
+dispositioned) and D66's exit rule were judged met by D79 on D75-D78. One red found after the release,
+on `develop` code identical to the tag's, has no ledger disposition yet (TestGC_DeadlineTruncatesAndResumes,
+section 10). One cell stays open: the independent final review of this report (C6.4, section 9), which a
+non-authoring seat performs; its first round returned needs-fixes, and this revision answers it.
 
 `plans/V6-report.md` (the 2026-09-20 BLOCKED checkpoint) stays immutable. This report records the
 close-out that followed it. The working ledger is `plans/V6-CLOSEOUT-CHECKLIST.md` (decisions D1-D80,
@@ -60,7 +62,7 @@ Close-out executed 2026-09-22 to 2026-10-08 (America/Toronto); this revision 202
 | 6 | `99d0b18c` | `9a56b305` | Replaced by candidate 7 = candidate 6 plus C7.1 and wave 17 (D57(c)); its machine evidence carried by byte proof; no live lane ran on it |
 | 7 | `d20309c0` | `b31d0753` | Its lane (20 sessions, `live/report-c7.md`) failed UAT-05, UAT-12/C4.6 and C4.5 (D59), and the w17c review found a drain-budget defect (D58(c)); waves 18-19i |
 | 8, freeze 1 | `424f0d08` (2026-10-05) | `77374c3c` | The diff-only verify (`wf_32da2f0b-11c`) found a major privacy leak in `pathNamedWithheld` (D71); wave 23 |
-| 8, freeze 2 | `3ec62ad2` (2026-10-07) | `e8c62191` | Not superseded: released as 0.3.0 (D79, D80). Its first launch from `275165e9` refused at the pre-freeze golangci-lint gate before anything was frozen (D74) |
+| 8, freeze 2 | `3ec62ad2` (2026-10-06) | `e8c62191` | Not superseded: released as 0.3.0 (D79, D80). Its first launch from `275165e9` refused at the pre-freeze golangci-lint gate before anything was frozen (D74) |
 
 ## 3. Waves, seats and rulings
 
@@ -214,14 +216,16 @@ or renumbered.
 | Candidate | Disposition (304 rows) |
 |---|---|
 | 7 (history, `c7_result`) | 251 `verified_in_target`, 39 `partial_verified`, 7 `unknown`, 3 `unsupported`, 3 `documented`, 1 `implemented_unverified` |
-| 8, second freeze (`c8_result`, C6.2, `36dc82e4`) | 276 `verified_in_target`, 15 `partial_verified`, 7 `unknown`, 3 `unsupported`, 3 `documented`; 0 `failed`, 0 `implemented_unverified`. Every cell rests on candidate 8's own artifacts, none on a candidate 5, 6 or 7 measurement (`inventory-c8-map.md`) |
+| 8, second freeze (`c8_result`, C6.2, `36dc82e4`; 1.17.18 corrected in the C6.4 review round) | 275 `verified_in_target`, 16 `partial_verified`, 7 `unknown`, 3 `unsupported`, 3 `documented`; 0 `failed`, 0 `implemented_unverified`. Every cell rests on candidate 8's own artifacts, none on a candidate 5, 6 or 7 measurement (`inventory-c8-map.md`) |
 
 The candidate 7 column is not candidate 8's result. Rows that no step can execute are never marked
 `verified_in_target` (D37(c)): 1.10.18, 1.15.14, 1.16.5, 1.16.10, 1.17.3, 1.17.5 and the human half of
-1.18.12 (D3) stay `unknown`. Of the 15 `partial_verified` rows, 1.5.12, 1.12.14 and 1.17.6 have a Linux
+1.18.12 (D3) stay `unknown`. Of the 16 `partial_verified` rows, 1.5.12, 1.12.14 and 1.17.6 have a Linux
 fsync-bound half (D53(b)); 1.17.8 and 1.17.9 rest on the installed upgrade carried from candidate 7
 (D53(f)); 1.11.16, 1.14.10, 1.17.10, 1.17.14, 1.18.1, 1.18.3, 1.18.4, 1.18.8 and 1.18.11 have a half
-with no possible artifact; and 1.17.19 needs a repository setting (section 18). C5.2 was re-measured
+with no possible artifact; 1.17.18's actionlint half has no artifact, because no actionlint step exists
+in release.yml, ci.yml or release-check and no ruling retires it; and 1.17.19 needs a repository
+setting (section 18). C5.2 was re-measured
 in full on candidate 8, all eight chunks (D62(b), D75(b), D78(a)).
 
 | Exit obligation (V6 plan section 2) | Status on candidate 8 |
@@ -248,10 +252,10 @@ Results are the `c8_result` of `inventory-c8-map.md`, "The fourteen section 3 in
 | 3.7 doctor/status agreement | `verified_in_target`: C4.5's paired status, doctor and fsck reads agree on candidate 8, with two sessions in the store (D60(f), `live/rerun-c8/C4.5/uat06/diff-reads.txt`) |
 | 3.8 config reference matches binary | `verified_in_target`: the pre-freeze gate's generated-docs checks (`phase3/c8/prefreeze/gate.log`), release-check's generated docs step, hosted docs job |
 | 3.9 install/upgrade/uninstall | NOT MET in full, `partial_verified`: rollback rehearsal on candidate 8 (release-check) and install/uninstall on the released bytes (D80); the installed upgrade (C4.8, UAT-12's upgrade leg) carries from candidate 7 (`live/rerun-c8/CARRIED.md`; D53(f), D76(f)) |
-| 3.10 degraded passive | `verified_in_target`: C4.9 (b), the settingsVersion leg, and C1.6 ran on the packaged bundle (`live/rerun-c8/C4.9/`, `C1.6/`); legs (a) and (c) carry from candidate 7 |
+| 3.10 degraded passive | NOT MET in full, `partial_verified`: C4.9 (b), the settingsVersion leg, and C1.6 ran on the packaged bundle (`live/rerun-c8/C4.9/`, `C1.6/`); C4.9 (c), the packaged unavailable object, was not re-run on candidate 8 and carries from candidate 7 (`live/rerun-c8/CARRIED.md`, "C4.9 legs (a) and (c)"; D53(f)). UAT-07's never-stored hash on candidate 8 is a different case and does not stand in for it |
 | 3.11 no secret, no network | `verified_in_target`: C4.6 and UAT-12 sessions A and B with planted credentials and deny-ruled files passed on candidate 8 (`live/rerun-c8/C4.6/`, `UAT-12/`) |
 | 3.12 checkpoint to rehydration | `verified_in_target`: UAT-05 run 2 injected the loss notice on candidate 8 (`live/rerun-c8/UAT-05/`), with C4.3, UAT-04's and UAT-06's compactions |
-| 3.13 reproducible artifacts | `verified_in_target`: two builds byte-identical (`phase3/c8/bundle-diff.txt` empty), hosted release-dry-run's bundles equal the frozen ones, 91 files (`phase3/c8/hosted-release-bundles.txt`), published `bin/` equal them (`phase3/c8/release-bin-compare.txt`) |
+| 3.13 reproducible artifacts | `verified_in_target`: two builds byte-identical (`phase3/c8/bundle-diff.txt` empty), hosted release-dry-run's bundles equal the frozen ones, 91 files (`phase3/c8/hosted-release-bundles.txt`), published `bin/` equal them (`phase3/c8/release-bin-compare.txt`). The V6 plan's wider wording, "licenses/name check", has an open half: no artifact records a registry name-availability check (the plan's section 4) |
 | 3.14 hot path with every subsystem resident | NOT MET in full, `partial_verified`: Windows verified on AC (win-timing and win-x11-alone VALID, exit 0, `phase3/c8/power.tsv`; quiet C5.1 B-A p99 16.4 ms, B-B 11.3 ms against 50); Linux B-A/B-B fail in the container, fsync-bound, not verified in target by rule (D53(b), D75(a)) |
 
 ## 6. Commands actually run, and evidence paths
@@ -280,7 +284,7 @@ Hosted CI, every run the ledger records:
 | ci.yml `37562946379`, nightly `37562945914` | candidate 8, `3ec62ad2` | ci.yml concluded success on attempt 2, all 21 jobs green; attempt 1's two reds dispositioned (D75(c): the macOS settle fixture is a test defect, `phase3/c8/hosted/macos-settle-rootcause.md`; the Windows crash at 1185 s is undetermined, did not recur and is not shown to be a blocker or major, `phase3/c8/hosted/windows-crash.md`). Nightly 31 of 31 jobs green (`c6-final/runs/c8-hosted-runs.txt`) |
 | release.yml `37738581717` | tag `v0.3.0`, `1a368a4b` | Success: drafted the pre-release with six zips, checksums.txt, marketplace.json, LICENSE and THIRD_PARTY_NOTICES.md (D80) |
 | marketplace.yml `37746138600` | after the promotion | Opened PR #1, whose marketplace.json equals the release asset; merged into `develop` as `fff45a45` (D80) |
-| ci.yml `37746311073` | `develop` `fff45a45` | Two test-only reds: TestGC_DeadlineTruncatesAndResumes (job timing (windows-latest), internal/store) and TestPromptWarning_SlowDurableAcceptIsLateForTheClient (job cover, internal/daemon). The second is D70(b)'s missing join (section 13). The first is a hosted Windows wall-clock row; no ledger row or known-issues entry names this red yet. `fff45a45` differs from the tag only in `.claude-plugin/marketplace.json` |
+| ci.yml `37746311073` | `develop` `fff45a45` | Two reds. TestPromptWarning_SlowDurableAcceptIsLateForTheClient (job cover, internal/daemon) is D70(b)'s test-only missing join (section 13). TestGC_DeadlineTruncatesAndResumes (job timing (windows-latest), internal/store, `gc_test.go:475`, "a deadline that has already expired, over 700 objects, must truncate") is NOT MET: it has no ledger disposition (section 10). `fff45a45` differs from the tag only in `.claude-plugin/marketplace.json`, so the red is on released product and test code |
 | ci.yml `37746414885` | `develop` `7fbb8a40` | Success. `7fbb8a40` differs from `fff45a45` only in docs/ and plans/, so the same product and test code is green here |
 
 Phase 3 on the second freeze (C3.2-C3.12). The overnight steps are in `phase3/c8/chain.log` and
@@ -300,7 +304,7 @@ Phase 3 on the second freeze (C3.2-C3.12). The overnight steps are in `phase3/c8
 | Plugin validation (C3.10) | Pass: `claude plugin validate --strict --json` (Claude Code 2.1.280) accepted the frozen bundle (`phase3/c8/host-validate.txt`); the bundles step validated 6 of 6 targets; release-check's plugin-validate steps; hosted plugin-validate green |
 | Reproducible bundles (C3.11) | Pass: two builds byte-identical, 91 files (`phase3/c8/bundle-diff.txt` empty); hosted release-dry-run's release-version bundles equal the frozen ones in both directions (`phase3/c8/hosted-release-bundles.txt`, D53(h)(4)) |
 | release-check (C3.12), and `release-check --tag` on the reference host on AC (D57(a)) | Pass: `release-check --tag v0.3.0` in a scratch clone of `3ec62ad2`, 18 of 18 steps PASS, none skipped, VALID on AC (`phase3/c8/release-check.json`, `chain.log`) |
-| Isolated timing: win-timing, win-e2e-timing, win-x11-alone (D28, D57(d)) | Pass: all three exit 0, VALID on AC. linux-timing and linux-e2e-timing failed B-A and B-B alone (p99 180 ms and 106 ms against 15 ms, 592 and 590 deliveries deferred, 0 lost), the container class D53(b) does not verify; NOT MET for Linux, dispositioned by D75(a) |
+| Isolated timing: win-timing, win-e2e-timing, win-x11-alone (D28, D57(d)) | Pass: all three exit 0, VALID on AC (`phase3/c8/power.tsv`). linux-timing and linux-e2e-timing failed B-A and B-B alone (p99 180 ms and 106 ms against 15 ms, 592 and 590 deliveries deferred, 0 lost), the container class D53(b) does not verify; NOT MET for Linux, dispositioned by D75(a). The Linux figures are quoted from `phase3/c8-CANDIDATE.md`; those two steps' logs were not committed, and their failure and exit codes are in `phase3/c8/power.tsv` and `overnight-outcome.txt` |
 
 ## 7. Blockers from the V6 checkpoint, and how each closed
 
@@ -379,7 +383,7 @@ never become constants (Q1).
 | Live re-check C4.x and UAT (`mkrecheck8.py`, about 8 sessions plus D60(f)'s rows) | Passed (D76): `wf_090ea750-b1e`, 20 real sessions of a 25-session budget on the frozen bundle (`live/rerun-c8/`): UAT-05 run 2; UAT-12 sessions A and B with C4.6; UAT-06 with C4.5; status after a mid-session compaction (F-C48-1, `live/rerun-c8/F-C48-1/`); C4.9 settingsVersion leg; the rehydrate privacy and notice rows under a deny rule (UAT-12); two status reads with two sessions in the store (C4.5, `live/rerun-c8/C4.5/uat06/`); C1.6's resilience part. The audit returned 5 minors and 4 nits, no blocker or major; known issues 17 and 18 (D76(b), D76(c)) |
 | C5.5 | Executed: "inconclusive — interval [-0.214, 0.214] straddles -0.200"; allows the release under A8 item 1 (D77) |
 | C6.2 inventory dispositions | Done: `c8_result` and `c8_evidence` for all 304 rows (`36dc82e4`, `inventory-c8-map.md`) |
-| C6.4 independent final review | [OWED: non-authoring review of this report, by the review seat] |
+| C6.4 independent final review | [OWED: the non-authoring re-review of this revision. Round 1 returned needs-fixes (1 major, 5 minors, 1 nit); this revision answers each, and the major's ledger row is the coordinator's (section 10)] |
 | Pre-release, HTTPS install rehearsal, bin/ byte comparison (D53(h)) | Done (D80): published `bin/` byte-identical to `qompack-bundles/c8` (`phase3/c8/release-bin-compare.txt`); HTTPS install rehearsed with Claude Code 2.1.293 on Linux (container, no model, `bin/qompack` kept `-rwxr-xr-x`) and on Windows (isolated profile, then the real profile at local scope, where one session loaded 0.3.0, connected its MCP server, listed six commands and ran four hook events); then promoted. This rehearsal's record is ledger row D80 and `docs/install.md` section 9; no session files of it are committed |
 
 ## 10. Regression preservation, skips, failures and waivers
@@ -492,9 +496,30 @@ second freeze and after it:
 - c116-rig: a test defect of the in-process rig (D78(b)), with known issue 19 as its field residual
   (D78(c)).
 - ci.yml `37746311073` on `develop` `fff45a45`: TestPromptWarning_SlowDurableAcceptIsLateForTheClient
-  is D70(b)'s known missing join. TestGC_DeadlineTruncatesAndResumes on hosted Windows timing is
-  classed test-only by the coordinator; NOT MET: no ledger row records that classification yet. The
-  same code passed ci.yml `37746414885` on `7fbb8a40`.
+  is D70(b)'s known missing join.
+
+**A red without a disposition.** ci.yml `37746311073`, job timing (windows-latest), failed
+TestGC_DeadlineTruncatesAndResumes at `internal/store/gc_test.go:475`: "a deadline that has already
+expired, over 700 objects, must truncate". `fff45a45` differs from the tag `1a368a4b` only in
+`.claude-plugin/marketplace.json`, so this is the released product and test code. NOT MET: no ledger
+row dispositions it, and `w22-known-issues.md` does not list it. The evidence a ruling would weigh,
+recorded here and not yet ruled on:
+- The assertion is a wall-clock pricing premise. The test prices its deadline at
+  `gcResumeBudgetMultiple` (4) times the control store's measured mark phase (`gc_test.go:441-442`).
+  The timing job does not declare co-load, so the single judged pass is asserted where it stands
+  (`gc_test.go:471-479`), with no re-pricing. The pass reached the sweep (line 472 held) and did not
+  truncate: the budget outlasted the sweep's first check. That is the shape `gcResumeAttempts`'s
+  comment records for CI run 34052269275: a correct collection judged against a budget priced from a
+  slower moment.
+- The runner is a hosted, non-reference disk (Q1). The job sets `QOMPACK_NONREFERENCE_DISK`, which
+  this test does not read (`.github/workflows/ci.yml`, timing job).
+- The same product and test code passed the timing (windows-latest) job of ci.yml `37746414885` on
+  `7fbb8a40`, which differs from `fff45a45` only under docs/ and plans/. The same job passed on
+  candidate 8 in ci.yml `37562946379`, attempt 1.
+
+The ruling, and the known-issues entry that follows from it, are the coordinator's (a D row of
+`plans/V6-CLOSEOUT-CHECKLIST.md`). Until it exists, this report does not count the red as
+dispositioned.
 
 ## 11. UAT-01 to UAT-12
 
@@ -597,8 +622,9 @@ dials-only wait (D73(1)); the unverified PreCompact settle lead (D73(b)). Second
 `w22-known-issues.md`: the settle row's fixture that does not wait for the live worker, and ci.yml's
 lost crash head (D75(c)); checkpoint.decision_read_error's by-design count on healthy stores, a
 diagnostic (D76(d)); the C1.16 rig's shared spool identity and the unprovable Read target persisted
-nowhere (D78(b), D78(d)). Not in that file: the TestGC_DeadlineTruncatesAndResumes red of ci.yml
-`37746311073` (section 10).
+nowhere (D78(b), D78(d)). Not in that file, and not dispositioned: the TestGC_DeadlineTruncatesAndResumes
+red of ci.yml `37746311073` on hosted Windows timing (section 10). It joins this list only through the
+coordinator's ledger row.
 
 ## 14. Carried defects (C6.3)
 
@@ -689,8 +715,8 @@ do not split cache writes between the 5-minute and 1-hour TTLs.
    withoutLineDeadline after the stall; `promptWG.Wait()` in
    `TestPromptWarning_SlowDurableAcceptIsLateForTheClient`; the settle row waits for the live worker in
    settleGate; the C1.16 rig gives each hook its own spool identity and counts LOUD cap drops. The
-   TestGC_DeadlineTruncatesAndResumes red on hosted Windows (section 10) needs its classification
-   recorded in the ledger.
+   TestGC_DeadlineTruncatesAndResumes red on hosted Windows timing (section 10) is not dispositioned:
+   it needs the coordinator's ledger row first, and any test change follows that ruling.
 3. **The PreCompact settle lead** (D73(b)): establish whether a settle leaves WAL-only refused or
    ring-dropped leased jobs out of its drop report (`internal/daemon/precompact_settle.go`), red-first if it does.
 4. **The per-prompt history.json fsync and capWentOn** (D71(d)): the ledger records contract r2's
@@ -719,15 +745,21 @@ release exe and any false-positive submission (D32, D80(f)), and the C7.6 housek
 **Release gate: met; 0.3.0 released.** D79 judged the gate met on D75-D78, and D80 records the
 publication: tag `v0.3.0` on `1a368a4b`, release.yml `37738581717`, published `bin/` byte-identical to
 the frozen candidate, the HTTPS install rehearsed on Windows and Linux, then promoted; marketplace PR #1
-merged as `fff45a45`. No release blocker is open.
+merged as `fff45a45`. Every red known when D79 ruled was fixed or dispositioned. One red found after
+the release is not: TestGC_DeadlineTruncatesAndResumes on hosted Windows timing, on code identical to
+the tag's (section 10). Until the coordinator's ledger row classes it, this report does not say that
+every red is dispositioned.
 
-What remains, none of it a release blocker:
-- **C6.4**: the independent final review of this report by a non-authoring seat (section 9). The
+What remains:
+- **The TestGC_DeadlineTruncatesAndResumes red** of ci.yml `37746311073`: its ledger row and, if the
+  ruling makes it test-only, its entry in `w22-known-issues.md`'s test-only residuals (section 10).
+- **C6.4**: the independent re-review of this revision by a non-authoring seat (section 9). The
   report's sign-off as the V6 close-out record waits for it.
 - **NOT MET parts, dispositioned and disclosed:** the Linux fsync-bound halves (D53(b), D75(a)); the
   installed upgrade, UAT-01, -03, -09, -10, UAT-05 run 1 and UAT-12's upgrade leg carried from
   candidate 7 (D53(f), D59, D76(f)); macOS, arm64 and Linux model sessions `unknown` (C4.11, D34(c),
-  D80(c)); the recorded-corpus replay tier (D67(g)); the rows no step can execute (D37(c)); the C1.16
-  rig's co-load red (D78(b)); the ledger classification of the `fff45a45` TestGC red (section 10).
+  D80(c)); C4.9 (c), the packaged unavailable object, carried from candidate 7 (section 5, 3.10);
+  the recorded-corpus replay tier (D67(g)); the rows no step can execute (D37(c)); the C1.16 rig's
+  co-load red (D78(b)).
 - **C7.6** housekeeping, with owner consent: it deletes worktrees that hold uncommitted work.
 - The post-release items of section 18.
