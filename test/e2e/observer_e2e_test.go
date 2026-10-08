@@ -70,7 +70,7 @@ const (
 )
 
 // obsClientSpoolPrefix is the client-spool file family internal/ipc/spool.go names
-// client-<pid>.ndjson. A fully drained one is removed unconditionally (internal/daemon/drain.go,
+// client-<pid>-<writer id>.ndjson (client-<pid>.ndjson before 0.3.1). A fully drained one is removed unconditionally (internal/daemon/drain.go,
 // shouldDelete — only wal-* files are kept while their session is live), so one still on disk is
 // an event the daemon has not replayed yet.
 const obsClientSpoolPrefix = "client-"

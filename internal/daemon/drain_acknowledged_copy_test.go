@@ -18,8 +18,8 @@ import (
 // The shape is the one V5-VERIFY's x09 run produced (F4-P1/P2/P3). The live path leases,
 // publishes and acknowledges a delivery. The hook client, whose one-byte transport ACK was lost
 // AFTER that acknowledgement (ipc.awaitACK -> spoolAndReturn, at the shipped AckDeadlineMs),
-// appends the same request to spool/client-<pid>.ndjson. The next daemon starts with an empty
-// seenSet and drains that copy. Before the fix, drain.go consulted the frontier only inside the
+// appends the same request to its client spool (spool/client-*.ndjson). The next daemon starts with
+// an empty seenSet and drains that copy. Before the fix, drain.go consulted the frontier only inside the
 // seenSet's completed branch, so the copy was dispatched through fresh handlers: the observer ran
 // a second time for a delivery the frontier held, and the effects the redelivery-tolerant handlers
 // do not absorb (a SubagentStop capture under a fresh turn's id, supersede marks against records

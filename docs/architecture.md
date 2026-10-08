@@ -644,14 +644,17 @@ L0 capture `prompt_<session>_0`, resolved by derived id: the session's first *ca
 verbatim. Captured turns follow the order prompts reach the daemon and are never renumbered.
 Prompts the daemon took live are captured in arrival order, and prompts replayed from the hooks'
 client spools are replayed in host order: by the timestamp the hook stamped on the first record
-each file still has to replay, never by the `client-<pid>` file name. So under the HotSpool submode
-and `runtime.daemon.enabled=false`, where every prompt is spooled, turn 0 is the host's first
-prompt unless hooks reused a pid, the second case below. Two cases are outside the guarantee. The
-first is a race: a prompt spooled because its hook could not reach the daemon, overtaken by a later
-prompt that arrived live and was captured before a drain replayed the spool. The second is pid
-reuse: a spool file is named by pid, so a later hook with the same pid appends to an earlier hook's
+each file still has to replay, never by the file name. Every hook's spool writer has a file of its
+own, `client-<pid>-<writer id>.ndjson`, where the writer id is random, so a hook that reuses an
+earlier hook's process id does not append to that hook's file. So under the HotSpool submode and
+`runtime.daemon.enabled=false`, where every prompt is spooled, turn 0 is the host's first prompt.
+Two cases are outside the guarantee. The first is a race: a prompt spooled because its hook could
+not reach the daemon, overtaken by a later prompt that arrived live and was captured before a drain
+replayed the spool. The second is left over from 0.3.0, whose hooks named their spool by process
+id alone, `client-<pid>.ndjson`: a later 0.3.0 hook with the same id appended to an earlier hook's
 file, and one drain pass replays that file's records in file order, possibly ahead of another
-file's earlier prompt. Qompack does not claim to have captured the host's
+file's earlier prompt. The daemon still drains such a file when a project upgraded from 0.3.0 holds
+one, in host order with the rest. Qompack does not claim to have captured the host's
 first request in either case. It says it may not have. Every prompt record carries its host
 timestamp. Any capture that lands behind a later-stamped turn, from either source, is counted
 (`observer.prompt_out_of_host_order`) and logged as a Warn naming the turn it came in behind. A

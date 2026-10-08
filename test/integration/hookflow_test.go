@@ -1035,7 +1035,7 @@ func TestIntegration_SpooledEventsSurviveToTheStore(t *testing.T) {
 	require.Equal(t, ipc.HotSpool, spoolPhase.Hot, "no daemon may have rewritten state.bin")
 	require.Zero(t, spoolPhase.DaemonPID, "no daemon may have stamped its pid into state.bin")
 
-	// 50 spool lines: one per event, across the per-pid client-*.ndjson files.
+	// 50 spool lines: one per event, across the hooks' own client-*.ndjson files.
 	require.Equal(t, spoolEventTotal, clientSpoolLines(t, p.Root),
 		"every event must be durably spooled exactly once")
 

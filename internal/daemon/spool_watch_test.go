@@ -285,9 +285,10 @@ func spoolWatchBackoffRow(t *testing.T, firstPassStall time.Duration) {
 	// that has consumed a line can be stopped by its budget (idleRunBudget) once a slow host has spent
 	// it, and a spool a budget-stopped pass leaves unfinished is due again at the next look
 	// (TestSpoolWatch_APassItsBudgetCutShortDoesNotBackOffTheSpoolsItLeft), which is not this row's
-	// schedule. A line behind the blocked one, such as another delivery a reused pid's hook appended,
-	// is published by the first pass, which its budget can then stop inside the spool; the passes after
-	// it only consume that line again, which is no progress (notePassConsumed). That schedule is
+	// schedule. A line behind the blocked one, such as another delivery a 0.3.0 hook that reused the
+	// pid appended to the legacy name, is published by the first pass, which its budget can then stop
+	// inside the spool; the passes after it only consume that line again, which is no progress
+	// (notePassConsumed). That schedule is
 	// TestSpoolWatch_ABlockedSpoolWithAConsumedLineBehindItsHeadKeepsTheBackoff's. With the record
 	// alone no pass consumes anything, so none can stop on its budget in this spool.
 	writeHookSpool(t, root, spool, blocked)
@@ -621,9 +622,11 @@ func TestDrainClientSpools_DefersTheSpooledCopyOfADeliveryInFlight(t *testing.T)
 }
 
 // TestSpoolWatch_KnowsTheClientSpoolFamily pins the file families the watcher tells apart: a client
-// spool is ipc's client-<pid>.ndjson, never a WAL segment, a blob or a stray file.
+// spool is ipc's client-<pid>-<writer id>.ndjson, or a 0.3.0 hook's client-<pid>.ndjson, never a WAL
+// segment, a blob or a stray file.
 func TestSpoolWatch_KnowsTheClientSpoolFamily(t *testing.T) {
 	require.True(t, isClientSpoolName("client-123.ndjson"))
+	require.True(t, isClientSpoolName(filepath.Base(ipc.NewSpoolForPID(t.TempDir(), 123, nil, nil).Path())))
 	require.False(t, isClientSpoolName("wal-sess.ndjson"))
 	require.False(t, isClientSpoolName("wal-sess.3.ndjson"))
 	require.False(t, isClientSpoolName("blob-1-2.bin"))

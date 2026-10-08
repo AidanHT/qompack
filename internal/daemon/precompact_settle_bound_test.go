@@ -169,7 +169,8 @@ func TestPreCompactSettle_TheLastLookReadsOnlyNamedAndNewSpools(t *testing.T) {
 			"and the other session's grown spool is not read again")
 }
 
-// appendHookSpool appends reqs to the client spool base as a later hook with a reused pid does.
+// appendHookSpool appends reqs to the client spool base as a later 0.3.0 hook with a reused pid did
+// to its legacy client-<pid>.ndjson.
 func appendHookSpool(t *testing.T, root, base string, reqs ...ipc.Request) {
 	t.Helper()
 	f, err := os.OpenFile(paths.Long(filepath.Join(paths.Of(root).Spool, base)), os.O_APPEND|os.O_WRONLY, 0o600)
@@ -398,8 +399,9 @@ func TestPreCompactSettle_CountsOnlyTheSpoolReadsOfItsOwnLooks(t *testing.T) {
 
 // TestPreCompactSettle_ReadsASpoolTheDrainReleasedAndAHookRecreated (wave 16c, the w16b-settle
 // review's second nit): the spool index keys a file version on its size and modification time, and a
-// drain can release client-<pid>.ndjson after which a hook with the same pid writes a new capture
-// under the same name, at the same size and, on a filesystem with coarse timestamps, the same time.
+// drain can release a 0.3.0 hook's client-<pid>.ndjson after which a 0.3.0 hook with the same pid
+// writes a new capture under the same name, at the same size and, on a filesystem with coarse
+// timestamps, the same time.
 // The daemon's own removal drops the index entry, so the settle reads the recreated file again and
 // names the capture it holds. Served from the released file's heads, the settle found only a
 // published Read and sealed with nothing named: the capture was silently missing from the report.
@@ -490,9 +492,9 @@ func TestSpoolHeadIndex_AReadTheDrainsRemovalOverlapsIsNotRemembered(t *testing.
 
 // TestSpoolHeadIndex_ASpoolRecreatedRightAfterTheDrainsUnlinkIsReadAgain (wave 16c, the settle2
 // review): the drain's removal of a released client spool and the index's forgetting of it are one
-// step to every look. Here a hook with the reused pid writes the name again, at the same size and
-// modification time, in the instant after the drain's unlink returned and before the drain went on
-// (the drainer's removeSpool seam does it, and looks, inside the removal), and a look made then
+// step to every look. Here a 0.3.0 hook with the reused pid writes the legacy name again, at the same
+// size and modification time, in the instant after the drain's unlink returned and before the drain
+// went on (the drainer's removeSpool seam does it, and looks, inside the removal), and a look made then
 // reads the new file: it is not served the removed one's heads. Neither is the next look after it,
 // and a look that read the old file just before the unlink did not put its heads back either.
 // Dropping the entry only after the unlink returned left that instant open.
