@@ -1595,7 +1595,7 @@ func TestIntegration_HotPathDegradesRatherThanBlocks(t *testing.T) {
 	// ── Recovery: the stall ends, the next drain loses nothing. ──
 	//
 	// Both in-test clients close first: a real hook is a short-lived process whose spool handle
-	// dies with it, and the two clients above both hold this test process's client-<pid>.ndjson
+	// dies with it, and the two clients above each hold their own client spool in this test process
 	// open — on Windows an open handle keeps the drainer from deleting the fully-consumed file,
 	// which is exactly the 2-line residue this file's first run observed. Close is idempotent
 	// (ipc's spool Close is sync.Once-guarded), so the registered cleanups stay harmless.

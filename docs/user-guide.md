@@ -485,8 +485,9 @@ compaction, resume or fork does not promote an obsolete intent into a current on
 user intent is resolved by derived id from the verbatim first captured prompt, never by relevance
 search, and where the capture layer and the checkpoint disagree the capture layer wins and the
 disagreement is logged loudly ([ADR 0011](adr/0011-rehydration-budget-and-item-order.md) §10). The
-first captured prompt is the host's first except in a spool race and under hook pid reuse, and a
-rehydration names either case when it happens
+first captured prompt is the host's first except in a spool race and, in a project upgraded from
+0.3.0, under process id reuse in a spool file a 0.3.0 hook left, and a rehydration names either case
+when it happens
 ([docs/cannot-do.md](cannot-do.md#the-first-captured-prompt-is-not-always-the-first-prompt-the-host-sent)).
 
 What you say after that first prompt is carried too. Every checkpoint lists the session's later

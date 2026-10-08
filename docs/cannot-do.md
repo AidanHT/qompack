@@ -296,17 +296,20 @@ host change could lift — as prepared proposals, none of which has been filed.
   replayed from the hooks' client spools (the HotSpool submode, `runtime.daemon.enabled=false`, a
   hook that could not reach the daemon) are replayed in the order their hooks stamped them. Two
   cases fall outside both. In the first, a prompt's hook could not reach the daemon and spooled it,
-  then a later prompt arrived live and was captured before a drain replayed the spool. In the
-  second, a spool file is named by the hook's pid, so a later hook that reuses the pid appends to an
-  earlier hook's file. One drain pass replays a file's records in file order, so that later prompt
-  can be replayed ahead of another file's earlier one. Either way the later prompt can take turn 0.
+  then a later prompt arrived live and was captured before a drain replayed the spool. The second
+  is left over from 0.3.0, whose hooks named their spool file by process id alone, so a later 0.3.0
+  hook that reused the id appended to an earlier hook's file. One drain pass replays a file's
+  records in file order, so that later prompt can be replayed ahead of another file's earlier one.
+  From 0.3.1 every hook's spool writer has a file of its own, `client-<pid>-<writer id>.ndjson`, so
+  this happens only with a `client-<pid>.ndjson` file a 0.3.0 hook left in a project, which the
+  daemon still drains. Either way the later prompt can take turn 0.
 - **Why.** The daemon cannot see a prompt that exists only in a hook's spool, so it cannot hold the
   live prompt back for it without waiting on a file that may never appear. Replay is ordered file by
-  file, and a file shared by two hooks through pid reuse keeps its own record order. Captured turns
-  are never renumbered, because every later artifact is numbered against them. The V6 close-out's
-  owner decision D35 ruled the live race out of the host-order guarantee and specified the
-  file-by-file order. Owner decision D38 accepted the pid-reuse case for 0.3.0 as documented and
-  flagged; closing it needs a spool-name or per-record merge redesign.
+  file, and a file shared by two 0.3.0 hooks through process id reuse keeps its own record order.
+  Captured turns are never renumbered, because every later artifact is numbered against them. The
+  V6 close-out's owner decision D35 ruled the live race out of the host-order guarantee and
+  specified the file-by-file order. Owner decision D38 accepted the id-reuse case for 0.3.0 as
+  documented and flagged, and D78(c) closed it from 0.3.1 by naming each spool file per writer.
 - **What Qompack does instead.** Every prompt record carries the host's timestamp. Any capture that
   lands behind a turn its host sent later, from either source, is counted
   (`observer.prompt_out_of_host_order`) and logged as a Warn naming the turn it came in behind. A
@@ -314,9 +317,10 @@ host change could lift — as prepared proposals, none of which has been filed.
   a `user_intent_source` entry, `host_order`, naming both records and the `expand(tool_use_id=…)`
   call for the host-first one. The client-spool watcher limits the live race's window: once the
   daemon serves another request, a spooled prompt is replayed within about two check intervals of
-  2 s each, so only a live prompt sent inside that window can come in ahead of it. A spool file
-  that a pid-reusing hook appended to after a drain had begun it is placed by the record the next
-  drain replays from it, so reuse reorders prompts only when both hooks spooled before one pass.
+  2 s each, so only a live prompt sent inside that window can come in ahead of it. A 0.3.0 spool
+  file that an id-reusing 0.3.0 hook appended to after a drain had begun it is placed by the record
+  the next drain replays from it, so reuse reorders prompts only when both hooks spooled before one
+  pass.
   Current work follows the same captured order: its goal is the newest captured prompt that can
   give one, not the newest by the host's timestamp (D35(b)).
 - **Recorded at.** `plans/V2-SP-08-carried-defects.md` (SP08-D3, with the D35 close-out note);

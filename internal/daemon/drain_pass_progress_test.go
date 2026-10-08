@@ -131,11 +131,11 @@ func publishLiveFirst(t *testing.T, dd *daemon, admit func(ipc.Request) admissio
 
 // TestDrainClientSpools_ReconsumingALineBehindABlockedHeadDoesNotEndASpentPass: a pass whose budget
 // is spent before it starts meets a spool whose head waits on an arrival nothing publishes, with a line
-// behind that head an earlier pass already consumed: a delivery it published (a reused pid's hook
-// appended it), one it retired by a policy denial, or a corrupt line. Consuming that line again is no
-// progress, so it must not let the budget end the pass (D31: a pass is cut by its budget only once it
-// has consumed a line). The pass goes on to the next spool in host order and publishes the fresh
-// capture there, and that publication is what ends it.
+// behind that head an earlier pass already consumed: a delivery it published (a 0.3.0 hook that
+// reused the pid appended it to the legacy name), one it retired by a policy denial, or a corrupt
+// line. Consuming that line again is no progress, so it must not let the budget end the pass (D31: a
+// pass is cut by its budget only once it has consumed a line). The pass goes on to the next spool in
+// host order and publishes the fresh capture there, and that publication is what ends it.
 func TestDrainClientSpools_ReconsumingALineBehindABlockedHeadDoesNotEndASpentPass(t *testing.T) {
 	for _, behind := range []string{"a delivery a pass published", "a delivery a pass retired", "a corrupt line"} {
 		t.Run(behind, func(t *testing.T) {

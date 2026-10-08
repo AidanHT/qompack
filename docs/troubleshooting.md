@@ -1403,8 +1403,9 @@ one line, `qompack daemon: the daemon is disabled for this project: runtime.daem
 (<layer>, <where it was set>); set runtime.daemon.enabled to true to enable it`
 (`internal/cli/daemon.go`, `refuseDisabledDaemon`). Observed on this
 tree: `qompack checkpoint` with empty stdin created a single spool file,
-`.qompack/spool/client-<pid>.ndjson` (the pid elided), with no `run/` directory and no daemon.
-Nothing drains that spool while the daemon stays disabled.
+`.qompack/spool/client-<pid>-<writer id>.ndjson` (the process id and the hook's random writer id
+elided; each hook that spools writes a file of its own), with no `run/` directory and no daemon.
+Nothing drains those spools while the daemon stays disabled.
 
 This is a *more* invasive setting than `mode = off` in one respect — it leaves work accumulating on
 disk rather than declining it — so prefer step 3 if your goal is "stop doing anything".

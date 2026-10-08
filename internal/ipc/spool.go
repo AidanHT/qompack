@@ -1,6 +1,8 @@
 package ipc
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
@@ -16,33 +18,68 @@ import (
 	"github.com/qompack/qompack/internal/paths"
 )
 
-// spoolMaxBytes bounds one client process's own spool file (D4: "the queue-and-drain degradation
-// of §8.1 must exist below the daemon"). A daemon that never comes back must not let the spool
-// grow without bound and fill the user's disk — that would violate §7.1 directly. It matches
-// walRotateBytes so the two durability tiers share one growth ceiling.
-const spoolMaxBytes = 64 << 20 // 64 MiB per client file
+// spoolMaxBytes bounds one writer's own spool file (D4: "the queue-and-drain degradation of §8.1
+// must exist below the daemon"): a writer that keeps spooling to a daemon that never comes back
+// must not grow its file without bound and fill the user's disk — that would violate §7.1 directly.
+// It matches walRotateBytes so the two durability tiers share one growth ceiling.
+//
+// It bounds a file, not the directory. Every writer has a file of its own (newSpoolFor), so the
+// directory holds one file per hook process that spooled, each with the deliveries that process
+// could not hand to a daemon: the bytes a drain has to replay, and no more. (Under the pid naming
+// of 0.3.0 it held one file per pid, which on Linux, where a pid is rarely reused soon, was already
+// one per process.)
+const spoolMaxBytes = 64 << 20 // 64 MiB per writer's file
 
-// ErrSpoolFull is writeLocked's internal signal that a client's own spool file has reached
+// ErrSpoolFull is writeLocked's internal signal that this writer's own spool file has reached
 // spoolMaxBytes. It is exported because it names a real, documented condition (§12.3), but no
 // caller ever observes it directly: Append swallows it into the drop path exactly like any other
-// write failure and always returns nil, per §12.3's "spool write fails" rule. The daemon deletes
-// drained files, so the cap is only ever reached when nothing is draining — exactly the case
-// where dropping is correct.
+// write failure and always returns nil, per §12.3's "spool write fails" rule.
+//
+// The cap counts everything the file holds, consumed or not: a drain records its progress in
+// state/drain.json, never in the file, and removes the file only once it has consumed all of it.
+// A hook process spools only what its own invocation sends, each line under MaxLineBytes and far
+// below the cap, so only a long-lived writer that has itself spooled 64 MiB reaches it. Until 0.3.1 the file was named by pid alone, so on Windows a
+// hook that reused an earlier hook's pid appended to that hook's undrained file and shared its cap:
+// a file the daemon's ordering gate held unconsumed could fill while the daemon was draining, and
+// a later hook's capture was then dropped (known issue 19, D78(c)).
 var ErrSpoolFull = errors.New("qompack: spool file at cap")
 
 // spoolFilePrefix, spoolFileExt and walFilePrefix name the two families SpoolFiles distinguishes:
-// this client's own append-only queue (client-<pid>.ndjson) and the daemon's WAL segments
-// (wal-<session>.ndjson), which live in the same directory and drain together.
+// the hooks' append-only client spools and the daemon's WAL segments (wal-<session>.ndjson), which
+// live in the same directory and drain together. A client spool is client-<pid>-<writer id>.ndjson,
+// one per writer (clientSpoolName), or client-<pid>.ndjson, the name a 0.3.0 hook gave its file,
+// which an upgraded project can still hold and the daemon drains with the rest. Both are
+// spoolFilePrefix ... spoolFileExt, which is all SpoolFileKindOf asks of a client spool.
 const (
 	spoolFilePrefix = "client-"
 	spoolFileExt    = ".ndjson"
 	walFilePrefix   = "wal-"
 )
 
+// spoolWriterIDBytes is the entropy of a writer id: 64 bits from crypto/rand, 16 hex characters in
+// the file name. Two writers share a file only if they have the same pid and draw the same id while
+// the first one's file is still undrained.
+const spoolWriterIDBytes = 8
+
+// clientSpoolName is the base name of the client spool of the writer with pid and writerID.
+func clientSpoolName(pid int, writerID string) string {
+	return fmt.Sprintf("%s%d-%s%s", spoolFilePrefix, pid, writerID, spoolFileExt)
+}
+
+// newSpoolWriterID draws a writer id. crypto/rand.Read never returns an error (Go 1.24 and later):
+// a platform without a working source ends the process instead, so the id is always drawn.
+func newSpoolWriterID() string {
+	var b [spoolWriterIDBytes]byte
+	_, _ = rand.Read(b[:])
+	return hex.EncodeToString(b[:])
+}
+
 // spool is the real SpoolWriter (00-ARCHITECTURE.md §2.4, D4): the durability fallback every
 // failure path in Client.Send lands on. NewSpool records dir but opens nothing — a process that
 // never spools pays nothing — and Append lazily creates the directory and the file on first use,
-// keeping the handle for the process lifetime.
+// keeping the handle for the writer's lifetime. The file is the writer's own: its name carries the
+// process's pid and an id this writer drew (newSpoolFor), so no other writer, in this process or
+// in a later one that reuses the pid, appends to it.
 type spool struct {
 	dir  string
 	path string
@@ -90,19 +127,37 @@ func NewSpoolWithObs(dir string, log logging.Logger, m obs.Registry) SpoolWriter
 // (SP-01's shipped two-argument constructor, used by every caller with no Logger/Registry handy)
 // wires Nop/nil.
 func newSpool(dir string, log logging.Logger, m obs.Registry) *spool {
+	return newSpoolFor(dir, os.Getpid(), log, m)
+}
+
+// NewSpoolForPID is NewSpoolWithObs for a writer that stands in for the process pid: its file is
+// named as a writer in that process would name it, with an id of its own. It is the seam for
+// harnesses and tests that play several hook processes inside one, the pid reuse of known issue 19
+// among them. Every real hook's writer is NewSpoolWithObs's, under its own pid.
+func NewSpoolForPID(dir string, pid int, log logging.Logger, m obs.Registry) SpoolWriter {
+	return newSpoolFor(dir, pid, log, m)
+}
+
+// newSpoolFor is the one constructor: a writer for pid whose file, client-<pid>-<writer id>.ndjson,
+// no other writer shares (spoolWriterIDBytes). Two writers in one process, the C1.16 rig's in-process
+// hooks among them (D78(b)), and two processes with one pid, which Windows hands out again while an
+// earlier hook's file waits undrained (known issue 19, D78(c)), each get a file, a record order and a
+// spoolMaxBytes cap of their own.
+func newSpoolFor(dir string, pid int, log logging.Logger, m obs.Registry) *spool {
 	if log == nil {
 		log = logging.Nop()
 	}
 	return &spool{
 		dir:  dir,
-		path: filepath.Join(dir, fmt.Sprintf("%s%d%s", spoolFilePrefix, os.Getpid(), spoolFileExt)),
+		path: filepath.Join(dir, clientSpoolName(pid, newSpoolWriterID())),
 		log:  log,
 		m:    m,
 	}
 }
 
 // Path returns the file Append writes to, so /qompack:status and the daemon's drain can name it.
-// It is stable for the writer's lifetime, computed at construction, before any file is created.
+// It is stable for the writer's lifetime, computed at construction, before any file is created, and
+// it is the only way to learn it: the writer id in the name is drawn at construction.
 func (s *spool) Path() string { return s.path }
 
 // Append writes req as one NDJSON line (00-ARCHITECTURE.md §2.4). A line that would exceed
@@ -176,7 +231,9 @@ func (s *spool) writeLocked(line []byte) error {
 		}
 		s.f = f
 		if fi, statErr := f.Stat(); statErr == nil {
-			s.bytes = fi.Size() // resume the running byte count across process restarts
+			// The name is this writer's own, so the file is new; whatever it already holds still
+			// counts against the cap.
+			s.bytes = fi.Size()
 		}
 	}
 
@@ -226,7 +283,8 @@ const (
 	SpoolFileOther SpoolFileKind = iota
 	// SpoolFileWAL is one of the daemon's WAL segments (wal-<session>.ndjson).
 	SpoolFileWAL
-	// SpoolFileClient is a hook's client spool (client-<pid>.ndjson).
+	// SpoolFileClient is a hook's client spool: client-<pid>-<writer id>.ndjson, one per writer, or
+	// client-<pid>.ndjson, the name a 0.3.0 hook gave its file.
 	SpoolFileClient
 )
 
@@ -246,7 +304,7 @@ func SpoolFileKindOf(base string) SpoolFileKind {
 // (wal-*.ndjson) first and this package's own client spools (client-*.ndjson) after, each group by
 // name. The daemon's drain reads the WAL segments in this order and puts the client spools in host
 // order itself, by the timestamp of the first record each file still has to replay
-// (internal/daemon, SP08-D3), because a client-<pid> name says nothing about when its hook ran. A
+// (internal/daemon, SP08-D3), because a client spool's name says nothing about when its hook ran. A
 // missing directory reports an empty list rather than an error: a project that has never spooled
 // anything has nothing to drain.
 func SpoolFiles(dir string) ([]string, error) {

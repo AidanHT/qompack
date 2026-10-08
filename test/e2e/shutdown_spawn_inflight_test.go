@@ -198,11 +198,7 @@ func TestE2EShutdownIfReachable_WaitsForEveryLockHolderToExit(t *testing.T) {
 		}
 	})
 
-	spool := filepath.Join(paths.Of(dir).Spool, "client-"+strconv.Itoa(os.Getpid())+".ndjson")
-	attempts := func() int {
-		b, _ := paths.ReadFileShared(spool)
-		return strings.Count(string(b), `"`+string(ipc.OpAdminShutdown)+`"`)
-	}
+	attempts := func() int { return e2eShutdownAttempts(dir) }
 	// awaitAttempts waits until the helper has made at least n shutdown attempts, and fails if it
 	// returns first. Its bound is e2eDaemonDownBound, after which the helper's own loop gives up.
 	awaitAttempts := func(n int, why string) {
@@ -291,11 +287,7 @@ func TestE2EShutdownIfReachable_WaitsOutALockHolderItNeverIdentified(t *testing.
 		}
 	})
 
-	spool := filepath.Join(paths.Of(dir).Spool, "client-"+strconv.Itoa(os.Getpid())+".ndjson")
-	attempts := func() int {
-		b, _ := paths.ReadFileShared(spool)
-		return strings.Count(string(b), `"`+string(ipc.OpAdminShutdown)+`"`)
-	}
+	attempts := func() int { return e2eShutdownAttempts(dir) }
 	// awaitAttempts waits until the helper has made at least n shutdown attempts, and fails if it
 	// returns first. Nothing listens, so each attempt lands in the helper's own client spool.
 	awaitAttempts := func(n int, why string) {
@@ -330,4 +322,21 @@ func TestE2EShutdownIfReachable_WaitsOutALockHolderItNeverIdentified(t *testing.
 	}
 	require.GreaterOrEqual(t, time.Since(called), e2eDaemonDownBound,
 		"with no pid to ask, the helper may only stop waiting at its own bound")
+}
+
+// e2eShutdownAttempts counts the admin.shutdown requests a shutdown helper has made against dir while
+// nothing listens: the lines in dir's client spools, where each attempt lands in the helper's own
+// writer's file. That file's name carries an id its writer drew (internal/ipc newSpoolFor), so the
+// count reads every client spool rather than reconstruct the name.
+func e2eShutdownAttempts(dir string) int {
+	files, _ := ipc.SpoolFiles(paths.Of(dir).Spool)
+	n := 0
+	for _, f := range files {
+		if ipc.SpoolFileKindOf(filepath.Base(f)) != ipc.SpoolFileClient {
+			continue
+		}
+		b, _ := paths.ReadFileShared(f)
+		n += strings.Count(string(b), `"`+string(ipc.OpAdminShutdown)+`"`)
+	}
+	return n
 }

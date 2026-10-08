@@ -264,8 +264,8 @@ func TestPlatform_UnwritableHome(t *testing.T) {
 // degradationEvidence is every place the shipped code could leave a durable trace of a §12.3 drop,
 // as a name -> fingerprint map. The names are the code's own, not invented ones:
 //
-//   - the client spool file (internal/ipc/spool.go's `client-<pid>.ndjson`), which is where an
-//     undeliverable event goes when the spool CAN be written;
+//   - the client spool file (internal/ipc/spool.go's `client-<pid>-<writer id>.ndjson`), which is
+//     where an undeliverable event goes when the spool CAN be written;
 //   - LOUD.log and the day log (internal/logging/logger.go), where Loud lands when a logs
 //     directory exists and can be opened;
 //   - the metrics directory, where an obs registry would have to persist l0.dropped for anything

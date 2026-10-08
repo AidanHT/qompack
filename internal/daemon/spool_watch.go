@@ -14,13 +14,13 @@ import (
 //
 // A hook that cannot hand its delivery to the daemon — its dial failed, the daemon told the hot path
 // to spool (HotSpool), or its ACK came too late — appends the delivery to its own client spool
-// (client-<pid>.ndjson), which only a drain reads. The daemon's drains ran at startup, on its first
-// served request, on a flush, on admin.drain, at Stop, when the ingest's lanes ask for one (a parked
-// lane or a refused job, delivery_order.go), and on an idle tick once the whole project has been idle
-// for DetectAfterSeconds (120 s by default). None of those is triggered by a client spool appearing,
-// and a delivery that never reached the daemon holds no lease, so no lane ever parks behind it: it
-// waited for its session's end or two quiet minutes, while everything the session sent after it
-// published ahead of it.
+// (client-<pid>-<writer id>.ndjson), which only a drain reads. The daemon's drains ran at startup,
+// on its first served request, on a flush, on admin.drain, at Stop, when the ingest's lanes ask for
+// one (a parked lane or a refused job, delivery_order.go), and on an idle tick once the whole project
+// has been idle for DetectAfterSeconds (120 s by default). None of those is triggered by a client
+// spool appearing, and a delivery that never reached the daemon holds no lease, so no lane ever parks
+// behind it: it waited for its session's end or two quiet minutes, while everything the session sent
+// after it published ahead of it.
 //
 // The watcher closes that without polling an idle daemon. Every request the daemon serves kicks it
 // (noteServed; a PreCompact once it has sealed), and so does Run's idle tick while the hot path is in
@@ -252,7 +252,8 @@ func (d *daemon) lookAtClientSpools(ctx context.Context, entries map[string]*spo
 		present[base] = true
 		e, seen := entries[base]
 		if !seen || e.size != info.Size() {
-			// New, or written since the last look (a reused pid's hook appended to it): it starts over.
+			// New, or written since the last look (its writer appended to it, or, to a 0.3.0 hook's
+			// client-<pid>.ndjson, a later 0.3.0 hook that reused the pid did): it starts over.
 			entries[base] = &spoolWatchEntry{size: info.Size()}
 			unsettled = true
 			continue
