@@ -387,24 +387,24 @@ Found by the packaging workstream's real-host sessions (evidence on `closeout/pa
 
 ## Phase 6 — Documentation, inventory and the report
 
-- [ ] **C6.1** Docs match evidence: README status, `docs/release.md` scope table, install, UAT
+- [x] **C6.1** *(D76(f), D78(e), D80(a), D80(b): docs corrected from candidate 8's evidence (f06ed994, 65b506b3, 7fbb8a40); release-check's generated docs PASS (`sdd/V6-closeout/phase3/c8/release-check.json`))* Docs match evidence: README status, `docs/release.md` scope table, install, UAT
       results, cannot-do/upstream-issues, troubleshooting; generated docs regenerated if code moved.
 - [x] **C6.2** *(candidate 8, 36dc82e4: 276 verified_in_target, 15 partial_verified, 7 unknown, 3 unsupported, 3 documented; `sdd/V6-closeout/inventory-c8-map.md`)* `inventory-current.tsv`: every one of the 304 rows re-dispositioned from this
       candidate's evidence (`verified_in_target` only with an executed artifact); the 14 §3
       integration identifiers and the SP19/20/21 switches mapped.
 - [x] **C6.3** *(920f9269, e404673c: 22 fixed, 6 wontfix each with its 0.3.0 disposition; test/guards green)* `CARRIED-DEFECTS.tsv` final dispositions; `test/guards` green against the report.
 - [ ] **C6.4** V6 close-out report (the plan's §8 template), with independent final review.
-- [ ] **C6.5** Tick the V6 plan's boxes with evidence links; `CHANGELOG.md` release entry.
+- [x] **C6.5** *(727417fe: 46 of the V6 plan's boxes ticked with evidence, 7 left open with a reason; CHANGELOG.md [0.3.0] - 2026-10-08 (D79))* Tick the V6 plan's boxes with evidence links; `CHANGELOG.md` release entry.
 
 ## Phase 7 — Release (each step needs its own authorization)
 
-- [ ] **C7.1** Release version chosen; `core.Version`, `plugin.json` and tag agree.
-- [ ] **C7.2** Push `verify/v6`; hosted `ci.yml` + `nightly.yml` on the candidate; every red
+- [x] **C7.1** *(D79, D80: 0.3.0 in core.Version and plugin.json; release-check's version agreement with `--tag v0.3.0` (`sdd/V6-closeout/phase3/c8/release-check.json`); tag v0.3.0 on 1a368a4b)* Release version chosen; `core.Version`, `plugin.json` and tag agree.
+- [x] **C7.2** *(D75(c): ci.yml 37562946379 success on attempt 2 and nightly 37562945914 green on 3ec62ad2, every red classified (`sdd/V6-closeout/phase3/c8/hosted/`))* Push `verify/v6`; hosted `ci.yml` + `nightly.yml` on the candidate; every red
       classified (hosted fsync tail per owner Q1: report-only on hosted runners, gated on the quiet
       reference host — default proposed).
-- [ ] **C7.3** Merge `verify/v6` → `develop` → `main`; enable branch protection.
-- [ ] **C7.4** `release-check --tag`; tag; `release.yml` publishes six-target bundles + checksums.
-- [ ] **C7.5** Publish a marketplace manifest so users can add the plugin from the public repo;
+- [x] **C7.3** *(D79(a): develop and main fast-forwarded to 1a368a4b; both protected against force pushes and deletion, with no required status check (row 1.17.19 stays partial; `sdd/V6-closeout/c6-final/runs/c8-hosted-runs.txt`))* Merge `verify/v6` → `develop` → `main`; enable branch protection.
+- [x] **C7.4** *(D75, D80: `release-check --tag` passed on candidate 8; tag v0.3.0 on 1a368a4b; release.yml 37738581717 published six zips and checksums.txt; `bin/` byte-identical (`sdd/V6-closeout/phase3/c8/release-bin-compare.txt`))* `release-check --tag`; tag; `release.yml` publishes six-target bundles + checksums.
+- [x] **C7.5** *(D80: marketplace.yml 37746138600 opened PR #1, merged as fff45a45; installed from GitHub in clean isolated profiles on Windows and Linux; the Linux exec bit is kept (D80(c)); macOS unobserved)* Publish a marketplace manifest so users can add the plugin from the public repo;
       install it from GitHub on a clean profile and smoke-test. Design adopted (research,
       2026-09-22): six per-target `archive`-source entries (`qompack-<os>-<arch>`) pinned by
       sha256 to the GitHub Release zips; all six targets ship `.zip`; a `devtool marketplace`
