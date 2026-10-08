@@ -383,3 +383,8 @@ Minor defects this release does not fix, each recorded in the close-out ledger (
   one the daemon's startup accounting reported. No capture content is lost: the capture keeps its
   bytes inline in its sidecar, and `qompack fsck` still names the gap. To keep the object itself,
   copy the store before the next session ends (`docs/backup.md`, D76(c)).
+- **A capture can be dropped when hook processes share an id while the daemon is behind.** On Windows,
+  a new hook process can reuse an earlier one's process id and so append to the same fallback spool
+  file. Once that file reaches its 64 MiB cap while it waits to be consumed, a capture whose hook could
+  not reach the daemon is dropped, and `LOUD.log` says so ("spool write failed — event dropped",
+  "spool file at cap"). A hook that reaches the daemon is not affected (D78(c)).

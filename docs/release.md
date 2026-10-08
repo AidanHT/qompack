@@ -31,11 +31,14 @@ by a byte comparison. Its own evidence is recorded by decisions D75, D76 and D77
 - **C5.2 and C1.16.** The C5.2 night re-measures every benchmark in full against `cf31e01`, in
   package chunks that may span more than one night and never run on battery (D62(b), D65(b),
   D65(c)). Six of its eight chunks ran complete on candidate 8's night. No row is slower than the
-  base with significance except negknow's `BenchmarkOpen` on Windows (1.16x, 59.66 ms inside its
-  300 ms budget, off the hot path) and symbols' `BenchmarkEnclosing_100KB` (1.011x), both recorded,
-  not acted on (D75(b)). The Linux checkpoint and other chunks and the C1.16 rig re-measure, whose
+  base with significance except negknow's `BenchmarkOpen` on Windows (1.16x, 59.66 ms inside its 300
+  ms budget, off the hot path) and symbols' `BenchmarkEnclosing_100KB` (1.011x), both recorded, not
+  acted on (D75(b)). The Linux checkpoint and other chunks and the C1.16 rig re-measure, whose
   figure `docs/architecture.md` restates (D62(c), D65(a)), were measured on the C5.2 night of
-  2026-10-07/08: [[C52-NIGHT]].
+  2026-10-07/08: both Linux chunks passed, with `BenchmarkFinalize` 1.32x and negknow
+  `BenchmarkOpen` 1.34x on the container, each inside its budget as decision D54 recorded (D78(a));
+  and the rig's compact answer under same-session ingest was the rehydration every time, at p99 143
+  ms with no extra load and 417 ms under its in-process fsync and CPU co-load (D78(e)).
 - **Hosted runs.** `ci.yml` run `37562946379` concluded success on its second attempt, a re-run
   of the failed jobs on the same commit (C7.2). Attempt 1's two reds are dispositioned by D75(c):
   `test (macos-latest)` failed a fixture-sanity count that is a test defect, and
