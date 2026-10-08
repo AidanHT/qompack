@@ -330,20 +330,20 @@ Found by the packaging workstream's real-host sessions (evidence on `closeout/pa
 ## Phase 3 — Whole-tree verification on one frozen candidate
 
 - [x] **C3.1** *(candidates: 1 `a94a3fb`, 3 `d5598eb`, 4 `9f6a2fad`, 5 `0d06ab12` (`phase3/c5-CANDIDATE.md`); candidate 6 follows wave 16 (D53). First freeze:* *`a94a3fb`, `v0.2.0-1417-ga94a3fb9`, source sha256 `c9971ea4…`; `plans/sdd/V6-closeout/phase3/CANDIDATE.md`)* Freeze the fixed candidate (commit, `git describe`, source snapshot hash).
-- [ ] **C3.2** Windows whole tree `go run ./tools/devtool test` — every package reports, all green.
-- [ ] **C3.3** Windows race: `devtool test-race` plus the product-child race lane
+- [x] **C3.2** *(candidate 8, D75: release-check's ci-local test PASS (`sdd/V6-closeout/phase3/c8/release-check.json`); pre-freeze integration, testpkgs, internal and e2efunc VALID on AC (`sdd/V6-closeout/phase3/c8/prefreeze/summary.log`); hosted test (windows-latest) green, ci.yml 37562946379)* Windows whole tree `go run ./tools/devtool test` — every package reports, all green.
+- [x] **C3.3** *(candidate 8, D75, D67(h): win-race exit 0, VALID on AC (`sdd/V6-closeout/phase3/c8/chain.log`); the child race lane is linux-child and nightly 37562945914's race-product-child)* Windows race: `devtool test-race` plus the product-child race lane
       (`QOMPACK_REQUIRE_CHILD_RACE=1`, child SHA recorded).
-- [ ] **C3.4** Linux (Docker, Go 1.26.6): whole tree, `-race`, `test/e2e`, child-race set.
-- [ ] **C3.5** `devtool fmt-check`, `devtool lint`, `go vet`, golangci-lint (Windows and Linux).
-- [ ] **C3.6** Coverage floors (`devtool cover`), including `store`/`paths` ≥ 90 % on Linux.
-- [ ] **C3.7** `gen-config-docs`/`gen-command-docs`/`gen-mcp-docs --check`, `licenses --check`,
+- [x] **C3.4** *(candidate 8, D75(a): linux-tree, linux-e2e and linux-child exit 0, VALID (`sdd/V6-closeout/phase3/c8/power.tsv`); the linux timing reds are D53(b)'s container class)* Linux (Docker, Go 1.26.6): whole tree, `-race`, `test/e2e`, child-race set.
+- [x] **C3.5** *(candidate 8, D75: golangci-lint in the pre-freeze gate (`sdd/V6-closeout/phase3/c8/prefreeze/gate.log`); release-check's fmt-check, lint and vet; hosted verify (ubuntu) and lint-windows green)* `devtool fmt-check`, `devtool lint`, `go vet`, golangci-lint (Windows and Linux).
+- [x] **C3.6** *(candidate 8, D75: release-check's ci-local cover PASS (`sdd/V6-closeout/phase3/c8/release-check.json`); hosted cover on ubuntu-latest green)* Coverage floors (`devtool cover`), including `store`/`paths` ≥ 90 % on Linux.
+- [x] **C3.7** *(candidate 8, D75: release-check's generated docs, guards, govulncheck and licenses PASS (`sdd/V6-closeout/phase3/c8/release-check.json`); hosted security (import allow-list) and docs green)* `gen-config-docs`/`gen-command-docs`/`gen-mcp-docs --check`, `licenses --check`,
       `govulncheck`, import allow-list.
-- [ ] **C3.8** Replay gate (`devtool replay --ci`) and the recorded-corpus tier.
-- [ ] **C3.9** Short fuzz pass over every nightly fuzz target (`TestNightlyFuzzMatrix` has no stub).
-- [ ] **C3.10** `devtool plugin-validate` and `claude plugin validate` with the installed CLI
+- [x] **C3.8** *(candidate 8, D67(i), D67(g): hosted replay-gate green on 3ec62ad2 (ci.yml 37562946379); the recorded-corpus tier is not exercised, known issue 13 (`sdd/V6-closeout/c6-final/runs/c8-hosted-runs.txt`))* Replay gate (`devtool replay --ci`) and the recorded-corpus tier.
+- [x] **C3.9** *(candidate 8, D75: nightly 37562945914, 25 fuzz jobs green (`sdd/V6-closeout/c6-final/runs/c8-hosted-runs.txt`))* Short fuzz pass over every nightly fuzz target (`TestNightlyFuzzMatrix` has no stub).
+- [x] **C3.10** *(candidate 8, D75: `claude plugin validate --strict --json` (2.1.280) accepted the frozen bundle (`sdd/V6-closeout/phase3/c8/host-validate.txt`); release-check's plugin-validate PASS)* `devtool plugin-validate` and `claude plugin validate` with the installed CLI
       (2.1.280, newer than SP-17's 2.1.263).
-- [ ] **C3.11** Reproducible bundles: two builds per target byte-identical, all six targets.
-- [ ] **C3.12** `release-check` (no tag) green.
+- [x] **C3.11** *(candidate 8, D75, D53(h)(4): two builds byte-identical, 91 files (`sdd/V6-closeout/phase3/c8/bundle-diff.txt` empty); hosted release-dry-run equal (`sdd/V6-closeout/phase3/c8/hosted-release-bundles.txt`))* Reproducible bundles: two builds per target byte-identical, all six targets.
+- [x] **C3.12** *(candidate 8, D75: `release-check --tag v0.3.0`, 18 of 18 steps PASS, none skipped (`sdd/V6-closeout/phase3/c8/release-check.json`))* `release-check` (no tag) green.
 
 ## Phase 4 — Prove it works as an installed Claude Code plugin (real host, real model)
 
