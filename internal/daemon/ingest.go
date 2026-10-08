@@ -302,6 +302,9 @@ func (i *ingest) Accept(req ipc.Request, line []byte) error {
 		if err != nil {
 			return err
 		}
+		// Until a lane holds it, no lane names it to a PreCompact's settle: it is recorded first
+		// (delivery_unheld.go), so a job still in the ring or dropped from it is named too.
+		i.lanes.noteUnheld(j)
 		select {
 		case i.ring <- j:
 		default:
@@ -855,11 +858,15 @@ func (i *ingest) runWoken(ctx context.Context, run func(context.Context, ipc.Req
 
 // wakeSession tells sess's lane that one of the session's leased deliveries was settled outside the
 // worker pool -- a drain pass published it or retired it -- so a live successor parked behind it
-// runs again instead of waiting for the next drain (DrainConfig.Released). It never blocks.
+// runs again instead of waiting for the next drain (DrainConfig.Released). The wake never blocks.
+// It also drops from the record of leased jobs no lane holds the ones of sess the journal now shows
+// settled (delivery_unheld.go), the pass having published or retired them: one journal lookup per
+// recorded job of sess, as the pass made for each of its lines.
 func (i *ingest) wakeSession(sess core.SessionID) {
 	if i.lanes.wake(sess) {
 		i.signalWake()
 	}
+	i.pruneUnheld(sess)
 }
 
 func (i *ingest) signalWake() {

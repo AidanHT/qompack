@@ -108,7 +108,7 @@ func unreplayedNamesAllowance(cfg config.Config) core.Tokens {
 const counterPrecompactSettle = "precompact_settle"
 
 // counterPrecompactUnreplayed counts the captures a PreCompact seal reported as unreplayed: still in a
-// client spool or the session's lane when the settle's bound expired.
+// client spool, the session's lane, the ring or the WAL alone when the settle's bound expired.
 const counterPrecompactUnreplayed = "precompact_unreplayed_captures"
 
 // counterPrecompactSpoolReads counts the client spool files PreCompact settles read: the files the
@@ -124,6 +124,14 @@ const unreplayedDetailFormat = "%d capture(s) of this session (%d tool result(s)
 	"still waiting to be replayed into the store when this checkpoint was sealed (durable writes on this disk " +
 	"were slower than their budget); the newest %d tool result(s) are named by tool_use_id; nothing is lost: " +
 	"the daemon replays them, and recall or expand finds them then"
+
+// unknownKindClauseFormat is added to the summary's detail when some of the captures it counts are
+// known to the settle only by their delivery lease (unreplayedCaptures): leased arrivals of the session
+// the daemon holds in its WAL alone with no request in memory, one a daemon before this one accepted or
+// one past the record of leased jobs no lane holds (delivery_unheld.go). The lease does not say what
+// the capture was, so they are counted as other and not named; the daemon replays them from the WAL.
+const unknownKindClauseFormat = "; %d of the other capture(s) are known here only by their delivery lease, " +
+	"not by their kind"
 
 // unreadSpoolsClauseFormat is added to the summary's detail when the settle's looks left a client
 // spool they had to look at unread: the bound ended before they could read it, or reading it failed
@@ -476,9 +484,17 @@ func (d *daemon) notYetAcknowledged(caps []pendingCapture) []pendingCapture {
 	return out
 }
 
-// unreplayedCaptures returns the captures of sess the seal will not hold: the lane's jobs leased before
-// upTo and not yet settled, and spooled, what the settle's last look at the client spools found. A
-// delivery the lane and a spool both hold (a late ACK's copy) is returned once.
+// unreplayedCaptures returns the captures of sess the seal will not hold: every leased arrival of sess
+// before upTo not yet settled, wherever the daemon holds it, and spooled, what the settle's last look
+// at the client spools found. A delivery held in two places (a late ACK's copy beside the lane's job)
+// is returned once.
+//
+// The leased arrivals are the lane's jobs, the jobs no lane holds (delivery_unheld.go: still in the
+// ring, dropped from a full ring, refused by full lanes, or handed back by a flush; D73(b)), and then
+// whatever else the delivery journal holds unsettled (unsettledLeases): an arrival a daemon before this
+// one accepted, or one past the record's bound. The journal leased every one of them, so it is the
+// authority on which are left; the lane, the record and the spools say what each one was. One only the
+// journal knows is counted by its lease alone: no op, so no name (unreplayedDrops says so).
 func (d *daemon) unreplayedCaptures(sess core.SessionID, upTo uint64, spooled []pendingCapture) []pendingCapture {
 	j, _ := d.deliveryJournal()
 	named := map[string]bool{}
@@ -501,8 +517,26 @@ func (d *daemon) unreplayedCaptures(sess core.SessionID, upTo uint64, spooled []
 		}
 		add(captureOf(jb.req))
 	}
+	var settled []string // recorded jobs the journal shows settled, which the record can forget
+	for _, u := range d.ing.lanes.unheldOf(sess) {
+		switch {
+		case u.lease.ArrivalSeq >= upTo:
+			// arrived after the PreCompact
+		case j != nil && leaseSettled(j, u.lease):
+			settled = append(settled, u.lease.Delivery)
+		default:
+			add(u.capture)
+		}
+	}
+	d.ing.lanes.forgetUnheld(sess, settled)
 	for _, c := range spooled {
 		add(c)
+	}
+	if j != nil {
+		leases, _ := j.unsettledLeases(sess, upTo)
+		for _, l := range leases {
+			add(pendingCapture{nonce: l.Delivery})
+		}
 	}
 	return left
 }
@@ -510,17 +544,20 @@ func (d *daemon) unreplayedCaptures(sess core.SessionID, upTo uint64, spooled []
 // unreplayedDrops is the drop report for left: one summary entry counting every capture by kind, and
 // one entry per tool result naming its tool_use_id (checkpoint.DropKindUnreplayedToolResult), newest
 // first, for as many as fit allowance as the checkpoint measures them (est, the estimator the seal's
-// Truncate prices the whole document with). The summary says how many are named. The named entries
-// carry no detail, because the summary already says what they mean.
+// Truncate prices the whole document with). The summary says how many are named, and how many of the
+// others are known only by their lease (unknownKindClauseFormat). The named entries carry no detail,
+// because the summary already says what they mean.
 func unreplayedDrops(left []pendingCapture, allowance core.Tokens, est tokens.Estimator) []checkpoint.DropEntry {
 	var tools []pendingCapture
-	prompts := 0
+	prompts, unknown := 0, 0
 	for _, c := range left {
 		switch {
 		case c.toolUseID != "":
 			tools = append(tools, c)
 		case c.op == ipc.OpObservePrompt:
 			prompts++
+		case c.op == "":
+			unknown++ // known by its lease alone, and counted as other
 		}
 	}
 	slices.SortStableFunc(tools, func(a, b pendingCapture) int { return cmp.Compare(b.ts, a.ts) })
@@ -529,6 +566,9 @@ func unreplayedDrops(left []pendingCapture, allowance core.Tokens, est tokens.Es
 		Kind: checkpoint.DropKindUnreplayedCapture,
 		Detail: fmt.Sprintf(unreplayedDetailFormat, len(left), len(tools), prompts, len(left)-len(tools)-prompts,
 			len(named)),
+	}
+	if unknown > 0 {
+		summary.Detail += fmt.Sprintf(unknownKindClauseFormat, unknown)
 	}
 	return append([]checkpoint.DropEntry{summary}, named...)
 }
