@@ -370,19 +370,19 @@ Found by the packaging workstream's real-host sessions (evidence on `closeout/pa
 
 ## Phase 5 — Benchmarks and evaluation that show it works well
 
-- [ ] **C5.1** Quiet hot-path run: `bench-hotpath --iterations 5000 --warm-daemon` (B-A…B-F) on
+- [x] **C5.1** *(candidate 8, D75, D53(b): Windows on AC, B-A p99 16.4 ms and B-B 11.3 ms against 50 (`sdd/V6-closeout/phase3/c8/quiet/c51-win.log`); Linux report-only, its records not committed)* Quiet hot-path run: `bench-hotpath --iterations 5000 --warm-daemon` (B-A…B-F) on
       Windows and Linux, full distributions, no co-load.
-- [ ] **C5.2** Carried-workload benchmarks `-count 5` (store/read/search, OnToolUse 256 KB,
+- [x] **C5.2** *(candidate 8, D75(b), D78(a): all eight chunks, ABBA against `cf31e01` (`sdd/V6-closeout/phase3/c8/quiet-c52-*/`, `sdd/V6-closeout/phase3/c8-c52/`))* Carried-workload benchmarks `-count 5` (store/read/search, OnToolUse 256 KB,
       Finalize, negknow Open, GetChunk) before/after Phase 2.
-- [ ] **C5.3** Deterministic replay evaluation (24-session phase-0 comparison) re-run on the frozen
+- [x] **C5.3** *(candidate 8, D67(i): the replay gate's report, hosted replay-gate green on 3ec62ad2 (ci.yml 37562946379); fraction-of-OPT diagnostic only)* Deterministic replay evaluation (24-session phase-0 comparison) re-run on the frozen
       candidate; fraction-of-OPT reported as a diagnostic only.
 - [x] **C5.4** *(`eval.LiveRunner` + `devtool live-eval` delivered on `closeout/eval`; first independent review and fixes in `closeout/w2-eval2`; `qompack eval` wired; merged into `closeout/integration` `54a4334`; integrated gates pending)* Implement `eval.LiveRunner` (today nil; `qompack eval --json` exits 1): drives real
       `claude -p` sessions with and without Qompack under forced compaction, records per-category
       usage from the host's own JSON, completion and constraint outcomes.
-- [ ] **C5.5** Pre-declare the live task set, sample size and margins (before outcomes), then run
+- [x] **C5.5** *(candidate 8, D77: "inconclusive — interval [-0.214, 0.214] straddles -0.200" (`sdd/V6-closeout/eval/runs/c55-c8/summary.md`))* Pre-declare the live task set, sample size and margins (before outcomes), then run
       stock vs Qompack trials with held-out and changing-requirement tasks; report uncertainty,
       failed trials and cost honestly.
-- [ ] **C5.6** Resource cost: store growth per session, daemon RSS/CPU, hook latency seen by the
+- [x] **C5.6** *(D58(e), D77(c): candidate 7's RSS and CPU figures stand (`sdd/V6-closeout/live/rerun-c7/C5.6/`); on candidate 8, 650 hook calls with 0 failures or timeouts (`sdd/V6-closeout/live/rerun-c8/D53i/summary.md`), and C5.5's per-hook latency and store bytes (`sdd/V6-closeout/eval/runs/c55-c8/summary.md`))* Resource cost: store growth per session, daemon RSS/CPU, hook latency seen by the
       host during the live trials.
 
 ## Phase 6 — Documentation, inventory and the report
