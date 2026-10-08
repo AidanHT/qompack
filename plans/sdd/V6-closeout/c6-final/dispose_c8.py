@@ -92,7 +92,7 @@ REH8 = {"C4.1"}
 CARRIED_L7 = {"C4.8", "UAT-01", "UAT-03", "UAT-09", "UAT-10"}
 UNKNOWN_LIVE = {"C4.11"}
 LIVE_NOTE = {
-    "C1.7": "C1.7's restore smoke ran on c8 (live/rerun-c8/C4.9/cli/r8-r11); its post-new-write restore is carried from c7",
+    "C1.7": "C1.7's restore smoke ran on c8 (live/rerun-c8/C4.9/cli/, records r8 to r11); its post-new-write restore is carried from c7",
     "C4.9": "C4.9 leg (b) ran on c8 and leg (a) again through C1.6; leg (c) is carried",
     "UAT-05": "UAT-05 run 2 ran on c8; run 1 is carried",
     "UAT-12": "UAT-12 steps 1-5 and 8 ran on c8; its upgrade leg (steps 6, 7, 9, 10) is carried from c7",
