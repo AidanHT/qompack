@@ -104,8 +104,8 @@ re-check add is appended here first.
 - TestFault_DaemonKilledMidIngest waits for a daemon with dials only, so a recovery session-start that
   meets an orphan spawn claim (a burst hook's lazy duplicate, D35(a), D61(c)) and spawns nothing reads as
   'recording stopped silently' (D73(1)). After the release: wait out the claim and send the next hook.
-- Unverified lead (D73(b)), since found real and moved out of this list: see "Released-product
-  residual awaiting a ruling" below.
+- Unverified lead (D73(b)), since found real (D81(c)(4)) and moved out of this list: known issue 20
+  below (D82).
 - TestPreCompactSettle_ReplaysAgainOnceALiveCopyAheadOfItPublishes does not wait for the live worker to own
   the delivery, so on a loaded runner its fixture-sanity count reads 0 while the product is correct (D75(c)).
   After the release: settleGate signals when the held run starts, and the hook waits for it.
@@ -139,11 +139,11 @@ re-check add is appended here first.
   release it gives each hook its own spool identity. An unprovable Read target is persisted nowhere, not as
   unavailable (D78(d)).
 
-## Released-product residual awaiting a ruling
+## Added by D82
 
-Not a test-only residual and not in the known issues above. D81(c)(4) found D73(b)'s lead real in
-0.3.0: a PreCompact settle (`internal/daemon/precompact_settle.go`) could leave ring-held, WAL-only and
-predecessor-leased captures out of its drop report. 0.3.1 names every capture it leaves, and the
-summary names no cause it cannot know. No ledger row yet rules whether 0.3.0 discloses it as known
-issue 20 in CHANGELOG.md and the release notes or keeps it ledger-only with a reason. That ruling is
-the coordinator's (C6.4 review round 3, finding 3.2).
+20. **A checkpoint's drop report can leave out captures still waiting to be stored.** When a compaction's
+    checkpoint is sealed while some of the session's captures are still waiting in the daemon (queued for
+    a busy worker, held only in its write-ahead log, or leased by an earlier daemon), the rehydration
+    block's section 7 and `dropped()` do not name them. Nothing is lost: the daemon stores them right
+    after, and `recall` and `expand` find them then. Fixed in 0.3.1 on fix/v031-settle (D73(b), D81(c)(4),
+    D82; C6.4 review round 3, finding 3.2.)
