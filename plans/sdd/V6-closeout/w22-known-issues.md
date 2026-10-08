@@ -104,8 +104,8 @@ re-check add is appended here first.
 - TestFault_DaemonKilledMidIngest waits for a daemon with dials only, so a recovery session-start that
   meets an orphan spawn claim (a burst hook's lazy duplicate, D35(a), D61(c)) and spawns nothing reads as
   'recording stopped silently' (D73(1)). After the release: wait out the claim and send the next hook.
-- Unverified lead (D73(b)): a PreCompact settle may leave WAL-only refused or ring-dropped leased jobs
-  out of its drop report.
+- Unverified lead (D73(b)), since found real and moved out of this list: see "Released-product
+  residual awaiting a ruling" below.
 - TestPreCompactSettle_ReplaysAgainOnceALiveCopyAheadOfItPublishes does not wait for the live worker to own
   the delivery, so on a loaded runner its fixture-sanity count reads 0 while the product is correct (D75(c)).
   After the release: settleGate signals when the held run starts, and the hook waits for it.
@@ -138,3 +138,12 @@ re-check add is appended here first.
 - The C1.16 rig runs every hook in one process, so they share one spool file and its cap (D78(b)); after the
   release it gives each hook its own spool identity. An unprovable Read target is persisted nowhere, not as
   unavailable (D78(d)).
+
+## Released-product residual awaiting a ruling
+
+Not a test-only residual and not in the known issues above. D81(c)(4) found D73(b)'s lead real in
+0.3.0: a PreCompact settle (`internal/daemon/precompact_settle.go`) could leave ring-held, WAL-only and
+predecessor-leased captures out of its drop report. 0.3.1 names every capture it leaves, and the
+summary names no cause it cannot know. No ledger row yet rules whether 0.3.0 discloses it as known
+issue 20 in CHANGELOG.md and the release notes or keeps it ledger-only with a reason. That ruling is
+the coordinator's (C6.4 review round 3, finding 3.2).

@@ -125,11 +125,16 @@ so read its record before tagging.
    `develop`'s), requires it to equal the uploaded `marketplace.json`, and opens a pull request
    onto `develop` that puts it at `.claude-plugin/marketplace.json`. Re-running the job after a
    partial failure replaces its `marketplace/<tag>` branch and reuses an open pull request. Merging
-   it is what makes
-   `claude plugin marketplace add AidanHT/qompack` offer the release. The repository setting "Allow
-   GitHub Actions to create and approve pull requests" must be on for the workflow to open it, and
-   a pull request opened with `GITHUB_TOKEN` does not start CI by itself. A pre-release is tested
-   by adding its `marketplace.json` asset by URL instead (`docs/install.md` §9).
+   it is what makes the documented command,
+   `claude plugin marketplace add --sparse .claude-plugin -- https://github.com/AidanHT/qompack.git`
+   ([install §9](install.md#9-installing-from-the-public-marketplace)), offer the release. The
+   repository setting "Allow GitHub Actions to create and approve pull requests" must be on for the
+   workflow to open it, and a pull request opened with `GITHUB_TOKEN` does not start CI by itself.
+   A pre-release is not in the marketplace yet, and its `marketplace.json` asset cannot be added by
+   URL: Claude Code treats every `github.com` URL as a git repository (install §9). Its install is
+   rehearsed from a temporary branch whose `.claude-plugin/marketplace.json` is the release's own
+   asset, added in the repository form with `--sparse .claude-plugin`, which Windows needs (D80(a),
+   D80(b)).
 
 One build path produces every shipped byte: `goBuildArgs` in `tools/devtool/build.go`, used by
 `build`, `build-all` and `bundle` alike, with `-trimpath -buildvcs=false -ldflags "-s -w -buildid=
@@ -237,8 +242,10 @@ that it is broken. `excluded` = deliberately out of scope, with the reason state
   `crossbuild` job, but a compile leaves no record here, and this table refuses to promote a compile
   into support.
 
-Read that table as the release's actual claim. Everything outside `windows/amd64` is **untested at
-the deployment level** and is shipped as such.
+Read that table as the release's actual claim for the artifacts it names. Outside `windows/amd64`
+no Claude Code session has run: linux/amd64 was installed only, from the published marketplace in a
+container with no model, where `bin/qompack` kept its executable bit and ran (D80(c)), and macOS and
+the arm64 targets were never installed. Those targets are shipped as such.
 
 ## Capability status at 0.3.0
 
