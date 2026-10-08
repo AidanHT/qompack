@@ -732,10 +732,14 @@ deadline, an unreachable daemon), wherever a rehydration was due; under degraded
 `runtime.mode` off or passive, with the daemon disabled, or with the reinjection switch below off,
 `{}` stays the answer, because nothing was due.
 `internal/cli`'s `TestSessionStartCompact_UnderSameSessionIngest` measures the compact answer under
-concurrent same-session ingest. The figures under `plans/sdd/V6-closeout/w2-lifetime/runs/` (p99 from
-1.85 s to 0.66 s) were taken before `3f2da1b3`, when that rig's reads never reached the daemon, so they
-do not measure the shipped route; candidate 8's C5.2 night re-measures it (D62(c)). The route's phases
-are in `metrics/latency.json` as `session_start.*` and `rehydrate.*`.
+concurrent same-session ingest. On the frozen release candidate (C5.2 night of 2026-10-07/08,
+decision D78), with eight workers feeding 256 KiB Reads into the session, all 30 compactions of each
+run answered with the rehydration: p50 82 ms, p95 108 ms and p99 143 ms with no extra load, and p50
+221 ms, p95 386 ms and p99 417 ms under the rig's in-process co-load of 16 fsync writers and 4 CPU
+spinners. The figures under `plans/sdd/V6-closeout/w2-lifetime/runs/` (p99 from 1.85 s to 0.66 s)
+were taken before `3f2da1b3`, when that rig's reads never reached the daemon, so they do not measure
+the shipped route, and no figure from before that fix is given here. The route's phases are in
+`metrics/latency.json` as `session_start.*` and `rehydrate.*`.
 
 Injection has an independent kill switch: `runtime.migration.reinjection.sessionStartCompact`
 (default `true`). Setting it false disables injection without touching recording. It names the one
