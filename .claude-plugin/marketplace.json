@@ -1,0 +1,82 @@
+{
+  "name": "qompack",
+  "owner": {
+    "name": "Qompack",
+    "url": "https://github.com/AidanHT/qompack"
+  },
+  "description": "Qompack keeps a local record of the session and restores the important parts after Claude Code compacts its context, with tools to recall anything left out. Each entry is one release target; install exactly one, the entry for your OS and CPU.",
+  "plugins": [
+    {
+      "name": "qompack-linux-amd64",
+      "description": "Qompack for Linux on x86-64 (linux/amd64). Install only the one entry that matches your machine.",
+      "source": {
+        "source": "archive",
+        "url": "https://github.com/AidanHT/qompack/releases/download/v0.3.0/qompack-plugin-0.3.0-linux-amd64.zip",
+        "sha256": "84e2ad0314a5151c3c6ce50855fd29c6e6be5343ef1d39ad5424f38b0766971c"
+      },
+      "homepage": "https://github.com/AidanHT/qompack",
+      "repository": "https://github.com/AidanHT/qompack",
+      "license": "MIT"
+    },
+    {
+      "name": "qompack-linux-arm64",
+      "description": "Qompack for Linux on ARM64 (linux/arm64). Install only the one entry that matches your machine.",
+      "source": {
+        "source": "archive",
+        "url": "https://github.com/AidanHT/qompack/releases/download/v0.3.0/qompack-plugin-0.3.0-linux-arm64.zip",
+        "sha256": "b0b8a65cb17aa94d64a28771e678e2e1292706beadd4376a066c5f0790899fe4"
+      },
+      "homepage": "https://github.com/AidanHT/qompack",
+      "repository": "https://github.com/AidanHT/qompack",
+      "license": "MIT"
+    },
+    {
+      "name": "qompack-darwin-amd64",
+      "description": "Qompack for macOS on x86-64 (darwin/amd64). Install only the one entry that matches your machine.",
+      "source": {
+        "source": "archive",
+        "url": "https://github.com/AidanHT/qompack/releases/download/v0.3.0/qompack-plugin-0.3.0-darwin-amd64.zip",
+        "sha256": "56608b3673344036745f9893e03e35d51085e5510f87078108823181f6eb9f55"
+      },
+      "homepage": "https://github.com/AidanHT/qompack",
+      "repository": "https://github.com/AidanHT/qompack",
+      "license": "MIT"
+    },
+    {
+      "name": "qompack-darwin-arm64",
+      "description": "Qompack for macOS on ARM64 (darwin/arm64). Install only the one entry that matches your machine.",
+      "source": {
+        "source": "archive",
+        "url": "https://github.com/AidanHT/qompack/releases/download/v0.3.0/qompack-plugin-0.3.0-darwin-arm64.zip",
+        "sha256": "433657d458649f4e3daa38b57b955e3aa32a513a542a4b5b7df357aaeb23189d"
+      },
+      "homepage": "https://github.com/AidanHT/qompack",
+      "repository": "https://github.com/AidanHT/qompack",
+      "license": "MIT"
+    },
+    {
+      "name": "qompack-windows-amd64",
+      "description": "Qompack for Windows on x86-64 (windows/amd64). Install only the one entry that matches your machine.",
+      "source": {
+        "source": "archive",
+        "url": "https://github.com/AidanHT/qompack/releases/download/v0.3.0/qompack-plugin-0.3.0-windows-amd64.zip",
+        "sha256": "51bf78f686ca88a316fa997937f6917cdcb4d7c6a2f81cfdd902d3e4cb765e59"
+      },
+      "homepage": "https://github.com/AidanHT/qompack",
+      "repository": "https://github.com/AidanHT/qompack",
+      "license": "MIT"
+    },
+    {
+      "name": "qompack-windows-arm64",
+      "description": "Qompack for Windows on ARM64 (windows/arm64). Install only the one entry that matches your machine.",
+      "source": {
+        "source": "archive",
+        "url": "https://github.com/AidanHT/qompack/releases/download/v0.3.0/qompack-plugin-0.3.0-windows-arm64.zip",
+        "sha256": "6309982d1a02f466e3d81f9ad9615980ebe361eb4747b9561b6b24dec8f0bd0b"
+      },
+      "homepage": "https://github.com/AidanHT/qompack",
+      "repository": "https://github.com/AidanHT/qompack",
+      "license": "MIT"
+    }
+  ]
+}
