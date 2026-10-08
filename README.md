@@ -102,17 +102,21 @@ bundle builds, the quiet C5.1 run on Windows and `release-check --tag v0.3.0` (a
 `PASS`, none skipped). The other three were Linux container timing steps: two failed only their
 fsync-bound rows, and the quiet C5.1 run there is reported only (the Linux row below). The C5.2
 night re-measures every benchmark in full against `cf31e01` in package chunks that may span more
-than one night (D62(b), D65(b)). Six of its eight chunks ran complete on candidate 8's night: no
-row is slower than the base with significance except negknow's `BenchmarkOpen` on Windows (1.16x,
-inside its 300 ms budget and off the hot path) and symbols' `BenchmarkEnclosing_100KB` (1.011x),
-both recorded and not acted on (D75(b)). The Linux checkpoint and other chunks and the C1.16 rig
+than one night (D62(b), D65(b)). Six of its eight chunks ran complete on candidate 8's night: no row
+is slower than the base with significance except negknow's `BenchmarkOpen` on Windows (1.16x, inside
+its 300 ms budget and off the hot path) and symbols' `BenchmarkEnclosing_100KB` (1.011x), both
+recorded and not acted on (D75(b)). The Linux checkpoint and other chunks and the C1.16 rig
 re-measure, whose figure [docs/architecture.md](docs/architecture.md#7-checkpoint-and-rehydration)
-restates (D62(c), D65(a)), were measured on the C5.2 night of 2026-10-07/08: [[C52-NIGHT]]. The
-short live re-check ran 20 real sessions on the frozen bundle, and every scenario passed (D76).
-The pre-registered live evaluation, C5.5, ran on the frozen bundle, and its decision reads
-"inconclusive — interval [-0.214, 0.214] straddles -0.200" (D77). At this sample size that is the
-expected verdict, by design, and it is not evidence that Qompack adds nothing (amendment A8, item
-3). The [release notes](docs/release-notes/v0.3.0.md) give its figures.
+restates (D62(c), D65(a)), were measured on the C5.2 night of 2026-10-07/08: both Linux chunks
+passed, with `BenchmarkFinalize` 1.32x and negknow `BenchmarkOpen` 1.34x on the container, each
+inside its budget as decision D54 recorded (D78(a)); and the rig's compact answer under same-session
+ingest was the rehydration every time, at p99 143 ms with no extra load and 417 ms under its
+in-process fsync and CPU co-load (D78(e)). The short live re-check ran 20 real sessions on the
+frozen bundle, and every scenario passed (D76). The pre-registered live evaluation, C5.5, ran on the
+frozen bundle, and its decision reads "inconclusive — interval [-0.214, 0.214] straddles -0.200"
+(D77). At this sample size that is the expected verdict, by design, and it is not evidence that
+Qompack adds nothing (amendment A8, item 3). The [release notes](docs/release-notes/v0.3.0.md) give
+its figures.
 
 | Where | What the evidence shows |
 |---|---|
