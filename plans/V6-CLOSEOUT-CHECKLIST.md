@@ -389,10 +389,10 @@ Found by the packaging workstream's real-host sessions (evidence on `closeout/pa
 
 - [ ] **C6.1** Docs match evidence: README status, `docs/release.md` scope table, install, UAT
       results, cannot-do/upstream-issues, troubleshooting; generated docs regenerated if code moved.
-- [ ] **C6.2** `inventory-current.tsv`: every one of the 304 rows re-dispositioned from this
+- [x] **C6.2** *(candidate 8, 36dc82e4: 276 verified_in_target, 15 partial_verified, 7 unknown, 3 unsupported, 3 documented; `sdd/V6-closeout/inventory-c8-map.md`)* `inventory-current.tsv`: every one of the 304 rows re-dispositioned from this
       candidate's evidence (`verified_in_target` only with an executed artifact); the 14 §3
       integration identifiers and the SP19/20/21 switches mapped.
-- [ ] **C6.3** `CARRIED-DEFECTS.tsv` final dispositions; `test/guards` green against the report.
+- [x] **C6.3** *(920f9269, e404673c: 22 fixed, 6 wontfix each with its 0.3.0 disposition; test/guards green)* `CARRIED-DEFECTS.tsv` final dispositions; `test/guards` green against the report.
 - [ ] **C6.4** V6 close-out report (the plan's §8 template), with independent final review.
 - [ ] **C6.5** Tick the V6 plan's boxes with evidence links; `CHANGELOG.md` release entry.
 
