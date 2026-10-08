@@ -336,6 +336,10 @@ type dispatchLanes struct {
 	// ready lists parked lanes a wake found with queued jobs, each at most once (sessionLane.woken),
 	// so it never holds more entries than there are lanes.
 	ready []core.SessionID
+	// unheld records the leased jobs no lane holds, by session and delivery, for the PreCompact
+	// settle's drop report (delivery_unheld.go); unheldN counts them.
+	unheld  map[core.SessionID]map[string]unheldJob
+	unheldN int
 }
 
 // newDispatchLanes returns lanes that hold at most capacity jobs in all and perSession jobs of any
@@ -352,7 +356,9 @@ func newDispatchLanes(capacity, perSession int) *dispatchLanes {
 // one's place and that one is refused instead. drain then reports that nothing else will ask for
 // the refused job's drain: no worker owns the lane to ask for it when the lane parks or runs dry
 // (settle, head), so the caller asks. A second job for a delivery already queued (the same nonce
-// accepted twice) is not queued again, but still counts as a signal.
+// accepted twice) is not queued again, but still counts as a signal. A job the lanes hold leaves the
+// record of leased jobs no lane holds, and a refused one stays in it or enters it
+// (delivery_unheld.go).
 func (ls *dispatchLanes) join(j job) (own, full, drain bool) {
 	ls.mu.Lock()
 	defer ls.mu.Unlock()
@@ -360,6 +366,7 @@ func (ls *dispatchLanes) join(j job) (own, full, drain bool) {
 	l := ls.lanes[sess]
 	if l == nil {
 		if ls.held >= ls.capacity || ls.perSession <= 0 {
+			ls.noteUnheldLocked(j)
 			return false, true, true
 		}
 		l = &sessionLane{}
@@ -373,6 +380,7 @@ func (ls *dispatchLanes) join(j job) (own, full, drain bool) {
 	if !duplicate {
 		if ls.held >= ls.capacity || len(l.jobs) >= ls.perSession {
 			if pos == len(l.jobs) {
+				ls.noteUnheldLocked(j)
 				if l.running {
 					l.overflow = true
 					return false, true, false
@@ -380,6 +388,7 @@ func (ls *dispatchLanes) join(j job) (own, full, drain bool) {
 				return false, true, true
 			}
 			last := len(l.jobs) - 1
+			ls.noteUnheldLocked(l.jobs[last])
 			l.jobs[last] = job{} // drop the request the backing array would otherwise keep
 			l.jobs = l.jobs[:last]
 			ls.held--
@@ -391,6 +400,7 @@ func (ls *dispatchLanes) join(j job) (own, full, drain bool) {
 		l.jobs[pos] = j
 		ls.held++
 	}
+	ls.heldLocked(j)
 	l.signals++
 	if l.running {
 		return false, full, false
@@ -477,13 +487,17 @@ func (ls *dispatchLanes) park(sess core.SessionID) {
 // The flush calls it once SessionEnd has run: whatever is still parked then is published by a drain
 // or by nothing, every job of it is already durable in the WAL, and a lane parked on a head that
 // never publishes would otherwise hold its jobs until the daemon restarts. A lane a worker owns is
-// left to its owner, which releases it once it runs dry or parks.
+// left to its owner, which releases it once it runs dry or parks. The jobs it drops enter the record
+// of leased jobs no lane holds (delivery_unheld.go).
 func (ls *dispatchLanes) forget(sess core.SessionID) int {
 	ls.mu.Lock()
 	defer ls.mu.Unlock()
 	l := ls.lanes[sess]
 	if l == nil || l.running {
 		return 0
+	}
+	for _, j := range l.jobs {
+		ls.noteUnheldLocked(j)
 	}
 	n := len(l.jobs)
 	ls.held -= n

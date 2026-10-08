@@ -1175,7 +1175,8 @@ replay that is still writing when the budget runs out is abandoned and its captu
 way too. Finding which spool files are this session's also runs inside that budget: the daemon reads
 each spool file once and remembers what it holds, and a file it had no time to read, or failed to read
 (a sharing violation, an anti-virus lock, an I/O error), is counted in the `unreplayed_capture` line as
-not read. The daemon replays them all afterwards, and `recall` and `expand` find them then.
+not read. The daemon replays them all afterwards, and `recall` and `expand` find them then. The
+line can also count captures that were never spooled; the next entry says which.
 
 The switch lasts until a new session starts in this project or the daemon exits on idle (below); it
 does not switch back on its own during the session, and compacting the current session does not reset
@@ -1210,21 +1211,42 @@ of unread spool files and the bound. The daemon's counters (`qompack status --js
 include `precompact_settle`, the seals that found something of their session to settle, and
 `precompact_unreplayed_captures`, the captures the seals reported as unreplayed.
 
-**Meaning.** Before it seals, the `PreCompact` replays this session's spooled captures, within
-`precompactSettleBound`: B-E (`runtime.budgets.checkpointFinalizeMs`) less the seal's own worst-case
-window, 500 ms with the defaults. The replay takes the same lock the client-spool watcher's passes
-take. The `PreCompact`'s own request no longer starts such a pass (its kick of the watcher comes
-after the seal), but a pass that is **already running for another reason** when the `PreCompact`
-arrives, started by an earlier request, by the idle tick in spool submode or by a drain the ingest
-lanes asked for, makes the replay wait behind it. On a slow disk the bound can run out first. The
-seal then goes ahead at the bound, so the host's compaction waits no longer than B-E allows, and the
-captures still in the spool are counted and named in the drop report exactly as in the slow-disk
-entry above. This is a known limit of 0.3.0 (owner decision D56(e), the degrade D55 approved): it
-costs the rehydration those captures, never the captures themselves.
+**Meaning.** The `unreplayed_capture` line counts every capture of this session that the daemon had
+not yet published when the `PreCompact` sealed the checkpoint, wherever it was waiting. Its text,
+`N capture(s) of this session (...) were still waiting to be replayed into the store when this
+checkpoint was sealed`, gives no cause, because the causes differ: only a capture still in a hook
+client spool can owe its wait to the disk.
 
-**Action.** Nothing is required. The daemon replays the named captures afterwards, and `recall` and
-`expand` find them then. If it happens at most compactions, the disk is the usual cause: the
-slow-disk entry above describes it.
+*Captures still in a spool.* Before it seals, the `PreCompact` replays this session's spooled
+captures, within `precompactSettleBound`: B-E (`runtime.budgets.checkpointFinalizeMs`) less the
+seal's own worst-case window, 500 ms with the defaults. The replay takes the same lock the
+client-spool watcher's passes take. The `PreCompact`'s own request no longer starts such a pass (its
+kick of the watcher comes after the seal), but a pass that is **already running for another reason**
+when the `PreCompact` arrives, started by an earlier request, by the idle tick in spool submode or by
+a drain the ingest lanes asked for, makes the replay wait behind it. On a slow disk the bound can run
+out first. The seal then goes ahead at the bound, so the host's compaction waits no longer than B-E
+allows, and the captures still in the spool are counted and named in the drop report exactly as in
+the slow-disk entry above. This is a known limit of 0.3.0 (owner decision D56(e), the degrade D55
+approved): it costs the rehydration those captures, never the captures themselves.
+
+*Captures never spooled.* The daemon took them but had not yet published them when the seal was
+made, and the disk need not be slow for that. One kind still waits for a busy ingest worker; the
+worker publishes it a moment later. Another was taken when the worker queue or the session's ingest
+lane was full (the `l0_ring_full` and `l0_ordering_lane_full` counters), so only the daemon's
+write-ahead log holds it until a drain replays it. A third was taken by an earlier daemon (one that
+crashed or was stopped) before that daemon published it. A capture of that third kind, or one past
+what a daemon far behind keeps in memory, is known to the seal only by its delivery lease, not by
+what kind of capture it was. It is counted as `other` and not named, and the `unreplayed_capture`
+line then adds `N of the other capture(s) are known here only by their delivery lease, not by their
+kind`. Nothing is lost: every one of them is published, the last two kinds from the daemon's
+write-ahead log.
+
+**Action.** Nothing is required. The daemon replays the counted captures afterwards, and `recall` and
+`expand` find them then. If it happens at most compactions, `qompack status` tells which kind it is:
+`hot path:    spool`, or B-B (`l0_ingest`) over its limit under `budget breaches`, means the disk,
+which the slow-disk entry above describes; `l0_ring_full` or `l0_ordering_lane_full` growing in
+`qompack status --json` means the daemon's ingest fell behind bursts of captures, which it catches up
+on by itself.
 
 ---
 

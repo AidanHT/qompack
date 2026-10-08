@@ -307,6 +307,32 @@ func TestUnreplayedDrops_CountsEveryCaptureAndNamesEachToolResult(t *testing.T) 
 	}, unreplayedDrops(left, 0, est))
 }
 
+// TestUnreplayedDrops_ClaimsNoCauseTheSettleCannotKnow: the summary counts the captures the settle
+// left wherever it found them (unreplayedCaptures): a hook client spool, the session's lane, the ring
+// a busy worker had not yet reached, the WAL alone after a full ring or lane, or a lease a daemon
+// before this one took (D73(b)). Only a spooled one can owe its wait to a slow disk, and the others
+// never do, so the detail, which section 7 hands the model and dropped() the user, gives no cause: it
+// says what holds for every one of them. Here a Read still in the ring, a spooled prompt and a lease
+// only the journal knows are left together, and the text is pinned as the model reads it. (Until
+// v0.3.1 it said '(durable writes on this disk were slower than their budget)' of all of them.)
+func TestUnreplayedDrops_ClaimsNoCauseTheSettleCannotKnow(t *testing.T) {
+	left := []pendingCapture{
+		{op: ipc.OpObserveTool, nonce: "nonce-ring", toolUseID: "toolu_ring", ts: 3}, // in the ring, no spool file
+		{op: ipc.OpObservePrompt, nonce: "nonce-spooled", ts: 2, file: "client-spool.jsonl"},
+		{nonce: "nonce-lease-only"}, // a predecessor's lease: no op, no name
+	}
+	got := unreplayedDrops(left, unreplayedNamesAllowance(testConfig()), tokens.New(testConfig(), ""))
+	require.Equal(t, []checkpoint.DropEntry{
+		{Kind: checkpoint.DropKindUnreplayedCapture, Detail: "3 capture(s) of this session (1 tool result(s), " +
+			"1 prompt(s), 1 other) were still waiting to be replayed into the store when this checkpoint was " +
+			"sealed; the newest 1 tool result(s) are named by tool_use_id; nothing is lost: the daemon replays " +
+			"them, and recall or expand finds them then; 1 of the other capture(s) are known here only by " +
+			"their delivery lease, not by their kind"},
+		{Kind: checkpoint.DropKindUnreplayedToolResult, ID: "toolu_ring"},
+	}, got)
+	require.NotContains(t, got[0].Detail, "disk", "a Read waiting for a worker owes nothing to the disk")
+}
+
 // settleTestDaemon is laneTestDaemon with B-E set so that the settle's bound is bound: the rows that
 // assert what the settle waits FOR, not how long, give it a bound no co-loaded host can exhaust.
 func settleTestDaemon(t *testing.T, bound time.Duration) (*daemon, string) {
@@ -342,18 +368,38 @@ func settleReplay(dd *daemon) func(context.Context, ipc.Request) ipc.Response {
 }
 
 // settleGate holds the lane's publication of one delivery until it is opened. The caller registers
-// open as a cleanup after starting the worker pool, so it runs before the pool is joined.
-func settleGate(dd *daemon, nonce string) (func(context.Context, ipc.Request) ipc.Response, func()) {
-	release := make(chan struct{})
-	var once sync.Once
-	open := func() { once.Do(func() { close(release) }) }
-	run := func(ctx context.Context, req ipc.Request) ipc.Response {
+// open as a cleanup after starting the worker pool, so it runs before the pool is joined. held is
+// closed once the held publication has started: the worker running it then owns the delivery
+// (ingest.dispatch takes the delivery's seen ownership before it calls run), so a drain that meets a
+// copy of it leaves the copy to the lane. A row whose subject needs the live worker to own the
+// delivery waits for held (heldWithin); a worker that has not yet taken the job from the ring owns
+// nothing, and a drain then publishes the copy itself (D75(c)).
+func settleGate(dd *daemon, nonce string) (run func(context.Context, ipc.Request) ipc.Response, open func(),
+	held <-chan struct{},
+) {
+	release, started := make(chan struct{}), make(chan struct{})
+	var opened, began sync.Once
+	open = func() { opened.Do(func() { close(release) }) }
+	run = func(ctx context.Context, req ipc.Request) ipc.Response {
 		if req.Nonce == nonce {
+			began.Do(func() { close(started) })
 			<-release
 		}
 		return dd.runIngested(ctx, req)
 	}
-	return run, open
+	return run, open, started
+}
+
+// heldWithin reports whether held (settleGate's) closes within bound.
+func heldWithin(held <-chan struct{}, bound time.Duration) bool {
+	timer := time.NewTimer(bound)
+	defer timer.Stop()
+	select {
+	case <-held:
+		return true
+	case <-timer.C:
+		return false
+	}
 }
 
 // settleStarted reports whether a PreCompact's settle has begun: it counts itself before it waits.
@@ -368,13 +414,12 @@ func TestPreCompactSettle_WaitsForALeasedArrivalStillPublishing(t *testing.T) {
 	dd.drain.Store(newDrainer(contentDrainConfig(dd)))
 	const sess core.SessionID = "sess-precompact-leased"
 	tool := liveOrderTool(dd, root, sess, 1)
-	run, open := settleGate(dd, tool.Nonce)
+	run, open, held := settleGate(dd, tool.Nonce)
 	liveOrderWorkers(t, dd, 2, run)
 	t.Cleanup(open)
 
 	acceptPrompt(t, dd, tool)
-	require.Eventually(t, func() bool { _, running := liveOrderLane(dd, sess); return running },
-		liveOrderBound, liveOrderTick, "fixture sanity: the lane is publishing the Read")
+	require.True(t, heldWithin(held, liveOrderBound), "fixture sanity: the lane is publishing the Read")
 	writeHookSpool(t, root, "client-6868.ndjson", tool) // the copy a late ACK leaves
 	probe := bindSealProbe(dd, tool.Nonce)
 
@@ -404,13 +449,12 @@ func TestPreCompactSettle_NamesALeasedArrivalOnceBesideItsSpoolCopy(t *testing.T
 	const sess core.SessionID = "sess-precompact-leased-left"
 	tool := liveOrderTool(dd, root, sess, 1)
 	after := liveOrderTool(dd, root, sess, 2)
-	run, open := settleGate(dd, tool.Nonce)
+	run, open, held := settleGate(dd, tool.Nonce)
 	liveOrderWorkers(t, dd, 2, run)
 	t.Cleanup(open)
 
 	acceptPrompt(t, dd, tool)
-	require.Eventually(t, func() bool { _, running := liveOrderLane(dd, sess); return running },
-		liveOrderBound, liveOrderTick, "fixture sanity: the lane is publishing the Read")
+	require.True(t, heldWithin(held, liveOrderBound), "fixture sanity: the lane is publishing the Read")
 	writeHookSpool(t, root, "client-6969.ndjson", tool)
 	probe := bindSealProbe(dd, tool.Nonce)
 

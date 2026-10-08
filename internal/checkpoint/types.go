@@ -176,12 +176,13 @@ type CacheInfo struct {
 }
 
 // DropKindUnreplayedCapture and DropKindUnreplayedToolResult are the drop entries the daemon adds to
-// a PreCompact seal for the captures of the compacting session that were still waiting in a hook's
-// client spool, or in the session's ingest lane, when the seal could wait no longer (V6 close-out
-// D53(c)). On a disk whose durable writes are slow the hooks hand their captures to the spool, which
-// the daemon replays; the PreCompact route replays what it can first, inside its budget, and names
-// what is left, so a checkpoint is never silently missing the newest tool results. Nothing is lost:
-// the replay publishes them later.
+// a PreCompact seal for the captures of the compacting session it had not yet published when the seal
+// could wait no longer (V6 close-out D53(c)): still in a hook's client spool, the session's ingest
+// lane or the ring, in the daemon's WAL alone, or leased by a daemon before it (D73(b)). On a disk
+// whose durable writes are slow the hooks hand their captures to the spool, which the daemon replays;
+// the PreCompact route replays what it can first, inside its budget, and names what is left, so a
+// checkpoint is never silently missing the newest tool results. Nothing is lost: the daemon publishes
+// them later.
 //
 // DropKindUnreplayedCapture is ONE entry with no ID, whose detail counts what was left and says what
 // to do. DropKindUnreplayedToolResult is one entry per tool result left, its ID the tool_use_id and
