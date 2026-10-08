@@ -30,9 +30,10 @@ type Client interface {
 	Close() error
 }
 
-// SpoolWriter is the durability fallback every failure path in Send lands on: an append to
-// .qompack/spool/client-<pid>.ndjson, which the daemon drains on start and on every idle tick
-// (00-ARCHITECTURE.md §2.4). Data is not lost when the daemon is unreachable; only freshness is.
+// SpoolWriter is the durability fallback every failure path in Send lands on: an append to the
+// writer's own .qompack/spool/client-<pid>-<writer id>.ndjson, which the daemon drains on start, on
+// every idle tick and from its client-spool watcher (00-ARCHITECTURE.md §2.4). Data is not lost when
+// the daemon is unreachable; only freshness is.
 type SpoolWriter interface {
 	Append(req Request) error
 	// Path returns the file Append writes to, so /qompack:status and the daemon's drain can name

@@ -271,9 +271,9 @@ const x13v4CapturePrefix = "records/captures/"
 //   - wal-<session>.ndjson, and wal-<session>.<seq>.ndjson once a segment has rotated
 //     (internal/daemon/ingest.go, walPath) — the daemon's OWN durable log, appended by Accept
 //     before it ACKs. Every accepted delivery leaves one; its presence is the hot path working.
-//   - client-<pid>.ndjson (internal/ipc/spool.go, newSpool) — the HOOK's fallback spool, written
-//     only when the client gave up waiting for the daemon's ACK. Its presence means that arm
-//     DEGRADED.
+//   - client-<pid>-<writer id>.ndjson (internal/ipc/spool.go, newSpoolFor), or client-<pid>.ndjson
+//     from a 0.3.0 hook — the HOOK's fallback spool, written only when the client gave up waiting
+//     for the daemon's ACK. Its presence means that arm DEGRADED.
 //   - blob-<pid>-<n>.bin (internal/ipc/client.go, blobFilePrefix) — a client-externalized oversized
 //     Event.ToolResponse, written when the request would not have fit in a frame.
 //
@@ -281,8 +281,8 @@ const x13v4CapturePrefix = "records/captures/"
 // than a tidy-up: an arm that fell back to the client spool and an arm that never did produced the
 // SAME write set. That fallback is exactly what carried defect SP05-D2 is about and what this wave
 // says it has bounded, so the comparison has to be able to see it. Splitting the token costs
-// nothing that the fold was needed for — the per-run component (session, pid, rotation sequence) is
-// still erased WITHIN each family. The row sees spool/<client> through its own per-arm assertion,
+// nothing that the fold was needed for — the per-run component (session, pid, writer id, rotation
+// sequence) is still erased WITHIN each family. The row sees spool/<client> through its own per-arm assertion,
 // not through the write-set equality, because whether a hook spools is decided by a wall clock; see
 // x13v4HookFallbackToken.
 const (

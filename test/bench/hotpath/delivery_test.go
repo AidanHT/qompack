@@ -57,9 +57,10 @@ func observeRequest(sess core.SessionID, id core.ToolUseID) ipc.Request {
 // requestOf is observeRequest for one identity.
 func requestOf(id deliveryIdentity) ipc.Request { return observeRequest(id.Session, id.ToolUse) }
 
-// writeHookSpool leaves what one spawned hook leaves when it defers: its own client-<pid>.ndjson,
-// holding its request, written by the real spool writer's line format. pid is any number other
-// than this process's own.
+// writeHookSpool leaves what one spawned 0.3.0 hook left when it deferred: its own
+// client-<pid>.ndjson, holding its request, written by the real spool writer's line format. pid is
+// any number other than this process's own. (A hook from 0.3.1 on names its file
+// client-<pid>-<writer id>.ndjson; ipc.SpoolFileKindOf classifies both as client spools.)
 func writeHookSpool(t *testing.T, root string, pid int, reqs ...ipc.Request) string {
 	t.Helper()
 	var b strings.Builder
@@ -132,20 +133,20 @@ func without(ids []deliveryIdentity, drop ...deliveryIdentity) []deliveryIdentit
 	return out
 }
 
-// TestClientSpoolNameShape_DerivedFromTheRealWriter pins that the census identifies client spool
-// files POSITIVELY, from internal/ipc's own naming, rather than by excluding the wal- prefix.
-func TestClientSpoolNameShape_DerivedFromTheRealWriter(t *testing.T) {
+// TestClientSpoolKind_IsInternalIPCsOwnClassifier pins that the census identifies client spool
+// files POSITIVELY, by internal/ipc's own classifier, rather than by excluding the wal- prefix: the
+// real writer's own file is a client spool, so is a 0.3.0 hook's, a WAL segment is not, and a path
+// internal/ipc does not call a client spool stops the census loudly.
+func TestClientSpoolKind_IsInternalIPCsOwnClassifier(t *testing.T) {
 	_, ownPath, _ := spoolFixture(t)
 
-	prefix, ext, err := clientSpoolNameShape(ownPath)
-	require.NoError(t, err)
-	require.Equal(t, "client-", prefix)
-	require.Equal(t, ".ndjson", ext)
-	require.Equal(t, prefix+strconv.Itoa(os.Getpid())+ext, filepath.Base(ownPath),
-		"the derived shape must reconstruct the real writer's own file name")
+	require.NoError(t, checkClientSpoolKind(ownPath), "the real writer's own file is a client spool")
+	require.Equal(t, ipc.SpoolFileClient, ipc.SpoolFileKindOf("client-4242.ndjson"), "a 0.3.0 hook's file is one too")
+	require.Equal(t, ipc.SpoolFileWAL, ipc.SpoolFileKindOf("wal-"+string(baSessionID)+".ndjson"),
+		"a WAL segment is read as one")
 
-	_, _, err = clientSpoolNameShape(filepath.Join("spool", "not-a-client-file.txt"))
-	require.Error(t, err, "a path that does not carry this process's pid must fail loudly, never silently match nothing")
+	err := checkClientSpoolKind(filepath.Join("spool", "not-a-client-file.txt"))
+	require.Error(t, err, "a path internal/ipc does not call a client spool must fail loudly, never silently match nothing")
 }
 
 // TestSentIdentities_AreExactlyTheRequestsTheHarnessSends pins the ledger's list of identities to

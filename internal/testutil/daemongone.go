@@ -115,7 +115,8 @@ func (o ShutdownOutcome) Describe(lockPath string, bound time.Duration) string {
 // returns silently (00-ARCHITECTURE.md §2.4/§12.3), so one attempt cannot know whether the daemon
 // received it. Retrying on a ticker until the daemon is gone is the only way to tell "delivered"
 // from "silently spooled" — a ticker, not time.Sleep, per §6.1's wall-clock-sleep ban (devtool
-// lint's sleepcheck). The attempts that nobody receives land in root's own client spool.
+// lint's sleepcheck). The attempts that nobody receives land in this call's own client spool under
+// root, a file of its writer's own.
 func ShutdownDaemonUntilGone(root string, addr ipc.Addr, w ShutdownWait) ShutdownOutcome {
 	sp, _ := ipc.NewSpool(paths.Of(root).Spool)
 	c := ipc.NewClientWithOptions(addr, sp, nil, nil, ipc.ClientOptions{
