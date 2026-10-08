@@ -1,0 +1,21 @@
+# python plans/sdd/V6-closeout/w17-inventory/symidx.py on closeout/c6-final at 7fbb8a40, whose internal/, cmd/, plugin/, tools/ and test/ equal candidate 8 3ec62ad2 except test/guards/releasenotes_test.go (runs/c8-identity-proofs.txt section 3)
+rows with a now-missing symbol: {
+ "1.14.5": [
+  "internal/commands:TestCheckpoint_NeverRequestsNativeCompaction",
+  "internal/commands:TestCheckpoint_TransportFailureStillReportsAndDoesNotClaimSuccess",
+  "internal/commands:TestCheckpoint_WithoutARouteIsUnavailable"
+ ],
+ "1.15.8": [
+  "internal/analyzer:Propose"
+ ]
+}
+rows naming a test with a build constraint or t.Skip:
+1.5.5 internal/daemon:TestLock_V6_ExitedUnreapedOwnerCanBeReplaced ['linux || darwin'] []
+1.5.19 internal/cli:TestFaultActive_UnsetIsInertForAllElevenSites ['!noinject'] []
+1.11.9 internal/rehydrate:TestBuild_InjectionTagging [''] ['ruleW1SkipMsg)']
+1.13.16 internal/mcp:TestBudgetBF [''] ['bigFixtureSkip)']
+1.17.11 internal/cli:TestFaultActive_PanicSiteNamesEmbedTheirOwnColon ['!noinject'] []
+1.17.11 internal/cli:TestFaultActive_ParsesBareSiteNames ['!noinject'] []
+1.17.11 internal/cli:TestFaultActive_ParsesSiteWithArgument ['!noinject'] []
+1.17.11 internal/cli:TestFaultActive_UnknownTokensAreIgnored ['!noinject'] []
+1.17.11 internal/cli:TestFaultActive_UnsetIsInertForAllElevenSites ['!noinject'] []

@@ -1107,3 +1107,32 @@ Candidate 6 is `verify/v6` `99d0b18`. Every `Test*` evidence test below ran gree
 ## V6-VERIFY candidate 7 note (2026-10-02, C6.3)
 
 Candidate 7 is `verify/v6` `d20309c0`, the freeze of `closeout/integration` `b31d0753`. Against candidate 6 its only product change is core.Version's default literal and `plugin.json`'s version; test/fault, test/guards' `nonrefdisk_test.go`, the golden `plugin.json`, two workflows, `.goreleaser.yaml` and docs also changed (`sdd/V6-closeout/w17-inventory/runs/c7-carry-proof.txt`). None of the evidence tests or benchmarks above is in a changed file, so the candidate 6 confirmation above carries to candidate 7 (D57(c)); candidate 7's pre-freeze check (`phase3/c7/prefreeze/summary.log`) ran the Windows tree, except test/e2e and test/integration, green. Status is unchanged.
+
+---
+
+## V6-VERIFY candidate 8 and the 0.3.0 final disposition (2026-10-08, C6.3)
+
+Release 0.3.0 is tag `v0.3.0` on `1a368a4b`, cut from candidate 8 (`verify/v6` `3ec62ad2`); its bundle
+and test paths equal the candidate's (`sdd/V6-closeout/c6-final/runs/c8-identity-proofs.txt`). Every
+`Test*` evidence test below ran green on candidate 8: in the Windows whole tree
+(`sdd/V6-closeout/phase3/c8/prefreeze/`, run on the product-identical integration `e8c62191`, and the
+overnight `-race` pass), in the Linux non-root `-race` tree (`phase3/c8/chain.log`) and in hosted ci.yml
+`37562946379` on all three OSes. Each `Benchmark*` figure is candidate 8's own quiet C5.2, ten ABBA rounds
+against `cf31e01` (`phase3/c8/quiet-c52-*/` and `phase3/c8-c52/`). Evidence codes are defined in
+`sdd/V6-closeout/inventory-c8-map.md`. The table gives each row's final disposition for 0.3.0, the commits
+that fixed it and the commit that recorded it; every commit named is reachable from `develop`. The status
+in `CARRIED-DEFECTS.tsv` is unchanged.
+
+| row | status | 0.3.0 disposition | fixed by; recorded in | on candidate 8 |
+|---|---|---|---|---|
+| SP06-D1 | `wontfix` | accepted internal residual (V3-VERIFY, `docs/adr/0100-v3-verification.md`): GC's tombstone phase answers only to its context, so one GC pass can overrun its deadline by the tombstone phase (100-260 ms at 650 dead roots); GC runs off the hook path. No release-notes entry | recorded `7950c0e5` | no runtime symptom; the GC deadline rows green (W8, L8) |
+| SP05-D1 | `fixed` | fixed | `f6a86918`; recorded `66690d52` | TestCarriedDefect_SP05D1_IdleBudgetExpiryLeavesInterruptedLinePending green |
+| SP06-D2 | `wontfix` | accepted residual, D54: the release notes' Known limits entry shared with SP08-D1 ("Writing a novel object (PutBytes) ... miss their budgets"). Not one of known issues 1-19 | recorded `bb54c6ba` | measured on c8 (C52-8): PutBytes_100KB_Cold 12.69 ms on Windows and 19.65 ms on Linux against 3 ms, Warm 2.518 and 2.684 ms against 400 us; Cold and Warm are faster than the base on both OSes, 10/10 rounds |
+| SP05-D2 | `fixed` | fixed | `5d0b904f` (B-B and the ACK deadline re-budgeted from measurement); recorded `e026cba6` | BenchmarkIngestAcceptLeasedBurst exists; quiet C5.1 on c8 (C51-8): B-A p99 16.4 ms and B-B 11.3 ms against 50 ms on Windows, on AC; the Linux container's B-A/B-B are not verified in target (D53(b)) |
+| SP20-D1 | `fixed` | fixed | `ebd86f66`, `2d3499a4` (the ingest WAL's group commit), `ade2eae0`, `5d0b904f`; recorded `e026cba6` | BenchmarkIngestAcceptLeased measured on c8 (C52-8): 10.48 ms on Windows, 18.65 ms on Linux; quiet B-B p99 11.3 ms against 50 ms on Windows (C51-8) |
+| SP20-D2 | `fixed` | fixed; the Windows GetChunk residual D54 recorded is gone on c8 | `19344e3c`, `5213545c`, `2ffe95ca`, `69d87531`; recorded `bb54c6ba` | measured on c8 (C52-8): GetChunk 48.67 us on Windows and 20.01 us on Linux against 60 us, OpenSpan_4KB_of_4MB 47.85 and 20.79 us against 150 us, Search_1000Roots 9.668 and 6.603 ms against 25 ms |
+| SP20-D3 | `fixed` | fixed | `48770c35`, `6ab54f6a`, `50ee228d`; recorded `782652d1` | TestPutBytes_SharedVolatileTokenRestoresBothRootsExactly green |
+| SP09-D1 | `fixed` | fixed | `6fc32796`, `eb20c287`, `25d36034`, `a6c66d61`; recorded `bb54c6ba` | TestBudget_Open green in both isolated timing passes on c8 (WTIME8, LTIME8); BenchmarkOpen 59.66 ms on Windows and 75.13 ms on Linux against 300 ms (1.16x and 1.34x the base, recorded and not acted on, D75(b), D78(a)) |
+| SP20-D4 | `fixed` | fixed, with residuals in the release notes' Known limits: "Each journal rotation, every 65,536 deliveries, pauses capture for 2.3 to 6.8 s, and store GC halts past 65,536 carried unacknowledged leases (D6, D16)" | `a97a7de8` (rollover enabled by default); recorded `67c4bd3e` | TestCarriedDefect_SP20D4_CaptureContinuesPastTheOldEntryCapAcrossRestart green; rollover ships enabled (`internal/daemon/delivery_generation.go`) |
+| SP20-D5 | `fixed` | fixed | `cdf78290`, `9d1ef2d5`, `a12bae95`; recorded `e026cba6` | TestDrainKeepsTheDurableBoundItRecordedWhenASegmentIsReopenedBelowIt green |
+| SP20-D6 | `fixed` | fixed (accounting; no universal timing claim) | `c78f610f` (the gated B-A estimate includes the pre-ACK handler); recorded `65bc8d77` | TestCarriedDefect_SP20D6_GatedBASampleIncludesThePreACKHandler green |

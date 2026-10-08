@@ -1,3 +1,19 @@
+> **Candidate 8 dispositions, 2026-10-08 (C6.2; supersede the candidate 6 and 7 columns for release
+> 0.3.0).** Every row now also carries `c8_result` and `c8_evidence`, appended to
+> `inventory-current.tsv` after the c7 pair, for candidate 8 (`verify/v6` `3ec62ad2`), the candidate
+> release 0.3.0 was cut from (tag `v0.3.0` on `1a368a4b`, whose bundle paths equal the candidate's).
+> Method: each row's D37 evidence steps (`../V6-closeout/inventory-map.tsv`) are judged on candidate 8's
+> own artifacts, not carried: its pre-freeze and overnight chain, hosted ci.yml `37562946379` and nightly
+> `37562945914`, quiet C5.1, all eight C5.2 chunks, `release-check --tag v0.3.0`, release.yml
+> `37738581717`, the live re-check (D76), C5.5 (D77) and the release's install rehearsal (D80). A live
+> scenario the re-check did not repeat is carried from candidate 7 only as a named open part, never as a
+> pass. Each cell names its evidence codes and whether the row's source paths changed between candidate
+> 7 and 8. Candidate 8: 276 `verified_in_target`, 15 `partial_verified`, 7 `unknown`, 3 `unsupported`,
+> 3 `documented`; no row is `failed` or `implemented_unverified`. The eleven earlier columns are
+> unchanged. Codes, the rule, the 15 partial rows with their open parts, the fourteen section 3
+> identifiers and the SP19/20/21 switches are in `../V6-closeout/inventory-c8-map.md`, written by
+> `../V6-closeout/c6-final/dispose_c8.py`.
+
 > **Candidate 6 and 7 dispositions, 2026-10-02 (C6.2; supersede the dispositions below).** Every row
 > now carries `c6_result` and `c6_evidence`, from candidate 6 (`verify/v6` `99d0b18`) evidence, and
 > `c7_result` and `c7_evidence`, for candidate 7 (`verify/v6` `d20309c0`, code `b31d0753`), all appended

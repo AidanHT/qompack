@@ -258,9 +258,11 @@ Fixed in release candidate 8's last waves (D67, D68, D71, D72):
   evaluation's pre-registered decision reads "inconclusive — interval [-0.214, 0.214] straddles
   -0.200": at this sample size that is the expected verdict, by design, and it is not evidence that
   Qompack adds nothing (amendment A8, item 3). The C5.2 benchmark night and the C1.16 re-measure are
-  in `docs/release.md`, release status (D62(b), D62(c), D65). The executable bit after a marketplace
-  install on Linux and macOS has not been observed, nor has an install from the published
-  marketplace. Under an entry named `qompack-windows-amd64`, installed from a local marketplace on
+  in `docs/release.md`, release status (D62(b), D62(c), D65). This release was installed with Claude
+  Code 2.1.293 from its own marketplace entries on Windows and Linux, and after the promotion the
+  documented command installed it from the published marketplace on both (D80). On Linux the
+  installed `bin/qompack` keeps its executable bit (D80(c)); on macOS that, and what Gatekeeper does
+  with the unsigned binary, have not been observed. Under an entry named `qompack-windows-amd64`, installed from a local marketplace on
   candidate 7, a session listed the server `plugin:qompack:qompack`, the tools
   `mcp__plugin_qompack_qompack__<tool>` and the commands `/qompack:<name>`: the namespace comes from
   `plugin.json`'s name, not from the entry's (D59; `docs/install.md` §9).
@@ -388,3 +390,9 @@ Minor defects this release does not fix, each recorded in the close-out ledger (
   file. Once that file reaches its 64 MiB cap while it waits to be consumed, a capture whose hook could
   not reach the daemon is dropped, and `LOUD.log` says so ("spool write failed — event dropped",
   "spool file at cap"). A hook that reaches the daemon is not affected (D78(c)).
+- **A checkpoint's drop report can leave out captures still waiting to be stored.** When a
+  compaction's checkpoint is sealed while some of the session's captures are still waiting in the
+  daemon (queued for a busy worker, held only in its write-ahead log, or leased by an earlier
+  daemon), the rehydration block's section 7 and `dropped()` do not name them. Nothing is lost: the
+  daemon stores them right after, and `recall` and `expand` find them then. Fixed in 0.3.1 (D73(b),
+  D82).

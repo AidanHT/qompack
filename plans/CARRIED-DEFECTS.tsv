@@ -28,6 +28,21 @@
 # `deferred:<later-checkpoint>` and adding the reason to the detail document. Both are conscious
 # acts recorded in git history; neither can be reached by doing nothing.
 #
+# Final dispositions for release 0.3.0 (V6 close-out C6.3, 2026-10-08; tag v0.3.0 on 1a368a4b, cut from
+# candidate 8, 3ec62ad2). No row is open or deferred. Each detail document's section "V6-VERIFY candidate 8
+# and the 0.3.0 final disposition" names, per row, the commits that fixed it, the commit that recorded it,
+# the release-notes entry where there is one, and the row's evidence on candidate 8.
+#
+#   fixed (22): SP04-D1, SP04-D4, SP04-D5, SP04-D6, SP04-D7, SP05-D1, SP02-D1..SP02-D5, SP10-D1, SP09-D1,
+#     SP20-D2, SP20-D3, SP08-D2, SP20-D1, SP05-D2, SP08-D3, SP20-D4, SP20-D5, SP20-D6. Residuals of
+#     SP08-D3 and SP20-D4 are in docs/release-notes/v0.3.0.md's Known limits (D35(b)/D38, D6/D16), and
+#     SP08-D3's pid-reuse residual is known issue 19 (D78(c)).
+#   wontfix, accepted residual with a release-notes entry (2): SP06-D2 and SP08-D1, the one Known limits
+#     line on PutBytes and the 256 KB tool result (D54).
+#   wontfix, accepted internal residual with no user-visible effect and no release-notes entry (3):
+#     SP04-D2, SP04-D3, SP06-D1 (V3-VERIFY, docs/adr/0100-v3-verification.md).
+#   wontfix, test-only residual (1): SP02-D6, a replay evaluation harness design decision (ADR 0002).
+#
 id	opened_by	owner	status	evidence	summary
 SP04-D1	SP-04	V2-VERIFY	fixed	TestCarriedDefect_SP04D1_EscapedTempPathIsStripped	JSON-escaped Windows temp paths are not canonicalized, so they fork the dedup space and carry user names into stored content
 SP04-D2	SP-04	V2-VERIFY	wontfix	TestKnownDeletionMediatedLimit	canonicalization is not idempotent when a deletion joins two fragments into a value neither half contained

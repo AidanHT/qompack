@@ -19,7 +19,7 @@ BUNDLES7 = re.search(r"^BUNDLES7 = (True|False)", src, re.M).group(1) == "True"
 
 rows = list(csv.reader(open(INV, encoding="utf-8", newline=""), delimiter="\t"))
 hdr, rows = rows[0], rows[1:]
-assert hdr[7:] == ["c6_result", "c6_evidence", "c7_result", "c7_evidence"], hdr
+assert hdr[7:11] == ["c6_result", "c6_evidence", "c7_result", "c7_evidence"], hdr  # c8 columns follow
 assert len(rows) == 304 and len({r[0] for r in rows}) == 304
 count = Counter(r[7] for r in rows)
 count7 = Counter(r[9] for r in rows)

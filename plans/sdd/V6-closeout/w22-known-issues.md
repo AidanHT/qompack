@@ -104,14 +104,21 @@ re-check add is appended here first.
 - TestFault_DaemonKilledMidIngest waits for a daemon with dials only, so a recovery session-start that
   meets an orphan spawn claim (a burst hook's lazy duplicate, D35(a), D61(c)) and spawns nothing reads as
   'recording stopped silently' (D73(1)). After the release: wait out the claim and send the next hook.
-- Unverified lead (D73(b)): a PreCompact settle may leave WAL-only refused or ring-dropped leased jobs
-  out of its drop report.
+- Unverified lead (D73(b)), since found real (D81(c)(4)) and moved out of this list: known issue 20
+  below (D82).
 - TestPreCompactSettle_ReplaysAgainOnceALiveCopyAheadOfItPublishes does not wait for the live worker to own
   the delivery, so on a loaded runner its fixture-sanity count reads 0 while the product is correct (D75(c)).
   After the release: settleGate signals when the held run starts, and the hook waits for it.
 - ci.yml's reconciliation prints only the tail of a crashed test binary's output and uploads no test JSON,
   so a crash's cause line is lost (D75(c)). After the release: keep the head too, and upload test.json on
   failure.
+- After the release, ci.yml 37746311073 on develop fff45a45 (code identical to the tag's) had two test-defect
+  reds (D81(a)). Job cover: TestPromptWarning_SlowDurableAcceptIsLateForTheClient, the missing join above
+  (D70(b)). Job timing (windows-latest): TestGC_DeadlineTruncatesAndResumes at
+  internal/store/gc_test.go:475 priced its budget at 4x one control mark, the binary's first and coldest,
+  so the budget outlasted the judged pass's last check at object 512; the collector is correct. Neither
+  blocks 0.3.0. Fixed for 0.3.1 on fix/v031-flakes (c7f1dd38, 352aec9b: the budget is priced from the
+  fastest of four marks, the assertion is unchanged).
 
 ## Added by candidate 8's live re-check (D76)
 
@@ -131,3 +138,12 @@ re-check add is appended here first.
 - The C1.16 rig runs every hook in one process, so they share one spool file and its cap (D78(b)); after the
   release it gives each hook its own spool identity. An unprovable Read target is persisted nowhere, not as
   unavailable (D78(d)).
+
+## Added by D82
+
+20. **A checkpoint's drop report can leave out captures still waiting to be stored.** When a compaction's
+    checkpoint is sealed while some of the session's captures are still waiting in the daemon (queued for
+    a busy worker, held only in its write-ahead log, or leased by an earlier daemon), the rehydration
+    block's section 7 and `dropped()` do not name them. Nothing is lost: the daemon stores them right
+    after, and `recall` and `expand` find them then. Fixed in 0.3.1 on fix/v031-settle (D73(b), D81(c)(4),
+    D82; C6.4 review round 3, finding 3.2.)

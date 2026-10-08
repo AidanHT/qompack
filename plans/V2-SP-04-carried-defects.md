@@ -321,3 +321,28 @@ Candidate 6 is `verify/v6` `99d0b18`. Every `Test*` evidence test below ran gree
 ## V6-VERIFY candidate 7 note (2026-10-02, C6.3)
 
 Candidate 7 is `verify/v6` `d20309c0`, the freeze of `closeout/integration` `b31d0753`. Against candidate 6 its only product change is core.Version's default literal and `plugin.json`'s version; test/fault, test/guards' `nonrefdisk_test.go`, the golden `plugin.json`, two workflows, `.goreleaser.yaml` and docs also changed (`sdd/V6-closeout/w17-inventory/runs/c7-carry-proof.txt`). None of the evidence tests or benchmarks above is in a changed file, so the candidate 6 confirmation above carries to candidate 7 (D57(c)); candidate 7's pre-freeze check (`phase3/c7/prefreeze/summary.log`) ran the Windows tree, except test/e2e and test/integration, green. Status is unchanged.
+
+---
+
+## V6-VERIFY candidate 8 and the 0.3.0 final disposition (2026-10-08, C6.3)
+
+Release 0.3.0 is tag `v0.3.0` on `1a368a4b`, cut from candidate 8 (`verify/v6` `3ec62ad2`); its bundle
+and test paths equal the candidate's (`sdd/V6-closeout/c6-final/runs/c8-identity-proofs.txt`). Every
+`Test*` evidence test below ran green on candidate 8: in the Windows whole tree
+(`sdd/V6-closeout/phase3/c8/prefreeze/`, run on the product-identical integration `e8c62191`, and the
+overnight `-race` pass), in the Linux non-root `-race` tree (`phase3/c8/chain.log`) and in hosted ci.yml
+`37562946379` on all three OSes. Each `Benchmark*` figure is candidate 8's own quiet C5.2, ten ABBA rounds
+against `cf31e01` (`phase3/c8/quiet-c52-*/` and `phase3/c8-c52/`). Evidence codes are defined in
+`sdd/V6-closeout/inventory-c8-map.md`. The table gives each row's final disposition for 0.3.0, the commits
+that fixed it and the commit that recorded it; every commit named is reachable from `develop`. The status
+in `CARRIED-DEFECTS.tsv` is unchanged.
+
+| row | status | 0.3.0 disposition | fixed by; recorded in | on candidate 8 |
+|---|---|---|---|---|
+| SP04-D1 | `fixed` | fixed | `cb7c9203`; recorded `6bc7aae2` | TestCarriedDefect_SP04D1_EscapedTempPathIsStripped green |
+| SP04-D2 | `wontfix` | accepted internal residual (V3-VERIFY, `docs/adr/0100-v3-verification.md`): a deletion-join input re-canonicalizes differently, so a store lookup can miss; `Restore` stays byte-exact and no content is lost, and real tool output does not reach it. No user-visible effect, so no release-notes entry | recorded `7950c0e5` | TestKnownDeletionMediatedLimit green: the limit holds as pinned |
+| SP04-D3 | `wontfix` | accepted internal residual, travels with SP04-D2 (V3-VERIFY): one timestamp edge is not normalized, a dedup miss at most. No release-notes entry | recorded `7950c0e5` | TestCarriedDefect_SP04D3_TimestampAndDurationEdges green |
+| SP04-D4 | `fixed` | fixed | `c9ea56d0` (the fuzz matrix reconciled with the tree); recorded `6bc7aae2` | TestNightlyFuzz_LandedSubplansMirrorsCoverGo green (test/guards); the nightly fuzz matrix green (FUZZ8) |
+| SP04-D5 | `fixed` | fixed (re-judged at V3-VERIFY: the canon benches are inside their budgets) | recorded `7950c0e5` | no runtime symptom; BenchmarkRun_Bash100KB and Run_GoTest measured on c8 on both OSes (C52-8) |
+| SP04-D6 | `fixed` | fixed (the benchmark is stable on a quiet host) | recorded `7950c0e5` | no runtime symptom; BenchmarkRun_Bash100KB's ten candidate 8 rounds per OS (C52-8) |
+| SP04-D7 | `fixed` | fixed (the owner was assigned: SP-10's checkpointer encode path) | recorded `7950c0e5` | no runtime symptom |

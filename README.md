@@ -17,20 +17,26 @@ the inventory — this page does not restate a count.
 It is a sidecar in the strict sense. It does not rewrite the host's conversation history, does not
 evict anything from the native context, and performs no network I/O of any kind.
 
-## Status: release candidate
+## Status: released
 
-Qompack has not been released. Release **0.3.0** (V6 close-out decision D1) is cut from release
-candidate 8 (decision D58(e)), commit `3ec62ad2`, whose frozen bundles and evidence are recorded in
-`plans/sdd/V6-closeout/phase3/c8-CANDIDATE.md`. The release tags candidate 8, or a descendant whose
-changes reach no bundle. Its six per-target bundles are stamped `0.3.0` at link time by
-`devtool bundle --version 0.3.0`, so an installed bundle reports `0.3.0` from `qompack version`,
-its `plugin.json` and its `BUNDLE.json` alike. Nothing has been tagged, published or listed in a
-marketplace; [docs/release.md](docs/release.md#1-procedure) §1 is the procedure.
+Release **0.3.0** (V6 close-out decision D1) was published on 2026-10-08 (decisions D79 and D80),
+the first release from this repository. It is cut from release candidate 8 (decision D58(e)),
+commit `3ec62ad2`, whose frozen bundles and evidence are recorded in
+`plans/sdd/V6-closeout/phase3/c8-CANDIDATE.md`. The tag `v0.3.0` is on `1a368a4b`, a descendant of
+candidate 8 whose changes reach no bundle. Its six per-target bundles are stamped `0.3.0` at link
+time by `devtool bundle --version 0.3.0`, so an installed bundle reports `0.3.0` from
+`qompack version`, its `plugin.json` and its `BUNDLE.json` alike. The tag-triggered release
+workflow (`release.yml` run `37738581717`) built the release and drafted it as a pre-release; every
+published `bin/` is byte-identical to candidate 8's frozen bundles
+(`plans/sdd/V6-closeout/phase3/c8/release-bin-compare.txt`). The install from its marketplace was
+rehearsed, and the release was then promoted. The marketplace is `.claude-plugin/marketplace.json`
+on develop ([docs/install.md §9](docs/install.md#9-installing-from-the-public-marketplace)), and
+[docs/release.md](docs/release.md#1-procedure) §1 is the procedure.
 
 The source tree declares the same version: `internal/core.Version` and
 `plugin/.claude-plugin/plugin.json` read `0.3.0` from the release's own version commit on (release
-§1, step 1), so a binary from a plain `go build ./cmd/qompack` also reports `0.3.0`. The
-repository's last git tag, `v0.2.0`, was an internal verification checkpoint and never a release.
+§1, step 1), so a binary from a plain `go build ./cmd/qompack` also reports `0.3.0`. The tag
+before it, `v0.2.0`, was an internal verification checkpoint and never a release.
 
 **What 0.3.0 is.** A local recorder and retriever for Claude Code sessions: it keeps a durable record
 of what the hooks deliver, seals a checkpoint when the host is about to compact, puts a bounded
@@ -67,7 +73,7 @@ slash commands. It runs on your machine only.
 **Claude Code 2.1.139 or later** is required for any install: every hook is exec form, and 2.1.139
 added the hook `args` field that form needs. Installing from the marketplace
 needs **2.1.224 or later**. The host version this release was tested with is **Claude Code
-2.1.280**. See [docs/install.md](docs/install.md).
+2.1.280**; the install of the published release was rehearsed with 2.1.293 (D80). See [docs/install.md](docs/install.md).
 
 The following checks are configured in `.github/workflows/ci.yml`. Go jobs pin
 `1.26.6` (the exact patch `go.mod`'s `toolchain` line names; a guard test fails the build if the two
@@ -123,7 +129,7 @@ its figures.
 | Hosted CI, ubuntu-latest (x86-64), macos-latest (macOS 26, arm64) and windows-latest | On candidate 8, `ci.yml` run `37562946379` concluded success: every job passed, `test (macos-latest)` and `test (windows-latest)` on its second attempt, a re-run of the failed jobs on the same commit (D75(c)). Attempt 1's two reds each have a recorded disposition. `test (macos-latest)` failed a fixture-sanity count in `TestPreCompactSettle_ReplaysAgainOnceALiveCopyAheadOfItPublishes`, a test defect: the fixture does not wait for the live worker to own the delivery, and when the settle's replay owns it the product publishes both Reads in order and drops nothing. `test (windows-latest)` ended `internal/daemon`'s `-count=2` binary at 1,185 s with a runtime crash dump whose first lines the job's summary does not keep; its cause is undetermined, it did not recur, and the Windows and Linux `-race` trees passed on the same tree. `release-dry-run` passed, and its release-version bundles were byte-identical to candidate 8's frozen ones in both directions: all 91 files, every `bin/`, the six zips and `checksums.txt` (`plans/sdd/V6-closeout/phase3/c8/hosted-release-bundles.txt`, D53(h)(4)). The nightly run `37562945914` passed. |
 | Windows, the reference host | Candidate 8's quiet hot-path run (C5.1, `plans/sdd/V6-closeout/phase3/c8/quiet/`, on AC power) passed: B-A p99 16.4 ms and B-B p99 11.3 ms against 50, B-E p99 166.8 ms against 2,000 (B-E_cpu p99 46.9 ms), and B-F p99 73.7 ms against 250 over 2,000 tool uses (n=200). The whole tree passed under `-race`, as did the isolated wall-clock rows in `internal/store`, `internal/negknow`, `internal/mcp`, `internal/daemon`, `test/integration` and `test/e2e`. X11 (`TestV3_HotPathUnchangedWithLedgerResident`, the hot path over a project holding 2,000 tool uses and 41 MB of tool output, with and without a 5,000-entry elimination ledger) passed when run alone on AC (`plans/sdd/V6-closeout/phase3/c8-CANDIDATE.md`, D75). A run on battery is not a reference measurement, neither a pass nor a fail, because on battery Windows applies slower CPU, PCIe and NVMe power policies (D57(d)). On battery the hot path switches to spool submode as designed and nothing is lost (D53(c)). Windows reference timings are taken on AC with the store under a path excluded from Windows Defender scanning (decisions D32, D53(h)). |
 | Linux | In the local Docker Desktop/WSL2 container, as a non-root user, the whole tree, `test/e2e` and the product-child lane passed under `-race` on candidate 8. The fsync-bound rows, B-A and B-B, are **not verified in target** (D53(b)): on candidate 8's night the container's two hot-path tests, `TestIntegration_HotPathWarmWithRealResidentState` and X11, failed B-A and B-B alone against 15 ms, with 592 and 590 deliveries deferred to the client spool and 0 lost, while every other row of both timing steps passed; its quiet C5.1 run is reported only, for the same reason (D75(a)). Hosted runner figures never become constants (Q1), and the Linux budget stays 15 ms. In the container the daemon degrades as designed: hooks switch to spool submode and nothing is lost ([docs/troubleshooting.md §7](docs/troubleshooting.md#7-daemon-problems)). |
-| Installed in Claude Code | windows/amd64 only. Candidate 8's frozen bundle was loaded into Claude Code 2.1.280 through `--plugin-dir` for its live re-check, 20 real sessions in which every scenario passed and 650 hook calls drew no host-reported failure or timeout (D76, D53(i)), and for the Qompack arm of its live evaluation (D77). The live lanes on candidates 3, 4 and 7 installed those candidates' bundles. All of these were run by an agent on the owner's machine (decision D3: agent-executed, never human UAT). No other target has been installed into Claude Code. |
+| Installed in Claude Code | windows/amd64, with real sessions; linux/amd64, with no model session. Candidate 8's frozen bundle was loaded into Claude Code 2.1.280 through `--plugin-dir` for its live re-check, 20 real sessions in which every scenario passed and 650 hook calls drew no host-reported failure or timeout (D76, D53(i)), and for the Qompack arm of its live evaluation (D77). The live lanes on candidates 3, 4 and 7 installed those candidates' bundles. The published 0.3.0 was installed from its own marketplace with Claude Code 2.1.293 before it was promoted (D80): on windows/amd64 in an isolated profile, and in one real session at local scope that loaded 0.3.0, connected its MCP server, listed its six slash commands and ran `SessionStart`, `UserPromptSubmit`, `PostToolUse` and `Stop`; and on linux/amd64 in the container with an isolated profile and no model, where `bin/qompack` kept its executable bit (`-rwxr-xr-x`), ran, and equals the frozen binary. The documented command then installed from develop on both. All of these were run by an agent on the owner's machine (decision D3: agent-executed, never human UAT). No Linux session with a model has run, and no other target has been installed into Claude Code. |
 | macOS | The test suites run natively on hosted macos-latest (arm64), above. No Mac has installed the plugin into Claude Code, and darwin/amd64 is cross-compiled only. Whether the marketplace install keeps `bin/qompack` executable, and what Gatekeeper does with the unsigned binary, have not been observed. |
 | linux/arm64 and windows/arm64 | Cross-compiled and bundled; no test has run on either architecture and neither has been installed. |
 | Every target's bundle | Candidate 8's six bundles were built at its freeze, and the windows/amd64 bundle was accepted by `claude plugin validate --strict --json` (2.1.280) where it sits, which is a manifest check and not an install (`plans/sdd/V6-closeout/phase3/c8/host-validate.txt`). Its night built the six bundles twice more, byte-identical across all 91 files (`plans/sdd/V6-closeout/phase3/c8/bundle-diff.txt` is empty), and the hosted release-version bundles equal the frozen ones byte for byte (above). |
@@ -136,9 +142,9 @@ release's per-target claim, raised only by committed records, and
 Packaging and release tooling: [docs/install.md](docs/install.md) and
 [docs/security.md](docs/security.md) cover installing the bundle and its security and recovery
 posture, and [docs/release.md](docs/release.md) covers how a release is cut and what it claims. The
-bundle is assembled by `go run ./tools/devtool bundle`; no release has been published from this
-repository yet, and the tag-triggered release workflow has never run
-([docs/release.md](docs/release.md#7-not-claimed) §7).
+bundle is assembled by `go run ./tools/devtool bundle`. The tag-triggered release workflow has run
+once, for 0.3.0 (`release.yml` run `37738581717`, success;
+[docs/release.md](docs/release.md#7-not-claimed) §7).
 
 ## Building from source
 
