@@ -669,3 +669,24 @@ Candidate 6 is `verify/v6` `99d0b18`. Every `Test*` evidence test below ran gree
 ## V6-VERIFY candidate 7 note (2026-10-02, C6.3)
 
 Candidate 7 is `verify/v6` `d20309c0`, the freeze of `closeout/integration` `b31d0753`. Against candidate 6 its only product change is core.Version's default literal and `plugin.json`'s version; test/fault, test/guards' `nonrefdisk_test.go`, the golden `plugin.json`, two workflows, `.goreleaser.yaml` and docs also changed (`sdd/V6-closeout/w17-inventory/runs/c7-carry-proof.txt`). None of the evidence tests or benchmarks above is in a changed file, so the candidate 6 confirmation above carries to candidate 7 (D57(c)); candidate 7's pre-freeze check (`phase3/c7/prefreeze/summary.log`) ran the Windows tree, except test/e2e and test/integration, green. Status is unchanged.
+
+---
+
+## V6-VERIFY candidate 8 and the 0.3.0 final disposition (2026-10-08, C6.3)
+
+Release 0.3.0 is tag `v0.3.0` on `1a368a4b`, cut from candidate 8 (`verify/v6` `3ec62ad2`); its bundle
+and test paths equal the candidate's (`sdd/V6-closeout/c6-final/runs/c8-identity-proofs.txt`). Every
+`Test*` evidence test below ran green on candidate 8: in the Windows whole tree
+(`sdd/V6-closeout/phase3/c8/prefreeze/`, run on the product-identical integration `e8c62191`, and the
+overnight `-race` pass), in the Linux non-root `-race` tree (`phase3/c8/chain.log`) and in hosted ci.yml
+`37562946379` on all three OSes. Each `Benchmark*` figure is candidate 8's own quiet C5.2, ten ABBA rounds
+against `cf31e01` (`phase3/c8/quiet-c52-*/` and `phase3/c8-c52/`). Evidence codes are defined in
+`sdd/V6-closeout/inventory-c8-map.md`. The table gives each row's final disposition for 0.3.0, the commits
+that fixed it and the commit that recorded it; every commit named is reachable from `develop`. The status
+in `CARRIED-DEFECTS.tsv` is unchanged.
+
+| row | status | 0.3.0 disposition | fixed by; recorded in | on candidate 8 |
+|---|---|---|---|---|
+| SP08-D1 | `wontfix` | accepted residual, D54: in the release notes' Known limits, "Writing a novel object (PutBytes) and capturing a 256 KB tool result miss their budgets; the cost is after the hook's acknowledgement, so no hook waits on it" (`docs/release-notes/v0.3.0.md`). Not one of known issues 1-19 | recorded `bb54c6ba` | BenchmarkOnToolUse_TestOutput256KB measured on c8 (C52-8): Delta p99 40.96 ms on Windows and 73.73 ms on Linux, AllNovel p99 122.9 and 94.2 ms, against B-C's soft 50 ms; every fixture faster than the base, 10/10 rounds |
+| SP08-D2 | `fixed` | fixed | `108ea8e8`, `4e5a8f41`, `62198cb2`; recorded `b0bf68d2` | TestCarriedDefect_SP08D2_ReusedLeaseRedeliveryIsNotIdempotent green |
+| SP08-D3 | `fixed` | fixed, with residuals in the release notes' Known limits ("A prompt captured out of host order is flagged, never renumbered (D35(b), D38)") and known issue 19 (a fallback spool shared through Windows pid reuse, D78(c)) | `777522cf`, `62f268ff`, `46613fdf`, `c78f610f`; recorded `42f01d63` (D35) | TestCarriedDefect_SP08D3_SpooledHostFirstPromptLosesTurnZero green; prompt capture live on c8 (LIVE8: UAT-02, UAT-06) |
