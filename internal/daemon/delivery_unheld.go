@@ -94,6 +94,11 @@ func (ls *dispatchLanes) forgetUnheldLocked(sess core.SessionID, delivery string
 func (ls *dispatchLanes) unheldOf(sess core.SessionID) []unheldJob {
 	ls.mu.Lock()
 	defer ls.mu.Unlock()
+	return ls.unheldOfLocked(sess)
+}
+
+// unheldOfLocked is unheldOf with dispatchLanes.mu held.
+func (ls *dispatchLanes) unheldOfLocked(sess core.SessionID) []unheldJob {
 	out := make([]unheldJob, 0, len(ls.unheld[sess]))
 	for _, u := range ls.unheld[sess] {
 		out = append(out, u)

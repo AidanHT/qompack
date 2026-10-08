@@ -493,7 +493,8 @@ func (d *daemon) notYetAcknowledged(caps []pendingCapture) []pendingCapture {
 // ring, dropped from a full ring, refused by full lanes, or handed back by a flush; D73(b)), and then
 // whatever else the delivery journal holds unsettled (unsettledLeases): an arrival a daemon before this
 // one accepted, or one past the record's bound. The journal leased every one of them, so it is the
-// authority on which are left; the lane, the record and the spools say what each one was. One only the
+// authority on which are left; the lane, the record and the spools say what each one was. The lane and
+// the record are read as of one moment (leasedOf), so a job moving between them is named. One only the
 // journal knows is counted by its lease alone: no op, so no name (unreplayedDrops says so).
 func (d *daemon) unreplayedCaptures(sess core.SessionID, upTo uint64, spooled []pendingCapture) []pendingCapture {
 	j, _ := d.deliveryJournal()
@@ -508,7 +509,8 @@ func (d *daemon) unreplayedCaptures(sess core.SessionID, upTo uint64, spooled []
 		}
 		left = append(left, c)
 	}
-	for _, jb := range d.ing.lanes.pending(sess) {
+	queued, unheld := d.ing.lanes.leasedOf(sess)
+	for _, jb := range queued {
 		if jb.leased && jb.lease.ArrivalSeq >= upTo {
 			continue // arrived after the PreCompact
 		}
@@ -518,7 +520,7 @@ func (d *daemon) unreplayedCaptures(sess core.SessionID, upTo uint64, spooled []
 		add(captureOf(jb.req))
 	}
 	var settled []string // recorded jobs the journal shows settled, which the record can forget
-	for _, u := range d.ing.lanes.unheldOf(sess) {
+	for _, u := range unheld {
 		switch {
 		case u.lease.ArrivalSeq >= upTo:
 			// arrived after the PreCompact
@@ -605,16 +607,21 @@ func dropReportCost(est tokens.Estimator, drops []checkpoint.DropEntry) (core.To
 	return est.Estimate(b, tokens.ClassJSON), true
 }
 
-// pending returns a copy of the requests sess's lane still holds, in arrival order: queued, parked, or
-// being published by the lane's owner.
-func (ls *dispatchLanes) pending(sess core.SessionID) []job {
+// leasedOf returns, as of one moment, where the lanes hold sess's jobs: queued, a copy of the requests
+// sess's lane still holds, in arrival order (queued, parked, or being published by the lane's owner),
+// and unheld, a copy of sess's record of leased jobs no lane holds (unheldOf). It reads both under one
+// hold of the lanes' mutex, which is what every move between them holds (join takes a job from the
+// record into the lane, and a refusal, an eviction or a forget puts one back), so a job moving
+// between them is in exactly one of the two. Read under two holds, a job a worker routed from the
+// ring into its lane between them was in neither, and the settle could count it only by its journal
+// lease, without its name (TestPreCompactSettle_NamesALeasedReadMovingIntoItsLane).
+func (ls *dispatchLanes) leasedOf(sess core.SessionID) (queued []job, unheld []unheldJob) {
 	ls.mu.Lock()
 	defer ls.mu.Unlock()
-	l := ls.lanes[sess]
-	if l == nil {
-		return nil
+	if l := ls.lanes[sess]; l != nil {
+		queued = append([]job(nil), l.jobs...)
 	}
-	return append([]job(nil), l.jobs...)
+	return queued, ls.unheldOfLocked(sess)
 }
 
 // spoolLineHead is the part of a spooled ipc.Request the settle reads: the fields captureOf and
