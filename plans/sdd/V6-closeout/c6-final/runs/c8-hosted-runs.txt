@@ -1,0 +1,67 @@
+# Hosted runs on candidate 8 and the release, read 2026-10-08T14:22Z with gh run view <id> --json
+
+run 37562946379 ci head 3ec62ad2e01b985640c0f1fb832df3917f766a5f attempt 2 event push created 2026-10-07T02:38:32Z conclusion success
+  112617611189 bench-gate (macos-latest) success
+  112617577696 bench-gate (ubuntu-latest) success
+  112617577657 bench-gate (windows-latest) success
+  112617608984 cover success
+  112617617843 crossbuild success
+  112617577665 docs success
+  112617607237 lint-windows success
+  112617607514 plugin-validate success
+  112617577868 release-dry-run success
+  112617607924 replay-gate success
+  112617608087 security success
+  112617576573 test (macos-latest) success
+  112617607869 test (ubuntu-latest) success
+  112617576326 test (windows-latest) success
+  112617577144 test-e2e (macos-latest) success
+  112617600107 test-e2e (ubuntu-latest) success
+  112617615389 test-e2e (windows-latest) success
+  112617600203 timing (macos-latest) success
+  112617577399 timing (ubuntu-latest) success
+  112617577867 timing (windows-latest) success
+  112617604957 verify success
+  jobs: 21 all success
+
+run 37562945914 nightly head 3ec62ad2e01b985640c0f1fb832df3917f766a5f attempt 1 event workflow_dispatch created 2026-10-07T02:38:32Z conclusion success
+  112604139188 bench-deep (macos-latest) success
+  112604139213 bench-deep (ubuntu-latest) success
+  112604139270 bench-deep (windows-latest) success
+  112604139407 fuzz (./internal/canon, FuzzCanonicalize) success
+  112604139295 fuzz (./internal/canon, FuzzNumericMatchesAgreeWithReference) success
+  112604139367 fuzz (./internal/canon, FuzzPrefilterAgreesWithFullScan) success
+  112604139307 fuzz (./internal/canon, FuzzRestore) success
+  112604139540 fuzz (./internal/canon, FuzzTrailingWSAgreesWithReference) success
+  112604139376 fuzz (./internal/checkpoint, FuzzParseGitIndex) success
+  112604139438 fuzz (./internal/checkpoint, FuzzStripInjections) success
+  112604139363 fuzz (./internal/chunk, FuzzSplit) success
+  112604139285 fuzz (./internal/chunk, FuzzSplitStream) success
+  112604139432 fuzz (./internal/config, FuzzConfigLoad) success
+  112604139343 fuzz (./internal/daemon, FuzzDeliverySealSelect) success
+  112604139430 fuzz (./internal/eval, FuzzRedact) success
+  112604139402 fuzz (./internal/hookio, FuzzReadEvent) success
+  112604139378 fuzz (./internal/ipc, FuzzDecodeRequest) success
+  112604139333 fuzz (./internal/mcp, FuzzServeLine) success
+  112604139406 fuzz (./internal/observer, FuzzExtractSignals) success
+  112604139446 fuzz (./internal/redact, FuzzRedactIdempotent) success
+  112604139370 fuzz (./internal/redact, FuzzRedactPrefilterEquivalence) success
+  112604139375 fuzz (./internal/rehydrate, FuzzBuild_HostCeiling) success
+  112604139318 fuzz (./internal/sketch, FuzzBloomUnmarshalBinary) success
+  112604139341 fuzz (./internal/sketch, FuzzCMSUnmarshalBinary) success
+  112604139493 fuzz (./internal/sketch, FuzzHLLUnmarshalBinary) success
+  112604139373 fuzz (./internal/sketch, FuzzMisraGriesUnmarshalBinary) success
+  112604139379 fuzz (./internal/sketch, FuzzSignatureUnmarshalBinary) success
+  112604139499 fuzz (./internal/symbols, FuzzExtract) success
+  112604139130 race-product-child success
+  112604139160 race-windows success
+  112604139040 replay-recorded success
+  jobs: 31 all success
+
+run 37738581717 release head 1a368a4b19e706d58c338e43e0d583bc04a13728 attempt 1 event push created 2026-10-08T06:36:55Z conclusion success
+  113183717583 release success
+  jobs: 1 all success
+
+# Branch protection, read with gh api repos/AidanHT/qompack/branches/<b>/protection
+develop required_status_checks None required_pull_request_reviews None enforce_admins False allow_force_pushes False allow_deletions False
+main required_status_checks None required_pull_request_reviews None enforce_admins False allow_force_pushes False allow_deletions False

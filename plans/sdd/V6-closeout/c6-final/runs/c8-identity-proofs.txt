@@ -1,0 +1,303 @@
+# Candidate 8 identity proofs (C6.2, closeout/c6-final), 2026-10-08T14:22Z
+# 1. pre-freeze tree (integration e8c62191) against candidate 8 (3ec62ad2), outside plans/:
+$ git diff --stat e8c62191 3ec62ad2 -- . ':(exclude)plans'
+(empty: the pre-freeze logs ran the candidate's product and test code)
+
+# 2. candidate 8 against the release tag commit 1a368a4b (v0.3.0), bundle and test paths:
+$ git diff --stat 3ec62ad2 1a368a4b -- internal cmd plugin go.mod go.sum .goreleaser.yaml tools test
+ test/guards/releasenotes_test.go | 2 --
+ 1 file changed, 2 deletions(-)
+
+# 3. candidate 8 against develop 7fbb8a40 (this branch's base), same paths:
+$ git diff --stat 3ec62ad2 7fbb8a40 -- internal cmd plugin go.mod go.sum .goreleaser.yaml tools test
+ test/guards/releasenotes_test.go | 2 --
+ 1 file changed, 2 deletions(-)
+
+# 4. candidate 7 (d20309c0) against candidate 8 (3ec62ad2), outside plans/:
+$ git diff --shortstat d20309c0 3ec62ad2 -- . ':(exclude)plans'
+ 257 files changed, 34762 insertions(+), 1692 deletions(-)
+$ git diff --shortstat d20309c0 3ec62ad2 -- internal cmd plugin ':(exclude)*_test.go'
+ 63 files changed, 7946 insertions(+), 575 deletions(-)
+$ git diff --dirstat=files,0 d20309c0 3ec62ad2 -- . ':(exclude)plans'
+   0.7% .github/workflows/
+   0.7% docs/adr/
+   0.3% docs/release-notes/
+   3.8% docs/
+   5.8% internal/checkpoint/
+  14.7% internal/cli/
+   1.1% internal/config/
+   4.2% internal/contract/
+  31.9% internal/daemon/
+   2.7% internal/eval/
+   0.7% internal/hostperm/
+   1.5% internal/ipc/
+   0.7% internal/mcp/
+   3.1% internal/negknow/
+   1.5% internal/observer/
+  12.8% internal/rehydrate/
+   2.7% internal/store/
+   1.5% test/docs/
+   2.3% test/e2e/
+   0.3% test/fault/
+   1.1% test/guards/
+   0.3% test/release/
+   3.5% tools/devtool/
+
+$ git diff --name-status d20309c0 3ec62ad2 -- . ':(exclude)plans'
+M	.github/workflows/ci.yml
+M	.github/workflows/release.yml
+M	CHANGELOG.md
+M	README.md
+M	docs/adr/0010-wall-clock-under-coload.md
+M	docs/adr/0011-rehydration-budget-and-item-order.md
+M	docs/architecture.md
+M	docs/backup.md
+M	docs/cannot-do.md
+M	docs/config-reference.md
+M	docs/install.md
+A	docs/release-notes/v0.3.0.md
+M	docs/release.md
+M	docs/security.md
+M	docs/troubleshooting.md
+M	docs/uat.md
+M	docs/user-guide.md
+A	internal/checkpoint/current_work_fork_test.go
+A	internal/checkpoint/current_work_test.go
+M	internal/checkpoint/decisions.go
+M	internal/checkpoint/decisions_carry_test.go
+M	internal/checkpoint/draft.go
+M	internal/checkpoint/export_test.go
+M	internal/checkpoint/finalize_test.go
+M	internal/checkpoint/fork_inherit_test.go
+M	internal/checkpoint/intent.go
+M	internal/checkpoint/lineage.go
+M	internal/checkpoint/precompact.go
+M	internal/checkpoint/precompact_test.go
+M	internal/checkpoint/source.go
+M	internal/checkpoint/writer.go
+M	internal/checkpoint/writer_test.go
+M	internal/cli/bench_test.go
+M	internal/cli/capture_admission.go
+M	internal/cli/capture_admission_test.go
+A	internal/cli/capture_config_fifo_unix_test.go
+A	internal/cli/capture_config_loud_test.go
+M	internal/cli/cmd_mcp_test.go
+M	internal/cli/config.go
+A	internal/cli/config_report_w22_test.go
+M	internal/cli/config_test.go
+M	internal/cli/daemon.go
+M	internal/cli/daemon_bootstrap_test.go
+M	internal/cli/daemon_disabled_clients_test.go
+M	internal/cli/daemon_disabled_test.go
+A	internal/cli/daemon_state_w22_test.go
+M	internal/cli/daemon_test.go
+M	internal/cli/dispatch_test.go
+M	internal/cli/doctor.go
+M	internal/cli/doctor_spool_submode_test.go
+A	internal/cli/doctor_violations_unix_test.go
+A	internal/cli/fixture_probe_test.go
+M	internal/cli/fsck.go
+A	internal/cli/fsck_order_test.go
+M	internal/cli/fsck_test.go
+M	internal/cli/hookclient.go
+M	internal/cli/hookoutput_contract_test.go
+M	internal/cli/hooks_test.go
+A	internal/cli/main_guard_test.go
+M	internal/cli/main_test.go
+M	internal/cli/qompack_commands.go
+M	internal/cli/segment_roll_live_test.go
+M	internal/cli/sessionstart.go
+M	internal/cli/sessionstart_compact_load_test.go
+M	internal/cli/sessionstart_deferred_test.go
+A	internal/cli/status_connect_test.go
+A	internal/cli/status_order_test.go
+A	internal/cli/status_probe_windows_test.go
+M	internal/cli/status_reason_test.go
+A	internal/cli/status_reason_w22_test.go
+M	internal/config/config.go
+M	internal/config/migration.go
+M	internal/config/migration_test.go
+M	internal/contract/assertion.go
+M	internal/contract/assertions.go
+M	internal/contract/history.go
+A	internal/contract/history_wenton_w22_test.go
+M	internal/contract/ids.go
+M	internal/contract/observation.go
+M	internal/contract/observation_test.go
+M	internal/contract/refresh_test.go
+A	internal/contract/session_start_compact_lapse_w22_test.go
+A	internal/contract/session_start_fires_w22_test.go
+A	internal/contract/session_start_restart_test.go
+M	internal/daemon/admin_shutdown_reply_test.go
+M	internal/daemon/borrowed_lease_test.go
+A	internal/daemon/checkpoint_replay_lapse_w22_test.go
+A	internal/daemon/checkpoint_spooled_duplicate_test.go
+M	internal/daemon/daemon.go
+M	internal/daemon/daemon_test.go
+M	internal/daemon/delivery_ack_durability_test.go
+M	internal/daemon/delivery_ack_groupcommit_test.go
+M	internal/daemon/delivery_lease_groupcommit_test.go
+M	internal/daemon/delivery_lease_test.go
+M	internal/daemon/delivery_order.go
+M	internal/daemon/delivery_order_lanes_test.go
+M	internal/daemon/delivery_order_live_test.go
+M	internal/daemon/delivery_path_v6_unix_test.go
+M	internal/daemon/delivery_publication_test.go
+M	internal/daemon/delivery_terminal_integration_test.go
+M	internal/daemon/drain.go
+M	internal/daemon/drain_control_line_test.go
+M	internal/daemon/drain_durable_test.go
+A	internal/daemon/drain_line_deadline_test.go
+M	internal/daemon/drain_live_wal_test.go
+A	internal/daemon/drain_memo_test.go
+A	internal/daemon/drain_pass_cost_test.go
+A	internal/daemon/drain_pass_progress_test.go
+M	internal/daemon/drain_prompt_capture_test.go
+M	internal/daemon/drain_reused_lease_test.go
+M	internal/daemon/drain_stale_progress_test.go
+M	internal/daemon/flush_arrival_order_test.go
+M	internal/daemon/flush_async_test.go
+M	internal/daemon/handlers.go
+M	internal/daemon/ingest_test.go
+M	internal/daemon/ingest_wal_groupcommit_test.go
+M	internal/daemon/observer_atomic_publication_test.go
+M	internal/daemon/observer_durable_publication_test.go
+M	internal/daemon/observer_publication_test.go
+M	internal/daemon/options.go
+A	internal/daemon/precompact_duplicate.go
+M	internal/daemon/precompact_settle_bound_test.go
+M	internal/daemon/precompact_settle_retry_test.go
+M	internal/daemon/precompact_settle_test.go
+M	internal/daemon/prompt_record_test.go
+M	internal/daemon/prompt_warning_delivery_test.go
+M	internal/daemon/publication_yield_test.go
+M	internal/daemon/registry.go
+M	internal/daemon/registry_test.go
+A	internal/daemon/rehydrate_hostpaths_r3_test.go
+A	internal/daemon/rehydrate_hostpaths_r4_test.go
+A	internal/daemon/rehydrate_hostpaths_r5_test.go
+M	internal/daemon/rehydrate_hostpaths_test.go
+A	internal/daemon/rehydrate_hostpaths_w22_test.go
+A	internal/daemon/rehydrate_hostpaths_w23_test.go
+M	internal/daemon/rehydrate_service.go
+M	internal/daemon/reload.go
+A	internal/daemon/reload_startup_test.go
+M	internal/daemon/scheduler_frontier.go
+M	internal/daemon/scheduler_runtime.go
+M	internal/daemon/scheduler_runtime_test.go
+M	internal/daemon/scheduler_state.go
+M	internal/daemon/scheduler_state_test.go
+M	internal/daemon/scheduler_tap.go
+A	internal/daemon/scheduler_tap_redelivery_test.go
+A	internal/daemon/session_abandon_revive_test.go
+M	internal/daemon/session_end_gc_test.go
+M	internal/daemon/session_start_bookkeeping_test.go
+M	internal/daemon/session_start_compact.go
+A	internal/daemon/session_start_compact_lapse_w22_test.go
+M	internal/daemon/session_start_compact_test.go
+A	internal/daemon/session_start_fires_w22_test.go
+M	internal/daemon/session_start_phases_test.go
+M	internal/daemon/session_start_replay_probe_test.go
+M	internal/daemon/session_start_replay_test.go
+M	internal/daemon/spawn.go
+M	internal/daemon/spawn_claim_release_test.go
+M	internal/daemon/spawn_lock_test.go
+A	internal/daemon/spawn_pollclock_test.go
+M	internal/daemon/spawn_stage_test.go
+M	internal/daemon/spool_watch.go
+A	internal/daemon/spool_watch_pass_progress_test.go
+M	internal/daemon/spool_watch_test.go
+M	internal/daemon/startup_accept_test.go
+M	internal/daemon/startup_daylog_test.go
+A	internal/daemon/status_order_test.go
+M	internal/eval/ledger.go
+M	internal/eval/liveaccount.go
+M	internal/eval/livetask.go
+M	internal/eval/livetrial.go
+A	internal/eval/order_internal_test.go
+A	internal/eval/order_test.go
+M	internal/eval/provenance.go
+A	internal/hostperm/patterns.go
+A	internal/hostperm/patterns_test.go
+M	internal/ipc/client_test.go
+M	internal/ipc/dial_other.go
+M	internal/ipc/probe_test.go
+M	internal/ipc/server_test.go
+M	internal/mcp/authorize.go
+A	internal/mcp/authorize_order_w22_test.go
+M	internal/negknow/bench_test.go
+M	internal/negknow/caller.go
+A	internal/negknow/export_test.go
+M	internal/negknow/fakestore_test.go
+M	internal/negknow/inherit_test.go
+M	internal/negknow/ledger.go
+A	internal/negknow/lineage_bench_test.go
+M	internal/negknow/staleness_test.go
+M	internal/observer/observer.go
+M	internal/observer/redelivery_test.go
+M	internal/observer/state.go
+M	internal/observer/stop.go
+M	internal/rehydrate/budget.go
+M	internal/rehydrate/budget_test.go
+M	internal/rehydrate/build.go
+A	internal/rehydrate/build_bench_test.go
+M	internal/rehydrate/fake_test.go
+M	internal/rehydrate/hostcap.go
+A	internal/rehydrate/hosted_root_w22_test.go
+M	internal/rehydrate/items.go
+A	internal/rehydrate/learned_index.go
+A	internal/rehydrate/learned_index_test.go
+A	internal/rehydrate/loss_notice_test.go
+A	internal/rehydrate/notice.go
+M	internal/rehydrate/pathgate.go
+M	internal/rehydrate/pointer_privacy_test.go
+M	internal/rehydrate/render.go
+A	internal/rehydrate/screen_memo_w22_test.go
+A	internal/rehydrate/summary_privacy_test.go
+A	internal/rehydrate/summary_screen_bestfit_windows_test.go
+A	internal/rehydrate/summary_screen_d63_audit_test.go
+A	internal/rehydrate/summary_screen_d63_r2_test.go
+A	internal/rehydrate/summary_screen_d63_r3_test.go
+A	internal/rehydrate/summary_screen_d63_test.go
+A	internal/rehydrate/summary_screen_d64_r3_test.go
+A	internal/rehydrate/summary_screen_d64_r4_test.go
+A	internal/rehydrate/summary_screen_d64_r5_test.go
+A	internal/rehydrate/summary_screen_d64_test.go
+A	internal/rehydrate/summary_screen_edges_r2_test.go
+A	internal/rehydrate/summary_screen_edges_r3_test.go
+A	internal/rehydrate/summary_screen_edges_test.go
+A	internal/rehydrate/summary_screen_test.go
+A	internal/rehydrate/summary_screen_w22_test.go
+A	internal/rehydrate/summary_screen_w23_test.go
+M	internal/rehydrate/types.go
+A	internal/store/junction_edges_windows_test.go
+M	internal/store/observation_guards_unix_test.go
+M	internal/store/provenance.go
+A	internal/store/provenance_order_w22_test.go
+M	internal/store/publication_audit.go
+M	internal/store/publication_snapshot_test.go
+A	internal/store/publication_testhook.go
+A	test/docs/closeout_c7_claims_test.go
+A	test/docs/closeout_c8_claims_test.go
+A	test/docs/closeout_c8_w22_claims_test.go
+A	test/docs/limit_routes_test.go
+M	test/e2e/daemon_e2e_test.go
+M	test/e2e/faultinject_test.go
+M	test/e2e/sessionstart_compact_test.go
+M	test/e2e/v5_x01_test.go
+M	test/e2e/v5_x10_test.go
+M	test/e2e/v5_x14_test.go
+M	test/fault/v6_fsck_test.go
+A	test/guards/releasebundles_test.go
+A	test/guards/releasenotes_test.go
+A	test/guards/releaserunner_test.go
+M	test/release/switches_test.go
+M	tools/devtool/cover.go
+M	tools/devtool/cover_test.go
+M	tools/devtool/genconfigdocs.go
+M	tools/devtool/genconfigdocs_test.go
+M	tools/devtool/releasechecksteps.go
+M	tools/devtool/stubskips.go
+M	tools/devtool/stubskips_test.go
+M	tools/devtool/test.go
+M	tools/devtool/test_test.go
