@@ -199,7 +199,7 @@ func HookEntryPoints() []HookEntryPoint {
 var commandSpecs = []CommandDoc{
 	{
 		Name:         "status",
-		Description:  "Qompack status — mode, contracts, store, latency, last decision",
+		Description:  "Qompack status — mode, contracts, store, latency",
 		ArgumentHint: "[--json]",
 		Subcommand:   "status",
 	},

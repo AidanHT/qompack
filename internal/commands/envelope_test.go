@@ -44,7 +44,7 @@ func TestSpecs_PinInstalledSurface(t *testing.T) {
 	want := []commands.Spec{
 		{
 			Name: "status", Subcommand: "status", ArgumentHint: "[--json]",
-			Summary: "Qompack status — mode, contracts, store, latency, last decision",
+			Summary: "Qompack status — mode, contracts, store, latency",
 		},
 		{
 			Name: "recall", Subcommand: "recall", ArgumentHint: "<query> [--k N]",
