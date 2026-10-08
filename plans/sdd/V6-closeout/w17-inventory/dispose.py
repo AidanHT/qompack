@@ -306,7 +306,10 @@ def c52_default(rid):
     assert rid in C52_COMMENT_ROWS, f"{rid}: a C5.2 row with no executed-files classification"
     return C52_COMMENT
 
-rows_out = [inv_hdr + ["c6_result", "c6_evidence", "c7_result", "c7_evidence"]]
+# Columns after the c7 pair (c8_result, c8_evidence, written by ../c6-final/dispose_c8.py) are kept as
+# they are, so re-running this script cannot drop a later candidate's dispositions.
+assert inv[0][7:11] in ([], ["c6_result", "c6_evidence", "c7_result", "c7_evidence"]), inv[0]
+rows_out = [inv_hdr + ["c6_result", "c6_evidence", "c7_result", "c7_evidence"] + inv[0][11:]]
 counts = Counter()
 counts7 = Counter()
 pending_rows = []
@@ -372,7 +375,7 @@ for r, m in zip(inv[1:], mp[1:]):
     counts[res] += 1
     res7, ev7 = c7_of(rid, r, res, ev)
     counts7[res7] += 1
-    rows_out.append(r[:7] + [res, ev, res7, ev7])
+    rows_out.append(r[:7] + [res, ev, res7, ev7] + r[11:])
 
 buf = io.StringIO()
 w = csv.writer(buf, delimiter="\t", lineterminator="\n", quoting=csv.QUOTE_MINIMAL)
