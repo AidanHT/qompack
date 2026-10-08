@@ -317,6 +317,21 @@ func seedGCCorpus(t *testing.T) *testProject {
 // host in one afternoon — against a judged pass whose first check fell at 68…86 ms, so the budget
 // sat at 9…56 ms: past the mark by 4x, short of the first check by 1.2x…9x. It is that top end
 // which fails under co-load, and gcResumeAttempts is what happens when it does.
+//
+// The mark it multiplies is the FASTEST of gcCalibrationPasses marks of the control store, not one,
+// for the reason gcCalibrationPasses gives: a mark can only be pushed slower than what the host
+// costs, never faster, and whatever slows one sample is multiplied by four into the budget. The
+// single sample this used to take was also the first mark of the test binary, over a tree the
+// seeding loop had only just written: five fresh windows/amd64 processes read it at 6.6…17.0 ms
+// against 2.7…5.9 ms for the four marks after it. ci.yml's `timing (windows-latest)` job, which
+// runs this test alone and not co-loaded, failed "a deadline that has already expired, over 700
+// objects, must truncate" in run 37746311073: the one sample outpriced the judged pass's last
+// check at object 512, so the sweep finished inside a budget that had never expired. The collector
+// was right — the same job's TestGC_DeadlineOvershootIsBoundedByTheCheckInterval stops a pass with
+// an already-spent deadline at object 255 before it measures anything. A 150 ms stall injected into
+// the first sample alone reproduced that failure three times in three on windows/amd64 (budgets
+// 636…732 ms, all 700 objects swept), and the fastest of four, stall included, landed all three at
+// the first check (budgets 11…18 ms).
 const gcResumeBudgetMultiple = 4
 
 // gcResumeAttempts is how many budgets TestGC_DeadlineTruncatesAndResumes may try — under
@@ -433,12 +448,20 @@ func TestGC_DeadlineTruncatesAndResumes(t *testing.T) {
 		"fixture sanity: the sweep must walk past at least one deadline check for truncation to be reachable")
 
 	// See gcResumeBudgetMultiple for why the budget is a multiple of a measured mark phase rather
-	// than a nanosecond or a fixed number.
-	markStart := time.Now()
-	_, _, _, markTruncated, merr := control.Store.mark(ctx, -1, -1, time.Time{})
-	require.NoError(t, merr)
-	require.False(t, markTruncated, "an unbounded mark must not truncate")
-	controlMark := time.Since(markStart)
+	// than a nanosecond or a fixed number, and why of the FASTEST of gcCalibrationPasses marks.
+	var controlMarks []time.Duration
+	var controlMark time.Duration
+	for i := range gcCalibrationPasses {
+		markStart := time.Now()
+		_, _, _, markTruncated, merr := control.Store.mark(ctx, -1, -1, time.Time{})
+		require.NoError(t, merr)
+		require.False(t, markTruncated, "an unbounded mark must not truncate")
+		d := time.Since(markStart)
+		controlMarks = append(controlMarks, d)
+		if i == 0 || d < controlMark {
+			controlMark = d
+		}
+	}
 	budget := gcResumeBudgetMultiple * controlMark
 
 	// The judged pass. A landing is a pass that reached the sweep, truncated, and did so at the
@@ -469,11 +492,14 @@ func TestGC_DeadlineTruncatesAndResumes(t *testing.T) {
 		})
 
 		if !underCoload {
+			priced := fmt.Sprintf("budget %v (%dx the fastest of control marks %v) → %v elapsed, %d of %d "+
+				"objects scanned, %d deleted", budget, gcResumeBudgetMultiple, controlMarks, elapsed,
+				rep.ScannedObjects, len(before), rep.DeletedObjects)
 			require.Positive(t, first.ScannedObjects,
 				"this pass must reach the sweep: a mark-phase truncation collects nothing and leaves no "+
-					"cursor, so every assertion below would be measuring the wrong phase")
+					"cursor, so every assertion below would be measuring the wrong phase; %s", priced)
 			require.True(t, first.Truncated,
-				"a deadline that has already expired, over %d objects, must truncate", len(before))
+				"a deadline that has already expired, over %d objects, must truncate; %s", len(before), priced)
 			landed = true
 			break
 		}
