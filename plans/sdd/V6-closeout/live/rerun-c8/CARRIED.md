@@ -105,7 +105,8 @@ hooks/hooks.json, commands/), `tools/devtool/bundle.go`, `internal/commands/`,
   candidate 8 by C4.9 (b) (`rerun-c8/C4.9/notes.txt`: one Loud line per daemon,
   config-violations.json, capture continued). Live on candidate 8 in this part: backup create,
   verify and restore exit 0 with the reader proof and integrity (incl. the seal check) passing, and
-  fsck of source and destination exit 0 (`rerun-c8/C4.9/cli/r8-r11`). The changed session and
+  fsck of source and destination exit 0 (`rerun-c8/C4.9/cli/`, records `r8-backup-create.*`, `r9-backup-verify.*`,
+  `r10-backup-restore.*` and `r11-fsck-json-*`). The changed session and
   command code ran live on candidate 8, on stores candidate 8 wrote:
   - UAT-06 (`rerun-c8/UAT-06/`): record_eliminated, already_tried (active, scope session) and
     /qompack:why across a resume, a fork and a parent restart, six compactions, every hook call a
@@ -196,6 +197,7 @@ hooks/hooks.json, commands/), `tools/devtool/bundle.go`, `internal/commands/`,
 - **Why it still holds:** the maintenance code is unchanged, and this part ran a restore smoke on
   candidate 8: backup create, verify and restore exit 0 (OpenedOK, 24 content roots and 23 tool
   refs proven, 0 tombstoned, integrity including the seal check passed), fsck of source and
-  destination exit 0 (`rerun-c8/C4.9/cli/r8-r11`). While a newer settingsVersion was in force, all
+  destination exit 0 (`rerun-c8/C4.9/cli/`, records `r8-backup-create.*`, `r9-backup-verify.*`,
+  `r10-backup-restore.*` and `r11-fsck-json-*`). While a newer settingsVersion was in force, all
   three refused with exit 1 and docs/backup.md's message (`rerun-c8/C4.9/cli/s1-post-*`,
   `s1-post-nodaemon-*`, `s2-post-*`). A post-new-write restore was not repeated on candidate 8.

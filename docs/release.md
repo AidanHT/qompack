@@ -4,14 +4,18 @@ How a release is cut, what each gate proves, what the release actually claims to
 it deliberately does not claim. Configuration keys are named but never described here —
 `docs/config-reference.md` is generated from the schema and owns every default.
 
-**Release status: 0.3.0, candidate 8, not released.** Release 0.3.0 is cut from release candidate
-8 (decision D58(e)), commit `3ec62ad2`, whose frozen bundles and evidence are recorded in
-`plans/sdd/V6-closeout/phase3/c8-CANDIDATE.md`. The release tags candidate 8 or a descendant whose
-changes reach no bundle, and the published `bin/` must equal candidate 8's frozen bundles. Its
-version commit is in: `internal/core.Version`, `plugin.json` and the bundles all say `0.3.0` (§1,
-step 1). Nothing is tagged or published until the candidate's verification, live and evaluation
-evidence is complete and every red in it is fixed or carries a recorded disposition (V6 close-out
-decision D33; the gates are Phases 3 to 7 of `plans/V6-CLOSEOUT-CHECKLIST.md`).
+**Release status: 0.3.0, released on 2026-10-08 from candidate 8.** Release 0.3.0 is cut from
+release candidate 8 (decision D58(e)), commit `3ec62ad2`, whose frozen bundles and evidence are
+recorded in `plans/sdd/V6-closeout/phase3/c8-CANDIDATE.md`. The tag `v0.3.0` is on `1a368a4b`, a
+descendant of candidate 8 whose changes reach no bundle, and every published `bin/` is
+byte-identical to candidate 8's frozen bundles (V6 close-out decisions D79 and D80,
+`plans/sdd/V6-closeout/phase3/c8/release-bin-compare.txt`). Its version commit is in:
+`internal/core.Version`, `plugin.json` and the bundles all say `0.3.0` (§1, step 1). Nothing was
+tagged or published until the candidate's verification, live and evaluation evidence was complete
+and every red in it was fixed or carried a recorded disposition (V6 close-out decision D33; the
+gates are Phases 3 to 7 of `plans/V6-CLOSEOUT-CHECKLIST.md`). `release.yml` run `37738581717`
+built and drafted the pre-release from the tag; the install from its marketplace was rehearsed and
+the release promoted (D80, [install §9](install.md#9-installing-from-the-public-marketplace)).
 
 Candidate 8 changes product code (among them the drain pass budget, the session registry, the
 checkpoint writer, the hook configuration path, the contract reading, the rehydration block and the
@@ -301,10 +305,9 @@ release ships; it is not a test result. The statuses are:
 | A delivery cut between its index record and its link is preserved and reported, not repaired; staged copies are removed by hand after uninstall; 8.3 short names and stream suffixes are outside the textual protected-path guard | accepted residual (ledger defaults) | [install §6](install.md#6-uninstalling-and-what-happens-to-your-data), [architecture §10](architecture.md#10-what-is-not-supported) |
 | Linux fsync-bound timing rows (B-A, B-B) | not verified in target (D53(b)) | README, "Supported environments" |
 | The Windows hot-path budgets (B-A, B-B) on battery power: the reference figures are taken on AC with the store under a Defender-excluded path, and on battery the hot path switches to spool submode with nothing lost | not verified in target (D53(c), D53(h), D57(d)) | README, "Supported environments" |
-| An installed Claude Code host on any target other than windows/amd64: Linux, macOS, windows/arm64 | not verified in target (C4.11, D34(c)) | §3's generated table |
-| The executable bit of `bin/qompack` after a marketplace install on Linux and macOS | not verified in target (C7.5) | [install §9](install.md#9-installing-from-the-public-marketplace) |
-| Installing from the published GitHub marketplace. The namespace under a release entry was observed on windows/amd64 through a local marketplace entry named `qompack-windows-amd64`: `plugin:qompack:qompack`, `mcp__plugin_qompack_qompack__<tool>` and `/qompack:<name>`, from `plugin.json`'s name (D59) | not verified in target (D53(h)) | [install §9](install.md#9-installing-from-the-public-marketplace) |
-| The tag-triggered release workflow | not verified in target | §7 below |
+| A Claude Code session on an installed host other than windows/amd64: Linux, macOS, windows/arm64. linux/amd64 was installed from the published marketplace at the release's install rehearsal, in a container with no model session, so no Linux session has run | not verified in target (C4.11, D34(c)) | §3's generated table, [install §9](install.md#9-installing-from-the-public-marketplace) |
+| The executable bit of `bin/qompack` after a marketplace install on macOS. On Linux it is kept: after the release's install rehearsal on linux/amd64, `bin/qompack` was `-rwxr-xr-x` and ran (C7.5) | not verified in target on macOS | [install §9](install.md#9-installing-from-the-public-marketplace) |
+| Installing from the published GitHub marketplace on macOS, windows/arm64 and linux/arm64. On windows/amd64 and linux/amd64 the release's install was rehearsed from its own `marketplace.json` with Claude Code 2.1.293, and the documented command then installed from develop; on windows/amd64 one real session loaded 0.3.0 through the entry. The namespace under a release entry, observed on windows/amd64: `plugin:qompack:qompack`, `mcp__plugin_qompack_qompack__<tool>` and `/qompack:<name>`, from `plugin.json`'s name (D59) | not verified in target on macOS and arm64 (D53(h)) | [install §9](install.md#9-installing-from-the-public-marketplace) |
 | Inventory rows no step can execute: the warm-versus-cold delta, the binary-size check, the launcher split, the frontier-toggle pair, the human half of UAT | not verified in target (D37(c)) | `plans/sdd/V6-closeout/inventory-map.md` |
 | The replay evaluation's recorded-corpus tier: no recorded corpus is committed and no test reads real transcripts, so C3.8 is judged on the replay gate | not verified in target (D67(g)) | `plans/V6-CLOSEOUT-CHECKLIST.md` |
 | Durability across a real power cut, and behaviour on a really full disk | not verified in target | [security §8](security.md#8-known-limitations) |
@@ -383,10 +386,12 @@ asserting.
   envelope has fidelity `unknown`, never `exact`.
 - **No universal performance or storage figure.** No number on any page of these docs claims a
   savings ratio or a latency that holds on your machine.
-- **No installed-host verification outside windows/amd64.** On windows/amd64 the generated table in
+- **No installed-host session outside windows/amd64.** On windows/amd64 the generated table in
   §3 reads SP-17's install records; the V6 close-out's live-lane records under
   `plans/sdd/V6-closeout/live/` are agent-executed (owner decision D3) and are not inputs to that
-  table.
+  table. linux/amd64 was installed from the published marketplace at the release's install
+  rehearsal, in a container with no model session, and kept `bin/qompack`'s executable bit (D80(c));
+  no Linux session with a model has run, and macOS and the arm64 targets were never installed.
 - **No secure erasure.** Deleting `.qompack/` deletes the store; it does not promise anything about
   backups, copies or snapshotting filesystems.
 - **No automatic downgrade.** See §5.
@@ -394,20 +399,25 @@ asserting.
   Windows Defender's machine-learning detection has flagged development builds of this tree as
   `Trojan:Win32/Bearfoos.A!ml` and `B!ml` and blocked or quarantined them (V6 close-out decision
   D32). An unsigned binary is more likely to be flagged, and a user can check one only against the
-  release's `checksums.txt` and its build-provenance attestation. Signing the Windows binaries
-  before a public release is open and unowned. What a user sees and does meanwhile is
+  release's `checksums.txt` and its build-provenance attestation. 0.3.0 was published unsigned;
+  signing the Windows binaries is open and unowned. What a user sees and does meanwhile is
   [troubleshooting §7](troubleshooting.md#windows-defender-flags-qompackexe).
 - **No network and no telemetry**, now or by configuration — `docs/security.md` §9.
-- **The release workflow is unverified in the available evidence.** The `dist: dist/goreleaser` split (so `--clean` cannot
-  delete `dist/bundle/**` or `dist/release-notes.md`) and the host-validation upload
-  (`--evidence dist/evidence/host-validation.json`, `if-no-files-found: error`) are YAML shape
-  only. The tag-triggered draft and host-validation upload remain unverified here: `release.yml` has
-  never run. The other workflows have run on candidate 8's commit: `ci.yml` run `37562946379`
+- **The release workflow has one run, 0.3.0's.** `release.yml` run `37738581717` on the tag
+  `v0.3.0` (`1a368a4b`) passed: its `release-check`, the host-validation upload
+  (`--evidence dist/evidence/host-validation.json`, `if-no-files-found: error`; artifact
+  `host-validation-evidence`), the release notes and goreleaser, whose `dist: dist/goreleaser`
+  split kept `dist/bundle/**` and `dist/release-notes.md` through `--clean`. It drafted the
+  pre-release with the six zips, `checksums.txt`, `marketplace.json`, `LICENSE` and
+  `THIRD_PARTY_NOTICES.md`, and every published `bin/` is byte-identical to candidate 8's frozen
+  bundles (D80, `plans/sdd/V6-closeout/phase3/c8/release-bin-compare.txt`). One run is the whole
+  claim: a later tag runs the workflow again on the runner images of its day (next bullet). Before
+  the tag, the other workflows ran on candidate 8's commit: `ci.yml` run `37562946379`
   concluded success, two of its jobs on a re-run of the failed jobs (D75(c) dispositions the first
   attempt's two reds), `release-dry-run` passed and its release-version bundles were
   byte-identical to candidate 8's frozen ones, and the nightly run `37562945914` passed (README,
   "Supported environments"). `release-dry-run` runs the same `release-check` the release workflow
-  runs, so its result on candidate 8 is the nearest evidence for this path. Earlier candidates'
+  runs. Earlier candidates'
   runs are history: on candidate 6, `ci.yml` run `36955046276` failed `release-dry-run` on X11 on
   the hosted fsync tail, after which the job declares `QOMPACK_NONREFERENCE_DISK` (D57(a)), and on
   candidate 7, `ci.yml` run `36981590450` passed `release-dry-run` (D58(a)).

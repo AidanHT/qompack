@@ -9,8 +9,9 @@ answers it. A cell whose claim was not met says `NOT MET:` with its reason and t
 dispositioned it. D33's release condition (a frozen candidate, complete evidence, every red fixed or
 dispositioned) and D66's exit rule were judged met by D79 on D75-D78. One red found after the release,
 on `develop` code identical to the tag's, has no ledger disposition yet (TestGC_DeadlineTruncatesAndResumes,
-section 10). One cell stays open: the independent final review of this report (C6.4, section 9), which a
-non-authoring seat performs; its first round returned needs-fixes, and this revision answers it.
+section 10). The independent final review of this report (C6.4, section 9) ran two rounds, both
+needs-fixes; every finding is resolved in `plans/sdd/V6-closeout/c6-final-review.md` except that red's ledger row, which
+is the coordinator's, so C6.4 stays unticked until the row exists.
 
 `plans/V6-report.md` (the 2026-09-20 BLOCKED checkpoint) stays immutable. This report records the
 close-out that followed it. The working ledger is `plans/V6-CLOSEOUT-CHECKLIST.md` (decisions D1-D80,
@@ -235,7 +236,7 @@ in full on candidate 8, all eight chunks (D62(b), D75(b), D78(a)).
 | SP17-M7, SP18-M7, UAT-01-12 on the shipped package | NOT MET in full: UAT-02, -04, -05 run 2, -06, -07, -08, -11 and UAT-12 steps 1-5 and 8 ran on the frozen bundle, whose `bin/` the release ships (D76, D80). UAT-01, -03, -09, -10, UAT-05 run 1 and UAT-12's upgrade leg were not re-run on candidate 8; they carry candidate 7's pass by diff, with notes naming the changed files (D53(f), D59, D76(f); `docs/uat.md`, `live/rerun-c8/CARRIED.md`). 1.17.10, 1.17.14 and the F-5 rows 1.18.x are `partial_verified` (section 4). D79 accepted the release on that evidence |
 | M0-M6 enabled capabilities with target evidence | Met: the enabled adapter `runtime.migration.reinjection.sessionStartCompact` is `verified_in_target` (live round trip C4.3 and kill switches C4.7 on candidate 8); delivery-journal rollover ships enabled with SP20-D4's evidence test green; the gated switches are recorded `experimental` or `unsupported`, never passed (`inventory-c8-map.md`, "SP-19, SP-20 and SP-21 switches") |
 | Old/new readers, backup, cutover, rollback rehearsed | Met by rehearsal, with the upgrade carried: release-check's rollback rehearsal step passed on candidate 8 (`phase3/c8/release-check.json`); a C1.7 restore smoke (backup create, verify, restore, fsck of source and destination, all exit 0) ran on candidate 8, and the post-new-write restore carries from candidate 7 with its note (`live/rerun-c8/CARRIED.md`, "C1.7"; D53(f)); C1.7's full run passed on candidate 4 |
-| No hidden mandatory privacy, fidelity, recovery or regression blocker | Met: the five V6-report blockers are closed (section 7); the live re-check's audit found no blocker or major (D76); known issues 3, 15, 16 and 19 are disclosed residuals; C5.5 quoted verbatim: "inconclusive — interval [-0.214, 0.214] straddles -0.200", with no H2 regression (constraint-clean +0.050) (D77, section 8) |
+| No hidden mandatory privacy, fidelity, recovery or regression blocker | Met, except the unclassified TestGC_DeadlineTruncatesAndResumes red (section 10), pending its ledger row: the five V6-report blockers are closed (section 7); the live re-check's audit found no blocker or major (D76); known issues 3, 15, 16 and 19 are disclosed residuals; C5.5 quoted verbatim: "inconclusive — interval [-0.214, 0.214] straddles -0.200", with no H2 regression (constraint-clean +0.050) (D77, section 8) |
 
 ## 5. Cross-component integration identifiers (V6 plan section 3)
 
@@ -276,7 +277,7 @@ Hosted CI, every run the ledger records:
 | ci.yml `36905843834` | `07a748cb` (integration `ae601390`) | Reds classified to 16d/16e |
 | nightly `36955043924`, ci.yml `36955046276` | candidate 6 | Nightly green; two reds disposed (D57(a), D57(b)) |
 | nightly `36981711009`, ci.yml `36981590450` | candidate 7 | Nightly green; one Windows test-timing red (D58(b)) |
-| ci.yml `37361841760` | integration `2a2e8f6c` | Four reds, one fixture cause (D68) |
+| ci.yml `37361841760` | integration `2a2e8f6c` | Five red jobs (test on all three OSes, release-dry-run, cover), one fixture cause (D68) |
 | ci.yml `37365986864` attempts 1 and 2 | integration `77374c3c` | Runner loss, unacquired jobs, then three test-only reds (D69, D70(b)) |
 | ci.yml `37409857403`, nightly `37409848444` | freeze 1 `424f0d08` | Green on all three OSes (D70); superseded with freeze 1 |
 | ci.yml `37533889761` | integration `275165e9` | Two test-only reds (D73) |
@@ -359,7 +360,8 @@ as confirmatory (D77).
   (`eval/runs/c55-c8/summary.json`, `mean_store_bytes`).
 - Daemon RSS and CPU were not re-measured on candidate 8; candidate 7's figures stand (D58(e)).
 
-**Quiet benchmarks.** C5.1 on candidate 8, Windows on AC (`phase3/c8/quiet/c51-win.log`): B-A p99
+**Quiet benchmarks.** C5.1 on candidate 8, Windows on AC (`phase3/c8/quiet/c51-win.log`, and
+`c51-win-bf.log` for B-F): B-A p99
 16.4 ms and B-B 11.3 ms against 50 ms, B-E p99 166.8 ms against 2000 ms, B-F p99 73.7 ms against 250 ms,
 all PASS. The Linux quiet run (c51-linux) is report-only, and its records were not committed (D53(b),
 `phase3/c8-CANDIDATE.md`). C5.2 on candidate 8: all eight chunks, ten ABBA rounds against `cf31e01`
@@ -383,7 +385,7 @@ never become constants (Q1).
 | Live re-check C4.x and UAT (`mkrecheck8.py`, about 8 sessions plus D60(f)'s rows) | Passed (D76): `wf_090ea750-b1e`, 20 real sessions of a 25-session budget on the frozen bundle (`live/rerun-c8/`): UAT-05 run 2; UAT-12 sessions A and B with C4.6; UAT-06 with C4.5; status after a mid-session compaction (F-C48-1, `live/rerun-c8/F-C48-1/`); C4.9 settingsVersion leg; the rehydrate privacy and notice rows under a deny rule (UAT-12); two status reads with two sessions in the store (C4.5, `live/rerun-c8/C4.5/uat06/`); C1.6's resilience part. The audit returned 5 minors and 4 nits, no blocker or major; known issues 17 and 18 (D76(b), D76(c)) |
 | C5.5 | Executed: "inconclusive — interval [-0.214, 0.214] straddles -0.200"; allows the release under A8 item 1 (D77) |
 | C6.2 inventory dispositions | Done: `c8_result` and `c8_evidence` for all 304 rows (`36dc82e4`, `inventory-c8-map.md`) |
-| C6.4 independent final review | [OWED: the non-authoring re-review of this revision. Round 1 returned needs-fixes (1 major, 5 minors, 1 nit); this revision answers each, and the major's ledger row is the coordinator's (section 10)] |
+| C6.4 independent final review | Performed by non-authoring seats in two rounds, each finding with its resolution and commit in `plans/sdd/V6-closeout/c6-final-review.md`. Round 1: needs-fixes (1 major, 5 minors, 1 nit). Round 2: needs-fixes (2 majors, 2 minors, 3 nits). Every finding is resolved except the TestGC_DeadlineTruncatesAndResumes red's ledger row (both rounds' major), which is the coordinator's; C6.4 stays unticked until it exists (section 10) |
 | Pre-release, HTTPS install rehearsal, bin/ byte comparison (D53(h)) | Done (D80): published `bin/` byte-identical to `qompack-bundles/c8` (`phase3/c8/release-bin-compare.txt`); HTTPS install rehearsed with Claude Code 2.1.293 on Linux (container, no model, `bin/qompack` kept `-rwxr-xr-x`) and on Windows (isolated profile, then the real profile at local scope, where one session loaded 0.3.0, connected its MCP server, listed six commands and ran four hook events); then promoted. This rehearsal's record is ledger row D80 and `docs/install.md` section 9; no session files of it are committed |
 
 ## 10. Regression preservation, skips, failures and waivers
@@ -753,8 +755,9 @@ every red is dispositioned.
 What remains:
 - **The TestGC_DeadlineTruncatesAndResumes red** of ci.yml `37746311073`: its ledger row and, if the
   ruling makes it test-only, its entry in `w22-known-issues.md`'s test-only residuals (section 10).
-- **C6.4**: the independent re-review of this revision by a non-authoring seat (section 9). The
-  report's sign-off as the V6 close-out record waits for it.
+- **C6.4**: the independent review's two rounds are recorded in `plans/sdd/V6-closeout/c6-final-review.md` (section 9).
+  The report's sign-off as the V6 close-out record waits on the TestGC ledger row above, the one
+  finding this report cannot resolve.
 - **NOT MET parts, dispositioned and disclosed:** the Linux fsync-bound halves (D53(b), D75(a)); the
   installed upgrade, UAT-01, -03, -09, -10, UAT-05 run 1 and UAT-12's upgrade leg carried from
   candidate 7 (D53(f), D59, D76(f)); macOS, arm64 and Linux model sessions `unknown` (C4.11, D34(c),

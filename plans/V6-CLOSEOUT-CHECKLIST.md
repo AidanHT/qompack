@@ -387,7 +387,7 @@ Found by the packaging workstream's real-host sessions (evidence on `closeout/pa
 
 ## Phase 6 — Documentation, inventory and the report
 
-- [x] **C6.1** *(D76(f), D78(e), D80(a), D80(b): docs corrected from candidate 8's evidence (f06ed994, 65b506b3, 7fbb8a40), and in the C6.4 review round CHANGELOG.md's install sentence and the release notes' namespace paragraph, to D80; release-check's generated docs PASS (`sdd/V6-closeout/phase3/c8/release-check.json`))* Docs match evidence: README status, `docs/release.md` scope table, install, UAT
+- [x] **C6.1** *(D76(f), D78(e), D80(a), D80(b): docs corrected from candidate 8's evidence (f06ed994, 65b506b3, 7fbb8a40), and in the C6.4 review's first round CHANGELOG.md's install sentence and the release notes' namespace paragraph, and in its second round README.md's status and installed-host rows and `docs/release.md`'s release status, capability rows and section 7, to D80 and release.yml 37738581717; release-check's generated docs PASS (`sdd/V6-closeout/phase3/c8/release-check.json`))* Docs match evidence: README status, `docs/release.md` scope table, install, UAT
       results, cannot-do/upstream-issues, troubleshooting; generated docs regenerated if code moved.
 - [x] **C6.2** *(candidate 8, 36dc82e4, with 1.17.18 and section 3.10 corrected to partial_verified in the C6.4 review round: 275 verified_in_target, 16 partial_verified, 7 unknown, 3 unsupported, 3 documented; section 3: 9, 4 and 1; `sdd/V6-closeout/inventory-c8-map.md`)* `inventory-current.tsv`: every one of the 304 rows re-dispositioned from this
       candidate's evidence (`verified_in_target` only with an executed artifact); the 14 §3
