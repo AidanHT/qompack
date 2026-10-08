@@ -514,6 +514,78 @@ func TestExtractSurvivesStoreReadFailure(t *testing.T) {
 		"one more failure per unreadable root per pass; the dangling edge adds none")
 }
 
+// TestExtractEliminationEdgeIsNotAReadError is D76(d): on a healthy store, an elimination node —
+// built by dag.BuildElimination, the producer negknow uses, so it carries no content root — gets
+// an elimination--explains-->decision edge from emitDecisions on the first extraction. Every later
+// pass walks that edge in source (a). The edge is source (b)'s own, and reading the elimination's
+// empty root is not a read failure, so checkpoint.decision_read_error stays at 0 and the
+// decision set does not change.
+func TestExtractEliminationEdgeIsNotAReadError(t *testing.T) {
+	src := newDecisionSource(t)
+	ctx := context.Background()
+
+	reg := obs.New(testutil.NewFakeClock(testutil.Epoch))
+	checkpoint.SetObservers(logging.Nop(), reg)
+	t.Cleanup(func() { checkpoint.SetObservers(nil, nil) })
+
+	ev := putText(t, src, "pgbouncer log: pool_timeout ignored in transaction mode")
+	id, err := src.Ledger.Record(ctx, negknow.Record{
+		Target: "src/auth.ts:refreshToken", Approach: "widen pool timeout",
+		Reason: "pgbouncer 1.18 ignores it in transaction mode", Evidence: ev,
+	})
+	require.NoError(t, err)
+	require.NoError(t, dag.BuildElimination(src.Graph, dag.EliminationSpec{RecordID: id, Turn: 9}))
+	elim, ok := src.Graph.Node(dag.EliminationNode(id))
+	require.True(t, ok)
+	require.True(t, elim.Root.IsZero(), "the producer leaves an elimination node's root empty")
+
+	first, err := checkpoint.ExtractDecisions(ctx, src, 0)
+	require.NoError(t, err)
+	require.Len(t, first, 1)
+	out := src.Graph.Out(dag.EliminationNode(id))
+	require.Len(t, out, 1, "the first pass draws the elimination's explains edge")
+	require.Equal(t, dag.EdgeExplains, out[0].Kind)
+
+	second, err := checkpoint.ExtractDecisions(ctx, src, 0)
+	require.NoError(t, err)
+	require.Equal(t, first, second)
+	require.Equal(t, int64(0), reg.Counter("checkpoint.decision_read_error").Value(),
+		"walking the elimination's own explains edge is by design, not a read failure")
+}
+
+// TestExtractReadErrorStillCountsBesideEliminations is the other half of D76(d): the skip is
+// exactly an elimination node with an empty root. An explaining node of any other kind with an
+// empty root, and an elimination node whose root names content the store does not hold, are real
+// read failures and still count, once each.
+func TestExtractReadErrorStillCountsBesideEliminations(t *testing.T) {
+	src := newDecisionSource(t)
+	ctx := context.Background()
+
+	reg := obs.New(testutil.NewFakeClock(testutil.Epoch))
+	checkpoint.SetObservers(logging.Nop(), reg)
+	t.Cleanup(func() { checkpoint.SetObservers(nil, nil) })
+
+	// An assistant node with no content root explaining a file.
+	a := dag.AssistantNode(4)
+	f := dag.FileNode("src/auth.ts")
+	addNode(t, src.Graph, dag.Node{ID: a, Kind: dag.KindAssistant, Turn: 4})
+	addNode(t, src.Graph, dag.Node{ID: f, Kind: dag.KindFile, Turn: 4, Ref: "src/auth.ts"})
+	addEdge(t, src.Graph, dag.Edge{From: a, To: f, Kind: dag.EdgeExplains, Weight: 1, Turn: 4})
+
+	// An elimination node whose root is set but absent from the store, explaining a file.
+	e := dag.EliminationNode("elim_absentroot")
+	g := dag.FileNode("src/pool.ts")
+	addNode(t, src.Graph, dag.Node{ID: e, Kind: dag.KindElimination, Turn: 5, Ref: "src/pool.ts", Root: core.Hash{0xAB}})
+	addNode(t, src.Graph, dag.Node{ID: g, Kind: dag.KindFile, Turn: 5, Ref: "src/pool.ts"})
+	addEdge(t, src.Graph, dag.Edge{From: e, To: g, Kind: dag.EdgeExplains, Weight: 1, Turn: 5})
+
+	got, err := checkpoint.ExtractDecisions(ctx, src, 0)
+	require.NoError(t, err)
+	require.Empty(t, got)
+	require.Equal(t, int64(2), reg.Counter("checkpoint.decision_read_error").Value(),
+		"each unreadable explaining node counts once; only an elimination's empty root is skipped")
+}
+
 // TestExtractDecisionTargetAndRuneCaps covers the tgt.Kind == KindDecision branch of what — the
 // first sentence of the TARGET's text — and both §9 rune caps, at rune boundaries, proven with
 // multi-byte runes.

@@ -1,5 +1,5 @@
 ---
-description: Qompack status — mode, contracts, store, latency, last decision
+description: Qompack status — mode, contracts, store, latency
 argument-hint: "[--json]"
 allowed-tools: Bash(qompack status:*)
 ---
