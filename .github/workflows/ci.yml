@@ -189,15 +189,22 @@ jobs:
           set +e -u
           # -timeout is per test binary, and devtool's wholeTreeTestTimeout (30m) is sized for ONE
           # pass of the whole tree. -count=2 runs every test of a binary twice inside that one
-          # budget, so the Windows leg gets two passes' worth: 2 x 30m = 60m (owner ruling D55).
-          # Measured: internal/daemon was killed at 1800 s in run 36816905394's windows test job
-          # under -count=2; alone at -count=2 on a loaded local Windows host it took 527 s with no
-          # hang (plans/sdd/V6-closeout/w16-ci/runs/fix-daemon-count2-windows.log), so the kill is
-          # attributed to whole-tree co-load on the two-core runner. A hosted-only hang is not yet
-          # excluded: a real hang is still killed, and the reconciliation below names the tests it
-          # left unfinished (c697ed1e). The other legs make one pass and keep 30m.
+          # budget, so the Windows leg needs two passes' worth, each with the headroom a slow hosted
+          # runner takes: 2 x 2 x 30m = 120m (D70(b)). It is a hang guard, not a product budget.
+          # Measured: internal/daemon was killed at 1800 s in run 36816905394 (D55, which set 60m)
+          # and again at 3600 s in run 37365986864 attempt 2, still progressing both times: the
+          # second dump showed the second pass's parallel tests parked in t.Parallel behind a
+          # serial walk that had reached publication_startup_test.go. Locally, at the job's
+          # GOMAXPROCS=2 and -parallel 2, the package's two passes take 978 to 1078 s with no hang,
+          # and that runner was 4.2 to 4.7 times slower, which puts its two passes at about 5070 s
+          # (85 minutes); 120m is 1.4 times that. The pass count stays: -count=2 is the Windows
+          # leg's repeat-run coverage, the order-dependence and leaked-state check V1's DoD 6 set
+          # for Windows in place of the -race the other legs run, and one pass would also not fit
+          # 30m on that runner (about 2530 s). A real hang is still killed, and the reconciliation
+          # below names the tests it left unfinished (c697ed1e). The other legs make one pass and
+          # keep 30m.
           if [ "$RUNNER_OS" = "Windows" ]; then
-            flags='-count=2'; timeout='60m'
+            flags='-count=2'; timeout='120m'
           else
             flags='-race'; timeout='30m'
           fi
@@ -245,9 +252,46 @@ jobs:
             done < failed-rows.txt
             while read -r pkg; do
               [ -n "$pkg" ] || continue
-              echo "--- package-level output of $pkg ---"
+              # Every output line of the package, its tests' included, in the order the binary
+              # wrote them; and the package-level lines alone.
+              grep "\"Package\":\"$pkg\"" test.json | grep '"Action":"output"' \
+                | sed -n 's/.*"Output":"\(.*\)"}$/\1/p' > pkg-output.txt
               grep "\"Package\":\"$pkg\"" test.json | grep -v '"Test":"' | grep '"Action":"output"' \
-                | sed -n 's/.*"Output":"\(.*\)"}$/\1/p' | tail -n 40
+                | sed -n 's/.*"Output":"\(.*\)"}$/\1/p' > pkg-level.txt
+              # Head AND tail: a crash dump's cause is its FIRST line and the tail is goroutine
+              # stacks, so a tail alone keeps the stacks and loses the cause (D75(c): candidate 8's
+              # attempt-1 windows leg crashed internal/daemon at 1185 s and the job kept no line
+              # that said why).
+              n=$(wc -l < pkg-level.txt | tr -d ' ')
+              echo "--- package-level output of $pkg ($n lines) ---"
+              if [ "$n" -gt 80 ]; then
+                head -n 40 pkg-level.txt
+                echo "... $((n - 80)) lines omitted ..."
+                tail -n 40 pkg-level.txt
+              else
+                cat pkg-level.txt
+              fi
+              # test2json hands a crash's lines to whichever test it last saw start, so the cause of a
+              # panic, a runtime fatal error, a -timeout kill or a Windows exception is usually inside
+              # a TEST's output, thousands of goroutine-dump lines above its end. A Windows exception
+              # the runtime does not turn into a panic (winthrow, runtime/signal_windows.go) prints
+              # "Exception 0x<code> ..." and "PC=" and then the traceback, with no "panic:" or
+              # "fatal error:" line at all. Each block is printed from a few lines before its first
+              # line (a fatal error's "runtime:" preamble) to well after it (the panic value,
+              # "running tests:", the first goroutine). -m bounds a package whose passing tests print
+              # the words; grep exits 1 when nothing matched, which is fine.
+              echo "--- crash blocks in $pkg's output (panic, fatal error, timeout, Windows exception) ---"
+              grep -n -m 5 -B 5 -A 30 -E '^(panic: |fatal error: |Exception 0x)|test timed out after ' pkg-output.txt
+              # A build failure's compiler errors are not the package's output at all: go test -json
+              # reports them as build-output events keyed by ImportPath, and the package's fail event
+              # names that ImportPath in FailedBuild.
+              fb=$(grep "\"Package\":\"$pkg\"" test.json | grep '"Action":"fail"' | grep -v '"Test":"' \
+                | sed -n 's/.*"FailedBuild":"\([^"]*\)".*/\1/p' | head -n 1)
+              if [ -n "$fb" ]; then
+                echo "--- build output of $fb ---"
+                grep -F "\"ImportPath\":\"$fb\"" test.json | grep '"Action":"build-output"' \
+                  | sed -n 's/.*"Output":"\(.*\)"}$/\1/p' | head -n 80
+              fi
               # A binary killed at -timeout, or one that panicked, leaves the tests it was running
               # with a "run" event and no verdict, and the panic and goroutine dump are THEIR output,
               # which the package-level lines above leave out: run 36816905394's windows-latest leg
@@ -267,6 +311,19 @@ jobs:
             done < failed-pkgs.txt
           fi
           exit "$rc"
+      # The run's raw evidence, kept when the step above fails: the log keeps only the excerpts the
+      # reconciliation chose, and a crash, a timeout or a row whose cause is not in its last lines
+      # needs the whole event stream to diagnose (D75(c)). One artifact per runner, named for it.
+      - name: upload the whole-tree test JSON
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-json-${{ matrix.os }}
+          path: |
+            test.json
+            failed-rows.txt
+            failed-pkgs.txt
+          retention-days: 7
 
   test-e2e:
     # test/e2e alone on its own runner, and without -race: see the `test` job for why it is out
