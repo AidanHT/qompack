@@ -4,9 +4,24 @@ How a release is cut, what each gate proves, what the release actually claims to
 it deliberately does not claim. Configuration keys are named but never described here —
 `docs/config-reference.md` is generated from the schema and owns every default.
 
-**Release status: 0.3.0, released on 2026-10-08 from candidate 8.** Release 0.3.0 is cut from
-release candidate 8 (decision D58(e)), commit `3ec62ad2`, whose frozen bundles and evidence are
-recorded in `plans/sdd/V6-closeout/phase3/c8-CANDIDATE.md`. The tag `v0.3.0` is on `1a368a4b`, a
+**Release status: 0.3.1, a patch release on 0.3.0** (V6 close-out decisions D81 and D82). Its
+product code is 0.3.0's (the tag `v0.3.0`, `1a368a4b`) plus five fix branches, `fix/v031-spoolid`,
+`fix/v031-status`, `fix/v031-flakes`, `fix/v031-ci` and `fix/v031-settle`. They fix 0.3.0's known
+issues 17, 19 and 20 and the `checkpoint.decision_read_error` count (D76(d)), and change tests and
+CI without loosening a check (D81(c)(5)). Its version commit is in: `internal/core.Version` and
+`plugin.json` say `0.3.1` (§1, step 1). Its release gate is decision D81(c)(8): hosted `ci.yml` and
+`nightly.yml` on the merged branches, the Linux `-race` run on the touched packages, the C1.16 rig
+under D78's co-load condition with 0 missing Reads and 0 `LOUD.log` spool drops,
+`release-check --tag v0.3.1` on the reference host on AC power, and the install from the published
+marketplace on Windows and Linux. [Its release notes](release-notes/v0.3.1.md) carry the evidence
+from before the tag, and on the tag push `release-check` fails while they still say it is to come
+(§1, step 2). 0.3.1 changes the status of no row in the
+[capability table](#capability-status-at-030); one row's residual is narrower, as the row says. The
+rest of this status describes 0.3.0.
+
+**0.3.0, released on 2026-10-08 from candidate 8.** Release 0.3.0 is cut from release candidate 8
+(decision D58(e)), commit `3ec62ad2`, whose frozen bundles and evidence are recorded in
+`plans/sdd/V6-closeout/phase3/c8-CANDIDATE.md`. The tag `v0.3.0` is on `1a368a4b`, a
 descendant of candidate 8 whose changes reach no bundle, and every published `bin/` is
 byte-identical to candidate 8's frozen bundles (V6 close-out decisions D79 and D80,
 `plans/sdd/V6-closeout/phase3/c8/release-bin-compare.txt`). Its version commit is in:
@@ -289,7 +304,7 @@ release ships; it is not a test result. The statuses are:
 | Automatic downgrade of the store format | not shipped | §5 below |
 | A rotation pauses capture 2.3 to 6.8 s every 65,536 deliveries; store GC halts past 65,536 carried unacknowledged leases | accepted residual (D6, D16) | [cannot-do §4](cannot-do.md#a-rotation-pauses-capture-and-the-carried-leases-have-two-hard-bounds) |
 | A compaction found at session-start's borrow limit, or a daemon spawned late, can get the client's "no answer" note and be spooled and replayed | accepted residual (D29) | [cannot-do §4](cannot-do.md#a-compaction-at-the-edge-of-session-starts-budget-can-get-the-deferred-note) |
-| A prompt captured out of host order (the live-versus-spool race, hook pid reuse) is flagged, never renumbered; a microsecond window between the staged copy's verification and its launch | accepted residual (D35(b), D38) | [cannot-do §4](cannot-do.md#the-first-captured-prompt-is-not-always-the-first-prompt-the-host-sent) |
+| A prompt captured out of host order (the live-versus-spool race, and hook pid reuse, which from 0.3.1 arises only from a spool file a 0.3.0 hook left) is flagged, never renumbered; a microsecond window between the staged copy's verification and its launch | accepted residual (D35(b), D38) | [cannot-do §4](cannot-do.md#the-first-captured-prompt-is-not-always-the-first-prompt-the-host-sent) |
 | A `SessionEnd` that arrives while the daemon is stopping waits in the spool for the next session | accepted residual (D35(c)) | [cannot-do §4](cannot-do.md#a-sessions-end-can-wait-for-the-next-session-when-the-daemon-is-stopping) |
 | Spool submode does not switch back within a session | accepted residual (D44) | [cannot-do §4](cannot-do.md#spool-submode-lasts-until-the-session-or-the-daemon-ends) |
 | A retrieval page beside interleaved redacted regions can be shorter than the largest that fits | accepted residual (D48) | [cannot-do §4](cannot-do.md#a-page-near-redacted-text-can-be-shorter-than-it-could-be) |
@@ -410,16 +425,17 @@ asserting.
   signing the Windows binaries is open and unowned. What a user sees and does meanwhile is
   [troubleshooting §7](troubleshooting.md#windows-defender-flags-qompackexe).
 - **No network and no telemetry**, now or by configuration — `docs/security.md` §9.
-- **The release workflow has one run, 0.3.0's.** `release.yml` run `37738581717` on the tag
+- **The release workflow's first run was 0.3.0's.** `release.yml` run `37738581717` on the tag
   `v0.3.0` (`1a368a4b`) passed: its `release-check`, the host-validation upload
   (`--evidence dist/evidence/host-validation.json`, `if-no-files-found: error`; artifact
   `host-validation-evidence`), the release notes and goreleaser, whose `dist: dist/goreleaser`
   split kept `dist/bundle/**` and `dist/release-notes.md` through `--clean`. It drafted the
   pre-release with the six zips, `checksums.txt`, `marketplace.json`, `LICENSE` and
   `THIRD_PARTY_NOTICES.md`, and every published `bin/` is byte-identical to candidate 8's frozen
-  bundles (D80, `plans/sdd/V6-closeout/phase3/c8/release-bin-compare.txt`). One run is the whole
-  claim: a later tag runs the workflow again on the runner images of its day (next bullet). Before
-  the tag, the other workflows ran on candidate 8's commit: `ci.yml` run `37562946379`
+  bundles (D80, `plans/sdd/V6-closeout/phase3/c8/release-bin-compare.txt`). That run is 0.3.0's
+  whole claim: each later tag, 0.3.1's among them, runs the workflow again on the runner images of
+  its day (next bullet). Before the tag, the other workflows ran on candidate 8's commit: `ci.yml`
+  run `37562946379`
   concluded success, two of its jobs on a re-run of the failed jobs (D75(c) dispositions the first
   attempt's two reds), `release-dry-run` passed and its release-version bundles were
   byte-identical to candidate 8's frozen ones, and the nightly run `37562945914` passed (README,

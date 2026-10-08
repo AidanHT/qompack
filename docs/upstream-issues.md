@@ -42,7 +42,7 @@ prepared for them here:
 |---|---|---|
 | A rotation's capture pause, and the halt of store GC past the carried-lease bound | D6, D16 | none: product-side |
 | A compaction at the edge of session-start's budget gets the deferred note | D29 | none prepared |
-| A prompt captured out of host order (live-versus-spool race, hook pid reuse) | D35(b), D38 | none: product-side |
+| A prompt captured out of host order (live-versus-spool race, and hook pid reuse, which from 0.3.1 arises only from a spool file a 0.3.0 hook left) | D35(b), D38 | none: product-side |
 | A `SessionEnd` that arrives while the daemon is stopping waits for the next session | D35(c) | partly: plugin `SessionEnd` hooks share one 1.5 s host budget; no proposal prepared |
 | Spool submode does not switch back within a session | D44 | none: product-side |
 | A page beside interleaved redacted regions is shorter than it could be | D48 | none: product-side |
