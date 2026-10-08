@@ -31,7 +31,8 @@ candidate 7, with a carry note of the same kind, and keep the earlier outcomes a
 (UAT-10 was not re-run on candidate 4, and its candidate 4 line says so). UAT-02, UAT-07, UAT-08
 and UAT-11 were not run on candidate 7, so their history lines are candidate 4's and candidate 3's.
 No human has run these scenarios, automated package and installation tests have separate evidence
-and do not fill these blocks, and no release has been published.
+and do not fill these blocks. Release 0.3.0 was published on 2026-10-08 from candidate 8's
+bundles (V6 close-out decisions D79 and D80).
 
 What the commands, slash commands and MCP tools *are* is [docs/user-guide.md](user-guide.md); what
 each observation does and does not license you to conclude is
@@ -163,9 +164,9 @@ build does not support is disabled, and can be seen to be disabled.
   version into the binary, `plugin.json` and `BUNDLE.json` alike, and strips the source tree's
   `plugin/` prefix so the manifest sits at the bundle's root. The source tree's own
   `plugin/.claude-plugin/plugin.json` reads `0.3.0` from the release's version commit on (it read
-  `0.1.0` before it, as the Result below records), and the repository's last git tag, `v0.2.0`,
-  was never a release; record all three as they stand
-  ([README.md](../README.md#status-release-candidate)).
+  `0.1.0` before it, as the Result below records), and the tag `v0.2.0` was never a release (the
+  first release is `v0.3.0`); record all three as they stand
+  ([README.md](../README.md#status-released)).
 - Step 5's hook list is the seven events `plugin/hooks/hooks.json` declares — `PostToolUse`,
   `PreCompact`, `SessionEnd`, `SessionStart`, `Stop`, `SubagentStop`, `UserPromptSubmit` — each
   invoking `${CLAUDE_PLUGIN_ROOT}/bin/qompack` with its own subcommand and timeout (read from that
@@ -545,7 +546,7 @@ Result: pass — the round trip and the incomplete-outcome probe both meet the r
   publication audit fsck runs is unchanged for a pass without a snapshot. internal/store/backup.go,
   maintenance.go and internal/cli/backup.go are unchanged, and on candidate 8 backup create, verify
   and restore passed their reader proof and integrity checks with the seal check, and fsck of source
-  and destination exited 0 (rerun-c8/C4.9/cli/r8-r11); fsck --json and --seal-check exited 0 after
+  and destination exited 0 (rerun-c8/C4.9/cli/, records r8 to r11); fsck --json and --seal-check exited 0 after
   the default idle exit in UAT-04, and C4.5's paired status, doctor and fsck --json reads agreed.
   The restart re-read and the corrupted-checkpoint probe were not repeated on candidate 8, evidence
   plans/sdd/V6-closeout/live/rerun-c7/UAT-03/
