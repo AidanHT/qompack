@@ -1,0 +1,15 @@
+# release v0.3.0 draft assets (release.yml run 37738581717) against qompack-bundles/c8
+DIFF checksums.txt release=23d4d279a893daf559efc84cb7c8ea7e3b75aa43e2fa2e666924bc2ae713182f frozen=bd2184b6b0973c792d93ca5d8b0f9a1b83f4440565703034b737e76c2262953b
+DIFF qompack-plugin-0.3.0-darwin-amd64.zip release=56608b3673344036745f9893e03e35d51085e5510f87078108823181f6eb9f55 frozen=b23c8306bcb19ec00f2e9133ac3a9afdba527588b051e2eb52dd04471835f971
+DIFF qompack-plugin-0.3.0-darwin-arm64.zip release=433657d458649f4e3daa38b57b955e3aa32a513a542a4b5b7df357aaeb23189d frozen=c2c343e7da13079dbd2ae6e2b419a379265b159f71e76f40429ccf96fb37024e
+DIFF qompack-plugin-0.3.0-linux-amd64.zip release=84e2ad0314a5151c3c6ce50855fd29c6e6be5343ef1d39ad5424f38b0766971c frozen=6ef0f7839be0659c0c5e2404d7cfce28ce2238a8d87768edf3a601bdc8095230
+DIFF qompack-plugin-0.3.0-linux-arm64.zip release=b0b8a65cb17aa94d64a28771e678e2e1292706beadd4376a066c5f0790899fe4 frozen=14fb2516baa724d31736f185df4f5051cf2e9fa2a4e75978222a6f7af6b08304
+DIFF qompack-plugin-0.3.0-windows-amd64.zip release=51bf78f686ca88a316fa997937f6917cdcb4d7c6a2f81cfdd902d3e4cb765e59 frozen=6d73de4129bfccfd03883c649e1cd3bddd90c45904556dc8b4717dcf72303ea0
+DIFF qompack-plugin-0.3.0-windows-arm64.zip release=6309982d1a02f466e3d81f9ad9615980ebe361eb4747b9561b6b24dec8f0bd0b frozen=7a8fb2e6d6005be8e6323ba8617b67b3d551ae30f8814873026ed72379f01432
+bin identical qompack-plugin-0.3.0-darwin-amd64/bin/qompack 891ebc25138701511c43aa1aeb098f70d5c5581fba8d7868d5f178eb70b5ff7c
+bin identical qompack-plugin-0.3.0-darwin-arm64/bin/qompack 49ee0d66572b80beae85a0c2dc2f39035dce4aa1a15726ab5d40cdc3f200a55a
+bin identical qompack-plugin-0.3.0-linux-amd64/bin/qompack e5db0447730b0a4f21233cb041b0a1e09bcda3df03c78e8e24f607df8baf9b65
+bin identical qompack-plugin-0.3.0-linux-arm64/bin/qompack 40963fae06275b81e29d4e1f6086e448820e2060b9bdaf94f203a85bf4953245
+bin identical qompack-plugin-0.3.0-windows-amd64/bin/qompack.exe 93eb09f348774fbf2783bd607a3af41622976b2edad42798b437091eace381a9
+bin identical qompack-plugin-0.3.0-windows-arm64/bin/qompack.exe 64061660b9d8371995888db9b6f29ee18947a57f5b7834aa6a0aa3d78e9be24f
+# extracted trees: 78 files identical; only each target's BUNDLE.json differs, in source.commit (1a368a4b, the tag commit, against 3ec62ad2)

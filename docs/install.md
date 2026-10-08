@@ -295,15 +295,11 @@ may work perfectly — nobody has measured it, and this page will not pretend ot
 
 ## 9. Installing from the public marketplace
 
-**Status: nothing is published yet.** The marketplace below is generated and validated
-(`claude plugin validate --strict --json` accepted it on 2.1.280, 2026-09-22), but no release
-carrying it has been published, so installing through it has **not been rehearsed**. Until 0.3.0
-is published the commands below have nothing to fetch: there is no release asset, and develop has
-no `.claude-plugin/marketplace.json` yet, so install from a local directory (§3) meanwhile. 0.3.0
-is published as a pre-release first; while it is one, only form (c) below, pinned to `v0.3.0`,
-reaches it, and forms (a) and (b) work once it is promoted to a full release and the marketplace
-pull request is merged ([release §1](release.md#1-procedure), step 7). Everything in this section
-is recorded from the host docs and from that validation.
+**Status: published, and rehearsed.** 0.3.0 is published on GitHub with this marketplace as a
+release asset, and develop carries it as `.claude-plugin/marketplace.json` (merged by the release's
+marketplace pull request). The install below was rehearsed from the 0.3.0 release with Claude Code
+2.1.293 on 2026-10-08: on Windows in an isolated profile and in a real session at local scope, and
+on Linux in a container with no model session (V6 close-out decision D80).
 
 **What it is.** One marketplace, `qompack`, with six entries — one per release target — each an
 `archive` source: a zip on the GitHub Release, pinned by sha256.
@@ -323,32 +319,33 @@ the same seven hooks and the same MCP server twice. Archive sources need **Claud
 later** ("Requires Claude Code v2.1.224 or later"); older versions refuse the entry or fail to load
 the marketplace.
 
-Add the marketplace in **one** of three ways; they differ in what `marketplace update` later does.
+Add the marketplace from the repository, then install your machine's entry:
 
 ```sh
-# (a) the repository — tracks develop, once the post-publish pull request has put
-#     .claude-plugin/marketplace.json there. Over HTTPS: the owner/repo shorthand clones over SSH.
-claude plugin marketplace add https://github.com/AidanHT/qompack.git
-# (b) the latest release's asset — tracks the newest published, non-pre-release
-claude plugin marketplace add https://github.com/AidanHT/qompack/releases/latest/download/marketplace.json
-# (c) one release's asset, pre-releases included — pinned to that release, never updates
-claude plugin marketplace add https://github.com/AidanHT/qompack/releases/download/vX.Y.Z/marketplace.json
-
+claude plugin marketplace add --sparse .claude-plugin -- https://github.com/AidanHT/qompack.git
 claude plugin install qompack-linux-amd64@qompack -s user
 ```
+
+**Use `--sparse .claude-plugin`.** The host clones the marketplace's repository, and this one holds
+the project's full verification record. On Windows a full clone fails: the host clones into a
+temporary directory under `~/.claude/plugins/marketplaces/`, and the repository's longest paths
+then pass Windows' 260-character limit (`Filename too long`, `Clone succeeded, but checkout
+failed`) unless git's `core.longpaths` is on. `--sparse .claude-plugin` checks out only the
+marketplace file and the repository root, so it works on every platform and is much faster. The
+`--` ends `--sparse`'s list of paths. The marketplace tracks develop: `claude plugin marketplace
+update qompack` fetches develop's newest pinned release.
 
 **SSH and the shorthand.** `claude plugin marketplace add AidanHT/qompack` works too, but "GitHub
 `owner/repo` shorthand sources clone over SSH by default; set `CLAUDE_CODE_PLUGIN_PREFER_HTTPS=1`
 to clone them over HTTPS instead" (plugin-marketplaces, fetched 2026-09-22). Without a GitHub SSH
-key it fails even though the repository is public; the `https://…/qompack.git` form in (a) avoids
-that.
+key it fails even though the repository is public; the `https://…/qompack.git` form avoids that.
+Pass `--sparse .claude-plugin` with either form.
 
-**Redirects.** Both release-asset URLs are redirects. GitHub answers (b) with a `302` to the newest
-release's `/releases/download/<tag>/marketplace.json`, and every asset URL, (c) included, with a
-`302` to `release-assets.githubusercontent.com` (probed with `curl -I` against a public repository
-on 2026-09-22; this repository has no release yet). The host docs spell out redirect rules for
-archive downloads — "Every redirect hop must satisfy the same rules" — but not for a marketplace
-URL, and neither form has been added on a real host, so (b) and (c) stand or fall together.
+**A release's `marketplace.json` asset cannot be added by URL.** Claude Code treats every
+`github.com` URL as a git repository: `claude plugin marketplace add
+https://github.com/AidanHT/qompack/releases/download/v0.3.0/marketplace.json` tries to clone
+`…/marketplace.json.git/` and fails with `repository not found` (observed on 2.1.293). The asset
+is still published, as a record of the release's pins.
 
 The entry name is what the host keys the install by: "When a marketplace entry lists the plugin
 under a different name, the marketplace entry name is what `enabledPlugins` keys and `/plugin`
@@ -399,23 +396,18 @@ claude plugin marketplace update qompack
 claude plugin update qompack-linux-amd64@qompack -s user
 ```
 
-`marketplace update` "refresh[es] marketplaces from their sources": it fetches the same URL or
-branch the marketplace was added from. With (a) that is develop's newest pinned release, with (b)
-the newest published release. With (c) it is the same release every time, because a release's
-asset never changes, so those two commands never move you on. To leave a pinned release, run
-`claude plugin marketplace remove qompack` (which, per the host docs, also uninstalls the plugins
-installed from it; your `.qompack/` data is not in the plugin cache, §6), add the marketplace again
-by (a) or (b), and install the entry again. None of this has been rehearsed.
+`marketplace update` "refresh[es] marketplaces from their sources": it fetches develop again, and
+with it develop's newest pinned release. To remove the marketplace, run `claude plugin marketplace
+remove qompack` (which, per the host docs, also uninstalls the plugins installed from it; your
+`.qompack/` data is not in the plugin cache, §6).
 
-**Still unverified: the executable bit on Linux and macOS.** The zip records `bin/qompack` as
-0755. Claude Code 2.1.269's changelog fixed "plugin archives extracted for a session ... keeping
-world-writable bits from the archive", which implies the session extractor (`--plugin-dir <zip>`,
-`--plugin-url`) reads recorded modes; whether the marketplace install path does the same has not
-been observed. It needs a published pre-release installed on a Linux or macOS host (owner
-action). If a hook reports `permission denied` there, `claude plugin list --json` gives the
-`installPath`, and `chmod +x <installPath>/bin/qompack` is the workaround until it is confirmed.
-`qompack doctor` run with `CLAUDE_PLUGIN_ROOT=<installPath>` reports this case on its own
-`version.pluginRoot` row: `degraded`, "set but the binary is not executable".
+**The executable bit: kept on Linux, unverified on macOS.** The zip records `bin/qompack` as 0755.
+Installed from the 0.3.0 release's `qompack-linux-amd64` entry with Claude Code 2.1.293, the
+installed `bin/qompack` kept mode `-rwxr-xr-x` and ran (D80). No macOS host has installed it. If a
+hook reports `permission denied` on macOS, `claude plugin list --json` gives the `installPath`, and
+`chmod +x <installPath>/bin/qompack` is the workaround. `qompack doctor` run with
+`CLAUDE_PLUGIN_ROOT=<installPath>` reports this case on its own `version.pluginRoot` row:
+`degraded`, "set but the binary is not executable".
 
 ## 10. Unsigned binaries: Gatekeeper, SmartScreen and Defender
 
