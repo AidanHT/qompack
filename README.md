@@ -19,14 +19,13 @@ evict anything from the native context, and performs no network I/O of any kind.
 
 ## Status: release candidate
 
-Qompack has not been released. Release **0.3.0** (V6 close-out decision D1) is being cut from
-release candidate 8 (decision D58(e)), whose commit and frozen bundles are recorded in
-`plans/sdd/V6-closeout/phase3/c8-CANDIDATE.md` when it is frozen. The release tags candidate 8, or a
-descendant whose changes reach no bundle. Its six per-target bundles are stamped `0.3.0` at
-link time by `devtool bundle --version 0.3.0`, so an installed bundle reports `0.3.0` from
-`qompack version`, its `plugin.json` and its `BUNDLE.json` alike. Nothing has been tagged,
-published or listed in a marketplace; [docs/release.md](docs/release.md#1-procedure) §1 is the
-procedure, and each of its outward steps waits for the candidate's evidence to be complete.
+Qompack has not been released. Release **0.3.0** (V6 close-out decision D1) is cut from release
+candidate 8 (decision D58(e)), commit `3ec62ad2`, whose frozen bundles and evidence are recorded in
+`plans/sdd/V6-closeout/phase3/c8-CANDIDATE.md`. The release tags candidate 8, or a descendant whose
+changes reach no bundle. Its six per-target bundles are stamped `0.3.0` at link time by
+`devtool bundle --version 0.3.0`, so an installed bundle reports `0.3.0` from `qompack version`,
+its `plugin.json` and its `BUNDLE.json` alike. Nothing has been tagged, published or listed in a
+marketplace; [docs/release.md](docs/release.md#1-procedure) §1 is the procedure.
 
 The source tree declares the same version: `internal/core.Version` and
 `plugin/.claude-plugin/plugin.json` read `0.3.0` from the release's own version commit on (release
@@ -53,10 +52,11 @@ slash commands. It runs on your machine only.
   checkpoint records the cache state as `unknown`
   ([docs/cannot-do.md](docs/cannot-do.md#no-inference-of-cache-state-from-arbitrary-elapsed-time)).
 - **It makes no claim that it improves recovery after a compaction, task success or constraint
-  retention.** The release's pre-registered live evaluation can show that Qompack does not make work
-  after a compaction worse; a claim of improvement would need that outcome's 95 % lower bound above
-  zero (`plans/sdd/V6-closeout/eval/preregistration.md`, amendment A8). No page of these docs makes
-  such a claim.
+  retention.** The release's pre-registered live evaluation is designed to test whether Qompack
+  makes work after a compaction worse; this release's run did not settle that question (its verdict
+  is inconclusive, see below). A claim of improvement would need that outcome's 95 % lower bound
+  above zero (`plans/sdd/V6-closeout/eval/preregistration.md`, amendment A8). No page of these docs
+  makes such a claim.
 - **It makes no performance or storage promise** on your machine
   ([docs/cannot-do.md §4](docs/cannot-do.md#4-guarantees-qompack-does-not-make)), and its binaries
   are not code-signed
@@ -90,34 +90,43 @@ disagree):
 fsync-bound timing rows are reported, not gated (owner decision Q1), while every structural check in
 those rows still gates.
 
-**What is verified where, and for which candidate.** Candidate 8 is candidate 7 (`d20309c0`) plus
-product fixes, with their tests, among them the drain pass budget, the session registry, the
-checkpoint writer, the hook configuration path, the contract reading, the rehydration block and the
-command client (decisions D58(e), D60(f), D61). Its binaries are therefore new: no byte comparison
-carries earlier candidates' machine evidence to it, as candidate 7's one-byte comparison with
-candidate 6 did (D57(c)). The table below records what candidates 6 and 7 established. Candidate 8's
-own evidence is still owed and is recorded in `plans/sdd/V6-closeout/phase3/c8-CANDIDATE.md` as it
-arrives: its night chain on the frozen tree (the AC-gated Windows timing and X11, the Windows and
-Linux `-race` lanes, two reproducible bundle builds, the quiet C5.1 run and `release-check --tag`),
-the C5.2 night, which re-measures every benchmark in full against `cf31e01` in package chunks that
-may span more than one night (D62(b), D65(b)), the C1.16 rig re-measure on that night, whose figure
-[docs/architecture.md](docs/architecture.md#7-checkpoint-and-rehydration) then restates (D62(c),
-D65(a)), hosted `ci.yml` and `nightly.yml` on it, with the hosted release-version bundles compared
-byte for byte with its frozen ones, its short live re-check (D59, D60(f)), and the pre-registered
-live evaluation, C5.5, which runs on its frozen bundles (D58(e)). Candidate 7's live lane ran: 20
-real sessions, 19 of them on its frozen bundles (D59). Its rows carry to candidate 8 by the diff,
-which the owed live re-check is to confirm, and its host-seen hook timings stay candidate 7's
-(D58(e)).
+**What is verified where, and for which candidate.** Candidate 8 (`3ec62ad2`) is candidate 7
+(`d20309c0`) plus product fixes, with their tests, among them the drain pass budget, the session
+registry, the checkpoint writer, the hook configuration path, the contract reading, the rehydration
+block and the command client (decisions D58(e), D60(f), D61). Its binaries are therefore new: no
+byte comparison carries earlier candidates' machine evidence to it. The table below records
+candidate 8's own evidence, from `plans/sdd/V6-closeout/phase3/c8-CANDIDATE.md` and decisions D75,
+D76 and D77. Its night chain on the frozen tree ran 19 steps, every one on AC power: 16 passed,
+among them the Windows timing set and X11, the Windows and Linux `-race` lanes, two reproducible
+bundle builds, the quiet C5.1 run on Windows and `release-check --tag v0.3.0` (all 18 of its steps
+`PASS`, none skipped). The other three were Linux container timing steps: two failed only their
+fsync-bound rows, and the quiet C5.1 run there is reported only (the Linux row below). The C5.2
+night re-measures every benchmark in full against `cf31e01` in package chunks that may span more
+than one night (D62(b), D65(b)). Six of its eight chunks ran complete on candidate 8's night: no row
+is slower than the base with significance except negknow's `BenchmarkOpen` on Windows (1.16x, inside
+its 300 ms budget and off the hot path) and symbols' `BenchmarkEnclosing_100KB` (1.011x), both
+recorded and not acted on (D75(b)). The Linux checkpoint and other chunks and the C1.16 rig
+re-measure, whose figure [docs/architecture.md](docs/architecture.md#7-checkpoint-and-rehydration)
+restates (D62(c), D65(a)), were measured on the C5.2 night of 2026-10-07/08: both Linux chunks
+passed, with `BenchmarkFinalize` 1.32x and negknow `BenchmarkOpen` 1.34x on the container, each
+inside its budget as decision D54 recorded (D78(a)); and the rig's compact answer under same-session
+ingest was the rehydration every time, at p99 143 ms with no extra load and 417 ms under its
+in-process fsync and CPU co-load (D78(e)). The short live re-check ran 20 real sessions on the
+frozen bundle, and every scenario passed (D76). The pre-registered live evaluation, C5.5, ran on the
+frozen bundle, and its decision reads "inconclusive — interval [-0.214, 0.214] straddles -0.200"
+(D77). At this sample size that is the expected verdict, by design, and it is not evidence that
+Qompack adds nothing (amendment A8, item 3). The [release notes](docs/release-notes/v0.3.0.md) give
+its figures.
 
 | Where | What the evidence shows |
 |---|---|
-| Hosted CI, ubuntu-latest (x86-64) and macos-latest (macOS 26, arm64) | On candidate 6, `ci.yml` run `36955046276`: `test`, `test-e2e`, `timing` and `bench-gate` passed on both, as did `verify`, `lint-windows`, `cover`, `crossbuild`, `replay-gate`, `plugin-validate`, `security`, `docs`, and Windows' `test-e2e`, `timing` and `bench-gate`. Two jobs failed, and each has a recorded disposition. `release-dry-run` failed only X11, inside `release-check`, on the hosted runner's fsync tail (B-B p99 49 ms against 15 with p50 0.58 ms) after the same package had passed in its test step; that job, like the other hosted timing jobs, now declares `QOMPACK_NONREFERENCE_DISK` (D57(a)). `test (windows-latest)` failed on a read-order race in `test/fault`'s own audit, fixed in the test (D57(b)). The nightly run `36955043924` on candidate 6 passed all 31 jobs: the Windows race lane, the product-child race lane, the recorded replay, `bench-deep` on three OSes and 25 fuzz targets. On candidate 7 (D58(a)), `ci.yml` run `36981590450` passed every job but `test (windows-latest)`, including `release-dry-run` and `lint-windows`; that red was a wall-clock margin in a spool-watcher test on a loaded runner, and the test now drives its retry horizon on an injected clock (D58(b)). Its hosted release-version bundles were byte-identical to candidate 7's frozen ones (every `bin/`, every zip and `checksums.txt`), and the nightly run `36981711009` passed all 31 jobs. Neither workflow has run on candidate 8 yet. |
-| Windows, the reference host | Candidate 6's quiet hot-path run (C5.1, `plans/sdd/V6-closeout/phase3/c6/quiet/`, on AC power) passed: B-A p99 30.7 ms and B-B p99 24.6 ms against 50, B-E p99 170.8 ms against 2,000 (B-E_cpu p99 31.3 ms), and B-F p99 73.7 ms against 250 over 2,000 tool uses (n=200). The whole tree passed under `-race`, as did the isolated wall-clock rows in `internal/store`, `internal/negknow`, `internal/mcp`, `internal/daemon` and `test/integration`. X11 (`TestV3_HotPathUnchangedWithLedgerResident`, the hot path over a project holding 2,000 tool uses and 40 MB of tool output, with and without a 5,000-entry elimination ledger) passed 3 of 3 rounds on candidate 6's tree on AC, run alone after five idle minutes with no power transition, alongside the bare harness and `TestIntegration_HotPathWarmWithRealResidentState`, each 3 of 3 with nothing deferred (n=2,064 per run): both X11 legs read B-A p99 36.9 ms and B-B p99 22.5 to 24.6 ms against 50, and the ledger left the daemon-observed hook p50 unchanged (5.1 ms in both legs, ceiling 6.4 ms) (`plans/sdd/V6-closeout/phase3/c6/x11-e1/summary.txt`). Every strict X11 failure at normal priority since decision D41 ran with the laptop on battery, including candidate 6's isolated X11 runs inside `test/e2e` and alone: on battery Windows applies slower CPU, PCIe and NVMe power policies, so a battery run is not a reference measurement, neither a pass nor a fail (D57(d)). On battery the hot path switches to spool submode as designed and nothing is lost (D53(c)). Windows reference timings are taken on AC with the store under a path excluded from Windows Defender scanning (decisions D32, D53(h)). |
-| Linux | In the local Docker Desktop/WSL2 container, as a non-root user, the whole tree, `test/e2e` and the product-child lane passed under `-race` on candidate 6. The fsync-bound rows, B-A and B-B, are **not verified in target** (D53(b)): the container's fsync is about 40 times slower than a hosted ubuntu runner's at the median, its quiet run failed B-A and B-B because their p99s could not be certified (3,591 of 5,130 hot-path requests were deferred to the client spool, 0 lost; the delivered samples alone read B-A p99 65.5 ms and B-B p99 61.4 ms against 15, which are lower bounds, `plans/sdd/V6-closeout/phase3/c6/quiet/c51-linux/c51-linux.log`) while B-E passed, and hosted runner figures never become constants (Q1). The Linux budget stays 15 ms. In the container the daemon degrades as designed: hooks switch to spool submode and nothing is lost ([docs/troubleshooting.md §7](docs/troubleshooting.md#7-daemon-problems)). |
-| Installed in Claude Code | windows/amd64 only: the live lanes on candidates 3, 4 and 7 installed those candidates' frozen bundles into Claude Code 2.1.280 and ran sessions there, run by an agent on the owner's machine (decision D3: agent-executed, never human UAT). No other target has been installed into Claude Code. |
+| Hosted CI, ubuntu-latest (x86-64), macos-latest (macOS 26, arm64) and windows-latest | On candidate 8, `ci.yml` run `37562946379` concluded success: every job passed, `test (macos-latest)` and `test (windows-latest)` on its second attempt, a re-run of the failed jobs on the same commit (D75(c)). Attempt 1's two reds each have a recorded disposition. `test (macos-latest)` failed a fixture-sanity count in `TestPreCompactSettle_ReplaysAgainOnceALiveCopyAheadOfItPublishes`, a test defect: the fixture does not wait for the live worker to own the delivery, and when the settle's replay owns it the product publishes both Reads in order and drops nothing. `test (windows-latest)` ended `internal/daemon`'s `-count=2` binary at 1,185 s with a runtime crash dump whose first lines the job's summary does not keep; its cause is undetermined, it did not recur, and the Windows and Linux `-race` trees passed on the same tree. `release-dry-run` passed, and its release-version bundles were byte-identical to candidate 8's frozen ones in both directions: all 91 files, every `bin/`, the six zips and `checksums.txt` (`plans/sdd/V6-closeout/phase3/c8/hosted-release-bundles.txt`, D53(h)(4)). The nightly run `37562945914` passed. |
+| Windows, the reference host | Candidate 8's quiet hot-path run (C5.1, `plans/sdd/V6-closeout/phase3/c8/quiet/`, on AC power) passed: B-A p99 16.4 ms and B-B p99 11.3 ms against 50, B-E p99 166.8 ms against 2,000 (B-E_cpu p99 46.9 ms), and B-F p99 73.7 ms against 250 over 2,000 tool uses (n=200). The whole tree passed under `-race`, as did the isolated wall-clock rows in `internal/store`, `internal/negknow`, `internal/mcp`, `internal/daemon`, `test/integration` and `test/e2e`. X11 (`TestV3_HotPathUnchangedWithLedgerResident`, the hot path over a project holding 2,000 tool uses and 41 MB of tool output, with and without a 5,000-entry elimination ledger) passed when run alone on AC (`plans/sdd/V6-closeout/phase3/c8-CANDIDATE.md`, D75). A run on battery is not a reference measurement, neither a pass nor a fail, because on battery Windows applies slower CPU, PCIe and NVMe power policies (D57(d)). On battery the hot path switches to spool submode as designed and nothing is lost (D53(c)). Windows reference timings are taken on AC with the store under a path excluded from Windows Defender scanning (decisions D32, D53(h)). |
+| Linux | In the local Docker Desktop/WSL2 container, as a non-root user, the whole tree, `test/e2e` and the product-child lane passed under `-race` on candidate 8. The fsync-bound rows, B-A and B-B, are **not verified in target** (D53(b)): on candidate 8's night the container's two hot-path tests, `TestIntegration_HotPathWarmWithRealResidentState` and X11, failed B-A and B-B alone against 15 ms, with 592 and 590 deliveries deferred to the client spool and 0 lost, while every other row of both timing steps passed; its quiet C5.1 run is reported only, for the same reason (D75(a)). Hosted runner figures never become constants (Q1), and the Linux budget stays 15 ms. In the container the daemon degrades as designed: hooks switch to spool submode and nothing is lost ([docs/troubleshooting.md §7](docs/troubleshooting.md#7-daemon-problems)). |
+| Installed in Claude Code | windows/amd64 only. Candidate 8's frozen bundle was loaded into Claude Code 2.1.280 through `--plugin-dir` for its live re-check, 20 real sessions in which every scenario passed and 650 hook calls drew no host-reported failure or timeout (D76, D53(i)), and for the Qompack arm of its live evaluation (D77). The live lanes on candidates 3, 4 and 7 installed those candidates' bundles. All of these were run by an agent on the owner's machine (decision D3: agent-executed, never human UAT). No other target has been installed into Claude Code. |
 | macOS | The test suites run natively on hosted macos-latest (arm64), above. No Mac has installed the plugin into Claude Code, and darwin/amd64 is cross-compiled only. Whether the marketplace install keeps `bin/qompack` executable, and what Gatekeeper does with the unsigned binary, have not been observed. |
 | linux/arm64 and windows/arm64 | Cross-compiled and bundled; no test has run on either architecture and neither has been installed. |
-| Every target's bundle | Candidate 6's six bundles were built twice, byte-identical across all 91 files, and accepted by `claude plugin validate` (2.1.280) where they sit, which is a manifest check and not an install. Candidate 7's bundles differed from candidate 6's by one unreferenced byte, plus darwin/arm64's signature hash (D57(c)). Candidate 8's bundles are built and host-validated at its freeze, and its night builds them twice for the reproducibility check; that record is owed. |
+| Every target's bundle | Candidate 8's six bundles were built at its freeze, and the windows/amd64 bundle was accepted by `claude plugin validate --strict --json` (2.1.280) where it sits, which is a manifest check and not an install (`plans/sdd/V6-closeout/phase3/c8/host-validate.txt`). Its night built the six bundles twice more, byte-identical across all 91 files (`plans/sdd/V6-closeout/phase3/c8/bundle-diff.txt` is empty), and the hosted release-version bundles equal the frozen ones byte for byte (above). |
 
 The generated scope table in [docs/release.md](docs/release.md#3-supported-scope) §3 is the
 release's per-target claim, raised only by committed records, and

@@ -5,14 +5,14 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.3.0] - 2026-10-08
 
 The release 0.3.0 entry (V6 close-out decision D1). It summarises the user-visible changes since
 `v0.2.0`, an internal verification tag that was never released, so this is the first release
-published from this repository. Release candidate: release candidate 8 (decision D58(e)), whose
-commit and frozen bundles are recorded in `plans/sdd/V6-closeout/phase3/c8-CANDIDATE.md` when it is
-frozen; the release tags candidate 8 or a descendant whose changes reach no bundle. At the release
-this heading becomes the version and its date (`docs/release.md` §1, step 2).
+published from this repository. Release candidate: release candidate 8 (decision D58(e)), commit
+`3ec62ad2`, whose frozen bundles and evidence are recorded in
+`plans/sdd/V6-closeout/phase3/c8-CANDIDATE.md`; the release tags candidate 8 or a descendant whose
+changes reach no bundle.
 
 ### Added
 
@@ -243,25 +243,27 @@ Fixed in release candidate 8's last waves (D67, D68, D71, D72):
 - **No claim of benefit.** No document, release note or description claims that Qompack improves
   recovery after a compaction, task success or constraint retention
   (`plans/sdd/V6-closeout/eval/preregistration.md`, amendment A8).
-- **Verified where the evidence says, and nowhere else.** Installed into Claude Code on
-  windows/amd64 only, by the live lanes on candidates 3, 4 and 7. Linux fsync-bound timing rows
-  (B-A, B-B) are not verified in target (D53(b)); in the Linux container the whole tree, `test/e2e`
-  and the product-child lane pass under `-race`. On Windows, candidate 6's quiet hot-path run passed
-  on AC (B-A p99 30.7 ms, B-B p99 24.6 ms against 50), and X11, the hot path with and without a
-  resident elimination ledger, passed 3 of 3 rounds on AC (B-A p99 36.9 ms, B-B p99 at most 24.6 ms
-  against 50, nothing deferred). Runs taken on battery are not reference measurements (D57(d)); on
-  battery the hot path switches to spool submode and nothing is lost (D53(c)). Windows reference
-  timings were taken on AC with the store under a path excluded from Windows Defender scanning
-  (decisions D32, D53(h)). Those figures are candidate 6's. Candidate 8 changes product code, so no
-  byte comparison carries them to it: candidate 8's own night chain, its C5.2 night with the C1.16
-  re-measure (D62(b), D62(c), D65), hosted `ci.yml` and `nightly.yml`, live re-check and C5.5
-  supply the release's evidence, and they are owed (`docs/release.md`, release status). The
-  executable bit after a marketplace install on Linux and macOS has not been observed, nor has an
-  install from the published marketplace. Under an entry
-  named `qompack-windows-amd64`, installed from a local marketplace on candidate 7, a session listed
-  the server `plugin:qompack:qompack`, the tools `mcp__plugin_qompack_qompack__<tool>` and the
-  commands `/qompack:<name>`: the namespace comes from `plugin.json`'s name, not from the entry's
-  (D59; `docs/install.md` §9).
+- **Verified where the evidence says, and nowhere else.** Loaded into Claude Code on windows/amd64
+  only: candidate 8's frozen bundle by its live re-check, 20 real sessions in which every scenario
+  passed (D76), and by its live evaluation (D77), and earlier candidates' bundles by the live lanes
+  on candidates 3, 4 and 7. Linux fsync-bound timing rows (B-A, B-B) are not verified in target
+  (D53(b)); in the Linux container the whole tree, `test/e2e` and the product-child lane pass under
+  `-race`. On Windows, candidate 8's quiet hot-path run passed on AC (B-A p99 16.4 ms, B-B p99 11.3
+  ms against 50), and X11, the hot path with and without a resident elimination ledger, passed on
+  AC, run alone (D75). Runs taken on battery are not reference measurements (D57(d)); on battery the
+  hot path switches to spool submode and nothing is lost (D53(c)). Windows reference timings were
+  taken on AC with the store under a path excluded from Windows Defender scanning (decisions D32,
+  D53(h)). Hosted `ci.yml` run `37562946379` and `nightly.yml` run `37562945914` passed on candidate
+  8, and the hosted release-version bundles were byte-identical to its frozen ones (D75). The live
+  evaluation's pre-registered decision reads "inconclusive — interval [-0.214, 0.214] straddles
+  -0.200": at this sample size that is the expected verdict, by design, and it is not evidence that
+  Qompack adds nothing (amendment A8, item 3). The C5.2 benchmark night and the C1.16 re-measure are
+  in `docs/release.md`, release status (D62(b), D62(c), D65). The executable bit after a marketplace
+  install on Linux and macOS has not been observed, nor has an install from the published
+  marketplace. Under an entry named `qompack-windows-amd64`, installed from a local marketplace on
+  candidate 7, a session listed the server `plugin:qompack:qompack`, the tools
+  `mcp__plugin_qompack_qompack__<tool>` and the commands `/qompack:<name>`: the namespace comes from
+  `plugin.json`'s name, not from the entry's (D59; `docs/install.md` §9).
 - **After a daemon is killed mid-session**, the daemon that takes the project over can reach its
   idle exit without writing `index/files.json`, so a later `fsck` exits 1 naming `index.files`
   absent. Nothing is lost: `fsck --repair --yes` regenerates the view, and the next session's flush
@@ -381,3 +383,8 @@ Minor defects this release does not fix, each recorded in the close-out ledger (
   one the daemon's startup accounting reported. No capture content is lost: the capture keeps its
   bytes inline in its sidecar, and `qompack fsck` still names the gap. To keep the object itself,
   copy the store before the next session ends (`docs/backup.md`, D76(c)).
+- **A capture can be dropped when hook processes share an id while the daemon is behind.** On Windows,
+  a new hook process can reuse an earlier one's process id and so append to the same fallback spool
+  file. Once that file reaches its 64 MiB cap while it waits to be consumed, a capture whose hook could
+  not reach the daemon is dropped, and `LOUD.log` says so ("spool write failed — event dropped",
+  "spool file at cap"). A hook that reaches the daemon is not affected (D78(c)).
